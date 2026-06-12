@@ -1,0 +1,78 @@
+# ===== 全局默认：文本文件统一 LF，不再依赖各端 core.autocrlf =====
+* text=auto eol=lf
+
+# ===== 文本：Godot 与项目相关 =====
+*.gd          text eol=lf
+*.gdshader    text eol=lf
+*.tscn        text eol=lf
+*.tres        text eol=lf
+*.cfg         text eol=lf
+*.import      text eol=lf
+*.json        text eol=lf
+*.csv         text eol=lf
+*.md          text eol=lf
+*.yml         text eol=lf
+*.yaml        text eol=lf
+*.toml        text eol=lf
+*.editorconfig text eol=lf
+*.gitattributes text eol=lf
+*.gitignore   text eol=lf
+LICENSE       text eol=lf
+
+# Windows 批处理保留 CRLF
+*.bat         text eol=crlf
+*.cmd         text eol=crlf
+# Shell 强制 LF
+*.sh          text eol=lf
+
+# ===== GitHub linguist：语言识别更准 =====
+*.gd       linguist-language=GDScript
+*.tscn     linguist-language=GDScript
+*.tres     linguist-language=GDScript
+*.gdshader linguist-language=GDScript
+# 文档/数据不计入主语言占比
+*.md       linguist-documentation
+*.csv      linguist-detectable=false
+
+# ===== 二进制资源：标记为 binary 防止 diff 噪声 =====
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.bmp      binary
+*.webp     binary
+*.tga      binary
+*.svg      text eol=lf
+*.ico      binary
+
+*.wav      binary
+*.ogg      binary
+*.mp3      binary
+*.flac     binary
+
+*.ttf      binary
+*.otf      binary
+*.woff     binary
+*.woff2    binary
+
+*.zip      binary
+*.7z       binary
+*.rar      binary
+
+# ===== Git LFS 预设（即使暂未启用 LFS，规则提前到位）=====
+# 启用方式：安装 Git LFS，并执行 `git lfs install`；以下规则将自动生效。
+*.png      filter=lfs diff=lfs merge=lfs -text
+*.jpg      filter=lfs diff=lfs merge=lfs -text
+*.jpeg     filter=lfs diff=lfs merge=lfs -text
+*.webp     filter=lfs diff=lfs merge=lfs -text
+*.tga      filter=lfs diff=lfs merge=lfs -text
+
+*.wav      filter=lfs diff=lfs merge=lfs -text
+*.ogg      filter=lfs diff=lfs merge=lfs -text
+*.mp3      filter=lfs diff=lfs merge=lfs -text
+*.flac     filter=lfs diff=lfs merge=lfs -text
+
+*.ttf      filter=lfs diff=lfs merge=lfs -text
+*.otf      filter=lfs diff=lfs merge=lfs -text
+
+# 注：Godot 的 .tscn/.tres 是文本格式，**不**走 LFS。

@@ -1,0 +1,49 @@
+# ===== Godot 4 =====
+# 引擎在本地生成的导入缓存与用户数据，不应入库
+.godot/
+.import/
+# 导出产物
+export.cfg
+export_presets.cfg
+build/
+dist/
+*.translation        # 由 res://locale/*.csv 编译生成
+
+# Mono / C#（本项目用 GDScript，留作保险）
+.mono/
+mono_crash.*.json
+
+# ===== 编辑器 / IDE =====
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+
+# ===== 操作系统 =====
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+# Linux
+*~
+.Trash-*
+
+# ===== 日志 / 临时文件 =====
+*.log
+*.tmp
+*.bak
+*.orig
+
+# ===== 项目本地产物 =====
+# Godot 用户目录（user://）若被映射到本地也忽略
+logs/
+
+# ===== 不忽略的 =====
+# .codebuddy/ 是项目数据（规则、自动化等），需入库，**不要**忽略
+!.codebuddy/

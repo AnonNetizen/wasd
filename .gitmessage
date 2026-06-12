@@ -1,0 +1,38 @@
+# <type>(<scope>): <subject>   ← 50 字以内
+#
+# <body>   ← 解释「为什么」与「做了什么」，72 字换行；可省
+#
+# <footer> ← 关联 issue / 破坏性变更说明；可省
+#
+# ─── 类型（type）─────────────────────────────────────
+#   feat      新功能
+#   fix       修 bug
+#   docs      文档（GDD / AI导航 / 词表 / ADR / README ...）
+#   data      数值/配置变更（res://data/*）
+#   locale    本地化文本（res://locale/*.csv）
+#   refactor  重构（不改外部行为）
+#   perf      性能优化
+#   style     代码风格/格式（不改逻辑）
+#   chore     杂项（构建、配置、依赖）
+#   ci        CI/构建脚本
+#   test      测试相关
+#   revert    回滚
+#
+# ─── 范围（scope，可选）─────────────────────────────
+#   player / weapon / bullet / enemy / spawner / hazard
+#   item / relic / modifier / map / camera / ui / hud
+#   localization / settings / analytics / pause
+#   data / locale / docs / rules
+#
+# ─── 提醒（按项目规则）─────────────────────────────
+# - 新规则/决策/设计变更，是否已同步到对应文档？
+#   规则 → .codebuddy/rules/game-coding-rules.md
+#   决策 → 决策记录.md
+#   设计 → 游戏设计文档.md / AI导航.md / 词表与契约.md
+# - 改动前是否已过编码规则末尾的「自检清单」？
+#
+# ─── 示例 ──────────────────────────────────────────
+#   feat(weapon): 添加 split 效果原语
+#   data(relics): 新增锋利弹头与急速射击
+#   docs(adr): 记录暂停功能实现约定
+#   chore: init repo with gitattributes / editorconfig
