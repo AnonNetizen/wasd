@@ -4,6 +4,8 @@
 > 配套：`README.md`、`CONTRIBUTING.md`、`.codebuddy/rules/game-coding-rules.md`、`词表与契约.md`、`决策记录.md`。
 >
 > 当前状态：**未启用任何 workflow**。本文件仅为规划，不影响现有仓库行为；逐项落地时再新建 `.github/workflows/*.yml` 等具体文件，并同步更新本文档。
+>
+> **测试相关**：本文件只列 CI 工作流的"何时跑、跑什么"。完整测试金字塔、必测清单、里程碑要求、性能预算、手动回归 checklist 见 `docs/测试策略.md`（测试唯一权威）。
 
 ---
 
