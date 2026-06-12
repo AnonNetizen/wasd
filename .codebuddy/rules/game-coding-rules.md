@@ -86,14 +86,29 @@ alwaysApply: true
 - 素材遵循统一调色板与固定尺寸（如 32×32）。
 
 ## 12-A. 录制回放与确定性（框架级，第四条横向基础设施）
-- 项目需支持录制回放用于回归测试与平衡验证（详见 `游戏设计文档.md` 9.9）。
+- 项目需支持录制回放用于回归测试与平衡验证（详见 `游戏设计文档.md` 9.9 / 9.18）。
 - 统一走 `Replay`（autoload）：开局录 `seed + 输入序列`，一局结束存到 `user://replays/`。
 - **确定性硬约束**：
-  - 所有随机走 `RNG`（autoload）；**禁止直接调用 `randi()` / `randf()` / `randf_range()`** 等。
-  - 所有时间走 `GameClock`（autoload）；**禁止直接读 `Time.get_ticks_msec()`** 等非确定时间源。
-  - 物理 / Tween / 动画涉及随机或时间的，需经由这两个统一源。
+  - 所有随机走 `RNG`（autoload）的子流；**禁止直接调用 `randi()` / `randf()` / `randf_range()` / `randi_range()`** 等。
+  - 子流调用形式 `RNG.<stream>.<api>()`，子流 id 必须在 `docs/词表与契约.md` 第 11 节登记（`spawn` / `drop` / `combat` / `ui_choice` / `world` 等）。
+  - 所有玩法相关时间走 `GameClock`（autoload）；**禁止直接读 `Time.get_ticks_msec()` / `Time.get_ticks_usec()` / `OS.get_unix_time()`** 等参与玩法判定。
+  - `_process(delta)` / `_physics_process(delta)` 中业务时间用 `GameClock.delta_scaled(delta)`（受暂停 / 时间缩放影响）；不是 `Engine.time_scale`。
+  - 物理 / Tween / 动画涉及随机或时间的，必须经由 `RNG` 与 `GameClock`。
+- `wall_now` 与原始 `Time.get_unix_time_from_system()` 仅允许出现在 `Analytics` / UI 计时器等非玩法路径。
 - 维护一组**黄金回放样例**（`tests/replays/golden_*.replay`）作为回归基准；CI 跑回放对照（见 `docs/CICD规划.md` 4.M）。
 - 调试用 action `debug_toggle_replay` 仅 debug build 启用（见 `docs/词表与契约.md` 第 7 节）。
+
+## 12-C. 游戏状态、池化、UI 栈（K / L / M 落地约束）
+- **游戏流程统一走 `GameState`（autoload）**：业务代码**禁止**自管"是否在游戏中"布尔变量、**禁止**直接读写 `get_tree().paused`；通过 `GameState.change_state(...)` 与 `state_changed` 信号订阅（详见 9.12）。
+- **高频实体统一走 `PoolManager`（autoload）**：`acquire(pool_id)` / `release(node)`；池类型 id 在词表第 8 节登记；被池化节点必须实现 `_pool_reset()`（详见 9.13）。
+- **UI 弹窗统一走 `UIManager`（autoload）**：`push/pop/replace/clear`；UI 场景根节点用 `@export modal/pauses_game/music_duck` 元数据声明行为；**禁止**业务代码直接 `add_child` UI 弹窗（详见 9.14）。
+
+## 12-D. 伤害结算、状态效果、存档、音频（N / O / Q 落地约束）
+- **伤害走单一入口 `Combat.apply_damage(target, DamageInfo)`**；`damage_type` 进词表第 9 节；**禁止**业务代码直接 `target.hp -= n`（详见 9.15）。
+- **持续效果用 `StatusEffect` 资源 + `StatusEffectComponent`**；`id`（`burn` / `poison` 等）进词表；`stack_rule` 必须显式声明（`REPLACE` / `REFRESH` / `ADD_DURATION` / `INDEPENDENT` / `MAX_MAGNITUDE`）。effect 原语 `ignite` / `chain` 等改为薄包装。
+- **存档走 `SaveManager`（autoload）**：所有存档**强制头字段** `version` + `created_at` + `game_version`；schema 变更必须配 `register_migration(from, to, fn)`；加载失败时 fail-fast 并备份到 `user://saves/.broken/`（详见 9.16）。
+- **音频走 `AudioManager`（autoload）**：`play_sfx(id, opts)` / `play_music(id, fade)`；音频 id 在词表第 10 节登记；**禁止**业务代码直接 `AudioStreamPlayer.play()`（详见 9.17）。
+- 设置中的音量项（`audio.master/music/sfx`）由 `AudioManager` 在启动时同步到 Bus 配置；缺 Bus 时 fail-fast。
 
 ## 12-B. 平衡测试接口预留（框架级）
 - 输入解耦：`Player` 与所有可被 AI 替换的角色，输入必须走 InputMap action（不直接读 `Input.is_key_pressed`）。
@@ -132,8 +147,14 @@ alwaysApply: true
 - 所有"约定字符串"必须来自集中白名单 `docs/词表与契约.md`，并在代码中以**常量/枚举**引用，禁止散落裸字符串：
   - `stat` 名（如 `damage` / `move_speed` / `fire_rate`）
   - `effect` 与 `behavior.event` 的合法 id（如 `pierce` / `split` / `ignite`；`on_hit` / `on_kill`）
-  - 埋点 `event_name`、设置 `key`、本地化 key 前缀规范
-- **只能使用白名单中已存在的 id**；需要新 id 时，先在 `docs/词表与契约.md` 登记，再在逻辑层实现对应原语，最后才在数据中使用。
+  - 埋点 `event_name`、设置 `key`、本地化 key 前缀
+  - 输入 action id、池类型 id、伤害类型、状态效果 id、音频 id、RNG 子流 id
+- **只能使用白名单中已存在的 id**；需要新 id 时，先在 `docs/词表与契约.md` 登记，再在逻辑层实现对应原语，最后才在数据/代码中使用。
+- **代码常量单一来源（详见 `游戏设计文档.md` 9.19）**：
+  - 代码引用走 `client/scripts/contracts/` 下生成的常量类（`stats.gd` / `effects.gd` / `events.gd` / `settings_keys.gd` / `actions.gd` / `pool_ids.gd` / `damage_types.gd` / `status_effects.gd` / `audio_ids.gd` / `rng_streams.gd`）。
+  - 这些文件**自动生成、禁止手改**；改约定改 `docs/词表与契约.md`，跑 `tools/sync_contracts.py` 重生成。
+  - 中间产物 `client/data/_contracts.json` 也由脚本生成；`DataLoader` 读它做校验。
+  - pre-commit hook 强制：md 改了未跑 sync → fail；手改了生成文件 → fail。
 - 数据加载时应据此白名单校验，发现未登记 id 立即报错。
 
 ## 16. 数据校验与黄金样例
@@ -174,7 +195,15 @@ alwaysApply: true
 - [ ] 相机保证玩家居中（无 limit / drag margin）？
 - [ ] 暂停是否用 `get_tree().paused`，暂停菜单节点设 `process_mode=ALWAYS`，暂停键走可重绑定 action（非硬编码）？
 - [ ] 关键节点是否通过 `Analytics` 统一接口留好了数据埋点（而非散落硬编码）？
-- [ ] 随机数都走 `RNG`（无裸 `randi()` / `randf()`）？时间都走 `GameClock`（无裸 `Time.get_ticks_msec()`）？
+- [ ] 随机数都走 `RNG.<stream>`（无裸 `randi()` / `randf()` / `randi_range()`）？时间都走 `GameClock`（无裸 `Time.get_ticks_msec()`）？
+- [ ] 游戏流程走 `GameState`（无散落的 `get_tree().paused` / 自管 in_game 布尔变量）？
+- [ ] 高频实体走 `PoolManager`（池 id 在词表）？
+- [ ] UI 弹窗走 `UIManager.push/pop`（无散落 `add_child` UI）？
+- [ ] 伤害走 `Combat.apply_damage(DamageInfo)`（无 `target.hp -= n`）？
+- [ ] 持续效果用 `StatusEffect` 资源（明确 stack_rule）？
+- [ ] 存档走 `SaveManager` 且有 `version` 头字段与迁移注册？
+- [ ] 音频走 `AudioManager.play_sfx/play_music`（无裸 `AudioStreamPlayer.play()`）？
+- [ ] 代码常量来自 `client/scripts/contracts/` 自动生成文件（未手改）？
 - [ ] 约定字符串（stat/effect/event/设置/locale key）是否都来自 `docs/词表与契约.md` 且以常量引用（无裸字符串）？
 - [ ] 新增数据是否照「黄金样例」结构填写，并能通过 `DataLoader` 校验？
 - [ ] 新代码是否使用类型化 GDScript？是否复用了模板？
