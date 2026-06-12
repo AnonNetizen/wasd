@@ -56,6 +56,12 @@
 | `docs/CICD规划.md` | CI/CD 路线图 |
 | `docs/AI记忆/项目记忆.md` | **AI 协作主索引（跨会话/跨机器续接必读）** |
 | `docs/AI记忆/会话日志/` | 按日期归档的对话摘要 |
+| `docs/AI协作/README.md` | AI 协作工程目录索引 |
+| `docs/AI协作/任务模板/` | 高频任务的标准 prompt + 文件操作清单 |
+| `docs/AI协作/上下文预算.md` | 不同任务该读哪些文件 |
+| `docs/AI协作/角色分工.md` | 设计/实现/评审/平衡 四角色协作 |
+| `docs/AI协作/引擎集成.md` | Godot MCP / Bridge 接入指南 |
+| `docs/AI协作/实时验证回路.md` | pre-commit hook + 本地秒级反馈设计 |
 
 > 注：当前仓库尚处文档阶段，落地代码后 `client/` 即 Godot 项目根（`project.godot` 在此），新增文件务必归位。
 
@@ -72,14 +78,75 @@
 | **加一个埋点** | 用 `词表与契约.md` 登记的 `event_name`，调用 `Analytics.track_event(name, params)` |
 | **改输入/按键** | 走 `Settings` 重绑定，不硬编码按键 |
 | **加暂停/游戏状态控制** | 用 `get_tree().paused` 切换；暂停菜单节点设 `process_mode=ALWAYS`；暂停键用 InputMap action `pause`（走设置）；菜单文本用 `tr()` |
+| **加录制回放/确定性需求** | 走 `Replay`（autoload）；随机走 `RNG`、时间走 `GameClock`；不读非确定时间源（见 GDD 9.9） |
+| **加平衡测试 / Headless 模拟** | 通过 `AIPlayer` 接口接入；`Spawner` / `MapManager` / `RNG` 都接受外部 seed（见 GDD 9.10） |
+| **执行 AI 高频任务** | 先查 `docs/AI协作/任务模板/`；任务不在模板里 → 按 `docs/AI协作/上下文预算.md` 决定读取范围 |
 
 ## 5. 核心系统模块
+
+### 5.1 模块清单
 `InputController` / `Player` / `WeaponSystem` / `BulletPool` / `Enemy(EnemyAI)` / `Spawner` / `HazardSystem` / `ItemSystem` / `ModifierEngine` / `MapManager` / `Camera2D` / `DataLoader` / `PauseMenu`（暂停与游戏状态）
-三个 autoload 横向基础设施：`Localization`（本地化）/ `Settings`（设置）/ `Analytics`（埋点）。
+**5 个 autoload 横向基础设施**：`Localization`（本地化）/ `Settings`（设置）/ `Analytics`（埋点）/ `RNG`（种子化随机，待落地）/ `Replay`（回放，待落地）；以及 `GameClock`（统一时间源，待落地）。
+
+### 5.2 系统依赖图（Mermaid，AI 改动前先看影响范围）
+
+```mermaid
+flowchart LR
+  subgraph 基础设施[5 条横向基础设施]
+    Loc[Localization]
+    Set[Settings]
+    Ana[Analytics]
+    RNG[RNG]
+    Rep[Replay]
+    Clk[GameClock]
+  end
+
+  Data[(client/data/<br/>JSON)]
+  Loader[DataLoader]
+  ME[ModifierEngine]
+
+  Input[InputController]
+  Player[Player]
+  Weapon[WeaponSystem]
+  Bullet[BulletPool]
+
+  Spawner[Spawner]
+  Enemy[Enemy / EnemyAI]
+  Hazard[HazardSystem]
+  Item[ItemSystem]
+
+  Map[MapManager]
+  Cam[Camera2D]
+  Pause[PauseMenu]
+  UI[UI/HUD]
+
+  Data --> Loader --> Player & Enemy & Item & Spawner & Hazard
+  Set --> Player & Weapon & Input & UI
+  Loc --> UI & Item
+  Ana <-- 埋点 --- Player & Enemy & Item & Spawner
+  RNG --> Spawner & Item & Enemy
+  Clk --> Spawner & Hazard & Bullet & Weapon
+  Rep -. 录制/重放 .-> Input & RNG & Clk
+
+  Input --> Player --> Weapon --> Bullet
+  Spawner --> Enemy
+  Player -.- Cam
+  ME -. 修正器叠加 .- Player & Weapon & Bullet
+  Item -. 注册 modifiers/behaviors .- ME
+  Pause --- UI
+
+  classDef infra fill:#eef,stroke:#88a;
+  class Loc,Set,Ana,RNG,Rep,Clk infra;
+```
+
+> 改某个模块前先在图中追踪上下游箭头，避免遗漏影响。新增系统模块时**同步更新此图**（规则 14）。
 
 ## 6. 红线（最易踩坑）
 - ❌ 硬编码可调数值、玩家可见文本、按键、约定字符串
 - ❌ 为每个遗物/道具写独立硬编码分支
 - ❌ 相机开启 `limit` / `drag margin`（必须玩家恒居中）
 - ❌ 高频实体频繁 `instantiate`/`queue_free`（必须对象池）
+- ❌ 直接读 `Time.get_ticks_msec()` 等非确定时间源（破坏回放确定性）
+- ❌ 直接调用 `randi()` / `randf()`（必须走 `RNG`）
 - ✅ 改完同步更新规则文件与相关文档（元规则）
+- ✅ 重要决策同步进 `docs/AI记忆/项目记忆.md`

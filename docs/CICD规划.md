@@ -16,6 +16,9 @@
 | **文档密集**（GDD / AI导航 / ADR / 修改建议） | 重点防文档脱节、链接死链、版本号不同步 |
 | **AI 协作密集** | CI 输出需 fail-fast 且明确（让 AI 据报错自我纠错） |
 | **元规则 19/20**：新规则/决策/设计变更必须同步到对应文档 | CI 可把"同步检查"自动化 |
+| **Roguelike 平衡敏感** | 数值改动需"黄金回放"回归（见 4.M）；中后期跑批量 sim（见 4.N） |
+
+> **本地实时验证回路**：与 CI 配套，在本地通过 pre-commit hook 提供秒级反馈，详见 `docs/AI协作/实时验证回路.md`。本规划阶段 1 的脚本（`validate_contract.py` 等）应同时被 hook 与 CI 复用。
 
 ---
 
@@ -125,14 +128,46 @@
 
 ## 4. 阶段 4：高级（视项目体量）
 
-### 4.L PR 自动加标签 ⭐
+### 4.L 项目健康度 Dashboard ⭐⭐⭐（**度量规则违反率**）
+**workflow（拟建）**：`.github/workflows/health-dashboard.yml`
+**脚本（拟建）**：`tools/health_metrics.py`
+
+把规则的"该不该"升级为"现在多健康"。在 README 顶部展示 badge：
+
+| 指标 | 计算 | 目标 |
+|------|------|------|
+| 裸字符串率 | 代码中未走 `tr()` 的字符串字面量数 / 总字符串数 | → 0% |
+| 数据驱动覆盖率 | 数据条目数 / (数据条目数 + 硬编码分支数) | → 100% |
+| 词表登记率 | 数据中已登记 id 数 / 总 id 数 | = 100% |
+| 类型化 GDScript 比例 | 已类型化函数签名 / 总函数签名 | → 100% |
+| 文档同步度 | 互引文档间的死链 / 总链接 | = 0 |
+| 黄金回放回归通过率 | 通过的黄金回放数 / 总数 | = 100% |
+
+定期跑 → 输出 `health-report.md` 到 `gh-pages` 分支或写入 README badge。
+
+### 4.M 回放回归测试（CI 跑黄金样例）⭐⭐
+**workflow（拟建）**：`.github/workflows/replay-regression.yml`
+
+- 用 `barichello/godot-ci` headless 模式跑 `tools/replay_runner.gd <golden_files>`
+- 任意黄金回放产生 diff → 失败，输出首个 diff 帧 + 字段
+- 数值/原语改动后**强制更新或确认**黄金样例
+- 与 GDD 9.9 的"黄金回放"配套
+
+### 4.N 平衡 Sim 报表（按需）⭐
+**workflow（拟建）**：`.github/workflows/balance-sim.yml`（手动触发）
+
+- headless 跑 `tools/sim.gd --runs 1000`
+- 输出 build 强度 / 胜率分布 / 无人选择遗物清单
+- 与 GDD 9.10 配套；MVP 后再启用
+
+### 4.O PR 自动加标签 ⭐
 - 用 [labeler](https://github.com/actions/labeler)，按改动路径自动打 label：
   - 改 `res://data/` → `data`
   - 改 `.codebuddy/rules/` → `rules-change`
   - 改 `决策记录.md` → `adr`
   - 改 `res://locale/` → `locale`
 
-### 4.M 「文档同步」自动检查 ⭐⭐⭐（**项目独有**）
+### 4.P 「文档同步」自动检查 ⭐⭐⭐（**项目独有**）
 - 用 [Danger.js](https://danger.systems/) 把规则 19/20 自动化
 - PR 改下列文件时强制提示并要求确认：
   - 改 `游戏设计文档.md` → 是否同步 `AI导航.md`
@@ -144,7 +179,7 @@
 - 启用 Dependabot 或 Renovate
 - 主要管 `gdtoolkit`、`godot-ci`、`ajv-cli`、`commitlint` 等工具链版本
 
-### 4.O Stale 自动关闭 ⭐
+### 4.R Stale 自动关闭 ⭐
 - [actions/stale](https://github.com/actions/stale)
 - 长期无活动的 issue / PR 自动关闭
 
@@ -166,10 +201,13 @@
 | 3 | I+. 自动 CHANGELOG | 发布前 | 中 | 低 |
 | 3 | J. itch.io 部署 | 想发布到 itch | 中 | 低 |
 | 3 | K. Web Demo 到 Pages | 想给人看时 | 中 | 低 |
-| 4 | L. PR 自动加标签 | 多人协作时 | 中 | 极低 |
-| 4 | M. 文档同步 Danger 检查 | 多人协作时 | 高 | 中 |
-| 4 | N. 依赖自动更新 | 工具链稳定后 | 中 | 低 |
-| 4 | O. Stale 自动关闭 | issue 多了 | 低 | 极低 |
+| 4 | L. 项目健康度 Dashboard | 工具链稳定后 | 高 | 中 |
+| 4 | M. 回放回归测试 | 回放系统落地后 | 极高 | 中 |
+| 4 | N. 平衡 Sim 报表 | 中后期 | 高 | 中 |
+| 4 | O. PR 自动加标签 | 多人协作时 | 中 | 极低 |
+| 4 | P. 文档同步 Danger 检查 | 多人协作时 | 高 | 中 |
+| 4 | Q. 依赖自动更新 | 工具链稳定后 | 中 | 低 |
+| 4 | R. Stale 自动关闭 | issue 多了 | 低 | 极低 |
 
 ---
 
@@ -180,7 +218,8 @@
 3. **第三批（代码落地后）**：2.E + 2.G —— GDScript 质量与启动验证
 4. **第四批（核心系统稳定后）**：2.H —— 关键模块单测
 5. **第五批（准备发布时）**：3.I + 3.K —— 自动构建 + Web demo
-6. **第六批（多人协作或体量大时）**：4.M + 4.L + 4.N
+6. **第六批（回放系统落地后）**：4.L 健康度 + 4.M 回放回归
+7. **第七批（多人协作或体量大时）**：4.P 文档同步 + 4.O 标签 + 4.Q 依赖 + 4.N 平衡 sim
 
 ---
 
