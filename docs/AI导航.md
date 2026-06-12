@@ -77,22 +77,35 @@
 | **加一个设置项** | `Settings` 加一条配置（键/类型/默认/范围）+ 一个 UI 控件，订阅 `setting_changed` 生效 |
 | **加一个埋点** | 用 `词表与契约.md` 登记的 `event_name`，调用 `Analytics.track_event(name, params)` |
 | **改输入/按键** | 走 `Settings` 重绑定，不硬编码按键 |
-| **加暂停/游戏状态控制** | 用 `get_tree().paused` 切换；暂停菜单节点设 `process_mode=ALWAYS`；暂停键用 InputMap action `pause`（走设置）；菜单文本用 `tr()` |
-| **加录制回放/确定性需求** | 走 `Replay`（autoload）；随机走 `RNG`、时间走 `GameClock`；不读非确定时间源（见 GDD 9.9） |
+| **加暂停/切换游戏状态** | `GameState.change_state(PAUSED)` 等；UI 通过 `UIManager.push(modal_pause_menu)` 自动联动暂停；不直接读写 `get_tree().paused`（见 GDD 9.12 / 9.14） |
+| **加录制回放/确定性需求** | 走 `Replay`（autoload）；随机走 `RNG.<stream>`、时间走 `GameClock`；不读非确定时间源（见 GDD 9.9 / 9.18） |
 | **加平衡测试 / Headless 模拟** | 通过 `AIPlayer` 接口接入；`Spawner` / `MapManager` / `RNG` 都接受外部 seed（见 GDD 9.10） |
+| **加 UI 弹窗** | `UIManager.push(scene)`；场景根节点 `@export modal/pauses_game/music_duck` 元数据；不 `add_child` UI（见 GDD 9.14） |
+| **加新敌人/子弹/特效**（高频实体） | `PoolManager.acquire(pool_id)` / `release(node)`；新池 id 在词表 §8 登记；实现 `_pool_reset()`（见 GDD 9.13） |
+| **加伤害逻辑** | 走 `Combat.apply_damage(target, DamageInfo)`；`damage_type` 在词表 §9；不 `target.hp -= n`（见 GDD 9.15.1） |
+| **加持续效果（DoT/控制/debuff）** | 用 `StatusEffect` Resource + `StatusEffectComponent.apply()`；id 在词表 §9-A；明确 `stack_rule`（见 GDD 9.15.2） |
+| **加存档/读档** | 走 `SaveManager.save/load`；schema 必带 `version` + 迁移；与 `Settings` 职责分开（见 GDD 9.16） |
+| **加音效/BGM** | `AudioManager.play_sfx/play_music`；id 在词表 §10；不直接 `AudioStreamPlayer.play()`（见 GDD 9.17） |
 | **执行 AI 高频任务** | 先查 `docs/AI协作/任务模板/`；任务不在模板里 → 按 `docs/AI协作/上下文预算.md` 决定读取范围 |
 
 ## 5. 核心系统模块
 
 ### 5.1 模块清单
-`InputController` / `Player` / `WeaponSystem` / `BulletPool` / `Enemy(EnemyAI)` / `Spawner` / `HazardSystem` / `ItemSystem` / `ModifierEngine` / `MapManager` / `Camera2D` / `DataLoader` / `PauseMenu`（暂停与游戏状态）
-**5 个 autoload 横向基础设施**：`Localization`（本地化）/ `Settings`（设置）/ `Analytics`（埋点）/ `RNG`（种子化随机，待落地）/ `Replay`（回放，待落地）；以及 `GameClock`（统一时间源，待落地）。
+**业务模块**：`InputController` / `Player` / `WeaponSystem` / `Enemy(EnemyAI)` / `Spawner` / `HazardSystem` / `ItemSystem` / `ModifierEngine` / `MapManager` / `Camera2D` / `DataLoader` / `PauseMenu`（UI）/ `Combat`（伤害结算）/ `StatusEffectComponent`（状态效果）。
+
+**Autoload 单例（横向基础设施 + 协调中枢）**：
+- 三条**协作基础设施**：`Localization` / `Settings` / `Analytics`
+- 两条**确定性基础设施**：`RNG`（种子化随机，子流分流）/ `GameClock`（暂停冻结时间源）
+- 一条**回放基础设施**：`Replay`
+- 一条**AI 协作基础设施**：见 `docs/AI协作/`（非 autoload）
+- 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
+- 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
 ### 5.2 系统依赖图（Mermaid，AI 改动前先看影响范围）
 
 ```mermaid
 flowchart LR
-  subgraph 基础设施[5 条横向基础设施]
+  subgraph Infra[基础设施]
     Loc[Localization]
     Set[Settings]
     Ana[Analytics]
@@ -101,14 +114,26 @@ flowchart LR
     Clk[GameClock]
   end
 
+  subgraph Hub[协调中枢]
+    GS[GameState]
+    UIM[UIManager]
+    Pool[PoolManager]
+  end
+
+  subgraph Resource[资源管理]
+    Save[SaveManager]
+    Aud[AudioManager]
+  end
+
   Data[(client/data/<br/>JSON)]
   Loader[DataLoader]
   ME[ModifierEngine]
+  Combat[Combat<br/>伤害结算]
+  SE[StatusEffectComponent]
 
   Input[InputController]
   Player[Player]
   Weapon[WeaponSystem]
-  Bullet[BulletPool]
 
   Spawner[Spawner]
   Enemy[Enemy / EnemyAI]
@@ -117,36 +142,58 @@ flowchart LR
 
   Map[MapManager]
   Cam[Camera2D]
-  Pause[PauseMenu]
-  UI[UI/HUD]
+  UI[UI/HUD<br/>PauseMenu/...]
 
   Data --> Loader --> Player & Enemy & Item & Spawner & Hazard
-  Set --> Player & Weapon & Input & UI
-  Loc --> UI & Item
-  Ana <-- 埋点 --- Player & Enemy & Item & Spawner
-  RNG --> Spawner & Item & Enemy
-  Clk --> Spawner & Hazard & Bullet & Weapon
-  Rep -. 录制/重放 .-> Input & RNG & Clk
+  Set --> Player & Weapon & Input & UIM & Aud
+  Loc --> UIM & Item
+  Ana <-- 埋点 --- Player & Enemy & Item & Spawner & GS & Save
+  RNG --> Spawner & Item & Enemy & Combat
+  Clk --> Spawner & Hazard & Weapon & SE
+  Rep -. 录制/重放 .-> Input & RNG & Clk & GS
 
-  Input --> Player --> Weapon --> Bullet
+  GS --> UIM
+  GS -.- Rep
+  UIM --> UI
+  Pool --> Weapon & Spawner & Item & Aud
+
+  Input --> Player --> Weapon
+  Weapon --> Combat
+  Combat --> Player & Enemy
+  Combat -.- SE
   Spawner --> Enemy
   Player -.- Cam
-  ME -. 修正器叠加 .- Player & Weapon & Bullet
+  ME -. 修正器叠加 .- Player & Weapon
   Item -. 注册 modifiers/behaviors .- ME
-  Pause --- UI
+  SE -. 注入 modifier .- ME
+
+  Save -. meta/run kind .- GS
+  Aud -. play_sfx/music .- Combat & UI & Item
 
   classDef infra fill:#eef,stroke:#88a;
+  classDef hub fill:#fee,stroke:#a88;
+  classDef res fill:#efe,stroke:#8a8;
   class Loc,Set,Ana,RNG,Rep,Clk infra;
+  class GS,UIM,Pool hub;
+  class Save,Aud res;
 ```
 
 > 改某个模块前先在图中追踪上下游箭头，避免遗漏影响。新增系统模块时**同步更新此图**（规则 14）。
+> 三类节点：**基础设施**（蓝） / **协调中枢**（红） / **资源管理**（绿）。
 
 ## 6. 红线（最易踩坑）
 - ❌ 硬编码可调数值、玩家可见文本、按键、约定字符串
 - ❌ 为每个遗物/道具写独立硬编码分支
 - ❌ 相机开启 `limit` / `drag margin`（必须玩家恒居中）
-- ❌ 高频实体频繁 `instantiate`/`queue_free`（必须对象池）
-- ❌ 直接读 `Time.get_ticks_msec()` 等非确定时间源（破坏回放确定性）
-- ❌ 直接调用 `randi()` / `randf()`（必须走 `RNG`）
+- ❌ 直接 `instantiate`/`queue_free` 高频实体（必须 `PoolManager.acquire/release`）
+- ❌ 直接读 `Time.get_ticks_msec()` 等非确定时间源（必须 `GameClock`）
+- ❌ 直接调用 `randi()` / `randf()` / `randi_range()`（必须 `RNG.<stream>`）
+- ❌ 直接读写 `get_tree().paused` 或自管"in_game"布尔变量（必须 `GameState`）
+- ❌ 直接 `add_child` UI 弹窗（必须 `UIManager.push/pop`）
+- ❌ `target.hp -= n` 直接扣血（必须 `Combat.apply_damage(DamageInfo)`）
+- ❌ 各自实现 DoT/debuff 叠加逻辑（必须 `StatusEffect` Resource + Component）
+- ❌ 存档无 `version` 字段（必须 `SaveManager` 标准头）
+- ❌ 业务代码 `AudioStreamPlayer.play()`（必须 `AudioManager.play_sfx/music`）
+- ❌ 手改 `client/scripts/contracts/*.gd`（自动生成，改 `docs/词表与契约.md` + 跑 `tools/sync_contracts.py`）
 - ✅ 改完同步更新规则文件与相关文档（元规则）
 - ✅ 重要决策同步进 `docs/AI记忆/项目记忆.md`
