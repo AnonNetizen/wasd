@@ -4,6 +4,39 @@
 
 ---
 
+## 零、新机器 setup（一次性，clone 后必做）
+
+> 仓库级 git 配置存在 `.git/config`，**不会随 clone 同步**；新机器 clone 后必须重做这几步，否则中文文件名会显示为 `\xxx` 转义、commit 模板也不会生效。
+
+```bash
+# 1. clone 仓库
+git clone <repo-url>
+cd wasd
+
+# 2. 仓库级 git 配置（必须）
+git config --local core.quotepath false      # 中文文件名正常显示
+git config --local commit.template .gitmessage  # 启用 Conventional Commits 模板
+
+# 3. 全局 git 身份（如果新机器还没配过）
+git config --global user.name  "<your name>"
+git config --global user.email "<your email>"
+```
+
+**运行时依赖**（按需安装，纯文档协作可跳过）：
+
+| 工具 | 何时需要 |
+|------|---------|
+| **CodeBuddy IDE** | 想用项目级 subagents / slash commands（`.codebuddy/agents/`、`.codebuddy/commands/`）|
+| **Godot 4.6.3** | 真正运行 / 调试 `client/`（M1 起）|
+| **Python 3.10+** | 跑 `tools/sync_contracts.py` 等同步脚本（脚本将随 M1 落地）|
+| **gdtoolkit / GUT** | M1 之后的 lint 与单测（详见 `docs/测试策略.md`）|
+
+**AI agent 第一件事**：读 `AGENTS.md` → `docs/AI记忆/项目记忆.md`，无需翻历史聊天即可续接。
+
+**用户级 skill `ai-indie-game-framework`**：装在 `~/.codebuddy/skills/`，与本仓库**无关**——它是为「以后开新游戏项目」准备的方法论。继续做本项目**不需要**它；想在新机器另起炉灶才需要手动复制该目录。
+
+---
+
 ## 一、动手前必读
 
 按优先级顺序阅读：
@@ -62,10 +95,7 @@
 
 **type**：`feat` / `fix` / `docs` / `data` / `locale` / `refactor` / `perf` / `style` / `chore` / `ci` / `test` / `revert`
 
-启用项目 commit 模板（一次即可）：
-```bash
-git config --local commit.template .gitmessage
-```
+> Commit 模板已在第零节启用（`git config --local commit.template .gitmessage`），无需重复配置。
 
 示例：
 ```
@@ -82,10 +112,7 @@ docs(adr): 记录暂停功能实现约定
 仓库已通过 `.gitattributes` 与 `.editorconfig` 锁定行尾符（统一 LF）与编码（UTF-8），**无需在本地另行配置 `core.autocrlf`**。
 
 ### 4. 中文文件名显示
-仓库级已开启 `core.quotepath=false`。如 clone 后仍显示转义码，可手动执行：
-```bash
-git config --local core.quotepath false
-```
+已在第零节配置 `core.quotepath=false`。如未做或显示转义码，回看本文件第零节。
 
 ---
 
