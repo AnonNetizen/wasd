@@ -33,6 +33,8 @@ git config --global user.email "<your email>"
 
 **AI agent 第一件事**：读 `AGENTS.md` → `docs/AI记忆/项目记忆.md`，无需翻历史聊天即可续接。
 
+**不用 CodeBuddy 也行**：项目核心资产与工具无关。Claude Code / Aider / Cursor / Windsurf / ChatGPT 都能用，每种工具的现成配法见 [`docs/AI协作/工具适配指南.md`](docs/AI协作/工具适配指南.md)（一次性，5 分钟搞定）。
+
 **用户级 skill `ai-indie-game-framework`**：装在 `~/.codebuddy/skills/`，与本仓库**无关**——它是为「以后开新游戏项目」准备的方法论。继续做本项目**不需要**它；想在新机器另起炉灶才需要手动复制该目录。
 
 ---

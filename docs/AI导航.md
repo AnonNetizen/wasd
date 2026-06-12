@@ -62,6 +62,7 @@
 | `docs/AI协作/角色分工.md` | 设计/实现/评审/平衡 四角色协作 |
 | `docs/AI协作/引擎集成.md` | Godot MCP / Bridge 接入指南 |
 | `docs/AI协作/实时验证回路.md` | pre-commit hook + 本地秒级反馈设计 |
+| `docs/AI协作/工具适配指南.md` | 不用 CodeBuddy 时各 AI 工具（Claude Code / Aider / Cursor / Windsurf / ChatGPT 等）的接入配法 |
 | `docs/测试策略.md` | **5 层测试金字塔 + 里程碑要求 + 性能预算 + 手动回归 checklist（测试唯一权威）** |
 | `.codebuddy/agents/` | 项目级 subagents：`balancer` / `contract-validator` / `data-author` |
 | `.codebuddy/commands/` | 项目级 slash commands：`/sync-contracts` / `/new-relic` / `/run-replay-regression` / `/health-check` / `/update-memory` |

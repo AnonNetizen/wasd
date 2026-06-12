@@ -4,6 +4,8 @@
 > 这是规则 14 与 ADR #15 的明文化入口；忽略此约定 = 违反项目规则。
 
 > 🆕 **新机器 clone 后第一次开工**：先按 [`CONTRIBUTING.md` 第零节「新机器 setup」](CONTRIBUTING.md) 做一次性 git 配置（`core.quotepath` / `commit.template` / 全局身份），再回来读下面 5 步。否则中文文件名会显示为转义码、commit 模板不会生效。
+>
+> 🛠️ **不用 CodeBuddy？** 看 [`docs/AI协作/工具适配指南.md`](docs/AI协作/工具适配指南.md) —— 项目核心资产工具无关，Claude Code / Aider / Cursor / Windsurf / ChatGPT 等一份都有现成配法。
 
 ---
 

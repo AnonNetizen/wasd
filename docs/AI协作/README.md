@@ -21,7 +21,8 @@ docs/AI协作/
 ├── 上下文预算.md         # 不同任务该读哪些文件、读多少
 ├── 角色分工.md           # 设计/实现/评审/平衡 四角色协作
 ├── 引擎集成.md           # Godot/Unity MCP 等接入指南
-└── 实时验证回路.md       # pre-commit hook + watch 脚本设计
+├── 实时验证回路.md       # pre-commit hook + watch 脚本设计
+└── 工具适配指南.md       # 不用 CodeBuddy 时各 AI 工具的接入配法
 
 .codebuddy/agents/        # 项目级 subagents（codebuddy 平台）
 ├── balancer.md           # 平衡测试 / 回放回归 / 数值建议
