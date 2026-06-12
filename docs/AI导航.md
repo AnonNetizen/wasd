@@ -14,24 +14,50 @@
 | 文档 | 作用 |
 |------|------|
 | `.codebuddy/rules/game-coding-rules.md` | **强制编码规则**，每次写代码前必读 |
-| `AI导航.md`（本文件） | 项目地图与扩展点定位 |
-| `词表与契约.md` | 所有约定字符串白名单（stat/effect/event/key），**禁止编造** |
-| `游戏设计文档.md` | 完整设计 |
-| `决策记录.md` | 既定决策与原因，勿误改 |
-| `修改建议.md` | 待决策的开放问题（A~D） |
+| `docs/AI导航.md`（本文件） | 项目地图与扩展点定位 |
+| `docs/词表与契约.md` | 所有约定字符串白名单（stat/effect/event/key），**禁止编造** |
+| `docs/游戏设计文档.md` | 完整设计 |
+| `docs/决策记录.md` | 既定决策与原因，勿误改 |
+| `docs/修改建议.md` | 待决策的开放问题（A~D / J~R） |
+| `docs/AI记忆/项目记忆.md` | AI 协作主索引（**跨会话/跨机器续接必读**） |
 
 ## 3. 目录结构与定位
+
+仓库根三段：
+
 | 路径 | 内容 |
 |------|------|
-| `res://scenes/` | 场景 `.tscn`（Player / Bullet / Enemy / Item / Hazard 等） |
-| `res://scripts/` | 脚本 `.gd`，按系统单一职责拆分 |
-| `res://data/` | 可调数值配置（JSON）+ 字段说明 |
-| `res://locale/` | 本地化翻译表（CSV → `.translation`） |
-| `res://templates/` | 新内容脚手架模板（enemy/relic 等） |
-| `res://assets/` | 美术 / 音效 |
+| `docs/` | 项目文档（设计文档、AI 导航、词表契约、决策记录、AI 记忆等） |
+| `client/` | **Godot 4.6.3 项目根**（即 Godot 中的 `res://`） |
+| `server/` | 服务器端预留（当前为单机项目，暂占位） |
+
+`client/` 下（落地代码后）：
+
+| 路径 | 内容 |
+|------|------|
+| `client/scenes/`（即 `res://scenes/`） | 场景 `.tscn`（Player / Bullet / Enemy / Item / Hazard 等） |
+| `client/scripts/`（即 `res://scripts/`） | 脚本 `.gd`，按系统单一职责拆分 |
+| `client/data/`（即 `res://data/`） | 可调数值配置（JSON）+ 字段说明 |
+| `client/locale/`（即 `res://locale/`） | 本地化翻译表（CSV → `.translation`） |
+| `client/templates/`（即 `res://templates/`） | 新内容脚手架模板（enemy/relic 等） |
+| `client/assets/`（即 `res://assets/`） | 美术 / 音效 |
 | `user://settings.cfg` | 玩家设置存档；`user://` 下另存元进度存档 |
 
-> 注：当前仓库尚处文档阶段，落地代码后此表即为实际结构，新增文件务必归位。
+`docs/` 下：
+
+| 路径 | 内容 |
+|------|------|
+| `docs/游戏设计文档.md` | 完整 GDD |
+| `docs/AI导航.md`（本文件） | 项目地图 |
+| `docs/词表与契约.md` | 约定字符串白名单 |
+| `docs/决策记录.md` | ADR |
+| `docs/修改建议.md` | 待决策项 |
+| `docs/简单设计思路.md` | 项目原点 |
+| `docs/CICD规划.md` | CI/CD 路线图 |
+| `docs/AI记忆/项目记忆.md` | **AI 协作主索引（跨会话/跨机器续接必读）** |
+| `docs/AI记忆/会话日志/` | 按日期归档的对话摘要 |
+
+> 注：当前仓库尚处文档阶段，落地代码后 `client/` 即 Godot 项目根（`project.godot` 在此），新增文件务必归位。
 
 ## 4. 扩展点速查（"我要加 X，该改哪？"）
 
