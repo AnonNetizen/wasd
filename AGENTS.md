@@ -43,7 +43,7 @@
 
 | 任务 | 模板 |
 |------|------|
-| 加遗物 / 道具 | `docs/AI协作/任务模板/加遗物.md` |
+| 加遗物 / 道具 | `docs/AI协作/任务模板/加遗物.md`（或用 `/new-relic` 命令） |
 | 加敌人 | `docs/AI协作/任务模板/加敌人.md` |
 | 加效果原语 | `docs/AI协作/任务模板/加效果原语.md` |
 | 加设置项 | `docs/AI协作/任务模板/加设置项.md` |
@@ -52,6 +52,28 @@
 | 加本地化文本 | `docs/AI协作/任务模板/加本地化文本.md` |
 
 任务不在模板里 → 按 `docs/AI协作/上下文预算.md` 决定读取范围（**禁止盲目全仓搜索**）。
+
+## 🤝 子智能体（Subagents，可主动调用）
+
+复杂或专业任务直接转给对应 subagent，避免主对话被污染：
+
+| Subagent | 何时调用 | 定义位置 |
+|----------|---------|---------|
+| `data-author` | 加 / 改数据条目（遗物 / 敌人 / locale / 设置 / 埋点） | `.codebuddy/agents/data-author.md` |
+| `contract-validator` | 改了词表、想检查代码常量 / 裸字符串 / id 同步 | `.codebuddy/agents/contract-validator.md` |
+| `balancer` | 跑回放回归 / sim / 数值平衡建议 | `.codebuddy/agents/balancer.md` |
+
+调用方式见 codebuddy 的 Task 工具或对应触发词。
+
+## ⚡ 项目级斜杠命令（Slash Commands）
+
+| 命令 | 用途 | 定义位置 |
+|------|------|---------|
+| `/sync-contracts` | 跑词表→代码常量同步流水线 | `.codebuddy/commands/sync-contracts.md` |
+| `/new-relic <概念>` | 交互式加遗物 | `.codebuddy/commands/new-relic.md` |
+| `/run-replay-regression` | 跑黄金回放回归 | `.codebuddy/commands/run-replay-regression.md` |
+| `/health-check` | 项目健康度报告 | `.codebuddy/commands/health-check.md` |
+| `/update-memory` | 显式兜底触发记忆更新 | `.codebuddy/commands/update-memory.md` |
 
 ---
 

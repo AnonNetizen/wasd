@@ -63,6 +63,8 @@
 | `docs/AI协作/引擎集成.md` | Godot MCP / Bridge 接入指南 |
 | `docs/AI协作/实时验证回路.md` | pre-commit hook + 本地秒级反馈设计 |
 | `docs/测试策略.md` | **5 层测试金字塔 + 里程碑要求 + 性能预算 + 手动回归 checklist（测试唯一权威）** |
+| `.codebuddy/agents/` | 项目级 subagents：`balancer` / `contract-validator` / `data-author` |
+| `.codebuddy/commands/` | 项目级 slash commands：`/sync-contracts` / `/new-relic` / `/run-replay-regression` / `/health-check` / `/update-memory` |
 
 > 注：当前仓库尚处文档阶段，落地代码后 `client/` 即 Godot 项目根（`project.godot` 在此），新增文件务必归位。
 

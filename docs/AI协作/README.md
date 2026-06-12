@@ -22,17 +22,31 @@ docs/AI协作/
 ├── 角色分工.md           # 设计/实现/评审/平衡 四角色协作
 ├── 引擎集成.md           # Godot/Unity MCP 等接入指南
 └── 实时验证回路.md       # pre-commit hook + watch 脚本设计
+
+.codebuddy/agents/        # 项目级 subagents（codebuddy 平台）
+├── balancer.md           # 平衡测试 / 回放回归 / 数值建议
+├── contract-validator.md # 词表↔常量同步 / 裸字符串扫描
+└── data-author.md        # 数据驱动内容创作（不动 .gd）
+
+.codebuddy/commands/      # 项目级 slash commands（codebuddy 平台）
+├── sync-contracts.md     # /sync-contracts
+├── new-relic.md          # /new-relic <概念>
+├── run-replay-regression.md
+├── health-check.md
+└── update-memory.md
 ```
 
 ## 触发约定
 
 AI agent 接到任务时优先按以下顺序：
 
-1. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。
-2. **不是高频任务**？读 `上下文预算.md` 决定读取范围，避免盲目全仓搜索。
-3. **任务复杂**？参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
-4. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
-5. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规。
+1. **是不是有专属 slash command**？是 → 直接用（如 `/new-relic`）。
+2. **是不是该转给 subagent**？数据条目改动 → `data-author`；契约校验 → `contract-validator`；平衡相关 → `balancer`。
+3. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。
+4. **不是高频任务**？读 `上下文预算.md` 决定读取范围，避免盲目全仓搜索。
+5. **任务复杂**？参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
+6. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
+7. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规。
 
 ## 维护
 
