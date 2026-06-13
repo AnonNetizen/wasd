@@ -1,35 +1,41 @@
 # AI 导航（项目索引）
 
 > 本文件是给 AI agent（以及人）的**项目地图**：开始任何任务前先读这里，按指引快速定位，避免盲目全仓搜索。
-> 配套：编码规则见 `.codebuddy/rules/game-coding-rules.md`；完整设计见 `游戏设计文档.md`。
+> 配套：编码规则见 `AGENTS.md` 第 3 步的当前平台规则入口；完整设计见 `游戏设计文档.md`。
+>
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是项目索引权威；新增系统、目录、扩展点、AI 工具入口或依赖图变化时，必须同步 GDD / 词表 / 规则 / 测试策略 / 项目记忆中的对应入口。
 
 ---
 
 ## 1. 项目是什么
 俯视角 Roguelike 弹幕生存游戏（灵感：以撒的结合 + 吸血鬼幸存者）。
 - 引擎：**Godot 4.6.3 + GDScript**
-- 核心理念：**数据驱动 + 框架级基础设施（本地化 / 设置 / 数据埋点）+ AI 易扩展**
+- 核心理念：**数据驱动 + 扩展优先 + 框架级基础设施（本地化 / 设置 / 数据埋点）+ AI 易扩展**
 
 ## 2. 必读文档（按优先级）
 | 文档 | 作用 |
 |------|------|
-| `.codebuddy/rules/game-coding-rules.md` | **强制编码规则**，每次写代码前必读 |
+| `AGENTS.md` | **AI agent 通用开工入口**，每次开始任务前必读 |
+| `.codebuddy/rules/game-coding-rules.md` / `.codex/rules/game-coding-rules.md` / `.opencode/rules/game-coding-rules.md` | **强制编码规则入口**，按当前平台选读 |
 | `docs/AI导航.md`（本文件） | 项目地图与扩展点定位 |
 | `docs/词表与契约.md` | 所有约定字符串白名单（stat/effect/event/key），**禁止编造** |
 | `docs/游戏设计文档.md` | 完整设计 |
+| `docs/代码文档规范.md` | 代码变更与对应文档的同步规范 |
 | `docs/决策记录.md` | 既定决策与原因，勿误改 |
-| `docs/修改建议.md` | 待决策的开放问题（A~D / J~R） |
+| `docs/修改建议.md` | 待决策的开放问题（A~D；J~R 已归档） |
 | `docs/AI记忆/项目记忆.md` | AI 协作主索引（**跨会话/跨机器续接必读**） |
 
 ## 3. 目录结构与定位
 
-仓库根三段：
+仓库根主要目录：
 
 | 路径 | 内容 |
 |------|------|
 | `docs/` | 项目文档（设计文档、AI 导航、词表契约、决策记录、AI 记忆等） |
 | `client/` | **Godot 4.6.3 项目根**（即 Godot 中的 `res://`） |
 | `server/` | 服务器端预留（当前为单机项目，暂占位） |
+| `MinimumViableProduct/` | MVP 隔离实验区；文档与独立客户端代码都放此处，不污染完整项目 `client/` |
+| `draft/` / `DRAFT/` | 用户人工草稿，AI 禁止读取 / 搜索 / 修改 / 整理 / 引用，除非用户明确点名授权 |
 
 `client/` 下（落地代码后）：
 
@@ -48,6 +54,8 @@
 | 路径 | 内容 |
 |------|------|
 | `docs/游戏设计文档.md` | 完整 GDD |
+| `docs/代码文档规范.md` | 代码变更需要同步哪些文档的权威规范 |
+| `docs/代码/` | `client/` 长期模块文档索引与模块文档 |
 | `docs/AI导航.md`（本文件） | 项目地图 |
 | `docs/词表与契约.md` | 约定字符串白名单 |
 | `docs/决策记录.md` | ADR |
@@ -62,10 +70,13 @@
 | `docs/AI协作/角色分工.md` | 设计/实现/评审/平衡 四角色协作 |
 | `docs/AI协作/引擎集成.md` | Godot MCP / Bridge 接入指南 |
 | `docs/AI协作/实时验证回路.md` | pre-commit hook + 本地秒级反馈设计 |
-| `docs/AI协作/工具适配指南.md` | 不用 CodeBuddy 时各 AI 工具（Claude Code / Aider / Cursor / Windsurf / ChatGPT 等）的接入配法 |
+| `docs/AI协作/工具适配指南.md` | 各 AI 工具（Codex / OpenCode / Claude Code / Aider / Cursor / Windsurf / ChatGPT 等）的接入配法 |
 | `docs/测试策略.md` | **5 层测试金字塔 + 里程碑要求 + 性能预算 + 手动回归 checklist（测试唯一权威）** |
+| `AGENTS.md` / `CODEX.md` / `OPENCODE.md` | 通用入口与 Codex / OpenCode 轻量入口适配 |
 | `.codebuddy/agents/` | 项目级 subagents：`balancer` / `contract-validator` / `data-author` |
 | `.codebuddy/commands/` | 项目级 slash commands：`/sync-contracts` / `/new-relic` / `/run-replay-regression` / `/health-check` / `/update-memory` |
+| `.codex/` | Codex CLI 平台配置；核心规则语义与 `.codebuddy/` 一致，但允许按 Codex 优化 agents / commands / rules |
+| `.opencode/` | OpenCode 平台配置；含 `opencode.json`、agents、commands、rules，核心规则语义与 `.codebuddy/` / `.codex/` 一致 |
 
 > 注：当前仓库尚处文档阶段，落地代码后 `client/` 即 Godot 项目根（`project.godot` 在此），新增文件务必归位。
 
@@ -74,7 +85,11 @@
 | 我想… | 怎么做（数据驱动，尽量不改逻辑） |
 |-------|-------------------------------|
 | **加一个敌人** | 复制 `templates/enemy_template`，在 `data/enemies.json` 加一条；行为复用既有 AI 类型，新行为才碰逻辑 |
+| **加一个角色** | 在 `data/characters.json`（落地后）加一条：基础属性 / 起始武器或遗物 / tags / capabilities / 控制配置；新 capability 先登记词表 §12 再实现 |
 | **加一个遗物/道具** | 在 `data/relics.json` 加一条，用 `modifiers` + `behaviors` 描述；**只用 `词表与契约.md` 已登记的 effect/stat**，新原语先登记再实现 |
+| **加破限角色/道具** | 先判断是否能用 `capabilities` + `modifiers` + `behaviors` 表达；表达不了则新增可复用 primitive / strategy 并登记词表 §12，禁止按 id 写特殊分支 |
+| **写/改代码模块** | 先查 `docs/代码文档规范.md`；长期模块 / autoload / 公共 API / signal / 数据 schema / 依赖方向变化必须同步 `docs/代码/<module_id>.md` 与本导航依赖图 |
+| **做 MVP 实验** | 只改 `MinimumViableProduct/`；MVP 文档见 `MinimumViableProduct/README.md`，MVP 客户端代码放 `MinimumViableProduct/client/`，不要混入完整项目 `client/` |
 | **加一种子弹效果原语** | 先在 `词表与契约.md` 登记 `effect` id → 在效果原语层实现方法/Node → 数据中引用 |
 | **改数值（血/伤害/刷怪/掉落）** | 只改 `res://data/` 对应 JSON，**绝不改代码常量** |
 | **加面向玩家的文本** | 在 `res://locale/strings.csv` 加 key + 译文，代码/数据用 `tr("key")` 或 `name_key` |
@@ -189,6 +204,7 @@ flowchart LR
 ## 6. 红线（最易踩坑）
 - ❌ 硬编码可调数值、玩家可见文本、按键、约定字符串
 - ❌ 为每个遗物/道具写独立硬编码分支
+- ❌ 为某个角色 / 遗物 / 道具写 `if id == ...` 的一次性破限分支（必须 capability / primitive / strategy 化）
 - ❌ 相机开启 `limit` / `drag margin`（必须玩家恒居中）
 - ❌ 直接 `instantiate`/`queue_free` 高频实体（必须 `PoolManager.acquire/release`）
 - ❌ 直接读 `Time.get_ticks_msec()` 等非确定时间源（必须 `GameClock`）
@@ -200,5 +216,9 @@ flowchart LR
 - ❌ 存档无 `version` 字段（必须 `SaveManager` 标准头）
 - ❌ 业务代码 `AudioStreamPlayer.play()`（必须 `AudioManager.play_sfx/music`）
 - ❌ 手改 `client/scripts/contracts/*.gd`（自动生成，改 `docs/词表与契约.md` + 跑 `tools/sync_contracts.py`）
+- ❌ 新增 / 修改长期代码模块却没有对应 `docs/代码/` 模块文档或未说明无需更新文档
+- ❌ 面向用户的回复默认使用英文或其他语言（除非用户明确要求、引用原文或目标文件语言要求）
+- ❌ 读取、搜索、整理、格式化、总结或引用 `draft/` / `DRAFT/` 人工草稿（除非用户明确点名授权）
+- ❌ 把 MVP 临时代码 / 文档混入完整项目 `client/` 或根目录正式文档而不经过 ADR 决策
 - ✅ 改完同步更新规则文件与相关文档（元规则）
 - ✅ 重要决策同步进 `docs/AI记忆/项目记忆.md`

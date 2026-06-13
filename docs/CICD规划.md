@@ -1,11 +1,13 @@
 # CI/CD 规划
 
 > 本文档汇总本项目的 CI/CD 路线图与候选项，按「阶段 + 优先级」排列，作为后续逐步落地的清单。
-> 配套：`README.md`、`CONTRIBUTING.md`、`.codebuddy/rules/game-coding-rules.md`、`词表与契约.md`、`决策记录.md`。
+> 配套：`README.md`、`CONTRIBUTING.md`、当前平台编码规则入口、`词表与契约.md`、`决策记录.md`。
 >
 > 当前状态：**未启用任何 workflow**。本文件仅为规划，不影响现有仓库行为；逐项落地时再新建 `.github/workflows/*.yml` 等具体文件，并同步更新本文档。
 >
 > **测试相关**：本文件只列 CI 工作流的"何时跑、跑什么"。完整测试金字塔、必测清单、里程碑要求、性能预算、手动回归 checklist 见 `docs/测试策略.md`（测试唯一权威）。
+>
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 CI/CD 路线图权威；改 workflow / hook / health-check 设计时，常见联动为 `docs/测试策略.md`、`docs/AI协作/实时验证回路.md`、`CONTRIBUTING.md`、规则自检清单、`docs/AI记忆/项目记忆.md`。
 
 ---
 
@@ -16,8 +18,9 @@
 | **Godot 4.6.3 + GDScript**，代码尚未落地 | 可分阶段开：先文档/数据校验，再代码 |
 | **数据驱动**（`res://data/*.json`）+ 强契约（`词表与契约.md`） | CI 重点在「契约不漂移、数据不失效」 |
 | **文档密集**（GDD / AI导航 / ADR / 修改建议） | 重点防文档脱节、链接死链、版本号不同步 |
+| **代码-文档同源**（`docs/代码文档规范.md` + `docs/代码/`） | 代码落地后要检查长期模块是否有对应文档 |
 | **AI 协作密集** | CI 输出需 fail-fast 且明确（让 AI 据报错自我纠错） |
-| **元规则 19/20**：新规则/决策/设计变更必须同步到对应文档 | CI 可把"同步检查"自动化 |
+| **元规则 19/20/24**：新规则/决策/设计/代码契约变更必须同步到对应文档 | CI 可把"同步检查"自动化 |
 | **Roguelike 平衡敏感** | 数值改动需"黄金回放"回归（见 4.M）；中后期跑批量 sim（见 4.N） |
 
 > **本地实时验证回路**：与 CI 配套，在本地通过 pre-commit hook 提供秒级反馈，详见 `docs/AI协作/实时验证回路.md`。本规划阶段 1 的脚本（`validate_contract.py` 等）应同时被 hook 与 CI 复用。
@@ -31,9 +34,10 @@
 
 - Markdown lint（标题层级、行内格式）
 - **内部链接死链检查**：`README.md` / `CONTRIBUTING.md` / `AI导航.md` 等引用的相对路径必须真实存在（中文文件名易写错）
-- **`修改建议.md` 编号唯一性**：A~D / J~R 不能撞号
+- **`修改建议.md` 编号唯一性**：当前待决策 A~D 不能撞号；已归档编号不得复用
 - **`决策记录.md` ADR 编号连续性**：递增、不跳号
 - **设计文档版本号同步**：`README.md` 与 `游戏设计文档.md` 的版本号一致
+- **代码文档规范链接检查**：`docs/代码文档规范.md`、`docs/代码/README.md` 与导航 / 规则中的路径必须存在
 
 候选实现：`markdownlint-cli2` + 一段 Python/Node 脚本做编号与版本校验。
 
@@ -101,6 +105,12 @@
   - `RNG`：同种子结果一致（参见 `修改建议.md` J 项）
   - `StatusEffect`：DoT/debuff 叠加规则（参见 `修改建议.md` N 项）
 
+### 2.H+ 代码-文档对应检查 ⭐⭐
+- 扫描长期维护脚本文件头的 `# Doc:` 引用，确认目标 `docs/代码/<module_id>.md` 存在。
+- 检查 `docs/代码/README.md` 中登记的模块文档路径与实际文件一致。
+- 对自动生成文件、测试、一次性调试脚本和被上级模块覆盖的私有 helper 允许豁免，但豁免规则必须写进检查脚本。
+- 与 `docs/代码文档规范.md` 配套，防止代码模块落地后没有维护入口。
+
 ---
 
 ## 3. 阶段 3：构建与发布
@@ -143,6 +153,7 @@
 | 词表登记率 | 数据中已登记 id 数 / 总 id 数 | = 100% |
 | 类型化 GDScript 比例 | 已类型化函数签名 / 总函数签名 | → 100% |
 | 文档同步度 | 互引文档间的死链 / 总链接 | = 0 |
+| 代码文档覆盖率 | 有 `# Doc:` 或模块覆盖的长期脚本数 / 长期脚本总数 | → 100% |
 | 黄金回放回归通过率 | 通过的黄金回放数 / 总数 | = 100% |
 
 定期跑 → 输出 `health-report.md` 到 `gh-pages` 分支或写入 README badge。
@@ -165,17 +176,20 @@
 ### 4.O PR 自动加标签 ⭐
 - 用 [labeler](https://github.com/actions/labeler)，按改动路径自动打 label：
   - 改 `res://data/` → `data`
-  - 改 `.codebuddy/rules/` → `rules-change`
+  - 改 `.codebuddy/rules/` 或 `.codex/rules/` 或 `.opencode/rules/` → `rules-change`
+  - 改 `AGENTS.md` / `CODEX.md` / `OPENCODE.md` / `.codebuddy/agents/` / `.codex/agents/` / `.opencode/agents/` / `.codebuddy/commands/` / `.codex/commands/` / `.opencode/commands/` / `.opencode/opencode.json` → `ai-tooling`
   - 改 `决策记录.md` → `adr`
   - 改 `res://locale/` → `locale`
 
 ### 4.P 「文档同步」自动检查 ⭐⭐⭐（**项目独有**）
-- 用 [Danger.js](https://danger.systems/) 把规则 19/20 自动化
+- 用 [Danger.js](https://danger.systems/) 把规则 19/20/24 自动化
 - PR 改下列文件时强制提示并要求确认：
   - 改 `游戏设计文档.md` → 是否同步 `AI导航.md`
   - 新增决策 → 是否同步 `决策记录.md`
   - 新增 `stat`/`effect`/`event` → 是否在 `词表与契约.md` 登记
-  - 改 `.codebuddy/rules/game-coding-rules.md` → 是否同步 `README.md` / `CONTRIBUTING.md`
+  - 改 `client/scripts/` 长期模块 / 公共 API / 数据 schema → 是否按 `docs/代码文档规范.md` 更新 `docs/代码/` 模块文档
+  - 改 `.codebuddy/rules/game-coding-rules.md` 或 `.codex/rules/game-coding-rules.md` 或 `.opencode/rules/game-coding-rules.md` → 是否同步 `README.md` / `CONTRIBUTING.md` / `docs/AI协作/工具适配指南.md`
+  - 改 `AGENTS.md` / `CODEX.md` / `OPENCODE.md` / `.codebuddy/` / `.codex/` / `.opencode/` 平台配置 → 是否仍满足规则 21（核心规则语义一致；平台专属优化已登记）
 
 ### 4.N 依赖自动更新 ⭐
 - 启用 Dependabot 或 Renovate
@@ -199,6 +213,7 @@
 | 2 | F. 数据 schema 校验 | 代码落地后 | 极高 | 中 |
 | 2 | G. Godot headless 启动 | 代码落地后 | 高 | 低 |
 | 2 | H. GUT 单测 | 核心系统就位后 | 中 | 中 |
+| 2 | H+. 代码-文档对应检查 | 代码落地后 | 中 | 低 |
 | 3 | I. 多平台构建 + Release | 准备发布时 | 高 | 中 |
 | 3 | I+. 自动 CHANGELOG | 发布前 | 中 | 低 |
 | 3 | J. itch.io 部署 | 想发布到 itch | 中 | 低 |
@@ -217,7 +232,7 @@
 
 1. **第一批（现在）**：1.A + 1.B + 1.D —— 文档/契约/commit 三道门禁
 2. **第二批（数据/locale 落地后）**：1.C + 2.F —— 数据完整性校验
-3. **第三批（代码落地后）**：2.E + 2.G —— GDScript 质量与启动验证
+3. **第三批（代码落地后）**：2.E + 2.G + 2.H+ —— GDScript 质量、启动验证与代码文档覆盖
 4. **第四批（核心系统稳定后）**：2.H —— 关键模块单测
 5. **第五批（准备发布时）**：3.I + 3.K —— 自动构建 + Web demo
 6. **第六批（回放系统落地后）**：4.L 健康度 + 4.M 回放回归
@@ -228,7 +243,7 @@
 ## 7. 维护
 
 - 任何 workflow 落地或调整时，**必须同步更新本文档**对应阶段的状态（"拟建" → "已启用 / `.github/workflows/xxx.yml`"）。
-- 新增 CI 检查项 = 一次「规则相关变更」，按规则 19/20 同步到：
+- 新增 CI 检查项 = 一次「规则相关变更」，按规则 19/20/24 同步到：
   - `决策记录.md`（记录决策与理由）
   - `CONTRIBUTING.md`（若涉及贡献流程）
   - 本文件（更新状态）

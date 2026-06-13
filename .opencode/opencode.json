@@ -1,0 +1,31 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md",
+    "OPENCODE.md",
+    ".opencode/rules/game-coding-rules.md",
+    ".codebuddy/rules/game-coding-rules.md"
+  ],
+  "command": {
+    "sync-contracts": {
+      "description": "跑词表到代码常量同步流水线。",
+      "template": "按 `.opencode/commands/sync-contracts.md` 的步骤执行，并报告同步/校验结果。"
+    },
+    "new-relic": {
+      "description": "交互式创建一个新遗物条目。",
+      "template": "按 `.opencode/commands/new-relic.md` 的步骤执行；用户输入作为遗物概念。"
+    },
+    "run-replay-regression": {
+      "description": "跑黄金回放回归。",
+      "template": "按 `.opencode/commands/run-replay-regression.md` 的步骤执行，并输出回归报告摘要。"
+    },
+    "health-check": {
+      "description": "跑项目健康度指标检查。",
+      "template": "按 `.opencode/commands/health-check.md` 的步骤执行，并列出健康度风险。"
+    },
+    "update-memory": {
+      "description": "显式触发 AI 项目记忆更新。",
+      "template": "按 `.opencode/commands/update-memory.md` 的步骤检查并更新项目记忆。"
+    }
+  }
+}

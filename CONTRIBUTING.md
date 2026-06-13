@@ -1,6 +1,8 @@
 # 贡献指南
 
 > 欢迎参与 **wasd**！本项目以「数据驱动 + AI 友好工程」为核心，所有贡献者（包括 AI agent）都需遵守本指南。
+>
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是协作与新机器 setup 入口；改工具链、提交流程、运行依赖或文档同步要求时，必须同步 `README.md`、`AGENTS.md`、`docs/AI导航.md`、`docs/CICD规划.md`、规则自检清单。
 
 ---
 
@@ -27,13 +29,15 @@ git config --global user.email "<your email>"
 | 工具 | 何时需要 |
 |------|---------|
 | **CodeBuddy IDE** | 想用项目级 subagents / slash commands（`.codebuddy/agents/`、`.codebuddy/commands/`）|
+| **OpenAI Codex CLI** | 想用 Codex 平台配置（`.codex/agents/`、`.codex/commands/`、`.codex/rules/`）|
+| **OpenCode** | 想用 OpenCode 协作；入口见 `OPENCODE.md` 与 `.opencode/opencode.json` |
 | **Godot 4.6.3** | 真正运行 / 调试 `client/`（M1 起）|
 | **Python 3.10+** | 跑 `tools/sync_contracts.py` 等同步脚本（脚本将随 M1 落地）|
 | **gdtoolkit / GUT** | M1 之后的 lint 与单测（详见 `docs/测试策略.md`）|
 
 **AI agent 第一件事**：读 `AGENTS.md` → `docs/AI记忆/项目记忆.md`，无需翻历史聊天即可续接。
 
-**不用 CodeBuddy 也行**：项目核心资产与工具无关。Claude Code / Aider / Cursor / Windsurf / ChatGPT 都能用，每种工具的现成配法见 [`docs/AI协作/工具适配指南.md`](docs/AI协作/工具适配指南.md)（一次性，5 分钟搞定）。
+**换 AI 工具也行**：项目核心资产与工具无关。Codex / OpenCode / Claude Code / Aider / Cursor / Windsurf / ChatGPT 都能用；Codex 见 `CODEX.md`，OpenCode 见 `OPENCODE.md`，其他工具配法见 [`docs/AI协作/工具适配指南.md`](docs/AI协作/工具适配指南.md)。
 
 **用户级 skill `ai-indie-game-framework`**：装在 `~/.codebuddy/skills/`，与本仓库**无关**——它是为「以后开新游戏项目」准备的方法论。继续做本项目**不需要**它；想在新机器另起炉灶才需要手动复制该目录。
 
@@ -43,13 +47,15 @@ git config --global user.email "<your email>"
 
 按优先级顺序阅读：
 
-1. [`.codebuddy/rules/game-coding-rules.md`](.codebuddy/rules/game-coding-rules.md) —— **强制编码规则**
-2. [`docs/AI导航.md`](docs/AI导航.md) —— 项目地图与扩展点速查
-3. [`docs/词表与契约.md`](docs/词表与契约.md) —— 约定字符串白名单
-4. [`docs/游戏设计文档.md`](docs/游戏设计文档.md) —— 完整设计
-5. [`docs/决策记录.md`](docs/决策记录.md) —— 既定决策
-6. [`docs/修改建议.md`](docs/修改建议.md) —— 待决策项
-7. [`docs/AI记忆/项目记忆.md`](docs/AI记忆/项目记忆.md) —— 跨会话/跨机器的 AI 协作记忆
+1. [`AGENTS.md`](AGENTS.md) —— **所有 AI agent 的通用开工入口**
+2. 当前平台编码规则入口 —— CodeBuddy 读 [`.codebuddy/rules/game-coding-rules.md`](.codebuddy/rules/game-coding-rules.md)，Codex 读 [`.codex/rules/game-coding-rules.md`](.codex/rules/game-coding-rules.md)，OpenCode 读 [`.opencode/rules/game-coding-rules.md`](.opencode/rules/game-coding-rules.md)，其他 agent 无专属入口时读 `.codebuddy/rules/game-coding-rules.md`
+3. [`docs/AI导航.md`](docs/AI导航.md) —— 项目地图与扩展点速查
+4. [`docs/词表与契约.md`](docs/词表与契约.md) —— 约定字符串白名单
+5. [`docs/游戏设计文档.md`](docs/游戏设计文档.md) —— 完整设计
+6. [`docs/代码文档规范.md`](docs/代码文档规范.md) —— 写/改代码时的对应文档规则
+7. [`docs/决策记录.md`](docs/决策记录.md) —— 既定决策
+8. [`docs/修改建议.md`](docs/修改建议.md) —— 待决策项
+9. [`docs/AI记忆/项目记忆.md`](docs/AI记忆/项目记忆.md) —— 跨会话/跨机器的 AI 协作记忆
 
 > AI agent 工作前请按 `docs/AI导航.md` 定位，避免盲目全仓搜索；在新环境续接对话前，先读 `docs/AI记忆/项目记忆.md`。
 
@@ -74,13 +80,14 @@ git config --global user.email "<your email>"
 - ❌ 为每个遗物/道具写独立分支
 - ✅ 高频实体用对象池；相机不开 limit / drag margin
 
-完整自检清单见 `.codebuddy/rules/game-coding-rules.md` 末尾。
+完整自检清单见当前平台编码规则入口末尾。
 
-### 3. 文档同步（元规则 19/20）
+### 3. 文档同步（元规则 19/20/24）
 **新规则 / 决策 / 设计变更必须同步到对应文档**：
-- 新规则 → `.codebuddy/rules/game-coding-rules.md`
+- 新规则 → 当前平台编码规则入口（`.codebuddy/`、`.codex/`、`.opencode/` 核心语义保持一致）
 - 新决策 → `docs/决策记录.md`
 - 设计变更 → `docs/游戏设计文档.md` + `docs/AI导航.md` + `docs/词表与契约.md`
+- 代码模块 / 公共 API / 数据 schema / 依赖方向变化 → `docs/代码文档规范.md` + `docs/代码/` 模块文档
 - 重要对话/决策结束后 → `docs/AI记忆/项目记忆.md`（跨机器续接对话用）
 
 文档不同步等同于未完成。
@@ -135,7 +142,7 @@ docs(adr): 记录暂停功能实现约定
 ## 五、报告问题 / 提议
 
 - **bug / 功能请求**：使用 GitHub Issue（`.github/ISSUE_TEMPLATE/` 内有模板）。
-- **设计建议**：先在 `docs/修改建议.md` 起草（按现有 A~D / J~R 风格编号），由维护者评审后转为决策（写入 `docs/决策记录.md`）或采纳实施。
+- **设计建议**：先在 `docs/修改建议.md` 起草（当前待决策为 A~D；J~R 已归档），由维护者评审后转为决策（写入 `docs/决策记录.md`）或采纳实施。
 
 ---
 

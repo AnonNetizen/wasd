@@ -1,0 +1,60 @@
+[gd_scene format=3 uid="uid://bn1n5yrfyns3j"]
+
+[ext_resource type="Script" uid="uid://dw6x13cwh7pv3" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
+[ext_resource type="Script" uid="uid://de76c07amxnxx" path="res://scripts/spawner.gd" id="3_spawner"]
+[ext_resource type="PackedScene" uid="uid://bk3jjhneu0iem" path="res://scenes/enemy.tscn" id="4_enemy"]
+[ext_resource type="Script" uid="uid://bh1p0574gkd0c" path="res://scripts/background.gd" id="5_background"]
+
+[node name="Main" type="Node2D" unique_id=1080991594]
+script = ExtResource("1_main")
+
+[node name="Background" type="Node2D" parent="." unique_id=157426889]
+script = ExtResource("5_background")
+
+[node name="Player" parent="." unique_id=372568137 instance=ExtResource("2_player")]
+z_index = 10
+position = Vector2(480, 270)
+
+[node name="Enemies" type="Node2D" parent="." unique_id=1962713705]
+z_index = 4
+
+[node name="Spawner" type="Node2D" parent="." unique_id=110894688]
+script = ExtResource("3_spawner")
+enemy_scene = ExtResource("4_enemy")
+target_path = NodePath("../Player")
+spawn_parent_path = NodePath("../Enemies")
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1246972803]
+
+[node name="HudPanel" type="ColorRect" parent="HUD" unique_id=2058307475]
+offset_left = 18.0
+offset_top = 18.0
+offset_right = 506.0
+offset_bottom = 132.0
+color = Color(0.025, 0.04, 0.09, 0.82)
+
+[node name="StatusLabel" type="Label" parent="HUD" unique_id=963103384]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 690.0
+offset_bottom = 150.0
+text = "WASD MVP M4"
+
+[node name="GameOverPanel" type="ColorRect" parent="HUD" unique_id=1834613062]
+visible = false
+offset_left = 250.0
+offset_top = 178.0
+offset_right = 710.0
+offset_bottom = 362.0
+color = Color(0.05, 0.02, 0.04, 0.88)
+
+[node name="GameOverLabel" type="Label" parent="HUD/GameOverPanel" unique_id=798575981]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 436.0
+offset_bottom = 160.0
+text = "GAME OVER"
+horizontal_alignment = 1
+vertical_alignment = 1

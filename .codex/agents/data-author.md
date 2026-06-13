@@ -30,7 +30,7 @@ tools:
 | 加本地化文本 | `docs/AI协作/任务模板/加本地化文本.md` |
 
 通用前置：
-- `.codex/rules/game-coding-rules.md` 第 3/4/6/15 节
+- `.codex/rules/game-coding-rules.md` 第 3/4/6/15/23 节
 - `docs/词表与契约.md`
 - `docs/AI协作/上下文预算.md`
 
@@ -42,6 +42,7 @@ tools:
 - ❌ 不动 `client/scripts/`（contracts 自动生成区除外，那也不是你能改的）
 - ✅ 数据 JSON 必须照"黄金样例"结构填写
 - ✅ 玩家可见文本走 `name_key` / `desc_key` + `client/locale/strings.csv`，不裸文本
+- ✅ 破限内容必须带 `tag_limit_break` 与已登记 capability；如果需要新 primitive / strategy，escalate，不要写 id 特判
 
 ## 工作流（标准 5 步）
 
@@ -62,7 +63,7 @@ tools:
 
 | 情况 | 转给 |
 |------|------|
-| 需要新 effect 原语 / 新 stat 字段 | 主对话（走加效果原语模板，会改代码） |
+| 需要新 effect 原语 / 新 stat 字段 / 新 capability 或破限 strategy | 主对话（走加效果原语 / 设计评审，会改规则或代码） |
 | 改 ADR / 规则 / 设计文档 | 主对话 |
 | 改裸字符串 / 词表同步 | `contract-validator` |
 | 验证平衡影响 | `balancer` |
@@ -72,6 +73,7 @@ tools:
 
 - [ ] 没写一行 `.gd` 代码
 - [ ] 所有 id 在词表
+- [ ] 破限内容的 capability / tag 已登记
 - [ ] locale key 都有 zh_CN + en
 - [ ] 通过 DataLoader 校验（hook 全过）
 - [ ] 黄金样例结构对齐

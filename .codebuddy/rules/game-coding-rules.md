@@ -13,11 +13,13 @@ alwaysApply: true
 - 优先使用 Godot 内建机制：`Node2D` / `Area2D` / `Camera2D` / `TileMap`、`signal`、`Resource`、autoload 单例。
 
 ## 2. 目录结构（固定约定）
-仓库根分三段：
+仓库根主要目录：
 
 - `docs/`：项目文档（设计文档、AI 导航、词表契约、决策记录、AI 记忆等）
 - `client/`：**Godot 4.6.3 项目根**（即 Godot 中的 `res://`）
 - `server/`：服务器端预留（当前为单机项目，暂占位）
+- `MinimumViableProduct/`：最小可行产品隔离实验区，MVP 文档与客户端代码都放在此处，不污染完整项目 `client/`
+- `draft/` / `DRAFT/`：用户人工草稿禁区，AI 默认不得读取、搜索、修改、整理、格式化或引用
 
 `client/` 下的固定约定：
 - `client/scenes/`（即 `res://scenes/`）：场景（`.tscn`）
@@ -28,7 +30,7 @@ alwaysApply: true
 - `client/assets/`（即 `res://assets/`）：美术 / 音效
 - `user://settings.cfg`：玩家设置存档；`user://` 下另存元进度存档
 
-新增文件必须放入对应目录，不得随意散落。工具链文件（`.codebuddy/`、`.codex/`、`.github/`、`.git*`、`LICENSE`、`README.md`、`CONTRIBUTING.md` 等）保留在仓库根。
+新增文件必须放入对应目录，不得随意散落。MVP 相关文档 / 代码必须放在 `MinimumViableProduct/` 内；完整项目代码仍放根目录 `client/`。工具链与平台入口文件（`AGENTS.md`、`CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/`、`.github/`、`.git*`、`LICENSE`、`README.md`、`CONTRIBUTING.md` 等）保留在仓库根。
 
 ## 3. 数据与逻辑分离（核心需求）
 - **严禁在代码中写死可调数值（魔法数字）**：生命、移速、射速、伤害、子弹速度、刷怪曲线、掉落概率等一律读取 `res://data/` 下的配置文件。
@@ -54,6 +56,7 @@ alwaysApply: true
   - 行为类用 `behaviors`：`{ event, effect, params }`。
 - 逻辑层只实现有限的「效果原语」（加成 / 穿透 / 分裂 / 追踪 / 点燃……），实现为脚本方法或小型 `Node`/`Resource`，由数据中的 `effect` id 映射调用。
 - **新增遗物/道具 = 新增一条数据**，不改逻辑层。
+- 未来角色 / 道具 / 遗物允许突破默认玩法限制，但必须通过已登记的 `capability`、`effect`、`behavior`、`StatusEffect` 或可复用 strategy 表达；禁止写 `if relic_id == ...` / `if character_id == ...` 这类一次性特殊分支。
 
 ## 7. 属性计算模型
 - 最终属性统一为：`最终值 = (基础值 + Σ加法修正) × Π乘法修正`。
@@ -161,10 +164,10 @@ alwaysApply: true
   - `stat` 名（如 `damage` / `move_speed` / `fire_rate`）
   - `effect` 与 `behavior.event` 的合法 id（如 `pierce` / `split` / `ignite`；`on_hit` / `on_kill`）
   - 埋点 `event_name`、设置 `key`、本地化 key 前缀
-  - 输入 action id、池类型 id、伤害类型、状态效果 id、音频 id、RNG 子流 id
+  - 输入 action id、池类型 id、伤害类型、状态效果 id、音频 id、RNG 子流 id、角色 id、capability id、content tag
 - **只能使用白名单中已存在的 id**；需要新 id 时，先在 `docs/词表与契约.md` 登记，再在逻辑层实现对应原语，最后才在数据/代码中使用。
 - **代码常量单一来源（详见 `游戏设计文档.md` 9.19）**：
-  - 代码引用走 `client/scripts/contracts/` 下生成的常量类（`stats.gd` / `effects.gd` / `events.gd` / `settings_keys.gd` / `actions.gd` / `pool_ids.gd` / `damage_types.gd` / `status_effects.gd` / `audio_ids.gd` / `rng_streams.gd`）。
+  - 代码引用走 `client/scripts/contracts/` 下生成的常量类（`stats.gd` / `effects.gd` / `events.gd` / `settings_keys.gd` / `actions.gd` / `pool_ids.gd` / `damage_types.gd` / `status_effects.gd` / `audio_ids.gd` / `rng_streams.gd` / `character_ids.gd` / `capabilities.gd` / `content_tags.gd`）。
   - 这些文件**自动生成、禁止手改**；改约定改 `docs/词表与契约.md`，跑 `tools/sync_contracts.py` 重生成。
   - 中间产物 `client/data/_contracts.json` 也由脚本生成；`DataLoader` 读它做校验。
   - pre-commit hook 强制：md 改了未跑 sync → fail；手改了生成文件 → fail。
@@ -197,14 +200,49 @@ alwaysApply: true
 - 新增系统/模块/重要决策时，需在相应文档中补充说明；文档之间若有交叉引用应一并维护。
 - 文档以中文撰写，结构清晰、便于人和 AI 检索续写。
 
-## 21. `.codebuddy/` 与 `.codex/` 双平台同步（强制）
-- `.codebuddy/`（CodeBuddy 平台）与 `.codex/`（OpenAI Codex CLI 平台）**必须保持内容一致**。
-- **修改任一文件夹中的文件时，必须同步修改另一个文件夹中的对应文件**。两个目录结构完全镜像：
-  - `.codebuddy/agents/` ↔ `.codex/agents/`
-  - `.codebuddy/commands/` ↔ `.codex/commands/`
-  - `.codebuddy/rules/` ↔ `.codex/rules/`
-- **禁止只改一个文件夹而不同步另一个**。pre-commit hook 应校验两个文件夹的文件列表与内容哈希一致。
-- 不同步视为规则违反（视同测试失败），CI 阶段会由 `health-check` 检测并报红。
+## 21. 多平台 AI 入口与配置适配（强制）
+- `AGENTS.md` 是所有 AI agent 的通用开工入口；`CODEX.md`、`OPENCODE.md` 只做平台加载适配，不能承载与通用入口冲突的核心规则。
+- `.codebuddy/`（CodeBuddy 平台）、`.codex/`（OpenAI Codex CLI 平台）、`.opencode/`（OpenCode 平台）共享同一套**项目核心约束**，但不要求文件内容、目录结构或工具字段字节级一致。
+- 允许针对不同 AI agent / 平台优化 frontmatter、工具名、提示词措辞、命令入口与 agent 拆分方式；优化不得改变项目红线、数据契约、测试义务、文档维护规则等核心语义。
+- 修改任一平台入口或配置时，必须判断是否影响其他平台的能力可用性：
+  - 核心规则变化（如本文件、红线、自检清单、开工 5 步）→ 通用入口与 `.codebuddy/` / `.codex/` / `.opencode/` 都要表达同一语义，可用不同措辞或格式。
+  - 平台专属能力变化（如某平台的工具名、agent prompt、command wrapper）→ 只改对应平台即可，并在必要时更新 `docs/AI协作/工具适配指南.md`。
+  - 新增跨平台通用 agent / command → 至少在工具适配指南登记各平台入口；是否每个平台都创建文件取决于平台是否需要。
+- pre-commit hook / `health-check` 不应校验平台配置内容哈希一致；应校验核心规则版本、关键能力清单与文档登记是否一致（含 `.opencode/opencode.json` 命令注册）。
+- 禁止让某个平台的配置悄悄绕过项目核心规则；平台优化只能降低使用摩擦，不能降低约束强度。
+
+## 22. 文档 AI 友好维护（强制）
+- 长期维护文档必须在开头提供 **AI 修改说明**，说明本文档的权威范围、常见联动文件，以及修改前应先读的维护指南。
+- 修改任何长期文档前，必须先读 `docs/AI协作/文档维护指南.md`，再按该指南的“文档联动清单”判断需要同步哪些文件。
+- 新增长期文档时，必须同时写入 AI 修改说明；若发现既有长期文档缺少说明，应先补说明再继续改正文。
+- 涉及规则、设计、词表、测试、AI 协作工具、CI、README/CONTRIBUTING 入口的修改，必须检查是否需要同步 `docs/AI导航.md`、`docs/决策记录.md`、`docs/AI记忆/项目记忆.md` 与当日会话日志。
+- 文档应面向 AI 检索与续写：标题稳定、路径真实、权威来源明确、联动关系用表格或短清单表达，禁止只在自然语言段落里暗藏必须遵守的规则。
+
+## 23. 内容扩展与破限能力（强制）
+- 项目长期目标是支持大量角色、遗物、道具和“突破默认限制”的内容；玩法限制（如默认 4 方向瞄准、自动开火、主动栏数量、摄像机策略）是默认配置，不是硬编码上限。
+- 新角色必须数据驱动：基础属性、起始武器 / 遗物、tags、capabilities、控制配置等来自 `client/data/characters.json`（落地后）或同类数据文件。
+- 破限内容必须声明 `tag_limit_break` 与对应 `capability_id`，并在 `docs/词表与契约.md` 第 12 节登记；代码引用走生成常量，禁止裸字符串。
+- 现有 primitive 表达不了时，先新增可复用 primitive / strategy（effect、behavior、StatusEffect、movement_model、aim_model、fire_model 等），再由数据引用；不得把特殊逻辑塞进某个系统的 id 判断。
+- 工程红线不可被内容突破：随机仍走 `RNG`，时间仍走 `GameClock`，伤害仍走 `Combat`，UI 仍走 `UIManager`，存档仍走 `SaveManager`，音频仍走 `AudioManager`。
+- 任何破限能力必须有测试责任：至少 L0 词表 / schema 校验；新增 primitive 或改变行为时按 `docs/测试策略.md` §7 补 L1 / L3。
+
+## 24. 代码-文档同步（强制）
+- 代码变更必须按 `docs/代码文档规范.md` 判断对应文档；新增 / 修改长期维护模块、autoload、公共 API、signal、数据 schema、依赖方向、扩展点或测试义务时，必须同步 `docs/代码/<module_id>.md` 与相关权威文档。
+- 不要求每个小 helper 单独成文档；内部重构且不改行为 / API / 依赖时可以不改长期文档，但最终回复或 PR 备注需要说明“无需文档更新”的理由。
+- 长期维护脚本应在文件头用 `# Doc: docs/代码/<module_id>.md` 指向模块文档；自动生成文件、测试、一次性调试脚本或被上级模块文档覆盖的私有 helper 可例外。
+- 模块文档只写契约和维护信息：职责边界、代码路径、公共 API、signal/event、数据与词表、依赖、扩展点、测试义务、相关 GDD/ADR；禁止逐行复述实现。
+- 若代码改变玩家可见行为、架构边界、约定字符串或测试义务，不能只改 `docs/代码/`，还必须同步 GDD / ADR / 词表 / 测试策略中的对应权威来源。
+
+## 25. 沟通语言（强制）
+- AI 面向用户的回复、计划、总结、提问与变更说明默认使用中文。
+- 仅在用户明确要求其他语言、引用代码 / API / 命令 / 日志 / 错误原文、编辑目标文件已有语言要求、或对外发布文本需要其他语言时，才使用对应语言。
+- 代码标识符、文件路径、命令、错误日志与外部 API 名称保持原文，不为了中文化而改写。
+
+## 26. `draft/` 人工草稿禁区（强制）
+- `draft/` 目录及其大小写变体（如 `DRAFT/`）存放用户人工草稿，不属于 AI 默认上下文、搜索范围、整理范围或任务输入。
+- 除非用户在当前任务中明确点名授权处理该目录，AI 禁止读取、搜索、修改、格式化、归档、总结或引用其中任何内容。
+- 仓库级搜索、批量格式化、文档整理、健康检查或自动化脚本建议必须显式排除 `draft/` / `DRAFT/`。
+- 遵守该禁区是默认行为；除非与当前任务直接相关或需要解释异常，不要在最终回复中逐次声明该禁区的遵守情况。
 
 ---
 
@@ -213,6 +251,7 @@ alwaysApply: true
 - [ ] 没有硬编码玩家可见文本（都用 `tr()` 文本键）？
 - [ ] 玩家偏好都走 `Settings` 单例并能即时生效？
 - [ ] 新遗物/道具是加数据而非加逻辑分支？
+- [ ] 新角色 / 破限道具是否通过 `capability` / primitive / strategy 表达，而不是按 id 写特殊分支？
 - [ ] 高频实体用了对象池？
 - [ ] 相机保证玩家居中（无 limit / drag margin）？
 - [ ] 暂停是否用 `get_tree().paused`，暂停菜单节点设 `process_mode=ALWAYS`，暂停键走可重绑定 action（非硬编码）？
@@ -226,9 +265,12 @@ alwaysApply: true
 - [ ] 存档走 `SaveManager` 且有 `version` 头字段与迁移注册？
 - [ ] 音频走 `AudioManager.play_sfx/play_music`（无裸 `AudioStreamPlayer.play()`）？
 - [ ] 代码常量来自 `client/scripts/contracts/` 自动生成文件（未手改）？
-- [ ] 约定字符串（stat/effect/event/设置/locale key）是否都来自 `docs/词表与契约.md` 且以常量引用（无裸字符串）？
+- [ ] 约定字符串（stat/effect/event/设置/locale key / role / capability / tag 等）是否都来自 `docs/词表与契约.md` 且以常量引用（无裸字符串）？
+- [ ] 角色 id、capability id、content tag 是否都来自词表第 12 节并以生成常量引用？
 - [ ] 新增数据是否照「黄金样例」结构填写，并能通过 `DataLoader` 校验？
 - [ ] 新代码是否使用类型化 GDScript？是否复用了模板？
+- [ ] 新增 / 修改长期代码模块、公共 API、signal、数据 schema 或依赖方向时，是否已同步 `docs/代码/` 模块文档？若无需更新，是否说明原因？
+- [ ] 面向用户的回复 / 总结是否默认使用中文（除非存在明确特殊场景）？
 - [ ] 是否已更新 `docs/AI导航.md`、`docs/决策记录.md` 等相关文档？
 - [ ] 是否套用了 `docs/AI协作/任务模板/`（高频任务）或遵守了上下文预算？
 - [ ] pre-commit hook 是否全过？（无 `--no-verify` 或已注明原因）
@@ -239,4 +281,5 @@ alwaysApply: true
 - [ ] 若涉及重要决策/对话，是否已更新 `docs/AI记忆/项目记忆.md`（跨机器续接用）？
 - [ ] 本次新确立的规则/约定是否已补充进本规则文件？
 - [ ] 本次变更涉及的设计/数值是否已同步更新到相关文档？
-- [ ] 改了 `.codebuddy/` 中的文件是否同步改了 `.codex/` 中的对应文件？
+- [ ] 改了 `AGENTS.md` / `CODEX.md` / `OPENCODE.md` / `.codebuddy/` / `.codex/` / `.opencode/` 平台入口或配置后，核心规则语义是否仍一致？工具适配指南是否需要更新？
+- [ ] 改了长期文档前是否阅读了 `docs/AI协作/文档维护指南.md`，并检查了目标文档的 AI 修改说明与联动清单？

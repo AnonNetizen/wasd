@@ -4,12 +4,19 @@
 > 与 `docs/AI记忆/` 的区别：
 > - `AI记忆/` 是**项目状态的长期记忆**（项目快照 / ADR / 待决策 / 近期脉络）。
 > - `AI协作/` 是**协作方式的工程模板**（任务模板 / 上下文预算 / 角色分工 / 引擎接入 / 实时验证）。
+>
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 AI 协作目录索引；新增模板、agent、command、工具适配或协作规则时，必须同步 `AGENTS.md`、`CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/`、`docs/AI导航.md`、`docs/AI协作/工具适配指南.md`、`docs/AI记忆/项目记忆.md`。
 
 ## 文件结构
 
 ```
+AGENTS.md                  # 所有 AI agent 的通用开工入口
+CODEX.md                   # OpenAI Codex CLI 入口适配
+OPENCODE.md                # OpenCode 入口适配
+
 docs/AI协作/
 ├── README.md             # 本文件
+├── 文档维护指南.md       # 长期文档修改的联动规则
 ├── 任务模板/             # 高频任务的标准 prompt + 文件操作清单
 │   ├── 加遗物.md
 │   ├── 加敌人.md
@@ -22,7 +29,7 @@ docs/AI协作/
 ├── 角色分工.md           # 设计/实现/评审/平衡 四角色协作
 ├── 引擎集成.md           # Godot/Unity MCP 等接入指南
 ├── 实时验证回路.md       # pre-commit hook + watch 脚本设计
-└── 工具适配指南.md       # 不用 CodeBuddy 时各 AI 工具的接入配法
+└── 工具适配指南.md       # 各 AI 工具的接入配法
 
 .codebuddy/agents/        # 项目级 subagents（codebuddy 平台）
 ├── balancer.md           # 平衡测试 / 回放回归 / 数值建议
@@ -35,7 +42,20 @@ docs/AI协作/
 ├── run-replay-regression.md
 ├── health-check.md
 └── update-memory.md
+
+.codex/                   # Codex CLI 平台配置；核心语义一致，可按 Codex 优化
+├── agents/
+├── commands/
+└── rules/
+
+.opencode/                # OpenCode 平台配置；核心语义一致，可按 OpenCode 优化
+├── opencode.json          # 指令加载 + command 注册
+├── agents/
+├── commands/
+└── rules/
 ```
+
+关联根目录文档：`docs/代码文档规范.md` 定义代码变更与对应文档的同步规则，`docs/代码/` 存放长期模块文档。
 
 ## 触发约定
 
@@ -54,4 +74,6 @@ AI agent 接到任务时优先按以下顺序：
 - 新高频任务出现 → 在 `任务模板/` 加一份。
 - 引擎工具链变化 → 更新 `引擎集成.md`。
 - 角色分工经验积累 → 微调 `角色分工.md`。
+- 新代码模块 / 公共 API / 数据 schema 变化 → 按 `docs/代码文档规范.md` 同步 `docs/代码/` 模块文档。
+- 平台入口变化 → 同步 `AGENTS.md` / `CODEX.md` / `OPENCODE.md` / `.codebuddy/` / `.codex/` / `.opencode/` / `工具适配指南.md`。
 - 重大变更 → 同步进 `决策记录.md` + `AI记忆/项目记忆.md`。
