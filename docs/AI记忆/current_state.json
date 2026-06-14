@@ -2,8 +2,8 @@
   "schema_version": 1,
   "updated_at": "2026-06-14",
   "current_phase": "docs_framework_and_mvp_m4_6",
-  "current_status": "Full project is still in documentation/framework design; deep meta progression is specified through client/data/meta_progression.json; strong SaveManager requirements now cover meta and run saves; docs/TODO.md tracks the human-readable future task backlog; MVP client has reached M4.6 with centralized mvp_config.json tunables; AI knowledge base v2 and three-layer AI memory are active; AI large-change auto-commit policy and context-compaction task recovery rule are established; eight project-level OpenCode skills are installed.",
-  "latest_adr": 54,
+  "current_status": "Full project is still in documentation/framework design; deep meta progression is specified through client/data/meta_progression.json; strong SaveManager requirements now cover meta and run saves; docs/TODO.md tracks the human-readable future task backlog; MVP client has reached M4.6 with centralized mvp_config.json tunables; AI knowledge base v2 and three-layer AI memory are active; AI large-change auto-commit policy and context-compaction task recovery rule are established; eight project-level OpenCode skills are installed; three external AI resource packages are installed as review-only submodules under .opencode/vendor/ai-resources.",
+  "latest_adr": 55,
   "open_decisions": ["A", "B", "C", "D", "E"],
   "last_completed": [
     "AI knowledge base v2 with docs_health_check",
@@ -20,7 +20,8 @@
     "Data validation, contract sync, and lightweight Godot Bridge landed: tools/sync_contracts.py, tools/validate_data.py, tools/godot_bridge.py, generated _contracts.json and client/scripts/contracts/*.gd, and docs-check CI now runs sync + validate + docs health (ADR #51)",
     "AI Git commit policy established: large changes are auto-committed after status/diff/log checks and verification; minor changes are not auto-committed; only task-owned files may be staged (ADR #52)",
     "Eight project-level OpenCode skills installed under .opencode/skills for Godot/GDScript, scene validation, Godot test diagnostics, doc sync, safe git commit, factual code review, AI resource curation, and MCP tool evaluation (ADR #53)",
-    "Context-compaction task recovery rule established: after summaries or context restoration, user last explicit instruction overrides summaries, Next Steps, and candidate current_state actions (ADR #54)"
+    "Context-compaction task recovery rule established: after summaries or context restoration, user last explicit instruction overrides summaries, Next Steps, and candidate current_state actions (ADR #54)",
+    "GodotPrompter, headless-godot-skill-kit, and Claude-Code-Game-Studios installed as review-only Git submodules under .opencode/vendor/ai-resources; they are not in OpenCode skills.paths and are not auto-enabled (ADR #55)"
   ],
   "next_actions": [
     "MVP M5 playtest and workflow/feel/config-tuning review",
@@ -116,6 +117,36 @@
       "date": "2026-06-14",
       "command": "git diff --check -- . :(exclude)draft/** :(exclude)DRAFT/**",
       "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 -m json.tool .opencode/opencode.json > $null",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 -m json.tool docs/_kb_index.json > $null",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 -m json.tool docs/AI记忆/current_state.json > $null",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 tools/docs_health_check.py",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "git submodule status -- .opencode/vendor/ai-resources/GodotPrompter .opencode/vendor/ai-resources/headless-godot-skill-kit .opencode/vendor/ai-resources/Claude-Code-Game-Studios",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "git diff --check -- . :(exclude)draft/** :(exclude)DRAFT/**",
+      "result": "passed"
     }
   ],
   "blockers": [],
@@ -130,6 +161,7 @@
     "Do not read or modify draft/ or DRAFT/ unless explicitly authorized.",
     "For large AI changes, create a git commit after checking status, diff, recent log, and verification; for minor changes, explain why no commit was made.",
     "Project-level OpenCode skills live in .opencode/skills and their source/evaluation notes live in docs/AI协作/AI技能资源评估.md; restart OpenCode after changing them.",
+    "External AI resource packages live in .opencode/vendor/ai-resources as review-only submodules; do not add that directory to skills.paths or enable hooks/commands without explicit user approval.",
     "After context summary, compaction, or restoration, align to the user's last explicit instruction first; summaries, Next Steps, and current_state next_actions are candidate context only, not authorization."
   ]
 }

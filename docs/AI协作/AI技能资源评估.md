@@ -39,7 +39,17 @@
 | `ai-resource-curator` | `.opencode/skills/ai-resource-curator/SKILL.md` | 未来继续评估 / 安装 AI skill、agent、plugin、MCP、rules 的筛选流程 |
 | `mcp-tool-evaluation` | `.opencode/skills/mcp-tool-evaluation/SKILL.md` | 评估 MCP server 是否应项目级 / 用户级安装，控制权限和密钥风险 |
 
-## 4. 暂不安装的资源
+## 4. 隔离安装的外部整包
+
+这些资源以 Git submodule 形式放在 `.opencode/vendor/ai-resources/`，供人工审阅和后续摘取模式；它们不在 `.opencode/opencode.json` 的 `skills.paths` 中，OpenCode 不会自动加载其中 skills、hooks、commands 或权限配置。
+
+| 资源 | 路径 | 当前用途 | 许可 |
+|------|------|----------|------|
+| `jame581/GodotPrompter` | `.opencode/vendor/ai-resources/GodotPrompter` | Godot skills、agents、GDScript / testing / debugging / UI / resource 等模式参考 | MIT |
+| `abagames/headless-godot-skill-kit` | `.opencode/vendor/ai-resources/headless-godot-skill-kit` | Headless Godot 场景编辑、测试、导出流程参考 | MIT |
+| `Donchitos/Claude-Code-Game-Studios` | `.opencode/vendor/ai-resources/Claude-Code-Game-Studios` | 大型游戏工作室式 agents / skills / workflow / gate 模式参考 | MIT |
+
+## 5. 暂不安装的资源
 
 | 资源 | 原因 |
 |------|------|
@@ -50,9 +60,10 @@
 | Cursor `.mdc` 规则包 | 本项目已有三平台规则入口；只吸收模式，不再引入第四套规则源 |
 | Playwright / Browserbase MCP | 当前没有 Web 应用，Godot 项目收益低且权限 / 依赖开销高 |
 
-## 5. 后续维护
+## 6. 后续维护
 
 - 新增 skill 前先用 `ai-resource-curator` 评估来源、许可证、权限和上下文成本。
 - 涉及 MCP 的新增建议先用 `mcp-tool-evaluation` 判断项目级 / 用户级 / 暂不安装。
 - 改 `.opencode/skills/` 后需要重启 OpenCode 才能保证运行中 session 看到新技能。
+- 改 `.opencode/vendor/ai-resources/` 后只表示外部资源可供审阅；除非同步修改 `.opencode/opencode.json`，否则不会自动启用。
 - 每次资源扫库后同步本文件、AI 记忆和当日会话日志。

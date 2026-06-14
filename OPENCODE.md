@@ -29,4 +29,5 @@
 | Subagents | `.opencode/agents/` |
 | Commands | `.opencode/commands/` |
 | Skills | `.opencode/skills/` |
+| 外部 AI 资源整包（不自动启用） | `.opencode/vendor/ai-resources/` |
 | 跨平台适配说明 | `docs/AI协作/工具适配指南.md` |
