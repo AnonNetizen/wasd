@@ -3,7 +3,7 @@
 > 本文档汇总本项目的 CI/CD 路线图与候选项，按「阶段 + 优先级」排列，作为后续逐步落地的清单。
 > 配套：`README.md`、`CONTRIBUTING.md`、当前平台编码规则入口、`词表与契约.md`、`决策记录.md`。
 >
-> 当前状态：已启用最小 Stage 1 workflow：`.github/workflows/docs-check.yml`。它只跑 JSON、CSV、文档健康检查和 whitespace diff；暂不启用 Godot、GUT、黄金回放、平衡 sim、commitlint 或复杂矩阵。
+> 当前状态：已启用 Stage 1 基础 workflow：`.github/workflows/docs-check.yml`。它跑契约生成同步检查、数据 / locale 校验、文档健康检查和 whitespace diff；暂不启用 Godot、GUT、黄金回放、平衡 sim、commitlint 或复杂矩阵。
 >
 > **测试相关**：本文件只列 CI 工作流的"何时跑、跑什么"。完整测试金字塔、必测清单、里程碑要求、性能预算、手动回归 checklist 见 `docs/测试策略.md`（测试唯一权威）。
 >
@@ -23,19 +23,19 @@
 | **元规则 19/20/24**：新规则/决策/设计/代码契约变更必须同步到对应文档 | CI 可把"同步检查"自动化 |
 | **Roguelike 平衡敏感** | 数值改动需"黄金回放"回归（见 4.M）；中后期跑批量 sim（见 4.N） |
 
-> **本地实时验证回路**：与 CI 配套，在本地通过 pre-commit hook 提供秒级反馈，详见 `docs/AI协作/实时验证回路.md`。本规划阶段 1 的脚本（`validate_contract.py` 等）应同时被 hook 与 CI 复用。
+> **本地实时验证回路**：与 CI 配套，在本地通过 pre-commit hook 提供秒级反馈，详见 `docs/AI协作/实时验证回路.md`。本规划阶段 1 的脚本（`sync_contracts.py` / `validate_data.py` / `docs_health_check.py`）应同时被 hook 与 CI 复用。
 
 ---
 
 ## 1. 阶段 1：现在就能开（无需等代码）
 
 ### 1.A 文档与数据基础校验 ⭐⭐⭐
-**workflow（已启用，最小版）**：`.github/workflows/docs-check.yml`
+**workflow（已启用，基础版）**：`.github/workflows/docs-check.yml`
 
-当前最小版检查：
+当前检查：
 
-- JSON 语法：`docs/_kb_index.json`、`docs/AI记忆/current_state.json`、`client/data/*.json`、`MinimumViableProduct/client/data/*.json`
-- CSV 基础完整性：`client/locale/strings.csv` 必须有 `keys` / `zh_CN` / `en`，key 唯一，中英文非空，占位符集合一致
+- 契约生成同步：`python tools/sync_contracts.py --check`，确认 `docs/词表与契约.md`、`client/data/_contracts.json`、`client/scripts/contracts/*.gd` 一致
+- 数据 / locale 校验：`python tools/validate_data.py`，覆盖 JSON 语法、`player.json`、`meta_progression.json`、`strings.csv`、MVP `mvp_config.json`
 - AI 知识库健康检查：运行 `python tools/docs_health_check.py`，校验知识库索引、ADR、current_state、链接、AI 修改说明和模块文档索引
 - whitespace diff：对本次提交范围运行 `git diff --check`，排除 `draft/` / `DRAFT/`
 
@@ -48,11 +48,12 @@
 后续可在脚本稳定后把 1.B、1.C、1.D 拆成独立 workflow 或并入本 workflow。
 
 ### 1.B 词表契约校验 ⭐⭐⭐（**项目独有护城河**）
-**workflow（拟建）**：`.github/workflows/contract-check.yml`
-**脚本（拟建）**：`scripts/validate_contract.py`
+**workflow（已并入）**：`.github/workflows/docs-check.yml`
+**脚本（已落地）**：`tools/sync_contracts.py` + `tools/validate_data.py`
 
-- 解析 `词表与契约.md` 表格 → 抽出白名单：`stat` / `effect` / `behavior.event` / 埋点 `event_name` / 设置 `key` / 输入 `action id` / 本地化 key 前缀
-- 当 `res://data/*.json` 落地后，扫描其中的 `stat` / `effect` / `event` 等字段
+- 解析 `词表与契约.md` 表格 → 抽出白名单：`stat` / `effect` / `behavior.event` / 埋点 `event_name` / 设置 `key` / 输入 `action id` / 本地化 key 前缀等
+- 生成并校验 `client/data/_contracts.json` 与 `client/scripts/contracts/*.gd`
+- 扫描已落地的 `client/data/*.json`，检查 `stat`、meta id、locale key 等引用
 - 新增 / 修改数据字段时，检查 `client/data/README.md` 是否包含字段说明（字段含义、单位、范围）
 - **未在白名单的 id 一律 CI 失败**，输出「文件名 + 字段路径 + 期望值」（对齐规则 16 的 fail-fast）
 - 即使代码尚未落地，脚本可先开发就绪，等数据出现立即起效
@@ -214,9 +215,9 @@
 
 | 阶段 | 项 | 何时做 | 收益 | 成本 |
 |------|---|-------|------|------|
-| 1 | A. 文档 / JSON / CSV / 知识库健康检查 | **已启用最小版** | 高 | 低 |
-| 1 | B. 词表契约校验 | **现在**（脚本先建） | 极高 | 中 |
-| 1 | C. 本地化 key 一致性 | 等数据落地 | 高 | 低 |
+| 1 | A. 文档 / 数据 / locale / 知识库健康检查 | **已启用基础版** | 高 | 低 |
+| 1 | B. 词表契约校验 | **已并入 docs-check** | 极高 | 中 |
+| 1 | C. 本地化 key 一致性 | **已覆盖基础版** | 高 | 低 |
 | 1 | D. commitlint | **现在** | 中 | 极低 |
 | 2 | E. GDScript lint | 代码落地后 | 高 | 低 |
 | 2 | F. 数据 schema 校验 | 代码落地后 | 极高 | 中 |
@@ -239,9 +240,9 @@
 
 ## 6. 推荐落地顺序（建议路径）
 
-1. **第一批（已启用最小版）**：1.A —— 文档 / JSON / CSV / whitespace 守门，保持低成本快速反馈
-2. **第二批（下一步）**：1.B + 1.D —— 词表契约同步脚本与 commitlint
-3. **第三批（数据/locale 扩大后）**：1.C + 2.F —— 数据完整性校验
+1. **第一批（已启用基础版）**：1.A + 1.B + 1.C —— 契约同步、数据 / locale、文档健康与 whitespace 守门
+2. **第二批（下一步）**：1.D + 本地 pre-commit —— commitlint 与本地实时验证
+3. **第三批（数据/locale 扩大后）**：2.F —— 更细 JSON Schema 与内容数据完整性校验
 4. **第四批（代码落地后）**：2.E + 2.G + 2.H+ —— GDScript 质量、启动验证与代码文档覆盖
 5. **第五批（核心系统稳定后）**：2.H —— 关键模块单测
 6. **第六批（准备发布时）**：3.I + 3.K —— 自动构建 + Web demo

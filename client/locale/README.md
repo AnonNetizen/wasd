@@ -149,13 +149,15 @@ meta_upgrade_damage_desc,永久提升基础伤害,Permanently increases base dam
 2. 给每个 key 补齐该列译文。
 3. 更新 `docs/词表与契约.md` 中 `general.locale` 的取值范围。
 4. 更新 `Settings` 语言选项与 Godot Project Settings 的 Localization 注册。
-5. 人工切换语言检查 UI、道具名、描述、设置菜单和失败 / 结算面板。
+5. 运行 `python tools/validate_data.py`，确认 key 唯一、必填语言非空、占位符一致。
+6. 人工切换语言检查 UI、道具名、描述、设置菜单和失败 / 结算面板。
 
 ## 人工校对清单
 
 - [ ] `keys` 是否唯一且命名符合词表 §6？
 - [ ] `zh_CN` 与 `en` 是否都有译文？
 - [ ] 所有语言的占位符集合是否一致？
+- [ ] 是否已运行 `python tools/validate_data.py`？
 - [ ] 数据文件是否只引用 `name_key` / `desc_key`，没有硬文本？
 - [ ] 代码是否只使用 `tr("key")`，没有玩家可见硬文本？
 - [ ] 新语言是否同步设置项、Godot Localization 和字体覆盖？

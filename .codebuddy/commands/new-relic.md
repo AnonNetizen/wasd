@@ -36,7 +36,7 @@ arguments: relic-name-or-concept
 
 - 不写 `.gd` 代码
 - 不改规则 / ADR
-- 不自动 commit
+- 按 `AGENTS.md` 的 AI Git 提交策略判断是否自动 commit；只提交本次遗物相关数据 / locale / 词表 / 生成文件
 - 不擅自加未登记 id
 - 不为某个遗物写 id 特判；破限必须 capability / primitive 化
 

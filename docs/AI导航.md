@@ -39,7 +39,8 @@
 | `client/` | **Godot 4.6.3 项目根**（即 Godot 中的 `res://`） |
 | `server/` | 服务器端预留（当前为单机项目，暂占位） |
 | `MinimumViableProduct/` | MVP 隔离实验区；文档与独立客户端代码都放此处，不污染完整项目 `client/` |
-| `.github/` | GitHub Issue / PR 模板与 Actions workflows；当前启用最小 `docs-check` CI |
+| `tools/` | 本地校验与桥接工具：`sync_contracts.py`、`validate_data.py`、`docs_health_check.py`、`godot_bridge.py` |
+| `.github/` | GitHub Issue / PR 模板与 Actions workflows；当前启用 Stage 1 基础 `docs-check` CI |
 | `draft/` / `DRAFT/` | 用户人工草稿，AI 禁止读取 / 搜索 / 修改 / 整理 / 引用，除非用户明确点名授权 |
 
 `client/` 下（落地代码后）：
@@ -52,7 +53,7 @@
 | `client/locale/`（即 `res://locale/`） | 本地化翻译表（CSV → `.translation`）+ `README.md` 多语言文案手册 |
 | `client/templates/`（即 `res://templates/`） | 新内容脚手架模板（enemy/relic 等） |
 | `client/assets/`（即 `res://assets/`） | 美术 / 音效 |
-| `user://settings.cfg` | 玩家设置存档；`user://` 下另存元进度存档 |
+| `user://settings.cfg` | 玩家设置存档；游戏进度存档走 `user://saves/<slot>/<kind>.save`（`meta` / `run` / `replay_index`） |
 
 `docs/` 下：
 
@@ -83,7 +84,7 @@
 | `docs/AI协作/工具适配指南.md` | 各 AI 工具（Codex / OpenCode / Claude Code / Aider / Cursor / Windsurf / ChatGPT 等）的接入配法 |
 | `docs/测试策略.md` | **5 层测试金字塔 + 里程碑要求 + 性能预算 + 手动回归 checklist（测试唯一权威）** |
 | `AGENTS.md` / `CODEX.md` / `OPENCODE.md` | 通用入口与 Codex / OpenCode 轻量入口适配 |
-| `.codebuddy/agents/` | 项目级 subagents：`balancer` / `contract-validator` / `data-author` |
+| `.codebuddy/agents/` | 项目级 subagents：执行类 `balancer` / `contract-validator` / `data-author`，创意类 `game-designer` / `numeric-designer` / `ip-designer` / `copywriter-packager` / `ui-art-designer` / `game-art-designer` / `marketing-strategist` |
 | `.codebuddy/commands/` | 项目级 slash commands：`/sync-contracts` / `/new-relic` / `/run-replay-regression` / `/health-check` / `/update-memory` |
 | `.codex/` | Codex CLI 平台配置；核心规则语义与 `.codebuddy/` 一致，但允许按 Codex 优化 agents / commands / rules |
 | `.opencode/` | OpenCode 平台配置；含 `opencode.json`、agents、commands、rules，核心规则语义与 `.codebuddy/` / `.codex/` 一致 |
@@ -104,6 +105,9 @@
 | **查知识库 / 找文档关系 / 任务路由** | 先看 `docs/AI知识库索引.md` 的任务路由表，需要机器可读元数据时看 `docs/_kb_index.json`，搜索同义词先看 `docs/术语表.md` |
 | **续接当前状态 / 下一步** | 先看 `docs/AI记忆/项目记忆.md` 的长期事实，再看 `docs/AI记忆/current_state.json` 的机器当前状态；需要历史细节才看当日会话日志 |
 | **查看 / 维护未来任务** | 看 `docs/TODO.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
+| **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
+| **校验数据 / 文案** | 跑 `python tools/validate_data.py`，覆盖 `client/data/*.json`、`client/locale/strings.csv` 与 MVP config 的 schema / 词表 / locale key 校验 |
+| **查 Godot 场景树 / headless 启动** | 跑 `python tools/godot_bridge.py export-tree` 或 `python tools/godot_bridge.py headless-boot`；默认项目为 `MinimumViableProduct/client` |
 | **做 MVP 实验** | 只改 `MinimumViableProduct/`；MVP 文档见 `MinimumViableProduct/README.md`，MVP 客户端代码放 `MinimumViableProduct/client/`，不要混入完整项目 `client/` |
 | **加一种子弹效果原语** | 先在 `词表与契约.md` 登记 `effect` id → 在效果原语层实现方法/Node → 数据中引用 |
 | **改数值（血/伤害/刷怪/掉落）** | 先读 `client/data/README.md`，只改 `res://data/` 对应 JSON，**绝不改代码常量**；新增 / 改字段必须同步数值手册 |
@@ -118,9 +122,10 @@
 | **加新敌人/子弹/特效**（高频实体） | `PoolManager.acquire(pool_id)` / `release(node)`；新池 id 在词表 §8 登记；实现 `_pool_reset()`（见 GDD 9.13） |
 | **加伤害逻辑** | 走 `Combat.apply_damage(target, DamageInfo)`；`damage_type` 在词表 §9；不 `target.hp -= n`（见 GDD 9.15.1） |
 | **加持续效果（DoT/控制/debuff）** | 用 `StatusEffect` Resource + `StatusEffectComponent.apply()`；id 在词表 §9-A；明确 `stack_rule`（见 GDD 9.15.2） |
-| **加存档/读档** | 走 `SaveManager.save/load`；schema 必带 `version` + 迁移；与 `Settings` 职责分开（见 GDD 9.16） |
+| **加存档/读档** | 走 `SaveManager.save/load`；必须支持 `meta` 局外成长和 `run` 暂停退出续局；schema 必带 `version` / `kind` / `slot` / `created_at` / `updated_at` / `game_version` / `data_hash`；写入用 `*.tmp` 原子替换、保留 `.bak`、坏档进 `.broken/`；save kind 先登记词表 §14；与 `Settings` 职责分开（见 GDD 9.16） |
 | **加音效/BGM** | `AudioManager.play_sfx/play_music`；id 在词表 §10；不直接 `AudioStreamPlayer.play()`（见 GDD 9.17） |
 | **执行 AI 高频任务** | 先查 `docs/AI协作/任务模板/`；任务不在模板里 → 按 `docs/AI协作/上下文预算.md` 决定读取范围 |
+| **提交 / 收尾大更改** | 按 `AGENTS.md` 的 AI Git 提交策略：大更改默认自动 commit，细微改动不提交；提交前看 `git status --short` / `git diff` / `git log --oneline -10`，只 stage 本次任务文件 |
 | **写/改测试** | 看 `docs/测试策略.md`：L0~L5 金字塔 + 各层必测清单 + 里程碑要求 + 测试义务表 |
 
 ## 5. 核心系统模块
@@ -236,11 +241,15 @@ flowchart LR
 - ❌ 直接 `add_child` UI 弹窗（必须 `UIManager.push/pop`）
 - ❌ `target.hp -= n` 直接扣血（必须 `Combat.apply_damage(DamageInfo)`）
 - ❌ 各自实现 DoT/debuff 叠加逻辑（必须 `StatusEffect` Resource + Component）
-- ❌ 存档无 `version` 字段（必须 `SaveManager` 标准头）
+- ❌ 存档缺标准头字段、迁移、原子写入、`.bak` 回退或 `.broken` 损坏隔离（必须走 `SaveManager`）
 - ❌ 业务代码 `AudioStreamPlayer.play()`（必须 `AudioManager.play_sfx/music`）
 - ❌ 手改 `client/scripts/contracts/*.gd`（自动生成，改 `docs/词表与契约.md` + 跑 `tools/sync_contracts.py`）
+- ❌ 改了数据 / 文案 / 词表却不跑 `tools/validate_data.py` 或 `tools/sync_contracts.py --check`
 - ❌ 新增 / 修改长期代码模块却没有对应详细 `docs/代码/` 模块文档、或用简短自动摘要替代维护文档
 - ❌ 面向用户的回复默认使用英文或其他语言（除非用户明确要求、引用原文或目标文件语言要求）
+- ❌ 用户问有没有问题 / 风险时，为了显得有用而硬找问题、过度优化或提出无必要改动（没发现问题就明确说没有问题）
+- ❌ 用户提出需求后不先评估落地前景、性价比、复杂度和主要风险，闷声做到最后才暴露重大隐患
+- ❌ 大更改后不按 AI Git 提交策略自动 commit，或提交前不查 status / diff / log、误 stage 用户脏改动 / `draft/` / `DRAFT/`
 - ❌ 读取、搜索、整理、格式化、总结或引用 `draft/` / `DRAFT/` 人工草稿（除非用户明确点名授权）
 - ❌ 把 MVP 临时代码 / 文档混入完整项目 `client/` 或根目录正式文档而不经过 ADR 决策
 - ✅ 改完同步更新规则文件与相关文档（元规则）

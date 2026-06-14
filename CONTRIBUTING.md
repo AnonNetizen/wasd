@@ -32,7 +32,7 @@ git config --global user.email "<your email>"
 | **OpenAI Codex CLI** | 想用 Codex 平台配置（`.codex/agents/`、`.codex/commands/`、`.codex/rules/`）|
 | **OpenCode** | 想用 OpenCode 协作；入口见 `OPENCODE.md` 与 `.opencode/opencode.json` |
 | **Godot 4.6.3** | 真正运行 / 调试 `client/`（M1 起）|
-| **Python 3.10+** | 跑 `tools/docs_health_check.py`、JSON / CSV 校验和后续 `tools/sync_contracts.py` |
+| **Python 3.10+** | 跑 `tools/sync_contracts.py`、`tools/validate_data.py`、`tools/docs_health_check.py` 与后续工具脚本 |
 | **gdtoolkit / GUT** | M1 之后的 lint 与单测（详见 `docs/测试策略.md`）|
 
 **AI agent 第一件事**：读 `AGENTS.md` → `docs/AI记忆/项目记忆.md` → `docs/AI记忆/current_state.json`，无需翻历史聊天即可续接。
@@ -123,11 +123,27 @@ docs(adr): 记录暂停功能实现约定
 ### 4. 中文文件名显示
 已在第零节配置 `core.quotepath=false`。如未做或显示转义码，回看本文件第零节。
 
+### 5. AI 自动提交策略
+
+- AI 完成大更改后默认自动 commit：跨多文件功能 / 工具 / CI / 规则 / ADR / 数据 schema / 代码模块 / 重要文档同步等可独立回滚的变更。
+- 细微改动不自动 commit：拼写、单行措辞、小范围说明、只读诊断、临时验证或用户明确说“先别提交”的改动。
+- 自动 commit 前必须执行 `git status --short`、`git diff`、`git log --oneline -10`，跑对应验证，只 stage 本次任务明确修改的文件。
+- 禁止提交用户已有脏改动、其他 agent 改动、`draft/` / `DRAFT/` 内容、未确认临时文件或本机私有配置；无法干净拆分时先问用户。
+- commit message 使用 Conventional Commits；禁止 `--no-verify`，除非用户明确批准且 message 写明原因。
+
 ---
 
 ## 四、PR Checklist（提交前自检）
 
-当前 GitHub Actions 已启用最小 `docs-check`：PR / `main` push 会自动检查 JSON、`strings.csv`、文档健康和 whitespace diff。它暂不跑 Godot、GUT、黄金回放或平衡 sim。
+当前 GitHub Actions 已启用 Stage 1 `docs-check`：PR / `main` push 会自动检查契约同步、数据 / locale、文档健康和 whitespace diff。它暂不跑 Godot、GUT、黄金回放或平衡 sim。
+
+本地提交前建议先跑：
+
+```bash
+python tools/sync_contracts.py --check
+python tools/validate_data.py
+python tools/docs_health_check.py
+```
 
 - [ ] 没有硬编码可调数值（都在 `res://data/`）？
 - [ ] 没有硬编码玩家可见文本（都用 `tr()` 文本键）？
@@ -135,6 +151,8 @@ docs(adr): 记录暂停功能实现约定
 - [ ] 新遗物/道具是加数据而非加逻辑分支？
 - [ ] 高频实体用了对象池？
 - [ ] 约定字符串都来自 `docs/词表与契约.md` 且以常量引用？
+- [ ] 改词表后是否已运行 `python tools/sync_contracts.py` 并确认 `--check` 通过？
+- [ ] 改数据 / 文案后是否已运行 `python tools/validate_data.py`？
 - [ ] 新代码使用类型化 GDScript？
 - [ ] 已更新 `docs/AI导航.md` / `docs/决策记录.md` 等相关文档？
 - [ ] 本次新规则 / 设计变更已同步到对应文档？

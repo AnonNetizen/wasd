@@ -26,65 +26,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Validate JSON files
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
+      - name: Check generated contracts
+        run: python tools/sync_contracts.py --check
 
-          files = [
-              Path('docs/_kb_index.json'),
-              Path('docs/AI记忆/current_state.json'),
-          ]
-          files.extend(sorted(Path('client/data').glob('*.json')))
-          files.extend(sorted(Path('MinimumViableProduct/client/data').glob('*.json')))
-
-          for path in files:
-              with path.open(encoding='utf-8') as handle:
-                  json.load(handle)
-              print(f'json ok: {path}')
-          PY
-
-      - name: Validate locale CSV
-        run: |
-          python - <<'PY'
-          import csv
-          import re
-          from pathlib import Path
-
-          path = Path('client/locale/strings.csv')
-          placeholder = re.compile(r'\{[a-z0-9_]+\}')
-
-          with path.open(encoding='utf-8-sig', newline='') as handle:
-              reader = csv.DictReader(handle)
-              required = {'keys', 'zh_CN', 'en'}
-              missing = required.difference(reader.fieldnames or [])
-              if missing:
-                  raise SystemExit(f'{path}: missing columns {sorted(missing)}')
-
-              seen = set()
-              for line_number, row in enumerate(reader, start=2):
-                  key = row['keys']
-                  if not key:
-                      raise SystemExit(f'{path}:{line_number}: empty key')
-                  if key in seen:
-                      raise SystemExit(f'{path}:{line_number}: duplicate key {key}')
-                  seen.add(key)
-
-                  for locale in ('zh_CN', 'en'):
-                      if not row[locale]:
-                          raise SystemExit(f'{path}:{line_number}: missing {locale} translation for {key}')
-
-                  zh_placeholders = set(placeholder.findall(row['zh_CN']))
-                  en_placeholders = set(placeholder.findall(row['en']))
-                  if zh_placeholders != en_placeholders:
-                      raise SystemExit(
-                          f'{path}:{line_number}: placeholder mismatch for {key}: '
-                          f'zh_CN={sorted(zh_placeholders)} en={sorted(en_placeholders)}'
-                      )
-
-          print(f'csv ok: {path}')
-          PY
+      - name: Validate data and locale
+        run: python tools/validate_data.py
 
       - name: Run docs health check
         run: python tools/docs_health_check.py

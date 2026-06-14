@@ -9,9 +9,12 @@
 1. 先读 `AGENTS.md`，按其中“开工 5 步”继续。
 2. 强制编码规则优先读 `.codex/rules/game-coding-rules.md`。
 3. 面向用户的回复默认中文；仅在用户明确要求或引用代码 / API / 日志原文等特殊场景使用其他语言。
-4. 需要 subagent 时，优先用 `.codex/agents/` 下同名角色；不支持自动调度时，把对应 `.md` 当 prompt 模板读。
-5. 需要 slash command 时，优先用 `.codex/commands/` 下同名步骤；不支持命令时，按文件步骤手动执行。
-6. 如果 `.codex/` 与 `AGENTS.md` 口径冲突，以 `AGENTS.md`、编码规则和 `docs/决策记录.md` 的核心项目约束为准，并同步修正文档漂移。
+4. 用户问有没有问题 / 风险时，基于事实回答；没发现问题就明确说没有问题，不硬找问题或过度优化。
+5. 用户提出新需求后，先简短反馈落地前景、性价比、复杂度和主要风险；有重大隐患时先说清楚，再决定是否实现。
+6. 大更改完成后按 `AGENTS.md` 的 AI Git 提交策略自动 commit；细微改动不提交；提交前必须检查 status/diff/log 并只 stage 本次任务文件。
+7. 需要 subagent 时，优先用 `.codex/agents/` 下同名角色；不支持自动调度时，把对应 `.md` 当 prompt 模板读。
+8. 需要 slash command 时，优先用 `.codex/commands/` 下同名步骤；不支持命令时，按文件步骤手动执行。
+9. 如果 `.codex/` 与 `AGENTS.md` 口径冲突，以 `AGENTS.md`、编码规则和 `docs/决策记录.md` 的核心项目约束为准，并同步修正文档漂移。
 
 ## Codex 平台文件
 

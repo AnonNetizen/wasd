@@ -219,7 +219,7 @@
 1. 先看本文档确认字段单位和范围。
 2. 只改目标 JSON，不改 GDScript 常量。
 3. 如果新增 id，先改 `docs/词表与契约.md`，再跑 `/sync-contracts` 或等价同步流程。
-4. 修改后运行 JSON / schema / 契约校验；代码落地后由 `DataLoader` fail-fast。
+4. 修改后运行 `python tools/sync_contracts.py --check` 与 `python tools/validate_data.py`；代码落地后由 `DataLoader` fail-fast。
 5. 大幅调整基础属性、难度曲线、掉落或升级概率后，按 `docs/测试策略.md` 跑回放 / 平衡验证。
 
 ## 新增数据文件或字段时
@@ -238,6 +238,7 @@
 
 - [ ] 数值是否在 `client/data/*.json`，而不是脚本常量？
 - [ ] 字段单位、范围、默认值是否已写进本文档？
+- [ ] 是否已运行 `python tools/validate_data.py`？
 - [ ] 玩家可见文本是否只存 key，译文是否在 `client/locale/strings.csv`？
 - [ ] 所有 id 是否来自 `docs/词表与契约.md`？
 - [ ] 大幅平衡改动是否有回放 / sim / 人工试玩记录？

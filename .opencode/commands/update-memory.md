@@ -20,6 +20,6 @@ description: 显式触发 AI 记忆更新（长期索引 + current_state.json + 
 
 ## 不要做
 
-- 不要自动 commit。
+- 按 `AGENTS.md` 的 AI Git 提交策略判断；单独记忆维护通常属于细微改动不自动 commit，若属于大更改收尾则随本次任务提交。
 - 不要改 ADR / 规则 / 设计文档，除非这是当前主任务的一部分。
 - 不要把历史细节塞进项目记忆主索引；短期状态写 `current_state.json`，历史细节写会话日志。

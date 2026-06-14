@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""Lightweight bridge commands for Godot project inspection and validation."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_PROJECT = ROOT / "MinimumViableProduct" / "client"
+COMMON_GODOT_PATHS = [
+    Path(r"E:\SteamLibrary\steamapps\common\Godot Engine\godot.exe"),
+    Path(r"C:\Program Files\Godot\godot.exe"),
+]
+
+NODE_RE = re.compile(r"^\[node\s+(.+)\]$")
+EXT_RESOURCE_RE = re.compile(r'^\[ext_resource\s+type="(?P<type>[^"]+)"\s+path="(?P<path>[^"]+)"\s+id="(?P<id>[^"]+)"')
+ATTR_RE = re.compile(r'(\w+)="([^"]*)"')
+SCRIPT_RE = re.compile(r'^script\s*=\s*ExtResource\("(?P<id>[^"]+)"\)')
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Godot bridge for wasd tooling.")
+    parser.add_argument("--project", default=str(DEFAULT_PROJECT), help="Godot project directory. Defaults to MVP client.")
+    parser.add_argument("--godot", default=None, help="Path to the Godot executable. Defaults to GODOT_PATH or common paths.")
+
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers.add_parser("export-tree", help="Export .tscn node trees as JSON without launching Godot.")
+    subparsers.add_parser("validate-data", help="Run tools/validate_data.py.")
+    subparsers.add_parser("godot-version", help="Print the configured Godot version.")
+    subparsers.add_parser("headless-boot", help="Run godot --headless --path <project> --quit.")
+
+    args = parser.parse_args()
+    project = Path(args.project).resolve()
+
+    if args.command == "export-tree":
+        return _export_tree(project)
+    if args.command == "validate-data":
+        return _run_python_tool("validate_data.py")
+
+    godot = _resolve_godot(args.godot)
+    if godot is None:
+        print("[godot-bridge] Godot executable not found. Set --godot or GODOT_PATH.")
+        return 1
+    if args.command == "godot-version":
+        return _run_command([str(godot), "--version"], cwd=ROOT)
+    if args.command == "headless-boot":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        return _run_command([str(godot), "--headless", "--path", str(project), "--quit"], cwd=project)
+
+    print(f"[godot-bridge] unknown command: {args.command}")
+    return 1
+
+
+def _export_tree(project: Path) -> int:
+    if not (project / "project.godot").exists():
+        print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+        return 1
+
+    scenes_dir = project / "scenes"
+    scene_paths = sorted(scenes_dir.rglob("*.tscn")) if scenes_dir.exists() else []
+    payload = {
+        "schema_version": 1,
+        "project": _rel(project),
+        "main_scene": _main_scene(project),
+        "scenes": [_parse_scene(project, path) for path in scene_paths],
+    }
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _parse_scene(project: Path, path: Path) -> dict[str, Any]:
+    ext_resources: dict[str, dict[str, str]] = {}
+    nodes: list[dict[str, Any]] = []
+    current_node: dict[str, Any] | None = None
+
+    for line in path.read_text(encoding="utf-8").splitlines():
+        ext_match = EXT_RESOURCE_RE.match(line)
+        if ext_match:
+            ext_resources[ext_match.group("id")] = {
+                "type": ext_match.group("type"),
+                "path": ext_match.group("path"),
+            }
+            current_node = None
+            continue
+
+        node_match = NODE_RE.match(line)
+        if node_match:
+            attrs = dict(ATTR_RE.findall(node_match.group(1)))
+            node = {
+                "name": attrs.get("name", ""),
+                "type": attrs.get("type", ""),
+                "parent": attrs.get("parent", ""),
+                "path": "",
+            }
+            nodes.append(node)
+            current_node = node
+            continue
+
+        if current_node is not None:
+            script_match = SCRIPT_RE.match(line)
+            if script_match:
+                resource = ext_resources.get(script_match.group("id"))
+                if resource is not None:
+                    current_node["script"] = resource["path"]
+
+    _assign_node_paths(nodes)
+    return {
+        "path": _rel(path),
+        "nodes": nodes,
+    }
+
+
+def _assign_node_paths(nodes: list[dict[str, Any]]) -> None:
+    if not nodes:
+        return
+    root_name = nodes[0].get("name", "root") or "root"
+    known: dict[str, str] = {".": root_name, "": root_name}
+    nodes[0]["path"] = root_name
+    for node in nodes[1:]:
+        parent = str(node.get("parent", ""))
+        parent_path = known.get(parent, f"{root_name}/{parent}" if parent else root_name)
+        node_path = f"{parent_path}/{node.get('name', '')}"
+        node["path"] = node_path
+        relative_path = node_path.removeprefix(f"{root_name}/")
+        known[relative_path] = node_path
+
+
+def _main_scene(project: Path) -> str | None:
+    project_file = project / "project.godot"
+    for line in project_file.read_text(encoding="utf-8").splitlines():
+        if line.startswith("run/main_scene="):
+            return line.split("=", 1)[1].strip().strip('"')
+    return None
+
+
+def _run_python_tool(script_name: str) -> int:
+    command = [sys.executable, str(ROOT / "tools" / script_name)]
+    return _run_command(command, cwd=ROOT)
+
+
+def _run_command(command: list[str], *, cwd: Path) -> int:
+    completed = subprocess.run(command, cwd=cwd, text=True, capture_output=True, check=False)
+    if completed.stdout:
+        print(completed.stdout, end="")
+    if completed.stderr:
+        print(completed.stderr, end="", file=sys.stderr)
+    return completed.returncode
+
+
+def _resolve_godot(argument: str | None) -> Path | None:
+    candidates: list[Path] = []
+    if argument:
+        candidates.append(Path(argument))
+    env_path = os.environ.get("GODOT_PATH")
+    if env_path:
+        candidates.append(Path(env_path))
+    candidates.extend(COMMON_GODOT_PATHS)
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
+    return None
+
+
+def _rel(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -6,16 +6,16 @@
     {
       "path": "AGENTS.md",
       "type": "entrypoint",
-      "authority": "AI agent startup order, red lines, required reading, language policy",
+      "authority": "AI agent startup order, red lines, required reading, language policy, AI Git commit policy",
       "status": "active",
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-06-14",
-      "canonical_for": ["ai_startup", "core_red_lines", "startup_reading_order"],
+      "canonical_for": ["ai_startup", "core_red_lines", "startup_reading_order", "ai_git_commit_policy"],
       "must_read_for": ["new_session", "rule_change", "ai_platform_change"],
       "related_docs": ["docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json", "docs/AI导航.md", "docs/AI协作/工具适配指南.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/"],
-      "update_triggers": ["startup flow changes", "core red line changes", "new cross-platform command or agent"],
-      "keywords": ["agent", "startup", "开工", "红线", "AI入口"]
+      "update_triggers": ["startup flow changes", "core red line changes", "new cross-platform command or agent", "AI Git commit policy changes"],
+      "keywords": ["agent", "startup", "开工", "红线", "AI入口", "不过度优化", "需求评估", "风险评估", "没有问题", "AI Git", "自动commit", "提交策略"]
     },
     {
       "path": "CODEX.md",
@@ -29,7 +29,7 @@
       "related_docs": ["AGENTS.md", "OPENCODE.md", "docs/AI协作/工具适配指南.md"],
       "related_code": [".codex/"],
       "update_triggers": ["Codex startup flow changes", "Codex agent or command changes", "cross-platform rule changes"],
-      "keywords": ["Codex", "CODEX", "codex cli", "平台入口"]
+      "keywords": ["Codex", "CODEX", "codex cli", "平台入口", "需求评估", "不过度优化", "AI Git", "自动commit"]
     },
     {
       "path": "OPENCODE.md",
@@ -37,13 +37,13 @@
       "authority": "OpenCode startup adapter and platform file map",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["opencode_entrypoint"],
       "must_read_for": ["opencode_session", "opencode_config_change", "ai_platform_change"],
       "related_docs": ["AGENTS.md", "CODEX.md", "docs/AI协作/工具适配指南.md"],
       "related_code": [".opencode/"],
       "update_triggers": ["OpenCode startup flow changes", "OpenCode agent or command changes", "cross-platform rule changes"],
-      "keywords": ["OpenCode", "OPENCODE", "opencode.json", "平台入口"]
+      "keywords": ["OpenCode", "OPENCODE", "opencode.json", "平台入口", "subagent", "需求评估", "不过度优化", "AI Git", "自动commit"]
     },
     {
       "path": "README.md",
@@ -62,16 +62,16 @@
     {
       "path": "CONTRIBUTING.md",
       "type": "entrypoint",
-      "authority": "Contribution workflow, new-machine setup, commit expectations",
+      "authority": "Contribution workflow, new-machine setup, commit expectations, AI auto-commit boundaries",
       "status": "active",
       "owner_scope": "project",
-      "last_reviewed": "2026-06-13",
-      "canonical_for": ["contribution_flow", "new_machine_setup", "commit_process"],
+      "last_reviewed": "2026-06-14",
+      "canonical_for": ["contribution_flow", "new_machine_setup", "commit_process", "ai_git_commit_policy"],
       "must_read_for": ["new_machine_setup", "commit", "workflow_change"],
       "related_docs": ["README.md", "AGENTS.md", "docs/CICD规划.md", "docs/AI导航.md"],
-      "related_code": [],
+      "related_code": ["tools/sync_contracts.py", "tools/validate_data.py", "tools/godot_bridge.py"],
       "update_triggers": ["toolchain changes", "commit flow changes", "setup instructions change"],
-      "keywords": ["contributing", "贡献", "setup", "commit", "提交流程"]
+      "keywords": ["contributing", "贡献", "setup", "commit", "提交流程", "AI Git", "自动commit", "提交策略"]
     },
     {
       "path": "docs/AI知识库索引.md",
@@ -79,7 +79,7 @@
       "authority": "Human-readable map for docs as an AI knowledge base",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["knowledge_base", "authority_hierarchy", "task_routes", "adr_tracking_matrix"],
       "must_read_for": ["doc_structure_change", "task_routing", "knowledge_base_change"],
       "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md"],
@@ -127,7 +127,7 @@
       "related_docs": ["docs/决策记录.md", "docs/AI导航.md", "docs/词表与契约.md", "docs/测试策略.md"],
       "related_code": ["client/", "MinimumViableProduct/"],
       "update_triggers": ["gameplay behavior change", "system design change", "new infrastructure decision"],
-      "keywords": ["GDD", "design", "玩法", "系统", "手柄", "autoload", "经验", "升级", "luck", "level-up", "局外成长", "meta progression", "数值配置", "本地化", "文案"]
+      "keywords": ["GDD", "design", "玩法", "系统", "手柄", "autoload", "经验", "升级", "luck", "level-up", "局外成长", "meta progression", "SaveManager", "run save", "续局", "数值配置", "本地化", "文案"]
     },
     {
       "path": "docs/决策记录.md",
@@ -141,7 +141,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束"]
+      "keywords": ["ADR", "decision", "决策", "约束", "subagent", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "契约同步", "数据校验", "Godot Bridge", "AI Git", "自动commit", "提交策略"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -149,13 +149,13 @@
       "authority": "Whitelisted ids, InputMap actions, contract strings, generated constants source",
       "status": "active",
       "owner_scope": "data-contract",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["contract_ids", "input_actions", "generated_constants_source"],
       "must_read_for": ["new_id", "data_change", "input_change", "contract_sync"],
       "related_docs": ["docs/游戏设计文档.md", "docs/AI导航.md", "docs/代码文档规范.md", "client/data/README.md", "client/locale/README.md"],
-      "related_code": ["client/", "tools/"],
+      "related_code": ["client/data/_contracts.json", "client/scripts/contracts/", "tools/sync_contracts.py", "tools/validate_data.py"],
       "update_triggers": ["new id", "renamed id", "deleted id", "contract schema change"],
-      "keywords": ["contract", "词表", "action", "stat", "effect", "setting", "rng", "locale", "本地化key", "meta", "unlock", "局外成长"]
+      "keywords": ["contract", "词表", "action", "stat", "effect", "setting", "rng", "locale", "本地化key", "meta", "unlock", "局外成长", "save_kind", "run save", "sync_contracts", "_contracts.json"]
     },
     {
       "path": "client/data/README.md",
@@ -163,13 +163,13 @@
       "authority": "Human-facing numeric configuration manual for client/data JSON files",
       "status": "active",
       "owner_scope": "data-contract",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["numeric_config_manual", "client_data_fields", "tuning_workflow"],
       "must_read_for": ["balance_change", "data_schema_change", "new_data_file", "new_numeric_field"],
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/AI导航.md", "client/locale/README.md"],
-      "related_code": ["client/data/"],
+      "related_code": ["client/data/", "tools/validate_data.py", "tools/sync_contracts.py"],
       "update_triggers": ["new data file", "new numeric field", "changed unit or range", "DataLoader schema change"],
-      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "player.json", "meta_progression.json", "局外成长"]
+      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "player.json", "meta_progression.json", "局外成长", "validate_data"]
     },
     {
       "path": "client/locale/README.md",
@@ -177,13 +177,13 @@
       "authority": "Human-facing localization and copy configuration manual for client/locale",
       "status": "active",
       "owner_scope": "localization",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["locale_config_manual", "strings_csv", "translation_workflow", "placeholder_rules"],
       "must_read_for": ["new_player_text", "new_language", "locale_key_change", "placeholder_rule_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/AI导航.md", "client/data/README.md"],
-      "related_code": ["client/locale/"],
+      "related_code": ["client/locale/", "tools/validate_data.py"],
       "update_triggers": ["new locale key domain", "new language column", "placeholder convention change", "strings.csv format change"],
-      "keywords": ["locale", "localization", "strings.csv", "文案", "多语言", "翻译", "占位符", "meta_", "局外成长文案"]
+      "keywords": ["locale", "localization", "strings.csv", "文案", "多语言", "翻译", "占位符", "meta_", "局外成长文案", "validate_data"]
     },
     {
       "path": "docs/测试策略.md",
@@ -191,13 +191,13 @@
       "authority": "Testing pyramid, coverage, replay, performance, manual regression requirements",
       "status": "active",
       "owner_scope": "test",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["testing_strategy", "coverage_targets", "manual_regression"],
       "must_read_for": ["test_change", "behavior_change", "replay_change"],
       "related_docs": ["docs/CICD规划.md", "docs/AI导航.md", "docs/代码文档规范.md"],
       "related_code": ["client/", "tools/"],
       "update_triggers": ["new testing requirement", "coverage target change", "new golden replay policy"],
-      "keywords": ["test", "测试", "GUT", "replay", "coverage", "手动回归", "MetaProgressionSystem", "局外成长"]
+      "keywords": ["test", "测试", "GUT", "replay", "coverage", "手动回归", "MetaProgressionSystem", "局外成长", "SaveManager", "续局存档", "L0", "validate_data"]
     },
     {
       "path": "docs/代码文档规范.md",
@@ -205,7 +205,7 @@
       "authority": "Detailed module documentation requirements for client code",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["module_doc_standard", "code_doc_sync"],
       "must_read_for": ["code_module_change", "public_api_change", "module_doc_change"],
       "related_docs": ["docs/代码/README.md", "docs/AI导航.md", "docs/AI协作/文档维护指南.md"],
@@ -219,7 +219,7 @@
       "authority": "Index for long-lived client module documentation",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["module_doc_index"],
       "must_read_for": ["code_module_change", "module_doc_lookup"],
       "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md"],
@@ -238,8 +238,8 @@
       "must_read_for": ["new_task", "extension_change", "dependency_change"],
       "related_docs": ["docs/AI知识库索引.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md"],
       "related_code": ["client/", "MinimumViableProduct/"],
-      "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change"],
-      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "局外成长", "MetaProgressionSystem"]
+      "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
+      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "AI Git", "自动commit", "提交策略"]
     },
     {
       "path": "docs/AI记忆/项目记忆.md",
@@ -265,7 +265,7 @@
       "canonical_for": ["current_state", "next_actions", "latest_verification"],
       "must_read_for": ["new_session", "memory_update", "task_resume"],
       "related_docs": ["docs/AI记忆/项目记忆.md", "docs/AI记忆/README.md", "docs/TODO.md", "docs/决策记录.md", "docs/修改建议.md"],
-      "related_code": ["tools/docs_health_check.py"],
+      "related_code": ["tools/docs_health_check.py", "tools/sync_contracts.py", "tools/validate_data.py"],
       "update_triggers": ["new ADR", "open decision changes", "next action changes", "verification run"],
       "keywords": ["current_state", "next actions", "latest ADR", "open decisions", "当前状态"]
     },
@@ -309,7 +309,7 @@
       "related_docs": ["docs/AI协作/README.md", "docs/AI知识库索引.md", "AGENTS.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/", "tools/"],
       "update_triggers": ["new AI workflow", "new command", "new agent", "new validation loop"],
-      "keywords": ["AI协作", "workflow", "template", "agent", "command"]
+      "keywords": ["AI协作", "workflow", "template", "agent", "command", "subagent", "game-designer", "numeric-designer", "ip-designer", "copywriter-packager", "ui-art-designer", "game-art-designer", "marketing-strategist", "自动commit"]
     },
     {
       "path": "docs/AI协作/README.md",
@@ -317,13 +317,13 @@
       "authority": "AI collaboration directory and workflow entry",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["ai_workflow_entry"],
-      "must_read_for": ["ai_workflow_lookup", "new_template", "new_command"],
+      "must_read_for": ["ai_workflow_lookup", "new_template", "new_command", "new_agent"],
       "related_docs": ["docs/AI协作/上下文预算.md", "docs/AI协作/文档维护指南.md", "docs/AI协作/工具适配指南.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/"],
       "update_triggers": ["new AI workflow", "new command", "new agent", "new validation loop"],
-      "keywords": ["AI协作", "workflow", "command", "agent", "template"]
+      "keywords": ["AI协作", "workflow", "command", "agent", "template", "subagent", "creative", "design"]
     },
     {
       "path": "docs/AI协作/上下文预算.md",
@@ -331,7 +331,7 @@
       "authority": "Task-specific reading budgets and anti-blind-search rules",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["context_budget", "task_reading_scope"],
       "must_read_for": ["new_task_type", "search_scope_change"],
       "related_docs": ["docs/AI协作/README.md", "docs/AI协作/任务模板/", "docs/AI导航.md"],
@@ -345,13 +345,13 @@
       "authority": "AI collaboration roles and subagent responsibility boundaries",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["ai_roles", "subagent_responsibilities"],
       "must_read_for": ["new_subagent", "role_change", "complex_task_split"],
       "related_docs": ["docs/AI协作/README.md", "AGENTS.md", "docs/AI协作/工具适配指南.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/"],
       "update_triggers": ["new role", "subagent responsibility change", "agent file change"],
-      "keywords": ["角色分工", "subagent", "agent", "balancer", "data-author"]
+      "keywords": ["角色分工", "subagent", "agent", "balancer", "data-author", "game-designer", "numeric-designer", "ip-designer", "copywriter-packager", "ui-art-designer", "game-art-designer", "marketing-strategist"]
     },
     {
       "path": "docs/AI协作/文档维护指南.md",
@@ -359,7 +359,7 @@
       "authority": "Document maintenance process and linked-file checklist",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["doc_maintenance", "linked_doc_checklist"],
       "must_read_for": ["document_change", "new_long_lived_doc", "kb_index_change"],
       "related_docs": ["docs/代码文档规范.md", "docs/AI知识库索引.md", "docs/AI协作/文档健康检查.md"],
@@ -379,7 +379,7 @@
       "related_docs": ["docs/AI知识库索引.md", "docs/_kb_index.json", "docs/CICD规划.md"],
       "related_code": ["tools/docs_health_check.py"],
       "update_triggers": ["new health-check rule", "script behavior change", "CI docs-check change"],
-      "keywords": ["health", "健康检查", "docs-check", "validation", "orphan"]
+      "keywords": ["health", "健康检查", "docs-check", "validation", "orphan", "sync_contracts", "validate_data"]
     },
     {
       "path": "docs/AI协作/引擎集成.md",
@@ -387,13 +387,13 @@
       "authority": "Godot editor integration and MCP/bridge usage guidance",
       "status": "active",
       "owner_scope": "tooling",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["engine_integration", "godot_bridge"],
       "must_read_for": ["godot_mcp_change", "engine_tooling_change"],
       "related_docs": ["docs/AI协作/README.md", "docs/CICD规划.md"],
-      "related_code": ["client/", "MinimumViableProduct/client/"],
+      "related_code": ["client/", "MinimumViableProduct/client/", "tools/godot_bridge.py"],
       "update_triggers": ["Godot MCP changes", "engine bridge changes", "editor validation changes"],
-      "keywords": ["Godot", "MCP", "Bridge", "引擎集成"]
+      "keywords": ["Godot", "MCP", "Bridge", "引擎集成", "godot_bridge", "headless"]
     },
     {
       "path": "docs/AI协作/工具适配指南.md",
@@ -407,7 +407,7 @@
       "related_docs": ["AGENTS.md", "CODEX.md", "OPENCODE.md", "docs/AI协作/README.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/"],
       "update_triggers": ["AI platform config changes", "agent mapping changes", "command mapping changes"],
-      "keywords": ["工具适配", "CodeBuddy", "Codex", "OpenCode", "platform"]
+      "keywords": ["工具适配", "CodeBuddy", "Codex", "OpenCode", "platform", "subagent", "agent mapping", "需求评估", "不过度优化", "AI Git", "自动commit", "提交策略"]
     },
     {
       "path": "docs/AI协作/实时验证回路.md",
@@ -421,7 +421,7 @@
       "related_docs": ["docs/CICD规划.md", "docs/测试策略.md", "docs/AI协作/文档健康检查.md"],
       "related_code": [".github/workflows/", "tools/"],
       "update_triggers": ["new hook", "watch script changes", "local validation responsibility changes"],
-      "keywords": ["pre-commit", "实时验证", "hook", "docs-health", "GitHub Actions"]
+      "keywords": ["pre-commit", "实时验证", "hook", "docs-health", "GitHub Actions", "sync_contracts", "validate_data"]
     },
     {
       "path": "docs/AI协作/任务模板/",
@@ -449,7 +449,7 @@
       "related_docs": ["docs/测试策略.md", "docs/AI协作/文档健康检查.md", "docs/AI协作/实时验证回路.md"],
       "related_code": [".github/workflows/", "tools/"],
       "update_triggers": ["new validation script", "new workflow", "CI stage change"],
-      "keywords": ["CI", "CD", "docs-check", "GitHub Actions", "health", "workflow"]
+      "keywords": ["CI", "CD", "docs-check", "GitHub Actions", "health", "workflow", "sync_contracts", "validate_data"]
     },
     {
       "path": "docs/修改建议.md",

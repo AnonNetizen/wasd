@@ -18,7 +18,7 @@ permission:
 
 ## 必读
 
-1. `docs/词表与契约.md` —— §1~§13 白名单（含 stat / effect / behavior event / analytics event / setting / locale / action / pool / damage / status / audio / rng_stream / character / capability / content tag / meta currency / meta upgrade / meta unlock）。
+1. `docs/词表与契约.md` —— §1~§14 白名单（含 stat / effect / behavior event / analytics event / setting / locale / action / pool / damage / status / audio / rng_stream / character / capability / content tag / meta currency / meta upgrade / meta unlock / save kind）。
 2. `docs/游戏设计文档.md` 9.19 —— 词表 → 代码常量脚本生成流水线。
 3. `.opencode/rules/game-coding-rules.md` 与 `.codebuddy/rules/game-coding-rules.md` 第 15 节。
 4. `docs/决策记录.md` ADR #28。
@@ -33,7 +33,7 @@ permission:
 docs/词表与契约.md
         -> tools/sync_contracts.py
 client/data/_contracts.json
-        -> tools/gen_constants.py
+        -> tools/sync_contracts.py
 client/scripts/contracts/*.gd
         -> 引用方 client/scripts/**/*.gd
 ```
@@ -62,7 +62,7 @@ client/scripts/contracts/*.gd
 python tools/sync_contracts.py
 python tools/sync_contracts.py --check
 python tools/scan_bare_strings.py client/scripts/
-python tools/validate_contract.py
+python tools/validate_data.py
 ```
 
 ## 必守约束

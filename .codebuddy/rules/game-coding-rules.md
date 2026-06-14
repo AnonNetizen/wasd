@@ -110,7 +110,7 @@ alwaysApply: true
 ## 12-D. 伤害结算、状态效果、存档、音频（N / O / Q 落地约束）
 - **伤害走单一入口 `Combat.apply_damage(target, DamageInfo)`**；`damage_type` 进词表第 9 节；**禁止**业务代码直接 `target.hp -= n`（详见 9.15）。
 - **持续效果用 `StatusEffect` 资源 + `StatusEffectComponent`**；`id`（`burn` / `poison` 等）进词表；`stack_rule` 必须显式声明（`REPLACE` / `REFRESH` / `ADD_DURATION` / `INDEPENDENT` / `MAX_MAGNITUDE`）。effect 原语 `ignite` / `chain` 等改为薄包装。
-- **存档走 `SaveManager`（autoload）**：所有存档**强制头字段** `version` + `created_at` + `game_version`；schema 变更必须配 `register_migration(from, to, fn)`；加载失败时 fail-fast 并备份到 `user://saves/.broken/`（详见 9.16）。
+- **存档走 `SaveManager`（autoload）**：必须同时支持 `meta` 局外成长长期档案与 `run` 局内暂停退出续局档案；所有存档**强制头字段** `version` + `kind` + `slot` + `created_at` + `updated_at` + `game_version` + `data_hash`；写入必须原子替换并保留 `.bak`；schema 变更必须配 `register_migration(kind, from, to, fn)`；加载失败时 fail-fast、尝试备份回退并隔离到 `user://saves/.broken/`（详见 9.16）。
 - **音频走 `AudioManager`（autoload）**：`play_sfx(id, opts)` / `play_music(id, fade)`；音频 id 在词表第 10 节登记；**禁止**业务代码直接 `AudioStreamPlayer.play()`（详见 9.17）。
 - 设置中的音量项（`audio.master/music/sfx`）由 `AudioManager` 在启动时同步到 Bus 配置；缺 Bus 时 fail-fast。
 
@@ -168,7 +168,7 @@ alwaysApply: true
   - 输入 action id、池类型 id、伤害类型、状态效果 id、音频 id、RNG 子流 id、角色 id、capability id、content tag
 - **只能使用白名单中已存在的 id**；需要新 id 时，先在 `docs/词表与契约.md` 登记，再在逻辑层实现对应原语，最后才在数据/代码中使用。
 - **代码常量单一来源（详见 `游戏设计文档.md` 9.19）**：
-  - 代码引用走 `client/scripts/contracts/` 下生成的常量类（`stats.gd` / `effects.gd` / `events.gd` / `analytics_events.gd` / `settings_keys.gd` / `actions.gd` / `pool_ids.gd` / `damage_types.gd` / `status_effects.gd` / `audio_ids.gd` / `rng_streams.gd` / `character_ids.gd` / `capabilities.gd` / `content_tags.gd` / `meta_currencies.gd` / `meta_upgrades.gd` / `meta_unlocks.gd`）。
+  - 代码引用走 `client/scripts/contracts/` 下生成的常量类（`stats.gd` / `effects.gd` / `events.gd` / `analytics_events.gd` / `settings_keys.gd` / `actions.gd` / `pool_ids.gd` / `damage_types.gd` / `status_effects.gd` / `audio_ids.gd` / `rng_streams.gd` / `character_ids.gd` / `capabilities.gd` / `content_tags.gd` / `meta_currencies.gd` / `meta_upgrades.gd` / `meta_unlocks.gd` / `save_kinds.gd`）。
   - 这些文件**自动生成、禁止手改**；改约定改 `docs/词表与契约.md`，跑 `tools/sync_contracts.py` 重生成。
   - 中间产物 `client/data/_contracts.json` 也由脚本生成；`DataLoader` 读它做校验。
   - pre-commit hook 强制：md 改了未跑 sync → fail；手改了生成文件 → fail。
@@ -239,7 +239,18 @@ alwaysApply: true
 - 仅在用户明确要求其他语言、引用代码 / API / 命令 / 日志 / 错误原文、编辑目标文件已有语言要求、或对外发布文本需要其他语言时，才使用对应语言。
 - 代码标识符、文件路径、命令、错误日志与外部 API 名称保持原文，不为了中文化而改写。
 
-## 26. `draft/` 人工草稿禁区（强制）
+## 26. 沟通与需求评估（强制）
+- 用户问“有没有问题”“有没有风险”“review 一下”等时，必须基于事实和上下文判断；没有发现实际问题就明确说“没有问题”或“未发现问题”，禁止为了显得有用而硬找问题、过度优化或提出无必要改动。
+- 用户提出新需求后，执行前应简短反馈该需求在本项目中的落地前景：价值、性价比、实现复杂度、维护 / 设计 / 测试风险；若需求明显有问题、与既定 ADR 冲突、性价比低或存在重大隐患，必须先直接说明并给出替代建议，不要闷声实现到最后。
+
+## 27. AI Git 提交策略（强制）
+- 大更改完成后默认由 AI 自动创建一次 git commit：跨多文件功能 / 工具 / CI / 规则 / ADR / 数据 schema / 代码模块 / 重要文档同步等可独立回滚的变更，用户无需再次提醒。
+- 细微改动不自动 commit：拼写、单行措辞、小范围说明、只读诊断、临时验证或用户明确说“先别提交”的改动；最终回复说明未提交原因。
+- 自动 commit 前必须执行 `git status --short`、`git diff`、`git log --oneline -10`，跑本次变更对应验证，只 stage AI 本次任务明确修改的文件。
+- 禁止提交用户已有脏改动、其他 agent 改动、`draft/` / `DRAFT/` 内容、未确认临时文件或本机私有配置；无法干净拆分时停止并询问用户。
+- commit message 使用 Conventional Commits；禁止 `--no-verify`，除非用户明确批准且 commit message 写明原因。
+
+## 28. `draft/` 人工草稿禁区（强制）
 - `draft/` 目录及其大小写变体（如 `DRAFT/`）存放用户人工草稿，不属于 AI 默认上下文、搜索范围、整理范围或任务输入。
 - 除非用户在当前任务中明确点名授权处理该目录，AI 禁止读取、搜索、修改、格式化、归档、总结或引用其中任何内容。
 - 仓库级搜索、批量格式化、文档整理、健康检查或自动化脚本建议必须显式排除 `draft/` / `DRAFT/`。
@@ -266,7 +277,7 @@ alwaysApply: true
 - [ ] UI 弹窗走 `UIManager.push/pop`（无散落 `add_child` UI）？
 - [ ] 伤害走 `Combat.apply_damage(DamageInfo)`（无 `target.hp -= n`）？
 - [ ] 持续效果用 `StatusEffect` 资源（明确 stack_rule）？
-- [ ] 存档走 `SaveManager` 且有 `version` 头字段与迁移注册？
+- [ ] 存档走 `SaveManager`，同时支持 `meta` 与 `run`，且有 `version/kind/slot/data_hash` 头字段、原子写入、备份回退、损坏隔离与迁移注册？
 - [ ] 音频走 `AudioManager.play_sfx/play_music`（无裸 `AudioStreamPlayer.play()`）？
 - [ ] 代码常量来自 `client/scripts/contracts/` 自动生成文件（未手改）？
 - [ ] 约定字符串（stat/effect/event/设置/locale key / role / capability / tag 等）是否都来自 `docs/词表与契约.md` 且以常量引用（无裸字符串）？
@@ -275,6 +286,10 @@ alwaysApply: true
 - [ ] 新代码是否使用类型化 GDScript？是否复用了模板？
 - [ ] 新增 / 修改长期代码模块、公共 API、signal、数据 schema 或依赖方向时，是否已同步详细的 `docs/代码/` 模块文档？若无需更新，是否说明原因？
 - [ ] 面向用户的回复 / 总结是否默认使用中文（除非存在明确特殊场景）？
+- [ ] 当用户问有没有问题 / 风险时，是否基于事实回答；没发现问题就明确说没有问题，未硬找问题或过度优化？
+- [ ] 用户提出需求后，是否已反馈落地前景、性价比、复杂度和主要风险；有重大隐患时是否先说清楚？
+- [ ] 大更改是否已按 AI Git 提交策略自动 commit？细微改动是否已说明不提交原因？
+- [ ] 自动 commit 前是否检查 `git status --short` / `git diff` / `git log --oneline -10`，且只 stage 本次任务文件？
 - [ ] 是否已更新 `docs/AI导航.md`、`docs/决策记录.md` 等相关文档？
 - [ ] 是否套用了 `docs/AI协作/任务模板/`（高频任务）或遵守了上下文预算？
 - [ ] pre-commit hook 是否全过？（无 `--no-verify` 或已注明原因）

@@ -68,16 +68,17 @@
 | 加敌人 | `docs/AI协作/任务模板/加敌人.md`、`docs/词表与契约.md`、GDD 敌人章节 | `client/data/enemies.json`、locale、必要时行为 primitive | `python tools/docs_health_check.py`；数据 schema 落地后跑 schema 校验 |
 | 改输入 / 手柄 | `docs/游戏设计文档.md`、`docs/词表与契约.md` 第 7 节、`docs/测试策略.md` | GDD、词表、规则、Settings/InputMap 代码、AI导航 | `python tools/docs_health_check.py`；代码落地后跑 headless + 手动输入回归 |
 | 改经验 / 升级系统 | `docs/游戏设计文档.md` §7.1、`docs/词表与契约.md`、`docs/测试策略.md` | `GrowthSystem`、升级 UI、GDD、词表、AI导航、必要时 `docs/修改建议.md` | `python tools/docs_health_check.py`；代码落地后固定 seed 验证默认 3 选 1 与 `luck` 概率 4 选 1 |
-| 改局外成长 / 元进度 | `docs/游戏设计文档.md` §7.2、`client/data/README.md`、`docs/词表与契约.md` §13、`docs/测试策略.md` | `client/data/meta_progression.json`、locale、GDD、词表、AI导航、必要时 SaveManager / MetaProgressionSystem 模块文档 | JSON/schema/契约校验；代码落地后跑 MetaProgressionSystem 单测和存档 roundtrip |
-| 调完整项目数值 | `client/data/README.md`、目标 `client/data/*.json`、`docs/词表与契约.md` | 数据 JSON、数值手册、必要时 GDD / 模块文档 / 黄金回放 | JSON/schema/契约校验；大改动跑回放 / 平衡验证 |
-| 加完整项目文案 / 语言 | `client/locale/README.md`、`client/locale/strings.csv`、`docs/词表与契约.md` §6 | 文案 CSV、语言设置、相关 UI / 数据模块文档 | CSV / 占位符检查；人工切语言回归 |
+| 改局外成长 / 元进度 | `docs/游戏设计文档.md` §7.2、`client/data/README.md`、`docs/词表与契约.md` §13、`docs/测试策略.md` | `client/data/meta_progression.json`、locale、GDD、词表、AI导航、必要时 SaveManager / MetaProgressionSystem 模块文档 | `python tools/sync_contracts.py --check` + `python tools/validate_data.py`；代码落地后跑 MetaProgressionSystem 单测和存档 roundtrip |
+| 改存档 / 暂停退出续局 | `docs/游戏设计文档.md` §9.16、`docs/词表与契约.md` §14、`docs/测试策略.md` | SaveManager、GameState、暂停菜单、主菜单、GDD、词表、AI导航、模块文档 | SaveManager 单测、run roundtrip、损坏 / 迁移测试；代码落地后跑 headless 和手动存档 checklist |
+| 调完整项目数值 | `client/data/README.md`、目标 `client/data/*.json`、`docs/词表与契约.md` | 数据 JSON、数值手册、必要时 GDD / 模块文档 / 黄金回放 | `python tools/validate_data.py`；大改动跑回放 / 平衡验证 |
+| 加完整项目文案 / 语言 | `client/locale/README.md`、`client/locale/strings.csv`、`docs/词表与契约.md` §6 | 文案 CSV、语言设置、相关 UI / 数据模块文档 | `python tools/validate_data.py`；人工切语言回归 |
 | 改规则 / 红线 | `AGENTS.md`、当前平台规则入口、`docs/决策记录.md`、`docs/AI协作/文档维护指南.md` | `AGENTS.md`、三平台规则、`CODEX.md`、`OPENCODE.md`、AI导航、项目记忆 | `python tools/docs_health_check.py`、`git diff --check -- . ":(exclude)draft/**" ":(exclude)DRAFT/**"` |
-| 改约定字符串 | `docs/词表与契约.md`、`docs/AI协作/文档健康检查.md` | 词表、生成常量、相关数据 / 代码、AI导航 | `/sync-contracts --check` 或等价流程；`python tools/docs_health_check.py` |
+| 改约定字符串 | `docs/词表与契约.md`、`docs/AI协作/文档健康检查.md` | 词表、生成常量、相关数据 / 代码、AI导航 | `python tools/sync_contracts.py` + `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；`python tools/docs_health_check.py` |
 | 写/改代码模块 | `docs/代码文档规范.md`、对应 `docs/代码/<module_id>.md`、`docs/测试策略.md` | 代码、模块文档、AI导航依赖图、必要时 GDD / ADR | 对应测试义务 + `python tools/docs_health_check.py` |
 | 写/改测试 | `docs/测试策略.md`、对应模块文档 | 测试文件、测试策略、必要时 CI 规划 | 对应测试命令；`python tools/docs_health_check.py` |
-| 做 MVP 实验 | `MinimumViableProduct/README.md`、`MinimumViableProduct/docs/MVP设计说明.md`、MVP 代码文档 | `MinimumViableProduct/` 内文档和客户端 | MVP Godot headless 启动；`python tools/docs_health_check.py` |
+| 做 MVP 实验 | `MinimumViableProduct/README.md`、`MinimumViableProduct/docs/MVP设计说明.md`、MVP 代码文档 | `MinimumViableProduct/` 内文档和客户端 | `python tools/godot_bridge.py headless-boot`；`python tools/validate_data.py`；`python tools/docs_health_check.py` |
 | 更新 AI 工具入口 | `AGENTS.md`、`docs/AI协作/工具适配指南.md`、`docs/AI协作/角色分工.md` | `CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/` | `python tools/docs_health_check.py`；改 `.opencode/` 后验证 JSON |
-| 健康检查 / CI | `docs/AI协作/文档健康检查.md`、`docs/CICD规划.md` | `tools/docs_health_check.py`、健康检查命令、CI / pre-commit 规划 | `python tools/docs_health_check.py`、`python -m json.tool docs/_kb_index.json` |
+| 健康检查 / CI | `docs/AI协作/文档健康检查.md`、`docs/CICD规划.md` | `tools/docs_health_check.py`、`tools/validate_data.py`、`tools/sync_contracts.py`、健康检查命令、CI / pre-commit 规划 | `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/docs_health_check.py`、`python -m json.tool docs/_kb_index.json` |
 
 ## 5. ADR 追踪矩阵
 
@@ -100,6 +101,11 @@
 | #45 | 完整项目数值 / 文案配置手册 | `client/data/README.md`、`client/locale/README.md`、GDD §9.3 / §9.4、词表、AI导航、任务模板 |
 | #46 | 深局外成长 | GDD §7.2、`client/data/meta_progression.json`、`client/data/README.md`、`client/locale/strings.csv`、词表 §13、测试策略、AI导航 |
 | #47 | 最小 Stage 1 CI | `.github/workflows/docs-check.yml`、`docs/CICD规划.md`、`docs/AI协作/实时验证回路.md`、`CONTRIBUTING.md`、AI记忆 |
+| #48 | 强玩家存档 / 暂停退出续局 | GDD §9.16、词表 §14、测试策略、AI导航、TODO、SaveManager 模块文档（落地后） |
+| #49 | 创意 / 策略 subagents | `AGENTS.md`、`.codebuddy/agents/`、`.codex/agents/`、`.opencode/agents/`、`docs/AI协作/README.md`、`docs/AI协作/角色分工.md`、工具适配指南 |
+| #50 | 沟通审查不过度优化 / 需求前置评估 | AGENTS、CODEX、OPENCODE、平台规则、AI导航、工具适配指南、AI记忆 |
+| #51 | 数据校验 / 契约同步 / 轻量 Godot Bridge | `tools/sync_contracts.py`、`tools/validate_data.py`、`tools/godot_bridge.py`、CI、AI协作、数据/locale 手册、AI导航 |
+| #52 | AI Git 提交策略 | AGENTS、CODEX、OPENCODE、三平台规则、三平台命令、CONTRIBUTING、AI导航、工具适配指南、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

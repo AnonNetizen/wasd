@@ -32,10 +32,23 @@ docs/AI协作/
 ├── 实时验证回路.md       # pre-commit hook + watch 脚本设计
 └── 工具适配指南.md       # 各 AI 工具的接入配法
 
-.codebuddy/agents/        # 项目级 subagents（codebuddy 平台）
-├── balancer.md           # 平衡测试 / 回放回归 / 数值建议
-├── contract-validator.md # 词表↔常量同步 / 裸字符串扫描
-└── data-author.md        # 数据驱动内容创作（不动 .gd）
+tools/
+├── sync_contracts.py      # 词表 → _contracts.json + GDScript 常量
+├── validate_data.py       # 数据 / locale / MVP config 校验
+├── docs_health_check.py   # 文档知识库健康检查
+└── godot_bridge.py        # MVP 场景树导出 / headless boot 轻量 Bridge
+
+.codebuddy/agents/        # 项目级 subagents（codebuddy 平台；.codex/.opencode 下同名同步）
+├── balancer.md              # 平衡测试 / 回放回归 / 数值建议
+├── contract-validator.md    # 词表↔常量同步 / 裸字符串扫描
+├── data-author.md           # 数据驱动内容创作（不动 .gd）
+├── game-designer.md         # 玩法 / 系统设计评审，优缺点与参考对象
+├── numeric-designer.md      # 数值模型、曲线、成本、难度节奏
+├── ip-designer.md           # 世界观、主题、阵营、怪物生态、长期 IP
+├── copywriter-packager.md   # UI / 道具 / 宣传语文案包装，中英文草案
+├── ui-art-designer.md       # HUD、菜单、界面层级、UI 美术 brief
+├── game-art-designer.md     # 角色、敌人、场景、特效、资产 brief
+└── marketing-strategist.md  # 宣发定位、卖点、Steam 页面、预告片策略
 
 .codebuddy/commands/      # 项目级 slash commands（codebuddy 平台）
 ├── sync-contracts.md     # /sync-contracts
@@ -63,12 +76,13 @@ docs/AI协作/
 AI agent 接到任务时优先按以下顺序：
 
 1. **是不是有专属 slash command**？是 → 直接用（如 `/new-relic`）。
-2. **是不是该转给 subagent**？数据条目改动 → `data-author`；契约校验 → `contract-validator`；平衡相关 → `balancer`。
+2. **是不是该转给 subagent**？数据条目改动 → `data-author`；契约校验 → `contract-validator`；平衡相关 → `balancer`；玩法评估 → `game-designer`；数值模型 → `numeric-designer`；世界观 → `ip-designer`；文案包装 → `copywriter-packager`；UI 美术 → `ui-art-designer`；游戏美术 → `game-art-designer`；宣发策略 → `marketing-strategist`。
 3. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。
 4. **不是高频任务**？读 `上下文预算.md` 决定读取范围，避免盲目全仓搜索。
 5. **任务复杂**？参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
 6. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
-7. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规。
+7. **改了词表 / 数据 / 文案**？跑 `python tools/sync_contracts.py --check` 与 `python tools/validate_data.py`。
+8. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规。
 
 ## 维护
 

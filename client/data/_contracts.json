@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "source": "docs/词表与契约.md",
+  "generated_by": "tools/sync_contracts.py",
+  "contracts": {
+    "stats": [
+      "max_hp",
+      "move_speed",
+      "damage",
+      "fire_rate",
+      "bullet_speed",
+      "bullet_range",
+      "bullet_count",
+      "pierce_count",
+      "crit_chance",
+      "crit_mult",
+      "pickup_range",
+      "luck",
+      "armor",
+      "resist_fire",
+      "resist_poison",
+      "resist_lightning",
+      "lifesteal_ratio"
+    ],
+    "effects": [
+      "pierce",
+      "split",
+      "homing",
+      "ignite",
+      "chain",
+      "knockback",
+      "explode",
+      "lifesteal"
+    ],
+    "events": [
+      "on_fire",
+      "on_hit",
+      "on_kill",
+      "on_player_hit",
+      "on_level_up",
+      "on_pickup",
+      "on_tick"
+    ],
+    "analytics_events": [
+      "run_start",
+      "run_end",
+      "player_death",
+      "level_up",
+      "relic_pick",
+      "item_use",
+      "wave_milestone",
+      "game_pause",
+      "game_resume",
+      "replay_recorded",
+      "replay_replay_diff",
+      "state_changed",
+      "save_written",
+      "save_loaded",
+      "save_deleted",
+      "save_migrated",
+      "save_corrupted",
+      "run_suspended",
+      "run_resumed",
+      "pool_overflow",
+      "meta_currency_earned",
+      "meta_upgrade_purchased",
+      "meta_unlock_granted",
+      "account_level_up"
+    ],
+    "settings_keys": [
+      "general.locale",
+      "video.fullscreen",
+      "video.vsync",
+      "audio.master",
+      "audio.music",
+      "audio.sfx",
+      "gameplay.fire_on_release",
+      "gameplay.aim_mode",
+      "gameplay.screen_shake",
+      "gameplay.pause_on_focus_loss",
+      "gameplay.record_replays",
+      "privacy.analytics_enabled"
+    ],
+    "actions": [
+      "move_up",
+      "move_down",
+      "move_left",
+      "move_right",
+      "aim_up",
+      "aim_down",
+      "aim_left",
+      "aim_right",
+      "use_active_item",
+      "pause",
+      "debug_toggle_replay"
+    ],
+    "pool_ids": [
+      "bullet_basic",
+      "bullet_pierce",
+      "enemy_chaser",
+      "enemy_ranged",
+      "enemy_swarm",
+      "damage_number",
+      "hit_spark",
+      "pickup_orb"
+    ],
+    "damage_types": [
+      "physical",
+      "fire",
+      "poison",
+      "lightning",
+      "true"
+    ],
+    "status_effects": [
+      "burn",
+      "poison",
+      "bleed",
+      "freeze",
+      "slow",
+      "mark"
+    ],
+    "audio_prefixes": [
+      "sfx_player_",
+      "sfx_enemy_",
+      "sfx_pickup_",
+      "sfx_ui_",
+      "music_",
+      "voice_"
+    ],
+    "rng_streams": [
+      "spawn",
+      "drop",
+      "combat",
+      "ui_choice",
+      "world",
+      "meta"
+    ],
+    "character_ids": [
+      "character_default"
+    ],
+    "capabilities": [
+      "cap_aim_mode_override",
+      "cap_fire_mode_override",
+      "cap_movement_model_override",
+      "cap_inventory_slot_override",
+      "cap_camera_policy_override"
+    ],
+    "content_tags": [
+      "tag_character",
+      "tag_relic",
+      "tag_active_item",
+      "tag_consumable",
+      "tag_limit_break"
+    ],
+    "meta_currencies": [
+      "meta_essence"
+    ],
+    "meta_upgrades": [
+      "meta_upgrade_max_hp",
+      "meta_upgrade_damage",
+      "meta_upgrade_move_speed",
+      "meta_upgrade_pickup_range",
+      "meta_upgrade_luck",
+      "meta_upgrade_starter_choice"
+    ],
+    "meta_unlock_kinds": [
+      "character",
+      "relic_pool",
+      "mode",
+      "difficulty_tier",
+      "run_start_option"
+    ],
+    "meta_unlocks": [
+      "unlock_character_default",
+      "unlock_relic_pool_basic",
+      "unlock_challenge_room",
+      "unlock_difficulty_tier_2",
+      "unlock_starting_relic_choice_1",
+      "unlock_starting_relic_choice_2",
+      "unlock_starting_relic_choice_3"
+    ],
+    "save_kinds": [
+      "meta",
+      "run",
+      "replay_index"
+    ],
+    "locale_prefixes": [
+      "ui_",
+      "relic_",
+      "item_",
+      "enemy_",
+      "hint_",
+      "meta_"
+    ]
+  }
+}

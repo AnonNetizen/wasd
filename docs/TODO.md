@@ -19,8 +19,7 @@
 
 - [ ] MVP M5 试玩复盘：验证手感、敌人压力、失败节奏、手柄输入和 `mvp_config.json` 调参效率。
 - [ ] 根据 MVP M5 复盘决定是否新增 MVP M6，或转入完整项目 `client/` M1 autoload 骨架。
-- [ ] 落地 `tools/sync_contracts.py`：`docs/词表与契约.md` → `client/data/_contracts.json` → `client/scripts/contracts/*.gd`，支持 `--check`。
-- [ ] 补齐 CI / pre-commit 阶段 1 后续项：词表契约同步检查、commitlint、本地 pre-commit hook。
+- [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、本地 pre-commit hook、增量 watch。
 - [ ] 创建完整项目 `client/project.godot` 与 M1 基础目录，保证 Godot headless 能启动。
 
 ## 2. 下一批任务（P1）
@@ -28,7 +27,8 @@
 - [ ] 实现完整项目 autoload 骨架：`DataLoader`、`Localization`、`Settings`、`Analytics`、`RNG`、`GameClock`、`Replay`、`GameState`、`UIManager`、`PoolManager`、`SaveManager`、`AudioManager`。
 - [ ] 为横向 autoload 补详细模块文档：`docs/代码/<module_id>.md`，并在脚本头部加 `# Doc:`。
 - [ ] 实现 `DataLoader` 对 `player.json`、`meta_progression.json`、`strings.csv` 引用 key 和词表 id 的 fail-fast 校验。
-- [ ] 实现 `SaveManager` 的 `meta` kind、版本头、迁移注册和损坏备份流程。
+- [ ] 实现强 `SaveManager`：`meta` 局外成长、`run` 暂停退出续局、标准头字段（含 `data_hash`）、kind/slot 校验、原子写入、`.bak` 回退、迁移注册和损坏隔离。
+- [ ] 实现暂停菜单“保存并退出”和主菜单“继续游戏”流程，加载后恢复玩家、敌人、子弹、掉落、经验、遗物、RNG、GameClock 和 UI 恢复点。
 - [ ] 实现 `MetaProgressionSystem`：结算奖励、账号等级、永久升级购买、解锁授予、`ModifierEngine` 注入。
 - [ ] 设计并落地 `client/data/growth.json`：经验阈值、升级候选数概率、候选池结构和权重。
 - [ ] 决策待定项 E：升级选项池内容是否包含遗物、属性、主动强化、回血、刷新 / 跳过 / banish。
@@ -65,4 +65,6 @@
 - [x] AI 记忆三层结构：长期索引、机器当前状态、每日会话日志。
 - [x] 完整项目数值 / 文案配置入口：`client/data/player.json`、`client/data/README.md`、`client/locale/strings.csv`、`client/locale/README.md`。
 - [x] 深局外成长设计入口：`client/data/meta_progression.json`、GDD §7.2、词表 §13、ADR #46。
-- [x] 最小 Stage 1 CI：`.github/workflows/docs-check.yml` 跑 JSON、CSV、文档健康检查和 whitespace diff。
+- [x] Stage 1 基础 CI：`.github/workflows/docs-check.yml` 跑契约同步、数据 / locale、文档健康检查和 whitespace diff。
+- [x] 10 个项目级 subagents：执行类 3 个 + 创意 / 策略类 7 个，三平台同名配置。
+- [x] 数据校验 / 契约同步 / 轻量 Godot Bridge：`tools/validate_data.py`、`tools/sync_contracts.py`、`tools/godot_bridge.py`，CI 接入 sync + validate + docs health。

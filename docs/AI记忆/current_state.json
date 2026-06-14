@@ -2,8 +2,8 @@
   "schema_version": 1,
   "updated_at": "2026-06-14",
   "current_phase": "docs_framework_and_mvp_m4_6",
-  "current_status": "Full project is still in documentation/framework design; deep meta progression is specified through client/data/meta_progression.json; docs/TODO.md now tracks the human-readable future task backlog; MVP client has reached M4.6 with centralized mvp_config.json tunables; AI knowledge base v2 and three-layer AI memory are active.",
-  "latest_adr": 47,
+  "current_status": "Full project is still in documentation/framework design; deep meta progression is specified through client/data/meta_progression.json; strong SaveManager requirements now cover meta and run saves; docs/TODO.md tracks the human-readable future task backlog; MVP client has reached M4.6 with centralized mvp_config.json tunables; AI knowledge base v2 and three-layer AI memory are active; AI large-change auto-commit policy is established.",
+  "latest_adr": 52,
   "open_decisions": ["A", "B", "C", "D", "E"],
   "last_completed": [
     "AI knowledge base v2 with docs_health_check",
@@ -13,14 +13,20 @@
     "Full project numeric and localization configuration manuals established in client/data/README.md and client/locale/README.md (ADR #45)",
     "Full project deep meta progression specified with meta currency, account level, permanent upgrades, unlocks, and SaveManager meta persistence boundary (ADR #46)",
     "Human-readable future task backlog established in docs/TODO.md",
-    "Minimal Stage 1 CI enabled in .github/workflows/docs-check.yml for JSON, CSV, docs health, and whitespace checks (ADR #47)"
+    "Minimal Stage 1 CI enabled in .github/workflows/docs-check.yml for JSON, CSV, docs health, and whitespace checks (ADR #47)",
+    "Strong player save requirement established: SaveManager must support meta progression saves and run suspend/resume saves with migration, atomic writes, backup fallback, and broken-save quarantine (ADR #48)",
+    "Seven creative/strategy subagents added across CodeBuddy, Codex, and OpenCode: game-designer, numeric-designer, ip-designer, copywriter-packager, ui-art-designer, game-art-designer, marketing-strategist (ADR #49)",
+    "Communication rule added: when asked for issues/risks, answer factually and do not invent problems; when new requirements arrive, first assess project fit, cost-effectiveness, complexity, and risks (ADR #50)",
+    "Data validation, contract sync, and lightweight Godot Bridge landed: tools/sync_contracts.py, tools/validate_data.py, tools/godot_bridge.py, generated _contracts.json and client/scripts/contracts/*.gd, and docs-check CI now runs sync + validate + docs health (ADR #51)",
+    "AI Git commit policy established: large changes are auto-committed after status/diff/log checks and verification; minor changes are not auto-committed; only task-owned files may be staged (ADR #52)"
   ],
   "next_actions": [
     "MVP M5 playtest and workflow/feel/config-tuning review",
     "Use docs/TODO.md as the human-readable backlog when choosing future tasks",
+    "Use advisory subagents for gameplay design, numeric modeling, IP, copy, UI art, game art, and marketing strategy discussions",
     "Decide whether MVP needs an M6 iteration after M5 review",
-    "Start full client M1 autoload skeleton when ready, using client/data, client/locale, and meta_progression manuals as configuration entrypoints",
-    "CI stage 1 follow-up: contract sync/check, commitlint, and local pre-commit hook"
+    "Start full client M1 autoload skeleton when ready, including strong SaveManager for meta and run saves before MetaProgressionSystem implementation",
+    "CI stage 1 follow-up: commitlint, local pre-commit hook, and incremental watch loop"
   ],
   "last_verified": [
     {
@@ -31,6 +37,31 @@
     {
       "date": "2026-06-14",
       "command": "py -3 -m json.tool docs/AI记忆/current_state.json > $null",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 tools/sync_contracts.py --check",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 tools/validate_data.py",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 tools/godot_bridge.py export-tree > $null",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 tools/godot_bridge.py godot-version",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 tools/godot_bridge.py headless-boot",
       "result": "passed"
     },
     {
@@ -67,7 +98,13 @@
   "blockers": [],
   "notes": [
     "Long-term decisions remain authoritative in docs/决策记录.md.",
+    "Use python tools/sync_contracts.py after changing docs/词表与契约.md, then run --check.",
+    "Use python tools/validate_data.py after changing client/data, client/locale, or MVP config.",
+    "Use python tools/godot_bridge.py for MVP scene-tree export, data validation, Godot version checks, and headless boot.",
+    "Do not over-optimize or invent findings when the user asks for issues; say no issue when no actual issue is found.",
+    "When the user proposes a requirement, briefly assess project fit, value, cost-effectiveness, complexity, and major risks before implementing.",
     "Detailed daily history remains in docs/AI记忆/会话日志/.",
-    "Do not read or modify draft/ or DRAFT/ unless explicitly authorized."
+    "Do not read or modify draft/ or DRAFT/ unless explicitly authorized.",
+    "For large AI changes, create a git commit after checking status, diff, recent log, and verification; for minor changes, explain why no commit was made."
   ]
 }
