@@ -78,10 +78,9 @@ wasd/
 ├── CODEX.md          # Codex CLI 入口适配
 ├── OPENCODE.md       # OpenCode 入口适配
 ├── .codebuddy/       # CodeBuddy 平台配置（规则 / agents / commands）
-├── .claude/          # Claude Code Game Studios 工具（agents / skills / hooks / rules；不含模板）
 ├── .codex/           # Codex CLI 平台配置（核心规则一致，允许平台优化）
 ├── .opencode/        # OpenCode 平台配置（opencode.json / agents / commands / rules）
-├── .agents/skills/   # Agent Skills（headless-godot / CCGS 跨平台适配）
+├── .agents/skills/   # Agent Skills（外部 AI 库按需引用适配）
 ├── .github/          # PR / Issue 模板，未来 workflows
 └── 杂项配置          # README / CONTRIBUTING / LICENSE / .gitignore / .gitattributes / .editorconfig / .gitmessage
 ```

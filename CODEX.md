@@ -15,7 +15,7 @@
 7. 大更改完成后按 `AGENTS.md` 的 AI Git 提交策略自动 commit；细微改动不提交；提交前必须检查 status/diff/log 并只 stage 本次任务文件。
 8. 需要 subagent 时，优先用 `.codex/agents/` 下同名角色；不支持自动调度时，把对应 `.md` 当 prompt 模板读。
 9. 需要 slash command 时，优先用 `.codex/commands/` 下同名步骤；不支持命令时，按文件步骤手动执行。
-10. 需要复用 Agent Skill 时，可把 `.agents/skills/<name>/SKILL.md` 当 prompt 模板读；`ccgs-game-studio` 用于让 Codex 按需复用 `.claude/` 中的 CCGS agents / skills。
+10. 需要复用 Agent Skill 时，可把 `.agents/skills/<name>/SKILL.md` 当 prompt 模板读；`game-ai-reference` 用于让 Codex 按需引用 GodotPrompter、headless-godot 与 CCGS vendor 来源。
 11. 如果 `.codex/` 与 `AGENTS.md` 口径冲突，以 `AGENTS.md`、编码规则和 `docs/决策记录.md` 的核心项目约束为准，并同步修正文档漂移。
 
 ## Codex 平台文件

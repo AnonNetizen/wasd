@@ -77,9 +77,9 @@
 | 写/改代码模块 | `docs/代码文档规范.md`、对应 `docs/代码/<module_id>.md`、`docs/测试策略.md` | 代码、模块文档、AI导航依赖图、必要时 GDD / ADR | 对应测试义务 + `python tools/docs_health_check.py` |
 | 写/改测试 | `docs/测试策略.md`、对应模块文档 | 测试文件、测试策略、必要时 CI 规划 | 对应测试命令；`python tools/docs_health_check.py` |
 | 做 MVP 实验 | `MinimumViableProduct/README.md`、`MinimumViableProduct/docs/MVP设计说明.md`、MVP 代码文档 | `MinimumViableProduct/` 内文档和客户端 | `python tools/godot_bridge.py headless-boot`；`python tools/validate_data.py`；`python tools/docs_health_check.py` |
-| 更新 AI 工具入口 | `AGENTS.md`、`docs/AI协作/工具适配指南.md`、`docs/AI协作/角色分工.md` | `CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.claude/`、`.codex/`、`.opencode/`、`.agents/skills/` | `python tools/docs_health_check.py`；改 `.opencode/` 后验证 JSON |
+| 更新 AI 工具入口 | `AGENTS.md`、`docs/AI协作/工具适配指南.md`、`docs/AI协作/角色分工.md` | `CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/`、`.agents/skills/` | `python tools/docs_health_check.py`；改 `.opencode/` 后验证 JSON |
 | 健康检查 / CI | `docs/AI协作/文档健康检查.md`、`docs/CICD规划.md` | `tools/docs_health_check.py`、`tools/validate_data.py`、`tools/sync_contracts.py`、健康检查命令、CI / pre-commit 规划 | `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/docs_health_check.py`、`python -m json.tool docs/_kb_index.json` |
-| 评估 / 安装 AI skills / MCP | `docs/AI协作/AI技能资源评估.md`、`OPENCODE.md`、`.opencode/opencode.json` | `.opencode/skills/`、`.agents/skills/`、`.claude/`、`.opencode/vendor/ai-resources/`、`.opencode/opencode.json`、工具适配指南、AI导航、AI记忆 | `python -m json.tool .opencode/opencode.json`、`python tools/docs_health_check.py`、`git diff --check -- . ":(exclude)draft/**" ":(exclude)DRAFT/**"`；新增跨平台适配层时确认不批量注册外部 agent |
+| 评估 / 安装 AI skills / MCP | `docs/AI协作/AI技能资源评估.md`、`OPENCODE.md`、`.opencode/opencode.json` | `.opencode/skills/`、`.agents/skills/`、`.opencode/vendor/ai-resources/`、`.opencode/opencode.json`、工具适配指南、AI导航、AI记忆 | `python -m json.tool .opencode/opencode.json`、`python tools/docs_health_check.py`、`git diff --check -- . ":(exclude)draft/**" ":(exclude)DRAFT/**"`；新增跨平台适配层时确认不批量注册外部 agent |
 
 ## 5. ADR 追踪矩阵
 
@@ -89,7 +89,7 @@
 | #13~#19 | 暂停、仓库结构、记忆、回放、协作工程 | GDD、测试策略、AI记忆、AI协作 |
 | #20~#28 | RNG、GameState、PoolManager、UIManager、Combat、Save、Clock、Audio、Contracts | GDD、词表、规则、测试策略、代码模块文档 |
 | #29 | 测试金字塔 | `docs/测试策略.md`、规则、CI 规划 |
-| #30~#33 | agents / commands / 多平台入口 | AGENTS、CLAUDE、CODEX、OPENCODE、`.codebuddy/`、`.claude/`、`.codex/`、`.opencode/`、工具适配指南 |
+| #30~#33 | agents / commands / 多平台入口 | AGENTS、CLAUDE、CODEX、OPENCODE、`.codebuddy/`、`.codex/`、`.opencode/`、工具适配指南 |
 | #34 | 扩展优先 / 破限能力 | GDD、词表、规则、AI导航、测试策略 |
 | #35 / #40 | 代码文档同步 / 详细模块文档 | `docs/代码文档规范.md`、`docs/代码/`、规则、AI导航 |
 | #36 | 默认中文沟通 | AGENTS、平台规则、工具适配指南 |
@@ -110,8 +110,9 @@
 | #53 | 项目级 OpenCode skills / AI 资源评估 | `.opencode/skills/`、`.opencode/opencode.json`、OPENCODE、AGENTS、工具适配指南、AI协作 README、`docs/AI协作/AI技能资源评估.md`、AI记忆；新增 skill 延续本 ADR，不必为每个流程单独追加 ADR |
 | #54 | 上下文压缩后的任务恢复 | AGENTS、CODEX、OPENCODE、三平台规则、AI导航、工具适配指南、AI记忆 |
 | #55 | 外部 AI 资源整包隔离安装 | `.gitmodules`、`.opencode/vendor/ai-resources/`、`docs/AI协作/AI技能资源评估.md`、OPENCODE、AGENTS、AI导航、工具适配指南、AI记忆 |
-| #56 | 外部 AI 工具正式安装但排除模板 | `.opencode/opencode.json`、`.agents/skills/`、`.claude/`、`CLAUDE.md`、AGENTS、OPENCODE、三平台规则、AI技能资源评估、AI导航、工具适配指南、AI记忆 |
-| #57 | CCGS 跨 agent 复用适配层 | `.agents/skills/ccgs-game-studio/`、`.claude/`、AGENTS、CLAUDE、CODEX、OPENCODE、AI技能资源评估、AI导航、工具适配指南、AI记忆 |
+| #56 | 外部 AI 工具正式安装但排除模板（历史安装口径，当前由 #58 收敛） | `.opencode/opencode.json`、`.agents/skills/`、`CLAUDE.md`、AGENTS、OPENCODE、三平台规则、AI技能资源评估、AI导航、工具适配指南、AI记忆 |
+| #57 | CCGS 跨 agent 复用适配层（历史安装口径，当前由 #58 收敛） | `.agents/skills/`、AGENTS、CLAUDE、CODEX、OPENCODE、AI技能资源评估、AI导航、工具适配指南、AI记忆 |
+| #58 | 外部 AI 三库活跃层收敛为 `game-ai-reference` | `.agents/skills/game-ai-reference/`、`.opencode/opencode.json`、`.opencode/skills/`、`.opencode/vendor/ai-resources/`、AGENTS、CLAUDE、CODEX、OPENCODE、三平台规则、AI技能资源评估、AI导航、工具适配指南、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

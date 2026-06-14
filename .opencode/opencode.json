@@ -9,9 +9,6 @@
   "skills": {
     "paths": [".opencode/skills", ".agents/skills"]
   },
-  "plugin": [
-    "./vendor/ai-resources/GodotPrompter/.opencode/plugins/godot-prompter.js"
-  ],
   "command": {
     "sync-contracts": {
       "description": "跑词表到代码常量同步流水线。",

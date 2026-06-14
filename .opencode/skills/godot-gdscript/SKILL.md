@@ -36,6 +36,12 @@ Use this skill only for Godot/GDScript implementation or review work in `client/
 5. If you add or change a public API, signal, data schema, autoload, or dependency direction, update module docs and AI navigation.
 6. Validate with the relevant commands, usually `py -3 tools/validate_data.py` and MVP `py -3 tools/godot_bridge.py headless-boot` when MVP scenes/scripts changed.
 
+## External References
+
+- This project skill is the authority for Godot implementation in this repo.
+- If a niche Godot pattern is not covered here, use `.agents/skills/game-ai-reference/SKILL.md` and read only the relevant GodotPrompter vendor skill.
+- Ignore external C#, 3D, mobile, multiplayer, XR, dedicated-server, addon, and generic setup advice unless the user explicitly asks for it.
+
 ## Common Pitfalls
 
 - Do not use generic Godot examples that hardcode speed, damage, text, or key bindings.

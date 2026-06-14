@@ -28,6 +28,12 @@ Use this skill when a change may affect Godot startup, scene structure, MVP game
 4. Fix root cause rather than suppressing errors.
 5. Re-run the failed command and any adjacent data/contract checks.
 
+## Headless Godot Notes
+
+- Prefer `tools/godot_bridge.py` over raw `godot` commands; it encodes the project path and MVP/full-client boundary.
+- If raw Godot CLI is unavoidable, use `--headless --path <project>` and capture the exact command and log output.
+- Do not copy generic headless templates or starter project files into this repo.
+
 ## Interpretation
 
 - `godot-version` should report Godot `4.6.3`.

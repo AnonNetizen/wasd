@@ -43,6 +43,7 @@ Use this skill when Godot behavior needs evidence from tests, logs, scene loadin
 - Current Stage 1 CI is lightweight and does not run Godot tests yet.
 - When adding Godot test CI later, gate it behind reproducible local commands first, then update `docs/CICD规划.md` and `docs/AI协作/实时验证回路.md`.
 - Do not add marketplace test plugins, broad MCP servers, or machine-specific Godot paths to repo config without explicit justification.
+- For low-level headless CLI uncertainty, use `.agents/skills/game-ai-reference/SKILL.md` to consult the vendored `headless-godot-skill-kit`; adapt examples to this repo's `py -3` / PowerShell conventions.
 
 ## Red Lines
 

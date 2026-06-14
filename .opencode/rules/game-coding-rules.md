@@ -15,9 +15,9 @@
 - `.opencode/agents/*.md` 是 OpenCode subagent 入口；角色语义必须与 `.codebuddy/agents/`、`.codex/agents/` 同名文件一致。
 - `.opencode/commands/*.md` 是 OpenCode 命令步骤手册；命令注册在 `.opencode/opencode.json` 的 `command` 字段。
 - `.opencode/skills/*/SKILL.md` 是 OpenCode 项目级 skills；用于按需加载可复用流程，不得放宽项目核心规则；新增或调整时同步 `docs/AI协作/AI技能资源评估.md`、`OPENCODE.md` 与工具适配指南。
-- `.agents/skills/*/SKILL.md` 是跨工具 Agent Skills；当前用于 `headless-godot` 与 `ccgs-game-studio`，并由 `.opencode/opencode.json` 加入 `skills.paths`。
-- `.claude/` 是 Claude Code 工具入口；外部 agents / skills / hooks / rules 若与项目核心规则冲突，以 `AGENTS.md`、当前平台规则和 ADR 为准。
-- `.opencode/vendor/ai-resources/` 存放外部 AI 资源整包 submodule，作为已安装 AI 工具的上游来源；不得把 vendor 目录整体加入 `skills.paths`，不得复制模板 / starter project / 示例 / 生产状态等杂项。外部工具若与本项目规则冲突，以 `AGENTS.md`、平台规则和 ADR 为准。
+- `.agents/skills/*/SKILL.md` 是跨工具 Agent Skills；当前用于 `game-ai-reference`，并由 `.opencode/opencode.json` 加入 `skills.paths`。
+- Claude Code 入口是 `CLAUDE.md`；不再安装活跃 `.claude/` 外部工具目录。
+- `.opencode/vendor/ai-resources/` 存放外部 AI 资源整包 submodule，作为上游来源；不得把 vendor 目录整体加入 `skills.paths`，不得复制模板 / starter project / 示例 / hooks / 生产状态等杂项。外部工具若与本项目规则冲突，以 `AGENTS.md`、平台规则和 ADR 为准；游戏设计冲突以本项目 GDD / ADR 为准。
 - `.opencode/opencode.json` 必须保留 `$schema: https://opencode.ai/config.json`，避免 OpenCode 启动时因配置字段错误失败。
 - 改 `.opencode/` 后需要重启 OpenCode；运行中的 session 不会热重载配置。
 

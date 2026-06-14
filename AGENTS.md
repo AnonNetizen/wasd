@@ -3,7 +3,7 @@
 > 任何 AI agent 在本项目动手前，**必须先按下面顺序读完这 5 份文件**，再开始任何任务。
 > 这是规则 14 与 ADR #15 的明文化入口；忽略此约定 = 违反项目规则。
 >
-> **AI 修改说明**：修改本文件前必须有用户明确授权，并先读 `docs/AI协作/文档维护指南.md`。本文件是所有 AI agent 的通用开工入口；改开工步骤、红线、subagent、slash command、skill 或平台入口时，必须同步 `CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.claude/`、`.codex/`、`.opencode/`、`.agents/skills/`、`docs/AI导航.md`、`docs/AI协作/README.md`、`docs/AI协作/工具适配指南.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
+> **AI 修改说明**：修改本文件前必须有用户明确授权，并先读 `docs/AI协作/文档维护指南.md`。本文件是所有 AI agent 的通用开工入口；改开工步骤、红线、subagent、slash command、skill 或平台入口时，必须同步 `CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/`、`.agents/skills/`、`docs/AI导航.md`、`docs/AI协作/README.md`、`docs/AI协作/工具适配指南.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
 
 > 🆕 **新机器 clone 后第一次开工**：先按 [`CONTRIBUTING.md` 第零节「新机器 setup」](CONTRIBUTING.md) 做一次性 git 配置（`core.quotepath` / `commit.template` / 全局身份），再回来读下面 5 步。否则中文文件名会显示为转义码、commit 模板不会生效。
 >
@@ -111,9 +111,9 @@ OpenCode 命令由 `.opencode/opencode.json` 的 `command` 字段注册；不支
 
 ## 🧠 项目级 Skills（OpenCode）
 
-OpenCode 项目级 skills 放在 `.opencode/skills/<name>/SKILL.md`，由 `.opencode/opencode.json` 注册 `.opencode/skills` 路径，并按需通过 skill tool 加载。当前已安装：`godot-gdscript`、`godot-scene-validation`、`godot-test-diagnostics`、`project-doc-sync`、`safe-git-commit`、`code-review-factual`、`ai-resource-curator`、`mcp-tool-evaluation`。`.agents/skills/headless-godot` 与 `.agents/skills/ccgs-game-studio` 也已加入 OpenCode `skills.paths`。
+OpenCode 项目级 skills 放在 `.opencode/skills/<name>/SKILL.md`，由 `.opencode/opencode.json` 注册 `.opencode/skills` 路径，并按需通过 skill tool 加载。当前已安装：`godot-gdscript`、`godot-scene-validation`、`godot-test-diagnostics`、`project-doc-sync`、`safe-git-commit`、`code-review-factual`、`ai-resource-curator`、`mcp-tool-evaluation`。`.agents/skills/game-ai-reference` 也已加入 OpenCode `skills.paths`，用于按需引用外部 AI 库。
 
-外部 AI 资源整包候选放在 `.opencode/vendor/ai-resources/` 作为上游来源；`GodotPrompter` 通过本地 OpenCode plugin 启用，`headless-godot-skill-kit` 的 Agent Skill 装入 `.agents/skills/`，`Claude-Code-Game-Studios` 的 Claude tools 装入 `.claude/`，并通过 `.agents/skills/ccgs-game-studio` 提供非 Claude agent 的按需复用适配层。模板、starter project、示例和生产状态不安装。筛选依据与来源记录见 `docs/AI协作/AI技能资源评估.md`。
+外部 AI 资源整包候选放在 `.opencode/vendor/ai-resources/` 作为上游来源；`GodotPrompter`、`headless-godot-skill-kit` 与 `Claude-Code-Game-Studios` 不再直接启用，统一通过 `.agents/skills/game-ai-reference` 按需引用。模板、starter project、示例、hooks、生产状态和外部平台配置不进入活跃层；游戏设计冲突以本项目 GDD / ADR / 规则为准。筛选依据与来源记录见 `docs/AI协作/AI技能资源评估.md`。
 
 ---
 
