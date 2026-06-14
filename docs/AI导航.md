@@ -103,7 +103,7 @@
 | **加破限角色/道具** | 先判断是否能用 `capabilities` + `modifiers` + `behaviors` 表达；表达不了则新增可复用 primitive / strategy 并登记词表 §12，禁止按 id 写特殊分支 |
 | **写/改代码模块** | 先查 `docs/代码文档规范.md`；长期模块 / autoload / 公共 API / signal / 数据 schema / 依赖方向变化必须同步详细的 `docs/代码/<module_id>.md` 与本导航依赖图，不能只写自动摘要 |
 | **查知识库 / 找文档关系 / 任务路由** | 先看 `docs/AI知识库索引.md` 的任务路由表，需要机器可读元数据时看 `docs/_kb_index.json`，搜索同义词先看 `docs/术语表.md` |
-| **续接当前状态 / 下一步** | 先看 `docs/AI记忆/项目记忆.md` 的长期事实，再看 `docs/AI记忆/current_state.json` 的机器当前状态；需要历史细节才看当日会话日志 |
+| **续接当前状态 / 下一步** | 先看 `docs/AI记忆/项目记忆.md` 的长期事实，再看 `docs/AI记忆/current_state.json` 的机器当前状态；上下文压缩后先以用户最后明确指令对齐，`Next Steps` 只作候选参考；需要历史细节才看当日会话日志 |
 | **查看 / 维护未来任务** | 看 `docs/TODO.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
 | **校验数据 / 文案** | 跑 `python tools/validate_data.py`，覆盖 `client/data/*.json`、`client/locale/strings.csv` 与 MVP config 的 schema / 词表 / locale key 校验 |
@@ -250,6 +250,7 @@ flowchart LR
 - ❌ 面向用户的回复默认使用英文或其他语言（除非用户明确要求、引用原文或目标文件语言要求）
 - ❌ 用户问有没有问题 / 风险时，为了显得有用而硬找问题、过度优化或提出无必要改动（没发现问题就明确说没有问题）
 - ❌ 用户提出需求后不先评估落地前景、性价比、复杂度和主要风险，闷声做到最后才暴露重大隐患
+- ❌ 上下文总结 / 压缩 / 恢复后，把摘要、`Next Steps`、`current_state.json` 或历史待办当成当前授权执行，而不先对齐用户最后明确指令
 - ❌ 大更改后不按 AI Git 提交策略自动 commit，或提交前不查 status / diff / log、误 stage 用户脏改动 / `draft/` / `DRAFT/`
 - ❌ 读取、搜索、整理、格式化、总结或引用 `draft/` / `DRAFT/` 人工草稿（除非用户明确点名授权）
 - ❌ 把 MVP 临时代码 / 文档混入完整项目 `client/` 或根目录正式文档而不经过 ADR 决策

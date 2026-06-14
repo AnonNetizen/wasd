@@ -108,6 +108,7 @@
 | #51 | 数据校验 / 契约同步 / 轻量 Godot Bridge | `tools/sync_contracts.py`、`tools/validate_data.py`、`tools/godot_bridge.py`、CI、AI协作、数据/locale 手册、AI导航 |
 | #52 | AI Git 提交策略 | AGENTS、CODEX、OPENCODE、三平台规则、三平台命令、CONTRIBUTING、AI导航、工具适配指南、AI记忆 |
 | #53 | 项目级 OpenCode skills / AI 资源评估 | `.opencode/skills/`、`.opencode/opencode.json`、OPENCODE、AGENTS、工具适配指南、AI协作 README、`docs/AI协作/AI技能资源评估.md`、AI记忆；新增 skill 延续本 ADR，不必为每个流程单独追加 ADR |
+| #54 | 上下文压缩后的任务恢复 | AGENTS、CODEX、OPENCODE、三平台规则、AI导航、工具适配指南、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

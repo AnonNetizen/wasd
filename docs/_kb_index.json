@@ -6,16 +6,16 @@
     {
       "path": "AGENTS.md",
       "type": "entrypoint",
-      "authority": "AI agent startup order, red lines, required reading, language policy, AI Git commit policy",
+      "authority": "AI agent startup order, red lines, required reading, language policy, task recovery after context compaction, AI Git commit policy",
       "status": "active",
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-06-14",
-      "canonical_for": ["ai_startup", "core_red_lines", "startup_reading_order", "ai_git_commit_policy"],
+      "canonical_for": ["ai_startup", "core_red_lines", "startup_reading_order", "task_recovery_after_compaction", "ai_git_commit_policy"],
       "must_read_for": ["new_session", "rule_change", "ai_platform_change"],
       "related_docs": ["docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json", "docs/AI导航.md", "docs/AI协作/工具适配指南.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/"],
-      "update_triggers": ["startup flow changes", "core red line changes", "new cross-platform command or agent", "AI Git commit policy changes"],
-      "keywords": ["agent", "startup", "开工", "红线", "AI入口", "不过度优化", "需求评估", "风险评估", "没有问题", "AI Git", "自动commit", "提交策略", "skills", "OpenCode skills"]
+      "update_triggers": ["startup flow changes", "core red line changes", "task recovery rule changes", "new cross-platform command or agent", "AI Git commit policy changes"],
+      "keywords": ["agent", "startup", "开工", "红线", "AI入口", "不过度优化", "需求评估", "风险评估", "没有问题", "上下文压缩", "任务恢复", "最后明确指令", "Next Steps", "AI Git", "自动commit", "提交策略", "skills", "OpenCode skills"]
     },
     {
       "path": "CODEX.md",
@@ -29,7 +29,7 @@
       "related_docs": ["AGENTS.md", "OPENCODE.md", "docs/AI协作/工具适配指南.md"],
       "related_code": [".codex/"],
       "update_triggers": ["Codex startup flow changes", "Codex agent or command changes", "cross-platform rule changes"],
-      "keywords": ["Codex", "CODEX", "codex cli", "平台入口", "需求评估", "不过度优化", "AI Git", "自动commit"]
+      "keywords": ["Codex", "CODEX", "codex cli", "平台入口", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "AI Git", "自动commit"]
     },
     {
       "path": "OPENCODE.md",
@@ -43,7 +43,7 @@
       "related_docs": ["AGENTS.md", "CODEX.md", "docs/AI协作/工具适配指南.md"],
       "related_code": [".opencode/", ".opencode/skills/"],
       "update_triggers": ["OpenCode startup flow changes", "OpenCode agent, command, or skill changes", "cross-platform rule changes"],
-      "keywords": ["OpenCode", "OPENCODE", "opencode.json", "平台入口", "subagent", "skills", "Agent Skills", "需求评估", "不过度优化", "AI Git", "自动commit"]
+      "keywords": ["OpenCode", "OPENCODE", "opencode.json", "平台入口", "subagent", "skills", "Agent Skills", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "AI Git", "自动commit"]
     },
     {
       "path": "README.md",
@@ -141,7 +141,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "subagent", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "契约同步", "数据校验", "Godot Bridge", "AI Git", "自动commit", "提交策略"]
+      "keywords": ["ADR", "decision", "决策", "约束", "subagent", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "AI Git", "自动commit", "提交策略"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -239,7 +239,7 @@
       "related_docs": ["docs/AI知识库索引.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md"],
       "related_code": ["client/", "MinimumViableProduct/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
-      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "AI Git", "自动commit", "提交策略"]
+      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "AI Git", "自动commit", "提交策略"]
     },
     {
       "path": "docs/AI记忆/项目记忆.md",
@@ -253,21 +253,21 @@
       "related_docs": ["docs/AI记忆/README.md", "docs/AI记忆/current_state.json", "docs/TODO.md", "docs/AI记忆/会话日志/", "docs/决策记录.md", "docs/AI导航.md"],
       "related_code": [],
       "update_triggers": ["new ADR", "important milestone", "memory structure change", "long-term fact change"],
-      "keywords": ["memory", "项目记忆", "long-term memory", "跨会话"]
+      "keywords": ["memory", "项目记忆", "long-term memory", "跨会话", "上下文压缩", "任务恢复"]
     },
     {
       "path": "docs/AI记忆/current_state.json",
       "type": "machine_state",
-      "authority": "Machine-readable current phase, latest ADR, open decisions, next actions, and latest verification",
+      "authority": "Machine-readable current phase, latest ADR, open decisions, candidate next actions, and latest verification",
       "status": "active",
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-06-13",
-      "canonical_for": ["current_state", "next_actions", "latest_verification"],
+      "canonical_for": ["current_state", "candidate_next_actions", "latest_verification"],
       "must_read_for": ["new_session", "memory_update", "task_resume"],
       "related_docs": ["docs/AI记忆/项目记忆.md", "docs/AI记忆/README.md", "docs/TODO.md", "docs/决策记录.md", "docs/修改建议.md"],
       "related_code": ["tools/docs_health_check.py", "tools/sync_contracts.py", "tools/validate_data.py"],
       "update_triggers": ["new ADR", "open decision changes", "next action changes", "verification run"],
-      "keywords": ["current_state", "next actions", "latest ADR", "open decisions", "当前状态"]
+      "keywords": ["current_state", "candidate next actions", "Next Steps", "latest ADR", "open decisions", "当前状态", "候选下一步"]
     },
     {
       "path": "docs/TODO.md",
@@ -309,7 +309,7 @@
       "related_docs": ["docs/AI协作/README.md", "docs/AI知识库索引.md", "AGENTS.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/", ".opencode/skills/", "tools/"],
       "update_triggers": ["new AI workflow", "new command", "new agent", "new skill", "new validation loop"],
-      "keywords": ["AI协作", "workflow", "template", "agent", "command", "skill", "subagent", "game-designer", "numeric-designer", "ip-designer", "copywriter-packager", "ui-art-designer", "game-art-designer", "marketing-strategist", "godot-test-diagnostics", "自动commit", "MCP"]
+      "keywords": ["AI协作", "workflow", "template", "agent", "command", "skill", "subagent", "game-designer", "numeric-designer", "ip-designer", "copywriter-packager", "ui-art-designer", "game-art-designer", "marketing-strategist", "godot-test-diagnostics", "上下文压缩", "任务恢复", "自动commit", "MCP"]
     },
     {
       "path": "docs/AI协作/README.md",
