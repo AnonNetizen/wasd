@@ -1,6 +1,6 @@
 # OPENCODE.md —— OpenCode 开工入口
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 OpenCode 的轻量入口适配；改 OpenCode 平台入口、agent / command / skill 映射或规则加载方式时，必须同步 `AGENTS.md`、`CODEX.md`、`.opencode/`、`docs/AI协作/工具适配指南.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 OpenCode 的轻量入口适配；改 OpenCode 平台入口、agent / command / skill / plugin 映射或规则加载方式时，必须同步 `AGENTS.md`、`CLAUDE.md`、`CODEX.md`、`.opencode/`、`docs/AI协作/工具适配指南.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
 
 `AGENTS.md` 仍是本项目所有 AI agent 的通用开工入口；`.opencode/opencode.json` 会把本文件与规则入口加载进 OpenCode。
 
@@ -15,8 +15,9 @@
 7. 大更改完成后按 `AGENTS.md` 的 AI Git 提交策略自动 commit；细微改动不提交；提交前必须检查 status/diff/log 并只 stage 本次任务文件。
 8. 需要复杂任务拆分时，用 `.opencode/agents/` 下同名 subagent，或用 OpenCode 自带 agent/task 能力。
 9. 需要 slash command 时，优先用 `.opencode/opencode.json` 注册的命令；也可按 `.opencode/commands/` 下对应 `.md` 步骤手动执行。
-10. 需要可复用流程时，优先加载 `.opencode/skills/` 下项目级 skills；当前含 Godot/GDScript、场景验证、Godot 测试诊断、文档同步、安全提交、事实 review、AI 资源筛选和 MCP 评估。
-11. 改 `.opencode/` 后重启 OpenCode；运行中的 session 不会热重载配置。
+10. 需要可复用流程时，优先加载 `.opencode/skills/` 与 `.agents/skills/` 下项目级 skills；当前含 Godot/GDScript、场景验证、Godot 测试诊断、Headless Godot、文档同步、安全提交、事实 review、AI 资源筛选和 MCP 评估。
+11. `GodotPrompter` 通过 `.opencode/opencode.json` 的本地 plugin 启用，会注册其 Godot skills；外部模板 / starter project / 示例未安装。
+12. 改 `.opencode/`、`.agents/skills/` 或 plugin 后重启 OpenCode；运行中的 session 不会热重载配置。
 
 ## OpenCode 平台文件
 
@@ -29,5 +30,6 @@
 | Subagents | `.opencode/agents/` |
 | Commands | `.opencode/commands/` |
 | Skills | `.opencode/skills/` |
-| 外部 AI 资源整包（不自动启用） | `.opencode/vendor/ai-resources/` |
+| Agent Skills | `.agents/skills/` |
+| 外部 AI 资源整包来源 | `.opencode/vendor/ai-resources/` |
 | 跨平台适配说明 | `docs/AI协作/工具适配指南.md` |

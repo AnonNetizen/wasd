@@ -26,6 +26,7 @@ EXCLUDED_LONG_LIVED_DIRS = {
 }
 ROOT_MARKDOWN_FILES = [
     "AGENTS.md",
+    "CLAUDE.md",
     "CODEX.md",
     "OPENCODE.md",
     "README.md",

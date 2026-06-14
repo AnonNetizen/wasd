@@ -1,6 +1,6 @@
 # CODEX.md —— OpenAI Codex CLI 开工入口
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 Codex CLI 的轻量入口适配；改 Codex 平台入口、agent、command 或规则加载方式时，必须同步 `AGENTS.md`、`OPENCODE.md`、`.codex/`、`.opencode/`（如影响跨平台通用能力）、`docs/AI协作/工具适配指南.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 Codex CLI 的轻量入口适配；改 Codex 平台入口、agent、command 或规则加载方式时，必须同步 `AGENTS.md`、`CLAUDE.md`、`OPENCODE.md`、`.codex/`、`.opencode/`（如影响跨平台通用能力）、`docs/AI协作/工具适配指南.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
 
 `AGENTS.md` 仍是本项目所有 AI agent 的通用开工入口；本文件只说明 Codex CLI 该读哪些平台适配文件。
 

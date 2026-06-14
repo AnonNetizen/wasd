@@ -203,10 +203,10 @@ alwaysApply: true
 
 ## 21. 多平台 AI 入口与配置适配（强制）
 - `AGENTS.md` 是所有 AI agent 的通用开工入口；`CODEX.md`、`OPENCODE.md` 只做平台加载适配，不能承载与通用入口冲突的核心规则。
-- `.codebuddy/`（CodeBuddy 平台）、`.codex/`（OpenAI Codex CLI 平台）、`.opencode/`（OpenCode 平台）共享同一套**项目核心约束**，但不要求文件内容、目录结构或工具字段字节级一致。
+- `.codebuddy/`（CodeBuddy 平台）、`.claude/`（Claude Code 平台）、`.codex/`（OpenAI Codex CLI 平台）、`.opencode/`（OpenCode 平台）与 `.agents/skills/`（Agent Skills）共享同一套**项目核心约束**，但不要求文件内容、目录结构或工具字段字节级一致。
 - 允许针对不同 AI agent / 平台优化 frontmatter、工具名、提示词措辞、命令入口与 agent 拆分方式；优化不得改变项目红线、数据契约、测试义务、文档维护规则等核心语义。
 - 修改任一平台入口或配置时，必须判断是否影响其他平台的能力可用性：
-  - 核心规则变化（如本文件、红线、自检清单、开工 5 步）→ 通用入口与 `.codebuddy/` / `.codex/` / `.opencode/` 都要表达同一语义，可用不同措辞或格式。
+  - 核心规则变化（如本文件、红线、自检清单、开工 5 步）→ 通用入口与 `.codebuddy/` / `.claude/` / `.codex/` / `.opencode/` 都要表达同一语义，可用不同措辞或格式。
   - 平台专属能力变化（如某平台的工具名、agent prompt、command wrapper）→ 只改对应平台即可，并在必要时更新 `docs/AI协作/工具适配指南.md`。
   - 新增跨平台通用 agent / command → 至少在工具适配指南登记各平台入口；是否每个平台都创建文件取决于平台是否需要。
 - pre-commit hook / `health-check` 不应校验平台配置内容哈希一致；应校验核心规则版本、关键能力清单与文档登记是否一致（含 `.opencode/opencode.json` 命令注册）。
@@ -302,5 +302,5 @@ alwaysApply: true
 - [ ] 若涉及重要决策/对话，是否已更新 `docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json` 与当日会话日志（跨机器续接用）？
 - [ ] 本次新确立的规则/约定是否已补充进本规则文件？
 - [ ] 本次变更涉及的设计/数值是否已同步更新到相关文档？
-- [ ] 改了 `AGENTS.md` / `CODEX.md` / `OPENCODE.md` / `.codebuddy/` / `.codex/` / `.opencode/` 平台入口或配置后，核心规则语义是否仍一致？工具适配指南是否需要更新？
+- [ ] 改了 `AGENTS.md` / `CLAUDE.md` / `CODEX.md` / `OPENCODE.md` / `.codebuddy/` / `.claude/` / `.codex/` / `.opencode/` / `.agents/skills/` 平台入口或配置后，核心规则语义是否仍一致？工具适配指南是否需要更新？
 - [ ] 改了长期文档前是否阅读了 `docs/AI协作/文档维护指南.md`，并检查了目标文档的 AI 修改说明与联动清单？

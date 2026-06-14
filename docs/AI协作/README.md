@@ -11,6 +11,7 @@
 
 ```
 AGENTS.md                  # 所有 AI agent 的通用开工入口
+CLAUDE.md                  # Claude Code 入口适配
 CODEX.md                   # OpenAI Codex CLI 入口适配
 OPENCODE.md                # OpenCode 入口适配
 
@@ -68,8 +69,12 @@ tools/
 ├── agents/
 ├── commands/
 ├── skills/                # 项目级 OpenCode skills（按需加载的可复用流程）
-├── vendor/ai-resources/   # 外部 AI 资源整包 submodule（审阅/摘取，不自动启用）
+├── vendor/ai-resources/   # 外部 AI 资源整包 submodule（上游来源）
 └── rules/
+
+.agents/skills/            # Agent Skills；当前安装 headless-godot
+
+.claude/                   # Claude Code Game Studios 工具（agents / skills / hooks / rules；不含模板）
 ```
 
 关联根目录文档：`docs/AI知识库索引.md` 与 `docs/_kb_index.json` 管理知识库元数据，`docs/术语表.md` 管理术语别名，`docs/AI记忆/current_state.json` 管理机器可读当前状态，`docs/代码文档规范.md` 定义代码变更与对应文档的同步规则，`docs/代码/` 存放长期详细模块文档。
@@ -83,7 +88,7 @@ AI agent 接到任务时优先按以下顺序：
 3. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。
 4. **不是高频任务**？读 `上下文预算.md` 决定读取范围，避免盲目全仓搜索。
 5. **任务复杂**？参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
-6. **是不是已有项目级 skill**？OpenCode 可加载 `.opencode/skills/`：Godot 实现 / 场景验证 / Godot 测试诊断 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选 / MCP 评估；外部整包候选在 `.opencode/vendor/ai-resources/`，只审阅/摘取，不自动启用。
+6. **是不是已有项目级 skill**？OpenCode 可加载 `.opencode/skills/` 与 `.agents/skills/`：Godot 实现 / 场景验证 / Godot 测试诊断 / Headless Godot / 文档同步 / 安全提交 / 事实 review / AI 资源筛选 / MCP 评估；`GodotPrompter` 由 OpenCode plugin 注册；Claude Code 可用 `.claude/` 工具。
 7. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
 8. **改了词表 / 数据 / 文案**？跑 `python tools/sync_contracts.py --check` 与 `python tools/validate_data.py`。
 9. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规。
@@ -93,8 +98,8 @@ AI agent 接到任务时优先按以下顺序：
 - 新高频任务出现 → 在 `任务模板/` 加一份。
 - 新长期文档 / 术语 / 知识库路径变化 → 同步 `docs/AI知识库索引.md`、`docs/_kb_index.json`、`docs/术语表.md`，并运行 `python tools/docs_health_check.py`。
 - 引擎工具链变化 → 更新 `引擎集成.md`。
-- AI skills / MCP / plugin / rules 资源变化 → 更新 `AI技能资源评估.md`、`.opencode/skills/` 或 `.opencode/vendor/ai-resources/`、`OPENCODE.md` 与工具适配指南。
+- AI skills / MCP / plugin / rules 资源变化 → 更新 `AI技能资源评估.md`、`.opencode/skills/`、`.agents/skills/`、`.claude/` 或 `.opencode/vendor/ai-resources/`、`OPENCODE.md` 与工具适配指南。
 - 角色分工经验积累 → 微调 `角色分工.md`。
 - 新代码模块 / 公共 API / 数据 schema 变化 → 按 `docs/代码文档规范.md` 同步详细的 `docs/代码/` 模块文档；数值字段同步 `client/data/README.md`，文案 / 语言 / 占位符同步 `client/locale/README.md`。
-- 平台入口变化 → 同步 `AGENTS.md` / `CODEX.md` / `OPENCODE.md` / `.codebuddy/` / `.codex/` / `.opencode/` / `工具适配指南.md`。
+- 平台入口变化 → 同步 `AGENTS.md` / `CLAUDE.md` / `CODEX.md` / `OPENCODE.md` / `.codebuddy/` / `.codex/` / `.opencode/` / `工具适配指南.md`。
 - 重大变更 → 同步进 `决策记录.md` + `AI记忆/项目记忆.md`。

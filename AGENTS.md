@@ -3,20 +3,20 @@
 > 任何 AI agent 在本项目动手前，**必须先按下面顺序读完这 5 份文件**，再开始任何任务。
 > 这是规则 14 与 ADR #15 的明文化入口；忽略此约定 = 违反项目规则。
 >
-> **AI 修改说明**：修改本文件前必须有用户明确授权，并先读 `docs/AI协作/文档维护指南.md`。本文件是所有 AI agent 的通用开工入口；改开工步骤、红线、subagent、slash command 或平台入口时，必须同步 `CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/`、`docs/AI导航.md`、`docs/AI协作/README.md`、`docs/AI协作/工具适配指南.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
+> **AI 修改说明**：修改本文件前必须有用户明确授权，并先读 `docs/AI协作/文档维护指南.md`。本文件是所有 AI agent 的通用开工入口；改开工步骤、红线、subagent、slash command、skill 或平台入口时，必须同步 `CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.claude/`、`.codex/`、`.opencode/`、`.agents/skills/`、`docs/AI导航.md`、`docs/AI协作/README.md`、`docs/AI协作/工具适配指南.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
 
 > 🆕 **新机器 clone 后第一次开工**：先按 [`CONTRIBUTING.md` 第零节「新机器 setup」](CONTRIBUTING.md) 做一次性 git 配置（`core.quotepath` / `commit.template` / 全局身份），再回来读下面 5 步。否则中文文件名会显示为转义码、commit 模板不会生效。
 >
-> 🛠️ **换 AI 工具？** `AGENTS.md` 是通用入口；Codex 可先读 [`CODEX.md`](CODEX.md)，OpenCode 可先读 [`OPENCODE.md`](OPENCODE.md)，其他工具看 [`docs/AI协作/工具适配指南.md`](docs/AI协作/工具适配指南.md)。平台入口只做加载适配，不能放宽项目核心规则。
+> 🛠️ **换 AI 工具？** `AGENTS.md` 是通用入口；Claude Code 可先读 [`CLAUDE.md`](CLAUDE.md)，Codex 可先读 [`CODEX.md`](CODEX.md)，OpenCode 可先读 [`OPENCODE.md`](OPENCODE.md)，其他工具看 [`docs/AI协作/工具适配指南.md`](docs/AI协作/工具适配指南.md)。平台入口只做加载适配，不能放宽项目核心规则。
 
 ---
 
 ## 🚦 开工 5 步（按顺序，不要跳）
 
-1. **本文件**（`AGENTS.md`）—— 通用入口；若从 Codex / OpenCode 进入，也可先读 `CODEX.md` / `OPENCODE.md` 再回到这里
+1. **本文件**（`AGENTS.md`）—— 通用入口；若从 Claude / Codex / OpenCode 进入，也可先读 `CLAUDE.md` / `CODEX.md` / `OPENCODE.md` 再回到这里
 2. **`docs/AI记忆/项目记忆.md` + `docs/AI记忆/current_state.json`** —— **跨会话/跨机器的项目长时记忆与机器当前状态**
    - 项目快照（v1.5、Godot 4.6.3 + GDScript、文档阶段）
-   - 55 条 ADR 摘要
+   - 56 条 ADR 摘要
    - 待决策项（A~E）
    - 工具链与基础设施现状
    - **下一步候选**以 `current_state.json` 为机器可读权威；它只提供候选方向，不能覆盖用户最后明确指令
@@ -111,9 +111,9 @@ OpenCode 命令由 `.opencode/opencode.json` 的 `command` 字段注册；不支
 
 ## 🧠 项目级 Skills（OpenCode）
 
-OpenCode 项目级 skills 放在 `.opencode/skills/<name>/SKILL.md`，由 `.opencode/opencode.json` 注册 `.opencode/skills` 路径，并按需通过 skill tool 加载。当前已安装：`godot-gdscript`、`godot-scene-validation`、`godot-test-diagnostics`、`project-doc-sync`、`safe-git-commit`、`code-review-factual`、`ai-resource-curator`、`mcp-tool-evaluation`。筛选依据与来源记录见 `docs/AI协作/AI技能资源评估.md`。
+OpenCode 项目级 skills 放在 `.opencode/skills/<name>/SKILL.md`，由 `.opencode/opencode.json` 注册 `.opencode/skills` 路径，并按需通过 skill tool 加载。当前已安装：`godot-gdscript`、`godot-scene-validation`、`godot-test-diagnostics`、`project-doc-sync`、`safe-git-commit`、`code-review-factual`、`ai-resource-curator`、`mcp-tool-evaluation`。`.agents/skills/headless-godot` 也已加入 OpenCode `skills.paths`。
 
-外部 AI 资源整包候选放在 `.opencode/vendor/ai-resources/`，当前仅作审阅 / 摘取模式，不在 `.opencode/opencode.json` 的 `skills.paths` 中自动加载。
+外部 AI 资源整包候选放在 `.opencode/vendor/ai-resources/` 作为上游来源；`GodotPrompter` 通过本地 OpenCode plugin 启用，`headless-godot-skill-kit` 的 Agent Skill 装入 `.agents/skills/`，`Claude-Code-Game-Studios` 的 Claude tools 装入 `.claude/`。模板、starter project、示例和生产状态不安装。筛选依据与来源记录见 `docs/AI协作/AI技能资源评估.md`。
 
 ---
 

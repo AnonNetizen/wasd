@@ -74,11 +74,14 @@ wasd/
 ├── MinimumViableProduct/ # MVP 隔离实验区，含 MVP 文档与独立客户端代码
 ├── draft/ 或 DRAFT/  # 人工草稿；AI 禁止读取/搜索/修改/整理/引用，除非用户明确授权
 ├── AGENTS.md         # AI agent 通用开工入口
+├── CLAUDE.md         # Claude Code 入口适配
 ├── CODEX.md          # Codex CLI 入口适配
 ├── OPENCODE.md       # OpenCode 入口适配
 ├── .codebuddy/       # CodeBuddy 平台配置（规则 / agents / commands）
+├── .claude/          # Claude Code Game Studios 工具（agents / skills / hooks / rules；不含模板）
 ├── .codex/           # Codex CLI 平台配置（核心规则一致，允许平台优化）
 ├── .opencode/        # OpenCode 平台配置（opencode.json / agents / commands / rules）
+├── .agents/skills/   # Agent Skills（headless-godot）
 ├── .github/          # PR / Issue 模板，未来 workflows
 └── 杂项配置          # README / CONTRIBUTING / LICENSE / .gitignore / .gitattributes / .editorconfig / .gitmessage
 ```
