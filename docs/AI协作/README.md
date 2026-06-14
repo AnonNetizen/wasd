@@ -30,6 +30,7 @@ docs/AI协作/
 ├── 角色分工.md           # 设计/实现/评审/平衡 四角色协作
 ├── 引擎集成.md           # Godot/Unity MCP 等接入指南
 ├── 实时验证回路.md       # pre-commit hook + watch 脚本设计
+├── AI技能资源评估.md     # 外部 skills / agents / MCP / rules 资源筛选与安装清单
 └── 工具适配指南.md       # 各 AI 工具的接入配法
 
 tools/
@@ -66,6 +67,7 @@ tools/
 ├── opencode.json          # 指令加载 + command 注册
 ├── agents/
 ├── commands/
+├── skills/                # 项目级 OpenCode skills（按需加载的可复用流程）
 └── rules/
 ```
 
@@ -80,15 +82,17 @@ AI agent 接到任务时优先按以下顺序：
 3. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。
 4. **不是高频任务**？读 `上下文预算.md` 决定读取范围，避免盲目全仓搜索。
 5. **任务复杂**？参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
-6. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
-7. **改了词表 / 数据 / 文案**？跑 `python tools/sync_contracts.py --check` 与 `python tools/validate_data.py`。
-8. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规。
+6. **是不是已有项目级 skill**？OpenCode 可加载 `.opencode/skills/`：Godot 实现 / 场景验证 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选 / MCP 评估。
+7. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
+8. **改了词表 / 数据 / 文案**？跑 `python tools/sync_contracts.py --check` 与 `python tools/validate_data.py`。
+9. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规。
 
 ## 维护
 
 - 新高频任务出现 → 在 `任务模板/` 加一份。
 - 新长期文档 / 术语 / 知识库路径变化 → 同步 `docs/AI知识库索引.md`、`docs/_kb_index.json`、`docs/术语表.md`，并运行 `python tools/docs_health_check.py`。
 - 引擎工具链变化 → 更新 `引擎集成.md`。
+- AI skills / MCP / plugin / rules 资源变化 → 更新 `AI技能资源评估.md`、`.opencode/skills/`、`OPENCODE.md` 与工具适配指南。
 - 角色分工经验积累 → 微调 `角色分工.md`。
 - 新代码模块 / 公共 API / 数据 schema 变化 → 按 `docs/代码文档规范.md` 同步详细的 `docs/代码/` 模块文档；数值字段同步 `client/data/README.md`，文案 / 语言 / 占位符同步 `client/locale/README.md`。
 - 平台入口变化 → 同步 `AGENTS.md` / `CODEX.md` / `OPENCODE.md` / `.codebuddy/` / `.codex/` / `.opencode/` / `工具适配指南.md`。

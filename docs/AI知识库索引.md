@@ -79,6 +79,7 @@
 | 做 MVP 实验 | `MinimumViableProduct/README.md`、`MinimumViableProduct/docs/MVP设计说明.md`、MVP 代码文档 | `MinimumViableProduct/` 内文档和客户端 | `python tools/godot_bridge.py headless-boot`；`python tools/validate_data.py`；`python tools/docs_health_check.py` |
 | 更新 AI 工具入口 | `AGENTS.md`、`docs/AI协作/工具适配指南.md`、`docs/AI协作/角色分工.md` | `CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/` | `python tools/docs_health_check.py`；改 `.opencode/` 后验证 JSON |
 | 健康检查 / CI | `docs/AI协作/文档健康检查.md`、`docs/CICD规划.md` | `tools/docs_health_check.py`、`tools/validate_data.py`、`tools/sync_contracts.py`、健康检查命令、CI / pre-commit 规划 | `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/docs_health_check.py`、`python -m json.tool docs/_kb_index.json` |
+| 评估 / 安装 AI skills / MCP | `docs/AI协作/AI技能资源评估.md`、`OPENCODE.md`、`.opencode/opencode.json` | `.opencode/skills/`、`.opencode/opencode.json`、工具适配指南、AI导航、AI记忆 | `python -m json.tool .opencode/opencode.json`、`python tools/docs_health_check.py`、`git diff --check -- . ":(exclude)draft/**" ":(exclude)DRAFT/**"` |
 
 ## 5. ADR 追踪矩阵
 
@@ -106,6 +107,7 @@
 | #50 | 沟通审查不过度优化 / 需求前置评估 | AGENTS、CODEX、OPENCODE、平台规则、AI导航、工具适配指南、AI记忆 |
 | #51 | 数据校验 / 契约同步 / 轻量 Godot Bridge | `tools/sync_contracts.py`、`tools/validate_data.py`、`tools/godot_bridge.py`、CI、AI协作、数据/locale 手册、AI导航 |
 | #52 | AI Git 提交策略 | AGENTS、CODEX、OPENCODE、三平台规则、三平台命令、CONTRIBUTING、AI导航、工具适配指南、AI记忆 |
+| #53 | 项目级 OpenCode skills / AI 资源评估 | `.opencode/skills/`、`.opencode/opencode.json`、OPENCODE、AGENTS、工具适配指南、AI协作 README、`docs/AI协作/AI技能资源评估.md`、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

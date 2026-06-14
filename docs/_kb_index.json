@@ -15,7 +15,7 @@
       "related_docs": ["docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json", "docs/AI导航.md", "docs/AI协作/工具适配指南.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/"],
       "update_triggers": ["startup flow changes", "core red line changes", "new cross-platform command or agent", "AI Git commit policy changes"],
-      "keywords": ["agent", "startup", "开工", "红线", "AI入口", "不过度优化", "需求评估", "风险评估", "没有问题", "AI Git", "自动commit", "提交策略"]
+      "keywords": ["agent", "startup", "开工", "红线", "AI入口", "不过度优化", "需求评估", "风险评估", "没有问题", "AI Git", "自动commit", "提交策略", "skills", "OpenCode skills"]
     },
     {
       "path": "CODEX.md",
@@ -34,16 +34,16 @@
     {
       "path": "OPENCODE.md",
       "type": "entrypoint",
-      "authority": "OpenCode startup adapter and platform file map",
+      "authority": "OpenCode startup adapter, platform file map, and project skills entry",
       "status": "active",
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-06-14",
       "canonical_for": ["opencode_entrypoint"],
       "must_read_for": ["opencode_session", "opencode_config_change", "ai_platform_change"],
       "related_docs": ["AGENTS.md", "CODEX.md", "docs/AI协作/工具适配指南.md"],
-      "related_code": [".opencode/"],
-      "update_triggers": ["OpenCode startup flow changes", "OpenCode agent or command changes", "cross-platform rule changes"],
-      "keywords": ["OpenCode", "OPENCODE", "opencode.json", "平台入口", "subagent", "需求评估", "不过度优化", "AI Git", "自动commit"]
+      "related_code": [".opencode/", ".opencode/skills/"],
+      "update_triggers": ["OpenCode startup flow changes", "OpenCode agent, command, or skill changes", "cross-platform rule changes"],
+      "keywords": ["OpenCode", "OPENCODE", "opencode.json", "平台入口", "subagent", "skills", "Agent Skills", "需求评估", "不过度优化", "AI Git", "自动commit"]
     },
     {
       "path": "README.md",
@@ -300,16 +300,16 @@
     {
       "path": "docs/AI协作/",
       "type": "workflow_group",
-      "authority": "AI collaboration workflows, templates, tool adapters, validation loops",
+      "authority": "AI collaboration workflows, templates, tool adapters, skills, validation loops",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["ai_workflow_docs"],
-      "must_read_for": ["ai_workflow_change", "task_template_change", "tool_adapter_change"],
+      "must_read_for": ["ai_workflow_change", "task_template_change", "tool_adapter_change", "skill_resource_change"],
       "related_docs": ["docs/AI协作/README.md", "docs/AI知识库索引.md", "AGENTS.md"],
-      "related_code": [".codebuddy/", ".codex/", ".opencode/", "tools/"],
-      "update_triggers": ["new AI workflow", "new command", "new agent", "new validation loop"],
-      "keywords": ["AI协作", "workflow", "template", "agent", "command", "subagent", "game-designer", "numeric-designer", "ip-designer", "copywriter-packager", "ui-art-designer", "game-art-designer", "marketing-strategist", "自动commit"]
+      "related_code": [".codebuddy/", ".codex/", ".opencode/", ".opencode/skills/", "tools/"],
+      "update_triggers": ["new AI workflow", "new command", "new agent", "new skill", "new validation loop"],
+      "keywords": ["AI协作", "workflow", "template", "agent", "command", "skill", "subagent", "game-designer", "numeric-designer", "ip-designer", "copywriter-packager", "ui-art-designer", "game-art-designer", "marketing-strategist", "自动commit", "MCP"]
     },
     {
       "path": "docs/AI协作/README.md",
@@ -319,11 +319,11 @@
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-06-14",
       "canonical_for": ["ai_workflow_entry"],
-      "must_read_for": ["ai_workflow_lookup", "new_template", "new_command", "new_agent"],
-      "related_docs": ["docs/AI协作/上下文预算.md", "docs/AI协作/文档维护指南.md", "docs/AI协作/工具适配指南.md"],
-      "related_code": [".codebuddy/", ".codex/", ".opencode/"],
-      "update_triggers": ["new AI workflow", "new command", "new agent", "new validation loop"],
-      "keywords": ["AI协作", "workflow", "command", "agent", "template", "subagent", "creative", "design"]
+      "must_read_for": ["ai_workflow_lookup", "new_template", "new_command", "new_agent", "new_skill"],
+      "related_docs": ["docs/AI协作/上下文预算.md", "docs/AI协作/文档维护指南.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/AI技能资源评估.md"],
+      "related_code": [".codebuddy/", ".codex/", ".opencode/", ".opencode/skills/"],
+      "update_triggers": ["new AI workflow", "new command", "new agent", "new skill", "new validation loop"],
+      "keywords": ["AI协作", "workflow", "command", "agent", "template", "subagent", "skill", "creative", "design"]
     },
     {
       "path": "docs/AI协作/上下文预算.md",
@@ -364,8 +364,8 @@
       "must_read_for": ["document_change", "new_long_lived_doc", "kb_index_change"],
       "related_docs": ["docs/代码文档规范.md", "docs/AI知识库索引.md", "docs/AI协作/文档健康检查.md"],
       "related_code": [],
-      "update_triggers": ["new document maintenance rule", "new long-lived document type"],
-      "keywords": ["docs maintenance", "文档维护", "联动", "AI修改说明"]
+      "update_triggers": ["new document maintenance rule", "new long-lived document type", "AI skill resource workflow change"],
+      "keywords": ["docs maintenance", "文档维护", "联动", "AI修改说明", "skill", "AI资源"]
     },
     {
       "path": "docs/AI协作/文档健康检查.md",
@@ -373,7 +373,7 @@
       "authority": "Docs health-check scope, commands, and failure interpretation",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-14",
       "canonical_for": ["docs_health_check", "docs_drift_detection"],
       "must_read_for": ["docs_health_failure", "validation_rule_change", "health_check_command"],
       "related_docs": ["docs/AI知识库索引.md", "docs/_kb_index.json", "docs/CICD规划.md"],
@@ -403,11 +403,25 @@
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-06-13",
       "canonical_for": ["tool_adapter", "platform_mapping"],
-      "must_read_for": ["ai_platform_change", "new_command", "new_agent"],
-      "related_docs": ["AGENTS.md", "CODEX.md", "OPENCODE.md", "docs/AI协作/README.md"],
-      "related_code": [".codebuddy/", ".codex/", ".opencode/"],
-      "update_triggers": ["AI platform config changes", "agent mapping changes", "command mapping changes"],
-      "keywords": ["工具适配", "CodeBuddy", "Codex", "OpenCode", "platform", "subagent", "agent mapping", "需求评估", "不过度优化", "AI Git", "自动commit", "提交策略"]
+      "must_read_for": ["ai_platform_change", "new_command", "new_agent", "new_skill"],
+      "related_docs": ["AGENTS.md", "CODEX.md", "OPENCODE.md", "docs/AI协作/README.md", "docs/AI协作/AI技能资源评估.md"],
+      "related_code": [".codebuddy/", ".codex/", ".opencode/", ".opencode/skills/"],
+      "update_triggers": ["AI platform config changes", "agent mapping changes", "command mapping changes", "skill mapping changes"],
+      "keywords": ["工具适配", "CodeBuddy", "Codex", "OpenCode", "platform", "subagent", "agent mapping", "skills", "Agent Skills", "需求评估", "不过度优化", "AI Git", "自动commit", "提交策略"]
+    },
+    {
+      "path": "docs/AI协作/AI技能资源评估.md",
+      "type": "workflow",
+      "authority": "External AI skills, agents, MCP, plugin, and rules resource evaluation and project installation record",
+      "status": "active",
+      "owner_scope": "ai-workflow",
+      "last_reviewed": "2026-06-14",
+      "canonical_for": ["ai_resource_evaluation", "opencode_project_skills", "mcp_resource_screening"],
+      "must_read_for": ["new_skill", "mcp_tool_change", "ai_resource_change", "opencode_config_change"],
+      "related_docs": ["OPENCODE.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/README.md", "docs/AI导航.md"],
+      "related_code": [".opencode/skills/", ".opencode/opencode.json"],
+      "update_triggers": ["new project skill", "external AI resource evaluation", "MCP server evaluation", "OpenCode skills path change"],
+      "keywords": ["AI skill", "Agent Skills", "OpenCode skills", "MCP", "skills marketplace", "资源评估", "godot-gdscript", "safe-git-commit", "code-review-factual"]
     },
     {
       "path": "docs/AI协作/实时验证回路.md",

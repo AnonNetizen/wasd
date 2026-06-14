@@ -14,7 +14,8 @@
 6. 大更改完成后按 `AGENTS.md` 的 AI Git 提交策略自动 commit；细微改动不提交；提交前必须检查 status/diff/log 并只 stage 本次任务文件。
 7. 需要复杂任务拆分时，用 `.opencode/agents/` 下同名 subagent，或用 OpenCode 自带 agent/task 能力。
 8. 需要 slash command 时，优先用 `.opencode/opencode.json` 注册的命令；也可按 `.opencode/commands/` 下对应 `.md` 步骤手动执行。
-9. 改 `.opencode/` 后重启 OpenCode；运行中的 session 不会热重载配置。
+9. 需要可复用流程时，优先加载 `.opencode/skills/` 下项目级 skills；当前含 Godot/GDScript、验证、文档同步、安全提交、事实 review、AI 资源筛选和 MCP 评估。
+10. 改 `.opencode/` 后重启 OpenCode；运行中的 session 不会热重载配置。
 
 ## OpenCode 平台文件
 
@@ -26,4 +27,5 @@
 | 编码规则入口 | `.opencode/rules/game-coding-rules.md` |
 | Subagents | `.opencode/agents/` |
 | Commands | `.opencode/commands/` |
+| Skills | `.opencode/skills/` |
 | 跨平台适配说明 | `docs/AI协作/工具适配指南.md` |

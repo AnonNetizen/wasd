@@ -2,8 +2,8 @@
   "schema_version": 1,
   "updated_at": "2026-06-14",
   "current_phase": "docs_framework_and_mvp_m4_6",
-  "current_status": "Full project is still in documentation/framework design; deep meta progression is specified through client/data/meta_progression.json; strong SaveManager requirements now cover meta and run saves; docs/TODO.md tracks the human-readable future task backlog; MVP client has reached M4.6 with centralized mvp_config.json tunables; AI knowledge base v2 and three-layer AI memory are active; AI large-change auto-commit policy is established.",
-  "latest_adr": 52,
+  "current_status": "Full project is still in documentation/framework design; deep meta progression is specified through client/data/meta_progression.json; strong SaveManager requirements now cover meta and run saves; docs/TODO.md tracks the human-readable future task backlog; MVP client has reached M4.6 with centralized mvp_config.json tunables; AI knowledge base v2 and three-layer AI memory are active; AI large-change auto-commit policy is established; project-level OpenCode skills are installed.",
+  "latest_adr": 53,
   "open_decisions": ["A", "B", "C", "D", "E"],
   "last_completed": [
     "AI knowledge base v2 with docs_health_check",
@@ -18,12 +18,14 @@
     "Seven creative/strategy subagents added across CodeBuddy, Codex, and OpenCode: game-designer, numeric-designer, ip-designer, copywriter-packager, ui-art-designer, game-art-designer, marketing-strategist (ADR #49)",
     "Communication rule added: when asked for issues/risks, answer factually and do not invent problems; when new requirements arrive, first assess project fit, cost-effectiveness, complexity, and risks (ADR #50)",
     "Data validation, contract sync, and lightweight Godot Bridge landed: tools/sync_contracts.py, tools/validate_data.py, tools/godot_bridge.py, generated _contracts.json and client/scripts/contracts/*.gd, and docs-check CI now runs sync + validate + docs health (ADR #51)",
-    "AI Git commit policy established: large changes are auto-committed after status/diff/log checks and verification; minor changes are not auto-committed; only task-owned files may be staged (ADR #52)"
+    "AI Git commit policy established: large changes are auto-committed after status/diff/log checks and verification; minor changes are not auto-committed; only task-owned files may be staged (ADR #52)",
+    "Seven project-level OpenCode skills installed under .opencode/skills for Godot/GDScript, scene validation, doc sync, safe git commit, factual code review, AI resource curation, and MCP tool evaluation (ADR #53)"
   ],
   "next_actions": [
     "MVP M5 playtest and workflow/feel/config-tuning review",
     "Use docs/TODO.md as the human-readable backlog when choosing future tasks",
     "Use advisory subagents for gameplay design, numeric modeling, IP, copy, UI art, game art, and marketing strategy discussions",
+    "Use OpenCode project skills for Godot/GDScript work, scene validation, doc sync, safe commits, factual review, AI resource curation, and MCP evaluation",
     "Decide whether MVP needs an M6 iteration after M5 review",
     "Start full client M1 autoload skeleton when ready, including strong SaveManager for meta and run saves before MetaProgressionSystem implementation",
     "CI stage 1 follow-up: commitlint, local pre-commit hook, and incremental watch loop"
@@ -37,6 +39,11 @@
     {
       "date": "2026-06-14",
       "command": "py -3 -m json.tool docs/AI记忆/current_state.json > $null",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 -m json.tool .opencode/opencode.json > $null",
       "result": "passed"
     },
     {
@@ -105,6 +112,7 @@
     "When the user proposes a requirement, briefly assess project fit, value, cost-effectiveness, complexity, and major risks before implementing.",
     "Detailed daily history remains in docs/AI记忆/会话日志/.",
     "Do not read or modify draft/ or DRAFT/ unless explicitly authorized.",
-    "For large AI changes, create a git commit after checking status, diff, recent log, and verification; for minor changes, explain why no commit was made."
+    "For large AI changes, create a git commit after checking status, diff, recent log, and verification; for minor changes, explain why no commit was made.",
+    "Project-level OpenCode skills live in .opencode/skills and their source/evaluation notes live in docs/AI协作/AI技能资源评估.md; restart OpenCode after changing them."
   ]
 }
