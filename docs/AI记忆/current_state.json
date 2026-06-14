@@ -2,8 +2,8 @@
   "schema_version": 1,
   "updated_at": "2026-06-14",
   "current_phase": "docs_framework_and_mvp_m4_6",
-  "current_status": "Full project is still in documentation/framework design; deep meta progression is specified through client/data/meta_progression.json; strong SaveManager requirements now cover meta and run saves; docs/TODO.md tracks the human-readable future task backlog; MVP client has reached M4.6 with centralized mvp_config.json tunables; AI knowledge base v2 and three-layer AI memory are active; AI large-change auto-commit policy and context-compaction task recovery rule are established; eight local OpenCode skills, GodotPrompter plugin, headless-godot Agent Skill, and Claude Code Game Studios tools are installed; external templates, starter projects, examples, and production state are excluded.",
-  "latest_adr": 56,
+  "current_status": "Full project is still in documentation/framework design; deep meta progression is specified through client/data/meta_progression.json; strong SaveManager requirements now cover meta and run saves; docs/TODO.md tracks the human-readable future task backlog; MVP client has reached M4.6 with centralized mvp_config.json tunables; AI knowledge base v2 and three-layer AI memory are active; AI large-change auto-commit policy and context-compaction task recovery rule are established; eight local OpenCode skills, GodotPrompter plugin, headless-godot Agent Skill, Claude Code Game Studios tools, and the ccgs-game-studio cross-agent adapter are installed; external templates, starter projects, examples, and production state are excluded.",
+  "latest_adr": 57,
   "open_decisions": ["A", "B", "C", "D", "E"],
   "last_completed": [
     "AI knowledge base v2 with docs_health_check",
@@ -22,13 +22,14 @@
     "Eight project-level OpenCode skills installed under .opencode/skills for Godot/GDScript, scene validation, Godot test diagnostics, doc sync, safe git commit, factual code review, AI resource curation, and MCP tool evaluation (ADR #53)",
     "Context-compaction task recovery rule established: after summaries or context restoration, user last explicit instruction overrides summaries, Next Steps, and candidate current_state actions (ADR #54)",
     "GodotPrompter, headless-godot-skill-kit, and Claude-Code-Game-Studios installed as review-only Git submodules under .opencode/vendor/ai-resources; they are not in OpenCode skills.paths and are not auto-enabled (ADR #55)",
-    "External AI tools formally installed while excluding templates/examples: GodotPrompter enabled via local OpenCode plugin, headless-godot installed under .agents/skills and added to OpenCode skills.paths, and Claude-Code-Game-Studios agents/skills/hooks/rules installed under .claude (ADR #56)"
+    "External AI tools formally installed while excluding templates/examples: GodotPrompter enabled via local OpenCode plugin, headless-godot installed under .agents/skills and added to OpenCode skills.paths, and Claude-Code-Game-Studios agents/skills/hooks/rules installed under .claude (ADR #56)",
+    "CCGS cross-agent adapter installed at .agents/skills/ccgs-game-studio so non-Claude agents can reuse .claude/agents and .claude/skills on demand without bulk-registering all CCGS agents (ADR #57)"
   ],
   "next_actions": [
     "MVP M5 playtest and workflow/feel/config-tuning review",
     "Use docs/TODO.md as the human-readable backlog when choosing future tasks",
     "Use advisory subagents for gameplay design, numeric modeling, IP, copy, UI art, game art, and marketing strategy discussions",
-    "Use OpenCode project skills for Godot/GDScript work, scene validation, Godot test diagnostics, Headless Godot, doc sync, safe commits, factual review, AI resource curation, and MCP evaluation; GodotPrompter plugin is available after OpenCode restart",
+    "Use OpenCode project skills for Godot/GDScript work, scene validation, Godot test diagnostics, Headless Godot, CCGS cross-agent adaptation, doc sync, safe commits, factual review, AI resource curation, and MCP evaluation; GodotPrompter plugin and Agent Skills are available after OpenCode restart",
     "Decide whether MVP needs an M6 iteration after M5 review",
     "Start full client M1 autoload skeleton when ready, including strong SaveManager for meta and run saves before MetaProgressionSystem implementation",
     "CI stage 1 follow-up: commitlint, local pre-commit hook, and incremental watch loop"
@@ -86,7 +87,7 @@
     "Detailed daily history remains in docs/AI记忆/会话日志/.",
     "Do not read or modify draft/ or DRAFT/ unless explicitly authorized.",
     "For large AI changes, create a git commit after checking status, diff, recent log, and verification; for minor changes, explain why no commit was made.",
-    "Project-level OpenCode skills live in .opencode/skills and .agents/skills; their source/evaluation notes live in docs/AI协作/AI技能资源评估.md; restart OpenCode after changing skills paths or plugins.",
+    "Project-level OpenCode skills live in .opencode/skills and .agents/skills; ccgs-game-studio is the cross-agent adapter for .claude CCGS assets; source/evaluation notes live in docs/AI协作/AI技能资源评估.md; restart OpenCode after changing skills paths or plugins.",
     "External AI resource packages live in .opencode/vendor/ai-resources as upstream submodules; templates, starter projects, examples, and production state are intentionally not installed.",
     "After context summary, compaction, or restoration, align to the user's last explicit instruction first; summaries, Next Steps, and current_state next_actions are candidate context only, not authorization."
   ]

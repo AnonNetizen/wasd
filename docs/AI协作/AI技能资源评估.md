@@ -38,6 +38,7 @@
 | `code-review-factual` | `.opencode/skills/code-review-factual/SKILL.md` | 事实型代码审查；没发现问题就明确说没有，不硬找问题 |
 | `ai-resource-curator` | `.opencode/skills/ai-resource-curator/SKILL.md` | 未来继续评估 / 安装 AI skill、agent、plugin、MCP、rules 的筛选流程 |
 | `mcp-tool-evaluation` | `.opencode/skills/mcp-tool-evaluation/SKILL.md` | 评估 MCP server 是否应项目级 / 用户级安装，控制权限和密钥风险 |
+| `ccgs-game-studio` | `.agents/skills/ccgs-game-studio/SKILL.md` | 让 OpenCode / Codex / CodeBuddy / 通用 agent 按需复用 `.claude/` CCGS agents / skills，并把 Task、模板、hooks 等 Claude 专属语义映射回本项目规则 |
 
 ## 4. 外部整包来源与正式安装映射
 
@@ -47,12 +48,13 @@
 |------|----------|----------|--------|
 | `jame581/GodotPrompter` | `.opencode/vendor/ai-resources/GodotPrompter` | OpenCode plugin：`.opencode/opencode.json` `plugin` 指向上游 `.opencode/plugins/godot-prompter.js`，由 plugin 注册 GodotPrompter skills | `.cursor-plugin/`、`.claude-plugin/`、`.github/`、测试目录等平台/维护杂项 |
 | `abagames/headless-godot-skill-kit` | `.opencode/vendor/ai-resources/headless-godot-skill-kit` | `.agents/skills/headless-godot/`，并把 `.agents/skills` 加入 `.opencode/opencode.json` `skills.paths` | `templates/godot-base/` starter project、skill 内 `tools/templates/` |
-| `Donchitos/Claude-Code-Game-Studios` | `.opencode/vendor/ai-resources/Claude-Code-Game-Studios` | `.claude/agents/`、`.claude/skills/`、`.claude/hooks/`、`.claude/rules/`、`.claude/settings.json`、`.claude/statusline.sh`、`.claude/docs/` 非模板工具文档 | `.claude/docs/templates/`、仓库 `docs/examples/`、`CCGS Skill Testing Framework/`、`design/`、`production/`、`src/`、模板 / 示例 / 状态目录 |
+| `Donchitos/Claude-Code-Game-Studios` | `.opencode/vendor/ai-resources/Claude-Code-Game-Studios` | `.claude/agents/`、`.claude/skills/`、`.claude/hooks/`、`.claude/rules/`、`.claude/settings.json`、`.claude/statusline.sh`、`.claude/docs/` 非模板工具文档；`.agents/skills/ccgs-game-studio/` 作为非 Claude agent 的按需复用适配层 | `.claude/docs/templates/`、仓库 `docs/examples/`、`CCGS Skill Testing Framework/`、`design/`、`production/`、`src/`、模板 / 示例 / 状态目录 |
 
 ## 4-A. 激活边界
 
 - OpenCode 当前自动加载 `.opencode/skills` 与 `.agents/skills`，并通过本地 plugin 启用 GodotPrompter。
 - Claude Code 当前通过根目录 `CLAUDE.md` 与 `.claude/` 使用 CCGS agents / skills / hooks / rules。
+- 非 Claude agent 通过 `.agents/skills/ccgs-game-studio/SKILL.md` 复用 CCGS；只按需读取 `.claude/agents/` 与 `.claude/skills/`，不把所有 CCGS agent 批量注册成其他平台的原生 subagent。
 - `.opencode/vendor/ai-resources/` 不整体加入 `skills.paths`；只作为上游来源和更新基准。
 - 外部 AI 工具输出建议必须先过本项目规则、词表、数据驱动、测试和文档同步要求。
 

@@ -111,9 +111,9 @@ OpenCode 命令由 `.opencode/opencode.json` 的 `command` 字段注册；不支
 
 ## 🧠 项目级 Skills（OpenCode）
 
-OpenCode 项目级 skills 放在 `.opencode/skills/<name>/SKILL.md`，由 `.opencode/opencode.json` 注册 `.opencode/skills` 路径，并按需通过 skill tool 加载。当前已安装：`godot-gdscript`、`godot-scene-validation`、`godot-test-diagnostics`、`project-doc-sync`、`safe-git-commit`、`code-review-factual`、`ai-resource-curator`、`mcp-tool-evaluation`。`.agents/skills/headless-godot` 也已加入 OpenCode `skills.paths`。
+OpenCode 项目级 skills 放在 `.opencode/skills/<name>/SKILL.md`，由 `.opencode/opencode.json` 注册 `.opencode/skills` 路径，并按需通过 skill tool 加载。当前已安装：`godot-gdscript`、`godot-scene-validation`、`godot-test-diagnostics`、`project-doc-sync`、`safe-git-commit`、`code-review-factual`、`ai-resource-curator`、`mcp-tool-evaluation`。`.agents/skills/headless-godot` 与 `.agents/skills/ccgs-game-studio` 也已加入 OpenCode `skills.paths`。
 
-外部 AI 资源整包候选放在 `.opencode/vendor/ai-resources/` 作为上游来源；`GodotPrompter` 通过本地 OpenCode plugin 启用，`headless-godot-skill-kit` 的 Agent Skill 装入 `.agents/skills/`，`Claude-Code-Game-Studios` 的 Claude tools 装入 `.claude/`。模板、starter project、示例和生产状态不安装。筛选依据与来源记录见 `docs/AI协作/AI技能资源评估.md`。
+外部 AI 资源整包候选放在 `.opencode/vendor/ai-resources/` 作为上游来源；`GodotPrompter` 通过本地 OpenCode plugin 启用，`headless-godot-skill-kit` 的 Agent Skill 装入 `.agents/skills/`，`Claude-Code-Game-Studios` 的 Claude tools 装入 `.claude/`，并通过 `.agents/skills/ccgs-game-studio` 提供非 Claude agent 的按需复用适配层。模板、starter project、示例和生产状态不安装。筛选依据与来源记录见 `docs/AI协作/AI技能资源评估.md`。
 
 ---
 

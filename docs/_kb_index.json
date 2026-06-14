@@ -432,10 +432,10 @@
       "last_reviewed": "2026-06-14",
       "canonical_for": ["ai_resource_evaluation", "opencode_project_skills", "agent_skills", "claude_tools", "opencode_vendor_resources", "mcp_resource_screening"],
       "must_read_for": ["new_skill", "new_vendor_resource", "mcp_tool_change", "ai_resource_change", "opencode_config_change", "claude_config_change"],
-      "related_docs": ["CLAUDE.md", "OPENCODE.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/README.md", "docs/AI导航.md"],
+      "related_docs": ["CLAUDE.md", "CODEX.md", "OPENCODE.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/README.md", "docs/AI导航.md"],
       "related_code": [".opencode/skills/", ".agents/skills/", ".claude/", ".opencode/vendor/ai-resources/", ".opencode/opencode.json", ".gitmodules"],
-      "update_triggers": ["new project skill", "new agent skill", "new Claude tool", "new vendor resource package", "external AI resource evaluation", "MCP server evaluation", "OpenCode skills path change"],
-      "keywords": ["AI skill", "Agent Skills", "OpenCode skills", "Claude skills", "MCP", "skills marketplace", "资源评估", "vendor", "GodotPrompter", "headless-godot-skill-kit", "Claude-Code-Game-Studios", "godot-gdscript", "headless-godot", "godot-test-diagnostics", "safe-git-commit", "code-review-factual", "GUT", "GdUnit4"]
+      "update_triggers": ["new project skill", "new agent skill", "new Claude tool", "new CCGS adapter", "new vendor resource package", "external AI resource evaluation", "MCP server evaluation", "OpenCode skills path change"],
+      "keywords": ["AI skill", "Agent Skills", "OpenCode skills", "Claude skills", "MCP", "skills marketplace", "资源评估", "vendor", "GodotPrompter", "headless-godot-skill-kit", "Claude-Code-Game-Studios", "CCGS", "ccgs-game-studio", "cross-agent", "godot-gdscript", "headless-godot", "godot-test-diagnostics", "safe-git-commit", "code-review-factual", "GUT", "GdUnit4"]
     },
     {
       "path": "docs/AI协作/实时验证回路.md",

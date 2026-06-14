@@ -11,7 +11,8 @@
 3. `.claude/agents/`、`.claude/skills/`、`.claude/hooks/`、`.claude/rules/` 来自 `Donchitos/Claude-Code-Game-Studios`，用于专业分工、工作流、hook 与路径规则参考。
 4. `.claude/docs/templates/` 未安装；不要假设 CCGS 的模板目录存在。需要模板时优先使用本项目 `docs/AI协作/任务模板/`、`docs/代码文档规范.md` 和既有项目文档。
 5. `.agents/skills/headless-godot/` 来自 `abagames/headless-godot-skill-kit`，用于 headless Godot CLI、场景编辑、测试和导出参考。
-6. `GodotPrompter` 通过 OpenCode plugin 在 `.opencode/opencode.json` 中注册；Claude Code 如需使用其技能，可参考 `.opencode/vendor/ai-resources/GodotPrompter/skills/`，但不得绕过本项目规则。
+6. `.agents/skills/ccgs-game-studio/` 是 CCGS 跨平台适配层；Claude Code 可继续直接用 `.claude/`，其他 agent 通过该 skill 按需读取 `.claude/agents/` 与 `.claude/skills/`。
+7. `GodotPrompter` 通过 OpenCode plugin 在 `.opencode/opencode.json` 中注册；Claude Code 如需使用其技能，可参考 `.opencode/vendor/ai-resources/GodotPrompter/skills/`，但不得绕过本项目规则。
 
 ## Claude 平台文件
 
