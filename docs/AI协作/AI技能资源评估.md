@@ -21,9 +21,10 @@
 | `anthropics/skills` | 官方示例成熟，重点参考 `skill-creator`、`mcp-builder`、`webapp-testing`、文档类 skill 的组织方式；未直接复制大体量文档技能 |
 | `agentskills.io` | 确认 Agent Skills 是跨工具开放格式，适合长期沉淀项目级技能 |
 | `modelcontextprotocol/servers` 与 MCP Registry | 参考官方 MCP 服务器分类和安全提示；当前不新增项目级 MCP 服务，避免权限和本机路径问题 |
-| `punkpeye/awesome-mcp-servers` / Glama MCP 目录 | 作为后续 MCP 发现入口；当前只记录评估流程，不批量安装 |
+| `punkpeye/awesome-mcp-servers` / Glama MCP 目录 | 作为后续 MCP 发现入口；抽样 Godot MCP 诊断 / 测试资源后，优先本地化流程，不批量安装 |
 | `wshobson/agents` | 成熟多工具 marketplace，参考 `godot-gdscript-patterns`、`code-review-excellence`、`architecture-decision-records`、`github-actions-templates`、`block-no-verify-hook` 等技能模式 |
 | `PatrickJS/awesome-cursorrules` | 参考 anti-overengineering、anti-sycophancy、PR review、游戏/图形规则等提示模式；不直接安装 Cursor `.mdc` 文件 |
+| Context7 / Ref Tools / GitMCP | 可作为用户级文档查询候选；当前不进仓库配置，避免网络 / 权限和维护负担 |
 
 ## 3. 已安装 Skills
 
@@ -31,6 +32,7 @@
 |-------|------|------|
 | `godot-gdscript` | `.opencode/skills/godot-gdscript/SKILL.md` | Godot 4.6.3 + typed GDScript 实现；强化数据驱动、autoload、InputMap、MVP/full client 边界 |
 | `godot-scene-validation` | `.opencode/skills/godot-scene-validation/SKILL.md` | 使用 `tools/godot_bridge.py` 与数据校验做场景树 / headless / 引擎版本验证 |
+| `godot-test-diagnostics` | `.opencode/skills/godot-test-diagnostics/SKILL.md` | Godot 测试与诊断流程；覆盖 GUT/GdUnit4 规划、headless 失败、场景 / 脚本错误、日志归因和未来 CI 测试门禁 |
 | `project-doc-sync` | `.opencode/skills/project-doc-sync/SKILL.md` | 规则、ADR、AI 记忆、知识库索引和长期文档同步流程 |
 | `safe-git-commit` | `.opencode/skills/safe-git-commit/SKILL.md` | 执行 ADR #52 的安全提交流程，避免误 stage 用户脏改或 `DRAFT/` |
 | `code-review-factual` | `.opencode/skills/code-review-factual/SKILL.md` | 事实型代码审查；没发现问题就明确说没有，不硬找问题 |
@@ -46,6 +48,7 @@
 | 通用 Git/filesystem/fetch MCP | OpenCode 已有本地工具；项目级 MCP 会扩大权限面 |
 | Memory MCP / Pensyve | 项目已有三层 AI 记忆文件；外部持久记忆需单独评估隐私和漂移 |
 | Cursor `.mdc` 规则包 | 本项目已有三平台规则入口；只吸收模式，不再引入第四套规则源 |
+| Playwright / Browserbase MCP | 当前没有 Web 应用，Godot 项目收益低且权限 / 依赖开销高 |
 
 ## 5. 后续维护
 

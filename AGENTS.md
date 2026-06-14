@@ -16,8 +16,8 @@
 1. **本文件**（`AGENTS.md`）—— 通用入口；若从 Codex / OpenCode 进入，也可先读 `CODEX.md` / `OPENCODE.md` 再回到这里
 2. **`docs/AI记忆/项目记忆.md` + `docs/AI记忆/current_state.json`** —— **跨会话/跨机器的项目长时记忆与机器当前状态**
    - 项目快照（v1.5、Godot 4.6.3 + GDScript、文档阶段）
-   - 38 条 ADR 摘要
-   - 待决策项（A~D）
+   - 53 条 ADR 摘要
+   - 待决策项（A~E）
    - 工具链与基础设施现状
    - **下一步候选**以 `current_state.json` 为机器可读权威（最关键，告诉你现在该干什么）
 3. **强制编码规则** —— 按当前平台读取：CodeBuddy 读 `.codebuddy/rules/game-coding-rules.md`；Codex 读 `.codex/rules/game-coding-rules.md`；OpenCode 读 `.opencode/rules/game-coding-rules.md`；其他 agent 没有专属规则入口时读 `.codebuddy/rules/game-coding-rules.md` 作为项目规则源
@@ -110,7 +110,7 @@ OpenCode 命令由 `.opencode/opencode.json` 的 `command` 字段注册；不支
 
 ## 🧠 项目级 Skills（OpenCode）
 
-OpenCode 项目级 skills 放在 `.opencode/skills/<name>/SKILL.md`，由 `.opencode/opencode.json` 注册 `.opencode/skills` 路径，并按需通过 skill tool 加载。当前已安装：`godot-gdscript`、`godot-scene-validation`、`project-doc-sync`、`safe-git-commit`、`code-review-factual`、`ai-resource-curator`、`mcp-tool-evaluation`。筛选依据与来源记录见 `docs/AI协作/AI技能资源评估.md`。
+OpenCode 项目级 skills 放在 `.opencode/skills/<name>/SKILL.md`，由 `.opencode/opencode.json` 注册 `.opencode/skills` 路径，并按需通过 skill tool 加载。当前已安装：`godot-gdscript`、`godot-scene-validation`、`godot-test-diagnostics`、`project-doc-sync`、`safe-git-commit`、`code-review-factual`、`ai-resource-curator`、`mcp-tool-evaluation`。筛选依据与来源记录见 `docs/AI协作/AI技能资源评估.md`。
 
 ---
 

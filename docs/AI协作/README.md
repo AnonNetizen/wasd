@@ -82,7 +82,7 @@ AI agent 接到任务时优先按以下顺序：
 3. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。
 4. **不是高频任务**？读 `上下文预算.md` 决定读取范围，避免盲目全仓搜索。
 5. **任务复杂**？参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
-6. **是不是已有项目级 skill**？OpenCode 可加载 `.opencode/skills/`：Godot 实现 / 场景验证 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选 / MCP 评估。
+6. **是不是已有项目级 skill**？OpenCode 可加载 `.opencode/skills/`：Godot 实现 / 场景验证 / Godot 测试诊断 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选 / MCP 评估。
 7. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
 8. **改了词表 / 数据 / 文案**？跑 `python tools/sync_contracts.py --check` 与 `python tools/validate_data.py`。
 9. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规。

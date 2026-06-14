@@ -309,7 +309,7 @@
       "related_docs": ["docs/AI协作/README.md", "docs/AI知识库索引.md", "AGENTS.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/", ".opencode/skills/", "tools/"],
       "update_triggers": ["new AI workflow", "new command", "new agent", "new skill", "new validation loop"],
-      "keywords": ["AI协作", "workflow", "template", "agent", "command", "skill", "subagent", "game-designer", "numeric-designer", "ip-designer", "copywriter-packager", "ui-art-designer", "game-art-designer", "marketing-strategist", "自动commit", "MCP"]
+      "keywords": ["AI协作", "workflow", "template", "agent", "command", "skill", "subagent", "game-designer", "numeric-designer", "ip-designer", "copywriter-packager", "ui-art-designer", "game-art-designer", "marketing-strategist", "godot-test-diagnostics", "自动commit", "MCP"]
     },
     {
       "path": "docs/AI协作/README.md",
@@ -323,7 +323,7 @@
       "related_docs": ["docs/AI协作/上下文预算.md", "docs/AI协作/文档维护指南.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/AI技能资源评估.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/", ".opencode/skills/"],
       "update_triggers": ["new AI workflow", "new command", "new agent", "new skill", "new validation loop"],
-      "keywords": ["AI协作", "workflow", "command", "agent", "template", "subagent", "skill", "creative", "design"]
+      "keywords": ["AI协作", "workflow", "command", "agent", "template", "subagent", "skill", "creative", "design", "Godot diagnostics", "GUT", "GdUnit4"]
     },
     {
       "path": "docs/AI协作/上下文预算.md",
@@ -421,7 +421,7 @@
       "related_docs": ["OPENCODE.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/README.md", "docs/AI导航.md"],
       "related_code": [".opencode/skills/", ".opencode/opencode.json"],
       "update_triggers": ["new project skill", "external AI resource evaluation", "MCP server evaluation", "OpenCode skills path change"],
-      "keywords": ["AI skill", "Agent Skills", "OpenCode skills", "MCP", "skills marketplace", "资源评估", "godot-gdscript", "safe-git-commit", "code-review-factual"]
+      "keywords": ["AI skill", "Agent Skills", "OpenCode skills", "MCP", "skills marketplace", "资源评估", "godot-gdscript", "godot-test-diagnostics", "safe-git-commit", "code-review-factual", "GUT", "GdUnit4"]
     },
     {
       "path": "docs/AI协作/实时验证回路.md",
