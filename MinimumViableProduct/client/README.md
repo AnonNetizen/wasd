@@ -7,7 +7,7 @@
 
 当前已建立 MVP 独立 Godot 4.6.3 项目骨架，入口场景为 `res://scenes/main.tscn`。
 
-M4 已实现玩家受伤、失败状态、HUD 计时 / 击杀数，以及失败后重开。M4.5 已接入手柄 D-pad / 摇杆瞄准与手柄 A 重开。当前 MVP 已具备一轮可玩闭环，下一步是 M5 复盘。
+M4 已实现玩家受伤、失败状态、HUD 计时 / 击杀数，以及失败后重开。M4.5 已接入手柄 D-pad / 摇杆瞄准与手柄 A 重开。M4.6 已把核心可调数值抽到 `res://data/mvp_config.json`。当前 MVP 已具备一轮可玩闭环，下一步是 M5 复盘。
 
 当前视觉采用无贴图的几何霓虹占位风格：深色网格背景、四方向刷怪通道、中心准星、带描边的玩家 / 敌人和带拖尾感的子弹。目标是让 MVP 在没有正式美术资源前也具备可读性和基本观感。
 
@@ -31,10 +31,15 @@ MinimumViableProduct/client/
 │   ├── enemy.gd
 │   └── spawner.gd
 └── data/
-    └── README.md
+    ├── README.md
+    └── mvp_config.json
 ```
 
-当前 `main.gd` 同时承担轻量 GameSession 职责；如果 M5 复盘认为 MVP 还要继续扩展，再考虑拆出 `game_session.gd` 与 `mvp_config.json`。
+当前 `main.gd` 同时承担轻量 GameSession 职责，并负责加载 `mvp_config.json` 分发给玩家、输入、武器、刷怪器、敌人和背景。如果 M5 复盘认为 MVP 还要继续扩展，再考虑拆出 `game_session.gd`。
+
+## 代码文档
+
+MVP 客户端代码契约见 `MinimumViableProduct/docs/代码/mvp_client.md`。当前所有 MVP 脚本都由该模块文档覆盖；改公共 API、signal、输入绑定、刷怪、失败流程或测试义务时必须同步该文档。
 
 ## 运行方式
 
@@ -49,9 +54,10 @@ MinimumViableProduct/client/
 - 方向键、手柄 D-pad、左摇杆和右摇杆只改变四方向射击朝向。
 - 敌人只从四方向刷新。
 - M3 敌人按上、右、下、左的固定顺序循环刷新，不使用随机数。
-- 子弹命中敌人会销毁敌人与子弹；击杀计数留到 M4。
-- 敌人触碰玩家会扣 1 点 HP；HP 归零后停止刷怪和射击，显示失败面板。
+- 子弹命中敌人会按 `mvp_config.json` 的 `weapon.bullet_damage` 造成伤害；敌人死亡后增加击杀计数。
+- 敌人触碰玩家会按 `mvp_config.json` 的 `enemy.contact_damage` 扣 HP；HP 归零后停止刷怪和射击，显示失败面板。
 - 失败后按 Godot 内置 `ui_accept`（Enter / Space / 手柄 A）重开当前场景。
 - 视觉全部由 `_draw()` 和基础 UI 节点生成，当前不依赖图片 / 字体 / shader 资源。
+- 玩法节奏、碰撞半径、手柄死区和背景关键尺寸优先通过 `data/mvp_config.json` 调整。
 - 当前方向输入使用 Godot 内置 InputMap action：`ui_up` / `ui_down` / `ui_left` / `ui_right`；MVP 运行时把方向键、手柄 D-pad、左摇杆、右摇杆都绑定到这组 action。
 - 若某个实现经验值得进入完整项目，先写入 `MinimumViableProduct/docs/经验记录.md`，再决定是否升级到根目录 ADR。

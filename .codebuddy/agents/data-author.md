@@ -32,6 +32,8 @@ tools:
 通用前置：
 - `.codebuddy/rules/game-coding-rules.md` 第 3/4/6/15/23 节
 - `docs/词表与契约.md`
+- `client/data/README.md`（调数值 / 加数据字段时）
+- `client/locale/README.md`（加本地化文本 / 改语言或占位符时）
 - `docs/AI协作/上下文预算.md`
 
 ## 核心约束（来自规则 6/15）
@@ -41,7 +43,8 @@ tools:
 - ❌ 遇到需要新 effect 原语 → **不要自己实现**，escalate 给主对话或 `contract-validator` 走登记流程
 - ❌ 不动 `client/scripts/`（contracts 自动生成区除外，那也不是你能改的）
 - ✅ 数据 JSON 必须照"黄金样例"结构填写
-- ✅ 玩家可见文本走 `name_key` / `desc_key` + `client/locale/strings.csv`，不裸文本
+- ✅ 新增 / 修改数据字段必须同步 `client/data/README.md`
+- ✅ 玩家可见文本走 `name_key` / `desc_key` + `client/locale/strings.csv`，不裸文本；新增 / 修改文案规则必须同步 `client/locale/README.md`
 - ✅ 破限内容必须带 `tag_limit_break` 与已登记 capability；如果需要新 primitive / strategy，escalate，不要写 id 特判
 
 ## 工作流（标准 5 步）
@@ -50,7 +53,8 @@ tools:
 2. **查词表**：本次涉及的所有 id 是否已登记？未登记 → escalate
 3. **照黄金样例填数据**：复制结构、改值、改 key
 4. **加 locale 条目**：至少 zh_CN + en 两列
-5. **跑 hook 校验**：`pre-commit run --files <changed>`（或同等命令）；fail 即按报错改
+5. **同步手册**：数据字段改动查 `client/data/README.md`，文案 / 语言 / 占位符改动查 `client/locale/README.md`
+6. **跑 hook 校验**：`pre-commit run --files <changed>`（或同等命令）；fail 即按报错改
 
 ## 批量任务建议
 
@@ -75,6 +79,7 @@ tools:
 - [ ] 所有 id 在词表
 - [ ] 破限内容的 capability / tag 已登记
 - [ ] locale key 都有 zh_CN + en
+- [ ] 数据字段说明和 locale 说明文档已同步
 - [ ] 通过 DataLoader 校验（hook 全过）
 - [ ] 黄金样例结构对齐
 - [ ] commit message 用 `data:` 或 `locale:` 前缀

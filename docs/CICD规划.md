@@ -3,7 +3,7 @@
 > 本文档汇总本项目的 CI/CD 路线图与候选项，按「阶段 + 优先级」排列，作为后续逐步落地的清单。
 > 配套：`README.md`、`CONTRIBUTING.md`、当前平台编码规则入口、`词表与契约.md`、`决策记录.md`。
 >
-> 当前状态：**未启用任何 workflow**。本文件仅为规划，不影响现有仓库行为；逐项落地时再新建 `.github/workflows/*.yml` 等具体文件，并同步更新本文档。
+> 当前状态：已启用最小 Stage 1 workflow：`.github/workflows/docs-check.yml`。它只跑 JSON、CSV、文档健康检查和 whitespace diff；暂不启用 Godot、GUT、黄金回放、平衡 sim、commitlint 或复杂矩阵。
 >
 > **测试相关**：本文件只列 CI 工作流的"何时跑、跑什么"。完整测试金字塔、必测清单、里程碑要求、性能预算、手动回归 checklist 见 `docs/测试策略.md`（测试唯一权威）。
 >
@@ -29,17 +29,23 @@
 
 ## 1. 阶段 1：现在就能开（无需等代码）
 
-### 1.A 文档与契约校验 ⭐⭐⭐
-**workflow（拟建）**：`.github/workflows/docs-check.yml`
+### 1.A 文档与数据基础校验 ⭐⭐⭐
+**workflow（已启用，最小版）**：`.github/workflows/docs-check.yml`
+
+当前最小版检查：
+
+- JSON 语法：`docs/_kb_index.json`、`docs/AI记忆/current_state.json`、`client/data/*.json`、`MinimumViableProduct/client/data/*.json`
+- CSV 基础完整性：`client/locale/strings.csv` 必须有 `keys` / `zh_CN` / `en`，key 唯一，中英文非空，占位符集合一致
+- AI 知识库健康检查：运行 `python tools/docs_health_check.py`，校验知识库索引、ADR、current_state、链接、AI 修改说明和模块文档索引
+- whitespace diff：对本次提交范围运行 `git diff --check`，排除 `draft/` / `DRAFT/`
+
+暂缓项（避免初期 CI 过重）：
 
 - Markdown lint（标题层级、行内格式）
-- **内部链接死链检查**：`README.md` / `CONTRIBUTING.md` / `AI导航.md` 等引用的相对路径必须真实存在（中文文件名易写错）
-- **`修改建议.md` 编号唯一性**：当前待决策 A~D 不能撞号；已归档编号不得复用
-- **`决策记录.md` ADR 编号连续性**：递增、不跳号
-- **设计文档版本号同步**：`README.md` 与 `游戏设计文档.md` 的版本号一致
-- **代码文档规范链接检查**：`docs/代码文档规范.md`、`docs/代码/README.md` 与导航 / 规则中的路径必须存在
+- 独立 Node / markdownlint 工具链
+- Godot headless、GUT、黄金回放和平衡 sim
 
-候选实现：`markdownlint-cli2` + 一段 Python/Node 脚本做编号与版本校验。
+后续可在脚本稳定后把 1.B、1.C、1.D 拆成独立 workflow 或并入本 workflow。
 
 ### 1.B 词表契约校验 ⭐⭐⭐（**项目独有护城河**）
 **workflow（拟建）**：`.github/workflows/contract-check.yml`
@@ -47,6 +53,7 @@
 
 - 解析 `词表与契约.md` 表格 → 抽出白名单：`stat` / `effect` / `behavior.event` / 埋点 `event_name` / 设置 `key` / 输入 `action id` / 本地化 key 前缀
 - 当 `res://data/*.json` 落地后，扫描其中的 `stat` / `effect` / `event` 等字段
+- 新增 / 修改数据字段时，检查 `client/data/README.md` 是否包含字段说明（字段含义、单位、范围）
 - **未在白名单的 id 一律 CI 失败**，输出「文件名 + 字段路径 + 期望值」（对齐规则 16 的 fail-fast）
 - 即使代码尚未落地，脚本可先开发就绪，等数据出现立即起效
 
@@ -56,6 +63,8 @@
 - `res://locale/strings.csv` 与 `res://data/*.json` 中所有 `name_key` / `desc_key` 双向核对：
   - 数据引用的 key 必须在 csv 有定义（缺失即 fail）
   - csv 定义但无人引用 → warning（防野生 key 堆积）
+- 校验必填语言列 `zh_CN` / `en` 都非空，且同一 key 各语言占位符集合一致
+- 新增语言列或占位符约定时，检查 `client/locale/README.md` 是否同步说明
 - 触发时机：等 `res://locale/` 与 `res://data/` 落地后启用
 
 ### 1.D Commit 规范校验 ⭐⭐
@@ -205,7 +214,7 @@
 
 | 阶段 | 项 | 何时做 | 收益 | 成本 |
 |------|---|-------|------|------|
-| 1 | A. 文档/链接/版本号 | **现在** | 高 | 低 |
+| 1 | A. 文档 / JSON / CSV / 知识库健康检查 | **已启用最小版** | 高 | 低 |
 | 1 | B. 词表契约校验 | **现在**（脚本先建） | 极高 | 中 |
 | 1 | C. 本地化 key 一致性 | 等数据落地 | 高 | 低 |
 | 1 | D. commitlint | **现在** | 中 | 极低 |
@@ -230,13 +239,14 @@
 
 ## 6. 推荐落地顺序（建议路径）
 
-1. **第一批（现在）**：1.A + 1.B + 1.D —— 文档/契约/commit 三道门禁
-2. **第二批（数据/locale 落地后）**：1.C + 2.F —— 数据完整性校验
-3. **第三批（代码落地后）**：2.E + 2.G + 2.H+ —— GDScript 质量、启动验证与代码文档覆盖
-4. **第四批（核心系统稳定后）**：2.H —— 关键模块单测
-5. **第五批（准备发布时）**：3.I + 3.K —— 自动构建 + Web demo
-6. **第六批（回放系统落地后）**：4.L 健康度 + 4.M 回放回归
-7. **第七批（多人协作或体量大时）**：4.P 文档同步 + 4.O 标签 + 4.Q 依赖 + 4.N 平衡 sim
+1. **第一批（已启用最小版）**：1.A —— 文档 / JSON / CSV / whitespace 守门，保持低成本快速反馈
+2. **第二批（下一步）**：1.B + 1.D —— 词表契约同步脚本与 commitlint
+3. **第三批（数据/locale 扩大后）**：1.C + 2.F —— 数据完整性校验
+4. **第四批（代码落地后）**：2.E + 2.G + 2.H+ —— GDScript 质量、启动验证与代码文档覆盖
+5. **第五批（核心系统稳定后）**：2.H —— 关键模块单测
+6. **第六批（准备发布时）**：3.I + 3.K —— 自动构建 + Web demo
+7. **第七批（回放系统落地后）**：4.L 健康度 + 4.M 回放回归
+8. **第八批（多人协作或体量大时）**：4.P 文档同步 + 4.O 标签 + 4.Q 依赖 + 4.N 平衡 sim
 
 ---
 

@@ -18,7 +18,7 @@ permission:
 
 ## 必读
 
-1. `docs/词表与契约.md` —— 11 节白名单。
+1. `docs/词表与契约.md` —— §1~§13 白名单（含 stat / effect / behavior event / analytics event / setting / locale / action / pool / damage / status / audio / rng_stream / character / capability / content tag / meta currency / meta upgrade / meta unlock）。
 2. `docs/游戏设计文档.md` 9.19 —— 词表 → 代码常量脚本生成流水线。
 3. `.opencode/rules/game-coding-rules.md` 与 `.codebuddy/rules/game-coding-rules.md` 第 15 节。
 4. `docs/决策记录.md` ADR #28。
@@ -41,7 +41,7 @@ client/scripts/contracts/*.gd
 检查项：
 - [ ] md 改动后是否跑过 `sync_contracts.py`。
 - [ ] 生成文件是否被手改过。
-- [ ] 数据 JSON 中的 stat / effect / event id 是否全在白名单。
+- [ ] 数据 JSON 中的 stat / effect / event / meta id 是否全在白名单。
 - [ ] 业务代码里是否有裸字符串引用约定 id。
 - [ ] `Input.is_action_pressed("xxx")` 中的 `xxx` 是否登记在词表第 7 节。
 

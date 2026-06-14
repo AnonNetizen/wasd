@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "base_stats": {
+    "max_hp": 6,
+    "move_speed": 240.0,
+    "fire_rate": 2.5,
+    "damage": 3.5,
+    "bullet_speed": 520.0,
+    "bullet_range": 650.0,
+    "bullet_count": 1,
+    "pickup_range": 96.0,
+    "luck": 0.0
+  }
+}

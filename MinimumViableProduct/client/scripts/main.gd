@@ -1,14 +1,19 @@
+# Doc: MinimumViableProduct/docs/代码/mvp_client.md
 extends Node2D
 
-const MAX_HP := 3
+const CONFIG_PATH := "res://data/mvp_config.json"
+const DEFAULT_MAX_HP := 3
 
+@onready var background: Node2D = $Background
 @onready var player: Node2D = $Player
 @onready var spawner: Node2D = $Spawner
 @onready var status_label: Label = $HUD/StatusLabel
 @onready var game_over_panel: ColorRect = $HUD/GameOverPanel
 @onready var game_over_label: Label = $HUD/GameOverPanel/GameOverLabel
 
-var hp: int = MAX_HP
+var config: Dictionary = {}
+var max_hp: int = DEFAULT_MAX_HP
+var hp: int = DEFAULT_MAX_HP
 var elapsed_seconds: float = 0.0
 var kill_count: int = 0
 var aim_direction_name: String = "上"
@@ -16,6 +21,8 @@ var game_over: bool = false
 
 
 func _ready() -> void:
+	config = _load_config()
+	_apply_config()
 	player.global_position = get_viewport_rect().size * 0.5
 	player.connect("aim_changed", Callable(self, "_on_player_aim_changed"))
 	player.connect("damage_taken", Callable(self, "_on_player_damage_taken"))
@@ -90,4 +97,51 @@ func _clear_live_enemies() -> void:
 
 func _update_hud() -> void:
 	var status := "战斗中" if not game_over else "已失败"
-	status_label.text = "WASD MVP M4  |  %s\nHP %d/%d  |  Time %.1fs  |  Kills %d\nAim %s  |  方向键 / D-pad / 摇杆瞄准，Enter/Space/A 重开" % [status, hp, MAX_HP, elapsed_seconds, kill_count, aim_direction_name]
+	status_label.text = "WASD MVP  |  %s\nHP %d/%d  |  Time %.1fs  |  Kills %d\nAim %s  |  方向键 / D-pad / 摇杆瞄准，Enter/Space/A 重开" % [status, hp, max_hp, elapsed_seconds, kill_count, aim_direction_name]
+
+
+func _load_config() -> Dictionary:
+	var file := FileAccess.open(CONFIG_PATH, FileAccess.READ)
+	if file == null:
+		push_warning("[MvpMain] %s not found, using script defaults" % CONFIG_PATH)
+		return {}
+
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if not (parsed is Dictionary):
+		push_warning("[MvpMain] %s must contain a JSON object, using script defaults" % CONFIG_PATH)
+		return {}
+
+	var loaded_config: Dictionary = parsed
+	return loaded_config
+
+
+func _apply_config() -> void:
+	var player_config := _get_config_section("player")
+	max_hp = max(1, _get_int(player_config, "max_hp", max_hp))
+	hp = max_hp
+
+	if player.has_method("apply_config"):
+		player.call("apply_config", player_config, _get_config_section("weapon"), _get_config_section("input"))
+	if spawner.has_method("apply_config"):
+		spawner.call("apply_config", _get_config_section("spawner"), _get_config_section("enemy"))
+	if background.has_method("apply_config"):
+		background.call("apply_config", _get_config_section("background"))
+
+
+func _get_config_section(section_name: String) -> Dictionary:
+	var section: Variant = config.get(section_name, {})
+	if not (section is Dictionary):
+		push_warning("[MvpMain] config.%s must be an object, using defaults" % section_name)
+		return {}
+
+	var section_config: Dictionary = section
+	return section_config
+
+
+func _get_int(section: Dictionary, key: String, default_value: int) -> int:
+	var value: Variant = section.get(key, default_value)
+	if value is int or value is float:
+		return int(value)
+
+	push_warning("[MvpMain] config.%s must be a number, using %d" % [key, default_value])
+	return default_value

@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-06-14",
+  "current_phase": "docs_framework_and_mvp_m4_6",
+  "current_status": "Full project is still in documentation/framework design; deep meta progression is specified through client/data/meta_progression.json; docs/TODO.md now tracks the human-readable future task backlog; MVP client has reached M4.6 with centralized mvp_config.json tunables; AI knowledge base v2 and three-layer AI memory are active.",
+  "latest_adr": 47,
+  "open_decisions": ["A", "B", "C", "D", "E"],
+  "last_completed": [
+    "AI knowledge base v2 with docs_health_check",
+    "Experience and level-up choice system decision (ADR #43)",
+    "AI memory split into long-term index, current_state.json, and session logs (ADR #44)",
+    "MVP M4.6 centralized player, input, weapon, enemy, spawner, and background tunables in MinimumViableProduct/client/data/mvp_config.json",
+    "Full project numeric and localization configuration manuals established in client/data/README.md and client/locale/README.md (ADR #45)",
+    "Full project deep meta progression specified with meta currency, account level, permanent upgrades, unlocks, and SaveManager meta persistence boundary (ADR #46)",
+    "Human-readable future task backlog established in docs/TODO.md",
+    "Minimal Stage 1 CI enabled in .github/workflows/docs-check.yml for JSON, CSV, docs health, and whitespace checks (ADR #47)"
+  ],
+  "next_actions": [
+    "MVP M5 playtest and workflow/feel/config-tuning review",
+    "Use docs/TODO.md as the human-readable backlog when choosing future tasks",
+    "Decide whether MVP needs an M6 iteration after M5 review",
+    "Start full client M1 autoload skeleton when ready, using client/data, client/locale, and meta_progression manuals as configuration entrypoints",
+    "CI stage 1 follow-up: contract sync/check, commitlint, and local pre-commit hook"
+  ],
+  "last_verified": [
+    {
+      "date": "2026-06-14",
+      "command": "py -3 -m json.tool docs/_kb_index.json > $null",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 -m json.tool docs/AI记忆/current_state.json > $null",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 -m json.tool client/data/player.json > $null",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 -m json.tool client/data/meta_progression.json > $null",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 -m json.tool MinimumViableProduct/client/data/mvp_config.json > $null",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 -c \"locale CSV check\"",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "py -3 tools/docs_health_check.py",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-14",
+      "command": "git diff --check -- . :(exclude)draft/** :(exclude)DRAFT/**",
+      "result": "passed"
+    }
+  ],
+  "blockers": [],
+  "notes": [
+    "Long-term decisions remain authoritative in docs/决策记录.md.",
+    "Detailed daily history remains in docs/AI记忆/会话日志/.",
+    "Do not read or modify draft/ or DRAFT/ unless explicitly authorized."
+  ]
+}

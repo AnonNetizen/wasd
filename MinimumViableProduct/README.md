@@ -27,6 +27,7 @@
 | `MinimumViableProduct/docs/开发计划.md` | 前期准备到可玩闭环的阶段计划 |
 | `MinimumViableProduct/docs/MVP决策记录.md` | 只影响 MVP 的局部决策 |
 | `MinimumViableProduct/docs/经验记录.md` | 制作过程中的经验、坑点、可迁移结论 |
+| `MinimumViableProduct/docs/代码/` | MVP 客户端代码模块文档 |
 
 ## 与完整项目的边界
 

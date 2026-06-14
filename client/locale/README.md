@@ -1,0 +1,167 @@
+# 多语言文案配置手册
+
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`、`docs/游戏设计文档.md` §9.4 与 `docs/词表与契约.md` §6。
+> 本文档是完整项目 `client/locale/` 的人工多语言文案配置手册；新增语言、改 CSV 格式、改 key 命名规则、改占位符约定或新增文案域时，必须同步 GDD、词表、AI导航、任务模板和相关 UI / 数据模块文档。
+
+---
+
+## 目标
+
+- 所有面向玩家的文本集中在 `client/locale/strings.csv`，便于人工翻译和校对。
+- 代码和数据只引用 key：代码用 `tr("key")`，数据用 `name_key` / `desc_key` 等字段。
+- 同一行维护多语言译文，避免每种语言散落在不同文件里难以对照。
+- 动态数值使用占位符，禁止在代码里拼接句子。
+
+## 快速上手
+
+| 你想做什么 | 怎么做 |
+|------------|--------|
+| 加 UI 文案 | 在 `strings.csv` 加 `ui_*` key；代码使用 `tr("ui_xxx")` |
+| 加遗物 / 道具名 | 在 `strings.csv` 加 `relic_*_name` / `item_*_name`；数据填 `name_key` |
+| 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，动态数值用 `{value}` 这类占位符 |
+| 加局外成长文案 | 在 `strings.csv` 加 `meta_*_name` / `meta_*_desc`；`meta_progression.json` 填 `name_key` / `desc_key` |
+| 改中文或英文翻译 | 只改对应语言列，不改 key |
+| 新增语言 | 给 `strings.csv` 加新语言列，并同步 Settings 语言选项与 Godot Localization 注册 |
+
+## CSV 格式
+
+当前文件：`client/locale/strings.csv`
+
+```csv
+keys,zh_CN,en
+ui_settings,设置,Settings
+ui_resume,继续,Resume
+```
+
+| 列 | 是否必填 | 说明 |
+|----|----------|------|
+| `keys` | 是 | Godot 本地化 key，必须唯一 |
+| `zh_CN` | 是 | 简体中文译文 |
+| `en` | 是 | 英文译文 |
+| 其他语言列 | 可选 | 例如 `zh_TW` / `ja` / `ko`，新增前同步设置项和项目导入配置 |
+
+格式规则：
+
+- 文件使用 UTF-8 与 LF 换行。
+- key 不改名；改名等于破坏所有引用，必须同步代码 / 数据 / 词表。
+- 译文含逗号、换行或双引号时，按 CSV 规则用双引号包裹，并把内部双引号写成 `""`。
+- `zh_CN` 与 `en` 是当前必填语言；新增 key 时两列都要填。
+- 临时占位可以复制英文，但必须在人工校对清单里标出，不能长期留空。
+
+## key 命名
+
+权威来源：`docs/词表与契约.md` §6。
+
+| 前缀 | 用途 | 示例 |
+|------|------|------|
+| `ui_` | UI、菜单、按钮、HUD | `ui_settings` / `ui_pause` |
+| `relic_` | 被动遗物名称和描述 | `relic_sharp_rounds_name` / `relic_sharp_rounds_desc` |
+| `item_` | 主动道具 / 消耗品名称和描述 | `item_bomb_name` / `item_bomb_desc` |
+| `enemy_` | 敌人名称 | `enemy_chaser_name` |
+| `hint_` | 教程、提示、引导 | `hint_aim_with_right_stick` |
+| `meta_` | 局外货币、永久升级、账号等级、解锁项 | `meta_upgrade_damage_name` / `meta_currency_essence_name` |
+
+命名规则：
+
+- 统一蛇形小写：`<域>_<对象>_<字段>`。
+- 名称用 `_name`，描述用 `_desc`，提示可用 `_title` / `_body`。
+- 不把语言写进 key；语言是 CSV 列，不是 key 后缀。
+- 不复用语义不同的 key；即使中文一样，只要上下文不同就新建 key。
+
+## 占位符规则
+
+动态数值必须用命名占位符，不允许字符串拼接。
+
+正确：
+
+```csv
+keys,zh_CN,en
+relic_sharp_rounds_desc,伤害 +{value},Damage +{value}
+ui_level_up_choices,选择 {count} 个升级奖励,Choose {count} level-up reward
+```
+
+错误：
+
+```gdscript
+label.text = tr("ui_damage") + str(value)
+```
+
+占位符规则：
+
+- 同一个 key 的所有语言必须使用同一组占位符名。
+- 占位符名用蛇形小写，如 `{value}`、`{count}`、`{seconds}`。
+- 单位、数字顺序允许按语言调整，但占位符不能丢。
+- 复数、性别、语序复杂的文本不要拼接；拆成独立 key 或后续引入更强格式化规则。
+
+## 常见工作流
+
+### 加一段 UI 文案
+
+1. 在 `strings.csv` 新增一行，如 `ui_restart,重开,Restart`。
+2. UI 代码使用 `tr("ui_restart")`。
+3. 如果该 UI 支持运行时切语言，确认 `NOTIFICATION_TRANSLATION_CHANGED` 后会刷新。
+
+### 加一个遗物名称和描述
+
+1. 在 `strings.csv` 新增：
+
+```csv
+relic_sharp_rounds_name,锋利弹头,Sharp Rounds
+relic_sharp_rounds_desc,伤害 +{value},Damage +{value}
+```
+
+2. 在 `client/data/relics.json` 使用：
+
+```json
+{
+  "id": "relic_sharp_rounds",
+  "name_key": "relic_sharp_rounds_name",
+  "desc_key": "relic_sharp_rounds_desc"
+}
+```
+
+3. 代码显示时通过 key 查译文，不直接读取硬文本。
+
+### 加一个局外成长节点
+
+1. 在 `strings.csv` 新增名称和描述：
+
+```csv
+meta_upgrade_damage_name,淬火弹芯,Tempered Rounds
+meta_upgrade_damage_desc,永久提升基础伤害,Permanently increases base damage
+```
+
+2. 在 `client/data/meta_progression.json` 的 `upgrade_tracks` 中引用：
+
+```json
+{
+  "id": "meta_upgrade_damage",
+  "name_key": "meta_upgrade_damage_name",
+  "desc_key": "meta_upgrade_damage_desc"
+}
+```
+
+3. 若新增了货币、升级轨道或解锁 id，先登记 `docs/词表与契约.md` §13。
+
+### 新增语言
+
+1. 在 `strings.csv` 表头新增语言列，如 `ja`。
+2. 给每个 key 补齐该列译文。
+3. 更新 `docs/词表与契约.md` 中 `general.locale` 的取值范围。
+4. 更新 `Settings` 语言选项与 Godot Project Settings 的 Localization 注册。
+5. 人工切换语言检查 UI、道具名、描述、设置菜单和失败 / 结算面板。
+
+## 人工校对清单
+
+- [ ] `keys` 是否唯一且命名符合词表 §6？
+- [ ] `zh_CN` 与 `en` 是否都有译文？
+- [ ] 所有语言的占位符集合是否一致？
+- [ ] 数据文件是否只引用 `name_key` / `desc_key`，没有硬文本？
+- [ ] 代码是否只使用 `tr("key")`，没有玩家可见硬文本？
+- [ ] 新语言是否同步设置项、Godot Localization 和字体覆盖？
+
+## 与数值配置的关系
+
+- 数值字段、概率、倍率、敌人属性等去 `client/data/` 配置。
+- 文案只在 `client/locale/strings.csv` 配置。
+- 数据文件用 key 把二者连接起来，例如 `desc_key` 指向含 `{value}` 占位符的译文，实际数值来自 `client/data/*.json`。

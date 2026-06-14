@@ -32,10 +32,10 @@ git config --global user.email "<your email>"
 | **OpenAI Codex CLI** | 想用 Codex 平台配置（`.codex/agents/`、`.codex/commands/`、`.codex/rules/`）|
 | **OpenCode** | 想用 OpenCode 协作；入口见 `OPENCODE.md` 与 `.opencode/opencode.json` |
 | **Godot 4.6.3** | 真正运行 / 调试 `client/`（M1 起）|
-| **Python 3.10+** | 跑 `tools/sync_contracts.py` 等同步脚本（脚本将随 M1 落地）|
+| **Python 3.10+** | 跑 `tools/docs_health_check.py`、JSON / CSV 校验和后续 `tools/sync_contracts.py` |
 | **gdtoolkit / GUT** | M1 之后的 lint 与单测（详见 `docs/测试策略.md`）|
 
-**AI agent 第一件事**：读 `AGENTS.md` → `docs/AI记忆/项目记忆.md`，无需翻历史聊天即可续接。
+**AI agent 第一件事**：读 `AGENTS.md` → `docs/AI记忆/项目记忆.md` → `docs/AI记忆/current_state.json`，无需翻历史聊天即可续接。
 
 **换 AI 工具也行**：项目核心资产与工具无关。Codex / OpenCode / Claude Code / Aider / Cursor / Windsurf / ChatGPT 都能用；Codex 见 `CODEX.md`，OpenCode 见 `OPENCODE.md`，其他工具配法见 [`docs/AI协作/工具适配指南.md`](docs/AI协作/工具适配指南.md)。
 
@@ -55,9 +55,9 @@ git config --global user.email "<your email>"
 6. [`docs/代码文档规范.md`](docs/代码文档规范.md) —— 写/改代码时的对应文档规则
 7. [`docs/决策记录.md`](docs/决策记录.md) —— 既定决策
 8. [`docs/修改建议.md`](docs/修改建议.md) —— 待决策项
-9. [`docs/AI记忆/项目记忆.md`](docs/AI记忆/项目记忆.md) —— 跨会话/跨机器的 AI 协作记忆
+9. [`docs/AI记忆/项目记忆.md`](docs/AI记忆/项目记忆.md) + [`docs/AI记忆/current_state.json`](docs/AI记忆/current_state.json) —— 跨会话/跨机器的 AI 协作记忆与当前状态
 
-> AI agent 工作前请按 `docs/AI导航.md` 定位，避免盲目全仓搜索；在新环境续接对话前，先读 `docs/AI记忆/项目记忆.md`。
+> AI agent 工作前请按 `docs/AI导航.md` 定位，避免盲目全仓搜索；在新环境续接对话前，先读 `docs/AI记忆/项目记忆.md` 和 `docs/AI记忆/current_state.json`。
 
 ---
 
@@ -88,7 +88,7 @@ git config --global user.email "<your email>"
 - 新决策 → `docs/决策记录.md`
 - 设计变更 → `docs/游戏设计文档.md` + `docs/AI导航.md` + `docs/词表与契约.md`
 - 代码模块 / 公共 API / 数据 schema / 依赖方向变化 → `docs/代码文档规范.md` + `docs/代码/` 模块文档
-- 重要对话/决策结束后 → `docs/AI记忆/项目记忆.md`（跨机器续接对话用）
+- 重要对话/决策结束后 → `docs/AI记忆/项目记忆.md` + `docs/AI记忆/current_state.json` + 当日会话日志（跨机器续接对话用）
 
 文档不同步等同于未完成。
 
@@ -126,6 +126,8 @@ docs(adr): 记录暂停功能实现约定
 ---
 
 ## 四、PR Checklist（提交前自检）
+
+当前 GitHub Actions 已启用最小 `docs-check`：PR / `main` push 会自动检查 JSON、`strings.csv`、文档健康和 whitespace diff。它暂不跑 Godot、GUT、黄金回放或平衡 sim。
 
 - [ ] 没有硬编码可调数值（都在 `res://data/`）？
 - [ ] 没有硬编码玩家可见文本（都用 `tr()` 文本键）？

@@ -39,7 +39,7 @@ offset_left = 24.0
 offset_top = 24.0
 offset_right = 690.0
 offset_bottom = 150.0
-text = "WASD MVP M4"
+text = "WASD MVP"
 
 [node name="GameOverPanel" type="ColorRect" parent="HUD" unique_id=1834613062]
 visible = false

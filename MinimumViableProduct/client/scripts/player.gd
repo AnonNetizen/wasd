@@ -1,3 +1,4 @@
+# Doc: MinimumViableProduct/docs/代码/mvp_client.md
 extends Node2D
 class_name MvpPlayer
 
@@ -10,6 +11,7 @@ signal damage_taken(amount: int)
 var aim_direction: Vector2 = Vector2.UP
 var aim_direction_name: String = "上"
 var is_active: bool = true
+var damage_flash_duration: float = 0.18
 var damage_flash_seconds: float = 0.0
 
 
@@ -38,11 +40,19 @@ func set_active(active: bool) -> void:
 	weapon.call("set_active", active)
 
 
-func take_damage(amount: int = 1) -> void:
+func apply_config(player_config: Dictionary, weapon_config: Dictionary, input_config: Dictionary) -> void:
+	damage_flash_duration = max(0.0, _get_number(player_config, "damage_flash_seconds", damage_flash_duration))
+	if weapon.has_method("apply_config"):
+		weapon.call("apply_config", weapon_config)
+	if aim_input.has_method("apply_config"):
+		aim_input.call("apply_config", input_config)
+
+
+func take_damage(amount: int) -> void:
 	if not is_active:
 		return
 
-	damage_flash_seconds = 0.18
+	damage_flash_seconds = damage_flash_duration
 	damage_taken.emit(amount)
 	queue_redraw()
 
@@ -72,3 +82,12 @@ func _on_aim_changed(direction: Vector2, direction_name: String) -> void:
 	weapon.call("set_aim_direction", aim_direction)
 	aim_changed.emit(aim_direction_name)
 	queue_redraw()
+
+
+func _get_number(section: Dictionary, key: String, default_value: float) -> float:
+	var value: Variant = section.get(key, default_value)
+	if value is int or value is float:
+		return float(value)
+
+	push_warning("[MvpPlayer] config.%s must be a number, using %.2f" % [key, default_value])
+	return default_value

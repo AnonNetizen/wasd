@@ -20,12 +20,12 @@
       "template": "按 `.opencode/commands/run-replay-regression.md` 的步骤执行，并输出回归报告摘要。"
     },
     "health-check": {
-      "description": "跑项目健康度指标检查。",
-      "template": "按 `.opencode/commands/health-check.md` 的步骤执行，并列出健康度风险。"
+      "description": "跑项目健康度与 AI 知识库健康检查。",
+      "template": "按 `.opencode/commands/health-check.md` 的步骤执行，先运行 `tools/docs_health_check.py`，并列出健康度风险。"
     },
     "update-memory": {
       "description": "显式触发 AI 项目记忆更新。",
-      "template": "按 `.opencode/commands/update-memory.md` 的步骤检查并更新项目记忆。"
+      "template": "按 `.opencode/commands/update-memory.md` 的步骤检查并更新项目记忆、current_state.json 与会话日志。"
     }
   }
 }

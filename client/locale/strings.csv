@@ -1,0 +1,26 @@
+keys,zh_CN,en
+ui_settings,设置,Settings
+ui_resume,继续,Resume
+ui_pause,暂停,Pause
+ui_quit,退出,Quit
+ui_confirm,确认,Confirm
+ui_cancel,取消,Cancel
+meta_currency_essence_name,记忆余烬,Memory Embers
+meta_upgrade_max_hp_name,坚韧心脏,Stout Heart
+meta_upgrade_max_hp_desc,永久提升最大生命,Permanently increases max HP
+meta_upgrade_damage_name,淬火弹芯,Tempered Rounds
+meta_upgrade_damage_desc,永久提升基础伤害,Permanently increases base damage
+meta_upgrade_move_speed_name,轻盈步伐,Light Steps
+meta_upgrade_move_speed_desc,永久提升移动速度,Permanently increases movement speed
+meta_upgrade_pickup_range_name,磁化口袋,Magnetized Pockets
+meta_upgrade_pickup_range_desc,永久提升拾取范围,Permanently increases pickup range
+meta_upgrade_luck_name,幸运刻痕,Lucky Notch
+meta_upgrade_luck_desc,永久提升幸运值,Permanently increases luck
+meta_upgrade_starter_choice_name,开局抉择,Starting Choice
+meta_upgrade_starter_choice_desc,解锁更多开局遗物候选,Unlocks more starting relic choices
+meta_unlock_relic_pool_basic_name,基础遗物池,Basic Relic Pool
+meta_unlock_challenge_room_name,挑战房间,Challenge Rooms
+meta_unlock_difficulty_tier_2_name,难度阶层 II,Difficulty Tier II
+meta_unlock_starting_relic_choice_1_name,开局遗物候选 +1,Starting relic choice +1
+meta_unlock_starting_relic_choice_2_name,开局遗物候选 +2,Starting relic choice +2
+meta_unlock_starting_relic_choice_3_name,开局遗物候选 +3,Starting relic choice +3

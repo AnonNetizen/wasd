@@ -35,13 +35,14 @@ alwaysApply: true
 ## 3. 数据与逻辑分离（核心需求）
 - **严禁在代码中写死可调数值（魔法数字）**：生命、移速、射速、伤害、子弹速度、刷怪曲线、掉落概率等一律读取 `res://data/` 下的配置文件。
 - 配置统一用 **JSON**，通过 `DataLoader` 加载，`FileAccess.open()` + `JSON.parse_string()` 读取。
-- 支持**配置热重载**（运行时重读即时生效），新增数值字段需同步更新字段说明文档。
+- 支持**配置热重载**（运行时重读即时生效），新增 / 修改数值文件或字段需同步 `client/data/README.md`，写清含义、单位、默认值、取值范围和调参影响。
 
 ## 4. 多语言本地化（框架级，强制）
 - **任何面向玩家的文本都不得硬编码**，一律使用文本键：`tr("some_key")`。
 - 数据文件（道具/遗物等）只存 `name_key` / `desc_key`，译文放 `res://locale/` 翻译表。
 - 动态数值用占位符（如 `"伤害 +{value}"`），禁止用字符串拼接组句。
 - 通过 `Localization`（autoload）与 `TranslationServer` 管理与切换语言。
+- 新增 / 修改玩家可见文案、语言列、key 域前缀或占位符约定时，必须同步 `client/locale/README.md`，保证人工能直接按手册维护多语言文本。
 
 ## 5. 设置系统（框架级，强制）
 - 所有玩家偏好走统一的 `Settings`（autoload 单例），不得各自为政。
@@ -63,12 +64,12 @@ alwaysApply: true
 - 所有加成通过向「修正器列表」注册修正项实现，便于动态增删，禁止直接改基础值。
 
 ## 8. 输入与操作
-- 移动：WASD，8 方向。
-- 射击瞄准：方向键，**4 方向（上下左右）**；松开方向键保持上次朝向（停火与否由设置控制）。
-- 开火：**全自动**，按 `fireRate` 触发，玩家不能手动控制是否开火。
+- 移动：键盘 WASD + 手柄左摇杆，8 方向。
+- 射击瞄准：键盘方向键 + 手柄右摇杆 / D-pad，**4 方向（上下左右）**；摇杆输入按最大轴吸附到 4 方向；松开瞄准输入保持上次朝向（停火与否由设置控制）。
+- 开火：**全自动**，按 `fire_rate` 触发，玩家不能手动控制是否开火。
 - 移动与瞄准**解耦**。
-- 按键应可通过设置系统重绑定，不得硬编码按键（统一用 InputMap action，见 `词表与契约.md` 第 7 节）。
-- **暂停功能**：游戏暂停统一用 `get_tree().paused`，暂停时业务节点（移动/开火/子弹/刷怪/机关/计时）随之冻结；暂停菜单等需暂停时仍响应的节点设 `process_mode = PROCESS_MODE_ALWAYS`。暂停键用可重绑定的 action `pause`（默认 `Esc`），菜单文本走本地化键，**不硬编码**。
+- 键盘按键、手柄按钮与手柄轴都应可通过设置系统重绑定，不得硬编码物理输入（统一用 InputMap action，见 `词表与契约.md` 第 7 节）。
+- **暂停功能**：游戏暂停统一用 `get_tree().paused`，暂停时业务节点（移动/开火/子弹/刷怪/机关/计时）随之冻结；暂停菜单等需暂停时仍响应的节点设 `process_mode = PROCESS_MODE_ALWAYS`。暂停键用可重绑定的 action `pause`（默认 `Esc` / 手柄 Start 或 Menu），菜单文本走本地化键，**不硬编码**。
 
 ## 9. 摄像机（玩家恒居屏幕中央）
 - `Camera2D` 挂在 `Player` 节点下，玩家**始终固定在屏幕正中央**，移动表现为世界滚动。
@@ -114,7 +115,7 @@ alwaysApply: true
 - 设置中的音量项（`audio.master/music/sfx`）由 `AudioManager` 在启动时同步到 Bus 配置；缺 Bus 时 fail-fast。
 
 ## 12-B. 平衡测试接口预留（框架级）
-- 输入解耦：`Player` 与所有可被 AI 替换的角色，输入必须走 InputMap action（不直接读 `Input.is_key_pressed`）。
+- 输入解耦：`Player` 与所有可被 AI 替换的角色，输入必须走 InputMap action（不直接读 `Input.is_key_pressed` / `Input.is_joy_button_pressed` / 原始 joy axis）。
 - `Spawner` / `MapManager` / `RNG` 都接受外部 seed 注入。
 - `Analytics` 在 headless 模式下走同步落盘（不阻塞模拟批量跑）。
 - MVP 前**只锁接口形态**，不实现 `AIPlayer`（详见 `游戏设计文档.md` 9.10）。
@@ -134,9 +135,9 @@ alwaysApply: true
 - **跨会话 / 跨机器协作**：在新环境 clone 仓库后，先读 `AGENTS.md` 给出的开工 5 步（指向 `docs/AI记忆/项目记忆.md` 等），可直接续接对话。
 
 ## 14-B. AI 记忆维护（自动）
-- `docs/AI记忆/项目记忆.md` 是 AI 协作主索引，必须按其第 9 节「更新约定」**自动维护**，无需用户提醒。
-- 每次重要变更结束后：① 修订快照/决策/工具链节；② 第 6 节追加**一行**摘要 + 日志链接；③ 写当日 `会话日志/YYYY-MM-DD.md`；④ 更新"下一步候选"。
-- **自动瘦身**：写入前检查行数，临近 200 行立即按"日 → 周 → 月"层级聚合旧条目；同位置累积内容用**覆盖**不用追加。
+- `docs/AI记忆/项目记忆.md` 是 AI 协作长期索引，`docs/AI记忆/current_state.json` 是机器可读当前状态，必须按项目记忆第 9 节「更新约定」**自动维护**，无需用户提醒。
+- 每次重要变更结束后：① 修订长期索引快照/决策/工具链节；② 覆盖更新 `current_state.json`（最新 ADR、待决策项、下一步、最近验证）；③ 第 6 节保留当日**一行**摘要 + 日志链接；④ 写当日 `会话日志/YYYY-MM-DD.md`。
+- **自动瘦身**：写入前检查 `项目记忆.md` 行数，临近 200 行立即按"日 → 周 → 月"层级聚合旧条目；短期状态进入 `current_state.json` 并用**覆盖**不用追加。
 - 瘦身本身不算重大变更，仅在会话日志记一笔，不再追加 ADR。
 
 ## 14-C. 测试义务（强制）
@@ -167,7 +168,7 @@ alwaysApply: true
   - 输入 action id、池类型 id、伤害类型、状态效果 id、音频 id、RNG 子流 id、角色 id、capability id、content tag
 - **只能使用白名单中已存在的 id**；需要新 id 时，先在 `docs/词表与契约.md` 登记，再在逻辑层实现对应原语，最后才在数据/代码中使用。
 - **代码常量单一来源（详见 `游戏设计文档.md` 9.19）**：
-  - 代码引用走 `client/scripts/contracts/` 下生成的常量类（`stats.gd` / `effects.gd` / `events.gd` / `settings_keys.gd` / `actions.gd` / `pool_ids.gd` / `damage_types.gd` / `status_effects.gd` / `audio_ids.gd` / `rng_streams.gd` / `character_ids.gd` / `capabilities.gd` / `content_tags.gd`）。
+  - 代码引用走 `client/scripts/contracts/` 下生成的常量类（`stats.gd` / `effects.gd` / `events.gd` / `analytics_events.gd` / `settings_keys.gd` / `actions.gd` / `pool_ids.gd` / `damage_types.gd` / `status_effects.gd` / `audio_ids.gd` / `rng_streams.gd` / `character_ids.gd` / `capabilities.gd` / `content_tags.gd` / `meta_currencies.gd` / `meta_upgrades.gd` / `meta_unlocks.gd`）。
   - 这些文件**自动生成、禁止手改**；改约定改 `docs/词表与契约.md`，跑 `tools/sync_contracts.py` 重生成。
   - 中间产物 `client/data/_contracts.json` 也由脚本生成；`DataLoader` 读它做校验。
   - pre-commit hook 强制：md 改了未跑 sync → fail；手改了生成文件 → fail。
@@ -176,7 +177,7 @@ alwaysApply: true
 ## 16. 数据校验与黄金样例
 - `DataLoader` 加载配置时必须**校验字段、类型与取值范围**，并遵循 fail-fast：出错时打印**具体文件名 + 字段 + 期望值**，便于人和 AI 立即定位修正。
 - 每类数据文件（`relics.json` / `enemies.json` 等）保留**一条带注释的"黄金样例"条目**作为结构参照，新增内容照其结构填写。
-- 数据字段含义、单位、取值范围记录在 `client/data/` 字段说明文档中，与 `docs/词表与契约.md` 配合。
+- 数据字段含义、单位、取值范围记录在 `client/data/README.md` 中，与 `docs/词表与契约.md` 配合；本地化 key、语言列和占位符规则记录在 `client/locale/README.md` 中。
 
 ## 17. 类型化 GDScript 与脚手架模板
 - 一律使用**类型化 GDScript**：变量、参数、返回值都标注类型（如 `var hp: int`、`func take_damage(amount: float) -> void`），利用静态检查并帮助 AI 推断用法。
@@ -195,7 +196,7 @@ alwaysApply: true
 - 不得让规则散落在聊天记录或其他文档而不归档到此处。
 
 ## 20. 文档维护（元规则）
-- 项目文档（`docs/游戏设计文档.md`、`docs/修改建议.md`、`docs/AI导航.md`、`docs/词表与契约.md`、`docs/决策记录.md`、`docs/AI记忆/项目记忆.md`、`client/data/` 字段说明等）必须与实际设计/代码**保持同步**，是与规则文件同等重要的权威来源。
+- 项目文档（`docs/游戏设计文档.md`、`docs/修改建议.md`、`docs/AI导航.md`、`docs/词表与契约.md`、`docs/决策记录.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`、`client/data/README.md`、`client/locale/README.md` 等）必须与实际设计/代码**保持同步**，是与规则文件同等重要的权威来源。
 - 当设计、玩法、数值结构或系统发生变更时，应**主动更新对应文档**，不得让文档与实现脱节、过时。
 - 新增系统/模块/重要决策时，需在相应文档中补充说明；文档之间若有交叉引用应一并维护。
 - 文档以中文撰写，结构清晰、便于人和 AI 检索续写。
@@ -215,7 +216,7 @@ alwaysApply: true
 - 长期维护文档必须在开头提供 **AI 修改说明**，说明本文档的权威范围、常见联动文件，以及修改前应先读的维护指南。
 - 修改任何长期文档前，必须先读 `docs/AI协作/文档维护指南.md`，再按该指南的“文档联动清单”判断需要同步哪些文件。
 - 新增长期文档时，必须同时写入 AI 修改说明；若发现既有长期文档缺少说明，应先补说明再继续改正文。
-- 涉及规则、设计、词表、测试、AI 协作工具、CI、README/CONTRIBUTING 入口的修改，必须检查是否需要同步 `docs/AI导航.md`、`docs/决策记录.md`、`docs/AI记忆/项目记忆.md` 与当日会话日志。
+- 涉及规则、设计、词表、测试、AI 协作工具、CI、README/CONTRIBUTING 入口的修改，必须检查是否需要同步 `docs/AI导航.md`、`docs/决策记录.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json` 与当日会话日志。
 - 文档应面向 AI 检索与续写：标题稳定、路径真实、权威来源明确、联动关系用表格或短清单表达，禁止只在自然语言段落里暗藏必须遵守的规则。
 
 ## 23. 内容扩展与破限能力（强制）
@@ -227,10 +228,10 @@ alwaysApply: true
 - 任何破限能力必须有测试责任：至少 L0 词表 / schema 校验；新增 primitive 或改变行为时按 `docs/测试策略.md` §7 补 L1 / L3。
 
 ## 24. 代码-文档同步（强制）
-- 代码变更必须按 `docs/代码文档规范.md` 判断对应文档；新增 / 修改长期维护模块、autoload、公共 API、signal、数据 schema、依赖方向、扩展点或测试义务时，必须同步 `docs/代码/<module_id>.md` 与相关权威文档。
+- 代码变更必须按 `docs/代码文档规范.md` 判断对应文档；新增 / 修改长期维护模块、autoload、公共 API、signal、数据 schema、依赖方向、扩展点或测试义务时，必须同步详细的 `docs/代码/<module_id>.md` 与相关权威文档。
 - 不要求每个小 helper 单独成文档；内部重构且不改行为 / API / 依赖时可以不改长期文档，但最终回复或 PR 备注需要说明“无需文档更新”的理由。
 - 长期维护脚本应在文件头用 `# Doc: docs/代码/<module_id>.md` 指向模块文档；自动生成文件、测试、一次性调试脚本或被上级模块文档覆盖的私有 helper 可例外。
-- 模块文档只写契约和维护信息：职责边界、代码路径、公共 API、signal/event、数据与词表、依赖、扩展点、测试义务、相关 GDD/ADR；禁止逐行复述实现。
+- 模块文档必须是人类可维护的详细模块文档：职责边界、代码地图、场景 / 节点结构（如适用）、运行流程、公共 API、signal/event、数据与词表、依赖、扩展点、常见改动入口、故障排查、测试义务、迁移 / 兼容说明、相关 GDD/ADR；禁止逐行复述实现，也禁止只用自动抽取的简短摘要替代。
 - 若代码改变玩家可见行为、架构边界、约定字符串或测试义务，不能只改 `docs/代码/`，还必须同步 GDD / ADR / 词表 / 测试策略中的对应权威来源。
 
 ## 25. 沟通语言（强制）
@@ -248,13 +249,16 @@ alwaysApply: true
 
 ### 自检清单（提交代码前）
 - [ ] 没有硬编码可调数值（都在 `res://data/`）？
+- [ ] 新增 / 修改数值字段是否同步 `client/data/README.md`，让人能直接上手调参？
 - [ ] 没有硬编码玩家可见文本（都用 `tr()` 文本键）？
+- [ ] 新增 / 修改文案 key、语言列或占位符是否同步 `client/locale/README.md`，且 `zh_CN` / `en` 已补齐？
+- [ ] 没有硬编码键盘按键、手柄按钮或手柄轴（都走 InputMap action + `Settings` 重绑定）？
 - [ ] 玩家偏好都走 `Settings` 单例并能即时生效？
 - [ ] 新遗物/道具是加数据而非加逻辑分支？
 - [ ] 新角色 / 破限道具是否通过 `capability` / primitive / strategy 表达，而不是按 id 写特殊分支？
 - [ ] 高频实体用了对象池？
 - [ ] 相机保证玩家居中（无 limit / drag margin）？
-- [ ] 暂停是否用 `get_tree().paused`，暂停菜单节点设 `process_mode=ALWAYS`，暂停键走可重绑定 action（非硬编码）？
+- [ ] 暂停是否用 `get_tree().paused`，暂停菜单节点设 `process_mode=ALWAYS`，暂停键走可重绑定 action（非硬编码键盘/手柄输入）？
 - [ ] 关键节点是否通过 `Analytics` 统一接口留好了数据埋点（而非散落硬编码）？
 - [ ] 随机数都走 `RNG.<stream>`（无裸 `randi()` / `randf()` / `randi_range()`）？时间都走 `GameClock`（无裸 `Time.get_ticks_msec()`）？
 - [ ] 游戏流程走 `GameState`（无散落的 `get_tree().paused` / 自管 in_game 布尔变量）？
@@ -269,7 +273,7 @@ alwaysApply: true
 - [ ] 角色 id、capability id、content tag 是否都来自词表第 12 节并以生成常量引用？
 - [ ] 新增数据是否照「黄金样例」结构填写，并能通过 `DataLoader` 校验？
 - [ ] 新代码是否使用类型化 GDScript？是否复用了模板？
-- [ ] 新增 / 修改长期代码模块、公共 API、signal、数据 schema 或依赖方向时，是否已同步 `docs/代码/` 模块文档？若无需更新，是否说明原因？
+- [ ] 新增 / 修改长期代码模块、公共 API、signal、数据 schema 或依赖方向时，是否已同步详细的 `docs/代码/` 模块文档？若无需更新，是否说明原因？
 - [ ] 面向用户的回复 / 总结是否默认使用中文（除非存在明确特殊场景）？
 - [ ] 是否已更新 `docs/AI导航.md`、`docs/决策记录.md` 等相关文档？
 - [ ] 是否套用了 `docs/AI协作/任务模板/`（高频任务）或遵守了上下文预算？
@@ -278,7 +282,7 @@ alwaysApply: true
 - [ ] 改了横向 autoload / `Combat` / `ModifierEngine` 后，行覆盖率仍 ≥80%？
 - [ ] 改了存档 schema 是否注册了迁移函数？
 - [ ] 改了行为的黄金回放是否已重录并在 commit 中注明？
-- [ ] 若涉及重要决策/对话，是否已更新 `docs/AI记忆/项目记忆.md`（跨机器续接用）？
+- [ ] 若涉及重要决策/对话，是否已更新 `docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json` 与当日会话日志（跨机器续接用）？
 - [ ] 本次新确立的规则/约定是否已补充进本规则文件？
 - [ ] 本次变更涉及的设计/数值是否已同步更新到相关文档？
 - [ ] 改了 `AGENTS.md` / `CODEX.md` / `OPENCODE.md` / `.codebuddy/` / `.codex/` / `.opencode/` 平台入口或配置后，核心规则语义是否仍一致？工具适配指南是否需要更新？

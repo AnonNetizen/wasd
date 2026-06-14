@@ -3,7 +3,7 @@
 > 任何 AI agent 在本项目动手前，**必须先按下面顺序读完这 5 份文件**，再开始任何任务。
 > 这是规则 14 与 ADR #15 的明文化入口；忽略此约定 = 违反项目规则。
 >
-> **AI 修改说明**：修改本文件前必须有用户明确授权，并先读 `docs/AI协作/文档维护指南.md`。本文件是所有 AI agent 的通用开工入口；改开工步骤、红线、subagent、slash command 或平台入口时，必须同步 `CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/`、`docs/AI导航.md`、`docs/AI协作/README.md`、`docs/AI协作/工具适配指南.md`、`docs/AI记忆/项目记忆.md`。
+> **AI 修改说明**：修改本文件前必须有用户明确授权，并先读 `docs/AI协作/文档维护指南.md`。本文件是所有 AI agent 的通用开工入口；改开工步骤、红线、subagent、slash command 或平台入口时，必须同步 `CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/`、`docs/AI导航.md`、`docs/AI协作/README.md`、`docs/AI协作/工具适配指南.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
 
 > 🆕 **新机器 clone 后第一次开工**：先按 [`CONTRIBUTING.md` 第零节「新机器 setup」](CONTRIBUTING.md) 做一次性 git 配置（`core.quotepath` / `commit.template` / 全局身份），再回来读下面 5 步。否则中文文件名会显示为转义码、commit 模板不会生效。
 >
@@ -14,12 +14,12 @@
 ## 🚦 开工 5 步（按顺序，不要跳）
 
 1. **本文件**（`AGENTS.md`）—— 通用入口；若从 Codex / OpenCode 进入，也可先读 `CODEX.md` / `OPENCODE.md` 再回到这里
-2. **`docs/AI记忆/项目记忆.md`** —— **跨会话/跨机器的项目长时记忆**
+2. **`docs/AI记忆/项目记忆.md` + `docs/AI记忆/current_state.json`** —— **跨会话/跨机器的项目长时记忆与机器当前状态**
    - 项目快照（v1.5、Godot 4.6.3 + GDScript、文档阶段）
    - 38 条 ADR 摘要
    - 待决策项（A~D）
    - 工具链与基础设施现状
-   - **下一步候选**（最关键，告诉你现在该干什么）
+   - **下一步候选**以 `current_state.json` 为机器可读权威（最关键，告诉你现在该干什么）
 3. **强制编码规则** —— 按当前平台读取：CodeBuddy 读 `.codebuddy/rules/game-coding-rules.md`；Codex 读 `.codex/rules/game-coding-rules.md`；OpenCode 读 `.opencode/rules/game-coding-rules.md`；其他 agent 没有专属规则入口时读 `.codebuddy/rules/game-coding-rules.md` 作为项目规则源
 4. **`docs/AI导航.md`** —— 项目地图、扩展点速查、系统依赖图
 5. **按当前任务读下列其一**：
@@ -37,9 +37,9 @@
 
 完整列表见当前平台的编码规则入口与 `docs/AI导航.md` 第 6 节红线。这里只抽最易踩的：
 
-1. **数据驱动**：可调数值进 `client/data/*.json`；玩家可见文本走 `tr("key")`；按键走 InputMap action；约定字符串来自 `docs/词表与契约.md` 白名单且以**自动生成的常量**引用。
+1. **数据驱动**：可调数值进 `client/data/*.json` 且字段说明同步 `client/data/README.md`；玩家可见文本走 `tr("key")` / `client/locale/strings.csv` 且多语言规则同步 `client/locale/README.md`；按键走 InputMap action；约定字符串来自 `docs/词表与契约.md` 白名单且以**自动生成的常量**引用。
 2. **统一 autoload**：随机 `RNG.<stream>` / 时间 `GameClock` / 流程 `GameState` / UI 弹窗 `UIManager` / 高频实体 `PoolManager` / 伤害 `Combat.apply_damage` / 持续效果 `StatusEffect` / 存档 `SaveManager` / 音频 `AudioManager`。**禁止**绕过这些走原始 API。
-3. **改完同步文档**：新规则 → 规则文件；新决策 → ADR；设计变更 → GDD + AI 导航 + 词表；重要对话 → `docs/AI记忆/项目记忆.md`（自动瘦身见规则 14-B）。
+3. **改完同步文档**：新规则 → 规则文件；新决策 → ADR；设计变更 → GDD + AI 导航 + 词表；重要对话 → `docs/AI记忆/项目记忆.md` + `docs/AI记忆/current_state.json` + 当日会话日志（见规则 14-B）。
 4. **`draft/` 人工草稿禁区**：`draft/`（含大小写变体如 `DRAFT/`）内是用户人工草稿，AI 默认不得读取、搜索、修改、整理、格式化或引用；只有用户明确点名授权处理该目录时才可进入。遵守此规则是默认行为，AI 不需要在每次回复中主动声明。
 
 ## 🗣️ 沟通语言
@@ -92,7 +92,7 @@ OpenCode 命令由 `.opencode/opencode.json` 的 `command` 字段注册；不支
 
 ## 📝 改完之后
 
-按编码规则末尾的「自检清单」逐条核对；按 `docs/测试策略.md` §7 表履行测试义务；改了重要内容就更新 `docs/AI记忆/项目记忆.md`（按其第 9 节「自动瘦身」规则维护）。
+按编码规则末尾的「自检清单」逐条核对；按 `docs/测试策略.md` §7 表履行测试义务；改了重要内容就更新 `docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json` 与当日会话日志（按项目记忆第 9 节维护）。
 
 不确定写什么？参照本目录最近的 ADR 风格（`docs/决策记录.md`）：**一句话决策 + 一句话理由**。
 

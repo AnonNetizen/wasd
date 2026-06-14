@@ -1,6 +1,6 @@
 # OPENCODE.md —— OpenCode 开工入口
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 OpenCode 的轻量入口适配；改 OpenCode 平台入口、agent/command 映射或规则加载方式时，必须同步 `AGENTS.md`、`CODEX.md`、`.opencode/`、`docs/AI协作/工具适配指南.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`。
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 OpenCode 的轻量入口适配；改 OpenCode 平台入口、agent/command 映射或规则加载方式时，必须同步 `AGENTS.md`、`CODEX.md`、`.opencode/`、`docs/AI协作/工具适配指南.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
 
 `AGENTS.md` 仍是本项目所有 AI agent 的通用开工入口；`.opencode/opencode.json` 会把本文件与规则入口加载进 OpenCode。
 

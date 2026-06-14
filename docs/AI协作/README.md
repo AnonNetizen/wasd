@@ -17,6 +17,7 @@ OPENCODE.md                # OpenCode 入口适配
 docs/AI协作/
 ├── README.md             # 本文件
 ├── 文档维护指南.md       # 长期文档修改的联动规则
+├── 文档健康检查.md       # docs 知识库健康检查命令与失败解释
 ├── 任务模板/             # 高频任务的标准 prompt + 文件操作清单
 │   ├── 加遗物.md
 │   ├── 加敌人.md
@@ -55,7 +56,7 @@ docs/AI协作/
 └── rules/
 ```
 
-关联根目录文档：`docs/代码文档规范.md` 定义代码变更与对应文档的同步规则，`docs/代码/` 存放长期模块文档。
+关联根目录文档：`docs/AI知识库索引.md` 与 `docs/_kb_index.json` 管理知识库元数据，`docs/术语表.md` 管理术语别名，`docs/AI记忆/current_state.json` 管理机器可读当前状态，`docs/代码文档规范.md` 定义代码变更与对应文档的同步规则，`docs/代码/` 存放长期详细模块文档。
 
 ## 触发约定
 
@@ -72,8 +73,9 @@ AI agent 接到任务时优先按以下顺序：
 ## 维护
 
 - 新高频任务出现 → 在 `任务模板/` 加一份。
+- 新长期文档 / 术语 / 知识库路径变化 → 同步 `docs/AI知识库索引.md`、`docs/_kb_index.json`、`docs/术语表.md`，并运行 `python tools/docs_health_check.py`。
 - 引擎工具链变化 → 更新 `引擎集成.md`。
 - 角色分工经验积累 → 微调 `角色分工.md`。
-- 新代码模块 / 公共 API / 数据 schema 变化 → 按 `docs/代码文档规范.md` 同步 `docs/代码/` 模块文档。
+- 新代码模块 / 公共 API / 数据 schema 变化 → 按 `docs/代码文档规范.md` 同步详细的 `docs/代码/` 模块文档；数值字段同步 `client/data/README.md`，文案 / 语言 / 占位符同步 `client/locale/README.md`。
 - 平台入口变化 → 同步 `AGENTS.md` / `CODEX.md` / `OPENCODE.md` / `.codebuddy/` / `.codex/` / `.opencode/` / `工具适配指南.md`。
 - 重大变更 → 同步进 `决策记录.md` + `AI记忆/项目记忆.md`。

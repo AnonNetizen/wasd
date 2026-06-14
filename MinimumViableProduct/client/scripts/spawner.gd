@@ -1,3 +1,4 @@
+# Doc: MinimumViableProduct/docs/代码/mvp_client.md
 extends Node2D
 
 signal enemy_spawned(enemy: Node)
@@ -8,12 +9,14 @@ signal enemy_spawned(enemy: Node)
 @export var spawn_interval: float = 1.1
 @export var spawn_margin: float = 64.0
 @export var enemy_speed: float = 90.0
+@export var initial_cooldown: float = 0.2
 
 var spawn_index: int = 0
-var cooldown: float = 0.2
+var cooldown: float = initial_cooldown
 var target: Node2D
 var spawn_parent: Node
 var spawning_enabled: bool = true
+var enemy_config: Dictionary = {}
 
 
 func _ready() -> void:
@@ -52,12 +55,21 @@ func _spawn_enemy() -> void:
 	var enemy_node := enemy as Node2D
 	spawn_parent.add_child(enemy_node)
 	enemy_node.global_position = _next_spawn_position()
-	enemy_node.call("setup", target, enemy_speed)
+	enemy_node.call("setup", target, enemy_speed, enemy_config)
 	enemy_spawned.emit(enemy_node)
 
 
 func set_spawning_enabled(enabled: bool) -> void:
 	spawning_enabled = enabled
+
+
+func apply_config(spawner_config: Dictionary, new_enemy_config: Dictionary) -> void:
+	spawn_interval = max(0.05, _get_number(spawner_config, "spawn_interval", spawn_interval))
+	spawn_margin = max(0.0, _get_number(spawner_config, "spawn_margin", spawn_margin))
+	initial_cooldown = max(0.0, _get_number(spawner_config, "initial_cooldown", initial_cooldown))
+	cooldown = initial_cooldown
+	enemy_config = new_enemy_config.duplicate(true)
+	enemy_speed = max(0.0, _get_number(enemy_config, "move_speed", enemy_speed))
 
 
 func _next_spawn_position() -> Vector2:
@@ -72,3 +84,12 @@ func _next_spawn_position() -> Vector2:
 	var position: Vector2 = positions[spawn_index % positions.size()]
 	spawn_index += 1
 	return position
+
+
+func _get_number(section: Dictionary, key: String, default_value: float) -> float:
+	var value: Variant = section.get(key, default_value)
+	if value is int or value is float:
+		return float(value)
+
+	push_warning("[MvpSpawner] config.%s must be a number, using %.2f" % [key, default_value])
+	return default_value

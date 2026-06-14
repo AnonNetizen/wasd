@@ -1,3 +1,4 @@
+# Doc: MinimumViableProduct/docs/代码/mvp_client.md
 extends Node
 class_name MvpAimInput
 
@@ -8,7 +9,8 @@ const ACTION_DOWN := &"ui_down"
 const ACTION_LEFT := &"ui_left"
 const ACTION_RIGHT := &"ui_right"
 const ACTION_ACCEPT := &"ui_accept"
-const GAMEPAD_DEADZONE := 0.35
+
+@export var gamepad_deadzone: float = 0.35
 
 var current_direction: Vector2 = Vector2.UP
 var current_direction_name: String = "上"
@@ -19,7 +21,7 @@ func _ready() -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	var input_vector := Input.get_vector(ACTION_LEFT, ACTION_RIGHT, ACTION_UP, ACTION_DOWN, GAMEPAD_DEADZONE)
+	var input_vector := Input.get_vector(ACTION_LEFT, ACTION_RIGHT, ACTION_UP, ACTION_DOWN, gamepad_deadzone)
 	if input_vector == Vector2.ZERO:
 		return
 
@@ -33,6 +35,13 @@ func get_current_direction() -> Vector2:
 
 func get_current_direction_name() -> String:
 	return current_direction_name
+
+
+func apply_config(config: Dictionary) -> void:
+	gamepad_deadzone = clampf(_get_number(config, "gamepad_deadzone", gamepad_deadzone), 0.0, 1.0)
+	for action in [ACTION_UP, ACTION_DOWN, ACTION_LEFT, ACTION_RIGHT, ACTION_ACCEPT]:
+		if InputMap.has_action(action):
+			InputMap.action_set_deadzone(action, gamepad_deadzone)
 
 
 func _set_aim(direction: Vector2, direction_name: String) -> void:
@@ -88,7 +97,7 @@ func _ensure_default_input_map() -> void:
 
 func _ensure_action(action: StringName) -> void:
 	if not InputMap.has_action(action):
-		InputMap.add_action(action, GAMEPAD_DEADZONE)
+		InputMap.add_action(action, gamepad_deadzone)
 
 
 func _ensure_key_event(action: StringName, keycode: int) -> void:
@@ -123,3 +132,12 @@ func _ensure_motion_event(action: StringName, axis: int, axis_value: float) -> v
 	motion_event.axis = axis
 	motion_event.axis_value = axis_value
 	InputMap.action_add_event(action, motion_event)
+
+
+func _get_number(section: Dictionary, key: String, default_value: float) -> float:
+	var value: Variant = section.get(key, default_value)
+	if value is int or value is float:
+		return float(value)
+
+	push_warning("[MvpAimInput] config.%s must be a number, using %.2f" % [key, default_value])
+	return default_value

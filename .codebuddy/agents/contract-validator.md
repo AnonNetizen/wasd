@@ -16,7 +16,7 @@ tools:
 
 ## 必读（开工前）
 
-1. `docs/词表与契约.md` —— 11 节白名单（stat / effect / event / setting / locale / action / pool / damage / status / audio / rng_stream）
+1. `docs/词表与契约.md` —— §1~§13 白名单（stat / effect / behavior event / analytics event / setting / locale / action / pool / damage / status / audio / rng_stream / character / capability / content tag / meta currency / meta upgrade / meta unlock）
 2. `docs/游戏设计文档.md` 9.19 —— 词表 → 代码常量脚本生成流水线
 3. `.codebuddy/rules/game-coding-rules.md` 第 15 节
 4. `docs/决策记录.md` ADR #28
@@ -42,7 +42,7 @@ client/scripts/**/*.gd  (业务代码)
 检查项：
 - [ ] md 改动后是否跑过 `sync_contracts.py`？（看 `_contracts.json` 头里的源 SHA）
 - [ ] 生成文件是否被手改过？（自动生成头里有时间戳 + 哈希，对照源 md）
-- [ ] 数据 JSON（`relics.json` 等）中的 stat/effect/event id 是否全在白名单？
+- [ ] 数据 JSON（`relics.json` / `meta_progression.json` 等）中的 stat/effect/event/meta id 是否全在白名单？
 - [ ] 业务代码里是否有裸字符串引用约定 id（应走 `Stats.DAMAGE` 而不是 `"damage"`）？
 - [ ] 任何 `Input.is_action_pressed("xxx")` 中的 `xxx` 是否登记在词表第 7 节？
 
@@ -91,7 +91,7 @@ python tools/validate_contract.py
 - pre-commit hook 报词表相关 fail 时
 - 用户问"这个 id 该叫什么 / 在不在白名单"
 - 大重构后做"裸字符串普查"
-- 引入新效果原语 / 新 stat / 新埋点时
+- 引入新效果原语 / 新 stat / 新埋点 / 新局外成长 id 时
 
 ## 不要做
 
