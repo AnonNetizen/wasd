@@ -42,7 +42,7 @@ tools:
 - ✅ 所有 stat/effect/event id 必须**已在词表登记**
 - ❌ 遇到需要新 effect 原语 → **不要自己实现**，escalate 给主对话或 `contract-validator` 走登记流程
 - ❌ 不动 `client/scripts/`（contracts 自动生成区除外，那也不是你能改的）
-- ✅ 数据 JSON 必须照"黄金样例"结构填写
+- ✅ 数据 CSV / JSON 必须照"黄金样例"结构填写
 - ✅ 新增 / 修改数据字段必须同步 `client/data/README.md`
 - ✅ 玩家可见文本走 `name_key` / `desc_key` + `client/locale/strings.csv`，不裸文本；新增 / 修改文案规则必须同步 `client/locale/README.md`
 - ✅ 破限内容必须带 `tag_limit_break` 与已登记 capability；如果需要新 primitive / strategy，escalate，不要写 id 特判

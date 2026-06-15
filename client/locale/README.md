@@ -166,4 +166,4 @@ meta_upgrade_damage_desc,永久提升基础伤害,Permanently increases base dam
 
 - 数值字段、概率、倍率、敌人属性等去 `client/data/` 配置。
 - 文案只在 `client/locale/strings.csv` 配置。
-- 数据文件用 key 把二者连接起来，例如 `desc_key` 指向含 `{value}` 占位符的译文，实际数值来自 `client/data/*.json`。
+- 数据文件用 key 把二者连接起来，例如 `desc_key` 指向含 `{value}` 占位符的译文，实际数值来自 `client/data/` 的 CSV / JSON。

@@ -53,7 +53,7 @@
 
 - 解析 `词表与契约.md` 表格 → 抽出白名单：`stat` / `effect` / `behavior.event` / 埋点 `event_name` / 设置 `key` / 输入 `action id` / 本地化 key 前缀等
 - 生成并校验 `client/data/_contracts.json` 与 `client/scripts/contracts/*.gd`
-- 扫描已落地的 `client/data/*.json`，检查 `stat`、meta id、locale key 等引用
+- 扫描已落地的 `client/data/*.json` / `client/data/*.csv`，检查 `stat`、meta id、locale key 等引用
 - 新增 / 修改数据字段时，检查 `client/data/README.md` 是否包含字段说明（字段含义、单位、范围）
 - **未在白名单的 id 一律 CI 失败**，输出「文件名 + 字段路径 + 期望值」（对齐规则 16 的 fail-fast）
 - 即使代码尚未落地，脚本可先开发就绪，等数据出现立即起效

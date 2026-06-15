@@ -42,7 +42,7 @@ client/scripts/**/*.gd  (业务代码)
 检查项：
 - [ ] md 改动后是否跑过 `sync_contracts.py` 并确认 `--check` 通过？
 - [ ] 生成文件是否被手改过？（`sync_contracts.py --check` 会报告 outdated generated artifact）
-- [ ] 数据 JSON（`relics.json` / `meta_progression.json` 等）中的 stat/effect/event/meta id 是否全在白名单？
+- [ ] 数据 CSV / JSON（如 `relics.json` / `meta_progression.json` / `enemies.csv` 等）中的 stat/effect/event/meta id 是否全在白名单？
 - [ ] 业务代码里是否有裸字符串引用约定 id（应走 `Stats.DAMAGE` 而不是 `"damage"`）？
 - [ ] 任何 `Input.is_action_pressed("xxx")` 中的 `xxx` 是否登记在词表第 7 节？
 

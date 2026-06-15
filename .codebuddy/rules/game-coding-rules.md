@@ -26,7 +26,7 @@ alwaysApply: true
 `client/` 下的固定约定：
 - `client/scenes/`（即 `res://scenes/`）：场景（`.tscn`）
 - `client/scripts/`（即 `res://scripts/`）：脚本（`.gd`）
-- `client/data/`（即 `res://data/`）：可调数值配置（JSON）
+- `client/data/`（即 `res://data/`）：可调数值配置（平表 CSV + 复杂 JSON）
 - `client/locale/`（即 `res://locale/`）：本地化翻译表（CSV → `.translation`）
 - `client/templates/`（即 `res://templates/`）：脚手架模板（enemy/relic 等）
 - `client/assets/`（即 `res://assets/`）：美术 / 音效
@@ -36,7 +36,7 @@ alwaysApply: true
 
 ## 3. 数据与逻辑分离（核心需求）
 - **严禁在代码中写死可调数值（魔法数字）**：生命、移速、射速、伤害、子弹速度、刷怪曲线、掉落概率等一律读取 `res://data/` 下的配置文件。
-- 配置统一用 **JSON**，通过 `DataLoader` 加载，`FileAccess.open()` + `JSON.parse_string()` 读取。
+- 配置通过 `DataLoader` 统一加载：**平表数值优先 CSV**（如敌人基础数值、经验曲线、刷怪波次、掉落权重），**复杂配置优先 JSON**（如遗物行为、角色能力、局外成长树、嵌套参数）。Godot 读取 CSV 走 `FileAccess.get_csv_line()`，读取 JSON 走 `FileAccess.open()` / `JSON.parse_string()`。
 - 支持**配置热重载**（运行时重读即时生效），新增 / 修改数值文件或字段需同步 `client/data/README.md`，写清含义、单位、默认值、取值范围和调参影响。
 
 ## 4. 多语言本地化（框架级，强制）

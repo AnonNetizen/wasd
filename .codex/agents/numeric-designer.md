@@ -29,7 +29,7 @@ tools:
 - 曲线公式：如线性、指数、分段、软上限；说明为什么选它。
 - 风险点：爆炸增长、负反馈、刷子最优解、早期挫败、后期失控。
 - 验证方案：手动试玩指标、回放样例、未来 sim 指标。
-- 数据落点：建议写入哪个 `client/data/*.json`，是否需要同步 `client/data/README.md`。
+- 数据落点：建议写入哪个 `client/data/` CSV / JSON，是否需要同步 `client/data/README.md`。
 
 ## 约束
 

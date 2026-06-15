@@ -8,7 +8,8 @@
 ## 目标
 
 - 让策划 / 开发者 / AI 不改代码也能调整玩法数值。
-- 所有可调数值集中在 `client/data/*.json`，由 `DataLoader` 读取，代码不写魔法数字。
+- 所有可调数值集中在 `client/data/`，由 `DataLoader` 读取，代码不写魔法数字。
+- 文件格式按数据形态选择：**平表数值优先 CSV，复杂配置优先 JSON**。
 - 每个数值字段都写清含义、单位、范围和影响范围，避免“看到字段不知道怎么调”。
 - 玩家可见文案不写在数据里，只写 `name_key` / `desc_key` 等本地化 key，译文见 `client/locale/`。
 
@@ -18,10 +19,10 @@
 |------------|--------|------|
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
 | 改角色起始属性 / 起始武器 | `characters.json`（落地后） | 名字和描述只填 `name_key` / `desc_key` |
-| 改敌人血量 / 速度 / 接触伤害 | `enemies.json`（落地后） | 敌人 id、标签、伤害类型必须来自词表 |
+| 改敌人血量 / 速度 / 接触伤害 | `enemies.csv`（落地后） | 敌人 id、标签、伤害类型必须来自词表 |
 | 改遗物 / 道具数值 | `relics.json` / `active_items.json` / `consumables.json`（落地后） | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
-| 改刷怪强度 / 难度曲线 | `spawn_waves.json`（落地后） | 大改后需要跑回放 / 平衡验证 |
-| 改经验阈值 / 升级候选概率 | `growth.json`（落地后） | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
+| 改刷怪强度 / 难度曲线 | `spawn_waves.csv`（落地后） | 大改后需要跑回放 / 平衡验证 |
+| 改经验阈值 / 升级候选概率 | `growth.csv`（落地后） | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
 | 改局外货币 / 永久升级 / 解锁 | `meta_progression.json` | 存档走 `SaveManager` 的 `meta` kind，id 必须来自词表 §13 |
 | 改界面、道具名、描述文案 | 不在这里改，去 `client/locale/strings.csv` | 数据只引用 key，译文集中管理 |
 
@@ -35,10 +36,11 @@
 | `relics.json` | 规划 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 规划 | 主动道具：充能方式、冷却、效果原语与参数 |
 | `consumables.json` | 规划 | 消耗品：拾取 / 使用规则、效果原语与参数 |
-| `enemies.json` | 规划 | 敌人基础属性、AI 类型、接触伤害、掉落表 |
-| `hazards.json` | 规划 | 机关伤害、触发周期、范围、持续时间 |
-| `spawn_waves.json` | 规划 | 刷怪波次、难度曲线、敌人权重、精英 / Boss 出现规则 |
-| `growth.json` | 规划 | 经验阈值、升级候选数量概率、升级选项池和权重 |
+| `enemies.csv` | 规划 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励等 |
+| `hazards.csv` | 规划 | 机关基础数值平表：伤害、触发周期、范围、持续时间 |
+| `spawn_waves.csv` | 规划 | 刷怪波次、难度曲线、敌人权重、精英 / Boss 出现规则 |
+| `growth.csv` | 规划 | 经验阈值、升级候选数量概率曲线等平表 |
+| `growth_pools.json` | 规划 | 升级选项池、权重条件和复杂候选规则 |
 | `meta_progression.json` | 已建立 | 局外货币、结算奖励、账号等级、永久升级轨道和内容解锁 |
 | `_contracts.json` | 生成文件 | 由 `docs/词表与契约.md` 生成，禁止手改；`DataLoader` 用它校验 id |
 
@@ -46,7 +48,9 @@
 
 | 规则 | 说明 |
 |------|------|
-| JSON | 数据文件使用标准 JSON，不写注释；说明写在本文档或模块文档里 |
+| 格式选择 | 平表数值优先 CSV，复杂配置优先 JSON；现有文件不强制立即迁移，新增 / 重构时按本规则判断 |
+| CSV | 使用标准逗号分隔、首行为表头；适合一行一个条目、列结构稳定的数值表 |
+| JSON | 使用标准 JSON，不写注释；适合嵌套对象、数组、可变长度行为、条件树和参数包 |
 | UTF-8 / LF | 所有数据文件用 UTF-8 和 LF 换行 |
 | snake_case | 字段名和 id 使用蛇形小写，和词表 id 保持一致 |
 | `schema_version` | 长期维护数据文件必须有 schema 版本，schema 变更要配迁移 / 校验说明 |
@@ -54,6 +58,48 @@
 | 文案 key | 玩家可见名字 / 描述只存 `name_key` / `desc_key` / `hint_key` 等，不存硬文本 |
 | id 白名单 | `stat`、`effect`、`event`、`damage_type`、`pool_id`、`tag` 等必须先登记到 `docs/词表与契约.md` |
 | fail-fast | `DataLoader` 加载时必须校验字段类型、范围、必填项和词表 id；错误信息包含文件名 + 字段路径 + 期望值 |
+
+## CSV / JSON 选择规则
+
+| 数据形态 | 优先格式 | 示例 |
+|----------|----------|------|
+| 一行一个条目、列固定、经常人工排序 / 筛选 / 批量调参 | CSV | `enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`growth.csv` |
+| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `relics.json`、`characters.json`、`meta_progression.json`、`growth_pools.json` |
+| 玩家可见文案 | CSV | `client/locale/strings.csv` |
+| 自动生成契约 | JSON | `_contracts.json`，禁止手改 |
+
+CSV 示例：
+
+```csv
+id,max_hp,move_speed,contact_damage,exp_reward
+slime,20,90,1,3
+bat,12,150,1,2
+brute,80,60,2,10
+```
+
+JSON 示例：
+
+```json
+{
+  "id": "relic_split_burn",
+  "behaviors": [
+    { "event": "on_hit", "effect": "split", "params": { "count": 2, "angle": 20.0 } },
+    { "event": "on_hit", "effect": "ignite", "params": { "duration": 3.0, "dps": 5.0 } }
+  ]
+}
+```
+
+## CSV 通用规则
+
+| 规则 | 说明 |
+|------|------|
+| 表头必填 | 第一行必须是字段名，字段名使用 `snake_case` |
+| `id` 列 | 内容表必须有稳定 `id` 列，id 不得重复 |
+| 空值 | 空值只用于可选字段；必填字段空值 fail-fast |
+| 数字类型 | `DataLoader` / 校验脚本按字段 schema 转 int / float；人工不要写单位后缀 |
+| 布尔值 | 使用 `true` / `false` 小写 |
+| 列新增 | 新增列必须同步本文档字段说明和对应 schema |
+| 复杂参数 | 不把 JSON 字符串硬塞进 CSV；出现复杂参数时拆到 JSON 文件或独立配置 |
 
 ## `player.json`
 
@@ -217,7 +263,7 @@
 ## 调参流程
 
 1. 先看本文档确认字段单位和范围。
-2. 只改目标 JSON，不改 GDScript 常量。
+2. 只改目标 CSV / JSON，不改 GDScript 常量。
 3. 如果新增 id，先改 `docs/词表与契约.md`，再跑 `/sync-contracts` 或等价同步流程。
 4. 修改后运行 `python tools/sync_contracts.py --check` 与 `python tools/validate_data.py`；代码落地后由 `DataLoader` fail-fast。
 5. 大幅调整基础属性、难度曲线、掉落或升级概率后，按 `docs/测试策略.md` 跑回放 / 平衡验证。
@@ -228,7 +274,7 @@
 
 | 改动 | 必须同步 |
 |------|----------|
-| 新增数据文件 | 本文档文件总览、GDD §9.3、`docs/AI导航.md`、相关模块文档 |
+| 新增数据文件 | 本文档文件总览、GDD §9.3、`docs/AI导航.md`、相关模块文档，并说明为何选 CSV 或 JSON |
 | 新增字段 | 本文档字段说明、`DataLoader` schema、相关模块文档、必要时测试策略 |
 | 新增 id 类型 | `docs/词表与契约.md`、生成常量、契约校验 |
 | 新增玩家可见文案引用 | `client/locale/strings.csv` 与 `client/locale/README.md` |
@@ -236,7 +282,7 @@
 
 ## 自检清单
 
-- [ ] 数值是否在 `client/data/*.json`，而不是脚本常量？
+- [ ] 数值是否在 `client/data/` 的 CSV / JSON，且格式选择符合“平表 CSV、复杂 JSON”？
 - [ ] 字段单位、范围、默认值是否已写进本文档？
 - [ ] 是否已运行 `python tools/validate_data.py`？
 - [ ] 玩家可见文本是否只存 key，译文是否在 `client/locale/strings.csv`？

@@ -41,7 +41,7 @@ client/scripts/contracts/*.gd
 检查项：
 - [ ] md 改动后是否跑过 `sync_contracts.py`。
 - [ ] 生成文件是否被手改过。
-- [ ] 数据 JSON 中的 stat / effect / event / meta id 是否全在白名单。
+- [ ] 数据 CSV / JSON 中的 stat / effect / event / meta id 是否全在白名单。
 - [ ] 业务代码里是否有裸字符串引用约定 id。
 - [ ] `Input.is_action_pressed("xxx")` 中的 `xxx` 是否登记在词表第 7 节。
 

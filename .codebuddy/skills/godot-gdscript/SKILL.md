@@ -20,7 +20,7 @@ Use this skill only for Godot/GDScript implementation or review work in `client/
 ## Project Rules To Preserve
 
 - Use Godot 4.6.3 and typed GDScript.
-- Tunables belong in `client/data/*.json` or MVP config, not magic numbers in scripts.
+- Tunables belong in `client/data/` CSV / JSON or MVP config, not magic numbers in scripts.
 - Player-visible text uses locale keys and `tr()`, not hardcoded text.
 - Inputs use InputMap actions, not physical key or joystick constants.
 - Randomness uses `RNG.<stream>` and gameplay time uses `GameClock` in the full project.

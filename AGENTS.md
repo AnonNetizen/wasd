@@ -37,7 +37,7 @@
 
 完整列表见当前平台的编码规则入口与 `docs/AI导航.md` 第 6 节红线。这里只抽最易踩的：
 
-1. **数据驱动**：可调数值进 `client/data/*.json` 且字段说明同步 `client/data/README.md`；玩家可见文本走 `tr("key")` / `client/locale/strings.csv` 且多语言规则同步 `client/locale/README.md`；按键走 InputMap action；约定字符串来自 `docs/词表与契约.md` 白名单且以**自动生成的常量**引用。
+1. **数据驱动**：可调数值进 `client/data/`，平表数值优先 CSV、复杂配置优先 JSON，字段说明同步 `client/data/README.md`；玩家可见文本走 `tr("key")` / `client/locale/strings.csv` 且多语言规则同步 `client/locale/README.md`；按键走 InputMap action；约定字符串来自 `docs/词表与契约.md` 白名单且以**自动生成的常量**引用。
 2. **统一 autoload**：随机 `RNG.<stream>` / 时间 `GameClock` / 流程 `GameState` / UI 弹窗 `UIManager` / 高频实体 `PoolManager` / 伤害 `Combat.apply_damage` / 持续效果 `StatusEffect` / 存档 `SaveManager` / 音频 `AudioManager`。`SaveManager` 必须支持 `meta` 局外成长和 `run` 暂停退出续局，并具备标准头字段（含 `data_hash`）、版本迁移、原子写入、备份回退和损坏隔离。**禁止**绕过这些走原始 API。
 3. **改完同步文档**：新规则 → 规则文件；新决策 → ADR；设计变更 → GDD + AI 导航 + 词表；重要对话 → `docs/AI记忆/项目记忆.md` + `docs/AI记忆/current_state.json` + 当日会话日志（见规则 14-B）。
 4. **`draft/` 人工草稿禁区**：`draft/`（含大小写变体如 `DRAFT/`）内是用户人工草稿，AI 默认不得读取、搜索、修改、整理、格式化或引用；只有用户明确点名授权处理该目录时才可进入。遵守此规则是默认行为，AI 不需要在每次回复中主动声明。

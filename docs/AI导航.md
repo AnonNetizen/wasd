@@ -49,7 +49,7 @@
 |------|------|
 | `client/scenes/`（即 `res://scenes/`） | 场景 `.tscn`（Player / Bullet / Enemy / Item / Hazard 等） |
 | `client/scripts/`（即 `res://scripts/`） | 脚本 `.gd`，按系统单一职责拆分 |
-| `client/data/`（即 `res://data/`） | 可调数值配置（JSON）+ `README.md` 人工调参手册 |
+| `client/data/`（即 `res://data/`） | 可调数值配置（平表 CSV + 复杂 JSON）+ `README.md` 人工调参手册 |
 | `client/locale/`（即 `res://locale/`） | 本地化翻译表（CSV → `.translation`）+ `README.md` 多语言文案手册 |
 | `client/templates/`（即 `res://templates/`） | 新内容脚手架模板（enemy/relic 等） |
 | `client/assets/`（即 `res://assets/`） | 美术 / 音效 |
@@ -100,7 +100,7 @@
 | **加一个敌人** | 复制 `templates/enemy_template`，在 `data/enemies.json` 加一条；行为复用既有 AI 类型，新行为才碰逻辑 |
 | **加一个角色** | 在 `data/characters.json`（落地后）加一条：基础属性 / 起始武器或遗物 / tags / capabilities / 控制配置；新 capability 先登记词表 §12 再实现 |
 | **加一个遗物/道具** | 在 `data/relics.json` 加一条，用 `modifiers` + `behaviors` 描述；**只用 `词表与契约.md` 已登记的 effect/stat**，新原语先登记再实现 |
-| **改经验/升级系统** | 查 GDD §7.1；`GrowthSystem` 负责经验累计、默认 3 选 1、`luck` 概率 4 选 1；候选数量和选项抽取走 `RNG.ui_choice`，升级 UI 走 `UIManager`，流程走 `GameState.LEVEL_UP` |
+| **改经验/升级系统** | 查 GDD §7.1；`GrowthSystem` 负责经验累计、默认 3 选 1、`luck` 概率 4 选 1；经验阈值 / 候选概率等平表数值优先放 `growth.csv`，复杂候选池放 `growth_pools.json`；候选抽取走 `RNG.ui_choice`，升级 UI 走 `UIManager`，流程走 `GameState.LEVEL_UP` |
 | **改局外成长 / 元进度** | 查 GDD §7.2；配置改 `client/data/meta_progression.json`，字段说明同步 `client/data/README.md`，文案同步 `client/locale/strings.csv`；存档走 `SaveManager` 的 `meta` kind，新增 currency / upgrade / unlock id 先登记词表 §13 |
 | **加破限角色/道具** | 先判断是否能用 `capabilities` + `modifiers` + `behaviors` 表达；表达不了则新增可复用 primitive / strategy 并登记词表 §12，禁止按 id 写特殊分支 |
 | **写/改代码模块** | 先查 `docs/代码文档规范.md`；长期模块 / autoload / 公共 API / signal / 数据 schema / 依赖方向变化必须同步详细的 `docs/代码/<module_id>.md` 与本导航依赖图，不能只写自动摘要 |
@@ -109,12 +109,12 @@
 | **查看 / 维护未来任务** | 看 `docs/TODO.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
 | **启动 / 推进正式项目** | 看 [`docs/正式项目工作规划.md`](正式项目工作规划.md)，按 F1~F9 阶段选择最靠前且未完成的任务；每阶段交付物、验证门槛和文档同步要求以该规划为准 |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
-| **校验数据 / 文案** | 跑 `python tools/validate_data.py`，覆盖 `client/data/*.json`、`client/locale/strings.csv` 与 MVP config 的 schema / 词表 / locale key 校验 |
+| **校验数据 / 文案** | 跑 `python tools/validate_data.py`，覆盖 `client/data/*.json`、`client/data/*.csv`、`client/locale/strings.csv` 与 MVP config 的 schema / 词表 / locale key 校验 |
 | **查 Godot 场景树 / headless 启动** | 跑 `python tools/godot_bridge.py export-tree` 或 `python tools/godot_bridge.py headless-boot`；默认项目为 `MinimumViableProduct/client` |
 | **用项目级 AI skill** | CodeBuddy / Codex / OpenCode 分别读取 `.codebuddy/skills/<name>/SKILL.md`、`.codex/skills/<name>/SKILL.md`、`.opencode/skills/<name>/SKILL.md`；当前覆盖 Godot 实现、场景验证、Godot 测试诊断、试玩复盘、文档同步、安全提交、事实 review、AI 资源筛选和 MCP 评估；外部 GodotPrompter / headless-godot / CCGS 的有用流程已吸收进项目 skill，不再保留 vendor 来源或 reference 跳转；资源筛选与安装清单见 `docs/AI协作/AI技能资源评估.md` |
 | **做 MVP 实验** | 只改 `MinimumViableProduct/`；MVP 文档见 `MinimumViableProduct/README.md`，MVP 客户端代码放 `MinimumViableProduct/client/`，不要混入完整项目 `client/` |
 | **加一种子弹效果原语** | 先在 `词表与契约.md` 登记 `effect` id → 在效果原语层实现方法/Node → 数据中引用 |
-| **改数值（血/伤害/刷怪/掉落）** | 先读 `client/data/README.md`，只改 `res://data/` 对应 JSON，**绝不改代码常量**；新增 / 改字段必须同步数值手册 |
+| **改数值（血/伤害/刷怪/掉落）** | 先读 `client/data/README.md`，只改 `res://data/` 对应 CSV / JSON，**绝不改代码常量**；平表数值优先 CSV，复杂配置优先 JSON；新增 / 改字段必须同步数值手册 |
 | **加面向玩家的文本** | 先读 `client/locale/README.md`，在 `res://locale/strings.csv` 加 key + `zh_CN` / `en` 译文，代码 / 数据用 `tr("key")` 或 `name_key` |
 | **加一个设置项** | `Settings` 加一条配置（键/类型/默认/范围）+ 一个 UI 控件，订阅 `setting_changed` 生效 |
 | **加一个埋点** | 用 `词表与契约.md` 登记的 `event_name`，调用 `Analytics.track_event(name, params)` |
@@ -170,7 +170,7 @@ flowchart LR
     Aud[AudioManager]
   end
 
-  Data[(client/data/<br/>JSON)]
+  Data[(client/data/<br/>CSV / JSON)]
   Loader[DataLoader]
   ME[ModifierEngine]
   Combat[Combat<br/>伤害结算]

@@ -23,7 +23,7 @@
 
 ## 2. 下一批任务（P1）
 
-- [ ] 完成正式项目 F3 数据 / 契约闭环：正式项目数据加载、locale key、生成常量引用和 fail-fast 校验。
+- [ ] 完成正式项目 F3 数据 / 契约闭环：`DataLoader` 同时支持平表 CSV 和复杂 JSON，正式项目数据加载、locale key、生成常量引用和 fail-fast 校验。
 - [ ] 实现完整项目 autoload 骨架：`DataLoader`、`Localization`、`Settings`、`Analytics`、`RNG`、`GameClock`、`Replay`、`GameState`、`UIManager`、`PoolManager`、`SaveManager`、`AudioManager`。
 - [ ] 为横向 autoload 补详细模块文档：`docs/代码/<module_id>.md`，并在脚本头部加 `# Doc:`。
 - [ ] 实现 `DataLoader` 对 `player.json`、`meta_progression.json`、`strings.csv` 引用 key 和词表 id 的 fail-fast 校验。

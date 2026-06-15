@@ -174,16 +174,16 @@
     {
       "path": "client/data/README.md",
       "type": "data_manual",
-      "authority": "Human-facing numeric configuration manual for client/data JSON files",
+      "authority": "Human-facing numeric configuration manual for client/data CSV and JSON files",
       "status": "active",
       "owner_scope": "data-contract",
       "last_reviewed": "2026-06-14",
-      "canonical_for": ["numeric_config_manual", "client_data_fields", "tuning_workflow"],
+      "canonical_for": ["numeric_config_manual", "client_data_fields", "tuning_workflow", "csv_json_data_format_policy"],
       "must_read_for": ["balance_change", "data_schema_change", "new_data_file", "new_numeric_field"],
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/AI导航.md", "client/locale/README.md"],
       "related_code": ["client/data/", "tools/validate_data.py", "tools/sync_contracts.py"],
       "update_triggers": ["new data file", "new numeric field", "changed unit or range", "DataLoader schema change"],
-      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "player.json", "meta_progression.json", "局外成长", "validate_data"]
+      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "growth.csv", "enemies.csv", "meta_progression.json", "局外成长", "validate_data"]
     },
     {
       "path": "client/locale/README.md",
