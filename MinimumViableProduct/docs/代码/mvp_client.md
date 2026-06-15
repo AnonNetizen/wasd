@@ -42,6 +42,7 @@
 | `MinimumViableProduct/client/scripts/bullet.gd` | 子弹移动、寿命、命中敌人、子弹占位绘制 |
 | `MinimumViableProduct/client/scripts/enemy.gd` | 敌人朝玩家推进、接触伤害、被击杀 signal、敌人占位绘制 |
 | `MinimumViableProduct/client/scripts/spawner.gd` | 上、右、下、左固定顺序循环刷怪 |
+| `MinimumViableProduct/client/scripts/debug_tools.gd` | debug/dev_tools 构建专用 GM 指令控制台；正式 release 不创建入口 |
 | `MinimumViableProduct/client/scripts/background.gd` | 深色网格背景、四方向通道、中心准星绘制 |
 
 ## 场景树
@@ -59,6 +60,11 @@ Main (Node2D, main.gd)
     ├── StatusLabel (Label)
     └── GameOverPanel (ColorRect)
         └── GameOverLabel (Label)
+
+DebugTools (CanvasLayer, debug_tools.gd)  # 仅 debug/dev_tools 构建由 main.gd 动态创建
+└── DebugConsolePanel (ColorRect)
+    ├── Output (Label)
+    └── CommandInput (LineEdit)
 ```
 
 | 节点 | 被谁引用 | 维护注意 |
@@ -109,7 +115,15 @@ Player (Node2D, player.gd)
 | `Enemy.take_hit(damage)` | `int` | 无 | HP 归零触发 `killed` 后销毁 |
 | `Spawner.apply_config(spawner_config, enemy_config)` | `Dictionary`, `Dictionary` | 无 | 应用刷怪节奏，并保存敌人配置供后续 spawn 使用 |
 | `Spawner.set_spawning_enabled(enabled)` | `bool` | 无 | 失败后由 `main.gd` 调用以停止刷怪 |
+| `Spawner.spawn_enemy_now(count)` | `int` | `int` | GM / 调试入口立即按现有刷怪规则生成敌人，返回成功生成数量 |
 | `Background.apply_config(config)` | `Dictionary` | 无 | 应用背景网格、通道宽度和中心标记尺寸后重绘 |
+| `main.gd.get_debug_stats()` | 无 | `Dictionary` | debug/dev_tools 构建读取 HP、时间、击杀、敌人数量和刷怪状态 |
+| `main.gd.debug_set_hp(new_hp)` | `int` | 无 | GM 设置 HP；归零会走正常失败流程 |
+| `main.gd.debug_damage_player(amount)` | `int` | 无 | GM 伤害玩家；走主场景扣血流程 |
+| `main.gd.debug_heal_player(amount)` | `int` | 无 | GM 治疗玩家；不超过 `max_hp` |
+| `main.gd.debug_spawn_enemies(count)` | `int` | `int` | GM 通过 `Spawner.spawn_enemy_now()` 刷怪 |
+| `main.gd.debug_clear_enemies(count_as_kills)` | `bool` | `int` | GM 清怪；`kill` 命令会把清除数计入击杀 |
+| `main.gd.debug_set_spawning_enabled(enabled)` | `bool` | 无 | GM 开关刷怪；失败状态下不重新启用 |
 
 ## Signal / Event
 
@@ -132,9 +146,10 @@ Player (Node2D, player.gd)
 | 3 | `main.gd` 分发玩家、武器、输入、敌人、刷怪和背景配置 | `_apply_config()`、各节点 `apply_config()` |
 | 4 | `main.gd` 把玩家放到 viewport 中心 | `player.global_position = get_viewport_rect().size * 0.5` |
 | 5 | `main.gd` 连接玩家、刷怪器和 HUD | `aim_changed`、`damage_taken`、`enemy_spawned` |
-| 6 | `aim_input.gd` 确保键盘 / 手柄 action 绑定存在 | `_ensure_default_input_map()` |
-| 7 | `player.gd` 读取初始瞄准方向并同步武器 | `weapon.call("set_aim_direction", aim_direction)` |
-| 8 | `spawner.gd` 找到玩家目标和敌人父节点 | `target_path`、`spawn_parent_path` |
+| 6 | debug/dev_tools 构建动态加载调试控制台 | `_setup_debug_tools()`、`OS.is_debug_build()`、`OS.has_feature("dev_tools")` |
+| 7 | `aim_input.gd` 确保键盘 / 手柄 action 绑定存在 | `_ensure_default_input_map()` |
+| 8 | `player.gd` 读取初始瞄准方向并同步武器 | `weapon.call("set_aim_direction", aim_direction)` |
+| 9 | `spawner.gd` 找到玩家目标和敌人父节点 | `target_path`、`spawn_parent_path` |
 
 ### 每帧战斗流程
 
@@ -166,6 +181,7 @@ Player (Node2D, player.gd)
 - MVP 玩法代码只消费 Godot InputMap action，不直接读取物理键位或设备差异。
 - `aim_input.gd` 在运行时确保 `ui_up` / `ui_down` / `ui_left` / `ui_right` 有方向键、手柄 D-pad、左摇杆、右摇杆绑定。
 - `ui_accept` 在 MVP 中用于失败后重开，默认覆盖 Enter、Space 与手柄 A。
+- `debug_tools.gd` 在 debug/dev_tools 构建中运行时确保 `debug_toggle_console` / `debug_submit_command` / `debug_close_console` 存在；正式 release 不创建该节点。
 - MVP 与正式项目差异：MVP 玩家不能移动，所以左摇杆临时也用于瞄准；正式项目左摇杆应留给移动，右摇杆 / D-pad 用于瞄准。
 
 ## 输入映射细表
@@ -177,6 +193,9 @@ Player (Node2D, player.gd)
 | `ui_left` | `KEY_LEFT` | `JOY_BUTTON_DPAD_LEFT` | `JOY_AXIS_LEFT_X = -1`、`JOY_AXIS_RIGHT_X = -1` | 向左瞄准 |
 | `ui_right` | `KEY_RIGHT` | `JOY_BUTTON_DPAD_RIGHT` | `JOY_AXIS_LEFT_X = 1`、`JOY_AXIS_RIGHT_X = 1` | 向右瞄准 |
 | `ui_accept` | `KEY_ENTER`、`KEY_SPACE` | `JOY_BUTTON_A` | 无 | 失败后重开 |
+| `debug_toggle_console` | `KEY_F1`、`` ` `` | 无 | 无 | debug/dev_tools 构建切换 GM 控制台 |
+| `debug_submit_command` | `KEY_ENTER` | 无 | 无 | debug/dev_tools 构建提交 GM 指令 |
+| `debug_close_console` | `KEY_ESCAPE` | 无 | 无 | debug/dev_tools 构建关闭 GM 控制台 |
 
 | 参数 | 当前值 | 说明 |
 |------|--------|------|
@@ -203,6 +222,23 @@ MVP 只使用一个轻量 JSON：`MinimumViableProduct/client/data/mvp_config.js
 - 脚本默认值只作为配置缺失 / 字段缺失时的兜底。
 - MVP 暂不做正式 `DataLoader`、JSON Schema、热重载、词表常量或 fail-fast 数据管线；这些仍属于完整项目 `client/` 的长期要求。
 
+## 调试工具 / GM 指令
+
+MVP 的 GM 指令控制台只在 `OS.is_debug_build()` 或自定义 feature `dev_tools` 存在时由 `main.gd` 动态加载 `res://scripts/debug_tools.gd`。正式 release 构建不创建 `DebugTools` 节点；后续导出 preset 应排除 `scripts/debug_tools.gd`。
+
+| 命令 | 作用 | 约束 |
+|------|------|------|
+| `help` | 输出命令列表 | 无 |
+| `stats` | 显示 HP、时间、击杀、敌人数量和刷怪状态 | 只读 |
+| `heal [n]` | 治疗玩家 | 不超过 `max_hp` |
+| `hp <n>` | 设置玩家 HP | 归零走正常 Game Over 流程 |
+| `damage [n]` | 对玩家造成伤害 | 走 `main.gd` 扣血流程 |
+| `spawn [n]` | 立即刷出 n 个敌人 | 通过 `Spawner.spawn_enemy_now()`，沿用现有刷怪规则 |
+| `clear` | 清除当前敌人 | 不增加击杀数 |
+| `kill` | 清除当前敌人并计入击杀 | 用于复盘击杀节奏，不代表正式伤害管线 |
+| `spawner on/off` | 开关自动刷怪 | 失败状态下不重新启用 |
+| `reset` | 重载当前场景 | 等同重新开始 MVP |
+
 ## 依赖
 
 | 模块 | 上游依赖 | 下游调用方 |
@@ -215,6 +251,7 @@ MVP 只使用一个轻量 JSON：`MinimumViableProduct/client/data/mvp_config.js
 | `enemy.gd` | `enemy` 配置、`target.take_damage()` 约定 | `spawner.gd`、`bullet.gd`、`main.gd` |
 | `spawner.gd` | `spawner` / `enemy` 配置、`enemy_scene`、`target_path`、`spawn_parent_path` | `main.gd` |
 | `background.gd` | `background` 配置、当前 viewport size | `main.tscn` |
+| `debug_tools.gd` | `main.gd` 暴露的 debug API、InputMap debug action | debug/dev_tools 构建的 `DebugTools` 节点 |
 
 禁止依赖：MVP 代码不得依赖根目录正式 `client/`，不得把 MVP 临时逻辑迁入正式项目，除非先经过复盘与 ADR。
 
@@ -233,6 +270,7 @@ MVP 只使用一个轻量 JSON：`MinimumViableProduct/client/data/mvp_config.js
 | 改手柄死区 | `mvp_config.json` 的 `input.gamepad_deadzone` | `MinimumViableProduct/client/data/README.md` | 实体手柄试玩斜向 / 小幅摇杆输入 |
 | 改背景网格或中心标记尺寸 | `mvp_config.json` 的 `background.*` | `MinimumViableProduct/client/data/README.md` | 启动观察背景可读性 |
 | 改失败条件 | `enemy.gd`、`player.gd`、`main.gd` | 本文档 `失败与重开流程`、`Signal / Event` | 试玩到 Game Over 并重开 |
+| 改 GM 指令 | `debug_tools.gd`、`main.gd`、必要时 `spawner.gd` | 本文档 `调试工具 / GM 指令`、根目录 GDD 9.20 | debug/dev_tools 构建手动验证；release 构建确认无入口 |
 | 拆出 `game_session.gd` | 新脚本、`main.tscn`、`main.gd` | 本文档所有涉及 `main.gd` 的表格 | Headless 启动 + 完整人工试玩 |
 
 ## 扩展点
@@ -241,6 +279,7 @@ MVP 只使用一个轻量 JSON：`MinimumViableProduct/client/data/mvp_config.js
 - 增加失败 / 结算信息：改 `main.gd` 与 HUD 节点，并同步本文档 Signal / API。
 - 继续扩展手柄输入：保留 InputMap action 抽象，设备差异只放绑定层。
 - 增加敌人或子弹变体：MVP 可先复制场景验证，但若准备迁移完整项目，必须改为正式数据驱动内容。
+- 扩展 GM 指令：优先通过 `main.gd` 暴露少量 debug API，再由 `debug_tools.gd` 调用；不要在 GM 指令里直接越过现有玩法流程。
 
 ## 人工验证清单
 
@@ -256,6 +295,8 @@ MVP 只使用一个轻量 JSON：`MinimumViableProduct/client/data/mvp_config.js
 | Game Over | HP 归零后停止刷怪和射击，敌人清空，失败面板显示生存时间和击杀数 |
 | 重开 | Enter、Space、手柄 A 都能重载当前场景 |
 | 无手柄 | 没插手柄时键盘操作正常，不报错 |
+| GM 控制台 | debug/dev_tools 构建按 F1 或反引号可打开；`stats`、`spawn 4`、`heal 1`、`spawner off`、`clear`、`reset` 能生效 |
+| 正式隔离 | release 构建不显示 GM 控制台，`debug_*` 输入无可见效果，导出资源不包含 `debug_tools.gd` |
 
 ## 故障排查
 
@@ -271,6 +312,7 @@ MVP 只使用一个轻量 JSON：`MinimumViableProduct/client/data/mvp_config.js
 | Game Over 后仍刷怪 | `_trigger_game_over()` 是否调用 `spawner.set_spawning_enabled(false)` |
 | 手柄无响应 | `aim_input.gd` 是否执行 `_ensure_default_input_map()`，设备是否被 Godot 识别 |
 | 调配置没生效 | `mvp_config.json` 是否是合法 JSON，字段是否在正确 section，是否重启了 MVP 场景 |
+| GM 控制台打不开 | 是否处于 debug 构建，或导出 preset 是否带 `dev_tools` feature；release 构建打不开是预期行为 |
 
 ## 已知限制
 
@@ -278,6 +320,7 @@ MVP 只使用一个轻量 JSON：`MinimumViableProduct/client/data/mvp_config.js
 - MVP 当前文本直接写在 HUD 中，属于原型折中；正式项目必须走本地化键。
 - MVP 当前使用轻量 `mvp_config.json` 集中核心调参值，但没有正式 `DataLoader`、schema 校验或热重载；正式项目必须走 `client/data/*.json` + `DataLoader`。
 - MVP 当前失败状态由 `main.gd` 管理，属于轻量 GameSession；正式项目必须走 `GameState` / `UIManager`。
+- MVP 当前 GM 指令控制台是轻量单脚本实现；正式项目必须拆成 `DebugConsole` / `GMCommandRegistry` 等独立模块，并在 release preset 排除资源。
 
 ## 迁移到正式项目
 
@@ -290,6 +333,7 @@ MVP 只使用一个轻量 JSON：`MinimumViableProduct/client/data/mvp_config.js
 | 失败流程 | `GameState` + `UIManager` | 不由业务脚本直接管理全局状态或 UI 弹窗 |
 | 敌人和子弹生命周期 | `PoolManager` | 高频实体必须池化，不能直接复制 MVP 的 `queue_free()` 模式 |
 | HUD 文案 | `Localization` | 玩家可见文本必须走 `tr("key")` |
+| GM 指令控制台 | `DebugConsole` / `GMCommandRegistry` | 仅 debug/dev_tools 构建启用；命令通过正式系统 API 改状态，release preset 排除调试资源 |
 
 ## 测试义务
 
@@ -297,6 +341,7 @@ MVP 只使用一个轻量 JSON：`MinimumViableProduct/client/data/mvp_config.js
 - 每次修改 `mvp_config.json` 后，至少运行 `py -3 -m json.tool MinimumViableProduct/client/data/mvp_config.json > $null`。
 - 改输入时，需要人工试玩键盘方向键、手柄 D-pad、左摇杆、右摇杆和 `ui_accept` 重开。
 - 改刷怪、伤害、重开、HUD 或核心配置时，需要人工试玩一轮从开局到失败再重开。
+- 改 GM 指令或调试入口时，需要验证 debug/dev_tools 构建可用，并确认 release 构建无入口、无调试资源。
 - 改文档时运行 `git diff --check -- . ":(exclude)draft/**" ":(exclude)DRAFT/**"`，并额外检查未跟踪 MVP 文档的尾随空白。
 
 ## 相关文档

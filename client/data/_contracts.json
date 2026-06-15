@@ -92,6 +92,9 @@
       "aim_right",
       "use_active_item",
       "pause",
+      "debug_toggle_console",
+      "debug_submit_command",
+      "debug_close_console",
       "debug_toggle_replay"
     ],
     "pool_ids": [

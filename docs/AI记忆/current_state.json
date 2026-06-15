@@ -2,8 +2,8 @@
   "schema_version": 1,
   "updated_at": "2026-06-15",
   "current_phase": "docs_framework_and_mvp_m4_6",
-  "current_status": "Full project is still in documentation/framework design; deep meta progression is specified through client/data/meta_progression.json; strong SaveManager requirements now cover meta and run saves; docs/TODO.md tracks the human-readable future task backlog; MVP client has reached M4.6 with centralized mvp_config.json tunables; AI knowledge base v2 and three-layer AI memory are active; AI large-change auto-commit policy and context-compaction task recovery rule are established; nine directly usable project skills are synchronized under .codebuddy/skills, .codex/skills, and .opencode/skills; useful external Godot/headless/playtest patterns have been absorbed into project-owned skills; .agents/skills, .opencode/vendor/ai-resources, and .gitmodules have been removed.",
-  "latest_adr": 60,
+  "current_status": "Full project is still in documentation/framework design; deep meta progression is specified through client/data/meta_progression.json; strong SaveManager requirements now cover meta and run saves; docs/TODO.md tracks the human-readable future task backlog; MVP client has reached M4.7 with centralized mvp_config.json tunables plus debug/dev_tools-only GM console; AI knowledge base v2 and three-layer AI memory are active; AI large-change auto-commit policy and context-compaction task recovery rule are established; nine directly usable project skills are synchronized under .codebuddy/skills, .codex/skills, and .opencode/skills; useful external Godot/headless/playtest patterns have been absorbed into project-owned skills; .agents/skills, .opencode/vendor/ai-resources, and .gitmodules have been removed.",
+  "latest_adr": 61,
   "open_decisions": ["A", "B", "C", "D", "E"],
   "last_completed": [
     "AI knowledge base v2 with docs_health_check",
@@ -26,7 +26,8 @@
     "Historical CCGS cross-agent adapter was added for on-demand reuse (ADR #57; later superseded by ADR #58 and #59)",
     "Historical external AI library active layer was simplified to a reference adapter (ADR #58; later superseded by ADR #59)",
     "Project-level skills consolidated from vendor/reference into direct project skills: useful GodotPrompter, headless-godot-skill-kit, and CCGS patterns were absorbed; .agents/skills/game-ai-reference, vendor submodules, and .gitmodules were removed (ADR #59)",
-    "Nine project-level skills are synchronized across .codebuddy/skills, .codex/skills, and .opencode/skills so CodeBuddy, Codex, and OpenCode can each read direct same-name skills without cross-platform references (ADR #60)"
+    "Nine project-level skills are synchronized across .codebuddy/skills, .codex/skills, and .opencode/skills so CodeBuddy, Codex, and OpenCode can each read direct same-name skills without cross-platform references (ADR #60)",
+    "MVP M4.7 added debug/dev_tools-only GM console with stats, HP, damage, spawn, clear/kill, spawner toggle, and reset commands; full project rule requires release presets to exclude debug tools (ADR #61)"
   ],
   "next_actions": [
     "MVP M5 playtest and workflow/feel/config-tuning review",
@@ -111,6 +112,7 @@
     "Do not read or modify draft/ or DRAFT/ unless explicitly authorized.",
     "For large AI changes, create a git commit after checking status, diff, recent log, and verification; for minor changes, explain why no commit was made.",
     "Project-level skills live in synchronized .codebuddy/skills, .codex/skills, and .opencode/skills; source/evaluation notes live in docs/AI协作/AI技能资源评估.md; restart/reopen the relevant AI tool after changing skills paths or config.",
+    "GM/debug tooling must stay behind debug/dev_tools build gates; release presets must not enable dev_tools or include debug scripts/GM command resources.",
     "External AI resource packages are not kept as vendor submodules; useful external procedures must be absorbed into project-owned skills and project rules remain authoritative.",
     "After context summary, compaction, or restoration, align to the user's last explicit instruction first; summaries, Next Steps, and current_state next_actions are candidate context only, not authorization."
   ]

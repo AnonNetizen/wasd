@@ -2,11 +2,13 @@
 extends Node2D
 
 const CONFIG_PATH := "res://data/mvp_config.json"
+const DEBUG_TOOLS_PATH := "res://scripts/debug_tools.gd"
 const DEFAULT_MAX_HP := 3
 
 @onready var background: Node2D = $Background
 @onready var player: Node2D = $Player
 @onready var spawner: Node2D = $Spawner
+@onready var enemies: Node2D = $Enemies
 @onready var status_label: Label = $HUD/StatusLabel
 @onready var game_over_panel: ColorRect = $HUD/GameOverPanel
 @onready var game_over_label: Label = $HUD/GameOverPanel/GameOverLabel
@@ -37,6 +39,7 @@ func _ready() -> void:
 	game_over_label.add_theme_constant_override("shadow_offset_x", 3)
 	game_over_label.add_theme_constant_override("shadow_offset_y", 3)
 	game_over_label.add_theme_font_size_override("font_size", 26)
+	_setup_debug_tools()
 	aim_direction_name = player.call("get_aim_direction_name")
 	_update_hud()
 
@@ -91,8 +94,69 @@ func _trigger_game_over() -> void:
 
 
 func _clear_live_enemies() -> void:
-	for enemy in $Enemies.get_children():
+	for enemy in enemies.get_children():
 		enemy.queue_free()
+
+
+func get_debug_stats() -> Dictionary:
+	return {
+		"hp": hp,
+		"max_hp": max_hp,
+		"time": elapsed_seconds,
+		"kills": kill_count,
+		"enemy_count": enemies.get_child_count(),
+		"spawning": spawner.get("spawning_enabled"),
+		"game_over": game_over,
+	}
+
+
+func debug_set_hp(new_hp: int) -> void:
+	if game_over:
+		game_over = false
+		game_over_panel.visible = false
+		player.call("set_active", true)
+		spawner.call("set_spawning_enabled", true)
+
+	hp = clampi(new_hp, 0, max_hp)
+	if hp <= 0:
+		_trigger_game_over()
+	else:
+		_update_hud()
+
+
+func debug_damage_player(amount: int) -> void:
+	_on_player_damage_taken(max(0, amount))
+
+
+func debug_heal_player(amount: int) -> void:
+	debug_set_hp(hp + max(0, amount))
+
+
+func debug_spawn_enemies(count: int) -> int:
+	if game_over:
+		return 0
+	if not spawner.has_method("spawn_enemy_now"):
+		return 0
+
+	return int(spawner.call("spawn_enemy_now", max(1, count)))
+
+
+func debug_clear_enemies(count_as_kills: bool = false) -> int:
+	var cleared_count := enemies.get_child_count()
+	for enemy in enemies.get_children():
+		enemy.queue_free()
+	if count_as_kills:
+		kill_count += cleared_count
+	_update_hud()
+	return cleared_count
+
+
+func debug_set_spawning_enabled(enabled: bool) -> void:
+	if game_over and enabled:
+		return
+
+	spawner.call("set_spawning_enabled", enabled)
+	_update_hud()
 
 
 func _update_hud() -> void:
@@ -145,3 +209,24 @@ func _get_int(section: Dictionary, key: String, default_value: int) -> int:
 
 	push_warning("[MvpMain] config.%s must be a number, using %d" % [key, default_value])
 	return default_value
+
+
+func _setup_debug_tools() -> void:
+	if not _is_debug_tools_enabled():
+		return
+
+	var debug_script := load(DEBUG_TOOLS_PATH) as Script
+	if debug_script == null:
+		push_warning("[MvpMain] debug tools script is missing")
+		return
+
+	var debug_tools := CanvasLayer.new()
+	debug_tools.name = "DebugTools"
+	debug_tools.set_script(debug_script)
+	add_child(debug_tools)
+	if debug_tools.has_method("setup"):
+		debug_tools.call("setup", self)
+
+
+func _is_debug_tools_enabled() -> bool:
+	return OS.is_debug_build() or OS.has_feature("dev_tools")

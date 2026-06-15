@@ -63,6 +63,18 @@ func set_spawning_enabled(enabled: bool) -> void:
 	spawning_enabled = enabled
 
 
+func spawn_enemy_now(count: int = 1) -> int:
+	var spawned_count := 0
+	for _index in range(max(1, count)):
+		var before_count := 0
+		if spawn_parent != null:
+			before_count = spawn_parent.get_child_count()
+		_spawn_enemy()
+		if spawn_parent != null and spawn_parent.get_child_count() > before_count:
+			spawned_count += 1
+	return spawned_count
+
+
 func apply_config(spawner_config: Dictionary, new_enemy_config: Dictionary) -> void:
 	spawn_interval = max(0.05, _get_number(spawner_config, "spawn_interval", spawn_interval))
 	spawn_margin = max(0.0, _get_number(spawner_config, "spawn_margin", spawn_margin))
