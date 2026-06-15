@@ -21,7 +21,7 @@ arguments: relic-name-or-concept
 5. **生成 locale key**：`<id>_name` / `<id>_desc`（占位符 `{value}` 用于动态数值）
 6. **写入**：
    - `client/data/relics.json` 末尾追加（参照黄金样例结构）
-   - `client/locale/strings.csv` 加两行（zh_CN + en）
+   - `client/locale/strings.csv` 加两行（zh_CN + en；缺任一语言时 AI 自动补首版译文）
 7. **跑 hook 校验**（如果可用）：`pre-commit run --files client/data/relics.json client/locale/strings.csv`
 8. **报告**：列出新增的 id / key、并提示是否需要让 `balancer` 跑回放对照（一般遗物加新条目不影响黄金回放）
 

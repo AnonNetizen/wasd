@@ -191,13 +191,13 @@
       "authority": "Human-facing localization and copy configuration manual for client/locale",
       "status": "active",
       "owner_scope": "localization",
-      "last_reviewed": "2026-06-14",
+      "last_reviewed": "2026-06-15",
       "canonical_for": ["locale_config_manual", "strings_csv", "translation_workflow", "placeholder_rules"],
       "must_read_for": ["new_player_text", "new_language", "locale_key_change", "placeholder_rule_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/AI导航.md", "client/data/README.md"],
       "related_code": ["client/locale/", "tools/validate_data.py"],
-      "update_triggers": ["new locale key domain", "new language column", "placeholder convention change", "strings.csv format change"],
-      "keywords": ["locale", "localization", "strings.csv", "文案", "多语言", "翻译", "占位符", "meta_", "局外成长文案", "validate_data"]
+      "update_triggers": ["new locale key domain", "new language column", "placeholder convention change", "strings.csv format change", "translation workflow change"],
+      "keywords": ["locale", "localization", "strings.csv", "文案", "多语言", "翻译", "AI自动翻译", "zh_CN", "en", "占位符", "meta_", "局外成长文案", "validate_data"]
     },
     {
       "path": "docs/测试策略.md",

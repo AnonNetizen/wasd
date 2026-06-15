@@ -11,6 +11,8 @@
 - 代码和数据只引用 key：代码用 `tr("key")`，数据用 `name_key` / `desc_key` 等字段。
 - 同一行维护多语言译文，避免每种语言散落在不同文件里难以对照。
 - 动态数值使用占位符，禁止在代码里拼接句子。
+- 当前首批只维护简体中文 `zh_CN` 与英文 `en` 两种语言；新增语言另行决策。
+- AI 负责为缺失的 `zh_CN` 或 `en` 自动生成首版译文，人工负责最终审校和润色。
 
 ## 快速上手
 
@@ -20,8 +22,8 @@
 | 加遗物 / 道具名 | 在 `strings.csv` 加 `relic_*_name` / `item_*_name`；数据填 `name_key` |
 | 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，动态数值用 `{value}` 这类占位符 |
 | 加局外成长文案 | 在 `strings.csv` 加 `meta_*_name` / `meta_*_desc`；`meta_progression.json` 填 `name_key` / `desc_key` |
-| 改中文或英文翻译 | 只改对应语言列，不改 key |
-| 新增语言 | 给 `strings.csv` 加新语言列，并同步 Settings 语言选项与 Godot Localization 注册 |
+| 改中文或英文翻译 | 只改对应语言列，不改 key；另一语言由 AI 自动补首版译文后人工复核 |
+| 新增语言 | 先新增决策，再给 `strings.csv` 加新语言列，并同步 Settings 语言选项与 Godot Localization 注册 |
 
 ## CSV 格式
 
@@ -46,6 +48,7 @@ ui_resume,继续,Resume
 - key 不改名；改名等于破坏所有引用，必须同步代码 / 数据 / 词表。
 - 译文含逗号、换行或双引号时，按 CSV 规则用双引号包裹，并把内部双引号写成 `""`。
 - `zh_CN` 与 `en` 是当前必填语言；新增 key 时两列都要填。
+- 若用户只提供中文或英文，AI 必须自动补齐另一列首版译文；不得留空。
 - 临时占位可以复制英文，但必须在人工校对清单里标出，不能长期留空。
 
 ## key 命名
@@ -95,9 +98,17 @@ label.text = tr("ui_damage") + str(value)
 
 ## 常见工作流
 
+### AI 自动翻译工作流
+
+1. 用户或设计文档给出中文文案时，AI 同步生成 `en` 首版译文。
+2. 用户或参考资料给出英文文案时，AI 同步生成 `zh_CN` 首版译文。
+3. AI 翻译必须保留所有 `{value}` / `{count}` 等占位符，且两种语言占位符集合一致。
+4. AI 可按游戏语气润色，但不得改变数值含义、功能承诺、触发条件或稀有度表达。
+5. 人工校对是最终权威；发现译文别扭时只改译文列，不改 key。
+
 ### 加一段 UI 文案
 
-1. 在 `strings.csv` 新增一行，如 `ui_restart,重开,Restart`。
+1. 在 `strings.csv` 新增一行，如 `ui_restart,重开,Restart`；若只给了一种语言，AI 先补齐另一种。
 2. UI 代码使用 `tr("ui_restart")`。
 3. 如果该 UI 支持运行时切语言，确认 `NOTIFICATION_TRANSLATION_CHANGED` 后会刷新。
 
@@ -156,6 +167,7 @@ meta_upgrade_damage_desc,永久提升基础伤害,Permanently increases base dam
 
 - [ ] `keys` 是否唯一且命名符合词表 §6？
 - [ ] `zh_CN` 与 `en` 是否都有译文？
+- [ ] AI 自动补译的内容是否经过人工复核，且没有误改功能含义？
 - [ ] 所有语言的占位符集合是否一致？
 - [ ] 是否已运行 `python tools/validate_data.py`？
 - [ ] 数据文件是否只引用 `name_key` / `desc_key`，没有硬文本？

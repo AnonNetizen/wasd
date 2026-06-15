@@ -44,6 +44,7 @@ alwaysApply: true
 - 数据文件（道具/遗物等）只存 `name_key` / `desc_key`，译文放 `res://locale/` 翻译表。
 - 动态数值用占位符（如 `"伤害 +{value}"`），禁止用字符串拼接组句。
 - 通过 `Localization`（autoload）与 `TranslationServer` 管理与切换语言。
+- 当前首批语言为 `zh_CN` 与 `en`；新增玩家可见文案时，AI 必须自动补齐另一语言首版译文，人工最终复核。
 - 新增 / 修改玩家可见文案、语言列、key 域前缀或占位符约定时，必须同步 `client/locale/README.md`，保证人工能直接按手册维护多语言文本。
 
 ## 5. 设置系统（框架级，强制）
@@ -265,7 +266,7 @@ alwaysApply: true
 - [ ] 没有硬编码可调数值（都在 `res://data/`）？
 - [ ] 新增 / 修改数值字段是否同步 `client/data/README.md`，让人能直接上手调参？
 - [ ] 没有硬编码玩家可见文本（都用 `tr()` 文本键）？
-- [ ] 新增 / 修改文案 key、语言列或占位符是否同步 `client/locale/README.md`，且 `zh_CN` / `en` 已补齐？
+- [ ] 新增 / 修改文案 key、语言列或占位符是否同步 `client/locale/README.md`，且 `zh_CN` / `en` 已补齐，AI 自动补译未改变功能含义？
 - [ ] 没有硬编码键盘按键、手柄按钮或手柄轴（都走 InputMap action + `Settings` 重绑定）？
 - [ ] 玩家偏好都走 `Settings` 单例并能即时生效？
 - [ ] 新遗物/道具是加数据而非加逻辑分支？

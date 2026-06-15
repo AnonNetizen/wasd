@@ -14,7 +14,7 @@ arguments: relic-name-or-concept
 3. 查 `docs/词表与契约.md` 第 1~3 节，确认 stat / effect / behavior.event id 已登记；破限内容额外查第 12 节。
 4. 生成 id：`relic_<lowercase_snake_case>`，避免与已有冲突。
 5. 生成 locale key：`<id>_name` / `<id>_desc`。
-6. 写入 `client/data/relics.json` 与 `client/locale/strings.csv`。
+6. 写入 `client/data/relics.json` 与 `client/locale/strings.csv`；locale 必须补齐 zh_CN + en，缺任一语言时 AI 自动补首版译文。
 7. 如可用，跑 `pre-commit run --files client/data/relics.json client/locale/strings.csv`。
 8. 报告新增 id / key，并提示是否需要让 `balancer` 跑回放对照。
 

@@ -46,6 +46,7 @@ permission:
 - 数据 CSV / JSON 必须照黄金样例结构填写。
 - 新增 / 修改数据字段必须同步 `client/data/README.md`。
 - 玩家可见文本走 `name_key` / `desc_key` + `client/locale/strings.csv`，不裸文本；新增 / 修改文案规则必须同步 `client/locale/README.md`。
+- 加 locale 条目时当前只维护 `zh_CN` / `en`；用户只给一种语言时，自动补齐另一语言首版译文，并标记需要人工复核。
 - 破限内容必须带 `tag_limit_break` 与已登记 capability；如果需要新 primitive / strategy，escalate，不要写 id 特判。
 
 ## 工作流
@@ -53,7 +54,7 @@ permission:
 1. 读任务模板对应文件。
 2. 查词表：本次涉及的所有 id 是否已登记；未登记则 escalate。
 3. 照黄金样例填数据：复制结构、改值、改 key。
-4. 加 locale 条目：至少 zh_CN + en 两列。
+4. 加 locale 条目：至少 zh_CN + en 两列；缺中文补中文，缺英文补英文。
 5. 同步手册：数据字段改动查 `client/data/README.md`，文案 / 语言 / 占位符改动查 `client/locale/README.md`。
 6. 跑 hook 校验：`pre-commit run --files <changed>`（或同等命令）；fail 即按报错改。
 
@@ -73,6 +74,7 @@ permission:
 - [ ] 所有 id 在词表
 - [ ] 破限内容的 capability / tag 已登记
 - [ ] locale key 都有 zh_CN + en
+- [ ] AI 自动补译未改变原文功能含义，且需要人工复核的译文已说明
 - [ ] 数据字段说明和 locale 说明文档已同步
 - [ ] 通过 DataLoader 校验（hook 全过）
 - [ ] 黄金样例结构对齐
