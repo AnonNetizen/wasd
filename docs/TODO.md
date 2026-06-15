@@ -17,13 +17,13 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] MVP M5 试玩复盘：验证手感、敌人压力、失败节奏、手柄输入和 `mvp_config.json` 调参效率。
-- [ ] 根据 MVP M5 复盘决定是否新增 MVP M6，或转入完整项目 `client/` M1 autoload 骨架。
+- [ ] 按 `docs/正式项目工作规划.md` 推进 F1：创建完整项目 `client/project.godot` 与基础目录，保证 Godot headless 能启动。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、本地 pre-commit hook、增量 watch。
-- [ ] 创建完整项目 `client/project.godot` 与 M1 基础目录，保证 Godot headless 能启动。
+- [ ] 启动正式项目 F2 横向 autoload 骨架：先落地 `DataLoader`、`RNG`、`GameClock`、`GameState` 的最小可验证 API。
 
 ## 2. 下一批任务（P1）
 
+- [ ] 完成正式项目 F3 数据 / 契约闭环：正式项目数据加载、locale key、生成常量引用和 fail-fast 校验。
 - [ ] 实现完整项目 autoload 骨架：`DataLoader`、`Localization`、`Settings`、`Analytics`、`RNG`、`GameClock`、`Replay`、`GameState`、`UIManager`、`PoolManager`、`SaveManager`、`AudioManager`。
 - [ ] 为横向 autoload 补详细模块文档：`docs/代码/<module_id>.md`，并在脚本头部加 `# Doc:`。
 - [ ] 实现 `DataLoader` 对 `player.json`、`meta_progression.json`、`strings.csv` 引用 key 和词表 id 的 fail-fast 校验。
@@ -60,7 +60,8 @@
 
 ## 6. 已完成摘要
 
-- [x] MVP M1~M4.6：独立 Godot 项目、固定玩家、四方向射击、敌人、失败重开、手柄试验、集中数值配置。
+- [x] MVP M1~M5：独立 Godot 项目、固定玩家、四方向射击、敌人、失败重开、手柄试验、集中数值配置、GM 调试工具和用户确认的 MVP 验证收口。
+- [x] AI 工作框架搭建完成：开工入口、规则、AI 导航、任务模板、subagents、三平台项目级 skills、知识库、记忆、校验脚本和 AI Git 策略已形成闭环。
 - [x] AI 知识库 v2：人工索引、机器索引、术语表、健康检查脚本。
 - [x] AI 记忆三层结构：长期索引、机器当前状态、每日会话日志。
 - [x] 完整项目数值 / 文案配置入口：`client/data/player.json`、`client/data/README.md`、`client/locale/strings.csv`、`client/locale/README.md`。

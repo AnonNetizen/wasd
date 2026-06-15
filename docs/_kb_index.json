@@ -298,6 +298,20 @@
       "keywords": ["TODO", "todo list", "backlog", "future tasks", "未来任务", "任务清单", "P0", "P1", "P2", "P3"]
     },
     {
+      "path": "docs/正式项目工作规划.md",
+      "type": "planning",
+      "authority": "Formal full-project phase roadmap after MVP validation and AI workflow setup",
+      "status": "active",
+      "owner_scope": "project",
+      "last_reviewed": "2026-06-15",
+      "canonical_for": ["formal_project_plan", "full_project_roadmap", "phase_gates", "post_mvp_workflow"],
+      "must_read_for": ["formal_project_start", "full_project_planning", "new_session_planning", "task_planning"],
+      "related_docs": ["docs/TODO.md", "docs/AI导航.md", "docs/AI知识库索引.md", "docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json", "docs/测试策略.md", "docs/代码文档规范.md"],
+      "related_code": ["client/"],
+      "update_triggers": ["formal project phase changes", "phase gate changes", "full project milestone completion", "post-MVP roadmap changes"],
+      "keywords": ["正式项目", "工作规划", "full project", "formal project", "roadmap", "F1", "F2", "autoload", "client", "post-MVP", "阶段门禁"]
+    },
+    {
       "path": "docs/AI记忆/README.md",
       "type": "memory",
       "authority": "AI memory directory structure and usage guide",

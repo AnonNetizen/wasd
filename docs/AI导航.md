@@ -69,6 +69,7 @@
 | `docs/决策记录.md` | ADR |
 | `docs/修改建议.md` | 待决策项（A~E；J~R 已归档） |
 | `docs/TODO.md` | 未来任务清单（P0 当前优先级 / P1 下一批 / P2 中期 / P3 长期积压） |
+| [`docs/正式项目工作规划.md`](正式项目工作规划.md) | MVP 验证完成后，完整项目 `client/` 的阶段路线、交付物、验证门槛和后续 AI 任务选择依据 |
 | `docs/简单设计思路.md` | 项目原点 |
 | `docs/CICD规划.md` | CI/CD 路线图 |
 | `docs/AI记忆/项目记忆.md` | **AI 协作长期索引（跨会话/跨机器续接必读）** |
@@ -106,6 +107,7 @@
 | **查知识库 / 找文档关系 / 任务路由** | 先看 `docs/AI知识库索引.md` 的任务路由表，需要机器可读元数据时看 `docs/_kb_index.json`，搜索同义词先看 `docs/术语表.md` |
 | **续接当前状态 / 下一步** | 先看 `docs/AI记忆/项目记忆.md` 的长期事实，再看 `docs/AI记忆/current_state.json` 的机器当前状态；上下文压缩后先以用户最后明确指令对齐，`Next Steps` 只作候选参考；需要历史细节才看当日会话日志 |
 | **查看 / 维护未来任务** | 看 `docs/TODO.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
+| **启动 / 推进正式项目** | 看 [`docs/正式项目工作规划.md`](正式项目工作规划.md)，按 F1~F9 阶段选择最靠前且未完成的任务；每阶段交付物、验证门槛和文档同步要求以该规划为准 |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
 | **校验数据 / 文案** | 跑 `python tools/validate_data.py`，覆盖 `client/data/*.json`、`client/locale/strings.csv` 与 MVP config 的 schema / 词表 / locale key 校验 |
 | **查 Godot 场景树 / headless 启动** | 跑 `python tools/godot_bridge.py export-tree` 或 `python tools/godot_bridge.py headless-boot`；默认项目为 `MinimumViableProduct/client` |

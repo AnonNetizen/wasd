@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "updated_at": "2026-06-15",
-  "current_phase": "docs_framework_and_mvp_m4_6",
-  "current_status": "Full project is still in documentation/framework design; deep meta progression is specified through client/data/meta_progression.json; strong SaveManager requirements now cover meta and run saves; docs/TODO.md tracks the human-readable future task backlog; MVP client has reached M4.7 with centralized mvp_config.json tunables plus debug/dev_tools-only GM console; AI knowledge base v2 and three-layer AI memory are active; AI large-change auto-commit policy and context-compaction task recovery rule are established; nine directly usable project skills are synchronized under .codebuddy/skills, .codex/skills, and .opencode/skills; useful external Godot/headless/playtest patterns have been absorbed into project-owned skills; .agents/skills, .opencode/vendor/ai-resources, and .gitmodules have been removed.",
-  "latest_adr": 61,
+  "current_phase": "formal_project_planning_ready",
+  "current_status": "User has confirmed MVP validation is complete and the AI work framework is built. Full project work is now guided by docs/正式项目工作规划.md: proceed through F1~F9 from client/ Godot project skeleton, autoload infrastructure, data/contract closure, playable loop, save/meta progression, UI/localization, replay/testing, and content polish. Deep meta progression, strong SaveManager requirements, Stage 1 CI, data validation, contract sync, lightweight Godot Bridge, AI knowledge base v2, three-layer AI memory, AI Git policy, and three-platform project skills are active.",
+  "latest_adr": 62,
   "open_decisions": ["A", "B", "C", "D", "E"],
   "last_completed": [
     "AI knowledge base v2 with docs_health_check",
@@ -27,18 +27,32 @@
     "Historical external AI library active layer was simplified to a reference adapter (ADR #58; later superseded by ADR #59)",
     "Project-level skills consolidated from vendor/reference into direct project skills: useful GodotPrompter, headless-godot-skill-kit, and CCGS patterns were absorbed; .agents/skills/game-ai-reference, vendor submodules, and .gitmodules were removed (ADR #59)",
     "Nine project-level skills are synchronized across .codebuddy/skills, .codex/skills, and .opencode/skills so CodeBuddy, Codex, and OpenCode can each read direct same-name skills without cross-platform references (ADR #60)",
-    "MVP M4.7 added debug/dev_tools-only GM console with stats, HP, damage, spawn, clear/kill, spawner toggle, and reset commands; full project rule requires release presets to exclude debug tools (ADR #61)"
+    "MVP M4.7 added debug/dev_tools-only GM console with stats, HP, damage, spawn, clear/kill, spawner toggle, and reset commands; full project rule requires release presets to exclude debug tools (ADR #61)",
+    "User confirmed MVP validation and AI work framework setup are complete; formal full-project roadmap was established in docs/正式项目工作规划.md (ADR #62)"
   ],
   "next_actions": [
-    "MVP M5 playtest and workflow/feel/config-tuning review",
-    "Use docs/TODO.md as the human-readable backlog when choosing future tasks",
-    "Use advisory subagents for gameplay design, numeric modeling, IP, copy, UI art, game art, and marketing strategy discussions",
-    "Use same-name project skills under the current platform directory for Godot/GDScript work, scene validation, Godot test diagnostics, playtest review, doc sync, safe commits, factual review, AI resource curation, and MCP evaluation; restart/reopen the relevant AI tool after skill/config changes",
-    "Decide whether MVP needs an M6 iteration after M5 review",
-    "Start full client M1 autoload skeleton when ready, including strong SaveManager for meta and run saves before MetaProgressionSystem implementation",
-    "CI stage 1 follow-up: commitlint, local pre-commit hook, and incremental watch loop"
+    "Use docs/正式项目工作规划.md as the full-project roadmap and docs/TODO.md as the human-readable backlog.",
+    "Start F1: create the formal client/ Godot project skeleton, base directories, minimal boot scene, and headless startup path.",
+    "Then start F2: implement the first verifiable autoload skeleton slice, beginning with DataLoader, RNG, GameClock, and GameState.",
+    "Keep CI stage 1 follow-up on the backlog: commitlint, local pre-commit hook, and incremental watch loop.",
+    "Use same-name project skills under the current platform directory for Godot/GDScript work, scene validation, Godot test diagnostics, playtest review, doc sync, safe commits, factual review, AI resource curation, and MCP evaluation."
   ],
   "last_verified": [
+    {
+      "date": "2026-06-15",
+      "command": "bundled python -m json.tool docs/_kb_index.json",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-15",
+      "command": "bundled python -m json.tool docs/AI记忆/current_state.json",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-15",
+      "command": "bundled python tools/docs_health_check.py",
+      "result": "passed"
+    },
     {
       "date": "2026-06-15",
       "command": "python -m json.tool .opencode/opencode.json",
