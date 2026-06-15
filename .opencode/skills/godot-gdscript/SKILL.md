@@ -4,7 +4,7 @@ description: Godot 4.6.3 GDScript implementation guidance for this project. Use 
 license: MIT
 compatibility: opencode
 metadata:
-  source: project-adapted from OpenCode skills docs and mature Godot/GDScript skill patterns
+  source: project-adapted from OpenCode skills docs, GodotPrompter Godot/GDScript patterns, and this repo's rules
 ---
 
 # Godot GDScript
@@ -27,6 +27,17 @@ Use this skill only for Godot/GDScript implementation or review work in `client/
 - UI popups go through `UIManager`, high-frequency entities through `PoolManager`, damage through `Combat.apply_damage`, saves through `SaveManager`, audio through `AudioManager`.
 - Do not add one-off branches by `character_id`, `relic_id`, or similar IDs; use capability, tag, primitive, or strategy data.
 
+## Integrated Godot Guidance
+
+- Prefer explicit static types for fields, parameters, return values, typed arrays, and dictionaries when available.
+- Use `is` checks before `as` casts when the type is not guaranteed.
+- After `await`, check `is_instance_valid(self)` when the node could have been freed.
+- Connect complex signal behavior to named methods; keep inline lambdas small and local.
+- Add `_:` fallback branches to `match` statements that consume external data or state.
+- Call `super()` when overriding project base-class virtual methods that have parent behavior.
+- Structure scenes by responsibility: children emit signals upward, parents call child methods downward, peer communication goes through project autoloads.
+- Keep reusable data in small focused resources or JSON config as the module requires; never put per-frame gameplay logic inside resources.
+
 ## Implementation Workflow
 
 1. Identify whether the task targets full project `client/` or MVP `MinimumViableProduct/client/`.
@@ -36,15 +47,10 @@ Use this skill only for Godot/GDScript implementation or review work in `client/
 5. If you add or change a public API, signal, data schema, autoload, or dependency direction, update module docs and AI navigation.
 6. Validate with the relevant commands, usually `py -3 tools/validate_data.py` and MVP `py -3 tools/godot_bridge.py headless-boot` when MVP scenes/scripts changed.
 
-## External References
-
-- This project skill is the authority for Godot implementation in this repo.
-- If a niche Godot pattern is not covered here, use `.agents/skills/game-ai-reference/SKILL.md` and read only the relevant GodotPrompter vendor skill.
-- Ignore external C#, 3D, mobile, multiplayer, XR, dedicated-server, addon, and generic setup advice unless the user explicitly asks for it.
-
 ## Common Pitfalls
 
 - Do not use generic Godot examples that hardcode speed, damage, text, or key bindings.
 - Do not bypass project autoloads for convenience.
 - Do not mix MVP prototype code into full project `client/`.
 - Do not manually edit generated `client/scripts/contracts/*.gd`.
+- Do not import external Godot starter projects, broad plugin scaffolds, C# patterns, 3D/mobile/multiplayer/XR guidance, or generic setup flows unless the user explicitly asks and the project docs allow it.

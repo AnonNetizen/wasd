@@ -13,7 +13,7 @@
       "canonical_for": ["ai_startup", "core_red_lines", "startup_reading_order", "task_recovery_after_compaction", "ai_git_commit_policy"],
       "must_read_for": ["new_session", "rule_change", "ai_platform_change"],
       "related_docs": ["CLAUDE.md", "CODEX.md", "OPENCODE.md", "docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json", "docs/AI导航.md", "docs/AI协作/工具适配指南.md"],
-      "related_code": [".codebuddy/", ".codex/", ".opencode/", ".agents/skills/"],
+      "related_code": [".codebuddy/", ".codex/", ".opencode/"],
       "update_triggers": ["startup flow changes", "core red line changes", "task recovery rule changes", "new cross-platform command, agent, skill, or platform entry", "AI Git commit policy changes"],
       "keywords": ["agent", "startup", "开工", "红线", "AI入口", "Claude", "不过度优化", "需求评估", "风险评估", "没有问题", "上下文压缩", "任务恢复", "最后明确指令", "Next Steps", "AI Git", "自动commit", "提交策略", "skills", "OpenCode skills"]
     },
@@ -27,9 +27,9 @@
       "canonical_for": ["claude_entrypoint", "external_ai_reference_boundary"],
       "must_read_for": ["claude_session", "claude_config_change", "ai_platform_change"],
       "related_docs": ["AGENTS.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/AI技能资源评估.md"],
-      "related_code": [".agents/skills/game-ai-reference/", ".opencode/vendor/ai-resources/"],
-      "update_triggers": ["Claude startup flow changes", "external AI reference boundary changes", "game-ai-reference changes"],
-      "keywords": ["Claude", "CLAUDE", "Claude Code", "game-ai-reference", "CCGS", "Claude-Code-Game-Studios", "headless-godot", "GodotPrompter"]
+      "related_code": [".opencode/skills/"],
+      "update_triggers": ["Claude startup flow changes", "project skill prompt-template usage changes"],
+      "keywords": ["Claude", "CLAUDE", "Claude Code", "project skills", "OpenCode skills"]
     },
     {
       "path": "CODEX.md",
@@ -55,9 +55,9 @@
       "canonical_for": ["opencode_entrypoint"],
       "must_read_for": ["opencode_session", "opencode_config_change", "ai_platform_change"],
       "related_docs": ["AGENTS.md", "CLAUDE.md", "CODEX.md", "docs/AI协作/工具适配指南.md"],
-      "related_code": [".opencode/", ".opencode/skills/", ".agents/skills/", ".opencode/vendor/ai-resources/"],
-      "update_triggers": ["OpenCode startup flow changes", "OpenCode agent, command, skill, or vendor resource changes", "cross-platform rule changes"],
-      "keywords": ["OpenCode", "OPENCODE", "opencode.json", "平台入口", "subagent", "skills", "Agent Skills", "vendor", "GodotPrompter", "headless-godot-skill-kit", "Claude-Code-Game-Studios", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "AI Git", "自动commit"]
+      "related_code": [".opencode/", ".opencode/skills/"],
+      "update_triggers": ["OpenCode startup flow changes", "OpenCode agent, command, or skill changes", "cross-platform rule changes"],
+      "keywords": ["OpenCode", "OPENCODE", "opencode.json", "平台入口", "subagent", "skills", "OpenCode skills", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "AI Git", "自动commit"]
     },
     {
       "path": "README.md",
@@ -155,7 +155,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "subagent", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "GodotPrompter", "headless-godot-skill-kit", "Claude-Code-Game-Studios", "契约同步", "数据校验", "Godot Bridge", "AI Git", "自动commit", "提交策略"]
+      "keywords": ["ADR", "decision", "决策", "约束", "subagent", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "AI Git", "自动commit", "提交策略", "OpenCode skills", "vendor reference cleanup"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -321,9 +321,9 @@
       "canonical_for": ["ai_workflow_docs"],
       "must_read_for": ["ai_workflow_change", "task_template_change", "tool_adapter_change", "skill_resource_change"],
       "related_docs": ["docs/AI协作/README.md", "docs/AI知识库索引.md", "AGENTS.md"],
-      "related_code": [".codebuddy/", ".codex/", ".opencode/", ".opencode/skills/", ".agents/skills/", ".opencode/vendor/ai-resources/", "tools/"],
-      "update_triggers": ["new AI workflow", "new command", "new agent", "new skill", "new vendor resource", "new validation loop"],
-      "keywords": ["AI协作", "workflow", "template", "agent", "command", "skill", "subagent", "game-designer", "numeric-designer", "ip-designer", "copywriter-packager", "ui-art-designer", "game-art-designer", "marketing-strategist", "godot-test-diagnostics", "GodotPrompter", "headless-godot-skill-kit", "Claude-Code-Game-Studios", "上下文压缩", "任务恢复", "自动commit", "MCP"]
+      "related_code": [".codebuddy/", ".codex/", ".opencode/", ".opencode/skills/", "tools/"],
+      "update_triggers": ["new AI workflow", "new command", "new agent", "new skill", "new validation loop"],
+      "keywords": ["AI协作", "workflow", "template", "agent", "command", "skill", "subagent", "game-designer", "numeric-designer", "ip-designer", "copywriter-packager", "ui-art-designer", "game-art-designer", "marketing-strategist", "godot-test-diagnostics", "上下文压缩", "任务恢复", "自动commit", "MCP", "playtest-review", "OpenCode skills"]
     },
     {
       "path": "docs/AI协作/README.md",
@@ -335,9 +335,9 @@
       "canonical_for": ["ai_workflow_entry"],
       "must_read_for": ["ai_workflow_lookup", "new_template", "new_command", "new_agent", "new_skill", "new_vendor_resource"],
       "related_docs": ["docs/AI协作/上下文预算.md", "docs/AI协作/文档维护指南.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/AI技能资源评估.md"],
-      "related_code": [".codebuddy/", ".codex/", ".opencode/", ".opencode/skills/", ".agents/skills/", ".opencode/vendor/ai-resources/"],
-      "update_triggers": ["new AI workflow", "new command", "new agent", "new skill", "new vendor resource", "new validation loop"],
-      "keywords": ["AI协作", "workflow", "command", "agent", "template", "subagent", "skill", "creative", "design", "Godot diagnostics", "GUT", "GdUnit4", "AI资源", "vendor"]
+      "related_code": [".codebuddy/", ".codex/", ".opencode/", ".opencode/skills/"],
+      "update_triggers": ["new AI workflow", "new command", "new agent", "new skill", "new validation loop"],
+      "keywords": ["AI协作", "workflow", "command", "agent", "template", "subagent", "skill", "creative", "design", "Godot diagnostics", "GUT", "GdUnit4", "AI资源", "playtest-review"]
     },
     {
       "path": "docs/AI协作/上下文预算.md",
@@ -419,9 +419,9 @@
       "canonical_for": ["tool_adapter", "platform_mapping"],
       "must_read_for": ["ai_platform_change", "new_command", "new_agent", "new_skill"],
       "related_docs": ["AGENTS.md", "CODEX.md", "OPENCODE.md", "docs/AI协作/README.md", "docs/AI协作/AI技能资源评估.md"],
-      "related_code": [".codebuddy/", ".codex/", ".opencode/", ".opencode/skills/", ".agents/skills/", ".opencode/vendor/ai-resources/"],
-      "update_triggers": ["AI platform config changes", "agent mapping changes", "command mapping changes", "skill mapping changes", "vendor resource changes"],
-      "keywords": ["工具适配", "CodeBuddy", "Codex", "OpenCode", "platform", "subagent", "agent mapping", "skills", "Agent Skills", "vendor", "需求评估", "不过度优化", "AI Git", "自动commit", "提交策略"]
+      "related_code": [".codebuddy/", ".codex/", ".opencode/", ".opencode/skills/"],
+      "update_triggers": ["AI platform config changes", "agent mapping changes", "command mapping changes", "skill mapping changes"],
+      "keywords": ["工具适配", "CodeBuddy", "Codex", "OpenCode", "platform", "subagent", "agent mapping", "skills", "需求评估", "不过度优化", "AI Git", "自动commit", "提交策略", "OpenCode skills"]
     },
     {
       "path": "docs/AI协作/AI技能资源评估.md",
@@ -433,9 +433,9 @@
       "canonical_for": ["ai_resource_evaluation", "opencode_project_skills", "agent_skills", "game_ai_reference", "opencode_vendor_resources", "mcp_resource_screening"],
       "must_read_for": ["new_skill", "new_vendor_resource", "mcp_tool_change", "ai_resource_change", "opencode_config_change", "external_ai_reference_change"],
       "related_docs": ["CLAUDE.md", "CODEX.md", "OPENCODE.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/README.md", "docs/AI导航.md"],
-      "related_code": [".opencode/skills/", ".agents/skills/", ".opencode/vendor/ai-resources/", ".opencode/opencode.json", ".gitmodules"],
-      "update_triggers": ["new project skill", "new agent skill", "game-ai-reference changes", "new vendor resource package", "external AI resource evaluation", "MCP server evaluation", "OpenCode skills path change"],
-      "keywords": ["AI skill", "Agent Skills", "OpenCode skills", "MCP", "skills marketplace", "资源评估", "vendor", "game-ai-reference", "GodotPrompter", "headless-godot-skill-kit", "Claude-Code-Game-Studios", "CCGS", "godot-gdscript", "godot-test-diagnostics", "safe-git-commit", "code-review-factual", "GUT", "GdUnit4"]
+      "related_code": [".opencode/skills/", ".opencode/opencode.json"],
+      "update_triggers": ["new project skill", "external AI resource evaluation", "MCP server evaluation", "OpenCode skills path change"],
+      "keywords": ["AI skill", "OpenCode skills", "MCP", "skills marketplace", "资源评估", "project-owned skills", "playtest-review", "godot-gdscript", "godot-test-diagnostics", "godot-scene-validation", "safe-git-commit", "code-review-factual", "GUT", "GdUnit4"]
     },
     {
       "path": "docs/AI协作/实时验证回路.md",

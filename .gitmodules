@@ -1,9 +1,0 @@
-[submodule ".opencode/vendor/ai-resources/GodotPrompter"]
-	path = .opencode/vendor/ai-resources/GodotPrompter
-	url = https://github.com/jame581/GodotPrompter.git
-[submodule ".opencode/vendor/ai-resources/headless-godot-skill-kit"]
-	path = .opencode/vendor/ai-resources/headless-godot-skill-kit
-	url = https://github.com/abagames/headless-godot-skill-kit.git
-[submodule ".opencode/vendor/ai-resources/Claude-Code-Game-Studios"]
-	path = .opencode/vendor/ai-resources/Claude-Code-Game-Studios
-	url = https://github.com/Donchitos/Claude-Code-Game-Studios.git

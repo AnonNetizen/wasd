@@ -4,7 +4,7 @@ description: Validate Godot scene trees, MVP headless boot, data contracts, and 
 license: MIT
 compatibility: opencode
 metadata:
-  source: project-adapted from Claude run/verify skill patterns and local Godot Bridge workflow
+  source: project-adapted from Claude run/verify patterns, headless-godot CLI rules, and local Godot Bridge workflow
 ---
 
 # Godot Scene Validation
@@ -31,8 +31,12 @@ Use this skill when a change may affect Godot startup, scene structure, MVP game
 ## Headless Godot Notes
 
 - Prefer `tools/godot_bridge.py` over raw `godot` commands; it encodes the project path and MVP/full-client boundary.
-- If raw Godot CLI is unavoidable, use `--headless --path <project>` and capture the exact command and log output.
-- Do not copy generic headless templates or starter project files into this repo.
+- If raw Godot CLI is unavoidable, use `--headless --path <project>` so the command is not dependent on the current directory.
+- Capture logs for raw headless runs, preferably under a project-local `logs/` directory that is not committed unless explicitly useful.
+- If sandbox or CI runs fail because of `user://`, XDG, or config/cache writes, set project-local `XDG_DATA_HOME`, `XDG_CONFIG_HOME`, and `XDG_CACHE_HOME` for that command.
+- Never edit `.tscn` files as raw text for structural scene changes; use Godot/editor APIs, project scripts, or small verified patches.
+- Keep startup smoke checks separate from gameplay logic tests: boot verifies scene loading; tests verify behavior.
+- Do not copy generic headless templates, patch scripts, or starter project files into this repo.
 
 ## Interpretation
 

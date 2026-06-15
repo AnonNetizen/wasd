@@ -7,7 +7,7 @@
     ".codebuddy/rules/game-coding-rules.md"
   ],
   "skills": {
-    "paths": [".opencode/skills", ".agents/skills"]
+    "paths": [".opencode/skills"]
   },
   "command": {
     "sync-contracts": {

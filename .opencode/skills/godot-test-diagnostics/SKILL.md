@@ -4,7 +4,7 @@ description: Godot test and diagnostics workflow for GUT/GdUnit4, headless failu
 license: MIT
 compatibility: opencode
 metadata:
-  source: project-adapted from Godot MCP diagnostics resources, wshobson debugging/testing patterns, and this repo's Godot Bridge workflow
+  source: project-adapted from Godot MCP diagnostics resources, headless-godot testing rules, wshobson debugging/testing patterns, and this repo's Godot Bridge workflow
 ---
 
 # Godot Test Diagnostics
@@ -30,6 +30,13 @@ Use this skill when Godot behavior needs evidence from tests, logs, scene loadin
 4. If a Godot log points at generated contracts or data IDs, fix the authority source first, then regenerate or revalidate.
 5. Re-run the failing command and one adjacent check to confirm the fix is not local-only.
 
+## Raw Headless Fallback
+
+- Prefer `tools/godot_bridge.py`; use raw Godot CLI only when the bridge does not expose the needed check.
+- Raw commands must include `--headless --path <project>` and should capture the full log.
+- Use project-local XDG data/config/cache paths when CI or sandbox environments cannot write to normal user directories.
+- Do not import external test harness templates into this repo; adapt only the needed command pattern.
+
 ## Test Planning
 
 - Follow `docs/测试策略.md` for L0-L5 responsibilities.
@@ -43,7 +50,6 @@ Use this skill when Godot behavior needs evidence from tests, logs, scene loadin
 - Current Stage 1 CI is lightweight and does not run Godot tests yet.
 - When adding Godot test CI later, gate it behind reproducible local commands first, then update `docs/CICD规划.md` and `docs/AI协作/实时验证回路.md`.
 - Do not add marketplace test plugins, broad MCP servers, or machine-specific Godot paths to repo config without explicit justification.
-- For low-level headless CLI uncertainty, use `.agents/skills/game-ai-reference/SKILL.md` to consult the vendored `headless-godot-skill-kit`; adapt examples to this repo's `py -3` / PowerShell conventions.
 
 ## Red Lines
 

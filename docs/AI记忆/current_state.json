@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-14",
+  "updated_at": "2026-06-15",
   "current_phase": "docs_framework_and_mvp_m4_6",
-  "current_status": "Full project is still in documentation/framework design; deep meta progression is specified through client/data/meta_progression.json; strong SaveManager requirements now cover meta and run saves; docs/TODO.md tracks the human-readable future task backlog; MVP client has reached M4.6 with centralized mvp_config.json tunables; AI knowledge base v2 and three-layer AI memory are active; AI large-change auto-commit policy and context-compaction task recovery rule are established; eight local OpenCode skills and .agents/skills/game-ai-reference are active; GodotPrompter, headless-godot-skill-kit, and Claude-Code-Game-Studios are retained only as vendor reference sources under .opencode/vendor/ai-resources; external plugins, hooks, active .claude tools, templates, starter projects, examples, and production state are excluded.",
-  "latest_adr": 58,
+  "current_status": "Full project is still in documentation/framework design; deep meta progression is specified through client/data/meta_progression.json; strong SaveManager requirements now cover meta and run saves; docs/TODO.md tracks the human-readable future task backlog; MVP client has reached M4.6 with centralized mvp_config.json tunables; AI knowledge base v2 and three-layer AI memory are active; AI large-change auto-commit policy and context-compaction task recovery rule are established; nine directly usable OpenCode skills are active under .opencode/skills; useful external Godot/headless/playtest patterns have been absorbed into project-owned skills; .agents/skills, .opencode/vendor/ai-resources, and .gitmodules have been removed.",
+  "latest_adr": 59,
   "open_decisions": ["A", "B", "C", "D", "E"],
   "last_completed": [
     "AI knowledge base v2 with docs_health_check",
@@ -21,21 +21,57 @@
     "AI Git commit policy established: large changes are auto-committed after status/diff/log checks and verification; minor changes are not auto-committed; only task-owned files may be staged (ADR #52)",
     "Eight project-level OpenCode skills installed under .opencode/skills for Godot/GDScript, scene validation, Godot test diagnostics, doc sync, safe git commit, factual code review, AI resource curation, and MCP tool evaluation (ADR #53)",
     "Context-compaction task recovery rule established: after summaries or context restoration, user last explicit instruction overrides summaries, Next Steps, and candidate current_state actions (ADR #54)",
-    "GodotPrompter, headless-godot-skill-kit, and Claude-Code-Game-Studios installed as review-only Git submodules under .opencode/vendor/ai-resources; they are not in OpenCode skills.paths and are not auto-enabled (ADR #55)",
-    "External AI tools formally installed while excluding templates/examples: GodotPrompter enabled via local OpenCode plugin, headless-godot installed under .agents/skills and added to OpenCode skills.paths, and Claude-Code-Game-Studios agents/skills/hooks/rules installed under .claude (ADR #56; active layer later superseded by ADR #58)",
-    "CCGS cross-agent adapter installed at .agents/skills/ccgs-game-studio so non-Claude agents can reuse .claude/agents and .claude/skills on demand without bulk-registering all CCGS agents (ADR #57; active layer later superseded by ADR #58)",
-    "External AI library active layer simplified to .agents/skills/game-ai-reference: GodotPrompter plugin, .agents/skills/headless-godot, .agents/skills/ccgs-game-studio, and active .claude tools are removed; vendor submodules remain as reference sources (ADR #58)"
+    "Historical external AI resource submodules were installed for review (ADR #55; later superseded by ADR #59)",
+    "Historical external AI tools were briefly installed while excluding templates/examples (ADR #56; later superseded by ADR #58 and #59)",
+    "Historical CCGS cross-agent adapter was added for on-demand reuse (ADR #57; later superseded by ADR #58 and #59)",
+    "Historical external AI library active layer was simplified to a reference adapter (ADR #58; later superseded by ADR #59)",
+    "Project-level skills consolidated under .opencode/skills: useful GodotPrompter, headless-godot-skill-kit, and CCGS patterns were absorbed into direct project skills; .agents/skills/game-ai-reference, vendor submodules, and .gitmodules were removed (ADR #59)"
   ],
   "next_actions": [
     "MVP M5 playtest and workflow/feel/config-tuning review",
     "Use docs/TODO.md as the human-readable backlog when choosing future tasks",
     "Use advisory subagents for gameplay design, numeric modeling, IP, copy, UI art, game art, and marketing strategy discussions",
-    "Use OpenCode project skills for Godot/GDScript work, scene validation, Godot test diagnostics, doc sync, safe commits, factual review, AI resource curation, and MCP evaluation; use .agents/skills/game-ai-reference when external GodotPrompter, headless-godot, or CCGS references are needed; restart OpenCode after skill/config changes",
+    "Use OpenCode project skills for Godot/GDScript work, scene validation, Godot test diagnostics, playtest review, doc sync, safe commits, factual review, AI resource curation, and MCP evaluation; restart OpenCode after skill/config changes",
     "Decide whether MVP needs an M6 iteration after M5 review",
     "Start full client M1 autoload skeleton when ready, including strong SaveManager for meta and run saves before MetaProgressionSystem implementation",
     "CI stage 1 follow-up: commitlint, local pre-commit hook, and incremental watch loop"
   ],
   "last_verified": [
+    {
+      "date": "2026-06-15",
+      "command": "python -m json.tool .opencode/opencode.json",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-15",
+      "command": "python -m json.tool docs/_kb_index.json",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-15",
+      "command": "python -m json.tool docs/AI记忆/current_state.json",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-15",
+      "command": "python tools/docs_health_check.py",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-15",
+      "command": "python tools/sync_contracts.py --check",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-15",
+      "command": "python tools/validate_data.py",
+      "result": "passed"
+    },
+    {
+      "date": "2026-06-15",
+      "command": "git diff --check -- . \":(exclude)draft/**\" \":(exclude)DRAFT/**\"",
+      "result": "passed"
+    },
     {
       "date": "2026-06-14",
       "command": "py -3 -m json.tool \".opencode/opencode.json\" > $null",
@@ -58,11 +94,6 @@
     },
     {
       "date": "2026-06-14",
-      "command": "git submodule status -- \".opencode/vendor/ai-resources/GodotPrompter\" \".opencode/vendor/ai-resources/headless-godot-skill-kit\" \".opencode/vendor/ai-resources/Claude-Code-Game-Studios\"",
-      "result": "passed"
-    },
-    {
-      "date": "2026-06-14",
       "command": "git diff --check -- . \":(exclude)draft/**\" \":(exclude)DRAFT/**\"",
       "result": "passed"
     }
@@ -78,8 +109,8 @@
     "Detailed daily history remains in docs/AI记忆/会话日志/.",
     "Do not read or modify draft/ or DRAFT/ unless explicitly authorized.",
     "For large AI changes, create a git commit after checking status, diff, recent log, and verification; for minor changes, explain why no commit was made.",
-    "Project-level OpenCode skills live in .opencode/skills; .agents/skills/game-ai-reference is the only active cross-tool adapter for external AI library references; source/evaluation notes live in docs/AI协作/AI技能资源评估.md; restart OpenCode after changing skills paths or config.",
-    "External AI resource packages live in .opencode/vendor/ai-resources as upstream submodules; plugins, hooks, active .claude tools, templates, starter projects, examples, and production state are intentionally not installed.",
+    "Project-level OpenCode skills live only in .opencode/skills; source/evaluation notes live in docs/AI协作/AI技能资源评估.md; restart OpenCode after changing skills paths or config.",
+    "External AI resource packages are not kept as vendor submodules; useful external procedures must be absorbed into project-owned skills and project rules remain authoritative.",
     "After context summary, compaction, or restoration, align to the user's last explicit instruction first; summaries, Next Steps, and current_state next_actions are candidate context only, not authorization."
   ]
 }

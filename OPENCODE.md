@@ -15,9 +15,9 @@
 7. 大更改完成后按 `AGENTS.md` 的 AI Git 提交策略自动 commit；细微改动不提交；提交前必须检查 status/diff/log 并只 stage 本次任务文件。
 8. 需要复杂任务拆分时，用 `.opencode/agents/` 下同名 subagent，或用 OpenCode 自带 agent/task 能力。
 9. 需要 slash command 时，优先用 `.opencode/opencode.json` 注册的命令；也可按 `.opencode/commands/` 下对应 `.md` 步骤手动执行。
-10. 需要可复用流程时，优先加载 `.opencode/skills/` 与 `.agents/skills/` 下项目级 skills；当前含 Godot/GDScript、场景验证、Godot 测试诊断、外部 AI 库按需引用、文档同步、安全提交、事实 review、AI 资源筛选和 MCP 评估。
-11. `GodotPrompter`、`headless-godot-skill-kit` 与 CCGS 只保留 vendor 来源，不作为 OpenCode plugin、hooks 或整目录 skills 自动启用；需要时通过 `game-ai-reference` 读取具体文件。
-12. 改 `.opencode/` 或 `.agents/skills/` 后重启 OpenCode；运行中的 session 不会热重载配置。
+10. 需要可复用流程时，优先加载 `.opencode/skills/` 下项目级 skills；当前含 Godot/GDScript、场景验证、Godot 测试诊断、试玩复盘、文档同步、安全提交、事实 review、AI 资源筛选和 MCP 评估。
+11. 外部 AI 库的有用经验已整合进项目级 skills；不再保留 vendor submodule、外部 hooks / plugin、整包 skills 或 `.agents/skills` reference 层。
+12. 改 `.opencode/` 后重启 OpenCode；运行中的 session 不会热重载配置。
 
 ## OpenCode 平台文件
 
@@ -30,6 +30,4 @@
 | Subagents | `.opencode/agents/` |
 | Commands | `.opencode/commands/` |
 | Skills | `.opencode/skills/` |
-| Agent Skills | `.agents/skills/` |
-| 外部 AI 资源整包来源 | `.opencode/vendor/ai-resources/` |
 | 跨平台适配说明 | `docs/AI协作/工具适配指南.md` |

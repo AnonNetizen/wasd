@@ -1,6 +1,6 @@
 # AI 技能资源评估
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档记录外部 AI skills / agents / MCP / rules 资源的筛选结论和项目安装清单；改已安装 skill、引入新资源平台或调整筛选标准时，必须同步 `.opencode/skills/`、`.agents/skills/`、`.opencode/opencode.json`、`OPENCODE.md`、`docs/AI协作/README.md`、`docs/AI协作/工具适配指南.md`、`docs/AI导航.md`、`docs/AI记忆/current_state.json`。
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档记录外部 AI skills / agents / MCP / rules 资源的筛选结论和项目安装清单；改已安装 skill、引入新资源平台或调整筛选标准时，必须同步 `.opencode/skills/`、`.opencode/opencode.json`、`OPENCODE.md`、`docs/AI协作/README.md`、`docs/AI协作/工具适配指南.md`、`docs/AI导航.md`、`docs/AI记忆/current_state.json`。
 
 ## 1. 筛选原则
 
@@ -9,7 +9,7 @@
 | 项目相关 | 优先 Godot/GDScript、验证、文档同步、Git 提交、代码审查、MCP 工具评估 |
 | 成熟来源 | 优先官方规范 / 文档、官方参考仓库、维护活跃且许可清晰的社区 marketplace |
 | 渐进披露 | 只让 skill 名称和描述常驻上下文，完整流程按需加载 |
-| 本地可控 | 优先安装为项目级 `.opencode/skills/<name>/SKILL.md` / `.agents/skills/<name>/SKILL.md`；外部整包来源保留在 `.opencode/vendor/ai-resources/`，不直接启用整包 |
+| 本地可控 | 项目级 skill 统一安装为 `.opencode/skills/<name>/SKILL.md`；外部资源只吸收必要流程，不保留整包 vendor、reference skill 或外部 hooks |
 | 安全默认 | 不引入 MCP token、用户本机绝对路径或无边界写权限；外部 hooks / rules 若与本项目规则冲突，以 `AGENTS.md` 与 ADR 为准 |
 
 ## 2. 已检索来源
@@ -31,31 +31,30 @@
 | Skill | 路径 | 用途 |
 |-------|------|------|
 | `godot-gdscript` | `.opencode/skills/godot-gdscript/SKILL.md` | Godot 4.6.3 + typed GDScript 实现；强化数据驱动、autoload、InputMap、MVP/full client 边界 |
-| `godot-scene-validation` | `.opencode/skills/godot-scene-validation/SKILL.md` | 使用 `tools/godot_bridge.py` 与数据校验做场景树 / headless / 引擎版本验证 |
+| `godot-scene-validation` | `.opencode/skills/godot-scene-validation/SKILL.md` | 使用 `tools/godot_bridge.py` 与数据校验做场景树 / headless / 引擎版本验证；已吸收 headless Godot CLI 安全规则 |
 | `godot-test-diagnostics` | `.opencode/skills/godot-test-diagnostics/SKILL.md` | Godot 测试与诊断流程；覆盖 GUT/GdUnit4 规划、headless 失败、场景 / 脚本错误、日志归因和未来 CI 测试门禁 |
+| `playtest-review` | `.opencode/skills/playtest-review/SKILL.md` | MVP / 完整项目试玩复盘、手感与配置调参评估、里程碑 readiness 和后续任务分级 |
 | `project-doc-sync` | `.opencode/skills/project-doc-sync/SKILL.md` | 规则、ADR、AI 记忆、知识库索引和长期文档同步流程 |
 | `safe-git-commit` | `.opencode/skills/safe-git-commit/SKILL.md` | 执行 ADR #52 的安全提交流程，避免误 stage 用户脏改或 `DRAFT/` |
 | `code-review-factual` | `.opencode/skills/code-review-factual/SKILL.md` | 事实型代码审查；没发现问题就明确说没有，不硬找问题 |
 | `ai-resource-curator` | `.opencode/skills/ai-resource-curator/SKILL.md` | 未来继续评估 / 安装 AI skill、agent、plugin、MCP、rules 的筛选流程 |
 | `mcp-tool-evaluation` | `.opencode/skills/mcp-tool-evaluation/SKILL.md` | 评估 MCP server 是否应项目级 / 用户级安装，控制权限和密钥风险 |
-| `game-ai-reference` | `.agents/skills/game-ai-reference/SKILL.md` | 统一外部 AI 库适配层：按需引用 GodotPrompter、headless-godot-skill-kit 与 CCGS vendor 文件；项目规则、GDD、ADR 优先 |
 
-## 4. 外部整包来源与正式安装映射
+## 4. 外部资源吸收与删除结论
 
-这些资源以 Git submodule 形式放在 `.opencode/vendor/ai-resources/`，用于保留上游来源、许可证和后续更新基准。当前不再直接启用外部整包、plugin、hooks 或大批量 agents；统一通过项目自有 skills 与 `.agents/skills/game-ai-reference/` 按需读取少量上游文件。模板、starter project、示例、生产状态等杂项不安装。
+这些资源曾以 Git submodule 形式放在 `.opencode/vendor/ai-resources/`。根据 ADR #59，当前不再保留 vendor 整包或 reference skill；只把与本项目直接相关、且不冲突的流程吸收到项目级 `.opencode/skills/`。模板、starter project、示例、生产状态、外部 hooks / plugin 和大批量外部 subagents 均删除。
 
-| 资源 | 上游路径 | 正式安装 | 未安装 |
-|------|----------|----------|--------|
-| `jame581/GodotPrompter` | `.opencode/vendor/ai-resources/GodotPrompter` | 不启用 plugin；由 `godot-gdscript` / `godot-test-diagnostics` 与 `game-ai-reference` 按需读取少量 Godot 4 / GDScript / testing 参考 | `.opencode/plugins/`、`.cursor-plugin/`、`.claude-plugin/`、C#、3D、mobile、multiplayer、XR、server、addon、测试目录等非当前项目范围内容 |
-| `abagames/headless-godot-skill-kit` | `.opencode/vendor/ai-resources/headless-godot-skill-kit` | 不复制 `.agents/skills/headless-godot/`；其 CLI / testing 规则已折入项目 Godot 验证 skills，低层细节由 `game-ai-reference` 按需读取 | `templates/godot-base/` starter project、skill 内 `tools/templates/`、独立 patch 脚本默认不安装 |
-| `Donchitos/Claude-Code-Game-Studios` | `.opencode/vendor/ai-resources/Claude-Code-Game-Studios` | 不安装活跃 `.claude/`；仅通过 `game-ai-reference` 按需读取少量 Godot / QA / production 参考角色或 skill | `.claude/` active hooks / rules / settings、Unity / Unreal / live-ops / networking 专项、`.claude/docs/templates/`、仓库 `docs/examples/`、`CCGS Skill Testing Framework/`、`design/`、`production/`、`src/`、模板 / 示例 / 状态目录 |
+| 资源 | 已吸收 | 已删除 / 未保留 |
+|------|----------|-----------------|
+| `jame581/GodotPrompter` | GDScript typed patterns、scene organization、Resource 注意事项、Godot testing 诊断口径，吸收到 `godot-gdscript` / `godot-test-diagnostics` | plugin、Cursor / Claude plugin、C#、3D、mobile、multiplayer、XR、server、addon、测试目录等非当前项目范围内容 |
+| `abagames/headless-godot-skill-kit` | `--headless --path`、日志捕获、XDG 本地化、`.tscn` 不裸改、smoke/test 分离，吸收到 `godot-scene-validation` / `godot-test-diagnostics` | starter project、模板、独立 patch 脚本、外部 `.agents/skills/headless-godot` |
+| `Donchitos/Claude-Code-Game-Studios` | 试玩报告、里程碑复盘、QA 计划的轻量流程，吸收到 `playtest-review`；专业角色范围由本项目已有 subagents 覆盖 | `.claude/` active hooks / rules / settings、49 个外部 agents、Unity / Unreal / live-ops / networking 专项、模板、示例、生产状态、源码 / 测试框架 |
 
 ## 4-A. 激活边界
 
-- OpenCode 当前自动加载 `.opencode/skills` 与 `.agents/skills`；`.agents/skills` 只放项目维护的轻量适配 skill。
-- GodotPrompter、headless-godot-skill-kit 与 CCGS 都只作为 vendor 参考来源；不得整包加入 `skills.paths`，不得启用外部 hooks 或 plugin。
+- OpenCode 当前只自动加载 `.opencode/skills`。
+- GodotPrompter、headless-godot-skill-kit 与 CCGS 不再作为 vendor 参考来源；不得重新加入 `skills.paths`，不得启用外部 hooks、plugin 或整包 subagents。
 - 所有外部游戏设计建议必须先过本项目 `docs/游戏设计文档.md`、ADR 和规则；冲突时以本项目为准。
-- `.opencode/vendor/ai-resources/` 不整体加入 `skills.paths`；只作为上游来源和更新基准。
 - 外部 AI 工具输出建议必须先过本项目规则、词表、数据驱动、测试和文档同步要求。
 
 ## 5. 暂不安装的资源
@@ -69,12 +68,12 @@
 | Cursor `.mdc` 规则包 | 本项目已有三平台规则入口；只吸收模式，不再引入第四套规则源 |
 | Playwright / Browserbase MCP | 当前没有 Web 应用，Godot 项目收益低且权限 / 依赖开销高 |
 | 外部模板 / starter project / 示例项目 | 用户要求只安装 AI 工具；模板和示例容易污染本项目结构 |
-| 外部整包 active plugin / hooks / 大量 subagents | 会制造重复上下文、平台配置膨胀和项目规则冲突；统一改为 `game-ai-reference` 按需引用 |
+| 外部整包 active plugin / hooks / 大量 subagents / vendor reference 层 | 会制造重复上下文、平台配置膨胀和项目规则冲突；统一删除，只把有用流程吸收到项目级 skill |
 
 ## 6. 后续维护
 
 - 新增 skill 前先用 `ai-resource-curator` 评估来源、许可证、权限和上下文成本。
 - 涉及 MCP 的新增建议先用 `mcp-tool-evaluation` 判断项目级 / 用户级 / 暂不安装。
 - 改 `.opencode/skills/` 后需要重启 OpenCode 才能保证运行中 session 看到新技能。
-- 改 `.opencode/opencode.json`、`.agents/skills/` 或 `.opencode/vendor/ai-resources/` 后，同步本安装清单并说明哪些工具被激活、哪些仅作为 vendor 参考、哪些模板 / 示例未安装。
+- 改 `.opencode/opencode.json` 或 `.opencode/skills/` 后，同步本安装清单并说明哪些工具被激活、哪些外部内容被吸收或拒绝。
 - 每次资源扫库后同步本文件、AI 记忆和当日会话日志。

@@ -30,10 +30,12 @@ Use this skill when searching, selecting, adapting, or installing AI skills/reso
 ## Installation Rules
 
 - Prefer project-local `.opencode/skills/<name>/SKILL.md` for OpenCode.
+- Keep all active project skills under `.opencode/skills`; do not add a second active skill root unless a future ADR explicitly reopens that policy.
 - Keep skill names lowercase hyphen-case and matching directory names.
 - Keep `SKILL.md` concise; move large references into supporting files only when necessary.
 - Adapt external ideas to project rules instead of blindly copying generic instructions.
 - Document sources and rejection reasons in `docs/AI协作/AI技能资源评估.md` when doing a resource sweep.
+- Do not install broad external vendor directories, hooks, plugin scaffolds, or bulk subagents. Extract only the useful procedure into a project-owned skill.
 
 ## Safety Checks
 

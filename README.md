@@ -79,8 +79,7 @@ wasd/
 ├── OPENCODE.md       # OpenCode 入口适配
 ├── .codebuddy/       # CodeBuddy 平台配置（规则 / agents / commands）
 ├── .codex/           # Codex CLI 平台配置（核心规则一致，允许平台优化）
-├── .opencode/        # OpenCode 平台配置（opencode.json / agents / commands / rules）
-├── .agents/skills/   # Agent Skills（外部 AI 库按需引用适配）
+├── .opencode/        # OpenCode 平台配置（opencode.json / agents / commands / skills / rules）
 ├── .github/          # PR / Issue 模板，未来 workflows
 └── 杂项配置          # README / CONTRIBUTING / LICENSE / .gitignore / .gitattributes / .editorconfig / .gitmessage
 ```
