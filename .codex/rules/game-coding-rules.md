@@ -20,6 +20,8 @@ alwaysApply: true
 - `server/`：服务器端预留（当前为单机项目，暂占位）
 - `MinimumViableProduct/`：最小可行产品隔离实验区，MVP 文档与客户端代码都放在此处，不污染完整项目 `client/`
 - `draft/` / `DRAFT/`：用户人工草稿禁区，AI 默认不得读取、搜索、修改、整理、格式化或引用
+- `.codebuddy/skills/*/SKILL.md`、`.codex/skills/*/SKILL.md` 与 `.opencode/skills/*/SKILL.md`：三平台同步的项目级 skills；用于按需加载可复用流程，不得放宽项目核心规则；新增或调整时同步 `docs/AI协作/AI技能资源评估.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md` 与工具适配指南。
+- 外部 AI 库的有用经验必须吸收到三平台项目级 skills 或项目自有 subagent 中；不再保留 vendor submodule、外部 hooks / plugin、整包 skills 或 `.agents/skills` reference 层。
 
 `client/` 下的固定约定：
 - `client/scenes/`（即 `res://scenes/`）：场景（`.tscn`）
