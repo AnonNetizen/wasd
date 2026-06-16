@@ -21,7 +21,7 @@ COMMON_GODOT_PATHS = [
 ]
 
 NODE_RE = re.compile(r"^\[node\s+(.+)\]$")
-EXT_RESOURCE_RE = re.compile(r'^\[ext_resource\s+type="(?P<type>[^"]+)"\s+path="(?P<path>[^"]+)"\s+id="(?P<id>[^"]+)"')
+EXT_RESOURCE_RE = re.compile(r"^\[ext_resource\s+(?P<attrs>.+)\]$")
 ATTR_RE = re.compile(r'(\w+)="([^"]*)"')
 SCRIPT_RE = re.compile(r'^script\s*=\s*ExtResource\("(?P<id>[^"]+)"\)')
 
@@ -86,10 +86,13 @@ def _parse_scene(project: Path, path: Path) -> dict[str, Any]:
     for line in path.read_text(encoding="utf-8").splitlines():
         ext_match = EXT_RESOURCE_RE.match(line)
         if ext_match:
-            ext_resources[ext_match.group("id")] = {
-                "type": ext_match.group("type"),
-                "path": ext_match.group("path"),
-            }
+            attrs = dict(ATTR_RE.findall(ext_match.group("attrs")))
+            resource_id = attrs.get("id")
+            if resource_id:
+                ext_resources[resource_id] = {
+                    "type": attrs.get("type", ""),
+                    "path": attrs.get("path", ""),
+                }
             current_node = None
             continue
 

@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://bn1n5yrfyns3j"]
 
-[ext_resource type="Script" uid="uid://dw6x13cwh7pv3" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
-[ext_resource type="Script" uid="uid://de76c07amxnxx" path="res://scripts/spawner.gd" id="3_spawner"]
-[ext_resource type="PackedScene" uid="uid://bk3jjhneu0iem" path="res://scenes/enemy.tscn" id="4_enemy"]
-[ext_resource type="Script" uid="uid://bh1p0574gkd0c" path="res://scripts/background.gd" id="5_background"]
+[ext_resource type="Script" path="res://scripts/spawner.gd" id="3_spawner"]
+[ext_resource type="PackedScene" path="res://scenes/enemy.tscn" id="4_enemy"]
+[ext_resource type="Script" path="res://scripts/background.gd" id="5_background"]
 
 [node name="Main" type="Node2D" unique_id=1080991594]
 script = ExtResource("1_main")

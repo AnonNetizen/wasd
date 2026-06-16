@@ -39,6 +39,25 @@ func push(scene: PackedScene, context: Dictionary = {}) -> Node:
 
 
 func pop() -> Node:
+	return _pop_top(true)
+
+
+func replace(scene: PackedScene, context: Dictionary = {}) -> Node:
+	if scene == null:
+		push_error("[UIManager] cannot replace with a null scene")
+		return null
+
+	var had_previous_node: bool = not _stack.is_empty()
+	_pop_top(false)
+	var node: Node = push(scene, context)
+	if had_previous_node:
+		_restore_pause_if_needed()
+	if node != null:
+		ui_replaced.emit(node, context.duplicate(true))
+	return node
+
+
+func _pop_top(restore_pause: bool) -> Node:
 	if _stack.is_empty():
 		return null
 
@@ -47,15 +66,8 @@ func pop() -> Node:
 		_root.remove_child(node)
 		ui_popped.emit(node)
 		node.queue_free()
-	_restore_pause_if_needed()
-	return node
-
-
-func replace(scene: PackedScene, context: Dictionary = {}) -> Node:
-	pop()
-	var node: Node = push(scene, context)
-	if node != null:
-		ui_replaced.emit(node, context.duplicate(true))
+	if restore_pause:
+		_restore_pause_if_needed()
 	return node
 
 
