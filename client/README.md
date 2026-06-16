@@ -5,7 +5,7 @@
 
 `client/` 是完整项目的 Godot 4.6.3 项目根，即 Godot 内的 `res://`。
 
-当前阶段为 F2 横向 autoload 骨架：正式工程已可启动，基础数据、随机、流程、时间、设置、本地化和 UI 栈边界正在按 `docs/正式项目工作规划.md` 逐步落地；玩法内容仍不在本阶段实现。
+当前阶段为 F2 横向 autoload 骨架：正式工程已可启动，基础数据、随机、流程、时间、设置、埋点、本地化和 UI 栈边界正在按 `docs/正式项目工作规划.md` 逐步落地；玩法内容仍不在本阶段实现。
 
 ## 目录
 
@@ -30,6 +30,7 @@ F2 已注册以下全局单例：
 | `GameState` | `res://scripts/autoload/game_state.gd` | 全局流程状态与暂停联动 |
 | `GameClock` | `res://scripts/autoload/game_clock.gd` | 玩法时间、tick 与时间缩放 |
 | `Settings` | `res://scripts/autoload/settings.gd` | 设置默认值、契约校验与变更广播 |
+| `Analytics` | `res://scripts/autoload/analytics.gd` | 已登记事件的本地内存缓冲与隐私开关联动 |
 | `Localization` | `res://scripts/autoload/localization.gd` | 当前语言、语言切换与翻译入口 |
 | `UIManager` | `res://scripts/autoload/ui_manager.gd` | UI 场景栈与暂停 UI 联动 |
 
