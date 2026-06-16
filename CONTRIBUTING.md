@@ -35,7 +35,7 @@ git config --global user.email "<your email>"
 | **Python 3.10+** | 跑 `tools/sync_contracts.py`、`tools/validate_data.py`、`tools/docs_health_check.py` 与后续工具脚本 |
 | **gdtoolkit / GUT** | M1 之后的 lint 与单测（详见 `docs/测试策略.md`）|
 
-**AI agent 第一件事**：读 `AGENTS.md` → `docs/AI记忆/项目记忆.md` → `docs/AI记忆/current_state.json`，无需翻历史聊天即可续接。
+**AI agent 第一件事**：读 `AGENTS.md` → `docs/AI协作/快速开工.md` → `docs/AI记忆/current_state.json`，需要长期背景时再读 `docs/AI记忆/项目记忆.md`，无需翻历史聊天即可续接。
 
 **换 AI 工具也行**：项目核心资产与工具无关。Codex / OpenCode / Claude Code / Aider / Cursor / Windsurf / ChatGPT 都能用；Codex 见 `CODEX.md`，OpenCode 见 `OPENCODE.md`，其他工具配法见 [`docs/AI协作/工具适配指南.md`](docs/AI协作/工具适配指南.md)。
 
@@ -48,16 +48,12 @@ git config --global user.email "<your email>"
 按优先级顺序阅读：
 
 1. [`AGENTS.md`](AGENTS.md) —— **所有 AI agent 的通用开工入口**
-2. 当前平台编码规则入口 —— CodeBuddy 读 [`.codebuddy/rules/game-coding-rules.md`](.codebuddy/rules/game-coding-rules.md)，Codex 读 [`.codex/rules/game-coding-rules.md`](.codex/rules/game-coding-rules.md)，OpenCode 读 [`.opencode/rules/game-coding-rules.md`](.opencode/rules/game-coding-rules.md)，其他 agent 无专属入口时读 `.codebuddy/rules/game-coding-rules.md`
-3. [`docs/AI导航.md`](docs/AI导航.md) —— 项目地图与扩展点速查
-4. [`docs/词表与契约.md`](docs/词表与契约.md) —— 约定字符串白名单
-5. [`docs/游戏设计文档.md`](docs/游戏设计文档.md) —— 完整设计
-6. [`docs/代码文档规范.md`](docs/代码文档规范.md) —— 写/改代码时的对应文档规则
-7. [`docs/决策记录.md`](docs/决策记录.md) —— 既定决策
-8. [`docs/修改建议.md`](docs/修改建议.md) —— 待决策项
-9. [`docs/AI记忆/项目记忆.md`](docs/AI记忆/项目记忆.md) + [`docs/AI记忆/current_state.json`](docs/AI记忆/current_state.json) —— 跨会话/跨机器的 AI 协作记忆与当前状态
+2. [`docs/AI协作/快速开工.md`](docs/AI协作/快速开工.md) + [`docs/AI记忆/current_state.json`](docs/AI记忆/current_state.json) —— 低 token 热路径与机器当前状态
+3. 当前平台编码规则入口 —— CodeBuddy 读 [`.codebuddy/rules/game-coding-rules.md`](.codebuddy/rules/game-coding-rules.md)，Codex 读 [`.codex/rules/game-coding-rules.md`](.codex/rules/game-coding-rules.md)，OpenCode 读 [`.opencode/rules/game-coding-rules.md`](.opencode/rules/game-coding-rules.md)，其他 agent 无专属入口时读 `.codebuddy/rules/game-coding-rules.md`
+4. [`docs/AI导航.md`](docs/AI导航.md) —— 项目地图与扩展点速查
+5. 按任务补读：[`docs/词表与契约.md`](docs/词表与契约.md)、[`docs/游戏设计文档.md`](docs/游戏设计文档.md)、[`docs/代码文档规范.md`](docs/代码文档规范.md)、[`docs/决策记录.md`](docs/决策记录.md)、[`docs/修改建议.md`](docs/修改建议.md)、[`docs/AI记忆/项目记忆.md`](docs/AI记忆/项目记忆.md)
 
-> AI agent 工作前请按 `docs/AI导航.md` 定位，避免盲目全仓搜索；在新环境续接对话前，先读 `docs/AI记忆/项目记忆.md` 和 `docs/AI记忆/current_state.json`。
+> AI agent 工作前请按 `docs/AI导航.md` 定位，避免盲目全仓搜索；在新环境续接对话前，先读快速开工与 `current_state.json`，长期背景按需读取 `项目记忆.md`。
 
 ---
 

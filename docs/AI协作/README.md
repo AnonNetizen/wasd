@@ -17,6 +17,7 @@ OPENCODE.md                # OpenCode 入口适配
 
 docs/AI协作/
 ├── README.md             # 本文件
+├── 快速开工.md           # 日常接手的低 token 热路径
 ├── 文档维护指南.md       # 长期文档修改的联动规则
 ├── 文档健康检查.md       # docs 知识库健康检查命令与失败解释
 ├── 任务模板/             # 高频任务的标准 prompt + 文件操作清单
@@ -72,21 +73,22 @@ tools/
 └── rules/
 ```
 
-关联根目录文档：`docs/AI知识库索引.md` 与 `docs/_kb_index.json` 管理知识库元数据，`docs/术语表.md` 管理术语别名，`docs/AI记忆/current_state.json` 管理机器可读当前状态，`docs/代码文档规范.md` 定义代码变更与对应文档的同步规则，`docs/代码/` 存放长期详细模块文档。
+关联根目录文档：`docs/AI知识库索引.md` 与 `docs/_kb_index.json` 管理知识库元数据，`docs/术语表.md` 管理术语别名，`docs/AI记忆/current_state.json` 管理机器可读当前状态，`docs/AI记忆/项目记忆.md` 作为长期冷存储，`docs/代码文档规范.md` 定义代码变更与对应文档的同步规则，`docs/代码/` 存放长期详细模块文档。
 
 ## 触发约定
 
 AI agent 接到任务时优先按以下顺序：
 
-1. **是不是有专属 slash command**？是 → 直接用（如 `/new-relic`）。
-2. **是不是该转给 subagent**？数据条目改动 → `data-author`；契约校验 → `contract-validator`；平衡相关 → `balancer`；玩法评估 → `game-designer`；数值模型 → `numeric-designer`；世界观 → `ip-designer`；文案包装 → `copywriter-packager`；UI 美术 → `ui-art-designer`；游戏美术 → `game-art-designer`；宣发策略 → `marketing-strategist`。
-3. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。
-4. **不是高频任务**？读 `上下文预算.md` 决定读取范围，避免盲目全仓搜索。
-5. **任务复杂**？参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
-6. **是不是已有项目级 skill**？CodeBuddy / Codex / OpenCode 均有同名项目级 skill（`.codebuddy/skills/` / `.codex/skills/` / `.opencode/skills/`）：Godot 实现 / 场景验证 / Godot 测试诊断 / 试玩复盘 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选 / MCP 评估；外部 GodotPrompter / headless-godot / CCGS 的有用流程已吸收进这些项目 skill，不再通过 reference 跳转。
-7. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
-8. **改了词表 / 数据 / 文案**？跑 `python tools/sync_contracts.py --check` 与 `python tools/validate_data.py`。
-9. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规。
+1. **先完成快速开工**：读 `快速开工.md`、`current_state.json`、当前平台规则入口和 `AI导航.md` 相关段落。
+2. **是不是有专属 slash command**？是 → 直接用（如 `/new-relic`）。
+3. **是不是该转给 subagent**？数据条目改动 → `data-author`；契约校验 → `contract-validator`；平衡相关 → `balancer`；玩法评估 → `game-designer`；数值模型 → `numeric-designer`；世界观 → `ip-designer`；文案包装 → `copywriter-packager`；UI 美术 → `ui-art-designer`；游戏美术 → `game-art-designer`；宣发策略 → `marketing-strategist`。
+4. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。
+5. **不是高频任务**？读 `上下文预算.md` 决定读取范围，避免盲目全仓搜索。
+6. **任务复杂**？参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
+7. **是不是已有项目级 skill**？CodeBuddy / Codex / OpenCode 均有同名项目级 skill（`.codebuddy/skills/` / `.codex/skills/` / `.opencode/skills/`）：Godot 实现 / 场景验证 / Godot 测试诊断 / 试玩复盘 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选 / MCP 评估；外部 GodotPrompter / headless-godot / CCGS 的有用流程已吸收进这些项目 skill，不再通过 reference 跳转。
+8. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
+9. **改了词表 / 数据 / 文案**？跑 `python tools/sync_contracts.py --check` 与 `python tools/validate_data.py`。
+10. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规。
 
 ## 维护
 

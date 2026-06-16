@@ -1,27 +1,22 @@
 # AGENTS.md —— 给所有 AI agent 的开工说明
 
-> 任何 AI agent 在本项目动手前，**必须先按下面顺序读完这 5 份文件**，再开始任何任务。
+> 任何 AI agent 在本项目动手前，**必须先按下面顺序完成快速开工**，再开始任何任务。
 > 这是规则 14 与 ADR #15 的明文化入口；忽略此约定 = 违反项目规则。
 >
 > **AI 修改说明**：修改本文件前必须有用户明确授权，并先读 `docs/AI协作/文档维护指南.md`。本文件是所有 AI agent 的通用开工入口；改开工步骤、红线、subagent、slash command、skill 或平台入口时，必须同步 `CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/`、`docs/AI导航.md`、`docs/AI协作/README.md`、`docs/AI协作/工具适配指南.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
 
-> 🆕 **新机器 clone 后第一次开工**：先按 [`CONTRIBUTING.md` 第零节「新机器 setup」](CONTRIBUTING.md) 做一次性 git 配置（`core.quotepath` / `commit.template` / 全局身份），再回来读下面 5 步。否则中文文件名会显示为转义码、commit 模板不会生效。
+> 🆕 **新机器 clone 后第一次开工**：先按 [`CONTRIBUTING.md` 第零节「新机器 setup」](CONTRIBUTING.md) 做一次性 git 配置（`core.quotepath` / `commit.template` / 全局身份），再回来读下面快速开工。否则中文文件名会显示为转义码、commit 模板不会生效。
 >
 > 🛠️ **换 AI 工具？** `AGENTS.md` 是通用入口；Claude Code 可先读 [`CLAUDE.md`](CLAUDE.md)，Codex 可先读 [`CODEX.md`](CODEX.md)，OpenCode 可先读 [`OPENCODE.md`](OPENCODE.md)，其他工具看 [`docs/AI协作/工具适配指南.md`](docs/AI协作/工具适配指南.md)。平台入口只做加载适配，不能放宽项目核心规则。
 
 ---
 
-## 🚦 开工 5 步（按顺序，不要跳）
+## 🚦 快速开工 5 步（按顺序，不要跳）
 
 1. **本文件**（`AGENTS.md`）—— 通用入口；若从 Claude / Codex / OpenCode 进入，也可先读 `CLAUDE.md` / `CODEX.md` / `OPENCODE.md` 再回到这里
-2. **`docs/AI记忆/项目记忆.md` + `docs/AI记忆/current_state.json`** —— **跨会话/跨机器的项目长时记忆与机器当前状态**
-   - 项目快照（v1.5、Godot 4.6.3 + GDScript、文档阶段）
-   - 60 条 ADR 摘要
-   - 待决策项（A~E）
-   - 工具链与基础设施现状
-   - **下一步候选**以 `current_state.json` 为机器可读权威；它只提供候选方向，不能覆盖用户最后明确指令
+2. **`docs/AI协作/快速开工.md` + `docs/AI记忆/current_state.json`** —— 低 token 热路径与机器当前状态；`current_state.json` 只提供候选方向，不能覆盖用户最后明确指令
 3. **强制编码规则** —— 按当前平台读取：CodeBuddy 读 `.codebuddy/rules/game-coding-rules.md`；Codex 读 `.codex/rules/game-coding-rules.md`；OpenCode 读 `.opencode/rules/game-coding-rules.md`；其他 agent 没有专属规则入口时读 `.codebuddy/rules/game-coding-rules.md` 作为项目规则源
-4. **`docs/AI导航.md`** —— 项目地图、扩展点速查、系统依赖图
+4. **`docs/AI导航.md` 相关段落** —— 项目地图、扩展点速查、系统依赖图；需要全局路由或文档权威时再读 `docs/AI知识库索引.md`
 5. **按当前任务读下列其一**：
    - 高频任务 → `docs/AI协作/任务模板/<任务>.md`
    - 改约定字符串 → `docs/词表与契约.md`
@@ -29,7 +24,7 @@
    - 改既定决策 → `docs/决策记录.md`
    - 写/改测试 → `docs/测试策略.md`
 
-读完这 5 步就能"接得上"，无需翻历史聊天。
+完整 `docs/AI记忆/项目记忆.md` 是长期冷存储：需要长期背景、修改记忆结构、更新 ADR 摘要或排查历史细节时再读全文；日常接手以快速开工 + `current_state.json` 为默认热路径。
 
 ---
 

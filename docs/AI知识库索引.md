@@ -52,7 +52,7 @@
 | 5 | `docs/测试策略.md` | 测试层级、覆盖率、回放、手动回归 |
 | 6 | `docs/代码文档规范.md` + `docs/代码/` | 代码模块文档要求和模块契约 |
 | 7 | `docs/AI导航.md` | 项目地图、扩展点、依赖图 |
-| 8 | `docs/AI记忆/项目记忆.md` + `docs/AI记忆/current_state.json` | 长期记忆索引、当前状态、下一步、最近验证 |
+| 8 | `docs/AI协作/快速开工.md` + `docs/AI记忆/current_state.json` + `docs/AI记忆/项目记忆.md` | 快速开工热路径、当前状态、长期记忆冷存储 |
 | 9 | `MinimumViableProduct/` 文档 | MVP 隔离实验区，不能覆盖完整项目权威 |
 
 若低层文档与高层文档冲突，应先同步高层权威，再更新引用方。
@@ -61,8 +61,8 @@
 
 | 任务 | 必读 | 常改文件 | 必跑检查 |
 |------|------|----------|----------|
-| 新会话接入 | `AGENTS.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`、`docs/AI导航.md`、当前平台规则入口 | 通常不改文件 | 无；若发现文档漂移跑 `python tools/docs_health_check.py` |
-| 续接当前任务 | `docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`、当日会话日志 | 通常不改文件 | 无；需要确认状态时跑 `python tools/docs_health_check.py` |
+| 新会话接入 | `AGENTS.md`、`docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、`docs/AI导航.md` 相关段、当前平台规则入口 | 通常不改文件 | 无；若发现文档漂移跑 `python tools/docs_health_check.py` |
+| 续接当前任务 | `docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、当日会话日志；需要长期背景时再读 `项目记忆.md` 相关节 | 通常不改文件 | 无；需要确认状态时跑 `python tools/docs_health_check.py` |
 | 查看 / 维护未来任务 | `docs/TODO.md`、`docs/AI记忆/current_state.json`、`docs/修改建议.md` | `docs/TODO.md`、必要时 current_state / 会话日志 / 修改建议 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
 | 启动 / 推进正式项目 | `docs/正式项目工作规划.md`、`docs/TODO.md`、`docs/AI记忆/current_state.json`、`docs/AI导航.md` | `client/`、`docs/TODO.md`、模块文档、必要时 GDD / ADR / 词表 / 测试策略 | 按规划阶段门槛运行；文档变化跑 `python tools/docs_health_check.py`；JSON 变化跑 `python -m json.tool` |
 | 维护正式客户端启动骨架 | `client/README.md`、`docs/代码/formal_client_boot.md`、`docs/正式项目工作规划.md` F1 | `client/project.godot`、`client/scenes/boot/main.tscn`、`client/scripts/boot/formal_client_boot.gd`、AI导航、代码文档索引 | `python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client export-tree`、`python tools/docs_health_check.py` |
@@ -85,6 +85,7 @@
 | 更新 AI 工具入口 | `AGENTS.md`、`docs/AI协作/工具适配指南.md`、`docs/AI协作/角色分工.md` | `CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/` | `python tools/docs_health_check.py`；改 `.opencode/` 后验证 JSON |
 | 健康检查 / CI | `docs/AI协作/文档健康检查.md`、`docs/CICD规划.md` | `tools/docs_health_check.py`、`tools/validate_data.py`、`tools/sync_contracts.py`、健康检查命令、CI / pre-commit 规划 | `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/docs_health_check.py`、`python -m json.tool docs/_kb_index.json` |
 | 评估 / 安装 AI skills / MCP | `docs/AI协作/AI技能资源评估.md`、`CODEX.md`、`OPENCODE.md`、`.opencode/opencode.json` | `.codebuddy/skills/`、`.codex/skills/`、`.opencode/skills/`、`.opencode/opencode.json`、工具适配指南、AI导航、AI记忆 | `python -m json.tool .opencode/opencode.json`、`python tools/docs_health_check.py`、`git diff --check -- . ":(exclude)draft/**" ":(exclude)DRAFT/**"`；新增 skill 时确认三平台同步、不重复、不引入外部 hooks / plugin / vendor reference 层 |
+| 调整 AI 开工 / 上下文预算 | `docs/AI协作/快速开工.md`、`AGENTS.md`、平台入口、`docs/AI协作/上下文预算.md`、`docs/AI协作/文档维护指南.md` | `CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、三平台规则、AI导航、工具适配指南、知识库索引、AI记忆 | `python -m json.tool docs/_kb_index.json`、`python -m json.tool docs/AI记忆/current_state.json`、`python tools/docs_health_check.py`、`git diff --check -- . ":(exclude)draft/**" ":(exclude)DRAFT/**"` |
 
 ## 5. ADR 追踪矩阵
 
@@ -126,6 +127,7 @@
 | #64 | 中英文首批本地化与 AI 自动翻译 | `client/locale/README.md`、GDD §9.4、词表 §6、三平台规则、locale 任务模板、data-author / copywriter-packager agents、AI导航、AI记忆 |
 | #65 | 多模式资源复用原则 | GDD §6.6、`client/data/README.md`、三平台规则、AI导航、AI记忆、后续 `game_modes.json` / DataLoader schema |
 | #66 | 未来多人 PvE / PvP 预留边界 | GDD §6.7、`client/data/README.md`、三平台规则、AI导航、AI记忆；后续输入 / Combat / Replay / SaveManager 模块文档 |
+| #67 | 快速开工 + 按需读取上下文分层 | AGENTS、CLAUDE、CODEX、OPENCODE、三平台规则、`docs/AI协作/快速开工.md`、上下文预算、AI导航、工具适配指南、AI记忆、知识库索引 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

@@ -16,6 +16,7 @@
 | 文档 | 作用 |
 |------|------|
 | `AGENTS.md` | **AI agent 通用开工入口**，每次开始任务前必读 |
+| `docs/AI协作/快速开工.md` | **低 token 热路径**，日常接手先读；完整长期文档按任务触发 |
 | `.codebuddy/rules/game-coding-rules.md` / `.codex/rules/game-coding-rules.md` / `.opencode/rules/game-coding-rules.md` | **强制编码规则入口**，按当前平台选读 |
 | `docs/AI导航.md`（本文件） | 项目地图与扩展点定位 |
 | `docs/AI知识库索引.md` | AI 知识库总索引、权威层级、任务入口和 ADR 追踪矩阵 |
@@ -25,7 +26,7 @@
 | `docs/代码文档规范.md` | 代码变更与对应文档的同步规范 |
 | `docs/决策记录.md` | 既定决策与原因，勿误改 |
 | `docs/修改建议.md` | 待决策的开放问题（A~E；J~R 已归档） |
-| `docs/AI记忆/项目记忆.md` | AI 协作长期索引（**跨会话/跨机器续接必读**） |
+| `docs/AI记忆/项目记忆.md` | AI 协作长期索引（长期冷存储；需要背景 / ADR 摘要 / 历史脉络时读） |
 | `docs/AI记忆/current_state.json` | 机器可读当前阶段、下一步、最近验证 |
 | `docs/TODO.md` | 人工可读未来任务清单 |
 
@@ -74,10 +75,11 @@
 | [`docs/正式项目工作规划.md`](正式项目工作规划.md) | MVP 验证完成后，完整项目 `client/` 的阶段路线、交付物、验证门槛和后续 AI 任务选择依据 |
 | `docs/简单设计思路.md` | 项目原点 |
 | `docs/CICD规划.md` | CI/CD 路线图 |
-| `docs/AI记忆/项目记忆.md` | **AI 协作长期索引（跨会话/跨机器续接必读）** |
+| `docs/AI记忆/项目记忆.md` | **AI 协作长期索引（冷存储；按需读取长期背景）** |
 | `docs/AI记忆/current_state.json` | **机器可读当前状态（下一步与最近验证）** |
 | `docs/AI记忆/会话日志/` | 按日期归档的对话摘要 |
 | `docs/AI协作/README.md` | AI 协作工程目录索引 |
+| `docs/AI协作/快速开工.md` | **AI 日常开工热路径**，降低默认上下文开销 |
 | `docs/AI协作/任务模板/` | 高频任务的标准 prompt + 文件操作清单 |
 | `docs/AI协作/上下文预算.md` | 不同任务该读哪些文件 |
 | `docs/AI协作/角色分工.md` | 设计/实现/评审/平衡 四角色协作 |
@@ -108,7 +110,7 @@
 | **加破限角色/道具** | 先判断是否能用 `capabilities` + `modifiers` + `behaviors` 表达；表达不了则新增可复用 primitive / strategy 并登记词表 §12，禁止按 id 写特殊分支 |
 | **写/改代码模块** | 先查 `docs/代码文档规范.md`；长期模块 / autoload / 公共 API / signal / 数据 schema / 依赖方向变化必须同步详细的 `docs/代码/<module_id>.md` 与本导航依赖图，不能只写自动摘要 |
 | **查知识库 / 找文档关系 / 任务路由** | 先看 `docs/AI知识库索引.md` 的任务路由表，需要机器可读元数据时看 `docs/_kb_index.json`，搜索同义词先看 `docs/术语表.md` |
-| **续接当前状态 / 下一步** | 先看 `docs/AI记忆/项目记忆.md` 的长期事实，再看 `docs/AI记忆/current_state.json` 的机器当前状态；上下文压缩后先以用户最后明确指令对齐，`Next Steps` 只作候选参考；需要历史细节才看当日会话日志 |
+| **续接当前状态 / 下一步** | 先看 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`；上下文压缩后先以用户最后明确指令对齐，`Next Steps` 只作候选参考；需要长期事实 / ADR 摘要 / 历史细节时再看 `docs/AI记忆/项目记忆.md` 和当日会话日志 |
 | **查看 / 维护未来任务** | 看 `docs/TODO.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
 | **启动 / 推进正式项目** | 看 [`docs/正式项目工作规划.md`](正式项目工作规划.md)，按 F1~F9 阶段选择最靠前且未完成的任务；每阶段交付物、验证门槛和文档同步要求以该规划为准 |
 | **维护正式客户端启动骨架** | 看 `client/README.md` 与 `docs/代码/formal_client_boot.md`；改主场景或启动验证时同步本导航和 `docs/代码/README.md` |

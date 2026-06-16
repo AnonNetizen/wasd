@@ -6,7 +6,7 @@
 
 ## OpenCode 必守入口
 
-1. 先读 `AGENTS.md` 的开工 5 步。
+1. 先读 `AGENTS.md` 的快速开工 5 步。
 2. 再读 `.codebuddy/rules/game-coding-rules.md` 的完整规则正文；该文件通过 `.opencode/opencode.json` 一并加载，是 OpenCode 当前完整规则源。
 3. 若 OpenCode 专属格式需要额外约束，只能在本文件追加“平台加载/工具使用”说明，不能放宽项目核心规则。
 

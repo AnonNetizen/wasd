@@ -1,7 +1,7 @@
 # wasd —— 俯视角 Roguelike 弹幕生存
 
 > 一款受《以撒的结合》与《吸血鬼幸存者》启发的俯视角 Roguelike 弹幕生存游戏。
-> **当前状态：正式项目 F1 工程骨架已建立 + MVP 隔离实验区。** 完整项目 `client/` 已可作为 Godot 4.6.3 项目启动；玩法与 autoload 仍按 `docs/正式项目工作规划.md` 从 F2 起逐步落地。
+> **当前状态：正式项目 F2 autoload 骨架已建立 + MVP 隔离实验区。** 完整项目 `client/` 已可作为 Godot 4.6.3 项目启动；F2 横向 autoload 矩阵已完成，下一步按 `docs/正式项目工作规划.md` 进入 F3 数据 / 契约闭环。
 >
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。README 是仓库入口摘要；改项目状态、运行方式、目录结构或 AI 开工入口时，必须同步 `CONTRIBUTING.md`、`AGENTS.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
 
@@ -9,8 +9,8 @@
 
 > ## 🤖 AI agent 开工提示
 >
-> **动手前请先读 [`AGENTS.md`](AGENTS.md) → [`docs/AI记忆/项目记忆.md`](docs/AI记忆/项目记忆.md) → [`docs/AI记忆/current_state.json`](docs/AI记忆/current_state.json)**。
-> 项目有完整的跨会话/跨机器长时记忆系统，5 份文件读完就能接续之前的工作，无需翻历史聊天。
+> **动手前请先读 [`AGENTS.md`](AGENTS.md) → [`docs/AI协作/快速开工.md`](docs/AI协作/快速开工.md) → [`docs/AI记忆/current_state.json`](docs/AI记忆/current_state.json)**。
+> 项目有完整的跨会话/跨机器长时记忆系统；日常先走低 token 热路径，完整长期记忆按任务需要再读，无需翻历史聊天。
 
 > ## 🧑‍💻 给用户：换 AI 工具完全 OK
 >
@@ -29,7 +29,7 @@ WASD / 手柄左摇杆移动，方向键 / 手柄右摇杆或 D-pad 控制射击
 - **平台**：PC（键盘 + 手柄）
 
 ## 设计支柱
-- **数据驱动**：所有可调数值集中在 `res://data/` 下的 JSON，字段说明见 `client/data/README.md`，零代码调参 + 热重载。
+- **数据驱动**：所有可调数值集中在 `res://data/` 下，平表数值优先 CSV、复杂配置优先 JSON，字段说明见 `client/data/README.md`，零代码调参 + 热重载。
 - **遗物 = 数据**：用「修正器 modifiers + 行为 behaviors」描述，新增遗物 = 加一条数据，不改逻辑。
 - **扩展优先**：默认玩法规则不是硬编码上限；破限角色 / 道具走 capability、tag、primitive 或 strategy，不写一次性 id 分支。
 - **代码-文档同源**：长期代码模块、公共 API、数据 schema 与扩展点变化必须同步 `docs/代码/` 模块文档。
@@ -45,6 +45,7 @@ WASD / 手柄左摇杆移动，方向键 / 手柄右摇杆或 D-pad 控制射击
 | 文档 | 作用 | 何时读 |
 |------|------|--------|
 | [`AGENTS.md`](AGENTS.md) | **AI agent 通用开工入口** | 每次开始任务前 |
+| [`docs/AI协作/快速开工.md`](docs/AI协作/快速开工.md) | **低 token 热路径** | 日常接手 / 新会话 |
 | [`.codebuddy/rules/game-coding-rules.md`](.codebuddy/rules/game-coding-rules.md) / [`.codex/rules/game-coding-rules.md`](.codex/rules/game-coding-rules.md) / [`.opencode/rules/game-coding-rules.md`](.opencode/rules/game-coding-rules.md) | **强制编码规则入口** | 每次写代码前，按当前平台选读 |
 | [`docs/AI导航.md`](docs/AI导航.md) | 项目地图与扩展点速查 | 开始任何任务前 |
 | [`docs/AI知识库索引.md`](docs/AI知识库索引.md) | AI 知识库总索引与权威层级 | 查文档关系或同步范围时 |
@@ -58,9 +59,9 @@ WASD / 手柄左摇杆移动，方向键 / 手柄右摇杆或 D-pad 控制射击
 | [`docs/简单设计思路.md`](docs/简单设计思路.md) | 最初的 10 条核心需求 | 了解项目原点 |
 | [`docs/术语表.md`](docs/术语表.md) | 中英文术语、别名、检索词 | 搜索文档或代码前 |
 | [`docs/CICD规划.md`](docs/CICD规划.md) | CI/CD 路线图与候选项 | 配置 CI 时 |
-| [`docs/AI记忆/项目记忆.md`](docs/AI记忆/项目记忆.md) + [`docs/AI记忆/current_state.json`](docs/AI记忆/current_state.json) | AI 协作长期记忆 + 机器当前状态 | 在新环境续接对话前 |
+| [`docs/AI记忆/current_state.json`](docs/AI记忆/current_state.json) + [`docs/AI记忆/项目记忆.md`](docs/AI记忆/项目记忆.md) | 机器当前状态 + AI 协作长期冷存储 | 续接任务；长期背景按需 |
 
-> **AI agent 工作前请先读 `AGENTS.md` + `docs/AI导航.md` + 当前平台编码规则入口**，按指引定位后再动手，避免盲目全仓搜索。
+> **AI agent 工作前请先读 `AGENTS.md` + `docs/AI协作/快速开工.md` + `docs/AI记忆/current_state.json` + 当前平台编码规则入口**，再按 `docs/AI导航.md` 定位，避免盲目全仓搜索。
 
 ---
 
@@ -68,6 +69,7 @@ WASD / 手柄左摇杆移动，方向键 / 手柄右摇杆或 D-pad 控制射击
 ```
 wasd/
 ├── docs/             # 1. 项目文档（设计文档、代码文档规范、AI 导航、词表契约、决策记录、AI 记忆 ...）
+│   ├── AI协作/       #    AI 快速开工、任务模板、上下文预算、工具适配
 │   └── AI记忆/       #    跨会话/跨机器的 AI 协作记忆
 ├── client/           # 2. 正式客户端（Godot 4.6.3 项目根，含 project.godot 与 res:// ...）
 ├── server/           # 3. 服务器端（当前单机项目暂为占位，详见决策记录）
@@ -90,7 +92,7 @@ client/
 ├── project.godot
 ├── scenes/     # 场景 .tscn（Player / Bullet / Enemy / Item / Hazard ...）
 ├── scripts/    # 脚本 .gd（按系统单一职责拆分）
-├── data/       # 可调数值配置（JSON）+ README.md 人工调参手册
+├── data/       # 可调数值配置（CSV / JSON）+ README.md 人工调参手册
 ├── locale/     # 本地化翻译表（CSV → .translation）+ README.md 多语言文案手册
 ├── templates/  # 新内容脚手架模板（enemy / relic ...）
 └── assets/     # 美术 / 音效
@@ -120,7 +122,7 @@ client/
 - Headless 验证：`python tools/godot_bridge.py --project client headless-boot`（若系统无 Python，可用 Codex 桌面内置 Python 路径执行）。
 
 ## 参与方式（贡献约定）
-1. 动手前先读 `AGENTS.md`、`docs/AI导航.md` 与当前平台编码规则入口。
+1. 动手前先读 `AGENTS.md`、`docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json` 与当前平台编码规则入口，再按 `docs/AI导航.md` 定位。
 2. 新增内容优先**加数据**而非加逻辑；新原语先在 `docs/词表与契约.md` 登记再实现再使用。
 3. 新确立的规则/决策/设计/代码契约变更**必须同步**到对应文档（规则 19/20/24）：
    - 新规则 → 当前平台编码规则入口（核心语义在 `.codebuddy/`、`.codex/`、`.opencode/` 中保持一致）

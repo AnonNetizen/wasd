@@ -135,7 +135,7 @@ alwaysApply: true
 - 维护一份项目导航文件 `docs/AI导航.md`，告诉 agent：**每类改动该改哪些文件、复用哪些场景、扩展点在哪**。
 - 开始任何任务前**优先阅读** `docs/AI导航.md` 与本规则文件，按其指引定位，避免盲目全仓搜索。
 - 新增系统/模块/数据类型时，必须同步更新 `docs/AI导航.md` 的对应入口与扩展点说明（**含第 5.2 节系统依赖图**）。
-- **跨会话 / 跨机器协作**：在新环境 clone 仓库后，先读 `AGENTS.md` 给出的开工 5 步（指向 `docs/AI记忆/项目记忆.md` 等），可直接续接对话。
+- **跨会话 / 跨机器协作**：在新环境 clone 仓库后，先读 `AGENTS.md` 给出的快速开工 5 步（指向 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`），可直接续接对话；完整 `docs/AI记忆/项目记忆.md` 按任务需要再读。
 
 ## 14-B. AI 记忆维护（自动）
 - `docs/AI记忆/项目记忆.md` 是 AI 协作长期索引，`docs/AI记忆/current_state.json` 是机器可读当前状态，必须按项目记忆第 9 节「更新约定」**自动维护**，无需用户提醒。
@@ -209,7 +209,7 @@ alwaysApply: true
 - `.codebuddy/`（CodeBuddy 平台）、`CLAUDE.md`（Claude Code 平台入口）、`.codex/`（OpenAI Codex CLI 平台）与 `.opencode/`（OpenCode 平台，含项目级 skills）共享同一套**项目核心约束**，但不要求文件内容、目录结构或工具字段字节级一致。
 - 允许针对不同 AI agent / 平台优化 frontmatter、工具名、提示词措辞、命令入口与 agent 拆分方式；优化不得改变项目红线、数据契约、测试义务、文档维护规则等核心语义。
 - 修改任一平台入口或配置时，必须判断是否影响其他平台的能力可用性：
-  - 核心规则变化（如本文件、红线、自检清单、开工 5 步）→ 通用入口与 `.codebuddy/` / `CLAUDE.md` / `.codex/` / `.opencode/` 都要表达同一语义，可用不同措辞或格式。
+  - 核心规则变化（如本文件、红线、自检清单、快速开工 5 步）→ 通用入口与 `.codebuddy/` / `CLAUDE.md` / `.codex/` / `.opencode/` 都要表达同一语义，可用不同措辞或格式。
   - 平台专属能力变化（如某平台的工具名、agent prompt、command wrapper）→ 只改对应平台即可，并在必要时更新 `docs/AI协作/工具适配指南.md`。
   - 新增跨平台通用 agent / command → 至少在工具适配指南登记各平台入口；是否每个平台都创建文件取决于平台是否需要。
 - pre-commit hook / `health-check` 不应校验平台配置内容哈希一致；应校验核心规则版本、关键能力清单与文档登记是否一致（含 `.opencode/opencode.json` 命令注册）。
