@@ -13,6 +13,13 @@ config/name="wasd"
 run/main_scene="res://scenes/boot/main.tscn"
 config/features=PackedStringArray("4.6")
 
+[autoload]
+
+DataLoader="*res://scripts/autoload/data_loader.gd"
+RNG="*res://scripts/autoload/rng.gd"
+GameState="*res://scripts/autoload/game_state.gd"
+GameClock="*res://scripts/autoload/game_clock.gd"
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

@@ -96,7 +96,7 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["knowledge_base", "authority_hierarchy", "task_routes", "adr_tracking_matrix"],
       "must_read_for": ["doc_structure_change", "task_routing", "knowledge_base_change"],
-      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md"],
+      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md"],
       "related_code": ["tools/docs_health_check.py"],
       "update_triggers": ["new long-lived document", "document rename", "authority hierarchy change", "task route change"],
       "keywords": ["knowledge base", "知识库", "index", "索引", "权威层级", "任务路由", "FormalClientBoot", "正式项目启动骨架", "F1"]
@@ -236,7 +236,7 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["module_doc_index"],
       "must_read_for": ["code_module_change", "module_doc_lookup"],
-      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md"],
+      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md"],
       "related_code": ["client/"],
       "update_triggers": ["new module document", "module document rename", "module document deletion"],
       "keywords": ["代码", "module", "documentation", "index"]
@@ -250,7 +250,7 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["project_map", "extension_points", "dependency_graph"],
       "must_read_for": ["new_task", "extension_change", "dependency_change"],
-      "related_docs": ["docs/AI知识库索引.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md"],
+      "related_docs": ["docs/AI知识库索引.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md"],
       "related_code": ["client/", "MinimumViableProduct/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
       "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "AI资源", "vendor", "AI Git", "自动commit", "提交策略"]
@@ -590,6 +590,62 @@
       "related_code": ["client/project.godot", "client/scenes/boot/main.tscn", "client/scripts/boot/formal_client_boot.gd"],
       "update_triggers": ["client main scene changes", "formal boot script changes", "formal project startup validation changes"],
       "keywords": ["FormalClientBoot", "client startup", "project.godot", "F1", "headless boot", "正式项目", "启动骨架"]
+    },
+    {
+      "path": "docs/代码/data_loader.md",
+      "type": "module_doc",
+      "authority": "DataLoader autoload contract for JSON/CSV loading, generated contracts cache, and fail-fast data diagnostics",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-16",
+      "canonical_for": ["data_loader", "json_csv_loading", "contract_cache"],
+      "must_read_for": ["data_loader_change", "data_schema_change", "formal_data_loading"],
+      "related_docs": ["client/data/README.md", "docs/词表与契约.md", "docs/代码/README.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/autoload/data_loader.gd", "client/data/_contracts.json", "tools/sync_contracts.py", "tools/validate_data.py"],
+      "update_triggers": ["DataLoader API changes", "data loading schema changes", "contract cache behavior changes"],
+      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation"]
+    },
+    {
+      "path": "docs/代码/rng.md",
+      "type": "module_doc",
+      "authority": "RNG autoload contract for deterministic named streams and run seed handling",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-16",
+      "canonical_for": ["rng", "deterministic_random", "rng_streams"],
+      "must_read_for": ["rng_change", "random_stream_change", "replay_determinism"],
+      "related_docs": ["docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/autoload/rng.gd", "client/scripts/contracts/rng_streams.gd"],
+      "update_triggers": ["RNG stream changes", "seed derivation changes", "weighted random API changes"],
+      "keywords": ["RNG", "autoload", "seed", "rng_streams", "determinism", "replay"]
+    },
+    {
+      "path": "docs/代码/game_state.md",
+      "type": "module_doc",
+      "authority": "GameState autoload contract for global flow states, transition signals, and pause linkage",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-16",
+      "canonical_for": ["game_state", "flow_state_machine", "pause_linkage"],
+      "must_read_for": ["game_state_change", "pause_flow_change", "ui_state_integration"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/autoload/game_state.gd"],
+      "update_triggers": ["state enum changes", "state transition API changes", "pause behavior changes"],
+      "keywords": ["GameState", "autoload", "state_changed", "pause", "main_menu", "level_up"]
+    },
+    {
+      "path": "docs/代码/game_clock.md",
+      "type": "module_doc",
+      "authority": "GameClock autoload contract for gameplay time, ticks, scaled delta, and pause freezing",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-16",
+      "canonical_for": ["game_clock", "gameplay_time", "deterministic_tick"],
+      "must_read_for": ["game_clock_change", "time_scale_change", "replay_time_determinism"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/game_state.md"],
+      "related_code": ["client/scripts/autoload/game_clock.gd", "client/scripts/autoload/game_state.gd"],
+      "update_triggers": ["time API changes", "tick rule changes", "pause freeze behavior changes"],
+      "keywords": ["GameClock", "autoload", "tick", "delta_scaled", "time_scale", "pause freeze"]
     }
   ]
 }

@@ -19,6 +19,17 @@
 | `assets/` | 美术、音频等资源 |
 | `templates/` | 新内容脚手架模板 |
 
+## Autoload
+
+F2 第一片已注册以下全局单例：
+
+| 名称 | 脚本 | 作用 |
+|------|------|------|
+| `DataLoader` | `res://scripts/autoload/data_loader.gd` | JSON / CSV 数据读取与 `_contracts.json` 契约缓存 |
+| `RNG` | `res://scripts/autoload/rng.gd` | 确定性随机子流 |
+| `GameState` | `res://scripts/autoload/game_state.gd` | 全局流程状态与暂停联动 |
+| `GameClock` | `res://scripts/autoload/game_clock.gd` | 玩法时间、tick 与时间缩放 |
+
 ## 启动
 
 用 Godot 4.6.3 打开：

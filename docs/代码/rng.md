@@ -1,0 +1,106 @@
+# RNG 模块文档
+
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
+> 本文档是 `RNG` autoload 的代码契约权威；改随机子流、种子派生、公共 API 或确定性要求时必须同步本文档、`docs/词表与契约.md`、`docs/AI导航.md` 与测试说明。
+
+## 职责
+
+- 提供统一确定性随机入口，禁止业务代码直接调用全局随机函数。
+- 按词表中的子流维护独立 `RandomNumberGenerator`。
+- 支持一局主 seed 派生各子流 seed。
+- 不负责决定何时开局、何时重置回放或如何保存 RNG 状态；这些由 `GameState`、`Replay`、`SaveManager` 后续接入。
+
+## 阅读方式
+
+| 你想做什么 | 先看哪里 |
+|------------|----------|
+| 增加随机 API | `client/scripts/autoload/rng.gd` |
+| 新增子流 | `docs/词表与契约.md` §11，再跑契约同步 |
+| 调试确定性 | 本文档“测试义务”与 `docs/测试策略.md` |
+
+## 代码位置
+
+| 路径 | 作用 |
+|------|------|
+| `client/scripts/autoload/rng.gd` | `RNG` autoload 实现 |
+| `client/scripts/contracts/rng_streams.gd` | 生成常量，后续业务代码引用 |
+| `client/data/_contracts.json` | 机器可读 RNG 子流白名单 |
+
+## 场景 / 节点结构
+
+无场景节点。`RNG` 通过 `client/project.godot` 的 `[autoload]` 注册为全局单例。
+
+## 运行流程
+
+| 阶段 | 发生什么 | 关键 API / signal |
+|------|----------|-------------------|
+| autoload `_ready()` | 创建并登记 6 个默认子流 | `spawn/drop/combat/ui_choice/world/meta` |
+| 设置主 seed | 重新派生所有子流 seed | `set_run_seed()` |
+| 业务取随机 | 通过具名子流调用 | `RNG.spawn.randi()`、`RNG.stream(id)` |
+
+## 公共 API
+
+| 名称 | 输入 | 输出 | 约束 |
+|------|------|------|------|
+| `set_run_seed(seed_value)` | `int` | `void` | 重置所有子流序列 |
+| `run_seed()` | 无 | `int` | 返回当前主 seed |
+| `stream(stream_id)` | `String` | `RNG.Stream` | 未登记 id 报错并回退到 `spawn` |
+| `Stream.randi()` | 无 | `int` | 只通过子流调用 |
+| `Stream.randf()` | 无 | `float` | 只通过子流调用 |
+| `Stream.randf_range(from, to)` | `float`, `float` | `float` | 只通过子流调用 |
+| `Stream.pick(values)` | `Array` | `Variant` | 空数组返回 `null` |
+| `Stream.weighted_pick(values, weights, luck_bias)` | `Array`, `Array`, `float` | `Variant` | 数组长度必须一致 |
+
+## Signal / Event
+
+无。
+
+## 数据与契约
+
+- 子流 id 权威来源是 `docs/词表与契约.md` §11。
+- 当前子流：`spawn`、`drop`、`combat`、`ui_choice`、`world`、`meta`。
+- 代码引用应走 `client/scripts/contracts/rng_streams.gd` 生成常量；本 autoload 的初始子流后续应与生成常量保持一致。
+
+## 依赖
+
+- 上游依赖：Godot `RandomNumberGenerator`。
+- 下游调用方：刷怪、掉落、战斗、升级候选、地图 / 机关、局外成长等。
+- 禁止依赖：不得读取 `Time` 或业务状态派生随机；不得把某个系统逻辑写进 RNG。
+
+## 扩展点
+
+- 新子流先登记词表并生成常量，再加入 `_streams`。
+- 新加权策略应保持确定性，只使用当前子流的 generator。
+- 保存 / 回放 RNG 状态时由 `SaveManager` / `Replay` 扩展，不在业务系统中绕过 RNG。
+
+## 常见改动入口
+
+| 你想改什么 | 主要文件 | 同步文档 | 验证方式 |
+|------------|----------|----------|----------|
+| 新增子流 | `docs/词表与契约.md`、`rng.gd` | 本文档、AI导航 | `tools/sync_contracts.py --check`、headless boot |
+| 调整权重抽取 | `rng.gd` | 本文档、测试策略（若义务变化） | 后续 GUT 单测 |
+| 接入回放状态保存 | `rng.gd`、Replay / SaveManager | 对应模块文档 | 回放 / 存档 roundtrip |
+
+## 故障排查
+
+| 现象 | 优先检查 |
+|------|----------|
+| 同 seed 不复现 | 是否直接用了全局随机或错误子流 |
+| 子流 id 报错 | 是否未登记词表或未加入 `_streams` |
+| 抽取总是首项 | 权重是否全为 0 或负数 |
+
+## 测试义务
+
+- 必跑正式项目 headless boot。
+- F2 后续补 GUT：同主 seed 各子流序列稳定、不同子流互不污染、`weighted_pick()` 边界。
+- 改随机行为若影响整局，后续必须评估黄金回放是否需要重录。
+
+## 迁移 / 兼容
+
+改变 seed 派生算法会影响回放确定性；正式进入回放阶段后必须通过 ADR 或明确版本迁移处理。
+
+## 相关文档
+
+- `docs/游戏设计文档.md` §9.18.1
+- `docs/词表与契约.md` §11
+- `docs/测试策略.md`
