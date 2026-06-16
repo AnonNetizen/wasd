@@ -22,6 +22,7 @@ GameClock="*res://scripts/autoload/game_clock.gd"
 Settings="*res://scripts/autoload/settings.gd"
 Analytics="*res://scripts/autoload/analytics.gd"
 Replay="*res://scripts/autoload/replay.gd"
+PoolManager="*res://scripts/autoload/pool_manager.gd"
 Localization="*res://scripts/autoload/localization.gd"
 UIManager="*res://scripts/autoload/ui_manager.gd"
 
