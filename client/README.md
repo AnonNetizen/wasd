@@ -5,7 +5,7 @@
 
 `client/` 是完整项目的 Godot 4.6.3 项目根，即 Godot 内的 `res://`。
 
-当前阶段为 F2 横向 autoload 骨架：正式工程已可启动，基础数据、随机、流程、时间、设置、埋点、回放、对象池、本地化和 UI 栈边界正在按 `docs/正式项目工作规划.md` 逐步落地；玩法内容仍不在本阶段实现。
+当前阶段为 F2 横向 autoload 骨架：正式工程已可启动，基础数据、随机、流程、时间、设置、埋点、回放、对象池、存档、本地化和 UI 栈边界正在按 `docs/正式项目工作规划.md` 逐步落地；玩法内容仍不在本阶段实现。
 
 ## 目录
 
@@ -33,6 +33,7 @@ F2 已注册以下全局单例：
 | `Analytics` | `res://scripts/autoload/analytics.gd` | 已登记事件的本地内存缓冲与隐私开关联动 |
 | `Replay` | `res://scripts/autoload/replay.gd` | 输入 / 关键决策的内存态回放录制边界 |
 | `PoolManager` | `res://scripts/autoload/pool_manager.gd` | 高频实体对象池注册、获取、释放、统计与溢出埋点 |
+| `SaveManager` | `res://scripts/autoload/save_manager.gd` | `meta` / `run` / `replay_index` 存档 envelope、原子写入、备份回退、迁移与坏档隔离 |
 | `Localization` | `res://scripts/autoload/localization.gd` | 当前语言、语言切换与翻译入口 |
 | `UIManager` | `res://scripts/autoload/ui_manager.gd` | UI 场景栈与暂停 UI 联动 |
 
