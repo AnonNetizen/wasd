@@ -100,17 +100,9 @@ client/
 ```
 
 ## 核心红线（最易踩坑）
-- 不硬编码可调数值（全部走 `client/data/` 即 `res://data/`）。
-- 不硬编码玩家可见文本（全部走 `tr("key")`）。
-- 新增 / 修改数值字段必须同步 `client/data/README.md`；新增 / 修改文案 key、语言列或占位符约定必须同步 `client/locale/README.md`。
-- 不硬编码按键、手柄按钮或手柄轴（全部走 InputMap action + `Settings` 重绑定）。
-- 不为每个遗物/道具写独立分支（用 modifiers + behaviors 数据描述）。
-- 不裸字符串（stat / effect / event / 设置 key 必须来自 `docs/词表与契约.md` 并以常量引用）。
-- 相机不开 `limit` / `drag margin`（玩家恒居屏幕中央）。
-- 高频实体不裸 `instantiate` / `queue_free`（必须对象池）。
-- 暂停统一用 `get_tree().paused`，暂停菜单节点设 `process_mode = PROCESS_MODE_ALWAYS`。
+权威红线见 `AGENTS.md` 与当前平台编码规则入口；README 不复制完整规则正文，避免多处漂移。日常只记四件事：数据 / 文案 / 输入 / 约定字符串走权威通道，横向能力走统一 autoload，`draft/` / `DRAFT/` 不碰，代码和文档同步完成才算完成。
 
-> 完整自检清单见编码规则文件末尾。
+> 完整自检清单见当前平台编码规则文件末尾。
 
 ---
 
@@ -124,12 +116,9 @@ client/
 ## 参与方式（贡献约定）
 1. 动手前先读 `AGENTS.md`、`docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json` 与当前平台编码规则入口，再按 `docs/AI导航.md` 定位。
 2. 新增内容优先**加数据**而非加逻辑；新原语先在 `docs/词表与契约.md` 登记再实现再使用。
-3. 新确立的规则/决策/设计/代码契约变更**必须同步**到对应文档（规则 19/20/24）：
-   - 新规则 → 当前平台编码规则入口（核心语义在 `.codebuddy/`、`.codex/`、`.opencode/` 中保持一致）
-   - 新决策 → `docs/决策记录.md`
-   - 设计变更 → `docs/游戏设计文档.md` + `docs/AI导航.md` + `docs/词表与契约.md`
-   - 代码模块 / 公共 API / 数据 schema 变化 → `docs/代码文档规范.md` + `docs/代码/`
-4. 提交前过一遍编码规则文件末尾的「自检清单」。
+3. 新确立的规则 / 决策 / 设计 / 代码契约变更按 `docs/AI协作/文档维护指南.md` 同步权威文档。
+4. 写/改代码模块优先读 `docs/代码/<module_id>.md` 和目标源码，只有设计冲突或新增决策时再补读完整 GDD / ADR。
+5. 提交前过一遍编码规则文件末尾的「自检清单」。
 
 ---
 

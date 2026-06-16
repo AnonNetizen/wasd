@@ -28,6 +28,8 @@ docs/AI协作/
 │   ├── 加埋点.md
 │   ├── 调数值.md
 │   └── 加本地化文本.md
+├── 工作包/               # 正式项目阶段任务的低 token 工作包
+│   └── F3-DataLoader.md
 ├── 上下文预算.md         # 不同任务该读哪些文件、读多少
 ├── 角色分工.md           # 设计/实现/评审/平衡 四角色协作
 ├── 引擎集成.md           # Godot/Unity MCP 等接入指南
@@ -82,17 +84,19 @@ AI agent 接到任务时优先按以下顺序：
 1. **先完成快速开工**：读 `快速开工.md`、`current_state.json`、当前平台规则入口和 `AI导航.md` 相关段落。
 2. **是不是有专属 slash command**？是 → 直接用（如 `/new-relic`）。
 3. **是不是该转给 subagent**？数据条目改动 → `data-author`；契约校验 → `contract-validator`；平衡相关 → `balancer`；玩法评估 → `game-designer`；数值模型 → `numeric-designer`；世界观 → `ip-designer`；文案包装 → `copywriter-packager`；UI 美术 → `ui-art-designer`；游戏美术 → `game-art-designer`；宣发策略 → `marketing-strategist`。
-4. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。
-5. **不是高频任务**？读 `上下文预算.md` 决定读取范围，避免盲目全仓搜索。
-6. **任务复杂**？参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
-7. **是不是已有项目级 skill**？CodeBuddy / Codex / OpenCode 均有同名项目级 skill（`.codebuddy/skills/` / `.codex/skills/` / `.opencode/skills/`）：Godot 实现 / 场景验证 / Godot 测试诊断 / 试玩复盘 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选 / MCP 评估；外部 GodotPrompter / headless-godot / CCGS 的有用流程已吸收进这些项目 skill，不再通过 reference 跳转。
-8. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
-9. **改了词表 / 数据 / 文案**？跑 `python tools/sync_contracts.py --check` 与 `python tools/validate_data.py`。
-10. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规。
+4. **是不是正式项目阶段任务**？优先读 `工作包/`；当前 F3 用 `工作包/F3-DataLoader.md`。
+5. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。
+6. **不是高频任务**？读 `上下文预算.md` 决定读取范围，避免盲目全仓搜索。
+7. **任务复杂**？参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
+8. **是不是已有项目级 skill**？CodeBuddy / Codex / OpenCode 均有同名项目级 skill（`.codebuddy/skills/` / `.codex/skills/` / `.opencode/skills/`）：Godot 实现 / 场景验证 / Godot 测试诊断 / 试玩复盘 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选 / MCP 评估；外部 GodotPrompter / headless-godot / CCGS 的有用流程已吸收进这些项目 skill，不再通过 reference 跳转。
+9. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
+10. **改了词表 / 数据 / 文案**？跑 `python tools/sync_contracts.py --check` 与 `python tools/validate_data.py`。
+11. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规。
 
 ## 维护
 
 - 新高频任务出现 → 在 `任务模板/` 加一份。
+- 新正式项目阶段反复消耗上下文 → 在 `工作包/` 加一份短工作包。
 - 新长期文档 / 术语 / 知识库路径变化 → 同步 `docs/AI知识库索引.md`、`docs/_kb_index.json`、`docs/术语表.md`，并运行 `python tools/docs_health_check.py`。
 - 引擎工具链变化 → 更新 `引擎集成.md`。
 - AI skills / MCP / plugin / rules 资源变化 → 更新 `AI技能资源评估.md`、`.codebuddy/skills/`、`.codex/skills/`、`.opencode/skills/`、`CODEX.md`、`OPENCODE.md` 与工具适配指南。

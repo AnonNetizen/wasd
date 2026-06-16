@@ -64,7 +64,7 @@
 | 新会话接入 | `AGENTS.md`、`docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、`docs/AI导航.md` 相关段、当前平台规则入口 | 通常不改文件 | 无；若发现文档漂移跑 `python tools/docs_health_check.py` |
 | 续接当前任务 | `docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、当日会话日志；需要长期背景时再读 `项目记忆.md` 相关节 | 通常不改文件 | 无；需要确认状态时跑 `python tools/docs_health_check.py` |
 | 查看 / 维护未来任务 | `docs/TODO.md`、`docs/AI记忆/current_state.json`、`docs/修改建议.md` | `docs/TODO.md`、必要时 current_state / 会话日志 / 修改建议 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
-| 启动 / 推进正式项目 | `docs/正式项目工作规划.md`、`docs/TODO.md`、`docs/AI记忆/current_state.json`、`docs/AI导航.md` | `client/`、`docs/TODO.md`、模块文档、必要时 GDD / ADR / 词表 / 测试策略 | 按规划阶段门槛运行；文档变化跑 `python tools/docs_health_check.py`；JSON 变化跑 `python -m json.tool` |
+| 启动 / 推进正式项目 | 当前阶段工作包；F3 默认 `docs/AI协作/工作包/F3-DataLoader.md`、`docs/AI记忆/current_state.json`、目标模块文档 | `client/`、模块文档、必要时 TODO / GDD / ADR / 词表 / 测试策略 | 按工作包验收命令运行；文档变化跑 `python tools/docs_health_check.py`；JSON 变化跑 `python -m json.tool` |
 | 维护正式客户端启动骨架 | `client/README.md`、`docs/代码/formal_client_boot.md`、`docs/正式项目工作规划.md` F1 | `client/project.godot`、`client/scenes/boot/main.tscn`、`client/scripts/boot/formal_client_boot.gd`、AI导航、代码文档索引 | `python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client export-tree`、`python tools/docs_health_check.py` |
 | 维护 F2 autoload 骨架 | GDD §9.3~§9.19、`docs/代码/data_loader.md`、`docs/代码/rng.md`、`docs/代码/game_state.md`、`docs/代码/game_clock.md`、`docs/代码/settings.md`、`docs/代码/analytics.md`、`docs/代码/replay.md`、`docs/代码/pool_manager.md`、`docs/代码/save_manager.md`、`docs/代码/audio_manager.md`、`docs/代码/localization.md`、`docs/代码/ui_manager.md` | `client/scripts/autoload/`、`client/project.godot`、AI导航、代码文档索引、current_state | `python tools/godot_bridge.py --project client headless-boot`、`python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/docs_health_check.py` |
 | 加 / 改游戏模式 | GDD §6.6、`client/data/README.md`、`docs/AI导航.md` | 后续 `client/data/game_modes.json`、资源池 / 权重 / 禁用列表、必要时词表和模块文档 | `python tools/docs_health_check.py`；数据落地后跑 `python tools/validate_data.py` |
@@ -78,7 +78,7 @@
 | 加完整项目文案 / 语言 | `client/locale/README.md`、`client/locale/strings.csv`、`docs/词表与契约.md` §6 | 文案 CSV、语言设置、相关 UI / 数据模块文档；AI 自动补齐 `zh_CN` / `en` 另一语言首版译文 | `python tools/validate_data.py`；人工切语言回归 |
 | 改规则 / 红线 | `AGENTS.md`、当前平台规则入口、`docs/决策记录.md`、`docs/AI协作/文档维护指南.md` | `AGENTS.md`、三平台规则、`CODEX.md`、`OPENCODE.md`、AI导航、项目记忆 | `python tools/docs_health_check.py`、`git diff --check -- . ":(exclude)draft/**" ":(exclude)DRAFT/**"` |
 | 改约定字符串 | `docs/词表与契约.md`、`docs/AI协作/文档健康检查.md` | 词表、生成常量、相关数据 / 代码、AI导航 | `python tools/sync_contracts.py` + `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；`python tools/docs_health_check.py` |
-| 写/改代码模块 | `docs/代码文档规范.md`、对应 `docs/代码/<module_id>.md`、`docs/测试策略.md` | 代码、模块文档、AI导航依赖图、必要时 GDD / ADR | 对应测试义务 + `python tools/docs_health_check.py` |
+| 写/改代码模块 | `docs/代码文档规范.md`、对应 `docs/代码/<module_id>.md`、目标源码；测试相关时读 `docs/测试策略.md` 相关段 | 代码、模块文档、AI导航依赖图、必要时 GDD / ADR | 对应测试义务 + `python tools/docs_health_check.py` |
 | 写/改测试 | `docs/测试策略.md`、对应模块文档 | 测试文件、测试策略、必要时 CI 规划 | 对应测试命令；`python tools/docs_health_check.py` |
 | 加 GM 指令 / 调试工具 | `docs/游戏设计文档.md` §9.20、`docs/词表与契约.md` §7、`docs/测试策略.md` §5.10、MVP 客户端文档 | DebugConsole / GMCommandRegistry 或 MVP `debug_tools.gd`、InputMap action、导出 preset、AI导航、ADR、测试策略 | debug/dev_tools 构建验证命令可用；release 构建确认无入口 / 无调试资源；`python tools/sync_contracts.py --check`、`python tools/docs_health_check.py` |
 | 做 MVP 实验 | `MinimumViableProduct/README.md`、`MinimumViableProduct/docs/MVP设计说明.md`、MVP 代码文档 | `MinimumViableProduct/` 内文档和客户端 | `python tools/godot_bridge.py headless-boot`；`python tools/validate_data.py`；`python tools/docs_health_check.py` |
@@ -86,6 +86,7 @@
 | 健康检查 / CI | `docs/AI协作/文档健康检查.md`、`docs/CICD规划.md` | `tools/docs_health_check.py`、`tools/validate_data.py`、`tools/sync_contracts.py`、健康检查命令、CI / pre-commit 规划 | `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/docs_health_check.py`、`python -m json.tool docs/_kb_index.json` |
 | 评估 / 安装 AI skills / MCP | `docs/AI协作/AI技能资源评估.md`、`CODEX.md`、`OPENCODE.md`、`.opencode/opencode.json` | `.codebuddy/skills/`、`.codex/skills/`、`.opencode/skills/`、`.opencode/opencode.json`、工具适配指南、AI导航、AI记忆 | `python -m json.tool .opencode/opencode.json`、`python tools/docs_health_check.py`、`git diff --check -- . ":(exclude)draft/**" ":(exclude)DRAFT/**"`；新增 skill 时确认三平台同步、不重复、不引入外部 hooks / plugin / vendor reference 层 |
 | 调整 AI 开工 / 上下文预算 | `docs/AI协作/快速开工.md`、`AGENTS.md`、平台入口、`docs/AI协作/上下文预算.md`、`docs/AI协作/文档维护指南.md` | `CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、三平台规则、AI导航、工具适配指南、知识库索引、AI记忆 | `python -m json.tool docs/_kb_index.json`、`python -m json.tool docs/AI记忆/current_state.json`、`python tools/docs_health_check.py`、`git diff --check -- . ":(exclude)draft/**" ":(exclude)DRAFT/**"` |
+| 新增 / 维护阶段工作包 | `docs/AI协作/工作包/<阶段>.md`、`docs/AI协作/上下文预算.md`、目标模块文档 | AI协作 README、AI导航、知识库索引、current_state、会话日志 | `python tools/docs_health_check.py`、`python -m json.tool docs/_kb_index.json` |
 
 ## 5. ADR 追踪矩阵
 
@@ -128,6 +129,7 @@
 | #65 | 多模式资源复用原则 | GDD §6.6、`client/data/README.md`、三平台规则、AI导航、AI记忆、后续 `game_modes.json` / DataLoader schema |
 | #66 | 未来多人 PvE / PvP 预留边界 | GDD §6.7、`client/data/README.md`、三平台规则、AI导航、AI记忆；后续输入 / Combat / Replay / SaveManager 模块文档 |
 | #67 | 快速开工 + 按需读取上下文分层 | AGENTS、CLAUDE、CODEX、OPENCODE、三平台规则、`docs/AI协作/快速开工.md`、上下文预算、AI导航、工具适配指南、AI记忆、知识库索引 |
+| #68 | 阶段工作包 / 规则去重 / 模块文档优先 | `docs/AI协作/工作包/`、README、CONTRIBUTING、工具适配指南、快速开工、上下文预算、AI导航、AI记忆、知识库索引 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 
