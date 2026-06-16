@@ -21,6 +21,7 @@ GameState="*res://scripts/autoload/game_state.gd"
 GameClock="*res://scripts/autoload/game_clock.gd"
 Settings="*res://scripts/autoload/settings.gd"
 Analytics="*res://scripts/autoload/analytics.gd"
+Replay="*res://scripts/autoload/replay.gd"
 Localization="*res://scripts/autoload/localization.gd"
 UIManager="*res://scripts/autoload/ui_manager.gd"
 

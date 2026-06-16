@@ -54,7 +54,7 @@
 | `client/templates/`（即 `res://templates/`） | 新内容脚手架模板（enemy/relic 等） |
 | `client/assets/`（即 `res://assets/`） | 美术 / 音效 |
 | `client/scenes/boot/main.tscn` | F1 最小启动场景，详见 `docs/代码/formal_client_boot.md` |
-| `client/scripts/autoload/` | F2 横向 autoload 骨架，已含 `DataLoader` / `RNG` / `GameState` / `GameClock` / `Settings` / `Analytics` / `Localization` / `UIManager` |
+| `client/scripts/autoload/` | F2 横向 autoload 骨架，已含 `DataLoader` / `RNG` / `GameState` / `GameClock` / `Settings` / `Analytics` / `Replay` / `Localization` / `UIManager` |
 | `user://settings.cfg` | 玩家设置存档；游戏进度存档走 `user://saves/<slot>/<kind>.save`（`meta` / `run` / `replay_index`） |
 
 `docs/` 下：
@@ -150,7 +150,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Localization`、`UIManager` 的 autoload 骨架；其余 autoload 按 `docs/正式项目工作规划.md` 后续补齐。
+当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`Localization`、`UIManager` 的 autoload 骨架；其余 autoload 按 `docs/正式项目工作规划.md` 后续补齐。
 
 ### 5.2 系统依赖图（Mermaid，AI 改动前先看影响范围）
 

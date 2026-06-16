@@ -13,13 +13,15 @@ func _ready() -> void:
 	var settings_count: int = Settings.values().size()
 	var analytics_event_count: int = Analytics.registered_events().size()
 	var state_name: StringName = GameState.current()
-	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d settings=%d analytics_events=%d analytics_enabled=%s locale=%s ui_stack=%d state=%s seed=%d" % [
+	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d settings=%d analytics_events=%d analytics_enabled=%s replay_enabled=%s replay_recording=%s locale=%s ui_stack=%d state=%s seed=%d" % [
 		BOOT_LOG_PREFIX,
 		contract_count,
 		stream_count,
 		settings_count,
 		analytics_event_count,
 		str(Analytics.is_enabled()),
+		str(Replay.is_enabled()),
+		str(Replay.is_recording()),
 		Localization.current_locale(),
 		UIManager.stack_size(),
 		String(state_name),
