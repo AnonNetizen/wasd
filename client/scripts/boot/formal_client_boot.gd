@@ -10,11 +10,15 @@ const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
 func _ready() -> void:
 	var contract_count: int = DataLoader.contracts().size()
 	var stream_count: int = DataLoader.contract_values("rng_streams").size()
+	var settings_count: int = Settings.values().size()
 	var state_name: StringName = GameState.current()
-	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d state=%s seed=%d" % [
+	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d settings=%d locale=%s ui_stack=%d state=%s seed=%d" % [
 		BOOT_LOG_PREFIX,
 		contract_count,
 		stream_count,
+		settings_count,
+		Localization.current_locale(),
+		UIManager.stack_size(),
 		String(state_name),
 		RNG.run_seed(),
 	])

@@ -96,7 +96,7 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["knowledge_base", "authority_hierarchy", "task_routes", "adr_tracking_matrix"],
       "must_read_for": ["doc_structure_change", "task_routing", "knowledge_base_change"],
-      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md"],
+      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/localization.md", "docs/代码/ui_manager.md"],
       "related_code": ["tools/docs_health_check.py"],
       "update_triggers": ["new long-lived document", "document rename", "authority hierarchy change", "task route change"],
       "keywords": ["knowledge base", "知识库", "index", "索引", "权威层级", "任务路由", "FormalClientBoot", "正式项目启动骨架", "F1"]
@@ -236,7 +236,7 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["module_doc_index"],
       "must_read_for": ["code_module_change", "module_doc_lookup"],
-      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md"],
+      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/localization.md", "docs/代码/ui_manager.md"],
       "related_code": ["client/"],
       "update_triggers": ["new module document", "module document rename", "module document deletion"],
       "keywords": ["代码", "module", "documentation", "index"]
@@ -250,7 +250,7 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["project_map", "extension_points", "dependency_graph"],
       "must_read_for": ["new_task", "extension_change", "dependency_change"],
-      "related_docs": ["docs/AI知识库索引.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md"],
+      "related_docs": ["docs/AI知识库索引.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/localization.md", "docs/代码/ui_manager.md"],
       "related_code": ["client/", "MinimumViableProduct/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
       "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "AI资源", "vendor", "AI Git", "自动commit", "提交策略"]
@@ -646,6 +646,48 @@
       "related_code": ["client/scripts/autoload/game_clock.gd", "client/scripts/autoload/game_state.gd"],
       "update_triggers": ["time API changes", "tick rule changes", "pause freeze behavior changes"],
       "keywords": ["GameClock", "autoload", "tick", "delta_scaled", "time_scale", "pause freeze"]
+    },
+    {
+      "path": "docs/代码/settings.md",
+      "type": "module_doc",
+      "authority": "Settings autoload contract for registered setting defaults, runtime values, and change broadcasts",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-16",
+      "canonical_for": ["settings", "setting_defaults", "runtime_preferences"],
+      "must_read_for": ["settings_change", "new_setting", "settings_ui_change"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/localization.md"],
+      "related_code": ["client/scripts/autoload/settings.gd", "client/scripts/contracts/settings_keys.gd", "client/data/_contracts.json"],
+      "update_triggers": ["Settings API changes", "setting default changes", "setting key changes", "settings persistence changes"],
+      "keywords": ["Settings", "autoload", "settings_keys", "setting_changed", "general.locale", "preferences"]
+    },
+    {
+      "path": "docs/代码/localization.md",
+      "type": "module_doc",
+      "authority": "Localization autoload contract for current locale, supported locales, Settings linkage, and translation lookup",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-16",
+      "canonical_for": ["localization", "locale_switching", "translation_lookup"],
+      "must_read_for": ["localization_change", "new_language", "player_text_change"],
+      "related_docs": ["client/locale/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/settings.md"],
+      "related_code": ["client/scripts/autoload/localization.gd", "client/locale/strings.csv", "client/scripts/autoload/settings.gd"],
+      "update_triggers": ["supported locale changes", "translation lookup changes", "Settings locale linkage changes"],
+      "keywords": ["Localization", "autoload", "locale", "zh_CN", "en", "tr_key", "TranslationServer"]
+    },
+    {
+      "path": "docs/代码/ui_manager.md",
+      "type": "module_doc",
+      "authority": "UIManager autoload contract for UI scene stack, CanvasLayer root, and pause UI linkage",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-16",
+      "canonical_for": ["ui_manager", "ui_stack", "pause_ui"],
+      "must_read_for": ["ui_stack_change", "new_ui_modal", "pause_menu_change"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/game_state.md", "docs/代码/settings.md", "docs/代码/localization.md"],
+      "related_code": ["client/scripts/autoload/ui_manager.gd", "client/scripts/autoload/game_state.gd"],
+      "update_triggers": ["UIManager API changes", "UI metadata changes", "pause linkage changes", "UI stack behavior changes"],
+      "keywords": ["UIManager", "autoload", "UI stack", "push", "pop", "pauses_game", "CanvasLayer"]
     }
   ]
 }

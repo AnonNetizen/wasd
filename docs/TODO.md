@@ -18,12 +18,12 @@
 ## 1. 当前优先级（P0）
 
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、本地 pre-commit hook、增量 watch。
-- [ ] 继续正式项目 F2 横向 autoload 骨架：补 `Settings`、`Localization`、`UIManager` 的最小可验证 API。
+- [ ] 继续正式项目 F2 横向 autoload 骨架：补 `Analytics`、`Replay`、`PoolManager`、`SaveManager`、`AudioManager` 的最小可验证 API。
 
 ## 2. 下一批任务（P1）
 
 - [ ] 完成正式项目 F3 数据 / 契约闭环：`DataLoader` 同时支持平表 CSV 和复杂 JSON，正式项目数据加载、locale key、生成常量引用和 fail-fast 校验。
-- [ ] 实现完整项目剩余 autoload 骨架：`Localization`、`Settings`、`Analytics`、`Replay`、`UIManager`、`PoolManager`、`SaveManager`、`AudioManager`。
+- [ ] 实现完整项目剩余 autoload 骨架：`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`AudioManager`。
 - [ ] 为剩余横向 autoload 补详细模块文档：`docs/代码/<module_id>.md`，并在脚本头部加 `# Doc:`。
 - [ ] 实现 `DataLoader` 对 `player.json`、`meta_progression.json`、`strings.csv` 引用 key 和词表 id 的 fail-fast 校验。
 - [ ] 实现强 `SaveManager`：`meta` 局外成长、`run` 暂停退出续局、标准头字段（含 `data_hash`）、kind/slot 校验、原子写入、`.bak` 回退、迁移注册和损坏隔离。

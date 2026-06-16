@@ -19,6 +19,9 @@ DataLoader="*res://scripts/autoload/data_loader.gd"
 RNG="*res://scripts/autoload/rng.gd"
 GameState="*res://scripts/autoload/game_state.gd"
 GameClock="*res://scripts/autoload/game_clock.gd"
+Settings="*res://scripts/autoload/settings.gd"
+Localization="*res://scripts/autoload/localization.gd"
+UIManager="*res://scripts/autoload/ui_manager.gd"
 
 [rendering]
 
