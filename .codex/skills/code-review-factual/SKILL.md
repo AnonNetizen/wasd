@@ -1,15 +1,17 @@
 ---
 name: code-review-factual
-description: Fact-based review for bugs, risks, regressions, and missing tests. Use when the user asks to review, check risks, or asks whether something has problems.
+description: Fact-based review for bugs, risks, regressions, and missing tests. Use when the user asks to review/check risks/problems, or automatically before committing a large code change.
 license: MIT
 compatibility: agent-skills
 metadata:
-  source: project-adapted from mature code-review skill patterns and ADR #50
+  source: project-adapted from mature code-review skill patterns and ADR #50 / ADR #69
 ---
 
 # Code Review Factual
 
-Use this skill for review-style requests.
+Use this skill for review-style requests and for the mandatory pre-commit review after large code changes.
+
+Do not run a formal review for tiny changes such as typos, single-line wording, small documentation edits, read-only diagnostics, or temporary verification unless the user explicitly asks.
 
 ## Review Priorities
 

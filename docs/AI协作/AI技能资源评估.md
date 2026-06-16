@@ -36,7 +36,7 @@
 | `playtest-review` | `.codebuddy/skills/playtest-review/SKILL.md` / `.codex/skills/playtest-review/SKILL.md` / `.opencode/skills/playtest-review/SKILL.md` | MVP / 完整项目试玩复盘、手感与配置调参评估、里程碑 readiness 和后续任务分级 |
 | `project-doc-sync` | `.codebuddy/skills/project-doc-sync/SKILL.md` / `.codex/skills/project-doc-sync/SKILL.md` / `.opencode/skills/project-doc-sync/SKILL.md` | 规则、ADR、AI 记忆、知识库索引和长期文档同步流程 |
 | `safe-git-commit` | `.codebuddy/skills/safe-git-commit/SKILL.md` / `.codex/skills/safe-git-commit/SKILL.md` / `.opencode/skills/safe-git-commit/SKILL.md` | 执行 ADR #52 的安全提交流程，避免误 stage 用户脏改或 `DRAFT/` |
-| `code-review-factual` | `.codebuddy/skills/code-review-factual/SKILL.md` / `.codex/skills/code-review-factual/SKILL.md` / `.opencode/skills/code-review-factual/SKILL.md` | 事实型代码审查；没发现问题就明确说没有，不硬找问题 |
+| `code-review-factual` | `.codebuddy/skills/code-review-factual/SKILL.md` / `.codex/skills/code-review-factual/SKILL.md` / `.opencode/skills/code-review-factual/SKILL.md` | 事实型代码审查；大型代码改动提交前自动使用，没发现问题就明确说没有，不硬找问题 |
 | `ai-resource-curator` | `.codebuddy/skills/ai-resource-curator/SKILL.md` / `.codex/skills/ai-resource-curator/SKILL.md` / `.opencode/skills/ai-resource-curator/SKILL.md` | 未来继续评估 / 安装 AI skill、agent、plugin、MCP、rules 的筛选流程 |
 | `mcp-tool-evaluation` | `.codebuddy/skills/mcp-tool-evaluation/SKILL.md` / `.codex/skills/mcp-tool-evaluation/SKILL.md` / `.opencode/skills/mcp-tool-evaluation/SKILL.md` | 评估 MCP server 是否应项目级 / 用户级安装，控制权限和密钥风险 |
 

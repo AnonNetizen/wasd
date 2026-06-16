@@ -117,6 +117,7 @@ docs(adr): 记录暂停功能实现约定
 
 - AI 完成大更改后默认自动 commit：跨多文件功能 / 工具 / CI / 规则 / ADR / 数据 schema / 代码模块 / 重要文档同步等可独立回滚的变更。
 - 细微改动不自动 commit：拼写、单行措辞、小范围说明、只读诊断、临时验证或用户明确说“先别提交”的改动。
+- 大型代码改动提交前必须追加事实型 code review；细微改动不触发正式 review。
 - 自动 commit 前必须执行 `git status --short`、`git diff`、`git log --oneline -10`，跑对应验证，只 stage 本次任务明确修改的文件。
 - 禁止提交用户已有脏改动、其他 agent 改动、`draft/` / `DRAFT/` 内容、未确认临时文件或本机私有配置；无法干净拆分时先问用户。
 - commit message 使用 Conventional Commits；禁止 `--no-verify`，除非用户明确批准且 message 写明原因。
