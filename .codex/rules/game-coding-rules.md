@@ -226,6 +226,7 @@ alwaysApply: true
 - 项目长期目标是支持大量角色、遗物、道具和“突破默认限制”的内容；玩法限制（如默认 4 方向瞄准、自动开火、主动栏数量、摄像机策略）是默认配置，不是硬编码上限。
 - 新角色必须数据驱动：基础属性、起始武器 / 遗物、tags、capabilities、控制配置等来自 `client/data/characters.json`（落地后）或同类数据文件。
 - 项目后续可能存在多种游戏模式；角色、遗物、道具、敌人、成长奖励等资源本体默认保持模式无关，模式配置只通过资源池、权重、禁用列表、tags / availability、capability / strategy 和轻量覆盖组合资源，禁止为某个模式复制一套资源或写 `if mode_id == ...` 的内容分支。
+- 当前不做多人，但需预留未来多人 PvE / PvP 边界：业务逻辑禁止写死唯一玩家、唯一队伍或“玩家只打敌人 / 敌人只打玩家”；输入走归一化 intent / InputMap action，伤害走 `Combat` 的 source / target / team / friendly_fire 模式规则边界，回放 / 存档 / 埋点可预留 participant / team 概念；不得提前实现网络层、同步协议或服务器权威。
 - 破限内容必须声明 `tag_limit_break` 与对应 `capability_id`，并在 `docs/词表与契约.md` 第 12 节登记；代码引用走生成常量，禁止裸字符串。
 - 现有 primitive 表达不了时，先新增可复用 primitive / strategy（effect、behavior、StatusEffect、movement_model、aim_model、fire_model 等），再由数据引用；不得把特殊逻辑塞进某个系统的 id 判断。
 - 工程红线不可被内容突破：随机仍走 `RNG`，时间仍走 `GameClock`，伤害仍走 `Combat`，UI 仍走 `UIManager`，存档仍走 `SaveManager`，音频仍走 `AudioManager`。
