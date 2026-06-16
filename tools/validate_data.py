@@ -17,6 +17,7 @@ CLIENT_DATA = ROOT / "client" / "data"
 LOCALE_CSV = ROOT / "client" / "locale" / "strings.csv"
 GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
 GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
+GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
 MVP_CONFIG = ROOT / "MinimumViableProduct" / "client" / "data" / "mvp_config.json"
 PLACEHOLDER_RE = re.compile(r"\{[a-z0-9_]+\}")
 LOCALE_KEY_RE = re.compile(r"^[a-z0-9_]+$")
@@ -47,6 +48,7 @@ def main() -> int:
     _validate_meta_progression(ctx)
     _validate_growth_csv(ctx)
     _validate_growth_pools(ctx)
+    _validate_game_modes(ctx)
     _validate_mvp_config(ctx)
 
     if ctx.errors:
@@ -248,6 +250,145 @@ def _validate_growth_pools(ctx: ValidationContext) -> None:
                 _require_int(ctx, path, f"{entry_field}.min_level", entry.get("min_level"), minimum=1)
             if "modifiers" in entry:
                 _validate_modifiers(ctx, path, f"{entry_field}.modifiers", entry.get("modifiers"), require_value_per_level=False)
+
+
+def _validate_game_modes(ctx: ValidationContext) -> None:
+    path = GAME_MODES_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    modes = _require_list(ctx, path, "modes", data.get("modes"))
+    if not modes:
+        ctx.error(path, "modes", "must be a non-empty array")
+    seen_modes: set[str] = set()
+    growth_pool_ids = _collect_growth_pool_ids(ctx)
+    for mode_index, mode in enumerate(modes):
+        mode_field = f"modes[{mode_index}]"
+        if not isinstance(mode, dict):
+            ctx.error(path, mode_field, "must be an object")
+            continue
+        mode_id = _require_registered(ctx, path, f"{mode_field}.id", mode.get("id"), "game_modes")
+        if mode_id:
+            if mode_id in seen_modes:
+                ctx.error(path, f"{mode_field}.id", f"duplicate game mode id {mode_id}")
+            seen_modes.add(mode_id)
+        _require_locale_key(ctx, path, f"{mode_field}.name_key", mode.get("name_key"))
+        _require_locale_key(ctx, path, f"{mode_field}.desc_key", mode.get("desc_key"))
+        _require_bool(ctx, path, f"{mode_field}.default_unlocked", mode.get("default_unlocked"))
+        team_ids = _validate_mode_teams(ctx, path, mode_field, mode.get("teams"))
+        _validate_mode_participants(ctx, path, mode_field, mode.get("participants"), team_ids)
+        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids)
+        if "blocklists" in mode:
+            _validate_mode_blocklists(ctx, path, f"{mode_field}.blocklists", mode.get("blocklists"))
+        if "overrides" in mode:
+            _validate_mode_overrides(ctx, path, f"{mode_field}.overrides", mode.get("overrides"))
+
+
+def _validate_mode_teams(ctx: ValidationContext, path: Path, mode_field: str, data: Any) -> set[str]:
+    teams = _require_list(ctx, path, f"{mode_field}.teams", data)
+    if not teams:
+        ctx.error(path, f"{mode_field}.teams", "must be a non-empty array")
+    team_ids: set[str] = set()
+    for index, team in enumerate(teams):
+        field = f"{mode_field}.teams[{index}]"
+        if not isinstance(team, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        team_id = _require_non_empty_string(ctx, path, f"{field}.id", team.get("id"))
+        if team_id:
+            if team_id in team_ids:
+                ctx.error(path, f"{field}.id", f"duplicate team id {team_id}")
+            team_ids.add(team_id)
+        _require_bool(ctx, path, f"{field}.friendly_fire", team.get("friendly_fire"))
+    return team_ids
+
+
+def _validate_mode_participants(ctx: ValidationContext, path: Path, mode_field: str, data: Any, team_ids: set[str]) -> None:
+    participants = _require_list(ctx, path, f"{mode_field}.participants", data)
+    if not participants:
+        ctx.error(path, f"{mode_field}.participants", "must be a non-empty array")
+    participant_ids: set[str] = set()
+    for index, participant in enumerate(participants):
+        field = f"{mode_field}.participants[{index}]"
+        if not isinstance(participant, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        participant_id = _require_non_empty_string(ctx, path, f"{field}.id", participant.get("id"))
+        if participant_id:
+            if participant_id in participant_ids:
+                ctx.error(path, f"{field}.id", f"duplicate participant id {participant_id}")
+            participant_ids.add(participant_id)
+        _require_non_empty_string(ctx, path, f"{field}.kind", participant.get("kind"))
+        team_id = _require_non_empty_string(ctx, path, f"{field}.team_id", participant.get("team_id"))
+        if team_id and team_id not in team_ids:
+            ctx.error(path, f"{field}.team_id", f"team is not defined in teams: {team_id}")
+        if "control" in participant:
+            _require_non_empty_string(ctx, path, f"{field}.control", participant.get("control"))
+
+
+def _validate_mode_resource_pools(ctx: ValidationContext, path: Path, mode_field: str, data: Any, growth_pool_ids: set[str]) -> None:
+    field = f"{mode_field}.resource_pools"
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    if "characters" in data:
+        _validate_weighted_contract_entries(ctx, path, f"{field}.characters", data.get("characters"), "character_ids")
+    if "growth_pools" in data:
+        _validate_weighted_growth_pool_entries(ctx, path, f"{field}.growth_pools", data.get("growth_pools"), growth_pool_ids)
+    if "characters" not in data and "growth_pools" not in data:
+        ctx.error(path, field, "must contain at least one supported pool")
+
+
+def _validate_weighted_contract_entries(ctx: ValidationContext, path: Path, field: str, data: Any, contract_key: str) -> None:
+    entries = _require_list(ctx, path, field, data)
+    if not entries:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, entry in enumerate(entries):
+        item_field = f"{field}[{index}]"
+        if not isinstance(entry, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        _require_registered(ctx, path, f"{item_field}.id", entry.get("id"), contract_key)
+        _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
+
+
+def _validate_weighted_growth_pool_entries(ctx: ValidationContext, path: Path, field: str, data: Any, growth_pool_ids: set[str]) -> None:
+    entries = _require_list(ctx, path, field, data)
+    if not entries:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, entry in enumerate(entries):
+        item_field = f"{field}[{index}]"
+        if not isinstance(entry, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        pool_id = _require_non_empty_string(ctx, path, f"{item_field}.id", entry.get("id"))
+        if pool_id and pool_id not in growth_pool_ids:
+            ctx.error(path, f"{item_field}.id", f"pool is not defined in growth_pools.json: {pool_id}")
+        _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
+
+
+def _validate_mode_blocklists(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    if "content_tags" in data:
+        tags = _require_list(ctx, path, f"{field}.content_tags", data.get("content_tags"))
+        for index, tag in enumerate(tags):
+            _require_registered(ctx, path, f"{field}.content_tags[{index}]", tag, "content_tags")
+
+
+def _validate_mode_overrides(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    if "player_base_stats" in data:
+        stats = data.get("player_base_stats")
+        if not isinstance(stats, dict):
+            ctx.error(path, f"{field}.player_base_stats", "must be an object")
+            return
+        for stat, value in stats.items():
+            _validate_stat_value(ctx, path, f"{field}.player_base_stats.{stat}", stat, value)
 
 
 def _validate_currencies(ctx: ValidationContext, path: Path, currencies: list[Any]) -> set[str]:
@@ -453,6 +594,16 @@ def _collect_unlock_ids(data: Any) -> set[str]:
     return {item.get("id") for item in data if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
+def _collect_growth_pool_ids(ctx: ValidationContext) -> set[str]:
+    data = _load_json(GROWTH_POOLS_JSON, ctx)
+    if not isinstance(data, dict):
+        return set()
+    pools = data.get("pools")
+    if not isinstance(pools, list):
+        return set()
+    return {item.get("id") for item in pools if isinstance(item, dict) and isinstance(item.get("id"), str)}
+
+
 def _require_registered(ctx: ValidationContext, path: Path, field: str, value: Any, contract_key: str) -> str | None:
     if not isinstance(value, str) or not value:
         ctx.error(path, field, "must be a non-empty string")
@@ -466,6 +617,13 @@ def _require_registered(ctx: ValidationContext, path: Path, field: str, value: A
 def _require_non_empty_string(ctx: ValidationContext, path: Path, field: str, value: Any) -> str | None:
     if not isinstance(value, str) or not value:
         ctx.error(path, field, "must be a non-empty string")
+        return None
+    return value
+
+
+def _require_bool(ctx: ValidationContext, path: Path, field: str, value: Any) -> bool | None:
+    if not isinstance(value, bool):
+        ctx.error(path, field, "must be bool")
         return None
     return value
 

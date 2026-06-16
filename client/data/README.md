@@ -21,7 +21,7 @@
 | 改角色起始属性 / 起始武器 | `characters.json`（落地后） | 名字和描述只填 `name_key` / `desc_key` |
 | 改敌人血量 / 速度 / 接触伤害 | `enemies.csv`（落地后） | 敌人 id、标签、伤害类型必须来自词表 |
 | 改遗物 / 道具数值 | `relics.json` / `active_items.json` / `consumables.json`（落地后） | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
-| 改某个游戏模式可用内容 / 权重 | `game_modes.json`（落地后） | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
+| 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
 | 改刷怪强度 / 难度曲线 | `spawn_waves.csv`（落地后） | 大改后需要跑回放 / 平衡验证 |
 | 改经验阈值 / 升级候选概率 | `growth.csv`（落地后） | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
 | 改局外货币 / 永久升级 / 解锁 | `meta_progression.json` | 存档走 `SaveManager` 的 `meta` kind，id 必须来自词表 §13 |
@@ -32,7 +32,7 @@
 | 文件 | 状态 | 作用 |
 |------|------|------|
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
-| `game_modes.json` | 规划 | 游戏模式配置：可用角色 / 遗物 / 道具 / 敌人 / 成长池、权重、禁用列表、模式规则、参与者 / 队伍预留和轻量覆盖 |
+| `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
 | `characters.json` | 规划 | 角色列表：基础属性、起始武器 / 遗物、tags、capabilities、控制配置 |
 | `weapons.json` | 规划 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
 | `relics.json` | 规划 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
@@ -156,6 +156,61 @@ JSON 示例：
 | `base_stats` | object | 视内容而定 | 基础属性，字段来自词表 stat |
 | `modifiers` | array[object] | 遗物常见 | 数值修正，格式见下节 |
 | `behaviors` | array[object] | 行为内容常见 | 行为触发，格式见下节 |
+
+## `game_modes.json`
+
+当前结构：
+
+```json
+{
+  "schema_version": 1,
+  "modes": [
+    {
+      "id": "mode_standard_survival",
+      "name_key": "ui_mode_standard_survival_name",
+      "desc_key": "ui_mode_standard_survival_desc",
+      "default_unlocked": true,
+      "participants": [
+        { "id": "local_player", "kind": "player", "team_id": "team_player", "control": "local_player" }
+      ],
+      "teams": [
+        { "id": "team_player", "friendly_fire": false },
+        { "id": "team_enemy", "friendly_fire": false }
+      ],
+      "resource_pools": {
+        "characters": [{ "id": "character_default", "weight": 100 }],
+        "growth_pools": [{ "id": "default_level_up", "weight": 100 }]
+      },
+      "blocklists": { "content_tags": [] },
+      "overrides": { "player_base_stats": {} }
+    }
+  ]
+}
+```
+
+字段说明：
+
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `modes[].id` | string | 词表 §12-A game mode id，文件内唯一 | 游戏模式 id；代码引用走生成常量 |
+| `modes[].name_key` / `desc_key` | string | `ui_*_name` / `ui_*_desc` | 模式名称和描述译文 key |
+| `modes[].default_unlocked` | bool | true / false | 新存档中是否默认可用 |
+| `participants[].id` | string | 模式内唯一 | 参与者 id；当前单人样例为 `local_player` |
+| `participants[].kind` | string | 非空 | 参与者类型；当前样例为 `player`，后续 AI / 远端玩家需先补 schema |
+| `participants[].team_id` | string | 必须存在于 `teams[].id` | 参与者所属队伍 |
+| `participants[].control` | string | 非空，可选 | 控制来源；当前样例为本地玩家输入 |
+| `teams[].id` | string | 模式内唯一 | 队伍 id；供伤害、回放、存档和未来多人边界引用 |
+| `teams[].friendly_fire` | bool | true / false | 队伍内是否允许友伤；当前只做 schema 预留 |
+| `resource_pools.characters[]` | array[object] | 已声明时必须非空 | 本模式可用角色池 |
+| `resource_pools.characters[].id` | string | 词表 §12.1 character id | 可用角色 id |
+| `resource_pools.*[].weight` | int | `>= 0` | 抽取 / 展示权重；具体抽取由后续系统实现 |
+| `resource_pools.growth_pools[]` | array[object] | 已声明时必须非空 | 本模式使用的升级候选池 |
+| `resource_pools.growth_pools[].id` | string | `growth_pools.json` 中已定义池 id | 升级候选池 id |
+| `blocklists.content_tags[]` | array[string] | 词表 §12.3 content tag | 禁用某类内容标签；当前样例为空 |
+| `overrides.player_base_stats` | object | stat 来自词表 §1 | 轻量覆盖玩家基础属性；只用于模式差异，不复制角色本体 |
+
+`game_modes.json` 只声明模式边界，不实现模式选择 UI、匹配、联网、刷怪、成长抽取或实际战斗规则。新增资源池类型时，必须同步本文档、`DataLoader` schema、词表或对应数据注册表。
 
 ## `modifiers` 格式
 

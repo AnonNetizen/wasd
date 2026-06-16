@@ -18,16 +18,16 @@
 ## 1. 当前优先级（P0）
 
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、本地 pre-commit hook、增量 watch。
-- [ ] 继续正式项目 F3 数据 / 契约闭环：扩展 `DataLoader` 正式 schema 校验与 CSV / JSON 读取边界。
+- [ ] 继续正式项目 F3 数据 / 契约闭环：补 DataLoader L1 schema 错误覆盖，并继续扩展后续内容数据 schema。
 
 ## 2. 下一批任务（P1）
 
-- [ ] 完成正式项目 F3 数据 / 契约闭环：正式项目数据加载、locale key、生成常量引用和 fail-fast 校验。
-- [ ] 实现 `DataLoader` 对 `player.json`、`meta_progression.json`、`strings.csv` 引用 key 和词表 id 的 fail-fast 校验。
+- [ ] 完成正式项目 F3 数据 / 契约闭环：把已落地 schema 扩展到角色、武器、遗物、敌人等后续内容数据。
+- [ ] 建立 DataLoader L1 测试：黄金样例、未登记 id、缺失 locale key、错误类型和非法范围都应有 fail-fast 覆盖。
 - [ ] 深化接入强 `SaveManager`：`meta` 局外成长业务、`run` 暂停退出续局快照、暂停菜单保存退出、主菜单继续游戏和存档迁移测试。
 - [ ] 实现暂停菜单“保存并退出”和主菜单“继续游戏”流程，加载后恢复玩家、敌人、子弹、掉落、经验、遗物、RNG、GameClock 和 UI 恢复点。
 - [ ] 实现 `MetaProgressionSystem`：结算奖励、账号等级、永久升级购买、解锁授予、`ModifierEngine` 注入。
-- [ ] 设计并落地 `client/data/growth.json`：经验阈值、升级候选数概率、候选池结构和权重。
+- [ ] 扩展 `client/data/growth_pools.json` 内容：在属性奖励样例后，评估遗物、主动强化、回血、刷新 / 跳过 / banish 等候选类型。
 - [ ] 决策待定项 E：升级选项池内容是否包含遗物、属性、主动强化、回血、刷新 / 跳过 / banish。
 
 ## 3. 中期任务（P2）

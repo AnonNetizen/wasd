@@ -13,6 +13,7 @@ const PLAYER_DATA_PATH: String = "res://data/player.json"
 const META_PROGRESSION_PATH: String = "res://data/meta_progression.json"
 const GROWTH_CURVE_PATH: String = "res://data/growth.csv"
 const GROWTH_POOLS_PATH: String = "res://data/growth_pools.json"
+const GAME_MODES_PATH: String = "res://data/game_modes.json"
 
 const INT_STATS: Array[String] = ["max_hp", "bullet_count", "pierce_count"]
 const NON_NEGATIVE_STATS: Array[String] = ["damage", "pickup_range", "luck", "armor", "lifesteal_ratio"]
@@ -73,6 +74,7 @@ func validate_project_data() -> bool:
 	is_valid = _validate_meta_progression(locale_keys) and is_valid
 	is_valid = _validate_growth_csv() and is_valid
 	is_valid = _validate_growth_pools() and is_valid
+	is_valid = _validate_game_modes(locale_keys) and is_valid
 
 	return is_valid
 
@@ -398,6 +400,182 @@ func _validate_growth_pools() -> bool:
 	return is_valid
 
 
+func _validate_game_modes(locale_keys: Dictionary) -> bool:
+	var data: Variant = load_json(GAME_MODES_PATH)
+	if not data is Dictionary:
+		return _schema_fail(GAME_MODES_PATH, "root", "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(GAME_MODES_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var modes: Array = _require_array(GAME_MODES_PATH, "modes", payload.get("modes"))
+	if modes.is_empty():
+		is_valid = _schema_fail(GAME_MODES_PATH, "modes", "non-empty Array") and is_valid
+	var seen_modes: Dictionary = {}
+	var growth_pool_ids: Dictionary = _collect_growth_pool_ids()
+	_last_schema_counts["game_modes"] = modes.size()
+	for mode_index: int in range(modes.size()):
+		var mode_field: String = "modes[%d]" % mode_index
+		var mode: Variant = modes[mode_index]
+		if not mode is Dictionary:
+			is_valid = _schema_fail(GAME_MODES_PATH, mode_field, "Dictionary") and is_valid
+			continue
+		var mode_dict: Dictionary = mode as Dictionary
+		var mode_id: String = _require_registered(GAME_MODES_PATH, "%s.id" % mode_field, mode_dict.get("id"), "game_modes")
+		if not mode_id.is_empty():
+			if seen_modes.has(mode_id):
+				is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % mode_field, "unique game mode id") and is_valid
+			seen_modes[mode_id] = true
+		is_valid = _require_locale_key(GAME_MODES_PATH, "%s.name_key" % mode_field, mode_dict.get("name_key"), locale_keys) and is_valid
+		is_valid = _require_locale_key(GAME_MODES_PATH, "%s.desc_key" % mode_field, mode_dict.get("desc_key"), locale_keys) and is_valid
+		is_valid = _require_bool(GAME_MODES_PATH, "%s.default_unlocked" % mode_field, mode_dict.get("default_unlocked")) and is_valid
+		var team_result: Dictionary = _validate_mode_teams(mode_field, mode_dict.get("teams"))
+		var team_ids: Dictionary = team_result.get("ids", {}) as Dictionary
+		is_valid = bool(team_result.get("is_valid", false)) and is_valid
+		is_valid = _validate_mode_participants(mode_field, mode_dict.get("participants"), team_ids) and is_valid
+		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), growth_pool_ids) and is_valid
+		if mode_dict.has("blocklists"):
+			is_valid = _validate_mode_blocklists("%s.blocklists" % mode_field, mode_dict.get("blocklists")) and is_valid
+		if mode_dict.has("overrides"):
+			is_valid = _validate_mode_overrides("%s.overrides" % mode_field, mode_dict.get("overrides")) and is_valid
+	return is_valid
+
+
+func _validate_mode_teams(mode_field: String, data: Variant) -> Dictionary:
+	var teams: Array = _require_array(GAME_MODES_PATH, "%s.teams" % mode_field, data)
+	var is_valid: bool = true
+	var team_ids: Dictionary = {}
+	for index: int in range(teams.size()):
+		var field: String = "%s.teams[%d]" % [mode_field, index]
+		var team: Variant = teams[index]
+		if not team is Dictionary:
+			is_valid = _schema_fail(GAME_MODES_PATH, field, "Dictionary") and is_valid
+			continue
+		var team_dict: Dictionary = team as Dictionary
+		var team_id: String = String(team_dict.get("id", ""))
+		if _require_non_empty_string(GAME_MODES_PATH, "%s.id" % field, team_dict.get("id")):
+			if team_ids.has(team_id):
+				is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % field, "unique team id") and is_valid
+			team_ids[team_id] = true
+		else:
+			is_valid = false
+		is_valid = _require_bool(GAME_MODES_PATH, "%s.friendly_fire" % field, team_dict.get("friendly_fire")) and is_valid
+	if teams.is_empty():
+		is_valid = _schema_fail(GAME_MODES_PATH, "%s.teams" % mode_field, "non-empty Array") and is_valid
+	return {
+		"ids": team_ids,
+		"is_valid": is_valid,
+	}
+
+
+func _validate_mode_participants(mode_field: String, data: Variant, team_ids: Dictionary) -> bool:
+	var participants: Array = _require_array(GAME_MODES_PATH, "%s.participants" % mode_field, data)
+	var is_valid: bool = true
+	var participant_ids: Dictionary = {}
+	if participants.is_empty():
+		is_valid = _schema_fail(GAME_MODES_PATH, "%s.participants" % mode_field, "non-empty Array") and is_valid
+	for index: int in range(participants.size()):
+		var field: String = "%s.participants[%d]" % [mode_field, index]
+		var participant: Variant = participants[index]
+		if not participant is Dictionary:
+			is_valid = _schema_fail(GAME_MODES_PATH, field, "Dictionary") and is_valid
+			continue
+		var participant_dict: Dictionary = participant as Dictionary
+		is_valid = _require_non_empty_string(GAME_MODES_PATH, "%s.id" % field, participant_dict.get("id")) and is_valid
+		var participant_id: String = String(participant_dict.get("id", ""))
+		if not participant_id.is_empty():
+			if participant_ids.has(participant_id):
+				is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % field, "unique participant id") and is_valid
+			participant_ids[participant_id] = true
+		is_valid = _require_non_empty_string(GAME_MODES_PATH, "%s.kind" % field, participant_dict.get("kind")) and is_valid
+		var team_id: String = String(participant_dict.get("team_id", ""))
+		is_valid = _require_non_empty_string(GAME_MODES_PATH, "%s.team_id" % field, participant_dict.get("team_id")) and is_valid
+		if not team_id.is_empty() and not team_ids.has(team_id):
+			is_valid = _schema_fail(GAME_MODES_PATH, "%s.team_id" % field, "team defined in teams") and is_valid
+		if participant_dict.has("control"):
+			is_valid = _require_non_empty_string(GAME_MODES_PATH, "%s.control" % field, participant_dict.get("control")) and is_valid
+	return is_valid
+
+
+func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_pool_ids: Dictionary) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	if payload.has("characters"):
+		is_valid = _validate_weighted_contract_entries("%s.resource_pools.characters" % mode_field, payload.get("characters"), "character_ids") and is_valid
+	if payload.has("growth_pools"):
+		is_valid = _validate_weighted_growth_pool_entries("%s.resource_pools.growth_pools" % mode_field, payload.get("growth_pools"), growth_pool_ids) and is_valid
+	if not payload.has("characters") and not payload.has("growth_pools"):
+		is_valid = _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "at least one supported pool") and is_valid
+	return is_valid
+
+
+func _validate_weighted_contract_entries(field: String, data: Variant, contract_key: String) -> bool:
+	var entries: Array = _require_array(GAME_MODES_PATH, field, data)
+	var is_valid: bool = true
+	if entries.is_empty():
+		is_valid = _schema_fail(GAME_MODES_PATH, field, "non-empty Array") and is_valid
+	for index: int in range(entries.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var entry: Variant = entries[index]
+		if not entry is Dictionary:
+			is_valid = _schema_fail(GAME_MODES_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var entry_dict: Dictionary = entry as Dictionary
+		is_valid = _require_registered(GAME_MODES_PATH, "%s.id" % item_field, entry_dict.get("id"), contract_key) != "" and is_valid
+		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
+	return is_valid
+
+
+func _validate_weighted_growth_pool_entries(field: String, data: Variant, growth_pool_ids: Dictionary) -> bool:
+	var entries: Array = _require_array(GAME_MODES_PATH, field, data)
+	var is_valid: bool = true
+	if entries.is_empty():
+		is_valid = _schema_fail(GAME_MODES_PATH, field, "non-empty Array") and is_valid
+	for index: int in range(entries.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var entry: Variant = entries[index]
+		if not entry is Dictionary:
+			is_valid = _schema_fail(GAME_MODES_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var entry_dict: Dictionary = entry as Dictionary
+		is_valid = _require_non_empty_string(GAME_MODES_PATH, "%s.id" % item_field, entry_dict.get("id")) and is_valid
+		var pool_id: String = String(entry_dict.get("id", ""))
+		if not pool_id.is_empty() and not growth_pool_ids.has(pool_id):
+			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "pool id defined in growth_pools.json") and is_valid
+		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
+	return is_valid
+
+
+func _validate_mode_blocklists(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(GAME_MODES_PATH, field, "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	if payload.has("content_tags"):
+		var tags: Array = _require_array(GAME_MODES_PATH, "%s.content_tags" % field, payload.get("content_tags"))
+		for index: int in range(tags.size()):
+			is_valid = _require_registered(GAME_MODES_PATH, "%s.content_tags[%d]" % [field, index], tags[index], "content_tags") != "" and is_valid
+	return is_valid
+
+
+func _validate_mode_overrides(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(GAME_MODES_PATH, field, "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	if payload.has("player_base_stats"):
+		var stats: Variant = payload.get("player_base_stats")
+		if not stats is Dictionary:
+			is_valid = _schema_fail(GAME_MODES_PATH, "%s.player_base_stats" % field, "Dictionary") and is_valid
+		else:
+			var stats_dict: Dictionary = stats as Dictionary
+			for stat_key: Variant in stats_dict.keys():
+				var stat: String = String(stat_key)
+				is_valid = _validate_stat_value(GAME_MODES_PATH, "%s.player_base_stats.%s" % [field, stat], stat, stats_dict[stat_key]) and is_valid
+	return is_valid
+
+
 func _validate_modifiers(resource_path: String, field: String, data: Variant, require_value_per_level: bool) -> bool:
 	var modifiers: Array = _require_array(resource_path, field, data)
 	var is_valid: bool = true
@@ -456,6 +634,20 @@ func _collect_defined_unlock_ids(data: Variant) -> Dictionary:
 	return ids
 
 
+func _collect_growth_pool_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(GROWTH_POOLS_PATH)
+	if not data is Dictionary:
+		return ids
+	var pools: Variant = (data as Dictionary).get("pools")
+	if not pools is Array:
+		return ids
+	for pool: Variant in pools:
+		if pool is Dictionary and (pool as Dictionary).get("id") is String:
+			ids[String((pool as Dictionary).get("id"))] = true
+	return ids
+
+
 func _collect_locale_keys() -> Dictionary:
 	var rows: Array[Dictionary] = load_csv(LOCALE_STRINGS_PATH)
 	var keys: Dictionary = {}
@@ -500,6 +692,12 @@ func _require_array(resource_path: String, field: String, value: Variant) -> Arr
 func _require_non_empty_string(resource_path: String, field: String, value: Variant) -> bool:
 	if not value is String or String(value).is_empty():
 		return _schema_fail(resource_path, field, "non-empty string")
+	return true
+
+
+func _require_bool(resource_path: String, field: String, value: Variant) -> bool:
+	if not value is bool:
+		return _schema_fail(resource_path, field, "bool")
 	return true
 
 

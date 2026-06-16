@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "modes": [
+    {
+      "id": "mode_standard_survival",
+      "name_key": "ui_mode_standard_survival_name",
+      "desc_key": "ui_mode_standard_survival_desc",
+      "default_unlocked": true,
+      "participants": [
+        {
+          "id": "local_player",
+          "kind": "player",
+          "team_id": "team_player",
+          "control": "local_player"
+        }
+      ],
+      "teams": [
+        {
+          "id": "team_player",
+          "friendly_fire": false
+        },
+        {
+          "id": "team_enemy",
+          "friendly_fire": false
+        }
+      ],
+      "resource_pools": {
+        "characters": [
+          {
+            "id": "character_default",
+            "weight": 100
+          }
+        ],
+        "growth_pools": [
+          {
+            "id": "default_level_up",
+            "weight": 100
+          }
+        ]
+      },
+      "blocklists": {
+        "content_tags": []
+      },
+      "overrides": {
+        "player_base_stats": {}
+      }
+    }
+  ]
+}

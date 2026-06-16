@@ -14,7 +14,7 @@
 - `client/locale/strings.csv`
 - `client/data/growth.csv`
 - `client/data/growth_pools.json`
-- 后续 `client/data/game_modes.json` 的资源池 / 权重 / 轻量覆盖 / participant / team 预留边界
+- `client/data/game_modes.json` 的资源池 / 权重 / 轻量覆盖 / participant / team 预留边界
 
 ## 必读
 
@@ -35,9 +35,11 @@
 - `client/scripts/boot/formal_client_boot.gd`（只做 smoke 输出 / 启动验证）
 - `client/data/*.json` / `client/data/*.csv`
 - `client/locale/strings.csv`
+- `tools/validate_data.py`、`tools/sync_contracts.py`
 - `client/data/README.md`
 - `client/locale/README.md`
 - `docs/代码/data_loader.md`
+- `docs/词表与契约.md`
 - `docs/AI导航.md`、`docs/AI记忆/current_state.json`、当日会话日志（收尾同步）
 
 ## 禁止事项

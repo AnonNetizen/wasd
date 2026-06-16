@@ -155,6 +155,9 @@
       "tag_consumable",
       "tag_limit_break"
     ],
+    "game_modes": [
+      "mode_standard_survival"
+    ],
     "meta_currencies": [
       "meta_essence"
     ],
