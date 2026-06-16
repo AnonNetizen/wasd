@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_at": "2026-06-14",
+  "updated_at": "2026-06-16",
   "description": "Machine-readable AI knowledge base index for the wasd project.",
   "documents": [
     {
@@ -65,13 +65,13 @@
       "authority": "Repository overview, required reading, structure, and run instructions",
       "status": "active",
       "owner_scope": "project",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-16",
       "canonical_for": ["repository_overview", "required_docs"],
       "must_read_for": ["new_human_contributor", "new_ai_session", "repo_structure_change"],
-      "related_docs": ["AGENTS.md", "CONTRIBUTING.md", "docs/AI导航.md", "docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json"],
+      "related_docs": ["AGENTS.md", "CONTRIBUTING.md", "docs/AI导航.md", "docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json", "client/README.md"],
       "related_code": ["client/", "MinimumViableProduct/"],
       "update_triggers": ["project status changes", "run instructions change", "directory structure changes"],
-      "keywords": ["README", "入口", "仓库结构", "运行方式"]
+      "keywords": ["README", "入口", "仓库结构", "运行方式", "F1", "正式项目骨架", "headless boot"]
     },
     {
       "path": "CONTRIBUTING.md",
@@ -93,13 +93,13 @@
       "authority": "Human-readable map for docs as an AI knowledge base",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-14",
+      "last_reviewed": "2026-06-16",
       "canonical_for": ["knowledge_base", "authority_hierarchy", "task_routes", "adr_tracking_matrix"],
       "must_read_for": ["doc_structure_change", "task_routing", "knowledge_base_change"],
-      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md"],
+      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md"],
       "related_code": ["tools/docs_health_check.py"],
       "update_triggers": ["new long-lived document", "document rename", "authority hierarchy change", "task route change"],
-      "keywords": ["knowledge base", "知识库", "index", "索引", "权威层级", "任务路由"]
+      "keywords": ["knowledge base", "知识库", "index", "索引", "权威层级", "任务路由", "FormalClientBoot", "正式项目启动骨架", "F1"]
     },
     {
       "path": "docs/_kb_index.json",
@@ -233,10 +233,10 @@
       "authority": "Index for long-lived client module documentation",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-14",
+      "last_reviewed": "2026-06-16",
       "canonical_for": ["module_doc_index"],
       "must_read_for": ["code_module_change", "module_doc_lookup"],
-      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md"],
+      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md"],
       "related_code": ["client/"],
       "update_triggers": ["new module document", "module document rename", "module document deletion"],
       "keywords": ["代码", "module", "documentation", "index"]
@@ -247,10 +247,10 @@
       "authority": "Project map, extension points, dependency graph, red lines",
       "status": "active",
       "owner_scope": "architecture",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-16",
       "canonical_for": ["project_map", "extension_points", "dependency_graph"],
       "must_read_for": ["new_task", "extension_change", "dependency_change"],
-      "related_docs": ["docs/AI知识库索引.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md"],
+      "related_docs": ["docs/AI知识库索引.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md"],
       "related_code": ["client/", "MinimumViableProduct/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
       "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "AI资源", "vendor", "AI Git", "自动commit", "提交策略"]
@@ -576,6 +576,20 @@
       "related_code": ["MinimumViableProduct/client/scripts/", "MinimumViableProduct/client/scenes/"],
       "update_triggers": ["MVP public API change", "MVP signal change", "MVP scene tree change", "MVP input change"],
       "keywords": ["MVP client", "module doc", "场景树", "输入映射", "GameSession"]
+    },
+    {
+      "path": "docs/代码/formal_client_boot.md",
+      "type": "module_doc",
+      "authority": "Formal client F1 boot skeleton contract and startup verification guidance",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-16",
+      "canonical_for": ["formal_client_boot", "client_startup_skeleton", "f1_headless_boot"],
+      "must_read_for": ["formal_client_startup_change", "client_main_scene_change", "f1_validation"],
+      "related_docs": ["client/README.md", "docs/正式项目工作规划.md", "docs/代码/README.md", "docs/AI导航.md"],
+      "related_code": ["client/project.godot", "client/scenes/boot/main.tscn", "client/scripts/boot/formal_client_boot.gd"],
+      "update_triggers": ["client main scene changes", "formal boot script changes", "formal project startup validation changes"],
+      "keywords": ["FormalClientBoot", "client startup", "project.godot", "F1", "headless boot", "正式项目", "启动骨架"]
     }
   ]
 }

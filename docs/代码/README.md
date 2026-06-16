@@ -5,7 +5,7 @@
 
 ---
 
-本目录存放与 `client/` 代码对应的长期模块文档。当前项目仍处文档 / 框架设计阶段，代码尚未落地；M1 开始创建 autoload 与核心系统时，按 `docs/代码文档规范.md` 为每个长期维护模块补详细模块文档。
+本目录存放与 `client/` 代码对应的长期模块文档。正式项目 F1 已建立最小 Godot 启动骨架；F2 开始创建 autoload 与核心系统时，继续按 `docs/代码文档规范.md` 为每个长期维护模块补详细模块文档。
 
 ## 文档形态
 
@@ -15,6 +15,7 @@
 
 | 模块 | 文档 | 对应代码 | 状态 |
 |------|------|----------|------|
-| 待落地 | 待创建 | `client/` | M1 开始补齐 |
+| FormalClientBoot | `docs/代码/formal_client_boot.md` | `client/project.godot`、`client/scenes/boot/main.tscn`、`client/scripts/boot/formal_client_boot.gd` | F1 已建立 |
+| 横向 autoload | 待创建 | `client/scripts/autoload/` | F2 开始补齐 |
 
 > 约定：模块文档命名使用 lower_snake_case，例如 `rng.md`、`game_state.md`、`weapon_system.md`、`data_loader.md`。文档质量以 `docs/代码文档规范.md` 的“详细模块文档质量标准”为准。

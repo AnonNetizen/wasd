@@ -17,7 +17,6 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 按 `docs/正式项目工作规划.md` 推进 F1：创建完整项目 `client/project.godot` 与基础目录，保证 Godot headless 能启动。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、本地 pre-commit hook、增量 watch。
 - [ ] 启动正式项目 F2 横向 autoload 骨架：先落地 `DataLoader`、`RNG`、`GameClock`、`GameState` 的最小可验证 API。
 
@@ -69,3 +68,4 @@
 - [x] Stage 1 基础 CI：`.github/workflows/docs-check.yml` 跑契约同步、数据 / locale、文档健康检查和 whitespace diff。
 - [x] 10 个项目级 subagents：执行类 3 个 + 创意 / 策略类 7 个，三平台同名配置。
 - [x] 数据校验 / 契约同步 / 轻量 Godot Bridge：`tools/validate_data.py`、`tools/sync_contracts.py`、`tools/godot_bridge.py`，CI 接入 sync + validate + docs health。
+- [x] 正式项目 F1 工程骨架：`client/project.godot`、最小启动场景、标准目录、正式客户端运行说明和 `FormalClientBoot` 模块文档。

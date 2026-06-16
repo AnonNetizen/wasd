@@ -1,0 +1,18 @@
+; Engine configuration file.
+; Prefer editing through the Godot editor when changing project settings.
+;
+; Format:
+;   [section]
+;   key=value
+
+config_version=5
+
+[application]
+
+config/name="wasd"
+run/main_scene="res://scenes/boot/main.tscn"
+config/features=PackedStringArray("4.6")
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"

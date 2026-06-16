@@ -1,0 +1,101 @@
+# FormalClientBoot 模块文档
+
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
+> 本文档是正式客户端 F1 启动骨架的代码契约权威；改启动场景、项目入口、节点结构或验证方式时必须同步本文档、`client/README.md`、`docs/AI导航.md` 与 `docs/AI记忆/current_state.json`。
+
+## 职责
+
+- 负责提供完整项目 `client/` 的最小 Godot 启动入口。
+- 负责让 F1 阶段可以通过 headless 启动验证。
+- 不负责 autoload、主菜单、玩法循环、输入、UI 或数据加载；这些属于 F2+。
+
+## 阅读方式
+
+| 你想做什么 | 先看哪里 |
+|------------|----------|
+| 改正式项目启动场景 | `client/project.godot` 与 `client/scenes/boot/main.tscn` |
+| 改启动脚本行为 | `client/scripts/boot/formal_client_boot.gd` |
+| 推进下一阶段 autoload | `docs/正式项目工作规划.md` F2 |
+
+## 代码位置
+
+| 路径 | 作用 |
+|------|------|
+| `client/project.godot` | Godot 项目配置，`run/main_scene` 指向最小启动场景 |
+| `client/scenes/boot/main.tscn` | 正式项目最小启动场景 |
+| `client/scripts/boot/formal_client_boot.gd` | 启动场景脚本，输出启动日志 |
+| `client/README.md` | 正式客户端运行说明 |
+
+## 场景 / 节点结构
+
+```text
+FormalClientBoot (Node)
+```
+
+根节点挂载 `res://scripts/boot/formal_client_boot.gd`。
+
+## 运行流程
+
+| 阶段 | 发生什么 | 关键 API / signal |
+|------|----------|-------------------|
+| Godot 启动 | 读取 `client/project.godot` | `run/main_scene` |
+| 主场景加载 | 实例化 `FormalClientBoot` 根节点 | 无 |
+| `_ready()` | 输出正式客户端启动日志 | `print()` |
+
+## 公共 API
+
+无。该模块目前只提供启动烟雾验证，不对其他系统暴露 API。
+
+## Signal / Event
+
+无。
+
+## 数据与契约
+
+- 不读取 `client/data/`。
+- 不引用词表 id。
+- 不包含玩家可见文本。
+
+## 依赖
+
+- 上游依赖：Godot 4.6.3 项目加载机制。
+- 下游调用方：无。
+- 禁止依赖：不得引用 MVP 场景或脚本；不得提前绕过未来 F2 autoload 边界。
+
+## 扩展点
+
+- F2 落地 autoload 后，可以把本场景作为启动烟雾场景继续保留，或替换为正式主菜单场景。
+- 新增主菜单、加载流程或 UI 时应新增对应模块文档，不把长期职责塞进本启动占位脚本。
+
+## 常见改动入口
+
+| 你想改什么 | 主要文件 | 同步文档 | 验证方式 |
+|------------|----------|----------|----------|
+| 更换主场景 | `client/project.godot` | 本文档、`client/README.md`、`docs/AI导航.md` | `tools/godot_bridge.py --project client headless-boot` |
+| 增加启动前检查 | `client/scripts/boot/formal_client_boot.gd` | 本文档；必要时新增模块文档 | headless boot |
+| 补目录说明 | `client/README.md` | `README.md`、`docs/AI导航.md` | docs health |
+
+## 故障排查
+
+| 现象 | 优先检查 |
+|------|----------|
+| headless 报 invalid project | `client/project.godot` 是否存在 |
+| 主场景加载失败 | `run/main_scene` 是否指向 `res://scenes/boot/main.tscn` |
+| 脚本编译失败 | `client/scripts/boot/formal_client_boot.gd` 类型和路径 |
+
+## 测试义务
+
+- F1 必跑 headless 启动验证：`tools/godot_bridge.py --project client headless-boot`。
+- 修改长期文档或索引后跑 `tools/docs_health_check.py`。
+- 不需要 GUT 单测；该模块暂无业务逻辑。
+
+## 迁移 / 兼容
+
+不影响存档、数据 schema、回放或旧行为。
+
+## 相关文档
+
+- `docs/正式项目工作规划.md`
+- `docs/代码文档规范.md`
+- `docs/测试策略.md`
+- `docs/AI导航.md`

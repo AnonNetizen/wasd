@@ -65,6 +65,7 @@
 | 续接当前任务 | `docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`、当日会话日志 | 通常不改文件 | 无；需要确认状态时跑 `python tools/docs_health_check.py` |
 | 查看 / 维护未来任务 | `docs/TODO.md`、`docs/AI记忆/current_state.json`、`docs/修改建议.md` | `docs/TODO.md`、必要时 current_state / 会话日志 / 修改建议 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
 | 启动 / 推进正式项目 | `docs/正式项目工作规划.md`、`docs/TODO.md`、`docs/AI记忆/current_state.json`、`docs/AI导航.md` | `client/`、`docs/TODO.md`、模块文档、必要时 GDD / ADR / 词表 / 测试策略 | 按规划阶段门槛运行；文档变化跑 `python tools/docs_health_check.py`；JSON 变化跑 `python -m json.tool` |
+| 维护正式客户端启动骨架 | `client/README.md`、`docs/代码/formal_client_boot.md`、`docs/正式项目工作规划.md` F1 | `client/project.godot`、`client/scenes/boot/main.tscn`、`client/scripts/boot/formal_client_boot.gd`、AI导航、代码文档索引 | `python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client export-tree`、`python tools/docs_health_check.py` |
 | 加 / 改游戏模式 | GDD §6.6、`client/data/README.md`、`docs/AI导航.md` | 后续 `client/data/game_modes.json`、资源池 / 权重 / 禁用列表、必要时词表和模块文档 | `python tools/docs_health_check.py`；数据落地后跑 `python tools/validate_data.py` |
 | 加遗物 / 道具 | `docs/AI协作/任务模板/加遗物.md`、`docs/词表与契约.md`、`docs/游戏设计文档.md` | `client/data/relics.json`、locale、必要时词表和效果原语 | `python tools/docs_health_check.py`；词表变更后跑 `/sync-contracts` 或等价校验 |
 | 加敌人 | `docs/AI协作/任务模板/加敌人.md`、`docs/词表与契约.md`、GDD 敌人章节 | `client/data/enemies.json`、locale、必要时行为 primitive | `python tools/docs_health_check.py`；数据 schema 落地后跑 schema 校验 |
@@ -132,6 +133,7 @@
 | 类型 | 路径 | 用途 |
 |------|------|------|
 | 详细模块文档示例 | `MinimumViableProduct/docs/代码/mvp_client.md` | 展示人类可读模块文档应包含什么 |
+| 正式项目启动模块文档 | `docs/代码/formal_client_boot.md` | 展示 F1 最小启动骨架的职责边界、场景结构与验证方式 |
 | MVP 经验记录 | `MinimumViableProduct/docs/经验记录.md` | 记录原型阶段可迁移经验 |
 | 规则反例 | 当前平台规则入口的红线与自检清单 | 防止硬编码、裸字符串、绕过 autoload |
 

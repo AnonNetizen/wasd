@@ -1,7 +1,7 @@
 # wasd —— 俯视角 Roguelike 弹幕生存
 
 > 一款受《以撒的结合》与《吸血鬼幸存者》启发的俯视角 Roguelike 弹幕生存游戏。
-> **当前状态：文档/框架设计阶段 + MVP 隔离实验区。** 完整项目 `client/` 已建立数值 / 文案配置入口，主要玩法代码仍在 `MinimumViableProduct/` 中试验。
+> **当前状态：正式项目 F1 工程骨架已建立 + MVP 隔离实验区。** 完整项目 `client/` 已可作为 Godot 4.6.3 项目启动；玩法与 autoload 仍按 `docs/正式项目工作规划.md` 从 F2 起逐步落地。
 >
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。README 是仓库入口摘要；改项目状态、运行方式、目录结构或 AI 开工入口时，必须同步 `CONTRIBUTING.md`、`AGENTS.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
 
@@ -69,7 +69,7 @@ WASD / 手柄左摇杆移动，方向键 / 手柄右摇杆或 D-pad 控制射击
 wasd/
 ├── docs/             # 1. 项目文档（设计文档、代码文档规范、AI 导航、词表契约、决策记录、AI 记忆 ...）
 │   └── AI记忆/       #    跨会话/跨机器的 AI 协作记忆
-├── client/           # 2. 客户端（Godot 4.6.3 项目根，落地代码后含 project.godot 与 res:// ...）
+├── client/           # 2. 正式客户端（Godot 4.6.3 项目根，含 project.godot 与 res:// ...）
 ├── server/           # 3. 服务器端（当前单机项目暂为占位，详见决策记录）
 ├── MinimumViableProduct/ # MVP 隔离实验区，含 MVP 文档与独立客户端代码
 ├── draft/ 或 DRAFT/  # 人工草稿；AI 禁止读取/搜索/修改/整理/引用，除非用户明确授权
@@ -84,7 +84,7 @@ wasd/
 └── 杂项配置          # README / CONTRIBUTING / LICENSE / .gitignore / .gitattributes / .editorconfig / .gitmessage
 ```
 
-## 客户端（`client/`）目录约定（代码落地后）
+## 客户端（`client/`）目录约定
 ```
 client/
 ├── project.godot
@@ -113,10 +113,11 @@ client/
 ---
 
 ## 如何运行 / 调试
-> **当前为文档阶段，无可运行代码。** 落地代码后此处将补充：
-> - 用 Godot 4.6.3 打开 `client/project.godot`；
-> - 主场景与启动流程；
-> - 调试快捷键（数值热重载、调试面板等）。
+当前正式项目已有最小启动场景，可用于 F1 headless 烟雾验证；玩法逻辑将在 F2+ 阶段落地。
+
+- 用 Godot 4.6.3 打开 `client/project.godot`。
+- 命令行启动：`godot --path client`。
+- Headless 验证：`python tools/godot_bridge.py --project client headless-boot`（若系统无 Python，可用 Codex 桌面内置 Python 路径执行）。
 
 ## 参与方式（贡献约定）
 1. 动手前先读 `AGENTS.md`、`docs/AI导航.md` 与当前平台编码规则入口。
@@ -135,4 +136,4 @@ client/
 
 ## 版本
 - 设计文档：**v1.5**（2026-06）
-- 代码：尚未启动
+- 代码：正式项目 F1 工程骨架已启动
