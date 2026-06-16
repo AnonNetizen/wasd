@@ -65,6 +65,7 @@
 | 续接当前任务 | `docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`、当日会话日志 | 通常不改文件 | 无；需要确认状态时跑 `python tools/docs_health_check.py` |
 | 查看 / 维护未来任务 | `docs/TODO.md`、`docs/AI记忆/current_state.json`、`docs/修改建议.md` | `docs/TODO.md`、必要时 current_state / 会话日志 / 修改建议 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
 | 启动 / 推进正式项目 | `docs/正式项目工作规划.md`、`docs/TODO.md`、`docs/AI记忆/current_state.json`、`docs/AI导航.md` | `client/`、`docs/TODO.md`、模块文档、必要时 GDD / ADR / 词表 / 测试策略 | 按规划阶段门槛运行；文档变化跑 `python tools/docs_health_check.py`；JSON 变化跑 `python -m json.tool` |
+| 加 / 改游戏模式 | GDD §6.6、`client/data/README.md`、`docs/AI导航.md` | 后续 `client/data/game_modes.json`、资源池 / 权重 / 禁用列表、必要时词表和模块文档 | `python tools/docs_health_check.py`；数据落地后跑 `python tools/validate_data.py` |
 | 加遗物 / 道具 | `docs/AI协作/任务模板/加遗物.md`、`docs/词表与契约.md`、`docs/游戏设计文档.md` | `client/data/relics.json`、locale、必要时词表和效果原语 | `python tools/docs_health_check.py`；词表变更后跑 `/sync-contracts` 或等价校验 |
 | 加敌人 | `docs/AI协作/任务模板/加敌人.md`、`docs/词表与契约.md`、GDD 敌人章节 | `client/data/enemies.json`、locale、必要时行为 primitive | `python tools/docs_health_check.py`；数据 schema 落地后跑 schema 校验 |
 | 改输入 / 手柄 | `docs/游戏设计文档.md`、`docs/词表与契约.md` 第 7 节、`docs/测试策略.md` | GDD、词表、规则、Settings/InputMap 代码、AI导航 | `python tools/docs_health_check.py`；代码落地后跑 headless + 手动输入回归 |
@@ -121,6 +122,7 @@
 | #62 | 正式项目阶段工作规划 | `docs/正式项目工作规划.md`、`docs/TODO.md`、`docs/AI导航.md`、`docs/AI知识库索引.md`、`docs/_kb_index.json`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json` |
 | #63 | 数值配置格式分流 | `client/data/README.md`、`docs/游戏设计文档.md`、三平台规则、`AGENTS.md`、`docs/AI导航.md`、`docs/正式项目工作规划.md`、`docs/_kb_index.json`、AI记忆 |
 | #64 | 中英文首批本地化与 AI 自动翻译 | `client/locale/README.md`、GDD §9.4、词表 §6、三平台规则、locale 任务模板、data-author / copywriter-packager agents、AI导航、AI记忆 |
+| #65 | 多模式资源复用原则 | GDD §6.6、`client/data/README.md`、三平台规则、AI导航、AI记忆、后续 `game_modes.json` / DataLoader schema |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

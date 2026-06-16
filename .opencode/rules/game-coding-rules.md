@@ -24,7 +24,7 @@
 
 - 可调数值进 `client/data/`，平表数值优先 CSV、复杂配置优先 JSON，字段说明同步 `client/data/README.md`；玩家可见文本走 `tr("key")` / `client/locale/strings.csv`，当前首批语言为 `zh_CN` 与 `en`，AI 自动补齐另一语言首版译文并交人工复核，多语言与占位符说明同步 `client/locale/README.md`；键盘按键、手柄按钮与手柄轴都走 InputMap action + `Settings` 重绑定；约定字符串来自 `docs/词表与契约.md` 且以生成常量引用。
 - 随机走 `RNG.<stream>`，时间走 `GameClock`，流程走 `GameState`，UI 走 `UIManager`，池化走 `PoolManager`，伤害走 `Combat.apply_damage`，持续效果走 `StatusEffect`，存档走 `SaveManager`；`SaveManager` 必须支持 `meta` 局外成长与 `run` 暂停退出续局，并具备标准头字段（含 `data_hash`）、版本迁移、原子写入、备份回退和损坏隔离；音频走 `AudioManager`。
-- 未来角色 / 道具 / 遗物可以突破默认玩法限制，但必须通过词表登记的 `capability`、content tag、effect / behavior primitive 或可复用 strategy 表达；禁止按 `character_id` / `relic_id` 写一次性特殊分支。
+- 未来角色 / 道具 / 遗物可以突破默认玩法限制，但必须通过词表登记的 `capability`、content tag、effect / behavior primitive 或可复用 strategy 表达；后续多种游戏模式只能通过数据化资源池、权重、禁用列表、tags / availability、capability / strategy 和轻量覆盖组合资源；禁止按 `character_id` / `relic_id` / `mode_id` 写一次性特殊分支，也禁止为某个模式复制一套角色 / 遗物 / 敌人资源。
 - 代码变更必须按 `docs/代码文档规范.md` 判断对应文档；长期模块、公共 API、数据 schema、依赖方向或测试义务变化时同步详细的 `docs/代码/` 模块文档与相关权威文档，禁止用自动抽取的简短摘要替代。
 - 面向用户的回复默认中文；仅在用户明确要求、引用代码 / API / 命令 / 日志原文、目标文件语言要求或对外发布文本需要时使用其他语言。
 - 用户问有没有问题 / 风险时，基于事实回答；没发现问题就明确说没有问题，不硬找问题或过度优化。用户提出新需求后，先简短反馈落地前景、性价比、复杂度和主要风险；有重大隐患时先说清楚，再决定是否实现。

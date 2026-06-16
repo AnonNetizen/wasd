@@ -21,6 +21,7 @@
 | 改角色起始属性 / 起始武器 | `characters.json`（落地后） | 名字和描述只填 `name_key` / `desc_key` |
 | 改敌人血量 / 速度 / 接触伤害 | `enemies.csv`（落地后） | 敌人 id、标签、伤害类型必须来自词表 |
 | 改遗物 / 道具数值 | `relics.json` / `active_items.json` / `consumables.json`（落地后） | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
+| 改某个游戏模式可用内容 / 权重 | `game_modes.json`（落地后） | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
 | 改刷怪强度 / 难度曲线 | `spawn_waves.csv`（落地后） | 大改后需要跑回放 / 平衡验证 |
 | 改经验阈值 / 升级候选概率 | `growth.csv`（落地后） | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
 | 改局外货币 / 永久升级 / 解锁 | `meta_progression.json` | 存档走 `SaveManager` 的 `meta` kind，id 必须来自词表 §13 |
@@ -31,6 +32,7 @@
 | 文件 | 状态 | 作用 |
 |------|------|------|
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
+| `game_modes.json` | 规划 | 游戏模式配置：可用角色 / 遗物 / 道具 / 敌人 / 成长池、权重、禁用列表、模式规则和轻量覆盖 |
 | `characters.json` | 规划 | 角色列表：基础属性、起始武器 / 遗物、tags、capabilities、控制配置 |
 | `weapons.json` | 规划 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
 | `relics.json` | 规划 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
@@ -55,6 +57,7 @@
 | snake_case | 字段名和 id 使用蛇形小写，和词表 id 保持一致 |
 | `schema_version` | 长期维护数据文件必须有 schema 版本，schema 变更要配迁移 / 校验说明 |
 | 单位明确 | 速度用 `px/s`，时间用秒，概率用 `0.0`~`1.0`，倍率用 `1.0` 表示不变 |
+| 模式复用 | 角色、遗物、道具、敌人等资源本体默认模式无关；模式配置只引用资源池、权重、条件、禁用列表和轻量覆盖 |
 | 文案 key | 玩家可见名字 / 描述只存 `name_key` / `desc_key` / `hint_key` 等，不存硬文本 |
 | id 白名单 | `stat`、`effect`、`event`、`damage_type`、`pool_id`、`tag` 等必须先登记到 `docs/词表与契约.md` |
 | fail-fast | `DataLoader` 加载时必须校验字段类型、范围、必填项和词表 id；错误信息包含文件名 + 字段路径 + 期望值 |
@@ -64,7 +67,7 @@
 | 数据形态 | 优先格式 | 示例 |
 |----------|----------|------|
 | 一行一个条目、列固定、经常人工排序 / 筛选 / 批量调参 | CSV | `enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`growth.csv` |
-| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `relics.json`、`characters.json`、`meta_progression.json`、`growth_pools.json` |
+| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`relics.json`、`characters.json`、`meta_progression.json`、`growth_pools.json` |
 | 玩家可见文案 | CSV | `client/locale/strings.csv` |
 | 自动生成契约 | JSON | `_contracts.json`，禁止手改 |
 
@@ -148,6 +151,7 @@ JSON 示例：
 | `desc_key` | string | 视内容而定 | 描述本地化 key，译文在 `client/locale/strings.csv` |
 | `tags` | array[string] | 视内容而定 | 内容标签；破限内容必须含 `tag_limit_break` |
 | `capabilities` | array[string] | 视内容而定 | 允许突破的默认规则；id 来自词表 §12 |
+| `availability` | object | 否 | 可用条件；需要限制模式时用 tags / 条件声明，由 `game_modes.json` 组合，不在代码写分支 |
 | `base_stats` | object | 视内容而定 | 基础属性，字段来自词表 stat |
 | `modifiers` | array[object] | 遗物常见 | 数值修正，格式见下节 |
 | `behaviors` | array[object] | 行为内容常见 | 行为触发，格式见下节 |
