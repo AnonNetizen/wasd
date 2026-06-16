@@ -18,13 +18,11 @@
 ## 1. 当前优先级（P0）
 
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、本地 pre-commit hook、增量 watch。
-- [ ] 继续正式项目 F2 横向 autoload 骨架：补 `AudioManager` 的最小可验证 API。
+- [ ] 继续正式项目 F3 数据 / 契约闭环：扩展 `DataLoader` 正式 schema 校验与 CSV / JSON 读取边界。
 
 ## 2. 下一批任务（P1）
 
-- [ ] 完成正式项目 F3 数据 / 契约闭环：`DataLoader` 同时支持平表 CSV 和复杂 JSON，正式项目数据加载、locale key、生成常量引用和 fail-fast 校验。
-- [ ] 实现完整项目剩余 autoload 骨架：`AudioManager`。
-- [ ] 为剩余横向 autoload 补详细模块文档：`docs/代码/<module_id>.md`，并在脚本头部加 `# Doc:`。
+- [ ] 完成正式项目 F3 数据 / 契约闭环：正式项目数据加载、locale key、生成常量引用和 fail-fast 校验。
 - [ ] 实现 `DataLoader` 对 `player.json`、`meta_progression.json`、`strings.csv` 引用 key 和词表 id 的 fail-fast 校验。
 - [ ] 深化接入强 `SaveManager`：`meta` 局外成长业务、`run` 暂停退出续局快照、暂停菜单保存退出、主菜单继续游戏和存档迁移测试。
 - [ ] 实现暂停菜单“保存并退出”和主菜单“继续游戏”流程，加载后恢复玩家、敌人、子弹、掉落、经验、遗物、RNG、GameClock 和 UI 恢复点。
@@ -70,3 +68,4 @@
 - [x] 数据校验 / 契约同步 / 轻量 Godot Bridge：`tools/validate_data.py`、`tools/sync_contracts.py`、`tools/godot_bridge.py`，CI 接入 sync + validate + docs health。
 - [x] 正式项目 F1 工程骨架：`client/project.godot`、最小启动场景、标准目录、正式客户端运行说明和 `FormalClientBoot` 模块文档。
 - [x] 正式项目 F2 第一片 autoload 骨架：`DataLoader`、`RNG`、`GameState`、`GameClock` 已注册到 `client/project.godot`，并补齐对应模块文档。
+- [x] 正式项目 F2 横向 autoload 骨架：`Settings`、`Localization`、`UIManager`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`AudioManager` 已分片落地并可 headless 启动。

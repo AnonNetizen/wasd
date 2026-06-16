@@ -14,8 +14,9 @@ func _ready() -> void:
 	var analytics_event_count: int = Analytics.registered_events().size()
 	var pool_id_count: int = PoolManager.registered_pool_ids().size()
 	var save_kind_count: int = SaveManager.registered_save_kinds().size()
+	var audio_prefix_count: int = AudioManager.registered_audio_prefixes().size()
 	var state_name: StringName = GameState.current()
-	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d settings=%d analytics_events=%d analytics_enabled=%s replay_enabled=%s replay_recording=%s pool_ids=%d active_pools=%d save_kinds=%d save_slots=%d locale=%s ui_stack=%d state=%s seed=%d" % [
+	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d settings=%d analytics_events=%d analytics_enabled=%s replay_enabled=%s replay_recording=%s pool_ids=%d active_pools=%d save_kinds=%d save_slots=%d audio_prefixes=%d audio_streams=%d audio_buses_ready=%s locale=%s ui_stack=%d state=%s seed=%d" % [
 		BOOT_LOG_PREFIX,
 		contract_count,
 		stream_count,
@@ -28,6 +29,9 @@ func _ready() -> void:
 		PoolManager.pool_count(),
 		save_kind_count,
 		SaveManager.list_slots().size(),
+		audio_prefix_count,
+		AudioManager.registered_stream_count(),
+		str(AudioManager.required_buses_ready()),
 		Localization.current_locale(),
 		UIManager.stack_size(),
 		String(state_name),
