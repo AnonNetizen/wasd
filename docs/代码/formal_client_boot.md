@@ -7,7 +7,8 @@
 
 - 负责提供完整项目 `client/` 的最小 Godot 启动入口。
 - 负责让 F1 阶段可以通过 headless 启动验证。
-- 不负责 autoload、主菜单、玩法循环、输入、UI 或数据加载；这些属于 F2+。
+- 不负责 autoload、主菜单、玩法循环、输入、UI 或业务数据解释；这些属于 F2+。
+- F2/F3 期间作为正式客户端 smoke 场景，负责触发 autoload 和数据 schema 启动检查。
 
 ## 阅读方式
 
@@ -40,7 +41,7 @@ FormalClientBoot (Node)
 |------|----------|-------------------|
 | Godot 启动 | 读取 `client/project.godot` | `run/main_scene` |
 | 主场景加载 | 实例化 `FormalClientBoot` 根节点 | 无 |
-| `_ready()` | 输出正式客户端启动日志 | `print()` |
+| `_ready()` | 调用 `DataLoader.validate_project_data()` 并输出正式客户端启动日志 | `print()` |
 
 ## 公共 API
 
@@ -52,13 +53,13 @@ FormalClientBoot (Node)
 
 ## 数据与契约
 
-- 不读取 `client/data/`。
-- 不引用词表 id。
+- 通过 `DataLoader.validate_project_data()` 间接读取 F3 目标数据和 `client/locale/strings.csv`。
+- 启动日志输出 `data_schema_ok`、`player_stats`、`locale_keys`、`growth_levels`、`growth_pools`、`meta_upgrades`、`meta_unlocks` 等 smoke 计数。
 - 不包含玩家可见文本。
 
 ## 依赖
 
-- 上游依赖：Godot 4.6.3 项目加载机制。
+- 上游依赖：Godot 4.6.3 项目加载机制、已注册的 F2 autoload。
 - 下游调用方：无。
 - 禁止依赖：不得引用 MVP 场景或脚本；不得提前绕过未来 F2 autoload 边界。
 
@@ -82,12 +83,13 @@ FormalClientBoot (Node)
 | headless 报 invalid project | `client/project.godot` 是否存在 |
 | 主场景加载失败 | `run/main_scene` 是否指向 `res://scenes/boot/main.tscn` |
 | 脚本编译失败 | `client/scripts/boot/formal_client_boot.gd` 类型和路径 |
+| `data_schema_ok=false` | 查看同次 headless 日志中的 `[DataLoader]` schema 错误 |
 
 ## 测试义务
 
 - F1 必跑 headless 启动验证：`tools/godot_bridge.py --project client headless-boot`。
 - 修改长期文档或索引后跑 `tools/docs_health_check.py`。
-- 不需要 GUT 单测；该模块暂无业务逻辑。
+- 不需要 GUT 单测；该模块只做 smoke 编排。改 DataLoader schema 时按 DataLoader 测试义务处理。
 
 ## 迁移 / 兼容
 

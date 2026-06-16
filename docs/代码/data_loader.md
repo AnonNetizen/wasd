@@ -7,8 +7,9 @@
 
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
+- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`meta_progression.json`、`growth.csv`、`growth_pools.json` 与 `strings.csv`。
 - 提供 fail-fast 错误输出，错误信息包含文件、字段路径和期望值。
-- 不负责业务解释、数值平衡、热重载 UI 或具体系统 schema 校验；这些由后续 F3+ 业务模块接入。
+- 不负责业务解释、数值平衡、热重载 UI、升级奖励应用或游戏模式运行时；这些由后续业务模块接入。
 
 ## 阅读方式
 
@@ -27,6 +28,9 @@
 | `client/data/_contracts.json` | 由 `tools/sync_contracts.py` 生成的词表镜像 |
 | `client/data/player.json` | 当前 JSON 读取样例 |
 | `client/data/meta_progression.json` | 当前复杂 JSON 配置样例 |
+| `client/data/growth.csv` | 经验阈值与升级候选数量概率曲线 |
+| `client/data/growth_pools.json` | 升级候选池与奖励条目边界 |
+| `client/locale/strings.csv` | 多语言 key 与译文表 |
 
 ## 场景 / 节点结构
 
@@ -38,6 +42,7 @@
 |------|----------|-------------------|
 | autoload `_ready()` | 加载 `_contracts.json` | `reload_contracts()` |
 | 配置读取 | 调用方按需读 JSON / CSV | `load_json()`、`load_csv()` |
+| schema 校验 | 启动 smoke 或工具调用正式数据校验 | `validate_project_data()`、`schema_counts()` |
 | 契约查询 | 调用方查询白名单 | `contract_values()`、`has_contract_value()` |
 | 重新加载 | 覆盖 `_contracts` 并通知订阅方 | `data_reloaded` |
 
@@ -49,6 +54,8 @@
 | `contracts()` | 无 | `Dictionary` | 返回深拷贝，调用方不得改内部缓存 |
 | `contract_values(contract_id)` | `String` | `Array` | 未登记 id 报错并返回空数组 |
 | `has_contract_value(contract_id, value)` | `String`, `String` | `bool` | 用于 schema / id 校验 |
+| `validate_project_data()` | 无 | `bool` | 校验本阶段正式数据 schema；失败时 `push_error` 并返回 `false` |
+| `schema_counts()` | 无 | `Dictionary` | 返回最近一次 schema 校验的关键计数，用于 boot smoke |
 | `load_json(resource_path)` | `String` | `Variant` | JSON 需是有效文本；失败返回空字典 |
 | `load_csv(resource_path, has_header)` | `String`, `bool` | `Array[Dictionary]` | 默认首行为表头 |
 | `data_path(file_name)` | `String` | `String` | 拼出 `res://data/<file_name>` |
@@ -63,7 +70,13 @@
 
 - 读取 `res://data/_contracts.json`。
 - `_contracts.json` 由 `tools/sync_contracts.py` 生成，禁止手改。
-- F3 会继续补正式业务 schema 校验，例如 `player.json`、`growth.csv`、`game_modes.json`。
+- 当前 F3 schema 覆盖：
+  - `player.json`：`schema_version`、`base_stats`，stat id 必须来自词表，数值范围按 stat 类型校验。
+  - `meta_progression.json`：局外货币、结算奖励、账号等级、永久升级轨道、解锁项、locale key 与词表 id。
+  - `growth.csv`：等级、累计经验阈值、默认候选数、幸运扩展候选概率和概率上限。
+  - `growth_pools.json`：候选池、条目 id、类型、权重、等级条件和属性修正。
+  - `strings.csv`：key 前缀、`zh_CN` / `en` 必填、唯一 key。
+- 后续 `game_modes.json` 只在数据落地时加入 schema；当前不实现模式运行时。
 
 ## 依赖
 
@@ -81,7 +94,7 @@
 
 | 你想改什么 | 主要文件 | 同步文档 | 验证方式 |
 |------------|----------|----------|----------|
-| 加 JSON 数据 schema | 业务模块 + `DataLoader` 辅助函数 | `client/data/README.md`、对应模块文档 | `tools/validate_data.py`、headless boot |
+| 加 JSON 数据 schema | `data_loader.gd` + `tools/validate_data.py` | `client/data/README.md`、对应模块文档 | `tools/validate_data.py`、headless boot |
 | 加 CSV 表读取 | `data_loader.gd` | `client/data/README.md` | `load_csv()` smoke / 数据校验 |
 | 改契约来源 | `tools/sync_contracts.py`、`_contracts.json` | `docs/词表与契约.md` | `tools/sync_contracts.py --check` |
 
@@ -92,6 +105,7 @@
 | 启动时 contracts=0 | `client/data/_contracts.json` 是否存在且 JSON 有效 |
 | `contract_values()` 返回空 | contract id 是否存在于 `_contracts.json` 的 `contracts` |
 | CSV 行字段错位 | 表头数量与数据列数量是否一致 |
+| `data_schema_ok=false` | headless boot 日志前后的 `[DataLoader]` fail-fast 错误 |
 
 ## 测试义务
 

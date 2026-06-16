@@ -15,6 +15,8 @@ from sync_contracts import CONTRACTS_JSON, ROOT, extract_contracts
 
 CLIENT_DATA = ROOT / "client" / "data"
 LOCALE_CSV = ROOT / "client" / "locale" / "strings.csv"
+GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
+GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
 MVP_CONFIG = ROOT / "MinimumViableProduct" / "client" / "data" / "mvp_config.json"
 PLACEHOLDER_RE = re.compile(r"\{[a-z0-9_]+\}")
 LOCALE_KEY_RE = re.compile(r"^[a-z0-9_]+$")
@@ -43,6 +45,8 @@ def main() -> int:
     _validate_locale_csv(ctx)
     _validate_player_json(ctx)
     _validate_meta_progression(ctx)
+    _validate_growth_csv(ctx)
+    _validate_growth_pools(ctx)
     _validate_mvp_config(ctx)
 
     if ctx.errors:
@@ -154,6 +158,96 @@ def _validate_meta_progression(ctx: ValidationContext) -> None:
     _validate_account_level(ctx, path, data.get("account_level"), unlock_ids)
     _validate_upgrade_tracks(ctx, path, data.get("upgrade_tracks"), currency_ids, unlock_ids)
     _validate_unlocks(ctx, path, data.get("unlocks"))
+
+
+def _validate_growth_csv(ctx: ValidationContext) -> None:
+    if not GROWTH_CSV.exists():
+        ctx.error(GROWTH_CSV, "$", "missing growth curve CSV")
+        return
+
+    required = {
+        "level",
+        "total_xp_required",
+        "candidate_count",
+        "bonus_candidate_chance_per_luck",
+        "bonus_candidate_chance_cap",
+    }
+    previous_level = 0
+    previous_xp = -1
+    with GROWTH_CSV.open(encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        fieldnames = reader.fieldnames or []
+        missing = required.difference(fieldnames)
+        if missing:
+            ctx.error(GROWTH_CSV, "header", f"missing required columns {sorted(missing)}")
+            return
+        for line_number, row in enumerate(reader, start=2):
+            level = _parse_int(ctx, GROWTH_CSV, f"line {line_number}.level", row.get("level"))
+            total_xp = _parse_int(ctx, GROWTH_CSV, f"line {line_number}.total_xp_required", row.get("total_xp_required"))
+            candidate_count = _parse_int(ctx, GROWTH_CSV, f"line {line_number}.candidate_count", row.get("candidate_count"))
+            chance_per_luck = _parse_float(
+                ctx,
+                GROWTH_CSV,
+                f"line {line_number}.bonus_candidate_chance_per_luck",
+                row.get("bonus_candidate_chance_per_luck"),
+            )
+            chance_cap = _parse_float(ctx, GROWTH_CSV, f"line {line_number}.bonus_candidate_chance_cap", row.get("bonus_candidate_chance_cap"))
+            if isinstance(level, int) and level < 1:
+                ctx.error(GROWTH_CSV, f"line {line_number}.level", "must be >= 1")
+            if isinstance(level, int):
+                if level <= previous_level:
+                    ctx.error(GROWTH_CSV, f"line {line_number}.level", "must be strictly increasing")
+                previous_level = level
+            if isinstance(total_xp, int):
+                if total_xp < 0:
+                    ctx.error(GROWTH_CSV, f"line {line_number}.total_xp_required", "must be >= 0")
+                if total_xp <= previous_xp:
+                    ctx.error(GROWTH_CSV, f"line {line_number}.total_xp_required", "must be strictly increasing")
+                previous_xp = total_xp
+            if isinstance(candidate_count, int) and candidate_count < 1:
+                ctx.error(GROWTH_CSV, f"line {line_number}.candidate_count", "must be >= 1")
+            if isinstance(chance_per_luck, float) and not 0 <= chance_per_luck <= 1:
+                ctx.error(GROWTH_CSV, f"line {line_number}.bonus_candidate_chance_per_luck", "must be between 0 and 1")
+            if isinstance(chance_cap, float) and not 0 <= chance_cap <= 1:
+                ctx.error(GROWTH_CSV, f"line {line_number}.bonus_candidate_chance_cap", "must be between 0 and 1")
+
+
+def _validate_growth_pools(ctx: ValidationContext) -> None:
+    path = GROWTH_POOLS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    pools = _require_list(ctx, path, "pools", data.get("pools"))
+    pool_ids: set[str] = set()
+    for pool_index, pool in enumerate(pools):
+        pool_field = f"pools[{pool_index}]"
+        if not isinstance(pool, dict):
+            ctx.error(path, pool_field, "must be an object")
+            continue
+        pool_id = _require_non_empty_string(ctx, path, f"{pool_field}.id", pool.get("id"))
+        if pool_id:
+            if pool_id in pool_ids:
+                ctx.error(path, f"{pool_field}.id", f"duplicate pool id {pool_id}")
+            pool_ids.add(pool_id)
+        entries = _require_list(ctx, path, f"{pool_field}.entries", pool.get("entries"))
+        entry_ids: set[str] = set()
+        for entry_index, entry in enumerate(entries):
+            entry_field = f"{pool_field}.entries[{entry_index}]"
+            if not isinstance(entry, dict):
+                ctx.error(path, entry_field, "must be an object")
+                continue
+            entry_id = _require_non_empty_string(ctx, path, f"{entry_field}.id", entry.get("id"))
+            if entry_id:
+                if entry_id in entry_ids:
+                    ctx.error(path, f"{entry_field}.id", f"duplicate entry id {entry_id}")
+                entry_ids.add(entry_id)
+            _require_non_empty_string(ctx, path, f"{entry_field}.kind", entry.get("kind"))
+            _require_int(ctx, path, f"{entry_field}.weight", entry.get("weight"), minimum=0)
+            if "min_level" in entry:
+                _require_int(ctx, path, f"{entry_field}.min_level", entry.get("min_level"), minimum=1)
+            if "modifiers" in entry:
+                _validate_modifiers(ctx, path, f"{entry_field}.modifiers", entry.get("modifiers"), require_value_per_level=False)
 
 
 def _validate_currencies(ctx: ValidationContext, path: Path, currencies: list[Any]) -> set[str]:
@@ -369,6 +463,13 @@ def _require_registered(ctx: ValidationContext, path: Path, field: str, value: A
     return value
 
 
+def _require_non_empty_string(ctx: ValidationContext, path: Path, field: str, value: Any) -> str | None:
+    if not isinstance(value, str) or not value:
+        ctx.error(path, field, "must be a non-empty string")
+        return None
+    return value
+
+
 def _require_locale_key(ctx: ValidationContext, path: Path, field: str, value: Any) -> None:
     if not isinstance(value, str) or not value:
         ctx.error(path, field, "must be a non-empty locale key")
@@ -417,6 +518,28 @@ def _require_number(
     if maximum is not None and numeric > maximum:
         ctx.error(path, field, f"must be <= {maximum}")
     return numeric
+
+
+def _parse_int(ctx: ValidationContext, path: Path, field: str, value: Any) -> int | None:
+    if not isinstance(value, str) or not value:
+        ctx.error(path, field, "must be int")
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        ctx.error(path, field, "must be int")
+        return None
+
+
+def _parse_float(ctx: ValidationContext, path: Path, field: str, value: Any) -> float | None:
+    if not isinstance(value, str) or not value:
+        ctx.error(path, field, "must be number")
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        ctx.error(path, field, "must be number")
+        return None
 
 
 def _load_json(path: Path, ctx: ValidationContext) -> Any:

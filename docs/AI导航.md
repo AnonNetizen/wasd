@@ -106,7 +106,7 @@
 | **加一个角色** | 在 `data/characters.json`（落地后）加一条：基础属性 / 起始武器或遗物 / tags / capabilities / 控制配置；新 capability 先登记词表 §12 再实现 |
 | **加一个遗物/道具** | 在 `data/relics.json` 加一条，用 `modifiers` + `behaviors` 描述；**只用 `词表与契约.md` 已登记的 effect/stat**，新原语先登记再实现 |
 | **加 / 改游戏模式** | 在 `data/game_modes.json`（落地后）声明可用资源池、权重、禁用列表、初始规则、参与者 / 队伍预留和轻量覆盖；角色 / 遗物 / 道具 / 敌人本体保持模式无关，禁止为模式复制一套资源或在代码写 `if mode_id == ...` |
-| **改经验/升级系统** | 查 GDD §7.1；`GrowthSystem` 负责经验累计、默认 3 选 1、`luck` 概率 4 选 1；经验阈值 / 候选概率等平表数值优先放 `growth.csv`，复杂候选池放 `growth_pools.json`；候选抽取走 `RNG.ui_choice`，升级 UI 走 `UIManager`，流程走 `GameState.LEVEL_UP` |
+| **改经验/升级系统** | 查 GDD §7.1；`GrowthSystem` 负责经验累计、默认 3 选 1、`luck` 概率 4 选 1；经验阈值 / 候选概率已放 `client/data/growth.csv`，复杂候选池边界已放 `client/data/growth_pools.json`；候选抽取走 `RNG.ui_choice`，升级 UI 走 `UIManager`，流程走 `GameState.LEVEL_UP` |
 | **改局外成长 / 元进度** | 查 GDD §7.2；配置改 `client/data/meta_progression.json`，字段说明同步 `client/data/README.md`，文案同步 `client/locale/strings.csv`；存档走 `SaveManager` 的 `meta` kind，新增 currency / upgrade / unlock id 先登记词表 §13 |
 | **加破限角色/道具** | 先判断是否能用 `capabilities` + `modifiers` + `behaviors` 表达；表达不了则新增可复用 primitive / strategy 并登记词表 §12，禁止按 id 写特殊分支 |
 | **写/改代码模块** | 先查 `docs/代码文档规范.md` + 对应 `docs/代码/<module_id>.md` + 目标源码；GDD / ADR 只在设计冲突、语义不明或新增决策时补读，不能默认整篇加载 |

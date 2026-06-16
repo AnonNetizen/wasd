@@ -41,8 +41,8 @@
 | `enemies.csv` | 规划 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励等 |
 | `hazards.csv` | 规划 | 机关基础数值平表：伤害、触发周期、范围、持续时间 |
 | `spawn_waves.csv` | 规划 | 刷怪波次、难度曲线、敌人权重、精英 / Boss 出现规则 |
-| `growth.csv` | 规划 | 经验阈值、升级候选数量概率曲线等平表 |
-| `growth_pools.json` | 规划 | 升级选项池、权重条件和复杂候选规则 |
+| `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
+| `growth_pools.json` | 已建立 | 升级选项池、权重、等级条件和候选奖励边界 |
 | `meta_progression.json` | 已建立 | 局外货币、结算奖励、账号等级、永久升级轨道和内容解锁 |
 | `_contracts.json` | 生成文件 | 由 `docs/词表与契约.md` 生成，禁止手改；`DataLoader` 用它校验 id |
 
@@ -264,6 +264,69 @@ JSON 示例：
 | `target_id` | string | 对应内容 id | 被解锁的具体内容；若仅表示功能开关可省略 |
 | `name_key` | string | `meta_*_name` | 面向玩家展示的解锁名，可选 |
 | `default_unlocked` | bool | true / false | 新存档是否默认解锁 |
+
+## `growth.csv`
+
+当前结构：
+
+```csv
+level,total_xp_required,candidate_count,bonus_candidate_chance_per_luck,bonus_candidate_chance_cap
+1,0,3,0.02,0.35
+2,20,3,0.02,0.35
+```
+
+字段说明：
+
+| 字段 | 类型 | 单位 / 范围 | 说明 |
+|------|------|-------------|------|
+| `level` | int | `>= 1`，严格递增 | 玩家局内等级 |
+| `total_xp_required` | int | 累计经验，`>= 0`，严格递增 | 达到该等级所需累计经验；第 1 级为 0 |
+| `candidate_count` | int | `>= 1`，默认 3 | 本级升级时默认候选数量；当前设计默认 3 选 1 |
+| `bonus_candidate_chance_per_luck` | float | `0.0`~`1.0` | 每点 `luck` 增加 4 选 1 的概率 |
+| `bonus_candidate_chance_cap` | float | `0.0`~`1.0` | 幸运扩展候选概率上限 |
+
+运行时候选数量判定必须走 `RNG.ui_choice`；本表只提供概率参数，不负责抽取实现。
+
+## `growth_pools.json`
+
+当前结构：
+
+```json
+{
+  "schema_version": 1,
+  "pools": [
+    {
+      "id": "default_level_up",
+      "entries": [
+        {
+          "id": "growth_damage_small",
+          "kind": "stat_modifier",
+          "weight": 100,
+          "min_level": 1,
+          "modifiers": [
+            { "stat": "damage", "type": "add", "value": 0.5 }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+字段说明：
+
+| 字段路径 | 类型 | 范围 | 说明 |
+|----------|------|------|------|
+| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `pools[].id` | string | 非空，文件内唯一 | 升级候选池 id；后续由模式或成长系统引用 |
+| `pools[].entries` | array[object] | 可为空 | 候选条目列表；当前只落 `stat_modifier` 黄金样例 |
+| `entries[].id` | string | 非空，池内唯一 | 候选条目 id；用于回放记录和诊断 |
+| `entries[].kind` | string | 非空 | 候选类型；当前黄金样例为 `stat_modifier`，后续类型落地前需同步 schema |
+| `entries[].weight` | int | `>= 0` | 抽取权重；实际抽取走 `RNG.ui_choice` |
+| `entries[].min_level` | int | `>= 1`，可选 | 条目最早出现等级 |
+| `entries[].modifiers` | array[object] | stat 来自词表 §1 | 属性修正奖励；格式同通用 `modifiers`，使用 `value` |
+
+`growth_pools.json` 只声明候选池边界，不实现升级 UI、奖励应用或最终选项类型决策。新增 `kind` 影响运行时行为时，必须同步对应系统模块文档和测试。
 
 ## 调参流程
 
