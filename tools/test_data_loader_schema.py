@@ -234,6 +234,38 @@ def main() -> int:
             ],
         ),
         (
+            "active item must include active item tag",
+            _mutate_json("client/data/active_items.json", _set_active_item_tags([])),
+            [
+                "client/data/active_items.json:active_items[0].tags",
+                "must include tag_active_item",
+            ],
+        ),
+        (
+            "active item effect must be registered",
+            _mutate_json("client/data/active_items.json", _set_active_item_effect("arcane")),
+            [
+                "client/data/active_items.json:active_items[0].use_effects[0].effect",
+                "unknown id arcane; expected one of effects",
+            ],
+        ),
+        (
+            "active item start charges cannot exceed max charges",
+            _mutate_json("client/data/active_items.json", _set_active_item_start_charges(2)),
+            [
+                "client/data/active_items.json:active_items[0].charge.start_charges",
+                "must be <= max_charges",
+            ],
+        ),
+        (
+            "mode active item reference must exist",
+            _mutate_json("client/data/game_modes.json", _set_mode_active_item("active_item_missing")),
+            [
+                "client/data/game_modes.json:modes[0].resource_pools.active_items[0].id",
+                "active item is not defined in active_items.json: active_item_missing",
+            ],
+        ),
+        (
             "credits section title locale key must exist",
             _mutate_json("client/data/credits.json", _set_credit_section_title_key("ui_credits_missing_section")),
             [
@@ -527,6 +559,34 @@ def _clear_relic_effects(payload: dict[str, Any]) -> None:
 def _set_mode_relic(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["resource_pools"]["relics"][0]["id"] = value
+
+    return mutate
+
+
+def _set_active_item_tags(value: list[str]) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["active_items"][0]["tags"] = value
+
+    return mutate
+
+
+def _set_active_item_effect(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["active_items"][0]["use_effects"][0]["effect"] = value
+
+    return mutate
+
+
+def _set_active_item_start_charges(value: int) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["active_items"][0]["charge"]["start_charges"] = value
+
+    return mutate
+
+
+def _set_mode_active_item(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["modes"][0]["resource_pools"]["active_items"][0]["id"] = value
 
     return mutate
 

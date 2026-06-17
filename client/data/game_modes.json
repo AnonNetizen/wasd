@@ -55,6 +55,12 @@
             "weight": 100
           }
         ],
+        "active_items": [
+          {
+            "id": "active_item_blink_burst",
+            "weight": 100
+          }
+        ],
         "growth_pools": [
           {
             "id": "default_level_up",

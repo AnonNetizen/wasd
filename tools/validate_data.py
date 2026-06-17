@@ -21,6 +21,7 @@ ENEMIES_CSV = ROOT / "client" / "data" / "enemies.csv"
 HAZARDS_CSV = ROOT / "client" / "data" / "hazards.csv"
 SPAWN_WAVES_CSV = ROOT / "client" / "data" / "spawn_waves.csv"
 RELICS_JSON = ROOT / "client" / "data" / "relics.json"
+ACTIVE_ITEMS_JSON = ROOT / "client" / "data" / "active_items.json"
 CREDITS_JSON = ROOT / "client" / "data" / "credits.json"
 GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
 GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
@@ -61,13 +62,15 @@ def main() -> int:
     hazard_ids = _collect_hazard_ids(ctx)
     _validate_relics(ctx)
     relic_ids = _collect_relic_ids(ctx)
+    _validate_active_items(ctx)
+    active_item_ids = _collect_active_item_ids(ctx)
     _validate_credits(ctx)
     _validate_characters(ctx, weapon_ids)
     character_ids = _collect_character_ids(ctx)
     _validate_meta_progression(ctx, character_ids)
     _validate_growth_csv(ctx)
     _validate_growth_pools(ctx)
-    _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids)
+    _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids)
     game_mode_ids = _collect_game_mode_ids(ctx)
     _validate_spawn_waves_csv(ctx, enemy_ids, hazard_ids, game_mode_ids)
 
@@ -461,6 +464,64 @@ def _validate_relics(ctx: ValidationContext) -> None:
             ctx.error(path, field, "must contain at least one modifier or behavior")
 
 
+def _validate_active_items(ctx: ValidationContext) -> None:
+    path = ACTIVE_ITEMS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    active_items = _require_list(ctx, path, "active_items", data.get("active_items"))
+    if not active_items:
+        ctx.error(path, "active_items", "must be a non-empty array")
+    seen: set[str] = set()
+    for index, active_item in enumerate(active_items):
+        field = f"active_items[{index}]"
+        if not isinstance(active_item, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        active_item_id = _require_non_empty_string(ctx, path, f"{field}.id", active_item.get("id"))
+        if active_item_id:
+            if active_item_id in seen:
+                ctx.error(path, f"{field}.id", f"duplicate active item id {active_item_id}")
+            seen.add(active_item_id)
+        _require_locale_key(ctx, path, f"{field}.name_key", active_item.get("name_key"))
+        _require_locale_key(ctx, path, f"{field}.desc_key", active_item.get("desc_key"))
+        _require_bool(ctx, path, f"{field}.default_unlocked", active_item.get("default_unlocked"))
+        tags = _validate_registered_string_list(ctx, path, f"{field}.tags", active_item.get("tags"), "content_tags", allow_empty=False)
+        if "tag_active_item" not in tags:
+            ctx.error(path, f"{field}.tags", "must include tag_active_item")
+        _validate_active_item_charge(ctx, path, f"{field}.charge", active_item.get("charge"))
+        _validate_active_item_use_effects(ctx, path, f"{field}.use_effects", active_item.get("use_effects"))
+
+
+def _validate_active_item_charge(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    mode = _require_non_empty_string(ctx, path, f"{field}.mode", data.get("mode"))
+    if mode and mode != "cooldown":
+        ctx.error(path, f"{field}.mode", "must be cooldown")
+    _require_number(ctx, path, f"{field}.cooldown", data.get("cooldown"), minimum=0, exclusive_minimum=True)
+    max_charges = _require_int(ctx, path, f"{field}.max_charges", data.get("max_charges"), minimum=1)
+    start_charges = _require_int(ctx, path, f"{field}.start_charges", data.get("start_charges"), minimum=0)
+    if isinstance(max_charges, int) and isinstance(start_charges, int) and start_charges > max_charges:
+        ctx.error(path, f"{field}.start_charges", "must be <= max_charges")
+
+
+def _validate_active_item_use_effects(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    effects = _require_list(ctx, path, field, data)
+    if not effects:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, effect in enumerate(effects):
+        item_field = f"{field}[{index}]"
+        if not isinstance(effect, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        _require_registered(ctx, path, f"{item_field}.effect", effect.get("effect"), "effects")
+        if not isinstance(effect.get("params"), dict):
+            ctx.error(path, f"{item_field}.params", "must be an object")
+
+
 def _validate_credits(ctx: ValidationContext) -> None:
     path = CREDITS_JSON
     data = _load_json(path, ctx)
@@ -621,6 +682,7 @@ def _validate_game_modes(
     enemy_ids: set[str],
     hazard_ids: set[str],
     relic_ids: set[str],
+    active_item_ids: set[str],
 ) -> None:
     path = GAME_MODES_JSON
     data = _load_json(path, ctx)
@@ -647,7 +709,7 @@ def _validate_game_modes(
         _require_bool(ctx, path, f"{mode_field}.default_unlocked", mode.get("default_unlocked"))
         team_ids = _validate_mode_teams(ctx, path, mode_field, mode.get("teams"))
         _validate_mode_participants(ctx, path, mode_field, mode.get("participants"), team_ids)
-        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids)
+        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids)
         if "blocklists" in mode:
             _validate_mode_blocklists(ctx, path, f"{mode_field}.blocklists", mode.get("blocklists"))
         if "overrides" in mode:
@@ -707,6 +769,7 @@ def _validate_mode_resource_pools(
     enemy_ids: set[str],
     hazard_ids: set[str],
     relic_ids: set[str],
+    active_item_ids: set[str],
 ) -> None:
     field = f"{mode_field}.resource_pools"
     if not isinstance(data, dict):
@@ -722,9 +785,11 @@ def _validate_mode_resource_pools(
         _validate_weighted_hazard_entries(ctx, path, f"{field}.hazards", data.get("hazards"), hazard_ids)
     if "relics" in data:
         _validate_weighted_relic_entries(ctx, path, f"{field}.relics", data.get("relics"), relic_ids)
+    if "active_items" in data:
+        _validate_weighted_active_item_entries(ctx, path, f"{field}.active_items", data.get("active_items"), active_item_ids)
     if "growth_pools" in data:
         _validate_weighted_growth_pool_entries(ctx, path, f"{field}.growth_pools", data.get("growth_pools"), growth_pool_ids)
-    if "characters" not in data and "weapons" not in data and "enemies" not in data and "hazards" not in data and "relics" not in data and "growth_pools" not in data:
+    if "characters" not in data and "weapons" not in data and "enemies" not in data and "hazards" not in data and "relics" not in data and "active_items" not in data and "growth_pools" not in data:
         ctx.error(path, field, "must contain at least one supported pool")
 
 
@@ -800,6 +865,21 @@ def _validate_weighted_relic_entries(ctx: ValidationContext, path: Path, field: 
         relic_id = _require_non_empty_string(ctx, path, f"{item_field}.id", entry.get("id"))
         if relic_id and relic_id not in relic_ids:
             ctx.error(path, f"{item_field}.id", f"relic is not defined in relics.json: {relic_id}")
+        _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
+
+
+def _validate_weighted_active_item_entries(ctx: ValidationContext, path: Path, field: str, data: Any, active_item_ids: set[str]) -> None:
+    entries = _require_list(ctx, path, field, data)
+    if not entries:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, entry in enumerate(entries):
+        item_field = f"{field}[{index}]"
+        if not isinstance(entry, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        active_item_id = _require_non_empty_string(ctx, path, f"{item_field}.id", entry.get("id"))
+        if active_item_id and active_item_id not in active_item_ids:
+            ctx.error(path, f"{item_field}.id", f"active item is not defined in active_items.json: {active_item_id}")
         _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
 
 
@@ -1116,6 +1196,16 @@ def _collect_relic_ids(ctx: ValidationContext) -> set[str]:
     if not isinstance(relics, list):
         return set()
     return {item.get("id") for item in relics if isinstance(item, dict) and isinstance(item.get("id"), str)}
+
+
+def _collect_active_item_ids(ctx: ValidationContext) -> set[str]:
+    data = _load_json(ACTIVE_ITEMS_JSON, ctx)
+    if not isinstance(data, dict):
+        return set()
+    active_items = data.get("active_items")
+    if not isinstance(active_items, list):
+        return set()
+    return {item.get("id") for item in active_items if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
 def _collect_growth_pool_ids(ctx: ValidationContext) -> set[str]:

@@ -7,7 +7,7 @@
 
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
-- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`relics.json`、`credits.json`、`game_modes.json`、`meta_progression.json`、`growth.csv`、`growth_pools.json` 与 `strings.csv`。
+- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`credits.json`、`game_modes.json`、`meta_progression.json`、`growth.csv`、`growth_pools.json` 与 `strings.csv`。
 - 提供 fail-fast 错误输出，错误信息包含文件、字段路径和期望值。
 - 不负责业务解释、数值平衡、热重载 UI、升级奖励应用或游戏模式运行时；这些由后续业务模块接入。
 
@@ -33,6 +33,7 @@
 | `client/data/hazards.csv` | 机关基础数值、对象池、伤害类型和模式引用边界 |
 | `client/data/spawn_waves.csv` | 刷怪波次、模式引用、敌人 / 机关引用、时间窗和强度数值边界 |
 | `client/data/relics.json` | 被动遗物 modifier / behavior 数据边界 |
+| `client/data/active_items.json` | 主动道具充能 / 使用效果数据边界 |
 | `client/data/credits.json` | 游戏内致谢数据源，记录工作人员、外部资源、外部库和发行 notice 状态 |
 | `client/data/game_modes.json` | 游戏模式资源池、参与者 / 队伍与轻量覆盖边界 |
 | `client/data/meta_progression.json` | 当前复杂 JSON 配置样例 |
@@ -87,13 +88,14 @@
   - `hazards.csv`：机关 id、名称 key、`tag_hazard`、对象池 id、伤害、伤害类型、触发间隔、范围和持续时间。
   - `spawn_waves.csv`：波次 id、模式 id、波次序号、时间窗、敌人引用、敌人权重、刷怪间隔、同时存活上限、预算，以及可选机关引用 / 权重。
   - `relics.json`：遗物 id、名称 / 描述 key、默认解锁、`tag_relic`、数值 modifiers、行为 behaviors，以及至少一个 modifier 或 behavior。
+  - `active_items.json`：主动道具 id、名称 / 描述 key、默认解锁、`tag_active_item`、冷却充能、初始 / 最大充能和使用效果原语。
   - `credits.json`：致谢分组、分组标题 locale key、工作人员条目、外部资源 / 库 / 工具条目的 URL、license、是否随构建分发、是否需要 notice 与复核状态。
   - `meta_progression.json`：局外货币、结算奖励、账号等级、永久升级轨道、解锁项、locale key 与词表 id。
   - `growth.csv`：等级、累计经验阈值、默认候选数、幸运扩展候选概率和概率上限。
   - `growth_pools.json`：候选池、条目 id、类型、权重、等级条件和属性修正。
-  - `game_modes.json`：模式 id、名称 / 描述 key、默认解锁、participants / teams、角色池、武器池、敌人池、机关池、遗物池、成长池、content tag blocklist 与玩家基础属性轻量覆盖；角色池 id 必须存在于 `characters.json`，武器池 id 必须存在于 `weapons.json`，敌人池 id 必须存在于 `enemies.csv`，机关池 id 必须存在于 `hazards.csv`，遗物池 id 必须存在于 `relics.json`。
+  - `game_modes.json`：模式 id、名称 / 描述 key、默认解锁、participants / teams、角色池、武器池、敌人池、机关池、遗物池、主动道具池、成长池、content tag blocklist 与玩家基础属性轻量覆盖；角色池 id 必须存在于 `characters.json`，武器池 id 必须存在于 `weapons.json`，敌人池 id 必须存在于 `enemies.csv`，机关池 id 必须存在于 `hazards.csv`，遗物池 id 必须存在于 `relics.json`，主动道具池 id 必须存在于 `active_items.json`。
   - `strings.csv`：key 前缀、`zh_CN` / `en` 必填、唯一 key。
-- 当前只校验 `characters.json`、`weapons.json`、`enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`relics.json`、`credits.json` 与 `game_modes.json` 的数据边界，不实现角色选择 UI、武器运行时、敌人生成 / AI / 刷怪、机关放置 / 触发 / 碰撞 / 伤害、遗物拾取 / 应用、Credits UI、模式选择 UI、匹配、联网、成长抽取、输入 profile 切换或模式运行时。
+- 当前只校验 `characters.json`、`weapons.json`、`enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`credits.json` 与 `game_modes.json` 的数据边界，不实现角色选择 UI、武器运行时、敌人生成 / AI / 刷怪、机关放置 / 触发 / 碰撞 / 伤害、遗物拾取 / 应用、主动道具栏 / 冷却 / 使用效果、Credits UI、模式选择 UI、匹配、联网、成长抽取、输入 profile 切换或模式运行时。
 
 ## 依赖
 
