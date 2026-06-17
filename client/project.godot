@@ -1,9 +1,10 @@
 ; Engine configuration file.
-; Prefer editing through the Godot editor when changing project settings.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
 ;
 ; Format:
-;   [section]
-;   key=value
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
 
@@ -27,11 +28,3 @@ SaveManager="*res://scripts/autoload/save_manager.gd"
 AudioManager="*res://scripts/autoload/audio_manager.gd"
 Localization="*res://scripts/autoload/localization.gd"
 UIManager="*res://scripts/autoload/ui_manager.gd"
-
-[audio]
-
-buses/default_bus_layout="res://default_bus_layout.tres"
-
-[rendering]
-
-renderer/rendering_method="gl_compatibility"

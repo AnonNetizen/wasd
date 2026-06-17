@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://0a6kogsgjjga"
+
+[deps]
+
+files=["res://data/enemies.name.translation", "res://data/enemies.tags.translation", "res://data/enemies.pool.translation", "res://data/enemies.max.translation", "res://data/enemies.move.translation", "res://data/enemies.contact.translation", "res://data/enemies.contact.translation", "res://data/enemies.exp.translation", "res://data/enemies.hit.translation"]
+
+source_file="res://data/enemies.csv"
+dest_files=["res://data/enemies.name.translation", "res://data/enemies.tags.translation", "res://data/enemies.pool.translation", "res://data/enemies.max.translation", "res://data/enemies.move.translation", "res://data/enemies.contact.translation", "res://data/enemies.contact.translation", "res://data/enemies.exp.translation", "res://data/enemies.hit.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

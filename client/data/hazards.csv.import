@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://dct2rcbt32bd3"
+
+[deps]
+
+files=["res://data/hazards.name.translation", "res://data/hazards.tags.translation", "res://data/hazards.pool.translation", "res://data/hazards.damage.translation", "res://data/hazards.damage.translation", "res://data/hazards.trigger.translation", "res://data/hazards.radius.translation", "res://data/hazards.duration.translation"]
+
+source_file="res://data/hazards.csv"
+dest_files=["res://data/hazards.name.translation", "res://data/hazards.tags.translation", "res://data/hazards.pool.translation", "res://data/hazards.damage.translation", "res://data/hazards.damage.translation", "res://data/hazards.trigger.translation", "res://data/hazards.radius.translation", "res://data/hazards.duration.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

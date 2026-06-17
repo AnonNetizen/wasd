@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://dc8dabgfr5kc5"
+
+[deps]
+
+files=["res://data/spawn_waves.mode.translation", "res://data/spawn_waves.wave.translation", "res://data/spawn_waves.start.translation", "res://data/spawn_waves.end.translation", "res://data/spawn_waves.enemy.translation", "res://data/spawn_waves.enemy.translation", "res://data/spawn_waves.spawn.translation", "res://data/spawn_waves.max.translation", "res://data/spawn_waves.spawn.translation", "res://data/spawn_waves.en.translation", "res://data/spawn_waves.hazard.translation"]
+
+source_file="res://data/spawn_waves.csv"
+dest_files=["res://data/spawn_waves.mode.translation", "res://data/spawn_waves.wave.translation", "res://data/spawn_waves.start.translation", "res://data/spawn_waves.end.translation", "res://data/spawn_waves.enemy.translation", "res://data/spawn_waves.enemy.translation", "res://data/spawn_waves.spawn.translation", "res://data/spawn_waves.max.translation", "res://data/spawn_waves.spawn.translation", "res://data/spawn_waves.en.translation", "res://data/spawn_waves.hazard.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true
