@@ -432,10 +432,24 @@
       "last_reviewed": "2026-06-14",
       "canonical_for": ["ai_roles", "subagent_responsibilities"],
       "must_read_for": ["new_subagent", "role_change", "complex_task_split"],
-      "related_docs": ["docs/AI协作/README.md", "AGENTS.md", "docs/AI协作/工具适配指南.md"],
+      "related_docs": ["docs/AI协作/README.md", "AGENTS.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/代码审核流程.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/"],
       "update_triggers": ["new role", "subagent responsibility change", "agent file change"],
-      "keywords": ["角色分工", "subagent", "agent", "balancer", "data-author", "game-designer", "numeric-designer", "ip-designer", "copywriter-packager", "ui-art-designer", "game-art-designer", "marketing-strategist"]
+      "keywords": ["角色分工", "subagent", "agent", "reviewer", "code review", "代码审核", "balancer", "data-author", "game-designer", "numeric-designer", "ip-designer", "copywriter-packager", "ui-art-designer", "game-art-designer", "marketing-strategist"]
+    },
+    {
+      "path": "docs/AI协作/代码审核流程.md",
+      "type": "workflow",
+      "authority": "Tool-first factual code review process and reviewer output contract",
+      "status": "active",
+      "owner_scope": "ai-workflow",
+      "last_reviewed": "2026-06-17",
+      "canonical_for": ["code_review_process", "tool_first_review", "semantic_advisory_triage"],
+      "must_read_for": ["large_code_review", "reviewer_task", "pre_commit_change", "lint_gate_change"],
+      "related_docs": ["docs/AI协作/角色分工.md", "docs/AI协作/实时验证回路.md", "docs/CICD规划.md", "CONTRIBUTING.md"],
+      "related_code": [".pre-commit-config.yaml", "tools/check_staged_whitespace.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/lint_semantic_rules.py", ".codebuddy/skills/code-review-factual/", ".codex/skills/code-review-factual/", ".opencode/skills/code-review-factual/"],
+      "update_triggers": ["code review workflow change", "pre-commit hook change", "lint gate behavior change", "reviewer output change"],
+      "keywords": ["代码审核", "code review", "reviewer", "pre-commit", "tool-first", "工具先行", "lint", "semantic advisory", "LLM review", "事实review"]
     },
     {
       "path": "docs/AI协作/文档维护指南.md",
@@ -461,9 +475,9 @@
       "canonical_for": ["docs_health_check", "docs_drift_detection"],
       "must_read_for": ["docs_health_failure", "validation_rule_change", "health_check_command"],
       "related_docs": ["docs/AI知识库索引.md", "docs/_kb_index.json", "docs/CICD规划.md"],
-      "related_code": ["tools/docs_health_check.py", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py"],
-      "update_triggers": ["new health-check rule", "script behavior change", "CI docs-check change"],
-      "keywords": ["health", "健康检查", "docs-check", "validation", "orphan", "sync_contracts", "validate_data", "test_data_loader_schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "locale双语", "release preset"]
+      "related_code": [".pre-commit-config.yaml", "tools/docs_health_check.py", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py", "tools/check_staged_whitespace.py"],
+      "update_triggers": ["new health-check rule", "script behavior change", "CI docs-check change", "pre-commit hook change"],
+      "keywords": ["health", "健康检查", "docs-check", "validation", "orphan", "sync_contracts", "validate_data", "test_data_loader_schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "locale双语", "release preset", "pre-commit", "staged whitespace"]
     },
     {
       "path": "docs/AI协作/引擎集成.md",
@@ -488,10 +502,10 @@
       "last_reviewed": "2026-06-14",
       "canonical_for": ["tool_adapter", "platform_mapping"],
       "must_read_for": ["ai_platform_change", "new_command", "new_agent", "new_skill"],
-      "related_docs": ["AGENTS.md", "CODEX.md", "OPENCODE.md", "docs/AI协作/README.md", "docs/AI协作/AI技能资源评估.md", "docs/AI协作/快速开工.md"],
+      "related_docs": ["AGENTS.md", "CODEX.md", "OPENCODE.md", "docs/AI协作/README.md", "docs/AI协作/AI技能资源评估.md", "docs/AI协作/快速开工.md", "docs/AI协作/代码审核流程.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/", ".codebuddy/skills/", ".codex/skills/", ".opencode/skills/"],
       "update_triggers": ["AI platform config changes", "agent mapping changes", "command mapping changes", "skill mapping changes"],
-      "keywords": ["工具适配", "CodeBuddy", "Codex", "OpenCode", "platform", "subagent", "agent mapping", "skills", "需求评估", "不过度优化", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills"]
+      "keywords": ["工具适配", "CodeBuddy", "Codex", "OpenCode", "platform", "subagent", "agent mapping", "skills", "需求评估", "不过度优化", "AI Git", "自动commit", "提交策略", "code review", "事实review", "工具先行review", "project skills"]
     },
     {
       "path": "docs/AI协作/AI技能资源评估.md",
@@ -524,16 +538,16 @@
     {
       "path": "docs/AI协作/实时验证回路.md",
       "type": "workflow",
-      "authority": "Local validation loop, pre-commit hook design, watch scripts",
+      "authority": "Local validation loop, pre-commit hook, watch scripts",
       "status": "active",
       "owner_scope": "ci",
       "last_reviewed": "2026-06-14",
       "canonical_for": ["local_validation_loop", "pre_commit_design"],
       "must_read_for": ["pre_commit_change", "validation_loop_change"],
-      "related_docs": ["docs/CICD规划.md", "docs/测试策略.md", "docs/AI协作/文档健康检查.md"],
-      "related_code": [".github/workflows/", "tools/", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py"],
+      "related_docs": ["docs/CICD规划.md", "docs/测试策略.md", "docs/AI协作/文档健康检查.md", "docs/AI协作/代码审核流程.md"],
+      "related_code": [".pre-commit-config.yaml", ".github/workflows/", "tools/", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py", "tools/check_staged_whitespace.py"],
       "update_triggers": ["new hook", "watch script changes", "local validation responsibility changes"],
-      "keywords": ["pre-commit", "实时验证", "hook", "docs-health", "GitHub Actions", "sync_contracts", "validate_data", "test_data_loader_schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory"]
+      "keywords": ["pre-commit", "实时验证", "hook", "docs-health", "GitHub Actions", "sync_contracts", "validate_data", "test_data_loader_schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "staged whitespace"]
     },
     {
       "path": "docs/AI协作/任务模板/",
@@ -558,10 +572,10 @@
       "last_reviewed": "2026-06-14",
       "canonical_for": ["ci_cd_plan", "validation_stages"],
       "must_read_for": ["ci_change", "pre_commit_change", "health_check_change"],
-      "related_docs": ["docs/测试策略.md", "docs/AI协作/文档健康检查.md", "docs/AI协作/实时验证回路.md"],
-      "related_code": [".github/workflows/", "tools/", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py"],
-      "update_triggers": ["new validation script", "new workflow", "CI stage change"],
-      "keywords": ["CI", "CD", "docs-check", "GitHub Actions", "health", "workflow", "sync_contracts", "validate_data", "test_data_loader_schema", "DataLoader schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "release preset"]
+      "related_docs": ["docs/测试策略.md", "docs/AI协作/文档健康检查.md", "docs/AI协作/实时验证回路.md", "docs/AI协作/代码审核流程.md"],
+      "related_code": [".pre-commit-config.yaml", ".github/workflows/", "tools/", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py", "tools/check_staged_whitespace.py"],
+      "update_triggers": ["new validation script", "new workflow", "CI stage change", "pre-commit hook change"],
+      "keywords": ["CI", "CD", "docs-check", "GitHub Actions", "health", "workflow", "sync_contracts", "validate_data", "test_data_loader_schema", "DataLoader schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "release preset", "pre-commit", "staged whitespace"]
     },
     {
       "path": "docs/修改建议.md",

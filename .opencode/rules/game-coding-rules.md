@@ -30,7 +30,7 @@
 - 面向用户的回复默认中文；仅在用户明确要求、引用代码 / API / 命令 / 日志原文、目标文件语言要求或对外发布文本需要时使用其他语言。
 - 用户问有没有问题 / 风险时，基于事实回答；没发现问题就明确说没有问题，不硬找问题或过度优化。用户提出新需求后，先简短反馈落地前景、性价比、复杂度和主要风险；有重大隐患时先说清楚，再决定是否实现。
 - 发生上下文总结 / 压缩 / 恢复后，必须先以用户最后一条明确指令重新对齐当前任务；摘要、`Next Steps`、`current_state.json` 或历史待办只作候选参考，不能被当作授权执行；授权边界不清时先问一句。
-- 大更改完成后 AI 默认自动 commit，细微改动不 commit；大型代码改动提交前必须追加一次事实型 code review（优先用 `code-review-factual` skill 或 Reviewer 角色），检查 bug、回归风险和缺测试；自动 commit 前必须看 `git status --short` / `git diff` / `git log --oneline -10`，跑对应验证，只 stage 本次任务文件，禁止带入用户已有脏改动、`draft/` / `DRAFT/`、未确认临时文件或本机私有配置。
+- 大更改完成后 AI 默认自动 commit，细微改动不 commit；大型代码改动提交前必须追加一次事实型 code review（优先用 `code-review-factual` skill 或 Reviewer 角色），并按 `docs/AI协作/代码审核流程.md` 先检查 pre-commit / lint / test / docs 输出，再审当前 diff 的 bug、回归风险和缺测试；自动 commit 前必须看 `git status --short` / `git diff` / `git log --oneline -10`，跑对应验证，只 stage 本次任务文件，禁止带入用户已有脏改动、`draft/` / `DRAFT/`、未确认临时文件或本机私有配置。
 - `draft/` / `DRAFT/` 是用户人工草稿禁区；除非用户明确点名授权，AI 不得读取、搜索、修改、整理、格式化、总结或引用其中内容，仓库级批量操作需排除该目录；这是默认行为，不需要每次主动汇报。
 - 历史 MVP 实验区已在验证完成后移除；MVP 经验只能经设计 / ADR 迁移，不得复活或搬运临时代码到正式 `client/`。
 - 改完同步文档：新规则进三个平台规则入口；新决策进 ADR；重要对话进 `docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json` 与会话日志。

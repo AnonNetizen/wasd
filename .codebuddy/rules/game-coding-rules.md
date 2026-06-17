@@ -260,7 +260,7 @@ alwaysApply: true
 ## 27. AI Git 提交策略（强制）
 - 大更改完成后默认由 AI 自动创建一次 git commit：跨多文件功能 / 工具 / CI / 规则 / ADR / 数据 schema / 代码模块 / 重要文档同步等可独立回滚的变更，用户无需再次提醒。
 - 细微改动不自动 commit：拼写、单行措辞、小范围说明、只读诊断、临时验证或用户明确说“先别提交”的改动；最终回复说明未提交原因。
-- 大型代码改动完成后，提交前必须追加一次事实型 code review：适用于跨多文件功能、代码模块、数据 schema、工具、CI 或会改变运行行为的复杂实现；优先使用 `code-review-factual` skill 或 Reviewer 角色检查 bug、回归风险和缺测试。拼写、单行措辞、小范围文档、只读诊断和临时验证不触发正式 review。
+- 大型代码改动完成后，提交前必须追加一次事实型 code review：适用于跨多文件功能、代码模块、数据 schema、工具、CI 或会改变运行行为的复杂实现；优先使用 `code-review-factual` skill 或 Reviewer 角色，并按 `docs/AI协作/代码审核流程.md` 先检查 pre-commit / lint / test / docs 输出，再审当前 diff 的 bug、回归风险和缺测试。拼写、单行措辞、小范围文档、只读诊断和临时验证不触发正式 review。
 - 自动 commit 前必须执行 `git status --short`、`git diff`、`git log --oneline -10`，跑本次变更对应验证，只 stage AI 本次任务明确修改的文件。
 - 禁止提交用户已有脏改动、其他 agent 改动、`draft/` / `DRAFT/` 内容、未确认临时文件或本机私有配置；无法干净拆分时停止并询问用户。
 - commit message 使用 Conventional Commits；禁止 `--no-verify`，除非用户明确批准且 commit message 写明原因。
@@ -307,7 +307,7 @@ alwaysApply: true
 - [ ] 用户提出需求后，是否已反馈落地前景、性价比、复杂度和主要风险；有重大隐患时是否先说清楚？
 - [ ] 若本轮经历上下文总结 / 压缩 / 恢复，是否已重新对齐用户最后明确指令，且没有把摘要里的 `Next Steps` 当作授权执行？
 - [ ] 大更改是否已按 AI Git 提交策略自动 commit？细微改动是否已说明不提交原因？
-- [ ] 若是大型代码改动，是否已在提交前追加事实型 code review，并记录发现 / 未发现问题及测试缺口？若是细微改动，是否未触发正式 review？
+- [ ] 若是大型代码改动，是否已按 `docs/AI协作/代码审核流程.md` 先看工具输出、再审 diff，并记录发现 / 未发现问题、semantic advisory 处理结果及测试缺口？若是细微改动，是否未触发正式 review？
 - [ ] 自动 commit 前是否检查 `git status --short` / `git diff` / `git log --oneline -10`，且只 stage 本次任务文件？
 - [ ] 是否已更新 `docs/AI导航.md`、`docs/决策记录.md` 等相关文档？
 - [ ] 是否套用了 `docs/AI协作/任务模板/`（高频任务）或遵守了上下文预算？

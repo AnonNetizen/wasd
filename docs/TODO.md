@@ -17,7 +17,7 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、本地 pre-commit hook、增量 watch。
+- [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 - [ ] 继续正式项目 F3 数据 / 契约闭环：在已补 DataLoader schema 回归测试、weapons、relics、active_items、enemies、hazards 和 spawn_waves 边界后，继续扩展 consumables 等后续内容数据 schema。
 
 ## 2. 下一批任务（P1）

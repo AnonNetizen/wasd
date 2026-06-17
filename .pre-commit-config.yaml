@@ -1,0 +1,72 @@
+repos:
+  - repo: local
+    hooks:
+      - id: sync-contracts-check
+        name: Check generated contracts
+        entry: python tools/sync_contracts.py --check
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: validate-data
+        name: Validate data and locale
+        entry: python tools/validate_data.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: test-data-loader-schema
+        name: Run DataLoader schema regression tests
+        entry: python tools/test_data_loader_schema.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: lint-gdscript-rules
+        name: Run first-tier GDScript project lint
+        entry: python tools/lint_gdscript_rules.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: lint-project-rules
+        name: Run second-tier project rules lint
+        entry: python tools/lint_project_rules.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: test-project-rules-lint
+        name: Run project rules lint regression tests
+        entry: python tools/test_project_rules_lint.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: lint-semantic-rules
+        name: Run third-tier semantic advisory lint
+        entry: python tools/lint_semantic_rules.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: test-semantic-rules-lint
+        name: Run semantic advisory lint regression tests
+        entry: python tools/test_semantic_rules_lint.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: docs-health-check
+        name: Run docs health check
+        entry: python tools/docs_health_check.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: staged-whitespace-check
+        name: Check staged whitespace
+        entry: python tools/check_staged_whitespace.py
+        language: system
+        pass_filenames: false
+        always_run: true

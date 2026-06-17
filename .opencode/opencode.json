@@ -24,7 +24,7 @@
     },
     "health-check": {
       "description": "跑项目健康度与 AI 知识库健康检查。",
-      "template": "按 `.opencode/commands/health-check.md` 的步骤执行，依次运行 `tools/sync_contracts.py --check`、`tools/validate_data.py`、`tools/docs_health_check.py`，并列出健康度风险。"
+      "template": "按 `.opencode/commands/health-check.md` 的步骤执行，运行 Stage 1 contract/data/schema/lint/docs health 检查，并列出健康度风险与 semantic advisory 处理结果。"
     },
     "update-memory": {
       "description": "显式触发 AI 项目记忆更新。",

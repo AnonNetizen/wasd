@@ -13,6 +13,14 @@ Use this skill for review-style requests and for the mandatory pre-commit review
 
 Do not run a formal review for tiny changes such as typos, single-line wording, small documentation edits, read-only diagnostics, or temporary verification unless the user explicitly asks.
 
+## Required Workflow
+
+1. Follow `docs/AI协作/代码审核流程.md`.
+2. Check deterministic tool output first: pre-commit if available, or the equivalent lint / test / docs commands.
+3. Treat blocking lint/test failures as findings to fix before approving.
+4. Triage `tools/lint_semantic_rules.py` advisory warnings as `fix`, `accept`, or `defer` with a short reason.
+5. After tools are clean or warnings are triaged, review only the task-relevant diff and risk areas. Do not re-scan the whole repo for rules already covered by lint.
+
 ## Review Priorities
 
 1. Correctness bugs and behavioral regressions.
@@ -25,6 +33,7 @@ Do not run a formal review for tiny changes such as typos, single-line wording, 
 - Findings first, ordered by severity.
 - Include file/line references when available.
 - If no actual issue is found, say so clearly.
+- Include tool status and semantic advisory triage in the summary or residual-risk note.
 - Do not invent weak issues or over-optimize to appear useful.
 - Keep summaries brief and secondary.
 

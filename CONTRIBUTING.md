@@ -33,6 +33,7 @@ git config --global user.email "<your email>"
 | **OpenCode** | 想用 OpenCode 协作；入口见 `OPENCODE.md` 与 `.opencode/opencode.json` |
 | **Godot 4.6.3** | 真正运行 / 调试 `client/`（M1 起）|
 | **Python 3.10+** | 跑 `tools/sync_contracts.py`、`tools/validate_data.py`、`tools/test_data_loader_schema.py`、`tools/lint_gdscript_rules.py`、`tools/lint_project_rules.py`、`tools/lint_semantic_rules.py`、`tools/test_semantic_rules_lint.py`、`tools/docs_health_check.py` 与后续工具脚本 |
+| **pre-commit** | 可选但推荐；执行 `pip install pre-commit && pre-commit install` 后，commit 前自动跑 Stage 1 本地 hook |
 | **gdtoolkit / GUT** | M1 之后的 lint 与单测（详见 `docs/测试策略.md`）|
 
 **AI agent 第一件事**：读 `AGENTS.md` → `docs/AI协作/快速开工.md` → `docs/AI记忆/current_state.json`，需要长期背景时再读 `docs/AI记忆/项目记忆.md`，无需翻历史聊天即可续接。
@@ -117,7 +118,7 @@ docs(adr): 记录暂停功能实现约定
 
 - AI 完成大更改后默认自动 commit：跨多文件功能 / 工具 / CI / 规则 / ADR / 数据 schema / 代码模块 / 重要文档同步等可独立回滚的变更。
 - 细微改动不自动 commit：拼写、单行措辞、小范围说明、只读诊断、临时验证或用户明确说“先别提交”的改动。
-- 大型代码改动提交前必须追加事实型 code review；细微改动不触发正式 review。
+- 大型代码改动提交前必须追加事实型 code review；细微改动不触发正式 review。正式 review 按 `docs/AI协作/代码审核流程.md` 执行：先看 pre-commit / lint / test / docs 输出，再审当前 diff。
 - 自动 commit 前必须执行 `git status --short`、`git diff`、`git log --oneline -10`，跑对应验证，只 stage 本次任务明确修改的文件。
 - 禁止提交用户已有脏改动、其他 agent 改动、`draft/` / `DRAFT/` 内容、未确认临时文件或本机私有配置；无法干净拆分时先问用户。
 - commit message 使用 Conventional Commits；禁止 `--no-verify`，除非用户明确批准且 message 写明原因。
@@ -129,6 +130,12 @@ docs(adr): 记录暂停功能实现约定
 当前 GitHub Actions 已启用 Stage 1 `docs-check`：PR / `main` push 会自动检查契约同步、数据 / locale、DataLoader schema 回归、第一档 GDScript 项目 lint、第二档项目规则 lint、第三档语义 advisory lint、文档健康和 whitespace diff。第三档 warning 默认非阻塞；它暂不跑 Godot、GUT、黄金回放或平衡 sim。
 
 本地提交前建议先跑：
+
+```bash
+pre-commit run --all-files
+```
+
+未安装 pre-commit 时，运行等价命令：
 
 ```bash
 python tools/sync_contracts.py --check
@@ -153,6 +160,7 @@ python tools/docs_health_check.py
 - [ ] 新增 / 修改数据字段后是否已运行 `python tools/lint_project_rules.py` 并确认 `client/data/README.md` 已覆盖字段？
 - [ ] 新代码使用类型化 GDScript，且已运行 `python tools/lint_gdscript_rules.py`？
 - [ ] 修改正式 GDScript 后是否已运行 `python tools/lint_semantic_rules.py` 并人工判断第三档 advisory warning？
+- [ ] 大型代码改动是否已按 `docs/AI协作/代码审核流程.md` 先看工具输出、再审当前 diff？
 - [ ] 已更新 `docs/AI导航.md` / `docs/决策记录.md` 等相关文档？
 - [ ] 本次新规则 / 设计变更已同步到对应文档？
 
