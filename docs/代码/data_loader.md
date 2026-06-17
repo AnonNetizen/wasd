@@ -33,6 +33,7 @@
 | `client/data/growth.csv` | 经验阈值与升级候选数量概率曲线 |
 | `client/data/growth_pools.json` | 升级候选池与奖励条目边界 |
 | `client/locale/strings.csv` | 多语言 key 与译文表 |
+| `tools/test_data_loader_schema.py` | DataLoader schema 回归测试：黄金数据、坏 id、缺 locale、类型 / 范围错与跨文件引用错误 |
 
 ## 场景 / 节点结构
 
@@ -115,7 +116,7 @@
 
 - 必跑 `tools/godot_bridge.py --project client headless-boot`。
 - 改契约 / 数据时跑 `tools/sync_contracts.py --check` 与 `tools/validate_data.py`。
-- F3 开始补 DataLoader schema 单测，覆盖黄金样例、未登记 id fail-fast 和错误格式。
+- F3 schema 变更需跑 `tools/test_data_loader_schema.py`，覆盖黄金样例、未登记 id、缺失 locale key、类型 / 范围错误、跨文件引用错误和 fail-fast 输出格式。
 
 ## 迁移 / 兼容
 

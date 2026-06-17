@@ -40,7 +40,7 @@
 | `client/` | **Godot 4.6.3 项目根**（即 Godot 中的 `res://`） |
 | `server/` | 服务器端预留（当前为单机项目，暂占位） |
 | `MinimumViableProduct/` | MVP 隔离实验区；文档与独立客户端代码都放此处，不污染完整项目 `client/` |
-| `tools/` | 本地校验与桥接工具：`sync_contracts.py`、`validate_data.py`、`docs_health_check.py`、`godot_bridge.py` |
+| `tools/` | 本地校验与桥接工具：`sync_contracts.py`、`validate_data.py`、`test_data_loader_schema.py`、`docs_health_check.py`、`godot_bridge.py` |
 | `.github/` | GitHub Issue / PR 模板与 Actions workflows；当前启用 Stage 1 基础 `docs-check` CI |
 | `draft/` / `DRAFT/` | 用户人工草稿，AI 禁止读取 / 搜索 / 修改 / 整理 / 引用，除非用户明确点名授权 |
 
@@ -116,7 +116,7 @@
 | **启动 / 推进正式项目** | 优先读当前阶段工作包；当前 F3 读 `docs/AI协作/工作包/F3-DataLoader.md`。没有工作包时再看 [`docs/正式项目工作规划.md`](正式项目工作规划.md) |
 | **维护正式客户端启动骨架** | 看 `client/README.md` 与 `docs/代码/formal_client_boot.md`；改主场景或启动验证时同步本导航和 `docs/代码/README.md` |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
-| **校验数据 / 文案** | 跑 `python tools/validate_data.py`，覆盖 `client/data/*.json`、`client/data/*.csv`、`client/locale/strings.csv` 与 MVP config 的 schema / 词表 / locale key 校验 |
+| **校验数据 / 文案** | 跑 `python tools/validate_data.py`；改 DataLoader schema 时追加 `python tools/test_data_loader_schema.py`，覆盖黄金数据与坏 id / 缺 locale / 类型范围 / 跨文件引用错误 |
 | **查 Godot 场景树 / headless 启动** | 跑 `python tools/godot_bridge.py export-tree` 或 `python tools/godot_bridge.py headless-boot`；默认项目为 `MinimumViableProduct/client` |
 | **用项目级 AI skill** | CodeBuddy / Codex / OpenCode 分别读取 `.codebuddy/skills/<name>/SKILL.md`、`.codex/skills/<name>/SKILL.md`、`.opencode/skills/<name>/SKILL.md`；当前覆盖 Godot 实现、场景验证、Godot 测试诊断、试玩复盘、文档同步、安全提交、事实 review、AI 资源筛选和 MCP 评估；外部 GodotPrompter / headless-godot / CCGS 的有用流程已吸收进项目 skill，不再保留 vendor 来源或 reference 跳转；资源筛选与安装清单见 `docs/AI协作/AI技能资源评估.md` |
 | **做 MVP 实验** | 只改 `MinimumViableProduct/`；MVP 文档见 `MinimumViableProduct/README.md`，MVP 客户端代码放 `MinimumViableProduct/client/`，不要混入完整项目 `client/` |
@@ -260,7 +260,7 @@ flowchart LR
 - ❌ 存档缺标准头字段、迁移、原子写入、`.bak` 回退或 `.broken` 损坏隔离（必须走 `SaveManager`）
 - ❌ 业务代码 `AudioStreamPlayer.play()`（必须 `AudioManager.play_sfx/music`）
 - ❌ 手改 `client/scripts/contracts/*.gd`（自动生成，改 `docs/词表与契约.md` + 跑 `tools/sync_contracts.py`）
-- ❌ 改了数据 / 文案 / 词表却不跑 `tools/validate_data.py` 或 `tools/sync_contracts.py --check`
+- ❌ 改了数据 / 文案 / 词表却不跑 `tools/validate_data.py` 或 `tools/sync_contracts.py --check`；改 DataLoader schema 却不跑 `tools/test_data_loader_schema.py`
 - ❌ 新增 / 修改长期代码模块却没有对应详细 `docs/代码/` 模块文档、或用简短自动摘要替代维护文档
 - ❌ 面向用户的回复默认使用英文或其他语言（除非用户明确要求、引用原文或目标文件语言要求）
 - ❌ 用户问有没有问题 / 风险时，为了显得有用而硬找问题、过度优化或提出无必要改动（没发现问题就明确说没有问题）

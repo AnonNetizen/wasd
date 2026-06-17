@@ -3,7 +3,7 @@
 > 本文档汇总本项目的 CI/CD 路线图与候选项，按「阶段 + 优先级」排列，作为后续逐步落地的清单。
 > 配套：`README.md`、`CONTRIBUTING.md`、当前平台编码规则入口、`词表与契约.md`、`决策记录.md`。
 >
-> 当前状态：已启用 Stage 1 基础 workflow：`.github/workflows/docs-check.yml`。它跑契约生成同步检查、数据 / locale 校验、文档健康检查和 whitespace diff；暂不启用 Godot、GUT、黄金回放、平衡 sim、commitlint 或复杂矩阵。
+> 当前状态：已启用 Stage 1 基础 workflow：`.github/workflows/docs-check.yml`。它跑契约生成同步检查、数据 / locale 校验、DataLoader schema 回归测试、文档健康检查和 whitespace diff；暂不启用 Godot、GUT、黄金回放、平衡 sim、commitlint 或复杂矩阵。
 >
 > **测试相关**：本文件只列 CI 工作流的"何时跑、跑什么"。完整测试金字塔、必测清单、里程碑要求、性能预算、手动回归 checklist 见 `docs/测试策略.md`（测试唯一权威）。
 >
@@ -36,6 +36,7 @@
 
 - 契约生成同步：`python tools/sync_contracts.py --check`，确认 `docs/词表与契约.md`、`client/data/_contracts.json`、`client/scripts/contracts/*.gd` 一致
 - 数据 / locale 校验：`python tools/validate_data.py`，覆盖 JSON 语法、`player.json`、`meta_progression.json`、`strings.csv`、MVP `mvp_config.json`
+- DataLoader schema 回归：`python tools/test_data_loader_schema.py`，用临时数据副本断言黄金数据通过、未登记 id / 缺 locale / 类型范围错 / 跨文件引用错会 fail-fast
 - AI 知识库健康检查：运行 `python tools/docs_health_check.py`，校验知识库索引、ADR、current_state、链接、AI 修改说明和模块文档索引
 - whitespace diff：对本次提交范围运行 `git diff --check`，排除 `draft/` / `DRAFT/`
 

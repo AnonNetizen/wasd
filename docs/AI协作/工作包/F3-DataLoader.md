@@ -37,6 +37,7 @@
 - `client/data/*.json` / `client/data/*.csv`
 - `client/locale/strings.csv`
 - `tools/validate_data.py`、`tools/sync_contracts.py`
+- `tools/test_data_loader_schema.py`
 - `client/data/README.md`
 - `client/locale/README.md`
 - `docs/代码/data_loader.md`
@@ -54,6 +55,7 @@
 
 - `python tools/sync_contracts.py --check`
 - `python tools/validate_data.py`
+- `python tools/test_data_loader_schema.py`
 - `python tools/godot_bridge.py --project client headless-boot`
 - `python -m json.tool docs/AI记忆/current_state.json`
 - `python -m json.tool docs/_kb_index.json`

@@ -32,6 +32,9 @@ jobs:
       - name: Validate data and locale
         run: python tools/validate_data.py
 
+      - name: Run DataLoader schema regression tests
+        run: python tools/test_data_loader_schema.py
+
       - name: Run docs health check
         run: python tools/docs_health_check.py
 
