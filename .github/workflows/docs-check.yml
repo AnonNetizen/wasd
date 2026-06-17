@@ -44,6 +44,12 @@ jobs:
       - name: Run project rules lint regression tests
         run: python tools/test_project_rules_lint.py
 
+      - name: Run semantic advisory lint
+        run: python tools/lint_semantic_rules.py || true
+
+      - name: Run semantic advisory lint regression tests
+        run: python tools/test_semantic_rules_lint.py
+
       - name: Run docs health check
         run: python tools/docs_health_check.py
 
