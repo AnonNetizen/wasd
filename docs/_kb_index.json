@@ -393,7 +393,7 @@
       "related_docs": ["docs/代码/data_loader.md", "client/data/README.md", "client/locale/README.md", "docs/词表与契约.md", "docs/AI协作/上下文预算.md", "docs/AI记忆/current_state.json"],
       "related_code": ["client/scripts/autoload/data_loader.gd", "client/scripts/boot/formal_client_boot.gd", "client/data/", "client/locale/", "tools/test_data_loader_schema.py"],
       "update_triggers": ["DataLoader F3 scope changes", "formal data schema target changes", "F3 acceptance command changes"],
-      "keywords": ["F3", "DataLoader", "schema", "player.json", "characters.json", "weapons.json", "relics.json", "growth.csv", "growth_pools", "meta_progression", "strings.csv", "game_modes", "test_data_loader_schema"]
+      "keywords": ["F3", "DataLoader", "schema", "player.json", "characters.json", "weapons.json", "enemies.csv", "relics.json", "growth.csv", "growth_pools", "meta_progression", "strings.csv", "game_modes", "test_data_loader_schema"]
     },
     {
       "path": "docs/AI协作/上下文预算.md",
@@ -645,7 +645,7 @@
       "related_docs": ["client/data/README.md", "docs/词表与契约.md", "docs/代码/README.md", "docs/AI导航.md", "docs/AI协作/工作包/F3-DataLoader.md"],
       "related_code": ["client/scripts/autoload/data_loader.gd", "client/data/_contracts.json", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
       "update_triggers": ["DataLoader API changes", "data loading schema changes", "contract cache behavior changes"],
-      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation", "schema regression", "weapons.json", "relics.json", "test_data_loader_schema"]
+      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation", "schema regression", "weapons.json", "enemies.csv", "relics.json", "test_data_loader_schema"]
     },
     {
       "path": "docs/代码/rng.md",

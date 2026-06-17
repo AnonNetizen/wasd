@@ -17,6 +17,7 @@ CLIENT_DATA = ROOT / "client" / "data"
 LOCALE_CSV = ROOT / "client" / "locale" / "strings.csv"
 CHARACTERS_JSON = ROOT / "client" / "data" / "characters.json"
 WEAPONS_JSON = ROOT / "client" / "data" / "weapons.json"
+ENEMIES_CSV = ROOT / "client" / "data" / "enemies.csv"
 RELICS_JSON = ROOT / "client" / "data" / "relics.json"
 GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
 GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
@@ -52,6 +53,8 @@ def main() -> int:
     _validate_player_json(ctx)
     _validate_weapons(ctx)
     weapon_ids = _collect_weapon_ids(ctx)
+    _validate_enemies_csv(ctx)
+    enemy_ids = _collect_enemy_ids(ctx)
     _validate_relics(ctx)
     relic_ids = _collect_relic_ids(ctx)
     _validate_characters(ctx, weapon_ids)
@@ -59,7 +62,7 @@ def main() -> int:
     _validate_meta_progression(ctx, character_ids)
     _validate_growth_csv(ctx)
     _validate_growth_pools(ctx)
-    _validate_game_modes(ctx, character_ids, weapon_ids, relic_ids)
+    _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, relic_ids)
     _validate_mvp_config(ctx)
 
     if ctx.errors:
@@ -254,6 +257,56 @@ def _validate_weapon_projectile(ctx: ValidationContext, path: Path, field: str, 
     _require_number(ctx, path, f"{field}.lifetime", data.get("lifetime"), minimum=0, exclusive_minimum=True)
 
 
+def _validate_enemies_csv(ctx: ValidationContext) -> None:
+    path = ENEMIES_CSV
+    if not path.exists():
+        ctx.error(path, "$", "missing enemies CSV")
+        return
+
+    required = {
+        "id",
+        "name_key",
+        "tags",
+        "pool_id",
+        "max_hp",
+        "move_speed",
+        "contact_damage",
+        "contact_damage_type",
+        "exp_reward",
+        "hit_radius",
+    }
+    seen: set[str] = set()
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        fieldnames = reader.fieldnames or []
+        missing = required.difference(fieldnames)
+        if missing:
+            ctx.error(path, "header", f"missing required columns {sorted(missing)}")
+            return
+        row_count = 0
+        for line_number, row in enumerate(reader, start=2):
+            row_count += 1
+            field = f"line {line_number}"
+            enemy_id = _require_non_empty_string(ctx, path, f"{field}.id", row.get("id"))
+            if enemy_id:
+                if enemy_id in seen:
+                    ctx.error(path, f"{field}.id", f"duplicate enemy id {enemy_id}")
+                seen.add(enemy_id)
+            _require_locale_key(ctx, path, f"{field}.name_key", row.get("name_key"))
+            tags = _validate_registered_string_list(ctx, path, f"{field}.tags", _parse_pipe_list(row.get("tags")), "content_tags", allow_empty=False)
+            if "tag_enemy" not in tags:
+                ctx.error(path, f"{field}.tags", "must include tag_enemy")
+            _require_registered(ctx, path, f"{field}.pool_id", row.get("pool_id"), "pool_ids")
+            _parse_int(ctx, path, f"{field}.max_hp", row.get("max_hp"), minimum=1)
+            _parse_float(ctx, path, f"{field}.move_speed", row.get("move_speed"), minimum=0, exclusive_minimum=True)
+            _parse_int(ctx, path, f"{field}.contact_damage", row.get("contact_damage"), minimum=0)
+            _require_registered(ctx, path, f"{field}.contact_damage_type", row.get("contact_damage_type"), "damage_types")
+            _parse_int(ctx, path, f"{field}.exp_reward", row.get("exp_reward"), minimum=0)
+            _parse_float(ctx, path, f"{field}.hit_radius", row.get("hit_radius"), minimum=0, exclusive_minimum=True)
+        if row_count == 0:
+            ctx.error(path, "rows", "must contain at least one enemy")
+
+
 def _validate_relics(ctx: ValidationContext) -> None:
     path = RELICS_JSON
     data = _load_json(path, ctx)
@@ -394,7 +447,7 @@ def _validate_growth_pools(ctx: ValidationContext) -> None:
                 _validate_modifiers(ctx, path, f"{entry_field}.modifiers", entry.get("modifiers"), require_value_per_level=False)
 
 
-def _validate_game_modes(ctx: ValidationContext, character_ids: set[str], weapon_ids: set[str], relic_ids: set[str]) -> None:
+def _validate_game_modes(ctx: ValidationContext, character_ids: set[str], weapon_ids: set[str], enemy_ids: set[str], relic_ids: set[str]) -> None:
     path = GAME_MODES_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
@@ -420,7 +473,7 @@ def _validate_game_modes(ctx: ValidationContext, character_ids: set[str], weapon
         _require_bool(ctx, path, f"{mode_field}.default_unlocked", mode.get("default_unlocked"))
         team_ids = _validate_mode_teams(ctx, path, mode_field, mode.get("teams"))
         _validate_mode_participants(ctx, path, mode_field, mode.get("participants"), team_ids)
-        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, relic_ids)
+        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, relic_ids)
         if "blocklists" in mode:
             _validate_mode_blocklists(ctx, path, f"{mode_field}.blocklists", mode.get("blocklists"))
         if "overrides" in mode:
@@ -477,6 +530,7 @@ def _validate_mode_resource_pools(
     growth_pool_ids: set[str],
     character_ids: set[str],
     weapon_ids: set[str],
+    enemy_ids: set[str],
     relic_ids: set[str],
 ) -> None:
     field = f"{mode_field}.resource_pools"
@@ -487,11 +541,13 @@ def _validate_mode_resource_pools(
         _validate_weighted_character_entries(ctx, path, f"{field}.characters", data.get("characters"), character_ids)
     if "weapons" in data:
         _validate_weighted_weapon_entries(ctx, path, f"{field}.weapons", data.get("weapons"), weapon_ids)
+    if "enemies" in data:
+        _validate_weighted_enemy_entries(ctx, path, f"{field}.enemies", data.get("enemies"), enemy_ids)
     if "relics" in data:
         _validate_weighted_relic_entries(ctx, path, f"{field}.relics", data.get("relics"), relic_ids)
     if "growth_pools" in data:
         _validate_weighted_growth_pool_entries(ctx, path, f"{field}.growth_pools", data.get("growth_pools"), growth_pool_ids)
-    if "characters" not in data and "weapons" not in data and "relics" not in data and "growth_pools" not in data:
+    if "characters" not in data and "weapons" not in data and "enemies" not in data and "relics" not in data and "growth_pools" not in data:
         ctx.error(path, field, "must contain at least one supported pool")
 
 
@@ -522,6 +578,21 @@ def _validate_weighted_weapon_entries(ctx: ValidationContext, path: Path, field:
         weapon_id = _require_non_empty_string(ctx, path, f"{item_field}.id", entry.get("id"))
         if weapon_id and weapon_id not in weapon_ids:
             ctx.error(path, f"{item_field}.id", f"weapon is not defined in weapons.json: {weapon_id}")
+        _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
+
+
+def _validate_weighted_enemy_entries(ctx: ValidationContext, path: Path, field: str, data: Any, enemy_ids: set[str]) -> None:
+    entries = _require_list(ctx, path, field, data)
+    if not entries:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, entry in enumerate(entries):
+        item_field = f"{field}[{index}]"
+        if not isinstance(entry, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        enemy_id = _require_non_empty_string(ctx, path, f"{item_field}.id", entry.get("id"))
+        if enemy_id and enemy_id not in enemy_ids:
+            ctx.error(path, f"{item_field}.id", f"enemy is not defined in enemies.csv: {enemy_id}")
         _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
 
 
@@ -849,6 +920,18 @@ def _collect_weapon_ids(ctx: ValidationContext) -> set[str]:
     return {item.get("id") for item in weapons if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
+def _collect_enemy_ids(ctx: ValidationContext) -> set[str]:
+    if not ENEMIES_CSV.exists():
+        return set()
+    ids: set[str] = set()
+    with ENEMIES_CSV.open(encoding="utf-8-sig", newline="") as handle:
+        for row in csv.DictReader(handle):
+            enemy_id = row.get("id")
+            if isinstance(enemy_id, str) and enemy_id:
+                ids.add(enemy_id)
+    return ids
+
+
 def _collect_relic_ids(ctx: ValidationContext) -> set[str]:
     data = _load_json(RELICS_JSON, ctx)
     if not isinstance(data, dict):
@@ -951,26 +1034,52 @@ def _require_number(
     return numeric
 
 
-def _parse_int(ctx: ValidationContext, path: Path, field: str, value: Any) -> int | None:
+def _parse_int(ctx: ValidationContext, path: Path, field: str, value: Any, *, minimum: int | None = None) -> int | None:
     if not isinstance(value, str) or not value:
         ctx.error(path, field, "must be int")
         return None
     try:
-        return int(value)
+        parsed = int(value)
     except ValueError:
         ctx.error(path, field, "must be int")
         return None
+    if minimum is not None and parsed < minimum:
+        ctx.error(path, field, f"must be >= {minimum}")
+    return parsed
 
 
-def _parse_float(ctx: ValidationContext, path: Path, field: str, value: Any) -> float | None:
+def _parse_float(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    value: Any,
+    *,
+    minimum: float | None = None,
+    maximum: float | None = None,
+    exclusive_minimum: bool = False,
+) -> float | None:
     if not isinstance(value, str) or not value:
         ctx.error(path, field, "must be number")
         return None
     try:
-        return float(value)
+        parsed = float(value)
     except ValueError:
         ctx.error(path, field, "must be number")
         return None
+    if minimum is not None:
+        if exclusive_minimum and parsed <= minimum:
+            ctx.error(path, field, f"must be > {minimum}")
+        elif not exclusive_minimum and parsed < minimum:
+            ctx.error(path, field, f"must be >= {minimum}")
+    if maximum is not None and parsed > maximum:
+        ctx.error(path, field, f"must be <= {maximum}")
+    return parsed
+
+
+def _parse_pipe_list(value: Any) -> list[str]:
+    if not isinstance(value, str):
+        return []
+    return [item.strip() for item in value.split("|") if item.strip()]
 
 
 def _load_json(path: Path, ctx: ValidationContext) -> Any:

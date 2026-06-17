@@ -150,6 +150,7 @@
     ],
     "content_tags": [
       "tag_character",
+      "tag_enemy",
       "tag_relic",
       "tag_active_item",
       "tag_consumable",

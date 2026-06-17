@@ -179,7 +179,7 @@ alwaysApply: true
 
 ## 16. 数据校验与黄金样例
 - `DataLoader` 加载配置时必须**校验字段、类型与取值范围**，并遵循 fail-fast：出错时打印**具体文件名 + 字段 + 期望值**，便于人和 AI 立即定位修正。
-- 每类数据文件（`relics.json` / `enemies.json` 等）保留**一条带注释的"黄金样例"条目**作为结构参照，新增内容照其结构填写。
+- 每类数据文件（`relics.json` / `enemies.csv` 等）保留**一条"黄金样例"条目**作为结构参照，新增内容照其结构填写。
 - 数据字段含义、单位、取值范围记录在 `client/data/README.md` 中，与 `docs/词表与契约.md` 配合；本地化 key、语言列和占位符规则记录在 `client/locale/README.md` 中。
 
 ## 17. 类型化 GDScript 与脚手架模板

@@ -20,7 +20,7 @@
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
 | 改角色基础属性 / 标签 / 能力 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；起始武器填 `starting_weapon_id`，且必须存在于 `weapons.json` |
 | 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
-| 改敌人血量 / 速度 / 接触伤害 | `enemies.csv`（落地后） | 敌人 id、标签、伤害类型必须来自词表 |
+| 改敌人血量 / 速度 / 接触伤害 | `enemies.csv` | 敌人标签、对象池 id、伤害类型必须来自词表 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
 | 改刷怪强度 / 难度曲线 | `spawn_waves.csv`（落地后） | 大改后需要跑回放 / 平衡验证 |
@@ -33,13 +33,13 @@
 | 文件 | 状态 | 作用 |
 |------|------|------|
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
-| `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
+| `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 武器 / 敌人 / 遗物 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
 | `characters.json` | 已建立 | 角色列表：基础属性、tags、capabilities、控制配置和起始武器引用；当前不含遗物运行时 |
 | `weapons.json` | 已建立 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
 | `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 规划 | 主动道具：充能方式、冷却、效果原语与参数 |
 | `consumables.json` | 规划 | 消耗品：拾取 / 使用规则、效果原语与参数 |
-| `enemies.csv` | 规划 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励等 |
+| `enemies.csv` | 已建立 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励等 |
 | `hazards.csv` | 规划 | 机关基础数值平表：伤害、触发周期、范围、持续时间 |
 | `spawn_waves.csv` | 规划 | 刷怪波次、难度曲线、敌人权重、精英 / Boss 出现规则 |
 | `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
@@ -103,6 +103,7 @@ JSON 示例：
 | 空值 | 空值只用于可选字段；必填字段空值 fail-fast |
 | 数字类型 | `DataLoader` / 校验脚本按字段 schema 转 int / float；人工不要写单位后缀 |
 | 布尔值 | 使用 `true` / `false` 小写 |
+| 多值 id | CSV 中少量多标签字段使用 `|` 分隔，例如 `tag_enemy|tag_limit_break` |
 | 列新增 | 新增列必须同步本文档字段说明和对应 schema |
 | 复杂参数 | 不把 JSON 字符串硬塞进 CSV；出现复杂参数时拆到 JSON 文件或独立配置 |
 
@@ -181,6 +182,7 @@ JSON 示例：
       "resource_pools": {
         "characters": [{ "id": "character_default", "weight": 100 }],
         "weapons": [{ "id": "weapon_basic_blaster", "weight": 100 }],
+        "enemies": [{ "id": "enemy_chaser", "weight": 100 }],
         "relics": [{ "id": "relic_sharp_rounds", "weight": 100 }],
         "growth_pools": [{ "id": "default_level_up", "weight": 100 }]
       },
@@ -209,6 +211,8 @@ JSON 示例：
 | `resource_pools.characters[].id` | string | 词表 §12.1 character id，且必须存在于 `characters.json` | 可用角色 id |
 | `resource_pools.weapons[]` | array[object] | 已声明时必须非空 | 本模式可用武器池 |
 | `resource_pools.weapons[].id` | string | 必须存在于 `weapons.json` | 可用武器 id |
+| `resource_pools.enemies[]` | array[object] | 已声明时必须非空 | 本模式可用敌人池 |
+| `resource_pools.enemies[].id` | string | 必须存在于 `enemies.csv` | 可用敌人 id |
 | `resource_pools.relics[]` | array[object] | 已声明时必须非空 | 本模式可用遗物池 |
 | `resource_pools.relics[].id` | string | 必须存在于 `relics.json` | 可用遗物 id |
 | `resource_pools.*[].weight` | int | `>= 0` | 抽取 / 展示权重；具体抽取由后续系统实现 |
@@ -217,7 +221,33 @@ JSON 示例：
 | `blocklists.content_tags[]` | array[string] | 词表 §12.3 content tag | 禁用某类内容标签；当前样例为空 |
 | `overrides.player_base_stats` | object | stat 来自词表 §1 | 轻量覆盖玩家基础属性；只用于模式差异，不复制角色本体 |
 
-`game_modes.json` 只声明模式边界，不实现模式选择 UI、匹配、联网、刷怪、成长抽取、遗物抽取或实际战斗规则。新增资源池类型时，必须同步本文档、`DataLoader` schema、词表或对应数据注册表。
+`game_modes.json` 只声明模式边界，不实现模式选择 UI、匹配、联网、刷怪、成长抽取、敌人生成、遗物抽取或实际战斗规则。新增资源池类型时，必须同步本文档、`DataLoader` schema、词表或对应数据注册表。
+
+## `enemies.csv`
+
+当前结构：
+
+```csv
+id,name_key,tags,pool_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius
+enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,12,110.0,1,physical,3,14.0
+```
+
+字段说明：
+
+| 字段 | 类型 | 合法值 / 范围 | 说明 |
+|------|------|---------------|------|
+| `id` | string | 文件内唯一，非空 | 敌人 id；模式敌人池和后续刷怪表引用此 id |
+| `name_key` | string | `enemy_*_name` | 敌人名称译文 key |
+| `tags` | string | `|` 分隔的词表 §12.3 content tag，必须含 `tag_enemy` | 内容标签；可被模式 blocklist、刷怪规则或后续内容系统筛选 |
+| `pool_id` | string | 词表 §8 pool id | 运行时使用的敌人对象池；当前只校验 id，不实例化场景 |
+| `max_hp` | int | `>= 1` | 敌人最大生命 |
+| `move_speed` | number | `> 0`，px/s | 敌人基础移动速度 |
+| `contact_damage` | int | `>= 0` | 接触伤害；运行时必须经 `Combat.apply_damage` 结算 |
+| `contact_damage_type` | string | 词表 §9 damage type | 接触伤害类型 |
+| `exp_reward` | int | `>= 0` | 击杀后经验奖励；后续掉落 / 经验球系统解释 |
+| `hit_radius` | number | `> 0`，px | 命中 / 接触半径边界，后续碰撞体或占位图可据此生成 |
+
+`enemies.csv` 只声明敌人基础数值边界，不实现 `Enemy` / `EnemyAI`、刷怪、寻路、碰撞体、掉落、对象池预热或伤害结算。游戏模式可通过 `resource_pools.enemies` 声明可用敌人池；实际波次选择、生成位置和行为由后续 `Spawner` / `EnemyAI` 系统解释。
 
 ## `characters.json`
 

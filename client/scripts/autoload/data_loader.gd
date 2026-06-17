@@ -12,6 +12,7 @@ const LOCALE_STRINGS_PATH: String = "res://locale/strings.csv"
 const PLAYER_DATA_PATH: String = "res://data/player.json"
 const CHARACTERS_PATH: String = "res://data/characters.json"
 const WEAPONS_PATH: String = "res://data/weapons.json"
+const ENEMIES_PATH: String = "res://data/enemies.csv"
 const RELICS_PATH: String = "res://data/relics.json"
 const META_PROGRESSION_PATH: String = "res://data/meta_progression.json"
 const GROWTH_CURVE_PATH: String = "res://data/growth.csv"
@@ -78,6 +79,8 @@ func validate_project_data() -> bool:
 	is_valid = _validate_player_json() and is_valid
 	is_valid = _validate_weapons_json(locale_keys) and is_valid
 	var weapon_ids: Dictionary = _collect_weapon_ids()
+	is_valid = _validate_enemies_csv(locale_keys) and is_valid
+	var enemy_ids: Dictionary = _collect_enemy_ids()
 	is_valid = _validate_relics_json(locale_keys) and is_valid
 	var relic_ids: Dictionary = _collect_relic_ids()
 	is_valid = _validate_characters_json(locale_keys, weapon_ids) and is_valid
@@ -85,7 +88,7 @@ func validate_project_data() -> bool:
 	is_valid = _validate_meta_progression(locale_keys, character_ids) and is_valid
 	is_valid = _validate_growth_csv() and is_valid
 	is_valid = _validate_growth_pools() and is_valid
-	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, relic_ids) and is_valid
+	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, relic_ids) and is_valid
 
 	return is_valid
 
@@ -302,6 +305,37 @@ func _validate_weapon_projectile(field: String, data: Variant) -> bool:
 	is_valid = _require_number(WEAPONS_PATH, "%s.hit_radius" % field, projectile.get("hit_radius"), 0.0, null, true) and is_valid
 	is_valid = _require_number(WEAPONS_PATH, "%s.muzzle_distance" % field, projectile.get("muzzle_distance"), 0.0, null, true) and is_valid
 	is_valid = _require_number(WEAPONS_PATH, "%s.lifetime" % field, projectile.get("lifetime"), 0.0, null, true) and is_valid
+	return is_valid
+
+
+func _validate_enemies_csv(locale_keys: Dictionary) -> bool:
+	var rows: Array[Dictionary] = load_csv(ENEMIES_PATH)
+	var is_valid: bool = true
+	var seen: Dictionary = {}
+	if rows.is_empty():
+		is_valid = _schema_fail(ENEMIES_PATH, "rows", "non-empty CSV") and is_valid
+	_last_schema_counts["enemies"] = rows.size()
+	for index: int in range(rows.size()):
+		var row: Dictionary = rows[index]
+		var field: String = "line %d" % (index + 2)
+		var enemy_id: String = String(row.get("id", ""))
+		is_valid = _require_non_empty_string(ENEMIES_PATH, "%s.id" % field, row.get("id")) and is_valid
+		if not enemy_id.is_empty():
+			if seen.has(enemy_id):
+				is_valid = _schema_fail(ENEMIES_PATH, "%s.id" % field, "unique enemy id") and is_valid
+			seen[enemy_id] = true
+		is_valid = _require_locale_key(ENEMIES_PATH, "%s.name_key" % field, row.get("name_key"), locale_keys) and is_valid
+		var tags: Array[String] = _parse_tag_list(row.get("tags"))
+		is_valid = _validate_registered_string_array(ENEMIES_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
+		if not tags.has("tag_enemy"):
+			is_valid = _schema_fail(ENEMIES_PATH, "%s.tags" % field, "tag_enemy") and is_valid
+		is_valid = _require_registered(ENEMIES_PATH, "%s.pool_id" % field, row.get("pool_id"), "pool_ids") != "" and is_valid
+		is_valid = _require_csv_int(ENEMIES_PATH, "%s.max_hp" % field, row.get("max_hp"), 1) and is_valid
+		is_valid = _require_csv_number(ENEMIES_PATH, "%s.move_speed" % field, row.get("move_speed"), 0.0, null, true) and is_valid
+		is_valid = _require_csv_int(ENEMIES_PATH, "%s.contact_damage" % field, row.get("contact_damage"), 0) and is_valid
+		is_valid = _require_registered(ENEMIES_PATH, "%s.contact_damage_type" % field, row.get("contact_damage_type"), "damage_types") != "" and is_valid
+		is_valid = _require_csv_int(ENEMIES_PATH, "%s.exp_reward" % field, row.get("exp_reward"), 0) and is_valid
+		is_valid = _require_csv_number(ENEMIES_PATH, "%s.hit_radius" % field, row.get("hit_radius"), 0.0, null, true) and is_valid
 	return is_valid
 
 
@@ -572,7 +606,7 @@ func _validate_growth_pools() -> bool:
 	return is_valid
 
 
-func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, relic_ids: Dictionary) -> bool:
+func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, relic_ids: Dictionary) -> bool:
 	var data: Variant = load_json(GAME_MODES_PATH)
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "root", "Dictionary")
@@ -604,7 +638,7 @@ func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, we
 		var team_ids: Dictionary = team_result.get("ids", {}) as Dictionary
 		is_valid = bool(team_result.get("is_valid", false)) and is_valid
 		is_valid = _validate_mode_participants(mode_field, mode_dict.get("participants"), team_ids) and is_valid
-		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, relic_ids) and is_valid
+		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, relic_ids) and is_valid
 		if mode_dict.has("blocklists"):
 			is_valid = _validate_mode_blocklists("%s.blocklists" % mode_field, mode_dict.get("blocklists")) and is_valid
 		if mode_dict.has("overrides"):
@@ -668,7 +702,7 @@ func _validate_mode_participants(mode_field: String, data: Variant, team_ids: Di
 	return is_valid
 
 
-func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_pool_ids: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, relic_ids: Dictionary) -> bool:
+func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_pool_ids: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, relic_ids: Dictionary) -> bool:
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "Dictionary")
 	var payload: Dictionary = data as Dictionary
@@ -677,11 +711,13 @@ func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_poo
 		is_valid = _validate_weighted_character_entries("%s.resource_pools.characters" % mode_field, payload.get("characters"), character_ids) and is_valid
 	if payload.has("weapons"):
 		is_valid = _validate_weighted_weapon_entries("%s.resource_pools.weapons" % mode_field, payload.get("weapons"), weapon_ids) and is_valid
+	if payload.has("enemies"):
+		is_valid = _validate_weighted_enemy_entries("%s.resource_pools.enemies" % mode_field, payload.get("enemies"), enemy_ids) and is_valid
 	if payload.has("relics"):
 		is_valid = _validate_weighted_relic_entries("%s.resource_pools.relics" % mode_field, payload.get("relics"), relic_ids) and is_valid
 	if payload.has("growth_pools"):
 		is_valid = _validate_weighted_growth_pool_entries("%s.resource_pools.growth_pools" % mode_field, payload.get("growth_pools"), growth_pool_ids) and is_valid
-	if not payload.has("characters") and not payload.has("weapons") and not payload.has("relics") and not payload.has("growth_pools"):
+	if not payload.has("characters") and not payload.has("weapons") and not payload.has("enemies") and not payload.has("relics") and not payload.has("growth_pools"):
 		is_valid = _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "at least one supported pool") and is_valid
 	return is_valid
 
@@ -721,6 +757,26 @@ func _validate_weighted_weapon_entries(field: String, data: Variant, weapon_ids:
 		var weapon_id: String = String(entry_dict.get("id", ""))
 		if not weapon_id.is_empty() and not weapon_ids.has(weapon_id):
 			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "weapon defined in weapons.json") and is_valid
+		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
+	return is_valid
+
+
+func _validate_weighted_enemy_entries(field: String, data: Variant, enemy_ids: Dictionary) -> bool:
+	var entries: Array = _require_array(GAME_MODES_PATH, field, data)
+	var is_valid: bool = true
+	if entries.is_empty():
+		is_valid = _schema_fail(GAME_MODES_PATH, field, "non-empty Array") and is_valid
+	for index: int in range(entries.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var entry: Variant = entries[index]
+		if not entry is Dictionary:
+			is_valid = _schema_fail(GAME_MODES_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var entry_dict: Dictionary = entry as Dictionary
+		is_valid = _require_non_empty_string(GAME_MODES_PATH, "%s.id" % item_field, entry_dict.get("id")) and is_valid
+		var enemy_id: String = String(entry_dict.get("id", ""))
+		if not enemy_id.is_empty() and not enemy_ids.has(enemy_id):
+			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "enemy defined in enemies.csv") and is_valid
 		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
 	return is_valid
 
@@ -867,6 +923,20 @@ func _validate_registered_string_array(resource_path: String, field: String, dat
 	return is_valid
 
 
+func _require_csv_int(resource_path: String, field: String, value: Variant, minimum: Variant = null) -> bool:
+	var parsed: Variant = _parse_int(value)
+	if parsed == null:
+		return _schema_fail(resource_path, field, "int")
+	return _require_int(resource_path, field, parsed, minimum)
+
+
+func _require_csv_number(resource_path: String, field: String, value: Variant, minimum: Variant = null, maximum: Variant = null, exclusive_minimum: bool = false) -> bool:
+	var parsed: Variant = _parse_float(value)
+	if parsed == null:
+		return _schema_fail(resource_path, field, "number")
+	return _require_number(resource_path, field, parsed, minimum, maximum, exclusive_minimum)
+
+
 func _validate_stat_value(resource_path: String, field: String, stat: String, value: Variant) -> bool:
 	if not has_contract_value("stats", stat):
 		return _schema_fail(resource_path, field, "registered stat id")
@@ -926,6 +996,16 @@ func _collect_weapon_ids() -> Dictionary:
 	for weapon: Variant in weapons:
 		if weapon is Dictionary and (weapon as Dictionary).get("id") is String:
 			ids[String((weapon as Dictionary).get("id"))] = true
+	return ids
+
+
+func _collect_enemy_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var rows: Array[Dictionary] = load_csv(ENEMIES_PATH)
+	for row: Dictionary in rows:
+		var enemy_id: String = String(row.get("id", ""))
+		if not enemy_id.is_empty():
+			ids[enemy_id] = true
 	return ids
 
 
@@ -1073,6 +1153,15 @@ func _parse_float(value: Variant) -> Variant:
 	if not text.is_valid_float():
 		return null
 	return text.to_float()
+
+
+func _parse_tag_list(value: Variant) -> Array[String]:
+	var tags: Array[String] = []
+	for raw_tag: String in String(value).split("|", false):
+		var tag: String = raw_tag.strip_edges()
+		if not tag.is_empty():
+			tags.append(tag)
+	return tags
 
 
 func _is_empty_csv_row(values: PackedStringArray) -> bool:

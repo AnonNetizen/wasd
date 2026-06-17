@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import csv
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 JsonMutator = Callable[[dict[str, Any]], None]
+CsvMutator = Callable[[list[dict[str, str]]], None]
 RepoMutator = Callable[[Path], None]
 
 
@@ -117,6 +119,30 @@ def main() -> int:
             [
                 "client/data/game_modes.json:modes[0].resource_pools.weapons[0].id",
                 "weapon is not defined in weapons.json: weapon_missing",
+            ],
+        ),
+        (
+            "enemy must include enemy tag",
+            _mutate_csv("client/data/enemies.csv", _set_enemy_tags("")),
+            [
+                "client/data/enemies.csv:line 2.tags",
+                "must include tag_enemy",
+            ],
+        ),
+        (
+            "enemy damage type must be registered",
+            _mutate_csv("client/data/enemies.csv", _set_enemy_damage_type("arcane")),
+            [
+                "client/data/enemies.csv:line 2.contact_damage_type",
+                "unknown id arcane; expected one of damage_types",
+            ],
+        ),
+        (
+            "mode enemy reference must exist",
+            _mutate_json("client/data/game_modes.json", _set_mode_enemy("enemy_missing")),
+            [
+                "client/data/game_modes.json:modes[0].resource_pools.enemies[0].id",
+                "enemy is not defined in enemies.csv: enemy_missing",
             ],
         ),
         (
@@ -244,6 +270,22 @@ def _mutate_json(relative_path: str, mutator: JsonMutator) -> RepoMutator:
     return mutate_repo
 
 
+def _mutate_csv(relative_path: str, mutator: CsvMutator) -> RepoMutator:
+    def mutate_repo(root: Path) -> None:
+        path = root / relative_path
+        with path.open(encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            rows = list(reader)
+            fieldnames = reader.fieldnames or []
+        mutator(rows)
+        with path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+
+    return mutate_repo
+
+
 def _set_character_id(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["characters"][0]["id"] = value
@@ -314,6 +356,27 @@ def _set_character_starting_weapon(value: str) -> JsonMutator:
 def _set_mode_weapon(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["resource_pools"]["weapons"][0]["id"] = value
+
+    return mutate
+
+
+def _set_enemy_tags(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["tags"] = value
+
+    return mutate
+
+
+def _set_enemy_damage_type(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["contact_damage_type"] = value
+
+    return mutate
+
+
+def _set_mode_enemy(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["modes"][0]["resource_pools"]["enemies"][0]["id"] = value
 
     return mutate
 
