@@ -87,6 +87,7 @@ alwaysApply: true
 - 命名规范统一、函数短小、关键逻辑有注释，便于人和 AI 理解与续写。
 - 新写 / 修改的 GDScript 必须遵循 [Godot 4.6 官方 GDScript style guide](https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/gdscript_styleguide.html) 作为基础风格；若官方规范与本项目更严格的类型化、数据驱动、autoload、词表常量或文档同步规则冲突，以本项目规则为准。
 - 修改正式 `client/**/*.gd` 后必须跑 `python tools/lint_gdscript_rules.py`；该脚本只覆盖第一档低误报规则，不能替代人工 review、headless boot 或后续 gdtoolkit。
+- 修改 `client/data/`、`client/locale/strings.csv` 或 Godot export preset 后必须跑 `python tools/lint_project_rules.py`；该脚本覆盖第二档项目规则，不能替代 DataLoader schema 回归或发行前人工许可复核。
 - 只整理本次触碰的脚本；不得借“接入官方规范”批量重排无关旧代码。
 - 命名按 Godot 官方规则：文件 / 函数 / 变量 / signal 用 `snake_case`，`class_name` / 节点名 / enum 名用 `PascalCase`，常量与 enum 成员用 `CONSTANT_CASE`。
 - 脚本内顺序按官方规范：`@tool` / `@icon` / `class_name` / `extends` / 文档注释 → signals → enums → constants → static vars → exports → 普通成员 → `@onready` → static methods → 生命周期回调（`_init` / `_enter_tree` / `_ready` / `_process` / `_physics_process` 等）→ 公共方法 → 私有方法 / 内部类。
@@ -297,6 +298,7 @@ alwaysApply: true
 - [ ] 角色 id、capability id、content tag 是否都来自词表第 12 节并以生成常量引用？
 - [ ] 新增数据是否照「黄金样例」结构填写，并能通过 `DataLoader` 校验？
 - [ ] 新代码是否使用类型化 GDScript？是否按 Godot 4.6 官方 GDScript style guide 整理了本次触碰的命名、代码顺序、空白、布尔操作符、注释和类型标注？是否跑过 `python tools/lint_gdscript_rules.py`？是否复用了模板？
+- [ ] 新增 / 修改数据字段、locale 或 export preset 后，是否跑过 `python tools/lint_project_rules.py`？字段是否已写进 `client/data/README.md`，locale 是否保留 `zh_CN` / `en` 双语，release preset 是否排除 debug/dev_tools？
 - [ ] 新增 / 修改长期代码模块、公共 API、signal、数据 schema 或依赖方向时，是否已同步详细的 `docs/代码/` 模块文档？若无需更新，是否说明原因？
 - [ ] 面向用户的回复 / 总结是否默认使用中文（除非存在明确特殊场景）？
 - [ ] 当用户问有没有问题 / 风险时，是否基于事实回答；没发现问题就明确说没有问题，未硬找问题或过度优化？

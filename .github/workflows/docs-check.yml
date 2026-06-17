@@ -38,6 +38,12 @@ jobs:
       - name: Run GDScript project lint
         run: python tools/lint_gdscript_rules.py
 
+      - name: Run project rules lint
+        run: python tools/lint_project_rules.py
+
+      - name: Run project rules lint regression tests
+        run: python tools/test_project_rules_lint.py
+
       - name: Run docs health check
         run: python tools/docs_health_check.py
 

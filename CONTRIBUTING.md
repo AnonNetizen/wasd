@@ -32,7 +32,7 @@ git config --global user.email "<your email>"
 | **OpenAI Codex CLI** | 想用 Codex 平台配置（`.codex/agents/`、`.codex/commands/`、`.codex/rules/`）|
 | **OpenCode** | 想用 OpenCode 协作；入口见 `OPENCODE.md` 与 `.opencode/opencode.json` |
 | **Godot 4.6.3** | 真正运行 / 调试 `client/`（M1 起）|
-| **Python 3.10+** | 跑 `tools/sync_contracts.py`、`tools/validate_data.py`、`tools/test_data_loader_schema.py`、`tools/lint_gdscript_rules.py`、`tools/docs_health_check.py` 与后续工具脚本 |
+| **Python 3.10+** | 跑 `tools/sync_contracts.py`、`tools/validate_data.py`、`tools/test_data_loader_schema.py`、`tools/lint_gdscript_rules.py`、`tools/lint_project_rules.py`、`tools/docs_health_check.py` 与后续工具脚本 |
 | **gdtoolkit / GUT** | M1 之后的 lint 与单测（详见 `docs/测试策略.md`）|
 
 **AI agent 第一件事**：读 `AGENTS.md` → `docs/AI协作/快速开工.md` → `docs/AI记忆/current_state.json`，需要长期背景时再读 `docs/AI记忆/项目记忆.md`，无需翻历史聊天即可续接。
@@ -126,7 +126,7 @@ docs(adr): 记录暂停功能实现约定
 
 ## 四、PR Checklist（提交前自检）
 
-当前 GitHub Actions 已启用 Stage 1 `docs-check`：PR / `main` push 会自动检查契约同步、数据 / locale、DataLoader schema 回归、第一档 GDScript 项目 lint、文档健康和 whitespace diff。它暂不跑 Godot、GUT、黄金回放或平衡 sim。
+当前 GitHub Actions 已启用 Stage 1 `docs-check`：PR / `main` push 会自动检查契约同步、数据 / locale、DataLoader schema 回归、第一档 GDScript 项目 lint、第二档项目规则 lint、文档健康和 whitespace diff。它暂不跑 Godot、GUT、黄金回放或平衡 sim。
 
 本地提交前建议先跑：
 
@@ -135,6 +135,8 @@ python tools/sync_contracts.py --check
 python tools/validate_data.py
 python tools/test_data_loader_schema.py
 python tools/lint_gdscript_rules.py
+python tools/lint_project_rules.py
+python tools/test_project_rules_lint.py
 python tools/docs_health_check.py
 ```
 
@@ -146,6 +148,7 @@ python tools/docs_health_check.py
 - [ ] 约定字符串都来自 `docs/词表与契约.md` 且以常量引用？
 - [ ] 改词表后是否已运行 `python tools/sync_contracts.py` 并确认 `--check` 通过？
 - [ ] 改数据 / 文案后是否已运行 `python tools/validate_data.py`？
+- [ ] 新增 / 修改数据字段后是否已运行 `python tools/lint_project_rules.py` 并确认 `client/data/README.md` 已覆盖字段？
 - [ ] 新代码使用类型化 GDScript，且已运行 `python tools/lint_gdscript_rules.py`？
 - [ ] 已更新 `docs/AI导航.md` / `docs/决策记录.md` 等相关文档？
 - [ ] 本次新规则 / 设计变更已同步到对应文档？

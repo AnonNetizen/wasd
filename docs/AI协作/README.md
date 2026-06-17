@@ -43,6 +43,8 @@ tools/
 ├── validate_data.py       # 正式数据 / locale 校验
 ├── test_data_loader_schema.py # DataLoader schema 回归坏样例测试
 ├── lint_gdscript_rules.py # 第一档 GDScript 项目规则 lint
+├── lint_project_rules.py  # 第二档项目规则 lint：数据字段文档、locale 双语、release debug 资源边界
+├── test_project_rules_lint.py # 项目规则 lint 坏样例回归测试
 ├── docs_health_check.py   # 文档知识库健康检查
 └── godot_bridge.py        # 正式 client 场景树导出 / headless boot 轻量 Bridge
 
@@ -93,7 +95,7 @@ AI agent 接到任务时优先按以下顺序：
 7. **任务复杂**？参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
 8. **是不是已有项目级 skill**？CodeBuddy / Codex / OpenCode 均有同名项目级 skill（`.codebuddy/skills/` / `.codex/skills/` / `.opencode/skills/`）：Godot 实现 / 场景验证 / Godot 测试诊断 / 试玩复盘 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选与协作面审计 / MCP 评估；外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进这些项目 skill，不再通过 reference 跳转。
 9. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
-10. **改了词表 / 数据 / 文案 / GDScript**？跑 `python tools/sync_contracts.py --check`、`python tools/validate_data.py` 与 `python tools/lint_gdscript_rules.py`；改 DataLoader schema 时追加 `python tools/test_data_loader_schema.py`。
+10. **改了词表 / 数据 / 文案 / GDScript**？跑 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_gdscript_rules.py` 与 `python tools/lint_project_rules.py`；改 DataLoader 或项目规则 lint schema 时追加对应 `test_*.py` 回归。
 11. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规；大型代码改动提交前追加一次事实型 code review，小改动不触发正式 review。
 
 ## 维护
