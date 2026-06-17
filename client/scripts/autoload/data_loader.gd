@@ -95,7 +95,7 @@ func validate_project_data() -> bool:
 	is_valid = _validate_consumables_json(locale_keys) and is_valid
 	var consumable_ids: Dictionary = _collect_consumable_ids()
 	is_valid = _validate_credits_json(locale_keys) and is_valid
-	is_valid = _validate_characters_json(locale_keys, weapon_ids) and is_valid
+	is_valid = _validate_characters_json(locale_keys, weapon_ids, active_item_ids, consumable_ids) and is_valid
 	var character_ids: Dictionary = _collect_character_ids()
 	is_valid = _validate_meta_progression(locale_keys, character_ids) and is_valid
 	is_valid = _validate_growth_csv() and is_valid
@@ -203,7 +203,7 @@ func _validate_player_json() -> bool:
 	return is_valid
 
 
-func _validate_characters_json(locale_keys: Dictionary, weapon_ids: Dictionary) -> bool:
+func _validate_characters_json(locale_keys: Dictionary, weapon_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary) -> bool:
 	var data: Variant = load_json(CHARACTERS_PATH)
 	if not data is Dictionary:
 		return _schema_fail(CHARACTERS_PATH, "root", "Dictionary")
@@ -237,10 +237,7 @@ func _validate_characters_json(locale_keys: Dictionary, weapon_ids: Dictionary) 
 			is_valid = _schema_fail(CHARACTERS_PATH, "%s.tags" % field, "tag_character") and is_valid
 		is_valid = _validate_registered_string_array(CHARACTERS_PATH, "%s.capabilities" % field, character_dict.get("capabilities", []), "capabilities", true) and is_valid
 		is_valid = _require_non_empty_string(CHARACTERS_PATH, "%s.control_profile" % field, character_dict.get("control_profile")) and is_valid
-		var starting_weapon_id: String = String(character_dict.get("starting_weapon_id", ""))
-		is_valid = _require_non_empty_string(CHARACTERS_PATH, "%s.starting_weapon_id" % field, character_dict.get("starting_weapon_id")) and is_valid
-		if not starting_weapon_id.is_empty() and not weapon_ids.has(starting_weapon_id):
-			is_valid = _schema_fail(CHARACTERS_PATH, "%s.starting_weapon_id" % field, "weapon defined in weapons.json") and is_valid
+		is_valid = _validate_character_starting_loadout("%s.starting_loadout" % field, character_dict.get("starting_loadout"), weapon_ids, active_item_ids, consumable_ids) and is_valid
 		var base_stats: Variant = character_dict.get("base_stats")
 		if not base_stats is Dictionary or (base_stats as Dictionary).is_empty():
 			is_valid = _schema_fail(CHARACTERS_PATH, "%s.base_stats" % field, "non-empty Dictionary") and is_valid
@@ -249,6 +246,34 @@ func _validate_characters_json(locale_keys: Dictionary, weapon_ids: Dictionary) 
 			for stat_key: Variant in stats_dict.keys():
 				var stat: String = String(stat_key)
 				is_valid = _validate_stat_value(CHARACTERS_PATH, "%s.base_stats.%s" % [field, stat], stat, stats_dict[stat_key]) and is_valid
+	return is_valid
+
+
+func _validate_character_starting_loadout(field: String, data: Variant, weapon_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(CHARACTERS_PATH, field, "Dictionary")
+	var loadout: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	var weapon_id: String = String(loadout.get("weapon_id", ""))
+	is_valid = _require_non_empty_string(CHARACTERS_PATH, "%s.weapon_id" % field, loadout.get("weapon_id")) and is_valid
+	if not weapon_id.is_empty() and not weapon_ids.has(weapon_id):
+		is_valid = _schema_fail(CHARACTERS_PATH, "%s.weapon_id" % field, "weapon defined in weapons.json") and is_valid
+	var active_item_id: String = String(loadout.get("active_item_id", ""))
+	is_valid = _require_non_empty_string(CHARACTERS_PATH, "%s.active_item_id" % field, loadout.get("active_item_id")) and is_valid
+	if not active_item_id.is_empty() and not active_item_ids.has(active_item_id):
+		is_valid = _schema_fail(CHARACTERS_PATH, "%s.active_item_id" % field, "active item defined in active_items.json") and is_valid
+	var starting_consumables: Array = _require_array(CHARACTERS_PATH, "%s.consumable_ids" % field, loadout.get("consumable_ids"))
+	var seen_consumables: Dictionary = {}
+	for index: int in range(starting_consumables.size()):
+		var item_field: String = "%s.consumable_ids[%d]" % [field, index]
+		var consumable_id: String = String(starting_consumables[index])
+		is_valid = _require_non_empty_string(CHARACTERS_PATH, item_field, starting_consumables[index]) and is_valid
+		if not consumable_id.is_empty():
+			if seen_consumables.has(consumable_id):
+				is_valid = _schema_fail(CHARACTERS_PATH, item_field, "unique consumable id") and is_valid
+			seen_consumables[consumable_id] = true
+			if not consumable_ids.has(consumable_id):
+				is_valid = _schema_fail(CHARACTERS_PATH, item_field, "consumable defined in consumables.json") and is_valid
 	return is_valid
 
 

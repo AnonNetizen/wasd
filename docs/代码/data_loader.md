@@ -27,7 +27,7 @@
 | `client/scripts/autoload/data_loader.gd` | `DataLoader` autoload 实现 |
 | `client/data/_contracts.json` | 由 `tools/sync_contracts.py` 生成的词表镜像 |
 | `client/data/player.json` | 当前 JSON 读取样例 |
-| `client/data/characters.json` | 角色基础属性、标签、能力和控制配置边界 |
+| `client/data/characters.json` | 角色基础属性、标签、能力、控制配置和起始携带引用边界 |
 | `client/data/weapons.json` | 武器与子弹基础数值、对象池、伤害类型和音频 id 边界 |
 | `client/data/enemies.csv` | 敌人基础数值、对象池、伤害类型和模式引用边界 |
 | `client/data/hazards.csv` | 机关基础数值、对象池、伤害类型和模式引用边界 |
@@ -83,7 +83,7 @@
 - `_contracts.json` 由 `tools/sync_contracts.py` 生成，禁止手改。
 - 当前 F3 schema 覆盖：
   - `player.json`：`schema_version`、`base_stats`，stat id 必须来自词表，数值范围按 stat 类型校验。
-  - `characters.json`：角色 id、名称 / 描述 key、默认解锁、tags、capabilities、控制配置、起始武器引用和角色基础属性。
+  - `characters.json`：角色 id、名称 / 描述 key、默认解锁、tags、capabilities、控制配置、起始携带引用和角色基础属性；起始武器、主动道具和消耗品引用必须存在于对应数据文件。
   - `weapons.json`：武器 id、名称 / 描述 key、默认解锁、开火模式、开火音频 id、武器基础属性、子弹对象池、伤害类型和弹体数值。
   - `enemies.csv`：敌人 id、名称 key、`tag_enemy`、对象池 id、生命、移速、接触伤害、接触伤害类型、经验奖励和命中半径。
   - `hazards.csv`：机关 id、名称 key、`tag_hazard`、对象池 id、伤害、伤害类型、触发间隔、范围和持续时间。
@@ -97,7 +97,7 @@
   - `growth_pools.json`：候选池、条目 id、类型、权重、等级条件和属性修正。
   - `game_modes.json`：模式 id、名称 / 描述 key、默认解锁、participants / teams、角色池、武器池、敌人池、机关池、遗物池、主动道具池、消耗品池、成长池、content tag blocklist 与玩家基础属性轻量覆盖；角色池 id 必须存在于 `characters.json`，武器池 id 必须存在于 `weapons.json`，敌人池 id 必须存在于 `enemies.csv`，机关池 id 必须存在于 `hazards.csv`，遗物池 id 必须存在于 `relics.json`，主动道具池 id 必须存在于 `active_items.json`，消耗品池 id 必须存在于 `consumables.json`。
   - `strings.csv`：key 前缀、`zh_CN` / `en` 必填、唯一 key。
-- 当前只校验 `characters.json`、`weapons.json`、`enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json` 与 `game_modes.json` 的数据边界，不实现角色选择 UI、武器运行时、敌人生成 / AI / 刷怪、机关放置 / 触发 / 碰撞 / 伤害、遗物拾取 / 应用、主动道具栏 / 冷却 / 使用效果、消耗品拾取 / 背包 / 使用 / 数量扣减 / 效果执行、Credits UI、模式选择 UI、匹配、联网、成长抽取、输入 profile 切换或模式运行时。
+- 当前只校验 `characters.json`、`weapons.json`、`enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json` 与 `game_modes.json` 的数据边界，不实现角色选择 UI、起始携带发放、武器运行时、敌人生成 / AI / 刷怪、机关放置 / 触发 / 碰撞 / 伤害、遗物拾取 / 应用、主动道具栏 / 冷却 / 使用效果、消耗品拾取 / 背包 / 使用 / 数量扣减 / 效果执行、Credits UI、模式选择 UI、匹配、联网、成长抽取、输入 profile 切换或模式运行时。
 
 ## 依赖
 

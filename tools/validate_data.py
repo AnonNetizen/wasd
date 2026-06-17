@@ -68,7 +68,7 @@ def main() -> int:
     _validate_consumables(ctx)
     consumable_ids = _collect_consumable_ids(ctx)
     _validate_credits(ctx)
-    _validate_characters(ctx, weapon_ids)
+    _validate_characters(ctx, weapon_ids, active_item_ids, consumable_ids)
     character_ids = _collect_character_ids(ctx)
     _validate_meta_progression(ctx, character_ids)
     _validate_growth_csv(ctx)
@@ -170,7 +170,7 @@ def _validate_player_json(ctx: ValidationContext) -> None:
         _validate_stat_value(ctx, path, f"base_stats.{stat}", stat, value)
 
 
-def _validate_characters(ctx: ValidationContext, weapon_ids: set[str]) -> None:
+def _validate_characters(ctx: ValidationContext, weapon_ids: set[str], active_item_ids: set[str], consumable_ids: set[str]) -> None:
     path = CHARACTERS_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
@@ -198,15 +198,37 @@ def _validate_characters(ctx: ValidationContext, weapon_ids: set[str]) -> None:
             ctx.error(path, f"{field}.tags", "must include tag_character")
         _validate_registered_string_list(ctx, path, f"{field}.capabilities", character.get("capabilities", []), "capabilities", allow_empty=True)
         _require_non_empty_string(ctx, path, f"{field}.control_profile", character.get("control_profile"))
-        starting_weapon_id = _require_non_empty_string(ctx, path, f"{field}.starting_weapon_id", character.get("starting_weapon_id"))
-        if starting_weapon_id and starting_weapon_id not in weapon_ids:
-            ctx.error(path, f"{field}.starting_weapon_id", f"weapon is not defined in weapons.json: {starting_weapon_id}")
+        _validate_character_starting_loadout(ctx, path, f"{field}.starting_loadout", character.get("starting_loadout"), weapon_ids, active_item_ids, consumable_ids)
         base_stats = character.get("base_stats")
         if not isinstance(base_stats, dict) or not base_stats:
             ctx.error(path, f"{field}.base_stats", "must be a non-empty object")
             continue
         for stat, value in base_stats.items():
             _validate_stat_value(ctx, path, f"{field}.base_stats.{stat}", stat, value)
+
+
+def _validate_character_starting_loadout(ctx: ValidationContext, path: Path, field: str, data: Any, weapon_ids: set[str], active_item_ids: set[str], consumable_ids: set[str]) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    weapon_id = _require_non_empty_string(ctx, path, f"{field}.weapon_id", data.get("weapon_id"))
+    if weapon_id and weapon_id not in weapon_ids:
+        ctx.error(path, f"{field}.weapon_id", f"weapon is not defined in weapons.json: {weapon_id}")
+    active_item_id = _require_non_empty_string(ctx, path, f"{field}.active_item_id", data.get("active_item_id"))
+    if active_item_id and active_item_id not in active_item_ids:
+        ctx.error(path, f"{field}.active_item_id", f"active item is not defined in active_items.json: {active_item_id}")
+    starting_consumables = _require_list(ctx, path, f"{field}.consumable_ids", data.get("consumable_ids"))
+    seen: set[str] = set()
+    for index, consumable in enumerate(starting_consumables):
+        item_field = f"{field}.consumable_ids[{index}]"
+        consumable_id = _require_non_empty_string(ctx, path, item_field, consumable)
+        if not consumable_id:
+            continue
+        if consumable_id in seen:
+            ctx.error(path, item_field, f"duplicate consumable id {consumable_id}")
+        seen.add(consumable_id)
+        if consumable_id not in consumable_ids:
+            ctx.error(path, item_field, f"consumable is not defined in consumables.json: {consumable_id}")
 
 
 def _validate_weapons(ctx: ValidationContext) -> None:

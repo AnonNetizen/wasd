@@ -109,8 +109,24 @@ def main() -> int:
             "character starting weapon reference must exist",
             _mutate_json("client/data/characters.json", _set_character_starting_weapon("weapon_missing")),
             [
-                "client/data/characters.json:characters[0].starting_weapon_id",
+                "client/data/characters.json:characters[0].starting_loadout.weapon_id",
                 "weapon is not defined in weapons.json: weapon_missing",
+            ],
+        ),
+        (
+            "character starting active item reference must exist",
+            _mutate_json("client/data/characters.json", _set_character_starting_active_item("active_item_missing")),
+            [
+                "client/data/characters.json:characters[0].starting_loadout.active_item_id",
+                "active item is not defined in active_items.json: active_item_missing",
+            ],
+        ),
+        (
+            "character starting consumable reference must exist",
+            _mutate_json("client/data/characters.json", _set_character_starting_consumable("consumable_missing")),
+            [
+                "client/data/characters.json:characters[0].starting_loadout.consumable_ids[0]",
+                "consumable is not defined in consumables.json: consumable_missing",
             ],
         ),
         (
@@ -480,7 +496,21 @@ def _set_weapon_stat(stat: str, value: object) -> JsonMutator:
 
 def _set_character_starting_weapon(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["characters"][0]["starting_weapon_id"] = value
+        payload["characters"][0]["starting_loadout"]["weapon_id"] = value
+
+    return mutate
+
+
+def _set_character_starting_active_item(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["characters"][0]["starting_loadout"]["active_item_id"] = value
+
+    return mutate
+
+
+def _set_character_starting_consumable(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["characters"][0]["starting_loadout"]["consumable_ids"][0] = value
 
     return mutate
 

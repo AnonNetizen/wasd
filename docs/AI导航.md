@@ -105,7 +105,7 @@
 | 我想… | 怎么做（数据驱动，尽量不改逻辑） |
 |-------|-------------------------------|
 | **加一个敌人** | 在 `client/data/enemies.csv` 加一行基础数值与 `enemy_*_name` 文案；行为复用既有 AI 类型，新行为才碰逻辑 |
-| **加一个角色** | 在 `client/data/characters.json` 加一条：基础属性 / tags / capabilities / 控制配置 / `starting_weapon_id`；角色 id 先登记词表 §12.1，文案用 `character_*` key；起始武器必须存在于 `weapons.json`；新 capability 先登记词表 §12 再实现 |
+| **加一个角色** | 在 `client/data/characters.json` 加一条：基础属性 / tags / capabilities / 控制配置 / `starting_loadout`；角色 id 先登记词表 §12.1，文案用 `character_*` key；起始武器 / 主动道具 / 消耗品必须存在于对应数据文件；新 capability 先登记词表 §12 再实现 |
 | **加 / 改武器** | 在 `client/data/weapons.json` 加一条：武器基础属性、子弹池、伤害类型、命中半径和音频 id；文案用 `weapon_*` key；`pool_id` / `damage_type` / `audio_id` 前缀必须来自词表，不实现 WeaponSystem 运行时 |
 | **加 / 改机关** | 在 `client/data/hazards.csv` 加一行：伤害、伤害类型、触发间隔、范围、持续时间和 `hazard_*_name` 文案；`tag_hazard`、`pool_id`、`damage_type` 必须来自词表，不实现 HazardSystem 运行时 |
 | **加 / 改刷怪波次** | 在 `client/data/spawn_waves.csv` 加一行：模式 id、时间窗、敌人 id / 权重、刷怪间隔、同时存活上限、预算和可选机关权重；敌人 / 机关 / 模式引用必须存在，不实现 Spawner 运行时 |

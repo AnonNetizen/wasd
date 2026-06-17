@@ -18,7 +18,7 @@
 | 你想做什么 | 改哪里 | 注意 |
 |------------|--------|------|
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
-| 改角色基础属性 / 标签 / 能力 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；起始武器填 `starting_weapon_id`，且必须存在于 `weapons.json` |
+| 改角色基础属性 / 标签 / 能力 / 起始携带 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；起始携带填 `starting_loadout`，引用必须存在于对应数据文件 |
 | 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
 | 改敌人血量 / 速度 / 接触伤害 | `enemies.csv` | 敌人标签、对象池 id、伤害类型必须来自词表 |
 | 改机关伤害 / 范围 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表 |
@@ -38,7 +38,7 @@
 |------|------|------|
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
 | `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 消耗品 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
-| `characters.json` | 已建立 | 角色列表：基础属性、tags、capabilities、控制配置和起始武器引用；当前不含遗物运行时 |
+| `characters.json` | 已建立 | 角色列表：基础属性、tags、capabilities、控制配置和起始携带引用；当前不含携带内容运行时发放 |
 | `weapons.json` | 已建立 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
 | `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 已建立 | 主动道具：充能方式、冷却、效果原语与参数 |
@@ -334,7 +334,11 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,60.0,enemy_chaser,100,1
       "tags": ["tag_character"],
       "capabilities": [],
       "control_profile": "default_4dir_auto",
-      "starting_weapon_id": "weapon_basic_blaster",
+      "starting_loadout": {
+        "weapon_id": "weapon_basic_blaster",
+        "active_item_id": "active_item_blink_burst",
+        "consumable_ids": ["consumable_pocket_bomb"]
+      },
       "base_stats": {
         "max_hp": 6,
         "move_speed": 240.0,
@@ -362,10 +366,14 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,60.0,enemy_chaser,100,1
 | `characters[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_character` | 内容标签；破限角色还需含 `tag_limit_break` 并声明 capability |
 | `characters[].capabilities` | array[string] | 词表 §12.2 capability id，可为空 | 允许突破的默认规则；空数组表示默认 4 方向瞄准 / 自动开火 / 默认移动 |
 | `characters[].control_profile` | string | 非空 | 控制配置标识；当前只做数据边界，不实现输入 profile 切换 |
-| `characters[].starting_weapon_id` | string | 必须存在于 `weapons.json` | 角色默认起始武器引用；当前只做数据边界，不实现武器运行时 |
+| `characters[].starting_loadout` | object | 必填 | 角色起始携带内容引用；当前只做 schema，不发放运行时实体 |
+| `characters[].starting_loadout.weapon_id` | string | 必须存在于 `weapons.json` | 默认起始武器引用 |
+| `characters[].starting_loadout.active_item_id` | string | 必须存在于 `active_items.json` | 默认起始主动道具引用 |
+| `characters[].starting_loadout.consumable_ids` | array[string] | 可为空；每项必须存在于 `consumables.json`，文件内不重复 | 默认起始消耗品引用列表；数量规则仍由后续 ConsumableSystem 解释 |
+| `characters[].starting_loadout.consumable_ids[]` | string | 必须存在于 `consumables.json` | 单个默认起始消耗品引用 |
 | `characters[].base_stats` | object | stat 来自词表 §1，非空 | 角色基础属性；数值范围同 `player.json` stat 校验 |
 
-`characters.json` 只声明角色数据边界，不实现角色选择 UI、实体生成、输入 profile 切换、武器运行时、起始遗物运行时或破限能力执行。新增起始遗物、外观资源或特殊能力字段时，必须先有对应数据注册表 / 词表 / schema，再由业务系统解释。
+`characters.json` 只声明角色数据边界，不实现角色选择 UI、实体生成、输入 profile 切换、武器运行时、主动道具栏、消耗品背包、起始携带发放、起始遗物运行时或破限能力执行。新增起始遗物、外观资源或特殊能力字段时，必须先有对应数据注册表 / 词表 / schema，再由业务系统解释。
 
 ## `weapons.json`
 
@@ -428,7 +436,7 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,60.0,enemy_chaser,100,1
 | `projectile.muzzle_distance` | number | `> 0` | 发射点相对角色中心距离，px |
 | `projectile.lifetime` | number | `> 0` | 子弹存活秒数；业务系统可结合射程裁剪 |
 
-`weapons.json` 只声明武器 / 子弹数据边界，不实现 WeaponSystem、子弹实例化、命中判定、音频播放或武器选择 UI。角色通过 `characters[].starting_weapon_id` 引用默认起始武器；游戏模式可通过 `resource_pools.weapons` 声明可用武器池。
+`weapons.json` 只声明武器 / 子弹数据边界，不实现 WeaponSystem、子弹实例化、命中判定、音频播放或武器选择 UI。角色通过 `characters[].starting_loadout.weapon_id` 引用默认起始武器；游戏模式可通过 `resource_pools.weapons` 声明可用武器池。
 
 ## `relics.json`
 
