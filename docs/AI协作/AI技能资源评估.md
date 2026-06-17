@@ -23,6 +23,7 @@
 | `modelcontextprotocol/servers` 与 MCP Registry | 参考官方 MCP 服务器分类和安全提示；当前不新增项目级 MCP 服务，避免权限和本机路径问题 |
 | `punkpeye/awesome-mcp-servers` / Glama MCP 目录 | 作为后续 MCP 发现入口；抽样 Godot MCP 诊断 / 测试资源后，优先本地化流程，不批量安装 |
 | `wshobson/agents` | 成熟多工具 marketplace，参考 `godot-gdscript-patterns`、`code-review-excellence`、`architecture-decision-records`、`github-actions-templates`、`block-no-verify-hook` 等技能模式 |
+| `affaan-m/ECC` | 成熟跨 harness 资源库，参考 context budget、skill stocktake、strategic compact、verification loop、GateGuard / harness-audit 思路；不安装整包、hooks、MCP、GitHub App、npm plugin 或批量 agents |
 | `PatrickJS/awesome-cursorrules` | 参考 anti-overengineering、anti-sycophancy、PR review、游戏/图形规则等提示模式；不直接安装 Cursor `.mdc` 文件 |
 | Context7 / Ref Tools / GitMCP | 可作为用户级文档查询候选；当前不进仓库配置，避免网络 / 权限和维护负担 |
 
@@ -49,11 +50,13 @@
 | `jame581/GodotPrompter` | GDScript typed patterns、scene organization、Resource 注意事项、Godot testing 诊断口径，吸收到 `godot-gdscript` / `godot-test-diagnostics` | plugin、Cursor / Claude plugin、C#、3D、mobile、multiplayer、XR、server、addon、测试目录等非当前项目范围内容 |
 | `abagames/headless-godot-skill-kit` | `--headless --path`、日志捕获、XDG 本地化、`.tscn` 不裸改、smoke/test 分离，吸收到 `godot-scene-validation` / `godot-test-diagnostics` | starter project、模板、独立 patch 脚本、外部 `.agents/skills/headless-godot` |
 | `Donchitos/Claude-Code-Game-Studios` | 试玩报告、里程碑复盘、QA 计划的轻量流程，吸收到 `playtest-review`；专业角色范围由本项目已有 subagents 覆盖 | `.claude/` active hooks / rules / settings、49 个外部 agents、Unity / Unreal / live-ops / networking 专项、模板、示例、生产状态、源码 / 测试框架 |
+| `affaan-m/ECC` | context budget、skill stocktake、strategic compact、verification loop、GateGuard / harness-audit 的方法被改写进 `ai-resource-curator` 的 AI surface audit 流程：新增资源后要盘点三平台 skill / agent / command / rule、估算上下文成本、查重复与过期、确认验证门禁和安全边界 | 不安装 ECC npm 包、GitHub App、MCP 配置、hooks/runtime、dashboard、scripts、`.claude/` / `.codex-plugin/` / `.opencode` 整包、批量 agents / commands / skills、外部 rules 或 vendor 目录；ECC 作为工作流参考和致谢来源记录 |
 
 ## 4-A. 激活边界
 
 - OpenCode 当前只自动加载 `.opencode/skills`；Codex / CodeBuddy 使用各自 `.codex/skills` 与 `.codebuddy/skills` 下的同名 skill。
 - GodotPrompter、headless-godot-skill-kit 与 CCGS 不再作为 vendor 参考来源；不得重新加入 `skills.paths`，不得启用外部 hooks、plugin 或整包 subagents。
+- ECC 不作为项目级 harness 安装；只保留已改写进 `ai-resource-curator` 的审计流程，禁止启用 ECC hooks、AgentShield、GitHub App、MCP、npm plugin、dashboard 或整包 agents / skills / commands。
 - 所有外部游戏设计建议必须先过本项目 `docs/游戏设计文档.md`、ADR 和规则；冲突时以本项目为准。
 - 外部 AI 工具输出建议必须先过本项目规则、词表、数据驱动、测试和文档同步要求。
 

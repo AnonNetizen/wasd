@@ -72,6 +72,16 @@
           "included_in_build": false,
           "requires_notice": false,
           "review_required": true
+        },
+        {
+          "kind": "external_resource",
+          "name": "affaan-m/ECC",
+          "role_key": "ui_credits_usage_ai_reference",
+          "url": "https://github.com/affaan-m/ECC",
+          "license": "MIT",
+          "included_in_build": false,
+          "requires_notice": false,
+          "review_required": true
         }
       ]
     }

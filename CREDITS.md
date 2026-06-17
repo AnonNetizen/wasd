@@ -30,6 +30,7 @@ These resources informed project-owned AI skills or workflows. The external pack
 | [jame581/GodotPrompter](https://github.com/jame581/GodotPrompter) | Godot / GDScript AI skill patterns | MIT | Patterns absorbed into project-owned skills; review before redistribution. |
 | [abagames/headless-godot-skill-kit](https://github.com/abagames/headless-godot-skill-kit) | Headless Godot validation workflow | MIT | Patterns absorbed into project-owned skills; review before redistribution. |
 | [Donchitos/Claude-Code-Game-Studios](https://github.com/Donchitos/Claude-Code-Game-Studios) | Playtest / production workflow reference | MIT | Patterns absorbed into project-owned skills; review before redistribution. |
+| [affaan-m/ECC](https://github.com/affaan-m/ECC) | Agent harness workflow and AI surface audit reference | MIT | Patterns absorbed into project-owned skills; review before redistribution. |
 
 ## Maintenance Notes
 
