@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "consumables": [
+    {
+      "id": "consumable_pocket_bomb",
+      "name_key": "item_pocket_bomb_name",
+      "desc_key": "item_pocket_bomb_desc",
+      "default_unlocked": true,
+      "tags": ["tag_consumable"],
+      "stack": {
+        "max_stack": 3,
+        "start_count": 0,
+        "pickup_count": 1
+      },
+      "use_effects": [
+        {
+          "effect": "explode",
+          "params": {
+            "radius": 96.0,
+            "damage": 8.0
+          }
+        }
+      ]
+    }
+  ]
+}

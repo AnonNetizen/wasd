@@ -22,6 +22,7 @@ HAZARDS_CSV = ROOT / "client" / "data" / "hazards.csv"
 SPAWN_WAVES_CSV = ROOT / "client" / "data" / "spawn_waves.csv"
 RELICS_JSON = ROOT / "client" / "data" / "relics.json"
 ACTIVE_ITEMS_JSON = ROOT / "client" / "data" / "active_items.json"
+CONSUMABLES_JSON = ROOT / "client" / "data" / "consumables.json"
 CREDITS_JSON = ROOT / "client" / "data" / "credits.json"
 GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
 GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
@@ -64,13 +65,15 @@ def main() -> int:
     relic_ids = _collect_relic_ids(ctx)
     _validate_active_items(ctx)
     active_item_ids = _collect_active_item_ids(ctx)
+    _validate_consumables(ctx)
+    consumable_ids = _collect_consumable_ids(ctx)
     _validate_credits(ctx)
     _validate_characters(ctx, weapon_ids)
     character_ids = _collect_character_ids(ctx)
     _validate_meta_progression(ctx, character_ids)
     _validate_growth_csv(ctx)
     _validate_growth_pools(ctx)
-    _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids)
+    _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids)
     game_mode_ids = _collect_game_mode_ids(ctx)
     _validate_spawn_waves_csv(ctx, enemy_ids, hazard_ids, game_mode_ids)
 
@@ -522,6 +525,63 @@ def _validate_active_item_use_effects(ctx: ValidationContext, path: Path, field:
             ctx.error(path, f"{item_field}.params", "must be an object")
 
 
+def _validate_consumables(ctx: ValidationContext) -> None:
+    path = CONSUMABLES_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    consumables = _require_list(ctx, path, "consumables", data.get("consumables"))
+    if not consumables:
+        ctx.error(path, "consumables", "must be a non-empty array")
+    seen: set[str] = set()
+    for index, consumable in enumerate(consumables):
+        field = f"consumables[{index}]"
+        if not isinstance(consumable, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        consumable_id = _require_non_empty_string(ctx, path, f"{field}.id", consumable.get("id"))
+        if consumable_id:
+            if consumable_id in seen:
+                ctx.error(path, f"{field}.id", f"duplicate consumable id {consumable_id}")
+            seen.add(consumable_id)
+        _require_locale_key(ctx, path, f"{field}.name_key", consumable.get("name_key"))
+        _require_locale_key(ctx, path, f"{field}.desc_key", consumable.get("desc_key"))
+        _require_bool(ctx, path, f"{field}.default_unlocked", consumable.get("default_unlocked"))
+        tags = _validate_registered_string_list(ctx, path, f"{field}.tags", consumable.get("tags"), "content_tags", allow_empty=False)
+        if "tag_consumable" not in tags:
+            ctx.error(path, f"{field}.tags", "must include tag_consumable")
+        _validate_consumable_stack(ctx, path, f"{field}.stack", consumable.get("stack"))
+        _validate_consumable_use_effects(ctx, path, f"{field}.use_effects", consumable.get("use_effects"))
+
+
+def _validate_consumable_stack(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    max_stack = _require_int(ctx, path, f"{field}.max_stack", data.get("max_stack"), minimum=1)
+    start_count = _require_int(ctx, path, f"{field}.start_count", data.get("start_count"), minimum=0)
+    pickup_count = _require_int(ctx, path, f"{field}.pickup_count", data.get("pickup_count"), minimum=1)
+    if isinstance(max_stack, int) and isinstance(start_count, int) and start_count > max_stack:
+        ctx.error(path, f"{field}.start_count", "must be <= max_stack")
+    if isinstance(max_stack, int) and isinstance(pickup_count, int) and pickup_count > max_stack:
+        ctx.error(path, f"{field}.pickup_count", "must be <= max_stack")
+
+
+def _validate_consumable_use_effects(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    effects = _require_list(ctx, path, field, data)
+    if not effects:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, effect in enumerate(effects):
+        item_field = f"{field}[{index}]"
+        if not isinstance(effect, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        _require_registered(ctx, path, f"{item_field}.effect", effect.get("effect"), "effects")
+        if not isinstance(effect.get("params"), dict):
+            ctx.error(path, f"{item_field}.params", "must be an object")
+
+
 def _validate_credits(ctx: ValidationContext) -> None:
     path = CREDITS_JSON
     data = _load_json(path, ctx)
@@ -683,6 +743,7 @@ def _validate_game_modes(
     hazard_ids: set[str],
     relic_ids: set[str],
     active_item_ids: set[str],
+    consumable_ids: set[str],
 ) -> None:
     path = GAME_MODES_JSON
     data = _load_json(path, ctx)
@@ -709,7 +770,7 @@ def _validate_game_modes(
         _require_bool(ctx, path, f"{mode_field}.default_unlocked", mode.get("default_unlocked"))
         team_ids = _validate_mode_teams(ctx, path, mode_field, mode.get("teams"))
         _validate_mode_participants(ctx, path, mode_field, mode.get("participants"), team_ids)
-        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids)
+        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids)
         if "blocklists" in mode:
             _validate_mode_blocklists(ctx, path, f"{mode_field}.blocklists", mode.get("blocklists"))
         if "overrides" in mode:
@@ -770,6 +831,7 @@ def _validate_mode_resource_pools(
     hazard_ids: set[str],
     relic_ids: set[str],
     active_item_ids: set[str],
+    consumable_ids: set[str],
 ) -> None:
     field = f"{mode_field}.resource_pools"
     if not isinstance(data, dict):
@@ -787,9 +849,11 @@ def _validate_mode_resource_pools(
         _validate_weighted_relic_entries(ctx, path, f"{field}.relics", data.get("relics"), relic_ids)
     if "active_items" in data:
         _validate_weighted_active_item_entries(ctx, path, f"{field}.active_items", data.get("active_items"), active_item_ids)
+    if "consumables" in data:
+        _validate_weighted_consumable_entries(ctx, path, f"{field}.consumables", data.get("consumables"), consumable_ids)
     if "growth_pools" in data:
         _validate_weighted_growth_pool_entries(ctx, path, f"{field}.growth_pools", data.get("growth_pools"), growth_pool_ids)
-    if "characters" not in data and "weapons" not in data and "enemies" not in data and "hazards" not in data and "relics" not in data and "active_items" not in data and "growth_pools" not in data:
+    if "characters" not in data and "weapons" not in data and "enemies" not in data and "hazards" not in data and "relics" not in data and "active_items" not in data and "consumables" not in data and "growth_pools" not in data:
         ctx.error(path, field, "must contain at least one supported pool")
 
 
@@ -880,6 +944,21 @@ def _validate_weighted_active_item_entries(ctx: ValidationContext, path: Path, f
         active_item_id = _require_non_empty_string(ctx, path, f"{item_field}.id", entry.get("id"))
         if active_item_id and active_item_id not in active_item_ids:
             ctx.error(path, f"{item_field}.id", f"active item is not defined in active_items.json: {active_item_id}")
+        _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
+
+
+def _validate_weighted_consumable_entries(ctx: ValidationContext, path: Path, field: str, data: Any, consumable_ids: set[str]) -> None:
+    entries = _require_list(ctx, path, field, data)
+    if not entries:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, entry in enumerate(entries):
+        item_field = f"{field}[{index}]"
+        if not isinstance(entry, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        consumable_id = _require_non_empty_string(ctx, path, f"{item_field}.id", entry.get("id"))
+        if consumable_id and consumable_id not in consumable_ids:
+            ctx.error(path, f"{item_field}.id", f"consumable is not defined in consumables.json: {consumable_id}")
         _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
 
 
@@ -1206,6 +1285,16 @@ def _collect_active_item_ids(ctx: ValidationContext) -> set[str]:
     if not isinstance(active_items, list):
         return set()
     return {item.get("id") for item in active_items if isinstance(item, dict) and isinstance(item.get("id"), str)}
+
+
+def _collect_consumable_ids(ctx: ValidationContext) -> set[str]:
+    data = _load_json(CONSUMABLES_JSON, ctx)
+    if not isinstance(data, dict):
+        return set()
+    consumables = data.get("consumables")
+    if not isinstance(consumables, list):
+        return set()
+    return {item.get("id") for item in consumables if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
 def _collect_growth_pool_ids(ctx: ValidationContext) -> set[str]:

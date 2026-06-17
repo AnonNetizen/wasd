@@ -266,6 +266,38 @@ def main() -> int:
             ],
         ),
         (
+            "consumable must include consumable tag",
+            _mutate_json("client/data/consumables.json", _set_consumable_tags([])),
+            [
+                "client/data/consumables.json:consumables[0].tags",
+                "must include tag_consumable",
+            ],
+        ),
+        (
+            "consumable effect must be registered",
+            _mutate_json("client/data/consumables.json", _set_consumable_effect("arcane")),
+            [
+                "client/data/consumables.json:consumables[0].use_effects[0].effect",
+                "unknown id arcane; expected one of effects",
+            ],
+        ),
+        (
+            "consumable start count cannot exceed max stack",
+            _mutate_json("client/data/consumables.json", _set_consumable_start_count(4)),
+            [
+                "client/data/consumables.json:consumables[0].stack.start_count",
+                "must be <= max_stack",
+            ],
+        ),
+        (
+            "mode consumable reference must exist",
+            _mutate_json("client/data/game_modes.json", _set_mode_consumable("consumable_missing")),
+            [
+                "client/data/game_modes.json:modes[0].resource_pools.consumables[0].id",
+                "consumable is not defined in consumables.json: consumable_missing",
+            ],
+        ),
+        (
             "credits section title locale key must exist",
             _mutate_json("client/data/credits.json", _set_credit_section_title_key("ui_credits_missing_section")),
             [
@@ -587,6 +619,34 @@ def _set_active_item_start_charges(value: int) -> JsonMutator:
 def _set_mode_active_item(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["resource_pools"]["active_items"][0]["id"] = value
+
+    return mutate
+
+
+def _set_consumable_tags(value: list[str]) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["consumables"][0]["tags"] = value
+
+    return mutate
+
+
+def _set_consumable_effect(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["consumables"][0]["use_effects"][0]["effect"] = value
+
+    return mutate
+
+
+def _set_consumable_start_count(value: int) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["consumables"][0]["stack"]["start_count"] = value
+
+    return mutate
+
+
+def _set_mode_consumable(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["modes"][0]["resource_pools"]["consumables"][0]["id"] = value
 
     return mutate
 

@@ -26,6 +26,8 @@ relic_sharp_rounds_name,锋利弹头,Sharp Rounds
 relic_sharp_rounds_desc,伤害 +{value},Damage +{value}
 item_blink_burst_name,闪冲,Blink Burst
 item_blink_burst_desc,击退附近敌人,Knock back nearby enemies
+item_pocket_bomb_name,袖珍炸弹,Pocket Bomb
+item_pocket_bomb_desc,引发一次小范围爆炸,Trigger a small explosion
 meta_currency_essence_name,记忆余烬,Memory Embers
 meta_upgrade_max_hp_name,坚韧心脏,Stout Heart
 meta_upgrade_max_hp_desc,永久提升最大生命,Permanently increases max HP

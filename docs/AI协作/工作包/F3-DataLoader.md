@@ -17,6 +17,7 @@
 - `client/data/spawn_waves.csv`
 - `client/data/relics.json`
 - `client/data/active_items.json`
+- `client/data/consumables.json`
 - `client/data/credits.json`
 - `client/data/meta_progression.json`
 - `client/locale/strings.csv`
@@ -24,7 +25,7 @@
 - `client/data/growth_pools.json`
 - `client/data/game_modes.json` 的资源池 / 权重 / 轻量覆盖 / participant / team 预留边界
 
-已覆盖的后续内容边界可以保留在本工作包验收范围内；继续扩展 consumables 等内容时仍遵守“不实现玩法运行时，只落数据 / schema / 诊断”的约束。
+已覆盖的后续内容边界可以保留在本工作包验收范围内；继续扩展其他内容数据时仍遵守“不实现玩法运行时，只落数据 / schema / 诊断”的约束。
 
 ## 必读
 

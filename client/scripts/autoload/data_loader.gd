@@ -17,6 +17,7 @@ const HAZARDS_PATH: String = "res://data/hazards.csv"
 const SPAWN_WAVES_PATH: String = "res://data/spawn_waves.csv"
 const RELICS_PATH: String = "res://data/relics.json"
 const ACTIVE_ITEMS_PATH: String = "res://data/active_items.json"
+const CONSUMABLES_PATH: String = "res://data/consumables.json"
 const CREDITS_PATH: String = "res://data/credits.json"
 const META_PROGRESSION_PATH: String = "res://data/meta_progression.json"
 const GROWTH_CURVE_PATH: String = "res://data/growth.csv"
@@ -91,13 +92,15 @@ func validate_project_data() -> bool:
 	var relic_ids: Dictionary = _collect_relic_ids()
 	is_valid = _validate_active_items_json(locale_keys) and is_valid
 	var active_item_ids: Dictionary = _collect_active_item_ids()
+	is_valid = _validate_consumables_json(locale_keys) and is_valid
+	var consumable_ids: Dictionary = _collect_consumable_ids()
 	is_valid = _validate_credits_json(locale_keys) and is_valid
 	is_valid = _validate_characters_json(locale_keys, weapon_ids) and is_valid
 	var character_ids: Dictionary = _collect_character_ids()
 	is_valid = _validate_meta_progression(locale_keys, character_ids) and is_valid
 	is_valid = _validate_growth_csv() and is_valid
 	is_valid = _validate_growth_pools() and is_valid
-	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids) and is_valid
+	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids) and is_valid
 	var game_mode_ids: Dictionary = _collect_game_mode_ids()
 	is_valid = _validate_spawn_waves_csv(enemy_ids, hazard_ids, game_mode_ids) and is_valid
 
@@ -548,6 +551,80 @@ func _validate_active_item_use_effects(field: String, data: Variant) -> bool:
 	return is_valid
 
 
+func _validate_consumables_json(locale_keys: Dictionary) -> bool:
+	var data: Variant = load_json(CONSUMABLES_PATH)
+	if not data is Dictionary:
+		return _schema_fail(CONSUMABLES_PATH, "root", "Dictionary")
+
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(CONSUMABLES_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var consumables: Array = _require_array(CONSUMABLES_PATH, "consumables", payload.get("consumables"))
+	if consumables.is_empty():
+		is_valid = _schema_fail(CONSUMABLES_PATH, "consumables", "non-empty Array") and is_valid
+	var seen: Dictionary = {}
+	_last_schema_counts["consumables"] = consumables.size()
+	for index: int in range(consumables.size()):
+		var field: String = "consumables[%d]" % index
+		var consumable: Variant = consumables[index]
+		if not consumable is Dictionary:
+			is_valid = _schema_fail(CONSUMABLES_PATH, field, "Dictionary") and is_valid
+			continue
+		var consumable_dict: Dictionary = consumable as Dictionary
+		is_valid = _require_non_empty_string(CONSUMABLES_PATH, "%s.id" % field, consumable_dict.get("id")) and is_valid
+		var consumable_id: String = String(consumable_dict.get("id", ""))
+		if not consumable_id.is_empty():
+			if seen.has(consumable_id):
+				is_valid = _schema_fail(CONSUMABLES_PATH, "%s.id" % field, "unique consumable id") and is_valid
+			seen[consumable_id] = true
+		is_valid = _require_locale_key(CONSUMABLES_PATH, "%s.name_key" % field, consumable_dict.get("name_key"), locale_keys) and is_valid
+		is_valid = _require_locale_key(CONSUMABLES_PATH, "%s.desc_key" % field, consumable_dict.get("desc_key"), locale_keys) and is_valid
+		is_valid = _require_bool(CONSUMABLES_PATH, "%s.default_unlocked" % field, consumable_dict.get("default_unlocked")) and is_valid
+		var tags: Array = _require_array(CONSUMABLES_PATH, "%s.tags" % field, consumable_dict.get("tags"))
+		is_valid = _validate_registered_string_array(CONSUMABLES_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
+		if not tags.has("tag_consumable"):
+			is_valid = _schema_fail(CONSUMABLES_PATH, "%s.tags" % field, "tag_consumable") and is_valid
+		is_valid = _validate_consumable_stack("%s.stack" % field, consumable_dict.get("stack")) and is_valid
+		is_valid = _validate_consumable_use_effects("%s.use_effects" % field, consumable_dict.get("use_effects")) and is_valid
+	return is_valid
+
+
+func _validate_consumable_stack(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(CONSUMABLES_PATH, field, "Dictionary")
+	var stack: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(CONSUMABLES_PATH, "%s.max_stack" % field, stack.get("max_stack"), 1) and is_valid
+	is_valid = _require_int(CONSUMABLES_PATH, "%s.start_count" % field, stack.get("start_count"), 0) and is_valid
+	is_valid = _require_int(CONSUMABLES_PATH, "%s.pickup_count" % field, stack.get("pickup_count"), 1) and is_valid
+	var max_stack: Variant = stack.get("max_stack")
+	var start_count: Variant = stack.get("start_count")
+	var pickup_count: Variant = stack.get("pickup_count")
+	if _is_int_like(max_stack) and _is_int_like(start_count) and _variant_to_int(start_count) > _variant_to_int(max_stack):
+		is_valid = _schema_fail(CONSUMABLES_PATH, "%s.start_count" % field, "<= max_stack") and is_valid
+	if _is_int_like(max_stack) and _is_int_like(pickup_count) and _variant_to_int(pickup_count) > _variant_to_int(max_stack):
+		is_valid = _schema_fail(CONSUMABLES_PATH, "%s.pickup_count" % field, "<= max_stack") and is_valid
+	return is_valid
+
+
+func _validate_consumable_use_effects(field: String, data: Variant) -> bool:
+	var effects: Array = _require_array(CONSUMABLES_PATH, field, data)
+	var is_valid: bool = true
+	if effects.is_empty():
+		is_valid = _schema_fail(CONSUMABLES_PATH, field, "non-empty Array") and is_valid
+	for index: int in range(effects.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var effect: Variant = effects[index]
+		if not effect is Dictionary:
+			is_valid = _schema_fail(CONSUMABLES_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var effect_dict: Dictionary = effect as Dictionary
+		is_valid = _require_registered(CONSUMABLES_PATH, "%s.effect" % item_field, effect_dict.get("effect"), "effects") != "" and is_valid
+		if not effect_dict.get("params") is Dictionary:
+			is_valid = _schema_fail(CONSUMABLES_PATH, "%s.params" % item_field, "Dictionary") and is_valid
+	return is_valid
+
+
 func _validate_credits_json(locale_keys: Dictionary) -> bool:
 	var data: Variant = load_json(CREDITS_PATH)
 	if not data is Dictionary:
@@ -832,7 +909,7 @@ func _validate_growth_pools() -> bool:
 	return is_valid
 
 
-func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary) -> bool:
+func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary) -> bool:
 	var data: Variant = load_json(GAME_MODES_PATH)
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "root", "Dictionary")
@@ -864,7 +941,7 @@ func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, we
 		var team_ids: Dictionary = team_result.get("ids", {}) as Dictionary
 		is_valid = bool(team_result.get("is_valid", false)) and is_valid
 		is_valid = _validate_mode_participants(mode_field, mode_dict.get("participants"), team_ids) and is_valid
-		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids) and is_valid
+		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids) and is_valid
 		if mode_dict.has("blocklists"):
 			is_valid = _validate_mode_blocklists("%s.blocklists" % mode_field, mode_dict.get("blocklists")) and is_valid
 		if mode_dict.has("overrides"):
@@ -928,7 +1005,7 @@ func _validate_mode_participants(mode_field: String, data: Variant, team_ids: Di
 	return is_valid
 
 
-func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_pool_ids: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary) -> bool:
+func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_pool_ids: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary) -> bool:
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "Dictionary")
 	var payload: Dictionary = data as Dictionary
@@ -945,9 +1022,11 @@ func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_poo
 		is_valid = _validate_weighted_relic_entries("%s.resource_pools.relics" % mode_field, payload.get("relics"), relic_ids) and is_valid
 	if payload.has("active_items"):
 		is_valid = _validate_weighted_active_item_entries("%s.resource_pools.active_items" % mode_field, payload.get("active_items"), active_item_ids) and is_valid
+	if payload.has("consumables"):
+		is_valid = _validate_weighted_consumable_entries("%s.resource_pools.consumables" % mode_field, payload.get("consumables"), consumable_ids) and is_valid
 	if payload.has("growth_pools"):
 		is_valid = _validate_weighted_growth_pool_entries("%s.resource_pools.growth_pools" % mode_field, payload.get("growth_pools"), growth_pool_ids) and is_valid
-	if not payload.has("characters") and not payload.has("weapons") and not payload.has("enemies") and not payload.has("hazards") and not payload.has("relics") and not payload.has("active_items") and not payload.has("growth_pools"):
+	if not payload.has("characters") and not payload.has("weapons") and not payload.has("enemies") and not payload.has("hazards") and not payload.has("relics") and not payload.has("active_items") and not payload.has("consumables") and not payload.has("growth_pools"):
 		is_valid = _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "at least one supported pool") and is_valid
 	return is_valid
 
@@ -1067,6 +1146,26 @@ func _validate_weighted_active_item_entries(field: String, data: Variant, active
 		var active_item_id: String = String(entry_dict.get("id", ""))
 		if not active_item_id.is_empty() and not active_item_ids.has(active_item_id):
 			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "active item defined in active_items.json") and is_valid
+		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
+	return is_valid
+
+
+func _validate_weighted_consumable_entries(field: String, data: Variant, consumable_ids: Dictionary) -> bool:
+	var entries: Array = _require_array(GAME_MODES_PATH, field, data)
+	var is_valid: bool = true
+	if entries.is_empty():
+		is_valid = _schema_fail(GAME_MODES_PATH, field, "non-empty Array") and is_valid
+	for index: int in range(entries.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var entry: Variant = entries[index]
+		if not entry is Dictionary:
+			is_valid = _schema_fail(GAME_MODES_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var entry_dict: Dictionary = entry as Dictionary
+		is_valid = _require_non_empty_string(GAME_MODES_PATH, "%s.id" % item_field, entry_dict.get("id")) and is_valid
+		var consumable_id: String = String(entry_dict.get("id", ""))
+		if not consumable_id.is_empty() and not consumable_ids.has(consumable_id):
+			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "consumable defined in consumables.json") and is_valid
 		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
 	return is_valid
 
@@ -1314,6 +1413,20 @@ func _collect_active_item_ids() -> Dictionary:
 	for active_item: Variant in active_items:
 		if active_item is Dictionary and (active_item as Dictionary).get("id") is String:
 			ids[String((active_item as Dictionary).get("id"))] = true
+	return ids
+
+
+func _collect_consumable_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(CONSUMABLES_PATH)
+	if not data is Dictionary:
+		return ids
+	var consumables: Variant = (data as Dictionary).get("consumables")
+	if not consumables is Array:
+		return ids
+	for consumable: Variant in consumables:
+		if consumable is Dictionary and (consumable as Dictionary).get("id") is String:
+			ids[String((consumable as Dictionary).get("id"))] = true
 	return ids
 
 

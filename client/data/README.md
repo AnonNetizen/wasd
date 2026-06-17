@@ -24,6 +24,7 @@
 | 改机关伤害 / 范围 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
+| 改消耗品堆叠 / 效果声明 | `consumables.json` | 用 `stack` 和 `use_effects`，不要实现拾取 / 背包运行时 |
 | 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
 | 改刷怪强度 / 难度曲线 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
 | 改经验阈值 / 升级候选概率 | `growth.csv`（落地后） | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
@@ -36,12 +37,12 @@
 | 文件 | 状态 | 作用 |
 |------|------|------|
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
-| `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
+| `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 消耗品 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
 | `characters.json` | 已建立 | 角色列表：基础属性、tags、capabilities、控制配置和起始武器引用；当前不含遗物运行时 |
 | `weapons.json` | 已建立 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
 | `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 已建立 | 主动道具：充能方式、冷却、效果原语与参数 |
-| `consumables.json` | 规划 | 消耗品：拾取 / 使用规则、效果原语与参数 |
+| `consumables.json` | 已建立 | 消耗品：堆叠数量、拾取数量、效果原语与参数 |
 | `enemies.csv` | 已建立 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励等 |
 | `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、范围、持续时间 |
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
@@ -74,7 +75,7 @@
 | 数据形态 | 优先格式 | 示例 |
 |----------|----------|------|
 | 一行一个条目、列固定、经常人工排序 / 筛选 / 批量调参 | CSV | `enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`growth.csv` |
-| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`relics.json`、`active_items.json`、`characters.json`、`meta_progression.json`、`growth_pools.json` |
+| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`meta_progression.json`、`growth_pools.json` |
 | 玩家可见文案 | CSV | `client/locale/strings.csv` |
 | 致谢 / 第三方来源清单 | JSON | `credits.json`，需同时同步根目录 `CREDITS.md` |
 | 自动生成契约 | JSON | `_contracts.json`，禁止手改 |
@@ -192,6 +193,7 @@ JSON 示例：
         "hazards": [{ "id": "hazard_spike_trap", "weight": 100 }],
         "relics": [{ "id": "relic_sharp_rounds", "weight": 100 }],
         "active_items": [{ "id": "active_item_blink_burst", "weight": 100 }],
+        "consumables": [{ "id": "consumable_pocket_bomb", "weight": 100 }],
         "growth_pools": [{ "id": "default_level_up", "weight": 100 }]
       },
       "blocklists": { "content_tags": [] },
@@ -227,6 +229,8 @@ JSON 示例：
 | `resource_pools.relics[].id` | string | 必须存在于 `relics.json` | 可用遗物 id |
 | `resource_pools.active_items[]` | array[object] | 已声明时必须非空 | 本模式可用主动道具池 |
 | `resource_pools.active_items[].id` | string | 必须存在于 `active_items.json` | 可用主动道具 id |
+| `resource_pools.consumables[]` | array[object] | 已声明时必须非空 | 本模式可用消耗品池 |
+| `resource_pools.consumables[].id` | string | 必须存在于 `consumables.json` | 可用消耗品 id |
 | `resource_pools.*[].weight` | int | `>= 0` | 抽取 / 展示权重；具体抽取由后续系统实现 |
 | `resource_pools.growth_pools[]` | array[object] | 已声明时必须非空 | 本模式使用的升级候选池 |
 | `resource_pools.growth_pools[].id` | string | `growth_pools.json` 中已定义池 id | 升级候选池 id |
@@ -517,6 +521,59 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,60.0,enemy_chaser,100,1
 | `active_items[].use_effects[].params.radius` | number | `> 0` 建议 | `knockback` 生效半径；当前只作为参数声明 |
 
 `active_items.json` 只声明主动道具数据边界，不实现主动道具栏、输入响应、冷却计时、充能 UI、效果执行、掉落 / 解锁或存档快照。游戏模式可通过 `resource_pools.active_items` 声明可用主动道具池；实际使用流程后续必须走 InputMap action `use_active_item`、`GameClock`、`RNG` 和对应业务系统。
+
+## `consumables.json`
+
+当前结构：
+
+```json
+{
+  "schema_version": 1,
+  "consumables": [
+    {
+      "id": "consumable_pocket_bomb",
+      "name_key": "item_pocket_bomb_name",
+      "desc_key": "item_pocket_bomb_desc",
+      "default_unlocked": true,
+      "tags": ["tag_consumable"],
+      "stack": {
+        "max_stack": 3,
+        "start_count": 0,
+        "pickup_count": 1
+      },
+      "use_effects": [
+        {
+          "effect": "explode",
+          "params": {
+            "radius": 96.0,
+            "damage": 8.0
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+字段说明：
+
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `consumables[].id` | string | 文件内唯一，非空 | 消耗品 id；模式消耗品池引用此 id |
+| `consumables[].name_key` / `desc_key` | string | `item_*_name` / `item_*_desc` | 消耗品名称和描述译文 key |
+| `consumables[].default_unlocked` | bool | true / false | 新存档中是否默认可用；后续可接局外解锁 |
+| `consumables[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_consumable` | 内容标签；突破携带规则时需补 capability / 测试说明 |
+| `consumables[].stack.max_stack` | int | `>= 1` | 最大可持有数量 |
+| `consumables[].stack.start_count` | int | `0..max_stack` | 开局初始数量 |
+| `consumables[].stack.pickup_count` | int | `1..max_stack` | 单次拾取增加数量 |
+| `consumables[].use_effects[]` | array[object] | 必须非空 | 使用时触发的效果原语列表 |
+| `consumables[].use_effects[].effect` | string | 词表 §2 effect id | 使用效果原语 |
+| `consumables[].use_effects[].params` | object | 由 effect 解释 | 效果参数；当前只做 schema 校验，不执行 |
+| `consumables[].use_effects[].params.radius` | number | `> 0` 建议 | `explode` 爆炸半径；当前只作为参数声明 |
+| `consumables[].use_effects[].params.damage` | number | `>= 0` 建议 | `explode` 爆炸伤害；当前只作为参数声明 |
+
+`consumables.json` 只声明消耗品数据边界，不实现拾取物、背包栏、使用输入、数量扣减、效果执行、掉落 / 解锁或存档快照。游戏模式可通过 `resource_pools.consumables` 声明可用消耗品池；实际拾取随机必须走 `RNG.drop`，局内时间必须走 `GameClock`，高频拾取实体必须走 `PoolManager`。
 
 ## `modifiers` 格式
 
