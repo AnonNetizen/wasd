@@ -20,6 +20,7 @@ WEAPONS_JSON = ROOT / "client" / "data" / "weapons.json"
 ENEMIES_CSV = ROOT / "client" / "data" / "enemies.csv"
 HAZARDS_CSV = ROOT / "client" / "data" / "hazards.csv"
 RELICS_JSON = ROOT / "client" / "data" / "relics.json"
+CREDITS_JSON = ROOT / "client" / "data" / "credits.json"
 GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
 GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
 GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
@@ -60,6 +61,7 @@ def main() -> int:
     hazard_ids = _collect_hazard_ids(ctx)
     _validate_relics(ctx)
     relic_ids = _collect_relic_ids(ctx)
+    _validate_credits(ctx)
     _validate_characters(ctx, weapon_ids)
     character_ids = _collect_character_ids(ctx)
     _validate_meta_progression(ctx, character_ids)
@@ -390,6 +392,53 @@ def _validate_relics(ctx: ValidationContext) -> None:
         _validate_behaviors(ctx, path, f"{field}.behaviors", behaviors)
         if not modifiers and not behaviors:
             ctx.error(path, field, "must contain at least one modifier or behavior")
+
+
+def _validate_credits(ctx: ValidationContext) -> None:
+    path = CREDITS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    sections = _require_list(ctx, path, "sections", data.get("sections"))
+    if not sections:
+        ctx.error(path, "sections", "must be a non-empty array")
+    seen_sections: set[str] = set()
+    for section_index, section in enumerate(sections):
+        section_field = f"sections[{section_index}]"
+        if not isinstance(section, dict):
+            ctx.error(path, section_field, "must be an object")
+            continue
+        section_id = _require_non_empty_string(ctx, path, f"{section_field}.id", section.get("id"))
+        if section_id:
+            if section_id in seen_sections:
+                ctx.error(path, f"{section_field}.id", f"duplicate section id {section_id}")
+            seen_sections.add(section_id)
+        _require_locale_key(ctx, path, f"{section_field}.title_key", section.get("title_key"))
+        entries = _require_list(ctx, path, f"{section_field}.entries", section.get("entries"))
+        if not entries:
+            ctx.error(path, f"{section_field}.entries", "must be a non-empty array")
+        for entry_index, entry in enumerate(entries):
+            _validate_credit_entry(ctx, path, f"{section_field}.entries[{entry_index}]", entry)
+
+
+def _validate_credit_entry(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    kind = data.get("kind")
+    if kind not in {"staff", "external_resource", "external_library", "external_tool"}:
+        ctx.error(path, f"{field}.kind", "must be staff, external_resource, external_library, or external_tool")
+    _require_non_empty_string(ctx, path, f"{field}.name", data.get("name"))
+    _require_locale_key(ctx, path, f"{field}.role_key", data.get("role_key"))
+    if isinstance(kind, str) and kind.startswith("external_"):
+        _require_non_empty_string(ctx, path, f"{field}.url", data.get("url"))
+        _require_non_empty_string(ctx, path, f"{field}.license", data.get("license"))
+        _require_bool(ctx, path, f"{field}.included_in_build", data.get("included_in_build"))
+        _require_bool(ctx, path, f"{field}.requires_notice", data.get("requires_notice"))
+        _require_bool(ctx, path, f"{field}.review_required", data.get("review_required"))
+    if "copyright" in data:
+        _require_non_empty_string(ctx, path, f"{field}.copyright", data.get("copyright"))
 
 
 def _validate_meta_progression(ctx: ValidationContext, character_ids: set[str]) -> None:

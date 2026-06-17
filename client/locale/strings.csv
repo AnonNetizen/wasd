@@ -5,6 +5,14 @@ ui_pause,暂停,Pause
 ui_quit,退出,Quit
 ui_confirm,确认,Confirm
 ui_cancel,取消,Cancel
+ui_credits_title,致谢,Credits
+ui_credits_section_staff,工作人员,Staff
+ui_credits_section_engine_libraries,引擎与外部库,Engine and External Libraries
+ui_credits_section_ai_workflow_references,AI 工作流参考,AI Workflow References
+ui_credits_role_project_owner,项目负责人 / 设计方向,Project Lead / Design Direction
+ui_credits_role_ai_assisted_development,AI 辅助开发,AI-assisted Development
+ui_credits_usage_engine_runtime,游戏引擎与运行时,Game engine and runtime
+ui_credits_usage_ai_reference,项目级 AI skill / 工作流参考,Project AI skill and workflow reference
 ui_mode_standard_survival_name,标准生存,Standard Survival
 ui_mode_standard_survival_desc,在持续增强的敌潮中尽可能活下去,Survive as long as possible against escalating waves
 character_default_name,流浪者,Wanderer

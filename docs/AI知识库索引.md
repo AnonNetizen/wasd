@@ -79,6 +79,7 @@
 | 改存档 / 暂停退出续局 | `docs/游戏设计文档.md` §9.16、`docs/词表与契约.md` §14、`docs/测试策略.md` | SaveManager、GameState、暂停菜单、主菜单、GDD、词表、AI导航、模块文档 | SaveManager 单测、run roundtrip、损坏 / 迁移测试；代码落地后跑 headless 和手动存档 checklist |
 | 调完整项目数值 | `client/data/README.md`、目标 `client/data/*.csv` / `client/data/*.json`、`docs/词表与契约.md` | 数据 CSV / JSON、数值手册、必要时 GDD / 模块文档 / 黄金回放 | `python tools/validate_data.py`；大改动跑回放 / 平衡验证 |
 | 加完整项目文案 / 语言 | `client/locale/README.md`、`client/locale/strings.csv`、`docs/词表与契约.md` §6 | 文案 CSV、语言设置、相关 UI / 数据模块文档；AI 自动补齐 `zh_CN` / `en` 另一语言首版译文 | `python tools/validate_data.py`；人工切语言回归 |
+| 改致谢 / 第三方来源 | `CREDITS.md`、`client/data/README.md`、`client/locale/README.md` | `client/data/credits.json`、`client/locale/strings.csv`、DataLoader schema、AI导航、必要时 ADR / 记忆 | `python tools/validate_data.py`；DataLoader schema 变化跑 `python tools/test_data_loader_schema.py`；文档变化跑 `python tools/docs_health_check.py` |
 | 改规则 / 红线 | `AGENTS.md`、当前平台规则入口、`docs/决策记录.md`、`docs/AI协作/文档维护指南.md` | `AGENTS.md`、三平台规则、`CODEX.md`、`OPENCODE.md`、AI导航、项目记忆 | `python tools/docs_health_check.py`、`git diff --check -- . ":(exclude)draft/**" ":(exclude)DRAFT/**"` |
 | 改约定字符串 | `docs/词表与契约.md`、`docs/AI协作/文档健康检查.md` | 词表、生成常量、相关数据 / 代码、AI导航 | `python tools/sync_contracts.py` + `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；`python tools/docs_health_check.py` |
 | 写/改代码模块 | `docs/代码文档规范.md`、对应 `docs/代码/<module_id>.md`、目标源码；测试相关时读 `docs/测试策略.md` 相关段 | 代码、模块文档、AI导航依赖图、必要时 GDD / ADR | 对应测试义务 + `python tools/docs_health_check.py` |
@@ -135,6 +136,7 @@
 | #68 | 阶段工作包 / 规则去重 / 模块文档优先 | `docs/AI协作/工作包/`、README、CONTRIBUTING、工具适配指南、快速开工、上下文预算、AI导航、AI记忆、知识库索引 |
 | #69 | 大型代码改动提交前自动事实 review | AGENTS、CLAUDE、CODEX、OPENCODE、三平台规则、角色分工、工具适配指南、AI技能资源评估、README、CONTRIBUTING、AI导航、AI记忆 |
 | #70 | DataLoader schema 回归测试进入 Stage 1 CI | `tools/test_data_loader_schema.py`、`.github/workflows/docs-check.yml`、`docs/CICD规划.md`、`docs/AI协作/实时验证回路.md`、`docs/测试策略.md`、`docs/代码/data_loader.md`、F3 工作包、AI导航、AI记忆 |
+| #71 | 双致谢清单 / 游戏内 Credits 数据源 | `CREDITS.md`、`client/data/credits.json`、`client/data/README.md`、`client/locale/strings.csv`、`docs/代码/data_loader.md`、AI导航、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

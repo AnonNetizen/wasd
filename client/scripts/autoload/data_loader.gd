@@ -15,6 +15,7 @@ const WEAPONS_PATH: String = "res://data/weapons.json"
 const ENEMIES_PATH: String = "res://data/enemies.csv"
 const HAZARDS_PATH: String = "res://data/hazards.csv"
 const RELICS_PATH: String = "res://data/relics.json"
+const CREDITS_PATH: String = "res://data/credits.json"
 const META_PROGRESSION_PATH: String = "res://data/meta_progression.json"
 const GROWTH_CURVE_PATH: String = "res://data/growth.csv"
 const GROWTH_POOLS_PATH: String = "res://data/growth_pools.json"
@@ -86,6 +87,7 @@ func validate_project_data() -> bool:
 	var hazard_ids: Dictionary = _collect_hazard_ids()
 	is_valid = _validate_relics_json(locale_keys) and is_valid
 	var relic_ids: Dictionary = _collect_relic_ids()
+	is_valid = _validate_credits_json(locale_keys) and is_valid
 	is_valid = _validate_characters_json(locale_keys, weapon_ids) and is_valid
 	var character_ids: Dictionary = _collect_character_ids()
 	is_valid = _validate_meta_progression(locale_keys, character_ids) and is_valid
@@ -411,6 +413,65 @@ func _validate_relics_json(locale_keys: Dictionary) -> bool:
 		is_valid = _validate_behaviors(RELICS_PATH, "%s.behaviors" % field, behaviors) and is_valid
 		if modifiers.is_empty() and behaviors.is_empty():
 			is_valid = _schema_fail(RELICS_PATH, field, "at least one modifier or behavior") and is_valid
+	return is_valid
+
+
+func _validate_credits_json(locale_keys: Dictionary) -> bool:
+	var data: Variant = load_json(CREDITS_PATH)
+	if not data is Dictionary:
+		return _schema_fail(CREDITS_PATH, "root", "Dictionary")
+
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(CREDITS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var sections: Array = _require_array(CREDITS_PATH, "sections", payload.get("sections"))
+	if sections.is_empty():
+		is_valid = _schema_fail(CREDITS_PATH, "sections", "non-empty Array") and is_valid
+	var seen_sections: Dictionary = {}
+	var entry_count: int = 0
+	_last_schema_counts["credit_sections"] = sections.size()
+	for section_index: int in range(sections.size()):
+		var section_field: String = "sections[%d]" % section_index
+		var section: Variant = sections[section_index]
+		if not section is Dictionary:
+			is_valid = _schema_fail(CREDITS_PATH, section_field, "Dictionary") and is_valid
+			continue
+		var section_dict: Dictionary = section as Dictionary
+		var section_id: String = String(section_dict.get("id", ""))
+		is_valid = _require_non_empty_string(CREDITS_PATH, "%s.id" % section_field, section_dict.get("id")) and is_valid
+		if not section_id.is_empty():
+			if seen_sections.has(section_id):
+				is_valid = _schema_fail(CREDITS_PATH, "%s.id" % section_field, "unique section id") and is_valid
+			seen_sections[section_id] = true
+		is_valid = _require_locale_key(CREDITS_PATH, "%s.title_key" % section_field, section_dict.get("title_key"), locale_keys) and is_valid
+		var entries: Array = _require_array(CREDITS_PATH, "%s.entries" % section_field, section_dict.get("entries"))
+		if entries.is_empty():
+			is_valid = _schema_fail(CREDITS_PATH, "%s.entries" % section_field, "non-empty Array") and is_valid
+		entry_count += entries.size()
+		for entry_index: int in range(entries.size()):
+			is_valid = _validate_credit_entry("%s.entries[%d]" % [section_field, entry_index], entries[entry_index], locale_keys) and is_valid
+	_last_schema_counts["credit_entries"] = entry_count
+	return is_valid
+
+
+func _validate_credit_entry(field: String, data: Variant, locale_keys: Dictionary) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(CREDITS_PATH, field, "Dictionary")
+	var entry: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	var kind: String = String(entry.get("kind", ""))
+	if not ["staff", "external_resource", "external_library", "external_tool"].has(kind):
+		is_valid = _schema_fail(CREDITS_PATH, "%s.kind" % field, "staff, external_resource, external_library, or external_tool") and is_valid
+	is_valid = _require_non_empty_string(CREDITS_PATH, "%s.name" % field, entry.get("name")) and is_valid
+	is_valid = _require_locale_key(CREDITS_PATH, "%s.role_key" % field, entry.get("role_key"), locale_keys) and is_valid
+	if kind.begins_with("external_"):
+		is_valid = _require_non_empty_string(CREDITS_PATH, "%s.url" % field, entry.get("url")) and is_valid
+		is_valid = _require_non_empty_string(CREDITS_PATH, "%s.license" % field, entry.get("license")) and is_valid
+		is_valid = _require_bool(CREDITS_PATH, "%s.included_in_build" % field, entry.get("included_in_build")) and is_valid
+		is_valid = _require_bool(CREDITS_PATH, "%s.requires_notice" % field, entry.get("requires_notice")) and is_valid
+		is_valid = _require_bool(CREDITS_PATH, "%s.review_required" % field, entry.get("review_required")) and is_valid
+	if entry.has("copyright"):
+		is_valid = _require_non_empty_string(CREDITS_PATH, "%s.copyright" % field, entry.get("copyright")) and is_valid
 	return is_valid
 
 

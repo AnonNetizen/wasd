@@ -27,6 +27,7 @@
 | 改刷怪强度 / 难度曲线 | `spawn_waves.csv`（落地后） | 大改后需要跑回放 / 平衡验证 |
 | 改经验阈值 / 升级候选概率 | `growth.csv`（落地后） | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
 | 改局外货币 / 永久升级 / 解锁 | `meta_progression.json` | 存档走 `SaveManager` 的 `meta` kind，id 必须来自词表 §13 |
+| 改致谢 / 第三方来源 | `credits.json` + 根目录 `CREDITS.md` | 游戏内 Credits UI 读 `credits.json`；发行前复核许可证与 notice |
 | 改界面、道具名、描述文案 | 不在这里改，去 `client/locale/strings.csv` | 数据只引用 key，译文集中管理 |
 
 ## 文件总览
@@ -46,6 +47,7 @@
 | `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
 | `growth_pools.json` | 已建立 | 升级选项池、权重、等级条件和候选奖励边界 |
 | `meta_progression.json` | 已建立 | 局外货币、结算奖励、账号等级、永久升级轨道和内容解锁 |
+| `credits.json` | 已建立 | 游戏内致谢数据源：工作人员、外部资源、外部库与许可 / notice 状态 |
 | `_contracts.json` | 生成文件 | 由 `docs/词表与契约.md` 生成，禁止手改；`DataLoader` 用它校验 id |
 
 ## 通用格式规则
@@ -62,6 +64,7 @@
 | 模式复用 | 角色、遗物、道具、敌人等资源本体默认模式无关；模式配置只引用资源池、权重、条件、禁用列表和轻量覆盖 |
 | 多人预留 | 当前只做单人；模式 / 伤害 / 回放 / 存档数据可预留 participant / team / friendly_fire 等字段，但不得提前实现网络协议或复制多人专用资源 |
 | 文案 key | 玩家可见名字 / 描述只存 `name_key` / `desc_key` / `hint_key` 等，不存硬文本 |
+| 致谢原文 | 外部项目名、人员名、许可证名、URL 与版权声明保持原文；面向玩家的分组标题 / 角色说明用 locale key |
 | id 白名单 | `stat`、`effect`、`event`、`damage_type`、`pool_id`、`tag` 等必须先登记到 `docs/词表与契约.md` |
 | fail-fast | `DataLoader` 加载时必须校验字段类型、范围、必填项和词表 id；错误信息包含文件名 + 字段路径 + 期望值 |
 
@@ -72,6 +75,7 @@
 | 一行一个条目、列固定、经常人工排序 / 筛选 / 批量调参 | CSV | `enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`growth.csv` |
 | 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`relics.json`、`characters.json`、`meta_progression.json`、`growth_pools.json` |
 | 玩家可见文案 | CSV | `client/locale/strings.csv` |
+| 致谢 / 第三方来源清单 | JSON | `credits.json`，需同时同步根目录 `CREDITS.md` |
 | 自动生成契约 | JSON | `_contracts.json`，禁止手改 |
 
 CSV 示例：
@@ -597,6 +601,49 @@ level,total_xp_required,candidate_count,bonus_candidate_chance_per_luck,bonus_ca
 | `entries[].modifiers` | array[object] | stat 来自词表 §1 | 属性修正奖励；格式同通用 `modifiers`，使用 `value` |
 
 `growth_pools.json` 只声明候选池边界，不实现升级 UI、奖励应用或最终选项类型决策。新增 `kind` 影响运行时行为时，必须同步对应系统模块文档和测试。
+
+## `credits.json`
+
+当前结构：
+
+```json
+{
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "staff",
+      "title_key": "ui_credits_section_staff",
+      "entries": [
+        {
+          "kind": "staff",
+          "name": "AnonNetizen",
+          "role_key": "ui_credits_role_project_owner"
+        }
+      ]
+    }
+  ]
+}
+```
+
+字段说明：
+
+| 字段路径 | 类型 | 范围 | 说明 |
+|----------|------|------|------|
+| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `sections[].id` | string | 文件内唯一，非空 | 致谢分组 id；供 UI 排序 / 锚点使用，不作为玩法契约 |
+| `sections[].title_key` | string | `ui_*` locale key | 分组标题，如工作人员、引擎与外部库 |
+| `sections[].entries` | array[object] | 非空 | 本分组的致谢条目 |
+| `entries[].kind` | string | `staff` / `external_resource` / `external_library` / `external_tool` | 条目类型；外部条目必须记录来源和许可字段 |
+| `entries[].name` | string | 非空 | 人名、项目名、工具名或库名，保持原文 |
+| `entries[].role_key` | string | `ui_*` locale key | 面向玩家展示的角色 / 用途说明 |
+| `entries[].url` | string | 外部条目必填 | 上游主页或许可证页 |
+| `entries[].license` | string | 外部条目必填 | 许可证或服务 / 工具说明；发行前人工复核 |
+| `entries[].copyright` | string | 可选 | 上游版权声明，保持原文 |
+| `entries[].included_in_build` | bool | 外部条目必填 | 是否随游戏构建或发行包分发 |
+| `entries[].requires_notice` | bool | 外部条目必填 | 是否需要在发行包或游戏内保留 notice |
+| `entries[].review_required` | bool | 外部条目必填 | 是否仍需发行前人工许可复核 |
+
+`credits.json` 是未来游戏内 Credits UI 的数据源；当前只落数据与 schema，不实现 UI。代码库级人类可读清单在根目录 `CREDITS.md`，两者应同步维护。外部项目名、许可证名、URL 与版权声明可以保持原文；分组标题、角色 / 用途说明走 `client/locale/strings.csv`。
 
 ## 调参流程
 

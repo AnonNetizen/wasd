@@ -15,6 +15,7 @@
 - `client/data/enemies.csv`
 - `client/data/hazards.csv`
 - `client/data/relics.json`
+- `client/data/credits.json`
 - `client/data/meta_progression.json`
 - `client/locale/strings.csv`
 - `client/data/growth.csv`
@@ -42,6 +43,7 @@
 - `client/scripts/boot/formal_client_boot.gd`（只做 smoke 输出 / 启动验证）
 - `client/data/*.json` / `client/data/*.csv`
 - `client/locale/strings.csv`
+- `CREDITS.md`
 - `tools/validate_data.py`、`tools/sync_contracts.py`
 - `tools/test_data_loader_schema.py`
 - `client/data/README.md`

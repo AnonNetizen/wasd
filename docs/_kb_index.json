@@ -88,6 +88,20 @@
       "keywords": ["contributing", "贡献", "setup", "commit", "提交流程", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
     },
     {
+      "path": "CREDITS.md",
+      "type": "authority",
+      "authority": "Repository-facing credits, third-party source acknowledgements, and release notice tracking",
+      "status": "active",
+      "owner_scope": "project",
+      "last_reviewed": "2026-06-17",
+      "canonical_for": ["credits", "third_party_sources", "external_resources", "license_notices"],
+      "must_read_for": ["credits_change", "third_party_resource_change", "release_notice_review"],
+      "related_docs": ["client/data/README.md", "client/locale/README.md", "docs/AI导航.md", "docs/决策记录.md"],
+      "related_code": ["client/data/credits.json", "client/locale/strings.csv", "client/scripts/autoload/data_loader.gd"],
+      "update_triggers": ["new contributor", "new external library", "new external asset", "new AI workflow reference", "license or notice status changes"],
+      "keywords": ["credits", "致谢", "third-party", "第三方", "license", "notice", "Godot", "external resources", "工作人员"]
+    },
+    {
       "path": "docs/AI知识库索引.md",
       "type": "index",
       "authority": "Human-readable map for docs as an AI knowledge base",
@@ -183,7 +197,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/AI导航.md", "client/locale/README.md"],
       "related_code": ["client/data/", "tools/validate_data.py", "tools/sync_contracts.py"],
       "update_triggers": ["new data file", "new numeric field", "changed unit or range", "DataLoader schema change"],
-      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "characters.json", "weapons.json", "relics.json", "game_modes.json", "growth.csv", "enemies.csv", "hazards.csv", "meta_progression.json", "局外成长", "validate_data"]
+      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "characters.json", "weapons.json", "relics.json", "credits.json", "game_modes.json", "growth.csv", "enemies.csv", "hazards.csv", "meta_progression.json", "局外成长", "validate_data"]
     },
     {
       "path": "client/locale/README.md",
@@ -643,9 +657,9 @@
       "canonical_for": ["data_loader", "json_csv_loading", "contract_cache"],
       "must_read_for": ["data_loader_change", "data_schema_change", "formal_data_loading"],
       "related_docs": ["client/data/README.md", "docs/词表与契约.md", "docs/代码/README.md", "docs/AI导航.md", "docs/AI协作/工作包/F3-DataLoader.md"],
-      "related_code": ["client/scripts/autoload/data_loader.gd", "client/data/_contracts.json", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
+      "related_code": ["client/scripts/autoload/data_loader.gd", "client/data/_contracts.json", "client/data/credits.json", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
       "update_triggers": ["DataLoader API changes", "data loading schema changes", "contract cache behavior changes"],
-      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation", "schema regression", "weapons.json", "enemies.csv", "hazards.csv", "relics.json", "test_data_loader_schema"]
+      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation", "schema regression", "weapons.json", "enemies.csv", "hazards.csv", "relics.json", "credits.json", "test_data_loader_schema"]
     },
     {
       "path": "docs/代码/rng.md",

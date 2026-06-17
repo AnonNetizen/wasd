@@ -62,6 +62,7 @@ ui_resume,继续,Resume
 | 前缀 | 用途 | 示例 |
 |------|------|------|
 | `ui_` | UI、菜单、按钮、HUD | `ui_settings` / `ui_pause` |
+| `ui_credits_` | 致谢界面分组、角色和用途标签 | `ui_credits_section_staff` / `ui_credits_usage_engine_runtime` |
 | `character_` | 角色名称和描述 | `character_default_name` / `character_default_desc` |
 | `weapon_` | 武器名称和描述 | `weapon_basic_blaster_name` / `weapon_basic_blaster_desc` |
 | `relic_` | 被动遗物名称和描述 | `relic_sharp_rounds_name` / `relic_sharp_rounds_desc` |
@@ -118,6 +119,12 @@ label.text = tr("ui_damage") + str(value)
 1. 在 `strings.csv` 新增一行，如 `ui_restart,重开,Restart`；若只给了一种语言，AI 先补齐另一种。
 2. UI 代码使用 `tr("ui_restart")`。
 3. 如果该 UI 支持运行时切语言，确认 `NOTIFICATION_TRANSLATION_CHANGED` 后会刷新。
+
+### 加一个致谢条目
+
+1. 在 `client/data/credits.json` 新增条目；人名、项目名、URL、许可证名和版权声明保持原文。
+2. 若需要新的分组标题、角色或用途标签，在 `strings.csv` 新增 `ui_credits_*` key，并补齐 `zh_CN` / `en`。
+3. 同步根目录 `CREDITS.md`，发行前人工复核许可证和 notice 要求。
 
 ### 加一个遗物名称和描述
 

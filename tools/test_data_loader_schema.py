@@ -201,6 +201,22 @@ def main() -> int:
                 "relic is not defined in relics.json: relic_missing",
             ],
         ),
+        (
+            "credits section title locale key must exist",
+            _mutate_json("client/data/credits.json", _set_credit_section_title_key("ui_credits_missing_section")),
+            [
+                "client/data/credits.json:sections[0].title_key",
+                "locale key is missing from client/locale/strings.csv: ui_credits_missing_section",
+            ],
+        ),
+        (
+            "external credit license must be present",
+            _mutate_json("client/data/credits.json", _clear_first_external_credit_license),
+            [
+                "client/data/credits.json:sections[0].entries[1].license",
+                "must be a non-empty string",
+            ],
+        ),
     ]
 
     failures: list[str] = []
@@ -456,6 +472,17 @@ def _set_mode_relic(value: str) -> JsonMutator:
         payload["modes"][0]["resource_pools"]["relics"][0]["id"] = value
 
     return mutate
+
+
+def _set_credit_section_title_key(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["sections"][0]["title_key"] = value
+
+    return mutate
+
+
+def _clear_first_external_credit_license(payload: dict[str, Any]) -> None:
+    payload["sections"][0]["entries"][1]["license"] = ""
 
 
 def _format_failure(name: str, output: str, reason: str) -> str:

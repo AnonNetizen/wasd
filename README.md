@@ -76,6 +76,7 @@ wasd/
 ├── server/           # 3. 服务器端（当前单机项目暂为占位，详见决策记录）
 ├── MinimumViableProduct/ # MVP 隔离实验区，含 MVP 文档与独立客户端代码
 ├── draft/ 或 DRAFT/  # 人工草稿；AI 禁止读取/搜索/修改/整理/引用，除非用户明确授权
+├── CREDITS.md        # 代码库级致谢 / 第三方来源清单；游戏内数据见 client/data/credits.json
 ├── AGENTS.md         # AI agent 通用开工入口
 ├── CLAUDE.md         # Claude Code 入口适配
 ├── CODEX.md          # Codex CLI 入口适配
@@ -125,6 +126,8 @@ client/
 
 ## 许可证
 本项目采用 [MIT License](LICENSE)。
+
+第三方来源、外部库和工作人员记录见 [CREDITS.md](CREDITS.md)；游戏内 Credits UI 数据源见 [client/data/credits.json](client/data/credits.json)。
 
 ## 版本
 - 设计文档：**v1.5**（2026-06）
