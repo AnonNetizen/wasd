@@ -18,7 +18,7 @@
 | 你想做什么 | 改哪里 | 注意 |
 |------------|--------|------|
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
-| 改角色起始属性 / 起始武器 | `characters.json`（落地后） | 名字和描述只填 `name_key` / `desc_key` |
+| 改角色基础属性 / 标签 / 能力 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；起始武器等字段等对应数据落地后再扩展 |
 | 改敌人血量 / 速度 / 接触伤害 | `enemies.csv`（落地后） | 敌人 id、标签、伤害类型必须来自词表 |
 | 改遗物 / 道具数值 | `relics.json` / `active_items.json` / `consumables.json`（落地后） | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
@@ -33,7 +33,7 @@
 |------|------|------|
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
 | `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
-| `characters.json` | 规划 | 角色列表：基础属性、起始武器 / 遗物、tags、capabilities、控制配置 |
+| `characters.json` | 已建立 | 角色列表：基础属性、tags、capabilities、控制配置；当前不含起始武器 / 遗物运行时 |
 | `weapons.json` | 规划 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
 | `relics.json` | 规划 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 规划 | 主动道具：充能方式、冷却、效果原语与参数 |
@@ -203,7 +203,7 @@ JSON 示例：
 | `teams[].id` | string | 模式内唯一 | 队伍 id；供伤害、回放、存档和未来多人边界引用 |
 | `teams[].friendly_fire` | bool | true / false | 队伍内是否允许友伤；当前只做 schema 预留 |
 | `resource_pools.characters[]` | array[object] | 已声明时必须非空 | 本模式可用角色池 |
-| `resource_pools.characters[].id` | string | 词表 §12.1 character id | 可用角色 id |
+| `resource_pools.characters[].id` | string | 词表 §12.1 character id，且必须存在于 `characters.json` | 可用角色 id |
 | `resource_pools.*[].weight` | int | `>= 0` | 抽取 / 展示权重；具体抽取由后续系统实现 |
 | `resource_pools.growth_pools[]` | array[object] | 已声明时必须非空 | 本模式使用的升级候选池 |
 | `resource_pools.growth_pools[].id` | string | `growth_pools.json` 中已定义池 id | 升级候选池 id |
@@ -211,6 +211,53 @@ JSON 示例：
 | `overrides.player_base_stats` | object | stat 来自词表 §1 | 轻量覆盖玩家基础属性；只用于模式差异，不复制角色本体 |
 
 `game_modes.json` 只声明模式边界，不实现模式选择 UI、匹配、联网、刷怪、成长抽取或实际战斗规则。新增资源池类型时，必须同步本文档、`DataLoader` schema、词表或对应数据注册表。
+
+## `characters.json`
+
+当前结构：
+
+```json
+{
+  "schema_version": 1,
+  "characters": [
+    {
+      "id": "character_default",
+      "name_key": "character_default_name",
+      "desc_key": "character_default_desc",
+      "default_unlocked": true,
+      "tags": ["tag_character"],
+      "capabilities": [],
+      "control_profile": "default_4dir_auto",
+      "base_stats": {
+        "max_hp": 6,
+        "move_speed": 240.0,
+        "fire_rate": 2.5,
+        "damage": 3.5,
+        "bullet_speed": 520.0,
+        "bullet_range": 650.0,
+        "bullet_count": 1,
+        "pickup_range": 96.0,
+        "luck": 0.0
+      }
+    }
+  ]
+}
+```
+
+字段说明：
+
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `characters[].id` | string | 词表 §12.1 character id，文件内唯一 | 角色 id；模式池、局外解锁和存档引用此 id |
+| `characters[].name_key` / `desc_key` | string | `character_*_name` / `character_*_desc` | 角色名称和描述译文 key |
+| `characters[].default_unlocked` | bool | true / false | 新存档中是否默认可用；仍需与 `meta_progression.json` 解锁项保持一致 |
+| `characters[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_character` | 内容标签；破限角色还需含 `tag_limit_break` 并声明 capability |
+| `characters[].capabilities` | array[string] | 词表 §12.2 capability id，可为空 | 允许突破的默认规则；空数组表示默认 4 方向瞄准 / 自动开火 / 默认移动 |
+| `characters[].control_profile` | string | 非空 | 控制配置标识；当前只做数据边界，不实现输入 profile 切换 |
+| `characters[].base_stats` | object | stat 来自词表 §1，非空 | 角色基础属性；数值范围同 `player.json` stat 校验 |
+
+`characters.json` 只声明角色数据边界，不实现角色选择 UI、实体生成、输入 profile 切换、起始武器 / 遗物运行时或破限能力执行。新增起始武器、遗物、外观资源或特殊能力字段时，必须先有对应数据注册表 / 词表 / schema，再由业务系统解释。
 
 ## `modifiers` 格式
 

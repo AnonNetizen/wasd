@@ -15,6 +15,7 @@ from sync_contracts import CONTRACTS_JSON, ROOT, extract_contracts
 
 CLIENT_DATA = ROOT / "client" / "data"
 LOCALE_CSV = ROOT / "client" / "locale" / "strings.csv"
+CHARACTERS_JSON = ROOT / "client" / "data" / "characters.json"
 GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
 GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
 GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
@@ -45,10 +46,12 @@ def main() -> int:
     _validate_all_json(ctx)
     _validate_locale_csv(ctx)
     _validate_player_json(ctx)
-    _validate_meta_progression(ctx)
+    _validate_characters(ctx)
+    character_ids = _collect_character_ids(ctx)
+    _validate_meta_progression(ctx, character_ids)
     _validate_growth_csv(ctx)
     _validate_growth_pools(ctx)
-    _validate_game_modes(ctx)
+    _validate_game_modes(ctx, character_ids)
     _validate_mvp_config(ctx)
 
     if ctx.errors:
@@ -146,7 +149,43 @@ def _validate_player_json(ctx: ValidationContext) -> None:
         _validate_stat_value(ctx, path, f"base_stats.{stat}", stat, value)
 
 
-def _validate_meta_progression(ctx: ValidationContext) -> None:
+def _validate_characters(ctx: ValidationContext) -> None:
+    path = CHARACTERS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    characters = _require_list(ctx, path, "characters", data.get("characters"))
+    if not characters:
+        ctx.error(path, "characters", "must be a non-empty array")
+    seen: set[str] = set()
+    for index, character in enumerate(characters):
+        field = f"characters[{index}]"
+        if not isinstance(character, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        character_id = _require_registered(ctx, path, f"{field}.id", character.get("id"), "character_ids")
+        if character_id:
+            if character_id in seen:
+                ctx.error(path, f"{field}.id", f"duplicate character id {character_id}")
+            seen.add(character_id)
+        _require_locale_key(ctx, path, f"{field}.name_key", character.get("name_key"))
+        _require_locale_key(ctx, path, f"{field}.desc_key", character.get("desc_key"))
+        _require_bool(ctx, path, f"{field}.default_unlocked", character.get("default_unlocked"))
+        tags = _validate_registered_string_list(ctx, path, f"{field}.tags", character.get("tags"), "content_tags", allow_empty=False)
+        if "tag_character" not in tags:
+            ctx.error(path, f"{field}.tags", "must include tag_character")
+        _validate_registered_string_list(ctx, path, f"{field}.capabilities", character.get("capabilities", []), "capabilities", allow_empty=True)
+        _require_non_empty_string(ctx, path, f"{field}.control_profile", character.get("control_profile"))
+        base_stats = character.get("base_stats")
+        if not isinstance(base_stats, dict) or not base_stats:
+            ctx.error(path, f"{field}.base_stats", "must be a non-empty object")
+            continue
+        for stat, value in base_stats.items():
+            _validate_stat_value(ctx, path, f"{field}.base_stats.{stat}", stat, value)
+
+
+def _validate_meta_progression(ctx: ValidationContext, character_ids: set[str]) -> None:
     path = CLIENT_DATA / "meta_progression.json"
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
@@ -159,7 +198,7 @@ def _validate_meta_progression(ctx: ValidationContext) -> None:
     unlock_ids = _collect_unlock_ids(data.get("unlocks"))
     _validate_account_level(ctx, path, data.get("account_level"), unlock_ids)
     _validate_upgrade_tracks(ctx, path, data.get("upgrade_tracks"), currency_ids, unlock_ids)
-    _validate_unlocks(ctx, path, data.get("unlocks"))
+    _validate_unlocks(ctx, path, data.get("unlocks"), character_ids)
 
 
 def _validate_growth_csv(ctx: ValidationContext) -> None:
@@ -252,7 +291,7 @@ def _validate_growth_pools(ctx: ValidationContext) -> None:
                 _validate_modifiers(ctx, path, f"{entry_field}.modifiers", entry.get("modifiers"), require_value_per_level=False)
 
 
-def _validate_game_modes(ctx: ValidationContext) -> None:
+def _validate_game_modes(ctx: ValidationContext, character_ids: set[str]) -> None:
     path = GAME_MODES_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
@@ -278,7 +317,7 @@ def _validate_game_modes(ctx: ValidationContext) -> None:
         _require_bool(ctx, path, f"{mode_field}.default_unlocked", mode.get("default_unlocked"))
         team_ids = _validate_mode_teams(ctx, path, mode_field, mode.get("teams"))
         _validate_mode_participants(ctx, path, mode_field, mode.get("participants"), team_ids)
-        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids)
+        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids)
         if "blocklists" in mode:
             _validate_mode_blocklists(ctx, path, f"{mode_field}.blocklists", mode.get("blocklists"))
         if "overrides" in mode:
@@ -327,17 +366,32 @@ def _validate_mode_participants(ctx: ValidationContext, path: Path, mode_field: 
             _require_non_empty_string(ctx, path, f"{field}.control", participant.get("control"))
 
 
-def _validate_mode_resource_pools(ctx: ValidationContext, path: Path, mode_field: str, data: Any, growth_pool_ids: set[str]) -> None:
+def _validate_mode_resource_pools(ctx: ValidationContext, path: Path, mode_field: str, data: Any, growth_pool_ids: set[str], character_ids: set[str]) -> None:
     field = f"{mode_field}.resource_pools"
     if not isinstance(data, dict):
         ctx.error(path, field, "must be an object")
         return
     if "characters" in data:
-        _validate_weighted_contract_entries(ctx, path, f"{field}.characters", data.get("characters"), "character_ids")
+        _validate_weighted_character_entries(ctx, path, f"{field}.characters", data.get("characters"), character_ids)
     if "growth_pools" in data:
         _validate_weighted_growth_pool_entries(ctx, path, f"{field}.growth_pools", data.get("growth_pools"), growth_pool_ids)
     if "characters" not in data and "growth_pools" not in data:
         ctx.error(path, field, "must contain at least one supported pool")
+
+
+def _validate_weighted_character_entries(ctx: ValidationContext, path: Path, field: str, data: Any, character_ids: set[str]) -> None:
+    entries = _require_list(ctx, path, field, data)
+    if not entries:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, entry in enumerate(entries):
+        item_field = f"{field}[{index}]"
+        if not isinstance(entry, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        character_id = _require_registered(ctx, path, f"{item_field}.id", entry.get("id"), "character_ids")
+        if character_id and character_id not in character_ids:
+            ctx.error(path, f"{item_field}.id", f"character is not defined in characters.json: {character_id}")
+        _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
 
 
 def _validate_weighted_contract_entries(ctx: ValidationContext, path: Path, field: str, data: Any, contract_key: str) -> None:
@@ -489,7 +543,7 @@ def _validate_upgrade_tracks(ctx: ValidationContext, path: Path, data: Any, curr
                 _require_int(ctx, path, f"{field}.unlock_condition.account_level", condition.get("account_level"), minimum=1)
 
 
-def _validate_unlocks(ctx: ValidationContext, path: Path, data: Any) -> None:
+def _validate_unlocks(ctx: ValidationContext, path: Path, data: Any, character_ids: set[str]) -> None:
     unlocks = _require_list(ctx, path, "unlocks", data)
     seen: set[str] = set()
     for index, unlock in enumerate(unlocks):
@@ -507,8 +561,8 @@ def _validate_unlocks(ctx: ValidationContext, path: Path, data: Any) -> None:
             target_id = unlock.get("target_id")
             if not isinstance(target_id, str) or not target_id:
                 ctx.error(path, f"{field}.target_id", "must be a non-empty string")
-            elif unlock.get("kind") == "character" and target_id not in ctx.contracts["character_ids"]:
-                ctx.error(path, f"{field}.target_id", f"unknown character id {target_id}")
+            elif unlock.get("kind") == "character" and target_id not in character_ids:
+                ctx.error(path, f"{field}.target_id", f"character is not defined in characters.json: {target_id}")
         if "name_key" in unlock:
             _require_locale_key(ctx, path, f"{field}.name_key", unlock.get("name_key"))
         if not isinstance(unlock.get("default_unlocked"), bool):
@@ -580,6 +634,28 @@ def _validate_modifiers(ctx: ValidationContext, path: Path, field: str, data: An
             _validate_stat_value(ctx, path, f"{item_field}.{value_field}", stat, value)
 
 
+def _validate_registered_string_list(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    data: Any,
+    contract_key: str,
+    *,
+    allow_empty: bool,
+) -> set[str]:
+    values = _require_list(ctx, path, field, data)
+    if not allow_empty and not values:
+        ctx.error(path, field, "must be a non-empty array")
+    seen: set[str] = set()
+    for index, value in enumerate(values):
+        item = _require_registered(ctx, path, f"{field}[{index}]", value, contract_key)
+        if item:
+            if item in seen:
+                ctx.error(path, f"{field}[{index}]", f"duplicate id {item}")
+            seen.add(item)
+    return seen
+
+
 def _validate_unlock_id_list(ctx: ValidationContext, path: Path, field: str, data: Any, defined_unlock_ids: set[str]) -> None:
     unlock_ids = _require_list(ctx, path, field, data)
     for index, unlock_id in enumerate(unlock_ids):
@@ -592,6 +668,16 @@ def _collect_unlock_ids(data: Any) -> set[str]:
     if not isinstance(data, list):
         return set()
     return {item.get("id") for item in data if isinstance(item, dict) and isinstance(item.get("id"), str)}
+
+
+def _collect_character_ids(ctx: ValidationContext) -> set[str]:
+    data = _load_json(CHARACTERS_JSON, ctx)
+    if not isinstance(data, dict):
+        return set()
+    characters = data.get("characters")
+    if not isinstance(characters, list):
+        return set()
+    return {item.get("id") for item in characters if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
 def _collect_growth_pool_ids(ctx: ValidationContext) -> set[str]:

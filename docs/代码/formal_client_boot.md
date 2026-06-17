@@ -54,7 +54,7 @@ FormalClientBoot (Node)
 ## 数据与契约
 
 - 通过 `DataLoader.validate_project_data()` 间接读取 F3 目标数据和 `client/locale/strings.csv`。
-- 启动日志输出 `data_schema_ok`、`player_stats`、`locale_keys`、`growth_levels`、`growth_pools`、`game_modes`、`meta_upgrades`、`meta_unlocks` 等 smoke 计数。
+- 启动日志输出 `data_schema_ok`、`player_stats`、`characters`、`locale_keys`、`growth_levels`、`growth_pools`、`game_modes`、`meta_upgrades`、`meta_unlocks` 等 smoke 计数。
 - 不包含玩家可见文本。
 
 ## 依赖

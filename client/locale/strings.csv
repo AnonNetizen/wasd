@@ -7,6 +7,8 @@ ui_confirm,确认,Confirm
 ui_cancel,取消,Cancel
 ui_mode_standard_survival_name,标准生存,Standard Survival
 ui_mode_standard_survival_desc,在持续增强的敌潮中尽可能活下去,Survive as long as possible against escalating waves
+character_default_name,流浪者,Wanderer
+character_default_desc,默认角色，使用四方向瞄准与自动开火,Default character with four-direction aim and auto fire
 meta_currency_essence_name,记忆余烬,Memory Embers
 meta_upgrade_max_hp_name,坚韧心脏,Stout Heart
 meta_upgrade_max_hp_desc,永久提升最大生命,Permanently increases max HP

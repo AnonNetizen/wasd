@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "characters": [
+    {
+      "id": "character_default",
+      "name_key": "character_default_name",
+      "desc_key": "character_default_desc",
+      "default_unlocked": true,
+      "tags": ["tag_character"],
+      "capabilities": [],
+      "control_profile": "default_4dir_auto",
+      "base_stats": {
+        "max_hp": 6,
+        "move_speed": 240.0,
+        "fire_rate": 2.5,
+        "damage": 3.5,
+        "bullet_speed": 520.0,
+        "bullet_range": 650.0,
+        "bullet_count": 1,
+        "pickup_range": 96.0,
+        "luck": 0.0
+      }
+    }
+  ]
+}

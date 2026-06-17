@@ -10,6 +10,7 @@ const CONTRACTS_PATH: String = "res://data/_contracts.json"
 const DATA_ROOT: String = "res://data/"
 const LOCALE_STRINGS_PATH: String = "res://locale/strings.csv"
 const PLAYER_DATA_PATH: String = "res://data/player.json"
+const CHARACTERS_PATH: String = "res://data/characters.json"
 const META_PROGRESSION_PATH: String = "res://data/meta_progression.json"
 const GROWTH_CURVE_PATH: String = "res://data/growth.csv"
 const GROWTH_POOLS_PATH: String = "res://data/growth_pools.json"
@@ -71,10 +72,12 @@ func validate_project_data() -> bool:
 
 	is_valid = _validate_locale_strings(locale_keys) and is_valid
 	is_valid = _validate_player_json() and is_valid
-	is_valid = _validate_meta_progression(locale_keys) and is_valid
+	is_valid = _validate_characters_json(locale_keys) and is_valid
+	var character_ids: Dictionary = _collect_character_ids()
+	is_valid = _validate_meta_progression(locale_keys, character_ids) and is_valid
 	is_valid = _validate_growth_csv() and is_valid
 	is_valid = _validate_growth_pools() and is_valid
-	is_valid = _validate_game_modes(locale_keys) and is_valid
+	is_valid = _validate_game_modes(locale_keys, character_ids) and is_valid
 
 	return is_valid
 
@@ -175,7 +178,52 @@ func _validate_player_json() -> bool:
 	return is_valid
 
 
-func _validate_meta_progression(locale_keys: Dictionary) -> bool:
+func _validate_characters_json(locale_keys: Dictionary) -> bool:
+	var data: Variant = load_json(CHARACTERS_PATH)
+	if not data is Dictionary:
+		return _schema_fail(CHARACTERS_PATH, "root", "Dictionary")
+
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(CHARACTERS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var characters: Array = _require_array(CHARACTERS_PATH, "characters", payload.get("characters"))
+	if characters.is_empty():
+		is_valid = _schema_fail(CHARACTERS_PATH, "characters", "non-empty Array") and is_valid
+	var seen: Dictionary = {}
+	_last_schema_counts["characters"] = characters.size()
+	for index: int in range(characters.size()):
+		var field: String = "characters[%d]" % index
+		var character: Variant = characters[index]
+		if not character is Dictionary:
+			is_valid = _schema_fail(CHARACTERS_PATH, field, "Dictionary") and is_valid
+			continue
+		var character_dict: Dictionary = character as Dictionary
+		var character_id: String = _require_registered(CHARACTERS_PATH, "%s.id" % field, character_dict.get("id"), "character_ids")
+		if not character_id.is_empty():
+			if seen.has(character_id):
+				is_valid = _schema_fail(CHARACTERS_PATH, "%s.id" % field, "unique character id") and is_valid
+			seen[character_id] = true
+		is_valid = _require_locale_key(CHARACTERS_PATH, "%s.name_key" % field, character_dict.get("name_key"), locale_keys) and is_valid
+		is_valid = _require_locale_key(CHARACTERS_PATH, "%s.desc_key" % field, character_dict.get("desc_key"), locale_keys) and is_valid
+		is_valid = _require_bool(CHARACTERS_PATH, "%s.default_unlocked" % field, character_dict.get("default_unlocked")) and is_valid
+		var tags: Array = _require_array(CHARACTERS_PATH, "%s.tags" % field, character_dict.get("tags"))
+		is_valid = _validate_registered_string_array(CHARACTERS_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
+		if not tags.has("tag_character"):
+			is_valid = _schema_fail(CHARACTERS_PATH, "%s.tags" % field, "tag_character") and is_valid
+		is_valid = _validate_registered_string_array(CHARACTERS_PATH, "%s.capabilities" % field, character_dict.get("capabilities", []), "capabilities", true) and is_valid
+		is_valid = _require_non_empty_string(CHARACTERS_PATH, "%s.control_profile" % field, character_dict.get("control_profile")) and is_valid
+		var base_stats: Variant = character_dict.get("base_stats")
+		if not base_stats is Dictionary or (base_stats as Dictionary).is_empty():
+			is_valid = _schema_fail(CHARACTERS_PATH, "%s.base_stats" % field, "non-empty Dictionary") and is_valid
+		else:
+			var stats_dict: Dictionary = base_stats as Dictionary
+			for stat_key: Variant in stats_dict.keys():
+				var stat: String = String(stat_key)
+				is_valid = _validate_stat_value(CHARACTERS_PATH, "%s.base_stats.%s" % [field, stat], stat, stats_dict[stat_key]) and is_valid
+	return is_valid
+
+
+func _validate_meta_progression(locale_keys: Dictionary, character_ids: Dictionary) -> bool:
 	var data: Variant = load_json(META_PROGRESSION_PATH)
 	if not data is Dictionary:
 		return _schema_fail(META_PROGRESSION_PATH, "root", "Dictionary")
@@ -209,7 +257,7 @@ func _validate_meta_progression(locale_keys: Dictionary) -> bool:
 	var unlock_ids: Dictionary = _collect_defined_unlock_ids(payload.get("unlocks"))
 	is_valid = _validate_account_level(payload.get("account_level"), unlock_ids) and is_valid
 	is_valid = _validate_upgrade_tracks(payload.get("upgrade_tracks"), currency_ids, unlock_ids, locale_keys) and is_valid
-	is_valid = _validate_unlocks(payload.get("unlocks"), locale_keys) and is_valid
+	is_valid = _validate_unlocks(payload.get("unlocks"), locale_keys, character_ids) and is_valid
 	return is_valid
 
 
@@ -295,7 +343,7 @@ func _validate_upgrade_tracks(data: Variant, currency_ids: Dictionary, unlock_id
 	return is_valid
 
 
-func _validate_unlocks(data: Variant, locale_keys: Dictionary) -> bool:
+func _validate_unlocks(data: Variant, locale_keys: Dictionary, character_ids: Dictionary) -> bool:
 	var unlocks: Array = _require_array(META_PROGRESSION_PATH, "unlocks", data)
 	var is_valid: bool = true
 	var seen: Dictionary = {}
@@ -317,8 +365,8 @@ func _validate_unlocks(data: Variant, locale_keys: Dictionary) -> bool:
 			var target_id: String = String(unlock_dict.get("target_id", ""))
 			if target_id.is_empty():
 				is_valid = _schema_fail(META_PROGRESSION_PATH, "%s.target_id" % field, "non-empty string") and is_valid
-			elif unlock_dict.get("kind") == "character" and not has_contract_value("character_ids", target_id):
-				is_valid = _schema_fail(META_PROGRESSION_PATH, "%s.target_id" % field, "registered character id") and is_valid
+			elif unlock_dict.get("kind") == "character" and not character_ids.has(target_id):
+				is_valid = _schema_fail(META_PROGRESSION_PATH, "%s.target_id" % field, "character defined in characters.json") and is_valid
 		if unlock_dict.has("name_key"):
 			is_valid = _require_locale_key(META_PROGRESSION_PATH, "%s.name_key" % field, unlock_dict.get("name_key"), locale_keys) and is_valid
 		if not unlock_dict.get("default_unlocked") is bool:
@@ -400,7 +448,7 @@ func _validate_growth_pools() -> bool:
 	return is_valid
 
 
-func _validate_game_modes(locale_keys: Dictionary) -> bool:
+func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary) -> bool:
 	var data: Variant = load_json(GAME_MODES_PATH)
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "root", "Dictionary")
@@ -432,7 +480,7 @@ func _validate_game_modes(locale_keys: Dictionary) -> bool:
 		var team_ids: Dictionary = team_result.get("ids", {}) as Dictionary
 		is_valid = bool(team_result.get("is_valid", false)) and is_valid
 		is_valid = _validate_mode_participants(mode_field, mode_dict.get("participants"), team_ids) and is_valid
-		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), growth_pool_ids) and is_valid
+		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), growth_pool_ids, character_ids) and is_valid
 		if mode_dict.has("blocklists"):
 			is_valid = _validate_mode_blocklists("%s.blocklists" % mode_field, mode_dict.get("blocklists")) and is_valid
 		if mode_dict.has("overrides"):
@@ -496,17 +544,36 @@ func _validate_mode_participants(mode_field: String, data: Variant, team_ids: Di
 	return is_valid
 
 
-func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_pool_ids: Dictionary) -> bool:
+func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_pool_ids: Dictionary, character_ids: Dictionary) -> bool:
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "Dictionary")
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
 	if payload.has("characters"):
-		is_valid = _validate_weighted_contract_entries("%s.resource_pools.characters" % mode_field, payload.get("characters"), "character_ids") and is_valid
+		is_valid = _validate_weighted_character_entries("%s.resource_pools.characters" % mode_field, payload.get("characters"), character_ids) and is_valid
 	if payload.has("growth_pools"):
 		is_valid = _validate_weighted_growth_pool_entries("%s.resource_pools.growth_pools" % mode_field, payload.get("growth_pools"), growth_pool_ids) and is_valid
 	if not payload.has("characters") and not payload.has("growth_pools"):
 		is_valid = _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "at least one supported pool") and is_valid
+	return is_valid
+
+
+func _validate_weighted_character_entries(field: String, data: Variant, character_ids: Dictionary) -> bool:
+	var entries: Array = _require_array(GAME_MODES_PATH, field, data)
+	var is_valid: bool = true
+	if entries.is_empty():
+		is_valid = _schema_fail(GAME_MODES_PATH, field, "non-empty Array") and is_valid
+	for index: int in range(entries.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var entry: Variant = entries[index]
+		if not entry is Dictionary:
+			is_valid = _schema_fail(GAME_MODES_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var entry_dict: Dictionary = entry as Dictionary
+		var character_id: String = _require_registered(GAME_MODES_PATH, "%s.id" % item_field, entry_dict.get("id"), "character_ids")
+		if not character_id.is_empty() and not character_ids.has(character_id):
+			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "character defined in characters.json") and is_valid
+		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
 	return is_valid
 
 
@@ -600,6 +667,21 @@ func _validate_modifiers(resource_path: String, field: String, data: Variant, re
 	return is_valid
 
 
+func _validate_registered_string_array(resource_path: String, field: String, data: Variant, contract_key: String, allow_empty: bool) -> bool:
+	var values: Array = _require_array(resource_path, field, data)
+	var is_valid: bool = true
+	if not allow_empty and values.is_empty():
+		is_valid = _schema_fail(resource_path, field, "non-empty Array") and is_valid
+	var seen: Dictionary = {}
+	for index: int in range(values.size()):
+		var value: String = _require_registered(resource_path, "%s[%d]" % [field, index], values[index], contract_key)
+		if not value.is_empty():
+			if seen.has(value):
+				is_valid = _schema_fail(resource_path, "%s[%d]" % [field, index], "unique id") and is_valid
+			seen[value] = true
+	return is_valid
+
+
 func _validate_stat_value(resource_path: String, field: String, stat: String, value: Variant) -> bool:
 	if not has_contract_value("stats", stat):
 		return _schema_fail(resource_path, field, "registered stat id")
@@ -631,6 +713,20 @@ func _collect_defined_unlock_ids(data: Variant) -> Dictionary:
 	for item: Variant in data:
 		if item is Dictionary and (item as Dictionary).get("id") is String:
 			ids[String((item as Dictionary).get("id"))] = true
+	return ids
+
+
+func _collect_character_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(CHARACTERS_PATH)
+	if not data is Dictionary:
+		return ids
+	var characters: Variant = (data as Dictionary).get("characters")
+	if not characters is Array:
+		return ids
+	for character: Variant in characters:
+		if character is Dictionary and (character as Dictionary).get("id") is String:
+			ids[String((character as Dictionary).get("id"))] = true
 	return ids
 
 

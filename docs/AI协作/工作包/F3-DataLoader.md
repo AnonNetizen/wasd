@@ -10,6 +10,7 @@
 把 `DataLoader` 从通用 JSON / CSV 加载器推进为正式数据 schema 校验入口，优先覆盖：
 
 - `client/data/player.json`
+- `client/data/characters.json`
 - `client/data/meta_progression.json`
 - `client/locale/strings.csv`
 - `client/data/growth.csv`
