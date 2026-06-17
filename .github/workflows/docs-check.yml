@@ -35,6 +35,9 @@ jobs:
       - name: Run DataLoader schema regression tests
         run: python tools/test_data_loader_schema.py
 
+      - name: Run GDScript project lint
+        run: python tools/lint_gdscript_rules.py
+
       - name: Run docs health check
         run: python tools/docs_health_check.py
 

@@ -223,9 +223,9 @@
       "canonical_for": ["testing_strategy", "coverage_targets", "manual_regression"],
       "must_read_for": ["test_change", "behavior_change", "replay_change"],
       "related_docs": ["docs/CICD规划.md", "docs/AI导航.md", "docs/代码文档规范.md"],
-      "related_code": ["client/", "tools/", "tools/test_data_loader_schema.py"],
+      "related_code": ["client/", "tools/", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py"],
       "update_triggers": ["new testing requirement", "coverage target change", "new golden replay policy"],
-      "keywords": ["test", "测试", "GUT", "replay", "coverage", "手动回归", "MetaProgressionSystem", "局外成长", "SaveManager", "续局存档", "L0", "validate_data", "test_data_loader_schema", "DataLoader schema"]
+      "keywords": ["test", "测试", "GUT", "replay", "coverage", "手动回归", "MetaProgressionSystem", "局外成长", "SaveManager", "续局存档", "L0", "validate_data", "test_data_loader_schema", "DataLoader schema", "lint_gdscript_rules", "GDScript lint"]
     },
     {
       "path": "docs/代码文档规范.md",
@@ -237,7 +237,7 @@
       "canonical_for": ["module_doc_standard", "code_doc_sync"],
       "must_read_for": ["code_module_change", "public_api_change", "module_doc_change"],
       "related_docs": ["docs/代码/README.md", "docs/AI导航.md", "docs/AI协作/文档维护指南.md"],
-      "related_code": ["client/"],
+      "related_code": ["client/", "tools/lint_gdscript_rules.py"],
       "update_triggers": ["module documentation standard change", "new code documentation gate"],
       "keywords": ["module docs", "代码文档", "详细模块文档", "Doc", "GDScript style", "Godot style guide"]
     },
@@ -267,7 +267,7 @@
       "related_docs": ["docs/AI知识库索引.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md"],
       "related_code": ["client/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
-      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
+      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
     },
     {
       "path": "docs/AI记忆/项目记忆.md",
@@ -454,16 +454,16 @@
     {
       "path": "docs/AI协作/文档健康检查.md",
       "type": "workflow",
-      "authority": "Docs health-check scope, commands, and failure interpretation",
+      "authority": "Docs and companion Stage 1 health-check scope, commands, and failure interpretation",
       "status": "active",
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-06-14",
       "canonical_for": ["docs_health_check", "docs_drift_detection"],
       "must_read_for": ["docs_health_failure", "validation_rule_change", "health_check_command"],
       "related_docs": ["docs/AI知识库索引.md", "docs/_kb_index.json", "docs/CICD规划.md"],
-      "related_code": ["tools/docs_health_check.py"],
+      "related_code": ["tools/docs_health_check.py", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py"],
       "update_triggers": ["new health-check rule", "script behavior change", "CI docs-check change"],
-      "keywords": ["health", "健康检查", "docs-check", "validation", "orphan", "sync_contracts", "validate_data"]
+      "keywords": ["health", "健康检查", "docs-check", "validation", "orphan", "sync_contracts", "validate_data", "test_data_loader_schema", "lint_gdscript_rules", "GDScript lint"]
     },
     {
       "path": "docs/AI协作/引擎集成.md",
@@ -531,9 +531,9 @@
       "canonical_for": ["local_validation_loop", "pre_commit_design"],
       "must_read_for": ["pre_commit_change", "validation_loop_change"],
       "related_docs": ["docs/CICD规划.md", "docs/测试策略.md", "docs/AI协作/文档健康检查.md"],
-      "related_code": [".github/workflows/", "tools/", "tools/test_data_loader_schema.py"],
+      "related_code": [".github/workflows/", "tools/", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py"],
       "update_triggers": ["new hook", "watch script changes", "local validation responsibility changes"],
-      "keywords": ["pre-commit", "实时验证", "hook", "docs-health", "GitHub Actions", "sync_contracts", "validate_data", "test_data_loader_schema"]
+      "keywords": ["pre-commit", "实时验证", "hook", "docs-health", "GitHub Actions", "sync_contracts", "validate_data", "test_data_loader_schema", "lint_gdscript_rules", "GDScript lint"]
     },
     {
       "path": "docs/AI协作/任务模板/",
@@ -559,9 +559,9 @@
       "canonical_for": ["ci_cd_plan", "validation_stages"],
       "must_read_for": ["ci_change", "pre_commit_change", "health_check_change"],
       "related_docs": ["docs/测试策略.md", "docs/AI协作/文档健康检查.md", "docs/AI协作/实时验证回路.md"],
-      "related_code": [".github/workflows/", "tools/", "tools/test_data_loader_schema.py"],
+      "related_code": [".github/workflows/", "tools/", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py"],
       "update_triggers": ["new validation script", "new workflow", "CI stage change"],
-      "keywords": ["CI", "CD", "docs-check", "GitHub Actions", "health", "workflow", "sync_contracts", "validate_data", "test_data_loader_schema", "DataLoader schema"]
+      "keywords": ["CI", "CD", "docs-check", "GitHub Actions", "health", "workflow", "sync_contracts", "validate_data", "test_data_loader_schema", "DataLoader schema", "lint_gdscript_rules", "GDScript lint"]
     },
     {
       "path": "docs/修改建议.md",

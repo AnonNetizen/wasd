@@ -138,6 +138,7 @@
 | #73 | ECC README 与全工具面吸收清单 | `docs/AI协作/ECC工具吸收清单.md`、`docs/AI协作/AI技能资源评估.md`、三平台 `ai-resource-curator` skill、上下文预算、AI导航、知识库索引、AI记忆 |
 | #74 | Godot 4.6 官方 GDScript style guide 成为项目代码风格基线 | 三平台规则、三平台 `godot-gdscript` skill、AI导航、代码文档规范、CREDITS、AI记忆 |
 | #75 | MVP 隔离目录移除 | README、GDD、AI导航、知识库索引、三平台规则 / skills / commands、工具脚本、AI记忆 |
+| #76 | 第一档 GDScript 项目 lint 进入 Stage 1 CI | `tools/lint_gdscript_rules.py`、`.github/workflows/docs-check.yml`、三平台规则 / commands、CICD规划、测试策略、实时验证回路、AI导航、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

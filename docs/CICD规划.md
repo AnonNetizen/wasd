@@ -3,7 +3,7 @@
 > 本文档汇总本项目的 CI/CD 路线图与候选项，按「阶段 + 优先级」排列，作为后续逐步落地的清单。
 > 配套：`README.md`、`CONTRIBUTING.md`、当前平台编码规则入口、`词表与契约.md`、`决策记录.md`。
 >
-> 当前状态：已启用 Stage 1 基础 workflow：`.github/workflows/docs-check.yml`。它跑契约生成同步检查、数据 / locale 校验、DataLoader schema 回归测试、文档健康检查和 whitespace diff；暂不启用 Godot、GUT、黄金回放、平衡 sim、commitlint 或复杂矩阵。
+> 当前状态：已启用 Stage 1 基础 workflow：`.github/workflows/docs-check.yml`。它跑契约生成同步检查、数据 / locale 校验、DataLoader schema 回归测试、第一档 GDScript 项目 lint、文档健康检查和 whitespace diff；暂不启用 Godot、GUT、黄金回放、平衡 sim、commitlint 或复杂矩阵。
 >
 > **测试相关**：本文件只列 CI 工作流的"何时跑、跑什么"。完整测试金字塔、必测清单、里程碑要求、性能预算、手动回归 checklist 见 `docs/测试策略.md`（测试唯一权威）。
 >
@@ -23,7 +23,7 @@
 | **元规则 19/20/24**：新规则/决策/设计/代码契约变更必须同步到对应文档 | CI 可把"同步检查"自动化 |
 | **Roguelike 平衡敏感** | 数值改动需"黄金回放"回归（见 4.M）；中后期跑批量 sim（见 4.N） |
 
-> **本地实时验证回路**：与 CI 配套，在本地通过 pre-commit hook 提供秒级反馈，详见 `docs/AI协作/实时验证回路.md`。本规划阶段 1 的脚本（`sync_contracts.py` / `validate_data.py` / `docs_health_check.py`）应同时被 hook 与 CI 复用。
+> **本地实时验证回路**：与 CI 配套，在本地通过 pre-commit hook 提供秒级反馈，详见 `docs/AI协作/实时验证回路.md`。本规划阶段 1 的脚本（`sync_contracts.py` / `validate_data.py` / `test_data_loader_schema.py` / `lint_gdscript_rules.py` / `docs_health_check.py`）应同时被 hook 与 CI 复用。
 
 ---
 
@@ -37,6 +37,7 @@
 - 契约生成同步：`python tools/sync_contracts.py --check`，确认 `docs/词表与契约.md`、`client/data/_contracts.json`、`client/scripts/contracts/*.gd` 一致
 - 数据 / locale 校验：`python tools/validate_data.py`，覆盖 JSON 语法、`client/data/*.json` / `client/data/*.csv` 与 `strings.csv`
 - DataLoader schema 回归：`python tools/test_data_loader_schema.py`，用临时数据副本断言黄金数据通过、未登记 id / 缺 locale / 类型范围错 / 跨文件引用错会 fail-fast
+- 第一档 GDScript 项目 lint：`python tools/lint_gdscript_rules.py`，检查可低误报自动化的 style guide 顺序、危险 `:=`、中文硬编码字符串、裸随机 / 时间 / 暂停 API
 - AI 知识库健康检查：运行 `python tools/docs_health_check.py`，校验知识库索引、ADR、current_state、链接、AI 修改说明和模块文档索引
 - whitespace diff：对本次提交范围运行 `git diff --check`，排除 `draft/` / `DRAFT/`
 
@@ -82,6 +83,7 @@
 ## 2. 阶段 2：代码落地后
 
 ### 2.E GDScript Lint + Format ⭐⭐⭐
+- 当前 Stage 1 已先启用 `tools/lint_gdscript_rules.py` 作为低误报项目红线 lint；本阶段继续补齐更完整的第三方格式化与静态分析。
 - 使用 [gdtoolkit](https://github.com/Scony/godot-gdscript-toolkit)：
   - `gdlint`：静态检查（命名、未使用变量、复杂度）
   - `gdformat --check`：格式化检查
@@ -220,7 +222,7 @@
 | 1 | B. 词表契约校验 | **已并入 docs-check** | 极高 | 中 |
 | 1 | C. 本地化 key 一致性 | **已覆盖基础版** | 高 | 低 |
 | 1 | D. commitlint | **现在** | 中 | 极低 |
-| 2 | E. GDScript lint | 代码落地后 | 高 | 低 |
+| 2 | E. GDScript lint | 第一档已并入 docs-check；完整 gdtoolkit 待代码规模扩大后 | 高 | 低 |
 | 2 | F. 数据 schema 校验 | 代码落地后 | 极高 | 中 |
 | 2 | G. Godot headless 启动 | 代码落地后 | 高 | 低 |
 | 2 | H. GUT 单测 | 核心系统就位后 | 中 | 中 |
@@ -241,7 +243,7 @@
 
 ## 6. 推荐落地顺序（建议路径）
 
-1. **第一批（已启用基础版）**：1.A + 1.B + 1.C —— 契约同步、数据 / locale、文档健康与 whitespace 守门
+1. **第一批（已启用基础版）**：1.A + 1.B + 1.C —— 契约同步、数据 / locale、DataLoader schema、第一档 GDScript lint、文档健康与 whitespace 守门
 2. **第二批（下一步）**：1.D + 本地 pre-commit —— commitlint 与本地实时验证
 3. **第三批（数据/locale 扩大后）**：2.F —— 更细 JSON Schema 与内容数据完整性校验
 4. **第四批（代码落地后）**：2.E + 2.G + 2.H+ —— GDScript 质量、启动验证与代码文档覆盖

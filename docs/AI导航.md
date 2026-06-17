@@ -40,7 +40,7 @@
 | `docs/` | 项目文档（设计文档、AI 导航、词表契约、决策记录、AI 记忆等） |
 | `client/` | **Godot 4.6.3 项目根**（即 Godot 中的 `res://`） |
 | `server/` | 服务器端预留（当前为单机项目，暂占位） |
-| `tools/` | 本地校验与桥接工具：`sync_contracts.py`、`validate_data.py`、`test_data_loader_schema.py`、`docs_health_check.py`、`godot_bridge.py` |
+| `tools/` | 本地校验与桥接工具：`sync_contracts.py`、`validate_data.py`、`test_data_loader_schema.py`、`lint_gdscript_rules.py`、`docs_health_check.py`、`godot_bridge.py` |
 | `.github/` | GitHub Issue / PR 模板与 Actions workflows；当前启用 Stage 1 基础 `docs-check` CI |
 | `CREDITS.md` | 代码库级致谢与第三方来源清单；游戏内 Credits 数据源为 `client/data/credits.json` |
 | `draft/` / `DRAFT/` | 用户人工草稿，AI 禁止读取 / 搜索 / 修改 / 整理 / 引用，除非用户明确点名授权 |
@@ -114,7 +114,7 @@
 | **改局外成长 / 元进度** | 查 GDD §7.2；配置改 `client/data/meta_progression.json`，字段说明同步 `client/data/README.md`，文案同步 `client/locale/strings.csv`；存档走 `SaveManager` 的 `meta` kind，新增 currency / upgrade / unlock id 先登记词表 §13 |
 | **改致谢 / 第三方来源** | 同步根目录 `CREDITS.md` 与 `client/data/credits.json`；新增分组标题、角色或用途标签时补 `client/locale/strings.csv` 的 `ui_credits_*` key；发行前复核许可证和 notice |
 | **加破限角色/道具** | 先判断是否能用 `capabilities` + `modifiers` + `behaviors` 表达；表达不了则新增可复用 primitive / strategy 并登记词表 §12，禁止按 id 写特殊分支 |
-| **写/改代码模块** | 先查 `docs/代码文档规范.md` + 对应 `docs/代码/<module_id>.md` + 目标源码；触碰 `.gd` 时按 Godot 4.6 官方 GDScript style guide 整理本次改动；GDD / ADR 只在设计冲突、语义不明或新增决策时补读，不能默认整篇加载 |
+| **写/改代码模块** | 先查 `docs/代码文档规范.md` + 对应 `docs/代码/<module_id>.md` + 目标源码；触碰 `.gd` 时按 Godot 4.6 官方 GDScript style guide 整理本次改动，并跑 `python tools/lint_gdscript_rules.py`；GDD / ADR 只在设计冲突、语义不明或新增决策时补读，不能默认整篇加载 |
 | **查知识库 / 找文档关系 / 任务路由** | 先看 `docs/AI知识库索引.md` 的任务路由表，需要机器可读元数据时看 `docs/_kb_index.json`，搜索同义词先看 `docs/术语表.md` |
 | **续接当前状态 / 下一步** | 先看 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`；上下文压缩后先以用户最后明确指令对齐，`Next Steps` 只作候选参考；需要长期事实 / ADR 摘要 / 历史细节时再看 `docs/AI记忆/项目记忆.md` 和当日会话日志 |
 | **查看 / 维护未来任务** | 看 `docs/TODO.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
@@ -122,6 +122,7 @@
 | **维护正式客户端启动骨架** | 看 `client/README.md` 与 `docs/代码/formal_client_boot.md`；改主场景或启动验证时同步本导航和 `docs/代码/README.md` |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
 | **校验数据 / 文案** | 跑 `python tools/validate_data.py`；改 DataLoader schema 时追加 `python tools/test_data_loader_schema.py`，覆盖黄金数据与坏 id / 缺 locale / 类型范围 / 跨文件引用错误 |
+| **校验 GDScript 项目规则** | 跑 `python tools/lint_gdscript_rules.py`；当前第一档覆盖代码段顺序、危险 `:=`、中文硬编码字符串、裸随机 / 时间 / 暂停 API |
 | **查 Godot 场景树 / headless 启动** | 跑 `python tools/godot_bridge.py export-tree` 或 `python tools/godot_bridge.py headless-boot`；默认项目为正式 `client/` |
 | **用项目级 AI skill** | CodeBuddy / Codex / OpenCode 分别读取 `.codebuddy/skills/<name>/SKILL.md`、`.codex/skills/<name>/SKILL.md`、`.opencode/skills/<name>/SKILL.md`；当前覆盖 Godot 实现、场景验证、Godot 测试诊断、试玩复盘、文档同步、安全提交、事实 review、AI 资源筛选与协作面审计、MCP 评估；外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进项目 skill，不再保留 vendor 来源或 reference 跳转；资源筛选与安装清单见 `docs/AI协作/AI技能资源评估.md` |
 | **加一种子弹效果原语** | 先在 `词表与契约.md` 登记 `effect` id → 在效果原语层实现方法/Node → 数据中引用 |
@@ -267,7 +268,7 @@ flowchart LR
 - ❌ 手改 `client/scripts/contracts/*.gd`（自动生成，改 `docs/词表与契约.md` + 跑 `tools/sync_contracts.py`）
 - ❌ 改了数据 / 文案 / 词表却不跑 `tools/validate_data.py` 或 `tools/sync_contracts.py --check`；改 DataLoader schema 却不跑 `tools/test_data_loader_schema.py`
 - ❌ 新增 / 修改长期代码模块却没有对应详细 `docs/代码/` 模块文档、或用简短自动摘要替代维护文档
-- ❌ 新写 / 修改 GDScript 却不遵守 Godot 4.6 官方 GDScript style guide 的命名、代码顺序、空白、布尔操作符、注释和类型标注；❌ 借代码规范名义批量重排无关旧脚本
+- ❌ 新写 / 修改 GDScript 却不遵守 Godot 4.6 官方 GDScript style guide 的命名、代码顺序、空白、布尔操作符、注释和类型标注，或触碰 `.gd` 后不跑 `tools/lint_gdscript_rules.py`；❌ 借代码规范名义批量重排无关旧脚本
 - ❌ 面向用户的回复默认使用英文或其他语言（除非用户明确要求、引用原文或目标文件语言要求）
 - ❌ 用户问有没有问题 / 风险时，为了显得有用而硬找问题、过度优化或提出无必要改动（没发现问题就明确说没有问题）
 - ❌ 用户提出需求后不先评估落地前景、性价比、复杂度和主要风险，闷声做到最后才暴露重大隐患
