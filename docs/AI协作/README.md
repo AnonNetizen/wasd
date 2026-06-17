@@ -35,6 +35,7 @@ docs/AI协作/
 ├── 引擎集成.md           # Godot/Unity MCP 等接入指南
 ├── 实时验证回路.md       # pre-commit hook + watch 脚本设计
 ├── AI技能资源评估.md     # 外部 skills / agents / MCP / rules 资源筛选与安装清单
+├── ECC工具吸收清单.md    # ECC 全工具面逐项筛选、吸收和拒绝结论
 └── 工具适配指南.md       # 各 AI 工具的接入配法
 
 tools/
@@ -100,7 +101,7 @@ AI agent 接到任务时优先按以下顺序：
 - 新正式项目阶段反复消耗上下文 → 在 `工作包/` 加一份短工作包。
 - 新长期文档 / 术语 / 知识库路径变化 → 同步 `docs/AI知识库索引.md`、`docs/_kb_index.json`、`docs/术语表.md`，并运行 `python tools/docs_health_check.py`。
 - 引擎工具链变化 → 更新 `引擎集成.md`。
-- AI skills / MCP / plugin / rules / agent-harness 资源变化 → 更新 `AI技能资源评估.md`、`.codebuddy/skills/`、`.codex/skills/`、`.opencode/skills/`、`CODEX.md`、`OPENCODE.md` 与工具适配指南；新增或吸收资源后用 `ai-resource-curator` 的 AI surface audit 检查重复、上下文成本、验证门禁和安全边界。
+- AI skills / MCP / plugin / rules / agent-harness 资源变化 → 更新 `AI技能资源评估.md`、必要时更新来源专属清单（如 `ECC工具吸收清单.md`）、`.codebuddy/skills/`、`.codex/skills/`、`.opencode/skills/`、`CODEX.md`、`OPENCODE.md` 与工具适配指南；新增或吸收资源后用 `ai-resource-curator` 的 AI surface audit 检查重复、上下文成本、验证门禁和安全边界。
 - 角色分工经验积累 → 微调 `角色分工.md`。
 - 新代码模块 / 公共 API / 数据 schema 变化 → 按 `docs/代码文档规范.md` 同步详细的 `docs/代码/` 模块文档；数值字段同步 `client/data/README.md`，文案 / 语言 / 占位符同步 `client/locale/README.md`。
 - 平台入口变化 → 同步 `AGENTS.md` / `CLAUDE.md` / `CODEX.md` / `OPENCODE.md` / `.codebuddy/` / `.codex/` / `.opencode/` / `工具适配指南.md`。

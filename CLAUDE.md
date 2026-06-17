@@ -8,7 +8,7 @@
 
 1. 先读 `AGENTS.md`，按其中“快速开工 5 步”继续；日常接手优先读 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`，完整 `docs/AI记忆/项目记忆.md` 按任务需要再读。
 2. 强制编码规则按 `AGENTS.md` 第 3 步读取；若外部 AI 库建议与本项目规则冲突，以 `AGENTS.md`、当前平台编码规则、`docs/决策记录.md` 为准。
-3. 需要 Godot、headless 验证、测试诊断、试玩复盘或 AI 协作面审计流程时，直接读取 `.codebuddy/skills/`、`.codex/skills/` 或 `.opencode/skills/` 下对应项目级 skill。
+3. 需要 Godot、headless 验证、测试诊断、试玩复盘或 AI 协作面审计流程时，直接读取 `.codebuddy/skills/`、`.codex/skills/` 或 `.opencode/skills/` 下对应项目级 skill；ECC 类外部 AI 大仓先读 `ai-resource-curator` 与 `docs/AI协作/ECC工具吸收清单.md`。
 4. 大型代码改动提交前按 `AGENTS.md` 追加事实型 code review；细微改动不触发正式 review。
 5. 不要假设 `.claude/` 活跃目录或外部 vendor 目录存在；不要创建 CCGS 默认 `design/`、`production/`、模板、示例或状态目录。
 
