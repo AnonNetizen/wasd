@@ -193,6 +193,7 @@
     "locale_prefixes": [
       "ui_",
       "character_",
+      "weapon_",
       "relic_",
       "item_",
       "enemy_",

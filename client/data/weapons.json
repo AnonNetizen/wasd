@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "weapons": [
+    {
+      "id": "weapon_basic_blaster",
+      "name_key": "weapon_basic_blaster_name",
+      "desc_key": "weapon_basic_blaster_desc",
+      "default_unlocked": true,
+      "fire_mode": "auto_4dir",
+      "fire_audio_id": "sfx_player_shoot",
+      "base_stats": {
+        "damage": 3.5,
+        "fire_rate": 2.5,
+        "bullet_speed": 520.0,
+        "bullet_range": 650.0,
+        "bullet_count": 1,
+        "pierce_count": 0,
+        "crit_chance": 0.0,
+        "crit_mult": 1.5
+      },
+      "projectile": {
+        "pool_id": "bullet_basic",
+        "damage_type": "physical",
+        "hit_radius": 8.0,
+        "muzzle_distance": 24.0,
+        "lifetime": 1.25
+      }
+    }
+  ]
+}

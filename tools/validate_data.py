@@ -16,6 +16,7 @@ from sync_contracts import CONTRACTS_JSON, ROOT, extract_contracts
 CLIENT_DATA = ROOT / "client" / "data"
 LOCALE_CSV = ROOT / "client" / "locale" / "strings.csv"
 CHARACTERS_JSON = ROOT / "client" / "data" / "characters.json"
+WEAPONS_JSON = ROOT / "client" / "data" / "weapons.json"
 GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
 GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
 GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
@@ -27,6 +28,8 @@ INT_STATS = {"max_hp", "bullet_count", "pierce_count"}
 NON_NEGATIVE_STATS = {"damage", "pickup_range", "luck", "armor", "lifesteal_ratio"}
 POSITIVE_STATS = {"move_speed", "fire_rate", "bullet_speed", "bullet_range", "crit_mult"}
 RATIO_STATS = {"crit_chance", "resist_fire", "resist_poison", "resist_lightning", "lifesteal_ratio"}
+WEAPON_STATS = {"damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "pierce_count", "crit_chance", "crit_mult"}
+REQUIRED_WEAPON_STATS = {"damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count"}
 
 
 class ValidationContext:
@@ -46,12 +49,14 @@ def main() -> int:
     _validate_all_json(ctx)
     _validate_locale_csv(ctx)
     _validate_player_json(ctx)
-    _validate_characters(ctx)
+    _validate_weapons(ctx)
+    weapon_ids = _collect_weapon_ids(ctx)
+    _validate_characters(ctx, weapon_ids)
     character_ids = _collect_character_ids(ctx)
     _validate_meta_progression(ctx, character_ids)
     _validate_growth_csv(ctx)
     _validate_growth_pools(ctx)
-    _validate_game_modes(ctx, character_ids)
+    _validate_game_modes(ctx, character_ids, weapon_ids)
     _validate_mvp_config(ctx)
 
     if ctx.errors:
@@ -149,7 +154,7 @@ def _validate_player_json(ctx: ValidationContext) -> None:
         _validate_stat_value(ctx, path, f"base_stats.{stat}", stat, value)
 
 
-def _validate_characters(ctx: ValidationContext) -> None:
+def _validate_characters(ctx: ValidationContext, weapon_ids: set[str]) -> None:
     path = CHARACTERS_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
@@ -177,12 +182,73 @@ def _validate_characters(ctx: ValidationContext) -> None:
             ctx.error(path, f"{field}.tags", "must include tag_character")
         _validate_registered_string_list(ctx, path, f"{field}.capabilities", character.get("capabilities", []), "capabilities", allow_empty=True)
         _require_non_empty_string(ctx, path, f"{field}.control_profile", character.get("control_profile"))
+        starting_weapon_id = _require_non_empty_string(ctx, path, f"{field}.starting_weapon_id", character.get("starting_weapon_id"))
+        if starting_weapon_id and starting_weapon_id not in weapon_ids:
+            ctx.error(path, f"{field}.starting_weapon_id", f"weapon is not defined in weapons.json: {starting_weapon_id}")
         base_stats = character.get("base_stats")
         if not isinstance(base_stats, dict) or not base_stats:
             ctx.error(path, f"{field}.base_stats", "must be a non-empty object")
             continue
         for stat, value in base_stats.items():
             _validate_stat_value(ctx, path, f"{field}.base_stats.{stat}", stat, value)
+
+
+def _validate_weapons(ctx: ValidationContext) -> None:
+    path = WEAPONS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    weapons = _require_list(ctx, path, "weapons", data.get("weapons"))
+    if not weapons:
+        ctx.error(path, "weapons", "must be a non-empty array")
+    seen: set[str] = set()
+    for index, weapon in enumerate(weapons):
+        field = f"weapons[{index}]"
+        if not isinstance(weapon, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        weapon_id = _require_non_empty_string(ctx, path, f"{field}.id", weapon.get("id"))
+        if weapon_id:
+            if weapon_id in seen:
+                ctx.error(path, f"{field}.id", f"duplicate weapon id {weapon_id}")
+            seen.add(weapon_id)
+        _require_locale_key(ctx, path, f"{field}.name_key", weapon.get("name_key"))
+        _require_locale_key(ctx, path, f"{field}.desc_key", weapon.get("desc_key"))
+        _require_bool(ctx, path, f"{field}.default_unlocked", weapon.get("default_unlocked"))
+        _require_non_empty_string(ctx, path, f"{field}.fire_mode", weapon.get("fire_mode"))
+        if "fire_audio_id" in weapon:
+            _require_audio_id(ctx, path, f"{field}.fire_audio_id", weapon.get("fire_audio_id"))
+        _validate_weapon_stats(ctx, path, f"{field}.base_stats", weapon.get("base_stats"))
+        _validate_weapon_projectile(ctx, path, f"{field}.projectile", weapon.get("projectile"))
+
+
+def _validate_weapon_stats(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict) or not data:
+        ctx.error(path, field, "must be a non-empty object")
+        return
+    for stat in sorted(REQUIRED_WEAPON_STATS):
+        if stat not in data:
+            ctx.error(path, f"{field}.{stat}", "is required")
+    for stat, value in data.items():
+        if stat not in WEAPON_STATS:
+            ctx.error(path, f"{field}.{stat}", "unsupported weapon stat")
+            continue
+        if stat == "pierce_count":
+            _require_int(ctx, path, f"{field}.{stat}", value, minimum=0)
+        else:
+            _validate_stat_value(ctx, path, f"{field}.{stat}", stat, value)
+
+
+def _validate_weapon_projectile(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    _require_registered(ctx, path, f"{field}.pool_id", data.get("pool_id"), "pool_ids")
+    _require_registered(ctx, path, f"{field}.damage_type", data.get("damage_type"), "damage_types")
+    _require_number(ctx, path, f"{field}.hit_radius", data.get("hit_radius"), minimum=0, exclusive_minimum=True)
+    _require_number(ctx, path, f"{field}.muzzle_distance", data.get("muzzle_distance"), minimum=0, exclusive_minimum=True)
+    _require_number(ctx, path, f"{field}.lifetime", data.get("lifetime"), minimum=0, exclusive_minimum=True)
 
 
 def _validate_meta_progression(ctx: ValidationContext, character_ids: set[str]) -> None:
@@ -291,7 +357,7 @@ def _validate_growth_pools(ctx: ValidationContext) -> None:
                 _validate_modifiers(ctx, path, f"{entry_field}.modifiers", entry.get("modifiers"), require_value_per_level=False)
 
 
-def _validate_game_modes(ctx: ValidationContext, character_ids: set[str]) -> None:
+def _validate_game_modes(ctx: ValidationContext, character_ids: set[str], weapon_ids: set[str]) -> None:
     path = GAME_MODES_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
@@ -317,7 +383,7 @@ def _validate_game_modes(ctx: ValidationContext, character_ids: set[str]) -> Non
         _require_bool(ctx, path, f"{mode_field}.default_unlocked", mode.get("default_unlocked"))
         team_ids = _validate_mode_teams(ctx, path, mode_field, mode.get("teams"))
         _validate_mode_participants(ctx, path, mode_field, mode.get("participants"), team_ids)
-        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids)
+        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids)
         if "blocklists" in mode:
             _validate_mode_blocklists(ctx, path, f"{mode_field}.blocklists", mode.get("blocklists"))
         if "overrides" in mode:
@@ -366,16 +432,26 @@ def _validate_mode_participants(ctx: ValidationContext, path: Path, mode_field: 
             _require_non_empty_string(ctx, path, f"{field}.control", participant.get("control"))
 
 
-def _validate_mode_resource_pools(ctx: ValidationContext, path: Path, mode_field: str, data: Any, growth_pool_ids: set[str], character_ids: set[str]) -> None:
+def _validate_mode_resource_pools(
+    ctx: ValidationContext,
+    path: Path,
+    mode_field: str,
+    data: Any,
+    growth_pool_ids: set[str],
+    character_ids: set[str],
+    weapon_ids: set[str],
+) -> None:
     field = f"{mode_field}.resource_pools"
     if not isinstance(data, dict):
         ctx.error(path, field, "must be an object")
         return
     if "characters" in data:
         _validate_weighted_character_entries(ctx, path, f"{field}.characters", data.get("characters"), character_ids)
+    if "weapons" in data:
+        _validate_weighted_weapon_entries(ctx, path, f"{field}.weapons", data.get("weapons"), weapon_ids)
     if "growth_pools" in data:
         _validate_weighted_growth_pool_entries(ctx, path, f"{field}.growth_pools", data.get("growth_pools"), growth_pool_ids)
-    if "characters" not in data and "growth_pools" not in data:
+    if "characters" not in data and "weapons" not in data and "growth_pools" not in data:
         ctx.error(path, field, "must contain at least one supported pool")
 
 
@@ -391,6 +467,21 @@ def _validate_weighted_character_entries(ctx: ValidationContext, path: Path, fie
         character_id = _require_registered(ctx, path, f"{item_field}.id", entry.get("id"), "character_ids")
         if character_id and character_id not in character_ids:
             ctx.error(path, f"{item_field}.id", f"character is not defined in characters.json: {character_id}")
+        _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
+
+
+def _validate_weighted_weapon_entries(ctx: ValidationContext, path: Path, field: str, data: Any, weapon_ids: set[str]) -> None:
+    entries = _require_list(ctx, path, field, data)
+    if not entries:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, entry in enumerate(entries):
+        item_field = f"{field}[{index}]"
+        if not isinstance(entry, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        weapon_id = _require_non_empty_string(ctx, path, f"{item_field}.id", entry.get("id"))
+        if weapon_id and weapon_id not in weapon_ids:
+            ctx.error(path, f"{item_field}.id", f"weapon is not defined in weapons.json: {weapon_id}")
         _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
 
 
@@ -680,6 +771,16 @@ def _collect_character_ids(ctx: ValidationContext) -> set[str]:
     return {item.get("id") for item in characters if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
+def _collect_weapon_ids(ctx: ValidationContext) -> set[str]:
+    data = _load_json(WEAPONS_JSON, ctx)
+    if not isinstance(data, dict):
+        return set()
+    weapons = data.get("weapons")
+    if not isinstance(weapons, list):
+        return set()
+    return {item.get("id") for item in weapons if isinstance(item, dict) and isinstance(item.get("id"), str)}
+
+
 def _collect_growth_pool_ids(ctx: ValidationContext) -> set[str]:
     data = _load_json(GROWTH_POOLS_JSON, ctx)
     if not isinstance(data, dict):
@@ -712,6 +813,14 @@ def _require_bool(ctx: ValidationContext, path: Path, field: str, value: Any) ->
         ctx.error(path, field, "must be bool")
         return None
     return value
+
+
+def _require_audio_id(ctx: ValidationContext, path: Path, field: str, value: Any) -> None:
+    if not isinstance(value, str) or not value:
+        ctx.error(path, field, "must be a non-empty audio id")
+        return
+    if not any(value.startswith(prefix) for prefix in ctx.contracts["audio_prefixes"]):
+        ctx.error(path, field, f"audio id prefix is not registered: {value}")
 
 
 def _require_locale_key(ctx: ValidationContext, path: Path, field: str, value: Any) -> None:

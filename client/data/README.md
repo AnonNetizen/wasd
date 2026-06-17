@@ -18,7 +18,8 @@
 | 你想做什么 | 改哪里 | 注意 |
 |------------|--------|------|
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
-| 改角色基础属性 / 标签 / 能力 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；起始武器等字段等对应数据落地后再扩展 |
+| 改角色基础属性 / 标签 / 能力 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；起始武器填 `starting_weapon_id`，且必须存在于 `weapons.json` |
+| 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
 | 改敌人血量 / 速度 / 接触伤害 | `enemies.csv`（落地后） | 敌人 id、标签、伤害类型必须来自词表 |
 | 改遗物 / 道具数值 | `relics.json` / `active_items.json` / `consumables.json`（落地后） | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
@@ -33,8 +34,8 @@
 |------|------|------|
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
 | `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
-| `characters.json` | 已建立 | 角色列表：基础属性、tags、capabilities、控制配置；当前不含起始武器 / 遗物运行时 |
-| `weapons.json` | 规划 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
+| `characters.json` | 已建立 | 角色列表：基础属性、tags、capabilities、控制配置和起始武器引用；当前不含遗物运行时 |
+| `weapons.json` | 已建立 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
 | `relics.json` | 规划 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 规划 | 主动道具：充能方式、冷却、效果原语与参数 |
 | `consumables.json` | 规划 | 消耗品：拾取 / 使用规则、效果原语与参数 |
@@ -143,7 +144,7 @@ JSON 示例：
 
 ## 内容数据通用字段
 
-角色、敌人、遗物、道具等内容数据落地后，优先使用这些字段名，便于人和 AI 复用同一结构。
+角色、武器、敌人、遗物、道具等内容数据落地后，优先使用这些字段名，便于人和 AI 复用同一结构。
 
 | 字段 | 类型 | 是否常见必填 | 说明 |
 |------|------|--------------|------|
@@ -179,6 +180,7 @@ JSON 示例：
       ],
       "resource_pools": {
         "characters": [{ "id": "character_default", "weight": 100 }],
+        "weapons": [{ "id": "weapon_basic_blaster", "weight": 100 }],
         "growth_pools": [{ "id": "default_level_up", "weight": 100 }]
       },
       "blocklists": { "content_tags": [] },
@@ -204,6 +206,8 @@ JSON 示例：
 | `teams[].friendly_fire` | bool | true / false | 队伍内是否允许友伤；当前只做 schema 预留 |
 | `resource_pools.characters[]` | array[object] | 已声明时必须非空 | 本模式可用角色池 |
 | `resource_pools.characters[].id` | string | 词表 §12.1 character id，且必须存在于 `characters.json` | 可用角色 id |
+| `resource_pools.weapons[]` | array[object] | 已声明时必须非空 | 本模式可用武器池 |
+| `resource_pools.weapons[].id` | string | 必须存在于 `weapons.json` | 可用武器 id |
 | `resource_pools.*[].weight` | int | `>= 0` | 抽取 / 展示权重；具体抽取由后续系统实现 |
 | `resource_pools.growth_pools[]` | array[object] | 已声明时必须非空 | 本模式使用的升级候选池 |
 | `resource_pools.growth_pools[].id` | string | `growth_pools.json` 中已定义池 id | 升级候选池 id |
@@ -228,6 +232,7 @@ JSON 示例：
       "tags": ["tag_character"],
       "capabilities": [],
       "control_profile": "default_4dir_auto",
+      "starting_weapon_id": "weapon_basic_blaster",
       "base_stats": {
         "max_hp": 6,
         "move_speed": 240.0,
@@ -255,9 +260,73 @@ JSON 示例：
 | `characters[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_character` | 内容标签；破限角色还需含 `tag_limit_break` 并声明 capability |
 | `characters[].capabilities` | array[string] | 词表 §12.2 capability id，可为空 | 允许突破的默认规则；空数组表示默认 4 方向瞄准 / 自动开火 / 默认移动 |
 | `characters[].control_profile` | string | 非空 | 控制配置标识；当前只做数据边界，不实现输入 profile 切换 |
+| `characters[].starting_weapon_id` | string | 必须存在于 `weapons.json` | 角色默认起始武器引用；当前只做数据边界，不实现武器运行时 |
 | `characters[].base_stats` | object | stat 来自词表 §1，非空 | 角色基础属性；数值范围同 `player.json` stat 校验 |
 
-`characters.json` 只声明角色数据边界，不实现角色选择 UI、实体生成、输入 profile 切换、起始武器 / 遗物运行时或破限能力执行。新增起始武器、遗物、外观资源或特殊能力字段时，必须先有对应数据注册表 / 词表 / schema，再由业务系统解释。
+`characters.json` 只声明角色数据边界，不实现角色选择 UI、实体生成、输入 profile 切换、武器运行时、起始遗物运行时或破限能力执行。新增起始遗物、外观资源或特殊能力字段时，必须先有对应数据注册表 / 词表 / schema，再由业务系统解释。
+
+## `weapons.json`
+
+当前结构：
+
+```json
+{
+  "schema_version": 1,
+  "weapons": [
+    {
+      "id": "weapon_basic_blaster",
+      "name_key": "weapon_basic_blaster_name",
+      "desc_key": "weapon_basic_blaster_desc",
+      "default_unlocked": true,
+      "fire_mode": "auto_4dir",
+      "fire_audio_id": "sfx_player_shoot",
+      "base_stats": {
+        "damage": 3.5,
+        "fire_rate": 2.5,
+        "bullet_speed": 520.0,
+        "bullet_range": 650.0,
+        "bullet_count": 1,
+        "pierce_count": 0,
+        "crit_chance": 0.0,
+        "crit_mult": 1.5
+      },
+      "projectile": {
+        "pool_id": "bullet_basic",
+        "damage_type": "physical",
+        "hit_radius": 8.0,
+        "muzzle_distance": 24.0,
+        "lifetime": 1.25
+      }
+    }
+  ]
+}
+```
+
+字段说明：
+
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `weapons[].id` | string | 文件内唯一，非空 | 武器 id；角色起始武器和模式武器池引用此 id |
+| `weapons[].name_key` / `desc_key` | string | `weapon_*_name` / `weapon_*_desc` | 武器名称和描述译文 key |
+| `weapons[].default_unlocked` | bool | true / false | 新存档中是否默认可用；后续可接局外解锁 |
+| `weapons[].fire_mode` | string | 非空 | 开火模式标识；当前只做数据边界，不实现开火策略 |
+| `weapons[].fire_audio_id` | string | 可选；已声明时必须符合词表 §10 audio prefix | 开火音效 id；当前只校验前缀，不要求资源已存在 |
+| `base_stats.damage` | number | `>= 0` | 单发基础伤害 |
+| `base_stats.fire_rate` | number | `> 0` | 每秒发射次数 |
+| `base_stats.bullet_speed` | number | `> 0` | 子弹速度，px/s |
+| `base_stats.bullet_range` | number | `> 0` | 子弹最大射程，px |
+| `base_stats.bullet_count` | int | `>= 1` | 每次发射子弹数 |
+| `base_stats.pierce_count` | int | `>= 0` | 穿透次数；`0` 表示不穿透 |
+| `base_stats.crit_chance` | number | `0.0`~`1.0` | 暴击率 |
+| `base_stats.crit_mult` | number | `> 0` | 暴击倍率 |
+| `projectile.pool_id` | string | 词表 §8 pool id | 使用的子弹对象池 |
+| `projectile.damage_type` | string | 词表 §9 damage type | 默认伤害类型 |
+| `projectile.hit_radius` | number | `> 0` | 命中半径，px |
+| `projectile.muzzle_distance` | number | `> 0` | 发射点相对角色中心距离，px |
+| `projectile.lifetime` | number | `> 0` | 子弹存活秒数；业务系统可结合射程裁剪 |
+
+`weapons.json` 只声明武器 / 子弹数据边界，不实现 WeaponSystem、子弹实例化、命中判定、音频播放或武器选择 UI。角色通过 `characters[].starting_weapon_id` 引用默认起始武器；游戏模式可通过 `resource_pools.weapons` 声明可用武器池。
 
 ## `modifiers` 格式
 

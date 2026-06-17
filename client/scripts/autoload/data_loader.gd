@@ -11,6 +11,7 @@ const DATA_ROOT: String = "res://data/"
 const LOCALE_STRINGS_PATH: String = "res://locale/strings.csv"
 const PLAYER_DATA_PATH: String = "res://data/player.json"
 const CHARACTERS_PATH: String = "res://data/characters.json"
+const WEAPONS_PATH: String = "res://data/weapons.json"
 const META_PROGRESSION_PATH: String = "res://data/meta_progression.json"
 const GROWTH_CURVE_PATH: String = "res://data/growth.csv"
 const GROWTH_POOLS_PATH: String = "res://data/growth_pools.json"
@@ -20,6 +21,8 @@ const INT_STATS: Array[String] = ["max_hp", "bullet_count", "pierce_count"]
 const NON_NEGATIVE_STATS: Array[String] = ["damage", "pickup_range", "luck", "armor", "lifesteal_ratio"]
 const POSITIVE_STATS: Array[String] = ["move_speed", "fire_rate", "bullet_speed", "bullet_range", "crit_mult"]
 const RATIO_STATS: Array[String] = ["crit_chance", "resist_fire", "resist_poison", "resist_lightning", "lifesteal_ratio"]
+const WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "pierce_count", "crit_chance", "crit_mult"]
+const REQUIRED_WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count"]
 
 var _contracts: Dictionary = {}
 var _last_schema_counts: Dictionary = {}
@@ -72,12 +75,14 @@ func validate_project_data() -> bool:
 
 	is_valid = _validate_locale_strings(locale_keys) and is_valid
 	is_valid = _validate_player_json() and is_valid
-	is_valid = _validate_characters_json(locale_keys) and is_valid
+	is_valid = _validate_weapons_json(locale_keys) and is_valid
+	var weapon_ids: Dictionary = _collect_weapon_ids()
+	is_valid = _validate_characters_json(locale_keys, weapon_ids) and is_valid
 	var character_ids: Dictionary = _collect_character_ids()
 	is_valid = _validate_meta_progression(locale_keys, character_ids) and is_valid
 	is_valid = _validate_growth_csv() and is_valid
 	is_valid = _validate_growth_pools() and is_valid
-	is_valid = _validate_game_modes(locale_keys, character_ids) and is_valid
+	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids) and is_valid
 
 	return is_valid
 
@@ -178,7 +183,7 @@ func _validate_player_json() -> bool:
 	return is_valid
 
 
-func _validate_characters_json(locale_keys: Dictionary) -> bool:
+func _validate_characters_json(locale_keys: Dictionary, weapon_ids: Dictionary) -> bool:
 	var data: Variant = load_json(CHARACTERS_PATH)
 	if not data is Dictionary:
 		return _schema_fail(CHARACTERS_PATH, "root", "Dictionary")
@@ -212,6 +217,10 @@ func _validate_characters_json(locale_keys: Dictionary) -> bool:
 			is_valid = _schema_fail(CHARACTERS_PATH, "%s.tags" % field, "tag_character") and is_valid
 		is_valid = _validate_registered_string_array(CHARACTERS_PATH, "%s.capabilities" % field, character_dict.get("capabilities", []), "capabilities", true) and is_valid
 		is_valid = _require_non_empty_string(CHARACTERS_PATH, "%s.control_profile" % field, character_dict.get("control_profile")) and is_valid
+		var starting_weapon_id: String = String(character_dict.get("starting_weapon_id", ""))
+		is_valid = _require_non_empty_string(CHARACTERS_PATH, "%s.starting_weapon_id" % field, character_dict.get("starting_weapon_id")) and is_valid
+		if not starting_weapon_id.is_empty() and not weapon_ids.has(starting_weapon_id):
+			is_valid = _schema_fail(CHARACTERS_PATH, "%s.starting_weapon_id" % field, "weapon defined in weapons.json") and is_valid
 		var base_stats: Variant = character_dict.get("base_stats")
 		if not base_stats is Dictionary or (base_stats as Dictionary).is_empty():
 			is_valid = _schema_fail(CHARACTERS_PATH, "%s.base_stats" % field, "non-empty Dictionary") and is_valid
@@ -220,6 +229,76 @@ func _validate_characters_json(locale_keys: Dictionary) -> bool:
 			for stat_key: Variant in stats_dict.keys():
 				var stat: String = String(stat_key)
 				is_valid = _validate_stat_value(CHARACTERS_PATH, "%s.base_stats.%s" % [field, stat], stat, stats_dict[stat_key]) and is_valid
+	return is_valid
+
+
+func _validate_weapons_json(locale_keys: Dictionary) -> bool:
+	var data: Variant = load_json(WEAPONS_PATH)
+	if not data is Dictionary:
+		return _schema_fail(WEAPONS_PATH, "root", "Dictionary")
+
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(WEAPONS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var weapons: Array = _require_array(WEAPONS_PATH, "weapons", payload.get("weapons"))
+	if weapons.is_empty():
+		is_valid = _schema_fail(WEAPONS_PATH, "weapons", "non-empty Array") and is_valid
+	var seen: Dictionary = {}
+	_last_schema_counts["weapons"] = weapons.size()
+	for index: int in range(weapons.size()):
+		var field: String = "weapons[%d]" % index
+		var weapon: Variant = weapons[index]
+		if not weapon is Dictionary:
+			is_valid = _schema_fail(WEAPONS_PATH, field, "Dictionary") and is_valid
+			continue
+		var weapon_dict: Dictionary = weapon as Dictionary
+		is_valid = _require_non_empty_string(WEAPONS_PATH, "%s.id" % field, weapon_dict.get("id")) and is_valid
+		var weapon_id: String = String(weapon_dict.get("id", ""))
+		if not weapon_id.is_empty():
+			if seen.has(weapon_id):
+				is_valid = _schema_fail(WEAPONS_PATH, "%s.id" % field, "unique weapon id") and is_valid
+			seen[weapon_id] = true
+		is_valid = _require_locale_key(WEAPONS_PATH, "%s.name_key" % field, weapon_dict.get("name_key"), locale_keys) and is_valid
+		is_valid = _require_locale_key(WEAPONS_PATH, "%s.desc_key" % field, weapon_dict.get("desc_key"), locale_keys) and is_valid
+		is_valid = _require_bool(WEAPONS_PATH, "%s.default_unlocked" % field, weapon_dict.get("default_unlocked")) and is_valid
+		is_valid = _require_non_empty_string(WEAPONS_PATH, "%s.fire_mode" % field, weapon_dict.get("fire_mode")) and is_valid
+		if weapon_dict.has("fire_audio_id"):
+			is_valid = _require_audio_id(WEAPONS_PATH, "%s.fire_audio_id" % field, weapon_dict.get("fire_audio_id")) and is_valid
+		is_valid = _validate_weapon_stats("%s.base_stats" % field, weapon_dict.get("base_stats")) and is_valid
+		is_valid = _validate_weapon_projectile("%s.projectile" % field, weapon_dict.get("projectile")) and is_valid
+	return is_valid
+
+
+func _validate_weapon_stats(field: String, data: Variant) -> bool:
+	if not data is Dictionary or (data as Dictionary).is_empty():
+		return _schema_fail(WEAPONS_PATH, field, "non-empty Dictionary")
+	var stats: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	for required_stat: String in REQUIRED_WEAPON_STATS:
+		if not stats.has(required_stat):
+			is_valid = _schema_fail(WEAPONS_PATH, "%s.%s" % [field, required_stat], "required weapon stat") and is_valid
+	for stat_key: Variant in stats.keys():
+		var stat: String = String(stat_key)
+		if not WEAPON_STATS.has(stat):
+			is_valid = _schema_fail(WEAPONS_PATH, "%s.%s" % [field, stat], "supported weapon stat") and is_valid
+			continue
+		if stat == "pierce_count":
+			is_valid = _require_int(WEAPONS_PATH, "%s.%s" % [field, stat], stats[stat_key], 0) and is_valid
+		else:
+			is_valid = _validate_stat_value(WEAPONS_PATH, "%s.%s" % [field, stat], stat, stats[stat_key]) and is_valid
+	return is_valid
+
+
+func _validate_weapon_projectile(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(WEAPONS_PATH, field, "Dictionary")
+	var projectile: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_registered(WEAPONS_PATH, "%s.pool_id" % field, projectile.get("pool_id"), "pool_ids") != "" and is_valid
+	is_valid = _require_registered(WEAPONS_PATH, "%s.damage_type" % field, projectile.get("damage_type"), "damage_types") != "" and is_valid
+	is_valid = _require_number(WEAPONS_PATH, "%s.hit_radius" % field, projectile.get("hit_radius"), 0.0, null, true) and is_valid
+	is_valid = _require_number(WEAPONS_PATH, "%s.muzzle_distance" % field, projectile.get("muzzle_distance"), 0.0, null, true) and is_valid
+	is_valid = _require_number(WEAPONS_PATH, "%s.lifetime" % field, projectile.get("lifetime"), 0.0, null, true) and is_valid
 	return is_valid
 
 
@@ -448,7 +527,7 @@ func _validate_growth_pools() -> bool:
 	return is_valid
 
 
-func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary) -> bool:
+func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary) -> bool:
 	var data: Variant = load_json(GAME_MODES_PATH)
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "root", "Dictionary")
@@ -480,7 +559,7 @@ func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary) ->
 		var team_ids: Dictionary = team_result.get("ids", {}) as Dictionary
 		is_valid = bool(team_result.get("is_valid", false)) and is_valid
 		is_valid = _validate_mode_participants(mode_field, mode_dict.get("participants"), team_ids) and is_valid
-		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), growth_pool_ids, character_ids) and is_valid
+		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids) and is_valid
 		if mode_dict.has("blocklists"):
 			is_valid = _validate_mode_blocklists("%s.blocklists" % mode_field, mode_dict.get("blocklists")) and is_valid
 		if mode_dict.has("overrides"):
@@ -544,16 +623,18 @@ func _validate_mode_participants(mode_field: String, data: Variant, team_ids: Di
 	return is_valid
 
 
-func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_pool_ids: Dictionary, character_ids: Dictionary) -> bool:
+func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_pool_ids: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary) -> bool:
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "Dictionary")
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
 	if payload.has("characters"):
 		is_valid = _validate_weighted_character_entries("%s.resource_pools.characters" % mode_field, payload.get("characters"), character_ids) and is_valid
+	if payload.has("weapons"):
+		is_valid = _validate_weighted_weapon_entries("%s.resource_pools.weapons" % mode_field, payload.get("weapons"), weapon_ids) and is_valid
 	if payload.has("growth_pools"):
 		is_valid = _validate_weighted_growth_pool_entries("%s.resource_pools.growth_pools" % mode_field, payload.get("growth_pools"), growth_pool_ids) and is_valid
-	if not payload.has("characters") and not payload.has("growth_pools"):
+	if not payload.has("characters") and not payload.has("weapons") and not payload.has("growth_pools"):
 		is_valid = _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "at least one supported pool") and is_valid
 	return is_valid
 
@@ -573,6 +654,26 @@ func _validate_weighted_character_entries(field: String, data: Variant, characte
 		var character_id: String = _require_registered(GAME_MODES_PATH, "%s.id" % item_field, entry_dict.get("id"), "character_ids")
 		if not character_id.is_empty() and not character_ids.has(character_id):
 			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "character defined in characters.json") and is_valid
+		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
+	return is_valid
+
+
+func _validate_weighted_weapon_entries(field: String, data: Variant, weapon_ids: Dictionary) -> bool:
+	var entries: Array = _require_array(GAME_MODES_PATH, field, data)
+	var is_valid: bool = true
+	if entries.is_empty():
+		is_valid = _schema_fail(GAME_MODES_PATH, field, "non-empty Array") and is_valid
+	for index: int in range(entries.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var entry: Variant = entries[index]
+		if not entry is Dictionary:
+			is_valid = _schema_fail(GAME_MODES_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var entry_dict: Dictionary = entry as Dictionary
+		is_valid = _require_non_empty_string(GAME_MODES_PATH, "%s.id" % item_field, entry_dict.get("id")) and is_valid
+		var weapon_id: String = String(entry_dict.get("id", ""))
+		if not weapon_id.is_empty() and not weapon_ids.has(weapon_id):
+			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "weapon defined in weapons.json") and is_valid
 		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
 	return is_valid
 
@@ -730,6 +831,20 @@ func _collect_character_ids() -> Dictionary:
 	return ids
 
 
+func _collect_weapon_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(WEAPONS_PATH)
+	if not data is Dictionary:
+		return ids
+	var weapons: Variant = (data as Dictionary).get("weapons")
+	if not weapons is Array:
+		return ids
+	for weapon: Variant in weapons:
+		if weapon is Dictionary and (weapon as Dictionary).get("id") is String:
+			ids[String((weapon as Dictionary).get("id"))] = true
+	return ids
+
+
 func _collect_growth_pool_ids() -> Dictionary:
 	var ids: Dictionary = {}
 	var data: Variant = load_json(GROWTH_POOLS_PATH)
@@ -764,6 +879,15 @@ func _require_registered(resource_path: String, field: String, value: Variant, c
 		_schema_fail(resource_path, field, "registered id in %s" % contract_key)
 		return ""
 	return id_value
+
+
+func _require_audio_id(resource_path: String, field: String, value: Variant) -> bool:
+	if not value is String or String(value).is_empty():
+		return _schema_fail(resource_path, field, "non-empty audio id")
+	var audio_id: String = String(value)
+	if not _has_registered_prefix("audio_prefixes", audio_id):
+		return _schema_fail(resource_path, field, "registered audio id prefix")
+	return true
 
 
 func _require_locale_key(resource_path: String, field: String, value: Variant, locale_keys: Dictionary) -> bool:

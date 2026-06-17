@@ -9,6 +9,7 @@
       "tags": ["tag_character"],
       "capabilities": [],
       "control_profile": "default_4dir_auto",
+      "starting_weapon_id": "weapon_basic_blaster",
       "base_stats": {
         "max_hp": 6,
         "move_speed": 240.0,

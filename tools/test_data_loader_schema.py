@@ -87,6 +87,38 @@ def main() -> int:
                 "pool is not defined in growth_pools.json: missing_pool",
             ],
         ),
+        (
+            "unknown weapon damage type fails",
+            _mutate_json("client/data/weapons.json", _set_weapon_damage_type("arcane")),
+            [
+                "client/data/weapons.json:weapons[0].projectile.damage_type",
+                "unknown id arcane; expected one of damage_types",
+            ],
+        ),
+        (
+            "invalid weapon pierce count fails",
+            _mutate_json("client/data/weapons.json", _set_weapon_stat("pierce_count", -1)),
+            [
+                "client/data/weapons.json:weapons[0].base_stats.pierce_count",
+                "must be >= 0",
+            ],
+        ),
+        (
+            "character starting weapon reference must exist",
+            _mutate_json("client/data/characters.json", _set_character_starting_weapon("weapon_missing")),
+            [
+                "client/data/characters.json:characters[0].starting_weapon_id",
+                "weapon is not defined in weapons.json: weapon_missing",
+            ],
+        ),
+        (
+            "mode weapon reference must exist",
+            _mutate_json("client/data/game_modes.json", _set_mode_weapon("weapon_missing")),
+            [
+                "client/data/game_modes.json:modes[0].resource_pools.weapons[0].id",
+                "weapon is not defined in weapons.json: weapon_missing",
+            ],
+        ),
     ]
 
     failures: list[str] = []
@@ -222,6 +254,34 @@ def _set_game_mode_id(value: str) -> JsonMutator:
 def _set_mode_growth_pool(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["resource_pools"]["growth_pools"][0]["id"] = value
+
+    return mutate
+
+
+def _set_weapon_damage_type(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["weapons"][0]["projectile"]["damage_type"] = value
+
+    return mutate
+
+
+def _set_weapon_stat(stat: str, value: object) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["weapons"][0]["base_stats"][stat] = value
+
+    return mutate
+
+
+def _set_character_starting_weapon(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["characters"][0]["starting_weapon_id"] = value
+
+    return mutate
+
+
+def _set_mode_weapon(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["modes"][0]["resource_pools"]["weapons"][0]["id"] = value
 
     return mutate
 

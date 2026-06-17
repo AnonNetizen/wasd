@@ -20,6 +20,7 @@
 |------------|--------|
 | 加 UI 文案 | 在 `strings.csv` 加 `ui_*` key；代码使用 `tr("ui_xxx")` |
 | 加角色名 / 描述 | 在 `strings.csv` 加 `character_*_name` / `character_*_desc`；数据填 `name_key` / `desc_key` |
+| 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |
 | 加遗物 / 道具名 | 在 `strings.csv` 加 `relic_*_name` / `item_*_name`；数据填 `name_key` |
 | 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，动态数值用 `{value}` 这类占位符 |
 | 加局外成长文案 | 在 `strings.csv` 加 `meta_*_name` / `meta_*_desc`；`meta_progression.json` 填 `name_key` / `desc_key` |
@@ -60,6 +61,7 @@ ui_resume,继续,Resume
 |------|------|------|
 | `ui_` | UI、菜单、按钮、HUD | `ui_settings` / `ui_pause` |
 | `character_` | 角色名称和描述 | `character_default_name` / `character_default_desc` |
+| `weapon_` | 武器名称和描述 | `weapon_basic_blaster_name` / `weapon_basic_blaster_desc` |
 | `relic_` | 被动遗物名称和描述 | `relic_sharp_rounds_name` / `relic_sharp_rounds_desc` |
 | `item_` | 主动道具 / 消耗品名称和描述 | `item_bomb_name` / `item_bomb_desc` |
 | `enemy_` | 敌人名称 | `enemy_chaser_name` |
