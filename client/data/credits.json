@@ -82,6 +82,16 @@
           "included_in_build": false,
           "requires_notice": false,
           "review_required": true
+        },
+        {
+          "kind": "external_resource",
+          "name": "Godot GDScript style guide",
+          "role_key": "ui_credits_usage_code_style_reference",
+          "url": "https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/gdscript_styleguide.html",
+          "license": "CC BY 3.0 documentation",
+          "included_in_build": false,
+          "requires_notice": false,
+          "review_required": false
         }
       ]
     }

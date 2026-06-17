@@ -99,7 +99,7 @@
       "related_docs": ["client/data/README.md", "client/locale/README.md", "docs/AI导航.md", "docs/决策记录.md"],
       "related_code": ["client/data/credits.json", "client/locale/strings.csv", "client/scripts/autoload/data_loader.gd"],
       "update_triggers": ["new contributor", "new external library", "new external asset", "new AI workflow reference", "license or notice status changes"],
-      "keywords": ["credits", "致谢", "third-party", "第三方", "license", "notice", "Godot", "external resources", "工作人员"]
+      "keywords": ["credits", "致谢", "third-party", "第三方", "license", "notice", "Godot", "Godot docs", "GDScript style guide", "external resources", "工作人员"]
     },
     {
       "path": "docs/AI知识库索引.md",
@@ -169,7 +169,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "subagent", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
+      "keywords": ["ADR", "decision", "决策", "约束", "subagent", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -239,7 +239,7 @@
       "related_docs": ["docs/代码/README.md", "docs/AI导航.md", "docs/AI协作/文档维护指南.md"],
       "related_code": ["client/"],
       "update_triggers": ["module documentation standard change", "new code documentation gate"],
-      "keywords": ["module docs", "代码文档", "详细模块文档", "Doc"]
+      "keywords": ["module docs", "代码文档", "详细模块文档", "Doc", "GDScript style", "Godot style guide"]
     },
     {
       "path": "docs/代码/README.md",
@@ -267,7 +267,7 @@
       "related_docs": ["docs/AI知识库索引.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md"],
       "related_code": ["client/", "MinimumViableProduct/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
-      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
+      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
     },
     {
       "path": "docs/AI记忆/项目记忆.md",

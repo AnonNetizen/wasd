@@ -4,7 +4,7 @@ description: Godot 4.6.3 GDScript implementation guidance for this project. Use 
 license: MIT
 compatibility: agent-skills
 metadata:
-  source: project-adapted from Agent Skills patterns, GodotPrompter Godot/GDScript patterns, and this repo's rules
+  source: project-adapted from Agent Skills patterns, GodotPrompter Godot/GDScript patterns, the official Godot 4.6 GDScript style guide, and this repo's rules
 ---
 
 # Godot GDScript
@@ -29,7 +29,14 @@ Use this skill only for Godot/GDScript implementation or review work in `client/
 
 ## Integrated Godot Guidance
 
+- Treat the official Godot 4.6 GDScript style guide as the baseline for all new or touched `.gd` files: https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/gdscript_styleguide.html
+- Project rules remain stricter where they apply: typed GDScript, data-driven config, generated constants, project autoloads, and docs sync override generic examples.
+- Do not broad-reformat unrelated scripts just because the style guide exists; clean only the code you touch unless the user explicitly asks for a style pass.
+- Use official naming: files/functions/variables/signals in `snake_case`, `class_name`/node names/enums in `PascalCase`, constants and enum members in `CONSTANT_CASE`.
+- Order script sections like the official guide: file annotations, `class_name`, `extends`, doc comment, signals, enums, constants, static variables, exports, regular members, `@onready` members, static methods, lifecycle callbacks, public methods, private methods, inner classes.
+- Prefer `and`/`or`/`not` over symbolic boolean operators, avoid unnecessary parentheses, use one space around operators and after commas, avoid vertical alignment, write comments as `# ` / `## ` with own-line comments preferred, use double quotes by default, keep leading/trailing zeroes on floats, lowercase hex, and underscores for large numbers.
 - Prefer explicit static types for fields, parameters, return values, typed arrays, and dictionaries when available.
+- Use `:=` only when the right-hand side makes the type obvious on the same line; use explicit annotations for `get_node()`, external data, and complex or ambiguous expressions.
 - Use `is` checks before `as` casts when the type is not guaranteed.
 - After `await`, check `is_instance_valid(self)` when the node could have been freed.
 - Connect complex signal behavior to named methods; keep inline lambdas small and local.
