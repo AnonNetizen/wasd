@@ -1,7 +1,7 @@
 # Doc: docs/代码/game_state.md
 # Authority: docs/游戏设计文档.md §9.12, docs/决策记录.md ADR #21
-extends Node
 class_name GameStateAutoload
+extends Node
 
 
 signal state_changed(old_state: StringName, new_state: StringName, context: Dictionary)

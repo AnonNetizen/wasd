@@ -71,11 +71,11 @@ func _draw() -> void:
 
 
 func _set_collision_radius(radius: float) -> void:
-	var collision_shape := get_node_or_null("CollisionShape2D") as CollisionShape2D
+	var collision_shape: CollisionShape2D = get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if collision_shape == null or not (collision_shape.shape is CircleShape2D):
 		return
 
-	var circle_shape := collision_shape.shape as CircleShape2D
+	var circle_shape: CircleShape2D = collision_shape.shape as CircleShape2D
 	circle_shape.radius = radius
 
 

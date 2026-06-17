@@ -1,6 +1,6 @@
 # Doc: MinimumViableProduct/docs/代码/mvp_client.md
-extends Area2D
 class_name MvpBullet
+extends Area2D
 
 var velocity: Vector2 = Vector2.ZERO
 var lifetime: float = 1.2
@@ -45,9 +45,9 @@ func _on_area_entered(area: Area2D) -> void:
 
 
 func _set_hitbox_radius(radius: float) -> void:
-	var collision_shape := get_node_or_null("CollisionShape2D") as CollisionShape2D
+	var collision_shape: CollisionShape2D = get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if collision_shape == null or not (collision_shape.shape is CircleShape2D):
 		return
 
-	var circle_shape := collision_shape.shape as CircleShape2D
+	var circle_shape: CircleShape2D = collision_shape.shape as CircleShape2D
 	circle_shape.radius = radius

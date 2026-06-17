@@ -5,6 +5,15 @@ const CONFIG_PATH := "res://data/mvp_config.json"
 const DEBUG_TOOLS_PATH := "res://scripts/debug_tools.gd"
 const DEFAULT_MAX_HP := 3
 
+var config: Dictionary = {}
+var ui_config: Dictionary = {}
+var max_hp: int = DEFAULT_MAX_HP
+var hp: int = DEFAULT_MAX_HP
+var elapsed_seconds: float = 0.0
+var kill_count: int = 0
+var aim_direction_name: String = ""
+var game_over: bool = false
+
 @onready var background: Node2D = $Background
 @onready var player: Node2D = $Player
 @onready var spawner: Node2D = $Spawner
@@ -12,14 +21,6 @@ const DEFAULT_MAX_HP := 3
 @onready var status_label: Label = $HUD/StatusLabel
 @onready var game_over_panel: ColorRect = $HUD/GameOverPanel
 @onready var game_over_label: Label = $HUD/GameOverPanel/GameOverLabel
-
-var config: Dictionary = {}
-var max_hp: int = DEFAULT_MAX_HP
-var hp: int = DEFAULT_MAX_HP
-var elapsed_seconds: float = 0.0
-var kill_count: int = 0
-var aim_direction_name: String = "上"
-var game_over: bool = false
 
 
 func _ready() -> void:
@@ -89,7 +90,7 @@ func _trigger_game_over() -> void:
 	spawner.call("set_spawning_enabled", false)
 	_clear_live_enemies()
 	game_over_panel.visible = true
-	game_over_label.text = "GAME OVER\n生存 %.1fs  |  击杀 %d\n按 Enter / Space / 手柄 A 重开" % [elapsed_seconds, kill_count]
+	game_over_label.text = _get_string("game_over_template", "GAME OVER\nSurvived %.1fs  |  Kills %d\nPress Enter / Space / gamepad A to restart") % [elapsed_seconds, kill_count]
 	_update_hud()
 
 
@@ -142,7 +143,7 @@ func debug_spawn_enemies(count: int) -> int:
 
 
 func debug_clear_enemies(count_as_kills: bool = false) -> int:
-	var cleared_count := enemies.get_child_count()
+	var cleared_count: int = enemies.get_child_count()
 	for enemy in enemies.get_children():
 		enemy.queue_free()
 	if count_as_kills:
@@ -160,12 +161,12 @@ func debug_set_spawning_enabled(enabled: bool) -> void:
 
 
 func _update_hud() -> void:
-	var status := "战斗中" if not game_over else "已失败"
-	status_label.text = "WASD MVP  |  %s\nHP %d/%d  |  Time %.1fs  |  Kills %d\nAim %s  |  方向键 / D-pad / 摇杆瞄准，Enter/Space/A 重开" % [status, hp, max_hp, elapsed_seconds, kill_count, aim_direction_name]
+	var status: String = _get_string("status_failed", "failed") if game_over else _get_string("status_fighting", "fighting")
+	status_label.text = _get_string("hud_template", "WASD MVP  |  %s\nHP %d/%d  |  Time %.1fs  |  Kills %d\nAim %s  |  Arrow keys / D-pad / sticks aim, Enter/Space/A restarts") % [status, hp, max_hp, elapsed_seconds, kill_count, aim_direction_name]
 
 
 func _load_config() -> Dictionary:
-	var file := FileAccess.open(CONFIG_PATH, FileAccess.READ)
+	var file: FileAccess = FileAccess.open(CONFIG_PATH, FileAccess.READ)
 	if file == null:
 		push_warning("[MvpMain] %s not found, using script defaults" % CONFIG_PATH)
 		return {}
@@ -180,7 +181,8 @@ func _load_config() -> Dictionary:
 
 
 func _apply_config() -> void:
-	var player_config := _get_config_section("player")
+	var player_config: Dictionary = _get_config_section("player")
+	ui_config = _get_config_section("ui")
 	max_hp = max(1, _get_int(player_config, "max_hp", max_hp))
 	hp = max_hp
 
@@ -211,16 +213,25 @@ func _get_int(section: Dictionary, key: String, default_value: int) -> int:
 	return default_value
 
 
+func _get_string(key: String, default_value: String) -> String:
+	var value: Variant = ui_config.get(key, default_value)
+	if value is String and not String(value).is_empty():
+		return value
+
+	push_warning("[MvpMain] config.ui.%s must be a non-empty string, using default" % key)
+	return default_value
+
+
 func _setup_debug_tools() -> void:
 	if not _is_debug_tools_enabled():
 		return
 
-	var debug_script := load(DEBUG_TOOLS_PATH) as Script
+	var debug_script: Script = load(DEBUG_TOOLS_PATH) as Script
 	if debug_script == null:
 		push_warning("[MvpMain] debug tools script is missing")
 		return
 
-	var debug_tools := CanvasLayer.new()
+	var debug_tools: CanvasLayer = CanvasLayer.new()
 	debug_tools.name = "DebugTools"
 	debug_tools.set_script(debug_script)
 	add_child(debug_tools)

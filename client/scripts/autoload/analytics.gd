@@ -1,7 +1,7 @@
 # Doc: docs/代码/analytics.md
 # Authority: docs/游戏设计文档.md §9.6, docs/词表与契约.md §4
-extends Node
 class_name AnalyticsAutoload
+extends Node
 
 
 signal event_tracked(event_data: Dictionary)

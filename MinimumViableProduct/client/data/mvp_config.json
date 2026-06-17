@@ -4,7 +4,13 @@
     "damage_flash_seconds": 0.18
   },
   "input": {
-    "gamepad_deadzone": 0.35
+    "gamepad_deadzone": 0.35,
+    "direction_names": {
+      "up": "上",
+      "down": "下",
+      "left": "左",
+      "right": "右"
+    }
   },
   "weapon": {
     "fire_interval": 0.35,
@@ -33,5 +39,11 @@
     "center_inner_radius": 52.0,
     "center_mark_inner": 60.0,
     "center_mark_outer": 95.0
+  },
+  "ui": {
+    "status_fighting": "战斗中",
+    "status_failed": "已失败",
+    "hud_template": "WASD MVP  |  %s\nHP %d/%d  |  Time %.1fs  |  Kills %d\nAim %s  |  方向键 / D-pad / 摇杆瞄准，Enter/Space/A 重开",
+    "game_over_template": "GAME OVER\n生存 %.1fs  |  击杀 %d\n按 Enter / Space / 手柄 A 重开"
   }
 }

@@ -1,7 +1,7 @@
 # Doc: docs/代码/ui_manager.md
 # Authority: docs/游戏设计文档.md §9.14, docs/决策记录.md ADR #23
-extends Node
 class_name UIManagerAutoload
+extends Node
 
 
 signal ui_pushed(node: Node, context: Dictionary)

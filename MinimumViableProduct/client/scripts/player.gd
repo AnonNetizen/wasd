@@ -1,18 +1,18 @@
 # Doc: MinimumViableProduct/docs/代码/mvp_client.md
-extends Node2D
 class_name MvpPlayer
+extends Node2D
 
 signal aim_changed(direction_name: String)
 signal damage_taken(amount: int)
 
-@onready var aim_input: Node = $AimInput
-@onready var weapon: Node2D = $Weapon
-
 var aim_direction: Vector2 = Vector2.UP
-var aim_direction_name: String = "上"
+var aim_direction_name: String = ""
 var is_active: bool = true
 var damage_flash_duration: float = 0.18
 var damage_flash_seconds: float = 0.0
+
+@onready var aim_input: Node = $AimInput
+@onready var weapon: Node2D = $Weapon
 
 
 func _ready() -> void:
@@ -46,6 +46,7 @@ func apply_config(player_config: Dictionary, weapon_config: Dictionary, input_co
 		weapon.call("apply_config", weapon_config)
 	if aim_input.has_method("apply_config"):
 		aim_input.call("apply_config", input_config)
+		aim_direction_name = aim_input.call("get_current_direction_name")
 
 
 func take_damage(amount: int) -> void:

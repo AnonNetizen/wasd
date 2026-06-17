@@ -1,7 +1,7 @@
 # Doc: docs/代码/settings.md
 # Authority: docs/游戏设计文档.md §9.5, docs/词表与契约.md §5
-extends Node
 class_name SettingsAutoload
+extends Node
 
 
 signal setting_changed(key: String, value: Variant)

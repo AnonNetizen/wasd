@@ -44,7 +44,7 @@ func _spawn_enemy() -> void:
 		push_warning("[MvpSpawner] target is not assigned")
 		return
 
-	var enemy := enemy_scene.instantiate()
+	var enemy: Node = enemy_scene.instantiate()
 	if not enemy is Node2D:
 		push_warning("[MvpSpawner] enemy_scene root must be Node2D")
 		return
@@ -52,7 +52,7 @@ func _spawn_enemy() -> void:
 		push_warning("[MvpSpawner] enemy_scene root must expose setup")
 		return
 
-	var enemy_node := enemy as Node2D
+	var enemy_node: Node2D = enemy as Node2D
 	spawn_parent.add_child(enemy_node)
 	enemy_node.global_position = _next_spawn_position()
 	enemy_node.call("setup", target, enemy_speed, enemy_config)
@@ -64,7 +64,7 @@ func set_spawning_enabled(enabled: bool) -> void:
 
 
 func spawn_enemy_now(count: int = 1) -> int:
-	var spawned_count := 0
+	var spawned_count: int = 0
 	for _index in range(max(1, count)):
 		var before_count := 0
 		if spawn_parent != null:

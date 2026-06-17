@@ -1,7 +1,7 @@
 # Doc: docs/代码/save_manager.md
 # Authority: docs/游戏设计文档.md §9.16, docs/决策记录.md ADR #25 / #48
-extends Node
 class_name SaveManagerAutoload
+extends Node
 
 
 signal save_written(slot: String, kind: String, path: String)
@@ -175,7 +175,7 @@ func has_save(slot: String, kind: String) -> bool:
 
 func list_slots() -> Array[String]:
 	var slots: Array[String] = []
-	var root := DirAccess.open(SAVE_ROOT)
+	var root: DirAccess = DirAccess.open(SAVE_ROOT)
 	if root == null:
 		return slots
 
@@ -217,7 +217,7 @@ func _read_save_file(path: String, slot: String, kind: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {"ok": false, "error": "[SaveManager] save file not found: %s" % path}
 
-	var file := FileAccess.open(path, FileAccess.READ)
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return {"ok": false, "error": "[SaveManager] save file is not readable: %s" % path}
 
@@ -304,7 +304,7 @@ func _migrate_envelope(envelope: Dictionary) -> Dictionary:
 
 
 func _write_json_file(path: String, value: Dictionary) -> bool:
-	var file := FileAccess.open(path, FileAccess.WRITE)
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		_set_error("[SaveManager] failed to open save file for writing: %s" % path)
 		return false
@@ -385,7 +385,7 @@ func _ensure_dir(path: String) -> bool:
 
 func _remove_slot_dir_if_empty(slot: String) -> void:
 	var slot_dir: String = _slot_dir(slot)
-	var dir := DirAccess.open(slot_dir)
+	var dir: DirAccess = DirAccess.open(slot_dir)
 	if dir == null:
 		return
 

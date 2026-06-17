@@ -1,7 +1,7 @@
 # Doc: docs/代码/localization.md
 # Authority: docs/游戏设计文档.md §9.4, client/locale/README.md
-extends Node
 class_name LocalizationAutoload
+extends Node
 
 
 signal locale_changed(locale: String)

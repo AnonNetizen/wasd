@@ -1,7 +1,7 @@
 # Doc: docs/代码/rng.md
 # Authority: docs/游戏设计文档.md §9.18.1, docs/词表与契约.md §11
-extends Node
 class_name RngAutoload
+extends Node
 
 
 class Stream:

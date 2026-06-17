@@ -1,7 +1,7 @@
 # Doc: docs/代码/data_loader.md
 # Authority: docs/游戏设计文档.md §9.3, docs/词表与契约.md
-extends Node
 class_name DataLoaderAutoload
+extends Node
 
 
 signal data_reloaded()
@@ -103,7 +103,7 @@ func schema_counts() -> Dictionary:
 
 
 func load_json(resource_path: String) -> Variant:
-	var file := FileAccess.open(resource_path, FileAccess.READ)
+	var file: FileAccess = FileAccess.open(resource_path, FileAccess.READ)
 	if file == null:
 		_fail(resource_path, "file", "readable JSON file")
 		return {}
@@ -118,7 +118,7 @@ func load_json(resource_path: String) -> Variant:
 
 
 func load_csv(resource_path: String, has_header: bool = true) -> Array[Dictionary]:
-	var file := FileAccess.open(resource_path, FileAccess.READ)
+	var file: FileAccess = FileAccess.open(resource_path, FileAccess.READ)
 	if file == null:
 		_fail(resource_path, "file", "readable CSV file")
 		return []

@@ -1,7 +1,7 @@
 # Doc: docs/代码/pool_manager.md
 # Authority: docs/游戏设计文档.md §9.13, docs/词表与契约.md §8
-extends Node
 class_name PoolManagerAutoload
+extends Node
 
 
 signal pool_registered(pool_id: String, max_size: int)

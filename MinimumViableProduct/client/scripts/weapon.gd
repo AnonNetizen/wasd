@@ -1,6 +1,6 @@
 # Doc: MinimumViableProduct/docs/代码/mvp_client.md
-extends Node2D
 class_name MvpWeapon
+extends Node2D
 
 @export var bullet_scene: PackedScene
 @export var fire_interval: float = 0.35
@@ -50,7 +50,7 @@ func _fire() -> void:
 		push_warning("[MvpWeapon] bullet_scene is not assigned")
 		return
 
-	var bullet := bullet_scene.instantiate()
+	var bullet: Node = bullet_scene.instantiate()
 	if not bullet is Node2D:
 		push_warning("[MvpWeapon] bullet_scene root must be Node2D")
 		return
@@ -62,7 +62,7 @@ func _fire() -> void:
 	if bullet_parent == null:
 		bullet_parent = get_tree().root
 
-	var bullet_node := bullet as Node2D
+	var bullet_node: Node2D = bullet as Node2D
 	bullet_parent.add_child(bullet_node)
 	bullet_node.global_position = global_position + aim_direction * muzzle_distance
 	bullet_node.call("setup", aim_direction, bullet_speed, bullet_lifetime, bullet_damage, bullet_hitbox_radius)

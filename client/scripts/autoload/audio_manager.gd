@@ -1,7 +1,7 @@
 # Doc: docs/代码/audio_manager.md
 # Authority: docs/游戏设计文档.md §9.17, docs/决策记录.md ADR #27
-extends Node
 class_name AudioManagerAutoload
+extends Node
 
 
 signal sfx_registered(audio_id: String, max_polyphony: int)

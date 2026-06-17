@@ -100,8 +100,8 @@ Player (Node2D, player.gd)
 | 名称 | 输入 | 输出 | 约束 |
 |------|------|------|------|
 | `MvpAimInput.get_current_direction()` | 无 | `Vector2` | 返回当前四方向瞄准向量，默认 `Vector2.UP` |
-| `MvpAimInput.get_current_direction_name()` | 无 | `String` | 返回 HUD 用中文方向名：`上` / `下` / `左` / `右` |
-| `MvpAimInput.apply_config(config)` | `Dictionary` | 无 | 应用 `input.gamepad_deadzone`，并同步 InputMap action 死区 |
+| `MvpAimInput.get_current_direction_name()` | 无 | `String` | 返回 HUD 用配置方向名，默认配置为 `上` / `下` / `左` / `右` |
+| `MvpAimInput.apply_config(config)` | `Dictionary` | 无 | 应用 `input.gamepad_deadzone` 与 `input.direction_names`，并同步 InputMap action 死区 |
 | `MvpPlayer.get_aim_direction_name()` | 无 | `String` | 供 `main.gd` 初始化 HUD |
 | `MvpPlayer.set_active(active)` | `bool` | 无 | 失败后停用玩家与武器 |
 | `MvpPlayer.apply_config(player_config, weapon_config, input_config)` | `Dictionary`, `Dictionary`, `Dictionary` | 无 | 应用玩家受伤反馈，并把武器 / 输入配置转发给子节点 |
@@ -210,11 +210,12 @@ MVP 只使用一个轻量 JSON：`MinimumViableProduct/client/data/mvp_config.js
 | Section | 读取方 | 覆盖内容 |
 |---------|--------|----------|
 | `player` | `main.gd`、`player.gd` | `max_hp`、`damage_flash_seconds` |
-| `input` | `aim_input.gd` | `gamepad_deadzone` |
+| `input` | `aim_input.gd` | `gamepad_deadzone`、四方向 HUD 显示文本 |
 | `weapon` | `weapon.gd`、`bullet.gd` | 射速、子弹速度、寿命、伤害、碰撞半径、枪口距离 |
 | `enemy` | `spawner.gd`、`enemy.gd` | 敌人速度、HP、接触伤害、接触半径、碰撞半径 |
 | `spawner` | `spawner.gd` | 刷怪间隔、刷怪边距、开局冷却 |
 | `background` | `background.gd` | 网格尺寸、四方向通道宽度、中心标记尺寸 |
+| `ui` | `main.gd` | HUD 状态文本、HUD 模板和失败面板模板 |
 
 约束：
 
@@ -260,13 +261,15 @@ MVP 的 GM 指令控制台只在 `OS.is_debug_build()` 或自定义 feature `dev
 | 你想改什么 | 主要文件 | 同步文档 | 验证方式 |
 |------------|----------|----------|----------|
 | 改玩家初始 HP | `mvp_config.json` 的 `player.max_hp` | `MinimumViableProduct/client/data/README.md` | 试玩到受伤和失败 |
-| 改 HUD 文案或布局 | `main.tscn`、`main.gd` | 本文档 `场景树`、`运行流程` | 启动并观察 HUD、失败面板 |
+| 改 HUD 文案 | `mvp_config.json` 的 `ui.*` | `MinimumViableProduct/client/data/README.md` | 启动并观察 HUD、失败面板 |
+| 改 HUD 布局 | `main.tscn`、`main.gd` | 本文档 `场景树`、`运行流程` | 启动并观察 HUD、失败面板 |
 | 改射速 | `mvp_config.json` 的 `weapon.fire_interval` | `MinimumViableProduct/client/data/README.md` | 试玩 30 秒观察发射频率 |
 | 改子弹速度 / 寿命 / 伤害 | `mvp_config.json` 的 `weapon.bullet_*` | `MinimumViableProduct/client/data/README.md` | 试玩确认子弹射程、命中和击杀次数 |
 | 改敌人速度 / HP / 接触伤害 | `mvp_config.json` 的 `enemy.*` | `MinimumViableProduct/client/data/README.md` | 试玩确认压力节奏、击杀次数和受伤 |
 | 改刷怪间隔 | `mvp_config.json` 的 `spawner.spawn_interval` | `MinimumViableProduct/client/data/README.md` | 试玩 60 秒观察刷怪密度 |
 | 改刷怪顺序或位置 | `spawner.gd` 的 `_next_spawn_position()` | 本文档 `运行流程`、`扩展点` | 观察上、右、下、左是否符合预期 |
 | 改手柄绑定 | `aim_input.gd` 的 `_ensure_default_input_map()` | 本文档 `输入契约`、`输入映射细表` | 实体手柄试玩 D-pad、左右摇杆、A 键 |
+| 改方向显示文本 | `mvp_config.json` 的 `input.direction_names` | `MinimumViableProduct/client/data/README.md` | 启动观察 HUD Aim 文本 |
 | 改手柄死区 | `mvp_config.json` 的 `input.gamepad_deadzone` | `MinimumViableProduct/client/data/README.md` | 实体手柄试玩斜向 / 小幅摇杆输入 |
 | 改背景网格或中心标记尺寸 | `mvp_config.json` 的 `background.*` | `MinimumViableProduct/client/data/README.md` | 启动观察背景可读性 |
 | 改失败条件 | `enemy.gd`、`player.gd`、`main.gd` | 本文档 `失败与重开流程`、`Signal / Event` | 试玩到 Game Over 并重开 |
@@ -317,7 +320,7 @@ MVP 的 GM 指令控制台只在 `OS.is_debug_build()` 或自定义 feature `dev
 ## 已知限制
 
 - MVP 当前直接 `instantiate()` / `queue_free()` 高频实体，属于隔离原型折中；正式项目必须改为 `PoolManager`。
-- MVP 当前文本直接写在 HUD 中，属于原型折中；正式项目必须走本地化键。
+- MVP 当前 HUD 文案和方向名集中在 `mvp_config.json`，但仍不接完整项目 `Localization`；正式项目必须走本地化键。
 - MVP 当前使用轻量 `mvp_config.json` 集中核心调参值，但没有正式 `DataLoader`、schema 校验或热重载；正式项目必须走 `client/data/*.json` + `DataLoader`。
 - MVP 当前失败状态由 `main.gd` 管理，属于轻量 GameSession；正式项目必须走 `GameState` / `UIManager`。
 - MVP 当前 GM 指令控制台是轻量单脚本实现；正式项目必须拆成 `DebugConsole` / `GMCommandRegistry` 等独立模块，并在 release preset 排除资源。

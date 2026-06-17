@@ -1,7 +1,7 @@
 # Doc: docs/代码/replay.md
 # Authority: docs/游戏设计文档.md §9.9, docs/游戏设计文档.md §9.18
-extends Node
 class_name ReplayAutoload
+extends Node
 
 
 signal recording_enabled_changed(enabled: bool)

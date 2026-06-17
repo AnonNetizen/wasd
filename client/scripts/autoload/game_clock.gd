@@ -1,7 +1,7 @@
 # Doc: docs/代码/game_clock.md
 # Authority: docs/游戏设计文档.md §9.18.2, docs/决策记录.md ADR #27
-extends Node
 class_name GameClockAutoload
+extends Node
 
 
 signal time_scale_changed(time_scale: float)

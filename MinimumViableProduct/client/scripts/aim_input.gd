@@ -1,6 +1,6 @@
 # Doc: MinimumViableProduct/docs/代码/mvp_client.md
-extends Node
 class_name MvpAimInput
+extends Node
 
 signal aim_changed(direction: Vector2, direction_name: String)
 
@@ -13,10 +13,17 @@ const ACTION_ACCEPT := &"ui_accept"
 @export var gamepad_deadzone: float = 0.35
 
 var current_direction: Vector2 = Vector2.UP
-var current_direction_name: String = "上"
+var direction_names: Dictionary = {
+	Vector2.UP: "up",
+	Vector2.DOWN: "down",
+	Vector2.LEFT: "left",
+	Vector2.RIGHT: "right",
+}
+var current_direction_name: String = ""
 
 
 func _ready() -> void:
+	current_direction_name = _get_direction_name(current_direction)
 	_ensure_default_input_map()
 
 
@@ -39,6 +46,12 @@ func get_current_direction_name() -> String:
 
 func apply_config(config: Dictionary) -> void:
 	gamepad_deadzone = clampf(_get_number(config, "gamepad_deadzone", gamepad_deadzone), 0.0, 1.0)
+	var configured_names: Dictionary = _get_dictionary(config, "direction_names", direction_names)
+	direction_names[Vector2.UP] = String(configured_names.get("up", direction_names[Vector2.UP]))
+	direction_names[Vector2.DOWN] = String(configured_names.get("down", direction_names[Vector2.DOWN]))
+	direction_names[Vector2.LEFT] = String(configured_names.get("left", direction_names[Vector2.LEFT]))
+	direction_names[Vector2.RIGHT] = String(configured_names.get("right", direction_names[Vector2.RIGHT]))
+	current_direction_name = _get_direction_name(current_direction)
 	for action in [ACTION_UP, ACTION_DOWN, ACTION_LEFT, ACTION_RIGHT, ACTION_ACCEPT]:
 		if InputMap.has_action(action):
 			InputMap.action_set_deadzone(action, gamepad_deadzone)
@@ -61,13 +74,7 @@ func _snap_to_cardinal(input_vector: Vector2) -> Vector2:
 
 
 func _get_direction_name(direction: Vector2) -> String:
-	if direction == Vector2.DOWN:
-		return "下"
-	if direction == Vector2.LEFT:
-		return "左"
-	if direction == Vector2.RIGHT:
-		return "右"
-	return "上"
+	return String(direction_names.get(direction, direction_names[Vector2.UP]))
 
 
 func _ensure_default_input_map() -> void:
@@ -140,4 +147,13 @@ func _get_number(section: Dictionary, key: String, default_value: float) -> floa
 		return float(value)
 
 	push_warning("[MvpAimInput] config.%s must be a number, using %.2f" % [key, default_value])
+	return default_value
+
+
+func _get_dictionary(section: Dictionary, key: String, default_value: Dictionary) -> Dictionary:
+	var value: Variant = section.get(key, default_value)
+	if value is Dictionary:
+		return value as Dictionary
+
+	push_warning("[MvpAimInput] config.%s must be an object, using defaults" % key)
 	return default_value
