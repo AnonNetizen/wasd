@@ -70,7 +70,7 @@
 | 加 / 改角色 | GDD §3.4、`client/data/README.md`、`docs/词表与契约.md` §12、`docs/AI导航.md` | `client/data/characters.json`、`client/locale/strings.csv`、必要时词表和模块文档 | `python tools/sync_contracts.py --check`；`python tools/validate_data.py` |
 | 加 / 改武器 | `client/data/README.md`、`docs/词表与契约.md` §8 / §9 / §10、`docs/AI导航.md` | `client/data/weapons.json`、`client/locale/strings.csv`、必要时角色 / 模式引用 | `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；schema 变化跑 `python tools/test_data_loader_schema.py` |
 | 加 / 改游戏模式 | GDD §6.6、`client/data/README.md`、`docs/AI导航.md` | `client/data/game_modes.json`、资源池 / 权重 / 禁用列表、必要时词表和模块文档 | `python tools/docs_health_check.py`；`python tools/validate_data.py` |
-| 加遗物 / 道具 | `docs/AI协作/任务模板/加遗物.md`、`docs/词表与契约.md`、`docs/游戏设计文档.md` | `client/data/relics.json`、locale、必要时词表和效果原语 | `python tools/docs_health_check.py`；词表变更后跑 `/sync-contracts` 或等价校验 |
+| 加遗物 / 道具 | `client/data/README.md`、`client/locale/README.md`、`docs/词表与契约.md` §1 / §2 / §3 / §12、`docs/AI协作/任务模板/加遗物.md` | `client/data/relics.json`、`client/locale/strings.csv`、必要时词表、模式引用和效果原语 | `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；schema 变化跑 `python tools/test_data_loader_schema.py` |
 | 加敌人 | `docs/AI协作/任务模板/加敌人.md`、`docs/词表与契约.md`、GDD 敌人章节 | `client/data/enemies.json`、locale、必要时行为 primitive | `python tools/docs_health_check.py`；数据 schema 落地后跑 schema 校验 |
 | 改输入 / 手柄 | `docs/游戏设计文档.md`、`docs/词表与契约.md` 第 7 节、`docs/测试策略.md` | GDD、词表、规则、Settings/InputMap 代码、AI导航 | `python tools/docs_health_check.py`；代码落地后跑 headless + 手动输入回归 |
 | 改经验 / 升级系统 | `docs/游戏设计文档.md` §7.1、`docs/词表与契约.md`、`docs/测试策略.md` | `GrowthSystem`、升级 UI、GDD、词表、AI导航、必要时 `docs/修改建议.md` | `python tools/docs_health_check.py`；代码落地后固定 seed 验证默认 3 选 1 与 `luck` 概率 4 选 1 |

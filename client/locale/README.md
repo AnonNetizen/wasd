@@ -21,7 +21,7 @@
 | 加 UI 文案 | 在 `strings.csv` 加 `ui_*` key；代码使用 `tr("ui_xxx")` |
 | 加角色名 / 描述 | 在 `strings.csv` 加 `character_*_name` / `character_*_desc`；数据填 `name_key` / `desc_key` |
 | 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |
-| 加遗物 / 道具名 | 在 `strings.csv` 加 `relic_*_name` / `item_*_name`；数据填 `name_key` |
+| 加遗物 / 道具名和描述 | 在 `strings.csv` 加 `relic_*_name` / `relic_*_desc`、`item_*_name` / `item_*_desc`；数据填 `name_key` / `desc_key` |
 | 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，动态数值用 `{value}` 这类占位符 |
 | 加局外成长文案 | 在 `strings.csv` 加 `meta_*_name` / `meta_*_desc`；`meta_progression.json` 填 `name_key` / `desc_key` |
 | 改中文或英文翻译 | 只改对应语言列，不改 key；另一语言由 AI 自动补首版译文后人工复核 |

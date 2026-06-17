@@ -12,6 +12,7 @@ const LOCALE_STRINGS_PATH: String = "res://locale/strings.csv"
 const PLAYER_DATA_PATH: String = "res://data/player.json"
 const CHARACTERS_PATH: String = "res://data/characters.json"
 const WEAPONS_PATH: String = "res://data/weapons.json"
+const RELICS_PATH: String = "res://data/relics.json"
 const META_PROGRESSION_PATH: String = "res://data/meta_progression.json"
 const GROWTH_CURVE_PATH: String = "res://data/growth.csv"
 const GROWTH_POOLS_PATH: String = "res://data/growth_pools.json"
@@ -77,12 +78,14 @@ func validate_project_data() -> bool:
 	is_valid = _validate_player_json() and is_valid
 	is_valid = _validate_weapons_json(locale_keys) and is_valid
 	var weapon_ids: Dictionary = _collect_weapon_ids()
+	is_valid = _validate_relics_json(locale_keys) and is_valid
+	var relic_ids: Dictionary = _collect_relic_ids()
 	is_valid = _validate_characters_json(locale_keys, weapon_ids) and is_valid
 	var character_ids: Dictionary = _collect_character_ids()
 	is_valid = _validate_meta_progression(locale_keys, character_ids) and is_valid
 	is_valid = _validate_growth_csv() and is_valid
 	is_valid = _validate_growth_pools() and is_valid
-	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids) and is_valid
+	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, relic_ids) and is_valid
 
 	return is_valid
 
@@ -299,6 +302,48 @@ func _validate_weapon_projectile(field: String, data: Variant) -> bool:
 	is_valid = _require_number(WEAPONS_PATH, "%s.hit_radius" % field, projectile.get("hit_radius"), 0.0, null, true) and is_valid
 	is_valid = _require_number(WEAPONS_PATH, "%s.muzzle_distance" % field, projectile.get("muzzle_distance"), 0.0, null, true) and is_valid
 	is_valid = _require_number(WEAPONS_PATH, "%s.lifetime" % field, projectile.get("lifetime"), 0.0, null, true) and is_valid
+	return is_valid
+
+
+func _validate_relics_json(locale_keys: Dictionary) -> bool:
+	var data: Variant = load_json(RELICS_PATH)
+	if not data is Dictionary:
+		return _schema_fail(RELICS_PATH, "root", "Dictionary")
+
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(RELICS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var relics: Array = _require_array(RELICS_PATH, "relics", payload.get("relics"))
+	if relics.is_empty():
+		is_valid = _schema_fail(RELICS_PATH, "relics", "non-empty Array") and is_valid
+	var seen: Dictionary = {}
+	_last_schema_counts["relics"] = relics.size()
+	for index: int in range(relics.size()):
+		var field: String = "relics[%d]" % index
+		var relic: Variant = relics[index]
+		if not relic is Dictionary:
+			is_valid = _schema_fail(RELICS_PATH, field, "Dictionary") and is_valid
+			continue
+		var relic_dict: Dictionary = relic as Dictionary
+		is_valid = _require_non_empty_string(RELICS_PATH, "%s.id" % field, relic_dict.get("id")) and is_valid
+		var relic_id: String = String(relic_dict.get("id", ""))
+		if not relic_id.is_empty():
+			if seen.has(relic_id):
+				is_valid = _schema_fail(RELICS_PATH, "%s.id" % field, "unique relic id") and is_valid
+			seen[relic_id] = true
+		is_valid = _require_locale_key(RELICS_PATH, "%s.name_key" % field, relic_dict.get("name_key"), locale_keys) and is_valid
+		is_valid = _require_locale_key(RELICS_PATH, "%s.desc_key" % field, relic_dict.get("desc_key"), locale_keys) and is_valid
+		is_valid = _require_bool(RELICS_PATH, "%s.default_unlocked" % field, relic_dict.get("default_unlocked")) and is_valid
+		var tags: Array = _require_array(RELICS_PATH, "%s.tags" % field, relic_dict.get("tags"))
+		is_valid = _validate_registered_string_array(RELICS_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
+		if not tags.has("tag_relic"):
+			is_valid = _schema_fail(RELICS_PATH, "%s.tags" % field, "tag_relic") and is_valid
+		var modifiers: Array = _require_array(RELICS_PATH, "%s.modifiers" % field, relic_dict.get("modifiers"))
+		var behaviors: Array = _require_array(RELICS_PATH, "%s.behaviors" % field, relic_dict.get("behaviors"))
+		is_valid = _validate_modifiers(RELICS_PATH, "%s.modifiers" % field, modifiers, false) and is_valid
+		is_valid = _validate_behaviors(RELICS_PATH, "%s.behaviors" % field, behaviors) and is_valid
+		if modifiers.is_empty() and behaviors.is_empty():
+			is_valid = _schema_fail(RELICS_PATH, field, "at least one modifier or behavior") and is_valid
 	return is_valid
 
 
@@ -527,7 +572,7 @@ func _validate_growth_pools() -> bool:
 	return is_valid
 
 
-func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary) -> bool:
+func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, relic_ids: Dictionary) -> bool:
 	var data: Variant = load_json(GAME_MODES_PATH)
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "root", "Dictionary")
@@ -559,7 +604,7 @@ func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, we
 		var team_ids: Dictionary = team_result.get("ids", {}) as Dictionary
 		is_valid = bool(team_result.get("is_valid", false)) and is_valid
 		is_valid = _validate_mode_participants(mode_field, mode_dict.get("participants"), team_ids) and is_valid
-		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids) and is_valid
+		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, relic_ids) and is_valid
 		if mode_dict.has("blocklists"):
 			is_valid = _validate_mode_blocklists("%s.blocklists" % mode_field, mode_dict.get("blocklists")) and is_valid
 		if mode_dict.has("overrides"):
@@ -623,7 +668,7 @@ func _validate_mode_participants(mode_field: String, data: Variant, team_ids: Di
 	return is_valid
 
 
-func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_pool_ids: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary) -> bool:
+func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_pool_ids: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, relic_ids: Dictionary) -> bool:
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "Dictionary")
 	var payload: Dictionary = data as Dictionary
@@ -632,9 +677,11 @@ func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_poo
 		is_valid = _validate_weighted_character_entries("%s.resource_pools.characters" % mode_field, payload.get("characters"), character_ids) and is_valid
 	if payload.has("weapons"):
 		is_valid = _validate_weighted_weapon_entries("%s.resource_pools.weapons" % mode_field, payload.get("weapons"), weapon_ids) and is_valid
+	if payload.has("relics"):
+		is_valid = _validate_weighted_relic_entries("%s.resource_pools.relics" % mode_field, payload.get("relics"), relic_ids) and is_valid
 	if payload.has("growth_pools"):
 		is_valid = _validate_weighted_growth_pool_entries("%s.resource_pools.growth_pools" % mode_field, payload.get("growth_pools"), growth_pool_ids) and is_valid
-	if not payload.has("characters") and not payload.has("weapons") and not payload.has("growth_pools"):
+	if not payload.has("characters") and not payload.has("weapons") and not payload.has("relics") and not payload.has("growth_pools"):
 		is_valid = _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "at least one supported pool") and is_valid
 	return is_valid
 
@@ -674,6 +721,26 @@ func _validate_weighted_weapon_entries(field: String, data: Variant, weapon_ids:
 		var weapon_id: String = String(entry_dict.get("id", ""))
 		if not weapon_id.is_empty() and not weapon_ids.has(weapon_id):
 			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "weapon defined in weapons.json") and is_valid
+		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
+	return is_valid
+
+
+func _validate_weighted_relic_entries(field: String, data: Variant, relic_ids: Dictionary) -> bool:
+	var entries: Array = _require_array(GAME_MODES_PATH, field, data)
+	var is_valid: bool = true
+	if entries.is_empty():
+		is_valid = _schema_fail(GAME_MODES_PATH, field, "non-empty Array") and is_valid
+	for index: int in range(entries.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var entry: Variant = entries[index]
+		if not entry is Dictionary:
+			is_valid = _schema_fail(GAME_MODES_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var entry_dict: Dictionary = entry as Dictionary
+		is_valid = _require_non_empty_string(GAME_MODES_PATH, "%s.id" % item_field, entry_dict.get("id")) and is_valid
+		var relic_id: String = String(entry_dict.get("id", ""))
+		if not relic_id.is_empty() and not relic_ids.has(relic_id):
+			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "relic defined in relics.json") and is_valid
 		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
 	return is_valid
 
@@ -768,6 +835,23 @@ func _validate_modifiers(resource_path: String, field: String, data: Variant, re
 	return is_valid
 
 
+func _validate_behaviors(resource_path: String, field: String, data: Variant) -> bool:
+	var behaviors: Array = _require_array(resource_path, field, data)
+	var is_valid: bool = true
+	for index: int in range(behaviors.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var behavior: Variant = behaviors[index]
+		if not behavior is Dictionary:
+			is_valid = _schema_fail(resource_path, item_field, "Dictionary") and is_valid
+			continue
+		var behavior_dict: Dictionary = behavior as Dictionary
+		is_valid = _require_registered(resource_path, "%s.event" % item_field, behavior_dict.get("event"), "events") != "" and is_valid
+		is_valid = _require_registered(resource_path, "%s.effect" % item_field, behavior_dict.get("effect"), "effects") != "" and is_valid
+		if not behavior_dict.get("params") is Dictionary:
+			is_valid = _schema_fail(resource_path, "%s.params" % item_field, "Dictionary") and is_valid
+	return is_valid
+
+
 func _validate_registered_string_array(resource_path: String, field: String, data: Variant, contract_key: String, allow_empty: bool) -> bool:
 	var values: Array = _require_array(resource_path, field, data)
 	var is_valid: bool = true
@@ -842,6 +926,20 @@ func _collect_weapon_ids() -> Dictionary:
 	for weapon: Variant in weapons:
 		if weapon is Dictionary and (weapon as Dictionary).get("id") is String:
 			ids[String((weapon as Dictionary).get("id"))] = true
+	return ids
+
+
+func _collect_relic_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(RELICS_PATH)
+	if not data is Dictionary:
+		return ids
+	var relics: Variant = (data as Dictionary).get("relics")
+	if not relics is Array:
+		return ids
+	for relic: Variant in relics:
+		if relic is Dictionary and (relic as Dictionary).get("id") is String:
+			ids[String((relic as Dictionary).get("id"))] = true
 	return ids
 
 

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "relics": [
+    {
+      "id": "relic_sharp_rounds",
+      "name_key": "relic_sharp_rounds_name",
+      "desc_key": "relic_sharp_rounds_desc",
+      "default_unlocked": true,
+      "tags": ["tag_relic"],
+      "modifiers": [
+        {
+          "stat": "damage",
+          "type": "add",
+          "value": 0.5
+        }
+      ],
+      "behaviors": []
+    }
+  ]
+}

@@ -18,13 +18,14 @@ func _ready() -> void:
 	var save_kind_count: int = SaveManager.registered_save_kinds().size()
 	var audio_prefix_count: int = AudioManager.registered_audio_prefixes().size()
 	var state_name: StringName = GameState.current()
-	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d data_schema_ok=%s player_stats=%d weapons=%d characters=%d locale_keys=%d growth_levels=%d growth_pools=%d game_modes=%d meta_upgrades=%d meta_unlocks=%d settings=%d analytics_events=%d analytics_enabled=%s replay_enabled=%s replay_recording=%s pool_ids=%d active_pools=%d save_kinds=%d save_slots=%d audio_prefixes=%d audio_streams=%d audio_buses_ready=%s locale=%s ui_stack=%d state=%s seed=%d" % [
+	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d data_schema_ok=%s player_stats=%d weapons=%d relics=%d characters=%d locale_keys=%d growth_levels=%d growth_pools=%d game_modes=%d meta_upgrades=%d meta_unlocks=%d settings=%d analytics_events=%d analytics_enabled=%s replay_enabled=%s replay_recording=%s pool_ids=%d active_pools=%d save_kinds=%d save_slots=%d audio_prefixes=%d audio_streams=%d audio_buses_ready=%s locale=%s ui_stack=%d state=%s seed=%d" % [
 		BOOT_LOG_PREFIX,
 		contract_count,
 		stream_count,
 		str(data_schema_ok),
 		int(schema_counts.get("player_stats", 0)),
 		int(schema_counts.get("weapons", 0)),
+		int(schema_counts.get("relics", 0)),
 		int(schema_counts.get("characters", 0)),
 		int(schema_counts.get("locale_keys", 0)),
 		int(schema_counts.get("growth_levels", 0)),

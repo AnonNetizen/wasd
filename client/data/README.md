@@ -21,7 +21,7 @@
 | 改角色基础属性 / 标签 / 能力 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；起始武器填 `starting_weapon_id`，且必须存在于 `weapons.json` |
 | 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
 | 改敌人血量 / 速度 / 接触伤害 | `enemies.csv`（落地后） | 敌人 id、标签、伤害类型必须来自词表 |
-| 改遗物 / 道具数值 | `relics.json` / `active_items.json` / `consumables.json`（落地后） | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
+| 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
 | 改刷怪强度 / 难度曲线 | `spawn_waves.csv`（落地后） | 大改后需要跑回放 / 平衡验证 |
 | 改经验阈值 / 升级候选概率 | `growth.csv`（落地后） | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
@@ -36,7 +36,7 @@
 | `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
 | `characters.json` | 已建立 | 角色列表：基础属性、tags、capabilities、控制配置和起始武器引用；当前不含遗物运行时 |
 | `weapons.json` | 已建立 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
-| `relics.json` | 规划 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
+| `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 规划 | 主动道具：充能方式、冷却、效果原语与参数 |
 | `consumables.json` | 规划 | 消耗品：拾取 / 使用规则、效果原语与参数 |
 | `enemies.csv` | 规划 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励等 |
@@ -181,6 +181,7 @@ JSON 示例：
       "resource_pools": {
         "characters": [{ "id": "character_default", "weight": 100 }],
         "weapons": [{ "id": "weapon_basic_blaster", "weight": 100 }],
+        "relics": [{ "id": "relic_sharp_rounds", "weight": 100 }],
         "growth_pools": [{ "id": "default_level_up", "weight": 100 }]
       },
       "blocklists": { "content_tags": [] },
@@ -208,13 +209,15 @@ JSON 示例：
 | `resource_pools.characters[].id` | string | 词表 §12.1 character id，且必须存在于 `characters.json` | 可用角色 id |
 | `resource_pools.weapons[]` | array[object] | 已声明时必须非空 | 本模式可用武器池 |
 | `resource_pools.weapons[].id` | string | 必须存在于 `weapons.json` | 可用武器 id |
+| `resource_pools.relics[]` | array[object] | 已声明时必须非空 | 本模式可用遗物池 |
+| `resource_pools.relics[].id` | string | 必须存在于 `relics.json` | 可用遗物 id |
 | `resource_pools.*[].weight` | int | `>= 0` | 抽取 / 展示权重；具体抽取由后续系统实现 |
 | `resource_pools.growth_pools[]` | array[object] | 已声明时必须非空 | 本模式使用的升级候选池 |
 | `resource_pools.growth_pools[].id` | string | `growth_pools.json` 中已定义池 id | 升级候选池 id |
 | `blocklists.content_tags[]` | array[string] | 词表 §12.3 content tag | 禁用某类内容标签；当前样例为空 |
 | `overrides.player_base_stats` | object | stat 来自词表 §1 | 轻量覆盖玩家基础属性；只用于模式差异，不复制角色本体 |
 
-`game_modes.json` 只声明模式边界，不实现模式选择 UI、匹配、联网、刷怪、成长抽取或实际战斗规则。新增资源池类型时，必须同步本文档、`DataLoader` schema、词表或对应数据注册表。
+`game_modes.json` 只声明模式边界，不实现模式选择 UI、匹配、联网、刷怪、成长抽取、遗物抽取或实际战斗规则。新增资源池类型时，必须同步本文档、`DataLoader` schema、词表或对应数据注册表。
 
 ## `characters.json`
 
@@ -327,6 +330,43 @@ JSON 示例：
 | `projectile.lifetime` | number | `> 0` | 子弹存活秒数；业务系统可结合射程裁剪 |
 
 `weapons.json` 只声明武器 / 子弹数据边界，不实现 WeaponSystem、子弹实例化、命中判定、音频播放或武器选择 UI。角色通过 `characters[].starting_weapon_id` 引用默认起始武器；游戏模式可通过 `resource_pools.weapons` 声明可用武器池。
+
+## `relics.json`
+
+当前结构：
+
+```json
+{
+  "schema_version": 1,
+  "relics": [
+    {
+      "id": "relic_sharp_rounds",
+      "name_key": "relic_sharp_rounds_name",
+      "desc_key": "relic_sharp_rounds_desc",
+      "default_unlocked": true,
+      "tags": ["tag_relic"],
+      "modifiers": [
+        { "stat": "damage", "type": "add", "value": 0.5 }
+      ],
+      "behaviors": []
+    }
+  ]
+}
+```
+
+字段说明：
+
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `relics[].id` | string | 文件内唯一，非空 | 遗物 id；模式遗物池引用此 id |
+| `relics[].name_key` / `desc_key` | string | `relic_*_name` / `relic_*_desc` | 遗物名称和描述译文 key |
+| `relics[].default_unlocked` | bool | true / false | 新存档中是否默认可用；后续可接局外解锁 |
+| `relics[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_relic` | 内容标签；破限遗物还需含 `tag_limit_break` 并声明 capability / primitive |
+| `relics[].modifiers` | array[object] | 可为空；与 `behaviors` 至少一个非空 | 数值修正列表，格式见下节 |
+| `relics[].behaviors` | array[object] | 可为空；与 `modifiers` 至少一个非空 | 行为触发列表，格式见下节 |
+
+`relics.json` 只声明被动遗物数据边界，不实现拾取、掉落、升级候选、`ModifierEngine` 应用、行为原语执行、UI 展示或存档快照。游戏模式可通过 `resource_pools.relics` 声明可用遗物池；实际抽取、解锁和应用由后续系统解释。
 
 ## `modifiers` 格式
 

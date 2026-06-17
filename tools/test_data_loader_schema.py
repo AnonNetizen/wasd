@@ -119,6 +119,38 @@ def main() -> int:
                 "weapon is not defined in weapons.json: weapon_missing",
             ],
         ),
+        (
+            "relic must include relic tag",
+            _mutate_json("client/data/relics.json", _set_relic_tags([])),
+            [
+                "client/data/relics.json:relics[0].tags",
+                "must include tag_relic",
+            ],
+        ),
+        (
+            "relic behavior effect must be registered",
+            _mutate_json("client/data/relics.json", _set_relic_behavior_effect("arcane")),
+            [
+                "client/data/relics.json:relics[0].behaviors[0].effect",
+                "unknown id arcane; expected one of effects",
+            ],
+        ),
+        (
+            "relic must have modifier or behavior",
+            _mutate_json("client/data/relics.json", _clear_relic_effects),
+            [
+                "client/data/relics.json:relics[0]",
+                "must contain at least one modifier or behavior",
+            ],
+        ),
+        (
+            "mode relic reference must exist",
+            _mutate_json("client/data/game_modes.json", _set_mode_relic("relic_missing")),
+            [
+                "client/data/game_modes.json:modes[0].resource_pools.relics[0].id",
+                "relic is not defined in relics.json: relic_missing",
+            ],
+        ),
     ]
 
     failures: list[str] = []
@@ -282,6 +314,38 @@ def _set_character_starting_weapon(value: str) -> JsonMutator:
 def _set_mode_weapon(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["resource_pools"]["weapons"][0]["id"] = value
+
+    return mutate
+
+
+def _set_relic_tags(value: list[str]) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["relics"][0]["tags"] = value
+
+    return mutate
+
+
+def _set_relic_behavior_effect(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["relics"][0]["behaviors"] = [
+            {
+                "event": "on_hit",
+                "effect": value,
+                "params": {},
+            }
+        ]
+
+    return mutate
+
+
+def _clear_relic_effects(payload: dict[str, Any]) -> None:
+    payload["relics"][0]["modifiers"] = []
+    payload["relics"][0]["behaviors"] = []
+
+
+def _set_mode_relic(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["modes"][0]["resource_pools"]["relics"][0]["id"] = value
 
     return mutate
 

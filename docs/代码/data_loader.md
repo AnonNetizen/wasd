@@ -7,7 +7,7 @@
 
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
-- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`game_modes.json`、`meta_progression.json`、`growth.csv`、`growth_pools.json` 与 `strings.csv`。
+- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`relics.json`、`game_modes.json`、`meta_progression.json`、`growth.csv`、`growth_pools.json` 与 `strings.csv`。
 - 提供 fail-fast 错误输出，错误信息包含文件、字段路径和期望值。
 - 不负责业务解释、数值平衡、热重载 UI、升级奖励应用或游戏模式运行时；这些由后续业务模块接入。
 
@@ -29,6 +29,7 @@
 | `client/data/player.json` | 当前 JSON 读取样例 |
 | `client/data/characters.json` | 角色基础属性、标签、能力和控制配置边界 |
 | `client/data/weapons.json` | 武器与子弹基础数值、对象池、伤害类型和音频 id 边界 |
+| `client/data/relics.json` | 被动遗物 modifier / behavior 数据边界 |
 | `client/data/game_modes.json` | 游戏模式资源池、参与者 / 队伍与轻量覆盖边界 |
 | `client/data/meta_progression.json` | 当前复杂 JSON 配置样例 |
 | `client/data/growth.csv` | 经验阈值与升级候选数量概率曲线 |
@@ -78,12 +79,13 @@
   - `player.json`：`schema_version`、`base_stats`，stat id 必须来自词表，数值范围按 stat 类型校验。
   - `characters.json`：角色 id、名称 / 描述 key、默认解锁、tags、capabilities、控制配置、起始武器引用和角色基础属性。
   - `weapons.json`：武器 id、名称 / 描述 key、默认解锁、开火模式、开火音频 id、武器基础属性、子弹对象池、伤害类型和弹体数值。
+  - `relics.json`：遗物 id、名称 / 描述 key、默认解锁、`tag_relic`、数值 modifiers、行为 behaviors，以及至少一个 modifier 或 behavior。
   - `meta_progression.json`：局外货币、结算奖励、账号等级、永久升级轨道、解锁项、locale key 与词表 id。
   - `growth.csv`：等级、累计经验阈值、默认候选数、幸运扩展候选概率和概率上限。
   - `growth_pools.json`：候选池、条目 id、类型、权重、等级条件和属性修正。
-  - `game_modes.json`：模式 id、名称 / 描述 key、默认解锁、participants / teams、角色池、武器池、成长池、content tag blocklist 与玩家基础属性轻量覆盖；角色池 id 必须存在于 `characters.json`，武器池 id 必须存在于 `weapons.json`。
+  - `game_modes.json`：模式 id、名称 / 描述 key、默认解锁、participants / teams、角色池、武器池、遗物池、成长池、content tag blocklist 与玩家基础属性轻量覆盖；角色池 id 必须存在于 `characters.json`，武器池 id 必须存在于 `weapons.json`，遗物池 id 必须存在于 `relics.json`。
   - `strings.csv`：key 前缀、`zh_CN` / `en` 必填、唯一 key。
-- 当前只校验 `characters.json`、`weapons.json` 与 `game_modes.json` 的数据边界，不实现角色选择 UI、武器运行时、模式选择 UI、匹配、联网、刷怪、成长抽取、输入 profile 切换或模式运行时。
+- 当前只校验 `characters.json`、`weapons.json`、`relics.json` 与 `game_modes.json` 的数据边界，不实现角色选择 UI、武器运行时、遗物拾取 / 应用、模式选择 UI、匹配、联网、刷怪、成长抽取、输入 profile 切换或模式运行时。
 
 ## 依赖
 
