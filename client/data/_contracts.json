@@ -103,6 +103,7 @@
       "enemy_chaser",
       "enemy_ranged",
       "enemy_swarm",
+      "hazard_spike",
       "damage_number",
       "hit_spark",
       "pickup_orb"
@@ -151,6 +152,7 @@
     "content_tags": [
       "tag_character",
       "tag_enemy",
+      "tag_hazard",
       "tag_relic",
       "tag_active_item",
       "tag_consumable",
@@ -198,6 +200,7 @@
       "relic_",
       "item_",
       "enemy_",
+      "hazard_",
       "hint_",
       "meta_"
     ]

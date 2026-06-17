@@ -1,0 +1,2 @@
+id,name_key,tags,pool_id,damage,damage_type,trigger_interval,radius,duration
+hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,1,physical,1.0,28.0,0.35

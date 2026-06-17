@@ -21,6 +21,7 @@
 | 改角色基础属性 / 标签 / 能力 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；起始武器填 `starting_weapon_id`，且必须存在于 `weapons.json` |
 | 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
 | 改敌人血量 / 速度 / 接触伤害 | `enemies.csv` | 敌人标签、对象池 id、伤害类型必须来自词表 |
+| 改机关伤害 / 范围 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
 | 改刷怪强度 / 难度曲线 | `spawn_waves.csv`（落地后） | 大改后需要跑回放 / 平衡验证 |
@@ -33,14 +34,14 @@
 | 文件 | 状态 | 作用 |
 |------|------|------|
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
-| `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 武器 / 敌人 / 遗物 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
+| `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 武器 / 敌人 / 机关 / 遗物 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
 | `characters.json` | 已建立 | 角色列表：基础属性、tags、capabilities、控制配置和起始武器引用；当前不含遗物运行时 |
 | `weapons.json` | 已建立 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
 | `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 规划 | 主动道具：充能方式、冷却、效果原语与参数 |
 | `consumables.json` | 规划 | 消耗品：拾取 / 使用规则、效果原语与参数 |
 | `enemies.csv` | 已建立 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励等 |
-| `hazards.csv` | 规划 | 机关基础数值平表：伤害、触发周期、范围、持续时间 |
+| `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、范围、持续时间 |
 | `spawn_waves.csv` | 规划 | 刷怪波次、难度曲线、敌人权重、精英 / Boss 出现规则 |
 | `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
 | `growth_pools.json` | 已建立 | 升级选项池、权重、等级条件和候选奖励边界 |
@@ -183,6 +184,7 @@ JSON 示例：
         "characters": [{ "id": "character_default", "weight": 100 }],
         "weapons": [{ "id": "weapon_basic_blaster", "weight": 100 }],
         "enemies": [{ "id": "enemy_chaser", "weight": 100 }],
+        "hazards": [{ "id": "hazard_spike_trap", "weight": 100 }],
         "relics": [{ "id": "relic_sharp_rounds", "weight": 100 }],
         "growth_pools": [{ "id": "default_level_up", "weight": 100 }]
       },
@@ -213,6 +215,8 @@ JSON 示例：
 | `resource_pools.weapons[].id` | string | 必须存在于 `weapons.json` | 可用武器 id |
 | `resource_pools.enemies[]` | array[object] | 已声明时必须非空 | 本模式可用敌人池 |
 | `resource_pools.enemies[].id` | string | 必须存在于 `enemies.csv` | 可用敌人 id |
+| `resource_pools.hazards[]` | array[object] | 已声明时必须非空 | 本模式可用机关池 |
+| `resource_pools.hazards[].id` | string | 必须存在于 `hazards.csv` | 可用机关 id |
 | `resource_pools.relics[]` | array[object] | 已声明时必须非空 | 本模式可用遗物池 |
 | `resource_pools.relics[].id` | string | 必须存在于 `relics.json` | 可用遗物 id |
 | `resource_pools.*[].weight` | int | `>= 0` | 抽取 / 展示权重；具体抽取由后续系统实现 |
@@ -248,6 +252,31 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,12,110.0,1,physical,3,14.0
 | `hit_radius` | number | `> 0`，px | 命中 / 接触半径边界，后续碰撞体或占位图可据此生成 |
 
 `enemies.csv` 只声明敌人基础数值边界，不实现 `Enemy` / `EnemyAI`、刷怪、寻路、碰撞体、掉落、对象池预热或伤害结算。游戏模式可通过 `resource_pools.enemies` 声明可用敌人池；实际波次选择、生成位置和行为由后续 `Spawner` / `EnemyAI` 系统解释。
+
+## `hazards.csv`
+
+当前结构：
+
+```csv
+id,name_key,tags,pool_id,damage,damage_type,trigger_interval,radius,duration
+hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,1,physical,1.0,28.0,0.35
+```
+
+字段说明：
+
+| 字段 | 类型 | 合法值 / 范围 | 说明 |
+|------|------|---------------|------|
+| `id` | string | 文件内唯一，非空 | 机关 id；模式机关池和后续地图 / 波次表引用此 id |
+| `name_key` | string | `hazard_*_name` | 机关名称译文 key |
+| `tags` | string | `|` 分隔的词表 §12.3 content tag，必须含 `tag_hazard` | 内容标签；可被模式 blocklist、地图规则或后续内容系统筛选 |
+| `pool_id` | string | 词表 §8 pool id | 运行时使用的机关对象池；当前只校验 id，不实例化场景 |
+| `damage` | int | `>= 0` | 单次触发伤害；运行时必须经 `Combat.apply_damage` 结算 |
+| `damage_type` | string | 词表 §9 damage type | 机关伤害类型 |
+| `trigger_interval` | number | `> 0`，秒 | 持续存在机关的触发间隔 |
+| `radius` | number | `> 0`，px | 影响 / 触发半径边界，后续碰撞体或 telegraph 可据此生成 |
+| `duration` | number | `>= 0`，秒 | 单次触发或预警持续时间；具体解释由后续 HazardSystem 决定 |
+
+`hazards.csv` 只声明机关基础数值边界，不实现 `HazardSystem`、放置规则、碰撞体、预警表现、伤害结算或对象池预热。游戏模式可通过 `resource_pools.hazards` 声明可用机关池；实际生成位置、触发时机和表现由后续地图 / 机关系统解释。
 
 ## `characters.json`
 

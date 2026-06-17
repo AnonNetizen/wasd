@@ -43,6 +43,12 @@
             "weight": 100
           }
         ],
+        "hazards": [
+          {
+            "id": "hazard_spike_trap",
+            "weight": 100
+          }
+        ],
         "relics": [
           {
             "id": "relic_sharp_rounds",

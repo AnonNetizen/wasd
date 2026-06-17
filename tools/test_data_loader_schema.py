@@ -146,6 +146,30 @@ def main() -> int:
             ],
         ),
         (
+            "hazard must include hazard tag",
+            _mutate_csv("client/data/hazards.csv", _set_hazard_tags("")),
+            [
+                "client/data/hazards.csv:line 2.tags",
+                "must include tag_hazard",
+            ],
+        ),
+        (
+            "hazard damage type must be registered",
+            _mutate_csv("client/data/hazards.csv", _set_hazard_damage_type("arcane")),
+            [
+                "client/data/hazards.csv:line 2.damage_type",
+                "unknown id arcane; expected one of damage_types",
+            ],
+        ),
+        (
+            "mode hazard reference must exist",
+            _mutate_json("client/data/game_modes.json", _set_mode_hazard("hazard_missing")),
+            [
+                "client/data/game_modes.json:modes[0].resource_pools.hazards[0].id",
+                "hazard is not defined in hazards.csv: hazard_missing",
+            ],
+        ),
+        (
             "relic must include relic tag",
             _mutate_json("client/data/relics.json", _set_relic_tags([])),
             [
@@ -377,6 +401,27 @@ def _set_enemy_damage_type(value: str) -> CsvMutator:
 def _set_mode_enemy(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["resource_pools"]["enemies"][0]["id"] = value
+
+    return mutate
+
+
+def _set_hazard_tags(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["tags"] = value
+
+    return mutate
+
+
+def _set_hazard_damage_type(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["damage_type"] = value
+
+    return mutate
+
+
+def _set_mode_hazard(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["modes"][0]["resource_pools"]["hazards"][0]["id"] = value
 
     return mutate
 

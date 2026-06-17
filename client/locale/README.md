@@ -25,6 +25,7 @@
 | 加遗物 / 道具名和描述 | 在 `strings.csv` 加 `relic_*_name` / `relic_*_desc`、`item_*_name` / `item_*_desc`；数据填 `name_key` / `desc_key` |
 | 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，动态数值用 `{value}` 这类占位符 |
 | 加局外成长文案 | 在 `strings.csv` 加 `meta_*_name` / `meta_*_desc`；`meta_progression.json` 填 `name_key` / `desc_key` |
+| 加机关 / 危险物名 | 在 `strings.csv` 加 `hazard_*_name`；数据填 `name_key` |
 | 改中文或英文翻译 | 只改对应语言列，不改 key；另一语言由 AI 自动补首版译文后人工复核 |
 | 新增语言 | 先新增决策，再给 `strings.csv` 加新语言列，并同步 Settings 语言选项与 Godot Localization 注册 |
 
@@ -66,6 +67,7 @@ ui_resume,继续,Resume
 | `relic_` | 被动遗物名称和描述 | `relic_sharp_rounds_name` / `relic_sharp_rounds_desc` |
 | `item_` | 主动道具 / 消耗品名称和描述 | `item_bomb_name` / `item_bomb_desc` |
 | `enemy_` | 敌人名称 | `enemy_chaser_name` |
+| `hazard_` | 机关 / 危险物名称 | `hazard_spike_trap_name` |
 | `hint_` | 教程、提示、引导 | `hint_aim_with_right_stick` |
 | `meta_` | 局外货币、永久升级、账号等级、解锁项 | `meta_upgrade_damage_name` / `meta_currency_essence_name` |
 

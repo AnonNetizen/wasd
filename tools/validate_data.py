@@ -18,6 +18,7 @@ LOCALE_CSV = ROOT / "client" / "locale" / "strings.csv"
 CHARACTERS_JSON = ROOT / "client" / "data" / "characters.json"
 WEAPONS_JSON = ROOT / "client" / "data" / "weapons.json"
 ENEMIES_CSV = ROOT / "client" / "data" / "enemies.csv"
+HAZARDS_CSV = ROOT / "client" / "data" / "hazards.csv"
 RELICS_JSON = ROOT / "client" / "data" / "relics.json"
 GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
 GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
@@ -55,6 +56,8 @@ def main() -> int:
     weapon_ids = _collect_weapon_ids(ctx)
     _validate_enemies_csv(ctx)
     enemy_ids = _collect_enemy_ids(ctx)
+    _validate_hazards_csv(ctx)
+    hazard_ids = _collect_hazard_ids(ctx)
     _validate_relics(ctx)
     relic_ids = _collect_relic_ids(ctx)
     _validate_characters(ctx, weapon_ids)
@@ -62,7 +65,7 @@ def main() -> int:
     _validate_meta_progression(ctx, character_ids)
     _validate_growth_csv(ctx)
     _validate_growth_pools(ctx)
-    _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, relic_ids)
+    _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids)
     _validate_mvp_config(ctx)
 
     if ctx.errors:
@@ -307,6 +310,54 @@ def _validate_enemies_csv(ctx: ValidationContext) -> None:
             ctx.error(path, "rows", "must contain at least one enemy")
 
 
+def _validate_hazards_csv(ctx: ValidationContext) -> None:
+    path = HAZARDS_CSV
+    if not path.exists():
+        ctx.error(path, "$", "missing hazards CSV")
+        return
+
+    required = {
+        "id",
+        "name_key",
+        "tags",
+        "pool_id",
+        "damage",
+        "damage_type",
+        "trigger_interval",
+        "radius",
+        "duration",
+    }
+    seen: set[str] = set()
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        fieldnames = reader.fieldnames or []
+        missing = required.difference(fieldnames)
+        if missing:
+            ctx.error(path, "header", f"missing required columns {sorted(missing)}")
+            return
+        row_count = 0
+        for line_number, row in enumerate(reader, start=2):
+            row_count += 1
+            field = f"line {line_number}"
+            hazard_id = _require_non_empty_string(ctx, path, f"{field}.id", row.get("id"))
+            if hazard_id:
+                if hazard_id in seen:
+                    ctx.error(path, f"{field}.id", f"duplicate hazard id {hazard_id}")
+                seen.add(hazard_id)
+            _require_locale_key(ctx, path, f"{field}.name_key", row.get("name_key"))
+            tags = _validate_registered_string_list(ctx, path, f"{field}.tags", _parse_pipe_list(row.get("tags")), "content_tags", allow_empty=False)
+            if "tag_hazard" not in tags:
+                ctx.error(path, f"{field}.tags", "must include tag_hazard")
+            _require_registered(ctx, path, f"{field}.pool_id", row.get("pool_id"), "pool_ids")
+            _parse_int(ctx, path, f"{field}.damage", row.get("damage"), minimum=0)
+            _require_registered(ctx, path, f"{field}.damage_type", row.get("damage_type"), "damage_types")
+            _parse_float(ctx, path, f"{field}.trigger_interval", row.get("trigger_interval"), minimum=0, exclusive_minimum=True)
+            _parse_float(ctx, path, f"{field}.radius", row.get("radius"), minimum=0, exclusive_minimum=True)
+            _parse_float(ctx, path, f"{field}.duration", row.get("duration"), minimum=0)
+        if row_count == 0:
+            ctx.error(path, "rows", "must contain at least one hazard")
+
+
 def _validate_relics(ctx: ValidationContext) -> None:
     path = RELICS_JSON
     data = _load_json(path, ctx)
@@ -447,7 +498,14 @@ def _validate_growth_pools(ctx: ValidationContext) -> None:
                 _validate_modifiers(ctx, path, f"{entry_field}.modifiers", entry.get("modifiers"), require_value_per_level=False)
 
 
-def _validate_game_modes(ctx: ValidationContext, character_ids: set[str], weapon_ids: set[str], enemy_ids: set[str], relic_ids: set[str]) -> None:
+def _validate_game_modes(
+    ctx: ValidationContext,
+    character_ids: set[str],
+    weapon_ids: set[str],
+    enemy_ids: set[str],
+    hazard_ids: set[str],
+    relic_ids: set[str],
+) -> None:
     path = GAME_MODES_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
@@ -473,7 +531,7 @@ def _validate_game_modes(ctx: ValidationContext, character_ids: set[str], weapon
         _require_bool(ctx, path, f"{mode_field}.default_unlocked", mode.get("default_unlocked"))
         team_ids = _validate_mode_teams(ctx, path, mode_field, mode.get("teams"))
         _validate_mode_participants(ctx, path, mode_field, mode.get("participants"), team_ids)
-        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, relic_ids)
+        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids)
         if "blocklists" in mode:
             _validate_mode_blocklists(ctx, path, f"{mode_field}.blocklists", mode.get("blocklists"))
         if "overrides" in mode:
@@ -531,6 +589,7 @@ def _validate_mode_resource_pools(
     character_ids: set[str],
     weapon_ids: set[str],
     enemy_ids: set[str],
+    hazard_ids: set[str],
     relic_ids: set[str],
 ) -> None:
     field = f"{mode_field}.resource_pools"
@@ -543,11 +602,13 @@ def _validate_mode_resource_pools(
         _validate_weighted_weapon_entries(ctx, path, f"{field}.weapons", data.get("weapons"), weapon_ids)
     if "enemies" in data:
         _validate_weighted_enemy_entries(ctx, path, f"{field}.enemies", data.get("enemies"), enemy_ids)
+    if "hazards" in data:
+        _validate_weighted_hazard_entries(ctx, path, f"{field}.hazards", data.get("hazards"), hazard_ids)
     if "relics" in data:
         _validate_weighted_relic_entries(ctx, path, f"{field}.relics", data.get("relics"), relic_ids)
     if "growth_pools" in data:
         _validate_weighted_growth_pool_entries(ctx, path, f"{field}.growth_pools", data.get("growth_pools"), growth_pool_ids)
-    if "characters" not in data and "weapons" not in data and "enemies" not in data and "relics" not in data and "growth_pools" not in data:
+    if "characters" not in data and "weapons" not in data and "enemies" not in data and "hazards" not in data and "relics" not in data and "growth_pools" not in data:
         ctx.error(path, field, "must contain at least one supported pool")
 
 
@@ -593,6 +654,21 @@ def _validate_weighted_enemy_entries(ctx: ValidationContext, path: Path, field: 
         enemy_id = _require_non_empty_string(ctx, path, f"{item_field}.id", entry.get("id"))
         if enemy_id and enemy_id not in enemy_ids:
             ctx.error(path, f"{item_field}.id", f"enemy is not defined in enemies.csv: {enemy_id}")
+        _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
+
+
+def _validate_weighted_hazard_entries(ctx: ValidationContext, path: Path, field: str, data: Any, hazard_ids: set[str]) -> None:
+    entries = _require_list(ctx, path, field, data)
+    if not entries:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, entry in enumerate(entries):
+        item_field = f"{field}[{index}]"
+        if not isinstance(entry, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        hazard_id = _require_non_empty_string(ctx, path, f"{item_field}.id", entry.get("id"))
+        if hazard_id and hazard_id not in hazard_ids:
+            ctx.error(path, f"{item_field}.id", f"hazard is not defined in hazards.csv: {hazard_id}")
         _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
 
 
@@ -929,6 +1005,18 @@ def _collect_enemy_ids(ctx: ValidationContext) -> set[str]:
             enemy_id = row.get("id")
             if isinstance(enemy_id, str) and enemy_id:
                 ids.add(enemy_id)
+    return ids
+
+
+def _collect_hazard_ids(ctx: ValidationContext) -> set[str]:
+    if not HAZARDS_CSV.exists():
+        return set()
+    ids: set[str] = set()
+    with HAZARDS_CSV.open(encoding="utf-8-sig", newline="") as handle:
+        for row in csv.DictReader(handle):
+            hazard_id = row.get("id")
+            if isinstance(hazard_id, str) and hazard_id:
+                ids.add(hazard_id)
     return ids
 
 
