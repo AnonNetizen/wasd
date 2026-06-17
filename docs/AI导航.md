@@ -40,7 +40,6 @@
 | `docs/` | 项目文档（设计文档、AI 导航、词表契约、决策记录、AI 记忆等） |
 | `client/` | **Godot 4.6.3 项目根**（即 Godot 中的 `res://`） |
 | `server/` | 服务器端预留（当前为单机项目，暂占位） |
-| `MinimumViableProduct/` | MVP 隔离实验区；文档与独立客户端代码都放此处，不污染完整项目 `client/` |
 | `tools/` | 本地校验与桥接工具：`sync_contracts.py`、`validate_data.py`、`test_data_loader_schema.py`、`docs_health_check.py`、`godot_bridge.py` |
 | `.github/` | GitHub Issue / PR 模板与 Actions workflows；当前启用 Stage 1 基础 `docs-check` CI |
 | `CREDITS.md` | 代码库级致谢与第三方来源清单；游戏内 Credits 数据源为 `client/data/credits.json` |
@@ -123,9 +122,8 @@
 | **维护正式客户端启动骨架** | 看 `client/README.md` 与 `docs/代码/formal_client_boot.md`；改主场景或启动验证时同步本导航和 `docs/代码/README.md` |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
 | **校验数据 / 文案** | 跑 `python tools/validate_data.py`；改 DataLoader schema 时追加 `python tools/test_data_loader_schema.py`，覆盖黄金数据与坏 id / 缺 locale / 类型范围 / 跨文件引用错误 |
-| **查 Godot 场景树 / headless 启动** | 跑 `python tools/godot_bridge.py export-tree` 或 `python tools/godot_bridge.py headless-boot`；默认项目为 `MinimumViableProduct/client` |
+| **查 Godot 场景树 / headless 启动** | 跑 `python tools/godot_bridge.py export-tree` 或 `python tools/godot_bridge.py headless-boot`；默认项目为正式 `client/` |
 | **用项目级 AI skill** | CodeBuddy / Codex / OpenCode 分别读取 `.codebuddy/skills/<name>/SKILL.md`、`.codex/skills/<name>/SKILL.md`、`.opencode/skills/<name>/SKILL.md`；当前覆盖 Godot 实现、场景验证、Godot 测试诊断、试玩复盘、文档同步、安全提交、事实 review、AI 资源筛选与协作面审计、MCP 评估；外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进项目 skill，不再保留 vendor 来源或 reference 跳转；资源筛选与安装清单见 `docs/AI协作/AI技能资源评估.md` |
-| **做 MVP 实验** | 只改 `MinimumViableProduct/`；MVP 文档见 `MinimumViableProduct/README.md`，MVP 客户端代码放 `MinimumViableProduct/client/`，不要混入完整项目 `client/` |
 | **加一种子弹效果原语** | 先在 `词表与契约.md` 登记 `effect` id → 在效果原语层实现方法/Node → 数据中引用 |
 | **改数值（血/伤害/刷怪/掉落）** | 先读 `client/data/README.md`，只改 `res://data/` 对应 CSV / JSON，**绝不改代码常量**；平表数值优先 CSV，复杂配置优先 JSON；新增 / 改字段必须同步数值手册 |
 | **加面向玩家的文本** | 先读 `client/locale/README.md`，在 `res://locale/strings.csv` 加 key + `zh_CN` / `en` 译文；若用户只给一种语言，AI 自动补齐另一语言首版译文，人工复核后代码 / 数据用 `tr("key")` 或 `name_key` |
@@ -276,7 +274,7 @@ flowchart LR
 - ❌ 上下文总结 / 压缩 / 恢复后，把摘要、`Next Steps`、`current_state.json` 或历史待办当成当前授权执行，而不先对齐用户最后明确指令
 - ❌ 大更改后不按 AI Git 提交策略自动 commit，大型代码改动提交前不做事实型 review，或提交前不查 status / diff / log、误 stage 用户脏改动 / `draft/` / `DRAFT/`
 - ❌ 读取、搜索、整理、格式化、总结或引用 `draft/` / `DRAFT/` 人工草稿（除非用户明确点名授权）
-- ❌ 把 MVP 临时代码 / 文档混入完整项目 `client/` 或根目录正式文档而不经过 ADR 决策
+- ❌ 复活或搬运历史 MVP 临时代码到完整项目 `client/`；MVP 验证经验只能经复盘、设计和 ADR 迁移
 - ✅ 改完同步更新规则文件与相关文档（元规则）
 - ✅ 重要决策同步进 `docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json` 与当日会话日志
 - ✅ 知识库结构变化后运行 `python tools/docs_health_check.py`

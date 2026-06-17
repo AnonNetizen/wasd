@@ -14,7 +14,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PROJECT = ROOT / "MinimumViableProduct" / "client"
+DEFAULT_PROJECT = ROOT / "client"
 COMMON_GODOT_PATHS = [
     Path(r"E:\SteamLibrary\steamapps\common\Godot Engine\godot.exe"),
     Path(r"C:\Program Files\Godot\godot.exe"),
@@ -28,7 +28,7 @@ SCRIPT_RE = re.compile(r'^script\s*=\s*ExtResource\("(?P<id>[^"]+)"\)')
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Godot bridge for wasd tooling.")
-    parser.add_argument("--project", default=str(DEFAULT_PROJECT), help="Godot project directory. Defaults to MVP client.")
+    parser.add_argument("--project", default=str(DEFAULT_PROJECT), help="Godot project directory. Defaults to the formal client.")
     parser.add_argument("--godot", default=None, help="Path to the Godot executable. Defaults to GODOT_PATH or common paths.")
 
     subparsers = parser.add_subparsers(dest="command", required=True)

@@ -35,7 +35,7 @@
 当前检查：
 
 - 契约生成同步：`python tools/sync_contracts.py --check`，确认 `docs/词表与契约.md`、`client/data/_contracts.json`、`client/scripts/contracts/*.gd` 一致
-- 数据 / locale 校验：`python tools/validate_data.py`，覆盖 JSON 语法、`player.json`、`meta_progression.json`、`strings.csv`、MVP `mvp_config.json`
+- 数据 / locale 校验：`python tools/validate_data.py`，覆盖 JSON 语法、`client/data/*.json` / `client/data/*.csv` 与 `strings.csv`
 - DataLoader schema 回归：`python tools/test_data_loader_schema.py`，用临时数据副本断言黄金数据通过、未登记 id / 缺 locale / 类型范围错 / 跨文件引用错会 fail-fast
 - AI 知识库健康检查：运行 `python tools/docs_health_check.py`，校验知识库索引、ADR、current_state、链接、AI 修改说明和模块文档索引
 - whitespace diff：对本次提交范围运行 `git diff --check`，排除 `draft/` / `DRAFT/`

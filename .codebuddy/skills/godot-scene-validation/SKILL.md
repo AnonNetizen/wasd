@@ -1,6 +1,6 @@
 ---
 name: godot-scene-validation
-description: Validate Godot scene trees, MVP headless boot, data contracts, and engine version. Use after Godot scene/script/config changes or when diagnosing launch failures.
+description: Validate Godot scene trees, formal client headless boot, data contracts, and engine version. Use after Godot scene/script/config changes or when diagnosing launch failures.
 license: MIT
 compatibility: agent-skills
 metadata:
@@ -9,7 +9,7 @@ metadata:
 
 # Godot Scene Validation
 
-Use this skill when a change may affect Godot startup, scene structure, MVP gameplay, data loading, or engine compatibility.
+Use this skill when a change may affect Godot startup, scene structure, data loading, or engine compatibility.
 
 ## Commands
 
@@ -22,7 +22,7 @@ Use this skill when a change may affect Godot startup, scene structure, MVP game
 
 ## Workflow
 
-1. Determine project target: MVP currently has a runnable Godot project; full `client/` may still be scaffold-only.
+1. Use the formal Godot project under `client/` unless the user explicitly provides another project path.
 2. Run the smallest relevant validation first.
 3. If a command fails, preserve the exact error and map it to scene path, script path, or data file.
 4. Fix root cause rather than suppressing errors.
@@ -30,7 +30,7 @@ Use this skill when a change may affect Godot startup, scene structure, MVP game
 
 ## Headless Godot Notes
 
-- Prefer `tools/godot_bridge.py` over raw `godot` commands; it encodes the project path and MVP/full-client boundary.
+- Prefer `tools/godot_bridge.py` over raw `godot` commands; it encodes the default formal `client/` project path.
 - If raw Godot CLI is unavoidable, use `--headless --path <project>` so the command is not dependent on the current directory.
 - Capture logs for raw headless runs, preferably under a project-local `logs/` directory that is not committed unless explicitly useful.
 - If sandbox or CI runs fail because of `user://`, XDG, or config/cache writes, set project-local `XDG_DATA_HOME`, `XDG_CONFIG_HOME`, and `XDG_CACHE_HOME` for that command.
@@ -42,11 +42,11 @@ Use this skill when a change may affect Godot startup, scene structure, MVP game
 
 - `godot-version` should report Godot `4.6.3`.
 - `export-tree` verifies scene loading and gives node structure for diagnosis.
-- `headless-boot` verifies MVP startup in a non-interactive environment.
+- `headless-boot` verifies formal client startup in a non-interactive environment.
 - Data validation failures are contract/schema problems and should be fixed in data, locale, or contract source rather than ignored.
 
 ## Boundaries
 
 - Do not use this skill to enter `draft/` or `DRAFT/`.
 - Do not treat a successful headless boot as a full gameplay balance pass.
-- Do not change full project architecture just to satisfy an MVP validation issue.
+- Do not change architecture just to satisfy a validation issue; fix the smallest failing project path or data source.

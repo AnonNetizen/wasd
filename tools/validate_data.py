@@ -24,7 +24,6 @@ CREDITS_JSON = ROOT / "client" / "data" / "credits.json"
 GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
 GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
 GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
-MVP_CONFIG = ROOT / "MinimumViableProduct" / "client" / "data" / "mvp_config.json"
 PLACEHOLDER_RE = re.compile(r"\{[a-z0-9_]+\}")
 LOCALE_KEY_RE = re.compile(r"^[a-z0-9_]+$")
 
@@ -68,7 +67,6 @@ def main() -> int:
     _validate_growth_csv(ctx)
     _validate_growth_pools(ctx)
     _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids)
-    _validate_mvp_config(ctx)
 
     if ctx.errors:
         for error in ctx.errors:
@@ -104,8 +102,6 @@ def _validate_contracts_file(ctx: ValidationContext) -> None:
 
 def _validate_all_json(ctx: ValidationContext) -> None:
     paths = sorted(CLIENT_DATA.glob("*.json"))
-    if MVP_CONFIG.exists():
-        paths.append(MVP_CONFIG)
     for path in paths:
         _load_json(path, ctx)
 
@@ -909,34 +905,6 @@ def _validate_unlocks(ctx: ValidationContext, path: Path, data: Any, character_i
             _require_locale_key(ctx, path, f"{field}.name_key", unlock.get("name_key"))
         if not isinstance(unlock.get("default_unlocked"), bool):
             ctx.error(path, f"{field}.default_unlocked", "must be bool")
-
-
-def _validate_mvp_config(ctx: ValidationContext) -> None:
-    path = MVP_CONFIG
-    data = _load_json(path, ctx)
-    if not isinstance(data, dict):
-        return
-    required_sections = ["player", "input", "weapon", "enemy", "spawner", "background"]
-    for section in required_sections:
-        if not isinstance(data.get(section), dict):
-            ctx.error(path, section, "must be an object")
-    _require_int(ctx, path, "player.max_hp", _nested(data, "player", "max_hp"), minimum=1)
-    _require_number(ctx, path, "player.damage_flash_seconds", _nested(data, "player", "damage_flash_seconds"), minimum=0)
-    _require_number(ctx, path, "input.gamepad_deadzone", _nested(data, "input", "gamepad_deadzone"), minimum=0, maximum=1)
-    for field in ("fire_interval", "bullet_speed", "bullet_lifetime", "bullet_hitbox_radius", "muzzle_distance"):
-        _require_number(ctx, path, f"weapon.{field}", _nested(data, "weapon", field), minimum=0, exclusive_minimum=True)
-    _require_int(ctx, path, "weapon.bullet_damage", _nested(data, "weapon", "bullet_damage"), minimum=1)
-    _require_number(ctx, path, "enemy.move_speed", _nested(data, "enemy", "move_speed"), minimum=0, exclusive_minimum=True)
-    _require_int(ctx, path, "enemy.hp", _nested(data, "enemy", "hp"), minimum=1)
-    _require_int(ctx, path, "enemy.contact_damage", _nested(data, "enemy", "contact_damage"), minimum=0)
-    for field in ("hit_radius", "collision_radius"):
-        _require_number(ctx, path, f"enemy.{field}", _nested(data, "enemy", field), minimum=0, exclusive_minimum=True)
-    for field in ("spawn_interval", "spawn_margin"):
-        _require_number(ctx, path, f"spawner.{field}", _nested(data, "spawner", field), minimum=0, exclusive_minimum=True)
-    _require_number(ctx, path, "spawner.initial_cooldown", _nested(data, "spawner", "initial_cooldown"), minimum=0)
-    _require_int(ctx, path, "background.grid_size", _nested(data, "background", "grid_size"), minimum=1)
-    for field in ("lane_width", "center_outer_radius", "center_inner_radius", "center_mark_inner", "center_mark_outer"):
-        _require_number(ctx, path, f"background.{field}", _nested(data, "background", field), minimum=0, exclusive_minimum=True)
 
 
 def _validate_stat_value(ctx: ValidationContext, path: Path, field: str, stat: str, value: Any) -> None:

@@ -15,7 +15,7 @@ Use this skill when Godot behavior needs evidence from tests, logs, scene loadin
 
 - Read `docs/测试策略.md` before writing or changing tests.
 - Read `docs/AI导航.md` and the relevant module docs before diagnosing full project code.
-- For MVP issues, stay inside `MinimumViableProduct/` and use `tools/godot_bridge.py` first.
+- Use `tools/godot_bridge.py` first for formal client startup and scene diagnostics.
 
 ## Diagnostic Workflow
 

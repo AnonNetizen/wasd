@@ -38,7 +38,7 @@ Do not run a formal review for tiny changes such as typos, single-line wording, 
 ## Project-Specific Checks
 
 - Full project player-visible text must use locale keys.
-- Tunables must live in `client/data/` CSV / JSON or MVP config.
+- Tunables must live in `client/data/` CSV / JSON.
 - Contract IDs must come from `docs/词表与契约.md` and generated constants.
 - Save changes must preserve `meta` and `run` save requirements.
-- Godot/MVP changes should pass the relevant `tools/godot_bridge.py` checks.
+- Godot changes should pass the relevant `tools/godot_bridge.py` checks.

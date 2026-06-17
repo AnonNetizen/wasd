@@ -40,10 +40,10 @@ docs/AI协作/
 
 tools/
 ├── sync_contracts.py      # 词表 → _contracts.json + GDScript 常量
-├── validate_data.py       # 数据 / locale / MVP config 校验
+├── validate_data.py       # 正式数据 / locale 校验
 ├── test_data_loader_schema.py # DataLoader schema 回归坏样例测试
 ├── docs_health_check.py   # 文档知识库健康检查
-└── godot_bridge.py        # MVP 场景树导出 / headless boot 轻量 Bridge
+└── godot_bridge.py        # 正式 client 场景树导出 / headless boot 轻量 Bridge
 
 .codebuddy/agents/        # 项目级 subagents（codebuddy 平台；.codex/.opencode 下同名同步）
 ├── balancer.md              # 平衡测试 / 回放回归 / 数值建议

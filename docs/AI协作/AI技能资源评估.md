@@ -31,10 +31,10 @@
 
 | Skill | 路径 | 用途 |
 |-------|------|------|
-| `godot-gdscript` | `.codebuddy/skills/godot-gdscript/SKILL.md` / `.codex/skills/godot-gdscript/SKILL.md` / `.opencode/skills/godot-gdscript/SKILL.md` | Godot 4.6.3 + typed GDScript 实现；强化数据驱动、autoload、InputMap、MVP/full client 边界 |
+| `godot-gdscript` | `.codebuddy/skills/godot-gdscript/SKILL.md` / `.codex/skills/godot-gdscript/SKILL.md` / `.opencode/skills/godot-gdscript/SKILL.md` | Godot 4.6.3 + typed GDScript 实现；强化数据驱动、autoload、InputMap 和正式 client 边界 |
 | `godot-scene-validation` | `.codebuddy/skills/godot-scene-validation/SKILL.md` / `.codex/skills/godot-scene-validation/SKILL.md` / `.opencode/skills/godot-scene-validation/SKILL.md` | 使用 `tools/godot_bridge.py` 与数据校验做场景树 / headless / 引擎版本验证；已吸收 headless Godot CLI 安全规则 |
 | `godot-test-diagnostics` | `.codebuddy/skills/godot-test-diagnostics/SKILL.md` / `.codex/skills/godot-test-diagnostics/SKILL.md` / `.opencode/skills/godot-test-diagnostics/SKILL.md` | Godot 测试与诊断流程；覆盖 GUT/GdUnit4 规划、headless 失败、场景 / 脚本错误、日志归因和未来 CI 测试门禁 |
-| `playtest-review` | `.codebuddy/skills/playtest-review/SKILL.md` / `.codex/skills/playtest-review/SKILL.md` / `.opencode/skills/playtest-review/SKILL.md` | MVP / 完整项目试玩复盘、手感与配置调参评估、里程碑 readiness 和后续任务分级 |
+| `playtest-review` | `.codebuddy/skills/playtest-review/SKILL.md` / `.codex/skills/playtest-review/SKILL.md` / `.opencode/skills/playtest-review/SKILL.md` | 完整项目试玩复盘、手感与配置调参评估、里程碑 readiness 和后续任务分级 |
 | `project-doc-sync` | `.codebuddy/skills/project-doc-sync/SKILL.md` / `.codex/skills/project-doc-sync/SKILL.md` / `.opencode/skills/project-doc-sync/SKILL.md` | 规则、ADR、AI 记忆、知识库索引和长期文档同步流程 |
 | `safe-git-commit` | `.codebuddy/skills/safe-git-commit/SKILL.md` / `.codex/skills/safe-git-commit/SKILL.md` / `.opencode/skills/safe-git-commit/SKILL.md` | 执行 ADR #52 的安全提交流程，避免误 stage 用户脏改或 `DRAFT/` |
 | `code-review-factual` | `.codebuddy/skills/code-review-factual/SKILL.md` / `.codex/skills/code-review-factual/SKILL.md` / `.opencode/skills/code-review-factual/SKILL.md` | 事实型代码审查；大型代码改动提交前自动使用，没发现问题就明确说没有，不硬找问题 |
@@ -71,7 +71,7 @@
 | 资源 | 原因 |
 |------|------|
 | 大体量 office 文档技能（docx/pdf/pptx/xlsx） | 当前项目以 Markdown/Godot/data 为主，安装会增加维护面；需要导出发行材料时再评估 |
-| Webapp / Playwright 测试技能 | 当前没有 Web 应用；MVP 走 Godot headless 和本地 bridge |
+| Webapp / Playwright 测试技能 | 当前没有 Web 应用；Godot 项目走 headless 和本地 bridge |
 | 通用 Git/filesystem/fetch MCP | OpenCode 已有本地工具；项目级 MCP 会扩大权限面 |
 | Memory MCP / Pensyve | 项目已有三层 AI 记忆文件；外部持久记忆需单独评估隐私和漂移 |
 | Cursor `.mdc` 规则包 | 本项目已有三平台规则入口；只吸收模式，不再引入第四套规则源 |

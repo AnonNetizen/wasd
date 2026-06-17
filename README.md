@@ -1,7 +1,7 @@
 # wasd —— 俯视角 Roguelike 弹幕生存
 
 > 一款受《以撒的结合》与《吸血鬼幸存者》启发的俯视角 Roguelike 弹幕生存游戏。
-> **当前状态：正式项目 F2 autoload 骨架已建立 + MVP 隔离实验区。** 完整项目 `client/` 已可作为 Godot 4.6.3 项目启动；F2 横向 autoload 矩阵已完成，下一步按 `docs/正式项目工作规划.md` 进入 F3 数据 / 契约闭环。
+> **当前状态：正式项目 F2 autoload 骨架已建立，MVP 实验区已在验证完成后移除。** 完整项目 `client/` 已可作为 Godot 4.6.3 项目启动；F2 横向 autoload 矩阵已完成，下一步按 `docs/正式项目工作规划.md` 进入 F3 数据 / 契约闭环。
 >
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。README 是仓库入口摘要；改项目状态、运行方式、目录结构或 AI 开工入口时，必须同步 `CONTRIBUTING.md`、`AGENTS.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
 
@@ -74,7 +74,6 @@ wasd/
 │   └── AI记忆/       #    跨会话/跨机器的 AI 协作记忆
 ├── client/           # 2. 正式客户端（Godot 4.6.3 项目根，含 project.godot 与 res:// ...）
 ├── server/           # 3. 服务器端（当前单机项目暂为占位，详见决策记录）
-├── MinimumViableProduct/ # MVP 隔离实验区，含 MVP 文档与独立客户端代码
 ├── draft/ 或 DRAFT/  # 人工草稿；AI 禁止读取/搜索/修改/整理/引用，除非用户明确授权
 ├── CREDITS.md        # 代码库级致谢 / 第三方来源清单；游戏内数据见 client/data/credits.json
 ├── AGENTS.md         # AI agent 通用开工入口
@@ -113,7 +112,7 @@ client/
 
 - 用 Godot 4.6.3 打开 `client/project.godot`。
 - 命令行启动：`godot --path client`。
-- Headless 验证：`python tools/godot_bridge.py --project client headless-boot`（若系统无 Python，可用 Codex 桌面内置 Python 路径执行）。
+- Headless 验证：`python tools/godot_bridge.py headless-boot`（若系统无 Python，可用 Codex 桌面内置 Python 路径执行）。
 
 ## 参与方式（贡献约定）
 1. 动手前先读 `AGENTS.md`、`docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json` 与当前平台编码规则入口，再按 `docs/AI导航.md` 定位。

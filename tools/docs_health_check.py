@@ -16,7 +16,6 @@ ROOT = Path(__file__).resolve().parents[1]
 KB_INDEX = ROOT / "docs" / "_kb_index.json"
 CURRENT_STATE = ROOT / "docs" / "AI记忆" / "current_state.json"
 DOCS_DIR = ROOT / "docs"
-MVP_DIR = ROOT / "MinimumViableProduct"
 CODE_DOCS_INDEX = ROOT / "docs" / "代码" / "README.md"
 KB_HUMAN_INDEX = ROOT / "docs" / "AI知识库索引.md"
 
@@ -187,9 +186,6 @@ def _collect_long_lived_markdown() -> list[Path]:
 
     if DOCS_DIR.exists():
         candidates.extend(DOCS_DIR.rglob("*.md"))
-    if MVP_DIR.exists():
-        candidates.extend(MVP_DIR.rglob("*.md"))
-
     unique: dict[str, Path] = {}
     for path in candidates:
         if _is_ignored(path) or _is_excluded_long_lived_doc(path):
@@ -266,7 +262,6 @@ def _check_code_docs_index(errors: list[str]) -> None:
 
 def _check_doc_references(errors: list[str]) -> None:
     candidates = list((ROOT / "client").rglob("*.gd")) if (ROOT / "client").exists() else []
-    candidates += list((ROOT / "MinimumViableProduct" / "client").rglob("*.gd")) if (ROOT / "MinimumViableProduct" / "client").exists() else []
 
     for path in candidates:
         if _is_ignored(path):

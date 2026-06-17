@@ -274,10 +274,6 @@ def _copy_test_repo(temp_root: Path) -> None:
     _copy_python_tools(temp_root / "tools")
     _copy_file(ROOT / "docs" / "词表与契约.md", temp_root / "docs" / "词表与契约.md")
 
-    mvp_config = ROOT / "MinimumViableProduct" / "client" / "data" / "mvp_config.json"
-    if mvp_config.exists():
-        _copy_file(mvp_config, temp_root / "MinimumViableProduct" / "client" / "data" / "mvp_config.json")
-
 
 def _copy_tree(source: Path, target: Path, *, include: list[str] | None = None) -> None:
     if include is None:

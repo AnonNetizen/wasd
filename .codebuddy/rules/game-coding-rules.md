@@ -18,7 +18,6 @@ alwaysApply: true
 - `docs/`：项目文档（设计文档、AI 导航、词表契约、决策记录、AI 记忆等）
 - `client/`：**Godot 4.6.3 项目根**（即 Godot 中的 `res://`）
 - `server/`：服务器端预留（当前为单机项目，暂占位）
-- `MinimumViableProduct/`：最小可行产品隔离实验区，MVP 文档与客户端代码都放在此处，不污染完整项目 `client/`
 - `draft/` / `DRAFT/`：用户人工草稿禁区，AI 默认不得读取、搜索、修改、整理、格式化或引用
 - `.codebuddy/skills/*/SKILL.md`、`.codex/skills/*/SKILL.md` 与 `.opencode/skills/*/SKILL.md`：三平台同步的项目级 skills；用于按需加载可复用流程，不得放宽项目核心规则；新增或调整时同步 `docs/AI协作/AI技能资源评估.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md` 与工具适配指南。
 - 外部 AI 库的有用经验必须吸收到三平台项目级 skills 或项目自有 subagent 中；不再保留 vendor submodule、外部 hooks / plugin、整包 skills 或 `.agents/skills` reference 层。
@@ -32,7 +31,7 @@ alwaysApply: true
 - `client/assets/`（即 `res://assets/`）：美术 / 音效
 - `user://settings.cfg`：玩家设置存档；`user://` 下另存元进度存档
 
-新增文件必须放入对应目录，不得随意散落。MVP 相关文档 / 代码必须放在 `MinimumViableProduct/` 内；完整项目代码仍放根目录 `client/`。工具链与平台入口文件（`AGENTS.md`、`CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/`、`.github/`、`.git*`、`LICENSE`、`README.md`、`CONTRIBUTING.md` 等）保留在仓库根。
+新增文件必须放入对应目录，不得随意散落。完整项目代码放根目录 `client/`；历史 MVP 验证经验只能经设计 / ADR 迁移，不得复活或搬运临时代码。工具链与平台入口文件（`AGENTS.md`、`CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/`、`.github/`、`.git*`、`LICENSE`、`README.md`、`CONTRIBUTING.md` 等）保留在仓库根。
 
 ## 3. 数据与逻辑分离（核心需求）
 - **严禁在代码中写死可调数值（魔法数字）**：生命、移速、射速、伤害、子弹速度、刷怪曲线、掉落概率等一律读取 `res://data/` 下的配置文件。
@@ -126,7 +125,7 @@ alwaysApply: true
 - 输入解耦：`Player` 与所有可被 AI 替换的角色，输入必须走 InputMap action（不直接读 `Input.is_key_pressed` / `Input.is_joy_button_pressed` / 原始 joy axis）。
 - `Spawner` / `MapManager` / `RNG` 都接受外部 seed 注入。
 - `Analytics` 在 headless 模式下走同步落盘（不阻塞模拟批量跑）。
-- MVP 前**只锁接口形态**，不实现 `AIPlayer`（详见 `游戏设计文档.md` 9.10）。
+- 正式项目早期**只锁接口形态**，不实现 `AIPlayer`（详见 `游戏设计文档.md` 9.10）。
 
 ## 13. 数据埋点 / 玩家数据收集（框架级，强制）
 - 项目需收集玩家数据用于后续分析，**必须从框架阶段预留统一的数据收集接口**，不得后期临时硬塞。
