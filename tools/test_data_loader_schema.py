@@ -170,6 +170,38 @@ def main() -> int:
             ],
         ),
         (
+            "spawn wave enemy reference must exist",
+            _mutate_csv("client/data/spawn_waves.csv", _set_spawn_wave_enemy("enemy_missing")),
+            [
+                "client/data/spawn_waves.csv:line 2.enemy_id",
+                "enemy is not defined in enemies.csv: enemy_missing",
+            ],
+        ),
+        (
+            "spawn wave mode reference must exist",
+            _mutate_csv("client/data/spawn_waves.csv", _set_spawn_wave_mode("mode_unregistered")),
+            [
+                "client/data/spawn_waves.csv:line 2.mode_id",
+                "unknown id mode_unregistered; expected one of game_modes",
+            ],
+        ),
+        (
+            "spawn wave time window must be valid",
+            _mutate_csv("client/data/spawn_waves.csv", _set_spawn_wave_end_time("0.0")),
+            [
+                "client/data/spawn_waves.csv:line 2.end_time",
+                "must be greater than start_time",
+            ],
+        ),
+        (
+            "spawn wave hazard weight requires hazard id",
+            _mutate_csv("client/data/spawn_waves.csv", _set_spawn_wave_hazard("", "10")),
+            [
+                "client/data/spawn_waves.csv:line 2.hazard_id",
+                "must be non-empty when hazard_weight > 0",
+            ],
+        ),
+        (
             "relic must include relic tag",
             _mutate_json("client/data/relics.json", _set_relic_tags([])),
             [
@@ -434,6 +466,35 @@ def _set_hazard_damage_type(value: str) -> CsvMutator:
 def _set_mode_hazard(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["resource_pools"]["hazards"][0]["id"] = value
+
+    return mutate
+
+
+def _set_spawn_wave_enemy(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["enemy_id"] = value
+
+    return mutate
+
+
+def _set_spawn_wave_mode(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["mode_id"] = value
+
+    return mutate
+
+
+def _set_spawn_wave_end_time(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["end_time"] = value
+
+    return mutate
+
+
+def _set_spawn_wave_hazard(hazard_id: str, hazard_weight: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["hazard_id"] = hazard_id
+        rows[0]["hazard_weight"] = hazard_weight
 
     return mutate
 

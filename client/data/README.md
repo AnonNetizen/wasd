@@ -24,7 +24,7 @@
 | 改机关伤害 / 范围 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
-| 改刷怪强度 / 难度曲线 | `spawn_waves.csv`（落地后） | 大改后需要跑回放 / 平衡验证 |
+| 改刷怪强度 / 难度曲线 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
 | 改经验阈值 / 升级候选概率 | `growth.csv`（落地后） | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
 | 改局外货币 / 永久升级 / 解锁 | `meta_progression.json` | 存档走 `SaveManager` 的 `meta` kind，id 必须来自词表 §13 |
 | 改致谢 / 第三方来源 | `credits.json` + 根目录 `CREDITS.md` | 游戏内 Credits UI 读 `credits.json`；发行前复核许可证与 notice |
@@ -43,7 +43,7 @@
 | `consumables.json` | 规划 | 消耗品：拾取 / 使用规则、效果原语与参数 |
 | `enemies.csv` | 已建立 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励等 |
 | `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、范围、持续时间 |
-| `spawn_waves.csv` | 规划 | 刷怪波次、难度曲线、敌人权重、精英 / Boss 出现规则 |
+| `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
 | `growth_pools.json` | 已建立 | 升级选项池、权重、等级条件和候选奖励边界 |
 | `meta_progression.json` | 已建立 | 局外货币、结算奖励、账号等级、永久升级轨道和内容解锁 |
@@ -281,6 +281,34 @@ hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,1,physical,1.0,
 | `duration` | number | `>= 0`，秒 | 单次触发或预警持续时间；具体解释由后续 HazardSystem 决定 |
 
 `hazards.csv` 只声明机关基础数值边界，不实现 `HazardSystem`、放置规则、碰撞体、预警表现、伤害结算或对象池预热。游戏模式可通过 `resource_pools.hazards` 声明可用机关池；实际生成位置、触发时机和表现由后续地图 / 机关系统解释。
+
+## `spawn_waves.csv`
+
+当前结构：
+
+```csv
+id,mode_id,wave_index,start_time,end_time,enemy_id,enemy_weight,spawn_interval,max_alive,spawn_budget,hazard_id,hazard_weight
+wave_standard_early_chasers,mode_standard_survival,1,0.0,60.0,enemy_chaser,100,1.2,12,40,,0
+```
+
+字段说明：
+
+| 字段 | 类型 | 合法值 / 范围 | 说明 |
+|------|------|---------------|------|
+| `id` | string | 文件内唯一，非空 | 波次条目 id；用于诊断、调试和未来回放记录 |
+| `mode_id` | string | 词表 §12-A game mode id，且必须存在于 `game_modes.json` | 该波次所属游戏模式 |
+| `wave_index` | int | `>= 1`，同一 `mode_id` 内唯一 | 波次序号；用于 UI / analytics / 存档快照中的当前波次 |
+| `start_time` | number | `>= 0`，秒 | 本波次开始时间，按 `GameClock` 局内时间解释 |
+| `end_time` | number | `> start_time`，秒 | 本波次结束时间；后续 Spawner 可据此选择当前波次 |
+| `enemy_id` | string | 必须存在于 `enemies.csv` | 本波次主要敌人 id |
+| `enemy_weight` | int | `>= 1` | 本波次敌人抽取权重；当前黄金样例只有一个敌人 |
+| `spawn_interval` | number | `> 0`，秒 | 基础刷怪间隔；后续 Spawner 必须经 `GameClock` 解释 |
+| `max_alive` | int | `>= 1` | 本波次同时存活敌人软上限 |
+| `spawn_budget` | int | `>= 0` | 本波次预算；后续可按敌人成本或数量消耗 |
+| `hazard_id` | string | 可空；非空时必须存在于 `hazards.csv` | 可选机关 id，用于把机关生成作为波次压力的一部分 |
+| `hazard_weight` | int | `>= 0`；大于 0 时 `hazard_id` 必填 | 可选机关权重；`0` 表示本波次不使用机关 |
+
+`spawn_waves.csv` 只声明刷怪 / 难度曲线数据边界，不实现 `Spawner`、生成位置、视野外刷新、敌人 AI、精英 / Boss 规则、机关放置、对象池预热或波次 UI。实际刷怪随机必须走 `RNG.spawn`，局内时间必须走 `GameClock`，高频实体必须走 `PoolManager`。
 
 ## `characters.json`
 

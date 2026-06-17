@@ -14,6 +14,7 @@ const CHARACTERS_PATH: String = "res://data/characters.json"
 const WEAPONS_PATH: String = "res://data/weapons.json"
 const ENEMIES_PATH: String = "res://data/enemies.csv"
 const HAZARDS_PATH: String = "res://data/hazards.csv"
+const SPAWN_WAVES_PATH: String = "res://data/spawn_waves.csv"
 const RELICS_PATH: String = "res://data/relics.json"
 const CREDITS_PATH: String = "res://data/credits.json"
 const META_PROGRESSION_PATH: String = "res://data/meta_progression.json"
@@ -94,6 +95,8 @@ func validate_project_data() -> bool:
 	is_valid = _validate_growth_csv() and is_valid
 	is_valid = _validate_growth_pools() and is_valid
 	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids) and is_valid
+	var game_mode_ids: Dictionary = _collect_game_mode_ids()
+	is_valid = _validate_spawn_waves_csv(enemy_ids, hazard_ids, game_mode_ids) and is_valid
 
 	return is_valid
 
@@ -371,6 +374,57 @@ func _validate_hazards_csv(locale_keys: Dictionary) -> bool:
 		is_valid = _require_csv_number(HAZARDS_PATH, "%s.trigger_interval" % field, row.get("trigger_interval"), 0.0, null, true) and is_valid
 		is_valid = _require_csv_number(HAZARDS_PATH, "%s.radius" % field, row.get("radius"), 0.0, null, true) and is_valid
 		is_valid = _require_csv_number(HAZARDS_PATH, "%s.duration" % field, row.get("duration"), 0.0) and is_valid
+	return is_valid
+
+
+func _validate_spawn_waves_csv(enemy_ids: Dictionary, hazard_ids: Dictionary, game_mode_ids: Dictionary) -> bool:
+	var rows: Array[Dictionary] = load_csv(SPAWN_WAVES_PATH)
+	var is_valid: bool = true
+	var seen_ids: Dictionary = {}
+	var seen_mode_waves: Dictionary = {}
+	if rows.is_empty():
+		is_valid = _schema_fail(SPAWN_WAVES_PATH, "rows", "non-empty CSV") and is_valid
+	_last_schema_counts["spawn_waves"] = rows.size()
+	for index: int in range(rows.size()):
+		var row: Dictionary = rows[index]
+		var field: String = "line %d" % (index + 2)
+		var wave_id: String = String(row.get("id", ""))
+		is_valid = _require_non_empty_string(SPAWN_WAVES_PATH, "%s.id" % field, row.get("id")) and is_valid
+		if not wave_id.is_empty():
+			if seen_ids.has(wave_id):
+				is_valid = _schema_fail(SPAWN_WAVES_PATH, "%s.id" % field, "unique wave id") and is_valid
+			seen_ids[wave_id] = true
+		var mode_id: String = _require_registered(SPAWN_WAVES_PATH, "%s.mode_id" % field, row.get("mode_id"), "game_modes")
+		if not mode_id.is_empty() and not game_mode_ids.has(mode_id):
+			is_valid = _schema_fail(SPAWN_WAVES_PATH, "%s.mode_id" % field, "mode defined in game_modes.json") and is_valid
+		var wave_index: Variant = _parse_int(row.get("wave_index"))
+		is_valid = _require_int(SPAWN_WAVES_PATH, "%s.wave_index" % field, wave_index, 1) and is_valid
+		if not mode_id.is_empty() and _is_int_like(wave_index):
+			var mode_wave_key: String = "%s:%d" % [mode_id, _variant_to_int(wave_index)]
+			if seen_mode_waves.has(mode_wave_key):
+				is_valid = _schema_fail(SPAWN_WAVES_PATH, "%s.wave_index" % field, "unique per mode") and is_valid
+			seen_mode_waves[mode_wave_key] = true
+		var start_time: Variant = _parse_float(row.get("start_time"))
+		var end_time: Variant = _parse_float(row.get("end_time"))
+		is_valid = _require_number(SPAWN_WAVES_PATH, "%s.start_time" % field, start_time, 0.0) and is_valid
+		is_valid = _require_number(SPAWN_WAVES_PATH, "%s.end_time" % field, end_time, 0.0, null, true) and is_valid
+		if (start_time is int or start_time is float) and (end_time is int or end_time is float) and float(end_time) <= float(start_time):
+			is_valid = _schema_fail(SPAWN_WAVES_PATH, "%s.end_time" % field, "greater than start_time") and is_valid
+		var enemy_id: String = String(row.get("enemy_id", ""))
+		is_valid = _require_non_empty_string(SPAWN_WAVES_PATH, "%s.enemy_id" % field, row.get("enemy_id")) and is_valid
+		if not enemy_id.is_empty() and not enemy_ids.has(enemy_id):
+			is_valid = _schema_fail(SPAWN_WAVES_PATH, "%s.enemy_id" % field, "enemy defined in enemies.csv") and is_valid
+		is_valid = _require_csv_int(SPAWN_WAVES_PATH, "%s.enemy_weight" % field, row.get("enemy_weight"), 1) and is_valid
+		is_valid = _require_csv_number(SPAWN_WAVES_PATH, "%s.spawn_interval" % field, row.get("spawn_interval"), 0.0, null, true) and is_valid
+		is_valid = _require_csv_int(SPAWN_WAVES_PATH, "%s.max_alive" % field, row.get("max_alive"), 1) and is_valid
+		is_valid = _require_csv_int(SPAWN_WAVES_PATH, "%s.spawn_budget" % field, row.get("spawn_budget"), 0) and is_valid
+		var hazard_id: String = String(row.get("hazard_id", ""))
+		var hazard_weight: Variant = _parse_int(row.get("hazard_weight"))
+		is_valid = _require_int(SPAWN_WAVES_PATH, "%s.hazard_weight" % field, hazard_weight, 0) and is_valid
+		if not hazard_id.is_empty() and not hazard_ids.has(hazard_id):
+			is_valid = _schema_fail(SPAWN_WAVES_PATH, "%s.hazard_id" % field, "hazard defined in hazards.csv") and is_valid
+		if hazard_id.is_empty() and _is_int_like(hazard_weight) and _variant_to_int(hazard_weight) > 0:
+			is_valid = _schema_fail(SPAWN_WAVES_PATH, "%s.hazard_id" % field, "non-empty when hazard_weight > 0") and is_valid
 	return is_valid
 
 
@@ -1160,6 +1214,20 @@ func _collect_growth_pool_ids() -> Dictionary:
 	for pool: Variant in pools:
 		if pool is Dictionary and (pool as Dictionary).get("id") is String:
 			ids[String((pool as Dictionary).get("id"))] = true
+	return ids
+
+
+func _collect_game_mode_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(GAME_MODES_PATH)
+	if not data is Dictionary:
+		return ids
+	var modes: Variant = (data as Dictionary).get("modes")
+	if not modes is Array:
+		return ids
+	for mode: Variant in modes:
+		if mode is Dictionary and (mode as Dictionary).get("id") is String:
+			ids[String((mode as Dictionary).get("id"))] = true
 	return ids
 
 

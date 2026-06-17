@@ -19,6 +19,7 @@ CHARACTERS_JSON = ROOT / "client" / "data" / "characters.json"
 WEAPONS_JSON = ROOT / "client" / "data" / "weapons.json"
 ENEMIES_CSV = ROOT / "client" / "data" / "enemies.csv"
 HAZARDS_CSV = ROOT / "client" / "data" / "hazards.csv"
+SPAWN_WAVES_CSV = ROOT / "client" / "data" / "spawn_waves.csv"
 RELICS_JSON = ROOT / "client" / "data" / "relics.json"
 CREDITS_JSON = ROOT / "client" / "data" / "credits.json"
 GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
@@ -67,6 +68,8 @@ def main() -> int:
     _validate_growth_csv(ctx)
     _validate_growth_pools(ctx)
     _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids)
+    game_mode_ids = _collect_game_mode_ids(ctx)
+    _validate_spawn_waves_csv(ctx, enemy_ids, hazard_ids, game_mode_ids)
 
     if ctx.errors:
         for error in ctx.errors:
@@ -354,6 +357,74 @@ def _validate_hazards_csv(ctx: ValidationContext) -> None:
             _parse_float(ctx, path, f"{field}.duration", row.get("duration"), minimum=0)
         if row_count == 0:
             ctx.error(path, "rows", "must contain at least one hazard")
+
+
+def _validate_spawn_waves_csv(ctx: ValidationContext, enemy_ids: set[str], hazard_ids: set[str], game_mode_ids: set[str]) -> None:
+    path = SPAWN_WAVES_CSV
+    if not path.exists():
+        ctx.error(path, "$", "missing spawn waves CSV")
+        return
+
+    required = {
+        "id",
+        "mode_id",
+        "wave_index",
+        "start_time",
+        "end_time",
+        "enemy_id",
+        "enemy_weight",
+        "spawn_interval",
+        "max_alive",
+        "spawn_budget",
+        "hazard_id",
+        "hazard_weight",
+    }
+    seen_ids: set[str] = set()
+    seen_mode_waves: set[tuple[str, int]] = set()
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        fieldnames = reader.fieldnames or []
+        missing = required.difference(fieldnames)
+        if missing:
+            ctx.error(path, "header", f"missing required columns {sorted(missing)}")
+            return
+        row_count = 0
+        for line_number, row in enumerate(reader, start=2):
+            row_count += 1
+            field = f"line {line_number}"
+            wave_id = _require_non_empty_string(ctx, path, f"{field}.id", row.get("id"))
+            if wave_id:
+                if wave_id in seen_ids:
+                    ctx.error(path, f"{field}.id", f"duplicate wave id {wave_id}")
+                seen_ids.add(wave_id)
+            mode_id = _require_registered(ctx, path, f"{field}.mode_id", row.get("mode_id"), "game_modes")
+            if mode_id and mode_id not in game_mode_ids:
+                ctx.error(path, f"{field}.mode_id", f"mode is not defined in game_modes.json: {mode_id}")
+            wave_index = _parse_int(ctx, path, f"{field}.wave_index", row.get("wave_index"), minimum=1)
+            if mode_id and isinstance(wave_index, int):
+                mode_wave = (mode_id, wave_index)
+                if mode_wave in seen_mode_waves:
+                    ctx.error(path, f"{field}.wave_index", f"duplicate wave_index {wave_index} for mode {mode_id}")
+                seen_mode_waves.add(mode_wave)
+            start_time = _parse_float(ctx, path, f"{field}.start_time", row.get("start_time"), minimum=0)
+            end_time = _parse_float(ctx, path, f"{field}.end_time", row.get("end_time"), minimum=0, exclusive_minimum=True)
+            if isinstance(start_time, float) and isinstance(end_time, float) and end_time <= start_time:
+                ctx.error(path, f"{field}.end_time", "must be greater than start_time")
+            enemy_id = _require_non_empty_string(ctx, path, f"{field}.enemy_id", row.get("enemy_id"))
+            if enemy_id and enemy_id not in enemy_ids:
+                ctx.error(path, f"{field}.enemy_id", f"enemy is not defined in enemies.csv: {enemy_id}")
+            _parse_int(ctx, path, f"{field}.enemy_weight", row.get("enemy_weight"), minimum=1)
+            _parse_float(ctx, path, f"{field}.spawn_interval", row.get("spawn_interval"), minimum=0, exclusive_minimum=True)
+            _parse_int(ctx, path, f"{field}.max_alive", row.get("max_alive"), minimum=1)
+            _parse_int(ctx, path, f"{field}.spawn_budget", row.get("spawn_budget"), minimum=0)
+            hazard_id = row.get("hazard_id") or ""
+            if hazard_id and hazard_id not in hazard_ids:
+                ctx.error(path, f"{field}.hazard_id", f"hazard is not defined in hazards.csv: {hazard_id}")
+            hazard_weight = _parse_int(ctx, path, f"{field}.hazard_weight", row.get("hazard_weight"), minimum=0)
+            if not hazard_id and isinstance(hazard_weight, int) and hazard_weight > 0:
+                ctx.error(path, f"{field}.hazard_id", "must be non-empty when hazard_weight > 0")
+        if row_count == 0:
+            ctx.error(path, "rows", "must contain at least one spawn wave")
 
 
 def _validate_relics(ctx: ValidationContext) -> None:
@@ -1055,6 +1126,16 @@ def _collect_growth_pool_ids(ctx: ValidationContext) -> set[str]:
     if not isinstance(pools, list):
         return set()
     return {item.get("id") for item in pools if isinstance(item, dict) and isinstance(item.get("id"), str)}
+
+
+def _collect_game_mode_ids(ctx: ValidationContext) -> set[str]:
+    data = _load_json(GAME_MODES_JSON, ctx)
+    if not isinstance(data, dict):
+        return set()
+    modes = data.get("modes")
+    if not isinstance(modes, list):
+        return set()
+    return {item.get("id") for item in modes if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
 def _require_registered(ctx: ValidationContext, path: Path, field: str, value: Any, contract_key: str) -> str | None:

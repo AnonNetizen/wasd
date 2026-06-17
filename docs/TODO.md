@@ -18,11 +18,11 @@
 ## 1. 当前优先级（P0）
 
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、本地 pre-commit hook、增量 watch。
-- [ ] 继续正式项目 F3 数据 / 契约闭环：在已补 DataLoader schema 回归测试、weapons、relics、enemies 和 hazards 边界后，继续扩展 spawn_waves / active_items / consumables 等后续内容数据 schema。
+- [ ] 继续正式项目 F3 数据 / 契约闭环：在已补 DataLoader schema 回归测试、weapons、relics、enemies、hazards 和 spawn_waves 边界后，继续扩展 active_items / consumables 等后续内容数据 schema。
 
 ## 2. 下一批任务（P1）
 
-- [ ] 完成正式项目 F3 数据 / 契约闭环：把已落地 schema 继续扩展到刷怪波次、主动道具、消耗品等后续内容数据。
+- [ ] 完成正式项目 F3 数据 / 契约闭环：把已落地 schema 继续扩展到主动道具、消耗品等后续内容数据。
 - [ ] 深化接入强 `SaveManager`：`meta` 局外成长业务、`run` 暂停退出续局快照、暂停菜单保存退出、主菜单继续游戏和存档迁移测试。
 - [ ] 实现暂停菜单“保存并退出”和主菜单“继续游戏”流程，加载后恢复玩家、敌人、子弹、掉落、经验、遗物、RNG、GameClock 和 UI 恢复点。
 - [ ] 实现 `MetaProgressionSystem`：结算奖励、账号等级、永久升级购买、解锁授予、`ModifierEngine` 注入。
