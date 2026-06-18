@@ -818,16 +818,16 @@
     {
       "path": "docs/代码/meta_progression_system.md",
       "type": "module_doc",
-      "authority": "MetaProgressionSystem autoload contract for F6 meta profile, settlement rewards, upgrade purchases, unlocks, and permanent modifiers",
+      "authority": "MetaProgressionSystem autoload contract for F6 meta profile, settlement rewards, title upgrade panel, upgrade purchases, unlocks, and permanent modifiers",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-06-18",
-      "canonical_for": ["meta_progression_system", "meta_profile", "settlement_rewards", "permanent_upgrades"],
-      "must_read_for": ["meta_progression_change", "settlement_change", "meta_profile_schema_change", "permanent_upgrade_change"],
+      "canonical_for": ["meta_progression_system", "meta_profile", "settlement_rewards", "title_meta_upgrade_panel", "permanent_upgrades"],
+      "must_read_for": ["meta_progression_change", "settlement_change", "meta_profile_schema_change", "title_meta_upgrade_ui_change", "permanent_upgrade_change"],
       "related_docs": ["docs/AI协作/工作包/F6-MetaProgression.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/save_manager.md", "docs/代码/f4_min_playable_loop.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/autoload/meta_progression_system.gd", "client/data/meta_progression.json", "client/scripts/gameplay/f4_run_loop.gd", "client/scripts/ui/f4_game_over_panel.gd", "client/tools/meta_progression_smoke.gd", "tools/godot_bridge.py"],
-      "update_triggers": ["MetaProgressionSystem API changes", "meta profile schema changes", "settlement formula changes", "upgrade purchase behavior changes", "meta-smoke behavior changes"],
-      "keywords": ["MetaProgressionSystem", "autoload", "meta", "局外成长", "settlement", "结算", "meta_progression.json", "upgrade_tracks", "account_level", "meta-smoke", "permanent modifiers"]
+      "related_code": ["client/scripts/autoload/meta_progression_system.gd", "client/scripts/ui/meta_progression_panel.gd", "client/data/meta_progression.json", "client/scripts/gameplay/f4_run_loop.gd", "client/scripts/ui/f4_title_menu.gd", "client/scripts/ui/f4_game_over_panel.gd", "client/tools/meta_progression_smoke.gd", "tools/godot_bridge.py"],
+      "update_triggers": ["MetaProgressionSystem API changes", "meta profile schema changes", "settlement formula changes", "title meta upgrade UI changes", "upgrade purchase behavior changes", "meta-smoke behavior changes"],
+      "keywords": ["MetaProgressionSystem", "MetaProgressionPanel", "autoload", "meta", "局外成长", "标题局外升级", "settlement", "结算", "meta_progression.json", "upgrade_tracks", "account_level", "meta-smoke", "permanent modifiers"]
     },
     {
       "path": "docs/代码/audio_manager.md",

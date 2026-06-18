@@ -7,7 +7,7 @@
 
 - 负责提供完整项目 `client/` 的最小 Godot 启动入口。
 - 负责让 F1 阶段可以通过 headless 启动验证。
-- F2/F3 期间作为正式客户端 smoke 场景，负责触发 autoload 和数据 schema 启动检查；F4 起在数据校验通过后显示最小标题界面，并在玩家开始游戏、继续 run 存档或 smoke 模式下挂载最小可玩闭环 runtime。
+- F2/F3 期间作为正式客户端 smoke 场景，负责触发 autoload 和数据 schema 启动检查；F4 起在数据校验通过后显示最小标题界面，并在玩家开始游戏、继续 run 存档、打开局外升级面板或 smoke 模式下编排对应流程。
 - 不负责长期主菜单、设置页、输入 UI、业务数据解释或完整加载流程；这些属于后续正式 UI / 玩法模块。
 
 ## 阅读方式
@@ -27,6 +27,7 @@
 | `client/scenes/boot/main.tscn` | 正式项目最小启动场景 |
 | `client/scripts/boot/formal_client_boot.gd` | 启动场景脚本，输出启动日志 |
 | `client/scripts/ui/f4_title_menu.gd` | F4 阶段最小标题界面，通过 `UIManager` 挂载 |
+| `client/scripts/ui/meta_progression_panel.gd` | F6 阶段标题局外升级面板，通过 `UIManager` 叠在标题菜单上 |
 | `client/scripts/gameplay/f4_run_loop.gd` | F4 数据校验通过后挂载的最小可玩闭环 runtime |
 | `client/tools/save_manager_smoke.gd` | `--save-smoke` 下挂载的 F5 存档可靠性 smoke |
 | `client/tools/meta_progression_smoke.gd` | `--meta-smoke` 下挂载的 F6 局外成长 smoke |
@@ -40,7 +41,8 @@ FormalClientBoot (Node)
 
 UIManager
 └── UIRoot
-    └── F4TitleMenu (normal boot after data schema passes; shows continue when run.save exists)
+    ├── F4TitleMenu (normal boot after data schema passes; shows continue when run.save exists)
+    └── MetaProgressionPanel (pushed above title menu when requested)
 ```
 
 根节点挂载 `res://scripts/boot/formal_client_boot.gd`。
@@ -53,6 +55,7 @@ UIManager
 | 主场景加载 | 实例化 `FormalClientBoot` 根节点 | 无 |
 | `_ready()` | 调用 `DataLoader.validate_project_data()` 并输出正式客户端启动日志 | `print()` |
 | 正常启动 | 数据校验通过后通过 `UIManager` 显示 `F4TitleMenu`，保持 `GameState.MAIN_MENU` | `UIManager.push()` |
+| 标题局外升级 | 标题菜单发出 `meta_progression_requested` 后，启动脚本把 `MetaProgressionPanel` 推入 UI 栈；关闭时弹出该面板并保留标题菜单 | `UIManager.push()` / `UIManager.pop()` |
 | F4 runtime 挂载 | 玩家选择开始、继续游戏或 `--f4-smoke` 启动时创建 `F4RunLoop`，进入最小战斗闭环；继续游戏会先从 `SaveManager` 读取 `run` payload，交给 runtime 恢复实体、GameClock、RNG 和 `ui_restore`，读取失败时回标题并显示坏档重置提示 | `add_child()`、`SaveManager.load_envelope()`、`GameState.PLAYING` |
 | F5 存档 smoke | `--save-smoke` 启动时只挂载 `SaveManagerSmoke`，验证 run 存档 roundtrip、备份回退、坏档隔离和迁移链 | `client/tools/save_manager_smoke.gd` |
 | F6 局外成长 smoke | `--meta-smoke` 启动时只挂载 `MetaProgressionSmoke`，验证 meta profile roundtrip、结算、购买、解锁和永久 modifier | `client/tools/meta_progression_smoke.gd` |
@@ -71,13 +74,13 @@ UIManager
 - 通过 `DataLoader.validate_project_data()` 间接读取 F3 目标数据和 `client/locale/strings.csv`。
 - `client/project.godot` 的默认 viewport 为 1920×1080；窗口禁止任意拖拽缩放，2D 内容和 UI 通过 `display/window/stretch/mode="canvas_items"` 与 `display/window/stretch/aspect="keep"` 在屏幕比例不匹配时保比例加黑边。后续设置页应只暴露经过验证的分辨率预设列表，不接受任意宽高输入。
 - 启动日志输出 `data_schema_ok`、`player_stats`、`characters`、`weapons`、`enemies`、`hazards`、`spawn_waves`、`relics`、`active_items`、`consumables`、`locale_keys`、`growth_levels`、`growth_pools`、`game_modes`、`meta_upgrades`、`meta_unlocks` 等 smoke 计数。
-- 启动脚本本身不包含玩家可见文本；F4 标题、HUD 和结算面板文案见 `client/locale/strings.csv`。
-- 标题菜单的“继续游戏”只在 `SaveManager.has_save(slot_0, run)` 为真时可见；开始新局和重开会删除旧 `run` 存档，避免重复继续旧局。若继续读取失败或坏档被隔离，标题菜单显示 `ui_run_save_unavailable` 提示并隐藏继续按钮。成功继续后，`F4RunLoop` 会按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板。
+- 启动脚本本身不包含玩家可见文本；F4 标题、HUD、结算面板和局外升级面板文案见 `client/locale/strings.csv`。
+- 标题菜单的“继续游戏”只在 `SaveManager.has_save(slot_0, run)` 为真时可见；“局外升级”常驻可见并由 `MetaProgressionPanel` 展示 `MetaProgressionSystem` 的 profile / upgrade summaries。开始新局和重开会删除旧 `run` 存档，避免重复继续旧局。若继续读取失败或坏档被隔离，标题菜单显示 `ui_run_save_unavailable` 提示并隐藏继续按钮。成功继续后，`F4RunLoop` 会按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板。
 
 ## 依赖
 
 - 上游依赖：Godot 4.6.3 项目加载机制、已注册的 F2 autoload。
-- 下游调用方：F4 阶段的 `F4TitleMenu` 由本启动脚本通过 `UIManager` 挂载，`F4RunLoop` 由本启动脚本创建和清理。
+- 下游调用方：F4 阶段的 `F4TitleMenu` 和 F6 阶段的 `MetaProgressionPanel` 由本启动脚本通过 `UIManager` 挂载，`F4RunLoop` 由本启动脚本创建和清理。
 - 禁止依赖：不得引用 MVP 场景或脚本；不得提前绕过未来 F2 autoload 边界。
 
 ## 扩展点
@@ -93,6 +96,7 @@ UIManager
 | 调整默认分辨率 / 拉伸策略 | `client/project.godot` | 本文档、`client/README.md`、相关 UI 模块文档 | `headless-boot` + `f4-smoke` + 手动不同窗口尺寸检查 |
 | 增加启动前检查 | `client/scripts/boot/formal_client_boot.gd` | 本文档；必要时新增模块文档 | headless boot |
 | 调整 F4 runtime 挂载 / 继续游戏 | `formal_client_boot.gd`、`f4_run_loop.gd` | 本文档、`docs/代码/f4_min_playable_loop.md`、AI导航 | headless boot、`f4-smoke`、`save-smoke`、手动保存续局 |
+| 调整标题局外升级入口 | `formal_client_boot.gd`、`f4_title_menu.gd`、`meta_progression_panel.gd` | 本文档、`docs/代码/f4_min_playable_loop.md`、`docs/代码/meta_progression_system.md`、AI导航 | headless boot、`meta-smoke`、手动标题菜单点开 |
 | 调整 F6 smoke 挂载 | `formal_client_boot.gd`、`client/tools/meta_progression_smoke.gd` | 本文档、`docs/代码/meta_progression_system.md`、AI导航 | headless boot、`meta-smoke` |
 | 补目录说明 | `client/README.md` | `README.md`、`docs/AI导航.md` | docs health |
 
@@ -106,6 +110,8 @@ UIManager
 | `data_schema_ok=false` | 查看同次 headless 日志中的 `[DataLoader]` schema 错误 |
 | 数据通过但没有 F4 节点 | `formal_client_boot.gd` 是否创建 `F4RunLoop`，以及脚本编译是否失败 |
 | 正常启动没有标题菜单 | `F4TitleMenu` 是否通过 `UIManager.push()` 挂载，`UIManager.stack_size()` 是否异常 |
+| 标题菜单看不到局外升级 | `F4TitleMenu` 是否发出 `meta_progression_requested`；`ui_meta_progression` 是否在 locale 中；`FormalClientBoot` 是否连接该 signal |
+| 局外升级面板关闭后没回标题 | `_on_meta_progression_closed()` 是否 `UIManager.pop()` 顶层面板；`UIManager.top()` 是否为 `MetaProgressionPanel` |
 | 有 run 存档但没有继续按钮 | `SaveManager.has_save(slot_0, run)` 是否为真；旧存档是否 hash mismatch 被隔离；标题菜单是否显示 `ui_run_save_unavailable` |
 
 ## 测试义务
@@ -113,6 +119,7 @@ UIManager
 - F1 必跑 headless 启动验证：`tools/godot_bridge.py --project client headless-boot`。
 - 修改 `--save-smoke` 挂载或 SaveManager 启动诊断时，追加 `python tools/godot_bridge.py --project client save-smoke`。
 - 修改 `--meta-smoke` 挂载或 MetaProgressionSystem 启动诊断时，追加 `python tools/godot_bridge.py --project client meta-smoke`。
+- 修改标题局外升级入口或 `MetaProgressionPanel` 挂载时，追加 `python tools/godot_bridge.py --project client meta-smoke` 并做一次手动标题菜单点开检查。
 - 修改长期文档或索引后跑 `tools/docs_health_check.py`。
 - 不需要 GUT 单测；该模块只做 smoke / F4 runtime 编排。改 DataLoader schema 时按 DataLoader 测试义务处理；改 F4 runtime 挂载时跑 headless boot。
 

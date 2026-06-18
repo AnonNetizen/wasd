@@ -1,6 +1,7 @@
 extends Node
 
 
+const META_PROGRESSION_PANEL_SCRIPT := preload("res://scripts/ui/meta_progression_panel.gd")
 const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const META_UNLOCKS := preload("res://scripts/contracts/meta_unlocks.gd")
 const META_UPGRADES := preload("res://scripts/contracts/meta_upgrades.gd")
@@ -37,6 +38,9 @@ func _run() -> void:
 	var settled_profile: Dictionary = settlement.get("profile", {}) as Dictionary
 	_expect(_has_unlock(settled_profile, META_UNLOCKS.UNLOCK_RELIC_POOL_BASIC), "level rewards should grant configured unlocks")
 	_expect(int((settled_profile.get("currencies", {}) as Dictionary).get(META_CURRENCIES.META_ESSENCE, 0)) == 48, "settlement should persist currency balance")
+	_expect(_profile_summary_matches_settlement(), "profile_summary should expose the title-menu balance")
+	_expect(_has_affordable_upgrade_summary(META_UPGRADES.META_UPGRADE_DAMAGE), "upgrade_summaries should expose affordable upgrade rows")
+	_expect(_meta_panel_builds_upgrade_list(), "meta progression panel should build the visible upgrade list")
 
 	var roundtrip_profile: Dictionary = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
 	_expect(int(roundtrip_profile.get("account_xp", 0)) == 125, "meta save should roundtrip account XP through SaveManager")
@@ -55,6 +59,39 @@ func _run() -> void:
 	_finish()
 
 
+func _profile_summary_matches_settlement() -> bool:
+	var summary: Dictionary = MetaProgressionSystem.profile_summary()
+	return (
+		int(summary.get("account_level", 0)) == 2
+		and String(summary.get("currency_id", "")) == META_CURRENCIES.META_ESSENCE
+		and int(summary.get("currency_amount", -1)) == 48
+	)
+
+
+func _has_affordable_upgrade_summary(upgrade_id: String) -> bool:
+	for summary: Dictionary in MetaProgressionSystem.upgrade_summaries():
+		if String(summary.get("upgrade_id", "")) != upgrade_id:
+			continue
+		return (
+			bool(summary.get("can_purchase", false))
+			and int(summary.get("current_level", -1)) == 0
+			and int(summary.get("cost", 0)) == 18
+		)
+	return false
+
+
+func _meta_panel_builds_upgrade_list() -> bool:
+	var panel: CanvasLayer = META_PROGRESSION_PANEL_SCRIPT.new()
+	panel.name = "MetaProgressionPanel"
+	add_child(panel)
+	var currency_label: Node = _find_node_by_name(panel, "MetaCurrencyLabel")
+	var upgrade_list: Node = _find_node_by_name(panel, "MetaUpgradeList")
+	var row_count: int = upgrade_list.get_child_count() if upgrade_list != null else 0
+	remove_child(panel)
+	panel.queue_free()
+	return currency_label != null and row_count >= MetaProgressionSystem.upgrade_summaries().size()
+
+
 func _has_unlock(profile: Dictionary, unlock_id: String) -> bool:
 	var unlocked_ids: Array = profile.get("unlocked_ids", []) as Array
 	return unlocked_ids.has(unlock_id)
@@ -69,6 +106,16 @@ func _has_modifier(modifiers: Array[Dictionary], stat_id: String, modifier_type:
 		if is_equal_approx(float(modifier.get("value", 0.0)), value):
 			return true
 	return false
+
+
+func _find_node_by_name(root: Node, target_name: String) -> Node:
+	if root.name == target_name:
+		return root
+	for child: Node in root.get_children():
+		var found: Node = _find_node_by_name(child, target_name)
+		if found != null:
+			return found
+	return null
 
 
 func _expect(condition: bool, message: String) -> void:

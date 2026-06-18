@@ -125,6 +125,27 @@ func current_modifiers(slot: String = SaveManager.DEFAULT_SLOT) -> Array[Diction
 	return result
 
 
+func profile_summary(slot: String = SaveManager.DEFAULT_SLOT) -> Dictionary:
+	var profile: Dictionary = load_or_create_profile(slot)
+	var primary_currency_id: String = _primary_currency_id()
+	var currencies: Dictionary = _dictionary_or_empty(profile.get("currencies", {}))
+	return {
+		"account_level": int(profile.get("account_level", 1)),
+		"account_xp": int(profile.get("account_xp", 0)),
+		"currency_id": primary_currency_id,
+		"currency_name_key": _currency_name_key(primary_currency_id),
+		"currency_amount": int(currencies.get(primary_currency_id, 0)),
+	}
+
+
+func upgrade_summaries(slot: String = SaveManager.DEFAULT_SLOT) -> Array[Dictionary]:
+	var profile: Dictionary = load_or_create_profile(slot)
+	var result: Array[Dictionary] = []
+	for track: Dictionary in _upgrade_tracks():
+		result.append(_upgrade_summary(track, profile))
+	return result
+
+
 func first_available_purchase(slot: String = SaveManager.DEFAULT_SLOT) -> Dictionary:
 	var profile: Dictionary = load_or_create_profile(slot)
 	var currencies: Dictionary = _dictionary_or_empty(profile.get("currencies", {}))
@@ -295,10 +316,57 @@ func _purchase_result(ok: bool, reason: String, upgrade_id: String, profile: Dic
 	}
 
 
+func _upgrade_summary(track: Dictionary, profile: Dictionary) -> Dictionary:
+	var upgrade_id: String = String(track.get("id", ""))
+	var purchased_upgrades: Dictionary = _dictionary_or_empty(profile.get("purchased_upgrades", {}))
+	var currencies: Dictionary = _dictionary_or_empty(profile.get("currencies", {}))
+	var current_level: int = int(purchased_upgrades.get(upgrade_id, 0))
+	var max_level: int = int(track.get("max_level", 0))
+	var currency_id: String = String(track.get("currency_id", META_CURRENCIES.META_ESSENCE))
+	var balance: int = int(currencies.get(currency_id, 0))
+	var costs: Array = _array_or_empty(track.get("costs", []))
+	var cost: int = 0
+	if current_level < costs.size():
+		cost = int(costs[current_level])
+
+	var required_level: int = _required_account_level(track)
+	var is_unlocked: bool = _is_track_unlocked(track, profile)
+	var is_max_level: bool = current_level >= max_level
+	var reason: String = ""
+	if not is_unlocked:
+		reason = "locked"
+	elif is_max_level:
+		reason = "max_level"
+	elif current_level >= costs.size():
+		reason = "missing_cost"
+	elif balance < cost:
+		reason = "insufficient_currency"
+
+	return {
+		"upgrade_id": upgrade_id,
+		"name_key": String(track.get("name_key", "")),
+		"desc_key": String(track.get("desc_key", "")),
+		"currency_id": currency_id,
+		"currency_name_key": _currency_name_key(currency_id),
+		"current_level": current_level,
+		"max_level": max_level,
+		"cost": cost,
+		"balance": balance,
+		"account_level_required": required_level,
+		"is_unlocked": is_unlocked,
+		"is_max_level": is_max_level,
+		"can_purchase": reason.is_empty(),
+		"reason": reason,
+	}
+
+
 func _is_track_unlocked(track: Dictionary, profile: Dictionary) -> bool:
+	return int(profile.get("account_level", 1)) >= _required_account_level(track)
+
+
+func _required_account_level(track: Dictionary) -> int:
 	var condition: Dictionary = _dictionary_or_empty(track.get("unlock_condition", {}))
-	var required_level: int = int(condition.get("account_level", 1))
-	return int(profile.get("account_level", 1)) >= required_level
+	return int(condition.get("account_level", 1))
 
 
 func _account_level_for_xp(account_xp: int) -> int:
@@ -325,6 +393,14 @@ func _currency_name_key(currency_id: String) -> String:
 		if String(currency.get("id", "")) == currency_id:
 			return String(currency.get("name_key", currency_id))
 	return currency_id
+
+
+func _primary_currency_id() -> String:
+	for currency: Dictionary in _currencies():
+		var currency_id: String = String(currency.get("id", ""))
+		if not currency_id.is_empty():
+			return currency_id
+	return META_CURRENCIES.META_ESSENCE
 
 
 func _upgrade_track(upgrade_id: String) -> Dictionary:

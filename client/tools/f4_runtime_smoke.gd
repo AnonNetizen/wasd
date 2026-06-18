@@ -447,6 +447,7 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 
 	var title_menu: Node = _find_node_by_name(get_tree().root, "F4TitleMenu")
 	var continue_button: Button = _find_node_by_name(title_menu, "ContinueRunButton") as Button
+	await _verify_meta_progression_entry(title_menu)
 	_expect(continue_button != null and continue_button.visible and not continue_button.disabled, "title menu should continue a pending level-up run")
 	if continue_button == null:
 		return {
@@ -642,6 +643,31 @@ func _click_button(button: Button) -> void:
 	release.global_position = center
 	get_viewport().push_input(release, true)
 	await get_tree().process_frame
+
+
+func _verify_meta_progression_entry(title_menu: Node) -> void:
+	var meta_button: Button = _find_node_by_name(title_menu, "MetaProgressionButton") as Button
+	_expect(meta_button != null and meta_button.visible and not meta_button.disabled, "title menu should expose the meta progression entry")
+	if meta_button == null:
+		return
+	await _click_button(meta_button)
+
+	var panel: Node = null
+	for _index: int in range(BOOT_FRAMES):
+		await get_tree().process_frame
+		panel = _find_node_by_name(get_tree().root, "MetaProgressionPanel")
+		if panel != null:
+			break
+	_expect(panel != null, "clicking the meta progression entry should open MetaProgressionPanel")
+	if panel == null:
+		return
+
+	var upgrade_list: Node = _find_node_by_name(panel, "MetaUpgradeList")
+	_expect(upgrade_list != null and upgrade_list.get_child_count() > 0, "MetaProgressionPanel should show upgrade rows")
+	var close_button: Button = _find_node_by_name(panel, "CloseButton") as Button
+	_expect(close_button != null, "MetaProgressionPanel should expose a close button")
+	if close_button != null:
+		await _click_button(close_button)
 
 
 func _push_action_once(action_id: String) -> void:

@@ -8,12 +8,14 @@ const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
 const F4_RUN_LOOP := preload("res://scripts/gameplay/f4_run_loop.gd")
 const F4_SMOKE_RUNNER := preload("res://tools/f4_runtime_smoke.gd")
 const F4_TITLE_MENU := preload("res://scripts/ui/f4_title_menu.gd")
+const META_PROGRESSION_PANEL := preload("res://scripts/ui/meta_progression_panel.gd")
 const META_SMOKE_RUNNER := preload("res://tools/meta_progression_smoke.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SAVE_SMOKE_RUNNER := preload("res://tools/save_manager_smoke.gd")
 
 var _run_loop: Node = null
+var _meta_progression_panel: CanvasLayer = null
 var _title_menu: CanvasLayer = null
 
 
@@ -114,6 +116,7 @@ func _show_title_menu(notice_key: String = "") -> void:
 	_title_menu.call("configure", SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), notice_key)
 	_title_menu.connect("start_requested", Callable(self, "_on_title_start_requested"), CONNECT_ONE_SHOT)
 	_title_menu.connect("continue_requested", Callable(self, "_on_title_continue_requested"), CONNECT_ONE_SHOT)
+	_title_menu.connect("meta_progression_requested", Callable(self, "_on_title_meta_progression_requested"))
 	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
 
 
@@ -171,8 +174,30 @@ func _on_title_continue_requested() -> void:
 	call_deferred("_start_f4_run", payload)
 
 
+func _on_title_meta_progression_requested() -> void:
+	if _meta_progression_panel != null and is_instance_valid(_meta_progression_panel):
+		return
+	var panel_template: CanvasLayer = META_PROGRESSION_PANEL.new()
+	panel_template.name = "MetaProgressionPanel"
+	var panel_scene: PackedScene = _pack_ui_template(panel_template)
+	if panel_scene == null:
+		return
+	_meta_progression_panel = UIManager.push(panel_scene, {"source": "formal_client_boot"}) as CanvasLayer
+	if _meta_progression_panel == null:
+		return
+	_meta_progression_panel.connect("closed_requested", Callable(self, "_on_meta_progression_closed"), CONNECT_ONE_SHOT)
+
+
 func _on_title_quit_requested() -> void:
 	get_tree().quit()
+
+
+func _on_meta_progression_closed() -> void:
+	if UIManager.top() == _meta_progression_panel:
+		UIManager.pop()
+	elif _meta_progression_panel != null and is_instance_valid(_meta_progression_panel):
+		_meta_progression_panel.queue_free()
+	_meta_progression_panel = null
 
 
 func _on_run_restart_requested() -> void:

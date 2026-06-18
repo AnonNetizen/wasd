@@ -6,6 +6,7 @@ extends CanvasLayer
 
 signal quit_requested()
 signal continue_requested()
+signal meta_progression_requested()
 signal start_requested()
 
 const BUTTON_HEIGHT: float = 54.0
@@ -75,6 +76,10 @@ func _ready() -> void:
 	start_button.pressed.connect(_on_start_pressed)
 	layout.add_child(start_button)
 
+	var meta_progression_button: Button = _make_button("MetaProgressionButton", tr("ui_meta_progression"))
+	meta_progression_button.pressed.connect(_on_meta_progression_pressed)
+	layout.add_child(meta_progression_button)
+
 	var quit_button: Button = _make_button("QuitButton", tr("ui_quit"))
 	quit_button.pressed.connect(_on_quit_pressed)
 	layout.add_child(quit_button)
@@ -110,6 +115,10 @@ func _on_start_pressed() -> void:
 
 func _on_continue_pressed() -> void:
 	continue_requested.emit()
+
+
+func _on_meta_progression_pressed() -> void:
+	meta_progression_requested.emit()
 
 
 func _on_quit_pressed() -> void:
