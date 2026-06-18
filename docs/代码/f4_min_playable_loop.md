@@ -41,7 +41,8 @@
 | `client/scripts/ui/f4_pause_menu.gd` | F5 首片最小暂停菜单：继续、保存并退出、重新开始、回标题 |
 | `client/scripts/ui/f4_game_over_panel.gd` | F4 阶段最小失败面板：重开 / 回标题 |
 | `client/tools/f4_runtime_smoke.gd` | F4 headless runtime smoke，覆盖启动、输入、池化、伤害和失败状态 |
-| `tools/godot_bridge.py` | `f4-smoke` 命令入口 |
+| `client/tools/save_manager_smoke.gd` | F5 SaveManager run 存档可靠性 smoke，覆盖 roundtrip、备份回退、坏档隔离和迁移 |
+| `tools/godot_bridge.py` | `f4-smoke` / `save-smoke` 命令入口 |
 | `docs/代码/combat.md` | 伤害统一入口文档 |
 
 ## 场景 / 节点结构
@@ -90,7 +91,7 @@ UIManager
 | 保存退出 / 继续 | 暂停菜单“保存并退出”生成 `run` payload 并写入 `SaveManager`；标题菜单检测到 `run.save` 后显示“继续游戏”，加载 payload 后由 F4 runtime 通过对象池重建活跃敌人、子弹和经验球 | `SaveManager.save()`、`SaveManager.load()`、`configure_restore_snapshot()` |
 | UI 布局 | HUD 使用全屏锚点下的 `MarginContainer + VBoxContainer`；升级面板使用全屏遮罩、居中容器和按视口宽度夹取的面板宽度，随窗口尺寸调整 | `Control.set_anchors_preset()` |
 | 失败 / 重开 | 玩家生命归零进入 `GameState.GAME_OVER`，`GameClock` 冻结，并通过 `UIManager` 显示唯一失败面板；HUD 不再叠加旧失败提示。玩家可重开或回标题，按 `pause` 仍可快捷重开 | `GameState.change_state()`、`F4RunLoop.restart_requested` |
-| 自动 smoke | `godot_bridge.py f4-smoke` 以 `--f4-smoke` 用户参数启动正式主场景，并挂载 smoke runner 做关键断言 | `client/tools/f4_runtime_smoke.gd` |
+| 自动 smoke | `godot_bridge.py f4-smoke` 以 `--f4-smoke` 用户参数启动正式主场景，并挂载 runtime smoke；`godot_bridge.py save-smoke` 以 `--save-smoke` 挂载 SaveManager smoke | `client/tools/f4_runtime_smoke.gd` / `client/tools/save_manager_smoke.gd` |
 
 ## 公共 API
 
@@ -149,7 +150,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 等级阈值：从 `growth.csv.total_xp_required` 读取累计总经验阈值；运行时内部保留累计经验判定升级，HUD 显示 `当前累计经验 - 当前等级累计阈值` / `下一级累计阈值 - 当前等级累计阈值`。
 - 升级候选：从当前模式 `resource_pools.growth_pools` 引用的 `growth_pools.json` 池读取；当前 F4 只解释 `kind=stat_modifier` 且应用其 `modifiers`。
 - 分辨率与 UI：默认 viewport 由 `client/project.godot` 设为 1920×1080；窗口禁止任意拖拽缩放，屏幕比例不匹配时通过 `canvas_items + keep` 保比例加黑边；F4 HUD 和升级面板应使用 `Control` 锚点 / 容器布局适配预设分辨率。
-- run 续局快照：F5 首片使用 `SaveManager` 的 `run` kind，payload schema version 当前为 1，字段包括模式 / 角色 id、等级、累计经验、击杀、`GameClock.snapshot()`、`RNG.snapshot()`、刷怪状态、玩家状态、武器状态、活跃敌人、活跃子弹和活跃经验球。RNG 大整数 state 以字符串保存，避免 JSON 精度变化导致 `data_hash` mismatch。
+- run 续局快照：F5 首片使用 `SaveManager` 的 `run` kind，payload schema version 当前为 1，字段包括模式 / 角色 id、等级、累计经验、击杀、`GameClock.snapshot()`、`RNG.snapshot()`、刷怪状态、玩家状态、武器状态、活跃敌人、活跃子弹和活跃经验球。`SaveManager` 的 `run` kind envelope 当前为 version 2，v1 -> v2 迁移只补齐缺失结构字段，不改变 F4 payload schema。RNG 大整数 state 以字符串保存，避免 JSON 精度变化导致 `data_hash` mismatch。
 - 伤害类型：从 `weapons.json` / `enemies.csv` 读取，交给 `Combat` 校验。
 - UI / HUD / 升级文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_continue_run`、`ui_pause_title`、`ui_save_and_quit`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_level_up_title`、`ui_upgrade_applied`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。
 
@@ -166,7 +167,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 加刷怪：改 `spawn_waves.csv`；多个波次可复用当前时间窗 / 预算解释。
 - 加升级候选：优先改 `growth_pools.json`；新候选如果仍是 `stat_modifier` 不需要改逻辑，新增候选类型才需要扩展运行时解释和文档。
 - 拆正式模块：当 F4 稳定后，将 `f4_*` 阶段脚本拆为长期 `Player`、`WeaponSystem`、`Bullet`、`Enemy`、`Spawner`、`Hud` 模块，并保留本文档迁移说明。
-- 扩展 run 快照：新增可恢复实体字段时先保证 JSON 友好，再更新本文档、SaveManager 文档和 `f4-smoke`；不要保存 `PoolManager` 内部队列或节点引用。
+- 扩展 run 快照：新增可恢复实体字段时先保证 JSON 友好，再更新本文档、SaveManager 文档、`f4-smoke` 和 `save-smoke`；不要保存 `PoolManager` 内部队列或节点引用。
 
 ## 常见改动入口
 
@@ -179,7 +180,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 调升级阈值 / 候选 | `growth.csv` / `growth_pools.json` | `client/data/README.md` | `validate_data` + `f4-smoke` |
 | 改 HUD 文案 | `strings.csv` | `client/locale/README.md` | `validate_data` |
 | 改 HUD / 升级面板布局 | `client/scripts/gameplay/f4_hud.gd`、`client/scripts/gameplay/f4_level_up_panel.gd` | 本文档 | `f4-smoke` + 手动不同窗口尺寸检查 |
-| 改暂停 / 保存续局 | `client/scripts/ui/f4_pause_menu.gd`、`client/scripts/gameplay/f4_run_loop.gd`、`formal_client_boot.gd` | 本文档、SaveManager / FormalClientBoot 文档 | `f4-smoke` + L5 暂停 / 存档 checklist |
+| 改暂停 / 保存续局 | `client/scripts/ui/f4_pause_menu.gd`、`client/scripts/gameplay/f4_run_loop.gd`、`formal_client_boot.gd` | 本文档、SaveManager / FormalClientBoot 文档 | `f4-smoke` + `save-smoke` + L5 暂停 / 存档 checklist |
 | 改运行时行为 | `client/scripts/gameplay/*.gd` | 本文档、必要时 GDD / ADR | L0 + L2 + `f4-smoke`，必要时补 L1 |
 
 ## 故障排查
@@ -208,13 +209,13 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 - F4 运行时代码改动必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`。
 - 涉及启动、输入、WeaponSystem、子弹、敌人、Spawner、经验球、升级选择、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client f4-smoke`。
-- 涉及暂停、保存退出、标题继续、RNG / GameClock 快照或 run payload 时必须追加 `python tools/godot_bridge.py --project client f4-smoke`，并做至少一次手动保存续局检查。
+- 涉及暂停、保存退出、标题继续、RNG / GameClock 快照或 run payload 时必须追加 `python tools/godot_bridge.py --project client f4-smoke` 与 `python tools/godot_bridge.py --project client save-smoke`，并做至少一次手动保存续局检查。
 - 数据 / locale 变化还要跑 `python tools/validate_data.py`、`python tools/lint_project_rules.py`。
 - 当前没有 GUT runner，F4 首切片用 L0 + L2 + `f4-smoke` + 手动 1 分钟跑通作为阶段门槛；后续接入 Godot 测试时补 Player / Combat / Pool / Spawner 的 L1。
 
 ## 迁移 / 兼容
 
-F5 首片已开始写 `SaveManager` 的 `run` kind，但没有提升 `SaveManager` kind version：当前 payload schema version 仍在 F4 runtime 自身字段中声明为 1。后续新增遗物、主动道具、局外奖励或 UI 恢复点时，需要决定是否提升 run payload schema，并补迁移 / roundtrip 测试；不得保存对象池内部状态或节点引用。
+F5 已开始写 `SaveManager` 的 `run` kind。当前 F4 runtime 自身 payload schema version 仍为 1；`SaveManager` 的 `run` envelope version 已提升到 2，并提供 v1 -> v2 迁移来补齐早期 payload 可能缺失的结构字段。后续新增遗物、主动道具、局外奖励或 UI 恢复点时，需要决定是否提升 F4 payload schema 或 SaveManager kind version，并补迁移 / roundtrip 测试；不得保存对象池内部状态或节点引用。
 
 ## 相关文档
 

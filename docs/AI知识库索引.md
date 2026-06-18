@@ -146,6 +146,7 @@
 | #77 | 第二档项目规则 lint 进入 Stage 1 CI | `tools/lint_project_rules.py`、`tools/test_project_rules_lint.py`、`.github/workflows/docs-check.yml`、三平台规则 / commands、CICD规划、测试策略、实时验证回路、AI导航、AI记忆 |
 | #78 | 第三档语义 advisory lint 进入 Stage 1 CI | `tools/lint_semantic_rules.py`、`tools/test_semantic_rules_lint.py`、`.github/workflows/docs-check.yml`、三平台规则 / commands、CICD规划、测试策略、实时验证回路、AI导航、AI记忆 |
 | #79 | 本地 pre-commit 与工具先行代码审核流程 | `.pre-commit-config.yaml`、`tools/check_staged_whitespace.py`、`docs/AI协作/代码审核流程.md`、三平台 `code-review-factual` skill、三平台规则 / commands、CICD规划、实时验证回路、文档健康检查、CONTRIBUTING、AI导航、AI记忆 |
+| #80 | F5 run 存档 version 2 + SaveManager smoke | `client/scripts/autoload/save_manager.gd`、`client/tools/save_manager_smoke.gd`、`tools/godot_bridge.py`、`docs/代码/save_manager.md`、`docs/代码/f4_min_playable_loop.md`、`docs/测试策略.md`、AI导航、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

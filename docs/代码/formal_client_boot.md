@@ -28,6 +28,7 @@
 | `client/scripts/boot/formal_client_boot.gd` | 启动场景脚本，输出启动日志 |
 | `client/scripts/ui/f4_title_menu.gd` | F4 阶段最小标题界面，通过 `UIManager` 挂载 |
 | `client/scripts/gameplay/f4_run_loop.gd` | F4 数据校验通过后挂载的最小可玩闭环 runtime |
+| `client/tools/save_manager_smoke.gd` | `--save-smoke` 下挂载的 F5 存档可靠性 smoke |
 | `client/README.md` | 正式客户端运行说明 |
 
 ## 场景 / 节点结构
@@ -52,6 +53,7 @@ UIManager
 | `_ready()` | 调用 `DataLoader.validate_project_data()` 并输出正式客户端启动日志 | `print()` |
 | 正常启动 | 数据校验通过后通过 `UIManager` 显示 `F4TitleMenu`，保持 `GameState.MAIN_MENU` | `UIManager.push()` |
 | F4 runtime 挂载 | 玩家选择开始、继续游戏或 `--f4-smoke` 启动时创建 `F4RunLoop`，进入最小战斗闭环；继续游戏会先从 `SaveManager` 读取 `run` payload | `add_child()`、`SaveManager.load()`、`GameState.PLAYING` |
+| F5 存档 smoke | `--save-smoke` 启动时只挂载 `SaveManagerSmoke`，验证 run 存档 roundtrip、备份回退、坏档隔离和迁移链 | `client/tools/save_manager_smoke.gd` |
 | 重开 / 回标题 | `F4RunLoop` 发出重开或回标题信号后，由启动脚本清理运行时和 F4 对象池，再重新挂载 run 或标题菜单 | `restart_requested` / `quit_to_title_requested` |
 
 ## 公共 API
@@ -88,7 +90,7 @@ UIManager
 | 更换主场景 | `client/project.godot` | 本文档、`client/README.md`、`docs/AI导航.md` | `tools/godot_bridge.py --project client headless-boot` |
 | 调整默认分辨率 / 拉伸策略 | `client/project.godot` | 本文档、`client/README.md`、相关 UI 模块文档 | `headless-boot` + `f4-smoke` + 手动不同窗口尺寸检查 |
 | 增加启动前检查 | `client/scripts/boot/formal_client_boot.gd` | 本文档；必要时新增模块文档 | headless boot |
-| 调整 F4 runtime 挂载 / 继续游戏 | `formal_client_boot.gd`、`f4_run_loop.gd` | 本文档、`docs/代码/f4_min_playable_loop.md`、AI导航 | headless boot、`f4-smoke`、手动保存续局 |
+| 调整 F4 runtime 挂载 / 继续游戏 | `formal_client_boot.gd`、`f4_run_loop.gd` | 本文档、`docs/代码/f4_min_playable_loop.md`、AI导航 | headless boot、`f4-smoke`、`save-smoke`、手动保存续局 |
 | 补目录说明 | `client/README.md` | `README.md`、`docs/AI导航.md` | docs health |
 
 ## 故障排查
@@ -106,6 +108,7 @@ UIManager
 ## 测试义务
 
 - F1 必跑 headless 启动验证：`tools/godot_bridge.py --project client headless-boot`。
+- 修改 `--save-smoke` 挂载或 SaveManager 启动诊断时，追加 `python tools/godot_bridge.py --project client save-smoke`。
 - 修改长期文档或索引后跑 `tools/docs_health_check.py`。
 - 不需要 GUT 单测；该模块只做 smoke / F4 runtime 编排。改 DataLoader schema 时按 DataLoader 测试义务处理；改 F4 runtime 挂载时跑 headless boot。
 

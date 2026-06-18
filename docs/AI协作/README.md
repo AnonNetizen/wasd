@@ -100,7 +100,7 @@ AI agent 接到任务时优先按以下顺序：
 7. **任务复杂**？参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
 8. **是不是已有项目级 skill**？CodeBuddy / Codex / OpenCode 均有同名项目级 skill（`.codebuddy/skills/` / `.codex/skills/` / `.opencode/skills/`）：Godot 实现 / 场景验证 / Godot 测试诊断 / 试玩复盘 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选与协作面审计 / MCP 评估；外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进这些项目 skill，不再通过 reference 跳转。
 9. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
-10. **改了词表 / 数据 / 文案 / GDScript**？跑 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_gdscript_rules.py`、`python tools/lint_project_rules.py` 与非阻塞 `python tools/lint_semantic_rules.py`；改 F4 运行时追加 `python tools/godot_bridge.py --project client f4-smoke`；改 DataLoader、项目规则 lint 或语义 lint schema 时追加对应 `test_*.py` 回归。
+10. **改了词表 / 数据 / 文案 / GDScript**？跑 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_gdscript_rules.py`、`python tools/lint_project_rules.py` 与非阻塞 `python tools/lint_semantic_rules.py`；改 F4 运行时追加 `python tools/godot_bridge.py --project client f4-smoke`；改 SaveManager / run 存档 / 续局 schema 追加 `python tools/godot_bridge.py --project client save-smoke`；改 DataLoader、项目规则 lint 或语义 lint schema 时追加对应 `test_*.py` 回归。
 11. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规；大型代码改动提交前按 `代码审核流程.md` 追加一次工具先行的事实型 code review，小改动不触发正式 review。
 
 ## 维护

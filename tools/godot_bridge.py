@@ -37,6 +37,7 @@ def main() -> int:
     subparsers.add_parser("godot-version", help="Print the configured Godot version.")
     subparsers.add_parser("headless-boot", help="Run godot --headless --path <project> --quit.")
     subparsers.add_parser("f4-smoke", help="Run the F4 minimal runtime smoke in headless Godot.")
+    subparsers.add_parser("save-smoke", help="Run the SaveManager run-save reliability smoke in headless Godot.")
 
     args = parser.parse_args()
     project = Path(args.project).resolve()
@@ -67,6 +68,18 @@ def main() -> int:
             return 1
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--", "--f4-smoke"],
+            cwd=project,
+        )
+    if args.command == "save-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        smoke_script = project / "tools" / "save_manager_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing SaveManager smoke script: {_rel(smoke_script)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", "--save-smoke"],
             cwd=project,
         )
 

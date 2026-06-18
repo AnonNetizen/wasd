@@ -18,12 +18,16 @@ const DEFAULT_SLOT: String = "slot_0"
 const GAME_VERSION: String = "v1.5"
 const CURRENT_KIND_VERSIONS: Dictionary = {
 	SAVE_KINDS.META: 1,
-	SAVE_KINDS.RUN: 1,
+	SAVE_KINDS.RUN: 2,
 	SAVE_KINDS.REPLAY_INDEX: 1,
 }
 
 var _migrations: Dictionary = {}
 var _last_error: String = ""
+
+
+func _ready() -> void:
+	register_migration(SAVE_KINDS.RUN, 1, 2, Callable(self, "_migrate_run_v1_to_v2"))
 
 
 func registered_save_kinds() -> Array[String]:
@@ -303,6 +307,19 @@ func _migrate_envelope(envelope: Dictionary) -> Dictionary:
 	return {"ok": true, "envelope": migrated_envelope, "migrated": migrated}
 
 
+func _migrate_run_v1_to_v2(payload: Dictionary) -> Dictionary:
+	var result: Dictionary = payload.duplicate(true)
+	if not result.has("schema_version"):
+		result["schema_version"] = 1
+	for key: String in ["spawn_states", "player", "weapon", "game_clock", "rng"]:
+		if not result.has(key) or not result.get(key, {}) is Dictionary:
+			result[key] = {}
+	for key: String in ["enemies", "bullets", "pickups"]:
+		if not result.has(key) or not result.get(key, []) is Array:
+			result[key] = []
+	return result
+
+
 func _write_json_file(path: String, value: Dictionary) -> bool:
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
@@ -405,8 +422,7 @@ func _isolate_broken_file(path: String, slot: String, kind: String, error: Strin
 	if not _ensure_dir(broken_dir):
 		return
 
-	var broken_name: String = "%s_%s_%s.save" % [slot, kind, _safe_timestamp()]
-	var broken_path: String = broken_dir.path_join(broken_name)
+	var broken_path: String = _unique_broken_path(broken_dir, slot, kind)
 	var move_error: Error = DirAccess.rename_absolute(path, broken_path)
 	if move_error != OK:
 		broken_path = path
@@ -418,6 +434,16 @@ func _isolate_broken_file(path: String, slot: String, kind: String, error: Strin
 		"path": broken_path,
 		"error": error,
 	})
+
+
+func _unique_broken_path(broken_dir: String, slot: String, kind: String) -> String:
+	var base_name: String = "%s_%s_%s" % [slot, kind, _safe_timestamp()]
+	var candidate: String = broken_dir.path_join("%s.save" % base_name)
+	var suffix: int = 2
+	while FileAccess.file_exists(candidate):
+		candidate = broken_dir.path_join("%s_%d.save" % [base_name, suffix])
+		suffix += 1
+	return candidate
 
 
 func _save_path(slot: String, kind: String) -> String:

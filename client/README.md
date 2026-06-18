@@ -5,7 +5,7 @@
 
 `client/` 是完整项目的 Godot 4.6.3 项目根，即 Godot 内的 `res://`。
 
-当前阶段为 F5 暂停 / 存档 / 续局首切片：正式工程已可启动，F2 横向 autoload 矩阵、F3 数据 / 契约闭环和 F4 最小可玩闭环已通过阶段验证。启动场景在数据校验通过后会显示最小标题界面，开始后进入战斗 runtime；若存在 `SaveManager` 的 `run` 存档，标题菜单会显示“继续游戏”。当前 runtime 覆盖玩家移动与居中相机、默认起始武器、池化子弹、两种池化敌人、`spawn_waves.csv` 刷怪、`Combat.apply_damage()` 伤害入口、经验 / 升级选择、升级获得反馈、响应式基础 HUD、主动暂停、暂停保存退出、标题继续游戏和失败后的重开 / 回标题面板。项目默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，并通过 `canvas_items + keep` 在比例不匹配时保比例加黑边。
+当前阶段为 F5 暂停 / 存档 / 续局：正式工程已可启动，F2 横向 autoload 矩阵、F3 数据 / 契约闭环和 F4 最小可玩闭环已通过阶段验证。启动场景在数据校验通过后会显示最小标题界面，开始后进入战斗 runtime；若存在 `SaveManager` 的 `run` 存档，标题菜单会显示“继续游戏”。当前 runtime 覆盖玩家移动与居中相机、默认起始武器、池化子弹、两种池化敌人、`spawn_waves.csv` 刷怪、`Combat.apply_damage()` 伤害入口、经验 / 升级选择、升级获得反馈、响应式基础 HUD、主动暂停、暂停保存退出、标题继续游戏和失败后的重开 / 回标题面板。`SaveManager` 的 `run` kind 已有 version 2 迁移与 `save-smoke` 可靠性验证。项目默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，并通过 `canvas_items + keep` 在比例不匹配时保比例加黑边。
 
 ## 目录
 
@@ -60,10 +60,16 @@ F4 最小运行时 smoke：
 python tools/godot_bridge.py --project client f4-smoke
 ```
 
+F5 存档可靠性 smoke：
+
+```powershell
+python tools/godot_bridge.py --project client save-smoke
+```
+
 若本机没有系统 Python，可使用 Codex 桌面内置 Python 路径运行同一命令。
 
 ## 当前启动场景
 
 `res://scenes/boot/main.tscn` 挂载 `res://scripts/boot/formal_client_boot.gd`。启动脚本会先执行正式数据 schema smoke 并输出日志；若校验通过，会显示 F4/F5 阶段最小标题界面；开始新局会挂载 `res://scripts/gameplay/f4_run_loop.gd`，继续游戏会先从 `SaveManager` 读取 `run` payload 再挂载同一 runtime。
 
-F4/F5 runtime 当前仍是阶段性实现，文档见 `docs/代码/f4_min_playable_loop.md`。它不迁移 MVP 临时代码；F5 首片只实现 `run` 暂停保存续局，不实现完整主菜单、局外成长结算、黄金回放或平衡 sim。
+F4/F5 runtime 当前仍是阶段性实现，文档见 `docs/代码/f4_min_playable_loop.md`。它不迁移 MVP 临时代码；F5 当前实现 `run` 暂停保存续局、v1 -> v2 迁移和存档可靠性 smoke，不实现完整主菜单、局外成长结算、黄金回放或平衡 sim。
