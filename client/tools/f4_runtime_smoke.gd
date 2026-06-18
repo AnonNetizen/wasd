@@ -36,6 +36,10 @@ func _run() -> void:
 
 	_expect(run_loop != null, "F4RunLoop should be mounted after formal boot")
 	_expect(GameState.is_state(GameState.PLAYING), "GameState should enter PLAYING")
+	_expect(int(ProjectSettings.get_setting("display/window/size/viewport_width")) == 1920, "default viewport width should be 1920")
+	_expect(int(ProjectSettings.get_setting("display/window/size/viewport_height")) == 1080, "default viewport height should be 1080")
+	_expect(String(ProjectSettings.get_setting("display/window/stretch/mode")) == "canvas_items", "window stretch mode should scale canvas items")
+	_expect(String(ProjectSettings.get_setting("display/window/stretch/aspect")) == "expand", "window stretch aspect should expand")
 	_expect(PoolManager.has_pool(POOL_IDS.BULLET_BASIC), "bullet pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_CHASER), "enemy pool should be registered")
 	_expect(_action_has_key(ACTIONS.MOVE_UP, KEY_W), "move_up should include KEY_W")
@@ -309,6 +313,11 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> void:
 
 	_expect(GameState.is_state(GameState.LEVEL_UP), "experience pickup should enter LEVEL_UP")
 	_expect(level_panel != null, "level-up panel should appear")
+	var panel_frame: Control = _find_node_by_name(level_panel, "LevelUpPanelFrame") as Control
+	_expect(panel_frame != null, "level-up panel frame should use responsive layout")
+	if panel_frame != null:
+		_expect(panel_frame.custom_minimum_size.x >= 520.0, "level-up panel frame should keep a readable minimum width")
+		_expect(panel_frame.custom_minimum_size.x <= 720.0, "level-up panel frame should keep a responsive maximum width")
 	_expect(int(run_loop.call("current_level")) == 2, "experience pickup should raise the player to level 2")
 	_expect(int(run_loop.call("current_xp")) == 20, "total xp should remain cumulative after level up")
 	_expect(int(run_loop.call("current_level_xp")) == 0, "current-level xp should reset after level up")

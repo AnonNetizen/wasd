@@ -33,8 +33,8 @@
 | `client/scripts/gameplay/f4_bullet.gd` | 子弹飞行、射程 / 生命周期裁剪、敌人命中 |
 | `client/scripts/gameplay/f4_enemy.gd` | 追击敌人、接触伤害、受伤 / 死亡 |
 | `client/scripts/gameplay/f4_pickup_orb.gd` | 池化经验球：进入玩家拾取范围后吸附并发放经验 |
-| `client/scripts/gameplay/f4_level_up_panel.gd` | F4 阶段升级三选一面板；通过 `UIManager.push()` 挂载 |
-| `client/scripts/gameplay/f4_hud.gd` | 最小 HUD：生命、击杀、时间、等级、经验、失败提示 |
+| `client/scripts/gameplay/f4_level_up_panel.gd` | F4 阶段响应式升级三选一面板；通过 `UIManager.push()` 挂载 |
+| `client/scripts/gameplay/f4_hud.gd` | 响应式最小 HUD：生命、击杀、时间、等级、经验、失败提示 |
 | `client/tools/f4_runtime_smoke.gd` | F4 headless runtime smoke，覆盖启动、输入、池化、伤害和失败状态 |
 | `tools/godot_bridge.py` | `f4-smoke` 命令入口 |
 | `docs/代码/combat.md` | 伤害统一入口文档 |
@@ -65,7 +65,7 @@ UIManager
 
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
-| 启动 | `FormalClientBoot` 跑数据 schema smoke，成功后创建 `F4RunLoop` | `DataLoader.validate_project_data()` |
+| 启动 | `FormalClientBoot` 跑数据 schema smoke，成功后以 1920×1080 默认 viewport 创建 `F4RunLoop` | `DataLoader.validate_project_data()` |
 | 开局 | 重置 `GameClock`，注册 / 预热子弹和敌人对象池，读取默认模式 / 角色 / 起始武器 | `PoolManager.register_pool()`、`DataLoader.load_json()` |
 | 背景 | 在玩家附近绘制世界空间网格和原点十字，让相机移动有参照 | `F4Background.configure()` |
 | 输入 | 运行时确保 InputMap action 有键盘和手柄默认事件；业务读取 action，不读物理键 | `InputMap`、`Input.get_vector()` |
@@ -77,6 +77,7 @@ UIManager
 | 敌人行为 | 敌人追向玩家，重叠时持续通过 `Combat` 尝试接触伤害；敌人中心按 `separation_radius` 做小范围排斥，是否伤害玩家由玩家无敌窗口判定 | `F4Enemy.defeated` |
 | 经验掉落 | 敌人死亡时按 `exp_reward` 生成池化经验球；经验球进入玩家 `pickup_range` 后显示吸附反馈，贴近玩家时立即发放经验并短暂弹出淡出后归池 | `PoolManager.acquire(PICKUP_ORB)` |
 | 升级选择 | 累计经验达到 `growth.csv` 阈值后进入 `GameState.LEVEL_UP`，玩法时间冻结；HUD 显示本级经验进度（升级后从 0 重新计入下一等级段）；候选从模式声明的 `growth_pools` 中按权重和 `RNG.ui_choice` 抽取；选择后应用 `stat_modifier` 并回到 `PLAYING` | `F4LevelUpPanel.choice_selected` |
+| UI 布局 | HUD 使用全屏锚点下的 `MarginContainer + VBoxContainer`；升级面板使用全屏遮罩、居中容器和按视口宽度夹取的面板宽度，随窗口尺寸调整 | `Control.set_anchors_preset()` |
 | 失败 / 重开 | 玩家生命归零进入 `GameState.GAME_OVER`，`GameClock` 冻结，HUD 显示本地化提示；按 `pause` 重载当前场景 | `GameState.change_state()` |
 | 自动 smoke | `godot_bridge.py f4-smoke` 以 `--f4-smoke` 用户参数启动正式主场景，并挂载 smoke runner 做关键断言 | `client/tools/f4_runtime_smoke.gd` |
 
@@ -100,8 +101,8 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `F4PickupOrb.configure(amount, target, pickup_speed)` | 经验值、目标玩家、吸附速度 | `void` | 节点必须来自 `PoolManager` |
 | `F4PickupOrb.is_attracting()` / `is_collect_feedback_active()` | 无 | `bool` | 只读诊断值；用于 smoke 确认吸附 / 拾取反馈生命周期 |
 | `F4RunLoop.current_xp()` / `current_level_xp()` / `current_level_xp_required()` | 无 | `int` | `current_xp()` 是累计总经验；HUD 使用本级经验和本级需求显示升级进度 |
-| `F4LevelUpPanel.configure(choices)` / `choose_index(index)` | 升级候选 | `void` | 面板节点通过 `UIManager` 挂载；玩家可见文案来自 locale |
-| `F4Hud.set_life()` / `set_kills()` / `set_level()` / `set_xp()` / `show_game_over()` | HUD 状态 | `void` | 文案使用 `tr()` |
+| `F4LevelUpPanel.configure(choices)` / `choose_index(index)` | 升级候选 | `void` | 面板节点通过 `UIManager` 挂载；玩家可见文案来自 locale；面板宽度随视口宽度在最小 / 最大值之间自适应 |
+| `F4Hud.set_life()` / `set_kills()` / `set_level()` / `set_xp()` / `show_game_over()` | HUD 状态 | `void` | 文案使用 `tr()`；布局使用容器和锚点而非固定屏幕坐标 |
 
 ## Signal / Event
 
@@ -125,6 +126,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 经验球：使用词表 §8 `pickup_orb` 对象池；`player.json.base_stats.pickup_range` 控制吸附范围，`pickup_orb_speed` 控制吸附速度。
 - 等级阈值：从 `growth.csv.total_xp_required` 读取累计总经验阈值；运行时内部保留累计经验判定升级，HUD 显示 `当前累计经验 - 当前等级累计阈值` / `下一级累计阈值 - 当前等级累计阈值`。
 - 升级候选：从当前模式 `resource_pools.growth_pools` 引用的 `growth_pools.json` 池读取；当前 F4 只解释 `kind=stat_modifier` 且应用其 `modifiers`。
+- 分辨率与 UI：默认 viewport 由 `client/project.godot` 设为 1920×1080；F4 HUD 和升级面板应使用 `Control` 锚点 / 容器布局随窗口尺寸调整。
 - 伤害类型：从 `weapons.json` / `enemies.csv` 读取，交给 `Combat` 校验。
 - HUD / 升级文案：`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_level_up_title`、`ui_game_over`、`ui_restart_hint`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。
 
@@ -152,6 +154,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 调刷怪节奏 | `spawn_waves.csv` | `client/data/README.md` | `validate_data` + 手动 1 分钟 |
 | 调升级阈值 / 候选 | `growth.csv` / `growth_pools.json` | `client/data/README.md` | `validate_data` + `f4-smoke` |
 | 改 HUD 文案 | `strings.csv` | `client/locale/README.md` | `validate_data` |
+| 改 HUD / 升级面板布局 | `client/scripts/gameplay/f4_hud.gd`、`client/scripts/gameplay/f4_level_up_panel.gd` | 本文档 | `f4-smoke` + 手动不同窗口尺寸检查 |
 | 改运行时行为 | `client/scripts/gameplay/*.gd` | 本文档、必要时 GDD / ADR | L0 + L2 + `f4-smoke`，必要时补 L1 |
 
 ## 故障排查

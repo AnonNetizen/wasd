@@ -23,7 +23,7 @@
 
 | 路径 | 作用 |
 |------|------|
-| `client/project.godot` | Godot 项目配置，`run/main_scene` 指向最小启动场景 |
+| `client/project.godot` | Godot 项目配置，`run/main_scene` 指向最小启动场景，默认 viewport 为 1920×1080，窗口拉伸采用 `canvas_items + expand` |
 | `client/scenes/boot/main.tscn` | 正式项目最小启动场景 |
 | `client/scripts/boot/formal_client_boot.gd` | 启动场景脚本，输出启动日志 |
 | `client/scripts/gameplay/f4_run_loop.gd` | F4 数据校验通过后挂载的最小可玩闭环 runtime |
@@ -58,6 +58,7 @@ FormalClientBoot (Node)
 ## 数据与契约
 
 - 通过 `DataLoader.validate_project_data()` 间接读取 F3 目标数据和 `client/locale/strings.csv`。
+- `client/project.godot` 的默认 viewport 为 1920×1080；2D 内容和 UI 通过 `display/window/stretch/mode="canvas_items"` 与 `display/window/stretch/aspect="expand"` 适配不同窗口尺寸。
 - 启动日志输出 `data_schema_ok`、`player_stats`、`characters`、`weapons`、`enemies`、`hazards`、`spawn_waves`、`relics`、`active_items`、`consumables`、`locale_keys`、`growth_levels`、`growth_pools`、`game_modes`、`meta_upgrades`、`meta_unlocks` 等 smoke 计数。
 - 启动脚本本身不包含玩家可见文本；F4 HUD 文案见 `client/locale/strings.csv`。
 
@@ -77,6 +78,7 @@ FormalClientBoot (Node)
 | 你想改什么 | 主要文件 | 同步文档 | 验证方式 |
 |------------|----------|----------|----------|
 | 更换主场景 | `client/project.godot` | 本文档、`client/README.md`、`docs/AI导航.md` | `tools/godot_bridge.py --project client headless-boot` |
+| 调整默认分辨率 / 拉伸策略 | `client/project.godot` | 本文档、`client/README.md`、相关 UI 模块文档 | `headless-boot` + `f4-smoke` + 手动不同窗口尺寸检查 |
 | 增加启动前检查 | `client/scripts/boot/formal_client_boot.gd` | 本文档；必要时新增模块文档 | headless boot |
 | 调整 F4 runtime 挂载 | `formal_client_boot.gd`、`f4_run_loop.gd` | 本文档、`docs/代码/f4_min_playable_loop.md`、AI导航 | headless boot、手动跑一局 |
 | 补目录说明 | `client/README.md` | `README.md`、`docs/AI导航.md` | docs health |

@@ -7,17 +7,22 @@ extends CanvasLayer
 signal choice_selected(choice: Dictionary)
 
 const BUTTON_HEIGHT: float = 56.0
-const PANEL_WIDTH: float = 420.0
+const BUTTON_HORIZONTAL_PADDING: float = 48.0
+const PANEL_MAX_WIDTH: float = 720.0
+const PANEL_MIN_WIDTH: float = 520.0
+const PANEL_WIDTH_RATIO: float = 0.42
 
 var _choices: Array[Dictionary] = []
-var _root: Control = null
 var _button_box: VBoxContainer = null
+var _panel: PanelContainer = null
+var _root: Control = null
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.resized.connect(_update_panel_width)
 	add_child(_root)
 
 	var backdrop: ColorRect = ColorRect.new()
@@ -25,24 +30,22 @@ func _ready() -> void:
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(backdrop)
 
-	var panel: PanelContainer = PanelContainer.new()
-	panel.custom_minimum_size = Vector2(PANEL_WIDTH, 0.0)
-	panel.anchor_left = 0.5
-	panel.anchor_right = 0.5
-	panel.anchor_top = 0.5
-	panel.anchor_bottom = 0.5
-	panel.offset_left = -PANEL_WIDTH * 0.5
-	panel.offset_right = PANEL_WIDTH * 0.5
-	panel.offset_top = -150.0
-	panel.offset_bottom = 150.0
-	_root.add_child(panel)
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.add_child(center)
+
+	_panel = PanelContainer.new()
+	_panel.name = "LevelUpPanelFrame"
+	_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	center.add_child(_panel)
 
 	var margin: MarginContainer = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 18)
 	margin.add_theme_constant_override("margin_top", 16)
 	margin.add_theme_constant_override("margin_right", 18)
 	margin.add_theme_constant_override("margin_bottom", 16)
-	panel.add_child(margin)
+	_panel.add_child(margin)
 
 	var layout: VBoxContainer = VBoxContainer.new()
 	layout.add_theme_constant_override("separation", 10)
@@ -57,6 +60,7 @@ func _ready() -> void:
 	_button_box = VBoxContainer.new()
 	_button_box.add_theme_constant_override("separation", 8)
 	layout.add_child(_button_box)
+	_update_panel_width()
 	_refresh_buttons()
 
 
@@ -85,7 +89,8 @@ func _refresh_buttons() -> void:
 	for index: int in range(_choices.size()):
 		var choice: Dictionary = _choices[index]
 		var button: Button = Button.new()
-		button.custom_minimum_size = Vector2(PANEL_WIDTH - 40.0, BUTTON_HEIGHT)
+		button.custom_minimum_size = Vector2(_button_width(), BUTTON_HEIGHT)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.text = "%s\n%s" % [tr(String(choice.get("name_key", ""))), tr(String(choice.get("desc_key", "")))]
 		button.pressed.connect(Callable(self, "_on_choice_pressed").bind(index))
 		_button_box.add_child(button)
@@ -93,3 +98,24 @@ func _refresh_buttons() -> void:
 
 func _on_choice_pressed(index: int) -> void:
 	choose_index(index)
+
+
+func _update_panel_width() -> void:
+	if _panel == null:
+		return
+	_panel.custom_minimum_size = Vector2(_panel_width(), 0.0)
+	if _button_box != null:
+		for child: Node in _button_box.get_children():
+			if child is Control:
+				(child as Control).custom_minimum_size.x = _button_width()
+
+
+func _panel_width() -> float:
+	var viewport_width: float = get_viewport().get_visible_rect().size.x
+	if _root != null and _root.size.x > 0.0:
+		viewport_width = _root.size.x
+	return clampf(viewport_width * PANEL_WIDTH_RATIO, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH)
+
+
+func _button_width() -> float:
+	return maxf(_panel_width() - BUTTON_HORIZONTAL_PADDING, 1.0)

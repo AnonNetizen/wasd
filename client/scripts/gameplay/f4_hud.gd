@@ -4,6 +4,10 @@ class_name F4Hud
 extends CanvasLayer
 
 
+const HUD_MARGIN: int = 24
+const HUD_SEPARATION: int = 6
+const MESSAGE_TOP_MARGIN: int = 140
+
 var _life_label: Label = null
 var _level_label: Label = null
 var _kills_label: Label = null
@@ -19,21 +23,42 @@ var _xp_required: int = 0
 
 
 func _ready() -> void:
-	_life_label = _make_label(Vector2(16.0, 14.0))
-	_kills_label = _make_label(Vector2(16.0, 38.0))
-	_time_label = _make_label(Vector2(16.0, 62.0))
-	_level_label = _make_label(Vector2(16.0, 86.0))
-	_xp_label = _make_label(Vector2(16.0, 110.0))
-	_message_label = _make_label(Vector2(0.0, 150.0))
+	var root: Control = Control.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(root)
+
+	var margin: MarginContainer = MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", HUD_MARGIN)
+	margin.add_theme_constant_override("margin_top", HUD_MARGIN)
+	margin.add_theme_constant_override("margin_right", HUD_MARGIN)
+	margin.add_theme_constant_override("margin_bottom", HUD_MARGIN)
+	root.add_child(margin)
+
+	var layout: VBoxContainer = VBoxContainer.new()
+	layout.add_theme_constant_override("separation", HUD_SEPARATION)
+	layout.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	layout.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	margin.add_child(layout)
+
+	_life_label = _make_label()
+	_kills_label = _make_label()
+	_time_label = _make_label()
+	_level_label = _make_label()
+	_xp_label = _make_label()
+	layout.add_child(_life_label)
+	layout.add_child(_kills_label)
+	layout.add_child(_time_label)
+	layout.add_child(_level_label)
+	layout.add_child(_xp_label)
+
+	_message_label = _make_label()
 	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_message_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_message_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_message_label.offset_top = MESSAGE_TOP_MARGIN
 	_message_label.hide()
-	add_child(_life_label)
-	add_child(_kills_label)
-	add_child(_time_label)
-	add_child(_level_label)
-	add_child(_xp_label)
-	add_child(_message_label)
+	root.add_child(_message_label)
 	_refresh_static_labels()
 
 
@@ -68,11 +93,9 @@ func show_game_over() -> void:
 	_message_label.show()
 
 
-func _make_label(offset: Vector2) -> Label:
+func _make_label() -> Label:
 	var label: Label = Label.new()
-	label.offset_left = offset.x
-	label.offset_top = offset.y
-	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_font_size_override("font_size", 24)
 	return label
 
 

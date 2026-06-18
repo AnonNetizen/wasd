@@ -5,7 +5,7 @@
 
 `client/` 是完整项目的 Godot 4.6.3 项目根，即 Godot 内的 `res://`。
 
-当前阶段为 F4 最小可玩闭环首切片：正式工程已可启动，F2 横向 autoload 矩阵与 F3 数据 / 契约闭环已通过验收，启动场景在数据校验通过后会进入最小战斗 runtime。当前 runtime 覆盖玩家移动与居中相机、默认起始武器、池化子弹、池化敌人、`spawn_waves.csv` 刷怪、`Combat.apply_damage()` 伤害入口、基础 HUD 和失败后按暂停键重开。
+当前阶段为 F4 最小可玩闭环首切片：正式工程已可启动，F2 横向 autoload 矩阵与 F3 数据 / 契约闭环已通过验收，启动场景在数据校验通过后会进入最小战斗 runtime。当前 runtime 覆盖玩家移动与居中相机、默认起始武器、池化子弹、池化敌人、`spawn_waves.csv` 刷怪、`Combat.apply_damage()` 伤害入口、经验 / 升级选择、响应式基础 HUD 和失败后按暂停键重开。项目默认 viewport 为 1920×1080，并通过 `canvas_items + expand` 适配不同窗口尺寸。
 
 ## 目录
 
@@ -66,4 +66,4 @@ python tools/godot_bridge.py --project client f4-smoke
 
 `res://scenes/boot/main.tscn` 挂载 `res://scripts/boot/formal_client_boot.gd`。启动脚本会先执行正式数据 schema smoke 并输出日志；若校验通过，会挂载 `res://scripts/gameplay/f4_run_loop.gd` 进入 F4 最小可玩闭环。
 
-F4 runtime 当前仍是阶段性实现，文档见 `docs/代码/f4_min_playable_loop.md`。它不迁移 MVP 临时代码，不实现 F5+ 的暂停保存续局、完整主菜单、局外成长、升级选择、黄金回放或平衡 sim。
+F4 runtime 当前仍是阶段性实现，文档见 `docs/代码/f4_min_playable_loop.md`。它不迁移 MVP 临时代码，不实现 F5+ 的暂停保存续局、完整主菜单、局外成长、黄金回放或平衡 sim。
