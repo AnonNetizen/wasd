@@ -124,6 +124,31 @@ func apply_modifiers(modifiers: Array) -> void:
 	_rebuild_stats(false)
 
 
+func snapshot() -> Dictionary:
+	return {
+		"position": _vector_to_dict(global_position),
+		"aim_direction": _vector_to_dict(aim_direction),
+		"life_points": _life_points,
+		"invulnerable_remaining": _invulnerable_remaining,
+		"stat_additions": _stat_additions.duplicate(true),
+		"stat_multipliers": _stat_multipliers.duplicate(true),
+	}
+
+
+func restore_snapshot(snapshot_data: Dictionary) -> void:
+	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
+	aim_direction = _dict_to_vector(snapshot_data.get("aim_direction", {}), aim_direction).normalized()
+	if aim_direction.length_squared() <= 0.0:
+		aim_direction = Vector2.RIGHT
+	_stat_additions = _dictionary_or_empty(snapshot_data.get("stat_additions", {}))
+	_stat_multipliers = _dictionary_or_empty(snapshot_data.get("stat_multipliers", {}))
+	_rebuild_stats(true)
+	_life_points = clampf(float(snapshot_data.get("life_points", _max_life)), 0.0, _max_life)
+	_invulnerable_remaining = maxf(float(snapshot_data.get("invulnerable_remaining", 0.0)), 0.0)
+	life_changed.emit(_life_points, _max_life)
+	queue_redraw()
+
+
 func receive_damage(info: RefCounted) -> Dictionary:
 	if _invulnerable_remaining > 0.0:
 		return {
@@ -213,3 +238,23 @@ func _stat_value(stat: String, default_value: float) -> float:
 	var added_value: float = float(_stat_additions.get(stat, 0.0))
 	var multiplier: float = float(_stat_multipliers.get(stat, 1.0))
 	return (base_value + added_value) * multiplier
+
+
+func _vector_to_dict(value: Vector2) -> Dictionary:
+	return {
+		"x": value.x,
+		"y": value.y,
+	}
+
+
+func _dict_to_vector(raw_value: Variant, fallback: Vector2) -> Vector2:
+	if not raw_value is Dictionary:
+		return fallback
+	var value: Dictionary = raw_value as Dictionary
+	return Vector2(float(value.get("x", fallback.x)), float(value.get("y", fallback.y)))
+
+
+func _dictionary_or_empty(raw_value: Variant) -> Dictionary:
+	if raw_value is Dictionary:
+		return (raw_value as Dictionary).duplicate(true)
+	return {}

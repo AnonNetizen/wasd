@@ -17,13 +17,13 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 推进正式项目 F4 最小可玩闭环：按 `docs/AI协作/工作包/F4-MinPlayableLoop.md` 先做玩家移动 + 相机居中，再接默认武器、子弹、敌人、刷怪和 Combat。
+- [ ] 推进正式项目 F5 暂停 / 存档 / 续局：在已落地的 F4 最小可玩闭环和 F5 首片基础上，补 run roundtrip / 坏档隔离 / 迁移测试、手动存档 checklist，并为后续局外成长保存打基础。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）
 
-- [ ] 深化接入强 `SaveManager`：`meta` 局外成长业务、`run` 暂停退出续局快照、暂停菜单保存退出、主菜单继续游戏和存档迁移测试。
-- [ ] 实现暂停菜单“保存并退出”和主菜单“继续游戏”流程，加载后恢复玩家、敌人、子弹、掉落、经验、遗物、RNG、GameClock 和 UI 恢复点。
+- [ ] 深化接入强 `SaveManager`：在 F5 首片 run 快照后，继续补 `meta` 局外成长业务、run 存档迁移测试、坏档用户提示和暂停 / 存档手动 checklist。
+- [ ] 扩展暂停菜单“保存并退出”和主菜单“继续游戏”流程：首片已恢复玩家、敌人、子弹、掉落、经验、RNG 和 GameClock；后续补遗物、主动道具、UI 恢复点和正式测试。
 - [ ] 实现 `MetaProgressionSystem`：结算奖励、账号等级、永久升级购买、解锁授予、`ModifierEngine` 注入。
 - [ ] 扩展 `client/data/growth_pools.json` 内容：在属性奖励样例后，评估遗物、主动强化、回血、刷新 / 跳过 / banish 等候选类型。
 - [ ] 决策待定项 E：升级选项池内容是否包含遗物、属性、主动强化、回血、刷新 / 跳过 / banish。

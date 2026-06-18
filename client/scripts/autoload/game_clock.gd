@@ -63,6 +63,22 @@ func reset() -> void:
 	time_scale_changed.emit(_time_scale)
 
 
+func snapshot() -> Dictionary:
+	return {
+		"elapsed": _elapsed,
+		"tick": _tick,
+		"time_scale": _time_scale,
+	}
+
+
+func restore_snapshot(snapshot_data: Dictionary) -> void:
+	_elapsed = float(snapshot_data.get("elapsed", 0.0))
+	_tick = int(snapshot_data.get("tick", 0))
+	_time_scale = maxf(float(snapshot_data.get("time_scale", 1.0)), 0.0)
+	_frozen = _state_freezes_clock(GameState.current())
+	time_scale_changed.emit(_time_scale)
+
+
 func _on_game_state_changed(_old_state: StringName, new_state: StringName, _context: Dictionary) -> void:
 	_frozen = _state_freezes_clock(new_state)
 

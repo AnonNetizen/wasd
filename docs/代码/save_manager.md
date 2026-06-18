@@ -8,7 +8,7 @@
 - `SaveManager` 负责完整项目的游戏内进度存档，统一管理 `meta`、`run` 与 `replay_index` 三类 save kind。
 - 所有存档写入必须包含标准头字段：`version`、`kind`、`slot`、`created_at`、`updated_at`、`game_version`、`data_hash` 和 `payload`。
 - 写入必须先落 `*.tmp`，替换前保留 `*.bak`；加载失败时尝试 `.bak`，仍失败则隔离到 `user://saves/.broken/` 并广播 / 埋点。
-- 当前切片提供最小可验证存档 API 和文件安全骨架，不接 UI、不生成真实 `run` 快照，也不实现具体局外成长校验。
+- 当前 F5 首片已由 F4 runtime 接入真实 `run` 快照：暂停菜单“保存并退出”调用 `SaveManager.save(slot_0, run, payload)`，标题菜单“继续游戏”调用 `load()` 后交给运行时重建节点；`SaveManager` 仍只负责可靠读写，不解释玩家、敌人、子弹或 UI 字段。
 - 玩家偏好不归 `SaveManager` 管，仍由 `Settings` 写入 `user://settings.cfg`。
 
 ## 阅读方式
@@ -55,6 +55,7 @@ user://saves/
 | 迁移 | 按版本逐级调用已注册迁移函数，更新 payload、version 与 hash | `register_migration()` / `save_migrated` |
 | 损坏 | 正式文件和备份都失败时，隔离坏文件到 `.broken` 并发事件 | `save_corrupted` |
 | 删除 | 删除正式、备份、临时文件；若 slot 目录空则清理空目录 | `delete()` / `save_deleted` |
+| F5 续局 | F4 runtime 生成 JSON 友好的 run payload，SaveManager 写入 envelope；标题继续时只返回 payload | `save()` / `load()` |
 
 ## 公共 API
 
@@ -107,6 +108,8 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 
 `data_hash` 使用稳定序列化：字典按 key 排序，数组按原顺序，数字做整数 / 浮点规范化，避免 JSON 读回后 `3` / `3.0` 类型差异造成误报。
 
+F5 首片的 F4 run payload 当前包含：schema version、模式 / 角色 id、等级、累计经验、击杀数、`GameClock` 快照、`RNG` 快照、刷怪状态、玩家状态、武器状态、活跃敌人、活跃子弹和活跃经验球。`RNG` seed/state 这类可能超过 JSON 安全整数精度的值必须以字符串保存，否则读回后会触发 `data_hash` mismatch。
+
 ## 依赖
 
 - 上游依赖：`DataLoader` 提供 save kind 契约校验；`Analytics` 记录存档诊断事件。
@@ -118,7 +121,7 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 - 新 save kind：先登记 `docs/词表与契约.md` §14，跑 `tools/sync_contracts.py`，再补当前版本与文档。
 - 新 schema 版本：更新 `CURRENT_KIND_VERSIONS`，注册逐级 migration，并补 L1 迁移测试。
 - `meta` 接入：`MetaProgressionSystem` 负责校验 `meta_progression.json` 合法性，`SaveManager` 只负责可靠读写。
-- `run` 接入：玩法系统生成可恢复快照，`SaveManager` 不知道玩家 / 敌人 / 子弹内部字段。
+- `run` 接入：玩法系统生成可恢复快照，`SaveManager` 不知道玩家 / 敌人 / 子弹内部字段；保存对象池实体时只保存活动节点字段，恢复时由玩法系统通过 `PoolManager` 重新 acquire。
 
 ## 常见改动入口
 

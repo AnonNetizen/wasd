@@ -8,6 +8,7 @@
 - 提供玩法时间 `now()`、物理 tick `tick()` 和缩放 delta `delta_scaled()`。
 - 订阅 `GameState`，在暂停、升级选择和游戏结束等冻结状态返回 0 delta。
 - 提供 `wall_now()` 给非玩法诊断 / UI / Analytics 使用。
+- F5 起提供 `snapshot()` / `restore_snapshot()`，供局内暂停保存退出后恢复玩法时间、物理 tick 与 time scale。
 - 不负责修改 `Engine.time_scale`，也不负责驱动具体业务系统。
 
 ## 阅读方式
@@ -38,6 +39,7 @@
 | `_process(delta)` | 非冻结时累计玩法时间 | `delta_scaled()` |
 | `_physics_process(delta)` | 非冻结时推进 tick | `tick()` |
 | 时间缩放改变 | 更新内部倍率并广播 | `time_scale_changed` |
+| 续局恢复 | 从 run 快照恢复 elapsed / tick / time_scale，并按当前 `GameState` 重算冻结状态 | `restore_snapshot()` |
 
 ## 公共 API
 
@@ -50,6 +52,8 @@
 | `time_scale()` | 无 | `float` | 当前倍率 |
 | `set_time_scale(value)` | `float` | `void` | 小于 0 时钳为 0 |
 | `reset()` | 无 | `void` | 测试 / 新局重置 |
+| `snapshot()` | 无 | `Dictionary` | 返回 `elapsed`、`tick`、`time_scale` |
+| `restore_snapshot(snapshot_data)` | `Dictionary` | `void` | 恢复时间字段并重新广播 `time_scale_changed` |
 
 ## Signal / Event
 
@@ -70,7 +74,7 @@
 ## 扩展点
 
 - 假时钟注入可在后续 GUT / headless sim 中扩展。
-- 需要保存续局时由 `SaveManager` 读取 `now()` / `tick()`，不直接访问内部字段。
+- 需要保存续局时由玩法快照生产者调用 `snapshot()`，加载时调用 `restore_snapshot()`，不直接访问内部字段。
 - 慢动作效果只应通过 `set_time_scale()`。
 
 ## 常见改动入口
@@ -80,6 +84,7 @@
 | 改冻结状态 | `game_clock.gd`、`game_state.gd` | 本文档、GameState 文档 | headless boot，后续 GUT |
 | 改 tick 规则 | `game_clock.gd` | 本文档、测试策略 | 回放 / GUT |
 | 接入假时钟 | `game_clock.gd` | 本文档 | GUT |
+| 改 run 时间快照 | `game_clock.gd`、玩法快照生产者 | 本文档、SaveManager 文档 | run 存档 roundtrip + F4 smoke |
 
 ## 故障排查
 

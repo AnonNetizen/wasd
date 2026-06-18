@@ -5,11 +5,14 @@ extends CanvasLayer
 
 
 signal quit_requested()
+signal continue_requested()
 signal start_requested()
 
 const BUTTON_HEIGHT: float = 54.0
 const BUTTON_WIDTH: float = 260.0
 const PANEL_WIDTH: float = 520.0
+
+var _continue_button: Button = null
 
 
 func _ready() -> void:
@@ -55,18 +58,30 @@ func _ready() -> void:
 	subtitle.add_theme_font_size_override("font_size", 20)
 	layout.add_child(subtitle)
 
-	var start_button: Button = _make_button(tr("ui_start"))
+	_continue_button = _make_button("ContinueRunButton", tr("ui_continue_run"))
+	_continue_button.pressed.connect(_on_continue_pressed)
+	layout.add_child(_continue_button)
+
+	var start_button: Button = _make_button("StartButton", tr("ui_start"))
 	start_button.pressed.connect(_on_start_pressed)
 	layout.add_child(start_button)
 
-	var quit_button: Button = _make_button(tr("ui_quit"))
+	var quit_button: Button = _make_button("QuitButton", tr("ui_quit"))
 	quit_button.pressed.connect(_on_quit_pressed)
 	layout.add_child(quit_button)
 	start_button.call_deferred("grab_focus")
 
 
-func _make_button(text_value: String) -> Button:
+func configure(can_continue: bool) -> void:
+	if _continue_button == null:
+		return
+	_continue_button.visible = can_continue
+	_continue_button.disabled = not can_continue
+
+
+func _make_button(button_name: String, text_value: String) -> Button:
 	var button: Button = Button.new()
+	button.name = button_name
 	button.text = text_value
 	button.custom_minimum_size = Vector2(BUTTON_WIDTH, BUTTON_HEIGHT)
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -75,6 +90,10 @@ func _make_button(text_value: String) -> Button:
 
 func _on_start_pressed() -> void:
 	start_requested.emit()
+
+
+func _on_continue_pressed() -> void:
+	continue_requested.emit()
 
 
 func _on_quit_pressed() -> void:

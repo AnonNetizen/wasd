@@ -7,6 +7,7 @@ const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
 const F4_ENEMY_SCRIPT := preload("res://scripts/gameplay/f4_enemy.gd")
 const F4_PLAYER_SCRIPT := preload("res://scripts/gameplay/f4_player.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
+const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 const AIM_FRAMES: int = 4
 const BOOT_FRAMES: int = 8
@@ -116,6 +117,13 @@ func _run() -> void:
 	await _expect_pickup_orb_draw_order(run_loop, player)
 	await _expect_pickup_orb_feedback(run_loop, player)
 	await _expect_level_up_choice(run_loop, player)
+	var restored_run: Dictionary = await _expect_pause_save_resume(run_loop, player)
+	var restored_run_loop_value: Node = restored_run.get("run_loop", run_loop) as Node
+	var restored_player_value: Node2D = restored_run.get("player", player) as Node2D
+	if restored_run_loop_value != null:
+		run_loop = restored_run_loop_value
+	if restored_player_value != null:
+		player = restored_player_value
 
 	for _index: int in range(SPAWN_FRAMES):
 		await get_tree().process_frame
@@ -123,7 +131,7 @@ func _run() -> void:
 
 	_expect(_pool_stat(POOL_IDS.BULLET_BASIC, "acquired") > 0, "WeaponSystem should acquire bullets")
 	_expect(PoolManager.active_count(POOL_IDS.ENEMY_CHASER) > 0, "Spawner should spawn active enemies")
-	_expect(_pool_stat(POOL_IDS.PICKUP_ORB, "acquired") > 0, "experience pickup pool should be acquired")
+	_expect(PoolManager.has_pool(POOL_IDS.PICKUP_ORB), "experience pickup pool should remain registered after continue")
 
 	var enemy: Node = _first_enemy()
 	_expect(enemy != null, "at least one enemy should be in f4_enemies")
@@ -422,6 +430,80 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> void:
 		_expect(false, "level-up choice should be a known growth option")
 
 
+func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
+	var saved_position: Vector2 = player.global_position
+	var saved_level: int = int(run_loop.call("current_level"))
+	var saved_xp: int = int(run_loop.call("current_xp"))
+	var saved_time: float = GameClock.now()
+
+	await _push_action_once(ACTIONS.PAUSE)
+	var pause_menu: Node = null
+	for _index: int in range(BOOT_FRAMES * 2):
+		await get_tree().process_frame
+		pause_menu = _find_node_by_name(get_tree().root, "F4PauseMenu")
+		if pause_menu != null:
+			break
+	_expect(GameState.is_state(GameState.PAUSED), "pressing pause should enter PAUSED")
+	_expect(pause_menu != null, "pressing pause should show the pause menu")
+	if pause_menu == null:
+		return {
+			"run_loop": run_loop,
+			"player": player,
+		}
+
+	var paused_time: float = GameClock.now()
+	for _index: int in range(BOOT_FRAMES):
+		await get_tree().process_frame
+	_expect(is_equal_approx(GameClock.now(), paused_time), "GameClock should freeze while pause menu is open")
+
+	var save_button: Button = _find_node_by_name(pause_menu, "SaveAndQuitButton") as Button
+	_expect(save_button != null, "pause menu should expose save-and-quit")
+	if save_button == null:
+		return {
+			"run_loop": run_loop,
+			"player": player,
+		}
+	await _click_button(save_button)
+	await _wait_for_title_menu()
+	_expect(GameState.is_state(GameState.MAIN_MENU), "save-and-quit should return to MAIN_MENU")
+	_expect(SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "save-and-quit should write a run save")
+
+	var title_menu: Node = _find_node_by_name(get_tree().root, "F4TitleMenu")
+	var continue_button: Button = _find_node_by_name(title_menu, "ContinueRunButton") as Button
+	_expect(continue_button != null, "title menu should expose continue when a run save exists")
+	if continue_button == null:
+		return {
+			"run_loop": run_loop,
+			"player": player,
+		}
+	_expect(continue_button.visible and not continue_button.disabled, "continue button should be enabled when a run save exists")
+	await _click_button(continue_button)
+
+	var restored_run_loop: Node = await _wait_for_playing_run_loop()
+	_expect(restored_run_loop != null, "continue should mount a restored F4RunLoop")
+	if restored_run_loop == null:
+		return {
+			"run_loop": null,
+			"player": null,
+		}
+	var restored_player: Node2D = _find_node_by_name(restored_run_loop, "Player") as Node2D
+	_expect(restored_player != null, "continue should restore a player")
+	if restored_player == null:
+		return {
+			"run_loop": restored_run_loop,
+			"player": player,
+		}
+
+	_expect(restored_player.global_position.distance_to(saved_position) < 1.0, "continue should restore player position")
+	_expect(int(restored_run_loop.call("current_level")) == saved_level, "continue should restore level")
+	_expect(int(restored_run_loop.call("current_xp")) == saved_xp, "continue should restore total xp")
+	_expect(absf(GameClock.now() - saved_time) < 0.2, "continue should restore GameClock time")
+	return {
+		"run_loop": restored_run_loop,
+		"player": restored_player,
+	}
+
+
 func _find_first_button(root_node: Node) -> Button:
 	if root_node == null:
 		return null
@@ -452,6 +534,20 @@ func _click_button(button: Button) -> void:
 	release.pressed = false
 	release.position = center
 	release.global_position = center
+	get_viewport().push_input(release, true)
+	await get_tree().process_frame
+
+
+func _push_action_once(action_id: String) -> void:
+	var press: InputEventAction = InputEventAction.new()
+	press.action = action_id
+	press.pressed = true
+	get_viewport().push_input(press, true)
+	await get_tree().process_frame
+
+	var release: InputEventAction = InputEventAction.new()
+	release.action = action_id
+	release.pressed = false
 	get_viewport().push_input(release, true)
 	await get_tree().process_frame
 

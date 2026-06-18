@@ -50,6 +50,37 @@ func configure(stats: Dictionary, projectile: Dictionary, direction: Vector2, so
 	_source = source
 	_travelled = 0.0
 	_velocity = direction.normalized() * float(stats.get(STATS.BULLET_SPEED, 0.0))
+	add_to_group("f4_bullets")
+	queue_redraw()
+
+
+func snapshot() -> Dictionary:
+	return {
+		"position": _vector_to_dict(global_position),
+		"damage": _damage,
+		"damage_type": _damage_type,
+		"hit_radius": _hit_radius,
+		"remaining_life": _remaining_life,
+		"max_range": _max_range,
+		"pierce_remaining": _pierce_remaining,
+		"travelled": _travelled,
+		"velocity": _vector_to_dict(_velocity),
+	}
+
+
+func restore_snapshot(snapshot_data: Dictionary, source: Node) -> void:
+	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
+	_damage = float(snapshot_data.get("damage", 0.0))
+	_damage_type = String(snapshot_data.get("damage_type", ""))
+	_hit_targets.clear()
+	_hit_radius = float(snapshot_data.get("hit_radius", 0.0))
+	_remaining_life = float(snapshot_data.get("remaining_life", 0.0))
+	_max_range = float(snapshot_data.get("max_range", 0.0))
+	_pierce_remaining = int(snapshot_data.get("pierce_remaining", 0))
+	_source = source
+	_travelled = float(snapshot_data.get("travelled", 0.0))
+	_velocity = _dict_to_vector(snapshot_data.get("velocity", {}), Vector2.ZERO)
+	add_to_group("f4_bullets")
 	queue_redraw()
 
 
@@ -68,6 +99,7 @@ func _pool_reset() -> void:
 
 
 func _pool_release() -> void:
+	remove_from_group("f4_bullets")
 	_source = null
 
 
@@ -95,3 +127,17 @@ func _check_enemy_hits() -> void:
 			PoolManager.release(self)
 			return
 		_pierce_remaining -= 1
+
+
+func _vector_to_dict(value: Vector2) -> Dictionary:
+	return {
+		"x": value.x,
+		"y": value.y,
+	}
+
+
+func _dict_to_vector(raw_value: Variant, fallback: Vector2) -> Vector2:
+	if not raw_value is Dictionary:
+		return fallback
+	var value: Dictionary = raw_value as Dictionary
+	return Vector2(float(value.get("x", fallback.x)), float(value.get("y", fallback.y)))

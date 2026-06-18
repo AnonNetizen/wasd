@@ -3,8 +3,11 @@ ui_settings,设置,Settings
 ui_title_name,WASD,WASD
 ui_title_subtitle,最小生存测试,Minimal Survival Test
 ui_start,开始,Start
+ui_continue_run,继续游戏,Continue Run
 ui_resume,继续,Resume
 ui_pause,暂停,Pause
+ui_pause_title,已暂停,Paused
+ui_save_and_quit,保存并退出,Save and Quit
 ui_quit,退出,Quit
 ui_restart,重新开始,Restart
 ui_quit_to_title,返回标题,Back to Title

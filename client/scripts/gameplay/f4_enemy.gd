@@ -13,6 +13,7 @@ const HIT_FLASH_DURATION: float = 0.16
 var _contact_damage: float = 0.0
 var _contact_damage_type: String = ""
 var _defeat_feedback_remaining: float = 0.0
+var _enemy_id: String = ""
 var _exp_reward: int = 0
 var _hit_flash_remaining: float = 0.0
 var _hit_radius: float = 0.0
@@ -49,6 +50,7 @@ func _physics_process(delta: float) -> void:
 func configure(enemy_data: Dictionary, target: Node2D) -> void:
 	_defeat_feedback_remaining = 0.0
 	_target = target
+	_enemy_id = String(enemy_data.get("id", ""))
 	_max_life = float(enemy_data.get("max_hp", 1))
 	_life_points = _max_life
 	_move_speed = float(enemy_data.get("move_speed", 0.0))
@@ -110,10 +112,27 @@ func receive_damage(info: RefCounted) -> Dictionary:
 	}
 
 
+func snapshot() -> Dictionary:
+	return {
+		"enemy_id": _enemy_id,
+		"position": _vector_to_dict(global_position),
+		"life_points": _life_points,
+	}
+
+
+func restore_snapshot(snapshot_data: Dictionary) -> void:
+	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
+	_life_points = clampf(float(snapshot_data.get("life_points", _max_life)), 0.0, _max_life)
+	if _life_points <= 0.0:
+		remove_from_group("f4_enemies")
+	queue_redraw()
+
+
 func _pool_reset() -> void:
 	_contact_damage = 0.0
 	_contact_damage_type = ""
 	_defeat_feedback_remaining = 0.0
+	_enemy_id = ""
 	_exp_reward = 0
 	_hit_flash_remaining = 0.0
 	_hit_radius = 0.0
@@ -251,3 +270,17 @@ func _parse_visual_color(color_text: String) -> Color:
 	if Color.html_is_valid(color_text):
 		return Color.html(color_text)
 	return Color(1.0, 0.38, 0.32)
+
+
+func _vector_to_dict(value: Vector2) -> Dictionary:
+	return {
+		"x": value.x,
+		"y": value.y,
+	}
+
+
+func _dict_to_vector(raw_value: Variant, fallback: Vector2) -> Vector2:
+	if not raw_value is Dictionary:
+		return fallback
+	var value: Dictionary = raw_value as Dictionary
+	return Vector2(float(value.get("x", fallback.x)), float(value.get("y", fallback.y)))

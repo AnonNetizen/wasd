@@ -17,13 +17,16 @@ const F4_ENEMY_SCRIPT := preload("res://scripts/gameplay/f4_enemy.gd")
 const F4_HUD_SCRIPT := preload("res://scripts/gameplay/f4_hud.gd")
 const F4_GAME_OVER_PANEL_SCRIPT := preload("res://scripts/ui/f4_game_over_panel.gd")
 const F4_LEVEL_UP_PANEL_SCRIPT := preload("res://scripts/gameplay/f4_level_up_panel.gd")
+const F4_PAUSE_MENU_SCRIPT := preload("res://scripts/ui/f4_pause_menu.gd")
 const F4_PICKUP_ORB_SCRIPT := preload("res://scripts/gameplay/f4_pickup_orb.gd")
 const F4_PLAYER_SCRIPT := preload("res://scripts/gameplay/f4_player.gd")
 const F4_WEAPON_SYSTEM_SCRIPT := preload("res://scripts/gameplay/f4_weapon_system.gd")
+const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
 const BULLET_POOL_SIZE: int = 192
 const ENEMY_POOL_SIZE: int = 96
 const PICKUP_POOL_SIZE: int = 128
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 1
 
 var _active_world: Node2D = null
 var _current_level: int = 1
@@ -35,6 +38,8 @@ var _game_over_panel: CanvasLayer = null
 var _hud: CanvasLayer = null
 var _kills: int = 0
 var _level_panel: CanvasLayer = null
+var _pending_restore_snapshot: Dictionary = {}
+var _pause_menu: CanvasLayer = null
 var _player: CharacterBody2D = null
 var _spawn_states: Dictionary = {}
 var _waves: Array[Dictionary] = []
@@ -43,7 +48,7 @@ var _weapon_system: Node = null
 
 func _ready() -> void:
 	_ensure_input_actions()
-	_start_run()
+	_start_run(_pending_restore_snapshot)
 
 
 func _process(_delta: float) -> void:
@@ -53,11 +58,38 @@ func _process(_delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if GameState.is_state(GameState.PLAYING) and event.is_action_pressed(ACTIONS.PAUSE):
+		get_viewport().set_input_as_handled()
+		_show_pause_menu()
+		return
 	if GameState.is_state(GameState.GAME_OVER) and event.is_action_pressed(ACTIONS.PAUSE):
 		restart_requested.emit()
 
 
-func _start_run() -> void:
+func configure_restore_snapshot(snapshot_data: Dictionary) -> void:
+	_pending_restore_snapshot = snapshot_data.duplicate(true)
+
+
+func create_run_snapshot() -> Dictionary:
+	return {
+		"schema_version": RUN_SNAPSHOT_SCHEMA_VERSION,
+		"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
+		"character": CHARACTER_IDS.CHARACTER_DEFAULT,
+		"level": _current_level,
+		"xp": _current_xp,
+		"kills": _kills,
+		"game_clock": GameClock.snapshot(),
+		"rng": RNG.snapshot(),
+		"spawn_states": _spawn_states.duplicate(true),
+		"player": _player.call("snapshot") if _player != null and _player.has_method("snapshot") else {},
+		"weapon": _weapon_system.call("snapshot") if _weapon_system != null and _weapon_system.has_method("snapshot") else {},
+		"enemies": _entity_snapshots("f4_enemies"),
+		"bullets": _entity_snapshots("f4_bullets"),
+		"pickups": _entity_snapshots("f4_pickups"),
+	}
+
+
+func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	GameClock.reset()
 	PoolManager.clear_pool(POOL_IDS.BULLET_BASIC)
 	PoolManager.clear_pool(POOL_IDS.ENEMY_CHASER)
@@ -89,6 +121,7 @@ func _start_run() -> void:
 	_spawn_states.clear()
 	_current_level = 1
 	_current_xp = 0
+	_kills = 0
 
 	_player = F4_PLAYER_SCRIPT.new()
 	_player.name = "Player"
@@ -120,6 +153,9 @@ func _start_run() -> void:
 		"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
 		"character": CHARACTER_IDS.CHARACTER_DEFAULT,
 	})
+
+	if not restore_snapshot.is_empty():
+		_restore_run_snapshot(restore_snapshot)
 
 
 func _create_bullet_node() -> Node:
@@ -191,6 +227,7 @@ func _spawn_enemy(wave: Dictionary, wave_key: String) -> bool:
 	var enemy: Node2D = raw_node as Node2D
 	enemy.global_position = _spawn_position()
 	_reparent_to_active_world(enemy)
+	enemy.set_meta("f4_wave_key", wave_key)
 	enemy.call("configure", enemy_data, _player)
 	enemy.connect("defeated", Callable(self, "_on_enemy_defeated").bind(wave_key), CONNECT_ONE_SHOT)
 	return true
@@ -302,6 +339,7 @@ func _on_player_life_changed(current_life: float, max_life: float) -> void:
 
 
 func _on_player_died() -> void:
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	GameState.change_state(GameState.GAME_OVER, {
 		"kills": _kills,
 		"run_time": GameClock.now(),
@@ -327,11 +365,173 @@ func _show_game_over_panel() -> void:
 
 
 func _on_game_over_restart_requested() -> void:
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	restart_requested.emit()
 
 
 func _on_game_over_quit_to_title_requested() -> void:
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	quit_to_title_requested.emit()
+
+
+func _show_pause_menu() -> void:
+	var panel_template: CanvasLayer = F4_PAUSE_MENU_SCRIPT.new()
+	panel_template.name = "F4PauseMenu"
+	var panel_scene: PackedScene = PackedScene.new()
+	var pack_result: Error = panel_scene.pack(panel_template)
+	panel_template.free()
+	if pack_result != OK:
+		push_error("[F4RunLoop] failed to pack pause menu: %d" % pack_result)
+		return
+	_pause_menu = UIManager.push(panel_scene, {"source": "f4_pause"}) as CanvasLayer
+	if _pause_menu == null:
+		return
+	_pause_menu.connect("resume_requested", Callable(self, "_on_pause_resume_requested"), CONNECT_ONE_SHOT)
+	_pause_menu.connect("save_and_quit_requested", Callable(self, "_on_pause_save_and_quit_requested"), CONNECT_ONE_SHOT)
+	_pause_menu.connect("restart_requested", Callable(self, "_on_pause_restart_requested"), CONNECT_ONE_SHOT)
+	_pause_menu.connect("quit_to_title_requested", Callable(self, "_on_pause_quit_to_title_requested"), CONNECT_ONE_SHOT)
+
+
+func _on_pause_resume_requested() -> void:
+	if UIManager.top() == _pause_menu:
+		UIManager.pop()
+	elif _pause_menu != null:
+		_pause_menu.queue_free()
+	_pause_menu = null
+
+
+func _on_pause_save_and_quit_requested() -> void:
+	var payload: Dictionary = create_run_snapshot()
+	if not SaveManager.save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN, payload):
+		push_error("[F4RunLoop] failed to save run snapshot: %s" % SaveManager.last_error())
+		_on_pause_resume_requested()
+		return
+	quit_to_title_requested.emit()
+
+
+func _on_pause_restart_requested() -> void:
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+	restart_requested.emit()
+
+
+func _on_pause_quit_to_title_requested() -> void:
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+	quit_to_title_requested.emit()
+
+
+func _entity_snapshots(group_name: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for node: Node in get_tree().get_nodes_in_group(group_name):
+		if not _is_active_world_entity(node):
+			continue
+		if not node.has_method("snapshot"):
+			continue
+		var snapshot_data: Dictionary = node.call("snapshot")
+		if group_name == "f4_enemies" and node.has_meta("f4_wave_key"):
+			snapshot_data["wave_key"] = String(node.get_meta("f4_wave_key"))
+		result.append(snapshot_data)
+	return result
+
+
+func _is_active_world_entity(node: Node) -> bool:
+	if node == null or _active_world == null:
+		return false
+	return node == _active_world or _active_world.is_ancestor_of(node)
+
+
+func _restore_run_snapshot(snapshot_data: Dictionary) -> void:
+	_current_level = maxi(int(snapshot_data.get("level", 1)), 1)
+	_current_xp = maxi(int(snapshot_data.get("xp", 0)), 0)
+	_kills = maxi(int(snapshot_data.get("kills", 0)), 0)
+	_spawn_states = _dictionary_or_empty(snapshot_data.get("spawn_states", {}))
+
+	var rng_snapshot: Variant = snapshot_data.get("rng", {})
+	if rng_snapshot is Dictionary:
+		RNG.restore_snapshot(rng_snapshot as Dictionary)
+
+	if _player != null and _player.has_method("restore_snapshot") and snapshot_data.get("player", {}) is Dictionary:
+		_player.call("restore_snapshot", snapshot_data.get("player", {}) as Dictionary)
+	if _weapon_system != null and _weapon_system.has_method("restore_snapshot") and snapshot_data.get("weapon", {}) is Dictionary:
+		_weapon_system.call("restore_snapshot", snapshot_data.get("weapon", {}) as Dictionary)
+
+	_restore_enemy_snapshots(_array_or_empty(snapshot_data.get("enemies", [])))
+	_restore_bullet_snapshots(_array_or_empty(snapshot_data.get("bullets", [])))
+	_restore_pickup_snapshots(_array_or_empty(snapshot_data.get("pickups", [])))
+
+	var clock_snapshot: Variant = snapshot_data.get("game_clock", {})
+	if clock_snapshot is Dictionary:
+		GameClock.restore_snapshot(clock_snapshot as Dictionary)
+
+	if _hud != null:
+		_hud.call("set_life", _player.call("current_life"), _player.call("max_life"))
+		_hud.call("set_kills", _kills)
+		_hud.call("set_level", _current_level)
+	_refresh_xp_hud()
+
+
+func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
+	for raw_snapshot: Variant in enemy_snapshots:
+		if not raw_snapshot is Dictionary:
+			continue
+		var snapshot_data: Dictionary = raw_snapshot as Dictionary
+		var enemy_id: String = String(snapshot_data.get("enemy_id", ""))
+		if not _enemy_rows.has(enemy_id):
+			continue
+		var enemy_data: Dictionary = _enemy_rows[enemy_id]
+		var pool_id: String = String(enemy_data.get("pool_id", ""))
+		var raw_node: Node = PoolManager.acquire(pool_id)
+		if not raw_node is Node2D or not raw_node.has_method("configure"):
+			continue
+
+		var enemy: Node2D = raw_node as Node2D
+		_reparent_to_active_world(enemy)
+		var wave_key: String = String(snapshot_data.get("wave_key", ""))
+		enemy.set_meta("f4_wave_key", wave_key)
+		enemy.call("configure", enemy_data, _player)
+		if enemy.has_method("restore_snapshot"):
+			enemy.call("restore_snapshot", snapshot_data)
+		enemy.connect("defeated", Callable(self, "_on_enemy_defeated").bind(wave_key), CONNECT_ONE_SHOT)
+
+
+func _restore_bullet_snapshots(bullet_snapshots: Array) -> void:
+	for raw_snapshot: Variant in bullet_snapshots:
+		if not raw_snapshot is Dictionary:
+			continue
+		var raw_node: Node = PoolManager.acquire(POOL_IDS.BULLET_BASIC)
+		if not raw_node is Node2D or not raw_node.has_method("restore_snapshot"):
+			continue
+
+		var bullet: Node2D = raw_node as Node2D
+		_reparent_to_active_world(bullet)
+		bullet.call("restore_snapshot", raw_snapshot as Dictionary, _player)
+
+
+func _restore_pickup_snapshots(pickup_snapshots: Array) -> void:
+	for raw_snapshot: Variant in pickup_snapshots:
+		if not raw_snapshot is Dictionary:
+			continue
+		var raw_node: Node = PoolManager.acquire(POOL_IDS.PICKUP_ORB)
+		if not raw_node is Node2D or not raw_node.has_method("restore_snapshot"):
+			continue
+
+		var pickup_orb: Node2D = raw_node as Node2D
+		_reparent_to_active_world(pickup_orb)
+		pickup_orb.call("restore_snapshot", raw_snapshot as Dictionary, _player)
+		var collected_callback: Callable = Callable(self, "_on_pickup_orb_collected")
+		if not pickup_orb.is_connected("collected", collected_callback):
+			pickup_orb.connect("collected", collected_callback, CONNECT_ONE_SHOT)
+
+
+func _dictionary_or_empty(raw_value: Variant) -> Dictionary:
+	if raw_value is Dictionary:
+		return (raw_value as Dictionary).duplicate(true)
+	return {}
+
+
+func _array_or_empty(raw_value: Variant) -> Array:
+	if raw_value is Array:
+		return (raw_value as Array).duplicate(true)
+	return []
 
 
 func _load_array(path: String, key: String) -> Array:

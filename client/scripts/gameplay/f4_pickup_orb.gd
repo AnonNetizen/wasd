@@ -70,6 +70,27 @@ func configure(amount: int, target: Node2D, pickup_speed: float) -> void:
 	queue_redraw()
 
 
+func snapshot() -> Dictionary:
+	return {
+		"position": _vector_to_dict(global_position),
+		"amount": _amount,
+		"pickup_speed": _pickup_speed,
+	}
+
+
+func restore_snapshot(snapshot_data: Dictionary, target: Node2D) -> void:
+	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
+	_amount = maxi(int(snapshot_data.get("amount", 0)), 0)
+	_attract_blend = 0.0
+	_collect_feedback_remaining = 0.0
+	_target = target
+	_pickup_speed = float(snapshot_data.get("pickup_speed", _pickup_speed))
+	scale = Vector2.ONE
+	z_index = DRAW_Z_INDEX
+	add_to_group("f4_pickups")
+	queue_redraw()
+
+
 func _pool_reset() -> void:
 	_attract_blend = 0.0
 	_amount = 0
@@ -135,3 +156,17 @@ func _draw_color() -> Color:
 		var remaining_ratio: float = _collect_feedback_remaining / COLLECT_FEEDBACK_DURATION
 		return Color(0.82, 1.0, 0.68, remaining_ratio)
 	return Color(0.45 + 0.2 * _attract_blend, 1.0, 0.62 + 0.18 * _attract_blend)
+
+
+func _vector_to_dict(value: Vector2) -> Dictionary:
+	return {
+		"x": value.x,
+		"y": value.y,
+	}
+
+
+func _dict_to_vector(raw_value: Variant, fallback: Vector2) -> Vector2:
+	if not raw_value is Dictionary:
+		return fallback
+	var value: Dictionary = raw_value as Dictionary
+	return Vector2(float(value.get("x", fallback.x)), float(value.get("y", fallback.y)))

@@ -65,6 +65,21 @@ func stat_value(stat: String) -> float:
 	return float(_runtime_stats.get(stat, 0.0))
 
 
+func snapshot() -> Dictionary:
+	return {
+		"cooldown_remaining": _cooldown_remaining,
+		"stat_additions": _stat_additions.duplicate(true),
+		"stat_multipliers": _stat_multipliers.duplicate(true),
+	}
+
+
+func restore_snapshot(snapshot_data: Dictionary) -> void:
+	_stat_additions = _dictionary_or_empty(snapshot_data.get("stat_additions", {}))
+	_stat_multipliers = _dictionary_or_empty(snapshot_data.get("stat_multipliers", {}))
+	_rebuild_runtime_stats()
+	_cooldown_remaining = maxf(float(snapshot_data.get("cooldown_remaining", 0.0)), 0.0)
+
+
 func _fire_once() -> void:
 	var projectile: Dictionary = _weapon_data.get("projectile", {})
 	var bullet_count: int = int(_runtime_stats.get(STATS.BULLET_COUNT, 1))
@@ -110,3 +125,9 @@ func _rebuild_runtime_stats() -> void:
 		if _runtime_stats.has(stat):
 			continue
 		_runtime_stats[stat] = float(_stat_additions.get(stat, 0.0)) * float(_stat_multipliers.get(stat, 1.0))
+
+
+func _dictionary_or_empty(raw_value: Variant) -> Dictionary:
+	if raw_value is Dictionary:
+		return (raw_value as Dictionary).duplicate(true)
+	return {}

@@ -9,6 +9,7 @@ const F4_RUN_LOOP := preload("res://scripts/gameplay/f4_run_loop.gd")
 const F4_SMOKE_RUNNER := preload("res://tools/f4_runtime_smoke.gd")
 const F4_TITLE_MENU := preload("res://scripts/ui/f4_title_menu.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
+const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
 var _run_loop: Node = null
 var _title_menu: CanvasLayer = null
@@ -92,17 +93,21 @@ func _show_title_menu() -> void:
 	_title_menu = UIManager.push(title_scene, {"source": "formal_client_boot"}) as CanvasLayer
 	if _title_menu == null:
 		return
+	_title_menu.call("configure", SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN))
 	_title_menu.connect("start_requested", Callable(self, "_on_title_start_requested"), CONNECT_ONE_SHOT)
+	_title_menu.connect("continue_requested", Callable(self, "_on_title_continue_requested"), CONNECT_ONE_SHOT)
 	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
 
 
-func _start_f4_run() -> void:
+func _start_f4_run(restore_snapshot: Dictionary = {}) -> void:
 	UIManager.clear()
 	GameState.change_state(GameState.LOADING, {"source": "formal_client_boot"})
 	_clear_f4_runtime()
 
 	_run_loop = F4_RUN_LOOP.new()
 	_run_loop.name = "F4RunLoop"
+	if not restore_snapshot.is_empty() and _run_loop.has_method("configure_restore_snapshot"):
+		_run_loop.call("configure_restore_snapshot", restore_snapshot)
 	_run_loop.connect("restart_requested", Callable(self, "_on_run_restart_requested"))
 	_run_loop.connect("quit_to_title_requested", Callable(self, "_on_run_quit_to_title_requested"))
 	add_child(_run_loop)
@@ -132,7 +137,16 @@ func _pack_ui_template(template: Node) -> PackedScene:
 
 
 func _on_title_start_requested() -> void:
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	call_deferred("_start_f4_run")
+
+
+func _on_title_continue_requested() -> void:
+	var payload: Dictionary = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+	if payload.is_empty():
+		call_deferred("_show_title_menu")
+		return
+	call_deferred("_start_f4_run", payload)
 
 
 func _on_title_quit_requested() -> void:
@@ -140,6 +154,7 @@ func _on_title_quit_requested() -> void:
 
 
 func _on_run_restart_requested() -> void:
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	call_deferred("_start_f4_run")
 
 

@@ -8,7 +8,7 @@
 - 提供统一确定性随机入口，禁止业务代码直接调用全局随机函数。
 - 按词表中的子流维护独立 `RandomNumberGenerator`。
 - 支持一局主 seed 派生各子流 seed。
-- 不负责决定何时开局、何时重置回放或如何保存 RNG 状态；这些由 `GameState`、`Replay`、`SaveManager` 后续接入。
+- 不负责决定何时开局或何时重置回放；F5 起提供 JSON 友好的 RNG 快照 / 恢复 API，具体何时保存由 `SaveManager` 的调用方决定。
 
 ## 阅读方式
 
@@ -37,6 +37,7 @@
 | autoload `_ready()` | 创建并登记 6 个默认子流 | `spawn/drop/combat/ui_choice/world/meta` |
 | 设置主 seed | 重新派生所有子流 seed | `set_run_seed()` |
 | 业务取随机 | 通过具名子流调用 | `RNG.spawn.randi()`、`RNG.stream(id)` |
+| 暂停续局 | 保存 / 恢复主 seed 与各子流内部 state | `snapshot()` / `restore_snapshot()` |
 
 ## 公共 API
 
@@ -44,6 +45,8 @@
 |------|------|------|------|
 | `set_run_seed(seed_value)` | `int` | `void` | 重置所有子流序列 |
 | `run_seed()` | 无 | `int` | 返回当前主 seed |
+| `snapshot()` | 无 | `Dictionary` | 返回主 seed 与各子流 seed/state；大整数以字符串保存，避免 JSON 精度破坏 |
+| `restore_snapshot(snapshot_data)` | `Dictionary` | `void` | 先恢复主 seed，再恢复各子流 state；未知子流忽略 |
 | `stream(stream_id)` | `String` | `RNG.Stream` | 未登记 id 报错并回退到 `spawn` |
 | `Stream.randi()` | 无 | `int` | 只通过子流调用 |
 | `Stream.randf()` | 无 | `float` | 只通过子流调用 |
@@ -71,7 +74,7 @@
 
 - 新子流先登记词表并生成常量，再加入 `_streams`。
 - 新加权策略应保持确定性，只使用当前子流的 generator。
-- 保存 / 回放 RNG 状态时由 `SaveManager` / `Replay` 扩展，不在业务系统中绕过 RNG。
+- 保存 / 回放 RNG 状态时调用 `snapshot()` / `restore_snapshot()`；业务系统不得读取 `RandomNumberGenerator` 内部对象或自行存随机状态。
 
 ## 常见改动入口
 
@@ -80,6 +83,7 @@
 | 新增子流 | `docs/词表与契约.md`、`rng.gd` | 本文档、AI导航 | `tools/sync_contracts.py --check`、headless boot |
 | 调整权重抽取 | `rng.gd` | 本文档、测试策略（若义务变化） | 后续 GUT 单测 |
 | 接入回放状态保存 | `rng.gd`、Replay / SaveManager | 对应模块文档 | 回放 / 存档 roundtrip |
+| 改 RNG 快照格式 | `rng.gd`、存档调用方 | 本文档、SaveManager / 回放文档 | run 存档 roundtrip + F4 smoke |
 
 ## 故障排查
 
@@ -88,6 +92,7 @@
 | 同 seed 不复现 | 是否直接用了全局随机或错误子流 |
 | 子流 id 报错 | 是否未登记词表或未加入 `_streams` |
 | 抽取总是首项 | 权重是否全为 0 或负数 |
+| run 存档 hash mismatch | RNG seed/state 是否仍以 JSON number 写入；大整数必须以字符串存 |
 
 ## 测试义务
 
