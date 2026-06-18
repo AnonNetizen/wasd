@@ -233,6 +233,7 @@ func _load_enemy_rows() -> Dictionary:
 			"contact_damage_type": String(row.get("contact_damage_type", "")),
 			"exp_reward": String(row.get("exp_reward", "0")).to_int(),
 			"hit_radius": String(row.get("hit_radius", "1.0")).to_float(),
+			"separation_radius": String(row.get("separation_radius", "0.0")).to_float(),
 		}
 	return result
 

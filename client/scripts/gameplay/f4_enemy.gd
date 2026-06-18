@@ -17,6 +17,7 @@ var _hit_radius: float = 0.0
 var _life_points: float = 1.0
 var _max_life: float = 1.0
 var _move_speed: float = 0.0
+var _separation_radius: float = 0.0
 var _target: Node2D = null
 
 
@@ -35,6 +36,7 @@ func _physics_process(delta: float) -> void:
 	var to_target: Vector2 = _target.global_position - global_position
 	if to_target.length_squared() > 0.0:
 		global_position += to_target.normalized() * _move_speed * scaled_delta
+	_apply_center_separation()
 	_check_contact()
 
 
@@ -47,12 +49,17 @@ func configure(enemy_data: Dictionary, target: Node2D) -> void:
 	_contact_damage_type = String(enemy_data.get("contact_damage_type", ""))
 	_exp_reward = int(enemy_data.get("exp_reward", 0))
 	_hit_radius = float(enemy_data.get("hit_radius", 0.0))
+	_separation_radius = float(enemy_data.get("separation_radius", 0.0))
 	add_to_group("f4_enemies")
 	queue_redraw()
 
 
 func hit_radius() -> float:
 	return _hit_radius
+
+
+func separation_radius() -> float:
+	return _separation_radius
 
 
 func is_alive() -> bool:
@@ -86,6 +93,7 @@ func _pool_reset() -> void:
 	_life_points = 1.0
 	_max_life = 1.0
 	_move_speed = 0.0
+	_separation_radius = 0.0
 	_target = null
 
 
@@ -124,3 +132,35 @@ func _check_contact() -> void:
 
 	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(_contact_damage, _contact_damage_type, self, _target, "team_enemy", "team_player")
 	Combat.apply_damage(_target, info)
+
+
+func _apply_center_separation() -> void:
+	if _separation_radius <= 0.0:
+		return
+
+	var offset: Vector2 = Vector2.ZERO
+	for other: Node in get_tree().get_nodes_in_group("f4_enemies"):
+		if other == self or not other is Node2D or not other.has_method("separation_radius"):
+			continue
+		if other.has_method("is_alive") and not bool(other.call("is_alive")):
+			continue
+		var other_enemy: Node2D = other as Node2D
+		var minimum_distance: float = _separation_radius + float(other.call("separation_radius"))
+		if minimum_distance <= 0.0:
+			continue
+		var to_self: Vector2 = global_position - other_enemy.global_position
+		var current_distance: float = to_self.length()
+		if current_distance >= minimum_distance:
+			continue
+		var direction: Vector2 = _separation_direction(to_self)
+		offset += direction * (minimum_distance - current_distance) * 0.5
+
+	if offset.length_squared() > 0.0:
+		global_position += offset
+
+
+func _separation_direction(to_self: Vector2) -> Vector2:
+	if to_self.length_squared() > 0.0:
+		return to_self.normalized()
+	var angle: float = float(int(get_instance_id()) % 360) * TAU / 360.0
+	return Vector2.RIGHT.rotated(angle)

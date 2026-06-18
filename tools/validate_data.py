@@ -313,6 +313,7 @@ def _validate_enemies_csv(ctx: ValidationContext) -> None:
         "contact_damage_type",
         "exp_reward",
         "hit_radius",
+        "separation_radius",
     }
     seen: set[str] = set()
     with path.open(encoding="utf-8-sig", newline="") as handle:
@@ -342,6 +343,7 @@ def _validate_enemies_csv(ctx: ValidationContext) -> None:
             _require_registered(ctx, path, f"{field}.contact_damage_type", row.get("contact_damage_type"), "damage_types")
             _parse_int(ctx, path, f"{field}.exp_reward", row.get("exp_reward"), minimum=0)
             _parse_float(ctx, path, f"{field}.hit_radius", row.get("hit_radius"), minimum=0, exclusive_minimum=True)
+            _parse_float(ctx, path, f"{field}.separation_radius", row.get("separation_radius"), minimum=0)
         if row_count == 0:
             ctx.error(path, "rows", "must contain at least one enemy")
 

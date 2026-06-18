@@ -4,6 +4,7 @@ extends Node
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const F4_ENEMY_SCRIPT := preload("res://scripts/gameplay/f4_enemy.gd")
 const F4_PLAYER_SCRIPT := preload("res://scripts/gameplay/f4_player.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
@@ -99,6 +100,8 @@ func _run() -> void:
 	isolated_player.queue_free()
 	contact_source.queue_free()
 
+	await _expect_enemy_center_separation(run_loop, player)
+
 	for _index: int in range(SPAWN_FRAMES):
 		await get_tree().process_frame
 		await get_tree().physics_frame
@@ -185,6 +188,36 @@ func _wait_player_vulnerability(player: Node2D) -> void:
 func _disable_enemy_physics() -> void:
 	for active_enemy: Node in get_tree().get_nodes_in_group("f4_enemies"):
 		active_enemy.set_physics_process(false)
+
+
+func _expect_enemy_center_separation(run_loop: Node, player: Node2D) -> void:
+	var enemy_data: Dictionary = {
+		"max_hp": 6,
+		"move_speed": 0.0,
+		"contact_damage": 1,
+		"contact_damage_type": DAMAGE_TYPES.PHYSICAL,
+		"exp_reward": 0,
+		"hit_radius": 14.0,
+		"separation_radius": 9.0,
+	}
+	var enemy_a: Node2D = F4_ENEMY_SCRIPT.new()
+	var enemy_b: Node2D = F4_ENEMY_SCRIPT.new()
+	enemy_a.name = "SmokeSeparatedEnemyA"
+	enemy_b.name = "SmokeSeparatedEnemyB"
+	run_loop.add_child(enemy_a)
+	run_loop.add_child(enemy_b)
+	var overlap_position: Vector2 = player.global_position + Vector2(300.0, 300.0)
+	enemy_a.global_position = overlap_position
+	enemy_b.global_position = overlap_position
+	enemy_a.call("configure", enemy_data, player)
+	enemy_b.call("configure", enemy_data, player)
+
+	for _index: int in range(8):
+		await get_tree().physics_frame
+	var center_distance: float = enemy_a.global_position.distance_to(enemy_b.global_position)
+	_expect(center_distance >= 16.0, "enemy center separation should prevent full overlap")
+	enemy_a.queue_free()
+	enemy_b.queue_free()
 
 
 func _expect(condition: bool, message: String) -> void:

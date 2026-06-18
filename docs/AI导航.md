@@ -107,7 +107,7 @@
 
 | 我想… | 怎么做（数据驱动，尽量不改逻辑） |
 |-------|-------------------------------|
-| **加一个敌人** | 在 `client/data/enemies.csv` 加一行基础数值与 `enemy_*_name` 文案；行为复用既有 AI 类型，新行为才碰逻辑 |
+| **加一个敌人** | 在 `client/data/enemies.csv` 加一行基础数值、中心间距与 `enemy_*_name` 文案；行为复用既有 AI 类型，新行为才碰逻辑 |
 | **加一个角色** | 在 `client/data/characters.json` 加一条：基础属性 / tags / capabilities / 控制配置 / `starting_loadout`；角色 id 先登记词表 §12.1，文案用 `character_*` key；起始武器 / 主动道具 / 消耗品必须存在于对应数据文件；新 capability 先登记词表 §12 再实现 |
 | **加 / 改武器** | 在 `client/data/weapons.json` 加一条：武器基础属性、子弹池、伤害类型、命中半径和音频 id；文案用 `weapon_*` key；`pool_id` / `damage_type` / `audio_id` 前缀必须来自词表，不实现 WeaponSystem 运行时 |
 | **加 / 改机关** | 在 `client/data/hazards.csv` 加一行：伤害、伤害类型、触发间隔、范围、持续时间和 `hazard_*_name` 文案；`tag_hazard`、`pool_id`、`damage_type` 必须来自词表，不实现 HazardSystem 运行时 |
@@ -168,7 +168,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、F4 runtime、Background / Player / WeaponSystem / Bullet / Enemy / Spawner / HUD 的最小闭环，并新增 `godot_bridge.py f4-smoke` 覆盖 headless 运行时链路；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，后续按 `docs/AI协作/工作包/F4-MinPlayableLoop.md` 继续复测 1 分钟体验、运行时测试和正式模块拆分。
+当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、F4 runtime、Background / Player / WeaponSystem / Bullet / Enemy / Spawner / HUD 的最小闭环，并新增 `godot_bridge.py f4-smoke` 覆盖 headless 运行时链路；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，敌人中心已按 `enemies.csv.separation_radius` 做小范围排斥以避免完全重叠，后续按 `docs/AI协作/工作包/F4-MinPlayableLoop.md` 继续复测 1 分钟体验、运行时测试和正式模块拆分。
 
 ### 5.2 系统依赖图（Mermaid，AI 改动前先看影响范围）
 

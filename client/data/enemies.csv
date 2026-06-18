@@ -1,2 +1,2 @@
-id,name_key,tags,pool_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius
-enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,12,110.0,1,physical,3,14.0
+id,name_key,tags,pool_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius,separation_radius
+enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,12,110.0,1,physical,3,14.0,9.0

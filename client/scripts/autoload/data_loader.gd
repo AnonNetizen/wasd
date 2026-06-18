@@ -382,6 +382,7 @@ func _validate_enemies_csv(locale_keys: Dictionary) -> bool:
 		is_valid = _require_registered(ENEMIES_PATH, "%s.contact_damage_type" % field, row.get("contact_damage_type"), "damage_types") != "" and is_valid
 		is_valid = _require_csv_int(ENEMIES_PATH, "%s.exp_reward" % field, row.get("exp_reward"), 0) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.hit_radius" % field, row.get("hit_radius"), 0.0, null, true) and is_valid
+		is_valid = _require_csv_number(ENEMIES_PATH, "%s.separation_radius" % field, row.get("separation_radius"), 0.0) and is_valid
 	return is_valid
 
 
