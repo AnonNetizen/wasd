@@ -136,6 +136,9 @@ func _run_payload(marker: String, level: int) -> Dictionary:
 		"enemies": [],
 		"bullets": [],
 		"pickups": [],
+		"ui_restore": {
+			"state": "playing",
+		},
 	}
 
 

@@ -27,6 +27,9 @@ const BULLET_POOL_SIZE: int = 192
 const ENEMY_POOL_SIZE: int = 96
 const PICKUP_POOL_SIZE: int = 128
 const RUN_SNAPSHOT_SCHEMA_VERSION: int = 1
+const UI_RESTORE_LEVEL_UP: String = "level_up"
+const UI_RESTORE_PAUSED: String = "paused"
+const UI_RESTORE_PLAYING: String = "playing"
 
 var _active_world: Node2D = null
 var _current_level: int = 1
@@ -38,6 +41,7 @@ var _game_over_panel: CanvasLayer = null
 var _hud: CanvasLayer = null
 var _kills: int = 0
 var _level_panel: CanvasLayer = null
+var _pending_level_up_choices: Array[Dictionary] = []
 var _pending_restore_snapshot: Dictionary = {}
 var _pause_menu: CanvasLayer = null
 var _player: CharacterBody2D = null
@@ -86,6 +90,7 @@ func create_run_snapshot() -> Dictionary:
 		"enemies": _entity_snapshots("f4_enemies"),
 		"bullets": _entity_snapshots("f4_bullets"),
 		"pickups": _entity_snapshots("f4_pickups"),
+		"ui_restore": _ui_restore_snapshot(),
 	}
 
 
@@ -156,6 +161,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 
 	if not restore_snapshot.is_empty():
 		_restore_run_snapshot(restore_snapshot)
+		_restore_ui_state(restore_snapshot.get("ui_restore", {}))
 
 
 func _create_bullet_node() -> Node:
@@ -292,6 +298,11 @@ func _begin_level_up() -> void:
 	if _hud != null:
 		_hud.call("set_level", _current_level)
 	_refresh_xp_hud()
+	_show_level_up_panel(choices)
+
+
+func _show_level_up_panel(choices: Array[Dictionary]) -> void:
+	_pending_level_up_choices = choices.duplicate(true)
 
 	var panel_template: CanvasLayer = F4_LEVEL_UP_PANEL_SCRIPT.new()
 	panel_template.name = "F4LevelUpPanel"
@@ -308,7 +319,7 @@ func _begin_level_up() -> void:
 	_level_panel.connect("choice_selected", Callable(self, "_on_level_up_choice_selected"), CONNECT_ONE_SHOT)
 	GameState.change_state(GameState.LEVEL_UP, {
 		"level": _current_level,
-		"choices": _choice_ids(choices),
+		"choices": _choice_ids(_pending_level_up_choices),
 	})
 
 
@@ -325,6 +336,7 @@ func _on_level_up_choice_selected(choice: Dictionary) -> void:
 	elif _level_panel != null:
 		_level_panel.queue_free()
 	_level_panel = null
+	_pending_level_up_choices.clear()
 	GameState.change_state(GameState.PLAYING, {
 		"level": _current_level,
 		"choice": String(choice.get("id", "")),
@@ -433,6 +445,22 @@ func _entity_snapshots(group_name: String) -> Array[Dictionary]:
 	return result
 
 
+func _ui_restore_snapshot() -> Dictionary:
+	if GameState.is_state(GameState.LEVEL_UP) and not _pending_level_up_choices.is_empty():
+		return {
+			"state": UI_RESTORE_LEVEL_UP,
+			"level": _current_level,
+			"choices": _pending_level_up_choices.duplicate(true),
+		}
+	if GameState.is_state(GameState.PAUSED) or _pause_menu != null:
+		return {
+			"state": UI_RESTORE_PAUSED,
+		}
+	return {
+		"state": UI_RESTORE_PLAYING,
+	}
+
+
 func _is_active_world_entity(node: Node) -> bool:
 	if node == null or _active_world == null:
 		return false
@@ -467,6 +495,25 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> void:
 		_hud.call("set_kills", _kills)
 		_hud.call("set_level", _current_level)
 	_refresh_xp_hud()
+
+
+func _restore_ui_state(raw_ui_restore: Variant) -> void:
+	if not raw_ui_restore is Dictionary:
+		return
+	var ui_restore: Dictionary = raw_ui_restore as Dictionary
+	var state: String = String(ui_restore.get("state", UI_RESTORE_PLAYING))
+	if state == UI_RESTORE_PAUSED:
+		_show_pause_menu()
+		return
+	if state == UI_RESTORE_LEVEL_UP:
+		var choices: Array = _array_or_empty(ui_restore.get("choices", []))
+		var typed_choices: Array[Dictionary] = []
+		for raw_choice: Variant in choices:
+			if raw_choice is Dictionary:
+				typed_choices.append((raw_choice as Dictionary).duplicate(true))
+		if typed_choices.is_empty():
+			return
+		_show_level_up_panel(typed_choices)
 
 
 func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:

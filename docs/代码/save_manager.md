@@ -8,7 +8,7 @@
 - `SaveManager` 负责完整项目的游戏内进度存档，统一管理 `meta`、`run` 与 `replay_index` 三类 save kind。
 - 所有存档写入必须包含标准头字段：`version`、`kind`、`slot`、`created_at`、`updated_at`、`game_version`、`data_hash` 和 `payload`。
 - 写入必须先落 `*.tmp`，替换前保留 `*.bak`；加载失败时尝试 `.bak`，仍失败则隔离到 `user://saves/.broken/` 并广播 / 埋点。
-- 当前 F5 首片已由 F4 runtime 接入真实 `run` 快照：暂停菜单“保存并退出”调用 `SaveManager.save(slot_0, run, payload)`，标题菜单“继续游戏”调用 `load()` 后交给运行时重建节点；`SaveManager` 仍只负责可靠读写，不解释玩家、敌人、子弹或 UI 字段。
+- 当前 F5 首片已由 F4 runtime 接入真实 `run` 快照：暂停菜单“保存并退出”调用 `SaveManager.save(slot_0, run, payload)`，标题菜单“继续游戏”调用 `load()` 后交给运行时重建节点和 `ui_restore` 恢复点；`SaveManager` 仍只负责可靠读写，不解释玩家、敌人、子弹或 UI 字段。
 - F5 存档可靠性切片已把 `run` kind 提升到 version 2，并注册 `run` v1 -> v2 迁移；`save-smoke` 覆盖 run roundtrip、`.bak` 回退、双坏档隔离和迁移链。
 - 玩家偏好不归 `SaveManager` 管，仍由 `Settings` 写入 `user://settings.cfg`。
 
@@ -111,7 +111,7 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 
 `data_hash` 使用稳定序列化：字典按 key 排序，数组按原顺序，数字做整数 / 浮点规范化，避免 JSON 读回后 `3` / `3.0` 类型差异造成误报。
 
-F5 首片的 F4 run payload 当前包含：schema version、模式 / 角色 id、等级、累计经验、击杀数、`GameClock` 快照、`RNG` 快照、刷怪状态、玩家状态、武器状态、活跃敌人、活跃子弹和活跃经验球。`RNG` seed/state 这类可能超过 JSON 安全整数精度的值必须以字符串保存，否则读回后会触发 `data_hash` mismatch。
+F5 首片的 F4 run payload 当前包含：schema version、模式 / 角色 id、等级、累计经验、击杀数、`GameClock` 快照、`RNG` 快照、刷怪状态、玩家状态、武器状态、活跃敌人、活跃子弹、活跃经验球和 `ui_restore`。`ui_restore` 只由玩法运行时解释，当前用于区分普通游玩、暂停菜单和升级选择面板；旧 payload 缺失该字段时由运行时按普通游玩处理。`RNG` seed/state 这类可能超过 JSON 安全整数精度的值必须以字符串保存，否则读回后会触发 `data_hash` mismatch。
 
 `run` kind version 2 目前不改变 F4 runtime 的 payload schema version（仍为 1），而是在 `SaveManager` 层为 v1 旧 envelope 补齐缺失的结构字段：`schema_version`、`spawn_states`、`player`、`weapon`、`game_clock`、`rng`、`enemies`、`bullets`、`pickups`。这样早期 F5 run 存档即使缺少可选数组 / 字典，也能加载为结构完整的 payload 后交给 runtime 恢复。
 

@@ -116,7 +116,14 @@ func _run() -> void:
 	await _expect_swarm_enemy_spawn(run_loop, player)
 	await _expect_pickup_orb_draw_order(run_loop, player)
 	await _expect_pickup_orb_feedback(run_loop, player)
-	await _expect_level_up_choice(run_loop, player)
+	var level_restored_run: Dictionary = await _expect_level_up_choice(run_loop, player)
+	var level_restored_run_loop_value: Node = level_restored_run.get("run_loop", run_loop) as Node
+	var level_restored_player_value: Node2D = level_restored_run.get("player", player) as Node2D
+	if level_restored_run_loop_value != null:
+		run_loop = level_restored_run_loop_value
+	if level_restored_player_value != null:
+		player = level_restored_player_value
+
 	var restored_run: Dictionary = await _expect_pause_save_resume(run_loop, player)
 	var restored_run_loop_value: Node = restored_run.get("run_loop", run_loop) as Node
 	var restored_player_value: Node2D = restored_run.get("player", player) as Node2D
@@ -380,7 +387,7 @@ func _expect_pickup_orb_feedback(run_loop: Node, player: Node2D) -> void:
 	_expect(not bool(pickup_orb.call("is_collect_feedback_active")), "pickup orb collect feedback should finish and release")
 
 
-func _expect_level_up_choice(run_loop: Node, player: Node2D) -> void:
+func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 	var weapon_system: Node = _find_node_by_name(player, "WeaponSystem")
 	_expect(weapon_system != null, "WeaponSystem should be available before level up")
 	var previous_damage: float = float(weapon_system.call("stat_value", STATS.DAMAGE)) if weapon_system != null else 0.0
@@ -408,9 +415,58 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> void:
 	_expect(int(run_loop.call("current_level_xp")) == 0, "current-level xp should reset after level up")
 	_expect(int(run_loop.call("current_level_xp_required")) == 35, "current-level xp requirement should use the next level segment")
 	if level_panel == null:
-		return
+		return {
+			"run_loop": run_loop,
+			"player": player,
+		}
 
 	var choice_id: String = String(level_panel.call("choice_id", 0))
+	var snapshot_payload: Dictionary = run_loop.call("create_run_snapshot")
+	var ui_restore: Dictionary = snapshot_payload.get("ui_restore", {}) as Dictionary
+	_expect(String(ui_restore.get("state", "")) == "level_up", "run snapshot should remember a pending level-up panel")
+	_expect(ui_restore.get("choices", []) is Array and (ui_restore.get("choices", []) as Array).size() > 0, "level-up restore point should keep rolled choices")
+	_expect(SaveManager.save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN, snapshot_payload), "smoke should save a pending level-up run")
+	var formal_boot: Node = _find_node_by_name(get_tree().root, "FormalClientBoot")
+	_expect(formal_boot != null, "FormalClientBoot should exist before level-up restore smoke")
+	if formal_boot == null:
+		return {
+			"run_loop": run_loop,
+			"player": player,
+		}
+	formal_boot.call_deferred("_show_title_menu")
+	await get_tree().process_frame
+	await _wait_for_title_menu()
+
+	var title_menu: Node = _find_node_by_name(get_tree().root, "F4TitleMenu")
+	var continue_button: Button = _find_node_by_name(title_menu, "ContinueRunButton") as Button
+	_expect(continue_button != null and continue_button.visible and not continue_button.disabled, "title menu should continue a pending level-up run")
+	if continue_button == null:
+		return {
+			"run_loop": run_loop,
+			"player": player,
+		}
+	await _click_button(continue_button)
+
+	var restored_run_loop: Node = await _wait_for_state_run_loop(GameState.LEVEL_UP)
+	_expect(restored_run_loop != null, "continue should restore into LEVEL_UP when saved at a level-up choice")
+	if restored_run_loop == null:
+		return {
+			"run_loop": run_loop,
+			"player": player,
+		}
+	run_loop = restored_run_loop
+	player = _find_node_by_name(run_loop, "Player") as Node2D
+	weapon_system = _find_node_by_name(player, "WeaponSystem") if player != null else null
+	level_panel = _find_node_by_name(get_tree().root, "F4LevelUpPanel")
+	_expect(player != null, "level-up restore should rebuild the player")
+	_expect(level_panel != null, "level-up restore should show the level-up panel")
+	if level_panel == null:
+		return {
+			"run_loop": run_loop,
+			"player": player,
+		}
+	_expect(String(level_panel.call("choice_id", 0)) == choice_id, "level-up restore should keep the same rolled first choice")
+
 	var choice_button: Button = _find_first_button(level_panel)
 	_expect(choice_button != null, "level-up panel should expose clickable option buttons")
 	if choice_button != null:
@@ -429,6 +485,10 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> void:
 		_expect(float(player.call("pickup_range")) > previous_pickup_range, "pickup-range upgrade should apply immediately")
 	else:
 		_expect(false, "level-up choice should be a known growth option")
+	return {
+		"run_loop": run_loop,
+		"player": player,
+	}
 
 
 func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
@@ -480,8 +540,8 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	_expect(continue_button.visible and not continue_button.disabled, "continue button should be enabled when a run save exists")
 	await _click_button(continue_button)
 
-	var restored_run_loop: Node = await _wait_for_playing_run_loop()
-	_expect(restored_run_loop != null, "continue should mount a restored F4RunLoop")
+	var restored_run_loop: Node = await _wait_for_state_run_loop(GameState.PAUSED)
+	_expect(restored_run_loop != null, "continue should mount a paused restored F4RunLoop")
 	if restored_run_loop == null:
 		return {
 			"run_loop": null,
@@ -499,6 +559,14 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	_expect(int(restored_run_loop.call("current_level")) == saved_level, "continue should restore level")
 	_expect(int(restored_run_loop.call("current_xp")) == saved_xp, "continue should restore total xp")
 	_expect(absf(GameClock.now() - saved_time) < 0.2, "continue should restore GameClock time")
+	var restored_pause_menu: Node = _find_node_by_name(get_tree().root, "F4PauseMenu")
+	_expect(restored_pause_menu != null, "continue should restore the pause menu when the run was saved while paused")
+	var resume_button: Button = _find_node_by_name(restored_pause_menu, "ResumeButton") as Button
+	_expect(resume_button != null, "restored pause menu should expose resume")
+	if resume_button != null:
+		await _click_button(resume_button)
+	var resumed_run_loop: Node = await _wait_for_playing_run_loop()
+	_expect(resumed_run_loop == restored_run_loop, "resuming a restored pause menu should keep the same run loop")
 	return {
 		"run_loop": restored_run_loop,
 		"player": restored_player,
@@ -643,10 +711,15 @@ func _expect_bad_run_notice() -> void:
 
 
 func _wait_for_playing_run_loop() -> Node:
+	var run_loop: Node = await _wait_for_state_run_loop(GameState.PLAYING)
+	return run_loop
+
+
+func _wait_for_state_run_loop(expected_state: StringName) -> Node:
 	for _index: int in range(BOOT_FRAMES * 4):
 		await get_tree().process_frame
 		var run_loop: Node = _find_node_by_name(get_tree().root, "F4RunLoop")
-		if run_loop != null and GameState.is_state(GameState.PLAYING):
+		if run_loop != null and GameState.is_state(expected_state):
 			return run_loop
 	return null
 
