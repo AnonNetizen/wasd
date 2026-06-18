@@ -88,7 +88,7 @@ UIManager
 | 经验掉落 | 敌人死亡时按 `exp_reward` 生成池化经验球；经验球进入玩家 `pickup_range` 后显示吸附反馈，贴近玩家时立即发放经验并短暂弹出淡出后归池 | `PoolManager.acquire(PICKUP_ORB)` |
 | 升级选择 | 累计经验达到 `growth.csv` 阈值后进入 `GameState.LEVEL_UP`，玩法时间冻结；HUD 显示本级经验进度（升级后从 0 重新计入下一等级段）；候选从模式声明的 `growth_pools` 中按权重和 `RNG.ui_choice` 抽取；选择后应用 `stat_modifier`、显示获得反馈并回到 `PLAYING` | `F4LevelUpPanel.choice_selected` |
 | 主动暂停 | `pause` action 在 `PLAYING` 中打开 `F4PauseMenu`；菜单通过 `UIManager` 请求 `GameState.PAUSED`，玩法时间、敌人、子弹和刷怪冻结，菜单仍响应鼠标和再次 `pause` action | `UIManager.push()`、`GameState.PAUSED` |
-| 保存退出 / 继续 | 暂停菜单“保存并退出”生成 `run` payload 并写入 `SaveManager`；标题菜单检测到 `run.save` 后显示“继续游戏”，加载 payload 后由 F4 runtime 通过对象池重建活跃敌人、子弹和经验球 | `SaveManager.save()`、`SaveManager.load()`、`configure_restore_snapshot()` |
+| 保存退出 / 继续 | 暂停菜单“保存并退出”生成 `run` payload 并写入 `SaveManager`；标题菜单检测到 `run.save` 后显示“继续游戏”，加载 payload 后由 F4 runtime 通过对象池重建活跃敌人、子弹和经验球；若续局读取失败，坏档由 `SaveManager` 隔离，标题菜单显示重置提示并隐藏继续按钮 | `SaveManager.save()`、`SaveManager.load_envelope()`、`configure_restore_snapshot()` |
 | UI 布局 | HUD 使用全屏锚点下的 `MarginContainer + VBoxContainer`；升级面板使用全屏遮罩、居中容器和按视口宽度夹取的面板宽度，随窗口尺寸调整 | `Control.set_anchors_preset()` |
 | 失败 / 重开 | 玩家生命归零进入 `GameState.GAME_OVER`，`GameClock` 冻结，并通过 `UIManager` 显示唯一失败面板；HUD 不再叠加旧失败提示。玩家可重开或回标题，按 `pause` 仍可快捷重开 | `GameState.change_state()`、`F4RunLoop.restart_requested` |
 | 自动 smoke | `godot_bridge.py f4-smoke` 以 `--f4-smoke` 用户参数启动正式主场景，并挂载 runtime smoke；`godot_bridge.py save-smoke` 以 `--save-smoke` 挂载 SaveManager smoke | `client/tools/f4_runtime_smoke.gd` / `client/tools/save_manager_smoke.gd` |
@@ -152,7 +152,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 分辨率与 UI：默认 viewport 由 `client/project.godot` 设为 1920×1080；窗口禁止任意拖拽缩放，屏幕比例不匹配时通过 `canvas_items + keep` 保比例加黑边；F4 HUD 和升级面板应使用 `Control` 锚点 / 容器布局适配预设分辨率。
 - run 续局快照：F5 首片使用 `SaveManager` 的 `run` kind，payload schema version 当前为 1，字段包括模式 / 角色 id、等级、累计经验、击杀、`GameClock.snapshot()`、`RNG.snapshot()`、刷怪状态、玩家状态、武器状态、活跃敌人、活跃子弹和活跃经验球。`SaveManager` 的 `run` kind envelope 当前为 version 2，v1 -> v2 迁移只补齐缺失结构字段，不改变 F4 payload schema。RNG 大整数 state 以字符串保存，避免 JSON 精度变化导致 `data_hash` mismatch。
 - 伤害类型：从 `weapons.json` / `enemies.csv` 读取，交给 `Combat` 校验。
-- UI / HUD / 升级文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_continue_run`、`ui_pause_title`、`ui_save_and_quit`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_level_up_title`、`ui_upgrade_applied`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。
+- UI / HUD / 升级文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_pause_title`、`ui_save_and_quit`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_level_up_title`、`ui_upgrade_applied`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。
 
 ## 依赖
 
@@ -203,13 +203,14 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 失败后无法重开 / 回标题 | 是否处于 `GameState.GAME_OVER`；`F4GameOverPanel` 是否挂到 `UIManager`；`restart_requested` / `quit_to_title_requested` 是否被 `FormalClientBoot` 连接 |
 | 暂停菜单打不开或不冻结 | `pause` action 是否已注册；`F4PauseMenu.pauses_game` 是否为 true；`UIManager` 是否切到 `GameState.PAUSED` |
 | 保存后标题没有继续游戏 | `SaveManager.has_save(slot_0, run)` 是否为 true；旧存档是否因 hash mismatch 被隔离 |
+| 继续坏档后没有提示 | `F4TitleMenu` 是否存在 `RunSaveNoticeLabel`；`ui_run_save_unavailable` 是否在 `strings.csv` 与 `.translation` 中；`f4-smoke` 是否通过坏 run 存档点击继续断言 |
 | 继续游戏后状态不对 | run payload 是否包含玩家 / 武器 / 敌人 / 子弹 / 经验球 / RNG / GameClock；恢复时是否通过 `PoolManager.acquire()` 重建实体 |
 
 ## 测试义务
 
 - F4 运行时代码改动必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`。
 - 涉及启动、输入、WeaponSystem、子弹、敌人、Spawner、经验球、升级选择、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client f4-smoke`。
-- 涉及暂停、保存退出、标题继续、RNG / GameClock 快照或 run payload 时必须追加 `python tools/godot_bridge.py --project client f4-smoke` 与 `python tools/godot_bridge.py --project client save-smoke`，并做至少一次手动保存续局检查。
+- 涉及暂停、保存退出、标题继续、坏档提示、RNG / GameClock 快照或 run payload 时必须追加 `python tools/godot_bridge.py --project client f4-smoke` 与 `python tools/godot_bridge.py --project client save-smoke`，并做至少一次手动保存续局检查。
 - 数据 / locale 变化还要跑 `python tools/validate_data.py`、`python tools/lint_project_rules.py`。
 - 当前没有 GUT runner，F4 首切片用 L0 + L2 + `f4-smoke` + 手动 1 分钟跑通作为阶段门槛；后续接入 Godot 测试时补 Player / Combat / Pool / Spawner 的 L1。
 

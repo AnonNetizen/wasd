@@ -1,8 +1,8 @@
 {
     "schema_version":  1,
     "updated_at":  "2026-06-18",
-    "current_phase":  "formal_project_f5_save_reliability_slice",
-    "current_status":  "Formal project F5 save reliability slice landed on 2026-06-18: SaveManager run kind is now version 2 with a registered v1 -\u003e v2 migration that normalizes missing run payload structure fields, and tools/godot_bridge.py exposes save-smoke via client/tools/save_manager_smoke.gd. The smoke covers run envelope roundtrip, .bak fallback, primary+backup broken-save isolation with unique .broken paths, and migration signal coverage. F5 runtime still restores the F4 payload schema version 1 through F4RunLoop; this slice does not add bad-save user-facing prompts, paused/level-up UI restore points, meta progression rewards, golden replay resume, or final L5 save checklist.",
+    "current_phase":  "formal_project_f5_bad_save_notice_slice",
+    "current_status":  "Formal project F5 bad-save notice slice landed on 2026-06-18: SaveManager run kind is version 2 with a registered v1 -\u003e v2 migration, save-smoke covers run roundtrip / .bak fallback / double broken-save isolation / migration signals, and F4/F5 title continue now shows a localized reset notice when run load fails or the run save is quarantined. User manually playtested F5 suspend/save/resume on 2026-06-18 and reported no issues. F5 runtime still restores the F4 payload schema version 1 through F4RunLoop; this slice does not add paused/level-up UI restore points, meta progression rewards, golden replay resume, or final L5 save checklist.",
     "latest_adr":  80,
     "open_decisions":  [
                            "A",
@@ -85,14 +85,25 @@
                            "Formal project F4 game-over UI de-duplication landed: GAME_OVER now uses only F4GameOverPanel, with F4Hud old game-over message kept hidden and f4-smoke covering no second HUD overlay.",
                            "Formal project F4 player center separation landed: player_separation_radius is registered as a stat, player.json/characters.json default it to 10px, F4Enemy pushes itself away from the player center exclusion zone, and f4-smoke covers player-enemy center separation.",
                            "Formal project F5 pause/save/resume first slice landed: F4PauseMenu, SaveManager run save-and-quit, title continue, F4 run payload restore, RNG/GameClock snapshots, and f4-smoke coverage.",
-                           "Formal project F5 SaveManager reliability slice landed: run kind version 2 migration, unique double-broken save isolation, save-smoke bridge command, and run roundtrip / backup / broken / migration smoke coverage."
+                           "Formal project F5 SaveManager reliability slice landed: run kind version 2 migration, unique double-broken save isolation, save-smoke bridge command, and run roundtrip / backup / broken / migration smoke coverage.",
+                           "Formal project F5 suspend/save/resume manual playtest passed: user reported no issues after trying the flow.",
+                           "Formal project F5 bad-save title notice landed: corrupted run continue now returns to title, hides continue, and shows a localized reset notice covered by f4-smoke."
                        ],
     "next_actions":  [
-                         "Manually playtest F5 suspend/resume: start from title, play until enemies/bullets/pickups exist, press pause, save-and-quit, confirm title shows continue, continue, verify player position/time/enemies/bullets/pickups/level/xp feel restored, then die/restart/back-to-title and confirm stale run save does not remain.",
-                         "Continue F5 by adding bad-save user-facing handling: when run load fails or is quarantined, title/menu should explain reset/retry instead of silently hiding continue.",
-                         "Continue F5 by deciding and implementing paused / level-up UI restore points for run saves before moving to F6 meta progression rewards."
+                         "Continue F5 by deciding and implementing paused / level-up UI restore points for run saves before moving to F6 meta progression rewards.",
+                         "Run the final F5 manual save checklist after UI restore-point behavior is decided."
                      ],
     "last_verified":  [
+                          {
+                              "date":  "2026-06-18",
+                              "command":  "python tools/sync_contracts.py --check; python tools/validate_data.py; python tools/test_data_loader_schema.py; python tools/lint_gdscript_rules.py; python tools/lint_project_rules.py; python tools/test_project_rules_lint.py; python tools/lint_semantic_rules.py; python tools/test_semantic_rules_lint.py; python -m json.tool docs/AI记忆/current_state.json; python tools/docs_health_check.py; python tools/godot_bridge.py --project client headless-boot; python tools/godot_bridge.py --project client save-smoke; python tools/godot_bridge.py --project client f4-smoke; pre-commit run --all-files",
+                              "result":  "passed after adding the F5 bad-save title notice; f4-smoke now covers corrupted run continue -> localized reset notice -> continue hidden, and a follow-up headless boot showed save_slots=0 after empty slot cleanup; semantic lint reports the accepted F4 dynamic UI/node assembly advisory set."
+                          },
+                          {
+                              "date":  "2026-06-18",
+                              "command":  "manual F5 suspend/save/resume playtest by user",
+                              "result":  "User reported the F5 flow was tried and had no issues."
+                          },
                           {
                               "date":  "2026-06-18",
                               "command":  "python tools/godot_bridge.py --project client save-smoke; python tools/lint_gdscript_rules.py; python tools/lint_semantic_rules.py",
@@ -276,6 +287,6 @@
                   "For new or touched formal GDScript, run python tools/lint_semantic_rules.py to collect third-tier non-blocking semantic advisory warnings; review warnings manually before deciding whether to fix or allow.",
                   "For data, locale, or export preset changes, run python tools/lint_project_rules.py for the second-tier project rules lint; it complements validate_data.py and sync_contracts.py --check rather than replacing them.",
                   "Use python tools/godot_bridge.py for formal client scene-tree export, data validation, Godot version checks, and headless boot; the default project is client/.",
-                  "F5 save reliability slice is now active: F4 runtime can save/continue a run, SaveManager run kind v2 migration and save-smoke cover roundtrip / backup / broken / migration paths, but bad-save UI prompts, paused/level-up UI restore points, meta progression, golden replay resume, and final L5 save checklist remain future work."
+                  "F5 bad-save notice slice is now active: F4 runtime can save/continue a run, user manual suspend/save/resume playtest passed, SaveManager run kind v2 migration and save-smoke cover roundtrip / backup / broken / migration paths, and corrupted run continue shows a localized title reset notice; paused/level-up UI restore points, meta progression, golden replay resume, and final L5 save checklist remain future work."
               ]
 }

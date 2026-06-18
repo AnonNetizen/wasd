@@ -160,8 +160,8 @@ func delete(slot: String, kind: String) -> bool:
 				return false
 			deleted_any = true
 
+	_remove_slot_dir_if_empty(slot)
 	if deleted_any:
-		_remove_slot_dir_if_empty(slot)
 		save_deleted.emit(slot, kind)
 		Analytics.track_event(ANALYTICS_EVENTS.SAVE_DELETED, {
 			"slot": slot,

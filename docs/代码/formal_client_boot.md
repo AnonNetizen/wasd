@@ -52,7 +52,7 @@ UIManager
 | 主场景加载 | 实例化 `FormalClientBoot` 根节点 | 无 |
 | `_ready()` | 调用 `DataLoader.validate_project_data()` 并输出正式客户端启动日志 | `print()` |
 | 正常启动 | 数据校验通过后通过 `UIManager` 显示 `F4TitleMenu`，保持 `GameState.MAIN_MENU` | `UIManager.push()` |
-| F4 runtime 挂载 | 玩家选择开始、继续游戏或 `--f4-smoke` 启动时创建 `F4RunLoop`，进入最小战斗闭环；继续游戏会先从 `SaveManager` 读取 `run` payload | `add_child()`、`SaveManager.load()`、`GameState.PLAYING` |
+| F4 runtime 挂载 | 玩家选择开始、继续游戏或 `--f4-smoke` 启动时创建 `F4RunLoop`，进入最小战斗闭环；继续游戏会先从 `SaveManager` 读取 `run` payload，读取失败时回标题并显示坏档重置提示 | `add_child()`、`SaveManager.load_envelope()`、`GameState.PLAYING` |
 | F5 存档 smoke | `--save-smoke` 启动时只挂载 `SaveManagerSmoke`，验证 run 存档 roundtrip、备份回退、坏档隔离和迁移链 | `client/tools/save_manager_smoke.gd` |
 | 重开 / 回标题 | `F4RunLoop` 发出重开或回标题信号后，由启动脚本清理运行时和 F4 对象池，再重新挂载 run 或标题菜单 | `restart_requested` / `quit_to_title_requested` |
 
@@ -70,7 +70,7 @@ UIManager
 - `client/project.godot` 的默认 viewport 为 1920×1080；窗口禁止任意拖拽缩放，2D 内容和 UI 通过 `display/window/stretch/mode="canvas_items"` 与 `display/window/stretch/aspect="keep"` 在屏幕比例不匹配时保比例加黑边。后续设置页应只暴露经过验证的分辨率预设列表，不接受任意宽高输入。
 - 启动日志输出 `data_schema_ok`、`player_stats`、`characters`、`weapons`、`enemies`、`hazards`、`spawn_waves`、`relics`、`active_items`、`consumables`、`locale_keys`、`growth_levels`、`growth_pools`、`game_modes`、`meta_upgrades`、`meta_unlocks` 等 smoke 计数。
 - 启动脚本本身不包含玩家可见文本；F4 标题、HUD 和结算面板文案见 `client/locale/strings.csv`。
-- 标题菜单的“继续游戏”只在 `SaveManager.has_save(slot_0, run)` 为真时可见；开始新局和重开会删除旧 `run` 存档，避免重复继续旧局。
+- 标题菜单的“继续游戏”只在 `SaveManager.has_save(slot_0, run)` 为真时可见；开始新局和重开会删除旧 `run` 存档，避免重复继续旧局。若继续读取失败或坏档被隔离，标题菜单显示 `ui_run_save_unavailable` 提示并隐藏继续按钮。
 
 ## 依赖
 
@@ -103,7 +103,7 @@ UIManager
 | `data_schema_ok=false` | 查看同次 headless 日志中的 `[DataLoader]` schema 错误 |
 | 数据通过但没有 F4 节点 | `formal_client_boot.gd` 是否创建 `F4RunLoop`，以及脚本编译是否失败 |
 | 正常启动没有标题菜单 | `F4TitleMenu` 是否通过 `UIManager.push()` 挂载，`UIManager.stack_size()` 是否异常 |
-| 有 run 存档但没有继续按钮 | `SaveManager.has_save(slot_0, run)` 是否为真；旧存档是否 hash mismatch 被隔离 |
+| 有 run 存档但没有继续按钮 | `SaveManager.has_save(slot_0, run)` 是否为真；旧存档是否 hash mismatch 被隔离；标题菜单是否显示 `ui_run_save_unavailable` |
 
 ## 测试义务
 

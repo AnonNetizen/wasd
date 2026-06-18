@@ -13,6 +13,7 @@ const BUTTON_WIDTH: float = 260.0
 const PANEL_WIDTH: float = 520.0
 
 var _continue_button: Button = null
+var _notice_label: Label = null
 
 
 func _ready() -> void:
@@ -58,6 +59,14 @@ func _ready() -> void:
 	subtitle.add_theme_font_size_override("font_size", 20)
 	layout.add_child(subtitle)
 
+	_notice_label = Label.new()
+	_notice_label.name = "RunSaveNoticeLabel"
+	_notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_notice_label.add_theme_font_size_override("font_size", 16)
+	_notice_label.visible = false
+	layout.add_child(_notice_label)
+
 	_continue_button = _make_button("ContinueRunButton", tr("ui_continue_run"))
 	_continue_button.pressed.connect(_on_continue_pressed)
 	layout.add_child(_continue_button)
@@ -72,11 +81,18 @@ func _ready() -> void:
 	start_button.call_deferred("grab_focus")
 
 
-func configure(can_continue: bool) -> void:
+func configure(can_continue: bool, notice_key: String = "") -> void:
 	if _continue_button == null:
 		return
 	_continue_button.visible = can_continue
 	_continue_button.disabled = not can_continue
+	if _notice_label == null:
+		return
+	_notice_label.visible = not notice_key.is_empty()
+	if _notice_label.visible:
+		_notice_label.text = tr(notice_key)
+	else:
+		_notice_label.text = ""
 
 
 func _make_button(button_name: String, text_value: String) -> Button:

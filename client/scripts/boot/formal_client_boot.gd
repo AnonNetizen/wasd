@@ -89,7 +89,7 @@ func _is_save_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--save-smoke")
 
 
-func _show_title_menu() -> void:
+func _show_title_menu(notice_key: String = "") -> void:
 	_clear_f4_runtime()
 	GameState.change_state(GameState.MAIN_MENU, {"source": "formal_client_boot"})
 	UIManager.clear()
@@ -102,7 +102,7 @@ func _show_title_menu() -> void:
 	_title_menu = UIManager.push(title_scene, {"source": "formal_client_boot"}) as CanvasLayer
 	if _title_menu == null:
 		return
-	_title_menu.call("configure", SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN))
+	_title_menu.call("configure", SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), notice_key)
 	_title_menu.connect("start_requested", Callable(self, "_on_title_start_requested"), CONNECT_ONE_SHOT)
 	_title_menu.connect("continue_requested", Callable(self, "_on_title_continue_requested"), CONNECT_ONE_SHOT)
 	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
@@ -151,9 +151,13 @@ func _on_title_start_requested() -> void:
 
 
 func _on_title_continue_requested() -> void:
-	var payload: Dictionary = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+	var envelope: Dictionary = SaveManager.load_envelope(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+	var payload: Dictionary = envelope.get("payload", {}) as Dictionary
 	if payload.is_empty():
-		call_deferred("_show_title_menu")
+		var load_error: String = SaveManager.last_error()
+		SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+		push_warning("[FormalClientBoot] run save unavailable: %s" % load_error)
+		call_deferred("_show_title_menu", "ui_run_save_unavailable")
 		return
 	call_deferred("_start_f4_run", payload)
 

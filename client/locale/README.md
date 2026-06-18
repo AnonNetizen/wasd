@@ -19,7 +19,7 @@
 | 你想做什么 | 怎么做 |
 |------------|--------|
 | 加 UI 文案 | 在 `strings.csv` 加 `ui_*` key；代码使用 `tr("ui_xxx")` |
-| 加标题 / 暂停 / 失败面板文案 | 在 `strings.csv` 加 `ui_title_*`、`ui_start`、`ui_continue_run`、`ui_pause_title`、`ui_save_and_quit`、`ui_restart`、`ui_quit_to_title` 等 key；UI 代码使用 `tr()` |
+| 加标题 / 暂停 / 失败面板文案 | 在 `strings.csv` 加 `ui_title_*`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_pause_title`、`ui_save_and_quit`、`ui_restart`、`ui_quit_to_title` 等 key；UI 代码使用 `tr()` |
 | 加 HUD / 失败提示 | 在 `strings.csv` 加 `ui_hud_*` 或 `ui_*` key；HUD 代码用 `tr("ui_xxx")` 并在运行时刷新 |
 | 加角色名 / 描述 | 在 `strings.csv` 加 `character_*_name` / `character_*_desc`；数据填 `name_key` / `desc_key` |
 | 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |

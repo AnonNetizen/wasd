@@ -182,6 +182,7 @@ func _run() -> void:
 	smoke_player_damage_source.queue_free()
 	if game_over_panel != null:
 		await _expect_game_over_buttons(game_over_panel)
+	await _expect_bad_run_notice()
 
 	_finish()
 
@@ -279,7 +280,7 @@ func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
 		"contact_damage": 1,
 		"contact_damage_type": DAMAGE_TYPES.PHYSICAL,
 		"exp_reward": 0,
-		"hit_radius": 14.0,
+		"hit_radius": 24.0,
 		"separation_radius": 9.0,
 	}
 	var enemy: Node2D = F4_ENEMY_SCRIPT.new()
@@ -552,6 +553,19 @@ func _push_action_once(action_id: String) -> void:
 	await get_tree().process_frame
 
 
+func _write_text(path: String, content: String) -> void:
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		_expect(false, "smoke should open path for text write: %s" % path)
+		return
+	file.store_string(content)
+	file.flush()
+
+
+func _run_save_path() -> String:
+	return SaveManager.save_root().path_join(SaveManager.DEFAULT_SLOT).path_join("%s.save" % SAVE_KINDS.RUN)
+
+
 func _expect_game_over_buttons(game_over_panel: Node) -> void:
 	var restart_button: Button = _find_node_by_name(game_over_panel, "RestartButton") as Button
 	_expect(restart_button != null, "game-over panel should expose a restart button")
@@ -591,6 +605,41 @@ func _expect_game_over_buttons(game_over_panel: Node) -> void:
 	await _wait_for_title_menu()
 	_expect(GameState.is_state(GameState.MAIN_MENU), "clicking quit-to-title should return to MAIN_MENU")
 	_expect(_find_node_by_name(get_tree().root, "F4TitleMenu") != null, "clicking quit-to-title should show the title menu")
+
+
+func _expect_bad_run_notice() -> void:
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+	_expect(SaveManager.save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN, {"smoke": "bad_run"}), "smoke should create a run save before corruption")
+	_write_text(_run_save_path(), "{bad_run")
+
+	var formal_boot: Node = _find_node_by_name(get_tree().root, "FormalClientBoot")
+	_expect(formal_boot != null, "FormalClientBoot should exist before bad-run notice smoke")
+	if formal_boot == null:
+		return
+	formal_boot.call_deferred("_show_title_menu")
+	await get_tree().process_frame
+	await _wait_for_title_menu()
+
+	var title_menu: Node = _find_node_by_name(get_tree().root, "F4TitleMenu")
+	var continue_button: Button = _find_node_by_name(title_menu, "ContinueRunButton") as Button
+	_expect(continue_button != null, "bad-run smoke should expose continue before loading corrupted save")
+	if continue_button == null:
+		return
+	_expect(continue_button.visible and not continue_button.disabled, "corrupted run file should make continue visible before load")
+	await _click_button(continue_button)
+
+	for _index: int in range(BOOT_FRAMES * 4):
+		await get_tree().process_frame
+		title_menu = _find_node_by_name(get_tree().root, "F4TitleMenu")
+		var notice_label: Label = _find_node_by_name(title_menu, "RunSaveNoticeLabel") as Label
+		if notice_label != null and notice_label.visible:
+			_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "bad run save should be consumed or quarantined after failed continue")
+			_expect(String(notice_label.text) == tr("ui_run_save_unavailable"), "bad run save should show a localized title notice")
+			_expect(String(notice_label.text) != "ui_run_save_unavailable", "bad run notice key should resolve through translations")
+			var refreshed_continue_button: Button = _find_node_by_name(title_menu, "ContinueRunButton") as Button
+			_expect(refreshed_continue_button != null and not refreshed_continue_button.visible, "continue should hide after bad run save is reset")
+			return
+	_expect(false, "bad run save should show a title notice after failed continue")
 
 
 func _wait_for_playing_run_loop() -> Node:
