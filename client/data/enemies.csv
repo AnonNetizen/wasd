@@ -1,2 +1,3 @@
-id,name_key,tags,pool_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius,separation_radius
-enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,12,110.0,1,physical,3,14.0,9.0
+id,name_key,tags,pool_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius,separation_radius,visual_color
+enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,12,110.0,1,physical,3,14.0,9.0,#ff6152
+enemy_swarm,enemy_swarm_name,tag_enemy,enemy_swarm,6,155.0,1,physical,2,10.0,6.0,#58d68d

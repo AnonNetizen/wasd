@@ -4,6 +4,9 @@ class_name F4RunLoop
 extends Node2D
 
 
+signal quit_to_title_requested()
+signal restart_requested()
+
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const GAME_MODES := preload("res://scripts/contracts/game_modes.gd")
@@ -12,6 +15,7 @@ const F4_BULLET_SCRIPT := preload("res://scripts/gameplay/f4_bullet.gd")
 const F4_BACKGROUND_SCRIPT := preload("res://scripts/gameplay/f4_background.gd")
 const F4_ENEMY_SCRIPT := preload("res://scripts/gameplay/f4_enemy.gd")
 const F4_HUD_SCRIPT := preload("res://scripts/gameplay/f4_hud.gd")
+const F4_GAME_OVER_PANEL_SCRIPT := preload("res://scripts/ui/f4_game_over_panel.gd")
 const F4_LEVEL_UP_PANEL_SCRIPT := preload("res://scripts/gameplay/f4_level_up_panel.gd")
 const F4_PICKUP_ORB_SCRIPT := preload("res://scripts/gameplay/f4_pickup_orb.gd")
 const F4_PLAYER_SCRIPT := preload("res://scripts/gameplay/f4_player.gd")
@@ -27,6 +31,7 @@ var _current_xp: int = 0
 var _enemy_rows: Dictionary = {}
 var _growth_curve: Array[Dictionary] = []
 var _growth_entries: Array[Dictionary] = []
+var _game_over_panel: CanvasLayer = null
 var _hud: CanvasLayer = null
 var _kills: int = 0
 var _level_panel: CanvasLayer = null
@@ -49,20 +54,22 @@ func _process(_delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if GameState.is_state(GameState.GAME_OVER) and event.is_action_pressed(ACTIONS.PAUSE):
-		GameState.change_state(GameState.LOADING)
-		get_tree().reload_current_scene()
+		restart_requested.emit()
 
 
 func _start_run() -> void:
 	GameClock.reset()
 	PoolManager.clear_pool(POOL_IDS.BULLET_BASIC)
 	PoolManager.clear_pool(POOL_IDS.ENEMY_CHASER)
+	PoolManager.clear_pool(POOL_IDS.ENEMY_SWARM)
 	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
 	PoolManager.register_pool(POOL_IDS.BULLET_BASIC, _create_bullet_node, BULLET_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.ENEMY_CHASER, _create_enemy_node, ENEMY_POOL_SIZE)
+	PoolManager.register_pool(POOL_IDS.ENEMY_SWARM, _create_enemy_node, ENEMY_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.PICKUP_ORB, _create_pickup_orb_node, PICKUP_POOL_SIZE)
 	PoolManager.prewarm(POOL_IDS.BULLET_BASIC, 24)
 	PoolManager.prewarm(POOL_IDS.ENEMY_CHASER, 12)
+	PoolManager.prewarm(POOL_IDS.ENEMY_SWARM, 8)
 	PoolManager.prewarm(POOL_IDS.PICKUP_ORB, 16)
 
 	_active_world = Node2D.new()
@@ -102,6 +109,7 @@ func _start_run() -> void:
 	_weapon_system.call("configure", _player, _active_world, weapon)
 
 	_hud = F4_HUD_SCRIPT.new()
+	_hud.name = "F4Hud"
 	add_child(_hud)
 	_hud.call("set_life", _player.call("current_life"), _player.call("max_life"))
 	_hud.call("set_kills", _kills)
@@ -273,6 +281,8 @@ func _on_level_up_choice_selected(choice: Dictionary) -> void:
 		_player.call("apply_modifiers", modifiers)
 	if _weapon_system != null and _weapon_system.has_method("apply_modifiers"):
 		_weapon_system.call("apply_modifiers", modifiers)
+	if _hud != null and _hud.has_method("show_upgrade_feedback"):
+		_hud.call("show_upgrade_feedback", String(choice.get("name_key", "")))
 	if UIManager.top() == _level_panel:
 		UIManager.pop()
 	elif _level_panel != null:
@@ -298,6 +308,32 @@ func _on_player_died() -> void:
 	})
 	if _hud != null:
 		_hud.call("show_game_over")
+	_show_game_over_panel()
+
+
+func _show_game_over_panel() -> void:
+	var panel_template: CanvasLayer = F4_GAME_OVER_PANEL_SCRIPT.new()
+	panel_template.name = "F4GameOverPanel"
+	var panel_scene: PackedScene = PackedScene.new()
+	var pack_result: Error = panel_scene.pack(panel_template)
+	panel_template.free()
+	if pack_result != OK:
+		push_error("[F4RunLoop] failed to pack game-over panel: %d" % pack_result)
+		return
+	_game_over_panel = UIManager.push(panel_scene, {"source": "f4_game_over"}) as CanvasLayer
+	if _game_over_panel == null:
+		return
+	_game_over_panel.call("configure", _kills, GameClock.now())
+	_game_over_panel.connect("restart_requested", Callable(self, "_on_game_over_restart_requested"), CONNECT_ONE_SHOT)
+	_game_over_panel.connect("quit_to_title_requested", Callable(self, "_on_game_over_quit_to_title_requested"), CONNECT_ONE_SHOT)
+
+
+func _on_game_over_restart_requested() -> void:
+	restart_requested.emit()
+
+
+func _on_game_over_quit_to_title_requested() -> void:
+	quit_to_title_requested.emit()
 
 
 func _load_array(path: String, key: String) -> Array:
@@ -344,6 +380,7 @@ func _load_enemy_rows() -> Dictionary:
 			"exp_reward": String(row.get("exp_reward", "0")).to_int(),
 			"hit_radius": String(row.get("hit_radius", "1.0")).to_float(),
 			"separation_radius": String(row.get("separation_radius", "0.0")).to_float(),
+			"visual_color": String(row.get("visual_color", "#ff6152")),
 		}
 	return result
 

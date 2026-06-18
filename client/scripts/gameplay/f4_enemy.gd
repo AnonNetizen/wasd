@@ -21,6 +21,7 @@ var _max_life: float = 1.0
 var _move_speed: float = 0.0
 var _separation_radius: float = 0.0
 var _target: Node2D = null
+var _visual_color: Color = Color(1.0, 0.38, 0.32)
 
 
 func _physics_process(delta: float) -> void:
@@ -56,6 +57,7 @@ func configure(enemy_data: Dictionary, target: Node2D) -> void:
 	_exp_reward = int(enemy_data.get("exp_reward", 0))
 	_hit_radius = float(enemy_data.get("hit_radius", 0.0))
 	_separation_radius = float(enemy_data.get("separation_radius", 0.0))
+	_visual_color = _parse_visual_color(String(enemy_data.get("visual_color", "#ff6152")))
 	add_to_group("f4_enemies")
 	queue_redraw()
 
@@ -66,6 +68,10 @@ func hit_radius() -> float:
 
 func separation_radius() -> float:
 	return _separation_radius
+
+
+func visual_color() -> Color:
+	return _visual_color
 
 
 func is_alive() -> bool:
@@ -116,6 +122,7 @@ func _pool_reset() -> void:
 	_move_speed = 0.0
 	_separation_radius = 0.0
 	_target = null
+	_visual_color = Color(1.0, 0.38, 0.32)
 	visible = true
 
 
@@ -163,7 +170,7 @@ func _enemy_color() -> Color:
 		return Color(1.0, 0.74, 0.34, remaining_ratio)
 	if _hit_flash_remaining > 0.0:
 		return Color.WHITE
-	return Color(1.0, 0.38, 0.32)
+	return _visual_color
 
 
 func _defeat_scale() -> float:
@@ -212,3 +219,9 @@ func _separation_direction(to_self: Vector2) -> Vector2:
 		return to_self.normalized()
 	var angle: float = float(int(get_instance_id()) % 360) * TAU / 360.0
 	return Vector2.RIGHT.rotated(angle)
+
+
+func _parse_visual_color(color_text: String) -> Color:
+	if Color.html_is_valid(color_text):
+		return Color.html(color_text)
+	return Color(1.0, 0.38, 0.32)

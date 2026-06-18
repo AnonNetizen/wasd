@@ -7,6 +7,11 @@ extends Node
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
 const F4_RUN_LOOP := preload("res://scripts/gameplay/f4_run_loop.gd")
 const F4_SMOKE_RUNNER := preload("res://tools/f4_runtime_smoke.gd")
+const F4_TITLE_MENU := preload("res://scripts/ui/f4_title_menu.gd")
+const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
+
+var _run_loop: Node = null
+var _title_menu: CanvasLayer = null
 
 
 func _ready() -> void:
@@ -60,16 +65,80 @@ func _ready() -> void:
 		RNG.run_seed(),
 	])
 
-	if data_schema_ok:
-		var run_loop: Node = F4_RUN_LOOP.new()
-		run_loop.name = "F4RunLoop"
-		add_child(run_loop)
-
 	if _is_f4_smoke_enabled():
+		if data_schema_ok:
+			_start_f4_run()
 		var smoke_runner: Node = F4_SMOKE_RUNNER.new()
 		smoke_runner.name = "F4RuntimeSmoke"
 		add_child(smoke_runner)
+	elif data_schema_ok:
+		_show_title_menu()
 
 
 func _is_f4_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--f4-smoke")
+
+
+func _show_title_menu() -> void:
+	_clear_f4_runtime()
+	GameState.change_state(GameState.MAIN_MENU, {"source": "formal_client_boot"})
+	UIManager.clear()
+
+	var title_template: CanvasLayer = F4_TITLE_MENU.new()
+	title_template.name = "F4TitleMenu"
+	var title_scene: PackedScene = _pack_ui_template(title_template)
+	if title_scene == null:
+		return
+	_title_menu = UIManager.push(title_scene, {"source": "formal_client_boot"}) as CanvasLayer
+	if _title_menu == null:
+		return
+	_title_menu.connect("start_requested", Callable(self, "_on_title_start_requested"), CONNECT_ONE_SHOT)
+	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
+
+
+func _start_f4_run() -> void:
+	UIManager.clear()
+	GameState.change_state(GameState.LOADING, {"source": "formal_client_boot"})
+	_clear_f4_runtime()
+
+	_run_loop = F4_RUN_LOOP.new()
+	_run_loop.name = "F4RunLoop"
+	_run_loop.connect("restart_requested", Callable(self, "_on_run_restart_requested"))
+	_run_loop.connect("quit_to_title_requested", Callable(self, "_on_run_quit_to_title_requested"))
+	add_child(_run_loop)
+
+
+func _clear_f4_runtime() -> void:
+	if _run_loop != null and is_instance_valid(_run_loop):
+		_run_loop.queue_free()
+	_run_loop = null
+	PoolManager.clear_pool(POOL_IDS.BULLET_BASIC)
+	PoolManager.clear_pool(POOL_IDS.ENEMY_CHASER)
+	PoolManager.clear_pool(POOL_IDS.ENEMY_SWARM)
+	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
+
+
+func _pack_ui_template(template: Node) -> PackedScene:
+	var scene: PackedScene = PackedScene.new()
+	var pack_result: Error = scene.pack(template)
+	template.free()
+	if pack_result != OK:
+		push_error("[FormalClientBoot] failed to pack UI template: %d" % pack_result)
+		return null
+	return scene
+
+
+func _on_title_start_requested() -> void:
+	call_deferred("_start_f4_run")
+
+
+func _on_title_quit_requested() -> void:
+	get_tree().quit()
+
+
+func _on_run_restart_requested() -> void:
+	call_deferred("_start_f4_run")
+
+
+func _on_run_quit_to_title_requested() -> void:
+	call_deferred("_show_title_menu")

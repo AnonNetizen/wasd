@@ -20,7 +20,7 @@
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
 | 改角色基础属性 / 标签 / 能力 / 起始携带 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；起始携带填 `starting_loadout`，引用必须存在于对应数据文件 |
 | 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
-| 改敌人血量 / 速度 / 接触伤害 / 中心间距 | `enemies.csv` | 敌人标签、对象池 id、伤害类型必须来自词表 |
+| 改敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | 敌人标签、对象池 id、伤害类型必须来自词表 |
 | 改机关伤害 / 范围 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
@@ -43,7 +43,7 @@
 | `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 已建立 | 主动道具：充能方式、冷却、效果原语与参数 |
 | `consumables.json` | 已建立 | 消耗品：堆叠数量、拾取数量、效果原语与参数 |
-| `enemies.csv` | 已建立 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励等 |
+| `enemies.csv` | 已建立 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励、占位色等 |
 | `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、范围、持续时间 |
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
@@ -248,8 +248,8 @@ JSON 示例：
 当前结构：
 
 ```csv
-id,name_key,tags,pool_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius,separation_radius
-enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,12,110.0,1,physical,3,14.0,9.0
+id,name_key,tags,pool_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius,separation_radius,visual_color
+enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,12,110.0,1,physical,3,14.0,9.0,#ff6152
 ```
 
 字段说明：
@@ -267,6 +267,7 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,12,110.0,1,physical,3,14.0
 | `exp_reward` | int | `>= 0` | 击杀后经验奖励；后续掉落 / 经验球系统解释 |
 | `hit_radius` | number | `> 0`，px | 命中 / 接触半径边界，后续碰撞体或占位图可据此生成 |
 | `separation_radius` | number | `>= 0`，px | 敌人中心排斥半径；小于 `hit_radius` 时允许视觉重叠但避免中心完全重合 |
+| `visual_color` | string | HTML 色值，如 `#ff6152` | 开发期几何占位图颜色；只表达外观，不承载行为分支 |
 
 `enemies.csv` 只声明敌人基础数值边界，不实现 `Enemy` / `EnemyAI`、刷怪、寻路、碰撞体、掉落、对象池预热或伤害结算。游戏模式可通过 `resource_pools.enemies` 声明可用敌人池；实际波次选择、生成位置和行为由后续 `Spawner` / `EnemyAI` 系统解释。
 

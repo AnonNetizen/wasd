@@ -19,6 +19,7 @@
 | 你想做什么 | 怎么做 |
 |------------|--------|
 | 加 UI 文案 | 在 `strings.csv` 加 `ui_*` key；代码使用 `tr("ui_xxx")` |
+| 加标题 / 失败面板文案 | 在 `strings.csv` 加 `ui_title_*`、`ui_start`、`ui_restart`、`ui_quit_to_title` 等 key；UI 代码使用 `tr()` |
 | 加 HUD / 失败提示 | 在 `strings.csv` 加 `ui_hud_*` 或 `ui_*` key；HUD 代码用 `tr("ui_xxx")` 并在运行时刷新 |
 | 加角色名 / 描述 | 在 `strings.csv` 加 `character_*_name` / `character_*_desc`；数据填 `name_key` / `desc_key` |
 | 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |
@@ -69,7 +70,7 @@ ui_resume,继续,Resume
 | `weapon_` | 武器名称和描述 | `weapon_basic_blaster_name` / `weapon_basic_blaster_desc` |
 | `relic_` | 被动遗物名称和描述 | `relic_sharp_rounds_name` / `relic_sharp_rounds_desc` |
 | `item_` | 主动道具 / 消耗品名称和描述 | `item_bomb_name` / `item_bomb_desc` |
-| `enemy_` | 敌人名称 | `enemy_chaser_name` |
+| `enemy_` | 敌人名称 | `enemy_chaser_name` / `enemy_swarm_name` |
 | `hazard_` | 机关 / 危险物名称 | `hazard_spike_trap_name` |
 | `hint_` | 教程、提示、引导 | `hint_aim_with_right_stick` |
 | `meta_` | 局外货币、永久升级、账号等级、解锁项 | `meta_upgrade_damage_name` / `meta_currency_essence_name` |

@@ -41,6 +41,10 @@
           {
             "id": "enemy_chaser",
             "weight": 100
+          },
+          {
+            "id": "enemy_swarm",
+            "weight": 45
           }
         ],
         "hazards": [

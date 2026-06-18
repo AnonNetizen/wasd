@@ -29,6 +29,7 @@ GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
 GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
 PLACEHOLDER_RE = re.compile(r"\{[a-z0-9_]+\}")
 LOCALE_KEY_RE = re.compile(r"^[a-z0-9_]+$")
+HTML_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")
 
 INT_STATS = {"max_hp", "bullet_count", "pierce_count"}
 NON_NEGATIVE_STATS = {
@@ -314,6 +315,7 @@ def _validate_enemies_csv(ctx: ValidationContext) -> None:
         "exp_reward",
         "hit_radius",
         "separation_radius",
+        "visual_color",
     }
     seen: set[str] = set()
     with path.open(encoding="utf-8-sig", newline="") as handle:
@@ -344,6 +346,7 @@ def _validate_enemies_csv(ctx: ValidationContext) -> None:
             _parse_int(ctx, path, f"{field}.exp_reward", row.get("exp_reward"), minimum=0)
             _parse_float(ctx, path, f"{field}.hit_radius", row.get("hit_radius"), minimum=0, exclusive_minimum=True)
             _parse_float(ctx, path, f"{field}.separation_radius", row.get("separation_radius"), minimum=0)
+            _require_html_color(ctx, path, f"{field}.visual_color", row.get("visual_color"))
         if row_count == 0:
             ctx.error(path, "rows", "must contain at least one enemy")
 
@@ -1370,6 +1373,13 @@ def _require_non_empty_string(ctx: ValidationContext, path: Path, field: str, va
 def _require_bool(ctx: ValidationContext, path: Path, field: str, value: Any) -> bool | None:
     if not isinstance(value, bool):
         ctx.error(path, field, "must be bool")
+        return None
+    return value
+
+
+def _require_html_color(ctx: ValidationContext, path: Path, field: str, value: Any) -> str | None:
+    if not isinstance(value, str) or not HTML_COLOR_RE.match(value):
+        ctx.error(path, field, "must be an HTML color like #ff6152")
         return None
     return value
 

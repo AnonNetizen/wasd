@@ -5,7 +5,7 @@
 
 ## 职责
 
-- 在正式 `client/` 内提供一局最小战斗：玩家移动、相机居中、基础背景参照、起始武器、池化子弹、池化敌人、波次刷怪、经验掉落、升级三选一、HUD、失败后重开。
+- 在正式 `client/` 内提供一局最小战斗：最小标题入口、玩家移动、相机居中、基础背景参照、起始武器、池化子弹、池化敌人、波次刷怪、经验掉落、升级三选一、HUD、失败后重开 / 回标题。
 - 复用 F3 已建立的数据边界：`player.json`、`characters.json`、`weapons.json`、`enemies.csv`、`spawn_waves.csv`、`growth.csv`、`growth_pools.json` 和 `game_modes.json`。
 - 第一版只做标准生存模式、默认角色和默认起始武器的竖切，不实现角色选择、局外成长、暂停保存续局、机关运行时、音频、美术资产或平衡 sim；升级内容只落地 `stat_modifier` 最小切片，后续遗物 / 主动强化 / 刷新等仍按数据与设计扩展。
 
@@ -14,6 +14,7 @@
 | 你想做什么 | 先看哪里 |
 |------------|----------|
 | 改 F4 启动 / 重开 | `client/scripts/gameplay/f4_run_loop.gd` |
+| 改 F4 标题 / 失败面板 | `client/scripts/ui/f4_title_menu.gd`、`client/scripts/ui/f4_game_over_panel.gd` |
 | 改玩家移动 / 相机 | `client/scripts/gameplay/f4_player.gd` |
 | 改自动开火 / 子弹生成 | `client/scripts/gameplay/f4_weapon_system.gd`、`f4_bullet.gd` |
 | 改敌人追击 / 接触伤害 | `client/scripts/gameplay/f4_enemy.gd` |
@@ -35,6 +36,8 @@
 | `client/scripts/gameplay/f4_pickup_orb.gd` | 池化经验球：进入玩家拾取范围后吸附并发放经验 |
 | `client/scripts/gameplay/f4_level_up_panel.gd` | F4 阶段响应式升级三选一面板；通过 `UIManager.push()` 挂载 |
 | `client/scripts/gameplay/f4_hud.gd` | 响应式最小 HUD：生命、击杀、时间、等级、经验、失败提示 |
+| `client/scripts/ui/f4_title_menu.gd` | F4 阶段最小标题界面：开始 / 退出 |
+| `client/scripts/ui/f4_game_over_panel.gd` | F4 阶段最小失败面板：重开 / 回标题 |
 | `client/tools/f4_runtime_smoke.gd` | F4 headless runtime smoke，覆盖启动、输入、池化、伤害和失败状态 |
 | `tools/godot_bridge.py` | `f4-smoke` 命令入口 |
 | `docs/代码/combat.md` | 伤害统一入口文档 |
@@ -52,11 +55,14 @@ FormalClientBoot
     │   │   ├── CenteredCamera (Camera2D)
     │   │   └── WeaponSystem (Node)
     │   ├── bullet_basic_* (pooled F4Bullet, active only)
-    │   └── enemy_chaser_* (pooled F4Enemy, active only)
+    │   ├── enemy_chaser_* (pooled F4Enemy, active only)
+    │   └── enemy_swarm_* (pooled F4Enemy, active only)
     └── F4Hud (CanvasLayer)
 UIManager
 └── UIRoot
-    └── F4LevelUpPanel (only while GameState.LEVEL_UP)
+    ├── F4TitleMenu (normal boot before a run)
+    ├── F4LevelUpPanel (only while GameState.LEVEL_UP)
+    └── F4GameOverPanel (only while GameState.GAME_OVER)
 ```
 
 闲置子弹、敌人和经验球节点归 `PoolManager` autoload 管理。
@@ -65,20 +71,20 @@ UIManager
 
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
-| 启动 | `FormalClientBoot` 跑数据 schema smoke，成功后以 1920×1080 默认 viewport 创建 `F4RunLoop` | `DataLoader.validate_project_data()` |
-| 开局 | 重置 `GameClock`，注册 / 预热子弹和敌人对象池，读取默认模式 / 角色 / 起始武器 | `PoolManager.register_pool()`、`DataLoader.load_json()` |
+| 启动 | `FormalClientBoot` 跑数据 schema smoke，正常启动显示 `F4TitleMenu`；`--f4-smoke` 模式跳过标题并直接创建 `F4RunLoop` | `DataLoader.validate_project_data()`、`UIManager.push()` |
+| 开局 | 重置 `GameClock`，注册 / 预热子弹、经验球和当前 F4 敌人对象池，读取默认模式 / 角色 / 起始武器 | `PoolManager.register_pool()`、`DataLoader.load_json()` |
 | 背景 | 在玩家附近绘制世界空间网格和原点十字，让相机移动有参照 | `F4Background.configure()` |
 | 输入 | 运行时确保 InputMap action 有键盘和手柄默认事件；业务读取 action，不读物理键 | `InputMap`、`Input.get_vector()` |
 | 移动 / 瞄准 | 玩家按数据移速移动，瞄准吸附到上下左右，松开保持上一方向；角色用方向指示器显示当前瞄准方向 | `F4Player.aim_direction` |
 | 自动开火 | WeaponSystem 按 `fire_rate` 从子弹池取节点并配置 | `PoolManager.acquire()` |
 | 子弹命中 | 子弹用距离检测命中 `f4_enemies` 组，伤害走 `Combat.apply_damage()` | `DamageInfo` |
-| 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人 | `GameClock.now()`、`RNG.spawn` |
+| 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人；当前有追猎者与疾行者两种数据化敌人 | `GameClock.now()`、`RNG.spawn` |
 | 受击 / 击杀反馈 | 玩家和敌人受伤时短暂闪白；敌人死亡后立即离开活敌组，短暂放大淡出后归池；玩家进入数据化受伤无敌窗口 | `_draw()` / `queue_redraw()` |
 | 敌人行为 | 敌人追向玩家，重叠时持续通过 `Combat` 尝试接触伤害；敌人中心按 `separation_radius` 做小范围排斥，是否伤害玩家由玩家无敌窗口判定 | `F4Enemy.defeated` |
 | 经验掉落 | 敌人死亡时按 `exp_reward` 生成池化经验球；经验球进入玩家 `pickup_range` 后显示吸附反馈，贴近玩家时立即发放经验并短暂弹出淡出后归池 | `PoolManager.acquire(PICKUP_ORB)` |
-| 升级选择 | 累计经验达到 `growth.csv` 阈值后进入 `GameState.LEVEL_UP`，玩法时间冻结；HUD 显示本级经验进度（升级后从 0 重新计入下一等级段）；候选从模式声明的 `growth_pools` 中按权重和 `RNG.ui_choice` 抽取；选择后应用 `stat_modifier` 并回到 `PLAYING` | `F4LevelUpPanel.choice_selected` |
+| 升级选择 | 累计经验达到 `growth.csv` 阈值后进入 `GameState.LEVEL_UP`，玩法时间冻结；HUD 显示本级经验进度（升级后从 0 重新计入下一等级段）；候选从模式声明的 `growth_pools` 中按权重和 `RNG.ui_choice` 抽取；选择后应用 `stat_modifier`、显示获得反馈并回到 `PLAYING` | `F4LevelUpPanel.choice_selected` |
 | UI 布局 | HUD 使用全屏锚点下的 `MarginContainer + VBoxContainer`；升级面板使用全屏遮罩、居中容器和按视口宽度夹取的面板宽度，随窗口尺寸调整 | `Control.set_anchors_preset()` |
-| 失败 / 重开 | 玩家生命归零进入 `GameState.GAME_OVER`，`GameClock` 冻结，HUD 显示本地化提示；按 `pause` 重载当前场景 | `GameState.change_state()` |
+| 失败 / 重开 | 玩家生命归零进入 `GameState.GAME_OVER`，`GameClock` 冻结，HUD 显示本地化提示并通过 `UIManager` 显示失败面板；玩家可重开或回标题，按 `pause` 仍可快捷重开 | `GameState.change_state()`、`F4RunLoop.restart_requested` |
 | 自动 smoke | `godot_bridge.py f4-smoke` 以 `--f4-smoke` 用户参数启动正式主场景，并挂载 smoke runner 做关键断言 | `client/tools/f4_runtime_smoke.gd` |
 
 ## 公共 API
@@ -97,12 +103,14 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `F4WeaponSystem.stat_value(stat)` | stat id | `float` | smoke / 调试读取当前武器数值 |
 | `F4Bullet.configure(stats, projectile, direction, source)` | 武器属性、弹体数据、方向、来源 | `void` | 节点必须来自 `PoolManager` |
 | `F4Enemy.configure(enemy_data, target)` | 敌人 CSV 行、目标玩家 | `void` | 节点必须来自 `PoolManager` |
-| `F4Enemy.separation_radius()` / `is_defeat_feedback_active()` | 无 | `float` / `bool` | 只读诊断值；用于中心排斥、死亡反馈和 smoke 确认 |
+| `F4Enemy.separation_radius()` / `visual_color()` / `is_defeat_feedback_active()` | 无 | `float` / `Color` / `bool` | 只读诊断值；用于中心排斥、占位色、死亡反馈和 smoke 确认 |
 | `F4PickupOrb.configure(amount, target, pickup_speed)` | 经验值、目标玩家、吸附速度 | `void` | 节点必须来自 `PoolManager` |
 | `F4PickupOrb.is_attracting()` / `is_collect_feedback_active()` | 无 | `bool` | 只读诊断值；用于 smoke 确认吸附 / 拾取反馈生命周期 |
 | `F4RunLoop.current_xp()` / `current_level_xp()` / `current_level_xp_required()` | 无 | `int` | `current_xp()` 是累计总经验；HUD 使用本级经验和本级需求显示升级进度 |
 | `F4LevelUpPanel.configure(choices)` / `choose_index(index)` | 升级候选 | `void` | 面板节点通过 `UIManager` 挂载；玩家可见文案来自 locale；面板宽度随视口宽度在最小 / 最大值之间自适应 |
-| `F4Hud.set_life()` / `set_kills()` / `set_level()` / `set_xp()` / `show_game_over()` | HUD 状态 | `void` | 文案使用 `tr()`；布局使用容器和锚点而非固定屏幕坐标 |
+| `F4Hud.set_life()` / `set_kills()` / `set_level()` / `set_xp()` / `show_upgrade_feedback()` / `show_game_over()` | HUD 状态 | `void` | 文案使用 `tr()`；布局使用容器和锚点而非固定屏幕坐标 |
+| `F4TitleMenu.start_requested` / `quit_requested` | 无 | signal | 由 `FormalClientBoot` 处理，不在标题菜单里直接创建 run |
+| `F4GameOverPanel.restart_requested` / `quit_to_title_requested` | 无 | signal | 由 `F4RunLoop` 转发给 `FormalClientBoot` 清理并切换流程 |
 
 ## Signal / Event
 
@@ -113,6 +121,8 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `F4Enemy.defeated` | `enemy`, `exp_reward` | 敌人生命归零 |
 | `F4PickupOrb.collected` | `amount` | 经验球被玩家拾取 |
 | `F4LevelUpPanel.choice_selected` | `choice` | 玩家选择一个升级候选 |
+| `F4RunLoop.restart_requested` | 无 | 玩家在失败后请求重开 |
+| `F4RunLoop.quit_to_title_requested` | 无 | 玩家在失败后请求回标题 |
 
 ## 数据与契约
 
@@ -120,15 +130,16 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 模式：默认读取 `mode_standard_survival`，其 id 来自生成常量 `GameModes`。
 - 武器：从 `characters[].starting_loadout.weapon_id` 读取，不在代码写武器 id 分支。
 - 子弹池：从 `weapons[].projectile.pool_id` 读取；当前样例为已登记 `bullet_basic`。
-- 敌人池：从 `enemies.csv.pool_id` 读取；当前样例为已登记 `enemy_chaser`。
+- 敌人池：从 `enemies.csv.pool_id` 读取；当前 F4 注册已登记 `enemy_chaser` 与 `enemy_swarm`，两者复用 `F4Enemy` 追击行为但用数据区分数值和占位色。
 - 敌人中心间距：从 `enemies.csv.separation_radius` 读取；当前默认 9px，低于 `hit_radius` 以允许视觉重叠。
+- 敌人占位色：从 `enemies.csv.visual_color` 读取 HTML 色值，只用于开发期几何占位图，不承载行为分支。
 - 受伤无敌：从合并后的玩家 `base_stats.damage_invulnerability_duration` 读取；当前默认 `player.json` 为 0.7 秒。
 - 经验球：使用词表 §8 `pickup_orb` 对象池；`player.json.base_stats.pickup_range` 控制吸附范围，`pickup_orb_speed` 控制吸附速度。
 - 等级阈值：从 `growth.csv.total_xp_required` 读取累计总经验阈值；运行时内部保留累计经验判定升级，HUD 显示 `当前累计经验 - 当前等级累计阈值` / `下一级累计阈值 - 当前等级累计阈值`。
 - 升级候选：从当前模式 `resource_pools.growth_pools` 引用的 `growth_pools.json` 池读取；当前 F4 只解释 `kind=stat_modifier` 且应用其 `modifiers`。
 - 分辨率与 UI：默认 viewport 由 `client/project.godot` 设为 1920×1080；窗口禁止任意拖拽缩放，屏幕比例不匹配时通过 `canvas_items + keep` 保比例加黑边；F4 HUD 和升级面板应使用 `Control` 锚点 / 容器布局适配预设分辨率。
 - 伤害类型：从 `weapons.json` / `enemies.csv` 读取，交给 `Combat` 校验。
-- HUD / 升级文案：`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_level_up_title`、`ui_game_over`、`ui_restart_hint`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。
+- UI / HUD / 升级文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_level_up_title`、`ui_upgrade_applied`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。
 
 ## 依赖
 
@@ -139,7 +150,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 ## 扩展点
 
 - 加武器：优先改 `weapons.json`，运行时继续解释 `base_stats` 和 `projectile`。
-- 加敌人：优先改 `enemies.csv` 和后续可复用 AI strategy；不要在 F4 enemy 里按 id 分支。
+- 加敌人：优先改 `enemies.csv`、`game_modes.json` 和 `spawn_waves.csv`，行为差异等后续可复用 AI strategy；不要在 F4 enemy 里按 id 分支。
 - 加刷怪：改 `spawn_waves.csv`；多个波次可复用当前时间窗 / 预算解释。
 - 加升级候选：优先改 `growth_pools.json`；新候选如果仍是 `stat_modifier` 不需要改逻辑，新增候选类型才需要扩展运行时解释和文档。
 - 拆正式模块：当 F4 稳定后，将 `f4_*` 阶段脚本拆为长期 `Player`、`WeaponSystem`、`Bullet`、`Enemy`、`Spawner`、`Hud` 模块，并保留本文档迁移说明。
@@ -150,7 +161,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 |------------|----------|----------|----------|
 | 调玩家速度 / 生命 / 受伤无敌 | `player.json` / `characters.json` | `client/data/README.md` | `python tools/validate_data.py` |
 | 调武器伤害 / 射速 / 弹速 | `weapons.json` | `client/data/README.md` | `validate_data` + headless |
-| 调敌人血量 / 速度 / 接触伤害 / 中心间距 | `enemies.csv` | `client/data/README.md` | `validate_data` + 手动跑一局 |
+| 调敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | `client/data/README.md` | `validate_data` + 手动跑一局 |
 | 调刷怪节奏 | `spawn_waves.csv` | `client/data/README.md` | `validate_data` + 手动 1 分钟 |
 | 调升级阈值 / 候选 | `growth.csv` / `growth_pools.json` | `client/data/README.md` | `validate_data` + `f4-smoke` |
 | 改 HUD 文案 | `strings.csv` | `client/locale/README.md` | `validate_data` |
@@ -166,13 +177,14 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 移动感知不明显 | `F4Background` 是否挂载；网格是否随玩家附近重绘 |
 | 不开火 | `starting_loadout.weapon_id` 是否存在；`fire_rate` 是否大于 0；子弹池是否注册 |
 | 不刷怪 | `spawn_waves.csv` 时间窗、预算、`max_alive` 是否允许；敌人池是否注册 |
+| 第二敌人不出现 | `enemies.csv.pool_id` 是否为已注册池；`game_modes.json.resource_pools.enemies` 与 `spawn_waves.csv.enemy_id` 是否引用该敌人；`f4-smoke` 是否通过第二敌人池断言 |
 | 敌人中心完全重叠 | `enemies.csv.separation_radius` 是否为 0；`f4-smoke` 是否通过中心分离断言 |
 | 子弹打不到 | `hit_radius`、敌人位置、`bullet_range` / `lifetime` 是否合理 |
 | 同一敌人贴住玩家不再造成后续伤害 | 玩家 `damage_invulnerability_duration` 是否过长；`F4Enemy` 不应保存单只敌人的接触伤害冷却 |
 | 不掉经验 / 不升级 | `enemies.csv.exp_reward` 是否大于 0；`pickup_orb` 池是否注册；`growth.csv` 下一级阈值是否达到 |
 | 升级面板不出现或无法选择 | `GameState` 是否进入 `LEVEL_UP`；`UIManager.top()` 是否为 `F4LevelUpPanel`；`growth_pools.json` 是否有满足 `min_level` 的候选 |
 | 游戏结束后计时继续 | `GameClock` 是否把 `GAME_OVER` 视为冻结状态；`f4-smoke` 是否通过冻结断言 |
-| 失败后无法重开 | 是否处于 `GameState.GAME_OVER`；`pause` action 是否触发 |
+| 失败后无法重开 / 回标题 | 是否处于 `GameState.GAME_OVER`；`F4GameOverPanel` 是否挂到 `UIManager`；`restart_requested` / `quit_to_title_requested` 是否被 `FormalClientBoot` 连接 |
 
 ## 测试义务
 

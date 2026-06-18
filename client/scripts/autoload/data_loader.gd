@@ -383,6 +383,7 @@ func _validate_enemies_csv(locale_keys: Dictionary) -> bool:
 		is_valid = _require_csv_int(ENEMIES_PATH, "%s.exp_reward" % field, row.get("exp_reward"), 0) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.hit_radius" % field, row.get("hit_radius"), 0.0, null, true) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.separation_radius" % field, row.get("separation_radius"), 0.0) and is_valid
+		is_valid = _require_html_color(ENEMIES_PATH, "%s.visual_color" % field, row.get("visual_color")) and is_valid
 	return is_valid
 
 
@@ -1521,6 +1522,12 @@ func _require_audio_id(resource_path: String, field: String, value: Variant) -> 
 	var audio_id: String = String(value)
 	if not _has_registered_prefix("audio_prefixes", audio_id):
 		return _schema_fail(resource_path, field, "registered audio id prefix")
+	return true
+
+
+func _require_html_color(resource_path: String, field: String, value: Variant) -> bool:
+	if not value is String or not Color.html_is_valid(String(value)):
+		return _schema_fail(resource_path, field, "HTML color string")
 	return true
 
 

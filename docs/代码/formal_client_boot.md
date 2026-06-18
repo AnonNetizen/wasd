@@ -7,8 +7,8 @@
 
 - 负责提供完整项目 `client/` 的最小 Godot 启动入口。
 - 负责让 F1 阶段可以通过 headless 启动验证。
-- 不负责 autoload、主菜单、玩法循环、输入、UI 或业务数据解释；这些属于 F2+。
-- F2/F3 期间作为正式客户端 smoke 场景，负责触发 autoload 和数据 schema 启动检查；F4 起在数据校验通过后挂载最小可玩闭环 runtime。
+- F2/F3 期间作为正式客户端 smoke 场景，负责触发 autoload 和数据 schema 启动检查；F4 起在数据校验通过后显示最小标题界面，并在玩家开始游戏或 smoke 模式下挂载最小可玩闭环 runtime。
+- 不负责长期主菜单、设置页、输入 UI、业务数据解释或完整加载流程；这些属于后续正式 UI / 玩法模块。
 
 ## 阅读方式
 
@@ -26,6 +26,7 @@
 | `client/project.godot` | Godot 项目配置，`run/main_scene` 指向最小启动场景，默认 viewport 为 1920×1080，窗口拉伸采用 `canvas_items + keep` |
 | `client/scenes/boot/main.tscn` | 正式项目最小启动场景 |
 | `client/scripts/boot/formal_client_boot.gd` | 启动场景脚本，输出启动日志 |
+| `client/scripts/ui/f4_title_menu.gd` | F4 阶段最小标题界面，通过 `UIManager` 挂载 |
 | `client/scripts/gameplay/f4_run_loop.gd` | F4 数据校验通过后挂载的最小可玩闭环 runtime |
 | `client/README.md` | 正式客户端运行说明 |
 
@@ -33,7 +34,11 @@
 
 ```text
 FormalClientBoot (Node)
-└── F4RunLoop (Node2D, runtime child when data schema passes)
+└── F4RunLoop (Node2D, runtime child while a run is active)
+
+UIManager
+└── UIRoot
+    └── F4TitleMenu (normal boot after data schema passes)
 ```
 
 根节点挂载 `res://scripts/boot/formal_client_boot.gd`。
@@ -45,7 +50,9 @@ FormalClientBoot (Node)
 | Godot 启动 | 读取 `client/project.godot` | `run/main_scene` |
 | 主场景加载 | 实例化 `FormalClientBoot` 根节点 | 无 |
 | `_ready()` | 调用 `DataLoader.validate_project_data()` 并输出正式客户端启动日志 | `print()` |
-| F4 runtime 挂载 | 数据校验通过后创建 `F4RunLoop`，进入最小战斗闭环 | `add_child()`、`GameState.PLAYING` |
+| 正常启动 | 数据校验通过后通过 `UIManager` 显示 `F4TitleMenu`，保持 `GameState.MAIN_MENU` | `UIManager.push()` |
+| F4 runtime 挂载 | 玩家选择开始或 `--f4-smoke` 启动时创建 `F4RunLoop`，进入最小战斗闭环 | `add_child()`、`GameState.PLAYING` |
+| 重开 / 回标题 | `F4RunLoop` 发出重开或回标题信号后，由启动脚本清理运行时和 F4 对象池，再重新挂载 run 或标题菜单 | `restart_requested` / `quit_to_title_requested` |
 
 ## 公共 API
 
@@ -60,18 +67,18 @@ FormalClientBoot (Node)
 - 通过 `DataLoader.validate_project_data()` 间接读取 F3 目标数据和 `client/locale/strings.csv`。
 - `client/project.godot` 的默认 viewport 为 1920×1080；窗口禁止任意拖拽缩放，2D 内容和 UI 通过 `display/window/stretch/mode="canvas_items"` 与 `display/window/stretch/aspect="keep"` 在屏幕比例不匹配时保比例加黑边。后续设置页应只暴露经过验证的分辨率预设列表，不接受任意宽高输入。
 - 启动日志输出 `data_schema_ok`、`player_stats`、`characters`、`weapons`、`enemies`、`hazards`、`spawn_waves`、`relics`、`active_items`、`consumables`、`locale_keys`、`growth_levels`、`growth_pools`、`game_modes`、`meta_upgrades`、`meta_unlocks` 等 smoke 计数。
-- 启动脚本本身不包含玩家可见文本；F4 HUD 文案见 `client/locale/strings.csv`。
+- 启动脚本本身不包含玩家可见文本；F4 标题、HUD 和结算面板文案见 `client/locale/strings.csv`。
 
 ## 依赖
 
 - 上游依赖：Godot 4.6.3 项目加载机制、已注册的 F2 autoload。
-- 下游调用方：F4 阶段的 `F4RunLoop` 由本启动脚本挂载。
+- 下游调用方：F4 阶段的 `F4TitleMenu` 由本启动脚本通过 `UIManager` 挂载，`F4RunLoop` 由本启动脚本创建和清理。
 - 禁止依赖：不得引用 MVP 场景或脚本；不得提前绕过未来 F2 autoload 边界。
 
 ## 扩展点
 
-- F2 落地 autoload 后，可以把本场景作为启动烟雾场景继续保留；F4 阶段临时直接挂载最小可玩闭环，后续 F7 主菜单落地时再切换入口。
-- 新增主菜单、加载流程或 UI 时应新增对应模块文档，不把长期职责塞进本启动占位脚本。
+- F2 落地 autoload 后，可以把本场景作为启动烟雾场景继续保留；F4 阶段只承载最小标题 / run 编排，后续 F7 主菜单落地时再切换入口。
+- 新增正式主菜单、加载流程或设置 UI 时应新增对应模块文档，不把长期职责塞进本启动占位脚本。
 
 ## 常见改动入口
 
@@ -92,6 +99,7 @@ FormalClientBoot (Node)
 | 脚本编译失败 | `client/scripts/boot/formal_client_boot.gd` 类型和路径 |
 | `data_schema_ok=false` | 查看同次 headless 日志中的 `[DataLoader]` schema 错误 |
 | 数据通过但没有 F4 节点 | `formal_client_boot.gd` 是否创建 `F4RunLoop`，以及脚本编译是否失败 |
+| 正常启动没有标题菜单 | `F4TitleMenu` 是否通过 `UIManager.push()` 挂载，`UIManager.stack_size()` 是否异常 |
 
 ## 测试义务
 

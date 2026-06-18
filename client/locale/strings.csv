@@ -1,10 +1,16 @@
 keys,zh_CN,en
 ui_settings,设置,Settings
+ui_title_name,WASD,WASD
+ui_title_subtitle,最小生存测试,Minimal Survival Test
+ui_start,开始,Start
 ui_resume,继续,Resume
 ui_pause,暂停,Pause
 ui_quit,退出,Quit
+ui_restart,重新开始,Restart
+ui_quit_to_title,返回标题,Back to Title
 ui_confirm,确认,Confirm
 ui_cancel,取消,Cancel
+ui_run_summary,击杀 {kills} · 时间 {time}s,Kills {kills} · Time {time}s
 ui_hud_life,生命,Life
 ui_hud_kills,击杀,Kills
 ui_hud_time,时间,Time
@@ -13,6 +19,7 @@ ui_restart_hint,按暂停键重开,Press Pause to restart
 ui_hud_level,等级,Level
 ui_hud_xp,经验,XP
 ui_level_up_title,选择升级,Choose Upgrade
+ui_upgrade_applied,获得：{name},Upgrade: {name}
 ui_growth_damage_small_name,强化弹芯,Hardened Core
 ui_growth_damage_small_desc,子弹伤害 +0.5,Bullet damage +0.5
 ui_growth_fire_rate_small_name,快速脉冲,Rapid Pulse
@@ -35,6 +42,7 @@ character_default_desc,默认角色，使用四方向瞄准与自动开火,Defau
 weapon_basic_blaster_name,基础脉冲枪,Basic Blaster
 weapon_basic_blaster_desc,可靠的四方向自动武器，发射物理子弹,A reliable four-direction automatic weapon that fires physical rounds
 enemy_chaser_name,追猎者,Chaser
+enemy_swarm_name,疾行者,Swarm Runner
 hazard_spike_trap_name,尖刺陷阱,Spike Trap
 relic_sharp_rounds_name,锋利弹头,Sharp Rounds
 relic_sharp_rounds_desc,伤害 +{value},Damage +{value}

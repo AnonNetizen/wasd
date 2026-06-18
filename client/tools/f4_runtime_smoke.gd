@@ -43,6 +43,7 @@ func _run() -> void:
 	_expect(String(ProjectSettings.get_setting("display/window/stretch/aspect")) == "keep", "window stretch aspect should preserve ratio with letterboxing")
 	_expect(PoolManager.has_pool(POOL_IDS.BULLET_BASIC), "bullet pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_CHASER), "enemy pool should be registered")
+	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_SWARM), "swarm enemy pool should be registered")
 	_expect(_action_has_key(ACTIONS.MOVE_UP, KEY_W), "move_up should include KEY_W")
 	_expect(not _action_has_key(ACTIONS.MOVE_UP, KEY_UP), "move_up should not include KEY_UP")
 	_expect(_action_has_key(ACTIONS.AIM_UP, KEY_UP), "aim_up should include KEY_UP")
@@ -109,6 +110,7 @@ func _run() -> void:
 	contact_source.queue_free()
 
 	await _expect_enemy_center_separation(run_loop, player)
+	await _expect_swarm_enemy_spawn(run_loop, player)
 	await _expect_pickup_orb_draw_order(run_loop, player)
 	await _expect_pickup_orb_feedback(run_loop, player)
 	await _expect_level_up_choice(run_loop, player)
@@ -154,6 +156,7 @@ func _run() -> void:
 	_expect(bool(player_result.get("applied", false)), "Combat should apply player damage")
 	_expect(bool(player_result.get("defeated", false)), "Combat should defeat the player")
 	_expect(GameState.is_state(GameState.GAME_OVER), "player death should enter GAME_OVER")
+	_expect(_find_node_by_name(get_tree().root, "F4GameOverPanel") != null, "player death should show game-over panel")
 	var game_over_time: float = GameClock.now()
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame
@@ -236,6 +239,27 @@ func _expect_enemy_center_separation(run_loop: Node, player: Node2D) -> void:
 	_expect(center_distance >= 16.0, "enemy center separation should prevent full overlap")
 	enemy_a.queue_free()
 	enemy_b.queue_free()
+
+
+func _expect_swarm_enemy_spawn(run_loop: Node, _player: Node2D) -> void:
+	var before_count: int = PoolManager.active_count(POOL_IDS.ENEMY_SWARM)
+	var spawned: bool = bool(run_loop.call("_spawn_enemy", {
+		"enemy_id": "enemy_swarm",
+	}, "smoke_swarm"))
+	await get_tree().process_frame
+	_expect(spawned, "second enemy type should spawn from data")
+	_expect(PoolManager.active_count(POOL_IDS.ENEMY_SWARM) > before_count, "second enemy type should use its own pool")
+	var swarm_enemy: Node = _first_enemy_with_name_prefix("enemy_swarm")
+	_expect(swarm_enemy != null, "second enemy type should be active")
+	if swarm_enemy != null and swarm_enemy.has_method("visual_color"):
+		var color: Color = swarm_enemy.call("visual_color")
+		var expected_color: Color = Color.html("#58d68d")
+		_expect(
+			is_equal_approx(color.r, expected_color.r)
+			and is_equal_approx(color.g, expected_color.g)
+			and is_equal_approx(color.b, expected_color.b),
+			"second enemy type should use data-driven visual color"
+		)
 
 
 func _expect_pickup_orb_draw_order(run_loop: Node, player: Node2D) -> void:
@@ -330,6 +354,8 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> void:
 	level_panel.call("choose_index", 0)
 	await get_tree().process_frame
 	_expect(GameState.is_state(GameState.PLAYING), "choosing a level-up option should resume PLAYING")
+	var hud: Node = _find_node_by_name(run_loop, "F4Hud")
+	_expect(hud != null and hud.has_method("is_upgrade_feedback_visible") and bool(hud.call("is_upgrade_feedback_visible")), "choosing a level-up option should show upgrade feedback")
 	if choice_id == "growth_damage_small" and weapon_system != null:
 		_expect(float(weapon_system.call("stat_value", STATS.DAMAGE)) > previous_damage, "damage upgrade should apply immediately")
 	elif choice_id == "growth_fire_rate_small" and weapon_system != null:
@@ -338,6 +364,13 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> void:
 		_expect(float(player.call("pickup_range")) > previous_pickup_range, "pickup-range upgrade should apply immediately")
 	else:
 		_expect(false, "level-up choice should be a known growth option")
+
+
+func _first_enemy_with_name_prefix(name_prefix: String) -> Node:
+	for enemy: Node in get_tree().get_nodes_in_group("f4_enemies"):
+		if String(enemy.name).begins_with(name_prefix):
+			return enemy
+	return null
 
 
 func _expect(condition: bool, message: String) -> void:
