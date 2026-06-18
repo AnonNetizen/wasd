@@ -43,6 +43,7 @@ $RECYCLE.BIN/
 # ===== 项目本地产物 =====
 # Godot 用户目录（user://）若被映射到本地也忽略
 logs/
+.VSCodeCounter/
 
 # ===== 不忽略的 =====
 # .codebuddy/ 是项目数据（规则、自动化等），需入库，**不要**忽略

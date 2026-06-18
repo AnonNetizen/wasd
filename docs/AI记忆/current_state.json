@@ -2,7 +2,7 @@
     "schema_version":  1,
     "updated_at":  "2026-06-18",
     "current_phase":  "formal_project_f6_meta_progression_first_slice",
-    "current_status":  "Formal project F6 meta progression first slice is now landed as of 2026-06-18: MetaProgressionSystem is registered as an autoload, uses SaveManager meta kind for profile roundtrip, applies configured settlement rewards, account XP, level rewards, upgrade purchases, unlocks, and next-run permanent modifiers; F4RunLoop settles on player death, deletes run saves after settlement, shows settlement / purchase UI on F4GameOverPanel, and applies meta modifiers on new runs. The title menu now has a visible Meta Upgrades entry that opens MetaProgressionPanel for balance, account level, all upgrade tracks, and purchases. F5 pause/save/resume remains complete with run kind version 2 and save-smoke coverage. Next work should keep F6 scope conservative: manually confirm the title meta panel, then polish presentation without expanding character selection or broad content prematurely.",
+    "current_status":  "Formal project F6 meta progression first slice is now manually accepted as of 2026-06-18: MetaProgressionSystem is registered as an autoload, uses SaveManager meta kind for profile roundtrip, applies configured settlement rewards, account XP, level rewards, upgrade purchases, unlocks, and next-run permanent modifiers; F4RunLoop settles on player death, deletes run saves after settlement, shows settlement / purchase UI on F4GameOverPanel, and applies meta modifiers on new runs. The title menu has a visible Meta Upgrades entry that opens MetaProgressionPanel for balance, account level, all upgrade tracks, and purchases. F5 pause/save/resume remains complete with run kind version 2 and save-smoke coverage. Next work should keep F6 scope conservative: improve settlement-to-upgrade guidance and presentation before expanding character selection or broad content.",
     "latest_adr":  80,
     "open_decisions":  [
                            "A",
@@ -93,14 +93,20 @@
                            "Formal project F5 final manual save checklist passed: user completed the checklist after the level-up pause overlay fix and reported no new issue.",
                            "Formal project F6 MetaProgression work package established at docs/AI协作/工作包/F6-MetaProgression.md to route settlement rewards, MetaProgressionSystem, and meta save roundtrip work.",
                            "Formal project F6 meta progression first slice landed: MetaProgressionSystem autoload, SaveManager meta profile roundtrip, settlement rewards, account XP / level rewards, upgrade purchases, unlock persistence, game-over settlement UI, run save deletion after death settlement, next-run permanent modifiers, and meta-smoke coverage.",
-                           "Formal project F6 title meta upgrade entry landed: F4TitleMenu now shows Meta Upgrades, FormalClientBoot pushes MetaProgressionPanel, MetaProgressionSystem exposes profile_summary / upgrade_summaries, and meta-smoke covers panel construction."
+                           "Formal project F6 title meta upgrade entry landed: F4TitleMenu now shows Meta Upgrades, FormalClientBoot pushes MetaProgressionPanel, MetaProgressionSystem exposes profile_summary / upgrade_summaries, and meta-smoke covers panel construction.",
+                           "Formal project F6 meta progression first slice manually accepted by the user after the title Meta Upgrades entry landed."
                        ],
     "next_actions":  [
-                         "Manually open the title-menu Meta Upgrades panel, confirm balance/account level/upgrade rows are visible, and buy an affordable upgrade after earning Memory Embers.",
-                         "Manually play the F6 loop once: die after a short run, confirm settlement rewards appear, return to title, open Meta Upgrades, and confirm meta profile persists across restart.",
-                         "After F6 title-panel acceptance, plan the next conservative F6 increment: presentation polish or clearer settlement-to-upgrade guidance, without expanding character selection or broad content prematurely."
+                         "Plan and implement F6.3: clearer settlement-to-upgrade guidance, such as a game-over action that routes players to the title Meta Upgrades panel or stronger purchase feedback.",
+                         "Polish MetaProgressionPanel presentation only within the current data/API boundary: clearer affordable/locked states, purchase feedback, and balance refresh visibility.",
+                         "Keep broad F6 content expansion deferred until the settlement -> meta save -> title upgrade -> next-run modifier loop remains stable after polish."
                      ],
     "last_verified":  [
+                          {
+                              "date":  "2026-06-18",
+                              "command":  "manual F6 title Meta Upgrades and meta progression loop acceptance by user",
+                              "result":  "User reported F6 acceptance completed after the title Meta Upgrades entry and MetaProgressionPanel landed."
+                          },
                           {
                               "date":  "2026-06-18",
                               "command":  "python tools/sync_contracts.py --check; python tools/validate_data.py; python tools/test_data_loader_schema.py; python tools/lint_gdscript_rules.py; python tools/lint_project_rules.py; python tools/test_project_rules_lint.py; python tools/lint_semantic_rules.py; python tools/test_semantic_rules_lint.py; python -m json.tool docs/_kb_index.json; python -m json.tool docs/AI记忆/current_state.json; python tools/docs_health_check.py; python tools/godot_bridge.py --project client headless-boot; python tools/godot_bridge.py --project client meta-smoke; python tools/godot_bridge.py --project client f4-smoke; python tools/godot_bridge.py --project client save-smoke; pre-commit run --all-files; git diff --check -- . \":(exclude)draft/**\" \":(exclude)DRAFT/**\"",
