@@ -37,3 +37,7 @@ AudioManager="*res://scripts/autoload/audio_manager.gd"
 Localization="*res://scripts/autoload/localization.gd"
 UIManager="*res://scripts/autoload/ui_manager.gd"
 Combat="*res://scripts/combat/combat.gd"
+
+[internationalization]
+
+locale/translations=PackedStringArray("res://locale/strings.zh_CN.translation", "res://locale/strings.en.translation")
