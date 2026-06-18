@@ -39,7 +39,7 @@ NON_NEGATIVE_STATS = {
     "armor",
     "lifesteal_ratio",
 }
-POSITIVE_STATS = {"move_speed", "fire_rate", "bullet_speed", "bullet_range", "crit_mult"}
+POSITIVE_STATS = {"move_speed", "fire_rate", "bullet_speed", "bullet_range", "pickup_orb_speed", "crit_mult"}
 RATIO_STATS = {"crit_chance", "resist_fire", "resist_poison", "resist_lightning", "lifesteal_ratio"}
 WEAPON_STATS = {"damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "pierce_count", "crit_chance", "crit_mult"}
 REQUIRED_WEAPON_STATS = {"damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count"}
@@ -754,6 +754,8 @@ def _validate_growth_pools(ctx: ValidationContext) -> None:
                 ctx.error(path, entry_field, "must be an object")
                 continue
             entry_id = _require_non_empty_string(ctx, path, f"{entry_field}.id", entry.get("id"))
+            _require_locale_key(ctx, path, f"{entry_field}.name_key", entry.get("name_key"))
+            _require_locale_key(ctx, path, f"{entry_field}.desc_key", entry.get("desc_key"))
             if entry_id:
                 if entry_id in entry_ids:
                     ctx.error(path, f"{entry_field}.id", f"duplicate entry id {entry_id}")

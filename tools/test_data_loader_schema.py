@@ -90,6 +90,14 @@ def main() -> int:
             ],
         ),
         (
+            "missing growth entry locale key fails",
+            _mutate_json("client/data/growth_pools.json", _set_growth_entry_name_key("ui_growth_missing_name")),
+            [
+                "client/data/growth_pools.json:pools[0].entries[0].name_key",
+                "locale key is missing from client/locale/strings.csv: ui_growth_missing_name",
+            ],
+        ),
+        (
             "unknown weapon damage type fails",
             _mutate_json("client/data/weapons.json", _set_weapon_damage_type("arcane")),
             [
@@ -476,6 +484,13 @@ def _set_game_mode_id(value: str) -> JsonMutator:
 def _set_mode_growth_pool(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["resource_pools"]["growth_pools"][0]["id"] = value
+
+    return mutate
+
+
+def _set_growth_entry_name_key(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["pools"][0]["entries"][0]["name_key"] = value
 
     return mutate
 

@@ -27,7 +27,7 @@
 | 改消耗品堆叠 / 效果声明 | `consumables.json` | 用 `stack` 和 `use_effects`，不要实现拾取 / 背包运行时 |
 | 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
 | 改刷怪强度 / 难度曲线 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
-| 改经验阈值 / 升级候选概率 | `growth.csv`（落地后） | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
+| 改经验阈值 / 升级候选概率 | `growth.csv` | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
 | 改局外货币 / 永久升级 / 解锁 | `meta_progression.json` | 存档走 `SaveManager` 的 `meta` kind，id 必须来自词表 §13 |
 | 改致谢 / 第三方来源 | `credits.json` + 根目录 `CREDITS.md` | 游戏内 Credits UI 读 `credits.json`；发行前复核许可证与 notice |
 | 改界面、道具名、描述文案 | 不在这里改，去 `client/locale/strings.csv` | 数据只引用 key，译文集中管理 |
@@ -131,6 +131,7 @@ JSON 示例：
     "bullet_range": 650.0,
     "bullet_count": 1,
     "pickup_range": 96.0,
+    "pickup_orb_speed": 360.0,
     "luck": 0.0
   }
 }
@@ -150,6 +151,7 @@ JSON 示例：
 | `base_stats.bullet_range` | float | `px`，`> 0` | 子弹最大射程 | 可打到更远敌人 |
 | `base_stats.bullet_count` | int | `>= 1` | 每次开火基础子弹数 | 弹幕覆盖更宽 |
 | `base_stats.pickup_range` | float | `px`，`>= 0` | 经验 / 金币自动吸附范围 | 收集更轻松 |
+| `base_stats.pickup_orb_speed` | float | `px/s`，`> 0` | 经验球吸附到玩家的移动速度 | 经验球飞来更快，升级节奏更顺 |
 | `base_stats.luck` | float | `>= 0` | 幸运值 | 掉落、稀有度、升级 4 选 1 概率更高 |
 
 ## 内容数据通用字段
@@ -729,6 +731,8 @@ level,total_xp_required,candidate_count,bonus_candidate_chance_per_luck,bonus_ca
       "entries": [
         {
           "id": "growth_damage_small",
+          "name_key": "ui_growth_damage_small_name",
+          "desc_key": "ui_growth_damage_small_desc",
           "kind": "stat_modifier",
           "weight": 100,
           "min_level": 1,
@@ -750,12 +754,13 @@ level,total_xp_required,candidate_count,bonus_candidate_chance_per_luck,bonus_ca
 | `pools[].id` | string | 非空，文件内唯一 | 升级候选池 id；后续由模式或成长系统引用 |
 | `pools[].entries` | array[object] | 可为空 | 候选条目列表；当前只落 `stat_modifier` 黄金样例 |
 | `entries[].id` | string | 非空，池内唯一 | 候选条目 id；用于回放记录和诊断 |
+| `entries[].name_key` / `desc_key` | string | `ui_*` locale key | 升级候选面板展示的名称和描述 |
 | `entries[].kind` | string | 非空 | 候选类型；当前黄金样例为 `stat_modifier`，后续类型落地前需同步 schema |
 | `entries[].weight` | int | `>= 0` | 抽取权重；实际抽取走 `RNG.ui_choice` |
 | `entries[].min_level` | int | `>= 1`，可选 | 条目最早出现等级 |
 | `entries[].modifiers` | array[object] | stat 来自词表 §1 | 属性修正奖励；格式同通用 `modifiers`，使用 `value` |
 
-`growth_pools.json` 只声明候选池边界，不实现升级 UI、奖励应用或最终选项类型决策。新增 `kind` 影响运行时行为时，必须同步对应系统模块文档和测试。
+F4 当前已解释 `kind=stat_modifier`，用于升级选择后即时应用属性修正；遗物、主动道具强化、回血、刷新 / 跳过等其他候选类型仍未落地。新增 `kind` 影响运行时行为时，必须同步对应系统模块文档和测试。
 
 ## `credits.json`
 

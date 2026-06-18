@@ -16,6 +16,7 @@
       "crit_chance",
       "crit_mult",
       "pickup_range",
+      "pickup_orb_speed",
       "luck",
       "armor",
       "resist_fire",

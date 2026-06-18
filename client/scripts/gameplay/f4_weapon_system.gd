@@ -8,6 +8,10 @@ const STATS := preload("res://scripts/contracts/stats.gd")
 
 var _player: Node2D = null
 var _active_parent: Node = null
+var _base_stats: Dictionary = {}
+var _runtime_stats: Dictionary = {}
+var _stat_additions: Dictionary = {}
+var _stat_multipliers: Dictionary = {}
 var _weapon_data: Dictionary = {}
 var _cooldown_remaining: float = 0.0
 
@@ -27,8 +31,7 @@ func _process(delta: float) -> void:
 		return
 
 	_fire_once()
-	var stats: Dictionary = _weapon_data.get("base_stats", {})
-	var fire_rate: float = float(stats.get(STATS.FIRE_RATE, 1.0))
+	var fire_rate: float = float(_runtime_stats.get(STATS.FIRE_RATE, 1.0))
 	_cooldown_remaining = 1.0 / maxf(fire_rate, 0.01)
 
 
@@ -36,15 +39,37 @@ func configure(player: Node2D, active_parent: Node, weapon_data: Dictionary) -> 
 	_player = player
 	_active_parent = active_parent
 	_weapon_data = weapon_data.duplicate(true)
+	_base_stats = _weapon_data.get("base_stats", {}).duplicate(true)
+	_stat_additions.clear()
+	_stat_multipliers.clear()
+	_rebuild_runtime_stats()
 	_cooldown_remaining = 0.0
 
 
+func apply_modifiers(modifiers: Array) -> void:
+	for raw_modifier: Variant in modifiers:
+		if not raw_modifier is Dictionary:
+			continue
+		var modifier: Dictionary = raw_modifier as Dictionary
+		var stat: String = String(modifier.get("stat", ""))
+		var modifier_type: String = String(modifier.get("type", ""))
+		var value: float = float(modifier.get("value", 0.0))
+		if modifier_type == "add":
+			_stat_additions[stat] = float(_stat_additions.get(stat, 0.0)) + value
+		elif modifier_type == "mult":
+			_stat_multipliers[stat] = float(_stat_multipliers.get(stat, 1.0)) * value
+	_rebuild_runtime_stats()
+
+
+func stat_value(stat: String) -> float:
+	return float(_runtime_stats.get(stat, 0.0))
+
+
 func _fire_once() -> void:
-	var stats: Dictionary = _weapon_data.get("base_stats", {})
 	var projectile: Dictionary = _weapon_data.get("projectile", {})
-	var bullet_count: int = int(stats.get(STATS.BULLET_COUNT, 1))
+	var bullet_count: int = int(_runtime_stats.get(STATS.BULLET_COUNT, 1))
 	for _index: int in range(maxi(bullet_count, 1)):
-		_spawn_bullet(stats, projectile)
+		_spawn_bullet(_runtime_stats, projectile)
 
 
 func _spawn_bullet(stats: Dictionary, projectile: Dictionary) -> void:
@@ -72,3 +97,16 @@ func _reparent_to_active_world(node: Node) -> void:
 	if old_parent != null:
 		old_parent.remove_child(node)
 	_active_parent.add_child(node)
+
+
+func _rebuild_runtime_stats() -> void:
+	_runtime_stats = _base_stats.duplicate(true)
+	for stat: String in _base_stats.keys():
+		var base_value: float = float(_base_stats.get(stat, 0.0))
+		var added_value: float = float(_stat_additions.get(stat, 0.0))
+		var multiplier: float = float(_stat_multipliers.get(stat, 1.0))
+		_runtime_stats[stat] = (base_value + added_value) * multiplier
+	for stat: String in _stat_additions.keys():
+		if _runtime_stats.has(stat):
+			continue
+		_runtime_stats[stat] = float(_stat_additions.get(stat, 0.0)) * float(_stat_multipliers.get(stat, 1.0))

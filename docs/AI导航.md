@@ -58,7 +58,7 @@
 | `client/scenes/boot/main.tscn` | F1 最小启动场景，详见 `docs/代码/formal_client_boot.md` |
 | `client/scripts/autoload/` | F2 横向 autoload 骨架，已含 `DataLoader` / `RNG` / `GameState` / `GameClock` / `Settings` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `AudioManager` / `Localization` / `UIManager` |
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口与 `DamageInfo` |
-| `client/scripts/gameplay/` | F4 最小可玩闭环阶段脚本：`f4_run_loop` / `f4_background` / `f4_player` / `f4_weapon_system` / `f4_bullet` / `f4_enemy` / `f4_hud` |
+| `client/scripts/gameplay/` | F4 最小可玩闭环阶段脚本：`f4_run_loop` / `f4_background` / `f4_player` / `f4_weapon_system` / `f4_bullet` / `f4_enemy` / `f4_pickup_orb` / `f4_level_up_panel` / `f4_hud` |
 | `client/tools/` | Godot 项目内 headless smoke 脚本；当前含 F4 runtime smoke |
 | `user://settings.cfg` | 玩家设置存档；游戏进度存档走 `user://saves/<slot>/<kind>.save`（`meta` / `run` / `replay_index`） |
 
@@ -116,7 +116,7 @@
 | **加 / 改主动道具** | 在 `client/data/active_items.json` 加一条：`charge` 声明冷却 / 充能，`use_effects` 引用已登记 effect，文案用 `item_*` key；模式引用走 `game_modes.resource_pools.active_items`，不实现主动道具栏 / 冷却 / 使用效果运行时 |
 | **加 / 改消耗品** | 在 `client/data/consumables.json` 加一条：`stack` 声明最大堆叠 / 初始数量 / 单次拾取数量，`use_effects` 引用已登记 effect，文案用 `item_*` key；模式引用走 `game_modes.resource_pools.consumables`，不实现拾取物 / 背包 / 使用输入 / 数量扣减 / 效果运行时 |
 | **加 / 改游戏模式** | 在 `client/data/game_modes.json` 声明可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 消耗品 / 成长资源池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖；mode id 先登记 `docs/词表与契约.md` §12-A；资源本体保持模式无关，禁止为模式复制一套资源或在代码写 `if mode_id == ...` |
-| **改经验/升级系统** | 查 GDD §7.1；`GrowthSystem` 负责经验累计、默认 3 选 1、`luck` 概率 4 选 1；经验阈值 / 候选概率已放 `client/data/growth.csv`，复杂候选池边界已放 `client/data/growth_pools.json`；候选抽取走 `RNG.ui_choice`，升级 UI 走 `UIManager`，流程走 `GameState.LEVEL_UP` |
+| **改经验/升级系统** | 查 GDD §7.1 与 `docs/代码/f4_min_playable_loop.md`；F4 阶段已落地池化经验球、经验累计、默认 3 选 1、`luck` 概率 4 选 1、`stat_modifier` 奖励应用；经验阈值 / 候选概率在 `client/data/growth.csv`，候选池在 `client/data/growth_pools.json`；候选抽取走 `RNG.ui_choice`，升级面板通过 `UIManager` 挂载，流程走 `GameState.LEVEL_UP` |
 | **改局外成长 / 元进度** | 查 GDD §7.2；配置改 `client/data/meta_progression.json`，字段说明同步 `client/data/README.md`，文案同步 `client/locale/strings.csv`；存档走 `SaveManager` 的 `meta` kind，新增 currency / upgrade / unlock id 先登记词表 §13 |
 | **改致谢 / 第三方来源** | 同步根目录 `CREDITS.md` 与 `client/data/credits.json`；新增分组标题、角色或用途标签时补 `client/locale/strings.csv` 的 `ui_credits_*` key；发行前复核许可证和 notice |
 | **加破限角色/道具** | 先判断是否能用 `capabilities` + `modifiers` + `behaviors` 表达；表达不了则新增可复用 primitive / strategy 并登记词表 §12，禁止按 id 写特殊分支 |
@@ -168,7 +168,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、F4 runtime、Background / Player / WeaponSystem / Bullet / Enemy / Spawner / HUD 的最小闭环，并新增 `godot_bridge.py f4-smoke` 覆盖 headless 运行时链路；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，敌人中心已按 `enemies.csv.separation_radius` 做小范围排斥以避免完全重叠，后续按 `docs/AI协作/工作包/F4-MinPlayableLoop.md` 继续复测 1 分钟体验、运行时测试和正式模块拆分。
+当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、F4 runtime、Background / Player / WeaponSystem / Bullet / Enemy / Spawner / PickupOrb / LevelUpPanel / HUD 的最小闭环，并新增 `godot_bridge.py f4-smoke` 覆盖 headless 运行时链路；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，敌人中心已按 `enemies.csv.separation_radius` 做小范围排斥以避免完全重叠，经验球与升级三选一已接入 `growth.csv` / `growth_pools.json`，后续按 `docs/AI协作/工作包/F4-MinPlayableLoop.md` 继续复测 1 分钟体验、运行时测试和正式模块拆分。
 
 ### 5.2 系统依赖图（Mermaid，AI 改动前先看影响范围）
 

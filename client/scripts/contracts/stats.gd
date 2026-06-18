@@ -14,6 +14,7 @@ const VALUES: Array[String] = [
 	"crit_chance",
 	"crit_mult",
 	"pickup_range",
+	"pickup_orb_speed",
 	"luck",
 	"armor",
 	"resist_fire",
@@ -34,6 +35,7 @@ const PIERCE_COUNT: String = "pierce_count"
 const CRIT_CHANCE: String = "crit_chance"
 const CRIT_MULT: String = "crit_mult"
 const PICKUP_RANGE: String = "pickup_range"
+const PICKUP_ORB_SPEED: String = "pickup_orb_speed"
 const LUCK: String = "luck"
 const ARMOR: String = "armor"
 const RESIST_FIRE: String = "resist_fire"

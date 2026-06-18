@@ -10,6 +10,7 @@
     "bullet_range": 650.0,
     "bullet_count": 1,
     "pickup_range": 96.0,
+    "pickup_orb_speed": 360.0,
     "luck": 0.0
   }
 }

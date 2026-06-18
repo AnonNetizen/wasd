@@ -6,6 +6,8 @@
       "entries": [
         {
           "id": "growth_damage_small",
+          "name_key": "ui_growth_damage_small_name",
+          "desc_key": "ui_growth_damage_small_desc",
           "kind": "stat_modifier",
           "weight": 100,
           "min_level": 1,
@@ -15,6 +17,8 @@
         },
         {
           "id": "growth_fire_rate_small",
+          "name_key": "ui_growth_fire_rate_small_name",
+          "desc_key": "ui_growth_fire_rate_small_desc",
           "kind": "stat_modifier",
           "weight": 80,
           "min_level": 1,
@@ -24,6 +28,8 @@
         },
         {
           "id": "growth_pickup_range_small",
+          "name_key": "ui_growth_pickup_range_small_name",
+          "desc_key": "ui_growth_pickup_range_small_desc",
           "kind": "stat_modifier",
           "weight": 60,
           "min_level": 1,

@@ -11,6 +11,7 @@ const STATS := preload("res://scripts/contracts/stats.gd")
 const AIM_FRAMES: int = 4
 const BOOT_FRAMES: int = 8
 const INVULNERABILITY_FRAMES: int = 50
+const LEVEL_UP_FRAMES: int = 24
 const MOVE_FRAMES: int = 8
 const SPAWN_FRAMES: int = 10
 
@@ -18,6 +19,7 @@ var _failures: Array[String] = []
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	call_deferred("_run")
 
 
@@ -101,6 +103,7 @@ func _run() -> void:
 	contact_source.queue_free()
 
 	await _expect_enemy_center_separation(run_loop, player)
+	await _expect_level_up_choice(run_loop, player)
 
 	for _index: int in range(SPAWN_FRAMES):
 		await get_tree().process_frame
@@ -108,6 +111,7 @@ func _run() -> void:
 
 	_expect(_pool_stat(POOL_IDS.BULLET_BASIC, "acquired") > 0, "WeaponSystem should acquire bullets")
 	_expect(PoolManager.active_count(POOL_IDS.ENEMY_CHASER) > 0, "Spawner should spawn active enemies")
+	_expect(_pool_stat(POOL_IDS.PICKUP_ORB, "acquired") > 0, "experience pickup pool should be acquired")
 
 	var enemy: Node = _first_enemy()
 	_expect(enemy != null, "at least one enemy should be in f4_enemies")
@@ -218,6 +222,42 @@ func _expect_enemy_center_separation(run_loop: Node, player: Node2D) -> void:
 	_expect(center_distance >= 16.0, "enemy center separation should prevent full overlap")
 	enemy_a.queue_free()
 	enemy_b.queue_free()
+
+
+func _expect_level_up_choice(run_loop: Node, player: Node2D) -> void:
+	var weapon_system: Node = _find_node_by_name(player, "WeaponSystem")
+	_expect(weapon_system != null, "WeaponSystem should be available before level up")
+	var previous_damage: float = float(weapon_system.call("stat_value", STATS.DAMAGE)) if weapon_system != null else 0.0
+	var previous_fire_rate: float = float(weapon_system.call("stat_value", STATS.FIRE_RATE)) if weapon_system != null else 0.0
+	var previous_pickup_range: float = float(player.call("pickup_range"))
+
+	run_loop.call("_spawn_pickup_orb", player.global_position, 20)
+	var level_panel: Node = null
+	for _index: int in range(LEVEL_UP_FRAMES):
+		await get_tree().physics_frame
+		await get_tree().process_frame
+		level_panel = _find_node_by_name(get_tree().root, "F4LevelUpPanel")
+		if level_panel != null:
+			break
+
+	_expect(GameState.is_state(GameState.LEVEL_UP), "experience pickup should enter LEVEL_UP")
+	_expect(level_panel != null, "level-up panel should appear")
+	_expect(int(run_loop.call("current_level")) == 2, "experience pickup should raise the player to level 2")
+	if level_panel == null:
+		return
+
+	var choice_id: String = String(level_panel.call("choice_id", 0))
+	level_panel.call("choose_index", 0)
+	await get_tree().process_frame
+	_expect(GameState.is_state(GameState.PLAYING), "choosing a level-up option should resume PLAYING")
+	if choice_id == "growth_damage_small" and weapon_system != null:
+		_expect(float(weapon_system.call("stat_value", STATS.DAMAGE)) > previous_damage, "damage upgrade should apply immediately")
+	elif choice_id == "growth_fire_rate_small" and weapon_system != null:
+		_expect(float(weapon_system.call("stat_value", STATS.FIRE_RATE)) > previous_fire_rate, "fire-rate upgrade should apply immediately")
+	elif choice_id == "growth_pickup_range_small":
+		_expect(float(player.call("pickup_range")) > previous_pickup_range, "pickup-range upgrade should apply immediately")
+	else:
+		_expect(false, "level-up choice should be a known growth option")
 
 
 func _expect(condition: bool, message: String) -> void:

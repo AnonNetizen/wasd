@@ -33,7 +33,7 @@ const NON_NEGATIVE_STATS: Array[String] = [
 	"armor",
 	"lifesteal_ratio",
 ]
-const POSITIVE_STATS: Array[String] = ["move_speed", "fire_rate", "bullet_speed", "bullet_range", "crit_mult"]
+const POSITIVE_STATS: Array[String] = ["move_speed", "fire_rate", "bullet_speed", "bullet_range", "pickup_orb_speed", "crit_mult"]
 const RATIO_STATS: Array[String] = ["crit_chance", "resist_fire", "resist_poison", "resist_lightning", "lifesteal_ratio"]
 const WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "pierce_count", "crit_chance", "crit_mult"]
 const REQUIRED_WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count"]
@@ -106,7 +106,7 @@ func validate_project_data() -> bool:
 	var character_ids: Dictionary = _collect_character_ids()
 	is_valid = _validate_meta_progression(locale_keys, character_ids) and is_valid
 	is_valid = _validate_growth_csv() and is_valid
-	is_valid = _validate_growth_pools() and is_valid
+	is_valid = _validate_growth_pools(locale_keys) and is_valid
 	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids) and is_valid
 	var game_mode_ids: Dictionary = _collect_game_mode_ids()
 	is_valid = _validate_spawn_waves_csv(enemy_ids, hazard_ids, game_mode_ids) and is_valid
@@ -895,7 +895,7 @@ func _validate_growth_csv() -> bool:
 	return is_valid
 
 
-func _validate_growth_pools() -> bool:
+func _validate_growth_pools(locale_keys: Dictionary) -> bool:
 	var data: Variant = load_json(GROWTH_POOLS_PATH)
 	if not data is Dictionary:
 		return _schema_fail(GROWTH_POOLS_PATH, "root", "Dictionary")
@@ -928,6 +928,8 @@ func _validate_growth_pools() -> bool:
 				continue
 			var entry_dict: Dictionary = entry as Dictionary
 			is_valid = _require_non_empty_string(GROWTH_POOLS_PATH, "%s.id" % entry_field, entry_dict.get("id")) and is_valid
+			is_valid = _require_locale_key(GROWTH_POOLS_PATH, "%s.name_key" % entry_field, entry_dict.get("name_key"), locale_keys) and is_valid
+			is_valid = _require_locale_key(GROWTH_POOLS_PATH, "%s.desc_key" % entry_field, entry_dict.get("desc_key"), locale_keys) and is_valid
 			var entry_id: String = String(entry_dict.get("id", ""))
 			if not entry_id.is_empty():
 				if entry_ids.has(entry_id):

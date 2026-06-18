@@ -14,12 +14,18 @@ const DRAW_RADIUS: float = 12.0
 const HIT_FLASH_DURATION: float = 0.18
 
 var aim_direction: Vector2 = Vector2.RIGHT
+var _base_stats: Dictionary = {}
 var _damage_invulnerability_duration: float = 0.0
 var _hit_flash_remaining: float = 0.0
 var _invulnerable_remaining: float = 0.0
+var _luck: float = 0.0
 var _move_speed: float = 0.0
 var _max_life: float = 1.0
 var _life_points: float = 1.0
+var _pickup_orb_speed: float = 0.0
+var _pickup_range: float = 0.0
+var _stat_additions: Dictionary = {}
+var _stat_multipliers: Dictionary = {}
 
 
 func _ready() -> void:
@@ -67,12 +73,11 @@ func _physics_process(delta: float) -> void:
 
 
 func configure(base_stats: Dictionary) -> void:
-	_move_speed = float(base_stats.get(STATS.MOVE_SPEED, 0.0))
-	_max_life = float(base_stats.get(STATS.MAX_HP, 1))
-	_damage_invulnerability_duration = float(base_stats.get(STATS.DAMAGE_INVULNERABILITY_DURATION, 0.0))
+	_base_stats = base_stats.duplicate(true)
+	_stat_additions.clear()
+	_stat_multipliers.clear()
 	_invulnerable_remaining = 0.0
-	_life_points = _max_life
-	life_changed.emit(_life_points, _max_life)
+	_rebuild_stats(true)
 
 
 func current_life() -> float:
@@ -85,6 +90,33 @@ func max_life() -> float:
 
 func invulnerability_remaining() -> float:
 	return _invulnerable_remaining
+
+
+func pickup_orb_speed() -> float:
+	return _pickup_orb_speed
+
+
+func pickup_range() -> float:
+	return _pickup_range
+
+
+func luck() -> float:
+	return _luck
+
+
+func apply_modifiers(modifiers: Array) -> void:
+	for raw_modifier: Variant in modifiers:
+		if not raw_modifier is Dictionary:
+			continue
+		var modifier: Dictionary = raw_modifier as Dictionary
+		var stat: String = String(modifier.get("stat", ""))
+		var modifier_type: String = String(modifier.get("type", ""))
+		var value: float = float(modifier.get("value", 0.0))
+		if modifier_type == "add":
+			_stat_additions[stat] = float(_stat_additions.get(stat, 0.0)) + value
+		elif modifier_type == "mult":
+			_stat_multipliers[stat] = float(_stat_multipliers.get(stat, 1.0)) * value
+	_rebuild_stats(false)
 
 
 func receive_damage(info: RefCounted) -> Dictionary:
@@ -148,7 +180,30 @@ func _update_invulnerability(delta: float) -> void:
 	_invulnerable_remaining = maxf(_invulnerable_remaining - delta, 0.0)
 
 
+func _rebuild_stats(reset_life: bool) -> void:
+	var previous_max_life: float = _max_life
+	_move_speed = _stat_value(STATS.MOVE_SPEED, 0.0)
+	_max_life = _stat_value(STATS.MAX_HP, 1.0)
+	_damage_invulnerability_duration = _stat_value(STATS.DAMAGE_INVULNERABILITY_DURATION, 0.0)
+	_pickup_range = _stat_value(STATS.PICKUP_RANGE, 0.0)
+	_pickup_orb_speed = _stat_value(STATS.PICKUP_ORB_SPEED, 0.0)
+	_luck = _stat_value(STATS.LUCK, 0.0)
+	if reset_life:
+		_life_points = _max_life
+	elif _max_life > previous_max_life:
+		_life_points += _max_life - previous_max_life
+	_life_points = minf(_life_points, _max_life)
+	life_changed.emit(_life_points, _max_life)
+
+
 func _snap_to_four_directions(raw_direction: Vector2) -> Vector2:
 	if absf(raw_direction.x) >= absf(raw_direction.y):
 		return Vector2.RIGHT if raw_direction.x >= 0.0 else Vector2.LEFT
 	return Vector2.DOWN if raw_direction.y >= 0.0 else Vector2.UP
+
+
+func _stat_value(stat: String, default_value: float) -> float:
+	var base_value: float = float(_base_stats.get(stat, default_value))
+	var added_value: float = float(_stat_additions.get(stat, 0.0))
+	var multiplier: float = float(_stat_multipliers.get(stat, 1.0))
+	return (base_value + added_value) * multiplier

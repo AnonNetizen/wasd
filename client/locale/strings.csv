@@ -10,6 +10,15 @@ ui_hud_kills,击杀,Kills
 ui_hud_time,时间,Time
 ui_game_over,本局结束,Run Over
 ui_restart_hint,按暂停键重开,Press Pause to restart
+ui_hud_level,等级,Level
+ui_hud_xp,经验,XP
+ui_level_up_title,选择升级,Choose Upgrade
+ui_growth_damage_small_name,强化弹芯,Hardened Core
+ui_growth_damage_small_desc,子弹伤害 +0.5,Bullet damage +0.5
+ui_growth_fire_rate_small_name,快速脉冲,Rapid Pulse
+ui_growth_fire_rate_small_desc,射速 +0.2,Fire rate +0.2
+ui_growth_pickup_range_small_name,磁化感应,Magnetic Reach
+ui_growth_pickup_range_small_desc,拾取范围 +12,Pickup range +12
 ui_credits_title,致谢,Credits
 ui_credits_section_staff,工作人员,Staff
 ui_credits_section_engine_libraries,引擎与外部库,Engine and External Libraries

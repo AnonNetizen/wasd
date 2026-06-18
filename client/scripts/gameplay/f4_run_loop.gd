@@ -12,19 +12,28 @@ const F4_BULLET_SCRIPT := preload("res://scripts/gameplay/f4_bullet.gd")
 const F4_BACKGROUND_SCRIPT := preload("res://scripts/gameplay/f4_background.gd")
 const F4_ENEMY_SCRIPT := preload("res://scripts/gameplay/f4_enemy.gd")
 const F4_HUD_SCRIPT := preload("res://scripts/gameplay/f4_hud.gd")
+const F4_LEVEL_UP_PANEL_SCRIPT := preload("res://scripts/gameplay/f4_level_up_panel.gd")
+const F4_PICKUP_ORB_SCRIPT := preload("res://scripts/gameplay/f4_pickup_orb.gd")
 const F4_PLAYER_SCRIPT := preload("res://scripts/gameplay/f4_player.gd")
 const F4_WEAPON_SYSTEM_SCRIPT := preload("res://scripts/gameplay/f4_weapon_system.gd")
 
 const BULLET_POOL_SIZE: int = 192
 const ENEMY_POOL_SIZE: int = 96
+const PICKUP_POOL_SIZE: int = 128
 
 var _active_world: Node2D = null
+var _current_level: int = 1
+var _current_xp: int = 0
 var _enemy_rows: Dictionary = {}
+var _growth_curve: Array[Dictionary] = []
+var _growth_entries: Array[Dictionary] = []
 var _hud: CanvasLayer = null
 var _kills: int = 0
+var _level_panel: CanvasLayer = null
 var _player: CharacterBody2D = null
 var _spawn_states: Dictionary = {}
 var _waves: Array[Dictionary] = []
+var _weapon_system: Node = null
 
 
 func _ready() -> void:
@@ -48,10 +57,13 @@ func _start_run() -> void:
 	GameClock.reset()
 	PoolManager.clear_pool(POOL_IDS.BULLET_BASIC)
 	PoolManager.clear_pool(POOL_IDS.ENEMY_CHASER)
+	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
 	PoolManager.register_pool(POOL_IDS.BULLET_BASIC, _create_bullet_node, BULLET_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.ENEMY_CHASER, _create_enemy_node, ENEMY_POOL_SIZE)
+	PoolManager.register_pool(POOL_IDS.PICKUP_ORB, _create_pickup_orb_node, PICKUP_POOL_SIZE)
 	PoolManager.prewarm(POOL_IDS.BULLET_BASIC, 24)
 	PoolManager.prewarm(POOL_IDS.ENEMY_CHASER, 12)
+	PoolManager.prewarm(POOL_IDS.PICKUP_ORB, 16)
 
 	_active_world = Node2D.new()
 	_active_world.name = "F4ActiveWorld"
@@ -64,8 +76,12 @@ func _start_run() -> void:
 	var weapon: Dictionary = _find_item(_load_array(DataLoader.WEAPONS_PATH, "weapons"), String(loadout.get("weapon_id", "")))
 
 	_enemy_rows = _load_enemy_rows()
+	_growth_curve = _load_growth_curve()
+	_growth_entries = _load_growth_entries(mode)
 	_waves = _load_waves(GAME_MODES.MODE_STANDARD_SURVIVAL)
 	_spawn_states.clear()
+	_current_level = 1
+	_current_xp = 0
 
 	_player = F4_PLAYER_SCRIPT.new()
 	_player.name = "Player"
@@ -80,15 +96,17 @@ func _start_run() -> void:
 	_active_world.add_child(background)
 	_active_world.add_child(_player)
 
-	var weapon_system: Node = F4_WEAPON_SYSTEM_SCRIPT.new()
-	weapon_system.name = "WeaponSystem"
-	_player.add_child(weapon_system)
-	weapon_system.call("configure", _player, _active_world, weapon)
+	_weapon_system = F4_WEAPON_SYSTEM_SCRIPT.new()
+	_weapon_system.name = "WeaponSystem"
+	_player.add_child(_weapon_system)
+	_weapon_system.call("configure", _player, _active_world, weapon)
 
 	_hud = F4_HUD_SCRIPT.new()
 	add_child(_hud)
 	_hud.call("set_life", _player.call("current_life"), _player.call("max_life"))
 	_hud.call("set_kills", _kills)
+	_hud.call("set_level", _current_level)
+	_hud.call("set_xp", _current_xp, _xp_required_for_level(_current_level + 1))
 
 	GameState.change_state(GameState.PLAYING, {
 		"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
@@ -102,6 +120,18 @@ func _create_bullet_node() -> Node:
 
 func _create_enemy_node() -> Node:
 	return F4_ENEMY_SCRIPT.new()
+
+
+func _create_pickup_orb_node() -> Node:
+	return F4_PICKUP_ORB_SCRIPT.new()
+
+
+func current_level() -> int:
+	return _current_level
+
+
+func current_xp() -> int:
+	return _current_xp
 
 
 func _update_spawner() -> void:
@@ -170,10 +200,81 @@ func _on_enemy_defeated(_enemy: Node, _exp_reward: int, wave_key: String) -> voi
 	_kills += 1
 	if _hud != null:
 		_hud.call("set_kills", _kills)
+	if _enemy is Node2D and _exp_reward > 0:
+		_spawn_pickup_orb((_enemy as Node2D).global_position, _exp_reward)
 	if _spawn_states.has(wave_key):
 		var state: Dictionary = _spawn_states[wave_key]
 		state["alive"] = maxi(int(state.get("alive", 0)) - 1, 0)
 		_spawn_states[wave_key] = state
+
+
+func _spawn_pickup_orb(spawn_position: Vector2, amount: int) -> void:
+	var raw_node: Node = PoolManager.acquire(POOL_IDS.PICKUP_ORB)
+	if not raw_node is Node2D or not raw_node.has_method("configure"):
+		return
+
+	var pickup_orb: Node2D = raw_node as Node2D
+	pickup_orb.global_position = spawn_position
+	_reparent_to_active_world(pickup_orb)
+	pickup_orb.call("configure", amount, _player, float(_player.call("pickup_orb_speed")))
+	pickup_orb.connect("collected", Callable(self, "_on_pickup_orb_collected"), CONNECT_ONE_SHOT)
+
+
+func _on_pickup_orb_collected(amount: int) -> void:
+	_current_xp += amount
+	if _hud != null:
+		_hud.call("set_xp", _current_xp, _xp_required_for_level(_current_level + 1))
+	if GameState.is_state(GameState.PLAYING) and _can_level_up():
+		_begin_level_up()
+
+
+func _begin_level_up() -> void:
+	var target_level: int = _current_level + 1
+	var choices: Array[Dictionary] = _roll_growth_choices(target_level)
+	if choices.is_empty():
+		return
+
+	_current_level = target_level
+	if _hud != null:
+		_hud.call("set_level", _current_level)
+		_hud.call("set_xp", _current_xp, _xp_required_for_level(_current_level + 1))
+
+	var panel_template: CanvasLayer = F4_LEVEL_UP_PANEL_SCRIPT.new()
+	panel_template.name = "F4LevelUpPanel"
+	var panel_scene: PackedScene = PackedScene.new()
+	var pack_result: Error = panel_scene.pack(panel_template)
+	panel_template.free()
+	if pack_result != OK:
+		push_error("[F4RunLoop] failed to pack level-up panel: %d" % pack_result)
+		return
+	_level_panel = UIManager.push(panel_scene, {"source": "f4_level_up"}) as CanvasLayer
+	if _level_panel == null:
+		return
+	_level_panel.call("configure", choices)
+	_level_panel.connect("choice_selected", Callable(self, "_on_level_up_choice_selected"), CONNECT_ONE_SHOT)
+	GameState.change_state(GameState.LEVEL_UP, {
+		"level": _current_level,
+		"choices": _choice_ids(choices),
+	})
+
+
+func _on_level_up_choice_selected(choice: Dictionary) -> void:
+	var modifiers: Array = choice.get("modifiers", []) if choice.get("modifiers", []) is Array else []
+	if _player != null and _player.has_method("apply_modifiers"):
+		_player.call("apply_modifiers", modifiers)
+	if _weapon_system != null and _weapon_system.has_method("apply_modifiers"):
+		_weapon_system.call("apply_modifiers", modifiers)
+	if UIManager.top() == _level_panel:
+		UIManager.pop()
+	elif _level_panel != null:
+		_level_panel.queue_free()
+	_level_panel = null
+	GameState.change_state(GameState.PLAYING, {
+		"level": _current_level,
+		"choice": String(choice.get("id", "")),
+	})
+	if _can_level_up():
+		_begin_level_up()
 
 
 func _on_player_life_changed(current_life: float, max_life: float) -> void:
@@ -252,6 +353,103 @@ func _load_waves(target_mode: String) -> Array[Dictionary]:
 			"max_alive": String(row.get("max_alive", "0")).to_int(),
 			"spawn_budget": String(row.get("spawn_budget", "0")).to_int(),
 		})
+	return result
+
+
+func _load_growth_curve() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for row: Dictionary in DataLoader.load_csv(DataLoader.GROWTH_CURVE_PATH):
+		result.append({
+			"level": String(row.get("level", "1")).to_int(),
+			"total_xp_required": String(row.get("total_xp_required", "0")).to_int(),
+			"candidate_count": String(row.get("candidate_count", "3")).to_int(),
+			"bonus_candidate_chance_per_luck": String(row.get("bonus_candidate_chance_per_luck", "0.0")).to_float(),
+			"bonus_candidate_chance_cap": String(row.get("bonus_candidate_chance_cap", "0.0")).to_float(),
+		})
+	return result
+
+
+func _load_growth_entries(mode: Dictionary) -> Array[Dictionary]:
+	var pool_entries: Dictionary = {}
+	var data: Variant = DataLoader.load_json(DataLoader.GROWTH_POOLS_PATH)
+	if data is Dictionary:
+		for raw_pool: Variant in (data as Dictionary).get("pools", []):
+			if raw_pool is Dictionary:
+				pool_entries[String((raw_pool as Dictionary).get("id", ""))] = (raw_pool as Dictionary).get("entries", [])
+
+	var result: Array[Dictionary] = []
+	var resource_pools: Dictionary = mode.get("resource_pools", {}) if mode.get("resource_pools", {}) is Dictionary else {}
+	var growth_pools: Array = resource_pools.get("growth_pools", []) if resource_pools.get("growth_pools", []) is Array else []
+	for raw_pool_ref: Variant in growth_pools:
+		if not raw_pool_ref is Dictionary:
+			continue
+		var pool_ref: Dictionary = raw_pool_ref as Dictionary
+		var pool_id: String = String(pool_ref.get("id", ""))
+		var pool_weight: int = int(pool_ref.get("weight", 0))
+		for raw_entry: Variant in pool_entries.get(pool_id, []):
+			if not raw_entry is Dictionary:
+				continue
+			var entry: Dictionary = (raw_entry as Dictionary).duplicate(true)
+			entry["weight"] = int(entry.get("weight", 0)) * maxi(pool_weight, 1)
+			result.append(entry)
+	return result
+
+
+func _can_level_up() -> bool:
+	return _current_xp >= _xp_required_for_level(_current_level + 1)
+
+
+func _xp_required_for_level(level: int) -> int:
+	for row: Dictionary in _growth_curve:
+		if int(row.get("level", 0)) == level:
+			return int(row.get("total_xp_required", 0))
+	return 2_147_483_647
+
+
+func _growth_row_for_level(level: int) -> Dictionary:
+	for row: Dictionary in _growth_curve:
+		if int(row.get("level", 0)) == level:
+			return row
+	return {}
+
+
+func _roll_growth_choices(target_level: int) -> Array[Dictionary]:
+	var row: Dictionary = _growth_row_for_level(target_level)
+	if row.is_empty():
+		return []
+
+	var candidate_count: int = int(row.get("candidate_count", 3))
+	var luck_value: float = float(_player.call("luck")) if _player != null and _player.has_method("luck") else 0.0
+	var bonus_chance: float = minf(
+		luck_value * float(row.get("bonus_candidate_chance_per_luck", 0.0)),
+		float(row.get("bonus_candidate_chance_cap", 0.0))
+	)
+	if RNG.ui_choice.randf() < bonus_chance:
+		candidate_count += 1
+
+	var available: Array[Dictionary] = []
+	for entry: Dictionary in _growth_entries:
+		if int(entry.get("min_level", 1)) <= target_level:
+			available.append(entry.duplicate(true))
+
+	var choices: Array[Dictionary] = []
+	while not available.is_empty() and choices.size() < candidate_count:
+		var weights: Array[int] = []
+		for entry: Dictionary in available:
+			weights.append(int(entry.get("weight", 0)))
+		var selected: Variant = RNG.ui_choice.weighted_pick(available, weights)
+		if not selected is Dictionary:
+			break
+		var selected_entry: Dictionary = selected as Dictionary
+		choices.append(selected_entry.duplicate(true))
+		available.erase(selected_entry)
+	return choices
+
+
+func _choice_ids(choices: Array[Dictionary]) -> Array[String]:
+	var result: Array[String] = []
+	for choice: Dictionary in choices:
+		result.append(String(choice.get("id", "")))
 	return result
 
 

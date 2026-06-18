@@ -5,9 +5,9 @@
 
 ## 职责
 
-- 在正式 `client/` 内提供一局最小战斗：玩家移动、相机居中、基础背景参照、起始武器、池化子弹、池化敌人、波次刷怪、HUD、失败后重开。
-- 复用 F3 已建立的数据边界：`player.json`、`characters.json`、`weapons.json`、`enemies.csv`、`spawn_waves.csv` 和 `game_modes.json`。
-- 第一版只做标准生存模式、默认角色和默认起始武器的竖切，不实现角色选择、升级选择、局外成长、暂停保存续局、机关运行时、掉落经验球、音频、美术资产或平衡 sim。
+- 在正式 `client/` 内提供一局最小战斗：玩家移动、相机居中、基础背景参照、起始武器、池化子弹、池化敌人、波次刷怪、经验掉落、升级三选一、HUD、失败后重开。
+- 复用 F3 已建立的数据边界：`player.json`、`characters.json`、`weapons.json`、`enemies.csv`、`spawn_waves.csv`、`growth.csv`、`growth_pools.json` 和 `game_modes.json`。
+- 第一版只做标准生存模式、默认角色和默认起始武器的竖切，不实现角色选择、局外成长、暂停保存续局、机关运行时、音频、美术资产或平衡 sim；升级内容只落地 `stat_modifier` 最小切片，后续遗物 / 主动强化 / 刷新等仍按数据与设计扩展。
 
 ## 阅读方式
 
@@ -17,6 +17,8 @@
 | 改玩家移动 / 相机 | `client/scripts/gameplay/f4_player.gd` |
 | 改自动开火 / 子弹生成 | `client/scripts/gameplay/f4_weapon_system.gd`、`f4_bullet.gd` |
 | 改敌人追击 / 接触伤害 | `client/scripts/gameplay/f4_enemy.gd` |
+| 改经验球 / 拾取 | `client/scripts/gameplay/f4_pickup_orb.gd`、`player.json` |
+| 改升级候选 / 奖励 | `growth.csv`、`growth_pools.json`、`client/scripts/gameplay/f4_run_loop.gd` |
 | 改 HUD 文案 | `client/scripts/gameplay/f4_hud.gd`、`client/locale/strings.csv` |
 
 ## 代码位置
@@ -30,7 +32,9 @@
 | `client/scripts/gameplay/f4_weapon_system.gd` | 起始武器自动开火和子弹池获取 |
 | `client/scripts/gameplay/f4_bullet.gd` | 子弹飞行、射程 / 生命周期裁剪、敌人命中 |
 | `client/scripts/gameplay/f4_enemy.gd` | 追击敌人、接触伤害、受伤 / 死亡 |
-| `client/scripts/gameplay/f4_hud.gd` | 最小 HUD：生命、击杀、时间、失败提示 |
+| `client/scripts/gameplay/f4_pickup_orb.gd` | 池化经验球：进入玩家拾取范围后吸附并发放经验 |
+| `client/scripts/gameplay/f4_level_up_panel.gd` | F4 阶段升级三选一面板；通过 `UIManager.push()` 挂载 |
+| `client/scripts/gameplay/f4_hud.gd` | 最小 HUD：生命、击杀、时间、等级、经验、失败提示 |
 | `client/tools/f4_runtime_smoke.gd` | F4 headless runtime smoke，覆盖启动、输入、池化、伤害和失败状态 |
 | `tools/godot_bridge.py` | `f4-smoke` 命令入口 |
 | `docs/代码/combat.md` | 伤害统一入口文档 |
@@ -50,9 +54,12 @@ FormalClientBoot
     │   ├── bullet_basic_* (pooled F4Bullet, active only)
     │   └── enemy_chaser_* (pooled F4Enemy, active only)
     └── F4Hud (CanvasLayer)
+UIManager
+└── UIRoot
+    └── F4LevelUpPanel (only while GameState.LEVEL_UP)
 ```
 
-闲置子弹和敌人节点归 `PoolManager` autoload 管理。
+闲置子弹、敌人和经验球节点归 `PoolManager` autoload 管理。
 
 ## 运行流程
 
@@ -68,6 +75,8 @@ FormalClientBoot
 | 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人 | `GameClock.now()`、`RNG.spawn` |
 | 受击反馈 | 玩家和敌人受伤时短暂闪白，玩家进入数据化受伤无敌窗口 | `_draw()` / `queue_redraw()` |
 | 敌人行为 | 敌人追向玩家，重叠时持续通过 `Combat` 尝试接触伤害；敌人中心按 `separation_radius` 做小范围排斥，是否伤害玩家由玩家无敌窗口判定 | `F4Enemy.defeated` |
+| 经验掉落 | 敌人死亡时按 `exp_reward` 生成池化经验球；经验球进入玩家 `pickup_range` 后按 `pickup_orb_speed` 吸附并发放经验 | `PoolManager.acquire(PICKUP_ORB)` |
+| 升级选择 | 累计经验达到 `growth.csv` 阈值后进入 `GameState.LEVEL_UP`，玩法时间冻结；候选从模式声明的 `growth_pools` 中按权重和 `RNG.ui_choice` 抽取；选择后应用 `stat_modifier` 并回到 `PLAYING` | `F4LevelUpPanel.choice_selected` |
 | 失败 / 重开 | 玩家生命归零进入 `GameState.GAME_OVER`，`GameClock` 冻结，HUD 显示本地化提示；按 `pause` 重载当前场景 | `GameState.change_state()` |
 | 自动 smoke | `godot_bridge.py f4-smoke` 以 `--f4-smoke` 用户参数启动正式主场景，并挂载 smoke runner 做关键断言 | `client/tools/f4_runtime_smoke.gd` |
 
@@ -79,12 +88,18 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 |------|------|------|------|
 | `F4Player.configure(base_stats)` | 合并后的玩家属性 | `void` | `move_speed` / `max_hp` / `damage_invulnerability_duration` 来自数据 |
 | `F4Player.invulnerability_remaining()` | 无 | `float` | 只读诊断值；用于 smoke / 调试确认玩家侧无敌窗口是否归零 |
+| `F4Player.pickup_range()` / `pickup_orb_speed()` / `luck()` | 无 | `float` | 只读运行时属性；经验球与升级候选数量判定使用 |
+| `F4Player.apply_modifiers(modifiers)` | `growth_pools.json` 的 modifiers | `void` | 按 `(基础 + 加法) * 乘法` 更新玩家运行时属性 |
 | `F4Player.receive_damage(info)` | `DamageInfo` | result dictionary | 只能由 `Combat.apply_damage()` 间接调用；无敌期返回 `reason=invulnerable` 且不扣生命 |
 | `F4WeaponSystem.configure(player, active_parent, weapon_data)` | 玩家、活跃父节点、武器数据 | `void` | 武器数据来自 `weapons.json` |
+| `F4WeaponSystem.apply_modifiers(modifiers)` | `growth_pools.json` 的 modifiers | `void` | 按 `(基础 + 加法) * 乘法` 更新武器运行时属性 |
+| `F4WeaponSystem.stat_value(stat)` | stat id | `float` | smoke / 调试读取当前武器数值 |
 | `F4Bullet.configure(stats, projectile, direction, source)` | 武器属性、弹体数据、方向、来源 | `void` | 节点必须来自 `PoolManager` |
 | `F4Enemy.configure(enemy_data, target)` | 敌人 CSV 行、目标玩家 | `void` | 节点必须来自 `PoolManager` |
 | `F4Enemy.separation_radius()` | 无 | `float` | 只读诊断值；用于中心排斥和 smoke 确认敌人不会完全重叠 |
-| `F4Hud.set_life()` / `set_kills()` / `show_game_over()` | HUD 状态 | `void` | 文案使用 `tr()` |
+| `F4PickupOrb.configure(amount, target, pickup_speed)` | 经验值、目标玩家、吸附速度 | `void` | 节点必须来自 `PoolManager` |
+| `F4LevelUpPanel.configure(choices)` / `choose_index(index)` | 升级候选 | `void` | 面板节点通过 `UIManager` 挂载；玩家可见文案来自 locale |
+| `F4Hud.set_life()` / `set_kills()` / `set_level()` / `set_xp()` / `show_game_over()` | HUD 状态 | `void` | 文案使用 `tr()` |
 
 ## Signal / Event
 
@@ -93,6 +108,8 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `F4Player.life_changed` | `current_life`, `max_life` | 玩家生命初始化或变化 |
 | `F4Player.died` | 无 | 玩家生命归零 |
 | `F4Enemy.defeated` | `enemy`, `exp_reward` | 敌人生命归零 |
+| `F4PickupOrb.collected` | `amount` | 经验球被玩家拾取 |
+| `F4LevelUpPanel.choice_selected` | `choice` | 玩家选择一个升级候选 |
 
 ## 数据与契约
 
@@ -103,12 +120,15 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 敌人池：从 `enemies.csv.pool_id` 读取；当前样例为已登记 `enemy_chaser`。
 - 敌人中心间距：从 `enemies.csv.separation_radius` 读取；当前默认 9px，低于 `hit_radius` 以允许视觉重叠。
 - 受伤无敌：从合并后的玩家 `base_stats.damage_invulnerability_duration` 读取；当前默认 `player.json` 为 0.7 秒。
+- 经验球：使用词表 §8 `pickup_orb` 对象池；`player.json.base_stats.pickup_range` 控制吸附范围，`pickup_orb_speed` 控制吸附速度。
+- 等级阈值：从 `growth.csv.total_xp_required` 读取；候选数量与幸运 4 选 1 概率也来自 `growth.csv`。
+- 升级候选：从当前模式 `resource_pools.growth_pools` 引用的 `growth_pools.json` 池读取；当前 F4 只解释 `kind=stat_modifier` 且应用其 `modifiers`。
 - 伤害类型：从 `weapons.json` / `enemies.csv` 读取，交给 `Combat` 校验。
-- HUD 文案：`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_game_over`、`ui_restart_hint`。
+- HUD / 升级文案：`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_level_up_title`、`ui_game_over`、`ui_restart_hint`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。
 
 ## 依赖
 
-- 上游依赖：`DataLoader`、`GameState`、`GameClock`、`RNG.spawn`、`PoolManager`、`Combat`、InputMap action 常量、locale。
+- 上游依赖：`DataLoader`、`GameState`、`GameClock`、`RNG.spawn`、`RNG.ui_choice`、`PoolManager`、`UIManager`、`Combat`、InputMap action 常量、locale。
 - 下游调用方：当前无；后续可拆分为正式 Player / WeaponSystem / Spawner / HUD 模块。
 - 禁止依赖：不得复制历史 MVP 代码；不得直接 `instantiate()` 高频实体；不得直接扣生命；不得绕过 InputMap 读物理输入；不得用裸随机或原始时间。
 
@@ -117,6 +137,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 加武器：优先改 `weapons.json`，运行时继续解释 `base_stats` 和 `projectile`。
 - 加敌人：优先改 `enemies.csv` 和后续可复用 AI strategy；不要在 F4 enemy 里按 id 分支。
 - 加刷怪：改 `spawn_waves.csv`；多个波次可复用当前时间窗 / 预算解释。
+- 加升级候选：优先改 `growth_pools.json`；新候选如果仍是 `stat_modifier` 不需要改逻辑，新增候选类型才需要扩展运行时解释和文档。
 - 拆正式模块：当 F4 稳定后，将 `f4_*` 阶段脚本拆为长期 `Player`、`WeaponSystem`、`Bullet`、`Enemy`、`Spawner`、`Hud` 模块，并保留本文档迁移说明。
 
 ## 常见改动入口
@@ -127,6 +148,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 调武器伤害 / 射速 / 弹速 | `weapons.json` | `client/data/README.md` | `validate_data` + headless |
 | 调敌人血量 / 速度 / 接触伤害 / 中心间距 | `enemies.csv` | `client/data/README.md` | `validate_data` + 手动跑一局 |
 | 调刷怪节奏 | `spawn_waves.csv` | `client/data/README.md` | `validate_data` + 手动 1 分钟 |
+| 调升级阈值 / 候选 | `growth.csv` / `growth_pools.json` | `client/data/README.md` | `validate_data` + `f4-smoke` |
 | 改 HUD 文案 | `strings.csv` | `client/locale/README.md` | `validate_data` |
 | 改运行时行为 | `client/scripts/gameplay/*.gd` | 本文档、必要时 GDD / ADR | L0 + L2 + `f4-smoke`，必要时补 L1 |
 
@@ -142,13 +164,15 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 敌人中心完全重叠 | `enemies.csv.separation_radius` 是否为 0；`f4-smoke` 是否通过中心分离断言 |
 | 子弹打不到 | `hit_radius`、敌人位置、`bullet_range` / `lifetime` 是否合理 |
 | 同一敌人贴住玩家不再造成后续伤害 | 玩家 `damage_invulnerability_duration` 是否过长；`F4Enemy` 不应保存单只敌人的接触伤害冷却 |
+| 不掉经验 / 不升级 | `enemies.csv.exp_reward` 是否大于 0；`pickup_orb` 池是否注册；`growth.csv` 下一级阈值是否达到 |
+| 升级面板不出现或无法选择 | `GameState` 是否进入 `LEVEL_UP`；`UIManager.top()` 是否为 `F4LevelUpPanel`；`growth_pools.json` 是否有满足 `min_level` 的候选 |
 | 游戏结束后计时继续 | `GameClock` 是否把 `GAME_OVER` 视为冻结状态；`f4-smoke` 是否通过冻结断言 |
 | 失败后无法重开 | 是否处于 `GameState.GAME_OVER`；`pause` action 是否触发 |
 
 ## 测试义务
 
 - F4 运行时代码改动必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`。
-- 涉及启动、输入、WeaponSystem、子弹、敌人、Spawner、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client f4-smoke`。
+- 涉及启动、输入、WeaponSystem、子弹、敌人、Spawner、经验球、升级选择、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client f4-smoke`。
 - 数据 / locale 变化还要跑 `python tools/validate_data.py`、`python tools/lint_project_rules.py`。
 - 当前没有 GUT runner，F4 首切片用 L0 + L2 + `f4-smoke` + 手动 1 分钟跑通作为阶段门槛；后续接入 Godot 测试时补 Player / Combat / Pool / Spawner 的 L1。
 
