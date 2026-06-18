@@ -156,12 +156,15 @@ func _run() -> void:
 	_expect(bool(player_result.get("applied", false)), "Combat should apply player damage")
 	_expect(bool(player_result.get("defeated", false)), "Combat should defeat the player")
 	_expect(GameState.is_state(GameState.GAME_OVER), "player death should enter GAME_OVER")
-	_expect(_find_node_by_name(get_tree().root, "F4GameOverPanel") != null, "player death should show game-over panel")
+	var game_over_panel: Node = _find_node_by_name(get_tree().root, "F4GameOverPanel")
+	_expect(game_over_panel != null, "player death should show game-over panel")
 	var game_over_time: float = GameClock.now()
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame
 	_expect(is_equal_approx(GameClock.now(), game_over_time), "GameClock should freeze in GAME_OVER")
 	smoke_player_damage_source.queue_free()
+	if game_over_panel != null:
+		await _expect_game_over_buttons(game_over_panel)
 
 	_finish()
 
@@ -403,6 +406,85 @@ func _click_button(button: Button) -> void:
 	release.global_position = center
 	get_viewport().push_input(release, true)
 	await get_tree().process_frame
+
+
+func _expect_game_over_buttons(game_over_panel: Node) -> void:
+	var restart_button: Button = _find_node_by_name(game_over_panel, "RestartButton") as Button
+	_expect(restart_button != null, "game-over panel should expose a restart button")
+	if restart_button == null:
+		return
+	_expect(restart_button.process_mode == Node.PROCESS_MODE_ALWAYS, "game-over restart button should accept input")
+	_expect(restart_button.visible, "game-over restart button should be visible before click")
+	_expect(not restart_button.disabled, "game-over restart button should be enabled before click")
+	await _click_button(restart_button)
+
+	var restarted_run_loop: Node = await _wait_for_playing_run_loop()
+	_expect(restarted_run_loop != null, "clicking restart should mount F4RunLoop")
+	_expect(GameState.is_state(GameState.PLAYING), "clicking restart should resume PLAYING")
+	_expect(_find_node_by_name(get_tree().root, "F4GameOverPanel") == null, "clicking restart should close the game-over panel")
+	if restarted_run_loop == null:
+		return
+
+	var restarted_player: Node2D = _find_node_by_name(restarted_run_loop, "Player") as Node2D
+	_expect(restarted_player != null, "restarted run should create a player")
+	if restarted_player == null:
+		return
+
+	await _defeat_player_for_game_over(restarted_run_loop, restarted_player)
+	var second_game_over_panel: Node = _find_node_by_name(get_tree().root, "F4GameOverPanel")
+	_expect(second_game_over_panel != null, "second player death should show game-over panel")
+	if second_game_over_panel == null:
+		return
+
+	var quit_button: Button = _find_node_by_name(second_game_over_panel, "QuitToTitleButton") as Button
+	_expect(quit_button != null, "game-over panel should expose a quit-to-title button")
+	if quit_button == null:
+		return
+	_expect(quit_button.process_mode == Node.PROCESS_MODE_ALWAYS, "game-over quit-to-title button should accept input")
+	_expect(quit_button.visible, "game-over quit-to-title button should be visible before click")
+	_expect(not quit_button.disabled, "game-over quit-to-title button should be enabled before click")
+	await _click_button(quit_button)
+	await _wait_for_title_menu()
+	_expect(GameState.is_state(GameState.MAIN_MENU), "clicking quit-to-title should return to MAIN_MENU")
+	_expect(_find_node_by_name(get_tree().root, "F4TitleMenu") != null, "clicking quit-to-title should show the title menu")
+
+
+func _wait_for_playing_run_loop() -> Node:
+	for _index: int in range(BOOT_FRAMES * 4):
+		await get_tree().process_frame
+		var run_loop: Node = _find_node_by_name(get_tree().root, "F4RunLoop")
+		if run_loop != null and GameState.is_state(GameState.PLAYING):
+			return run_loop
+	return null
+
+
+func _defeat_player_for_game_over(run_loop: Node, player: Node2D) -> void:
+	await _wait_player_vulnerability(player)
+	var source: Node = Node.new()
+	source.name = "SmokeSecondPlayerDamageSource"
+	run_loop.add_child(source)
+	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		float(player.call("max_life")),
+		DAMAGE_TYPES.PHYSICAL,
+		source,
+		player,
+		"team_enemy",
+		"team_player"
+	)
+	var result: Dictionary = Combat.apply_damage(player, info)
+	_expect(bool(result.get("applied", false)), "Combat should apply restarted player damage")
+	_expect(bool(result.get("defeated", false)), "Combat should defeat restarted player")
+	_expect(GameState.is_state(GameState.GAME_OVER), "restarted player death should enter GAME_OVER")
+	source.queue_free()
+	await get_tree().process_frame
+
+
+func _wait_for_title_menu() -> void:
+	for _index: int in range(BOOT_FRAMES * 4):
+		await get_tree().process_frame
+		if GameState.is_state(GameState.MAIN_MENU) and _find_node_by_name(get_tree().root, "F4TitleMenu") != null:
+			return
+	_expect(false, "title menu should appear after quit-to-title")
 
 
 func _first_enemy_with_name_prefix(name_prefix: String) -> Node:

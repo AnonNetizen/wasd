@@ -110,6 +110,9 @@ func _start_f4_run() -> void:
 
 func _clear_f4_runtime() -> void:
 	if _run_loop != null and is_instance_valid(_run_loop):
+		var parent: Node = _run_loop.get_parent()
+		if parent != null:
+			parent.remove_child(_run_loop)
 		_run_loop.queue_free()
 	_run_loop = null
 	PoolManager.clear_pool(POOL_IDS.BULLET_BASIC)
