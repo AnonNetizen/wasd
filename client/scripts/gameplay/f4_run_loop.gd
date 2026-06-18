@@ -42,6 +42,7 @@ var _game_over_panel: CanvasLayer = null
 var _hud: CanvasLayer = null
 var _kills: int = 0
 var _level_panel: CanvasLayer = null
+var _last_settlement: Dictionary = {}
 var _pending_level_up_choices: Array[Dictionary] = []
 var _pending_restore_snapshot: Dictionary = {}
 var _pause_menu: CanvasLayer = null
@@ -128,6 +129,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_current_level = 1
 	_current_xp = 0
 	_kills = 0
+	_last_settlement.clear()
 
 	_player = F4_PLAYER_SCRIPT.new()
 	_player.name = "Player"
@@ -146,6 +148,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_weapon_system.name = "WeaponSystem"
 	_player.add_child(_weapon_system)
 	_weapon_system.call("configure", _player, _active_world, weapon)
+	_apply_meta_modifiers(MetaProgressionSystem.current_modifiers())
 
 	_hud = F4_HUD_SCRIPT.new()
 	_hud.name = "F4Hud"
@@ -359,10 +362,12 @@ func _on_player_life_changed(current_life: float, max_life: float) -> void:
 
 
 func _on_player_died() -> void:
+	_last_settlement = MetaProgressionSystem.apply_run_settlement(_run_settlement_summary())
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	GameState.change_state(GameState.GAME_OVER, {
 		"kills": _kills,
 		"run_time": GameClock.now(),
+		"settlement": _last_settlement.duplicate(true),
 	})
 	_show_game_over_panel()
 
@@ -379,9 +384,19 @@ func _show_game_over_panel() -> void:
 	_game_over_panel = UIManager.push(panel_scene, {"source": "f4_game_over"}) as CanvasLayer
 	if _game_over_panel == null:
 		return
-	_game_over_panel.call("configure", _kills, GameClock.now())
+	_game_over_panel.call("configure", _kills, GameClock.now(), _last_settlement, MetaProgressionSystem.first_available_purchase())
 	_game_over_panel.connect("restart_requested", Callable(self, "_on_game_over_restart_requested"), CONNECT_ONE_SHOT)
 	_game_over_panel.connect("quit_to_title_requested", Callable(self, "_on_game_over_quit_to_title_requested"), CONNECT_ONE_SHOT)
+	_game_over_panel.connect("purchase_upgrade_requested", Callable(self, "_on_game_over_purchase_upgrade_requested"))
+
+
+func _on_game_over_purchase_upgrade_requested(upgrade_id: String) -> void:
+	var purchase_result: Dictionary = MetaProgressionSystem.purchase_upgrade(upgrade_id)
+	var profile: Dictionary = purchase_result.get("profile", {}) as Dictionary
+	if not profile.is_empty():
+		_last_settlement["profile"] = profile
+	if _game_over_panel != null and _game_over_panel.has_method("configure"):
+		_game_over_panel.call("configure", _kills, GameClock.now(), _last_settlement, MetaProgressionSystem.first_available_purchase())
 
 
 func _on_game_over_restart_requested() -> void:
@@ -392,6 +407,23 @@ func _on_game_over_restart_requested() -> void:
 func _on_game_over_quit_to_title_requested() -> void:
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	quit_to_title_requested.emit()
+
+
+func _run_settlement_summary() -> Dictionary:
+	return {
+		"kills": _kills,
+		"run_time": GameClock.now(),
+		"first_boss_defeated": false,
+	}
+
+
+func _apply_meta_modifiers(modifiers: Array[Dictionary]) -> void:
+	if modifiers.is_empty():
+		return
+	if _player != null and _player.has_method("apply_modifiers"):
+		_player.call("apply_modifiers", modifiers)
+	if _weapon_system != null and _weapon_system.has_method("apply_modifiers"):
+		_weapon_system.call("apply_modifiers", modifiers)
 
 
 func _show_pause_menu() -> void:

@@ -8,6 +8,7 @@ const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
 const F4_RUN_LOOP := preload("res://scripts/gameplay/f4_run_loop.gd")
 const F4_SMOKE_RUNNER := preload("res://tools/f4_runtime_smoke.gd")
 const F4_TITLE_MENU := preload("res://scripts/ui/f4_title_menu.gd")
+const META_SMOKE_RUNNER := preload("res://tools/meta_progression_smoke.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SAVE_SMOKE_RUNNER := preload("res://tools/save_manager_smoke.gd")
@@ -77,6 +78,10 @@ func _ready() -> void:
 		var save_smoke_runner: Node = SAVE_SMOKE_RUNNER.new()
 		save_smoke_runner.name = "SaveManagerSmoke"
 		add_child(save_smoke_runner)
+	elif _is_meta_smoke_enabled():
+		var meta_smoke_runner: Node = META_SMOKE_RUNNER.new()
+		meta_smoke_runner.name = "MetaProgressionSmoke"
+		add_child(meta_smoke_runner)
 	elif data_schema_ok:
 		_show_title_menu()
 
@@ -87,6 +92,10 @@ func _is_f4_smoke_enabled() -> bool:
 
 func _is_save_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--save-smoke")
+
+
+func _is_meta_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--meta-smoke")
 
 
 func _show_title_menu(notice_key: String = "") -> void:

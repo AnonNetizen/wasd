@@ -6,6 +6,7 @@ const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
 const F4_ENEMY_SCRIPT := preload("res://scripts/gameplay/f4_enemy.gd")
 const F4_PLAYER_SCRIPT := preload("res://scripts/gameplay/f4_player.gd")
+const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
@@ -27,6 +28,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	RNG.set_run_seed(4242)
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
 
 	var run_loop: Node = null
 	for _index: int in range(BOOT_FRAMES):
@@ -175,6 +177,12 @@ func _run() -> void:
 	_expect(GameState.is_state(GameState.GAME_OVER), "player death should enter GAME_OVER")
 	var game_over_panel: Node = _find_node_by_name(get_tree().root, "F4GameOverPanel")
 	_expect(game_over_panel != null, "player death should show game-over panel")
+	_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "player death should consume the active run save")
+	_expect(SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META), "player death should write a meta save")
+	var meta_profile: Dictionary = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
+	_expect(int((meta_profile.get("currencies", {}) as Dictionary).get(META_CURRENCIES.META_ESSENCE, 0)) >= 8, "player death should grant configured meta currency")
+	var settlement_label: Label = _find_node_by_name(game_over_panel, "SettlementLabel") as Label
+	_expect(settlement_label != null and settlement_label.visible and not String(settlement_label.text).is_empty(), "game-over panel should show settlement rewards")
 	var game_over_hud: Node = _find_node_by_name(run_loop, "F4Hud")
 	_expect(
 		game_over_hud != null

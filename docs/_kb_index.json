@@ -250,7 +250,7 @@
       "last_reviewed": "2026-06-18",
       "canonical_for": ["module_doc_index"],
       "must_read_for": ["code_module_change", "module_doc_lookup"],
-      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md"],
+      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/meta_progression_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md"],
       "related_code": ["client/"],
       "update_triggers": ["new module document", "module document rename", "module document deletion"],
       "keywords": ["代码", "module", "documentation", "index"]
@@ -814,6 +814,20 @@
       "related_code": ["client/scripts/autoload/save_manager.gd", "client/scripts/contracts/save_kinds.gd", "client/scripts/autoload/analytics.gd"],
       "update_triggers": ["SaveManager API changes", "save envelope changes", "save kind changes", "migration behavior changes", "atomic write or broken-save behavior changes"],
       "keywords": ["SaveManager", "autoload", "save_kinds", "meta", "run", "replay_index", "data_hash", "migration", "atomic save", "backup", "broken save"]
+    },
+    {
+      "path": "docs/代码/meta_progression_system.md",
+      "type": "module_doc",
+      "authority": "MetaProgressionSystem autoload contract for F6 meta profile, settlement rewards, upgrade purchases, unlocks, and permanent modifiers",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-18",
+      "canonical_for": ["meta_progression_system", "meta_profile", "settlement_rewards", "permanent_upgrades"],
+      "must_read_for": ["meta_progression_change", "settlement_change", "meta_profile_schema_change", "permanent_upgrade_change"],
+      "related_docs": ["docs/AI协作/工作包/F6-MetaProgression.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/save_manager.md", "docs/代码/f4_min_playable_loop.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/autoload/meta_progression_system.gd", "client/data/meta_progression.json", "client/scripts/gameplay/f4_run_loop.gd", "client/scripts/ui/f4_game_over_panel.gd", "client/tools/meta_progression_smoke.gd", "tools/godot_bridge.py"],
+      "update_triggers": ["MetaProgressionSystem API changes", "meta profile schema changes", "settlement formula changes", "upgrade purchase behavior changes", "meta-smoke behavior changes"],
+      "keywords": ["MetaProgressionSystem", "autoload", "meta", "局外成长", "settlement", "结算", "meta_progression.json", "upgrade_tracks", "account_level", "meta-smoke", "permanent modifiers"]
     },
     {
       "path": "docs/代码/audio_manager.md",

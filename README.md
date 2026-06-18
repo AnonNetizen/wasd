@@ -1,7 +1,7 @@
 # wasd —— 俯视角 Roguelike 弹幕生存
 
 > 一款受《以撒的结合》与《吸血鬼幸存者》启发的俯视角 Roguelike 弹幕生存游戏。
-> **当前状态：正式项目已推进到 F5 暂停 / 存档 / 续局。** 完整项目 `client/` 已可作为 Godot 4.6.3 项目启动；F2 autoload 矩阵、F3 数据 / 契约闭环和 F4 最小可玩闭环已完成阶段验证，F5 已支持暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、坏档提示、run 存档 v1 -> v2 迁移和 `save-smoke` 存档可靠性验证。
+> **当前状态：正式项目已推进到 F6 局外成长首切片。** 完整项目 `client/` 已可作为 Godot 4.6.3 项目启动；F2 autoload 矩阵、F3 数据 / 契约闭环、F4 最小可玩闭环和 F5 暂停 / 存档 / 续局已完成阶段验证，F6 已支持死亡结算、`meta` profile roundtrip、升级购买、下一局永久 modifiers 和 `meta-smoke` 局外成长验证。
 >
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。README 是仓库入口摘要；改项目状态、运行方式、目录结构或 AI 开工入口时，必须同步 `CONTRIBUTING.md`、`AGENTS.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
 
@@ -114,6 +114,7 @@ client/
 - 命令行启动：`godot --path client`。
 - Headless 验证：`python tools/godot_bridge.py headless-boot`（若系统无 Python，可用 Codex 桌面内置 Python 路径执行）。
 - F4 运行时 smoke：`python tools/godot_bridge.py --project client f4-smoke`。
+- F6 局外成长 smoke：`python tools/godot_bridge.py --project client meta-smoke`。
 - F5 存档 smoke：`python tools/godot_bridge.py --project client save-smoke`。
 
 ## 参与方式（贡献约定）
@@ -132,4 +133,4 @@ client/
 
 ## 版本
 - 设计文档：**v1.5**（2026-06）
-- 代码：正式项目推进到 F5 暂停 / 存档 / 续局（含暂停 / 升级 UI 恢复点）
+- 代码：正式项目推进到 F6 局外成长首切片（结算、meta 存档、升级购买、永久 modifiers）

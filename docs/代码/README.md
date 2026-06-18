@@ -25,6 +25,7 @@
 | Replay | `docs/代码/replay.md` | `client/scripts/autoload/replay.gd` | F2 第四片已建立 |
 | PoolManager | `docs/代码/pool_manager.md` | `client/scripts/autoload/pool_manager.gd` | F2 第五片已建立 |
 | SaveManager | `docs/代码/save_manager.md` | `client/scripts/autoload/save_manager.gd` | F2 第六片已建立 |
+| MetaProgressionSystem | `docs/代码/meta_progression_system.md` | `client/scripts/autoload/meta_progression_system.gd` | F6 首切片已建立 |
 | AudioManager | `docs/代码/audio_manager.md` | `client/scripts/autoload/audio_manager.gd` | F2 第七片已建立 |
 | Localization | `docs/代码/localization.md` | `client/scripts/autoload/localization.gd` | F2 第二片已建立 |
 | UIManager | `docs/代码/ui_manager.md` | `client/scripts/autoload/ui_manager.gd` | F2 第二片已建立 |

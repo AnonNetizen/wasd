@@ -20,6 +20,11 @@ ui_hud_kills,击杀,Kills
 ui_hud_time,时间,Time
 ui_game_over,本局结束,Run Over
 ui_restart_hint,按暂停键重开,Press Pause to restart
+ui_meta_settlement,获得 {currency} {amount} · 账号经验 +{xp},Earned {currency} {amount} · Account XP +{xp}
+ui_meta_balance,{currency} {amount},{currency} {amount}
+ui_meta_account_level,账号等级 {level},Account Level {level}
+ui_meta_purchase_upgrade,购买 {name}（{cost}）,Buy {name} ({cost})
+ui_meta_purchase_unavailable,暂无可购买升级,No affordable upgrade
 ui_hud_level,等级,Level
 ui_hud_xp,经验,XP
 ui_level_up_title,选择升级,Choose Upgrade
