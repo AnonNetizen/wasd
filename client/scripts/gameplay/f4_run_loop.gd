@@ -30,6 +30,7 @@ const RUN_SNAPSHOT_SCHEMA_VERSION: int = 1
 const UI_RESTORE_LEVEL_UP: String = "level_up"
 const UI_RESTORE_PAUSED: String = "paused"
 const UI_RESTORE_PLAYING: String = "playing"
+const UI_RESTORE_UNDERLYING_STATE: String = "underlying_state"
 
 var _active_world: Node2D = null
 var _current_level: int = 1
@@ -317,10 +318,17 @@ func _show_level_up_panel(choices: Array[Dictionary]) -> void:
 		return
 	_level_panel.call("configure", choices)
 	_level_panel.connect("choice_selected", Callable(self, "_on_level_up_choice_selected"), CONNECT_ONE_SHOT)
+	_level_panel.connect("pause_requested", Callable(self, "_on_level_up_pause_requested"))
 	GameState.change_state(GameState.LEVEL_UP, {
 		"level": _current_level,
 		"choices": _choice_ids(_pending_level_up_choices),
 	})
+
+
+func _on_level_up_pause_requested() -> void:
+	if _pause_menu != null:
+		return
+	_show_pause_menu()
 
 
 func _on_level_up_choice_selected(choice: Dictionary) -> void:
@@ -446,7 +454,14 @@ func _entity_snapshots(group_name: String) -> Array[Dictionary]:
 
 
 func _ui_restore_snapshot() -> Dictionary:
-	if GameState.is_state(GameState.LEVEL_UP) and not _pending_level_up_choices.is_empty():
+	if _pause_menu != null and not _pending_level_up_choices.is_empty():
+		return {
+			"state": UI_RESTORE_PAUSED,
+			UI_RESTORE_UNDERLYING_STATE: UI_RESTORE_LEVEL_UP,
+			"level": _current_level,
+			"choices": _pending_level_up_choices.duplicate(true),
+		}
+	if (GameState.is_state(GameState.LEVEL_UP) or _level_panel != null) and not _pending_level_up_choices.is_empty():
 		return {
 			"state": UI_RESTORE_LEVEL_UP,
 			"level": _current_level,
@@ -503,17 +518,26 @@ func _restore_ui_state(raw_ui_restore: Variant) -> void:
 	var ui_restore: Dictionary = raw_ui_restore as Dictionary
 	var state: String = String(ui_restore.get("state", UI_RESTORE_PLAYING))
 	if state == UI_RESTORE_PAUSED:
+		if String(ui_restore.get(UI_RESTORE_UNDERLYING_STATE, "")) == UI_RESTORE_LEVEL_UP:
+			var paused_level_up_choices: Array[Dictionary] = _typed_choice_array(ui_restore.get("choices", []))
+			if not paused_level_up_choices.is_empty():
+				_show_level_up_panel(paused_level_up_choices)
 		_show_pause_menu()
 		return
 	if state == UI_RESTORE_LEVEL_UP:
-		var choices: Array = _array_or_empty(ui_restore.get("choices", []))
-		var typed_choices: Array[Dictionary] = []
-		for raw_choice: Variant in choices:
-			if raw_choice is Dictionary:
-				typed_choices.append((raw_choice as Dictionary).duplicate(true))
+		var typed_choices: Array[Dictionary] = _typed_choice_array(ui_restore.get("choices", []))
 		if typed_choices.is_empty():
 			return
 		_show_level_up_panel(typed_choices)
+
+
+func _typed_choice_array(raw_value: Variant) -> Array[Dictionary]:
+	var choices: Array = _array_or_empty(raw_value)
+	var typed_choices: Array[Dictionary] = []
+	for raw_choice: Variant in choices:
+		if raw_choice is Dictionary:
+			typed_choices.append((raw_choice as Dictionary).duplicate(true))
+	return typed_choices
 
 
 func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:

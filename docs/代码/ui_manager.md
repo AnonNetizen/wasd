@@ -87,7 +87,7 @@ UI 根节点可用两种方式声明暂停请求：
 ## 扩展点
 
 - 新 UI 场景：放入后续 `client/scenes/ui/`，由调用方以 `PackedScene` 传给 `push()`。
-- 暂停菜单：根节点标记 `pauses_game=true`，由 `UIManager` 触发 `GameState.PAUSED`。
+- 暂停菜单：根节点标记 `pauses_game=true`，由 `UIManager` 触发 `GameState.PAUSED`；如果暂停菜单从 `GameState.LEVEL_UP` 上方打开，`UIManager` 也要把 `LEVEL_UP` 记录为暂停前状态，关闭菜单后恢复回升级选择而不是 `PLAYING`。
 - 焦点管理：后续在 `push()` 结束后统一设置首个焦点控件，避免每个菜单散写。
 - 过渡动画：后续可在 `push()` / `pop()` 内加入统一动画，但不能破坏栈语义。
 
@@ -106,7 +106,7 @@ UI 根节点可用两种方式声明暂停请求：
 |------|----------|
 | UI 没显示 | `PackedScene` 是否为空，节点是否挂到 `UIRoot` |
 | 暂停菜单不暂停 | 根节点是否设置 `pauses_game=true` |
-| 关闭 UI 后状态错误 | `_state_before_ui_pause` 是否被其他系统提前改写 |
+| 关闭 UI 后状态错误 | `_state_before_ui_pause` 是否被其他系统提前改写；从升级面板上方关闭暂停菜单时应恢复到 `LEVEL_UP` |
 | 暂停时 UI 不响应 | UI 节点和 `UIRoot` 的 `process_mode` 是否为 `ALWAYS` |
 
 ## 测试义务

@@ -466,6 +466,14 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 			"player": player,
 		}
 	_expect(String(level_panel.call("choice_id", 0)) == choice_id, "level-up restore should keep the same rolled first choice")
+	await _expect_level_up_pause_overlay(run_loop)
+	level_panel = _find_node_by_name(get_tree().root, "F4LevelUpPanel")
+	_expect(level_panel != null, "level-up panel should remain after closing pause overlay")
+	if level_panel == null:
+		return {
+			"run_loop": run_loop,
+			"player": player,
+		}
 
 	var choice_button: Button = _find_first_button(level_panel)
 	_expect(choice_button != null, "level-up panel should expose clickable option buttons")
@@ -489,6 +497,27 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 		"run_loop": run_loop,
 		"player": player,
 	}
+
+
+func _expect_level_up_pause_overlay(run_loop: Node) -> void:
+	await _push_action_once(ACTIONS.PAUSE)
+	var pause_menu: Node = null
+	for _index: int in range(BOOT_FRAMES * 2):
+		await get_tree().process_frame
+		pause_menu = _find_node_by_name(get_tree().root, "F4PauseMenu")
+		if pause_menu != null:
+			break
+	_expect(GameState.is_state(GameState.PAUSED), "pressing pause during LEVEL_UP should open pause state")
+	_expect(pause_menu != null, "pressing pause during LEVEL_UP should show the pause menu")
+	var paused_snapshot: Dictionary = run_loop.call("create_run_snapshot")
+	var ui_restore: Dictionary = paused_snapshot.get("ui_restore", {}) as Dictionary
+	_expect(String(ui_restore.get("state", "")) == "paused", "pause overlay on level-up should snapshot as paused")
+	_expect(String(ui_restore.get("underlying_state", "")) == "level_up", "pause overlay on level-up should preserve the underlying level-up state")
+
+	await _push_action_once(ACTIONS.PAUSE)
+	var restored_run_loop: Node = await _wait_for_state_run_loop(GameState.LEVEL_UP)
+	_expect(restored_run_loop == run_loop, "closing pause overlay should return to the same LEVEL_UP run loop")
+	_expect(_find_node_by_name(get_tree().root, "F4PauseMenu") == null, "closing pause overlay should remove the pause menu")
 
 
 func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:

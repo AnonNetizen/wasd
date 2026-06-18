@@ -103,7 +103,7 @@ func _apply_pause_request(node: Node) -> void:
 	if not _node_requests_pause(node):
 		return
 
-	if GameState.current() != GameState.PAUSED and GameState.current() != GameState.LEVEL_UP:
+	if GameState.current() != GameState.PAUSED:
 		_state_before_ui_pause = GameState.current()
 	GameState.change_state(GameState.PAUSED, {"source": "ui_manager"})
 

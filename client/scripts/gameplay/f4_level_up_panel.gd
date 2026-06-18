@@ -5,7 +5,9 @@ extends CanvasLayer
 
 
 signal choice_selected(choice: Dictionary)
+signal pause_requested()
 
+const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const BUTTON_HEIGHT: float = 56.0
 const BUTTON_HORIZONTAL_PADDING: float = 48.0
 const PANEL_MAX_WIDTH: float = 720.0
@@ -22,6 +24,11 @@ var _selection_locked: bool = false
 
 
 func _input(event: InputEvent) -> void:
+	if event.is_action_pressed(ACTIONS.PAUSE) and UIManager.top() == self:
+		get_viewport().set_input_as_handled()
+		pause_requested.emit()
+		return
+
 	var mouse_button: InputEventMouseButton = event as InputEventMouseButton
 	if mouse_button == null or mouse_button.button_index != MOUSE_BUTTON_LEFT:
 		return
