@@ -30,6 +30,8 @@
 | `client/scripts/gameplay/f4_bullet.gd` | 子弹飞行、射程 / 生命周期裁剪、敌人命中 |
 | `client/scripts/gameplay/f4_enemy.gd` | 追击敌人、接触伤害、受伤 / 死亡 |
 | `client/scripts/gameplay/f4_hud.gd` | 最小 HUD：生命、击杀、时间、失败提示 |
+| `client/tools/f4_runtime_smoke.gd` | F4 headless runtime smoke，覆盖启动、输入、池化、伤害和失败状态 |
+| `tools/godot_bridge.py` | `f4-smoke` 命令入口 |
 | `docs/代码/combat.md` | 伤害统一入口文档 |
 
 ## 场景 / 节点结构
@@ -63,6 +65,7 @@ FormalClientBoot
 | 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人 | `GameClock.now()`、`RNG.spawn` |
 | 敌人行为 | 敌人追向玩家，接触时通过 `Combat` 对玩家造成数据化伤害 | `F4Enemy.defeated` |
 | 失败 / 重开 | 玩家生命归零进入 `GameState.GAME_OVER`，HUD 显示本地化提示；按 `pause` 重载当前场景 | `GameState.change_state()` |
+| 自动 smoke | `godot_bridge.py f4-smoke` 以 `--f4-smoke` 用户参数启动正式主场景，并挂载 smoke runner 做关键断言 | `client/tools/f4_runtime_smoke.gd` |
 
 ## 公共 API
 
@@ -117,7 +120,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 调敌人血量 / 速度 / 接触伤害 | `enemies.csv` | `client/data/README.md` | `validate_data` + 手动跑一局 |
 | 调刷怪节奏 | `spawn_waves.csv` | `client/data/README.md` | `validate_data` + 手动 1 分钟 |
 | 改 HUD 文案 | `strings.csv` | `client/locale/README.md` | `validate_data` |
-| 改运行时行为 | `client/scripts/gameplay/*.gd` | 本文档、必要时 GDD / ADR | L0 + L2，必要时补 L1 |
+| 改运行时行为 | `client/scripts/gameplay/*.gd` | 本文档、必要时 GDD / ADR | L0 + L2 + `f4-smoke`，必要时补 L1 |
 
 ## 故障排查
 
@@ -133,8 +136,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 ## 测试义务
 
 - F4 运行时代码改动必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`。
+- 涉及启动、输入、WeaponSystem、子弹、敌人、Spawner、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client f4-smoke`。
 - 数据 / locale 变化还要跑 `python tools/validate_data.py`、`python tools/lint_project_rules.py`。
-- 当前没有 GUT runner，F4 首切片用 L0 + L2 + 手动 1 分钟跑通作为阶段门槛；后续接入 Godot 测试时补 Player / Combat / Pool / Spawner 的 L1。
+- 当前没有 GUT runner，F4 首切片用 L0 + L2 + `f4-smoke` + 手动 1 分钟跑通作为阶段门槛；后续接入 Godot 测试时补 Player / Combat / Pool / Spawner 的 L1。
 
 ## 迁移 / 兼容
 

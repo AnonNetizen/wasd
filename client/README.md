@@ -18,6 +18,7 @@
 | `locale/` | 本地化表，说明见 `client/locale/README.md` |
 | `assets/` | 美术、音频等资源 |
 | `templates/` | 新内容脚手架模板 |
+| `tools/` | 项目内 Godot headless smoke 脚本 |
 
 ## Autoload
 
@@ -51,6 +52,12 @@ Headless 启动验证：
 
 ```powershell
 python tools/godot_bridge.py --project client headless-boot
+```
+
+F4 最小运行时 smoke：
+
+```powershell
+python tools/godot_bridge.py --project client f4-smoke
 ```
 
 若本机没有系统 Python，可使用 Codex 桌面内置 Python 路径运行同一命令。

@@ -36,6 +36,7 @@ def main() -> int:
     subparsers.add_parser("validate-data", help="Run tools/validate_data.py.")
     subparsers.add_parser("godot-version", help="Print the configured Godot version.")
     subparsers.add_parser("headless-boot", help="Run godot --headless --path <project> --quit.")
+    subparsers.add_parser("f4-smoke", help="Run the F4 minimal runtime smoke in headless Godot.")
 
     args = parser.parse_args()
     project = Path(args.project).resolve()
@@ -56,6 +57,18 @@ def main() -> int:
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
             return 1
         return _run_command([str(godot), "--headless", "--path", str(project), "--quit"], cwd=project)
+    if args.command == "f4-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        smoke_script = project / "tools" / "f4_runtime_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing F4 smoke script: {_rel(smoke_script)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", "--f4-smoke"],
+            cwd=project,
+        )
 
     print(f"[godot-bridge] unknown command: {args.command}")
     return 1

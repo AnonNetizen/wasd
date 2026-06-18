@@ -6,6 +6,7 @@ extends Node
 
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
 const F4_RUN_LOOP := preload("res://scripts/gameplay/f4_run_loop.gd")
+const F4_SMOKE_RUNNER := preload("res://tools/f4_runtime_smoke.gd")
 
 
 func _ready() -> void:
@@ -63,3 +64,12 @@ func _ready() -> void:
 		var run_loop: Node = F4_RUN_LOOP.new()
 		run_loop.name = "F4RunLoop"
 		add_child(run_loop)
+
+	if _is_f4_smoke_enabled():
+		var smoke_runner: Node = F4_SMOKE_RUNNER.new()
+		smoke_runner.name = "F4RuntimeSmoke"
+		add_child(smoke_runner)
+
+
+func _is_f4_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--f4-smoke")
