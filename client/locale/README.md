@@ -19,6 +19,7 @@
 | 你想做什么 | 怎么做 |
 |------------|--------|
 | 加 UI 文案 | 在 `strings.csv` 加 `ui_*` key；代码使用 `tr("ui_xxx")` |
+| 加 HUD / 失败提示 | 在 `strings.csv` 加 `ui_hud_*` 或 `ui_*` key；HUD 代码用 `tr("ui_xxx")` 并在运行时刷新 |
 | 加角色名 / 描述 | 在 `strings.csv` 加 `character_*_name` / `character_*_desc`；数据填 `name_key` / `desc_key` |
 | 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |
 | 加敌人名 | 在 `strings.csv` 加 `enemy_*_name`；`enemies.csv` 填 `name_key` |
@@ -62,6 +63,7 @@ ui_resume,继续,Resume
 | 前缀 | 用途 | 示例 |
 |------|------|------|
 | `ui_` | UI、菜单、按钮、HUD | `ui_settings` / `ui_pause` |
+| `ui_hud_` | 局内 HUD 标签 | `ui_hud_life` / `ui_hud_kills` |
 | `ui_credits_` | 致谢界面分组、角色和用途标签 | `ui_credits_section_staff` / `ui_credits_usage_engine_runtime` |
 | `character_` | 角色名称和描述 | `character_default_name` / `character_default_desc` |
 | `weapon_` | 武器名称和描述 | `weapon_basic_blaster_name` / `weapon_basic_blaster_desc` |
@@ -119,6 +121,12 @@ label.text = tr("ui_damage") + str(value)
 1. 在 `strings.csv` 新增一行，如 `ui_restart,重开,Restart`；若只给了一种语言，AI 先补齐另一种。
 2. UI 代码使用 `tr("ui_restart")`。
 3. 如果该 UI 支持运行时切语言，确认 `NOTIFICATION_TRANSLATION_CHANGED` 后会刷新。
+
+### 加一段 HUD 文案
+
+1. 在 `strings.csv` 新增 `ui_hud_*` key，例如 `ui_hud_life,生命,Life`。
+2. HUD 代码只显示 `tr("ui_hud_life")` 和格式化数值，不硬编码玩家可见标签。
+3. 若 HUD 会常驻局内，手动切语言时要确认标签刷新；F4 临时 HUD 当前在启动时读取本地化文本。
 
 ### 加一个致谢条目
 

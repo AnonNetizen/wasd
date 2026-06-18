@@ -1,0 +1,97 @@
+# Doc: docs/代码/f4_min_playable_loop.md
+# Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md, docs/游戏设计文档.md §4
+class_name F4Bullet
+extends Node2D
+
+
+const STATS := preload("res://scripts/contracts/stats.gd")
+const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
+
+var _damage: float = 0.0
+var _damage_type: String = ""
+var _hit_targets: Dictionary = {}
+var _hit_radius: float = 0.0
+var _remaining_life: float = 0.0
+var _max_range: float = 0.0
+var _pierce_remaining: int = 0
+var _source: Node = null
+var _travelled: float = 0.0
+var _velocity: Vector2 = Vector2.ZERO
+
+
+func _physics_process(delta: float) -> void:
+	if not GameState.is_state(GameState.PLAYING):
+		return
+
+	var scaled_delta: float = GameClock.delta_scaled(delta)
+	if scaled_delta <= 0.0:
+		return
+
+	var step: Vector2 = _velocity * scaled_delta
+	position += step
+	_travelled += step.length()
+	_remaining_life -= scaled_delta
+
+	if _remaining_life <= 0.0 or _travelled >= _max_range:
+		PoolManager.release(self)
+		return
+
+	_check_enemy_hits()
+
+
+func configure(stats: Dictionary, projectile: Dictionary, direction: Vector2, source: Node) -> void:
+	_damage = float(stats.get(STATS.DAMAGE, 0.0))
+	_damage_type = String(projectile.get("damage_type", ""))
+	_hit_targets.clear()
+	_hit_radius = float(projectile.get("hit_radius", 0.0))
+	_remaining_life = float(projectile.get("lifetime", 0.0))
+	_max_range = float(stats.get(STATS.BULLET_RANGE, 0.0))
+	_pierce_remaining = int(stats.get(STATS.PIERCE_COUNT, 0))
+	_source = source
+	_travelled = 0.0
+	_velocity = direction.normalized() * float(stats.get(STATS.BULLET_SPEED, 0.0))
+	queue_redraw()
+
+
+func _pool_reset() -> void:
+	_damage = 0.0
+	_damage_type = ""
+	_hit_targets.clear()
+	_hit_radius = 0.0
+	_remaining_life = 0.0
+	_max_range = 0.0
+	_pierce_remaining = 0
+	_source = null
+	_travelled = 0.0
+	_velocity = Vector2.ZERO
+	visible = true
+
+
+func _pool_release() -> void:
+	_source = null
+
+
+func _draw() -> void:
+	draw_circle(Vector2.ZERO, maxf(_hit_radius, 3.0), Color(1.0, 0.92, 0.35))
+
+
+func _check_enemy_hits() -> void:
+	for raw_enemy: Node in get_tree().get_nodes_in_group("f4_enemies"):
+		if not raw_enemy is Node2D or not raw_enemy.has_method("is_alive") or not raw_enemy.has_method("hit_radius"):
+			continue
+		if not bool(raw_enemy.call("is_alive")):
+			continue
+		var instance_id: int = raw_enemy.get_instance_id()
+		if _hit_targets.has(instance_id):
+			continue
+		var enemy: Node2D = raw_enemy as Node2D
+		if global_position.distance_to(enemy.global_position) > _hit_radius + float(raw_enemy.call("hit_radius")):
+			continue
+
+		_hit_targets[instance_id] = true
+		var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(_damage, _damage_type, _source, enemy, "team_player", "team_enemy")
+		Combat.apply_damage(enemy, info)
+		if _pierce_remaining <= 0:
+			PoolManager.release(self)
+			return
+		_pierce_remaining -= 1

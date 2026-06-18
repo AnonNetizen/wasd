@@ -57,6 +57,8 @@
 | `client/assets/`（即 `res://assets/`） | 美术 / 音效 |
 | `client/scenes/boot/main.tscn` | F1 最小启动场景，详见 `docs/代码/formal_client_boot.md` |
 | `client/scripts/autoload/` | F2 横向 autoload 骨架，已含 `DataLoader` / `RNG` / `GameState` / `GameClock` / `Settings` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `AudioManager` / `Localization` / `UIManager` |
+| `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口与 `DamageInfo` |
+| `client/scripts/gameplay/` | F4 最小可玩闭环阶段脚本：`f4_run_loop` / `f4_player` / `f4_weapon_system` / `f4_bullet` / `f4_enemy` / `f4_hud` |
 | `user://settings.cfg` | 玩家设置存档；游戏进度存档走 `user://saves/<slot>/<kind>.save`（`meta` / `run` / `replay_index`） |
 
 `docs/` 下：
@@ -121,8 +123,8 @@
 | **查知识库 / 找文档关系 / 任务路由** | 先看 `docs/AI知识库索引.md` 的任务路由表，需要机器可读元数据时看 `docs/_kb_index.json`，搜索同义词先看 `docs/术语表.md` |
 | **续接当前状态 / 下一步** | 先看 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`；上下文压缩后先以用户最后明确指令对齐，`Next Steps` 只作候选参考；需要长期事实 / ADR 摘要 / 历史细节时再看 `docs/AI记忆/项目记忆.md` 和当日会话日志 |
 | **查看 / 维护未来任务** | 看 `docs/TODO.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
-| **启动 / 推进正式项目** | 优先读当前阶段工作包；当前 F4 读 `docs/AI协作/工作包/F4-MinPlayableLoop.md`，历史 F3 数据闭环读 `docs/AI协作/工作包/F3-DataLoader.md`。没有工作包时再看 [`docs/正式项目工作规划.md`](正式项目工作规划.md) |
-| **维护正式客户端启动骨架** | 看 `client/README.md` 与 `docs/代码/formal_client_boot.md`；改主场景或启动验证时同步本导航和 `docs/代码/README.md` |
+| **启动 / 推进正式项目** | 优先读当前阶段工作包；当前 F4 读 `docs/AI协作/工作包/F4-MinPlayableLoop.md` 和 `docs/代码/f4_min_playable_loop.md`，历史 F3 数据闭环读 `docs/AI协作/工作包/F3-DataLoader.md`。没有工作包时再看 [`docs/正式项目工作规划.md`](正式项目工作规划.md) |
+| **维护正式客户端启动骨架** | 看 `client/README.md`、`docs/代码/formal_client_boot.md` 与 `docs/代码/f4_min_playable_loop.md`；改主场景或启动验证时同步本导航和 `docs/代码/README.md` |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
 | **校验数据 / 文案** | 跑 `python tools/validate_data.py` 与 `python tools/lint_project_rules.py`；改 DataLoader schema 时追加 `python tools/test_data_loader_schema.py`，改项目规则 lint 时追加 `python tools/test_project_rules_lint.py` |
 | **校验 GDScript 项目规则** | 跑 `python tools/lint_gdscript_rules.py`；当前第一档覆盖代码段顺序、危险 `:=`、中文硬编码字符串、裸随机 / 时间 / 暂停 API |
@@ -165,7 +167,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收，后续按 `docs/正式项目工作规划.md` 和 `docs/AI协作/工作包/F4-MinPlayableLoop.md` 进入 F4 最小可玩闭环。
+当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 首切片已落地 `Combat` autoload、`DamageInfo`、F4 runtime、Player / WeaponSystem / Bullet / Enemy / Spawner / HUD 的最小闭环，后续按 `docs/AI协作/工作包/F4-MinPlayableLoop.md` 继续补手动 1 分钟验证、运行时测试和正式模块拆分。
 
 ### 5.2 系统依赖图（Mermaid，AI 改动前先看影响范围）
 

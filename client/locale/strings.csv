@@ -5,6 +5,11 @@ ui_pause,暂停,Pause
 ui_quit,退出,Quit
 ui_confirm,确认,Confirm
 ui_cancel,取消,Cancel
+ui_hud_life,生命,Life
+ui_hud_kills,击杀,Kills
+ui_hud_time,时间,Time
+ui_game_over,本局结束,Run Over
+ui_restart_hint,按暂停键重开,Press Pause to restart
 ui_credits_title,致谢,Credits
 ui_credits_section_staff,工作人员,Staff
 ui_credits_section_engine_libraries,引擎与外部库,Engine and External Libraries

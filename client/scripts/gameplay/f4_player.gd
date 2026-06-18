@@ -1,0 +1,97 @@
+# Doc: docs/代码/f4_min_playable_loop.md
+# Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md, docs/游戏设计文档.md §3
+class_name F4Player
+extends CharacterBody2D
+
+
+signal life_changed(current_life: float, max_life: float)
+signal died()
+
+const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const STATS := preload("res://scripts/contracts/stats.gd")
+const DRAW_RADIUS: float = 12.0
+
+var aim_direction: Vector2 = Vector2.RIGHT
+var _move_speed: float = 0.0
+var _max_life: float = 1.0
+var _life_points: float = 1.0
+
+
+func _ready() -> void:
+	var camera: Camera2D = Camera2D.new()
+	camera.name = "CenteredCamera"
+	camera.enabled = true
+	camera.position_smoothing_enabled = false
+	add_child(camera)
+	camera.make_current()
+
+
+func _physics_process(delta: float) -> void:
+	if not GameState.is_state(GameState.PLAYING):
+		velocity = Vector2.ZERO
+		return
+
+	var scaled_delta: float = GameClock.delta_scaled(delta)
+	if scaled_delta <= 0.0:
+		velocity = Vector2.ZERO
+		return
+
+	var move_input: Vector2 = Input.get_vector(
+		ACTIONS.MOVE_LEFT,
+		ACTIONS.MOVE_RIGHT,
+		ACTIONS.MOVE_UP,
+		ACTIONS.MOVE_DOWN
+	)
+	var aim_input: Vector2 = Input.get_vector(
+		ACTIONS.AIM_LEFT,
+		ACTIONS.AIM_RIGHT,
+		ACTIONS.AIM_UP,
+		ACTIONS.AIM_DOWN
+	)
+	if aim_input.length_squared() > 0.0:
+		aim_direction = _snap_to_four_directions(aim_input)
+
+	velocity = move_input * _move_speed
+	move_and_slide()
+
+
+func configure(base_stats: Dictionary) -> void:
+	_move_speed = float(base_stats.get(STATS.MOVE_SPEED, 0.0))
+	_max_life = float(base_stats.get(STATS.MAX_HP, 1))
+	_life_points = _max_life
+	life_changed.emit(_life_points, _max_life)
+
+
+func current_life() -> float:
+	return _life_points
+
+
+func max_life() -> float:
+	return _max_life
+
+
+func receive_damage(info: RefCounted) -> Dictionary:
+	var amount: float = float(info.get("amount"))
+	var applied_amount: float = minf(amount, _life_points)
+	_life_points = maxf(_life_points - amount, 0.0)
+	var is_defeated: bool = _life_points <= 0.0
+	life_changed.emit(_life_points, _max_life)
+	if is_defeated:
+		died.emit()
+	return {
+		"applied": true,
+		"amount": applied_amount,
+		"defeated": is_defeated,
+		"reason": "applied",
+	}
+
+
+func _draw() -> void:
+	draw_circle(Vector2.ZERO, DRAW_RADIUS, Color(0.35, 0.72, 1.0))
+	draw_arc(Vector2.ZERO, DRAW_RADIUS + 4.0, -0.7, 0.7, 10, Color.WHITE, 2.0)
+
+
+func _snap_to_four_directions(raw_direction: Vector2) -> Vector2:
+	if absf(raw_direction.x) >= absf(raw_direction.y):
+		return Vector2.RIGHT if raw_direction.x >= 0.0 else Vector2.LEFT
+	return Vector2.DOWN if raw_direction.y >= 0.0 else Vector2.UP

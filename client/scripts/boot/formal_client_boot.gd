@@ -5,6 +5,7 @@ extends Node
 
 
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
+const F4_RUN_LOOP := preload("res://scripts/gameplay/f4_run_loop.gd")
 
 
 func _ready() -> void:
@@ -57,3 +58,8 @@ func _ready() -> void:
 		String(state_name),
 		RNG.run_seed(),
 	])
+
+	if data_schema_ok:
+		var run_loop: Node = F4_RUN_LOOP.new()
+		run_loop.name = "F4RunLoop"
+		add_child(run_loop)

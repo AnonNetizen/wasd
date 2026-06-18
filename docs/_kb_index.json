@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_at": "2026-06-17",
+  "updated_at": "2026-06-18",
   "description": "Machine-readable AI knowledge base index for the wasd project.",
   "documents": [
     {
@@ -632,6 +632,34 @@
       "related_code": ["client/project.godot", "client/scenes/boot/main.tscn", "client/scripts/boot/formal_client_boot.gd"],
       "update_triggers": ["client main scene changes", "formal boot script changes", "formal project startup validation changes"],
       "keywords": ["FormalClientBoot", "client startup", "project.godot", "F1", "headless boot", "正式项目", "启动骨架"]
+    },
+    {
+      "path": "docs/代码/combat.md",
+      "type": "module_doc",
+      "authority": "Combat autoload contract for single-entry damage application and DamageInfo payloads",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-18",
+      "canonical_for": ["combat", "damage_info", "damage_pipeline"],
+      "must_read_for": ["combat_change", "damage_formula_change", "new_damage_source"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/f4_min_playable_loop.md"],
+      "related_code": ["client/scripts/combat/combat.gd", "client/scripts/combat/damage_info.gd", "client/scripts/contracts/damage_types.gd"],
+      "update_triggers": ["Combat API changes", "DamageInfo field changes", "damage type contract changes", "damage result schema changes"],
+      "keywords": ["Combat", "DamageInfo", "damage", "伤害", "apply_damage", "damage_types", "F4"]
+    },
+    {
+      "path": "docs/代码/f4_min_playable_loop.md",
+      "type": "module_doc",
+      "authority": "F4 minimal playable loop runtime contract for player movement, weapon firing, pooled bullets, pooled enemies, spawning, HUD, and restart",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-18",
+      "canonical_for": ["f4_min_playable_loop", "f4_runtime", "minimal_combat_loop"],
+      "must_read_for": ["f4_runtime_change", "player_runtime_change", "weapon_system_change", "spawner_change", "hud_change"],
+      "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/formal_client_boot.md", "docs/代码/README.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/gameplay/f4_run_loop.gd", "client/scripts/gameplay/f4_player.gd", "client/scripts/gameplay/f4_weapon_system.gd", "client/scripts/gameplay/f4_bullet.gd", "client/scripts/gameplay/f4_enemy.gd", "client/scripts/gameplay/f4_hud.gd", "client/scripts/boot/formal_client_boot.gd"],
+      "update_triggers": ["F4 runtime behavior changes", "Player or weapon runtime changes", "Spawner behavior changes", "HUD or restart flow changes", "F4 module split or rename"],
+      "keywords": ["F4", "MinPlayableLoop", "Player", "WeaponSystem", "Bullet", "Enemy", "Spawner", "HUD", "最小可玩闭环", "对象池", "headless boot"]
     },
     {
       "path": "docs/代码/data_loader.md",

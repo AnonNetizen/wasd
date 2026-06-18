@@ -63,7 +63,7 @@
 | 续接当前任务 | `docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、当日会话日志；需要长期背景时再读 `项目记忆.md` 相关节 | 通常不改文件 | 无；需要确认状态时跑 `python tools/docs_health_check.py` |
 | 查看 / 维护未来任务 | `docs/TODO.md`、`docs/AI记忆/current_state.json`、`docs/修改建议.md` | `docs/TODO.md`、必要时 current_state / 会话日志 / 修改建议 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
 | 启动 / 推进正式项目 | 当前阶段工作包；F4 默认 `docs/AI协作/工作包/F4-MinPlayableLoop.md`、`docs/AI记忆/current_state.json`、目标模块文档；历史 F3 数据闭环看 `docs/AI协作/工作包/F3-DataLoader.md` | `client/`、模块文档、必要时 TODO / GDD / ADR / 词表 / 测试策略 | 按工作包验收命令运行；DataLoader schema 变化跑 `python tools/test_data_loader_schema.py`；项目规则变化跑 `python tools/lint_project_rules.py`；语义风险检查跑 `python tools/lint_semantic_rules.py`；文档变化跑 `python tools/docs_health_check.py`；JSON 变化跑 `python -m json.tool` |
-| 维护正式客户端启动骨架 | `client/README.md`、`docs/代码/formal_client_boot.md`、`docs/正式项目工作规划.md` F1 | `client/project.godot`、`client/scenes/boot/main.tscn`、`client/scripts/boot/formal_client_boot.gd`、AI导航、代码文档索引 | `python tools/godot_bridge.py headless-boot`、`python tools/godot_bridge.py export-tree`、`python tools/docs_health_check.py` |
+| 维护正式客户端启动骨架 | `client/README.md`、`docs/代码/formal_client_boot.md`、`docs/代码/f4_min_playable_loop.md`、`docs/正式项目工作规划.md` F1/F4 | `client/project.godot`、`client/scenes/boot/main.tscn`、`client/scripts/boot/formal_client_boot.gd`、AI导航、代码文档索引 | `python tools/godot_bridge.py headless-boot`、`python tools/godot_bridge.py export-tree`、`python tools/docs_health_check.py` |
 | 维护 F2 autoload 骨架 | GDD §9.3~§9.19、`docs/代码/data_loader.md`、`docs/代码/rng.md`、`docs/代码/game_state.md`、`docs/代码/game_clock.md`、`docs/代码/settings.md`、`docs/代码/analytics.md`、`docs/代码/replay.md`、`docs/代码/pool_manager.md`、`docs/代码/save_manager.md`、`docs/代码/audio_manager.md`、`docs/代码/localization.md`、`docs/代码/ui_manager.md` | `client/scripts/autoload/`、`client/project.godot`、AI导航、代码文档索引、current_state | `python tools/godot_bridge.py headless-boot`、`python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/docs_health_check.py` |
 | 加 / 改角色 | GDD §3.4、`client/data/README.md`、`docs/词表与契约.md` §12、`docs/AI导航.md` | `client/data/characters.json`、`client/locale/strings.csv`、起始携带引用、必要时词表和模块文档 | `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；schema 变化跑 `python tools/test_data_loader_schema.py` |
 | 加 / 改武器 | `client/data/README.md`、`docs/词表与契约.md` §8 / §9 / §10、`docs/AI导航.md` | `client/data/weapons.json`、`client/locale/strings.csv`、必要时角色 / 模式引用 | `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；schema 变化跑 `python tools/test_data_loader_schema.py` |
@@ -83,6 +83,7 @@
 | 改致谢 / 第三方来源 | `CREDITS.md`、`client/data/README.md`、`client/locale/README.md` | `client/data/credits.json`、`client/locale/strings.csv`、DataLoader schema、AI导航、必要时 ADR / 记忆 | `python tools/validate_data.py`；DataLoader schema 变化跑 `python tools/test_data_loader_schema.py`；文档变化跑 `python tools/docs_health_check.py` |
 | 改规则 / 红线 | `AGENTS.md`、当前平台规则入口、`docs/决策记录.md`、`docs/AI协作/文档维护指南.md` | `AGENTS.md`、三平台规则、`CODEX.md`、`OPENCODE.md`、AI导航、项目记忆 | `python tools/docs_health_check.py`、`git diff --check -- . ":(exclude)draft/**" ":(exclude)DRAFT/**"` |
 | 改约定字符串 | `docs/词表与契约.md`、`docs/AI协作/文档健康检查.md` | 词表、生成常量、相关数据 / 代码、AI导航 | `python tools/sync_contracts.py` + `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；`python tools/docs_health_check.py` |
+| 写/改 F4 最小可玩闭环 | `docs/AI协作/工作包/F4-MinPlayableLoop.md`、`docs/代码/f4_min_playable_loop.md`、`docs/代码/combat.md`、相关 autoload 模块文档 | `client/scripts/gameplay/`、`client/scripts/combat/`、`formal_client_boot.gd`、locale、模块文档、AI导航 | `python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、数据 / 文案变化时跑 `validate_data` 和 `lint_project_rules` |
 | 写/改代码模块 | `docs/代码文档规范.md`、对应 `docs/代码/<module_id>.md`、目标源码；触碰 `.gd` 时遵循 [Godot 官方 GDScript style guide](https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/gdscript_styleguide.html)；测试相关时读 `docs/测试策略.md` 相关段；大型代码改动 review 读 `docs/AI协作/代码审核流程.md` | 代码、模块文档、AI导航依赖图、必要时 GDD / ADR | 对应测试义务 + `pre-commit run --all-files` 或等价 lint/test/docs 命令 + `python tools/docs_health_check.py` |
 | 写/改测试 | `docs/测试策略.md`、对应模块文档 | 测试文件、测试策略、必要时 CI 规划 | 对应测试命令；`python tools/docs_health_check.py` |
 | 加 GM 指令 / 调试工具 | `docs/游戏设计文档.md` §9.20、`docs/词表与契约.md` §7、`docs/测试策略.md` §5.10 | DebugConsole / GMCommandRegistry、InputMap action、导出 preset、AI导航、ADR、测试策略 | debug/dev_tools 构建验证命令可用；release 构建确认无入口 / 无调试资源；`python tools/sync_contracts.py --check`、`python tools/docs_health_check.py` |
@@ -152,7 +153,8 @@
 
 | 类型 | 路径 | 用途 |
 |------|------|------|
-| 正式项目启动模块文档 | `docs/代码/formal_client_boot.md` | 展示 F1 最小启动骨架的职责边界、场景结构与验证方式 |
+| 正式项目启动模块文档 | `docs/代码/formal_client_boot.md` | 展示 F1 最小启动骨架与 F4 runtime 挂载的职责边界、场景结构与验证方式 |
+| F4 运行时模块文档 | `docs/代码/f4_min_playable_loop.md` / `docs/代码/combat.md` | 展示最小可玩闭环、统一伤害入口、对象池实体、HUD 与验证方式 |
 | 正式项目 autoload 模块文档 | `docs/代码/data_loader.md` / `rng.md` / `game_state.md` / `game_clock.md` / `settings.md` / `analytics.md` / `replay.md` / `pool_manager.md` / `save_manager.md` / `audio_manager.md` / `localization.md` / `ui_manager.md` | 展示 F2 基础设施模块的 API、依赖与测试义务 |
 | 规则反例 | 当前平台规则入口的红线与自检清单 | 防止硬编码、裸字符串、绕过 autoload |
 

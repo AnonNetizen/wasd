@@ -5,7 +5,7 @@
 
 `client/` 是完整项目的 Godot 4.6.3 项目根，即 Godot 内的 `res://`。
 
-当前阶段为 F2 横向 autoload 骨架收口：正式工程已可启动，基础数据、随机、流程、时间、设置、埋点、回放、对象池、存档、音频、本地化和 UI 栈边界已按 `docs/正式项目工作规划.md` 逐步落地；玩法内容仍不在本阶段实现。
+当前阶段为 F4 最小可玩闭环首切片：正式工程已可启动，F2 横向 autoload 矩阵与 F3 数据 / 契约闭环已通过验收，启动场景在数据校验通过后会进入最小战斗 runtime。当前 runtime 覆盖玩家移动与居中相机、默认起始武器、池化子弹、池化敌人、`spawn_waves.csv` 刷怪、`Combat.apply_damage()` 伤害入口、基础 HUD 和失败后按暂停键重开。
 
 ## 目录
 
@@ -21,7 +21,7 @@
 
 ## Autoload
 
-F2 已注册以下全局单例：
+已注册以下全局单例：
 
 | 名称 | 脚本 | 作用 |
 |------|------|------|
@@ -37,6 +37,7 @@ F2 已注册以下全局单例：
 | `AudioManager` | `res://scripts/autoload/audio_manager.gd` | SFX / voice / music 注册、播放入口、Bus 路由与音量设置同步 |
 | `Localization` | `res://scripts/autoload/localization.gd` | 当前语言、语言切换与翻译入口 |
 | `UIManager` | `res://scripts/autoload/ui_manager.gd` | UI 场景栈与暂停 UI 联动 |
+| `Combat` | `res://scripts/combat/combat.gd` | 统一伤害入口，`DamageInfo` 载荷定义在 `res://scripts/combat/damage_info.gd` |
 
 ## 启动
 
@@ -56,4 +57,6 @@ python tools/godot_bridge.py --project client headless-boot
 
 ## 当前启动场景
 
-`res://scenes/boot/main.tscn` 挂载 `res://scripts/boot/formal_client_boot.gd`，仅用于验证正式项目能启动。它不包含玩家可见 UI 文本，不实现玩法逻辑，也不迁移 MVP 临时代码。
+`res://scenes/boot/main.tscn` 挂载 `res://scripts/boot/formal_client_boot.gd`。启动脚本会先执行正式数据 schema smoke 并输出日志；若校验通过，会挂载 `res://scripts/gameplay/f4_run_loop.gd` 进入 F4 最小可玩闭环。
+
+F4 runtime 当前仍是阶段性实现，文档见 `docs/代码/f4_min_playable_loop.md`。它不迁移 MVP 临时代码，不实现 F5+ 的暂停保存续局、完整主菜单、局外成长、升级选择、黄金回放或平衡 sim。
