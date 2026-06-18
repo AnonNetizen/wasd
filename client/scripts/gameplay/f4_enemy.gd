@@ -7,10 +7,12 @@ extends Node2D
 signal defeated(enemy: Node, exp_reward: int)
 
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
+const DEFEAT_FEEDBACK_DURATION: float = 0.18
 const HIT_FLASH_DURATION: float = 0.16
 
 var _contact_damage: float = 0.0
 var _contact_damage_type: String = ""
+var _defeat_feedback_remaining: float = 0.0
 var _exp_reward: int = 0
 var _hit_flash_remaining: float = 0.0
 var _hit_radius: float = 0.0
@@ -22,12 +24,15 @@ var _target: Node2D = null
 
 
 func _physics_process(delta: float) -> void:
+	var scaled_delta: float = GameClock.delta_scaled(delta)
+	if _defeat_feedback_remaining > 0.0:
+		_update_defeat_feedback(scaled_delta)
+		return
 	if _target == null or not is_instance_valid(_target):
 		return
 	if not GameState.is_state(GameState.PLAYING):
 		return
 
-	var scaled_delta: float = GameClock.delta_scaled(delta)
 	if scaled_delta <= 0.0:
 		return
 
@@ -41,6 +46,7 @@ func _physics_process(delta: float) -> void:
 
 
 func configure(enemy_data: Dictionary, target: Node2D) -> void:
+	_defeat_feedback_remaining = 0.0
 	_target = target
 	_max_life = float(enemy_data.get("max_hp", 1))
 	_life_points = _max_life
@@ -63,17 +69,31 @@ func separation_radius() -> float:
 
 
 func is_alive() -> bool:
-	return _life_points > 0.0
+	return _life_points > 0.0 and _defeat_feedback_remaining <= 0.0
+
+
+func is_defeat_feedback_active() -> bool:
+	return _defeat_feedback_remaining > 0.0
 
 
 func receive_damage(info: RefCounted) -> Dictionary:
+	if not is_alive():
+		return {
+			"applied": false,
+			"amount": 0.0,
+			"defeated": true,
+			"reason": "defeated",
+		}
+
 	var amount: float = float(info.get("amount"))
 	var applied_amount: float = minf(amount, _life_points)
 	_life_points = maxf(_life_points - amount, 0.0)
 	var is_defeated: bool = _life_points <= 0.0
 	if is_defeated:
+		remove_from_group("f4_enemies")
+		_defeat_feedback_remaining = DEFEAT_FEEDBACK_DURATION
 		defeated.emit(self, _exp_reward)
-		PoolManager.release(self)
+		queue_redraw()
 	else:
 		_start_hit_flash()
 	return {
@@ -87,6 +107,7 @@ func receive_damage(info: RefCounted) -> Dictionary:
 func _pool_reset() -> void:
 	_contact_damage = 0.0
 	_contact_damage_type = ""
+	_defeat_feedback_remaining = 0.0
 	_exp_reward = 0
 	_hit_flash_remaining = 0.0
 	_hit_radius = 0.0
@@ -95,20 +116,23 @@ func _pool_reset() -> void:
 	_move_speed = 0.0
 	_separation_radius = 0.0
 	_target = null
+	visible = true
 
 
 func _pool_release() -> void:
 	remove_from_group("f4_enemies")
+	_defeat_feedback_remaining = 0.0
 	_target = null
 
 
 func _draw() -> void:
 	var radius: float = maxf(_hit_radius, 8.0)
-	var color: Color = Color.WHITE if _hit_flash_remaining > 0.0 else Color(1.0, 0.38, 0.32)
+	var color: Color = _enemy_color()
+	var visual_radius: float = radius * _defeat_scale()
 	var points: PackedVector2Array = PackedVector2Array([
-		Vector2(0.0, -radius),
-		Vector2(radius * 0.85, radius),
-		Vector2(-radius * 0.85, radius),
+		Vector2(0.0, -visual_radius),
+		Vector2(visual_radius * 0.85, visual_radius),
+		Vector2(-visual_radius * 0.85, visual_radius),
 	])
 	draw_colored_polygon(points, color)
 
@@ -123,6 +147,30 @@ func _update_hit_flash(delta: float) -> void:
 		return
 	_hit_flash_remaining = maxf(_hit_flash_remaining - delta, 0.0)
 	queue_redraw()
+
+
+func _update_defeat_feedback(delta: float) -> void:
+	_defeat_feedback_remaining = maxf(_defeat_feedback_remaining - delta, 0.0)
+	if _defeat_feedback_remaining <= 0.0:
+		PoolManager.release(self)
+		return
+	queue_redraw()
+
+
+func _enemy_color() -> Color:
+	if _defeat_feedback_remaining > 0.0:
+		var remaining_ratio: float = _defeat_feedback_remaining / DEFEAT_FEEDBACK_DURATION
+		return Color(1.0, 0.74, 0.34, remaining_ratio)
+	if _hit_flash_remaining > 0.0:
+		return Color.WHITE
+	return Color(1.0, 0.38, 0.32)
+
+
+func _defeat_scale() -> float:
+	if _defeat_feedback_remaining <= 0.0:
+		return 1.0
+	var elapsed_ratio: float = 1.0 - (_defeat_feedback_remaining / DEFEAT_FEEDBACK_DURATION)
+	return lerpf(1.0, 1.35, elapsed_ratio)
 
 
 func _check_contact() -> void:

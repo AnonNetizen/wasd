@@ -106,7 +106,7 @@ func _start_run() -> void:
 	_hud.call("set_life", _player.call("current_life"), _player.call("max_life"))
 	_hud.call("set_kills", _kills)
 	_hud.call("set_level", _current_level)
-	_hud.call("set_xp", _current_xp, _xp_required_for_level(_current_level + 1))
+	_refresh_xp_hud()
 
 	GameState.change_state(GameState.PLAYING, {
 		"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
@@ -132,6 +132,14 @@ func current_level() -> int:
 
 func current_xp() -> int:
 	return _current_xp
+
+
+func current_level_xp() -> int:
+	return _xp_progress_for_level(_current_level)
+
+
+func current_level_xp_required() -> int:
+	return _xp_required_within_level(_current_level)
 
 
 func _update_spawner() -> void:
@@ -224,8 +232,7 @@ func _spawn_pickup_orb(spawn_position: Vector2, amount: int) -> void:
 
 func _on_pickup_orb_collected(amount: int) -> void:
 	_current_xp += amount
-	if _hud != null:
-		_hud.call("set_xp", _current_xp, _xp_required_for_level(_current_level + 1))
+	_refresh_xp_hud()
 	if GameState.is_state(GameState.PLAYING) and _can_level_up():
 		_begin_level_up()
 
@@ -239,7 +246,7 @@ func _begin_level_up() -> void:
 	_current_level = target_level
 	if _hud != null:
 		_hud.call("set_level", _current_level)
-		_hud.call("set_xp", _current_xp, _xp_required_for_level(_current_level + 1))
+	_refresh_xp_hud()
 
 	var panel_template: CanvasLayer = F4_LEVEL_UP_PANEL_SCRIPT.new()
 	panel_template.name = "F4LevelUpPanel"
@@ -399,6 +406,19 @@ func _load_growth_entries(mode: Dictionary) -> Array[Dictionary]:
 
 func _can_level_up() -> bool:
 	return _current_xp >= _xp_required_for_level(_current_level + 1)
+
+
+func _refresh_xp_hud() -> void:
+	if _hud != null:
+		_hud.call("set_xp", current_level_xp(), current_level_xp_required())
+
+
+func _xp_progress_for_level(level: int) -> int:
+	return maxi(_current_xp - _xp_required_for_level(level), 0)
+
+
+func _xp_required_within_level(level: int) -> int:
+	return maxi(_xp_required_for_level(level + 1) - _xp_required_for_level(level), 0)
 
 
 func _xp_required_for_level(level: int) -> int:

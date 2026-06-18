@@ -13,6 +13,7 @@ const BOOT_FRAMES: int = 8
 const INVULNERABILITY_FRAMES: int = 50
 const LEVEL_UP_FRAMES: int = 24
 const MOVE_FRAMES: int = 8
+const PICKUP_FEEDBACK_FRAMES: int = 40
 const SPAWN_FRAMES: int = 10
 
 var _failures: Array[String] = []
@@ -104,6 +105,7 @@ func _run() -> void:
 
 	await _expect_enemy_center_separation(run_loop, player)
 	await _expect_pickup_orb_draw_order(run_loop, player)
+	await _expect_pickup_orb_feedback(run_loop, player)
 	await _expect_level_up_choice(run_loop, player)
 
 	for _index: int in range(SPAWN_FRAMES):
@@ -128,12 +130,17 @@ func _run() -> void:
 		var enemy_result: Dictionary = Combat.apply_damage(enemy, enemy_info)
 		_expect(bool(enemy_result.get("applied", false)), "Combat should apply enemy damage")
 		_expect(bool(enemy_result.get("defeated", false)), "Combat should defeat the smoke enemy")
+		_expect(enemy.has_method("is_defeat_feedback_active") and bool(enemy.call("is_defeat_feedback_active")), "defeated enemies should show defeat feedback before pooling")
+		_expect(not enemy.is_in_group("f4_enemies"), "defeated enemies should leave the live enemy group during feedback")
 
 	await _wait_player_vulnerability(player)
+	var smoke_player_damage_source: Node = Node.new()
+	smoke_player_damage_source.name = "SmokePlayerDamageSource"
+	run_loop.add_child(smoke_player_damage_source)
 	var player_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 		float(player.call("max_life")),
 		DAMAGE_TYPES.PHYSICAL,
-		enemy,
+		smoke_player_damage_source,
 		player,
 		"team_enemy",
 		"team_player"
@@ -146,6 +153,7 @@ func _run() -> void:
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame
 	_expect(is_equal_approx(GameClock.now(), game_over_time), "GameClock should freeze in GAME_OVER")
+	smoke_player_damage_source.queue_free()
 
 	_finish()
 
@@ -258,6 +266,31 @@ func _expect_pickup_orb_draw_order(run_loop: Node, player: Node2D) -> void:
 	enemy.queue_free()
 
 
+func _expect_pickup_orb_feedback(run_loop: Node, player: Node2D) -> void:
+	run_loop.call("_spawn_pickup_orb", player.global_position + Vector2(40.0, 0.0), 0)
+	await get_tree().physics_frame
+	await get_tree().process_frame
+
+	var pickup_orb: Node2D = null
+	for raw_pickup: Node in get_tree().get_nodes_in_group("f4_pickups"):
+		if raw_pickup is Node2D:
+			pickup_orb = raw_pickup as Node2D
+			break
+	_expect(pickup_orb != null, "pickup orb should be active for feedback smoke")
+	if pickup_orb == null:
+		return
+	_expect(pickup_orb.has_method("is_attracting") and bool(pickup_orb.call("is_attracting")), "pickup orb should expose attraction feedback inside pickup range")
+
+	pickup_orb.global_position = player.global_position
+	await get_tree().physics_frame
+	await get_tree().process_frame
+	_expect(pickup_orb.has_method("is_collect_feedback_active") and bool(pickup_orb.call("is_collect_feedback_active")), "pickup orb should show collect feedback before pooling")
+	_expect(not pickup_orb.is_in_group("f4_pickups"), "collected pickup orb should leave active pickup group during feedback")
+	for _index: int in range(PICKUP_FEEDBACK_FRAMES):
+		await get_tree().process_frame
+	_expect(not bool(pickup_orb.call("is_collect_feedback_active")), "pickup orb collect feedback should finish and release")
+
+
 func _expect_level_up_choice(run_loop: Node, player: Node2D) -> void:
 	var weapon_system: Node = _find_node_by_name(player, "WeaponSystem")
 	_expect(weapon_system != null, "WeaponSystem should be available before level up")
@@ -277,6 +310,9 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> void:
 	_expect(GameState.is_state(GameState.LEVEL_UP), "experience pickup should enter LEVEL_UP")
 	_expect(level_panel != null, "level-up panel should appear")
 	_expect(int(run_loop.call("current_level")) == 2, "experience pickup should raise the player to level 2")
+	_expect(int(run_loop.call("current_xp")) == 20, "total xp should remain cumulative after level up")
+	_expect(int(run_loop.call("current_level_xp")) == 0, "current-level xp should reset after level up")
+	_expect(int(run_loop.call("current_level_xp_required")) == 35, "current-level xp requirement should use the next level segment")
 	if level_panel == null:
 		return
 

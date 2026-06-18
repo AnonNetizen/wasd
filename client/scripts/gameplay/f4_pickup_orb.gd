@@ -8,14 +8,31 @@ signal collected(amount: int)
 
 const DRAW_RADIUS: float = 5.0
 const COLLECT_DISTANCE: float = 8.0
+const COLLECT_FEEDBACK_DURATION: float = 0.14
 const DRAW_Z_INDEX: int = -10
+const PULSE_SPEED: float = 10.0
 
+var _attract_blend: float = 0.0
 var _amount: int = 0
+var _collect_feedback_remaining: float = 0.0
 var _pickup_speed: float = 0.0
 var _target: Node2D = null
+var _visual_time: float = 0.0
+
+
+func _process(delta: float) -> void:
+	_visual_time += delta
+	if _collect_feedback_remaining > 0.0:
+		_update_collect_feedback(GameClock.delta_scaled(delta))
+		return
+	if _attract_blend > 0.0:
+		_attract_blend = maxf(_attract_blend - delta * 4.0, 0.0)
+		queue_redraw()
 
 
 func _physics_process(delta: float) -> void:
+	if _collect_feedback_remaining > 0.0:
+		return
 	if _target == null or not is_instance_valid(_target):
 		return
 	if not GameState.is_state(GameState.PLAYING):
@@ -30,10 +47,11 @@ func _physics_process(delta: float) -> void:
 	if _target.has_method("pickup_range"):
 		pickup_range = float(_target.call("pickup_range"))
 	if distance > pickup_range:
+		_attract_blend = 0.0
 		return
+	_attract_blend = 1.0
 	if distance <= COLLECT_DISTANCE:
-		collected.emit(_amount)
-		PoolManager.release(self)
+		_start_collect_feedback()
 		return
 
 	var direction: Vector2 = (_target.global_position - global_position).normalized()
@@ -42,25 +60,78 @@ func _physics_process(delta: float) -> void:
 
 func configure(amount: int, target: Node2D, pickup_speed: float) -> void:
 	_amount = maxi(amount, 0)
+	_attract_blend = 0.0
+	_collect_feedback_remaining = 0.0
 	_target = target
 	_pickup_speed = pickup_speed
+	scale = Vector2.ONE
 	z_index = DRAW_Z_INDEX
 	add_to_group("f4_pickups")
 	queue_redraw()
 
 
 func _pool_reset() -> void:
+	_attract_blend = 0.0
 	_amount = 0
+	_collect_feedback_remaining = 0.0
 	_pickup_speed = 0.0
 	_target = null
+	scale = Vector2.ONE
 	z_index = DRAW_Z_INDEX
 	visible = true
 
 
 func _pool_release() -> void:
 	remove_from_group("f4_pickups")
+	_collect_feedback_remaining = 0.0
 	_target = null
 
 
+func is_collect_feedback_active() -> bool:
+	return _collect_feedback_remaining > 0.0
+
+
+func is_attracting() -> bool:
+	return _attract_blend > 0.0
+
+
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, DRAW_RADIUS, Color(0.45, 1.0, 0.62))
+	var radius: float = _draw_radius()
+	var color: Color = _draw_color()
+	draw_circle(Vector2.ZERO, radius, color)
+	if _attract_blend > 0.0 and _collect_feedback_remaining <= 0.0:
+		draw_arc(Vector2.ZERO, radius + 3.0, 0.0, TAU, 24, Color(0.8, 1.0, 0.88, 0.45 * _attract_blend), 1.5)
+
+
+func _start_collect_feedback() -> void:
+	var collected_amount: int = _amount
+	_amount = 0
+	_target = null
+	_attract_blend = 1.0
+	_collect_feedback_remaining = COLLECT_FEEDBACK_DURATION
+	remove_from_group("f4_pickups")
+	collected.emit(collected_amount)
+	queue_redraw()
+
+
+func _update_collect_feedback(delta: float) -> void:
+	_collect_feedback_remaining = maxf(_collect_feedback_remaining - delta, 0.0)
+	if _collect_feedback_remaining <= 0.0:
+		PoolManager.release(self)
+		return
+	queue_redraw()
+
+
+func _draw_radius() -> float:
+	if _collect_feedback_remaining > 0.0:
+		var collect_elapsed: float = 1.0 - (_collect_feedback_remaining / COLLECT_FEEDBACK_DURATION)
+		return DRAW_RADIUS * lerpf(1.0, 2.2, collect_elapsed)
+	var pulse: float = (sin(_visual_time * PULSE_SPEED) + 1.0) * 0.5
+	return DRAW_RADIUS * (1.0 + 0.35 * _attract_blend + 0.12 * pulse * _attract_blend)
+
+
+func _draw_color() -> Color:
+	if _collect_feedback_remaining > 0.0:
+		var remaining_ratio: float = _collect_feedback_remaining / COLLECT_FEEDBACK_DURATION
+		return Color(0.82, 1.0, 0.68, remaining_ratio)
+	return Color(0.45 + 0.2 * _attract_blend, 1.0, 0.62 + 0.18 * _attract_blend)
