@@ -12,7 +12,7 @@ This project keeps two credits records in sync:
 
 | Name | Role |
 |------|------|
-| AnonNetizen | Project Lead / Design Direction |
+| Anon London / 伦敦阿农 | Project Lead / Design Direction |
 | OpenAI Codex | AI-assisted Development |
 
 ## Engine And External Libraries

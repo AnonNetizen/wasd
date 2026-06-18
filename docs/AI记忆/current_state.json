@@ -247,6 +247,7 @@
   "blockers": [],
   "notes": [
     "Long-term decisions remain authoritative in docs/决策记录.md.",
+    "Project author credit: Chinese display name is 伦敦阿农 and English display name is Anon London.",
     "Use python tools/sync_contracts.py after changing docs/词表与契约.md, then run --check.",
     "When adding staff, third-party libraries, external resources, assets, fonts, audio, templates, or AI workflow references, update both CREDITS.md and client/data/credits.json; player-visible credits labels use ui_credits_* locale keys.",
     "Do not over-optimize or invent findings when the user asks for issues; say no issue when no actual issue is found.",
