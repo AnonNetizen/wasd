@@ -306,8 +306,6 @@ func _on_player_died() -> void:
 		"kills": _kills,
 		"run_time": GameClock.now(),
 	})
-	if _hud != null:
-		_hud.call("show_game_over")
 	_show_game_over_panel()
 
 

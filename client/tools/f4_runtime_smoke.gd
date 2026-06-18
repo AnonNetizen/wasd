@@ -159,6 +159,13 @@ func _run() -> void:
 	_expect(GameState.is_state(GameState.GAME_OVER), "player death should enter GAME_OVER")
 	var game_over_panel: Node = _find_node_by_name(get_tree().root, "F4GameOverPanel")
 	_expect(game_over_panel != null, "player death should show game-over panel")
+	var game_over_hud: Node = _find_node_by_name(run_loop, "F4Hud")
+	_expect(
+		game_over_hud != null
+		and game_over_hud.has_method("is_game_over_message_visible")
+		and not bool(game_over_hud.call("is_game_over_message_visible")),
+		"player death should not show a second HUD game-over message behind the panel"
+	)
 	var game_over_time: float = GameClock.now()
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame

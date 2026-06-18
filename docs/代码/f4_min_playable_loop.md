@@ -35,7 +35,7 @@
 | `client/scripts/gameplay/f4_enemy.gd` | 追击敌人、接触伤害、受伤 / 死亡 |
 | `client/scripts/gameplay/f4_pickup_orb.gd` | 池化经验球：进入玩家拾取范围后吸附并发放经验 |
 | `client/scripts/gameplay/f4_level_up_panel.gd` | F4 阶段响应式升级三选一面板；通过 `UIManager.push()` 挂载 |
-| `client/scripts/gameplay/f4_hud.gd` | 响应式最小 HUD：生命、击杀、时间、等级、经验、失败提示 |
+| `client/scripts/gameplay/f4_hud.gd` | 响应式最小 HUD：生命、击杀、时间、等级、经验、升级获得反馈 |
 | `client/scripts/ui/f4_title_menu.gd` | F4 阶段最小标题界面：开始 / 退出 |
 | `client/scripts/ui/f4_game_over_panel.gd` | F4 阶段最小失败面板：重开 / 回标题 |
 | `client/tools/f4_runtime_smoke.gd` | F4 headless runtime smoke，覆盖启动、输入、池化、伤害和失败状态 |
@@ -84,7 +84,7 @@ UIManager
 | 经验掉落 | 敌人死亡时按 `exp_reward` 生成池化经验球；经验球进入玩家 `pickup_range` 后显示吸附反馈，贴近玩家时立即发放经验并短暂弹出淡出后归池 | `PoolManager.acquire(PICKUP_ORB)` |
 | 升级选择 | 累计经验达到 `growth.csv` 阈值后进入 `GameState.LEVEL_UP`，玩法时间冻结；HUD 显示本级经验进度（升级后从 0 重新计入下一等级段）；候选从模式声明的 `growth_pools` 中按权重和 `RNG.ui_choice` 抽取；选择后应用 `stat_modifier`、显示获得反馈并回到 `PLAYING` | `F4LevelUpPanel.choice_selected` |
 | UI 布局 | HUD 使用全屏锚点下的 `MarginContainer + VBoxContainer`；升级面板使用全屏遮罩、居中容器和按视口宽度夹取的面板宽度，随窗口尺寸调整 | `Control.set_anchors_preset()` |
-| 失败 / 重开 | 玩家生命归零进入 `GameState.GAME_OVER`，`GameClock` 冻结，HUD 显示本地化提示并通过 `UIManager` 显示失败面板；玩家可重开或回标题，按 `pause` 仍可快捷重开 | `GameState.change_state()`、`F4RunLoop.restart_requested` |
+| 失败 / 重开 | 玩家生命归零进入 `GameState.GAME_OVER`，`GameClock` 冻结，并通过 `UIManager` 显示唯一失败面板；HUD 不再叠加旧失败提示。玩家可重开或回标题，按 `pause` 仍可快捷重开 | `GameState.change_state()`、`F4RunLoop.restart_requested` |
 | 自动 smoke | `godot_bridge.py f4-smoke` 以 `--f4-smoke` 用户参数启动正式主场景，并挂载 smoke runner 做关键断言 | `client/tools/f4_runtime_smoke.gd` |
 
 ## 公共 API
@@ -108,7 +108,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `F4PickupOrb.is_attracting()` / `is_collect_feedback_active()` | 无 | `bool` | 只读诊断值；用于 smoke 确认吸附 / 拾取反馈生命周期 |
 | `F4RunLoop.current_xp()` / `current_level_xp()` / `current_level_xp_required()` | 无 | `int` | `current_xp()` 是累计总经验；HUD 使用本级经验和本级需求显示升级进度 |
 | `F4LevelUpPanel.configure(choices)` / `choose_index(index)` | 升级候选 | `void` | 面板节点通过 `UIManager` 挂载；玩家可见文案来自 locale；面板宽度随视口宽度在最小 / 最大值之间自适应 |
-| `F4Hud.set_life()` / `set_kills()` / `set_level()` / `set_xp()` / `show_upgrade_feedback()` / `show_game_over()` | HUD 状态 | `void` | 文案使用 `tr()`；布局使用容器和锚点而非固定屏幕坐标 |
+| `F4Hud.set_life()` / `set_kills()` / `set_level()` / `set_xp()` / `show_upgrade_feedback()` | HUD 状态 | `void` | 文案使用 `tr()`；布局使用容器和锚点而非固定屏幕坐标；失败 UI 由 `F4GameOverPanel` 独占显示 |
 | `F4TitleMenu.start_requested` / `quit_requested` | 无 | signal | 由 `FormalClientBoot` 处理，不在标题菜单里直接创建 run |
 | `F4GameOverPanel.restart_requested` / `quit_to_title_requested` | 无 | signal | 由 `F4RunLoop` 转发给 `FormalClientBoot` 清理并切换流程 |
 

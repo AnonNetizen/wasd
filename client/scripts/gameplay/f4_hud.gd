@@ -106,8 +106,7 @@ func set_xp(xp: int, xp_required: int) -> void:
 
 
 func show_game_over() -> void:
-	_message_label.text = "%s\n%s" % [tr("ui_game_over"), tr("ui_restart_hint")]
-	_message_label.show()
+	_message_label.hide()
 
 
 func show_upgrade_feedback(name_key: String) -> void:
@@ -120,6 +119,10 @@ func show_upgrade_feedback(name_key: String) -> void:
 
 func is_upgrade_feedback_visible() -> bool:
 	return _upgrade_feedback_label != null and _upgrade_feedback_label.visible
+
+
+func is_game_over_message_visible() -> bool:
+	return _message_label != null and _message_label.visible
 
 
 func _make_label() -> Label:
