@@ -9,6 +9,7 @@ const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const GAME_MODES := preload("res://scripts/contracts/game_modes.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const F4_BULLET_SCRIPT := preload("res://scripts/gameplay/f4_bullet.gd")
+const F4_BACKGROUND_SCRIPT := preload("res://scripts/gameplay/f4_background.gd")
 const F4_ENEMY_SCRIPT := preload("res://scripts/gameplay/f4_enemy.gd")
 const F4_HUD_SCRIPT := preload("res://scripts/gameplay/f4_hud.gd")
 const F4_PLAYER_SCRIPT := preload("res://scripts/gameplay/f4_player.gd")
@@ -72,6 +73,11 @@ func _start_run() -> void:
 	_player.call("configure", player_stats)
 	_player.connect("life_changed", Callable(self, "_on_player_life_changed"))
 	_player.connect("died", Callable(self, "_on_player_died"), CONNECT_ONE_SHOT)
+
+	var background: Node2D = F4_BACKGROUND_SCRIPT.new()
+	background.name = "F4Background"
+	background.call("configure", _player)
+	_active_world.add_child(background)
 	_active_world.add_child(_player)
 
 	var weapon_system: Node = F4_WEAPON_SYSTEM_SCRIPT.new()

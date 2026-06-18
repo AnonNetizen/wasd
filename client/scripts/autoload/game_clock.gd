@@ -15,7 +15,7 @@ var _frozen: bool = false
 func _ready() -> void:
 	if GameState != null:
 		GameState.state_changed.connect(_on_game_state_changed)
-		_frozen = GameState.current() == GameState.PAUSED or GameState.current() == GameState.LEVEL_UP
+		_frozen = _state_freezes_clock(GameState.current())
 
 
 func _process(delta: float) -> void:
@@ -64,4 +64,8 @@ func reset() -> void:
 
 
 func _on_game_state_changed(_old_state: StringName, new_state: StringName, _context: Dictionary) -> void:
-	_frozen = new_state == GameState.PAUSED or new_state == GameState.LEVEL_UP
+	_frozen = _state_freezes_clock(new_state)
+
+
+func _state_freezes_clock(state: StringName) -> bool:
+	return state == GameState.PAUSED or state == GameState.LEVEL_UP or state == GameState.GAME_OVER

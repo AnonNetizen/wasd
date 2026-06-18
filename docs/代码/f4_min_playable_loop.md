@@ -5,7 +5,7 @@
 
 ## 职责
 
-- 在正式 `client/` 内提供一局最小战斗：玩家移动、相机居中、起始武器、池化子弹、池化敌人、波次刷怪、HUD、失败后重开。
+- 在正式 `client/` 内提供一局最小战斗：玩家移动、相机居中、基础背景参照、起始武器、池化子弹、池化敌人、波次刷怪、HUD、失败后重开。
 - 复用 F3 已建立的数据边界：`player.json`、`characters.json`、`weapons.json`、`enemies.csv`、`spawn_waves.csv` 和 `game_modes.json`。
 - 第一版只做标准生存模式、默认角色和默认起始武器的竖切，不实现角色选择、升级选择、局外成长、暂停保存续局、机关运行时、掉落经验球、音频、美术资产或平衡 sim。
 
@@ -25,6 +25,7 @@
 |------|------|
 | `client/scripts/boot/formal_client_boot.gd` | 数据校验通过后挂载 F4 runtime |
 | `client/scripts/gameplay/f4_run_loop.gd` | F4 阶段运行时编排、输入 action 默认注册、对象池注册、刷怪和重开 |
+| `client/scripts/gameplay/f4_background.gd` | 阶段性世界网格背景，让玩家移动具备空间参照 |
 | `client/scripts/gameplay/f4_player.gd` | 玩家移动、四方向瞄准、相机居中、受伤 / 死亡 |
 | `client/scripts/gameplay/f4_weapon_system.gd` | 起始武器自动开火和子弹池获取 |
 | `client/scripts/gameplay/f4_bullet.gd` | 子弹飞行、射程 / 生命周期裁剪、敌人命中 |
@@ -42,6 +43,7 @@ F4 暂时用脚本动态组装，避免提前固化复杂场景：
 FormalClientBoot
 └── F4RunLoop (Node2D)
     ├── F4ActiveWorld (Node2D)
+    │   ├── F4Background (Node2D)
     │   ├── Player (CharacterBody2D)
     │   │   ├── CenteredCamera (Camera2D)
     │   │   └── WeaponSystem (Node)
@@ -58,13 +60,15 @@ FormalClientBoot
 |------|----------|-------------------|
 | 启动 | `FormalClientBoot` 跑数据 schema smoke，成功后创建 `F4RunLoop` | `DataLoader.validate_project_data()` |
 | 开局 | 重置 `GameClock`，注册 / 预热子弹和敌人对象池，读取默认模式 / 角色 / 起始武器 | `PoolManager.register_pool()`、`DataLoader.load_json()` |
+| 背景 | 在玩家附近绘制世界空间网格和原点十字，让相机移动有参照 | `F4Background.configure()` |
 | 输入 | 运行时确保 InputMap action 有键盘和手柄默认事件；业务读取 action，不读物理键 | `InputMap`、`Input.get_vector()` |
-| 移动 / 瞄准 | 玩家按数据移速移动，瞄准吸附到上下左右，松开保持上一方向 | `F4Player.aim_direction` |
+| 移动 / 瞄准 | 玩家按数据移速移动，瞄准吸附到上下左右，松开保持上一方向；角色用方向指示器显示当前瞄准方向 | `F4Player.aim_direction` |
 | 自动开火 | WeaponSystem 按 `fire_rate` 从子弹池取节点并配置 | `PoolManager.acquire()` |
 | 子弹命中 | 子弹用距离检测命中 `f4_enemies` 组，伤害走 `Combat.apply_damage()` | `DamageInfo` |
 | 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人 | `GameClock.now()`、`RNG.spawn` |
+| 受击反馈 | 玩家和敌人受伤时短暂闪白，保持 F4 无资产阶段的最小命中反馈 | `_draw()` / `queue_redraw()` |
 | 敌人行为 | 敌人追向玩家，接触时通过 `Combat` 对玩家造成数据化伤害 | `F4Enemy.defeated` |
-| 失败 / 重开 | 玩家生命归零进入 `GameState.GAME_OVER`，HUD 显示本地化提示；按 `pause` 重载当前场景 | `GameState.change_state()` |
+| 失败 / 重开 | 玩家生命归零进入 `GameState.GAME_OVER`，`GameClock` 冻结，HUD 显示本地化提示；按 `pause` 重载当前场景 | `GameState.change_state()` |
 | 自动 smoke | `godot_bridge.py f4-smoke` 以 `--f4-smoke` 用户参数启动正式主场景，并挂载 smoke runner 做关键断言 | `client/tools/f4_runtime_smoke.gd` |
 
 ## 公共 API
@@ -128,9 +132,11 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 |------|----------|
 | 启动没有进入 F4 | `DataLoader.validate_project_data()` 是否通过；`FormalClientBoot` 日志 |
 | 无法移动 | InputMap action 是否存在；`F4RunLoop._ensure_input_actions()` 是否执行 |
+| 移动感知不明显 | `F4Background` 是否挂载；网格是否随玩家附近重绘 |
 | 不开火 | `starting_loadout.weapon_id` 是否存在；`fire_rate` 是否大于 0；子弹池是否注册 |
 | 不刷怪 | `spawn_waves.csv` 时间窗、预算、`max_alive` 是否允许；敌人池是否注册 |
 | 子弹打不到 | `hit_radius`、敌人位置、`bullet_range` / `lifetime` 是否合理 |
+| 游戏结束后计时继续 | `GameClock` 是否把 `GAME_OVER` 视为冻结状态；`f4-smoke` 是否通过冻结断言 |
 | 失败后无法重开 | 是否处于 `GameState.GAME_OVER`；`pause` action 是否触发 |
 
 ## 测试义务

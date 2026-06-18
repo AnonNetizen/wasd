@@ -296,7 +296,7 @@ hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,1,physical,1.0,
 
 ```csv
 id,mode_id,wave_index,start_time,end_time,enemy_id,enemy_weight,spawn_interval,max_alive,spawn_budget,hazard_id,hazard_weight
-wave_standard_early_chasers,mode_standard_survival,1,0.0,60.0,enemy_chaser,100,1.2,12,40,,0
+wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,1.2,12,9999,,0
 ```
 
 字段说明：

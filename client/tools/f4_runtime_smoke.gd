@@ -43,6 +43,7 @@ func _run() -> void:
 
 	var camera: Camera2D = _find_node_by_name(player, "CenteredCamera") as Camera2D
 	_expect(camera != null and camera.enabled, "CenteredCamera should be enabled")
+	_expect(_find_node_by_name(run_loop, "F4Background") != null, "F4Background should provide movement reference")
 
 	var start_position: Vector2 = player.global_position
 	Input.action_press(ACTIONS.MOVE_RIGHT)
@@ -93,6 +94,10 @@ func _run() -> void:
 	_expect(bool(player_result.get("applied", false)), "Combat should apply player damage")
 	_expect(bool(player_result.get("defeated", false)), "Combat should defeat the player")
 	_expect(GameState.is_state(GameState.GAME_OVER), "player death should enter GAME_OVER")
+	var game_over_time: float = GameClock.now()
+	for _index: int in range(BOOT_FRAMES):
+		await get_tree().process_frame
+	_expect(is_equal_approx(GameClock.now(), game_over_time), "GameClock should freeze in GAME_OVER")
 
 	_finish()
 

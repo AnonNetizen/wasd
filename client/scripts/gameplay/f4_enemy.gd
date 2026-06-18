@@ -7,11 +7,13 @@ extends Node2D
 signal defeated(enemy: Node, exp_reward: int)
 
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
+const HIT_FLASH_DURATION: float = 0.16
 
 var _contact_damage: float = 0.0
 var _contact_damage_type: String = ""
 var _dealt_contact: bool = false
 var _exp_reward: int = 0
+var _hit_flash_remaining: float = 0.0
 var _hit_radius: float = 0.0
 var _life_points: float = 1.0
 var _max_life: float = 1.0
@@ -28,6 +30,8 @@ func _physics_process(delta: float) -> void:
 	var scaled_delta: float = GameClock.delta_scaled(delta)
 	if scaled_delta <= 0.0:
 		return
+
+	_update_hit_flash(scaled_delta)
 
 	var to_target: Vector2 = _target.global_position - global_position
 	if to_target.length_squared() > 0.0:
@@ -65,6 +69,8 @@ func receive_damage(info: RefCounted) -> Dictionary:
 	if is_defeated:
 		defeated.emit(self, _exp_reward)
 		PoolManager.release(self)
+	else:
+		_start_hit_flash()
 	return {
 		"applied": true,
 		"amount": applied_amount,
@@ -78,6 +84,7 @@ func _pool_reset() -> void:
 	_contact_damage_type = ""
 	_dealt_contact = false
 	_exp_reward = 0
+	_hit_flash_remaining = 0.0
 	_hit_radius = 0.0
 	_life_points = 1.0
 	_max_life = 1.0
@@ -92,12 +99,25 @@ func _pool_release() -> void:
 
 func _draw() -> void:
 	var radius: float = maxf(_hit_radius, 8.0)
+	var color: Color = Color.WHITE if _hit_flash_remaining > 0.0 else Color(1.0, 0.38, 0.32)
 	var points: PackedVector2Array = PackedVector2Array([
 		Vector2(0.0, -radius),
 		Vector2(radius * 0.85, radius),
 		Vector2(-radius * 0.85, radius),
 	])
-	draw_colored_polygon(points, Color(1.0, 0.38, 0.32))
+	draw_colored_polygon(points, color)
+
+
+func _start_hit_flash() -> void:
+	_hit_flash_remaining = HIT_FLASH_DURATION
+	queue_redraw()
+
+
+func _update_hit_flash(delta: float) -> void:
+	if _hit_flash_remaining <= 0.0:
+		return
+	_hit_flash_remaining = maxf(_hit_flash_remaining - delta, 0.0)
+	queue_redraw()
 
 
 func _check_contact() -> void:

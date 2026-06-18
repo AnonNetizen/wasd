@@ -6,7 +6,7 @@
 ## 职责
 
 - 提供玩法时间 `now()`、物理 tick `tick()` 和缩放 delta `delta_scaled()`。
-- 订阅 `GameState`，在暂停和升级选择等冻结状态返回 0 delta。
+- 订阅 `GameState`，在暂停、升级选择和游戏结束等冻结状态返回 0 delta。
 - 提供 `wall_now()` 给非玩法诊断 / UI / Analytics 使用。
 - 不负责修改 `Engine.time_scale`，也不负责驱动具体业务系统。
 
@@ -59,7 +59,7 @@
 
 ## 数据与契约
 
-无外部数据文件。冻结状态来自 `GameState.PAUSED` 与 `GameState.LEVEL_UP`。
+无外部数据文件。冻结状态来自 `GameState.PAUSED`、`GameState.LEVEL_UP` 与 `GameState.GAME_OVER`。
 
 ## 依赖
 
@@ -86,7 +86,7 @@
 | 现象 | 优先检查 |
 |------|----------|
 | 暂停时仍推进玩法时间 | `GameState` 是否切到冻结状态 |
-| tick 不增长 | 当前是否处于 `PAUSED` / `LEVEL_UP` |
+| tick 不增长 | 当前是否处于 `PAUSED` / `LEVEL_UP` / `GAME_OVER` |
 | 回放时间不稳定 | 业务是否绕过 `GameClock` 读取 `Time` |
 
 ## 测试义务

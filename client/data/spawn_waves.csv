@@ -1,2 +1,2 @@
 id,mode_id,wave_index,start_time,end_time,enemy_id,enemy_weight,spawn_interval,max_alive,spawn_budget,hazard_id,hazard_weight
-wave_standard_early_chasers,mode_standard_survival,1,0.0,60.0,enemy_chaser,100,1.2,12,40,,0
+wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,1.2,12,9999,,0

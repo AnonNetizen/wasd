@@ -9,9 +9,12 @@ signal died()
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
+const AIM_MARKER_LENGTH: float = 24.0
 const DRAW_RADIUS: float = 12.0
+const HIT_FLASH_DURATION: float = 0.18
 
 var aim_direction: Vector2 = Vector2.RIGHT
+var _hit_flash_remaining: float = 0.0
 var _move_speed: float = 0.0
 var _max_life: float = 1.0
 var _life_points: float = 1.0
@@ -36,6 +39,8 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		return
 
+	_update_hit_flash(scaled_delta)
+
 	var move_input: Vector2 = Input.get_vector(
 		ACTIONS.MOVE_LEFT,
 		ACTIONS.MOVE_RIGHT,
@@ -49,7 +54,10 @@ func _physics_process(delta: float) -> void:
 		ACTIONS.AIM_DOWN
 	)
 	if aim_input.length_squared() > 0.0:
-		aim_direction = _snap_to_four_directions(aim_input)
+		var next_aim_direction: Vector2 = _snap_to_four_directions(aim_input)
+		if next_aim_direction != aim_direction:
+			aim_direction = next_aim_direction
+			queue_redraw()
 
 	velocity = move_input * _move_speed
 	move_and_slide()
@@ -75,6 +83,7 @@ func receive_damage(info: RefCounted) -> Dictionary:
 	var applied_amount: float = minf(amount, _life_points)
 	_life_points = maxf(_life_points - amount, 0.0)
 	var is_defeated: bool = _life_points <= 0.0
+	_start_hit_flash()
 	life_changed.emit(_life_points, _max_life)
 	if is_defeated:
 		died.emit()
@@ -87,8 +96,28 @@ func receive_damage(info: RefCounted) -> Dictionary:
 
 
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, DRAW_RADIUS, Color(0.35, 0.72, 1.0))
-	draw_arc(Vector2.ZERO, DRAW_RADIUS + 4.0, -0.7, 0.7, 10, Color.WHITE, 2.0)
+	var body_color: Color = Color.WHITE if _hit_flash_remaining > 0.0 else Color(0.35, 0.72, 1.0)
+	var marker_tip: Vector2 = aim_direction.normalized() * AIM_MARKER_LENGTH
+	var marker_side: Vector2 = marker_tip.normalized().orthogonal() * 5.0
+	draw_circle(Vector2.ZERO, DRAW_RADIUS, body_color)
+	draw_line(Vector2.ZERO, marker_tip, Color.WHITE, 3.0)
+	draw_colored_polygon(PackedVector2Array([
+		marker_tip,
+		marker_tip - aim_direction.normalized() * 8.0 + marker_side,
+		marker_tip - aim_direction.normalized() * 8.0 - marker_side,
+	]), Color.WHITE)
+
+
+func _start_hit_flash() -> void:
+	_hit_flash_remaining = HIT_FLASH_DURATION
+	queue_redraw()
+
+
+func _update_hit_flash(delta: float) -> void:
+	if _hit_flash_remaining <= 0.0:
+		return
+	_hit_flash_remaining = maxf(_hit_flash_remaining - delta, 0.0)
+	queue_redraw()
 
 
 func _snap_to_four_directions(raw_direction: Vector2) -> Vector2:
