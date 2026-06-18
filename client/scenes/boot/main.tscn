@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3 uid="uid://wasd_formal_boot_main"]
+[gd_scene format=3 uid="uid://b1f5xhv5q714j"]
 
-[ext_resource type="Script" path="res://scripts/boot/formal_client_boot.gd" id="1_boot"]
+[ext_resource type="Script" uid="uid://dm0c122gjigqs" path="res://scripts/boot/formal_client_boot.gd" id="1_boot"]
 
-[node name="FormalClientBoot" type="Node"]
+[node name="FormalClientBoot" type="Node" unique_id=708947088]
 script = ExtResource("1_boot")

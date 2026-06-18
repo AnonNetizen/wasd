@@ -8,6 +8,7 @@ signal collected(amount: int)
 
 const DRAW_RADIUS: float = 5.0
 const COLLECT_DISTANCE: float = 8.0
+const DRAW_Z_INDEX: int = -10
 
 var _amount: int = 0
 var _pickup_speed: float = 0.0
@@ -43,6 +44,8 @@ func configure(amount: int, target: Node2D, pickup_speed: float) -> void:
 	_amount = maxi(amount, 0)
 	_target = target
 	_pickup_speed = pickup_speed
+	z_index = DRAW_Z_INDEX
+	add_to_group("f4_pickups")
 	queue_redraw()
 
 
@@ -50,10 +53,12 @@ func _pool_reset() -> void:
 	_amount = 0
 	_pickup_speed = 0.0
 	_target = null
+	z_index = DRAW_Z_INDEX
 	visible = true
 
 
 func _pool_release() -> void:
+	remove_from_group("f4_pickups")
 	_target = null
 
 

@@ -217,7 +217,9 @@ func _spawn_pickup_orb(spawn_position: Vector2, amount: int) -> void:
 	pickup_orb.global_position = spawn_position
 	_reparent_to_active_world(pickup_orb)
 	pickup_orb.call("configure", amount, _player, float(_player.call("pickup_orb_speed")))
-	pickup_orb.connect("collected", Callable(self, "_on_pickup_orb_collected"), CONNECT_ONE_SHOT)
+	var collected_callback: Callable = Callable(self, "_on_pickup_orb_collected")
+	if not pickup_orb.is_connected("collected", collected_callback):
+		pickup_orb.connect("collected", collected_callback, CONNECT_ONE_SHOT)
 
 
 func _on_pickup_orb_collected(amount: int) -> void:

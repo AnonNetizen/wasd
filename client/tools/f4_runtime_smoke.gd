@@ -103,6 +103,7 @@ func _run() -> void:
 	contact_source.queue_free()
 
 	await _expect_enemy_center_separation(run_loop, player)
+	await _expect_pickup_orb_draw_order(run_loop, player)
 	await _expect_level_up_choice(run_loop, player)
 
 	for _index: int in range(SPAWN_FRAMES):
@@ -222,6 +223,39 @@ func _expect_enemy_center_separation(run_loop: Node, player: Node2D) -> void:
 	_expect(center_distance >= 16.0, "enemy center separation should prevent full overlap")
 	enemy_a.queue_free()
 	enemy_b.queue_free()
+
+
+func _expect_pickup_orb_draw_order(run_loop: Node, player: Node2D) -> void:
+	var enemy_data: Dictionary = {
+		"max_hp": 6,
+		"move_speed": 0.0,
+		"contact_damage": 0,
+		"contact_damage_type": DAMAGE_TYPES.PHYSICAL,
+		"exp_reward": 0,
+		"hit_radius": 14.0,
+		"separation_radius": 0.0,
+	}
+	var enemy: Node2D = F4_ENEMY_SCRIPT.new()
+	enemy.name = "SmokeDrawOrderEnemy"
+	run_loop.add_child(enemy)
+	enemy.global_position = player.global_position + Vector2(500.0, 0.0)
+	enemy.call("configure", enemy_data, player)
+	enemy.set_physics_process(false)
+
+	run_loop.call("_spawn_pickup_orb", enemy.global_position, 1)
+	await get_tree().process_frame
+
+	var pickup_orb: Node2D = null
+	for raw_pickup: Node in get_tree().get_nodes_in_group("f4_pickups"):
+		if raw_pickup is Node2D:
+			pickup_orb = raw_pickup as Node2D
+			break
+	_expect(pickup_orb != null, "pickup orb should be active for draw-order smoke")
+	_expect(pickup_orb != null and pickup_orb.z_index < enemy.z_index, "pickup orbs should draw below enemies")
+	if pickup_orb != null:
+		PoolManager.release(pickup_orb)
+	enemy.remove_from_group("f4_enemies")
+	enemy.queue_free()
 
 
 func _expect_level_up_choice(run_loop: Node, player: Node2D) -> void:
