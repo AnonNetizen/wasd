@@ -28,6 +28,7 @@ const INT_STATS: Array[String] = ["max_hp", "bullet_count", "pierce_count"]
 const NON_NEGATIVE_STATS: Array[String] = [
 	"damage",
 	"damage_invulnerability_duration",
+	"player_separation_radius",
 	"pickup_range",
 	"luck",
 	"armor",

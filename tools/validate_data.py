@@ -35,6 +35,7 @@ INT_STATS = {"max_hp", "bullet_count", "pierce_count"}
 NON_NEGATIVE_STATS = {
     "damage",
     "damage_invulnerability_duration",
+    "player_separation_radius",
     "pickup_range",
     "luck",
     "armor",

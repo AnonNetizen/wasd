@@ -111,6 +111,7 @@ func _run() -> void:
 	contact_source.queue_free()
 
 	await _expect_enemy_center_separation(run_loop, player)
+	await _expect_player_enemy_separation(run_loop, player)
 	await _expect_swarm_enemy_spawn(run_loop, player)
 	await _expect_pickup_orb_draw_order(run_loop, player)
 	await _expect_pickup_orb_feedback(run_loop, player)
@@ -250,6 +251,45 @@ func _expect_enemy_center_separation(run_loop: Node, player: Node2D) -> void:
 	_expect(center_distance >= 16.0, "enemy center separation should prevent full overlap")
 	enemy_a.queue_free()
 	enemy_b.queue_free()
+
+
+func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
+	var isolated_player: Node2D = F4_PLAYER_SCRIPT.new()
+	isolated_player.name = "SmokeSeparatedPlayer"
+	run_loop.add_child(isolated_player)
+	isolated_player.global_position = player.global_position + Vector2(600.0, 0.0)
+	var player_stats: Dictionary = {}
+	player_stats[STATS.MAX_HP] = 6
+	player_stats[STATS.MOVE_SPEED] = 0.0
+	player_stats[STATS.DAMAGE_INVULNERABILITY_DURATION] = 0.7
+	player_stats[STATS.PLAYER_SEPARATION_RADIUS] = 10.0
+	isolated_player.call("configure", player_stats)
+
+	var enemy_data: Dictionary = {
+		"max_hp": 5,
+		"move_speed": 0.0,
+		"contact_damage": 1,
+		"contact_damage_type": DAMAGE_TYPES.PHYSICAL,
+		"exp_reward": 0,
+		"hit_radius": 14.0,
+		"separation_radius": 9.0,
+	}
+	var enemy: Node2D = F4_ENEMY_SCRIPT.new()
+	enemy.name = "SmokePlayerSeparatedEnemy"
+	run_loop.add_child(enemy)
+	enemy.global_position = isolated_player.global_position
+	enemy.call("configure", enemy_data, isolated_player)
+	var player_life_before_contact: float = float(isolated_player.call("current_life"))
+
+	for _index: int in range(BOOT_FRAMES):
+		await get_tree().physics_frame
+	var minimum_distance: float = float(enemy.call("separation_radius")) + float(isolated_player.call("separation_radius"))
+	var center_distance: float = enemy.global_position.distance_to(isolated_player.global_position)
+	_expect(center_distance >= minimum_distance - 0.5, "player separation should push enemies away from the player center")
+	_expect(float(isolated_player.call("current_life")) < player_life_before_contact, "separated enemies should still apply contact damage")
+	enemy.remove_from_group("f4_enemies")
+	enemy.queue_free()
+	isolated_player.queue_free()
 
 
 func _expect_swarm_enemy_spawn(run_loop: Node, _player: Node2D) -> void:

@@ -125,6 +125,7 @@ JSON 示例：
     "max_hp": 6,
     "move_speed": 240.0,
     "damage_invulnerability_duration": 0.7,
+    "player_separation_radius": 10.0,
     "fire_rate": 2.5,
     "damage": 3.5,
     "bullet_speed": 520.0,
@@ -145,6 +146,7 @@ JSON 示例：
 | `base_stats.max_hp` | int | `>= 1` | 默认最大生命 | 更耐打，失败更晚 |
 | `base_stats.move_speed` | float | `px/s`，`> 0` | 默认移动速度 | 走位更灵活，地图探索更快 |
 | `base_stats.damage_invulnerability_duration` | float | 秒，`>= 0` | 玩家受伤后的无敌窗口 | 更不容易被贴脸多段瞬杀，但受击节奏更宽松 |
+| `base_stats.player_separation_radius` | float | `px`，`>= 0` | 玩家中心排斥半径；与敌人 `separation_radius` 相加后决定敌人被推开的最小中心距离 | 更不容易被敌人中心贴身重叠，但过大可能让围怪显得松散 |
 | `base_stats.fire_rate` | float | 每秒发数，`> 0` | 默认自动射击频率 | DPS 提升，弹幕更密 |
 | `base_stats.damage` | float | `>= 0` | 单发基础伤害 | 击杀更快 |
 | `base_stats.bullet_speed` | float | `px/s`，`> 0` | 子弹飞行速度 | 更容易命中远处移动敌人 |

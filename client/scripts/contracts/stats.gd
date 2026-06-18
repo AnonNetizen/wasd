@@ -5,6 +5,7 @@ const VALUES: Array[String] = [
 	"max_hp",
 	"move_speed",
 	"damage_invulnerability_duration",
+	"player_separation_radius",
 	"damage",
 	"fire_rate",
 	"bullet_speed",
@@ -26,6 +27,7 @@ const VALUES: Array[String] = [
 const MAX_HP: String = "max_hp"
 const MOVE_SPEED: String = "move_speed"
 const DAMAGE_INVULNERABILITY_DURATION: String = "damage_invulnerability_duration"
+const PLAYER_SEPARATION_RADIUS: String = "player_separation_radius"
 const DAMAGE: String = "damage"
 const FIRE_RATE: String = "fire_rate"
 const BULLET_SPEED: String = "bullet_speed"

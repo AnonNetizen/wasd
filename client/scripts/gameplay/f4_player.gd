@@ -24,6 +24,7 @@ var _max_life: float = 1.0
 var _life_points: float = 1.0
 var _pickup_orb_speed: float = 0.0
 var _pickup_range: float = 0.0
+var _separation_radius: float = 0.0
 var _stat_additions: Dictionary = {}
 var _stat_multipliers: Dictionary = {}
 
@@ -102,6 +103,10 @@ func pickup_range() -> float:
 
 func luck() -> float:
 	return _luck
+
+
+func separation_radius() -> float:
+	return _separation_radius
 
 
 func apply_modifiers(modifiers: Array) -> void:
@@ -185,6 +190,7 @@ func _rebuild_stats(reset_life: bool) -> void:
 	_move_speed = _stat_value(STATS.MOVE_SPEED, 0.0)
 	_max_life = _stat_value(STATS.MAX_HP, 1.0)
 	_damage_invulnerability_duration = _stat_value(STATS.DAMAGE_INVULNERABILITY_DURATION, 0.0)
+	_separation_radius = _stat_value(STATS.PLAYER_SEPARATION_RADIUS, 0.0)
 	_pickup_range = _stat_value(STATS.PICKUP_RANGE, 0.0)
 	_pickup_orb_speed = _stat_value(STATS.PICKUP_ORB_SPEED, 0.0)
 	_luck = _stat_value(STATS.LUCK, 0.0)

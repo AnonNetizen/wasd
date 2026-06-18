@@ -80,7 +80,7 @@ UIManager
 | 子弹命中 | 子弹用距离检测命中 `f4_enemies` 组，伤害走 `Combat.apply_damage()` | `DamageInfo` |
 | 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人；当前有追猎者与疾行者两种数据化敌人 | `GameClock.now()`、`RNG.spawn` |
 | 受击 / 击杀反馈 | 玩家和敌人受伤时短暂闪白；敌人死亡后立即离开活敌组，短暂放大淡出后归池；玩家进入数据化受伤无敌窗口 | `_draw()` / `queue_redraw()` |
-| 敌人行为 | 敌人追向玩家，重叠时持续通过 `Combat` 尝试接触伤害；敌人中心按 `separation_radius` 做小范围排斥，是否伤害玩家由玩家无敌窗口判定 | `F4Enemy.defeated` |
+| 敌人行为 | 敌人追向玩家，重叠时持续通过 `Combat` 尝试接触伤害；敌人中心按 `separation_radius` 做小范围排斥，碰到玩家 `player_separation_radius` 时只推开敌人，是否伤害玩家由玩家无敌窗口判定 | `F4Enemy.defeated` |
 | 经验掉落 | 敌人死亡时按 `exp_reward` 生成池化经验球；经验球进入玩家 `pickup_range` 后显示吸附反馈，贴近玩家时立即发放经验并短暂弹出淡出后归池 | `PoolManager.acquire(PICKUP_ORB)` |
 | 升级选择 | 累计经验达到 `growth.csv` 阈值后进入 `GameState.LEVEL_UP`，玩法时间冻结；HUD 显示本级经验进度（升级后从 0 重新计入下一等级段）；候选从模式声明的 `growth_pools` 中按权重和 `RNG.ui_choice` 抽取；选择后应用 `stat_modifier`、显示获得反馈并回到 `PLAYING` | `F4LevelUpPanel.choice_selected` |
 | UI 布局 | HUD 使用全屏锚点下的 `MarginContainer + VBoxContainer`；升级面板使用全屏遮罩、居中容器和按视口宽度夹取的面板宽度，随窗口尺寸调整 | `Control.set_anchors_preset()` |
@@ -93,9 +93,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 | 名称 | 输入 | 输出 | 约束 |
 |------|------|------|------|
-| `F4Player.configure(base_stats)` | 合并后的玩家属性 | `void` | `move_speed` / `max_hp` / `damage_invulnerability_duration` 来自数据 |
+| `F4Player.configure(base_stats)` | 合并后的玩家属性 | `void` | `move_speed` / `max_hp` / `damage_invulnerability_duration` / `player_separation_radius` 来自数据 |
 | `F4Player.invulnerability_remaining()` | 无 | `float` | 只读诊断值；用于 smoke / 调试确认玩家侧无敌窗口是否归零 |
-| `F4Player.pickup_range()` / `pickup_orb_speed()` / `luck()` | 无 | `float` | 只读运行时属性；经验球与升级候选数量判定使用 |
+| `F4Player.pickup_range()` / `pickup_orb_speed()` / `luck()` / `separation_radius()` | 无 | `float` | 只读运行时属性；经验球、升级候选数量判定和玩家中心排斥使用 |
 | `F4Player.apply_modifiers(modifiers)` | `growth_pools.json` 的 modifiers | `void` | 按 `(基础 + 加法) * 乘法` 更新玩家运行时属性 |
 | `F4Player.receive_damage(info)` | `DamageInfo` | result dictionary | 只能由 `Combat.apply_damage()` 间接调用；无敌期返回 `reason=invulnerable` 且不扣生命 |
 | `F4WeaponSystem.configure(player, active_parent, weapon_data)` | 玩家、活跃父节点、武器数据 | `void` | 武器数据来自 `weapons.json` |
@@ -132,6 +132,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 子弹池：从 `weapons[].projectile.pool_id` 读取；当前样例为已登记 `bullet_basic`。
 - 敌人池：从 `enemies.csv.pool_id` 读取；当前 F4 注册已登记 `enemy_chaser` 与 `enemy_swarm`，两者复用 `F4Enemy` 追击行为但用数据区分数值和占位色。
 - 敌人中心间距：从 `enemies.csv.separation_radius` 读取；当前默认 9px，低于 `hit_radius` 以允许视觉重叠。
+- 玩家中心排斥：从合并后的玩家 `base_stats.player_separation_radius` 读取；当前默认 10px。敌人与玩家的最小中心距离为两者分离半径之和，碰到时只推开敌人，不改变玩家移动手感；接触伤害距离会取敌人 `hit_radius` 与双方分离半径之和的较大值，避免推开后反而打不到玩家。
 - 敌人占位色：从 `enemies.csv.visual_color` 读取 HTML 色值，只用于开发期几何占位图，不承载行为分支。
 - 受伤无敌：从合并后的玩家 `base_stats.damage_invulnerability_duration` 读取；当前默认 `player.json` 为 0.7 秒。
 - 经验球：使用词表 §8 `pickup_orb` 对象池；`player.json.base_stats.pickup_range` 控制吸附范围，`pickup_orb_speed` 控制吸附速度。
@@ -159,7 +160,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 | 你想改什么 | 主要文件 | 同步文档 | 验证方式 |
 |------------|----------|----------|----------|
-| 调玩家速度 / 生命 / 受伤无敌 | `player.json` / `characters.json` | `client/data/README.md` | `python tools/validate_data.py` |
+| 调玩家速度 / 生命 / 受伤无敌 / 中心排斥 | `player.json` / `characters.json` | `client/data/README.md` | `python tools/validate_data.py` |
 | 调武器伤害 / 射速 / 弹速 | `weapons.json` | `client/data/README.md` | `validate_data` + headless |
 | 调敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | `client/data/README.md` | `validate_data` + 手动跑一局 |
 | 调刷怪节奏 | `spawn_waves.csv` | `client/data/README.md` | `validate_data` + 手动 1 分钟 |
@@ -179,6 +180,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 不刷怪 | `spawn_waves.csv` 时间窗、预算、`max_alive` 是否允许；敌人池是否注册 |
 | 第二敌人不出现 | `enemies.csv.pool_id` 是否为已注册池；`game_modes.json.resource_pools.enemies` 与 `spawn_waves.csv.enemy_id` 是否引用该敌人；`f4-smoke` 是否通过第二敌人池断言 |
 | 敌人中心完全重叠 | `enemies.csv.separation_radius` 是否为 0；`f4-smoke` 是否通过中心分离断言 |
+| 敌人中心贴到玩家中心 | `player.json.base_stats.player_separation_radius` 是否为 0；`F4Enemy` 是否仍调用玩家中心排斥；`f4-smoke` 是否通过玩家-敌人分离断言 |
 | 子弹打不到 | `hit_radius`、敌人位置、`bullet_range` / `lifetime` 是否合理 |
 | 同一敌人贴住玩家不再造成后续伤害 | 玩家 `damage_invulnerability_duration` 是否过长；`F4Enemy` 不应保存单只敌人的接触伤害冷却 |
 | 不掉经验 / 不升级 | `enemies.csv.exp_reward` 是否大于 0；`pickup_orb` 池是否注册；`growth.csv` 下一级阈值是否达到 |

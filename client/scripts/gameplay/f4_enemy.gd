@@ -182,36 +182,62 @@ func _defeat_scale() -> float:
 
 func _check_contact() -> void:
 	var distance: float = global_position.distance_to(_target.global_position)
-	if distance > _hit_radius:
+	if distance > _contact_distance():
 		return
 
 	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(_contact_damage, _contact_damage_type, self, _target, "team_enemy", "team_player")
 	Combat.apply_damage(_target, info)
 
 
-func _apply_center_separation() -> void:
-	if _separation_radius <= 0.0:
-		return
+func _contact_distance() -> float:
+	var distance: float = _hit_radius
+	if _target != null and is_instance_valid(_target) and _target.has_method("separation_radius"):
+		distance = maxf(distance, _separation_radius + float(_target.call("separation_radius")))
+	return distance
 
+
+func _apply_center_separation() -> void:
 	var offset: Vector2 = Vector2.ZERO
-	for other: Node in get_tree().get_nodes_in_group("f4_enemies"):
-		if other == self or not other is Node2D or not other.has_method("separation_radius"):
-			continue
-		if other.has_method("is_alive") and not bool(other.call("is_alive")):
-			continue
-		var other_enemy: Node2D = other as Node2D
-		var minimum_distance: float = _separation_radius + float(other.call("separation_radius"))
-		if minimum_distance <= 0.0:
-			continue
-		var to_self: Vector2 = global_position - other_enemy.global_position
-		var current_distance: float = to_self.length()
-		if current_distance >= minimum_distance:
-			continue
-		var direction: Vector2 = _separation_direction(to_self)
-		offset += direction * (minimum_distance - current_distance) * 0.5
+	if _separation_radius > 0.0:
+		for other: Node in get_tree().get_nodes_in_group("f4_enemies"):
+			offset += _enemy_separation_offset(other)
+	offset += _target_separation_offset()
 
 	if offset.length_squared() > 0.0:
 		global_position += offset
+
+
+func _enemy_separation_offset(other: Node) -> Vector2:
+	if other == self or not other is Node2D or not other.has_method("separation_radius"):
+		return Vector2.ZERO
+	if other.has_method("is_alive") and not bool(other.call("is_alive")):
+		return Vector2.ZERO
+
+	var other_enemy: Node2D = other as Node2D
+	var minimum_distance: float = _separation_radius + float(other.call("separation_radius"))
+	return _separation_offset_from(other_enemy.global_position, minimum_distance, 0.5)
+
+
+func _target_separation_offset() -> Vector2:
+	if _target == null or not is_instance_valid(_target) or not _target.has_method("separation_radius"):
+		return Vector2.ZERO
+
+	var target_separation_radius: float = float(_target.call("separation_radius"))
+	var minimum_distance: float = _separation_radius + target_separation_radius
+	return _separation_offset_from(_target.global_position, minimum_distance, 1.0)
+
+
+func _separation_offset_from(other_position: Vector2, minimum_distance: float, strength: float) -> Vector2:
+	if minimum_distance <= 0.0:
+		return Vector2.ZERO
+
+	var to_self: Vector2 = global_position - other_position
+	var current_distance: float = to_self.length()
+	if current_distance >= minimum_distance:
+		return Vector2.ZERO
+
+	var direction: Vector2 = _separation_direction(to_self)
+	return direction * (minimum_distance - current_distance) * strength
 
 
 func _separation_direction(to_self: Vector2) -> Vector2:
