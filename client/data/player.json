@@ -3,6 +3,7 @@
   "base_stats": {
     "max_hp": 6,
     "move_speed": 240.0,
+    "damage_invulnerability_duration": 0.7,
     "fire_rate": 2.5,
     "damage": 3.5,
     "bullet_speed": 520.0,

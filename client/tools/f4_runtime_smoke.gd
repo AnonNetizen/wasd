@@ -4,9 +4,12 @@ extends Node
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const F4_PLAYER_SCRIPT := preload("res://scripts/gameplay/f4_player.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
+const STATS := preload("res://scripts/contracts/stats.gd")
 const AIM_FRAMES: int = 4
 const BOOT_FRAMES: int = 8
+const INVULNERABILITY_FRAMES: int = 50
 const MOVE_FRAMES: int = 8
 const SPAWN_FRAMES: int = 10
 
@@ -60,6 +63,42 @@ func _run() -> void:
 	_expect(player.get("aim_direction") == Vector2.UP, "arrow aim should snap to Vector2.UP")
 	_expect(player.global_position.distance_to(before_aim_position) < 1.0, "arrow aim should not move the player")
 
+	var isolated_player: Node2D = F4_PLAYER_SCRIPT.new()
+	isolated_player.name = "SmokeIsolatedPlayer"
+	run_loop.add_child(isolated_player)
+	var isolated_stats: Dictionary = {}
+	isolated_stats[STATS.MAX_HP] = 6
+	isolated_stats[STATS.MOVE_SPEED] = 0.0
+	isolated_stats[STATS.DAMAGE_INVULNERABILITY_DURATION] = 0.7
+	isolated_player.call("configure", isolated_stats)
+	var contact_source: Node = Node.new()
+	contact_source.name = "SmokeContactSource"
+	run_loop.add_child(contact_source)
+	var first_player_life: float = float(isolated_player.call("current_life"))
+	var contact_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		1.0,
+		DAMAGE_TYPES.PHYSICAL,
+		contact_source,
+		isolated_player,
+		"team_enemy",
+		"team_player"
+	)
+	var first_contact_result: Dictionary = Combat.apply_damage(isolated_player, contact_info)
+	var damaged_player_life: float = float(isolated_player.call("current_life"))
+	_expect(bool(first_contact_result.get("applied", false)), "first contact should damage the player")
+	_expect(damaged_player_life < first_player_life, "first contact should reduce player life")
+
+	var blocked_contact_result: Dictionary = Combat.apply_damage(isolated_player, contact_info)
+	_expect(not bool(blocked_contact_result.get("applied", true)), "contact should be blocked during player invulnerability")
+	_expect(String(blocked_contact_result.get("reason", "")) == "invulnerable", "blocked contact should report invulnerable")
+	_expect(is_equal_approx(float(isolated_player.call("current_life")), damaged_player_life), "blocked contact should not reduce player life")
+
+	await _wait_player_vulnerability(isolated_player)
+	var refreshed_contact_result: Dictionary = Combat.apply_damage(isolated_player, contact_info)
+	_expect(bool(refreshed_contact_result.get("applied", false)), "same contact source should damage after invulnerability expires")
+	isolated_player.queue_free()
+	contact_source.queue_free()
+
 	for _index: int in range(SPAWN_FRAMES):
 		await get_tree().process_frame
 		await get_tree().physics_frame
@@ -82,6 +121,7 @@ func _run() -> void:
 		_expect(bool(enemy_result.get("applied", false)), "Combat should apply enemy damage")
 		_expect(bool(enemy_result.get("defeated", false)), "Combat should defeat the smoke enemy")
 
+	await _wait_player_vulnerability(player)
 	var player_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 		float(player.call("max_life")),
 		DAMAGE_TYPES.PHYSICAL,
@@ -131,6 +171,20 @@ func _action_has_key(action_id: String, keycode: Key) -> bool:
 func _pool_stat(pool_id: String, key: String) -> int:
 	var stats: Dictionary = PoolManager.stats(pool_id)
 	return int(stats.get(key, 0))
+
+
+func _wait_player_vulnerability(player: Node2D) -> void:
+	for _index: int in range(INVULNERABILITY_FRAMES * 3):
+		_disable_enemy_physics()
+		if float(player.call("invulnerability_remaining")) <= 0.0:
+			return
+		await get_tree().physics_frame
+	_expect(false, "player invulnerability should expire while GameState is PLAYING")
+
+
+func _disable_enemy_physics() -> void:
+	for active_enemy: Node in get_tree().get_nodes_in_group("f4_enemies"):
+		active_enemy.set_physics_process(false)
 
 
 func _expect(condition: bool, message: String) -> void:

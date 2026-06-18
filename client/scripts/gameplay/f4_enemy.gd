@@ -11,7 +11,6 @@ const HIT_FLASH_DURATION: float = 0.16
 
 var _contact_damage: float = 0.0
 var _contact_damage_type: String = ""
-var _dealt_contact: bool = false
 var _exp_reward: int = 0
 var _hit_flash_remaining: float = 0.0
 var _hit_radius: float = 0.0
@@ -48,7 +47,6 @@ func configure(enemy_data: Dictionary, target: Node2D) -> void:
 	_contact_damage_type = String(enemy_data.get("contact_damage_type", ""))
 	_exp_reward = int(enemy_data.get("exp_reward", 0))
 	_hit_radius = float(enemy_data.get("hit_radius", 0.0))
-	_dealt_contact = false
 	add_to_group("f4_enemies")
 	queue_redraw()
 
@@ -82,7 +80,6 @@ func receive_damage(info: RefCounted) -> Dictionary:
 func _pool_reset() -> void:
 	_contact_damage = 0.0
 	_contact_damage_type = ""
-	_dealt_contact = false
 	_exp_reward = 0
 	_hit_flash_remaining = 0.0
 	_hit_radius = 0.0
@@ -123,11 +120,7 @@ func _update_hit_flash(delta: float) -> void:
 func _check_contact() -> void:
 	var distance: float = global_position.distance_to(_target.global_position)
 	if distance > _hit_radius:
-		_dealt_contact = false
-		return
-	if _dealt_contact:
 		return
 
-	_dealt_contact = true
 	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(_contact_damage, _contact_damage_type, self, _target, "team_enemy", "team_player")
 	Combat.apply_damage(_target, info)

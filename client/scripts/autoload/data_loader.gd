@@ -25,7 +25,14 @@ const GROWTH_POOLS_PATH: String = "res://data/growth_pools.json"
 const GAME_MODES_PATH: String = "res://data/game_modes.json"
 
 const INT_STATS: Array[String] = ["max_hp", "bullet_count", "pierce_count"]
-const NON_NEGATIVE_STATS: Array[String] = ["damage", "pickup_range", "luck", "armor", "lifesteal_ratio"]
+const NON_NEGATIVE_STATS: Array[String] = [
+	"damage",
+	"damage_invulnerability_duration",
+	"pickup_range",
+	"luck",
+	"armor",
+	"lifesteal_ratio",
+]
 const POSITIVE_STATS: Array[String] = ["move_speed", "fire_rate", "bullet_speed", "bullet_range", "crit_mult"]
 const RATIO_STATS: Array[String] = ["crit_chance", "resist_fire", "resist_poison", "resist_lightning", "lifesteal_ratio"]
 const WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "pierce_count", "crit_chance", "crit_mult"]

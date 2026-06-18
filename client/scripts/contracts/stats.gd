@@ -4,6 +4,7 @@ class_name Stats
 const VALUES: Array[String] = [
 	"max_hp",
 	"move_speed",
+	"damage_invulnerability_duration",
 	"damage",
 	"fire_rate",
 	"bullet_speed",
@@ -23,6 +24,7 @@ const VALUES: Array[String] = [
 
 const MAX_HP: String = "max_hp"
 const MOVE_SPEED: String = "move_speed"
+const DAMAGE_INVULNERABILITY_DURATION: String = "damage_invulnerability_duration"
 const DAMAGE: String = "damage"
 const FIRE_RATE: String = "fire_rate"
 const BULLET_SPEED: String = "bullet_speed"

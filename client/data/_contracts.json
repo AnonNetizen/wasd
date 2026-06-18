@@ -6,6 +6,7 @@
     "stats": [
       "max_hp",
       "move_speed",
+      "damage_invulnerability_duration",
       "damage",
       "fire_rate",
       "bullet_speed",

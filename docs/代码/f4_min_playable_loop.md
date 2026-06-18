@@ -66,8 +66,8 @@ FormalClientBoot
 | 自动开火 | WeaponSystem 按 `fire_rate` 从子弹池取节点并配置 | `PoolManager.acquire()` |
 | 子弹命中 | 子弹用距离检测命中 `f4_enemies` 组，伤害走 `Combat.apply_damage()` | `DamageInfo` |
 | 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人 | `GameClock.now()`、`RNG.spawn` |
-| 受击反馈 | 玩家和敌人受伤时短暂闪白，保持 F4 无资产阶段的最小命中反馈 | `_draw()` / `queue_redraw()` |
-| 敌人行为 | 敌人追向玩家，接触时通过 `Combat` 对玩家造成数据化伤害 | `F4Enemy.defeated` |
+| 受击反馈 | 玩家和敌人受伤时短暂闪白，玩家进入数据化受伤无敌窗口 | `_draw()` / `queue_redraw()` |
+| 敌人行为 | 敌人追向玩家，重叠时持续通过 `Combat` 尝试接触伤害；是否受伤由玩家无敌窗口判定 | `F4Enemy.defeated` |
 | 失败 / 重开 | 玩家生命归零进入 `GameState.GAME_OVER`，`GameClock` 冻结，HUD 显示本地化提示；按 `pause` 重载当前场景 | `GameState.change_state()` |
 | 自动 smoke | `godot_bridge.py f4-smoke` 以 `--f4-smoke` 用户参数启动正式主场景，并挂载 smoke runner 做关键断言 | `client/tools/f4_runtime_smoke.gd` |
 
@@ -77,8 +77,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 | 名称 | 输入 | 输出 | 约束 |
 |------|------|------|------|
-| `F4Player.configure(base_stats)` | 合并后的玩家属性 | `void` | `move_speed` / `max_hp` 来自数据 |
-| `F4Player.receive_damage(info)` | `DamageInfo` | result dictionary | 只能由 `Combat.apply_damage()` 间接调用 |
+| `F4Player.configure(base_stats)` | 合并后的玩家属性 | `void` | `move_speed` / `max_hp` / `damage_invulnerability_duration` 来自数据 |
+| `F4Player.invulnerability_remaining()` | 无 | `float` | 只读诊断值；用于 smoke / 调试确认玩家侧无敌窗口是否归零 |
+| `F4Player.receive_damage(info)` | `DamageInfo` | result dictionary | 只能由 `Combat.apply_damage()` 间接调用；无敌期返回 `reason=invulnerable` 且不扣生命 |
 | `F4WeaponSystem.configure(player, active_parent, weapon_data)` | 玩家、活跃父节点、武器数据 | `void` | 武器数据来自 `weapons.json` |
 | `F4Bullet.configure(stats, projectile, direction, source)` | 武器属性、弹体数据、方向、来源 | `void` | 节点必须来自 `PoolManager` |
 | `F4Enemy.configure(enemy_data, target)` | 敌人 CSV 行、目标玩家 | `void` | 节点必须来自 `PoolManager` |
@@ -99,6 +100,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 武器：从 `characters[].starting_loadout.weapon_id` 读取，不在代码写武器 id 分支。
 - 子弹池：从 `weapons[].projectile.pool_id` 读取；当前样例为已登记 `bullet_basic`。
 - 敌人池：从 `enemies.csv.pool_id` 读取；当前样例为已登记 `enemy_chaser`。
+- 受伤无敌：从合并后的玩家 `base_stats.damage_invulnerability_duration` 读取；当前默认 `player.json` 为 0.7 秒。
 - 伤害类型：从 `weapons.json` / `enemies.csv` 读取，交给 `Combat` 校验。
 - HUD 文案：`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_game_over`、`ui_restart_hint`。
 
@@ -119,7 +121,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 | 你想改什么 | 主要文件 | 同步文档 | 验证方式 |
 |------------|----------|----------|----------|
-| 调玩家速度 / 生命 | `player.json` / `characters.json` | `client/data/README.md` | `python tools/validate_data.py` |
+| 调玩家速度 / 生命 / 受伤无敌 | `player.json` / `characters.json` | `client/data/README.md` | `python tools/validate_data.py` |
 | 调武器伤害 / 射速 / 弹速 | `weapons.json` | `client/data/README.md` | `validate_data` + headless |
 | 调敌人血量 / 速度 / 接触伤害 | `enemies.csv` | `client/data/README.md` | `validate_data` + 手动跑一局 |
 | 调刷怪节奏 | `spawn_waves.csv` | `client/data/README.md` | `validate_data` + 手动 1 分钟 |
@@ -136,6 +138,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 不开火 | `starting_loadout.weapon_id` 是否存在；`fire_rate` 是否大于 0；子弹池是否注册 |
 | 不刷怪 | `spawn_waves.csv` 时间窗、预算、`max_alive` 是否允许；敌人池是否注册 |
 | 子弹打不到 | `hit_radius`、敌人位置、`bullet_range` / `lifetime` 是否合理 |
+| 同一敌人贴住玩家不再造成后续伤害 | 玩家 `damage_invulnerability_duration` 是否过长；`F4Enemy` 不应保存单只敌人的接触伤害冷却 |
 | 游戏结束后计时继续 | `GameClock` 是否把 `GAME_OVER` 视为冻结状态；`f4-smoke` 是否通过冻结断言 |
 | 失败后无法重开 | 是否处于 `GameState.GAME_OVER`；`pause` action 是否触发 |
 

@@ -168,7 +168,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、F4 runtime、Background / Player / WeaponSystem / Bullet / Enemy / Spawner / HUD 的最小闭环，并新增 `godot_bridge.py f4-smoke` 覆盖 headless 运行时链路；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，后续按 `docs/AI协作/工作包/F4-MinPlayableLoop.md` 继续复测 1 分钟体验、运行时测试和正式模块拆分。
+当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、F4 runtime、Background / Player / WeaponSystem / Bullet / Enemy / Spawner / HUD 的最小闭环，并新增 `godot_bridge.py f4-smoke` 覆盖 headless 运行时链路；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，后续按 `docs/AI协作/工作包/F4-MinPlayableLoop.md` 继续复测 1 分钟体验、运行时测试和正式模块拆分。
 
 ### 5.2 系统依赖图（Mermaid，AI 改动前先看影响范围）
 
