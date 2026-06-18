@@ -90,13 +90,19 @@
                            "Formal project F5 bad-save title notice landed: corrupted run continue now returns to title, hides continue, and shows a localized reset notice covered by f4-smoke.",
                            "Formal project F5 UI restore points landed: run payload ui_restore restores paused saves to the pause menu and pending level-up saves to the same rolled choice set, with f4-smoke coverage.",
                            "Formal project F5 level-up pause overlay fix landed: pressing pause on F4LevelUpPanel opens F4PauseMenu, closing it returns to LEVEL_UP, and ui_restore preserves underlying_state=level_up when saved from that stack.",
-                           "Formal project F5 final manual save checklist passed: user completed the checklist after the level-up pause overlay fix and reported no new issue."
+                           "Formal project F5 final manual save checklist passed: user completed the checklist after the level-up pause overlay fix and reported no new issue.",
+                           "Formal project F6 MetaProgression work package established at docs/AI协作/工作包/F6-MetaProgression.md to route settlement rewards, MetaProgressionSystem, and meta save roundtrip work."
                        ],
     "next_actions":  [
-                         "Start F6 meta progression by reading GDD §7.2, docs/正式项目工作规划.md F6, client/data/meta_progression.json, docs/代码/save_manager.md, and the relevant data / locale docs.",
+                         "Start F6 meta progression from docs/AI协作/工作包/F6-MetaProgression.md, then read its required module, data, locale, GDD, SaveManager, and testing references.",
                          "Implement the first F6 slice conservatively: settlement reward calculation, minimal MetaProgressionSystem API, and meta SaveManager roundtrip before adding broad content."
                      ],
     "last_verified":  [
+                          {
+                              "date":  "2026-06-18",
+                              "command":  "python -m json.tool docs/_kb_index.json; python -m json.tool docs/AI记忆/current_state.json; python tools/docs_health_check.py; git diff --check -- . \":(exclude)draft/**\" \":(exclude)DRAFT/**\"",
+                              "result":  "passed after adding docs/AI协作/工作包/F6-MetaProgression.md and synchronizing AI workflow routes; git diff check only reported CRLF normalization warnings for current_state.json and 项目记忆.md"
+                          },
                           {
                               "date":  "2026-06-18",
                               "command":  "manual final F5 save checklist by user",
@@ -294,7 +300,7 @@
                   "For large external AI tool repos, record a source snapshot and full tool-surface audit first; absorb useful procedure into project-owned docs/skills, and keep hooks, MCP, CLI, dashboards, plugins, and vendor trees uninstalled unless explicitly authorized.",
                   "After context summary, compaction, or restoration, align to the user\u0027s last explicit instruction first; summaries, Next Steps, and current_state next_actions are candidate context only, not authorization.",
                   "Default AI startup is now the low-token hot path: AGENTS.md -\u003e docs/AI协作/快速开工.md -\u003e current_state.json -\u003e platform rules -\u003e task-relevant AI导航 sections; read long-term memory only when needed.",
-                  "Formal project stage work should prefer docs/AI协作/工作包/; current F4 entry is docs/AI协作/工作包/F4-MinPlayableLoop.md, while docs/AI协作/工作包/F3-DataLoader.md remains the historical data-closure entry.",
+                  "Formal project stage work should prefer docs/AI协作/工作包/; current F6 entry is docs/AI协作/工作包/F6-MetaProgression.md, F4-MinPlayableLoop remains the runtime vertical-slice reference, and docs/AI协作/工作包/F3-DataLoader.md remains the historical data-closure entry.",
                   "Code-stage tasks should read docs/代码文档规范.md, the relevant docs/代码/\u003cmodule_id\u003e.md, and target source first; read GDD/ADR only for design conflict, unclear semantics, or new decisions.",
                   "For new or touched GDScript, follow the official Godot 4.6 GDScript style guide for naming, code order, formatting, comments, and typing; stricter project rules still take precedence, run python tools/lint_gdscript_rules.py for the first-tier project lint, and broad reformatting of unrelated old scripts requires an explicit task.",
                   "For new or touched formal GDScript, run python tools/lint_semantic_rules.py to collect third-tier non-blocking semantic advisory warnings; review warnings manually before deciding whether to fix or allow.",

@@ -85,7 +85,7 @@
 | `docs/AI协作/README.md` | AI 协作工程目录索引 |
 | `docs/AI协作/快速开工.md` | **AI 日常开工热路径**，降低默认上下文开销 |
 | `docs/AI协作/任务模板/` | 高频任务的标准 prompt + 文件操作清单 |
-| `docs/AI协作/工作包/` | 正式项目阶段任务的低 token 工作包；当前 F4 入口是 `F4-MinPlayableLoop.md`，历史 F3 数据闭环入口是 `F3-DataLoader.md` |
+| `docs/AI协作/工作包/` | 正式项目阶段任务的低 token 工作包；当前 F6 入口是 `F6-MetaProgression.md`，F4 最小可玩闭环入口是 `F4-MinPlayableLoop.md`，历史 F3 数据闭环入口是 `F3-DataLoader.md` |
 | `docs/AI协作/上下文预算.md` | 不同任务该读哪些文件 |
 | `docs/AI协作/角色分工.md` | 设计/实现/评审/平衡 四角色协作 |
 | `docs/AI协作/引擎集成.md` | Godot MCP / Bridge 接入指南 |
@@ -124,7 +124,7 @@
 | **查知识库 / 找文档关系 / 任务路由** | 先看 `docs/AI知识库索引.md` 的任务路由表，需要机器可读元数据时看 `docs/_kb_index.json`，搜索同义词先看 `docs/术语表.md` |
 | **续接当前状态 / 下一步** | 先看 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`；上下文压缩后先以用户最后明确指令对齐，`Next Steps` 只作候选参考；需要长期事实 / ADR 摘要 / 历史细节时再看 `docs/AI记忆/项目记忆.md` 和当日会话日志 |
 | **查看 / 维护未来任务** | 看 `docs/TODO.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
-| **启动 / 推进正式项目** | 优先读当前阶段工作包；F5 暂停 / 存档 / 续局已通过最终手动 checklist，当前进入 [`docs/正式项目工作规划.md`](正式项目工作规划.md) F6，优先准备局外成长奖励、结算和 meta 存档闭环；F4 历史入口为 `docs/AI协作/工作包/F4-MinPlayableLoop.md`，F3 数据闭环入口为 `docs/AI协作/工作包/F3-DataLoader.md` |
+| **启动 / 推进正式项目** | 优先读当前阶段工作包；F5 暂停 / 存档 / 续局已通过最终手动 checklist，当前 F6 入口为 `docs/AI协作/工作包/F6-MetaProgression.md`，优先准备局外成长奖励、结算和 meta 存档闭环；F4 历史入口为 `docs/AI协作/工作包/F4-MinPlayableLoop.md`，F3 数据闭环入口为 `docs/AI协作/工作包/F3-DataLoader.md` |
 | **维护正式客户端启动骨架 / 默认分辨率** | 看 `client/README.md`、`docs/代码/formal_client_boot.md` 与 `docs/代码/f4_min_playable_loop.md`；默认 viewport 当前为 1920×1080，窗口不允许任意拖拽缩放，拉伸策略为 `canvas_items + keep`；改主场景、窗口配置或启动验证时同步本导航和 `docs/代码/README.md` |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
 | **校验数据 / 文案** | 跑 `python tools/validate_data.py` 与 `python tools/lint_project_rules.py`；改 DataLoader schema 时追加 `python tools/test_data_loader_schema.py`，改项目规则 lint 时追加 `python tools/test_project_rules_lint.py` |

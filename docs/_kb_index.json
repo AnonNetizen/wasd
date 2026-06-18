@@ -65,7 +65,7 @@
       "authority": "Repository overview, required reading, structure, and run instructions",
       "status": "active",
       "owner_scope": "project",
-      "last_reviewed": "2026-06-16",
+      "last_reviewed": "2026-06-18",
       "canonical_for": ["repository_overview", "required_docs"],
       "must_read_for": ["new_human_contributor", "new_ai_session", "repo_structure_change"],
       "related_docs": ["AGENTS.md", "CONTRIBUTING.md", "docs/AI导航.md", "docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json", "client/README.md"],
@@ -110,7 +110,7 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["knowledge_base", "authority_hierarchy", "task_routes", "adr_tracking_matrix"],
       "must_read_for": ["doc_structure_change", "task_routing", "knowledge_base_change"],
-      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md"],
+      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md"],
       "related_code": ["tools/docs_health_check.py"],
       "update_triggers": ["new long-lived document", "document rename", "authority hierarchy change", "task route change"],
       "keywords": ["knowledge base", "知识库", "index", "索引", "权威层级", "任务路由", "FormalClientBoot", "正式项目启动骨架", "F1"]
@@ -247,7 +247,7 @@
       "authority": "Index for long-lived client module documentation",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-16",
+      "last_reviewed": "2026-06-18",
       "canonical_for": ["module_doc_index"],
       "must_read_for": ["code_module_change", "module_doc_lookup"],
       "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md"],
@@ -389,11 +389,11 @@
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-06-16",
       "canonical_for": ["stage_work_packages", "formal_project_task_packages"],
-      "must_read_for": ["formal_project_stage_task", "f3_dataloader_schema", "f4_min_playable_loop"],
-      "related_docs": ["docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/快速开工.md", "docs/AI协作/上下文预算.md", "docs/AI协作/README.md", "docs/AI导航.md"],
+      "must_read_for": ["formal_project_stage_task", "f3_dataloader_schema", "f4_min_playable_loop", "f6_meta_progression"],
+      "related_docs": ["docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/快速开工.md", "docs/AI协作/上下文预算.md", "docs/AI协作/README.md", "docs/AI导航.md"],
       "related_code": ["client/"],
       "update_triggers": ["new formal project stage", "repeated high-context stage task", "work package route change"],
-      "keywords": ["工作包", "stage work package", "formal project", "F3", "DataLoader", "F4", "min playable loop", "最小可玩闭环", "低token"]
+      "keywords": ["工作包", "stage work package", "formal project", "F3", "DataLoader", "F4", "min playable loop", "最小可玩闭环", "F6", "MetaProgression", "局外成长", "结算", "低token"]
     },
     {
       "path": "docs/AI协作/工作包/F3-DataLoader.md",
@@ -422,6 +422,20 @@
       "related_code": ["client/scenes/", "client/scripts/", "client/project.godot", "client/data/"],
       "update_triggers": ["F4 runtime scope changes", "minimum playable loop acceptance command changes", "formal runtime module split changes"],
       "keywords": ["F4", "MinPlayableLoop", "最小可玩闭环", "Player", "WeaponSystem", "Bullet", "Enemy", "Spawner", "Combat", "PoolManager", "GameClock", "RNG", "headless boot"]
+    },
+    {
+      "path": "docs/AI协作/工作包/F6-MetaProgression.md",
+      "type": "workflow",
+      "authority": "F6 meta progression task scope, reading budget, split order, editable files, and acceptance commands",
+      "status": "active",
+      "owner_scope": "ai-workflow",
+      "last_reviewed": "2026-06-18",
+      "canonical_for": ["f6_meta_progression_work_package", "meta_progression_settlement_loop"],
+      "must_read_for": ["f6_meta_progression", "meta_progression_runtime", "settlement_rewards", "meta_save_roundtrip"],
+      "related_docs": ["docs/正式项目工作规划.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/save_manager.md", "docs/代码/f4_min_playable_loop.md", "client/data/README.md", "client/locale/README.md", "docs/词表与契约.md", "docs/AI协作/上下文预算.md", "docs/AI记忆/current_state.json"],
+      "related_code": ["client/scripts/autoload/", "client/scripts/gameplay/", "client/scenes/", "client/data/meta_progression.json", "client/locale/strings.csv", "client/tools/", "tools/godot_bridge.py"],
+      "update_triggers": ["F6 meta progression scope changes", "settlement acceptance command changes", "meta save payload changes", "MetaProgressionSystem module split changes"],
+      "keywords": ["F6", "MetaProgression", "局外成长", "元进度", "settlement", "结算", "meta save", "SaveManager", "meta_progression.json", "run_rewards", "account_level", "upgrade_tracks", "unlocks"]
     },
     {
       "path": "docs/AI协作/上下文预算.md",
