@@ -351,8 +351,13 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> void:
 		return
 
 	var choice_id: String = String(level_panel.call("choice_id", 0))
-	level_panel.call("choose_index", 0)
-	await get_tree().process_frame
+	var choice_button: Button = _find_first_button(level_panel)
+	_expect(choice_button != null, "level-up panel should expose clickable option buttons")
+	if choice_button != null:
+		_expect(choice_button.process_mode == Node.PROCESS_MODE_ALWAYS, "level-up buttons should accept input while the tree is paused")
+		_expect(choice_button.visible, "level-up option button should be visible before click")
+		_expect(not choice_button.disabled, "level-up option button should be enabled before click")
+		await _click_button(choice_button)
 	_expect(GameState.is_state(GameState.PLAYING), "choosing a level-up option should resume PLAYING")
 	var hud: Node = _find_node_by_name(run_loop, "F4Hud")
 	_expect(hud != null and hud.has_method("is_upgrade_feedback_visible") and bool(hud.call("is_upgrade_feedback_visible")), "choosing a level-up option should show upgrade feedback")
@@ -364,6 +369,40 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> void:
 		_expect(float(player.call("pickup_range")) > previous_pickup_range, "pickup-range upgrade should apply immediately")
 	else:
 		_expect(false, "level-up choice should be a known growth option")
+
+
+func _find_first_button(root_node: Node) -> Button:
+	if root_node == null:
+		return null
+	if root_node is Button:
+		return root_node as Button
+	for child: Node in root_node.get_children():
+		var button: Button = _find_first_button(child)
+		if button != null:
+			return button
+	return null
+
+
+func _click_button(button: Button) -> void:
+	await get_tree().process_frame
+	var center: Vector2 = button.get_global_rect().get_center()
+	button.grab_focus()
+
+	var press: InputEventMouseButton = InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = center
+	press.global_position = center
+	get_viewport().push_input(press, true)
+	await get_tree().process_frame
+
+	var release: InputEventMouseButton = InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = center
+	release.global_position = center
+	get_viewport().push_input(release, true)
+	await get_tree().process_frame
 
 
 func _first_enemy_with_name_prefix(name_prefix: String) -> Node:
