@@ -17,12 +17,12 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 推进正式项目 F5 暂停 / 存档 / 续局：在已落地的 F4 最小可玩闭环和 F5 首片基础上，补 run roundtrip / 坏档隔离 / 迁移测试、手动存档 checklist，并为后续局外成长保存打基础。
+- [ ] 推进正式项目 F6 成长与局外循环：在 F4 经验升级和 F5 run/meta 存档基础上，先接结算奖励与 `MetaProgressionSystem` 最小闭环，再做永久升级购买、解锁授予和 meta roundtrip。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）
 
-- [ ] 深化接入强 `SaveManager`：在 F5 run 快照、坏档提示、迁移 smoke 和暂停 / 升级 UI 恢复点后，继续补 `meta` 局外成长业务和最终暂停 / 存档手动 checklist。
+- [ ] 深化接入强 `SaveManager`：在 F5 run 快照、坏档提示、迁移 smoke、暂停 / 升级 UI 恢复点和最终手动 checklist 后，继续补 `meta` 局外成长业务。
 - [ ] 扩展暂停菜单“保存并退出”和主菜单“继续游戏”流程：首片已恢复玩家、敌人、子弹、掉落、经验、RNG、GameClock、暂停菜单和升级选择面板；后续补遗物、主动道具和正式测试。
 - [ ] 实现 `MetaProgressionSystem`：结算奖励、账号等级、永久升级购买、解锁授予、`ModifierEngine` 注入。
 - [ ] 扩展 `client/data/growth_pools.json` 内容：在属性奖励样例后，评估遗物、主动强化、回血、刷新 / 跳过 / banish 等候选类型。
@@ -69,3 +69,4 @@
 - [x] 正式项目 F2 第一片 autoload 骨架：`DataLoader`、`RNG`、`GameState`、`GameClock` 已注册到 `client/project.godot`，并补齐对应模块文档。
 - [x] 正式项目 F2 横向 autoload 骨架：`Settings`、`Localization`、`UIManager`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`AudioManager` 已分片落地并可 headless 启动。
 - [x] 正式项目 F3 数据 / 契约闭环：`DataLoader`、`tools/validate_data.py`、schema 回归测试和 headless boot 已覆盖正式项目首批数据文件，并新增 F4 最小可玩闭环工作包。
+- [x] 正式项目 F5 暂停 / 存档 / 续局：run roundtrip、备份回退、双坏档隔离、v1 -> v2 迁移、坏档提示、暂停 / 升级 UI 恢复点、升级界面暂停菜单叠层和最终手动存档 checklist 已完成。
