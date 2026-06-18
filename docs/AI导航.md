@@ -125,7 +125,7 @@
 | **续接当前状态 / 下一步** | 先看 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`；上下文压缩后先以用户最后明确指令对齐，`Next Steps` 只作候选参考；需要长期事实 / ADR 摘要 / 历史细节时再看 `docs/AI记忆/项目记忆.md` 和当日会话日志 |
 | **查看 / 维护未来任务** | 看 `docs/TODO.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
 | **启动 / 推进正式项目** | 优先读当前阶段工作包；当前 F4 读 `docs/AI协作/工作包/F4-MinPlayableLoop.md` 和 `docs/代码/f4_min_playable_loop.md`，历史 F3 数据闭环读 `docs/AI协作/工作包/F3-DataLoader.md`。没有工作包时再看 [`docs/正式项目工作规划.md`](正式项目工作规划.md) |
-| **维护正式客户端启动骨架 / 默认分辨率** | 看 `client/README.md`、`docs/代码/formal_client_boot.md` 与 `docs/代码/f4_min_playable_loop.md`；默认 viewport 当前为 1920×1080，拉伸策略为 `canvas_items + expand`；改主场景、窗口配置或启动验证时同步本导航和 `docs/代码/README.md` |
+| **维护正式客户端启动骨架 / 默认分辨率** | 看 `client/README.md`、`docs/代码/formal_client_boot.md` 与 `docs/代码/f4_min_playable_loop.md`；默认 viewport 当前为 1920×1080，窗口不允许任意拖拽缩放，拉伸策略为 `canvas_items + keep`；改主场景、窗口配置或启动验证时同步本导航和 `docs/代码/README.md` |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
 | **校验数据 / 文案** | 跑 `python tools/validate_data.py` 与 `python tools/lint_project_rules.py`；改 DataLoader schema 时追加 `python tools/test_data_loader_schema.py`，改项目规则 lint 时追加 `python tools/test_project_rules_lint.py` |
 | **校验 GDScript 项目规则** | 跑 `python tools/lint_gdscript_rules.py`；当前第一档覆盖代码段顺序、危险 `:=`、中文硬编码字符串、裸随机 / 时间 / 暂停 API |
@@ -168,7 +168,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、F4 runtime、Background / Player / WeaponSystem / Bullet / Enemy / Spawner / PickupOrb / LevelUpPanel / HUD 的最小闭环，并新增 `godot_bridge.py f4-smoke` 覆盖 headless 运行时链路；正式客户端默认 viewport 为 1920×1080，窗口拉伸采用 `canvas_items + expand`，F4 HUD / LevelUpPanel 已改为锚点与容器布局；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，敌人中心已按 `enemies.csv.separation_radius` 做小范围排斥以避免完全重叠，经验球与升级三选一已接入 `growth.csv` / `growth_pools.json`，后续按 `docs/AI协作/工作包/F4-MinPlayableLoop.md` 继续复测 1 分钟体验、运行时测试和正式模块拆分。
+当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、F4 runtime、Background / Player / WeaponSystem / Bullet / Enemy / Spawner / PickupOrb / LevelUpPanel / HUD 的最小闭环，并新增 `godot_bridge.py f4-smoke` 覆盖 headless 运行时链路；正式客户端默认 viewport 为 1920×1080，窗口禁止任意拖拽缩放并采用 `canvas_items + keep` 保比例黑边策略，F4 HUD / LevelUpPanel 已改为锚点与容器布局；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，敌人中心已按 `enemies.csv.separation_radius` 做小范围排斥以避免完全重叠，经验球与升级三选一已接入 `growth.csv` / `growth_pools.json`，后续按 `docs/AI协作/工作包/F4-MinPlayableLoop.md` 继续复测 1 分钟体验、运行时测试和正式模块拆分。
 
 ### 5.2 系统依赖图（Mermaid，AI 改动前先看影响范围）
 
