@@ -35,7 +35,7 @@
 | `client/scenes/gameplay/player.tscn` | 正式玩家场景；包含 `CenteredCamera` 与 `WeaponSystem` |
 | `client/scenes/gameplay/bullet.tscn` / `enemy.tscn` / `pickup_orb.tscn` | 对象池实体场景；由 `PoolManager` 工厂实例化并复用 |
 | `client/scenes/ui/title_menu.tscn` / `pause_menu.tscn` / `settings_panel.tscn` / `game_over_panel.tscn` / `level_up_panel.tscn` / `meta_progression_panel.tscn` | 正式 UI 场景；脚本只绑定稳定节点、连接 signal 和刷新数据 |
-| `client/scripts/gameplay/gameplay_run_loop.gd` | 正式运行时编排、输入 action 默认注册、对象池注册、刷怪和重开 |
+| `client/scripts/gameplay/gameplay_run_loop.gd` | 正式运行时编排、输入 action 手柄兜底注册、对象池注册、刷怪和重开 |
 | `client/scripts/gameplay/world_background.gd` | 世界网格背景，让玩家移动具备空间参照 |
 | `client/scripts/gameplay/player.gd` | 玩家移动、四方向瞄准、相机居中、受伤 / 死亡 |
 | `client/scripts/gameplay/weapon_system.gd` | 起始武器自动开火和子弹池获取 |
@@ -90,7 +90,7 @@ UIManager
 | 启动 | `FormalClientBoot` 跑数据 schema smoke，正常启动显示 `TitleMenu`；标题菜单显示账号等级 / 局外货币摘要，有可购买升级时局外升级按钮显示可购买提示；标题菜单可打开 `MetaProgressionPanel` 查看 / 购买局外升级，也可打开 `SettingsPanel` 修改设置；`--runtime-smoke` 模式跳过标题并直接创建 `GameplayRunLoop` | `DataLoader.validate_project_data()`、`UIManager.push()` |
 | 开局 | `FormalClientBoot` 实例化 `gameplay_run_loop.tscn`；运行时重置 `GameClock`，注册 / 预热子弹、经验球和当前 F4 敌人对象池，读取默认模式 / 角色 / 起始武器，并在玩家 / 武器配置后应用 `MetaProgressionSystem.current_modifiers()` | `PackedScene.instantiate()`、`PoolManager.register_pool()`、`DataLoader.load_json()`、`MetaProgressionSystem.current_modifiers()` |
 | 背景 | 在玩家附近绘制世界空间网格和原点十字，让相机移动有参照 | `WorldBackground.configure()` |
-| 输入 | 运行时确保 InputMap action 有键盘和手柄默认事件；业务读取 action，不读物理键 | `InputMap`、`Input.get_vector()` |
+| 输入 | `Settings` 在启动 / 加载 / 修改时把键盘主绑定写入 InputMap；运行时只确保同一 action 有手柄轴 / 按钮兜底事件。业务读取 action，不读物理键 | `Settings`、`InputMap`、`Input.get_vector()` |
 | 移动 / 瞄准 | 玩家按数据移速移动，瞄准吸附到上下左右，松开保持上一方向；角色用方向指示器显示当前瞄准方向 | `Player.aim_direction` |
 | 自动开火 | WeaponSystem 按 `fire_rate` 从子弹池取节点并配置 | `PoolManager.acquire()` |
 | 子弹命中 | 子弹用距离检测命中 `active_enemies` 组，伤害走 `Combat.apply_damage()` | `DamageInfo` |
@@ -174,7 +174,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 ## 依赖
 
-- 上游依赖：`DataLoader`、`GameState`、`GameClock`、`RNG.spawn`、`RNG.ui_choice`、`PoolManager`、`UIManager`、`SaveManager`、`MetaProgressionSystem`、`Combat`、InputMap action 常量、locale。
+- 上游依赖：`DataLoader`、`GameState`、`GameClock`、`RNG.spawn`、`RNG.ui_choice`、`PoolManager`、`UIManager`、`SaveManager`、`MetaProgressionSystem`、`Combat`、`Settings` 写入的 InputMap action、locale。
 - 下游调用方：当前无；后续可拆分为正式 Player / WeaponSystem / Spawner / HUD 模块。
 - 禁止依赖：不得复制历史 MVP 代码；不得绕过正式 `.tscn` 场景资源临时拼长期 UI / runtime 节点；不得绕过 `PoolManager` 创建高频实体；不得直接扣生命；不得绕过 InputMap 读物理输入；不得用裸随机或原始时间。
 
@@ -212,6 +212,8 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 启动没有进入 F4 | `DataLoader.validate_project_data()` 是否通过；`FormalClientBoot` 日志 |
 | 场景化后节点找不到 | `.tscn` 中稳定节点名是否与脚本 `get_node_or_null()` 路径一致；按钮是否保留 `PROCESS_MODE_ALWAYS`；scene ext_resource 是否能被 Godot 解析 |
 | 无法移动 | InputMap action 是否存在；`GameplayRunLoop._ensure_input_actions()` 是否执行 |
+| 改键后旧键仍生效 | `Settings` 是否替换了对应 action 的 `InputEventKey`；`GameplayRunLoop._ensure_input_actions()` 不应再追加键盘默认事件 |
+| 手柄输入消失 | `Settings` 是否误删了 `InputEventJoypadButton` / `InputEventJoypadMotion`；runtime 手柄兜底是否执行 |
 | 移动感知不明显 | `WorldBackground` 是否挂载；网格是否随玩家附近重绘 |
 | 不开火 | `starting_loadout.weapon_id` 是否存在；`fire_rate` 是否大于 0；子弹池是否注册 |
 | 不刷怪 | `spawn_waves.csv` 时间窗、预算、`max_alive` 是否允许；敌人池是否注册 |

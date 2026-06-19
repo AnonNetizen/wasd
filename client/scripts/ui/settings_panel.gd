@@ -10,6 +10,80 @@ const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 
 const LOCALE_OPTIONS: Array[String] = ["zh_CN", "en"]
 const AIM_MODE_OPTIONS: Array[String] = ["4dir", "auto"]
+const INPUT_BINDING_ROWS: Array[Dictionary] = [
+	{
+		"key": SETTINGS_KEYS.INPUT_MOVE_UP,
+		"label_key": "ui_settings_input_move_up",
+		"label_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveUpBindingBox/MoveUpBindingLabel",
+		"option_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveUpBindingBox/MoveUpBindingOption",
+	},
+	{
+		"key": SETTINGS_KEYS.INPUT_MOVE_DOWN,
+		"label_key": "ui_settings_input_move_down",
+		"label_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveDownBindingBox/MoveDownBindingLabel",
+		"option_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveDownBindingBox/MoveDownBindingOption",
+	},
+	{
+		"key": SETTINGS_KEYS.INPUT_MOVE_LEFT,
+		"label_key": "ui_settings_input_move_left",
+		"label_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveLeftBindingBox/MoveLeftBindingLabel",
+		"option_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveLeftBindingBox/MoveLeftBindingOption",
+	},
+	{
+		"key": SETTINGS_KEYS.INPUT_MOVE_RIGHT,
+		"label_key": "ui_settings_input_move_right",
+		"label_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveRightBindingBox/MoveRightBindingLabel",
+		"option_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveRightBindingBox/MoveRightBindingOption",
+	},
+	{
+		"key": SETTINGS_KEYS.INPUT_AIM_UP,
+		"label_key": "ui_settings_input_aim_up",
+		"label_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimUpBindingBox/AimUpBindingLabel",
+		"option_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimUpBindingBox/AimUpBindingOption",
+	},
+	{
+		"key": SETTINGS_KEYS.INPUT_AIM_DOWN,
+		"label_key": "ui_settings_input_aim_down",
+		"label_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimDownBindingBox/AimDownBindingLabel",
+		"option_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimDownBindingBox/AimDownBindingOption",
+	},
+	{
+		"key": SETTINGS_KEYS.INPUT_AIM_LEFT,
+		"label_key": "ui_settings_input_aim_left",
+		"label_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimLeftBindingBox/AimLeftBindingLabel",
+		"option_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimLeftBindingBox/AimLeftBindingOption",
+	},
+	{
+		"key": SETTINGS_KEYS.INPUT_AIM_RIGHT,
+		"label_key": "ui_settings_input_aim_right",
+		"label_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimRightBindingBox/AimRightBindingLabel",
+		"option_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimRightBindingBox/AimRightBindingOption",
+	},
+	{
+		"key": SETTINGS_KEYS.INPUT_USE_ACTIVE_ITEM,
+		"label_key": "ui_settings_input_use_active_item",
+		"label_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/UseActiveItemBindingBox/UseActiveItemBindingLabel",
+		"option_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/UseActiveItemBindingBox/UseActiveItemBindingOption",
+	},
+	{
+		"key": SETTINGS_KEYS.INPUT_PAUSE,
+		"label_key": "ui_settings_input_pause",
+		"label_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/PauseBindingBox/PauseBindingLabel",
+		"option_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/PauseBindingBox/PauseBindingOption",
+	},
+	{
+		"key": SETTINGS_KEYS.INPUT_UI_CONFIRM,
+		"label_key": "ui_settings_input_ui_confirm",
+		"label_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/UiConfirmBindingBox/UiConfirmBindingLabel",
+		"option_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/UiConfirmBindingBox/UiConfirmBindingOption",
+	},
+	{
+		"key": SETTINGS_KEYS.INPUT_UI_BACK,
+		"label_key": "ui_settings_input_ui_back",
+		"label_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/UiBackBindingBox/UiBackBindingLabel",
+		"option_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/UiBackBindingBox/UiBackBindingOption",
+	},
+]
 
 var _aim_mode_option: OptionButton = null
 var _analytics_check: CheckButton = null
@@ -17,6 +91,7 @@ var _close_button: Button = null
 var _closing: bool = false
 var _fire_on_release_check: CheckButton = null
 var _fullscreen_check: CheckButton = null
+var _input_binding_options: Dictionary = {}
 var _locale_option: OptionButton = null
 var _master_slider: HSlider = null
 var _master_value_label: Label = null
@@ -80,6 +155,7 @@ func refresh() -> void:
 
 
 func _bind_nodes() -> void:
+	_input_binding_options.clear()
 	_locale_option = get_node_or_null("Root/Center/Panel/Margin/Layout/LanguageRow/LocaleOption") as OptionButton
 	_master_slider = get_node_or_null("Root/Center/Panel/Margin/Layout/MasterVolumeRow/MasterVolumeSlider") as HSlider
 	_master_value_label = get_node_or_null("Root/Center/Panel/Margin/Layout/MasterVolumeRow/MasterVolumeValueLabel") as Label
@@ -96,6 +172,9 @@ func _bind_nodes() -> void:
 	_record_replays_check = get_node_or_null("Root/Center/Panel/Margin/Layout/RecordReplaysCheck") as CheckButton
 	_analytics_check = get_node_or_null("Root/Center/Panel/Margin/Layout/AnalyticsCheck") as CheckButton
 	_close_button = get_node_or_null("Root/Center/Panel/Margin/Layout/CloseButton") as Button
+	for row: Dictionary in INPUT_BINDING_ROWS:
+		var key: String = String(row["key"])
+		_input_binding_options[key] = get_node_or_null(String(row["option_path"])) as OptionButton
 
 
 func _missing_required_nodes() -> bool:
@@ -114,9 +193,17 @@ func _missing_required_nodes() -> bool:
 		or _screen_shake_check == null
 		or _pause_on_focus_loss_check == null
 		or _record_replays_check == null
+		or _has_missing_input_binding_options()
 		or _analytics_check == null
 		or _close_button == null
 	)
+
+
+func _has_missing_input_binding_options() -> bool:
+	for row: Dictionary in INPUT_BINDING_ROWS:
+		if _input_binding_options.get(String(row["key"])) == null:
+			return true
+	return false
 
 
 func _connect_controls() -> void:
@@ -135,6 +222,10 @@ func _connect_controls() -> void:
 	_screen_shake_check.toggled.connect(_on_screen_shake_toggled)
 	_pause_on_focus_loss_check.toggled.connect(_on_pause_on_focus_loss_toggled)
 	_record_replays_check.toggled.connect(_on_record_replays_toggled)
+	for row: Dictionary in INPUT_BINDING_ROWS:
+		var key: String = String(row["key"])
+		var option: OptionButton = _input_binding_options[key] as OptionButton
+		option.item_selected.connect(_on_input_binding_selected.bind(key))
 	_analytics_check.toggled.connect(_on_analytics_toggled)
 	_close_button.pressed.connect(_on_close_pressed)
 
@@ -151,6 +242,7 @@ func _refresh_texts() -> void:
 	_set_label_text("Root/Center/Panel/Margin/Layout/AudioSectionLabel", "ui_settings_audio")
 	_set_label_text("Root/Center/Panel/Margin/Layout/VideoSectionLabel", "ui_settings_video")
 	_set_label_text("Root/Center/Panel/Margin/Layout/GameplaySectionLabel", "ui_settings_gameplay")
+	_set_label_text("Root/Center/Panel/Margin/Layout/InputSectionLabel", "ui_settings_input")
 	_set_label_text("Root/Center/Panel/Margin/Layout/PrivacySectionLabel", "ui_settings_privacy")
 	_set_label_text("Root/Center/Panel/Margin/Layout/LanguageRow/LocaleLabel", "ui_settings_language")
 	_set_label_text("Root/Center/Panel/Margin/Layout/MasterVolumeRow/MasterVolumeLabel", "ui_settings_master_volume")
@@ -175,6 +267,11 @@ func _refresh_texts() -> void:
 		tr("ui_settings_aim_mode_4dir"),
 		tr("ui_settings_aim_mode_auto"),
 	])
+	var input_options: Array[String] = Settings.input_binding_options()
+	for row: Dictionary in INPUT_BINDING_ROWS:
+		_set_label_text(String(row["label_path"]), String(row["label_key"]))
+		var option: OptionButton = _input_binding_options[String(row["key"])] as OptionButton
+		_replace_options(option, input_options)
 
 
 func _set_label_text(path: String, key: String) -> void:
@@ -204,6 +301,11 @@ func _refresh_values() -> void:
 	_screen_shake_check.button_pressed = bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true))
 	_pause_on_focus_loss_check.button_pressed = bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_PAUSE_ON_FOCUS_LOSS, true))
 	_record_replays_check.button_pressed = bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_RECORD_REPLAYS, true))
+	var input_options: Array[String] = Settings.input_binding_options()
+	for row: Dictionary in INPUT_BINDING_ROWS:
+		var key: String = String(row["key"])
+		var option: OptionButton = _input_binding_options[key] as OptionButton
+		_select_option_value(option, input_options, String(Settings.get_value(key, "")))
 	_analytics_check.button_pressed = bool(Settings.get_value(SETTINGS_KEYS.PRIVACY_ANALYTICS_ENABLED, true))
 
 
@@ -281,6 +383,13 @@ func _on_pause_on_focus_loss_toggled(enabled: bool) -> void:
 
 func _on_record_replays_toggled(enabled: bool) -> void:
 	_set_setting(SETTINGS_KEYS.GAMEPLAY_RECORD_REPLAYS, enabled)
+
+
+func _on_input_binding_selected(index: int, key: String) -> void:
+	var input_options: Array[String] = Settings.input_binding_options()
+	if index < 0 or index >= input_options.size():
+		return
+	_set_setting(key, input_options[index])
 
 
 func _on_analytics_toggled(enabled: bool) -> void:

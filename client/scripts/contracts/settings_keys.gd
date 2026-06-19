@@ -13,6 +13,18 @@ const VALUES: Array[String] = [
 	"gameplay.screen_shake",
 	"gameplay.pause_on_focus_loss",
 	"gameplay.record_replays",
+	"input.move_up",
+	"input.move_down",
+	"input.move_left",
+	"input.move_right",
+	"input.aim_up",
+	"input.aim_down",
+	"input.aim_left",
+	"input.aim_right",
+	"input.use_active_item",
+	"input.pause",
+	"input.ui_confirm",
+	"input.ui_back",
 	"privacy.analytics_enabled",
 ]
 
@@ -27,4 +39,16 @@ const GAMEPLAY_AIM_MODE: String = "gameplay.aim_mode"
 const GAMEPLAY_SCREEN_SHAKE: String = "gameplay.screen_shake"
 const GAMEPLAY_PAUSE_ON_FOCUS_LOSS: String = "gameplay.pause_on_focus_loss"
 const GAMEPLAY_RECORD_REPLAYS: String = "gameplay.record_replays"
+const INPUT_MOVE_UP: String = "input.move_up"
+const INPUT_MOVE_DOWN: String = "input.move_down"
+const INPUT_MOVE_LEFT: String = "input.move_left"
+const INPUT_MOVE_RIGHT: String = "input.move_right"
+const INPUT_AIM_UP: String = "input.aim_up"
+const INPUT_AIM_DOWN: String = "input.aim_down"
+const INPUT_AIM_LEFT: String = "input.aim_left"
+const INPUT_AIM_RIGHT: String = "input.aim_right"
+const INPUT_USE_ACTIVE_ITEM: String = "input.use_active_item"
+const INPUT_PAUSE: String = "input.pause"
+const INPUT_UI_CONFIRM: String = "input.ui_confirm"
+const INPUT_UI_BACK: String = "input.ui_back"
 const PRIVACY_ANALYTICS_ENABLED: String = "privacy.analytics_enabled"

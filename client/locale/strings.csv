@@ -19,6 +19,19 @@ ui_settings_aim_mode_auto,自动,Auto
 ui_settings_screen_shake,屏幕震动,Screen Shake
 ui_settings_pause_on_focus_loss,失焦暂停,Pause on Focus Loss
 ui_settings_record_replays,录制回放,Record Replays
+ui_settings_input,输入,Input
+ui_settings_input_move_up,上移,Move Up
+ui_settings_input_move_down,下移,Move Down
+ui_settings_input_move_left,左移,Move Left
+ui_settings_input_move_right,右移,Move Right
+ui_settings_input_aim_up,向上瞄准,Aim Up
+ui_settings_input_aim_down,向下瞄准,Aim Down
+ui_settings_input_aim_left,向左瞄准,Aim Left
+ui_settings_input_aim_right,向右瞄准,Aim Right
+ui_settings_input_use_active_item,主动道具,Active Item
+ui_settings_input_pause,暂停,Pause
+ui_settings_input_ui_confirm,确认,Confirm
+ui_settings_input_ui_back,返回,Back
 ui_settings_privacy,隐私,Privacy
 ui_settings_analytics_enabled,允许匿名分析,Allow Anonymous Analytics
 ui_title_name,WASD,WASD

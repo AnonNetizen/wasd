@@ -799,15 +799,6 @@ func _choice_ids(choices: Array[Dictionary]) -> Array[String]:
 
 
 func _ensure_input_actions() -> void:
-	_ensure_key_action(ACTIONS.MOVE_UP, [KEY_W])
-	_ensure_key_action(ACTIONS.MOVE_DOWN, [KEY_S])
-	_ensure_key_action(ACTIONS.MOVE_LEFT, [KEY_A])
-	_ensure_key_action(ACTIONS.MOVE_RIGHT, [KEY_D])
-	_ensure_key_action(ACTIONS.AIM_UP, [KEY_UP])
-	_ensure_key_action(ACTIONS.AIM_DOWN, [KEY_DOWN])
-	_ensure_key_action(ACTIONS.AIM_LEFT, [KEY_LEFT])
-	_ensure_key_action(ACTIONS.AIM_RIGHT, [KEY_RIGHT])
-	_ensure_key_action(ACTIONS.PAUSE, [KEY_ESCAPE])
 	_ensure_axis_action(ACTIONS.MOVE_LEFT, JOY_AXIS_LEFT_X, -1.0)
 	_ensure_axis_action(ACTIONS.MOVE_RIGHT, JOY_AXIS_LEFT_X, 1.0)
 	_ensure_axis_action(ACTIONS.MOVE_UP, JOY_AXIS_LEFT_Y, -1.0)
@@ -820,15 +811,10 @@ func _ensure_input_actions() -> void:
 	_ensure_button_action(ACTIONS.AIM_DOWN, JOY_BUTTON_DPAD_DOWN)
 	_ensure_button_action(ACTIONS.AIM_LEFT, JOY_BUTTON_DPAD_LEFT)
 	_ensure_button_action(ACTIONS.AIM_RIGHT, JOY_BUTTON_DPAD_RIGHT)
+	_ensure_button_action(ACTIONS.USE_ACTIVE_ITEM, JOY_BUTTON_A)
 	_ensure_button_action(ACTIONS.PAUSE, JOY_BUTTON_START)
-
-
-func _ensure_key_action(action_id: String, keycodes: Array[int]) -> void:
-	_ensure_action(action_id)
-	for keycode: int in keycodes:
-		var event: InputEventKey = InputEventKey.new()
-		event.keycode = keycode
-		_add_event_if_missing(action_id, event)
+	_ensure_button_action(ACTIONS.UI_CONFIRM, JOY_BUTTON_A)
+	_ensure_button_action(ACTIONS.UI_BACK, JOY_BUTTON_B)
 
 
 func _ensure_axis_action(action_id: String, axis: JoyAxis, axis_value: float) -> void:

@@ -35,7 +35,7 @@ grow_vertical = 2
 mouse_filter = 1
 
 [node name="Panel" type="PanelContainer" parent="Root/Center"]
-custom_minimum_size = Vector2(680, 720)
+custom_minimum_size = Vector2(820, 920)
 layout_mode = 2
 mouse_filter = 1
 
@@ -197,6 +197,173 @@ layout_mode = 2
 
 [node name="RecordReplaysCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
 custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+
+[node name="InputSectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="InputBindingsGrid" type="GridContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 8
+columns = 4
+
+[node name="MoveUpBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
+custom_minimum_size = Vector2(176, 72)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="MoveUpBindingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveUpBindingBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="MoveUpBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveUpBindingBox"]
+custom_minimum_size = Vector2(176, 34)
+layout_mode = 2
+
+[node name="MoveDownBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
+custom_minimum_size = Vector2(176, 72)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="MoveDownBindingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveDownBindingBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="MoveDownBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveDownBindingBox"]
+custom_minimum_size = Vector2(176, 34)
+layout_mode = 2
+
+[node name="MoveLeftBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
+custom_minimum_size = Vector2(176, 72)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="MoveLeftBindingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveLeftBindingBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="MoveLeftBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveLeftBindingBox"]
+custom_minimum_size = Vector2(176, 34)
+layout_mode = 2
+
+[node name="MoveRightBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
+custom_minimum_size = Vector2(176, 72)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="MoveRightBindingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveRightBindingBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="MoveRightBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/MoveRightBindingBox"]
+custom_minimum_size = Vector2(176, 34)
+layout_mode = 2
+
+[node name="AimUpBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
+custom_minimum_size = Vector2(176, 72)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="AimUpBindingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimUpBindingBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="AimUpBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimUpBindingBox"]
+custom_minimum_size = Vector2(176, 34)
+layout_mode = 2
+
+[node name="AimDownBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
+custom_minimum_size = Vector2(176, 72)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="AimDownBindingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimDownBindingBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="AimDownBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimDownBindingBox"]
+custom_minimum_size = Vector2(176, 34)
+layout_mode = 2
+
+[node name="AimLeftBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
+custom_minimum_size = Vector2(176, 72)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="AimLeftBindingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimLeftBindingBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="AimLeftBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimLeftBindingBox"]
+custom_minimum_size = Vector2(176, 34)
+layout_mode = 2
+
+[node name="AimRightBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
+custom_minimum_size = Vector2(176, 72)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="AimRightBindingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimRightBindingBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="AimRightBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/AimRightBindingBox"]
+custom_minimum_size = Vector2(176, 34)
+layout_mode = 2
+
+[node name="UseActiveItemBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
+custom_minimum_size = Vector2(176, 72)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="UseActiveItemBindingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/UseActiveItemBindingBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="UseActiveItemBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/UseActiveItemBindingBox"]
+custom_minimum_size = Vector2(176, 34)
+layout_mode = 2
+
+[node name="PauseBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
+custom_minimum_size = Vector2(176, 72)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="PauseBindingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/PauseBindingBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="PauseBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/PauseBindingBox"]
+custom_minimum_size = Vector2(176, 34)
+layout_mode = 2
+
+[node name="UiConfirmBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
+custom_minimum_size = Vector2(176, 72)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="UiConfirmBindingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/UiConfirmBindingBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="UiConfirmBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/UiConfirmBindingBox"]
+custom_minimum_size = Vector2(176, 34)
+layout_mode = 2
+
+[node name="UiBackBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
+custom_minimum_size = Vector2(176, 72)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="UiBackBindingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/UiBackBindingBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="UiBackBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/UiBackBindingBox"]
+custom_minimum_size = Vector2(176, 34)
 layout_mode = 2
 
 [node name="PrivacySectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]

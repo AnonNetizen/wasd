@@ -1,6 +1,7 @@
 extends Node
 
 
+const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const GAME_OVER_PANEL_SCENE := preload("res://scenes/ui/game_over_panel.tscn")
@@ -33,6 +34,7 @@ func _run() -> void:
 	_expect_missing_file_uses_defaults()
 	_expect_roundtrip_and_signal_flow()
 	_expect_invalid_values_are_rejected()
+	_expect_input_bindings_update_input_map()
 	_expect_invalid_saved_values_recover_to_defaults()
 	_expect_broken_config_recovers_to_defaults()
 	await _expect_settings_panel_controls()
@@ -77,10 +79,23 @@ func _expect_roundtrip_and_signal_flow() -> void:
 func _expect_invalid_values_are_rejected() -> void:
 	var original_master: float = float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER))
 	var original_locale: String = String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE))
+	var original_pause_binding: String = String(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE))
 	_expect(not Settings.set_value(SETTINGS_KEYS.AUDIO_MASTER, 2.0), "master volume should reject values above 1.0")
 	_expect(not Settings.set_value(SETTINGS_KEYS.GENERAL_LOCALE, "pirate"), "locale should reject unsupported values")
+	_expect(not Settings.set_value(SETTINGS_KEYS.INPUT_PAUSE, "NoSuchKey"), "input pause should reject unsupported key names")
 	_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), original_master), "invalid master volume should not mutate state")
 	_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == original_locale, "invalid locale should not mutate state")
+	_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE)) == original_pause_binding, "invalid input binding should not mutate state")
+
+
+func _expect_input_bindings_update_input_map() -> void:
+	Settings.reset_to_defaults(false)
+	_expect(_action_has_key(ACTIONS.PAUSE, KEY_ESCAPE), "default pause binding should apply Escape to InputMap")
+	_expect(Settings.set_value(SETTINGS_KEYS.INPUT_PAUSE, "P"), "pause binding should accept P")
+	_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE)) == "P", "pause binding should store P")
+	_expect(_action_has_key(ACTIONS.PAUSE, KEY_P), "pause binding should apply P to InputMap")
+	_expect(not _action_has_key(ACTIONS.PAUSE, KEY_ESCAPE), "pause rebinding should replace the previous keyboard event")
+	_expect(Settings.set_value(SETTINGS_KEYS.INPUT_PAUSE, "Escape"), "pause binding should restore Escape")
 
 
 func _expect_invalid_saved_values_recover_to_defaults() -> void:
@@ -127,11 +142,13 @@ func _expect_settings_panel_controls() -> void:
 	var master_value_label: Label = _find_node_by_name(panel, "MasterVolumeValueLabel") as Label
 	var fullscreen_check: CheckButton = _find_node_by_name(panel, "FullscreenCheck") as CheckButton
 	var aim_mode_option: OptionButton = _find_node_by_name(panel, "AimModeOption") as OptionButton
+	var pause_binding_option: OptionButton = _find_node_by_name(panel, "PauseBindingOption") as OptionButton
 	var close_button: Button = _find_node_by_name(panel, "CloseButton") as Button
 
 	_expect(title_label != null and String(title_label.text) == tr("ui_settings_title"), "settings panel should show localized title")
 	_expect(locale_option != null and locale_option.item_count == 2, "settings panel should expose two locale options")
 	_expect(aim_mode_option != null and aim_mode_option.item_count == 2, "settings panel should expose aim mode options")
+	_expect(pause_binding_option != null and pause_binding_option.item_count == Settings.input_binding_options().size(), "settings panel should expose input binding options")
 	_expect(master_slider != null and is_equal_approx(float(master_slider.value), 1.0), "settings panel should read master volume default")
 	_expect(master_value_label != null and String(master_value_label.text) == "100%", "settings panel should show master volume percent")
 	_expect(fullscreen_check != null and not fullscreen_check.button_pressed, "settings panel should read fullscreen default")
@@ -158,6 +175,15 @@ func _expect_settings_panel_controls() -> void:
 		fullscreen_check.toggled.emit(true)
 		await get_tree().process_frame
 		_expect(bool(Settings.get_value(SETTINGS_KEYS.VIDEO_FULLSCREEN)), "fullscreen check should write Settings")
+	if pause_binding_option != null:
+		var p_index: int = _option_index(pause_binding_option, "P")
+		_expect(p_index >= 0, "pause binding option should include P")
+		if p_index >= 0:
+			pause_binding_option.select(p_index)
+			pause_binding_option.item_selected.emit(p_index)
+			await get_tree().process_frame
+			_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE)) == "P", "pause binding option should write Settings")
+			_expect(_action_has_key(ACTIONS.PAUSE, KEY_P), "pause binding option should update InputMap")
 
 	if close_button != null:
 		_settings_panel_closed_count = 0
@@ -374,6 +400,23 @@ func _find_node_by_name(root: Node, target_name: String) -> Node:
 		if found != null:
 			return found
 	return null
+
+
+func _option_index(option: OptionButton, text: String) -> int:
+	for index: int in range(option.item_count):
+		if String(option.get_item_text(index)) == text:
+			return index
+	return -1
+
+
+func _action_has_key(action_id: String, keycode: Key) -> bool:
+	if not InputMap.has_action(action_id):
+		return false
+	for event: InputEvent in InputMap.action_get_events(action_id):
+		var key_event: InputEventKey = event as InputEventKey
+		if key_event != null and key_event.keycode == keycode:
+			return true
+	return false
 
 
 func _capture_original_config() -> void:

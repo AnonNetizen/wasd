@@ -12,6 +12,8 @@ const VALUES: Array[String] = [
 	"aim_right",
 	"use_active_item",
 	"pause",
+	"ui_confirm",
+	"ui_back",
 	"debug_toggle_console",
 	"debug_submit_command",
 	"debug_close_console",
@@ -28,6 +30,8 @@ const AIM_LEFT: String = "aim_left"
 const AIM_RIGHT: String = "aim_right"
 const USE_ACTIVE_ITEM: String = "use_active_item"
 const PAUSE: String = "pause"
+const UI_CONFIRM: String = "ui_confirm"
+const UI_BACK: String = "ui_back"
 const DEBUG_TOGGLE_CONSOLE: String = "debug_toggle_console"
 const DEBUG_SUBMIT_COMMAND: String = "debug_submit_command"
 const DEBUG_CLOSE_CONSOLE: String = "debug_close_console"
