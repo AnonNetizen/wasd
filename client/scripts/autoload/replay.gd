@@ -221,7 +221,7 @@ func current_data_fingerprint() -> String:
 func recording_summary(recording: Dictionary) -> Dictionary:
 	var input_events: Array = recording.get("input_events", []) as Array
 	var decision_events: Array = recording.get("decision_events", []) as Array
-	return {
+	var summary: Dictionary = {
 		"schema_version": int(recording.get("schema_version", 0)),
 		"run_seed": int(recording.get("run_seed", 0)),
 		"started_tick": int(recording.get("started_tick", 0)),
@@ -234,6 +234,10 @@ func recording_summary(recording: Dictionary) -> Dictionary:
 		"dropped_input_events": int(recording.get("dropped_input_events", 0)),
 		"dropped_decision_events": int(recording.get("dropped_decision_events", 0)),
 	}
+	var run_summary: Variant = recording.get("run_summary", {})
+	if run_summary is Dictionary and not (run_summary as Dictionary).is_empty():
+		summary["run_summary"] = (run_summary as Dictionary).duplicate(true)
+	return summary
 
 
 func snapshot() -> Dictionary:

@@ -46,6 +46,12 @@ def main() -> int:
         action="store_true",
         help="Allow replay data_fingerprint to differ from the current project data fingerprint.",
     )
+    replay_runner_parser.add_argument(
+        "--rerun-runtime-summary",
+        action="store_true",
+        help="Rerun the replay seed through GameplayRunLoop and compare run_summary.",
+    )
+    subparsers.add_parser("capture-golden-replay", help="Capture the checked-in F8 golden replay baseline.")
     subparsers.add_parser("perf-probe", help="Run the F8 lightweight perf probe in headless Godot.")
     subparsers.add_parser("runtime-smoke", help="Run the formal gameplay runtime smoke in headless Godot.")
     subparsers.add_parser("f4-smoke", help="Compatibility alias for runtime-smoke.")
@@ -111,8 +117,22 @@ def main() -> int:
             user_args.extend(["--expectation-file", str(Path(args.expectation_file).resolve())])
         if args.allow_data_fingerprint_mismatch:
             user_args.append("--allow-data-fingerprint-mismatch")
+        if args.rerun_runtime_summary:
+            user_args.append("--rerun-runtime-summary")
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--", *user_args],
+            cwd=project,
+        )
+    if args.command == "capture-golden-replay":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        capture_script = project / "tools" / "golden_replay_capture.gd"
+        if not capture_script.exists():
+            print(f"[godot-bridge] missing golden replay capture script: {_rel(capture_script)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", "--capture-golden-replay"],
             cwd=project,
         )
     if args.command == "perf-probe":

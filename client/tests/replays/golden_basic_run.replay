@@ -1,0 +1,140 @@
+{
+	"created_at": "golden:golden_basic_run",
+	"data_fingerprint": "c3184ab07d5623f8f05eb9b984a27f2cea1594e1f3a72115005cb3cb4a0ee23c",
+	"file_schema_version": 1,
+	"game_version": "v1.5",
+	"recording": {
+		"context": {
+			"capture_frames": 180,
+			"character": "character_default",
+			"mode": "mode_standard_survival",
+			"scenario": "golden_basic_run"
+		},
+		"decision_events": [],
+		"dropped_decision_events": 0,
+		"dropped_input_events": 0,
+		"ended_tick": 180,
+		"ended_time": 3.0,
+		"input_events": [],
+		"is_recording": false,
+		"reason": "game_over",
+		"run_seed": 20260619,
+		"run_summary": {
+			"active_bullets": 3,
+			"active_enemies": 3,
+			"active_pickups": 0,
+			"capture_frames": 180,
+			"kills": 0,
+			"level": 1,
+			"pool_stats": {
+				"bullet_basic": {
+					"acquired": 8,
+					"active": 3,
+					"available": 21,
+					"created": 24,
+					"max_size": 192,
+					"overflows": 0,
+					"released": 5
+				},
+				"enemy_chaser": {
+					"acquired": 3,
+					"active": 3,
+					"available": 9,
+					"created": 12,
+					"max_size": 96,
+					"overflows": 0,
+					"released": 0
+				},
+				"enemy_swarm": {
+					"acquired": 0,
+					"active": 0,
+					"available": 8,
+					"created": 8,
+					"max_size": 96,
+					"overflows": 0,
+					"released": 0
+				},
+				"pickup_orb": {
+					"acquired": 0,
+					"active": 0,
+					"available": 16,
+					"created": 16,
+					"max_size": 128,
+					"overflows": 0,
+					"released": 0
+				}
+			},
+			"scenario": "golden_basic_run",
+			"schema_version": 1,
+			"state": "playing",
+			"xp": 0
+		},
+		"schema_version": 1,
+		"started_tick": 0,
+		"started_time": 0.0
+	},
+	"recording_hash": "257cb536eb67b3582b0e933356df9db85b7b471cc981a58237c28037be4a2a8f",
+	"summary": {
+		"decision_events": 0,
+		"dropped_decision_events": 0,
+		"dropped_input_events": 0,
+		"ended_tick": 180,
+		"ended_time": 3.0,
+		"input_events": 0,
+		"reason": "game_over",
+		"run_seed": 20260619,
+		"run_summary": {
+			"active_bullets": 3,
+			"active_enemies": 3,
+			"active_pickups": 0,
+			"capture_frames": 180,
+			"kills": 0,
+			"level": 1,
+			"pool_stats": {
+				"bullet_basic": {
+					"acquired": 8,
+					"active": 3,
+					"available": 21,
+					"created": 24,
+					"max_size": 192,
+					"overflows": 0,
+					"released": 5
+				},
+				"enemy_chaser": {
+					"acquired": 3,
+					"active": 3,
+					"available": 9,
+					"created": 12,
+					"max_size": 96,
+					"overflows": 0,
+					"released": 0
+				},
+				"enemy_swarm": {
+					"acquired": 0,
+					"active": 0,
+					"available": 8,
+					"created": 8,
+					"max_size": 96,
+					"overflows": 0,
+					"released": 0
+				},
+				"pickup_orb": {
+					"acquired": 0,
+					"active": 0,
+					"available": 16,
+					"created": 16,
+					"max_size": 128,
+					"overflows": 0,
+					"released": 0
+				}
+			},
+			"scenario": "golden_basic_run",
+			"schema_version": 1,
+			"state": "playing",
+			"xp": 0
+		},
+		"schema_version": 1,
+		"started_tick": 0,
+		"started_time": 0.0
+	}
+}

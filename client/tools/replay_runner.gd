@@ -3,10 +3,12 @@ extends Node
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
+const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 
 const ARG_ALLOW_DATA_FINGERPRINT_MISMATCH: String = "--allow-data-fingerprint-mismatch"
 const ARG_EXPECTATION_FILE: String = "--expectation-file"
 const ARG_REPLAY_FILE: String = "--replay-file"
+const ARG_RERUN_RUNTIME_SUMMARY: String = "--rerun-runtime-summary"
 const FLOAT_TOLERANCE: float = 0.0001
 const SMOKE_REPLAY_FILE_NAME: String = "runner_smoke_basic_run.replay"
 const SMOKE_REPLAY_SEED: int = 20260619
@@ -53,6 +55,10 @@ func _run() -> void:
 		expected_summary = envelope.get("summary", {}) as Dictionary
 
 	_compare_data_fingerprint(envelope)
+	if _has_argument(ARG_RERUN_RUNTIME_SUMMARY):
+		var actual_run_summary: Dictionary = await _rerun_runtime_summary(recording)
+		if not actual_run_summary.is_empty():
+			actual_summary["run_summary"] = actual_run_summary
 	_compare_summaries(expected_summary, actual_summary)
 	_finish(replay_path, actual_summary, cleanup_replay_after_run)
 
@@ -131,6 +137,71 @@ func _compare_summaries(expected_summary: Dictionary, actual_summary: Dictionary
 	_expect(false, "ReplayRunner summary diff: %s" % diffs[0])
 
 
+func _rerun_runtime_summary(recording: Dictionary) -> Dictionary:
+	var expected_run_summary: Dictionary = _dictionary_or_empty(recording.get("run_summary", {}))
+	_expect(not expected_run_summary.is_empty(), "ReplayRunner runtime rerun requires recording.run_summary")
+	if expected_run_summary.is_empty():
+		return {}
+
+	var capture_frames: int = int(expected_run_summary.get("capture_frames", 0))
+	_expect(capture_frames > 0, "ReplayRunner runtime rerun requires run_summary.capture_frames")
+	if capture_frames <= 0:
+		return {}
+
+	Replay.set_enabled(false)
+	Replay.clear_recording()
+	RNG.set_run_seed(int(recording.get("run_seed", 0)))
+	GameClock.reset()
+
+	var boot_node: Node = get_parent()
+	if boot_node == null or not boot_node.has_method("_start_gameplay_run"):
+		_expect(false, "ReplayRunner runtime rerun should be hosted by FormalClientBoot")
+		return {}
+	boot_node.call("_start_gameplay_run")
+
+	var run_loop: Node = null
+	for _index: int in range(30):
+		await get_tree().process_frame
+		run_loop = _find_node_by_name(get_tree().root, "GameplayRunLoop")
+		if run_loop != null:
+			break
+	_expect(run_loop != null, "ReplayRunner runtime rerun should mount GameplayRunLoop")
+	if run_loop == null:
+		return {}
+
+	for _index: int in range(capture_frames):
+		await get_tree().physics_frame
+		await get_tree().process_frame
+
+	var summary: Dictionary = _runtime_summary(run_loop, capture_frames)
+	GameState.change_state(GameState.MAIN_MENU, {"source": "replay_runner_rerun"})
+	return summary
+
+
+func _runtime_summary(run_loop: Node, capture_frames: int) -> Dictionary:
+	var snapshot: Dictionary = {}
+	if run_loop.has_method("create_run_snapshot"):
+		snapshot = run_loop.call("create_run_snapshot") as Dictionary
+	return {
+		"schema_version": 1,
+		"scenario": String(_dictionary_or_empty(snapshot.get("context", {})).get("scenario", "golden_basic_run")),
+		"capture_frames": capture_frames,
+		"state": String(GameState.current()),
+		"level": int(snapshot.get("level", 1)),
+		"xp": int(snapshot.get("xp", 0)),
+		"kills": int(snapshot.get("kills", 0)),
+		"active_enemies": _array_size(snapshot.get("enemies", [])),
+		"active_bullets": _array_size(snapshot.get("bullets", [])),
+		"active_pickups": _array_size(snapshot.get("pickups", [])),
+		"pool_stats": {
+			POOL_IDS.BULLET_BASIC: PoolManager.stats(POOL_IDS.BULLET_BASIC),
+			POOL_IDS.ENEMY_CHASER: PoolManager.stats(POOL_IDS.ENEMY_CHASER),
+			POOL_IDS.ENEMY_SWARM: PoolManager.stats(POOL_IDS.ENEMY_SWARM),
+			POOL_IDS.PICKUP_ORB: PoolManager.stats(POOL_IDS.PICKUP_ORB),
+		},
+	}
+
+
 func _collect_summary_diffs(expected_value: Variant, actual_value: Variant, path: String, diffs: Array[String]) -> void:
 	if not diffs.is_empty():
 		return
@@ -182,6 +253,30 @@ func _argument_value(flag: String) -> String:
 
 func _has_argument(flag: String) -> bool:
 	return OS.get_cmdline_user_args().has(flag)
+
+
+func _dictionary_or_empty(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return (value as Dictionary).duplicate(true)
+	return {}
+
+
+func _array_size(value: Variant) -> int:
+	if value is Array:
+		return (value as Array).size()
+	return 0
+
+
+func _find_node_by_name(root_node: Node, target_name: String) -> Node:
+	if root_node == null:
+		return null
+	if root_node.name == target_name:
+		return root_node
+	for child: Node in root_node.get_children():
+		var match_node: Node = _find_node_by_name(child, target_name)
+		if match_node != null:
+			return match_node
+	return null
 
 
 func _cleanup_smoke_file() -> void:

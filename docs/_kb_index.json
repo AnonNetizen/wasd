@@ -461,7 +461,7 @@
       "canonical_for": ["f8_replay_testing_balance_work_package", "replay_testing_balance_baseline"],
       "must_read_for": ["f8_replay_testing_balance", "replay_runner", "golden_replay", "unit_test_baseline", "perf_probe", "balance_sampling"],
       "related_docs": ["docs/正式项目工作规划.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/CICD规划.md", "docs/代码文档规范.md", "docs/代码/replay.md", "docs/代码/rng.md", "docs/代码/game_clock.md", "docs/代码/game_state.md", "docs/代码/save_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/combat.md", "docs/词表与契约.md", "docs/AI协作/上下文预算.md", "docs/AI记忆/current_state.json"],
-      "related_code": ["client/scripts/autoload/replay.gd", "client/scripts/autoload/rng.gd", "client/scripts/autoload/game_clock.gd", "client/scripts/autoload/game_state.gd", "client/scripts/autoload/save_manager.gd", "client/scripts/gameplay/", "client/scripts/combat/", "client/tools/l1_smoke.gd", "client/tools/replay_smoke.gd", "client/tools/replay_runner.gd", "client/tools/perf_probe.gd", "tools/godot_bridge.py"],
+      "related_code": ["client/scripts/autoload/replay.gd", "client/scripts/autoload/rng.gd", "client/scripts/autoload/game_clock.gd", "client/scripts/autoload/game_state.gd", "client/scripts/autoload/save_manager.gd", "client/scripts/gameplay/", "client/scripts/combat/", "client/tools/l1_smoke.gd", "client/tools/replay_smoke.gd", "client/tools/replay_runner.gd", "client/tools/golden_replay_capture.gd", "client/tools/perf_probe.gd", "client/tests/replays/", "tools/godot_bridge.py"],
       "update_triggers": ["F8 replay scope changes", "L1 runner changes", "golden replay schema changes", "perf or balance probe command changes", "replay acceptance command changes"],
       "keywords": ["F8", "Replay", "golden replay", "GUT", "unit test", "perf probe", "balance sim", "回放", "黄金回放", "测试", "单测", "平衡", "性能采样", "replay runner"]
     },
@@ -797,7 +797,7 @@
       "canonical_for": ["replay", "deterministic_recording", "input_recording"],
       "must_read_for": ["replay_change", "input_recording_change", "golden_replay_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/rng.md", "docs/代码/game_clock.md", "docs/代码/game_state.md", "docs/代码/analytics.md"],
-      "related_code": ["client/scripts/autoload/replay.gd", "client/scripts/contracts/actions.gd", "client/scripts/contracts/analytics_events.gd", "client/scripts/autoload/rng.gd", "client/scripts/autoload/game_clock.gd", "client/scripts/autoload/game_state.gd"],
+      "related_code": ["client/scripts/autoload/replay.gd", "client/scripts/contracts/actions.gd", "client/scripts/contracts/analytics_events.gd", "client/scripts/autoload/rng.gd", "client/scripts/autoload/game_clock.gd", "client/scripts/autoload/game_state.gd", "client/tools/replay_smoke.gd", "client/tools/replay_runner.gd", "client/tools/golden_replay_capture.gd", "client/tests/replays/"],
       "update_triggers": ["Replay API changes", "replay schema changes", "input recording changes", "decision recording changes", "replay persistence changes"],
       "keywords": ["Replay", "autoload", "record_input_action", "record_decision", "gameplay.record_replays", "determinism", "golden replay"]
     },

@@ -190,7 +190,7 @@
 - 任意黄金回放产生 diff → 失败，输出首个 diff 帧 + 字段
 - 数值/原语改动后**强制更新或确认**黄金样例
 - 与 GDD 9.9 的"黄金回放"配套
-- F8 已启用显式本地命令 `python tools/godot_bridge.py --project client replay-smoke`，验证 `.replay` 文件 envelope / hash / data fingerprint / 摘要 roundtrip；并启用 `python tools/godot_bridge.py --project client replay-runner`，先对照 `.replay` 内嵌 summary 或外部 expectation JSON。真实输入重放和黄金回放 CI 仍待后续接入。
+- F8 已启用显式本地命令 `python tools/godot_bridge.py --project client replay-smoke`，验证 `.replay` 文件 envelope / hash / data fingerprint / 摘要 roundtrip；并启用 `python tools/godot_bridge.py --project client replay-runner`，先对照 `.replay` 内嵌 summary 或外部 expectation JSON。首条已入库 golden 为 `client/tests/replays/golden_basic_run.replay`，可用 `python tools/godot_bridge.py --project client replay-runner --replay-file client/tests/replays/golden_basic_run.replay --rerun-runtime-summary` 重跑真实 `GameplayRunLoop` 运行时摘要。真实输入重放和帧级黄金回放 CI 仍待后续接入。
 
 ### 4.N 平衡 Sim 报表（按需）⭐
 **workflow（拟建）**：`.github/workflows/balance-sim.yml`（手动触发）

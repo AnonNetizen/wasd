@@ -6,6 +6,7 @@ extends Node
 
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
 const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loop.tscn")
+const GOLDEN_REPLAY_CAPTURE_RUNNER := preload("res://tools/golden_replay_capture.gd")
 const L1_SMOKE_RUNNER := preload("res://tools/l1_smoke.gd")
 const RUNTIME_SMOKE_RUNNER := preload("res://tools/runtime_smoke.gd")
 const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
@@ -89,6 +90,10 @@ func _ready() -> void:
 		var replay_runner: Node = REPLAY_RUNNER.new()
 		replay_runner.name = "ReplayRunner"
 		add_child(replay_runner)
+	elif _is_golden_replay_capture_enabled():
+		var golden_capture_runner: Node = GOLDEN_REPLAY_CAPTURE_RUNNER.new()
+		golden_capture_runner.name = "GoldenReplayCapture"
+		add_child(golden_capture_runner)
 	elif _is_perf_probe_enabled():
 		if data_schema_ok:
 			_start_gameplay_run()
@@ -131,6 +136,10 @@ func _is_replay_smoke_enabled() -> bool:
 
 func _is_replay_runner_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--replay-runner")
+
+
+func _is_golden_replay_capture_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--capture-golden-replay")
 
 
 func _is_perf_probe_enabled() -> bool:
