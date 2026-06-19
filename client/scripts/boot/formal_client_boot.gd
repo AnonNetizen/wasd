@@ -198,6 +198,8 @@ func _on_meta_progression_closed() -> void:
 	elif _meta_progression_panel != null and is_instance_valid(_meta_progression_panel):
 		_meta_progression_panel.queue_free()
 	_meta_progression_panel = null
+	if _title_menu != null and is_instance_valid(_title_menu) and _title_menu.has_method("refresh_meta_summary"):
+		_title_menu.call("refresh_meta_summary")
 
 
 func _on_run_restart_requested() -> void:

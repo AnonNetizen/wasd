@@ -2,7 +2,7 @@
     "schema_version":  1,
     "updated_at":  "2026-06-19",
     "current_phase":  "formal_project_f6_meta_progression_first_slice",
-    "current_status":  "Formal project F6 meta progression first slice is manually accepted, and F6.3 has been corrected as of 2026-06-19 so meta upgrade purchasing is no longer exposed on the game-over screen: MetaProgressionSystem uses SaveManager meta kind for profile roundtrip, applies configured settlement rewards, account XP, level rewards, upgrade purchases, unlocks, and next-run permanent modifiers; F4RunLoop settles on player death, deletes run saves after settlement, shows only settlement / account state on F4GameOverPanel, and applies meta modifiers on new runs. The title menu remains the visible Meta Upgrades entry and the full MetaProgressionPanel is the purchase surface with localized success/failure feedback plus clear purchasable / insufficient / locked / maxed row states. F5 pause/save/resume remains complete with run kind version 2 and save-smoke coverage. Next work should keep F6 scope conservative before expanding character selection or broad content.",
+    "current_status":  "Formal project F6 meta progression first slice is manually accepted, and F6.3 has been corrected as of 2026-06-19 so meta upgrade purchasing is no longer exposed on the game-over screen: MetaProgressionSystem uses SaveManager meta kind for profile roundtrip, applies configured settlement rewards, account XP, level rewards, upgrade purchases, unlocks, and next-run permanent modifiers; F4RunLoop settles on player death, deletes run saves after settlement, shows only settlement / account state on F4GameOverPanel, and applies meta modifiers on new runs. The title menu remains the visible Meta Upgrades entry and now shows account level / meta currency summary plus an affordable-upgrade affordance; the full MetaProgressionPanel is the purchase surface with localized success/failure feedback plus clear purchasable / insufficient / locked / maxed row states. F5 pause/save/resume remains complete with run kind version 2 and save-smoke coverage. Next work should keep F6 scope conservative before expanding character selection or broad content.",
     "latest_adr":  80,
     "open_decisions":  [
                            "A",
@@ -98,14 +98,26 @@
                            "Formal project F6.3 settlement-to-upgrade guidance landed: F4GameOverPanel now exposes a View Meta Upgrades action, F4RunLoop opens MetaProgressionPanel over the game-over settlement via UIManager and refreshes purchase state after close, MetaProgressionPanel handles stack-top pointer clicks, and f4-smoke covers the game-over meta panel path.",
                            "Formal project F6.3 purchase feedback landed: MetaProgressionPanel and F4GameOverPanel show localized success/failure feedback after meta upgrade purchases, F4RunLoop preserves the purchased upgrade name for settlement-page feedback, and meta-smoke covers the panel purchase path through UI.",
                            "Formal project F6.3 game-over purchase entry removed per user direction: F4GameOverPanel now shows only settlement/account state plus restart/back-to-title, while title MetaProgressionPanel remains the only current meta upgrade purchase surface.",
-                           "Formal project F6.3 MetaProgressionPanel presentation polish landed: title meta upgrade rows now show status lines and color states for purchasable, insufficient, locked, and maxed upgrades; meta-smoke verifies balance/cost status visibility."
+                           "Formal project F6.3 MetaProgressionPanel presentation polish landed: title meta upgrade rows now show status lines and color states for purchasable, insufficient, locked, and maxed upgrades; meta-smoke verifies balance/cost status visibility.",
+                           "Formal project F6.3 MetaProgressionPanel presentation polish manually checked by the user and accepted.",
+                           "Formal project F6 title meta profile summary landed: F4TitleMenu now shows account level and meta currency balance, marks Meta Upgrades as available when first_available_purchase exists, refreshes after closing MetaProgressionPanel, and smoke covers default and affordable states."
                        ],
     "next_actions":  [
-                         "Continue F6 conservatively after MetaProgressionPanel polish, keeping the existing settlement -> meta save -> title upgrade -> next-run modifier loop stable.",
-                         "Do a short manual title-menu check when convenient: open Meta Upgrades, verify row states, purchase feedback, balance refresh, and close behavior feel clear.",
-                         "Keep broad F6 content expansion deferred until the settlement -> meta save -> title upgrade -> next-run modifier loop remains stable after polish."
+                         "Manually check the title menu after the meta profile summary: default fresh profile, post-settlement affordable state, and post-purchase balance/button refresh.",
+                         "Then choose between a tiny F6 content slice (one more upgrade track or cost tuning) and F7-lite character-selection groundwork; keep broad content expansion deferred.",
+                         "Keep golden replay resume as future infrastructure work rather than mixing it into the F6 UI/content slice."
                       ],
     "last_verified":  [
+                          {
+                              "date":  "2026-06-19",
+                              "command":  "py -3 tools/sync_contracts.py --check; py -3 tools/validate_data.py; py -3 tools/test_data_loader_schema.py; py -3 tools/lint_gdscript_rules.py; py -3 tools/lint_project_rules.py; py -3 tools/test_project_rules_lint.py; py -3 tools/lint_semantic_rules.py; py -3 tools/test_semantic_rules_lint.py; py -3 -m json.tool docs/AI记忆/current_state.json; py -3 -m json.tool docs/_kb_index.json; py -3 tools/docs_health_check.py; py -3 tools/godot_bridge.py --project client headless-boot; py -3 tools/godot_bridge.py --project client meta-smoke; py -3 tools/godot_bridge.py --project client f4-smoke; py -3 tools/godot_bridge.py --project client save-smoke",
+                              "result":  "passed after adding title-menu meta profile summary and affordable-upgrade affordance; meta-smoke covers affordable title state and f4-smoke covers fresh-profile title summary. Semantic lint still reports accepted advisory warnings for script-assembled F4/F6 UI nodes. JSON parse / SaveManager errors in f4-smoke and save-smoke are expected broken-save probes."
+                          },
+                          {
+                              "date":  "2026-06-19",
+                              "command":  "manual title Meta Upgrades panel check by user",
+                              "result":  "User tried the polished title MetaProgressionPanel and reported it felt good."
+                          },
                           {
                               "date":  "2026-06-19",
                               "command":  "py -3 tools/sync_contracts.py --check; py -3 tools/validate_data.py; py -3 tools/test_data_loader_schema.py; py -3 tools/lint_gdscript_rules.py; py -3 tools/lint_project_rules.py; py -3 tools/test_project_rules_lint.py; py -3 tools/lint_semantic_rules.py; py -3 tools/test_semantic_rules_lint.py; py -3 -m json.tool docs/AI记忆/current_state.json; py -3 -m json.tool docs/_kb_index.json; py -3 tools/docs_health_check.py; py -3 tools/godot_bridge.py --project client headless-boot; py -3 tools/godot_bridge.py --project client meta-smoke; py -3 tools/godot_bridge.py --project client f4-smoke; py -3 tools/godot_bridge.py --project client save-smoke; git diff --check -- . \":(exclude)draft/**\" \":(exclude)DRAFT/**\"; pre-commit run --all-files",

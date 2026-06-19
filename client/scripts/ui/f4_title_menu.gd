@@ -14,6 +14,8 @@ const BUTTON_WIDTH: float = 260.0
 const PANEL_WIDTH: float = 520.0
 
 var _continue_button: Button = null
+var _meta_progression_button: Button = null
+var _meta_summary_label: Label = null
 var _notice_label: Label = null
 
 
@@ -68,6 +70,13 @@ func _ready() -> void:
 	_notice_label.visible = false
 	layout.add_child(_notice_label)
 
+	_meta_summary_label = Label.new()
+	_meta_summary_label.name = "MetaProfileSummaryLabel"
+	_meta_summary_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_meta_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_meta_summary_label.add_theme_font_size_override("font_size", 16)
+	layout.add_child(_meta_summary_label)
+
 	_continue_button = _make_button("ContinueRunButton", tr("ui_continue_run"))
 	_continue_button.pressed.connect(_on_continue_pressed)
 	layout.add_child(_continue_button)
@@ -76,14 +85,15 @@ func _ready() -> void:
 	start_button.pressed.connect(_on_start_pressed)
 	layout.add_child(start_button)
 
-	var meta_progression_button: Button = _make_button("MetaProgressionButton", tr("ui_meta_progression"))
-	meta_progression_button.pressed.connect(_on_meta_progression_pressed)
-	layout.add_child(meta_progression_button)
+	_meta_progression_button = _make_button("MetaProgressionButton", tr("ui_meta_progression"))
+	_meta_progression_button.pressed.connect(_on_meta_progression_pressed)
+	layout.add_child(_meta_progression_button)
 
 	var quit_button: Button = _make_button("QuitButton", tr("ui_quit"))
 	quit_button.pressed.connect(_on_quit_pressed)
 	layout.add_child(quit_button)
-	start_button.call_deferred("grab_focus")
+	call_deferred("_grab_button_focus", start_button)
+	refresh_meta_summary()
 
 
 func configure(can_continue: bool, notice_key: String = "") -> void:
@@ -100,6 +110,24 @@ func configure(can_continue: bool, notice_key: String = "") -> void:
 		_notice_label.text = ""
 
 
+func refresh_meta_summary() -> void:
+	var profile: Dictionary = MetaProgressionSystem.profile_summary()
+	var currency_name: String = tr(String(profile.get("currency_name_key", "")))
+	if _meta_summary_label != null:
+		_meta_summary_label.text = tr("ui_meta_title_summary").format({
+			"level": int(profile.get("account_level", 1)),
+			"currency": currency_name,
+			"amount": int(profile.get("currency_amount", 0)),
+		})
+
+	var has_available_purchase: bool = not MetaProgressionSystem.first_available_purchase().is_empty()
+	if _meta_progression_button != null:
+		_meta_progression_button.text = (
+			tr("ui_meta_progression_available") if has_available_purchase else tr("ui_meta_progression")
+		)
+		_meta_progression_button.tooltip_text = _meta_summary_label.text if _meta_summary_label != null else ""
+
+
 func _make_button(button_name: String, text_value: String) -> Button:
 	var button: Button = Button.new()
 	button.name = button_name
@@ -107,6 +135,11 @@ func _make_button(button_name: String, text_value: String) -> Button:
 	button.custom_minimum_size = Vector2(BUTTON_WIDTH, BUTTON_HEIGHT)
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	return button
+
+
+func _grab_button_focus(button: Button) -> void:
+	if is_instance_valid(button) and button.is_inside_tree():
+		button.grab_focus()
 
 
 func _on_start_pressed() -> void:

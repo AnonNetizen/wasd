@@ -2,6 +2,7 @@ extends Node
 
 
 const META_PROGRESSION_PANEL_SCRIPT := preload("res://scripts/ui/meta_progression_panel.gd")
+const F4_TITLE_MENU_SCRIPT := preload("res://scripts/ui/f4_title_menu.gd")
 const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const META_UNLOCKS := preload("res://scripts/contracts/meta_unlocks.gd")
 const META_UPGRADES := preload("res://scripts/contracts/meta_upgrades.gd")
@@ -40,6 +41,7 @@ func _run() -> void:
 	_expect(int((settled_profile.get("currencies", {}) as Dictionary).get(META_CURRENCIES.META_ESSENCE, 0)) == 48, "settlement should persist currency balance")
 	_expect(_profile_summary_matches_settlement(), "profile_summary should expose the title-menu balance")
 	_expect(_has_affordable_upgrade_summary(META_UPGRADES.META_UPGRADE_DAMAGE), "upgrade_summaries should expose affordable upgrade rows")
+	_expect(_title_menu_shows_meta_summary(true, 48), "title menu should show meta summary and available upgrade affordance")
 	_expect(_meta_panel_builds_upgrade_list(), "meta progression panel should build the visible upgrade list")
 
 	var roundtrip_profile: Dictionary = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
@@ -48,6 +50,7 @@ func _run() -> void:
 
 	var purchased_profile: Dictionary = _purchase_damage_upgrade_through_panel()
 	_expect(int((purchased_profile.get("currencies", {}) as Dictionary).get(META_CURRENCIES.META_ESSENCE, 0)) == 30, "purchase_upgrade should deduct configured cost")
+	_expect(_title_menu_shows_meta_summary(true, 30), "title menu meta summary should refresh after purchases leave affordable upgrades")
 
 	var modifiers: Array[Dictionary] = MetaProgressionSystem.current_modifiers()
 	_expect(_has_modifier(modifiers, STATS.DAMAGE, "add", 0.25), "purchased upgrade should expose next-run damage modifier")
@@ -75,6 +78,33 @@ func _has_affordable_upgrade_summary(upgrade_id: String) -> bool:
 			and int(summary.get("cost", 0)) == 18
 		)
 	return false
+
+
+func _title_menu_shows_meta_summary(expect_available: bool, expected_balance: int) -> bool:
+	var menu: CanvasLayer = F4_TITLE_MENU_SCRIPT.new()
+	menu.name = "F4TitleMenu"
+	add_child(menu)
+	menu.call("configure", false, "")
+	var summary_label: Label = _find_node_by_name(menu, "MetaProfileSummaryLabel") as Label
+	var meta_button: Button = _find_node_by_name(menu, "MetaProgressionButton") as Button
+	var expected_currency_name: String = tr("meta_currency_essence_name")
+	var expected_summary_text: String = tr("ui_meta_title_summary").format({
+		"level": 2,
+		"currency": expected_currency_name,
+		"amount": expected_balance,
+	})
+	var expected_button_text: String = (
+		tr("ui_meta_progression_available") if expect_available else tr("ui_meta_progression")
+	)
+	var result: bool = (
+		summary_label != null
+		and String(summary_label.text) == expected_summary_text
+		and meta_button != null
+		and String(meta_button.text) == expected_button_text
+	)
+	remove_child(menu)
+	menu.queue_free()
+	return result
 
 
 func _meta_panel_builds_upgrade_list() -> bool:

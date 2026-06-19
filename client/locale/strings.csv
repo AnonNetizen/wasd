@@ -21,7 +21,9 @@ ui_hud_time,时间,Time
 ui_game_over,本局结束,Run Over
 ui_restart_hint,按暂停键重开,Press Pause to restart
 ui_meta_progression,局外升级,Meta Upgrades
+ui_meta_progression_available,局外升级（可购买）,Meta Upgrades (Available)
 ui_meta_progression_title,局外升级,Meta Upgrades
+ui_meta_title_summary,账号等级 {level} · {currency} {amount},Account Level {level} · {currency} {amount}
 ui_meta_settlement,获得 {currency} {amount} · 账号经验 +{xp},Earned {currency} {amount} · Account XP +{xp}
 ui_meta_balance,{currency} {amount},{currency} {amount}
 ui_meta_account_level,账号等级 {level},Account Level {level}

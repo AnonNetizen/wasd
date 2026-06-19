@@ -646,10 +646,18 @@ func _click_button(button: Button) -> void:
 
 
 func _verify_meta_progression_entry(title_menu: Node) -> void:
+	var summary_label: Label = _find_node_by_name(title_menu, "MetaProfileSummaryLabel") as Label
+	var expected_summary_text: String = tr("ui_meta_title_summary").format({
+		"level": 1,
+		"currency": tr("meta_currency_essence_name"),
+		"amount": 0,
+	})
+	_expect(summary_label != null and String(summary_label.text) == expected_summary_text, "title menu should show account level and meta balance summary")
 	var meta_button: Button = _find_node_by_name(title_menu, "MetaProgressionButton") as Button
 	_expect(meta_button != null and meta_button.visible and not meta_button.disabled, "title menu should expose the meta progression entry")
 	if meta_button == null:
 		return
+	_expect(String(meta_button.text) == tr("ui_meta_progression"), "title meta progression button should use the base label when no upgrade is affordable")
 	await _click_button(meta_button)
 
 	var panel: Node = null
