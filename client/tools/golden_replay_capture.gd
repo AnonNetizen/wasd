@@ -154,9 +154,13 @@ func _frame_sample(run_loop: Node, frame_number: int) -> Dictionary:
 		"level": int(snapshot.get("level", 1)),
 		"xp": int(snapshot.get("xp", 0)),
 		"kills": int(snapshot.get("kills", 0)),
+		"player_life": _player_life(snapshot),
 		"player_moved_right": _player_position_x(snapshot) > 0.0,
 		"player_aim_direction": _dictionary_or_empty(_dictionary_or_empty(snapshot.get("player", {})).get("aim_direction", {})),
+		"weapon_cooldown_ready": _weapon_cooldown_remaining(snapshot) <= 0.0,
 		"active_pickups": _array_size(snapshot.get("pickups", [])),
+		"pickups_present": _array_size(snapshot.get("pickups", [])) > 0,
+		"enemy_types": _enemy_types(snapshot),
 	}
 	if _uses_exact_runtime_counts(_scenario):
 		sample["active_enemies"] = _array_size(snapshot.get("enemies", []))
@@ -164,7 +168,6 @@ func _frame_sample(run_loop: Node, frame_number: int) -> Dictionary:
 		sample["enemies_present"] = _array_size(snapshot.get("enemies", [])) > 0
 	sample["bullets_present"] = _array_size(snapshot.get("bullets", [])) > 0
 	if _scenario == "golden_full_death":
-		sample["player_life"] = _player_life(snapshot)
 		sample["game_over_panel_visible"] = _find_node_by_name(get_tree().root, "GameOverPanel") != null
 	return sample
 
@@ -334,6 +337,23 @@ func _player_life(snapshot: Dictionary) -> float:
 	return float(player_snapshot.get("life_points", 0.0))
 
 
+func _weapon_cooldown_remaining(snapshot: Dictionary) -> float:
+	var weapon_snapshot: Dictionary = _dictionary_or_empty(snapshot.get("weapon", {}))
+	return float(weapon_snapshot.get("cooldown_remaining", 0.0))
+
+
+func _enemy_types(snapshot: Dictionary) -> Array[String]:
+	var types: Array[String] = []
+	for raw_enemy: Variant in _array_or_empty(snapshot.get("enemies", [])):
+		if not raw_enemy is Dictionary:
+			continue
+		var enemy_id: String = String((raw_enemy as Dictionary).get("enemy_id", ""))
+		if not enemy_id.is_empty() and not types.has(enemy_id):
+			types.append(enemy_id)
+	types.sort()
+	return types
+
+
 func _meta_currency_amount() -> int:
 	if not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META):
 		return 0
@@ -377,6 +397,12 @@ func _array_size(value: Variant) -> int:
 	if value is Array:
 		return (value as Array).size()
 	return 0
+
+
+func _array_or_empty(value: Variant) -> Array:
+	if value is Array:
+		return (value as Array).duplicate(true)
+	return []
 
 
 func _find_node_by_name(root_node: Node, target_name: String) -> Node:

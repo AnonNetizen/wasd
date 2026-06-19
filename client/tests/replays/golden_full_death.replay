@@ -30,10 +30,14 @@
 					"active_pickups": 0,
 					"bullets_present": true,
 					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
 					"frame": 30,
 					"game_over_panel_visible": false,
 					"kills": 0,
 					"level": 1,
+					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -42,16 +46,21 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
+					"weapon_cooldown_ready": false,
 					"xp": 0
 				},
 				{
 					"active_pickups": 0,
 					"bullets_present": true,
 					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
 					"frame": 60,
 					"game_over_panel_visible": false,
 					"kills": 0,
 					"level": 1,
+					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -60,16 +69,21 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
+					"weapon_cooldown_ready": false,
 					"xp": 0
 				},
 				{
 					"active_pickups": 0,
 					"bullets_present": true,
 					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
 					"frame": 90,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -78,16 +92,21 @@
 					"player_moved_right": false,
 					"state": "game_over",
 					"ui_stack": 1,
+					"weapon_cooldown_ready": false,
 					"xp": 0
 				},
 				{
 					"active_pickups": 0,
 					"bullets_present": true,
 					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
 					"frame": 120,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -96,16 +115,21 @@
 					"player_moved_right": false,
 					"state": "game_over",
 					"ui_stack": 1,
+					"weapon_cooldown_ready": false,
 					"xp": 0
 				},
 				{
 					"active_pickups": 0,
 					"bullets_present": true,
 					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
 					"frame": 150,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -114,16 +138,21 @@
 					"player_moved_right": false,
 					"state": "game_over",
 					"ui_stack": 1,
+					"weapon_cooldown_ready": false,
 					"xp": 0
 				},
 				{
 					"active_pickups": 0,
 					"bullets_present": true,
 					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
 					"frame": 180,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -132,6 +161,7 @@
 					"player_moved_right": false,
 					"state": "game_over",
 					"ui_stack": 1,
+					"weapon_cooldown_ready": false,
 					"xp": 0
 				}
 			],
@@ -165,7 +195,7 @@
 		"started_tick": 0,
 		"started_time": 0.0
 	},
-	"recording_hash": "51292435dda50baf21c7581fc09b1e7784c538a9dc35aa323f28b47f1b8cebb4",
+	"recording_hash": "4914c32a4f749efc8a9e5f0793b81277a0ec76aea0181e9e3fddded0a62f68c0",
 	"summary": {
 		"decision_events": 0,
 		"dropped_decision_events": 0,
@@ -186,10 +216,14 @@
 					"active_pickups": 0,
 					"bullets_present": true,
 					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
 					"frame": 30,
 					"game_over_panel_visible": false,
 					"kills": 0,
 					"level": 1,
+					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -198,16 +232,21 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
+					"weapon_cooldown_ready": false,
 					"xp": 0
 				},
 				{
 					"active_pickups": 0,
 					"bullets_present": true,
 					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
 					"frame": 60,
 					"game_over_panel_visible": false,
 					"kills": 0,
 					"level": 1,
+					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -216,16 +255,21 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
+					"weapon_cooldown_ready": false,
 					"xp": 0
 				},
 				{
 					"active_pickups": 0,
 					"bullets_present": true,
 					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
 					"frame": 90,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -234,16 +278,21 @@
 					"player_moved_right": false,
 					"state": "game_over",
 					"ui_stack": 1,
+					"weapon_cooldown_ready": false,
 					"xp": 0
 				},
 				{
 					"active_pickups": 0,
 					"bullets_present": true,
 					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
 					"frame": 120,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -252,16 +301,21 @@
 					"player_moved_right": false,
 					"state": "game_over",
 					"ui_stack": 1,
+					"weapon_cooldown_ready": false,
 					"xp": 0
 				},
 				{
 					"active_pickups": 0,
 					"bullets_present": true,
 					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
 					"frame": 150,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -270,16 +324,21 @@
 					"player_moved_right": false,
 					"state": "game_over",
 					"ui_stack": 1,
+					"weapon_cooldown_ready": false,
 					"xp": 0
 				},
 				{
 					"active_pickups": 0,
 					"bullets_present": true,
 					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
 					"frame": 180,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -288,6 +347,7 @@
 					"player_moved_right": false,
 					"state": "game_over",
 					"ui_stack": 1,
+					"weapon_cooldown_ready": false,
 					"xp": 0
 				}
 			],

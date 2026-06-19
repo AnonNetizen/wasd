@@ -190,7 +190,7 @@
 - 任意黄金回放产生 diff → 失败，输出首个 diff 帧 + 字段
 - 数值/原语改动后**强制更新或确认**黄金样例
 - 与 GDD 9.9 的"黄金回放"配套
-- F8 已启用显式本地命令 `python tools/godot_bridge.py --project client replay-smoke`，验证 `.replay` 文件 envelope / hash / data fingerprint / 摘要 roundtrip；并启用 `python tools/godot_bridge.py --project client replay-runner`，先对照 `.replay` 内嵌 summary 或外部 expectation JSON。已入库 golden 为 `client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay` 和 `client/tests/replays/golden_full_death.replay`，可用对应 `replay-runner --replay-file ... --rerun-runtime-summary` 重跑真实 `GameplayRunLoop` 运行时摘要和稳定帧样本。`python tools/godot_bridge.py --project client replay-input-smoke` 已覆盖 gameplay 输入录制首片；`python tools/godot_bridge.py --project client replay-runner --rerun-runtime-summary` 已覆盖 runner 输入播放、full-death runtime event 播放与稳定帧样本 diff 首片；更多黄金回放 CI 仍待后续接入。
+- F8 已启用显式本地命令 `python tools/godot_bridge.py --project client replay-smoke`，验证 `.replay` 文件 envelope / hash / data fingerprint / 摘要 roundtrip；并启用 `python tools/godot_bridge.py --project client replay-runner`，先对照 `.replay` 内嵌 summary 或外部 expectation JSON。已入库 golden 为 `client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay` 和 `client/tests/replays/golden_full_death.replay`，可用对应 `replay-runner --replay-file ... --rerun-runtime-summary` 重跑真实 `GameplayRunLoop` 运行时摘要和扩展稳定帧样本。`python tools/godot_bridge.py --project client replay-input-smoke` 已覆盖 gameplay 输入录制首片；`python tools/godot_bridge.py --project client replay-runner --rerun-runtime-summary` 已覆盖 runner 输入播放、full-death runtime event 播放与稳定帧样本 diff；更多黄金回放 CI 仍待后续接入。
 
 ### 4.N 平衡 Sim 报表（按需）⭐
 **workflow（拟建）**：`.github/workflows/balance-sim.yml`（手动触发）
