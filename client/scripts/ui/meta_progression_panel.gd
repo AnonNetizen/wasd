@@ -108,6 +108,10 @@ func refresh() -> void:
 	_refresh_upgrades()
 
 
+func request_close() -> void:
+	_on_close_pressed()
+
+
 func refresh_texts() -> void:
 	if _title_label != null:
 		_title_label.text = tr("ui_meta_progression_title")

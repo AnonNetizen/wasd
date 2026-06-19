@@ -9,6 +9,7 @@ signal ui_popped(node: Node)
 signal ui_cleared()
 signal ui_replaced(node: Node, context: Dictionary)
 
+const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ROOT_NAME: StringName = &"UIRoot"
 
 var _root: CanvasLayer
@@ -35,6 +36,7 @@ func push(scene: PackedScene, context: Dictionary = {}) -> Node:
 	_stack.append(node)
 	_apply_pause_request(node)
 	ui_pushed.emit(node, context.duplicate(true))
+	call_deferred("_apply_initial_focus", node)
 	return node
 
 
@@ -99,6 +101,13 @@ func stack_snapshot() -> Array[Node]:
 	return snapshot
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if not event.is_action_pressed(ACTIONS.UI_BACK):
+		return
+	if _request_top_close():
+		get_viewport().set_input_as_handled()
+
+
 func _apply_pause_request(node: Node) -> void:
 	if not _node_requests_pause(node):
 		return
@@ -135,3 +144,41 @@ func _node_requests_pause(node: Node) -> bool:
 
 	var property_value: Variant = node.get("pauses_game")
 	return property_value is bool and bool(property_value)
+
+
+func _request_top_close() -> bool:
+	var top_node: Node = top()
+	if top_node == null or not is_instance_valid(top_node):
+		return false
+	if not top_node.has_method("request_close"):
+		return false
+	top_node.call("request_close")
+	return true
+
+
+func _apply_initial_focus(node: Node) -> void:
+	if node == null or not is_instance_valid(node) or not node.is_inside_tree():
+		return
+	var focused: Control = get_viewport().gui_get_focus_owner()
+	if focused != null and (focused == node or node.is_ancestor_of(focused)):
+		return
+	if node.has_method("grab_default_focus"):
+		node.call("grab_default_focus")
+		return
+	var control: Control = _first_focusable_control(node)
+	if control != null:
+		control.grab_focus()
+
+
+func _first_focusable_control(node: Node) -> Control:
+	if node is Control:
+		var control: Control = node as Control
+		if control.visible and control.focus_mode != Control.FOCUS_NONE:
+			var button: BaseButton = control as BaseButton
+			if button == null or not button.disabled:
+				return control
+	for child: Node in node.get_children():
+		var found: Control = _first_focusable_control(child)
+		if found != null:
+			return found
+	return null

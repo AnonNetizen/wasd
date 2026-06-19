@@ -154,6 +154,10 @@ func refresh() -> void:
 	_refreshing = false
 
 
+func request_close() -> void:
+	_on_close_pressed()
+
+
 func _bind_nodes() -> void:
 	_input_binding_options.clear()
 	_locale_option = get_node_or_null("Root/Center/Panel/Margin/Layout/LanguageRow/LocaleOption") as OptionButton

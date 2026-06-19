@@ -88,6 +88,10 @@ func refresh_texts() -> void:
 	_set_button_text(4, "ui_quit_to_title")
 
 
+func request_close() -> void:
+	_activate_button(0)
+
+
 func _register_button(button: Button) -> void:
 	button.process_mode = Node.PROCESS_MODE_ALWAYS
 	button.mouse_filter = Control.MOUSE_FILTER_STOP

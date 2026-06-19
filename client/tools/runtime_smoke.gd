@@ -524,10 +524,10 @@ func _expect_level_up_pause_overlay(run_loop: Node) -> void:
 	_expect(String(ui_restore.get("state", "")) == "paused", "pause overlay on level-up should snapshot as paused")
 	_expect(String(ui_restore.get("underlying_state", "")) == "level_up", "pause overlay on level-up should preserve the underlying level-up state")
 
-	await _push_action_once(ACTIONS.PAUSE)
+	await _push_action_once(ACTIONS.UI_BACK)
 	var restored_run_loop: Node = await _wait_for_state_run_loop(GameState.LEVEL_UP)
-	_expect(restored_run_loop == run_loop, "closing pause overlay should return to the same LEVEL_UP run loop")
-	_expect(_find_node_by_name(get_tree().root, "PauseMenu") == null, "closing pause overlay should remove the pause menu")
+	_expect(restored_run_loop == run_loop, "ui_back on pause overlay should return to the same LEVEL_UP run loop")
+	_expect(_find_node_by_name(get_tree().root, "PauseMenu") == null, "ui_back on pause overlay should remove the pause menu")
 
 
 func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
@@ -603,10 +603,9 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	_expect(restored_pause_menu != null, "continue should restore the pause menu when the run was saved while paused")
 	var resume_button: Button = _find_node_by_name(restored_pause_menu, "ResumeButton") as Button
 	_expect(resume_button != null, "restored pause menu should expose resume")
-	if resume_button != null:
-		await _click_button(resume_button)
+	await _push_action_once(ACTIONS.UI_BACK)
 	var resumed_run_loop: Node = await _wait_for_playing_run_loop()
-	_expect(resumed_run_loop == restored_run_loop, "resuming a restored pause menu should keep the same run loop")
+	_expect(resumed_run_loop == restored_run_loop, "ui_back on restored pause menu should keep the same run loop")
 	return {
 		"run_loop": restored_run_loop,
 		"player": restored_player,
@@ -674,10 +673,16 @@ func _verify_meta_progression_entry(title_menu: Node) -> void:
 
 	var upgrade_list: Node = _find_node_by_name(panel, "MetaUpgradeList")
 	_expect(upgrade_list != null and upgrade_list.get_child_count() > 0, "MetaProgressionPanel should show upgrade rows")
+	_expect(_focus_is_inside(panel), "MetaProgressionPanel should receive focus after push")
 	var close_button: Button = _find_node_by_name(panel, "CloseButton") as Button
 	_expect(close_button != null, "MetaProgressionPanel should expose a close button")
-	if close_button != null:
-		await _click_button(close_button)
+	await _push_action_once(ACTIONS.UI_BACK)
+	for _index: int in range(BOOT_FRAMES):
+		await get_tree().process_frame
+		if _find_node_by_name(get_tree().root, "MetaProgressionPanel") == null:
+			break
+	_expect(_find_node_by_name(get_tree().root, "MetaProgressionPanel") == null, "ui_back should close MetaProgressionPanel")
+	_expect(_find_node_by_name(get_tree().root, "TitleMenu") == title_menu, "closing meta progression with ui_back should leave TitleMenu visible")
 
 
 func _verify_title_settings_entry(title_menu: Node) -> void:
@@ -692,16 +697,16 @@ func _verify_title_settings_entry(title_menu: Node) -> void:
 		return
 	var title_label: Label = _find_node_by_name(settings_panel, "TitleLabel") as Label
 	_expect(title_label != null and String(title_label.text) == tr("ui_settings_title"), "SettingsPanel should use localized title from title menu")
+	_expect(_focus_is_inside(settings_panel), "title SettingsPanel should receive focus after push")
 	var close_button: Button = _find_node_by_name(settings_panel, "CloseButton") as Button
 	_expect(close_button != null, "SettingsPanel should expose close button")
-	if close_button != null:
-		await _click_button(close_button)
+	await _push_action_once(ACTIONS.UI_BACK)
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame
 		if _find_node_by_name(get_tree().root, "SettingsPanel") == null:
 			break
-	_expect(_find_node_by_name(get_tree().root, "SettingsPanel") == null, "closing title settings should pop SettingsPanel")
-	_expect(_find_node_by_name(get_tree().root, "TitleMenu") != null, "closing title settings should leave TitleMenu visible")
+	_expect(_find_node_by_name(get_tree().root, "SettingsPanel") == null, "ui_back should pop title SettingsPanel")
+	_expect(_find_node_by_name(get_tree().root, "TitleMenu") != null, "ui_back on title SettingsPanel should leave TitleMenu visible")
 
 
 func _verify_pause_settings_entry(pause_menu: Node) -> void:
@@ -715,17 +720,17 @@ func _verify_pause_settings_entry(pause_menu: Node) -> void:
 	_expect(GameState.is_state(GameState.PAUSED), "opening settings from pause should keep GameState PAUSED")
 	if settings_panel == null:
 		return
+	_expect(_focus_is_inside(settings_panel), "pause SettingsPanel should receive focus after push")
 	var close_button: Button = _find_node_by_name(settings_panel, "CloseButton") as Button
 	_expect(close_button != null, "pause SettingsPanel should expose close button")
-	if close_button != null:
-		await _click_button(close_button)
+	await _push_action_once(ACTIONS.UI_BACK)
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame
 		if _find_node_by_name(get_tree().root, "SettingsPanel") == null:
 			break
-	_expect(_find_node_by_name(get_tree().root, "SettingsPanel") == null, "closing pause settings should pop SettingsPanel")
-	_expect(_find_node_by_name(get_tree().root, "PauseMenu") == pause_menu, "closing pause settings should return to the same PauseMenu")
-	_expect(GameState.is_state(GameState.PAUSED), "closing pause settings should keep pause state")
+	_expect(_find_node_by_name(get_tree().root, "SettingsPanel") == null, "ui_back should pop pause SettingsPanel")
+	_expect(_find_node_by_name(get_tree().root, "PauseMenu") == pause_menu, "ui_back on pause SettingsPanel should return to the same PauseMenu")
+	_expect(GameState.is_state(GameState.PAUSED), "ui_back on pause SettingsPanel should keep pause state")
 
 
 func _wait_for_node(node_name: String) -> Node:
@@ -749,6 +754,11 @@ func _push_action_once(action_id: String) -> void:
 	release.pressed = false
 	get_viewport().push_input(release, true)
 	await get_tree().process_frame
+
+
+func _focus_is_inside(root_node: Node) -> bool:
+	var focused: Control = get_viewport().gui_get_focus_owner()
+	return focused != null and (focused == root_node or root_node.is_ancestor_of(focused))
 
 
 func _write_text(path: String, content: String) -> void:
