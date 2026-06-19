@@ -3,7 +3,11 @@ extends Node
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
+const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
+const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
+const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
 const ARG_ALLOW_DATA_FINGERPRINT_MISMATCH: String = "--allow-data-fingerprint-mismatch"
 const ARG_EXPECTATION_FILE: String = "--expectation-file"
@@ -20,6 +24,7 @@ const SMOKE_REPLAY_SEED: int = 20260619
 const SMOKE_RECORD_FRAMES: int = 3
 
 var _failures: Array[String] = []
+var _runtime_save_backups: Dictionary = {}
 
 
 func _ready() -> void:
@@ -216,6 +221,8 @@ func _rerun_runtime_summary(recording: Dictionary) -> Dictionary:
 
 
 func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Dictionary:
+	var scenario: String = String(_dictionary_or_empty(recording.get("context", {})).get("scenario", "golden_basic_run"))
+	_prepare_runtime_scenario(scenario)
 	Replay.set_enabled(false)
 	Replay.clear_recording()
 	RNG.set_run_seed(int(recording.get("run_seed", 0)))
@@ -224,6 +231,7 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 	var boot_node: Node = get_parent()
 	if boot_node == null or not boot_node.has_method("_start_gameplay_run"):
 		_expect(false, "ReplayRunner runtime rerun should be hosted by FormalClientBoot")
+		_restore_runtime_scenario(scenario)
 		return {}
 	boot_node.call("_start_gameplay_run")
 
@@ -235,23 +243,28 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 			break
 	_expect(run_loop != null, "ReplayRunner runtime rerun should mount GameplayRunLoop")
 	if run_loop == null:
+		_restore_runtime_scenario(scenario)
 		return {}
 
 	var input_events: Array[Dictionary] = _sorted_input_events(recording.get("input_events", []))
+	var runtime_events: Array[Dictionary] = _sorted_runtime_events(recording.get("runtime_events", []))
 	var next_input_index: int = 0
+	var next_runtime_index: int = 0
 	var frame_samples: Array[Dictionary] = []
-	var scenario: String = String(_dictionary_or_empty(recording.get("context", {})).get("scenario", "golden_basic_run"))
 	for frame_number: int in range(1, capture_frames + 1):
 		next_input_index = await _apply_due_input_events(input_events, next_input_index, frame_number)
+		next_runtime_index = await _apply_due_runtime_events(runtime_events, next_runtime_index, frame_number, run_loop)
 		await get_tree().physics_frame
 		await get_tree().process_frame
 		if _should_capture_frame_sample(frame_number, capture_frames):
 			frame_samples.append(_frame_sample(run_loop, frame_number, scenario))
 
 	next_input_index = await _apply_due_input_events(input_events, next_input_index, capture_frames + 1)
+	next_runtime_index = await _apply_due_runtime_events(runtime_events, next_runtime_index, capture_frames + 1, run_loop)
 	var summary: Dictionary = _runtime_summary(run_loop, capture_frames, scenario, frame_samples)
 	_release_input_actions(input_events)
 	GameState.change_state(GameState.MAIN_MENU, {"source": "replay_runner_rerun"})
+	_restore_runtime_scenario(scenario)
 	return summary
 
 
@@ -284,11 +297,17 @@ func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String, fra
 	else:
 		summary["enemies_present"] = _array_size(snapshot.get("enemies", [])) > 0
 		summary["bullets_present"] = _array_size(snapshot.get("bullets", [])) > 0
+	if scenario == "golden_full_death":
+		summary["player_defeated"] = GameState.is_state(GameState.GAME_OVER)
+		summary["game_over_panel_visible"] = _find_node_by_name(get_tree().root, "GameOverPanel") != null
+		summary["meta_save_exists"] = SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
+		summary["run_save_exists"] = SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+		summary["meta_currency_amount"] = _meta_currency_amount()
 	return summary
 
 
 func _uses_exact_runtime_counts(scenario: String) -> bool:
-	return scenario != "golden_pause_resume"
+	return not ["golden_pause_resume", "golden_full_death"].has(scenario)
 
 
 func _frame_sample(run_loop: Node, frame_number: int, scenario: String) -> Dictionary:
@@ -309,6 +328,9 @@ func _frame_sample(run_loop: Node, frame_number: int, scenario: String) -> Dicti
 	else:
 		sample["enemies_present"] = _array_size(snapshot.get("enemies", [])) > 0
 	sample["bullets_present"] = _array_size(snapshot.get("bullets", [])) > 0
+	if scenario == "golden_full_death":
+		sample["player_life"] = _player_life(snapshot)
+		sample["game_over_panel_visible"] = _find_node_by_name(get_tree().root, "GameOverPanel") != null
 	return sample
 
 
@@ -328,6 +350,19 @@ func _player_position_x(snapshot: Dictionary) -> float:
 	return float(position.get("x", 0.0))
 
 
+func _player_life(snapshot: Dictionary) -> float:
+	var player_snapshot: Dictionary = _dictionary_or_empty(snapshot.get("player", {}))
+	return float(player_snapshot.get("life_points", 0.0))
+
+
+func _meta_currency_amount() -> int:
+	if not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META):
+		return 0
+	var profile: Dictionary = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
+	var currencies: Dictionary = _dictionary_or_empty(profile.get("currencies", {}))
+	return int(currencies.get(META_CURRENCIES.META_ESSENCE, 0))
+
+
 func _sorted_input_events(raw_input_events: Variant) -> Array[Dictionary]:
 	var input_events: Array[Dictionary] = []
 	if not raw_input_events is Array:
@@ -339,8 +374,23 @@ func _sorted_input_events(raw_input_events: Variant) -> Array[Dictionary]:
 	return input_events
 
 
+func _sorted_runtime_events(raw_runtime_events: Variant) -> Array[Dictionary]:
+	var runtime_events: Array[Dictionary] = []
+	if not raw_runtime_events is Array:
+		return runtime_events
+	for raw_runtime_event: Variant in raw_runtime_events as Array:
+		if raw_runtime_event is Dictionary:
+			runtime_events.append((raw_runtime_event as Dictionary).duplicate(true))
+	runtime_events.sort_custom(_sort_runtime_events_by_frame)
+	return runtime_events
+
+
 func _sort_input_events_by_tick(left: Dictionary, right: Dictionary) -> bool:
 	return int(left.get("tick", 0)) < int(right.get("tick", 0))
+
+
+func _sort_runtime_events_by_frame(left: Dictionary, right: Dictionary) -> bool:
+	return int(left.get("frame", left.get("tick", 0))) < int(right.get("frame", right.get("tick", 0)))
 
 
 func _apply_due_input_events(input_events: Array[Dictionary], next_input_index: int, frame_number: int) -> int:
@@ -357,6 +407,51 @@ func _is_input_event_due(input_event: Dictionary, frame_number: int) -> bool:
 	if input_event.has("frame"):
 		return int(input_event.get("frame", 0)) <= frame_number
 	return int(input_event.get("tick", 0)) <= GameClock.tick()
+
+
+func _apply_due_runtime_events(runtime_events: Array[Dictionary], next_runtime_index: int, frame_number: int, run_loop: Node) -> int:
+	while next_runtime_index < runtime_events.size():
+		var runtime_event: Dictionary = runtime_events[next_runtime_index]
+		if not _is_runtime_event_due(runtime_event, frame_number):
+			return next_runtime_index
+		await _apply_runtime_event(runtime_event, run_loop)
+		next_runtime_index += 1
+	return next_runtime_index
+
+
+func _is_runtime_event_due(runtime_event: Dictionary, frame_number: int) -> bool:
+	if runtime_event.has("frame"):
+		return int(runtime_event.get("frame", 0)) <= frame_number
+	return int(runtime_event.get("tick", 0)) <= GameClock.tick()
+
+
+func _apply_runtime_event(runtime_event: Dictionary, run_loop: Node) -> void:
+	var event_name: String = String(runtime_event.get("event", ""))
+	if event_name == "defeat_player":
+		await _defeat_player(run_loop)
+
+
+func _defeat_player(run_loop: Node) -> void:
+	var player: Node = _find_node_by_name(run_loop, "Player")
+	if player == null:
+		_expect(false, "ReplayRunner full death runtime event should find Player")
+		return
+	var damage_source: Node = Node.new()
+	damage_source.name = "ReplayRunnerFullDeathDamageSource"
+	run_loop.add_child(damage_source)
+	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		float(player.call("max_life")),
+		DAMAGE_TYPES.PHYSICAL,
+		damage_source,
+		player,
+		"team_enemy",
+		"team_player"
+	)
+	var result: Dictionary = Combat.apply_damage(player, info)
+	_expect(bool(result.get("applied", false)), "ReplayRunner full death damage should apply")
+	_expect(bool(result.get("defeated", false)), "ReplayRunner full death should defeat player")
+	damage_source.queue_free()
+	await get_tree().process_frame
 
 
 func _apply_input_event(input_event: Dictionary) -> void:
@@ -386,6 +481,36 @@ func _release_input_actions(input_events: Array[Dictionary]) -> void:
 			continue
 		Input.action_release(action_name)
 		released_actions[action_name] = true
+
+
+func _prepare_runtime_scenario(scenario: String) -> void:
+	if scenario != "golden_full_death":
+		return
+	_runtime_save_backups.clear()
+	_runtime_save_backups[SAVE_KINDS.RUN] = _save_backup(SAVE_KINDS.RUN)
+	_runtime_save_backups[SAVE_KINDS.META] = _save_backup(SAVE_KINDS.META)
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
+
+
+func _restore_runtime_scenario(scenario: String) -> void:
+	if scenario != "golden_full_death":
+		return
+	for kind: String in [SAVE_KINDS.RUN, SAVE_KINDS.META]:
+		var backup: Dictionary = _dictionary_or_empty(_runtime_save_backups.get(kind, {}))
+		if bool(backup.get("existed", false)):
+			SaveManager.save(SaveManager.DEFAULT_SLOT, kind, _dictionary_or_empty(backup.get("payload", {})))
+		else:
+			SaveManager.delete(SaveManager.DEFAULT_SLOT, kind)
+
+
+func _save_backup(kind: String) -> Dictionary:
+	if not SaveManager.has_save(SaveManager.DEFAULT_SLOT, kind):
+		return {"existed": false, "payload": {}}
+	return {
+		"existed": true,
+		"payload": SaveManager.load(SaveManager.DEFAULT_SLOT, kind),
+	}
 
 
 func _collect_summary_diffs(expected_value: Variant, actual_value: Variant, path: String, diffs: Array[String]) -> void:

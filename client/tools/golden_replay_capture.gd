@@ -2,17 +2,23 @@ extends Node
 
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
+const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
+const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
 const CAPTURE_FRAMES: int = 180
 const CAPTURE_SECONDS: float = 3.0
 const DEFAULT_SCENARIO: String = "golden_basic_run"
 const FRAME_SAMPLE_INTERVAL: int = 30
+const FULL_DEATH_FRAME: int = 75
 const GOLDEN_REPLAY_SEED: int = 20260619
 const SCENARIO_ARGUMENT: String = "--golden-scenario"
 
 var _failures: Array[String] = []
 var _scenario: String = DEFAULT_SCENARIO
+var _scenario_save_backups: Dictionary = {}
 
 
 func _ready() -> void:
@@ -22,6 +28,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	_scenario = _capture_scenario()
+	_prepare_scenario()
 	Replay.set_enabled(true)
 	Replay.clear_recording()
 	RNG.set_run_seed(GOLDEN_REPLAY_SEED)
@@ -30,6 +37,7 @@ func _run() -> void:
 	var boot_node: Node = get_parent()
 	if boot_node == null or not boot_node.has_method("_start_gameplay_run"):
 		_expect(false, "GoldenReplayCapture should be hosted by FormalClientBoot")
+		_restore_scenario_saves()
 		_finish("")
 		return
 	boot_node.call("_start_gameplay_run")
@@ -42,18 +50,24 @@ func _run() -> void:
 			break
 	_expect(run_loop != null, "GoldenReplayCapture should run with GameplayRunLoop mounted")
 	if run_loop == null:
+		_restore_scenario_saves()
 		_finish("")
 		return
 
 	var frame_samples: Array[Dictionary] = []
 	for frame_number: int in range(1, CAPTURE_FRAMES + 1):
 		await _apply_scenario_inputs(frame_number)
+		await _apply_scenario_runtime_events(run_loop, frame_number)
 		await get_tree().physics_frame
 		await get_tree().process_frame
 		if _should_capture_frame_sample(frame_number, CAPTURE_FRAMES):
 			frame_samples.append(_frame_sample(run_loop, frame_number))
 
-	_expect(Replay.is_recording(), "GoldenReplayCapture should record through Replay autoload")
+	if _scenario == "golden_full_death":
+		_expect(not Replay.is_recording(), "GoldenReplayCapture full death should stop recording on GAME_OVER")
+		_expect(GameState.is_state(GameState.GAME_OVER), "GoldenReplayCapture full death should enter GAME_OVER")
+	else:
+		_expect(Replay.is_recording(), "GoldenReplayCapture should record through Replay autoload")
 	var run_summary: Dictionary = _runtime_summary(run_loop, frame_samples)
 	_release_scenario_actions()
 	GameState.change_state(GameState.GAME_OVER, {"source": "golden_replay_capture", "scenario": _scenario})
@@ -61,6 +75,8 @@ func _run() -> void:
 	var completed: Dictionary = Replay.snapshot()
 	if _scenario == "golden_pause_resume":
 		completed["input_events"] = _pause_resume_input_events()
+	elif _scenario == "golden_full_death":
+		completed["runtime_events"] = _full_death_runtime_events()
 	completed["ended_tick"] = CAPTURE_FRAMES
 	completed["ended_time"] = CAPTURE_SECONDS
 	completed["run_summary"] = run_summary
@@ -72,6 +88,7 @@ func _run() -> void:
 	var user_path: String = Replay.save_recording(completed, _replay_file_name())
 	_expect(not user_path.is_empty(), "GoldenReplayCapture should save a .replay file")
 	if user_path.is_empty():
+		_restore_scenario_saves()
 		_finish("")
 		return
 
@@ -82,6 +99,7 @@ func _run() -> void:
 		_expect(not envelope.is_empty(), "GoldenReplayCapture output should load as a replay file")
 
 	GameState.change_state(GameState.MAIN_MENU, {"source": "golden_replay_capture"})
+	_restore_scenario_saves()
 	_finish(output_path)
 
 
@@ -114,6 +132,12 @@ func _runtime_summary(run_loop: Node, frame_samples: Array[Dictionary]) -> Dicti
 	else:
 		summary["enemies_present"] = _array_size(snapshot.get("enemies", [])) > 0
 		summary["bullets_present"] = _array_size(snapshot.get("bullets", [])) > 0
+	if _scenario == "golden_full_death":
+		summary["player_defeated"] = GameState.is_state(GameState.GAME_OVER)
+		summary["game_over_panel_visible"] = _find_node_by_name(get_tree().root, "GameOverPanel") != null
+		summary["meta_save_exists"] = SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
+		summary["run_save_exists"] = SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+		summary["meta_currency_amount"] = _meta_currency_amount()
 	return summary
 
 
@@ -139,6 +163,9 @@ func _frame_sample(run_loop: Node, frame_number: int) -> Dictionary:
 	else:
 		sample["enemies_present"] = _array_size(snapshot.get("enemies", [])) > 0
 	sample["bullets_present"] = _array_size(snapshot.get("bullets", [])) > 0
+	if _scenario == "golden_full_death":
+		sample["player_life"] = _player_life(snapshot)
+		sample["game_over_panel_visible"] = _find_node_by_name(get_tree().root, "GameOverPanel") != null
 	return sample
 
 
@@ -177,14 +204,73 @@ func _apply_input_event(action_name: String, pressed: bool, strength: float) -> 
 	await get_tree().process_frame
 
 
+func _apply_scenario_runtime_events(run_loop: Node, frame_number: int) -> void:
+	if _scenario != "golden_full_death" or frame_number != FULL_DEATH_FRAME:
+		return
+	await _defeat_player(run_loop)
+
+
+func _defeat_player(run_loop: Node) -> void:
+	var player: Node = _find_node_by_name(run_loop, "Player")
+	if player == null:
+		_expect(false, "GoldenReplayCapture full death should find Player")
+		return
+	var damage_source: Node = Node.new()
+	damage_source.name = "GoldenFullDeathDamageSource"
+	run_loop.add_child(damage_source)
+	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		float(player.call("max_life")),
+		DAMAGE_TYPES.PHYSICAL,
+		damage_source,
+		player,
+		"team_enemy",
+		"team_player"
+	)
+	var result: Dictionary = Combat.apply_damage(player, info)
+	_expect(bool(result.get("applied", false)), "GoldenReplayCapture full death damage should apply")
+	_expect(bool(result.get("defeated", false)), "GoldenReplayCapture full death should defeat player")
+	damage_source.queue_free()
+	await get_tree().process_frame
+
+
 func _release_scenario_actions() -> void:
 	Input.action_release(ACTIONS.PAUSE)
 	Input.action_release(ACTIONS.UI_BACK)
 
 
+func _prepare_scenario() -> void:
+	if _scenario != "golden_full_death":
+		return
+	_scenario_save_backups.clear()
+	_scenario_save_backups[SAVE_KINDS.RUN] = _save_backup(SAVE_KINDS.RUN)
+	_scenario_save_backups[SAVE_KINDS.META] = _save_backup(SAVE_KINDS.META)
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
+
+
+func _restore_scenario_saves() -> void:
+	if _scenario != "golden_full_death":
+		return
+	for kind: String in [SAVE_KINDS.RUN, SAVE_KINDS.META]:
+		var backup: Dictionary = _dictionary_or_empty(_scenario_save_backups.get(kind, {}))
+		if bool(backup.get("existed", false)):
+			SaveManager.save(SaveManager.DEFAULT_SLOT, kind, _dictionary_or_empty(backup.get("payload", {})))
+		else:
+			SaveManager.delete(SaveManager.DEFAULT_SLOT, kind)
+
+
+func _save_backup(kind: String) -> Dictionary:
+	if not SaveManager.has_save(SaveManager.DEFAULT_SLOT, kind):
+		return {"existed": false, "payload": {}}
+	return {
+		"existed": true,
+		"payload": SaveManager.load(SaveManager.DEFAULT_SLOT, kind),
+	}
+
+
 func _capture_scenario() -> String:
 	var requested_scenario: String = _argument_value(SCENARIO_ARGUMENT)
-	if requested_scenario == "golden_pause_resume":
+	if ["golden_pause_resume", "golden_full_death"].has(requested_scenario):
 		return requested_scenario
 	return DEFAULT_SCENARIO
 
@@ -210,6 +296,17 @@ func _input_event(action_name: String, pressed: bool, strength: float, tick: int
 	}
 
 
+func _full_death_runtime_events() -> Array[Dictionary]:
+	return [
+		{
+			"event": "defeat_player",
+			"frame": FULL_DEATH_FRAME,
+			"tick": FULL_DEATH_FRAME,
+			"time": float(FULL_DEATH_FRAME) / 60.0,
+		},
+	]
+
+
 func _argument_value(flag: String) -> String:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	for index: int in range(args.size()):
@@ -230,6 +327,19 @@ func _player_position_x(snapshot: Dictionary) -> float:
 	var player_snapshot: Dictionary = _dictionary_or_empty(snapshot.get("player", {}))
 	var position: Dictionary = _dictionary_or_empty(player_snapshot.get("position", {}))
 	return float(position.get("x", 0.0))
+
+
+func _player_life(snapshot: Dictionary) -> float:
+	var player_snapshot: Dictionary = _dictionary_or_empty(snapshot.get("player", {}))
+	return float(player_snapshot.get("life_points", 0.0))
+
+
+func _meta_currency_amount() -> int:
+	if not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META):
+		return 0
+	var profile: Dictionary = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
+	var currencies: Dictionary = _dictionary_or_empty(profile.get("currencies", {}))
+	return int(currencies.get(META_CURRENCIES.META_ESSENCE, 0))
 
 
 func _copy_normalized_replay_to_project(source_path: String, destination_path: String) -> String:

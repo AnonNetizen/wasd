@@ -1,0 +1,316 @@
+{
+	"created_at": "golden:golden_full_death",
+	"data_fingerprint": "c3184ab07d5623f8f05eb9b984a27f2cea1594e1f3a72115005cb3cb4a0ee23c",
+	"file_schema_version": 1,
+	"game_version": "v1.5",
+	"recording": {
+		"context": {
+			"capture_frames": 180,
+			"character": "character_default",
+			"mode": "mode_standard_survival",
+			"scenario": "golden_full_death"
+		},
+		"decision_events": [],
+		"dropped_decision_events": 0,
+		"dropped_input_events": 0,
+		"ended_tick": 180,
+		"ended_time": 3.0,
+		"input_events": [],
+		"is_recording": false,
+		"reason": "game_over",
+		"run_seed": 20260619,
+		"run_summary": {
+			"active_pickups": 0,
+			"bullets_present": true,
+			"capture_frames": 180,
+			"enemies_present": true,
+			"frame_sample_interval": 30,
+			"frame_samples": [
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"frame": 30,
+					"game_over_panel_visible": false,
+					"kills": 0,
+					"level": 1,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "playing",
+					"ui_stack": 0,
+					"xp": 0
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"frame": 60,
+					"game_over_panel_visible": false,
+					"kills": 0,
+					"level": 1,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "playing",
+					"ui_stack": 0,
+					"xp": 0
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"frame": 90,
+					"game_over_panel_visible": true,
+					"kills": 0,
+					"level": 1,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 0.0,
+					"player_moved_right": false,
+					"state": "game_over",
+					"ui_stack": 1,
+					"xp": 0
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"frame": 120,
+					"game_over_panel_visible": true,
+					"kills": 0,
+					"level": 1,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 0.0,
+					"player_moved_right": false,
+					"state": "game_over",
+					"ui_stack": 1,
+					"xp": 0
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"frame": 150,
+					"game_over_panel_visible": true,
+					"kills": 0,
+					"level": 1,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 0.0,
+					"player_moved_right": false,
+					"state": "game_over",
+					"ui_stack": 1,
+					"xp": 0
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"frame": 180,
+					"game_over_panel_visible": true,
+					"kills": 0,
+					"level": 1,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 0.0,
+					"player_moved_right": false,
+					"state": "game_over",
+					"ui_stack": 1,
+					"xp": 0
+				}
+			],
+			"game_over_panel_visible": true,
+			"kills": 0,
+			"level": 1,
+			"meta_currency_amount": 8,
+			"meta_save_exists": true,
+			"player_aim_direction": {
+				"x": 1.0,
+				"y": 0.0
+			},
+			"player_defeated": true,
+			"player_moved_right": false,
+			"run_save_exists": false,
+			"scenario": "golden_full_death",
+			"schema_version": 1,
+			"state": "game_over",
+			"ui_stack": 1,
+			"xp": 0
+		},
+		"runtime_events": [
+			{
+				"event": "defeat_player",
+				"frame": 75,
+				"tick": 75,
+				"time": 1.25
+			}
+		],
+		"schema_version": 1,
+		"started_tick": 0,
+		"started_time": 0.0
+	},
+	"recording_hash": "51292435dda50baf21c7581fc09b1e7784c538a9dc35aa323f28b47f1b8cebb4",
+	"summary": {
+		"decision_events": 0,
+		"dropped_decision_events": 0,
+		"dropped_input_events": 0,
+		"ended_tick": 180,
+		"ended_time": 3.0,
+		"input_events": 0,
+		"reason": "game_over",
+		"run_seed": 20260619,
+		"run_summary": {
+			"active_pickups": 0,
+			"bullets_present": true,
+			"capture_frames": 180,
+			"enemies_present": true,
+			"frame_sample_interval": 30,
+			"frame_samples": [
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"frame": 30,
+					"game_over_panel_visible": false,
+					"kills": 0,
+					"level": 1,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "playing",
+					"ui_stack": 0,
+					"xp": 0
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"frame": 60,
+					"game_over_panel_visible": false,
+					"kills": 0,
+					"level": 1,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "playing",
+					"ui_stack": 0,
+					"xp": 0
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"frame": 90,
+					"game_over_panel_visible": true,
+					"kills": 0,
+					"level": 1,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 0.0,
+					"player_moved_right": false,
+					"state": "game_over",
+					"ui_stack": 1,
+					"xp": 0
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"frame": 120,
+					"game_over_panel_visible": true,
+					"kills": 0,
+					"level": 1,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 0.0,
+					"player_moved_right": false,
+					"state": "game_over",
+					"ui_stack": 1,
+					"xp": 0
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"frame": 150,
+					"game_over_panel_visible": true,
+					"kills": 0,
+					"level": 1,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 0.0,
+					"player_moved_right": false,
+					"state": "game_over",
+					"ui_stack": 1,
+					"xp": 0
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"frame": 180,
+					"game_over_panel_visible": true,
+					"kills": 0,
+					"level": 1,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 0.0,
+					"player_moved_right": false,
+					"state": "game_over",
+					"ui_stack": 1,
+					"xp": 0
+				}
+			],
+			"game_over_panel_visible": true,
+			"kills": 0,
+			"level": 1,
+			"meta_currency_amount": 8,
+			"meta_save_exists": true,
+			"player_aim_direction": {
+				"x": 1.0,
+				"y": 0.0
+			},
+			"player_defeated": true,
+			"player_moved_right": false,
+			"run_save_exists": false,
+			"scenario": "golden_full_death",
+			"schema_version": 1,
+			"state": "game_over",
+			"ui_stack": 1,
+			"xp": 0
+		},
+		"schema_version": 1,
+		"started_tick": 0,
+		"started_time": 0.0
+	}
+}
