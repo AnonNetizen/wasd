@@ -40,6 +40,7 @@ def main() -> int:
     subparsers.add_parser("f4-smoke", help="Compatibility alias for runtime-smoke.")
     subparsers.add_parser("meta-smoke", help="Run the F6 meta progression smoke in headless Godot.")
     subparsers.add_parser("save-smoke", help="Run the SaveManager run-save reliability smoke in headless Godot.")
+    subparsers.add_parser("settings-smoke", help="Run the F7 Settings persistence smoke in headless Godot.")
 
     args = parser.parse_args()
     project = Path(args.project).resolve()
@@ -83,6 +84,18 @@ def main() -> int:
             return 1
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--", "--save-smoke"],
+            cwd=project,
+        )
+    if args.command == "settings-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        smoke_script = project / "tools" / "settings_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing Settings smoke script: {_rel(smoke_script)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", "--settings-smoke"],
             cwd=project,
         )
     if args.command == "meta-smoke":

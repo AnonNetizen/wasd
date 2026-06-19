@@ -7,7 +7,7 @@
 
 - `Settings` 负责维护正式客户端运行时设置的默认值、读取、修改和变更广播。
 - 设置 key 必须来自 `docs/词表与契约.md`，并通过 `client/scripts/contracts/settings_keys.gd` 与 `DataLoader` 的 `_contracts.json` 校验。
-- 当前切片只提供内存态设置，不负责写入 `user://settings.cfg`；持久化、范围校验和输入重绑定会在后续设置系统切片补齐。
+- F7 首片已接入 `user://settings.cfg` 持久化、类型 / 范围校验、损坏配置回退和 `settings-smoke` 自动验证。
 - `Settings` 不负责玩家进度存档；局外成长与局内续局属于 `SaveManager`。
 
 ## 阅读方式
@@ -17,7 +17,7 @@
 | 增加设置项 | `docs/词表与契约.md` 设置 key 段落，再看本文档 API |
 | 调整默认值 | `client/scripts/autoload/settings.gd` 的 `_default_values()` |
 | 做设置菜单 | 本文档公共 API 与 `docs/代码/ui_manager.md` |
-| 做持久化 | 本文档迁移 / 兼容段落与后续 `SaveManager` 文档 |
+| 做持久化 / 回退 | 本文档持久化流程与 `client/tools/settings_smoke.gd` |
 
 ## 代码位置
 
@@ -27,6 +27,9 @@
 | `client/scripts/contracts/settings_keys.gd` | 自动生成的设置 key 常量 |
 | `client/data/_contracts.json` | 自动生成的契约缓存 |
 | `client/project.godot` | autoload 注册 |
+| `client/tools/settings_smoke.gd` | F7 设置持久化 smoke |
+| `tools/godot_bridge.py` | `settings-smoke` 命令入口 |
+| `user://settings.cfg` | 玩家本机设置配置文件 |
 
 ## 场景 / 节点结构
 
@@ -36,47 +39,71 @@
 
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
-| 启动 | `_ready()` 调用 `reset_to_defaults()` 写入内存默认值 | `reset_to_defaults()` |
+| 启动 | `_ready()` 先写入默认值，再尝试加载 `user://settings.cfg`；无配置时保留默认值，损坏或不支持版本时回退默认并重写干净配置 | `reset_to_defaults(false)` / `load_from_disk()` |
 | 读取 | 调用方用已登记 key 读取当前值 | `get_value()` |
-| 修改 | key 通过契约校验后写入并广播 | `set_value()` / `setting_changed` |
-| 重置 | 恢复 `DEFAULT_VALUES` 的深拷贝 | `reset_to_defaults()` |
+| 修改 | key 通过契约、类型和范围校验后写入、广播并保存到磁盘 | `set_value()` / `setting_changed` / `save_to_disk()` |
+| 重置 | 恢复默认值；调用方可选择是否立即持久化 | `reset_to_defaults(persist)` |
+| smoke | 备份现有 `settings.cfg`，验证缺文件默认值、有效设置 roundtrip、非法值拒绝、坏值 / 坏文件回退，然后恢复原文件 | `settings-smoke` |
 
 ## 公共 API
 
 | 名称 | 输入 | 输出 | 约束 |
 |------|------|------|------|
 | `get_value(key, fallback = null)` | 设置 key、兜底值 | 当前值或兜底值 | 未登记 key 会 `push_error` 并返回兜底值 |
-| `set_value(key, value)` | 设置 key、新值 | `bool` | key 未登记返回 `false`；值未变化不广播 |
+| `set_value(key, value)` | 设置 key、新值 | `bool` | key 未登记或值不符合类型 / 范围返回 `false`；值未变化不广播；成功后自动保存 |
 | `has_key(key)` | 设置 key | `bool` | 只表示是否登记在契约里 |
 | `values()` | 无 | `Dictionary` | 返回深拷贝，调用方不得改内部状态 |
-| `reset_to_defaults()` | 无 | `void` | 当前切片不广播逐项变化 |
+| `reset_to_defaults(persist = false)` | 是否立即保存默认值 | `void` | 不广播逐项变化；设置菜单做“恢复默认”时如需落盘传 `true` |
+| `load_from_disk()` | 无 | `bool` | `true` 表示干净加载或缺文件默认值；`false` 表示损坏 / 越界 / 不支持版本等已触发回退 |
+| `save_to_disk()` | 无 | `bool` | 写入 `user://settings.cfg`，失败时 `push_error` 并返回 `false` |
+| `settings_path()` | 无 | `String` | 返回当前配置路径，供 smoke / 诊断使用 |
+| `last_load_recovered()` | 无 | `bool` | 最近一次 `load_from_disk()` 是否发生回退 |
 
 ## Signal / Event
 
 | 名称 | 参数 | 触发时机 |
 |------|------|----------|
 | `setting_changed` | `key: String`, `value: Variant` | `set_value()` 成功写入新值后 |
+| `settings_loaded` | `recovered: bool` | `load_from_disk()` 完成后；`true` 表示至少发生过损坏 / 越界 / 版本回退 |
+| `settings_saved` | `path: String` | `save_to_disk()` 成功后 |
 
 ## 数据与契约
 
 当前默认设置：
 
-| key | 默认值 | 用途 |
-|-----|--------|------|
-| `general.locale` | `zh_CN` | 首选语言 |
-| `video.fullscreen` | `false` | 全屏开关占位 |
-| `video.vsync` | `true` | 垂直同步占位 |
-| `audio.master` | `1.0` | 主音量 |
-| `audio.music` | `0.8` | 音乐音量 |
-| `audio.sfx` | `0.9` | 音效音量 |
-| `gameplay.fire_on_release` | `false` | 松开瞄准是否停火的待决策入口 |
-| `gameplay.aim_mode` | `4dir` | 默认瞄准模式 |
-| `gameplay.screen_shake` | `true` | 屏幕震动开关 |
-| `gameplay.pause_on_focus_loss` | `true` | 失焦暂停开关 |
-| `gameplay.record_replays` | `true` | 自动回放录制开关 |
-| `privacy.analytics_enabled` | `true` | 数据收集开关 |
+| key | 类型 / 范围 | 默认值 | 用途 |
+|-----|-------------|--------|------|
+| `general.locale` | string：`zh_CN` / `en` | `zh_CN` | 首选语言 |
+| `video.fullscreen` | bool | `false` | 全屏开关占位 |
+| `video.vsync` | bool | `true` | 垂直同步占位 |
+| `audio.master` | float：0~1 | `1.0` | 主音量 |
+| `audio.music` | float：0~1 | `0.8` | 音乐音量 |
+| `audio.sfx` | float：0~1 | `0.9` | 音效音量 |
+| `gameplay.fire_on_release` | bool | `false` | 松开瞄准是否停火的待决策入口 |
+| `gameplay.aim_mode` | string：`4dir` / `auto` | `4dir` | 默认瞄准模式 |
+| `gameplay.screen_shake` | bool | `true` | 屏幕震动开关 |
+| `gameplay.pause_on_focus_loss` | bool | `true` | 失焦暂停开关 |
+| `gameplay.record_replays` | bool | `true` | 自动回放录制开关 |
+| `privacy.analytics_enabled` | bool | `true` | 数据收集开关 |
 
 新增 key 必须先改 `docs/词表与契约.md`，再运行 `tools/sync_contracts.py` 生成常量和 `_contracts.json`。
+
+配置文件结构：
+
+```ini
+[meta]
+version=1
+
+[settings]
+general.locale="zh_CN"
+audio.master=1.0
+```
+
+加载规则：
+- 缺少 `user://settings.cfg`：不报错，使用默认值。
+- 文件无法解析或版本高于当前 `CONFIG_VERSION`：整份配置回退默认值并重写干净文件。
+- 单个 key 类型 / 范围非法：该 key 回退默认值，其余合法 key 保留，并重写干净文件。
+- 未登记 key 不进入 `_values`，避免旧配置或人工编辑污染运行时状态。
 
 ## 依赖
 
@@ -87,8 +114,9 @@
 ## 扩展点
 
 - 增加设置项：先登记词表 key，再给 `DEFAULT_VALUES` 增加默认值，并同步设置菜单。
-- 增加持久化：后续统一写入 `user://settings.cfg`，但不能混入 `SaveManager` 的 `meta` / `run` 存档。
-- 增加范围校验：可以为数值设置建立 schema，但不应在调用点重复散落校验。
+- 扩展持久化 schema：提升 `CONFIG_VERSION`，在 `load_from_disk()` 中补旧 key 兼容或迁移；仍不得混入 `SaveManager` 的 `meta` / `run` 存档。
+- 扩展范围校验：在 `_setting_specs()` 维护类型 / 范围 / 枚举，调用点不重复散落校验。
+- 接入设置面板：UI 只调用 `Settings.set_value()`；若值被拒绝，面板显示本地化错误或保留旧值。
 
 ## 常见改动入口
 
@@ -97,25 +125,29 @@
 | 新增设置 key | `docs/词表与契约.md`、`settings.gd` | 本文档、任务模板 | `tools/sync_contracts.py --check`、`tools/validate_data.py` |
 | 改默认语言 | `settings.gd` | 本文档、`client/locale/README.md` | headless boot |
 | 接入设置菜单 | UI 场景与 `Settings.set_value()` | UI 模块文档 | L2 + 手动设置 checklist |
-| 接入持久化 | 后续 `Settings` 持久化切片 | 本文档、测试策略 | L1 + L2 |
+| 改持久化 / 回退 | `settings.gd`、`settings_smoke.gd` | 本文档、FormalClientBoot 文档 | `settings-smoke` + headless boot |
 
 ## 故障排查
 
 | 现象 | 优先检查 |
 |------|----------|
 | 设置 key 写入失败 | key 是否在 `docs/词表与契约.md` 和 `client/data/_contracts.json` 中 |
+| 设置值被拒绝 | `_setting_specs()` 的类型、范围或枚举是否符合词表 §5 |
+| 重启后设置丢失 | `Settings.set_value()` 是否返回 true；`user://settings.cfg` 是否可写；`settings-smoke` 是否通过 |
+| 手动改坏配置后异常 | `load_from_disk()` 是否回退默认并重写干净文件 |
 | 修改语言无效 | `Localization` 是否连接了 `Settings.setting_changed` |
 | 启动日志 settings 数量异常 | `DEFAULT_VALUES` 是否漏了契约 key |
 
 ## 测试义务
 
-- 当前切片必跑 L0 契约 / 数据 / 文档检查和 L2 headless boot。
+- 修改 `Settings` 必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client settings-smoke`。
+- 改设置 key、默认值、范围或持久化 schema 时，追加 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_project_rules.py`。
 - 后续引入 GUT 后，`Settings` 需要覆盖默认值、变更广播、未知 key 拒绝、持久化加载和越界拒绝。
 - 接入设置菜单后需要执行 L5 设置 checklist。
 
 ## 迁移 / 兼容
 
-当前没有用户配置文件迁移。未来加入 `user://settings.cfg` 后，必须记录配置版本、旧 key 迁移和损坏配置回退策略；不得把玩家存档迁移逻辑放入 `Settings`。
+`user://settings.cfg` 当前 `CONFIG_VERSION=1`。后续新增 / 重命名 key 时优先让缺失 key 使用默认值；删除 key 时忽略旧配置中的多余 key；只有配置语义改变时才提升版本并在 `load_from_disk()` 中写明迁移或回退策略。玩家进度迁移仍属于 `SaveManager`，不得放入 `Settings`。
 
 ## 相关文档
 

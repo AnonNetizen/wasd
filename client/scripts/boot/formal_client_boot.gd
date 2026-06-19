@@ -13,6 +13,7 @@ const META_SMOKE_RUNNER := preload("res://tools/meta_progression_smoke.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SAVE_SMOKE_RUNNER := preload("res://tools/save_manager_smoke.gd")
+const SETTINGS_SMOKE_RUNNER := preload("res://tools/settings_smoke.gd")
 
 var _run_loop: Node = null
 var _meta_progression_panel: CanvasLayer = null
@@ -80,6 +81,10 @@ func _ready() -> void:
 		var save_smoke_runner: Node = SAVE_SMOKE_RUNNER.new()
 		save_smoke_runner.name = "SaveManagerSmoke"
 		add_child(save_smoke_runner)
+	elif _is_settings_smoke_enabled():
+		var settings_smoke_runner: Node = SETTINGS_SMOKE_RUNNER.new()
+		settings_smoke_runner.name = "SettingsSmoke"
+		add_child(settings_smoke_runner)
 	elif _is_meta_smoke_enabled():
 		var meta_smoke_runner: Node = META_SMOKE_RUNNER.new()
 		meta_smoke_runner.name = "MetaProgressionSmoke"
@@ -94,6 +99,10 @@ func _is_runtime_smoke_enabled() -> bool:
 
 func _is_save_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--save-smoke")
+
+
+func _is_settings_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--settings-smoke")
 
 
 func _is_meta_smoke_enabled() -> bool:
