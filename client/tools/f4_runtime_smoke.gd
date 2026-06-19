@@ -698,33 +698,14 @@ func _run_save_path() -> String:
 
 
 func _expect_game_over_buttons(game_over_panel: Node) -> void:
-	var meta_button: Button = _find_node_by_name(game_over_panel, "MetaProgressionButton") as Button
-	_expect(meta_button != null, "game-over panel should expose a meta progression button")
-	if meta_button != null:
-		_expect(meta_button.process_mode == Node.PROCESS_MODE_ALWAYS, "game-over meta progression button should accept input")
-		_expect(meta_button.visible, "game-over meta progression button should be visible before click")
-		_expect(not meta_button.disabled, "game-over meta progression button should be enabled before click")
-		await _click_button(meta_button)
-		var meta_panel: Node = null
-		for _index: int in range(BOOT_FRAMES):
-			await get_tree().process_frame
-			meta_panel = _find_node_by_name(get_tree().root, "MetaProgressionPanel")
-			if meta_panel != null:
-				break
-		_expect(meta_panel != null, "clicking game-over meta progression should open MetaProgressionPanel")
-		var upgrade_list: Node = _find_node_by_name(meta_panel, "MetaUpgradeList")
-		_expect(upgrade_list != null and upgrade_list.get_child_count() > 0, "game-over MetaProgressionPanel should show upgrade rows")
-		var close_button: Button = _find_node_by_name(meta_panel, "CloseButton") as Button
-		_expect(close_button != null, "game-over MetaProgressionPanel should expose a close button")
-		if close_button != null:
-			await _click_button(close_button)
-		for _index: int in range(BOOT_FRAMES):
-			await get_tree().process_frame
-			if _find_node_by_name(get_tree().root, "MetaProgressionPanel") == null:
-				break
-		_expect(_find_node_by_name(get_tree().root, "MetaProgressionPanel") == null, "closing game-over meta progression should remove the overlay")
-		_expect(_find_node_by_name(get_tree().root, "F4GameOverPanel") != null, "closing game-over meta progression should return to game-over panel")
-		_expect(GameState.is_state(GameState.GAME_OVER), "closing game-over meta progression should keep GAME_OVER state")
+	_expect(
+		_find_node_by_name(game_over_panel, "PurchaseUpgradeButton") == null,
+		"game-over panel should not expose direct meta upgrade purchase"
+	)
+	_expect(
+		_find_node_by_name(game_over_panel, "MetaProgressionButton") == null,
+		"game-over panel should not expose meta progression entry"
+	)
 
 	var restart_button: Button = _find_node_by_name(game_over_panel, "RestartButton") as Button
 	_expect(restart_button != null, "game-over panel should expose a restart button")

@@ -21,7 +21,6 @@ const F4_PAUSE_MENU_SCRIPT := preload("res://scripts/ui/f4_pause_menu.gd")
 const F4_PICKUP_ORB_SCRIPT := preload("res://scripts/gameplay/f4_pickup_orb.gd")
 const F4_PLAYER_SCRIPT := preload("res://scripts/gameplay/f4_player.gd")
 const F4_WEAPON_SYSTEM_SCRIPT := preload("res://scripts/gameplay/f4_weapon_system.gd")
-const META_PROGRESSION_PANEL_SCRIPT := preload("res://scripts/ui/meta_progression_panel.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
 const BULLET_POOL_SIZE: int = 192
@@ -44,7 +43,6 @@ var _hud: CanvasLayer = null
 var _kills: int = 0
 var _level_panel: CanvasLayer = null
 var _last_settlement: Dictionary = {}
-var _meta_progression_panel: CanvasLayer = null
 var _pending_level_up_choices: Array[Dictionary] = []
 var _pending_restore_snapshot: Dictionary = {}
 var _pause_menu: CanvasLayer = null
@@ -386,60 +384,9 @@ func _show_game_over_panel() -> void:
 	_game_over_panel = UIManager.push(panel_scene, {"source": "f4_game_over"}) as CanvasLayer
 	if _game_over_panel == null:
 		return
-	_game_over_panel.call("configure", _kills, GameClock.now(), _last_settlement, MetaProgressionSystem.first_available_purchase())
+	_game_over_panel.call("configure", _kills, GameClock.now(), _last_settlement)
 	_game_over_panel.connect("restart_requested", Callable(self, "_on_game_over_restart_requested"), CONNECT_ONE_SHOT)
 	_game_over_panel.connect("quit_to_title_requested", Callable(self, "_on_game_over_quit_to_title_requested"), CONNECT_ONE_SHOT)
-	_game_over_panel.connect("meta_progression_requested", Callable(self, "_on_game_over_meta_progression_requested"))
-	_game_over_panel.connect("purchase_upgrade_requested", Callable(self, "_on_game_over_purchase_upgrade_requested"))
-
-
-func _on_game_over_purchase_upgrade_requested(upgrade_id: String) -> void:
-	var purchase_candidate: Dictionary = MetaProgressionSystem.first_available_purchase()
-	var purchase_result: Dictionary = MetaProgressionSystem.purchase_upgrade(upgrade_id)
-	purchase_result["name_key"] = String(purchase_candidate.get("name_key", ""))
-	var profile: Dictionary = purchase_result.get("profile", {}) as Dictionary
-	if not profile.is_empty():
-		_last_settlement["profile"] = profile
-	if _game_over_panel != null and _game_over_panel.has_method("configure"):
-		_game_over_panel.call("configure", _kills, GameClock.now(), _last_settlement, MetaProgressionSystem.first_available_purchase())
-	if _game_over_panel != null and _game_over_panel.has_method("show_purchase_feedback"):
-		_game_over_panel.call("show_purchase_feedback", purchase_result)
-
-
-func _on_game_over_meta_progression_requested() -> void:
-	if _meta_progression_panel != null and is_instance_valid(_meta_progression_panel):
-		return
-	var panel_template: CanvasLayer = META_PROGRESSION_PANEL_SCRIPT.new()
-	panel_template.name = "MetaProgressionPanel"
-	var panel_scene: PackedScene = PackedScene.new()
-	var pack_result: Error = panel_scene.pack(panel_template)
-	panel_template.free()
-	if pack_result != OK:
-		push_error("[F4RunLoop] failed to pack meta progression panel: %d" % pack_result)
-		return
-	_meta_progression_panel = UIManager.push(panel_scene, {"source": "f4_game_over"}) as CanvasLayer
-	if _meta_progression_panel == null:
-		return
-	_meta_progression_panel.connect("closed_requested", Callable(self, "_on_game_over_meta_progression_closed"), CONNECT_ONE_SHOT)
-
-
-func _on_game_over_meta_progression_closed() -> void:
-	if UIManager.top() == _meta_progression_panel:
-		UIManager.pop()
-	elif _meta_progression_panel != null and is_instance_valid(_meta_progression_panel):
-		_meta_progression_panel.queue_free()
-	_meta_progression_panel = null
-	_refresh_game_over_panel()
-
-
-func _refresh_game_over_panel() -> void:
-	if _game_over_panel == null or not is_instance_valid(_game_over_panel):
-		return
-	if _game_over_panel.has_method("configure"):
-		var profile: Dictionary = MetaProgressionSystem.load_or_create_profile()
-		if not profile.is_empty():
-			_last_settlement["profile"] = profile
-		_game_over_panel.call("configure", _kills, GameClock.now(), _last_settlement, MetaProgressionSystem.first_available_purchase())
 
 
 func _on_game_over_restart_requested() -> void:

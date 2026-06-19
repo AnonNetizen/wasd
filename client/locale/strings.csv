@@ -29,7 +29,6 @@ ui_meta_purchase_upgrade,购买 {name}（{cost}）,Buy {name} ({cost})
 ui_meta_purchase_unavailable,暂无可购买升级,No affordable upgrade
 ui_meta_purchase_success,已购买 {name} Lv.{level},Purchased {name} Lv.{level}
 ui_meta_purchase_failed,购买失败：{reason},Purchase failed: {reason}
-ui_meta_open_upgrades,查看局外升级,View Meta Upgrades
 ui_meta_upgrade_level,等级 {level}/{max},Level {level}/{max}
 ui_meta_upgrade_cost,消耗 {currency} {cost},Cost {currency} {cost}
 ui_meta_upgrade_maxed,已满级,Maxed

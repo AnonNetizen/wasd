@@ -5,7 +5,7 @@
 
 `client/` 是完整项目的 Godot 4.6.3 项目根，即 Godot 内的 `res://`。
 
-当前阶段为 F6 局外成长首切片：正式工程已可启动，F2 横向 autoload 矩阵、F3 数据 / 契约闭环、F4 最小可玩闭环和 F5 暂停 / 存档 / 续局已通过阶段验证。启动场景在数据校验通过后会显示最小标题界面，开始后进入战斗 runtime；若存在 `SaveManager` 的 `run` 存档，标题菜单会显示“继续游戏”，续局读取失败时会提示本局存档已重置；标题菜单常驻“局外升级”入口，可查看余额、账号等级和升级轨道并购买永久升级。当前 runtime 覆盖玩家移动与居中相机、默认起始武器、池化子弹、两种池化敌人、`spawn_waves.csv` 刷怪、`Combat.apply_damage()` 伤害入口、经验 / 升级选择、升级获得反馈、响应式基础 HUD、主动暂停、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、死亡结算、`meta` profile roundtrip、结算页最小购买、标题局外升级面板和下一局永久 modifiers。`SaveManager` 的 `run` kind 已有 version 2 迁移与 `save-smoke` 可靠性验证，`MetaProgressionSystem` 已有 `meta-smoke` 局外成长验证。项目默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，并通过 `canvas_items + keep` 在比例不匹配时保比例加黑边。
+当前阶段为 F6 局外成长首切片：正式工程已可启动，F2 横向 autoload 矩阵、F3 数据 / 契约闭环、F4 最小可玩闭环和 F5 暂停 / 存档 / 续局已通过阶段验证。启动场景在数据校验通过后会显示最小标题界面，开始后进入战斗 runtime；若存在 `SaveManager` 的 `run` 存档，标题菜单会显示“继续游戏”，续局读取失败时会提示本局存档已重置；标题菜单常驻“局外升级”入口，可查看余额、账号等级和升级轨道并购买永久升级。当前 runtime 覆盖玩家移动与居中相机、默认起始武器、池化子弹、两种池化敌人、`spawn_waves.csv` 刷怪、`Combat.apply_damage()` 伤害入口、经验 / 升级选择、升级获得反馈、响应式基础 HUD、主动暂停、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、死亡结算、`meta` profile roundtrip、标题局外升级面板和下一局永久 modifiers；死亡结算页只展示本局收益、账号等级 / 余额、重开和回标题，不提供局外购买入口。`SaveManager` 的 `run` kind 已有 version 2 迁移与 `save-smoke` 可靠性验证，`MetaProgressionSystem` 已有 `meta-smoke` 局外成长验证。项目默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，并通过 `canvas_items + keep` 在比例不匹配时保比例加黑边。
 
 ## 目录
 
