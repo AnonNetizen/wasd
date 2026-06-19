@@ -11,6 +11,7 @@ signal ui_replaced(node: Node, context: Dictionary)
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ROOT_NAME: StringName = &"UIRoot"
+const REPLAY_PARTICIPANT_ID: String = "player_0"
 
 var _root: CanvasLayer
 var _stack: Array[Node] = []
@@ -102,6 +103,8 @@ func stack_snapshot() -> Array[Node]:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	Replay.record_input_event(event, [ACTIONS.UI_BACK], REPLAY_PARTICIPANT_ID)
+
 	if not event.is_action_pressed(ACTIONS.UI_BACK):
 		return
 	if _request_top_close():

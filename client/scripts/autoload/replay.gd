@@ -112,6 +112,19 @@ func record_input_action(action_name: String, pressed: bool, strength: float = 1
 	return true
 
 
+func record_input_event(event: InputEvent, action_names: Array[String], participant_id: String = "") -> bool:
+	if event == null:
+		return false
+
+	var recorded_any: bool = false
+	for action_name: String in action_names:
+		if event.is_action_pressed(action_name):
+			recorded_any = record_input_action(action_name, true, 1.0, participant_id) or recorded_any
+		elif event.is_action_released(action_name):
+			recorded_any = record_input_action(action_name, false, 0.0, participant_id) or recorded_any
+	return recorded_any
+
+
 func record_decision(event_name: String, payload: Dictionary = {}) -> bool:
 	if not _is_recording:
 		return false

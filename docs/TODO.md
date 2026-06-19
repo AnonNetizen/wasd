@@ -17,7 +17,7 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 继续 F8 回放 / 测试 / 平衡基线：已完成 L1 smoke、Replay runner、首条运行时摘要 golden 和 perf probe；下一步推进输入播放 / 帧级 diff 与更多黄金回放。
+- [ ] 继续 F8 回放 / 测试 / 平衡基线：已完成 L1 smoke、Replay runner、gameplay 输入录制首片、首条运行时摘要 golden 和 perf probe；下一步推进输入播放 / 帧级 diff 与更多黄金回放。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）

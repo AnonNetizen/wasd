@@ -11,6 +11,7 @@ signal save_and_quit_requested()
 signal settings_requested()
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const REPLAY_PARTICIPANT_ID: String = "player_0"
 
 var pauses_game: bool = true
 
@@ -23,6 +24,8 @@ var _title_label: Label = null
 func _input(event: InputEvent) -> void:
 	if UIManager.top() != self:
 		return
+
+	Replay.record_input_event(event, [ACTIONS.PAUSE], REPLAY_PARTICIPANT_ID)
 
 	if event.is_action_pressed(ACTIONS.PAUSE):
 		get_viewport().set_input_as_handled()

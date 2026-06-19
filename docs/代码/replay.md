@@ -8,7 +8,7 @@
 - `Replay` 负责记录一局的确定性回放输入：主 seed、游戏 tick / time、InputMap action、关键决策事件和启动上下文。
 - 输入 action 必须来自 `docs/词表与契约.md`，并通过 `client/scripts/contracts/actions.gd` 与 `DataLoader` 的 `_contracts.json` 校验。
 - 关键决策事件当前复用已登记的 `analytics_events`，例如后续升级、拾取、道具使用等事件；需要新的事件名时先改词表。
-- F8 已提供 `.replay` 文件 envelope、`user://replays/` 落盘 / 读取、稳定摘要、`replay-smoke` roundtrip、`replay-runner` 摘要 diff，以及 `client/tests/replays/golden_basic_run.replay` 的运行时摘要 golden baseline；暂不接管输入回放，也不做帧级黄金回放 diff。
+- F8 已提供 `.replay` 文件 envelope、`user://replays/` 落盘 / 读取、稳定摘要、`replay-smoke` roundtrip、`replay-runner` 摘要 diff、`client/tests/replays/golden_basic_run.replay` 的运行时摘要 golden baseline，以及 gameplay 输入录制首片；暂不接管输入播放，也不做帧级黄金回放 diff。
 - `Replay` 受 `Settings.gameplay.record_replays` 控制；关闭后会清空当前内存录制并拒绝新录制。
 
 ## 阅读方式
@@ -27,6 +27,7 @@
 | `client/scripts/autoload/replay.gd` | `Replay` autoload 脚本 |
 | `client/tools/replay_smoke.gd` | F8 replay 文件 roundtrip smoke，覆盖最小录制、保存、读取、摘要对比和 data fingerprint |
 | `client/tools/replay_runner.gd` | F8 replay summary diff runner，读取 `.replay`、校验 envelope，并比较内嵌 summary、外部 expectation JSON 或重跑运行时摘要 |
+| `client/tools/replay_input_smoke.gd` | F8 gameplay 输入录制 smoke，启动真实 `GameplayRunLoop` 并确认移动 / 瞄准 / pause / ui_back 写入 `Replay.input_events` |
 | `client/tools/golden_replay_capture.gd` | F8 golden capture 工具，固定 seed 启动真实 `GameplayRunLoop` 并生成 `golden_basic_run.replay` |
 | `client/tests/replays/golden_basic_run.replay` | F8 首条已入库 golden replay；当前覆盖固定 seed 的运行时摘要，不是输入播放 / 帧级 diff |
 | `client/scripts/contracts/actions.gd` | 自动生成的 InputMap action 常量 |
@@ -44,7 +45,7 @@
 |------|----------|-------------------|
 | 启动 | 从 `Settings.gameplay.record_replays` 初始化开关，并监听设置与状态变化 | `set_enabled()` |
 | 进入 `PLAYING` | 若启用且未录制，则自动建立内存录制 | `start_recording()` / `recording_started` |
-| 输入发生 | 调用方记录已登记 action、按下状态、强度和可选 participant | `record_input_action()` / `input_recorded` |
+| 输入发生 | 调用方记录已登记 action、按下状态、强度和可选 participant；当前 gameplay 首片由 `Player` 记录移动 / 瞄准 action 状态变化，由暂停 / UI 栈路径记录 `pause` / `ui_back` 离散事件 | `record_input_action()` / `record_input_event()` / `input_recorded` |
 | 关键决策 | 调用方记录已登记 analytics event 与 payload | `record_decision()` / `decision_recorded` |
 | 进入 `GAME_OVER` / `RESULT` / `MAIN_MENU` | 结束内存录制，补齐结束 tick/time 与丢弃计数，并发出本地埋点 | `stop_recording()` / `recording_stopped` |
 | 需要持久化 | 调用方把完成的录制写入 `user://replays/<name>.replay`；文件 envelope 包含 schema、game version、data fingerprint、recording hash 和稳定摘要 | `save_recording()` / `replay_saved` |
@@ -58,6 +59,7 @@
 | `start_recording(context = {})` | 启动上下文 | `bool` | 关闭或已录制时返回 `false` |
 | `stop_recording(reason = "")` | 停止原因 | `Dictionary` | 未录制时返回空字典；成功后发 `replay_recorded` 埋点 |
 | `record_input_action(action_name, pressed, strength = 1.0, participant_id = "")` | action、按下状态、强度、参与者 | `bool` | action 未登记会 `push_error` 并返回 `false` |
+| `record_input_event(event, action_names, participant_id = "")` | Godot `InputEvent`、候选 action、参与者 | `bool` | 将 press / release 事件转成 `record_input_action()`；当前用于 pause / ui_back 这类离散输入 |
 | `record_decision(event_name, payload = {})` | 关键事件名、payload | `bool` | event 未登记会 `push_error` 并返回 `false` |
 | `save_recording(recording = {}, file_name = "")` | 已完成录制、可选文件名 | `String` | 写入 `user://replays/`，返回路径；文件名会归一化为 `.replay` |
 | `load_recording(path)` | `.replay` 路径 | `Dictionary` | 返回录制 payload；文件无效时返回空字典并设置 `last_error()` |
@@ -130,6 +132,8 @@ F8 首条 golden replay 额外在 `recording.run_summary` / `summary.run_summary
 | `tick` / `time` | `int` / `float` | 录制时的游戏 tick / time |
 | `participant_id` | `String` | 可选；未来多人 / AIPlayer 预留 |
 
+当前 gameplay 输入录制首片使用固定 `participant_id=player_0`。`Player` 只在移动 / 瞄准 action 的 pressed 状态发生变化时写入事件，避免每帧重复记录；暂停、升级面板、暂停菜单和 `UIManager` 分别在自己的输入路径记录 `pause` / `ui_back`。这只是录制输入，不等于已经能播放输入。
+
 关键决策事件字段：
 
 | 字段 | 类型 | 说明 |
@@ -141,12 +145,12 @@ F8 首条 golden replay 额外在 `recording.run_summary` / `summary.run_summary
 ## 依赖
 
 - 上游依赖：`RNG` 提供主 seed；`GameClock` 提供 tick / time；`GameState` 提供自动录制时机；`Settings` 提供录制开关；`DataLoader` 提供 action / event 契约校验；`Analytics` 接收 `replay_recorded` 本地事件。
-- 下游调用方：后续 `InputController`、`GrowthSystem`、`ItemSystem`、`SaveManager`、黄金回放 runner 和调试回放 UI。
+- 下游调用方：当前 `Player`、`GameplayRunLoop`、`LevelUpPanel`、`PauseMenu` 与 `UIManager` 已写入首批 gameplay 输入事件；后续 `InputController`、`GrowthSystem`、`ItemSystem`、`SaveManager`、黄金回放 runner 和调试回放 UI 继续扩展。
 - 禁止依赖：业务系统不得直接读写 `.replay` 文件；不得绕过 `Replay` 自建输入录制；不得用非确定时间源参与回放内容。
 
 ## 扩展点
 
-- 接入输入：`InputController` 将归一化 action / pressed / strength 调给 `record_input_action()`。
+- 接入输入：当前首片已直接从 gameplay 路径记录移动 / 瞄准状态变化以及 `pause` / `ui_back` 事件；后续若引入 `InputController`，应将归一化 action / pressed / strength 继续调给 `record_input_action()`，不要绕开 `Replay`。
 - 接入升级选择：升级候选数量、候选 id、玩家选择和 `luck` 快照通过 `record_decision()` 写入。
 - 增加真实重放：后续 `play(file)` / 对照 diff 应只消费录制内容，不读取业务模块私有状态；当前 `replay-smoke` 覆盖文件 roundtrip，`replay-runner` 覆盖 envelope / summary diff 和首条运行时摘要 golden。
 - 增加黄金回放：`golden_basic_run.replay` 已由 `golden_replay_capture.gd` 生成并入库，可通过 `replay-runner --replay-file client/tests/replays/golden_basic_run.replay --rerun-runtime-summary` 对照；再下一步收紧到输入重放和帧级字段。
@@ -162,6 +166,7 @@ F8 首条 golden replay 额外在 `recording.run_summary` / `summary.run_summary
 | 接入黄金回放 | `client/tests/replays/` 与工具脚本 | 本文档、测试策略 | `capture-golden-replay`、L3 replay runner |
 | 调整 replay 文件 schema | `replay.gd`、`client/tools/replay_smoke.gd` | 本文档、测试策略、F8 工作包 | `python tools/godot_bridge.py --project client replay-smoke` |
 | 调整 runner diff 规则 | `client/tools/replay_runner.gd`、`tools/godot_bridge.py` | 本文档、测试策略、F8 工作包 | `python tools/godot_bridge.py --project client replay-runner` |
+| 调整 gameplay 输入录制 | `player.gd`、`gameplay_run_loop.gd`、`level_up_panel.gd`、`pause_menu.gd`、`ui_manager.gd` | 本文档、Gameplay Runtime、测试策略、F8 工作包 | `python tools/godot_bridge.py --project client replay-input-smoke` |
 
 ## 故障排查
 
@@ -174,7 +179,7 @@ F8 首条 golden replay 额外在 `recording.run_summary` / `summary.run_summary
 
 ## 测试义务
 
-- 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，以及 `python tools/godot_bridge.py --project client replay-smoke` / `python tools/godot_bridge.py --project client replay-runner`；改首条 golden 时追加 `python tools/godot_bridge.py --project client capture-golden-replay` 和 `python tools/godot_bridge.py --project client replay-runner --replay-file client/tests/replays/golden_basic_run.replay --rerun-runtime-summary`。
+- 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，以及 `python tools/godot_bridge.py --project client replay-smoke` / `python tools/godot_bridge.py --project client replay-runner`；改 gameplay 输入录制追加 `python tools/godot_bridge.py --project client replay-input-smoke`；改首条 golden 时追加 `python tools/godot_bridge.py --project client capture-golden-replay` 和 `python tools/godot_bridge.py --project client replay-runner --replay-file client/tests/replays/golden_basic_run.replay --rerun-runtime-summary`。
 - 后续引入 GUT 后，`Replay` 需要覆盖录制开始 / 停止、action 校验、event 校验、设置关闭清空、缓冲丢弃计数和同 seed 录制字段稳定。
 - 当前 `.replay` 文件 roundtrip 已由 `replay-smoke` 覆盖，summary diff 由 `replay-runner` 覆盖，`golden_basic_run.replay` 覆盖首条真实 `GameplayRunLoop` 运行时摘要；接入真实输入重放后，必须补帧级 L3 黄金回放样例；有意改变确定性行为时才重录黄金回放并在 commit message 注明影响。
 

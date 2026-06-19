@@ -13,6 +13,7 @@ const BUTTON_HORIZONTAL_PADDING: float = 48.0
 const PANEL_MAX_WIDTH: float = 720.0
 const PANEL_MIN_WIDTH: float = 520.0
 const PANEL_WIDTH_RATIO: float = 0.42
+const REPLAY_PARTICIPANT_ID: String = "player_0"
 
 var _choices: Array[Dictionary] = []
 var _buttons: Array[Button] = []
@@ -25,6 +26,8 @@ var _title_label: Label = null
 
 
 func _input(event: InputEvent) -> void:
+	Replay.record_input_event(event, [ACTIONS.PAUSE], REPLAY_PARTICIPANT_ID)
+
 	if event.is_action_pressed(ACTIONS.PAUSE) and UIManager.top() == self:
 		get_viewport().set_input_as_handled()
 		pause_requested.emit()

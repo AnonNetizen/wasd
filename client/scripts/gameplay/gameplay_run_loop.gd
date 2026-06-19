@@ -28,6 +28,7 @@ const UI_RESTORE_LEVEL_UP: String = "level_up"
 const UI_RESTORE_PAUSED: String = "paused"
 const UI_RESTORE_PLAYING: String = "playing"
 const UI_RESTORE_UNDERLYING_STATE: String = "underlying_state"
+const REPLAY_PARTICIPANT_ID: String = "player_0"
 
 var _active_world: Node2D = null
 var _current_level: int = 1
@@ -62,6 +63,8 @@ func _process(_delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	Replay.record_input_event(event, [ACTIONS.PAUSE], REPLAY_PARTICIPANT_ID)
+
 	if GameState.is_state(GameState.PLAYING) and event.is_action_pressed(ACTIONS.PAUSE):
 		get_viewport().set_input_as_handled()
 		_show_pause_menu()

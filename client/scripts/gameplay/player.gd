@@ -12,6 +12,17 @@ const STATS := preload("res://scripts/contracts/stats.gd")
 const AIM_MARKER_LENGTH: float = 24.0
 const DRAW_RADIUS: float = 12.0
 const HIT_FLASH_DURATION: float = 0.18
+const REPLAY_PARTICIPANT_ID: String = "player_0"
+const REPLAY_STATE_ACTIONS: Array[String] = [
+	ACTIONS.MOVE_LEFT,
+	ACTIONS.MOVE_RIGHT,
+	ACTIONS.MOVE_UP,
+	ACTIONS.MOVE_DOWN,
+	ACTIONS.AIM_LEFT,
+	ACTIONS.AIM_RIGHT,
+	ACTIONS.AIM_UP,
+	ACTIONS.AIM_DOWN,
+]
 
 var aim_direction: Vector2 = Vector2.RIGHT
 var _base_stats: Dictionary = {}
@@ -25,6 +36,7 @@ var _life_points: float = 1.0
 var _pickup_orb_speed: float = 0.0
 var _pickup_range: float = 0.0
 var _separation_radius: float = 0.0
+var _replay_action_pressed: Dictionary = {}
 var _stat_additions: Dictionary = {}
 var _stat_multipliers: Dictionary = {}
 
@@ -40,6 +52,8 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_record_replay_action_states()
+
 	if not GameState.is_state(GameState.PLAYING):
 		velocity = Vector2.ZERO
 		return
@@ -76,6 +90,7 @@ func _physics_process(delta: float) -> void:
 
 func configure(base_stats: Dictionary) -> void:
 	_base_stats = base_stats.duplicate(true)
+	_replay_action_pressed.clear()
 	_stat_additions.clear()
 	_stat_multipliers.clear()
 	_invulnerable_remaining = 0.0
@@ -137,6 +152,7 @@ func snapshot() -> Dictionary:
 
 
 func restore_snapshot(snapshot_data: Dictionary) -> void:
+	_replay_action_pressed.clear()
 	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
 	aim_direction = _dict_to_vector(snapshot_data.get("aim_direction", {}), aim_direction).normalized()
 	if aim_direction.length_squared() <= 0.0:
@@ -209,6 +225,20 @@ func _update_invulnerability(delta: float) -> void:
 	if _invulnerable_remaining <= 0.0:
 		return
 	_invulnerable_remaining = maxf(_invulnerable_remaining - delta, 0.0)
+
+
+func _record_replay_action_states() -> void:
+	if not Replay.is_recording():
+		return
+
+	for action_name: String in REPLAY_STATE_ACTIONS:
+		var strength: float = Input.get_action_strength(action_name)
+		var pressed: bool = strength > 0.0
+		var was_pressed: bool = bool(_replay_action_pressed.get(action_name, false))
+		if pressed == was_pressed:
+			continue
+		_replay_action_pressed[action_name] = pressed
+		Replay.record_input_action(action_name, pressed, strength, REPLAY_PARTICIPANT_ID)
 
 
 func _rebuild_stats(reset_life: bool) -> void:

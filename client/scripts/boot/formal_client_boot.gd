@@ -14,6 +14,7 @@ const META_PROGRESSION_PANEL_SCENE := preload("res://scenes/ui/meta_progression_
 const META_SMOKE_RUNNER := preload("res://tools/meta_progression_smoke.gd")
 const PERF_PROBE_RUNNER := preload("res://tools/perf_probe.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
+const REPLAY_INPUT_SMOKE_RUNNER := preload("res://tools/replay_input_smoke.gd")
 const REPLAY_RUNNER := preload("res://tools/replay_runner.gd")
 const REPLAY_SMOKE_RUNNER := preload("res://tools/replay_smoke.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
@@ -90,6 +91,10 @@ func _ready() -> void:
 		var replay_runner: Node = REPLAY_RUNNER.new()
 		replay_runner.name = "ReplayRunner"
 		add_child(replay_runner)
+	elif _is_replay_input_smoke_enabled():
+		var replay_input_smoke_runner: Node = REPLAY_INPUT_SMOKE_RUNNER.new()
+		replay_input_smoke_runner.name = "ReplayInputSmoke"
+		add_child(replay_input_smoke_runner)
 	elif _is_golden_replay_capture_enabled():
 		var golden_capture_runner: Node = GOLDEN_REPLAY_CAPTURE_RUNNER.new()
 		golden_capture_runner.name = "GoldenReplayCapture"
@@ -136,6 +141,10 @@ func _is_replay_smoke_enabled() -> bool:
 
 func _is_replay_runner_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--replay-runner")
+
+
+func _is_replay_input_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--replay-input-smoke")
 
 
 func _is_golden_replay_capture_enabled() -> bool:
