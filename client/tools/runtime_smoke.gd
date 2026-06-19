@@ -447,6 +447,7 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 
 	var title_menu: Node = _find_node_by_name(get_tree().root, "TitleMenu")
 	var continue_button: Button = _find_node_by_name(title_menu, "ContinueRunButton") as Button
+	await _verify_title_settings_entry(title_menu)
 	await _verify_meta_progression_entry(title_menu)
 	_expect(continue_button != null and continue_button.visible and not continue_button.disabled, "title menu should continue a pending level-up run")
 	if continue_button == null:
@@ -549,6 +550,7 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 			"run_loop": run_loop,
 			"player": player,
 		}
+	await _verify_pause_settings_entry(pause_menu)
 
 	var paused_time: float = GameClock.now()
 	for _index: int in range(BOOT_FRAMES):
@@ -676,6 +678,63 @@ func _verify_meta_progression_entry(title_menu: Node) -> void:
 	_expect(close_button != null, "MetaProgressionPanel should expose a close button")
 	if close_button != null:
 		await _click_button(close_button)
+
+
+func _verify_title_settings_entry(title_menu: Node) -> void:
+	var settings_button: Button = _find_node_by_name(title_menu, "SettingsButton") as Button
+	_expect(settings_button != null and String(settings_button.text) == tr("ui_settings"), "title menu should expose the settings entry")
+	if settings_button == null:
+		return
+	await _click_button(settings_button)
+	var settings_panel: Node = await _wait_for_node("SettingsPanel")
+	_expect(settings_panel != null, "clicking title settings should open SettingsPanel")
+	if settings_panel == null:
+		return
+	var title_label: Label = _find_node_by_name(settings_panel, "TitleLabel") as Label
+	_expect(title_label != null and String(title_label.text) == tr("ui_settings_title"), "SettingsPanel should use localized title from title menu")
+	var close_button: Button = _find_node_by_name(settings_panel, "CloseButton") as Button
+	_expect(close_button != null, "SettingsPanel should expose close button")
+	if close_button != null:
+		await _click_button(close_button)
+	for _index: int in range(BOOT_FRAMES):
+		await get_tree().process_frame
+		if _find_node_by_name(get_tree().root, "SettingsPanel") == null:
+			break
+	_expect(_find_node_by_name(get_tree().root, "SettingsPanel") == null, "closing title settings should pop SettingsPanel")
+	_expect(_find_node_by_name(get_tree().root, "TitleMenu") != null, "closing title settings should leave TitleMenu visible")
+
+
+func _verify_pause_settings_entry(pause_menu: Node) -> void:
+	var settings_button: Button = _find_node_by_name(pause_menu, "SettingsButton") as Button
+	_expect(settings_button != null and String(settings_button.text) == tr("ui_settings"), "pause menu should expose the settings entry")
+	if settings_button == null:
+		return
+	await _click_button(settings_button)
+	var settings_panel: Node = await _wait_for_node("SettingsPanel")
+	_expect(settings_panel != null, "clicking pause settings should open SettingsPanel")
+	_expect(GameState.is_state(GameState.PAUSED), "opening settings from pause should keep GameState PAUSED")
+	if settings_panel == null:
+		return
+	var close_button: Button = _find_node_by_name(settings_panel, "CloseButton") as Button
+	_expect(close_button != null, "pause SettingsPanel should expose close button")
+	if close_button != null:
+		await _click_button(close_button)
+	for _index: int in range(BOOT_FRAMES):
+		await get_tree().process_frame
+		if _find_node_by_name(get_tree().root, "SettingsPanel") == null:
+			break
+	_expect(_find_node_by_name(get_tree().root, "SettingsPanel") == null, "closing pause settings should pop SettingsPanel")
+	_expect(_find_node_by_name(get_tree().root, "PauseMenu") == pause_menu, "closing pause settings should return to the same PauseMenu")
+	_expect(GameState.is_state(GameState.PAUSED), "closing pause settings should keep pause state")
+
+
+func _wait_for_node(node_name: String) -> Node:
+	for _index: int in range(BOOT_FRAMES * 2):
+		await get_tree().process_frame
+		var node: Node = _find_node_by_name(get_tree().root, node_name)
+		if node != null:
+			return node
+	return null
 
 
 func _push_action_once(action_id: String) -> void:

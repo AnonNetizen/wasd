@@ -7,8 +7,8 @@
 
 - 负责提供完整项目 `client/` 的最小 Godot 启动入口。
 - 负责让 F1 阶段可以通过 headless 启动验证。
-- F2/F3 期间作为正式客户端 smoke 场景，负责触发 autoload 和数据 schema 启动检查；F4 起在数据校验通过后显示最小标题界面，并在玩家开始游戏、继续 run 存档、打开局外升级面板或 smoke 模式下编排对应流程。
-- 不负责长期主菜单、设置页、输入 UI、业务数据解释或完整加载流程；这些属于后续正式 UI / 玩法模块。
+- F2/F3 期间作为正式客户端 smoke 场景，负责触发 autoload 和数据 schema 启动检查；F4 起在数据校验通过后显示最小标题界面，并在玩家开始游戏、继续 run 存档、打开局外升级面板、打开设置面板或 smoke 模式下编排对应流程。
+- 不负责长期主菜单视觉包装、输入重绑定 UI、业务数据解释或完整加载流程；这些属于后续正式 UI / 玩法模块。
 
 ## 阅读方式
 
@@ -29,8 +29,10 @@
 | `client/scenes/gameplay/gameplay_run_loop.tscn` | F4+ 正式 gameplay runtime 场景，由启动脚本实例化 |
 | `client/scenes/ui/title_menu.tscn` | 正常启动后的正式标题菜单场景 |
 | `client/scenes/ui/meta_progression_panel.tscn` | F6 标题局外升级面板场景 |
+| `client/scenes/ui/settings_panel.tscn` | F7 标题设置面板场景 |
 | `client/scripts/ui/title_menu.gd` | F4 阶段最小标题界面，通过 `UIManager` 挂载 |
 | `client/scripts/ui/meta_progression_panel.gd` | F6 阶段标题局外升级面板，通过 `UIManager` 叠在标题菜单上 |
+| `client/scripts/ui/settings_panel.gd` | F7 设置面板，通过 `UIManager` 叠在标题菜单上 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | F4 数据校验通过后挂载的最小可玩闭环 runtime |
 | `client/tools/save_manager_smoke.gd` | `--save-smoke` 下挂载的 F5 存档可靠性 smoke |
 | `client/tools/settings_smoke.gd` | `--settings-smoke` 下挂载的 F7 设置持久化 smoke |
@@ -46,7 +48,8 @@ FormalClientBoot (Node)
 UIManager
 └── UIRoot
     ├── TitleMenu (scene; normal boot after data schema passes; shows continue when run.save exists)
-    └── MetaProgressionPanel (scene; pushed above title menu when requested)
+    ├── MetaProgressionPanel (scene; pushed above title menu when requested)
+    └── SettingsPanel (scene; pushed above title menu when requested)
 ```
 
 根节点挂载 `res://scripts/boot/formal_client_boot.gd`。
@@ -60,6 +63,7 @@ UIManager
 | `_ready()` | 调用 `DataLoader.validate_project_data()` 并输出正式客户端启动日志 | `print()` |
 | 正常启动 | 数据校验通过后通过 `UIManager` 显示 `TitleMenu`，保持 `GameState.MAIN_MENU` | `UIManager.push()` |
 | 标题局外升级 | 标题菜单发出 `meta_progression_requested` 后，启动脚本把 `MetaProgressionPanel` 推入 UI 栈；关闭时弹出该面板并保留标题菜单 | `UIManager.push()` / `UIManager.pop()` |
+| 标题设置 | 标题菜单发出 `settings_requested` 后，启动脚本把 `SettingsPanel` 推入 UI 栈；关闭时只弹出设置面板并保留标题菜单 | `UIManager.push()` / `UIManager.pop()` |
 | Gameplay runtime 挂载 | 玩家选择开始、继续游戏或 `--runtime-smoke` 启动时实例化 `gameplay_run_loop.tscn`，进入最小战斗闭环；继续游戏会先从 `SaveManager` 读取 `run` payload，交给 runtime 恢复实体、GameClock、RNG 和 `ui_restore`，读取失败时回标题并显示坏档重置提示 | `PackedScene.instantiate()`、`add_child()`、`SaveManager.load_envelope()`、`GameState.PLAYING` |
 | F5 存档 smoke | `--save-smoke` 启动时只挂载 `SaveManagerSmoke`，验证 run 存档 roundtrip、备份回退、坏档隔离和迁移链 | `client/tools/save_manager_smoke.gd` |
 | F7 设置 smoke | `--settings-smoke` 启动时只挂载 `SettingsSmoke`，验证设置缺文件默认值、有效配置 roundtrip、非法值拒绝、坏值 / 坏文件回退以及 `Localization` 跟随语言设置 | `client/tools/settings_smoke.gd` |
@@ -79,7 +83,7 @@ UIManager
 - 通过 `DataLoader.validate_project_data()` 间接读取 F3 目标数据和 `client/locale/strings.csv`。
 - `client/project.godot` 的默认 viewport 为 1920×1080；窗口禁止任意拖拽缩放，2D 内容和 UI 通过 `display/window/stretch/mode="canvas_items"` 与 `display/window/stretch/aspect="keep"` 在屏幕比例不匹配时保比例加黑边。后续设置页应只暴露经过验证的分辨率预设列表，不接受任意宽高输入。
 - 启动日志输出 `data_schema_ok`、`player_stats`、`characters`、`weapons`、`enemies`、`hazards`、`spawn_waves`、`relics`、`active_items`、`consumables`、`locale_keys`、`growth_levels`、`growth_pools`、`game_modes`、`meta_upgrades`、`meta_unlocks` 等 smoke 计数。
-- 启动脚本本身不包含玩家可见文本；标题、HUD、结算面板和局外升级面板文案见 `client/locale/strings.csv`。
+- 启动脚本本身不包含玩家可见文本；标题、HUD、设置、结算面板和局外升级面板文案见 `client/locale/strings.csv`。
 - 标题菜单的“继续游戏”只在 `SaveManager.has_save(slot_0, run)` 为真时可见；“局外升级”常驻可见并由 `MetaProgressionPanel` 展示 `MetaProgressionSystem` 的 profile / upgrade summaries。开始新局和重开会删除旧 `run` 存档，避免重复继续旧局。若继续读取失败或坏档被隔离，标题菜单显示 `ui_run_save_unavailable` 提示并隐藏继续按钮。成功继续后，`GameplayRunLoop` 会按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板。
 
 ## 依赖
@@ -102,6 +106,7 @@ UIManager
 | 增加启动前检查 | `client/scripts/boot/formal_client_boot.gd` | 本文档；必要时新增模块文档 | headless boot |
 | 调整 gameplay runtime 挂载 / 继续游戏 | `formal_client_boot.gd`、`gameplay_run_loop.tscn`、`gameplay_run_loop.gd` | 本文档、`docs/代码/gameplay_runtime.md`、AI导航 | headless boot、`runtime-smoke`、`save-smoke`、手动保存续局 |
 | 调整标题局外升级入口 | `formal_client_boot.gd`、`title_menu.tscn`、`meta_progression_panel.tscn`、对应脚本 | 本文档、`docs/代码/gameplay_runtime.md`、`docs/代码/meta_progression_system.md`、AI导航 | headless boot、`meta-smoke`、手动标题菜单点开 |
+| 调整标题设置入口 | `formal_client_boot.gd`、`title_menu.tscn`、`settings_panel.tscn`、对应脚本 | 本文档、`docs/代码/settings.md`、AI导航 | headless boot、`settings-smoke`、`runtime-smoke` |
 | 调整 F7 设置 smoke 挂载 | `formal_client_boot.gd`、`client/tools/settings_smoke.gd` | 本文档、`docs/代码/settings.md`、AI导航 | headless boot、`settings-smoke` |
 | 调整 F6 smoke 挂载 | `formal_client_boot.gd`、`client/tools/meta_progression_smoke.gd` | 本文档、`docs/代码/meta_progression_system.md`、AI导航 | headless boot、`meta-smoke` |
 | 补目录说明 | `client/README.md` | `README.md`、`docs/AI导航.md` | docs health |
@@ -119,6 +124,7 @@ UIManager
 | 正常启动没有标题菜单 | `TitleMenu` 是否通过 `UIManager.push()` 挂载，`UIManager.stack_size()` 是否异常 |
 | 标题菜单看不到局外升级 | `TitleMenu` 是否发出 `meta_progression_requested`；`ui_meta_progression` 是否在 locale 中；`FormalClientBoot` 是否连接该 signal |
 | 局外升级面板关闭后没回标题 | `_on_meta_progression_closed()` 是否 `UIManager.pop()` 顶层面板；`UIManager.top()` 是否为 `MetaProgressionPanel` |
+| 设置面板关闭后没回标题 | `_on_settings_panel_closed()` 是否只弹出 `SettingsPanel`；`UIManager.top()` 是否为设置面板 |
 | 有 run 存档但没有继续按钮 | `SaveManager.has_save(slot_0, run)` 是否为真；旧存档是否 hash mismatch 被隔离；标题菜单是否显示 `ui_run_save_unavailable` |
 
 ## 测试义务
@@ -128,6 +134,7 @@ UIManager
 - 修改 `--settings-smoke` 挂载或 Settings 持久化启动诊断时，追加 `python tools/godot_bridge.py --project client settings-smoke`。
 - 修改 `--meta-smoke` 挂载或 MetaProgressionSystem 启动诊断时，追加 `python tools/godot_bridge.py --project client meta-smoke`。
 - 修改标题局外升级入口或 `MetaProgressionPanel` 挂载时，追加 `python tools/godot_bridge.py --project client meta-smoke` 并做一次手动标题菜单点开检查。
+- 修改标题设置入口或 `SettingsPanel` 挂载时，追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 修改长期文档或索引后跑 `tools/docs_health_check.py`。
 - 不需要 GUT 单测；该模块只做 smoke / gameplay runtime 编排。改 DataLoader schema 时按 DataLoader 测试义务处理；改 gameplay runtime 挂载时跑 headless boot。
 

@@ -18,6 +18,7 @@ const LEVEL_UP_PANEL_SCENE := preload("res://scenes/ui/level_up_panel.tscn")
 const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause_menu.tscn")
 const PICKUP_ORB_SCENE := preload("res://scenes/gameplay/pickup_orb.tscn")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
+const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 
 const BULLET_POOL_SIZE: int = 192
 const ENEMY_POOL_SIZE: int = 96
@@ -43,6 +44,7 @@ var _pending_level_up_choices: Array[Dictionary] = []
 var _pending_restore_snapshot: Dictionary = {}
 var _pause_menu: CanvasLayer = null
 var _player: CharacterBody2D = null
+var _settings_panel: CanvasLayer = null
 var _spawn_states: Dictionary = {}
 var _waves: Array[Dictionary] = []
 var _weapon_system: Node = null
@@ -407,6 +409,7 @@ func _show_pause_menu() -> void:
 		return
 	_pause_menu.connect("resume_requested", Callable(self, "_on_pause_resume_requested"), CONNECT_ONE_SHOT)
 	_pause_menu.connect("save_and_quit_requested", Callable(self, "_on_pause_save_and_quit_requested"), CONNECT_ONE_SHOT)
+	_pause_menu.connect("settings_requested", Callable(self, "_on_pause_settings_requested"))
 	_pause_menu.connect("restart_requested", Callable(self, "_on_pause_restart_requested"), CONNECT_ONE_SHOT)
 	_pause_menu.connect("quit_to_title_requested", Callable(self, "_on_pause_quit_to_title_requested"), CONNECT_ONE_SHOT)
 
@@ -426,6 +429,21 @@ func _on_pause_save_and_quit_requested() -> void:
 		_on_pause_resume_requested()
 		return
 	quit_to_title_requested.emit()
+
+
+func _on_pause_settings_requested() -> void:
+	if _settings_panel != null and is_instance_valid(_settings_panel):
+		return
+	_settings_panel = UIManager.push(SETTINGS_PANEL_SCENE, {"source": "pause_menu"}) as CanvasLayer
+	if _settings_panel == null:
+		return
+	_settings_panel.connect("closed_requested", Callable(self, "_on_settings_panel_closed"), CONNECT_ONE_SHOT)
+
+
+func _on_settings_panel_closed() -> void:
+	if UIManager.top() == _settings_panel:
+		UIManager.pop()
+	_settings_panel = null
 
 
 func _on_pause_restart_requested() -> void:

@@ -1,0 +1,214 @@
+[gd_scene format=3 uid="uid://b5dkgxamqpxcb"]
+
+[ext_resource type="Script" path="res://scripts/ui/settings_panel.gd" id="1_settings"]
+
+[node name="SettingsPanel" type="CanvasLayer"]
+script = ExtResource("1_settings")
+
+[node name="Root" type="Control" parent="."]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Backdrop" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0, 0, 0, 0.44)
+
+[node name="Center" type="CenterContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Panel" type="PanelContainer" parent="Root/Center"]
+custom_minimum_size = Vector2(680, 720)
+layout_mode = 2
+mouse_filter = 1
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/Panel"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 22
+
+[node name="Layout" type="VBoxContainer" parent="Root/Center/Panel/Margin"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 32
+
+[node name="LanguageRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 14
+
+[node name="LocaleLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/LanguageRow"]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+mouse_filter = 2
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 18
+
+[node name="LocaleOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/LanguageRow"]
+custom_minimum_size = Vector2(240, 42)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AudioSectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="MasterVolumeRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 14
+
+[node name="MasterVolumeLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/MasterVolumeRow"]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+mouse_filter = 2
+vertical_alignment = 1
+
+[node name="MasterVolumeSlider" type="HSlider" parent="Root/Center/Panel/Margin/Layout/MasterVolumeRow"]
+custom_minimum_size = Vector2(260, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MasterVolumeValueLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/MasterVolumeRow"]
+custom_minimum_size = Vector2(56, 0)
+layout_mode = 2
+mouse_filter = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="MusicVolumeRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 14
+
+[node name="MusicVolumeLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/MusicVolumeRow"]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+mouse_filter = 2
+vertical_alignment = 1
+
+[node name="MusicVolumeSlider" type="HSlider" parent="Root/Center/Panel/Margin/Layout/MusicVolumeRow"]
+custom_minimum_size = Vector2(260, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MusicVolumeValueLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/MusicVolumeRow"]
+custom_minimum_size = Vector2(56, 0)
+layout_mode = 2
+mouse_filter = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="SfxVolumeRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 14
+
+[node name="SfxVolumeLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/SfxVolumeRow"]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+mouse_filter = 2
+vertical_alignment = 1
+
+[node name="SfxVolumeSlider" type="HSlider" parent="Root/Center/Panel/Margin/Layout/SfxVolumeRow"]
+custom_minimum_size = Vector2(260, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SfxVolumeValueLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/SfxVolumeRow"]
+custom_minimum_size = Vector2(56, 0)
+layout_mode = 2
+mouse_filter = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="VideoSectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="FullscreenCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+
+[node name="VsyncCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+
+[node name="GameplaySectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="FireOnReleaseCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+
+[node name="AimModeRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 14
+
+[node name="AimModeLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/AimModeRow"]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+mouse_filter = 2
+vertical_alignment = 1
+
+[node name="AimModeOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/AimModeRow"]
+custom_minimum_size = Vector2(240, 42)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ScreenShakeCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+
+[node name="PauseOnFocusLossCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+
+[node name="RecordReplaysCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+
+[node name="PrivacySectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="AnalyticsCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+
+[node name="CloseButton" type="Button" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(180, 46)
+layout_mode = 2
+size_flags_horizontal = 4

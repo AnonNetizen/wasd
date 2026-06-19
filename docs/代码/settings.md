@@ -8,6 +8,7 @@
 - `Settings` 负责维护正式客户端运行时设置的默认值、读取、修改和变更广播。
 - 设置 key 必须来自 `docs/词表与契约.md`，并通过 `client/scripts/contracts/settings_keys.gd` 与 `DataLoader` 的 `_contracts.json` 校验。
 - F7 首片已接入 `user://settings.cfg` 持久化、类型 / 范围校验、损坏配置回退和 `settings-smoke` 自动验证。
+- F7 第二片已接入正式 `SettingsPanel`，标题菜单和暂停菜单都能打开同一设置面板；面板只通过 `Settings.set_value()` 写入，不直接维护偏好副本。
 - `Settings` 不负责玩家进度存档；局外成长与局内续局属于 `SaveManager`。
 
 ## 阅读方式
@@ -24,6 +25,8 @@
 | 路径 | 作用 |
 |------|------|
 | `client/scripts/autoload/settings.gd` | `Settings` autoload 脚本 |
+| `client/scenes/ui/settings_panel.tscn` | F7 设置面板场景 |
+| `client/scripts/ui/settings_panel.gd` | 设置面板控件绑定、读取 / 写入和语言刷新 |
 | `client/scripts/contracts/settings_keys.gd` | 自动生成的设置 key 常量 |
 | `client/data/_contracts.json` | 自动生成的契约缓存 |
 | `client/project.godot` | autoload 注册 |
@@ -33,7 +36,24 @@
 
 ## 场景 / 节点结构
 
-`Settings` 是 autoload singleton，没有 `.tscn` 场景。Godot 在启动时按 `client/project.godot` 的 `[autoload]` 顺序实例化。
+`Settings` 是 autoload singleton。Godot 在启动时按 `client/project.godot` 的 `[autoload]` 顺序实例化。
+
+F7 设置面板是独立 UI 场景：
+
+```text
+SettingsPanel (CanvasLayer)
+└── Root
+    └── Center
+        └── Panel
+            └── Layout
+                ├── LocaleOption
+                ├── MasterVolumeSlider / MusicVolumeSlider / SfxVolumeSlider
+                ├── FullscreenCheck / VsyncCheck
+                ├── FireOnReleaseCheck / AimModeOption / ScreenShakeCheck
+                ├── PauseOnFocusLossCheck / RecordReplaysCheck
+                ├── AnalyticsCheck
+                └── CloseButton
+```
 
 ## 运行流程
 
@@ -42,6 +62,7 @@
 | 启动 | `_ready()` 先写入默认值，再尝试加载 `user://settings.cfg`；无配置时保留默认值，损坏或不支持版本时回退默认并重写干净配置 | `reset_to_defaults(false)` / `load_from_disk()` |
 | 读取 | 调用方用已登记 key 读取当前值 | `get_value()` |
 | 修改 | key 通过契约、类型和范围校验后写入、广播并保存到磁盘 | `set_value()` / `setting_changed` / `save_to_disk()` |
+| 面板 | `SettingsPanel` 初始化时读取当前值；控件变化后调用 `Settings.set_value()`；语言切换后刷新面板已有 label / option 文案 | `SettingsPanel.refresh()` / `Localization.locale_changed` |
 | 重置 | 恢复默认值；调用方可选择是否立即持久化 | `reset_to_defaults(persist)` |
 | smoke | 备份现有 `settings.cfg`，验证缺文件默认值、有效设置 roundtrip、非法值拒绝、坏值 / 坏文件回退，然后恢复原文件 | `settings-smoke` |
 
@@ -108,7 +129,7 @@ audio.master=1.0
 ## 依赖
 
 - 上游依赖：`DataLoader` 提供契约校验；`SettingsKeys` 提供生成常量。
-- 下游调用方：`Localization` 监听 `general.locale`，后续 `AudioManager`、输入重绑定、设置菜单和 `Replay` 会读取对应 key。
+- 下游调用方：`Localization` 监听 `general.locale`，`AudioManager`、`Analytics`、`Replay` 与 `SettingsPanel` 会读取对应 key；输入重绑定后续再接入。
 - 禁止依赖：业务代码不得绕过 `Settings` 自己维护同名偏好变量。
 
 ## 扩展点
@@ -116,7 +137,7 @@ audio.master=1.0
 - 增加设置项：先登记词表 key，再给 `DEFAULT_VALUES` 增加默认值，并同步设置菜单。
 - 扩展持久化 schema：提升 `CONFIG_VERSION`，在 `load_from_disk()` 中补旧 key 兼容或迁移；仍不得混入 `SaveManager` 的 `meta` / `run` 存档。
 - 扩展范围校验：在 `_setting_specs()` 维护类型 / 范围 / 枚举，调用点不重复散落校验。
-- 接入设置面板：UI 只调用 `Settings.set_value()`；若值被拒绝，面板显示本地化错误或保留旧值。
+- 接入设置面板：UI 只调用 `Settings.set_value()`；若值被拒绝，面板保留旧值。新增控件必须同步 `settings-smoke`。
 
 ## 常见改动入口
 
@@ -124,7 +145,7 @@ audio.master=1.0
 |------------|----------|----------|----------|
 | 新增设置 key | `docs/词表与契约.md`、`settings.gd` | 本文档、任务模板 | `tools/sync_contracts.py --check`、`tools/validate_data.py` |
 | 改默认语言 | `settings.gd` | 本文档、`client/locale/README.md` | headless boot |
-| 接入设置菜单 | UI 场景与 `Settings.set_value()` | UI 模块文档 | L2 + 手动设置 checklist |
+| 接入设置菜单 | `settings_panel.tscn`、`settings_panel.gd`、入口菜单脚本 | UI 模块文档 | `settings-smoke` + `runtime-smoke` |
 | 改持久化 / 回退 | `settings.gd`、`settings_smoke.gd` | 本文档、FormalClientBoot 文档 | `settings-smoke` + headless boot |
 
 ## 故障排查
@@ -142,8 +163,9 @@ audio.master=1.0
 
 - 修改 `Settings` 必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client settings-smoke`。
 - 改设置 key、默认值、范围或持久化 schema 时，追加 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_project_rules.py`。
+- 改 `SettingsPanel`、标题 / 暂停设置入口或本地化刷新时，追加 `python tools/godot_bridge.py --project client runtime-smoke`，确认标题和暂停叠层关闭后 UI 栈恢复。
 - 后续引入 GUT 后，`Settings` 需要覆盖默认值、变更广播、未知 key 拒绝、持久化加载和越界拒绝。
-- 接入设置菜单后需要执行 L5 设置 checklist。
+- 后续输入重绑定接入后需要执行 L5 设置 / 输入 checklist。
 
 ## 迁移 / 兼容
 

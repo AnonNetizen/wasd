@@ -63,6 +63,11 @@ custom_minimum_size = Vector2(280, 52)
 layout_mode = 2
 size_flags_horizontal = 4
 
+[node name="SettingsButton" type="Button" parent="Root/Center/PauseMenuPanel/Margin/Layout"]
+custom_minimum_size = Vector2(280, 52)
+layout_mode = 2
+size_flags_horizontal = 4
+
 [node name="SaveAndQuitButton" type="Button" parent="Root/Center/PauseMenuPanel/Margin/Layout"]
 custom_minimum_size = Vector2(280, 52)
 layout_mode = 2

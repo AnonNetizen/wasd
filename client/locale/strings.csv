@@ -1,5 +1,26 @@
 keys,zh_CN,en
 ui_settings,设置,Settings
+ui_settings_title,设置,Settings
+ui_settings_language,语言,Language
+ui_settings_language_zh_cn,简体中文,Simplified Chinese
+ui_settings_language_en,English,English
+ui_settings_audio,音频,Audio
+ui_settings_master_volume,主音量,Master Volume
+ui_settings_music_volume,音乐音量,Music Volume
+ui_settings_sfx_volume,音效音量,SFX Volume
+ui_settings_video,显示,Video
+ui_settings_fullscreen,全屏,Fullscreen
+ui_settings_vsync,垂直同步,VSync
+ui_settings_gameplay,玩法,Gameplay
+ui_settings_fire_on_release,松开瞄准停火,Stop Firing on Aim Release
+ui_settings_aim_mode,瞄准模式,Aim Mode
+ui_settings_aim_mode_4dir,四方向,Four Directions
+ui_settings_aim_mode_auto,自动,Auto
+ui_settings_screen_shake,屏幕震动,Screen Shake
+ui_settings_pause_on_focus_loss,失焦暂停,Pause on Focus Loss
+ui_settings_record_replays,录制回放,Record Replays
+ui_settings_privacy,隐私,Privacy
+ui_settings_analytics_enabled,允许匿名分析,Allow Anonymous Analytics
 ui_title_name,WASD,WASD
 ui_title_subtitle,最小生存测试,Minimal Survival Test
 ui_start,开始,Start

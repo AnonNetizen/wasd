@@ -8,7 +8,7 @@
 - `UIManager` 负责统一创建、压栈、出栈、替换和清空 UI 场景。
 - UI 弹窗、菜单、升级选择、结算界面等后续都应通过 `UIManager.push()` / `pop()` 进入界面栈。
 - 带 `pauses_game` 元数据或同名布尔属性的 UI 节点会请求 `GameState.PAUSED`，由 `UIManager` 负责在栈清掉后恢复进入 UI 前的状态。
-- 当前切片不负责焦点管理、输入路由、音频 ducking、动画过渡或 UI 资源加载缓存；这些在 F7 / 具体 UI 切片补齐。
+- 当前切片不负责音频 ducking、动画过渡或 UI 资源加载缓存；F7 已开始在具体 UI 中补默认焦点和关闭路径。
 
 ## 阅读方式
 
@@ -16,7 +16,7 @@
 |------------|----------|
 | 加一个弹窗 | 本文档公共 API 与节点元数据说明 |
 | 做暂停菜单 | 本文档暂停联动、`docs/代码/game_state.md` |
-| 做语言刷新 | `docs/代码/localization.md` |
+| 做语言刷新 | `docs/代码/localization.md`、目标 UI 脚本的 `refresh_texts()` |
 | 做 UI 测试 | 本文档测试义务与 `docs/测试策略.md` |
 
 ## 代码位置
@@ -25,6 +25,7 @@
 |------|------|
 | `client/scripts/autoload/ui_manager.gd` | `UIManager` autoload 脚本 |
 | `client/project.godot` | autoload 注册 |
+| `client/scenes/ui/settings_panel.tscn` | F7 设置面板，通过标题菜单和暂停菜单压栈 |
 | 后续 `client/scenes/ui/` | UI 场景归属位置 |
 
 ## 场景 / 节点结构
@@ -78,10 +79,12 @@ UI 根节点可用两种方式声明暂停请求：
 
 这是当前最小契约。后续可扩展 `modal`、`music_duck`、焦点策略、关闭行为等元数据，但新增字段必须写回本文档和对应 UI 模板。
 
+`SettingsPanel` 本身不声明 `pauses_game`：从标题菜单打开时保持 `MAIN_MENU`，从暂停菜单打开时依靠下层 `PauseMenu.pauses_game=true` 维持 `PAUSED`。关闭时只弹出设置面板，下面的标题或暂停菜单保持可见。
+
 ## 依赖
 
 - 上游依赖：`GameState` 负责状态切换和 `get_tree().paused` 联动。
-- 下游调用方：暂停菜单、设置菜单、升级选择、结算面板、局外成长界面。
+- 下游调用方：标题菜单、暂停菜单、设置菜单、升级选择、结算面板、局外成长界面。
 - 禁止依赖：业务代码不得直接 `add_child` UI 弹窗；暂停逻辑不得直接读写 `get_tree().paused`。
 
 ## 扩展点
@@ -98,6 +101,7 @@ UI 根节点可用两种方式声明暂停请求：
 | 新增 UI 元数据 | `ui_manager.gd`、UI 模板 | 本文档、AI 导航 | L1 + L2 |
 | 加暂停菜单 | UI 场景、`GameState`、`UIManager` | 本文档、GameState 文档 | L2 + L5 暂停 checklist |
 | 加设置菜单 | UI 场景、`Settings`、`Localization` | 三份模块文档 | L2 + 手动设置 checklist |
+| 改标题 / 暂停设置入口 | `title_menu.gd`、`pause_menu.gd`、`formal_client_boot.gd`、`gameplay_run_loop.gd` | Settings / GameplayRuntime 文档 | `settings-smoke` + `runtime-smoke` |
 | 改 UI 栈语义 | `ui_manager.gd` | 本文档、测试策略 | L1 + L2 |
 
 ## 故障排查
@@ -108,12 +112,13 @@ UI 根节点可用两种方式声明暂停请求：
 | 暂停菜单不暂停 | 根节点是否设置 `pauses_game=true` |
 | 关闭 UI 后状态错误 | `_state_before_ui_pause` 是否被其他系统提前改写；从升级面板上方关闭暂停菜单时应恢复到 `LEVEL_UP` |
 | 暂停时 UI 不响应 | UI 节点和 `UIRoot` 的 `process_mode` 是否为 `ALWAYS` |
+| 从暂停菜单打开设置后无法继续 | `SettingsPanel` 是否是栈顶；关闭按钮是否弹出设置面板而不是底层 `PauseMenu` |
 
 ## 测试义务
 
 - 当前切片必跑 L0 和 L2 headless boot，确认 autoload 和空栈启动无错。
 - 后续引入 GUT 后，需要覆盖 push/pop 栈顺序、`replace()`、`clear()`、暂停请求和恢复状态。
-- 接入暂停菜单后，需要执行 L5 暂停 / UI 栈 checklist。
+- 接入暂停菜单或设置面板后，需要执行 L5 暂停 / UI 栈 checklist；当前自动覆盖为 `runtime-smoke` 中的标题 / 暂停设置入口开关路径。
 
 ## 迁移 / 兼容
 

@@ -14,9 +14,11 @@ const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SAVE_SMOKE_RUNNER := preload("res://tools/save_manager_smoke.gd")
 const SETTINGS_SMOKE_RUNNER := preload("res://tools/settings_smoke.gd")
+const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 
 var _run_loop: Node = null
 var _meta_progression_panel: CanvasLayer = null
+var _settings_panel: CanvasLayer = null
 var _title_menu: CanvasLayer = null
 
 
@@ -121,6 +123,7 @@ func _show_title_menu(notice_key: String = "") -> void:
 	_title_menu.connect("start_requested", Callable(self, "_on_title_start_requested"), CONNECT_ONE_SHOT)
 	_title_menu.connect("continue_requested", Callable(self, "_on_title_continue_requested"), CONNECT_ONE_SHOT)
 	_title_menu.connect("meta_progression_requested", Callable(self, "_on_title_meta_progression_requested"))
+	_title_menu.connect("settings_requested", Callable(self, "_on_title_settings_requested"))
 	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
 
 
@@ -180,6 +183,15 @@ func _on_title_quit_requested() -> void:
 	get_tree().quit()
 
 
+func _on_title_settings_requested() -> void:
+	if _settings_panel != null and is_instance_valid(_settings_panel):
+		return
+	_settings_panel = UIManager.push(SETTINGS_PANEL_SCENE, {"source": "title_menu"}) as CanvasLayer
+	if _settings_panel == null:
+		return
+	_settings_panel.connect("closed_requested", Callable(self, "_on_settings_panel_closed"), CONNECT_ONE_SHOT)
+
+
 func _on_meta_progression_closed() -> void:
 	if UIManager.top() == _meta_progression_panel:
 		UIManager.pop()
@@ -188,6 +200,12 @@ func _on_meta_progression_closed() -> void:
 	_meta_progression_panel = null
 	if _title_menu != null and is_instance_valid(_title_menu) and _title_menu.has_method("refresh_meta_summary"):
 		_title_menu.call("refresh_meta_summary")
+
+
+func _on_settings_panel_closed() -> void:
+	if UIManager.top() == _settings_panel:
+		UIManager.pop()
+	_settings_panel = null
 
 
 func _on_run_restart_requested() -> void:

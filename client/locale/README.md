@@ -20,6 +20,7 @@
 |------------|--------|
 | 加 UI 文案 | 在 `strings.csv` 加 `ui_*` key；代码使用 `tr("ui_xxx")` |
 | 加标题 / 暂停 / 失败面板文案 | 在 `strings.csv` 加 `ui_title_*`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_pause_title`、`ui_save_and_quit`、`ui_restart`、`ui_quit_to_title` 等 key；UI 代码使用 `tr()` |
+| 加设置面板文案 | 在 `strings.csv` 加 `ui_settings_*` key；设置入口沿用 `ui_settings`，设置面板标题、分组、控件标签和选项都走本地化 |
 | 加 HUD / 失败提示 | 在 `strings.csv` 加 `ui_hud_*` 或 `ui_*` key；HUD 代码用 `tr("ui_xxx")` 并在运行时刷新 |
 | 加角色名 / 描述 | 在 `strings.csv` 加 `character_*_name` / `character_*_desc`；数据填 `name_key` / `desc_key` |
 | 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |
@@ -65,6 +66,7 @@ ui_resume,继续,Resume
 | 前缀 | 用途 | 示例 |
 |------|------|------|
 | `ui_` | UI、菜单、按钮、HUD | `ui_settings` / `ui_pause` |
+| `ui_settings_` | 设置面板标题、分组、控件标签和选项 | `ui_settings_master_volume` / `ui_settings_aim_mode_auto` |
 | `ui_hud_` | 局内 HUD 标签 | `ui_hud_life` / `ui_hud_kills` |
 | `ui_credits_` | 致谢界面分组、角色和用途标签 | `ui_credits_section_staff` / `ui_credits_usage_engine_runtime` |
 | `character_` | 角色名称和描述 | `character_default_name` / `character_default_desc` |
@@ -130,6 +132,18 @@ label.text = tr("ui_damage") + str(value)
 2. HUD 代码只显示 `tr("ui_hud_life")` 和格式化数值，不硬编码玩家可见标签。
 3. 若 HUD 会常驻局内，手动切语言时要确认标签刷新；F4 临时 HUD 当前在启动时读取本地化文本。
 
+### 加一个设置面板控件文案
+
+1. 在 `strings.csv` 新增 `ui_settings_*` key，例如：
+
+```csv
+ui_settings_screen_shake,屏幕震动,Screen Shake
+```
+
+2. `SettingsPanel` 使用 `tr("ui_settings_screen_shake")` 刷新控件文本。
+3. 如果控件有枚举选项，每个选项也单独建 key，例如 `ui_settings_aim_mode_4dir` / `ui_settings_aim_mode_auto`。
+4. 修改后运行 `python tools/godot_bridge.py --project client settings-smoke`，确认新增 key 已导入 `.translation` 并能在面板中解析。
+
 ### 加一个致谢条目
 
 1. 在 `client/data/credits.json` 新增条目；人名、项目名、URL、许可证名和版权声明保持原文。
@@ -183,7 +197,7 @@ meta_upgrade_damage_desc,永久提升基础伤害,Permanently increases base dam
 1. 在 `strings.csv` 表头新增语言列，如 `ja`。
 2. 给每个 key 补齐该列译文。
 3. 更新 `docs/词表与契约.md` 中 `general.locale` 的取值范围。
-4. 更新 `Settings` 语言选项与 Godot Project Settings 的 Localization 注册。
+4. 更新 `Settings` 语言选项、`SettingsPanel` 语言选项与 Godot Project Settings 的 Localization 注册。
 5. 运行 `python tools/validate_data.py`，确认 key 唯一、必填语言非空、占位符一致。
 6. 人工切换语言检查 UI、道具名、描述、设置菜单和失败 / 结算面板。
 
@@ -196,7 +210,7 @@ meta_upgrade_damage_desc,永久提升基础伤害,Permanently increases base dam
 - [ ] 是否已运行 `python tools/validate_data.py`？
 - [ ] 数据文件是否只引用 `name_key` / `desc_key`，没有硬文本？
 - [ ] 代码是否只使用 `tr("key")`，没有玩家可见硬文本？
-- [ ] 新语言是否同步设置项、Godot Localization 和字体覆盖？
+- [ ] 新语言是否同步设置项、设置面板语言选项、Godot Localization 和字体覆盖？
 
 ## 与数值配置的关系
 
