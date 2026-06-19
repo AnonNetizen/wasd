@@ -52,7 +52,13 @@ def main() -> int:
         action="store_true",
         help="Rerun the replay seed through GameplayRunLoop and compare run_summary.",
     )
-    subparsers.add_parser("capture-golden-replay", help="Capture the checked-in F8 golden replay baseline.")
+    capture_golden_parser = subparsers.add_parser("capture-golden-replay", help="Capture the checked-in F8 golden replay baseline.")
+    capture_golden_parser.add_argument(
+        "--golden-scenario",
+        default=None,
+        choices=["golden_basic_run", "golden_pause_resume"],
+        help="Golden replay scenario to capture. Defaults to golden_basic_run.",
+    )
     subparsers.add_parser("perf-probe", help="Run the F8 lightweight perf probe in headless Godot.")
     subparsers.add_parser("runtime-smoke", help="Run the formal gameplay runtime smoke in headless Godot.")
     subparsers.add_parser("f4-smoke", help="Compatibility alias for runtime-smoke.")
@@ -144,10 +150,10 @@ def main() -> int:
         if not capture_script.exists():
             print(f"[godot-bridge] missing golden replay capture script: {_rel(capture_script)}")
             return 1
-        return _run_command(
-            [str(godot), "--headless", "--path", str(project), "--", "--capture-golden-replay"],
-            cwd=project,
-        )
+        user_args = ["--capture-golden-replay"]
+        if args.golden_scenario:
+            user_args.extend(["--golden-scenario", args.golden_scenario])
+        return _run_command([str(godot), "--headless", "--path", str(project), "--", *user_args], cwd=project)
     if args.command == "perf-probe":
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")

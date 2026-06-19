@@ -153,6 +153,7 @@ func _input_playback_events() -> Array[Dictionary]:
 func _input_event(action_name: String, pressed: bool, strength: float, tick: int) -> Dictionary:
 	return {
 		"action": action_name,
+		"frame": tick,
 		"pressed": pressed,
 		"strength": strength,
 		"tick": tick,
@@ -239,15 +240,15 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 	var input_events: Array[Dictionary] = _sorted_input_events(recording.get("input_events", []))
 	var next_input_index: int = 0
 	var frame_samples: Array[Dictionary] = []
+	var scenario: String = String(_dictionary_or_empty(recording.get("context", {})).get("scenario", "golden_basic_run"))
 	for frame_number: int in range(1, capture_frames + 1):
-		next_input_index = await _apply_due_input_events(input_events, next_input_index)
+		next_input_index = await _apply_due_input_events(input_events, next_input_index, frame_number)
 		await get_tree().physics_frame
 		await get_tree().process_frame
 		if _should_capture_frame_sample(frame_number, capture_frames):
-			frame_samples.append(_frame_sample(run_loop, frame_number))
+			frame_samples.append(_frame_sample(run_loop, frame_number, scenario))
 
-	next_input_index = await _apply_due_input_events(input_events, next_input_index)
-	var scenario: String = String(_dictionary_or_empty(recording.get("context", {})).get("scenario", "golden_basic_run"))
+	next_input_index = await _apply_due_input_events(input_events, next_input_index, capture_frames + 1)
 	var summary: Dictionary = _runtime_summary(run_loop, capture_frames, scenario, frame_samples)
 	_release_input_actions(input_events)
 	GameState.change_state(GameState.MAIN_MENU, {"source": "replay_runner_rerun"})
@@ -256,44 +257,59 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 
 func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String, frame_samples: Array[Dictionary]) -> Dictionary:
 	var snapshot: Dictionary = _run_snapshot(run_loop)
-	return {
+	var summary: Dictionary = {
 		"schema_version": 1,
 		"scenario": scenario,
 		"capture_frames": capture_frames,
 		"frame_sample_interval": FRAME_SAMPLE_INTERVAL,
 		"frame_samples": frame_samples,
 		"state": String(GameState.current()),
+		"ui_stack": UIManager.stack_size(),
 		"level": int(snapshot.get("level", 1)),
 		"xp": int(snapshot.get("xp", 0)),
 		"kills": int(snapshot.get("kills", 0)),
 		"player_moved_right": _player_position_x(snapshot) > 0.0,
 		"player_aim_direction": _dictionary_or_empty(_dictionary_or_empty(snapshot.get("player", {})).get("aim_direction", {})),
-		"active_enemies": _array_size(snapshot.get("enemies", [])),
-		"active_bullets": _array_size(snapshot.get("bullets", [])),
 		"active_pickups": _array_size(snapshot.get("pickups", [])),
-		"pool_stats": {
+	}
+	if _uses_exact_runtime_counts(scenario):
+		summary["active_enemies"] = _array_size(snapshot.get("enemies", []))
+		summary["active_bullets"] = _array_size(snapshot.get("bullets", []))
+		summary["pool_stats"] = {
 			POOL_IDS.BULLET_BASIC: PoolManager.stats(POOL_IDS.BULLET_BASIC),
 			POOL_IDS.ENEMY_CHASER: PoolManager.stats(POOL_IDS.ENEMY_CHASER),
 			POOL_IDS.ENEMY_SWARM: PoolManager.stats(POOL_IDS.ENEMY_SWARM),
 			POOL_IDS.PICKUP_ORB: PoolManager.stats(POOL_IDS.PICKUP_ORB),
-		},
-	}
+		}
+	else:
+		summary["enemies_present"] = _array_size(snapshot.get("enemies", [])) > 0
+		summary["bullets_present"] = _array_size(snapshot.get("bullets", [])) > 0
+	return summary
 
 
-func _frame_sample(run_loop: Node, frame_number: int) -> Dictionary:
+func _uses_exact_runtime_counts(scenario: String) -> bool:
+	return scenario != "golden_pause_resume"
+
+
+func _frame_sample(run_loop: Node, frame_number: int, scenario: String) -> Dictionary:
 	var snapshot: Dictionary = _run_snapshot(run_loop)
-	return {
+	var sample: Dictionary = {
 		"frame": frame_number,
 		"state": String(GameState.current()),
+		"ui_stack": UIManager.stack_size(),
 		"level": int(snapshot.get("level", 1)),
 		"xp": int(snapshot.get("xp", 0)),
 		"kills": int(snapshot.get("kills", 0)),
 		"player_moved_right": _player_position_x(snapshot) > 0.0,
 		"player_aim_direction": _dictionary_or_empty(_dictionary_or_empty(snapshot.get("player", {})).get("aim_direction", {})),
-		"active_enemies": _array_size(snapshot.get("enemies", [])),
-		"bullets_present": _array_size(snapshot.get("bullets", [])) > 0,
 		"active_pickups": _array_size(snapshot.get("pickups", [])),
 	}
+	if _uses_exact_runtime_counts(scenario):
+		sample["active_enemies"] = _array_size(snapshot.get("enemies", []))
+	else:
+		sample["enemies_present"] = _array_size(snapshot.get("enemies", [])) > 0
+	sample["bullets_present"] = _array_size(snapshot.get("bullets", [])) > 0
+	return sample
 
 
 func _should_capture_frame_sample(frame_number: int, capture_frames: int) -> bool:
@@ -327,14 +343,20 @@ func _sort_input_events_by_tick(left: Dictionary, right: Dictionary) -> bool:
 	return int(left.get("tick", 0)) < int(right.get("tick", 0))
 
 
-func _apply_due_input_events(input_events: Array[Dictionary], next_input_index: int) -> int:
+func _apply_due_input_events(input_events: Array[Dictionary], next_input_index: int, frame_number: int) -> int:
 	while next_input_index < input_events.size():
 		var input_event: Dictionary = input_events[next_input_index]
-		if int(input_event.get("tick", 0)) > GameClock.tick():
+		if not _is_input_event_due(input_event, frame_number):
 			return next_input_index
 		await _apply_input_event(input_event)
 		next_input_index += 1
 	return next_input_index
+
+
+func _is_input_event_due(input_event: Dictionary, frame_number: int) -> bool:
+	if input_event.has("frame"):
+		return int(input_event.get("frame", 0)) <= frame_number
+	return int(input_event.get("tick", 0)) <= GameClock.tick()
 
 
 func _apply_input_event(input_event: Dictionary) -> void:

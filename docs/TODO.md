@@ -17,7 +17,7 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 继续 F8 回放 / 测试 / 平衡基线：已完成 L1 smoke、Replay runner、gameplay 输入录制首片、runner 输入播放首片、首条运行时摘要 + 稳定帧样本 golden 和 perf probe；下一步推进更多黄金回放与更完整的逐帧字段。
+- [ ] 继续 F8 回放 / 测试 / 平衡基线：已完成 L1 smoke、Replay runner、gameplay 输入录制首片、runner 输入播放首片、basic / pause-resume 两条运行时摘要 + 稳定帧样本 golden 和 perf probe；下一步推进 `golden_full_death` 与更完整的逐帧字段。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）
@@ -31,7 +31,7 @@
 
 - [ ] 实现基础玩家、输入、自动射击、子弹、敌人、刷怪和对象池，进入完整项目 M1 / M2 可玩闭环。
 - [ ] 建立 L1 GUT 单测框架，优先覆盖 `RNG`、`GameClock`、`GameState`、`SaveManager`、`ModifierEngine`、`Combat`。
-- [ ] 扩展黄金回放：`golden_basic_run` 已有运行时摘要 + 稳定帧样本版，runner 已有输入播放首片；后续补更完整的 `golden_basic_run`、`golden_pause_resume`、`golden_full_death`、`golden_relic_synergy`。
+- [ ] 扩展黄金回放：`golden_basic_run` 和 `golden_pause_resume` 已有运行时摘要 + 稳定帧样本版，runner 已有输入播放首片；后续补更完整的 `golden_basic_run`、`golden_full_death`、`golden_relic_synergy`。
 - [ ] 实现本地化导入与运行时语言切换，确保 `strings.csv` 中 `zh_CN` / `en` 可直接验证。
 - [ ] 建立基础 UI：主菜单、HUD、暂停菜单、设置菜单、升级选择、结算、局外成长界面。
 - [ ] 建立首批数据内容：扩展到 3~5 个遗物、更多武器 / 主动道具 / 消耗品和 2 种机关，并保持默认角色起始携带引用可校验。
