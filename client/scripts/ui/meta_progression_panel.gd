@@ -10,9 +10,26 @@ const BUTTON_HEIGHT: float = 46.0
 const BUTTON_WIDTH: float = 180.0
 const PANEL_HEIGHT: float = 720.0
 const PANEL_WIDTH: float = 680.0
-const ROW_MIN_HEIGHT: float = 112.0
+const ROW_MIN_HEIGHT: float = 130.0
 const POINTER_ACTION_CLOSE: String = "close"
 const POINTER_ACTION_PURCHASE: String = "purchase"
+const FEEDBACK_FAILURE_COLOR: Color = Color(0.95, 0.55, 0.50, 1.0)
+const FEEDBACK_SUCCESS_COLOR: Color = Color(0.54, 0.87, 0.60, 1.0)
+const ROW_BG_INSUFFICIENT: Color = Color(0.18, 0.15, 0.09, 0.96)
+const ROW_BG_LOCKED: Color = Color(0.11, 0.12, 0.15, 0.96)
+const ROW_BG_MAXED: Color = Color(0.10, 0.14, 0.18, 0.96)
+const ROW_BG_PURCHASABLE: Color = Color(0.10, 0.17, 0.12, 0.96)
+const ROW_BG_UNAVAILABLE: Color = Color(0.17, 0.10, 0.10, 0.96)
+const ROW_BORDER_INSUFFICIENT: Color = Color(0.78, 0.56, 0.22, 1.0)
+const ROW_BORDER_LOCKED: Color = Color(0.34, 0.38, 0.46, 1.0)
+const ROW_BORDER_MAXED: Color = Color(0.37, 0.60, 0.78, 1.0)
+const ROW_BORDER_PURCHASABLE: Color = Color(0.34, 0.72, 0.40, 1.0)
+const ROW_BORDER_UNAVAILABLE: Color = Color(0.74, 0.36, 0.34, 1.0)
+const STATUS_COLOR_INSUFFICIENT: Color = Color(0.95, 0.74, 0.38, 1.0)
+const STATUS_COLOR_LOCKED: Color = Color(0.72, 0.76, 0.84, 1.0)
+const STATUS_COLOR_MAXED: Color = Color(0.68, 0.84, 0.96, 1.0)
+const STATUS_COLOR_PURCHASABLE: Color = Color(0.64, 0.91, 0.66, 1.0)
+const STATUS_COLOR_UNAVAILABLE: Color = Color(0.96, 0.58, 0.54, 1.0)
 
 var _account_label: Label = null
 var _close_button: Button = null
@@ -201,6 +218,7 @@ func _make_upgrade_row(summary: Dictionary) -> Control:
 	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	row.custom_minimum_size = Vector2(0.0, ROW_MIN_HEIGHT)
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_stylebox_override("panel", _make_row_stylebox(summary))
 
 	var margin: MarginContainer = MarginContainer.new()
 	margin.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -249,11 +267,22 @@ func _make_upgrade_row(summary: Dictionary) -> Control:
 	level_label.add_theme_font_size_override("font_size", 14)
 	text_layout.add_child(level_label)
 
+	var status_label: Label = Label.new()
+	status_label.name = "MetaUpgradeStatus_%s" % String(summary.get("upgrade_id", ""))
+	status_label.process_mode = Node.PROCESS_MODE_ALWAYS
+	status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	status_label.text = _upgrade_status_text(summary)
+	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status_label.add_theme_font_size_override("font_size", 14)
+	status_label.add_theme_color_override("font_color", _upgrade_status_color(summary))
+	text_layout.add_child(status_label)
+
 	var purchase_button: Button = _make_button(
 		"Purchase_%s" % String(summary.get("upgrade_id", "")),
 		_purchase_text(summary)
 	)
 	purchase_button.disabled = not bool(summary.get("can_purchase", false))
+	purchase_button.tooltip_text = _upgrade_status_text(summary)
 	var button_index: int = _purchase_buttons.size()
 	purchase_button.pressed.connect(func() -> void:
 		_on_purchase_pressed(button_index)
@@ -263,6 +292,15 @@ func _make_upgrade_row(summary: Dictionary) -> Control:
 	_upgrade_name_keys.append(String(summary.get("name_key", "")))
 	row_layout.add_child(purchase_button)
 	return row
+
+
+func _make_row_stylebox(summary: Dictionary) -> StyleBoxFlat:
+	var stylebox: StyleBoxFlat = StyleBoxFlat.new()
+	stylebox.bg_color = _upgrade_row_background_color(summary)
+	stylebox.border_color = _upgrade_row_border_color(summary)
+	stylebox.set_border_width_all(1)
+	stylebox.set_corner_radius_all(6)
+	return stylebox
 
 
 func _purchase_text(summary: Dictionary) -> String:
@@ -282,6 +320,101 @@ func _purchase_text(summary: Dictionary) -> String:
 		"currency": currency_name,
 		"cost": int(summary.get("cost", 0)),
 	})
+
+
+func _upgrade_status_text(summary: Dictionary) -> String:
+	var reason: String = String(summary.get("reason", ""))
+	var balance_text: String = _balance_text(summary)
+	if reason == "max_level":
+		return _join_status_parts([
+			tr("ui_meta_upgrade_maxed"),
+			balance_text,
+		])
+	if reason == "locked":
+		return _join_status_parts([
+			tr("ui_meta_upgrade_locked").format({
+				"level": int(summary.get("account_level_required", 1)),
+			}),
+			balance_text,
+		])
+	if reason == "insufficient_currency":
+		return _join_status_parts([
+			balance_text,
+			_cost_text(summary),
+			tr("ui_meta_upgrade_insufficient"),
+		])
+	if reason == "missing_cost":
+		return _join_status_parts([
+			tr("ui_meta_purchase_unavailable"),
+			balance_text,
+		])
+	return _join_status_parts([
+		balance_text,
+		_cost_text(summary),
+	])
+
+
+func _balance_text(summary: Dictionary) -> String:
+	var currency_name: String = tr(String(summary.get("currency_name_key", "")))
+	return tr("ui_meta_balance").format({
+		"currency": currency_name,
+		"amount": int(summary.get("balance", 0)),
+	})
+
+
+func _cost_text(summary: Dictionary) -> String:
+	var currency_name: String = tr(String(summary.get("currency_name_key", "")))
+	return tr("ui_meta_upgrade_cost").format({
+		"currency": currency_name,
+		"cost": int(summary.get("cost", 0)),
+	})
+
+
+func _join_status_parts(parts: Array[String]) -> String:
+	var cleaned_parts: Array[String] = []
+	for part: String in parts:
+		if not part.is_empty():
+			cleaned_parts.append(part)
+	return " | ".join(cleaned_parts)
+
+
+func _upgrade_row_background_color(summary: Dictionary) -> Color:
+	if bool(summary.get("can_purchase", false)):
+		return ROW_BG_PURCHASABLE
+	var reason: String = String(summary.get("reason", ""))
+	if reason == "max_level":
+		return ROW_BG_MAXED
+	if reason == "locked":
+		return ROW_BG_LOCKED
+	if reason == "insufficient_currency":
+		return ROW_BG_INSUFFICIENT
+	return ROW_BG_UNAVAILABLE
+
+
+func _upgrade_row_border_color(summary: Dictionary) -> Color:
+	if bool(summary.get("can_purchase", false)):
+		return ROW_BORDER_PURCHASABLE
+	var reason: String = String(summary.get("reason", ""))
+	if reason == "max_level":
+		return ROW_BORDER_MAXED
+	if reason == "locked":
+		return ROW_BORDER_LOCKED
+	if reason == "insufficient_currency":
+		return ROW_BORDER_INSUFFICIENT
+	return ROW_BORDER_UNAVAILABLE
+
+
+func _upgrade_status_color(summary: Dictionary) -> Color:
+	if bool(summary.get("can_purchase", false)):
+		return STATUS_COLOR_PURCHASABLE
+	var reason: String = String(summary.get("reason", ""))
+	if reason == "max_level":
+		return STATUS_COLOR_MAXED
+	if reason == "locked":
+		return STATUS_COLOR_LOCKED
+	if reason == "insufficient_currency":
+		return STATUS_COLOR_INSUFFICIENT
+	return STATUS_COLOR_UNAVAILABLE
 
 
 func _make_button(button_name: String, text_value: String) -> Button:
@@ -316,11 +449,13 @@ func _show_purchase_feedback(purchase_result: Dictionary, name_key: String) -> v
 		return
 	_feedback_label.visible = true
 	if bool(purchase_result.get("ok", false)):
+		_feedback_label.add_theme_color_override("font_color", FEEDBACK_SUCCESS_COLOR)
 		_feedback_label.text = tr("ui_meta_purchase_success").format({
 			"name": tr(name_key),
 			"level": int(purchase_result.get("level", 0)),
 		})
 		return
+	_feedback_label.add_theme_color_override("font_color", FEEDBACK_FAILURE_COLOR)
 	_feedback_label.text = tr("ui_meta_purchase_failed").format({
 		"reason": _purchase_failure_text(purchase_result),
 	})

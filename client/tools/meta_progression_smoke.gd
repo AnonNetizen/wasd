@@ -83,10 +83,27 @@ func _meta_panel_builds_upgrade_list() -> bool:
 	add_child(panel)
 	var currency_label: Node = _find_node_by_name(panel, "MetaCurrencyLabel")
 	var upgrade_list: Node = _find_node_by_name(panel, "MetaUpgradeList")
+	var status_label: Label = _find_node_by_name(panel, "MetaUpgradeStatus_%s" % META_UPGRADES.META_UPGRADE_DAMAGE) as Label
 	var row_count: int = upgrade_list.get_child_count() if upgrade_list != null else 0
+	var expected_currency_name: String = tr("meta_currency_essence_name")
+	var expected_balance_text: String = tr("ui_meta_balance").format({
+		"currency": expected_currency_name,
+		"amount": 48,
+	})
+	var expected_cost_text: String = tr("ui_meta_upgrade_cost").format({
+		"currency": expected_currency_name,
+		"cost": 18,
+	})
+	var status_text: String = String(status_label.text) if status_label != null else ""
 	remove_child(panel)
 	panel.queue_free()
-	return currency_label != null and row_count >= MetaProgressionSystem.upgrade_summaries().size()
+	return (
+		currency_label != null
+		and row_count >= MetaProgressionSystem.upgrade_summaries().size()
+		and status_label != null
+		and status_text.find(expected_balance_text) >= 0
+		and status_text.find(expected_cost_text) >= 0
+	)
 
 
 func _purchase_damage_upgrade_through_panel() -> Dictionary:
