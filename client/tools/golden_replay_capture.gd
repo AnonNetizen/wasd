@@ -5,6 +5,7 @@ const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 
 const CAPTURE_FRAMES: int = 180
 const CAPTURE_SECONDS: float = 3.0
+const FRAME_SAMPLE_INTERVAL: int = 30
 const GOLDEN_REPLAY_SEED: int = 20260619
 const GOLDEN_REPLAY_FILE_NAME: String = "golden_basic_run.replay"
 const NORMALIZED_CREATED_AT: String = "golden:golden_basic_run"
@@ -43,12 +44,15 @@ func _run() -> void:
 		_finish("")
 		return
 
-	for _index: int in range(CAPTURE_FRAMES):
+	var frame_samples: Array[Dictionary] = []
+	for frame_number: int in range(1, CAPTURE_FRAMES + 1):
 		await get_tree().physics_frame
 		await get_tree().process_frame
+		if _should_capture_frame_sample(frame_number, CAPTURE_FRAMES):
+			frame_samples.append(_frame_sample(run_loop, frame_number))
 
 	_expect(Replay.is_recording(), "GoldenReplayCapture should record through Replay autoload")
-	var run_summary: Dictionary = _runtime_summary(run_loop)
+	var run_summary: Dictionary = _runtime_summary(run_loop, frame_samples)
 	GameState.change_state(GameState.GAME_OVER, {"source": "golden_replay_capture", "scenario": SCENARIO})
 
 	var completed: Dictionary = Replay.snapshot()
@@ -76,14 +80,14 @@ func _run() -> void:
 	_finish(output_path)
 
 
-func _runtime_summary(run_loop: Node) -> Dictionary:
-	var snapshot: Dictionary = {}
-	if run_loop.has_method("create_run_snapshot"):
-		snapshot = run_loop.call("create_run_snapshot") as Dictionary
+func _runtime_summary(run_loop: Node, frame_samples: Array[Dictionary]) -> Dictionary:
+	var snapshot: Dictionary = _run_snapshot(run_loop)
 	return {
 		"schema_version": 1,
 		"scenario": SCENARIO,
 		"capture_frames": CAPTURE_FRAMES,
+		"frame_sample_interval": FRAME_SAMPLE_INTERVAL,
+		"frame_samples": frame_samples,
 		"state": String(GameState.current()),
 		"level": int(snapshot.get("level", 1)),
 		"xp": int(snapshot.get("xp", 0)),
@@ -100,6 +104,32 @@ func _runtime_summary(run_loop: Node) -> Dictionary:
 			POOL_IDS.PICKUP_ORB: PoolManager.stats(POOL_IDS.PICKUP_ORB),
 		},
 	}
+
+
+func _frame_sample(run_loop: Node, frame_number: int) -> Dictionary:
+	var snapshot: Dictionary = _run_snapshot(run_loop)
+	return {
+		"frame": frame_number,
+		"state": String(GameState.current()),
+		"level": int(snapshot.get("level", 1)),
+		"xp": int(snapshot.get("xp", 0)),
+		"kills": int(snapshot.get("kills", 0)),
+		"player_moved_right": _player_position_x(snapshot) > 0.0,
+		"player_aim_direction": _dictionary_or_empty(_dictionary_or_empty(snapshot.get("player", {})).get("aim_direction", {})),
+		"active_enemies": _array_size(snapshot.get("enemies", [])),
+		"bullets_present": _array_size(snapshot.get("bullets", [])) > 0,
+		"active_pickups": _array_size(snapshot.get("pickups", [])),
+	}
+
+
+func _should_capture_frame_sample(frame_number: int, capture_frames: int) -> bool:
+	return frame_number == capture_frames or frame_number % FRAME_SAMPLE_INTERVAL == 0
+
+
+func _run_snapshot(run_loop: Node) -> Dictionary:
+	if run_loop.has_method("create_run_snapshot"):
+		return run_loop.call("create_run_snapshot") as Dictionary
+	return {}
 
 
 func _player_position_x(snapshot: Dictionary) -> float:

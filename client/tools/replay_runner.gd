@@ -10,6 +10,7 @@ const ARG_EXPECTATION_FILE: String = "--expectation-file"
 const ARG_REPLAY_FILE: String = "--replay-file"
 const ARG_RERUN_RUNTIME_SUMMARY: String = "--rerun-runtime-summary"
 const FLOAT_TOLERANCE: float = 0.0001
+const FRAME_SAMPLE_INTERVAL: int = 30
 const INPUT_PLAYBACK_CAPTURE_FRAMES: int = 80
 const INPUT_PLAYBACK_REPLAY_FILE_NAME: String = "runner_input_playback.replay"
 const INPUT_PLAYBACK_REPLAY_SEED: int = 20260619
@@ -237,27 +238,30 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 
 	var input_events: Array[Dictionary] = _sorted_input_events(recording.get("input_events", []))
 	var next_input_index: int = 0
-	for _index: int in range(capture_frames):
+	var frame_samples: Array[Dictionary] = []
+	for frame_number: int in range(1, capture_frames + 1):
 		next_input_index = await _apply_due_input_events(input_events, next_input_index)
 		await get_tree().physics_frame
 		await get_tree().process_frame
+		if _should_capture_frame_sample(frame_number, capture_frames):
+			frame_samples.append(_frame_sample(run_loop, frame_number))
 
 	next_input_index = await _apply_due_input_events(input_events, next_input_index)
 	var scenario: String = String(_dictionary_or_empty(recording.get("context", {})).get("scenario", "golden_basic_run"))
-	var summary: Dictionary = _runtime_summary(run_loop, capture_frames, scenario)
+	var summary: Dictionary = _runtime_summary(run_loop, capture_frames, scenario, frame_samples)
 	_release_input_actions(input_events)
 	GameState.change_state(GameState.MAIN_MENU, {"source": "replay_runner_rerun"})
 	return summary
 
 
-func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String) -> Dictionary:
-	var snapshot: Dictionary = {}
-	if run_loop.has_method("create_run_snapshot"):
-		snapshot = run_loop.call("create_run_snapshot") as Dictionary
+func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String, frame_samples: Array[Dictionary]) -> Dictionary:
+	var snapshot: Dictionary = _run_snapshot(run_loop)
 	return {
 		"schema_version": 1,
 		"scenario": scenario,
 		"capture_frames": capture_frames,
+		"frame_sample_interval": FRAME_SAMPLE_INTERVAL,
+		"frame_samples": frame_samples,
 		"state": String(GameState.current()),
 		"level": int(snapshot.get("level", 1)),
 		"xp": int(snapshot.get("xp", 0)),
@@ -274,6 +278,32 @@ func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String) -> 
 			POOL_IDS.PICKUP_ORB: PoolManager.stats(POOL_IDS.PICKUP_ORB),
 		},
 	}
+
+
+func _frame_sample(run_loop: Node, frame_number: int) -> Dictionary:
+	var snapshot: Dictionary = _run_snapshot(run_loop)
+	return {
+		"frame": frame_number,
+		"state": String(GameState.current()),
+		"level": int(snapshot.get("level", 1)),
+		"xp": int(snapshot.get("xp", 0)),
+		"kills": int(snapshot.get("kills", 0)),
+		"player_moved_right": _player_position_x(snapshot) > 0.0,
+		"player_aim_direction": _dictionary_or_empty(_dictionary_or_empty(snapshot.get("player", {})).get("aim_direction", {})),
+		"active_enemies": _array_size(snapshot.get("enemies", [])),
+		"bullets_present": _array_size(snapshot.get("bullets", [])) > 0,
+		"active_pickups": _array_size(snapshot.get("pickups", [])),
+	}
+
+
+func _should_capture_frame_sample(frame_number: int, capture_frames: int) -> bool:
+	return frame_number == capture_frames or frame_number % FRAME_SAMPLE_INTERVAL == 0
+
+
+func _run_snapshot(run_loop: Node) -> Dictionary:
+	if run_loop.has_method("create_run_snapshot"):
+		return run_loop.call("create_run_snapshot") as Dictionary
+	return {}
 
 
 func _player_position_x(snapshot: Dictionary) -> float:
@@ -359,6 +389,18 @@ func _collect_summary_diffs(expected_value: Variant, actual_value: Variant, path
 		for key: Variant in actual_keys:
 			if not expected_dictionary.has(key):
 				diffs.append("%s.%s unexpected actual value=%s" % [path, String(key), _format_value(actual_dictionary[key])])
+				return
+		return
+
+	if expected_value is Array and actual_value is Array:
+		var expected_array: Array = expected_value as Array
+		var actual_array: Array = actual_value as Array
+		if expected_array.size() != actual_array.size():
+			diffs.append("%s expected size=%d actual size=%d" % [path, expected_array.size(), actual_array.size()])
+			return
+		for index: int in range(expected_array.size()):
+			_collect_summary_diffs(expected_array[index], actual_array[index], "%s[%d]" % [path, index], diffs)
+			if not diffs.is_empty():
 				return
 		return
 
