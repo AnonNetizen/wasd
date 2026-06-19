@@ -204,6 +204,11 @@ layout_mode = 2
 mouse_filter = 2
 theme_override_font_sizes/font_size = 20
 
+[node name="InputFeedbackLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 14
+
 [node name="InputBindingsGrid" type="GridContainer" parent="Root/Center/Panel/Margin/Layout"]
 layout_mode = 2
 theme_override_constants/h_separation = 12
@@ -365,6 +370,11 @@ mouse_filter = 2
 [node name="UiBackBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/UiBackBindingBox"]
 custom_minimum_size = Vector2(176, 34)
 layout_mode = 2
+
+[node name="ResetInputBindingsButton" type="Button" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(220, 38)
+layout_mode = 2
+size_flags_horizontal = 4
 
 [node name="PrivacySectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
 layout_mode = 2

@@ -91,6 +91,7 @@ var _close_button: Button = null
 var _closing: bool = false
 var _fire_on_release_check: CheckButton = null
 var _fullscreen_check: CheckButton = null
+var _input_feedback_label: Label = null
 var _input_binding_options: Dictionary = {}
 var _locale_option: OptionButton = null
 var _master_slider: HSlider = null
@@ -101,6 +102,7 @@ var _pause_on_focus_loss_check: CheckButton = null
 var _pressed_close: bool = false
 var _record_replays_check: CheckButton = null
 var _refreshing: bool = false
+var _reset_input_bindings_button: Button = null
 var _screen_shake_check: CheckButton = null
 var _sfx_slider: HSlider = null
 var _sfx_value_label: Label = null
@@ -174,6 +176,8 @@ func _bind_nodes() -> void:
 	_screen_shake_check = get_node_or_null("Root/Center/Panel/Margin/Layout/ScreenShakeCheck") as CheckButton
 	_pause_on_focus_loss_check = get_node_or_null("Root/Center/Panel/Margin/Layout/PauseOnFocusLossCheck") as CheckButton
 	_record_replays_check = get_node_or_null("Root/Center/Panel/Margin/Layout/RecordReplaysCheck") as CheckButton
+	_input_feedback_label = get_node_or_null("Root/Center/Panel/Margin/Layout/InputFeedbackLabel") as Label
+	_reset_input_bindings_button = get_node_or_null("Root/Center/Panel/Margin/Layout/ResetInputBindingsButton") as Button
 	_analytics_check = get_node_or_null("Root/Center/Panel/Margin/Layout/AnalyticsCheck") as CheckButton
 	_close_button = get_node_or_null("Root/Center/Panel/Margin/Layout/CloseButton") as Button
 	for row: Dictionary in INPUT_BINDING_ROWS:
@@ -197,6 +201,8 @@ func _missing_required_nodes() -> bool:
 		or _screen_shake_check == null
 		or _pause_on_focus_loss_check == null
 		or _record_replays_check == null
+		or _input_feedback_label == null
+		or _reset_input_bindings_button == null
 		or _has_missing_input_binding_options()
 		or _analytics_check == null
 		or _close_button == null
@@ -230,6 +236,7 @@ func _connect_controls() -> void:
 		var key: String = String(row["key"])
 		var option: OptionButton = _input_binding_options[key] as OptionButton
 		option.item_selected.connect(_on_input_binding_selected.bind(key))
+	_reset_input_bindings_button.pressed.connect(_on_reset_input_bindings_pressed)
 	_analytics_check.toggled.connect(_on_analytics_toggled)
 	_close_button.pressed.connect(_on_close_pressed)
 
@@ -260,8 +267,10 @@ func _refresh_texts() -> void:
 	_screen_shake_check.text = tr("ui_settings_screen_shake")
 	_pause_on_focus_loss_check.text = tr("ui_settings_pause_on_focus_loss")
 	_record_replays_check.text = tr("ui_settings_record_replays")
+	_reset_input_bindings_button.text = tr("ui_settings_input_restore_defaults")
 	_analytics_check.text = tr("ui_settings_analytics_enabled")
 	_close_button.text = tr("ui_cancel")
+	_input_feedback_label.text = tr("ui_settings_input_feedback_ready")
 
 	_replace_options(_locale_option, [
 		tr("ui_settings_language_zh_cn"),
@@ -393,7 +402,23 @@ func _on_input_binding_selected(index: int, key: String) -> void:
 	var input_options: Array[String] = Settings.input_binding_options()
 	if index < 0 or index >= input_options.size():
 		return
-	_set_setting(key, input_options[index])
+	var binding: String = input_options[index]
+	var changed: bool = _set_setting_with_result(key, binding)
+	if changed:
+		_show_input_binding_feedback(key, binding)
+		return
+	_refreshing = true
+	_refresh_values()
+	_refreshing = false
+	_show_input_binding_feedback(key, binding)
+
+
+func _on_reset_input_bindings_pressed() -> void:
+	Settings.reset_input_bindings_to_defaults(true)
+	_refreshing = true
+	_refresh_values()
+	_refreshing = false
+	_input_feedback_label.text = tr("ui_settings_input_feedback_restored")
 
 
 func _on_analytics_toggled(enabled: bool) -> void:
@@ -411,6 +436,50 @@ func _on_close_pressed() -> void:
 	closed_requested.emit()
 	if UIManager.top() == self:
 		UIManager.pop()
+
+
+func _set_setting_with_result(key: String, value: Variant) -> bool:
+	if _refreshing:
+		return false
+	if Settings.set_value(key, value):
+		_refreshing = true
+		_refresh_values()
+		_refreshing = false
+		return true
+	return false
+
+
+func _show_input_binding_feedback(key: String, binding: String) -> void:
+	var conflict_key: String = _first_conflicting_input_key(key, binding)
+	if conflict_key.is_empty():
+		_input_feedback_label.text = tr("ui_settings_input_feedback_saved").format({
+			"action": _input_label_for_key(key),
+			"binding": binding,
+		})
+		return
+
+	_input_feedback_label.text = tr("ui_settings_input_feedback_shared").format({
+		"action": _input_label_for_key(key),
+		"binding": binding,
+		"other": _input_label_for_key(conflict_key),
+	})
+
+
+func _first_conflicting_input_key(key: String, binding: String) -> String:
+	for row: Dictionary in INPUT_BINDING_ROWS:
+		var other_key: String = String(row["key"])
+		if other_key == key:
+			continue
+		if String(Settings.get_value(other_key, "")) == binding:
+			return other_key
+	return ""
+
+
+func _input_label_for_key(key: String) -> String:
+	for row: Dictionary in INPUT_BINDING_ROWS:
+		if String(row["key"]) == key:
+			return tr(String(row["label_key"]))
+	return key
 
 
 func _button_contains_position(button: Button, position: Vector2) -> bool:

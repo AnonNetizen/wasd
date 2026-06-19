@@ -142,13 +142,18 @@ func _expect_settings_panel_controls() -> void:
 	var master_value_label: Label = _find_node_by_name(panel, "MasterVolumeValueLabel") as Label
 	var fullscreen_check: CheckButton = _find_node_by_name(panel, "FullscreenCheck") as CheckButton
 	var aim_mode_option: OptionButton = _find_node_by_name(panel, "AimModeOption") as OptionButton
+	var input_feedback_label: Label = _find_node_by_name(panel, "InputFeedbackLabel") as Label
 	var pause_binding_option: OptionButton = _find_node_by_name(panel, "PauseBindingOption") as OptionButton
+	var ui_back_binding_option: OptionButton = _find_node_by_name(panel, "UiBackBindingOption") as OptionButton
+	var reset_input_button: Button = _find_node_by_name(panel, "ResetInputBindingsButton") as Button
 	var close_button: Button = _find_node_by_name(panel, "CloseButton") as Button
 
 	_expect(title_label != null and String(title_label.text) == tr("ui_settings_title"), "settings panel should show localized title")
 	_expect(locale_option != null and locale_option.item_count == 2, "settings panel should expose two locale options")
 	_expect(aim_mode_option != null and aim_mode_option.item_count == 2, "settings panel should expose aim mode options")
 	_expect(pause_binding_option != null and pause_binding_option.item_count == Settings.input_binding_options().size(), "settings panel should expose input binding options")
+	_expect(input_feedback_label != null and String(input_feedback_label.text) == tr("ui_settings_input_feedback_ready"), "settings panel should expose localized input feedback")
+	_expect(reset_input_button != null and String(reset_input_button.text) == tr("ui_settings_input_restore_defaults"), "settings panel should expose reset input defaults button")
 	_expect(master_slider != null and is_equal_approx(float(master_slider.value), 1.0), "settings panel should read master volume default")
 	_expect(master_value_label != null and String(master_value_label.text) == "100%", "settings panel should show master volume percent")
 	_expect(fullscreen_check != null and not fullscreen_check.button_pressed, "settings panel should read fullscreen default")
@@ -184,6 +189,24 @@ func _expect_settings_panel_controls() -> void:
 			await get_tree().process_frame
 			_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE)) == "P", "pause binding option should write Settings")
 			_expect(_action_has_key(ACTIONS.PAUSE, KEY_P), "pause binding option should update InputMap")
+			_expect(input_feedback_label != null and String(input_feedback_label.text).contains("Pause bound to P"), "pause binding should show saved feedback")
+	if ui_back_binding_option != null:
+		var p_index: int = _option_index(ui_back_binding_option, "P")
+		_expect(p_index >= 0, "ui back binding option should include P")
+		if p_index >= 0:
+			ui_back_binding_option.select(p_index)
+			ui_back_binding_option.item_selected.emit(p_index)
+			await get_tree().process_frame
+			_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_UI_BACK)) == "P", "ui back binding option should accept a shared binding")
+			_expect(input_feedback_label != null and String(input_feedback_label.text).contains("shared with Pause"), "shared input binding should show conflict feedback")
+	if reset_input_button != null:
+		reset_input_button.pressed.emit()
+		await get_tree().process_frame
+		_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE)) == "Escape", "reset input defaults should restore pause binding")
+		_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_UI_BACK)) == "Escape", "reset input defaults should restore ui_back binding")
+		_expect(_action_has_key(ACTIONS.PAUSE, KEY_ESCAPE), "reset input defaults should restore pause InputMap event")
+		_expect(_action_has_key(ACTIONS.UI_BACK, KEY_ESCAPE), "reset input defaults should restore ui_back InputMap event")
+		_expect(input_feedback_label != null and String(input_feedback_label.text) == "Input bindings restored to defaults.", "reset input defaults should show feedback")
 
 	if close_button != null:
 		_settings_panel_closed_count = 0

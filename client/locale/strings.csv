@@ -32,6 +32,11 @@ ui_settings_input_use_active_item,主动道具,Active Item
 ui_settings_input_pause,暂停,Pause
 ui_settings_input_ui_confirm,确认,Confirm
 ui_settings_input_ui_back,返回,Back
+ui_settings_input_restore_defaults,恢复默认输入,Restore Input Defaults
+ui_settings_input_feedback_ready,选择键位以调整键盘主绑定。,Choose a key to adjust the primary keyboard binding.
+ui_settings_input_feedback_saved,{action} 已绑定为 {binding}。,{action} bound to {binding}.
+ui_settings_input_feedback_shared,{action} 已绑定为 {binding}，并与 {other} 共用。,{action} bound to {binding}; shared with {other}.
+ui_settings_input_feedback_restored,输入绑定已恢复默认。,Input bindings restored to defaults.
 ui_settings_privacy,隐私,Privacy
 ui_settings_analytics_enabled,允许匿名分析,Allow Anonymous Analytics
 ui_title_name,WASD,WASD

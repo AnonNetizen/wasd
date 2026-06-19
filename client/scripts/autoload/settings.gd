@@ -120,6 +120,19 @@ func input_binding_options() -> Array[String]:
 	return KEYBOARD_BINDING_OPTIONS.duplicate()
 
 
+func reset_input_bindings_to_defaults(persist: bool = true) -> void:
+	var defaults: Dictionary = _default_values()
+	for key: String in INPUT_ACTION_BY_SETTING_KEY.keys():
+		var default_binding: String = String(defaults.get(key, ""))
+		if String(_values.get(key, "")) == default_binding:
+			continue
+		_values[key] = default_binding
+		_apply_input_binding(key, default_binding)
+		setting_changed.emit(key, default_binding)
+	if persist:
+		save_to_disk()
+
+
 func reset_to_defaults(persist: bool = false) -> void:
 	_values = _default_values()
 	_apply_all_input_bindings()

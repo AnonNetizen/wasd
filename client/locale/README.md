@@ -20,7 +20,7 @@
 |------------|--------|
 | 加 UI 文案 | 在 `strings.csv` 加 `ui_*` key；代码使用 `tr("ui_xxx")` |
 | 加标题 / 暂停 / 失败面板文案 | 在 `strings.csv` 加 `ui_title_*`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_pause_title`、`ui_save_and_quit`、`ui_restart`、`ui_quit_to_title` 等 key；UI 代码使用 `tr()` |
-| 加设置面板文案 | 在 `strings.csv` 加 `ui_settings_*` key；设置入口沿用 `ui_settings`，设置面板标题、分组、控件标签和选项都走本地化；输入绑定动作标签使用 `ui_settings_input_*` |
+| 加设置面板文案 | 在 `strings.csv` 加 `ui_settings_*` key；设置入口沿用 `ui_settings`，设置面板标题、分组、控件标签、反馈和选项都走本地化；输入绑定动作标签使用 `ui_settings_input_*` |
 | 加 HUD / 失败提示 | 在 `strings.csv` 加 `ui_hud_*` 或 `ui_*` key；HUD 代码用 `tr("ui_xxx")` 并在运行时刷新 |
 | 加角色名 / 描述 | 在 `strings.csv` 加 `character_*_name` / `character_*_desc`；数据填 `name_key` / `desc_key` |
 | 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |
@@ -143,7 +143,8 @@ ui_settings_screen_shake,屏幕震动,Screen Shake
 
 2. `SettingsPanel` 使用 `tr("ui_settings_screen_shake")` 刷新控件文本。
 3. 如果控件有枚举选项，每个选项也单独建 key，例如 `ui_settings_aim_mode_4dir` / `ui_settings_aim_mode_auto`。
-4. 修改后运行 `python tools/godot_bridge.py --project client settings-smoke`，确认新增 key 已导入 `.translation` 并能在面板中解析。
+4. 如果新增了 key，先让 Godot 重新导入 `strings.csv` 生成 `strings.zh_CN.translation` / `strings.en.translation`。
+5. 修改后运行 `python tools/godot_bridge.py --project client settings-smoke`，确认新增 key 已导入 `.translation` 并能在面板中解析。
 
 ### 加一个输入绑定标签
 
@@ -154,7 +155,8 @@ ui_settings_input_pause,暂停,Pause
 ```
 
 2. `SettingsPanel` 的绑定动作名称使用该 key；键名选项（如 `W` / `Escape`）来自 `Settings.input_binding_options()`，不作为普通 UI 句子翻译。
-3. 同步 `docs/词表与契约.md` 的 `input.*` key / action 后运行 `python tools/sync_contracts.py --check`、`python tools/validate_data.py` 与 `python tools/godot_bridge.py --project client settings-smoke`。
+3. 输入绑定反馈、共用键位提示和恢复默认按钮使用 `ui_settings_input_feedback_*` / `ui_settings_input_restore_defaults`。
+4. 同步 `docs/词表与契约.md` 的 `input.*` key / action 后运行 `python tools/sync_contracts.py --check`、`python tools/validate_data.py` 与 `python tools/godot_bridge.py --project client settings-smoke`。
 
 ### 加一个致谢条目
 

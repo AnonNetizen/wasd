@@ -8,7 +8,7 @@
 - `Settings` 负责维护正式客户端运行时设置的默认值、读取、修改和变更广播。
 - 设置 key 必须来自 `docs/词表与契约.md`，并通过 `client/scripts/contracts/settings_keys.gd` 与 `DataLoader` 的 `_contracts.json` 校验。
 - F7 首片已接入 `user://settings.cfg` 持久化、类型 / 范围校验、损坏配置回退和 `settings-smoke` 自动验证。
-- F7 第二片已接入正式 `SettingsPanel`，标题菜单和暂停菜单都能打开同一设置面板；面板只通过 `Settings.set_value()` 写入，不直接维护偏好副本。F7 运行时语言刷新已覆盖标题、暂停、设置、HUD、升级、结算和局外成长面板。F7 输入重绑定首片已接入键盘主绑定：`Settings` 保存 `input.*` key，并在加载 / 修改 / 重置时把键盘事件写入对应 `InputMap` action；运行时手柄轴 / 按钮事件仍保留在同一 action 上。
+- F7 第二片已接入正式 `SettingsPanel`，标题菜单和暂停菜单都能打开同一设置面板；面板只通过 `Settings.set_value()` 写入，不直接维护偏好副本。F7 运行时语言刷新已覆盖标题、暂停、设置、HUD、升级、结算和局外成长面板。F7 输入重绑定首片已接入键盘主绑定：`Settings` 保存 `input.*` key，并在加载 / 修改 / 重置时把键盘事件写入对应 `InputMap` action；运行时手柄轴 / 按钮事件仍保留在同一 action 上。F7 收尾 polish 已给设置面板补输入绑定反馈、共用键位提示和一键恢复输入默认。
 - `Settings` 不负责玩家进度存档；局外成长与局内续局属于 `SaveManager`。
 
 ## 阅读方式
@@ -51,7 +51,9 @@ SettingsPanel (CanvasLayer)
                 ├── FullscreenCheck / VsyncCheck
                 ├── FireOnReleaseCheck / AimModeOption / ScreenShakeCheck
                 ├── PauseOnFocusLossCheck / RecordReplaysCheck
+                ├── InputFeedbackLabel
                 ├── InputBindingsGrid（移动 / 瞄准 / 主动道具 / 暂停 / 确认 / 返回）
+                ├── ResetInputBindingsButton
                 ├── AnalyticsCheck
                 └── CloseButton
 ```
@@ -63,8 +65,8 @@ SettingsPanel (CanvasLayer)
 | 启动 | `_ready()` 先写入默认值并应用输入绑定，再尝试加载 `user://settings.cfg`；无配置时保留默认值，损坏或不支持版本时回退默认、应用输入绑定并重写干净配置 | `reset_to_defaults(false)` / `load_from_disk()` / `InputMap` |
 | 读取 | 调用方用已登记 key 读取当前值 | `get_value()` |
 | 修改 | key 通过契约、类型和范围校验后写入、广播并保存到磁盘；`input.*` 变更会先替换对应 action 的键盘事件，保留手柄按钮 / 轴事件 | `set_value()` / `setting_changed` / `save_to_disk()` / `InputMap.action_add_event()` |
-| 面板 | `SettingsPanel` 初始化时读取当前值；控件变化后调用 `Settings.set_value()`；语言切换后刷新面板已有 label / option 文案；离树时断开语言订阅 | `SettingsPanel.refresh()` / `Localization.locale_changed` |
-| 重置 | 恢复默认值；调用方可选择是否立即持久化 | `reset_to_defaults(persist)` |
+| 面板 | `SettingsPanel` 初始化时读取当前值；控件变化后调用 `Settings.set_value()`；语言切换后刷新面板已有 label / option / feedback 文案；输入绑定变更后显示保存或共用提示；离树时断开语言订阅 | `SettingsPanel.refresh()` / `Localization.locale_changed` |
+| 重置 | 恢复全部默认值，或只恢复输入绑定默认值；调用方可选择是否立即持久化 | `reset_to_defaults(persist)` / `reset_input_bindings_to_defaults(persist)` |
 | smoke | 备份现有 `settings.cfg`，验证缺文件默认值、有效设置 roundtrip、非法值拒绝、坏值 / 坏文件回退、设置面板控件、标题 / 暂停入口，以及核心 UI 既有实例语言刷新，然后恢复原文件 | `settings-smoke` |
 
 ## 公共 API
@@ -76,6 +78,7 @@ SettingsPanel (CanvasLayer)
 | `has_key(key)` | 设置 key | `bool` | 只表示是否登记在契约里 |
 | `values()` | 无 | `Dictionary` | 返回深拷贝，调用方不得改内部状态 |
 | `input_binding_options()` | 无 | `Array[String]` | 返回当前键盘主绑定允许选项，供设置面板显示和 smoke 断言；业务玩法仍只读 action |
+| `reset_input_bindings_to_defaults(persist = true)` | 是否立即保存默认值 | `void` | 只重置 `input.*` 键盘主绑定；会广播发生变化的输入 key，并重新写入 InputMap |
 | `reset_to_defaults(persist = false)` | 是否立即保存默认值 | `void` | 不广播逐项变化；设置菜单做“恢复默认”时如需落盘传 `true` |
 | `load_from_disk()` | 无 | `bool` | `true` 表示干净加载或缺文件默认值；`false` 表示损坏 / 越界 / 不支持版本等已触发回退 |
 | `save_to_disk()` | 无 | `bool` | 写入 `user://settings.cfg`，失败时 `push_error` 并返回 `false` |
@@ -134,6 +137,7 @@ audio.master=1.0
 - 单个 key 类型 / 范围非法：该 key 回退默认值，其余合法 key 保留，并重写干净文件。
 - 未登记 key 不进入 `_values`，避免旧配置或人工编辑污染运行时状态。
 - `input.*` 只替换对应 action 上已有的 `InputEventKey`；`InputEventJoypadButton` / `InputEventJoypadMotion` 由 gameplay runtime 兜底注册并保留，后续可扩展完整手柄重绑定。
+- 输入绑定允许共用键位，例如 `pause` 与 `ui_back` 默认都为 `Escape`，因为二者由当前状态 / UI 栈上下文裁决。设置面板会提示“与某动作共用”，但不阻止保存。
 
 ## 依赖
 
@@ -146,7 +150,7 @@ audio.master=1.0
 - 增加设置项：先登记词表 key，再给 `DEFAULT_VALUES` 增加默认值，并同步设置菜单。
 - 扩展持久化 schema：提升 `CONFIG_VERSION`，在 `load_from_disk()` 中补旧 key 兼容或迁移；仍不得混入 `SaveManager` 的 `meta` / `run` 存档。
 - 扩展范围校验：在 `_setting_specs()` 维护类型 / 范围 / 枚举，调用点不重复散落校验。
-- 接入设置面板：UI 只调用 `Settings.set_value()`；若值被拒绝，面板保留旧值。新增控件必须同步 `settings-smoke`。
+- 接入设置面板：UI 只调用 `Settings.set_value()`；若值被拒绝，面板保留旧值。输入绑定控件应显示保存 / 共用 / 恢复默认反馈。新增控件必须同步 `settings-smoke`。
 - 扩展输入重绑定：先新增 / 登记 action 与 `input.*` key，再在 `Settings.INPUT_ACTION_BY_SETTING_KEY`、默认值、设置面板和 smoke 中同步；业务脚本仍不得读取物理键。
 
 ## 常见改动入口
@@ -171,6 +175,8 @@ audio.master=1.0
 | 修改语言无效 | `Localization` 是否连接了 `Settings.setting_changed` |
 | 重绑定后仍有默认键 | runtime 是否又添加了键盘默认事件；键盘主绑定应只由 `Settings` 替换，runtime 只补手柄轴 / 按钮 |
 | 重绑定后手柄失效 | `Settings` 是否误删了非 `InputEventKey` 事件；`GameplayRunLoop._ensure_input_actions()` 是否仍注册手柄兜底 |
+| 重绑定后提示 key 而不是译文 | `client/locale/strings.csv` 是否已重新导入为 `.translation` 资源；`settings-smoke` 是否通过反馈文案断言 |
+| 恢复输入默认无效 | `reset_input_bindings_to_defaults(true)` 是否被调用；`SettingsPanel` 是否刷新控件选择和反馈文本 |
 | 启动日志 settings 数量异常 | `DEFAULT_VALUES` 是否漏了契约 key |
 
 ## 测试义务
@@ -179,7 +185,7 @@ audio.master=1.0
 - 改设置 key、默认值、范围或持久化 schema 时，追加 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_project_rules.py`。
 - 改 `SettingsPanel`、标题 / 暂停设置入口或本地化刷新时，追加 `python tools/godot_bridge.py --project client runtime-smoke`，确认标题和暂停叠层关闭后 UI 栈恢复。
 - 后续引入 GUT 后，`Settings` 需要覆盖默认值、变更广播、未知 key 拒绝、持久化加载和越界拒绝。
-- 输入重绑定变化需要执行 L5 设置 / 输入 checklist；当前自动 smoke 覆盖键盘主绑定写入和设置面板控件，完整手柄重绑定仍属于后续切片。
+- 输入重绑定变化需要执行 L5 设置 / 输入 checklist；当前自动 smoke 覆盖键盘主绑定写入、设置面板控件、共用键位提示和恢复输入默认，完整手柄重绑定仍属于后续切片。
 
 ## 迁移 / 兼容
 
