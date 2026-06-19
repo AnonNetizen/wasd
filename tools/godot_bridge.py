@@ -36,6 +36,9 @@ def main() -> int:
     subparsers.add_parser("validate-data", help="Run tools/validate_data.py.")
     subparsers.add_parser("godot-version", help="Print the configured Godot version.")
     subparsers.add_parser("headless-boot", help="Run godot --headless --path <project> --quit.")
+    subparsers.add_parser("l1-smoke", help="Run the F8 temporary L1 infrastructure smoke in headless Godot.")
+    subparsers.add_parser("replay-smoke", help="Run the F8 replay file roundtrip smoke in headless Godot.")
+    subparsers.add_parser("perf-probe", help="Run the F8 lightweight perf probe in headless Godot.")
     subparsers.add_parser("runtime-smoke", help="Run the formal gameplay runtime smoke in headless Godot.")
     subparsers.add_parser("f4-smoke", help="Compatibility alias for runtime-smoke.")
     subparsers.add_parser("meta-smoke", help="Run the F6 meta progression smoke in headless Godot.")
@@ -61,6 +64,42 @@ def main() -> int:
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
             return 1
         return _run_command([str(godot), "--headless", "--path", str(project), "--quit"], cwd=project)
+    if args.command == "l1-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        smoke_script = project / "tools" / "l1_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing L1 smoke script: {_rel(smoke_script)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", "--l1-smoke"],
+            cwd=project,
+        )
+    if args.command == "replay-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        smoke_script = project / "tools" / "replay_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing Replay smoke script: {_rel(smoke_script)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", "--replay-smoke"],
+            cwd=project,
+        )
+    if args.command == "perf-probe":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        probe_script = project / "tools" / "perf_probe.gd"
+        if not probe_script.exists():
+            print(f"[godot-bridge] missing perf probe script: {_rel(probe_script)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", "--perf-probe"],
+            cwd=project,
+        )
     if args.command in {"runtime-smoke", "f4-smoke"}:
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")

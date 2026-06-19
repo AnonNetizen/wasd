@@ -6,11 +6,14 @@ extends Node
 
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
 const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loop.tscn")
+const L1_SMOKE_RUNNER := preload("res://tools/l1_smoke.gd")
 const RUNTIME_SMOKE_RUNNER := preload("res://tools/runtime_smoke.gd")
 const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
 const META_PROGRESSION_PANEL_SCENE := preload("res://scenes/ui/meta_progression_panel.tscn")
 const META_SMOKE_RUNNER := preload("res://tools/meta_progression_smoke.gd")
+const PERF_PROBE_RUNNER := preload("res://tools/perf_probe.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
+const REPLAY_SMOKE_RUNNER := preload("res://tools/replay_smoke.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SAVE_SMOKE_RUNNER := preload("res://tools/save_manager_smoke.gd")
 const SETTINGS_SMOKE_RUNNER := preload("res://tools/settings_smoke.gd")
@@ -73,7 +76,21 @@ func _ready() -> void:
 		RNG.run_seed(),
 	])
 
-	if _is_runtime_smoke_enabled():
+	if _is_l1_smoke_enabled():
+		var l1_smoke_runner: Node = L1_SMOKE_RUNNER.new()
+		l1_smoke_runner.name = "L1Smoke"
+		add_child(l1_smoke_runner)
+	elif _is_replay_smoke_enabled():
+		var replay_smoke_runner: Node = REPLAY_SMOKE_RUNNER.new()
+		replay_smoke_runner.name = "ReplaySmoke"
+		add_child(replay_smoke_runner)
+	elif _is_perf_probe_enabled():
+		if data_schema_ok:
+			_start_gameplay_run()
+		var perf_probe_runner: Node = PERF_PROBE_RUNNER.new()
+		perf_probe_runner.name = "PerfProbe"
+		add_child(perf_probe_runner)
+	elif _is_runtime_smoke_enabled():
 		if data_schema_ok:
 			_start_gameplay_run()
 		var smoke_runner: Node = RUNTIME_SMOKE_RUNNER.new()
@@ -97,6 +114,18 @@ func _ready() -> void:
 
 func _is_runtime_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--runtime-smoke") or OS.get_cmdline_user_args().has("--f4-smoke")
+
+
+func _is_l1_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--l1-smoke")
+
+
+func _is_replay_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--replay-smoke")
+
+
+func _is_perf_probe_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--perf-probe")
 
 
 func _is_save_smoke_enabled() -> bool:

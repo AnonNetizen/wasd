@@ -123,6 +123,7 @@
 
 ### 2.H GUT 单元测试 ⭐⭐
 - [GUT](https://github.com/bitwes/Gut) 是 Godot 标配单测框架
+- F8 首片在 GUT 插件接入前，先用 `python tools/godot_bridge.py --project client l1-smoke` 作为临时 headless L1 runner，覆盖 `RNG`、`GameClock`、`GameState`、`SaveManager` 和 `Combat` 的最小基础设施行为；后续再迁入正式 GUT。
 - 优先覆盖：
   - `ModifierEngine`：属性聚合 `(基础+加法)×乘法` 公式
   - `DataLoader`：坏数据能 fail-fast
@@ -189,6 +190,7 @@
 - 任意黄金回放产生 diff → 失败，输出首个 diff 帧 + 字段
 - 数值/原语改动后**强制更新或确认**黄金样例
 - 与 GDD 9.9 的"黄金回放"配套
+- F8 首片先启用显式本地命令 `python tools/godot_bridge.py --project client replay-smoke`，验证 `.replay` 文件 envelope / hash / data fingerprint / 摘要 roundtrip；真实黄金回放 CI 仍待后续接入。
 
 ### 4.N 平衡 Sim 报表（按需）⭐
 **workflow（拟建）**：`.github/workflows/balance-sim.yml`（手动触发）
@@ -196,6 +198,7 @@
 - headless 跑 `tools/sim.gd --runs 1000`
 - 输出 build 强度 / 胜率分布 / 无人选择遗物清单
 - 与 GDD 9.10 配套；MVP 后再启用
+- F8 首片先启用 `python tools/godot_bridge.py --project client perf-probe` 输出轻量 JSON 指标，作为后续 sim 报表的最小可比较基线。
 
 ### 4.O PR 自动加标签 ⭐
 - 用 [labeler](https://github.com/actions/labeler)，按改动路径自动打 label：

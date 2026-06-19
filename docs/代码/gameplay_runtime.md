@@ -52,7 +52,8 @@
 | `client/tools/runtime_smoke.gd` | gameplay runtime headless smoke，覆盖启动、输入、池化、伤害、失败状态和真实死亡结算 |
 | `client/tools/meta_progression_smoke.gd` | F6 MetaProgression smoke，覆盖 meta roundtrip、结算、购买和永久 modifier |
 | `client/tools/save_manager_smoke.gd` | F5 SaveManager run 存档可靠性 smoke，覆盖 roundtrip、备份回退、坏档隔离和迁移 |
-| `tools/godot_bridge.py` | `runtime-smoke` / `save-smoke` / `meta-smoke` 命令入口 |
+| `client/tools/perf_probe.gd` | F8 轻量 perf / 平衡采样入口，输出帧时间、池水位、等级和击杀等 JSON 指标 |
+| `tools/godot_bridge.py` | `runtime-smoke` / `save-smoke` / `meta-smoke` / `settings-smoke` / F8 `l1-smoke`、`replay-smoke`、`perf-probe` 命令入口 |
 | `docs/代码/combat.md` | 伤害统一入口文档 |
 
 ## 场景 / 节点结构
@@ -104,7 +105,7 @@ UIManager
 | UI 布局 | HUD 使用全屏锚点下的 `MarginContainer + VBoxContainer`；升级面板使用全屏遮罩、居中容器和按视口宽度夹取的面板宽度，随窗口尺寸调整 | `Control.set_anchors_preset()` |
 | 运行时语言刷新 | `Localization.locale_changed` 发出后，标题、暂停、设置、HUD、升级、结算和局外成长面板用自身缓存的状态或配置数据刷新文本；订阅的 UI 在 `_exit_tree()` 断开 signal，避免离树节点收到后续语言切换 | `Localization.locale_changed`、`refresh_texts()` |
 | 失败 / 结算 / 重开 | 玩家生命归零后先向 `MetaProgressionSystem` 提交本局摘要并写入 `meta`，再删除 `run` 存档、进入 `GameState.GAME_OVER`、冻结 `GameClock` 并显示唯一失败面板；失败面板只展示本局结算摘要、账号经验、当前账号等级、账号等级提升提示、余额、重开和回标题，不提供局外成长购买或跳转入口。玩家可重开或回标题，按 `pause` 仍可快捷重开 | `MetaProgressionSystem.apply_run_settlement()`、`SaveManager.delete(run)`、`UIManager.push()`、`GameState.change_state()`、`GameplayRunLoop.restart_requested` |
-| 自动 smoke | `godot_bridge.py runtime-smoke` 以 `--runtime-smoke` 用户参数启动正式主场景，并挂载 runtime smoke；`godot_bridge.py save-smoke` 以 `--save-smoke` 挂载 SaveManager smoke；`godot_bridge.py meta-smoke` 以 `--meta-smoke` 挂载局外成长 smoke | `client/tools/runtime_smoke.gd` / `client/tools/save_manager_smoke.gd` / `client/tools/meta_progression_smoke.gd` |
+| 自动 smoke / probe | `godot_bridge.py runtime-smoke` 以 `--runtime-smoke` 用户参数启动正式主场景，并挂载 runtime smoke；`save-smoke` / `meta-smoke` / `settings-smoke` 分别挂载对应 smoke；F8 `perf-probe` 会启动一局并输出可比较指标 | `client/tools/runtime_smoke.gd` / `client/tools/save_manager_smoke.gd` / `client/tools/meta_progression_smoke.gd` / `client/tools/settings_smoke.gd` / `client/tools/perf_probe.gd` |
 
 ## 公共 API
 
