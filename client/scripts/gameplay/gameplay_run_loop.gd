@@ -11,16 +11,12 @@ const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const GAME_MODES := preload("res://scripts/contracts/game_modes.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
-const BULLET_SCRIPT := preload("res://scripts/gameplay/bullet.gd")
-const WORLD_BACKGROUND_SCRIPT := preload("res://scripts/gameplay/world_background.gd")
-const ENEMY_SCRIPT := preload("res://scripts/gameplay/enemy.gd")
-const GAMEPLAY_HUD_SCRIPT := preload("res://scripts/gameplay/gameplay_hud.gd")
-const GAME_OVER_PANEL_SCRIPT := preload("res://scripts/ui/game_over_panel.gd")
-const LEVEL_UP_PANEL_SCRIPT := preload("res://scripts/gameplay/level_up_panel.gd")
-const PAUSE_MENU_SCRIPT := preload("res://scripts/ui/pause_menu.gd")
-const PICKUP_ORB_SCRIPT := preload("res://scripts/gameplay/pickup_orb.gd")
-const PLAYER_SCRIPT := preload("res://scripts/gameplay/player.gd")
-const WEAPON_SYSTEM_SCRIPT := preload("res://scripts/gameplay/weapon_system.gd")
+const BULLET_SCENE := preload("res://scenes/gameplay/bullet.tscn")
+const ENEMY_SCENE := preload("res://scenes/gameplay/enemy.tscn")
+const GAME_OVER_PANEL_SCENE := preload("res://scenes/ui/game_over_panel.tscn")
+const LEVEL_UP_PANEL_SCENE := preload("res://scenes/ui/level_up_panel.tscn")
+const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause_menu.tscn")
+const PICKUP_ORB_SCENE := preload("res://scenes/gameplay/pickup_orb.tscn")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
 const BULLET_POOL_SIZE: int = 192
@@ -111,9 +107,10 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	PoolManager.prewarm(POOL_IDS.ENEMY_SWARM, 8)
 	PoolManager.prewarm(POOL_IDS.PICKUP_ORB, 16)
 
-	_active_world = Node2D.new()
-	_active_world.name = "ActiveWorld"
-	add_child(_active_world)
+	_active_world = get_node_or_null("ActiveWorld") as Node2D
+	if _active_world == null:
+		push_error("[GameplayRunLoop] missing ActiveWorld scene node")
+		return
 
 	var mode: Dictionary = _find_item(_load_array(DataLoader.GAME_MODES_PATH, "modes"), GAME_MODES.MODE_STANDARD_SURVIVAL)
 	var character: Dictionary = _find_item(_load_array(DataLoader.CHARACTERS_PATH, "characters"), CHARACTER_IDS.CHARACTER_DEFAULT)
@@ -131,28 +128,32 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_kills = 0
 	_last_settlement.clear()
 
-	_player = PLAYER_SCRIPT.new()
-	_player.name = "Player"
+	_player = _active_world.get_node_or_null("Player") as CharacterBody2D
+	if _player == null:
+		push_error("[GameplayRunLoop] missing Player scene node")
+		return
 	_player.global_position = Vector2.ZERO
 	_player.call("configure", player_stats)
 	_player.connect("life_changed", Callable(self, "_on_player_life_changed"))
 	_player.connect("died", Callable(self, "_on_player_died"), CONNECT_ONE_SHOT)
 
-	var background: Node2D = WORLD_BACKGROUND_SCRIPT.new()
-	background.name = "WorldBackground"
+	var background: Node2D = _active_world.get_node_or_null("WorldBackground") as Node2D
+	if background == null:
+		push_error("[GameplayRunLoop] missing WorldBackground scene node")
+		return
 	background.call("configure", _player)
-	_active_world.add_child(background)
-	_active_world.add_child(_player)
 
-	_weapon_system = WEAPON_SYSTEM_SCRIPT.new()
-	_weapon_system.name = "WeaponSystem"
-	_player.add_child(_weapon_system)
+	_weapon_system = _player.get_node_or_null("WeaponSystem")
+	if _weapon_system == null:
+		push_error("[GameplayRunLoop] missing WeaponSystem scene node")
+		return
 	_weapon_system.call("configure", _player, _active_world, weapon)
 	_apply_meta_modifiers(MetaProgressionSystem.current_modifiers())
 
-	_hud = GAMEPLAY_HUD_SCRIPT.new()
-	_hud.name = "GameplayHud"
-	add_child(_hud)
+	_hud = get_node_or_null("GameplayHud") as CanvasLayer
+	if _hud == null:
+		push_error("[GameplayRunLoop] missing GameplayHud scene node")
+		return
 	_hud.call("set_life", _player.call("current_life"), _player.call("max_life"))
 	_hud.call("set_kills", _kills)
 	_hud.call("set_level", _current_level)
@@ -169,15 +170,15 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 
 
 func _create_bullet_node() -> Node:
-	return BULLET_SCRIPT.new()
+	return BULLET_SCENE.instantiate()
 
 
 func _create_enemy_node() -> Node:
-	return ENEMY_SCRIPT.new()
+	return ENEMY_SCENE.instantiate()
 
 
 func _create_pickup_orb_node() -> Node:
-	return PICKUP_ORB_SCRIPT.new()
+	return PICKUP_ORB_SCENE.instantiate()
 
 
 func current_level() -> int:
@@ -308,15 +309,7 @@ func _begin_level_up() -> void:
 func _show_level_up_panel(choices: Array[Dictionary]) -> void:
 	_pending_level_up_choices = choices.duplicate(true)
 
-	var panel_template: CanvasLayer = LEVEL_UP_PANEL_SCRIPT.new()
-	panel_template.name = "LevelUpPanel"
-	var panel_scene: PackedScene = PackedScene.new()
-	var pack_result: Error = panel_scene.pack(panel_template)
-	panel_template.free()
-	if pack_result != OK:
-		push_error("[GameplayRunLoop] failed to pack level-up panel: %d" % pack_result)
-		return
-	_level_panel = UIManager.push(panel_scene, {"source": "level_up"}) as CanvasLayer
+	_level_panel = UIManager.push(LEVEL_UP_PANEL_SCENE, {"source": "level_up"}) as CanvasLayer
 	if _level_panel == null:
 		return
 	_level_panel.call("configure", choices)
@@ -373,15 +366,7 @@ func _on_player_died() -> void:
 
 
 func _show_game_over_panel() -> void:
-	var panel_template: CanvasLayer = GAME_OVER_PANEL_SCRIPT.new()
-	panel_template.name = "GameOverPanel"
-	var panel_scene: PackedScene = PackedScene.new()
-	var pack_result: Error = panel_scene.pack(panel_template)
-	panel_template.free()
-	if pack_result != OK:
-		push_error("[GameplayRunLoop] failed to pack game-over panel: %d" % pack_result)
-		return
-	_game_over_panel = UIManager.push(panel_scene, {"source": "game_over"}) as CanvasLayer
+	_game_over_panel = UIManager.push(GAME_OVER_PANEL_SCENE, {"source": "game_over"}) as CanvasLayer
 	if _game_over_panel == null:
 		return
 	_game_over_panel.call("configure", _kills, GameClock.now(), _last_settlement)
@@ -417,15 +402,7 @@ func _apply_meta_modifiers(modifiers: Array[Dictionary]) -> void:
 
 
 func _show_pause_menu() -> void:
-	var panel_template: CanvasLayer = PAUSE_MENU_SCRIPT.new()
-	panel_template.name = "PauseMenu"
-	var panel_scene: PackedScene = PackedScene.new()
-	var pack_result: Error = panel_scene.pack(panel_template)
-	panel_template.free()
-	if pack_result != OK:
-		push_error("[GameplayRunLoop] failed to pack pause menu: %d" % pack_result)
-		return
-	_pause_menu = UIManager.push(panel_scene, {"source": "pause"}) as CanvasLayer
+	_pause_menu = UIManager.push(PAUSE_MENU_SCENE, {"source": "pause"}) as CanvasLayer
 	if _pause_menu == null:
 		return
 	_pause_menu.connect("resume_requested", Callable(self, "_on_pause_resume_requested"), CONNECT_ONE_SHOT)

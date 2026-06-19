@@ -1,0 +1,79 @@
+[gd_scene load_steps=2 format=3 uid="uid://dq1fqg5p2dfch"]
+
+[ext_resource type="Script" uid="uid://bydhouedb1jjl" path="res://scripts/ui/pause_menu.gd" id="1_pause"]
+
+[node name="PauseMenu" type="CanvasLayer"]
+script = ExtResource("1_pause")
+
+[node name="Root" type="Control" parent="."]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Backdrop" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.38)
+
+[node name="Center" type="CenterContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="PauseMenuPanel" type="PanelContainer" parent="Root/Center"]
+custom_minimum_size = Vector2(540, 0)
+layout_mode = 2
+mouse_filter = 1
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/PauseMenuPanel"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 22
+
+[node name="Layout" type="VBoxContainer" parent="Root/Center/PauseMenuPanel/Margin"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="Root/Center/PauseMenuPanel/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 32
+
+[node name="ResumeButton" type="Button" parent="Root/Center/PauseMenuPanel/Margin/Layout"]
+custom_minimum_size = Vector2(280, 52)
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="SaveAndQuitButton" type="Button" parent="Root/Center/PauseMenuPanel/Margin/Layout"]
+custom_minimum_size = Vector2(280, 52)
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="RestartButton" type="Button" parent="Root/Center/PauseMenuPanel/Margin/Layout"]
+custom_minimum_size = Vector2(280, 52)
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="QuitToTitleButton" type="Button" parent="Root/Center/PauseMenuPanel/Margin/Layout"]
+custom_minimum_size = Vector2(280, 52)
+layout_mode = 2
+size_flags_horizontal = 4

@@ -8,8 +8,6 @@ signal closed_requested()
 
 const BUTTON_HEIGHT: float = 46.0
 const BUTTON_WIDTH: float = 180.0
-const PANEL_HEIGHT: float = 720.0
-const PANEL_WIDTH: float = 680.0
 const ROW_MIN_HEIGHT: float = 130.0
 const POINTER_ACTION_CLOSE: String = "close"
 const POINTER_ACTION_PURCHASE: String = "purchase"
@@ -74,95 +72,25 @@ func _input(event: InputEvent) -> void:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
-	var root: Control = Control.new()
-	root.process_mode = Node.PROCESS_MODE_ALWAYS
-	root.mouse_filter = Control.MOUSE_FILTER_PASS
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(root)
+	var title: Label = get_node_or_null("Root/Center/MetaProgressionPanelContainer/Margin/Layout/TitleLabel") as Label
+	_account_label = get_node_or_null("Root/Center/MetaProgressionPanelContainer/Margin/Layout/ProfileRow/MetaAccountLabel") as Label
+	_currency_label = get_node_or_null("Root/Center/MetaProgressionPanelContainer/Margin/Layout/ProfileRow/MetaCurrencyLabel") as Label
+	_feedback_label = get_node_or_null("Root/Center/MetaProgressionPanelContainer/Margin/Layout/MetaPurchaseFeedbackLabel") as Label
+	_upgrade_list = get_node_or_null("Root/Center/MetaProgressionPanelContainer/Margin/Layout/MetaUpgradeScroll/MetaUpgradeList") as VBoxContainer
+	_close_button = get_node_or_null("Root/Center/MetaProgressionPanelContainer/Margin/Layout/CloseButton") as Button
+	if title == null or _account_label == null or _currency_label == null:
+		push_error("[MetaProgressionPanel] missing required scene nodes")
+		return
+	if _feedback_label == null or _upgrade_list == null or _close_button == null:
+		push_error("[MetaProgressionPanel] missing required scene nodes")
+		return
 
-	var backdrop: ColorRect = ColorRect.new()
-	backdrop.process_mode = Node.PROCESS_MODE_ALWAYS
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.48)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_child(backdrop)
-
-	var center: CenterContainer = CenterContainer.new()
-	center.process_mode = Node.PROCESS_MODE_ALWAYS
-	center.mouse_filter = Control.MOUSE_FILTER_PASS
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_child(center)
-
-	var panel: PanelContainer = PanelContainer.new()
-	panel.name = "MetaProgressionPanelContainer"
-	panel.process_mode = Node.PROCESS_MODE_ALWAYS
-	panel.mouse_filter = Control.MOUSE_FILTER_PASS
-	panel.custom_minimum_size = Vector2(PANEL_WIDTH, PANEL_HEIGHT)
-	center.add_child(panel)
-
-	var margin: MarginContainer = MarginContainer.new()
-	margin.process_mode = Node.PROCESS_MODE_ALWAYS
-	margin.mouse_filter = Control.MOUSE_FILTER_PASS
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_top", 22)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_bottom", 22)
-	panel.add_child(margin)
-
-	var layout: VBoxContainer = VBoxContainer.new()
-	layout.process_mode = Node.PROCESS_MODE_ALWAYS
-	layout.mouse_filter = Control.MOUSE_FILTER_PASS
-	layout.add_theme_constant_override("separation", 12)
-	margin.add_child(layout)
-
-	var title: Label = Label.new()
-	title.process_mode = Node.PROCESS_MODE_ALWAYS
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.text = tr("ui_meta_progression_title")
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 32)
-	layout.add_child(title)
-
-	var profile_row: HBoxContainer = HBoxContainer.new()
-	profile_row.process_mode = Node.PROCESS_MODE_ALWAYS
-	profile_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	profile_row.add_theme_constant_override("separation", 16)
-	layout.add_child(profile_row)
-
-	_account_label = _make_profile_label("MetaAccountLabel")
-	profile_row.add_child(_account_label)
-
-	_currency_label = _make_profile_label("MetaCurrencyLabel")
-	profile_row.add_child(_currency_label)
-
-	_feedback_label = Label.new()
-	_feedback_label.name = "MetaPurchaseFeedbackLabel"
-	_feedback_label.process_mode = Node.PROCESS_MODE_ALWAYS
-	_feedback_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_feedback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_feedback_label.add_theme_font_size_override("font_size", 16)
 	_feedback_label.visible = false
-	layout.add_child(_feedback_label)
-
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.name = "MetaUpgradeScroll"
-	scroll.process_mode = Node.PROCESS_MODE_ALWAYS
-	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	layout.add_child(scroll)
-
-	_upgrade_list = VBoxContainer.new()
-	_upgrade_list.name = "MetaUpgradeList"
-	_upgrade_list.process_mode = Node.PROCESS_MODE_ALWAYS
-	_upgrade_list.mouse_filter = Control.MOUSE_FILTER_PASS
-	_upgrade_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_upgrade_list.add_theme_constant_override("separation", 10)
-	scroll.add_child(_upgrade_list)
-
-	_close_button = _make_button("CloseButton", tr("ui_cancel"))
+	_close_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	_close_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	_close_button.text = tr("ui_cancel")
 	_close_button.pressed.connect(_on_close_pressed)
-	layout.add_child(_close_button)
 
 	refresh()
 
@@ -198,17 +126,6 @@ func _refresh_upgrades() -> void:
 
 	for summary: Dictionary in MetaProgressionSystem.upgrade_summaries():
 		_upgrade_list.add_child(_make_upgrade_row(summary))
-
-
-func _make_profile_label(label_name: String) -> Label:
-	var label: Label = Label.new()
-	label.name = label_name
-	label.process_mode = Node.PROCESS_MODE_ALWAYS
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 18)
-	return label
 
 
 func _make_upgrade_row(summary: Dictionary) -> Control:

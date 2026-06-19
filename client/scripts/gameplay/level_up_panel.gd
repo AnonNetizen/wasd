@@ -50,62 +50,17 @@ func _input(event: InputEvent) -> void:
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_root = Control.new()
-	_root.process_mode = Node.PROCESS_MODE_ALWAYS
-	_root.mouse_filter = Control.MOUSE_FILTER_PASS
-	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+
+	_root = get_node_or_null("Root") as Control
+	_panel = get_node_or_null("Root/Center/LevelUpPanelFrame") as PanelContainer
+	_button_box = get_node_or_null("Root/Center/LevelUpPanelFrame/Margin/Layout/ButtonBox") as VBoxContainer
+	var title: Label = get_node_or_null("Root/Center/LevelUpPanelFrame/Margin/Layout/TitleLabel") as Label
+	if _root == null or _panel == null or _button_box == null or title == null:
+		push_error("[LevelUpPanel] missing required scene nodes")
+		return
+
 	_root.resized.connect(_update_panel_width)
-	add_child(_root)
-
-	var backdrop: ColorRect = ColorRect.new()
-	backdrop.process_mode = Node.PROCESS_MODE_ALWAYS
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_root.add_child(backdrop)
-
-	var center: CenterContainer = CenterContainer.new()
-	center.process_mode = Node.PROCESS_MODE_ALWAYS
-	center.mouse_filter = Control.MOUSE_FILTER_PASS
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_root.add_child(center)
-
-	_panel = PanelContainer.new()
-	_panel.name = "LevelUpPanelFrame"
-	_panel.process_mode = Node.PROCESS_MODE_ALWAYS
-	_panel.mouse_filter = Control.MOUSE_FILTER_PASS
-	_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	center.add_child(_panel)
-
-	var margin: MarginContainer = MarginContainer.new()
-	margin.process_mode = Node.PROCESS_MODE_ALWAYS
-	margin.mouse_filter = Control.MOUSE_FILTER_PASS
-	margin.add_theme_constant_override("margin_left", 18)
-	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_right", 18)
-	margin.add_theme_constant_override("margin_bottom", 16)
-	_panel.add_child(margin)
-
-	var layout: VBoxContainer = VBoxContainer.new()
-	layout.process_mode = Node.PROCESS_MODE_ALWAYS
-	layout.mouse_filter = Control.MOUSE_FILTER_PASS
-	layout.add_theme_constant_override("separation", 10)
-	margin.add_child(layout)
-
-	var title: Label = Label.new()
-	title.process_mode = Node.PROCESS_MODE_ALWAYS
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.text = tr("ui_level_up_title")
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 24)
-	layout.add_child(title)
-
-	_button_box = VBoxContainer.new()
-	_button_box.process_mode = Node.PROCESS_MODE_ALWAYS
-	_button_box.mouse_filter = Control.MOUSE_FILTER_PASS
-	_button_box.add_theme_constant_override("separation", 8)
-	layout.add_child(_button_box)
 	_update_panel_width()
 	_refresh_buttons()
 

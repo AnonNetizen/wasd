@@ -30,11 +30,12 @@ var _stat_multipliers: Dictionary = {}
 
 
 func _ready() -> void:
-	var camera: Camera2D = Camera2D.new()
-	camera.name = "CenteredCamera"
+	var camera: Camera2D = get_node_or_null("CenteredCamera") as Camera2D
+	if camera == null:
+		push_error("[Player] missing CenteredCamera scene node")
+		return
 	camera.enabled = true
 	camera.position_smoothing_enabled = false
-	add_child(camera)
 	camera.make_current()
 
 

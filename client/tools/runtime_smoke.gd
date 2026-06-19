@@ -4,8 +4,8 @@ extends Node
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
-const ENEMY_SCRIPT := preload("res://scripts/gameplay/enemy.gd")
-const PLAYER_SCRIPT := preload("res://scripts/gameplay/player.gd")
+const ENEMY_SCENE := preload("res://scenes/gameplay/enemy.tscn")
+const PLAYER_SCENE := preload("res://scenes/gameplay/player.tscn")
 const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
@@ -77,7 +77,7 @@ func _run() -> void:
 	_expect(player.get("aim_direction") == Vector2.UP, "arrow aim should snap to Vector2.UP")
 	_expect(player.global_position.distance_to(before_aim_position) < 1.0, "arrow aim should not move the player")
 
-	var isolated_player: Node2D = PLAYER_SCRIPT.new()
+	var isolated_player: Node2D = PLAYER_SCENE.instantiate() as Node2D
 	isolated_player.name = "SmokeIsolatedPlayer"
 	run_loop.add_child(isolated_player)
 	var isolated_stats: Dictionary = {}
@@ -257,8 +257,8 @@ func _expect_enemy_center_separation(run_loop: Node, player: Node2D) -> void:
 		"hit_radius": 14.0,
 		"separation_radius": 9.0,
 	}
-	var enemy_a: Node2D = ENEMY_SCRIPT.new()
-	var enemy_b: Node2D = ENEMY_SCRIPT.new()
+	var enemy_a: Node2D = ENEMY_SCENE.instantiate() as Node2D
+	var enemy_b: Node2D = ENEMY_SCENE.instantiate() as Node2D
 	enemy_a.name = "SmokeSeparatedEnemyA"
 	enemy_b.name = "SmokeSeparatedEnemyB"
 	run_loop.add_child(enemy_a)
@@ -278,7 +278,7 @@ func _expect_enemy_center_separation(run_loop: Node, player: Node2D) -> void:
 
 
 func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
-	var isolated_player: Node2D = PLAYER_SCRIPT.new()
+	var isolated_player: Node2D = PLAYER_SCENE.instantiate() as Node2D
 	isolated_player.name = "SmokeSeparatedPlayer"
 	run_loop.add_child(isolated_player)
 	isolated_player.global_position = player.global_position + Vector2(600.0, 0.0)
@@ -298,7 +298,7 @@ func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
 		"hit_radius": 24.0,
 		"separation_radius": 9.0,
 	}
-	var enemy: Node2D = ENEMY_SCRIPT.new()
+	var enemy: Node2D = ENEMY_SCENE.instantiate() as Node2D
 	enemy.name = "SmokePlayerSeparatedEnemy"
 	run_loop.add_child(enemy)
 	enemy.global_position = isolated_player.global_position
@@ -347,7 +347,7 @@ func _expect_pickup_orb_draw_order(run_loop: Node, player: Node2D) -> void:
 		"hit_radius": 14.0,
 		"separation_radius": 0.0,
 	}
-	var enemy: Node2D = ENEMY_SCRIPT.new()
+	var enemy: Node2D = ENEMY_SCENE.instantiate() as Node2D
 	enemy.name = "SmokeDrawOrderEnemy"
 	run_loop.add_child(enemy)
 	enemy.global_position = player.global_position + Vector2(500.0, 0.0)

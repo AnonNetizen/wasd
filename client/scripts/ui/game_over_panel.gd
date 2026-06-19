@@ -7,11 +7,8 @@ extends CanvasLayer
 signal quit_to_title_requested()
 signal restart_requested()
 
-const BUTTON_HEIGHT: float = 52.0
-const BUTTON_WIDTH: float = 260.0
 const BUTTON_ACTION_QUIT_TO_TITLE: String = "quit_to_title"
 const BUTTON_ACTION_RESTART: String = "restart"
-const PANEL_WIDTH: float = 520.0
 
 var _button_actions: Array[String] = []
 var _buttons: Array[Button] = []
@@ -48,86 +45,27 @@ func _input(event: InputEvent) -> void:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
-	var root: Control = Control.new()
-	root.process_mode = Node.PROCESS_MODE_ALWAYS
-	root.mouse_filter = Control.MOUSE_FILTER_PASS
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(root)
+	var title: Label = get_node_or_null("Root/Center/Panel/Margin/Layout/TitleLabel") as Label
+	var restart_button: Button = get_node_or_null("Root/Center/Panel/Margin/Layout/RestartButton") as Button
+	var quit_button: Button = get_node_or_null("Root/Center/Panel/Margin/Layout/QuitToTitleButton") as Button
+	_summary_label = get_node_or_null("Root/Center/Panel/Margin/Layout/SummaryLabel") as Label
+	_settlement_label = get_node_or_null("Root/Center/Panel/Margin/Layout/SettlementLabel") as Label
+	_profile_label = get_node_or_null("Root/Center/Panel/Margin/Layout/MetaProfileLabel") as Label
+	if title == null or restart_button == null or quit_button == null:
+		push_error("[GameOverPanel] missing required scene nodes")
+		return
+	if _summary_label == null or _settlement_label == null or _profile_label == null:
+		push_error("[GameOverPanel] missing required scene nodes")
+		return
 
-	var backdrop: ColorRect = ColorRect.new()
-	backdrop.process_mode = Node.PROCESS_MODE_ALWAYS
-	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.42)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_child(backdrop)
-
-	var center: CenterContainer = CenterContainer.new()
-	center.process_mode = Node.PROCESS_MODE_ALWAYS
-	center.mouse_filter = Control.MOUSE_FILTER_PASS
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_child(center)
-
-	var panel: PanelContainer = PanelContainer.new()
-	panel.process_mode = Node.PROCESS_MODE_ALWAYS
-	panel.mouse_filter = Control.MOUSE_FILTER_PASS
-	panel.custom_minimum_size = Vector2(PANEL_WIDTH, 0.0)
-	center.add_child(panel)
-
-	var margin: MarginContainer = MarginContainer.new()
-	margin.process_mode = Node.PROCESS_MODE_ALWAYS
-	margin.mouse_filter = Control.MOUSE_FILTER_PASS
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_top", 22)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_bottom", 22)
-	panel.add_child(margin)
-
-	var layout: VBoxContainer = VBoxContainer.new()
-	layout.process_mode = Node.PROCESS_MODE_ALWAYS
-	layout.mouse_filter = Control.MOUSE_FILTER_PASS
-	layout.add_theme_constant_override("separation", 12)
-	margin.add_child(layout)
-
-	var title: Label = Label.new()
-	title.process_mode = Node.PROCESS_MODE_ALWAYS
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.text = tr("ui_game_over")
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 32)
-	layout.add_child(title)
-
-	_summary_label = Label.new()
-	_summary_label.process_mode = Node.PROCESS_MODE_ALWAYS
-	_summary_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_summary_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_summary_label.add_theme_font_size_override("font_size", 20)
-	layout.add_child(_summary_label)
-
-	_settlement_label = Label.new()
-	_settlement_label.name = "SettlementLabel"
-	_settlement_label.process_mode = Node.PROCESS_MODE_ALWAYS
-	_settlement_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_settlement_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_settlement_label.add_theme_font_size_override("font_size", 18)
-	layout.add_child(_settlement_label)
-
-	_profile_label = Label.new()
-	_profile_label.name = "MetaProfileLabel"
-	_profile_label.process_mode = Node.PROCESS_MODE_ALWAYS
-	_profile_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_profile_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_profile_label.add_theme_font_size_override("font_size", 16)
-	layout.add_child(_profile_label)
-
-	var restart_button: Button = _make_button("RestartButton", tr("ui_restart"))
+	restart_button.text = tr("ui_restart")
 	restart_button.pressed.connect(_on_restart_pressed)
 	_register_button(restart_button, BUTTON_ACTION_RESTART)
-	layout.add_child(restart_button)
 
-	var quit_button: Button = _make_button("QuitToTitleButton", tr("ui_quit_to_title"))
+	quit_button.text = tr("ui_quit_to_title")
 	quit_button.pressed.connect(_on_quit_to_title_pressed)
 	_register_button(quit_button, BUTTON_ACTION_QUIT_TO_TITLE)
-	layout.add_child(quit_button)
 	restart_button.call_deferred("grab_focus")
 
 
@@ -141,18 +79,9 @@ func configure(kills: int, run_time: float, settlement: Dictionary = {}) -> void
 	_configure_settlement(settlement)
 
 
-func _make_button(button_name: String, text_value: String) -> Button:
-	var button: Button = Button.new()
-	button.name = button_name
+func _register_button(button: Button, action: String) -> void:
 	button.process_mode = Node.PROCESS_MODE_ALWAYS
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
-	button.text = text_value
-	button.custom_minimum_size = Vector2(BUTTON_WIDTH, BUTTON_HEIGHT)
-	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	return button
-
-
-func _register_button(button: Button, action: String) -> void:
 	_buttons.append(button)
 	_button_actions.append(action)
 

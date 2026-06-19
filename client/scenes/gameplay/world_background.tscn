@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://dghn582btlail"]
+
+[ext_resource type="Script" uid="uid://cap51rj3gxher" path="res://scripts/gameplay/world_background.gd" id="1_background"]
+
+[node name="WorldBackground" type="Node2D"]
+z_index = -100
+script = ExtResource("1_background")

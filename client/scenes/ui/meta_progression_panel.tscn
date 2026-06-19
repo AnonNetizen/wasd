@@ -1,0 +1,102 @@
+[gd_scene load_steps=2 format=3 uid="uid://btckttlm5ry41"]
+
+[ext_resource type="Script" uid="uid://cts2s3bm7j2w3" path="res://scripts/ui/meta_progression_panel.gd" id="1_meta"]
+
+[node name="MetaProgressionPanel" type="CanvasLayer"]
+script = ExtResource("1_meta")
+
+[node name="Root" type="Control" parent="."]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Backdrop" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0, 0, 0, 0.48)
+
+[node name="Center" type="CenterContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="MetaProgressionPanelContainer" type="PanelContainer" parent="Root/Center"]
+custom_minimum_size = Vector2(680, 720)
+layout_mode = 2
+mouse_filter = 1
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/MetaProgressionPanelContainer"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 22
+
+[node name="Layout" type="VBoxContainer" parent="Root/Center/MetaProgressionPanelContainer/Margin"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="Root/Center/MetaProgressionPanelContainer/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 32
+
+[node name="ProfileRow" type="HBoxContainer" parent="Root/Center/MetaProgressionPanelContainer/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="MetaAccountLabel" type="Label" parent="Root/Center/MetaProgressionPanelContainer/Margin/Layout/ProfileRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 18
+
+[node name="MetaCurrencyLabel" type="Label" parent="Root/Center/MetaProgressionPanelContainer/Margin/Layout/ProfileRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 18
+
+[node name="MetaPurchaseFeedbackLabel" type="Label" parent="Root/Center/MetaProgressionPanelContainer/Margin/Layout"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+horizontal_alignment = 1
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 16
+
+[node name="MetaUpgradeScroll" type="ScrollContainer" parent="Root/Center/MetaProgressionPanelContainer/Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 1
+
+[node name="MetaUpgradeList" type="VBoxContainer" parent="Root/Center/MetaProgressionPanelContainer/Margin/Layout/MetaUpgradeScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 1
+theme_override_constants/separation = 10
+
+[node name="CloseButton" type="Button" parent="Root/Center/MetaProgressionPanelContainer/Margin/Layout"]
+custom_minimum_size = Vector2(180, 46)
+layout_mode = 2
+size_flags_horizontal = 4

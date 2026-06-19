@@ -9,10 +9,6 @@ signal continue_requested()
 signal meta_progression_requested()
 signal start_requested()
 
-const BUTTON_HEIGHT: float = 54.0
-const BUTTON_WIDTH: float = 260.0
-const PANEL_WIDTH: float = 520.0
-
 var _continue_button: Button = null
 var _meta_progression_button: Button = null
 var _meta_summary_label: Label = null
@@ -22,76 +18,41 @@ var _notice_label: Label = null
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
-	var root: Control = Control.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(root)
+	var title: Label = get_node_or_null("Root/Center/Panel/Margin/Layout/TitleLabel") as Label
+	var subtitle: Label = get_node_or_null("Root/Center/Panel/Margin/Layout/SubtitleLabel") as Label
+	var start_button: Button = get_node_or_null("Root/Center/Panel/Margin/Layout/StartButton") as Button
+	var quit_button: Button = get_node_or_null("Root/Center/Panel/Margin/Layout/QuitButton") as Button
+	_notice_label = get_node_or_null("Root/Center/Panel/Margin/Layout/RunSaveNoticeLabel") as Label
+	_meta_summary_label = get_node_or_null("Root/Center/Panel/Margin/Layout/MetaProfileSummaryLabel") as Label
+	_continue_button = get_node_or_null("Root/Center/Panel/Margin/Layout/ContinueRunButton") as Button
+	_meta_progression_button = get_node_or_null("Root/Center/Panel/Margin/Layout/MetaProgressionButton") as Button
 
-	var backdrop: ColorRect = ColorRect.new()
-	backdrop.color = Color(0.04, 0.05, 0.07, 1.0)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_child(backdrop)
+	if title == null or subtitle == null or start_button == null or quit_button == null:
+		push_error("[TitleMenu] missing required scene nodes")
+		return
+	if _notice_label == null or _meta_summary_label == null or _continue_button == null or _meta_progression_button == null:
+		push_error("[TitleMenu] missing required scene nodes")
+		return
 
-	var center: CenterContainer = CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_child(center)
-
-	var panel: PanelContainer = PanelContainer.new()
-	panel.custom_minimum_size = Vector2(PANEL_WIDTH, 0.0)
-	center.add_child(panel)
-
-	var margin: MarginContainer = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 28)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_right", 28)
-	margin.add_theme_constant_override("margin_bottom", 24)
-	panel.add_child(margin)
-
-	var layout: VBoxContainer = VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 14)
-	margin.add_child(layout)
-
-	var title: Label = Label.new()
 	title.text = tr("ui_title_name")
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 42)
-	layout.add_child(title)
-
-	var subtitle: Label = Label.new()
 	subtitle.text = tr("ui_title_subtitle")
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 20)
-	layout.add_child(subtitle)
-
-	_notice_label = Label.new()
-	_notice_label.name = "RunSaveNoticeLabel"
-	_notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_notice_label.add_theme_font_size_override("font_size", 16)
 	_notice_label.visible = false
-	layout.add_child(_notice_label)
 
-	_meta_summary_label = Label.new()
-	_meta_summary_label.name = "MetaProfileSummaryLabel"
-	_meta_summary_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_meta_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_meta_summary_label.add_theme_font_size_override("font_size", 16)
-	layout.add_child(_meta_summary_label)
-
-	_continue_button = _make_button("ContinueRunButton", tr("ui_continue_run"))
+	_continue_button.text = tr("ui_continue_run")
+	_continue_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	_continue_button.pressed.connect(_on_continue_pressed)
-	layout.add_child(_continue_button)
 
-	var start_button: Button = _make_button("StartButton", tr("ui_start"))
+	start_button.text = tr("ui_start")
+	start_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	start_button.pressed.connect(_on_start_pressed)
-	layout.add_child(start_button)
 
-	_meta_progression_button = _make_button("MetaProgressionButton", tr("ui_meta_progression"))
+	_meta_progression_button.text = tr("ui_meta_progression")
+	_meta_progression_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	_meta_progression_button.pressed.connect(_on_meta_progression_pressed)
-	layout.add_child(_meta_progression_button)
 
-	var quit_button: Button = _make_button("QuitButton", tr("ui_quit"))
+	quit_button.text = tr("ui_quit")
+	quit_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	quit_button.pressed.connect(_on_quit_pressed)
-	layout.add_child(quit_button)
 	call_deferred("_grab_button_focus", start_button)
 	refresh_meta_summary()
 
@@ -126,15 +87,6 @@ func refresh_meta_summary() -> void:
 			tr("ui_meta_progression_available") if has_available_purchase else tr("ui_meta_progression")
 		)
 		_meta_progression_button.tooltip_text = _meta_summary_label.text if _meta_summary_label != null else ""
-
-
-func _make_button(button_name: String, text_value: String) -> Button:
-	var button: Button = Button.new()
-	button.name = button_name
-	button.text = text_value
-	button.custom_minimum_size = Vector2(BUTTON_WIDTH, BUTTON_HEIGHT)
-	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	return button
 
 
 func _grab_button_focus(button: Button) -> void:

@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=3 uid="uid://bbmnjxejt13jy"]
+
+[ext_resource type="Script" uid="uid://di4d0y2bfu325" path="res://scripts/gameplay/player.gd" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/gameplay/weapon_system.tscn" id="2_weapon"]
+
+[node name="Player" type="CharacterBody2D"]
+script = ExtResource("1_player")
+
+[node name="CenteredCamera" type="Camera2D" parent="."]
+enabled = true
+position_smoothing_enabled = false
+
+[node name="WeaponSystem" parent="." instance=ExtResource("2_weapon")]

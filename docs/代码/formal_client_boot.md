@@ -26,6 +26,9 @@
 | `client/project.godot` | Godot 项目配置，`run/main_scene` 指向最小启动场景，默认 viewport 为 1920×1080，窗口拉伸采用 `canvas_items + keep` |
 | `client/scenes/boot/main.tscn` | 正式项目最小启动场景 |
 | `client/scripts/boot/formal_client_boot.gd` | 启动场景脚本，输出启动日志 |
+| `client/scenes/gameplay/gameplay_run_loop.tscn` | F4+ 正式 gameplay runtime 场景，由启动脚本实例化 |
+| `client/scenes/ui/title_menu.tscn` | 正常启动后的正式标题菜单场景 |
+| `client/scenes/ui/meta_progression_panel.tscn` | F6 标题局外升级面板场景 |
 | `client/scripts/ui/title_menu.gd` | F4 阶段最小标题界面，通过 `UIManager` 挂载 |
 | `client/scripts/ui/meta_progression_panel.gd` | F6 阶段标题局外升级面板，通过 `UIManager` 叠在标题菜单上 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | F4 数据校验通过后挂载的最小可玩闭环 runtime |
@@ -37,12 +40,12 @@
 
 ```text
 FormalClientBoot (Node)
-└── GameplayRunLoop (Node2D, runtime child while a run is active)
+└── GameplayRunLoop (Node2D, instanced from `client/scenes/gameplay/gameplay_run_loop.tscn` while a run is active)
 
 UIManager
 └── UIRoot
-    ├── TitleMenu (normal boot after data schema passes; shows continue when run.save exists)
-    └── MetaProgressionPanel (pushed above title menu when requested)
+    ├── TitleMenu (scene; normal boot after data schema passes; shows continue when run.save exists)
+    └── MetaProgressionPanel (scene; pushed above title menu when requested)
 ```
 
 根节点挂载 `res://scripts/boot/formal_client_boot.gd`。
@@ -56,7 +59,7 @@ UIManager
 | `_ready()` | 调用 `DataLoader.validate_project_data()` 并输出正式客户端启动日志 | `print()` |
 | 正常启动 | 数据校验通过后通过 `UIManager` 显示 `TitleMenu`，保持 `GameState.MAIN_MENU` | `UIManager.push()` |
 | 标题局外升级 | 标题菜单发出 `meta_progression_requested` 后，启动脚本把 `MetaProgressionPanel` 推入 UI 栈；关闭时弹出该面板并保留标题菜单 | `UIManager.push()` / `UIManager.pop()` |
-| Gameplay runtime 挂载 | 玩家选择开始、继续游戏或 `--runtime-smoke` 启动时创建 `GameplayRunLoop`，进入最小战斗闭环；继续游戏会先从 `SaveManager` 读取 `run` payload，交给 runtime 恢复实体、GameClock、RNG 和 `ui_restore`，读取失败时回标题并显示坏档重置提示 | `add_child()`、`SaveManager.load_envelope()`、`GameState.PLAYING` |
+| Gameplay runtime 挂载 | 玩家选择开始、继续游戏或 `--runtime-smoke` 启动时实例化 `gameplay_run_loop.tscn`，进入最小战斗闭环；继续游戏会先从 `SaveManager` 读取 `run` payload，交给 runtime 恢复实体、GameClock、RNG 和 `ui_restore`，读取失败时回标题并显示坏档重置提示 | `PackedScene.instantiate()`、`add_child()`、`SaveManager.load_envelope()`、`GameState.PLAYING` |
 | F5 存档 smoke | `--save-smoke` 启动时只挂载 `SaveManagerSmoke`，验证 run 存档 roundtrip、备份回退、坏档隔离和迁移链 | `client/tools/save_manager_smoke.gd` |
 | F6 局外成长 smoke | `--meta-smoke` 启动时只挂载 `MetaProgressionSmoke`，验证 meta profile roundtrip、结算、购买、解锁和永久 modifier | `client/tools/meta_progression_smoke.gd` |
 | 重开 / 回标题 | `GameplayRunLoop` 发出重开或回标题信号后，由启动脚本清理运行时和 gameplay 对象池，再重新挂载 run 或标题菜单 | `restart_requested` / `quit_to_title_requested` |
@@ -80,8 +83,8 @@ UIManager
 ## 依赖
 
 - 上游依赖：Godot 4.6.3 项目加载机制、已注册的 F2 autoload。
-- 下游调用方：`TitleMenu` 和 F6 阶段的 `MetaProgressionPanel` 由本启动脚本通过 `UIManager` 挂载，`GameplayRunLoop` 由本启动脚本创建和清理。
-- 禁止依赖：不得引用 MVP 场景或脚本；不得提前绕过未来 F2 autoload 边界。
+- 下游调用方：`TitleMenu` 和 F6 阶段的 `MetaProgressionPanel` 场景由本启动脚本通过 `UIManager` 挂载，`GameplayRunLoop` 场景由本启动脚本创建和清理。
+- 禁止依赖：不得引用 MVP 场景或脚本；不得用启动脚本临时拼长期 gameplay / UI 层级；不得提前绕过未来 F2 autoload 边界。
 
 ## 扩展点
 
@@ -95,8 +98,8 @@ UIManager
 | 更换主场景 | `client/project.godot` | 本文档、`client/README.md`、`docs/AI导航.md` | `tools/godot_bridge.py --project client headless-boot` |
 | 调整默认分辨率 / 拉伸策略 | `client/project.godot` | 本文档、`client/README.md`、相关 UI 模块文档 | `headless-boot` + `runtime-smoke` + 手动不同窗口尺寸检查 |
 | 增加启动前检查 | `client/scripts/boot/formal_client_boot.gd` | 本文档；必要时新增模块文档 | headless boot |
-| 调整 gameplay runtime 挂载 / 继续游戏 | `formal_client_boot.gd`、`gameplay_run_loop.gd` | 本文档、`docs/代码/gameplay_runtime.md`、AI导航 | headless boot、`runtime-smoke`、`save-smoke`、手动保存续局 |
-| 调整标题局外升级入口 | `formal_client_boot.gd`、`title_menu.gd`、`meta_progression_panel.gd` | 本文档、`docs/代码/gameplay_runtime.md`、`docs/代码/meta_progression_system.md`、AI导航 | headless boot、`meta-smoke`、手动标题菜单点开 |
+| 调整 gameplay runtime 挂载 / 继续游戏 | `formal_client_boot.gd`、`gameplay_run_loop.tscn`、`gameplay_run_loop.gd` | 本文档、`docs/代码/gameplay_runtime.md`、AI导航 | headless boot、`runtime-smoke`、`save-smoke`、手动保存续局 |
+| 调整标题局外升级入口 | `formal_client_boot.gd`、`title_menu.tscn`、`meta_progression_panel.tscn`、对应脚本 | 本文档、`docs/代码/gameplay_runtime.md`、`docs/代码/meta_progression_system.md`、AI导航 | headless boot、`meta-smoke`、手动标题菜单点开 |
 | 调整 F6 smoke 挂载 | `formal_client_boot.gd`、`client/tools/meta_progression_smoke.gd` | 本文档、`docs/代码/meta_progression_system.md`、AI导航 | headless boot、`meta-smoke` |
 | 补目录说明 | `client/README.md` | `README.md`、`docs/AI导航.md` | docs health |
 
@@ -109,6 +112,7 @@ UIManager
 | 脚本编译失败 | `client/scripts/boot/formal_client_boot.gd` 类型和路径 |
 | `data_schema_ok=false` | 查看同次 headless 日志中的 `[DataLoader]` schema 错误 |
 | 数据通过但没有运行时节点 | `formal_client_boot.gd` 是否创建 `GameplayRunLoop`，以及脚本编译是否失败 |
+| 场景加载报警或找不到节点 | `gameplay_run_loop.tscn` / UI `.tscn` 的 ext_resource 路径、节点名和脚本 `get_node_or_null()` 路径是否一致 |
 | 正常启动没有标题菜单 | `TitleMenu` 是否通过 `UIManager.push()` 挂载，`UIManager.stack_size()` 是否异常 |
 | 标题菜单看不到局外升级 | `TitleMenu` 是否发出 `meta_progression_requested`；`ui_meta_progression` 是否在 locale 中；`FormalClientBoot` 是否连接该 signal |
 | 局外升级面板关闭后没回标题 | `_on_meta_progression_closed()` 是否 `UIManager.pop()` 顶层面板；`UIManager.top()` 是否为 `MetaProgressionPanel` |

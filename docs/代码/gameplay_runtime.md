@@ -24,12 +24,17 @@
 | 改经验球 / 拾取 | `client/scripts/gameplay/pickup_orb.gd`、`player.json` |
 | 改升级候选 / 奖励 | `growth.csv`、`growth_pools.json`、`client/scripts/gameplay/gameplay_run_loop.gd` |
 | 改 HUD 文案 | `client/scripts/gameplay/gameplay_hud.gd`、`client/locale/strings.csv` |
+| 改稳定节点结构 / UI 层级 | `client/scenes/gameplay/*.tscn`、`client/scenes/ui/*.tscn` |
 
 ## 代码位置
 
 | 路径 | 作用 |
 |------|------|
 | `client/scripts/boot/formal_client_boot.gd` | 数据校验通过后挂载 gameplay runtime |
+| `client/scenes/gameplay/gameplay_run_loop.tscn` | 正式 gameplay runtime 场景；包含 `ActiveWorld`、`WorldBackground`、`Player` 和 `GameplayHud` |
+| `client/scenes/gameplay/player.tscn` | 正式玩家场景；包含 `CenteredCamera` 与 `WeaponSystem` |
+| `client/scenes/gameplay/bullet.tscn` / `enemy.tscn` / `pickup_orb.tscn` | 对象池实体场景；由 `PoolManager` 工厂实例化并复用 |
+| `client/scenes/ui/title_menu.tscn` / `pause_menu.tscn` / `game_over_panel.tscn` / `level_up_panel.tscn` / `meta_progression_panel.tscn` | 正式 UI 场景；脚本只绑定稳定节点、连接 signal 和刷新数据 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 正式运行时编排、输入 action 默认注册、对象池注册、刷怪和重开 |
 | `client/scripts/gameplay/world_background.gd` | 世界网格背景，让玩家移动具备空间参照 |
 | `client/scripts/gameplay/player.gd` | 玩家移动、四方向瞄准、相机居中、受伤 / 死亡 |
@@ -51,7 +56,7 @@
 
 ## 场景 / 节点结构
 
-Gameplay runtime 当前仍由脚本装配节点；本轮先把阶段命名收敛为正式模块名，后续再把稳定节点拆成 `.tscn` 场景资源。
+Gameplay runtime 的稳定节点结构已迁入正式 `.tscn` 场景资源。脚本职责是读取数据、绑定场景节点、连接 signal 和刷新运行时状态；不再在业务脚本中临时拼出长期 UI / runtime 层级。允许动态生成的范围限于对象池工厂实例化场景、升级候选按钮、局外升级列表这类数据驱动重复项。
 
 ```text
 FormalClientBoot
@@ -61,9 +66,9 @@ FormalClientBoot
     │   ├── Player (CharacterBody2D)
     │   │   ├── CenteredCamera (Camera2D)
     │   │   └── WeaponSystem (Node)
-    │   ├── bullet_basic_* (pooled Bullet, active only)
-    │   ├── enemy_chaser_* (pooled Enemy, active only)
-    │   └── enemy_swarm_* (pooled Enemy, active only)
+    │   ├── bullet_basic_* (pooled Bullet scene, active only)
+    │   ├── enemy_chaser_* (pooled Enemy scene, active only)
+    │   └── enemy_swarm_* (pooled Enemy scene, active only)
     └── GameplayHud (CanvasLayer)
 UIManager
     └── UIRoot
@@ -81,7 +86,7 @@ UIManager
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
 | 启动 | `FormalClientBoot` 跑数据 schema smoke，正常启动显示 `TitleMenu`；标题菜单显示账号等级 / 局外货币摘要，有可购买升级时局外升级按钮显示可购买提示；标题菜单可打开 `MetaProgressionPanel` 查看 / 购买局外升级；`--runtime-smoke` 模式跳过标题并直接创建 `GameplayRunLoop` | `DataLoader.validate_project_data()`、`UIManager.push()` |
-| 开局 | 重置 `GameClock`，注册 / 预热子弹、经验球和当前 F4 敌人对象池，读取默认模式 / 角色 / 起始武器，并在玩家 / 武器配置后应用 `MetaProgressionSystem.current_modifiers()` | `PoolManager.register_pool()`、`DataLoader.load_json()`、`MetaProgressionSystem.current_modifiers()` |
+| 开局 | `FormalClientBoot` 实例化 `gameplay_run_loop.tscn`；运行时重置 `GameClock`，注册 / 预热子弹、经验球和当前 F4 敌人对象池，读取默认模式 / 角色 / 起始武器，并在玩家 / 武器配置后应用 `MetaProgressionSystem.current_modifiers()` | `PackedScene.instantiate()`、`PoolManager.register_pool()`、`DataLoader.load_json()`、`MetaProgressionSystem.current_modifiers()` |
 | 背景 | 在玩家附近绘制世界空间网格和原点十字，让相机移动有参照 | `WorldBackground.configure()` |
 | 输入 | 运行时确保 InputMap action 有键盘和手柄默认事件；业务读取 action，不读物理键 | `InputMap`、`Input.get_vector()` |
 | 移动 / 瞄准 | 玩家按数据移速移动，瞄准吸附到上下左右，松开保持上一方向；角色用方向指示器显示当前瞄准方向 | `Player.aim_direction` |
@@ -168,7 +173,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 - 上游依赖：`DataLoader`、`GameState`、`GameClock`、`RNG.spawn`、`RNG.ui_choice`、`PoolManager`、`UIManager`、`SaveManager`、`MetaProgressionSystem`、`Combat`、InputMap action 常量、locale。
 - 下游调用方：当前无；后续可拆分为正式 Player / WeaponSystem / Spawner / HUD 模块。
-- 禁止依赖：不得复制历史 MVP 代码；不得直接 `instantiate()` 高频实体；不得直接扣生命；不得绕过 InputMap 读物理输入；不得用裸随机或原始时间。
+- 禁止依赖：不得复制历史 MVP 代码；不得绕过正式 `.tscn` 场景资源临时拼长期 UI / runtime 节点；不得绕过 `PoolManager` 创建高频实体；不得直接扣生命；不得绕过 InputMap 读物理输入；不得用裸随机或原始时间。
 
 ## 扩展点
 
@@ -176,7 +181,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 加敌人：优先改 `enemies.csv`、`game_modes.json` 和 `spawn_waves.csv`，行为差异等后续可复用 AI strategy；不要在 F4 enemy 里按 id 分支。
 - 加刷怪：改 `spawn_waves.csv`；多个波次可复用当前时间窗 / 预算解释。
 - 加升级候选：优先改 `growth_pools.json`；新候选如果仍是 `stat_modifier` 不需要改逻辑，新增候选类型才需要扩展运行时解释和文档。
-- 场景资源化：当节点结构继续稳定后，将脚本装配的 Player、WeaponSystem、Bullet、Enemy、HUD、标题 / 暂停 / 失败面板拆为长期 `.tscn` 资源，并保留本文档迁移说明。
+- 场景资源化：新增稳定 gameplay / UI 层级时优先新增 `.tscn`，脚本只做节点绑定、配置和 signal 编排；只有对象池工厂与数据驱动重复项可以在运行时创建节点，并要在模块文档说明原因。
 - 扩展 run 快照：新增可恢复实体字段时先保证 JSON 友好，再更新本文档、SaveManager 文档、`runtime-smoke` 和 `save-smoke`；不要保存 `PoolManager` 内部队列或节点引用。
 - 扩展死亡结算：新增奖励来源时先扩展 `MetaProgressionSystem.apply_run_settlement()` summary 与 `meta-smoke`，F4 只提供局内事实，不解释公式。
 
@@ -190,10 +195,10 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 调刷怪节奏 | `spawn_waves.csv` | `client/data/README.md` | `validate_data` + 手动 1 分钟 |
 | 调升级阈值 / 候选 | `growth.csv` / `growth_pools.json` | `client/data/README.md` | `validate_data` + `runtime-smoke` |
 | 改 HUD 文案 | `strings.csv` | `client/locale/README.md` | `validate_data` |
-| 改 HUD / 升级面板布局 | `client/scripts/gameplay/gameplay_hud.gd`、`client/scripts/gameplay/level_up_panel.gd` | 本文档 | `runtime-smoke` + 手动不同窗口尺寸检查 |
+| 改 HUD / 升级面板布局 | `client/scenes/gameplay/gameplay_hud.tscn`、`client/scenes/ui/level_up_panel.tscn`、对应脚本 | 本文档 | `runtime-smoke` + 手动不同窗口尺寸检查 |
 | 改暂停 / 保存续局 | `client/scripts/ui/pause_menu.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、`formal_client_boot.gd` | 本文档、SaveManager / FormalClientBoot 文档 | `runtime-smoke` + `save-smoke` + L5 暂停 / 存档 checklist |
 | 改死亡结算 / 局外升级应用 | `client/scripts/gameplay/gameplay_run_loop.gd`、`client/scripts/ui/game_over_panel.gd`、`client/scripts/autoload/meta_progression_system.gd` | 本文档、MetaProgressionSystem / SaveManager 文档 | `runtime-smoke` + `meta-smoke` |
-| 改标题局外升级入口 / 摘要 | `client/scripts/ui/title_menu.gd`、`client/scripts/ui/meta_progression_panel.gd`、`client/scripts/boot/formal_client_boot.gd`、`client/scripts/autoload/meta_progression_system.gd` | 本文档、FormalClientBoot / MetaProgressionSystem 文档 | `headless-boot` + `meta-smoke` + `runtime-smoke` + 手动标题菜单点开 |
+| 改标题局外升级入口 / 摘要 | `client/scenes/ui/title_menu.tscn`、`client/scenes/ui/meta_progression_panel.tscn`、对应脚本、`client/scripts/boot/formal_client_boot.gd`、`client/scripts/autoload/meta_progression_system.gd` | 本文档、FormalClientBoot / MetaProgressionSystem 文档 | `headless-boot` + `meta-smoke` + `runtime-smoke` + 手动标题菜单点开 |
 | 改运行时行为 | `client/scripts/gameplay/*.gd` | 本文档、必要时 GDD / ADR | L0 + L2 + `runtime-smoke`，必要时补 L1 |
 
 ## 故障排查
@@ -201,6 +206,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 现象 | 优先检查 |
 |------|----------|
 | 启动没有进入 F4 | `DataLoader.validate_project_data()` 是否通过；`FormalClientBoot` 日志 |
+| 场景化后节点找不到 | `.tscn` 中稳定节点名是否与脚本 `get_node_or_null()` 路径一致；按钮是否保留 `PROCESS_MODE_ALWAYS`；scene ext_resource 是否能被 Godot 解析 |
 | 无法移动 | InputMap action 是否存在；`GameplayRunLoop._ensure_input_actions()` 是否执行 |
 | 移动感知不明显 | `WorldBackground` 是否挂载；网格是否随玩家附近重绘 |
 | 不开火 | `starting_loadout.weapon_id` 是否存在；`fire_rate` 是否大于 0；子弹池是否注册 |
@@ -230,6 +236,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 ## 测试义务
 
 - Gameplay runtime 代码改动必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`。
+- Gameplay runtime / UI 场景结构改动还必须跑 `python tools/godot_bridge.py --project client runtime-smoke`，涉及标题局外升级面板时追加 `meta-smoke`。
 - 涉及启动、输入、WeaponSystem、子弹、敌人、Spawner、经验球、升级选择、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 涉及暂停、保存退出、标题继续、坏档提示、RNG / GameClock 快照或 run payload 时必须追加 `python tools/godot_bridge.py --project client runtime-smoke` 与 `python tools/godot_bridge.py --project client save-smoke`，并做至少一次手动保存续局检查。
 - 涉及死亡结算、局外成长、`meta` 存档或永久升级应用时追加 `python tools/godot_bridge.py --project client meta-smoke`；如果改了 F4 死亡接入或失败面板，同时跑 `runtime-smoke`。

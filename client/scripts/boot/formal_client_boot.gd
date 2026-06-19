@@ -5,10 +5,10 @@ extends Node
 
 
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
-const GAMEPLAY_RUN_LOOP := preload("res://scripts/gameplay/gameplay_run_loop.gd")
+const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loop.tscn")
 const RUNTIME_SMOKE_RUNNER := preload("res://tools/runtime_smoke.gd")
-const TITLE_MENU := preload("res://scripts/ui/title_menu.gd")
-const META_PROGRESSION_PANEL := preload("res://scripts/ui/meta_progression_panel.gd")
+const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
+const META_PROGRESSION_PANEL_SCENE := preload("res://scenes/ui/meta_progression_panel.tscn")
 const META_SMOKE_RUNNER := preload("res://tools/meta_progression_smoke.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
@@ -105,12 +105,7 @@ func _show_title_menu(notice_key: String = "") -> void:
 	GameState.change_state(GameState.MAIN_MENU, {"source": "formal_client_boot"})
 	UIManager.clear()
 
-	var title_template: CanvasLayer = TITLE_MENU.new()
-	title_template.name = "TitleMenu"
-	var title_scene: PackedScene = _pack_ui_template(title_template)
-	if title_scene == null:
-		return
-	_title_menu = UIManager.push(title_scene, {"source": "formal_client_boot"}) as CanvasLayer
+	_title_menu = UIManager.push(TITLE_MENU_SCENE, {"source": "formal_client_boot"}) as CanvasLayer
 	if _title_menu == null:
 		return
 	_title_menu.call("configure", SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), notice_key)
@@ -125,8 +120,7 @@ func _start_gameplay_run(restore_snapshot: Dictionary = {}) -> void:
 	GameState.change_state(GameState.LOADING, {"source": "formal_client_boot"})
 	_clear_gameplay_runtime()
 
-	_run_loop = GAMEPLAY_RUN_LOOP.new()
-	_run_loop.name = "GameplayRunLoop"
+	_run_loop = GAMEPLAY_RUN_LOOP_SCENE.instantiate()
 	if not restore_snapshot.is_empty() and _run_loop.has_method("configure_restore_snapshot"):
 		_run_loop.call("configure_restore_snapshot", restore_snapshot)
 	_run_loop.connect("restart_requested", Callable(self, "_on_run_restart_requested"))
@@ -145,16 +139,6 @@ func _clear_gameplay_runtime() -> void:
 	PoolManager.clear_pool(POOL_IDS.ENEMY_CHASER)
 	PoolManager.clear_pool(POOL_IDS.ENEMY_SWARM)
 	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
-
-
-func _pack_ui_template(template: Node) -> PackedScene:
-	var scene: PackedScene = PackedScene.new()
-	var pack_result: Error = scene.pack(template)
-	template.free()
-	if pack_result != OK:
-		push_error("[FormalClientBoot] failed to pack UI template: %d" % pack_result)
-		return null
-	return scene
 
 
 func _on_title_start_requested() -> void:
@@ -177,12 +161,7 @@ func _on_title_continue_requested() -> void:
 func _on_title_meta_progression_requested() -> void:
 	if _meta_progression_panel != null and is_instance_valid(_meta_progression_panel):
 		return
-	var panel_template: CanvasLayer = META_PROGRESSION_PANEL.new()
-	panel_template.name = "MetaProgressionPanel"
-	var panel_scene: PackedScene = _pack_ui_template(panel_template)
-	if panel_scene == null:
-		return
-	_meta_progression_panel = UIManager.push(panel_scene, {"source": "formal_client_boot"}) as CanvasLayer
+	_meta_progression_panel = UIManager.push(META_PROGRESSION_PANEL_SCENE, {"source": "formal_client_boot"}) as CanvasLayer
 	if _meta_progression_panel == null:
 		return
 	_meta_progression_panel.connect("closed_requested", Callable(self, "_on_meta_progression_closed"), CONNECT_ONE_SHOT)

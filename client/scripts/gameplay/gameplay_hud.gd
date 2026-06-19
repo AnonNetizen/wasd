@@ -4,11 +4,7 @@ class_name GameplayHud
 extends CanvasLayer
 
 
-const HUD_MARGIN: int = 24
-const HUD_SEPARATION: int = 6
-const MESSAGE_TOP_MARGIN: int = 140
 const UPGRADE_FEEDBACK_DURATION: float = 1.35
-const UPGRADE_FEEDBACK_TOP_MARGIN: int = 250
 
 var _life_label: Label = null
 var _level_label: Label = null
@@ -27,50 +23,22 @@ var _xp_required: int = 0
 
 
 func _ready() -> void:
-	var root: Control = Control.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(root)
+	_life_label = get_node_or_null("Root/Margin/Layout/LifeLabel") as Label
+	_kills_label = get_node_or_null("Root/Margin/Layout/KillsLabel") as Label
+	_time_label = get_node_or_null("Root/Margin/Layout/TimeLabel") as Label
+	_level_label = get_node_or_null("Root/Margin/Layout/LevelLabel") as Label
+	_xp_label = get_node_or_null("Root/Margin/Layout/XpLabel") as Label
+	_message_label = get_node_or_null("Root/MessageLabel") as Label
+	_upgrade_feedback_label = get_node_or_null("Root/UpgradeFeedbackLabel") as Label
+	if _life_label == null or _kills_label == null or _time_label == null or _level_label == null or _xp_label == null:
+		push_error("[GameplayHud] missing required scene nodes")
+		return
+	if _message_label == null or _upgrade_feedback_label == null:
+		push_error("[GameplayHud] missing required scene nodes")
+		return
 
-	var margin: MarginContainer = MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", HUD_MARGIN)
-	margin.add_theme_constant_override("margin_top", HUD_MARGIN)
-	margin.add_theme_constant_override("margin_right", HUD_MARGIN)
-	margin.add_theme_constant_override("margin_bottom", HUD_MARGIN)
-	root.add_child(margin)
-
-	var layout: VBoxContainer = VBoxContainer.new()
-	layout.add_theme_constant_override("separation", HUD_SEPARATION)
-	layout.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	layout.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	margin.add_child(layout)
-
-	_life_label = _make_label()
-	_kills_label = _make_label()
-	_time_label = _make_label()
-	_level_label = _make_label()
-	_xp_label = _make_label()
-	layout.add_child(_life_label)
-	layout.add_child(_kills_label)
-	layout.add_child(_time_label)
-	layout.add_child(_level_label)
-	layout.add_child(_xp_label)
-
-	_message_label = _make_label()
-	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_message_label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_message_label.offset_top = MESSAGE_TOP_MARGIN
 	_message_label.hide()
-	root.add_child(_message_label)
-
-	_upgrade_feedback_label = _make_label()
-	_upgrade_feedback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_upgrade_feedback_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_upgrade_feedback_label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_upgrade_feedback_label.offset_top = UPGRADE_FEEDBACK_TOP_MARGIN
 	_upgrade_feedback_label.hide()
-	root.add_child(_upgrade_feedback_label)
 	_refresh_static_labels()
 
 
@@ -123,12 +91,6 @@ func is_upgrade_feedback_visible() -> bool:
 
 func is_game_over_message_visible() -> bool:
 	return _message_label != null and _message_label.visible
-
-
-func _make_label() -> Label:
-	var label: Label = Label.new()
-	label.add_theme_font_size_override("font_size", 24)
-	return label
 
 
 func _refresh_static_labels() -> void:

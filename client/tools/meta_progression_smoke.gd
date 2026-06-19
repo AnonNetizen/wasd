@@ -1,8 +1,8 @@
 extends Node
 
 
-const META_PROGRESSION_PANEL_SCRIPT := preload("res://scripts/ui/meta_progression_panel.gd")
-const TITLE_MENU_SCRIPT := preload("res://scripts/ui/title_menu.gd")
+const META_PROGRESSION_PANEL_SCENE := preload("res://scenes/ui/meta_progression_panel.tscn")
+const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
 const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const META_UNLOCKS := preload("res://scripts/contracts/meta_unlocks.gd")
 const META_UPGRADES := preload("res://scripts/contracts/meta_upgrades.gd")
@@ -89,7 +89,7 @@ func _has_affordable_upgrade_summary(upgrade_id: String, expected_cost: int) -> 
 
 
 func _title_menu_shows_meta_summary(expect_available: bool, expected_balance: int) -> bool:
-	var menu: CanvasLayer = TITLE_MENU_SCRIPT.new()
+	var menu: CanvasLayer = TITLE_MENU_SCENE.instantiate() as CanvasLayer
 	menu.name = "TitleMenu"
 	add_child(menu)
 	menu.call("configure", false, "")
@@ -116,7 +116,7 @@ func _title_menu_shows_meta_summary(expect_available: bool, expected_balance: in
 
 
 func _meta_panel_builds_upgrade_list() -> bool:
-	var panel: CanvasLayer = META_PROGRESSION_PANEL_SCRIPT.new()
+	var panel: CanvasLayer = META_PROGRESSION_PANEL_SCENE.instantiate() as CanvasLayer
 	panel.name = "MetaProgressionPanel"
 	add_child(panel)
 	var currency_label: Node = _find_node_by_name(panel, "MetaCurrencyLabel")
@@ -145,7 +145,7 @@ func _meta_panel_builds_upgrade_list() -> bool:
 
 
 func _purchase_damage_upgrade_through_panel() -> Dictionary:
-	var panel: CanvasLayer = META_PROGRESSION_PANEL_SCRIPT.new()
+	var panel: CanvasLayer = META_PROGRESSION_PANEL_SCENE.instantiate() as CanvasLayer
 	panel.name = "MetaProgressionPanel"
 	add_child(panel)
 

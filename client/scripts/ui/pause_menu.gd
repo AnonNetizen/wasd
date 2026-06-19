@@ -10,9 +10,6 @@ signal resume_requested()
 signal save_and_quit_requested()
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
-const BUTTON_HEIGHT: float = 52.0
-const BUTTON_WIDTH: float = 280.0
-const PANEL_WIDTH: float = 540.0
 
 var pauses_game: bool = true
 
@@ -49,77 +46,33 @@ func _input(event: InputEvent) -> void:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
-	var root: Control = Control.new()
-	root.process_mode = Node.PROCESS_MODE_ALWAYS
-	root.mouse_filter = Control.MOUSE_FILTER_PASS
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(root)
+	var title: Label = get_node_or_null("Root/Center/PauseMenuPanel/Margin/Layout/TitleLabel") as Label
+	var resume_button: Button = get_node_or_null("Root/Center/PauseMenuPanel/Margin/Layout/ResumeButton") as Button
+	var save_and_quit_button: Button = get_node_or_null("Root/Center/PauseMenuPanel/Margin/Layout/SaveAndQuitButton") as Button
+	var restart_button: Button = get_node_or_null("Root/Center/PauseMenuPanel/Margin/Layout/RestartButton") as Button
+	var quit_to_title_button: Button = get_node_or_null("Root/Center/PauseMenuPanel/Margin/Layout/QuitToTitleButton") as Button
+	if title == null or resume_button == null or save_and_quit_button == null or restart_button == null or quit_to_title_button == null:
+		push_error("[PauseMenu] missing required scene nodes")
+		return
 
-	var backdrop: ColorRect = ColorRect.new()
-	backdrop.process_mode = Node.PROCESS_MODE_ALWAYS
-	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.38)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_child(backdrop)
-
-	var center: CenterContainer = CenterContainer.new()
-	center.process_mode = Node.PROCESS_MODE_ALWAYS
-	center.mouse_filter = Control.MOUSE_FILTER_PASS
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_child(center)
-
-	var panel: PanelContainer = PanelContainer.new()
-	panel.name = "PauseMenuPanel"
-	panel.process_mode = Node.PROCESS_MODE_ALWAYS
-	panel.mouse_filter = Control.MOUSE_FILTER_PASS
-	panel.custom_minimum_size = Vector2(PANEL_WIDTH, 0.0)
-	center.add_child(panel)
-
-	var margin: MarginContainer = MarginContainer.new()
-	margin.process_mode = Node.PROCESS_MODE_ALWAYS
-	margin.mouse_filter = Control.MOUSE_FILTER_PASS
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_top", 22)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_bottom", 22)
-	panel.add_child(margin)
-
-	var layout: VBoxContainer = VBoxContainer.new()
-	layout.process_mode = Node.PROCESS_MODE_ALWAYS
-	layout.mouse_filter = Control.MOUSE_FILTER_PASS
-	layout.add_theme_constant_override("separation", 12)
-	margin.add_child(layout)
-
-	var title: Label = Label.new()
-	title.process_mode = Node.PROCESS_MODE_ALWAYS
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.text = tr("ui_pause_title")
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 32)
-	layout.add_child(title)
-
-	_add_button(layout, "ResumeButton", tr("ui_resume"))
-	_add_button(layout, "SaveAndQuitButton", tr("ui_save_and_quit"))
-	_add_button(layout, "RestartButton", tr("ui_restart"))
-	_add_button(layout, "QuitToTitleButton", tr("ui_quit_to_title"))
+	_register_button(resume_button, tr("ui_resume"))
+	_register_button(save_and_quit_button, tr("ui_save_and_quit"))
+	_register_button(restart_button, tr("ui_restart"))
+	_register_button(quit_to_title_button, tr("ui_quit_to_title"))
 	if not _buttons.is_empty():
 		_buttons[0].call_deferred("grab_focus")
 
 
-func _add_button(parent: Node, button_name: String, text_value: String) -> void:
-	var button: Button = Button.new()
-	button.name = button_name
+func _register_button(button: Button, text_value: String) -> void:
 	button.process_mode = Node.PROCESS_MODE_ALWAYS
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	button.text = text_value
-	button.custom_minimum_size = Vector2(BUTTON_WIDTH, BUTTON_HEIGHT)
-	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var button_index: int = _buttons.size()
 	button.pressed.connect(func() -> void:
 		_activate_button(button_index)
 	)
 	_buttons.append(button)
-	parent.add_child(button)
 
 
 func _button_index_at_position(position: Vector2) -> int:

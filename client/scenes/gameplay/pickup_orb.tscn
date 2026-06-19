@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c4n16va42t7xb"]
+
+[ext_resource type="Script" uid="uid://ecptvkx4fpy" path="res://scripts/gameplay/pickup_orb.gd" id="1_pickup"]
+
+[node name="PickupOrb" type="Node2D"]
+script = ExtResource("1_pickup")
