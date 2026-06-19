@@ -15,10 +15,10 @@
 |------|------|
 | `client/scripts/autoload/meta_progression_system.gd` | `MetaProgressionSystem` autoload 脚本 |
 | `client/data/meta_progression.json` | 局外货币、结算奖励、账号等级、升级轨道和解锁配置 |
-| `client/scripts/gameplay/f4_run_loop.gd` | 玩家死亡时提交结算摘要；新开局时应用永久 modifiers |
-| `client/scripts/ui/f4_title_menu.gd` | 标题菜单账号等级 / 余额摘要，以及有可购买升级时的入口提示 |
+| `client/scripts/gameplay/gameplay_run_loop.gd` | 玩家死亡时提交结算摘要；新开局时应用永久 modifiers |
+| `client/scripts/ui/title_menu.gd` | 标题菜单账号等级 / 余额摘要，以及有可购买升级时的入口提示 |
 | `client/scripts/ui/meta_progression_panel.gd` | 标题菜单进入的最小局外升级列表面板，显示可购买 / 余额不足 / 锁定 / 满级状态 |
-| `client/scripts/ui/f4_game_over_panel.gd` | F6 死亡结算展示、账号等级 / 余额、重开和回标题 |
+| `client/scripts/ui/game_over_panel.gd` | F6 死亡结算展示、账号等级 / 余额、重开和回标题 |
 | `client/tools/meta_progression_smoke.gd` | F6 headless smoke：meta roundtrip、结算、购买、modifier |
 | `tools/godot_bridge.py` | `meta-smoke` 命令入口 |
 
@@ -34,7 +34,7 @@
 | 标题摘要 | 标题菜单读取账号等级、主货币余额和首个可购买升级，用一行摘要解释当前局外成长状态；有可购买升级时入口按钮显示提示，关闭升级面板后刷新 | `profile_summary()` / `first_available_purchase()` |
 | 标题局外升级 | 标题菜单打开 `MetaProgressionPanel`；面板显示账号等级、余额和所有升级轨道，用状态行 / 行颜色区分可购买、余额不足、锁定、满级，购买后刷新 profile、按钮状态和购买反馈 | `profile_summary()` / `upgrade_summaries()` / `purchase_upgrade()` |
 | 死亡结算展示 | 死亡结算面板只展示本局获得货币 / 账号经验、账号等级和余额，不显示购买或跳转局外成长入口 | `apply_run_settlement()` / `profile_summary()` |
-| 自动验证 | `meta-smoke` 用合成结算验证货币公式、账号等级、解锁、购买扣费、modifier、标题升级面板和 SaveManager roundtrip；`f4-smoke` 追加真实死亡结算断言 | `godot_bridge.py meta-smoke` / `f4-smoke` |
+| 自动验证 | `meta-smoke` 用合成结算验证货币公式、账号等级、解锁、购买扣费、modifier、标题升级面板和 SaveManager roundtrip；`runtime-smoke` 追加真实死亡结算断言 | `godot_bridge.py meta-smoke` / `runtime-smoke` |
 
 ## Profile Schema
 
@@ -78,7 +78,7 @@
 ## 依赖
 
 - 上游依赖：`DataLoader`、`SaveManager`、`meta_progression.json`、生成契约常量、locale。
-- 下游调用方：`F4RunLoop`、`F4TitleMenu`、`F4GameOverPanel`、`MetaProgressionPanel`、`client/tools/meta_progression_smoke.gd`；`F4GameOverPanel` 只消费结算结果，不触发购买。
+- 下游调用方：`GameplayRunLoop`、`TitleMenu`、`GameOverPanel`、`MetaProgressionPanel`、`client/tools/meta_progression_smoke.gd`；`GameOverPanel` 只消费结算结果，不触发购买。
 - 禁止依赖：不得直接写 `user://saves/`；不得绕过 `SaveManager`；不得修改 `player.json` 来表达永久成长；不得在 F4 里复制结算公式。
 
 ## 扩展点
@@ -92,24 +92,24 @@
 
 | 现象 | 优先检查 |
 |------|----------|
-| 死亡后没有 meta 存档 | `F4RunLoop._on_player_died()` 是否先调用 `apply_run_settlement()`；`SaveManager.last_error()` |
+| 死亡后没有 meta 存档 | `GameplayRunLoop._on_player_died()` 是否先调用 `apply_run_settlement()`；`SaveManager.last_error()` |
 | 结算奖励异常 | `meta_progression.json.run_rewards` 数值；`meta-smoke` 期望公式是否同步 |
 | 账号等级没提升 | `account_level.thresholds` 与合成 XP 是否匹配 |
 | 升级按钮不可用 | 余额、账号等级、`costs` 长度和 `max_level` |
 | 购买后没有反馈或余额未刷新 | `MetaProgressionPanel._show_purchase_feedback()` 是否收到购买结果；`MetaProgressionSystem.purchase_upgrade()` 是否返回 `ok=true` 和新等级；`meta-smoke` 是否通过面板购买反馈断言 |
-| 标题摘要或可购买提示不刷新 | `F4TitleMenu.refresh_meta_summary()` 是否调用 `profile_summary()` / `first_available_purchase()`；`FormalClientBoot._on_meta_progression_closed()` 是否在关闭升级面板后刷新标题菜单；`meta-smoke` 是否通过标题菜单摘要断言 |
+| 标题摘要或可购买提示不刷新 | `TitleMenu.refresh_meta_summary()` 是否调用 `profile_summary()` / `first_available_purchase()`；`FormalClientBoot._on_meta_progression_closed()` 是否在关闭升级面板后刷新标题菜单；`meta-smoke` 是否通过标题菜单摘要断言 |
 | 升级行状态不清楚 | `MetaProgressionPanel` 是否生成 `MetaUpgradeStatus_<upgrade_id>` 状态行；`upgrade_summaries()` 是否提供 `reason`、`balance`、`cost` 和 `account_level_required`；`meta-smoke` 是否通过标题面板状态行断言 |
-| 标题菜单看不到局外升级 | `F4TitleMenu` 是否有 `MetaProgressionButton`；`FormalClientBoot` 是否连接 `meta_progression_requested` 并 `UIManager.push()` `MetaProgressionPanel` |
-| 死亡结算页出现购买或局外升级入口 | `F4GameOverPanel` 是否意外恢复购买 / 跳转按钮；`F4RunLoop` 是否重新连接失败页购买信号；`f4-smoke` 是否通过失败页不显示局外成长入口断言 |
+| 标题菜单看不到局外升级 | `TitleMenu` 是否有 `MetaProgressionButton`；`FormalClientBoot` 是否连接 `meta_progression_requested` 并 `UIManager.push()` `MetaProgressionPanel` |
+| 死亡结算页出现购买或局外升级入口 | `GameOverPanel` 是否意外恢复购买 / 跳转按钮；`GameplayRunLoop` 是否重新连接失败页购买信号；`runtime-smoke` 是否通过失败页不显示局外成长入口断言 |
 | 局外升级列表为空 | `MetaProgressionSystem.upgrade_summaries()` 是否返回配置轨道；`meta_progression.json.upgrade_tracks` 是否通过数据校验 |
-| 下一局永久升级无效 | `current_modifiers()` 是否输出目标 stat；`F4RunLoop` 是否在玩家 / 武器 configure 后调用 `_apply_meta_modifiers()` |
-| run 奖励可重复领取 | 死亡结算后是否删除 `run` 存档；`f4-smoke` 是否通过“player death should consume the active run save”断言 |
+| 下一局永久升级无效 | `current_modifiers()` 是否输出目标 stat；`GameplayRunLoop` 是否在玩家 / 武器 configure 后调用 `_apply_meta_modifiers()` |
+| run 奖励可重复领取 | 死亡结算后是否删除 `run` 存档；`runtime-smoke` 是否通过“player death should consume the active run save”断言 |
 
 ## 测试义务
 
 - 改本模块必跑：`python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_gdscript_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client meta-smoke`。
-- 改标题入口、购买反馈或 `MetaProgressionPanel` 时追加 `meta-smoke`；当前 smoke 会检查标题面板升级列表、购买反馈、伤害升级状态行中的余额 / 下一档成本，以及新数据轨道购买后输出 `fire_rate` modifier。改死亡结算页展示时追加 `f4-smoke`，必要时手动从标题菜单点开“局外升级”确认按钮可见、购买后余额、等级和反馈刷新。
-- 改 F4 结算接入、失败面板或新开局 modifier 应用时追加：`python tools/godot_bridge.py --project client f4-smoke`。
+- 改标题入口、购买反馈或 `MetaProgressionPanel` 时追加 `meta-smoke`；当前 smoke 会检查标题面板升级列表、购买反馈、伤害升级状态行中的余额 / 下一档成本，以及新数据轨道购买后输出 `fire_rate` modifier。改死亡结算页展示时追加 `runtime-smoke`，必要时手动从标题菜单点开“局外升级”确认按钮可见、购买后余额、等级和反馈刷新。
+- 改 F4 结算接入、失败面板或新开局 modifier 应用时追加：`python tools/godot_bridge.py --project client runtime-smoke`。
 - 改 SaveManager envelope / kind version 时追加：`python tools/godot_bridge.py --project client save-smoke` 和迁移测试。
 
 ## 迁移 / 兼容
@@ -121,5 +121,5 @@
 - `docs/AI协作/工作包/F6-MetaProgression.md`
 - `docs/游戏设计文档.md` §7.2 / §9.16
 - `docs/代码/save_manager.md`
-- `docs/代码/f4_min_playable_loop.md`
+- `docs/代码/gameplay_runtime.md`
 - `docs/测试策略.md`

@@ -36,7 +36,8 @@ def main() -> int:
     subparsers.add_parser("validate-data", help="Run tools/validate_data.py.")
     subparsers.add_parser("godot-version", help="Print the configured Godot version.")
     subparsers.add_parser("headless-boot", help="Run godot --headless --path <project> --quit.")
-    subparsers.add_parser("f4-smoke", help="Run the F4 minimal runtime smoke in headless Godot.")
+    subparsers.add_parser("runtime-smoke", help="Run the formal gameplay runtime smoke in headless Godot.")
+    subparsers.add_parser("f4-smoke", help="Compatibility alias for runtime-smoke.")
     subparsers.add_parser("meta-smoke", help="Run the F6 meta progression smoke in headless Godot.")
     subparsers.add_parser("save-smoke", help="Run the SaveManager run-save reliability smoke in headless Godot.")
 
@@ -59,16 +60,17 @@ def main() -> int:
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
             return 1
         return _run_command([str(godot), "--headless", "--path", str(project), "--quit"], cwd=project)
-    if args.command == "f4-smoke":
+    if args.command in {"runtime-smoke", "f4-smoke"}:
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
             return 1
-        smoke_script = project / "tools" / "f4_runtime_smoke.gd"
+        smoke_script = project / "tools" / "runtime_smoke.gd"
         if not smoke_script.exists():
-            print(f"[godot-bridge] missing F4 smoke script: {_rel(smoke_script)}")
+            print(f"[godot-bridge] missing runtime smoke script: {_rel(smoke_script)}")
             return 1
+        smoke_flag = "--runtime-smoke" if args.command == "runtime-smoke" else "--f4-smoke"
         return _run_command(
-            [str(godot), "--headless", "--path", str(project), "--", "--f4-smoke"],
+            [str(godot), "--headless", "--path", str(project), "--", smoke_flag],
             cwd=project,
         )
     if args.command == "save-smoke":

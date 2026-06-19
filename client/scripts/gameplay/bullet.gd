@@ -1,6 +1,6 @@
-# Doc: docs/代码/f4_min_playable_loop.md
+# Doc: docs/代码/gameplay_runtime.md
 # Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md, docs/游戏设计文档.md §4
-class_name F4Bullet
+class_name Bullet
 extends Node2D
 
 
@@ -50,7 +50,7 @@ func configure(stats: Dictionary, projectile: Dictionary, direction: Vector2, so
 	_source = source
 	_travelled = 0.0
 	_velocity = direction.normalized() * float(stats.get(STATS.BULLET_SPEED, 0.0))
-	add_to_group("f4_bullets")
+	add_to_group("active_bullets")
 	queue_redraw()
 
 
@@ -80,7 +80,7 @@ func restore_snapshot(snapshot_data: Dictionary, source: Node) -> void:
 	_source = source
 	_travelled = float(snapshot_data.get("travelled", 0.0))
 	_velocity = _dict_to_vector(snapshot_data.get("velocity", {}), Vector2.ZERO)
-	add_to_group("f4_bullets")
+	add_to_group("active_bullets")
 	queue_redraw()
 
 
@@ -99,7 +99,7 @@ func _pool_reset() -> void:
 
 
 func _pool_release() -> void:
-	remove_from_group("f4_bullets")
+	remove_from_group("active_bullets")
 	_source = null
 
 
@@ -108,7 +108,7 @@ func _draw() -> void:
 
 
 func _check_enemy_hits() -> void:
-	for raw_enemy: Node in get_tree().get_nodes_in_group("f4_enemies"):
+	for raw_enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
 		if not raw_enemy is Node2D or not raw_enemy.has_method("is_alive") or not raw_enemy.has_method("hit_radius"):
 			continue
 		if not bool(raw_enemy.call("is_alive")):

@@ -1,6 +1,6 @@
-# Doc: docs/代码/f4_min_playable_loop.md
+# Doc: docs/代码/gameplay_runtime.md
 # Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md
-class_name F4GameOverPanel
+class_name GameOverPanel
 extends CanvasLayer
 
 

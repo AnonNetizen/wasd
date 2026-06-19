@@ -432,7 +432,7 @@
       "last_reviewed": "2026-06-18",
       "canonical_for": ["f6_meta_progression_work_package", "meta_progression_settlement_loop"],
       "must_read_for": ["f6_meta_progression", "meta_progression_runtime", "settlement_rewards", "meta_save_roundtrip"],
-      "related_docs": ["docs/正式项目工作规划.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/save_manager.md", "docs/代码/f4_min_playable_loop.md", "client/data/README.md", "client/locale/README.md", "docs/词表与契约.md", "docs/AI协作/上下文预算.md", "docs/AI记忆/current_state.json"],
+      "related_docs": ["docs/正式项目工作规划.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/save_manager.md", "docs/代码/gameplay_runtime.md", "client/data/README.md", "client/locale/README.md", "docs/词表与契约.md", "docs/AI协作/上下文预算.md", "docs/AI记忆/current_state.json"],
       "related_code": ["client/scripts/autoload/", "client/scripts/gameplay/", "client/scenes/", "client/data/meta_progression.json", "client/locale/strings.csv", "client/tools/", "tools/godot_bridge.py"],
       "update_triggers": ["F6 meta progression scope changes", "settlement acceptance command changes", "meta save payload changes", "MetaProgressionSystem module split changes"],
       "keywords": ["F6", "MetaProgression", "局外成长", "元进度", "settlement", "结算", "meta save", "SaveManager", "meta_progression.json", "run_rewards", "account_level", "upgrade_tracks", "unlocks"]
@@ -656,24 +656,24 @@
       "last_reviewed": "2026-06-18",
       "canonical_for": ["combat", "damage_info", "damage_pipeline"],
       "must_read_for": ["combat_change", "damage_formula_change", "new_damage_source"],
-      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/f4_min_playable_loop.md"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/gameplay_runtime.md"],
       "related_code": ["client/scripts/combat/combat.gd", "client/scripts/combat/damage_info.gd", "client/scripts/contracts/damage_types.gd"],
       "update_triggers": ["Combat API changes", "DamageInfo field changes", "damage type contract changes", "damage result schema changes"],
       "keywords": ["Combat", "DamageInfo", "damage", "伤害", "apply_damage", "damage_types", "F4"]
     },
     {
-      "path": "docs/代码/f4_min_playable_loop.md",
+      "path": "docs/代码/gameplay_runtime.md",
       "type": "module_doc",
-      "authority": "F4 minimal playable loop runtime contract for player movement, weapon firing, pooled bullets, pooled enemies, spawning, HUD, and restart",
+      "authority": "Gameplay runtime contract for player movement, weapon firing, pooled bullets, pooled enemies, spawning, HUD, save/restore, title flow, and restart",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-06-18",
-      "canonical_for": ["f4_min_playable_loop", "f4_runtime", "minimal_combat_loop"],
-      "must_read_for": ["f4_runtime_change", "player_runtime_change", "weapon_system_change", "spawner_change", "hud_change"],
+      "canonical_for": ["gameplay_runtime", "f4_min_playable_loop", "formal_runtime_core", "minimal_combat_loop"],
+      "must_read_for": ["gameplay_runtime_change", "player_runtime_change", "weapon_system_change", "spawner_change", "hud_change"],
       "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/formal_client_boot.md", "docs/代码/README.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/gameplay/f4_run_loop.gd", "client/scripts/gameplay/f4_player.gd", "client/scripts/gameplay/f4_weapon_system.gd", "client/scripts/gameplay/f4_bullet.gd", "client/scripts/gameplay/f4_enemy.gd", "client/scripts/gameplay/f4_hud.gd", "client/scripts/boot/formal_client_boot.gd"],
-      "update_triggers": ["F4 runtime behavior changes", "Player or weapon runtime changes", "Spawner behavior changes", "HUD or restart flow changes", "F4 module split or rename"],
-      "keywords": ["F4", "MinPlayableLoop", "Player", "WeaponSystem", "Bullet", "Enemy", "Spawner", "HUD", "最小可玩闭环", "对象池", "headless boot"]
+      "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/tools/runtime_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
+      "update_triggers": ["Gameplay runtime behavior changes", "Player or weapon runtime changes", "Spawner behavior changes", "HUD or restart flow changes", "runtime module split or scene-resource migration"],
+      "keywords": ["GameplayRunLoop", "runtime-smoke", "F4", "MinPlayableLoop", "Player", "WeaponSystem", "Bullet", "Enemy", "Spawner", "HUD", "最小可玩闭环", "对象池", "headless boot"]
     },
     {
       "path": "docs/代码/data_loader.md",
@@ -824,8 +824,8 @@
       "last_reviewed": "2026-06-18",
       "canonical_for": ["meta_progression_system", "meta_profile", "settlement_rewards", "title_meta_upgrade_panel", "permanent_upgrades"],
       "must_read_for": ["meta_progression_change", "settlement_change", "meta_profile_schema_change", "title_meta_upgrade_ui_change", "permanent_upgrade_change"],
-      "related_docs": ["docs/AI协作/工作包/F6-MetaProgression.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/save_manager.md", "docs/代码/f4_min_playable_loop.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/autoload/meta_progression_system.gd", "client/scripts/ui/meta_progression_panel.gd", "client/data/meta_progression.json", "client/scripts/gameplay/f4_run_loop.gd", "client/scripts/ui/f4_title_menu.gd", "client/scripts/ui/f4_game_over_panel.gd", "client/tools/meta_progression_smoke.gd", "tools/godot_bridge.py"],
+      "related_docs": ["docs/AI协作/工作包/F6-MetaProgression.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/save_manager.md", "docs/代码/gameplay_runtime.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/autoload/meta_progression_system.gd", "client/scripts/ui/meta_progression_panel.gd", "client/data/meta_progression.json", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/tools/meta_progression_smoke.gd", "tools/godot_bridge.py"],
       "update_triggers": ["MetaProgressionSystem API changes", "meta profile schema changes", "settlement formula changes", "title meta upgrade UI changes", "upgrade purchase behavior changes", "meta-smoke behavior changes"],
       "keywords": ["MetaProgressionSystem", "MetaProgressionPanel", "autoload", "meta", "局外成长", "标题局外升级", "settlement", "结算", "meta_progression.json", "upgrade_tracks", "account_level", "meta-smoke", "permanent modifiers"]
     },

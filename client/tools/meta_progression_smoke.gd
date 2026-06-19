@@ -2,7 +2,7 @@ extends Node
 
 
 const META_PROGRESSION_PANEL_SCRIPT := preload("res://scripts/ui/meta_progression_panel.gd")
-const F4_TITLE_MENU_SCRIPT := preload("res://scripts/ui/f4_title_menu.gd")
+const TITLE_MENU_SCRIPT := preload("res://scripts/ui/title_menu.gd")
 const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const META_UNLOCKS := preload("res://scripts/contracts/meta_unlocks.gd")
 const META_UPGRADES := preload("res://scripts/contracts/meta_upgrades.gd")
@@ -89,8 +89,8 @@ func _has_affordable_upgrade_summary(upgrade_id: String, expected_cost: int) -> 
 
 
 func _title_menu_shows_meta_summary(expect_available: bool, expected_balance: int) -> bool:
-	var menu: CanvasLayer = F4_TITLE_MENU_SCRIPT.new()
-	menu.name = "F4TitleMenu"
+	var menu: CanvasLayer = TITLE_MENU_SCRIPT.new()
+	menu.name = "TitleMenu"
 	add_child(menu)
 	menu.call("configure", false, "")
 	var summary_label: Label = _find_node_by_name(menu, "MetaProfileSummaryLabel") as Label

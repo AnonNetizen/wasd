@@ -1,6 +1,6 @@
-# Doc: docs/代码/f4_min_playable_loop.md
+# Doc: docs/代码/gameplay_runtime.md
 # Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md, docs/游戏设计文档.md §7.1
-class_name F4PickupOrb
+class_name PickupOrb
 extends Node2D
 
 
@@ -66,7 +66,7 @@ func configure(amount: int, target: Node2D, pickup_speed: float) -> void:
 	_pickup_speed = pickup_speed
 	scale = Vector2.ONE
 	z_index = DRAW_Z_INDEX
-	add_to_group("f4_pickups")
+	add_to_group("active_pickups")
 	queue_redraw()
 
 
@@ -87,7 +87,7 @@ func restore_snapshot(snapshot_data: Dictionary, target: Node2D) -> void:
 	_pickup_speed = float(snapshot_data.get("pickup_speed", _pickup_speed))
 	scale = Vector2.ONE
 	z_index = DRAW_Z_INDEX
-	add_to_group("f4_pickups")
+	add_to_group("active_pickups")
 	queue_redraw()
 
 
@@ -103,7 +103,7 @@ func _pool_reset() -> void:
 
 
 func _pool_release() -> void:
-	remove_from_group("f4_pickups")
+	remove_from_group("active_pickups")
 	_collect_feedback_remaining = 0.0
 	_target = null
 
@@ -130,7 +130,7 @@ func _start_collect_feedback() -> void:
 	_target = null
 	_attract_blend = 1.0
 	_collect_feedback_remaining = COLLECT_FEEDBACK_DURATION
-	remove_from_group("f4_pickups")
+	remove_from_group("active_pickups")
 	collected.emit(collected_amount)
 	queue_redraw()
 

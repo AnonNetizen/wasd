@@ -5,9 +5,9 @@ extends Node
 
 
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
-const F4_RUN_LOOP := preload("res://scripts/gameplay/f4_run_loop.gd")
-const F4_SMOKE_RUNNER := preload("res://tools/f4_runtime_smoke.gd")
-const F4_TITLE_MENU := preload("res://scripts/ui/f4_title_menu.gd")
+const GAMEPLAY_RUN_LOOP := preload("res://scripts/gameplay/gameplay_run_loop.gd")
+const RUNTIME_SMOKE_RUNNER := preload("res://tools/runtime_smoke.gd")
+const TITLE_MENU := preload("res://scripts/ui/title_menu.gd")
 const META_PROGRESSION_PANEL := preload("res://scripts/ui/meta_progression_panel.gd")
 const META_SMOKE_RUNNER := preload("res://tools/meta_progression_smoke.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
@@ -70,11 +70,11 @@ func _ready() -> void:
 		RNG.run_seed(),
 	])
 
-	if _is_f4_smoke_enabled():
+	if _is_runtime_smoke_enabled():
 		if data_schema_ok:
-			_start_f4_run()
-		var smoke_runner: Node = F4_SMOKE_RUNNER.new()
-		smoke_runner.name = "F4RuntimeSmoke"
+			_start_gameplay_run()
+		var smoke_runner: Node = RUNTIME_SMOKE_RUNNER.new()
+		smoke_runner.name = "RuntimeSmoke"
 		add_child(smoke_runner)
 	elif _is_save_smoke_enabled():
 		var save_smoke_runner: Node = SAVE_SMOKE_RUNNER.new()
@@ -88,8 +88,8 @@ func _ready() -> void:
 		_show_title_menu()
 
 
-func _is_f4_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--f4-smoke")
+func _is_runtime_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--runtime-smoke") or OS.get_cmdline_user_args().has("--f4-smoke")
 
 
 func _is_save_smoke_enabled() -> bool:
@@ -101,12 +101,12 @@ func _is_meta_smoke_enabled() -> bool:
 
 
 func _show_title_menu(notice_key: String = "") -> void:
-	_clear_f4_runtime()
+	_clear_gameplay_runtime()
 	GameState.change_state(GameState.MAIN_MENU, {"source": "formal_client_boot"})
 	UIManager.clear()
 
-	var title_template: CanvasLayer = F4_TITLE_MENU.new()
-	title_template.name = "F4TitleMenu"
+	var title_template: CanvasLayer = TITLE_MENU.new()
+	title_template.name = "TitleMenu"
 	var title_scene: PackedScene = _pack_ui_template(title_template)
 	if title_scene == null:
 		return
@@ -120,13 +120,13 @@ func _show_title_menu(notice_key: String = "") -> void:
 	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
 
 
-func _start_f4_run(restore_snapshot: Dictionary = {}) -> void:
+func _start_gameplay_run(restore_snapshot: Dictionary = {}) -> void:
 	UIManager.clear()
 	GameState.change_state(GameState.LOADING, {"source": "formal_client_boot"})
-	_clear_f4_runtime()
+	_clear_gameplay_runtime()
 
-	_run_loop = F4_RUN_LOOP.new()
-	_run_loop.name = "F4RunLoop"
+	_run_loop = GAMEPLAY_RUN_LOOP.new()
+	_run_loop.name = "GameplayRunLoop"
 	if not restore_snapshot.is_empty() and _run_loop.has_method("configure_restore_snapshot"):
 		_run_loop.call("configure_restore_snapshot", restore_snapshot)
 	_run_loop.connect("restart_requested", Callable(self, "_on_run_restart_requested"))
@@ -134,7 +134,7 @@ func _start_f4_run(restore_snapshot: Dictionary = {}) -> void:
 	add_child(_run_loop)
 
 
-func _clear_f4_runtime() -> void:
+func _clear_gameplay_runtime() -> void:
 	if _run_loop != null and is_instance_valid(_run_loop):
 		var parent: Node = _run_loop.get_parent()
 		if parent != null:
@@ -159,7 +159,7 @@ func _pack_ui_template(template: Node) -> PackedScene:
 
 func _on_title_start_requested() -> void:
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
-	call_deferred("_start_f4_run")
+	call_deferred("_start_gameplay_run")
 
 
 func _on_title_continue_requested() -> void:
@@ -171,7 +171,7 @@ func _on_title_continue_requested() -> void:
 		push_warning("[FormalClientBoot] run save unavailable: %s" % load_error)
 		call_deferred("_show_title_menu", "ui_run_save_unavailable")
 		return
-	call_deferred("_start_f4_run", payload)
+	call_deferred("_start_gameplay_run", payload)
 
 
 func _on_title_meta_progression_requested() -> void:
@@ -204,7 +204,7 @@ func _on_meta_progression_closed() -> void:
 
 func _on_run_restart_requested() -> void:
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
-	call_deferred("_start_f4_run")
+	call_deferred("_start_gameplay_run")
 
 
 func _on_run_quit_to_title_requested() -> void:

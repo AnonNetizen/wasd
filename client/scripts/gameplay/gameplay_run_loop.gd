@@ -1,6 +1,6 @@
-# Doc: docs/代码/f4_min_playable_loop.md
+# Doc: docs/代码/gameplay_runtime.md
 # Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md, docs/正式项目工作规划.md F4
-class_name F4RunLoop
+class_name GameplayRunLoop
 extends Node2D
 
 
@@ -11,16 +11,16 @@ const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const GAME_MODES := preload("res://scripts/contracts/game_modes.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
-const F4_BULLET_SCRIPT := preload("res://scripts/gameplay/f4_bullet.gd")
-const F4_BACKGROUND_SCRIPT := preload("res://scripts/gameplay/f4_background.gd")
-const F4_ENEMY_SCRIPT := preload("res://scripts/gameplay/f4_enemy.gd")
-const F4_HUD_SCRIPT := preload("res://scripts/gameplay/f4_hud.gd")
-const F4_GAME_OVER_PANEL_SCRIPT := preload("res://scripts/ui/f4_game_over_panel.gd")
-const F4_LEVEL_UP_PANEL_SCRIPT := preload("res://scripts/gameplay/f4_level_up_panel.gd")
-const F4_PAUSE_MENU_SCRIPT := preload("res://scripts/ui/f4_pause_menu.gd")
-const F4_PICKUP_ORB_SCRIPT := preload("res://scripts/gameplay/f4_pickup_orb.gd")
-const F4_PLAYER_SCRIPT := preload("res://scripts/gameplay/f4_player.gd")
-const F4_WEAPON_SYSTEM_SCRIPT := preload("res://scripts/gameplay/f4_weapon_system.gd")
+const BULLET_SCRIPT := preload("res://scripts/gameplay/bullet.gd")
+const WORLD_BACKGROUND_SCRIPT := preload("res://scripts/gameplay/world_background.gd")
+const ENEMY_SCRIPT := preload("res://scripts/gameplay/enemy.gd")
+const GAMEPLAY_HUD_SCRIPT := preload("res://scripts/gameplay/gameplay_hud.gd")
+const GAME_OVER_PANEL_SCRIPT := preload("res://scripts/ui/game_over_panel.gd")
+const LEVEL_UP_PANEL_SCRIPT := preload("res://scripts/gameplay/level_up_panel.gd")
+const PAUSE_MENU_SCRIPT := preload("res://scripts/ui/pause_menu.gd")
+const PICKUP_ORB_SCRIPT := preload("res://scripts/gameplay/pickup_orb.gd")
+const PLAYER_SCRIPT := preload("res://scripts/gameplay/player.gd")
+const WEAPON_SYSTEM_SCRIPT := preload("res://scripts/gameplay/weapon_system.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
 const BULLET_POOL_SIZE: int = 192
@@ -89,9 +89,9 @@ func create_run_snapshot() -> Dictionary:
 		"spawn_states": _spawn_states.duplicate(true),
 		"player": _player.call("snapshot") if _player != null and _player.has_method("snapshot") else {},
 		"weapon": _weapon_system.call("snapshot") if _weapon_system != null and _weapon_system.has_method("snapshot") else {},
-		"enemies": _entity_snapshots("f4_enemies"),
-		"bullets": _entity_snapshots("f4_bullets"),
-		"pickups": _entity_snapshots("f4_pickups"),
+		"enemies": _entity_snapshots("active_enemies"),
+		"bullets": _entity_snapshots("active_bullets"),
+		"pickups": _entity_snapshots("active_pickups"),
 		"ui_restore": _ui_restore_snapshot(),
 	}
 
@@ -112,7 +112,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	PoolManager.prewarm(POOL_IDS.PICKUP_ORB, 16)
 
 	_active_world = Node2D.new()
-	_active_world.name = "F4ActiveWorld"
+	_active_world.name = "ActiveWorld"
 	add_child(_active_world)
 
 	var mode: Dictionary = _find_item(_load_array(DataLoader.GAME_MODES_PATH, "modes"), GAME_MODES.MODE_STANDARD_SURVIVAL)
@@ -131,27 +131,27 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_kills = 0
 	_last_settlement.clear()
 
-	_player = F4_PLAYER_SCRIPT.new()
+	_player = PLAYER_SCRIPT.new()
 	_player.name = "Player"
 	_player.global_position = Vector2.ZERO
 	_player.call("configure", player_stats)
 	_player.connect("life_changed", Callable(self, "_on_player_life_changed"))
 	_player.connect("died", Callable(self, "_on_player_died"), CONNECT_ONE_SHOT)
 
-	var background: Node2D = F4_BACKGROUND_SCRIPT.new()
-	background.name = "F4Background"
+	var background: Node2D = WORLD_BACKGROUND_SCRIPT.new()
+	background.name = "WorldBackground"
 	background.call("configure", _player)
 	_active_world.add_child(background)
 	_active_world.add_child(_player)
 
-	_weapon_system = F4_WEAPON_SYSTEM_SCRIPT.new()
+	_weapon_system = WEAPON_SYSTEM_SCRIPT.new()
 	_weapon_system.name = "WeaponSystem"
 	_player.add_child(_weapon_system)
 	_weapon_system.call("configure", _player, _active_world, weapon)
 	_apply_meta_modifiers(MetaProgressionSystem.current_modifiers())
 
-	_hud = F4_HUD_SCRIPT.new()
-	_hud.name = "F4Hud"
+	_hud = GAMEPLAY_HUD_SCRIPT.new()
+	_hud.name = "GameplayHud"
 	add_child(_hud)
 	_hud.call("set_life", _player.call("current_life"), _player.call("max_life"))
 	_hud.call("set_kills", _kills)
@@ -169,15 +169,15 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 
 
 func _create_bullet_node() -> Node:
-	return F4_BULLET_SCRIPT.new()
+	return BULLET_SCRIPT.new()
 
 
 func _create_enemy_node() -> Node:
-	return F4_ENEMY_SCRIPT.new()
+	return ENEMY_SCRIPT.new()
 
 
 func _create_pickup_orb_node() -> Node:
-	return F4_PICKUP_ORB_SCRIPT.new()
+	return PICKUP_ORB_SCRIPT.new()
 
 
 func current_level() -> int:
@@ -237,7 +237,7 @@ func _spawn_enemy(wave: Dictionary, wave_key: String) -> bool:
 	var enemy: Node2D = raw_node as Node2D
 	enemy.global_position = _spawn_position()
 	_reparent_to_active_world(enemy)
-	enemy.set_meta("f4_wave_key", wave_key)
+	enemy.set_meta("wave_key", wave_key)
 	enemy.call("configure", enemy_data, _player)
 	enemy.connect("defeated", Callable(self, "_on_enemy_defeated").bind(wave_key), CONNECT_ONE_SHOT)
 	return true
@@ -308,15 +308,15 @@ func _begin_level_up() -> void:
 func _show_level_up_panel(choices: Array[Dictionary]) -> void:
 	_pending_level_up_choices = choices.duplicate(true)
 
-	var panel_template: CanvasLayer = F4_LEVEL_UP_PANEL_SCRIPT.new()
-	panel_template.name = "F4LevelUpPanel"
+	var panel_template: CanvasLayer = LEVEL_UP_PANEL_SCRIPT.new()
+	panel_template.name = "LevelUpPanel"
 	var panel_scene: PackedScene = PackedScene.new()
 	var pack_result: Error = panel_scene.pack(panel_template)
 	panel_template.free()
 	if pack_result != OK:
-		push_error("[F4RunLoop] failed to pack level-up panel: %d" % pack_result)
+		push_error("[GameplayRunLoop] failed to pack level-up panel: %d" % pack_result)
 		return
-	_level_panel = UIManager.push(panel_scene, {"source": "f4_level_up"}) as CanvasLayer
+	_level_panel = UIManager.push(panel_scene, {"source": "level_up"}) as CanvasLayer
 	if _level_panel == null:
 		return
 	_level_panel.call("configure", choices)
@@ -373,15 +373,15 @@ func _on_player_died() -> void:
 
 
 func _show_game_over_panel() -> void:
-	var panel_template: CanvasLayer = F4_GAME_OVER_PANEL_SCRIPT.new()
-	panel_template.name = "F4GameOverPanel"
+	var panel_template: CanvasLayer = GAME_OVER_PANEL_SCRIPT.new()
+	panel_template.name = "GameOverPanel"
 	var panel_scene: PackedScene = PackedScene.new()
 	var pack_result: Error = panel_scene.pack(panel_template)
 	panel_template.free()
 	if pack_result != OK:
-		push_error("[F4RunLoop] failed to pack game-over panel: %d" % pack_result)
+		push_error("[GameplayRunLoop] failed to pack game-over panel: %d" % pack_result)
 		return
-	_game_over_panel = UIManager.push(panel_scene, {"source": "f4_game_over"}) as CanvasLayer
+	_game_over_panel = UIManager.push(panel_scene, {"source": "game_over"}) as CanvasLayer
 	if _game_over_panel == null:
 		return
 	_game_over_panel.call("configure", _kills, GameClock.now(), _last_settlement)
@@ -417,15 +417,15 @@ func _apply_meta_modifiers(modifiers: Array[Dictionary]) -> void:
 
 
 func _show_pause_menu() -> void:
-	var panel_template: CanvasLayer = F4_PAUSE_MENU_SCRIPT.new()
-	panel_template.name = "F4PauseMenu"
+	var panel_template: CanvasLayer = PAUSE_MENU_SCRIPT.new()
+	panel_template.name = "PauseMenu"
 	var panel_scene: PackedScene = PackedScene.new()
 	var pack_result: Error = panel_scene.pack(panel_template)
 	panel_template.free()
 	if pack_result != OK:
-		push_error("[F4RunLoop] failed to pack pause menu: %d" % pack_result)
+		push_error("[GameplayRunLoop] failed to pack pause menu: %d" % pack_result)
 		return
-	_pause_menu = UIManager.push(panel_scene, {"source": "f4_pause"}) as CanvasLayer
+	_pause_menu = UIManager.push(panel_scene, {"source": "pause"}) as CanvasLayer
 	if _pause_menu == null:
 		return
 	_pause_menu.connect("resume_requested", Callable(self, "_on_pause_resume_requested"), CONNECT_ONE_SHOT)
@@ -445,7 +445,7 @@ func _on_pause_resume_requested() -> void:
 func _on_pause_save_and_quit_requested() -> void:
 	var payload: Dictionary = create_run_snapshot()
 	if not SaveManager.save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN, payload):
-		push_error("[F4RunLoop] failed to save run snapshot: %s" % SaveManager.last_error())
+		push_error("[GameplayRunLoop] failed to save run snapshot: %s" % SaveManager.last_error())
 		_on_pause_resume_requested()
 		return
 	quit_to_title_requested.emit()
@@ -469,8 +469,8 @@ func _entity_snapshots(group_name: String) -> Array[Dictionary]:
 		if not node.has_method("snapshot"):
 			continue
 		var snapshot_data: Dictionary = node.call("snapshot")
-		if group_name == "f4_enemies" and node.has_meta("f4_wave_key"):
-			snapshot_data["wave_key"] = String(node.get_meta("f4_wave_key"))
+		if group_name == "active_enemies" and node.has_meta("wave_key"):
+			snapshot_data["wave_key"] = String(node.get_meta("wave_key"))
 		result.append(snapshot_data)
 	return result
 
@@ -579,7 +579,7 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 		var enemy: Node2D = raw_node as Node2D
 		_reparent_to_active_world(enemy)
 		var wave_key: String = String(snapshot_data.get("wave_key", ""))
-		enemy.set_meta("f4_wave_key", wave_key)
+		enemy.set_meta("wave_key", wave_key)
 		enemy.call("configure", enemy_data, _player)
 		if enemy.has_method("restore_snapshot"):
 			enemy.call("restore_snapshot", snapshot_data)

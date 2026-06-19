@@ -58,7 +58,7 @@ python tools/godot_bridge.py --project client headless-boot
 F4 最小运行时 smoke：
 
 ```powershell
-python tools/godot_bridge.py --project client f4-smoke
+python tools/godot_bridge.py --project client runtime-smoke
 ```
 
 F6 局外成长 smoke：
@@ -77,6 +77,6 @@ python tools/godot_bridge.py --project client save-smoke
 
 ## 当前启动场景
 
-`res://scenes/boot/main.tscn` 挂载 `res://scripts/boot/formal_client_boot.gd`。启动脚本会先执行正式数据 schema smoke 并输出日志；若校验通过，会显示 F4/F5/F6 阶段最小标题界面；开始新局会挂载 `res://scripts/gameplay/f4_run_loop.gd`，继续游戏会先从 `SaveManager` 读取 `run` payload 再挂载同一 runtime，并按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板；读取失败或坏档被隔离时会回到标题菜单并显示本局存档重置提示；局外升级会通过 `UIManager` 把 `MetaProgressionPanel` 叠在标题菜单上。死亡后 F4 runtime 会通过 `MetaProgressionSystem` 写入 `meta` profile 并清理旧 `run`。
+`res://scenes/boot/main.tscn` 挂载 `res://scripts/boot/formal_client_boot.gd`。启动脚本会先执行正式数据 schema smoke 并输出日志；若校验通过，会显示最小标题界面；开始新局会挂载 `res://scripts/gameplay/gameplay_run_loop.gd`，继续游戏会先从 `SaveManager` 读取 `run` payload 再挂载同一 runtime，并按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板；读取失败或坏档被隔离时会回到标题菜单并显示本局存档重置提示；局外升级会通过 `UIManager` 把 `MetaProgressionPanel` 叠在标题菜单上。死亡后 gameplay runtime 会通过 `MetaProgressionSystem` 写入 `meta` profile 并清理旧 `run`。
 
-F4/F5/F6 runtime 当前仍是阶段性实现，文档见 `docs/代码/f4_min_playable_loop.md` 与 `docs/代码/meta_progression_system.md`。它不迁移 MVP 临时代码；当前实现 `run` 暂停保存续局、暂停 / 升级 UI 恢复点、坏档提示、v1 -> v2 迁移、死亡结算、标题局外升级购买和 `meta` 存档验证，不实现完整主菜单、完整局外包装、黄金回放或平衡 sim。
+Gameplay runtime 当前仍是脚本装配实现，文档见 `docs/代码/gameplay_runtime.md` 与 `docs/代码/meta_progression_system.md`。它不迁移 MVP 临时代码；当前实现 `run` 暂停保存续局、暂停 / 升级 UI 恢复点、坏档提示、v1 -> v2 迁移、死亡结算、标题局外升级购买和 `meta` 存档验证，不实现完整主菜单、完整局外包装、黄金回放或平衡 sim。

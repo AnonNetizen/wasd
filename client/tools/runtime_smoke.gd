@@ -4,8 +4,8 @@ extends Node
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
-const F4_ENEMY_SCRIPT := preload("res://scripts/gameplay/f4_enemy.gd")
-const F4_PLAYER_SCRIPT := preload("res://scripts/gameplay/f4_player.gd")
+const ENEMY_SCRIPT := preload("res://scripts/gameplay/enemy.gd")
+const PLAYER_SCRIPT := preload("res://scripts/gameplay/player.gd")
 const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
@@ -33,11 +33,11 @@ func _run() -> void:
 	var run_loop: Node = null
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame
-		run_loop = _find_node_by_name(get_tree().root, "F4RunLoop")
+		run_loop = _find_node_by_name(get_tree().root, "GameplayRunLoop")
 		if run_loop != null:
 			break
 
-	_expect(run_loop != null, "F4RunLoop should be mounted after formal boot")
+	_expect(run_loop != null, "GameplayRunLoop should be mounted after formal boot")
 	_expect(GameState.is_state(GameState.PLAYING), "GameState should enter PLAYING")
 	_expect(int(ProjectSettings.get_setting("display/window/size/viewport_width")) == 1920, "default viewport width should be 1920")
 	_expect(int(ProjectSettings.get_setting("display/window/size/viewport_height")) == 1080, "default viewport height should be 1080")
@@ -60,7 +60,7 @@ func _run() -> void:
 
 	var camera: Camera2D = _find_node_by_name(player, "CenteredCamera") as Camera2D
 	_expect(camera != null and camera.enabled, "CenteredCamera should be enabled")
-	_expect(_find_node_by_name(run_loop, "F4Background") != null, "F4Background should provide movement reference")
+	_expect(_find_node_by_name(run_loop, "WorldBackground") != null, "WorldBackground should provide movement reference")
 
 	var start_position: Vector2 = player.global_position
 	Input.action_press(ACTIONS.MOVE_RIGHT)
@@ -77,7 +77,7 @@ func _run() -> void:
 	_expect(player.get("aim_direction") == Vector2.UP, "arrow aim should snap to Vector2.UP")
 	_expect(player.global_position.distance_to(before_aim_position) < 1.0, "arrow aim should not move the player")
 
-	var isolated_player: Node2D = F4_PLAYER_SCRIPT.new()
+	var isolated_player: Node2D = PLAYER_SCRIPT.new()
 	isolated_player.name = "SmokeIsolatedPlayer"
 	run_loop.add_child(isolated_player)
 	var isolated_stats: Dictionary = {}
@@ -143,7 +143,7 @@ func _run() -> void:
 	_expect(PoolManager.has_pool(POOL_IDS.PICKUP_ORB), "experience pickup pool should remain registered after continue")
 
 	var enemy: Node = _first_enemy()
-	_expect(enemy != null, "at least one enemy should be in f4_enemies")
+	_expect(enemy != null, "at least one enemy should be in active_enemies")
 	if enemy != null:
 		var enemy_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 			999.0,
@@ -157,7 +157,7 @@ func _run() -> void:
 		_expect(bool(enemy_result.get("applied", false)), "Combat should apply enemy damage")
 		_expect(bool(enemy_result.get("defeated", false)), "Combat should defeat the smoke enemy")
 		_expect(enemy.has_method("is_defeat_feedback_active") and bool(enemy.call("is_defeat_feedback_active")), "defeated enemies should show defeat feedback before pooling")
-		_expect(not enemy.is_in_group("f4_enemies"), "defeated enemies should leave the live enemy group during feedback")
+		_expect(not enemy.is_in_group("active_enemies"), "defeated enemies should leave the live enemy group during feedback")
 
 	await _wait_player_vulnerability(player)
 	var smoke_player_damage_source: Node = Node.new()
@@ -175,7 +175,7 @@ func _run() -> void:
 	_expect(bool(player_result.get("applied", false)), "Combat should apply player damage")
 	_expect(bool(player_result.get("defeated", false)), "Combat should defeat the player")
 	_expect(GameState.is_state(GameState.GAME_OVER), "player death should enter GAME_OVER")
-	var game_over_panel: Node = _find_node_by_name(get_tree().root, "F4GameOverPanel")
+	var game_over_panel: Node = _find_node_by_name(get_tree().root, "GameOverPanel")
 	_expect(game_over_panel != null, "player death should show game-over panel")
 	_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "player death should consume the active run save")
 	_expect(SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META), "player death should write a meta save")
@@ -183,7 +183,7 @@ func _run() -> void:
 	_expect(int((meta_profile.get("currencies", {}) as Dictionary).get(META_CURRENCIES.META_ESSENCE, 0)) >= 8, "player death should grant configured meta currency")
 	var settlement_label: Label = _find_node_by_name(game_over_panel, "SettlementLabel") as Label
 	_expect(settlement_label != null and settlement_label.visible and not String(settlement_label.text).is_empty(), "game-over panel should show settlement rewards")
-	var game_over_hud: Node = _find_node_by_name(run_loop, "F4Hud")
+	var game_over_hud: Node = _find_node_by_name(run_loop, "GameplayHud")
 	_expect(
 		game_over_hud != null
 		and game_over_hud.has_method("is_game_over_message_visible")
@@ -203,7 +203,7 @@ func _run() -> void:
 
 
 func _first_enemy() -> Node:
-	for enemy: Node in get_tree().get_nodes_in_group("f4_enemies"):
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
 		return enemy
 	return null
 
@@ -243,7 +243,7 @@ func _wait_player_vulnerability(player: Node2D) -> void:
 
 
 func _disable_enemy_physics() -> void:
-	for active_enemy: Node in get_tree().get_nodes_in_group("f4_enemies"):
+	for active_enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
 		active_enemy.set_physics_process(false)
 
 
@@ -257,8 +257,8 @@ func _expect_enemy_center_separation(run_loop: Node, player: Node2D) -> void:
 		"hit_radius": 14.0,
 		"separation_radius": 9.0,
 	}
-	var enemy_a: Node2D = F4_ENEMY_SCRIPT.new()
-	var enemy_b: Node2D = F4_ENEMY_SCRIPT.new()
+	var enemy_a: Node2D = ENEMY_SCRIPT.new()
+	var enemy_b: Node2D = ENEMY_SCRIPT.new()
 	enemy_a.name = "SmokeSeparatedEnemyA"
 	enemy_b.name = "SmokeSeparatedEnemyB"
 	run_loop.add_child(enemy_a)
@@ -278,7 +278,7 @@ func _expect_enemy_center_separation(run_loop: Node, player: Node2D) -> void:
 
 
 func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
-	var isolated_player: Node2D = F4_PLAYER_SCRIPT.new()
+	var isolated_player: Node2D = PLAYER_SCRIPT.new()
 	isolated_player.name = "SmokeSeparatedPlayer"
 	run_loop.add_child(isolated_player)
 	isolated_player.global_position = player.global_position + Vector2(600.0, 0.0)
@@ -298,7 +298,7 @@ func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
 		"hit_radius": 24.0,
 		"separation_radius": 9.0,
 	}
-	var enemy: Node2D = F4_ENEMY_SCRIPT.new()
+	var enemy: Node2D = ENEMY_SCRIPT.new()
 	enemy.name = "SmokePlayerSeparatedEnemy"
 	run_loop.add_child(enemy)
 	enemy.global_position = isolated_player.global_position
@@ -311,7 +311,7 @@ func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
 	var center_distance: float = enemy.global_position.distance_to(isolated_player.global_position)
 	_expect(center_distance >= minimum_distance - 0.5, "player separation should push enemies away from the player center")
 	_expect(float(isolated_player.call("current_life")) < player_life_before_contact, "separated enemies should still apply contact damage")
-	enemy.remove_from_group("f4_enemies")
+	enemy.remove_from_group("active_enemies")
 	enemy.queue_free()
 	isolated_player.queue_free()
 
@@ -347,7 +347,7 @@ func _expect_pickup_orb_draw_order(run_loop: Node, player: Node2D) -> void:
 		"hit_radius": 14.0,
 		"separation_radius": 0.0,
 	}
-	var enemy: Node2D = F4_ENEMY_SCRIPT.new()
+	var enemy: Node2D = ENEMY_SCRIPT.new()
 	enemy.name = "SmokeDrawOrderEnemy"
 	run_loop.add_child(enemy)
 	enemy.global_position = player.global_position + Vector2(500.0, 0.0)
@@ -358,7 +358,7 @@ func _expect_pickup_orb_draw_order(run_loop: Node, player: Node2D) -> void:
 	await get_tree().process_frame
 
 	var pickup_orb: Node2D = null
-	for raw_pickup: Node in get_tree().get_nodes_in_group("f4_pickups"):
+	for raw_pickup: Node in get_tree().get_nodes_in_group("active_pickups"):
 		if raw_pickup is Node2D:
 			pickup_orb = raw_pickup as Node2D
 			break
@@ -366,7 +366,7 @@ func _expect_pickup_orb_draw_order(run_loop: Node, player: Node2D) -> void:
 	_expect(pickup_orb != null and pickup_orb.z_index < enemy.z_index, "pickup orbs should draw below enemies")
 	if pickup_orb != null:
 		PoolManager.release(pickup_orb)
-	enemy.remove_from_group("f4_enemies")
+	enemy.remove_from_group("active_enemies")
 	enemy.queue_free()
 
 
@@ -376,7 +376,7 @@ func _expect_pickup_orb_feedback(run_loop: Node, player: Node2D) -> void:
 	await get_tree().process_frame
 
 	var pickup_orb: Node2D = null
-	for raw_pickup: Node in get_tree().get_nodes_in_group("f4_pickups"):
+	for raw_pickup: Node in get_tree().get_nodes_in_group("active_pickups"):
 		if raw_pickup is Node2D:
 			pickup_orb = raw_pickup as Node2D
 			break
@@ -389,7 +389,7 @@ func _expect_pickup_orb_feedback(run_loop: Node, player: Node2D) -> void:
 	await get_tree().physics_frame
 	await get_tree().process_frame
 	_expect(pickup_orb.has_method("is_collect_feedback_active") and bool(pickup_orb.call("is_collect_feedback_active")), "pickup orb should show collect feedback before pooling")
-	_expect(not pickup_orb.is_in_group("f4_pickups"), "collected pickup orb should leave active pickup group during feedback")
+	_expect(not pickup_orb.is_in_group("active_pickups"), "collected pickup orb should leave active pickup group during feedback")
 	for _index: int in range(PICKUP_FEEDBACK_FRAMES):
 		await get_tree().process_frame
 	_expect(not bool(pickup_orb.call("is_collect_feedback_active")), "pickup orb collect feedback should finish and release")
@@ -407,7 +407,7 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 	for _index: int in range(LEVEL_UP_FRAMES):
 		await get_tree().physics_frame
 		await get_tree().process_frame
-		level_panel = _find_node_by_name(get_tree().root, "F4LevelUpPanel")
+		level_panel = _find_node_by_name(get_tree().root, "LevelUpPanel")
 		if level_panel != null:
 			break
 
@@ -445,7 +445,7 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 	await get_tree().process_frame
 	await _wait_for_title_menu()
 
-	var title_menu: Node = _find_node_by_name(get_tree().root, "F4TitleMenu")
+	var title_menu: Node = _find_node_by_name(get_tree().root, "TitleMenu")
 	var continue_button: Button = _find_node_by_name(title_menu, "ContinueRunButton") as Button
 	await _verify_meta_progression_entry(title_menu)
 	_expect(continue_button != null and continue_button.visible and not continue_button.disabled, "title menu should continue a pending level-up run")
@@ -466,7 +466,7 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 	run_loop = restored_run_loop
 	player = _find_node_by_name(run_loop, "Player") as Node2D
 	weapon_system = _find_node_by_name(player, "WeaponSystem") if player != null else null
-	level_panel = _find_node_by_name(get_tree().root, "F4LevelUpPanel")
+	level_panel = _find_node_by_name(get_tree().root, "LevelUpPanel")
 	_expect(player != null, "level-up restore should rebuild the player")
 	_expect(level_panel != null, "level-up restore should show the level-up panel")
 	if level_panel == null:
@@ -476,7 +476,7 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 		}
 	_expect(String(level_panel.call("choice_id", 0)) == choice_id, "level-up restore should keep the same rolled first choice")
 	await _expect_level_up_pause_overlay(run_loop)
-	level_panel = _find_node_by_name(get_tree().root, "F4LevelUpPanel")
+	level_panel = _find_node_by_name(get_tree().root, "LevelUpPanel")
 	_expect(level_panel != null, "level-up panel should remain after closing pause overlay")
 	if level_panel == null:
 		return {
@@ -492,7 +492,7 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 		_expect(not choice_button.disabled, "level-up option button should be enabled before click")
 		await _click_button(choice_button)
 	_expect(GameState.is_state(GameState.PLAYING), "choosing a level-up option should resume PLAYING")
-	var hud: Node = _find_node_by_name(run_loop, "F4Hud")
+	var hud: Node = _find_node_by_name(run_loop, "GameplayHud")
 	_expect(hud != null and hud.has_method("is_upgrade_feedback_visible") and bool(hud.call("is_upgrade_feedback_visible")), "choosing a level-up option should show upgrade feedback")
 	if choice_id == "growth_damage_small" and weapon_system != null:
 		_expect(float(weapon_system.call("stat_value", STATS.DAMAGE)) > previous_damage, "damage upgrade should apply immediately")
@@ -513,7 +513,7 @@ func _expect_level_up_pause_overlay(run_loop: Node) -> void:
 	var pause_menu: Node = null
 	for _index: int in range(BOOT_FRAMES * 2):
 		await get_tree().process_frame
-		pause_menu = _find_node_by_name(get_tree().root, "F4PauseMenu")
+		pause_menu = _find_node_by_name(get_tree().root, "PauseMenu")
 		if pause_menu != null:
 			break
 	_expect(GameState.is_state(GameState.PAUSED), "pressing pause during LEVEL_UP should open pause state")
@@ -526,7 +526,7 @@ func _expect_level_up_pause_overlay(run_loop: Node) -> void:
 	await _push_action_once(ACTIONS.PAUSE)
 	var restored_run_loop: Node = await _wait_for_state_run_loop(GameState.LEVEL_UP)
 	_expect(restored_run_loop == run_loop, "closing pause overlay should return to the same LEVEL_UP run loop")
-	_expect(_find_node_by_name(get_tree().root, "F4PauseMenu") == null, "closing pause overlay should remove the pause menu")
+	_expect(_find_node_by_name(get_tree().root, "PauseMenu") == null, "closing pause overlay should remove the pause menu")
 
 
 func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
@@ -539,7 +539,7 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	var pause_menu: Node = null
 	for _index: int in range(BOOT_FRAMES * 2):
 		await get_tree().process_frame
-		pause_menu = _find_node_by_name(get_tree().root, "F4PauseMenu")
+		pause_menu = _find_node_by_name(get_tree().root, "PauseMenu")
 		if pause_menu != null:
 			break
 	_expect(GameState.is_state(GameState.PAUSED), "pressing pause should enter PAUSED")
@@ -567,7 +567,7 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	_expect(GameState.is_state(GameState.MAIN_MENU), "save-and-quit should return to MAIN_MENU")
 	_expect(SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "save-and-quit should write a run save")
 
-	var title_menu: Node = _find_node_by_name(get_tree().root, "F4TitleMenu")
+	var title_menu: Node = _find_node_by_name(get_tree().root, "TitleMenu")
 	var continue_button: Button = _find_node_by_name(title_menu, "ContinueRunButton") as Button
 	_expect(continue_button != null, "title menu should expose continue when a run save exists")
 	if continue_button == null:
@@ -579,7 +579,7 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	await _click_button(continue_button)
 
 	var restored_run_loop: Node = await _wait_for_state_run_loop(GameState.PAUSED)
-	_expect(restored_run_loop != null, "continue should mount a paused restored F4RunLoop")
+	_expect(restored_run_loop != null, "continue should mount a paused restored GameplayRunLoop")
 	if restored_run_loop == null:
 		return {
 			"run_loop": null,
@@ -597,7 +597,7 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	_expect(int(restored_run_loop.call("current_level")) == saved_level, "continue should restore level")
 	_expect(int(restored_run_loop.call("current_xp")) == saved_xp, "continue should restore total xp")
 	_expect(absf(GameClock.now() - saved_time) < 0.2, "continue should restore GameClock time")
-	var restored_pause_menu: Node = _find_node_by_name(get_tree().root, "F4PauseMenu")
+	var restored_pause_menu: Node = _find_node_by_name(get_tree().root, "PauseMenu")
 	_expect(restored_pause_menu != null, "continue should restore the pause menu when the run was saved while paused")
 	var resume_button: Button = _find_node_by_name(restored_pause_menu, "ResumeButton") as Button
 	_expect(resume_button != null, "restored pause menu should expose resume")
@@ -725,9 +725,9 @@ func _expect_game_over_buttons(game_over_panel: Node) -> void:
 	await _click_button(restart_button)
 
 	var restarted_run_loop: Node = await _wait_for_playing_run_loop()
-	_expect(restarted_run_loop != null, "clicking restart should mount F4RunLoop")
+	_expect(restarted_run_loop != null, "clicking restart should mount GameplayRunLoop")
 	_expect(GameState.is_state(GameState.PLAYING), "clicking restart should resume PLAYING")
-	_expect(_find_node_by_name(get_tree().root, "F4GameOverPanel") == null, "clicking restart should close the game-over panel")
+	_expect(_find_node_by_name(get_tree().root, "GameOverPanel") == null, "clicking restart should close the game-over panel")
 	if restarted_run_loop == null:
 		return
 
@@ -737,7 +737,7 @@ func _expect_game_over_buttons(game_over_panel: Node) -> void:
 		return
 
 	await _defeat_player_for_game_over(restarted_run_loop, restarted_player)
-	var second_game_over_panel: Node = _find_node_by_name(get_tree().root, "F4GameOverPanel")
+	var second_game_over_panel: Node = _find_node_by_name(get_tree().root, "GameOverPanel")
 	_expect(second_game_over_panel != null, "second player death should show game-over panel")
 	if second_game_over_panel == null:
 		return
@@ -752,7 +752,7 @@ func _expect_game_over_buttons(game_over_panel: Node) -> void:
 	await _click_button(quit_button)
 	await _wait_for_title_menu()
 	_expect(GameState.is_state(GameState.MAIN_MENU), "clicking quit-to-title should return to MAIN_MENU")
-	_expect(_find_node_by_name(get_tree().root, "F4TitleMenu") != null, "clicking quit-to-title should show the title menu")
+	_expect(_find_node_by_name(get_tree().root, "TitleMenu") != null, "clicking quit-to-title should show the title menu")
 
 
 func _expect_bad_run_notice() -> void:
@@ -768,7 +768,7 @@ func _expect_bad_run_notice() -> void:
 	await get_tree().process_frame
 	await _wait_for_title_menu()
 
-	var title_menu: Node = _find_node_by_name(get_tree().root, "F4TitleMenu")
+	var title_menu: Node = _find_node_by_name(get_tree().root, "TitleMenu")
 	var continue_button: Button = _find_node_by_name(title_menu, "ContinueRunButton") as Button
 	_expect(continue_button != null, "bad-run smoke should expose continue before loading corrupted save")
 	if continue_button == null:
@@ -778,7 +778,7 @@ func _expect_bad_run_notice() -> void:
 
 	for _index: int in range(BOOT_FRAMES * 4):
 		await get_tree().process_frame
-		title_menu = _find_node_by_name(get_tree().root, "F4TitleMenu")
+		title_menu = _find_node_by_name(get_tree().root, "TitleMenu")
 		var notice_label: Label = _find_node_by_name(title_menu, "RunSaveNoticeLabel") as Label
 		if notice_label != null and notice_label.visible:
 			_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "bad run save should be consumed or quarantined after failed continue")
@@ -798,7 +798,7 @@ func _wait_for_playing_run_loop() -> Node:
 func _wait_for_state_run_loop(expected_state: StringName) -> Node:
 	for _index: int in range(BOOT_FRAMES * 4):
 		await get_tree().process_frame
-		var run_loop: Node = _find_node_by_name(get_tree().root, "F4RunLoop")
+		var run_loop: Node = _find_node_by_name(get_tree().root, "GameplayRunLoop")
 		if run_loop != null and GameState.is_state(expected_state):
 			return run_loop
 	return null
@@ -828,13 +828,13 @@ func _defeat_player_for_game_over(run_loop: Node, player: Node2D) -> void:
 func _wait_for_title_menu() -> void:
 	for _index: int in range(BOOT_FRAMES * 4):
 		await get_tree().process_frame
-		if GameState.is_state(GameState.MAIN_MENU) and _find_node_by_name(get_tree().root, "F4TitleMenu") != null:
+		if GameState.is_state(GameState.MAIN_MENU) and _find_node_by_name(get_tree().root, "TitleMenu") != null:
 			return
 	_expect(false, "title menu should appear after quit-to-title")
 
 
 func _first_enemy_with_name_prefix(name_prefix: String) -> Node:
-	for enemy: Node in get_tree().get_nodes_in_group("f4_enemies"):
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
 		if String(enemy.name).begins_with(name_prefix):
 			return enemy
 	return null
@@ -844,14 +844,14 @@ func _expect(condition: bool, message: String) -> void:
 	if condition:
 		return
 	_failures.append(message)
-	push_error("[F4Smoke] %s" % message)
+	push_error("[RuntimeSmoke] %s" % message)
 
 
 func _finish() -> void:
 	Input.action_release(ACTIONS.MOVE_RIGHT)
 	Input.action_release(ACTIONS.AIM_UP)
 	if _failures.is_empty():
-		print("[F4Smoke] passed; time=%.2f bullets_acquired=%d enemies_acquired=%d state=%s" % [
+		print("[RuntimeSmoke] passed; time=%.2f bullets_acquired=%d enemies_acquired=%d state=%s" % [
 			GameClock.now(),
 			_pool_stat(POOL_IDS.BULLET_BASIC, "acquired"),
 			_pool_stat(POOL_IDS.ENEMY_CHASER, "acquired"),
@@ -860,5 +860,5 @@ func _finish() -> void:
 		get_tree().quit(0)
 		return
 
-	print("[F4Smoke] failed; failures=%d" % _failures.size())
+	print("[RuntimeSmoke] failed; failures=%d" % _failures.size())
 	get_tree().quit(1)

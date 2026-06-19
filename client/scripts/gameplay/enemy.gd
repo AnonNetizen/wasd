@@ -1,6 +1,6 @@
-# Doc: docs/代码/f4_min_playable_loop.md
+# Doc: docs/代码/gameplay_runtime.md
 # Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md, docs/游戏设计文档.md §5.3
-class_name F4Enemy
+class_name Enemy
 extends Node2D
 
 
@@ -60,7 +60,7 @@ func configure(enemy_data: Dictionary, target: Node2D) -> void:
 	_hit_radius = float(enemy_data.get("hit_radius", 0.0))
 	_separation_radius = float(enemy_data.get("separation_radius", 0.0))
 	_visual_color = _parse_visual_color(String(enemy_data.get("visual_color", "#ff6152")))
-	add_to_group("f4_enemies")
+	add_to_group("active_enemies")
 	queue_redraw()
 
 
@@ -98,7 +98,7 @@ func receive_damage(info: RefCounted) -> Dictionary:
 	_life_points = maxf(_life_points - amount, 0.0)
 	var is_defeated: bool = _life_points <= 0.0
 	if is_defeated:
-		remove_from_group("f4_enemies")
+		remove_from_group("active_enemies")
 		_defeat_feedback_remaining = DEFEAT_FEEDBACK_DURATION
 		defeated.emit(self, _exp_reward)
 		queue_redraw()
@@ -124,7 +124,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
 	_life_points = clampf(float(snapshot_data.get("life_points", _max_life)), 0.0, _max_life)
 	if _life_points <= 0.0:
-		remove_from_group("f4_enemies")
+		remove_from_group("active_enemies")
 	queue_redraw()
 
 
@@ -146,7 +146,7 @@ func _pool_reset() -> void:
 
 
 func _pool_release() -> void:
-	remove_from_group("f4_enemies")
+	remove_from_group("active_enemies")
 	_defeat_feedback_remaining = 0.0
 	_target = null
 
@@ -218,7 +218,7 @@ func _contact_distance() -> float:
 func _apply_center_separation() -> void:
 	var offset: Vector2 = Vector2.ZERO
 	if _separation_radius > 0.0:
-		for other: Node in get_tree().get_nodes_in_group("f4_enemies"):
+		for other: Node in get_tree().get_nodes_in_group("active_enemies"):
 			offset += _enemy_separation_offset(other)
 	offset += _target_separation_offset()
 

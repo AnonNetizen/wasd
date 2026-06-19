@@ -113,7 +113,7 @@ client/
 - 用 Godot 4.6.3 打开 `client/project.godot`。
 - 命令行启动：`godot --path client`。
 - Headless 验证：`python tools/godot_bridge.py headless-boot`（若系统无 Python，可用 Codex 桌面内置 Python 路径执行）。
-- F4 运行时 smoke：`python tools/godot_bridge.py --project client f4-smoke`。
+- Gameplay runtime smoke：`python tools/godot_bridge.py --project client runtime-smoke`。
 - F6 局外成长 smoke：`python tools/godot_bridge.py --project client meta-smoke`。
 - F5 存档 smoke：`python tools/godot_bridge.py --project client save-smoke`。
 

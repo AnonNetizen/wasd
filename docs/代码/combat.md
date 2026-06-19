@@ -112,4 +112,4 @@
 - `docs/游戏设计文档.md` §9.15.1
 - `docs/词表与契约.md` 第 9 节
 - `docs/测试策略.md`
-- `docs/代码/f4_min_playable_loop.md`
+- `docs/代码/gameplay_runtime.md`
