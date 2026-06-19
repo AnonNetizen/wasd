@@ -6,7 +6,7 @@
 ## 职责
 
 - `MetaProgressionSystem` 是局外成长运行时入口，负责读取 `client/data/meta_progression.json`，维护 `SaveManager` 的 `meta` payload，并向玩法层输出永久升级 modifiers。
-- F6 首切片闭环“本局死亡结算 -> meta 存档 -> 购买永久升级 -> 下一局应用 modifier”，并提供标题菜单可见的最小局外升级面板；不扩展角色选择、完整商店页、遗物开局候选或复杂解锁消费。
+- F6 闭环“本局死亡结算 -> meta 存档 -> 购买永久升级 -> 下一局应用 modifier”，并提供标题菜单和死亡结算页可见的最小局外升级面板；不扩展角色选择、完整商店页、遗物开局候选或复杂解锁消费。
 - `SaveManager` 只负责 envelope、原子写入、备份和坏档隔离；`MetaProgressionSystem` 解释局外成长字段并做 profile 归一化。
 
 ## 代码位置
@@ -16,8 +16,8 @@
 | `client/scripts/autoload/meta_progression_system.gd` | `MetaProgressionSystem` autoload 脚本 |
 | `client/data/meta_progression.json` | 局外货币、结算奖励、账号等级、升级轨道和解锁配置 |
 | `client/scripts/gameplay/f4_run_loop.gd` | 玩家死亡时提交结算摘要；新开局时应用永久 modifiers |
-| `client/scripts/ui/meta_progression_panel.gd` | 标题菜单进入的最小局外升级列表面板 |
-| `client/scripts/ui/f4_game_over_panel.gd` | F6 首切片结算展示和可购买升级按钮 |
+| `client/scripts/ui/meta_progression_panel.gd` | 标题菜单或死亡结算页进入的最小局外升级列表面板 |
+| `client/scripts/ui/f4_game_over_panel.gd` | F6 结算展示、可购买升级按钮和完整局外升级入口 |
 | `client/tools/meta_progression_smoke.gd` | F6 headless smoke：meta roundtrip、结算、购买、modifier |
 | `tools/godot_bridge.py` | `meta-smoke` 命令入口 |
 
@@ -31,6 +31,7 @@
 | 清理 run | F4 在结算后删除 `run` 存档，避免死亡 / 结算后继续读旧局造成重复奖励 | `SaveManager.delete(slot_0, run)` |
 | 购买升级 | 结算面板请求购买可负担升级；系统检查账号等级、当前等级、费用和余额，扣货币、提升等级、发放升级解锁并保存 meta | `purchase_upgrade()` |
 | 标题局外升级 | 标题菜单打开 `MetaProgressionPanel`；面板显示账号等级、余额和所有升级轨道，购买后刷新 profile 与按钮状态 | `profile_summary()` / `upgrade_summaries()` / `purchase_upgrade()` |
+| 结算页局外升级 | 死亡结算面板可叠出同一个 `MetaProgressionPanel`，关闭后回到失败面板并刷新余额和第一个可购买项 | `profile_summary()` / `upgrade_summaries()` / `purchase_upgrade()` / `first_available_purchase()` |
 | 自动验证 | `meta-smoke` 用合成结算验证货币公式、账号等级、解锁、购买扣费、modifier、标题升级面板和 SaveManager roundtrip；`f4-smoke` 追加真实死亡结算断言 | `godot_bridge.py meta-smoke` / `f4-smoke` |
 
 ## Profile Schema
@@ -60,7 +61,7 @@
 | `current_modifiers(slot=slot_0)` | slot | `Array[Dictionary]` | 每条 modifier 只输出 `stat`、`type`、`value`，供 F4 玩家 / 武器复用现有成长管线 |
 | `profile_summary(slot=slot_0)` | slot | profile 摘要 `Dictionary` | 供标题局外升级 UI 展示账号等级、账号经验和主货币余额，不暴露完整存档结构 |
 | `upgrade_summaries(slot=slot_0)` | slot | `Array[Dictionary]` | 供 UI 展示所有升级轨道的名称、描述、当前等级、费用、余额、解锁等级、可购买状态和不可购买原因 |
-| `first_available_purchase(slot=slot_0)` | slot | 可购买项或空字典 | F6 首切片 UI 只展示第一个可负担升级 |
+| `first_available_purchase(slot=slot_0)` | slot | 可购买项或空字典 | 失败结算面板用它展示一个快捷购买项；完整列表仍由 `upgrade_summaries()` 提供 |
 | `currency_name_key(currency_id)` | currency id | locale key | 供结算 UI 展示货币名 |
 
 ## 数据与契约
@@ -69,7 +70,7 @@
 - 结算货币公式读取 `run_rewards.base_amount`、`per_minute_survived`、`per_50_kills`、`first_boss_bonus` 和 `max_amount_per_run`。
 - 账号经验公式读取 `account_level.xp_per_minute_survived` 与 `xp_per_50_kills`；等级由 `thresholds` 推导，等级奖励读取 `level_rewards.unlock_ids`。
 - 永久升级读取 `upgrade_tracks[].costs`、`max_level`、`unlock_condition.account_level`、`modifiers[].value_per_level` 和可选 `unlock_ids_by_level`。
-- 玩家可见文案走 `client/locale/strings.csv`；F6 首切片使用 `ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_progression`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`。
+- 玩家可见文案走 `client/locale/strings.csv`；F6 使用 `ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_open_upgrades`、`ui_meta_progression`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`。
 
 ## 依赖
 
@@ -93,6 +94,7 @@
 | 账号等级没提升 | `account_level.thresholds` 与合成 XP 是否匹配 |
 | 升级按钮不可用 | 余额、账号等级、`costs` 长度和 `max_level` |
 | 标题菜单看不到局外升级 | `F4TitleMenu` 是否有 `MetaProgressionButton`；`FormalClientBoot` 是否连接 `meta_progression_requested` 并 `UIManager.push()` `MetaProgressionPanel` |
+| 结算页打不开或关不掉局外升级 | `F4GameOverPanel` 是否有 `MetaProgressionButton`；`F4RunLoop` 是否连接 `meta_progression_requested` 并 `UIManager.push()` / `pop()` `MetaProgressionPanel`；底层失败面板和局外面板是否只在 `UIManager.top()` 为自身时处理鼠标点击 |
 | 局外升级列表为空 | `MetaProgressionSystem.upgrade_summaries()` 是否返回配置轨道；`meta_progression.json.upgrade_tracks` 是否通过数据校验 |
 | 下一局永久升级无效 | `current_modifiers()` 是否输出目标 stat；`F4RunLoop` 是否在玩家 / 武器 configure 后调用 `_apply_meta_modifiers()` |
 | run 奖励可重复领取 | 死亡结算后是否删除 `run` 存档；`f4-smoke` 是否通过“player death should consume the active run save”断言 |
@@ -100,7 +102,7 @@
 ## 测试义务
 
 - 改本模块必跑：`python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_gdscript_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client meta-smoke`。
-- 改标题入口或 `MetaProgressionPanel` 时追加 `meta-smoke`，必要时手动从标题菜单点开“局外升级”确认按钮可见、购买后余额和等级刷新。
+- 改标题入口、结算页入口或 `MetaProgressionPanel` 时追加 `meta-smoke`；改结算页入口时追加 `f4-smoke`，必要时手动从标题菜单 / 死亡结算页点开“局外升级”确认按钮可见、购买后余额和等级刷新。
 - 改 F4 结算接入、失败面板或新开局 modifier 应用时追加：`python tools/godot_bridge.py --project client f4-smoke`。
 - 改 SaveManager envelope / kind version 时追加：`python tools/godot_bridge.py --project client save-smoke` 和迁移测试。
 

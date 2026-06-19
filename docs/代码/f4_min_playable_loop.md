@@ -5,9 +5,9 @@
 
 ## 职责
 
-- 在正式 `client/` 内提供一局最小战斗：最小标题入口、标题局外升级入口、玩家移动、相机居中、基础背景参照、起始武器、池化子弹、池化敌人、波次刷怪、经验掉落、升级三选一、HUD、主动暂停、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、失败后重开 / 回标题。
+- 在正式 `client/` 内提供一局最小战斗：最小标题入口、标题局外升级入口、玩家移动、相机居中、基础背景参照、起始武器、池化子弹、池化敌人、波次刷怪、经验掉落、升级三选一、HUD、主动暂停、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、失败后结算、局外升级、重开 / 回标题。
 - 复用 F3 已建立的数据边界：`player.json`、`characters.json`、`weapons.json`、`enemies.csv`、`spawn_waves.csv`、`growth.csv`、`growth_pools.json` 和 `game_modes.json`。
-- 第一版只做标准生存模式、默认角色和默认起始武器的竖切；F5 首片已接入 F4 runtime 的 `run` 续局快照，F6 首片已接入死亡结算、`meta` 存档、结算页最小购买、标题局外升级面板和下一局永久 modifiers；角色选择、完整商店 / 局外包装、机关运行时、音频、美术资产或平衡 sim 仍未实现。升级内容只落地 `stat_modifier` 最小切片，后续遗物 / 主动强化 / 刷新等仍按数据与设计扩展。
+- 第一版只做标准生存模式、默认角色和默认起始武器的竖切；F5 首片已接入 F4 runtime 的 `run` 续局快照，F6 首片已接入死亡结算、`meta` 存档、结算页最小购买、结算页打开完整局外升级面板、标题局外升级面板和下一局永久 modifiers；角色选择、完整商店 / 局外包装、机关运行时、音频、美术资产或平衡 sim 仍未实现。升级内容只落地 `stat_modifier` 最小切片，后续遗物 / 主动强化 / 刷新等仍按数据与设计扩展。
 
 ## 阅读方式
 
@@ -40,9 +40,9 @@
 | `client/scripts/gameplay/f4_level_up_panel.gd` | F4 阶段响应式升级三选一面板；通过 `UIManager.push()` 挂载 |
 | `client/scripts/gameplay/f4_hud.gd` | 响应式最小 HUD：生命、击杀、时间、等级、经验、升级获得反馈 |
 | `client/scripts/ui/f4_title_menu.gd` | F4 阶段最小标题界面：开始 / 继续 / 局外升级 / 退出 |
-| `client/scripts/ui/meta_progression_panel.gd` | F6 阶段标题局外升级面板：显示余额、账号等级、所有升级轨道和购买状态 |
+| `client/scripts/ui/meta_progression_panel.gd` | F6 阶段局外升级面板：可从标题菜单或死亡结算页打开，显示余额、账号等级、所有升级轨道和购买状态 |
 | `client/scripts/ui/f4_pause_menu.gd` | F5 首片最小暂停菜单：继续、保存并退出、重新开始、回标题 |
-| `client/scripts/ui/f4_game_over_panel.gd` | F4/F6 阶段失败面板：结算摘要、可购买升级、重开 / 回标题 |
+| `client/scripts/ui/f4_game_over_panel.gd` | F4/F6 阶段失败面板：结算摘要、可购买升级、打开完整局外升级面板、重开 / 回标题 |
 | `client/tools/f4_runtime_smoke.gd` | F4 headless runtime smoke，覆盖启动、输入、池化、伤害、失败状态和真实死亡结算 |
 | `client/tools/meta_progression_smoke.gd` | F6 MetaProgression smoke，覆盖 meta roundtrip、结算、购买和永久 modifier |
 | `client/tools/save_manager_smoke.gd` | F5 SaveManager run 存档可靠性 smoke，覆盖 roundtrip、备份回退、坏档隔离和迁移 |
@@ -68,7 +68,7 @@ FormalClientBoot
 UIManager
     └── UIRoot
     ├── F4TitleMenu (normal boot before a run)
-    ├── MetaProgressionPanel (opened from title menu)
+    ├── MetaProgressionPanel (opened from title menu or game-over settlement)
     ├── F4PauseMenu (only while GameState.PAUSED)
     ├── F4LevelUpPanel (only while GameState.LEVEL_UP)
     └── F4GameOverPanel (only while GameState.GAME_OVER)
@@ -95,7 +95,7 @@ UIManager
 | 主动暂停 | `pause` action 在 `PLAYING` 中打开 `F4PauseMenu`，在 `LEVEL_UP` 中由升级面板请求把 `F4PauseMenu` 叠在升级面板上；菜单通过 `UIManager` 请求 `GameState.PAUSED`，玩法时间、敌人、子弹和刷怪冻结，菜单仍响应鼠标和再次 `pause` action；关闭升级态上方的暂停菜单后必须回到 `LEVEL_UP` | `UIManager.push()`、`GameState.PAUSED` |
 | 保存退出 / 继续 | 暂停菜单“保存并退出”生成 `run` payload 并写入 `SaveManager`；标题菜单检测到 `run.save` 后显示“继续游戏”，加载 payload 后由 F4 runtime 通过对象池重建活跃敌人、子弹和经验球，并按 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板；若续局读取失败，坏档由 `SaveManager` 隔离，标题菜单显示重置提示并隐藏继续按钮 | `SaveManager.save()`、`SaveManager.load_envelope()`、`configure_restore_snapshot()` |
 | UI 布局 | HUD 使用全屏锚点下的 `MarginContainer + VBoxContainer`；升级面板使用全屏遮罩、居中容器和按视口宽度夹取的面板宽度，随窗口尺寸调整 | `Control.set_anchors_preset()` |
-| 失败 / 结算 / 重开 | 玩家生命归零后先向 `MetaProgressionSystem` 提交本局摘要并写入 `meta`，再删除 `run` 存档、进入 `GameState.GAME_OVER`、冻结 `GameClock` 并显示唯一失败面板；失败面板展示结算摘要和第一个可购买升级。玩家可重开或回标题，按 `pause` 仍可快捷重开 | `MetaProgressionSystem.apply_run_settlement()`、`SaveManager.delete(run)`、`GameState.change_state()`、`F4RunLoop.restart_requested` |
+| 失败 / 结算 / 局外升级 / 重开 | 玩家生命归零后先向 `MetaProgressionSystem` 提交本局摘要并写入 `meta`，再删除 `run` 存档、进入 `GameState.GAME_OVER`、冻结 `GameClock` 并显示唯一失败面板；失败面板展示结算摘要、第一个可购买升级，并可叠出完整 `MetaProgressionPanel` 查看 / 购买所有局外升级，关闭后回到失败面板并刷新余额 / 可购买项。玩家可重开或回标题，按 `pause` 仍可快捷重开 | `MetaProgressionSystem.apply_run_settlement()`、`SaveManager.delete(run)`、`UIManager.push()`、`GameState.change_state()`、`F4RunLoop.restart_requested` |
 | 自动 smoke | `godot_bridge.py f4-smoke` 以 `--f4-smoke` 用户参数启动正式主场景，并挂载 runtime smoke；`godot_bridge.py save-smoke` 以 `--save-smoke` 挂载 SaveManager smoke；`godot_bridge.py meta-smoke` 以 `--meta-smoke` 挂载局外成长 smoke | `client/tools/f4_runtime_smoke.gd` / `client/tools/save_manager_smoke.gd` / `client/tools/meta_progression_smoke.gd` |
 
 ## 公共 API
@@ -123,9 +123,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `F4LevelUpPanel.configure(choices)` / `choose_index(index)` | 升级候选 | `void` | 面板节点通过 `UIManager` 挂载；玩家可见文案来自 locale；面板宽度随视口宽度在最小 / 最大值之间自适应；按 `pause` action 时发出 `pause_requested` |
 | `F4Hud.set_life()` / `set_kills()` / `set_level()` / `set_xp()` / `show_upgrade_feedback()` | HUD 状态 | `void` | 文案使用 `tr()`；布局使用容器和锚点而非固定屏幕坐标；失败 UI 由 `F4GameOverPanel` 独占显示 |
 | `F4TitleMenu.start_requested` / `continue_requested` / `meta_progression_requested` / `quit_requested` | 无 | signal | 由 `FormalClientBoot` 处理，不在标题菜单里直接创建 run；`continue_requested` 只在有 `run` 存档时可见；`meta_progression_requested` 会通过 `UIManager` 打开局外升级面板 |
-| `MetaProgressionPanel.closed_requested` | 无 | signal | 由 `FormalClientBoot` 弹出面板并回到标题菜单；购买升级由面板调用 `MetaProgressionSystem.purchase_upgrade()` 后刷新列表 |
+| `MetaProgressionPanel.closed_requested` | 无 | signal | 由 `FormalClientBoot` 或 `F4RunLoop` 弹出面板并回到标题 / 失败面板；购买升级由面板调用 `MetaProgressionSystem.purchase_upgrade()` 后刷新列表 |
 | `F4PauseMenu.resume_requested` / `save_and_quit_requested` / `restart_requested` / `quit_to_title_requested` | 无 | signal | 由 `F4RunLoop` 处理；保存退出保留 `run` 存档，重开 / 回标题会删除旧 `run` 存档 |
-| `F4GameOverPanel.configure(kills, run_time, settlement, purchase)` | 击杀、时长、结算结果、可购买项 | `void` | F6 首切片展示结算奖励、账号等级 / 余额和一个可购买升级；文案全部来自 locale |
+| `F4GameOverPanel.configure(kills, run_time, settlement, purchase)` | 击杀、时长、结算结果、可购买项 | `void` | F6 展示结算奖励、账号等级 / 余额、一个可购买升级和完整局外升级入口；文案全部来自 locale |
 | `F4GameOverPanel.purchase_upgrade_requested` | upgrade id | signal | 由 `F4RunLoop` 调用 `MetaProgressionSystem.purchase_upgrade()` 并刷新面板 |
 | `F4GameOverPanel.restart_requested` / `quit_to_title_requested` | 无 | signal | 由 `F4RunLoop` 转发给 `FormalClientBoot` 清理并切换流程 |
 
@@ -142,6 +142,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `F4PauseMenu.resume_requested` | 无 | 玩家选择继续或再次按 `pause` |
 | `F4PauseMenu.save_and_quit_requested` | 无 | 玩家在暂停菜单选择保存并退出 |
 | `F4GameOverPanel.purchase_upgrade_requested` | `upgrade_id` | 玩家在失败结算面板购买当前可负担局外升级 |
+| `F4GameOverPanel.meta_progression_requested` | 无 | 玩家在失败结算面板请求打开完整局外升级面板 |
 | `F4RunLoop.restart_requested` | 无 | 玩家在失败后请求重开 |
 | `F4RunLoop.quit_to_title_requested` | 无 | 玩家在失败后请求回标题 |
 
@@ -163,7 +164,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - run 续局快照：F5 首片使用 `SaveManager` 的 `run` kind，payload schema version 当前为 1，字段包括模式 / 角色 id、等级、累计经验、击杀、`GameClock.snapshot()`、`RNG.snapshot()`、刷怪状态、玩家状态、武器状态、活跃敌人、活跃子弹、活跃经验球和 `ui_restore`。`ui_restore.state` 当前支持 `playing`、`paused`、`level_up`：暂停保存后续局会先回到暂停菜单；升级选择面板打开时保存会保留已经掷出的候选列表并续回同一组选择，不重新消耗 `RNG.ui_choice`；暂停菜单叠在升级面板上时保存为 `state=paused` 且 `underlying_state=level_up`，恢复时先重建升级面板再叠回暂停菜单。旧 payload 没有 `ui_restore` 时按 `playing` 处理。`SaveManager` 的 `run` kind envelope 当前为 version 2，v1 -> v2 迁移只补齐缺失结构字段，不改变 F4 payload schema。RNG 大整数 state 以字符串保存，避免 JSON 精度变化导致 `data_hash` mismatch。
 - 局外成长接入：F6 首片使用 `SaveManager` 的 `meta` kind；F4 只向 `MetaProgressionSystem.apply_run_settlement()` 提交 `kills`、`run_time`、`first_boss_defeated`，不在 F4 复制奖励公式。结算后必须删除 `run` 存档，避免死亡结算后的旧局重复领取奖励。标题菜单通过 `MetaProgressionPanel` 消费 `MetaProgressionSystem.profile_summary()` 和 `upgrade_summaries()` 显示可见局外升级入口。新开局时 `MetaProgressionSystem.current_modifiers()` 输出的永久升级 modifiers 会复用 `F4Player.apply_modifiers()` 与 `F4WeaponSystem.apply_modifiers()`。
 - 伤害类型：从 `weapons.json` / `enemies.csv` 读取，交给 `Combat` 校验。
-- UI / HUD / 升级文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_pause_title`、`ui_save_and_quit`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_level_up_title`、`ui_upgrade_applied`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`、`ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_progression`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。
+- UI / HUD / 升级文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_pause_title`、`ui_save_and_quit`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_level_up_title`、`ui_upgrade_applied`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`、`ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_open_upgrades`、`ui_meta_progression`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。
 
 ## 依赖
 
@@ -219,6 +220,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 死亡后还能继续旧局 | `SaveManager.delete(slot_0, run)` 是否在结算后执行；标题继续按钮是否仍看见旧 `run` |
 | 标题菜单看不到局外升级 | `F4TitleMenu` 是否有 `MetaProgressionButton`；locale 是否有 `ui_meta_progression`；`FormalClientBoot` 是否连接 `meta_progression_requested` |
 | 局外升级面板没有升级列表 | `MetaProgressionSystem.upgrade_summaries()` 是否返回轨道；`MetaProgressionPanel` 是否能找到 `MetaUpgradeList`；`meta-smoke` 是否通过面板列表断言 |
+| 失败面板打开局外升级后关不掉或回不到结算 | `F4GameOverPanel._input()` 与 `MetaProgressionPanel._input()` 是否只在 `UIManager.top()` 为自身时处理点击；`F4RunLoop._on_game_over_meta_progression_closed()` 是否 `UIManager.pop()` 并刷新失败面板；`f4-smoke` 是否通过 game-over meta progression 断言 |
 | 下一局永久升级无效 | `MetaProgressionSystem.current_modifiers()` 是否输出目标 stat；F4 开局是否在玩家 / 武器 configure 后应用 modifiers |
 | 失败后无法重开 / 回标题 | 是否处于 `GameState.GAME_OVER`；`F4GameOverPanel` 是否挂到 `UIManager`；`restart_requested` / `quit_to_title_requested` 是否被 `FormalClientBoot` 连接 |
 | 暂停菜单打不开或不冻结 | `pause` action 是否已注册；`F4PauseMenu.pauses_game` 是否为 true；`UIManager` 是否切到 `GameState.PAUSED` |

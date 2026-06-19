@@ -5,6 +5,7 @@ extends CanvasLayer
 
 
 signal quit_to_title_requested()
+signal meta_progression_requested()
 signal purchase_upgrade_requested(upgrade_id: String)
 signal restart_requested()
 
@@ -13,6 +14,7 @@ const BUTTON_WIDTH: float = 260.0
 const BUTTON_ACTION_PURCHASE: String = "purchase"
 const BUTTON_ACTION_QUIT_TO_TITLE: String = "quit_to_title"
 const BUTTON_ACTION_RESTART: String = "restart"
+const BUTTON_ACTION_META_PROGRESSION: String = "meta_progression"
 const PANEL_WIDTH: float = 520.0
 
 var _button_actions: Array[String] = []
@@ -27,6 +29,9 @@ var _summary_label: Label = null
 
 
 func _input(event: InputEvent) -> void:
+	if UIManager.top() != self:
+		return
+
 	var mouse_button: InputEventMouseButton = event as InputEventMouseButton
 	if mouse_button == null or mouse_button.button_index != MOUSE_BUTTON_LEFT:
 		return
@@ -125,6 +130,11 @@ func _ready() -> void:
 	_register_button(_purchase_button, BUTTON_ACTION_PURCHASE)
 	layout.add_child(_purchase_button)
 
+	var meta_progression_button: Button = _make_button("MetaProgressionButton", tr("ui_meta_open_upgrades"))
+	meta_progression_button.pressed.connect(_on_meta_progression_pressed)
+	_register_button(meta_progression_button, BUTTON_ACTION_META_PROGRESSION)
+	layout.add_child(meta_progression_button)
+
 	var restart_button: Button = _make_button("RestartButton", tr("ui_restart"))
 	restart_button.pressed.connect(_on_restart_pressed)
 	_register_button(restart_button, BUTTON_ACTION_RESTART)
@@ -216,6 +226,10 @@ func _on_purchase_pressed() -> void:
 	_activate_button(_button_actions.find(BUTTON_ACTION_PURCHASE))
 
 
+func _on_meta_progression_pressed() -> void:
+	_activate_button(_button_actions.find(BUTTON_ACTION_META_PROGRESSION))
+
+
 func _on_restart_pressed() -> void:
 	_activate_button(_button_actions.find(BUTTON_ACTION_RESTART))
 
@@ -242,6 +256,9 @@ func _activate_button(index: int) -> void:
 	var action: String = _button_actions[index]
 	if action == BUTTON_ACTION_PURCHASE:
 		purchase_upgrade_requested.emit(_purchase_upgrade_id)
+		return
+	if action == BUTTON_ACTION_META_PROGRESSION:
+		meta_progression_requested.emit()
 		return
 	_selection_locked = true
 	if action == BUTTON_ACTION_RESTART:

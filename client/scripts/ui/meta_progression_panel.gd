@@ -11,12 +11,45 @@ const BUTTON_WIDTH: float = 180.0
 const PANEL_HEIGHT: float = 720.0
 const PANEL_WIDTH: float = 680.0
 const ROW_MIN_HEIGHT: float = 112.0
+const POINTER_ACTION_CLOSE: String = "close"
+const POINTER_ACTION_PURCHASE: String = "purchase"
 
 var _account_label: Label = null
+var _close_button: Button = null
 var _currency_label: Label = null
+var _pressed_pointer_action: String = ""
+var _pressed_purchase_index: int = -1
 var _purchase_buttons: Array[Button] = []
 var _upgrade_ids: Array[String] = []
 var _upgrade_list: VBoxContainer = null
+
+
+func _input(event: InputEvent) -> void:
+	if UIManager.top() != self:
+		return
+
+	var mouse_button: InputEventMouseButton = event as InputEventMouseButton
+	if mouse_button == null or mouse_button.button_index != MOUSE_BUTTON_LEFT:
+		return
+
+	var pointer_hit: Dictionary = _pointer_hit_at_position(mouse_button.position)
+	if mouse_button.pressed:
+		_pressed_pointer_action = String(pointer_hit.get("action", ""))
+		_pressed_purchase_index = int(pointer_hit.get("index", -1))
+		if not _pressed_pointer_action.is_empty():
+			get_viewport().set_input_as_handled()
+		return
+
+	var pressed_action: String = _pressed_pointer_action
+	var pressed_index: int = _pressed_purchase_index
+	_pressed_pointer_action = ""
+	_pressed_purchase_index = -1
+	if pressed_action.is_empty() or pressed_action != String(pointer_hit.get("action", "")):
+		return
+	if pressed_action == POINTER_ACTION_PURCHASE and pressed_index != int(pointer_hit.get("index", -1)):
+		return
+	get_viewport().set_input_as_handled()
+	_activate_pointer_action(pressed_action, pressed_index)
 
 
 func _ready() -> void:
@@ -98,9 +131,9 @@ func _ready() -> void:
 	_upgrade_list.add_theme_constant_override("separation", 10)
 	scroll.add_child(_upgrade_list)
 
-	var close_button: Button = _make_button("CloseButton", tr("ui_cancel"))
-	close_button.pressed.connect(_on_close_pressed)
-	layout.add_child(close_button)
+	_close_button = _make_button("CloseButton", tr("ui_cancel"))
+	_close_button.pressed.connect(_on_close_pressed)
+	layout.add_child(_close_button)
 
 	refresh()
 
@@ -260,3 +293,35 @@ func _on_purchase_pressed(button_index: int) -> void:
 
 func _on_close_pressed() -> void:
 	closed_requested.emit()
+
+
+func _pointer_hit_at_position(position: Vector2) -> Dictionary:
+	if _close_button != null and _button_contains_position(_close_button, position):
+		return {
+			"action": POINTER_ACTION_CLOSE,
+			"index": -1,
+		}
+	for index: int in range(_purchase_buttons.size()):
+		var button: Button = _purchase_buttons[index]
+		if _button_contains_position(button, position):
+			return {
+				"action": POINTER_ACTION_PURCHASE,
+				"index": index,
+			}
+	return {}
+
+
+func _button_contains_position(button: Button, position: Vector2) -> bool:
+	return (
+		is_instance_valid(button)
+		and button.visible
+		and not button.disabled
+		and button.get_global_rect().has_point(position)
+	)
+
+
+func _activate_pointer_action(action: String, purchase_index: int) -> void:
+	if action == POINTER_ACTION_CLOSE:
+		_on_close_pressed()
+	elif action == POINTER_ACTION_PURCHASE:
+		_on_purchase_pressed(purchase_index)
