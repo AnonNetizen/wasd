@@ -73,6 +73,11 @@ func _ready() -> void:
 		_buttons[0].call_deferred("grab_focus")
 
 
+func _exit_tree() -> void:
+	if Localization.locale_changed.is_connected(_on_locale_changed):
+		Localization.locale_changed.disconnect(_on_locale_changed)
+
+
 func refresh_texts() -> void:
 	if _title_label != null:
 		_title_label.text = tr("ui_pause_title")

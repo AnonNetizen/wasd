@@ -21,6 +21,7 @@ var _panel: PanelContainer = null
 var _pressed_choice_index: int = -1
 var _root: Control = null
 var _selection_locked: bool = false
+var _title_label: Label = null
 
 
 func _input(event: InputEvent) -> void:
@@ -54,15 +55,21 @@ func _ready() -> void:
 	_root = get_node_or_null("Root") as Control
 	_panel = get_node_or_null("Root/Center/LevelUpPanelFrame") as PanelContainer
 	_button_box = get_node_or_null("Root/Center/LevelUpPanelFrame/Margin/Layout/ButtonBox") as VBoxContainer
-	var title: Label = get_node_or_null("Root/Center/LevelUpPanelFrame/Margin/Layout/TitleLabel") as Label
-	if _root == null or _panel == null or _button_box == null or title == null:
+	_title_label = get_node_or_null("Root/Center/LevelUpPanelFrame/Margin/Layout/TitleLabel") as Label
+	if _root == null or _panel == null or _button_box == null or _title_label == null:
 		push_error("[LevelUpPanel] missing required scene nodes")
 		return
 
 	_root.resized.connect(_update_panel_width)
-	title.text = tr("ui_level_up_title")
+	if not Localization.locale_changed.is_connected(_on_locale_changed):
+		Localization.locale_changed.connect(_on_locale_changed)
 	_update_panel_width()
-	_refresh_buttons()
+	refresh_texts()
+
+
+func _exit_tree() -> void:
+	if Localization.locale_changed.is_connected(_on_locale_changed):
+		Localization.locale_changed.disconnect(_on_locale_changed)
 
 
 func configure(choices: Array[Dictionary]) -> void:
@@ -88,7 +95,15 @@ func choice_id(index: int) -> String:
 	return String(_choices[index].get("id", ""))
 
 
+func refresh_texts() -> void:
+	if _title_label != null:
+		_title_label.text = tr("ui_level_up_title")
+	_refresh_buttons()
+
+
 func _refresh_buttons() -> void:
+	if _button_box == null:
+		return
 	_buttons.clear()
 	for child: Node in _button_box.get_children():
 		child.queue_free()
@@ -139,3 +154,7 @@ func _panel_width() -> float:
 
 func _button_width() -> float:
 	return maxf(_panel_width() - BUTTON_HORIZONTAL_PADDING, 1.0)
+
+
+func _on_locale_changed(_locale: String) -> void:
+	refresh_texts()

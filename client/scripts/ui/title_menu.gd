@@ -65,6 +65,11 @@ func _ready() -> void:
 	refresh_meta_summary()
 
 
+func _exit_tree() -> void:
+	if Localization.locale_changed.is_connected(_on_locale_changed):
+		Localization.locale_changed.disconnect(_on_locale_changed)
+
+
 func configure(can_continue: bool, notice_key: String = "") -> void:
 	_notice_key = notice_key
 	if _continue_button == null:

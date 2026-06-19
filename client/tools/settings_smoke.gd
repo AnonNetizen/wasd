@@ -2,6 +2,11 @@ extends Node
 
 
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
+const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
+const GAME_OVER_PANEL_SCENE := preload("res://scenes/ui/game_over_panel.tscn")
+const GAMEPLAY_HUD_SCENE := preload("res://scenes/gameplay/gameplay_hud.tscn")
+const LEVEL_UP_PANEL_SCENE := preload("res://scenes/ui/level_up_panel.tscn")
+const META_PROGRESSION_PANEL_SCENE := preload("res://scenes/ui/meta_progression_panel.tscn")
 const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause_menu.tscn")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
@@ -32,6 +37,7 @@ func _run() -> void:
 	_expect_broken_config_recovers_to_defaults()
 	await _expect_settings_panel_controls()
 	await _expect_menu_settings_entries()
+	await _expect_runtime_locale_refresh()
 
 	_restore_original_config()
 	_finish()
@@ -197,6 +203,157 @@ func _expect_menu_settings_entries() -> void:
 	_expect(pause_requested[0], "pause settings button should emit settings_requested without locking pause menu")
 	remove_child(pause_menu)
 	pause_menu.queue_free()
+
+
+func _expect_runtime_locale_refresh() -> void:
+	Localization.set_locale("zh_CN")
+	await _expect_hud_locale_refresh()
+	await _expect_level_up_locale_refresh()
+	await _expect_game_over_locale_refresh()
+	await _expect_meta_progression_locale_refresh()
+	Localization.set_locale("zh_CN")
+
+
+func _expect_hud_locale_refresh() -> void:
+	var hud: CanvasLayer = GAMEPLAY_HUD_SCENE.instantiate() as CanvasLayer
+	hud.name = "GameplayHud"
+	add_child(hud)
+	await get_tree().process_frame
+
+	hud.call("set_life", 3.0, 5.0)
+	hud.call("set_kills", 2)
+	hud.call("set_level", 4)
+	hud.call("set_xp", 1, 10)
+	hud.call("show_upgrade_feedback", "ui_growth_damage_small_name")
+	await get_tree().process_frame
+
+	var life_label: Label = _find_node_by_name(hud, "LifeLabel") as Label
+	var kills_label: Label = _find_node_by_name(hud, "KillsLabel") as Label
+	var level_label: Label = _find_node_by_name(hud, "LevelLabel") as Label
+	var xp_label: Label = _find_node_by_name(hud, "XpLabel") as Label
+	var feedback_label: Label = _find_node_by_name(hud, "UpgradeFeedbackLabel") as Label
+	_expect(life_label != null and String(life_label.text).begins_with(tr("ui_hud_life")), "HUD life should start in zh_CN")
+	_expect(kills_label != null and String(kills_label.text).begins_with(tr("ui_hud_kills")), "HUD kills should start in zh_CN")
+	_expect(level_label != null and String(level_label.text).begins_with(tr("ui_hud_level")), "HUD level should start in zh_CN")
+	_expect(xp_label != null and String(xp_label.text).begins_with(tr("ui_hud_xp")), "HUD XP should start in zh_CN")
+	_expect(feedback_label != null and String(feedback_label.text).contains(tr("ui_growth_damage_small_name")), "HUD upgrade feedback should start in zh_CN")
+
+	Localization.set_locale("en")
+	await get_tree().process_frame
+	_expect(life_label != null and String(life_label.text).begins_with("Life"), "HUD life should refresh to en")
+	_expect(kills_label != null and String(kills_label.text).begins_with("Kills"), "HUD kills should refresh to en")
+	_expect(level_label != null and String(level_label.text).begins_with("Level"), "HUD level should refresh to en")
+	_expect(xp_label != null and String(xp_label.text).begins_with("XP"), "HUD XP should refresh to en")
+	_expect(feedback_label != null and String(feedback_label.text).contains("Upgrade"), "HUD upgrade feedback should refresh to en")
+
+	remove_child(hud)
+	hud.queue_free()
+
+
+func _expect_level_up_locale_refresh() -> void:
+	Localization.set_locale("zh_CN")
+	var panel: CanvasLayer = LEVEL_UP_PANEL_SCENE.instantiate() as CanvasLayer
+	panel.name = "LevelUpPanel"
+	add_child(panel)
+	await get_tree().process_frame
+	var choices: Array[Dictionary] = [{
+		"id": "smoke_choice",
+		"name_key": "ui_growth_damage_small_name",
+		"desc_key": "ui_growth_damage_small_desc",
+	}]
+	panel.call("configure", choices)
+	await get_tree().process_frame
+
+	var title_label: Label = _find_node_by_name(panel, "TitleLabel") as Label
+	var button_box: VBoxContainer = _find_node_by_name(panel, "ButtonBox") as VBoxContainer
+	var choice_button: Button = null
+	if button_box != null and button_box.get_child_count() > 0:
+		choice_button = button_box.get_child(0) as Button
+	_expect(title_label != null and String(title_label.text) == tr("ui_level_up_title"), "level-up panel title should start in zh_CN")
+	_expect(choice_button != null and String(choice_button.text).contains(tr("ui_growth_damage_small_name")), "level-up choice should start in zh_CN")
+
+	Localization.set_locale("en")
+	await get_tree().process_frame
+	button_box = _find_node_by_name(panel, "ButtonBox") as VBoxContainer
+	choice_button = null
+	if button_box != null and button_box.get_child_count() > 0:
+		choice_button = button_box.get_child(0) as Button
+	_expect(title_label != null and String(title_label.text) == "Choose Upgrade", "level-up panel title should refresh to en")
+	_expect(choice_button != null and String(choice_button.text).contains("Hardened Core"), "level-up choice should refresh to en")
+
+	remove_child(panel)
+	panel.queue_free()
+
+
+func _expect_game_over_locale_refresh() -> void:
+	Localization.set_locale("zh_CN")
+	var panel: CanvasLayer = GAME_OVER_PANEL_SCENE.instantiate() as CanvasLayer
+	panel.name = "GameOverPanel"
+	add_child(panel)
+	await get_tree().process_frame
+	var settlement: Dictionary = {
+		"account_level": 2,
+		"account_xp": 12,
+		"currency_amount": 8,
+		"currency_id": META_CURRENCIES.META_ESSENCE,
+		"currency_name_key": "meta_currency_essence_name",
+		"previous_account_level": 1,
+		"profile": {
+			"account_level": 2,
+			"currencies": {
+				META_CURRENCIES.META_ESSENCE: 8,
+			},
+		},
+	}
+	panel.call("configure", 5, 42.0, settlement)
+	await get_tree().process_frame
+
+	var title_label: Label = _find_node_by_name(panel, "TitleLabel") as Label
+	var summary_label: Label = _find_node_by_name(panel, "SummaryLabel") as Label
+	var settlement_label: Label = _find_node_by_name(panel, "SettlementLabel") as Label
+	var profile_label: Label = _find_node_by_name(panel, "MetaProfileLabel") as Label
+	var restart_button: Button = _find_node_by_name(panel, "RestartButton") as Button
+	var quit_button: Button = _find_node_by_name(panel, "QuitToTitleButton") as Button
+	_expect(title_label != null and String(title_label.text) == tr("ui_game_over"), "game-over title should start in zh_CN")
+	_expect(summary_label != null and String(summary_label.text).contains(tr("ui_hud_kills")), "game-over summary should start in zh_CN")
+	_expect(settlement_label != null and String(settlement_label.text).contains(tr("meta_currency_essence_name")), "game-over settlement should start in zh_CN")
+	_expect(profile_label != null and String(profile_label.text).contains(tr("ui_meta_account_level_up").format({
+		"from": 1,
+		"to": 2,
+	})), "game-over profile should start in zh_CN")
+
+	Localization.set_locale("en")
+	await get_tree().process_frame
+	_expect(title_label != null and String(title_label.text) == "Run Over", "game-over title should refresh to en")
+	_expect(summary_label != null and String(summary_label.text).contains("Kills"), "game-over summary should refresh to en")
+	_expect(settlement_label != null and String(settlement_label.text).contains("Earned"), "game-over settlement should refresh to en")
+	_expect(profile_label != null and String(profile_label.text).contains("Account Level Up"), "game-over profile should refresh to en")
+	_expect(restart_button != null and String(restart_button.text) == "Restart", "game-over restart button should refresh to en")
+	_expect(quit_button != null and String(quit_button.text) == "Back to Title", "game-over quit button should refresh to en")
+
+	remove_child(panel)
+	panel.queue_free()
+
+
+func _expect_meta_progression_locale_refresh() -> void:
+	Localization.set_locale("zh_CN")
+	var panel: CanvasLayer = META_PROGRESSION_PANEL_SCENE.instantiate() as CanvasLayer
+	panel.name = "MetaProgressionPanel"
+	add_child(panel)
+	await get_tree().process_frame
+
+	var title_label: Label = _find_node_by_name(panel, "TitleLabel") as Label
+	var close_button: Button = _find_node_by_name(panel, "CloseButton") as Button
+	_expect(title_label != null and String(title_label.text) == tr("ui_meta_progression_title"), "meta progression title should start in zh_CN")
+	_expect(close_button != null and String(close_button.text) == tr("ui_cancel"), "meta progression close button should start in zh_CN")
+
+	Localization.set_locale("en")
+	await get_tree().process_frame
+	_expect(title_label != null and String(title_label.text) == "Meta Upgrades", "meta progression title should refresh to en")
+	_expect(close_button != null and String(close_button.text) == "Cancel", "meta progression close button should refresh to en")
+
+	remove_child(panel)
+	panel.queue_free()
 
 
 func _on_setting_changed(key: String, _value: Variant, changed_keys: Array[String]) -> void:

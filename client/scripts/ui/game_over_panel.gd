@@ -13,10 +13,16 @@ const BUTTON_ACTION_RESTART: String = "restart"
 var _button_actions: Array[String] = []
 var _buttons: Array[Button] = []
 var _pressed_button_index: int = -1
+var _quit_button: Button = null
+var _restart_button: Button = null
 var _selection_locked: bool = false
 var _settlement_label: Label = null
 var _profile_label: Label = null
 var _summary_label: Label = null
+var _title_label: Label = null
+var _kills: int = 0
+var _run_time: float = 0.0
+var _settlement: Dictionary = {}
 
 
 func _input(event: InputEvent) -> void:
@@ -45,38 +51,56 @@ func _input(event: InputEvent) -> void:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
-	var title: Label = get_node_or_null("Root/Center/Panel/Margin/Layout/TitleLabel") as Label
-	var restart_button: Button = get_node_or_null("Root/Center/Panel/Margin/Layout/RestartButton") as Button
-	var quit_button: Button = get_node_or_null("Root/Center/Panel/Margin/Layout/QuitToTitleButton") as Button
+	_title_label = get_node_or_null("Root/Center/Panel/Margin/Layout/TitleLabel") as Label
+	_restart_button = get_node_or_null("Root/Center/Panel/Margin/Layout/RestartButton") as Button
+	_quit_button = get_node_or_null("Root/Center/Panel/Margin/Layout/QuitToTitleButton") as Button
 	_summary_label = get_node_or_null("Root/Center/Panel/Margin/Layout/SummaryLabel") as Label
 	_settlement_label = get_node_or_null("Root/Center/Panel/Margin/Layout/SettlementLabel") as Label
 	_profile_label = get_node_or_null("Root/Center/Panel/Margin/Layout/MetaProfileLabel") as Label
-	if title == null or restart_button == null or quit_button == null:
+	if _title_label == null or _restart_button == null or _quit_button == null:
 		push_error("[GameOverPanel] missing required scene nodes")
 		return
 	if _summary_label == null or _settlement_label == null or _profile_label == null:
 		push_error("[GameOverPanel] missing required scene nodes")
 		return
 
-	title.text = tr("ui_game_over")
-	restart_button.text = tr("ui_restart")
-	restart_button.pressed.connect(_on_restart_pressed)
-	_register_button(restart_button, BUTTON_ACTION_RESTART)
+	_restart_button.pressed.connect(_on_restart_pressed)
+	_register_button(_restart_button, BUTTON_ACTION_RESTART)
 
-	quit_button.text = tr("ui_quit_to_title")
-	quit_button.pressed.connect(_on_quit_to_title_pressed)
-	_register_button(quit_button, BUTTON_ACTION_QUIT_TO_TITLE)
-	restart_button.call_deferred("grab_focus")
+	_quit_button.pressed.connect(_on_quit_to_title_pressed)
+	_register_button(_quit_button, BUTTON_ACTION_QUIT_TO_TITLE)
+	if not Localization.locale_changed.is_connected(_on_locale_changed):
+		Localization.locale_changed.connect(_on_locale_changed)
+	refresh_texts()
+	_restart_button.call_deferred("grab_focus")
+
+
+func _exit_tree() -> void:
+	if Localization.locale_changed.is_connected(_on_locale_changed):
+		Localization.locale_changed.disconnect(_on_locale_changed)
 
 
 func configure(kills: int, run_time: float, settlement: Dictionary = {}) -> void:
+	_kills = kills
+	_run_time = run_time
+	_settlement = settlement.duplicate(true)
+	refresh_texts()
+
+
+func refresh_texts() -> void:
+	if _title_label != null:
+		_title_label.text = tr("ui_game_over")
+	if _restart_button != null:
+		_restart_button.text = tr("ui_restart")
+	if _quit_button != null:
+		_quit_button.text = tr("ui_quit_to_title")
 	if _summary_label == null:
 		return
 	_summary_label.text = tr("ui_run_summary").format({
-		"kills": kills,
-		"time": int(run_time),
+		"kills": _kills,
+		"time": int(_run_time),
 	})
-	_configure_settlement(settlement)
+	_configure_settlement(_settlement)
 
 
 func _register_button(button: Button, action: String) -> void:
@@ -155,3 +179,7 @@ func _activate_button(index: int) -> void:
 		restart_requested.emit()
 	elif action == BUTTON_ACTION_QUIT_TO_TITLE:
 		quit_to_title_requested.emit()
+
+
+func _on_locale_changed(_locale: String) -> void:
+	refresh_texts()

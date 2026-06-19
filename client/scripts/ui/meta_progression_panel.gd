@@ -33,9 +33,12 @@ var _account_label: Label = null
 var _close_button: Button = null
 var _currency_label: Label = null
 var _feedback_label: Label = null
+var _last_feedback_name_key: String = ""
+var _last_feedback_result: Dictionary = {}
 var _pressed_pointer_action: String = ""
 var _pressed_purchase_index: int = -1
 var _purchase_buttons: Array[Button] = []
+var _title_label: Label = null
 var _upgrade_ids: Array[String] = []
 var _upgrade_name_keys: Array[String] = []
 var _upgrade_list: VBoxContainer = null
@@ -72,32 +75,47 @@ func _input(event: InputEvent) -> void:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
-	var title: Label = get_node_or_null("Root/Center/MetaProgressionPanelContainer/Margin/Layout/TitleLabel") as Label
+	_title_label = get_node_or_null("Root/Center/MetaProgressionPanelContainer/Margin/Layout/TitleLabel") as Label
 	_account_label = get_node_or_null("Root/Center/MetaProgressionPanelContainer/Margin/Layout/ProfileRow/MetaAccountLabel") as Label
 	_currency_label = get_node_or_null("Root/Center/MetaProgressionPanelContainer/Margin/Layout/ProfileRow/MetaCurrencyLabel") as Label
 	_feedback_label = get_node_or_null("Root/Center/MetaProgressionPanelContainer/Margin/Layout/MetaPurchaseFeedbackLabel") as Label
 	_upgrade_list = get_node_or_null("Root/Center/MetaProgressionPanelContainer/Margin/Layout/MetaUpgradeScroll/MetaUpgradeList") as VBoxContainer
 	_close_button = get_node_or_null("Root/Center/MetaProgressionPanelContainer/Margin/Layout/CloseButton") as Button
-	if title == null or _account_label == null or _currency_label == null:
+	if _title_label == null or _account_label == null or _currency_label == null:
 		push_error("[MetaProgressionPanel] missing required scene nodes")
 		return
 	if _feedback_label == null or _upgrade_list == null or _close_button == null:
 		push_error("[MetaProgressionPanel] missing required scene nodes")
 		return
 
-	title.text = tr("ui_meta_progression_title")
 	_feedback_label.visible = false
 	_close_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	_close_button.mouse_filter = Control.MOUSE_FILTER_STOP
-	_close_button.text = tr("ui_cancel")
 	_close_button.pressed.connect(_on_close_pressed)
+	if not Localization.locale_changed.is_connected(_on_locale_changed):
+		Localization.locale_changed.connect(_on_locale_changed)
 
-	refresh()
+	refresh_texts()
+
+
+func _exit_tree() -> void:
+	if Localization.locale_changed.is_connected(_on_locale_changed):
+		Localization.locale_changed.disconnect(_on_locale_changed)
 
 
 func refresh() -> void:
 	_refresh_profile()
 	_refresh_upgrades()
+
+
+func refresh_texts() -> void:
+	if _title_label != null:
+		_title_label.text = tr("ui_meta_progression_title")
+	if _close_button != null:
+		_close_button.text = tr("ui_cancel")
+	refresh()
+	if _feedback_label != null and _feedback_label.visible and not _last_feedback_result.is_empty():
+		_refresh_purchase_feedback()
 
 
 func _refresh_profile() -> void:
@@ -362,19 +380,25 @@ func _on_close_pressed() -> void:
 
 
 func _show_purchase_feedback(purchase_result: Dictionary, name_key: String) -> void:
+	_last_feedback_result = purchase_result.duplicate(true)
+	_last_feedback_name_key = name_key
+	_refresh_purchase_feedback()
+
+
+func _refresh_purchase_feedback() -> void:
 	if _feedback_label == null:
 		return
 	_feedback_label.visible = true
-	if bool(purchase_result.get("ok", false)):
+	if bool(_last_feedback_result.get("ok", false)):
 		_feedback_label.add_theme_color_override("font_color", FEEDBACK_SUCCESS_COLOR)
 		_feedback_label.text = tr("ui_meta_purchase_success").format({
-			"name": tr(name_key),
-			"level": int(purchase_result.get("level", 0)),
+			"name": tr(_last_feedback_name_key),
+			"level": int(_last_feedback_result.get("level", 0)),
 		})
 		return
 	_feedback_label.add_theme_color_override("font_color", FEEDBACK_FAILURE_COLOR)
 	_feedback_label.text = tr("ui_meta_purchase_failed").format({
-		"reason": _purchase_failure_text(purchase_result),
+		"reason": _purchase_failure_text(_last_feedback_result),
 	})
 
 
@@ -417,3 +441,7 @@ func _activate_pointer_action(action: String, purchase_index: int) -> void:
 		_on_close_pressed()
 	elif action == POINTER_ACTION_PURCHASE:
 		_on_purchase_pressed(purchase_index)
+
+
+func _on_locale_changed(_locale: String) -> void:
+	refresh_texts()

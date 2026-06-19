@@ -8,7 +8,7 @@
 - `Settings` 负责维护正式客户端运行时设置的默认值、读取、修改和变更广播。
 - 设置 key 必须来自 `docs/词表与契约.md`，并通过 `client/scripts/contracts/settings_keys.gd` 与 `DataLoader` 的 `_contracts.json` 校验。
 - F7 首片已接入 `user://settings.cfg` 持久化、类型 / 范围校验、损坏配置回退和 `settings-smoke` 自动验证。
-- F7 第二片已接入正式 `SettingsPanel`，标题菜单和暂停菜单都能打开同一设置面板；面板只通过 `Settings.set_value()` 写入，不直接维护偏好副本。
+- F7 第二片已接入正式 `SettingsPanel`，标题菜单和暂停菜单都能打开同一设置面板；面板只通过 `Settings.set_value()` 写入，不直接维护偏好副本。F7 运行时语言刷新已覆盖标题、暂停、设置、HUD、升级、结算和局外成长面板。
 - `Settings` 不负责玩家进度存档；局外成长与局内续局属于 `SaveManager`。
 
 ## 阅读方式
@@ -62,9 +62,9 @@ SettingsPanel (CanvasLayer)
 | 启动 | `_ready()` 先写入默认值，再尝试加载 `user://settings.cfg`；无配置时保留默认值，损坏或不支持版本时回退默认并重写干净配置 | `reset_to_defaults(false)` / `load_from_disk()` |
 | 读取 | 调用方用已登记 key 读取当前值 | `get_value()` |
 | 修改 | key 通过契约、类型和范围校验后写入、广播并保存到磁盘 | `set_value()` / `setting_changed` / `save_to_disk()` |
-| 面板 | `SettingsPanel` 初始化时读取当前值；控件变化后调用 `Settings.set_value()`；语言切换后刷新面板已有 label / option 文案 | `SettingsPanel.refresh()` / `Localization.locale_changed` |
+| 面板 | `SettingsPanel` 初始化时读取当前值；控件变化后调用 `Settings.set_value()`；语言切换后刷新面板已有 label / option 文案；离树时断开语言订阅 | `SettingsPanel.refresh()` / `Localization.locale_changed` |
 | 重置 | 恢复默认值；调用方可选择是否立即持久化 | `reset_to_defaults(persist)` |
-| smoke | 备份现有 `settings.cfg`，验证缺文件默认值、有效设置 roundtrip、非法值拒绝、坏值 / 坏文件回退，然后恢复原文件 | `settings-smoke` |
+| smoke | 备份现有 `settings.cfg`，验证缺文件默认值、有效设置 roundtrip、非法值拒绝、坏值 / 坏文件回退、设置面板控件、标题 / 暂停入口，以及核心 UI 既有实例语言刷新，然后恢复原文件 | `settings-smoke` |
 
 ## 公共 API
 
@@ -147,6 +147,7 @@ audio.master=1.0
 | 改默认语言 | `settings.gd` | 本文档、`client/locale/README.md` | headless boot |
 | 接入设置菜单 | `settings_panel.tscn`、`settings_panel.gd`、入口菜单脚本 | UI 模块文档 | `settings-smoke` + `runtime-smoke` |
 | 改持久化 / 回退 | `settings.gd`、`settings_smoke.gd` | 本文档、FormalClientBoot 文档 | `settings-smoke` + headless boot |
+| 改运行时语言刷新 | 目标 UI 脚本、`settings_smoke.gd` | 本文档、Localization / Gameplay Runtime 文档 | `settings-smoke` + `runtime-smoke` |
 
 ## 故障排查
 

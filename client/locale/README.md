@@ -130,7 +130,7 @@ label.text = tr("ui_damage") + str(value)
 
 1. 在 `strings.csv` 新增 `ui_hud_*` key，例如 `ui_hud_life,生命,Life`。
 2. HUD 代码只显示 `tr("ui_hud_life")` 和格式化数值，不硬编码玩家可见标签。
-3. 若 HUD 会常驻局内，手动切语言时要确认标签刷新；F4 临时 HUD 当前在启动时读取本地化文本。
+3. 若 HUD 会常驻局内，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、击杀、时间、等级、经验和升级反馈重画。
 
 ### 加一个设置面板控件文案
 

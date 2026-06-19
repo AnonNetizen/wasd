@@ -14,6 +14,7 @@ var _time_label: Label = null
 var _message_label: Label = null
 var _upgrade_feedback_label: Label = null
 var _upgrade_feedback_remaining: float = 0.0
+var _last_upgrade_name_key: String = ""
 var _current_life: float = 0.0
 var _max_life: float = 0.0
 var _kills: int = 0
@@ -39,16 +40,23 @@ func _ready() -> void:
 
 	_message_label.hide()
 	_upgrade_feedback_label.hide()
+	if not Localization.locale_changed.is_connected(_on_locale_changed):
+		Localization.locale_changed.connect(_on_locale_changed)
 	_refresh_static_labels()
 
 
 func _process(delta: float) -> void:
-	_time_label.text = "%s: %d" % [tr("ui_hud_time"), int(GameClock.now())]
+	_refresh_time_label()
 	if _upgrade_feedback_remaining <= 0.0:
 		return
 	_upgrade_feedback_remaining = maxf(_upgrade_feedback_remaining - GameClock.delta_scaled(delta), 0.0)
 	if _upgrade_feedback_remaining <= 0.0:
 		_upgrade_feedback_label.hide()
+
+
+func _exit_tree() -> void:
+	if Localization.locale_changed.is_connected(_on_locale_changed):
+		Localization.locale_changed.disconnect(_on_locale_changed)
 
 
 func set_life(current_life: float, max_life: float) -> void:
@@ -78,9 +86,8 @@ func show_game_over() -> void:
 
 
 func show_upgrade_feedback(name_key: String) -> void:
-	_upgrade_feedback_label.text = tr("ui_upgrade_applied").format({
-		"name": tr(name_key),
-	})
+	_last_upgrade_name_key = name_key
+	_refresh_upgrade_feedback()
 	_upgrade_feedback_remaining = UPGRADE_FEEDBACK_DURATION
 	_upgrade_feedback_label.show()
 
@@ -98,3 +105,24 @@ func _refresh_static_labels() -> void:
 	set_kills(_kills)
 	set_level(_level)
 	set_xp(_xp, _xp_required)
+	_refresh_time_label()
+	if _upgrade_feedback_label.visible:
+		_refresh_upgrade_feedback()
+
+
+func _refresh_time_label() -> void:
+	if _time_label == null:
+		return
+	_time_label.text = "%s: %d" % [tr("ui_hud_time"), int(GameClock.now())]
+
+
+func _refresh_upgrade_feedback() -> void:
+	if _upgrade_feedback_label == null:
+		return
+	_upgrade_feedback_label.text = tr("ui_upgrade_applied").format({
+		"name": tr(_last_upgrade_name_key),
+	})
+
+
+func _on_locale_changed(_locale: String) -> void:
+	_refresh_static_labels()
