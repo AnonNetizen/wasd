@@ -88,6 +88,8 @@ func _runtime_summary(run_loop: Node) -> Dictionary:
 		"level": int(snapshot.get("level", 1)),
 		"xp": int(snapshot.get("xp", 0)),
 		"kills": int(snapshot.get("kills", 0)),
+		"player_moved_right": _player_position_x(snapshot) > 0.0,
+		"player_aim_direction": _dictionary_or_empty(_dictionary_or_empty(snapshot.get("player", {})).get("aim_direction", {})),
 		"active_enemies": _array_size(snapshot.get("enemies", [])),
 		"active_bullets": _array_size(snapshot.get("bullets", [])),
 		"active_pickups": _array_size(snapshot.get("pickups", [])),
@@ -98,6 +100,12 @@ func _runtime_summary(run_loop: Node) -> Dictionary:
 			POOL_IDS.PICKUP_ORB: PoolManager.stats(POOL_IDS.PICKUP_ORB),
 		},
 	}
+
+
+func _player_position_x(snapshot: Dictionary) -> float:
+	var player_snapshot: Dictionary = _dictionary_or_empty(snapshot.get("player", {}))
+	var position: Dictionary = _dictionary_or_empty(player_snapshot.get("position", {}))
+	return float(position.get("x", 0.0))
 
 
 func _copy_normalized_replay_to_project(source_path: String, destination_path: String) -> String:

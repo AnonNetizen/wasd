@@ -10,6 +10,10 @@ const ARG_EXPECTATION_FILE: String = "--expectation-file"
 const ARG_REPLAY_FILE: String = "--replay-file"
 const ARG_RERUN_RUNTIME_SUMMARY: String = "--rerun-runtime-summary"
 const FLOAT_TOLERANCE: float = 0.0001
+const INPUT_PLAYBACK_CAPTURE_FRAMES: int = 80
+const INPUT_PLAYBACK_REPLAY_FILE_NAME: String = "runner_input_playback.replay"
+const INPUT_PLAYBACK_REPLAY_SEED: int = 20260619
+const INPUT_PLAYBACK_SCENARIO: String = "runner_input_playback"
 const SMOKE_REPLAY_FILE_NAME: String = "runner_smoke_basic_run.replay"
 const SMOKE_REPLAY_SEED: int = 20260619
 const SMOKE_RECORD_FRAMES: int = 3
@@ -29,7 +33,7 @@ func _run() -> void:
 	var expected_summary: Dictionary = {}
 	var cleanup_replay_after_run: bool = false
 	if replay_path.is_empty():
-		var smoke_payload: Dictionary = await _create_smoke_replay()
+		var smoke_payload: Dictionary = await _create_runtime_input_replay() if _has_argument(ARG_RERUN_RUNTIME_SUMMARY) else await _create_smoke_replay()
 		replay_path = String(smoke_payload.get("path", ""))
 		expected_summary = smoke_payload.get("summary", {}) as Dictionary
 		cleanup_replay_after_run = true
@@ -98,6 +102,64 @@ func _create_smoke_replay() -> Dictionary:
 	}
 
 
+func _create_runtime_input_replay() -> Dictionary:
+	_cleanup_replay_file(INPUT_PLAYBACK_REPLAY_FILE_NAME)
+	var input_events: Array[Dictionary] = _input_playback_events()
+	var recording: Dictionary = {
+		"schema_version": 1,
+		"run_seed": INPUT_PLAYBACK_REPLAY_SEED,
+		"started_tick": 0,
+		"started_time": 0.0,
+		"ended_tick": INPUT_PLAYBACK_CAPTURE_FRAMES,
+		"ended_time": 0.0,
+		"reason": String(GameState.GAME_OVER),
+		"context": {
+			"source": "replay_runner",
+			"scenario": INPUT_PLAYBACK_SCENARIO,
+			"capture_frames": INPUT_PLAYBACK_CAPTURE_FRAMES,
+		},
+		"input_events": input_events,
+		"decision_events": [],
+		"dropped_input_events": 0,
+		"dropped_decision_events": 0,
+	}
+	var run_summary: Dictionary = await _run_runtime_summary(recording, INPUT_PLAYBACK_CAPTURE_FRAMES)
+	_expect(not run_summary.is_empty(), "ReplayRunner input playback smoke should produce a run_summary")
+	if not run_summary.is_empty():
+		recording["run_summary"] = run_summary
+
+	var path: String = Replay.save_recording(recording, INPUT_PLAYBACK_REPLAY_FILE_NAME)
+	_expect(not path.is_empty(), "ReplayRunner input playback smoke should save a .replay file")
+	return {
+		"path": path,
+		"summary": Replay.recording_summary(recording),
+	}
+
+
+func _input_playback_events() -> Array[Dictionary]:
+	return [
+		_input_event(ACTIONS.MOVE_RIGHT, true, 1.0, 1),
+		_input_event(ACTIONS.MOVE_RIGHT, false, 0.0, 30),
+		_input_event(ACTIONS.AIM_UP, true, 1.0, 35),
+		_input_event(ACTIONS.AIM_UP, false, 0.0, 40),
+		_input_event(ACTIONS.PAUSE, true, 1.0, 45),
+		_input_event(ACTIONS.PAUSE, false, 0.0, 45),
+		_input_event(ACTIONS.UI_BACK, true, 1.0, 45),
+		_input_event(ACTIONS.UI_BACK, false, 0.0, 45),
+	]
+
+
+func _input_event(action_name: String, pressed: bool, strength: float, tick: int) -> Dictionary:
+	return {
+		"action": action_name,
+		"pressed": pressed,
+		"strength": strength,
+		"tick": tick,
+		"time": float(tick) / 60.0,
+		"participant_id": "player_0",
+	}
+
+
 func _read_expected_summary(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		_expect(false, "ReplayRunner expectation file should exist: %s" % path)
@@ -148,6 +210,10 @@ func _rerun_runtime_summary(recording: Dictionary) -> Dictionary:
 	if capture_frames <= 0:
 		return {}
 
+	return await _run_runtime_summary(recording, capture_frames)
+
+
+func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Dictionary:
 	Replay.set_enabled(false)
 	Replay.clear_recording()
 	RNG.set_run_seed(int(recording.get("run_seed", 0)))
@@ -169,27 +235,35 @@ func _rerun_runtime_summary(recording: Dictionary) -> Dictionary:
 	if run_loop == null:
 		return {}
 
+	var input_events: Array[Dictionary] = _sorted_input_events(recording.get("input_events", []))
+	var next_input_index: int = 0
 	for _index: int in range(capture_frames):
+		next_input_index = await _apply_due_input_events(input_events, next_input_index)
 		await get_tree().physics_frame
 		await get_tree().process_frame
 
-	var summary: Dictionary = _runtime_summary(run_loop, capture_frames)
+	next_input_index = await _apply_due_input_events(input_events, next_input_index)
+	var scenario: String = String(_dictionary_or_empty(recording.get("context", {})).get("scenario", "golden_basic_run"))
+	var summary: Dictionary = _runtime_summary(run_loop, capture_frames, scenario)
+	_release_input_actions(input_events)
 	GameState.change_state(GameState.MAIN_MENU, {"source": "replay_runner_rerun"})
 	return summary
 
 
-func _runtime_summary(run_loop: Node, capture_frames: int) -> Dictionary:
+func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String) -> Dictionary:
 	var snapshot: Dictionary = {}
 	if run_loop.has_method("create_run_snapshot"):
 		snapshot = run_loop.call("create_run_snapshot") as Dictionary
 	return {
 		"schema_version": 1,
-		"scenario": String(_dictionary_or_empty(snapshot.get("context", {})).get("scenario", "golden_basic_run")),
+		"scenario": scenario,
 		"capture_frames": capture_frames,
 		"state": String(GameState.current()),
 		"level": int(snapshot.get("level", 1)),
 		"xp": int(snapshot.get("xp", 0)),
 		"kills": int(snapshot.get("kills", 0)),
+		"player_moved_right": _player_position_x(snapshot) > 0.0,
+		"player_aim_direction": _dictionary_or_empty(_dictionary_or_empty(snapshot.get("player", {})).get("aim_direction", {})),
 		"active_enemies": _array_size(snapshot.get("enemies", [])),
 		"active_bullets": _array_size(snapshot.get("bullets", [])),
 		"active_pickups": _array_size(snapshot.get("pickups", [])),
@@ -200,6 +274,66 @@ func _runtime_summary(run_loop: Node, capture_frames: int) -> Dictionary:
 			POOL_IDS.PICKUP_ORB: PoolManager.stats(POOL_IDS.PICKUP_ORB),
 		},
 	}
+
+
+func _player_position_x(snapshot: Dictionary) -> float:
+	var player_snapshot: Dictionary = _dictionary_or_empty(snapshot.get("player", {}))
+	var position: Dictionary = _dictionary_or_empty(player_snapshot.get("position", {}))
+	return float(position.get("x", 0.0))
+
+
+func _sorted_input_events(raw_input_events: Variant) -> Array[Dictionary]:
+	var input_events: Array[Dictionary] = []
+	if not raw_input_events is Array:
+		return input_events
+	for raw_input_event: Variant in raw_input_events as Array:
+		if raw_input_event is Dictionary:
+			input_events.append((raw_input_event as Dictionary).duplicate(true))
+	input_events.sort_custom(_sort_input_events_by_tick)
+	return input_events
+
+
+func _sort_input_events_by_tick(left: Dictionary, right: Dictionary) -> bool:
+	return int(left.get("tick", 0)) < int(right.get("tick", 0))
+
+
+func _apply_due_input_events(input_events: Array[Dictionary], next_input_index: int) -> int:
+	while next_input_index < input_events.size():
+		var input_event: Dictionary = input_events[next_input_index]
+		if int(input_event.get("tick", 0)) > GameClock.tick():
+			return next_input_index
+		await _apply_input_event(input_event)
+		next_input_index += 1
+	return next_input_index
+
+
+func _apply_input_event(input_event: Dictionary) -> void:
+	var action_name: String = String(input_event.get("action", ""))
+	if action_name.is_empty():
+		return
+	var pressed: bool = bool(input_event.get("pressed", false))
+	var strength: float = clampf(float(input_event.get("strength", 1.0 if pressed else 0.0)), 0.0, 1.0)
+	if pressed:
+		Input.action_press(action_name, strength)
+	else:
+		Input.action_release(action_name)
+
+	var event: InputEventAction = InputEventAction.new()
+	event.action = action_name
+	event.pressed = pressed
+	event.strength = strength
+	get_viewport().push_input(event, true)
+	await get_tree().process_frame
+
+
+func _release_input_actions(input_events: Array[Dictionary]) -> void:
+	var released_actions: Dictionary = {}
+	for input_event: Dictionary in input_events:
+		var action_name: String = String(input_event.get("action", ""))
+		if action_name.is_empty() or released_actions.has(action_name):
+			continue
+		Input.action_release(action_name)
+		released_actions[action_name] = true
 
 
 func _collect_summary_diffs(expected_value: Variant, actual_value: Variant, path: String, diffs: Array[String]) -> void:
@@ -280,7 +414,11 @@ func _find_node_by_name(root_node: Node, target_name: String) -> Node:
 
 
 func _cleanup_smoke_file() -> void:
-	var path: String = Replay.replay_root().path_join(SMOKE_REPLAY_FILE_NAME)
+	_cleanup_replay_file(SMOKE_REPLAY_FILE_NAME)
+
+
+func _cleanup_replay_file(file_name: String) -> void:
+	var path: String = Replay.replay_root().path_join(file_name)
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(path)
 

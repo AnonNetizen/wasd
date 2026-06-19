@@ -76,7 +76,7 @@ UIManager
 | F6 局外成长 smoke | `--meta-smoke` 启动时只挂载 `MetaProgressionSmoke`，验证 meta profile roundtrip、结算、购买、解锁和永久 modifier | `client/tools/meta_progression_smoke.gd` |
 | F8 L1 smoke | `--l1-smoke` 启动时只挂载 `L1Smoke`，验证 `RNG`、`GameClock`、`GameState`、`SaveManager` 和 `Combat` 的最小基础设施行为 | `client/tools/l1_smoke.gd` |
 | F8 Replay smoke | `--replay-smoke` 启动时只挂载 `ReplaySmoke`，验证 Replay 最小录制、`.replay` 保存 / 读取、摘要对比和 data fingerprint | `client/tools/replay_smoke.gd` |
-| F8 Replay runner | `--replay-runner` 启动时只挂载 `ReplayRunner`，读取 `.replay` 并比较 envelope summary 或外部 expectation JSON；未传文件时生成临时 smoke replay 自测 runner；带 `--rerun-runtime-summary` 时会按 replay seed 启动 `GameplayRunLoop` 并比较 `run_summary` | `client/tools/replay_runner.gd` |
+| F8 Replay runner | `--replay-runner` 启动时只挂载 `ReplayRunner`，读取 `.replay` 并比较 envelope summary 或外部 expectation JSON；未传文件时生成临时 smoke replay 自测 runner；带 `--rerun-runtime-summary` 时会按 replay seed 启动 `GameplayRunLoop`、按 tick 播放 `input_events` 并比较 `run_summary`，未传文件时生成临时输入播放 smoke replay | `client/tools/replay_runner.gd` |
 | F8 Replay input smoke | `--replay-input-smoke` 启动时只挂载 `ReplayInputSmoke`，启动真实 `GameplayRunLoop` 并确认移动 / 瞄准 / pause / ui_back 输入录制到 `Replay.input_events` | `client/tools/replay_input_smoke.gd` |
 | F8 golden capture | `--capture-golden-replay` 启动时只挂载 `GoldenReplayCapture`，由工具设置固定 seed、启动 `GameplayRunLoop`、采样 180 帧并写入 `client/tests/replays/golden_basic_run.replay` | `client/tools/golden_replay_capture.gd` |
 | F8 perf probe | `--perf-probe` 启动时挂载 `GameplayRunLoop` 与 `PerfProbe`，输出平均 / 最大帧时间、池水位、等级、击杀和 GameClock 指标 JSON | `client/tools/perf_probe.gd` |
