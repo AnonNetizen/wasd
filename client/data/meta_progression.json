@@ -61,6 +61,18 @@
       "unlock_condition": { "account_level": 1 }
     },
     {
+      "id": "meta_upgrade_fire_rate",
+      "name_key": "meta_upgrade_fire_rate_name",
+      "desc_key": "meta_upgrade_fire_rate_desc",
+      "currency_id": "meta_essence",
+      "max_level": 10,
+      "costs": [22, 38, 58, 82, 110, 142, 178, 218, 262, 310],
+      "modifiers": [
+        { "stat": "fire_rate", "type": "add", "value_per_level": 0.12 }
+      ],
+      "unlock_condition": { "account_level": 1 }
+    },
+    {
       "id": "meta_upgrade_move_speed",
       "name_key": "meta_upgrade_move_speed_name",
       "desc_key": "meta_upgrade_move_speed_desc",

@@ -687,7 +687,7 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 { "stat": "damage", "type": "add", "value_per_level": 0.25 }
 ```
 
-运行时由 `MetaProgressionSystem` 把已购等级转换为 `ModifierEngine` 修正器，禁止直接改 `player.json` 基础值。
+当前首批永久属性轨道覆盖生命、伤害、射速、移动速度、拾取范围和幸运；运行时由 `MetaProgressionSystem` 把已购等级转换为 `ModifierEngine` 修正器，禁止直接改 `player.json` 基础值。
 
 ### `unlocks`
 

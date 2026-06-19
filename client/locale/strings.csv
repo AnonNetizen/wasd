@@ -75,6 +75,8 @@ meta_upgrade_max_hp_name,坚韧心脏,Stout Heart
 meta_upgrade_max_hp_desc,永久提升最大生命,Permanently increases max HP
 meta_upgrade_damage_name,淬火弹芯,Tempered Rounds
 meta_upgrade_damage_desc,永久提升基础伤害,Permanently increases base damage
+meta_upgrade_fire_rate_name,加速线圈,Accelerator Coil
+meta_upgrade_fire_rate_desc,永久提升基础射速,Permanently increases base fire rate
 meta_upgrade_move_speed_name,轻盈步伐,Light Steps
 meta_upgrade_move_speed_desc,永久提升移动速度,Permanently increases movement speed
 meta_upgrade_pickup_range_name,磁化口袋,Magnetized Pockets

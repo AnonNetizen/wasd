@@ -40,7 +40,8 @@ func _run() -> void:
 	_expect(_has_unlock(settled_profile, META_UNLOCKS.UNLOCK_RELIC_POOL_BASIC), "level rewards should grant configured unlocks")
 	_expect(int((settled_profile.get("currencies", {}) as Dictionary).get(META_CURRENCIES.META_ESSENCE, 0)) == 48, "settlement should persist currency balance")
 	_expect(_profile_summary_matches_settlement(), "profile_summary should expose the title-menu balance")
-	_expect(_has_affordable_upgrade_summary(META_UPGRADES.META_UPGRADE_DAMAGE), "upgrade_summaries should expose affordable upgrade rows")
+	_expect(_has_affordable_upgrade_summary(META_UPGRADES.META_UPGRADE_DAMAGE, 18), "upgrade_summaries should expose affordable upgrade rows")
+	_expect(_has_affordable_upgrade_summary(META_UPGRADES.META_UPGRADE_FIRE_RATE, 22), "upgrade_summaries should expose the new fire-rate upgrade row")
 	_expect(_title_menu_shows_meta_summary(true, 48), "title menu should show meta summary and available upgrade affordance")
 	_expect(_meta_panel_builds_upgrade_list(), "meta progression panel should build the visible upgrade list")
 
@@ -51,10 +52,17 @@ func _run() -> void:
 	var purchased_profile: Dictionary = _purchase_damage_upgrade_through_panel()
 	_expect(int((purchased_profile.get("currencies", {}) as Dictionary).get(META_CURRENCIES.META_ESSENCE, 0)) == 30, "purchase_upgrade should deduct configured cost")
 	_expect(_title_menu_shows_meta_summary(true, 30), "title menu meta summary should refresh after purchases leave affordable upgrades")
+	_expect(not MetaProgressionSystem.first_available_purchase().is_empty(), "remaining balance should expose the next affordable purchase")
+
+	var fire_rate_result: Dictionary = MetaProgressionSystem.purchase_upgrade(META_UPGRADES.META_UPGRADE_FIRE_RATE)
+	_expect(bool(fire_rate_result.get("ok", false)), "new fire-rate upgrade should be purchasable from data")
+	var fire_rate_profile: Dictionary = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
+	_expect(int((fire_rate_profile.get("currencies", {}) as Dictionary).get(META_CURRENCIES.META_ESSENCE, 0)) == 8, "fire-rate upgrade should deduct configured cost")
+	_expect(int((fire_rate_profile.get("purchased_upgrades", {}) as Dictionary).get(META_UPGRADES.META_UPGRADE_FIRE_RATE, 0)) == 1, "fire-rate purchase should persist the purchased level")
 
 	var modifiers: Array[Dictionary] = MetaProgressionSystem.current_modifiers()
 	_expect(_has_modifier(modifiers, STATS.DAMAGE, "add", 0.25), "purchased upgrade should expose next-run damage modifier")
-	_expect(not MetaProgressionSystem.first_available_purchase().is_empty(), "remaining balance should expose the next affordable purchase")
+	_expect(_has_modifier(modifiers, STATS.FIRE_RATE, "add", 0.12), "new fire-rate upgrade should expose next-run weapon modifier")
 
 	_finish()
 
@@ -68,14 +76,14 @@ func _profile_summary_matches_settlement() -> bool:
 	)
 
 
-func _has_affordable_upgrade_summary(upgrade_id: String) -> bool:
+func _has_affordable_upgrade_summary(upgrade_id: String, expected_cost: int) -> bool:
 	for summary: Dictionary in MetaProgressionSystem.upgrade_summaries():
 		if String(summary.get("upgrade_id", "")) != upgrade_id:
 			continue
 		return (
 			bool(summary.get("can_purchase", false))
 			and int(summary.get("current_level", -1)) == 0
-			and int(summary.get("cost", 0)) == 18
+			and int(summary.get("cost", 0)) == expected_cost
 		)
 	return false
 

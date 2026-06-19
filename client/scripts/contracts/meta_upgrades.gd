@@ -4,6 +4,7 @@ class_name MetaUpgrades
 const VALUES: Array[String] = [
 	"meta_upgrade_max_hp",
 	"meta_upgrade_damage",
+	"meta_upgrade_fire_rate",
 	"meta_upgrade_move_speed",
 	"meta_upgrade_pickup_range",
 	"meta_upgrade_luck",
@@ -12,6 +13,7 @@ const VALUES: Array[String] = [
 
 const META_UPGRADE_MAX_HP: String = "meta_upgrade_max_hp"
 const META_UPGRADE_DAMAGE: String = "meta_upgrade_damage"
+const META_UPGRADE_FIRE_RATE: String = "meta_upgrade_fire_rate"
 const META_UPGRADE_MOVE_SPEED: String = "meta_upgrade_move_speed"
 const META_UPGRADE_PICKUP_RANGE: String = "meta_upgrade_pickup_range"
 const META_UPGRADE_LUCK: String = "meta_upgrade_luck"

@@ -72,6 +72,7 @@
 - 结算货币公式读取 `run_rewards.base_amount`、`per_minute_survived`、`per_50_kills`、`first_boss_bonus` 和 `max_amount_per_run`。
 - 账号经验公式读取 `account_level.xp_per_minute_survived` 与 `xp_per_50_kills`；等级由 `thresholds` 推导，等级奖励读取 `level_rewards.unlock_ids`。
 - 永久升级读取 `upgrade_tracks[].costs`、`max_level`、`unlock_condition.account_level`、`modifiers[].value_per_level` 和可选 `unlock_ids_by_level`。
+- 当前配置已有 `damage` 与 `fire_rate` 等数据驱动永久属性轨道；这类轨道只通过 `current_modifiers()` 输出，不在运行时写特殊分支。
 - 玩家可见文案走 `client/locale/strings.csv`；F6 使用 `ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_title_summary`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_purchase_success`、`ui_meta_purchase_failed`、`ui_meta_progression`、`ui_meta_progression_available`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`。
 
 ## 依赖
@@ -107,7 +108,7 @@
 ## 测试义务
 
 - 改本模块必跑：`python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_gdscript_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client meta-smoke`。
-- 改标题入口、购买反馈或 `MetaProgressionPanel` 时追加 `meta-smoke`；当前 smoke 会检查标题面板升级列表、购买反馈，以及伤害升级状态行中的余额 / 下一档成本。改死亡结算页展示时追加 `f4-smoke`，必要时手动从标题菜单点开“局外升级”确认按钮可见、购买后余额、等级和反馈刷新。
+- 改标题入口、购买反馈或 `MetaProgressionPanel` 时追加 `meta-smoke`；当前 smoke 会检查标题面板升级列表、购买反馈、伤害升级状态行中的余额 / 下一档成本，以及新数据轨道购买后输出 `fire_rate` modifier。改死亡结算页展示时追加 `f4-smoke`，必要时手动从标题菜单点开“局外升级”确认按钮可见、购买后余额、等级和反馈刷新。
 - 改 F4 结算接入、失败面板或新开局 modifier 应用时追加：`python tools/godot_bridge.py --project client f4-smoke`。
 - 改 SaveManager envelope / kind version 时追加：`python tools/godot_bridge.py --project client save-smoke` 和迁移测试。
 
