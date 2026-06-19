@@ -29,9 +29,9 @@
 | 新局应用永久升级 | F4 开局配置玩家和武器后读取已购买升级，转换为 `stat/type/value` modifiers 并传给玩家与武器 | `current_modifiers()` |
 | 死亡结算 | F4 玩家死亡时提交击杀数、存活时长和首领击杀标记；系统按数据配置计算局外货币与账号经验、更新等级奖励解锁并保存 meta | `apply_run_settlement()` |
 | 清理 run | F4 在结算后删除 `run` 存档，避免死亡 / 结算后继续读旧局造成重复奖励 | `SaveManager.delete(slot_0, run)` |
-| 购买升级 | 结算面板请求购买可负担升级；系统检查账号等级、当前等级、费用和余额，扣货币、提升等级、发放升级解锁并保存 meta | `purchase_upgrade()` |
-| 标题局外升级 | 标题菜单打开 `MetaProgressionPanel`；面板显示账号等级、余额和所有升级轨道，购买后刷新 profile 与按钮状态 | `profile_summary()` / `upgrade_summaries()` / `purchase_upgrade()` |
-| 结算页局外升级 | 死亡结算面板可叠出同一个 `MetaProgressionPanel`，关闭后回到失败面板并刷新余额和第一个可购买项 | `profile_summary()` / `upgrade_summaries()` / `purchase_upgrade()` / `first_available_purchase()` |
+| 购买升级 | 结算面板或局外升级面板请求购买可负担升级；系统检查账号等级、当前等级、费用和余额，扣货币、提升等级、发放升级解锁并保存 meta | `purchase_upgrade()` |
+| 标题局外升级 | 标题菜单打开 `MetaProgressionPanel`；面板显示账号等级、余额和所有升级轨道，购买后刷新 profile、按钮状态和购买反馈 | `profile_summary()` / `upgrade_summaries()` / `purchase_upgrade()` |
+| 结算页局外升级 | 死亡结算面板可叠出同一个 `MetaProgressionPanel`，关闭后回到失败面板并刷新余额和第一个可购买项；结算页快捷购买也显示购买反馈 | `profile_summary()` / `upgrade_summaries()` / `purchase_upgrade()` / `first_available_purchase()` |
 | 自动验证 | `meta-smoke` 用合成结算验证货币公式、账号等级、解锁、购买扣费、modifier、标题升级面板和 SaveManager roundtrip；`f4-smoke` 追加真实死亡结算断言 | `godot_bridge.py meta-smoke` / `f4-smoke` |
 
 ## Profile Schema
@@ -70,7 +70,7 @@
 - 结算货币公式读取 `run_rewards.base_amount`、`per_minute_survived`、`per_50_kills`、`first_boss_bonus` 和 `max_amount_per_run`。
 - 账号经验公式读取 `account_level.xp_per_minute_survived` 与 `xp_per_50_kills`；等级由 `thresholds` 推导，等级奖励读取 `level_rewards.unlock_ids`。
 - 永久升级读取 `upgrade_tracks[].costs`、`max_level`、`unlock_condition.account_level`、`modifiers[].value_per_level` 和可选 `unlock_ids_by_level`。
-- 玩家可见文案走 `client/locale/strings.csv`；F6 使用 `ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_open_upgrades`、`ui_meta_progression`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`。
+- 玩家可见文案走 `client/locale/strings.csv`；F6 使用 `ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_purchase_success`、`ui_meta_purchase_failed`、`ui_meta_open_upgrades`、`ui_meta_progression`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`。
 
 ## 依赖
 
@@ -93,6 +93,7 @@
 | 结算奖励异常 | `meta_progression.json.run_rewards` 数值；`meta-smoke` 期望公式是否同步 |
 | 账号等级没提升 | `account_level.thresholds` 与合成 XP 是否匹配 |
 | 升级按钮不可用 | 余额、账号等级、`costs` 长度和 `max_level` |
+| 购买后没有反馈或余额未刷新 | `MetaProgressionPanel._show_purchase_feedback()` / `F4GameOverPanel.show_purchase_feedback()` 是否收到购买结果；`MetaProgressionSystem.purchase_upgrade()` 是否返回 `ok=true` 和新等级；`meta-smoke` 是否通过面板购买反馈断言 |
 | 标题菜单看不到局外升级 | `F4TitleMenu` 是否有 `MetaProgressionButton`；`FormalClientBoot` 是否连接 `meta_progression_requested` 并 `UIManager.push()` `MetaProgressionPanel` |
 | 结算页打不开或关不掉局外升级 | `F4GameOverPanel` 是否有 `MetaProgressionButton`；`F4RunLoop` 是否连接 `meta_progression_requested` 并 `UIManager.push()` / `pop()` `MetaProgressionPanel`；底层失败面板和局外面板是否只在 `UIManager.top()` 为自身时处理鼠标点击 |
 | 局外升级列表为空 | `MetaProgressionSystem.upgrade_summaries()` 是否返回配置轨道；`meta_progression.json.upgrade_tracks` 是否通过数据校验 |
@@ -102,7 +103,7 @@
 ## 测试义务
 
 - 改本模块必跑：`python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_gdscript_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client meta-smoke`。
-- 改标题入口、结算页入口或 `MetaProgressionPanel` 时追加 `meta-smoke`；改结算页入口时追加 `f4-smoke`，必要时手动从标题菜单 / 死亡结算页点开“局外升级”确认按钮可见、购买后余额和等级刷新。
+- 改标题入口、结算页入口、购买反馈或 `MetaProgressionPanel` 时追加 `meta-smoke`；改结算页入口时追加 `f4-smoke`，必要时手动从标题菜单 / 死亡结算页点开“局外升级”确认按钮可见、购买后余额、等级和反馈刷新。
 - 改 F4 结算接入、失败面板或新开局 modifier 应用时追加：`python tools/godot_bridge.py --project client f4-smoke`。
 - 改 SaveManager envelope / kind version 时追加：`python tools/godot_bridge.py --project client save-smoke` 和迁移测试。
 

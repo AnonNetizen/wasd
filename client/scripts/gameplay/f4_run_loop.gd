@@ -394,12 +394,16 @@ func _show_game_over_panel() -> void:
 
 
 func _on_game_over_purchase_upgrade_requested(upgrade_id: String) -> void:
+	var purchase_candidate: Dictionary = MetaProgressionSystem.first_available_purchase()
 	var purchase_result: Dictionary = MetaProgressionSystem.purchase_upgrade(upgrade_id)
+	purchase_result["name_key"] = String(purchase_candidate.get("name_key", ""))
 	var profile: Dictionary = purchase_result.get("profile", {}) as Dictionary
 	if not profile.is_empty():
 		_last_settlement["profile"] = profile
 	if _game_over_panel != null and _game_over_panel.has_method("configure"):
 		_game_over_panel.call("configure", _kills, GameClock.now(), _last_settlement, MetaProgressionSystem.first_available_purchase())
+	if _game_over_panel != null and _game_over_panel.has_method("show_purchase_feedback"):
+		_game_over_panel.call("show_purchase_feedback", purchase_result)
 
 
 func _on_game_over_meta_progression_requested() -> void:

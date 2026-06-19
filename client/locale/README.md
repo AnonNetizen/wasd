@@ -27,7 +27,7 @@
 | 加遗物 / 道具名和描述 | 在 `strings.csv` 加 `relic_*_name` / `relic_*_desc`、`item_*_name` / `item_*_desc`；数据填 `name_key` / `desc_key` |
 | 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，动态数值用 `{value}` 这类占位符 |
 | 加局外成长文案 | 在 `strings.csv` 加 `meta_*_name` / `meta_*_desc`；`meta_progression.json` 填 `name_key` / `desc_key` |
-| 加结算 / 局外成长 UI 文案 | 在 `strings.csv` 加 `ui_meta_*` key，例如结算、标题 / 结算页局外升级入口、费用、锁定 / 满级状态；UI 代码使用 `tr("ui_meta_xxx")` |
+| 加结算 / 局外成长 UI 文案 | 在 `strings.csv` 加 `ui_meta_*` key，例如结算、标题 / 结算页局外升级入口、费用、锁定 / 满级状态、购买成功 / 失败反馈；UI 代码使用 `tr("ui_meta_xxx")` |
 | 加机关 / 危险物名 | 在 `strings.csv` 加 `hazard_*_name`；数据填 `name_key` |
 | 改中文或英文翻译 | 只改对应语言列，不改 key；另一语言由 AI 自动补首版译文后人工复核 |
 | 新增语言 | 先新增决策，再给 `strings.csv` 加新语言列，并同步 Settings 语言选项与 Godot Localization 注册 |

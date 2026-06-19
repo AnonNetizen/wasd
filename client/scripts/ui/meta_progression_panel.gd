@@ -17,10 +17,12 @@ const POINTER_ACTION_PURCHASE: String = "purchase"
 var _account_label: Label = null
 var _close_button: Button = null
 var _currency_label: Label = null
+var _feedback_label: Label = null
 var _pressed_pointer_action: String = ""
 var _pressed_purchase_index: int = -1
 var _purchase_buttons: Array[Button] = []
 var _upgrade_ids: Array[String] = []
+var _upgrade_name_keys: Array[String] = []
 var _upgrade_list: VBoxContainer = null
 
 
@@ -116,6 +118,16 @@ func _ready() -> void:
 	_currency_label = _make_profile_label("MetaCurrencyLabel")
 	profile_row.add_child(_currency_label)
 
+	_feedback_label = Label.new()
+	_feedback_label.name = "MetaPurchaseFeedbackLabel"
+	_feedback_label.process_mode = Node.PROCESS_MODE_ALWAYS
+	_feedback_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_feedback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_feedback_label.add_theme_font_size_override("font_size", 16)
+	_feedback_label.visible = false
+	layout.add_child(_feedback_label)
+
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "MetaUpgradeScroll"
 	scroll.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -165,6 +177,7 @@ func _refresh_upgrades() -> void:
 		child.queue_free()
 	_purchase_buttons.clear()
 	_upgrade_ids.clear()
+	_upgrade_name_keys.clear()
 
 	for summary: Dictionary in MetaProgressionSystem.upgrade_summaries():
 		_upgrade_list.add_child(_make_upgrade_row(summary))
@@ -247,6 +260,7 @@ func _make_upgrade_row(summary: Dictionary) -> Control:
 	)
 	_purchase_buttons.append(purchase_button)
 	_upgrade_ids.append(String(summary.get("upgrade_id", "")))
+	_upgrade_name_keys.append(String(summary.get("name_key", "")))
 	row_layout.add_child(purchase_button)
 	return row
 
@@ -287,12 +301,38 @@ func _on_purchase_pressed(button_index: int) -> void:
 	var upgrade_id: String = _upgrade_ids[button_index]
 	if upgrade_id.is_empty():
 		return
-	MetaProgressionSystem.purchase_upgrade(upgrade_id)
+	var name_key: String = _upgrade_name_keys[button_index] if button_index < _upgrade_name_keys.size() else ""
+	var purchase_result: Dictionary = MetaProgressionSystem.purchase_upgrade(upgrade_id)
 	refresh()
+	_show_purchase_feedback(purchase_result, name_key)
 
 
 func _on_close_pressed() -> void:
 	closed_requested.emit()
+
+
+func _show_purchase_feedback(purchase_result: Dictionary, name_key: String) -> void:
+	if _feedback_label == null:
+		return
+	_feedback_label.visible = true
+	if bool(purchase_result.get("ok", false)):
+		_feedback_label.text = tr("ui_meta_purchase_success").format({
+			"name": tr(name_key),
+			"level": int(purchase_result.get("level", 0)),
+		})
+		return
+	_feedback_label.text = tr("ui_meta_purchase_failed").format({
+		"reason": _purchase_failure_text(purchase_result),
+	})
+
+
+func _purchase_failure_text(purchase_result: Dictionary) -> String:
+	var reason: String = String(purchase_result.get("reason", ""))
+	if reason == "max_level":
+		return tr("ui_meta_upgrade_maxed")
+	if reason == "insufficient_currency":
+		return tr("ui_meta_upgrade_insufficient")
+	return tr("ui_meta_purchase_unavailable")
 
 
 func _pointer_hit_at_position(position: Vector2) -> Dictionary:

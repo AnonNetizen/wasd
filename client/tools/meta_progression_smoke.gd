@@ -46,10 +46,7 @@ func _run() -> void:
 	_expect(int(roundtrip_profile.get("account_xp", 0)) == 125, "meta save should roundtrip account XP through SaveManager")
 	_expect(_has_unlock(roundtrip_profile, META_UNLOCKS.UNLOCK_RELIC_POOL_BASIC), "meta save should roundtrip unlocks through SaveManager")
 
-	var purchase: Dictionary = MetaProgressionSystem.purchase_upgrade(META_UPGRADES.META_UPGRADE_DAMAGE)
-	_expect(bool(purchase.get("ok", false)), "purchase_upgrade should save an affordable upgrade")
-	_expect(int(purchase.get("level", 0)) == 1, "purchase_upgrade should increment the purchased level")
-	var purchased_profile: Dictionary = purchase.get("profile", {}) as Dictionary
+	var purchased_profile: Dictionary = _purchase_damage_upgrade_through_panel()
 	_expect(int((purchased_profile.get("currencies", {}) as Dictionary).get(META_CURRENCIES.META_ESSENCE, 0)) == 30, "purchase_upgrade should deduct configured cost")
 
 	var modifiers: Array[Dictionary] = MetaProgressionSystem.current_modifiers()
@@ -90,6 +87,35 @@ func _meta_panel_builds_upgrade_list() -> bool:
 	remove_child(panel)
 	panel.queue_free()
 	return currency_label != null and row_count >= MetaProgressionSystem.upgrade_summaries().size()
+
+
+func _purchase_damage_upgrade_through_panel() -> Dictionary:
+	var panel: CanvasLayer = META_PROGRESSION_PANEL_SCRIPT.new()
+	panel.name = "MetaProgressionPanel"
+	add_child(panel)
+
+	var purchase_button: Button = _find_node_by_name(panel, "Purchase_%s" % META_UPGRADES.META_UPGRADE_DAMAGE) as Button
+	_expect(purchase_button != null and not purchase_button.disabled, "MetaProgressionPanel should expose an enabled damage purchase button")
+	if purchase_button != null:
+		purchase_button.pressed.emit()
+
+	var feedback_label: Label = _find_node_by_name(panel, "MetaPurchaseFeedbackLabel") as Label
+	_expect(
+		feedback_label != null
+		and feedback_label.visible
+		and String(feedback_label.text).find(tr("meta_upgrade_damage_name")) >= 0,
+		"MetaProgressionPanel should show purchase feedback with the bought upgrade name; text=%s expected_name=%s visible=%s" % [
+			String(feedback_label.text) if feedback_label != null else "<missing>",
+			tr("meta_upgrade_damage_name"),
+			str(feedback_label != null and feedback_label.visible),
+		]
+	)
+	var purchased_profile: Dictionary = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
+	_expect(int((purchased_profile.get("purchased_upgrades", {}) as Dictionary).get(META_UPGRADES.META_UPGRADE_DAMAGE, 0)) == 1, "panel purchase should persist the purchased level")
+
+	remove_child(panel)
+	panel.queue_free()
+	return purchased_profile
 
 
 func _has_unlock(profile: Dictionary, unlock_id: String) -> bool:

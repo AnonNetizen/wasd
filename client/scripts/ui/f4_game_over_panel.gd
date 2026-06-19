@@ -19,9 +19,11 @@ const PANEL_WIDTH: float = 520.0
 
 var _button_actions: Array[String] = []
 var _buttons: Array[Button] = []
+var _feedback_label: Label = null
 var _pressed_button_index: int = -1
 var _purchase_button: Button = null
 var _purchase_upgrade_id: String = ""
+var _purchase_name_key: String = ""
 var _selection_locked: bool = false
 var _settlement_label: Label = null
 var _profile_label: Label = null
@@ -125,6 +127,16 @@ func _ready() -> void:
 	_profile_label.add_theme_font_size_override("font_size", 16)
 	layout.add_child(_profile_label)
 
+	_feedback_label = Label.new()
+	_feedback_label.name = "MetaPurchaseFeedbackLabel"
+	_feedback_label.process_mode = Node.PROCESS_MODE_ALWAYS
+	_feedback_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_feedback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_feedback_label.add_theme_font_size_override("font_size", 16)
+	_feedback_label.visible = false
+	layout.add_child(_feedback_label)
+
 	_purchase_button = _make_button("PurchaseUpgradeButton", tr("ui_meta_purchase_unavailable"))
 	_purchase_button.pressed.connect(_on_purchase_pressed)
 	_register_button(_purchase_button, BUTTON_ACTION_PURCHASE)
@@ -209,15 +221,42 @@ func _configure_purchase(purchase: Dictionary) -> void:
 		return
 	if purchase.is_empty():
 		_purchase_upgrade_id = ""
+		_purchase_name_key = ""
 		_purchase_button.text = tr("ui_meta_purchase_unavailable")
 		_purchase_button.disabled = true
 		return
 	_purchase_upgrade_id = String(purchase.get("upgrade_id", ""))
+	_purchase_name_key = String(purchase.get("name_key", ""))
 	_purchase_button.text = tr("ui_meta_purchase_upgrade").format({
-		"name": tr(String(purchase.get("name_key", ""))),
+		"name": tr(_purchase_name_key),
 		"cost": int(purchase.get("cost", 0)),
 	})
 	_purchase_button.disabled = _purchase_upgrade_id.is_empty()
+
+
+func show_purchase_feedback(purchase_result: Dictionary) -> void:
+	if _feedback_label == null:
+		return
+	_feedback_label.visible = true
+	var name_key: String = String(purchase_result.get("name_key", _purchase_name_key))
+	if bool(purchase_result.get("ok", false)):
+		_feedback_label.text = tr("ui_meta_purchase_success").format({
+			"name": tr(name_key),
+			"level": int(purchase_result.get("level", 0)),
+		})
+		return
+	_feedback_label.text = tr("ui_meta_purchase_failed").format({
+		"reason": _purchase_failure_text(purchase_result),
+	})
+
+
+func _purchase_failure_text(purchase_result: Dictionary) -> String:
+	var reason: String = String(purchase_result.get("reason", ""))
+	if reason == "max_level":
+		return tr("ui_meta_upgrade_maxed")
+	if reason == "insufficient_currency":
+		return tr("ui_meta_upgrade_insufficient")
+	return tr("ui_meta_purchase_unavailable")
 
 
 func _on_purchase_pressed() -> void:
