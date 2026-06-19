@@ -17,14 +17,13 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 启动 F7 设置 / 本地化 / UI 栈稳定化：按 `docs/AI协作/工作包/F7-SettingsLocalizationUI.md` 先做现状审计与第一片设置入口。
+- [ ] 启动 F8 回放 / 测试 / 平衡基线：按 `docs/AI协作/工作包/F8-ReplayTestingBalance.md` 先做现状审计、L1 测试入口和 Replay runner 首片。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）
 
 - [ ] 深化接入强 `SaveManager`：在 F5 run 与 F6 meta 首切片后，后续补 profile 迁移样例、更多 meta 字段回归和正式手动存档迁移 checklist。
 - [ ] 扩展暂停菜单“保存并退出”和主菜单“继续游戏”流程：首片已恢复玩家、敌人、子弹、掉落、经验、RNG、GameClock、暂停菜单和升级选择面板；后续补遗物、主动道具和正式测试。
-- [ ] F7 设置持久化和设置面板：`Settings` 写入 `user://settings.cfg`，标题 / 暂停菜单进入正式设置面板，覆盖语言、音量、显示、玩法开关和基础输入。
 - [ ] 扩展 `client/data/growth_pools.json` 内容：在属性奖励样例后，评估遗物、主动强化、回血、刷新 / 跳过 / banish 等候选类型。
 - [ ] 决策待定项 E：升级选项池内容是否包含遗物、属性、主动强化、回血、刷新 / 跳过 / banish。
 
@@ -72,3 +71,5 @@
 - [x] 正式项目 F5 暂停 / 存档 / 续局：run roundtrip、备份回退、双坏档隔离、v1 -> v2 迁移、坏档提示、暂停 / 升级 UI 恢复点、升级界面暂停菜单叠层和最终手动存档 checklist 已完成。
 - [x] 正式项目 F6 局外成长首切片：`MetaProgressionSystem`、死亡结算、`meta` profile roundtrip、升级购买、解锁授予、下一局永久 modifiers 和 `meta-smoke` 已完成。
 - [x] 正式项目 F7 工作包准备：`docs/AI协作/工作包/F7-SettingsLocalizationUI.md` 已建立为设置 / 本地化 / UI 栈稳定化阶段入口。
+- [x] 正式项目 F7 设置 / 本地化 / UI 栈首片：设置持久化、正式设置面板、运行时语言刷新、键盘主输入重绑定、输入反馈 / 恢复默认和 `UIManager` 返回 / 焦点首片已完成。
+- [x] 正式项目 F8 工作包准备：`docs/AI协作/工作包/F8-ReplayTestingBalance.md` 已建立为回放 / 测试 / 平衡基线阶段入口。
