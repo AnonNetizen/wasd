@@ -8,7 +8,7 @@
 - `Replay` 负责记录一局的确定性回放输入：主 seed、游戏 tick / time、InputMap action、关键决策事件和启动上下文。
 - 输入 action 必须来自 `docs/词表与契约.md`，并通过 `client/scripts/contracts/actions.gd` 与 `DataLoader` 的 `_contracts.json` 校验。
 - 关键决策事件当前复用已登记的 `analytics_events`，例如后续升级、拾取、道具使用等事件；需要新的事件名时先改词表。
-- F8 首片已提供 `.replay` 文件 envelope、`user://replays/` 落盘 / 读取、稳定摘要和 `replay-smoke` roundtrip；暂不接管输入回放，也不做帧级黄金回放 diff。
+- F8 已提供 `.replay` 文件 envelope、`user://replays/` 落盘 / 读取、稳定摘要、`replay-smoke` roundtrip 和 `replay-runner` 摘要 diff；暂不接管输入回放，也不做帧级黄金回放 diff。
 - `Replay` 受 `Settings.gameplay.record_replays` 控制；关闭后会清空当前内存录制并拒绝新录制。
 
 ## 阅读方式
@@ -26,6 +26,7 @@
 |------|------|
 | `client/scripts/autoload/replay.gd` | `Replay` autoload 脚本 |
 | `client/tools/replay_smoke.gd` | F8 replay 文件 roundtrip smoke，覆盖最小录制、保存、读取、摘要对比和 data fingerprint |
+| `client/tools/replay_runner.gd` | F8 replay summary diff runner，读取 `.replay`、校验 envelope，并比较内嵌 summary 或外部 expectation JSON |
 | `client/scripts/contracts/actions.gd` | 自动生成的 InputMap action 常量 |
 | `client/scripts/contracts/analytics_events.gd` | 自动生成的关键事件常量 |
 | `client/scripts/contracts/settings_keys.gd` | 自动生成的设置 key 常量 |
@@ -45,7 +46,7 @@
 | 关键决策 | 调用方记录已登记 analytics event 与 payload | `record_decision()` / `decision_recorded` |
 | 进入 `GAME_OVER` / `RESULT` / `MAIN_MENU` | 结束内存录制，补齐结束 tick/time 与丢弃计数，并发出本地埋点 | `stop_recording()` / `recording_stopped` |
 | 需要持久化 | 调用方把完成的录制写入 `user://replays/<name>.replay`；文件 envelope 包含 schema、game version、data fingerprint、recording hash 和稳定摘要 | `save_recording()` / `replay_saved` |
-| 需要读取 / 对照 | runner 读取 `.replay` envelope，校验 schema 与 recording hash，返回录制或摘要用于后续 diff | `load_replay_file()` / `load_recording()` |
+| 需要读取 / 对照 | runner 读取 `.replay` envelope，校验 schema 与 recording hash，比较 summary；可选 expectation JSON 用于后续 golden baseline | `load_replay_file()` / `load_recording()` / `replay-runner` |
 | 关闭录制设置 | 清空当前内存录制并停止接受新事件 | `set_enabled(false)` / `recording_cleared` |
 
 ## 公共 API
@@ -143,8 +144,8 @@ F8 首片 `.replay` 文件 envelope：
 
 - 接入输入：`InputController` 将归一化 action / pressed / strength 调给 `record_input_action()`。
 - 接入升级选择：升级候选数量、候选 id、玩家选择和 `luck` 快照通过 `record_decision()` 写入。
-- 增加真实重放：后续 `play(file)` / 对照 diff 应只消费录制内容，不读取业务模块私有状态；当前 `replay-smoke` 只覆盖文件 roundtrip 和摘要稳定性。
-- 增加黄金回放：把 `recording_summary()` 扩展到真实整局摘要后，再录 `client/tests/replays/golden_*.replay` 并接入 L3 runner。
+- 增加真实重放：后续 `play(file)` / 对照 diff 应只消费录制内容，不读取业务模块私有状态；当前 `replay-smoke` 覆盖文件 roundtrip，`replay-runner` 只覆盖 envelope / summary diff。
+- 增加黄金回放：把 `recording_summary()` 扩展到真实整局摘要后，再录 `client/tests/replays/golden_*.replay` 并通过 `replay-runner --replay-file <path>` 接入 L3 runner；再下一步收紧到输入重放和帧级字段。
 
 ## 常见改动入口
 
@@ -153,9 +154,10 @@ F8 首片 `.replay` 文件 envelope：
 | 新增可录制 action | `docs/词表与契约.md` | 本文档、AI 导航 | `tools/sync_contracts.py --check`、headless boot |
 | 新增关键决策事件 | `docs/词表与契约.md` | 本文档、Analytics 文档 | `tools/sync_contracts.py --check` |
 | 调整录制开关 | `settings.gd`、`replay.gd` | 本文档、Settings 文档 | headless boot |
-| 接入落盘 | `replay.gd`、后续 replay runner | 本文档、测试策略、CI 规划 | L1 + L2 + L3 |
+| 接入落盘 / 摘要对照 | `replay.gd`、`client/tools/replay_runner.gd` | 本文档、测试策略、CI 规划 | L1 + L2 + L3 |
 | 接入黄金回放 | 后续 `tests/replays/` 与工具脚本 | 本文档、测试策略 | L3 replay runner |
 | 调整 replay 文件 schema | `replay.gd`、`client/tools/replay_smoke.gd` | 本文档、测试策略、F8 工作包 | `python tools/godot_bridge.py --project client replay-smoke` |
+| 调整 runner diff 规则 | `client/tools/replay_runner.gd`、`tools/godot_bridge.py` | 本文档、测试策略、F8 工作包 | `python tools/godot_bridge.py --project client replay-runner` |
 
 ## 故障排查
 
@@ -168,9 +170,9 @@ F8 首片 `.replay` 文件 envelope：
 
 ## 测试义务
 
-- 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，以及 `python tools/godot_bridge.py --project client replay-smoke`。
+- 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，以及 `python tools/godot_bridge.py --project client replay-smoke` / `python tools/godot_bridge.py --project client replay-runner`。
 - 后续引入 GUT 后，`Replay` 需要覆盖录制开始 / 停止、action 校验、event 校验、设置关闭清空、缓冲丢弃计数和同 seed 录制字段稳定。
-- 当前 `.replay` 文件 roundtrip 已由 `replay-smoke` 覆盖；接入真实重放 runner 后，必须补 L3 黄金回放样例；有意改变确定性行为时才重录黄金回放并在 commit message 注明影响。
+- 当前 `.replay` 文件 roundtrip 已由 `replay-smoke` 覆盖，summary diff 由 `replay-runner` 覆盖；接入真实输入重放后，必须补 L3 黄金回放样例；有意改变确定性行为时才重录黄金回放并在 commit message 注明影响。
 
 ## 迁移 / 兼容
 

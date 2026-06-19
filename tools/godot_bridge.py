@@ -38,6 +38,14 @@ def main() -> int:
     subparsers.add_parser("headless-boot", help="Run godot --headless --path <project> --quit.")
     subparsers.add_parser("l1-smoke", help="Run the F8 temporary L1 infrastructure smoke in headless Godot.")
     subparsers.add_parser("replay-smoke", help="Run the F8 replay file roundtrip smoke in headless Godot.")
+    replay_runner_parser = subparsers.add_parser("replay-runner", help="Run the F8 replay summary diff runner in headless Godot.")
+    replay_runner_parser.add_argument("--replay-file", default=None, help="Optional .replay file to validate. Defaults to an internal smoke replay.")
+    replay_runner_parser.add_argument("--expectation-file", default=None, help="Optional JSON summary expectation file.")
+    replay_runner_parser.add_argument(
+        "--allow-data-fingerprint-mismatch",
+        action="store_true",
+        help="Allow replay data_fingerprint to differ from the current project data fingerprint.",
+    )
     subparsers.add_parser("perf-probe", help="Run the F8 lightweight perf probe in headless Godot.")
     subparsers.add_parser("runtime-smoke", help="Run the formal gameplay runtime smoke in headless Godot.")
     subparsers.add_parser("f4-smoke", help="Compatibility alias for runtime-smoke.")
@@ -86,6 +94,25 @@ def main() -> int:
             return 1
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--", "--replay-smoke"],
+            cwd=project,
+        )
+    if args.command == "replay-runner":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        runner_script = project / "tools" / "replay_runner.gd"
+        if not runner_script.exists():
+            print(f"[godot-bridge] missing Replay runner script: {_rel(runner_script)}")
+            return 1
+        user_args = ["--replay-runner"]
+        if args.replay_file:
+            user_args.extend(["--replay-file", str(Path(args.replay_file).resolve())])
+        if args.expectation_file:
+            user_args.extend(["--expectation-file", str(Path(args.expectation_file).resolve())])
+        if args.allow_data_fingerprint_mismatch:
+            user_args.append("--allow-data-fingerprint-mismatch")
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", *user_args],
             cwd=project,
         )
     if args.command == "perf-probe":

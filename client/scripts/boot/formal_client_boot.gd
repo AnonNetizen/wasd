@@ -13,6 +13,7 @@ const META_PROGRESSION_PANEL_SCENE := preload("res://scenes/ui/meta_progression_
 const META_SMOKE_RUNNER := preload("res://tools/meta_progression_smoke.gd")
 const PERF_PROBE_RUNNER := preload("res://tools/perf_probe.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
+const REPLAY_RUNNER := preload("res://tools/replay_runner.gd")
 const REPLAY_SMOKE_RUNNER := preload("res://tools/replay_smoke.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SAVE_SMOKE_RUNNER := preload("res://tools/save_manager_smoke.gd")
@@ -84,6 +85,10 @@ func _ready() -> void:
 		var replay_smoke_runner: Node = REPLAY_SMOKE_RUNNER.new()
 		replay_smoke_runner.name = "ReplaySmoke"
 		add_child(replay_smoke_runner)
+	elif _is_replay_runner_enabled():
+		var replay_runner: Node = REPLAY_RUNNER.new()
+		replay_runner.name = "ReplayRunner"
+		add_child(replay_runner)
 	elif _is_perf_probe_enabled():
 		if data_schema_ok:
 			_start_gameplay_run()
@@ -122,6 +127,10 @@ func _is_l1_smoke_enabled() -> bool:
 
 func _is_replay_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--replay-smoke")
+
+
+func _is_replay_runner_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--replay-runner")
 
 
 func _is_perf_probe_enabled() -> bool:
