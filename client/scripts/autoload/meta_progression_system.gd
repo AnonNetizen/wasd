@@ -34,6 +34,8 @@ func save_profile(profile: Dictionary, slot: String = SaveManager.DEFAULT_SLOT) 
 
 func apply_run_settlement(summary: Dictionary, slot: String = SaveManager.DEFAULT_SLOT) -> Dictionary:
 	var profile: Dictionary = load_or_create_profile(slot)
+	var previous_account_xp: int = int(profile.get("account_xp", 0))
+	var previous_account_level: int = int(profile.get("account_level", 1))
 	var previous_unlocks: Array[String] = _string_array(profile.get("unlocked_ids", []))
 	var rewards: Dictionary = _calculate_run_rewards(summary)
 	var currency_id: String = String(rewards.get("currency_id", META_CURRENCIES.META_ESSENCE))
@@ -56,6 +58,8 @@ func apply_run_settlement(summary: Dictionary, slot: String = SaveManager.DEFAUL
 		"currency_name_key": _currency_name_key(currency_id),
 		"currency_amount": currency_amount,
 		"account_xp": account_xp,
+		"previous_account_xp": previous_account_xp,
+		"previous_account_level": previous_account_level,
 		"account_level": int(profile.get("account_level", 1)),
 		"new_unlock_ids": _new_unlock_ids(previous_unlocks, current_unlocks),
 		"profile": profile.duplicate(true),

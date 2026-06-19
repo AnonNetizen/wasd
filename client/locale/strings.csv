@@ -27,6 +27,7 @@ ui_meta_title_summary,账号等级 {level} · {currency} {amount},Account Level 
 ui_meta_settlement,获得 {currency} {amount} · 账号经验 +{xp},Earned {currency} {amount} · Account XP +{xp}
 ui_meta_balance,{currency} {amount},{currency} {amount}
 ui_meta_account_level,账号等级 {level},Account Level {level}
+ui_meta_account_level_up,账号等级提升 {from} -> {to},Account Level Up {from} -> {to}
 ui_meta_purchase_upgrade,购买 {name}（{cost}）,Buy {name} ({cost})
 ui_meta_purchase_unavailable,暂无可购买升级,No affordable upgrade
 ui_meta_purchase_success,已购买 {name} Lv.{level},Purchased {name} Lv.{level}

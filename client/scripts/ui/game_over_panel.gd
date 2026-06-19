@@ -110,10 +110,20 @@ func _configure_settlement(settlement: Dictionary) -> void:
 		"currency": currency_name,
 		"amount": int(currencies.get(currency_id, 0)),
 	})
+	var current_level: int = int(settlement.get("account_level", profile.get("account_level", 1)))
+	var previous_level: int = int(settlement.get("previous_account_level", current_level))
 	var level_text: String = tr("ui_meta_account_level").format({
-		"level": int(profile.get("account_level", 1)),
+		"level": current_level,
 	})
-	_profile_label.text = "%s · %s" % [level_text, balance_text]
+	if current_level > previous_level:
+		level_text = "%s · %s" % [
+			level_text,
+			tr("ui_meta_account_level_up").format({
+				"from": previous_level,
+				"to": current_level,
+			}),
+		]
+	_profile_label.text = "%s\n%s" % [level_text, balance_text]
 
 
 func _on_restart_pressed() -> void:

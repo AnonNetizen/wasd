@@ -3,6 +3,7 @@ extends Node
 
 const META_PROGRESSION_PANEL_SCENE := preload("res://scenes/ui/meta_progression_panel.tscn")
 const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
+const GAME_OVER_PANEL_SCENE := preload("res://scenes/ui/game_over_panel.tscn")
 const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const META_UNLOCKS := preload("res://scripts/contracts/meta_unlocks.gd")
 const META_UPGRADES := preload("res://scripts/contracts/meta_upgrades.gd")
@@ -20,6 +21,7 @@ func _ready() -> void:
 func _run() -> void:
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+	_expect(tr("ui_meta_account_level_up") != "ui_meta_account_level_up", "account level-up settlement text should resolve through translations")
 
 	var initial_profile: Dictionary = MetaProgressionSystem.load_or_create_profile()
 	_expect(SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META), "load_or_create_profile should create a meta save")
@@ -35,6 +37,7 @@ func _run() -> void:
 	_expect(bool(settlement.get("ok", false)), "settlement should save the meta profile")
 	_expect(int(settlement.get("currency_amount", 0)) == 48, "settlement should apply configured currency formula")
 	_expect(int(settlement.get("account_xp", 0)) == 125, "settlement should apply configured account XP formula")
+	_expect(int(settlement.get("previous_account_level", 0)) == 1, "settlement should expose the previous account level")
 	_expect(int(settlement.get("account_level", 0)) == 2, "settlement should raise account level from thresholds")
 	var settled_profile: Dictionary = settlement.get("profile", {}) as Dictionary
 	_expect(_has_unlock(settled_profile, META_UNLOCKS.UNLOCK_RELIC_POOL_BASIC), "level rewards should grant configured unlocks")
@@ -44,6 +47,7 @@ func _run() -> void:
 	_expect(_has_affordable_upgrade_summary(META_UPGRADES.META_UPGRADE_FIRE_RATE, 22), "upgrade_summaries should expose the new fire-rate upgrade row")
 	_expect(_title_menu_shows_meta_summary(true, 48), "title menu should show meta summary and available upgrade affordance")
 	_expect(_meta_panel_builds_upgrade_list(), "meta progression panel should build the visible upgrade list")
+	_expect(await _game_over_panel_shows_account_progress(settlement), "game-over panel should show account XP, level-up, current level, and meta balance")
 
 	var roundtrip_profile: Dictionary = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
 	_expect(int(roundtrip_profile.get("account_xp", 0)) == 125, "meta save should roundtrip account XP through SaveManager")
@@ -142,6 +146,39 @@ func _meta_panel_builds_upgrade_list() -> bool:
 		and status_text.find(expected_balance_text) >= 0
 		and status_text.find(expected_cost_text) >= 0
 	)
+
+
+func _game_over_panel_shows_account_progress(settlement: Dictionary) -> bool:
+	var panel: CanvasLayer = GAME_OVER_PANEL_SCENE.instantiate() as CanvasLayer
+	panel.name = "GameOverPanel"
+	add_child(panel)
+	await get_tree().process_frame
+	panel.call("configure", 250, 600.0, settlement)
+	var settlement_label: Label = _find_node_by_name(panel, "SettlementLabel") as Label
+	var profile_label: Label = _find_node_by_name(panel, "MetaProfileLabel") as Label
+	var settlement_text: String = String(settlement_label.text) if settlement_label != null else ""
+	var profile_text: String = String(profile_label.text) if profile_label != null else ""
+	var expected_currency_name: String = tr("meta_currency_essence_name")
+	var result: bool = (
+		settlement_label != null
+		and settlement_label.visible
+		and settlement_text.find(tr("ui_meta_settlement").format({
+			"currency": expected_currency_name,
+			"amount": 48,
+			"xp": 125,
+		})) >= 0
+		and profile_label != null
+		and profile_label.visible
+		and profile_text.find(tr("ui_meta_account_level").format({"level": 2})) >= 0
+		and profile_text.find(tr("ui_meta_account_level_up").format({"from": 1, "to": 2})) >= 0
+		and profile_text.find(tr("ui_meta_balance").format({
+			"currency": expected_currency_name,
+			"amount": 48,
+		})) >= 0
+	)
+	remove_child(panel)
+	panel.queue_free()
+	return result
 
 
 func _purchase_damage_upgrade_through_panel() -> Dictionary:

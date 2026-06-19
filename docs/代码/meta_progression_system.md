@@ -33,7 +33,7 @@
 | 购买升级 | 标题局外升级面板请求购买可负担升级；系统检查账号等级、当前等级、费用和余额，扣货币、提升等级、发放升级解锁并保存 meta | `purchase_upgrade()` |
 | 标题摘要 | 标题菜单读取账号等级、主货币余额和首个可购买升级，用一行摘要解释当前局外成长状态；有可购买升级时入口按钮显示提示，关闭升级面板后刷新 | `profile_summary()` / `first_available_purchase()` |
 | 标题局外升级 | 标题菜单打开 `MetaProgressionPanel`；面板显示账号等级、余额和所有升级轨道，用状态行 / 行颜色区分可购买、余额不足、锁定、满级，购买后刷新 profile、按钮状态和购买反馈 | `profile_summary()` / `upgrade_summaries()` / `purchase_upgrade()` |
-| 死亡结算展示 | 死亡结算面板只展示本局获得货币 / 账号经验、账号等级和余额，不显示购买或跳转局外成长入口 | `apply_run_settlement()` / `profile_summary()` |
+| 死亡结算展示 | 死亡结算面板只展示本局获得货币 / 账号经验、账号等级、账号等级提升提示和余额，不显示购买或跳转局外成长入口 | `apply_run_settlement()` / `profile_summary()` |
 | 自动验证 | `meta-smoke` 用合成结算验证货币公式、账号等级、解锁、购买扣费、modifier、标题升级面板和 SaveManager roundtrip；`runtime-smoke` 追加真实死亡结算断言 | `godot_bridge.py meta-smoke` / `runtime-smoke` |
 
 ## Profile Schema
@@ -58,7 +58,7 @@
 |------|------|------|------|
 | `load_or_create_profile(slot=slot_0)` | slot | profile `Dictionary` | 无存档时创建默认 profile；不会把“首次无文件”作为错误打印 |
 | `save_profile(profile, slot=slot_0)` | profile、slot | `bool` | 写入前归一化；失败时通过 `SaveManager.last_error()` 诊断 |
-| `apply_run_settlement(summary, slot=slot_0)` | `kills`、`run_time`、`first_boss_defeated` | 结算结果 `Dictionary` | 奖励公式完全来自 `meta_progression.json`；保存失败时 `ok=false` |
+| `apply_run_settlement(summary, slot=slot_0)` | `kills`、`run_time`、`first_boss_defeated` | 结算结果 `Dictionary` | 奖励公式完全来自 `meta_progression.json`；返回本局获得货币 / XP、结算前后账号等级和 profile；保存失败时 `ok=false` |
 | `purchase_upgrade(upgrade_id, slot=slot_0)` | upgrade id | 购买结果 `Dictionary` | 只允许购买已解锁、未满级且余额足够的升级 |
 | `current_modifiers(slot=slot_0)` | slot | `Array[Dictionary]` | 每条 modifier 只输出 `stat`、`type`、`value`，供 F4 玩家 / 武器复用现有成长管线 |
 | `profile_summary(slot=slot_0)` | slot | profile 摘要 `Dictionary` | 供标题局外升级 UI 展示账号等级、账号经验和主货币余额，不暴露完整存档结构 |
@@ -73,7 +73,7 @@
 - 账号经验公式读取 `account_level.xp_per_minute_survived` 与 `xp_per_50_kills`；等级由 `thresholds` 推导，等级奖励读取 `level_rewards.unlock_ids`。
 - 永久升级读取 `upgrade_tracks[].costs`、`max_level`、`unlock_condition.account_level`、`modifiers[].value_per_level` 和可选 `unlock_ids_by_level`。
 - 当前配置已有 `damage` 与 `fire_rate` 等数据驱动永久属性轨道；这类轨道只通过 `current_modifiers()` 输出，不在运行时写特殊分支。
-- 玩家可见文案走 `client/locale/strings.csv`；F6 使用 `ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_title_summary`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_purchase_success`、`ui_meta_purchase_failed`、`ui_meta_progression`、`ui_meta_progression_available`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`。
+- 玩家可见文案走 `client/locale/strings.csv`；F6 使用 `ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_account_level_up`、`ui_meta_title_summary`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_purchase_success`、`ui_meta_purchase_failed`、`ui_meta_progression`、`ui_meta_progression_available`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`。
 
 ## 依赖
 
@@ -95,6 +95,7 @@
 | 死亡后没有 meta 存档 | `GameplayRunLoop._on_player_died()` 是否先调用 `apply_run_settlement()`；`SaveManager.last_error()` |
 | 结算奖励异常 | `meta_progression.json.run_rewards` 数值；`meta-smoke` 期望公式是否同步 |
 | 账号等级没提升 | `account_level.thresholds` 与合成 XP 是否匹配 |
+| 死亡结算页没有等级提升提示 | `apply_run_settlement()` 是否返回 `previous_account_level` 与 `account_level`；`ui_meta_account_level_up` 是否已导入 `.translation`；`meta-smoke` 是否通过 GameOverPanel 账号进度断言 |
 | 升级按钮不可用 | 余额、账号等级、`costs` 长度和 `max_level` |
 | 购买后没有反馈或余额未刷新 | `MetaProgressionPanel._show_purchase_feedback()` 是否收到购买结果；`MetaProgressionSystem.purchase_upgrade()` 是否返回 `ok=true` 和新等级；`meta-smoke` 是否通过面板购买反馈断言 |
 | 标题摘要或可购买提示不刷新 | `TitleMenu.refresh_meta_summary()` 是否调用 `profile_summary()` / `first_available_purchase()`；`FormalClientBoot._on_meta_progression_closed()` 是否在关闭升级面板后刷新标题菜单；`meta-smoke` 是否通过标题菜单摘要断言 |
@@ -108,7 +109,7 @@
 ## 测试义务
 
 - 改本模块必跑：`python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_gdscript_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client meta-smoke`。
-- 改标题入口、购买反馈或 `MetaProgressionPanel` 时追加 `meta-smoke`；当前 smoke 会检查标题面板升级列表、购买反馈、伤害升级状态行中的余额 / 下一档成本，以及新数据轨道购买后输出 `fire_rate` modifier。改死亡结算页展示时追加 `runtime-smoke`，必要时手动从标题菜单点开“局外升级”确认按钮可见、购买后余额、等级和反馈刷新。
+- 改标题入口、购买反馈或 `MetaProgressionPanel` 时追加 `meta-smoke`；当前 smoke 会检查标题面板升级列表、购买反馈、伤害升级状态行中的余额 / 下一档成本，以及新数据轨道购买后输出 `fire_rate` modifier。改死亡结算页展示时追加 `meta-smoke` 和 `runtime-smoke`，必要时手动从标题菜单点开“局外升级”确认按钮可见、购买后余额、等级和反馈刷新。
 - 改 F4 结算接入、失败面板或新开局 modifier 应用时追加：`python tools/godot_bridge.py --project client runtime-smoke`。
 - 改 SaveManager envelope / kind version 时追加：`python tools/godot_bridge.py --project client save-smoke` 和迁移测试。
 
