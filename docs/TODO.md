@@ -17,7 +17,7 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 选择 F8 收口后的下一步：F8 当前验收基线审计已通过；可转入 F9 内容扩展 / Demo 打磨，或先把四条 golden replay regression 接入更正式的 CI / 显式本地命令组合。
+- [ ] 推进 F9.0 内容扩展 / Demo 打磨准备：基于 `docs/AI协作/工作包/F9-ContentDemoPolish.md` 盘点当前可复用内容、不能做的内容类型、首批 Demo 小内容清单和对应手动 checklist。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）
@@ -74,3 +74,4 @@
 - [x] 正式项目 F7 设置 / 本地化 / UI 栈首片：设置持久化、正式设置面板、运行时语言刷新、键盘主输入重绑定、输入反馈 / 恢复默认和 `UIManager` 返回 / 焦点首片已完成。
 - [x] 正式项目 F8 工作包准备：`docs/AI协作/工作包/F8-ReplayTestingBalance.md` 已建立为回放 / 测试 / 平衡基线阶段入口。
 - [x] 正式项目 F8 当前验收基线：L1 smoke、Replay runner、gameplay 输入录制首片、runner 输入播放首片、runtime event 播放首片、basic / pause-resume / full-death / level-up choice 四条 golden、稳定 RNG 子流 seed 和 schema v2 perf / balance baseline 已完成并通过收口审计。
+- [x] 正式项目 F9 工作包准备：`docs/AI协作/工作包/F9-ContentDemoPolish.md` 已建立为内容扩展 / Demo 打磨阶段入口，F8 四条 golden replay 与 perf-probe 保留为回归护栏。
