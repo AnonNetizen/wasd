@@ -1,7 +1,7 @@
 # wasd —— 俯视角 Roguelike 弹幕生存
 
 > 一款受《以撒的结合》与《吸血鬼幸存者》启发的俯视角 Roguelike 弹幕生存游戏。
-> **当前状态：正式项目已推进到 F6 局外成长首切片。** 完整项目 `client/` 已可作为 Godot 4.6.3 项目启动；F2 autoload 矩阵、F3 数据 / 契约闭环、F4 最小可玩闭环和 F5 暂停 / 存档 / 续局已完成阶段验证，F6 已支持死亡结算、`meta` profile roundtrip、标题菜单“局外升级”面板、升级购买、下一局永久 modifiers 和 `meta-smoke` 局外成长验证。
+> **当前状态：正式项目已推进到 F9 内容扩展 / Demo 打磨准备阶段。** 完整项目 `client/` 已迁移为 Godot 4.7 项目；F1-F8 当前验收基线已完成，F9 已预留本地数据包式 ModLoader 和 Steam 优先 PlatformServices，下一步是 F9.0 内容盘点与首批 Demo 小内容包规划。
 >
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。README 是仓库入口摘要；改项目状态、运行方式、目录结构或 AI 开工入口时，必须同步 `CONTRIBUTING.md`、`AGENTS.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
 
@@ -24,7 +24,7 @@
 WASD / 手柄左摇杆移动，方向键 / 手柄右摇杆或 D-pad 控制射击方向，**全自动开火**；在开放大地图中靠收集**主动道具 / 消耗品 / 被动遗物**滚雪球式变强，在敌群与机关中尽可能久地存活。
 
 ## 技术栈
-- **引擎**：Godot 4.6.3
+- **引擎**：Godot 4.7
 - **语言**：GDScript（强制类型化）
 - **平台**：PC（键盘 + 手柄）
 
@@ -72,7 +72,7 @@ wasd/
 ├── docs/             # 1. 项目文档（设计文档、代码文档规范、AI 导航、词表契约、决策记录、AI 记忆 ...）
 │   ├── AI协作/       #    AI 快速开工、任务模板、上下文预算、工具适配
 │   └── AI记忆/       #    跨会话/跨机器的 AI 协作记忆
-├── client/           # 2. 正式客户端（Godot 4.6.3 项目根，含 project.godot 与 res:// ...）
+├── client/           # 2. 正式客户端（Godot 4.7 项目根，含 project.godot 与 res:// ...）
 ├── server/           # 3. 服务器端（当前单机项目暂为占位，详见决策记录）
 ├── draft/ 或 DRAFT/  # 人工草稿；AI 禁止读取/搜索/修改/整理/引用，除非用户明确授权
 ├── CREDITS.md        # 代码库级致谢 / 第三方来源清单；游戏内数据见 client/data/credits.json
@@ -110,7 +110,7 @@ client/
 ## 如何运行 / 调试
 当前正式项目已有最小标题、F4/F5 运行时和 headless 验证命令。
 
-- 用 Godot 4.6.3 打开 `client/project.godot`。
+- 用 Godot 4.7 打开 `client/project.godot`。
 - 命令行启动：`godot --path client`。
 - Headless 验证：`python tools/godot_bridge.py headless-boot`（若系统无 Python，可用 Codex 桌面内置 Python 路径执行）。
 - Gameplay runtime smoke：`python tools/godot_bridge.py --project client runtime-smoke`。
@@ -133,4 +133,4 @@ client/
 
 ## 版本
 - 设计文档：**v1.5**（2026-06）
-- 代码：正式项目推进到 F6 局外成长首切片（结算、meta 存档、标题局外升级面板、升级购买、永久 modifiers）
+- 代码：正式项目推进到 F9 内容扩展 / Demo 打磨准备阶段，当前工程基线为 Godot 4.7。

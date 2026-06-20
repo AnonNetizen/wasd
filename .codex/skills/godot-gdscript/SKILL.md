@@ -1,10 +1,10 @@
 ---
 name: godot-gdscript
-description: Godot 4.6.3 GDScript implementation guidance for this project. Use when editing Godot scenes, scripts, autoloads, gameplay systems, or typed GDScript.
+description: Godot 4.7 GDScript implementation guidance for this project. Use when editing Godot scenes, scripts, autoloads, gameplay systems, or typed GDScript.
 license: MIT
 compatibility: agent-skills
 metadata:
-  source: project-adapted from Agent Skills patterns, GodotPrompter Godot/GDScript patterns, the official Godot 4.6 GDScript style guide, and this repo's rules
+  source: project-adapted from Agent Skills patterns, GodotPrompter Godot/GDScript patterns, the official Godot 4.7 GDScript style guide, and this repo's rules
 ---
 
 # Godot GDScript
@@ -18,7 +18,7 @@ Use this skill only for Godot/GDScript implementation or review work in `client/
 
 ## Project Rules To Preserve
 
-- Use Godot 4.6.3 and typed GDScript.
+- Use Godot 4.7 and typed GDScript.
 - Tunables belong in `client/data/` CSV / JSON, not magic numbers in scripts.
 - Player-visible text uses locale keys and `tr()`, not hardcoded text.
 - Inputs use InputMap actions, not physical key or joystick constants.
@@ -28,7 +28,7 @@ Use this skill only for Godot/GDScript implementation or review work in `client/
 
 ## Integrated Godot Guidance
 
-- Treat the official Godot 4.6 GDScript style guide as the baseline for all new or touched `.gd` files: https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/gdscript_styleguide.html
+- Treat the official Godot 4.7 GDScript style guide as the baseline for all new or touched `.gd` files: https://docs.godotengine.org/en/4.7/tutorials/scripting/gdscript/gdscript_styleguide.html
 - Project rules remain stricter where they apply: typed GDScript, data-driven config, generated constants, project autoloads, and docs sync override generic examples.
 - Do not broad-reformat unrelated scripts just because the style guide exists; clean only the code you touch unless the user explicitly asks for a style pass.
 - Use official naming: files/functions/variables/signals in `snake_case`, `class_name`/node names/enums in `PascalCase`, constants and enum members in `CONSTANT_CASE`.

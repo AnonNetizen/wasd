@@ -40,7 +40,7 @@ Use this skill when a change may affect Godot startup, scene structure, data loa
 
 ## Interpretation
 
-- `godot-version` should report Godot `4.6.3`.
+- `godot-version` should report Godot `4.7`.
 - `export-tree` verifies scene loading and gives node structure for diagnosis.
 - `headless-boot` verifies formal client startup in a non-interactive environment.
 - Data validation failures are contract/schema problems and should be fixed in data, locale, or contract source rather than ignored.

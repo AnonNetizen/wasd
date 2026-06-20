@@ -9,14 +9,14 @@ alwaysApply: true
 > 若某项需求与本规则冲突，应先提示用户，不要擅自破坏规则。
 
 ## 1. 引擎与语言
-- 一律使用 **Godot 4.6.3 + GDScript**，不引入其他引擎/语言（除非用户明确要求）。
+- 一律使用 **Godot 4.7 + GDScript**，不引入其他引擎/语言（除非用户明确要求）。
 - 优先使用 Godot 内建机制：`Node2D` / `Area2D` / `Camera2D` / `TileMap`、`signal`、`Resource`、autoload 单例。
 
 ## 2. 目录结构（固定约定）
 仓库根主要目录：
 
 - `docs/`：项目文档（设计文档、AI 导航、词表契约、决策记录、AI 记忆等）
-- `client/`：**Godot 4.6.3 项目根**（即 Godot 中的 `res://`）
+- `client/`：**Godot 4.7 项目根**（即 Godot 中的 `res://`）
 - `server/`：服务器端预留（当前为单机项目，暂占位）
 - `draft/` / `DRAFT/`：用户人工草稿禁区，AI 默认不得读取、搜索、修改、整理、格式化或引用
 - `.codebuddy/skills/*/SKILL.md`、`.codex/skills/*/SKILL.md` 与 `.opencode/skills/*/SKILL.md`：三平台同步的项目级 skills；用于按需加载可复用流程，不得放宽项目核心规则；新增或调整时同步 `docs/AI协作/AI技能资源评估.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md` 与工具适配指南。
@@ -85,7 +85,7 @@ alwaysApply: true
 - 模块**单一职责**，各系统独立场景与脚本：Player / Bullet / Enemy / Item / Hazard / Spawner / Map 等。
 - 用 `signal` 解耦事件，避免强耦合直引用。
 - 命名规范统一、函数短小、关键逻辑有注释，便于人和 AI 理解与续写。
-- 新写 / 修改的 GDScript 必须遵循 [Godot 4.6 官方 GDScript style guide](https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/gdscript_styleguide.html) 作为基础风格；若官方规范与本项目更严格的类型化、数据驱动、autoload、词表常量或文档同步规则冲突，以本项目规则为准。
+- 新写 / 修改的 GDScript 必须遵循 [Godot 4.7 官方 GDScript style guide](https://docs.godotengine.org/en/4.7/tutorials/scripting/gdscript/gdscript_styleguide.html) 作为基础风格；若官方规范与本项目更严格的类型化、数据驱动、autoload、词表常量或文档同步规则冲突，以本项目规则为准。
 - 修改正式 `client/**/*.gd` 后必须跑 `python tools/lint_gdscript_rules.py`；该脚本只覆盖第一档低误报规则，不能替代人工 review、headless boot 或后续 gdtoolkit。
 - 修改正式 `client/**/*.gd` 后建议跑 `python tools/lint_semantic_rules.py` 收集第三档语义 advisory warning；该脚本默认非阻塞，用于提示 id 特殊分支、autoload 绕过、缺类型签名、缺 `# Doc:` 与未知 contract 常量，warning 需人工判断。
 - 修改 `client/data/`、`client/locale/strings.csv` 或 Godot export preset 后必须跑 `python tools/lint_project_rules.py`；该脚本覆盖第二档项目规则，不能替代 DataLoader schema 回归或发行前人工许可复核。
@@ -319,7 +319,7 @@ alwaysApply: true
 - [ ] 约定字符串（stat/effect/event/设置/locale key / role / capability / tag 等）是否都来自 `docs/词表与契约.md` 且以常量引用（无裸字符串）？
 - [ ] 角色 id、capability id、content tag 是否都来自词表第 12 节并以生成常量引用？
 - [ ] 新增数据是否照「黄金样例」结构填写，并能通过 `DataLoader` 校验？
-- [ ] 新代码是否使用类型化 GDScript？是否按 Godot 4.6 官方 GDScript style guide 整理了本次触碰的命名、代码顺序、空白、布尔操作符、注释和类型标注？是否跑过 `python tools/lint_gdscript_rules.py`？是否复用了模板？
+- [ ] 新代码是否使用类型化 GDScript？是否按 Godot 4.7 官方 GDScript style guide 整理了本次触碰的命名、代码顺序、空白、布尔操作符、注释和类型标注？是否跑过 `python tools/lint_gdscript_rules.py`？是否复用了模板？
 - [ ] 若修改正式 `client/**/*.gd`，是否跑过 `python tools/lint_semantic_rules.py` 并人工判断第三档 advisory warning（特殊 id 分支、autoload 绕过、缺类型签名、缺 `# Doc:`、未知 contract 常量）？
 - [ ] 新增 / 修改数据字段、locale 或 export preset 后，是否跑过 `python tools/lint_project_rules.py`？字段是否已写进 `client/data/README.md`，locale 是否保留 `zh_CN` / `en` 双语，release preset 是否排除 debug/dev_tools？
 - [ ] 新增 / 修改长期代码模块、公共 API、signal、数据 schema 或依赖方向时，是否已同步详细的 `docs/代码/` 模块文档？若无需更新，是否说明原因？
