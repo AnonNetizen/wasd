@@ -56,7 +56,7 @@
 | `client/templates/`（即 `res://templates/`） | 新内容脚手架模板（enemy/relic 等） |
 | `client/assets/`（即 `res://assets/`） | 美术 / 音效 |
 | `client/scenes/boot/main.tscn` | F1 最小启动场景，详见 `docs/代码/formal_client_boot.md` |
-| `client/scripts/autoload/` | F2 横向 autoload 骨架，已含 `DataLoader` / `RNG` / `GameState` / `GameClock` / `Settings` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `AudioManager` / `Localization` / `UIManager` |
+| `client/scripts/autoload/` | F2 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `RNG` / `GameState` / `GameClock` / `Settings` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `AudioManager` / `Localization` / `UIManager` |
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口与 `DamageInfo` |
 | `client/scripts/gameplay/` | F4/F5 阶段脚本：`gameplay_run_loop` / `world_background` / `player` / `weapon_system` / `bullet` / `enemy` / `pickup_orb` / `level_up_panel` / `gameplay_hud`，当前还承载 F5 首片 run 快照生产 / 恢复 |
 | `client/scripts/ui/` | 阶段性 UI：`title_menu` / `pause_menu` / `game_over_panel` / `meta_progression_panel` |
@@ -137,6 +137,7 @@
 | **用项目级 AI skill** | CodeBuddy / Codex / OpenCode 分别读取 `.codebuddy/skills/<name>/SKILL.md`、`.codex/skills/<name>/SKILL.md`、`.opencode/skills/<name>/SKILL.md`；当前覆盖 Godot 实现、场景验证、Godot 测试诊断、试玩复盘、文档同步、安全提交、事实 review、AI 资源筛选与协作面审计、MCP 评估；外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进项目 skill，不再保留 vendor 来源或 reference 跳转；资源筛选与安装清单见 `docs/AI协作/AI技能资源评估.md` |
 | **加一种子弹效果原语** | 先在 `词表与契约.md` 登记 `effect` id → 在效果原语层实现方法/Node → 数据中引用 |
 | **改数值（血/伤害/刷怪/掉落）** | 先读 `client/data/README.md`，只改 `res://data/` 对应 CSV / JSON，**绝不改代码常量**；平表数值优先 CSV，复杂配置优先 JSON；新增 / 改字段必须同步数值手册 |
+| **预留 / 维护玩家 mod 接口** | 看 `docs/代码/mod_loader.md`、`docs/代码/data_loader.md` 与 GDD §9.21；当前只支持 `user://mods/<mod_id>/mod.json` 声明式 JSON / CSV append，不接创意工坊、不执行玩家脚本、不绕过 `DataLoader` schema；未来创意工坊只作为分发层 |
 | **加面向玩家的文本** | 先读 `client/locale/README.md`，在 `res://locale/strings.csv` 加 key + `zh_CN` / `en` 译文；若用户只给一种语言，AI 自动补齐另一语言首版译文，人工复核后代码 / 数据用 `tr("key")` 或 `name_key` |
 | **加一个设置项** | 先在 `Settings` 加配置（键/类型/默认/范围）并接入下游 `setting_changed` 即时生效；只有完成生效链路后才在设置面板显示 UI 控件，暂未接线的预留 key 保留为隐藏 / 禁用 |
 | **加一个埋点** | 用 `词表与契约.md` 登记的 `event_name`，调用 `Analytics.track_event(name, params)` |
@@ -163,6 +164,7 @@
 **业务模块**：`InputController` / `Player` / `WeaponSystem` / `Enemy(EnemyAI)` / `Spawner` / `HazardSystem` / `ItemSystem` / `GrowthSystem`（经验/升级选择）/ `MetaProgressionSystem`（局外成长）/ `ModifierEngine` / `MapManager` / `Camera2D` / `DataLoader` / `PauseMenu`（UI）/ `Combat`（伤害结算）/ `StatusEffectComponent`（状态效果）。
 
 **Autoload 单例（横向基础设施 + 协调中枢）**：
+- 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
 - 三条**协作基础设施**：`Localization` / `Settings` / `Analytics`
 - 两条**确定性基础设施**：`RNG`（种子化随机，子流分流）/ `GameClock`（暂停冻结时间源）
 - 一条**回放基础设施**：`Replay`
@@ -170,7 +172,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`MetaProgressionSystem`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、gameplay runtime、TitleMenu / WorldBackground / Player / WeaponSystem / Bullet / Enemy / Spawner / PickupOrb / LevelUpPanel / HUD / GameOverPanel 的最小闭环；F5 已新增 `PauseMenu`、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、升级界面 Esc 叠出暂停菜单、坏档重置提示、run payload、`RNG.snapshot()` / `restore_snapshot()` 与 `GameClock.snapshot()` / `restore_snapshot()`，并用 `SaveManager` 的 `run` kind 保存 / 读取局内快照；F6 已新增 `MetaProgressionSystem`、死亡结算、`meta` profile roundtrip、标题 `MetaProgressionPanel` 局外升级入口、数据驱动伤害 / 射速等永久升级轨道和下一局永久 modifiers；F7 已落地设置持久化、只显示已接线设置的正式设置面板、核心 UI 运行时语言刷新、键盘主输入重绑定、输入绑定保存 / 共用键位反馈、一键恢复输入默认，以及 `UIManager` 栈顶 `ui_back` / 默认焦点首片。F8 已通过当前验收基线收口审计，包含临时 L1 runner、Replay `.replay` 文件 roundtrip、summary diff / 运行时摘要 runner、runner 输入播放首片、runtime event 播放首片、扩展稳定帧样本 diff、gameplay 输入录制首片、`client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay`、`client/tests/replays/golden_level_up_choice.replay` 和 schema v2 perf / balance baseline；升级选择已记录 `level_up` decision，RNG 子流 seed 派生已改为项目内稳定字符串算法以保护跨进程回放确定性。当前 F9 入口是 `docs/AI协作/工作包/F9-ContentDemoPolish.md`，用于首批 Demo 内容切片、手感 / 可读性打磨、占位表现规范和手动 checklist；F8 的 `l1-smoke`、`replay-smoke`、四条 checked-in replay runner 和 `perf-probe` 是 F9 内容扩展的回归护栏。正式客户端默认 viewport 为 1920×1080，窗口禁止任意拖拽缩放并采用 `canvas_items + keep` 保比例黑边策略，GameplayHud / LevelUpPanel 已改为锚点与容器布局；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，敌人中心已按 `enemies.csv.separation_radius` 做小范围排斥以避免完全重叠，玩家中心也通过 `player_separation_radius` 提供不可重叠区域并在碰到敌人分离圈时只推开敌人，经验球与升级三选一已接入 `growth.csv` / `growth_pools.json`，升级选择后有 HUD 获得反馈，`enemies.csv.visual_color` 支持数据化敌人占位色，当前已有追猎者与疾行者两种 F4 敌人。
+当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`MetaProgressionSystem`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、gameplay runtime、TitleMenu / WorldBackground / Player / WeaponSystem / Bullet / Enemy / Spawner / PickupOrb / LevelUpPanel / HUD / GameOverPanel 的最小闭环；F5 已新增 `PauseMenu`、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、升级界面 Esc 叠出暂停菜单、坏档重置提示、run payload、`RNG.snapshot()` / `restore_snapshot()` 与 `GameClock.snapshot()` / `restore_snapshot()`，并用 `SaveManager` 的 `run` kind 保存 / 读取局内快照；F6 已新增 `MetaProgressionSystem`、死亡结算、`meta` profile roundtrip、标题 `MetaProgressionPanel` 局外升级入口、数据驱动伤害 / 射速等永久升级轨道和下一局永久 modifiers；F7 已落地设置持久化、只显示已接线设置的正式设置面板、核心 UI 运行时语言刷新、键盘主输入重绑定、输入绑定保存 / 共用键位反馈、一键恢复输入默认，以及 `UIManager` 栈顶 `ui_back` / 默认焦点首片。F8 已通过当前验收基线收口审计，包含临时 L1 runner、Replay `.replay` 文件 roundtrip、summary diff / 运行时摘要 runner、runner 输入播放首片、runtime event 播放首片、扩展稳定帧样本 diff、gameplay 输入录制首片、`client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay`、`client/tests/replays/golden_level_up_choice.replay` 和 schema v2 perf / balance baseline；升级选择已记录 `level_up` decision，RNG 子流 seed 派生已改为项目内稳定字符串算法以保护跨进程回放确定性。F9 已新增 `ModLoader` 本地 mod 接口首片：扫描 `user://mods/<mod_id>/mod.json`，只接受声明式 JSON / CSV append patch 和少量动态契约扩展，暂不接创意工坊、不执行玩家脚本。当前 F9 入口是 `docs/AI协作/工作包/F9-ContentDemoPolish.md`，用于首批 Demo 内容切片、手感 / 可读性打磨、占位表现规范和手动 checklist；F8 的 `l1-smoke`、`replay-smoke`、四条 checked-in replay runner 和 `perf-probe` 是 F9 内容扩展的回归护栏。正式客户端默认 viewport 为 1920×1080，窗口禁止任意拖拽缩放并采用 `canvas_items + keep` 保比例黑边策略，GameplayHud / LevelUpPanel 已改为锚点与容器布局；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，敌人中心已按 `enemies.csv.separation_radius` 做小范围排斥以避免完全重叠，玩家中心也通过 `player_separation_radius` 提供不可重叠区域并在碰到敌人分离圈时只推开敌人，经验球与升级三选一已接入 `growth.csv` / `growth_pools.json`，升级选择后有 HUD 获得反馈，`enemies.csv.visual_color` 支持数据化敌人占位色，当前已有追猎者与疾行者两种 F4 敌人。
 
 > F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射，但玩家和敌人占位表现只做左 / 右两种朝向。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
 
@@ -179,6 +181,7 @@
 ```mermaid
 flowchart LR
   subgraph Infra[基础设施]
+    Mod[ModLoader]
     Loc[Localization]
     Set[Settings]
     Ana[Analytics]
@@ -219,6 +222,7 @@ flowchart LR
   Cam[Camera2D]
   UI[UI/HUD<br/>PauseMenu/...]
 
+  Mod -. 本地 mod 数据 patch .-> Loader
   Data --> Loader --> Player & Enemy & Item & Growth & Meta & Spawner & Hazard
   Set --> Player & Weapon & Input & UIM & Aud
   Loc --> UIM & Item
@@ -254,7 +258,7 @@ flowchart LR
   classDef infra fill:#eef,stroke:#88a;
   classDef hub fill:#fee,stroke:#a88;
   classDef res fill:#efe,stroke:#8a8;
-  class Loc,Set,Ana,RNG,Rep,Clk infra;
+  class Mod,Loc,Set,Ana,RNG,Rep,Clk infra;
   class GS,UIM,Pool hub;
   class Save,Aud res;
 ```
@@ -278,6 +282,7 @@ flowchart LR
 - ❌ 各自实现 DoT/debuff 叠加逻辑（必须 `StatusEffect` Resource + Component）
 - ❌ 存档缺标准头字段、迁移、原子写入、`.bak` 回退或 `.broken` 损坏隔离（必须走 `SaveManager`）
 - ❌ 业务代码 `AudioStreamPlayer.play()`（必须 `AudioManager.play_sfx/music`）
+- ❌ 业务系统直接读取 `user://mods`、执行玩家脚本或让 mod 扩展核心契约（mod 必须走 `ModLoader` + `DataLoader` 声明式数据 patch）
 - ❌ 手改 `client/scripts/contracts/*.gd`（自动生成，改 `docs/词表与契约.md` + 跑 `tools/sync_contracts.py`）
 - ❌ 改了数据 / 文案 / 词表却不跑 `tools/validate_data.py`、`tools/lint_project_rules.py` 或 `tools/sync_contracts.py --check`；改 DataLoader schema 却不跑 `tools/test_data_loader_schema.py`
 - ⚠️ 改正式 GDScript 后忽略 `tools/lint_semantic_rules.py` 的 advisory warning；第三档不阻塞 CI，但提示需要人工判断的语义风险

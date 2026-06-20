@@ -6,6 +6,7 @@ const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
 const CLOCK_FRAMES: int = 4
+const MOD_SMOKE_ROOT: String = "user://mods/l1_smoke_mod"
 const L1_SLOT: String = "slot_l1_smoke"
 
 var _failures: Array[String] = []
@@ -41,6 +42,7 @@ func _run() -> void:
 	_expect_game_state_rejects_unknown()
 	_expect_save_manager_roundtrip()
 	_expect_combat_damage_path()
+	_expect_mod_loader_data_patch()
 
 	SaveManager.delete(L1_SLOT, SAVE_KINDS.RUN)
 	GameState.change_state(GameState.MAIN_MENU, {"source": "l1_smoke"})
@@ -127,6 +129,101 @@ func _expect_combat_damage_path() -> void:
 	_expect(bool(result.get("applied", false)), "Combat should apply registered physical damage")
 	_expect(is_equal_approx(target.life, 2.0), "Combat should route damage through receive_damage")
 	target.queue_free()
+
+
+func _expect_mod_loader_data_patch() -> void:
+	_remove_l1_mod()
+	var make_dir_error: Error = DirAccess.make_dir_recursive_absolute(MOD_SMOKE_ROOT.path_join("data"))
+	_expect(make_dir_error == OK, "ModLoader smoke should create temporary mod data directory")
+	if make_dir_error != OK:
+		return
+
+	var manifest: Dictionary = {
+		"schema_version": 1,
+		"id": "l1_smoke_mod",
+		"name": "L1 Smoke Mod",
+		"version": "0.0.1",
+		"enabled": true,
+		"load_order": 0,
+		"contract_extensions": {
+			"content_tags": ["mod_l1_smoke_mod_tag"],
+			"locale_prefixes": ["mod_l1_smoke_mod_"],
+		},
+		"data_patches": [
+			{
+				"type": "json_array_append",
+				"target": "relics.json",
+				"path": "data/relics_patch.json",
+				"array_key": "relics",
+			},
+			{
+				"type": "csv_append",
+				"target": "strings.csv",
+				"path": "data/strings_patch.csv",
+			},
+		],
+	}
+	var relic_patch: Dictionary = {
+		"relics": [
+			{
+				"id": "relic_l1_smoke_mod",
+				"name_key": "mod_l1_smoke_mod_relic_name",
+				"desc_key": "mod_l1_smoke_mod_relic_desc",
+				"default_unlocked": true,
+				"tags": ["tag_relic", "mod_l1_smoke_mod_tag"],
+				"modifiers": [
+					{"stat": "damage", "type": "add", "value": 0.1},
+				],
+				"behaviors": [],
+			},
+		],
+	}
+	_write_text(MOD_SMOKE_ROOT.path_join("mod.json"), JSON.stringify(manifest, "\t"))
+	_write_text(MOD_SMOKE_ROOT.path_join("data/relics_patch.json"), JSON.stringify(relic_patch, "\t"))
+	_write_text(
+		MOD_SMOKE_ROOT.path_join("data/strings_patch.csv"),
+		"keys,zh_CN,en\nmod_l1_smoke_mod_relic_name,Smoke Relic,Smoke Relic\nmod_l1_smoke_mod_relic_desc,Smoke Relic Desc,Smoke Relic Desc\n"
+	)
+
+	ModLoader.reload_mods()
+	_expect(ModLoader.enabled_mod_count() >= 1, "ModLoader should enable the temporary smoke mod")
+	_expect(DataLoader.has_contract_value("content_tags", "mod_l1_smoke_mod_tag"), "DataLoader should include mod contract extensions")
+	_expect(DataLoader.has_contract_value("locale_prefixes", "mod_l1_smoke_mod_"), "DataLoader should include mod locale prefix extensions")
+	var relics_payload: Variant = DataLoader.load_json(DataLoader.RELICS_PATH)
+	var found_relic: bool = false
+	if relics_payload is Dictionary:
+		for relic: Variant in (relics_payload as Dictionary).get("relics", []):
+			if relic is Dictionary and String((relic as Dictionary).get("id", "")) == "relic_l1_smoke_mod":
+				found_relic = true
+				break
+	_expect(found_relic, "DataLoader should expose mod JSON array append entries")
+	var found_locale_key: bool = false
+	for row: Dictionary in DataLoader.load_csv(DataLoader.LOCALE_STRINGS_PATH):
+		if String(row.get("keys", "")) == "mod_l1_smoke_mod_relic_name":
+			found_locale_key = true
+			break
+	_expect(found_locale_key, "DataLoader should expose mod CSV append entries")
+	_expect(DataLoader.validate_project_data(), "DataLoader should validate merged mod data")
+
+	_remove_l1_mod()
+	ModLoader.reload_mods()
+
+
+func _write_text(path: String, text: String) -> void:
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		_failures.append("L1 smoke failed to write %s" % path)
+		push_error("[L1Smoke] failed to write %s" % path)
+		return
+	file.store_string(text)
+
+
+func _remove_l1_mod() -> void:
+	DirAccess.remove_absolute(MOD_SMOKE_ROOT.path_join("data/strings_patch.csv"))
+	DirAccess.remove_absolute(MOD_SMOKE_ROOT.path_join("data/relics_patch.json"))
+	DirAccess.remove_absolute(MOD_SMOKE_ROOT.path_join("data"))
+	DirAccess.remove_absolute(MOD_SMOKE_ROOT.path_join("mod.json"))
+	DirAccess.remove_absolute(MOD_SMOKE_ROOT)
 
 
 func _expect(condition: bool, message: String) -> void:

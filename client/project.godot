@@ -16,6 +16,7 @@ config/features=PackedStringArray("4.6")
 
 [autoload]
 
+ModLoader="*res://scripts/autoload/mod_loader.gd"
 DataLoader="*res://scripts/autoload/data_loader.gd"
 RNG="*res://scripts/autoload/rng.gd"
 GameState="*res://scripts/autoload/game_state.gd"

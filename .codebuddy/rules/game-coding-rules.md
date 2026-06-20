@@ -99,6 +99,14 @@ alwaysApply: true
 - 开发期一律使用**几何占位图**（圆=玩家、三角=敌人、点=子弹），玩法跑通后再替换。
 - 素材遵循统一调色板与固定尺寸（如 32×32）。
 
+## 12-E. 本地 Mod 接口（框架级，创意工坊前置边界）
+- 玩家 mod 当前只支持本地数据包：`user://mods/<mod_id>/mod.json` + mod 自带数据 patch；未来创意工坊只作为分发层，不改变游戏内加载契约。
+- 统一走 `ModLoader`（autoload）扫描 manifest、校验安全相对路径、排序、诊断，并向 `DataLoader` 提供声明式 JSON / CSV append patch；业务系统禁止直接读取 `user://mods`。
+- mod 只允许通过 manifest 声明少量运行时动态契约扩展（当前为 `character_ids`、`game_modes`、`content_tags`、`locale_prefixes`），且值必须以 `mod_<mod_id>_` 开头；项目代码仍只引用内置生成常量。
+- mod 禁止扩展 `stats`、`effects`、`events`、`damage_types`、`pool_ids`、`audio_prefixes`、`rng_streams`、`save_kinds` 等需要代码、资源、确定性或存档同步的核心契约。
+- 禁止执行玩家 GDScript、动态库、可执行文件或远端资源；需要新 effect / behavior / strategy 时，先走正式项目词表、实现、测试和文档流程。
+- `DataLoader` 必须校验合并后的数据；无效 mod 应 fail-fast 输出 `[ModLoader]` / `[DataLoader]` 诊断，不得静默吞掉。
+
 ## 12-A. 录制回放与确定性（框架级，第四条横向基础设施）
 - 项目需支持录制回放用于回归测试与平衡验证（详见 `游戏设计文档.md` 9.9 / 9.18）。
 - 统一走 `Replay`（autoload）：开局录 `seed + 输入序列`，一局结束存到 `user://replays/`。
@@ -122,6 +130,7 @@ alwaysApply: true
 - **持续效果用 `StatusEffect` 资源 + `StatusEffectComponent`**；`id`（`burn` / `poison` 等）进词表；`stack_rule` 必须显式声明（`REPLACE` / `REFRESH` / `ADD_DURATION` / `INDEPENDENT` / `MAX_MAGNITUDE`）。effect 原语 `ignite` / `chain` 等改为薄包装。
 - **存档走 `SaveManager`（autoload）**：必须同时支持 `meta` 局外成长长期档案与 `run` 局内暂停退出续局档案；所有存档**强制头字段** `version` + `kind` + `slot` + `created_at` + `updated_at` + `game_version` + `data_hash`；写入必须原子替换并保留 `.bak`；schema 变更必须配 `register_migration(kind, from, to, fn)`；加载失败时 fail-fast、尝试备份回退并隔离到 `user://saves/.broken/`（详见 9.16）。
 - **音频走 `AudioManager`（autoload）**：`play_sfx(id, opts)` / `play_music(id, fade)`；音频 id 在词表第 10 节登记；**禁止**业务代码直接 `AudioStreamPlayer.play()`（详见 9.17）。
+- **本地 mod 走 `ModLoader`（autoload）**：玩家数据包只通过 manifest + DataLoader patch 接入；**禁止**业务代码直接读取 `user://mods` 或执行玩家脚本（详见 9.21）。
 - 设置中的音量项（`audio.master/music/sfx`）由 `AudioManager` 在启动时同步到 Bus 配置；缺 Bus 时 fail-fast。
 
 ## 12-B. 平衡测试接口预留（框架级）
@@ -237,7 +246,7 @@ alwaysApply: true
 - 当前不做多人，但需预留未来多人 PvE / PvP 边界：业务逻辑禁止写死唯一玩家、唯一队伍或“玩家只打敌人 / 敌人只打玩家”；输入走归一化 intent / InputMap action，伤害走 `Combat` 的 source / target / team / friendly_fire 模式规则边界，回放 / 存档 / 埋点可预留 participant / team 概念；不得提前实现网络层、同步协议或服务器权威。
 - 破限内容必须声明 `tag_limit_break` 与对应 `capability_id`，并在 `docs/词表与契约.md` 第 12 节登记；代码引用走生成常量，禁止裸字符串。
 - 现有 primitive 表达不了时，先新增可复用 primitive / strategy（effect、behavior、StatusEffect、movement_model、aim_model、fire_model 等），再由数据引用；不得把特殊逻辑塞进某个系统的 id 判断。
-- 工程红线不可被内容突破：随机仍走 `RNG`，时间仍走 `GameClock`，伤害仍走 `Combat`，UI 仍走 `UIManager`，存档仍走 `SaveManager`，音频仍走 `AudioManager`。
+- 工程红线不可被内容突破：随机仍走 `RNG`，时间仍走 `GameClock`，伤害仍走 `Combat`，UI 仍走 `UIManager`，存档仍走 `SaveManager`，音频仍走 `AudioManager`，本地 mod 仍走 `ModLoader` + `DataLoader`。
 - 任何破限能力必须有测试责任：至少 L0 词表 / schema 校验；新增 primitive 或改变行为时按 `docs/测试策略.md` §7 补 L1 / L3。
 
 ## 24. 代码-文档同步（强制）
@@ -294,6 +303,7 @@ alwaysApply: true
 - [ ] 持续效果用 `StatusEffect` 资源（明确 stack_rule）？
 - [ ] 存档走 `SaveManager`，同时支持 `meta` 与 `run`，且有 `version/kind/slot/data_hash` 头字段、原子写入、备份回退、损坏隔离与迁移注册？
 - [ ] 音频走 `AudioManager.play_sfx/play_music`（无裸 `AudioStreamPlayer.play()`）？
+- [ ] 本地 mod 是否只走 `ModLoader` + `DataLoader` 声明式 patch（无业务代码直接读取 `user://mods`、无执行玩家脚本、无扩展核心契约）？
 - [ ] 代码常量来自 `client/scripts/contracts/` 自动生成文件（未手改）？
 - [ ] 约定字符串（stat/effect/event/设置/locale key / role / capability / tag 等）是否都来自 `docs/词表与契约.md` 且以常量引用（无裸字符串）？
 - [ ] 角色 id、capability id、content tag 是否都来自词表第 12 节并以生成常量引用？

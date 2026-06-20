@@ -31,6 +31,7 @@
 | 改局外货币 / 永久升级 / 解锁 | `meta_progression.json` | 存档走 `SaveManager` 的 `meta` kind，id 必须来自词表 §13 |
 | 改致谢 / 第三方来源 | `credits.json` + 根目录 `CREDITS.md` | 游戏内 Credits UI 读 `credits.json`；发行前复核许可证与 notice |
 | 改界面、道具名、描述文案 | 不在这里改，去 `client/locale/strings.csv` | 数据只引用 key，译文集中管理 |
+| 做本地 mod 内容包 | `user://mods/<mod_id>/mod.json` + mod 自带 `data/` patch | 通过 `ModLoader` 声明式追加 JSON / CSV；不改 `client/data/` 原文件，不执行脚本 |
 
 ## 文件总览
 
@@ -51,6 +52,60 @@
 | `meta_progression.json` | 已建立 | 局外货币、结算奖励、账号等级、永久升级轨道和内容解锁 |
 | `credits.json` | 已建立 | 游戏内致谢数据源：工作人员、外部资源、外部库与许可 / notice 状态 |
 | `_contracts.json` | 生成文件 | 由 `docs/词表与契约.md` 生成，禁止手改；`DataLoader` 用它校验 id |
+
+## 本地 Mod 数据包
+
+当前项目预留本地 mod 接口，供玩家未来制作内容包；创意工坊暂不接入。分发平台未来只负责把订阅内容放到 `user://mods/<mod_id>/`，游戏内加载仍走 `ModLoader` + `DataLoader`。
+
+最小目录：
+
+```text
+user://mods/my_first_mod/
+  mod.json
+  data/
+    relics_patch.json
+    strings_patch.csv
+```
+
+`mod.json` 示例：
+
+```json
+{
+  "schema_version": 1,
+  "id": "my_first_mod",
+  "name": "My First Mod",
+  "version": "0.1.0",
+  "enabled": true,
+  "load_order": 0,
+  "contract_extensions": {
+    "content_tags": ["mod_my_first_mod_tag"],
+    "locale_prefixes": ["mod_my_first_mod_"]
+  },
+  "data_patches": [
+    {
+      "type": "json_array_append",
+      "target": "relics.json",
+      "path": "data/relics_patch.json",
+      "array_key": "relics"
+    },
+    {
+      "type": "csv_append",
+      "target": "strings.csv",
+      "path": "data/strings_patch.csv"
+    }
+  ]
+}
+```
+
+| 规则 | 说明 |
+|------|------|
+| 包 id | `mod.json` 的 `id` 必须等于目录名 `<mod_id>`，重复 id 只会启用第一个 |
+| 数据追加 | 当前只支持 `json_array_append` 和 `csv_append`，不支持覆盖 / 删除基础数据 |
+| 动态 id | 只允许 manifest 扩展 `character_ids`、`game_modes`、`content_tags`、`locale_prefixes`；值必须以 `mod_<mod_id>_` 开头 |
+| 核心契约 | mod 不能扩展 `stats`、`effects`、`events`、`damage_types`、`pool_ids`、`audio_prefixes`、`rng_streams`、`save_kinds` 等需要代码或资源同步的类别 |
+| 文案 | mod 文案仍用 CSV，建议通过 `locale_prefixes` 声明 `mod_<mod_id>_` 前缀；基础 `zh_CN` / `en` 列规则不变 |
+| 安全 | manifest 的 `path` 只能指向 mod 自身目录内相对路径，禁止 `..`、绝对路径和 `://` |
+| 验证 | 启动时 `DataLoader` 校验合并后的数据；错误看 `[ModLoader]` / `[DataLoader]` 日志 |
 
 ## 通用格式规则
 

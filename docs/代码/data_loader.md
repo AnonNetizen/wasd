@@ -6,6 +6,7 @@
 ## 职责
 
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
+- 通过 `ModLoader` 合并 `user://mods/<mod_id>/` 下声明式数据 patch，为本地玩家 mod 提供统一入口。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
 - 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`meta_progression.json`、`growth.csv`、`growth_pools.json` 与 `strings.csv`。
 - 提供 fail-fast 错误输出，错误信息包含文件、字段路径和期望值。
@@ -25,6 +26,7 @@
 | 路径 | 作用 |
 |------|------|
 | `client/scripts/autoload/data_loader.gd` | `DataLoader` autoload 实现 |
+| `client/scripts/autoload/mod_loader.gd` | 本地 mod manifest 扫描与数据 patch 合并入口 |
 | `client/data/_contracts.json` | 由 `tools/sync_contracts.py` 生成的词表镜像 |
 | `client/data/player.json` | 当前 JSON 读取样例 |
 | `client/data/characters.json` | 角色基础属性、标签、能力、控制配置和起始携带引用边界 |
@@ -52,9 +54,9 @@
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
 | autoload `_ready()` | 加载 `_contracts.json` | `reload_contracts()` |
-| 配置读取 | 调用方按需读 JSON / CSV | `load_json()`、`load_csv()` |
-| schema 校验 | 启动 smoke 或工具调用正式数据校验 | `validate_project_data()`、`schema_counts()` |
-| 契约查询 | 调用方查询白名单 | `contract_values()`、`has_contract_value()` |
+| 配置读取 | 调用方按需读 JSON / CSV，并叠加已启用本地 mod patch | `load_json()`、`load_csv()` |
+| schema 校验 | 启动 smoke 或工具调用正式数据校验；运行时会校验合并后的数据 | `validate_project_data()`、`schema_counts()` |
+| 契约查询 | 调用方查询白名单；允许的 mod 动态扩展 id 会并入返回值 | `contract_values()`、`has_contract_value()` |
 | 重新加载 | 覆盖 `_contracts` 并通知订阅方 | `data_reloaded` |
 
 ## 公共 API
@@ -63,13 +65,14 @@
 |------|------|------|------|
 | `reload_contracts()` | 无 | `void` | 读取 `CONTRACTS_PATH`，失败时 `push_error` |
 | `contracts()` | 无 | `Dictionary` | 返回深拷贝，调用方不得改内部缓存 |
-| `contract_values(contract_id)` | `String` | `Array` | 未登记 id 报错并返回空数组 |
+| `contract_values(contract_id)` | `String` | `Array` | 返回内置契约 + `ModLoader` 允许的动态扩展；未登记 id 报错并返回空数组 |
 | `has_contract_value(contract_id, value)` | `String`, `String` | `bool` | 用于 schema / id 校验 |
 | `validate_project_data()` | 无 | `bool` | 校验本阶段正式数据 schema；失败时 `push_error` 并返回 `false` |
 | `schema_counts()` | 无 | `Dictionary` | 返回最近一次 schema 校验的关键计数，用于 boot smoke |
-| `load_json(resource_path)` | `String` | `Variant` | JSON 需是有效文本；失败返回空字典 |
-| `load_csv(resource_path, has_header)` | `String`, `bool` | `Array[Dictionary]` | 默认首行为表头 |
+| `load_json(resource_path)` | `String` | `Variant` | JSON 需是有效文本；失败返回空字典；`_contracts.json` 不允许被 mod patch |
+| `load_csv(resource_path, has_header)` | `String`, `bool` | `Array[Dictionary]` | 默认首行为表头；返回值会追加匹配的 mod CSV patch 行 |
 | `data_path(file_name)` | `String` | `String` | 拼出 `res://data/<file_name>` |
+| `mod_diagnostics()` | 无 | `Array[String]` | 返回 `ModLoader` 的 manifest / patch 诊断 |
 
 ## Signal / Event
 
@@ -79,8 +82,9 @@
 
 ## 数据与契约
 
-- 读取 `res://data/_contracts.json`。
+- 读取 `res://data/_contracts.json`，并在运行时叠加 `ModLoader.contract_extensions()` 返回的允许动态扩展 id。
 - `_contracts.json` 由 `tools/sync_contracts.py` 生成，禁止手改。
+- 玩家 mod 不得修改 `_contracts.json` 或生成常量；可在 manifest 中声明 `character_ids`、`game_modes`、`content_tags`、`locale_prefixes` 等少量运行时扩展 id，且必须以 `mod_<mod_id>_` 开头。
 - 当前 F3 schema 覆盖：
   - `player.json`：`schema_version`、`base_stats`，stat id 必须来自词表，数值范围按 stat 类型校验。
   - `characters.json`：角色 id、名称 / 描述 key、默认解锁、tags、capabilities、控制配置、起始携带引用和角色基础属性；起始武器、主动道具和消耗品引用必须存在于对应数据文件。
@@ -101,7 +105,7 @@
 
 ## 依赖
 
-- 上游依赖：Godot `FileAccess`、`JSON`、生成契约文件。
+- 上游依赖：Godot `FileAccess`、`JSON`、生成契约文件、`ModLoader`。
 - 下游调用方：后续所有读取 `client/data/` 的业务模块。
 - 禁止依赖：不得直接引用具体玩法系统，避免数据层反向依赖业务层。
 
@@ -110,6 +114,7 @@
 - 新数据格式优先通过新解析函数接入，再由业务模块做 schema 校验。
 - 新约定字符串必须先改 `docs/词表与契约.md` 并跑契约同步，不在 DataLoader 内硬编码白名单。
 - 热重载可复用 `data_reloaded` 信号扩展。
+- 本地 mod 只能通过 `ModLoader` 的声明式 JSON / CSV append patch 进入；不得让业务系统绕过 `DataLoader` 直接读取 `user://mods`。
 
 ## 常见改动入口
 
@@ -118,6 +123,7 @@
 | 加 JSON 数据 schema | `data_loader.gd` + `tools/validate_data.py` | `client/data/README.md`、对应模块文档 | `tools/validate_data.py`、headless boot |
 | 加 CSV 表读取 | `data_loader.gd` | `client/data/README.md` | `load_csv()` smoke / 数据校验 |
 | 改契约来源 | `tools/sync_contracts.py`、`_contracts.json` | `docs/词表与契约.md` | `tools/sync_contracts.py --check` |
+| 改 mod 数据合并 | `mod_loader.gd`、`data_loader.gd` | `docs/代码/mod_loader.md`、本文档、GDD | `l1-smoke`、headless boot |
 
 ## 故障排查
 
@@ -127,20 +133,23 @@
 | `contract_values()` 返回空 | contract id 是否存在于 `_contracts.json` 的 `contracts` |
 | CSV 行字段错位 | 表头数量与数据列数量是否一致 |
 | `data_schema_ok=false` | headless boot 日志前后的 `[DataLoader]` fail-fast 错误 |
+| mod 内容没进数据 | `DataLoader.mod_diagnostics()` 与 `[ModLoader]` warning；确认 manifest `target` / `path` / `array_key` |
 
 ## 测试义务
 
 - 必跑 `tools/godot_bridge.py --project client headless-boot`。
+- 改 mod 接口或 `contract_values()` 合并逻辑时跑 `tools/godot_bridge.py --project client l1-smoke`。
 - 改契约 / 数据时跑 `tools/sync_contracts.py --check` 与 `tools/validate_data.py`。
 - F3 schema 变更需跑 `tools/test_data_loader_schema.py`，覆盖黄金样例、未登记 id、缺失 locale key、类型 / 范围错误、跨文件引用错误和 fail-fast 输出格式。
 
 ## 迁移 / 兼容
 
-当前不影响存档、回放或旧配置。未来改变 `_contracts.json` schema 时必须同步 `tools/sync_contracts.py`、`tools/validate_data.py` 与本文档。
+当前 `ModLoader` 不改变存档 schema；存档和回放后续应记录数据指纹，避免缺失 mod 时静默恢复旧局。未来改变 `_contracts.json` schema 或 mod manifest schema 时必须同步 `tools/sync_contracts.py`、`tools/validate_data.py`、`docs/代码/mod_loader.md` 与本文档。
 
 ## 相关文档
 
 - `docs/游戏设计文档.md` §9.3 / §9.19
 - `docs/词表与契约.md`
+- `docs/代码/mod_loader.md`
 - `client/data/README.md`
 - `docs/测试策略.md`

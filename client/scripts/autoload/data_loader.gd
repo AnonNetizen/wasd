@@ -63,20 +63,46 @@ func reload_contracts() -> void:
 
 
 func contracts() -> Dictionary:
-	return _contracts.duplicate(true)
+	var merged_contracts: Dictionary = _contracts.duplicate(true)
+	var loader: Node = get_node_or_null("/root/ModLoader")
+	if loader == null or not loader.has_method("contract_extensions"):
+		return merged_contracts
+
+	for key_variant: Variant in merged_contracts.keys():
+		var key: String = String(key_variant)
+		var extensions: Array = loader.call("contract_extensions", key) as Array
+		if extensions.is_empty():
+			continue
+		var values: Array = merged_contracts[key_variant] as Array
+		for extension: Variant in extensions:
+			if not values.has(extension):
+				values.append(extension)
+	return merged_contracts
 
 
 func contract_values(contract_id: String) -> Array:
-	if not _contracts.has(contract_id):
+	var extensions: Array = _mod_contract_extensions(contract_id)
+	if not _contracts.has(contract_id) and extensions.is_empty():
 		_fail(CONTRACTS_PATH, "contracts.%s" % contract_id, "registered contract id")
 		return []
 
-	var values: Variant = _contracts[contract_id]
-	if not values is Array:
+	var values: Array = []
+	if _contracts.has(contract_id):
+		var base_values: Variant = _contracts[contract_id]
+		if not base_values is Array:
+			_fail(CONTRACTS_PATH, "contracts.%s" % contract_id, "Array")
+			return []
+		values = (base_values as Array).duplicate()
+
+	for extension: Variant in extensions:
+		if not values.has(extension):
+			values.append(extension)
+
+	if values.is_empty():
 		_fail(CONTRACTS_PATH, "contracts.%s" % contract_id, "Array")
 		return []
 
-	return values as Array
+	return values
 
 
 func has_contract_value(contract_id: String, value: String) -> bool:
@@ -87,6 +113,7 @@ func validate_project_data() -> bool:
 	var locale_keys: Dictionary = _collect_locale_keys()
 	var is_valid: bool = true
 	_last_schema_counts.clear()
+	_last_schema_counts["mods"] = _mod_count()
 
 	is_valid = _validate_locale_strings(locale_keys) and is_valid
 	is_valid = _validate_player_json() and is_valid
@@ -131,7 +158,7 @@ func load_json(resource_path: String) -> Variant:
 		_fail(resource_path, "json", "valid JSON")
 		return {}
 
-	return parsed
+	return _apply_json_mods(resource_path, parsed)
 
 
 func load_csv(resource_path: String, has_header: bool = true) -> Array[Dictionary]:
@@ -160,11 +187,57 @@ func load_csv(resource_path: String, has_header: bool = true) -> Array[Dictionar
 				row[String.num_int64(index)] = values[index]
 		rows.append(row)
 
-	return rows
+	return _apply_csv_mods(resource_path, rows)
 
 
 func data_path(file_name: String) -> String:
 	return DATA_ROOT.path_join(file_name)
+
+
+func mod_diagnostics() -> Array[String]:
+	var loader: Node = get_node_or_null("/root/ModLoader")
+	if loader == null or not loader.has_method("diagnostics"):
+		return []
+	var raw_diagnostics: Array = loader.call("diagnostics") as Array
+	var typed_diagnostics: Array[String] = []
+	for diagnostic: Variant in raw_diagnostics:
+		typed_diagnostics.append(String(diagnostic))
+	return typed_diagnostics
+
+
+func _apply_json_mods(resource_path: String, data: Variant) -> Variant:
+	if resource_path == CONTRACTS_PATH:
+		return data
+	var loader: Node = get_node_or_null("/root/ModLoader")
+	if loader == null or not loader.has_method("apply_json_mods"):
+		return data
+	return loader.call("apply_json_mods", resource_path, data)
+
+
+func _apply_csv_mods(resource_path: String, rows: Array[Dictionary]) -> Array[Dictionary]:
+	var loader: Node = get_node_or_null("/root/ModLoader")
+	if loader == null or not loader.has_method("apply_csv_mods"):
+		return rows
+	var raw_rows: Array = loader.call("apply_csv_mods", resource_path, rows) as Array
+	var typed_rows: Array[Dictionary] = []
+	for row: Variant in raw_rows:
+		if row is Dictionary:
+			typed_rows.append(row as Dictionary)
+	return typed_rows
+
+
+func _mod_contract_extensions(contract_id: String) -> Array:
+	var loader: Node = get_node_or_null("/root/ModLoader")
+	if loader == null or not loader.has_method("contract_extensions"):
+		return []
+	return loader.call("contract_extensions", contract_id) as Array
+
+
+func _mod_count() -> int:
+	var loader: Node = get_node_or_null("/root/ModLoader")
+	if loader == null or not loader.has_method("enabled_mod_count"):
+		return 0
+	return int(loader.call("enabled_mod_count"))
 
 
 func _validate_locale_strings(_locale_keys: Dictionary) -> bool:
