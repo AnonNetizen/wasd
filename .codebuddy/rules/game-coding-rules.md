@@ -107,6 +107,14 @@ alwaysApply: true
 - 禁止执行玩家 GDScript、动态库、可执行文件或远端资源；需要新 effect / behavior / strategy 时，先走正式项目词表、实现、测试和文档流程。
 - `DataLoader` 必须校验合并后的数据；无效 mod 应 fail-fast 输出 `[ModLoader]` / `[DataLoader]` 诊断，不得静默吞掉。
 
+## 12-F. 平台服务接口（框架级，Steam 优先）
+- Steam API 是优先平台能力，但业务系统不得直接调用 Steamworks / GodotSteam / Epic / GOG / 主机平台 SDK；统一走 `PlatformServices`（autoload）。
+- 当前只预留接口：`PlatformServices` 默认 `preferred_provider=steam`、`active_provider=none`，不联网、不创建真实大厅、不解锁真实成就、不接 Steamworks SDK。
+- 成就、统计、富状态 / 状态显示、overlay、好友邀请、Lobby / 联机入口和平台用户身份都必须通过 `PlatformServices`；后续其他平台通过 provider adapter 接入，不改业务调用面。
+- 平台大厅 / 邀请不是游戏同步协议；真正多人 PvE / PvP 仍需单独网络同步、服务器权威、断线恢复和反作弊设计。
+- 平台不可用、离线或非 Steam 构建时，游戏必须仍能启动、游玩、保存和回放；平台调用应安全退化并给 diagnostics，不得崩溃。
+- 未来云存档只能作为 `SaveManager` 的同步 / 分发层，不得绕过 `SaveManager` envelope、迁移、原子写入、备份回退和损坏隔离。
+
 ## 12-A. 录制回放与确定性（框架级，第四条横向基础设施）
 - 项目需支持录制回放用于回归测试与平衡验证（详见 `游戏设计文档.md` 9.9 / 9.18）。
 - 统一走 `Replay`（autoload）：开局录 `seed + 输入序列`，一局结束存到 `user://replays/`。
@@ -131,6 +139,7 @@ alwaysApply: true
 - **存档走 `SaveManager`（autoload）**：必须同时支持 `meta` 局外成长长期档案与 `run` 局内暂停退出续局档案；所有存档**强制头字段** `version` + `kind` + `slot` + `created_at` + `updated_at` + `game_version` + `data_hash`；写入必须原子替换并保留 `.bak`；schema 变更必须配 `register_migration(kind, from, to, fn)`；加载失败时 fail-fast、尝试备份回退并隔离到 `user://saves/.broken/`（详见 9.16）。
 - **音频走 `AudioManager`（autoload）**：`play_sfx(id, opts)` / `play_music(id, fade)`；音频 id 在词表第 10 节登记；**禁止**业务代码直接 `AudioStreamPlayer.play()`（详见 9.17）。
 - **本地 mod 走 `ModLoader`（autoload）**：玩家数据包只通过 manifest + DataLoader patch 接入；**禁止**业务代码直接读取 `user://mods` 或执行玩家脚本（详见 9.21）。
+- **平台服务走 `PlatformServices`（autoload）**：Steam 成就 / 状态显示 / overlay / Lobby / 邀请和后续其他平台 SDK 都通过统一门面；**禁止**业务代码直接调用平台 SDK（详见 9.22）。
 - 设置中的音量项（`audio.master/music/sfx`）由 `AudioManager` 在启动时同步到 Bus 配置；缺 Bus 时 fail-fast。
 
 ## 12-B. 平衡测试接口预留（框架级）
@@ -247,6 +256,7 @@ alwaysApply: true
 - 破限内容必须声明 `tag_limit_break` 与对应 `capability_id`，并在 `docs/词表与契约.md` 第 12 节登记；代码引用走生成常量，禁止裸字符串。
 - 现有 primitive 表达不了时，先新增可复用 primitive / strategy（effect、behavior、StatusEffect、movement_model、aim_model、fire_model 等），再由数据引用；不得把特殊逻辑塞进某个系统的 id 判断。
 - 工程红线不可被内容突破：随机仍走 `RNG`，时间仍走 `GameClock`，伤害仍走 `Combat`，UI 仍走 `UIManager`，存档仍走 `SaveManager`，音频仍走 `AudioManager`，本地 mod 仍走 `ModLoader` + `DataLoader`。
+- 平台能力不可被内容突破：Steam / 其他平台成就、状态显示、overlay、联机大厅和邀请仍走 `PlatformServices`，不得从内容或业务脚本直接调用平台 SDK。
 - 任何破限能力必须有测试责任：至少 L0 词表 / schema 校验；新增 primitive 或改变行为时按 `docs/测试策略.md` §7 补 L1 / L3。
 
 ## 24. 代码-文档同步（强制）
@@ -304,6 +314,7 @@ alwaysApply: true
 - [ ] 存档走 `SaveManager`，同时支持 `meta` 与 `run`，且有 `version/kind/slot/data_hash` 头字段、原子写入、备份回退、损坏隔离与迁移注册？
 - [ ] 音频走 `AudioManager.play_sfx/play_music`（无裸 `AudioStreamPlayer.play()`）？
 - [ ] 本地 mod 是否只走 `ModLoader` + `DataLoader` 声明式 patch（无业务代码直接读取 `user://mods`、无执行玩家脚本、无扩展核心契约）？
+- [ ] Steam / 其他平台 API 是否只走 `PlatformServices`（无业务代码直接调用 Steamworks / GodotSteam / 平台 SDK，平台不可用时能安全退化）？
 - [ ] 代码常量来自 `client/scripts/contracts/` 自动生成文件（未手改）？
 - [ ] 约定字符串（stat/effect/event/设置/locale key / role / capability / tag 等）是否都来自 `docs/词表与契约.md` 且以常量引用（无裸字符串）？
 - [ ] 角色 id、capability id、content tag 是否都来自词表第 12 节并以生成常量引用？

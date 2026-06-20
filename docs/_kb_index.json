@@ -250,7 +250,7 @@
       "last_reviewed": "2026-06-18",
       "canonical_for": ["module_doc_index"],
       "must_read_for": ["code_module_change", "module_doc_lookup"],
-      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/meta_progression_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md"],
+      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/meta_progression_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md"],
       "related_code": ["client/"],
       "update_triggers": ["new module document", "module document rename", "module document deletion"],
       "keywords": ["代码", "module", "documentation", "index"]
@@ -264,7 +264,7 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["project_map", "extension_points", "dependency_graph"],
       "must_read_for": ["new_task", "extension_change", "dependency_change"],
-      "related_docs": ["docs/AI知识库索引.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
+      "related_docs": ["docs/AI知识库索引.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": ["client/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
       "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
@@ -744,6 +744,20 @@
       "related_code": ["client/scripts/autoload/mod_loader.gd", "client/scripts/autoload/data_loader.gd", "client/project.godot", "client/tools/l1_smoke.gd"],
       "update_triggers": ["mod manifest schema changes", "mod patch type changes", "dynamic contract extension changes", "Workshop integration boundary changes"],
       "keywords": ["ModLoader", "mod", "mods", "local mod", "本地mod", "创意工坊", "Workshop", "manifest", "mod.json", "user://mods", "data patch", "json_array_append", "csv_append"]
+    },
+    {
+      "path": "docs/代码/platform_services.md",
+      "type": "module_doc",
+      "authority": "PlatformServices autoload contract for Steam-priority platform APIs, achievements, rich presence, overlay, lobbies, and future provider adapters",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-20",
+      "canonical_for": ["platform_services", "steam_api", "platform_provider", "rich_presence", "platform_lobbies"],
+      "must_read_for": ["platform_services_change", "steamworks_integration", "achievement_integration", "platform_multiplayer_integration"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/代码/README.md", "docs/AI导航.md", "docs/测试策略.md"],
+      "related_code": ["client/scripts/autoload/platform_services.gd", "client/project.godot", "client/scripts/boot/formal_client_boot.gd", "client/tools/l1_smoke.gd"],
+      "update_triggers": ["Steamworks adapter changes", "platform provider changes", "achievement API changes", "rich presence changes", "lobby or platform multiplayer boundary changes"],
+      "keywords": ["PlatformServices", "Steam", "Steamworks", "GodotSteam", "achievement", "rich presence", "overlay", "lobby", "multiplayer", "provider adapter", "平台服务", "Steam API"]
     },
     {
       "path": "docs/代码/rng.md",

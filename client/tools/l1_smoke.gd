@@ -43,6 +43,7 @@ func _run() -> void:
 	_expect_save_manager_roundtrip()
 	_expect_combat_damage_path()
 	_expect_mod_loader_data_patch()
+	_expect_platform_services_reserved_interface()
 
 	SaveManager.delete(L1_SLOT, SAVE_KINDS.RUN)
 	GameState.change_state(GameState.MAIN_MENU, {"source": "l1_smoke"})
@@ -207,6 +208,23 @@ func _expect_mod_loader_data_patch() -> void:
 
 	_remove_l1_mod()
 	ModLoader.reload_mods()
+
+
+func _expect_platform_services_reserved_interface() -> void:
+	PlatformServices.reload_backend()
+	_expect(PlatformServices.preferred_provider() == PlatformServices.PROVIDER_STEAM, "PlatformServices should reserve Steam as the preferred provider")
+	_expect(PlatformServices.active_provider() == PlatformServices.PROVIDER_NONE, "PlatformServices should stay on the none provider until a platform adapter is connected")
+	_expect(not PlatformServices.is_available(), "PlatformServices should report unavailable without a platform adapter")
+	_expect(not PlatformServices.supports(PlatformServices.CAP_ACHIEVEMENTS), "PlatformServices should not claim achievements before Steam is connected")
+	_expect(not PlatformServices.supports(PlatformServices.CAP_LOBBIES), "PlatformServices should not claim lobbies before Steam is connected")
+	_expect(not PlatformServices.unlock_achievement("achievement_l1_smoke"), "PlatformServices should safely reject achievement unlocks without a backend")
+	_expect(PlatformServices.achievement_requests().size() >= 1, "PlatformServices should record achievement requests for diagnostics")
+	_expect(not PlatformServices.set_rich_presence("status", "l1_smoke"), "PlatformServices should store rich presence locally but not send it without a backend")
+	_expect(String(PlatformServices.rich_presence().get("status", "")) == "l1_smoke", "PlatformServices should keep desired rich presence locally")
+	_expect(not PlatformServices.show_overlay("friends"), "PlatformServices should safely reject overlay requests without a backend")
+	_expect(not PlatformServices.create_lobby(4, {"mode": "l1_smoke"}), "PlatformServices should safely reject lobby creation without a backend")
+	_expect(PlatformServices.multiplayer_requests().size() >= 1, "PlatformServices should record multiplayer requests for diagnostics")
+	PlatformServices.clear_all_rich_presence()
 
 
 func _write_text(path: String, text: String) -> void:
