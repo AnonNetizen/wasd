@@ -17,7 +17,7 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 继续 F9.2 手动 Demo 试玩 / 手感复核：`f9-demo-smoke` 已覆盖 F9.1 内容的自动前置链路；下一步按 `docs/AI协作/工作包/F9-ContentDemoPolish.md` checklist 做可视化 3~5 分钟试玩，观察 55 秒后 `enemy_bulwark` 压迫感、三级升级候选节奏、性能体感和退出 / 续局路径，再决定是否只调数据或进入小型 runtime polish。
+- [ ] 继续 F9.3 Demo 表现占位规范：敌人占位轮廓首片已落地；下一步盘点 SFX / BGM id、拾取 / 升级 / 命中反馈的一致占位策略，若新增音频播放必须走 `AudioManager`。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）
@@ -77,4 +77,6 @@
 - [x] 正式项目 F9.0 内容盘点：`docs/AI协作/工作包/F9-ContentDemoPolish.md` 已列出当前可复用 runtime / 数据内容、暂不适合作为首片的角色 / 武器 / 遗物 / 主动道具 / 消耗品 / 机关边界、F9.1 推荐小内容包和 Demo 手动 checklist 首版。
 - [x] 正式项目 F9.1 小内容首片：新增慢速高血量 `enemy_bulwark`、55 秒后中段刷怪波次、`growth_move_speed_small` / `growth_max_hp_small` 两个三级 `stat_modifier` 升级候选和双语文案；四条 golden replay 仅更新 data fingerprint 并通过 runtime summary rerun，`perf-probe` 仍 pass。
 - [x] 正式项目 F9.2 自动化 Demo 前置探针：新增 `f9-demo-smoke` bridge 命令，headless 快进到 55 秒后确认 `enemy_bulwark` / `wave_standard_mid_bulwarks` 出现，覆盖 run snapshot / SaveManager roundtrip、三级成长候选加载和死亡结算记忆余烬链路；人工手感试玩仍待执行。
+- [x] 正式项目 F9.2 手动 Demo 试玩 / 手感复核：用户试玩 F9.1 内容后反馈没有问题，因此未改 `enemy_bulwark` / 波次 / 三级成长候选数值。
+- [x] 正式项目 F9.3 首个表现占位切片：所有敌人占位三角统一增加暗色轮廓和眼睛描边，提升混战中轮廓可读性；仍使用 `enemies.csv.visual_color` 填充色且不按敌人 id 分支。
 - [x] 设计待决策 B：默认瞄准已改为鼠标相对玩家 / 视口中心方向，方向键 / 手柄右摇杆 / D-pad 作为兜底，玩家和敌人占位表现只做左右朝向。

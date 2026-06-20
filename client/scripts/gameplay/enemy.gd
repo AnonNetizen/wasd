@@ -8,7 +8,10 @@ signal defeated(enemy: Node, exp_reward: int)
 
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DEFEAT_FEEDBACK_DURATION: float = 0.18
+const EYE_OUTLINE_SCALE: float = 1.65
 const HIT_FLASH_DURATION: float = 0.16
+const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
+const PLACEHOLDER_OUTLINE_SCALE: float = 1.14
 
 var _contact_damage: float = 0.0
 var _contact_damage_type: String = ""
@@ -167,8 +170,13 @@ func _draw() -> void:
 		Vector2(tail_x, -visual_radius * 0.85),
 		Vector2(tail_x, visual_radius * 0.85),
 	])
+	var outline_color: Color = _outline_color(color)
+	draw_colored_polygon(_scaled_points(points, PLACEHOLDER_OUTLINE_SCALE), outline_color)
 	draw_colored_polygon(points, color)
-	draw_circle(Vector2(visual_radius * 0.35 * _facing_sign, -visual_radius * 0.2), maxf(2.0, visual_radius * 0.12), Color.WHITE)
+	var eye_radius: float = maxf(2.0, visual_radius * 0.12)
+	var eye_position: Vector2 = Vector2(visual_radius * 0.35 * _facing_sign, -visual_radius * 0.2)
+	draw_circle(eye_position, eye_radius * EYE_OUTLINE_SCALE, outline_color)
+	draw_circle(eye_position, eye_radius, Color.WHITE)
 
 
 func _start_hit_flash() -> void:
@@ -208,6 +216,19 @@ func _enemy_color() -> Color:
 	if _hit_flash_remaining > 0.0:
 		return Color.WHITE
 	return _visual_color
+
+
+func _outline_color(fill_color: Color) -> Color:
+	var result: Color = PLACEHOLDER_OUTLINE_COLOR
+	result.a *= fill_color.a
+	return result
+
+
+func _scaled_points(points: PackedVector2Array, scale: float) -> PackedVector2Array:
+	var result: PackedVector2Array = PackedVector2Array()
+	for point: Vector2 in points:
+		result.append(point * scale)
+	return result
 
 
 func _defeat_scale() -> float:
