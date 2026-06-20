@@ -7,6 +7,7 @@ extends Node
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
 const DEBUG_CONSOLE_SCRIPT_PATH: String = "res://scripts/debug/debug_console.gd"
 const DEBUG_TOOLS_SMOKE_RUNNER := preload("res://tools/debug_tools_smoke.gd")
+const F9_DEMO_SMOKE_RUNNER := preload("res://tools/f9_demo_smoke.gd")
 const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loop.tscn")
 const GOLDEN_REPLAY_CAPTURE_RUNNER := preload("res://tools/golden_replay_capture.gd")
 const L1_SMOKE_RUNNER := preload("res://tools/l1_smoke.gd")
@@ -122,6 +123,12 @@ func _ready() -> void:
 		var debug_tools_smoke_runner: Node = DEBUG_TOOLS_SMOKE_RUNNER.new()
 		debug_tools_smoke_runner.name = "DebugToolsSmoke"
 		add_child(debug_tools_smoke_runner)
+	elif _is_f9_demo_smoke_enabled():
+		if data_schema_ok:
+			_start_gameplay_run()
+		var f9_demo_smoke_runner: Node = F9_DEMO_SMOKE_RUNNER.new()
+		f9_demo_smoke_runner.name = "F9DemoSmoke"
+		add_child(f9_demo_smoke_runner)
 	elif _is_runtime_smoke_enabled():
 		if data_schema_ok:
 			_start_gameplay_run()
@@ -188,6 +195,10 @@ func _is_perf_probe_enabled() -> bool:
 
 func _is_debug_tools_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--debug-tools-smoke")
+
+
+func _is_f9_demo_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--f9-demo-smoke")
 
 
 func _is_save_smoke_enabled() -> bool:

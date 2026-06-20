@@ -66,6 +66,7 @@ def main() -> int:
         "debug-tools-release-smoke",
         help="Run the debug console release-mode guard smoke in headless Godot.",
     )
+    subparsers.add_parser("f9-demo-smoke", help="Run the F9 demo content slice smoke in headless Godot.")
     subparsers.add_parser("runtime-smoke", help="Run the formal gameplay runtime smoke in headless Godot.")
     subparsers.add_parser("f4-smoke", help="Compatibility alias for runtime-smoke.")
     subparsers.add_parser("meta-smoke", help="Run the F6 meta progression smoke in headless Godot.")
@@ -197,6 +198,18 @@ def main() -> int:
             user_args.append("--force-release-debug-tools-off")
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--", *user_args],
+            cwd=project,
+        )
+    if args.command == "f9-demo-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        smoke_script = project / "tools" / "f9_demo_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing F9 demo smoke script: {_rel(smoke_script)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", "--f9-demo-smoke"],
             cwd=project,
         )
     if args.command in {"runtime-smoke", "f4-smoke"}:
