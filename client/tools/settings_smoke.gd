@@ -140,8 +140,14 @@ func _expect_settings_panel_controls() -> void:
 	var locale_option: OptionButton = _find_node_by_name(panel, "LocaleOption") as OptionButton
 	var master_slider: HSlider = _find_node_by_name(panel, "MasterVolumeSlider") as HSlider
 	var master_value_label: Label = _find_node_by_name(panel, "MasterVolumeValueLabel") as Label
+	var video_section_label: Label = _find_node_by_name(panel, "VideoSectionLabel") as Label
 	var fullscreen_check: CheckButton = _find_node_by_name(panel, "FullscreenCheck") as CheckButton
-	var aim_mode_option: OptionButton = _find_node_by_name(panel, "AimModeOption") as OptionButton
+	var vsync_check: CheckButton = _find_node_by_name(panel, "VsyncCheck") as CheckButton
+	var fire_on_release_check: CheckButton = _find_node_by_name(panel, "FireOnReleaseCheck") as CheckButton
+	var aim_mode_row: HBoxContainer = _find_node_by_name(panel, "AimModeRow") as HBoxContainer
+	var screen_shake_check: CheckButton = _find_node_by_name(panel, "ScreenShakeCheck") as CheckButton
+	var pause_on_focus_loss_check: CheckButton = _find_node_by_name(panel, "PauseOnFocusLossCheck") as CheckButton
+	var record_replays_check: CheckButton = _find_node_by_name(panel, "RecordReplaysCheck") as CheckButton
 	var input_feedback_label: Label = _find_node_by_name(panel, "InputFeedbackLabel") as Label
 	var pause_binding_option: OptionButton = _find_node_by_name(panel, "PauseBindingOption") as OptionButton
 	var ui_back_binding_option: OptionButton = _find_node_by_name(panel, "UiBackBindingOption") as OptionButton
@@ -150,13 +156,20 @@ func _expect_settings_panel_controls() -> void:
 
 	_expect(title_label != null and String(title_label.text) == tr("ui_settings_title"), "settings panel should show localized title")
 	_expect(locale_option != null and locale_option.item_count == 2, "settings panel should expose two locale options")
-	_expect(aim_mode_option != null and aim_mode_option.item_count == 2, "settings panel should expose aim mode options")
+	_expect(video_section_label != null and not video_section_label.visible, "settings panel should hide unsupported video settings")
+	_expect(fullscreen_check != null and not fullscreen_check.visible, "settings panel should hide unsupported fullscreen setting")
+	_expect(vsync_check != null and not vsync_check.visible, "settings panel should hide unsupported vsync setting")
+	_expect(fire_on_release_check != null and not fire_on_release_check.visible, "settings panel should hide unsupported fire-on-release setting")
+	_expect(aim_mode_row != null and not aim_mode_row.visible, "settings panel should hide unsupported aim mode setting")
+	_expect(screen_shake_check != null and not screen_shake_check.visible, "settings panel should hide unsupported screen shake setting")
+	_expect(pause_on_focus_loss_check != null and not pause_on_focus_loss_check.visible, "settings panel should hide unsupported focus-loss pause setting")
+	_expect(record_replays_check != null and record_replays_check.visible, "settings panel should still expose wired replay recording setting")
 	_expect(pause_binding_option != null and pause_binding_option.item_count == Settings.input_binding_options().size(), "settings panel should expose input binding options")
 	_expect(input_feedback_label != null and String(input_feedback_label.text) == tr("ui_settings_input_feedback_ready"), "settings panel should expose localized input feedback")
 	_expect(reset_input_button != null and String(reset_input_button.text) == tr("ui_settings_input_restore_defaults"), "settings panel should expose reset input defaults button")
 	_expect(master_slider != null and is_equal_approx(float(master_slider.value), 1.0), "settings panel should read master volume default")
 	_expect(master_value_label != null and String(master_value_label.text) == "100%", "settings panel should show master volume percent")
-	_expect(fullscreen_check != null and not fullscreen_check.button_pressed, "settings panel should read fullscreen default")
+
 
 	if master_slider != null:
 		master_slider.value = 0.35
@@ -170,16 +183,7 @@ func _expect_settings_panel_controls() -> void:
 		_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == "en", "locale option should write Settings.general.locale")
 		_expect(Localization.current_locale() == "en", "settings panel locale option should switch Localization")
 		_expect(title_label != null and String(title_label.text) == "Settings", "settings panel should refresh existing labels after locale switch")
-	if aim_mode_option != null:
-		aim_mode_option.select(1)
-		aim_mode_option.item_selected.emit(1)
-		await get_tree().process_frame
-		_expect(String(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_AIM_MODE)) == "auto", "aim mode option should write Settings")
-	if fullscreen_check != null:
-		fullscreen_check.button_pressed = true
-		fullscreen_check.toggled.emit(true)
-		await get_tree().process_frame
-		_expect(bool(Settings.get_value(SETTINGS_KEYS.VIDEO_FULLSCREEN)), "fullscreen check should write Settings")
+
 	if pause_binding_option != null:
 		var p_index: int = _option_index(pause_binding_option, "P")
 		_expect(p_index >= 0, "pause binding option should include P")

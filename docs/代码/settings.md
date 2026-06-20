@@ -8,7 +8,7 @@
 - `Settings` 负责维护正式客户端运行时设置的默认值、读取、修改和变更广播。
 - 设置 key 必须来自 `docs/词表与契约.md`，并通过 `client/scripts/contracts/settings_keys.gd` 与 `DataLoader` 的 `_contracts.json` 校验。
 - F7 首片已接入 `user://settings.cfg` 持久化、类型 / 范围校验、损坏配置回退和 `settings-smoke` 自动验证。
-- F7 第二片已接入正式 `SettingsPanel`，标题菜单和暂停菜单都能打开同一设置面板；面板只通过 `Settings.set_value()` 写入，不直接维护偏好副本。F7 运行时语言刷新已覆盖标题、暂停、设置、HUD、升级、结算和局外成长面板。F7 输入重绑定首片已接入键盘主绑定：`Settings` 保存 `input.*` key，并在加载 / 修改 / 重置时把键盘事件写入对应 `InputMap` action；运行时手柄轴 / 按钮事件仍保留在同一 action 上。F7 收尾 polish 已给设置面板补输入绑定反馈、共用键位提示和一键恢复输入默认。
+- F7 第二片已接入正式 `SettingsPanel`，标题菜单和暂停菜单都能打开同一设置面板；面板只通过 `Settings.set_value()` 写入，不直接维护偏好副本。当前玩家面板只显示已接线生效的设置：语言、音量、回放记录开关、匿名分析开关和基础输入绑定；`video.*`、松开瞄准停火、自动瞄准、屏幕震动和失焦暂停等未接线设置 key 暂时保留但不显示。F7 运行时语言刷新已覆盖标题、暂停、设置、HUD、升级、结算和局外成长面板。F7 输入重绑定首片已接入键盘主绑定：`Settings` 保存 `input.*` key，并在加载 / 修改 / 重置时把键盘事件写入对应 `InputMap` action；运行时手柄轴 / 按钮事件仍保留在同一 action 上。F7 收尾 polish 已给设置面板补输入绑定反馈、共用键位提示和一键恢复输入默认。
 - `Settings` 不负责玩家进度存档；局外成长与局内续局属于 `SaveManager`。
 
 ## 阅读方式
@@ -48,9 +48,8 @@ SettingsPanel (CanvasLayer)
             └── Layout
                 ├── LocaleOption
                 ├── MasterVolumeSlider / MusicVolumeSlider / SfxVolumeSlider
-                ├── FullscreenCheck / VsyncCheck
-                ├── FireOnReleaseCheck / AimModeOption / ScreenShakeCheck
-                ├── PauseOnFocusLossCheck / RecordReplaysCheck
+                ├── RecordReplaysCheck
+                ├── 隐藏占位：FullscreenCheck / VsyncCheck / FireOnReleaseCheck / AimModeOption / ScreenShakeCheck / PauseOnFocusLossCheck
                 ├── InputFeedbackLabel
                 ├── InputBindingsGrid（移动 / 瞄准 / 主动道具 / 暂停 / 确认 / 返回）
                 ├── ResetInputBindingsButton
@@ -100,15 +99,15 @@ SettingsPanel (CanvasLayer)
 | key | 类型 / 范围 | 默认值 | 用途 |
 |-----|-------------|--------|------|
 | `general.locale` | string：`zh_CN` / `en` | `zh_CN` | 首选语言 |
-| `video.fullscreen` | bool | `false` | 全屏开关占位 |
-| `video.vsync` | bool | `true` | 垂直同步占位 |
+| `video.fullscreen` | bool | `false` | 已登记，当前未接线生效；设置面板暂不显示 |
+| `video.vsync` | bool | `true` | 已登记，当前未接线生效；设置面板暂不显示 |
 | `audio.master` | float：0~1 | `1.0` | 主音量 |
 | `audio.music` | float：0~1 | `0.8` | 音乐音量 |
 | `audio.sfx` | float：0~1 | `0.9` | 音效音量 |
-| `gameplay.fire_on_release` | bool | `false` | 松开瞄准是否停火的待决策入口 |
-| `gameplay.aim_mode` | string：`4dir` / `auto` | `4dir` | 默认瞄准模式 |
-| `gameplay.screen_shake` | bool | `true` | 屏幕震动开关 |
-| `gameplay.pause_on_focus_loss` | bool | `true` | 失焦暂停开关 |
+| `gameplay.fire_on_release` | bool | `false` | 已登记，当前未接线生效；设置面板暂不显示 |
+| `gameplay.aim_mode` | string：`4dir` / `auto` | `4dir` | 已登记，当前未接线生效；设置面板暂不显示 |
+| `gameplay.screen_shake` | bool | `true` | 已登记，当前未接线生效；设置面板暂不显示 |
+| `gameplay.pause_on_focus_loss` | bool | `true` | 已登记，当前未接线生效；设置面板暂不显示 |
 | `gameplay.record_replays` | bool | `true` | 自动回放录制开关 |
 | `input.move_up` / `input.move_down` / `input.move_left` / `input.move_right` | string：`Settings.input_binding_options()` 返回集合 | `W` / `S` / `A` / `D` | 移动 action 的键盘主绑定 |
 | `input.aim_up` / `input.aim_down` / `input.aim_left` / `input.aim_right` | string：`Settings.input_binding_options()` 返回集合 | `Up` / `Down` / `Left` / `Right` | 瞄准 action 的键盘主绑定 |
@@ -150,7 +149,7 @@ audio.master=1.0
 - 增加设置项：先登记词表 key，再给 `DEFAULT_VALUES` 增加默认值，并同步设置菜单。
 - 扩展持久化 schema：提升 `CONFIG_VERSION`，在 `load_from_disk()` 中补旧 key 兼容或迁移；仍不得混入 `SaveManager` 的 `meta` / `run` 存档。
 - 扩展范围校验：在 `_setting_specs()` 维护类型 / 范围 / 枚举，调用点不重复散落校验。
-- 接入设置面板：UI 只调用 `Settings.set_value()`；若值被拒绝，面板保留旧值。输入绑定控件应显示保存 / 共用 / 恢复默认反馈。新增控件必须同步 `settings-smoke`。
+- 接入设置面板：UI 只调用 `Settings.set_value()`；若值被拒绝，面板保留旧值。只有已有下游系统即时生效的设置才能显示给玩家；未接线设置 key 可保留在 `Settings` 中，但面板必须隐藏或禁用。输入绑定控件应显示保存 / 共用 / 恢复默认反馈。新增控件必须同步 `settings-smoke`。
 - 扩展输入重绑定：先新增 / 登记 action 与 `input.*` key，再在 `Settings.INPUT_ACTION_BY_SETTING_KEY`、默认值、设置面板和 smoke 中同步；业务脚本仍不得读取物理键。
 
 ## 常见改动入口

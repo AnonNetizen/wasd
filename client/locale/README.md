@@ -144,7 +144,8 @@ ui_settings_screen_shake,屏幕震动,Screen Shake
 2. `SettingsPanel` 使用 `tr("ui_settings_screen_shake")` 刷新控件文本。
 3. 如果控件有枚举选项，每个选项也单独建 key，例如 `ui_settings_aim_mode_4dir` / `ui_settings_aim_mode_auto`。
 4. 如果新增了 key，先让 Godot 重新导入 `strings.csv` 生成 `strings.zh_CN.translation` / `strings.en.translation`。
-5. 修改后运行 `python tools/godot_bridge.py --project client settings-smoke`，确认新增 key 已导入 `.translation` 并能在面板中解析。
+5. 新设置控件只有在已有下游系统即时生效时才显示给玩家；仅预留的设置 key 可以保留文案，但面板应隐藏或禁用。
+6. 修改后运行 `python tools/godot_bridge.py --project client settings-smoke`，确认新增 key 已导入 `.translation` 并能在面板中解析。
 
 ### 加一个输入绑定标签
 
