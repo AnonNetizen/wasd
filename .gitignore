@@ -45,6 +45,11 @@ $RECYCLE.BIN/
 logs/
 .VSCodeCounter/
 
+# ===== Python 工具链 =====
+# tools/ 下本地 Python 工具产生的字节码缓存，不应入库
+__pycache__/
+*.pyc
+
 # ===== 不忽略的 =====
 # .codebuddy/ 是项目数据（规则、自动化等），需入库，**不要**忽略
 !.codebuddy/
