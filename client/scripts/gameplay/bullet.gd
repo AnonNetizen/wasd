@@ -7,6 +7,10 @@ extends Node2D
 const STATS := preload("res://scripts/contracts/stats.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 
+const PLACEHOLDER_FILL_COLOR: Color = Color(1.0, 0.92, 0.35)
+const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
+const PLACEHOLDER_OUTLINE_SCALE: float = 1.45
+
 var _damage: float = 0.0
 var _damage_type: String = ""
 var _hit_targets: Dictionary = {}
@@ -104,7 +108,9 @@ func _pool_release() -> void:
 
 
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, maxf(_hit_radius, 3.0), Color(1.0, 0.92, 0.35))
+	var radius: float = maxf(_hit_radius, 3.0)
+	draw_circle(Vector2.ZERO, radius * PLACEHOLDER_OUTLINE_SCALE, PLACEHOLDER_OUTLINE_COLOR)
+	draw_circle(Vector2.ZERO, radius, PLACEHOLDER_FILL_COLOR)
 
 
 func _check_enemy_hits() -> void:

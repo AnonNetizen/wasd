@@ -10,6 +10,8 @@ const DRAW_RADIUS: float = 5.0
 const COLLECT_DISTANCE: float = 8.0
 const COLLECT_FEEDBACK_DURATION: float = 0.14
 const DRAW_Z_INDEX: int = -10
+const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.82)
+const PLACEHOLDER_OUTLINE_SCALE: float = 1.36
 const PULSE_SPEED: float = 10.0
 
 var _attract_blend: float = 0.0
@@ -119,6 +121,7 @@ func is_attracting() -> bool:
 func _draw() -> void:
 	var radius: float = _draw_radius()
 	var color: Color = _draw_color()
+	draw_circle(Vector2.ZERO, radius * PLACEHOLDER_OUTLINE_SCALE, _outline_color(color))
 	draw_circle(Vector2.ZERO, radius, color)
 	if _attract_blend > 0.0 and _collect_feedback_remaining <= 0.0:
 		draw_arc(Vector2.ZERO, radius + 3.0, 0.0, TAU, 24, Color(0.8, 1.0, 0.88, 0.45 * _attract_blend), 1.5)
@@ -156,6 +159,12 @@ func _draw_color() -> Color:
 		var remaining_ratio: float = _collect_feedback_remaining / COLLECT_FEEDBACK_DURATION
 		return Color(0.82, 1.0, 0.68, remaining_ratio)
 	return Color(0.45 + 0.2 * _attract_blend, 1.0, 0.62 + 0.18 * _attract_blend)
+
+
+func _outline_color(fill_color: Color) -> Color:
+	var result: Color = PLACEHOLDER_OUTLINE_COLOR
+	result.a *= fill_color.a
+	return result
 
 
 func _vector_to_dict(value: Vector2) -> Dictionary:
