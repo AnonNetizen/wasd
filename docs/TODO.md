@@ -17,7 +17,7 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 继续 F8 回放 / 测试 / 平衡基线：已完成 L1 smoke、Replay runner、gameplay 输入录制首片、runner 输入播放首片、runtime event 播放首片、basic / pause-resume / full-death 三条运行时摘要 + 扩展稳定帧样本 golden 和 perf probe；下一步推进更多 replay 场景。
+- [ ] 继续 F8 回放 / 测试 / 平衡基线：已完成 L1 smoke、Replay runner、gameplay 输入录制首片、runner 输入播放首片、runtime event 播放首片、basic / pause-resume / full-death 三条运行时摘要 + 扩展稳定帧样本 golden 和 schema v2 perf / balance baseline；下一步推进更多 replay 场景。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）

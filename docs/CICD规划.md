@@ -198,7 +198,7 @@
 - headless 跑 `tools/sim.gd --runs 1000`
 - 输出 build 强度 / 胜率分布 / 无人选择遗物清单
 - 与 GDD 9.10 配套；MVP 后再启用
-- F8 首片先启用 `python tools/godot_bridge.py --project client perf-probe` 输出轻量 JSON 指标，作为后续 sim 报表的最小可比较基线。
+- F8 首片先启用 `python tools/godot_bridge.py --project client perf-probe` 输出轻量 schema v2 JSON 指标（30 帧 warmup 后 180 帧帧时间分布、实体峰值、池峰值和预算状态），作为后续 sim 报表的最小可比较基线。
 
 ### 4.O PR 自动加标签 ⭐
 - 用 [labeler](https://github.com/actions/labeler)，按改动路径自动打 label：
