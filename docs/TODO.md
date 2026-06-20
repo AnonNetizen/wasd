@@ -17,7 +17,7 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 推进 F9.1 小内容首片：按 `docs/AI协作/工作包/F9-ContentDemoPolish.md` 的 F9.0 盘点结果，优先做 1 个低风险敌人变体 + 1 条中段刷怪波次 + 2 个 `stat_modifier` 升级候选，并用 F8 golden replay / `perf-probe` 守门。
+- [ ] 推进 F9.2 手动 Demo 试玩 / 手感复核：按 `docs/AI协作/工作包/F9-ContentDemoPolish.md` 的 checklist 观察 55 秒后 `enemy_bulwark` 压迫感、三级升级候选节奏、3~5 分钟性能感受和退出 / 续局路径，再决定是否只调数据或进入小型 runtime polish。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）
@@ -75,4 +75,5 @@
 - [x] 正式项目 F8 当前验收基线：L1 smoke、Replay runner、gameplay 输入录制首片、runner 输入播放首片、runtime event 播放首片、basic / pause-resume / full-death / level-up choice 四条 golden、稳定 RNG 子流 seed 和 schema v2 perf / balance baseline 已完成并通过收口审计。
 - [x] 正式项目 F9 工作包准备：`docs/AI协作/工作包/F9-ContentDemoPolish.md` 已建立为内容扩展 / Demo 打磨阶段入口，F8 四条 golden replay 与 perf-probe 保留为回归护栏。
 - [x] 正式项目 F9.0 内容盘点：`docs/AI协作/工作包/F9-ContentDemoPolish.md` 已列出当前可复用 runtime / 数据内容、暂不适合作为首片的角色 / 武器 / 遗物 / 主动道具 / 消耗品 / 机关边界、F9.1 推荐小内容包和 Demo 手动 checklist 首版。
+- [x] 正式项目 F9.1 小内容首片：新增慢速高血量 `enemy_bulwark`、55 秒后中段刷怪波次、`growth_move_speed_small` / `growth_max_hp_small` 两个三级 `stat_modifier` 升级候选和双语文案；四条 golden replay 仅更新 data fingerprint 并通过 runtime summary rerun，`perf-probe` 仍 pass。
 - [x] 设计待决策 B：默认瞄准已改为鼠标相对玩家 / 视口中心方向，方向键 / 手柄右摇杆 / D-pad 作为兜底，玩家和敌人占位表现只做左右朝向。

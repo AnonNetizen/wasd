@@ -45,6 +45,10 @@
           {
             "id": "enemy_swarm",
             "weight": 45
+          },
+          {
+            "id": "enemy_bulwark",
+            "weight": 25
           }
         ],
         "hazards": [

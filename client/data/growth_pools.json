@@ -36,6 +36,28 @@
           "modifiers": [
             { "stat": "pickup_range", "type": "add", "value": 12.0 }
           ]
+        },
+        {
+          "id": "growth_move_speed_small",
+          "name_key": "ui_growth_move_speed_small_name",
+          "desc_key": "ui_growth_move_speed_small_desc",
+          "kind": "stat_modifier",
+          "weight": 70,
+          "min_level": 3,
+          "modifiers": [
+            { "stat": "move_speed", "type": "add", "value": 18.0 }
+          ]
+        },
+        {
+          "id": "growth_max_hp_small",
+          "name_key": "ui_growth_max_hp_small_name",
+          "desc_key": "ui_growth_max_hp_small_desc",
+          "kind": "stat_modifier",
+          "weight": 65,
+          "min_level": 3,
+          "modifiers": [
+            { "stat": "max_hp", "type": "add", "value": 1 }
+          ]
         }
       ]
     }
