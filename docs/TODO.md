@@ -17,7 +17,7 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 继续 F9.3 Demo 表现占位规范：敌人占位轮廓首片已落地；下一步盘点 SFX / BGM id、拾取 / 升级 / 命中反馈的一致占位策略，若新增音频播放必须走 `AudioManager`。
+- [ ] 继续 F9.3 Demo 表现占位规范：敌人占位轮廓和音频 cue 计划已落地；下一步若有临时音频资源则补 `AudioManager` 注册 / smoke，若暂无资源则先打磨拾取 / 升级 / 命中反馈的一致视觉占位。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）
@@ -79,4 +79,5 @@
 - [x] 正式项目 F9.2 自动化 Demo 前置探针：新增 `f9-demo-smoke` bridge 命令，headless 快进到 55 秒后确认 `enemy_bulwark` / `wave_standard_mid_bulwarks` 出现，覆盖 run snapshot / SaveManager roundtrip、三级成长候选加载和死亡结算记忆余烬链路；人工手感试玩仍待执行。
 - [x] 正式项目 F9.2 手动 Demo 试玩 / 手感复核：用户试玩 F9.1 内容后反馈没有问题，因此未改 `enemy_bulwark` / 波次 / 三级成长候选数值。
 - [x] 正式项目 F9.3 首个表现占位切片：所有敌人占位三角统一增加暗色轮廓和眼睛描边，提升混战中轮廓可读性；仍使用 `enemies.csv.visual_color` 填充色且不按敌人 id 分支。
+- [x] 正式项目 F9.3 Demo 音频 cue 计划：`docs/代码/audio_manager.md` 已记录 `sfx_player_shoot`、玩家受伤、敌人命中 / 死亡、拾取、UI 点击 / 升级和 run / boss BGM 的占位 id 计划及接入顺序；具体 cue id 不写入前缀契约表，后续播放必须走 `AudioManager`。
 - [x] 设计待决策 B：默认瞄准已改为鼠标相对玩家 / 视口中心方向，方向键 / 手柄右摇杆 / D-pad 作为兜底，玩家和敌人占位表现只做左右朝向。
