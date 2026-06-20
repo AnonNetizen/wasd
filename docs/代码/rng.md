@@ -7,7 +7,7 @@
 
 - 提供统一确定性随机入口，禁止业务代码直接调用全局随机函数。
 - 按词表中的子流维护独立 `RandomNumberGenerator`。
-- 支持一局主 seed 派生各子流 seed。
+- 支持一局主 seed 通过项目内稳定字符串算法派生各子流 seed；禁止依赖 Godot `hash()` 这类可能跨进程漂移的实现。
 - 不负责决定何时开局或何时重置回放；F5 起提供 JSON 友好的 RNG 快照 / 恢复 API，具体何时保存由 `SaveManager` 的调用方决定。
 
 ## 阅读方式
@@ -63,6 +63,7 @@
 - 子流 id 权威来源是 `docs/词表与契约.md` §11。
 - 当前子流：`spawn`、`drop`、`combat`、`ui_choice`、`world`、`meta`。
 - 代码引用应走 `client/scripts/contracts/rng_streams.gd` 生成常量；本 autoload 的初始子流后续应与生成常量保持一致。
+- 子流 seed 派生使用 `"%d:%s" % [run_seed, stream_id]` 的稳定滚动 hash，模数固定为 `2_147_483_647`；该规则是 F8 回放确定性基线的一部分，改变时必须重录受影响 golden replay 并追加 ADR。
 
 ## 依赖
 
@@ -89,7 +90,7 @@
 
 | 现象 | 优先检查 |
 |------|----------|
-| 同 seed 不复现 | 是否直接用了全局随机或错误子流 |
+| 同 seed 不复现 | 是否直接用了全局随机或错误子流；是否改动过子流 seed 派生算法但未重录 golden replay |
 | 子流 id 报错 | 是否未登记词表或未加入 `_streams` |
 | 抽取总是首项 | 权重是否全为 0 或负数 |
 | run 存档 hash mismatch | RNG seed/state 是否仍以 JSON number 写入；大整数必须以字符串存 |
@@ -98,11 +99,11 @@
 
 - 必跑正式项目 headless boot。
 - F2 后续补 GUT：同主 seed 各子流序列稳定、不同子流互不污染、`weighted_pick()` 边界。
-- 改随机行为若影响整局，后续必须评估黄金回放是否需要重录。
+- 改随机行为或子流 seed 派生若影响整局，必须评估并重录受影响黄金回放。
 
 ## 迁移 / 兼容
 
-改变 seed 派生算法会影响回放确定性；正式进入回放阶段后必须通过 ADR 或明确版本迁移处理。
+改变 seed 派生算法会影响回放确定性；正式进入回放阶段后必须通过 ADR 或明确版本迁移处理，并重录受影响 golden replay。
 
 ## 相关文档
 

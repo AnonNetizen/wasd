@@ -61,6 +61,8 @@ class Stream:
 
 
 const DEFAULT_RUN_SEED: int = 1
+const STREAM_SEED_MULTIPLIER: int = 131
+const STREAM_SEED_MODULUS: int = 2_147_483_647
 
 var spawn: Stream = Stream.new()
 var drop: Stream = Stream.new()
@@ -129,4 +131,8 @@ func stream(stream_id: String) -> Stream:
 
 
 func _derive_stream_seed(seed_value: int, stream_id: String) -> int:
-	return abs(hash("%d:%s" % [seed_value, stream_id]))
+	var seed_text: String = "%d:%s" % [seed_value, stream_id]
+	var derived_seed: int = 0
+	for index: int in range(seed_text.length()):
+		derived_seed = (derived_seed * STREAM_SEED_MULTIPLIER + seed_text.unicode_at(index)) % STREAM_SEED_MODULUS
+	return maxi(derived_seed, 1)

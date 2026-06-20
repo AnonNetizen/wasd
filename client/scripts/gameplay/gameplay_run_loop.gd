@@ -8,6 +8,7 @@ signal quit_to_title_requested()
 signal restart_requested()
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const GAME_MODES := preload("res://scripts/contracts/game_modes.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
@@ -333,6 +334,7 @@ func _on_level_up_pause_requested() -> void:
 
 
 func _on_level_up_choice_selected(choice: Dictionary) -> void:
+	_record_level_up_decision(choice)
 	var modifiers: Array = choice.get("modifiers", []) if choice.get("modifiers", []) is Array else []
 	if _player != null and _player.has_method("apply_modifiers"):
 		_player.call("apply_modifiers", modifiers)
@@ -352,6 +354,17 @@ func _on_level_up_choice_selected(choice: Dictionary) -> void:
 	})
 	if _can_level_up():
 		_begin_level_up()
+
+
+func _record_level_up_decision(choice: Dictionary) -> void:
+	var luck_value: float = float(_player.call("luck")) if _player != null and _player.has_method("luck") else 0.0
+	Replay.record_decision(ANALYTICS_EVENTS.LEVEL_UP, {
+		"level": _current_level,
+		"candidate_count": _pending_level_up_choices.size(),
+		"choices": _choice_ids(_pending_level_up_choices),
+		"selected": String(choice.get("id", "")),
+		"luck": luck_value,
+	})
 
 
 func _on_player_life_changed(current_life: float, max_life: float) -> void:
@@ -791,7 +804,12 @@ func _roll_growth_choices(target_level: int) -> Array[Dictionary]:
 		var selected_entry: Dictionary = selected as Dictionary
 		choices.append(selected_entry.duplicate(true))
 		available.erase(selected_entry)
+	choices.sort_custom(_sort_growth_choices_by_id)
 	return choices
+
+
+func _sort_growth_choices_by_id(left: Dictionary, right: Dictionary) -> bool:
+	return String(left.get("id", "")) < String(right.get("id", ""))
 
 
 func _choice_ids(choices: Array[Dictionary]) -> Array[String]:

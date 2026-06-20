@@ -1,0 +1,407 @@
+{
+	"created_at": "golden:golden_level_up_choice",
+	"data_fingerprint": "c3184ab07d5623f8f05eb9b984a27f2cea1594e1f3a72115005cb3cb4a0ee23c",
+	"file_schema_version": 1,
+	"game_version": "v1.5",
+	"recording": {
+		"context": {
+			"capture_frames": 180,
+			"character": "character_default",
+			"mode": "mode_standard_survival",
+			"scenario": "golden_level_up_choice"
+		},
+		"decision_events": [
+			{
+				"event": "level_up",
+				"payload": {
+					"candidate_count": 3,
+					"choices": [
+						"growth_damage_small",
+						"growth_fire_rate_small",
+						"growth_pickup_range_small"
+					],
+					"level": 2,
+					"luck": 0.0,
+					"selected": "growth_damage_small"
+				},
+				"tick": 24,
+				"time": 0.414187666666666
+			}
+		],
+		"dropped_decision_events": 0,
+		"dropped_input_events": 0,
+		"ended_tick": 180,
+		"ended_time": 3.0,
+		"input_events": [],
+		"is_recording": false,
+		"reason": "game_over",
+		"run_seed": 20260619,
+		"run_summary": {
+			"active_pickups": 0,
+			"bullets_present": true,
+			"capture_frames": 180,
+			"enemies_present": true,
+			"frame_sample_interval": 30,
+			"frame_samples": [
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
+					"frame": 30,
+					"kills": 0,
+					"level": 2,
+					"pickups_present": false,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "level_up",
+					"ui_stack": 1,
+					"weapon_cooldown_ready": false,
+					"xp": 20
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
+					"frame": 60,
+					"kills": 0,
+					"level": 2,
+					"pickups_present": false,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "playing",
+					"ui_stack": 0,
+					"weapon_cooldown_ready": false,
+					"xp": 20
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
+					"frame": 90,
+					"kills": 0,
+					"level": 2,
+					"pickups_present": false,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "playing",
+					"ui_stack": 0,
+					"weapon_cooldown_ready": false,
+					"xp": 20
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
+					"frame": 120,
+					"kills": 0,
+					"level": 2,
+					"pickups_present": false,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "playing",
+					"ui_stack": 0,
+					"weapon_cooldown_ready": false,
+					"xp": 20
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
+					"frame": 150,
+					"kills": 0,
+					"level": 2,
+					"pickups_present": false,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "playing",
+					"ui_stack": 0,
+					"weapon_cooldown_ready": false,
+					"xp": 20
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
+					"frame": 180,
+					"kills": 0,
+					"level": 2,
+					"pickups_present": false,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "playing",
+					"ui_stack": 0,
+					"weapon_cooldown_ready": false,
+					"xp": 20
+				}
+			],
+			"kills": 0,
+			"level": 2,
+			"level_up_choice_applied": true,
+			"level_up_decisions": [
+				{
+					"candidate_count": 3,
+					"choices": [
+						"growth_damage_small",
+						"growth_fire_rate_small",
+						"growth_pickup_range_small"
+					],
+					"level": 2,
+					"luck": 0.0,
+					"selected": "growth_damage_small"
+				}
+			],
+			"player_aim_direction": {
+				"x": 1.0,
+				"y": 0.0
+			},
+			"player_moved_right": false,
+			"scenario": "golden_level_up_choice",
+			"schema_version": 1,
+			"state": "playing",
+			"ui_stack": 0,
+			"xp": 20
+		},
+		"runtime_events": [
+			{
+				"amount": 20,
+				"event": "spawn_level_up_pickup",
+				"frame": 15,
+				"tick": 15,
+				"time": 0.25
+			},
+			{
+				"event": "choose_level_up_index",
+				"frame": 45,
+				"index": 0,
+				"tick": 45,
+				"time": 0.75
+			}
+		],
+		"schema_version": 1,
+		"started_tick": 0,
+		"started_time": 0.0
+	},
+	"recording_hash": "bbe85365563c5f3c484b1696ec0b33bebd57eea47a4d83f665fd4da1c3983ed0",
+	"summary": {
+		"decision_events": 1,
+		"dropped_decision_events": 0,
+		"dropped_input_events": 0,
+		"ended_tick": 180,
+		"ended_time": 3.0,
+		"input_events": 0,
+		"reason": "game_over",
+		"run_seed": 20260619,
+		"run_summary": {
+			"active_pickups": 0,
+			"bullets_present": true,
+			"capture_frames": 180,
+			"enemies_present": true,
+			"frame_sample_interval": 30,
+			"frame_samples": [
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
+					"frame": 30,
+					"kills": 0,
+					"level": 2,
+					"pickups_present": false,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "level_up",
+					"ui_stack": 1,
+					"weapon_cooldown_ready": false,
+					"xp": 20
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
+					"frame": 60,
+					"kills": 0,
+					"level": 2,
+					"pickups_present": false,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "playing",
+					"ui_stack": 0,
+					"weapon_cooldown_ready": false,
+					"xp": 20
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
+					"frame": 90,
+					"kills": 0,
+					"level": 2,
+					"pickups_present": false,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "playing",
+					"ui_stack": 0,
+					"weapon_cooldown_ready": false,
+					"xp": 20
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
+					"frame": 120,
+					"kills": 0,
+					"level": 2,
+					"pickups_present": false,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "playing",
+					"ui_stack": 0,
+					"weapon_cooldown_ready": false,
+					"xp": 20
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
+					"frame": 150,
+					"kills": 0,
+					"level": 2,
+					"pickups_present": false,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "playing",
+					"ui_stack": 0,
+					"weapon_cooldown_ready": false,
+					"xp": 20
+				},
+				{
+					"active_pickups": 0,
+					"bullets_present": true,
+					"enemies_present": true,
+					"enemy_types": [
+						"enemy_chaser"
+					],
+					"frame": 180,
+					"kills": 0,
+					"level": 2,
+					"pickups_present": false,
+					"player_aim_direction": {
+						"x": 1.0,
+						"y": 0.0
+					},
+					"player_life": 6.0,
+					"player_moved_right": false,
+					"state": "playing",
+					"ui_stack": 0,
+					"weapon_cooldown_ready": false,
+					"xp": 20
+				}
+			],
+			"kills": 0,
+			"level": 2,
+			"level_up_choice_applied": true,
+			"level_up_decisions": [
+				{
+					"candidate_count": 3,
+					"choices": [
+						"growth_damage_small",
+						"growth_fire_rate_small",
+						"growth_pickup_range_small"
+					],
+					"level": 2,
+					"luck": 0.0,
+					"selected": "growth_damage_small"
+				}
+			],
+			"player_aim_direction": {
+				"x": 1.0,
+				"y": 0.0
+			},
+			"player_moved_right": false,
+			"scenario": "golden_level_up_choice",
+			"schema_version": 1,
+			"state": "playing",
+			"ui_stack": 0,
+			"xp": 20
+		},
+		"schema_version": 1,
+		"started_tick": 0,
+		"started_time": 0.0
+	}
+}

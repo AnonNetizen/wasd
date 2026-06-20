@@ -56,7 +56,7 @@ def main() -> int:
     capture_golden_parser.add_argument(
         "--golden-scenario",
         default=None,
-        choices=["golden_basic_run", "golden_pause_resume", "golden_full_death"],
+        choices=["golden_basic_run", "golden_pause_resume", "golden_full_death", "golden_level_up_choice"],
         help="Golden replay scenario to capture. Defaults to golden_basic_run.",
     )
     subparsers.add_parser("perf-probe", help="Run the F8 lightweight perf probe in headless Godot.")
