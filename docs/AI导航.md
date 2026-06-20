@@ -140,7 +140,7 @@
 | **加面向玩家的文本** | 先读 `client/locale/README.md`，在 `res://locale/strings.csv` 加 key + `zh_CN` / `en` 译文；若用户只给一种语言，AI 自动补齐另一语言首版译文，人工复核后代码 / 数据用 `tr("key")` 或 `name_key` |
 | **加一个设置项** | 先在 `Settings` 加配置（键/类型/默认/范围）并接入下游 `setting_changed` 即时生效；只有完成生效链路后才在设置面板显示 UI 控件，暂未接线的预留 key 保留为隐藏 / 禁用 |
 | **加一个埋点** | 用 `词表与契约.md` 登记的 `event_name`，调用 `Analytics.track_event(name, params)` |
-| **改输入/按键/手柄** | 走 `Settings` 重绑定与 InputMap action，不硬编码键盘按键、手柄按钮或手柄轴；当前 `Settings` 已负责键盘主绑定，runtime 只补手柄轴 / 按钮兜底；业务实体消费归一化 intent / action，避免直接依赖本地玩家输入；默认手柄为左摇杆移动、右摇杆 / D-pad 瞄准 |
+| **改输入/按键/手柄** | 走 `Settings` 重绑定与 InputMap action，不硬编码键盘按键、手柄按钮或手柄轴；当前 `Settings` 已负责键盘主绑定，runtime 只补手柄轴 / 按钮兜底；键鼠默认用鼠标相对玩家 / 视口中心方向瞄准，方向键 / 手柄右摇杆 / D-pad 作为兜底；业务实体消费归一化 intent / action，避免直接依赖本地玩家输入；默认手柄为左摇杆移动、右摇杆 / D-pad 瞄准 |
 | **加 GM 指令 / 调试工具** | 查 GDD 9.20；调试入口只在 debug/dev_tools 构建启用，action 用 `debug_*` 并登记词表 §7；命令必须通过正式系统 API 改状态；release preset 不启用 `dev_tools` 且排除调试脚本 / GM 命令表 |
 | **加暂停/切换游戏状态** | `GameState.change_state(PAUSED)` 等；UI 通过 `UIManager.push(modal_pause_menu)` 自动联动暂停；F5 首片的 `PauseMenu` 已覆盖继续、保存并退出、重开和回标题，也支持从升级面板上方叠出并恢复回 `LEVEL_UP`；不直接读写 `get_tree().paused`（见 GDD 9.12 / 9.14） |
 | **加录制回放/确定性需求** | 走 `Replay`（autoload）；随机走 `RNG.<stream>`、时间走 `GameClock`；不读非确定时间源（见 GDD 9.9 / 9.18） |
@@ -171,6 +171,8 @@
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
 当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`MetaProgressionSystem`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、gameplay runtime、TitleMenu / WorldBackground / Player / WeaponSystem / Bullet / Enemy / Spawner / PickupOrb / LevelUpPanel / HUD / GameOverPanel 的最小闭环；F5 已新增 `PauseMenu`、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、升级界面 Esc 叠出暂停菜单、坏档重置提示、run payload、`RNG.snapshot()` / `restore_snapshot()` 与 `GameClock.snapshot()` / `restore_snapshot()`，并用 `SaveManager` 的 `run` kind 保存 / 读取局内快照；F6 已新增 `MetaProgressionSystem`、死亡结算、`meta` profile roundtrip、标题 `MetaProgressionPanel` 局外升级入口、数据驱动伤害 / 射速等永久升级轨道和下一局永久 modifiers；F7 已落地设置持久化、只显示已接线设置的正式设置面板、核心 UI 运行时语言刷新、键盘主输入重绑定、输入绑定保存 / 共用键位反馈、一键恢复输入默认，以及 `UIManager` 栈顶 `ui_back` / 默认焦点首片。F8 已通过当前验收基线收口审计，包含临时 L1 runner、Replay `.replay` 文件 roundtrip、summary diff / 运行时摘要 runner、runner 输入播放首片、runtime event 播放首片、扩展稳定帧样本 diff、gameplay 输入录制首片、`client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay`、`client/tests/replays/golden_level_up_choice.replay` 和 schema v2 perf / balance baseline；升级选择已记录 `level_up` decision，RNG 子流 seed 派生已改为项目内稳定字符串算法以保护跨进程回放确定性。当前 F9 入口是 `docs/AI协作/工作包/F9-ContentDemoPolish.md`，用于首批 Demo 内容切片、手感 / 可读性打磨、占位表现规范和手动 checklist；F8 的 `l1-smoke`、`replay-smoke`、四条 checked-in replay runner 和 `perf-probe` 是 F9 内容扩展的回归护栏。正式客户端默认 viewport 为 1920×1080，窗口禁止任意拖拽缩放并采用 `canvas_items + keep` 保比例黑边策略，GameplayHud / LevelUpPanel 已改为锚点与容器布局；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，敌人中心已按 `enemies.csv.separation_radius` 做小范围排斥以避免完全重叠，玩家中心也通过 `player_separation_radius` 提供不可重叠区域并在碰到敌人分离圈时只推开敌人，经验球与升级三选一已接入 `growth.csv` / `growth_pools.json`，升级选择后有 HUD 获得反馈，`enemies.csv.visual_color` 支持数据化敌人占位色，当前已有追猎者与疾行者两种 F4 敌人。
+
+> F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射，但玩家和敌人占位表现只做左 / 右两种朝向。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
 
 ### 5.2 系统依赖图（Mermaid，AI 改动前先看影响范围）
 

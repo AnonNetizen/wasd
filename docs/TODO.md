@@ -47,7 +47,6 @@
 ## 5. 阻塞 / 待决策
 
 - [ ] A：松开瞄准输入是否停火。
-- [ ] B：是否提供自动瞄准 / 鼠标瞄准。
 - [ ] C：大地图引导方式：软边界 / 兴趣点。
 - [ ] D：子弹手感：初期提速 / 弹道宽容。
 - [ ] E：升级选项池内容。
@@ -75,3 +74,4 @@
 - [x] 正式项目 F8 工作包准备：`docs/AI协作/工作包/F8-ReplayTestingBalance.md` 已建立为回放 / 测试 / 平衡基线阶段入口。
 - [x] 正式项目 F8 当前验收基线：L1 smoke、Replay runner、gameplay 输入录制首片、runner 输入播放首片、runtime event 播放首片、basic / pause-resume / full-death / level-up choice 四条 golden、稳定 RNG 子流 seed 和 schema v2 perf / balance baseline 已完成并通过收口审计。
 - [x] 正式项目 F9 工作包准备：`docs/AI协作/工作包/F9-ContentDemoPolish.md` 已建立为内容扩展 / Demo 打磨阶段入口，F8 四条 golden replay 与 perf-probe 保留为回归护栏。
+- [x] 设计待决策 B：默认瞄准已改为鼠标相对玩家 / 视口中心方向，方向键 / 手柄右摇杆 / D-pad 作为兜底，玩家和敌人占位表现只做左右朝向。

@@ -9,9 +9,10 @@ signal died()
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
-const AIM_MARKER_LENGTH: float = 24.0
 const DRAW_RADIUS: float = 12.0
+const FACING_MARKER_LENGTH: float = 22.0
 const HIT_FLASH_DURATION: float = 0.18
+const MOUSE_AIM_MIN_DISTANCE_SQUARED: float = 16.0
 const REPLAY_PARTICIPANT_ID: String = "player_0"
 const REPLAY_STATE_ACTIONS: Array[String] = [
 	ACTIONS.MOVE_LEFT,
@@ -27,12 +28,15 @@ const REPLAY_STATE_ACTIONS: Array[String] = [
 var aim_direction: Vector2 = Vector2.RIGHT
 var _base_stats: Dictionary = {}
 var _damage_invulnerability_duration: float = 0.0
+var _facing_sign: float = 1.0
 var _hit_flash_remaining: float = 0.0
 var _invulnerable_remaining: float = 0.0
 var _luck: float = 0.0
 var _move_speed: float = 0.0
 var _max_life: float = 1.0
 var _life_points: float = 1.0
+var _mouse_aim_active: bool = false
+var _mouse_aim_viewport_offset: Vector2 = Vector2.ZERO
 var _pickup_orb_speed: float = 0.0
 var _pickup_range: float = 0.0
 var _separation_radius: float = 0.0
@@ -49,6 +53,19 @@ func _ready() -> void:
 	camera.enabled = true
 	camera.position_smoothing_enabled = false
 	camera.make_current()
+
+
+func _input(event: InputEvent) -> void:
+	var mouse_motion: InputEventMouseMotion = event as InputEventMouseMotion
+	if mouse_motion != null and GameState.is_state(GameState.PLAYING):
+		_mouse_aim_active = true
+		_set_mouse_aim_from_viewport_position(mouse_motion.position)
+		return
+
+	var mouse_button: InputEventMouseButton = event as InputEventMouseButton
+	if mouse_button != null and GameState.is_state(GameState.PLAYING):
+		_mouse_aim_active = true
+		_set_mouse_aim_from_viewport_position(mouse_button.position)
 
 
 func _physics_process(delta: float) -> void:
@@ -79,10 +96,9 @@ func _physics_process(delta: float) -> void:
 		ACTIONS.AIM_DOWN
 	)
 	if aim_input.length_squared() > 0.0:
-		var next_aim_direction: Vector2 = _snap_to_four_directions(aim_input)
-		if next_aim_direction != aim_direction:
-			aim_direction = next_aim_direction
-			queue_redraw()
+		_set_aim_direction(aim_input)
+	elif _mouse_aim_active:
+		_set_mouse_aim_from_viewport_position(get_viewport().get_mouse_position())
 
 	velocity = move_input * _move_speed
 	move_and_slide()
@@ -94,6 +110,8 @@ func configure(base_stats: Dictionary) -> void:
 	_stat_additions.clear()
 	_stat_multipliers.clear()
 	_invulnerable_remaining = 0.0
+	_mouse_aim_active = false
+	_mouse_aim_viewport_offset = Vector2.ZERO
 	_rebuild_stats(true)
 
 
@@ -125,6 +143,12 @@ func separation_radius() -> float:
 	return _separation_radius
 
 
+func aim_at_world_position(world_position: Vector2) -> void:
+	var mouse_direction: Vector2 = world_position - global_position
+	if mouse_direction.length_squared() > MOUSE_AIM_MIN_DISTANCE_SQUARED:
+		_set_aim_direction(mouse_direction)
+
+
 func apply_modifiers(modifiers: Array) -> void:
 	for raw_modifier: Variant in modifiers:
 		if not raw_modifier is Dictionary:
@@ -154,9 +178,9 @@ func snapshot() -> Dictionary:
 func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_replay_action_pressed.clear()
 	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
-	aim_direction = _dict_to_vector(snapshot_data.get("aim_direction", {}), aim_direction).normalized()
-	if aim_direction.length_squared() <= 0.0:
-		aim_direction = Vector2.RIGHT
+	_mouse_aim_active = false
+	_mouse_aim_viewport_offset = Vector2.ZERO
+	_set_aim_direction(_dict_to_vector(snapshot_data.get("aim_direction", {}), aim_direction))
 	_stat_additions = _dictionary_or_empty(snapshot_data.get("stat_additions", {}))
 	_stat_multipliers = _dictionary_or_empty(snapshot_data.get("stat_multipliers", {}))
 	_rebuild_stats(true)
@@ -194,14 +218,15 @@ func receive_damage(info: RefCounted) -> Dictionary:
 
 func _draw() -> void:
 	var body_color: Color = Color.WHITE if _hit_flash_remaining > 0.0 else Color(0.35, 0.72, 1.0)
-	var marker_tip: Vector2 = aim_direction.normalized() * AIM_MARKER_LENGTH
-	var marker_side: Vector2 = marker_tip.normalized().orthogonal() * 5.0
+	var marker_tip: Vector2 = Vector2(FACING_MARKER_LENGTH * _facing_sign, 0.0)
+	var marker_tail: Vector2 = marker_tip - Vector2(8.0 * _facing_sign, 0.0)
 	draw_circle(Vector2.ZERO, DRAW_RADIUS, body_color)
+	draw_circle(Vector2(DRAW_RADIUS * 0.35 * _facing_sign, -3.5), 2.0, Color.WHITE)
 	draw_line(Vector2.ZERO, marker_tip, Color.WHITE, 3.0)
 	draw_colored_polygon(PackedVector2Array([
 		marker_tip,
-		marker_tip - aim_direction.normalized() * 8.0 + marker_side,
-		marker_tip - aim_direction.normalized() * 8.0 - marker_side,
+		marker_tail + Vector2(0.0, 5.0),
+		marker_tail - Vector2(0.0, 5.0),
 	]), Color.WHITE)
 
 
@@ -258,10 +283,26 @@ func _rebuild_stats(reset_life: bool) -> void:
 	life_changed.emit(_life_points, _max_life)
 
 
-func _snap_to_four_directions(raw_direction: Vector2) -> Vector2:
-	if absf(raw_direction.x) >= absf(raw_direction.y):
-		return Vector2.RIGHT if raw_direction.x >= 0.0 else Vector2.LEFT
-	return Vector2.DOWN if raw_direction.y >= 0.0 else Vector2.UP
+func _set_aim_direction(raw_direction: Vector2) -> void:
+	if raw_direction.length_squared() <= 0.0:
+		return
+
+	var next_direction: Vector2 = raw_direction.normalized()
+	var previous_direction: Vector2 = aim_direction
+	var previous_facing_sign: float = _facing_sign
+	aim_direction = next_direction
+	if next_direction.x > 0.01:
+		_facing_sign = 1.0
+	elif next_direction.x < -0.01:
+		_facing_sign = -1.0
+	if previous_direction.distance_squared_to(aim_direction) > 0.0001 or not is_equal_approx(previous_facing_sign, _facing_sign):
+		queue_redraw()
+
+
+func _set_mouse_aim_from_viewport_position(viewport_position: Vector2) -> void:
+	_mouse_aim_viewport_offset = viewport_position - get_viewport_rect().size * 0.5
+	if _mouse_aim_viewport_offset.length_squared() > MOUSE_AIM_MIN_DISTANCE_SQUARED:
+		_set_aim_direction(_mouse_aim_viewport_offset)
 
 
 func _stat_value(stat: String, default_value: float) -> float:

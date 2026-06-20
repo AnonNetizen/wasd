@@ -152,6 +152,7 @@
 | #79 | 本地 pre-commit 与工具先行代码审核流程 | `.pre-commit-config.yaml`、`tools/check_staged_whitespace.py`、`docs/AI协作/代码审核流程.md`、三平台 `code-review-factual` skill、三平台规则 / commands、CICD规划、实时验证回路、文档健康检查、CONTRIBUTING、AI导航、AI记忆 |
 | #80 | F5 run 存档 version 2 + SaveManager smoke | `client/scripts/autoload/save_manager.gd`、`client/tools/save_manager_smoke.gd`、`tools/godot_bridge.py`、`docs/代码/save_manager.md`、`docs/代码/gameplay_runtime.md`、`docs/测试策略.md`、AI导航、AI记忆 |
 | #81 | F8 回放确定性基线：稳定 RNG 子流 seed + 升级选择 golden | `client/scripts/autoload/rng.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、`client/tools/golden_replay_capture.gd`、`client/tools/replay_runner.gd`、`tools/godot_bridge.py`、`client/tests/replays/`、`docs/代码/rng.md`、`docs/代码/replay.md`、`docs/代码/gameplay_runtime.md`、测试策略、AI导航、AI记忆 |
+| #82 | 默认鼠标瞄准 + 左右朝向 | `client/scripts/gameplay/player.gd`、`client/scripts/gameplay/enemy.gd`、`client/scripts/gameplay/weapon_system.gd`、`client/data/characters.json`、`client/data/weapons.json`、`client/locale/strings.csv`、GDD、词表、规则、Gameplay Runtime / Replay / Settings 文档、测试策略、AI导航、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

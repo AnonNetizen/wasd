@@ -341,7 +341,7 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
       "default_unlocked": true,
       "tags": ["tag_character"],
       "capabilities": [],
-      "control_profile": "default_4dir_auto",
+      "control_profile": "default_mouse_auto",
       "starting_loadout": {
         "weapon_id": "weapon_basic_blaster",
         "active_item_id": "active_item_blink_burst",
@@ -372,7 +372,7 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `characters[].name_key` / `desc_key` | string | `character_*_name` / `character_*_desc` | 角色名称和描述译文 key |
 | `characters[].default_unlocked` | bool | true / false | 新存档中是否默认可用；仍需与 `meta_progression.json` 解锁项保持一致 |
 | `characters[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_character` | 内容标签；破限角色还需含 `tag_limit_break` 并声明 capability |
-| `characters[].capabilities` | array[string] | 词表 §12.2 capability id，可为空 | 允许突破的默认规则；空数组表示默认 4 方向瞄准 / 自动开火 / 默认移动 |
+| `characters[].capabilities` | array[string] | 词表 §12.2 capability id，可为空 | 允许突破的默认规则；空数组表示默认鼠标瞄准 / 左右朝向 / 自动开火 / 默认移动 |
 | `characters[].control_profile` | string | 非空 | 控制配置标识；当前只做数据边界，不实现输入 profile 切换 |
 | `characters[].starting_loadout` | object | 必填 | 角色起始携带内容引用；当前只做 schema，不发放运行时实体 |
 | `characters[].starting_loadout.weapon_id` | string | 必须存在于 `weapons.json` | 默认起始武器引用 |
@@ -396,7 +396,7 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
       "name_key": "weapon_basic_blaster_name",
       "desc_key": "weapon_basic_blaster_desc",
       "default_unlocked": true,
-      "fire_mode": "auto_4dir",
+      "fire_mode": "auto_mouse",
       "fire_audio_id": "sfx_player_shoot",
       "base_stats": {
         "damage": 3.5,

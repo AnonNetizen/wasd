@@ -15,6 +15,7 @@ var _contact_damage_type: String = ""
 var _defeat_feedback_remaining: float = 0.0
 var _enemy_id: String = ""
 var _exp_reward: int = 0
+var _facing_sign: float = 1.0
 var _hit_flash_remaining: float = 0.0
 var _hit_radius: float = 0.0
 var _life_points: float = 1.0
@@ -42,6 +43,7 @@ func _physics_process(delta: float) -> void:
 
 	var to_target: Vector2 = _target.global_position - global_position
 	if to_target.length_squared() > 0.0:
+		_update_facing(to_target)
 		global_position += to_target.normalized() * _move_speed * scaled_delta
 	_apply_center_separation()
 	_check_contact()
@@ -60,6 +62,8 @@ func configure(enemy_data: Dictionary, target: Node2D) -> void:
 	_hit_radius = float(enemy_data.get("hit_radius", 0.0))
 	_separation_radius = float(enemy_data.get("separation_radius", 0.0))
 	_visual_color = _parse_visual_color(String(enemy_data.get("visual_color", "#ff6152")))
+	if _target != null and is_instance_valid(_target):
+		_update_facing(_target.global_position - global_position)
 	add_to_group("active_enemies")
 	queue_redraw()
 
@@ -134,6 +138,7 @@ func _pool_reset() -> void:
 	_defeat_feedback_remaining = 0.0
 	_enemy_id = ""
 	_exp_reward = 0
+	_facing_sign = 1.0
 	_hit_flash_remaining = 0.0
 	_hit_radius = 0.0
 	_life_points = 1.0
@@ -155,12 +160,15 @@ func _draw() -> void:
 	var radius: float = maxf(_hit_radius, 8.0)
 	var color: Color = _enemy_color()
 	var visual_radius: float = radius * _defeat_scale()
+	var nose: Vector2 = Vector2(visual_radius * _facing_sign, 0.0)
+	var tail_x: float = -visual_radius * 0.75 * _facing_sign
 	var points: PackedVector2Array = PackedVector2Array([
-		Vector2(0.0, -visual_radius),
-		Vector2(visual_radius * 0.85, visual_radius),
-		Vector2(-visual_radius * 0.85, visual_radius),
+		nose,
+		Vector2(tail_x, -visual_radius * 0.85),
+		Vector2(tail_x, visual_radius * 0.85),
 	])
 	draw_colored_polygon(points, color)
+	draw_circle(Vector2(visual_radius * 0.35 * _facing_sign, -visual_radius * 0.2), maxf(2.0, visual_radius * 0.12), Color.WHITE)
 
 
 func _start_hit_flash() -> void:
@@ -181,6 +189,16 @@ func _update_defeat_feedback(delta: float) -> void:
 		PoolManager.release(self)
 		return
 	queue_redraw()
+
+
+func _update_facing(direction: Vector2) -> void:
+	var previous_sign: float = _facing_sign
+	if direction.x > 0.01:
+		_facing_sign = 1.0
+	elif direction.x < -0.01:
+		_facing_sign = -1.0
+	if not is_equal_approx(previous_sign, _facing_sign):
+		queue_redraw()
 
 
 func _enemy_color() -> Color:

@@ -8,7 +8,7 @@
 - `Settings` 负责维护正式客户端运行时设置的默认值、读取、修改和变更广播。
 - 设置 key 必须来自 `docs/词表与契约.md`，并通过 `client/scripts/contracts/settings_keys.gd` 与 `DataLoader` 的 `_contracts.json` 校验。
 - F7 首片已接入 `user://settings.cfg` 持久化、类型 / 范围校验、损坏配置回退和 `settings-smoke` 自动验证。
-- F7 第二片已接入正式 `SettingsPanel`，标题菜单和暂停菜单都能打开同一设置面板；面板只通过 `Settings.set_value()` 写入，不直接维护偏好副本。当前玩家面板只显示已接线生效的设置：语言、音量、回放记录开关、匿名分析开关和基础输入绑定；`video.*`、松开瞄准停火、自动瞄准、屏幕震动和失焦暂停等未接线设置 key 暂时保留但不显示。F7 运行时语言刷新已覆盖标题、暂停、设置、HUD、升级、结算和局外成长面板。F7 输入重绑定首片已接入键盘主绑定：`Settings` 保存 `input.*` key，并在加载 / 修改 / 重置时把键盘事件写入对应 `InputMap` action；运行时手柄轴 / 按钮事件仍保留在同一 action 上。F7 收尾 polish 已给设置面板补输入绑定反馈、共用键位提示和一键恢复输入默认。
+- F7 第二片已接入正式 `SettingsPanel`，标题菜单和暂停菜单都能打开同一设置面板；面板只通过 `Settings.set_value()` 写入，不直接维护偏好副本。当前玩家面板只显示已接线生效的设置：语言、音量、回放记录开关、匿名分析开关和基础输入绑定；`video.*`、松开瞄准停火、瞄准模式、屏幕震动和失焦暂停等未接线设置 key 暂时保留但不显示。F9 起默认 `gameplay.aim_mode` 为 `mouse`；当前运行时实际采用鼠标相对玩家 / 视口中心方向瞄准，方向键 / 手柄右摇杆 / D-pad 作为兜底输入。F7 运行时语言刷新已覆盖标题、暂停、设置、HUD、升级、结算和局外成长面板。F7 输入重绑定首片已接入键盘主绑定：`Settings` 保存 `input.*` key，并在加载 / 修改 / 重置时把键盘事件写入对应 `InputMap` action；运行时手柄轴 / 按钮事件仍保留在同一 action 上。F7 收尾 polish 已给设置面板补输入绑定反馈、共用键位提示和一键恢复输入默认。
 - `Settings` 不负责玩家进度存档；局外成长与局内续局属于 `SaveManager`。
 
 ## 阅读方式
@@ -105,12 +105,12 @@ SettingsPanel (CanvasLayer)
 | `audio.music` | float：0~1 | `0.8` | 音乐音量 |
 | `audio.sfx` | float：0~1 | `0.9` | 音效音量 |
 | `gameplay.fire_on_release` | bool | `false` | 已登记，当前未接线生效；设置面板暂不显示 |
-| `gameplay.aim_mode` | string：`4dir` / `auto` | `4dir` | 已登记，当前未接线生效；设置面板暂不显示 |
+| `gameplay.aim_mode` | string：`mouse` / `4dir` / `auto` | `mouse` | 已登记；当前运行时默认鼠标瞄准，设置面板暂不显示，`4dir` / `auto` 仍为后续模式扩展预留 |
 | `gameplay.screen_shake` | bool | `true` | 已登记，当前未接线生效；设置面板暂不显示 |
 | `gameplay.pause_on_focus_loss` | bool | `true` | 已登记，当前未接线生效；设置面板暂不显示 |
 | `gameplay.record_replays` | bool | `true` | 自动回放录制开关 |
 | `input.move_up` / `input.move_down` / `input.move_left` / `input.move_right` | string：`Settings.input_binding_options()` 返回集合 | `W` / `S` / `A` / `D` | 移动 action 的键盘主绑定 |
-| `input.aim_up` / `input.aim_down` / `input.aim_left` / `input.aim_right` | string：`Settings.input_binding_options()` 返回集合 | `Up` / `Down` / `Left` / `Right` | 瞄准 action 的键盘主绑定 |
+| `input.aim_up` / `input.aim_down` / `input.aim_left` / `input.aim_right` | string：`Settings.input_binding_options()` 返回集合 | `Up` / `Down` / `Left` / `Right` | 兜底瞄准 action 的键盘主绑定；鼠标瞄准不通过这些键位表达连续方向 |
 | `input.use_active_item` | string：`Settings.input_binding_options()` 返回集合 | `Space` | 主动道具 action 的键盘主绑定 |
 | `input.pause` | string：`Settings.input_binding_options()` 返回集合 | `Escape` | 暂停 action 的键盘主绑定 |
 | `input.ui_confirm` | string：`Settings.input_binding_options()` 返回集合 | `Enter` | UI 确认 action 的键盘主绑定 |

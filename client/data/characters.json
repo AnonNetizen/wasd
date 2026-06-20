@@ -8,7 +8,7 @@
       "default_unlocked": true,
       "tags": ["tag_character"],
       "capabilities": [],
-      "control_profile": "default_4dir_auto",
+      "control_profile": "default_mouse_auto",
       "starting_loadout": {
         "weapon_id": "weapon_basic_blaster",
         "active_item_id": "active_item_blink_burst",

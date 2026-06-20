@@ -74,8 +74,15 @@ func _run() -> void:
 	for _index: int in range(AIM_FRAMES):
 		await get_tree().physics_frame
 	Input.action_release(ACTIONS.AIM_UP)
-	_expect(player.get("aim_direction") == Vector2.UP, "arrow aim should snap to Vector2.UP")
-	_expect(player.global_position.distance_to(before_aim_position) < 1.0, "arrow aim should not move the player")
+	_expect(player.get("aim_direction") == Vector2.UP, "arrow aim fallback should point to Vector2.UP")
+	_expect(player.global_position.distance_to(before_aim_position) < 1.0, "arrow aim fallback should not move the player")
+
+	player.call("aim_at_world_position", player.global_position + Vector2(180.0, -90.0))
+	for _index: int in range(AIM_FRAMES):
+		await get_tree().physics_frame
+	var mouse_aim: Vector2 = player.get("aim_direction")
+	_expect(mouse_aim.x > 0.75 and mouse_aim.y < -0.25, "mouse aim should support diagonal mouse direction")
+	_expect(absf(mouse_aim.x) < 0.98 and absf(mouse_aim.y) > 0.1, "mouse aim should not snap back to four directions")
 
 	var isolated_player: Node2D = PLAYER_SCENE.instantiate() as Node2D
 	isolated_player.name = "SmokeIsolatedPlayer"

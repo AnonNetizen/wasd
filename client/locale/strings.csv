@@ -14,6 +14,7 @@ ui_settings_vsync,垂直同步,VSync
 ui_settings_gameplay,玩法,Gameplay
 ui_settings_fire_on_release,松开瞄准停火,Stop Firing on Aim Release
 ui_settings_aim_mode,瞄准模式,Aim Mode
+ui_settings_aim_mode_mouse,鼠标,Mouse
 ui_settings_aim_mode_4dir,四方向,Four Directions
 ui_settings_aim_mode_auto,自动,Auto
 ui_settings_screen_shake,屏幕震动,Screen Shake
@@ -98,9 +99,9 @@ ui_credits_usage_code_style_reference,代码风格参考,Code style reference
 ui_mode_standard_survival_name,标准生存,Standard Survival
 ui_mode_standard_survival_desc,在持续增强的敌潮中尽可能活下去,Survive as long as possible against escalating waves
 character_default_name,流浪者,Wanderer
-character_default_desc,默认角色，使用四方向瞄准与自动开火,Default character with four-direction aim and auto fire
+character_default_desc,默认角色，使用鼠标瞄准与自动开火,Default character with mouse aim and auto fire
 weapon_basic_blaster_name,基础脉冲枪,Basic Blaster
-weapon_basic_blaster_desc,可靠的四方向自动武器，发射物理子弹,A reliable four-direction automatic weapon that fires physical rounds
+weapon_basic_blaster_desc,可靠的鼠标瞄准自动武器，发射物理子弹,A reliable mouse-aimed automatic weapon that fires physical rounds
 enemy_chaser_name,追猎者,Chaser
 enemy_swarm_name,疾行者,Swarm Runner
 hazard_spike_trap_name,尖刺陷阱,Spike Trap

@@ -9,7 +9,7 @@ signal closed_requested()
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 
 const LOCALE_OPTIONS: Array[String] = ["zh_CN", "en"]
-const AIM_MODE_OPTIONS: Array[String] = ["4dir", "auto"]
+const AIM_MODE_OPTIONS: Array[String] = ["mouse", "4dir", "auto"]
 const INPUT_BINDING_ROWS: Array[Dictionary] = [
 	{
 		"key": SETTINGS_KEYS.INPUT_MOVE_UP,
@@ -277,6 +277,7 @@ func _refresh_texts() -> void:
 		tr("ui_settings_language_en"),
 	])
 	_replace_options(_aim_mode_option, [
+		tr("ui_settings_aim_mode_mouse"),
 		tr("ui_settings_aim_mode_4dir"),
 		tr("ui_settings_aim_mode_auto"),
 	])
@@ -310,7 +311,7 @@ func _refresh_values() -> void:
 	_fullscreen_check.button_pressed = bool(Settings.get_value(SETTINGS_KEYS.VIDEO_FULLSCREEN, false))
 	_vsync_check.button_pressed = bool(Settings.get_value(SETTINGS_KEYS.VIDEO_VSYNC, true))
 	_fire_on_release_check.button_pressed = bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_FIRE_ON_RELEASE, false))
-	_select_option_value(_aim_mode_option, AIM_MODE_OPTIONS, String(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_AIM_MODE, "4dir")))
+	_select_option_value(_aim_mode_option, AIM_MODE_OPTIONS, String(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_AIM_MODE, "mouse")))
 	_screen_shake_check.button_pressed = bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true))
 	_pause_on_focus_loss_check.button_pressed = bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_PAUSE_ON_FOCUS_LOSS, true))
 	_record_replays_check.button_pressed = bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_RECORD_REPLAYS, true))
