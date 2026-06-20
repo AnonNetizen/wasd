@@ -17,7 +17,7 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 继续 F9 收束清单：F9.3 核心视觉占位反馈已通过人工观察；下一步复核 Demo 手动 checklist、F9.4 回归 / 性能守门和是否需要开启下一批小内容，音频资源到位后再补 `AudioManager` 注册 / smoke。
+- [ ] 继续 F9.5 Demo 手动 checklist：F9.4 自动回归 / 性能守门已通过；下一步做完整人工 checklist 复核，并决定是开启下一批小内容，还是等音频资源到位后补 `AudioManager` 注册 / smoke。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）
@@ -84,4 +84,5 @@
 - [x] 正式项目 F9.3 反馈颜色与时长一致性切片：玩家补暗色轮廓并改为 0.16 秒红色受伤闪，敌人命中为 0.16 秒暖白闪、死亡为 0.18 秒橙色放大淡出，升级 HUD 获得提示改为金色文字、暗色阴影和 1.35 秒淡出。
 - [x] 正式项目 F9.3 命中火花 / 伤害数字池切片：接入 `hit_spark` 与 `damage_number` 对象池，Combat 成功造成伤害时生成短命火花和漂浮伤害数字，`runtime-smoke` 覆盖池 acquire。
 - [x] 正式项目 F9.3 命中反馈人工试玩复核：用户观察后确认飘字密度 / 遮挡没有问题，因此不调火花 / 伤害数字数值，F9.3 视觉占位反馈进入收束。
+- [x] 正式项目 F9.4 回归与性能守门审计：基础门禁、核心 smoke、四条 checked-in golden replay runtime rerun 与 `perf-probe` 均通过；未重录 replay，`perf-probe` 仍为 budget pass。
 - [x] 设计待决策 B：默认瞄准已改为鼠标相对玩家 / 视口中心方向，方向键 / 手柄右摇杆 / D-pad 作为兜底，玩家和敌人占位表现只做左右朝向。
