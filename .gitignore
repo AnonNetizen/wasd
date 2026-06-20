@@ -50,6 +50,10 @@ logs/
 __pycache__/
 *.pyc
 
+# ===== Claude Code 本地 =====
+# 个人本机权限白名单等，不入库（团队共享配置在 .claude/settings.json）
+.claude/settings.local.json
+
 # ===== 不忽略的 =====
 # .codebuddy/ 是项目数据（规则、自动化等），需入库，**不要**忽略
 !.codebuddy/
