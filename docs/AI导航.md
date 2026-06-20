@@ -17,7 +17,7 @@
 |------|------|
 | `AGENTS.md` | **AI agent 通用开工入口**，每次开始任务前必读 |
 | `docs/AI协作/快速开工.md` | **低 token 热路径**，日常接手先读；完整长期文档按任务触发 |
-| `.codebuddy/rules/game-coding-rules.md` / `.codex/rules/game-coding-rules.md` / `.opencode/rules/game-coding-rules.md` | **强制编码规则入口**，按当前平台选读 |
+| `.codebuddy/rules/game-coding-rules.md` / `.codex/rules/game-coding-rules.md` / `.opencode/rules/game-coding-rules.md` / `.claude/rules/game-coding-rules.md` | **强制编码规则入口**，按当前平台选读 |
 | [Godot 官方 GDScript style guide](https://docs.godotengine.org/en/4.7/tutorials/scripting/gdscript/gdscript_styleguide.html) | 新写 / 修改 `.gd` 的命名、代码顺序、格式与类型标注基线；项目规则更严格时以项目规则为准 |
 | `docs/AI导航.md`（本文件） | 项目地图与扩展点定位 |
 | `docs/AI知识库索引.md` | AI 知识库总索引、权威层级、任务入口和 ADR 追踪矩阵 |
@@ -97,11 +97,13 @@
 | `docs/AI协作/ECC工具吸收清单.md` | ECC 全工具面逐项筛选、吸收和拒绝结论；同类外部 agent-harness 大仓扫库参考 |
 | `docs/测试策略.md` | **5 层测试金字塔 + 里程碑要求 + 性能预算 + 手动回归 checklist（测试唯一权威）** |
 | `AGENTS.md` / `CODEX.md` / `OPENCODE.md` | 通用入口与 Codex / OpenCode 轻量入口适配 |
-| `CLAUDE.md` | Claude Code 轻量入口适配；不安装活跃 `.claude/` 外部工具，可按需读取 `.codebuddy/skills/`、`.codex/skills/` 或 `.opencode/skills/` 项目级 skill |
+| `CLAUDE.md` | Claude Code 入口适配；配套项目自有的活跃 `.claude/`（ADR #87，与三平台同源），不接外部 vendor / hooks 整包 |
+| `.claude/` | Claude Code 平台原生配置：`agents/`（10）、`commands/`（5）、`skills/`（9，四平台同步）、`rules/game-coding-rules.md`、`settings.json`（仅 `draft/` deny）；核心语义与 `.codebuddy/` / `.codex/` / `.opencode/` 一致 |
 | `.codebuddy/agents/` | 项目级 subagents：执行类 `balancer` / `contract-validator` / `data-author`，创意类 `game-designer` / `numeric-designer` / `ip-designer` / `copywriter-packager` / `ui-art-designer` / `game-art-designer` / `marketing-strategist` |
 | `.codebuddy/commands/` | 项目级 slash commands：`/sync-contracts` / `/new-relic` / `/run-replay-regression` / `/health-check` / `/update-memory` |
 | `.codex/` | Codex CLI 平台配置；核心规则语义与 `.codebuddy/` 一致，但允许按 Codex 优化 agents / commands / rules |
 | `.opencode/` | OpenCode 平台配置；含 `opencode.json`、agents、commands、skills、rules；核心规则语义与 `.codebuddy/` / `.codex/` 一致 |
+| `.claude/` | Claude Code 平台配置；含 `agents`、`commands`、`skills`、`rules`、`settings.json`；核心规则语义与 `.codebuddy/` / `.codex/` / `.opencode/` 一致（ADR #87） |
 
 > 注：`client/` 已是正式 Godot 项目根（`project.godot` 在此）。F1 只建立最小启动骨架；autoload 与玩法按 `docs/正式项目工作规划.md` F2+ 继续落地，新增文件务必归位。
 
@@ -135,7 +137,7 @@
 | **校验语义风险** | 跑 `python tools/lint_semantic_rules.py`；当前第三档默认非阻塞，提示特殊 id 分支、业务脚本绕过 autoload、缺类型签名、长期脚本缺 `# Doc:` 与未知 contract 常量；改语义 lint 时追加 `python tools/test_semantic_rules_lint.py` |
 | **本地提交前验证** | 已提供 `.pre-commit-config.yaml`；安装后跑 `pre-commit run --all-files` 或提交时自动跑 Stage 1 hook；未安装时按 `docs/AI协作/实时验证回路.md` 的等价命令 |
 | **查 Godot 场景树 / headless 启动** | 跑 `python tools/godot_bridge.py export-tree`、`python tools/godot_bridge.py headless-boot`、gameplay runtime 专用 `python tools/godot_bridge.py --project client runtime-smoke`、F7 设置 / 设置面板专用 `python tools/godot_bridge.py --project client settings-smoke`、F6 局外成长专用 `python tools/godot_bridge.py --project client meta-smoke`、SaveManager 专用 `python tools/godot_bridge.py --project client save-smoke`、DebugTools 专用 `python tools/godot_bridge.py --project client debug-tools-smoke` / `debug-tools-release-smoke`，以及 F8 `l1-smoke` / `replay-smoke` / `replay-runner` / `replay-runner --rerun-runtime-summary` / `replay-input-smoke` / `capture-golden-replay` / `rng-audit` / `perf-probe`；默认项目为正式 `client/` |
-| **用项目级 AI skill** | CodeBuddy / Codex / OpenCode 分别读取 `.codebuddy/skills/<name>/SKILL.md`、`.codex/skills/<name>/SKILL.md`、`.opencode/skills/<name>/SKILL.md`；当前覆盖 Godot 实现、场景验证、Godot 测试诊断、试玩复盘、文档同步、安全提交、事实 review、AI 资源筛选与协作面审计、MCP 评估；外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进项目 skill，不再保留 vendor 来源或 reference 跳转；资源筛选与安装清单见 `docs/AI协作/AI技能资源评估.md` |
+| **用项目级 AI skill** | CodeBuddy / Codex / OpenCode / Claude 分别读取 `.codebuddy/skills/<name>/SKILL.md`、`.codex/skills/<name>/SKILL.md`、`.opencode/skills/<name>/SKILL.md`、`.claude/skills/<name>/SKILL.md`；当前覆盖 Godot 实现、场景验证、Godot 测试诊断、试玩复盘、文档同步、安全提交、事实 review、AI 资源筛选与协作面审计、MCP 评估；外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进项目 skill，不再保留 vendor 来源或 reference 跳转；资源筛选与安装清单见 `docs/AI协作/AI技能资源评估.md` |
 | **加一种子弹效果原语** | 先在 `词表与契约.md` 登记 `effect` id → 在效果原语层实现方法/Node → 数据中引用 |
 | **改数值（血/伤害/刷怪/掉落）** | 先读 `client/data/README.md`，只改 `res://data/` 对应 CSV / JSON，**绝不改代码常量**；平表数值优先 CSV，复杂配置优先 JSON；新增 / 改字段必须同步数值手册 |
 | **预留 / 维护玩家 mod 接口** | 看 `docs/代码/mod_loader.md`、`docs/代码/data_loader.md` 与 GDD §9.21；当前只支持 `user://mods/<mod_id>/mod.json` 声明式 JSON / CSV append，不接创意工坊、不执行玩家脚本、不绕过 `DataLoader` schema；未来创意工坊只作为分发层 |

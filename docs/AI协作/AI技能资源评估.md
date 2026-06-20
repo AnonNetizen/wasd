@@ -1,6 +1,6 @@
 # AI 技能资源评估
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档记录外部 AI skills / agents / MCP / rules 资源的筛选结论和项目安装清单；改已安装 skill、引入新资源平台或调整筛选标准时，必须同步 `.codebuddy/skills/`、`.codex/skills/`、`.opencode/skills/`、`.opencode/opencode.json`、`OPENCODE.md`、`docs/AI协作/README.md`、`docs/AI协作/工具适配指南.md`、`docs/AI导航.md`、`docs/AI记忆/current_state.json`。
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档记录外部 AI skills / agents / MCP / rules 资源的筛选结论和项目安装清单；改已安装 skill、引入新资源平台或调整筛选标准时，必须同步 `.codebuddy/skills/`、`.codex/skills/`、`.opencode/skills/`、`.claude/skills/`、`.opencode/opencode.json`、`OPENCODE.md`、`CLAUDE.md`、`docs/AI协作/README.md`、`docs/AI协作/工具适配指南.md`、`docs/AI导航.md`、`docs/AI记忆/current_state.json`。
 
 ## 1. 筛选原则
 
@@ -29,6 +29,8 @@
 
 ## 3. 已安装 Skills
 
+> 自 ADR #87 起，下列每个 skill 还同步存在于 `.claude/skills/<name>/SKILL.md`（四平台同步）；路径列仅列出三平台代表路径，Claude 同名 skill 与之同源。
+
 | Skill | 路径 | 用途 |
 |-------|------|------|
 | `godot-gdscript` | `.codebuddy/skills/godot-gdscript/SKILL.md` / `.codex/skills/godot-gdscript/SKILL.md` / `.opencode/skills/godot-gdscript/SKILL.md` | Godot 4.7 + typed GDScript 实现；强化数据驱动、autoload、InputMap 和正式 client 边界 |
@@ -54,7 +56,8 @@
 
 ## 4-A. 激活边界
 
-- OpenCode 当前只自动加载 `.opencode/skills`；Codex / CodeBuddy 使用各自 `.codex/skills` 与 `.codebuddy/skills` 下的同名 skill。
+- OpenCode 当前只自动加载 `.opencode/skills`；Codex / CodeBuddy 使用各自 `.codex/skills` 与 `.codebuddy/skills` 下的同名 skill；Claude Code 使用 `.claude/skills` 下的同名 skill（ADR #87）。
+- 项目自有的 `.claude/`（ADR #87）与第 4 节中作为外部资源被**拒绝**的 CCGS / ECC `.claude/` 整包性质不同：前者是项目自建、与三平台同源的原生配置，后者指外部仓库携带的 hooks / settings / 外部 agents / vendor，仍不得引入。
 - GodotPrompter、headless-godot-skill-kit 与 CCGS 不再作为 vendor 参考来源；不得重新加入 `skills.paths`，不得启用外部 hooks、plugin 或整包 subagents。
 - ECC 不作为项目级 harness 安装；只保留已改写进 `ai-resource-curator` 的审计流程，禁止启用 ECC hooks、AgentShield、GitHub App、MCP、npm plugin、dashboard 或整包 agents / skills / commands。
 - 所有外部游戏设计建议必须先过本项目 `docs/游戏设计文档.md`、ADR 和规则；冲突时以本项目为准。
@@ -83,6 +86,6 @@
 
 - 新增 skill 前先用 `ai-resource-curator` 评估来源、许可证、权限和上下文成本。
 - 涉及 MCP 的新增建议先用 `mcp-tool-evaluation` 判断项目级 / 用户级 / 暂不安装。
-- 改 `.opencode/skills/` 后需要重启 OpenCode；改 `.codex/skills/` 或 `.codebuddy/skills/` 后需要开启新会话确认加载 才能保证运行中 session 看到新技能。
-- 改 `.opencode/opencode.json`、`.codebuddy/skills/`、`.codex/skills/` 或 `.opencode/skills/` 后，同步本安装清单并说明哪些工具被激活、哪些外部内容被吸收或拒绝。
+- 改 `.opencode/skills/` 后需要重启 OpenCode；改 `.codex/skills/`、`.codebuddy/skills/` 或 `.claude/skills/` 后需要开启新会话确认加载 才能保证运行中 session 看到新技能。
+- 改 `.opencode/opencode.json`、`.codebuddy/skills/`、`.codex/skills/`、`.opencode/skills/` 或 `.claude/skills/` 后，同步本安装清单并说明哪些工具被激活、哪些外部内容被吸收或拒绝。
 - 每次资源扫库后同步本文件、AI 记忆和当日会话日志。

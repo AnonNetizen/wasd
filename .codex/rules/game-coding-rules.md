@@ -19,7 +19,7 @@ alwaysApply: true
 - `client/`：**Godot 4.7 项目根**（即 Godot 中的 `res://`）
 - `server/`：服务器端预留（当前为单机项目，暂占位）
 - `draft/` / `DRAFT/`：用户人工草稿禁区，AI 默认不得读取、搜索、修改、整理、格式化或引用
-- `.codebuddy/skills/*/SKILL.md`、`.codex/skills/*/SKILL.md` 与 `.opencode/skills/*/SKILL.md`：三平台同步的项目级 skills；用于按需加载可复用流程，不得放宽项目核心规则；新增或调整时同步 `docs/AI协作/AI技能资源评估.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md` 与工具适配指南。
+- `.codebuddy/skills/*/SKILL.md`、`.codex/skills/*/SKILL.md`、`.opencode/skills/*/SKILL.md` 与 `.claude/skills/*/SKILL.md`：四平台同步的项目级 skills；用于按需加载可复用流程，不得放宽项目核心规则；新增或调整时同步 `docs/AI协作/AI技能资源评估.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md` 与工具适配指南。
 - 外部 AI 库的有用经验必须吸收到三平台项目级 skills 或项目自有 subagent 中；不再保留 vendor submodule、外部 hooks / plugin、整包 skills 或 `.agents/skills` reference 层。
 
 `client/` 下的固定约定：
@@ -232,7 +232,7 @@ alwaysApply: true
 
 ## 21. 多平台 AI 入口与配置适配（强制）
 - `AGENTS.md` 是所有 AI agent 的通用开工入口；`CODEX.md`、`OPENCODE.md` 只做平台加载适配，不能承载与通用入口冲突的核心规则。
-- `.codebuddy/`（CodeBuddy 平台）、`CLAUDE.md`（Claude Code 平台入口）、`.codex/`（OpenAI Codex CLI 平台）与 `.opencode/`（OpenCode 平台，含项目级 skills）共享同一套**项目核心约束**，但不要求文件内容、目录结构或工具字段字节级一致。
+- `.codebuddy/`（CodeBuddy 平台）、`CLAUDE.md` + `.claude/`（Claude Code 平台入口与原生配置）、`.codex/`（OpenAI Codex CLI 平台）与 `.opencode/`（OpenCode 平台，含项目级 skills）共享同一套**项目核心约束**，但不要求文件内容、目录结构或工具字段字节级一致。
 - 允许针对不同 AI agent / 平台优化 frontmatter、工具名、提示词措辞、命令入口与 agent 拆分方式；优化不得改变项目红线、数据契约、测试义务、文档维护规则等核心语义。
 - 修改任一平台入口或配置时，必须判断是否影响其他平台的能力可用性：
   - 核心规则变化（如本文件、红线、自检清单、快速开工 5 步）→ 通用入口与 `.codebuddy/` / `CLAUDE.md` / `.codex/` / `.opencode/` 都要表达同一语义，可用不同措辞或格式。
