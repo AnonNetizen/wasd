@@ -5,6 +5,9 @@ extends CanvasLayer
 
 
 const UPGRADE_FEEDBACK_DURATION: float = 1.35
+const UPGRADE_FEEDBACK_FADE_RATIO: float = 0.36
+const UPGRADE_FEEDBACK_TEXT_COLOR: Color = Color(1.0, 0.82, 0.28)
+const UPGRADE_FEEDBACK_TEXT_SHADOW_COLOR: Color = Color(0.05, 0.04, 0.03, 0.92)
 
 var _life_label: Label = null
 var _level_label: Label = null
@@ -40,6 +43,7 @@ func _ready() -> void:
 
 	_message_label.hide()
 	_upgrade_feedback_label.hide()
+	_configure_upgrade_feedback_style()
 	if not Localization.locale_changed.is_connected(_on_locale_changed):
 		Localization.locale_changed.connect(_on_locale_changed)
 	_refresh_static_labels()
@@ -50,6 +54,7 @@ func _process(delta: float) -> void:
 	if _upgrade_feedback_remaining <= 0.0:
 		return
 	_upgrade_feedback_remaining = maxf(_upgrade_feedback_remaining - GameClock.delta_scaled(delta), 0.0)
+	_update_upgrade_feedback_visual()
 	if _upgrade_feedback_remaining <= 0.0:
 		_upgrade_feedback_label.hide()
 
@@ -89,6 +94,7 @@ func show_upgrade_feedback(name_key: String) -> void:
 	_last_upgrade_name_key = name_key
 	_refresh_upgrade_feedback()
 	_upgrade_feedback_remaining = UPGRADE_FEEDBACK_DURATION
+	_update_upgrade_feedback_visual()
 	_upgrade_feedback_label.show()
 
 
@@ -122,6 +128,24 @@ func _refresh_upgrade_feedback() -> void:
 	_upgrade_feedback_label.text = tr("ui_upgrade_applied").format({
 		"name": tr(_last_upgrade_name_key),
 	})
+
+
+func _configure_upgrade_feedback_style() -> void:
+	_upgrade_feedback_label.add_theme_color_override("font_color", UPGRADE_FEEDBACK_TEXT_COLOR)
+	_upgrade_feedback_label.add_theme_color_override("font_shadow_color", UPGRADE_FEEDBACK_TEXT_SHADOW_COLOR)
+	_upgrade_feedback_label.add_theme_constant_override("shadow_offset_x", 2)
+	_upgrade_feedback_label.add_theme_constant_override("shadow_offset_y", 2)
+	_upgrade_feedback_label.modulate = Color.WHITE
+
+
+func _update_upgrade_feedback_visual() -> void:
+	if _upgrade_feedback_label == null:
+		return
+	var remaining_ratio: float = clampf(_upgrade_feedback_remaining / UPGRADE_FEEDBACK_DURATION, 0.0, 1.0)
+	var alpha: float = 1.0
+	if remaining_ratio < UPGRADE_FEEDBACK_FADE_RATIO:
+		alpha = remaining_ratio / UPGRADE_FEEDBACK_FADE_RATIO
+	_upgrade_feedback_label.modulate = Color(1.0, 1.0, 1.0, alpha)
 
 
 func _on_locale_changed(_locale: String) -> void:

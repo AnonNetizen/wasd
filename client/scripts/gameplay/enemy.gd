@@ -8,8 +8,10 @@ signal defeated(enemy: Node, exp_reward: int)
 
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DEFEAT_FEEDBACK_DURATION: float = 0.18
+const DEFEAT_FEEDBACK_COLOR: Color = Color(1.0, 0.62, 0.22)
 const EYE_OUTLINE_SCALE: float = 1.65
 const HIT_FLASH_DURATION: float = 0.16
+const HIT_FLASH_COLOR: Color = Color(1.0, 0.96, 0.74)
 const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
 const PLACEHOLDER_OUTLINE_SCALE: float = 1.14
 
@@ -212,9 +214,11 @@ func _update_facing(direction: Vector2) -> void:
 func _enemy_color() -> Color:
 	if _defeat_feedback_remaining > 0.0:
 		var remaining_ratio: float = _defeat_feedback_remaining / DEFEAT_FEEDBACK_DURATION
-		return Color(1.0, 0.74, 0.34, remaining_ratio)
+		var result: Color = DEFEAT_FEEDBACK_COLOR
+		result.a = remaining_ratio
+		return result
 	if _hit_flash_remaining > 0.0:
-		return Color.WHITE
+		return HIT_FLASH_COLOR
 	return _visual_color
 
 

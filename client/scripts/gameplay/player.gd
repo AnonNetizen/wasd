@@ -11,8 +11,12 @@ const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 const DRAW_RADIUS: float = 12.0
 const FACING_MARKER_LENGTH: float = 22.0
-const HIT_FLASH_DURATION: float = 0.18
+const HIT_FLASH_DURATION: float = 0.16
 const MOUSE_AIM_MIN_DISTANCE_SQUARED: float = 16.0
+const PLACEHOLDER_FILL_COLOR: Color = Color(0.35, 0.72, 1.0)
+const PLACEHOLDER_HURT_COLOR: Color = Color(1.0, 0.34, 0.30)
+const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
+const PLACEHOLDER_OUTLINE_SCALE: float = 1.18
 const REPLAY_PARTICIPANT_ID: String = "player_0"
 const REPLAY_STATE_ACTIONS: Array[String] = [
 	ACTIONS.MOVE_LEFT,
@@ -248,9 +252,10 @@ func receive_damage(info: RefCounted) -> Dictionary:
 
 
 func _draw() -> void:
-	var body_color: Color = Color.WHITE if _hit_flash_remaining > 0.0 else Color(0.35, 0.72, 1.0)
+	var body_color: Color = PLACEHOLDER_HURT_COLOR if _hit_flash_remaining > 0.0 else PLACEHOLDER_FILL_COLOR
 	var marker_tip: Vector2 = Vector2(FACING_MARKER_LENGTH * _facing_sign, 0.0)
 	var marker_tail: Vector2 = marker_tip - Vector2(8.0 * _facing_sign, 0.0)
+	draw_circle(Vector2.ZERO, DRAW_RADIUS * PLACEHOLDER_OUTLINE_SCALE, PLACEHOLDER_OUTLINE_COLOR)
 	draw_circle(Vector2.ZERO, DRAW_RADIUS, body_color)
 	draw_circle(Vector2(DRAW_RADIUS * 0.35 * _facing_sign, -3.5), 2.0, Color.WHITE)
 	draw_line(Vector2.ZERO, marker_tip, Color.WHITE, 3.0)
