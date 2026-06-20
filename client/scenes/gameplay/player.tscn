@@ -1,13 +1,11 @@
-[gd_scene load_steps=3 format=3 uid="uid://bbmnjxejt13jy"]
+[gd_scene format=3 uid="uid://bbmnjxejt13jy"]
 
 [ext_resource type="Script" uid="uid://di4d0y2bfu325" path="res://scripts/gameplay/player.gd" id="1_player"]
-[ext_resource type="PackedScene" path="res://scenes/gameplay/weapon_system.tscn" id="2_weapon"]
+[ext_resource type="PackedScene" uid="uid://bs6kdf27g1s0a" path="res://scenes/gameplay/weapon_system.tscn" id="2_weapon"]
 
-[node name="Player" type="CharacterBody2D"]
+[node name="Player" type="CharacterBody2D" unique_id=41174268]
 script = ExtResource("1_player")
 
-[node name="CenteredCamera" type="Camera2D" parent="."]
-enabled = true
-position_smoothing_enabled = false
+[node name="CenteredCamera" type="Camera2D" parent="." unique_id=1817337799]
 
-[node name="WeaponSystem" parent="." instance=ExtResource("2_weapon")]
+[node name="WeaponSystem" parent="." unique_id=240850889 instance=ExtResource("2_weapon")]
