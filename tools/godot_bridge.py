@@ -39,6 +39,7 @@ def main() -> int:
     subparsers.add_parser("l1-smoke", help="Run the F8 temporary L1 infrastructure smoke in headless Godot.")
     subparsers.add_parser("replay-smoke", help="Run the F8 replay file roundtrip smoke in headless Godot.")
     subparsers.add_parser("replay-input-smoke", help="Run the F8 replay gameplay input recording smoke in headless Godot.")
+    subparsers.add_parser("rng-audit", help="Run the RNG cross-stream correlation audit in headless Godot.")
     replay_runner_parser = subparsers.add_parser("replay-runner", help="Run the F8 replay summary diff runner in headless Godot.")
     replay_runner_parser.add_argument("--replay-file", default=None, help="Optional .replay file to validate. Defaults to an internal smoke replay.")
     replay_runner_parser.add_argument("--expectation-file", default=None, help="Optional JSON summary expectation file.")
@@ -119,6 +120,18 @@ def main() -> int:
             return 1
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--", "--replay-input-smoke"],
+            cwd=project,
+        )
+    if args.command == "rng-audit":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        audit_script = project / "tools" / "rng_audit.gd"
+        if not audit_script.exists():
+            print(f"[godot-bridge] missing RNG audit script: {_rel(audit_script)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", "--rng-audit"],
             cwd=project,
         )
     if args.command == "replay-runner":

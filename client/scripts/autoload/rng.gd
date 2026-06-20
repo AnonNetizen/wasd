@@ -61,7 +61,7 @@ class Stream:
 
 
 const DEFAULT_RUN_SEED: int = 1
-const STREAM_SEED_MULTIPLIER: int = 131
+const STREAM_SEED_DOMAIN: String = "wasd:rng-stream-seed:v2"
 const STREAM_SEED_MODULUS: int = 2_147_483_647
 
 var spawn: Stream = Stream.new()
@@ -131,8 +131,19 @@ func stream(stream_id: String) -> Stream:
 
 
 func _derive_stream_seed(seed_value: int, stream_id: String) -> int:
-	var seed_text: String = "%d:%s" % [seed_value, stream_id]
+	var seed_text: String = "%s:%d:%s" % [STREAM_SEED_DOMAIN, seed_value, stream_id]
+	var digest_text: String = seed_text.sha256_text()
 	var derived_seed: int = 0
-	for index: int in range(seed_text.length()):
-		derived_seed = (derived_seed * STREAM_SEED_MULTIPLIER + seed_text.unicode_at(index)) % STREAM_SEED_MODULUS
+	for index: int in range(digest_text.length()):
+		derived_seed = (derived_seed * 16 + _hex_value(digest_text.unicode_at(index))) % STREAM_SEED_MODULUS
 	return maxi(derived_seed, 1)
+
+
+func _hex_value(codepoint: int) -> int:
+	if codepoint >= 48 and codepoint <= 57:
+		return codepoint - 48
+	if codepoint >= 97 and codepoint <= 102:
+		return codepoint - 87
+	if codepoint >= 65 and codepoint <= 70:
+		return codepoint - 55
+	return 0

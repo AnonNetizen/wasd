@@ -223,9 +223,9 @@
       "canonical_for": ["testing_strategy", "coverage_targets", "manual_regression"],
       "must_read_for": ["test_change", "behavior_change", "replay_change"],
       "related_docs": ["docs/CICD规划.md", "docs/AI导航.md", "docs/代码文档规范.md"],
-      "related_code": ["client/", "tools/", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py"],
-      "update_triggers": ["new testing requirement", "coverage target change", "new golden replay policy"],
-      "keywords": ["test", "测试", "GUT", "replay", "coverage", "手动回归", "MetaProgressionSystem", "局外成长", "SaveManager", "续局存档", "L0", "validate_data", "test_data_loader_schema", "DataLoader schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset"]
+      "related_code": ["client/", "tools/", "client/tools/rng_audit.gd", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py"],
+      "update_triggers": ["new testing requirement", "coverage target change", "new golden replay policy", "RNG correlation audit changes"],
+      "keywords": ["test", "测试", "GUT", "replay", "coverage", "手动回归", "MetaProgressionSystem", "局外成长", "SaveManager", "续局存档", "L0", "validate_data", "test_data_loader_schema", "DataLoader schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "rng-audit", "cross-stream correlation", "RNG correlation"]
     },
     {
       "path": "docs/代码文档规范.md",
@@ -461,9 +461,9 @@
       "canonical_for": ["f8_replay_testing_balance_work_package", "replay_testing_balance_baseline"],
       "must_read_for": ["f8_replay_testing_balance", "replay_runner", "replay_input_recording", "replay_input_playback", "golden_replay", "unit_test_baseline", "perf_probe", "balance_sampling"],
       "related_docs": ["docs/正式项目工作规划.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/CICD规划.md", "docs/代码文档规范.md", "docs/代码/replay.md", "docs/代码/rng.md", "docs/代码/game_clock.md", "docs/代码/game_state.md", "docs/代码/save_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/combat.md", "docs/词表与契约.md", "docs/AI协作/上下文预算.md", "docs/AI记忆/current_state.json"],
-      "related_code": ["client/scripts/autoload/replay.gd", "client/scripts/autoload/rng.gd", "client/scripts/autoload/game_clock.gd", "client/scripts/autoload/game_state.gd", "client/scripts/autoload/save_manager.gd", "client/scripts/gameplay/", "client/scripts/combat/", "client/tools/l1_smoke.gd", "client/tools/replay_smoke.gd", "client/tools/replay_runner.gd", "client/tools/replay_input_smoke.gd", "client/tools/golden_replay_capture.gd", "client/tools/perf_probe.gd", "client/tests/replays/", "tools/godot_bridge.py"],
-      "update_triggers": ["F8 replay scope changes", "L1 runner changes", "golden replay schema changes", "perf or balance probe command changes", "replay acceptance command changes", "RNG deterministic seed derivation changes"],
-      "keywords": ["F8", "Replay", "golden replay", "GUT", "unit test", "perf probe", "balance sim", "回放", "黄金回放", "测试", "单测", "平衡", "性能采样", "replay runner", "replay input", "input recording", "input playback", "runtime_events", "frame diff", "frame samples", "level_up decision", "stable RNG seed", "golden_pause_resume", "golden_full_death", "golden_level_up_choice"]
+      "related_code": ["client/scripts/autoload/replay.gd", "client/scripts/autoload/rng.gd", "client/scripts/autoload/game_clock.gd", "client/scripts/autoload/game_state.gd", "client/scripts/autoload/save_manager.gd", "client/scripts/gameplay/", "client/scripts/combat/", "client/tools/l1_smoke.gd", "client/tools/replay_smoke.gd", "client/tools/replay_runner.gd", "client/tools/replay_input_smoke.gd", "client/tools/golden_replay_capture.gd", "client/tools/rng_audit.gd", "client/tools/perf_probe.gd", "client/tests/replays/", "tools/godot_bridge.py"],
+      "update_triggers": ["F8 replay scope changes", "L1 runner changes", "golden replay schema changes", "perf or balance probe command changes", "replay acceptance command changes", "RNG deterministic seed derivation changes", "RNG correlation audit changes"],
+      "keywords": ["F8", "Replay", "golden replay", "GUT", "unit test", "perf probe", "balance sim", "回放", "黄金回放", "测试", "单测", "平衡", "性能采样", "replay runner", "replay input", "input recording", "input playback", "runtime_events", "frame diff", "frame samples", "level_up decision", "stable RNG seed", "rng-audit", "SHA-256", "cross-stream correlation", "golden_pause_resume", "golden_full_death", "golden_level_up_choice"]
     },
     {
       "path": "docs/AI协作/工作包/F9-ContentDemoPolish.md",
@@ -769,9 +769,9 @@
       "canonical_for": ["rng", "deterministic_random", "rng_streams"],
       "must_read_for": ["rng_change", "random_stream_change", "replay_determinism"],
       "related_docs": ["docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/autoload/rng.gd", "client/scripts/contracts/rng_streams.gd"],
-      "update_triggers": ["RNG stream changes", "seed derivation changes", "weighted random API changes"],
-      "keywords": ["RNG", "autoload", "seed", "rng_streams", "determinism", "replay"]
+      "related_code": ["client/scripts/autoload/rng.gd", "client/scripts/contracts/rng_streams.gd", "client/tools/rng_audit.gd", "tools/godot_bridge.py"],
+      "update_triggers": ["RNG stream changes", "seed derivation changes", "weighted random API changes", "RNG correlation audit changes"],
+      "keywords": ["RNG", "autoload", "seed", "rng_streams", "determinism", "replay", "rng-audit", "SHA-256", "cross-stream correlation", "seed mixer"]
     },
     {
       "path": "docs/代码/game_state.md",

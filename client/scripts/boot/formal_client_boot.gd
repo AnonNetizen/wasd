@@ -17,6 +17,7 @@ const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const REPLAY_INPUT_SMOKE_RUNNER := preload("res://tools/replay_input_smoke.gd")
 const REPLAY_RUNNER := preload("res://tools/replay_runner.gd")
 const REPLAY_SMOKE_RUNNER := preload("res://tools/replay_smoke.gd")
+const RNG_AUDIT_RUNNER := preload("res://tools/rng_audit.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SAVE_SMOKE_RUNNER := preload("res://tools/save_manager_smoke.gd")
 const SETTINGS_SMOKE_RUNNER := preload("res://tools/settings_smoke.gd")
@@ -98,6 +99,10 @@ func _ready() -> void:
 		var replay_input_smoke_runner: Node = REPLAY_INPUT_SMOKE_RUNNER.new()
 		replay_input_smoke_runner.name = "ReplayInputSmoke"
 		add_child(replay_input_smoke_runner)
+	elif _is_rng_audit_enabled():
+		var rng_audit_runner: Node = RNG_AUDIT_RUNNER.new()
+		rng_audit_runner.name = "RNGAudit"
+		add_child(rng_audit_runner)
 	elif _is_golden_replay_capture_enabled():
 		var golden_capture_runner: Node = GOLDEN_REPLAY_CAPTURE_RUNNER.new()
 		golden_capture_runner.name = "GoldenReplayCapture"
@@ -148,6 +153,10 @@ func _is_replay_runner_enabled() -> bool:
 
 func _is_replay_input_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--replay-input-smoke")
+
+
+func _is_rng_audit_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--rng-audit")
 
 
 func _is_golden_replay_capture_enabled() -> bool:

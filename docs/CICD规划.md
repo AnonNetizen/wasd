@@ -123,11 +123,11 @@
 
 ### 2.H GUT 单元测试 ⭐⭐
 - [GUT](https://github.com/bitwes/Gut) 是 Godot 标配单测框架
-- F8 首片在 GUT 插件接入前，先用 `python tools/godot_bridge.py --project client l1-smoke` 作为临时 headless L1 runner，覆盖 `RNG`、`GameClock`、`GameState`、`SaveManager` 和 `Combat` 的最小基础设施行为；后续再迁入正式 GUT。
+- F8 首片在 GUT 插件接入前，先用 `python tools/godot_bridge.py --project client l1-smoke` 作为临时 headless L1 runner，覆盖 `RNG`、`GameClock`、`GameState`、`SaveManager` 和 `Combat` 的最小基础设施行为；RNG seed mixer / 子流集合变化追加 `python tools/godot_bridge.py --project client rng-audit` 做跨子流相关性审计；后续再迁入正式 GUT。
 - 优先覆盖：
   - `ModifierEngine`：属性聚合 `(基础+加法)×乘法` 公式
   - `DataLoader`：坏数据能 fail-fast
-  - `RNG`：同种子结果一致（参见 `修改建议.md` J 项）
+  - `RNG`：同种子结果一致，seed 派生跨子流相关性不超过审计阈值（参见 `修改建议.md` J 项与 ADR #86）
   - `StatusEffect`：DoT/debuff 叠加规则（参见 `修改建议.md` N 项）
 
 ### 2.H+ 代码-文档对应检查 ⭐⭐
@@ -190,7 +190,7 @@
 - 任意黄金回放产生 diff → 失败，输出首个 diff 帧 + 字段
 - 数值/原语改动后**强制更新或确认**黄金样例
 - 与 GDD 9.9 的"黄金回放"配套
-- F8 已启用显式本地命令 `python tools/godot_bridge.py --project client replay-smoke`，验证 `.replay` 文件 envelope / hash / data fingerprint / 摘要 roundtrip；并启用 `python tools/godot_bridge.py --project client replay-runner`，先对照 `.replay` 内嵌 summary 或外部 expectation JSON。已入库 golden 为 `client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay` 和 `client/tests/replays/golden_level_up_choice.replay`，可用对应 `replay-runner --replay-file ... --rerun-runtime-summary` 重跑真实 `GameplayRunLoop` 运行时摘要、扩展稳定帧样本与场景语义字段。`python tools/godot_bridge.py --project client replay-input-smoke` 已覆盖 gameplay 输入录制首片；`python tools/godot_bridge.py --project client replay-runner --rerun-runtime-summary` 已覆盖 runner 输入播放、full-death runtime event 播放、level-up choice runtime event 播放与稳定帧样本 diff；更多黄金回放 CI 仍待后续接入。
+- F8 已启用显式本地命令 `python tools/godot_bridge.py --project client replay-smoke`，验证 `.replay` 文件 envelope / hash / data fingerprint / 摘要 roundtrip；并启用 `python tools/godot_bridge.py --project client replay-runner`，先对照 `.replay` 内嵌 summary 或外部 expectation JSON。已入库 golden 为 `client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay` 和 `client/tests/replays/golden_level_up_choice.replay`，可用对应 `replay-runner --replay-file ... --rerun-runtime-summary` 重跑真实 `GameplayRunLoop` 运行时摘要、扩展稳定帧样本与场景语义字段。`python tools/godot_bridge.py --project client replay-input-smoke` 已覆盖 gameplay 输入录制首片；`python tools/godot_bridge.py --project client replay-runner --rerun-runtime-summary` 已覆盖 runner 输入播放、full-death runtime event 播放、level-up choice runtime event 播放与稳定帧样本 diff；`python tools/godot_bridge.py --project client rng-audit` 已覆盖 RNG 子流 seed mixer 跨流相关性审计，后续适合纳入 CI 的确定性门禁；更多黄金回放 CI 仍待后续接入。
 
 ### 4.N 平衡 Sim 报表（按需）⭐
 **workflow（拟建）**：`.github/workflows/balance-sim.yml`（手动触发）
