@@ -62,6 +62,7 @@
 | `purchase_upgrade(upgrade_id, slot=slot_0)` | upgrade id | 购买结果 `Dictionary` | 只允许购买已解锁、未满级且余额足够的升级 |
 | `current_modifiers(slot=slot_0)` | slot | `Array[Dictionary]` | 每条 modifier 只输出 `stat`、`type`、`value`，供 F4 玩家 / 武器复用现有成长管线 |
 | `profile_summary(slot=slot_0)` | slot | profile 摘要 `Dictionary` | 供标题局外升级 UI 展示账号等级、账号经验和主货币余额，不暴露完整存档结构 |
+| `debug_grant_currency(amount, slot=slot_0)` | amount、slot | 调试授予结果 `Dictionary` | 仅供 debug/dev_tools GM 指令使用；仍通过 profile 归一化和 `save_profile()` 写入 |
 | `upgrade_summaries(slot=slot_0)` | slot | `Array[Dictionary]` | 供 UI 展示所有升级轨道的名称、描述、当前等级、费用、余额、解锁等级、可购买状态和不可购买原因 |
 | `first_available_purchase(slot=slot_0)` | slot | 可购买项或空字典 | 供 smoke / 后续独立 UI 复用；当前失败结算面板不展示快捷购买 |
 | `currency_name_key(currency_id)` | currency id | locale key | 供结算 UI 展示货币名 |
@@ -109,6 +110,7 @@
 ## 测试义务
 
 - 改本模块必跑：`python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_gdscript_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client meta-smoke`。
+- 改 `debug_grant_currency()` 或 GM 局外货币命令时，追加 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`。
 - 改标题入口、购买反馈或 `MetaProgressionPanel` 时追加 `meta-smoke`；当前 smoke 会检查标题面板升级列表、购买反馈、伤害升级状态行中的余额 / 下一档成本，以及新数据轨道购买后输出 `fire_rate` modifier。改死亡结算页展示时追加 `meta-smoke` 和 `runtime-smoke`，必要时手动从标题菜单点开“局外升级”确认按钮可见、购买后余额、等级和反馈刷新。
 - 改 F4 结算接入、失败面板或新开局 modifier 应用时追加：`python tools/godot_bridge.py --project client runtime-smoke`。
 - 改 SaveManager envelope / kind version 时追加：`python tools/godot_bridge.py --project client save-smoke` 和迁移测试。
@@ -123,4 +125,5 @@
 - `docs/游戏设计文档.md` §7.2 / §9.16
 - `docs/代码/save_manager.md`
 - `docs/代码/gameplay_runtime.md`
+- `docs/代码/debug_tools.md`
 - `docs/测试策略.md`

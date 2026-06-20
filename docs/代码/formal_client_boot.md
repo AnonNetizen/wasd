@@ -26,6 +26,7 @@
 | `client/project.godot` | Godot 项目配置，`run/main_scene` 指向最小启动场景，默认 viewport 为 1920×1080，窗口拉伸采用 `canvas_items + keep` |
 | `client/scenes/boot/main.tscn` | 正式项目最小启动场景 |
 | `client/scripts/boot/formal_client_boot.gd` | 启动场景脚本，输出启动日志 |
+| `client/scripts/debug/debug_console.gd` | debug/dev_tools 构建才动态加载的调试控制台 |
 | `client/scenes/gameplay/gameplay_run_loop.tscn` | F4+ 正式 gameplay runtime 场景，由启动脚本实例化 |
 | `client/scenes/ui/title_menu.tscn` | 正常启动后的正式标题菜单场景 |
 | `client/scenes/ui/meta_progression_panel.tscn` | F6 标题局外升级面板场景 |
@@ -43,6 +44,7 @@
 | `client/tools/replay_input_smoke.gd` | `--replay-input-smoke` 下挂载的 F8 gameplay 输入录制 smoke |
 | `client/tools/golden_replay_capture.gd` | `--capture-golden-replay` 下挂载的 F8 golden capture 工具，固定 seed 生成 `golden_basic_run.replay`、`golden_pause_resume.replay`、`golden_full_death.replay` 或 `golden_level_up_choice.replay` |
 | `client/tools/perf_probe.gd` | `--perf-probe` 下挂载的 F8 轻量性能 / 平衡采样 |
+| `client/tools/debug_tools_smoke.gd` | `--debug-tools-smoke` 下挂载的调试控制台 / GM 指令 smoke，也可配合 `--force-release-debug-tools-off` 模拟 release guard |
 | `client/README.md` | 正式客户端运行说明 |
 
 ## 场景 / 节点结构
@@ -80,11 +82,15 @@ UIManager
 | F8 Replay input smoke | `--replay-input-smoke` 启动时只挂载 `ReplayInputSmoke`，启动真实 `GameplayRunLoop` 并确认移动 / 瞄准 / pause / ui_back 输入录制到 `Replay.input_events` | `client/tools/replay_input_smoke.gd` |
 | F8 golden capture | `--capture-golden-replay` 启动时只挂载 `GoldenReplayCapture`，由工具设置固定 seed、启动 `GameplayRunLoop`、采样 180 帧并写入 `client/tests/replays/golden_basic_run.replay`；可用 `--golden-scenario golden_pause_resume` 生成暂停 / 恢复输入场景，`--golden-scenario golden_full_death` 生成正式 Combat 死亡 / 结算场景，或 `--golden-scenario golden_level_up_choice` 生成真实经验球触发的升级选择 decision 场景 | `client/tools/golden_replay_capture.gd` |
 | F8 perf probe | `--perf-probe` 启动时挂载 `GameplayRunLoop` 与 `PerfProbe`，输出平均 / 最大帧时间、池水位、等级、击杀和 GameClock 指标 JSON | `client/tools/perf_probe.gd` |
+| DebugTools smoke | `--debug-tools-smoke` 启动时挂载 `GameplayRunLoop` 与 `DebugToolsSmoke`；debug 模式验证 `DebugConsole` / `GMCommandRegistry`、help/stats/spawn/xp/hp/damage/heal/meta/kill/clear 命令，`--force-release-debug-tools-off` 模拟 release 时确认没有调试节点或 debug action | `client/tools/debug_tools_smoke.gd` |
 | 重开 / 回标题 | `GameplayRunLoop` 发出重开或回标题信号后，由启动脚本清理运行时和 gameplay 对象池，再重新挂载 run 或标题菜单 | `restart_requested` / `quit_to_title_requested` |
 
 ## 公共 API
 
-无。该模块目前只提供启动烟雾验证，不对其他系统暴露 API。
+| API | 用途 |
+|-----|------|
+| `debug_tools_enabled()` | 供 smoke / 调试工具读取当前 debug/dev_tools guard 结果 |
+| `debug_active_run_loop()` | 供 `GMCommandRegistry` 定位当前活跃 `GameplayRunLoop` |
 
 ## Signal / Event
 
@@ -97,6 +103,7 @@ UIManager
 - 启动日志输出 `data_schema_ok`、`mods`、`player_stats`、`characters`、`weapons`、`enemies`、`hazards`、`spawn_waves`、`relics`、`active_items`、`consumables`、`locale_keys`、`growth_levels`、`growth_pools`、`game_modes`、`meta_upgrades`、`meta_unlocks`、`platform_provider`、`platform_available` 等 smoke 计数 / 状态。
 - 启动脚本本身不包含玩家可见文本；标题、HUD、设置、结算面板和局外升级面板文案见 `client/locale/strings.csv`。
 - 标题菜单的“继续游戏”只在 `SaveManager.has_save(slot_0, run)` 为真时可见；“局外升级”常驻可见并由 `MetaProgressionPanel` 展示 `MetaProgressionSystem` 的 profile / upgrade summaries。开始新局和重开会删除旧 `run` 存档，避免重复继续旧局。若继续读取失败或坏档被隔离，标题菜单显示 `ui_run_save_unavailable` 提示并隐藏继续按钮。成功继续后，`GameplayRunLoop` 会按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板。
+- DebugTools 只在 `OS.is_debug_build()` 或 `OS.has_feature("dev_tools")` 为真时动态加载；release 构建不应启用 `dev_tools`，也不应包含 `res://scripts/debug/*` 调试资源。
 
 ## 依赖
 
@@ -122,6 +129,7 @@ UIManager
 | 调整 F7 设置 smoke 挂载 | `formal_client_boot.gd`、`client/tools/settings_smoke.gd` | 本文档、`docs/代码/settings.md`、AI导航 | headless boot、`settings-smoke` |
 | 调整 F6 smoke 挂载 | `formal_client_boot.gd`、`client/tools/meta_progression_smoke.gd` | 本文档、`docs/代码/meta_progression_system.md`、AI导航 | headless boot、`meta-smoke` |
 | 调整 F8 runner 挂载 | `formal_client_boot.gd`、`client/tools/l1_smoke.gd`、`client/tools/replay_smoke.gd`、`client/tools/replay_runner.gd`、`client/tools/replay_input_smoke.gd`、`client/tools/golden_replay_capture.gd`、`client/tools/perf_probe.gd` | 本文档、Replay / 测试策略 / F8 工作包 | `l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_level_up_choice`、`perf-probe` |
+| 调整 DebugTools 挂载 | `formal_client_boot.gd`、`client/scripts/debug/*.gd`、`client/tools/debug_tools_smoke.gd` | 本文档、`docs/代码/debug_tools.md`、测试策略、AI导航 | `debug-tools-smoke` + `debug-tools-release-smoke` |
 | 补目录说明 | `client/README.md` | `README.md`、`docs/AI导航.md` | docs health |
 
 ## 故障排查
@@ -139,6 +147,7 @@ UIManager
 | 局外升级面板关闭后没回标题 | `_on_meta_progression_closed()` 是否 `UIManager.pop()` 顶层面板；`UIManager.top()` 是否为 `MetaProgressionPanel` |
 | 设置面板关闭后没回标题 | `_on_settings_panel_closed()` 是否只弹出 `SettingsPanel`；`UIManager.top()` 是否为设置面板 |
 | 有 run 存档但没有继续按钮 | `SaveManager.has_save(slot_0, run)` 是否为真；旧存档是否 hash mismatch 被隔离；标题菜单是否显示 `ui_run_save_unavailable` |
+| 正式导出出现 GM 控制台 | release preset 是否启用 `dev_tools`；`FormalClientBoot._debug_tools_enabled()` 是否被绕过；导出资源是否包含 `res://scripts/debug/*` |
 
 ## 测试义务
 
@@ -147,6 +156,7 @@ UIManager
 - 修改 `--settings-smoke` 挂载或 Settings 持久化启动诊断时，追加 `python tools/godot_bridge.py --project client settings-smoke`。
 - 修改 `--meta-smoke` 挂载或 MetaProgressionSystem 启动诊断时，追加 `python tools/godot_bridge.py --project client meta-smoke`。
 - 修改 `--l1-smoke` / `--replay-smoke` / `--replay-runner` / `--replay-input-smoke` / `--capture-golden-replay` / `--perf-probe` 挂载时，追加对应 `python tools/godot_bridge.py --project client l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_level_up_choice`、`perf-probe`；改 golden 对照逻辑时还要跑四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`。
+- 修改 DebugTools 挂载或 release guard 时，追加 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`。
 - 修改标题局外升级入口或 `MetaProgressionPanel` 挂载时，追加 `python tools/godot_bridge.py --project client meta-smoke` 并做一次手动标题菜单点开检查。
 - 修改标题设置入口或 `SettingsPanel` 挂载时，追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 修改长期文档或索引后跑 `tools/docs_health_check.py`。
@@ -154,7 +164,7 @@ UIManager
 
 ## 迁移 / 兼容
 
-不影响存档或数据 schema。F8 新增 `--capture-golden-replay`、`--golden-scenario`、full-death 工具层 `runtime_events` 与 `--rerun-runtime-summary` 只在 headless 工具参数下生效，不改变正常启动路径。
+不影响存档或数据 schema。F8 新增 `--capture-golden-replay`、`--golden-scenario`、full-death 工具层 `runtime_events` 与 `--rerun-runtime-summary` 只在 headless 工具参数下生效，不改变正常启动路径。DebugTools 只在 debug/dev_tools 构建或 `--debug-tools-smoke` 工具路径下验证，正式 release 路径由 runtime guard 与导出 preset 资源排除共同约束。
 
 ## 相关文档
 
@@ -163,3 +173,4 @@ UIManager
 - `docs/测试策略.md`
 - `docs/AI导航.md`
 - `docs/代码/gameplay_runtime.md`
+- `docs/代码/debug_tools.md`

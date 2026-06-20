@@ -142,6 +142,26 @@ func profile_summary(slot: String = SaveManager.DEFAULT_SLOT) -> Dictionary:
 	}
 
 
+func debug_grant_currency(amount: int, slot: String = SaveManager.DEFAULT_SLOT) -> Dictionary:
+	var profile: Dictionary = load_or_create_profile(slot)
+	var currency_id: String = _primary_currency_id()
+	var currencies: Dictionary = _dictionary_or_empty(profile.get("currencies", {}))
+	var previous_balance: int = int(currencies.get(currency_id, 0))
+	var grant_amount: int = maxi(amount, 0)
+	currencies[currency_id] = _clamped_currency_amount(currency_id, previous_balance + grant_amount)
+	profile["currencies"] = currencies
+	var saved: bool = save_profile(profile, slot)
+	return {
+		"ok": saved,
+		"reason": "" if saved else "save_failed",
+		"currency_id": currency_id,
+		"amount": grant_amount,
+		"previous_balance": previous_balance,
+		"balance": int(currencies.get(currency_id, 0)),
+		"profile": profile.duplicate(true),
+	}
+
+
 func upgrade_summaries(slot: String = SaveManager.DEFAULT_SLOT) -> Array[Dictionary]:
 	var profile: Dictionary = load_or_create_profile(slot)
 	var result: Array[Dictionary] = []

@@ -5,7 +5,7 @@
 
 `client/` 是完整项目的 Godot 4.7 项目根，即 Godot 内的 `res://`。
 
-当前阶段为 F9 内容扩展 / Demo 打磨准备：正式工程已迁移到 Godot 4.7，F1-F8 当前验收基线已完成，F9 已预留本地数据包式 `ModLoader` 和 Steam 优先 `PlatformServices`。启动场景在数据校验通过后会显示最小标题界面，开始后进入战斗 runtime；若存在 `SaveManager` 的 `run` 存档，标题菜单会显示“继续游戏”，续局读取失败时会提示本局存档已重置；标题菜单常驻“局外升级”和“设置”入口，可查看余额、账号等级和升级轨道并购买永久升级，也可打开设置面板修改语言、音量、显示、玩法和隐私开关。当前 runtime 覆盖玩家移动与居中相机、默认起始武器、池化子弹、两种池化敌人、`spawn_waves.csv` 刷怪、`Combat.apply_damage()` 伤害入口、经验 / 升级选择、升级获得反馈、响应式基础 HUD、主动暂停、暂停设置入口、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、死亡结算、`meta` profile roundtrip、标题局外升级面板和下一局永久 modifiers；死亡结算页只展示本局收益、账号等级 / 余额、重开和回标题，不提供局外购买入口。`Settings` 已有 `user://settings.cfg` 持久化、正式设置面板和 `settings-smoke` 验证，`SaveManager` 的 `run` kind 已有 version 2 迁移与 `save-smoke` 可靠性验证，`MetaProgressionSystem` 已有 `meta-smoke` 局外成长验证，Replay / golden replay / perf-probe 已作为 F9 内容扩展的回归护栏。项目默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，并通过 `canvas_items + keep` 在比例不匹配时保比例加黑边。
+当前阶段为 F9 内容扩展 / Demo 打磨准备：正式工程已迁移到 Godot 4.7，F1-F8 当前验收基线已完成，F9 已预留本地数据包式 `ModLoader`、Steam 优先 `PlatformServices`，以及 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`。启动场景在数据校验通过后会显示最小标题界面，开始后进入战斗 runtime；若存在 `SaveManager` 的 `run` 存档，标题菜单会显示“继续游戏”，续局读取失败时会提示本局存档已重置；标题菜单常驻“局外升级”和“设置”入口，可查看余额、账号等级和升级轨道并购买永久升级，也可打开设置面板修改语言、音量、显示、玩法和隐私开关。当前 runtime 覆盖玩家移动与居中相机、默认起始武器、池化子弹、两种池化敌人、`spawn_waves.csv` 刷怪、`Combat.apply_damage()` 伤害入口、经验 / 升级选择、升级获得反馈、响应式基础 HUD、主动暂停、暂停设置入口、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、死亡结算、`meta` profile roundtrip、标题局外升级面板和下一局永久 modifiers；死亡结算页只展示本局收益、账号等级 / 余额、重开和回标题，不提供局外购买入口。`Settings` 已有 `user://settings.cfg` 持久化、正式设置面板和 `settings-smoke` 验证，`SaveManager` 的 `run` kind 已有 version 2 迁移与 `save-smoke` 可靠性验证，`MetaProgressionSystem` 已有 `meta-smoke` 局外成长验证，DebugTools 已有 `debug-tools-smoke` 与 release guard smoke，Replay / golden replay / perf-probe 已作为 F9 内容扩展的回归护栏。项目默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，并通过 `canvas_items + keep` 在比例不匹配时保比例加黑边。
 
 ## 目录
 
@@ -14,6 +14,7 @@
 | `project.godot` | 正式 Godot 项目配置 |
 | `scenes/` | 正式项目场景 |
 | `scripts/` | 正式项目 GDScript |
+| `scripts/debug/` | debug/dev_tools 专用控制台与 GM 命令注册表；正式 release 不应加载或导出 |
 | `data/` | 数值与复杂配置，说明见 `client/data/README.md` |
 | `locale/` | 本地化表，说明见 `client/locale/README.md` |
 | `assets/` | 美术、音频等资源 |
@@ -81,10 +82,17 @@ F5 存档可靠性 smoke：
 python tools/godot_bridge.py --project client save-smoke
 ```
 
+DebugTools / GM 指令 smoke：
+
+```powershell
+python tools/godot_bridge.py --project client debug-tools-smoke
+python tools/godot_bridge.py --project client debug-tools-release-smoke
+```
+
 若本机没有系统 Python，可使用 Codex 桌面内置 Python 路径运行同一命令。
 
 ## 当前启动场景
 
-`res://scenes/boot/main.tscn` 挂载 `res://scripts/boot/formal_client_boot.gd`。启动脚本会先执行正式数据 schema smoke 并输出日志；若校验通过，会显示最小标题界面；开始新局会挂载 `res://scripts/gameplay/gameplay_run_loop.gd`，继续游戏会先从 `SaveManager` 读取 `run` payload 再挂载同一 runtime，并按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板；读取失败或坏档被隔离时会回到标题菜单并显示本局存档重置提示；局外升级会通过 `UIManager` 把 `MetaProgressionPanel` 叠在标题菜单上，设置入口会把 `SettingsPanel` 叠在标题菜单或暂停菜单上。死亡后 gameplay runtime 会通过 `MetaProgressionSystem` 写入 `meta` profile 并清理旧 `run`。
+`res://scenes/boot/main.tscn` 挂载 `res://scripts/boot/formal_client_boot.gd`。启动脚本会先执行正式数据 schema smoke 并输出日志；若校验通过，会显示最小标题界面；开始新局会挂载 `res://scripts/gameplay/gameplay_run_loop.gd`，继续游戏会先从 `SaveManager` 读取 `run` payload 再挂载同一 runtime，并按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板；读取失败或坏档被隔离时会回到标题菜单并显示本局存档重置提示；局外升级会通过 `UIManager` 把 `MetaProgressionPanel` 叠在标题菜单上，设置入口会把 `SettingsPanel` 叠在标题菜单或暂停菜单上。死亡后 gameplay runtime 会通过 `MetaProgressionSystem` 写入 `meta` profile 并清理旧 `run`。debug/dev_tools 构建中，启动脚本会动态加载 `res://scripts/debug/debug_console.gd`，用 F1 或反引号打开 GM 控制台；正式 release 构建不应启用 `dev_tools`，也不应导出 `res://scripts/debug/*`。
 
-Gameplay runtime 的稳定结构已迁入 `client/scenes/gameplay/*.tscn` 与 `client/scenes/ui/*.tscn`，文档见 `docs/代码/gameplay_runtime.md` 与 `docs/代码/meta_progression_system.md`。它不迁移 MVP 临时代码；当前实现 `run` 暂停保存续局、暂停 / 升级 UI 恢复点、坏档提示、v1 -> v2 迁移、死亡结算、标题局外升级购买和 `meta` 存档验证。完整局外包装、更多内容切片、更多 replay 场景和平衡 sim 属于后续 F9+ 工作。
+Gameplay runtime 的稳定结构已迁入 `client/scenes/gameplay/*.tscn` 与 `client/scenes/ui/*.tscn`，文档见 `docs/代码/gameplay_runtime.md`、`docs/代码/meta_progression_system.md` 与 `docs/代码/debug_tools.md`。它不迁移 MVP 临时代码；当前实现 `run` 暂停保存续局、暂停 / 升级 UI 恢复点、坏档提示、v1 -> v2 迁移、死亡结算、标题局外升级购买、`meta` 存档验证和调试专用 GM 指令入口。完整局外包装、更多内容切片、更多 replay 场景和平衡 sim 属于后续 F9+ 工作。

@@ -123,6 +123,37 @@ func max_life() -> float:
 	return _max_life
 
 
+func debug_heal(amount: float) -> Dictionary:
+	var previous_life: float = _life_points
+	_life_points = minf(_life_points + maxf(amount, 0.0), _max_life)
+	life_changed.emit(_life_points, _max_life)
+	queue_redraw()
+	return {
+		"life": _life_points,
+		"max_life": _max_life,
+		"previous_life": previous_life,
+	}
+
+
+func debug_set_life(life_points: float) -> Dictionary:
+	var previous_life: float = _life_points
+	var was_alive: bool = _life_points > 0.0
+	_life_points = clampf(life_points, 0.0, _max_life)
+	life_changed.emit(_life_points, _max_life)
+	queue_redraw()
+	if was_alive and _life_points <= 0.0:
+		died.emit()
+	return {
+		"life": _life_points,
+		"max_life": _max_life,
+		"previous_life": previous_life,
+	}
+
+
+func debug_clear_invulnerability() -> void:
+	_invulnerable_remaining = 0.0
+
+
 func invulnerability_remaining() -> float:
 	return _invulnerable_remaining
 

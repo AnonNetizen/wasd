@@ -10,6 +10,8 @@ signal restart_requested()
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
+const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
+const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
 const GAME_MODES := preload("res://scripts/contracts/game_modes.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const BULLET_SCENE := preload("res://scenes/gameplay/bullet.tscn")
@@ -201,6 +203,130 @@ func current_level_xp() -> int:
 
 func current_level_xp_required() -> int:
 	return _xp_required_within_level(_current_level)
+
+
+func debug_summary() -> Dictionary:
+	return {
+		"level": _current_level,
+		"xp": _current_xp,
+		"level_xp": current_level_xp(),
+		"level_xp_required": current_level_xp_required(),
+		"kills": _kills,
+		"player_life": float(_player.call("current_life")) if _player != null and _player.has_method("current_life") else 0.0,
+		"player_max_life": float(_player.call("max_life")) if _player != null and _player.has_method("max_life") else 0.0,
+		"active_enemies": _active_enemy_count(),
+	}
+
+
+func debug_spawn_enemy(enemy_id: String, count: int = 1) -> Dictionary:
+	if _active_world == null or _player == null:
+		return _debug_result(false, "run_not_ready")
+	if not _enemy_rows.has(enemy_id):
+		return _debug_result(false, "unknown_enemy")
+	var spawn_count: int = clampi(count, 1, ENEMY_POOL_SIZE)
+	var spawned: int = 0
+	var wave_key: String = "debug_%s" % enemy_id
+	var state: Dictionary = _spawn_states.get(wave_key, {
+		"next_time": GameClock.now(),
+		"spawned": 0,
+		"alive": 0,
+	})
+	for _index: int in range(spawn_count):
+		if _spawn_enemy({"enemy_id": enemy_id}, wave_key):
+			spawned += 1
+	state["spawned"] = int(state.get("spawned", 0)) + spawned
+	state["alive"] = int(state.get("alive", 0)) + spawned
+	state["next_time"] = GameClock.now()
+	_spawn_states[wave_key] = state
+	return {
+		"ok": spawned > 0,
+		"reason": "" if spawned > 0 else "pool_unavailable",
+		"spawned": spawned,
+	}
+
+
+func debug_give_xp(amount: int) -> Dictionary:
+	var applied_amount: int = maxi(amount, 0)
+	if applied_amount <= 0:
+		return _debug_result(false, "non_positive_amount")
+	_on_pickup_orb_collected(applied_amount)
+	return {
+		"ok": true,
+		"xp": _current_xp,
+		"level": _current_level,
+	}
+
+
+func debug_heal_player(amount: float) -> Dictionary:
+	if _player == null or not _player.has_method("debug_heal"):
+		return _debug_result(false, "player_unavailable")
+	var result: Dictionary = _player.call("debug_heal", amount)
+	result["ok"] = true
+	return result
+
+
+func debug_set_player_hp(amount: float) -> Dictionary:
+	if _player == null or not _player.has_method("debug_set_life"):
+		return _debug_result(false, "player_unavailable")
+	var result: Dictionary = _player.call("debug_set_life", amount)
+	result["ok"] = true
+	return result
+
+
+func debug_damage_player(amount: float) -> Dictionary:
+	if _player == null:
+		return _debug_result(false, "player_unavailable")
+	var applied_amount: float = maxf(amount, 0.0)
+	if applied_amount <= 0.0:
+		return _debug_result(false, "non_positive_amount")
+	if _player.has_method("debug_clear_invulnerability"):
+		_player.call("debug_clear_invulnerability")
+	var result: Dictionary = Combat.apply_damage(_player, _damage_info(applied_amount, _player))
+	return {
+		"ok": bool(result.get("applied", false)),
+		"reason": String(result.get("reason", "")),
+		"life": float(_player.call("current_life")) if _player.has_method("current_life") else 0.0,
+		"max_life": float(_player.call("max_life")) if _player.has_method("max_life") else 0.0,
+		"combat_result": result.duplicate(true),
+	}
+
+
+func debug_kill_player() -> Dictionary:
+	if _player == null or not _player.has_method("max_life"):
+		return _debug_result(false, "player_unavailable")
+	return debug_damage_player(float(_player.call("max_life")) * 10.0)
+
+
+func debug_kill_enemies() -> Dictionary:
+	var killed: int = 0
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if not _is_active_world_entity(enemy):
+			continue
+		var result: Dictionary = Combat.apply_damage(enemy, _damage_info(999999.0, enemy))
+		if bool(result.get("applied", false)):
+			killed += 1
+	return {
+		"ok": true,
+		"count": killed,
+	}
+
+
+func debug_clear_enemies() -> Dictionary:
+	var cleared: int = 0
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if not _is_active_world_entity(enemy):
+			continue
+		if PoolManager.release(enemy):
+			cleared += 1
+	for wave_key: String in _spawn_states.keys():
+		if String(wave_key).begins_with("debug_"):
+			var state: Dictionary = _spawn_states[wave_key]
+			state["alive"] = 0
+			_spawn_states[wave_key] = state
+	return {
+		"ok": true,
+		"count": cleared,
+	}
 
 
 func _update_spawner() -> void:
@@ -861,3 +987,30 @@ func _ensure_action(action_id: String) -> void:
 func _add_event_if_missing(action_id: String, event: InputEvent) -> void:
 	if not InputMap.action_has_event(action_id, event):
 		InputMap.action_add_event(action_id, event)
+
+
+func _damage_info(amount: float, target: Node) -> RefCounted:
+	return DAMAGE_INFO_SCRIPT.new().setup(
+		amount,
+		DAMAGE_TYPES.PHYSICAL,
+		self,
+		target,
+		"team_debug",
+		"team_target",
+		PackedStringArray(["debug"])
+	)
+
+
+func _active_enemy_count() -> int:
+	var result: int = 0
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if _is_active_world_entity(enemy):
+			result += 1
+	return result
+
+
+func _debug_result(ok: bool, reason: String) -> Dictionary:
+	return {
+		"ok": ok,
+		"reason": reason,
+	}

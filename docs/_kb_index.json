@@ -712,10 +712,24 @@
       "last_reviewed": "2026-06-18",
       "canonical_for": ["gameplay_runtime", "f4_min_playable_loop", "formal_runtime_core", "minimal_combat_loop"],
       "must_read_for": ["gameplay_runtime_change", "player_runtime_change", "weapon_system_change", "spawner_change", "hud_change"],
-      "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/formal_client_boot.md", "docs/代码/README.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/tools/runtime_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
-      "update_triggers": ["Gameplay runtime behavior changes", "Player or weapon runtime changes", "Spawner behavior changes", "HUD or restart flow changes", "runtime module split or scene-resource migration"],
-      "keywords": ["GameplayRunLoop", "runtime-smoke", "F4", "MinPlayableLoop", "Player", "WeaponSystem", "Bullet", "Enemy", "Spawner", "HUD", "最小可玩闭环", "对象池", "headless boot"]
+      "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/scripts/debug/gm_command_registry.gd", "client/tools/runtime_smoke.gd", "client/tools/debug_tools_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
+      "update_triggers": ["Gameplay runtime behavior changes", "Player or weapon runtime changes", "Spawner behavior changes", "HUD or restart flow changes", "runtime debug API changes", "runtime module split or scene-resource migration"],
+      "keywords": ["GameplayRunLoop", "runtime-smoke", "debug-tools-smoke", "F4", "MinPlayableLoop", "Player", "WeaponSystem", "Bullet", "Enemy", "Spawner", "HUD", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
+    },
+    {
+      "path": "docs/代码/debug_tools.md",
+      "type": "module_doc",
+      "authority": "DebugConsole and GMCommandRegistry contract for debug/dev_tools-only commands and release guard boundaries",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-20",
+      "canonical_for": ["debug_tools", "debug_console", "gm_commands", "release_debug_guard"],
+      "must_read_for": ["gm_command_change", "debug_console_change", "release_debug_boundary_change"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/formal_client_boot.md", "docs/代码/gameplay_runtime.md", "docs/代码/README.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/debug/debug_console.gd", "client/scripts/debug/gm_command_registry.gd", "client/scripts/boot/formal_client_boot.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/autoload/meta_progression_system.gd", "client/tools/debug_tools_smoke.gd", "tools/godot_bridge.py"],
+      "update_triggers": ["DebugConsole API changes", "GM command changes", "debug InputMap action changes", "release export guard changes", "debug smoke behavior changes"],
+      "keywords": ["DebugConsole", "GMCommandRegistry", "GM", "debug-tools-smoke", "debug-tools-release-smoke", "dev_tools", "debug action", "控制台", "GM指令", "release guard"]
     },
     {
       "path": "docs/代码/data_loader.md",

@@ -25,6 +25,7 @@
 | 改升级候选 / 奖励 | `growth.csv`、`growth_pools.json`、`client/scripts/gameplay/gameplay_run_loop.gd` |
 | 改 HUD 文案 | `client/scripts/gameplay/gameplay_hud.gd`、`client/locale/strings.csv` |
 | 改稳定节点结构 / UI 层级 | `client/scenes/gameplay/*.tscn`、`client/scenes/ui/*.tscn` |
+| 改 GM 指令影响局内状态 | `docs/代码/debug_tools.md`、`client/scripts/debug/gm_command_registry.gd`、`client/scripts/gameplay/gameplay_run_loop.gd` |
 
 ## 代码位置
 
@@ -37,7 +38,7 @@
 | `client/scenes/ui/title_menu.tscn` / `pause_menu.tscn` / `settings_panel.tscn` / `game_over_panel.tscn` / `level_up_panel.tscn` / `meta_progression_panel.tscn` | 正式 UI 场景；脚本只绑定稳定节点、连接 signal 和刷新数据 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 正式运行时编排、输入 action 手柄兜底注册、对象池注册、刷怪和重开 |
 | `client/scripts/gameplay/world_background.gd` | 世界网格背景，让玩家移动具备空间参照 |
-| `client/scripts/gameplay/player.gd` | 玩家移动、鼠标相对玩家 / 视口中心方向瞄准、方向键 / 手柄兜底瞄准、左右朝向表现、相机居中、受伤 / 死亡 |
+| `client/scripts/gameplay/player.gd` | 玩家移动、鼠标相对玩家 / 视口中心方向瞄准、方向键 / 手柄兜底瞄准、左右朝向表现、相机居中、受伤 / 死亡；提供少量受控 debug 生命 API 给 GM 命令调用 |
 | `client/scripts/gameplay/weapon_system.gd` | 起始武器自动开火和子弹池获取 |
 | `client/scripts/gameplay/bullet.gd` | 子弹飞行、射程 / 生命周期裁剪、敌人命中 |
 | `client/scripts/gameplay/enemy.gd` | 追击敌人、接触伤害、受伤 / 死亡 |
@@ -50,13 +51,15 @@
 | `client/scripts/ui/pause_menu.gd` | F5 / F7 暂停菜单：继续、设置、保存并退出、重新开始、回标题；语言切换时刷新按钮 |
 | `client/scripts/ui/game_over_panel.gd` | 失败面板：结算摘要、账号等级 / 余额、重开 / 回标题；语言切换时用缓存结算重画 |
 | `client/tools/runtime_smoke.gd` | gameplay runtime headless smoke，覆盖启动、输入、池化、伤害、失败状态和真实死亡结算 |
+| `client/tools/debug_tools_smoke.gd` | DebugTools headless smoke，覆盖 GM 命令调用 runtime debug API 和 release guard |
 | `client/tools/meta_progression_smoke.gd` | F6 MetaProgression smoke，覆盖 meta roundtrip、结算、购买和永久 modifier |
 | `client/tools/save_manager_smoke.gd` | F5 SaveManager run 存档可靠性 smoke，覆盖 roundtrip、备份回退、坏档隔离和迁移 |
 | `client/tools/perf_probe.gd` | F8 轻量 perf / 平衡采样入口，输出 schema v2 可比较 JSON：warmup 后帧时间分布、实体峰值、池峰值、等级、击杀和预算状态 |
 | `client/tools/golden_replay_capture.gd` | F8 golden replay capture 工具，固定 seed 启动真实 `GameplayRunLoop` 并采样运行时摘要；支持 basic、pause/resume、full-death 和 level-up choice 场景 |
 | `client/tools/replay_input_smoke.gd` | F8 gameplay 输入录制 smoke，确认移动 / 瞄准 / pause / ui_back 写入 Replay 输入事件 |
-| `tools/godot_bridge.py` | `runtime-smoke` / `save-smoke` / `meta-smoke` / `settings-smoke` / F8 `l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_full_death`、`perf-probe` 命令入口 |
+| `tools/godot_bridge.py` | `runtime-smoke` / `save-smoke` / `meta-smoke` / `settings-smoke` / `debug-tools-smoke` / `debug-tools-release-smoke` / F8 `l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_full_death`、`perf-probe` 命令入口 |
 | `docs/代码/combat.md` | 伤害统一入口文档 |
+| `docs/代码/debug_tools.md` | GM 控制台、命令和 release guard 文档 |
 
 ## 场景 / 节点结构
 
@@ -107,6 +110,7 @@ UIManager
 | UI 布局 | HUD 使用全屏锚点下的 `MarginContainer + VBoxContainer`；升级面板使用全屏遮罩、居中容器和按视口宽度夹取的面板宽度，随窗口尺寸调整 | `Control.set_anchors_preset()` |
 | 运行时语言刷新 | `Localization.locale_changed` 发出后，标题、暂停、设置、HUD、升级、结算和局外成长面板用自身缓存的状态或配置数据刷新文本；订阅的 UI 在 `_exit_tree()` 断开 signal，避免离树节点收到后续语言切换 | `Localization.locale_changed`、`refresh_texts()` |
 | 失败 / 结算 / 重开 | 玩家生命归零后先向 `MetaProgressionSystem` 提交本局摘要并写入 `meta`，再删除 `run` 存档、进入 `GameState.GAME_OVER`、冻结 `GameClock` 并显示唯一失败面板；失败面板只展示本局结算摘要、账号经验、当前账号等级、账号等级提升提示、余额、重开和回标题，不提供局外成长购买或跳转入口。玩家可重开或回标题，按 `pause` 仍可快捷重开 | `MetaProgressionSystem.apply_run_settlement()`、`SaveManager.delete(run)`、`UIManager.push()`、`GameState.change_state()`、`GameplayRunLoop.restart_requested` |
+| DebugTools smoke | `debug-tools-smoke` 启动一局并通过 `DebugConsole` 调用 `GMCommandRegistry`，验证 help/stats/spawn/xp/hp/damage/heal/meta/kill/clear；`debug-tools-release-smoke` 模拟 release guard，确认没有 `DebugConsole` / `GMCommandRegistry` 或 debug action | `client/tools/debug_tools_smoke.gd` / `docs/代码/debug_tools.md` |
 | 自动 smoke / probe | `godot_bridge.py runtime-smoke` 以 `--runtime-smoke` 用户参数启动正式主场景，并挂载 runtime smoke；`save-smoke` / `meta-smoke` / `settings-smoke` 分别挂载对应 smoke；F8 `replay-runner` 对照 `.replay` 摘要并在 `--rerun-runtime-summary` 下播放录制输入和工具层 runtime event，`replay-input-smoke` 验证 gameplay 输入录制，`capture-golden-replay` 生成 basic / pause-resume / full-death golden，`perf-probe` 会启动一局并输出 schema v2 可比较性能 / 平衡基线 | `client/tools/runtime_smoke.gd` / `client/tools/save_manager_smoke.gd` / `client/tools/meta_progression_smoke.gd` / `client/tools/settings_smoke.gd` / `client/tools/replay_runner.gd` / `client/tools/replay_input_smoke.gd` / `client/tools/golden_replay_capture.gd` / `client/tools/perf_probe.gd` |
 
 ## 公共 API
@@ -121,6 +125,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `Player.aim_at_world_position(world_position)` | 世界坐标 | `void` | 按玩家到目标世界坐标的方向更新 `aim_direction`；headless smoke 和未来脚本化瞄准可复用，真实鼠标输入使用视口中心偏移路径 |
 | `Player.apply_modifiers(modifiers)` | `growth_pools.json` 的 modifiers | `void` | 按 `(基础 + 加法) * 乘法` 更新玩家运行时属性 |
 | `Player.receive_damage(info)` | `DamageInfo` | result dictionary | 只能由 `Combat.apply_damage()` 间接调用；无敌期返回 `reason=invulnerable` 且不扣生命 |
+| `Player.debug_heal()` / `debug_set_life()` / `debug_clear_invulnerability()` | 调试数值 | Dictionary / `void` | 仅供 debug/dev_tools GM 指令调用；正式 gameplay 不应依赖 |
 | `WeaponSystem.configure(player, active_parent, weapon_data)` | 玩家、活跃父节点、武器数据 | `void` | 武器数据来自 `weapons.json` |
 | `WeaponSystem.apply_modifiers(modifiers)` | `growth_pools.json` 的 modifiers | `void` | 按 `(基础 + 加法) * 乘法` 更新武器运行时属性 |
 | `WeaponSystem.stat_value(stat)` | stat id | `float` | smoke / 调试读取当前武器数值 |
@@ -132,6 +137,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `GameplayRunLoop.current_xp()` / `current_level_xp()` / `current_level_xp_required()` | 无 | `int` | `current_xp()` 是累计总经验；HUD 使用本级经验和本级需求显示升级进度 |
 | `GameplayRunLoop.create_run_snapshot()` | 无 | `Dictionary` | 生成 `SaveManager` 的 `run` payload；只保存 JSON 友好的状态，不保存节点或对象池内部队列；`ui_restore` 记录普通游玩、暂停菜单或升级选择面板恢复点 |
 | `GameplayRunLoop.configure_restore_snapshot(snapshot)` | `Dictionary` | `void` | 在节点入树前由 `FormalClientBoot` 调用；`_ready()` 后重建玩家、武器、敌人、子弹、经验球、RNG、GameClock 和 `ui_restore` 状态 |
+| `GameplayRunLoop.debug_summary()` / `debug_spawn_enemy()` / `debug_give_xp()` / `debug_heal_player()` / `debug_set_player_hp()` / `debug_damage_player()` / `debug_kill_player()` / `debug_kill_enemies()` / `debug_clear_enemies()` | GM 指令参数 | `Dictionary` | 只作为 DebugTools 的受控 runtime API；刷怪走对象池，伤害 / 击杀走 `Combat`，经验走原有升级流程 |
 | `LevelUpPanel.configure(choices)` / `choose_index(index)` | 升级候选 | `void` | 面板节点通过 `UIManager` 挂载；玩家可见文案来自 locale；面板宽度随视口宽度在最小 / 最大值之间自适应；按 `pause` action 时发出 `pause_requested`；语言切换时重用 `_choices` 重建按钮 |
 | `GameplayHud.set_life()` / `set_kills()` / `set_level()` / `set_xp()` / `show_upgrade_feedback()` | HUD 状态 | `void` | 文案使用 `tr()`；布局使用容器和锚点而非固定屏幕坐标；失败 UI 由 `GameOverPanel` 独占显示；语言切换时重用缓存生命、击杀、等级、经验和最近升级反馈 key 刷新 |
 | `TitleMenu.refresh_meta_summary()` | 无 | `void` | 刷新标题菜单账号等级 / 余额摘要；有可购买升级时把 `MetaProgressionButton` 文案切到可购买提示，局外升级面板关闭后由 `FormalClientBoot` 调用 |
@@ -175,6 +181,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 局外成长接入：F6 首片使用 `SaveManager` 的 `meta` kind；F4 只向 `MetaProgressionSystem.apply_run_settlement()` 提交 `kills`、`run_time`、`first_boss_defeated`，不在 F4 复制奖励公式。结算后必须删除 `run` 存档，避免死亡结算后的旧局重复领取奖励。标题菜单通过 `MetaProgressionSystem.profile_summary()` 显示账号等级 / 余额摘要，通过 `first_available_purchase()` 给局外升级按钮加可购买提示，并通过 `MetaProgressionPanel` 消费 `upgrade_summaries()` 显示完整升级列表。新开局时 `MetaProgressionSystem.current_modifiers()` 输出的永久升级 modifiers 会复用 `Player.apply_modifiers()` 与 `WeaponSystem.apply_modifiers()`。
 - 伤害类型：从 `weapons.json` / `enemies.csv` 读取，交给 `Combat` 校验。
 - UI / HUD / 升级文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_settings*`、`ui_pause_title`、`ui_save_and_quit`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_level_up_title`、`ui_upgrade_applied`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`、`ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_account_level_up`、`ui_meta_title_summary`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_purchase_success`、`ui_meta_purchase_failed`、`ui_meta_progression`、`ui_meta_progression_available`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。常驻 UI 必须在 `Localization.locale_changed` 后刷新已有节点，不依赖重启或重新实例化。
+- GM / DebugTools：`debug_*` action 只由 `DebugConsole` 在 debug/dev_tools guard 通过后注册；GM 对局内状态的变更集中走本节公开 `debug_*` runtime API，且不得写入正式 analytics。
 
 ## 依赖
 
@@ -191,6 +198,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 场景资源化：新增稳定 gameplay / UI 层级时优先新增 `.tscn`，脚本只做节点绑定、配置和 signal 编排；只有对象池工厂与数据驱动重复项可以在运行时创建节点，并要在模块文档说明原因。
 - 扩展 run 快照：新增可恢复实体字段时先保证 JSON 友好，再更新本文档、SaveManager 文档、`runtime-smoke` 和 `save-smoke`；不要保存 `PoolManager` 内部队列或节点引用。
 - 扩展死亡结算：新增奖励来源时先扩展 `MetaProgressionSystem.apply_run_settlement()` summary 与 `meta-smoke`，F4 只提供局内事实，不解释公式。
+- 扩展 GM 指令：先在 `GMCommandRegistry` 增命令，再在目标系统补受控 API；禁止在命令注册表里直接改 gameplay 私有字段、节点树或存档文件。
 
 ## 常见改动入口
 
@@ -207,6 +215,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 改设置入口 / 设置叠层 | `title_menu.gd`、`pause_menu.gd`、`settings_panel.gd`、`formal_client_boot.gd`、`gameplay_run_loop.gd` | 本文档、Settings / UIManager / FormalClientBoot 文档 | `settings-smoke` + `runtime-smoke` |
 | 改死亡结算 / 局外升级应用 | `client/scripts/gameplay/gameplay_run_loop.gd`、`client/scripts/ui/game_over_panel.gd`、`client/scripts/autoload/meta_progression_system.gd` | 本文档、MetaProgressionSystem / SaveManager 文档 | `runtime-smoke` + `meta-smoke` |
 | 改标题局外升级入口 / 摘要 | `client/scenes/ui/title_menu.tscn`、`client/scenes/ui/meta_progression_panel.tscn`、对应脚本、`client/scripts/boot/formal_client_boot.gd`、`client/scripts/autoload/meta_progression_system.gd` | 本文档、FormalClientBoot / MetaProgressionSystem 文档 | `headless-boot` + `meta-smoke` + `runtime-smoke` + 手动标题菜单点开 |
+| 改 GM 指令影响运行时 | `client/scripts/debug/gm_command_registry.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、目标系统脚本 | 本文档、DebugTools 文档、测试策略 | `debug-tools-smoke` + `debug-tools-release-smoke`，必要时追加 `runtime-smoke` / `meta-smoke` |
 | 改运行时行为 | `client/scripts/gameplay/*.gd` | 本文档、必要时 GDD / ADR | L0 + L2 + `runtime-smoke`，必要时补 L1 |
 | 改鼠标 / 手柄瞄准手感 | `client/scripts/gameplay/player.gd`、`weapon_system.gd`、`client/tools/runtime_smoke.gd` | 本文档、GDD、词表、测试策略 | `lint_gdscript_rules` + `lint_semantic_rules` + `runtime-smoke` + `replay-input-smoke` |
 
@@ -247,6 +256,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 保存后标题没有继续游戏 | `SaveManager.has_save(slot_0, run)` 是否为 true；旧存档是否因 hash mismatch 被隔离 |
 | 继续坏档后没有提示 | `TitleMenu` 是否存在 `RunSaveNoticeLabel`；`ui_run_save_unavailable` 是否在 `strings.csv` 与 `.translation` 中；`runtime-smoke` 是否通过坏 run 存档点击继续断言 |
 | 继续游戏后状态不对 | run payload 是否包含玩家 / 武器 / 敌人 / 子弹 / 经验球 / RNG / GameClock / `ui_restore`；恢复时是否通过 `PoolManager.acquire()` 重建实体；暂停和升级选择是否经由 `UIManager` 恢复 |
+| GM 命令没有生效 | 当前是否为 debug/dev_tools 构建；`DebugConsole` 是否存在；命令是否通过 `GameplayRunLoop.debug_*` / `MetaProgressionSystem.debug_*` 受控 API，而不是直接改节点 |
 
 ## 测试义务
 
@@ -257,6 +267,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 涉及暂停、保存退出、标题继续、坏档提示、RNG / GameClock 快照或 run payload 时必须追加 `python tools/godot_bridge.py --project client runtime-smoke` 与 `python tools/godot_bridge.py --project client save-smoke`，并做至少一次手动保存续局检查。
 - 涉及标题 / 暂停设置入口、设置面板关闭、`ui_back` 返回或运行时语言刷新时，追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 涉及死亡结算、局外成长、`meta` 存档或永久升级应用时追加 `python tools/godot_bridge.py --project client meta-smoke`；如果改了 F4 死亡接入或失败面板，同时跑 `runtime-smoke`。
+- 涉及 GM 指令或 runtime debug API 时，追加 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`；命令影响局内战斗时追加 `runtime-smoke`。
 - 数据 / locale 变化还要跑 `python tools/validate_data.py`、`python tools/lint_project_rules.py`。
 - 当前没有 GUT runner，F4 首切片用 L0 + L2 + `runtime-smoke` + 手动 1 分钟跑通作为阶段门槛；后续接入 Godot 测试时补 Player / Combat / Pool / Spawner 的 L1。
 
@@ -268,6 +279,7 @@ F5 已开始写 `SaveManager` 的 `run` kind，F6 首切片已开始写 `meta` k
 
 - `docs/AI协作/工作包/F4-MinPlayableLoop.md`
 - `docs/正式项目工作规划.md` F4
+- `docs/代码/debug_tools.md`
 - `docs/游戏设计文档.md` §3 / §4 / §5.3 / §9.13 / §9.15.1
 - `docs/代码/combat.md`
 - `docs/代码/meta_progression_system.md`

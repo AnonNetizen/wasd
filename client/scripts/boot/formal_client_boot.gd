@@ -5,6 +5,8 @@ extends Node
 
 
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
+const DEBUG_CONSOLE_SCRIPT_PATH: String = "res://scripts/debug/debug_console.gd"
+const DEBUG_TOOLS_SMOKE_RUNNER := preload("res://tools/debug_tools_smoke.gd")
 const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loop.tscn")
 const GOLDEN_REPLAY_CAPTURE_RUNNER := preload("res://tools/golden_replay_capture.gd")
 const L1_SMOKE_RUNNER := preload("res://tools/l1_smoke.gd")
@@ -24,6 +26,7 @@ const SETTINGS_SMOKE_RUNNER := preload("res://tools/settings_smoke.gd")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 
 var _run_loop: Node = null
+var _debug_console: CanvasLayer = null
 var _meta_progression_panel: CanvasLayer = null
 var _settings_panel: CanvasLayer = null
 var _title_menu: CanvasLayer = null
@@ -113,6 +116,12 @@ func _ready() -> void:
 		var perf_probe_runner: Node = PERF_PROBE_RUNNER.new()
 		perf_probe_runner.name = "PerfProbe"
 		add_child(perf_probe_runner)
+	elif _is_debug_tools_smoke_enabled():
+		if data_schema_ok:
+			_start_gameplay_run()
+		var debug_tools_smoke_runner: Node = DEBUG_TOOLS_SMOKE_RUNNER.new()
+		debug_tools_smoke_runner.name = "DebugToolsSmoke"
+		add_child(debug_tools_smoke_runner)
 	elif _is_runtime_smoke_enabled():
 		if data_schema_ok:
 			_start_gameplay_run()
@@ -133,6 +142,16 @@ func _ready() -> void:
 		add_child(meta_smoke_runner)
 	elif data_schema_ok:
 		_show_title_menu()
+
+	_install_debug_console()
+
+
+func debug_tools_enabled() -> bool:
+	return _debug_tools_enabled()
+
+
+func debug_active_run_loop() -> Node:
+	return _run_loop if _run_loop != null and is_instance_valid(_run_loop) else null
 
 
 func _is_runtime_smoke_enabled() -> bool:
@@ -165,6 +184,10 @@ func _is_golden_replay_capture_enabled() -> bool:
 
 func _is_perf_probe_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--perf-probe")
+
+
+func _is_debug_tools_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--debug-tools-smoke")
 
 
 func _is_save_smoke_enabled() -> bool:
@@ -283,3 +306,28 @@ func _on_run_restart_requested() -> void:
 
 func _on_run_quit_to_title_requested() -> void:
 	call_deferred("_show_title_menu")
+
+
+func _install_debug_console() -> void:
+	if not _debug_tools_enabled():
+		return
+	if _debug_console != null and is_instance_valid(_debug_console):
+		return
+	var console_script: GDScript = load(DEBUG_CONSOLE_SCRIPT_PATH) as GDScript
+	if console_script == null:
+		push_error("[FormalClientBoot] missing debug console script: %s" % DEBUG_CONSOLE_SCRIPT_PATH)
+		return
+	var console_node: CanvasLayer = console_script.new() as CanvasLayer
+	if console_node == null:
+		push_error("[FormalClientBoot] debug console script did not create a CanvasLayer")
+		return
+	console_node.name = "DebugConsole"
+	add_child(console_node)
+	console_node.call("setup", self, true)
+	_debug_console = console_node
+
+
+func _debug_tools_enabled() -> bool:
+	if OS.get_cmdline_user_args().has("--force-release-debug-tools-off"):
+		return false
+	return OS.is_debug_build() or OS.has_feature("dev_tools")

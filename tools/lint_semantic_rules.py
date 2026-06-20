@@ -346,7 +346,7 @@ def _is_business_script(path: Path) -> bool:
     if not _is_relative_to(path, SCRIPTS_DIR):
         return False
     relative_parts = set(path.relative_to(SCRIPTS_DIR).parts)
-    if relative_parts.intersection({"autoload", "contracts", "boot", "tests", "test", "templates"}):
+    if relative_parts.intersection({"autoload", "contracts", "boot", "debug", "dev_tools", "tests", "test", "templates"}):
         return False
     return True
 

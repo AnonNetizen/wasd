@@ -61,6 +61,11 @@ def main() -> int:
         help="Golden replay scenario to capture. Defaults to golden_basic_run.",
     )
     subparsers.add_parser("perf-probe", help="Run the F8 lightweight perf probe in headless Godot.")
+    subparsers.add_parser("debug-tools-smoke", help="Run the debug console / GM command smoke in headless Godot.")
+    subparsers.add_parser(
+        "debug-tools-release-smoke",
+        help="Run the debug console release-mode guard smoke in headless Godot.",
+    )
     subparsers.add_parser("runtime-smoke", help="Run the formal gameplay runtime smoke in headless Godot.")
     subparsers.add_parser("f4-smoke", help="Compatibility alias for runtime-smoke.")
     subparsers.add_parser("meta-smoke", help="Run the F6 meta progression smoke in headless Godot.")
@@ -177,6 +182,21 @@ def main() -> int:
             return 1
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--", "--perf-probe"],
+            cwd=project,
+        )
+    if args.command in {"debug-tools-smoke", "debug-tools-release-smoke"}:
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        smoke_script = project / "tools" / "debug_tools_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing DebugTools smoke script: {_rel(smoke_script)}")
+            return 1
+        user_args = ["--debug-tools-smoke"]
+        if args.command == "debug-tools-release-smoke":
+            user_args.append("--force-release-debug-tools-off")
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", *user_args],
             cwd=project,
         )
     if args.command in {"runtime-smoke", "f4-smoke"}:
