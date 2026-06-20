@@ -12,11 +12,13 @@ const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const DAMAGE_NUMBER_SCENE := preload("res://scenes/gameplay/damage_number.tscn")
 const GAME_MODES := preload("res://scripts/contracts/game_modes.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const BULLET_SCENE := preload("res://scenes/gameplay/bullet.tscn")
 const ENEMY_SCENE := preload("res://scenes/gameplay/enemy.tscn")
 const GAME_OVER_PANEL_SCENE := preload("res://scenes/ui/game_over_panel.tscn")
+const HIT_SPARK_SCENE := preload("res://scenes/gameplay/hit_spark.tscn")
 const LEVEL_UP_PANEL_SCENE := preload("res://scenes/ui/level_up_panel.tscn")
 const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause_menu.tscn")
 const PICKUP_ORB_SCENE := preload("res://scenes/gameplay/pickup_orb.tscn")
@@ -25,6 +27,7 @@ const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 
 const BULLET_POOL_SIZE: int = 192
 const ENEMY_POOL_SIZE: int = 96
+const FEEDBACK_POOL_SIZE: int = 128
 const PICKUP_POOL_SIZE: int = 128
 const RUN_SNAPSHOT_SCHEMA_VERSION: int = 1
 const UI_RESTORE_LEVEL_UP: String = "level_up"
@@ -57,6 +60,11 @@ var _weapon_system: Node = null
 func _ready() -> void:
 	_ensure_input_actions()
 	_start_run(_pending_restore_snapshot)
+
+
+func _exit_tree() -> void:
+	if Combat.damage_applied.is_connected(_on_combat_damage_applied):
+		Combat.damage_applied.disconnect(_on_combat_damage_applied)
 
 
 func _process(_delta: float) -> void:
@@ -105,15 +113,23 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	PoolManager.clear_pool(POOL_IDS.BULLET_BASIC)
 	PoolManager.clear_pool(POOL_IDS.ENEMY_CHASER)
 	PoolManager.clear_pool(POOL_IDS.ENEMY_SWARM)
+	PoolManager.clear_pool(POOL_IDS.HIT_SPARK)
+	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
 	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
 	PoolManager.register_pool(POOL_IDS.BULLET_BASIC, _create_bullet_node, BULLET_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.ENEMY_CHASER, _create_enemy_node, ENEMY_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.ENEMY_SWARM, _create_enemy_node, ENEMY_POOL_SIZE)
+	PoolManager.register_pool(POOL_IDS.HIT_SPARK, _create_hit_spark_node, FEEDBACK_POOL_SIZE)
+	PoolManager.register_pool(POOL_IDS.DAMAGE_NUMBER, _create_damage_number_node, FEEDBACK_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.PICKUP_ORB, _create_pickup_orb_node, PICKUP_POOL_SIZE)
 	PoolManager.prewarm(POOL_IDS.BULLET_BASIC, 24)
 	PoolManager.prewarm(POOL_IDS.ENEMY_CHASER, 12)
 	PoolManager.prewarm(POOL_IDS.ENEMY_SWARM, 8)
+	PoolManager.prewarm(POOL_IDS.HIT_SPARK, 16)
+	PoolManager.prewarm(POOL_IDS.DAMAGE_NUMBER, 16)
 	PoolManager.prewarm(POOL_IDS.PICKUP_ORB, 16)
+	if not Combat.damage_applied.is_connected(_on_combat_damage_applied):
+		Combat.damage_applied.connect(_on_combat_damage_applied)
 
 	_active_world = get_node_or_null("ActiveWorld") as Node2D
 	if _active_world == null:
@@ -183,6 +199,14 @@ func _create_bullet_node() -> Node:
 
 func _create_enemy_node() -> Node:
 	return ENEMY_SCENE.instantiate()
+
+
+func _create_hit_spark_node() -> Node:
+	return HIT_SPARK_SCENE.instantiate()
+
+
+func _create_damage_number_node() -> Node:
+	return DAMAGE_NUMBER_SCENE.instantiate()
 
 
 func _create_pickup_orb_node() -> Node:
@@ -496,6 +520,37 @@ func _record_level_up_decision(choice: Dictionary) -> void:
 func _on_player_life_changed(current_life: float, max_life: float) -> void:
 	if _hud != null:
 		_hud.call("set_life", current_life, max_life)
+
+
+func _on_combat_damage_applied(target: Node, _info: RefCounted, result: Dictionary) -> void:
+	if not bool(result.get("applied", false)):
+		return
+	if not target is Node2D or not _is_active_world_entity(target):
+		return
+	var target_2d: Node2D = target as Node2D
+	var amount: float = float(result.get("amount", 0.0))
+	var defeated: bool = bool(result.get("defeated", false))
+	var player_damage: bool = target == _player
+	_spawn_hit_spark(target_2d.global_position)
+	_spawn_damage_number(target_2d.global_position + Vector2.UP * 18.0, amount, defeated, player_damage)
+
+
+func _spawn_hit_spark(spawn_position: Vector2) -> void:
+	var raw_node: Node = PoolManager.acquire(POOL_IDS.HIT_SPARK)
+	if not raw_node is Node2D or not raw_node.has_method("configure"):
+		return
+	var hit_spark: Node2D = raw_node as Node2D
+	_reparent_to_active_world(hit_spark)
+	hit_spark.call("configure", spawn_position)
+
+
+func _spawn_damage_number(spawn_position: Vector2, amount: float, defeated: bool, player_damage: bool) -> void:
+	var raw_node: Node = PoolManager.acquire(POOL_IDS.DAMAGE_NUMBER)
+	if not raw_node is Node2D or not raw_node.has_method("configure"):
+		return
+	var damage_number: Node2D = raw_node as Node2D
+	_reparent_to_active_world(damage_number)
+	damage_number.call("configure", spawn_position, amount, defeated, player_damage)
 
 
 func _on_player_died() -> void:

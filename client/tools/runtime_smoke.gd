@@ -165,6 +165,8 @@ func _run() -> void:
 		_expect(bool(enemy_result.get("defeated", false)), "Combat should defeat the smoke enemy")
 		_expect(enemy.has_method("is_defeat_feedback_active") and bool(enemy.call("is_defeat_feedback_active")), "defeated enemies should show defeat feedback before pooling")
 		_expect(not enemy.is_in_group("active_enemies"), "defeated enemies should leave the live enemy group during feedback")
+		_expect(_pool_stat(POOL_IDS.HIT_SPARK, "acquired") > 0, "enemy damage should acquire hit spark feedback")
+		_expect(_pool_stat(POOL_IDS.DAMAGE_NUMBER, "acquired") > 0, "enemy damage should acquire damage number feedback")
 
 	await _wait_player_vulnerability(player)
 	var smoke_player_damage_source: Node = Node.new()

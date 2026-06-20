@@ -252,6 +252,8 @@ func _clear_gameplay_runtime() -> void:
 	PoolManager.clear_pool(POOL_IDS.BULLET_BASIC)
 	PoolManager.clear_pool(POOL_IDS.ENEMY_CHASER)
 	PoolManager.clear_pool(POOL_IDS.ENEMY_SWARM)
+	PoolManager.clear_pool(POOL_IDS.HIT_SPARK)
+	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
 	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
 
 
