@@ -169,6 +169,7 @@
 | #89 | 数据驱动生态 EnemyAI；profile + Utility/FSM/Steering 分工、怪物互相狩猎 / 逃跑和非玩家击杀归因 | `docs/代码/enemy_ai.md`、`client/data/enemy_ai_profiles.json`、`client/data/enemies.csv`、`client/scripts/gameplay/enemy.gd`、GDD §5.3、词表 §12-B、测试策略、AI导航、AI记忆 |
 | #90 | 可复用主动技能系统；技能定义与英雄解耦、可扩展资源池、targeting/effect primitive 和旋风斩首片 | `docs/代码/skill_system.md`、`client/data/skills.json`、`client/data/characters.json`、`client/data/game_modes.json`、`client/scripts/gameplay/skill_system.gd`、GDD §6.1-A、词表 §12-C~12-F、测试策略、AI导航、AI记忆 |
 | #91 | 多语言 UI 英文长度基准；玩家可见 UI 文案和布局以英文 `en` 长度验收，按钮类控件由 `settings-smoke` 覆盖 | `client/locale/README.md`、GDD §9.4 / §9.14、测试策略、四平台规则、AI导航、AI记忆 |
+| #92 | 详细数值面板；`show_stats_panel` action 默认 Tab，按住显示、松开隐藏，不暂停 | `docs/代码/gameplay_runtime.md`、`docs/代码/settings.md`、词表 §5 / §7、`client/scenes/gameplay/gameplay_hud.tscn`、`client/scripts/gameplay/gameplay_hud.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、测试策略、AI导航、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

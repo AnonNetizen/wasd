@@ -98,6 +98,12 @@ func _expect_input_bindings_update_input_map() -> void:
 	_expect(_action_has_key(ACTIONS.PAUSE, KEY_P), "pause binding should apply P to InputMap")
 	_expect(not _action_has_key(ACTIONS.PAUSE, KEY_ESCAPE), "pause rebinding should replace the previous keyboard event")
 	_expect(Settings.set_value(SETTINGS_KEYS.INPUT_PAUSE, "Escape"), "pause binding should restore Escape")
+	_expect(_action_has_key(ACTIONS.SHOW_STATS_PANEL, KEY_TAB), "default stats panel binding should apply Tab to InputMap")
+	_expect(Settings.set_value(SETTINGS_KEYS.INPUT_SHOW_STATS_PANEL, "I"), "stats panel binding should accept I")
+	_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_SHOW_STATS_PANEL)) == "I", "stats panel binding should store I")
+	_expect(_action_has_key(ACTIONS.SHOW_STATS_PANEL, KEY_I), "stats panel binding should apply I to InputMap")
+	_expect(not _action_has_key(ACTIONS.SHOW_STATS_PANEL, KEY_TAB), "stats panel rebinding should replace Tab")
+	_expect(Settings.set_value(SETTINGS_KEYS.INPUT_SHOW_STATS_PANEL, "Tab"), "stats panel binding should restore Tab")
 
 
 func _expect_invalid_saved_values_recover_to_defaults() -> void:
@@ -152,6 +158,7 @@ func _expect_settings_panel_controls() -> void:
 	var record_replays_check: CheckButton = _find_node_by_name(panel, "RecordReplaysCheck") as CheckButton
 	var input_feedback_label: Label = _find_node_by_name(panel, "InputFeedbackLabel") as Label
 	var pause_binding_option: OptionButton = _find_node_by_name(panel, "PauseBindingOption") as OptionButton
+	var stats_binding_option: OptionButton = _find_node_by_name(panel, "ShowStatsPanelBindingOption") as OptionButton
 	var ui_back_binding_option: OptionButton = _find_node_by_name(panel, "UiBackBindingOption") as OptionButton
 	var reset_input_button: Button = _find_node_by_name(panel, "ResetInputBindingsButton") as Button
 	var close_button: Button = _find_node_by_name(panel, "CloseButton") as Button
@@ -167,6 +174,7 @@ func _expect_settings_panel_controls() -> void:
 	_expect(pause_on_focus_loss_check != null and not pause_on_focus_loss_check.visible, "settings panel should hide unsupported focus-loss pause setting")
 	_expect(record_replays_check != null and record_replays_check.visible, "settings panel should still expose wired replay recording setting")
 	_expect(pause_binding_option != null and pause_binding_option.item_count == Settings.input_binding_options().size(), "settings panel should expose input binding options")
+	_expect(stats_binding_option != null and stats_binding_option.item_count == Settings.input_binding_options().size(), "settings panel should expose stats panel binding options")
 	_expect(input_feedback_label != null and String(input_feedback_label.text) == tr("ui_settings_input_feedback_ready"), "settings panel should expose localized input feedback")
 	_expect(reset_input_button != null and String(reset_input_button.text) == tr("ui_settings_input_restore_defaults"), "settings panel should expose reset input defaults button")
 	_expect(master_slider != null and is_equal_approx(float(master_slider.value), 1.0), "settings panel should read master volume default")
@@ -197,6 +205,16 @@ func _expect_settings_panel_controls() -> void:
 			_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE)) == "P", "pause binding option should write Settings")
 			_expect(_action_has_key(ACTIONS.PAUSE, KEY_P), "pause binding option should update InputMap")
 			_expect(input_feedback_label != null and String(input_feedback_label.text).contains("Pause bound to P"), "pause binding should show saved feedback")
+	if stats_binding_option != null:
+		var i_index: int = _option_index(stats_binding_option, "I")
+		_expect(i_index >= 0, "stats panel binding option should include I")
+		if i_index >= 0:
+			stats_binding_option.select(i_index)
+			stats_binding_option.item_selected.emit(i_index)
+			await get_tree().process_frame
+			_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_SHOW_STATS_PANEL)) == "I", "stats panel binding option should write Settings")
+			_expect(_action_has_key(ACTIONS.SHOW_STATS_PANEL, KEY_I), "stats panel binding option should update InputMap")
+			_expect(input_feedback_label != null and String(input_feedback_label.text).contains("Details Panel bound to I"), "stats panel binding should show saved feedback")
 	if ui_back_binding_option != null:
 		var p_index: int = _option_index(ui_back_binding_option, "P")
 		_expect(p_index >= 0, "ui back binding option should include P")
@@ -210,8 +228,10 @@ func _expect_settings_panel_controls() -> void:
 		reset_input_button.pressed.emit()
 		await get_tree().process_frame
 		_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE)) == "Escape", "reset input defaults should restore pause binding")
+		_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_SHOW_STATS_PANEL)) == "Tab", "reset input defaults should restore stats panel binding")
 		_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_UI_BACK)) == "Escape", "reset input defaults should restore ui_back binding")
 		_expect(_action_has_key(ACTIONS.PAUSE, KEY_ESCAPE), "reset input defaults should restore pause InputMap event")
+		_expect(_action_has_key(ACTIONS.SHOW_STATS_PANEL, KEY_TAB), "reset input defaults should restore stats panel InputMap event")
 		_expect(_action_has_key(ACTIONS.UI_BACK, KEY_ESCAPE), "reset input defaults should restore ui_back InputMap event")
 		_expect(input_feedback_label != null and String(input_feedback_label.text) == "Input bindings restored to defaults.", "reset input defaults should show feedback")
 

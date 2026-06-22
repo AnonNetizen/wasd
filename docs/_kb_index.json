@@ -183,7 +183,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "IP决策", "破巢者", "Nestbreakers", "subagent", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
+      "keywords": ["ADR", "decision", "决策", "约束", "IP决策", "破巢者", "Nestbreakers", "详细数值面板", "show_stats_panel", "Tab", "subagent", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -197,7 +197,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI导航.md", "docs/代码文档规范.md", "client/data/README.md", "client/locale/README.md"],
       "related_code": ["client/data/_contracts.json", "client/scripts/contracts/", "tools/sync_contracts.py", "tools/validate_data.py"],
       "update_triggers": ["new id", "renamed id", "deleted id", "contract schema change"],
-      "keywords": ["contract", "词表", "action", "stat", "effect", "setting", "rng", "locale", "本地化key", "meta", "unlock", "局外成长", "save_kind", "run save", "sync_contracts", "_contracts.json"]
+      "keywords": ["contract", "词表", "action", "stat", "effect", "setting", "input.show_stats_panel", "show_stats_panel", "rng", "locale", "本地化key", "meta", "unlock", "局外成长", "save_kind", "run save", "sync_contracts", "_contracts.json"]
     },
     {
       "path": "client/data/README.md",
@@ -225,7 +225,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/AI导航.md", "client/data/README.md"],
       "related_code": ["client/locale/", "tools/validate_data.py"],
       "update_triggers": ["new locale key domain", "new language column", "placeholder convention change", "strings.csv format change", "translation workflow change", "UI localization sizing rule change"],
-      "keywords": ["locale", "localization", "strings.csv", "文案", "多语言", "翻译", "AI自动翻译", "zh_CN", "en", "English UI sizing", "英文长度基准", "UI适配", "按钮宽度", "占位符", "meta_", "weapon_", "局外成长文案", "validate_data"]
+      "keywords": ["locale", "localization", "strings.csv", "文案", "多语言", "翻译", "AI自动翻译", "zh_CN", "en", "English UI sizing", "英文长度基准", "UI适配", "按钮宽度", "ui_stats_", "ui_settings_input_show_stats_panel", "占位符", "meta_", "weapon_", "局外成长文案", "validate_data"]
     },
     {
       "path": "docs/测试策略.md",
@@ -281,7 +281,7 @@
       "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/功能建议池.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": ["client/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
-      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
+      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
     },
     {
       "path": "docs/AI记忆/项目记忆.md",
@@ -743,7 +743,7 @@
       "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/skill_system.md", "docs/代码/enemy_ai.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/scripts/debug/gm_command_registry.gd", "client/tools/runtime_smoke.gd", "client/tools/debug_tools_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
       "update_triggers": ["Gameplay runtime behavior changes", "Player, weapon, or skill runtime changes", "Spawner behavior changes", "HUD or restart flow changes", "runtime debug API changes", "runtime module split or scene-resource migration"],
-      "keywords": ["GameplayRunLoop", "runtime-smoke", "debug-tools-smoke", "F4", "MinPlayableLoop", "Player", "WeaponSystem", "SkillSystem", "skills.json", "Whirlwind Slash", "旋风斩", "Bullet", "Enemy", "Spawner", "HUD", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
+      "keywords": ["GameplayRunLoop", "runtime-smoke", "debug-tools-smoke", "F4", "MinPlayableLoop", "Player", "WeaponSystem", "SkillSystem", "skills.json", "Whirlwind Slash", "旋风斩", "Bullet", "Enemy", "Spawner", "HUD", "详细数值面板", "show_stats_panel", "StatsPanel", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
     },
     {
       "path": "docs/代码/skill_system.md",
@@ -883,7 +883,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/localization.md"],
       "related_code": ["client/scripts/autoload/settings.gd", "client/scripts/contracts/settings_keys.gd", "client/data/_contracts.json"],
       "update_triggers": ["Settings API changes", "setting default changes", "setting key changes", "settings persistence changes"],
-      "keywords": ["Settings", "autoload", "settings_keys", "setting_changed", "general.locale", "preferences"]
+      "keywords": ["Settings", "autoload", "settings_keys", "setting_changed", "general.locale", "input.show_stats_panel", "show_stats_panel", "Tab", "preferences"]
     },
     {
       "path": "docs/代码/analytics.md",

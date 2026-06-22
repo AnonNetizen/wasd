@@ -66,6 +66,12 @@ const INPUT_BINDING_ROWS: Array[Dictionary] = [
 		"option_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/UseActiveItemBindingBox/UseActiveItemBindingOption",
 	},
 	{
+		"key": SETTINGS_KEYS.INPUT_SHOW_STATS_PANEL,
+		"label_key": "ui_settings_input_show_stats_panel",
+		"label_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/ShowStatsPanelBindingBox/ShowStatsPanelBindingLabel",
+		"option_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/ShowStatsPanelBindingBox/ShowStatsPanelBindingOption",
+	},
+	{
 		"key": SETTINGS_KEYS.INPUT_PAUSE,
 		"label_key": "ui_settings_input_pause",
 		"label_path": "Root/Center/Panel/Margin/Layout/InputBindingsGrid/PauseBindingBox/PauseBindingLabel",

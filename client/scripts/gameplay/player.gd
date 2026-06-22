@@ -178,6 +178,10 @@ func separation_radius() -> float:
 	return _separation_radius
 
 
+func stat_value(stat: String) -> float:
+	return _stat_value(stat, 0.0)
+
+
 func aim_at_world_position(world_position: Vector2) -> void:
 	var mouse_direction: Vector2 = world_position - global_position
 	if mouse_direction.length_squared() > MOUSE_AIM_MIN_DISTANCE_SQUARED:

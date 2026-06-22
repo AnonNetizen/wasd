@@ -21,7 +21,7 @@
 | 加 UI 文案 | 在 `strings.csv` 加 `ui_*` key；代码使用 `tr("ui_xxx")` |
 | 加标题 / 暂停 / 失败面板文案 | 在 `strings.csv` 加 `ui_title_*`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_pause_title`、`ui_save_and_quit`、`ui_restart`、`ui_quit_to_title` 等 key；UI 代码使用 `tr()` |
 | 加设置面板文案 | 在 `strings.csv` 加 `ui_settings_*` key；设置入口沿用 `ui_settings`，设置面板标题、分组、控件标签、反馈和选项都走本地化；输入绑定动作标签使用 `ui_settings_input_*` |
-| 加 HUD / 失败提示 | 在 `strings.csv` 加 `ui_hud_*` 或 `ui_*` key；HUD 代码用 `tr("ui_xxx")` 并在运行时刷新 |
+| 加 HUD / 失败提示 | 在 `strings.csv` 加 `ui_hud_*`、`ui_stats_*` 或 `ui_*` key；HUD 代码用 `tr("ui_xxx")` 并在运行时刷新 |
 | 加角色名 / 描述 | 在 `strings.csv` 加 `character_*_name` / `character_*_desc`；数据填 `name_key` / `desc_key` |
 | 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |
 | 加敌人名 | 在 `strings.csv` 加 `enemy_*_name`；`enemies.csv` 填 `name_key` |
@@ -70,7 +70,8 @@ ui_resume,继续,Resume
 | `ui_` | UI、菜单、按钮、HUD | `ui_settings` / `ui_pause` |
 | `ui_settings_` | 设置面板标题、分组、控件标签和选项 | `ui_settings_master_volume` / `ui_settings_aim_mode_auto` |
 | `ui_settings_input_` | 设置面板输入绑定动作标签 | `ui_settings_input_move_up` / `ui_settings_input_pause` |
-| `ui_hud_` | 局内 HUD 标签 | `ui_hud_life` / `ui_hud_kills` |
+| `ui_hud_` | 局内常驻 HUD 标签 | `ui_hud_life` / `ui_hud_kills` |
+| `ui_stats_` | 局内详细数值面板标签 | `ui_stats_damage` / `ui_stats_skill_resource` |
 | `ui_credits_` | 致谢界面分组、角色和用途标签 | `ui_credits_section_staff` / `ui_credits_usage_engine_runtime` |
 | `character_` | 角色名称和描述 | `character_default_name` / `character_default_desc` |
 | `weapon_` | 武器名称和描述 | `weapon_basic_blaster_name` / `weapon_basic_blaster_desc` |
@@ -141,9 +142,9 @@ label.text = tr("ui_damage") + str(value)
 
 ### 加一段 HUD 文案
 
-1. 在 `strings.csv` 新增 `ui_hud_*` key，例如 `ui_hud_life,生命,Life`。
-2. HUD 代码只显示 `tr("ui_hud_life")` 和格式化数值，不硬编码玩家可见标签。
-3. 若 HUD 会常驻局内，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、击杀、时间、等级、经验和升级反馈重画。
+1. 在 `strings.csv` 新增 `ui_hud_*` 或 `ui_stats_*` key，例如 `ui_hud_life,生命,Life` / `ui_stats_fire_rate,射速,Fire Rate`。
+2. HUD 代码只显示 `tr("ui_hud_life")` / `tr("ui_stats_fire_rate")` 和格式化数值，不硬编码玩家可见标签。
+3. 若 HUD 会常驻局内或按住显示，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、击杀、时间、等级、经验、详细数值和升级反馈重画。
 
 ### 加一个设置面板控件文案
 

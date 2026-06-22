@@ -51,7 +51,7 @@ SettingsPanel (CanvasLayer)
                 ├── RecordReplaysCheck
                 ├── 隐藏占位：FullscreenCheck / VsyncCheck / FireOnReleaseCheck / AimModeOption / ScreenShakeCheck / PauseOnFocusLossCheck
                 ├── InputFeedbackLabel
-                ├── InputBindingsGrid（移动 / 瞄准 / 主动道具 / 暂停 / 确认 / 返回）
+                ├── InputBindingsGrid（移动 / 瞄准 / 主动道具 / 详细数值面板 / 暂停 / 确认 / 返回）
                 ├── ResetInputBindingsButton
                 ├── AnalyticsCheck
                 └── CloseButton
@@ -112,6 +112,7 @@ SettingsPanel (CanvasLayer)
 | `input.move_up` / `input.move_down` / `input.move_left` / `input.move_right` | string：`Settings.input_binding_options()` 返回集合 | `W` / `S` / `A` / `D` | 移动 action 的键盘主绑定 |
 | `input.aim_up` / `input.aim_down` / `input.aim_left` / `input.aim_right` | string：`Settings.input_binding_options()` 返回集合 | `Up` / `Down` / `Left` / `Right` | 兜底瞄准 action 的键盘主绑定；鼠标瞄准不通过这些键位表达连续方向 |
 | `input.use_active_item` | string：`Settings.input_binding_options()` 返回集合 | `Space` | 主动道具 action 的键盘主绑定 |
+| `input.show_stats_panel` | string：`Settings.input_binding_options()` 返回集合 | `Tab` | 详细数值面板 action 的键盘主绑定；按住显示、松开隐藏，不暂停 |
 | `input.pause` | string：`Settings.input_binding_options()` 返回集合 | `Escape` | 暂停 action 的键盘主绑定 |
 | `input.ui_confirm` | string：`Settings.input_binding_options()` 返回集合 | `Enter` | UI 确认 action 的键盘主绑定 |
 | `input.ui_back` | string：`Settings.input_binding_options()` 返回集合 | `Escape` | UI 返回 action 的键盘主绑定 |

@@ -30,6 +30,7 @@ ui_settings_input_aim_down,向下瞄准,Aim Down
 ui_settings_input_aim_left,向左瞄准,Aim Left
 ui_settings_input_aim_right,向右瞄准,Aim Right
 ui_settings_input_use_active_item,主动道具,Active Item
+ui_settings_input_show_stats_panel,详细数值面板,Details Panel
 ui_settings_input_pause,暂停,Pause
 ui_settings_input_ui_confirm,确认,Confirm
 ui_settings_input_ui_back,返回,Back
@@ -58,6 +59,25 @@ ui_run_summary,击杀 {kills} · 时间 {time}s,Kills {kills} · Time {time}s
 ui_hud_life,生命,Life
 ui_hud_kills,击杀,Kills
 ui_hud_time,时间,Time
+ui_stats_panel_title,详细数值,Details
+ui_stats_life,生命,Life
+ui_stats_level,等级,Level
+ui_stats_xp,经验,XP
+ui_stats_kills,击杀,Kills
+ui_stats_run_time,运行时间,Run Time
+ui_stats_damage,伤害,Damage
+ui_stats_fire_rate,射速,Fire Rate
+ui_stats_move_speed,移动速度,Move Speed
+ui_stats_bullet_speed,子弹速度,Bullet Speed
+ui_stats_bullet_range,射程,Range
+ui_stats_bullet_count,子弹数,Bullets
+ui_stats_pierce_count,穿透,Pierce
+ui_stats_crit_chance,暴击率,Crit Chance
+ui_stats_crit_mult,暴击倍率,Crit Damage
+ui_stats_pickup_range,拾取范围,Pickup Range
+ui_stats_luck,幸运,Luck
+ui_stats_skill_resource,技能资源,Skill Resource
+ui_stats_skill_cooldown,技能冷却,Skill Cooldown
 ui_game_over,本局结束,Run Over
 ui_restart_hint,按暂停键重开,Press Pause to restart
 ui_meta_progression,局外升级,Meta Upgrades
@@ -119,6 +139,7 @@ item_pocket_bomb_name,袖珍炸弹,Pocket Bomb
 item_pocket_bomb_desc,引发一次小范围爆炸,Trigger a small explosion
 skill_whirlwind_slash_name,旋风斩,Whirlwind Slash
 skill_whirlwind_slash_desc,消耗魔法，对周围敌人造成范围物理伤害,Spend mana to deal area physical damage to nearby enemies
+skill_resource_mana_name,魔法,Mana
 meta_currency_essence_name,记忆余烬,Memory Embers
 meta_upgrade_max_hp_name,坚韧心脏,Stout Heart
 meta_upgrade_max_hp_desc,永久提升最大生命,Permanently increases max HP

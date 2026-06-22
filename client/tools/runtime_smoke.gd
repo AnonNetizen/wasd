@@ -53,12 +53,15 @@ func _run() -> void:
 	_expect(_action_has_key(ACTIONS.MOVE_UP, KEY_W), "move_up should include KEY_W")
 	_expect(not _action_has_key(ACTIONS.MOVE_UP, KEY_UP), "move_up should not include KEY_UP")
 	_expect(_action_has_key(ACTIONS.AIM_UP, KEY_UP), "aim_up should include KEY_UP")
+	_expect(_action_has_key(ACTIONS.SHOW_STATS_PANEL, KEY_TAB), "show_stats_panel should include KEY_TAB")
 
 	var player: Node2D = _find_node_by_name(run_loop, "Player") as Node2D
 	_expect(player != null, "Player should exist")
 	if player == null:
 		_finish()
 		return
+
+	await _expect_stats_panel_hold_to_show(run_loop)
 
 	var camera: Camera2D = _find_node_by_name(player, "CenteredCamera") as Camera2D
 	_expect(camera != null and camera.enabled, "CenteredCamera should be enabled")
@@ -433,6 +436,30 @@ func _active_enemy_instance_ids() -> Dictionary:
 	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
 		result[enemy.get_instance_id()] = true
 	return result
+
+
+func _expect_stats_panel_hold_to_show(run_loop: Node) -> void:
+	var hud: Node = _find_node_by_name(run_loop, "GameplayHud")
+	_expect(hud != null, "GameplayHud should exist for stats panel smoke")
+	if hud == null or not hud.has_method("is_stats_panel_visible"):
+		return
+	_expect(not bool(hud.call("is_stats_panel_visible")), "stats panel should start hidden")
+	var state_before: StringName = GameState.current()
+	var tick_before: int = GameClock.tick()
+	Input.action_press(ACTIONS.SHOW_STATS_PANEL)
+	for _index: int in range(BOOT_FRAMES):
+		await get_tree().process_frame
+	_expect(bool(hud.call("is_stats_panel_visible")), "holding stats panel action should show the HUD panel")
+	_expect(GameState.current() == state_before and GameState.is_state(GameState.PLAYING), "holding stats panel action should keep gameplay state")
+	_expect(GameClock.tick() > tick_before, "holding stats panel action should not freeze gameplay time")
+	var title_label: Label = _find_node_by_name(hud, "TitleLabel") as Label
+	var damage_value_label: Label = _find_node_by_name(hud, "DamageValueLabel") as Label
+	_expect(title_label != null and String(title_label.text) == tr("ui_stats_panel_title"), "stats panel title should use localized text")
+	_expect(damage_value_label != null and not String(damage_value_label.text).is_empty(), "stats panel should show current damage")
+	Input.action_release(ACTIONS.SHOW_STATS_PANEL)
+	for _index: int in range(BOOT_FRAMES):
+		await get_tree().process_frame
+	_expect(not bool(hud.call("is_stats_panel_visible")), "releasing stats panel action should hide the HUD panel")
 
 
 func _expect_pickup_orb_draw_order(run_loop: Node, player: Node2D) -> void:
@@ -1033,6 +1060,7 @@ func _expect(condition: bool, message: String) -> void:
 func _finish() -> void:
 	Input.action_release(ACTIONS.MOVE_RIGHT)
 	Input.action_release(ACTIONS.AIM_UP)
+	Input.action_release(ACTIONS.SHOW_STATS_PANEL)
 	if _failures.is_empty():
 		print("[RuntimeSmoke] passed; time=%.2f bullets_acquired=%d enemies_acquired=%d state=%s" % [
 			GameClock.now(),

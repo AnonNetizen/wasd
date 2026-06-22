@@ -35,7 +35,7 @@ grow_vertical = 2
 mouse_filter = 1
 
 [node name="Panel" type="PanelContainer" parent="Root/Center"]
-custom_minimum_size = Vector2(820, 820)
+custom_minimum_size = Vector2(860, 900)
 layout_mode = 2
 mouse_filter = 1
 
@@ -327,7 +327,7 @@ custom_minimum_size = Vector2(176, 34)
 layout_mode = 2
 
 [node name="UseActiveItemBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
-custom_minimum_size = Vector2(176, 72)
+custom_minimum_size = Vector2(190, 72)
 layout_mode = 2
 theme_override_constants/separation = 4
 
@@ -336,11 +336,24 @@ layout_mode = 2
 mouse_filter = 2
 
 [node name="UseActiveItemBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/UseActiveItemBindingBox"]
-custom_minimum_size = Vector2(176, 34)
+custom_minimum_size = Vector2(190, 34)
+layout_mode = 2
+
+[node name="ShowStatsPanelBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
+custom_minimum_size = Vector2(190, 72)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="ShowStatsPanelBindingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/ShowStatsPanelBindingBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="ShowStatsPanelBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/ShowStatsPanelBindingBox"]
+custom_minimum_size = Vector2(190, 34)
 layout_mode = 2
 
 [node name="PauseBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
-custom_minimum_size = Vector2(176, 72)
+custom_minimum_size = Vector2(190, 72)
 layout_mode = 2
 theme_override_constants/separation = 4
 
@@ -349,11 +362,11 @@ layout_mode = 2
 mouse_filter = 2
 
 [node name="PauseBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/PauseBindingBox"]
-custom_minimum_size = Vector2(176, 34)
+custom_minimum_size = Vector2(190, 34)
 layout_mode = 2
 
 [node name="UiConfirmBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
-custom_minimum_size = Vector2(176, 72)
+custom_minimum_size = Vector2(190, 72)
 layout_mode = 2
 theme_override_constants/separation = 4
 
@@ -362,11 +375,11 @@ layout_mode = 2
 mouse_filter = 2
 
 [node name="UiConfirmBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/UiConfirmBindingBox"]
-custom_minimum_size = Vector2(176, 34)
+custom_minimum_size = Vector2(190, 34)
 layout_mode = 2
 
 [node name="UiBackBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
-custom_minimum_size = Vector2(176, 72)
+custom_minimum_size = Vector2(190, 72)
 layout_mode = 2
 theme_override_constants/separation = 4
 
@@ -375,7 +388,7 @@ layout_mode = 2
 mouse_filter = 2
 
 [node name="UiBackBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/UiBackBindingBox"]
-custom_minimum_size = Vector2(176, 34)
+custom_minimum_size = Vector2(190, 34)
 layout_mode = 2
 
 [node name="ResetInputBindingsButton" type="Button" parent="Root/Center/Panel/Margin/Layout"]

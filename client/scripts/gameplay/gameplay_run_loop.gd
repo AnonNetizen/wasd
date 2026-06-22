@@ -24,7 +24,9 @@ const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause_menu.tscn")
 const PICKUP_ORB_SCENE := preload("res://scenes/gameplay/pickup_orb.tscn")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
+const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const SKILL_SYSTEM_SCRIPT := preload("res://scripts/gameplay/skill_system.gd")
+const STATS := preload("res://scripts/contracts/stats.gd")
 
 const BULLET_POOL_SIZE: int = 192
 const ENEMY_POOL_SIZE: int = 96
@@ -70,6 +72,7 @@ func _exit_tree() -> void:
 
 
 func _process(_delta: float) -> void:
+	_update_stats_panel()
 	if not GameState.is_state(GameState.PLAYING):
 		return
 	_update_spawner()
@@ -1028,6 +1031,107 @@ func _can_level_up() -> bool:
 func _refresh_xp_hud() -> void:
 	if _hud != null:
 		_hud.call("set_xp", current_level_xp(), current_level_xp_required())
+
+
+func _update_stats_panel() -> void:
+	if _hud == null or not _hud.has_method("set_stats_panel_visible"):
+		return
+	var should_show: bool = GameState.is_state(GameState.PLAYING) and Input.is_action_pressed(ACTIONS.SHOW_STATS_PANEL)
+	_hud.call("set_stats_panel_visible", should_show)
+	if should_show and _hud.has_method("set_detailed_stats"):
+		_hud.call("set_detailed_stats", _stats_panel_snapshot())
+
+
+func _stats_panel_snapshot() -> Dictionary:
+	return {
+		"life": "%d/%d" % [
+			int(ceilf(float(_player.call("current_life")))) if _player != null and _player.has_method("current_life") else 0,
+			int(ceilf(float(_player.call("max_life")))) if _player != null and _player.has_method("max_life") else 0,
+		],
+		"level": "%d" % _current_level,
+		"xp": "%d/%d" % [current_level_xp(), current_level_xp_required()],
+		"kills": "%d" % _kills,
+		"run_time": "%ds" % int(GameClock.now()),
+		"damage": _format_stat_value(_weapon_stat(STATS.DAMAGE)),
+		"fire_rate": _format_stat_value(_weapon_stat(STATS.FIRE_RATE)),
+		"move_speed": _format_stat_value(_player_stat(STATS.MOVE_SPEED)),
+		"bullet_speed": _format_stat_value(_weapon_stat(STATS.BULLET_SPEED)),
+		"bullet_range": _format_stat_value(_weapon_stat(STATS.BULLET_RANGE)),
+		"bullet_count": _format_stat_value(_weapon_stat(STATS.BULLET_COUNT)),
+		"pierce_count": _format_stat_value(_weapon_stat(STATS.PIERCE_COUNT)),
+		"crit_chance": _format_percent(_weapon_stat(STATS.CRIT_CHANCE)),
+		"crit_mult": "%sx" % _format_stat_value(_weapon_stat(STATS.CRIT_MULT)),
+		"pickup_range": _format_stat_value(_player_stat(STATS.PICKUP_RANGE)),
+		"luck": _format_stat_value(_player_stat(STATS.LUCK)),
+		"skill_resource": _skill_resource_text(),
+		"skill_cooldown": _skill_cooldown_text(),
+	}
+
+
+func _player_stat(stat: String) -> float:
+	if _player != null and _player.has_method("stat_value"):
+		return float(_player.call("stat_value", stat))
+	return 0.0
+
+
+func _weapon_stat(stat: String) -> float:
+	if _weapon_system != null and _weapon_system.has_method("stat_value"):
+		return float(_weapon_system.call("stat_value", stat))
+	return 0.0
+
+
+func _skill_resource_text() -> String:
+	var summary: Dictionary = _skill_summary()
+	var resources: Dictionary = summary.get("resources", {}) as Dictionary
+	if resources.is_empty():
+		return "-"
+	var resource_ids: Array[String] = _sorted_dictionary_keys(resources)
+	var resource_id: String = resource_ids[0]
+	var resource: Dictionary = resources.get(resource_id, {}) as Dictionary
+	return "%s %s/%s" % [
+		_skill_resource_label(resource_id),
+		_format_stat_value(float(resource.get("current", 0.0))),
+		_format_stat_value(float(resource.get("max", 0.0))),
+	]
+
+
+func _skill_cooldown_text() -> String:
+	var summary: Dictionary = _skill_summary()
+	var cooldowns: Dictionary = summary.get("cooldowns", {}) as Dictionary
+	if cooldowns.is_empty():
+		return "-"
+	var skill_ids: Array[String] = _sorted_dictionary_keys(cooldowns)
+	return "%ss" % _format_stat_value(float(cooldowns.get(skill_ids[0], 0.0)))
+
+
+func _skill_summary() -> Dictionary:
+	if _skill_system != null and _skill_system.has_method("debug_summary"):
+		return _skill_system.call("debug_summary") as Dictionary
+	return {}
+
+
+func _skill_resource_label(resource_id: String) -> String:
+	if resource_id == SKILL_RESOURCES.MANA:
+		return tr("skill_resource_mana_name")
+	return resource_id
+
+
+func _sorted_dictionary_keys(dictionary: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for key: Variant in dictionary.keys():
+		result.append(String(key))
+	result.sort()
+	return result
+
+
+func _format_stat_value(value: float) -> String:
+	if absf(value - roundf(value)) < 0.05:
+		return "%d" % int(roundf(value))
+	return "%.1f" % value
+
+
+func _format_percent(value: float) -> String:
+	return "%d%%" % int(roundf(clampf(value, 0.0, 1.0) * 100.0))
 
 
 func _xp_progress_for_level(level: int) -> int:

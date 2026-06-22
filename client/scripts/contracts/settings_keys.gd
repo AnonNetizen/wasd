@@ -22,6 +22,7 @@ const VALUES: Array[String] = [
 	"input.aim_left",
 	"input.aim_right",
 	"input.use_active_item",
+	"input.show_stats_panel",
 	"input.pause",
 	"input.ui_confirm",
 	"input.ui_back",
@@ -48,6 +49,7 @@ const INPUT_AIM_DOWN: String = "input.aim_down"
 const INPUT_AIM_LEFT: String = "input.aim_left"
 const INPUT_AIM_RIGHT: String = "input.aim_right"
 const INPUT_USE_ACTIVE_ITEM: String = "input.use_active_item"
+const INPUT_SHOW_STATS_PANEL: String = "input.show_stats_panel"
 const INPUT_PAUSE: String = "input.pause"
 const INPUT_UI_CONFIRM: String = "input.ui_confirm"
 const INPUT_UI_BACK: String = "input.ui_back"
