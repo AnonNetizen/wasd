@@ -110,7 +110,7 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["knowledge_base", "authority_hierarchy", "task_routes", "adr_tracking_matrix"],
       "must_read_for": ["doc_structure_change", "task_routing", "knowledge_base_change"],
-      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/功能建议池.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
+      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/IP设定.md", "docs/功能建议池.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": ["tools/docs_health_check.py"],
       "update_triggers": ["new long-lived document", "document rename", "authority hierarchy change", "task route change"],
       "keywords": ["knowledge base", "知识库", "index", "索引", "权威层级", "任务路由", "FormalClientBoot", "正式项目启动骨架", "F1"]
@@ -138,10 +138,24 @@
       "last_reviewed": "2026-06-13",
       "canonical_for": ["terminology_aliases", "search_keywords"],
       "must_read_for": ["search_planning", "new_domain_term", "translation_of_terms"],
-      "related_docs": ["docs/词表与契约.md", "docs/游戏设计文档.md", "docs/AI导航.md"],
+      "related_docs": ["docs/IP设定.md", "docs/词表与契约.md", "docs/游戏设计文档.md", "docs/AI导航.md"],
       "related_code": [],
       "update_triggers": ["new domain term", "new English alias", "new abbreviation"],
       "keywords": ["glossary", "术语", "别名", "同义词", "search", "破巢者", "Nestbreakers", "敌巢", "巢核", "经验", "升级", "level-up", "局外成长", "meta progression"]
+    },
+    {
+      "path": "docs/IP设定.md",
+      "type": "authority",
+      "authority": "Nestbreakers IP, world packaging, hero / enemy faction / relic naming direction, and marketing tone",
+      "status": "active",
+      "owner_scope": "design",
+      "last_reviewed": "2026-06-22",
+      "canonical_for": ["ip_direction", "worldbuilding", "naming_style", "marketing_tone"],
+      "must_read_for": ["ip_change", "worldbuilding_change", "hero_packaging", "marketing_copy", "naming_style_change"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/术语表.md", "docs/决策记录.md", "docs/AI导航.md", "client/locale/README.md"],
+      "related_code": [],
+      "update_triggers": ["IP direction changes", "world packaging changes", "hero or faction naming style changes", "marketing copy direction changes"],
+      "keywords": ["IP", "世界观", "破巢者", "Nestbreakers", "敌巢", "巢核", "破巢行动", "多英雄", "英雄包装", "敌方势力", "遗物命名", "宣传语", "marketing"]
     },
     {
       "path": "docs/游戏设计文档.md",
@@ -152,7 +166,7 @@
       "last_reviewed": "2026-06-13",
       "canonical_for": ["game_design", "system_design", "gameplay_behavior"],
       "must_read_for": ["gameplay_change", "system_design_change", "new_content_type"],
-      "related_docs": ["docs/决策记录.md", "docs/AI导航.md", "docs/词表与契约.md", "docs/测试策略.md"],
+      "related_docs": ["docs/IP设定.md", "docs/决策记录.md", "docs/AI导航.md", "docs/词表与契约.md", "docs/测试策略.md"],
       "related_code": ["client/"],
       "update_triggers": ["gameplay behavior change", "system design change", "new infrastructure decision"],
       "keywords": ["GDD", "design", "玩法", "系统", "IP", "世界观", "破巢者", "Nestbreakers", "敌巢", "巢核", "多英雄", "手柄", "autoload", "经验", "升级", "luck", "level-up", "局外成长", "meta progression", "SaveManager", "run save", "续局", "数值配置", "本地化", "文案"]
@@ -264,7 +278,7 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["project_map", "extension_points", "dependency_graph"],
       "must_read_for": ["new_task", "extension_change", "dependency_change"],
-      "related_docs": ["docs/AI知识库索引.md", "docs/功能建议池.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
+      "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/功能建议池.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": ["client/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
       "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]

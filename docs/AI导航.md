@@ -23,6 +23,7 @@
 | `docs/AI导航.md`（本文件） | 项目地图与扩展点定位 |
 | `docs/AI知识库索引.md` | AI 知识库总索引、权威层级、任务入口和 ADR 追踪矩阵 |
 | `docs/术语表.md` | 中英文术语、别名和检索词 |
+| `docs/IP设定.md` | 《破巢者》IP、世界观包装、英雄 / 敌方势力 / 遗物命名和宣发基调 |
 | `docs/词表与契约.md` | 所有约定字符串白名单（stat/effect/event/key），**禁止编造** |
 | `docs/游戏设计文档.md` | 完整设计 |
 | `docs/代码文档规范.md` | 代码变更与对应文档的同步规范 |
@@ -76,6 +77,7 @@
 | `docs/AI导航.md`（本文件） | 项目地图 |
 | `docs/AI知识库索引.md` / `docs/_kb_index.json` | 人工 / 机器可读 AI 知识库索引 |
 | `docs/术语表.md` | 术语、别名、英文检索词 |
+| `docs/IP设定.md` | 《破巢者》IP 设定与内容包装权威 |
 | `docs/词表与契约.md` | 约定字符串白名单 |
 | `docs/决策记录.md` | ADR |
 | `docs/修改建议.md` | 待决策项（A~E；J~R 已归档） |
@@ -131,6 +133,7 @@
 | **查知识库 / 找文档关系 / 任务路由** | 先看 `docs/AI知识库索引.md` 的任务路由表，需要机器可读元数据时看 `docs/_kb_index.json`，搜索同义词先看 `docs/术语表.md` |
 | **续接当前状态 / 下一步** | 先看 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`；上下文压缩后先以用户最后明确指令对齐，`Next Steps` 只作候选参考；需要长期事实 / ADR 摘要 / 历史细节时再看 `docs/AI记忆/项目记忆.md` 和当日会话日志 |
 | **查看 / 维护未来任务** | 看 `docs/TODO.md`；F9 第一轮 Demo 收口后的可选新功能菜单看 `docs/功能建议池.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
+| **改 IP / 世界观 / 英雄包装 / 宣传语** | 先看 `docs/IP设定.md`；若改变玩法承诺或系统边界，再同步 GDD / ADR / 术语表 / AI导航 / AI记忆 |
 | **选择下一项新功能** | 先看 `docs/功能建议池.md`、`docs/TODO.md` 与 `docs/AI记忆/current_state.json`；用户明确点名功能后，再建立 / 更新工作包、GDD / ADR / 模块文档并实现，不从功能池自行挑选推进 |
 | **启动 / 推进正式项目** | 优先读当前阶段工作包；当前 F9 入口为 `docs/AI协作/工作包/F9-ContentDemoPolish.md`，用于内容扩展与 Demo 打磨准备。F8 已落地临时 `l1-smoke`、Replay 文件 roundtrip 的 `replay-smoke`、摘要 diff / 运行时摘要重跑 / 输入播放首片 / runtime event 播放 / 扩展稳定帧样本 diff 的 `replay-runner`、gameplay 输入录制首片的 `replay-input-smoke`、跨 RNG 子流相关性审计 `rng-audit`、`client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay`、`client/tests/replays/golden_level_up_choice.replay` 和轻量 `perf-probe`，现作为 F9 内容扩展的回归护栏；后续 `golden_relic_synergy` 等遗物协同 replay 等对应运行时存在后再补。F7 设置持久化、只显示已接线生效项的正式设置面板、核心 UI 运行时语言刷新、键盘主输入重绑定、输入绑定反馈 / 恢复默认和 UIManager 栈顶 `ui_back` / 默认焦点首片已落地并由 `settings-smoke` / `runtime-smoke` 覆盖；F9 已新增 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry` 与 `debug-tools-smoke` / `debug-tools-release-smoke`。维护入口：DebugTools 看 `docs/代码/debug_tools.md`，F7 看 `docs/AI协作/工作包/F7-SettingsLocalizationUI.md`，F6 局外成长看 `docs/AI协作/工作包/F6-MetaProgression.md`，F4 历史入口为 `docs/AI协作/工作包/F4-MinPlayableLoop.md`，F3 数据闭环入口为 `docs/AI协作/工作包/F3-DataLoader.md` |
 | **维护正式客户端启动骨架 / 默认分辨率** | 看 `client/README.md`、`docs/代码/formal_client_boot.md` 与 `docs/代码/gameplay_runtime.md`；默认 viewport 当前为 1920×1080，窗口不允许任意拖拽缩放，拉伸策略为 `canvas_items + keep`；改主场景、窗口配置或启动验证时同步本导航和 `docs/代码/README.md` |

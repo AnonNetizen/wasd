@@ -48,6 +48,7 @@
 | 1 | `AGENTS.md` + 当前平台规则入口 | AI 开工流程、强制编码红线 |
 | 2 | `docs/决策记录.md` | 已采纳决策与不可逆约束 |
 | 3 | `docs/游戏设计文档.md` | 玩法、系统、长期设计 |
+| 3-A | `docs/IP设定.md` | 《破巢者》IP、世界观包装、命名体系和宣发基调 |
 | 4 | `docs/词表与契约.md` | 约定字符串、id 白名单、InputMap action |
 | 5 | `docs/测试策略.md` | 测试层级、覆盖率、回放、手动回归 |
 | 6 | `docs/代码文档规范.md` + `docs/代码/` | 代码模块文档要求和模块契约 |
@@ -62,6 +63,7 @@
 | 新会话接入 | `AGENTS.md`、`docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、`docs/AI导航.md` 相关段、当前平台规则入口 | 通常不改文件 | 无；若发现文档漂移跑 `python tools/docs_health_check.py` |
 | 续接当前任务 | `docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、当日会话日志；需要长期背景时再读 `项目记忆.md` 相关节 | 通常不改文件 | 无；需要确认状态时跑 `python tools/docs_health_check.py` |
 | 查看 / 维护未来任务 | `docs/TODO.md`、`docs/功能建议池.md`、`docs/AI记忆/current_state.json`、`docs/修改建议.md` | `docs/TODO.md`、必要时 current_state / 会话日志 / 修改建议 / 功能建议池 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
+| 改 IP / 世界观 / 英雄包装 / 宣传语 | `docs/IP设定.md`、`docs/游戏设计文档.md` §1.2、`docs/术语表.md` | IP 设定、GDD 摘要、术语表、AI导航、必要时 ADR / AI记忆 / locale 文案 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
 | 选择下一项新功能 / 功能菜单 | `docs/功能建议池.md`、`docs/TODO.md`、`docs/AI记忆/current_state.json`；若用户点名具体系统，再读对应工作包 / 模块文档 / GDD 章节 | 用户点名后再改 TODO / current_state / 工作包 / GDD / ADR / 模块文档；未点名前不实现功能 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool`；进入实现后按目标工作包验收命令运行 |
 | 启动 / 推进正式项目 | 当前阶段工作包；F9 默认 `docs/AI协作/工作包/F9-ContentDemoPolish.md`、`docs/AI记忆/current_state.json`、目标模块文档；F8 回放 / 测试 / 平衡维护看 `docs/AI协作/工作包/F8-ReplayTestingBalance.md`；F7 设置 / 本地化 / UI 栈维护看 `docs/AI协作/工作包/F7-SettingsLocalizationUI.md`；F6 局外成长看 `docs/AI协作/工作包/F6-MetaProgression.md`；F4 最小可玩闭环看 `docs/AI协作/工作包/F4-MinPlayableLoop.md`；历史 F3 数据闭环看 `docs/AI协作/工作包/F3-DataLoader.md` | `client/`、模块文档、必要时 TODO / GDD / ADR / 词表 / 测试策略 | 按工作包验收命令运行；DataLoader schema 变化跑 `python tools/test_data_loader_schema.py`；项目规则变化跑 `python tools/lint_project_rules.py`；语义风险检查跑 `python tools/lint_semantic_rules.py`；文档变化跑 `python tools/docs_health_check.py`；JSON 变化跑 `python -m json.tool` |
 | 维护正式客户端启动骨架 | `client/README.md`、`docs/代码/formal_client_boot.md`、`docs/代码/gameplay_runtime.md`、`docs/正式项目工作规划.md` F1/F4 | `client/project.godot`、`client/scenes/boot/main.tscn`、`client/scripts/boot/formal_client_boot.gd`、AI导航、代码文档索引 | `python tools/godot_bridge.py headless-boot`、`python tools/godot_bridge.py export-tree`、`python tools/docs_health_check.py` |
@@ -161,7 +163,7 @@
 | #85 | Godot 4.7 引擎基线迁移 | `client/project.godot`、README / client README、GDD、三平台规则、三平台 `godot-gdscript` / `godot-scene-validation` skills、AI导航、代码文档规范、CICD规划、AI技能资源评估、AI记忆 |
 | #86 | RNG 子流 SHA-256 mixer 与相关性审计 | `client/scripts/autoload/rng.gd`、`client/tools/rng_audit.gd`、`client/scripts/boot/formal_client_boot.gd`、`tools/godot_bridge.py`、`docs/代码/rng.md`、GDD §9.18.1、测试策略、CICD规划、F8 工作包、AI导航、AI记忆 |
 | #87 | Claude Code 平台原生 `.claude/` 配置 | `.claude/agents/`、`.claude/commands/`、`.claude/skills/`、`.claude/rules/game-coding-rules.md`、`.claude/settings.json`、`CLAUDE.md`、四平台 `game-coding-rules.md`、工具适配指南、AI技能资源评估、AI导航、AGENTS.md、AI记忆 |
-| #88 | 《破巢者》IP 方向 | GDD §1.2、术语表、AI导航、AI记忆 |
+| #88 | 《破巢者》IP 方向 | `docs/IP设定.md`、GDD §1.2、术语表、AI导航、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 
