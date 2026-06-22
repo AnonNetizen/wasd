@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-06-22",
   "current_phase": "formal_project_f9_content_demo_polish",
-  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；用户随后点名推进《雨世界》式怪物生态，已完成并提交数据驱动 EnemyAI 首片；本轮按用户要求新增可复用主动技能系统首片和旋风斩测试技能。当前没有阻塞，下一步应以用户最后明确指令为准。",
+  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；用户随后点名推进《雨世界》式怪物生态，已完成并提交数据驱动 EnemyAI 首片；近期已新增可复用主动技能系统首片和旋风斩测试技能，并按用户反馈改为仅手柄导航时显示 UI 按钮焦点高亮。当前没有阻塞，下一步应以用户最后明确指令为准。",
   "latest_adr": 90,
   "open_decisions": [
     "A",
@@ -11,6 +11,7 @@
     "E"
   ],
   "last_completed": [
+    "UI 导航焦点策略改为输入设备感知：鼠标 / 键盘 / 触摸模式不显示常驻按钮高亮，收到手柄输入后再给当前 UI 抓默认焦点；runtime-smoke 覆盖鼠标无焦点和手柄补焦点。",
     "新增可复用主动技能系统首片：SkillSystem、skills.json、skill_* 契约常量、默认角色 skill_resources.mana、旋风斩 AOE、L1 / runtime smoke 和 docs/代码/skill_system.md。",
     "提交 a0d57d2 feat: add ecological enemy ai system；新增 enemy_ai_profiles.json、enemy_ai_actions、生态 tags、enemy_stalker、怪物互相伤害归因、runtime smoke 和 docs/代码/enemy_ai.md。",
     "ADR #90：主动技能采用技能定义与英雄解耦 + 可扩展资源池 + targeting/effect primitive；默认旋风斩消耗 mana 并经 Combat 对周围敌人造成 AOE 伤害。",
@@ -26,6 +27,11 @@
     "任何上下文恢复后，先对齐用户最后明确指令；本文件只提供候选方向。"
   ],
   "last_verified": [
+    {
+      "date": "2026-06-22",
+      "command": "lint_gdscript_rules, lint_semantic_rules, docs_health_check, diff --check, settings-smoke, runtime-smoke, headless-boot",
+      "result": "passed for the UI navigation focus visibility change; semantic lint keeps existing dynamic-node advisory warnings"
+    },
     {
       "date": "2026-06-22",
       "command": "validate_data, sync_contracts --check, lint_gdscript_rules, lint_project_rules, test_data_loader_schema, l1-smoke, runtime-smoke, headless-boot",

@@ -160,6 +160,10 @@ func request_close() -> void:
 	_on_close_pressed()
 
 
+func grab_default_focus() -> void:
+	_grab_initial_focus()
+
+
 func _bind_nodes() -> void:
 	_input_binding_options.clear()
 	_locale_option = get_node_or_null("Root/Center/Panel/Margin/Layout/LanguageRow/LocaleOption") as OptionButton
@@ -494,4 +498,4 @@ func _button_contains_position(button: Button, position: Vector2) -> bool:
 
 func _grab_initial_focus() -> void:
 	if is_instance_valid(_locale_option) and _locale_option.is_inside_tree():
-		_locale_option.grab_focus()
+		UIManager.grab_focus_for_navigation(_locale_option)

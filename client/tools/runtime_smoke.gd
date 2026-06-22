@@ -771,7 +771,9 @@ func _verify_meta_progression_entry(title_menu: Node) -> void:
 
 	var upgrade_list: Node = _find_node_by_name(panel, "MetaUpgradeList")
 	_expect(upgrade_list != null and upgrade_list.get_child_count() > 0, "MetaProgressionPanel should show upgrade rows")
-	_expect(_focus_is_inside(panel), "MetaProgressionPanel should receive focus after push")
+	_expect(not _focus_is_inside(panel), "MetaProgressionPanel should not receive focus after pointer push")
+	await _push_joypad_navigation_once()
+	_expect(_focus_is_inside(panel), "MetaProgressionPanel should receive focus after joypad navigation")
 	var close_button: Button = _find_node_by_name(panel, "CloseButton") as Button
 	_expect(close_button != null, "MetaProgressionPanel should expose a close button")
 	await _push_action_once(ACTIONS.UI_BACK)
@@ -795,7 +797,7 @@ func _verify_title_settings_entry(title_menu: Node) -> void:
 		return
 	var title_label: Label = _find_node_by_name(settings_panel, "TitleLabel") as Label
 	_expect(title_label != null and String(title_label.text) == tr("ui_settings_title"), "SettingsPanel should use localized title from title menu")
-	_expect(_focus_is_inside(settings_panel), "title SettingsPanel should receive focus after push")
+	_expect(not _focus_is_inside(settings_panel), "title SettingsPanel should not receive focus after pointer push")
 	var close_button: Button = _find_node_by_name(settings_panel, "CloseButton") as Button
 	_expect(close_button != null, "SettingsPanel should expose close button")
 	await _push_action_once(ACTIONS.UI_BACK)
@@ -818,7 +820,7 @@ func _verify_pause_settings_entry(pause_menu: Node) -> void:
 	_expect(GameState.is_state(GameState.PAUSED), "opening settings from pause should keep GameState PAUSED")
 	if settings_panel == null:
 		return
-	_expect(_focus_is_inside(settings_panel), "pause SettingsPanel should receive focus after push")
+	_expect(not _focus_is_inside(settings_panel), "pause SettingsPanel should not receive focus after pointer push")
 	var close_button: Button = _find_node_by_name(settings_panel, "CloseButton") as Button
 	_expect(close_button != null, "pause SettingsPanel should expose close button")
 	await _push_action_once(ACTIONS.UI_BACK)
@@ -849,6 +851,20 @@ func _push_action_once(action_id: String) -> void:
 
 	var release: InputEventAction = InputEventAction.new()
 	release.action = action_id
+	release.pressed = false
+	get_viewport().push_input(release, true)
+	await get_tree().process_frame
+
+
+func _push_joypad_navigation_once() -> void:
+	var press: InputEventJoypadButton = InputEventJoypadButton.new()
+	press.button_index = JOY_BUTTON_DPAD_DOWN
+	press.pressed = true
+	get_viewport().push_input(press, true)
+	await get_tree().process_frame
+
+	var release: InputEventJoypadButton = InputEventJoypadButton.new()
+	release.button_index = JOY_BUTTON_DPAD_DOWN
 	release.pressed = false
 	get_viewport().push_input(release, true)
 	await get_tree().process_frame

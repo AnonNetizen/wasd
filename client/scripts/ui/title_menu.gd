@@ -22,6 +22,13 @@ var _subtitle_label: Label = null
 var _title_label: Label = null
 
 
+func _input(event: InputEvent) -> void:
+	if UIManager.stack_size() > 0:
+		return
+	if UIManager.event_requests_navigation_focus(event):
+		UIManager.grab_focus_for_navigation(_start_button)
+
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
@@ -123,7 +130,7 @@ func refresh_texts() -> void:
 
 func _grab_button_focus(button: Button) -> void:
 	if is_instance_valid(button) and button.is_inside_tree():
-		button.grab_focus()
+		UIManager.grab_focus_for_navigation(button)
 
 
 func _on_start_pressed() -> void:

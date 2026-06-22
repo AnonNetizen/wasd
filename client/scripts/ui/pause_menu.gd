@@ -73,7 +73,7 @@ func _ready() -> void:
 		Localization.locale_changed.connect(_on_locale_changed)
 	refresh_texts()
 	if not _buttons.is_empty():
-		_buttons[0].call_deferred("grab_focus")
+		call_deferred("grab_default_focus")
 
 
 func _exit_tree() -> void:
@@ -93,6 +93,11 @@ func refresh_texts() -> void:
 
 func request_close() -> void:
 	_activate_button(0)
+
+
+func grab_default_focus() -> void:
+	if not _buttons.is_empty():
+		UIManager.grab_focus_for_navigation(_buttons[0])
 
 
 func _register_button(button: Button) -> void:

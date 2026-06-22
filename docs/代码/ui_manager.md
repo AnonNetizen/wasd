@@ -44,7 +44,7 @@ UIManager (autoload Node)
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
 | 启动 | 创建 `CanvasLayer` 根节点并允许暂停时处理 | `_ready()` |
-| 压栈 | 实例化 `PackedScene`、挂到 `UIRoot`、记录栈、检查暂停请求，并延后一帧把焦点放到 UI 内部 | `push()` / `ui_pushed` |
+| 压栈 | 实例化 `PackedScene`、挂到 `UIRoot`、记录栈、检查暂停请求；仅在最近使用手柄导航时延后一帧把焦点放到 UI 内部 | `push()` / `ui_pushed` |
 | 出栈 | 移除栈顶节点、广播、排队释放，并按需恢复暂停前状态 | `pop()` / `ui_popped` |
 | 替换 | 弹出栈顶，再压入新场景 | `replace()` / `ui_replaced` |
 | 清空 | 逐个弹出并释放当前栈 | `clear()` / `ui_cleared` |
@@ -61,6 +61,9 @@ UIManager (autoload Node)
 | `stack_size()` | 无 | `int` | 当前栈深度 |
 | `top()` | 无 | 栈顶节点或 `null` | 返回内部节点引用，不要手动移出树 |
 | `stack_snapshot()` | 无 | `Array[Node]` | 返回栈节点数组拷贝 |
+| `navigation_focus_visible()` | 无 | `bool` | 最近输入是否需要显示 UI 导航焦点；手柄输入为 `true`，鼠标 / 键盘 / 触摸输入为 `false` |
+| `event_requests_navigation_focus(event)` | `InputEvent` | `bool` | 供标题菜单等非 UI 栈界面判断输入是否来自手柄导航 |
+| `grab_focus_for_navigation(control)` | `Control` | `bool` | 仅在 `navigation_focus_visible()` 为 `true` 且控件可聚焦时抓焦点 |
 
 ## Signal / Event
 
@@ -70,6 +73,7 @@ UIManager (autoload Node)
 | `ui_popped` | `node` | UI 场景出栈并准备释放前 |
 | `ui_cleared` | 无 | `clear()` 完成后 |
 | `ui_replaced` | `node`, `context` | `replace()` 压入新场景后 |
+| `navigation_focus_visibility_changed` | `visible` | 最近输入设备导致导航焦点显示策略变化时 |
 
 ## 数据与契约
 
@@ -80,7 +84,9 @@ UI 根节点可用两种方式声明暂停请求：
 
 可关闭 UI 根节点应提供 `request_close()` 方法。`UIManager` 监听 `ui_back` 后只调用栈顶节点的 `request_close()`，不盲目 `pop()`，避免升级面板、失败面板等有业务选择含义的界面被通用返回键绕过。
 
-可聚焦 UI 根节点可选提供 `grab_default_focus()`。如果没有该方法，`UIManager.push()` 会延后一帧扫描该 UI 内第一个可见、可聚焦、未禁用的 `Control` 并抓取焦点；如果焦点已经在新 UI 内，则不覆盖。
+可聚焦 UI 根节点可选提供 `grab_default_focus()`。如果没有该方法，`UIManager.push()` 会在需要显示导航焦点时延后一帧扫描该 UI 内第一个可见、可聚焦、未禁用的 `Control` 并抓取焦点；如果焦点已经在新 UI 内，则不覆盖。
+
+导航焦点只在最近输入来自手柄时显示：收到 `InputEventJoypadButton` 或有效 `InputEventJoypadMotion` 后，`UIManager` 会允许并补抓当前栈顶 UI 的默认焦点；收到鼠标、键盘或触摸输入后，会释放当前焦点，避免非手柄操作时按钮常驻高亮。标题菜单不是 UI 栈节点，因此通过 `event_requests_navigation_focus()` 与 `grab_focus_for_navigation()` 复用同一策略。
 
 这是当前最小契约。后续可扩展 `modal`、`music_duck`、更细的焦点策略、关闭行为等元数据，但新增字段必须写回本文档和对应 UI 模板。
 
@@ -96,7 +102,7 @@ UI 根节点可用两种方式声明暂停请求：
 
 - 新 UI 场景：放入后续 `client/scenes/ui/`，由调用方以 `PackedScene` 传给 `push()`。
 - 暂停菜单：根节点标记 `pauses_game=true`，由 `UIManager` 触发 `GameState.PAUSED`；如果暂停菜单从 `GameState.LEVEL_UP` 上方打开，`UIManager` 也要把 `LEVEL_UP` 记录为暂停前状态，关闭菜单后恢复回升级选择而不是 `PLAYING`。
-- 焦点管理：`push()` 结束后统一给新 UI 设置初始焦点；复杂界面可实现 `grab_default_focus()` 自定义，简单界面走首个可聚焦控件兜底。
+- 焦点管理：`push()` 结束后按最近输入设备决定是否给新 UI 设置初始焦点；复杂界面可实现 `grab_default_focus()` 自定义，简单界面走首个可聚焦控件兜底。鼠标 / 键盘模式下不显示常驻按钮高亮，手柄导航时恢复焦点。
 - 返回行为：可关闭 UI 实现 `request_close()`；`ui_back` 只作用于当前栈顶并走该方法，关闭按钮和返回键应复用同一业务路径。
 - 过渡动画：后续可在 `push()` / `pop()` 内加入统一动画，但不能破坏栈语义。
 
@@ -120,13 +126,14 @@ UI 根节点可用两种方式声明暂停请求：
 | 暂停时 UI 不响应 | UI 节点和 `UIRoot` 的 `process_mode` 是否为 `ALWAYS` |
 | 从暂停菜单打开设置后无法继续 | `SettingsPanel` 是否是栈顶；关闭按钮是否弹出设置面板而不是底层 `PauseMenu` |
 | 按返回键没有关闭 UI | 栈顶是否实现 `request_close()`；`ui_back` 是否已由 `Settings` 写入 InputMap |
-| 手柄 / 键盘焦点丢失 | UI 是否有可见且 `focus_mode != FOCUS_NONE` 的控件；复杂界面是否需要实现 `grab_default_focus()` |
+| 手柄焦点丢失 | 最近是否收到有效手柄输入；UI 是否有可见且 `focus_mode != FOCUS_NONE` 的控件；复杂界面是否需要实现 `grab_default_focus()` |
+| 鼠标操作时按钮仍高亮 | 是否绕过 `UIManager.grab_focus_for_navigation()` 直接调用了 `grab_focus()` |
 
 ## 测试义务
 
 - 当前切片必跑 L0 和 L2 headless boot，确认 autoload 和空栈启动无错。
 - 后续引入 GUT 后，需要覆盖 push/pop 栈顺序、`replace()`、`clear()`、暂停请求和恢复状态。
-- 接入暂停菜单或设置面板后，需要执行 L5 暂停 / UI 栈 checklist；当前自动覆盖为 `runtime-smoke` 中的标题 / 暂停设置入口开关、`ui_back` 关闭栈顶和焦点落在面板内部路径。
+- 接入暂停菜单或设置面板后，需要执行 L5 暂停 / UI 栈 checklist；当前自动覆盖为 `runtime-smoke` 中的标题 / 暂停设置入口开关、`ui_back` 关闭栈顶、鼠标打开 UI 不自动显示焦点，以及手柄导航后焦点落在面板内部路径。
 
 ## 迁移 / 兼容
 

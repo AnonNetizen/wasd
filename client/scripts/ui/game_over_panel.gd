@@ -72,7 +72,7 @@ func _ready() -> void:
 	if not Localization.locale_changed.is_connected(_on_locale_changed):
 		Localization.locale_changed.connect(_on_locale_changed)
 	refresh_texts()
-	_restart_button.call_deferred("grab_focus")
+	call_deferred("grab_default_focus")
 
 
 func _exit_tree() -> void:
@@ -101,6 +101,10 @@ func refresh_texts() -> void:
 		"time": int(_run_time),
 	})
 	_configure_settlement(_settlement)
+
+
+func grab_default_focus() -> void:
+	UIManager.grab_focus_for_navigation(_restart_button)
 
 
 func _register_button(button: Button, action: String) -> void:
