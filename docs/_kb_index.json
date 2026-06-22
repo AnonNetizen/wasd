@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_at": "2026-06-20",
+  "updated_at": "2026-06-22",
   "description": "Machine-readable AI knowledge base index for the wasd project.",
   "documents": [
     {
@@ -141,7 +141,7 @@
       "related_docs": ["docs/词表与契约.md", "docs/游戏设计文档.md", "docs/AI导航.md"],
       "related_code": [],
       "update_triggers": ["new domain term", "new English alias", "new abbreviation"],
-      "keywords": ["glossary", "术语", "别名", "同义词", "search", "经验", "升级", "level-up", "局外成长", "meta progression"]
+      "keywords": ["glossary", "术语", "别名", "同义词", "search", "破巢者", "Nestbreakers", "敌巢", "巢核", "经验", "升级", "level-up", "局外成长", "meta progression"]
     },
     {
       "path": "docs/游戏设计文档.md",
@@ -155,7 +155,7 @@
       "related_docs": ["docs/决策记录.md", "docs/AI导航.md", "docs/词表与契约.md", "docs/测试策略.md"],
       "related_code": ["client/"],
       "update_triggers": ["gameplay behavior change", "system design change", "new infrastructure decision"],
-      "keywords": ["GDD", "design", "玩法", "系统", "手柄", "autoload", "经验", "升级", "luck", "level-up", "局外成长", "meta progression", "SaveManager", "run save", "续局", "数值配置", "本地化", "文案"]
+      "keywords": ["GDD", "design", "玩法", "系统", "IP", "世界观", "破巢者", "Nestbreakers", "敌巢", "巢核", "多英雄", "手柄", "autoload", "经验", "升级", "luck", "level-up", "局外成长", "meta progression", "SaveManager", "run save", "续局", "数值配置", "本地化", "文案"]
     },
     {
       "path": "docs/决策记录.md",
@@ -169,7 +169,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "subagent", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
+      "keywords": ["ADR", "decision", "决策", "约束", "IP决策", "破巢者", "Nestbreakers", "subagent", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
     },
     {
       "path": "docs/词表与契约.md",

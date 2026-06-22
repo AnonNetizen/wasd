@@ -161,6 +161,7 @@
 | #85 | Godot 4.7 引擎基线迁移 | `client/project.godot`、README / client README、GDD、三平台规则、三平台 `godot-gdscript` / `godot-scene-validation` skills、AI导航、代码文档规范、CICD规划、AI技能资源评估、AI记忆 |
 | #86 | RNG 子流 SHA-256 mixer 与相关性审计 | `client/scripts/autoload/rng.gd`、`client/tools/rng_audit.gd`、`client/scripts/boot/formal_client_boot.gd`、`tools/godot_bridge.py`、`docs/代码/rng.md`、GDD §9.18.1、测试策略、CICD规划、F8 工作包、AI导航、AI记忆 |
 | #87 | Claude Code 平台原生 `.claude/` 配置 | `.claude/agents/`、`.claude/commands/`、`.claude/skills/`、`.claude/rules/game-coding-rules.md`、`.claude/settings.json`、`CLAUDE.md`、四平台 `game-coding-rules.md`、工具适配指南、AI技能资源评估、AI导航、AGENTS.md、AI记忆 |
+| #88 | 《破巢者》IP 方向 | GDD §1.2、术语表、AI导航、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 
