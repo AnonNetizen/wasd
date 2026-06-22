@@ -4,6 +4,11 @@ extends Node
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
+const SKILL_EFFECTS := preload("res://scripts/contracts/skill_effects.gd")
+const SKILL_IDS := preload("res://scripts/contracts/skill_ids.gd")
+const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
+const SKILL_SYSTEM_SCRIPT := preload("res://scripts/gameplay/skill_system.gd")
+const SKILL_TARGETING := preload("res://scripts/contracts/skill_targeting.gd")
 
 const CLOCK_FRAMES: int = 4
 const MOD_SMOKE_ROOT: String = "user://mods/l1_smoke_mod"
@@ -28,6 +33,26 @@ class DamageTarget:
 		}
 
 
+class SkillTarget:
+	extends Node2D
+
+	var life: float = 10.0
+
+	func is_alive() -> bool:
+		return life > 0.0
+
+	func receive_damage(info: RefCounted) -> Dictionary:
+		var amount: float = float(info.get("amount"))
+		var applied_amount: float = minf(amount, life)
+		life = maxf(life - amount, 0.0)
+		return {
+			"applied": true,
+			"amount": applied_amount,
+			"defeated": life <= 0.0,
+			"reason": "applied",
+		}
+
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	call_deferred("_run")
@@ -42,6 +67,7 @@ func _run() -> void:
 	_expect_game_state_rejects_unknown()
 	_expect_save_manager_roundtrip()
 	_expect_combat_damage_path()
+	_expect_skill_system_aoe_damage()
 	_expect_mod_loader_data_patch()
 	_expect_platform_services_reserved_interface()
 
@@ -130,6 +156,79 @@ func _expect_combat_damage_path() -> void:
 	_expect(bool(result.get("applied", false)), "Combat should apply registered physical damage")
 	_expect(is_equal_approx(target.life, 2.0), "Combat should route damage through receive_damage")
 	target.queue_free()
+
+
+func _expect_skill_system_aoe_damage() -> void:
+	var world: Node2D = Node2D.new()
+	world.name = "L1SkillWorld"
+	add_child(world)
+	var caster: Node2D = Node2D.new()
+	caster.name = "L1SkillCaster"
+	world.add_child(caster)
+	var target: SkillTarget = SkillTarget.new()
+	target.name = "L1SkillTarget"
+	target.global_position = Vector2(60.0, 0.0)
+	target.add_to_group("active_enemies")
+	world.add_child(target)
+	var far_target: SkillTarget = SkillTarget.new()
+	far_target.name = "L1FarSkillTarget"
+	far_target.global_position = Vector2(260.0, 0.0)
+	far_target.add_to_group("active_enemies")
+	world.add_child(far_target)
+	var skill_system: Node = SKILL_SYSTEM_SCRIPT.new()
+	skill_system.name = "L1SkillSystem"
+	add_child(skill_system)
+	var skills: Array[Dictionary] = [_l1_whirlwind_skill()]
+	var resources: Array[Dictionary] = [_l1_mana_resource()]
+	skill_system.call("configure", caster, world, skills, resources)
+
+	GameState.change_state(GameState.PLAYING, {"source": "l1_skill_smoke"})
+	var result: Dictionary = skill_system.call("cast_primary_skill")
+	_expect(bool(result.get("ok", false)), "SkillSystem should cast an AOE skill")
+	_expect(int(result.get("applied_targets", 0)) == 1, "SkillSystem should damage one target in radius")
+	_expect(is_equal_approx(target.life, 6.0), "SkillSystem should route skill damage through Combat")
+	_expect(is_equal_approx(far_target.life, 10.0), "SkillSystem should ignore targets outside radius")
+	var resource_snapshot: Dictionary = skill_system.call("resource_snapshot")
+	var mana: Dictionary = resource_snapshot[SKILL_RESOURCES.MANA] as Dictionary
+	_expect(is_equal_approx(float(mana.get("current", 0.0)), 75.0), "SkillSystem should spend mana")
+	var cooldown_result: Dictionary = skill_system.call("cast_primary_skill")
+	_expect(not bool(cooldown_result.get("ok", true)), "SkillSystem should block immediate recast while on cooldown")
+	_expect(String(cooldown_result.get("reason", "")) == "cooldown", "SkillSystem should report cooldown reason")
+
+	target.remove_from_group("active_enemies")
+	far_target.remove_from_group("active_enemies")
+	skill_system.queue_free()
+	world.queue_free()
+
+
+func _l1_whirlwind_skill() -> Dictionary:
+	return {
+		"id": SKILL_IDS.SKILL_WHIRLWIND_SLASH,
+		"cooldown": 3.0,
+		"costs": [
+			{"resource": SKILL_RESOURCES.MANA, "amount": 25.0},
+		],
+		"targeting": {
+			"type": SKILL_TARGETING.AOE_ENEMIES_AROUND_CASTER,
+			"radius": 120.0,
+			"max_targets": 0,
+		},
+		"effects": [
+			{
+				"effect": SKILL_EFFECTS.SKILL_EFFECT_DAMAGE,
+				"params": {"amount": 4.0, "damage_type": DAMAGE_TYPES.PHYSICAL},
+			},
+		],
+	}
+
+
+func _l1_mana_resource() -> Dictionary:
+	return {
+		"id": SKILL_RESOURCES.MANA,
+		"max": 100.0,
+		"start": 100.0,
+		"regen_per_second": 0.0,
+	}
 
 
 func _expect_mod_loader_data_patch() -> void:

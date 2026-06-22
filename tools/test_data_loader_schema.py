@@ -138,11 +138,27 @@ def main() -> int:
             ],
         ),
         (
+            "character starting skill id must be registered",
+            _mutate_json("client/data/characters.json", _set_character_starting_skill("skill_missing")),
+            [
+                "client/data/characters.json:characters[0].starting_loadout.skill_ids[0]",
+                "unknown id skill_missing; expected one of skill_ids",
+            ],
+        ),
+        (
             "mode weapon reference must exist",
             _mutate_json("client/data/game_modes.json", _set_mode_weapon("weapon_missing")),
             [
                 "client/data/game_modes.json:modes[0].resource_pools.weapons[0].id",
                 "weapon is not defined in weapons.json: weapon_missing",
+            ],
+        ),
+        (
+            "mode skill id must be registered",
+            _mutate_json("client/data/game_modes.json", _set_mode_skill("skill_missing")),
+            [
+                "client/data/game_modes.json:modes[0].resource_pools.skills[0].id",
+                "unknown id skill_missing; expected one of skill_ids",
             ],
         ),
         (
@@ -311,6 +327,22 @@ def main() -> int:
             [
                 "client/data/game_modes.json:modes[0].resource_pools.active_items[0].id",
                 "active item is not defined in active_items.json: active_item_missing",
+            ],
+        ),
+        (
+            "skill resource must be registered",
+            _mutate_json("client/data/skills.json", _set_skill_cost_resource("arcane")),
+            [
+                "client/data/skills.json:skills[0].costs[0].resource",
+                "unknown id arcane; expected one of skill_resources",
+            ],
+        ),
+        (
+            "skill damage type must be registered",
+            _mutate_json("client/data/skills.json", _set_skill_damage_type("arcane")),
+            [
+                "client/data/skills.json:skills[0].effects[0].params.damage_type",
+                "unknown id arcane; expected one of damage_types",
             ],
         ),
         (
@@ -554,9 +586,23 @@ def _set_character_starting_consumable(value: str) -> JsonMutator:
     return mutate
 
 
+def _set_character_starting_skill(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["characters"][0]["starting_loadout"]["skill_ids"][0] = value
+
+    return mutate
+
+
 def _set_mode_weapon(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["resource_pools"]["weapons"][0]["id"] = value
+
+    return mutate
+
+
+def _set_mode_skill(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["modes"][0]["resource_pools"]["skills"][0]["id"] = value
 
     return mutate
 
@@ -709,6 +755,20 @@ def _set_active_item_start_charges(value: int) -> JsonMutator:
 def _set_mode_active_item(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["resource_pools"]["active_items"][0]["id"] = value
+
+    return mutate
+
+
+def _set_skill_cost_resource(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["costs"][0]["resource"] = value
+
+    return mutate
+
+
+def _set_skill_damage_type(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["effects"][0]["params"]["damage_type"] = value
 
     return mutate
 

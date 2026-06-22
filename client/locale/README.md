@@ -26,6 +26,7 @@
 | 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |
 | 加敌人名 | 在 `strings.csv` 加 `enemy_*_name`；`enemies.csv` 填 `name_key` |
 | 加遗物 / 道具名和描述 | 在 `strings.csv` 加 `relic_*_name` / `relic_*_desc`、`item_*_name` / `item_*_desc`；数据填 `name_key` / `desc_key` |
+| 加技能名和描述 | 在 `strings.csv` 加 `skill_*_name` / `skill_*_desc`；`skills.json` 填 `name_key` / `desc_key` |
 | 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，动态数值用 `{value}` 这类占位符 |
 | 加局外成长文案 | 在 `strings.csv` 加 `meta_*_name` / `meta_*_desc`；`meta_progression.json` 填 `name_key` / `desc_key` |
 | 加结算 / 局外成长 UI 文案 | 在 `strings.csv` 加 `ui_meta_*` key，例如结算、标题局外升级入口、标题 meta 摘要、费用、锁定 / 满级状态、购买成功 / 失败反馈；UI 代码使用 `tr("ui_meta_xxx")` |
@@ -74,6 +75,7 @@ ui_resume,继续,Resume
 | `weapon_` | 武器名称和描述 | `weapon_basic_blaster_name` / `weapon_basic_blaster_desc` |
 | `relic_` | 被动遗物名称和描述 | `relic_sharp_rounds_name` / `relic_sharp_rounds_desc` |
 | `item_` | 主动道具 / 消耗品名称和描述 | `item_bomb_name` / `item_bomb_desc` |
+| `skill_` | 技能名称和描述 | `skill_whirlwind_slash_name` / `skill_whirlwind_slash_desc` |
 | `enemy_` | 敌人名称 | `enemy_chaser_name` / `enemy_swarm_name` |
 | `hazard_` | 机关 / 危险物名称 | `hazard_spike_trap_name` |
 | `hint_` | 教程、提示、引导 | `hint_aim_with_right_stick` |

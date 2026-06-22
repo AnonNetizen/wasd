@@ -70,6 +70,7 @@
 | 维护 F2+ autoload 骨架 | GDD §9.3~§9.22、`docs/代码/mod_loader.md`、`docs/代码/data_loader.md`、`docs/代码/rng.md`、`docs/代码/game_state.md`、`docs/代码/game_clock.md`、`docs/代码/platform_services.md`、`docs/代码/settings.md`、`docs/代码/analytics.md`、`docs/代码/replay.md`、`docs/代码/pool_manager.md`、`docs/代码/save_manager.md`、`docs/代码/audio_manager.md`、`docs/代码/localization.md`、`docs/代码/ui_manager.md` | `client/scripts/autoload/`、`client/project.godot`、AI导航、代码文档索引、current_state | `python tools/godot_bridge.py headless-boot`、`python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/docs_health_check.py` |
 | 加 / 改角色 | GDD §3.4、`client/data/README.md`、`docs/词表与契约.md` §12、`docs/AI导航.md` | `client/data/characters.json`、`client/locale/strings.csv`、起始携带引用、必要时词表和模块文档 | `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；schema 变化跑 `python tools/test_data_loader_schema.py` |
 | 加 / 改武器 | `client/data/README.md`、`docs/词表与契约.md` §8 / §9 / §10、`docs/AI导航.md` | `client/data/weapons.json`、`client/locale/strings.csv`、必要时角色 / 模式引用 | `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；schema 变化跑 `python tools/test_data_loader_schema.py` |
+| 加 / 改技能 | `docs/代码/skill_system.md`、`client/data/README.md`、`client/locale/README.md`、`docs/词表与契约.md` §12-C~12-F、`docs/AI导航.md` | `client/data/skills.json`、`client/data/characters.json`、`client/data/game_modes.json`、`client/locale/strings.csv`、必要时词表 / DataLoader schema / runtime smoke | `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；`python tools/lint_project_rules.py`；schema 变化跑 `python tools/test_data_loader_schema.py`；运行时行为变化跑 `l1-smoke` + `runtime-smoke` |
 | 加 / 改游戏模式 | GDD §6.6、`client/data/README.md`、`docs/AI导航.md` | `client/data/game_modes.json`、资源池 / 权重 / 禁用列表、必要时词表和模块文档 | `python tools/docs_health_check.py`；`python tools/validate_data.py` |
 | 加遗物 / 道具 | `client/data/README.md`、`client/locale/README.md`、`docs/词表与契约.md` §1 / §2 / §3 / §12、`docs/AI协作/任务模板/加遗物.md` | `client/data/relics.json`、`client/locale/strings.csv`、必要时词表、模式引用和效果原语 | `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；schema 变化跑 `python tools/test_data_loader_schema.py` |
 | 加 / 改主动道具 | `client/data/README.md`、`client/locale/README.md`、`docs/词表与契约.md` §2 / §6 / §7 / §12、`docs/AI导航.md` | `client/data/active_items.json`、`client/data/game_modes.json` 主动道具池、`client/locale/strings.csv`、必要时词表和效果原语 | `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；schema 变化跑 `python tools/test_data_loader_schema.py` |
@@ -166,6 +167,7 @@
 | #87 | Claude Code 平台原生 `.claude/` 配置 | `.claude/agents/`、`.claude/commands/`、`.claude/skills/`、`.claude/rules/game-coding-rules.md`、`.claude/settings.json`、`CLAUDE.md`、四平台 `game-coding-rules.md`、工具适配指南、AI技能资源评估、AI导航、AGENTS.md、AI记忆 |
 | #88 | 《破巢者》IP 方向；跨宇宙通道、银河系星际文明残局、首都星域反击与敌巢突入包装 | `docs/IP设定.md`、GDD §1.2、术语表、AI导航、AI记忆 |
 | #89 | 数据驱动生态 EnemyAI；profile + Utility/FSM/Steering 分工、怪物互相狩猎 / 逃跑和非玩家击杀归因 | `docs/代码/enemy_ai.md`、`client/data/enemy_ai_profiles.json`、`client/data/enemies.csv`、`client/scripts/gameplay/enemy.gd`、GDD §5.3、词表 §12-B、测试策略、AI导航、AI记忆 |
+| #90 | 可复用主动技能系统；技能定义与英雄解耦、可扩展资源池、targeting/effect primitive 和旋风斩首片 | `docs/代码/skill_system.md`、`client/data/skills.json`、`client/data/characters.json`、`client/data/game_modes.json`、`client/scripts/gameplay/skill_system.gd`、GDD §6.1-A、词表 §12-C~12-F、测试策略、AI导航、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 
@@ -174,7 +176,7 @@
 | 类型 | 路径 | 用途 |
 |------|------|------|
 | 正式项目启动模块文档 | `docs/代码/formal_client_boot.md` | 展示 F1 最小启动骨架与 gameplay runtime 挂载的职责边界、场景结构与验证方式 |
-| Gameplay Runtime 模块文档 | `docs/代码/gameplay_runtime.md` / `docs/代码/combat.md` | 展示最小可玩闭环、统一伤害入口、对象池实体、HUD 与验证方式 |
+| Gameplay Runtime 模块文档 | `docs/代码/gameplay_runtime.md` / `docs/代码/combat.md` / `docs/代码/skill_system.md` | 展示最小可玩闭环、统一伤害入口、可复用主动技能、对象池实体、HUD 与验证方式 |
 | EnemyAI 模块文档 | `docs/代码/enemy_ai.md` | 展示怪物生态 profile、Utility/FSM/Steering 分工、怪物互相伤害归因与验证方式 |
 | 正式项目 autoload 模块文档 | `docs/代码/mod_loader.md` / `data_loader.md` / `rng.md` / `game_state.md` / `game_clock.md` / `platform_services.md` / `settings.md` / `analytics.md` / `replay.md` / `pool_manager.md` / `save_manager.md` / `audio_manager.md` / `localization.md` / `ui_manager.md` | 展示基础设施模块的 API、依赖与测试义务 |
 | 功能建议池 | `docs/功能建议池.md` | 展示 F9 第一轮 Demo 收口后可人工点名的新功能菜单；不是已采纳路线图 |

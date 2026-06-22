@@ -25,6 +25,7 @@
 | 改机关伤害 / 范围 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
+| 改技能消耗 / 冷却 / 目标 / 伤害 | `skills.json` | 技能不绑定英雄；角色或道具只引用 skill id，资源消耗用 `skill_resources` 声明 |
 | 改消耗品堆叠 / 效果声明 | `consumables.json` | 用 `stack` 和 `use_effects`，不要实现拾取 / 背包运行时 |
 | 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
 | 改刷怪强度 / 难度曲线 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
@@ -39,11 +40,12 @@
 | 文件 | 状态 | 作用 |
 |------|------|------|
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
-| `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 消耗品 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
-| `characters.json` | 已建立 | 角色列表：基础属性、tags、capabilities、控制配置和起始携带引用；当前不含携带内容运行时发放 |
+| `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 技能 / 消耗品 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
+| `characters.json` | 已建立 | 角色列表：基础属性、tags、capabilities、控制配置、技能资源池和起始携带引用 |
 | `weapons.json` | 已建立 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
 | `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 已建立 | 主动道具：充能方式、冷却、效果原语与参数 |
+| `skills.json` | 已建立 | 可复用技能：冷却、资源消耗、目标选择和技能效果原语 |
 | `consumables.json` | 已建立 | 消耗品：堆叠数量、拾取数量、效果原语与参数 |
 | `enemy_ai_profiles.json` | 已建立 | 敌人生态 AI profile：感知、目标权重、动作列表、冲锋 / 领地等复杂行为参数 |
 | `enemies.csv` | 已建立 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励、占位色等 |
@@ -256,6 +258,7 @@ JSON 示例：
         "hazards": [{ "id": "hazard_spike_trap", "weight": 100 }],
         "relics": [{ "id": "relic_sharp_rounds", "weight": 100 }],
         "active_items": [{ "id": "active_item_blink_burst", "weight": 100 }],
+        "skills": [{ "id": "skill_whirlwind_slash", "weight": 100 }],
         "consumables": [{ "id": "consumable_pocket_bomb", "weight": 100 }],
         "growth_pools": [{ "id": "default_level_up", "weight": 100 }]
       },
@@ -292,6 +295,8 @@ JSON 示例：
 | `resource_pools.relics[].id` | string | 必须存在于 `relics.json` | 可用遗物 id |
 | `resource_pools.active_items[]` | array[object] | 已声明时必须非空 | 本模式可用主动道具池 |
 | `resource_pools.active_items[].id` | string | 必须存在于 `active_items.json` | 可用主动道具 id |
+| `resource_pools.skills[]` | array[object] | 已声明时必须非空 | 本模式可用技能池；角色或道具仍通过 skill id 引用技能本体 |
+| `resource_pools.skills[].id` | string | 词表 §12-C skill id，且必须存在于 `skills.json` | 可用技能 id |
 | `resource_pools.consumables[]` | array[object] | 已声明时必须非空 | 本模式可用消耗品池 |
 | `resource_pools.consumables[].id` | string | 必须存在于 `consumables.json` | 可用消耗品 id |
 | `resource_pools.*[].weight` | int | `>= 0` | 抽取 / 展示权重；具体抽取由后续系统实现 |
@@ -479,8 +484,17 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
       "starting_loadout": {
         "weapon_id": "weapon_basic_blaster",
         "active_item_id": "active_item_blink_burst",
-        "consumable_ids": ["consumable_pocket_bomb"]
+        "consumable_ids": ["consumable_pocket_bomb"],
+        "skill_ids": ["skill_whirlwind_slash"]
       },
+      "skill_resources": [
+        {
+          "id": "mana",
+          "max": 100.0,
+          "start": 100.0,
+          "regen_per_second": 10.0
+        }
+      ],
       "base_stats": {
         "max_hp": 6,
         "move_speed": 240.0,
@@ -513,9 +527,15 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `characters[].starting_loadout.active_item_id` | string | 必须存在于 `active_items.json` | 默认起始主动道具引用 |
 | `characters[].starting_loadout.consumable_ids` | array[string] | 可为空；每项必须存在于 `consumables.json`，文件内不重复 | 默认起始消耗品引用列表；数量规则仍由后续 ConsumableSystem 解释 |
 | `characters[].starting_loadout.consumable_ids[]` | string | 必须存在于 `consumables.json` | 单个默认起始消耗品引用 |
+| `characters[].starting_loadout.skill_ids` | array[string] | 可为空；每项必须来自词表 §12-C 且存在于 `skills.json`，文件内不重复 | 默认起始技能列表；当前 `SkillSystem` 使用第一个技能响应 `use_active_item` 输入 |
+| `characters[].skill_resources[]` | array[object] | 可为空；每项 id 不重复 | 角色拥有的技能资源池；技能通过 `costs[].resource` 消耗这些资源 |
+| `characters[].skill_resources[].id` | string | 词表 §12-D skill resource id | 技能资源 id；当前默认 `mana`，后续可加怒气、能量、生命等资源 |
+| `characters[].skill_resources[].max` | number | `> 0` | 该资源最大值 |
+| `characters[].skill_resources[].start` | number | `0..max` | 开局初始资源值 |
+| `characters[].skill_resources[].regen_per_second` | number | `>= 0`，每秒 | `GameClock` 缩放时间下每秒恢复量；0 表示不自动恢复 |
 | `characters[].base_stats` | object | stat 来自词表 §1，非空 | 角色基础属性；数值范围同 `player.json` stat 校验 |
 
-`characters.json` 只声明角色数据边界，不实现角色选择 UI、实体生成、输入 profile 切换、武器运行时、主动道具栏、消耗品背包、起始携带发放、起始遗物运行时或破限能力执行。新增起始遗物、外观资源或特殊能力字段时，必须先有对应数据注册表 / 词表 / schema，再由业务系统解释。
+`characters.json` 声明角色数据边界和当前起始技能运行时入口；技能本体仍在 `skills.json`，角色只引用 skill id 和资源池。除 `SkillSystem` 已解释的起始技能外，本文件不实现角色选择 UI、实体生成、输入 profile 切换、主动道具栏、消耗品背包、起始遗物运行时或破限能力执行。新增起始遗物、外观资源或特殊能力字段时，必须先有对应数据注册表 / 词表 / schema，再由业务系统解释。
 
 ## `weapons.json`
 
@@ -671,6 +691,63 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `active_items[].use_effects[].params.radius` | number | `> 0` 建议 | `knockback` 生效半径；当前只作为参数声明 |
 
 `active_items.json` 只声明主动道具数据边界，不实现主动道具栏、输入响应、冷却计时、充能 UI、效果执行、掉落 / 解锁或存档快照。游戏模式可通过 `resource_pools.active_items` 声明可用主动道具池；实际使用流程后续必须走 InputMap action `use_active_item`、`GameClock`、`RNG` 和对应业务系统。
+
+## `skills.json`
+
+当前结构：
+
+```json
+{
+  "schema_version": 1,
+  "skills": [
+    {
+      "id": "skill_whirlwind_slash",
+      "name_key": "skill_whirlwind_slash_name",
+      "desc_key": "skill_whirlwind_slash_desc",
+      "default_unlocked": true,
+      "tags": ["tag_skill"],
+      "cooldown": 3.0,
+      "costs": [{ "resource": "mana", "amount": 25.0 }],
+      "targeting": {
+        "type": "aoe_enemies_around_caster",
+        "radius": 120.0,
+        "max_targets": 0
+      },
+      "effects": [
+        {
+          "effect": "skill_effect_damage",
+          "params": { "amount": 8.0, "damage_type": "physical" }
+        }
+      ]
+    }
+  ]
+}
+```
+
+字段说明：
+
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `skills[].id` | string | 词表 §12-C skill id，文件内唯一 | 技能 id；角色、主动道具、敌人或事件系统可复用引用 |
+| `skills[].name_key` / `desc_key` | string | `skill_*_name` / `skill_*_desc` | 技能名称和描述译文 key |
+| `skills[].default_unlocked` | bool | true / false | 新存档中是否默认可用；后续可接局外解锁 |
+| `skills[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_skill` | 内容标签；模式 blocklist 和后续构筑筛选可复用 |
+| `skills[].cooldown` | number | 秒，`>= 0` | 释放后冷却时间，走 `GameClock` 缩放时间 |
+| `skills[].costs[]` | array[object] | 可为空 | 释放消耗列表；为空表示无消耗 |
+| `skills[].costs[].resource` | string | 词表 §12-D skill resource id | 消耗的资源 id；释放者必须在 `skill_resources` 中拥有该资源 |
+| `skills[].costs[].amount` | number | `>= 0` | 单次释放消耗量 |
+| `skills[].targeting` | object | 必填 | 目标选择声明，由 `SkillSystem` 解释 |
+| `skills[].targeting.type` | string | 词表 §12-E skill targeting id | 目标选择策略；当前旋风斩使用 `aoe_enemies_around_caster` |
+| `skills[].targeting.radius` | number | `> 0`，px | AOE 或近邻目标查询半径 |
+| `skills[].targeting.max_targets` | int | `>= 0` | 最大目标数量；0 表示不限制 |
+| `skills[].effects[]` | array[object] | 必须非空 | 命中目标后执行的技能效果原语列表 |
+| `skills[].effects[].effect` | string | 词表 §12-F skill effect id | 技能效果原语 |
+| `skills[].effects[].params` | object | 由 effect 解释 | 技能效果参数 |
+| `skills[].effects[].params.amount` | number | `> 0` | `skill_effect_damage` 的伤害量 |
+| `skills[].effects[].params.damage_type` | string | 词表 §9 damage type | `skill_effect_damage` 的伤害类型，结算走 `Combat.apply_damage` |
+
+`skills.json` 是技能本体数据；技能不绑定英雄。当前 `SkillSystem` 解释起始技能的冷却、资源消耗、AOE 敌人目标选择和 `skill_effect_damage`，并通过 `Combat.apply_damage` 造成伤害。后续若主动道具、敌人或遗物要释放同一个技能，应引用 skill id，而不是复制技能字段或按英雄 / 道具 id 写分支。
 
 ## `consumables.json`
 

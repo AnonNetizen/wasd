@@ -734,16 +734,30 @@
     {
       "path": "docs/代码/gameplay_runtime.md",
       "type": "module_doc",
-      "authority": "Gameplay runtime contract for player movement, weapon firing, pooled bullets, pooled enemies, spawning, HUD, save/restore, title flow, and restart",
+      "authority": "Gameplay runtime contract for player movement, weapon firing, skill casting, pooled bullets, pooled enemies, spawning, HUD, save/restore, title flow, and restart",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-06-18",
       "canonical_for": ["gameplay_runtime", "f4_min_playable_loop", "formal_runtime_core", "minimal_combat_loop"],
-      "must_read_for": ["gameplay_runtime_change", "player_runtime_change", "weapon_system_change", "spawner_change", "hud_change"],
-      "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/enemy_ai.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/scripts/debug/gm_command_registry.gd", "client/tools/runtime_smoke.gd", "client/tools/debug_tools_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
-      "update_triggers": ["Gameplay runtime behavior changes", "Player or weapon runtime changes", "Spawner behavior changes", "HUD or restart flow changes", "runtime debug API changes", "runtime module split or scene-resource migration"],
-      "keywords": ["GameplayRunLoop", "runtime-smoke", "debug-tools-smoke", "F4", "MinPlayableLoop", "Player", "WeaponSystem", "Bullet", "Enemy", "Spawner", "HUD", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
+      "must_read_for": ["gameplay_runtime_change", "player_runtime_change", "weapon_system_change", "skill_system_change", "spawner_change", "hud_change"],
+      "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/skill_system.md", "docs/代码/enemy_ai.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/scripts/debug/gm_command_registry.gd", "client/tools/runtime_smoke.gd", "client/tools/debug_tools_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
+      "update_triggers": ["Gameplay runtime behavior changes", "Player, weapon, or skill runtime changes", "Spawner behavior changes", "HUD or restart flow changes", "runtime debug API changes", "runtime module split or scene-resource migration"],
+      "keywords": ["GameplayRunLoop", "runtime-smoke", "debug-tools-smoke", "F4", "MinPlayableLoop", "Player", "WeaponSystem", "SkillSystem", "skills.json", "Whirlwind Slash", "旋风斩", "Bullet", "Enemy", "Spawner", "HUD", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
+    },
+    {
+      "path": "docs/代码/skill_system.md",
+      "type": "module_doc",
+      "authority": "SkillSystem runtime contract for reusable active skill definitions, resource costs, targeting primitives, effect primitives, cooldowns, Combat integration, and run snapshots",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-22",
+      "canonical_for": ["skill_system", "active_skills", "skill_runtime", "skill_resources"],
+      "must_read_for": ["skill_system_change", "new_skill", "skill_resource_change", "skill_targeting_change", "skill_effect_change"],
+      "related_docs": ["docs/代码/gameplay_runtime.md", "docs/代码/data_loader.md", "docs/代码/combat.md", "client/data/README.md", "client/locale/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/skills.json", "client/data/characters.json", "client/data/game_modes.json", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "client/tools/l1_smoke.gd", "client/tools/runtime_smoke.gd"],
+      "update_triggers": ["SkillSystem API changes", "skills.json schema changes", "skill resource contract changes", "skill targeting contract changes", "skill effect primitive changes", "skill run snapshot changes"],
+      "keywords": ["SkillSystem", "skills.json", "skill", "技能", "主动技能", "skill_whirlwind_slash", "Whirlwind Slash", "旋风斩", "mana", "魔法", "skill_resources", "aoe_enemies_around_caster", "target_enemy", "target_ally", "skill_effect_damage", "Combat"]
     },
     {
       "path": "docs/代码/enemy_ai.md",
@@ -782,10 +796,10 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["data_loader", "json_csv_loading", "contract_cache"],
       "must_read_for": ["data_loader_change", "data_schema_change", "formal_data_loading"],
-      "related_docs": ["client/data/README.md", "docs/词表与契约.md", "docs/代码/README.md", "docs/代码/mod_loader.md", "docs/AI导航.md", "docs/AI协作/工作包/F3-DataLoader.md"],
-      "related_code": ["client/scripts/autoload/data_loader.gd", "client/scripts/autoload/mod_loader.gd", "client/data/_contracts.json", "client/data/enemy_ai_profiles.json", "client/data/credits.json", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
+      "related_docs": ["client/data/README.md", "docs/词表与契约.md", "docs/代码/README.md", "docs/代码/mod_loader.md", "docs/代码/skill_system.md", "docs/AI导航.md", "docs/AI协作/工作包/F3-DataLoader.md"],
+      "related_code": ["client/scripts/autoload/data_loader.gd", "client/scripts/autoload/mod_loader.gd", "client/data/_contracts.json", "client/data/skills.json", "client/data/enemy_ai_profiles.json", "client/data/credits.json", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
       "update_triggers": ["DataLoader API changes", "data loading schema changes", "contract cache behavior changes", "mod data patch behavior changes"],
-      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation", "schema regression", "ModLoader", "local mods", "mod manifest", "weapons.json", "enemy_ai_profiles.json", "enemies.csv", "hazards.csv", "relics.json", "credits.json", "test_data_loader_schema"]
+      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation", "schema regression", "ModLoader", "local mods", "mod manifest", "weapons.json", "skills.json", "skill_resources", "enemy_ai_profiles.json", "enemies.csv", "hazards.csv", "relics.json", "credits.json", "test_data_loader_schema"]
     },
     {
       "path": "docs/代码/mod_loader.md",

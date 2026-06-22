@@ -24,6 +24,7 @@ SPAWN_WAVES_CSV = ROOT / "client" / "data" / "spawn_waves.csv"
 RELICS_JSON = ROOT / "client" / "data" / "relics.json"
 ACTIVE_ITEMS_JSON = ROOT / "client" / "data" / "active_items.json"
 CONSUMABLES_JSON = ROOT / "client" / "data" / "consumables.json"
+SKILLS_JSON = ROOT / "client" / "data" / "skills.json"
 CREDITS_JSON = ROOT / "client" / "data" / "credits.json"
 GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
 GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
@@ -79,13 +80,15 @@ def main() -> int:
     active_item_ids = _collect_active_item_ids(ctx)
     _validate_consumables(ctx)
     consumable_ids = _collect_consumable_ids(ctx)
+    _validate_skills(ctx)
+    skill_ids = _collect_skill_ids(ctx)
     _validate_credits(ctx)
-    _validate_characters(ctx, weapon_ids, active_item_ids, consumable_ids)
+    _validate_characters(ctx, weapon_ids, active_item_ids, consumable_ids, skill_ids)
     character_ids = _collect_character_ids(ctx)
     _validate_meta_progression(ctx, character_ids)
     _validate_growth_csv(ctx)
     _validate_growth_pools(ctx)
-    _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids)
+    _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids)
     game_mode_ids = _collect_game_mode_ids(ctx)
     _validate_spawn_waves_csv(ctx, enemy_ids, hazard_ids, game_mode_ids)
 
@@ -182,7 +185,7 @@ def _validate_player_json(ctx: ValidationContext) -> None:
         _validate_stat_value(ctx, path, f"base_stats.{stat}", stat, value)
 
 
-def _validate_characters(ctx: ValidationContext, weapon_ids: set[str], active_item_ids: set[str], consumable_ids: set[str]) -> None:
+def _validate_characters(ctx: ValidationContext, weapon_ids: set[str], active_item_ids: set[str], consumable_ids: set[str], skill_ids: set[str]) -> None:
     path = CHARACTERS_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
@@ -210,7 +213,8 @@ def _validate_characters(ctx: ValidationContext, weapon_ids: set[str], active_it
             ctx.error(path, f"{field}.tags", "must include tag_character")
         _validate_registered_string_list(ctx, path, f"{field}.capabilities", character.get("capabilities", []), "capabilities", allow_empty=True)
         _require_non_empty_string(ctx, path, f"{field}.control_profile", character.get("control_profile"))
-        _validate_character_starting_loadout(ctx, path, f"{field}.starting_loadout", character.get("starting_loadout"), weapon_ids, active_item_ids, consumable_ids)
+        _validate_character_starting_loadout(ctx, path, f"{field}.starting_loadout", character.get("starting_loadout"), weapon_ids, active_item_ids, consumable_ids, skill_ids)
+        _validate_character_skill_resources(ctx, path, f"{field}.skill_resources", character.get("skill_resources", []))
         base_stats = character.get("base_stats")
         if not isinstance(base_stats, dict) or not base_stats:
             ctx.error(path, f"{field}.base_stats", "must be a non-empty object")
@@ -219,7 +223,7 @@ def _validate_characters(ctx: ValidationContext, weapon_ids: set[str], active_it
             _validate_stat_value(ctx, path, f"{field}.base_stats.{stat}", stat, value)
 
 
-def _validate_character_starting_loadout(ctx: ValidationContext, path: Path, field: str, data: Any, weapon_ids: set[str], active_item_ids: set[str], consumable_ids: set[str]) -> None:
+def _validate_character_starting_loadout(ctx: ValidationContext, path: Path, field: str, data: Any, weapon_ids: set[str], active_item_ids: set[str], consumable_ids: set[str], skill_ids: set[str]) -> None:
     if not isinstance(data, dict):
         ctx.error(path, field, "must be an object")
         return
@@ -241,6 +245,38 @@ def _validate_character_starting_loadout(ctx: ValidationContext, path: Path, fie
         seen.add(consumable_id)
         if consumable_id not in consumable_ids:
             ctx.error(path, item_field, f"consumable is not defined in consumables.json: {consumable_id}")
+    starting_skills = _require_list(ctx, path, f"{field}.skill_ids", data.get("skill_ids", []))
+    seen_skills: set[str] = set()
+    for index, skill in enumerate(starting_skills):
+        item_field = f"{field}.skill_ids[{index}]"
+        skill_id = _require_registered(ctx, path, item_field, skill, "skill_ids")
+        if not skill_id:
+            continue
+        if skill_id in seen_skills:
+            ctx.error(path, item_field, f"duplicate skill id {skill_id}")
+        seen_skills.add(skill_id)
+        if skill_id not in skill_ids:
+            ctx.error(path, item_field, f"skill is not defined in skills.json: {skill_id}")
+
+
+def _validate_character_skill_resources(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    resources = _require_list(ctx, path, field, data)
+    seen: set[str] = set()
+    for index, resource in enumerate(resources):
+        item_field = f"{field}[{index}]"
+        if not isinstance(resource, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        resource_id = _require_registered(ctx, path, f"{item_field}.id", resource.get("id"), "skill_resources")
+        if resource_id:
+            if resource_id in seen:
+                ctx.error(path, f"{item_field}.id", f"duplicate resource id {resource_id}")
+            seen.add(resource_id)
+        max_value = _require_number(ctx, path, f"{item_field}.max", resource.get("max"), minimum=0, exclusive_minimum=True)
+        start_value = _require_number(ctx, path, f"{item_field}.start", resource.get("start"), minimum=0)
+        _require_number(ctx, path, f"{item_field}.regen_per_second", resource.get("regen_per_second"), minimum=0)
+        if isinstance(max_value, float) and isinstance(start_value, float) and start_value > max_value:
+            ctx.error(path, f"{item_field}.start", "must be <= max")
 
 
 def _validate_weapons(ctx: ValidationContext) -> None:
@@ -654,6 +690,84 @@ def _validate_active_item_use_effects(ctx: ValidationContext, path: Path, field:
             ctx.error(path, f"{item_field}.params", "must be an object")
 
 
+def _validate_skills(ctx: ValidationContext) -> None:
+    path = SKILLS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    skills = _require_list(ctx, path, "skills", data.get("skills"))
+    if not skills:
+        ctx.error(path, "skills", "must be a non-empty array")
+    seen: set[str] = set()
+    for index, skill in enumerate(skills):
+        field = f"skills[{index}]"
+        if not isinstance(skill, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        skill_id = _require_registered(ctx, path, f"{field}.id", skill.get("id"), "skill_ids")
+        if skill_id:
+            if skill_id in seen:
+                ctx.error(path, f"{field}.id", f"duplicate skill id {skill_id}")
+            seen.add(skill_id)
+        _require_locale_key(ctx, path, f"{field}.name_key", skill.get("name_key"))
+        _require_locale_key(ctx, path, f"{field}.desc_key", skill.get("desc_key"))
+        _require_bool(ctx, path, f"{field}.default_unlocked", skill.get("default_unlocked"))
+        tags = _validate_registered_string_list(ctx, path, f"{field}.tags", skill.get("tags"), "content_tags", allow_empty=False)
+        if "tag_skill" not in tags:
+            ctx.error(path, f"{field}.tags", "must include tag_skill")
+        _require_number(ctx, path, f"{field}.cooldown", skill.get("cooldown"), minimum=0)
+        _validate_skill_costs(ctx, path, f"{field}.costs", skill.get("costs"))
+        _validate_skill_targeting(ctx, path, f"{field}.targeting", skill.get("targeting"))
+        _validate_skill_effects(ctx, path, f"{field}.effects", skill.get("effects"))
+
+
+def _validate_skill_costs(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    costs = _require_list(ctx, path, field, data)
+    seen: set[str] = set()
+    for index, cost in enumerate(costs):
+        item_field = f"{field}[{index}]"
+        if not isinstance(cost, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        resource_id = _require_registered(ctx, path, f"{item_field}.resource", cost.get("resource"), "skill_resources")
+        if resource_id:
+            if resource_id in seen:
+                ctx.error(path, f"{item_field}.resource", f"duplicate resource id {resource_id}")
+            seen.add(resource_id)
+        _require_number(ctx, path, f"{item_field}.amount", cost.get("amount"), minimum=0)
+
+
+def _validate_skill_targeting(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    targeting_type = _require_registered(ctx, path, f"{field}.type", data.get("type"), "skill_targeting")
+    if targeting_type == "aoe_enemies_around_caster":
+        _require_number(ctx, path, f"{field}.radius", data.get("radius"), minimum=0, exclusive_minimum=True)
+    if "max_targets" in data:
+        _require_int(ctx, path, f"{field}.max_targets", data.get("max_targets"), minimum=0)
+
+
+def _validate_skill_effects(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    effects = _require_list(ctx, path, field, data)
+    if not effects:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, effect in enumerate(effects):
+        item_field = f"{field}[{index}]"
+        if not isinstance(effect, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        effect_id = _require_registered(ctx, path, f"{item_field}.effect", effect.get("effect"), "skill_effects")
+        params = effect.get("params")
+        if not isinstance(params, dict):
+            ctx.error(path, f"{item_field}.params", "must be an object")
+            continue
+        if effect_id == "skill_effect_damage":
+            _require_number(ctx, path, f"{item_field}.params.amount", params.get("amount"), minimum=0, exclusive_minimum=True)
+            _require_registered(ctx, path, f"{item_field}.params.damage_type", params.get("damage_type"), "damage_types")
+
+
 def _validate_consumables(ctx: ValidationContext) -> None:
     path = CONSUMABLES_JSON
     data = _load_json(path, ctx)
@@ -875,6 +989,7 @@ def _validate_game_modes(
     relic_ids: set[str],
     active_item_ids: set[str],
     consumable_ids: set[str],
+    skill_ids: set[str],
 ) -> None:
     path = GAME_MODES_JSON
     data = _load_json(path, ctx)
@@ -901,7 +1016,7 @@ def _validate_game_modes(
         _require_bool(ctx, path, f"{mode_field}.default_unlocked", mode.get("default_unlocked"))
         team_ids = _validate_mode_teams(ctx, path, mode_field, mode.get("teams"))
         _validate_mode_participants(ctx, path, mode_field, mode.get("participants"), team_ids)
-        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids)
+        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids)
         if "blocklists" in mode:
             _validate_mode_blocklists(ctx, path, f"{mode_field}.blocklists", mode.get("blocklists"))
         if "overrides" in mode:
@@ -963,6 +1078,7 @@ def _validate_mode_resource_pools(
     relic_ids: set[str],
     active_item_ids: set[str],
     consumable_ids: set[str],
+    skill_ids: set[str],
 ) -> None:
     field = f"{mode_field}.resource_pools"
     if not isinstance(data, dict):
@@ -980,11 +1096,13 @@ def _validate_mode_resource_pools(
         _validate_weighted_relic_entries(ctx, path, f"{field}.relics", data.get("relics"), relic_ids)
     if "active_items" in data:
         _validate_weighted_active_item_entries(ctx, path, f"{field}.active_items", data.get("active_items"), active_item_ids)
+    if "skills" in data:
+        _validate_weighted_skill_entries(ctx, path, f"{field}.skills", data.get("skills"), skill_ids)
     if "consumables" in data:
         _validate_weighted_consumable_entries(ctx, path, f"{field}.consumables", data.get("consumables"), consumable_ids)
     if "growth_pools" in data:
         _validate_weighted_growth_pool_entries(ctx, path, f"{field}.growth_pools", data.get("growth_pools"), growth_pool_ids)
-    if "characters" not in data and "weapons" not in data and "enemies" not in data and "hazards" not in data and "relics" not in data and "active_items" not in data and "consumables" not in data and "growth_pools" not in data:
+    if "characters" not in data and "weapons" not in data and "enemies" not in data and "hazards" not in data and "relics" not in data and "active_items" not in data and "skills" not in data and "consumables" not in data and "growth_pools" not in data:
         ctx.error(path, field, "must contain at least one supported pool")
 
 
@@ -1075,6 +1193,21 @@ def _validate_weighted_active_item_entries(ctx: ValidationContext, path: Path, f
         active_item_id = _require_non_empty_string(ctx, path, f"{item_field}.id", entry.get("id"))
         if active_item_id and active_item_id not in active_item_ids:
             ctx.error(path, f"{item_field}.id", f"active item is not defined in active_items.json: {active_item_id}")
+        _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
+
+
+def _validate_weighted_skill_entries(ctx: ValidationContext, path: Path, field: str, data: Any, skill_ids: set[str]) -> None:
+    entries = _require_list(ctx, path, field, data)
+    if not entries:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, entry in enumerate(entries):
+        item_field = f"{field}[{index}]"
+        if not isinstance(entry, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        skill_id = _require_registered(ctx, path, f"{item_field}.id", entry.get("id"), "skill_ids")
+        if skill_id and skill_id not in skill_ids:
+            ctx.error(path, f"{item_field}.id", f"skill is not defined in skills.json: {skill_id}")
         _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
 
 
@@ -1436,6 +1569,16 @@ def _collect_consumable_ids(ctx: ValidationContext) -> set[str]:
     if not isinstance(consumables, list):
         return set()
     return {item.get("id") for item in consumables if isinstance(item, dict) and isinstance(item.get("id"), str)}
+
+
+def _collect_skill_ids(ctx: ValidationContext) -> set[str]:
+    data = _load_json(SKILLS_JSON, ctx)
+    if not isinstance(data, dict):
+        return set()
+    skills = data.get("skills")
+    if not isinstance(skills, list):
+        return set()
+    return {item.get("id") for item in skills if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
 def _collect_growth_pool_ids(ctx: ValidationContext) -> set[str]:

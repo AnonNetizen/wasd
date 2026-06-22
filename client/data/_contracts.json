@@ -176,6 +176,7 @@
       "tag_relic",
       "tag_active_item",
       "tag_consumable",
+      "tag_skill",
       "tag_limit_break"
     ],
     "game_modes": [
@@ -187,6 +188,20 @@
       "ai_action_orbit_target",
       "ai_action_charge_target",
       "ai_action_guard_home"
+    ],
+    "skill_ids": [
+      "skill_whirlwind_slash"
+    ],
+    "skill_resources": [
+      "mana"
+    ],
+    "skill_targeting": [
+      "aoe_enemies_around_caster",
+      "target_enemy",
+      "target_ally"
+    ],
+    "skill_effects": [
+      "skill_effect_damage"
     ],
     "meta_currencies": [
       "meta_essence"
@@ -227,6 +242,7 @@
       "weapon_",
       "relic_",
       "item_",
+      "skill_",
       "enemy_",
       "hazard_",
       "hint_",

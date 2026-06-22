@@ -19,6 +19,7 @@ const SPAWN_WAVES_PATH: String = "res://data/spawn_waves.csv"
 const RELICS_PATH: String = "res://data/relics.json"
 const ACTIVE_ITEMS_PATH: String = "res://data/active_items.json"
 const CONSUMABLES_PATH: String = "res://data/consumables.json"
+const SKILLS_PATH: String = "res://data/skills.json"
 const CREDITS_PATH: String = "res://data/credits.json"
 const META_PROGRESSION_PATH: String = "res://data/meta_progression.json"
 const GROWTH_CURVE_PATH: String = "res://data/growth.csv"
@@ -132,13 +133,15 @@ func validate_project_data() -> bool:
 	var active_item_ids: Dictionary = _collect_active_item_ids()
 	is_valid = _validate_consumables_json(locale_keys) and is_valid
 	var consumable_ids: Dictionary = _collect_consumable_ids()
+	is_valid = _validate_skills_json(locale_keys) and is_valid
+	var skill_ids: Dictionary = _collect_skill_ids()
 	is_valid = _validate_credits_json(locale_keys) and is_valid
-	is_valid = _validate_characters_json(locale_keys, weapon_ids, active_item_ids, consumable_ids) and is_valid
+	is_valid = _validate_characters_json(locale_keys, weapon_ids, active_item_ids, consumable_ids, skill_ids) and is_valid
 	var character_ids: Dictionary = _collect_character_ids()
 	is_valid = _validate_meta_progression(locale_keys, character_ids) and is_valid
 	is_valid = _validate_growth_csv() and is_valid
 	is_valid = _validate_growth_pools(locale_keys) and is_valid
-	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids) and is_valid
+	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids) and is_valid
 	var game_mode_ids: Dictionary = _collect_game_mode_ids()
 	is_valid = _validate_spawn_waves_csv(enemy_ids, hazard_ids, game_mode_ids) and is_valid
 
@@ -287,7 +290,7 @@ func _validate_player_json() -> bool:
 	return is_valid
 
 
-func _validate_characters_json(locale_keys: Dictionary, weapon_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary) -> bool:
+func _validate_characters_json(locale_keys: Dictionary, weapon_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary) -> bool:
 	var data: Variant = load_json(CHARACTERS_PATH)
 	if not data is Dictionary:
 		return _schema_fail(CHARACTERS_PATH, "root", "Dictionary")
@@ -321,7 +324,8 @@ func _validate_characters_json(locale_keys: Dictionary, weapon_ids: Dictionary, 
 			is_valid = _schema_fail(CHARACTERS_PATH, "%s.tags" % field, "tag_character") and is_valid
 		is_valid = _validate_registered_string_array(CHARACTERS_PATH, "%s.capabilities" % field, character_dict.get("capabilities", []), "capabilities", true) and is_valid
 		is_valid = _require_non_empty_string(CHARACTERS_PATH, "%s.control_profile" % field, character_dict.get("control_profile")) and is_valid
-		is_valid = _validate_character_starting_loadout("%s.starting_loadout" % field, character_dict.get("starting_loadout"), weapon_ids, active_item_ids, consumable_ids) and is_valid
+		is_valid = _validate_character_starting_loadout("%s.starting_loadout" % field, character_dict.get("starting_loadout"), weapon_ids, active_item_ids, consumable_ids, skill_ids) and is_valid
+		is_valid = _validate_character_skill_resources("%s.skill_resources" % field, character_dict.get("skill_resources", [])) and is_valid
 		var base_stats: Variant = character_dict.get("base_stats")
 		if not base_stats is Dictionary or (base_stats as Dictionary).is_empty():
 			is_valid = _schema_fail(CHARACTERS_PATH, "%s.base_stats" % field, "non-empty Dictionary") and is_valid
@@ -333,7 +337,7 @@ func _validate_characters_json(locale_keys: Dictionary, weapon_ids: Dictionary, 
 	return is_valid
 
 
-func _validate_character_starting_loadout(field: String, data: Variant, weapon_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary) -> bool:
+func _validate_character_starting_loadout(field: String, data: Variant, weapon_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary) -> bool:
 	if not data is Dictionary:
 		return _schema_fail(CHARACTERS_PATH, field, "Dictionary")
 	var loadout: Dictionary = data as Dictionary
@@ -358,6 +362,45 @@ func _validate_character_starting_loadout(field: String, data: Variant, weapon_i
 			seen_consumables[consumable_id] = true
 			if not consumable_ids.has(consumable_id):
 				is_valid = _schema_fail(CHARACTERS_PATH, item_field, "consumable defined in consumables.json") and is_valid
+	var starting_skills: Array = _require_array(CHARACTERS_PATH, "%s.skill_ids" % field, loadout.get("skill_ids", []))
+	var seen_skills: Dictionary = {}
+	for index: int in range(starting_skills.size()):
+		var skill_field: String = "%s.skill_ids[%d]" % [field, index]
+		var skill_id: String = _require_registered(CHARACTERS_PATH, skill_field, starting_skills[index], "skill_ids")
+		if skill_id.is_empty():
+			is_valid = false
+			continue
+		if seen_skills.has(skill_id):
+			is_valid = _schema_fail(CHARACTERS_PATH, skill_field, "unique skill id") and is_valid
+		seen_skills[skill_id] = true
+		if not skill_ids.has(skill_id):
+			is_valid = _schema_fail(CHARACTERS_PATH, skill_field, "skill defined in skills.json") and is_valid
+	return is_valid
+
+
+func _validate_character_skill_resources(field: String, data: Variant) -> bool:
+	var resources: Array = _require_array(CHARACTERS_PATH, field, data)
+	var is_valid: bool = true
+	var seen: Dictionary = {}
+	for index: int in range(resources.size()):
+		var resource_field: String = "%s[%d]" % [field, index]
+		var resource: Variant = resources[index]
+		if not resource is Dictionary:
+			is_valid = _schema_fail(CHARACTERS_PATH, resource_field, "Dictionary") and is_valid
+			continue
+		var resource_dict: Dictionary = resource as Dictionary
+		var resource_id: String = _require_registered(CHARACTERS_PATH, "%s.id" % resource_field, resource_dict.get("id"), "skill_resources")
+		if not resource_id.is_empty():
+			if seen.has(resource_id):
+				is_valid = _schema_fail(CHARACTERS_PATH, "%s.id" % resource_field, "unique skill resource id") and is_valid
+			seen[resource_id] = true
+		is_valid = _require_number(CHARACTERS_PATH, "%s.max" % resource_field, resource_dict.get("max"), 0.0, null, true) and is_valid
+		is_valid = _require_number(CHARACTERS_PATH, "%s.start" % resource_field, resource_dict.get("start"), 0.0) and is_valid
+		is_valid = _require_number(CHARACTERS_PATH, "%s.regen_per_second" % resource_field, resource_dict.get("regen_per_second"), 0.0) and is_valid
+		var max_value: Variant = resource_dict.get("max")
+		var start_value: Variant = resource_dict.get("start")
+		if (max_value is int or max_value is float) and (start_value is int or start_value is float) and float(start_value) > float(max_value):
+			is_valid = _schema_fail(CHARACTERS_PATH, "%s.start" % resource_field, "<= max") and is_valid
 	return is_valid
 
 
@@ -772,6 +815,102 @@ func _validate_active_item_use_effects(field: String, data: Variant) -> bool:
 	return is_valid
 
 
+func _validate_skills_json(locale_keys: Dictionary) -> bool:
+	var data: Variant = load_json(SKILLS_PATH)
+	if not data is Dictionary:
+		return _schema_fail(SKILLS_PATH, "root", "Dictionary")
+
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(SKILLS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var skills: Array = _require_array(SKILLS_PATH, "skills", payload.get("skills"))
+	if skills.is_empty():
+		is_valid = _schema_fail(SKILLS_PATH, "skills", "non-empty Array") and is_valid
+	var seen: Dictionary = {}
+	_last_schema_counts["skills"] = skills.size()
+	for index: int in range(skills.size()):
+		var field: String = "skills[%d]" % index
+		var skill: Variant = skills[index]
+		if not skill is Dictionary:
+			is_valid = _schema_fail(SKILLS_PATH, field, "Dictionary") and is_valid
+			continue
+		var skill_dict: Dictionary = skill as Dictionary
+		var skill_id: String = _require_registered(SKILLS_PATH, "%s.id" % field, skill_dict.get("id"), "skill_ids")
+		if not skill_id.is_empty():
+			if seen.has(skill_id):
+				is_valid = _schema_fail(SKILLS_PATH, "%s.id" % field, "unique skill id") and is_valid
+			seen[skill_id] = true
+		is_valid = _require_locale_key(SKILLS_PATH, "%s.name_key" % field, skill_dict.get("name_key"), locale_keys) and is_valid
+		is_valid = _require_locale_key(SKILLS_PATH, "%s.desc_key" % field, skill_dict.get("desc_key"), locale_keys) and is_valid
+		is_valid = _require_bool(SKILLS_PATH, "%s.default_unlocked" % field, skill_dict.get("default_unlocked")) and is_valid
+		var tags: Array = _require_array(SKILLS_PATH, "%s.tags" % field, skill_dict.get("tags"))
+		is_valid = _validate_registered_string_array(SKILLS_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
+		if not tags.has("tag_skill"):
+			is_valid = _schema_fail(SKILLS_PATH, "%s.tags" % field, "tag_skill") and is_valid
+		is_valid = _require_number(SKILLS_PATH, "%s.cooldown" % field, skill_dict.get("cooldown"), 0.0) and is_valid
+		is_valid = _validate_skill_costs("%s.costs" % field, skill_dict.get("costs")) and is_valid
+		is_valid = _validate_skill_targeting("%s.targeting" % field, skill_dict.get("targeting")) and is_valid
+		is_valid = _validate_skill_effects("%s.effects" % field, skill_dict.get("effects")) and is_valid
+	return is_valid
+
+
+func _validate_skill_costs(field: String, data: Variant) -> bool:
+	var costs: Array = _require_array(SKILLS_PATH, field, data)
+	var is_valid: bool = true
+	var seen: Dictionary = {}
+	for index: int in range(costs.size()):
+		var cost_field: String = "%s[%d]" % [field, index]
+		var cost: Variant = costs[index]
+		if not cost is Dictionary:
+			is_valid = _schema_fail(SKILLS_PATH, cost_field, "Dictionary") and is_valid
+			continue
+		var cost_dict: Dictionary = cost as Dictionary
+		var resource_id: String = _require_registered(SKILLS_PATH, "%s.resource" % cost_field, cost_dict.get("resource"), "skill_resources")
+		if not resource_id.is_empty():
+			if seen.has(resource_id):
+				is_valid = _schema_fail(SKILLS_PATH, "%s.resource" % cost_field, "unique resource id") and is_valid
+			seen[resource_id] = true
+		is_valid = _require_number(SKILLS_PATH, "%s.amount" % cost_field, cost_dict.get("amount"), 0.0) and is_valid
+	return is_valid
+
+
+func _validate_skill_targeting(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(SKILLS_PATH, field, "Dictionary")
+	var targeting: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	var targeting_type: String = _require_registered(SKILLS_PATH, "%s.type" % field, targeting.get("type"), "skill_targeting")
+	if targeting_type == "aoe_enemies_around_caster":
+		is_valid = _require_number(SKILLS_PATH, "%s.radius" % field, targeting.get("radius"), 0.0, null, true) and is_valid
+	if targeting.has("max_targets"):
+		is_valid = _require_int(SKILLS_PATH, "%s.max_targets" % field, targeting.get("max_targets"), 0) and is_valid
+	return is_valid
+
+
+func _validate_skill_effects(field: String, data: Variant) -> bool:
+	var effects: Array = _require_array(SKILLS_PATH, field, data)
+	var is_valid: bool = true
+	if effects.is_empty():
+		is_valid = _schema_fail(SKILLS_PATH, field, "non-empty Array") and is_valid
+	for index: int in range(effects.size()):
+		var effect_field: String = "%s[%d]" % [field, index]
+		var effect: Variant = effects[index]
+		if not effect is Dictionary:
+			is_valid = _schema_fail(SKILLS_PATH, effect_field, "Dictionary") and is_valid
+			continue
+		var effect_dict: Dictionary = effect as Dictionary
+		var effect_id: String = _require_registered(SKILLS_PATH, "%s.effect" % effect_field, effect_dict.get("effect"), "skill_effects")
+		var params: Variant = effect_dict.get("params")
+		if not params is Dictionary:
+			is_valid = _schema_fail(SKILLS_PATH, "%s.params" % effect_field, "Dictionary") and is_valid
+			continue
+		if effect_id == "skill_effect_damage":
+			var params_dict: Dictionary = params as Dictionary
+			is_valid = _require_number(SKILLS_PATH, "%s.params.amount" % effect_field, params_dict.get("amount"), 0.0, null, true) and is_valid
+			is_valid = _require_registered(SKILLS_PATH, "%s.params.damage_type" % effect_field, params_dict.get("damage_type"), "damage_types") != "" and is_valid
+	return is_valid
+
+
 func _validate_consumables_json(locale_keys: Dictionary) -> bool:
 	var data: Variant = load_json(CONSUMABLES_PATH)
 	if not data is Dictionary:
@@ -1132,7 +1271,7 @@ func _validate_growth_pools(locale_keys: Dictionary) -> bool:
 	return is_valid
 
 
-func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary) -> bool:
+func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary) -> bool:
 	var data: Variant = load_json(GAME_MODES_PATH)
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "root", "Dictionary")
@@ -1164,7 +1303,7 @@ func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, we
 		var team_ids: Dictionary = team_result.get("ids", {}) as Dictionary
 		is_valid = bool(team_result.get("is_valid", false)) and is_valid
 		is_valid = _validate_mode_participants(mode_field, mode_dict.get("participants"), team_ids) and is_valid
-		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids) and is_valid
+		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids) and is_valid
 		if mode_dict.has("blocklists"):
 			is_valid = _validate_mode_blocklists("%s.blocklists" % mode_field, mode_dict.get("blocklists")) and is_valid
 		if mode_dict.has("overrides"):
@@ -1228,7 +1367,7 @@ func _validate_mode_participants(mode_field: String, data: Variant, team_ids: Di
 	return is_valid
 
 
-func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_pool_ids: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary) -> bool:
+func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_pool_ids: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary) -> bool:
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "Dictionary")
 	var payload: Dictionary = data as Dictionary
@@ -1245,11 +1384,13 @@ func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_poo
 		is_valid = _validate_weighted_relic_entries("%s.resource_pools.relics" % mode_field, payload.get("relics"), relic_ids) and is_valid
 	if payload.has("active_items"):
 		is_valid = _validate_weighted_active_item_entries("%s.resource_pools.active_items" % mode_field, payload.get("active_items"), active_item_ids) and is_valid
+	if payload.has("skills"):
+		is_valid = _validate_weighted_skill_entries("%s.resource_pools.skills" % mode_field, payload.get("skills"), skill_ids) and is_valid
 	if payload.has("consumables"):
 		is_valid = _validate_weighted_consumable_entries("%s.resource_pools.consumables" % mode_field, payload.get("consumables"), consumable_ids) and is_valid
 	if payload.has("growth_pools"):
 		is_valid = _validate_weighted_growth_pool_entries("%s.resource_pools.growth_pools" % mode_field, payload.get("growth_pools"), growth_pool_ids) and is_valid
-	if not payload.has("characters") and not payload.has("weapons") and not payload.has("enemies") and not payload.has("hazards") and not payload.has("relics") and not payload.has("active_items") and not payload.has("consumables") and not payload.has("growth_pools"):
+	if not payload.has("characters") and not payload.has("weapons") and not payload.has("enemies") and not payload.has("hazards") and not payload.has("relics") and not payload.has("active_items") and not payload.has("skills") and not payload.has("consumables") and not payload.has("growth_pools"):
 		is_valid = _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "at least one supported pool") and is_valid
 	return is_valid
 
@@ -1369,6 +1510,25 @@ func _validate_weighted_active_item_entries(field: String, data: Variant, active
 		var active_item_id: String = String(entry_dict.get("id", ""))
 		if not active_item_id.is_empty() and not active_item_ids.has(active_item_id):
 			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "active item defined in active_items.json") and is_valid
+		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
+	return is_valid
+
+
+func _validate_weighted_skill_entries(field: String, data: Variant, skill_ids: Dictionary) -> bool:
+	var entries: Array = _require_array(GAME_MODES_PATH, field, data)
+	var is_valid: bool = true
+	if entries.is_empty():
+		is_valid = _schema_fail(GAME_MODES_PATH, field, "non-empty Array") and is_valid
+	for index: int in range(entries.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var entry: Variant = entries[index]
+		if not entry is Dictionary:
+			is_valid = _schema_fail(GAME_MODES_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var entry_dict: Dictionary = entry as Dictionary
+		var skill_id: String = _require_registered(GAME_MODES_PATH, "%s.id" % item_field, entry_dict.get("id"), "skill_ids")
+		if not skill_id.is_empty() and not skill_ids.has(skill_id):
+			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "skill defined in skills.json") and is_valid
 		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
 	return is_valid
 
@@ -1664,6 +1824,20 @@ func _collect_consumable_ids() -> Dictionary:
 	for consumable: Variant in consumables:
 		if consumable is Dictionary and (consumable as Dictionary).get("id") is String:
 			ids[String((consumable as Dictionary).get("id"))] = true
+	return ids
+
+
+func _collect_skill_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(SKILLS_PATH)
+	if not data is Dictionary:
+		return ids
+	var skills: Variant = (data as Dictionary).get("skills")
+	if not skills is Array:
+		return ids
+	for skill: Variant in skills:
+		if skill is Dictionary and (skill as Dictionary).get("id") is String:
+			ids[String((skill as Dictionary).get("id"))] = true
 	return ids
 
 

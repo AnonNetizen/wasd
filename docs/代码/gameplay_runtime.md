@@ -5,9 +5,9 @@
 
 ## 职责
 
-- 在正式 `client/` 内提供一局最小战斗：最小标题入口、标题设置入口、标题局外成长摘要与升级入口、玩家移动、相机居中、基础背景参照、起始武器、池化子弹、池化敌人、波次刷怪、经验掉落、升级三选一、HUD、主动暂停、暂停设置入口、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、失败后结算、重开 / 回标题。
-- 复用 F3/F9 已建立的数据边界：`player.json`、`characters.json`、`weapons.json`、`enemies.csv`、`enemy_ai_profiles.json`、`spawn_waves.csv`、`growth.csv`、`growth_pools.json` 和 `game_modes.json`。
-- 第一版只做标准生存模式、默认角色和默认起始武器的竖切；F5 首片已接入 gameplay runtime 的 `run` 续局快照，F6 首片已接入死亡结算、`meta` 存档、标题局外升级面板和下一局永久 modifiers；游戏结束页只展示结算收益、账号等级 / 余额、重开和回标题，不提供局外成长购买入口；角色选择、完整商店 / 局外包装、机关运行时、音频、美术资产或平衡 sim 仍未实现。升级内容只落地 `stat_modifier` 最小切片，后续遗物 / 主动强化 / 刷新等仍按数据与设计扩展。
+- 在正式 `client/` 内提供一局最小战斗：最小标题入口、标题设置入口、标题局外成长摘要与升级入口、玩家移动、相机居中、基础背景参照、起始武器、起始主动技能、池化子弹、池化敌人、波次刷怪、经验掉落、升级三选一、HUD、主动暂停、暂停设置入口、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、失败后结算、重开 / 回标题。
+- 复用 F3/F9 已建立的数据边界：`player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemies.csv`、`enemy_ai_profiles.json`、`spawn_waves.csv`、`growth.csv`、`growth_pools.json` 和 `game_modes.json`。
+- 第一版只做标准生存模式、默认角色、默认起始武器和一个起始技能的竖切；F5 首片已接入 gameplay runtime 的 `run` 续局快照，F6 首片已接入死亡结算、`meta` 存档、标题局外升级面板和下一局永久 modifiers；游戏结束页只展示结算收益、账号等级 / 余额、重开和回标题，不提供局外成长购买入口；角色选择、完整商店 / 局外包装、机关运行时、技能 UI、音频、美术资产或平衡 sim 仍未实现。升级内容只落地 `stat_modifier` 最小切片，后续遗物 / 主动强化 / 刷新等仍按数据与设计扩展。
 
 ## 阅读方式
 
@@ -20,6 +20,7 @@
 | 改死亡结算 / 永久升级应用 | `client/scripts/gameplay/gameplay_run_loop.gd`、`client/scripts/autoload/meta_progression_system.gd`、`client/scripts/ui/game_over_panel.gd` |
 | 改玩家移动 / 相机 | `client/scripts/gameplay/player.gd` |
 | 改自动开火 / 子弹生成 | `client/scripts/gameplay/weapon_system.gd`、`bullet.gd` |
+| 改主动技能释放 / 资源消耗 | `docs/代码/skill_system.md`、`client/scripts/gameplay/skill_system.gd`、`client/data/skills.json` |
 | 改敌人生态 AI / 接触伤害 | `docs/代码/enemy_ai.md`、`client/scripts/gameplay/enemy.gd`、`enemy_ai_profiles.json` |
 | 改经验球 / 拾取 | `client/scripts/gameplay/pickup_orb.gd`、`player.json` |
 | 改升级候选 / 奖励 | `growth.csv`、`growth_pools.json`、`client/scripts/gameplay/gameplay_run_loop.gd` |
@@ -40,6 +41,7 @@
 | `client/scripts/gameplay/world_background.gd` | 世界网格背景，让玩家移动具备空间参照 |
 | `client/scripts/gameplay/player.gd` | 玩家移动、鼠标相对玩家 / 视口中心方向瞄准、方向键 / 手柄兜底瞄准、左右朝向表现、相机居中、受伤 / 死亡；提供少量受控 debug 生命 API 给 GM 命令调用 |
 | `client/scripts/gameplay/weapon_system.gd` | 起始武器自动开火和子弹池获取 |
+| `client/scripts/gameplay/skill_system.gd` | 起始主动技能释放、技能资源、冷却、目标筛选、效果解释和 run 快照 |
 | `client/scripts/gameplay/bullet.gd` | 子弹飞行、射程 / 生命周期裁剪、敌人命中 |
 | `client/scripts/gameplay/enemy.gd` | 数据驱动敌人生态 AI、接触伤害、受伤 / 死亡和 AI 快照 |
 | `client/scripts/gameplay/pickup_orb.gd` | 池化经验球：进入玩家拾取范围后吸附并发放经验 |
@@ -100,6 +102,7 @@ UIManager
 | 移动 / 瞄准 | 玩家按数据移速移动，鼠标激活后按鼠标相对视口中心的方向瞄准；无鼠标动作时用方向键 / 手柄右摇杆 / D-pad 兜底，松开保持上一方向；玩家和敌人的占位表现只区分向左 / 向右，不做向上 / 向下朝向 | `Player.aim_direction` |
 | 自动开火 | WeaponSystem 按 `fire_rate` 从子弹池取节点并配置 | `PoolManager.acquire()` |
 | 子弹命中 | 子弹用距离检测命中 `active_enemies` 组，伤害走 `Combat.apply_damage()` | `DamageInfo` |
+| 主动技能 | SkillSystem 从 `skills.json` 读取起始技能；默认 `use_active_item` action 释放 `skill_whirlwind_slash`，消耗角色声明的 `mana`，对施法者半径内敌人造成 `Combat` AOE 伤害；技能冷却与资源回复走 `GameClock` | `SkillSystem.cast_primary_skill()`、`Combat.apply_damage()` |
 | 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人；当前有追猎者、疾行者、潜猎者和壁垒四种数据化敌人 | `GameClock.now()`、`RNG.spawn` |
 | 受击 / 击杀反馈 | `Combat.damage_applied` 成功应用伤害后生成池化 `hit_spark` 与 `damage_number`；玩家受伤时短暂红闪，敌人命中时短暂暖白闪，敌人死亡后立即离开活敌组并橙色放大淡出后归池；玩家进入数据化受伤无敌窗口 | `_draw()` / `queue_redraw()` / `PoolManager.acquire()` |
 | 敌人行为 | 敌人从 `enemy_ai_profiles.json` 读取感知、目标权重和动作列表；运行时可接近玩家、逃离威胁、狩猎其他敌人、守出生点或冲锋。敌人与玩家 / 敌人接触伤害都走 `Combat`；怪物互杀不会计入玩家击杀或经验掉落 | `Enemy.defeated`、`docs/代码/enemy_ai.md` |
@@ -129,6 +132,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `WeaponSystem.configure(player, active_parent, weapon_data)` | 玩家、活跃父节点、武器数据 | `void` | 武器数据来自 `weapons.json` |
 | `WeaponSystem.apply_modifiers(modifiers)` | `growth_pools.json` 的 modifiers | `void` | 按 `(基础 + 加法) * 乘法` 更新武器运行时属性 |
 | `WeaponSystem.stat_value(stat)` | stat id | `float` | smoke / 调试读取当前武器数值 |
+| `SkillSystem.configure(caster, active_parent, skills, resources)` | 施法者、活跃父节点、技能定义、资源定义 | `void` | 技能数据来自 `skills.json`，资源来自角色 `skill_resources`；详见 `docs/代码/skill_system.md` |
+| `SkillSystem.cast_primary_skill()` / `cast_skill(skill_id)` | 无 / 技能 id | Dictionary | 失败不消耗资源；伤害效果必须走 `Combat.apply_damage()` |
+| `SkillSystem.snapshot()` / `restore_snapshot(snapshot_data)` | run 快照 | Dictionary / `void` | 只保存冷却与资源当前值，不保存节点引用 |
 | `Bullet.configure(stats, projectile, direction, source)` | 武器属性、弹体数据、方向、来源 | `void` | 节点必须来自 `PoolManager` |
 | `Enemy.configure(enemy_data, target)` | 敌人 CSV 行 + AI profile、目标玩家 | `void` | 节点必须来自 `PoolManager` |
 | `Enemy.content_tags()` / `ai_debug_summary()` / `was_defeated_by_player()` | 无 | `Array[String]` / `Dictionary` / `bool` | 供敌人生态感知、smoke / 调试和玩家击杀归因使用 |
@@ -169,6 +175,8 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 角色：默认读取 `character_default`，其 id 来自生成常量 `CharacterIds`；默认角色使用鼠标瞄准、左右朝向和自动开火。
 - 模式：默认读取 `mode_standard_survival`，其 id 来自生成常量 `GameModes`。
 - 武器：从 `characters[].starting_loadout.weapon_id` 读取，不在代码写武器 id 分支。
+- 技能：从 `characters[].starting_loadout.skill_ids` 读取，不绑定英雄 id；默认技能为 `skill_whirlwind_slash`，技能定义在 `skills.json`，模式可用池在 `game_modes.resource_pools.skills`。
+- 技能资源：从 `characters[].skill_resources` 读取，当前默认资源为 `mana`；后续怒气、能量等资源应新增资源 id 和角色资源池，不在 SkillSystem 写死。
 - 子弹池：从 `weapons[].projectile.pool_id` 读取；当前样例为已登记 `bullet_basic`。子弹占位绘制为黄色圆点加暗色轮廓，不承载行为差异。
 - 敌人池：从 `enemies.csv.pool_id` 读取；当前注册已登记 `enemy_chaser` 与 `enemy_swarm`，不同敌人可复用同一 `Enemy` 场景和对象池。
 - 敌人 AI profile：从 `enemies.csv.ai_profile_id` 引用 `enemy_ai_profiles.json`；profile 负责感知半径、动作评分、怪物互相狩猎 / 逃跑、领地和冲锋参数。详细规则见 `docs/代码/enemy_ai.md`。
@@ -181,7 +189,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 等级阈值：从 `growth.csv.total_xp_required` 读取累计总经验阈值；运行时内部保留累计经验判定升级，HUD 显示 `当前累计经验 - 当前等级累计阈值` / `下一级累计阈值 - 当前等级累计阈值`。
 - 升级候选：从当前模式 `resource_pools.growth_pools` 引用的 `growth_pools.json` 池读取；当前 F4 只解释 `kind=stat_modifier` 且应用其 `modifiers`。候选入选使用 `RNG.ui_choice`，显示 / 选择顺序按候选 `id` 稳定排序，避免同一候选集合在不同进程中只因抽取顺序影响 replay 选择索引。选择后 HUD 使用金色文字、暗色阴影和 1.35 秒淡出显示获得反馈。
 - 分辨率与 UI：默认 viewport 由 `client/project.godot` 设为 1920×1080；窗口禁止任意拖拽缩放，屏幕比例不匹配时通过 `canvas_items + keep` 保比例加黑边；F4 HUD 和升级面板应使用 `Control` 锚点 / 容器布局适配预设分辨率。
-- run 续局快照：F5 首片使用 `SaveManager` 的 `run` kind，payload schema version 当前为 1，字段包括模式 / 角色 id、等级、累计经验、击杀、`GameClock.snapshot()`、`RNG.snapshot()`、刷怪状态、玩家状态、武器状态、活跃敌人、活跃子弹、活跃经验球和 `ui_restore`。敌人快照现在额外保存出生点、当前 AI action、冲锋 FSM、冲锋 cooldown 和最后伤害来源队伍，以保证生态 AI 续局后可恢复；不保存感知到的节点引用。`ui_restore.state` 当前支持 `playing`、`paused`、`level_up`：暂停保存后续局会先回到暂停菜单；升级选择面板打开时保存会保留已经掷出的候选列表并续回同一组选择，不重新消耗 `RNG.ui_choice`；暂停菜单叠在升级面板上时保存为 `state=paused` 且 `underlying_state=level_up`，恢复时先重建升级面板再叠回暂停菜单。旧 payload 没有 `ui_restore` 时按 `playing` 处理。`SaveManager` 的 `run` kind envelope 当前为 version 2，v1 -> v2 迁移只补齐缺失结构字段，不改变 F4 payload schema。RNG 大整数 state 以字符串保存，避免 JSON 精度变化导致 `data_hash` mismatch。
+- run 续局快照：F5 首片使用 `SaveManager` 的 `run` kind，payload schema version 当前为 1，字段包括模式 / 角色 id、等级、累计经验、击杀、`GameClock.snapshot()`、`RNG.snapshot()`、刷怪状态、玩家状态、武器状态、技能状态、活跃敌人、活跃子弹、活跃经验球和 `ui_restore`。技能快照只保存冷却与资源当前值，不保存目标节点引用。敌人快照现在额外保存出生点、当前 AI action、冲锋 FSM、冲锋 cooldown 和最后伤害来源队伍，以保证生态 AI 续局后可恢复；不保存感知到的节点引用。`ui_restore.state` 当前支持 `playing`、`paused`、`level_up`：暂停保存后续局会先回到暂停菜单；升级选择面板打开时保存会保留已经掷出的候选列表并续回同一组选择，不重新消耗 `RNG.ui_choice`；暂停菜单叠在升级面板上时保存为 `state=paused` 且 `underlying_state=level_up`，恢复时先重建升级面板再叠回暂停菜单。旧 payload 没有 `ui_restore` 时按 `playing` 处理，旧 payload 没有 `skills` 时按空技能快照处理。`SaveManager` 的 `run` kind envelope 当前为 version 2，v1 -> v2 迁移只补齐缺失结构字段，不改变 F4 payload schema。RNG 大整数 state 以字符串保存，避免 JSON 精度变化导致 `data_hash` mismatch。
 - 局外成长接入：F6 首片使用 `SaveManager` 的 `meta` kind；F4 只向 `MetaProgressionSystem.apply_run_settlement()` 提交 `kills`、`run_time`、`first_boss_defeated`，不在 F4 复制奖励公式。结算后必须删除 `run` 存档，避免死亡结算后的旧局重复领取奖励。标题菜单通过 `MetaProgressionSystem.profile_summary()` 显示账号等级 / 余额摘要，通过 `first_available_purchase()` 给局外升级按钮加可购买提示，并通过 `MetaProgressionPanel` 消费 `upgrade_summaries()` 显示完整升级列表。新开局时 `MetaProgressionSystem.current_modifiers()` 输出的永久升级 modifiers 会复用 `Player.apply_modifiers()` 与 `WeaponSystem.apply_modifiers()`。
 - 伤害类型：从 `weapons.json` / `enemies.csv` 读取，交给 `Combat` 校验。
 - UI / HUD / 升级文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_settings*`、`ui_pause_title`、`ui_save_and_quit`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_level_up_title`、`ui_upgrade_applied`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`、`ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_account_level_up`、`ui_meta_title_summary`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_purchase_success`、`ui_meta_purchase_failed`、`ui_meta_progression`、`ui_meta_progression_available`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。常驻 UI 必须在 `Localization.locale_changed` 后刷新已有节点，不依赖重启或重新实例化。
@@ -196,6 +204,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 ## 扩展点
 
 - 加武器：优先改 `weapons.json`，运行时继续解释 `base_stats` 和 `projectile`。
+- 加技能：优先改 `skills.json`、`characters.json` 的 `starting_loadout.skill_ids` / `skill_resources` 和 `game_modes.json` 的 `resource_pools.skills`；新目标类型或效果原语先登记词表，再扩展 SkillSystem，不按技能 id 写分支。
 - 加敌人：优先改 `enemies.csv`、`enemy_ai_profiles.json`、`game_modes.json` 和 `spawn_waves.csv`；行为差异通过 AI profile / tag 权重表达，不在 `enemy.gd` 按 id 分支。
 - 加刷怪：改 `spawn_waves.csv`；多个波次可复用当前时间窗 / 预算解释。
 - 加升级候选：优先改 `growth_pools.json`；新候选如果仍是 `stat_modifier` 不需要改逻辑，新增候选类型才需要扩展运行时解释和文档。
@@ -210,6 +219,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 |------------|----------|----------|----------|
 | 调玩家速度 / 生命 / 受伤无敌 / 中心排斥 | `player.json` / `characters.json` | `client/data/README.md` | `python tools/validate_data.py` |
 | 调武器伤害 / 射速 / 弹速 | `weapons.json` | `client/data/README.md` | `validate_data` + headless |
+| 调技能伤害 / 半径 / 资源消耗 / 冷却 | `skills.json`、`characters.json` | `client/data/README.md`、`docs/代码/skill_system.md` | `validate_data` + `l1-smoke` + `runtime-smoke` |
 | 调敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | `client/data/README.md` | `validate_data` + 手动跑一局 |
 | 调敌人生态 AI | `enemy_ai_profiles.json`、`enemies.csv.tags` | `client/data/README.md`、`docs/代码/enemy_ai.md` | `validate_data` + `runtime-smoke` + 必要时 golden replay |
 | 调刷怪节奏 | `spawn_waves.csv` | `client/data/README.md` | `validate_data` + 手动 1 分钟 |
@@ -268,7 +278,8 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 - Gameplay runtime 代码改动必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`。
 - Gameplay runtime / UI 场景结构改动还必须跑 `python tools/godot_bridge.py --project client runtime-smoke`，涉及标题局外升级面板时追加 `meta-smoke`。
-- 涉及启动、输入、WeaponSystem、子弹、敌人、EnemyAI、Spawner、经验球、升级选择、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
+- 涉及启动、输入、WeaponSystem、SkillSystem、子弹、敌人、EnemyAI、Spawner、经验球、升级选择、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
+- 涉及技能目标、资源、冷却、效果解释或 run 技能快照时追加 `python tools/godot_bridge.py --project client l1-smoke`；改 run 快照恢复还要追加 `save-smoke`。
 - 涉及 gameplay 输入录制、`Replay` 输入事件、升级选择 decision、暂停 / 返回 action 录制时追加 `python tools/godot_bridge.py --project client replay-input-smoke`；涉及升级选择 replay 基线时追加 `capture-golden-replay --golden-scenario golden_level_up_choice` 与对应 `replay-runner --replay-file client/tests/replays/golden_level_up_choice.replay --rerun-runtime-summary`。
 - 涉及暂停、保存退出、标题继续、坏档提示、RNG / GameClock 快照或 run payload 时必须追加 `python tools/godot_bridge.py --project client runtime-smoke` 与 `python tools/godot_bridge.py --project client save-smoke`，并做至少一次手动保存续局检查。
 - 涉及标题 / 暂停设置入口、设置面板关闭、`ui_back` 返回或运行时语言刷新时，追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`。
@@ -279,7 +290,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 ## 迁移 / 兼容
 
-F5 已开始写 `SaveManager` 的 `run` kind，F6 首切片已开始写 `meta` kind。当前 gameplay runtime 自身 payload schema version 仍为 1；`SaveManager` 的 `run` envelope version 已提升到 2，并提供 v1 -> v2 迁移来补齐早期 payload 可能缺失的结构字段。`ui_restore` 是 run payload 的可选恢复提示，缺失时按 `playing` 兼容旧 run 存档。死亡结算不写入 `run` payload，而是通过 `MetaProgressionSystem` 更新 `meta` profile；后续新增遗物、主动道具或局外奖励时，需要决定是否提升 runtime payload schema、`meta` payload schema 或 SaveManager kind version，并补迁移 / roundtrip 测试；不得保存对象池内部状态或节点引用。
+F5 已开始写 `SaveManager` 的 `run` kind，F6 首切片已开始写 `meta` kind。当前 gameplay runtime 自身 payload schema version 仍为 1；`SaveManager` 的 `run` envelope version 已提升到 2，并提供 v1 -> v2 迁移来补齐早期 payload 可能缺失的结构字段。`ui_restore` 是 run payload 的可选恢复提示，缺失时按 `playing` 兼容旧 run 存档；`skills` 是可选技能快照，缺失时按空技能状态兼容旧 run 存档。死亡结算不写入 `run` payload，而是通过 `MetaProgressionSystem` 更新 `meta` profile；后续新增遗物、主动道具、技能栏或局外奖励时，需要决定是否提升 runtime payload schema、`meta` payload schema 或 SaveManager kind version，并补迁移 / roundtrip 测试；不得保存对象池内部状态或节点引用。
 
 ## 相关文档
 
@@ -288,4 +299,5 @@ F5 已开始写 `SaveManager` 的 `run` kind，F6 首切片已开始写 `meta` k
 - `docs/代码/debug_tools.md`
 - `docs/游戏设计文档.md` §3 / §4 / §5.3 / §9.13 / §9.15.1
 - `docs/代码/combat.md`
+- `docs/代码/skill_system.md`
 - `docs/代码/meta_progression_system.md`

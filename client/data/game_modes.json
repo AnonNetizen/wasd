@@ -73,6 +73,12 @@
             "weight": 100
           }
         ],
+        "skills": [
+          {
+            "id": "skill_whirlwind_slash",
+            "weight": 100
+          }
+        ],
         "consumables": [
           {
             "id": "consumable_pocket_bomb",

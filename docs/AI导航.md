@@ -61,7 +61,7 @@
 | `client/scenes/boot/main.tscn` | F1 最小启动场景，详见 `docs/代码/formal_client_boot.md` |
 | `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `AudioManager` / `Localization` / `UIManager` |
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口与 `DamageInfo` |
-| `client/scripts/gameplay/` | F4/F5 阶段脚本：`gameplay_run_loop` / `world_background` / `player` / `weapon_system` / `bullet` / `enemy` / `pickup_orb` / `level_up_panel` / `gameplay_hud`，当前还承载 F5 首片 run 快照生产 / 恢复 |
+| `client/scripts/gameplay/` | F4/F5/F9 阶段脚本：`gameplay_run_loop` / `world_background` / `player` / `weapon_system` / `skill_system` / `bullet` / `enemy` / `pickup_orb` / `level_up_panel` / `gameplay_hud`，当前还承载 F5 首片 run 快照生产 / 恢复 |
 | `client/scripts/ui/` | 阶段性 UI：`title_menu` / `pause_menu` / `game_over_panel` / `meta_progression_panel` |
 | `client/scripts/debug/` | debug/dev_tools 专用 `DebugConsole` 与 `GMCommandRegistry`；正式 release 不应加载或导出 |
 | `client/tools/` | Godot 项目内 headless smoke 脚本；当前含 gameplay runtime、MetaProgression、SaveManager、Settings、Replay、RNG、perf 和 DebugTools smoke |
@@ -119,6 +119,7 @@
 | **加一个敌人** | 在 `client/data/enemies.csv` 加一行基础数值、中心间距、生态 tags、`ai_profile_id` 与 `enemy_*_name` 文案；优先复用 `client/data/enemy_ai_profiles.json` 现有 profile，新行为先加 / 调 profile 和词表 §12-B action，最后才改 `enemy.gd` |
 | **加一个角色** | 在 `client/data/characters.json` 加一条：基础属性 / tags / capabilities / 控制配置 / `starting_loadout`；角色 id 先登记词表 §12.1，文案用 `character_*` key；起始武器 / 主动道具 / 消耗品必须存在于对应数据文件；新 capability 先登记词表 §12 再实现 |
 | **加 / 改武器** | 在 `client/data/weapons.json` 加一条：武器基础属性、子弹池、伤害类型、命中半径和音频 id；文案用 `weapon_*` key；`pool_id` / `damage_type` / `audio_id` 前缀必须来自词表，不实现 WeaponSystem 运行时 |
+| **加 / 改技能** | 在 `client/data/skills.json` 加技能定义：`costs`、`targeting`、`effects`、冷却和 `skill_*` 文案；角色只在 `characters.json.starting_loadout.skill_ids` 引用技能并声明 `skill_resources`，模式池走 `game_modes.resource_pools.skills`；新资源、目标类型或效果原语先登记词表 §12-C~12-F，再扩展 `docs/代码/skill_system.md` |
 | **加 / 改机关** | 在 `client/data/hazards.csv` 加一行：伤害、伤害类型、触发间隔、范围、持续时间和 `hazard_*_name` 文案；`tag_hazard`、`pool_id`、`damage_type` 必须来自词表，不实现 HazardSystem 运行时 |
 | **加 / 改刷怪波次** | 在 `client/data/spawn_waves.csv` 加一行：模式 id、时间窗、敌人 id / 权重、刷怪间隔、同时存活上限、预算和可选机关权重；敌人 / 机关 / 模式引用必须存在，不实现 Spawner 运行时 |
 | **加一个遗物/道具** | 在 `client/data/relics.json` 加一条，用 `modifiers` + `behaviors` 描述；文案用 `relic_*` key；**只用 `docs/词表与契约.md` 已登记的 effect / event / stat / tag**，新原语先登记再实现，不实现遗物运行时 |
@@ -172,7 +173,7 @@
 ## 5. 核心系统模块
 
 ### 5.1 模块清单
-**业务模块**：`InputController` / `Player` / `WeaponSystem` / `Enemy(EnemyAI)` / `Spawner` / `HazardSystem` / `ItemSystem` / `GrowthSystem`（经验/升级选择）/ `MetaProgressionSystem`（局外成长）/ `ModifierEngine` / `MapManager` / `Camera2D` / `DataLoader` / `PauseMenu`（UI）/ `Combat`（伤害结算）/ `StatusEffectComponent`（状态效果）。
+**业务模块**：`InputController` / `Player` / `WeaponSystem` / `SkillSystem`（主动技能）/ `Enemy(EnemyAI)` / `Spawner` / `HazardSystem` / `ItemSystem` / `GrowthSystem`（经验/升级选择）/ `MetaProgressionSystem`（局外成长）/ `ModifierEngine` / `MapManager` / `Camera2D` / `DataLoader` / `PauseMenu`（UI）/ `Combat`（伤害结算）/ `StatusEffectComponent`（状态效果）。
 
 **Autoload 单例（横向基础设施 + 协调中枢）**：
 - 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
@@ -184,7 +185,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`MetaProgressionSystem`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、gameplay runtime、TitleMenu / WorldBackground / Player / WeaponSystem / Bullet / Enemy / Spawner / PickupOrb / LevelUpPanel / HUD / GameOverPanel 的最小闭环；F5 已新增 `PauseMenu`、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、升级界面 Esc 叠出暂停菜单、坏档重置提示、run payload、`RNG.snapshot()` / `restore_snapshot()` 与 `GameClock.snapshot()` / `restore_snapshot()`，并用 `SaveManager` 的 `run` kind 保存 / 读取局内快照；F6 已新增 `MetaProgressionSystem`、死亡结算、`meta` profile roundtrip、标题 `MetaProgressionPanel` 局外升级入口、数据驱动伤害 / 射速等永久升级轨道和下一局永久 modifiers；F7 已落地设置持久化、只显示已接线设置的正式设置面板、核心 UI 运行时语言刷新、键盘主输入重绑定、输入绑定保存 / 共用键位反馈、一键恢复输入默认，以及 `UIManager` 栈顶 `ui_back` / 默认焦点首片。F8 已通过当前验收基线收口审计，包含临时 L1 runner、Replay `.replay` 文件 roundtrip、summary diff / 运行时摘要 runner、runner 输入播放首片、runtime event 播放首片、扩展稳定帧样本 diff、gameplay 输入录制首片、`client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay`、`client/tests/replays/golden_level_up_choice.replay`、`rng-audit` 跨子流相关性审计和 schema v2 perf / balance baseline；升级选择已记录 `level_up` decision，RNG 子流 seed 派生已升级为域隔离 SHA-256 mixer 以同时保护跨进程回放确定性与跨子流防相关性。F9 已新增 `ModLoader` 本地 mod 接口首片、`PlatformServices` 平台服务接口首片，以及 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`：ModLoader 扫描 `user://mods/<mod_id>/mod.json`，只接受声明式 JSON / CSV append patch 和少量动态契约扩展，暂不接创意工坊、不执行玩家脚本；PlatformServices Steam 优先预留成就、统计、富状态 / 状态显示、overlay、Lobby / 联机入口和用户身份，当前不接 Steamworks SDK、不联网，后续其他平台走 provider adapter；DebugTools 通过 F1 / 反引号打开控制台，当前命令覆盖 help/stats/spawn/xp/hp/damage/heal/meta/kill/clear/seed，release 路径由 runtime guard 与导出资源排除约束。当前 F9 入口是 `docs/AI协作/工作包/F9-ContentDemoPolish.md`，用于首批 Demo 内容切片、手感 / 可读性打磨、占位表现规范和手动 checklist；F8 的 `l1-smoke`、`replay-smoke`、`rng-audit`、四条 checked-in replay runner 和 `perf-probe` 是 F9 内容扩展的回归护栏。正式客户端默认 viewport 为 1920×1080，窗口禁止任意拖拽缩放并采用 `canvas_items + keep` 保比例黑边策略，GameplayHud / LevelUpPanel 已改为锚点与容器布局；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，敌人中心已按 `enemies.csv.separation_radius` 做小范围排斥以避免完全重叠，玩家中心也通过 `player_separation_radius` 提供不可重叠区域并在碰到敌人分离圈时只推开敌人，经验球与升级三选一已接入 `growth.csv` / `growth_pools.json`，升级选择后有 HUD 获得反馈，`enemies.csv.visual_color` 支持数据化敌人占位色；敌人生态 AI 首片已接入 `enemy_ai_profiles.json`、`enemies.csv.ai_profile_id`、`tag_enemy_prey` / `tag_enemy_predator` / `tag_enemy_territorial` 和 `Enemy.ai_debug_summary()`，当前已有追猎者、疾行者、潜猎者与壁垒四种敌人，怪物可按 profile 接近玩家、逃离威胁、狩猎其他怪物、守出生点或冲锋。
+当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`MetaProgressionSystem`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、gameplay runtime、TitleMenu / WorldBackground / Player / WeaponSystem / Bullet / Enemy / Spawner / PickupOrb / LevelUpPanel / HUD / GameOverPanel 的最小闭环；F5 已新增 `PauseMenu`、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、升级界面 Esc 叠出暂停菜单、坏档重置提示、run payload、`RNG.snapshot()` / `restore_snapshot()` 与 `GameClock.snapshot()` / `restore_snapshot()`，并用 `SaveManager` 的 `run` kind 保存 / 读取局内快照；F6 已新增 `MetaProgressionSystem`、死亡结算、`meta` profile roundtrip、标题 `MetaProgressionPanel` 局外升级入口、数据驱动伤害 / 射速等永久升级轨道和下一局永久 modifiers；F7 已落地设置持久化、只显示已接线设置的正式设置面板、核心 UI 运行时语言刷新、键盘主输入重绑定、输入绑定保存 / 共用键位反馈、一键恢复输入默认，以及 `UIManager` 栈顶 `ui_back` / 默认焦点首片。F8 已通过当前验收基线收口审计，包含临时 L1 runner、Replay `.replay` 文件 roundtrip、summary diff / 运行时摘要 runner、runner 输入播放首片、runtime event 播放首片、扩展稳定帧样本 diff、gameplay 输入录制首片、`client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay`、`client/tests/replays/golden_level_up_choice.replay`、`rng-audit` 跨子流相关性审计和 schema v2 perf / balance baseline；升级选择已记录 `level_up` decision，RNG 子流 seed 派生已升级为域隔离 SHA-256 mixer 以同时保护跨进程回放确定性与跨子流防相关性。F9 已新增 `ModLoader` 本地 mod 接口首片、`PlatformServices` 平台服务接口首片、可复用 `SkillSystem` 主动技能首片，以及 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`：SkillSystem 读取 `skills.json`，默认角色通过 `starting_loadout.skill_ids` 引用 `skill_whirlwind_slash`，并用 `skill_resources` 的 `mana` 支付 AOE 技能成本，技能效果仍走 `Combat`；ModLoader 扫描 `user://mods/<mod_id>/mod.json`，只接受声明式 JSON / CSV append patch 和少量动态契约扩展，暂不接创意工坊、不执行玩家脚本；PlatformServices Steam 优先预留成就、统计、富状态 / 状态显示、overlay、Lobby / 联机入口和用户身份，当前不接 Steamworks SDK、不联网，后续其他平台走 provider adapter；DebugTools 通过 F1 / 反引号打开控制台，当前命令覆盖 help/stats/spawn/xp/hp/damage/heal/meta/kill/clear/seed，release 路径由 runtime guard 与导出资源排除约束。当前 F9 入口是 `docs/AI协作/工作包/F9-ContentDemoPolish.md`，用于首批 Demo 内容切片、手感 / 可读性打磨、占位表现规范和手动 checklist；F8 的 `l1-smoke`、`replay-smoke`、`rng-audit`、四条 checked-in replay runner 和 `perf-probe` 是 F9 内容扩展的回归护栏。正式客户端默认 viewport 为 1920×1080，窗口禁止任意拖拽缩放并采用 `canvas_items + keep` 保比例黑边策略，GameplayHud / LevelUpPanel 已改为锚点与容器布局；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，敌人中心已按 `enemies.csv.separation_radius` 做小范围排斥以避免完全重叠，玩家中心也通过 `player_separation_radius` 提供不可重叠区域并在碰到敌人分离圈时只推开敌人，经验球与升级三选一已接入 `growth.csv` / `growth_pools.json`，升级选择后有 HUD 获得反馈，`enemies.csv.visual_color` 支持数据化敌人占位色；敌人生态 AI 首片已接入 `enemy_ai_profiles.json`、`enemies.csv.ai_profile_id`、`tag_enemy_prey` / `tag_enemy_predator` / `tag_enemy_territorial` 和 `Enemy.ai_debug_summary()`，当前已有追猎者、疾行者、潜猎者与壁垒四种敌人，怪物可按 profile 接近玩家、逃离威胁、狩猎其他怪物、守出生点或冲锋。
 
 > F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射，但玩家和敌人占位表现只做左 / 右两种朝向。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
 
@@ -223,6 +224,7 @@ flowchart LR
   Input[InputController]
   Player[Player]
   Weapon[WeaponSystem]
+  Skill[SkillSystem]
 
   Spawner[Spawner]
   Enemy[Enemy / EnemyAI]
@@ -236,12 +238,12 @@ flowchart LR
   UI[UI/HUD<br/>PauseMenu/...]
 
   Mod -. 本地 mod 数据 patch .-> Loader
-  Data --> Loader --> Player & Enemy & Item & Growth & Meta & Spawner & Hazard
+  Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & Meta & Spawner & Hazard
   Set --> Player & Weapon & Input & UIM & Aud
   Loc --> UIM & Item
   Ana <-- 埋点 --- Player & Enemy & Item & Growth & Meta & Spawner & GS & Save
   RNG --> Spawner & Item & Growth & Meta & Enemy & Combat
-  Clk --> Spawner & Hazard & Weapon & SE
+  Clk --> Spawner & Hazard & Weapon & Skill & SE
   Rep -. 录制/重放 .-> Input & RNG & Clk & GS
   Plat -. 成就/状态/overlay/Lobby .-> UI & Meta & GS
 
@@ -253,7 +255,9 @@ flowchart LR
   Pool --> Weapon & Spawner & Item & Aud
 
   Input --> Player --> Weapon
+  Input --> Skill
   Weapon --> Combat
+  Skill --> Combat
   Enemy --> Combat
   Combat --> Player & Enemy
   Combat -.- SE
@@ -267,6 +271,7 @@ flowchart LR
   SE -. 注入 modifier .- ME
 
   Save -. meta/run kind .- GS
+  Save -. run skill snapshot .- Skill
   Save -. meta kind .- Meta
   Aud -. play_sfx/music .- Combat & UI & Item
 
@@ -284,7 +289,7 @@ flowchart LR
 ## 6. 红线（最易踩坑）
 - ❌ 硬编码可调数值、玩家可见文本、键盘按键 / 手柄按钮 / 手柄轴、约定字符串；❌ 新增数值 / 文案字段却不更新 `client/data/README.md` / `client/locale/README.md`
 - ❌ 为每个遗物/道具写独立硬编码分支
-- ❌ 为某个角色 / 遗物 / 道具写 `if id == ...` 的一次性破限分支（必须 capability / primitive / strategy 化）
+- ❌ 为某个角色 / 技能 / 遗物 / 道具写 `if id == ...` 的一次性破限分支（必须 capability / primitive / strategy 化）
 - ❌ 为某个游戏模式复制一套角色 / 遗物 / 敌人资源，或用 `if mode_id == ...` 写模式专属内容分支（模式应通过资源池、权重、tags、availability、capability / strategy 组合）
 - ❌ 写死唯一玩家、唯一队伍或“玩家只打敌人 / 敌人只打玩家”的关系（未来多人 PvE / PvP 预留要求使用 actor / participant / team / intent / Combat 统一边界）
 - ❌ 相机开启 `limit` / `drag margin`（必须玩家恒居中）

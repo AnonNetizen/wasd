@@ -24,6 +24,7 @@ const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause_menu.tscn")
 const PICKUP_ORB_SCENE := preload("res://scenes/gameplay/pickup_orb.tscn")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
+const SKILL_SYSTEM_SCRIPT := preload("res://scripts/gameplay/skill_system.gd")
 
 const BULLET_POOL_SIZE: int = 192
 const ENEMY_POOL_SIZE: int = 96
@@ -52,6 +53,7 @@ var _pending_restore_snapshot: Dictionary = {}
 var _pause_menu: CanvasLayer = null
 var _player: CharacterBody2D = null
 var _settings_panel: CanvasLayer = null
+var _skill_system: Node = null
 var _spawn_states: Dictionary = {}
 var _waves: Array[Dictionary] = []
 var _weapon_system: Node = null
@@ -101,6 +103,7 @@ func create_run_snapshot() -> Dictionary:
 		"spawn_states": _spawn_states.duplicate(true),
 		"player": _player.call("snapshot") if _player != null and _player.has_method("snapshot") else {},
 		"weapon": _weapon_system.call("snapshot") if _weapon_system != null and _weapon_system.has_method("snapshot") else {},
+		"skills": _skill_system.call("snapshot") if _skill_system != null and _skill_system.has_method("snapshot") else {},
 		"enemies": _entity_snapshots("active_enemies"),
 		"bullets": _entity_snapshots("active_bullets"),
 		"pickups": _entity_snapshots("active_pickups"),
@@ -172,6 +175,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		push_error("[GameplayRunLoop] missing WeaponSystem scene node")
 		return
 	_weapon_system.call("configure", _player, _active_world, weapon)
+	_configure_skill_system(character)
 	_apply_meta_modifiers(MetaProgressionSystem.current_modifiers())
 
 	_hud = get_node_or_null("GameplayHud") as CanvasLayer
@@ -213,6 +217,22 @@ func _create_pickup_orb_node() -> Node:
 	return PICKUP_ORB_SCENE.instantiate()
 
 
+func _configure_skill_system(character: Dictionary) -> void:
+	if _skill_system != null and is_instance_valid(_skill_system):
+		_skill_system.queue_free()
+	_skill_system = SKILL_SYSTEM_SCRIPT.new()
+	_skill_system.name = "SkillSystem"
+	add_child(_skill_system)
+	var loadout: Dictionary = character.get("starting_loadout", {}) if character.get("starting_loadout", {}) is Dictionary else {}
+	_skill_system.call(
+		"configure",
+		_player,
+		_active_world,
+		_load_skill_definitions(loadout),
+		_typed_dictionary_array(character.get("skill_resources", []))
+	)
+
+
 func current_level() -> int:
 	return _current_level
 
@@ -239,6 +259,7 @@ func debug_summary() -> Dictionary:
 		"player_life": float(_player.call("current_life")) if _player != null and _player.has_method("current_life") else 0.0,
 		"player_max_life": float(_player.call("max_life")) if _player != null and _player.has_method("max_life") else 0.0,
 		"active_enemies": _active_enemy_count(),
+		"skills": _skill_system.call("debug_summary") if _skill_system != null and _skill_system.has_method("debug_summary") else {},
 	}
 
 
@@ -351,6 +372,12 @@ func debug_clear_enemies() -> Dictionary:
 		"ok": true,
 		"count": cleared,
 	}
+
+
+func debug_cast_primary_skill() -> Dictionary:
+	if _skill_system == null or not _skill_system.has_method("cast_primary_skill"):
+		return _debug_result(false, "skill_system_unavailable")
+	return _skill_system.call("cast_primary_skill") as Dictionary
 
 
 func _update_spawner() -> void:
@@ -714,6 +741,8 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> void:
 		_player.call("restore_snapshot", snapshot_data.get("player", {}) as Dictionary)
 	if _weapon_system != null and _weapon_system.has_method("restore_snapshot") and snapshot_data.get("weapon", {}) is Dictionary:
 		_weapon_system.call("restore_snapshot", snapshot_data.get("weapon", {}) as Dictionary)
+	if _skill_system != null and _skill_system.has_method("restore_snapshot") and snapshot_data.get("skills", {}) is Dictionary:
+		_skill_system.call("restore_snapshot", snapshot_data.get("skills", {}) as Dictionary)
 
 	_restore_enemy_snapshots(_array_or_empty(snapshot_data.get("enemies", [])))
 	_restore_bullet_snapshots(_array_or_empty(snapshot_data.get("bullets", [])))
@@ -823,12 +852,44 @@ func _array_or_empty(raw_value: Variant) -> Array:
 	return []
 
 
+func _typed_dictionary_array(raw_value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not raw_value is Array:
+		return result
+	for item: Variant in raw_value as Array:
+		if item is Dictionary:
+			result.append((item as Dictionary).duplicate(true))
+	return result
+
+
+func _string_array(raw_value: Variant) -> Array[String]:
+	var result: Array[String] = []
+	if not raw_value is Array:
+		return result
+	for item: Variant in raw_value as Array:
+		var text: String = String(item)
+		if not text.is_empty():
+			result.append(text)
+	return result
+
+
 func _load_array(path: String, key: String) -> Array:
 	var data: Variant = DataLoader.load_json(path)
 	if not data is Dictionary:
 		return []
 	var raw_items: Variant = (data as Dictionary).get(key, [])
 	return raw_items if raw_items is Array else []
+
+
+func _load_skill_definitions(loadout: Dictionary) -> Array[Dictionary]:
+	var requested_ids: Array[String] = _string_array(loadout.get("skill_ids", []))
+	var all_skills: Array = _load_array(DataLoader.SKILLS_PATH, "skills")
+	var result: Array[Dictionary] = []
+	for skill_id: String in requested_ids:
+		var skill: Dictionary = _find_item(all_skills, skill_id)
+		if not skill.is_empty():
+			result.append(skill)
+	return result
 
 
 func _find_item(items: Array, requested_id: String) -> Dictionary:

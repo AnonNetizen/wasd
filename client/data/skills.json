@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "skills": [
+    {
+      "id": "skill_whirlwind_slash",
+      "name_key": "skill_whirlwind_slash_name",
+      "desc_key": "skill_whirlwind_slash_desc",
+      "default_unlocked": true,
+      "tags": ["tag_skill"],
+      "cooldown": 3.0,
+      "costs": [
+        {
+          "resource": "mana",
+          "amount": 25.0
+        }
+      ],
+      "targeting": {
+        "type": "aoe_enemies_around_caster",
+        "radius": 120.0,
+        "max_targets": 0
+      },
+      "effects": [
+        {
+          "effect": "skill_effect_damage",
+          "params": {
+            "amount": 8.0,
+            "damage_type": "physical"
+          }
+        }
+      ]
+    }
+  ]
+}
