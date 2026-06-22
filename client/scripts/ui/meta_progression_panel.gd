@@ -7,7 +7,7 @@ extends CanvasLayer
 signal closed_requested()
 
 const BUTTON_HEIGHT: float = 46.0
-const BUTTON_WIDTH: float = 180.0
+const BUTTON_WIDTH: float = 220.0
 const ROW_MIN_HEIGHT: float = 130.0
 const POINTER_ACTION_CLOSE: String = "close"
 const POINTER_ACTION_PURCHASE: String = "purchase"

@@ -32,6 +32,7 @@
 | 加结算 / 局外成长 UI 文案 | 在 `strings.csv` 加 `ui_meta_*` key，例如结算、标题局外升级入口、标题 meta 摘要、费用、锁定 / 满级状态、购买成功 / 失败反馈；UI 代码使用 `tr("ui_meta_xxx")` |
 | 加机关 / 危险物名 | 在 `strings.csv` 加 `hazard_*_name`；数据填 `name_key` |
 | 改中文或英文翻译 | 只改对应语言列，不改 key；另一语言由 AI 自动补首版译文后人工复核 |
+| 改 UI 布局或按钮文案 | 切到 `en` 验收宽度、换行和遮挡；英文长度是 UI 尺寸基准 |
 | 新增语言 | 先新增决策，再给 `strings.csv` 加新语言列，并同步 Settings 语言选项与 Godot Localization 注册 |
 
 ## CSV 格式
@@ -113,6 +114,14 @@ label.text = tr("ui_damage") + str(value)
 - 单位、数字顺序允许按语言调整，但占位符不能丢。
 - 复数、性别、语序复杂的文本不要拼接；拆成独立 key 或后续引入更强格式化规则。
 
+## 英文长度基准 / UI 适配规则
+
+- UI 布局、按钮宽度、面板宽度、换行和 HUD 信息密度以英文 `en` 文案长度作为最小设计与验收基准；中文 `zh_CN` 信息密度高，不能作为唯一尺寸依据。
+- 新增 / 修改玩家可见 UI 文案或 UI 布局时，必须切到英文检查按钮、面板标题、设置项、升级选择、HUD、失败结算和局外成长界面不截断、不溢出、不互相遮挡。
+- Godot UI 优先用 `Container`、锚点、`size_flags`、`custom_minimum_size`、`autowrap_mode` 和合理的响应式约束承接文本长度；避免按中文短文本写死窄宽。
+- 英文太长时，优先调整布局宽度、换行、层级或控件分组；确需精简译文时，只能在不改变功能含义、数值承诺和语气边界的前提下改英文列。
+- `python tools/godot_bridge.py --project client settings-smoke` 会在英文 locale 下检查现有可见按钮类控件的文本宽度；复杂视觉布局仍需按 `docs/测试策略.md` 的 L5 checklist 人工确认。
+
 ## 常见工作流
 
 ### AI 自动翻译工作流
@@ -128,6 +137,7 @@ label.text = tr("ui_damage") + str(value)
 1. 在 `strings.csv` 新增一行，如 `ui_restart,重开,Restart`；若只给了一种语言，AI 先补齐另一种。
 2. UI 代码使用 `tr("ui_restart")`。
 3. 如果该 UI 支持运行时切语言，确认 `NOTIFICATION_TRANSLATION_CHANGED` 后会刷新。
+4. 切到英文 `en` 检查按钮 / 面板不会截断、溢出或遮挡；必要时先调整 UI 尺寸或换行。
 
 ### 加一段 HUD 文案
 
@@ -148,6 +158,7 @@ ui_settings_screen_shake,屏幕震动,Screen Shake
 4. 如果新增了 key，先让 Godot 重新导入 `strings.csv` 生成 `strings.zh_CN.translation` / `strings.en.translation`。
 5. 新设置控件只有在已有下游系统即时生效时才显示给玩家；仅预留的设置 key 可以保留文案，但面板应隐藏或禁用。
 6. 修改后运行 `python tools/godot_bridge.py --project client settings-smoke`，确认新增 key 已导入 `.translation` 并能在面板中解析。
+7. 在 `en` 下确认控件标签、选项、反馈和按钮能完整显示；英文长度不应被中文密度掩盖。
 
 ### 加一个输入绑定标签
 
@@ -224,6 +235,7 @@ meta_upgrade_damage_desc,永久提升基础伤害,Permanently increases base dam
 - [ ] `zh_CN` 与 `en` 是否都有译文？
 - [ ] AI 自动补译的内容是否经过人工复核，且没有误改功能含义？
 - [ ] 所有语言的占位符集合是否一致？
+- [ ] 新增 / 修改 UI 文案或布局是否已按英文 `en` 长度验收，无截断、溢出或遮挡？
 - [ ] 是否已运行 `python tools/validate_data.py`？
 - [ ] 数据文件是否只引用 `name_key` / `desc_key`，没有硬文本？
 - [ ] 代码是否只使用 `tr("key")`，没有玩家可见硬文本？

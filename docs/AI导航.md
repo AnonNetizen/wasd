@@ -149,7 +149,7 @@
 | **加一种子弹效果原语** | 先在 `词表与契约.md` 登记 `effect` id → 在效果原语层实现方法/Node → 数据中引用 |
 | **改数值（血/伤害/刷怪/掉落）** | 先读 `client/data/README.md`，只改 `res://data/` 对应 CSV / JSON，**绝不改代码常量**；平表数值优先 CSV，复杂配置优先 JSON；新增 / 改字段必须同步数值手册 |
 | **预留 / 维护玩家 mod 接口** | 看 `docs/代码/mod_loader.md`、`docs/代码/data_loader.md` 与 GDD §9.21；当前只支持 `user://mods/<mod_id>/mod.json` 声明式 JSON / CSV append，不接创意工坊、不执行玩家脚本、不绕过 `DataLoader` schema；未来创意工坊只作为分发层 |
-| **加面向玩家的文本** | 先读 `client/locale/README.md`，在 `res://locale/strings.csv` 加 key + `zh_CN` / `en` 译文；若用户只给一种语言，AI 自动补齐另一语言首版译文，人工复核后代码 / 数据用 `tr("key")` 或 `name_key` |
+| **加面向玩家的文本** | 先读 `client/locale/README.md`，在 `res://locale/strings.csv` 加 key + `zh_CN` / `en` 译文；若用户只给一种语言，AI 自动补齐另一语言首版译文，人工复核后代码 / 数据用 `tr("key")` 或 `name_key`；涉及 UI 按钮、面板或 HUD 时以英文 `en` 长度验收尺寸，跑对应 smoke，当前按钮类英文适配由 `settings-smoke` 覆盖 |
 | **加一个设置项** | 先在 `Settings` 加配置（键/类型/默认/范围）并接入下游 `setting_changed` 即时生效；只有完成生效链路后才在设置面板显示 UI 控件，暂未接线的预留 key 保留为隐藏 / 禁用 |
 | **加一个埋点** | 用 `词表与契约.md` 登记的 `event_name`，调用 `Analytics.track_event(name, params)` |
 | **改输入/按键/手柄** | 走 `Settings` 重绑定与 InputMap action，不硬编码键盘按键、手柄按钮或手柄轴；当前 `Settings` 已负责键盘主绑定，runtime 只补手柄轴 / 按钮兜底；键鼠默认用鼠标相对玩家 / 视口中心方向瞄准，方向键 / 手柄右摇杆 / D-pad 作为兜底；业务实体消费归一化 intent / action，避免直接依赖本地玩家输入；默认手柄为左摇杆移动、右摇杆 / D-pad 瞄准 |
@@ -159,7 +159,7 @@
 | **接 Steam API / 平台服务** | 走 `PlatformServices`（autoload）；Steam 成就、统计、富状态 / 状态显示、overlay、Lobby / 邀请和用户身份都先接门面，不让业务直接调用 Steamworks / GodotSteam；其他平台后续走 provider adapter（见 GDD 9.22 / `docs/代码/platform_services.md`） |
 | **加 / 验证回放测试** | `Replay` 负责 `.replay` envelope 与 `user://replays/` 文件；F8 基线用 `python tools/godot_bridge.py --project client replay-smoke` 验证最小录制、保存 / 读取、摘要和 data fingerprint roundtrip，用 `python tools/godot_bridge.py --project client replay-runner` 读取 `.replay` 并比较 summary / expectation，用 `python tools/godot_bridge.py --project client replay-runner --rerun-runtime-summary` 生成临时输入播放 smoke replay 并播放 `input_events`，用 `python tools/godot_bridge.py --project client replay-input-smoke` 验证 gameplay 输入录制首片；`golden_basic_run.replay` 可用 `capture-golden-replay` 重录，`golden_pause_resume.replay` 可用 `capture-golden-replay --golden-scenario golden_pause_resume` 重录，`golden_full_death.replay` 可用 `capture-golden-replay --golden-scenario golden_full_death` 重录，`golden_level_up_choice.replay` 可用 `capture-golden-replay --golden-scenario golden_level_up_choice` 重录，四者都用 `replay-runner --replay-file ... --rerun-runtime-summary` 重跑真实运行时摘要与 `run_summary.frame_samples` / 场景语义字段 diff。后续遗物协同 golden 仍等对应运行时存在后再补。 |
 | **加平衡测试 / Headless 模拟** | 通过 `AIPlayer` 接口接入；`Spawner` / `MapManager` / `RNG` 都接受外部 seed（见 GDD 9.10）；F8 基线先用 `python tools/godot_bridge.py --project client perf-probe` 输出 schema v2 可比较基线 JSON，包含 30 帧 warmup 后 180 帧 avg / p95 / p99 / max 帧时间、active / peak entity counts、pool final stats / peak active、等级、击杀、状态和预算状态 |
-| **加 UI 弹窗** | `UIManager.push(scene)`；场景根节点 `@export modal/pauses_game/music_duck` 元数据；不 `add_child` UI（见 GDD 9.14） |
+| **加 UI 弹窗** | `UIManager.push(scene)`；场景根节点 `@export modal/pauses_game/music_duck` 元数据；不 `add_child` UI（见 GDD 9.14）；按钮、标题和说明布局以英文 `en` 文案长度验收，不按中文短文本定窄宽 |
 | **加新敌人/子弹/特效**（高频实体） | `PoolManager.acquire(pool_id)` / `release(node)`；新池 id 在词表 §8 登记；实现 `_pool_reset()`（见 GDD 9.13） |
 | **加伤害逻辑** | 走 `Combat.apply_damage(target, DamageInfo)`；`damage_type` 在词表 §9；保留 source / target / team / friendly_fire 模式规则边界；不 `target.hp -= n`（见 GDD 9.15.1） |
 | **加持续效果（DoT/控制/debuff）** | 用 `StatusEffect` Resource + `StatusEffectComponent.apply()`；id 在词表 §9-A；明确 `stack_rule`（见 GDD 9.15.2） |
@@ -288,6 +288,7 @@ flowchart LR
 
 ## 6. 红线（最易踩坑）
 - ❌ 硬编码可调数值、玩家可见文本、键盘按键 / 手柄按钮 / 手柄轴、约定字符串；❌ 新增数值 / 文案字段却不更新 `client/data/README.md` / `client/locale/README.md`
+- ❌ 用中文短文本密度决定 UI 尺寸；新增 / 修改玩家可见 UI 文案或布局时必须切到英文 `en` 验收按钮、面板、HUD、升级选择和结算不截断、不溢出、不遮挡
 - ❌ 为每个遗物/道具写独立硬编码分支
 - ❌ 为某个角色 / 技能 / 遗物 / 道具写 `if id == ...` 的一次性破限分支（必须 capability / primitive / strategy 化）
 - ❌ 为某个游戏模式复制一套角色 / 遗物 / 敌人资源，或用 `if mode_id == ...` 写模式专属内容分支（模式应通过资源池、权重、tags、availability、capability / strategy 组合）

@@ -13,6 +13,8 @@ const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
 
 const BOOT_FRAMES: int = 3
+const BUTTON_TEXT_EXTRA_PADDING: float = 6.0
+const ENGLISH_UI_FIT_TOLERANCE: float = 2.0
 
 var _failures: Array[String] = []
 var _original_exists: bool = false
@@ -183,6 +185,7 @@ func _expect_settings_panel_controls() -> void:
 		_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == "en", "locale option should write Settings.general.locale")
 		_expect(Localization.current_locale() == "en", "settings panel locale option should switch Localization")
 		_expect(title_label != null and String(title_label.text) == "Settings", "settings panel should refresh existing labels after locale switch")
+		_expect_english_buttons_fit(panel, "settings panel")
 
 	if pause_binding_option != null:
 		var p_index: int = _option_index(pause_binding_option, "P")
@@ -224,6 +227,7 @@ func _expect_settings_panel_controls() -> void:
 
 
 func _expect_menu_settings_entries() -> void:
+	Localization.set_locale("en")
 	var title_menu: CanvasLayer = TITLE_MENU_SCENE.instantiate() as CanvasLayer
 	title_menu.name = "TitleMenu"
 	add_child(title_menu)
@@ -238,6 +242,7 @@ func _expect_menu_settings_entries() -> void:
 	if title_settings_button != null:
 		title_settings_button.pressed.emit()
 	_expect(title_requested[0], "title settings button should emit settings_requested")
+	_expect_english_buttons_fit(title_menu, "title menu")
 	remove_child(title_menu)
 	title_menu.queue_free()
 
@@ -254,8 +259,10 @@ func _expect_menu_settings_entries() -> void:
 	if pause_settings_button != null:
 		pause_settings_button.pressed.emit()
 	_expect(pause_requested[0], "pause settings button should emit settings_requested without locking pause menu")
+	_expect_english_buttons_fit(pause_menu, "pause menu")
 	remove_child(pause_menu)
 	pause_menu.queue_free()
+	Localization.set_locale("zh_CN")
 
 
 func _expect_runtime_locale_refresh() -> void:
@@ -333,6 +340,7 @@ func _expect_level_up_locale_refresh() -> void:
 		choice_button = button_box.get_child(0) as Button
 	_expect(title_label != null and String(title_label.text) == "Choose Upgrade", "level-up panel title should refresh to en")
 	_expect(choice_button != null and String(choice_button.text).contains("Hardened Core"), "level-up choice should refresh to en")
+	_expect_english_buttons_fit(panel, "level-up panel")
 
 	remove_child(panel)
 	panel.queue_free()
@@ -383,6 +391,7 @@ func _expect_game_over_locale_refresh() -> void:
 	_expect(profile_label != null and String(profile_label.text).contains("Account Level Up"), "game-over profile should refresh to en")
 	_expect(restart_button != null and String(restart_button.text) == "Restart", "game-over restart button should refresh to en")
 	_expect(quit_button != null and String(quit_button.text) == "Back to Title", "game-over quit button should refresh to en")
+	_expect_english_buttons_fit(panel, "game-over panel")
 
 	remove_child(panel)
 	panel.queue_free()
@@ -404,6 +413,7 @@ func _expect_meta_progression_locale_refresh() -> void:
 	await get_tree().process_frame
 	_expect(title_label != null and String(title_label.text) == "Meta Upgrades", "meta progression title should refresh to en")
 	_expect(close_button != null and String(close_button.text) == "Cancel", "meta progression close button should refresh to en")
+	_expect_english_buttons_fit(panel, "meta progression panel")
 
 	remove_child(panel)
 	panel.queue_free()
@@ -444,6 +454,84 @@ func _action_has_key(action_id: String, keycode: Key) -> bool:
 		if key_event != null and key_event.keycode == keycode:
 			return true
 	return false
+
+
+func _expect_english_buttons_fit(root: Node, context: String) -> void:
+	if Localization.current_locale() != "en":
+		_expect(false, "%s english button fit check should run under en locale" % context)
+		return
+
+	var buttons: Array[Button] = []
+	_collect_visible_buttons(root, buttons)
+	for button: Button in buttons:
+		var text: String = _button_display_text(button)
+		if text.is_empty():
+			continue
+		var fit: Dictionary = _button_text_fit(button, text)
+		if bool(fit.get("skipped", false)):
+			continue
+		_expect(
+			bool(fit["fits"]),
+			"%s button '%s' english text should fit: '%s' width=%.1f available=%.1f measured=%.1f" % [
+				context,
+				String(button.name),
+				text,
+				float(fit["width"]),
+				float(fit["available"]),
+				float(fit["measured"]),
+			]
+		)
+
+
+func _collect_visible_buttons(root: Node, buttons: Array[Button]) -> void:
+	if root == null:
+		return
+	if root is Button:
+		var button: Button = root as Button
+		if button.is_visible_in_tree():
+			buttons.append(button)
+	for child: Node in root.get_children():
+		_collect_visible_buttons(child, buttons)
+
+
+func _button_display_text(button: Button) -> String:
+	var option_button: OptionButton = button as OptionButton
+	if option_button != null and option_button.selected >= 0:
+		return String(option_button.get_item_text(option_button.selected))
+	return String(button.text)
+
+
+func _button_text_fit(button: Button, text: String) -> Dictionary:
+	var font: Font = button.get_theme_font("font")
+	var font_size: int = button.get_theme_font_size("font_size")
+	if font == null or font_size <= 0 or button.size.x <= 0.0:
+		return {"skipped": true}
+
+	var style_minimum: Vector2 = Vector2.ZERO
+	var stylebox: StyleBox = button.get_theme_stylebox("normal")
+	if stylebox != null:
+		style_minimum = stylebox.get_minimum_size()
+
+	var icon_width: float = 0.0
+	if button.icon != null:
+		icon_width = float(button.icon.get_width() + button.get_theme_constant("h_separation"))
+
+	var available_width: float = button.size.x - style_minimum.x - icon_width - BUTTON_TEXT_EXTRA_PADDING
+	var measured_width: float = _max_line_width(font, font_size, text)
+	return {
+		"available": available_width,
+		"fits": measured_width <= available_width + ENGLISH_UI_FIT_TOLERANCE,
+		"measured": measured_width,
+		"width": button.size.x,
+	}
+
+
+func _max_line_width(font: Font, font_size: int, text: String) -> float:
+	var max_width: float = 0.0
+	for line: String in text.split("\n"):
+		var line_width: float = font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+		max_width = max(max_width, line_width)
+	return max_width
 
 
 func _capture_original_config() -> void:

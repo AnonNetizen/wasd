@@ -220,12 +220,12 @@
       "status": "active",
       "owner_scope": "localization",
       "last_reviewed": "2026-06-15",
-      "canonical_for": ["locale_config_manual", "strings_csv", "translation_workflow", "placeholder_rules"],
-      "must_read_for": ["new_player_text", "new_language", "locale_key_change", "placeholder_rule_change"],
+      "canonical_for": ["locale_config_manual", "strings_csv", "translation_workflow", "placeholder_rules", "english_ui_sizing_baseline"],
+      "must_read_for": ["new_player_text", "new_language", "locale_key_change", "placeholder_rule_change", "ui_text_or_layout_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/AI导航.md", "client/data/README.md"],
       "related_code": ["client/locale/", "tools/validate_data.py"],
-      "update_triggers": ["new locale key domain", "new language column", "placeholder convention change", "strings.csv format change", "translation workflow change"],
-      "keywords": ["locale", "localization", "strings.csv", "文案", "多语言", "翻译", "AI自动翻译", "zh_CN", "en", "占位符", "meta_", "weapon_", "局外成长文案", "validate_data"]
+      "update_triggers": ["new locale key domain", "new language column", "placeholder convention change", "strings.csv format change", "translation workflow change", "UI localization sizing rule change"],
+      "keywords": ["locale", "localization", "strings.csv", "文案", "多语言", "翻译", "AI自动翻译", "zh_CN", "en", "English UI sizing", "英文长度基准", "UI适配", "按钮宽度", "占位符", "meta_", "weapon_", "局外成长文案", "validate_data"]
     },
     {
       "path": "docs/测试策略.md",
@@ -477,7 +477,7 @@
       "related_docs": ["docs/正式项目工作规划.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/settings.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "client/locale/README.md", "docs/词表与契约.md", "docs/AI协作/上下文预算.md", "docs/AI记忆/current_state.json"],
       "related_code": ["client/scripts/autoload/settings.gd", "client/scripts/autoload/localization.gd", "client/scripts/autoload/ui_manager.gd", "client/scenes/ui/", "client/scripts/ui/", "client/locale/strings.csv", "client/tools/", "tools/godot_bridge.py"],
       "update_triggers": ["F7 settings scope changes", "settings persistence acceptance command changes", "runtime localization behavior changes", "UIManager stack behavior changes", "input rebinding scope changes"],
-      "keywords": ["F7", "Settings", "Localization", "UIManager", "设置", "本地化", "语言切换", "UI栈", "settings.cfg", "InputMap", "input rebinding", "焦点", "runtime locale"]
+      "keywords": ["F7", "Settings", "Localization", "UIManager", "设置", "本地化", "语言切换", "UI栈", "settings.cfg", "InputMap", "input rebinding", "焦点", "runtime locale", "English UI sizing", "英文长度基准"]
     },
     {
       "path": "docs/AI协作/工作包/F8-ReplayTestingBalance.md",
@@ -925,7 +925,7 @@
       "related_docs": ["client/locale/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/settings.md"],
       "related_code": ["client/scripts/autoload/localization.gd", "client/locale/strings.csv", "client/scripts/autoload/settings.gd"],
       "update_triggers": ["supported locale changes", "translation lookup changes", "Settings locale linkage changes"],
-      "keywords": ["Localization", "autoload", "locale", "zh_CN", "en", "tr_key", "TranslationServer"]
+      "keywords": ["Localization", "autoload", "locale", "zh_CN", "en", "tr_key", "TranslationServer", "English UI sizing", "英文长度基准"]
     },
     {
       "path": "docs/代码/pool_manager.md",
@@ -991,11 +991,11 @@
       "owner_scope": "code-docs",
       "last_reviewed": "2026-06-16",
       "canonical_for": ["ui_manager", "ui_stack", "pause_ui"],
-      "must_read_for": ["ui_stack_change", "new_ui_modal", "pause_menu_change"],
+      "must_read_for": ["ui_stack_change", "new_ui_modal", "pause_menu_change", "ui_text_or_layout_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/game_state.md", "docs/代码/settings.md", "docs/代码/localization.md"],
       "related_code": ["client/scripts/autoload/ui_manager.gd", "client/scripts/autoload/game_state.gd"],
-      "update_triggers": ["UIManager API changes", "UI metadata changes", "pause linkage changes", "UI stack behavior changes"],
-      "keywords": ["UIManager", "autoload", "UI stack", "push", "pop", "pauses_game", "CanvasLayer"]
+      "update_triggers": ["UIManager API changes", "UI metadata changes", "pause linkage changes", "UI stack behavior changes", "UI localization sizing rule change"],
+      "keywords": ["UIManager", "autoload", "UI stack", "push", "pop", "pauses_game", "CanvasLayer", "English UI sizing", "英文长度基准", "按钮宽度"]
     }
   ]
 }
