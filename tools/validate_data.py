@@ -29,6 +29,7 @@ CREDITS_JSON = ROOT / "client" / "data" / "credits.json"
 GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
 GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
 GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
+MAP_LAYOUTS_JSON = ROOT / "client" / "data" / "map_layouts.json"
 PLACEHOLDER_RE = re.compile(r"\{[a-z0-9_]+\}")
 LOCALE_KEY_RE = re.compile(r"^[a-z0-9_]+$")
 HTML_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")
@@ -90,6 +91,7 @@ def main() -> int:
     _validate_growth_pools(ctx)
     _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids)
     game_mode_ids = _collect_game_mode_ids(ctx)
+    _validate_map_layouts(ctx, hazard_ids, game_mode_ids)
     _validate_spawn_waves_csv(ctx, enemy_ids, hazard_ids, game_mode_ids)
 
     if ctx.errors:
@@ -1021,6 +1023,85 @@ def _validate_game_modes(
             _validate_mode_blocklists(ctx, path, f"{mode_field}.blocklists", mode.get("blocklists"))
         if "overrides" in mode:
             _validate_mode_overrides(ctx, path, f"{mode_field}.overrides", mode.get("overrides"))
+
+
+def _validate_map_layouts(ctx: ValidationContext, hazard_ids: set[str], game_mode_ids: set[str]) -> None:
+    path = MAP_LAYOUTS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    layouts = _require_list(ctx, path, "layouts", data.get("layouts"))
+    if not layouts:
+        ctx.error(path, "layouts", "must be a non-empty array")
+    seen_layouts: set[str] = set()
+    for layout_index, layout in enumerate(layouts):
+        layout_field = f"layouts[{layout_index}]"
+        if not isinstance(layout, dict):
+            ctx.error(path, layout_field, "must be an object")
+            continue
+        layout_id = _require_non_empty_string(ctx, path, f"{layout_field}.id", layout.get("id"))
+        if layout_id:
+            if layout_id in seen_layouts:
+                ctx.error(path, f"{layout_field}.id", f"duplicate map layout id {layout_id}")
+            seen_layouts.add(layout_id)
+        mode_id = _require_registered(ctx, path, f"{layout_field}.mode_id", layout.get("mode_id"), "game_modes")
+        if mode_id and mode_id not in game_mode_ids:
+            ctx.error(path, f"{layout_field}.mode_id", f"mode is not defined in game_modes.json: {mode_id}")
+        _validate_map_bounds(ctx, path, f"{layout_field}.bounds", layout.get("bounds"))
+        _validate_map_point(ctx, path, f"{layout_field}.player_start", layout.get("player_start"))
+        _require_number(ctx, path, f"{layout_field}.safe_radius", layout.get("safe_radius"), minimum=0)
+        _require_number(ctx, path, f"{layout_field}.enemy_spawn_margin", layout.get("enemy_spawn_margin"), minimum=0)
+        _validate_map_pcg(ctx, path, f"{layout_field}.pcg", layout.get("pcg", {}), hazard_ids)
+        _validate_map_manual_hazards(ctx, path, f"{layout_field}.manual_hazards", layout.get("manual_hazards", []), hazard_ids)
+
+
+def _validate_map_bounds(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    _require_number(ctx, path, f"{field}.width", data.get("width"), minimum=0, exclusive_minimum=True)
+    _require_number(ctx, path, f"{field}.height", data.get("height"), minimum=0, exclusive_minimum=True)
+
+
+def _validate_map_point(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    _require_number(ctx, path, f"{field}.x", data.get("x"))
+    _require_number(ctx, path, f"{field}.y", data.get("y"))
+
+
+def _validate_map_pcg(ctx: ValidationContext, path: Path, field: str, data: Any, hazard_ids: set[str]) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    hazards = _require_list(ctx, path, f"{field}.hazards", data.get("hazards", []))
+    for index, hazard in enumerate(hazards):
+        item_field = f"{field}.hazards[{index}]"
+        if not isinstance(hazard, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        hazard_id = _require_non_empty_string(ctx, path, f"{item_field}.id", hazard.get("id"))
+        if hazard_id and hazard_id not in hazard_ids:
+            ctx.error(path, f"{item_field}.id", f"hazard is not defined in hazards.csv: {hazard_id}")
+        _require_int(ctx, path, f"{item_field}.count", hazard.get("count"), minimum=0)
+        _require_number(ctx, path, f"{item_field}.min_distance_from_player", hazard.get("min_distance_from_player"), minimum=0)
+        _require_number(ctx, path, f"{item_field}.min_spacing", hazard.get("min_spacing"), minimum=0)
+
+
+def _validate_map_manual_hazards(ctx: ValidationContext, path: Path, field: str, data: Any, hazard_ids: set[str]) -> None:
+    hazards = _require_list(ctx, path, field, data)
+    for index, hazard in enumerate(hazards):
+        item_field = f"{field}[{index}]"
+        if not isinstance(hazard, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        hazard_id = _require_non_empty_string(ctx, path, f"{item_field}.id", hazard.get("id"))
+        if hazard_id and hazard_id not in hazard_ids:
+            ctx.error(path, f"{item_field}.id", f"hazard is not defined in hazards.csv: {hazard_id}")
+        _require_number(ctx, path, f"{item_field}.x", hazard.get("x"))
+        _require_number(ctx, path, f"{item_field}.y", hazard.get("y"))
 
 
 def _validate_mode_teams(ctx: ValidationContext, path: Path, mode_field: str, data: Any) -> set[str]:

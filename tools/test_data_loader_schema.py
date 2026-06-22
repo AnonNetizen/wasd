@@ -234,6 +234,22 @@ def main() -> int:
             ],
         ),
         (
+            "map layout mode reference must exist",
+            _mutate_json("client/data/map_layouts.json", _set_map_layout_mode("mode_unregistered")),
+            [
+                "client/data/map_layouts.json:layouts[0].mode_id",
+                "unknown id mode_unregistered; expected one of game_modes",
+            ],
+        ),
+        (
+            "map layout hazard reference must exist",
+            _mutate_json("client/data/map_layouts.json", _set_map_layout_pcg_hazard("hazard_missing")),
+            [
+                "client/data/map_layouts.json:layouts[0].pcg.hazards[0].id",
+                "hazard is not defined in hazards.csv: hazard_missing",
+            ],
+        ),
+        (
             "spawn wave enemy reference must exist",
             _mutate_csv("client/data/spawn_waves.csv", _set_spawn_wave_enemy("enemy_missing")),
             [
@@ -666,6 +682,20 @@ def _set_hazard_damage_type(value: str) -> CsvMutator:
 def _set_mode_hazard(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["resource_pools"]["hazards"][0]["id"] = value
+
+    return mutate
+
+
+def _set_map_layout_mode(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["layouts"][0]["mode_id"] = value
+
+    return mutate
+
+
+def _set_map_layout_pcg_hazard(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["layouts"][0]["pcg"]["hazards"][0]["id"] = value
 
     return mutate
 

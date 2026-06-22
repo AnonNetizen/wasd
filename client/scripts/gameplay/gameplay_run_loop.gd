@@ -14,6 +14,7 @@ const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
 const DAMAGE_NUMBER_SCENE := preload("res://scenes/gameplay/damage_number.tscn")
 const GAME_MODES := preload("res://scripts/contracts/game_modes.gd")
+const HAZARD_SCENE := preload("res://scenes/gameplay/hazard.tscn")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const BULLET_SCENE := preload("res://scenes/gameplay/bullet.tscn")
 const ENEMY_SCENE := preload("res://scenes/gameplay/enemy.tscn")
@@ -31,8 +32,10 @@ const STATS := preload("res://scripts/contracts/stats.gd")
 const BULLET_POOL_SIZE: int = 192
 const ENEMY_POOL_SIZE: int = 96
 const FEEDBACK_POOL_SIZE: int = 128
+const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 1
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 2
+const ACTIVE_POOL_GROUPS: Array[String] = ["active_hazards", "active_enemies", "active_bullets", "active_pickups"]
 const UI_RESTORE_LEVEL_UP: String = "level_up"
 const UI_RESTORE_PAUSED: String = "paused"
 const UI_RESTORE_PLAYING: String = "playing"
@@ -46,6 +49,7 @@ var _enemy_rows: Dictionary = {}
 var _growth_curve: Array[Dictionary] = []
 var _growth_entries: Array[Dictionary] = []
 var _game_over_panel: CanvasLayer = null
+var _hazard_rows: Dictionary = {}
 var _hud: CanvasLayer = null
 var _kills: int = 0
 var _level_panel: CanvasLayer = null
@@ -54,6 +58,8 @@ var _pending_level_up_choices: Array[Dictionary] = []
 var _pending_restore_snapshot: Dictionary = {}
 var _pause_menu: CanvasLayer = null
 var _player: CharacterBody2D = null
+var _map_layout: Dictionary = {}
+var _map_manager: Node2D = null
 var _settings_panel: CanvasLayer = null
 var _skill_system: Node = null
 var _spawn_states: Dictionary = {}
@@ -67,6 +73,7 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	_release_active_world_pool_entities()
 	if Combat.damage_applied.is_connected(_on_combat_damage_applied):
 		Combat.damage_applied.disconnect(_on_combat_damage_applied)
 
@@ -103,10 +110,12 @@ func create_run_snapshot() -> Dictionary:
 		"kills": _kills,
 		"game_clock": GameClock.snapshot(),
 		"rng": RNG.snapshot(),
+		"map": _map_manager.call("snapshot") if _map_manager != null and _map_manager.has_method("snapshot") else {},
 		"spawn_states": _spawn_states.duplicate(true),
 		"player": _player.call("snapshot") if _player != null and _player.has_method("snapshot") else {},
 		"weapon": _weapon_system.call("snapshot") if _weapon_system != null and _weapon_system.has_method("snapshot") else {},
 		"skills": _skill_system.call("snapshot") if _skill_system != null and _skill_system.has_method("snapshot") else {},
+		"hazards": _entity_snapshots("active_hazards"),
 		"enemies": _entity_snapshots("active_enemies"),
 		"bullets": _entity_snapshots("active_bullets"),
 		"pickups": _entity_snapshots("active_pickups"),
@@ -119,18 +128,21 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	PoolManager.clear_pool(POOL_IDS.BULLET_BASIC)
 	PoolManager.clear_pool(POOL_IDS.ENEMY_CHASER)
 	PoolManager.clear_pool(POOL_IDS.ENEMY_SWARM)
+	PoolManager.clear_pool(POOL_IDS.HAZARD_SPIKE)
 	PoolManager.clear_pool(POOL_IDS.HIT_SPARK)
 	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
 	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
 	PoolManager.register_pool(POOL_IDS.BULLET_BASIC, _create_bullet_node, BULLET_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.ENEMY_CHASER, _create_enemy_node, ENEMY_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.ENEMY_SWARM, _create_enemy_node, ENEMY_POOL_SIZE)
+	PoolManager.register_pool(POOL_IDS.HAZARD_SPIKE, _create_hazard_node, HAZARD_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.HIT_SPARK, _create_hit_spark_node, FEEDBACK_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.DAMAGE_NUMBER, _create_damage_number_node, FEEDBACK_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.PICKUP_ORB, _create_pickup_orb_node, PICKUP_POOL_SIZE)
 	PoolManager.prewarm(POOL_IDS.BULLET_BASIC, 24)
 	PoolManager.prewarm(POOL_IDS.ENEMY_CHASER, 12)
 	PoolManager.prewarm(POOL_IDS.ENEMY_SWARM, 8)
+	PoolManager.prewarm(POOL_IDS.HAZARD_SPIKE, 8)
 	PoolManager.prewarm(POOL_IDS.HIT_SPARK, 16)
 	PoolManager.prewarm(POOL_IDS.DAMAGE_NUMBER, 16)
 	PoolManager.prewarm(POOL_IDS.PICKUP_ORB, 16)
@@ -141,6 +153,10 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	if _active_world == null:
 		push_error("[GameplayRunLoop] missing ActiveWorld scene node")
 		return
+	_map_manager = _active_world.get_node_or_null("MapManager") as Node2D
+	if _map_manager == null:
+		push_error("[GameplayRunLoop] missing MapManager scene node")
+		return
 
 	var mode: Dictionary = _find_item(_load_array(DataLoader.GAME_MODES_PATH, "modes"), GAME_MODES.MODE_STANDARD_SURVIVAL)
 	var character: Dictionary = _find_item(_load_array(DataLoader.CHARACTERS_PATH, "characters"), CHARACTER_IDS.CHARACTER_DEFAULT)
@@ -149,6 +165,8 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	var weapon: Dictionary = _find_item(_load_array(DataLoader.WEAPONS_PATH, "weapons"), String(loadout.get("weapon_id", "")))
 
 	_enemy_rows = _load_enemy_rows(_load_enemy_ai_profiles())
+	_hazard_rows = _load_hazard_rows()
+	_map_layout = _load_map_layout(GAME_MODES.MODE_STANDARD_SURVIVAL)
 	_growth_curve = _load_growth_curve()
 	_growth_entries = _load_growth_entries(mode)
 	_waves = _load_waves(GAME_MODES.MODE_STANDARD_SURVIVAL)
@@ -164,6 +182,11 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		return
 	_player.global_position = Vector2.ZERO
 	_player.call("configure", player_stats)
+	_map_manager.call("configure", _map_layout, _hazard_rows)
+	var map_player_start: Vector2 = _map_manager.call("player_start")
+	_player.global_position = map_player_start
+	if _player.has_method("set_movement_bounds"):
+		_player.call("set_movement_bounds", _map_manager.call("bounds"))
 	_player.connect("life_changed", Callable(self, "_on_player_life_changed"))
 	_player.connect("died", Callable(self, "_on_player_died"), CONNECT_ONE_SHOT)
 
@@ -198,6 +221,9 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	if not restore_snapshot.is_empty():
 		_restore_run_snapshot(restore_snapshot)
 		_restore_ui_state(restore_snapshot.get("ui_restore", {}))
+	else:
+		var hazard_placements: Array[Dictionary] = _map_manager.call("generate_hazard_placements", _map_layout)
+		_spawn_map_hazards(hazard_placements)
 
 
 func _create_bullet_node() -> Node:
@@ -206,6 +232,10 @@ func _create_bullet_node() -> Node:
 
 func _create_enemy_node() -> Node:
 	return ENEMY_SCENE.instantiate()
+
+
+func _create_hazard_node() -> Node:
+	return HAZARD_SCENE.instantiate()
 
 
 func _create_hit_spark_node() -> Node:
@@ -262,6 +292,8 @@ func debug_summary() -> Dictionary:
 		"player_life": float(_player.call("current_life")) if _player != null and _player.has_method("current_life") else 0.0,
 		"player_max_life": float(_player.call("max_life")) if _player != null and _player.has_method("max_life") else 0.0,
 		"active_enemies": _active_enemy_count(),
+		"active_hazards": PoolManager.active_count(POOL_IDS.HAZARD_SPIKE),
+		"map": _map_manager.call("debug_summary") if _map_manager != null and _map_manager.has_method("debug_summary") else {},
 		"skills": _skill_system.call("debug_summary") if _skill_system != null and _skill_system.has_method("debug_summary") else {},
 	}
 
@@ -430,7 +462,32 @@ func _spawn_enemy(wave: Dictionary, wave_key: String) -> bool:
 	return true
 
 
+func _spawn_map_hazards(placements: Array[Dictionary]) -> void:
+	for placement: Dictionary in placements:
+		_spawn_hazard(placement)
+
+
+func _spawn_hazard(placement: Dictionary) -> Node2D:
+	var hazard_id: String = String(placement.get("hazard_id", ""))
+	if not _hazard_rows.has(hazard_id):
+		return null
+	var hazard_data: Dictionary = _hazard_rows[hazard_id]
+	var pool_id: String = String(hazard_data.get("pool_id", ""))
+	var raw_node: Node = PoolManager.acquire(pool_id)
+	if not raw_node is Node2D or not raw_node.has_method("configure"):
+		return null
+
+	var hazard: Node2D = raw_node as Node2D
+	hazard.global_position = _dict_to_vector(placement.get("position", {}), Vector2.ZERO)
+	_reparent_to_active_world(hazard)
+	hazard.call("configure", hazard_data, _player)
+	return hazard
+
+
 func _spawn_position() -> Vector2:
+	if _map_manager != null and _map_manager.has_method("spawn_position"):
+		var map_spawn_position: Vector2 = _map_manager.call("spawn_position", _player.global_position, get_viewport_rect().size)
+		return map_spawn_position
 	var viewport_size: Vector2 = get_viewport_rect().size
 	var radius: float = maxf(viewport_size.x, viewport_size.y) * 0.55
 	var angle: float = RNG.spawn.randf_range(0.0, TAU)
@@ -444,6 +501,21 @@ func _reparent_to_active_world(node: Node) -> void:
 	if old_parent != null:
 		old_parent.remove_child(node)
 	_active_world.add_child(node)
+
+
+func _release_active_world_pool_entities() -> void:
+	if _active_world == null or not is_instance_valid(_active_world):
+		return
+	_release_pool_entities_under(_active_world)
+
+
+func _release_pool_entities_under(root_node: Node) -> void:
+	for child: Node in root_node.get_children():
+		_release_pool_entities_under(child)
+	for group_name: String in ACTIVE_POOL_GROUPS:
+		if root_node.is_in_group(group_name):
+			PoolManager.release(root_node)
+			return
 
 
 func _on_enemy_defeated(_enemy: Node, _exp_reward: int, wave_key: String) -> void:
@@ -740,6 +812,12 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> void:
 	if rng_snapshot is Dictionary:
 		RNG.restore_snapshot(rng_snapshot as Dictionary)
 
+	var map_snapshot: Variant = snapshot_data.get("map", {})
+	if _map_manager != null and _map_manager.has_method("restore_snapshot") and map_snapshot is Dictionary:
+		_map_manager.call("restore_snapshot", map_snapshot as Dictionary)
+	if _player != null and _player.has_method("set_movement_bounds") and _map_manager != null and _map_manager.has_method("bounds"):
+		_player.call("set_movement_bounds", _map_manager.call("bounds"))
+
 	if _player != null and _player.has_method("restore_snapshot") and snapshot_data.get("player", {}) is Dictionary:
 		_player.call("restore_snapshot", snapshot_data.get("player", {}) as Dictionary)
 	if _weapon_system != null and _weapon_system.has_method("restore_snapshot") and snapshot_data.get("weapon", {}) is Dictionary:
@@ -747,6 +825,12 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> void:
 	if _skill_system != null and _skill_system.has_method("restore_snapshot") and snapshot_data.get("skills", {}) is Dictionary:
 		_skill_system.call("restore_snapshot", snapshot_data.get("skills", {}) as Dictionary)
 
+	var hazard_snapshots: Array = _array_or_empty(snapshot_data.get("hazards", []))
+	if hazard_snapshots.is_empty() and _map_manager != null and _map_manager.has_method("generate_hazard_placements"):
+		var hazard_placements: Array[Dictionary] = _map_manager.call("generate_hazard_placements", _map_layout)
+		_spawn_map_hazards(hazard_placements)
+	else:
+		_restore_hazard_snapshots(hazard_snapshots)
 	_restore_enemy_snapshots(_array_or_empty(snapshot_data.get("enemies", [])))
 	_restore_bullet_snapshots(_array_or_empty(snapshot_data.get("bullets", [])))
 	_restore_pickup_snapshots(_array_or_empty(snapshot_data.get("pickups", [])))
@@ -788,6 +872,23 @@ func _typed_choice_array(raw_value: Variant) -> Array[Dictionary]:
 		if raw_choice is Dictionary:
 			typed_choices.append((raw_choice as Dictionary).duplicate(true))
 	return typed_choices
+
+
+func _restore_hazard_snapshots(hazard_snapshots: Array) -> void:
+	for raw_snapshot: Variant in hazard_snapshots:
+		if not raw_snapshot is Dictionary:
+			continue
+		var snapshot_data: Dictionary = raw_snapshot as Dictionary
+		var hazard_id: String = String(snapshot_data.get("hazard_id", ""))
+		if not _hazard_rows.has(hazard_id):
+			continue
+		var placement: Dictionary = {
+			"hazard_id": hazard_id,
+			"position": snapshot_data.get("position", {}),
+		}
+		var hazard: Node2D = _spawn_hazard(placement)
+		if hazard != null and hazard.has_method("restore_snapshot"):
+			hazard.call("restore_snapshot", snapshot_data)
 
 
 func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
@@ -853,6 +954,13 @@ func _array_or_empty(raw_value: Variant) -> Array:
 	if raw_value is Array:
 		return (raw_value as Array).duplicate(true)
 	return []
+
+
+func _dict_to_vector(raw_value: Variant, fallback: Vector2) -> Vector2:
+	if not raw_value is Dictionary:
+		return fallback
+	var value: Dictionary = raw_value as Dictionary
+	return Vector2(float(value.get("x", fallback.x)), float(value.get("y", fallback.y)))
 
 
 func _typed_dictionary_array(raw_value: Variant) -> Array[Dictionary]:
@@ -959,6 +1067,25 @@ func _load_enemy_rows(ai_profiles: Dictionary) -> Dictionary:
 	return result
 
 
+func _load_hazard_rows() -> Dictionary:
+	var result: Dictionary = {}
+	for row: Dictionary in DataLoader.load_csv(DataLoader.HAZARDS_PATH):
+		var requested_id: String = String(row.get("id", ""))
+		if requested_id.is_empty():
+			continue
+		result[requested_id] = {
+			"id": requested_id,
+			"tags": _parse_tag_list(row.get("tags")),
+			"pool_id": String(row.get("pool_id", "")),
+			"damage": String(row.get("damage", "0")).to_int(),
+			"damage_type": String(row.get("damage_type", "")),
+			"trigger_interval": String(row.get("trigger_interval", "1.0")).to_float(),
+			"radius": String(row.get("radius", "1.0")).to_float(),
+			"duration": String(row.get("duration", "0.0")).to_float(),
+		}
+	return result
+
+
 func _parse_tag_list(raw_value: Variant) -> Array[String]:
 	var tags: Array[String] = []
 	for raw_tag: String in String(raw_value).split("|", false):
@@ -966,6 +1093,22 @@ func _parse_tag_list(raw_value: Variant) -> Array[String]:
 		if not tag.is_empty():
 			tags.append(tag)
 	return tags
+
+
+func _load_map_layout(mode_id: String) -> Dictionary:
+	var data: Variant = DataLoader.load_json(DataLoader.MAP_LAYOUTS_PATH)
+	if not data is Dictionary:
+		return {}
+	var raw_layouts: Variant = (data as Dictionary).get("layouts", [])
+	if not raw_layouts is Array:
+		return {}
+	for raw_layout: Variant in raw_layouts as Array:
+		if not raw_layout is Dictionary:
+			continue
+		var layout: Dictionary = raw_layout as Dictionary
+		if String(layout.get("mode_id", "")) == mode_id:
+			return layout.duplicate(true)
+	return {}
 
 
 func _load_waves(target_mode: String) -> Array[Dictionary]:

@@ -15,6 +15,7 @@ var _delta_samples: Array[float] = []
 var _entity_peak_counts: Dictionary = {
 	"active_bullets": 0,
 	"active_enemies": 0,
+	"active_hazards": 0,
 	"active_pickups": 0,
 }
 var _failures: Array[String] = []
@@ -93,6 +94,7 @@ func _reset_samples() -> void:
 	_entity_peak_counts = {
 		"active_bullets": 0,
 		"active_enemies": 0,
+		"active_hazards": 0,
 		"active_pickups": 0,
 	}
 	for pool_id: String in _pool_ids():
@@ -154,6 +156,7 @@ func _active_counts(snapshot: Dictionary) -> Dictionary:
 	return {
 		"active_bullets": _array_size(snapshot.get("bullets", [])),
 		"active_enemies": _array_size(snapshot.get("enemies", [])),
+		"active_hazards": _array_size(snapshot.get("hazards", [])),
 		"active_pickups": _array_size(snapshot.get("pickups", [])),
 	}
 
@@ -170,6 +173,7 @@ func _pool_ids() -> Array[String]:
 		POOL_IDS.BULLET_BASIC,
 		POOL_IDS.ENEMY_CHASER,
 		POOL_IDS.ENEMY_SWARM,
+		POOL_IDS.HAZARD_SPIKE,
 		POOL_IDS.PICKUP_ORB,
 	]
 

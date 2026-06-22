@@ -61,7 +61,7 @@
 | `client/scenes/boot/main.tscn` | F1 最小启动场景，详见 `docs/代码/formal_client_boot.md` |
 | `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `AudioManager` / `Localization` / `UIManager` |
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口与 `DamageInfo` |
-| `client/scripts/gameplay/` | F4/F5/F9 阶段脚本：`gameplay_run_loop` / `world_background` / `player` / `weapon_system` / `skill_system` / `bullet` / `enemy` / `pickup_orb` / `level_up_panel` / `gameplay_hud`，当前还承载 F5 首片 run 快照生产 / 恢复 |
+| `client/scripts/gameplay/` | F4/F5/F9 阶段脚本：`gameplay_run_loop` / `world_background` / `map_manager` / `player` / `weapon_system` / `skill_system` / `bullet` / `enemy` / `hazard` / `pickup_orb` / `level_up_panel` / `gameplay_hud`，当前还承载 F5+ run 快照生产 / 恢复 |
 | `client/scripts/ui/` | 阶段性 UI：`title_menu` / `pause_menu` / `game_over_panel` / `meta_progression_panel` |
 | `client/scripts/debug/` | debug/dev_tools 专用 `DebugConsole` 与 `GMCommandRegistry`；正式 release 不应加载或导出 |
 | `client/tools/` | Godot 项目内 headless smoke 脚本；当前含 gameplay runtime、MetaProgression、SaveManager、Settings、Replay、RNG、perf 和 DebugTools smoke |
@@ -120,7 +120,8 @@
 | **加一个角色** | 在 `client/data/characters.json` 加一条：基础属性 / tags / capabilities / 控制配置 / `starting_loadout`；角色 id 先登记词表 §12.1，文案用 `character_*` key；起始武器 / 主动道具 / 消耗品必须存在于对应数据文件；新 capability 先登记词表 §12 再实现 |
 | **加 / 改武器** | 在 `client/data/weapons.json` 加一条：武器基础属性、子弹池、伤害类型、命中半径和音频 id；文案用 `weapon_*` key；`pool_id` / `damage_type` / `audio_id` 前缀必须来自词表，不实现 WeaponSystem 运行时 |
 | **加 / 改技能** | 在 `client/data/skills.json` 加技能定义：`costs`、`targeting`、`effects`、冷却和 `skill_*` 文案；角色只在 `characters.json.starting_loadout.skill_ids` 引用技能并声明 `skill_resources`，模式池走 `game_modes.resource_pools.skills`；新资源、目标类型或效果原语先登记词表 §12-C~12-F，再扩展 `docs/代码/skill_system.md` |
-| **加 / 改机关** | 在 `client/data/hazards.csv` 加一行：伤害、伤害类型、触发间隔、范围、持续时间和 `hazard_*_name` 文案；`tag_hazard`、`pool_id`、`damage_type` 必须来自词表，不实现 HazardSystem 运行时 |
+| **加 / 改机关** | 在 `client/data/hazards.csv` 加一行：伤害、伤害类型、触发间隔、范围、持续时间和 `hazard_*_name` 文案；`tag_hazard`、`pool_id`、`damage_type` 必须来自词表；初始摆放改 `client/data/map_layouts.json`，普通范围机关复用 `docs/代码/hazard_system.md` 的通用 `Hazard` 运行时 |
+| **改地图边界 / PCG / 人工摆点** | 查 `docs/代码/map_manager.md`；地图尺寸、玩家出生点、安全半径、刷怪边距、PCG 机关数量 / 间距和人工固定摆点都改 `client/data/map_layouts.json`；PCG 用 `RNG.world`，刷怪位置仍用 `RNG.spawn`；改完跑 `validate_data`、`runtime-smoke`，机关相关追加 `f9-demo-smoke` |
 | **加 / 改刷怪波次** | 在 `client/data/spawn_waves.csv` 加一行：模式 id、时间窗、敌人 id / 权重、刷怪间隔、同时存活上限、预算和可选机关权重；敌人 / 机关 / 模式引用必须存在，不实现 Spawner 运行时 |
 | **加一个遗物/道具** | 在 `client/data/relics.json` 加一条，用 `modifiers` + `behaviors` 描述；文案用 `relic_*` key；**只用 `docs/词表与契约.md` 已登记的 effect / event / stat / tag**，新原语先登记再实现，不实现遗物运行时 |
 | **加 / 改主动道具** | 在 `client/data/active_items.json` 加一条：`charge` 声明冷却 / 充能，`use_effects` 引用已登记 effect，文案用 `item_*` key；模式引用走 `game_modes.resource_pools.active_items`，不实现主动道具栏 / 冷却 / 使用效果运行时 |
@@ -144,7 +145,7 @@
 | **校验项目规则** | 跑 `python tools/lint_project_rules.py`；当前第二档覆盖数据字段手册登记、locale `zh_CN` / `en` 双语和 release preset debug/dev_tools 禁入 |
 | **校验语义风险** | 跑 `python tools/lint_semantic_rules.py`；当前第三档默认非阻塞，提示特殊 id 分支、业务脚本绕过 autoload、缺类型签名、长期脚本缺 `# Doc:` 与未知 contract 常量；改语义 lint 时追加 `python tools/test_semantic_rules_lint.py` |
 | **本地提交前验证** | 已提供 `.pre-commit-config.yaml`；安装后跑 `pre-commit run --all-files` 或提交时自动跑 Stage 1 hook；未安装时按 `docs/AI协作/实时验证回路.md` 的等价命令 |
-| **查 Godot 场景树 / headless 启动** | 跑 `python tools/godot_bridge.py export-tree`、`python tools/godot_bridge.py headless-boot`、gameplay runtime 专用 `python tools/godot_bridge.py --project client runtime-smoke`、F7 设置 / 设置面板专用 `python tools/godot_bridge.py --project client settings-smoke`、F6 局外成长专用 `python tools/godot_bridge.py --project client meta-smoke`、SaveManager 专用 `python tools/godot_bridge.py --project client save-smoke`、DebugTools 专用 `python tools/godot_bridge.py --project client debug-tools-smoke` / `debug-tools-release-smoke`，以及 F8 `l1-smoke` / `replay-smoke` / `replay-runner` / `replay-runner --rerun-runtime-summary` / `replay-input-smoke` / `capture-golden-replay` / `rng-audit` / `perf-probe`；默认项目为正式 `client/` |
+| **查 Godot 场景树 / headless 启动** | 跑 `python tools/godot_bridge.py export-tree`、`python tools/godot_bridge.py headless-boot`、gameplay runtime 专用 `python tools/godot_bridge.py --project client runtime-smoke`、F9 Demo / 机关专用 `python tools/godot_bridge.py --project client f9-demo-smoke`、F7 设置 / 设置面板专用 `python tools/godot_bridge.py --project client settings-smoke`、F6 局外成长专用 `python tools/godot_bridge.py --project client meta-smoke`、SaveManager 专用 `python tools/godot_bridge.py --project client save-smoke`、DebugTools 专用 `python tools/godot_bridge.py --project client debug-tools-smoke` / `debug-tools-release-smoke`，以及 F8 `l1-smoke` / `replay-smoke` / `replay-runner` / `replay-runner --rerun-runtime-summary` / `replay-input-smoke` / `capture-golden-replay` / `rng-audit` / `perf-probe`；默认项目为正式 `client/` |
 | **用项目级 AI skill** | CodeBuddy / Codex / OpenCode / Claude 分别读取 `.codebuddy/skills/<name>/SKILL.md`、`.codex/skills/<name>/SKILL.md`、`.opencode/skills/<name>/SKILL.md`、`.claude/skills/<name>/SKILL.md`；当前覆盖 Godot 实现、场景验证、Godot 测试诊断、试玩复盘、文档同步、安全提交、事实 review、AI 资源筛选与协作面审计、MCP 评估；外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进项目 skill，不再保留 vendor 来源或 reference 跳转；资源筛选与安装清单见 `docs/AI协作/AI技能资源评估.md` |
 | **加一种子弹效果原语** | 先在 `词表与契约.md` 登记 `effect` id → 在效果原语层实现方法/Node → 数据中引用 |
 | **改数值（血/伤害/刷怪/掉落）** | 先读 `client/data/README.md`，只改 `res://data/` 对应 CSV / JSON，**绝不改代码常量**；平表数值优先 CSV，复杂配置优先 JSON；新增 / 改字段必须同步数值手册 |
@@ -163,7 +164,7 @@
 | **加新敌人/子弹/特效**（高频实体） | `PoolManager.acquire(pool_id)` / `release(node)`；新池 id 在词表 §8 登记；实现 `_pool_reset()`（见 GDD 9.13） |
 | **加伤害逻辑** | 走 `Combat.apply_damage(target, DamageInfo)`；`damage_type` 在词表 §9；保留 source / target / team / friendly_fire 模式规则边界；不 `target.hp -= n`（见 GDD 9.15.1） |
 | **加持续效果（DoT/控制/debuff）** | 用 `StatusEffect` Resource + `StatusEffectComponent.apply()`；id 在词表 §9-A；明确 `stack_rule`（见 GDD 9.15.2） |
-| **加存档/读档** | 走 `SaveManager.save/load`；必须支持 `meta` 局外成长和 `run` 暂停退出续局；schema 必带 `version` / `kind` / `slot` / `created_at` / `updated_at` / `game_version` / `data_hash`；写入用 `*.tmp` 原子替换、保留 `.bak`、坏档进 `.broken/`；F5 已把 run payload 接到暂停保存 / 标题继续，`ui_restore` 可恢复普通游玩、暂停菜单、升级选择面板和升级面板上方暂停菜单叠层，坏档续局失败会回标题提示重置，并新增 `save-smoke` 覆盖 run roundtrip、`.bak` 回退、双坏档隔离与 v1 -> v2 迁移；扩展字段时同步 `docs/代码/gameplay_runtime.md` 与 `docs/代码/save_manager.md`；save kind 先登记词表 §14；与 `Settings` 职责分开（见 GDD 9.16） |
+| **加存档/读档** | 走 `SaveManager.save/load`；必须支持 `meta` 局外成长和 `run` 暂停退出续局；schema 必带 `version` / `kind` / `slot` / `created_at` / `updated_at` / `game_version` / `data_hash`；写入用 `*.tmp` 原子替换、保留 `.bak`、坏档进 `.broken/`，payload 写入前会 JSON 归一化再算 hash；F5+ 已把 run payload 接到暂停保存 / 标题继续，`ui_restore` 可恢复普通游玩、暂停菜单、升级选择面板和升级面板上方暂停菜单叠层，run payload 当前包含地图 / 机关 / 玩家 / 敌人 / 子弹 / 掉落 / RNG / GameClock，坏档续局失败会回标题提示重置，并新增 `save-smoke` 覆盖 run roundtrip、`.bak` 回退、双坏档隔离、高精度浮点 hash 与 v1 -> v2 迁移；扩展字段时同步 `docs/代码/gameplay_runtime.md` 与 `docs/代码/save_manager.md`；save kind 先登记词表 §14；与 `Settings` 职责分开（见 GDD 9.16） |
 | **加音效/BGM** | `AudioManager.play_sfx/play_music`；id 在词表 §10；不直接 `AudioStreamPlayer.play()`（见 GDD 9.17） |
 | **执行 AI 高频任务** | 先查 `docs/AI协作/任务模板/`；任务不在模板里 → 按 `docs/AI协作/上下文预算.md` 决定读取范围 |
 | **评估 / 吸收外部 AI 工具仓库** | 先用 `ai-resource-curator`，读 `docs/AI协作/AI技能资源评估.md` 与 `docs/AI协作/上下文预算.md`；ECC 这类大仓按 `docs/AI协作/ECC工具吸收清单.md` 的 README / 全工具面清单 / 候选全文读取流程执行；默认不安装外部 hooks、MCP、CLI、dashboard、plugin 或 vendor tree |
@@ -185,7 +186,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`MetaProgressionSystem`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、gameplay runtime、TitleMenu / WorldBackground / Player / WeaponSystem / Bullet / Enemy / Spawner / PickupOrb / LevelUpPanel / HUD / GameOverPanel 的最小闭环；F5 已新增 `PauseMenu`、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、升级界面 Esc 叠出暂停菜单、坏档重置提示、run payload、`RNG.snapshot()` / `restore_snapshot()` 与 `GameClock.snapshot()` / `restore_snapshot()`，并用 `SaveManager` 的 `run` kind 保存 / 读取局内快照；F6 已新增 `MetaProgressionSystem`、死亡结算、`meta` profile roundtrip、标题 `MetaProgressionPanel` 局外升级入口、数据驱动伤害 / 射速等永久升级轨道和下一局永久 modifiers；F7 已落地设置持久化、只显示已接线设置的正式设置面板、核心 UI 运行时语言刷新、键盘主输入重绑定、输入绑定保存 / 共用键位反馈、一键恢复输入默认，以及 `UIManager` 栈顶 `ui_back` / 默认焦点首片。F8 已通过当前验收基线收口审计，包含临时 L1 runner、Replay `.replay` 文件 roundtrip、summary diff / 运行时摘要 runner、runner 输入播放首片、runtime event 播放首片、扩展稳定帧样本 diff、gameplay 输入录制首片、`client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay`、`client/tests/replays/golden_level_up_choice.replay`、`rng-audit` 跨子流相关性审计和 schema v2 perf / balance baseline；升级选择已记录 `level_up` decision，RNG 子流 seed 派生已升级为域隔离 SHA-256 mixer 以同时保护跨进程回放确定性与跨子流防相关性。F9 已新增 `ModLoader` 本地 mod 接口首片、`PlatformServices` 平台服务接口首片、可复用 `SkillSystem` 主动技能首片，以及 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`：SkillSystem 读取 `skills.json`，默认角色通过 `starting_loadout.skill_ids` 引用 `skill_whirlwind_slash`，并用 `skill_resources` 的 `mana` 支付 AOE 技能成本，技能效果仍走 `Combat`；ModLoader 扫描 `user://mods/<mod_id>/mod.json`，只接受声明式 JSON / CSV append patch 和少量动态契约扩展，暂不接创意工坊、不执行玩家脚本；PlatformServices Steam 优先预留成就、统计、富状态 / 状态显示、overlay、Lobby / 联机入口和用户身份，当前不接 Steamworks SDK、不联网，后续其他平台走 provider adapter；DebugTools 通过 F1 / 反引号打开控制台，当前命令覆盖 help/stats/spawn/xp/hp/damage/heal/meta/kill/clear/seed，release 路径由 runtime guard 与导出资源排除约束。当前 F9 入口是 `docs/AI协作/工作包/F9-ContentDemoPolish.md`，用于首批 Demo 内容切片、手感 / 可读性打磨、占位表现规范和手动 checklist；F8 的 `l1-smoke`、`replay-smoke`、`rng-audit`、四条 checked-in replay runner 和 `perf-probe` 是 F9 内容扩展的回归护栏。正式客户端默认 viewport 为 1920×1080，窗口禁止任意拖拽缩放并采用 `canvas_items + keep` 保比例黑边策略，GameplayHud / LevelUpPanel 已改为锚点与容器布局；GameplayHud 现在提供按住 `show_stats_panel` action（默认 Tab）的详细数值面板，显示期间不暂停；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，敌人中心已按 `enemies.csv.separation_radius` 做小范围排斥以避免完全重叠，玩家中心也通过 `player_separation_radius` 提供不可重叠区域并在碰到敌人分离圈时只推开敌人，经验球与升级三选一已接入 `growth.csv` / `growth_pools.json`，升级选择后有 HUD 获得反馈，`enemies.csv.visual_color` 支持数据化敌人占位色；敌人生态 AI 首片已接入 `enemy_ai_profiles.json`、`enemies.csv.ai_profile_id`、`tag_enemy_prey` / `tag_enemy_predator` / `tag_enemy_territorial` 和 `Enemy.ai_debug_summary()`，当前已有追猎者、疾行者、潜猎者与壁垒四种敌人，怪物可按 profile 接近玩家、逃离威胁、狩猎其他怪物、守出生点或冲锋。
+当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`MetaProgressionSystem`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、gameplay runtime、TitleMenu / WorldBackground / Player / WeaponSystem / Bullet / Enemy / Spawner / PickupOrb / LevelUpPanel / HUD / GameOverPanel 的最小闭环；F5 已新增 `PauseMenu`、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、升级界面 Esc 叠出暂停菜单、坏档重置提示、run payload、`RNG.snapshot()` / `restore_snapshot()` 与 `GameClock.snapshot()` / `restore_snapshot()`，并用 `SaveManager` 的 `run` kind 保存 / 读取局内快照；F6 已新增 `MetaProgressionSystem`、死亡结算、`meta` profile roundtrip、标题 `MetaProgressionPanel` 局外升级入口、数据驱动伤害 / 射速等永久升级轨道和下一局永久 modifiers；F7 已落地设置持久化、只显示已接线设置的正式设置面板、核心 UI 运行时语言刷新、键盘主输入重绑定、输入绑定保存 / 共用键位反馈、一键恢复输入默认，以及 `UIManager` 栈顶 `ui_back` / 默认焦点首片。F8 已通过当前验收基线收口审计，包含临时 L1 runner、Replay `.replay` 文件 roundtrip、summary diff / 运行时摘要 runner、runner 输入播放首片、runtime event 播放首片、扩展稳定帧样本 diff、gameplay 输入录制首片、`client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay`、`client/tests/replays/golden_level_up_choice.replay`、`rng-audit` 跨子流相关性审计和 schema v2 perf / balance baseline；升级选择已记录 `level_up` decision，RNG 子流 seed 派生已升级为域隔离 SHA-256 mixer 以同时保护跨进程回放确定性与跨子流防相关性。F9 已新增 `ModLoader` 本地 mod 接口首片、`PlatformServices` 平台服务接口首片、可复用 `SkillSystem` 主动技能首片、有限地图 / 可调 PCG 的 `MapManager`、通用 `HazardSystem` 与 FEA-12 测试机关，以及 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`：SkillSystem 读取 `skills.json`，默认角色通过 `starting_loadout.skill_ids` 引用 `skill_whirlwind_slash`，并用 `skill_resources` 的 `mana` 支付 AOE 技能成本，技能效果仍走 `Combat`；MapManager 读取 `map_layouts.json`，用有限 bounds、玩家出生点、安全半径、刷怪边距、PCG 机关规则和人工摆点生成初始地图，FEA-12 通过通用 `Hazard` 节点、`PoolManager` 和 `Combat` 验证机关伤害；ModLoader 扫描 `user://mods/<mod_id>/mod.json`，只接受声明式 JSON / CSV append patch 和少量动态契约扩展，暂不接创意工坊、不执行玩家脚本；PlatformServices Steam 优先预留成就、统计、富状态 / 状态显示、overlay、Lobby / 联机入口和用户身份，当前不接 Steamworks SDK、不联网，后续其他平台走 provider adapter；DebugTools 通过 F1 / 反引号打开控制台，当前命令覆盖 help/stats/spawn/xp/hp/damage/heal/meta/kill/clear/seed，release 路径由 runtime guard 与导出资源排除约束。当前 F9 入口是 `docs/AI协作/工作包/F9-ContentDemoPolish.md`，用于首批 Demo 内容切片、手感 / 可读性打磨、占位表现规范和手动 checklist；F8 的 `l1-smoke`、`replay-smoke`、`rng-audit`、四条 checked-in replay runner 和 `perf-probe` 是 F9 内容扩展的回归护栏。正式客户端默认 viewport 为 1920×1080，窗口禁止任意拖拽缩放并采用 `canvas_items + keep` 保比例黑边策略，GameplayHud / LevelUpPanel 已改为锚点与容器布局；GameplayHud 现在提供按住 `show_stats_panel` action（默认 Tab）的详细数值面板，显示期间不暂停；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，敌人中心已按 `enemies.csv.separation_radius` 做小范围排斥以避免完全重叠，玩家中心也通过 `player_separation_radius` 提供不可重叠区域并在碰到敌人分离圈时只推开敌人，经验球与升级三选一已接入 `growth.csv` / `growth_pools.json`，升级选择后有 HUD 获得反馈，`enemies.csv.visual_color` 支持数据化敌人占位色；敌人生态 AI 首片已接入 `enemy_ai_profiles.json`、`enemies.csv.ai_profile_id`、`tag_enemy_prey` / `tag_enemy_predator` / `tag_enemy_territorial` 和 `Enemy.ai_debug_summary()`，当前已有追猎者、疾行者、潜猎者与壁垒四种敌人，怪物可按 profile 接近玩家、逃离威胁、狩猎其他怪物、守出生点或冲锋。
 
 > F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射，但玩家和敌人占位表现只做左 / 右两种朝向。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
 
@@ -238,11 +239,11 @@ flowchart LR
   UI[UI/HUD<br/>PauseMenu/...]
 
   Mod -. 本地 mod 数据 patch .-> Loader
-  Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & Meta & Spawner & Hazard
+  Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & Meta & Spawner & Hazard & Map
   Set --> Player & Weapon & Input & UIM & Aud
   Loc --> UIM & Item
   Ana <-- 埋点 --- Player & Enemy & Item & Growth & Meta & Spawner & GS & Save
-  RNG --> Spawner & Item & Growth & Meta & Enemy & Combat
+  RNG --> Map & Spawner & Item & Growth & Meta & Enemy & Combat
   Clk --> Spawner & Hazard & Weapon & Skill & SE
   Rep -. 录制/重放 .-> Input & RNG & Clk & GS
   Plat -. 成就/状态/overlay/Lobby .-> UI & Meta & GS
@@ -252,7 +253,7 @@ flowchart LR
   GS --> Meta
   GS -.- Rep
   UIM --> UI
-  Pool --> Weapon & Spawner & Item & Aud
+  Pool --> Weapon & Spawner & Hazard & Item & Aud
 
   Input --> Player --> Weapon
   Input --> Skill
@@ -261,6 +262,7 @@ flowchart LR
   Enemy --> Combat
   Combat --> Player & Enemy
   Combat -.- SE
+  Map --> Player & Spawner & Hazard
   Spawner --> Enemy
   Enemy -. 掉落经验 .-> Growth
   Player -.- Cam

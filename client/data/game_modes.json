@@ -59,6 +59,10 @@
           {
             "id": "hazard_spike_trap",
             "weight": 100
+          },
+          {
+            "id": "hazard_fea_12_pulse",
+            "weight": 100
           }
         ],
         "relics": [

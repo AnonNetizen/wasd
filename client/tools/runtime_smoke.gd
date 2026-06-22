@@ -50,6 +50,7 @@ func _run() -> void:
 	_expect(PoolManager.has_pool(POOL_IDS.BULLET_BASIC), "bullet pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_CHASER), "enemy pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_SWARM), "swarm enemy pool should be registered")
+	_expect(PoolManager.has_pool(POOL_IDS.HAZARD_SPIKE), "hazard pool should be registered")
 	_expect(_action_has_key(ACTIONS.MOVE_UP, KEY_W), "move_up should include KEY_W")
 	_expect(not _action_has_key(ACTIONS.MOVE_UP, KEY_UP), "move_up should not include KEY_UP")
 	_expect(_action_has_key(ACTIONS.AIM_UP, KEY_UP), "aim_up should include KEY_UP")
@@ -66,6 +67,9 @@ func _run() -> void:
 	var camera: Camera2D = _find_node_by_name(player, "CenteredCamera") as Camera2D
 	_expect(camera != null and camera.enabled, "CenteredCamera should be enabled")
 	_expect(_find_node_by_name(run_loop, "WorldBackground") != null, "WorldBackground should provide movement reference")
+	_expect(_find_node_by_name(run_loop, "MapManager") != null, "finite MapManager should be mounted")
+	_expect(_map_summary_has_finite_bounds(run_loop), "MapManager should expose finite map bounds")
+	_expect(PoolManager.active_count(POOL_IDS.HAZARD_SPIKE) > 0, "PCG map should spawn active hazards")
 
 	var start_position: Vector2 = player.global_position
 	Input.action_press(ACTIONS.MOVE_RIGHT)
@@ -155,6 +159,7 @@ func _run() -> void:
 	_expect(_pool_stat(POOL_IDS.BULLET_BASIC, "acquired") > 0, "WeaponSystem should acquire bullets")
 	_expect(PoolManager.active_count(POOL_IDS.ENEMY_CHASER) > 0, "Spawner should spawn active enemies")
 	_expect(PoolManager.has_pool(POOL_IDS.PICKUP_ORB), "experience pickup pool should remain registered after continue")
+	_expect(PoolManager.active_count(POOL_IDS.HAZARD_SPIKE) > 0, "hazards should remain active after continue")
 
 	var enemy: Node = _first_enemy()
 	_expect(enemy != null, "at least one enemy should be in active_enemies")
@@ -222,6 +227,25 @@ func _first_enemy() -> Node:
 	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
 		return enemy
 	return null
+
+
+func _map_summary_has_finite_bounds(run_loop: Node) -> bool:
+	if run_loop == null or not run_loop.has_method("debug_summary"):
+		return false
+	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
+	var raw_map_summary: Variant = summary.get("map", {})
+	if not raw_map_summary is Dictionary:
+		return false
+	var map_summary: Dictionary = raw_map_summary as Dictionary
+	var raw_bounds: Variant = map_summary.get("bounds", {})
+	if not raw_bounds is Dictionary:
+		return false
+	var bounds: Dictionary = raw_bounds as Dictionary
+	return float(bounds.get("width", 0.0)) > 0.0 and float(bounds.get("height", 0.0)) > 0.0
+
+
+func _snapshot_has_hazards(snapshot: Dictionary) -> bool:
+	return snapshot.get("hazards", []) is Array and (snapshot.get("hazards", []) as Array).size() > 0
 
 
 func _find_node_by_name(root_node: Node, target_name: String) -> Node:
@@ -726,6 +750,7 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	_expect(absf(GameClock.now() - saved_time) < 0.2, "continue should restore GameClock time")
 	var restored_pause_menu: Node = _find_node_by_name(get_tree().root, "PauseMenu")
 	_expect(restored_pause_menu != null, "continue should restore the pause menu when the run was saved while paused")
+	_expect(_snapshot_has_hazards(restored_run_loop.call("create_run_snapshot")), "continue should restore finite map hazards")
 	var resume_button: Button = _find_node_by_name(restored_pause_menu, "ResumeButton") as Button
 	_expect(resume_button != null, "restored pause menu should expose resume")
 	await _push_action_once(ACTIONS.UI_BACK)

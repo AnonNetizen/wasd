@@ -211,7 +211,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/AI导航.md", "client/locale/README.md"],
       "related_code": ["client/data/", "tools/validate_data.py", "tools/sync_contracts.py"],
       "update_triggers": ["new data file", "new numeric field", "changed unit or range", "DataLoader schema change"],
-      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "characters.json", "weapons.json", "relics.json", "credits.json", "game_modes.json", "growth.csv", "enemies.csv", "hazards.csv", "meta_progression.json", "局外成长", "validate_data"]
+      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "characters.json", "weapons.json", "relics.json", "credits.json", "game_modes.json", "map_layouts.json", "growth.csv", "enemies.csv", "hazards.csv", "PCG", "有限地图", "人工摆点", "meta_progression.json", "局外成长", "validate_data"]
     },
     {
       "path": "client/locale/README.md",
@@ -264,7 +264,7 @@
       "last_reviewed": "2026-06-18",
       "canonical_for": ["module_doc_index"],
       "must_read_for": ["code_module_change", "module_doc_lookup"],
-      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/meta_progression_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md"],
+      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/meta_progression_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/skill_system.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md"],
       "related_code": ["client/"],
       "update_triggers": ["new module document", "module document rename", "module document deletion"],
       "keywords": ["代码", "module", "documentation", "index"]
@@ -278,10 +278,10 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["project_map", "extension_points", "dependency_graph"],
       "must_read_for": ["new_task", "extension_change", "dependency_change"],
-      "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/功能建议池.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
+      "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/功能建议池.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": ["client/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
-      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
+      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "MapManager", "HazardSystem", "map_layouts.json", "FEA-12", "有限地图", "PCG", "人工摆点", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
     },
     {
       "path": "docs/AI记忆/项目记忆.md",
@@ -734,16 +734,16 @@
     {
       "path": "docs/代码/gameplay_runtime.md",
       "type": "module_doc",
-      "authority": "Gameplay runtime contract for player movement, weapon firing, skill casting, pooled bullets, pooled enemies, spawning, HUD, save/restore, title flow, and restart",
+      "authority": "Gameplay runtime contract for finite map setup, player movement, weapon firing, skill casting, pooled bullets, pooled enemies, pooled hazards, spawning, HUD, save/restore, title flow, and restart",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-06-18",
-      "canonical_for": ["gameplay_runtime", "f4_min_playable_loop", "formal_runtime_core", "minimal_combat_loop"],
-      "must_read_for": ["gameplay_runtime_change", "player_runtime_change", "weapon_system_change", "skill_system_change", "spawner_change", "hud_change"],
-      "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/skill_system.md", "docs/代码/enemy_ai.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/scripts/debug/gm_command_registry.gd", "client/tools/runtime_smoke.gd", "client/tools/debug_tools_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
-      "update_triggers": ["Gameplay runtime behavior changes", "Player, weapon, or skill runtime changes", "Spawner behavior changes", "HUD or restart flow changes", "runtime debug API changes", "runtime module split or scene-resource migration"],
-      "keywords": ["GameplayRunLoop", "runtime-smoke", "debug-tools-smoke", "F4", "MinPlayableLoop", "Player", "WeaponSystem", "SkillSystem", "skills.json", "Whirlwind Slash", "旋风斩", "Bullet", "Enemy", "Spawner", "HUD", "详细数值面板", "show_stats_panel", "StatsPanel", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
+      "canonical_for": ["gameplay_runtime", "f4_min_playable_loop", "formal_runtime_core", "minimal_combat_loop", "run_payload_schema"],
+      "must_read_for": ["gameplay_runtime_change", "player_runtime_change", "weapon_system_change", "skill_system_change", "map_runtime_change", "hazard_runtime_change", "spawner_change", "hud_change"],
+      "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/skill_system.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/map_manager.gd", "client/scripts/gameplay/hazard.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/scripts/debug/gm_command_registry.gd", "client/data/map_layouts.json", "client/data/hazards.csv", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd", "client/tools/debug_tools_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
+      "update_triggers": ["Gameplay runtime behavior changes", "Player, weapon, skill, map, or hazard runtime changes", "Spawner behavior changes", "HUD or restart flow changes", "run payload schema changes", "runtime debug API changes", "runtime module split or scene-resource migration"],
+      "keywords": ["GameplayRunLoop", "runtime-smoke", "f9-demo-smoke", "debug-tools-smoke", "F4", "F9", "MinPlayableLoop", "MapManager", "HazardSystem", "map_layouts.json", "hazard_fea_12_pulse", "FEA-12", "有限地图", "PCG", "人工摆点", "Player", "WeaponSystem", "SkillSystem", "skills.json", "Whirlwind Slash", "旋风斩", "Bullet", "Enemy", "Spawner", "HUD", "详细数值面板", "show_stats_panel", "StatsPanel", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
     },
     {
       "path": "docs/代码/skill_system.md",
@@ -774,6 +774,34 @@
       "keywords": ["EnemyAI", "Enemy", "enemy_ai_profiles.json", "ai_profile_id", "enemy_ai_actions", "Utility AI", "FSM", "Steering", "Rain World", "雨世界", "怪物生态", "猎物", "掠食者", "领地", "tag_enemy_prey", "tag_enemy_predator", "tag_enemy_territorial", "runtime-smoke"]
     },
     {
+      "path": "docs/代码/map_manager.md",
+      "type": "module_doc",
+      "authority": "MapManager runtime contract for finite map bounds, PCG hazard placement, manual placement overrides, spawn clamping, and map snapshots",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-22",
+      "canonical_for": ["map_manager", "finite_map", "pcg_map_layout", "map_layouts"],
+      "must_read_for": ["map_runtime_change", "map_layout_change", "pcg_map_change", "manual_hazard_placement_change"],
+      "related_docs": ["docs/代码/gameplay_runtime.md", "docs/代码/hazard_system.md", "docs/代码/data_loader.md", "docs/代码/save_manager.md", "client/data/README.md", "docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/gameplay/map_manager.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/map_layouts.json", "client/data/hazards.csv", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
+      "update_triggers": ["MapManager API changes", "map_layouts.json schema changes", "PCG placement behavior changes", "manual placement behavior changes", "map run snapshot changes"],
+      "keywords": ["MapManager", "map_layouts.json", "finite map", "有限地图", "PCG", "manual_hazards", "人工摆点", "RNG.world", "RNG.spawn", "hazard placements", "runtime-smoke", "f9-demo-smoke"]
+    },
+    {
+      "path": "docs/代码/hazard_system.md",
+      "type": "module_doc",
+      "authority": "HazardSystem runtime contract for pooled hazards, radius triggers, Combat damage, FEA-12 test hazard, and hazard snapshots",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-22",
+      "canonical_for": ["hazard_system", "hazard_runtime", "fea_12_hazard"],
+      "must_read_for": ["hazard_runtime_change", "new_hazard", "hazards_csv_change", "hazard_snapshot_change"],
+      "related_docs": ["docs/代码/gameplay_runtime.md", "docs/代码/map_manager.md", "docs/代码/combat.md", "docs/代码/data_loader.md", "docs/代码/save_manager.md", "client/data/README.md", "docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/gameplay/hazard.gd", "client/scenes/gameplay/hazard.tscn", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/hazards.csv", "client/data/map_layouts.json", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd", "client/tools/perf_probe.gd"],
+      "update_triggers": ["Hazard API changes", "hazards.csv schema changes", "hazard trigger behavior changes", "hazard object pool changes", "hazard run snapshot changes"],
+      "keywords": ["HazardSystem", "Hazard", "hazards.csv", "hazard_fea_12_pulse", "FEA-12", "机关", "PoolManager", "Combat.apply_damage", "active_hazards", "f9-demo-smoke"]
+    },
+    {
       "path": "docs/代码/debug_tools.md",
       "type": "module_doc",
       "authority": "DebugConsole and GMCommandRegistry contract for debug/dev_tools-only commands and release guard boundaries",
@@ -796,10 +824,10 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["data_loader", "json_csv_loading", "contract_cache"],
       "must_read_for": ["data_loader_change", "data_schema_change", "formal_data_loading"],
-      "related_docs": ["client/data/README.md", "docs/词表与契约.md", "docs/代码/README.md", "docs/代码/mod_loader.md", "docs/代码/skill_system.md", "docs/AI导航.md", "docs/AI协作/工作包/F3-DataLoader.md"],
-      "related_code": ["client/scripts/autoload/data_loader.gd", "client/scripts/autoload/mod_loader.gd", "client/data/_contracts.json", "client/data/skills.json", "client/data/enemy_ai_profiles.json", "client/data/credits.json", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
+      "related_docs": ["client/data/README.md", "docs/词表与契约.md", "docs/代码/README.md", "docs/代码/mod_loader.md", "docs/代码/skill_system.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/AI导航.md", "docs/AI协作/工作包/F3-DataLoader.md"],
+      "related_code": ["client/scripts/autoload/data_loader.gd", "client/scripts/autoload/mod_loader.gd", "client/data/_contracts.json", "client/data/skills.json", "client/data/enemy_ai_profiles.json", "client/data/map_layouts.json", "client/data/hazards.csv", "client/data/credits.json", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
       "update_triggers": ["DataLoader API changes", "data loading schema changes", "contract cache behavior changes", "mod data patch behavior changes"],
-      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation", "schema regression", "ModLoader", "local mods", "mod manifest", "weapons.json", "skills.json", "skill_resources", "enemy_ai_profiles.json", "enemies.csv", "hazards.csv", "relics.json", "credits.json", "test_data_loader_schema"]
+      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation", "schema regression", "ModLoader", "local mods", "mod manifest", "weapons.json", "skills.json", "skill_resources", "enemy_ai_profiles.json", "enemies.csv", "hazards.csv", "map_layouts.json", "PCG", "有限地图", "relics.json", "credits.json", "test_data_loader_schema"]
     },
     {
       "path": "docs/代码/mod_loader.md",
@@ -953,7 +981,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/analytics.md", "docs/代码/game_state.md"],
       "related_code": ["client/scripts/autoload/save_manager.gd", "client/scripts/contracts/save_kinds.gd", "client/scripts/autoload/analytics.gd"],
       "update_triggers": ["SaveManager API changes", "save envelope changes", "save kind changes", "migration behavior changes", "atomic write or broken-save behavior changes"],
-      "keywords": ["SaveManager", "autoload", "save_kinds", "meta", "run", "replay_index", "data_hash", "migration", "atomic save", "backup", "broken save"]
+      "keywords": ["SaveManager", "autoload", "save_kinds", "meta", "run", "replay_index", "run payload", "map", "hazards", "JSON normalization", "data_hash", "migration", "atomic save", "backup", "broken save"]
     },
     {
       "path": "docs/代码/meta_progression_system.md",

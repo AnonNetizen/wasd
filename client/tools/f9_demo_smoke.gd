@@ -11,6 +11,7 @@ const BULWARK_COLOR: Color = Color(0.690196, 0.490196, 0.321569)
 const BULWARK_ID: String = "enemy_bulwark"
 const BULWARK_WAVE_ID: String = "wave_standard_mid_bulwarks"
 const FAST_FORWARD_SCALE: float = 20.0
+const FEA_12_HAZARD_ID: String = "hazard_fea_12_pulse"
 const MAX_WAIT_FRAMES: int = 420
 const TARGET_BULWARK_TIME: float = 55.0
 
@@ -38,6 +39,7 @@ func _run() -> void:
 		_finish()
 		return
 	_protect_player(player)
+	await _expect_fea_12_hazard(run_loop, player)
 
 	var previous_time_scale: float = GameClock.time_scale()
 	GameClock.set_time_scale(FAST_FORWARD_SCALE)
@@ -52,9 +54,11 @@ func _run() -> void:
 
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	_expect(_snapshot_has_bulwark(snapshot), "run snapshot should persist active enemy_bulwark entries")
+	_expect(_snapshot_has_fea_12_hazard(snapshot), "run snapshot should persist active FEA-12 hazard entries")
 	_expect(SaveManager.save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN, snapshot), "F9 demo smoke should save a run snapshot containing F9.1 content")
 	var saved_payload: Dictionary = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	_expect(_snapshot_has_bulwark(saved_payload), "saved run payload should roundtrip enemy_bulwark")
+	_expect(_snapshot_has_fea_12_hazard(saved_payload), "saved run payload should roundtrip FEA-12 hazards")
 
 	_expect(_level_three_entries_available(run_loop), "level 3 growth pool should expose the F9.1 move speed and max HP candidates")
 
@@ -111,6 +115,35 @@ func _first_enemy_with_id(enemy_id: String) -> Node:
 	return null
 
 
+func _expect_fea_12_hazard(run_loop: Node, player: Node2D) -> void:
+	_expect(_debug_summary_has_fea_12(run_loop), "MapManager debug summary should include generated hazards")
+	var hazard: Node2D = _first_hazard_with_id(FEA_12_HAZARD_ID) as Node2D
+	_expect(hazard != null, "FEA-12 hazard should spawn from PCG/manual map layout")
+	if hazard == null:
+		return
+	if player.has_method("debug_clear_invulnerability"):
+		player.call("debug_clear_invulnerability")
+	var previous_life: float = float(player.call("current_life"))
+	player.global_position = hazard.global_position
+	for _index: int in range(3):
+		await get_tree().physics_frame
+	_expect(float(player.call("current_life")) < previous_life, "FEA-12 hazard should apply Combat damage when the player enters its radius")
+
+
+func _first_hazard_with_id(hazard_id: String) -> Node:
+	for hazard: Node in get_tree().get_nodes_in_group("active_hazards"):
+		if hazard.has_method("hazard_id") and String(hazard.call("hazard_id")) == hazard_id:
+			return hazard
+	return null
+
+
+func _debug_summary_has_fea_12(run_loop: Node) -> bool:
+	if run_loop == null or not run_loop.has_method("debug_summary"):
+		return false
+	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
+	return int(summary.get("active_hazards", 0)) > 0
+
+
 func _bulwark_color_matches(enemy: Node) -> bool:
 	if not enemy.has_method("visual_color"):
 		return false
@@ -129,6 +162,17 @@ func _snapshot_has_bulwark(snapshot: Dictionary) -> bool:
 			continue
 		var enemy: Dictionary = raw_enemy as Dictionary
 		if String(enemy.get("enemy_id", "")) == BULWARK_ID and String(enemy.get("wave_key", "")) == BULWARK_WAVE_ID:
+			return true
+	return false
+
+
+func _snapshot_has_fea_12_hazard(snapshot: Dictionary) -> bool:
+	var hazards: Array = snapshot.get("hazards", []) if snapshot.get("hazards", []) is Array else []
+	for raw_hazard: Variant in hazards:
+		if not raw_hazard is Dictionary:
+			continue
+		var hazard: Dictionary = raw_hazard as Dictionary
+		if String(hazard.get("hazard_id", "")) == FEA_12_HAZARD_ID:
 			return true
 	return false
 

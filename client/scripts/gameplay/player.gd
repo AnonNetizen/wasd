@@ -34,8 +34,10 @@ var _base_stats: Dictionary = {}
 var _damage_invulnerability_duration: float = 0.0
 var _facing_sign: float = 1.0
 var _hit_flash_remaining: float = 0.0
+var _has_movement_bounds: bool = false
 var _invulnerable_remaining: float = 0.0
 var _luck: float = 0.0
+var _movement_bounds: Rect2 = Rect2()
 var _move_speed: float = 0.0
 var _max_life: float = 1.0
 var _life_points: float = 1.0
@@ -106,6 +108,7 @@ func _physics_process(delta: float) -> void:
 
 	velocity = move_input * _move_speed
 	move_and_slide()
+	_apply_movement_bounds()
 
 
 func configure(base_stats: Dictionary) -> void:
@@ -113,6 +116,7 @@ func configure(base_stats: Dictionary) -> void:
 	_replay_action_pressed.clear()
 	_stat_additions.clear()
 	_stat_multipliers.clear()
+	_has_movement_bounds = false
 	_invulnerable_remaining = 0.0
 	_mouse_aim_active = false
 	_mouse_aim_viewport_offset = Vector2.ZERO
@@ -188,6 +192,12 @@ func aim_at_world_position(world_position: Vector2) -> void:
 		_set_aim_direction(mouse_direction)
 
 
+func set_movement_bounds(bounds: Rect2) -> void:
+	_movement_bounds = bounds
+	_has_movement_bounds = bounds.size.x > 0.0 and bounds.size.y > 0.0
+	_apply_movement_bounds()
+
+
 func apply_modifiers(modifiers: Array) -> void:
 	for raw_modifier: Variant in modifiers:
 		if not raw_modifier is Dictionary:
@@ -225,6 +235,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_rebuild_stats(true)
 	_life_points = clampf(float(snapshot_data.get("life_points", _max_life)), 0.0, _max_life)
 	_invulnerable_remaining = maxf(float(snapshot_data.get("invulnerable_remaining", 0.0)), 0.0)
+	_apply_movement_bounds()
 	life_changed.emit(_life_points, _max_life)
 	queue_redraw()
 
@@ -343,6 +354,15 @@ func _set_mouse_aim_from_viewport_position(viewport_position: Vector2) -> void:
 	_mouse_aim_viewport_offset = viewport_position - get_viewport_rect().size * 0.5
 	if _mouse_aim_viewport_offset.length_squared() > MOUSE_AIM_MIN_DISTANCE_SQUARED:
 		_set_aim_direction(_mouse_aim_viewport_offset)
+
+
+func _apply_movement_bounds() -> void:
+	if not _has_movement_bounds:
+		return
+	global_position = Vector2(
+		clampf(global_position.x, _movement_bounds.position.x, _movement_bounds.end.x),
+		clampf(global_position.y, _movement_bounds.position.y, _movement_bounds.end.y)
+	)
 
 
 func _stat_value(stat: String, default_value: float) -> float:

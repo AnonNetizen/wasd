@@ -138,16 +138,23 @@ func clear_pool(pool_id: String) -> bool:
 	var pool_data: Dictionary = _pools[pool_id]
 	var available: Array = pool_data["available"]
 	for raw_node: Variant in available:
+		if not is_instance_valid(raw_node):
+			continue
 		var node: Node = raw_node as Node
-		if node != null and is_instance_valid(node):
+		if node != null:
 			node.queue_free()
 
 	var active: Dictionary = pool_data["active"]
 	for raw_node: Variant in active.values():
+		if not is_instance_valid(raw_node):
+			continue
 		var node: Node = raw_node as Node
-		if node != null and is_instance_valid(node):
+		if node != null:
 			_node_to_pool.erase(node.get_instance_id())
 			node.queue_free()
+	for raw_instance_id: Variant in _node_to_pool.keys():
+		if String(_node_to_pool.get(raw_instance_id, "")) == pool_id:
+			_node_to_pool.erase(raw_instance_id)
 
 	_pools.erase(pool_id)
 	pool_cleared.emit(pool_id)

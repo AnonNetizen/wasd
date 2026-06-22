@@ -57,7 +57,11 @@ func save(slot: String, kind: String, payload: Dictionary) -> bool:
 	var bak_path: String = "%s.bak" % path
 	var now: String = _now_string()
 	var created_at: String = _existing_created_at(slot, kind, now)
-	var payload_copy: Dictionary = payload.duplicate(true)
+	var normalized_payload: Variant = _json_normalized_payload(payload.duplicate(true))
+	if not normalized_payload is Dictionary:
+		_set_error("[SaveManager] save payload is not JSON-serializable")
+		return false
+	var payload_copy: Dictionary = normalized_payload as Dictionary
 	var envelope: Dictionary = {
 		"version": current_version(kind),
 		"kind": kind,
@@ -311,10 +315,10 @@ func _migrate_run_v1_to_v2(payload: Dictionary) -> Dictionary:
 	var result: Dictionary = payload.duplicate(true)
 	if not result.has("schema_version"):
 		result["schema_version"] = 1
-	for key: String in ["spawn_states", "player", "weapon", "game_clock", "rng"]:
+	for key: String in ["spawn_states", "player", "weapon", "game_clock", "rng", "map"]:
 		if not result.has(key) or not result.get(key, {}) is Dictionary:
 			result[key] = {}
-	for key: String in ["enemies", "bullets", "pickups"]:
+	for key: String in ["hazards", "enemies", "bullets", "pickups"]:
 		if not result.has(key) or not result.get(key, []) is Array:
 			result[key] = []
 	return result
@@ -341,6 +345,10 @@ func _existing_created_at(slot: String, kind: String, fallback: String) -> Strin
 
 func _payload_hash(payload: Dictionary) -> String:
 	return _stable_serialize(payload).sha256_text()
+
+
+func _json_normalized_payload(payload: Dictionary) -> Variant:
+	return JSON.parse_string(JSON.stringify(payload))
 
 
 func _stable_serialize(value: Variant) -> String:

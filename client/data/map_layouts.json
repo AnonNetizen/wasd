@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "layouts": [
+    {
+      "id": "map_standard_nest",
+      "mode_id": "mode_standard_survival",
+      "bounds": {
+        "width": 3600.0,
+        "height": 2600.0
+      },
+      "player_start": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "safe_radius": 260.0,
+      "enemy_spawn_margin": 140.0,
+      "pcg": {
+        "hazards": [
+          {
+            "id": "hazard_fea_12_pulse",
+            "count": 7,
+            "min_distance_from_player": 420.0,
+            "min_spacing": 260.0
+          }
+        ]
+      },
+      "manual_hazards": [
+        {
+          "id": "hazard_fea_12_pulse",
+          "x": 520.0,
+          "y": -260.0
+        },
+        {
+          "id": "hazard_spike_trap",
+          "x": -640.0,
+          "y": 320.0
+        }
+      ]
+    }
+  ]
+}

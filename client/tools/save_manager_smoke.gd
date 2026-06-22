@@ -80,6 +80,8 @@ func _expect_migration_chain() -> void:
 	var old_envelope: Dictionary = SaveManager.load_envelope(SMOKE_SLOT, RUN_KIND)
 	old_envelope["version"] = 1
 	var legacy_payload: Dictionary = old_payload.duplicate(true)
+	legacy_payload.erase("map")
+	legacy_payload.erase("hazards")
 	legacy_payload.erase("pickups")
 	old_envelope["payload"] = legacy_payload
 	old_envelope["data_hash"] = SaveManager.call("_payload_hash", legacy_payload)
@@ -93,12 +95,14 @@ func _expect_migration_chain() -> void:
 	var migrated_payload: Dictionary = migrated_envelope.get("payload", {}) as Dictionary
 	_expect(int(migrated_envelope.get("version", 0)) == SaveManager.current_version(RUN_KIND), "migrated envelope should report target version")
 	_expect(migrated_payload.get("pickups", null) is Array, "run v1->v2 migration should normalize missing pickup snapshots")
+	_expect(migrated_payload.get("map", null) is Dictionary, "run v1->v2 migration should normalize missing map snapshot")
+	_expect(migrated_payload.get("hazards", null) is Array, "run v1->v2 migration should normalize missing hazard snapshots")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 1, SaveManager.current_version(RUN_KIND)]), "run migration should emit save_migrated")
 
 
 func _run_payload(marker: String, level: int) -> Dictionary:
 	return {
-		"schema_version": 1,
+		"schema_version": 2,
 		"mode": "mode_standard_survival",
 		"character": "character_default",
 		"level": level,
@@ -125,6 +129,20 @@ func _run_payload(marker: String, level: int) -> Dictionary:
 				"alive": 1,
 			},
 		},
+		"map": {
+			"layout_id": "map_standard_nest",
+			"bounds": {
+				"x": -1800.0,
+				"y": -1300.0,
+				"width": 3600.0,
+				"height": 2600.0,
+			},
+			"player_start": {
+				"x": 0.0,
+				"y": 0.0,
+			},
+			"hazard_placements": [],
+		},
 		"player": {
 			"position": [float(level), float(level + 1)],
 			"life": float(level),
@@ -133,8 +151,27 @@ func _run_payload(marker: String, level: int) -> Dictionary:
 		"weapon": {
 			"cooldown": 0.25,
 		},
+		"hazards": [],
 		"enemies": [],
-		"bullets": [],
+		"bullets": [
+			{
+				"position": {
+					"x": 1064.0001220703125,
+					"y": -260.0,
+				},
+				"damage": 3.5,
+				"damage_type": "physical",
+				"hit_radius": 8.0,
+				"remaining_life": 0.5833333333333334,
+				"max_range": 650.0,
+				"pierce_remaining": 0,
+				"travelled": 346.66668701171875,
+				"velocity": {
+					"x": 520.0,
+					"y": 0.0,
+				},
+			},
+		],
 		"pickups": [],
 		"ui_restore": {
 			"state": "playing",
@@ -222,7 +259,10 @@ func _write_json(path: String, value: Dictionary) -> void:
 func _payloads_match(left: Variant, right: Dictionary) -> bool:
 	if not left is Dictionary:
 		return false
-	return String(SaveManager.call("_payload_hash", left as Dictionary)) == String(SaveManager.call("_payload_hash", right))
+	var normalized_right: Variant = SaveManager.call("_json_normalized_payload", right)
+	if not normalized_right is Dictionary:
+		return false
+	return String(SaveManager.call("_payload_hash", left as Dictionary)) == String(SaveManager.call("_payload_hash", normalized_right as Dictionary))
 
 
 func _remove_if_exists(path: String) -> void:

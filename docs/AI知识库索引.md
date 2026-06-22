@@ -77,7 +77,8 @@
 | 加 / 改消耗品 | `client/data/README.md`、`client/locale/README.md`、`docs/词表与契约.md` §2 / §6 / §12、`docs/AI导航.md` | `client/data/consumables.json`、`client/data/game_modes.json` 消耗品池、`client/locale/strings.csv`、必要时词表和效果原语 | `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；schema 变化跑 `python tools/test_data_loader_schema.py` |
 | 加敌人 | `docs/AI协作/任务模板/加敌人.md`、`client/data/README.md`、`client/locale/README.md`、`docs/代码/enemy_ai.md`、`docs/词表与契约.md` §8/9/12、GDD 敌人章节 | `client/data/enemies.csv`、`client/data/enemy_ai_profiles.json`、`client/locale/strings.csv`、`game_modes` 敌人池、必要时 AI action / content tag 词表 | `python tools/validate_data.py`；DataLoader schema 变化跑 `python tools/test_data_loader_schema.py`；文档变化跑 `python tools/docs_health_check.py` |
 | 改 EnemyAI / 怪物生态 | `docs/代码/enemy_ai.md`、GDD §5.3、`client/data/README.md` 的 `enemy_ai_profiles.json` 段、`docs/词表与契约.md` §12-B | `client/scripts/gameplay/enemy.gd`、`client/data/enemy_ai_profiles.json`、`client/data/enemies.csv`、`client/tools/runtime_smoke.gd`、必要时 golden replay / perf 基线 | `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/test_data_loader_schema.py`、`python tools/godot_bridge.py --project client runtime-smoke`；改变稳定行为时重录 / 重跑四条 golden replay 和 `perf-probe` |
-| 加 / 改机关 | `client/data/README.md`、`client/locale/README.md`、`docs/词表与契约.md` §8/9/12、`docs/AI导航.md` | `client/data/hazards.csv`、`client/locale/strings.csv`、`game_modes` 机关池、必要时地图 / 机关 primitive | `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；DataLoader schema 变化跑 `python tools/test_data_loader_schema.py`；文档变化跑 `python tools/docs_health_check.py` |
+| 改地图 / PCG / 人工摆点 | `docs/代码/map_manager.md`、`client/data/README.md` 的 `map_layouts.json` 段、GDD §5、ADR #93 | `client/data/map_layouts.json`、`client/scripts/gameplay/map_manager.gd`、`client/tools/runtime_smoke.gd`、必要时 `docs/代码/hazard_system.md` | `python tools/validate_data.py`、`python tools/test_data_loader_schema.py`、`python tools/godot_bridge.py --project client runtime-smoke`；机关相关追加 `f9-demo-smoke` / `save-smoke` / `perf-probe` |
+| 加 / 改机关 | `docs/代码/hazard_system.md`、`client/data/README.md`、`client/locale/README.md`、`docs/词表与契约.md` §8/9/12、`docs/AI导航.md` | `client/data/hazards.csv`、`client/data/map_layouts.json`、`client/locale/strings.csv`、`game_modes` 机关池、必要时地图 / 机关 primitive | `python tools/sync_contracts.py --check`；`python tools/validate_data.py`；DataLoader schema 变化跑 `python tools/test_data_loader_schema.py`；运行时机关变化跑 `runtime-smoke` / `f9-demo-smoke`；文档变化跑 `python tools/docs_health_check.py` |
 | 加 / 改刷怪波次 | `client/data/README.md`、GDD §5.3 / §9.3、`docs/AI导航.md` | `client/data/spawn_waves.csv`、DataLoader schema、必要时 Spawner 模块文档 | `python tools/validate_data.py`；DataLoader schema 变化跑 `python tools/test_data_loader_schema.py`；文档变化跑 `python tools/docs_health_check.py` |
 | 改输入 / 手柄 | `docs/游戏设计文档.md`、`docs/词表与契约.md` 第 7 节、`docs/测试策略.md` | GDD、词表、规则、Settings/InputMap 代码、AI导航 | `python tools/docs_health_check.py`；代码落地后跑 headless + 手动输入回归 |
 | 改经验 / 升级系统 | `docs/游戏设计文档.md` §7.1、`docs/词表与契约.md`、`docs/测试策略.md` | `GrowthSystem`、升级 UI、GDD、词表、AI导航、必要时 `docs/修改建议.md` | `python tools/docs_health_check.py`；代码落地后固定 seed 验证默认 3 选 1 与 `luck` 概率 4 选 1 |
@@ -170,6 +171,7 @@
 | #90 | 可复用主动技能系统；技能定义与英雄解耦、可扩展资源池、targeting/effect primitive 和旋风斩首片 | `docs/代码/skill_system.md`、`client/data/skills.json`、`client/data/characters.json`、`client/data/game_modes.json`、`client/scripts/gameplay/skill_system.gd`、GDD §6.1-A、词表 §12-C~12-F、测试策略、AI导航、AI记忆 |
 | #91 | 多语言 UI 英文长度基准；玩家可见 UI 文案和布局以英文 `en` 长度验收，按钮类控件由 `settings-smoke` 覆盖 | `client/locale/README.md`、GDD §9.4 / §9.14、测试策略、四平台规则、AI导航、AI记忆 |
 | #92 | 详细数值面板；`show_stats_panel` action 默认 Tab，按住显示、松开隐藏，不暂停 | `docs/代码/gameplay_runtime.md`、`docs/代码/settings.md`、词表 §5 / §7、`client/scenes/gameplay/gameplay_hud.tscn`、`client/scripts/gameplay/gameplay_hud.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、测试策略、AI导航、AI记忆 |
+| #93 | 有限地图 + 可人工调参 PCG；`map_layouts.json` 声明 bounds、出生点、安全半径、刷怪边距、PCG 机关和人工摆点，`MapManager` / `HazardSystem` 保存并恢复 FEA-12 等机关 | `docs/代码/map_manager.md`、`docs/代码/hazard_system.md`、`client/data/map_layouts.json`、`client/data/hazards.csv`、`client/scripts/gameplay/map_manager.gd`、`client/scripts/gameplay/hazard.gd`、GDD §5 / §9.16、测试策略、AI导航、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 
@@ -178,7 +180,7 @@
 | 类型 | 路径 | 用途 |
 |------|------|------|
 | 正式项目启动模块文档 | `docs/代码/formal_client_boot.md` | 展示 F1 最小启动骨架与 gameplay runtime 挂载的职责边界、场景结构与验证方式 |
-| Gameplay Runtime 模块文档 | `docs/代码/gameplay_runtime.md` / `docs/代码/combat.md` / `docs/代码/skill_system.md` | 展示最小可玩闭环、统一伤害入口、可复用主动技能、对象池实体、HUD 与验证方式 |
+| Gameplay Runtime 模块文档 | `docs/代码/gameplay_runtime.md` / `docs/代码/combat.md` / `docs/代码/skill_system.md` / `docs/代码/map_manager.md` / `docs/代码/hazard_system.md` | 展示最小可玩闭环、统一伤害入口、可复用主动技能、有限地图、PCG 机关、对象池实体、HUD 与验证方式 |
 | EnemyAI 模块文档 | `docs/代码/enemy_ai.md` | 展示怪物生态 profile、Utility/FSM/Steering 分工、怪物互相伤害归因与验证方式 |
 | 正式项目 autoload 模块文档 | `docs/代码/mod_loader.md` / `data_loader.md` / `rng.md` / `game_state.md` / `game_clock.md` / `platform_services.md` / `settings.md` / `analytics.md` / `replay.md` / `pool_manager.md` / `save_manager.md` / `audio_manager.md` / `localization.md` / `ui_manager.md` | 展示基础设施模块的 API、依赖与测试义务 |
 | 功能建议池 | `docs/功能建议池.md` | 展示 F9 第一轮 Demo 收口后可人工点名的新功能菜单；不是已采纳路线图 |

@@ -131,6 +131,7 @@ enemy_swarm_name,疾行者,Swarm Runner
 enemy_stalker_name,潜猎者,Stalker
 enemy_bulwark_name,壁垒者,Bulwark
 hazard_spike_trap_name,尖刺陷阱,Spike Trap
+hazard_fea_12_pulse_name,FEA-12脉冲阵列,FEA-12 Pulse Array
 relic_sharp_rounds_name,锋利弹头,Sharp Rounds
 relic_sharp_rounds_desc,伤害 +{value},Damage +{value}
 item_blink_burst_name,闪冲,Blink Burst

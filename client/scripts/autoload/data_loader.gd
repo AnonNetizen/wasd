@@ -25,6 +25,7 @@ const META_PROGRESSION_PATH: String = "res://data/meta_progression.json"
 const GROWTH_CURVE_PATH: String = "res://data/growth.csv"
 const GROWTH_POOLS_PATH: String = "res://data/growth_pools.json"
 const GAME_MODES_PATH: String = "res://data/game_modes.json"
+const MAP_LAYOUTS_PATH: String = "res://data/map_layouts.json"
 
 const INT_STATS: Array[String] = ["max_hp", "bullet_count", "pierce_count"]
 const NON_NEGATIVE_STATS: Array[String] = [
@@ -143,6 +144,7 @@ func validate_project_data() -> bool:
 	is_valid = _validate_growth_pools(locale_keys) and is_valid
 	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids) and is_valid
 	var game_mode_ids: Dictionary = _collect_game_mode_ids()
+	is_valid = _validate_map_layouts_json(hazard_ids, game_mode_ids) and is_valid
 	is_valid = _validate_spawn_waves_csv(enemy_ids, hazard_ids, game_mode_ids) and is_valid
 
 	return is_valid
@@ -1308,6 +1310,105 @@ func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, we
 			is_valid = _validate_mode_blocklists("%s.blocklists" % mode_field, mode_dict.get("blocklists")) and is_valid
 		if mode_dict.has("overrides"):
 			is_valid = _validate_mode_overrides("%s.overrides" % mode_field, mode_dict.get("overrides")) and is_valid
+	return is_valid
+
+
+func _validate_map_layouts_json(hazard_ids: Dictionary, game_mode_ids: Dictionary) -> bool:
+	var data: Variant = load_json(MAP_LAYOUTS_PATH)
+	if not data is Dictionary:
+		return _schema_fail(MAP_LAYOUTS_PATH, "root", "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(MAP_LAYOUTS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var layouts: Array = _require_array(MAP_LAYOUTS_PATH, "layouts", payload.get("layouts"))
+	if layouts.is_empty():
+		is_valid = _schema_fail(MAP_LAYOUTS_PATH, "layouts", "non-empty Array") and is_valid
+	var seen_layouts: Dictionary = {}
+	_last_schema_counts["map_layouts"] = layouts.size()
+	for layout_index: int in range(layouts.size()):
+		var layout_field: String = "layouts[%d]" % layout_index
+		var layout: Variant = layouts[layout_index]
+		if not layout is Dictionary:
+			is_valid = _schema_fail(MAP_LAYOUTS_PATH, layout_field, "Dictionary") and is_valid
+			continue
+		var layout_dict: Dictionary = layout as Dictionary
+		var layout_id: String = String(layout_dict.get("id", ""))
+		is_valid = _require_non_empty_string(MAP_LAYOUTS_PATH, "%s.id" % layout_field, layout_dict.get("id")) and is_valid
+		if not layout_id.is_empty():
+			if seen_layouts.has(layout_id):
+				is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.id" % layout_field, "unique map layout id") and is_valid
+			seen_layouts[layout_id] = true
+		var mode_id: String = _require_registered(MAP_LAYOUTS_PATH, "%s.mode_id" % layout_field, layout_dict.get("mode_id"), "game_modes")
+		if not mode_id.is_empty() and not game_mode_ids.has(mode_id):
+			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.mode_id" % layout_field, "mode defined in game_modes.json") and is_valid
+		is_valid = _validate_map_bounds("%s.bounds" % layout_field, layout_dict.get("bounds")) and is_valid
+		is_valid = _validate_map_point("%s.player_start" % layout_field, layout_dict.get("player_start")) and is_valid
+		is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.safe_radius" % layout_field, layout_dict.get("safe_radius"), 0.0) and is_valid
+		is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.enemy_spawn_margin" % layout_field, layout_dict.get("enemy_spawn_margin"), 0.0) and is_valid
+		is_valid = _validate_map_pcg("%s.pcg" % layout_field, layout_dict.get("pcg", {}), hazard_ids) and is_valid
+		is_valid = _validate_map_manual_hazards("%s.manual_hazards" % layout_field, layout_dict.get("manual_hazards", []), hazard_ids) and is_valid
+	return is_valid
+
+
+func _validate_map_bounds(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(MAP_LAYOUTS_PATH, field, "Dictionary")
+	var bounds: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.width" % field, bounds.get("width"), 0.0, null, true) and is_valid
+	is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.height" % field, bounds.get("height"), 0.0, null, true) and is_valid
+	return is_valid
+
+
+func _validate_map_point(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(MAP_LAYOUTS_PATH, field, "Dictionary")
+	var point: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.x" % field, point.get("x")) and is_valid
+	is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.y" % field, point.get("y")) and is_valid
+	return is_valid
+
+
+func _validate_map_pcg(field: String, data: Variant, hazard_ids: Dictionary) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(MAP_LAYOUTS_PATH, field, "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	var hazards: Array = _require_array(MAP_LAYOUTS_PATH, "%s.hazards" % field, payload.get("hazards", []))
+	for index: int in range(hazards.size()):
+		var item_field: String = "%s.hazards[%d]" % [field, index]
+		var hazard: Variant = hazards[index]
+		if not hazard is Dictionary:
+			is_valid = _schema_fail(MAP_LAYOUTS_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var hazard_dict: Dictionary = hazard as Dictionary
+		var hazard_id: String = String(hazard_dict.get("id", ""))
+		is_valid = _require_non_empty_string(MAP_LAYOUTS_PATH, "%s.id" % item_field, hazard_dict.get("id")) and is_valid
+		if not hazard_id.is_empty() and not hazard_ids.has(hazard_id):
+			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.id" % item_field, "hazard defined in hazards.csv") and is_valid
+		is_valid = _require_int(MAP_LAYOUTS_PATH, "%s.count" % item_field, hazard_dict.get("count"), 0) and is_valid
+		is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.min_distance_from_player" % item_field, hazard_dict.get("min_distance_from_player"), 0.0) and is_valid
+		is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.min_spacing" % item_field, hazard_dict.get("min_spacing"), 0.0) and is_valid
+	return is_valid
+
+
+func _validate_map_manual_hazards(field: String, data: Variant, hazard_ids: Dictionary) -> bool:
+	var hazards: Array = _require_array(MAP_LAYOUTS_PATH, field, data)
+	var is_valid: bool = true
+	for index: int in range(hazards.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var hazard: Variant = hazards[index]
+		if not hazard is Dictionary:
+			is_valid = _schema_fail(MAP_LAYOUTS_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var hazard_dict: Dictionary = hazard as Dictionary
+		var hazard_id: String = String(hazard_dict.get("id", ""))
+		is_valid = _require_non_empty_string(MAP_LAYOUTS_PATH, "%s.id" % item_field, hazard_dict.get("id")) and is_valid
+		if not hazard_id.is_empty() and not hazard_ids.has(hazard_id):
+			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.id" % item_field, "hazard defined in hazards.csv") and is_valid
+		is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.x" % item_field, hazard_dict.get("x")) and is_valid
+		is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.y" % item_field, hazard_dict.get("y")) and is_valid
 	return is_valid
 
 
