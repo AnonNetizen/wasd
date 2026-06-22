@@ -740,10 +740,24 @@
       "last_reviewed": "2026-06-18",
       "canonical_for": ["gameplay_runtime", "f4_min_playable_loop", "formal_runtime_core", "minimal_combat_loop"],
       "must_read_for": ["gameplay_runtime_change", "player_runtime_change", "weapon_system_change", "spawner_change", "hud_change"],
-      "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
+      "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/enemy_ai.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/scripts/debug/gm_command_registry.gd", "client/tools/runtime_smoke.gd", "client/tools/debug_tools_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
       "update_triggers": ["Gameplay runtime behavior changes", "Player or weapon runtime changes", "Spawner behavior changes", "HUD or restart flow changes", "runtime debug API changes", "runtime module split or scene-resource migration"],
       "keywords": ["GameplayRunLoop", "runtime-smoke", "debug-tools-smoke", "F4", "MinPlayableLoop", "Player", "WeaponSystem", "Bullet", "Enemy", "Spawner", "HUD", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
+    },
+    {
+      "path": "docs/代码/enemy_ai.md",
+      "type": "module_doc",
+      "authority": "EnemyAI runtime contract for data-driven ecological profiles, Utility action scoring, FSM charge execution, steering movement, monster-vs-monster contact damage, and run snapshot fields",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-22",
+      "canonical_for": ["enemy_ai", "enemy_ecology", "enemy_ai_profiles", "monster_ecology"],
+      "must_read_for": ["enemy_ai_change", "enemy_ecology_change", "enemy_ai_profile_schema_change", "new_enemy_behavior"],
+      "related_docs": ["docs/代码/gameplay_runtime.md", "docs/代码/combat.md", "docs/代码/data_loader.md", "client/data/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/enemy_ai_profiles.json", "client/data/enemies.csv", "client/data/spawn_waves.csv", "client/tools/runtime_smoke.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
+      "update_triggers": ["EnemyAI runtime behavior changes", "enemy_ai_profiles.json schema changes", "enemy AI action contract changes", "enemy content tag ecology changes", "monster-vs-monster damage attribution changes", "enemy run snapshot changes"],
+      "keywords": ["EnemyAI", "Enemy", "enemy_ai_profiles.json", "ai_profile_id", "enemy_ai_actions", "Utility AI", "FSM", "Steering", "Rain World", "雨世界", "怪物生态", "猎物", "掠食者", "领地", "tag_enemy_prey", "tag_enemy_predator", "tag_enemy_territorial", "runtime-smoke"]
     },
     {
       "path": "docs/代码/debug_tools.md",
@@ -769,9 +783,9 @@
       "canonical_for": ["data_loader", "json_csv_loading", "contract_cache"],
       "must_read_for": ["data_loader_change", "data_schema_change", "formal_data_loading"],
       "related_docs": ["client/data/README.md", "docs/词表与契约.md", "docs/代码/README.md", "docs/代码/mod_loader.md", "docs/AI导航.md", "docs/AI协作/工作包/F3-DataLoader.md"],
-      "related_code": ["client/scripts/autoload/data_loader.gd", "client/scripts/autoload/mod_loader.gd", "client/data/_contracts.json", "client/data/credits.json", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
+      "related_code": ["client/scripts/autoload/data_loader.gd", "client/scripts/autoload/mod_loader.gd", "client/data/_contracts.json", "client/data/enemy_ai_profiles.json", "client/data/credits.json", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
       "update_triggers": ["DataLoader API changes", "data loading schema changes", "contract cache behavior changes", "mod data patch behavior changes"],
-      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation", "schema regression", "ModLoader", "local mods", "mod manifest", "weapons.json", "enemies.csv", "hazards.csv", "relics.json", "credits.json", "test_data_loader_schema"]
+      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation", "schema regression", "ModLoader", "local mods", "mod manifest", "weapons.json", "enemy_ai_profiles.json", "enemies.csv", "hazards.csv", "relics.json", "credits.json", "test_data_loader_schema"]
     },
     {
       "path": "docs/代码/mod_loader.md",

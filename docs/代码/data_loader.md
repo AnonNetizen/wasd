@@ -8,7 +8,7 @@
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
 - 通过 `ModLoader` 合并 `user://mods/<mod_id>/` 下声明式数据 patch，为本地玩家 mod 提供统一入口。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
-- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`meta_progression.json`、`growth.csv`、`growth_pools.json` 与 `strings.csv`。
+- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`enemy_ai_profiles.json`、`enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`meta_progression.json`、`growth.csv`、`growth_pools.json` 与 `strings.csv`。
 - 提供 fail-fast 错误输出，错误信息包含文件、字段路径和期望值。
 - 不负责业务解释、数值平衡、热重载 UI、升级奖励应用或游戏模式运行时；这些由后续业务模块接入。
 
@@ -31,7 +31,8 @@
 | `client/data/player.json` | 当前 JSON 读取样例 |
 | `client/data/characters.json` | 角色基础属性、标签、能力、控制配置和起始携带引用边界 |
 | `client/data/weapons.json` | 武器与子弹基础数值、对象池、伤害类型和音频 id 边界 |
-| `client/data/enemies.csv` | 敌人基础数值、对象池、伤害类型和模式引用边界 |
+| `client/data/enemy_ai_profiles.json` | 敌人生态 AI profile、感知、目标权重和动作列表边界 |
+| `client/data/enemies.csv` | 敌人基础数值、生态 tag、AI profile 引用、对象池、伤害类型和模式引用边界 |
 | `client/data/hazards.csv` | 机关基础数值、对象池、伤害类型和模式引用边界 |
 | `client/data/spawn_waves.csv` | 刷怪波次、模式引用、敌人 / 机关引用、时间窗和强度数值边界 |
 | `client/data/relics.json` | 被动遗物 modifier / behavior 数据边界 |
@@ -89,7 +90,8 @@
   - `player.json`：`schema_version`、`base_stats`，stat id 必须来自词表，数值范围按 stat 类型校验。
   - `characters.json`：角色 id、名称 / 描述 key、默认解锁、tags、capabilities、控制配置、起始携带引用和角色基础属性；起始武器、主动道具和消耗品引用必须存在于对应数据文件。
   - `weapons.json`：武器 id、名称 / 描述 key、默认解锁、开火模式、开火音频 id、武器基础属性、子弹对象池、伤害类型和弹体数值。
-  - `enemies.csv`：敌人 id、名称 key、`tag_enemy`、对象池 id、生命、移速、接触伤害、接触伤害类型、经验奖励和命中半径。
+  - `enemy_ai_profiles.json`：profile id、感知半径、决策间隔、接触冷却、玩家 / 生态 tag 目标权重、领地参数、动作参数和 action id；action 必须来自词表 §12-B，生态 tag 必须来自 content tags。
+  - `enemies.csv`：敌人 id、名称 key、`tag_enemy`、生态 tags、对象池 id、AI profile 引用、生命、移速、接触伤害、接触伤害类型、经验奖励和命中半径；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
   - `hazards.csv`：机关 id、名称 key、`tag_hazard`、对象池 id、伤害、伤害类型、触发间隔、范围和持续时间。
   - `spawn_waves.csv`：波次 id、模式 id、波次序号、时间窗、敌人引用、敌人权重、刷怪间隔、同时存活上限、预算，以及可选机关引用 / 权重。
   - `relics.json`：遗物 id、名称 / 描述 key、默认解锁、`tag_relic`、数值 modifiers、行为 behaviors，以及至少一个 modifier 或 behavior。
@@ -101,7 +103,7 @@
   - `growth_pools.json`：候选池、条目 id、类型、权重、等级条件和属性修正。
   - `game_modes.json`：模式 id、名称 / 描述 key、默认解锁、participants / teams、角色池、武器池、敌人池、机关池、遗物池、主动道具池、消耗品池、成长池、content tag blocklist 与玩家基础属性轻量覆盖；角色池 id 必须存在于 `characters.json`，武器池 id 必须存在于 `weapons.json`，敌人池 id 必须存在于 `enemies.csv`，机关池 id 必须存在于 `hazards.csv`，遗物池 id 必须存在于 `relics.json`，主动道具池 id 必须存在于 `active_items.json`，消耗品池 id 必须存在于 `consumables.json`。
   - `strings.csv`：key 前缀、`zh_CN` / `en` 必填、唯一 key。
-- 当前只校验 `characters.json`、`weapons.json`、`enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json` 与 `game_modes.json` 的数据边界，不实现角色选择 UI、起始携带发放、武器运行时、敌人生成 / AI / 刷怪、机关放置 / 触发 / 碰撞 / 伤害、遗物拾取 / 应用、主动道具栏 / 冷却 / 使用效果、消耗品拾取 / 背包 / 使用 / 数量扣减 / 效果执行、Credits UI、模式选择 UI、匹配、联网、成长抽取、输入 profile 切换或模式运行时。
+- 当前只校验 `characters.json`、`weapons.json`、`enemy_ai_profiles.json`、`enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json` 与 `game_modes.json` 的数据边界，不实现角色选择 UI、起始携带发放、武器运行时、敌人生成 / AI / 刷怪、机关放置 / 触发 / 碰撞 / 伤害、遗物拾取 / 应用、主动道具栏 / 冷却 / 使用效果、消耗品拾取 / 背包 / 使用 / 数量扣减 / 效果执行、Credits UI、模式选择 UI、匹配、联网、成长抽取、输入 profile 切换或模式运行时；敌人 AI 的业务解释见 `docs/代码/enemy_ai.md`。
 
 ## 依赖
 
@@ -122,6 +124,7 @@
 |------------|----------|----------|----------|
 | 加 JSON 数据 schema | `data_loader.gd` + `tools/validate_data.py` | `client/data/README.md`、对应模块文档 | `tools/validate_data.py`、headless boot |
 | 加 CSV 表读取 | `data_loader.gd` | `client/data/README.md` | `load_csv()` smoke / 数据校验 |
+| 改敌人 AI profile schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/enemy_ai.md` | `validate_data` + schema test + `runtime-smoke` |
 | 改契约来源 | `tools/sync_contracts.py`、`_contracts.json` | `docs/词表与契约.md` | `tools/sync_contracts.py --check` |
 | 改 mod 数据合并 | `mod_loader.gd`、`data_loader.gd` | `docs/代码/mod_loader.md`、本文档、GDD | `l1-smoke`、headless boot |
 

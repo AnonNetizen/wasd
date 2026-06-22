@@ -4,6 +4,7 @@ extends Node
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
 const ENEMY_SCENE := preload("res://scenes/gameplay/enemy.tscn")
 const PLAYER_SCENE := preload("res://scenes/gameplay/player.tscn")
 const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
@@ -123,6 +124,7 @@ func _run() -> void:
 	await _expect_enemy_center_separation(run_loop, player)
 	await _expect_player_enemy_separation(run_loop, player)
 	await _expect_swarm_enemy_spawn(run_loop, player)
+	await _expect_enemy_ecology_ai(run_loop, player)
 	await _expect_pickup_orb_draw_order(run_loop, player)
 	await _expect_pickup_orb_feedback(run_loop, player)
 	var level_restored_run: Dictionary = await _expect_level_up_choice(run_loop, player)
@@ -344,6 +346,63 @@ func _expect_swarm_enemy_spawn(run_loop: Node, _player: Node2D) -> void:
 			and is_equal_approx(color.b, expected_color.b),
 			"second enemy type should use data-driven visual color"
 		)
+
+
+func _expect_enemy_ecology_ai(run_loop: Node, player: Node2D) -> void:
+	var prey: Node2D = _spawn_smoke_enemy(run_loop, "enemy_swarm", "smoke_ecology_prey")
+	var predator: Node2D = _spawn_smoke_enemy(run_loop, "enemy_stalker", "smoke_ecology_predator")
+	_expect(prey != null, "ecology smoke should spawn prey enemy")
+	_expect(predator != null, "ecology smoke should spawn predator enemy")
+	if prey == null or predator == null:
+		if prey != null:
+			PoolManager.release(prey)
+		if predator != null:
+			PoolManager.release(predator)
+		return
+
+	var ecology_origin: Vector2 = player.global_position + Vector2(2400.0, 1400.0)
+	prey.global_position = ecology_origin
+	predator.global_position = ecology_origin + Vector2(110.0, 0.0)
+	for _index: int in range(10):
+		await get_tree().physics_frame
+
+	var prey_summary: Dictionary = prey.call("ai_debug_summary")
+	var predator_summary: Dictionary = predator.call("ai_debug_summary")
+	_expect(String(prey_summary.get("profile_id", "")) == "enemy_ai_prey_swarm", "prey enemy should use prey AI profile")
+	_expect(String(predator_summary.get("profile_id", "")) == "enemy_ai_predator_stalker", "predator enemy should use predator AI profile")
+	_expect(String(prey_summary.get("action", "")) == ENEMY_AI_ACTIONS.AI_ACTION_FLEE_THREAT, "prey enemy should flee nearby predator")
+	var predator_action: String = String(predator_summary.get("action", ""))
+	_expect(
+		predator_action == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
+		or predator_action == ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET,
+		"predator enemy should hunt nearby prey"
+	)
+	PoolManager.release(prey)
+	PoolManager.release(predator)
+
+
+func _spawn_smoke_enemy(run_loop: Node, enemy_id: String, wave_key: String) -> Node2D:
+	var before_ids: Dictionary = _active_enemy_instance_ids()
+	var spawned: bool = bool(run_loop.call("_spawn_enemy", {
+		"enemy_id": enemy_id,
+	}, wave_key))
+	_expect(spawned, "%s should spawn for ecology smoke" % enemy_id)
+	if not spawned:
+		return null
+	for raw_enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if before_ids.has(raw_enemy.get_instance_id()):
+			continue
+		if raw_enemy is Node2D:
+			return raw_enemy as Node2D
+	_expect(false, "%s should add an active enemy node" % enemy_id)
+	return null
+
+
+func _active_enemy_instance_ids() -> Dictionary:
+	var result: Dictionary = {}
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		result[enemy.get_instance_id()] = true
+	return result
 
 
 func _expect_pickup_orb_draw_order(run_loop: Node, player: Node2D) -> void:

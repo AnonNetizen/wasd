@@ -44,6 +44,7 @@ SECTIONS: tuple[ContractSection, ...] = (
     ContractSection("capabilities", "### 12.2 能力 capability_id", "capabilities.gd", "Capabilities"),
     ContractSection("content_tags", "### 12.3 内容标签 content_tag", "content_tags.gd", "ContentTags"),
     ContractSection("game_modes", "## 12-A. 游戏模式 id game_mode", "game_modes.gd", "GameModes"),
+    ContractSection("enemy_ai_actions", "## 12-B. 敌人 AI 动作 enemy_ai_action", "enemy_ai_actions.gd", "EnemyAiActions"),
     ContractSection("meta_currencies", "### 13.1 局外货币 currency_id", "meta_currencies.gd", "MetaCurrencies"),
     ContractSection("meta_upgrades", "### 13.2 局外升级 upgrade_id", "meta_upgrades.gd", "MetaUpgrades"),
     ContractSection("meta_unlock_kinds", "### 13.3 解锁类型 unlock_kind"),

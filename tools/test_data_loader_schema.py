@@ -162,6 +162,30 @@ def main() -> int:
             ],
         ),
         (
+            "enemy AI action must be registered",
+            _mutate_json("client/data/enemy_ai_profiles.json", _set_enemy_ai_action("ai_action_missing")),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].actions[0].id",
+                "unknown id ai_action_missing; expected one of enemy_ai_actions",
+            ],
+        ),
+        (
+            "enemy AI tag must be registered",
+            _mutate_json("client/data/enemy_ai_profiles.json", _set_enemy_ai_flee_tag("tag_missing")),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[1].targeting.flee_tags[0].tag",
+                "unknown id tag_missing; expected one of content_tags",
+            ],
+        ),
+        (
+            "enemy AI profile reference must exist",
+            _mutate_csv("client/data/enemies.csv", _set_enemy_ai_profile("enemy_ai_missing")),
+            [
+                "client/data/enemies.csv:line 2.ai_profile_id",
+                "profile is not defined in enemy_ai_profiles.json: enemy_ai_missing",
+            ],
+        ),
+        (
             "mode enemy reference must exist",
             _mutate_json("client/data/game_modes.json", _set_mode_enemy("enemy_missing")),
             [
@@ -547,6 +571,27 @@ def _set_enemy_tags(value: str) -> CsvMutator:
 def _set_enemy_damage_type(value: str) -> CsvMutator:
     def mutate(rows: list[dict[str, str]]) -> None:
         rows[0]["contact_damage_type"] = value
+
+    return mutate
+
+
+def _set_enemy_ai_action(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["profiles"][0]["actions"][0]["id"] = value
+
+    return mutate
+
+
+def _set_enemy_ai_flee_tag(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["profiles"][1]["targeting"]["flee_tags"][0]["tag"] = value
+
+    return mutate
+
+
+def _set_enemy_ai_profile(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["ai_profile_id"] = value
 
     return mutate
 

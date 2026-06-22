@@ -20,7 +20,8 @@
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
 | 改角色基础属性 / 标签 / 能力 / 起始携带 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；起始携带填 `starting_loadout`，引用必须存在于对应数据文件 |
 | 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
-| 改敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | 敌人标签、对象池 id、伤害类型必须来自词表 |
+| 改敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | 敌人标签、对象池 id、AI profile id、伤害类型必须来自词表或数据注册表 |
+| 改敌人生态 AI / 怪物互相克制 | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；生态关系通过 content tag 权重表达 |
 | 改机关伤害 / 范围 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
@@ -44,6 +45,7 @@
 | `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 已建立 | 主动道具：充能方式、冷却、效果原语与参数 |
 | `consumables.json` | 已建立 | 消耗品：堆叠数量、拾取数量、效果原语与参数 |
+| `enemy_ai_profiles.json` | 已建立 | 敌人生态 AI profile：感知、目标权重、动作列表、冲锋 / 领地等复杂行为参数 |
 | `enemies.csv` | 已建立 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励、占位色等 |
 | `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、范围、持续时间 |
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
@@ -130,7 +132,7 @@ user://mods/my_first_mod/
 | 数据形态 | 优先格式 | 示例 |
 |----------|----------|------|
 | 一行一个条目、列固定、经常人工排序 / 筛选 / 批量调参 | CSV | `enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`growth.csv` |
-| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`meta_progression.json`、`growth_pools.json` |
+| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`enemy_ai_profiles.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`meta_progression.json`、`growth_pools.json` |
 | 玩家可见文案 | CSV | `client/locale/strings.csv` |
 | 致谢 / 第三方来源清单 | JSON | `credits.json`，需同时同步根目录 `CREDITS.md` |
 | 自动生成契约 | JSON | `_contracts.json`，禁止手改 |
@@ -305,8 +307,8 @@ JSON 示例：
 当前结构：
 
 ```csv
-id,name_key,tags,pool_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius,separation_radius,visual_color
-enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,12,110.0,1,physical,3,14.0,9.0,#ff6152
+id,name_key,tags,pool_id,ai_profile_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius,separation_radius,visual_color
+enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,110.0,1,physical,3,14.0,9.0,#ff6152
 ```
 
 字段说明：
@@ -317,6 +319,7 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,12,110.0,1,physical,3,14.0
 | `name_key` | string | `enemy_*_name` | 敌人名称译文 key |
 | `tags` | string | `|` 分隔的词表 §12.3 content tag，必须含 `tag_enemy` | 内容标签；可被模式 blocklist、刷怪规则或后续内容系统筛选 |
 | `pool_id` | string | 词表 §8 pool id | 运行时使用的敌人对象池；当前只校验 id，不实例化场景 |
+| `ai_profile_id` | string | 必须存在于 `enemy_ai_profiles.json` | 运行时使用的生态 AI profile；决定感知、目标选择和动作集合 |
 | `max_hp` | int | `>= 1` | 敌人最大生命 |
 | `move_speed` | number | `> 0`，px/s | 敌人基础移动速度 |
 | `contact_damage` | int | `>= 0` | 接触伤害；运行时必须经 `Combat.apply_damage` 结算 |
@@ -326,7 +329,83 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,12,110.0,1,physical,3,14.0
 | `separation_radius` | number | `>= 0`，px | 敌人中心排斥半径；小于 `hit_radius` 时允许视觉重叠但避免中心完全重合 |
 | `visual_color` | string | HTML 色值，如 `#ff6152` | 开发期几何占位图颜色；只表达外观，不承载行为分支 |
 
-`enemies.csv` 只声明敌人基础数值边界，不实现 `Enemy` / `EnemyAI`、刷怪、寻路、碰撞体、掉落、对象池预热或伤害结算。游戏模式可通过 `resource_pools.enemies` 声明可用敌人池；实际波次选择、生成位置和行为由后续 `Spawner` / `EnemyAI` 系统解释。
+`enemies.csv` 只声明敌人基础数值、内容 tag 和 AI profile 引用边界；具体感知、动作评分、怪物互相狩猎 / 逃跑由 `enemy_ai_profiles.json` 与 `EnemyAI` 运行时解释。游戏模式可通过 `resource_pools.enemies` 声明可用敌人池；实际波次选择、生成位置、对象池预热和伤害结算由 `Spawner`、`PoolManager`、`Combat` 与 `EnemyAI` 系统负责。
+
+## `enemy_ai_profiles.json`
+
+当前结构：
+
+```json
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "enemy_ai_predator_stalker",
+      "sense_radius": 820.0,
+      "decision_interval": 0.12,
+      "contact_interval": 0.55,
+      "targeting": {
+        "player_weight": 0.55,
+        "hunt_tags": [{ "tag": "tag_enemy_prey", "weight": 1.65 }],
+        "flee_tags": [],
+        "territory_radius": 0.0,
+        "territory_weight": 0.0
+      },
+      "movement": {
+        "orbit_radius": 190.0,
+        "flee_distance": 260.0,
+        "charge_range": 320.0,
+        "charge_windup": 0.34,
+        "charge_duration": 0.42,
+        "charge_cooldown": 1.4,
+        "charge_speed_scale": 2.65
+      },
+      "actions": [
+        { "id": "ai_action_charge_target", "base_score": 0.95, "speed_scale": 1.0 },
+        { "id": "ai_action_approach_target", "base_score": 0.65, "speed_scale": 1.05 }
+      ]
+    }
+  ]
+}
+```
+
+字段说明：
+
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `profiles[].id` | string | 文件内唯一，非空 | AI profile id；由 `enemies.csv.ai_profile_id` 引用 |
+| `profiles[].sense_radius` | number | `> 0`，px | 感知玩家和其他敌人的最大距离 |
+| `profiles[].decision_interval` | number | `> 0`，秒 | 重新计算 Utility 分数的间隔 |
+| `profiles[].contact_interval` | number | `>= 0`，秒 | 同一敌人目标之间接触伤害冷却；玩家无敌仍由玩家侧裁决 |
+| `targeting.player_weight` | number | `>= 0` | 玩家作为目标的权重；为 0 时不会主动追玩家 |
+| `targeting.hunt_tags[]` | array[object] | 可为空 | 会被主动狩猎的敌人 content tag 列表 |
+| `targeting.hunt_tags[].tag` | string | 词表 §12.3 content tag | 目标敌人必须带有该 tag |
+| `targeting.hunt_tags[].weight` | number | `>= 0` | 该 tag 对目标评分的权重 |
+| `targeting.flee_tags[]` | array[object] | 可为空 | 需要逃离的敌人 content tag 列表 |
+| `targeting.territory_radius` | number | `>= 0`，px | 离出生点超过该距离时，守家动作会加分 |
+| `targeting.territory_weight` | number | `>= 0` | 超出领地半径后的回家倾向权重 |
+| `movement.orbit_radius` | number | `>= 0`，px | 环绕目标的期望半径 |
+| `movement.flee_distance` | number | `>= 0`，px | 逃跑行为的目标距离预留；当前首片主要用于语义保留 |
+| `movement.charge_range` | number | `>= 0`，px | 进入冲锋评分的最大距离；0 表示不冲锋 |
+| `movement.charge_windup` / `charge_duration` / `charge_cooldown` | number | `>= 0`，秒 | 冲锋蓄力、释放和冷却时间 |
+| `movement.charge_speed_scale` | number | `>= 0` | 冲锋释放阶段速度倍率 |
+| `actions[]` | array[object] | 至少 1 个 | 此 profile 可参与评分的动作列表 |
+| `actions[].id` | string | 词表 §12-B enemy AI action | 动作 id；运行时通过生成常量解释 |
+| `actions[].base_score` | number | `>= 0` | 动作基础分；越高越容易选中 |
+| `actions[].speed_scale` | number | `>= 0` | 执行该动作时的移动速度倍率 |
+
+当前动作：
+
+| action id | 行为 |
+|-----------|------|
+| `ai_action_approach_target` | 接近当前最高分目标，通常是玩家或猎物 |
+| `ai_action_flee_threat` | 远离当前最高分威胁 |
+| `ai_action_orbit_target` | 在目标附近绕行，预留给远程 / 试探型敌人 |
+| `ai_action_charge_target` | 近距离进入蓄力和冲锋释放 FSM |
+| `ai_action_guard_home` | 离出生点太远时返回领地 |
+
+调参建议：先改 `base_score` 和 tag `weight`，再改速度 / 半径；大幅改变生态关系后需要跑 `runtime-smoke`、golden replay 和 `perf-probe`。新增 action 必须先登记 `docs/词表与契约.md` §12-B，再同步生成常量、schema、`docs/代码/enemy_ai.md` 和测试。
 
 ## `hazards.csv`
 

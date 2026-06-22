@@ -169,6 +169,9 @@
     "content_tags": [
       "tag_character",
       "tag_enemy",
+      "tag_enemy_prey",
+      "tag_enemy_predator",
+      "tag_enemy_territorial",
       "tag_hazard",
       "tag_relic",
       "tag_active_item",
@@ -177,6 +180,13 @@
     ],
     "game_modes": [
       "mode_standard_survival"
+    ],
+    "enemy_ai_actions": [
+      "ai_action_approach_target",
+      "ai_action_flee_threat",
+      "ai_action_orbit_target",
+      "ai_action_charge_target",
+      "ai_action_guard_home"
     ],
     "meta_currencies": [
       "meta_essence"

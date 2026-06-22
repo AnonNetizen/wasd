@@ -18,6 +18,7 @@ LOCALE_CSV = ROOT / "client" / "locale" / "strings.csv"
 CHARACTERS_JSON = ROOT / "client" / "data" / "characters.json"
 WEAPONS_JSON = ROOT / "client" / "data" / "weapons.json"
 ENEMIES_CSV = ROOT / "client" / "data" / "enemies.csv"
+ENEMY_AI_PROFILES_JSON = ROOT / "client" / "data" / "enemy_ai_profiles.json"
 HAZARDS_CSV = ROOT / "client" / "data" / "hazards.csv"
 SPAWN_WAVES_CSV = ROOT / "client" / "data" / "spawn_waves.csv"
 RELICS_JSON = ROOT / "client" / "data" / "relics.json"
@@ -66,7 +67,9 @@ def main() -> int:
     _validate_player_json(ctx)
     _validate_weapons(ctx)
     weapon_ids = _collect_weapon_ids(ctx)
-    _validate_enemies_csv(ctx)
+    _validate_enemy_ai_profiles(ctx)
+    enemy_ai_profile_ids = _collect_enemy_ai_profile_ids(ctx)
+    _validate_enemies_csv(ctx, enemy_ai_profile_ids)
     enemy_ids = _collect_enemy_ids(ctx)
     _validate_hazards_csv(ctx)
     hazard_ids = _collect_hazard_ids(ctx)
@@ -298,7 +301,94 @@ def _validate_weapon_projectile(ctx: ValidationContext, path: Path, field: str, 
     _require_number(ctx, path, f"{field}.lifetime", data.get("lifetime"), minimum=0, exclusive_minimum=True)
 
 
-def _validate_enemies_csv(ctx: ValidationContext) -> None:
+def _validate_enemy_ai_profiles(ctx: ValidationContext) -> None:
+    path = ENEMY_AI_PROFILES_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    profiles = _require_list(ctx, path, "profiles", data.get("profiles"))
+    if not profiles:
+        ctx.error(path, "profiles", "must be a non-empty array")
+    seen: set[str] = set()
+    for index, profile in enumerate(profiles):
+        field = f"profiles[{index}]"
+        if not isinstance(profile, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        profile_id = _require_non_empty_string(ctx, path, f"{field}.id", profile.get("id"))
+        if profile_id:
+            if profile_id in seen:
+                ctx.error(path, f"{field}.id", f"duplicate profile id {profile_id}")
+            seen.add(profile_id)
+        _require_number(ctx, path, f"{field}.sense_radius", profile.get("sense_radius"), minimum=0, exclusive_minimum=True)
+        _require_number(ctx, path, f"{field}.decision_interval", profile.get("decision_interval"), minimum=0, exclusive_minimum=True)
+        _require_number(ctx, path, f"{field}.contact_interval", profile.get("contact_interval"), minimum=0)
+        _validate_enemy_ai_targeting(ctx, path, f"{field}.targeting", profile.get("targeting"))
+        _validate_enemy_ai_movement(ctx, path, f"{field}.movement", profile.get("movement"))
+        _validate_enemy_ai_actions(ctx, path, f"{field}.actions", profile.get("actions"))
+
+
+def _validate_enemy_ai_targeting(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    _require_number(ctx, path, f"{field}.player_weight", data.get("player_weight"), minimum=0)
+    _validate_enemy_ai_tag_weights(ctx, path, f"{field}.hunt_tags", data.get("hunt_tags"))
+    _validate_enemy_ai_tag_weights(ctx, path, f"{field}.flee_tags", data.get("flee_tags"))
+    _require_number(ctx, path, f"{field}.territory_radius", data.get("territory_radius"), minimum=0)
+    _require_number(ctx, path, f"{field}.territory_weight", data.get("territory_weight"), minimum=0)
+
+
+def _validate_enemy_ai_tag_weights(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    entries = _require_list(ctx, path, field, data)
+    seen: set[str] = set()
+    for index, entry in enumerate(entries):
+        item_field = f"{field}[{index}]"
+        if not isinstance(entry, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        tag = _require_registered(ctx, path, f"{item_field}.tag", entry.get("tag"), "content_tags")
+        if tag:
+            if tag in seen:
+                ctx.error(path, f"{item_field}.tag", f"duplicate tag {tag}")
+            seen.add(tag)
+        _require_number(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
+
+
+def _validate_enemy_ai_movement(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    _require_number(ctx, path, f"{field}.orbit_radius", data.get("orbit_radius"), minimum=0)
+    _require_number(ctx, path, f"{field}.flee_distance", data.get("flee_distance"), minimum=0, exclusive_minimum=True)
+    _require_number(ctx, path, f"{field}.charge_range", data.get("charge_range"), minimum=0)
+    _require_number(ctx, path, f"{field}.charge_windup", data.get("charge_windup"), minimum=0)
+    _require_number(ctx, path, f"{field}.charge_duration", data.get("charge_duration"), minimum=0)
+    _require_number(ctx, path, f"{field}.charge_cooldown", data.get("charge_cooldown"), minimum=0)
+    _require_number(ctx, path, f"{field}.charge_speed_scale", data.get("charge_speed_scale"), minimum=0, exclusive_minimum=True)
+
+
+def _validate_enemy_ai_actions(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    actions = _require_list(ctx, path, field, data)
+    if not actions:
+        ctx.error(path, field, "must be a non-empty array")
+    seen: set[str] = set()
+    for index, action in enumerate(actions):
+        item_field = f"{field}[{index}]"
+        if not isinstance(action, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        action_id = _require_registered(ctx, path, f"{item_field}.id", action.get("id"), "enemy_ai_actions")
+        if action_id:
+            if action_id in seen:
+                ctx.error(path, f"{item_field}.id", f"duplicate action id {action_id}")
+            seen.add(action_id)
+        _require_number(ctx, path, f"{item_field}.base_score", action.get("base_score"), minimum=0)
+        _require_number(ctx, path, f"{item_field}.speed_scale", action.get("speed_scale"), minimum=0, exclusive_minimum=True)
+
+
+def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]) -> None:
     path = ENEMIES_CSV
     if not path.exists():
         ctx.error(path, "$", "missing enemies CSV")
@@ -309,6 +399,7 @@ def _validate_enemies_csv(ctx: ValidationContext) -> None:
         "name_key",
         "tags",
         "pool_id",
+        "ai_profile_id",
         "max_hp",
         "move_speed",
         "contact_damage",
@@ -340,6 +431,9 @@ def _validate_enemies_csv(ctx: ValidationContext) -> None:
             if "tag_enemy" not in tags:
                 ctx.error(path, f"{field}.tags", "must include tag_enemy")
             _require_registered(ctx, path, f"{field}.pool_id", row.get("pool_id"), "pool_ids")
+            ai_profile_id = _require_non_empty_string(ctx, path, f"{field}.ai_profile_id", row.get("ai_profile_id"))
+            if ai_profile_id and ai_profile_id not in enemy_ai_profile_ids:
+                ctx.error(path, f"{field}.ai_profile_id", f"profile is not defined in enemy_ai_profiles.json: {ai_profile_id}")
             _parse_int(ctx, path, f"{field}.max_hp", row.get("max_hp"), minimum=1)
             _parse_float(ctx, path, f"{field}.move_speed", row.get("move_speed"), minimum=0, exclusive_minimum=True)
             _parse_int(ctx, path, f"{field}.contact_damage", row.get("contact_damage"), minimum=0)
@@ -1290,6 +1384,16 @@ def _collect_enemy_ids(ctx: ValidationContext) -> set[str]:
             if isinstance(enemy_id, str) and enemy_id:
                 ids.add(enemy_id)
     return ids
+
+
+def _collect_enemy_ai_profile_ids(ctx: ValidationContext) -> set[str]:
+    data = _load_json(ENEMY_AI_PROFILES_JSON, ctx)
+    if not isinstance(data, dict):
+        return set()
+    profiles = data.get("profiles")
+    if not isinstance(profiles, list):
+        return set()
+    return {item.get("id") for item in profiles if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
 def _collect_hazard_ids(ctx: ValidationContext) -> set[str]:

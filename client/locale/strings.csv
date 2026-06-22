@@ -108,6 +108,7 @@ weapon_basic_blaster_name,基础脉冲枪,Basic Blaster
 weapon_basic_blaster_desc,可靠的鼠标瞄准自动武器，发射物理子弹,A reliable mouse-aimed automatic weapon that fires physical rounds
 enemy_chaser_name,追猎者,Chaser
 enemy_swarm_name,疾行者,Swarm Runner
+enemy_stalker_name,潜猎者,Stalker
 enemy_bulwark_name,壁垒者,Bulwark
 hazard_spike_trap_name,尖刺陷阱,Spike Trap
 relic_sharp_rounds_name,锋利弹头,Sharp Rounds

@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "enemy_ai_chase_contact",
+      "sense_radius": 760.0,
+      "decision_interval": 0.12,
+      "contact_interval": 0.45,
+      "targeting": {
+        "player_weight": 1.0,
+        "hunt_tags": [],
+        "flee_tags": [],
+        "territory_radius": 0.0,
+        "territory_weight": 0.0
+      },
+      "movement": {
+        "orbit_radius": 160.0,
+        "flee_distance": 260.0,
+        "charge_range": 0.0,
+        "charge_windup": 0.0,
+        "charge_duration": 0.0,
+        "charge_cooldown": 0.0,
+        "charge_speed_scale": 1.0
+      },
+      "actions": [
+        {
+          "id": "ai_action_approach_target",
+          "base_score": 1.0,
+          "speed_scale": 1.0
+        }
+      ]
+    },
+    {
+      "id": "enemy_ai_prey_swarm",
+      "sense_radius": 680.0,
+      "decision_interval": 0.14,
+      "contact_interval": 0.55,
+      "targeting": {
+        "player_weight": 0.7,
+        "hunt_tags": [],
+        "flee_tags": [
+          {
+            "tag": "tag_enemy_predator",
+            "weight": 2.4
+          },
+          {
+            "tag": "tag_enemy_territorial",
+            "weight": 1.3
+          }
+        ],
+        "territory_radius": 0.0,
+        "territory_weight": 0.0
+      },
+      "movement": {
+        "orbit_radius": 150.0,
+        "flee_distance": 300.0,
+        "charge_range": 0.0,
+        "charge_windup": 0.0,
+        "charge_duration": 0.0,
+        "charge_cooldown": 0.0,
+        "charge_speed_scale": 1.0
+      },
+      "actions": [
+        {
+          "id": "ai_action_flee_threat",
+          "base_score": 0.2,
+          "speed_scale": 1.2
+        },
+        {
+          "id": "ai_action_approach_target",
+          "base_score": 0.55,
+          "speed_scale": 1.0
+        }
+      ]
+    },
+    {
+      "id": "enemy_ai_predator_stalker",
+      "sense_radius": 820.0,
+      "decision_interval": 0.12,
+      "contact_interval": 0.55,
+      "targeting": {
+        "player_weight": 0.55,
+        "hunt_tags": [
+          {
+            "tag": "tag_enemy_prey",
+            "weight": 1.65
+          }
+        ],
+        "flee_tags": [],
+        "territory_radius": 0.0,
+        "territory_weight": 0.0
+      },
+      "movement": {
+        "orbit_radius": 190.0,
+        "flee_distance": 260.0,
+        "charge_range": 320.0,
+        "charge_windup": 0.34,
+        "charge_duration": 0.42,
+        "charge_cooldown": 1.4,
+        "charge_speed_scale": 2.65
+      },
+      "actions": [
+        {
+          "id": "ai_action_charge_target",
+          "base_score": 0.95,
+          "speed_scale": 1.0
+        },
+        {
+          "id": "ai_action_approach_target",
+          "base_score": 0.65,
+          "speed_scale": 1.05
+        }
+      ]
+    },
+    {
+      "id": "enemy_ai_territorial_guard",
+      "sense_radius": 760.0,
+      "decision_interval": 0.16,
+      "contact_interval": 0.7,
+      "targeting": {
+        "player_weight": 0.7,
+        "hunt_tags": [
+          {
+            "tag": "tag_enemy_predator",
+            "weight": 0.65
+          }
+        ],
+        "flee_tags": [],
+        "territory_radius": 360.0,
+        "territory_weight": 1.8
+      },
+      "movement": {
+        "orbit_radius": 210.0,
+        "flee_distance": 260.0,
+        "charge_range": 260.0,
+        "charge_windup": 0.48,
+        "charge_duration": 0.45,
+        "charge_cooldown": 1.8,
+        "charge_speed_scale": 2.2
+      },
+      "actions": [
+        {
+          "id": "ai_action_guard_home",
+          "base_score": 0.15,
+          "speed_scale": 0.95
+        },
+        {
+          "id": "ai_action_charge_target",
+          "base_score": 0.7,
+          "speed_scale": 1.0
+        },
+        {
+          "id": "ai_action_approach_target",
+          "base_score": 0.55,
+          "speed_scale": 0.9
+        }
+      ]
+    }
+  ]
+}

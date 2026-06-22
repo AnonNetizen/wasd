@@ -13,6 +13,7 @@ const PLAYER_DATA_PATH: String = "res://data/player.json"
 const CHARACTERS_PATH: String = "res://data/characters.json"
 const WEAPONS_PATH: String = "res://data/weapons.json"
 const ENEMIES_PATH: String = "res://data/enemies.csv"
+const ENEMY_AI_PROFILES_PATH: String = "res://data/enemy_ai_profiles.json"
 const HAZARDS_PATH: String = "res://data/hazards.csv"
 const SPAWN_WAVES_PATH: String = "res://data/spawn_waves.csv"
 const RELICS_PATH: String = "res://data/relics.json"
@@ -119,7 +120,9 @@ func validate_project_data() -> bool:
 	is_valid = _validate_player_json() and is_valid
 	is_valid = _validate_weapons_json(locale_keys) and is_valid
 	var weapon_ids: Dictionary = _collect_weapon_ids()
-	is_valid = _validate_enemies_csv(locale_keys) and is_valid
+	is_valid = _validate_enemy_ai_profiles_json() and is_valid
+	var enemy_ai_profile_ids: Dictionary = _collect_enemy_ai_profile_ids()
+	is_valid = _validate_enemies_csv(locale_keys, enemy_ai_profile_ids) and is_valid
 	var enemy_ids: Dictionary = _collect_enemy_ids()
 	is_valid = _validate_hazards_csv(locale_keys) and is_valid
 	var hazard_ids: Dictionary = _collect_hazard_ids()
@@ -428,7 +431,113 @@ func _validate_weapon_projectile(field: String, data: Variant) -> bool:
 	return is_valid
 
 
-func _validate_enemies_csv(locale_keys: Dictionary) -> bool:
+func _validate_enemy_ai_profiles_json() -> bool:
+	var data: Variant = load_json(ENEMY_AI_PROFILES_PATH)
+	if not data is Dictionary:
+		return _schema_fail(ENEMY_AI_PROFILES_PATH, "root", "Dictionary")
+
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(ENEMY_AI_PROFILES_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var profiles: Array = _require_array(ENEMY_AI_PROFILES_PATH, "profiles", payload.get("profiles"))
+	if profiles.is_empty():
+		is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, "profiles", "non-empty Array") and is_valid
+	_last_schema_counts["enemy_ai_profiles"] = profiles.size()
+	var seen: Dictionary = {}
+	for index: int in range(profiles.size()):
+		var field: String = "profiles[%d]" % index
+		var profile: Variant = profiles[index]
+		if not profile is Dictionary:
+			is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, field, "Dictionary") and is_valid
+			continue
+		var profile_dict: Dictionary = profile as Dictionary
+		is_valid = _require_non_empty_string(ENEMY_AI_PROFILES_PATH, "%s.id" % field, profile_dict.get("id")) and is_valid
+		var profile_id: String = String(profile_dict.get("id", ""))
+		if not profile_id.is_empty():
+			if seen.has(profile_id):
+				is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, "%s.id" % field, "unique profile id") and is_valid
+			seen[profile_id] = true
+		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.sense_radius" % field, profile_dict.get("sense_radius"), 0.0, null, true) and is_valid
+		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.decision_interval" % field, profile_dict.get("decision_interval"), 0.0, null, true) and is_valid
+		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.contact_interval" % field, profile_dict.get("contact_interval"), 0.0) and is_valid
+		is_valid = _validate_enemy_ai_targeting("%s.targeting" % field, profile_dict.get("targeting")) and is_valid
+		is_valid = _validate_enemy_ai_movement("%s.movement" % field, profile_dict.get("movement")) and is_valid
+		is_valid = _validate_enemy_ai_actions("%s.actions" % field, profile_dict.get("actions")) and is_valid
+	return is_valid
+
+
+func _validate_enemy_ai_targeting(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(ENEMY_AI_PROFILES_PATH, field, "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.player_weight" % field, payload.get("player_weight"), 0.0) and is_valid
+	is_valid = _validate_enemy_ai_tag_weights("%s.hunt_tags" % field, payload.get("hunt_tags")) and is_valid
+	is_valid = _validate_enemy_ai_tag_weights("%s.flee_tags" % field, payload.get("flee_tags")) and is_valid
+	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.territory_radius" % field, payload.get("territory_radius"), 0.0) and is_valid
+	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.territory_weight" % field, payload.get("territory_weight"), 0.0) and is_valid
+	return is_valid
+
+
+func _validate_enemy_ai_tag_weights(field: String, data: Variant) -> bool:
+	var entries: Array = _require_array(ENEMY_AI_PROFILES_PATH, field, data)
+	var is_valid: bool = true
+	var seen: Dictionary = {}
+	for index: int in range(entries.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var entry: Variant = entries[index]
+		if not entry is Dictionary:
+			is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var entry_dict: Dictionary = entry as Dictionary
+		var tag: String = _require_registered(ENEMY_AI_PROFILES_PATH, "%s.tag" % item_field, entry_dict.get("tag"), "content_tags")
+		if not tag.is_empty():
+			if seen.has(tag):
+				is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, "%s.tag" % item_field, "unique tag") and is_valid
+			seen[tag] = true
+		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0.0) and is_valid
+	return is_valid
+
+
+func _validate_enemy_ai_movement(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(ENEMY_AI_PROFILES_PATH, field, "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.orbit_radius" % field, payload.get("orbit_radius"), 0.0) and is_valid
+	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.flee_distance" % field, payload.get("flee_distance"), 0.0, null, true) and is_valid
+	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_range" % field, payload.get("charge_range"), 0.0) and is_valid
+	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_windup" % field, payload.get("charge_windup"), 0.0) and is_valid
+	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_duration" % field, payload.get("charge_duration"), 0.0) and is_valid
+	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_cooldown" % field, payload.get("charge_cooldown"), 0.0) and is_valid
+	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_speed_scale" % field, payload.get("charge_speed_scale"), 0.0, null, true) and is_valid
+	return is_valid
+
+
+func _validate_enemy_ai_actions(field: String, data: Variant) -> bool:
+	var entries: Array = _require_array(ENEMY_AI_PROFILES_PATH, field, data)
+	var is_valid: bool = true
+	if entries.is_empty():
+		is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, field, "non-empty Array") and is_valid
+	var seen: Dictionary = {}
+	for index: int in range(entries.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var entry: Variant = entries[index]
+		if not entry is Dictionary:
+			is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var entry_dict: Dictionary = entry as Dictionary
+		var action_id: String = _require_registered(ENEMY_AI_PROFILES_PATH, "%s.id" % item_field, entry_dict.get("id"), "enemy_ai_actions")
+		if not action_id.is_empty():
+			if seen.has(action_id):
+				is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, "%s.id" % item_field, "unique action id") and is_valid
+			seen[action_id] = true
+		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.base_score" % item_field, entry_dict.get("base_score"), 0.0) and is_valid
+		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.speed_scale" % item_field, entry_dict.get("speed_scale"), 0.0, null, true) and is_valid
+	return is_valid
+
+
+func _validate_enemies_csv(locale_keys: Dictionary, enemy_ai_profile_ids: Dictionary) -> bool:
 	var rows: Array[Dictionary] = load_csv(ENEMIES_PATH)
 	var is_valid: bool = true
 	var seen: Dictionary = {}
@@ -450,6 +559,10 @@ func _validate_enemies_csv(locale_keys: Dictionary) -> bool:
 		if not tags.has("tag_enemy"):
 			is_valid = _schema_fail(ENEMIES_PATH, "%s.tags" % field, "tag_enemy") and is_valid
 		is_valid = _require_registered(ENEMIES_PATH, "%s.pool_id" % field, row.get("pool_id"), "pool_ids") != "" and is_valid
+		var ai_profile_id: String = String(row.get("ai_profile_id", ""))
+		is_valid = _require_non_empty_string(ENEMIES_PATH, "%s.ai_profile_id" % field, row.get("ai_profile_id")) and is_valid
+		if not ai_profile_id.is_empty() and not enemy_ai_profile_ids.has(ai_profile_id):
+			is_valid = _schema_fail(ENEMIES_PATH, "%s.ai_profile_id" % field, "profile defined in enemy_ai_profiles.json") and is_valid
 		is_valid = _require_csv_int(ENEMIES_PATH, "%s.max_hp" % field, row.get("max_hp"), 1) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.move_speed" % field, row.get("move_speed"), 0.0, null, true) and is_valid
 		is_valid = _require_csv_int(ENEMIES_PATH, "%s.contact_damage" % field, row.get("contact_damage"), 0) and is_valid
@@ -1485,6 +1598,20 @@ func _collect_enemy_ids() -> Dictionary:
 		var enemy_id: String = String(row.get("id", ""))
 		if not enemy_id.is_empty():
 			ids[enemy_id] = true
+	return ids
+
+
+func _collect_enemy_ai_profile_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(ENEMY_AI_PROFILES_PATH)
+	if not data is Dictionary:
+		return ids
+	var profiles: Variant = (data as Dictionary).get("profiles")
+	if not profiles is Array:
+		return ids
+	for profile: Variant in profiles:
+		if profile is Dictionary and (profile as Dictionary).get("id") is String:
+			ids[String((profile as Dictionary).get("id"))] = true
 	return ids
 
 

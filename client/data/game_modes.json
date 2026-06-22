@@ -47,6 +47,10 @@
             "weight": 45
           },
           {
+            "id": "enemy_stalker",
+            "weight": 18
+          },
+          {
             "id": "enemy_bulwark",
             "weight": 25
           }

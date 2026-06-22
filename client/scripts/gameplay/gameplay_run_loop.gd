@@ -142,7 +142,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	var loadout: Dictionary = character.get("starting_loadout", {})
 	var weapon: Dictionary = _find_item(_load_array(DataLoader.WEAPONS_PATH, "weapons"), String(loadout.get("weapon_id", "")))
 
-	_enemy_rows = _load_enemy_rows()
+	_enemy_rows = _load_enemy_rows(_load_enemy_ai_profiles())
 	_growth_curve = _load_growth_curve()
 	_growth_entries = _load_growth_entries(mode)
 	_waves = _load_waves(GAME_MODES.MODE_STANDARD_SURVIVAL)
@@ -417,11 +417,15 @@ func _reparent_to_active_world(node: Node) -> void:
 
 
 func _on_enemy_defeated(_enemy: Node, _exp_reward: int, wave_key: String) -> void:
-	_kills += 1
-	if _hud != null:
-		_hud.call("set_kills", _kills)
-	if _enemy is Node2D and _exp_reward > 0:
-		_spawn_pickup_orb((_enemy as Node2D).global_position, _exp_reward)
+	var defeated_by_player: bool = true
+	if _enemy != null and _enemy.has_method("was_defeated_by_player"):
+		defeated_by_player = bool(_enemy.call("was_defeated_by_player"))
+	if defeated_by_player:
+		_kills += 1
+		if _hud != null:
+			_hud.call("set_kills", _kills)
+		if _enemy is Node2D and _exp_reward > 0:
+			_spawn_pickup_orb((_enemy as Node2D).global_position, _exp_reward)
 	if _spawn_states.has(wave_key):
 		var state: Dictionary = _spawn_states[wave_key]
 		state["alive"] = maxi(int(state.get("alive", 0)) - 1, 0)
@@ -847,15 +851,38 @@ func _merged_player_stats(character: Dictionary, mode: Dictionary) -> Dictionary
 	return result
 
 
-func _load_enemy_rows() -> Dictionary:
+func _load_enemy_ai_profiles() -> Dictionary:
+	var result: Dictionary = {}
+	var data: Variant = DataLoader.load_json(DataLoader.ENEMY_AI_PROFILES_PATH)
+	if not data is Dictionary:
+		return result
+	var profiles: Variant = (data as Dictionary).get("profiles", [])
+	if not profiles is Array:
+		return result
+	for raw_profile: Variant in profiles:
+		if not raw_profile is Dictionary:
+			continue
+		var profile: Dictionary = (raw_profile as Dictionary).duplicate(true)
+		var profile_id: String = String(profile.get("id", ""))
+		if profile_id.is_empty():
+			continue
+		result[profile_id] = profile
+	return result
+
+
+func _load_enemy_rows(ai_profiles: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for row: Dictionary in DataLoader.load_csv(DataLoader.ENEMIES_PATH):
 		var requested_id: String = String(row.get("id", ""))
 		if requested_id.is_empty():
 			continue
+		var ai_profile_id: String = String(row.get("ai_profile_id", ""))
 		result[requested_id] = {
 			"id": requested_id,
+			"tags": _parse_tag_list(row.get("tags")),
 			"pool_id": String(row.get("pool_id", "")),
+			"ai_profile_id": ai_profile_id,
+			"ai_profile": ai_profiles.get(ai_profile_id, {}),
 			"max_hp": String(row.get("max_hp", "1")).to_int(),
 			"move_speed": String(row.get("move_speed", "0.0")).to_float(),
 			"contact_damage": String(row.get("contact_damage", "0")).to_int(),
@@ -866,6 +893,15 @@ func _load_enemy_rows() -> Dictionary:
 			"visual_color": String(row.get("visual_color", "#ff6152")),
 		}
 	return result
+
+
+func _parse_tag_list(raw_value: Variant) -> Array[String]:
+	var tags: Array[String] = []
+	for raw_tag: String in String(raw_value).split("|", false):
+		var tag: String = raw_tag.strip_edges()
+		if not tag.is_empty():
+			tags.append(tag)
+	return tags
 
 
 func _load_waves(target_mode: String) -> Array[Dictionary]:
