@@ -53,7 +53,7 @@
 | [`docs/词表与契约.md`](docs/词表与契约.md) | 约定字符串白名单（stat/effect/event/key/action） | 写数据或常量时 |
 | [`client/data/README.md`](client/data/README.md) | 完整项目数值配置手册 | 调数值或新增数据字段时 |
 | [`client/locale/README.md`](client/locale/README.md) | 完整项目多语言文案配置手册 | 加文案、改翻译或新增语言时 |
-| [`docs/游戏设计文档.md`](docs/游戏设计文档.md) | 完整 GDD（v1.9） | 了解整体设计 |
+| [`docs/游戏设计文档.md`](docs/游戏设计文档.md) | 完整 GDD（v1.10） | 了解整体设计 |
 | [`docs/代码文档规范.md`](docs/代码文档规范.md) | 代码变更与对应文档的同步规范 | 写/改代码前 |
 | [`docs/决策记录.md`](docs/决策记录.md) | 既定决策与原因（ADR） | 改动既定约束前 |
 | [`docs/修改建议.md`](docs/修改建议.md) | 待决策的开放问题（A~E） | 评估扩展方向时 |
@@ -132,5 +132,5 @@ client/
 第三方来源、外部库和工作人员记录见 [CREDITS.md](CREDITS.md)；游戏内 Credits UI 数据源见 [client/data/credits.json](client/data/credits.json)。
 
 ## 版本
-- 设计文档：**v1.9**（2026-06）
+- 设计文档：**v1.10**（2026-06）
 - 代码：正式项目推进到 F9 内容扩展 / Demo 打磨准备阶段，当前工程基线为 Godot 4.7。

@@ -1,5 +1,5 @@
 # Doc: docs/代码/hazard_system.md
-# Authority: docs/游戏设计文档.md §5.4, docs/决策记录.md ADR #93
+# Authority: docs/游戏设计文档.md §5.4, docs/决策记录.md ADR #93 / ADR #103
 class_name Hazard
 extends Node2D
 
@@ -10,6 +10,9 @@ const ACTIVE_FILL_COLOR: Color = Color(1.0, 0.42, 0.24, 0.34)
 const ACTIVE_RING_COLOR: Color = Color(1.0, 0.72, 0.32, 0.88)
 const IDLE_FILL_COLOR: Color = Color(0.34, 0.58, 0.78, 0.16)
 const IDLE_RING_COLOR: Color = Color(0.65, 0.84, 0.94, 0.78)
+const CENTER_DIAMOND_SCALE: float = 0.16
+const INNER_DIAMOND_SCALE: float = 0.58
+const INNER_RING_WIDTH: float = 1.5
 const RING_WIDTH: float = 3.0
 const TEAM_ENEMY: String = "team_enemy"
 const TEAM_PLAYER: String = "team_player"
@@ -36,7 +39,7 @@ func _physics_process(delta: float) -> void:
 	if _target == null or not is_instance_valid(_target):
 		queue_redraw()
 		return
-	if _cooldown_remaining <= 0.0 and global_position.distance_to(_target.global_position) <= _radius:
+	if _cooldown_remaining <= 0.0 and _is_target_inside_trigger():
 		_trigger()
 	queue_redraw()
 
@@ -94,12 +97,17 @@ func _pool_release() -> void:
 
 
 func _draw() -> void:
+	if _radius <= 0.0:
+		return
 	var fill_color: Color = ACTIVE_FILL_COLOR if _active_remaining > 0.0 else IDLE_FILL_COLOR
 	var ring_color: Color = ACTIVE_RING_COLOR if _active_remaining > 0.0 else IDLE_RING_COLOR
-	draw_circle(Vector2.ZERO, _radius, fill_color)
-	draw_arc(Vector2.ZERO, _radius, 0.0, TAU, 72, ring_color, RING_WIDTH)
-	draw_line(Vector2(-_radius * 0.35, 0.0), Vector2(_radius * 0.35, 0.0), ring_color, RING_WIDTH)
-	draw_line(Vector2(0.0, -_radius * 0.35), Vector2(0.0, _radius * 0.35), ring_color, RING_WIDTH)
+	var outer_points: PackedVector2Array = _diamond_points(_radius)
+	var inner_points: PackedVector2Array = _diamond_points(_radius * INNER_DIAMOND_SCALE)
+	var center_points: PackedVector2Array = _diamond_points(_radius * CENTER_DIAMOND_SCALE)
+	draw_colored_polygon(outer_points, fill_color)
+	_draw_diamond_outline(outer_points, ring_color, RING_WIDTH)
+	_draw_diamond_outline(inner_points, ring_color, INNER_RING_WIDTH)
+	draw_colored_polygon(center_points, ring_color)
 
 
 func _trigger() -> void:
@@ -116,6 +124,27 @@ func _trigger() -> void:
 		TEAM_PLAYER
 	)
 	Combat.apply_damage(_target, info)
+
+
+func _is_target_inside_trigger() -> bool:
+	if _target == null or not is_instance_valid(_target):
+		return false
+	var offset: Vector2 = _target.global_position - global_position
+	return absf(offset.x) + absf(offset.y) <= _radius
+
+
+func _diamond_points(half_diagonal: float) -> PackedVector2Array:
+	return PackedVector2Array([
+		Vector2(0.0, -half_diagonal),
+		Vector2(half_diagonal, 0.0),
+		Vector2(0.0, half_diagonal),
+		Vector2(-half_diagonal, 0.0),
+	])
+
+
+func _draw_diamond_outline(points: PackedVector2Array, color: Color, width: float) -> void:
+	for index: int in range(points.size()):
+		draw_line(points[index], points[(index + 1) % points.size()], color, width)
 
 
 func _vector_to_dict(value: Vector2) -> Dictionary:

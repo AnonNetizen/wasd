@@ -48,7 +48,7 @@
 | `client/scripts/gameplay/skill_system.gd` | 起始主动技能释放、技能资源、冷却、目标筛选、效果解释和 run 快照 |
 | `client/scripts/gameplay/bullet.gd` | 子弹飞行、射程 / 生命周期裁剪、敌人命中 |
 | `client/scripts/gameplay/enemy.gd` | 数据驱动敌人生态 AI、接触伤害、受伤 / 死亡和 AI 快照 |
-| `client/scripts/gameplay/hazard.gd` | 通用机关节点：半径触发、冷却、占位表现、`Combat` 伤害和快照 |
+| `client/scripts/gameplay/hazard.gd` | 通用机关节点：菱形范围触发、冷却、占位表现、`Combat` 伤害和快照 |
 | `client/scripts/gameplay/pickup_orb.gd` | 池化经验球：进入玩家拾取范围后吸附并发放经验 |
 | `client/scripts/gameplay/hit_spark.gd` / `damage_number.gd` | 池化命中反馈：Combat 成功造成伤害时生成短命火花和飘字；不进入 run 快照 |
 | `client/scripts/gameplay/level_up_panel.gd` | 响应式升级三选一面板；通过 `UIManager.push()` 挂载；语言切换时用缓存候选重建按钮 |
@@ -115,7 +115,7 @@ UIManager
 | 子弹命中 | 子弹用距离检测命中 `active_enemies` 组，伤害走 `Combat.apply_damage()` | `DamageInfo` |
 | 主动技能 / 状态 | SkillSystem 从 `skills.json` 读取起始技能列表；默认 `use_active_item` action 仍释放第一个技能 `skill_whirlwind_slash`，消耗角色声明的 `mana`，对施法者半径内敌人造成 `Combat` AOE 伤害；第二个已加载技能 `skill_ignite_slash` 通过 `skill_effect_apply_status` 对最近敌人施加 burn DoT，可由系统/API 释放，后续技能 UI / 多技能输入再接玩家操作；技能激活使用项目版轻量 GAS 的 ability tag gating，状态效果通过目标实体的 `StatusEffectComponent` 管理，技能冷却、资源回复、状态过期和 DoT tick 都走 `GameClock` | `SkillSystem.cast_primary_skill()`、`SkillSystem.cast_skill(skill_id)`、`Combat.apply_damage()`、`Player.apply_status_effect()`、`Enemy.apply_status_effect()` |
 | 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人；当前有追猎者、疾行者、潜猎者和壁垒四种数据化敌人 | `GameClock.now()`、`RNG.spawn` |
-| 机关触发 | `Hazard` 在 `PLAYING` 下按 `GameClock.delta_scaled()` 消耗冷却；玩家进入半径后构造 `DamageInfo` 并交给 `Combat`，当前 FEA-12 用于验证 PCG / 手工摆点和伤害链路 | `Hazard.configure()`、`Combat.apply_damage()` |
+| 机关触发 | `Hazard` 在 `PLAYING` 下按 `GameClock.delta_scaled()` 消耗冷却；玩家进入菱形范围后构造 `DamageInfo` 并交给 `Combat`，当前 FEA-12 用于验证 PCG / 手工摆点和伤害链路 | `Hazard.configure()`、`Combat.apply_damage()` |
 | 受击 / 击杀反馈 | `Combat.damage_applied` 成功应用伤害后生成池化 `hit_spark` 与 `damage_number`；玩家受伤时 `Player3DVisual` 胶囊短暂红闪，敌人命中时短暂暖白闪，敌人死亡后立即离开活敌组并橙色放大淡出后归池；玩家进入数据化受伤无敌窗口 | `Player3DVisual.set_hit_flash_active()` / `_draw()` / `queue_redraw()` / `PoolManager.acquire()` |
 | 敌人行为 | 敌人从 `enemy_ai_profiles.json` 读取感知、目标权重和动作列表；运行时可接近玩家、逃离威胁、狩猎其他敌人、守出生点或冲锋，移动 / 分离 / 快照恢复后仍被有限地图 bounds clamp。敌人与玩家 / 敌人接触伤害都走 `Combat`；怪物互杀不会计入玩家击杀或经验掉落 | `Enemy.defeated`、`docs/代码/enemy_ai.md` |
 | 经验掉落 | 敌人死亡时按 `exp_reward` 生成池化经验球；经验球进入玩家 `pickup_range` 后显示吸附反馈，贴近玩家时立即发放经验并短暂弹出淡出后归池 | `PoolManager.acquire(PICKUP_ORB)` |
@@ -205,6 +205,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 玩家中心排斥：从合并后的玩家 `base_stats.player_separation_radius` 读取；当前默认 10px。敌人与玩家的最小中心距离为两者分离半径之和，碰到时只推开敌人，不改变玩家移动手感；接触伤害距离会取敌人 `hit_radius` 与双方分离半径之和的较大值，避免推开后反而打不到玩家。
 - 玩家占位表现：默认通过 `Player3DVisual` 显示低模 3D 胶囊、暗色地面阴影和朝向标记；若视觉子场景缺失，`Player` 会回退绘制蓝色 2D 圆点。受伤反馈为 0.16 秒红闪，不承载行为差异。
 - 敌人占位表现：从 `enemies.csv.visual_color` 读取 HTML 色值作为填充色，运行时统一绘制几何三角、暗色轮廓和眼睛描边；命中反馈为 0.16 秒暖白闪，死亡反馈为 0.18 秒橙色放大淡出，只用于开发期占位可读性，不承载行为分支。
+- 机关占位表现：通用 `Hazard` 绘制哈迪斯式地面菱形危险地块；`hazards.csv.radius` 解释为菱形半对角线，触发判定与视觉菱形一致。
 - 玩家生命尺度：默认角色 `max_hp` 为 600.0，采用浮点血量尺度而非旧心数尺度；`health_regen` 在 `PLAYING` 状态下按 `GameClock.delta_scaled()` 自动恢复生命且不超过上限，当前默认 1.5 HP/s。
 - 玩家 2.5D 表现：`Player` 仍是 `CharacterBody2D`，移动、碰撞、受击和 run 快照都维持 2D；`Player3DVisual` 只是表现层，内部用 `SubViewport + Camera3D + MeshInstance3D` 渲染低模胶囊，再通过 `Sprite2D` 显示在玩家位置。`CenteredCamera` 不滚转屏幕、不非等比缩放，当前由 `player.gd` 设置 `ignore_rotation=true`、`rotation_degrees=0.0` 和等比 `zoom`；鼠标瞄准通过 canvas transform 反投影回世界方向，避免屏幕指向和射击方向错位。
 - 受伤无敌：从合并后的玩家 `base_stats.damage_invulnerability_duration` 读取；当前默认 `player.json` 为 0.7 秒，和受伤红闪时长分离。
@@ -231,7 +232,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 加状态宿主：可被状态影响的新实体应复用 `StatusEffectComponent`，实现 `apply_status_effect()`、owned ability tag 查询、`combat_team_id()` 和 JSON 友好快照；对象池实体必须在 `configure()` / 回收路径清空状态。
 - 加敌人：优先改 `enemies.csv`、`enemy_ai_profiles.json`、`game_modes.json` 和 `spawn_waves.csv`；行为差异通过 AI profile / tag 权重表达，不在 `enemy.gd` 按 id 分支。
 - 加地图 / PCG 规则：优先改 `map_layouts.json`；运行时通过 `MapManager` 解释有限边界、手工摆点和 PCG，不在 `GameplayRunLoop` 按 layout id 分支。
-- 加机关：优先改 `hazards.csv`、`game_modes.json.resource_pools.hazards` 和 `map_layouts.json`；普通范围机关复用 `Hazard`，新行为先设计通用 primitive，不按机关 id 写分支。
+- 加机关：优先改 `hazards.csv`、`game_modes.json.resource_pools.hazards` 和 `map_layouts.json`；普通菱形范围机关复用 `Hazard`，新行为先设计通用 primitive，不按机关 id 写分支。
 - 加刷怪：改 `spawn_waves.csv`；多个波次可复用当前时间窗 / 预算解释。
 - 加升级候选：优先改 `growth_pools.json`；新候选如果仍是 `stat_modifier` 不需要改逻辑，新增候选类型才需要扩展运行时解释和文档。
 - 场景资源化：新增稳定 gameplay / UI 层级时优先新增 `.tscn`，脚本只做节点绑定、配置和 signal 编排；只有对象池工厂与数据驱动重复项可以在运行时创建节点，并要在模块文档说明原因。
@@ -250,7 +251,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 调敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | `client/data/README.md` | `validate_data` + 手动跑一局 |
 | 调敌人生态 AI | `enemy_ai_profiles.json`、`enemies.csv.tags` | `client/data/README.md`、`docs/代码/enemy_ai.md` | `validate_data` + `runtime-smoke` + 必要时 golden replay |
 | 调地图边界 / PCG 机关 / 手工摆点 | `map_layouts.json` | `client/data/README.md`、`docs/代码/map_manager.md` | `validate_data` + `runtime-smoke` + `f9-demo-smoke` |
-| 调机关伤害 / 半径 / 冷却 | `hazards.csv` | `client/data/README.md`、`docs/代码/hazard_system.md` | `validate_data` + `f9-demo-smoke` |
+| 调机关伤害 / 菱形半对角线 / 冷却 | `hazards.csv` | `client/data/README.md`、`docs/代码/hazard_system.md` | `validate_data` + `f9-demo-smoke` |
 | 调刷怪节奏 | `spawn_waves.csv` | `client/data/README.md` | `validate_data` + 手动 1 分钟 |
 | 调升级阈值 / 候选 | `growth.csv` / `growth_pools.json` | `client/data/README.md` | `validate_data` + `runtime-smoke` |
 | 改 HUD 文案 | `strings.csv` | `client/locale/README.md` | `validate_data` |
@@ -278,7 +279,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 玩家走出地图 | `MapManager.bounds()` 是否配置；`Player.set_movement_bounds()` 是否调用；`map_layouts.json.bounds` 是否有效 |
 | 敌人走出地图 | `MapManager.bounds()` 是否配置；`GameplayRunLoop._apply_enemy_movement_bounds()` 是否在生成 / 续局恢复时调用；`Enemy.set_movement_bounds()` 是否在移动、分离和快照恢复后 clamp |
 | 机关不出现 | `map_layouts.json` 是否生成 placement；`hazards.csv.pool_id` 是否已注册；`runtime-smoke` 是否通过 active hazards 断言 |
-| FEA-12 不伤害玩家 | 玩家是否在机关半径内；玩家无敌窗口是否清零；`hazards.csv.damage` / `damage_type` 是否有效；`f9-demo-smoke` 是否通过 |
+| FEA-12 不伤害玩家 | 玩家是否在机关菱形范围内；玩家无敌窗口是否清零；`hazards.csv.damage` / `damage_type` 是否有效；`f9-demo-smoke` 是否通过 |
 | 机关续局后位置变化 | run payload 是否包含 `map.hazard_placements` 与 `hazards`；恢复是否误重新消耗 `RNG.world` |
 | 第二敌人不出现 | `enemies.csv.pool_id` 是否为已注册池；`game_modes.json.resource_pools.enemies` 与 `spawn_waves.csv.enemy_id` 是否引用该敌人；`runtime-smoke` 是否通过第二敌人池断言 |
 | 敌人不按生态关系互动 | `enemies.csv.ai_profile_id` 是否正确；`enemies.csv.tags` 是否含 `tag_enemy_prey` / `tag_enemy_predator` / `tag_enemy_territorial`；`enemy_ai_profiles.json` 的 `hunt_tags` / `flee_tags` 是否在感知半径内有权重 |

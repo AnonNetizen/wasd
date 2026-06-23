@@ -2,8 +2,8 @@
   "schema_version": 1,
   "updated_at": "2026-06-23",
   "current_phase": "formal_project_f9_content_demo_polish",
-  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；后续用户点名推进的《破巢者》IP、数据驱动 EnemyAI、可复用主动技能、英文 UI 尺寸基准、详细数值面板、有限地图 + 可人工调参 PCG / FEA-12 机关测试链路、项目版轻量 GAS 首片、状态效果 ability tag 生命周期首片、Player / Enemy 实体状态宿主接入、burn DoT 首个真实状态、点燃斩 burn 数据技能、敌人有限地图移动边界修复、600.0 浮点血量 + health_regen 基线、玩家 2.5D 视觉层首片，以及 ADR #100~#102 固定斜俯视 2.5D 当前视角口径和哈迪斯式等比屏幕尺度显示均已落地。当前项目类型应表述为固定斜俯视 2.5D 刷宝动作生存：核心参考《星际战甲》与《暗黑》的装备 / 词条 / 长期养成和刷战利品循环，视角表现参考《哈迪斯》的斜俯视舞台可读性；移动、碰撞、刷怪、地图边界和回放仍保持 2D 平面，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放，不旋转、不非等比压缩，鼠标瞄准按 canvas transform 反算世界方向。新增 docs/AI辅助开发机会清单.md 只是候选菜单，不是已采纳路线图，也不授权 AI 自行实现。当前没有阻塞，下一步应以用户最后明确指令为准。",
-  "latest_adr": 102,
+  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；后续用户点名推进的《破巢者》IP、数据驱动 EnemyAI、可复用主动技能、英文 UI 尺寸基准、详细数值面板、有限地图 + 可人工调参 PCG / FEA-12 机关测试链路、项目版轻量 GAS 首片、状态效果 ability tag 生命周期首片、Player / Enemy 实体状态宿主接入、burn DoT 首个真实状态、点燃斩 burn 数据技能、敌人有限地图移动边界修复、600.0 浮点血量 + health_regen 基线、玩家 2.5D 视觉层首片，以及 ADR #100~#103 固定斜俯视 2.5D 当前视角口径、哈迪斯式等比屏幕尺度显示和菱形机关危险地块均已落地。当前项目类型应表述为固定斜俯视 2.5D 刷宝动作生存：核心参考《星际战甲》与《暗黑》的装备 / 词条 / 长期养成和刷战利品循环，视角表现参考《哈迪斯》的斜俯视舞台可读性；移动、碰撞、刷怪、地图边界和回放仍保持 2D 平面，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放，不旋转、不非等比压缩，鼠标瞄准按 canvas transform 反算世界方向。通用 `Hazard` 现在使用菱形占位和菱形触发判定，`hazards.csv.radius` 表示菱形半对角线；普通背景菱形网格仍只是空间参照。新增 docs/AI辅助开发机会清单.md 只是候选菜单，不是已采纳路线图，也不授权 AI 自行实现。当前没有阻塞，下一步应以用户最后明确指令为准。",
+  "latest_adr": 103,
   "open_decisions": [
     "A",
     "C",
@@ -11,6 +11,7 @@
     "E"
   ],
   "last_completed": [
+    "ADR #103：通用机关改为哈迪斯式菱形危险地块；Hazard 的占位表现和触发判定都使用菱形范围，hazards.csv.radius 解释为菱形半对角线，普通背景菱形网格仍只作为空间参照。",
     "ADR #102：固定斜俯视显示改为哈迪斯式等比屏幕尺度；CenteredCamera 不旋转、不非等比缩放，世界横纵单位映射到屏幕保持同尺度，斜俯视感由舞台地面、障碍物、Y-sort / 遮挡和 2.5D 角色 / 敌人视觉层承担。",
     "ADR #101：固定斜俯视首片不使用 Camera2D 滚转画面；CenteredCamera 保持屏幕水平和玩家居中，后续非等比缩放边界已由 ADR #102 修正；Player3DVisual 用更明显的 3/4 俯看 Camera3D 角度，鼠标瞄准仍通过 canvas transform 反算世界方向。",
     "ADR #100：当前正式视角口径改为固定斜俯视 2.5D 刷宝动作生存；显示层向暗黑式 3/4 可读性靠拢，Player / Enemy / 地图 / 碰撞 / 回放仍保持 2D 平面，具体相机实现已由 ADR #101 修正。",
@@ -47,13 +48,18 @@
     "后续设计、功能选择和文档表述应以“固定斜俯视 2.5D 刷宝动作生存”为核心口径：优先围绕装备、词条、战利品、长期养成、更高危险等级和构筑迭代组织工作包；局内随机奖励服务刷宝循环，不再按旧类型路线推进，也不要再把当前项目称为纯俯视角。",
     "如果继续讨论“AI 写代码能力带来的新玩法 / 内容产能”，先看 docs/AI辅助开发机会清单.md；该文档只是候选菜单，用户点名 AID 条目后再建立 / 更新工作包、GDD / ADR / 模块文档并实现。",
     "如果继续地图 / PCG，优先改 client/data/map_layouts.json；地图规则看 docs/代码/map_manager.md，机关运行时看 docs/代码/hazard_system.md；玩家和敌人中心移动都应保持在 MapManager.bounds() 内。",
-    "如果继续机关内容，优先改 client/data/hazards.csv、game_modes.resource_pools.hazards 和 map_layouts.json；普通范围机关复用通用 Hazard，新增行为先设计 primitive。",
+    "如果继续机关内容，优先改 client/data/hazards.csv、game_modes.resource_pools.hazards 和 map_layouts.json；普通菱形范围机关复用通用 Hazard，hazards.csv.radius 是菱形半对角线，新增行为先设计 primitive。",
     "如果继续技能 / 轻量 GAS，优先改 client/data/skills.json、characters.json.skill_resources / starting_loadout.skill_ids 和 game_modes.resource_pools.skills；当前默认主键仍是 skill_whirlwind_slash，skill_ignite_slash 已作为第二技能和模式池内容；新资源、目标类型、效果或 ability tag 先登记 docs/词表与契约.md §12-C~12-G。",
     "如果继续状态效果，先看 docs/代码/status_effect_component.md；新状态登记 docs/词表与契约.md §9-A，新叠加规则登记 §9-B；DoT 状态通过 skill_effect_apply_status 提供 damage_type / magnitude / tick_interval，或后续 on-hit primitive 注入目标实体的 StatusEffectComponent。",
     "如果继续怪物生态，优先改 client/data/enemy_ai_profiles.json 与 enemies.csv.tags / ai_profile_id；敌人普通移动、冲锋、中心分离和快照恢复必须保留有限地图 bounds clamp，再跑 validate_data、runtime-smoke 和必要的 golden replay。",
     "任何上下文恢复后，先对齐用户最后明确指令；本文件只提供候选方向。"
   ],
   "last_verified": [
+    {
+      "date": "2026-06-23",
+      "command": "lint_gdscript_rules, lint_semantic_rules, validate_data, test_data_loader_schema, json current_state/_kb_index, docs_health_check, diff --check excluding draft, headless-boot, runtime-smoke, f9-demo-smoke, save-smoke",
+      "result": "passed for ADR #103 diamond hazard tiles; generic Hazard now draws a diamond danger tile and uses abs(dx)+abs(dy)<=radius trigger math, hazards.csv.radius is the diamond half-diagonal, and the ordinary background diamond grid remains visual-only; f9-demo-smoke confirms hazard damage still fires, runtime-smoke/save-smoke include expected broken-save diagnostics while passing; semantic lint exits 0 with deferred existing autoload-bypass-pool-ui advisories outside this Hazard change"
+    },
     {
       "date": "2026-06-23",
       "command": "export-tree, lint_gdscript_rules, lint_semantic_rules, docs_health_check, json current_state, headless-boot, runtime-smoke, replay-input-smoke",

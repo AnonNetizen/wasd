@@ -502,10 +502,10 @@ hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,1,physical,1.0,
 | `damage` | int | `>= 0` | 单次触发伤害；运行时必须经 `Combat.apply_damage` 结算 |
 | `damage_type` | string | 词表 §9 damage type | 机关伤害类型 |
 | `trigger_interval` | number | `> 0`，秒 | 持续存在机关的触发间隔 |
-| `radius` | number | `> 0`，px | 影响 / 触发半径边界，后续碰撞体或 telegraph 可据此生成 |
+| `radius` | number | `> 0`，px | 菱形触发范围的半对角线；视觉菱形和触发判定都据此生成 |
 | `duration` | number | `>= 0`，秒 | 单次触发后的激活 / 预警表现时长 |
 
-`hazards.csv` 只声明机关基础数值。当前运行时已有通用 `Hazard` 节点：由 `MapManager` 读取 `map_layouts.json` 的 PCG / 人工摆点，经 `PoolManager` 取节点，在玩家进入半径且冷却结束时通过 `Combat.apply_damage()` 结算。游戏模式仍通过 `resource_pools.hazards` 声明可用机关池；实际初始位置改 `map_layouts.json`。
+`hazards.csv` 只声明机关基础数值。当前运行时已有通用 `Hazard` 节点：由 `MapManager` 读取 `map_layouts.json` 的 PCG / 人工摆点，经 `PoolManager` 取节点，在玩家进入菱形触发范围且冷却结束时通过 `Combat.apply_damage()` 结算。游戏模式仍通过 `resource_pools.hazards` 声明可用机关池；实际初始位置改 `map_layouts.json`。
 
 ## `spawn_waves.csv`
 
