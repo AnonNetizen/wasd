@@ -1437,6 +1437,22 @@ func _validate_map_point(field: String, data: Variant) -> bool:
 
 
 func _validate_map_point_on_grid(field: String, point_data: Variant, grid_data: Variant) -> bool:
+	if _is_map_point_on_grid_center(point_data, grid_data):
+		return true
+	return _schema_fail(MAP_LAYOUTS_PATH, field, "diamond grid center")
+
+
+func _validate_map_point_on_hazard_anchor(field: String, point_data: Variant, grid_data: Variant, radius_tiles: int) -> bool:
+	if radius_tiles % 2 == 1:
+		if _is_map_point_on_grid_center(point_data, grid_data):
+			return true
+		return _schema_fail(MAP_LAYOUTS_PATH, field, "diamond grid center for odd radius_tiles")
+	if _is_map_point_on_grid_vertex(point_data, grid_data):
+		return true
+	return _schema_fail(MAP_LAYOUTS_PATH, field, "diamond grid vertex for even radius_tiles")
+
+
+func _is_map_point_on_grid_center(point_data: Variant, grid_data: Variant) -> bool:
 	if not point_data is Dictionary or not grid_data is Dictionary:
 		return true
 	var point: Dictionary = point_data as Dictionary
@@ -1457,7 +1473,30 @@ func _validate_map_point_on_grid(field: String, point_data: Variant, grid_data: 
 	var row: float = (v - u) * 0.5
 	if _is_nearly_integer(column) and _is_nearly_integer(row):
 		return true
-	return _schema_fail(MAP_LAYOUTS_PATH, field, "diamond grid center")
+	return false
+
+
+func _is_map_point_on_grid_vertex(point_data: Variant, grid_data: Variant) -> bool:
+	if not point_data is Dictionary or not grid_data is Dictionary:
+		return true
+	var point: Dictionary = point_data as Dictionary
+	var grid: Dictionary = grid_data as Dictionary
+	if not (point.get("x") is int or point.get("x") is float):
+		return true
+	if not (point.get("y") is int or point.get("y") is float):
+		return true
+	if not (grid.get("cell_width") is int or grid.get("cell_width") is float):
+		return true
+	if not (grid.get("cell_height") is int or grid.get("cell_height") is float):
+		return true
+	var half_width: float = maxf(float(grid.get("cell_width")) * 0.5, 1.0)
+	var half_height: float = maxf(float(grid.get("cell_height")) * 0.5, 1.0)
+	var u: float = float(point.get("x")) / half_width
+	var v: float = float(point.get("y")) / half_height
+	if not _is_nearly_integer(u) or not _is_nearly_integer(v):
+		return false
+	var parity_sum: int = int(roundf(u)) + int(roundf(v))
+	return parity_sum % 2 != 0
 
 
 func _validate_map_pcg(field: String, data: Variant, hazard_ids: Dictionary) -> bool:
@@ -1499,7 +1538,8 @@ func _validate_map_manual_hazards(field: String, data: Variant, hazard_ids: Dict
 			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.id" % item_field, "hazard defined in hazards.csv") and is_valid
 		is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.x" % item_field, hazard_dict.get("x")) and is_valid
 		is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.y" % item_field, hazard_dict.get("y")) and is_valid
-		is_valid = _validate_map_point_on_grid(item_field, hazard_dict, grid_data) and is_valid
+		var radius_tiles: int = int(hazard_ids.get(hazard_id, 1))
+		is_valid = _validate_map_point_on_hazard_anchor(item_field, hazard_dict, grid_data, radius_tiles) and is_valid
 	return is_valid
 
 
@@ -1973,7 +2013,7 @@ func _collect_hazard_ids() -> Dictionary:
 	for row: Dictionary in rows:
 		var hazard_id: String = String(row.get("id", ""))
 		if not hazard_id.is_empty():
-			ids[hazard_id] = true
+			ids[hazard_id] = maxi(String(row.get("radius_tiles", "1")).to_int(), 1)
 	return ids
 
 

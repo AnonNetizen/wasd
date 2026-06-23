@@ -23,7 +23,7 @@
 | 改敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | 敌人标签、对象池 id、AI profile id、伤害类型必须来自词表或数据注册表 |
 | 改敌人生态 AI / 怪物互相克制 | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；生态关系通过 content tag 权重表达 |
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
-| 改地图边界 / 菱形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 必须整除格尺寸；PCG 使用 `RNG.world` 并吸附到格心 |
+| 改地图边界 / 菱形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 必须整除格尺寸；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法锚点 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
 | 改技能消耗 / 冷却 / 目标 / 伤害 | `skills.json` | 技能不绑定英雄；角色或道具只引用 skill id，资源消耗用 `skill_resources` 声明 |
@@ -344,7 +344,7 @@ JSON 示例：
         ]
       },
       "manual_hazards": [
-        { "id": "hazard_fea_12_pulse", "x": 480.0, "y": -240.0 },
+        { "id": "hazard_fea_12_pulse", "x": 480.0, "y": -200.0 },
         { "id": "hazard_spike_trap", "x": -640.0, "y": 320.0 }
       ]
     }
@@ -364,19 +364,20 @@ JSON 示例：
 | `player_start.y` | number | 菱形格中心坐标 | 玩家出生点 Y 坐标；运行时会吸附并 clamp 到地图边界 |
 | `safe_radius` | number | `>= 0`，px | PCG 机关距离出生点的最小安全圈下限 |
 | `enemy_spawn_margin` | number | `>= 0`，px | 刷怪位置距地图边缘的 clamp 边距 |
-| `pcg.hazards[]` | array[object] | 可空 | 程序化机关规则；当前使用 `RNG.world` 按 seed 可复现地撒布，并吸附到菱形格中心 |
+| `pcg.hazards[]` | array[object] | 可空 | 程序化机关规则；当前使用 `RNG.world` 按 seed 可复现地撒布，并按 `radius_tiles` 奇偶吸附到合法菱形格锚点 |
 | `pcg.hazards[].id` | string | 必须存在于 `hazards.csv` | 要生成的机关 id |
 | `pcg.hazards[].count` | int | `>= 0` | 目标生成数量；约束太紧时实际生成数量可能少于目标 |
 | `pcg.hazards[].min_distance_from_player` | number | `>= 0`，px | 距玩家出生点的额外最小距离，会与 `safe_radius` 取较大值 |
 | `pcg.hazards[].min_spacing` | number | `>= 0`，px | 与已放置机关之间的最小间距；同时至少避开双方格子半宽 / 半高推导出的近似半径 |
 | `manual_hazards[]` | array[object] | 可空 | 人工固定摆点，先于 PCG 放置，PCG 会避开这些点 |
 | `manual_hazards[].id` | string | 必须存在于 `hazards.csv` | 固定摆放的机关 id |
-| `manual_hazards[].x` | number | 菱形格中心坐标 | 固定机关世界 X 坐标；DataLoader 会校验在格心，运行时也会吸附并 clamp |
-| `manual_hazards[].y` | number | 菱形格中心坐标 | 固定机关世界 Y 坐标；DataLoader 会校验在格心，运行时也会吸附并 clamp |
+| `manual_hazards[].x` | number | 合法菱形格锚点坐标 | 固定机关世界 X 坐标；奇数 `radius_tiles` 校验为格心，偶数 `radius_tiles` 校验为网格顶点，运行时也会按同一规则吸附并 clamp |
+| `manual_hazards[].y` | number | 合法菱形格锚点坐标 | 固定机关世界 Y 坐标；奇数 `radius_tiles` 校验为格心，偶数 `radius_tiles` 校验为网格顶点，运行时也会按同一规则吸附并 clamp |
 
 调参建议：
 - 需要改变地图大小或边界节奏时，先改 `bounds`，再跑 `runtime-smoke` 和 `perf-probe`。
 - 改格子尺度时优先成对调整 `grid.cell_width` / `grid.cell_height`，并保持 `bounds` 为整数倍；当前默认一格为 `160 x 80` 的地面菱形。
+- 机关锚点按 `hazards.csv.radius_tiles` 奇偶决定：奇数尺寸中心在格心，偶数尺寸中心在网格顶点，这样机关外边缘才能贴住背景菱形格线。
 - 需要测试特定机关交互时，用 `manual_hazards` 固定位置；需要测试 PCG 稳定性时改 `pcg.hazards[].count` / `min_spacing`。
 - `hazards.csv` 只管机关基础数值和占格尺寸，`map_layouts.json` 才管初始地图上的机关位置。
 - PCG 摆放使用 `RNG.world`，刷怪位置仍使用 `RNG.spawn`，不要把二者混用。
@@ -506,7 +507,7 @@ hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,100,physical,1.
 | `damage` | int | `>= 0` | 单次触发伤害；运行时必须经 `Combat.apply_damage` 结算 |
 | `damage_type` | string | 词表 §9 damage type | 机关伤害类型 |
 | `trigger_interval` | number | `> 0`，秒 | 持续存在机关的触发间隔 |
-| `radius_tiles` | int | `>= 1` | 机关菱形从中心到顶点占用的地图格数；最终半宽 / 半高由 `map_layouts.json.grid` 推导，视觉菱形和触发判定都据此生成 |
+| `radius_tiles` | int | `>= 1` | 机关菱形从中心到顶点占用的地图格数；最终半宽 / 半高由 `map_layouts.json.grid` 推导，视觉菱形和触发判定都据此生成；奇数尺寸中心吸附格心，偶数尺寸中心吸附网格顶点 |
 | `duration` | number | `>= 0`，秒 | 单次触发后的激活 / 预警表现时长 |
 
 `hazards.csv` 只声明机关基础数值和占格尺寸。当前运行时已有通用 `Hazard` 节点：由 `MapManager` 读取 `map_layouts.json` 的 PCG / 人工摆点，经 `PoolManager` 取节点，在玩家进入菱形触发范围且冷却结束时通过 `Combat.apply_damage()` 结算。游戏模式仍通过 `resource_pools.hazards` 声明可用机关池；实际初始位置和格子尺度改 `map_layouts.json`。

@@ -1134,27 +1134,70 @@ def _validate_map_point(ctx: ValidationContext, path: Path, field: str, data: An
 
 
 def _validate_map_point_on_grid(ctx: ValidationContext, path: Path, field: str, point: Any, grid: Any) -> None:
-    if not isinstance(point, dict) or not isinstance(grid, dict):
+    if _is_map_point_on_grid_center(point, grid):
         return
+    ctx.error(path, field, "must be a diamond grid center")
+
+
+def _validate_map_point_on_hazard_anchor(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    point: Any,
+    grid: Any,
+    radius_tiles: int,
+) -> None:
+    if radius_tiles % 2 == 1:
+        if _is_map_point_on_grid_center(point, grid):
+            return
+        ctx.error(path, field, "must be a diamond grid center for odd radius_tiles")
+        return
+    if _is_map_point_on_grid_vertex(point, grid):
+        return
+    ctx.error(path, field, "must be a diamond grid vertex for even radius_tiles")
+
+
+def _is_map_point_on_grid_center(point: Any, grid: Any) -> bool:
+    if not isinstance(point, dict) or not isinstance(grid, dict):
+        return True
     x = point.get("x")
     y = point.get("y")
     cell_width = grid.get("cell_width")
     cell_height = grid.get("cell_height")
     if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
-        return
+        return True
     if not isinstance(cell_width, (int, float)) or not isinstance(cell_height, (int, float)):
-        return
+        return True
     half_width = max(float(cell_width) * 0.5, 1.0)
     half_height = max(float(cell_height) * 0.5, 1.0)
     u = float(x) / half_width
     v = float(y) / half_height
     column = (u + v) * 0.5
     row = (v - u) * 0.5
-    if not _is_nearly_integer(column) or not _is_nearly_integer(row):
-        ctx.error(path, field, "must be a diamond grid center")
+    return _is_nearly_integer(column) and _is_nearly_integer(row)
 
 
-def _validate_map_pcg(ctx: ValidationContext, path: Path, field: str, data: Any, hazard_ids: set[str]) -> None:
+def _is_map_point_on_grid_vertex(point: Any, grid: Any) -> bool:
+    if not isinstance(point, dict) or not isinstance(grid, dict):
+        return True
+    x = point.get("x")
+    y = point.get("y")
+    cell_width = grid.get("cell_width")
+    cell_height = grid.get("cell_height")
+    if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
+        return True
+    if not isinstance(cell_width, (int, float)) or not isinstance(cell_height, (int, float)):
+        return True
+    half_width = max(float(cell_width) * 0.5, 1.0)
+    half_height = max(float(cell_height) * 0.5, 1.0)
+    u = float(x) / half_width
+    v = float(y) / half_height
+    if not _is_nearly_integer(u) or not _is_nearly_integer(v):
+        return False
+    return (round(u) + round(v)) % 2 != 0
+
+
+def _validate_map_pcg(ctx: ValidationContext, path: Path, field: str, data: Any, hazard_ids: dict[str, int]) -> None:
     if not isinstance(data, dict):
         ctx.error(path, field, "must be an object")
         return
@@ -1172,7 +1215,7 @@ def _validate_map_pcg(ctx: ValidationContext, path: Path, field: str, data: Any,
         _require_number(ctx, path, f"{item_field}.min_spacing", hazard.get("min_spacing"), minimum=0)
 
 
-def _validate_map_manual_hazards(ctx: ValidationContext, path: Path, field: str, data: Any, hazard_ids: set[str], grid: Any) -> None:
+def _validate_map_manual_hazards(ctx: ValidationContext, path: Path, field: str, data: Any, hazard_ids: dict[str, int], grid: Any) -> None:
     hazards = _require_list(ctx, path, field, data)
     for index, hazard in enumerate(hazards):
         item_field = f"{field}[{index}]"
@@ -1184,7 +1227,7 @@ def _validate_map_manual_hazards(ctx: ValidationContext, path: Path, field: str,
             ctx.error(path, f"{item_field}.id", f"hazard is not defined in hazards.csv: {hazard_id}")
         _require_number(ctx, path, f"{item_field}.x", hazard.get("x"))
         _require_number(ctx, path, f"{item_field}.y", hazard.get("y"))
-        _validate_map_point_on_grid(ctx, path, item_field, hazard, grid)
+        _validate_map_point_on_hazard_anchor(ctx, path, item_field, hazard, grid, hazard_ids.get(hazard_id, 1))
 
 
 def _validate_mode_teams(ctx: ValidationContext, path: Path, mode_field: str, data: Any) -> set[str]:
@@ -1693,15 +1736,19 @@ def _collect_enemy_ai_profile_ids(ctx: ValidationContext) -> set[str]:
     return {item.get("id") for item in profiles if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
-def _collect_hazard_ids(ctx: ValidationContext) -> set[str]:
+def _collect_hazard_ids(ctx: ValidationContext) -> dict[str, int]:
     if not HAZARDS_CSV.exists():
-        return set()
-    ids: set[str] = set()
+        return {}
+    ids: dict[str, int] = {}
     with HAZARDS_CSV.open(encoding="utf-8-sig", newline="") as handle:
         for row in csv.DictReader(handle):
             hazard_id = row.get("id")
             if isinstance(hazard_id, str) and hazard_id:
-                ids.add(hazard_id)
+                try:
+                    radius_tiles = max(int(row.get("radius_tiles", "1")), 1)
+                except ValueError:
+                    radius_tiles = 1
+                ids[hazard_id] = radius_tiles
     return ids
 
 

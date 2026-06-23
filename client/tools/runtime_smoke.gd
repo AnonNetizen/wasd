@@ -84,8 +84,9 @@ func _run() -> void:
 	_expect(_map_summary_has_finite_bounds(run_loop), "MapManager should expose finite map bounds")
 	_expect(_map_summary_has_diamond_grid(run_loop), "MapManager should expose a positive diamond grid cell size")
 	_expect(PoolManager.active_count(POOL_IDS.HAZARD_SPIKE) > 0, "PCG map should spawn active hazards")
-	_expect(_active_hazards_are_on_grid(run_loop), "spawned hazards should align to diamond grid centers")
-	_expect(_map_restore_snaps_legacy_hazards(run_loop), "restored legacy hazard placements should snap to diamond grid centers")
+	_expect(_active_hazards_are_on_grid(run_loop), "spawned hazards should align to radius-aware diamond grid anchors")
+	_expect(_map_restore_snaps_legacy_hazards(run_loop), "restored legacy hazard placements should snap to radius-aware diamond grid anchors")
+	_expect(_map_normalizes_edge_hazards_to_grid(run_loop), "edge hazard normalization should keep positions on diamond grid centers")
 
 	var start_position: Vector2 = player.global_position
 	Input.action_press(ACTIONS.MOVE_RIGHT)
@@ -260,8 +261,8 @@ func _map_summary_has_diamond_grid(run_loop: Node) -> bool:
 
 
 func _active_hazards_are_on_grid(run_loop: Node) -> bool:
-	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
-	if grid_cell_size.x <= 0.0 or grid_cell_size.y <= 0.0:
+	var map_manager: Node = _find_node_by_name(run_loop, "MapManager")
+	if map_manager == null or not map_manager.has_method("normalize_hazard_position"):
 		return false
 	var saw_hazard: bool = false
 	for hazard: Node in get_tree().get_nodes_in_group("active_hazards"):
@@ -269,8 +270,10 @@ func _active_hazards_are_on_grid(run_loop: Node) -> bool:
 			continue
 		saw_hazard = true
 		var hazard_2d: Node2D = hazard as Node2D
-		var snapped_position: Vector2 = _snap_to_diamond_grid(hazard_2d.global_position, grid_cell_size)
-		if hazard_2d.global_position.distance_to(snapped_position) > 0.01:
+		var hazard_id: String = String(hazard.call("hazard_id")) if hazard.has_method("hazard_id") else ""
+		if not _hazard_position_matches_anchor(map_manager, hazard_2d.global_position, hazard_id):
+			var normalized_position: Vector2 = map_manager.call("normalize_hazard_position", hazard_2d.global_position, hazard_id)
+			push_error("[RuntimeSmoke] hazard anchor mismatch id=%s position=%s normalized=%s" % [hazard_id, hazard_2d.global_position, normalized_position])
 			return false
 	return saw_hazard
 
@@ -296,10 +299,11 @@ func _map_restore_snaps_legacy_hazards(run_loop: Node) -> bool:
 		var placement: Dictionary = placements[0] as Dictionary
 		var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
 		var position: Vector2 = _dict_to_vector(placement.get("position", {}), Vector2.ZERO)
+		var hazard_id: String = String(placement.get("hazard_id", ""))
 		var half_extents: Vector2 = grid_cell_size
 		var bounds: Rect2 = _map_bounds(run_loop)
 		snapped = (
-			position.distance_to(_snap_to_diamond_grid(position, grid_cell_size)) <= 0.01
+			_hazard_position_matches_anchor(map_manager, position, hazard_id)
 			and position.x - half_extents.x >= bounds.position.x - 0.01
 			and position.x + half_extents.x <= bounds.end.x + 0.01
 			and position.y - half_extents.y >= bounds.position.y - 0.01
@@ -307,6 +311,42 @@ func _map_restore_snaps_legacy_hazards(run_loop: Node) -> bool:
 		)
 	map_manager.call("restore_snapshot", original_snapshot)
 	return snapped
+
+
+func _map_normalizes_edge_hazards_to_grid(run_loop: Node) -> bool:
+	var map_manager: Node = _find_node_by_name(run_loop, "MapManager")
+	if map_manager == null or not map_manager.has_method("snapshot") or not map_manager.has_method("restore_snapshot") or not map_manager.has_method("normalize_hazard_position"):
+		return false
+	var original_snapshot: Dictionary = map_manager.call("snapshot") as Dictionary
+	var edge_snapshot: Dictionary = original_snapshot.duplicate(true)
+	edge_snapshot["bounds"] = {
+		"x": -1920.0,
+		"y": -1240.0,
+		"width": 3840.0,
+		"height": 2480.0,
+	}
+	map_manager.call("restore_snapshot", edge_snapshot)
+	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
+	var bounds: Rect2 = _map_bounds(run_loop)
+	var hazard_id: String = "hazard_fea_12_pulse"
+	var position: Vector2 = map_manager.call("normalize_hazard_position", bounds.end - Vector2.ONE, hazard_id)
+	var half_extents: Vector2 = grid_cell_size
+	var normalized: bool = (
+		_hazard_position_matches_anchor(map_manager, position, hazard_id)
+		and position.x - half_extents.x >= bounds.position.x - 0.01
+		and position.x + half_extents.x <= bounds.end.x + 0.01
+		and position.y - half_extents.y >= bounds.position.y - 0.01
+		and position.y + half_extents.y <= bounds.end.y + 0.01
+	)
+	map_manager.call("restore_snapshot", original_snapshot)
+	return normalized
+
+
+func _hazard_position_matches_anchor(map_manager: Node, position: Vector2, hazard_id: String) -> bool:
+	if map_manager == null or not map_manager.has_method("normalize_hazard_position"):
+		return false
+	var normalized_position: Vector2 = map_manager.call("normalize_hazard_position", position, hazard_id)
+	return position.distance_to(normalized_position) <= 0.01
 
 
 func _map_grid_cell_size(run_loop: Node) -> Vector2:

@@ -77,7 +77,7 @@ ActiveWorld
 - `pool_id` 必须来自词表 §8；当前 `hazard_spike` 复用通用 `Hazard` 场景。
 - `damage_type` 必须来自词表 §9，并经 `Combat` 校验。
 - `trigger_interval` 单位秒，运行时下限为 `0.01`。
-- `radius_tiles` 为正整数，表示机关菱形从中心到顶点占用多少个地图菱形格；最终半宽 / 半高由 `MapManager.grid_cell_size()` 推导。
+- `radius_tiles` 为正整数，表示机关菱形从中心到顶点占用多少个地图菱形格；最终半宽 / 半高由 `MapManager.grid_cell_size()` 推导。为让外边缘贴住背景菱形格线，奇数尺寸机关中心吸附到格心，偶数尺寸机关中心吸附到网格顶点。
 - 触发判定与视觉菱形使用同一套归一化公式：`abs(dx) / half_width + abs(dy) / half_height <= 1.0`。不要再用旧的像素 `radius` 或正方形 / 圆形近似。
 - `duration` 当前只影响触发后的占位激活表现，不控制伤害总时长。
 - FEA-12 首片 id 为 `hazard_fea_12_pulse`，用于测试 PCG 和机关伤害链路；代码不得按该 id 特判。
@@ -111,7 +111,7 @@ ActiveWorld
 |------|----------|
 | 机关不出现 | `map_layouts.json` 是否生成 placement；`game_modes.json.resource_pools.hazards` 是否包含 id；对象池是否注册 |
 | 机关出现但不伤害 | `GameState` 是否为 `PLAYING`；玩家是否在 `radius_tiles` 与地图 grid 推导出的菱形范围内；`damage` / `damage_type` 是否有效；玩家是否仍在受伤无敌期 |
-| 机关看起来是正方形或不贴格 | `GameplayRunLoop` 是否把 `MapManager.grid_cell_size()` 传给 `Hazard.configure()`；`hazards.csv.radius_tiles` 是否为正整数；背景网格是否来自同一份 `grid.cell_width/cell_height` |
+| 机关看起来是正方形或不贴格 | `GameplayRunLoop` 是否把 `MapManager.grid_cell_size()` 传给 `Hazard.configure()`；`hazards.csv.radius_tiles` 是否为正整数；偶数尺寸机关是否吸附到网格顶点；背景网格是否来自同一份 `grid.cell_width/cell_height` |
 | 机关重复伤害太快 | `trigger_interval` 是否过低；玩家无敌窗口是否被测试清零 |
 | 续局后机关消失 | run payload 是否有 `hazards`；恢复时是否按 `hazard_id` 查到 `hazards.csv` 数据 |
 | 切回标题后 pool 报失效节点 | `GameplayRunLoop._exit_tree()` 是否 release 活跃池化节点；`PoolManager.clear_pool()` 是否清掉对应 pool id 映射 |

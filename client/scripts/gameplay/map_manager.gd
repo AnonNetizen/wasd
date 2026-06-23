@@ -98,13 +98,8 @@ func clamp_position(world_position: Vector2) -> Vector2:
 
 
 func snap_to_grid(world_position: Vector2) -> Vector2:
-	var half_width: float = maxf(_grid_cell_size.x * 0.5, 1.0)
-	var half_height: float = maxf(_grid_cell_size.y * 0.5, 1.0)
-	var u: float = world_position.x / half_width
-	var v: float = world_position.y / half_height
-	var column: int = roundi((u + v) * 0.5)
-	var row: int = roundi((v - u) * 0.5)
-	return Vector2(float(column - row) * half_width, float(column + row) * half_height)
+	var grid_index: Vector2i = _grid_index(world_position)
+	return _grid_position(grid_index)
 
 
 func normalize_hazard_position(world_position: Vector2, hazard_id: String) -> Vector2:
@@ -230,22 +225,80 @@ func _placement(hazard_id: String, position: Vector2, source: String) -> Diction
 
 
 func _normalize_hazard_position(world_position: Vector2, hazard_id: String) -> Vector2:
-	var snapped_position: Vector2 = snap_to_grid(world_position)
 	var half_extents: Vector2 = _hazard_half_extents(hazard_id)
 	var min_x: float = _bounds.position.x + half_extents.x
 	var max_x: float = _bounds.end.x - half_extents.x
 	var min_y: float = _bounds.position.y + half_extents.y
 	var max_y: float = _bounds.end.y - half_extents.y
 	if min_x > max_x or min_y > max_y:
-		return clamp_position(snapped_position)
-	var clamped_position: Vector2 = Vector2(
-		clampf(snapped_position.x, min_x, max_x),
-		clampf(snapped_position.y, min_y, max_y)
+		return _nearest_hazard_anchor_position(clamp_position(world_position), hazard_id)
+	var clamped_target: Vector2 = Vector2(
+		clampf(world_position.x, min_x, max_x),
+		clampf(world_position.y, min_y, max_y)
 	)
-	var normalized_position: Vector2 = snap_to_grid(clamped_position)
-	if _is_hazard_inside_bounds(normalized_position, hazard_id):
-		return normalized_position
-	return clamped_position
+	return _nearest_hazard_anchor_position(clamped_target, hazard_id)
+
+
+func _nearest_hazard_anchor_position(target_position: Vector2, hazard_id: String) -> Vector2:
+	var base_index: Vector2i = _grid_index(target_position)
+	var best_position: Vector2 = INVALID_POSITION
+	var best_distance: float = INF
+	var search_radius: int = _hazard_grid_search_radius(hazard_id)
+	for radius: int in range(search_radius + 1):
+		for column_offset: int in range(-radius, radius + 1):
+			for row_offset: int in range(-radius, radius + 1):
+				if maxi(absi(column_offset), absi(row_offset)) != radius:
+					continue
+				var candidate_index: Vector2i = Vector2i(
+					base_index.x + column_offset,
+					base_index.y + row_offset
+				)
+				for candidate: Vector2 in _hazard_anchor_candidates(candidate_index, hazard_id):
+					if not _is_hazard_inside_bounds(candidate, hazard_id):
+						continue
+					var distance: float = target_position.distance_squared_to(candidate)
+					if best_position == INVALID_POSITION or distance < best_distance:
+						best_position = candidate
+						best_distance = distance
+	if best_position != INVALID_POSITION:
+		return best_position
+	return _hazard_anchor_candidates(_grid_index(clamp_position(target_position)), hazard_id)[0]
+
+
+func _hazard_anchor_candidates(grid_index: Vector2i, hazard_id: String) -> Array[Vector2]:
+	if _hazard_radius_tiles(hazard_id) % 2 == 1:
+		return [_grid_position(grid_index)]
+	var half_width: float = maxf(_grid_cell_size.x * 0.5, 1.0)
+	var half_height: float = maxf(_grid_cell_size.y * 0.5, 1.0)
+	var base_position: Vector2 = _grid_position(grid_index)
+	return [
+		base_position + Vector2(0.0, half_height),
+		base_position + Vector2(half_width, 0.0),
+	]
+
+
+func _grid_index(world_position: Vector2) -> Vector2i:
+	var half_width: float = maxf(_grid_cell_size.x * 0.5, 1.0)
+	var half_height: float = maxf(_grid_cell_size.y * 0.5, 1.0)
+	var u: float = world_position.x / half_width
+	var v: float = world_position.y / half_height
+	return Vector2i(roundi((u + v) * 0.5), roundi((v - u) * 0.5))
+
+
+func _grid_position(grid_index: Vector2i) -> Vector2:
+	var half_width: float = maxf(_grid_cell_size.x * 0.5, 1.0)
+	var half_height: float = maxf(_grid_cell_size.y * 0.5, 1.0)
+	return Vector2(
+		float(grid_index.x - grid_index.y) * half_width,
+		float(grid_index.x + grid_index.y) * half_height
+	)
+
+
+func _hazard_grid_search_radius(hazard_id: String) -> int:
+	var half_width: float = maxf(_grid_cell_size.x * 0.5, 1.0)
+	var half_height: float = maxf(_grid_cell_size.y * 0.5, 1.0)
+	var hazard_steps: float = maxf(_hazard_half_extents(hazard_id).x / half_width, _hazard_half_extents(hazard_id).y / half_height)
+	return maxi(int(ceilf(hazard_steps)) + 4, 8)
 
 
 func _is_hazard_inside_bounds(candidate: Vector2, hazard_id: String) -> bool:
@@ -264,9 +317,12 @@ func _hazard_spacing_radius(hazard_id: String) -> float:
 
 
 func _hazard_half_extents(hazard_id: String) -> Vector2:
+	return _grid_cell_size * 0.5 * float(_hazard_radius_tiles(hazard_id))
+
+
+func _hazard_radius_tiles(hazard_id: String) -> int:
 	var hazard_data: Dictionary = _dictionary_or_empty(_hazard_rows.get(hazard_id, {}))
-	var radius_tiles: int = maxi(int(hazard_data.get("radius_tiles", 1)), 1)
-	return _grid_cell_size * 0.5 * float(radius_tiles)
+	return maxi(int(hazard_data.get("radius_tiles", 1)), 1)
 
 
 func _typed_placements(raw_value: Variant) -> Array[Dictionary]:

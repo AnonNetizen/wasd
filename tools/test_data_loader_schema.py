@@ -266,6 +266,14 @@ def main() -> int:
             ],
         ),
         (
+            "even radius manual hazard must use grid vertex",
+            _mutate_json("client/data/map_layouts.json", _set_manual_hazard_position(0, 480.0, -240.0)),
+            [
+                "client/data/map_layouts.json:layouts[0].manual_hazards[0]",
+                "must be a diamond grid vertex for even radius_tiles",
+            ],
+        ),
+        (
             "spawn wave enemy reference must exist",
             _mutate_csv("client/data/spawn_waves.csv", _set_spawn_wave_enemy("enemy_missing")),
             [
@@ -782,6 +790,14 @@ def _set_map_layout_pcg_hazard(value: str) -> JsonMutator:
 def _set_map_layout_grid_cell_width(value: float) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["layouts"][0]["grid"]["cell_width"] = value
+
+    return mutate
+
+
+def _set_manual_hazard_position(index: int, x: float, y: float) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["layouts"][0]["manual_hazards"][index]["x"] = x
+        payload["layouts"][0]["manual_hazards"][index]["y"] = y
 
     return mutate
 

@@ -827,7 +827,7 @@
       "related_docs": ["docs/代码/gameplay_runtime.md", "docs/代码/hazard_system.md", "docs/代码/data_loader.md", "docs/代码/save_manager.md", "client/data/README.md", "docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/gameplay/map_manager.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/map_layouts.json", "client/data/hazards.csv", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
       "update_triggers": ["MapManager API changes", "map_layouts.json schema changes", "PCG placement behavior changes", "manual placement behavior changes", "map run snapshot changes"],
-      "keywords": ["MapManager", "map_layouts.json", "grid.cell_width", "grid.cell_height", "diamond map grid", "quantized diamond grid", "finite map", "有限地图", "PCG", "manual_hazards", "人工摆点", "grid center", "格心", "RNG.world", "RNG.spawn", "hazard placements", "runtime-smoke", "f9-demo-smoke"]
+      "keywords": ["MapManager", "map_layouts.json", "grid.cell_width", "grid.cell_height", "diamond map grid", "quantized diamond grid", "finite map", "有限地图", "PCG", "manual_hazards", "人工摆点", "grid anchor", "格心", "网格顶点", "RNG.world", "RNG.spawn", "hazard placements", "runtime-smoke", "f9-demo-smoke"]
     },
     {
       "path": "docs/代码/hazard_system.md",
