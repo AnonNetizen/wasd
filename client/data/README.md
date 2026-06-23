@@ -771,6 +771,16 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
       "desc_key": "skill_whirlwind_slash_desc",
       "default_unlocked": true,
       "tags": ["tag_skill"],
+      "ability_tags": [
+        "ability_tag_skill",
+        "ability_tag_primary",
+        "ability_tag_damage"
+      ],
+      "activation": {
+        "required_tags": [],
+        "blocked_tags": ["ability_tag_silenced"],
+        "granted_tags": ["ability_tag_activating"]
+      },
       "cooldown": 3.0,
       "costs": [{ "resource": "mana", "amount": 25.0 }],
       "targeting": {
@@ -798,6 +808,11 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `skills[].name_key` / `desc_key` | string | `skill_*_name` / `skill_*_desc` | 技能名称和描述译文 key |
 | `skills[].default_unlocked` | bool | true / false | 新存档中是否默认可用；后续可接局外解锁 |
 | `skills[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_skill` | 内容标签；模式 blocklist 和后续构筑筛选可复用 |
+| `skills[].ability_tags` | array[string] | 词表 §12-G ability tag，非空 | 项目版轻量 GAS 的能力语义标签；用于分类、阻断、解锁和后续 cue / AI 查询，不与 content tag 混用 |
+| `skills[].activation` | object | 必填 | 项目版轻量 GAS 的激活条件配置 |
+| `skills[].activation.required_tags` | array[string] | 词表 §12-G ability tag，可为空 | 释放者必须拥有的运行时能力标签；缺任一标签则返回 `missing_required_tag` 且不消耗资源 |
+| `skills[].activation.blocked_tags` | array[string] | 词表 §12-G ability tag，可为空 | 释放者拥有任一标签时阻断释放；当前默认用 `ability_tag_silenced` 表达沉默 |
+| `skills[].activation.granted_tags` | array[string] | 词表 §12-G ability tag，可为空 | 激活 / commit 期间临时授予释放者的标签；当前即时技能会在效果解释后移除 |
 | `skills[].cooldown` | number | 秒，`>= 0` | 释放后冷却时间，走 `GameClock` 缩放时间 |
 | `skills[].costs[]` | array[object] | 可为空 | 释放消耗列表；为空表示无消耗 |
 | `skills[].costs[].resource` | string | 词表 §12-D skill resource id | 消耗的资源 id；释放者必须在 `skill_resources` 中拥有该资源 |
@@ -812,7 +827,7 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `skills[].effects[].params.amount` | number | `> 0` | `skill_effect_damage` 的伤害量 |
 | `skills[].effects[].params.damage_type` | string | 词表 §9 damage type | `skill_effect_damage` 的伤害类型，结算走 `Combat.apply_damage` |
 
-`skills.json` 是技能本体数据；技能不绑定英雄。当前 `SkillSystem` 解释起始技能的冷却、资源消耗、AOE 敌人目标选择和 `skill_effect_damage`，并通过 `Combat.apply_damage` 造成伤害。后续若主动道具、敌人或遗物要释放同一个技能，应引用 skill id，而不是复制技能字段或按英雄 / 道具 id 写分支。
+`skills.json` 是技能本体数据；技能不绑定英雄。当前 `SkillSystem` 采用项目版轻量 GAS 语义解释起始技能的 tag gating、冷却、资源消耗、AOE 敌人目标选择和 `skill_effect_damage`，并通过 `Combat.apply_damage` 造成伤害。后续若主动道具、敌人或遗物要释放同一个技能，应引用 skill id，而不是复制技能字段或按英雄 / 道具 id 写分支。
 
 ## `consumables.json`
 

@@ -7,6 +7,7 @@ extends Node
 signal skill_cast(skill_id: String, result: Dictionary)
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const SKILL_EFFECTS := preload("res://scripts/contracts/skill_effects.gd")
 const SKILL_TARGETING := preload("res://scripts/contracts/skill_targeting.gd")
@@ -18,6 +19,7 @@ const TEAM_PLAYER: String = "team_player"
 var _active_parent: Node = null
 var _caster: Node2D = null
 var _cooldowns: Dictionary = {}
+var _owned_tag_counts: Dictionary = {}
 var _resources: Dictionary = {}
 var _skills: Array[Dictionary] = []
 
@@ -46,6 +48,7 @@ func configure(caster: Node2D, active_parent: Node, skills: Array, resources: Ar
 	_active_parent = active_parent
 	_skills = []
 	_cooldowns.clear()
+	_owned_tag_counts.clear()
 	for skill: Dictionary in _typed_dictionary_array(skills):
 		var skill_copy: Dictionary = skill.duplicate(true)
 		_skills.append(skill_copy)
@@ -67,6 +70,12 @@ func cast_skill(skill_id: String) -> Dictionary:
 		return _result(false, "caster_unavailable")
 	if cooldown_remaining(skill_id) > 0.0:
 		return _result(false, "cooldown")
+	var tag_check: Dictionary = _activation_tag_check(skill)
+	if not bool(tag_check.get("ok", false)):
+		return _result(false, String(tag_check.get("reason", "tag_blocked")), {
+			"tag": String(tag_check.get("tag", "")),
+			"owned_tags": owned_tags(),
+		})
 	if not _can_pay_costs(skill):
 		return _result(false, "insufficient_resource")
 
@@ -75,16 +84,21 @@ func cast_skill(skill_id: String) -> Dictionary:
 		return _result(false, "no_targets")
 
 	_pay_costs(skill)
+	var transient_tags: Array[String] = _activation_tags(skill, "granted_tags")
+	_add_transient_tags(transient_tags)
 	var applied_targets: int = _apply_effects(skill, targets)
+	_remove_transient_tags(transient_tags)
 	_cooldowns[skill_id] = maxf(float(skill.get("cooldown", 0.0)), 0.0)
 	var result: Dictionary = {
 		"ok": applied_targets > 0,
 		"reason": "applied" if applied_targets > 0 else "no_effect",
 		"skill_id": skill_id,
+		"ability_tags": _string_array(skill.get("ability_tags", [])),
 		"target_count": targets.size(),
 		"applied_targets": applied_targets,
 		"resources": resource_snapshot(),
 		"cooldown": cooldown_remaining(skill_id),
+		"owned_tags": owned_tags(),
 	}
 	skill_cast.emit(skill_id, result.duplicate(true))
 	return result
@@ -103,10 +117,27 @@ func resource_snapshot() -> Dictionary:
 	return _resources.duplicate(true)
 
 
+func add_owned_tag(tag_id: String) -> bool:
+	return _add_owned_tag_count(tag_id)
+
+
+func remove_owned_tag(tag_id: String) -> bool:
+	return _remove_owned_tag_count(tag_id)
+
+
+func has_owned_tag(tag_id: String) -> bool:
+	return int(_owned_tag_counts.get(tag_id, 0)) > 0
+
+
+func owned_tags() -> Array[String]:
+	return _sorted_string_keys(_owned_tag_counts)
+
+
 func snapshot() -> Dictionary:
 	return {
 		"cooldowns": _cooldowns.duplicate(true),
 		"resources": _resources.duplicate(true),
+		"owned_tag_counts": _owned_tag_counts.duplicate(true),
 	}
 
 
@@ -117,18 +148,34 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 			_cooldowns[String(skill_id)] = maxf(float((raw_cooldowns as Dictionary)[skill_id]), 0.0)
 
 	var raw_resources: Variant = snapshot_data.get("resources", {})
-	if not raw_resources is Dictionary:
+	if raw_resources is Dictionary:
+		for resource_id: Variant in (raw_resources as Dictionary).keys():
+			var key: String = String(resource_id)
+			if not _resources.has(key):
+				continue
+			var restored: Variant = (raw_resources as Dictionary)[resource_id]
+			if not restored is Dictionary:
+				continue
+			var resource: Dictionary = _resources[key] as Dictionary
+			resource["current"] = clampf(float((restored as Dictionary).get("current", resource.get("current", 0.0))), 0.0, float(resource.get("max", 0.0)))
+			_resources[key] = resource
+
+	_owned_tag_counts.clear()
+	var raw_tag_counts: Variant = snapshot_data.get("owned_tag_counts", {})
+	if snapshot_data.has("owned_tag_counts") and raw_tag_counts is Dictionary:
+		for tag_id: Variant in (raw_tag_counts as Dictionary).keys():
+			var count: int = maxi(int((raw_tag_counts as Dictionary)[tag_id]), 0)
+			if count <= 0:
+				continue
+			var tag: String = String(tag_id)
+			if _is_valid_ability_tag(tag):
+				_owned_tag_counts[tag] = count
 		return
-	for resource_id: Variant in (raw_resources as Dictionary).keys():
-		var key: String = String(resource_id)
-		if not _resources.has(key):
-			continue
-		var restored: Variant = (raw_resources as Dictionary)[resource_id]
-		if not restored is Dictionary:
-			continue
-		var resource: Dictionary = _resources[key] as Dictionary
-		resource["current"] = clampf(float((restored as Dictionary).get("current", resource.get("current", 0.0))), 0.0, float(resource.get("max", 0.0)))
-		_resources[key] = resource
+
+	var raw_owned_tags: Variant = snapshot_data.get("owned_tags", [])
+	if raw_owned_tags is Array:
+		for tag_id: Variant in raw_owned_tags as Array:
+			_add_owned_tag_count(String(tag_id))
 
 
 func debug_summary() -> Dictionary:
@@ -136,6 +183,8 @@ func debug_summary() -> Dictionary:
 		"skill_ids": _skill_ids(),
 		"resources": resource_snapshot(),
 		"cooldowns": _cooldowns.duplicate(true),
+		"owned_tags": owned_tags(),
+		"owned_tag_counts": _owned_tag_counts.duplicate(true),
 	}
 
 
@@ -187,6 +236,29 @@ func _can_pay_costs(skill: Dictionary) -> bool:
 		if float(resource.get("current", 0.0)) < amount:
 			return false
 	return true
+
+
+func _activation_tag_check(skill: Dictionary) -> Dictionary:
+	for tag_id: String in _activation_tags(skill, "required_tags"):
+		if not has_owned_tag(tag_id):
+			return {
+				"ok": false,
+				"reason": "missing_required_tag",
+				"tag": tag_id,
+			}
+	for tag_id: String in _activation_tags(skill, "blocked_tags"):
+		if has_owned_tag(tag_id):
+			return {
+				"ok": false,
+				"reason": "blocked_by_tag",
+				"tag": tag_id,
+			}
+	return {"ok": true}
+
+
+func _activation_tags(skill: Dictionary, field: String) -> Array[String]:
+	var activation: Dictionary = _dictionary_or_empty(skill.get("activation", {}))
+	return _string_array(activation.get(field, []))
 
 
 func _pay_costs(skill: Dictionary) -> void:
@@ -286,6 +358,58 @@ func _skill_ids() -> Array[String]:
 	return result
 
 
+func _add_transient_tags(tags: Array[String]) -> void:
+	for tag_id: String in tags:
+		_add_owned_tag_count(tag_id)
+
+
+func _remove_transient_tags(tags: Array[String]) -> void:
+	for tag_id: String in tags:
+		_remove_owned_tag_count(tag_id)
+
+
+func _add_owned_tag_count(tag_id: String) -> bool:
+	if not _is_valid_ability_tag(tag_id):
+		return false
+	_owned_tag_counts[tag_id] = int(_owned_tag_counts.get(tag_id, 0)) + 1
+	return true
+
+
+func _remove_owned_tag_count(tag_id: String) -> bool:
+	if not _owned_tag_counts.has(tag_id):
+		return false
+	var next_count: int = int(_owned_tag_counts[tag_id]) - 1
+	if next_count <= 0:
+		_owned_tag_counts.erase(tag_id)
+	else:
+		_owned_tag_counts[tag_id] = next_count
+	return true
+
+
+func _is_valid_ability_tag(tag_id: String) -> bool:
+	if tag_id.is_empty():
+		return false
+	return ABILITY_TAGS.VALUES.has(tag_id)
+
+
+func _sorted_string_keys(source: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for key: Variant in source.keys():
+		result.append(String(key))
+	result.sort()
+	return result
+
+
+func _string_array(raw_value: Variant) -> Array[String]:
+	var result: Array[String] = []
+	if not raw_value is Array:
+		return result
+	for item: Variant in raw_value as Array:
+		if item is String and not String(item).is_empty():
+			result.append(String(item))
+	return result
+
+
 func _typed_dictionary_array(raw_value: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not raw_value is Array:
@@ -302,8 +426,11 @@ func _dictionary_or_empty(raw_value: Variant) -> Dictionary:
 	return {}
 
 
-func _result(ok: bool, reason: String) -> Dictionary:
-	return {
+func _result(ok: bool, reason: String, extra: Dictionary = {}) -> Dictionary:
+	var result: Dictionary = {
 		"ok": ok,
 		"reason": reason,
 	}
+	for key: Variant in extra.keys():
+		result[key] = extra[key]
+	return result

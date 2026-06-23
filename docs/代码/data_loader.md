@@ -31,7 +31,7 @@
 | `client/data/player.json` | 当前 JSON 读取样例 |
 | `client/data/characters.json` | 角色基础属性、标签、能力、控制配置和起始携带引用边界 |
 | `client/data/weapons.json` | 武器与子弹基础数值、对象池、伤害类型和音频 id 边界 |
-| `client/data/skills.json` | 可复用主动技能、资源消耗、目标类型、效果原语和冷却边界 |
+| `client/data/skills.json` | 项目版轻量 GAS 技能、ability tag、激活条件、资源消耗、目标类型、效果原语和冷却边界 |
 | `client/data/enemy_ai_profiles.json` | 敌人生态 AI profile、感知、目标权重和动作列表边界 |
 | `client/data/enemies.csv` | 敌人基础数值、生态 tag、AI profile 引用、对象池、伤害类型和模式引用边界 |
 | `client/data/hazards.csv` | 机关基础数值、对象池、伤害类型和模式引用边界 |
@@ -92,7 +92,7 @@
   - `player.json`：`schema_version`、`base_stats`，stat id 必须来自词表，数值范围按 stat 类型校验。
   - `characters.json`：角色 id、名称 / 描述 key、默认解锁、tags、capabilities、控制配置、起始携带引用和角色基础属性；起始武器、主动道具和消耗品引用必须存在于对应数据文件。
   - `weapons.json`：武器 id、名称 / 描述 key、默认解锁、开火模式、开火音频 id、武器基础属性、子弹对象池、伤害类型和弹体数值。
-  - `skills.json`：技能 id、名称 / 描述 key、`tag_skill`、冷却、资源消耗、目标类型和效果原语；技能 id、资源、targeting 和 effect 必须来自词表 §12-C~12-F，伤害类型交给 `Combat` 词表校验。
+  - `skills.json`：技能 id、名称 / 描述 key、`tag_skill`、ability tags、activation required / blocked / granted tags、冷却、资源消耗、目标类型和效果原语；技能 id、资源、targeting、effect 和 ability tag 必须来自词表 §12-C~12-G，伤害类型交给 `Combat` 词表校验。
   - `enemy_ai_profiles.json`：profile id、感知半径、决策间隔、接触冷却、玩家 / 生态 tag 目标权重、领地参数、动作参数和 action id；action 必须来自词表 §12-B，生态 tag 必须来自 content tags。
   - `enemies.csv`：敌人 id、名称 key、`tag_enemy`、生态 tags、对象池 id、AI profile 引用、生命、移速、接触伤害、接触伤害类型、经验奖励和命中半径；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
   - `hazards.csv`：机关 id、名称 key、`tag_hazard`、对象池 id、伤害、伤害类型、触发间隔、范围和持续时间。

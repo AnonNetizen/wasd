@@ -748,16 +748,16 @@
     {
       "path": "docs/代码/skill_system.md",
       "type": "module_doc",
-      "authority": "SkillSystem runtime contract for reusable active skill definitions, resource costs, targeting primitives, effect primitives, cooldowns, Combat integration, and run snapshots",
+      "authority": "SkillSystem runtime contract for project-light GAS active skill definitions, ability tags, activation tag gating, resource costs, targeting primitives, effect primitives, cooldowns, Combat integration, and run snapshots",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-22",
-      "canonical_for": ["skill_system", "active_skills", "skill_runtime", "skill_resources"],
-      "must_read_for": ["skill_system_change", "new_skill", "skill_resource_change", "skill_targeting_change", "skill_effect_change"],
+      "last_reviewed": "2026-06-23",
+      "canonical_for": ["skill_system", "active_skills", "skill_runtime", "skill_resources", "ability_tags", "lightweight_gas"],
+      "must_read_for": ["skill_system_change", "new_skill", "skill_resource_change", "skill_targeting_change", "skill_effect_change", "ability_tag_change"],
       "related_docs": ["docs/代码/gameplay_runtime.md", "docs/代码/data_loader.md", "docs/代码/combat.md", "client/data/README.md", "client/locale/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/skills.json", "client/data/characters.json", "client/data/game_modes.json", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "client/tools/l1_smoke.gd", "client/tools/runtime_smoke.gd"],
-      "update_triggers": ["SkillSystem API changes", "skills.json schema changes", "skill resource contract changes", "skill targeting contract changes", "skill effect primitive changes", "skill run snapshot changes"],
-      "keywords": ["SkillSystem", "skills.json", "skill", "技能", "主动技能", "skill_whirlwind_slash", "Whirlwind Slash", "旋风斩", "mana", "魔法", "skill_resources", "aoe_enemies_around_caster", "target_enemy", "target_ally", "skill_effect_damage", "Combat"]
+      "update_triggers": ["SkillSystem API changes", "skills.json schema changes", "ability tag contract changes", "activation tag gating changes", "skill resource contract changes", "skill targeting contract changes", "skill effect primitive changes", "skill run snapshot changes"],
+      "keywords": ["SkillSystem", "GAS", "lightweight GAS", "ability_tags", "ability_tag_silenced", "activation", "blocked_tags", "required_tags", "granted_tags", "skills.json", "skill", "技能", "主动技能", "skill_whirlwind_slash", "Whirlwind Slash", "旋风斩", "mana", "魔法", "skill_resources", "aoe_enemies_around_caster", "target_enemy", "target_ally", "skill_effect_damage", "Combat"]
     },
     {
       "path": "docs/代码/enemy_ai.md",
@@ -827,7 +827,7 @@
       "related_docs": ["client/data/README.md", "docs/词表与契约.md", "docs/代码/README.md", "docs/代码/mod_loader.md", "docs/代码/skill_system.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/AI导航.md", "docs/AI协作/工作包/F3-DataLoader.md"],
       "related_code": ["client/scripts/autoload/data_loader.gd", "client/scripts/autoload/mod_loader.gd", "client/data/_contracts.json", "client/data/skills.json", "client/data/enemy_ai_profiles.json", "client/data/map_layouts.json", "client/data/hazards.csv", "client/data/credits.json", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
       "update_triggers": ["DataLoader API changes", "data loading schema changes", "contract cache behavior changes", "mod data patch behavior changes"],
-      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation", "schema regression", "ModLoader", "local mods", "mod manifest", "weapons.json", "skills.json", "skill_resources", "enemy_ai_profiles.json", "enemies.csv", "hazards.csv", "map_layouts.json", "PCG", "有限地图", "relics.json", "credits.json", "test_data_loader_schema"]
+      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation", "schema regression", "ModLoader", "local mods", "mod manifest", "weapons.json", "skills.json", "skill_resources", "ability_tags", "enemy_ai_profiles.json", "enemies.csv", "hazards.csv", "map_layouts.json", "PCG", "有限地图", "relics.json", "credits.json", "test_data_loader_schema"]
     },
     {
       "path": "docs/代码/mod_loader.md",

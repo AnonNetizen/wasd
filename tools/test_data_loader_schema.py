@@ -354,6 +354,22 @@ def main() -> int:
             ],
         ),
         (
+            "skill ability tag must be registered",
+            _mutate_json("client/data/skills.json", _set_skill_ability_tag("ability_tag_missing")),
+            [
+                "client/data/skills.json:skills[0].ability_tags[0]",
+                "unknown id ability_tag_missing; expected one of ability_tags",
+            ],
+        ),
+        (
+            "skill activation blocked tag must be registered",
+            _mutate_json("client/data/skills.json", _set_skill_activation_blocked_tag("ability_tag_missing")),
+            [
+                "client/data/skills.json:skills[0].activation.blocked_tags[0]",
+                "unknown id ability_tag_missing; expected one of ability_tags",
+            ],
+        ),
+        (
             "skill damage type must be registered",
             _mutate_json("client/data/skills.json", _set_skill_damage_type("arcane")),
             [
@@ -792,6 +808,20 @@ def _set_mode_active_item(value: str) -> JsonMutator:
 def _set_skill_cost_resource(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["skills"][0]["costs"][0]["resource"] = value
+
+    return mutate
+
+
+def _set_skill_ability_tag(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["ability_tags"][0] = value
+
+    return mutate
+
+
+def _set_skill_activation_blocked_tag(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["activation"]["blocked_tags"][0] = value
 
     return mutate
 

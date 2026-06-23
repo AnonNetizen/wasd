@@ -205,6 +205,13 @@
     "skill_effects": [
       "skill_effect_damage"
     ],
+    "ability_tags": [
+      "ability_tag_skill",
+      "ability_tag_primary",
+      "ability_tag_damage",
+      "ability_tag_activating",
+      "ability_tag_silenced"
+    ],
     "meta_currencies": [
       "meta_essence"
     ],

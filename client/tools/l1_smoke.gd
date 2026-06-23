@@ -2,6 +2,7 @@ extends Node
 
 
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
+const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SKILL_EFFECTS := preload("res://scripts/contracts/skill_effects.gd")
@@ -181,8 +182,23 @@ func _expect_skill_system_aoe_damage() -> void:
 	var skills: Array[Dictionary] = [_l1_whirlwind_skill()]
 	var resources: Array[Dictionary] = [_l1_mana_resource()]
 	skill_system.call("configure", caster, world, skills, resources)
+	skill_system.call("restore_snapshot", {"owned_tags": [ABILITY_TAGS.ABILITY_TAG_SILENCED]})
+	_expect(bool(skill_system.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "SkillSystem should restore legacy owned ability tags")
+	var counted_tag_snapshot: Dictionary = {"owned_tag_counts": {}}
+	(counted_tag_snapshot["owned_tag_counts"] as Dictionary)[ABILITY_TAGS.ABILITY_TAG_SILENCED] = 2
+	skill_system.call("restore_snapshot", counted_tag_snapshot)
+	_expect(bool(skill_system.call("remove_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "SkillSystem should decrement counted ability tags")
+	_expect(bool(skill_system.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "SkillSystem should keep counted ability tags until count reaches zero")
+	_expect(bool(skill_system.call("remove_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "SkillSystem should remove counted ability tags at zero")
+	_expect(not bool(skill_system.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "SkillSystem should clear counted ability tags after the final remove")
 
 	GameState.change_state(GameState.PLAYING, {"source": "l1_skill_smoke"})
+	_expect(bool(skill_system.call("add_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "SkillSystem should accept registered ability tags")
+	var blocked_result: Dictionary = skill_system.call("cast_primary_skill")
+	_expect(not bool(blocked_result.get("ok", true)), "SkillSystem should block silenced ability activation")
+	_expect(String(blocked_result.get("reason", "")) == "blocked_by_tag", "SkillSystem should report blocked tag reason")
+	_expect(String(blocked_result.get("tag", "")) == ABILITY_TAGS.ABILITY_TAG_SILENCED, "SkillSystem should report the blocking tag")
+	_expect(bool(skill_system.call("remove_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "SkillSystem should remove owned ability tags")
 	var result: Dictionary = skill_system.call("cast_primary_skill")
 	_expect(bool(result.get("ok", false)), "SkillSystem should cast an AOE skill")
 	_expect(int(result.get("applied_targets", 0)) == 1, "SkillSystem should damage one target in radius")
@@ -194,6 +210,9 @@ func _expect_skill_system_aoe_damage() -> void:
 	var cooldown_result: Dictionary = skill_system.call("cast_primary_skill")
 	_expect(not bool(cooldown_result.get("ok", true)), "SkillSystem should block immediate recast while on cooldown")
 	_expect(String(cooldown_result.get("reason", "")) == "cooldown", "SkillSystem should report cooldown reason")
+	var debug_summary: Dictionary = skill_system.call("debug_summary")
+	var owned_tags: Array = debug_summary.get("owned_tags", []) as Array
+	_expect(not owned_tags.has(ABILITY_TAGS.ABILITY_TAG_ACTIVATING), "SkillSystem should release transient activation tags after instant effects")
 
 	target.remove_from_group("active_enemies")
 	far_target.remove_from_group("active_enemies")
@@ -204,6 +223,16 @@ func _expect_skill_system_aoe_damage() -> void:
 func _l1_whirlwind_skill() -> Dictionary:
 	return {
 		"id": SKILL_IDS.SKILL_WHIRLWIND_SLASH,
+		"ability_tags": [
+			ABILITY_TAGS.ABILITY_TAG_SKILL,
+			ABILITY_TAGS.ABILITY_TAG_PRIMARY,
+			ABILITY_TAGS.ABILITY_TAG_DAMAGE,
+		],
+		"activation": {
+			"required_tags": [],
+			"blocked_tags": [ABILITY_TAGS.ABILITY_TAG_SILENCED],
+			"granted_tags": [ABILITY_TAGS.ABILITY_TAG_ACTIVATING],
+		},
 		"cooldown": 3.0,
 		"costs": [
 			{"resource": SKILL_RESOURCES.MANA, "amount": 25.0},

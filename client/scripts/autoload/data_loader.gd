@@ -849,10 +849,23 @@ func _validate_skills_json(locale_keys: Dictionary) -> bool:
 		is_valid = _validate_registered_string_array(SKILLS_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
 		if not tags.has("tag_skill"):
 			is_valid = _schema_fail(SKILLS_PATH, "%s.tags" % field, "tag_skill") and is_valid
+		is_valid = _validate_registered_string_array(SKILLS_PATH, "%s.ability_tags" % field, skill_dict.get("ability_tags"), "ability_tags", false) and is_valid
+		is_valid = _validate_skill_activation("%s.activation" % field, skill_dict.get("activation")) and is_valid
 		is_valid = _require_number(SKILLS_PATH, "%s.cooldown" % field, skill_dict.get("cooldown"), 0.0) and is_valid
 		is_valid = _validate_skill_costs("%s.costs" % field, skill_dict.get("costs")) and is_valid
 		is_valid = _validate_skill_targeting("%s.targeting" % field, skill_dict.get("targeting")) and is_valid
 		is_valid = _validate_skill_effects("%s.effects" % field, skill_dict.get("effects")) and is_valid
+	return is_valid
+
+
+func _validate_skill_activation(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(SKILLS_PATH, field, "Dictionary")
+	var activation: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _validate_registered_string_array(SKILLS_PATH, "%s.required_tags" % field, activation.get("required_tags"), "ability_tags", true) and is_valid
+	is_valid = _validate_registered_string_array(SKILLS_PATH, "%s.blocked_tags" % field, activation.get("blocked_tags"), "ability_tags", true) and is_valid
+	is_valid = _validate_registered_string_array(SKILLS_PATH, "%s.granted_tags" % field, activation.get("granted_tags"), "ability_tags", true) and is_valid
 	return is_valid
 
 

@@ -49,6 +49,7 @@ SECTIONS: tuple[ContractSection, ...] = (
     ContractSection("skill_resources", "## 12-D. 技能资源 skill_resource", "skill_resources.gd", "SkillResources"),
     ContractSection("skill_targeting", "## 12-E. 技能目标选择 skill_targeting", "skill_targeting.gd", "SkillTargeting"),
     ContractSection("skill_effects", "## 12-F. 技能效果 skill_effect", "skill_effects.gd", "SkillEffects"),
+    ContractSection("ability_tags", "## 12-G. 能力标签 ability_tag", "ability_tags.gd", "AbilityTags"),
     ContractSection("meta_currencies", "### 13.1 局外货币 currency_id", "meta_currencies.gd", "MetaCurrencies"),
     ContractSection("meta_upgrades", "### 13.2 局外升级 upgrade_id", "meta_upgrades.gd", "MetaUpgrades"),
     ContractSection("meta_unlock_kinds", "### 13.3 解锁类型 unlock_kind"),

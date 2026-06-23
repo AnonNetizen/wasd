@@ -718,10 +718,21 @@ def _validate_skills(ctx: ValidationContext) -> None:
         tags = _validate_registered_string_list(ctx, path, f"{field}.tags", skill.get("tags"), "content_tags", allow_empty=False)
         if "tag_skill" not in tags:
             ctx.error(path, f"{field}.tags", "must include tag_skill")
+        _validate_registered_string_list(ctx, path, f"{field}.ability_tags", skill.get("ability_tags"), "ability_tags", allow_empty=False)
+        _validate_skill_activation(ctx, path, f"{field}.activation", skill.get("activation"))
         _require_number(ctx, path, f"{field}.cooldown", skill.get("cooldown"), minimum=0)
         _validate_skill_costs(ctx, path, f"{field}.costs", skill.get("costs"))
         _validate_skill_targeting(ctx, path, f"{field}.targeting", skill.get("targeting"))
         _validate_skill_effects(ctx, path, f"{field}.effects", skill.get("effects"))
+
+
+def _validate_skill_activation(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    _validate_registered_string_list(ctx, path, f"{field}.required_tags", data.get("required_tags"), "ability_tags", allow_empty=True)
+    _validate_registered_string_list(ctx, path, f"{field}.blocked_tags", data.get("blocked_tags"), "ability_tags", allow_empty=True)
+    _validate_registered_string_list(ctx, path, f"{field}.granted_tags", data.get("granted_tags"), "ability_tags", allow_empty=True)
 
 
 def _validate_skill_costs(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:

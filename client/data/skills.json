@@ -7,6 +7,12 @@
       "desc_key": "skill_whirlwind_slash_desc",
       "default_unlocked": true,
       "tags": ["tag_skill"],
+      "ability_tags": ["ability_tag_skill", "ability_tag_primary", "ability_tag_damage"],
+      "activation": {
+        "required_tags": [],
+        "blocked_tags": ["ability_tag_silenced"],
+        "granted_tags": ["ability_tag_activating"]
+      },
       "cooldown": 3.0,
       "costs": [
         {
