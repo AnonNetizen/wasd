@@ -10,6 +10,7 @@
 - 提供统一的世界坐标 ↔ 菱形格锚点吸附口径；玩家出生点落在格心，机关按 `radius_tiles` 奇偶吸附到能让外边缘贴格线的锚点。
 - 使用 `RNG.world` 生成可复现的初始机关摆放；手工摆点先放置，PCG 会按同一锚点规则吸附并避开它们。
 - 给玩家移动、敌人实体移动和刷怪提供边界 clamp，不直接处理输入、敌人 AI 评分或机关伤害。
+- 绘制与菱形地图格一致的可见地图边界；当前可见边界取 `bounds` 的上 / 右 / 下 / 左四点组成菱形，实体中心移动 clamp 仍由 `bounds()` / `clamp_position()` 提供。
 - 提供 JSON 友好的 `snapshot()` / `restore_snapshot()`，让暂停续局恢复同一张地图和同一批机关位置；旧快照里的自由坐标 placement 会在恢复时按当前菱形格吸附并 clamp。
 
 ## 阅读方式
@@ -47,7 +48,7 @@ GameplayRunLoop
     └── enemy_* (pooled Enemy scenes, active only)
 ```
 
-`MapManager` 是 `Node2D`，绘制有限地图边框与出生安全圈；机关节点不挂在 `MapManager` 下，而是由 `GameplayRunLoop` 通过 `PoolManager` 放入 `ActiveWorld`。
+`MapManager` 是 `Node2D`，绘制菱形有限地图边框与出生安全圈；机关节点不挂在 `MapManager` 下，而是由 `GameplayRunLoop` 通过 `PoolManager` 放入 `ActiveWorld`。
 
 ## 运行流程
 
@@ -57,6 +58,7 @@ GameplayRunLoop
 | 配置 | 运行时把 layout 与 `hazards.csv` 行数据交给 `MapManager`，解析 bounds 与 `grid.cell_width/cell_height` | `configure(layout_data, hazard_rows)` |
 | 开局 | `MapManager` 先放 `manual_hazards`，再按 `pcg.hazards` 用 `RNG.world` 摆放机关；奇数 `radius_tiles` 吸附格心，偶数吸附网格顶点 | `generate_hazard_placements()` |
 | 实体边界 | 玩家出生点、玩家移动位置和敌人移动位置由有限 `Rect2` clamp | `player_start()`、`bounds()`、`Player.set_movement_bounds()`、`Enemy.set_movement_bounds()` |
+| 可见边界 | 地图边框按 `bounds` 的上 / 右 / 下 / 左四点绘制成菱形，避免旧矩形边框与菱形地面格冲突 | `boundary_points()`、`debug_summary()` |
 | 刷怪边界 | Spawner 的视野外候选位置会被 clamp 到地图内并留出边缘边距 | `spawn_position(player_position, viewport_size)` |
 | 保存 | run payload 保存 layout、bounds、grid cell size、出生点、safe radius、刷怪边距和机关 placement | `snapshot()` |
 | 恢复 | 续局先恢复 `MapManager` 快照，再按快照重建机关；旧存档无机关快照时重新生成，旧 placement 自由坐标会吸附到当前菱形格 | `restore_snapshot()` |
@@ -70,6 +72,7 @@ GameplayRunLoop
 | `restore_snapshot(snapshot_data)` | run payload 中的 map 字典 | `void` | 只接受 JSON 友好字段；缺字段使用当前配置 fallback；placement 位置会按当前 grid 规范化 |
 | `snapshot()` | 无 | `Dictionary` | 保存有限地图和机关 placement |
 | `bounds()` | 无 | `Rect2` | 地图以原点为中心 |
+| `boundary_points()` | 无 | `PackedVector2Array` | 可见地图边界顶点，顺序为上 / 右 / 下 / 左 |
 | `grid_cell_size()` | 无 | `Vector2` | 返回单个菱形格水平 / 垂直对角线，用于背景网格和机关尺寸 |
 | `player_start()` | 无 | `Vector2` | 已 clamp 到 bounds |
 | `hazard_placements()` | 无 | `Array[Dictionary]` | 每项含 `hazard_id`、`position`、`source` |
@@ -103,7 +106,7 @@ GameplayRunLoop
 - 新地图：新增 `layouts[]`，绑定现有或新模式；如果同一模式需要多张图，先明确选择规则再扩 schema。
 - 新 PCG 内容类型：优先在 `map_layouts.json` 增加同级规则，例如后续 `pcg.points_of_interest`；运行时先做通用规则解释，避免按内容 id 特判。
 - 新机关类型：先在 `hazards.csv` 加基础数值，再在 `map_layouts.json` 引用；运行时仍走通用 `Hazard`，除非需要全新行为 primitive。
-- 边界表现：可扩展 `MapManager._draw()` 或替换为 TileMap / 美术资源，但玩家与敌人移动边界仍由 `bounds()` / `clamp_position()` 提供。
+- 边界表现：可扩展 `MapManager._draw()` 或替换为 TileMap / 美术资源；当前可见边界必须保持菱形轮廓，玩家与敌人中心移动边界仍由 `bounds()` / `clamp_position()` 提供。
 
 ## 常见改动入口
 
@@ -124,6 +127,7 @@ GameplayRunLoop
 | 敌人跑出地图 | `Enemy.set_movement_bounds()` 是否由 `GameplayRunLoop` 在生成 / 续局恢复时调用；`runtime-smoke` 是否通过敌人移动边界断言 |
 | 机关数量少于配置 | `safe_radius` / `min_distance_from_player` / `min_spacing` 是否过大；地图是否太小 |
 | 机关看起来不像格子整数倍 | `hazards.csv.radius_tiles` 是否为正整数；偶数尺寸机关是否被放在网格顶点；`WorldBackground`、`MapManager`、`Hazard.configure()` 是否拿到同一份 `grid_cell_size` |
+| 地图边界看起来还是旧矩形 | `MapManager.debug_summary().boundary_shape` 是否为 `diamond`；`boundary_points` 是否为 `bounds` 的上 / 右 / 下 / 左四点；`runtime-smoke` 的菱形边界断言是否通过 |
 | 机关压在玩家身上 | `safe_radius` 是否为 0；PCG 是否绕过 `MapManager.generate_hazard_placements()` |
 | 刷怪贴边或出界 | `enemy_spawn_margin` 是否太小；Spawner 是否仍使用 `MapManager.spawn_position()` |
 | 续局后机关位置变化 | run payload 是否包含 `map.hazard_placements` 和 `hazards`；是否误重新消耗 `RNG.world`；旧自由坐标存档恢复后按 `radius_tiles` 奇偶吸附到合法锚点属于兼容行为 |
@@ -131,7 +135,7 @@ GameplayRunLoop
 ## 测试义务
 
 - 改 `map_layouts.json` 或 schema：跑 `python tools/validate_data.py`、`python tools/test_data_loader_schema.py`、`python tools/sync_contracts.py --check`。
-- 改 `map_manager.gd` 或 `gameplay_run_loop.gd` 地图接入：跑 `python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`runtime-smoke`、`save-smoke`。
+- 改 `map_manager.gd` 或 `gameplay_run_loop.gd` 地图接入：跑 `python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`runtime-smoke`、`save-smoke`；改可见边界形状时至少跑 `runtime-smoke`。
 - 改 PCG 摆放、边界或刷怪位置：追加 `f9-demo-smoke`、`l1-smoke`、`perf-probe`，并重跑四条 checked-in golden replay runner 评估行为漂移。
 
 ## 迁移 / 兼容

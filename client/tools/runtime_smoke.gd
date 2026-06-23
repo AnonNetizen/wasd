@@ -82,6 +82,7 @@ func _run() -> void:
 	_expect(_find_node_by_name(run_loop, "WorldBackground") != null, "WorldBackground should provide movement reference")
 	_expect(_find_node_by_name(run_loop, "MapManager") != null, "finite MapManager should be mounted")
 	_expect(_map_summary_has_finite_bounds(run_loop), "MapManager should expose finite map bounds")
+	_expect(_map_boundary_is_diamond(run_loop), "MapManager should expose a diamond visual boundary")
 	_expect(_map_summary_has_diamond_grid(run_loop), "MapManager should expose a positive diamond grid cell size")
 	_expect(PoolManager.active_count(POOL_IDS.HAZARD_SPIKE) > 0, "PCG map should spawn active hazards")
 	_expect(_active_hazards_are_on_grid(run_loop), "spawned hazards should align to radius-aware diamond grid anchors")
@@ -258,6 +259,39 @@ func _map_summary_has_finite_bounds(run_loop: Node) -> bool:
 func _map_summary_has_diamond_grid(run_loop: Node) -> bool:
 	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
 	return grid_cell_size.x > 0.0 and grid_cell_size.y > 0.0 and grid_cell_size.x > grid_cell_size.y
+
+
+func _map_boundary_is_diamond(run_loop: Node) -> bool:
+	if run_loop == null or not run_loop.has_method("debug_summary"):
+		return false
+	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
+	var raw_map: Variant = summary.get("map", {})
+	if not raw_map is Dictionary:
+		return false
+	var map_summary: Dictionary = raw_map as Dictionary
+	if String(map_summary.get("boundary_shape", "")) != "diamond":
+		return false
+	var raw_points: Variant = map_summary.get("boundary_points", [])
+	if not raw_points is Array:
+		return false
+	var points: Array = raw_points as Array
+	if points.size() != 4:
+		return false
+	var bounds: Rect2 = _map_bounds(run_loop)
+	var center: Vector2 = bounds.get_center()
+	var expected_points: Array[Vector2] = [
+		Vector2(center.x, bounds.position.y),
+		Vector2(bounds.end.x, center.y),
+		Vector2(center.x, bounds.end.y),
+		Vector2(bounds.position.x, center.y),
+	]
+	for index: int in range(expected_points.size()):
+		if not points[index] is Dictionary:
+			return false
+		var point: Vector2 = _dict_to_vector(points[index], Vector2(1.0e20, 1.0e20))
+		if point.distance_to(expected_points[index]) > 0.01:
+			return false
+	return true
 
 
 func _active_hazards_are_on_grid(run_loop: Node) -> bool:

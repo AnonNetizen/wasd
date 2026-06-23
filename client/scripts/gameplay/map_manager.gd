@@ -90,6 +90,10 @@ func hazard_placements() -> Array[Dictionary]:
 	return _hazard_placements.duplicate(true)
 
 
+func boundary_points() -> PackedVector2Array:
+	return _boundary_points()
+
+
 func clamp_position(world_position: Vector2) -> Vector2:
 	return Vector2(
 		clampf(world_position.x, _bounds.position.x, _bounds.end.x),
@@ -124,14 +128,17 @@ func debug_summary() -> Dictionary:
 		"layout_id": _layout_id,
 		"bounds": _rect_to_dict(_bounds),
 		"grid_cell_size": _vector_to_dict(_grid_cell_size),
+		"boundary_shape": "diamond",
+		"boundary_points": _points_to_array(_boundary_points()),
 		"hazard_count": _hazard_placements.size(),
 		"safe_radius": _safe_radius,
 	}
 
 
 func _draw() -> void:
-	draw_rect(_bounds, BOUNDS_FILL_COLOR, true)
-	draw_rect(_bounds, BOUNDS_COLOR, false, BOUNDS_WIDTH)
+	var points: PackedVector2Array = _boundary_points()
+	draw_colored_polygon(points, BOUNDS_FILL_COLOR)
+	_draw_polygon_outline(points, BOUNDS_COLOR, BOUNDS_WIDTH)
 	if _safe_radius > 0.0:
 		draw_arc(_player_start, _safe_radius, 0.0, TAU, 96, SAFE_RADIUS_COLOR, 2.0)
 
@@ -151,6 +158,21 @@ func _parse_grid(raw_value: Variant) -> Vector2:
 		maxf(float(data.get("cell_width", DEFAULT_GRID_CELL_SIZE.x)), 1.0),
 		maxf(float(data.get("cell_height", DEFAULT_GRID_CELL_SIZE.y)), 1.0)
 	)
+
+
+func _boundary_points() -> PackedVector2Array:
+	var center: Vector2 = _bounds.get_center()
+	return PackedVector2Array([
+		Vector2(center.x, _bounds.position.y),
+		Vector2(_bounds.end.x, center.y),
+		Vector2(center.x, _bounds.end.y),
+		Vector2(_bounds.position.x, center.y),
+	])
+
+
+func _draw_polygon_outline(points: PackedVector2Array, color: Color, width: float) -> void:
+	for index: int in range(points.size()):
+		draw_line(points[index], points[(index + 1) % points.size()], color, width)
 
 
 func _add_manual_hazards(raw_value: Variant) -> void:
@@ -372,6 +394,13 @@ func _vector_to_dict(value: Vector2) -> Dictionary:
 		"x": value.x,
 		"y": value.y,
 	}
+
+
+func _points_to_array(points: PackedVector2Array) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for point: Vector2 in points:
+		result.append(_vector_to_dict(point))
+	return result
 
 
 func _dict_to_vector(raw_value: Variant, fallback: Vector2) -> Vector2:
