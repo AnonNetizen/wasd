@@ -82,7 +82,10 @@ func _run() -> void:
 	_expect(_find_node_by_name(run_loop, "WorldBackground") != null, "WorldBackground should provide movement reference")
 	_expect(_find_node_by_name(run_loop, "MapManager") != null, "finite MapManager should be mounted")
 	_expect(_map_summary_has_finite_bounds(run_loop), "MapManager should expose finite map bounds")
+	_expect(_map_summary_has_diamond_grid(run_loop), "MapManager should expose a positive diamond grid cell size")
 	_expect(PoolManager.active_count(POOL_IDS.HAZARD_SPIKE) > 0, "PCG map should spawn active hazards")
+	_expect(_active_hazards_are_on_grid(run_loop), "spawned hazards should align to diamond grid centers")
+	_expect(_map_restore_snaps_legacy_hazards(run_loop), "restored legacy hazard placements should snap to diamond grid centers")
 
 	var start_position: Vector2 = player.global_position
 	Input.action_press(ACTIONS.MOVE_RIGHT)
@@ -251,8 +254,99 @@ func _map_summary_has_finite_bounds(run_loop: Node) -> bool:
 	return _map_bounds(run_loop).size.x > 0.0 and _map_bounds(run_loop).size.y > 0.0
 
 
+func _map_summary_has_diamond_grid(run_loop: Node) -> bool:
+	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
+	return grid_cell_size.x > 0.0 and grid_cell_size.y > 0.0 and grid_cell_size.x > grid_cell_size.y
+
+
+func _active_hazards_are_on_grid(run_loop: Node) -> bool:
+	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
+	if grid_cell_size.x <= 0.0 or grid_cell_size.y <= 0.0:
+		return false
+	var saw_hazard: bool = false
+	for hazard: Node in get_tree().get_nodes_in_group("active_hazards"):
+		if not hazard is Node2D or not _is_descendant_of(hazard, run_loop):
+			continue
+		saw_hazard = true
+		var hazard_2d: Node2D = hazard as Node2D
+		var snapped_position: Vector2 = _snap_to_diamond_grid(hazard_2d.global_position, grid_cell_size)
+		if hazard_2d.global_position.distance_to(snapped_position) > 0.01:
+			return false
+	return saw_hazard
+
+
+func _map_restore_snaps_legacy_hazards(run_loop: Node) -> bool:
+	var map_manager: Node = _find_node_by_name(run_loop, "MapManager")
+	if map_manager == null or not map_manager.has_method("snapshot") or not map_manager.has_method("restore_snapshot") or not map_manager.has_method("hazard_placements"):
+		return false
+	var original_snapshot: Dictionary = map_manager.call("snapshot") as Dictionary
+	var legacy_snapshot: Dictionary = original_snapshot.duplicate(true)
+	legacy_snapshot["hazard_placements"] = [{
+		"hazard_id": "hazard_fea_12_pulse",
+		"position": {
+			"x": 1919.0,
+			"y": 1279.0,
+		},
+		"source": "manual",
+	}]
+	map_manager.call("restore_snapshot", legacy_snapshot)
+	var placements: Array = map_manager.call("hazard_placements") as Array
+	var snapped: bool = false
+	if not placements.is_empty() and placements[0] is Dictionary:
+		var placement: Dictionary = placements[0] as Dictionary
+		var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
+		var position: Vector2 = _dict_to_vector(placement.get("position", {}), Vector2.ZERO)
+		var half_extents: Vector2 = grid_cell_size
+		var bounds: Rect2 = _map_bounds(run_loop)
+		snapped = (
+			position.distance_to(_snap_to_diamond_grid(position, grid_cell_size)) <= 0.01
+			and position.x - half_extents.x >= bounds.position.x - 0.01
+			and position.x + half_extents.x <= bounds.end.x + 0.01
+			and position.y - half_extents.y >= bounds.position.y - 0.01
+			and position.y + half_extents.y <= bounds.end.y + 0.01
+		)
+	map_manager.call("restore_snapshot", original_snapshot)
+	return snapped
+
+
+func _map_grid_cell_size(run_loop: Node) -> Vector2:
+	if run_loop == null or not run_loop.has_method("debug_summary"):
+		return Vector2.ZERO
+	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
+	var raw_map: Variant = summary.get("map", {})
+	if not raw_map is Dictionary:
+		return Vector2.ZERO
+	var map_summary: Dictionary = raw_map as Dictionary
+	var raw_grid: Variant = map_summary.get("grid_cell_size", {})
+	if not raw_grid is Dictionary:
+		return Vector2.ZERO
+	var grid: Dictionary = raw_grid as Dictionary
+	return Vector2(float(grid.get("x", 0.0)), float(grid.get("y", 0.0)))
+
+
+func _snap_to_diamond_grid(world_position: Vector2, grid_cell_size: Vector2) -> Vector2:
+	var half_width: float = maxf(grid_cell_size.x * 0.5, 1.0)
+	var half_height: float = maxf(grid_cell_size.y * 0.5, 1.0)
+	var u: float = world_position.x / half_width
+	var v: float = world_position.y / half_height
+	var column: int = roundi((u + v) * 0.5)
+	var row: int = roundi((v - u) * 0.5)
+	return Vector2(float(column - row) * half_width, float(column + row) * half_height)
+
+
+func _dict_to_vector(raw_value: Variant, fallback: Vector2) -> Vector2:
+	if not raw_value is Dictionary:
+		return fallback
+	var value: Dictionary = raw_value as Dictionary
+	return Vector2(float(value.get("x", fallback.x)), float(value.get("y", fallback.y)))
+
+
 func _snapshot_has_hazards(snapshot: Dictionary) -> bool:
 	return snapshot.get("hazards", []) is Array and (snapshot.get("hazards", []) as Array).size() > 0
+
+
+func _is_descendant_of(node: Node, ancestor: Node) -> bool:
+	return node == ancestor or (ancestor != null and ancestor.is_ancestor_of(node))
 
 
 func _find_node_by_name(root_node: Node, target_name: String) -> Node:

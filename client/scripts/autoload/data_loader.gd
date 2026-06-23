@@ -645,7 +645,7 @@ func _validate_hazards_csv(locale_keys: Dictionary) -> bool:
 		is_valid = _require_csv_int(HAZARDS_PATH, "%s.damage" % field, row.get("damage"), 0) and is_valid
 		is_valid = _require_registered(HAZARDS_PATH, "%s.damage_type" % field, row.get("damage_type"), "damage_types") != "" and is_valid
 		is_valid = _require_csv_number(HAZARDS_PATH, "%s.trigger_interval" % field, row.get("trigger_interval"), 0.0, null, true) and is_valid
-		is_valid = _require_csv_number(HAZARDS_PATH, "%s.radius" % field, row.get("radius"), 0.0, null, true) and is_valid
+		is_valid = _require_csv_int(HAZARDS_PATH, "%s.radius_tiles" % field, row.get("radius_tiles"), 1) and is_valid
 		is_valid = _require_csv_number(HAZARDS_PATH, "%s.duration" % field, row.get("duration"), 0.0) and is_valid
 	return is_valid
 
@@ -1380,11 +1380,14 @@ func _validate_map_layouts_json(hazard_ids: Dictionary, game_mode_ids: Dictionar
 		if not mode_id.is_empty() and not game_mode_ids.has(mode_id):
 			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.mode_id" % layout_field, "mode defined in game_modes.json") and is_valid
 		is_valid = _validate_map_bounds("%s.bounds" % layout_field, layout_dict.get("bounds")) and is_valid
+		is_valid = _validate_map_grid("%s.grid" % layout_field, layout_dict.get("grid")) and is_valid
+		is_valid = _validate_map_bounds_grid_alignment(layout_field, layout_dict.get("bounds"), layout_dict.get("grid")) and is_valid
 		is_valid = _validate_map_point("%s.player_start" % layout_field, layout_dict.get("player_start")) and is_valid
+		is_valid = _validate_map_point_on_grid("%s.player_start" % layout_field, layout_dict.get("player_start"), layout_dict.get("grid")) and is_valid
 		is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.safe_radius" % layout_field, layout_dict.get("safe_radius"), 0.0) and is_valid
 		is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.enemy_spawn_margin" % layout_field, layout_dict.get("enemy_spawn_margin"), 0.0) and is_valid
 		is_valid = _validate_map_pcg("%s.pcg" % layout_field, layout_dict.get("pcg", {}), hazard_ids) and is_valid
-		is_valid = _validate_map_manual_hazards("%s.manual_hazards" % layout_field, layout_dict.get("manual_hazards", []), hazard_ids) and is_valid
+		is_valid = _validate_map_manual_hazards("%s.manual_hazards" % layout_field, layout_dict.get("manual_hazards", []), hazard_ids, layout_dict.get("grid")) and is_valid
 	return is_valid
 
 
@@ -1398,6 +1401,31 @@ func _validate_map_bounds(field: String, data: Variant) -> bool:
 	return is_valid
 
 
+func _validate_map_grid(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(MAP_LAYOUTS_PATH, field, "Dictionary")
+	var grid: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.cell_width" % field, grid.get("cell_width"), 0.0, null, true) and is_valid
+	is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.cell_height" % field, grid.get("cell_height"), 0.0, null, true) and is_valid
+	return is_valid
+
+
+func _validate_map_bounds_grid_alignment(field: String, bounds_data: Variant, grid_data: Variant) -> bool:
+	if not bounds_data is Dictionary or not grid_data is Dictionary:
+		return true
+	var bounds: Dictionary = bounds_data as Dictionary
+	var grid: Dictionary = grid_data as Dictionary
+	var is_valid: bool = true
+	if (bounds.get("width") is int or bounds.get("width") is float) and (grid.get("cell_width") is int or grid.get("cell_width") is float):
+		if not _is_nearly_grid_multiple(float(bounds.get("width")), float(grid.get("cell_width"))):
+			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.bounds.width" % field, "integer multiple of grid.cell_width") and is_valid
+	if (bounds.get("height") is int or bounds.get("height") is float) and (grid.get("cell_height") is int or grid.get("cell_height") is float):
+		if not _is_nearly_grid_multiple(float(bounds.get("height")), float(grid.get("cell_height"))):
+			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.bounds.height" % field, "integer multiple of grid.cell_height") and is_valid
+	return is_valid
+
+
 func _validate_map_point(field: String, data: Variant) -> bool:
 	if not data is Dictionary:
 		return _schema_fail(MAP_LAYOUTS_PATH, field, "Dictionary")
@@ -1406,6 +1434,30 @@ func _validate_map_point(field: String, data: Variant) -> bool:
 	is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.x" % field, point.get("x")) and is_valid
 	is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.y" % field, point.get("y")) and is_valid
 	return is_valid
+
+
+func _validate_map_point_on_grid(field: String, point_data: Variant, grid_data: Variant) -> bool:
+	if not point_data is Dictionary or not grid_data is Dictionary:
+		return true
+	var point: Dictionary = point_data as Dictionary
+	var grid: Dictionary = grid_data as Dictionary
+	if not (point.get("x") is int or point.get("x") is float):
+		return true
+	if not (point.get("y") is int or point.get("y") is float):
+		return true
+	if not (grid.get("cell_width") is int or grid.get("cell_width") is float):
+		return true
+	if not (grid.get("cell_height") is int or grid.get("cell_height") is float):
+		return true
+	var half_width: float = maxf(float(grid.get("cell_width")) * 0.5, 1.0)
+	var half_height: float = maxf(float(grid.get("cell_height")) * 0.5, 1.0)
+	var u: float = float(point.get("x")) / half_width
+	var v: float = float(point.get("y")) / half_height
+	var column: float = (u + v) * 0.5
+	var row: float = (v - u) * 0.5
+	if _is_nearly_integer(column) and _is_nearly_integer(row):
+		return true
+	return _schema_fail(MAP_LAYOUTS_PATH, field, "diamond grid center")
 
 
 func _validate_map_pcg(field: String, data: Variant, hazard_ids: Dictionary) -> bool:
@@ -1431,7 +1483,7 @@ func _validate_map_pcg(field: String, data: Variant, hazard_ids: Dictionary) -> 
 	return is_valid
 
 
-func _validate_map_manual_hazards(field: String, data: Variant, hazard_ids: Dictionary) -> bool:
+func _validate_map_manual_hazards(field: String, data: Variant, hazard_ids: Dictionary, grid_data: Variant) -> bool:
 	var hazards: Array = _require_array(MAP_LAYOUTS_PATH, field, data)
 	var is_valid: bool = true
 	for index: int in range(hazards.size()):
@@ -1447,6 +1499,7 @@ func _validate_map_manual_hazards(field: String, data: Variant, hazard_ids: Dict
 			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.id" % item_field, "hazard defined in hazards.csv") and is_valid
 		is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.x" % item_field, hazard_dict.get("x")) and is_valid
 		is_valid = _require_number(MAP_LAYOUTS_PATH, "%s.y" % item_field, hazard_dict.get("y")) and is_valid
+		is_valid = _validate_map_point_on_grid(item_field, hazard_dict, grid_data) and is_valid
 	return is_valid
 
 
@@ -2097,6 +2150,16 @@ func _require_number(resource_path: String, field: String, value: Variant, minim
 	if maximum != null and numeric > float(maximum):
 		return _schema_fail(resource_path, field, "number <= %s" % str(maximum))
 	return true
+
+
+func _is_nearly_grid_multiple(value: float, unit: float) -> bool:
+	if unit <= 0.0:
+		return true
+	return _is_nearly_integer(value / unit)
+
+
+func _is_nearly_integer(value: float) -> bool:
+	return absf(value - round(value)) <= 0.001
 
 
 func _is_int_like(value: Variant) -> bool:

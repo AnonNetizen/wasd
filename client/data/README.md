@@ -22,8 +22,8 @@
 | 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
 | 改敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | 敌人标签、对象池 id、AI profile id、伤害类型必须来自词表或数据注册表 |
 | 改敌人生态 AI / 怪物互相克制 | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；生态关系通过 content tag 权重表达 |
-| 改机关伤害 / 范围 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表 |
-| 改地图边界 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；PCG 使用 `RNG.world`，人工摆点写绝对坐标 |
+| 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
+| 改地图边界 / 菱形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 必须整除格尺寸；PCG 使用 `RNG.world` 并吸附到格心 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
 | 改技能消耗 / 冷却 / 目标 / 伤害 | `skills.json` | 技能不绑定英雄；角色或道具只引用 skill id，资源消耗用 `skill_resources` 声明 |
@@ -50,8 +50,8 @@
 | `consumables.json` | 已建立 | 消耗品：堆叠数量、拾取数量、效果原语与参数 |
 | `enemy_ai_profiles.json` | 已建立 | 敌人生态 AI profile：感知、目标权重、动作列表、冲锋 / 领地等复杂行为参数 |
 | `enemies.csv` | 已建立 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励、占位色等 |
-| `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、范围、持续时间 |
-| `map_layouts.json` | 已建立 | 有限地图配置：地图边界、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
+| `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、占格尺寸、持续时间 |
+| `map_layouts.json` | 已建立 | 有限地图配置：地图边界、菱形格尺寸、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
 | `growth_pools.json` | 已建立 | 升级选项池、权重、等级条件和候选奖励边界 |
@@ -328,22 +328,23 @@ JSON 示例：
     {
       "id": "map_standard_nest",
       "mode_id": "mode_standard_survival",
-      "bounds": { "width": 3600.0, "height": 2600.0 },
+      "bounds": { "width": 3840.0, "height": 2560.0 },
+      "grid": { "cell_width": 160.0, "cell_height": 80.0 },
       "player_start": { "x": 0.0, "y": 0.0 },
-      "safe_radius": 260.0,
-      "enemy_spawn_margin": 140.0,
+      "safe_radius": 320.0,
+      "enemy_spawn_margin": 160.0,
       "pcg": {
         "hazards": [
           {
             "id": "hazard_fea_12_pulse",
             "count": 7,
-            "min_distance_from_player": 420.0,
-            "min_spacing": 260.0
+            "min_distance_from_player": 480.0,
+            "min_spacing": 320.0
           }
         ]
       },
       "manual_hazards": [
-        { "id": "hazard_fea_12_pulse", "x": 520.0, "y": -260.0 },
+        { "id": "hazard_fea_12_pulse", "x": 480.0, "y": -240.0 },
         { "id": "hazard_spike_trap", "x": -640.0, "y": 320.0 }
       ]
     }
@@ -356,25 +357,28 @@ JSON 示例：
 | `schema_version` | int | 当前 `1` | 文件 schema 版本 |
 | `layouts[].id` | string | 文件内唯一，非空 | 地图 layout id，用于诊断和 run 快照 |
 | `layouts[].mode_id` | string | 必须存在于 `game_modes.json` | 该 layout 绑定的游戏模式；当前每个模式使用第一条匹配 layout |
-| `bounds.width` / `bounds.height` | number | `> 0`，px | 有限地图尺寸；运行时以原点为中心生成 `Rect2` |
-| `player_start.x` | number | 任意有限数 | 玩家出生点 X 坐标；运行时会 clamp 到地图边界 |
-| `player_start.y` | number | 任意有限数 | 玩家出生点 Y 坐标；运行时会 clamp 到地图边界 |
+| `bounds.width` / `bounds.height` | number | `> 0`，px；分别为 `grid.cell_width` / `grid.cell_height` 的整数倍 | 有限地图尺寸；运行时以原点为中心生成 `Rect2` |
+| `grid.cell_width` | number | `> 0`，px | 单个菱形格的水平对角线长度 |
+| `grid.cell_height` | number | `> 0`，px | 单个菱形格的垂直对角线长度 |
+| `player_start.x` | number | 菱形格中心坐标 | 玩家出生点 X 坐标；运行时会吸附并 clamp 到地图边界 |
+| `player_start.y` | number | 菱形格中心坐标 | 玩家出生点 Y 坐标；运行时会吸附并 clamp 到地图边界 |
 | `safe_radius` | number | `>= 0`，px | PCG 机关距离出生点的最小安全圈下限 |
 | `enemy_spawn_margin` | number | `>= 0`，px | 刷怪位置距地图边缘的 clamp 边距 |
-| `pcg.hazards[]` | array[object] | 可空 | 程序化机关规则；当前使用 `RNG.world` 按 seed 可复现地撒布 |
+| `pcg.hazards[]` | array[object] | 可空 | 程序化机关规则；当前使用 `RNG.world` 按 seed 可复现地撒布，并吸附到菱形格中心 |
 | `pcg.hazards[].id` | string | 必须存在于 `hazards.csv` | 要生成的机关 id |
 | `pcg.hazards[].count` | int | `>= 0` | 目标生成数量；约束太紧时实际生成数量可能少于目标 |
 | `pcg.hazards[].min_distance_from_player` | number | `>= 0`，px | 距玩家出生点的额外最小距离，会与 `safe_radius` 取较大值 |
-| `pcg.hazards[].min_spacing` | number | `>= 0`，px | 与已放置机关之间的最小间距；同时至少避开双方半径 |
+| `pcg.hazards[].min_spacing` | number | `>= 0`，px | 与已放置机关之间的最小间距；同时至少避开双方格子半宽 / 半高推导出的近似半径 |
 | `manual_hazards[]` | array[object] | 可空 | 人工固定摆点，先于 PCG 放置，PCG 会避开这些点 |
 | `manual_hazards[].id` | string | 必须存在于 `hazards.csv` | 固定摆放的机关 id |
-| `manual_hazards[].x` | number | 任意有限数 | 固定机关世界 X 坐标；运行时会 clamp 到地图边界 |
-| `manual_hazards[].y` | number | 任意有限数 | 固定机关世界 Y 坐标；运行时会 clamp 到地图边界 |
+| `manual_hazards[].x` | number | 菱形格中心坐标 | 固定机关世界 X 坐标；DataLoader 会校验在格心，运行时也会吸附并 clamp |
+| `manual_hazards[].y` | number | 菱形格中心坐标 | 固定机关世界 Y 坐标；DataLoader 会校验在格心，运行时也会吸附并 clamp |
 
 调参建议：
 - 需要改变地图大小或边界节奏时，先改 `bounds`，再跑 `runtime-smoke` 和 `perf-probe`。
+- 改格子尺度时优先成对调整 `grid.cell_width` / `grid.cell_height`，并保持 `bounds` 为整数倍；当前默认一格为 `160 x 80` 的地面菱形。
 - 需要测试特定机关交互时，用 `manual_hazards` 固定位置；需要测试 PCG 稳定性时改 `pcg.hazards[].count` / `min_spacing`。
-- `hazards.csv` 只管机关基础数值，`map_layouts.json` 才管初始地图上的机关位置。
+- `hazards.csv` 只管机关基础数值和占格尺寸，`map_layouts.json` 才管初始地图上的机关位置。
 - PCG 摆放使用 `RNG.world`，刷怪位置仍使用 `RNG.spawn`，不要把二者混用。
 
 ## `enemies.csv`
@@ -487,8 +491,8 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,
 当前结构：
 
 ```csv
-id,name_key,tags,pool_id,damage,damage_type,trigger_interval,radius,duration
-hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,1,physical,1.0,28.0,0.35
+id,name_key,tags,pool_id,damage,damage_type,trigger_interval,radius_tiles,duration
+hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,100,physical,1.0,1,0.35
 ```
 
 字段说明：
@@ -502,10 +506,10 @@ hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,1,physical,1.0,
 | `damage` | int | `>= 0` | 单次触发伤害；运行时必须经 `Combat.apply_damage` 结算 |
 | `damage_type` | string | 词表 §9 damage type | 机关伤害类型 |
 | `trigger_interval` | number | `> 0`，秒 | 持续存在机关的触发间隔 |
-| `radius` | number | `> 0`，px | 菱形触发范围的半对角线；视觉菱形和触发判定都据此生成 |
+| `radius_tiles` | int | `>= 1` | 机关菱形从中心到顶点占用的地图格数；最终半宽 / 半高由 `map_layouts.json.grid` 推导，视觉菱形和触发判定都据此生成 |
 | `duration` | number | `>= 0`，秒 | 单次触发后的激活 / 预警表现时长 |
 
-`hazards.csv` 只声明机关基础数值。当前运行时已有通用 `Hazard` 节点：由 `MapManager` 读取 `map_layouts.json` 的 PCG / 人工摆点，经 `PoolManager` 取节点，在玩家进入菱形触发范围且冷却结束时通过 `Combat.apply_damage()` 结算。游戏模式仍通过 `resource_pools.hazards` 声明可用机关池；实际初始位置改 `map_layouts.json`。
+`hazards.csv` 只声明机关基础数值和占格尺寸。当前运行时已有通用 `Hazard` 节点：由 `MapManager` 读取 `map_layouts.json` 的 PCG / 人工摆点，经 `PoolManager` 取节点，在玩家进入菱形触发范围且冷却结束时通过 `Combat.apply_damage()` 结算。游戏模式仍通过 `resource_pools.hazards` 声明可用机关池；实际初始位置和格子尺度改 `map_layouts.json`。
 
 ## `spawn_waves.csv`
 

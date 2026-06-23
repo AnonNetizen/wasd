@@ -1,5 +1,5 @@
 # Doc: docs/代码/hazard_system.md
-# Authority: docs/游戏设计文档.md §5.4, docs/决策记录.md ADR #93 / ADR #103
+# Authority: docs/游戏设计文档.md §5.4, docs/决策记录.md ADR #93 / ADR #103 / ADR #105
 class_name Hazard
 extends Node2D
 
@@ -11,6 +11,7 @@ const ACTIVE_RING_COLOR: Color = Color(1.0, 0.72, 0.32, 0.88)
 const IDLE_FILL_COLOR: Color = Color(0.34, 0.58, 0.78, 0.16)
 const IDLE_RING_COLOR: Color = Color(0.65, 0.84, 0.94, 0.78)
 const CENTER_DIAMOND_SCALE: float = 0.16
+const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 80.0)
 const INNER_DIAMOND_SCALE: float = 0.58
 const INNER_RING_WIDTH: float = 1.5
 const RING_WIDTH: float = 3.0
@@ -22,8 +23,9 @@ var _cooldown_remaining: float = 0.0
 var _damage: float = 0.0
 var _damage_type: String = ""
 var _duration: float = 0.0
+var _grid_cell_size: Vector2 = DEFAULT_GRID_CELL_SIZE
 var _hazard_id: String = ""
-var _radius: float = 0.0
+var _radius_tiles: int = 1
 var _target: Node2D = null
 var _trigger_interval: float = 1.0
 
@@ -44,12 +46,13 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 
-func configure(hazard_data: Dictionary, target: Node2D) -> void:
+func configure(hazard_data: Dictionary, target: Node2D, grid_cell_size: Vector2 = DEFAULT_GRID_CELL_SIZE) -> void:
 	_hazard_id = String(hazard_data.get("id", ""))
 	_damage = float(hazard_data.get("damage", 0.0))
 	_damage_type = String(hazard_data.get("damage_type", ""))
 	_trigger_interval = maxf(float(hazard_data.get("trigger_interval", 1.0)), 0.01)
-	_radius = maxf(float(hazard_data.get("radius", 1.0)), 1.0)
+	_radius_tiles = maxi(int(hazard_data.get("radius_tiles", 1)), 1)
+	_grid_cell_size = Vector2(maxf(grid_cell_size.x, 1.0), maxf(grid_cell_size.y, 1.0))
 	_duration = maxf(float(hazard_data.get("duration", 0.0)), 0.0)
 	_target = target
 	_cooldown_remaining = 0.0
@@ -84,8 +87,9 @@ func _pool_reset() -> void:
 	_damage = 0.0
 	_damage_type = ""
 	_duration = 0.0
+	_grid_cell_size = DEFAULT_GRID_CELL_SIZE
 	_hazard_id = ""
-	_radius = 0.0
+	_radius_tiles = 1
 	_target = null
 	_trigger_interval = 1.0
 	visible = true
@@ -97,13 +101,12 @@ func _pool_release() -> void:
 
 
 func _draw() -> void:
-	if _radius <= 0.0:
-		return
+	var half_extents: Vector2 = _half_extents()
 	var fill_color: Color = ACTIVE_FILL_COLOR if _active_remaining > 0.0 else IDLE_FILL_COLOR
 	var ring_color: Color = ACTIVE_RING_COLOR if _active_remaining > 0.0 else IDLE_RING_COLOR
-	var outer_points: PackedVector2Array = _diamond_points(_radius)
-	var inner_points: PackedVector2Array = _diamond_points(_radius * INNER_DIAMOND_SCALE)
-	var center_points: PackedVector2Array = _diamond_points(_radius * CENTER_DIAMOND_SCALE)
+	var outer_points: PackedVector2Array = _diamond_points(half_extents)
+	var inner_points: PackedVector2Array = _diamond_points(half_extents * INNER_DIAMOND_SCALE)
+	var center_points: PackedVector2Array = _diamond_points(half_extents * CENTER_DIAMOND_SCALE)
 	draw_colored_polygon(outer_points, fill_color)
 	_draw_diamond_outline(outer_points, ring_color, RING_WIDTH)
 	_draw_diamond_outline(inner_points, ring_color, INNER_RING_WIDTH)
@@ -130,15 +133,20 @@ func _is_target_inside_trigger() -> bool:
 	if _target == null or not is_instance_valid(_target):
 		return false
 	var offset: Vector2 = _target.global_position - global_position
-	return absf(offset.x) + absf(offset.y) <= _radius
+	var half_extents: Vector2 = _half_extents()
+	return absf(offset.x) / half_extents.x + absf(offset.y) / half_extents.y <= 1.0
 
 
-func _diamond_points(half_diagonal: float) -> PackedVector2Array:
+func _half_extents() -> Vector2:
+	return _grid_cell_size * 0.5 * float(maxi(_radius_tiles, 1))
+
+
+func _diamond_points(half_extents: Vector2) -> PackedVector2Array:
 	return PackedVector2Array([
-		Vector2(0.0, -half_diagonal),
-		Vector2(half_diagonal, 0.0),
-		Vector2(0.0, half_diagonal),
-		Vector2(-half_diagonal, 0.0),
+		Vector2(0.0, -half_extents.y),
+		Vector2(half_extents.x, 0.0),
+		Vector2(0.0, half_extents.y),
+		Vector2(-half_extents.x, 0.0),
 	])
 
 

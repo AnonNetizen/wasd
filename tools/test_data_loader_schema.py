@@ -226,6 +226,14 @@ def main() -> int:
             ],
         ),
         (
+            "hazard radius tiles must be positive",
+            _mutate_csv("client/data/hazards.csv", _set_hazard_radius_tiles("0")),
+            [
+                "client/data/hazards.csv:line 2.radius_tiles",
+                "must be >= 1",
+            ],
+        ),
+        (
             "mode hazard reference must exist",
             _mutate_json("client/data/game_modes.json", _set_mode_hazard("hazard_missing")),
             [
@@ -239,6 +247,14 @@ def main() -> int:
             [
                 "client/data/map_layouts.json:layouts[0].mode_id",
                 "unknown id mode_unregistered; expected one of game_modes",
+            ],
+        ),
+        (
+            "map layout grid width must be positive",
+            _mutate_json("client/data/map_layouts.json", _set_map_layout_grid_cell_width(0.0)),
+            [
+                "client/data/map_layouts.json:layouts[0].grid.cell_width",
+                "must be > 0",
             ],
         ),
         (
@@ -735,6 +751,13 @@ def _set_hazard_damage_type(value: str) -> CsvMutator:
     return mutate
 
 
+def _set_hazard_radius_tiles(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["radius_tiles"] = value
+
+    return mutate
+
+
 def _set_mode_hazard(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["resource_pools"]["hazards"][0]["id"] = value
@@ -752,6 +775,13 @@ def _set_map_layout_mode(value: str) -> JsonMutator:
 def _set_map_layout_pcg_hazard(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["layouts"][0]["pcg"]["hazards"][0]["id"] = value
+
+    return mutate
+
+
+def _set_map_layout_grid_cell_width(value: float) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["layouts"][0]["grid"]["cell_width"] = value
 
     return mutate
 

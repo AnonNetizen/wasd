@@ -1,5 +1,5 @@
 # Doc: docs/代码/map_manager.md
-# Authority: docs/游戏设计文档.md §5, docs/决策记录.md ADR #93
+# Authority: docs/游戏设计文档.md §5, docs/决策记录.md ADR #93 / ADR #105
 class_name MapManager
 extends Node2D
 
@@ -8,6 +8,7 @@ const BOUNDS_COLOR: Color = Color(0.48, 0.62, 0.70, 0.62)
 const BOUNDS_FILL_COLOR: Color = Color(0.08, 0.10, 0.11, 0.12)
 const BOUNDS_WIDTH: float = 4.0
 const DEFAULT_BOUNDS_SIZE: Vector2 = Vector2(3200.0, 2200.0)
+const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 80.0)
 const INVALID_POSITION: Vector2 = Vector2(1.0e20, 1.0e20)
 const MANUAL_SOURCE: String = "manual"
 const PCG_SOURCE: String = "pcg"
@@ -19,6 +20,7 @@ var _bounds: Rect2 = Rect2(-DEFAULT_BOUNDS_SIZE * 0.5, DEFAULT_BOUNDS_SIZE)
 var _enemy_spawn_margin: float = 128.0
 var _hazard_rows: Dictionary = {}
 var _hazard_placements: Array[Dictionary] = []
+var _grid_cell_size: Vector2 = DEFAULT_GRID_CELL_SIZE
 var _layout_id: String = ""
 var _player_start: Vector2 = Vector2.ZERO
 var _safe_radius: float = 0.0
@@ -27,10 +29,11 @@ var _safe_radius: float = 0.0
 func configure(layout_data: Dictionary, hazard_rows: Dictionary) -> void:
 	_hazard_rows = hazard_rows.duplicate(true)
 	_layout_id = String(layout_data.get("id", ""))
-	_player_start = _dict_to_vector(layout_data.get("player_start", {}), Vector2.ZERO)
+	_grid_cell_size = _parse_grid(layout_data.get("grid", {}))
 	_safe_radius = maxf(float(layout_data.get("safe_radius", 0.0)), 0.0)
 	_enemy_spawn_margin = maxf(float(layout_data.get("enemy_spawn_margin", 0.0)), 0.0)
 	_bounds = _parse_bounds(layout_data.get("bounds", {}))
+	_player_start = clamp_position(snap_to_grid(_dict_to_vector(layout_data.get("player_start", {}), Vector2.ZERO)))
 	_hazard_placements.clear()
 	queue_redraw()
 
@@ -47,7 +50,8 @@ func generate_hazard_placements(layout_data: Dictionary) -> Array[Dictionary]:
 func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_layout_id = String(snapshot_data.get("layout_id", _layout_id))
 	_bounds = _dict_to_rect(snapshot_data.get("bounds", {}), _bounds)
-	_player_start = _dict_to_vector(snapshot_data.get("player_start", {}), _player_start)
+	_grid_cell_size = _dict_to_vector(snapshot_data.get("grid_cell_size", {}), _grid_cell_size)
+	_player_start = clamp_position(snap_to_grid(_dict_to_vector(snapshot_data.get("player_start", {}), _player_start)))
 	_safe_radius = maxf(float(snapshot_data.get("safe_radius", _safe_radius)), 0.0)
 	_enemy_spawn_margin = maxf(float(snapshot_data.get("enemy_spawn_margin", _enemy_spawn_margin)), 0.0)
 	_hazard_placements = _typed_placements(snapshot_data.get("hazard_placements", []))
@@ -58,6 +62,7 @@ func snapshot() -> Dictionary:
 	return {
 		"layout_id": _layout_id,
 		"bounds": _rect_to_dict(_bounds),
+		"grid_cell_size": _vector_to_dict(_grid_cell_size),
 		"player_start": _vector_to_dict(_player_start),
 		"safe_radius": _safe_radius,
 		"enemy_spawn_margin": _enemy_spawn_margin,
@@ -73,6 +78,10 @@ func bounds() -> Rect2:
 	return _bounds
 
 
+func grid_cell_size() -> Vector2:
+	return _grid_cell_size
+
+
 func player_start() -> Vector2:
 	return clamp_position(_player_start)
 
@@ -86,6 +95,20 @@ func clamp_position(world_position: Vector2) -> Vector2:
 		clampf(world_position.x, _bounds.position.x, _bounds.end.x),
 		clampf(world_position.y, _bounds.position.y, _bounds.end.y)
 	)
+
+
+func snap_to_grid(world_position: Vector2) -> Vector2:
+	var half_width: float = maxf(_grid_cell_size.x * 0.5, 1.0)
+	var half_height: float = maxf(_grid_cell_size.y * 0.5, 1.0)
+	var u: float = world_position.x / half_width
+	var v: float = world_position.y / half_height
+	var column: int = roundi((u + v) * 0.5)
+	var row: int = roundi((v - u) * 0.5)
+	return Vector2(float(column - row) * half_width, float(column + row) * half_height)
+
+
+func normalize_hazard_position(world_position: Vector2, hazard_id: String) -> Vector2:
+	return _normalize_hazard_position(world_position, hazard_id)
 
 
 func spawn_position(player_position: Vector2, viewport_size: Vector2) -> Vector2:
@@ -105,6 +128,7 @@ func debug_summary() -> Dictionary:
 	return {
 		"layout_id": _layout_id,
 		"bounds": _rect_to_dict(_bounds),
+		"grid_cell_size": _vector_to_dict(_grid_cell_size),
 		"hazard_count": _hazard_placements.size(),
 		"safe_radius": _safe_radius,
 	}
@@ -126,6 +150,14 @@ func _parse_bounds(raw_value: Variant) -> Rect2:
 	return Rect2(-size * 0.5, size)
 
 
+func _parse_grid(raw_value: Variant) -> Vector2:
+	var data: Dictionary = _dictionary_or_empty(raw_value)
+	return Vector2(
+		maxf(float(data.get("cell_width", DEFAULT_GRID_CELL_SIZE.x)), 1.0),
+		maxf(float(data.get("cell_height", DEFAULT_GRID_CELL_SIZE.y)), 1.0)
+	)
+
+
 func _add_manual_hazards(raw_value: Variant) -> void:
 	for raw_hazard: Variant in _array_or_empty(raw_value):
 		if not raw_hazard is Dictionary:
@@ -135,7 +167,7 @@ func _add_manual_hazards(raw_value: Variant) -> void:
 		if not _hazard_rows.has(hazard_id):
 			continue
 		var position: Vector2 = Vector2(float(hazard_data.get("x", 0.0)), float(hazard_data.get("y", 0.0)))
-		_hazard_placements.append(_placement(hazard_id, clamp_position(position), MANUAL_SOURCE))
+		_hazard_placements.append(_placement(hazard_id, _normalize_hazard_position(position, hazard_id), MANUAL_SOURCE))
 
 
 func _add_pcg_hazards(raw_value: Variant) -> void:
@@ -156,8 +188,9 @@ func _add_pcg_hazards(raw_value: Variant) -> void:
 
 
 func _roll_hazard_position(hazard_id: String, min_distance: float, min_spacing: float) -> Vector2:
-	var radius: float = _hazard_radius(hazard_id)
-	var placement_bounds: Rect2 = _bounds.grow(-maxf(radius, SPAWN_EDGE_PADDING))
+	var half_extents: Vector2 = _hazard_half_extents(hazard_id)
+	var placement_padding: float = maxf(maxf(half_extents.x, half_extents.y), SPAWN_EDGE_PADDING)
+	var placement_bounds: Rect2 = _bounds.grow(-placement_padding)
 	if placement_bounds.size.x <= 0.0 or placement_bounds.size.y <= 0.0:
 		return INVALID_POSITION
 	var attempts: int = maxi(PLACEMENT_ATTEMPTS_PER_HAZARD, 1)
@@ -166,19 +199,22 @@ func _roll_hazard_position(hazard_id: String, min_distance: float, min_spacing: 
 			RNG.world.randf_range(placement_bounds.position.x, placement_bounds.end.x),
 			RNG.world.randf_range(placement_bounds.position.y, placement_bounds.end.y)
 		)
+		candidate = _normalize_hazard_position(candidate, hazard_id)
 		if _is_valid_hazard_position(candidate, hazard_id, min_distance, min_spacing):
 			return candidate
 	return INVALID_POSITION
 
 
 func _is_valid_hazard_position(candidate: Vector2, hazard_id: String, min_distance: float, min_spacing: float) -> bool:
+	if not _is_hazard_inside_bounds(candidate, hazard_id):
+		return false
 	var minimum_player_distance: float = maxf(min_distance, _safe_radius)
 	if candidate.distance_to(_player_start) < minimum_player_distance:
 		return false
-	var candidate_radius: float = _hazard_radius(hazard_id)
+	var candidate_radius: float = _hazard_spacing_radius(hazard_id)
 	for placement: Dictionary in _hazard_placements:
 		var other_position: Vector2 = _dict_to_vector(placement.get("position", {}), Vector2.ZERO)
-		var other_radius: float = _hazard_radius(String(placement.get("hazard_id", "")))
+		var other_radius: float = _hazard_spacing_radius(String(placement.get("hazard_id", "")))
 		var required_spacing: float = maxf(min_spacing, candidate_radius + other_radius)
 		if candidate.distance_to(other_position) < required_spacing:
 			return false
@@ -193,16 +229,54 @@ func _placement(hazard_id: String, position: Vector2, source: String) -> Diction
 	}
 
 
-func _hazard_radius(hazard_id: String) -> float:
+func _normalize_hazard_position(world_position: Vector2, hazard_id: String) -> Vector2:
+	var snapped_position: Vector2 = snap_to_grid(world_position)
+	var half_extents: Vector2 = _hazard_half_extents(hazard_id)
+	var min_x: float = _bounds.position.x + half_extents.x
+	var max_x: float = _bounds.end.x - half_extents.x
+	var min_y: float = _bounds.position.y + half_extents.y
+	var max_y: float = _bounds.end.y - half_extents.y
+	if min_x > max_x or min_y > max_y:
+		return clamp_position(snapped_position)
+	var clamped_position: Vector2 = Vector2(
+		clampf(snapped_position.x, min_x, max_x),
+		clampf(snapped_position.y, min_y, max_y)
+	)
+	var normalized_position: Vector2 = snap_to_grid(clamped_position)
+	if _is_hazard_inside_bounds(normalized_position, hazard_id):
+		return normalized_position
+	return clamped_position
+
+
+func _is_hazard_inside_bounds(candidate: Vector2, hazard_id: String) -> bool:
+	var half_extents: Vector2 = _hazard_half_extents(hazard_id)
+	return (
+		candidate.x - half_extents.x >= _bounds.position.x
+		and candidate.x + half_extents.x <= _bounds.end.x
+		and candidate.y - half_extents.y >= _bounds.position.y
+		and candidate.y + half_extents.y <= _bounds.end.y
+	)
+
+
+func _hazard_spacing_radius(hazard_id: String) -> float:
+	var half_extents: Vector2 = _hazard_half_extents(hazard_id)
+	return maxf(half_extents.x, half_extents.y)
+
+
+func _hazard_half_extents(hazard_id: String) -> Vector2:
 	var hazard_data: Dictionary = _dictionary_or_empty(_hazard_rows.get(hazard_id, {}))
-	return maxf(float(hazard_data.get("radius", 0.0)), 0.0)
+	var radius_tiles: int = maxi(int(hazard_data.get("radius_tiles", 1)), 1)
+	return _grid_cell_size * 0.5 * float(radius_tiles)
 
 
 func _typed_placements(raw_value: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for raw_item: Variant in _array_or_empty(raw_value):
 		if raw_item is Dictionary:
-			result.append((raw_item as Dictionary).duplicate(true))
+			var item: Dictionary = (raw_item as Dictionary).duplicate(true)
+			var hazard_id: String = String(item.get("hazard_id", ""))
+			item["position"] = _vector_to_dict(_normalize_hazard_position(_dict_to_vector(item.get("position", {}), Vector2.ZERO), hazard_id))
+			result.append(item)
 	return result
 
 

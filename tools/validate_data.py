@@ -499,7 +499,7 @@ def _validate_hazards_csv(ctx: ValidationContext) -> None:
         "damage",
         "damage_type",
         "trigger_interval",
-        "radius",
+        "radius_tiles",
         "duration",
     }
     seen: set[str] = set()
@@ -527,7 +527,7 @@ def _validate_hazards_csv(ctx: ValidationContext) -> None:
             _parse_int(ctx, path, f"{field}.damage", row.get("damage"), minimum=0)
             _require_registered(ctx, path, f"{field}.damage_type", row.get("damage_type"), "damage_types")
             _parse_float(ctx, path, f"{field}.trigger_interval", row.get("trigger_interval"), minimum=0, exclusive_minimum=True)
-            _parse_float(ctx, path, f"{field}.radius", row.get("radius"), minimum=0, exclusive_minimum=True)
+            _parse_int(ctx, path, f"{field}.radius_tiles", row.get("radius_tiles"), minimum=1)
             _parse_float(ctx, path, f"{field}.duration", row.get("duration"), minimum=0)
         if row_count == 0:
             ctx.error(path, "rows", "must contain at least one hazard")
@@ -1084,11 +1084,14 @@ def _validate_map_layouts(ctx: ValidationContext, hazard_ids: set[str], game_mod
         if mode_id and mode_id not in game_mode_ids:
             ctx.error(path, f"{layout_field}.mode_id", f"mode is not defined in game_modes.json: {mode_id}")
         _validate_map_bounds(ctx, path, f"{layout_field}.bounds", layout.get("bounds"))
+        _validate_map_grid(ctx, path, f"{layout_field}.grid", layout.get("grid"))
+        _validate_map_bounds_grid_alignment(ctx, path, layout_field, layout.get("bounds"), layout.get("grid"))
         _validate_map_point(ctx, path, f"{layout_field}.player_start", layout.get("player_start"))
+        _validate_map_point_on_grid(ctx, path, f"{layout_field}.player_start", layout.get("player_start"), layout.get("grid"))
         _require_number(ctx, path, f"{layout_field}.safe_radius", layout.get("safe_radius"), minimum=0)
         _require_number(ctx, path, f"{layout_field}.enemy_spawn_margin", layout.get("enemy_spawn_margin"), minimum=0)
         _validate_map_pcg(ctx, path, f"{layout_field}.pcg", layout.get("pcg", {}), hazard_ids)
-        _validate_map_manual_hazards(ctx, path, f"{layout_field}.manual_hazards", layout.get("manual_hazards", []), hazard_ids)
+        _validate_map_manual_hazards(ctx, path, f"{layout_field}.manual_hazards", layout.get("manual_hazards", []), hazard_ids, layout.get("grid"))
 
 
 def _validate_map_bounds(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
@@ -1099,12 +1102,56 @@ def _validate_map_bounds(ctx: ValidationContext, path: Path, field: str, data: A
     _require_number(ctx, path, f"{field}.height", data.get("height"), minimum=0, exclusive_minimum=True)
 
 
+def _validate_map_grid(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    _require_number(ctx, path, f"{field}.cell_width", data.get("cell_width"), minimum=0, exclusive_minimum=True)
+    _require_number(ctx, path, f"{field}.cell_height", data.get("cell_height"), minimum=0, exclusive_minimum=True)
+
+
+def _validate_map_bounds_grid_alignment(ctx: ValidationContext, path: Path, field: str, bounds: Any, grid: Any) -> None:
+    if not isinstance(bounds, dict) or not isinstance(grid, dict):
+        return
+    width = bounds.get("width")
+    height = bounds.get("height")
+    cell_width = grid.get("cell_width")
+    cell_height = grid.get("cell_height")
+    if isinstance(width, (int, float)) and isinstance(cell_width, (int, float)):
+        if not _is_nearly_grid_multiple(float(width), float(cell_width)):
+            ctx.error(path, f"{field}.bounds.width", "must be an integer multiple of grid.cell_width")
+    if isinstance(height, (int, float)) and isinstance(cell_height, (int, float)):
+        if not _is_nearly_grid_multiple(float(height), float(cell_height)):
+            ctx.error(path, f"{field}.bounds.height", "must be an integer multiple of grid.cell_height")
+
+
 def _validate_map_point(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
     if not isinstance(data, dict):
         ctx.error(path, field, "must be an object")
         return
     _require_number(ctx, path, f"{field}.x", data.get("x"))
     _require_number(ctx, path, f"{field}.y", data.get("y"))
+
+
+def _validate_map_point_on_grid(ctx: ValidationContext, path: Path, field: str, point: Any, grid: Any) -> None:
+    if not isinstance(point, dict) or not isinstance(grid, dict):
+        return
+    x = point.get("x")
+    y = point.get("y")
+    cell_width = grid.get("cell_width")
+    cell_height = grid.get("cell_height")
+    if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
+        return
+    if not isinstance(cell_width, (int, float)) or not isinstance(cell_height, (int, float)):
+        return
+    half_width = max(float(cell_width) * 0.5, 1.0)
+    half_height = max(float(cell_height) * 0.5, 1.0)
+    u = float(x) / half_width
+    v = float(y) / half_height
+    column = (u + v) * 0.5
+    row = (v - u) * 0.5
+    if not _is_nearly_integer(column) or not _is_nearly_integer(row):
+        ctx.error(path, field, "must be a diamond grid center")
 
 
 def _validate_map_pcg(ctx: ValidationContext, path: Path, field: str, data: Any, hazard_ids: set[str]) -> None:
@@ -1125,7 +1172,7 @@ def _validate_map_pcg(ctx: ValidationContext, path: Path, field: str, data: Any,
         _require_number(ctx, path, f"{item_field}.min_spacing", hazard.get("min_spacing"), minimum=0)
 
 
-def _validate_map_manual_hazards(ctx: ValidationContext, path: Path, field: str, data: Any, hazard_ids: set[str]) -> None:
+def _validate_map_manual_hazards(ctx: ValidationContext, path: Path, field: str, data: Any, hazard_ids: set[str], grid: Any) -> None:
     hazards = _require_list(ctx, path, field, data)
     for index, hazard in enumerate(hazards):
         item_field = f"{field}[{index}]"
@@ -1137,6 +1184,7 @@ def _validate_map_manual_hazards(ctx: ValidationContext, path: Path, field: str,
             ctx.error(path, f"{item_field}.id", f"hazard is not defined in hazards.csv: {hazard_id}")
         _require_number(ctx, path, f"{item_field}.x", hazard.get("x"))
         _require_number(ctx, path, f"{item_field}.y", hazard.get("y"))
+        _validate_map_point_on_grid(ctx, path, item_field, hazard, grid)
 
 
 def _validate_mode_teams(ctx: ValidationContext, path: Path, mode_field: str, data: Any) -> set[str]:
@@ -1804,6 +1852,16 @@ def _require_number(
     if maximum is not None and numeric > maximum:
         ctx.error(path, field, f"must be <= {maximum}")
     return numeric
+
+
+def _is_nearly_grid_multiple(value: float, unit: float) -> bool:
+    if unit <= 0.0:
+        return True
+    return _is_nearly_integer(value / unit)
+
+
+def _is_nearly_integer(value: float) -> bool:
+    return abs(value - round(value)) <= 0.001
 
 
 def _parse_int(ctx: ValidationContext, path: Path, field: str, value: Any, *, minimum: int | None = None) -> int | None:

@@ -30,6 +30,7 @@ const SKILL_SYSTEM_SCRIPT := preload("res://scripts/gameplay/skill_system.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 
 const BULLET_POOL_SIZE: int = 192
+const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 80.0)
 const ENEMY_POOL_SIZE: int = 96
 const FEEDBACK_POOL_SIZE: int = 128
 const HAZARD_POOL_SIZE: int = 32
@@ -194,7 +195,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	if background == null:
 		push_error("[GameplayRunLoop] missing WorldBackground scene node")
 		return
-	background.call("configure", _player)
+	background.call("configure", _player, _map_grid_cell_size())
 
 	_weapon_system = _player.get_node_or_null("WeaponSystem")
 	if _weapon_system == null:
@@ -481,7 +482,7 @@ func _spawn_hazard(placement: Dictionary) -> Node2D:
 	var hazard: Node2D = raw_node as Node2D
 	hazard.global_position = _dict_to_vector(placement.get("position", {}), Vector2.ZERO)
 	_reparent_to_active_world(hazard)
-	hazard.call("configure", hazard_data, _player)
+	hazard.call("configure", hazard_data, _player, _map_grid_cell_size())
 	return hazard
 
 
@@ -493,6 +494,12 @@ func _spawn_position() -> Vector2:
 	var radius: float = maxf(viewport_size.x, viewport_size.y) * 0.55
 	var angle: float = RNG.spawn.randf_range(0.0, TAU)
 	return _player.global_position + Vector2.RIGHT.rotated(angle) * radius
+
+
+func _map_grid_cell_size() -> Vector2:
+	if _map_manager != null and _map_manager.has_method("grid_cell_size"):
+		return _map_manager.call("grid_cell_size")
+	return DEFAULT_GRID_CELL_SIZE
 
 
 func _reparent_to_active_world(node: Node) -> void:
@@ -883,13 +890,26 @@ func _restore_hazard_snapshots(hazard_snapshots: Array) -> void:
 		var hazard_id: String = String(snapshot_data.get("hazard_id", ""))
 		if not _hazard_rows.has(hazard_id):
 			continue
+		var restored_position: Vector2 = _dict_to_vector(snapshot_data.get("position", {}), Vector2.ZERO)
+		if _map_manager != null and _map_manager.has_method("normalize_hazard_position"):
+			restored_position = _map_manager.call("normalize_hazard_position", restored_position, hazard_id)
+		elif _map_manager != null and _map_manager.has_method("snap_to_grid"):
+			restored_position = _map_manager.call("snap_to_grid", restored_position)
+			if _map_manager.has_method("clamp_position"):
+				restored_position = _map_manager.call("clamp_position", restored_position)
+		var restored_position_data: Dictionary = {
+			"x": restored_position.x,
+			"y": restored_position.y,
+		}
 		var placement: Dictionary = {
 			"hazard_id": hazard_id,
-			"position": snapshot_data.get("position", {}),
+			"position": restored_position_data,
 		}
+		var restored_snapshot: Dictionary = snapshot_data.duplicate(true)
+		restored_snapshot["position"] = restored_position_data
 		var hazard: Node2D = _spawn_hazard(placement)
 		if hazard != null and hazard.has_method("restore_snapshot"):
-			hazard.call("restore_snapshot", snapshot_data)
+			hazard.call("restore_snapshot", restored_snapshot)
 
 
 func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
@@ -1102,7 +1122,7 @@ func _load_hazard_rows() -> Dictionary:
 			"damage": String(row.get("damage", "0")).to_int(),
 			"damage_type": String(row.get("damage_type", "")),
 			"trigger_interval": String(row.get("trigger_interval", "1.0")).to_float(),
-			"radius": String(row.get("radius", "1.0")).to_float(),
+			"radius_tiles": String(row.get("radius_tiles", "1")).to_int(),
 			"duration": String(row.get("duration", "0.0")).to_float(),
 		}
 	return result
