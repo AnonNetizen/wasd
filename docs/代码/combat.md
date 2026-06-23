@@ -88,7 +88,7 @@
 |------------|----------|----------|----------|
 | 新增伤害类型 | `docs/词表与契约.md` | 本文档、相关数据 | `python tools/sync_contracts.py --check`、`python tools/validate_data.py` |
 | 改伤害结果字典 | `combat.gd` | 本文档、调用方模块文档 | GDScript lint + headless boot，后续补 L1 |
-| 接状态效果 / 抗性 | `combat.gd` + 新系统 | GDD、本文档、测试策略 | L0 + L1 + 必要黄金回放 |
+| 接状态效果 / 抗性 | `combat.gd` + `docs/代码/status_effect_component.md` 对应系统 | GDD、本文档、测试策略 | L0 + L1 + 必要黄金回放 |
 
 ## 故障排查
 
@@ -113,3 +113,4 @@
 - `docs/词表与契约.md` 第 9 节
 - `docs/测试策略.md`
 - `docs/代码/gameplay_runtime.md`
+- `docs/代码/status_effect_component.md`

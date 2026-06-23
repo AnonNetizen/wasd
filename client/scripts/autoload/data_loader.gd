@@ -923,6 +923,16 @@ func _validate_skill_effects(field: String, data: Variant) -> bool:
 			var params_dict: Dictionary = params as Dictionary
 			is_valid = _require_number(SKILLS_PATH, "%s.params.amount" % effect_field, params_dict.get("amount"), 0.0, null, true) and is_valid
 			is_valid = _require_registered(SKILLS_PATH, "%s.params.damage_type" % effect_field, params_dict.get("damage_type"), "damage_types") != "" and is_valid
+		if effect_id == "skill_effect_apply_status":
+			var status_params: Dictionary = params as Dictionary
+			is_valid = _require_registered(SKILLS_PATH, "%s.params.status" % effect_field, status_params.get("status"), "status_effects") != "" and is_valid
+			is_valid = _require_number(SKILLS_PATH, "%s.params.duration" % effect_field, status_params.get("duration"), 0.0, null, true) and is_valid
+			is_valid = _require_registered(SKILLS_PATH, "%s.params.stack_rule" % effect_field, status_params.get("stack_rule"), "status_stack_rules") != "" and is_valid
+			is_valid = _validate_registered_string_array(SKILLS_PATH, "%s.params.granted_ability_tags" % effect_field, status_params.get("granted_ability_tags"), "ability_tags", true) and is_valid
+			if status_params.has("magnitude"):
+				is_valid = _require_number(SKILLS_PATH, "%s.params.magnitude" % effect_field, status_params.get("magnitude")) and is_valid
+			if status_params.has("tick_interval"):
+				is_valid = _require_number(SKILLS_PATH, "%s.params.tick_interval" % effect_field, status_params.get("tick_interval"), 0.0) and is_valid
 	return is_valid
 
 

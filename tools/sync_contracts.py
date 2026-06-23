@@ -38,6 +38,7 @@ SECTIONS: tuple[ContractSection, ...] = (
     ContractSection("pool_ids", "## 8. 对象池 id", "pool_ids.gd", "PoolIds"),
     ContractSection("damage_types", "## 9. 伤害类型 damage_type", "damage_types.gd", "DamageTypes"),
     ContractSection("status_effects", "## 9-A. 状态效果 status_effect", "status_effects.gd", "StatusEffects"),
+    ContractSection("status_stack_rules", "## 9-B. 状态叠加规则 status_stack_rule", "status_stack_rules.gd", "StatusStackRules"),
     ContractSection("audio_prefixes", "## 10. 音频 id audio_id", "audio_ids.gd", "AudioIds", "PREFIXES", True),
     ContractSection("rng_streams", "## 11. RNG 子流 rng_stream", "rng_streams.gd", "RngStreams"),
     ContractSection("character_ids", "### 12.1 角色 id character_id", "character_ids.gd", "CharacterIds"),

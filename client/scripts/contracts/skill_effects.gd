@@ -3,6 +3,8 @@ class_name SkillEffects
 
 const VALUES: Array[String] = [
 	"skill_effect_damage",
+	"skill_effect_apply_status",
 ]
 
 const SKILL_EFFECT_DAMAGE: String = "skill_effect_damage"
+const SKILL_EFFECT_APPLY_STATUS: String = "skill_effect_apply_status"

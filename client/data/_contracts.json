@@ -140,7 +140,15 @@
       "bleed",
       "freeze",
       "slow",
-      "mark"
+      "mark",
+      "silence"
+    ],
+    "status_stack_rules": [
+      "REPLACE",
+      "REFRESH",
+      "ADD_DURATION",
+      "INDEPENDENT",
+      "MAX_MAGNITUDE"
     ],
     "audio_prefixes": [
       "sfx_player_",
@@ -203,7 +211,8 @@
       "target_ally"
     ],
     "skill_effects": [
-      "skill_effect_damage"
+      "skill_effect_damage",
+      "skill_effect_apply_status"
     ],
     "ability_tags": [
       "ability_tag_skill",

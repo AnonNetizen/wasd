@@ -1,5 +1,5 @@
 # Doc: docs/代码/skill_system.md
-# Authority: docs/词表与契约.md §12-C~12-F
+# Authority: docs/词表与契约.md §9-A~§9-B, §12-C~12-G
 class_name SkillSystem
 extends Node
 
@@ -11,6 +11,8 @@ const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const SKILL_EFFECTS := preload("res://scripts/contracts/skill_effects.gd")
 const SKILL_TARGETING := preload("res://scripts/contracts/skill_targeting.gd")
+const STATUS_EFFECT_SCRIPT := preload("res://scripts/combat/status_effect.gd")
+const STATUS_EFFECT_COMPONENT_SCRIPT := preload("res://scripts/combat/status_effect_component.gd")
 
 const REPLAY_PARTICIPANT_ID: String = "player_0"
 const TEAM_ENEMY: String = "team_enemy"
@@ -22,6 +24,7 @@ var _cooldowns: Dictionary = {}
 var _owned_tag_counts: Dictionary = {}
 var _resources: Dictionary = {}
 var _skills: Array[Dictionary] = []
+var _status_effect_component: Node = null
 
 
 func _physics_process(delta: float) -> void:
@@ -48,6 +51,9 @@ func configure(caster: Node2D, active_parent: Node, skills: Array, resources: Ar
 	_active_parent = active_parent
 	_skills = []
 	_cooldowns.clear()
+	_ensure_status_effect_component()
+	if _status_effect_component != null:
+		_status_effect_component.call("clear", false)
 	_owned_tag_counts.clear()
 	for skill: Dictionary in _typed_dictionary_array(skills):
 		var skill_copy: Dictionary = skill.duplicate(true)
@@ -133,15 +139,27 @@ func owned_tags() -> Array[String]:
 	return _sorted_string_keys(_owned_tag_counts)
 
 
+func apply_status_effect(status_effect: Variant) -> Dictionary:
+	_ensure_status_effect_component()
+	if _status_effect_component == null:
+		return _result(false, "status_component_unavailable")
+	return _status_effect_component.call("apply", status_effect) as Dictionary
+
+
 func snapshot() -> Dictionary:
 	return {
 		"cooldowns": _cooldowns.duplicate(true),
 		"resources": _resources.duplicate(true),
 		"owned_tag_counts": _owned_tag_counts.duplicate(true),
+		"status_effects": _status_effect_snapshot(),
 	}
 
 
 func restore_snapshot(snapshot_data: Dictionary) -> void:
+	_ensure_status_effect_component()
+	if _status_effect_component != null:
+		_status_effect_component.call("clear", false)
+
 	var raw_cooldowns: Variant = snapshot_data.get("cooldowns", {})
 	if raw_cooldowns is Dictionary:
 		for skill_id: Variant in (raw_cooldowns as Dictionary).keys():
@@ -162,6 +180,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 
 	_owned_tag_counts.clear()
 	var raw_tag_counts: Variant = snapshot_data.get("owned_tag_counts", {})
+	var has_owned_tag_snapshot: bool = snapshot_data.has("owned_tag_counts") and raw_tag_counts is Dictionary
 	if snapshot_data.has("owned_tag_counts") and raw_tag_counts is Dictionary:
 		for tag_id: Variant in (raw_tag_counts as Dictionary).keys():
 			var count: int = maxi(int((raw_tag_counts as Dictionary)[tag_id]), 0)
@@ -170,12 +189,16 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 			var tag: String = String(tag_id)
 			if _is_valid_ability_tag(tag):
 				_owned_tag_counts[tag] = count
-		return
+	else:
+		var raw_owned_tags: Variant = snapshot_data.get("owned_tags", [])
+		has_owned_tag_snapshot = raw_owned_tags is Array
+		if raw_owned_tags is Array:
+			for tag_id: Variant in raw_owned_tags as Array:
+				_add_owned_tag_count(String(tag_id))
 
-	var raw_owned_tags: Variant = snapshot_data.get("owned_tags", [])
-	if raw_owned_tags is Array:
-		for tag_id: Variant in raw_owned_tags as Array:
-			_add_owned_tag_count(String(tag_id))
+	var raw_status_effects: Variant = snapshot_data.get("status_effects", {})
+	if _status_effect_component != null and raw_status_effects is Dictionary:
+		_status_effect_component.call("restore_snapshot", raw_status_effects, not has_owned_tag_snapshot)
 
 
 func debug_summary() -> Dictionary:
@@ -185,6 +208,7 @@ func debug_summary() -> Dictionary:
 		"cooldowns": _cooldowns.duplicate(true),
 		"owned_tags": owned_tags(),
 		"owned_tag_counts": _owned_tag_counts.duplicate(true),
+		"status_effects": _status_effect_snapshot(),
 	}
 
 
@@ -282,7 +306,10 @@ func _targets_for_skill(skill: Dictionary) -> Array[Node]:
 	if targeting_type == SKILL_TARGETING.TARGET_ENEMY:
 		return _enemy_targets_in_radius(radius, 1)
 	if targeting_type == SKILL_TARGETING.TARGET_ALLY:
-		return [_caster] if _caster != null and is_instance_valid(_caster) else []
+		var allies: Array[Node] = []
+		if _caster != null and is_instance_valid(_caster):
+			allies.append(_caster)
+		return allies
 	return []
 
 
@@ -323,9 +350,10 @@ func _apply_effects(skill: Dictionary, targets: Array[Node]) -> int:
 	var applied_targets: int = 0
 	for effect: Dictionary in _typed_dictionary_array(skill.get("effects", [])):
 		var effect_id: String = String(effect.get("effect", ""))
-		if effect_id != SKILL_EFFECTS.SKILL_EFFECT_DAMAGE:
-			continue
-		applied_targets += _apply_damage_effect(effect, targets)
+		if effect_id == SKILL_EFFECTS.SKILL_EFFECT_DAMAGE:
+			applied_targets += _apply_damage_effect(effect, targets)
+		elif effect_id == SKILL_EFFECTS.SKILL_EFFECT_APPLY_STATUS:
+			applied_targets += _apply_status_effect(effect, targets)
 	return applied_targets
 
 
@@ -345,6 +373,30 @@ func _apply_damage_effect(effect: Dictionary, targets: Array[Node]) -> int:
 	return applied_targets
 
 
+func _apply_status_effect(effect: Dictionary, targets: Array[Node]) -> int:
+	var params: Dictionary = _dictionary_or_empty(effect.get("params", {}))
+	var status_id: String = String(params.get("status", ""))
+	if status_id.is_empty():
+		return 0
+
+	var applied_targets: int = 0
+	for target: Node in targets:
+		var status_effect: Variant = STATUS_EFFECT_SCRIPT.new()
+		status_effect.call("setup", status_id, params, _caster)
+		var result: Dictionary = _apply_status_to_target(target, status_effect)
+		if bool(result.get("applied", false)):
+			applied_targets += 1
+	return applied_targets
+
+
+func _apply_status_to_target(target: Node, status_effect: Variant) -> Dictionary:
+	if target == _caster:
+		return apply_status_effect(status_effect)
+	if target != null and target.has_method("apply_status_effect"):
+		return target.call("apply_status_effect", status_effect) as Dictionary
+	return _result(false, "status_target_unavailable")
+
+
 func _is_active_world_entity(node: Node) -> bool:
 	if node == null or _active_parent == null:
 		return false
@@ -356,6 +408,22 @@ func _skill_ids() -> Array[String]:
 	for skill: Dictionary in _skills:
 		result.append(String(skill.get("id", "")))
 	return result
+
+
+func _ensure_status_effect_component() -> void:
+	if _status_effect_component != null and is_instance_valid(_status_effect_component):
+		return
+	_status_effect_component = STATUS_EFFECT_COMPONENT_SCRIPT.new()
+	_status_effect_component.name = "StatusEffectComponent"
+	add_child(_status_effect_component)
+	_status_effect_component.call("configure_ability_tag_owner", self)
+
+
+func _status_effect_snapshot() -> Dictionary:
+	_ensure_status_effect_component()
+	if _status_effect_component == null:
+		return {}
+	return _status_effect_component.call("snapshot") as Dictionary
 
 
 func _add_transient_tags(tags: Array[String]) -> void:

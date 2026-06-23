@@ -10,6 +10,9 @@ const SKILL_IDS := preload("res://scripts/contracts/skill_ids.gd")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const SKILL_SYSTEM_SCRIPT := preload("res://scripts/gameplay/skill_system.gd")
 const SKILL_TARGETING := preload("res://scripts/contracts/skill_targeting.gd")
+const STATUS_EFFECT_SCRIPT := preload("res://scripts/combat/status_effect.gd")
+const STATUS_EFFECTS := preload("res://scripts/contracts/status_effects.gd")
+const STATUS_STACK_RULES := preload("res://scripts/contracts/status_stack_rules.gd")
 
 const CLOCK_FRAMES: int = 4
 const MOD_SMOKE_ROOT: String = "user://mods/l1_smoke_mod"
@@ -68,7 +71,7 @@ func _run() -> void:
 	_expect_game_state_rejects_unknown()
 	_expect_save_manager_roundtrip()
 	_expect_combat_damage_path()
-	_expect_skill_system_aoe_damage()
+	await _expect_skill_system_aoe_damage()
 	_expect_mod_loader_data_patch()
 	_expect_platform_services_reserved_interface()
 
@@ -181,6 +184,31 @@ func _expect_skill_system_aoe_damage() -> void:
 	add_child(skill_system)
 	var skills: Array[Dictionary] = [_l1_whirlwind_skill()]
 	var resources: Array[Dictionary] = [_l1_mana_resource()]
+	skill_system.call("configure", caster, world, [_l1_self_silence_skill()], resources)
+	GameState.change_state(GameState.PLAYING, {"source": "l1_skill_status_smoke"})
+	var status_result: Dictionary = skill_system.call("cast_primary_skill")
+	_expect(bool(status_result.get("ok", false)), "SkillSystem should apply status effects through a skill primitive")
+	_expect(bool(skill_system.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "StatusEffectComponent should grant ability tags")
+	var status_blocked_result: Dictionary = skill_system.call("cast_primary_skill")
+	_expect(not bool(status_blocked_result.get("ok", true)), "StatusEffect granted tags should block ability activation")
+	_expect(String(status_blocked_result.get("reason", "")) == "blocked_by_tag", "StatusEffect block should report blocked_by_tag")
+	var status_snapshot: Dictionary = skill_system.call("snapshot")
+	skill_system.call("configure", caster, world, [_l1_self_silence_skill()], resources)
+	skill_system.call("restore_snapshot", status_snapshot)
+	_expect(bool(skill_system.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "SkillSystem should restore active status ability tags")
+	await _wait_physics_frames(8)
+	_expect(not bool(skill_system.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "StatusEffectComponent should remove ability tags when the status expires after restore")
+	var status_after_expire: Dictionary = skill_system.call("cast_primary_skill")
+	_expect(bool(status_after_expire.get("ok", false)), "SkillSystem should cast again after silence expires")
+	skill_system.call("apply_status_effect", _l1_silence_status(0.05))
+	skill_system.call("apply_status_effect", _l1_silence_status(0.20))
+	var refreshed_status_snapshot: Dictionary = skill_system.call("snapshot")
+	var refreshed_effects: Array = (refreshed_status_snapshot.get("status_effects", {}) as Dictionary).get("effects", []) as Array
+	_expect(not refreshed_effects.is_empty(), "StatusEffectComponent should snapshot refreshed statuses")
+	if not refreshed_effects.is_empty():
+		var refreshed_effect: Dictionary = refreshed_effects[0] as Dictionary
+		_expect(float(refreshed_effect.get("duration", 0.0)) >= 0.19, "StatusEffect refresh should preserve longer duration for restore")
+
 	skill_system.call("configure", caster, world, skills, resources)
 	skill_system.call("restore_snapshot", {"owned_tags": [ABILITY_TAGS.ABILITY_TAG_SILENCED]})
 	_expect(bool(skill_system.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "SkillSystem should restore legacy owned ability tags")
@@ -251,6 +279,51 @@ func _l1_whirlwind_skill() -> Dictionary:
 	}
 
 
+func _l1_self_silence_skill() -> Dictionary:
+	return {
+		"id": SKILL_IDS.SKILL_WHIRLWIND_SLASH,
+		"ability_tags": [
+			ABILITY_TAGS.ABILITY_TAG_SKILL,
+			ABILITY_TAGS.ABILITY_TAG_PRIMARY,
+		],
+		"activation": {
+			"required_tags": [],
+			"blocked_tags": [ABILITY_TAGS.ABILITY_TAG_SILENCED],
+			"granted_tags": [ABILITY_TAGS.ABILITY_TAG_ACTIVATING],
+		},
+		"cooldown": 0.0,
+		"costs": [],
+		"targeting": {
+			"type": SKILL_TARGETING.TARGET_ALLY,
+			"radius": 0.0,
+			"max_targets": 1,
+		},
+		"effects": [
+			{
+				"effect": SKILL_EFFECTS.SKILL_EFFECT_APPLY_STATUS,
+				"params": {
+					"status": STATUS_EFFECTS.SILENCE,
+					"duration": 0.06,
+					"stack_rule": STATUS_STACK_RULES.REFRESH,
+					"granted_ability_tags": [ABILITY_TAGS.ABILITY_TAG_SILENCED],
+				},
+			},
+		],
+	}
+
+
+func _l1_silence_status(duration: float) -> Resource:
+	return STATUS_EFFECT_SCRIPT.new().setup(
+		STATUS_EFFECTS.SILENCE,
+		{
+			"duration": duration,
+			"stack_rule": STATUS_STACK_RULES.REFRESH,
+			"granted_ability_tags": [ABILITY_TAGS.ABILITY_TAG_SILENCED],
+		},
+		null
+	)
+
+
 func _l1_mana_resource() -> Dictionary:
 	return {
 		"id": SKILL_RESOURCES.MANA,
@@ -258,6 +331,11 @@ func _l1_mana_resource() -> Dictionary:
 		"start": 100.0,
 		"regen_per_second": 0.0,
 	}
+
+
+func _wait_physics_frames(frame_count: int) -> void:
+	for _index: int in range(frame_count):
+		await get_tree().physics_frame
 
 
 func _expect_mod_loader_data_patch() -> void:

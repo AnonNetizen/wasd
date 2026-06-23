@@ -370,6 +370,30 @@ def main() -> int:
             ],
         ),
         (
+            "skill apply status id must be registered",
+            _mutate_json("client/data/skills.json", _set_skill_apply_status_param("status", "status_missing")),
+            [
+                "client/data/skills.json:skills[0].effects[0].params.status",
+                "unknown id status_missing; expected one of status_effects",
+            ],
+        ),
+        (
+            "skill apply status stack rule must be registered",
+            _mutate_json("client/data/skills.json", _set_skill_apply_status_param("stack_rule", "STACK_MISSING")),
+            [
+                "client/data/skills.json:skills[0].effects[0].params.stack_rule",
+                "unknown id STACK_MISSING; expected one of status_stack_rules",
+            ],
+        ),
+        (
+            "skill apply status granted ability tag must be registered",
+            _mutate_json("client/data/skills.json", _set_skill_apply_status_granted_tag("ability_tag_missing")),
+            [
+                "client/data/skills.json:skills[0].effects[0].params.granted_ability_tags[0]",
+                "unknown id ability_tag_missing; expected one of ability_tags",
+            ],
+        ),
+        (
             "skill damage type must be registered",
             _mutate_json("client/data/skills.json", _set_skill_damage_type("arcane")),
             [
@@ -824,6 +848,34 @@ def _set_skill_activation_blocked_tag(value: str) -> JsonMutator:
         payload["skills"][0]["activation"]["blocked_tags"][0] = value
 
     return mutate
+
+
+def _set_skill_apply_status_param(field: str, value: Any) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["effects"][0] = _apply_status_effect_payload()
+        payload["skills"][0]["effects"][0]["params"][field] = value
+
+    return mutate
+
+
+def _set_skill_apply_status_granted_tag(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["effects"][0] = _apply_status_effect_payload()
+        payload["skills"][0]["effects"][0]["params"]["granted_ability_tags"][0] = value
+
+    return mutate
+
+
+def _apply_status_effect_payload() -> dict[str, Any]:
+    return {
+        "effect": "skill_effect_apply_status",
+        "params": {
+            "status": "silence",
+            "duration": 1.0,
+            "stack_rule": "REFRESH",
+            "granted_ability_tags": ["ability_tag_silenced"],
+        },
+    }
 
 
 def _set_skill_damage_type(value: str) -> JsonMutator:

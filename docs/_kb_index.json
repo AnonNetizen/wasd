@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_at": "2026-06-22",
+  "updated_at": "2026-06-23",
   "description": "Machine-readable AI knowledge base index for the wasd project.",
   "documents": [
     {
@@ -110,7 +110,7 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["knowledge_base", "authority_hierarchy", "task_routes", "adr_tracking_matrix"],
       "must_read_for": ["doc_structure_change", "task_routing", "knowledge_base_change"],
-      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/IP设定.md", "docs/功能建议池.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
+      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/IP设定.md", "docs/功能建议池.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/status_effect_component.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": ["tools/docs_health_check.py"],
       "update_triggers": ["new long-lived document", "document rename", "authority hierarchy change", "task route change"],
       "keywords": ["knowledge base", "知识库", "index", "索引", "权威层级", "任务路由", "FormalClientBoot", "正式项目启动骨架", "F1"]
@@ -121,7 +121,7 @@
       "authority": "Machine-readable document metadata for health checks and AI retrieval",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-23",
       "canonical_for": ["kb_metadata", "doc_coverage", "retrieval_keywords"],
       "must_read_for": ["knowledge_base_change", "docs_health_check_change"],
       "related_docs": ["docs/AI知识库索引.md", "docs/AI协作/文档健康检查.md"],
@@ -135,7 +135,7 @@
       "authority": "Terminology aliases for search and AI retrieval",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-06-23",
       "canonical_for": ["terminology_aliases", "search_keywords"],
       "must_read_for": ["search_planning", "new_domain_term", "translation_of_terms"],
       "related_docs": ["docs/IP设定.md", "docs/词表与契约.md", "docs/游戏设计文档.md", "docs/AI导航.md"],
@@ -169,7 +169,7 @@
       "related_docs": ["docs/IP设定.md", "docs/决策记录.md", "docs/AI导航.md", "docs/词表与契约.md", "docs/测试策略.md"],
       "related_code": ["client/"],
       "update_triggers": ["gameplay behavior change", "system design change", "new infrastructure decision"],
-      "keywords": ["GDD", "design", "玩法", "系统", "IP", "世界观", "破巢者", "Nestbreakers", "敌巢", "巢核", "界门", "首都星域", "跨宇宙", "多英雄", "手柄", "autoload", "经验", "升级", "luck", "level-up", "局外成长", "meta progression", "SaveManager", "run save", "续局", "数值配置", "本地化", "文案"]
+      "keywords": ["GDD", "design", "玩法", "系统", "IP", "世界观", "破巢者", "Nestbreakers", "敌巢", "巢核", "界门", "首都星域", "跨宇宙", "多英雄", "手柄", "autoload", "经验", "升级", "luck", "level-up", "局外成长", "meta progression", "SaveManager", "run save", "续局", "数值配置", "本地化", "文案", "StatusEffect", "StatusEffectComponent", "状态效果", "silence", "沉默"]
     },
     {
       "path": "docs/决策记录.md",
@@ -191,13 +191,13 @@
       "authority": "Whitelisted ids, InputMap actions, contract strings, generated constants source",
       "status": "active",
       "owner_scope": "data-contract",
-      "last_reviewed": "2026-06-14",
+      "last_reviewed": "2026-06-23",
       "canonical_for": ["contract_ids", "input_actions", "generated_constants_source"],
       "must_read_for": ["new_id", "data_change", "input_change", "contract_sync"],
       "related_docs": ["docs/游戏设计文档.md", "docs/AI导航.md", "docs/代码文档规范.md", "client/data/README.md", "client/locale/README.md"],
       "related_code": ["client/data/_contracts.json", "client/scripts/contracts/", "tools/sync_contracts.py", "tools/validate_data.py"],
       "update_triggers": ["new id", "renamed id", "deleted id", "contract schema change"],
-      "keywords": ["contract", "词表", "action", "stat", "effect", "setting", "input.show_stats_panel", "show_stats_panel", "rng", "locale", "本地化key", "meta", "unlock", "局外成长", "save_kind", "run save", "sync_contracts", "_contracts.json"]
+      "keywords": ["contract", "词表", "action", "stat", "effect", "status_effect", "status_stack_rules", "skill_effect_apply_status", "setting", "input.show_stats_panel", "show_stats_panel", "rng", "locale", "本地化key", "meta", "unlock", "局外成长", "save_kind", "run save", "sync_contracts", "_contracts.json"]
     },
     {
       "path": "client/data/README.md",
@@ -205,13 +205,13 @@
       "authority": "Human-facing numeric configuration manual for client/data CSV and JSON files",
       "status": "active",
       "owner_scope": "data-contract",
-      "last_reviewed": "2026-06-14",
+      "last_reviewed": "2026-06-23",
       "canonical_for": ["numeric_config_manual", "client_data_fields", "tuning_workflow", "csv_json_data_format_policy"],
       "must_read_for": ["balance_change", "data_schema_change", "new_data_file", "new_numeric_field"],
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/AI导航.md", "client/locale/README.md"],
       "related_code": ["client/data/", "tools/validate_data.py", "tools/sync_contracts.py"],
       "update_triggers": ["new data file", "new numeric field", "changed unit or range", "DataLoader schema change"],
-      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "characters.json", "weapons.json", "relics.json", "credits.json", "game_modes.json", "map_layouts.json", "growth.csv", "enemies.csv", "hazards.csv", "PCG", "有限地图", "人工摆点", "meta_progression.json", "局外成长", "validate_data"]
+      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "characters.json", "weapons.json", "skills.json", "skill_effect_apply_status", "status_stack_rules", "relics.json", "credits.json", "game_modes.json", "map_layouts.json", "growth.csv", "enemies.csv", "hazards.csv", "PCG", "有限地图", "人工摆点", "meta_progression.json", "局外成长", "validate_data"]
     },
     {
       "path": "client/locale/README.md",
@@ -261,10 +261,10 @@
       "authority": "Index for long-lived client module documentation",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-18",
+      "last_reviewed": "2026-06-23",
       "canonical_for": ["module_doc_index"],
       "must_read_for": ["code_module_change", "module_doc_lookup"],
-      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/meta_progression_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/skill_system.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md"],
+      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/meta_progression_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md"],
       "related_code": ["client/"],
       "update_triggers": ["new module document", "module document rename", "module document deletion"],
       "keywords": ["代码", "module", "documentation", "index"]
@@ -275,13 +275,13 @@
       "authority": "Project map, extension points, dependency graph, red lines",
       "status": "active",
       "owner_scope": "architecture",
-      "last_reviewed": "2026-06-16",
+      "last_reviewed": "2026-06-23",
       "canonical_for": ["project_map", "extension_points", "dependency_graph"],
       "must_read_for": ["new_task", "extension_change", "dependency_change"],
-      "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/功能建议池.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
+      "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/功能建议池.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": ["client/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
-      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "MapManager", "HazardSystem", "map_layouts.json", "FEA-12", "有限地图", "PCG", "人工摆点", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
+      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "SkillSystem", "StatusEffectComponent", "skill_effect_apply_status", "status_stack_rules", "silence", "沉默", "MapManager", "HazardSystem", "map_layouts.json", "FEA-12", "有限地图", "PCG", "人工摆点", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
     },
     {
       "path": "docs/AI记忆/项目记忆.md",
@@ -457,7 +457,7 @@
       "authority": "F6 meta progression task scope, reading budget, split order, editable files, and acceptance commands",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-18",
+      "last_reviewed": "2026-06-23",
       "canonical_for": ["f6_meta_progression_work_package", "meta_progression_settlement_loop"],
       "must_read_for": ["f6_meta_progression", "meta_progression_runtime", "settlement_rewards", "meta_save_roundtrip"],
       "related_docs": ["docs/正式项目工作规划.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/save_manager.md", "docs/代码/gameplay_runtime.md", "client/data/README.md", "client/locale/README.md", "docs/词表与契约.md", "docs/AI协作/上下文预算.md", "docs/AI记忆/current_state.json"],
@@ -723,41 +723,55 @@
       "authority": "Combat autoload contract for single-entry damage application and DamageInfo payloads",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-18",
+      "last_reviewed": "2026-06-23",
       "canonical_for": ["combat", "damage_info", "damage_pipeline"],
       "must_read_for": ["combat_change", "damage_formula_change", "new_damage_source"],
-      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/gameplay_runtime.md"],
-      "related_code": ["client/scripts/combat/combat.gd", "client/scripts/combat/damage_info.gd", "client/scripts/contracts/damage_types.gd"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/gameplay_runtime.md", "docs/代码/status_effect_component.md"],
+      "related_code": ["client/scripts/combat/combat.gd", "client/scripts/combat/damage_info.gd", "client/scripts/contracts/damage_types.gd", "client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd"],
       "update_triggers": ["Combat API changes", "DamageInfo field changes", "damage type contract changes", "damage result schema changes"],
-      "keywords": ["Combat", "DamageInfo", "damage", "伤害", "apply_damage", "damage_types", "F4"]
+      "keywords": ["Combat", "DamageInfo", "damage", "伤害", "apply_damage", "damage_types", "StatusEffect", "StatusEffectComponent", "F4"]
     },
     {
       "path": "docs/代码/gameplay_runtime.md",
       "type": "module_doc",
-      "authority": "Gameplay runtime contract for finite map setup, player movement, weapon firing, skill casting, pooled bullets, pooled enemies, pooled hazards, spawning, HUD, save/restore, title flow, and restart",
+      "authority": "Gameplay runtime contract for finite map setup, player movement, weapon firing, skill casting, status effects, pooled bullets, pooled enemies, pooled hazards, spawning, HUD, save/restore, title flow, and restart",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-18",
+      "last_reviewed": "2026-06-23",
       "canonical_for": ["gameplay_runtime", "f4_min_playable_loop", "formal_runtime_core", "minimal_combat_loop", "run_payload_schema"],
       "must_read_for": ["gameplay_runtime_change", "player_runtime_change", "weapon_system_change", "skill_system_change", "map_runtime_change", "hazard_runtime_change", "spawner_change", "hud_change"],
-      "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/skill_system.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/map_manager.gd", "client/scripts/gameplay/hazard.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/scripts/debug/gm_command_registry.gd", "client/data/map_layouts.json", "client/data/hazards.csv", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd", "client/tools/debug_tools_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
+      "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/map_manager.gd", "client/scripts/gameplay/hazard.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/scripts/debug/gm_command_registry.gd", "client/data/map_layouts.json", "client/data/hazards.csv", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd", "client/tools/debug_tools_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
       "update_triggers": ["Gameplay runtime behavior changes", "Player, weapon, skill, map, or hazard runtime changes", "Spawner behavior changes", "HUD or restart flow changes", "run payload schema changes", "runtime debug API changes", "runtime module split or scene-resource migration"],
-      "keywords": ["GameplayRunLoop", "runtime-smoke", "f9-demo-smoke", "debug-tools-smoke", "F4", "F9", "MinPlayableLoop", "MapManager", "HazardSystem", "map_layouts.json", "hazard_fea_12_pulse", "FEA-12", "有限地图", "PCG", "人工摆点", "Player", "WeaponSystem", "SkillSystem", "skills.json", "Whirlwind Slash", "旋风斩", "Bullet", "Enemy", "Spawner", "HUD", "详细数值面板", "show_stats_panel", "StatsPanel", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
+      "keywords": ["GameplayRunLoop", "runtime-smoke", "f9-demo-smoke", "debug-tools-smoke", "F4", "F9", "MinPlayableLoop", "MapManager", "HazardSystem", "map_layouts.json", "hazard_fea_12_pulse", "FEA-12", "有限地图", "PCG", "人工摆点", "Player", "WeaponSystem", "SkillSystem", "StatusEffectComponent", "status_effects", "skills.json", "Whirlwind Slash", "旋风斩", "Bullet", "Enemy", "Spawner", "HUD", "详细数值面板", "show_stats_panel", "StatsPanel", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
     },
     {
       "path": "docs/代码/skill_system.md",
       "type": "module_doc",
-      "authority": "SkillSystem runtime contract for project-light GAS active skill definitions, ability tags, activation tag gating, resource costs, targeting primitives, effect primitives, cooldowns, Combat integration, and run snapshots",
+      "authority": "SkillSystem runtime contract for project-light GAS active skill definitions, ability tags, activation tag gating, resource costs, targeting primitives, effect primitives, status effect application, cooldowns, Combat integration, and run snapshots",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-06-23",
-      "canonical_for": ["skill_system", "active_skills", "skill_runtime", "skill_resources", "ability_tags", "lightweight_gas"],
-      "must_read_for": ["skill_system_change", "new_skill", "skill_resource_change", "skill_targeting_change", "skill_effect_change", "ability_tag_change"],
-      "related_docs": ["docs/代码/gameplay_runtime.md", "docs/代码/data_loader.md", "docs/代码/combat.md", "client/data/README.md", "client/locale/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/skills.json", "client/data/characters.json", "client/data/game_modes.json", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "client/tools/l1_smoke.gd", "client/tools/runtime_smoke.gd"],
-      "update_triggers": ["SkillSystem API changes", "skills.json schema changes", "ability tag contract changes", "activation tag gating changes", "skill resource contract changes", "skill targeting contract changes", "skill effect primitive changes", "skill run snapshot changes"],
-      "keywords": ["SkillSystem", "GAS", "lightweight GAS", "ability_tags", "ability_tag_silenced", "activation", "blocked_tags", "required_tags", "granted_tags", "skills.json", "skill", "技能", "主动技能", "skill_whirlwind_slash", "Whirlwind Slash", "旋风斩", "mana", "魔法", "skill_resources", "aoe_enemies_around_caster", "target_enemy", "target_ally", "skill_effect_damage", "Combat"]
+      "canonical_for": ["skill_system", "active_skills", "skill_runtime", "skill_resources", "ability_tags", "lightweight_gas", "skill_status_effects"],
+      "must_read_for": ["skill_system_change", "new_skill", "skill_resource_change", "skill_targeting_change", "skill_effect_change", "ability_tag_change", "status_effect_change"],
+      "related_docs": ["docs/代码/gameplay_runtime.md", "docs/代码/data_loader.md", "docs/代码/combat.md", "docs/代码/status_effect_component.md", "client/data/README.md", "client/locale/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/gameplay/skill_system.gd", "client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/skills.json", "client/data/characters.json", "client/data/game_modes.json", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "client/tools/l1_smoke.gd", "client/tools/runtime_smoke.gd"],
+      "update_triggers": ["SkillSystem API changes", "skills.json schema changes", "ability tag contract changes", "activation tag gating changes", "status effect contract changes", "skill resource contract changes", "skill targeting contract changes", "skill effect primitive changes", "skill run snapshot changes"],
+      "keywords": ["SkillSystem", "GAS", "lightweight GAS", "ability_tags", "ability_tag_silenced", "activation", "blocked_tags", "required_tags", "granted_tags", "skills.json", "skill", "技能", "主动技能", "skill_whirlwind_slash", "Whirlwind Slash", "旋风斩", "mana", "魔法", "skill_resources", "aoe_enemies_around_caster", "target_enemy", "target_ally", "skill_effect_damage", "skill_effect_apply_status", "StatusEffect", "StatusEffectComponent", "silence", "沉默", "Combat"]
+    },
+    {
+      "path": "docs/代码/status_effect_component.md",
+      "type": "module_doc",
+      "authority": "StatusEffect Resource and StatusEffectComponent runtime contract for status stacking, ability tag grant/release lifecycle, GameClock ticking, and SkillSystem status snapshots",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-23",
+      "canonical_for": ["status_effect_component", "status_effects", "status_stack_rules", "status_ability_tags", "status_snapshots"],
+      "must_read_for": ["status_effect_change", "status_stack_rule_change", "skill_effect_apply_status_change", "ability_tag_status_source_change", "status_snapshot_change"],
+      "related_docs": ["docs/代码/skill_system.md", "docs/代码/gameplay_runtime.md", "docs/代码/combat.md", "docs/代码/data_loader.md", "client/data/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/contracts/status_effects.gd", "client/scripts/contracts/status_stack_rules.gd", "client/scripts/contracts/ability_tags.gd", "client/tools/l1_smoke.gd"],
+      "update_triggers": ["StatusEffect field changes", "StatusEffectComponent API changes", "status stack rule changes", "ability tag grant/release behavior changes", "status snapshot changes", "skill_effect_apply_status behavior changes"],
+      "keywords": ["StatusEffect", "StatusEffectComponent", "status_effects", "status_stack_rules", "skill_effect_apply_status", "ability_tag_silenced", "silence", "沉默", "状态效果", "叠加规则", "REFRESH", "REPLACE", "ADD_DURATION", "INDEPENDENT", "MAX_MAGNITUDE", "GameClock", "run snapshot"]
     },
     {
       "path": "docs/代码/enemy_ai.md",
@@ -821,13 +835,13 @@
       "authority": "DataLoader autoload contract for JSON/CSV loading, generated contracts cache, and fail-fast data diagnostics",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-16",
+      "last_reviewed": "2026-06-23",
       "canonical_for": ["data_loader", "json_csv_loading", "contract_cache"],
       "must_read_for": ["data_loader_change", "data_schema_change", "formal_data_loading"],
-      "related_docs": ["client/data/README.md", "docs/词表与契约.md", "docs/代码/README.md", "docs/代码/mod_loader.md", "docs/代码/skill_system.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/AI导航.md", "docs/AI协作/工作包/F3-DataLoader.md"],
-      "related_code": ["client/scripts/autoload/data_loader.gd", "client/scripts/autoload/mod_loader.gd", "client/data/_contracts.json", "client/data/skills.json", "client/data/enemy_ai_profiles.json", "client/data/map_layouts.json", "client/data/hazards.csv", "client/data/credits.json", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
+      "related_docs": ["client/data/README.md", "docs/词表与契约.md", "docs/代码/README.md", "docs/代码/mod_loader.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/AI导航.md", "docs/AI协作/工作包/F3-DataLoader.md"],
+      "related_code": ["client/scripts/autoload/data_loader.gd", "client/scripts/autoload/mod_loader.gd", "client/data/_contracts.json", "client/data/skills.json", "client/scripts/contracts/status_stack_rules.gd", "client/data/enemy_ai_profiles.json", "client/data/map_layouts.json", "client/data/hazards.csv", "client/data/credits.json", "tools/sync_contracts.py", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
       "update_triggers": ["DataLoader API changes", "data loading schema changes", "contract cache behavior changes", "mod data patch behavior changes"],
-      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation", "schema regression", "ModLoader", "local mods", "mod manifest", "weapons.json", "skills.json", "skill_resources", "ability_tags", "enemy_ai_profiles.json", "enemies.csv", "hazards.csv", "map_layouts.json", "PCG", "有限地图", "relics.json", "credits.json", "test_data_loader_schema"]
+      "keywords": ["DataLoader", "autoload", "CSV", "JSON", "_contracts.json", "fail-fast", "data validation", "schema regression", "ModLoader", "local mods", "mod manifest", "weapons.json", "skills.json", "skill_resources", "ability_tags", "skill_effect_apply_status", "status_stack_rules", "StatusEffect", "enemy_ai_profiles.json", "enemies.csv", "hazards.csv", "map_layouts.json", "PCG", "有限地图", "relics.json", "credits.json", "test_data_loader_schema"]
     },
     {
       "path": "docs/代码/mod_loader.md",

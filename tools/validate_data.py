@@ -779,6 +779,15 @@ def _validate_skill_effects(ctx: ValidationContext, path: Path, field: str, data
         if effect_id == "skill_effect_damage":
             _require_number(ctx, path, f"{item_field}.params.amount", params.get("amount"), minimum=0, exclusive_minimum=True)
             _require_registered(ctx, path, f"{item_field}.params.damage_type", params.get("damage_type"), "damage_types")
+        if effect_id == "skill_effect_apply_status":
+            _require_registered(ctx, path, f"{item_field}.params.status", params.get("status"), "status_effects")
+            _require_number(ctx, path, f"{item_field}.params.duration", params.get("duration"), minimum=0, exclusive_minimum=True)
+            _require_registered(ctx, path, f"{item_field}.params.stack_rule", params.get("stack_rule"), "status_stack_rules")
+            _validate_registered_string_list(ctx, path, f"{item_field}.params.granted_ability_tags", params.get("granted_ability_tags"), "ability_tags", allow_empty=True)
+            if "magnitude" in params:
+                _require_number(ctx, path, f"{item_field}.params.magnitude", params.get("magnitude"))
+            if "tick_interval" in params:
+                _require_number(ctx, path, f"{item_field}.params.tick_interval", params.get("tick_interval"), minimum=0)
 
 
 def _validate_consumables(ctx: ValidationContext) -> None:
