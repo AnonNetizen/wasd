@@ -6,10 +6,10 @@
 ## 职责
 
 - 提供项目版轻量 GAS 首片：技能定义不绑定英雄，角色、主动道具、局外奖励或未来其他系统都应通过 skill id 引用同一份 ability 数据。
-- 从 `client/data/skills.json` 读取技能定义，解释 `ability_tags`、`activation`、`costs`、`targeting` 和 `effects`，首个技能样例为 `skill_whirlwind_slash`。
+- 从 `client/data/skills.json` 读取技能定义，解释 `ability_tags`、`activation`、`costs`、`targeting` 和 `effects`；当前内置 `skill_whirlwind_slash` 与 `skill_ignite_slash` 两个技能。
 - 管理技能冷却、角色声明的技能资源池、资源自然回复、owned ability tags、释放结果和 run 快照。
 - 目标筛选使用统一 target primitive，伤害效果统一走 `Combat.apply_damage(DamageInfo)`。
-- 当前首片只接默认角色的起始技能，用 `use_active_item` action 触发主技能；主动道具栏、技能 UI、GameplayCue 表现层、技能音效 / 特效、指向点选、队友实体、长通道技能、多技能轮盘和网络预测 / 复制尚未实现。
+- 当前首片只接默认角色的起始技能列表，用 `use_active_item` action 触发列表第一个主技能；默认主键仍释放 `skill_whirlwind_slash`，`skill_ignite_slash` 作为第二个已加载技能与模式池内容存在。主动道具栏、技能 UI、GameplayCue 表现层、技能音效 / 特效、指向点选、队友实体、长通道技能、多技能轮盘和网络预测 / 复制尚未实现。
 
 ## 阅读方式
 
@@ -34,7 +34,7 @@
 | `client/data/game_modes.json` | 模式资源池 `resource_pools.skills` |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 开局挂载 SkillSystem，存 / 读 run 快照，暴露 smoke 用 debug API |
 | `client/scripts/contracts/skill_ids.gd` / `skill_resources.gd` / `skill_targeting.gd` / `skill_effects.gd` / `ability_tags.gd` / `status_effects.gd` / `status_stack_rules.gd` | 由词表生成的技能 / 状态 / ability 常量 |
-| `client/tools/l1_smoke.gd` | L1 临时 runner，覆盖旋风斩 AOE、Combat 路由、魔法消耗、冷却阻断、`ability_tag_silenced` 阻断、沉默状态过期与恢复、burn DoT |
+| `client/tools/l1_smoke.gd` | L1 临时 runner，覆盖旋风斩 AOE、Combat 路由、魔法消耗、冷却阻断、`ability_tag_silenced` 阻断、沉默状态过期与恢复，并从真实 `skills.json` 读取 `skill_ignite_slash` 覆盖 burn DoT |
 | `client/tools/runtime_smoke.gd` | 正式运行时 smoke，覆盖默认角色释放旋风斩并消耗资源 |
 
 ## 运行流程
@@ -75,13 +75,13 @@
 
 ## 数据与契约
 
-- 技能 id 来自 `docs/词表与契约.md` §12-C，当前首个内置 id 为 `skill_whirlwind_slash`。
+- 技能 id 来自 `docs/词表与契约.md` §12-C，当前内置 id 为 `skill_whirlwind_slash` 与 `skill_ignite_slash`。
 - 技能资源来自 §12-D，当前首个内置资源为 `mana`。资源是角色声明的池，不是技能系统硬编码；后续可加怒气、能量、弹药等资源。
 - 目标类型来自 §12-E：`aoe_enemies_around_caster`、`target_enemy`、`target_ally`。
 - 状态效果来自 §9-A，状态叠加规则来自 §9-B；当前 `silence` 可通过 `StatusEffectComponent` 授予 `ability_tag_silenced`。
 - 效果原语来自 §12-F，当前运行时效果包含 `skill_effect_damage` 与 `skill_effect_apply_status`。
 - `skill_effect_apply_status.params` 必须包含：`status`、`duration`、`stack_rule`、`granted_ability_tags`；可选 `magnitude`、`tick_interval` 与 `damage_type` 用于 DoT。`magnitude` 是单 tick 伤害，`tick_interval` 是 tick 间隔；两者都为正时必须提供已登记 `damage_type`。
-- Ability tag 来自 §12-G：当前 `ability_tag_skill` / `ability_tag_primary` / `ability_tag_damage` 标记旋风斩语义，`ability_tag_silenced` 可阻断释放，`ability_tag_activating` 在激活 / commit 期间临时授予。
+- Ability tag 来自 §12-G：当前 `ability_tag_skill` / `ability_tag_primary` / `ability_tag_damage` 标记旋风斩与点燃斩的主动伤害语义，`ability_tag_silenced` 可阻断释放，`ability_tag_activating` 在激活 / commit 期间临时授予。
 - `activation.required_tags` 全部满足才可释放；`activation.blocked_tags` 命中任一 owned tag 时返回 `blocked_by_tag`；`activation.granted_tags` 是即时激活期临时 tag，效果解释完成后移除。
 - 玩家可见技能名 / 描述使用 `skill_*` locale key，译文在 `client/locale/strings.csv`。
 - 技能效果不得按 skill id 写分支；新增行为先登记 ability tag、effect / targeting primitive，再在 SkillSystem 或拆分后的 strategy 中解释。
@@ -108,7 +108,7 @@
 
 | 你想改什么 | 主要文件 | 同步文档 | 验证方式 |
 |------------|----------|----------|----------|
-| 调旋风斩伤害 / 半径 / 魔法消耗 / 冷却 | `client/data/skills.json` | `client/data/README.md` | `python tools/validate_data.py` + `runtime-smoke` |
+| 调旋风斩或点燃斩的伤害 / 半径 / 魔法消耗 / 冷却 | `client/data/skills.json` | `client/data/README.md` | `python tools/validate_data.py` + `runtime-smoke`；点燃斩 DoT 追加 `l1-smoke` |
 | 给默认角色换起始技能 | `client/data/characters.json` | `client/data/README.md`、Gameplay Runtime | `validate_data` + `runtime-smoke` |
 | 加新技能资源 | `docs/词表与契约.md`、`characters.json`、`skills.json` | 词表、数据手册、测试策略 | `sync_contracts.py` + `validate_data.py` + L1 smoke |
 | 加新 ability tag / activation 条件 | `docs/词表与契约.md`、`skills.json`、`skill_system.gd` | 词表、数据手册、本文档、GDD / ADR | `sync_contracts.py` + `validate_data.py` + `test_data_loader_schema.py` + L1 smoke |

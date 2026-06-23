@@ -81,6 +81,10 @@
           {
             "id": "skill_whirlwind_slash",
             "weight": 100
+          },
+          {
+            "id": "skill_ignite_slash",
+            "weight": 60
           }
         ],
         "consumables": [

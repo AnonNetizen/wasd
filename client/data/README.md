@@ -263,7 +263,10 @@ JSON 示例：
         ],
         "relics": [{ "id": "relic_sharp_rounds", "weight": 100 }],
         "active_items": [{ "id": "active_item_blink_burst", "weight": 100 }],
-        "skills": [{ "id": "skill_whirlwind_slash", "weight": 100 }],
+        "skills": [
+          { "id": "skill_whirlwind_slash", "weight": 100 },
+          { "id": "skill_ignite_slash", "weight": 60 }
+        ],
         "consumables": [{ "id": "consumable_pocket_bomb", "weight": 100 }],
         "growth_pools": [{ "id": "default_level_up", "weight": 100 }]
       },
@@ -550,7 +553,7 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
         "weapon_id": "weapon_basic_blaster",
         "active_item_id": "active_item_blink_burst",
         "consumable_ids": ["consumable_pocket_bomb"],
-        "skill_ids": ["skill_whirlwind_slash"]
+        "skill_ids": ["skill_whirlwind_slash", "skill_ignite_slash"]
       },
       "skill_resources": [
         {
@@ -794,6 +797,44 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
           "params": { "amount": 8.0, "damage_type": "physical" }
         }
       ]
+    },
+    {
+      "id": "skill_ignite_slash",
+      "name_key": "skill_ignite_slash_name",
+      "desc_key": "skill_ignite_slash_desc",
+      "default_unlocked": true,
+      "tags": ["tag_skill"],
+      "ability_tags": [
+        "ability_tag_skill",
+        "ability_tag_primary",
+        "ability_tag_damage"
+      ],
+      "activation": {
+        "required_tags": [],
+        "blocked_tags": ["ability_tag_silenced"],
+        "granted_tags": ["ability_tag_activating"]
+      },
+      "cooldown": 4.0,
+      "costs": [{ "resource": "mana", "amount": 30.0 }],
+      "targeting": {
+        "type": "target_enemy",
+        "radius": 180.0,
+        "max_targets": 1
+      },
+      "effects": [
+        {
+          "effect": "skill_effect_apply_status",
+          "params": {
+            "status": "burn",
+            "duration": 1.2,
+            "stack_rule": "REFRESH",
+            "granted_ability_tags": [],
+            "magnitude": 1.5,
+            "tick_interval": 0.2,
+            "damage_type": "fire"
+          }
+        }
+      ]
     }
   ]
 }
@@ -818,7 +859,7 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `skills[].costs[].resource` | string | 词表 §12-D skill resource id | 消耗的资源 id；释放者必须在 `skill_resources` 中拥有该资源 |
 | `skills[].costs[].amount` | number | `>= 0` | 单次释放消耗量 |
 | `skills[].targeting` | object | 必填 | 目标选择声明，由 `SkillSystem` 解释 |
-| `skills[].targeting.type` | string | 词表 §12-E skill targeting id | 目标选择策略；当前旋风斩使用 `aoe_enemies_around_caster` |
+| `skills[].targeting.type` | string | 词表 §12-E skill targeting id | 目标选择策略；当前旋风斩使用 `aoe_enemies_around_caster`，点燃斩使用 `target_enemy` |
 | `skills[].targeting.radius` | number | `> 0`，px | AOE 或近邻目标查询半径 |
 | `skills[].targeting.max_targets` | int | `>= 0` | 最大目标数量；0 表示不限制 |
 | `skills[].effects[]` | array[object] | 必须非空 | 命中目标后执行的技能效果原语列表 |
@@ -833,7 +874,7 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `skills[].effects[].params.magnitude` | number | 可选 | 状态强度；DoT 中表示单 tick 伤害，减速 / 增伤标记后续可复用 |
 | `skills[].effects[].params.tick_interval` | number | 可选，`>= 0` | DoT tick 间隔；与正 `magnitude` 同时出现时必须提供已登记 `damage_type` |
 
-`skills.json` 是技能本体数据；技能不绑定英雄。当前 `SkillSystem` 采用项目版轻量 GAS 语义解释起始技能的 tag gating、冷却、资源消耗、AOE 敌人目标选择、`skill_effect_damage` 和 `skill_effect_apply_status`：伤害通过 `Combat.apply_damage` 结算，状态通过 `StatusEffectComponent` 管理叠加、过期、ability tag 生命周期和 burn DoT tick。后续若主动道具、敌人或遗物要释放同一个技能，应引用 skill id，而不是复制技能字段或按英雄 / 道具 id 写分支。
+`skills.json` 是技能本体数据；技能不绑定英雄。当前 `SkillSystem` 采用项目版轻量 GAS 语义解释起始技能的 tag gating、冷却、资源消耗、AOE 敌人目标选择、`skill_effect_damage` 和 `skill_effect_apply_status`：伤害通过 `Combat.apply_damage` 结算，状态通过 `StatusEffectComponent` 管理叠加、过期、ability tag 生命周期和 burn DoT tick。当前内置技能包含默认主键释放的 `skill_whirlwind_slash` 与可由系统/API 释放的 `skill_ignite_slash`；后续若主动道具、敌人或遗物要释放同一个技能，应引用 skill id，而不是复制技能字段或按英雄 / 道具 id 写分支。
 
 ## `consumables.json`
 

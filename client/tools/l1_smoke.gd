@@ -330,7 +330,9 @@ func _expect_burn_dot_status() -> void:
 	var skill_system: Node = SKILL_SYSTEM_SCRIPT.new()
 	skill_system.name = "L1BurnSkillSystem"
 	add_child(skill_system)
-	skill_system.call("configure", player, world, [_l1_enemy_burn_skill()], [])
+	var burn_skill: Dictionary = _l1_skill_definition(SKILL_IDS.SKILL_IGNITE_SLASH)
+	_expect(not burn_skill.is_empty(), "skills.json should define skill_ignite_slash")
+	skill_system.call("configure", player, world, [burn_skill], [_l1_mana_resource()])
 
 	var dot_events: Array[Dictionary] = []
 	var dot_event_sink: Callable = func(target: Node, info: RefCounted, result: Dictionary) -> void:
@@ -350,7 +352,7 @@ func _expect_burn_dot_status() -> void:
 	_expect(bool(burn_result.get("ok", false)), "SkillSystem should apply burn through skill_effect_apply_status")
 	_expect((enemy.call("active_statuses") as Array).has(STATUS_EFFECTS.BURN), "Enemy should report burn as an active status")
 	var starting_life: float = _enemy_life(enemy)
-	await _wait_physics_frames(3)
+	await _wait_physics_frames(16)
 	var burned_life: float = _enemy_life(enemy)
 	_expect(burned_life < starting_life, "Burn should damage an Enemy over time")
 	_expect(not dot_events.is_empty(), "Burn DoT should route damage through Combat")
@@ -381,9 +383,9 @@ func _expect_burn_dot_status() -> void:
 	_expect((enemy.call("active_statuses") as Array).has(STATUS_EFFECTS.BURN), "Enemy should restore active burn from snapshot")
 	GameState.change_state(GameState.PLAYING, {"source": "l1_burn_restore"})
 	var restored_life: float = _enemy_life(enemy)
-	await _wait_physics_frames(3)
+	await _wait_physics_frames(16)
 	_expect(_enemy_life(enemy) < restored_life, "Restored burn should resume ticking")
-	await _wait_physics_frames(12)
+	await _wait_physics_frames(80)
 	_expect(not (enemy.call("active_statuses") as Array).has(STATUS_EFFECTS.BURN), "Burn should expire through StatusEffectComponent")
 
 	if Combat.damage_applied.is_connected(dot_event_sink):
@@ -490,43 +492,6 @@ func _l1_enemy_silence_skill() -> Dictionary:
 	}
 
 
-func _l1_enemy_burn_skill() -> Dictionary:
-	return {
-		"id": SKILL_IDS.SKILL_WHIRLWIND_SLASH,
-		"ability_tags": [
-			ABILITY_TAGS.ABILITY_TAG_SKILL,
-			ABILITY_TAGS.ABILITY_TAG_PRIMARY,
-			ABILITY_TAGS.ABILITY_TAG_DAMAGE,
-		],
-		"activation": {
-			"required_tags": [],
-			"blocked_tags": [],
-			"granted_tags": [],
-		},
-		"cooldown": 0.0,
-		"costs": [],
-		"targeting": {
-			"type": SKILL_TARGETING.TARGET_ENEMY,
-			"radius": 120.0,
-			"max_targets": 1,
-		},
-		"effects": [
-			{
-				"effect": SKILL_EFFECTS.SKILL_EFFECT_APPLY_STATUS,
-				"params": {
-					"status": STATUS_EFFECTS.BURN,
-					"duration": 0.16,
-					"stack_rule": STATUS_STACK_RULES.REFRESH,
-					"granted_ability_tags": [],
-					"magnitude": 2.0,
-					"tick_interval": 0.04,
-					"damage_type": DAMAGE_TYPES.FIRE,
-				},
-			},
-		],
-	}
-
-
 func _l1_silence_status(duration: float) -> Resource:
 	return STATUS_EFFECT_SCRIPT.new().setup(
 		STATUS_EFFECTS.SILENCE,
@@ -537,6 +502,16 @@ func _l1_silence_status(duration: float) -> Resource:
 		},
 		null
 	)
+
+
+func _l1_skill_definition(skill_id: String) -> Dictionary:
+	var payload: Variant = DataLoader.load_json(DataLoader.SKILLS_PATH)
+	if not payload is Dictionary:
+		return {}
+	for skill: Variant in (payload as Dictionary).get("skills", []):
+		if skill is Dictionary and String((skill as Dictionary).get("id", "")) == skill_id:
+			return (skill as Dictionary).duplicate(true)
+	return {}
 
 
 func _l1_mana_resource() -> Dictionary:

@@ -13,7 +13,7 @@
         "weapon_id": "weapon_basic_blaster",
         "active_item_id": "active_item_blink_burst",
         "consumable_ids": ["consumable_pocket_bomb"],
-        "skill_ids": ["skill_whirlwind_slash"]
+        "skill_ids": ["skill_whirlwind_slash", "skill_ignite_slash"]
       },
       "skill_resources": [
         {

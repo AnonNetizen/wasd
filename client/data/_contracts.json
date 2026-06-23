@@ -200,7 +200,8 @@
       "ai_action_guard_home"
     ],
     "skill_ids": [
-      "skill_whirlwind_slash"
+      "skill_whirlwind_slash",
+      "skill_ignite_slash"
     ],
     "skill_resources": [
       "mana"

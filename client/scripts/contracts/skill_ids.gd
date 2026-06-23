@@ -3,6 +3,8 @@ class_name SkillIds
 
 const VALUES: Array[String] = [
 	"skill_whirlwind_slash",
+	"skill_ignite_slash",
 ]
 
 const SKILL_WHIRLWIND_SLASH: String = "skill_whirlwind_slash"
+const SKILL_IGNITE_SLASH: String = "skill_ignite_slash"

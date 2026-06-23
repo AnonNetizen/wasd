@@ -140,6 +140,8 @@ item_pocket_bomb_name,袖珍炸弹,Pocket Bomb
 item_pocket_bomb_desc,引发一次小范围爆炸,Trigger a small explosion
 skill_whirlwind_slash_name,旋风斩,Whirlwind Slash
 skill_whirlwind_slash_desc,消耗魔法，对周围敌人造成范围物理伤害,Spend mana to deal area physical damage to nearby enemies
+skill_ignite_slash_name,点燃斩,Ignite Slash
+skill_ignite_slash_desc,消耗魔法，点燃最近敌人并造成火焰持续伤害,Spend mana to ignite the nearest enemy and deal fire damage over time
 skill_resource_mana_name,魔法,Mana
 meta_currency_essence_name,记忆余烬,Memory Embers
 meta_upgrade_max_hp_name,坚韧心脏,Stout Heart

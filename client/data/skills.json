@@ -34,6 +34,45 @@
           }
         }
       ]
+    },
+    {
+      "id": "skill_ignite_slash",
+      "name_key": "skill_ignite_slash_name",
+      "desc_key": "skill_ignite_slash_desc",
+      "default_unlocked": true,
+      "tags": ["tag_skill"],
+      "ability_tags": ["ability_tag_skill", "ability_tag_primary", "ability_tag_damage"],
+      "activation": {
+        "required_tags": [],
+        "blocked_tags": ["ability_tag_silenced"],
+        "granted_tags": ["ability_tag_activating"]
+      },
+      "cooldown": 4.0,
+      "costs": [
+        {
+          "resource": "mana",
+          "amount": 30.0
+        }
+      ],
+      "targeting": {
+        "type": "target_enemy",
+        "radius": 180.0,
+        "max_targets": 1
+      },
+      "effects": [
+        {
+          "effect": "skill_effect_apply_status",
+          "params": {
+            "status": "burn",
+            "duration": 1.2,
+            "stack_rule": "REFRESH",
+            "granted_ability_tags": [],
+            "magnitude": 1.5,
+            "tick_interval": 0.2,
+            "damage_type": "fire"
+          }
+        }
+      ]
     }
   ]
 }
