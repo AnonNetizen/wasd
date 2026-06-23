@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-06-23",
   "current_phase": "formal_project_f9_content_demo_polish",
-  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；后续用户点名推进的《破巢者》IP、数据驱动 EnemyAI、可复用主动技能、英文 UI 尺寸基准、详细数值面板、有限地图 + 可人工调参 PCG / FEA-12 机关测试链路、项目版轻量 GAS 首片、状态效果 ability tag 生命周期首片、Player / Enemy 实体状态宿主接入、burn DoT 首个真实状态，以及点燃斩 burn 数据技能均已落地。当前没有阻塞，下一步应以用户最后明确指令为准。",
+  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；后续用户点名推进的《破巢者》IP、数据驱动 EnemyAI、可复用主动技能、英文 UI 尺寸基准、详细数值面板、有限地图 + 可人工调参 PCG / FEA-12 机关测试链路、项目版轻量 GAS 首片、状态效果 ability tag 生命周期首片、Player / Enemy 实体状态宿主接入、burn DoT 首个真实状态、点燃斩 burn 数据技能，以及敌人有限地图移动边界修复均已落地。当前没有阻塞，下一步应以用户最后明确指令为准。",
   "latest_adr": 97,
   "open_decisions": [
     "A",
@@ -11,6 +11,8 @@
     "E"
   ],
   "last_completed": [
+    "修复敌人可移动到有限地图外的问题：GameplayRunLoop 在生成 / 续局恢复敌人时注入 MapManager.bounds()，Enemy 普通移动、冲锋、中心分离和快照恢复后统一 clamp 到 bounds。",
+    "runtime-smoke 新增敌人边界覆盖：把猎物放在地图边缘并让其逃离掠食者，验证移动和旧快照越界恢复都会被夹回有限地图；同时修复池化敌人复用时 defeated signal 旧连接残留导致重复连接错误。",
     "新增 skill_ignite_slash：登记词表 §12-C、生成 SkillIds.SKILL_IGNITE_SLASH，加入 skills.json、默认角色第二起始技能和 mode_standard_survival 技能池；默认 use_active_item 仍释放第一项 skill_whirlwind_slash。",
     "L1 smoke 的 burn 覆盖改为从真实 skills.json 读取 skill_ignite_slash，并验证 target_enemy + skill_effect_apply_status 能对真实 Enemy 施加 burn DoT。",
     "ADR #97：burn 作为首个真实 DoT 状态落地；StatusEffect 保存 damage_type、tick_remaining 与队伍归因，StatusEffectComponent 在 PLAYING 下按 GameClock tick，并通过 Combat.apply_damage 结算 fire + is_dot 伤害。",
@@ -34,14 +36,19 @@
     "ADR #88：项目 IP 方向为 Nestbreakers / 破巢者，详细世界观、命名和宣发包装权威为 docs/IP设定.md。"
   ],
   "next_actions": [
-    "如果继续地图 / PCG，优先改 client/data/map_layouts.json；地图规则看 docs/代码/map_manager.md，机关运行时看 docs/代码/hazard_system.md。",
+    "如果继续地图 / PCG，优先改 client/data/map_layouts.json；地图规则看 docs/代码/map_manager.md，机关运行时看 docs/代码/hazard_system.md；玩家和敌人中心移动都应保持在 MapManager.bounds() 内。",
     "如果继续机关内容，优先改 client/data/hazards.csv、game_modes.resource_pools.hazards 和 map_layouts.json；普通范围机关复用通用 Hazard，新增行为先设计 primitive。",
     "如果继续技能 / 轻量 GAS，优先改 client/data/skills.json、characters.json.skill_resources / starting_loadout.skill_ids 和 game_modes.resource_pools.skills；当前默认主键仍是 skill_whirlwind_slash，skill_ignite_slash 已作为第二技能和模式池内容；新资源、目标类型、效果或 ability tag 先登记 docs/词表与契约.md §12-C~12-G。",
     "如果继续状态效果，先看 docs/代码/status_effect_component.md；新状态登记 docs/词表与契约.md §9-A，新叠加规则登记 §9-B；DoT 状态通过 skill_effect_apply_status 提供 damage_type / magnitude / tick_interval，或后续 on-hit primitive 注入目标实体的 StatusEffectComponent。",
-    "如果继续怪物生态，优先改 client/data/enemy_ai_profiles.json 与 enemies.csv.tags / ai_profile_id，再跑 validate_data、runtime-smoke 和必要的 golden replay。",
+    "如果继续怪物生态，优先改 client/data/enemy_ai_profiles.json 与 enemies.csv.tags / ai_profile_id；敌人普通移动、冲锋、中心分离和快照恢复必须保留有限地图 bounds clamp，再跑 validate_data、runtime-smoke 和必要的 golden replay。",
     "任何上下文恢复后，先对齐用户最后明确指令；本文件只提供候选方向。"
   ],
   "last_verified": [
+    {
+      "date": "2026-06-23",
+      "command": "pre-commit run --all-files; sync_contracts --check, validate_data, test_data_loader_schema, lint_gdscript_rules, lint_project_rules, test_project_rules_lint, lint_semantic_rules, test_semantic_rules_lint, json _contracts/_kb_index/current_state, docs_health_check, diff --check excluding draft, runtime-smoke, save-smoke, headless-boot, replay-smoke, replay-input-smoke, four checked-in golden replay reruns",
+      "result": "passed for enemy finite-map movement boundary fix; runtime-smoke covers enemy edge flee staying inside MapManager.bounds() and out-of-bounds snapshot restore clamping; pooled Enemy defeated signal stale connections are cleared before reconnecting; save-smoke/runtime-smoke include expected broken-save diagnostics while passing; semantic lint exits 0 with reviewed existing dynamic UI/node advisories plus internal StatusEffectComponent add_child advisory"
+    },
     {
       "date": "2026-06-23",
       "command": "pre-commit run --all-files; sync_contracts --check, validate_data, test_data_loader_schema, lint_gdscript_rules, lint_project_rules, test_project_rules_lint, lint_semantic_rules, test_semantic_rules_lint, json _contracts/_kb_index/current_state, docs_health_check, diff --check excluding draft, l1-smoke, runtime-smoke, save-smoke, headless-boot, replay-smoke, replay-input-smoke, four checked-in golden replay captures and reruns",

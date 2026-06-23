@@ -131,6 +131,7 @@ func _run() -> void:
 
 	await _expect_enemy_center_separation(run_loop, player)
 	await _expect_player_enemy_separation(run_loop, player)
+	await _expect_enemy_movement_bounds(run_loop, player)
 	await _expect_swarm_enemy_spawn(run_loop, player)
 	await _expect_enemy_ecology_ai(run_loop, player)
 	await _expect_whirlwind_slash_skill(run_loop, player)
@@ -230,18 +231,7 @@ func _first_enemy() -> Node:
 
 
 func _map_summary_has_finite_bounds(run_loop: Node) -> bool:
-	if run_loop == null or not run_loop.has_method("debug_summary"):
-		return false
-	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
-	var raw_map_summary: Variant = summary.get("map", {})
-	if not raw_map_summary is Dictionary:
-		return false
-	var map_summary: Dictionary = raw_map_summary as Dictionary
-	var raw_bounds: Variant = map_summary.get("bounds", {})
-	if not raw_bounds is Dictionary:
-		return false
-	var bounds: Dictionary = raw_bounds as Dictionary
-	return float(bounds.get("width", 0.0)) > 0.0 and float(bounds.get("height", 0.0)) > 0.0
+	return _map_bounds(run_loop).size.x > 0.0 and _map_bounds(run_loop).size.y > 0.0
 
 
 func _snapshot_has_hazards(snapshot: Dictionary) -> bool:
@@ -356,6 +346,50 @@ func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
 	isolated_player.queue_free()
 
 
+func _expect_enemy_movement_bounds(run_loop: Node, _player: Node2D) -> void:
+	var bounds: Rect2 = _map_bounds(run_loop)
+	_expect(bounds.size.x > 0.0 and bounds.size.y > 0.0, "enemy movement bounds smoke should read finite map bounds")
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		return
+
+	var prey: Node2D = _spawn_smoke_enemy(run_loop, "enemy_swarm", "smoke_bounds_prey")
+	var predator: Node2D = _spawn_smoke_enemy(run_loop, "enemy_stalker", "smoke_bounds_predator")
+	_expect(prey != null, "movement bounds smoke should spawn prey enemy")
+	_expect(predator != null, "movement bounds smoke should spawn predator enemy")
+	if prey == null or predator == null:
+		if prey != null:
+			PoolManager.release(prey)
+		if predator != null:
+			PoolManager.release(predator)
+		return
+
+	var edge_y: float = clampf(0.0, bounds.position.y + 160.0, bounds.end.y - 160.0)
+	prey.global_position = Vector2(bounds.end.x - 2.0, edge_y)
+	predator.global_position = prey.global_position - Vector2(80.0, 0.0)
+	predator.set_physics_process(false)
+
+	for _index: int in range(16):
+		await get_tree().physics_frame
+	_expect(_position_inside_bounds(bounds, prey.global_position), "enemy flee movement should stay inside finite map bounds")
+	_expect(prey.global_position.x <= bounds.end.x + 0.01, "enemy movement should clamp at the map right edge")
+
+	var snapshot: Dictionary = prey.call("snapshot")
+	snapshot["position"] = {
+		"x": bounds.end.x + 240.0,
+		"y": bounds.end.y + 240.0,
+	}
+	snapshot["home_position"] = {
+		"x": bounds.end.x + 240.0,
+		"y": bounds.end.y + 240.0,
+	}
+	prey.call("restore_snapshot", snapshot)
+	_expect(_position_inside_bounds(bounds, prey.global_position), "enemy restore should clamp position inside finite map bounds")
+
+	predator.set_physics_process(true)
+	PoolManager.release(prey)
+	PoolManager.release(predator)
+
+
 func _expect_swarm_enemy_spawn(run_loop: Node, _player: Node2D) -> void:
 	var before_count: int = PoolManager.active_count(POOL_IDS.ENEMY_SWARM)
 	var spawned: bool = bool(run_loop.call("_spawn_enemy", {
@@ -389,7 +423,11 @@ func _expect_enemy_ecology_ai(run_loop: Node, player: Node2D) -> void:
 			PoolManager.release(predator)
 		return
 
-	var ecology_origin: Vector2 = player.global_position + Vector2(2400.0, 1400.0)
+	var bounds: Rect2 = _map_bounds(run_loop)
+	var ecology_origin: Vector2 = Vector2(
+		clampf(player.global_position.x + 620.0, bounds.position.x + 180.0, bounds.end.x - 300.0),
+		clampf(player.global_position.y + 320.0, bounds.position.y + 180.0, bounds.end.y - 180.0)
+	)
 	prey.global_position = ecology_origin
 	predator.global_position = ecology_origin + Vector2(110.0, 0.0)
 	for _index: int in range(10):
@@ -460,6 +498,33 @@ func _active_enemy_instance_ids() -> Dictionary:
 	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
 		result[enemy.get_instance_id()] = true
 	return result
+
+
+func _map_bounds(run_loop: Node) -> Rect2:
+	if run_loop == null or not run_loop.has_method("debug_summary"):
+		return Rect2()
+	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
+	var raw_map_summary: Variant = summary.get("map", {})
+	if not raw_map_summary is Dictionary:
+		return Rect2()
+	var map_summary: Dictionary = raw_map_summary as Dictionary
+	var raw_bounds: Variant = map_summary.get("bounds", {})
+	if not raw_bounds is Dictionary:
+		return Rect2()
+	var bounds: Dictionary = raw_bounds as Dictionary
+	return Rect2(
+		Vector2(float(bounds.get("x", 0.0)), float(bounds.get("y", 0.0))),
+		Vector2(float(bounds.get("width", 0.0)), float(bounds.get("height", 0.0)))
+	)
+
+
+func _position_inside_bounds(bounds: Rect2, position: Vector2) -> bool:
+	return (
+		position.x >= bounds.position.x - 0.01
+		and position.x <= bounds.end.x + 0.01
+		and position.y >= bounds.position.y - 0.01
+		and position.y <= bounds.end.y + 0.01
+	)
 
 
 func _expect_stats_panel_hold_to_show(run_loop: Node) -> void:

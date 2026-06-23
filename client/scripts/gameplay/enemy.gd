@@ -48,6 +48,8 @@ var _last_damage_source_team: String = ""
 var _last_scores: Dictionary = {}
 var _life_points: float = 1.0
 var _max_life: float = 1.0
+var _has_movement_bounds: bool = false
+var _movement_bounds: Rect2 = Rect2()
 var _move_speed: float = 0.0
 var _owned_tag_counts: Dictionary = {}
 var _player_target: Node2D = null
@@ -121,6 +123,8 @@ func configure(enemy_data: Dictionary, target: Node2D) -> void:
 	_visual_color = _parse_visual_color(String(enemy_data.get("visual_color", "#ff6152")))
 	if _player_target != null and is_instance_valid(_player_target):
 		_update_facing(_player_target.global_position - global_position)
+	_home_position = _clamp_to_movement_bounds(_home_position)
+	_apply_movement_bounds()
 	add_to_group("active_enemies")
 	queue_redraw()
 
@@ -200,6 +204,18 @@ func active_statuses() -> Array[String]:
 	return _status_effect_component.call("active_statuses") as Array[String]
 
 
+func set_movement_bounds(bounds: Rect2) -> void:
+	_movement_bounds = bounds
+	_has_movement_bounds = bounds.size.x > 0.0 and bounds.size.y > 0.0
+	_home_position = _clamp_to_movement_bounds(_home_position)
+	_apply_movement_bounds()
+
+
+func clear_movement_bounds() -> void:
+	_has_movement_bounds = false
+	_movement_bounds = Rect2()
+
+
 func receive_damage(info: RefCounted) -> Dictionary:
 	if not is_alive():
 		return {
@@ -252,6 +268,8 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 		_status_effect_component.call("clear", false)
 	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
 	_home_position = _dict_to_vector(snapshot_data.get("home_position", {}), global_position)
+	_home_position = _clamp_to_movement_bounds(_home_position)
+	_apply_movement_bounds()
 	_life_points = clampf(float(snapshot_data.get("life_points", _max_life)), 0.0, _max_life)
 	_current_action = String(snapshot_data.get("current_action", ""))
 	_action_state = String(snapshot_data.get("action_state", ""))
@@ -290,6 +308,7 @@ func _pool_reset() -> void:
 	_last_scores.clear()
 	_life_points = 1.0
 	_max_life = 1.0
+	clear_movement_bounds()
 	_move_speed = 0.0
 	_clear_status_effects_for_reuse()
 	_player_target = null
@@ -303,6 +322,7 @@ func _pool_release() -> void:
 	remove_from_group("active_enemies")
 	_defeat_feedback_remaining = 0.0
 	_clear_status_effects_for_reuse()
+	clear_movement_bounds()
 	_focus_target = null
 	_player_target = null
 
@@ -544,6 +564,7 @@ func _move_in_direction(direction: Vector2, speed_scale: float, delta: float) ->
 	var normalized: Vector2 = direction.normalized()
 	_update_facing(normalized)
 	global_position += normalized * _move_speed * maxf(speed_scale, 0.0) * delta
+	_apply_movement_bounds()
 
 
 func _target_direction() -> Vector2:
@@ -701,6 +722,7 @@ func _apply_center_separation() -> void:
 
 	if offset.length_squared() > 0.0:
 		global_position += offset
+		_apply_movement_bounds()
 
 
 func _enemy_separation_offset(other: Node) -> Vector2:
@@ -857,6 +879,21 @@ func _dict_to_vector(raw_value: Variant, fallback: Vector2) -> Vector2:
 		return fallback
 	var value: Dictionary = raw_value as Dictionary
 	return Vector2(float(value.get("x", fallback.x)), float(value.get("y", fallback.y)))
+
+
+func _apply_movement_bounds() -> void:
+	if not _has_movement_bounds:
+		return
+	global_position = _clamp_to_movement_bounds(global_position)
+
+
+func _clamp_to_movement_bounds(world_position: Vector2) -> Vector2:
+	if not _has_movement_bounds:
+		return world_position
+	return Vector2(
+		clampf(world_position.x, _movement_bounds.position.x, _movement_bounds.end.x),
+		clampf(world_position.y, _movement_bounds.position.y, _movement_bounds.end.y)
+	)
 
 
 func _ensure_status_effect_component() -> void:

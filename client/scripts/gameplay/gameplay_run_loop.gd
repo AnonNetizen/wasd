@@ -458,7 +458,8 @@ func _spawn_enemy(wave: Dictionary, wave_key: String) -> bool:
 	_reparent_to_active_world(enemy)
 	enemy.set_meta("wave_key", wave_key)
 	enemy.call("configure", enemy_data, _player)
-	enemy.connect("defeated", Callable(self, "_on_enemy_defeated").bind(wave_key), CONNECT_ONE_SHOT)
+	_apply_enemy_movement_bounds(enemy)
+	_connect_enemy_defeated(enemy, wave_key)
 	return true
 
 
@@ -910,9 +911,10 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 		var wave_key: String = String(snapshot_data.get("wave_key", ""))
 		enemy.set_meta("wave_key", wave_key)
 		enemy.call("configure", enemy_data, _player)
+		_apply_enemy_movement_bounds(enemy)
 		if enemy.has_method("restore_snapshot"):
 			enemy.call("restore_snapshot", snapshot_data)
-		enemy.connect("defeated", Callable(self, "_on_enemy_defeated").bind(wave_key), CONNECT_ONE_SHOT)
+		_connect_enemy_defeated(enemy, wave_key)
 
 
 func _restore_bullet_snapshots(bullet_snapshots: Array) -> void:
@@ -942,6 +944,26 @@ func _restore_pickup_snapshots(pickup_snapshots: Array) -> void:
 		var collected_callback: Callable = Callable(self, "_on_pickup_orb_collected")
 		if not pickup_orb.is_connected("collected", collected_callback):
 			pickup_orb.connect("collected", collected_callback, CONNECT_ONE_SHOT)
+
+
+func _apply_enemy_movement_bounds(enemy: Node2D) -> void:
+	if _map_manager == null or not _map_manager.has_method("bounds"):
+		return
+	if not enemy.has_method("set_movement_bounds"):
+		return
+	enemy.call("set_movement_bounds", _map_manager.call("bounds"))
+
+
+func _connect_enemy_defeated(enemy: Node, wave_key: String) -> void:
+	var callback: Callable = Callable(self, "_on_enemy_defeated").bind(wave_key)
+	for connection: Dictionary in enemy.get_signal_connection_list("defeated"):
+		var raw_callable: Variant = connection.get("callable")
+		if not raw_callable is Callable:
+			continue
+		var existing_callback: Callable = raw_callable as Callable
+		if existing_callback.get_object() == self and existing_callback.get_method() == "_on_enemy_defeated":
+			enemy.disconnect("defeated", existing_callback)
+	enemy.connect("defeated", callback, CONNECT_ONE_SHOT)
 
 
 func _dictionary_or_empty(raw_value: Variant) -> Dictionary:

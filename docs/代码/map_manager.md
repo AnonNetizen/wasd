@@ -8,7 +8,7 @@
 - 把每局地图从无限扩展改为有明确边界的开放有限地图。
 - 读取 `client/data/map_layouts.json`，解释地图尺寸、玩家出生点、安全半径、刷怪边距、PCG 机关规则和人工摆点。
 - 使用 `RNG.world` 生成可复现的初始机关摆放；手工摆点先放置，PCG 会避开它们。
-- 给玩家移动和刷怪提供边界 clamp，不直接处理输入、敌人 AI 或机关伤害。
+- 给玩家移动、敌人实体移动和刷怪提供边界 clamp，不直接处理输入、敌人 AI 评分或机关伤害。
 - 提供 JSON 友好的 `snapshot()` / `restore_snapshot()`，让暂停续局恢复同一张地图和同一批机关位置。
 
 ## 阅读方式
@@ -27,7 +27,7 @@
 |------|------|
 | `client/scripts/gameplay/map_manager.gd` | `MapManager` 节点脚本，解释有限边界、PCG 摆放、spawn clamp 和地图快照 |
 | `client/data/map_layouts.json` | 地图 layout 数据源 |
-| `client/scripts/gameplay/gameplay_run_loop.gd` | 选择当前模式 layout、配置 MapManager、设置玩家边界、生成 / 恢复机关 |
+| `client/scripts/gameplay/gameplay_run_loop.gd` | 选择当前模式 layout、配置 MapManager、设置玩家 / 敌人移动边界、生成 / 恢复机关 |
 | `client/scenes/gameplay/gameplay_run_loop.tscn` | `ActiveWorld/MapManager` 稳定节点 |
 | `client/tools/runtime_smoke.gd` | 覆盖有限 bounds、MapManager 节点和续局后机关恢复 |
 | `client/tools/f9_demo_smoke.gd` | 覆盖 FEA-12 机关存在、造成伤害和保存 roundtrip |
@@ -55,7 +55,7 @@ GameplayRunLoop
 | 数据加载 | `GameplayRunLoop` 读取 `game_modes.json` 后按 `mode_id` 找第一条 layout | `_load_map_layout()` |
 | 配置 | 运行时把 layout 与 `hazards.csv` 行数据交给 `MapManager` | `configure(layout_data, hazard_rows)` |
 | 开局 | `MapManager` 先放 `manual_hazards`，再按 `pcg.hazards` 用 `RNG.world` 摆放机关 | `generate_hazard_placements()` |
-| 玩家边界 | 玩家出生点和移动位置由有限 `Rect2` clamp | `player_start()`、`bounds()`、`Player.set_movement_bounds()` |
+| 实体边界 | 玩家出生点、玩家移动位置和敌人移动位置由有限 `Rect2` clamp | `player_start()`、`bounds()`、`Player.set_movement_bounds()`、`Enemy.set_movement_bounds()` |
 | 刷怪边界 | Spawner 的视野外候选位置会被 clamp 到地图内并留出边缘边距 | `spawn_position(player_position, viewport_size)` |
 | 保存 | run payload 保存 layout、bounds、出生点、safe radius、刷怪边距和机关 placement | `snapshot()` |
 | 恢复 | 续局先恢复 `MapManager` 快照，再按快照重建机关；旧存档无机关快照时重新生成 | `restore_snapshot()` |
@@ -71,7 +71,7 @@ GameplayRunLoop
 | `bounds()` | 无 | `Rect2` | 地图以原点为中心 |
 | `player_start()` | 无 | `Vector2` | 已 clamp 到 bounds |
 | `hazard_placements()` | 无 | `Array[Dictionary]` | 每项含 `hazard_id`、`position`、`source` |
-| `clamp_position(world_position)` | 世界坐标 | `Vector2` | clamp 到 bounds |
+| `clamp_position(world_position)` | 世界坐标 | `Vector2` | clamp 到 bounds；当前约束玩家和敌人中心点 |
 | `spawn_position(player_position, viewport_size)` | 玩家位置、视口尺寸 | `Vector2` | 用 `RNG.spawn` 选角度，再 clamp 到边缘内侧 |
 | `debug_summary()` | 无 | `Dictionary` | smoke / GM 诊断使用 |
 
@@ -88,7 +88,7 @@ GameplayRunLoop
 ## 依赖
 
 - 上游依赖：`DataLoader`、`RNG.world`、`RNG.spawn`、`hazards.csv`。
-- 下游调用方：`GameplayRunLoop`、`Player` 移动边界、Spawner 位置选择、HazardSystem 机关生成、runtime / F9 smoke。
+- 下游调用方：`GameplayRunLoop`、`Player` / `Enemy` 移动边界、Spawner 位置选择、HazardSystem 机关生成、runtime / F9 smoke。
 - 禁止依赖：不得直接读取输入、直接实例化机关场景、直接造成伤害、直接读写 `SaveManager`；不得按 layout id 或 hazard id 写特殊分支。
 
 ## 扩展点
@@ -96,7 +96,7 @@ GameplayRunLoop
 - 新地图：新增 `layouts[]`，绑定现有或新模式；如果同一模式需要多张图，先明确选择规则再扩 schema。
 - 新 PCG 内容类型：优先在 `map_layouts.json` 增加同级规则，例如后续 `pcg.points_of_interest`；运行时先做通用规则解释，避免按内容 id 特判。
 - 新机关类型：先在 `hazards.csv` 加基础数值，再在 `map_layouts.json` 引用；运行时仍走通用 `Hazard`，除非需要全新行为 primitive。
-- 边界表现：可扩展 `MapManager._draw()` 或替换为 TileMap / 美术资源，但玩家移动边界仍由 `bounds()` / `clamp_position()` 提供。
+- 边界表现：可扩展 `MapManager._draw()` 或替换为 TileMap / 美术资源，但玩家与敌人移动边界仍由 `bounds()` / `clamp_position()` 提供。
 
 ## 常见改动入口
 
@@ -113,6 +113,7 @@ GameplayRunLoop
 | 现象 | 优先检查 |
 |------|----------|
 | 玩家出生在边界外 | `player_start` 是否超出 `bounds`；`Player.set_movement_bounds()` 是否被调用 |
+| 敌人跑出地图 | `Enemy.set_movement_bounds()` 是否由 `GameplayRunLoop` 在生成 / 续局恢复时调用；`runtime-smoke` 是否通过敌人移动边界断言 |
 | 机关数量少于配置 | `safe_radius` / `min_distance_from_player` / `min_spacing` 是否过大；地图是否太小 |
 | 机关压在玩家身上 | `safe_radius` 是否为 0；PCG 是否绕过 `MapManager.generate_hazard_placements()` |
 | 刷怪贴边或出界 | `enemy_spawn_margin` 是否太小；Spawner 是否仍使用 `MapManager.spawn_position()` |
