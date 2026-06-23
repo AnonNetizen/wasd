@@ -62,9 +62,9 @@
 |------|------|----------|----------|
 | 新会话接入 | `AGENTS.md`、`docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、`docs/AI导航.md` 相关段、当前平台规则入口 | 通常不改文件 | 无；若发现文档漂移跑 `python tools/docs_health_check.py` |
 | 续接当前任务 | `docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、当日会话日志；需要长期背景时再读 `项目记忆.md` 相关节 | 通常不改文件 | 无；需要确认状态时跑 `python tools/docs_health_check.py` |
-| 查看 / 维护未来任务 | `docs/TODO.md`、`docs/功能建议池.md`、`docs/小服务器玩法备忘.md`、`docs/AI记忆/current_state.json`、`docs/修改建议.md` | `docs/TODO.md`、必要时 current_state / 会话日志 / 修改建议 / 功能建议池 / 小服务器玩法备忘 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
+| 查看 / 维护未来任务 | `docs/TODO.md`、`docs/功能建议池.md`、`docs/AI辅助开发机会清单.md`、`docs/小服务器玩法备忘.md`、`docs/AI记忆/current_state.json`、`docs/修改建议.md` | `docs/TODO.md`、必要时 current_state / 会话日志 / 修改建议 / 功能建议池 / AI辅助开发机会清单 / 小服务器玩法备忘 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
 | 改 IP / 世界观 / 英雄包装 / 宣传语 | `docs/IP设定.md`、`docs/游戏设计文档.md` §1.2、`docs/术语表.md` | IP 设定、GDD 摘要、术语表、AI导航、必要时 ADR / AI记忆 / locale 文案 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
-| 选择下一项新功能 / 功能菜单 | `docs/功能建议池.md`、`docs/TODO.md`、`docs/AI记忆/current_state.json`；若用户点名具体系统，再读对应工作包 / 模块文档 / GDD 章节 | 用户点名后再改 TODO / current_state / 工作包 / GDD / ADR / 模块文档；未点名前不实现功能 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool`；进入实现后按目标工作包验收命令运行 |
+| 选择下一项新功能 / 功能菜单 | `docs/功能建议池.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md`、`docs/AI记忆/current_state.json`；若用户点名具体系统，再读对应工作包 / 模块文档 / GDD 章节 | 用户点名后再改 TODO / current_state / 工作包 / GDD / ADR / 模块文档；未点名前不实现功能 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool`；进入实现后按目标工作包验收命令运行 |
 | 评估小服务器在线玩法 | `docs/小服务器玩法备忘.md`、GDD §6.7 / §9.21 / §9.22、`docs/代码/platform_services.md`、`docs/代码/replay.md` | 用户点名采纳后再改 GDD / ADR / 功能建议池 / 工作包 / 相关模块文档；未点名前只做评估 | `python tools/docs_health_check.py`；若新增在线服务 schema 或 JSON 索引，同步跑 `python -m json.tool` |
 | 启动 / 推进正式项目 | 当前阶段工作包；F9 默认 `docs/AI协作/工作包/F9-ContentDemoPolish.md`、`docs/AI记忆/current_state.json`、目标模块文档；F8 回放 / 测试 / 平衡维护看 `docs/AI协作/工作包/F8-ReplayTestingBalance.md`；F7 设置 / 本地化 / UI 栈维护看 `docs/AI协作/工作包/F7-SettingsLocalizationUI.md`；F6 局外成长看 `docs/AI协作/工作包/F6-MetaProgression.md`；F4 最小可玩闭环看 `docs/AI协作/工作包/F4-MinPlayableLoop.md`；历史 F3 数据闭环看 `docs/AI协作/工作包/F3-DataLoader.md` | `client/`、模块文档、必要时 TODO / GDD / ADR / 词表 / 测试策略 | 按工作包验收命令运行；DataLoader schema 变化跑 `python tools/test_data_loader_schema.py`；项目规则变化跑 `python tools/lint_project_rules.py`；语义风险检查跑 `python tools/lint_semantic_rules.py`；文档变化跑 `python tools/docs_health_check.py`；JSON 变化跑 `python -m json.tool` |
 | 维护正式客户端启动骨架 | `client/README.md`、`docs/代码/formal_client_boot.md`、`docs/代码/gameplay_runtime.md`、`docs/正式项目工作规划.md` F1/F4 | `client/project.godot`、`client/scenes/boot/main.tscn`、`client/scripts/boot/formal_client_boot.gd`、AI导航、代码文档索引 | `python tools/godot_bridge.py headless-boot`、`python tools/godot_bridge.py export-tree`、`python tools/docs_health_check.py` |
@@ -190,6 +190,7 @@
 | EnemyAI 模块文档 | `docs/代码/enemy_ai.md` | 展示怪物生态 profile、Utility/FSM/Steering 分工、怪物互相伤害归因与验证方式 |
 | 正式项目 autoload 模块文档 | `docs/代码/mod_loader.md` / `data_loader.md` / `rng.md` / `game_state.md` / `game_clock.md` / `platform_services.md` / `settings.md` / `analytics.md` / `replay.md` / `pool_manager.md` / `save_manager.md` / `audio_manager.md` / `localization.md` / `ui_manager.md` | 展示基础设施模块的 API、依赖与测试义务 |
 | 功能建议池 | `docs/功能建议池.md` | 展示 F9 第一轮 Demo 收口后可人工点名的新功能菜单；不是已采纳路线图 |
+| AI 辅助开发机会清单 | `docs/AI辅助开发机会清单.md` | 展示不在运行时接 LLM、只利用 AI 辅助写代码 / 数据 / 工具时可参考的玩法、内容管线和开发工具机会；不是已采纳路线图 |
 | 小服务器玩法备忘 | `docs/小服务器玩法备忘.md` | 展示小服务器条件下可参考的异步在线、敌巢进化、死亡残响、星域污染图等玩法；不是已采纳路线图 |
 | 规则反例 | 当前平台规则入口的红线与自检清单 | 防止硬编码、裸字符串、绕过 autoload |
 
