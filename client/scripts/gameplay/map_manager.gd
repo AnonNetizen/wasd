@@ -13,7 +13,9 @@ const INVALID_POSITION: Vector2 = Vector2(1.0e20, 1.0e20)
 const MANUAL_SOURCE: String = "manual"
 const PCG_SOURCE: String = "pcg"
 const PLACEMENT_ATTEMPTS_PER_HAZARD: int = 32
-const SAFE_RADIUS_COLOR: Color = Color(0.40, 0.78, 0.66, 0.18)
+const SAFE_ZONE_FILL_COLOR: Color = Color(0.24, 0.72, 0.56, 0.10)
+const SAFE_ZONE_RING_COLOR: Color = Color(0.40, 0.78, 0.66, 0.38)
+const SAFE_ZONE_WIDTH: float = 2.0
 const SPAWN_EDGE_PADDING: float = 16.0
 
 var _bounds: Rect2 = Rect2(-DEFAULT_BOUNDS_SIZE * 0.5, DEFAULT_BOUNDS_SIZE)
@@ -102,6 +104,14 @@ func boundary_half_extents() -> Vector2:
 	return _diamond_half_extents()
 
 
+func safe_zone_points() -> PackedVector2Array:
+	return _safe_zone_points()
+
+
+func safe_zone_half_extents() -> Vector2:
+	return _safe_zone_half_extents()
+
+
 func clamp_position(world_position: Vector2) -> Vector2:
 	return _clamp_to_diamond(world_position)
 
@@ -134,6 +144,10 @@ func debug_summary() -> Dictionary:
 		"boundary_center": _vector_to_dict(boundary_center()),
 		"boundary_half_extents": _vector_to_dict(_diamond_half_extents()),
 		"boundary_points": _points_to_array(_boundary_points()),
+		"safe_zone_shape": "diamond" if _safe_radius > 0.0 else "none",
+		"safe_zone_half_extents": _vector_to_dict(_safe_zone_half_extents()),
+		"safe_zone_points": _points_to_array(_safe_zone_points()),
+		"player_start": _vector_to_dict(_player_start),
 		"hazard_count": _hazard_placements.size(),
 		"safe_radius": _safe_radius,
 	}
@@ -144,7 +158,9 @@ func _draw() -> void:
 	draw_colored_polygon(points, BOUNDS_FILL_COLOR)
 	_draw_polygon_outline(points, BOUNDS_COLOR, BOUNDS_WIDTH)
 	if _safe_radius > 0.0:
-		draw_arc(_player_start, _safe_radius, 0.0, TAU, 96, SAFE_RADIUS_COLOR, 2.0)
+		var safe_points: PackedVector2Array = _safe_zone_points()
+		draw_colored_polygon(safe_points, SAFE_ZONE_FILL_COLOR)
+		_draw_polygon_outline(safe_points, SAFE_ZONE_RING_COLOR, SAFE_ZONE_WIDTH)
 
 
 func _parse_bounds(raw_value: Variant) -> Rect2:
@@ -187,6 +203,28 @@ func _diamond_half_extents() -> Vector2:
 
 func _diamond_slope_ratio() -> float:
 	return maxf(_grid_cell_size.y, 1.0) / maxf(_grid_cell_size.x, 1.0)
+
+
+func _safe_zone_half_extents() -> Vector2:
+	if _safe_radius <= 0.0:
+		return Vector2.ZERO
+	var grid_width: float = maxf(_grid_cell_size.x, 1.0)
+	var horizontal_grid_span: float = maxf(_safe_radius / grid_width, 0.0)
+	var grid_line_span: float = maxf(ceilf(horizontal_grid_span - 0.5) + 0.5, 0.5)
+	var half_width: float = grid_width * grid_line_span
+	return Vector2(half_width, half_width * _diamond_slope_ratio())
+
+
+func _safe_zone_points() -> PackedVector2Array:
+	if _safe_radius <= 0.0:
+		return PackedVector2Array()
+	var half_extents: Vector2 = _safe_zone_half_extents()
+	return PackedVector2Array([
+		_player_start + Vector2(0.0, -half_extents.y),
+		_player_start + Vector2(half_extents.x, 0.0),
+		_player_start + Vector2(0.0, half_extents.y),
+		_player_start + Vector2(-half_extents.x, 0.0),
+	])
 
 
 func _diamond_padding_extents(horizontal_padding: float) -> Vector2:

@@ -23,7 +23,7 @@
 | 改敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | 敌人标签、对象池 id、AI profile id、伤害类型必须来自词表或数据注册表 |
 | 改敌人生态 AI / 怪物互相克制 | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；生态关系通过 content tag 权重表达 |
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
-| 改地图边界 / 菱形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是菱形外接框，必须整除格尺寸且比例贴住格线；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法锚点 |
+| 改地图边界 / 菱形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是菱形外接框，必须是格尺寸奇数倍且比例贴住格线；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法锚点 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
 | 改技能消耗 / 冷却 / 目标 / 伤害 | `skills.json` | 技能不绑定英雄；角色或道具只引用 skill id，资源消耗用 `skill_resources` 声明 |
@@ -362,7 +362,7 @@ JSON 示例：
 | `grid.cell_height` | number | `> 0`，px | 单个菱形格的垂直对角线长度 |
 | `player_start.x` | number | 菱形格中心坐标 | 玩家出生点 X 坐标；运行时会吸附并 clamp 到地图边界 |
 | `player_start.y` | number | 菱形格中心坐标 | 玩家出生点 Y 坐标；运行时会吸附并 clamp 到地图边界 |
-| `safe_radius` | number | `>= 0`，px | PCG 机关距离出生点的最小安全圈下限 |
+| `safe_radius` | number | `>= 0`，px | PCG 机关距离出生点的最小安全距离下限；运行时可见提示画成贴住菱形格线的出生安全菱形，不再画正圆 |
 | `enemy_spawn_margin` | number | `>= 0`，px | 刷怪位置距地图边缘的 clamp 边距 |
 | `pcg.hazards[]` | array[object] | 可空 | 程序化机关规则；当前使用 `RNG.world` 按 seed 可复现地撒布，并按 `radius_tiles` 奇偶吸附到合法菱形格锚点 |
 | `pcg.hazards[].id` | string | 必须存在于 `hazards.csv` | 要生成的机关 id |

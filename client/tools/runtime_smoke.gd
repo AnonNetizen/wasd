@@ -83,6 +83,7 @@ func _run() -> void:
 	_expect(_find_node_by_name(run_loop, "MapManager") != null, "finite MapManager should be mounted")
 	_expect(_map_summary_has_finite_bounds(run_loop), "MapManager should expose finite map bounds")
 	_expect(_map_boundary_is_diamond(run_loop), "MapManager should expose a diamond visual boundary")
+	_expect(_map_safe_zone_is_diamond(run_loop), "MapManager should draw the spawn safe zone as a grid-aligned diamond")
 	_expect(_map_summary_has_diamond_grid(run_loop), "MapManager should expose a positive diamond grid cell size")
 	_expect(_map_clamps_to_diamond_boundary(run_loop), "MapManager should clamp positions to the diamond logic boundary")
 	_expect(_player_clamps_to_diamond_boundary(run_loop, player), "Player should clamp to the diamond logic boundary")
@@ -296,6 +297,51 @@ func _map_boundary_is_diamond(run_loop: Node) -> bool:
 		center + Vector2(half_extents.x, 0.0),
 		center + Vector2(0.0, half_extents.y),
 		center + Vector2(-half_extents.x, 0.0),
+	]
+	for index: int in range(expected_points.size()):
+		if not points[index] is Dictionary:
+			return false
+		var point: Vector2 = _dict_to_vector(points[index], Vector2(1.0e20, 1.0e20))
+		if point.distance_to(expected_points[index]) > 0.01:
+			return false
+	return true
+
+
+func _map_safe_zone_is_diamond(run_loop: Node) -> bool:
+	if run_loop == null or not run_loop.has_method("debug_summary"):
+		return false
+	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
+	var raw_map: Variant = summary.get("map", {})
+	if not raw_map is Dictionary:
+		return false
+	var map_summary: Dictionary = raw_map as Dictionary
+	if float(map_summary.get("safe_radius", 0.0)) <= 0.0:
+		return false
+	if String(map_summary.get("safe_zone_shape", "")) != "diamond":
+		return false
+	var raw_points: Variant = map_summary.get("safe_zone_points", [])
+	if not raw_points is Array:
+		return false
+	var points: Array = raw_points as Array
+	if points.size() != 4:
+		return false
+	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
+	var half_extents: Vector2 = _dict_to_vector(map_summary.get("safe_zone_half_extents", {}), Vector2.ZERO)
+	if half_extents.x <= 0.0 or half_extents.y <= 0.0 or grid_cell_size.x <= 0.0 or grid_cell_size.y <= 0.0:
+		return false
+	var expected_ratio: float = grid_cell_size.y / grid_cell_size.x
+	if absf((half_extents.y / half_extents.x) - expected_ratio) > 0.001:
+		return false
+	if absf(fmod(half_extents.x, grid_cell_size.x) - grid_cell_size.x * 0.5) > 0.01:
+		return false
+	if absf(fmod(half_extents.y, grid_cell_size.y) - grid_cell_size.y * 0.5) > 0.01:
+		return false
+	var start_position: Vector2 = _dict_to_vector(map_summary.get("player_start", {}), Vector2.ZERO)
+	var expected_points: Array[Vector2] = [
+		start_position + Vector2(0.0, -half_extents.y),
+		start_position + Vector2(half_extents.x, 0.0),
+		start_position + Vector2(0.0, half_extents.y),
+		start_position + Vector2(-half_extents.x, 0.0),
 	]
 	for index: int in range(expected_points.size()):
 		if not points[index] is Dictionary:

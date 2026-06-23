@@ -160,7 +160,7 @@
     {
       "path": "docs/游戏设计文档.md",
       "type": "authority",
-      "authority": "Gameplay, systems, long-term design, GDD v1.12; Hades-like oblique stage presentation with uniform Camera2D scale, quantized diamond map grid, diamond hazard tiles, and oblique asset anchoring rules",
+      "authority": "Gameplay, systems, long-term design, GDD v1.13; Hades-like oblique stage presentation with uniform Camera2D scale, quantized diamond map grid, grid-aligned spawn safe zone, diamond hazard tiles, and oblique asset anchoring rules",
       "status": "active",
       "owner_scope": "design",
       "last_reviewed": "2026-06-23",
@@ -169,7 +169,7 @@
       "related_docs": ["docs/IP设定.md", "docs/决策记录.md", "docs/AI导航.md", "docs/词表与契约.md", "docs/测试策略.md"],
       "related_code": ["client/"],
       "update_triggers": ["gameplay behavior change", "system design change", "new infrastructure decision"],
-      "keywords": ["GDD", "design", "玩法", "系统", "固定斜俯视", "2.5D", "哈迪斯", "Hades", "等比相机", "屏幕尺度", "斜俯视舞台", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "grid.cell_height", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "菱形机关", "diamond hazard", "radius_tiles", "刷宝动作生存", "looter action survival", "刷子游戏", "刷宝游戏", "装备", "词条", "战利品", "长期养成", "IP", "世界观", "破巢者", "Nestbreakers", "敌巢", "巢核", "界门", "首都星域", "跨宇宙", "多英雄", "手柄", "autoload", "经验", "升级", "luck", "level-up", "局外成长", "meta progression", "SaveManager", "run save", "续局", "数值配置", "本地化", "文案", "StatusEffect", "StatusEffectComponent", "状态效果", "silence", "沉默"]
+      "keywords": ["GDD", "design", "玩法", "系统", "固定斜俯视", "2.5D", "哈迪斯", "Hades", "等比相机", "屏幕尺度", "斜俯视舞台", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "grid.cell_height", "safe_radius", "出生安全区", "spawn safe zone", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "菱形机关", "diamond hazard", "radius_tiles", "刷宝动作生存", "looter action survival", "刷子游戏", "刷宝游戏", "装备", "词条", "战利品", "长期养成", "IP", "世界观", "破巢者", "Nestbreakers", "敌巢", "巢核", "界门", "首都星域", "跨宇宙", "多英雄", "手柄", "autoload", "经验", "升级", "luck", "level-up", "局外成长", "meta progression", "SaveManager", "run save", "续局", "数值配置", "本地化", "文案", "StatusEffect", "StatusEffectComponent", "状态效果", "silence", "沉默"]
     },
     {
       "path": "docs/决策记录.md",
@@ -183,7 +183,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #98", "ADR #103", "ADR #104", "ADR #105", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "radius_tiles", "菱形机关", "diamond hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP决策", "破巢者", "Nestbreakers", "详细数值面板", "show_stats_panel", "Tab", "subagent", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
+      "keywords": ["ADR", "decision", "决策", "约束", "ADR #98", "ADR #103", "ADR #104", "ADR #105", "ADR #107", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "菱形机关", "diamond hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP决策", "破巢者", "Nestbreakers", "详细数值面板", "show_stats_panel", "Tab", "subagent", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -211,7 +211,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/AI导航.md", "client/locale/README.md"],
       "related_code": ["client/data/", "tools/validate_data.py", "tools/sync_contracts.py"],
       "update_triggers": ["new data file", "new numeric field", "changed unit or range", "DataLoader schema change"],
-      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "characters.json", "weapons.json", "skills.json", "skill_effect_apply_status", "status_stack_rules", "relics.json", "credits.json", "game_modes.json", "map_layouts.json", "grid.cell_width", "grid.cell_height", "growth.csv", "enemies.csv", "hazards.csv", "radius_tiles", "菱形机关", "diamond hazard", "diamond map grid", "PCG", "有限地图", "人工摆点", "meta_progression.json", "局外成长", "validate_data"]
+      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "characters.json", "weapons.json", "skills.json", "skill_effect_apply_status", "status_stack_rules", "relics.json", "credits.json", "game_modes.json", "map_layouts.json", "grid.cell_width", "grid.cell_height", "safe_radius", "出生安全区", "spawn safe zone", "growth.csv", "enemies.csv", "hazards.csv", "radius_tiles", "菱形机关", "diamond hazard", "diamond map grid", "PCG", "有限地图", "人工摆点", "meta_progression.json", "局外成长", "validate_data"]
     },
     {
       "path": "client/locale/README.md",
@@ -281,7 +281,7 @@
       "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/功能建议池.md", "docs/AI辅助开发机会清单.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": ["client/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
-      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化菱形地图格", "diamond map grid", "radius_tiles", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "SkillSystem", "StatusEffectComponent", "skill_effect_apply_status", "status_stack_rules", "silence", "沉默", "MapManager", "HazardSystem", "菱形机关", "diamond hazard", "map_layouts.json", "FEA-12", "有限地图", "PCG", "人工摆点", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
+      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化菱形地图格", "diamond map grid", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "SkillSystem", "StatusEffectComponent", "skill_effect_apply_status", "status_stack_rules", "silence", "沉默", "MapManager", "HazardSystem", "菱形机关", "diamond hazard", "map_layouts.json", "FEA-12", "有限地图", "PCG", "人工摆点", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
     },
     {
       "path": "docs/AI记忆/项目记忆.md",
@@ -827,7 +827,7 @@
       "related_docs": ["docs/代码/gameplay_runtime.md", "docs/代码/hazard_system.md", "docs/代码/data_loader.md", "docs/代码/save_manager.md", "client/data/README.md", "docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/gameplay/map_manager.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/map_layouts.json", "client/data/hazards.csv", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
       "update_triggers": ["MapManager API changes", "map_layouts.json schema changes", "PCG placement behavior changes", "manual placement behavior changes", "map run snapshot changes"],
-      "keywords": ["MapManager", "map_layouts.json", "grid.cell_width", "grid.cell_height", "diamond map grid", "quantized diamond grid", "finite map", "有限地图", "PCG", "manual_hazards", "人工摆点", "grid anchor", "格心", "网格顶点", "RNG.world", "RNG.spawn", "hazard placements", "runtime-smoke", "f9-demo-smoke"]
+      "keywords": ["MapManager", "map_layouts.json", "grid.cell_width", "grid.cell_height", "safe_radius", "safe_zone_points", "safe_zone_half_extents", "出生安全区", "spawn safe zone", "diamond map grid", "quantized diamond grid", "finite map", "有限地图", "PCG", "manual_hazards", "人工摆点", "grid anchor", "格心", "网格顶点", "RNG.world", "RNG.spawn", "hazard placements", "runtime-smoke", "f9-demo-smoke"]
     },
     {
       "path": "docs/代码/hazard_system.md",
