@@ -110,7 +110,7 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["knowledge_base", "authority_hierarchy", "task_routes", "adr_tracking_matrix"],
       "must_read_for": ["doc_structure_change", "task_routing", "knowledge_base_change"],
-      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/IP设定.md", "docs/功能建议池.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/status_effect_component.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
+      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/IP设定.md", "docs/功能建议池.md", "docs/小服务器玩法备忘.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/status_effect_component.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": ["tools/docs_health_check.py"],
       "update_triggers": ["new long-lived document", "document rename", "authority hierarchy change", "task route change"],
       "keywords": ["knowledge base", "知识库", "index", "索引", "权威层级", "任务路由", "FormalClientBoot", "正式项目启动骨架", "F1"]
@@ -320,7 +320,7 @@
       "last_reviewed": "2026-06-13",
       "canonical_for": ["future_tasks", "project_backlog", "todo_list"],
       "must_read_for": ["task_planning", "backlog_update", "new_session_planning"],
-      "related_docs": ["docs/AI记忆/current_state.json", "docs/AI记忆/项目记忆.md", "docs/功能建议池.md", "docs/修改建议.md", "docs/AI导航.md"],
+      "related_docs": ["docs/AI记忆/current_state.json", "docs/AI记忆/项目记忆.md", "docs/功能建议池.md", "docs/小服务器玩法备忘.md", "docs/修改建议.md", "docs/AI导航.md"],
       "related_code": [],
       "update_triggers": ["future task changes", "priority changes", "completed milestone", "new cross-system task"],
       "keywords": ["TODO", "todo list", "backlog", "future tasks", "未来任务", "任务清单", "P0", "P1", "P2", "P3"]
@@ -334,10 +334,24 @@
       "last_reviewed": "2026-06-20",
       "canonical_for": ["feature_suggestion_pool", "post_f9_feature_menu", "future_feature_options"],
       "must_read_for": ["feature_selection", "post_f9_planning", "new_feature_brainstorming"],
-      "related_docs": ["docs/TODO.md", "docs/AI记忆/current_state.json", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/修改建议.md", "docs/游戏设计文档.md", "docs/决策记录.md"],
+      "related_docs": ["docs/TODO.md", "docs/小服务器玩法备忘.md", "docs/AI记忆/current_state.json", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/修改建议.md", "docs/游戏设计文档.md", "docs/决策记录.md"],
       "related_code": ["client/"],
       "update_triggers": ["new feature suggestion category", "post-demo planning changes", "user accepts or rejects a feature direction"],
       "keywords": ["功能建议", "功能池", "feature menu", "feature suggestion", "post F9", "新功能", "路线选择", "武器选择", "遗物", "机关", "角色选择", "音频", "Steam"]
+    },
+    {
+      "path": "docs/小服务器玩法备忘.md",
+      "type": "planning",
+      "authority": "Reference ideas for small-server asynchronous online features, hive evolution, death echoes, war-map pollution, and low-cost backend gameplay; not an accepted roadmap or implementation authorization",
+      "status": "active",
+      "owner_scope": "design-planning",
+      "last_reviewed": "2026-06-23",
+      "canonical_for": ["small_server_gameplay_ideas", "async_online_feature_reference", "hive_evolution_reference"],
+      "must_read_for": ["small_server_gameplay_planning", "async_online_feature_brainstorming", "backend_gameplay_evaluation"],
+      "related_docs": ["docs/功能建议池.md", "docs/TODO.md", "docs/AI导航.md", "docs/游戏设计文档.md", "docs/决策记录.md", "docs/代码/platform_services.md", "docs/代码/replay.md", "docs/代码/save_manager.md", "docs/AI记忆/current_state.json"],
+      "related_code": ["client/scripts/autoload/platform_services.gd", "client/scripts/autoload/replay.gd", "client/scripts/autoload/save_manager.gd", "server/"],
+      "update_triggers": ["new small-server gameplay idea", "async online feature accepted", "backend service boundary changes", "daily challenge or leaderboard planning changes"],
+      "keywords": ["小服务器", "small server", "异步在线", "async online", "每日巢穴", "daily challenge", "排行榜", "leaderboard", "死亡残响", "death echo", "幽灵路线", "ghost route", "敌巢进化", "hive evolution", "星域污染图", "war map", "pollution", "构筑孢子", "影子援军", "服务器玩法", "OnlineServices", "BackendServices"]
     },
     {
       "path": "docs/正式项目工作规划.md",
