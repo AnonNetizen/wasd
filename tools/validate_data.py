@@ -1123,6 +1123,17 @@ def _validate_map_bounds_grid_alignment(ctx: ValidationContext, path: Path, fiel
     if isinstance(height, (int, float)) and isinstance(cell_height, (int, float)):
         if not _is_nearly_grid_multiple(float(height), float(cell_height)):
             ctx.error(path, f"{field}.bounds.height", "must be an integer multiple of grid.cell_height")
+    if (
+        isinstance(width, (int, float))
+        and isinstance(height, (int, float))
+        and isinstance(cell_width, (int, float))
+        and isinstance(cell_height, (int, float))
+        and float(cell_width) > 0
+        and float(cell_height) > 0
+    ):
+        expected_height = float(width) * float(cell_height) / float(cell_width)
+        if abs(float(height) - expected_height) > 0.01:
+            ctx.error(path, f"{field}.bounds", "must match the grid-aligned diamond aspect")
 
 
 def _validate_map_point(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:

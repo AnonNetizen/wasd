@@ -49,6 +49,9 @@ var _last_scores: Dictionary = {}
 var _life_points: float = 1.0
 var _max_life: float = 1.0
 var _has_movement_bounds: bool = false
+var _has_movement_diamond_boundary: bool = false
+var _movement_boundary_center: Vector2 = Vector2.ZERO
+var _movement_boundary_half_extents: Vector2 = Vector2.ZERO
 var _movement_bounds: Rect2 = Rect2()
 var _move_speed: float = 0.0
 var _owned_tag_counts: Dictionary = {}
@@ -211,8 +214,19 @@ func set_movement_bounds(bounds: Rect2) -> void:
 	_apply_movement_bounds()
 
 
+func set_movement_diamond_boundary(center: Vector2, half_extents: Vector2) -> void:
+	_movement_boundary_center = center
+	_movement_boundary_half_extents = Vector2(maxf(half_extents.x, 1.0), maxf(half_extents.y, 1.0))
+	_has_movement_diamond_boundary = half_extents.x > 0.0 and half_extents.y > 0.0
+	_home_position = _clamp_to_movement_bounds(_home_position)
+	_apply_movement_bounds()
+
+
 func clear_movement_bounds() -> void:
 	_has_movement_bounds = false
+	_has_movement_diamond_boundary = false
+	_movement_boundary_center = Vector2.ZERO
+	_movement_boundary_half_extents = Vector2.ZERO
 	_movement_bounds = Rect2()
 
 
@@ -888,12 +902,25 @@ func _apply_movement_bounds() -> void:
 
 
 func _clamp_to_movement_bounds(world_position: Vector2) -> Vector2:
+	if _has_movement_diamond_boundary:
+		return _clamp_to_movement_diamond(world_position)
 	if not _has_movement_bounds:
 		return world_position
 	return Vector2(
 		clampf(world_position.x, _movement_bounds.position.x, _movement_bounds.end.x),
 		clampf(world_position.y, _movement_bounds.position.y, _movement_bounds.end.y)
 	)
+
+
+func _clamp_to_movement_diamond(world_position: Vector2) -> Vector2:
+	var offset: Vector2 = world_position - _movement_boundary_center
+	var normalized_distance: float = (
+		absf(offset.x) / maxf(_movement_boundary_half_extents.x, 1.0)
+		+ absf(offset.y) / maxf(_movement_boundary_half_extents.y, 1.0)
+	)
+	if normalized_distance <= 1.0 or normalized_distance <= 0.0:
+		return world_position
+	return _movement_boundary_center + offset / normalized_distance
 
 
 func _ensure_status_effect_component() -> void:

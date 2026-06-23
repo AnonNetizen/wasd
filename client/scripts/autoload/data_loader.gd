@@ -1423,6 +1423,20 @@ func _validate_map_bounds_grid_alignment(field: String, bounds_data: Variant, gr
 	if (bounds.get("height") is int or bounds.get("height") is float) and (grid.get("cell_height") is int or grid.get("cell_height") is float):
 		if not _is_nearly_grid_multiple(float(bounds.get("height")), float(grid.get("cell_height"))):
 			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.bounds.height" % field, "integer multiple of grid.cell_height") and is_valid
+	if (
+		(bounds.get("width") is int or bounds.get("width") is float)
+		and (bounds.get("height") is int or bounds.get("height") is float)
+		and (grid.get("cell_width") is int or grid.get("cell_width") is float)
+		and (grid.get("cell_height") is int or grid.get("cell_height") is float)
+	):
+		var width: float = float(bounds.get("width"))
+		var height: float = float(bounds.get("height"))
+		var cell_width: float = float(grid.get("cell_width"))
+		var cell_height: float = float(grid.get("cell_height"))
+		if cell_width > 0.0 and cell_height > 0.0:
+			var expected_height: float = width * cell_height / cell_width
+			if absf(height - expected_height) > 0.01:
+				is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.bounds" % field, "grid-aligned diamond aspect") and is_valid
 	return is_valid
 
 

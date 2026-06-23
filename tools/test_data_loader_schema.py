@@ -258,6 +258,14 @@ def main() -> int:
             ],
         ),
         (
+            "map layout bounds must match diamond grid aspect",
+            _mutate_json("client/data/map_layouts.json", _set_map_layout_bounds_height(2560.0)),
+            [
+                "client/data/map_layouts.json:layouts[0].bounds",
+                "must match the grid-aligned diamond aspect",
+            ],
+        ),
+        (
             "map layout hazard reference must exist",
             _mutate_json("client/data/map_layouts.json", _set_map_layout_pcg_hazard("hazard_missing")),
             [
@@ -790,6 +798,13 @@ def _set_map_layout_pcg_hazard(value: str) -> JsonMutator:
 def _set_map_layout_grid_cell_width(value: float) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["layouts"][0]["grid"]["cell_width"] = value
+
+    return mutate
+
+
+def _set_map_layout_bounds_height(value: float) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["layouts"][0]["bounds"]["height"] = value
 
     return mutate
 

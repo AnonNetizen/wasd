@@ -6,7 +6,7 @@
       "mode_id": "mode_standard_survival",
       "bounds": {
         "width": 3840.0,
-        "height": 2560.0
+        "height": 1920.0
       },
       "grid": {
         "cell_width": 160.0,

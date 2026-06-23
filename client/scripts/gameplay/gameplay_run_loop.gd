@@ -186,8 +186,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_map_manager.call("configure", _map_layout, _hazard_rows)
 	var map_player_start: Vector2 = _map_manager.call("player_start")
 	_player.global_position = map_player_start
-	if _player.has_method("set_movement_bounds"):
-		_player.call("set_movement_bounds", _map_manager.call("bounds"))
+	_apply_player_movement_bounds()
 	_player.connect("life_changed", Callable(self, "_on_player_life_changed"))
 	_player.connect("died", Callable(self, "_on_player_died"), CONNECT_ONE_SHOT)
 
@@ -823,8 +822,7 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> void:
 	var map_snapshot: Variant = snapshot_data.get("map", {})
 	if _map_manager != null and _map_manager.has_method("restore_snapshot") and map_snapshot is Dictionary:
 		_map_manager.call("restore_snapshot", map_snapshot as Dictionary)
-	if _player != null and _player.has_method("set_movement_bounds") and _map_manager != null and _map_manager.has_method("bounds"):
-		_player.call("set_movement_bounds", _map_manager.call("bounds"))
+	_apply_player_movement_bounds()
 
 	if _player != null and _player.has_method("restore_snapshot") and snapshot_data.get("player", {}) is Dictionary:
 		_player.call("restore_snapshot", snapshot_data.get("player", {}) as Dictionary)
@@ -972,6 +970,25 @@ func _apply_enemy_movement_bounds(enemy: Node2D) -> void:
 	if not enemy.has_method("set_movement_bounds"):
 		return
 	enemy.call("set_movement_bounds", _map_manager.call("bounds"))
+	if (
+		enemy.has_method("set_movement_diamond_boundary")
+		and _map_manager.has_method("boundary_center")
+		and _map_manager.has_method("boundary_half_extents")
+	):
+		enemy.call("set_movement_diamond_boundary", _map_manager.call("boundary_center"), _map_manager.call("boundary_half_extents"))
+
+
+func _apply_player_movement_bounds() -> void:
+	if _player == null or _map_manager == null or not _map_manager.has_method("bounds"):
+		return
+	if _player.has_method("set_movement_bounds"):
+		_player.call("set_movement_bounds", _map_manager.call("bounds"))
+	if (
+		_player.has_method("set_movement_diamond_boundary")
+		and _map_manager.has_method("boundary_center")
+		and _map_manager.has_method("boundary_half_extents")
+	):
+		_player.call("set_movement_diamond_boundary", _map_manager.call("boundary_center"), _map_manager.call("boundary_half_extents"))
 
 
 func _connect_enemy_defeated(enemy: Node, wave_key: String) -> void:

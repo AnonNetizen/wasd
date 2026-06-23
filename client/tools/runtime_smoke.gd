@@ -84,6 +84,8 @@ func _run() -> void:
 	_expect(_map_summary_has_finite_bounds(run_loop), "MapManager should expose finite map bounds")
 	_expect(_map_boundary_is_diamond(run_loop), "MapManager should expose a diamond visual boundary")
 	_expect(_map_summary_has_diamond_grid(run_loop), "MapManager should expose a positive diamond grid cell size")
+	_expect(_map_clamps_to_diamond_boundary(run_loop), "MapManager should clamp positions to the diamond logic boundary")
+	_expect(_player_clamps_to_diamond_boundary(run_loop, player), "Player should clamp to the diamond logic boundary")
 	_expect(PoolManager.active_count(POOL_IDS.HAZARD_SPIKE) > 0, "PCG map should spawn active hazards")
 	_expect(_active_hazards_are_on_grid(run_loop), "spawned hazards should align to radius-aware diamond grid anchors")
 	_expect(_map_restore_snaps_legacy_hazards(run_loop), "restored legacy hazard placements should snap to radius-aware diamond grid anchors")
@@ -277,13 +279,19 @@ func _map_boundary_is_diamond(run_loop: Node) -> bool:
 	var points: Array = raw_points as Array
 	if points.size() != 4:
 		return false
-	var bounds: Rect2 = _map_bounds(run_loop)
-	var center: Vector2 = bounds.get_center()
+	var center: Vector2 = _map_boundary_center(run_loop)
+	var half_extents: Vector2 = _map_boundary_half_extents(run_loop)
+	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
+	if half_extents.x <= 0.0 or half_extents.y <= 0.0 or grid_cell_size.x <= 0.0 or grid_cell_size.y <= 0.0:
+		return false
+	var expected_ratio: float = grid_cell_size.y / grid_cell_size.x
+	if absf((half_extents.y / half_extents.x) - expected_ratio) > 0.001:
+		return false
 	var expected_points: Array[Vector2] = [
-		Vector2(center.x, bounds.position.y),
-		Vector2(bounds.end.x, center.y),
-		Vector2(center.x, bounds.end.y),
-		Vector2(bounds.position.x, center.y),
+		center + Vector2(0.0, -half_extents.y),
+		center + Vector2(half_extents.x, 0.0),
+		center + Vector2(0.0, half_extents.y),
+		center + Vector2(-half_extents.x, 0.0),
 	]
 	for index: int in range(expected_points.size()):
 		if not points[index] is Dictionary:
@@ -292,6 +300,28 @@ func _map_boundary_is_diamond(run_loop: Node) -> bool:
 		if point.distance_to(expected_points[index]) > 0.01:
 			return false
 	return true
+
+
+func _map_clamps_to_diamond_boundary(run_loop: Node) -> bool:
+	var map_manager: Node = _find_node_by_name(run_loop, "MapManager")
+	if map_manager == null or not map_manager.has_method("clamp_position"):
+		return false
+	var bounds: Rect2 = _map_bounds(run_loop)
+	var outside_corner: Vector2 = bounds.end
+	var clamped: Vector2 = map_manager.call("clamp_position", outside_corner)
+	return clamped.distance_to(outside_corner) > 1.0 and _position_inside_map_boundary(run_loop, clamped)
+
+
+func _player_clamps_to_diamond_boundary(run_loop: Node, player: Node2D) -> bool:
+	if player == null or not player.has_method("set_movement_diamond_boundary"):
+		return false
+	var original_position: Vector2 = player.global_position
+	var bounds: Rect2 = _map_bounds(run_loop)
+	player.global_position = bounds.end
+	player.call("set_movement_diamond_boundary", _map_boundary_center(run_loop), _map_boundary_half_extents(run_loop))
+	var clamped: Vector2 = player.global_position
+	player.global_position = original_position
+	return clamped.distance_to(bounds.end) > 1.0 and _position_inside_map_boundary(run_loop, clamped)
 
 
 func _active_hazards_are_on_grid(run_loop: Node) -> bool:
@@ -335,13 +365,9 @@ func _map_restore_snaps_legacy_hazards(run_loop: Node) -> bool:
 		var position: Vector2 = _dict_to_vector(placement.get("position", {}), Vector2.ZERO)
 		var hazard_id: String = String(placement.get("hazard_id", ""))
 		var half_extents: Vector2 = grid_cell_size
-		var bounds: Rect2 = _map_bounds(run_loop)
 		snapped = (
 			_hazard_position_matches_anchor(map_manager, position, hazard_id)
-			and position.x - half_extents.x >= bounds.position.x - 0.01
-			and position.x + half_extents.x <= bounds.end.x + 0.01
-			and position.y - half_extents.y >= bounds.position.y - 0.01
-			and position.y + half_extents.y <= bounds.end.y + 0.01
+			and _position_inside_map_boundary(run_loop, position, half_extents)
 		)
 	map_manager.call("restore_snapshot", original_snapshot)
 	return snapped
@@ -355,9 +381,9 @@ func _map_normalizes_edge_hazards_to_grid(run_loop: Node) -> bool:
 	var edge_snapshot: Dictionary = original_snapshot.duplicate(true)
 	edge_snapshot["bounds"] = {
 		"x": -1920.0,
-		"y": -1240.0,
+		"y": -960.0,
 		"width": 3840.0,
-		"height": 2480.0,
+		"height": 1920.0,
 	}
 	map_manager.call("restore_snapshot", edge_snapshot)
 	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
@@ -367,10 +393,7 @@ func _map_normalizes_edge_hazards_to_grid(run_loop: Node) -> bool:
 	var half_extents: Vector2 = grid_cell_size
 	var normalized: bool = (
 		_hazard_position_matches_anchor(map_manager, position, hazard_id)
-		and position.x - half_extents.x >= bounds.position.x - 0.01
-		and position.x + half_extents.x <= bounds.end.x + 0.01
-		and position.y - half_extents.y >= bounds.position.y - 0.01
-		and position.y + half_extents.y <= bounds.end.y + 0.01
+		and _position_inside_map_boundary(run_loop, position, half_extents)
 	)
 	map_manager.call("restore_snapshot", original_snapshot)
 	return normalized
@@ -594,7 +617,7 @@ func _expect_enemy_movement_bounds(run_loop: Node, _player: Node2D) -> void:
 
 	for _index: int in range(16):
 		await get_tree().physics_frame
-	_expect(_position_inside_bounds(bounds, prey.global_position), "enemy flee movement should stay inside finite map bounds")
+	_expect(_position_inside_map_boundary(run_loop, prey.global_position), "enemy flee movement should stay inside diamond map bounds")
 	_expect(prey.global_position.x <= bounds.end.x + 0.01, "enemy movement should clamp at the map right edge")
 
 	var snapshot: Dictionary = prey.call("snapshot")
@@ -607,7 +630,7 @@ func _expect_enemy_movement_bounds(run_loop: Node, _player: Node2D) -> void:
 		"y": bounds.end.y + 240.0,
 	}
 	prey.call("restore_snapshot", snapshot)
-	_expect(_position_inside_bounds(bounds, prey.global_position), "enemy restore should clamp position inside finite map bounds")
+	_expect(_position_inside_map_boundary(run_loop, prey.global_position), "enemy restore should clamp position inside diamond map bounds")
 
 	predator.set_physics_process(true)
 	PoolManager.release(prey)
@@ -742,6 +765,28 @@ func _map_bounds(run_loop: Node) -> Rect2:
 	)
 
 
+func _map_boundary_center(run_loop: Node) -> Vector2:
+	if run_loop == null or not run_loop.has_method("debug_summary"):
+		return Vector2.ZERO
+	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
+	var raw_map_summary: Variant = summary.get("map", {})
+	if not raw_map_summary is Dictionary:
+		return Vector2.ZERO
+	var map_summary: Dictionary = raw_map_summary as Dictionary
+	return _dict_to_vector(map_summary.get("boundary_center", {}), _map_bounds(run_loop).get_center())
+
+
+func _map_boundary_half_extents(run_loop: Node) -> Vector2:
+	if run_loop == null or not run_loop.has_method("debug_summary"):
+		return Vector2.ZERO
+	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
+	var raw_map_summary: Variant = summary.get("map", {})
+	if not raw_map_summary is Dictionary:
+		return Vector2.ZERO
+	var map_summary: Dictionary = raw_map_summary as Dictionary
+	return _dict_to_vector(map_summary.get("boundary_half_extents", {}), Vector2.ZERO)
+
+
 func _position_inside_bounds(bounds: Rect2, position: Vector2) -> bool:
 	return (
 		position.x >= bounds.position.x - 0.01
@@ -749,6 +794,23 @@ func _position_inside_bounds(bounds: Rect2, position: Vector2) -> bool:
 		and position.y >= bounds.position.y - 0.01
 		and position.y <= bounds.end.y + 0.01
 	)
+
+
+func _position_inside_map_boundary(run_loop: Node, position: Vector2, inset_extents: Vector2 = Vector2.ZERO) -> bool:
+	var center: Vector2 = _map_boundary_center(run_loop)
+	var half_extents: Vector2 = _map_boundary_half_extents(run_loop)
+	if half_extents.x <= 0.0 or half_extents.y <= 0.0:
+		return false
+	var inset_ratio: float = maxf(
+		maxf(inset_extents.x, 0.0) / half_extents.x,
+		maxf(inset_extents.y, 0.0) / half_extents.y
+	)
+	var limit: float = 1.0 - inset_ratio
+	if limit < 0.0:
+		return false
+	var offset: Vector2 = position - center
+	var normalized_distance: float = absf(offset.x) / half_extents.x + absf(offset.y) / half_extents.y
+	return normalized_distance <= limit + 0.01
 
 
 func _expect_stats_panel_hold_to_show(run_loop: Node) -> void:
