@@ -61,6 +61,8 @@ func _run() -> void:
 	if player == null:
 		_finish()
 		return
+	_expect(player is CharacterBody2D, "Player should keep 2D CharacterBody2D movement")
+	_expect(_find_node_by_name(player, "Player3DVisual") != null, "Player should mount the 3D visual child")
 
 	await _expect_stats_panel_hold_to_show(run_loop)
 

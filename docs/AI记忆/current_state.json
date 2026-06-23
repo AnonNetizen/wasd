@@ -2,8 +2,8 @@
   "schema_version": 1,
   "updated_at": "2026-06-23",
   "current_phase": "formal_project_f9_content_demo_polish",
-  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；后续用户点名推进的《破巢者》IP、数据驱动 EnemyAI、可复用主动技能、英文 UI 尺寸基准、详细数值面板、有限地图 + 可人工调参 PCG / FEA-12 机关测试链路、项目版轻量 GAS 首片、状态效果 ability tag 生命周期首片、Player / Enemy 实体状态宿主接入、burn DoT 首个真实状态、点燃斩 burn 数据技能，以及敌人有限地图移动边界修复均已落地。ADR #98 已将项目类型定位改为俯视角刷宝动作生存：核心参考《星际战甲》与《暗黑》的装备 / 词条 / 长期养成和刷战利品循环，保留局内随机奖励、单局构筑和生存压力，但不再沿用旧类型定位。新增 docs/AI辅助开发机会清单.md 作为“运行时不用 LLM、只用 AI 辅助开发”的玩法 / 内容管线 / 工具机会参考菜单；它不是已采纳路线图，也不授权 AI 自行实现。当前没有阻塞，下一步应以用户最后明确指令为准。",
-  "latest_adr": 98,
+  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；后续用户点名推进的《破巢者》IP、数据驱动 EnemyAI、可复用主动技能、英文 UI 尺寸基准、详细数值面板、有限地图 + 可人工调参 PCG / FEA-12 机关测试链路、项目版轻量 GAS 首片、状态效果 ability tag 生命周期首片、Player / Enemy 实体状态宿主接入、burn DoT 首个真实状态、点燃斩 burn 数据技能、敌人有限地图移动边界修复、600.0 浮点血量 + health_regen 基线，以及 ADR #99 玩家 2.5D 视觉首片均已落地。ADR #98 已将项目类型定位改为俯视角刷宝动作生存：核心参考《星际战甲》与《暗黑》的装备 / 词条 / 长期养成和刷战利品循环，保留局内随机奖励、单局构筑和生存压力，但不再沿用旧类型定位。新增 docs/AI辅助开发机会清单.md 作为“运行时不用 LLM、只用 AI 辅助开发”的玩法 / 内容管线 / 工具机会参考菜单；它不是已采纳路线图，也不授权 AI 自行实现。当前没有阻塞，下一步应以用户最后明确指令为准。",
+  "latest_adr": 99,
   "open_decisions": [
     "A",
     "C",
@@ -11,6 +11,7 @@
     "E"
   ],
   "last_completed": [
+    "ADR #99：玩家表现先采用 2.5D 视觉层；Player 继续用 CharacterBody2D / Camera2D / 2D 碰撞和地图平面移动，Player3DVisual 用 SubViewport 渲染低模 3D 胶囊再贴回 2D 世界，runtime-smoke 覆盖 2D 玩法身体 + 3D 视觉子节点边界。",
     "玩家生命体系按 Dota2 风格从旧心数尺度改为 600.0 浮点血量：新增 health_regen 属性，默认玩家 / 初始角色为 600.0 HP + 1.5 HP/s；max_hp 升级、局外永久生命、敌人接触伤害、FEA-12 机关伤害、HUD 详细数值面板和四条 golden replay 已同步到新尺度。",
     "ADR #98：项目类型定位改为俯视角刷宝动作生存；同步 README、GDD、IP设定、术语表、AI导航、CICD规划、功能建议池、平台规则 / skills、AI知识库和 AI记忆，明确后续不要再把本项目按旧类型称呼。",
     "新增 docs/AI辅助开发机会清单.md：整理不在运行时接 LLM、只用 AI 辅助写代码 / 数据 / 工具时可参考的怪物生态、遗物协同、巢变异、死因复盘、Boss DSL、敌人行为积木、自动平衡模拟器、回放 diff、内容质量 lint 等机会；同步 AI导航、AI知识库索引、_kb_index、项目记忆和当日会话日志入口。",
@@ -39,6 +40,7 @@
     "ADR #88：项目 IP 方向为 Nestbreakers / 破巢者，详细世界观、命名和宣发包装权威为 docs/IP设定.md。"
   ],
   "next_actions": [
+    "如果继续 2.5D / 暗黑式表现，优先保持玩法判定在 2D 平面：Player / Enemy 仍走 CharacterBody2D 或 Node2D + 2D 碰撞，视觉层通过 Player3DVisual 类似的 SubViewport / Sprite2D 或后续统一视觉组件渐进替换；不要直接把地图、碰撞、刷怪和回放改成真 3D。",
     "后续设计、功能选择和文档表述应以“俯视角刷宝动作生存”为核心口径：优先围绕装备、词条、战利品、长期养成、更高危险等级和构筑迭代组织工作包；局内随机奖励服务刷宝循环，不再按旧类型路线推进。",
     "如果继续讨论“AI 写代码能力带来的新玩法 / 内容产能”，先看 docs/AI辅助开发机会清单.md；该文档只是候选菜单，用户点名 AID 条目后再建立 / 更新工作包、GDD / ADR / 模块文档并实现。",
     "如果继续地图 / PCG，优先改 client/data/map_layouts.json；地图规则看 docs/代码/map_manager.md，机关运行时看 docs/代码/hazard_system.md；玩家和敌人中心移动都应保持在 MapManager.bounds() 内。",
@@ -49,6 +51,11 @@
     "任何上下文恢复后，先对齐用户最后明确指令；本文件只提供候选方向。"
   ],
   "last_verified": [
+    {
+      "date": "2026-06-23",
+      "command": "godot-version, export-tree, lint_gdscript_rules, headless-boot, runtime-smoke",
+      "result": "passed for ADR #99 player 2.5D visual slice; export-tree sees Player3DVisual with SubViewport / Camera3D / MeshInstance3D children, runtime-smoke confirms Player remains CharacterBody2D and mounts the 3D visual child; runtime-smoke includes expected broken-run-save diagnostics while passing"
+    },
     {
       "date": "2026-06-23",
       "command": "sync_contracts --check, validate_data, test_data_loader_schema, lint_gdscript_rules, lint_project_rules, test_project_rules_lint, lint_semantic_rules, test_semantic_rules_lint, json current_state, docs_health_check, diff --check excluding draft, l1-smoke, runtime-smoke, headless-boot, save-smoke, meta-smoke, replay-smoke, replay-input-smoke, f9-demo-smoke, four checked-in golden replay captures and reruns",

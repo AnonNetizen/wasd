@@ -55,10 +55,12 @@ var _replay_action_pressed: Dictionary = {}
 var _stat_additions: Dictionary = {}
 var _stat_multipliers: Dictionary = {}
 var _status_effect_component: Node = null
+var _visual_3d: Node = null
 
 
 func _ready() -> void:
 	_ensure_status_effect_component()
+	_visual_3d = get_node_or_null("Player3DVisual")
 
 	var camera: Camera2D = get_node_or_null("CenteredCamera") as Camera2D
 	if camera == null:
@@ -67,6 +69,7 @@ func _ready() -> void:
 	camera.enabled = true
 	camera.position_smoothing_enabled = false
 	camera.make_current()
+	_sync_visual_state()
 
 
 func _input(event: InputEvent) -> void:
@@ -320,6 +323,8 @@ func receive_damage(info: RefCounted) -> Dictionary:
 
 
 func _draw() -> void:
+	if _visual_3d != null:
+		return
 	var body_color: Color = PLACEHOLDER_HURT_COLOR if _hit_flash_remaining > 0.0 else PLACEHOLDER_FILL_COLOR
 	var marker_tip: Vector2 = Vector2(FACING_MARKER_LENGTH * _facing_sign, 0.0)
 	var marker_tail: Vector2 = marker_tip - Vector2(8.0 * _facing_sign, 0.0)
@@ -336,6 +341,7 @@ func _draw() -> void:
 
 func _start_hit_flash() -> void:
 	_hit_flash_remaining = HIT_FLASH_DURATION
+	_sync_visual_state()
 	queue_redraw()
 
 
@@ -347,6 +353,7 @@ func _update_hit_flash(delta: float) -> void:
 	if _hit_flash_remaining <= 0.0:
 		return
 	_hit_flash_remaining = maxf(_hit_flash_remaining - delta, 0.0)
+	_sync_visual_state()
 	queue_redraw()
 
 
@@ -410,7 +417,17 @@ func _set_aim_direction(raw_direction: Vector2) -> void:
 	elif next_direction.x < -0.01:
 		_facing_sign = -1.0
 	if previous_direction.distance_squared_to(aim_direction) > 0.0001 or not is_equal_approx(previous_facing_sign, _facing_sign):
+		_sync_visual_state()
 		queue_redraw()
+
+
+func _sync_visual_state() -> void:
+	if _visual_3d == null:
+		return
+	if _visual_3d.has_method("set_facing_sign"):
+		_visual_3d.call("set_facing_sign", _facing_sign)
+	if _visual_3d.has_method("set_hit_flash_active"):
+		_visual_3d.call("set_hit_flash_active", _hit_flash_remaining > 0.0)
 
 
 func _set_mouse_aim_from_viewport_position(viewport_position: Vector2) -> void:
