@@ -15,6 +15,8 @@ const DRAW_RADIUS: float = 12.0
 const FACING_MARKER_LENGTH: float = 22.0
 const HIT_FLASH_DURATION: float = 0.16
 const MOUSE_AIM_MIN_DISTANCE_SQUARED: float = 16.0
+const CAMERA_OBLIQUE_ROTATION_DEGREES: float = -12.0
+const CAMERA_OBLIQUE_ZOOM: Vector2 = Vector2(1.0, 0.86)
 const PLACEHOLDER_FILL_COLOR: Color = Color(0.35, 0.72, 1.0)
 const PLACEHOLDER_HURT_COLOR: Color = Color(1.0, 0.34, 0.30)
 const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
@@ -66,9 +68,7 @@ func _ready() -> void:
 	if camera == null:
 		push_error("[Player] missing CenteredCamera scene node")
 		return
-	camera.enabled = true
-	camera.position_smoothing_enabled = false
-	camera.make_current()
+	_configure_camera(camera)
 	_sync_visual_state()
 
 
@@ -202,6 +202,8 @@ func stat_value(stat: String) -> float:
 func aim_at_world_position(world_position: Vector2) -> void:
 	var mouse_direction: Vector2 = world_position - global_position
 	if mouse_direction.length_squared() > MOUSE_AIM_MIN_DISTANCE_SQUARED:
+		_mouse_aim_active = false
+		_mouse_aim_viewport_offset = Vector2.ZERO
 		_set_aim_direction(mouse_direction)
 
 
@@ -430,10 +432,25 @@ func _sync_visual_state() -> void:
 		_visual_3d.call("set_hit_flash_active", _hit_flash_remaining > 0.0)
 
 
+func _configure_camera(camera: Camera2D) -> void:
+	camera.enabled = true
+	camera.position_smoothing_enabled = false
+	camera.ignore_rotation = false
+	camera.rotation_degrees = CAMERA_OBLIQUE_ROTATION_DEGREES
+	camera.zoom = CAMERA_OBLIQUE_ZOOM
+	camera.make_current()
+
+
 func _set_mouse_aim_from_viewport_position(viewport_position: Vector2) -> void:
-	_mouse_aim_viewport_offset = viewport_position - get_viewport_rect().size * 0.5
+	_mouse_aim_viewport_offset = viewport_position - get_viewport().get_visible_rect().size * 0.5
 	if _mouse_aim_viewport_offset.length_squared() > MOUSE_AIM_MIN_DISTANCE_SQUARED:
-		_set_aim_direction(_mouse_aim_viewport_offset)
+		_set_aim_direction(_viewport_position_to_world_direction(viewport_position))
+
+
+func _viewport_position_to_world_direction(viewport_position: Vector2) -> Vector2:
+	var screen_to_world: Transform2D = get_viewport().get_canvas_transform().affine_inverse()
+	var world_position: Vector2 = screen_to_world * viewport_position
+	return world_position - global_position
 
 
 func _apply_movement_bounds() -> void:

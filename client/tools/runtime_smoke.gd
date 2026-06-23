@@ -68,6 +68,11 @@ func _run() -> void:
 
 	var camera: Camera2D = _find_node_by_name(player, "CenteredCamera") as Camera2D
 	_expect(camera != null and camera.enabled, "CenteredCamera should be enabled")
+	if camera != null:
+		_expect(not camera.ignore_rotation, "CenteredCamera should apply its fixed oblique rotation")
+		_expect(absf(camera.rotation_degrees) > 1.0, "CenteredCamera should use a fixed oblique rotation")
+		_expect(camera.zoom.y < camera.zoom.x, "CenteredCamera should use vertical compression for 2.5D presentation")
+	await _expect_mouse_aim_uses_oblique_projection(player)
 	_expect(_find_node_by_name(run_loop, "WorldBackground") != null, "WorldBackground should provide movement reference")
 	_expect(_find_node_by_name(run_loop, "MapManager") != null, "finite MapManager should be mounted")
 	_expect(_map_summary_has_finite_bounds(run_loop), "MapManager should expose finite map bounds")
@@ -262,6 +267,28 @@ func _action_has_key(action_id: String, keycode: Key) -> bool:
 		if key_event != null and key_event.keycode == keycode:
 			return true
 	return false
+
+
+func _expect_mouse_aim_uses_oblique_projection(player: Node2D) -> void:
+	var screen_offset: Vector2 = Vector2(180.0, -90.0)
+	var viewport_position: Vector2 = get_viewport().get_visible_rect().size * 0.5 + screen_offset
+	player.call("_set_mouse_aim_from_viewport_position", viewport_position)
+
+	for _index: int in range(AIM_FRAMES):
+		await get_tree().physics_frame
+
+	var screen_to_world: Transform2D = get_viewport().get_canvas_transform().affine_inverse()
+	var expected_direction: Vector2 = ((screen_to_world * viewport_position) - player.global_position).normalized()
+	var actual_direction: Vector2 = player.get("aim_direction")
+	var aim_distance: float = actual_direction.distance_to(expected_direction)
+	_expect(
+		aim_distance < 0.02,
+		"mouse aim should respect the fixed oblique camera projection actual=%s expected=%s distance=%.4f" % [
+			actual_direction,
+			expected_direction,
+			aim_distance,
+		]
+	)
 
 
 func _pool_stat(pool_id: String, key: String) -> int:
