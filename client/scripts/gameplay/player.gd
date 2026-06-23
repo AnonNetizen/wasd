@@ -20,6 +20,7 @@ const PLACEHOLDER_HURT_COLOR: Color = Color(1.0, 0.34, 0.30)
 const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
 const PLACEHOLDER_OUTLINE_SCALE: float = 1.18
 const REPLAY_PARTICIPANT_ID: String = "player_0"
+const TEAM_PLAYER: String = "team_player"
 const REPLAY_STATE_ACTIONS: Array[String] = [
 	ACTIONS.MOVE_LEFT,
 	ACTIONS.MOVE_RIGHT,
@@ -218,6 +219,10 @@ func apply_modifiers(modifiers: Array) -> void:
 		elif modifier_type == "mult":
 			_stat_multipliers[stat] = float(_stat_multipliers.get(stat, 1.0)) * value
 	_rebuild_stats(false)
+
+
+func combat_team_id() -> String:
+	return TEAM_PLAYER
 
 
 func add_owned_tag(tag_id: String) -> bool:

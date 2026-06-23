@@ -34,7 +34,7 @@
 | `client/data/game_modes.json` | 模式资源池 `resource_pools.skills` |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 开局挂载 SkillSystem，存 / 读 run 快照，暴露 smoke 用 debug API |
 | `client/scripts/contracts/skill_ids.gd` / `skill_resources.gd` / `skill_targeting.gd` / `skill_effects.gd` / `ability_tags.gd` / `status_effects.gd` / `status_stack_rules.gd` | 由词表生成的技能 / 状态 / ability 常量 |
-| `client/tools/l1_smoke.gd` | L1 临时 runner，覆盖旋风斩 AOE、Combat 路由、魔法消耗、冷却阻断、`ability_tag_silenced` 阻断、沉默状态过期与恢复 |
+| `client/tools/l1_smoke.gd` | L1 临时 runner，覆盖旋风斩 AOE、Combat 路由、魔法消耗、冷却阻断、`ability_tag_silenced` 阻断、沉默状态过期与恢复、burn DoT |
 | `client/tools/runtime_smoke.gd` | 正式运行时 smoke，覆盖默认角色释放旋风斩并消耗资源 |
 
 ## 运行流程
@@ -47,7 +47,7 @@
 | 释放判定 | 依次校验技能存在、施法者有效、冷却、activation required / blocked tags、资源是否足够、目标是否存在 | `cast_skill(skill_id)` |
 | 资源与冷却 | 命中释放前不消耗资源；找到目标后先扣成本，授予激活期临时 tags，应用效果，移除临时 tags，最后写入冷却 | `_pay_costs()`、`_add_transient_tags()`、`_cooldowns` |
 | 目标筛选 | `aoe_enemies_around_caster` 选择施法者半径内 `active_enemies`，按距离和 instance id 稳定排序；`target_enemy` 取最近敌人；`target_ally` 当前返回施法者 | `_targets_for_skill()` |
-| 效果解释 | `skill_effect_damage` 为每个目标创建 `DamageInfo` 并交给 Combat；`skill_effect_apply_status` 构造 `StatusEffect` 并交给目标实体的 `apply_status_effect()`，当前可授予 `ability_tag_silenced` | `_apply_damage_effect()`、`_apply_status_effect()` |
+| 效果解释 | `skill_effect_damage` 为每个目标创建 `DamageInfo` 并交给 Combat；`skill_effect_apply_status` 构造 `StatusEffect` 并交给目标实体的 `apply_status_effect()`，当前可授予 `ability_tag_silenced` 或施加 burn DoT | `_apply_damage_effect()`、`_apply_status_effect()` |
 | 状态 tick | SkillSystem 自带 `StatusEffectComponent` 处理释放者自身状态；Player / Enemy 目标由各自状态组件在 `PLAYING` 下随 `GameClock` 过期并释放状态授予的 tags | `apply_status_effect()`、`Player.apply_status_effect()`、`Enemy.apply_status_effect()`、`StatusEffectComponent._physics_process()` |
 | 快照恢复 | run payload 保存 `cooldowns`、`resources.current`、owned ability tag 计数与状态效果快照，续局后只恢复已配置资源、技能、状态和已登记 tag 的合法字段 | `snapshot()`、`restore_snapshot()` |
 
@@ -80,7 +80,7 @@
 - 目标类型来自 §12-E：`aoe_enemies_around_caster`、`target_enemy`、`target_ally`。
 - 状态效果来自 §9-A，状态叠加规则来自 §9-B；当前 `silence` 可通过 `StatusEffectComponent` 授予 `ability_tag_silenced`。
 - 效果原语来自 §12-F，当前运行时效果包含 `skill_effect_damage` 与 `skill_effect_apply_status`。
-- `skill_effect_apply_status.params` 必须包含：`status`、`duration`、`stack_rule`、`granted_ability_tags`；可选 `magnitude` 与 `tick_interval` 预留给后续 DoT / modifier。
+- `skill_effect_apply_status.params` 必须包含：`status`、`duration`、`stack_rule`、`granted_ability_tags`；可选 `magnitude`、`tick_interval` 与 `damage_type` 用于 DoT。`magnitude` 是单 tick 伤害，`tick_interval` 是 tick 间隔；两者都为正时必须提供已登记 `damage_type`。
 - Ability tag 来自 §12-G：当前 `ability_tag_skill` / `ability_tag_primary` / `ability_tag_damage` 标记旋风斩语义，`ability_tag_silenced` 可阻断释放，`ability_tag_activating` 在激活 / commit 期间临时授予。
 - `activation.required_tags` 全部满足才可释放；`activation.blocked_tags` 命中任一 owned tag 时返回 `blocked_by_tag`；`activation.granted_tags` 是即时激活期临时 tag，效果解释完成后移除。
 - 玩家可见技能名 / 描述使用 `skill_*` locale key，译文在 `client/locale/strings.csv`。
@@ -100,6 +100,7 @@
 - 加新资源：先登记 `skill_resources`，角色在 `skill_resources` 中声明上限、初始值和回复；技能 `costs` 引用资源 id。
 - 加新 ability tag：先登记词表 §12-G，跑 `tools/sync_contracts.py`，再在 `skills.json.activation`、StatusEffect 或未来遗物 / 主动道具中引用；不要把运行时状态塞进 content tag。
 - 加沉默 / 姿态 / 解锁条件：优先用 owned ability tags 表达 required / blocked 关系；持续型来源通过 `skill_effect_apply_status` 注入到目标实体的 `StatusEffectComponent`，由 Player / Enemy / SkillSystem 自身授予和移除 tag。
+- 加 burn / poison 等 DoT：仍使用 `skill_effect_apply_status`，传入 `status`、`duration`、`stack_rule`、空或需要的 `granted_ability_tags`、`magnitude`、`tick_interval` 和 `damage_type`；tick 伤害由状态组件走 `Combat.apply_damage()`，不要在 SkillSystem 里按 status id 写分支。
 - 主动道具复用技能：主动道具数据后续应引用 skill id 或 release-skill effect，让道具只管充能 / 栏位 / 触发来源，不复制目标筛选和效果解释。
 - 扩展 run 快照：新增资源状态或技能状态时保证 JSON 友好，更新 `GameplayRunLoop`、SaveManager 文档和 smoke。
 
@@ -112,6 +113,7 @@
 | 加新技能资源 | `docs/词表与契约.md`、`characters.json`、`skills.json` | 词表、数据手册、测试策略 | `sync_contracts.py` + `validate_data.py` + L1 smoke |
 | 加新 ability tag / activation 条件 | `docs/词表与契约.md`、`skills.json`、`skill_system.gd` | 词表、数据手册、本文档、GDD / ADR | `sync_contracts.py` + `validate_data.py` + `test_data_loader_schema.py` + L1 smoke |
 | 加状态技能效果 | `docs/词表与契约.md` §9-A~§9-B / §12-F、`skills.json`、`status_effect_component.gd`、`skill_system.gd`、目标实体状态 API | 状态组件文档、数据手册、GDD、测试策略 | `sync_contracts.py` + `validate_data.py` + schema test + `l1-smoke` + `save-smoke` |
+| 加 DoT 参数 | `skills.json.effects[].params`、DataLoader schema、`status_effect_component.gd` | 数据手册、Combat、状态组件文档 | schema test + `l1-smoke`；影响默认技能时追加 golden replay |
 | 加新 targeting / effect primitive | `docs/词表与契约.md`、`skill_system.gd`、`tools/validate_data.py` | GDD、ADR 或模块文档、测试策略 | `l1-smoke` + `runtime-smoke`，影响整局时评估 golden |
 | 改技能快照恢复 | `skill_system.gd`、`gameplay_run_loop.gd` | 本文档、Gameplay Runtime、SaveManager 文档 | `save-smoke` + `runtime-smoke` |
 
@@ -126,6 +128,7 @@
 | 返回 `no_targets` | 目标是否在 `active_enemies` 组；是否位于 `active_parent` 下；半径是否足够；目标 `is_alive()` 是否返回 true |
 | 伤害没生效 | effect 是否为 `skill_effect_damage`；`damage_type` 是否登记；目标是否实现 `receive_damage()` 并由 `Combat.apply_damage()` 结算 |
 | 状态没生效 / 返回 `status_target_unavailable` | effect 是否为 `skill_effect_apply_status`；目标是否是施法者、Player、Enemy 或其他实现 `apply_status_effect()` 的状态宿主；状态 id / stack rule / ability tag 是否登记 |
+| burn 不造成 tick 伤害 | `skill_effect_apply_status.params` 是否包含 `damage_type`、正 `magnitude`、正 `tick_interval`；目标是否实现 `receive_damage()`；状态组件 smoke 是否通过 |
 | 沉默过期后仍阻断释放 | `StatusEffectComponent` 是否在树内且处于 `PLAYING` tick；是否有其他来源仍持有同一个 owned tag 计数 |
 | 暂停时冷却 / 魔法还在动 | `GameState` 是否仍是 `PLAYING`；是否绕过 `GameClock.delta_scaled()` |
 | 续局后资源 / 状态异常 | run payload `skills.resources` / `skills.status_effects` 是否存在；`restore_snapshot()` 是否在 `configure()` 后调用；`owned_tag_counts` 是否与状态恢复避免双计数 |
@@ -136,7 +139,7 @@
 - 技能运行时改动必跑：`python tools/lint_gdscript_rules.py`、`python tools/godot_bridge.py --project client l1-smoke`、`python tools/godot_bridge.py --project client runtime-smoke`、`python tools/godot_bridge.py --project client headless-boot`。
 - 改 DataLoader schema 时追加 `python tools/test_data_loader_schema.py`。
 - 改 run 快照或恢复路径时追加 `python tools/godot_bridge.py --project client save-smoke`。
-- 改 `skill_effect_apply_status`、状态叠加或 ability tag 状态来源时，确保 L1 覆盖真实目标实体施加、阻断、快照恢复、对象池复用清理和过期释放。
+- 改 `skill_effect_apply_status`、状态叠加或 ability tag 状态来源时，确保 L1 覆盖真实目标实体施加、阻断、DoT tick、快照恢复、对象池复用清理和过期释放。
 - 改确定性输入 / 回放语义时追加 `python tools/godot_bridge.py --project client replay-input-smoke`，并按 `docs/测试策略.md` 判断是否需要 golden replay。
 
 ## 迁移 / 兼容

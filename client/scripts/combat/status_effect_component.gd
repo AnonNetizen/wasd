@@ -8,7 +8,12 @@ signal effect_applied(status_id: String, snapshot: Dictionary)
 signal effect_expired(status_id: String, snapshot: Dictionary)
 
 const STATUS_EFFECT_SCRIPT := preload("res://scripts/combat/status_effect.gd")
+const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const STATUS_STACK_RULES := preload("res://scripts/contracts/status_stack_rules.gd")
+
+const DOT_DAMAGE_FLAG: String = "is_dot"
+const TEAM_ENEMY: String = "team_enemy"
+const TEAM_PLAYER: String = "team_player"
 
 var _ability_tag_owner: Node = null
 var _active_effects: Dictionary = {}
@@ -117,12 +122,52 @@ func _tick_effects(delta: float) -> void:
 	var expired_keys: Array[String] = []
 	for effect_key: Variant in _active_effects.keys():
 		var effect: Variant = _active_effects[effect_key]
-		var next_remaining: float = maxf(float(effect.get("remaining")) - delta, 0.0)
+		var elapsed: float = minf(delta, float(effect.get("remaining")))
+		_tick_damage(effect, elapsed)
+		var next_remaining: float = maxf(float(effect.get("remaining")) - elapsed, 0.0)
 		effect.set("remaining", next_remaining)
 		if next_remaining <= 0.0:
 			expired_keys.append(String(effect_key))
 	for effect_key: String in expired_keys:
 		_expire_effect(effect_key)
+
+
+func _tick_damage(effect: Variant, elapsed: float) -> void:
+	var tick_interval: float = float(effect.get("tick_interval"))
+	var damage_amount: float = float(effect.get("magnitude"))
+	var damage_type: String = String(effect.get("damage_type"))
+	if elapsed <= 0.0 or tick_interval <= 0.0 or damage_amount <= 0.0 or damage_type.is_empty():
+		return
+
+	var tick_remaining: float = float(effect.get("tick_remaining"))
+	if tick_remaining <= 0.0:
+		tick_remaining = tick_interval
+	tick_remaining -= elapsed
+	while tick_remaining <= 0.0:
+		_apply_tick_damage(effect, damage_amount, damage_type)
+		tick_remaining += tick_interval
+	effect.set("tick_remaining", tick_remaining)
+
+
+func _apply_tick_damage(effect: Variant, damage_amount: float, damage_type: String) -> void:
+	if _ability_tag_owner == null or not is_instance_valid(_ability_tag_owner):
+		return
+	if not _ability_tag_owner.has_method("receive_damage"):
+		return
+
+	var source_node: Node = _effect_source(effect)
+	var source_team: String = String(effect.get("source_team"))
+	var target_team: String = String(effect.get("target_team"))
+	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		damage_amount,
+		damage_type,
+		source_node,
+		_ability_tag_owner,
+		source_team,
+		target_team,
+		PackedStringArray([DOT_DAMAGE_FLAG])
+	)
+	Combat.apply_damage(_ability_tag_owner, info)
 
 
 func _merge_effect(effect_key: String, incoming: Variant) -> void:
@@ -154,6 +199,7 @@ func _merge_effect(effect_key: String, incoming: Variant) -> void:
 
 func _set_effect(effect_key: String, effect: Variant, grant_tags: bool) -> void:
 	effect.set("instance_key", effect_key)
+	_update_effect_damage_context(effect)
 	_active_effects[effect_key] = effect
 	_register_effect_tags(effect_key, _string_array(effect.get("granted_ability_tags")), grant_tags)
 
@@ -190,6 +236,32 @@ func _call_tag_owner(method_name: String, tag_id: String) -> void:
 		return
 	if _ability_tag_owner.has_method(method_name):
 		_ability_tag_owner.call(method_name, tag_id)
+
+
+func _update_effect_damage_context(effect: Variant) -> void:
+	if String(effect.get("target_team")).is_empty():
+		effect.set("target_team", _team_id_for(_ability_tag_owner))
+	if String(effect.get("source_team")).is_empty():
+		effect.set("source_team", _team_id_for(_effect_source(effect)))
+
+
+func _effect_source(effect: Variant) -> Node:
+	var raw_source: Variant = effect.get("source")
+	if raw_source is Node and is_instance_valid(raw_source):
+		return raw_source as Node
+	return null
+
+
+func _team_id_for(node: Node) -> String:
+	if node == null or not is_instance_valid(node):
+		return ""
+	if node.has_method("combat_team_id"):
+		return String(node.call("combat_team_id"))
+	if node.is_in_group("active_enemies"):
+		return TEAM_ENEMY
+	if node.has_method("current_life") and node.has_method("max_life"):
+		return TEAM_PLAYER
+	return ""
 
 
 func _effect_key_for(effect: Variant) -> String:

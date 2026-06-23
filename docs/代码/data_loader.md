@@ -92,7 +92,7 @@
   - `player.json`：`schema_version`、`base_stats`，stat id 必须来自词表，数值范围按 stat 类型校验。
   - `characters.json`：角色 id、名称 / 描述 key、默认解锁、tags、capabilities、控制配置、起始携带引用和角色基础属性；起始武器、主动道具和消耗品引用必须存在于对应数据文件。
   - `weapons.json`：武器 id、名称 / 描述 key、默认解锁、开火模式、开火音频 id、武器基础属性、子弹对象池、伤害类型和弹体数值。
-  - `skills.json`：技能 id、名称 / 描述 key、`tag_skill`、ability tags、activation required / blocked / granted tags、冷却、资源消耗、目标类型和效果原语；技能 id、资源、targeting、effect 和 ability tag 必须来自词表 §12-C~12-G，`skill_effect_damage` 的伤害类型交给 `Combat` 词表校验，`skill_effect_apply_status` 的 status / stack_rule / granted ability tags 必须来自词表 §9-A / §9-B / §12-G。
+  - `skills.json`：技能 id、名称 / 描述 key、`tag_skill`、ability tags、activation required / blocked / granted tags、冷却、资源消耗、目标类型和效果原语；技能 id、资源、targeting、effect 和 ability tag 必须来自词表 §12-C~12-G，`skill_effect_damage` 的伤害类型交给 `Combat` 词表校验，`skill_effect_apply_status` 的 status / stack_rule / granted ability tags 必须来自词表 §9-A / §9-B / §12-G；当状态效果同时声明正 `magnitude` 与正 `tick_interval` 时，还必须声明已登记 `damage_type`。
   - `enemy_ai_profiles.json`：profile id、感知半径、决策间隔、接触冷却、玩家 / 生态 tag 目标权重、领地参数、动作参数和 action id；action 必须来自词表 §12-B，生态 tag 必须来自 content tags。
   - `enemies.csv`：敌人 id、名称 key、`tag_enemy`、生态 tags、对象池 id、AI profile 引用、生命、移速、接触伤害、接触伤害类型、经验奖励和命中半径；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
   - `hazards.csv`：机关 id、名称 key、`tag_hazard`、对象池 id、伤害、伤害类型、触发间隔、范围和持续时间。

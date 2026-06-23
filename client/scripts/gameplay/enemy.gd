@@ -163,6 +163,10 @@ func was_defeated_by_player() -> bool:
 	return _last_damage_source_team == TEAM_PLAYER
 
 
+func combat_team_id() -> String:
+	return TEAM_ENEMY
+
+
 func add_owned_tag(tag_id: String) -> bool:
 	return _add_owned_tag_count(tag_id)
 

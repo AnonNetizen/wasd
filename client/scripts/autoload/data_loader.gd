@@ -933,7 +933,21 @@ func _validate_skill_effects(field: String, data: Variant) -> bool:
 				is_valid = _require_number(SKILLS_PATH, "%s.params.magnitude" % effect_field, status_params.get("magnitude")) and is_valid
 			if status_params.has("tick_interval"):
 				is_valid = _require_number(SKILLS_PATH, "%s.params.tick_interval" % effect_field, status_params.get("tick_interval"), 0.0) and is_valid
+			if status_params.has("damage_type"):
+				is_valid = _require_registered(SKILLS_PATH, "%s.params.damage_type" % effect_field, status_params.get("damage_type"), "damage_types") != "" and is_valid
+			elif _status_params_has_damage_tick(status_params):
+				is_valid = _schema_fail(SKILLS_PATH, "%s.params.damage_type" % effect_field, "registered damage_type when magnitude and tick_interval are positive") and is_valid
 	return is_valid
+
+
+func _status_params_has_damage_tick(status_params: Dictionary) -> bool:
+	var magnitude_value: Variant = status_params.get("magnitude", 0.0)
+	var tick_interval_value: Variant = status_params.get("tick_interval", 0.0)
+	if not (magnitude_value is int or magnitude_value is float):
+		return false
+	if not (tick_interval_value is int or tick_interval_value is float):
+		return false
+	return float(magnitude_value) > 0.0 and float(tick_interval_value) > 0.0
 
 
 func _validate_consumables_json(locale_keys: Dictionary) -> bool:

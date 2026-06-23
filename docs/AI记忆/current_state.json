@@ -2,8 +2,8 @@
   "schema_version": 1,
   "updated_at": "2026-06-23",
   "current_phase": "formal_project_f9_content_demo_polish",
-  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；后续用户点名推进的《破巢者》IP、数据驱动 EnemyAI、可复用主动技能、英文 UI 尺寸基准、详细数值面板、有限地图 + 可人工调参 PCG / FEA-12 机关测试链路、项目版轻量 GAS 首片、状态效果 ability tag 生命周期首片，以及 Player / Enemy 实体状态宿主接入均已落地。当前没有阻塞，下一步应以用户最后明确指令为准。",
-  "latest_adr": 96,
+  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；后续用户点名推进的《破巢者》IP、数据驱动 EnemyAI、可复用主动技能、英文 UI 尺寸基准、详细数值面板、有限地图 + 可人工调参 PCG / FEA-12 机关测试链路、项目版轻量 GAS 首片、状态效果 ability tag 生命周期首片、Player / Enemy 实体状态宿主接入，以及 burn DoT 首个真实状态均已落地。当前没有阻塞，下一步应以用户最后明确指令为准。",
+  "latest_adr": 97,
   "open_decisions": [
     "A",
     "C",
@@ -11,6 +11,8 @@
     "E"
   ],
   "last_completed": [
+    "ADR #97：burn 作为首个真实 DoT 状态落地；StatusEffect 保存 damage_type、tick_remaining 与队伍归因，StatusEffectComponent 在 PLAYING 下按 GameClock tick，并通过 Combat.apply_damage 结算 fire + is_dot 伤害。",
+    "L1 smoke 覆盖技能向真实 Enemy 施加 burn、DoT 经 Combat.damage_applied 输出 fire / is_dot、暂停冻结、快照恢复 tick_remaining / source_team / target_team，并在恢复后继续 tick 至过期。",
     "ADR #96：Player 与 Enemy 正式接入 StatusEffectComponent；实体暴露 apply_status_effect() 与 owned ability tag 查询，run 快照保存状态效果与状态授予 tag。",
     "Enemy 在 configure() / _pool_release() / _pool_reset() 清理状态，避免对象池复用泄漏；L1 smoke 覆盖真实 Enemy 状态目标、Player / Enemy 快照恢复、过期释放和复用清理。",
     "ADR #95：状态效果首片接入项目版轻量 GAS；新增 StatusEffect Resource / StatusEffectComponent，skill_effect_apply_status 可施加 silence 并授予 ability_tag_silenced，状态按 GameClock 过期并进入 SkillSystem run 快照。",
@@ -33,11 +35,16 @@
     "如果继续地图 / PCG，优先改 client/data/map_layouts.json；地图规则看 docs/代码/map_manager.md，机关运行时看 docs/代码/hazard_system.md。",
     "如果继续机关内容，优先改 client/data/hazards.csv、game_modes.resource_pools.hazards 和 map_layouts.json；普通范围机关复用通用 Hazard，新增行为先设计 primitive。",
     "如果继续技能 / 轻量 GAS，优先改 client/data/skills.json、characters.json.skill_resources / starting_loadout.skill_ids 和 game_modes.resource_pools.skills；新资源、目标类型、效果或 ability tag 先登记 docs/词表与契约.md §12-C~12-G。",
-    "如果继续状态效果，先看 docs/代码/status_effect_component.md；新状态登记 docs/词表与契约.md §9-A，新叠加规则登记 §9-B，通过 skill_effect_apply_status 或后续 on-hit primitive 注入目标实体的 StatusEffectComponent。",
+    "如果继续状态效果，先看 docs/代码/status_effect_component.md；新状态登记 docs/词表与契约.md §9-A，新叠加规则登记 §9-B；DoT 状态通过 skill_effect_apply_status 提供 damage_type / magnitude / tick_interval，或后续 on-hit primitive 注入目标实体的 StatusEffectComponent。",
     "如果继续怪物生态，优先改 client/data/enemy_ai_profiles.json 与 enemies.csv.tags / ai_profile_id，再跑 validate_data、runtime-smoke 和必要的 golden replay。",
     "任何上下文恢复后，先对齐用户最后明确指令；本文件只提供候选方向。"
   ],
   "last_verified": [
+    {
+      "date": "2026-06-23",
+      "command": "pre-commit run --all-files; sync_contracts --check, validate_data, test_data_loader_schema, lint_gdscript_rules, lint_project_rules, test_project_rules_lint, lint_semantic_rules, test_semantic_rules_lint, json _kb_index/current_state, docs_health_check, diff --check excluding draft, l1-smoke, runtime-smoke, save-smoke, headless-boot, replay-smoke, replay-input-smoke, four checked-in golden replay reruns",
+      "result": "passed for ADR #97 burn DoT status slice; l1-smoke covers real Player applying burn to Enemy, fire + is_dot Combat damage, pause freeze, snapshot restore of tick_remaining/source_team/target_team and expiry; semantic lint exits 0 with reviewed existing dynamic UI/node advisories plus internal StatusEffectComponent add_child advisories; runtime-smoke/save-smoke include expected broken-save diagnostics while passing; golden replays did not need recapture because default skills.json behavior was unchanged"
+    },
     {
       "date": "2026-06-23",
       "command": "pre-commit run --all-files; sync_contracts --check, validate_data, test_data_loader_schema, lint_gdscript_rules, lint_project_rules, test_project_rules_lint, lint_semantic_rules, test_semantic_rules_lint, json _kb_index/current_state, docs_health_check, diff --check excluding draft, l1-smoke, runtime-smoke, save-smoke, headless-boot, replay-smoke, replay-input-smoke, four checked-in golden replay reruns",

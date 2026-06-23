@@ -157,7 +157,7 @@ JSON 示例：
   "id": "relic_split_burn",
   "behaviors": [
     { "event": "on_hit", "effect": "split", "params": { "count": 2, "angle": 20.0 } },
-    { "event": "on_hit", "effect": "ignite", "params": { "duration": 3.0, "dps": 5.0 } }
+    { "event": "on_hit", "effect": "ignite", "params": { "damage_type": "fire", "magnitude": 2.0, "tick_interval": 0.5, "duration": 3.0 } }
   ]
 }
 ```
@@ -825,15 +825,15 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `skills[].effects[].effect` | string | 词表 §12-F skill effect id | 技能效果原语 |
 | `skills[].effects[].params` | object | 由 effect 解释 | 技能效果参数 |
 | `skills[].effects[].params.amount` | number | `> 0` | `skill_effect_damage` 的伤害量 |
-| `skills[].effects[].params.damage_type` | string | 词表 §9 damage type | `skill_effect_damage` 的伤害类型，结算走 `Combat.apply_damage` |
+| `skills[].effects[].params.damage_type` | string | 词表 §9 damage type | `skill_effect_damage` 的伤害类型；`skill_effect_apply_status` 做 DoT 时也必须填写，例如 burn 使用 `fire`；结算走 `Combat.apply_damage` |
 | `skills[].effects[].params.status` | string | 词表 §9-A status effect id | `skill_effect_apply_status` 施加的状态 id |
 | `skills[].effects[].params.duration` | number | 秒，`> 0` | `skill_effect_apply_status` 的持续时间，过期走 `GameClock` |
 | `skills[].effects[].params.stack_rule` | string | 词表 §9-B status stack rule | 状态重复施加时的叠加 / 刷新规则 |
 | `skills[].effects[].params.granted_ability_tags` | array[string] | 词表 §12-G ability tag，可为空 | 状态存在期间授予目标的 ability tags；当前沉默使用 `ability_tag_silenced` |
-| `skills[].effects[].params.magnitude` | number | 可选 | 预留给 DoT、减速、增伤标记等强度 |
-| `skills[].effects[].params.tick_interval` | number | 可选，`>= 0` | 预留给 DoT tick；当前沉默首片不使用 |
+| `skills[].effects[].params.magnitude` | number | 可选 | 状态强度；DoT 中表示单 tick 伤害，减速 / 增伤标记后续可复用 |
+| `skills[].effects[].params.tick_interval` | number | 可选，`>= 0` | DoT tick 间隔；与正 `magnitude` 同时出现时必须提供已登记 `damage_type` |
 
-`skills.json` 是技能本体数据；技能不绑定英雄。当前 `SkillSystem` 采用项目版轻量 GAS 语义解释起始技能的 tag gating、冷却、资源消耗、AOE 敌人目标选择、`skill_effect_damage` 和 `skill_effect_apply_status`：伤害通过 `Combat.apply_damage` 结算，状态通过 `StatusEffectComponent` 管理叠加、过期和 ability tag 生命周期。后续若主动道具、敌人或遗物要释放同一个技能，应引用 skill id，而不是复制技能字段或按英雄 / 道具 id 写分支。
+`skills.json` 是技能本体数据；技能不绑定英雄。当前 `SkillSystem` 采用项目版轻量 GAS 语义解释起始技能的 tag gating、冷却、资源消耗、AOE 敌人目标选择、`skill_effect_damage` 和 `skill_effect_apply_status`：伤害通过 `Combat.apply_damage` 结算，状态通过 `StatusEffectComponent` 管理叠加、过期、ability tag 生命周期和 burn DoT tick。后续若主动道具、敌人或遗物要释放同一个技能，应引用 skill id，而不是复制技能字段或按英雄 / 道具 id 写分支。
 
 ## `consumables.json`
 

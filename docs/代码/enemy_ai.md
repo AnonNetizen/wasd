@@ -45,7 +45,7 @@
 | 选择 | 每个 action 由 `_action_candidate()` 得分；最高分成为 `_current_action` 和 `_focus_target` | 当前 action 包括接近、逃离、环绕、冲锋、守家 |
 | 执行 | 无阶段动作直接 Steering 移动；冲锋进入 `charge_windup` / `charge_release` FSM | 冲锋结束后进入 cooldown，避免连续锁死 |
 | 接触 | 根据当前 action 选择可接触目标；逃跑和无目标守家不造成接触伤害 | 玩家 / 敌人都通过 `Combat.apply_damage()` |
-| 状态 | `skill_effect_apply_status` 或未来 on-hit primitive 可向 Enemy 施加 `StatusEffect`；组件在 `PLAYING` 下按 `GameClock` 过期并释放授予的 ability tags | 状态生命周期与 AI profile 分离 |
+| 状态 | `skill_effect_apply_status` 或未来 on-hit primitive 可向 Enemy 施加 `StatusEffect`；组件在 `PLAYING` 下按 `GameClock` 过期，释放授予的 ability tags，并让 burn 等 DoT tick 走 `Combat` | 状态生命周期与 AI profile 分离 |
 | 死亡 | `Enemy.receive_damage()` 记录最后伤害来源队伍；`GameplayRunLoop._on_enemy_defeated()` 只把玩家击杀计入 kills / XP | 怪物生态可以互相击杀但不刷玩家收益 |
 | 保存 | run 快照保存敌人 id、位置、生命、home、当前 action、FSM、冲锋 cooldown、最后伤害来源队伍、owned ability tag 计数和状态效果剩余时间 | 恢复后重新 `configure()` 再 `restore_snapshot()` |
 
@@ -89,6 +89,7 @@
 | `content_tags()` | 无 | `Array[String]` | 供其他敌人感知生态关系 |
 | `ai_debug_summary()` | 无 | `Dictionary` | smoke / 调试读取 profile、动作、状态、目标和上次评分 |
 | `was_defeated_by_player()` | 无 | `bool` | GameplayRunLoop 判断是否发放 kills / XP |
+| `combat_team_id()` | 无 | String | 返回敌人队伍 id，供 DoT 等延迟伤害保存归因 |
 | `apply_status_effect(status_effect)` / `active_statuses()` | `StatusEffect` 兼容对象 / 无 | Dictionary / `Array[String]` | 通过 `StatusEffectComponent` 承载敌人实体状态 |
 | `add_owned_tag(tag_id)` / `remove_owned_tag(tag_id)` / `has_owned_tag(tag_id)` / `owned_tags()` | ability tag id | bool / `Array[String]` | 只接受词表 §12-G 已登记 tag；供状态授予 / 移除和调试查询 |
 | `snapshot()` / `restore_snapshot(data)` | 无 / Dictionary | Dictionary / void | run 存档恢复；保存 AI 状态、owned tag 计数和状态效果 |
@@ -105,7 +106,7 @@
 - 新敌人：先决定是否复用现有 profile；能复用就只改 `enemies.csv`、`game_modes.json`、`spawn_waves.csv` 和 locale。
 - 新生态关系：优先加 / 复用 `content_tags`，再调 `hunt_tags` / `flee_tags` 权重。
 - 新动作：先在词表 §12-B 登记 action id 并生成常量，再实现评分、执行、必要的快照字段和 smoke。
-- 新持续状态：优先通过 `StatusEffectComponent` 和 ability tag 表达，不在 AI action 里手写计时；需要影响移动 / 伤害时后续接 ModifierEngine 或 on-hit primitive。
+- 新持续状态：优先通过 `StatusEffectComponent` 和 ability tag / DoT 参数表达，不在 AI action 里手写计时；需要影响移动 / 伤害时后续接 ModifierEngine 或 on-hit primitive。
 - 新复杂 AI 状态：只把可恢复、JSON 友好的状态写入 snapshot；节点引用、临时感知缓存和 cooldown 字典不进存档。
 - 后续如引入导航 / 地形感知，先把环境查询抽成小接口或感知层数据，不把地图规则散落到每个 action。
 

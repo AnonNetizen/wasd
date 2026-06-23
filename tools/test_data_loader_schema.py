@@ -394,6 +394,22 @@ def main() -> int:
             ],
         ),
         (
+            "skill apply status damage type must be registered",
+            _mutate_json("client/data/skills.json", _set_skill_apply_status_param("damage_type", "arcane")),
+            [
+                "client/data/skills.json:skills[0].effects[0].params.damage_type",
+                "unknown id arcane; expected one of damage_types",
+            ],
+        ),
+        (
+            "skill apply status dot requires damage type",
+            _mutate_json("client/data/skills.json", _set_skill_apply_status_dot_without_damage_type),
+            [
+                "client/data/skills.json:skills[0].effects[0].params.damage_type",
+                "is required when magnitude and tick_interval are positive",
+            ],
+        ),
+        (
             "skill damage type must be registered",
             _mutate_json("client/data/skills.json", _set_skill_damage_type("arcane")),
             [
@@ -864,6 +880,15 @@ def _set_skill_apply_status_granted_tag(value: str) -> JsonMutator:
         payload["skills"][0]["effects"][0]["params"]["granted_ability_tags"][0] = value
 
     return mutate
+
+
+def _set_skill_apply_status_dot_without_damage_type(payload: dict[str, Any]) -> None:
+    payload["skills"][0]["effects"][0] = _apply_status_effect_payload()
+    params = payload["skills"][0]["effects"][0]["params"]
+    params["status"] = "burn"
+    params["magnitude"] = 2.0
+    params["tick_interval"] = 0.5
+    params.pop("damage_type", None)
 
 
 def _apply_status_effect_payload() -> dict[str, Any]:

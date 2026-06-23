@@ -729,7 +729,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/gameplay_runtime.md", "docs/代码/status_effect_component.md"],
       "related_code": ["client/scripts/combat/combat.gd", "client/scripts/combat/damage_info.gd", "client/scripts/contracts/damage_types.gd", "client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd"],
       "update_triggers": ["Combat API changes", "DamageInfo field changes", "damage type contract changes", "damage result schema changes"],
-      "keywords": ["Combat", "DamageInfo", "damage", "伤害", "apply_damage", "damage_types", "StatusEffect", "StatusEffectComponent", "F4"]
+      "keywords": ["Combat", "DamageInfo", "damage", "伤害", "apply_damage", "damage_types", "StatusEffect", "StatusEffectComponent", "burn", "DoT", "is_dot", "F4"]
     },
     {
       "path": "docs/代码/gameplay_runtime.md",
@@ -757,21 +757,21 @@
       "related_docs": ["docs/代码/gameplay_runtime.md", "docs/代码/data_loader.md", "docs/代码/combat.md", "docs/代码/status_effect_component.md", "client/data/README.md", "client/locale/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/skills.json", "client/data/characters.json", "client/data/game_modes.json", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "client/tools/l1_smoke.gd", "client/tools/runtime_smoke.gd"],
       "update_triggers": ["SkillSystem API changes", "skills.json schema changes", "ability tag contract changes", "activation tag gating changes", "status effect contract changes", "skill resource contract changes", "skill targeting contract changes", "skill effect primitive changes", "skill run snapshot changes"],
-      "keywords": ["SkillSystem", "GAS", "lightweight GAS", "ability_tags", "ability_tag_silenced", "activation", "blocked_tags", "required_tags", "granted_tags", "skills.json", "skill", "技能", "主动技能", "skill_whirlwind_slash", "Whirlwind Slash", "旋风斩", "mana", "魔法", "skill_resources", "aoe_enemies_around_caster", "target_enemy", "target_ally", "skill_effect_damage", "skill_effect_apply_status", "StatusEffect", "StatusEffectComponent", "silence", "沉默", "Combat"]
+      "keywords": ["SkillSystem", "GAS", "lightweight GAS", "ability_tags", "ability_tag_silenced", "activation", "blocked_tags", "required_tags", "granted_tags", "skills.json", "skill", "技能", "主动技能", "skill_whirlwind_slash", "Whirlwind Slash", "旋风斩", "mana", "魔法", "skill_resources", "aoe_enemies_around_caster", "target_enemy", "target_ally", "skill_effect_damage", "skill_effect_apply_status", "StatusEffect", "StatusEffectComponent", "silence", "沉默", "burn", "DoT", "damage_type", "tick_interval", "Combat"]
     },
     {
       "path": "docs/代码/status_effect_component.md",
       "type": "module_doc",
-      "authority": "StatusEffect Resource and StatusEffectComponent runtime contract for status stacking, ability tag grant/release lifecycle, GameClock ticking, Player/Enemy entity status hosts, and SkillSystem/entity status snapshots",
+      "authority": "StatusEffect Resource and StatusEffectComponent runtime contract for status stacking, ability tag grant/release lifecycle, burn DoT Combat ticking, GameClock ticking, Player/Enemy entity status hosts, and SkillSystem/entity status snapshots",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-06-23",
-      "canonical_for": ["status_effect_component", "status_effects", "status_stack_rules", "status_ability_tags", "status_snapshots"],
-      "must_read_for": ["status_effect_change", "status_stack_rule_change", "skill_effect_apply_status_change", "ability_tag_status_source_change", "entity_status_host_change", "status_snapshot_change"],
+      "canonical_for": ["status_effect_component", "status_effects", "status_stack_rules", "status_ability_tags", "status_snapshots", "status_dot_tick"],
+      "must_read_for": ["status_effect_change", "status_stack_rule_change", "skill_effect_apply_status_change", "ability_tag_status_source_change", "entity_status_host_change", "status_snapshot_change", "dot_status_change"],
       "related_docs": ["docs/代码/skill_system.md", "docs/代码/gameplay_runtime.md", "docs/代码/combat.md", "docs/代码/data_loader.md", "client/data/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/contracts/status_effects.gd", "client/scripts/contracts/status_stack_rules.gd", "client/scripts/contracts/ability_tags.gd", "client/tools/l1_smoke.gd"],
-      "update_triggers": ["StatusEffect field changes", "StatusEffectComponent API changes", "Player/Enemy status host changes", "status stack rule changes", "ability tag grant/release behavior changes", "status snapshot changes", "skill_effect_apply_status behavior changes"],
-      "keywords": ["StatusEffect", "StatusEffectComponent", "status_effects", "status_stack_rules", "skill_effect_apply_status", "ability_tag_silenced", "silence", "沉默", "状态效果", "实体状态", "Player", "Enemy", "owned_tag_counts", "叠加规则", "REFRESH", "REPLACE", "ADD_DURATION", "INDEPENDENT", "MAX_MAGNITUDE", "GameClock", "run snapshot"]
+      "related_code": ["client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/scripts/contracts/status_effects.gd", "client/scripts/contracts/status_stack_rules.gd", "client/scripts/contracts/ability_tags.gd", "client/tools/l1_smoke.gd"],
+      "update_triggers": ["StatusEffect field changes", "StatusEffectComponent API changes", "Player/Enemy status host changes", "status stack rule changes", "ability tag grant/release behavior changes", "status snapshot changes", "skill_effect_apply_status behavior changes", "DoT tick behavior changes"],
+      "keywords": ["StatusEffect", "StatusEffectComponent", "status_effects", "status_stack_rules", "skill_effect_apply_status", "ability_tag_silenced", "silence", "沉默", "burn", "DoT", "is_dot", "damage_type", "tick_interval", "tick_remaining", "状态效果", "实体状态", "Player", "Enemy", "owned_tag_counts", "叠加规则", "REFRESH", "REPLACE", "ADD_DURATION", "INDEPENDENT", "MAX_MAGNITUDE", "GameClock", "Combat", "run snapshot"]
     },
     {
       "path": "docs/代码/enemy_ai.md",

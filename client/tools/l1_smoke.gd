@@ -19,8 +19,11 @@ const STATUS_EFFECTS := preload("res://scripts/contracts/status_effects.gd")
 const STATUS_STACK_RULES := preload("res://scripts/contracts/status_stack_rules.gd")
 
 const CLOCK_FRAMES: int = 4
+const DOT_DAMAGE_FLAG: String = "is_dot"
 const MOD_SMOKE_ROOT: String = "user://mods/l1_smoke_mod"
 const L1_SLOT: String = "slot_l1_smoke"
+const TEAM_ENEMY: String = "team_enemy"
+const TEAM_PLAYER: String = "team_player"
 
 var _failures: Array[String] = []
 
@@ -77,6 +80,7 @@ func _run() -> void:
 	_expect_combat_damage_path()
 	await _expect_skill_system_aoe_damage()
 	await _expect_entity_status_components()
+	await _expect_burn_dot_status()
 	_expect_mod_loader_data_patch()
 	_expect_platform_services_reserved_interface()
 
@@ -305,6 +309,90 @@ func _expect_entity_status_components() -> void:
 	world.queue_free()
 
 
+func _expect_burn_dot_status() -> void:
+	var world: Node2D = Node2D.new()
+	world.name = "L1BurnWorld"
+	add_child(world)
+
+	var player: Node2D = PLAYER_SCENE.instantiate() as Node2D
+	player.name = "L1BurnPlayer"
+	world.add_child(player)
+	player.call("configure", _l1_player_stats())
+
+	var enemy: Node2D = ENEMY_SCENE.instantiate() as Node2D
+	enemy.name = "L1BurnEnemy"
+	enemy.global_position = Vector2(48.0, 0.0)
+	world.add_child(enemy)
+	var enemy_data: Dictionary = _l1_enemy_data()
+	enemy_data["max_hp"] = 20.0
+	enemy.call("configure", enemy_data, player)
+
+	var skill_system: Node = SKILL_SYSTEM_SCRIPT.new()
+	skill_system.name = "L1BurnSkillSystem"
+	add_child(skill_system)
+	skill_system.call("configure", player, world, [_l1_enemy_burn_skill()], [])
+
+	var dot_events: Array[Dictionary] = []
+	var dot_event_sink: Callable = func(target: Node, info: RefCounted, result: Dictionary) -> void:
+		var flags: PackedStringArray = info.get("flags")
+		if target != enemy or not flags.has(DOT_DAMAGE_FLAG):
+			return
+		dot_events.append({
+			"damage_type": String(info.get("damage_type")),
+			"source_team": String(info.get("source_team")),
+			"target_team": String(info.get("target_team")),
+			"applied": bool(result.get("applied", false)),
+		})
+	Combat.damage_applied.connect(dot_event_sink)
+
+	GameState.change_state(GameState.PLAYING, {"source": "l1_burn_smoke"})
+	var burn_result: Dictionary = skill_system.call("cast_primary_skill")
+	_expect(bool(burn_result.get("ok", false)), "SkillSystem should apply burn through skill_effect_apply_status")
+	_expect((enemy.call("active_statuses") as Array).has(STATUS_EFFECTS.BURN), "Enemy should report burn as an active status")
+	var starting_life: float = _enemy_life(enemy)
+	await _wait_physics_frames(3)
+	var burned_life: float = _enemy_life(enemy)
+	_expect(burned_life < starting_life, "Burn should damage an Enemy over time")
+	_expect(not dot_events.is_empty(), "Burn DoT should route damage through Combat")
+	if not dot_events.is_empty():
+		var first_event: Dictionary = dot_events[0]
+		_expect(String(first_event.get("damage_type", "")) == DAMAGE_TYPES.FIRE, "Burn DoT should use fire damage type")
+		_expect(String(first_event.get("source_team", "")) == TEAM_PLAYER, "Burn DoT should preserve player source team")
+		_expect(String(first_event.get("target_team", "")) == TEAM_ENEMY, "Burn DoT should preserve enemy target team")
+		_expect(bool(first_event.get("applied", false)), "Burn DoT Combat result should apply")
+
+	var burn_snapshot: Dictionary = enemy.call("snapshot")
+	var burn_effects: Array = (burn_snapshot.get("status_effects", {}) as Dictionary).get("effects", []) as Array
+	_expect(not burn_effects.is_empty(), "Burn should enter Enemy status snapshots")
+	if not burn_effects.is_empty():
+		var burn_effect: Dictionary = burn_effects[0] as Dictionary
+		_expect(String(burn_effect.get("damage_type", "")) == DAMAGE_TYPES.FIRE, "Burn snapshot should preserve damage_type")
+		_expect(float(burn_effect.get("tick_remaining", 0.0)) > 0.0, "Burn snapshot should preserve tick_remaining")
+		_expect(String(burn_effect.get("source_team", "")) == TEAM_PLAYER, "Burn snapshot should preserve source_team")
+		_expect(String(burn_effect.get("target_team", "")) == TEAM_ENEMY, "Burn snapshot should preserve target_team")
+
+	GameState.change_state(GameState.PAUSED, {"source": "l1_burn_pause"})
+	var paused_life: float = _enemy_life(enemy)
+	await _wait_physics_frames(6)
+	_expect(is_equal_approx(_enemy_life(enemy), paused_life), "Burn should not tick while GameState is paused")
+
+	enemy.call("configure", enemy_data, player)
+	enemy.call("restore_snapshot", burn_snapshot)
+	_expect((enemy.call("active_statuses") as Array).has(STATUS_EFFECTS.BURN), "Enemy should restore active burn from snapshot")
+	GameState.change_state(GameState.PLAYING, {"source": "l1_burn_restore"})
+	var restored_life: float = _enemy_life(enemy)
+	await _wait_physics_frames(3)
+	_expect(_enemy_life(enemy) < restored_life, "Restored burn should resume ticking")
+	await _wait_physics_frames(12)
+	_expect(not (enemy.call("active_statuses") as Array).has(STATUS_EFFECTS.BURN), "Burn should expire through StatusEffectComponent")
+
+	if Combat.damage_applied.is_connected(dot_event_sink):
+		Combat.damage_applied.disconnect(dot_event_sink)
+	enemy.remove_from_group("active_enemies")
+	skill_system.queue_free()
+	world.queue_free()
+
+
 func _l1_whirlwind_skill() -> Dictionary:
 	return {
 		"id": SKILL_IDS.SKILL_WHIRLWIND_SLASH,
@@ -402,6 +490,43 @@ func _l1_enemy_silence_skill() -> Dictionary:
 	}
 
 
+func _l1_enemy_burn_skill() -> Dictionary:
+	return {
+		"id": SKILL_IDS.SKILL_WHIRLWIND_SLASH,
+		"ability_tags": [
+			ABILITY_TAGS.ABILITY_TAG_SKILL,
+			ABILITY_TAGS.ABILITY_TAG_PRIMARY,
+			ABILITY_TAGS.ABILITY_TAG_DAMAGE,
+		],
+		"activation": {
+			"required_tags": [],
+			"blocked_tags": [],
+			"granted_tags": [],
+		},
+		"cooldown": 0.0,
+		"costs": [],
+		"targeting": {
+			"type": SKILL_TARGETING.TARGET_ENEMY,
+			"radius": 120.0,
+			"max_targets": 1,
+		},
+		"effects": [
+			{
+				"effect": SKILL_EFFECTS.SKILL_EFFECT_APPLY_STATUS,
+				"params": {
+					"status": STATUS_EFFECTS.BURN,
+					"duration": 0.16,
+					"stack_rule": STATUS_STACK_RULES.REFRESH,
+					"granted_ability_tags": [],
+					"magnitude": 2.0,
+					"tick_interval": 0.04,
+					"damage_type": DAMAGE_TYPES.FIRE,
+				},
+			},
+		],
+	}
+
+
 func _l1_silence_status(duration: float) -> Resource:
 	return STATUS_EFFECT_SCRIPT.new().setup(
 		STATUS_EFFECTS.SILENCE,
@@ -451,6 +576,11 @@ func _l1_enemy_data() -> Dictionary:
 		"separation_radius": 0.0,
 		"visual_color": "#ff6152",
 	}
+
+
+func _enemy_life(enemy: Node) -> float:
+	var enemy_snapshot: Dictionary = enemy.call("snapshot") as Dictionary
+	return float(enemy_snapshot.get("life_points", 0.0))
 
 
 func _wait_physics_frames(frame_count: int) -> void:

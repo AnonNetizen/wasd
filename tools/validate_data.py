@@ -788,6 +788,20 @@ def _validate_skill_effects(ctx: ValidationContext, path: Path, field: str, data
                 _require_number(ctx, path, f"{item_field}.params.magnitude", params.get("magnitude"))
             if "tick_interval" in params:
                 _require_number(ctx, path, f"{item_field}.params.tick_interval", params.get("tick_interval"), minimum=0)
+            if "damage_type" in params:
+                _require_registered(ctx, path, f"{item_field}.params.damage_type", params.get("damage_type"), "damage_types")
+            elif _status_params_has_damage_tick(params):
+                ctx.error(path, f"{item_field}.params.damage_type", "is required when magnitude and tick_interval are positive")
+
+
+def _status_params_has_damage_tick(params: dict[str, Any]) -> bool:
+    magnitude = params.get("magnitude", 0.0)
+    tick_interval = params.get("tick_interval", 0.0)
+    if not isinstance(magnitude, (int, float)) or isinstance(magnitude, bool):
+        return False
+    if not isinstance(tick_interval, (int, float)) or isinstance(tick_interval, bool):
+        return False
+    return float(magnitude) > 0.0 and float(tick_interval) > 0.0
 
 
 def _validate_consumables(ctx: ValidationContext) -> None:
