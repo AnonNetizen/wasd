@@ -111,7 +111,7 @@ UIManager
 | 移动 / 瞄准 | 玩家按数据移速移动，鼠标激活后按鼠标相对视口中心的方向瞄准；无鼠标动作时用方向键 / 手柄右摇杆 / D-pad 兜底，松开保持上一方向；玩家和敌人的占位表现只区分向左 / 向右，不做向上 / 向下朝向 | `Player.aim_direction` |
 | 自动开火 | WeaponSystem 按 `fire_rate` 从子弹池取节点并配置 | `PoolManager.acquire()` |
 | 子弹命中 | 子弹用距离检测命中 `active_enemies` 组，伤害走 `Combat.apply_damage()` | `DamageInfo` |
-| 主动技能 | SkillSystem 从 `skills.json` 读取起始技能；默认 `use_active_item` action 释放 `skill_whirlwind_slash`，消耗角色声明的 `mana`，对施法者半径内敌人造成 `Combat` AOE 伤害；技能激活使用项目版轻量 GAS 的 ability tag gating，`skill_effect_apply_status` 可通过 `StatusEffectComponent` 授予沉默等状态 tags，技能冷却、资源回复和状态过期都走 `GameClock` | `SkillSystem.cast_primary_skill()`、`Combat.apply_damage()`、`StatusEffectComponent.apply()` |
+| 主动技能 / 状态 | SkillSystem 从 `skills.json` 读取起始技能；默认 `use_active_item` action 释放 `skill_whirlwind_slash`，消耗角色声明的 `mana`，对施法者半径内敌人造成 `Combat` AOE 伤害；技能激活使用项目版轻量 GAS 的 ability tag gating，`skill_effect_apply_status` 可通过目标实体的 `StatusEffectComponent` 授予沉默等状态 tags，技能冷却、资源回复和状态过期都走 `GameClock` | `SkillSystem.cast_primary_skill()`、`Combat.apply_damage()`、`Player.apply_status_effect()`、`Enemy.apply_status_effect()` |
 | 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人；当前有追猎者、疾行者、潜猎者和壁垒四种数据化敌人 | `GameClock.now()`、`RNG.spawn` |
 | 机关触发 | `Hazard` 在 `PLAYING` 下按 `GameClock.delta_scaled()` 消耗冷却；玩家进入半径后构造 `DamageInfo` 并交给 `Combat`，当前 FEA-12 用于验证 PCG / 手工摆点和伤害链路 | `Hazard.configure()`、`Combat.apply_damage()` |
 | 受击 / 击杀反馈 | `Combat.damage_applied` 成功应用伤害后生成池化 `hit_spark` 与 `damage_number`；玩家受伤时短暂红闪，敌人命中时短暂暖白闪，敌人死亡后立即离开活敌组并橙色放大淡出后归池；玩家进入数据化受伤无敌窗口 | `_draw()` / `queue_redraw()` / `PoolManager.acquire()` |
@@ -137,6 +137,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `Player.pickup_range()` / `pickup_orb_speed()` / `luck()` / `separation_radius()` / `stat_value(stat)` | 无 / stat id | `float` | 只读运行时属性；经验球、升级候选数量判定、玩家中心排斥和 HUD 详细数值面板使用 |
 | `Player.aim_at_world_position(world_position)` | 世界坐标 | `void` | 按玩家到目标世界坐标的方向更新 `aim_direction`；headless smoke 和未来脚本化瞄准可复用，真实鼠标输入使用视口中心偏移路径 |
 | `Player.apply_modifiers(modifiers)` | `growth_pools.json` 的 modifiers | `void` | 按 `(基础 + 加法) * 乘法` 更新玩家运行时属性 |
+| `Player.apply_status_effect(status_effect)` / `active_statuses()` | `StatusEffect` 兼容对象 / 无 | Dictionary / `Array[String]` | 玩家状态走 `StatusEffectComponent`；新开局 `configure()` 清空状态与 owned ability tags |
+| `Player.add_owned_tag()` / `remove_owned_tag()` / `has_owned_tag()` / `owned_tags()` | ability tag id | bool / `Array[String]` | 只接受词表 §12-G 已登记 tag；供状态授予 / 移除和调试查询 |
+| `Player.snapshot()` / `restore_snapshot(snapshot_data)` | 无 / run payload | Dictionary / `void` | 保存位置、朝向、生命、无敌窗口、modifiers、owned tag 计数和状态效果；旧状态字段缺失时按无状态兼容 |
 | `Player.receive_damage(info)` | `DamageInfo` | result dictionary | 只能由 `Combat.apply_damage()` 间接调用；无敌期返回 `reason=invulnerable` 且不扣生命 |
 | `Player.debug_heal()` / `debug_set_life()` / `debug_clear_invulnerability()` | 调试数值 | Dictionary / `void` | 仅供 debug/dev_tools GM 指令调用；正式 gameplay 不应依赖 |
 | `WeaponSystem.configure(player, active_parent, weapon_data)` | 玩家、活跃父节点、武器数据 | `void` | 武器数据来自 `weapons.json` |
@@ -150,6 +153,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `Enemy.configure(enemy_data, target)` | 敌人 CSV 行 + AI profile、目标玩家 | `void` | 节点必须来自 `PoolManager` |
 | `Enemy.content_tags()` / `ai_debug_summary()` / `was_defeated_by_player()` | 无 | `Array[String]` / `Dictionary` / `bool` | 供敌人生态感知、smoke / 调试和玩家击杀归因使用 |
 | `Enemy.separation_radius()` / `visual_color()` / `is_defeat_feedback_active()` | 无 | `float` / `Color` / `bool` | 只读诊断值；用于中心排斥、占位色、死亡反馈和 smoke 确认 |
+| `Enemy.apply_status_effect(status_effect)` / `active_statuses()` | `StatusEffect` 兼容对象 / 无 | Dictionary / `Array[String]` | 敌人状态走 `StatusEffectComponent`；`configure()`、`_pool_release()` 和 `_pool_reset()` 清空状态，避免对象池泄漏 |
+| `Enemy.add_owned_tag()` / `remove_owned_tag()` / `has_owned_tag()` / `owned_tags()` | ability tag id | bool / `Array[String]` | 只接受词表 §12-G 已登记 tag；供状态授予 / 移除和调试查询 |
+| `Enemy.snapshot()` / `restore_snapshot(snapshot_data)` | 无 / run payload | Dictionary / `void` | 保存生命、位置、AI action / FSM、伤害归因、owned tag 计数和状态效果；旧状态字段缺失时按无状态兼容 |
 | `PickupOrb.configure(amount, target, pickup_speed)` | 经验值、目标玩家、吸附速度 | `void` | 节点必须来自 `PoolManager` |
 | `PickupOrb.is_attracting()` / `is_collect_feedback_active()` | 无 | `bool` | 只读诊断值；用于 smoke 确认吸附 / 拾取反馈生命周期 |
 | `HitSpark.configure(spawn_position)` / `DamageNumber.configure(spawn_position, amount, defeated, player_damage)` | 反馈位置与伤害摘要 | `void` | 节点必须来自 `PoolManager`；只做短命视觉反馈，不写入 run 快照 |
@@ -200,7 +206,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 等级阈值：从 `growth.csv.total_xp_required` 读取累计总经验阈值；运行时内部保留累计经验判定升级，HUD 显示 `当前累计经验 - 当前等级累计阈值` / `下一级累计阈值 - 当前等级累计阈值`。
 - 升级候选：从当前模式 `resource_pools.growth_pools` 引用的 `growth_pools.json` 池读取；当前 F4 只解释 `kind=stat_modifier` 且应用其 `modifiers`。候选入选使用 `RNG.ui_choice`，显示 / 选择顺序按候选 `id` 稳定排序，避免同一候选集合在不同进程中只因抽取顺序影响 replay 选择索引。选择后 HUD 使用金色文字、暗色阴影和 1.35 秒淡出显示获得反馈。
 - 分辨率与 UI：默认 viewport 由 `client/project.godot` 设为 1920×1080；窗口禁止任意拖拽缩放，屏幕比例不匹配时通过 `canvas_items + keep` 保比例加黑边；F4 HUD 和升级面板应使用 `Control` 锚点 / 容器布局适配预设分辨率。
-- run 续局快照：F5 首片使用 `SaveManager` 的 `run` kind，payload schema version 当前为 2，字段包括模式 / 角色 id、等级、累计经验、击杀、`GameClock.snapshot()`、`RNG.snapshot()`、有限地图状态、刷怪状态、玩家状态、武器状态、技能状态、活跃敌人、活跃子弹、活跃机关、活跃经验球和 `ui_restore`。`map` 保存 layout id、bounds、玩家出生点、安全半径、刷怪边距和机关 placement；`hazards` 保存活动机关 id、位置、冷却和激活表现状态。技能快照保存冷却、资源当前值、owned ability tag 计数与状态效果剩余时间，不保存目标节点引用；续局恢复已有 tag 计数时，状态组件不会重复授予 tags，只负责后续过期释放。敌人快照现在额外保存出生点、当前 AI action、冲锋 FSM、冲锋 cooldown 和最后伤害来源队伍，以保证生态 AI 续局后可恢复；不保存感知到的节点引用。`ui_restore.state` 当前支持 `playing`、`paused`、`level_up`：暂停保存后续局会先回到暂停菜单；升级选择面板打开时保存会保留已经掷出的候选列表并续回同一组选择，不重新消耗 `RNG.ui_choice`；暂停菜单叠在升级面板上时保存为 `state=paused` 且 `underlying_state=level_up`，恢复时先重建升级面板再叠回暂停菜单。旧 payload 没有 `ui_restore` 时按 `playing` 处理，旧 payload 没有 `skills` 时按空技能快照处理；旧技能快照没有 `status_effects` 时按空状态处理；旧 payload 没有 `map` / `hazards` 时由 `SaveManager` 迁移补空结构，运行时可按当前 layout 重新生成初始机关。`SaveManager` 的 `run` kind envelope 当前为 version 2，v1 -> v2 迁移只补齐缺失结构字段。RNG 大整数 state 以字符串保存，SaveManager 会在写入前做 JSON 归一化再计算 `data_hash`，避免高精度浮点 / JSON 读回类型差异导致 hash mismatch。
+- run 续局快照：F5 首片使用 `SaveManager` 的 `run` kind，payload schema version 当前为 2，字段包括模式 / 角色 id、等级、累计经验、击杀、`GameClock.snapshot()`、`RNG.snapshot()`、有限地图状态、刷怪状态、玩家状态、武器状态、技能状态、活跃敌人、活跃子弹、活跃机关、活跃经验球和 `ui_restore`。`map` 保存 layout id、bounds、玩家出生点、安全半径、刷怪边距和机关 placement；`hazards` 保存活动机关 id、位置、冷却和激活表现状态。技能、玩家和敌人快照都可保存 owned ability tag 计数与状态效果剩余时间，不保存目标节点引用；续局恢复已有 tag 计数时，状态组件不会重复授予 tags，只负责后续过期释放。敌人快照现在额外保存出生点、当前 AI action、冲锋 FSM、冲锋 cooldown、最后伤害来源队伍和实体状态，以保证生态 AI 与状态生命周期续局后可恢复；不保存感知到的节点引用。`ui_restore.state` 当前支持 `playing`、`paused`、`level_up`：暂停保存后续局会先回到暂停菜单；升级选择面板打开时保存会保留已经掷出的候选列表并续回同一组选择，不重新消耗 `RNG.ui_choice`；暂停菜单叠在升级面板上时保存为 `state=paused` 且 `underlying_state=level_up`，恢复时先重建升级面板再叠回暂停菜单。旧 payload 没有 `ui_restore` 时按 `playing` 处理，旧 payload 没有 `skills` 时按空技能快照处理；旧技能 / 玩家 / 敌人快照没有 `status_effects` 或 `owned_tag_counts` 时按空状态处理；旧 payload 没有 `map` / `hazards` 时由 `SaveManager` 迁移补空结构，运行时可按当前 layout 重新生成初始机关。`SaveManager` 的 `run` kind envelope 当前为 version 2，v1 -> v2 迁移只补齐缺失结构字段。RNG 大整数 state 以字符串保存，SaveManager 会在写入前做 JSON 归一化再计算 `data_hash`，避免高精度浮点 / JSON 读回类型差异导致 hash mismatch。
 - 局外成长接入：F6 首片使用 `SaveManager` 的 `meta` kind；F4 只向 `MetaProgressionSystem.apply_run_settlement()` 提交 `kills`、`run_time`、`first_boss_defeated`，不在 F4 复制奖励公式。结算后必须删除 `run` 存档，避免死亡结算后的旧局重复领取奖励。标题菜单通过 `MetaProgressionSystem.profile_summary()` 显示账号等级 / 余额摘要，通过 `first_available_purchase()` 给局外升级按钮加可购买提示，并通过 `MetaProgressionPanel` 消费 `upgrade_summaries()` 显示完整升级列表。新开局时 `MetaProgressionSystem.current_modifiers()` 输出的永久升级 modifiers 会复用 `Player.apply_modifiers()` 与 `WeaponSystem.apply_modifiers()`。
 - 伤害类型：从 `weapons.json` / `enemies.csv` / `hazards.csv` 读取，交给 `Combat` 校验。
 - UI / HUD / 升级文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_settings*`、`ui_pause_title`、`ui_save_and_quit`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_stats_*`、`ui_level_up_title`、`ui_upgrade_applied`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`、`ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_account_level_up`、`ui_meta_title_summary`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_purchase_success`、`ui_meta_purchase_failed`、`ui_meta_progression`、`ui_meta_progression_available`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。常驻 UI 必须在 `Localization.locale_changed` 后刷新已有节点，不依赖重启或重新实例化。
@@ -216,6 +222,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 - 加武器：优先改 `weapons.json`，运行时继续解释 `base_stats` 和 `projectile`。
 - 加技能：优先改 `skills.json`、`characters.json` 的 `starting_loadout.skill_ids` / `skill_resources` 和 `game_modes.json` 的 `resource_pools.skills`；新 ability tag、状态效果、叠加规则、目标类型或效果原语先登记词表，再扩展 SkillSystem / StatusEffectComponent，不按技能 id 写分支。
+- 加状态宿主：可被状态影响的新实体应复用 `StatusEffectComponent`，实现 `apply_status_effect()`、owned ability tag 查询和 JSON 友好快照；对象池实体必须在 `configure()` / 回收路径清空状态。
 - 加敌人：优先改 `enemies.csv`、`enemy_ai_profiles.json`、`game_modes.json` 和 `spawn_waves.csv`；行为差异通过 AI profile / tag 权重表达，不在 `enemy.gd` 按 id 分支。
 - 加地图 / PCG 规则：优先改 `map_layouts.json`；运行时通过 `MapManager` 解释有限边界、手工摆点和 PCG，不在 `GameplayRunLoop` 按 layout id 分支。
 - 加机关：优先改 `hazards.csv`、`game_modes.json.resource_pools.hazards` 和 `map_layouts.json`；普通范围机关复用 `Hazard`，新行为先设计通用 primitive，不按机关 id 写分支。
@@ -233,6 +240,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 调玩家速度 / 生命 / 受伤无敌 / 中心排斥 | `player.json` / `characters.json` | `client/data/README.md` | `python tools/validate_data.py` |
 | 调武器伤害 / 射速 / 弹速 | `weapons.json` | `client/data/README.md` | `validate_data` + headless |
 | 调技能伤害 / 半径 / 资源消耗 / 冷却 | `skills.json`、`characters.json` | `client/data/README.md`、`docs/代码/skill_system.md` | `validate_data` + `l1-smoke` + `runtime-smoke` |
+| 改 Player / Enemy 状态宿主 | `player.gd`、`enemy.gd`、`status_effect_component.gd`、`l1_smoke.gd` | 本文档、状态组件文档、EnemyAI、GDD、测试策略 | `lint_gdscript_rules` + `lint_semantic_rules` + `l1-smoke` + `runtime-smoke` + `save-smoke` |
 | 调敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | `client/data/README.md` | `validate_data` + 手动跑一局 |
 | 调敌人生态 AI | `enemy_ai_profiles.json`、`enemies.csv.tags` | `client/data/README.md`、`docs/代码/enemy_ai.md` | `validate_data` + `runtime-smoke` + 必要时 golden replay |
 | 调地图边界 / PCG 机关 / 手工摆点 | `map_layouts.json` | `client/data/README.md`、`docs/代码/map_manager.md` | `validate_data` + `runtime-smoke` + `f9-demo-smoke` |
@@ -292,6 +300,8 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 保存后标题没有继续游戏 | `SaveManager.has_save(slot_0, run)` 是否为 true；旧存档是否因 hash mismatch 被隔离 |
 | 继续坏档后没有提示 | `TitleMenu` 是否存在 `RunSaveNoticeLabel`；`ui_run_save_unavailable` 是否在 `strings.csv` 与 `.translation` 中；`runtime-smoke` 是否通过坏 run 存档点击继续断言 |
 | 继续游戏后状态不对 | run payload 是否包含地图 / 机关 / 玩家 / 武器 / 敌人 / 子弹 / 经验球 / RNG / GameClock / `ui_restore`；恢复时是否通过 `PoolManager.acquire()` 重建实体；暂停和升级选择是否经由 `UIManager` 恢复 |
+| 继续游戏后状态效果丢失 | 玩家 / 敌人 / 技能快照是否包含 `status_effects` 与 `owned_tag_counts`；恢复已有 tag 计数时是否避免状态组件重复授予 tags |
+| 池化敌人带着上一只怪的状态 | `Enemy.configure()`、`_pool_release()`、`_pool_reset()` 是否调用状态清理；L1 是否覆盖 configure 复用后旧状态被清空 |
 | GM 命令没有生效 | 当前是否为 debug/dev_tools 构建；`DebugConsole` 是否存在；命令是否通过 `GameplayRunLoop.debug_*` / `MetaProgressionSystem.debug_*` 受控 API，而不是直接改节点 |
 
 ## 测试义务
@@ -301,6 +311,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 涉及启动、输入、WeaponSystem、SkillSystem、子弹、敌人、EnemyAI、Spawner、经验球、升级选择、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 涉及有限地图、`map_layouts.json`、PCG 摆放、手工机关摆点、HazardSystem 或 `hazards.csv` 时追加 `python tools/godot_bridge.py --project client runtime-smoke`、`python tools/godot_bridge.py --project client f9-demo-smoke`；涉及 run 快照恢复时追加 `save-smoke`。
 - 涉及技能目标、资源、冷却、效果解释或 run 技能快照时追加 `python tools/godot_bridge.py --project client l1-smoke`；改 run 快照恢复还要追加 `save-smoke`。
+- 涉及 Player / Enemy 状态宿主、owned ability tag 或实体状态快照时追加 `python tools/godot_bridge.py --project client l1-smoke`、`python tools/godot_bridge.py --project client runtime-smoke` 与 `python tools/godot_bridge.py --project client save-smoke`；对象池状态清理变化还要检查复用路径。
 - 涉及 gameplay 输入录制、`Replay` 输入事件、升级选择 decision、暂停 / 返回 action 录制时追加 `python tools/godot_bridge.py --project client replay-input-smoke`；涉及升级选择 replay 基线时追加 `capture-golden-replay --golden-scenario golden_level_up_choice` 与对应 `replay-runner --replay-file client/tests/replays/golden_level_up_choice.replay --rerun-runtime-summary`。
 - 涉及暂停、保存退出、标题继续、坏档提示、RNG / GameClock 快照或 run payload 时必须追加 `python tools/godot_bridge.py --project client runtime-smoke` 与 `python tools/godot_bridge.py --project client save-smoke`，并做至少一次手动保存续局检查。
 - 涉及标题 / 暂停设置入口、设置面板关闭、`ui_back` 返回或运行时语言刷新时，追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`。
@@ -312,7 +323,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 ## 迁移 / 兼容
 
-F5 已开始写 `SaveManager` 的 `run` kind，F6 首切片已开始写 `meta` kind。当前 gameplay runtime 自身 payload schema version 为 2；`SaveManager` 的 `run` envelope version 仍为 2，并提供 v1 -> v2 迁移来补齐早期 payload 可能缺失的结构字段。`ui_restore` 是 run payload 的可选恢复提示，缺失时按 `playing` 兼容旧 run 存档；`skills` 是可选技能快照，缺失时按空技能状态兼容旧 run 存档；`map` / `hazards` 缺失时由迁移补空结构，运行时会按当前 layout 重新生成初始机关，保证可加载但不保证旧局逐帧一致。死亡结算不写入 `run` payload，而是通过 `MetaProgressionSystem` 更新 `meta` profile；后续新增遗物、主动道具、技能栏、地图兴趣点或局外奖励时，需要决定是否提升 runtime payload schema、`meta` payload schema 或 SaveManager kind version，并补迁移 / roundtrip 测试；不得保存对象池内部状态或节点引用。
+F5 已开始写 `SaveManager` 的 `run` kind，F6 首切片已开始写 `meta` kind。当前 gameplay runtime 自身 payload schema version 为 2；`SaveManager` 的 `run` envelope version 仍为 2，并提供 v1 -> v2 迁移来补齐早期 payload 可能缺失的结构字段。`ui_restore` 是 run payload 的可选恢复提示，缺失时按 `playing` 兼容旧 run 存档；`skills` 是可选技能快照，缺失时按空技能状态兼容旧 run 存档；玩家和敌人快照中的 `status_effects` / `owned_tag_counts` 也是可选字段，缺失时按无状态兼容旧 run 存档；`map` / `hazards` 缺失时由迁移补空结构，运行时会按当前 layout 重新生成初始机关，保证可加载但不保证旧局逐帧一致。死亡结算不写入 `run` payload，而是通过 `MetaProgressionSystem` 更新 `meta` profile；后续新增遗物、主动道具、技能栏、地图兴趣点或局外奖励时，需要决定是否提升 runtime payload schema、`meta` payload schema 或 SaveManager kind version，并补迁移 / roundtrip 测试；不得保存对象池内部状态或节点引用。
 
 ## 相关文档
 

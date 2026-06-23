@@ -8,7 +8,9 @@ signal life_changed(current_life: float, max_life: float)
 signal died()
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
+const STATUS_EFFECT_COMPONENT_SCRIPT := preload("res://scripts/combat/status_effect_component.gd")
 const DRAW_RADIUS: float = 12.0
 const FACING_MARKER_LENGTH: float = 22.0
 const HIT_FLASH_DURATION: float = 0.16
@@ -43,15 +45,19 @@ var _max_life: float = 1.0
 var _life_points: float = 1.0
 var _mouse_aim_active: bool = false
 var _mouse_aim_viewport_offset: Vector2 = Vector2.ZERO
+var _owned_tag_counts: Dictionary = {}
 var _pickup_orb_speed: float = 0.0
 var _pickup_range: float = 0.0
 var _separation_radius: float = 0.0
 var _replay_action_pressed: Dictionary = {}
 var _stat_additions: Dictionary = {}
 var _stat_multipliers: Dictionary = {}
+var _status_effect_component: Node = null
 
 
 func _ready() -> void:
+	_ensure_status_effect_component()
+
 	var camera: Camera2D = get_node_or_null("CenteredCamera") as Camera2D
 	if camera == null:
 		push_error("[Player] missing CenteredCamera scene node")
@@ -116,6 +122,7 @@ func configure(base_stats: Dictionary) -> void:
 	_replay_action_pressed.clear()
 	_stat_additions.clear()
 	_stat_multipliers.clear()
+	_clear_status_effects_for_reuse()
 	_has_movement_bounds = false
 	_invulnerable_remaining = 0.0
 	_mouse_aim_active = false
@@ -213,6 +220,39 @@ func apply_modifiers(modifiers: Array) -> void:
 	_rebuild_stats(false)
 
 
+func add_owned_tag(tag_id: String) -> bool:
+	return _add_owned_tag_count(tag_id)
+
+
+func remove_owned_tag(tag_id: String) -> bool:
+	return _remove_owned_tag_count(tag_id)
+
+
+func has_owned_tag(tag_id: String) -> bool:
+	return int(_owned_tag_counts.get(tag_id, 0)) > 0
+
+
+func owned_tags() -> Array[String]:
+	return _sorted_string_keys(_owned_tag_counts)
+
+
+func apply_status_effect(status_effect: Variant) -> Dictionary:
+	_ensure_status_effect_component()
+	if _status_effect_component == null:
+		return {
+			"applied": false,
+			"reason": "status_component_unavailable",
+		}
+	return _status_effect_component.call("apply", status_effect) as Dictionary
+
+
+func active_statuses() -> Array[String]:
+	_ensure_status_effect_component()
+	if _status_effect_component == null:
+		return []
+	return _status_effect_component.call("active_statuses") as Array[String]
+
+
 func snapshot() -> Dictionary:
 	return {
 		"position": _vector_to_dict(global_position),
@@ -221,11 +261,16 @@ func snapshot() -> Dictionary:
 		"invulnerable_remaining": _invulnerable_remaining,
 		"stat_additions": _stat_additions.duplicate(true),
 		"stat_multipliers": _stat_multipliers.duplicate(true),
+		"owned_tag_counts": _owned_tag_counts.duplicate(true),
+		"status_effects": _status_effect_snapshot(),
 	}
 
 
 func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_replay_action_pressed.clear()
+	_ensure_status_effect_component()
+	if _status_effect_component != null:
+		_status_effect_component.call("clear", false)
 	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
 	_mouse_aim_active = false
 	_mouse_aim_viewport_offset = Vector2.ZERO
@@ -235,6 +280,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_rebuild_stats(true)
 	_life_points = clampf(float(snapshot_data.get("life_points", _max_life)), 0.0, _max_life)
 	_invulnerable_remaining = maxf(float(snapshot_data.get("invulnerable_remaining", 0.0)), 0.0)
+	_restore_status_snapshot(snapshot_data)
 	_apply_movement_bounds()
 	life_changed.emit(_life_points, _max_life)
 	queue_redraw()
@@ -390,3 +436,85 @@ func _dictionary_or_empty(raw_value: Variant) -> Dictionary:
 	if raw_value is Dictionary:
 		return (raw_value as Dictionary).duplicate(true)
 	return {}
+
+
+func _ensure_status_effect_component() -> void:
+	if _status_effect_component != null and is_instance_valid(_status_effect_component):
+		_status_effect_component.call("configure_ability_tag_owner", self)
+		return
+	_status_effect_component = get_node_or_null("StatusEffectComponent")
+	if _status_effect_component == null:
+		_status_effect_component = STATUS_EFFECT_COMPONENT_SCRIPT.new()
+		_status_effect_component.name = "StatusEffectComponent"
+		add_child(_status_effect_component)
+	_status_effect_component.call("configure_ability_tag_owner", self)
+
+
+func _status_effect_snapshot() -> Dictionary:
+	_ensure_status_effect_component()
+	if _status_effect_component == null:
+		return {}
+	return _status_effect_component.call("snapshot") as Dictionary
+
+
+func _restore_status_snapshot(snapshot_data: Dictionary) -> void:
+	_owned_tag_counts.clear()
+	var raw_tag_counts: Variant = snapshot_data.get("owned_tag_counts", {})
+	var has_owned_tag_snapshot: bool = snapshot_data.has("owned_tag_counts") and raw_tag_counts is Dictionary
+	if has_owned_tag_snapshot:
+		for tag_id: Variant in (raw_tag_counts as Dictionary).keys():
+			var count: int = maxi(int((raw_tag_counts as Dictionary)[tag_id]), 0)
+			if count <= 0:
+				continue
+			var tag: String = String(tag_id)
+			if _is_valid_ability_tag(tag):
+				_owned_tag_counts[tag] = count
+	else:
+		var raw_owned_tags: Variant = snapshot_data.get("owned_tags", [])
+		has_owned_tag_snapshot = raw_owned_tags is Array
+		if raw_owned_tags is Array:
+			for tag_id: Variant in raw_owned_tags as Array:
+				_add_owned_tag_count(String(tag_id))
+
+	var raw_status_effects: Variant = snapshot_data.get("status_effects", {})
+	if _status_effect_component != null and raw_status_effects is Dictionary:
+		_status_effect_component.call("restore_snapshot", raw_status_effects, not has_owned_tag_snapshot)
+
+
+func _clear_status_effects_for_reuse() -> void:
+	_ensure_status_effect_component()
+	if _status_effect_component != null:
+		_status_effect_component.call("clear", false)
+	_owned_tag_counts.clear()
+
+
+func _add_owned_tag_count(tag_id: String) -> bool:
+	if not _is_valid_ability_tag(tag_id):
+		return false
+	_owned_tag_counts[tag_id] = int(_owned_tag_counts.get(tag_id, 0)) + 1
+	return true
+
+
+func _remove_owned_tag_count(tag_id: String) -> bool:
+	if not _owned_tag_counts.has(tag_id):
+		return false
+	var next_count: int = int(_owned_tag_counts[tag_id]) - 1
+	if next_count <= 0:
+		_owned_tag_counts.erase(tag_id)
+	else:
+		_owned_tag_counts[tag_id] = next_count
+	return true
+
+
+func _is_valid_ability_tag(tag_id: String) -> bool:
+	if tag_id.is_empty():
+		return false
+	return ABILITY_TAGS.VALUES.has(tag_id)
+
+
+func _sorted_string_keys(source: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for key: Variant in source.keys():
+		result.append(String(key))
+	result.sort()
+	return result

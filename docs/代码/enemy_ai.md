@@ -9,7 +9,8 @@
 - 支持敌人感知玩家、其他敌人和出生点 / 领地，不再只写死“朝玩家直线前进”。
 - 用 Utility AI 做动作选择，用小型 FSM 执行有阶段的动作（当前是冲锋蓄力 / 释放），用 Steering 负责移动方向。
 - 所有伤害仍走 `Combat.apply_damage()`；敌人打死敌人不会计入玩家击杀，也不会掉经验。
-- 保持对象池、保存续局和回放可控：节点来自 `PoolManager`，可恢复 AI 状态只保存 JSON 友好字段，不保存节点引用。
+- Enemy 同时是实体状态宿主：持续状态走 `StatusEffectComponent` 和 owned ability tags，不把沉默、减速、DoT 等状态硬写进 AI profile / action。
+- 保持对象池、保存续局和回放可控：节点来自 `PoolManager`，可恢复 AI 状态和实体状态只保存 JSON 友好字段，不保存节点引用。
 
 ## 阅读方式
 
@@ -19,13 +20,14 @@
 | 加新敌人但复用行为 | `client/data/enemies.csv` 的 `ai_profile_id` |
 | 加新 AI 动作 | `docs/词表与契约.md` §12-B、`enemy.gd` 的 `_action_candidate()` / `_apply_current_action()` |
 | 调怪物互相克制 | `enemy_ai_profiles.json.targeting.hunt_tags` / `flee_tags` 与 `enemies.csv.tags` |
+| 排查敌人状态效果 | `Enemy.apply_status_effect()`、`active_statuses()` 与 `docs/代码/status_effect_component.md` |
 | 排查保存续局 | `Enemy.snapshot()` / `restore_snapshot()` 与 `docs/代码/save_manager.md` |
 
 ## 代码位置
 
 | 路径 | 作用 |
 |------|------|
-| `client/scripts/gameplay/enemy.gd` | 敌人占位表现、感知、Utility 评分、动作执行、接触伤害、受伤死亡和快照 |
+| `client/scripts/gameplay/enemy.gd` | 敌人占位表现、实体状态宿主、感知、Utility 评分、动作执行、接触伤害、受伤死亡和快照 |
 | `client/data/enemy_ai_profiles.json` | 复杂 AI profile：感知半径、目标权重、动作列表和动作参数 |
 | `client/data/enemies.csv` | 敌人基础数值、内容 tag、对象池 id 与 `ai_profile_id` |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 读取 profile、把 profile 合并进 enemy_data、刷怪和死亡归因 |
@@ -38,13 +40,14 @@
 | 阶段 | 发生什么 | 关键点 |
 |------|----------|--------|
 | 数据加载 | `GameplayRunLoop` 先读取 `enemy_ai_profiles.json`，再把 `enemies.csv.ai_profile_id` 对应 profile 放入 `enemy_data.ai_profile` | profile id 不存在会被 DataLoader / validate_data 拦截 |
-| 配置 | `Enemy.configure(enemy_data, player)` 记录基础数值、内容 tags、profile、动作列表和出生点 | 节点加入 `active_enemies` 组供其他敌人感知 |
+| 配置 | `Enemy.configure(enemy_data, player)` 记录基础数值、内容 tags、profile、动作列表和出生点，并清空对象池复用残留的状态效果 / owned ability tags | 节点加入 `active_enemies` 组供其他敌人感知 |
 | 感知 | 决策 tick 内扫描玩家与 `active_enemies`，按 `player_weight`、`hunt_tags`、`flee_tags` 和距离计算候选目标 / 威胁 | 只看带 `content_tags()` 且 `is_alive()` 的敌人 |
 | 选择 | 每个 action 由 `_action_candidate()` 得分；最高分成为 `_current_action` 和 `_focus_target` | 当前 action 包括接近、逃离、环绕、冲锋、守家 |
 | 执行 | 无阶段动作直接 Steering 移动；冲锋进入 `charge_windup` / `charge_release` FSM | 冲锋结束后进入 cooldown，避免连续锁死 |
 | 接触 | 根据当前 action 选择可接触目标；逃跑和无目标守家不造成接触伤害 | 玩家 / 敌人都通过 `Combat.apply_damage()` |
+| 状态 | `skill_effect_apply_status` 或未来 on-hit primitive 可向 Enemy 施加 `StatusEffect`；组件在 `PLAYING` 下按 `GameClock` 过期并释放授予的 ability tags | 状态生命周期与 AI profile 分离 |
 | 死亡 | `Enemy.receive_damage()` 记录最后伤害来源队伍；`GameplayRunLoop._on_enemy_defeated()` 只把玩家击杀计入 kills / XP | 怪物生态可以互相击杀但不刷玩家收益 |
-| 保存 | run 快照保存敌人 id、位置、生命、home、当前 action、FSM、冲锋 cooldown 和最后伤害来源队伍 | 恢复后重新 `configure()` 再 `restore_snapshot()` |
+| 保存 | run 快照保存敌人 id、位置、生命、home、当前 action、FSM、冲锋 cooldown、最后伤害来源队伍、owned ability tag 计数和状态效果剩余时间 | 恢复后重新 `configure()` 再 `restore_snapshot()` |
 
 ## 数据契约
 
@@ -86,12 +89,14 @@
 | `content_tags()` | 无 | `Array[String]` | 供其他敌人感知生态关系 |
 | `ai_debug_summary()` | 无 | `Dictionary` | smoke / 调试读取 profile、动作、状态、目标和上次评分 |
 | `was_defeated_by_player()` | 无 | `bool` | GameplayRunLoop 判断是否发放 kills / XP |
-| `snapshot()` / `restore_snapshot(data)` | 无 / Dictionary | Dictionary / void | run 存档恢复 |
+| `apply_status_effect(status_effect)` / `active_statuses()` | `StatusEffect` 兼容对象 / 无 | Dictionary / `Array[String]` | 通过 `StatusEffectComponent` 承载敌人实体状态 |
+| `add_owned_tag(tag_id)` / `remove_owned_tag(tag_id)` / `has_owned_tag(tag_id)` / `owned_tags()` | ability tag id | bool / `Array[String]` | 只接受词表 §12-G 已登记 tag；供状态授予 / 移除和调试查询 |
+| `snapshot()` / `restore_snapshot(data)` | 无 / Dictionary | Dictionary / void | run 存档恢复；保存 AI 状态、owned tag 计数和状态效果 |
 | `receive_damage(info)` | `DamageInfo` | result dictionary | 只能经 `Combat.apply_damage()` 调用 |
 
 ## 依赖
 
-- 上游依赖：`DataLoader`、`GameClock`、`GameState`、`PoolManager`、`Combat`、`DamageInfo`、生成契约 `EnemyAiActions`、`content_tags`。
+- 上游依赖：`DataLoader`、`GameClock`、`GameState`、`PoolManager`、`Combat`、`DamageInfo`、`StatusEffectComponent`、生成契约 `EnemyAiActions` / `AbilityTags`、`content_tags`。
 - 下游调用方：`GameplayRunLoop`、`runtime-smoke`、未来 debug / 可视化工具。
 - 禁止依赖：不得直接读物理输入、原始时间、裸随机或绕过 `Combat` 扣血；不得在 `enemy.gd` 写 `if enemy_id == ...` 的内容分支。
 
@@ -100,7 +105,8 @@
 - 新敌人：先决定是否复用现有 profile；能复用就只改 `enemies.csv`、`game_modes.json`、`spawn_waves.csv` 和 locale。
 - 新生态关系：优先加 / 复用 `content_tags`，再调 `hunt_tags` / `flee_tags` 权重。
 - 新动作：先在词表 §12-B 登记 action id 并生成常量，再实现评分、执行、必要的快照字段和 smoke。
-- 新复杂状态：只把可恢复、JSON 友好的状态写入 snapshot；节点引用、临时感知缓存和 cooldown 字典不进存档。
+- 新持续状态：优先通过 `StatusEffectComponent` 和 ability tag 表达，不在 AI action 里手写计时；需要影响移动 / 伤害时后续接 ModifierEngine 或 on-hit primitive。
+- 新复杂 AI 状态：只把可恢复、JSON 友好的状态写入 snapshot；节点引用、临时感知缓存和 cooldown 字典不进存档。
 - 后续如引入导航 / 地形感知，先把环境查询抽成小接口或感知层数据，不把地图规则散落到每个 action。
 
 ## 常见改动入口
@@ -112,6 +118,7 @@
 | 加新生态 tag | `docs/词表与契约.md`、`enemies.csv.tags`、profile 的 hunt/flee tags | `sync_contracts --check` + schema test |
 | 新增 AI profile | `enemy_ai_profiles.json`、`enemies.csv.ai_profile_id` | `validate_data` + schema test |
 | 改敌人互相击杀收益 | `gameplay_run_loop.gd` 的 `_on_enemy_defeated()` | `runtime-smoke` + 相关 replay |
+| 改敌人状态宿主 / 快照 | `enemy.gd`、`status_effect_component.gd`、`l1_smoke.gd` | `l1-smoke` + `runtime-smoke` + `save-smoke` |
 
 ## 故障排查
 
@@ -122,18 +129,20 @@
 | 掠食者不冲锋 | `charge_range`、`charge_cooldown_remaining`、当前目标距离和 action base_score |
 | 怪物互咬太快 | 提高 `contact_interval` 或降低 `contact_damage` / 速度 |
 | 怪物互杀给玩家经验 | `was_defeated_by_player()` 与 `_on_enemy_defeated()` 是否仍按最后伤害来源判定 |
-| 续局后敌人行为突变 | 快照是否保存 / 恢复了 `home_position`、`current_action`、`action_state`、`action_timer` 和冲锋 cooldown |
+| 敌人状态没生效 | 目标是否实现 `apply_status_effect()`；状态 id、叠加规则和 granted ability tags 是否登记；组件是否在树内随 `GameClock` tick |
+| 池化敌人带着上一只怪的状态 | `configure()`、`_pool_release()`、`_pool_reset()` 是否清空 `StatusEffectComponent` 和 owned tag 计数 |
+| 续局后敌人行为或状态突变 | 快照是否保存 / 恢复了 `home_position`、`current_action`、`action_state`、`action_timer`、冲锋 cooldown、`owned_tag_counts` 和 `status_effects` |
 
 ## 测试义务
 
 - 改 profile / enemies 数据：跑 `python tools/validate_data.py`、`python tools/test_data_loader_schema.py`、`python tools/sync_contracts.py --check`。
 - 改 `enemy.gd`：跑 `python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client runtime-smoke`。
 - 改 AI 决策、怪物死亡归因、刷怪数据或影响稳定帧样本：重录并回放四条 checked-in golden replay，必要时跑 `perf-probe` 看敌人峰值和帧时间。
-- 改 run 快照字段：追加 `save-smoke`，并检查旧 run payload 的迁移 / fallback。
+- 改实体状态宿主、owned ability tag 或 run 快照字段：追加 `l1-smoke` 与 `save-smoke`，并检查旧 run payload 的迁移 / fallback。
 
 ## 迁移 / 兼容
 
-现有 `Enemy` 场景仍是单一 `Node2D` 占位形状；行为差异来自数据而不是新场景。旧敌人数据现在必须补 `ai_profile_id`，否则 DataLoader fail-fast。旧 run 存档如果缺少新增 AI 快照字段，会按当前位置、空动作和默认 cooldown 恢复，保持可加载但不保证回放逐帧一致。
+现有 `Enemy` 场景仍是单一 `Node2D` 占位形状；行为差异来自数据而不是新场景。旧敌人数据现在必须补 `ai_profile_id`，否则 DataLoader fail-fast。旧 run 存档如果缺少新增 AI 快照字段，会按当前位置、空动作和默认 cooldown 恢复；如果缺少 `status_effects` / `owned_tag_counts`，按无状态敌人恢复，保持可加载但不保证回放逐帧一致。
 
 ## 相关文档
 

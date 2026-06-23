@@ -4,12 +4,16 @@ extends Node
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const ENEMY_SCENE := preload("res://scenes/gameplay/enemy.tscn")
+const PLAYER_SCENE := preload("res://scenes/gameplay/player.tscn")
+const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SKILL_EFFECTS := preload("res://scripts/contracts/skill_effects.gd")
 const SKILL_IDS := preload("res://scripts/contracts/skill_ids.gd")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const SKILL_SYSTEM_SCRIPT := preload("res://scripts/gameplay/skill_system.gd")
 const SKILL_TARGETING := preload("res://scripts/contracts/skill_targeting.gd")
+const STATS := preload("res://scripts/contracts/stats.gd")
 const STATUS_EFFECT_SCRIPT := preload("res://scripts/combat/status_effect.gd")
 const STATUS_EFFECTS := preload("res://scripts/contracts/status_effects.gd")
 const STATUS_STACK_RULES := preload("res://scripts/contracts/status_stack_rules.gd")
@@ -72,6 +76,7 @@ func _run() -> void:
 	_expect_save_manager_roundtrip()
 	_expect_combat_damage_path()
 	await _expect_skill_system_aoe_damage()
+	await _expect_entity_status_components()
 	_expect_mod_loader_data_patch()
 	_expect_platform_services_reserved_interface()
 
@@ -248,6 +253,58 @@ func _expect_skill_system_aoe_damage() -> void:
 	world.queue_free()
 
 
+func _expect_entity_status_components() -> void:
+	var world: Node2D = Node2D.new()
+	world.name = "L1EntityStatusWorld"
+	add_child(world)
+
+	var player: Node2D = PLAYER_SCENE.instantiate() as Node2D
+	player.name = "L1StatusPlayer"
+	world.add_child(player)
+	player.call("configure", _l1_player_stats())
+
+	var enemy: Node2D = ENEMY_SCENE.instantiate() as Node2D
+	enemy.name = "L1StatusEnemy"
+	enemy.global_position = Vector2(48.0, 0.0)
+	world.add_child(enemy)
+	enemy.call("configure", _l1_enemy_data(), player)
+
+	var skill_system: Node = SKILL_SYSTEM_SCRIPT.new()
+	skill_system.name = "L1EntityStatusSkillSystem"
+	add_child(skill_system)
+	skill_system.call("configure", player, world, [_l1_enemy_silence_skill()], [])
+	GameState.change_state(GameState.PLAYING, {"source": "l1_entity_status_smoke"})
+
+	var enemy_status_result: Dictionary = skill_system.call("cast_primary_skill")
+	_expect(bool(enemy_status_result.get("ok", false)), "SkillSystem should apply status effects to real Enemy targets")
+	_expect(bool(enemy.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "Enemy should own status-granted ability tags")
+	_expect((enemy.call("active_statuses") as Array).has(STATUS_EFFECTS.SILENCE), "Enemy should report active status ids")
+	var enemy_snapshot: Dictionary = enemy.call("snapshot")
+	enemy.call("configure", _l1_enemy_data(), player)
+	_expect(not bool(enemy.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "Enemy configure should clear pooled status tags")
+	_expect((enemy.call("active_statuses") as Array).is_empty(), "Enemy configure should clear pooled active statuses")
+	enemy.call("restore_snapshot", enemy_snapshot)
+	_expect(bool(enemy.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "Enemy should restore status-granted ability tags")
+
+	var player_status_result: Dictionary = player.call("apply_status_effect", _l1_silence_status(0.06))
+	_expect(bool(player_status_result.get("applied", false)), "Player should accept direct status effects")
+	_expect(bool(player.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "Player should own status-granted ability tags")
+	var player_snapshot: Dictionary = player.call("snapshot")
+	player.call("configure", _l1_player_stats())
+	_expect(not bool(player.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "Player configure should clear status tags for a new run")
+	_expect((player.call("active_statuses") as Array).is_empty(), "Player configure should clear active statuses for a new run")
+	player.call("restore_snapshot", player_snapshot)
+	_expect(bool(player.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "Player should restore status-granted ability tags")
+
+	await _wait_physics_frames(8)
+	_expect(not bool(enemy.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "Enemy should remove status-granted tags on expiration")
+	_expect(not bool(player.call("has_owned_tag", ABILITY_TAGS.ABILITY_TAG_SILENCED)), "Player should remove status-granted tags on expiration")
+
+	enemy.remove_from_group("active_enemies")
+	skill_system.queue_free()
+	world.queue_free()
+
+
 func _l1_whirlwind_skill() -> Dictionary:
 	return {
 		"id": SKILL_IDS.SKILL_WHIRLWIND_SLASH,
@@ -312,6 +369,39 @@ func _l1_self_silence_skill() -> Dictionary:
 	}
 
 
+func _l1_enemy_silence_skill() -> Dictionary:
+	return {
+		"id": SKILL_IDS.SKILL_WHIRLWIND_SLASH,
+		"ability_tags": [
+			ABILITY_TAGS.ABILITY_TAG_SKILL,
+			ABILITY_TAGS.ABILITY_TAG_PRIMARY,
+		],
+		"activation": {
+			"required_tags": [],
+			"blocked_tags": [],
+			"granted_tags": [],
+		},
+		"cooldown": 0.0,
+		"costs": [],
+		"targeting": {
+			"type": SKILL_TARGETING.TARGET_ENEMY,
+			"radius": 120.0,
+			"max_targets": 1,
+		},
+		"effects": [
+			{
+				"effect": SKILL_EFFECTS.SKILL_EFFECT_APPLY_STATUS,
+				"params": {
+					"status": STATUS_EFFECTS.SILENCE,
+					"duration": 0.06,
+					"stack_rule": STATUS_STACK_RULES.REFRESH,
+					"granted_ability_tags": [ABILITY_TAGS.ABILITY_TAG_SILENCED],
+				},
+			},
+		],
+	}
+
+
 func _l1_silence_status(duration: float) -> Resource:
 	return STATUS_EFFECT_SCRIPT.new().setup(
 		STATUS_EFFECTS.SILENCE,
@@ -330,6 +420,36 @@ func _l1_mana_resource() -> Dictionary:
 		"max": 100.0,
 		"start": 100.0,
 		"regen_per_second": 0.0,
+	}
+
+
+func _l1_player_stats() -> Dictionary:
+	return {
+		STATS.MAX_HP: 10.0,
+		STATS.MOVE_SPEED: 0.0,
+		STATS.DAMAGE_INVULNERABILITY_DURATION: 0.0,
+		STATS.PLAYER_SEPARATION_RADIUS: 0.0,
+		STATS.PICKUP_RANGE: 0.0,
+		STATS.PICKUP_ORB_SPEED: 0.0,
+		STATS.LUCK: 0.0,
+	}
+
+
+func _l1_enemy_data() -> Dictionary:
+	return {
+		"id": "enemy_l1_status",
+		"tags": [],
+		"pool_id": POOL_IDS.ENEMY_CHASER,
+		"ai_profile_id": "enemy_ai_chase_contact",
+		"ai_profile": {},
+		"max_hp": 10.0,
+		"move_speed": 0.0,
+		"contact_damage": 0.0,
+		"contact_damage_type": DAMAGE_TYPES.PHYSICAL,
+		"exp_reward": 0,
+		"hit_radius": 10.0,
+		"separation_radius": 0.0,
+		"visual_color": "#ff6152",
 	}
 
 

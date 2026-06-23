@@ -742,8 +742,8 @@
       "must_read_for": ["gameplay_runtime_change", "player_runtime_change", "weapon_system_change", "skill_system_change", "map_runtime_change", "hazard_runtime_change", "spawner_change", "hud_change"],
       "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/map_manager.gd", "client/scripts/gameplay/hazard.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/scripts/debug/gm_command_registry.gd", "client/data/map_layouts.json", "client/data/hazards.csv", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd", "client/tools/debug_tools_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
-      "update_triggers": ["Gameplay runtime behavior changes", "Player, weapon, skill, map, or hazard runtime changes", "Spawner behavior changes", "HUD or restart flow changes", "run payload schema changes", "runtime debug API changes", "runtime module split or scene-resource migration"],
-      "keywords": ["GameplayRunLoop", "runtime-smoke", "f9-demo-smoke", "debug-tools-smoke", "F4", "F9", "MinPlayableLoop", "MapManager", "HazardSystem", "map_layouts.json", "hazard_fea_12_pulse", "FEA-12", "有限地图", "PCG", "人工摆点", "Player", "WeaponSystem", "SkillSystem", "StatusEffectComponent", "status_effects", "skills.json", "Whirlwind Slash", "旋风斩", "Bullet", "Enemy", "Spawner", "HUD", "详细数值面板", "show_stats_panel", "StatsPanel", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
+      "update_triggers": ["Gameplay runtime behavior changes", "Player, weapon, skill, map, or hazard runtime changes", "Player/Enemy status host changes", "Spawner behavior changes", "HUD or restart flow changes", "run payload schema changes", "runtime debug API changes", "runtime module split or scene-resource migration"],
+      "keywords": ["GameplayRunLoop", "runtime-smoke", "f9-demo-smoke", "debug-tools-smoke", "F4", "F9", "MinPlayableLoop", "MapManager", "HazardSystem", "map_layouts.json", "hazard_fea_12_pulse", "FEA-12", "有限地图", "PCG", "人工摆点", "Player", "WeaponSystem", "SkillSystem", "StatusEffectComponent", "entity status", "owned_tag_counts", "status_effects", "skills.json", "Whirlwind Slash", "旋风斩", "Bullet", "Enemy", "Spawner", "HUD", "详细数值面板", "show_stats_panel", "StatsPanel", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
     },
     {
       "path": "docs/代码/skill_system.md",
@@ -755,37 +755,37 @@
       "canonical_for": ["skill_system", "active_skills", "skill_runtime", "skill_resources", "ability_tags", "lightweight_gas", "skill_status_effects"],
       "must_read_for": ["skill_system_change", "new_skill", "skill_resource_change", "skill_targeting_change", "skill_effect_change", "ability_tag_change", "status_effect_change"],
       "related_docs": ["docs/代码/gameplay_runtime.md", "docs/代码/data_loader.md", "docs/代码/combat.md", "docs/代码/status_effect_component.md", "client/data/README.md", "client/locale/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/gameplay/skill_system.gd", "client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/skills.json", "client/data/characters.json", "client/data/game_modes.json", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "client/tools/l1_smoke.gd", "client/tools/runtime_smoke.gd"],
+      "related_code": ["client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/skills.json", "client/data/characters.json", "client/data/game_modes.json", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "client/tools/l1_smoke.gd", "client/tools/runtime_smoke.gd"],
       "update_triggers": ["SkillSystem API changes", "skills.json schema changes", "ability tag contract changes", "activation tag gating changes", "status effect contract changes", "skill resource contract changes", "skill targeting contract changes", "skill effect primitive changes", "skill run snapshot changes"],
       "keywords": ["SkillSystem", "GAS", "lightweight GAS", "ability_tags", "ability_tag_silenced", "activation", "blocked_tags", "required_tags", "granted_tags", "skills.json", "skill", "技能", "主动技能", "skill_whirlwind_slash", "Whirlwind Slash", "旋风斩", "mana", "魔法", "skill_resources", "aoe_enemies_around_caster", "target_enemy", "target_ally", "skill_effect_damage", "skill_effect_apply_status", "StatusEffect", "StatusEffectComponent", "silence", "沉默", "Combat"]
     },
     {
       "path": "docs/代码/status_effect_component.md",
       "type": "module_doc",
-      "authority": "StatusEffect Resource and StatusEffectComponent runtime contract for status stacking, ability tag grant/release lifecycle, GameClock ticking, and SkillSystem status snapshots",
+      "authority": "StatusEffect Resource and StatusEffectComponent runtime contract for status stacking, ability tag grant/release lifecycle, GameClock ticking, Player/Enemy entity status hosts, and SkillSystem/entity status snapshots",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-06-23",
       "canonical_for": ["status_effect_component", "status_effects", "status_stack_rules", "status_ability_tags", "status_snapshots"],
-      "must_read_for": ["status_effect_change", "status_stack_rule_change", "skill_effect_apply_status_change", "ability_tag_status_source_change", "status_snapshot_change"],
+      "must_read_for": ["status_effect_change", "status_stack_rule_change", "skill_effect_apply_status_change", "ability_tag_status_source_change", "entity_status_host_change", "status_snapshot_change"],
       "related_docs": ["docs/代码/skill_system.md", "docs/代码/gameplay_runtime.md", "docs/代码/combat.md", "docs/代码/data_loader.md", "client/data/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/contracts/status_effects.gd", "client/scripts/contracts/status_stack_rules.gd", "client/scripts/contracts/ability_tags.gd", "client/tools/l1_smoke.gd"],
-      "update_triggers": ["StatusEffect field changes", "StatusEffectComponent API changes", "status stack rule changes", "ability tag grant/release behavior changes", "status snapshot changes", "skill_effect_apply_status behavior changes"],
-      "keywords": ["StatusEffect", "StatusEffectComponent", "status_effects", "status_stack_rules", "skill_effect_apply_status", "ability_tag_silenced", "silence", "沉默", "状态效果", "叠加规则", "REFRESH", "REPLACE", "ADD_DURATION", "INDEPENDENT", "MAX_MAGNITUDE", "GameClock", "run snapshot"]
+      "related_code": ["client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/contracts/status_effects.gd", "client/scripts/contracts/status_stack_rules.gd", "client/scripts/contracts/ability_tags.gd", "client/tools/l1_smoke.gd"],
+      "update_triggers": ["StatusEffect field changes", "StatusEffectComponent API changes", "Player/Enemy status host changes", "status stack rule changes", "ability tag grant/release behavior changes", "status snapshot changes", "skill_effect_apply_status behavior changes"],
+      "keywords": ["StatusEffect", "StatusEffectComponent", "status_effects", "status_stack_rules", "skill_effect_apply_status", "ability_tag_silenced", "silence", "沉默", "状态效果", "实体状态", "Player", "Enemy", "owned_tag_counts", "叠加规则", "REFRESH", "REPLACE", "ADD_DURATION", "INDEPENDENT", "MAX_MAGNITUDE", "GameClock", "run snapshot"]
     },
     {
       "path": "docs/代码/enemy_ai.md",
       "type": "module_doc",
-      "authority": "EnemyAI runtime contract for data-driven ecological profiles, Utility action scoring, FSM charge execution, steering movement, monster-vs-monster contact damage, and run snapshot fields",
+      "authority": "EnemyAI runtime contract for data-driven ecological profiles, Utility action scoring, FSM charge execution, steering movement, monster-vs-monster contact damage, Enemy status host behavior, and run snapshot fields",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-22",
+      "last_reviewed": "2026-06-23",
       "canonical_for": ["enemy_ai", "enemy_ecology", "enemy_ai_profiles", "monster_ecology"],
       "must_read_for": ["enemy_ai_change", "enemy_ecology_change", "enemy_ai_profile_schema_change", "new_enemy_behavior"],
       "related_docs": ["docs/代码/gameplay_runtime.md", "docs/代码/combat.md", "docs/代码/data_loader.md", "client/data/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/enemy_ai_profiles.json", "client/data/enemies.csv", "client/data/spawn_waves.csv", "client/tools/runtime_smoke.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
-      "update_triggers": ["EnemyAI runtime behavior changes", "enemy_ai_profiles.json schema changes", "enemy AI action contract changes", "enemy content tag ecology changes", "monster-vs-monster damage attribution changes", "enemy run snapshot changes"],
-      "keywords": ["EnemyAI", "Enemy", "enemy_ai_profiles.json", "ai_profile_id", "enemy_ai_actions", "Utility AI", "FSM", "Steering", "Rain World", "雨世界", "怪物生态", "猎物", "掠食者", "领地", "tag_enemy_prey", "tag_enemy_predator", "tag_enemy_territorial", "runtime-smoke"]
+      "related_code": ["client/scripts/gameplay/enemy.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/enemy_ai_profiles.json", "client/data/enemies.csv", "client/data/spawn_waves.csv", "client/tools/l1_smoke.gd", "client/tools/runtime_smoke.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
+      "update_triggers": ["EnemyAI runtime behavior changes", "enemy status host changes", "enemy_ai_profiles.json schema changes", "enemy AI action contract changes", "enemy content tag ecology changes", "monster-vs-monster damage attribution changes", "enemy run snapshot changes"],
+      "keywords": ["EnemyAI", "Enemy", "StatusEffectComponent", "entity status", "owned_tag_counts", "enemy_ai_profiles.json", "ai_profile_id", "enemy_ai_actions", "Utility AI", "FSM", "Steering", "Rain World", "雨世界", "怪物生态", "猎物", "掠食者", "领地", "tag_enemy_prey", "tag_enemy_predator", "tag_enemy_territorial", "runtime-smoke"]
     },
     {
       "path": "docs/代码/map_manager.md",

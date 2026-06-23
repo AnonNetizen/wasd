@@ -6,8 +6,10 @@ extends Node2D
 
 signal defeated(enemy: Node, exp_reward: int)
 
+const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
+const STATUS_EFFECT_COMPONENT_SCRIPT := preload("res://scripts/combat/status_effect_component.gd")
 
 const ACTION_STATE_CHARGE_RELEASE: String = "charge_release"
 const ACTION_STATE_CHARGE_WINDUP: String = "charge_windup"
@@ -47,8 +49,10 @@ var _last_scores: Dictionary = {}
 var _life_points: float = 1.0
 var _max_life: float = 1.0
 var _move_speed: float = 0.0
+var _owned_tag_counts: Dictionary = {}
 var _player_target: Node2D = null
 var _separation_radius: float = 0.0
+var _status_effect_component: Node = null
 var _tags: Array[String] = []
 var _visual_color: Color = Color(1.0, 0.38, 0.32)
 
@@ -82,6 +86,7 @@ func _physics_process(delta: float) -> void:
 
 func configure(enemy_data: Dictionary, target: Node2D) -> void:
 	_defeat_feedback_remaining = 0.0
+	_clear_status_effects_for_reuse()
 	_player_target = target
 	_focus_target = target
 	_home_position = global_position
@@ -158,6 +163,39 @@ func was_defeated_by_player() -> bool:
 	return _last_damage_source_team == TEAM_PLAYER
 
 
+func add_owned_tag(tag_id: String) -> bool:
+	return _add_owned_tag_count(tag_id)
+
+
+func remove_owned_tag(tag_id: String) -> bool:
+	return _remove_owned_tag_count(tag_id)
+
+
+func has_owned_tag(tag_id: String) -> bool:
+	return int(_owned_tag_counts.get(tag_id, 0)) > 0
+
+
+func owned_tags() -> Array[String]:
+	return _sorted_string_keys(_owned_tag_counts)
+
+
+func apply_status_effect(status_effect: Variant) -> Dictionary:
+	_ensure_status_effect_component()
+	if _status_effect_component == null:
+		return {
+			"applied": false,
+			"reason": "status_component_unavailable",
+		}
+	return _status_effect_component.call("apply", status_effect) as Dictionary
+
+
+func active_statuses() -> Array[String]:
+	_ensure_status_effect_component()
+	if _status_effect_component == null:
+		return []
+	return _status_effect_component.call("active_statuses") as Array[String]
+
+
 func receive_damage(info: RefCounted) -> Dictionary:
 	if not is_alive():
 		return {
@@ -199,10 +237,15 @@ func snapshot() -> Dictionary:
 		"charge_cooldown_remaining": _charge_cooldown_remaining,
 		"charge_direction": _vector_to_dict(_charge_direction),
 		"last_damage_source_team": _last_damage_source_team,
+		"owned_tag_counts": _owned_tag_counts.duplicate(true),
+		"status_effects": _status_effect_snapshot(),
 	}
 
 
 func restore_snapshot(snapshot_data: Dictionary) -> void:
+	_ensure_status_effect_component()
+	if _status_effect_component != null:
+		_status_effect_component.call("clear", false)
 	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
 	_home_position = _dict_to_vector(snapshot_data.get("home_position", {}), global_position)
 	_life_points = clampf(float(snapshot_data.get("life_points", _max_life)), 0.0, _max_life)
@@ -212,6 +255,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_charge_cooldown_remaining = maxf(float(snapshot_data.get("charge_cooldown_remaining", 0.0)), 0.0)
 	_charge_direction = _dict_to_vector(snapshot_data.get("charge_direction", {}), Vector2.ZERO)
 	_last_damage_source_team = String(snapshot_data.get("last_damage_source_team", ""))
+	_restore_status_snapshot(snapshot_data)
 	if _life_points <= 0.0:
 		remove_from_group("active_enemies")
 	queue_redraw()
@@ -243,6 +287,7 @@ func _pool_reset() -> void:
 	_life_points = 1.0
 	_max_life = 1.0
 	_move_speed = 0.0
+	_clear_status_effects_for_reuse()
 	_player_target = null
 	_separation_radius = 0.0
 	_tags.clear()
@@ -253,6 +298,7 @@ func _pool_reset() -> void:
 func _pool_release() -> void:
 	remove_from_group("active_enemies")
 	_defeat_feedback_remaining = 0.0
+	_clear_status_effects_for_reuse()
 	_focus_target = null
 	_player_target = null
 
@@ -807,3 +853,84 @@ func _dict_to_vector(raw_value: Variant, fallback: Vector2) -> Vector2:
 		return fallback
 	var value: Dictionary = raw_value as Dictionary
 	return Vector2(float(value.get("x", fallback.x)), float(value.get("y", fallback.y)))
+
+
+func _ensure_status_effect_component() -> void:
+	if _status_effect_component != null and is_instance_valid(_status_effect_component):
+		_status_effect_component.call("configure_ability_tag_owner", self)
+		return
+	_status_effect_component = get_node_or_null("StatusEffectComponent")
+	if _status_effect_component == null:
+		_status_effect_component = STATUS_EFFECT_COMPONENT_SCRIPT.new()
+		_status_effect_component.name = "StatusEffectComponent"
+		add_child(_status_effect_component)
+	_status_effect_component.call("configure_ability_tag_owner", self)
+
+
+func _status_effect_snapshot() -> Dictionary:
+	_ensure_status_effect_component()
+	if _status_effect_component == null:
+		return {}
+	return _status_effect_component.call("snapshot") as Dictionary
+
+
+func _restore_status_snapshot(snapshot_data: Dictionary) -> void:
+	_owned_tag_counts.clear()
+	var raw_tag_counts: Variant = snapshot_data.get("owned_tag_counts", {})
+	var has_owned_tag_snapshot: bool = snapshot_data.has("owned_tag_counts") and raw_tag_counts is Dictionary
+	if has_owned_tag_snapshot:
+		for tag_id: Variant in (raw_tag_counts as Dictionary).keys():
+			var count: int = maxi(int((raw_tag_counts as Dictionary)[tag_id]), 0)
+			if count <= 0:
+				continue
+			var tag: String = String(tag_id)
+			if _is_valid_ability_tag(tag):
+				_owned_tag_counts[tag] = count
+	else:
+		var raw_owned_tags: Variant = snapshot_data.get("owned_tags", [])
+		has_owned_tag_snapshot = raw_owned_tags is Array
+		if raw_owned_tags is Array:
+			for tag_id: Variant in raw_owned_tags as Array:
+				_add_owned_tag_count(String(tag_id))
+
+	var raw_status_effects: Variant = snapshot_data.get("status_effects", {})
+	if _status_effect_component != null and raw_status_effects is Dictionary:
+		_status_effect_component.call("restore_snapshot", raw_status_effects, not has_owned_tag_snapshot)
+
+
+func _clear_status_effects_for_reuse() -> void:
+	if _status_effect_component != null and is_instance_valid(_status_effect_component):
+		_status_effect_component.call("clear", false)
+	_owned_tag_counts.clear()
+
+
+func _add_owned_tag_count(tag_id: String) -> bool:
+	if not _is_valid_ability_tag(tag_id):
+		return false
+	_owned_tag_counts[tag_id] = int(_owned_tag_counts.get(tag_id, 0)) + 1
+	return true
+
+
+func _remove_owned_tag_count(tag_id: String) -> bool:
+	if not _owned_tag_counts.has(tag_id):
+		return false
+	var next_count: int = int(_owned_tag_counts[tag_id]) - 1
+	if next_count <= 0:
+		_owned_tag_counts.erase(tag_id)
+	else:
+		_owned_tag_counts[tag_id] = next_count
+	return true
+
+
+func _is_valid_ability_tag(tag_id: String) -> bool:
+	if tag_id.is_empty():
+		return false
+	return ABILITY_TAGS.VALUES.has(tag_id)
+
+
+func _sorted_string_keys(source: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for key: Variant in source.keys():
+		result.append(String(key))
+	result.sort()
+	return result
