@@ -5,8 +5,8 @@
       "id": "map_standard_nest",
       "mode_id": "mode_standard_survival",
       "bounds": {
-        "width": 3840.0,
-        "height": 1920.0
+        "width": 4000.0,
+        "height": 2000.0
       },
       "grid": {
         "cell_width": 160.0,

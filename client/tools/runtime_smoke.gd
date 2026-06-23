@@ -287,6 +287,10 @@ func _map_boundary_is_diamond(run_loop: Node) -> bool:
 	var expected_ratio: float = grid_cell_size.y / grid_cell_size.x
 	if absf((half_extents.y / half_extents.x) - expected_ratio) > 0.001:
 		return false
+	if absf(fmod(half_extents.x, grid_cell_size.x) - grid_cell_size.x * 0.5) > 0.01:
+		return false
+	if absf(fmod(half_extents.y, grid_cell_size.y) - grid_cell_size.y * 0.5) > 0.01:
+		return false
 	var expected_points: Array[Vector2] = [
 		center + Vector2(0.0, -half_extents.y),
 		center + Vector2(half_extents.x, 0.0),

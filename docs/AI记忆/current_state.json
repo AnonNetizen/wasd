@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-06-23",
   "current_phase": "formal_project_f9_content_demo_polish",
-  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；后续用户点名推进的《破巢者》IP、数据驱动 EnemyAI、可复用主动技能、英文 UI 尺寸基准、详细数值面板、有限地图 + 可人工调参 PCG / FEA-12 机关测试链路、项目版轻量 GAS 首片、状态效果 ability tag 生命周期首片、Player / Enemy 实体状态宿主接入、burn DoT 首个真实状态、点燃斩 burn 数据技能、敌人有限地图移动边界修复、600.0 浮点血量 + health_regen 基线、玩家 2.5D 视觉层首片，以及 ADR #100~#106 固定斜俯视 2.5D 当前视角口径、哈迪斯式等比屏幕尺度显示、菱形机关危险地块、固定斜俯视资产落地规则、量化菱形地图格和机关奇偶锚点均已落地。当前项目类型应表述为固定斜俯视 2.5D 刷宝动作生存：核心参考《星际战甲》与《暗黑》的装备 / 词条 / 长期养成和刷战利品循环，视角表现参考《哈迪斯》的斜俯视舞台可读性；移动、碰撞、刷怪、地图边界和回放仍保持 2D 平面，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放，不旋转、不非等比压缩，鼠标瞄准按 canvas transform 反算世界方向。地图使用 `map_layouts.json.grid.cell_width/cell_height` 定义量化菱形格，bounds 是菱形外接框，必须整除格尺寸且满足 height = width * cell_height / cell_width；可见边界和逻辑边界共享贴格菱形，玩家 / 敌人 / 刷怪 / 机关摆放都 clamp 到该菱形内；出生点吸附到格心；通用 `Hazard` 使用菱形占位和归一化菱形触发判定，`hazards.csv.radius_tiles` 表示占用地图菱形格的整数倍，人工机关 / PCG 机关按 `radius_tiles` 奇偶吸附到合法锚点（奇数格心、偶数网格顶点），背景网格、机关绘制和触发判定共享同一份 grid cell size。固定斜俯视资产处理规则已确立：只有贴地范围 / 机关 / AOE / 地面符号优先用菱形并对齐地图格；角色、敌人、拾取物、子弹、障碍物和特效不强制菱形，必须通过落地点、footprint、阴影 / 底座、遮挡 / Y-sort 和真实判定形状统一读法。新增 docs/AI辅助开发机会清单.md 只是候选菜单，不是已采纳路线图，也不授权 AI 自行实现。当前没有阻塞，下一步应以用户最后明确指令为准。",
+  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；后续用户点名推进的《破巢者》IP、数据驱动 EnemyAI、可复用主动技能、英文 UI 尺寸基准、详细数值面板、有限地图 + 可人工调参 PCG / FEA-12 机关测试链路、项目版轻量 GAS 首片、状态效果 ability tag 生命周期首片、Player / Enemy 实体状态宿主接入、burn DoT 首个真实状态、点燃斩 burn 数据技能、敌人有限地图移动边界修复、600.0 浮点血量 + health_regen 基线、玩家 2.5D 视觉层首片，以及 ADR #100~#106 固定斜俯视 2.5D 当前视角口径、哈迪斯式等比屏幕尺度显示、菱形机关危险地块、固定斜俯视资产落地规则、量化菱形地图格和机关奇偶锚点均已落地。当前项目类型应表述为固定斜俯视 2.5D 刷宝动作生存：核心参考《星际战甲》与《暗黑》的装备 / 词条 / 长期养成和刷战利品循环，视角表现参考《哈迪斯》的斜俯视舞台可读性；移动、碰撞、刷怪、地图边界和回放仍保持 2D 平面，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放，不旋转、不非等比压缩，鼠标瞄准按 canvas transform 反算世界方向。地图使用 `map_layouts.json.grid.cell_width/cell_height` 定义量化菱形格，bounds 是菱形外接框，必须是格尺寸奇数倍且满足 height = width * cell_height / cell_width；可见边界和逻辑边界共享贴格菱形，玩家 / 敌人 / 刷怪 / 机关摆放都 clamp 到该菱形内；出生点吸附到格心；通用 `Hazard` 使用菱形占位和归一化菱形触发判定，`hazards.csv.radius_tiles` 表示占用地图菱形格的整数倍，人工机关 / PCG 机关按 `radius_tiles` 奇偶吸附到合法锚点（奇数格心、偶数网格顶点），背景网格、机关绘制和触发判定共享同一份 grid cell size。固定斜俯视资产处理规则已确立：只有贴地范围 / 机关 / AOE / 地面符号优先用菱形并对齐地图格；角色、敌人、拾取物、子弹、障碍物和特效不强制菱形，必须通过落地点、footprint、阴影 / 底座、遮挡 / Y-sort 和真实判定形状统一读法。新增 docs/AI辅助开发机会清单.md 只是候选菜单，不是已采纳路线图，也不授权 AI 自行实现。当前没有阻塞，下一步应以用户最后明确指令为准。",
   "latest_adr": 106,
   "open_decisions": [
     "A",
@@ -11,7 +11,7 @@
     "E"
   ],
   "last_completed": [
-    "修正地图边界为真正的贴格菱形逻辑边界：map_layouts bounds 从 3840x2560 改为符合 160x80 grid 斜率的 3840x1920，MapManager 可见边界、clamp_position、spawn_position、PCG 机关采样和机关完整性检查都使用同一套菱形公式；GameplayRunLoop 向 Player / Enemy 注入 set_movement_diamond_boundary()，runtime-smoke 覆盖 MapManager / Player / Enemy 菱形 clamp。",
+    "修正地图边界为真正的贴格菱形逻辑边界：map_layouts bounds 从 3840x2560 扩为符合 160x80 grid 斜率且落在格线上的 4000x2000，MapManager 可见边界、clamp_position、spawn_position、PCG 机关采样和机关完整性检查都使用同一套菱形公式；GameplayRunLoop 向 Player / Enemy 注入 set_movement_diamond_boundary()，runtime-smoke 覆盖 MapManager / Player / Enemy 菱形 clamp。",
     "ADR #106：机关锚点按 hazards.csv.radius_tiles 奇偶吸附；奇数尺寸中心落在菱形格心，偶数尺寸中心落在网格顶点，人工摆点、PCG 和旧快照恢复共用同一规则，避免偶数尺寸机关边缘穿过格心导致看起来不贴格。",
     "ADR #105：地图采用量化菱形格度量；map_layouts.json.grid.cell_width/cell_height 定义格尺寸，bounds 整除格尺寸，玩家出生点 / 人工机关 / PCG 机关中心吸附到格点，机关尺寸改用 hazards.csv.radius_tiles 正整数。",
     "ADR #104：固定斜俯视资产处理采用地面范围读菱形、非地面资产自由轮廓 + 落地点 / 阴影 / 遮挡统一；AI 生成或替换资产时必须说明 footprint、anchor、shadow、sort layer 与真实判定形状。",
@@ -52,7 +52,7 @@
     "如果继续 2.5D / 哈迪斯式斜俯视表现，优先保持玩法判定在 2D 平面：Player / Enemy 仍走 CharacterBody2D 或 Node2D + 2D 碰撞，CenteredCamera 不滚转屏幕、不做非等比缩放，只保持水平居中和等比缩放；斜俯视感通过 WorldBackground / 地面美术、障碍物、Y-sort / 遮挡、房间 / 舞台构图和 Player3DVisual 类似的视觉层渐进替换；不要直接把地图、碰撞、刷怪和回放改成真 3D。",
     "后续设计、功能选择和文档表述应以“固定斜俯视 2.5D 刷宝动作生存”为核心口径：优先围绕装备、词条、战利品、长期养成、更高危险等级和构筑迭代组织工作包；局内随机奖励服务刷宝循环，不再按旧类型路线推进，也不要再把当前项目称为纯俯视角。",
     "如果继续讨论“AI 写代码能力带来的新玩法 / 内容产能”，先看 docs/AI辅助开发机会清单.md；该文档只是候选菜单，用户点名 AID 条目后再建立 / 更新工作包、GDD / ADR / 模块文档并实现。",
-    "如果继续地图 / PCG，优先改 client/data/map_layouts.json；bounds 是菱形外接框，必须整除 grid.cell_width/cell_height 且满足 height = width * cell_height / cell_width；玩家出生点必须在格心，人工机关和 PCG 机关按 hazards.csv.radius_tiles 奇偶吸附到合法锚点（奇数格心、偶数网格顶点）；地图规则看 docs/代码/map_manager.md，机关运行时看 docs/代码/hazard_system.md；玩家和敌人中心移动都应保持在 MapManager.boundary_half_extents() 定义的菱形内。",
+    "如果继续地图 / PCG，优先改 client/data/map_layouts.json；bounds 是菱形外接框，必须是 grid.cell_width/cell_height 的奇数倍且满足 height = width * cell_height / cell_width；玩家出生点必须在格心，人工机关和 PCG 机关按 hazards.csv.radius_tiles 奇偶吸附到合法锚点（奇数格心、偶数网格顶点）；地图规则看 docs/代码/map_manager.md，机关运行时看 docs/代码/hazard_system.md；玩家和敌人中心移动都应保持在 MapManager.boundary_half_extents() 定义的菱形内。",
     "如果继续机关内容，优先改 client/data/hazards.csv、game_modes.resource_pools.hazards 和 map_layouts.json；普通菱形范围机关复用通用 Hazard，hazards.csv.radius_tiles 是占用地图菱形格的正整数，新增行为先设计 primitive。",
     "如果继续技能 / 轻量 GAS，优先改 client/data/skills.json、characters.json.skill_resources / starting_loadout.skill_ids 和 game_modes.resource_pools.skills；当前默认主键仍是 skill_whirlwind_slash，skill_ignite_slash 已作为第二技能和模式池内容；新资源、目标类型、效果或 ability tag 先登记 docs/词表与契约.md §12-C~12-G。",
     "如果继续状态效果，先看 docs/代码/status_effect_component.md；新状态登记 docs/词表与契约.md §9-A，新叠加规则登记 §9-B；DoT 状态通过 skill_effect_apply_status 提供 damage_type / magnitude / tick_interval，或后续 on-hit primitive 注入目标实体的 StatusEffectComponent。",
@@ -63,7 +63,7 @@
     {
       "date": "2026-06-23",
       "command": "sync_contracts --check, validate_data, test_data_loader_schema, lint_gdscript_rules, lint_project_rules, lint_semantic_rules, docs_health_check, diff --check excluding draft, headless-boot, runtime-smoke, f9-demo-smoke, save-smoke, replay-smoke, replay-input-smoke, perf-probe, four checked-in golden replay reruns",
-      "result": "passed for grid-aligned diamond logic map boundary; map_layouts bounds now use 3840x1920 for the 160x80 grid, DataLoader/validate_data/schema tests reject non-grid-aspect bounds such as 3840x2560, MapManager clamps movement/spawn/hazard placement to the same diamond used for visible boundary, GameplayRunLoop injects diamond movement boundaries into Player and Enemy, runtime-smoke verifies MapManager/Player/Enemy diamond clamp; semantic lint exits 0 with reviewed existing autoload-bypass-pool-ui advisories; runtime-smoke/save-smoke include expected broken-save diagnostics while passing"
+      "result": "passed for grid-aligned diamond logic map boundary; map_layouts bounds now use 4000x2000 for the 160x80 grid so the boundary lands on grid lines, DataLoader/validate_data/schema tests reject non-grid-aspect bounds such as 3840x2560 and even-span bounds such as 3840x1920, MapManager clamps movement/spawn/hazard placement to the same diamond used for visible boundary, GameplayRunLoop injects diamond movement boundaries into Player and Enemy, runtime-smoke verifies MapManager/Player/Enemy diamond clamp; semantic lint exits 0 with reviewed existing autoload-bypass-pool-ui advisories; runtime-smoke/save-smoke include expected broken-save diagnostics while passing"
     },
     {
       "date": "2026-06-23",

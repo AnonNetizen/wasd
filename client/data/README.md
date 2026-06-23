@@ -328,7 +328,7 @@ JSON 示例：
     {
       "id": "map_standard_nest",
       "mode_id": "mode_standard_survival",
-      "bounds": { "width": 3840.0, "height": 1920.0 },
+      "bounds": { "width": 4000.0, "height": 2000.0 },
       "grid": { "cell_width": 160.0, "cell_height": 80.0 },
       "player_start": { "x": 0.0, "y": 0.0 },
       "safe_radius": 320.0,
@@ -357,7 +357,7 @@ JSON 示例：
 | `schema_version` | int | 当前 `1` | 文件 schema 版本 |
 | `layouts[].id` | string | 文件内唯一，非空 | 地图 layout id，用于诊断和 run 快照 |
 | `layouts[].mode_id` | string | 必须存在于 `game_modes.json` | 该 layout 绑定的游戏模式；当前每个模式使用第一条匹配 layout |
-| `bounds.width` / `bounds.height` | number | `> 0`，px；分别为 `grid.cell_width` / `grid.cell_height` 的整数倍，且 `height == width * grid.cell_height / grid.cell_width` | 有限菱形地图外接框；运行时以原点为中心生成可见 / 逻辑菱形边界 |
+| `bounds.width` / `bounds.height` | number | `> 0`，px；分别为 `grid.cell_width` / `grid.cell_height` 的奇数倍，且 `height == width * grid.cell_height / grid.cell_width` | 有限菱形地图外接框；运行时以原点为中心生成可见 / 逻辑菱形边界，奇数格跨度保证边线落在菱形格线上 |
 | `grid.cell_width` | number | `> 0`，px | 单个菱形格的水平对角线长度 |
 | `grid.cell_height` | number | `> 0`，px | 单个菱形格的垂直对角线长度 |
 | `player_start.x` | number | 菱形格中心坐标 | 玩家出生点 X 坐标；运行时会吸附并 clamp 到地图边界 |
@@ -375,8 +375,8 @@ JSON 示例：
 | `manual_hazards[].y` | number | 合法菱形格锚点坐标 | 固定机关世界 Y 坐标；奇数 `radius_tiles` 校验为格心，偶数 `radius_tiles` 校验为网格顶点，运行时也会按同一规则吸附并 clamp |
 
 调参建议：
-- 需要改变地图大小或边界节奏时，先改 `bounds`，并保持外接框比例贴住 `grid.cell_width/cell_height`，再跑 `runtime-smoke` 和 `perf-probe`。
-- 改格子尺度时优先成对调整 `grid.cell_width` / `grid.cell_height`，并保持 `bounds` 为整数倍且同斜率；当前默认一格为 `160 x 80` 的地面菱形。
+- 需要改变地图大小或边界节奏时，先改 `bounds`，并保持外接框比例贴住 `grid.cell_width/cell_height` 且跨过奇数个格子，再跑 `runtime-smoke` 和 `perf-probe`。
+- 改格子尺度时优先成对调整 `grid.cell_width` / `grid.cell_height`，并保持 `bounds` 为奇数倍且同斜率；当前默认一格为 `160 x 80` 的地面菱形。
 - 机关锚点按 `hazards.csv.radius_tiles` 奇偶决定：奇数尺寸中心在格心，偶数尺寸中心在网格顶点，这样机关外边缘才能贴住背景菱形格线。
 - 需要测试特定机关交互时，用 `manual_hazards` 固定位置；需要测试 PCG 稳定性时改 `pcg.hazards[].count` / `min_spacing`。
 - `hazards.csv` 只管机关基础数值和占格尺寸，`map_layouts.json` 才管初始地图上的机关位置。

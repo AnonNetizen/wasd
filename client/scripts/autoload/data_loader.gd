@@ -1420,9 +1420,13 @@ func _validate_map_bounds_grid_alignment(field: String, bounds_data: Variant, gr
 	if (bounds.get("width") is int or bounds.get("width") is float) and (grid.get("cell_width") is int or grid.get("cell_width") is float):
 		if not _is_nearly_grid_multiple(float(bounds.get("width")), float(grid.get("cell_width"))):
 			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.bounds.width" % field, "integer multiple of grid.cell_width") and is_valid
+		elif float(grid.get("cell_width")) > 0.0 and int(roundf(float(bounds.get("width")) / float(grid.get("cell_width")))) % 2 == 0:
+			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.bounds.width" % field, "odd grid span so boundary lands on diamond grid lines") and is_valid
 	if (bounds.get("height") is int or bounds.get("height") is float) and (grid.get("cell_height") is int or grid.get("cell_height") is float):
 		if not _is_nearly_grid_multiple(float(bounds.get("height")), float(grid.get("cell_height"))):
 			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.bounds.height" % field, "integer multiple of grid.cell_height") and is_valid
+		elif float(grid.get("cell_height")) > 0.0 and int(roundf(float(bounds.get("height")) / float(grid.get("cell_height")))) % 2 == 0:
+			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.bounds.height" % field, "odd grid span so boundary lands on diamond grid lines") and is_valid
 	if (
 		(bounds.get("width") is int or bounds.get("width") is float)
 		and (bounds.get("height") is int or bounds.get("height") is float)

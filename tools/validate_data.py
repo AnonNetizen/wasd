@@ -1120,9 +1120,13 @@ def _validate_map_bounds_grid_alignment(ctx: ValidationContext, path: Path, fiel
     if isinstance(width, (int, float)) and isinstance(cell_width, (int, float)):
         if not _is_nearly_grid_multiple(float(width), float(cell_width)):
             ctx.error(path, f"{field}.bounds.width", "must be an integer multiple of grid.cell_width")
+        elif float(cell_width) > 0 and round(float(width) / float(cell_width)) % 2 == 0:
+            ctx.error(path, f"{field}.bounds.width", "must span an odd number of grid.cell_width cells so the boundary lands on diamond grid lines")
     if isinstance(height, (int, float)) and isinstance(cell_height, (int, float)):
         if not _is_nearly_grid_multiple(float(height), float(cell_height)):
             ctx.error(path, f"{field}.bounds.height", "must be an integer multiple of grid.cell_height")
+        elif float(cell_height) > 0 and round(float(height) / float(cell_height)) % 2 == 0:
+            ctx.error(path, f"{field}.bounds.height", "must span an odd number of grid.cell_height cells so the boundary lands on diamond grid lines")
     if (
         isinstance(width, (int, float))
         and isinstance(height, (int, float))

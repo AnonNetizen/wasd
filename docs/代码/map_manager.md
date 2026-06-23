@@ -88,7 +88,7 @@ GameplayRunLoop
 
 - `map_layouts.json.schema_version` 当前为 `1`。
 - `layouts[].mode_id` 必须存在于 `game_modes.json`。
-- `bounds.width` / `bounds.height` 必须大于 `0`，单位 px，并分别是 `grid.cell_width` / `grid.cell_height` 的整数倍；同时 `bounds.height == bounds.width * grid.cell_height / grid.cell_width`，否则边界斜率不会贴住菱形格。
+- `bounds.width` / `bounds.height` 必须大于 `0`，单位 px，并分别是 `grid.cell_width` / `grid.cell_height` 的奇数倍；同时 `bounds.height == bounds.width * grid.cell_height / grid.cell_width`，否则边界斜率或边线落点不会贴住菱形格线。
 - `grid.cell_width` / `grid.cell_height` 定义单个菱形格水平 / 垂直对角线，当前默认 `160 x 80`。
 - `player_start` 必须落在菱形格中心；`manual_hazards[]` 按机关 `radius_tiles` 奇偶校验：奇数尺寸在格心，偶数尺寸在网格顶点。PCG 随机候选会运行时吸附到同一类合法锚点。
 - `pcg.hazards[].id` 与 `manual_hazards[].id` 必须存在于 `hazards.csv`。
@@ -129,7 +129,7 @@ GameplayRunLoop
 | 敌人跑出地图 | `Enemy.set_movement_diamond_boundary()` 是否由 `GameplayRunLoop` 在生成 / 续局恢复时调用；`runtime-smoke` 是否通过菱形移动边界断言 |
 | 机关数量少于配置 | `safe_radius` / `min_distance_from_player` / `min_spacing` 是否过大；地图是否太小 |
 | 机关看起来不像格子整数倍 | `hazards.csv.radius_tiles` 是否为正整数；偶数尺寸机关是否被放在网格顶点；`WorldBackground`、`MapManager`、`Hazard.configure()` 是否拿到同一份 `grid_cell_size` |
-| 地图边界看起来还是旧矩形或不贴格 | `MapManager.debug_summary().boundary_shape` 是否为 `diamond`；`boundary_points` 是否为 `bounds` 的上 / 右 / 下 / 左四点；`bounds.height` 是否等于 `bounds.width * grid.cell_height / grid.cell_width`；`runtime-smoke` 的菱形边界断言是否通过 |
+| 地图边界看起来还是旧矩形、不贴格或小半格 | `MapManager.debug_summary().boundary_shape` 是否为 `diamond`；`boundary_points` 是否为 `bounds` 的上 / 右 / 下 / 左四点；`bounds.height` 是否等于 `bounds.width * grid.cell_height / grid.cell_width`；`bounds.width / grid.cell_width` 是否为奇数；`runtime-smoke` 的菱形边界断言是否通过 |
 | 机关压在玩家身上 | `safe_radius` 是否为 0；PCG 是否绕过 `MapManager.generate_hazard_placements()` |
 | 刷怪贴边或出界 | `enemy_spawn_margin` 是否太小；Spawner 是否仍使用 `MapManager.spawn_position()` |
 | 续局后机关位置变化 | run payload 是否包含 `map.hazard_placements` 和 `hazards`；是否误重新消耗 `RNG.world`；旧自由坐标存档恢复后按 `radius_tiles` 奇偶吸附到合法锚点属于兼容行为 |
