@@ -21,7 +21,7 @@
 | **代码-文档同源**（`docs/代码文档规范.md` + `docs/代码/`） | 代码落地后要检查长期模块是否有对应文档 |
 | **AI 协作密集** | CI 输出需 fail-fast 且明确（让 AI 据报错自我纠错） |
 | **元规则 19/20/24**：新规则/决策/设计/代码契约变更必须同步到对应文档 | CI 可把"同步检查"自动化 |
-| **Roguelike 平衡敏感** | 数值改动需"黄金回放"回归（见 4.M）；中后期跑批量 sim（见 4.N） |
+| **刷宝构筑平衡敏感** | 数值、掉落权重、词条和效果原语改动需"黄金回放"回归（见 4.M）；中后期跑批量 sim（见 4.N） |
 
 > **本地实时验证回路**：与 CI 配套，在本地通过 pre-commit hook 提供秒级反馈，详见 `docs/AI协作/实时验证回路.md`。本规划阶段 1 的脚本（`sync_contracts.py` / `validate_data.py` / `test_data_loader_schema.py` / `lint_gdscript_rules.py` / `lint_project_rules.py` / `lint_semantic_rules.py` / `docs_health_check.py`）应同时被 hook 与 CI 复用。
 > **代码审核流程**：详见 `docs/AI协作/代码审核流程.md`。Reviewer 先看 pre-commit / lint / test / docs 输出，再审当前 diff；第三档 semantic advisory warning 必须人工归类为 fix / accept / defer。

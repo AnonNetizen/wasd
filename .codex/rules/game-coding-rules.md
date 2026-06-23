@@ -1,5 +1,5 @@
 ---
-description: Roguelike 游戏项目编码规则，所有代码的编写/修改/生成都必须遵循
+description: 俯视角刷宝动作生存游戏项目编码规则，所有代码的编写/修改/生成都必须遵循
 alwaysApply: true
 ---
 

@@ -111,7 +111,7 @@
 
 | ADR 范围 | 主题 | 主要同步文件 |
 |----------|------|--------------|
-| #1~#12 | 基础玩法、数据驱动、AI 友好工程 | GDD、规则、AI导航、README |
+| #1~#12 | 基础玩法初始定位、数据驱动、AI 友好工程 | GDD、规则、AI导航、README |
 | #13~#19 | 暂停、仓库结构、记忆、回放、协作工程 | GDD、测试策略、AI记忆、AI协作 |
 | #20~#28 | RNG、GameState、PoolManager、UIManager、Combat、Save、Clock、Audio、Contracts | GDD、词表、规则、测试策略、代码模块文档 |
 | #29 | 测试金字塔 | `docs/测试策略.md`、规则、CI 规划 |
@@ -178,6 +178,7 @@
 | #95 | 状态效果首片接入轻量 GAS；`StatusEffect` / `StatusEffectComponent` 管理状态叠加、ability tag 生命周期和 SkillSystem 状态快照，`skill_effect_apply_status` 支撑沉默 | `docs/代码/status_effect_component.md`、`docs/代码/skill_system.md`、`client/scripts/combat/status_effect.gd`、`client/scripts/combat/status_effect_component.gd`、`client/scripts/gameplay/skill_system.gd`、`client/tools/l1_smoke.gd`、词表 §9-A~§9-B / §12-F、GDD §9.15.2、测试策略、AI导航、AI记忆 |
 | #96 | Player / Enemy 正式接入 StatusEffectComponent；实体暴露 `apply_status_effect()` 与 owned ability tag 查询，run 快照保存状态效果并在对象池复用时清理 | `client/scripts/gameplay/player.gd`、`client/scripts/gameplay/enemy.gd`、`client/tools/l1_smoke.gd`、`docs/代码/status_effect_component.md`、`docs/代码/gameplay_runtime.md`、`docs/代码/enemy_ai.md`、GDD §6.1-A / §9.15.2、测试策略、AI导航、AI记忆 |
 | #97 | burn 首个真实 DoT 状态；StatusEffect 保存 `damage_type` / `tick_remaining` / 队伍归因，StatusEffectComponent 按 GameClock tick 并经 Combat 结算 `fire + is_dot` | `client/scripts/combat/status_effect.gd`、`client/scripts/combat/status_effect_component.gd`、`client/scripts/gameplay/player.gd`、`client/scripts/gameplay/enemy.gd`、`client/scripts/autoload/data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py`、`client/tools/l1_smoke.gd`、`docs/代码/status_effect_component.md`、`docs/代码/skill_system.md`、`docs/代码/combat.md`、GDD §9.15.2、测试策略、AI导航、AI记忆 |
+| #98 | 类型定位改为俯视角刷宝动作生存；参考星际战甲 / 暗黑的装备、词条、长期养成与刷战利品循环 | README、GDD、IP设定、术语表、AI导航、CICD规划、功能建议池、AI记忆、平台规则 / skills |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

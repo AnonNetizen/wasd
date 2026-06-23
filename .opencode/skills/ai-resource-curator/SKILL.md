@@ -21,7 +21,7 @@ Use this skill when searching, selecting, adapting, installing, or auditing AI s
 
 ## Selection Criteria
 
-- Relevant to this Godot/GDScript roguelike project.
+- Relevant to this Godot/GDScript looter action survival project.
 - Clear license and maintainable source.
 - Low context footprint through progressive disclosure.
 - No secret requirements or unsafe default permissions.
