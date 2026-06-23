@@ -71,13 +71,14 @@ func _run() -> void:
 	if camera != null:
 		_expect(camera.ignore_rotation, "CenteredCamera should keep the screen horizon level")
 		_expect(absf(camera.rotation_degrees) < 0.01, "CenteredCamera should not roll the viewport")
-		_expect(camera.zoom.y < camera.zoom.x, "CenteredCamera should compress the depth axis for 2.5D presentation")
+		_expect(is_equal_approx(camera.zoom.x, camera.zoom.y), "CenteredCamera should keep uniform zoom so screen-space movement matches 2D math")
+	_expect_camera_preserves_screen_axis_scale(player)
 	var visual_camera: Camera3D = _find_node_by_name(player, "Camera3D") as Camera3D
 	_expect(visual_camera != null, "Player3DVisual should keep an internal Camera3D")
 	if visual_camera != null:
 		_expect(visual_camera.projection == Camera3D.PROJECTION_ORTHOGONAL, "Player3DVisual should use an orthogonal 3D camera")
 		_expect(visual_camera.rotation_degrees.x < -25.0, "Player3DVisual should use a clear three-quarter top-down camera angle")
-	await _expect_mouse_aim_uses_oblique_projection(player)
+	await _expect_mouse_aim_uses_canvas_transform(player)
 	_expect(_find_node_by_name(run_loop, "WorldBackground") != null, "WorldBackground should provide movement reference")
 	_expect(_find_node_by_name(run_loop, "MapManager") != null, "finite MapManager should be mounted")
 	_expect(_map_summary_has_finite_bounds(run_loop), "MapManager should expose finite map bounds")
@@ -274,7 +275,23 @@ func _action_has_key(action_id: String, keycode: Key) -> bool:
 	return false
 
 
-func _expect_mouse_aim_uses_oblique_projection(player: Node2D) -> void:
+func _expect_camera_preserves_screen_axis_scale(player: Node2D) -> void:
+	var screen_transform: Transform2D = get_viewport().get_canvas_transform()
+	var origin_screen: Vector2 = screen_transform * player.global_position
+	var horizontal_screen: Vector2 = screen_transform * (player.global_position + Vector2(100.0, 0.0))
+	var vertical_screen: Vector2 = screen_transform * (player.global_position + Vector2(0.0, 100.0))
+	var horizontal_length: float = origin_screen.distance_to(horizontal_screen)
+	var vertical_length: float = origin_screen.distance_to(vertical_screen)
+	_expect(
+		absf(horizontal_length - vertical_length) < 0.01,
+		"CenteredCamera should preserve equal screen scale for horizontal and vertical world units horizontal=%.4f vertical=%.4f" % [
+			horizontal_length,
+			vertical_length,
+		]
+	)
+
+
+func _expect_mouse_aim_uses_canvas_transform(player: Node2D) -> void:
 	var screen_offset: Vector2 = Vector2(180.0, -90.0)
 	var viewport_position: Vector2 = get_viewport().get_visible_rect().size * 0.5 + screen_offset
 	player.call("_set_mouse_aim_from_viewport_position", viewport_position)
@@ -288,7 +305,7 @@ func _expect_mouse_aim_uses_oblique_projection(player: Node2D) -> void:
 	var aim_distance: float = actual_direction.distance_to(expected_direction)
 	_expect(
 		aim_distance < 0.02,
-		"mouse aim should respect the fixed oblique camera projection actual=%s expected=%s distance=%.4f" % [
+		"mouse aim should respect the current canvas transform actual=%s expected=%s distance=%.4f" % [
 			actual_direction,
 			expected_direction,
 			aim_distance,
