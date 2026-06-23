@@ -97,7 +97,8 @@ func _run() -> void:
 	isolated_player.name = "SmokeIsolatedPlayer"
 	run_loop.add_child(isolated_player)
 	var isolated_stats: Dictionary = {}
-	isolated_stats[STATS.MAX_HP] = 6
+	isolated_stats[STATS.MAX_HP] = 600.0
+	isolated_stats[STATS.HEALTH_REGEN] = 30.0
 	isolated_stats[STATS.MOVE_SPEED] = 0.0
 	isolated_stats[STATS.DAMAGE_INVULNERABILITY_DURATION] = 0.7
 	isolated_player.call("configure", isolated_stats)
@@ -106,7 +107,7 @@ func _run() -> void:
 	run_loop.add_child(contact_source)
 	var first_player_life: float = float(isolated_player.call("current_life"))
 	var contact_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
-		1.0,
+		100.0,
 		DAMAGE_TYPES.PHYSICAL,
 		contact_source,
 		isolated_player,
@@ -124,6 +125,9 @@ func _run() -> void:
 	_expect(is_equal_approx(float(isolated_player.call("current_life")), damaged_player_life), "blocked contact should not reduce player life")
 
 	await _wait_player_vulnerability(isolated_player)
+	var regenerated_player_life: float = float(isolated_player.call("current_life"))
+	_expect(regenerated_player_life > damaged_player_life, "player health_regen should restore life over gameplay time")
+	_expect(regenerated_player_life <= first_player_life, "player health_regen should not exceed max life")
 	var refreshed_contact_result: Dictionary = Combat.apply_damage(isolated_player, contact_info)
 	_expect(bool(refreshed_contact_result.get("applied", false)), "same contact source should damage after invulnerability expires")
 	isolated_player.queue_free()
@@ -313,7 +317,8 @@ func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
 	run_loop.add_child(isolated_player)
 	isolated_player.global_position = player.global_position + Vector2(600.0, 0.0)
 	var player_stats: Dictionary = {}
-	player_stats[STATS.MAX_HP] = 6
+	player_stats[STATS.MAX_HP] = 600.0
+	player_stats[STATS.HEALTH_REGEN] = 0.0
 	player_stats[STATS.MOVE_SPEED] = 0.0
 	player_stats[STATS.DAMAGE_INVULNERABILITY_DURATION] = 0.7
 	player_stats[STATS.PLAYER_SEPARATION_RADIUS] = 10.0
@@ -543,8 +548,10 @@ func _expect_stats_panel_hold_to_show(run_loop: Node) -> void:
 	_expect(GameClock.tick() > tick_before, "holding stats panel action should not freeze gameplay time")
 	var title_label: Label = _find_node_by_name(hud, "TitleLabel") as Label
 	var damage_value_label: Label = _find_node_by_name(hud, "DamageValueLabel") as Label
+	var health_regen_value_label: Label = _find_node_by_name(hud, "HealthRegenValueLabel") as Label
 	_expect(title_label != null and String(title_label.text) == tr("ui_stats_panel_title"), "stats panel title should use localized text")
 	_expect(damage_value_label != null and not String(damage_value_label.text).is_empty(), "stats panel should show current damage")
+	_expect(health_regen_value_label != null and String(health_regen_value_label.text).contains("/s"), "stats panel should show current health regen")
 	Input.action_release(ACTIONS.SHOW_STATS_PANEL)
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame

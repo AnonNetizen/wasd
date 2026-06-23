@@ -46,7 +46,7 @@ def main() -> int:
             _mutate_json("client/data/characters.json", _set_character_stat("max_hp", "six")),
             [
                 "client/data/characters.json:characters[0].base_stats.max_hp",
-                "must be int",
+                "must be number",
             ],
         ),
         (

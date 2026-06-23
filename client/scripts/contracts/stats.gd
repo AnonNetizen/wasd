@@ -3,6 +3,7 @@ class_name Stats
 
 const VALUES: Array[String] = [
 	"max_hp",
+	"health_regen",
 	"move_speed",
 	"damage_invulnerability_duration",
 	"player_separation_radius",
@@ -25,6 +26,7 @@ const VALUES: Array[String] = [
 ]
 
 const MAX_HP: String = "max_hp"
+const HEALTH_REGEN: String = "health_regen"
 const MOVE_SPEED: String = "move_speed"
 const DAMAGE_INVULNERABILITY_DURATION: String = "damage_invulnerability_duration"
 const PLAYER_SEPARATION_RADIUS: String = "player_separation_radius"

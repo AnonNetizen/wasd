@@ -1,6 +1,6 @@
 {
 	"created_at": "golden:golden_pause_resume",
-	"data_fingerprint": "04d198c6ef138912ef7ce2efa0cb61a51c1e13d5460fc724f149c06f46914da9",
+	"data_fingerprint": "0c2751d276e2b1d0f1a3f0a556313c559b3a8ced88684aeab7f5fdfdb15a24ae",
 	"file_schema_version": 1,
 	"game_version": "v1.5",
 	"recording": {
@@ -78,7 +78,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 6.0,
+					"player_life": 600.0,
 					"player_moved_right": false,
 					"state": "paused",
 					"ui_stack": 1,
@@ -100,7 +100,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 6.0,
+					"player_life": 600.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -122,7 +122,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 6.0,
+					"player_life": 600.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -144,7 +144,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 6.0,
+					"player_life": 600.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -166,7 +166,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 6.0,
+					"player_life": 600.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -188,7 +188,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 6.0,
+					"player_life": 600.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -213,7 +213,7 @@
 		"started_tick": 0,
 		"started_time": 0.0
 	},
-	"recording_hash": "4c4555a36b8077fd08e30af17d1eca5525356f77d2c2a7ea2fdda5303ba90776",
+	"recording_hash": "cf1dc0f73d91979d188cc2e34acda72344e8a32d7ef106230adb0df1be7911db",
 	"summary": {
 		"decision_events": 0,
 		"dropped_decision_events": 0,
@@ -245,7 +245,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 6.0,
+					"player_life": 600.0,
 					"player_moved_right": false,
 					"state": "paused",
 					"ui_stack": 1,
@@ -267,7 +267,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 6.0,
+					"player_life": 600.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -289,7 +289,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 6.0,
+					"player_life": 600.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -311,7 +311,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 6.0,
+					"player_life": 600.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -333,7 +333,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 6.0,
+					"player_life": 600.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -355,7 +355,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 6.0,
+					"player_life": 600.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,

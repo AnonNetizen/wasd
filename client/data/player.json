@@ -1,7 +1,8 @@
 {
   "schema_version": 1,
   "base_stats": {
-    "max_hp": 6,
+    "max_hp": 600.0,
+    "health_regen": 1.5,
     "move_speed": 240.0,
     "damage_invulnerability_duration": 0.7,
     "player_separation_radius": 10.0,

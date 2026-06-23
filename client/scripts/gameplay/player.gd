@@ -38,6 +38,7 @@ var _damage_invulnerability_duration: float = 0.0
 var _facing_sign: float = 1.0
 var _hit_flash_remaining: float = 0.0
 var _has_movement_bounds: bool = false
+var _health_regen: float = 0.0
 var _invulnerable_remaining: float = 0.0
 var _luck: float = 0.0
 var _movement_bounds: Rect2 = Rect2()
@@ -95,6 +96,7 @@ func _physics_process(delta: float) -> void:
 
 	_update_invulnerability(scaled_delta)
 	_update_hit_flash(scaled_delta)
+	_update_health_regen(scaled_delta)
 
 	var move_input: Vector2 = Input.get_vector(
 		ACTIONS.MOVE_LEFT,
@@ -372,6 +374,7 @@ func _rebuild_stats(reset_life: bool) -> void:
 	var previous_max_life: float = _max_life
 	_move_speed = _stat_value(STATS.MOVE_SPEED, 0.0)
 	_max_life = _stat_value(STATS.MAX_HP, 1.0)
+	_health_regen = _stat_value(STATS.HEALTH_REGEN, 0.0)
 	_damage_invulnerability_duration = _stat_value(STATS.DAMAGE_INVULNERABILITY_DURATION, 0.0)
 	_separation_radius = _stat_value(STATS.PLAYER_SEPARATION_RADIUS, 0.0)
 	_pickup_range = _stat_value(STATS.PICKUP_RANGE, 0.0)
@@ -383,6 +386,15 @@ func _rebuild_stats(reset_life: bool) -> void:
 		_life_points += _max_life - previous_max_life
 	_life_points = minf(_life_points, _max_life)
 	life_changed.emit(_life_points, _max_life)
+
+
+func _update_health_regen(delta: float) -> void:
+	if _health_regen <= 0.0 or _life_points <= 0.0 or _life_points >= _max_life:
+		return
+	var previous_life: float = _life_points
+	_life_points = minf(_life_points + _health_regen * delta, _max_life)
+	if not is_equal_approx(_life_points, previous_life):
+		life_changed.emit(_life_points, _max_life)
 
 
 func _set_aim_direction(raw_direction: Vector2) -> void:

@@ -56,7 +56,7 @@
           "weight": 65,
           "min_level": 3,
           "modifiers": [
-            { "stat": "max_hp", "type": "add", "value": 1 }
+            { "stat": "max_hp", "type": "add", "value": 100.0 }
           ]
         }
       ]

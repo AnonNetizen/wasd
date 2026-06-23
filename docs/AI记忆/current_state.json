@@ -11,6 +11,7 @@
     "E"
   ],
   "last_completed": [
+    "玩家生命体系按 Dota2 风格从旧心数尺度改为 600.0 浮点血量：新增 health_regen 属性，默认玩家 / 初始角色为 600.0 HP + 1.5 HP/s；max_hp 升级、局外永久生命、敌人接触伤害、FEA-12 机关伤害、HUD 详细数值面板和四条 golden replay 已同步到新尺度。",
     "ADR #98：项目类型定位改为俯视角刷宝动作生存；同步 README、GDD、IP设定、术语表、AI导航、CICD规划、功能建议池、平台规则 / skills、AI知识库和 AI记忆，明确后续不要再把本项目按旧类型称呼。",
     "新增 docs/AI辅助开发机会清单.md：整理不在运行时接 LLM、只用 AI 辅助写代码 / 数据 / 工具时可参考的怪物生态、遗物协同、巢变异、死因复盘、Boss DSL、敌人行为积木、自动平衡模拟器、回放 diff、内容质量 lint 等机会；同步 AI导航、AI知识库索引、_kb_index、项目记忆和当日会话日志入口。",
     "修复敌人可移动到有限地图外的问题：GameplayRunLoop 在生成 / 续局恢复敌人时注入 MapManager.bounds()，Enemy 普通移动、冲锋、中心分离和快照恢复后统一 clamp 到 bounds。",
@@ -48,6 +49,11 @@
     "任何上下文恢复后，先对齐用户最后明确指令；本文件只提供候选方向。"
   ],
   "last_verified": [
+    {
+      "date": "2026-06-23",
+      "command": "sync_contracts --check, validate_data, test_data_loader_schema, lint_gdscript_rules, lint_project_rules, test_project_rules_lint, lint_semantic_rules, test_semantic_rules_lint, json current_state, docs_health_check, diff --check excluding draft, l1-smoke, runtime-smoke, headless-boot, save-smoke, meta-smoke, replay-smoke, replay-input-smoke, f9-demo-smoke, four checked-in golden replay captures and reruns",
+      "result": "passed for 600.0 float player health baseline and health_regen stat; runtime-smoke covers automatic regeneration and detailed HUD health regen row; golden replays were intentionally recaptured after data_fingerprint changed; semantic lint exits 0 with reviewed existing dynamic UI/node advisories"
+    },
     {
       "date": "2026-06-23",
       "command": "pre-commit run --all-files; sync_contracts --check, validate_data, test_data_loader_schema, lint_gdscript_rules, lint_project_rules, test_project_rules_lint, lint_semantic_rules, test_semantic_rules_lint, json _contracts/_kb_index/current_state, docs_health_check, diff --check excluding draft, runtime-smoke, save-smoke, headless-boot, replay-smoke, replay-input-smoke, four checked-in golden replay reruns",

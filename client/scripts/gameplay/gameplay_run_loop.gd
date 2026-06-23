@@ -1218,6 +1218,7 @@ func _stats_panel_snapshot() -> Dictionary:
 		"kills": "%d" % _kills,
 		"run_time": "%ds" % int(GameClock.now()),
 		"damage": _format_stat_value(_weapon_stat(STATS.DAMAGE)),
+		"health_regen": "%s/s" % _format_stat_value(_player_stat(STATS.HEALTH_REGEN)),
 		"fire_rate": _format_stat_value(_weapon_stat(STATS.FIRE_RATE)),
 		"move_speed": _format_stat_value(_player_stat(STATS.MOVE_SPEED)),
 		"bullet_speed": _format_stat_value(_weapon_stat(STATS.BULLET_SPEED)),

@@ -86,10 +86,14 @@ func _protect_player(player: Node) -> void:
 		player.call("apply_modifiers", [{
 			"stat": STATS.MAX_HP,
 			"type": "add",
-			"value": 1000.0,
+			"value": 10000.0,
+		}, {
+			"stat": STATS.HEALTH_REGEN,
+			"type": "add",
+			"value": 250.0,
 		}])
 	if player.has_method("debug_heal"):
-		player.call("debug_heal", 1000.0)
+		player.call("debug_heal", 10000.0)
 	if player.has_method("aim_at_world_position") and player is Node2D:
 		var player_2d: Node2D = player as Node2D
 		player.call("aim_at_world_position", player_2d.global_position + Vector2.RIGHT * 240.0)

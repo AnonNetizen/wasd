@@ -183,7 +183,8 @@ JSON 示例：
 {
   "schema_version": 1,
   "base_stats": {
-    "max_hp": 6,
+    "max_hp": 600.0,
+    "health_regen": 1.5,
     "move_speed": 240.0,
     "damage_invulnerability_duration": 0.7,
     "player_separation_radius": 10.0,
@@ -204,7 +205,8 @@ JSON 示例：
 | 字段路径 | 类型 | 单位 / 范围 | 说明 | 调大后的效果 |
 |----------|------|-------------|------|--------------|
 | `schema_version` | int | `>= 1` | 数据结构版本 | 只在 schema 变更时调整 |
-| `base_stats.max_hp` | int | `>= 1` | 默认最大生命 | 更耐打，失败更晚 |
+| `base_stats.max_hp` | float | `> 0` | 默认最大生命；当前默认 600.0，采用 Dota 式血量尺度而非旧心数尺度 | 更耐打，失败更晚，也更容易做细粒度伤害 / 回复调参 |
+| `base_stats.health_regen` | float | HP/s，`>= 0` | 默认自动生命恢复；只在 `PLAYING` 状态下按 `GameClock` 缩放时间恢复，不超过最大生命 | 更能缓冲小额失误，但过高会抵消低频伤害 |
 | `base_stats.move_speed` | float | `px/s`，`> 0` | 默认移动速度 | 走位更灵活，地图探索更快 |
 | `base_stats.damage_invulnerability_duration` | float | 秒，`>= 0` | 玩家受伤后的无敌窗口 | 更不容易被贴脸多段瞬杀，但受击节奏更宽松 |
 | `base_stats.player_separation_radius` | float | `px`，`>= 0` | 玩家中心排斥半径；与敌人 `separation_radius` 相加后决定敌人被推开的最小中心距离 | 更不容易被敌人中心贴身重叠，但过大可能让围怪显得松散 |
@@ -395,7 +397,7 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,
 | `ai_profile_id` | string | 必须存在于 `enemy_ai_profiles.json` | 运行时使用的生态 AI profile；决定感知、目标选择和动作集合 |
 | `max_hp` | int | `>= 1` | 敌人最大生命 |
 | `move_speed` | number | `> 0`，px/s | 敌人基础移动速度 |
-| `contact_damage` | int | `>= 0` | 接触伤害；运行时必须经 `Combat.apply_damage` 结算 |
+| `contact_damage` | int | `>= 0` | 接触伤害；当前按 600.0 玩家初始生命尺度调参，运行时必须经 `Combat.apply_damage` 结算 |
 | `contact_damage_type` | string | 词表 §9 damage type | 接触伤害类型 |
 | `exp_reward` | int | `>= 0` | 击杀后经验奖励；后续掉落 / 经验球系统解释 |
 | `hit_radius` | number | `> 0`，px | 命中 / 接触半径边界，后续碰撞体或占位图可据此生成 |
@@ -564,7 +566,8 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
         }
       ],
       "base_stats": {
-        "max_hp": 6,
+        "max_hp": 600.0,
+        "health_regen": 1.5,
         "move_speed": 240.0,
         "fire_rate": 2.5,
         "damage": 3.5,

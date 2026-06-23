@@ -1,5 +1,5 @@
 id,name_key,tags,pool_id,ai_profile_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius,separation_radius,visual_color
-enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,110.0,1,physical,3,14.0,9.0,#ff6152
-enemy_swarm,enemy_swarm_name,tag_enemy|tag_enemy_prey,enemy_swarm,enemy_ai_prey_swarm,6,155.0,1,physical,2,10.0,6.0,#58d68d
-enemy_stalker,enemy_stalker_name,tag_enemy|tag_enemy_predator,enemy_swarm,enemy_ai_predator_stalker,16,125.0,2,physical,5,13.0,8.0,#8e6ad8
-enemy_bulwark,enemy_bulwark_name,tag_enemy|tag_enemy_territorial,enemy_chaser,enemy_ai_territorial_guard,28,72.0,2,physical,6,18.0,12.0,#b07d52
+enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,110.0,100,physical,3,14.0,9.0,#ff6152
+enemy_swarm,enemy_swarm_name,tag_enemy|tag_enemy_prey,enemy_swarm,enemy_ai_prey_swarm,6,155.0,100,physical,2,10.0,6.0,#58d68d
+enemy_stalker,enemy_stalker_name,tag_enemy|tag_enemy_predator,enemy_swarm,enemy_ai_predator_stalker,16,125.0,200,physical,5,13.0,8.0,#8e6ad8
+enemy_bulwark,enemy_bulwark_name,tag_enemy|tag_enemy_territorial,enemy_chaser,enemy_ai_territorial_guard,28,72.0,200,physical,6,18.0,12.0,#b07d52

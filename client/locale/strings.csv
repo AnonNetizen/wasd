@@ -66,6 +66,7 @@ ui_stats_xp,经验,XP
 ui_stats_kills,击杀,Kills
 ui_stats_run_time,运行时间,Run Time
 ui_stats_damage,伤害,Damage
+ui_stats_health_regen,生命恢复,Health Regen
 ui_stats_fire_rate,射速,Fire Rate
 ui_stats_move_speed,移动速度,Move Speed
 ui_stats_bullet_speed,子弹速度,Bullet Speed
@@ -110,7 +111,7 @@ ui_growth_pickup_range_small_desc,拾取范围 +12,Pickup range +12
 ui_growth_move_speed_small_name,轻盈步伐,Light Step
 ui_growth_move_speed_small_desc,移动速度 +18,Move speed +18
 ui_growth_max_hp_small_name,生命增幅,Vital Boost
-ui_growth_max_hp_small_desc,最大生命 +1,Max life +1
+ui_growth_max_hp_small_desc,最大生命 +100,Max life +100
 ui_credits_title,致谢,Credits
 ui_credits_section_staff,工作人员,Staff
 ui_credits_section_engine_libraries,引擎与外部库,Engine and External Libraries

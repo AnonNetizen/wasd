@@ -5,6 +5,7 @@
   "contracts": {
     "stats": [
       "max_hp",
+      "health_regen",
       "move_speed",
       "damage_invulnerability_duration",
       "player_separation_radius",

@@ -44,7 +44,7 @@
       "max_level": 10,
       "costs": [20, 35, 55, 80, 110, 145, 185, 230, 280, 335],
       "modifiers": [
-        { "stat": "max_hp", "type": "add", "value_per_level": 1.0 }
+        { "stat": "max_hp", "type": "add", "value_per_level": 100.0 }
       ],
       "unlock_condition": { "account_level": 1 }
     },

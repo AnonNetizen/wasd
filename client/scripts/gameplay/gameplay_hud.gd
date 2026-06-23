@@ -15,6 +15,7 @@ const STATS_PANEL_ROWS: Array[Dictionary] = [
 	{"key": "kills", "label_key": "ui_stats_kills"},
 	{"key": "run_time", "label_key": "ui_stats_run_time"},
 	{"key": "damage", "label_key": "ui_stats_damage"},
+	{"key": "health_regen", "label_key": "ui_stats_health_regen"},
 	{"key": "fire_rate", "label_key": "ui_stats_fire_rate"},
 	{"key": "move_speed", "label_key": "ui_stats_move_speed"},
 	{"key": "bullet_speed", "label_key": "ui_stats_bullet_speed"},

@@ -24,7 +24,8 @@
         }
       ],
       "base_stats": {
-        "max_hp": 6,
+        "max_hp": 600.0,
+        "health_regen": 1.5,
         "move_speed": 240.0,
         "player_separation_radius": 10.0,
         "fire_rate": 2.5,
