@@ -14,7 +14,10 @@ const SHADOW_COLOR: Color = Color(0.03, 0.025, 0.02, 0.34)
 const SHADOW_RADIUS_X: float = 13.0
 const SHADOW_RADIUS_Y: float = 4.0
 const SHADOW_SEGMENTS: int = 20
-const SPRITE_OFFSET: Vector2 = Vector2(0.0, -11.0)
+const SPRITE_OFFSET: Vector2 = Vector2(0.0, -12.0)
+const VISUAL_CAMERA_ORTHO_SIZE: float = 2.35
+const VISUAL_CAMERA_POSITION: Vector3 = Vector3(0.0, 2.25, 3.75)
+const VISUAL_CAMERA_ROTATION_DEGREES: Vector3 = Vector3(-32.0, 0.0, 0.0)
 const VIEWPORT_SIZE: Vector2i = Vector2i(72, 96)
 
 var _base_material: StandardMaterial3D
@@ -72,8 +75,10 @@ func _configure_viewport() -> void:
 	_sprite.position = SPRITE_OFFSET
 	_sprite.texture = _viewport.get_texture()
 	_camera.current = true
+	_camera.position = VISUAL_CAMERA_POSITION
+	_camera.rotation_degrees = VISUAL_CAMERA_ROTATION_DEGREES
 	_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	_camera.size = 2.2
+	_camera.size = VISUAL_CAMERA_ORTHO_SIZE
 
 
 func _configure_materials() -> void:

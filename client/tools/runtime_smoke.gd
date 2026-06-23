@@ -69,9 +69,14 @@ func _run() -> void:
 	var camera: Camera2D = _find_node_by_name(player, "CenteredCamera") as Camera2D
 	_expect(camera != null and camera.enabled, "CenteredCamera should be enabled")
 	if camera != null:
-		_expect(not camera.ignore_rotation, "CenteredCamera should apply its fixed oblique rotation")
-		_expect(absf(camera.rotation_degrees) > 1.0, "CenteredCamera should use a fixed oblique rotation")
-		_expect(camera.zoom.y < camera.zoom.x, "CenteredCamera should use vertical compression for 2.5D presentation")
+		_expect(camera.ignore_rotation, "CenteredCamera should keep the screen horizon level")
+		_expect(absf(camera.rotation_degrees) < 0.01, "CenteredCamera should not roll the viewport")
+		_expect(camera.zoom.y < camera.zoom.x, "CenteredCamera should compress the depth axis for 2.5D presentation")
+	var visual_camera: Camera3D = _find_node_by_name(player, "Camera3D") as Camera3D
+	_expect(visual_camera != null, "Player3DVisual should keep an internal Camera3D")
+	if visual_camera != null:
+		_expect(visual_camera.projection == Camera3D.PROJECTION_ORTHOGONAL, "Player3DVisual should use an orthogonal 3D camera")
+		_expect(visual_camera.rotation_degrees.x < -25.0, "Player3DVisual should use a clear three-quarter top-down camera angle")
 	await _expect_mouse_aim_uses_oblique_projection(player)
 	_expect(_find_node_by_name(run_loop, "WorldBackground") != null, "WorldBackground should provide movement reference")
 	_expect(_find_node_by_name(run_loop, "MapManager") != null, "finite MapManager should be mounted")

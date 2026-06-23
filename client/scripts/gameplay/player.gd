@@ -15,8 +15,7 @@ const DRAW_RADIUS: float = 12.0
 const FACING_MARKER_LENGTH: float = 22.0
 const HIT_FLASH_DURATION: float = 0.16
 const MOUSE_AIM_MIN_DISTANCE_SQUARED: float = 16.0
-const CAMERA_OBLIQUE_ROTATION_DEGREES: float = -12.0
-const CAMERA_OBLIQUE_ZOOM: Vector2 = Vector2(1.0, 0.86)
+const CAMERA_OBLIQUE_DEPTH_ZOOM: Vector2 = Vector2(1.0, 0.78)
 const PLACEHOLDER_FILL_COLOR: Color = Color(0.35, 0.72, 1.0)
 const PLACEHOLDER_HURT_COLOR: Color = Color(1.0, 0.34, 0.30)
 const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
@@ -435,9 +434,9 @@ func _sync_visual_state() -> void:
 func _configure_camera(camera: Camera2D) -> void:
 	camera.enabled = true
 	camera.position_smoothing_enabled = false
-	camera.ignore_rotation = false
-	camera.rotation_degrees = CAMERA_OBLIQUE_ROTATION_DEGREES
-	camera.zoom = CAMERA_OBLIQUE_ZOOM
+	camera.ignore_rotation = true
+	camera.rotation_degrees = 0.0
+	camera.zoom = CAMERA_OBLIQUE_DEPTH_ZOOM
 	camera.make_current()
 
 

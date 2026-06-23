@@ -1,6 +1,6 @@
 # wasd —— 固定斜俯视 2.5D 刷宝动作生存
 
-> 一款偏《星际战甲》与《暗黑》内核的固定斜俯视 2.5D 刷宝动作生存游戏，玩法仍按 2D 平面移动 / 碰撞 / 刷怪，显示上用斜俯视相机和低模角色靠近暗黑式可读性；保留局内随机奖励、构筑选择和生存压力，但不再沿用旧类型定位。
+> 一款偏《星际战甲》与《暗黑》内核的固定斜俯视 2.5D 刷宝动作生存游戏，玩法仍按 2D 平面移动 / 碰撞 / 刷怪，显示上保持屏幕水平、用纵深压缩和低模角色靠近暗黑式可读性；保留局内随机奖励、构筑选择和生存压力，但不再沿用旧类型定位。
 > **当前状态：正式项目已推进到 F9 内容扩展 / Demo 打磨准备阶段。** 完整项目 `client/` 已迁移为 Godot 4.7 项目；F1-F8 当前验收基线已完成，F9 已预留本地数据包式 ModLoader 和 Steam 优先 PlatformServices，下一步是 F9.0 内容盘点与首批 Demo 小内容包规划。
 >
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。README 是仓库入口摘要；改项目状态、运行方式、目录结构或 AI 开工入口时，必须同步 `CONTRIBUTING.md`、`AGENTS.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
@@ -53,7 +53,7 @@
 | [`docs/词表与契约.md`](docs/词表与契约.md) | 约定字符串白名单（stat/effect/event/key/action） | 写数据或常量时 |
 | [`client/data/README.md`](client/data/README.md) | 完整项目数值配置手册 | 调数值或新增数据字段时 |
 | [`client/locale/README.md`](client/locale/README.md) | 完整项目多语言文案配置手册 | 加文案、改翻译或新增语言时 |
-| [`docs/游戏设计文档.md`](docs/游戏设计文档.md) | 完整 GDD（v1.7） | 了解整体设计 |
+| [`docs/游戏设计文档.md`](docs/游戏设计文档.md) | 完整 GDD（v1.8） | 了解整体设计 |
 | [`docs/代码文档规范.md`](docs/代码文档规范.md) | 代码变更与对应文档的同步规范 | 写/改代码前 |
 | [`docs/决策记录.md`](docs/决策记录.md) | 既定决策与原因（ADR） | 改动既定约束前 |
 | [`docs/修改建议.md`](docs/修改建议.md) | 待决策的开放问题（A~E） | 评估扩展方向时 |
@@ -132,5 +132,5 @@ client/
 第三方来源、外部库和工作人员记录见 [CREDITS.md](CREDITS.md)；游戏内 Credits UI 数据源见 [client/data/credits.json](client/data/credits.json)。
 
 ## 版本
-- 设计文档：**v1.7**（2026-06）
+- 设计文档：**v1.8**（2026-06）
 - 代码：正式项目推进到 F9 内容扩展 / Demo 打磨准备阶段，当前工程基线为 Godot 4.7。

@@ -2,8 +2,8 @@
   "schema_version": 1,
   "updated_at": "2026-06-23",
   "current_phase": "formal_project_f9_content_demo_polish",
-  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；后续用户点名推进的《破巢者》IP、数据驱动 EnemyAI、可复用主动技能、英文 UI 尺寸基准、详细数值面板、有限地图 + 可人工调参 PCG / FEA-12 机关测试链路、项目版轻量 GAS 首片、状态效果 ability tag 生命周期首片、Player / Enemy 实体状态宿主接入、burn DoT 首个真实状态、点燃斩 burn 数据技能、敌人有限地图移动边界修复、600.0 浮点血量 + health_regen 基线、玩家 2.5D 视觉层首片，以及 ADR #100 固定斜俯视 2.5D 当前视角口径均已落地。当前项目类型应表述为固定斜俯视 2.5D 刷宝动作生存：核心参考《星际战甲》与《暗黑》的装备 / 词条 / 长期养成和刷战利品循环；移动、碰撞、刷怪、地图边界和回放仍保持 2D 平面，`CenteredCamera` 负责斜俯视表现并按投影反算鼠标瞄准方向。新增 docs/AI辅助开发机会清单.md 只是候选菜单，不是已采纳路线图，也不授权 AI 自行实现。当前没有阻塞，下一步应以用户最后明确指令为准。",
-  "latest_adr": 100,
+  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；后续用户点名推进的《破巢者》IP、数据驱动 EnemyAI、可复用主动技能、英文 UI 尺寸基准、详细数值面板、有限地图 + 可人工调参 PCG / FEA-12 机关测试链路、项目版轻量 GAS 首片、状态效果 ability tag 生命周期首片、Player / Enemy 实体状态宿主接入、burn DoT 首个真实状态、点燃斩 burn 数据技能、敌人有限地图移动边界修复、600.0 浮点血量 + health_regen 基线、玩家 2.5D 视觉层首片，以及 ADR #100 / #101 固定斜俯视 2.5D 当前视角口径和相机实现修正均已落地。当前项目类型应表述为固定斜俯视 2.5D 刷宝动作生存：核心参考《星际战甲》与《暗黑》的装备 / 词条 / 长期养成和刷战利品循环；移动、碰撞、刷怪、地图边界和回放仍保持 2D 平面，`CenteredCamera` 保持屏幕水平和玩家居中，只做纵深轴压缩并按 canvas transform 反算鼠标瞄准方向。新增 docs/AI辅助开发机会清单.md 只是候选菜单，不是已采纳路线图，也不授权 AI 自行实现。当前没有阻塞，下一步应以用户最后明确指令为准。",
+  "latest_adr": 101,
   "open_decisions": [
     "A",
     "C",
@@ -11,7 +11,8 @@
     "E"
   ],
   "last_completed": [
-    "ADR #100：当前正式视角口径改为固定斜俯视 2.5D 刷宝动作生存；CenteredCamera 固定应用轻微旋转和纵向压缩，鼠标瞄准通过相机 / canvas transform 反算世界方向；Player / Enemy / 地图 / 碰撞 / 回放仍保持 2D 平面。",
+    "ADR #101：固定斜俯视首片不使用 Camera2D 滚转画面；CenteredCamera 保持屏幕水平和玩家居中，只做纵深轴压缩，Player3DVisual 用更明显的 3/4 俯看 Camera3D 角度，鼠标瞄准仍通过 canvas transform 反算世界方向。",
+    "ADR #100：当前正式视角口径改为固定斜俯视 2.5D 刷宝动作生存；显示层向暗黑式 3/4 可读性靠拢，Player / Enemy / 地图 / 碰撞 / 回放仍保持 2D 平面，具体相机实现已由 ADR #101 修正。",
     "ADR #99：玩家表现先采用 2.5D 视觉层；Player 继续用 CharacterBody2D / Camera2D / 2D 碰撞和地图平面移动，Player3DVisual 用 SubViewport 渲染低模 3D 胶囊再贴回 2D 世界，runtime-smoke 覆盖 2D 玩法身体 + 3D 视觉子节点边界。",
     "玩家生命体系按 Dota2 风格从旧心数尺度改为 600.0 浮点血量：新增 health_regen 属性，默认玩家 / 初始角色为 600.0 HP + 1.5 HP/s；max_hp 升级、局外永久生命、敌人接触伤害、FEA-12 机关伤害、HUD 详细数值面板和四条 golden replay 已同步到新尺度。",
     "ADR #98：项目类型定位改为刷宝动作生存；同步 README、GDD、IP设定、术语表、AI导航、CICD规划、功能建议池、平台规则 / skills、AI知识库和 AI记忆，明确后续不要再把本项目按旧类型称呼；视角主口径已由 ADR #100 更新为固定斜俯视 2.5D。",
@@ -41,7 +42,7 @@
     "ADR #88：项目 IP 方向为 Nestbreakers / 破巢者，详细世界观、命名和宣发包装权威为 docs/IP设定.md。"
   ],
   "next_actions": [
-    "如果继续 2.5D / 暗黑式表现，优先保持玩法判定在 2D 平面：Player / Enemy 仍走 CharacterBody2D 或 Node2D + 2D 碰撞，视觉层通过 Player3DVisual 类似的 SubViewport / Sprite2D 或后续统一视觉组件渐进替换；不要直接把地图、碰撞、刷怪和回放改成真 3D。",
+    "如果继续 2.5D / 暗黑式表现，优先保持玩法判定在 2D 平面：Player / Enemy 仍走 CharacterBody2D 或 Node2D + 2D 碰撞，CenteredCamera 不滚转屏幕，只保持水平居中和纵深轴压缩；视觉层通过 Player3DVisual 类似的 SubViewport / Sprite2D 或后续统一视觉组件渐进替换；不要直接把地图、碰撞、刷怪和回放改成真 3D。",
     "后续设计、功能选择和文档表述应以“固定斜俯视 2.5D 刷宝动作生存”为核心口径：优先围绕装备、词条、战利品、长期养成、更高危险等级和构筑迭代组织工作包；局内随机奖励服务刷宝循环，不再按旧类型路线推进，也不要再把当前项目称为纯俯视角。",
     "如果继续讨论“AI 写代码能力带来的新玩法 / 内容产能”，先看 docs/AI辅助开发机会清单.md；该文档只是候选菜单，用户点名 AID 条目后再建立 / 更新工作包、GDD / ADR / 模块文档并实现。",
     "如果继续地图 / PCG，优先改 client/data/map_layouts.json；地图规则看 docs/代码/map_manager.md，机关运行时看 docs/代码/hazard_system.md；玩家和敌人中心移动都应保持在 MapManager.bounds() 内。",
@@ -55,7 +56,7 @@
     {
       "date": "2026-06-23",
       "command": "export-tree, lint_gdscript_rules, lint_semantic_rules, docs_health_check, json current_state, headless-boot, runtime-smoke, replay-input-smoke",
-      "result": "passed for ADR #100 fixed oblique 2.5D camera slice; runtime-smoke confirms CenteredCamera applies fixed oblique rotation / vertical compression, Player remains CharacterBody2D with Player3DVisual, and mouse aim conversion respects the projected camera transform; semantic lint exits 0 with reviewed existing dynamic UI/node advisories plus internal StatusEffectComponent add_child advisory; runtime-smoke includes expected broken-run-save diagnostics while passing"
+      "result": "passed for ADR #101 fixed oblique camera correction; runtime-smoke confirms CenteredCamera keeps the screen level with no viewport roll, applies depth-axis compression, Player remains CharacterBody2D with Player3DVisual, Player3DVisual uses an orthogonal 3/4 Camera3D, and mouse aim conversion respects the projected camera transform; semantic lint exits 0 with reviewed existing dynamic UI/node advisories plus internal StatusEffectComponent add_child advisory; runtime-smoke includes expected broken-run-save diagnostics while passing"
     },
     {
       "date": "2026-06-23",
