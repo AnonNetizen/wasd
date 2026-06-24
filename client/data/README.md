@@ -24,6 +24,7 @@
 | 改敌人生态 AI / 怪物互相克制 | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；生态关系通过 content tag 权重表达 |
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
 | 改地图边界 / 菱形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是菱形外接框，必须是格尺寸奇数倍且比例贴住格线；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法锚点 |
+| 改敌巢战区导演 / 阶段主题 / 兴趣点组合 | `warzone_directors.json` | 首片只按固定时间阶段启用 wave，不读取玩家状态、不做隐藏动态难度；wave / 机关 / 地图引用必须存在 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
 | 改技能消耗 / 冷却 / 目标 / 伤害 | `skills.json` | 技能不绑定英雄；角色或道具只引用 skill id，资源消耗用 `skill_resources` 声明 |
@@ -52,6 +53,7 @@
 | `enemies.csv` | 已建立 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励、占位色等 |
 | `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、占格尺寸、持续时间 |
 | `map_layouts.json` | 已建立 | 有限地图配置：地图边界、菱形格尺寸、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
+| `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、生态 encounter、兴趣点 / 机关组合和阶段启用 wave |
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
 | `growth_pools.json` | 已建立 | 升级选项池、权重、等级条件和候选奖励边界 |
@@ -136,7 +138,7 @@ user://mods/my_first_mod/
 | 数据形态 | 优先格式 | 示例 |
 |----------|----------|------|
 | 一行一个条目、列固定、经常人工排序 / 筛选 / 批量调参 | CSV | `enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`growth.csv` |
-| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`map_layouts.json`、`enemy_ai_profiles.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`meta_progression.json`、`growth_pools.json` |
+| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`map_layouts.json`、`warzone_directors.json`、`enemy_ai_profiles.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`meta_progression.json`、`growth_pools.json` |
 | 玩家可见文案 | CSV | `client/locale/strings.csv` |
 | 致谢 / 第三方来源清单 | JSON | `credits.json`，需同时同步根目录 `CREDITS.md` |
 | 自动生成契约 | JSON | `_contracts.json`，禁止手改 |
@@ -538,6 +540,81 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `hazard_weight` | int | `>= 0`；大于 0 时 `hazard_id` 必填 | 可选机关权重；`0` 表示本波次不使用机关 |
 
 `spawn_waves.csv` 只声明刷怪 / 难度曲线数据边界；当前初始地图机关由 `map_layouts.json` 管理，波次中的 `hazard_id` / `hazard_weight` 仍是后续“把机关作为时间压力”时的预留字段。实际刷怪随机必须走 `RNG.spawn`，局内时间必须走 `GameClock`，高频实体必须走 `PoolManager`。
+
+## `warzone_directors.json`
+
+当前结构：
+
+```json
+{
+  "schema_version": 1,
+  "directors": [
+    {
+      "id": "director_standard_warzone",
+      "mode_id": "mode_standard_survival",
+      "mutation_id": "nest_mutation_hunting_ground",
+      "description": "Standard scripted warzone director. It uses fixed phases and never reads player-state pressure.",
+      "phases": [
+        {
+          "id": "phase_warmup",
+          "start_time": 0.0,
+          "end_time": 20.0,
+          "pressure_tag": "warmup",
+          "wave_ids": ["wave_standard_early_chasers"],
+          "encounter_ids": ["encounter_chaser_screen"]
+        }
+      ],
+      "encounters": [
+        {
+          "id": "encounter_chaser_screen",
+          "kind": "enemy_ecology",
+          "enemy_tags": ["tag_enemy"],
+          "notes": "Baseline chaser screen for opening readability."
+        }
+      ],
+      "interest_points": [
+        {
+          "id": "poi_fea_12_pulse_field",
+          "kind": "hazard_field",
+          "hazard_ids": ["hazard_fea_12_pulse"],
+          "map_layout_id": "map_standard_nest"
+        }
+      ]
+    }
+  ]
+}
+```
+
+字段说明：
+
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `directors[]` | array[object] | 非空 | 战区导演列表；首片每个模式只允许一个导演 |
+| `directors[].id` | string | 文件内唯一，非空 | 导演 id；只用于调试、验证和后续工具 |
+| `directors[].mode_id` | string | 必须存在于 `game_modes.json`，且来自词表 §12-A | 该导演绑定的游戏模式 |
+| `directors[].mutation_id` | string | 非空 | 巢变异 / 战区主题 id；首片不玩家可见，因此不进 locale / 词表 |
+| `directors[].description` | string | 可选，非空 | 开发者说明；不玩家可见 |
+| `directors[].phases[]` | array[object] | 非空、按时间升序、不重叠 | 固定节奏阶段；首片用时间而不是玩家状态推进 |
+| `phases[].id` | string | 同 director 内唯一，非空 | 阶段 id |
+| `phases[].start_time` | number | `>= 0`，秒 | 阶段开始时间，按 `GameClock` 局内时间解释 |
+| `phases[].end_time` | number | `> start_time`，秒 | 阶段结束时间；除最后阶段终点包含外，其余阶段终点不包含 |
+| `phases[].pressure_tag` | string | 非空 | 调试 / 平衡用节奏标签，不玩家可见 |
+| `phases[].wave_ids[]` | array[string] | 非空；必须引用同模式 `spawn_waves.csv` | 当前阶段允许的刷怪 wave；同模式所有 wave 必须至少被一个阶段引用 |
+| `phases[].encounter_ids[]` | array[string] | 非空；必须引用同 director 的 `encounters[].id` | 当前阶段的生态 / 遭遇组合标签 |
+| `directors[].encounters[]` | array[object] | 非空 | 战区生态组合声明 |
+| `encounters[].id` | string | 同 director 内唯一，非空 | encounter id |
+| `encounters[].kind` | string | 非空 | encounter 类型；首片为 `enemy_ecology` |
+| `encounters[].enemy_tags[]` | array[string] | 非空；必须来自 `content_tags` | 用敌人 tag 表达生态组合，避免按敌人 id 写逻辑 |
+| `encounters[].notes` | string | 可选，非空 | 开发者说明；不玩家可见 |
+| `directors[].interest_points[]` | array[object] | 非空 | 战区兴趣点 / 机关组合声明；首片只进入数据与调试摘要 |
+| `interest_points[].id` | string | 同 director 内唯一，非空 | 兴趣点 id |
+| `interest_points[].kind` | string | 非空 | 兴趣点类型；首片为 `hazard_field` |
+| `interest_points[].hazard_ids[]` | array[string] | 可空；非空时必须存在于 `hazards.csv` | 兴趣点关联机关 |
+| `interest_points[].map_layout_id` | string | 可选；非空时必须存在于 `map_layouts.json` | 兴趣点所属地图 layout |
+| `interest_points[].notes` | string | 可选，非空 | 开发者说明；不玩家可见 |
+
+`warzone_directors.json` 是 F10 敌巢战区导演首片。当前运行时只使用 `phases[].wave_ids` 给 `GameplayRunLoop` 的 Spawner 做阶段 gating；刷怪本身仍由 `spawn_waves.csv` 的时间窗、间隔、预算和同时存活上限决定。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态；后续若增加随机 mutation、地图兴趣点生成或玩家可见主题，必须先同步 `docs/代码/warzone_director.md`、GDD、ADR、DataLoader schema 和对应 smoke / replay 策略。
 
 ## `characters.json`
 

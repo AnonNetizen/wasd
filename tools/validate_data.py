@@ -30,6 +30,7 @@ GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
 GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
 GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
 MAP_LAYOUTS_JSON = ROOT / "client" / "data" / "map_layouts.json"
+WARZONE_DIRECTORS_JSON = ROOT / "client" / "data" / "warzone_directors.json"
 PLACEHOLDER_RE = re.compile(r"\{[a-z0-9_]+\}")
 LOCALE_KEY_RE = re.compile(r"^[a-z0-9_]+$")
 HTML_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")
@@ -94,6 +95,7 @@ def main() -> int:
     game_mode_ids = _collect_game_mode_ids(ctx)
     _validate_map_layouts(ctx, hazard_ids, game_mode_ids)
     _validate_spawn_waves_csv(ctx, enemy_ids, hazard_ids, game_mode_ids)
+    _validate_warzone_directors(ctx, game_mode_ids, _collect_spawn_wave_ids_by_mode(ctx), hazard_ids, _collect_map_layout_ids(ctx))
 
     if ctx.errors:
         for error in ctx.errors:
@@ -1097,6 +1099,180 @@ def _validate_map_layouts(ctx: ValidationContext, hazard_ids: set[str], game_mod
         _validate_map_manual_hazards(ctx, path, f"{layout_field}.manual_hazards", layout.get("manual_hazards", []), hazard_ids, layout.get("grid"))
 
 
+def _validate_warzone_directors(
+    ctx: ValidationContext,
+    game_mode_ids: set[str],
+    wave_ids_by_mode: dict[str, set[str]],
+    hazard_ids: dict[str, int],
+    map_layout_ids: set[str],
+) -> None:
+    path = WARZONE_DIRECTORS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    directors = _require_list(ctx, path, "directors", data.get("directors"))
+    if not directors:
+        ctx.error(path, "directors", "must be a non-empty array")
+    seen_directors: set[str] = set()
+    seen_modes: set[str] = set()
+    for director_index, director in enumerate(directors):
+        director_field = f"directors[{director_index}]"
+        if not isinstance(director, dict):
+            ctx.error(path, director_field, "must be an object")
+            continue
+        director_id = _require_non_empty_string(ctx, path, f"{director_field}.id", director.get("id"))
+        if director_id:
+            if director_id in seen_directors:
+                ctx.error(path, f"{director_field}.id", f"duplicate director id {director_id}")
+            seen_directors.add(director_id)
+        mode_id = _require_registered(ctx, path, f"{director_field}.mode_id", director.get("mode_id"), "game_modes")
+        if mode_id:
+            if mode_id not in game_mode_ids:
+                ctx.error(path, f"{director_field}.mode_id", f"mode is not defined in game_modes.json: {mode_id}")
+            if mode_id in seen_modes:
+                ctx.error(path, f"{director_field}.mode_id", f"duplicate director for mode {mode_id}")
+            seen_modes.add(mode_id)
+        _require_non_empty_string(ctx, path, f"{director_field}.mutation_id", director.get("mutation_id"))
+        if "description" in director:
+            _require_non_empty_string(ctx, path, f"{director_field}.description", director.get("description"))
+
+        encounter_ids = _validate_warzone_encounters(ctx, path, f"{director_field}.encounters", director.get("encounters"))
+        _validate_warzone_interest_points(ctx, path, f"{director_field}.interest_points", director.get("interest_points"), hazard_ids, map_layout_ids)
+        mode_wave_ids = wave_ids_by_mode.get(mode_id or "", set())
+        referenced_waves = _validate_warzone_phases(ctx, path, director_field, director.get("phases"), mode_id or "", mode_wave_ids, encounter_ids)
+        for wave_id in mode_wave_ids:
+            if wave_id not in referenced_waves:
+                ctx.error(path, f"{director_field}.phases", f"must reference wave {wave_id} at least once")
+
+
+def _validate_warzone_phases(
+    ctx: ValidationContext,
+    path: Path,
+    director_field: str,
+    data: Any,
+    mode_id: str,
+    mode_wave_ids: set[str],
+    encounter_ids: set[str],
+) -> set[str]:
+    phases = _require_list(ctx, path, f"{director_field}.phases", data)
+    if not phases:
+        ctx.error(path, f"{director_field}.phases", "must be a non-empty array")
+    seen_phases: set[str] = set()
+    referenced_waves: set[str] = set()
+    previous_end: float | None = None
+    for phase_index, phase in enumerate(phases):
+        phase_field = f"{director_field}.phases[{phase_index}]"
+        if not isinstance(phase, dict):
+            ctx.error(path, phase_field, "must be an object")
+            continue
+        phase_id = _require_non_empty_string(ctx, path, f"{phase_field}.id", phase.get("id"))
+        if phase_id:
+            if phase_id in seen_phases:
+                ctx.error(path, f"{phase_field}.id", f"duplicate phase id {phase_id}")
+            seen_phases.add(phase_id)
+        start_time = _require_number(ctx, path, f"{phase_field}.start_time", phase.get("start_time"), minimum=0)
+        end_time = _require_number(ctx, path, f"{phase_field}.end_time", phase.get("end_time"), minimum=0, exclusive_minimum=True)
+        if start_time is not None and end_time is not None:
+            if end_time <= start_time:
+                ctx.error(path, f"{phase_field}.end_time", "must be greater than start_time")
+            if previous_end is not None and start_time < previous_end:
+                ctx.error(path, f"{phase_field}.start_time", "must be an ascending non-overlapping time window")
+            previous_end = end_time
+        _require_non_empty_string(ctx, path, f"{phase_field}.pressure_tag", phase.get("pressure_tag"))
+
+        wave_ids = _require_list(ctx, path, f"{phase_field}.wave_ids", phase.get("wave_ids"))
+        if not wave_ids:
+            ctx.error(path, f"{phase_field}.wave_ids", "must be a non-empty array")
+        seen_wave_ids: set[str] = set()
+        for wave_index, wave in enumerate(wave_ids):
+            wave_field = f"{phase_field}.wave_ids[{wave_index}]"
+            wave_id = _require_non_empty_string(ctx, path, wave_field, wave)
+            if not wave_id:
+                continue
+            if wave_id in seen_wave_ids:
+                ctx.error(path, wave_field, f"duplicate wave id {wave_id}")
+            seen_wave_ids.add(wave_id)
+            if wave_id not in mode_wave_ids:
+                ctx.error(path, wave_field, f"wave is not defined in spawn_waves.csv for mode {mode_id}: {wave_id}")
+            referenced_waves.add(wave_id)
+
+        phase_encounters = _require_list(ctx, path, f"{phase_field}.encounter_ids", phase.get("encounter_ids"))
+        if not phase_encounters:
+            ctx.error(path, f"{phase_field}.encounter_ids", "must be a non-empty array")
+        seen_encounter_ids: set[str] = set()
+        for encounter_index, encounter in enumerate(phase_encounters):
+            encounter_field = f"{phase_field}.encounter_ids[{encounter_index}]"
+            encounter_id = _require_non_empty_string(ctx, path, encounter_field, encounter)
+            if not encounter_id:
+                continue
+            if encounter_id in seen_encounter_ids:
+                ctx.error(path, encounter_field, f"duplicate encounter id {encounter_id}")
+            seen_encounter_ids.add(encounter_id)
+            if encounter_id not in encounter_ids:
+                ctx.error(path, encounter_field, f"encounter is not defined in encounters: {encounter_id}")
+    return referenced_waves
+
+
+def _validate_warzone_encounters(ctx: ValidationContext, path: Path, field: str, data: Any) -> set[str]:
+    encounters = _require_list(ctx, path, field, data)
+    if not encounters:
+        ctx.error(path, field, "must be a non-empty array")
+    seen: set[str] = set()
+    for index, encounter in enumerate(encounters):
+        item_field = f"{field}[{index}]"
+        if not isinstance(encounter, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        encounter_id = _require_non_empty_string(ctx, path, f"{item_field}.id", encounter.get("id"))
+        if encounter_id:
+            if encounter_id in seen:
+                ctx.error(path, f"{item_field}.id", f"duplicate encounter id {encounter_id}")
+            seen.add(encounter_id)
+        _require_non_empty_string(ctx, path, f"{item_field}.kind", encounter.get("kind"))
+        _validate_registered_string_list(ctx, path, f"{item_field}.enemy_tags", encounter.get("enemy_tags"), "content_tags", allow_empty=False)
+        if "notes" in encounter:
+            _require_non_empty_string(ctx, path, f"{item_field}.notes", encounter.get("notes"))
+    return seen
+
+
+def _validate_warzone_interest_points(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    data: Any,
+    hazard_ids: dict[str, int],
+    map_layout_ids: set[str],
+) -> None:
+    points = _require_list(ctx, path, field, data)
+    if not points:
+        ctx.error(path, field, "must be a non-empty array")
+    seen: set[str] = set()
+    for index, point in enumerate(points):
+        item_field = f"{field}[{index}]"
+        if not isinstance(point, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        point_id = _require_non_empty_string(ctx, path, f"{item_field}.id", point.get("id"))
+        if point_id:
+            if point_id in seen:
+                ctx.error(path, f"{item_field}.id", f"duplicate interest point id {point_id}")
+            seen.add(point_id)
+        _require_non_empty_string(ctx, path, f"{item_field}.kind", point.get("kind"))
+        point_hazards = _require_list(ctx, path, f"{item_field}.hazard_ids", point.get("hazard_ids", []))
+        for hazard_index, hazard in enumerate(point_hazards):
+            hazard_field = f"{item_field}.hazard_ids[{hazard_index}]"
+            hazard_id = _require_non_empty_string(ctx, path, hazard_field, hazard)
+            if hazard_id and hazard_id not in hazard_ids:
+                ctx.error(path, hazard_field, f"hazard is not defined in hazards.csv: {hazard_id}")
+        if "map_layout_id" in point:
+            map_layout_id = _require_non_empty_string(ctx, path, f"{item_field}.map_layout_id", point.get("map_layout_id"))
+            if map_layout_id and map_layout_id not in map_layout_ids:
+                ctx.error(path, f"{item_field}.map_layout_id", f"map layout is not defined in map_layouts.json: {map_layout_id}")
+        if "notes" in point:
+            _require_non_empty_string(ctx, path, f"{item_field}.notes", point.get("notes"))
+
+
 def _validate_map_bounds(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
     if not isinstance(data, dict):
         ctx.error(path, field, "must be an object")
@@ -1828,6 +2004,32 @@ def _collect_game_mode_ids(ctx: ValidationContext) -> set[str]:
     if not isinstance(modes, list):
         return set()
     return {item.get("id") for item in modes if isinstance(item, dict) and isinstance(item.get("id"), str)}
+
+
+def _collect_map_layout_ids(ctx: ValidationContext) -> set[str]:
+    data = _load_json(MAP_LAYOUTS_JSON, ctx)
+    if not isinstance(data, dict):
+        return set()
+    layouts = data.get("layouts")
+    if not isinstance(layouts, list):
+        return set()
+    return {item.get("id") for item in layouts if isinstance(item, dict) and isinstance(item.get("id"), str)}
+
+
+def _collect_spawn_wave_ids_by_mode(ctx: ValidationContext) -> dict[str, set[str]]:
+    if not SPAWN_WAVES_CSV.exists():
+        return {}
+    ids_by_mode: dict[str, set[str]] = {}
+    with SPAWN_WAVES_CSV.open(encoding="utf-8-sig", newline="") as handle:
+        for row in csv.DictReader(handle):
+            mode_id = row.get("mode_id")
+            wave_id = row.get("id")
+            if not isinstance(mode_id, str) or not mode_id:
+                continue
+            if not isinstance(wave_id, str) or not wave_id:
+                continue
+            ids_by_mode.setdefault(mode_id, set()).add(wave_id)
+    return ids_by_mode
 
 
 def _require_registered(ctx: ValidationContext, path: Path, field: str, value: Any, contract_key: str) -> str | None:

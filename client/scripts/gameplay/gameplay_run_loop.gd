@@ -28,6 +28,7 @@ const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const SKILL_SYSTEM_SCRIPT := preload("res://scripts/gameplay/skill_system.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
+const WARZONE_DIRECTOR_SCRIPT := preload("res://scripts/gameplay/warzone_director.gd")
 
 const BULLET_POOL_SIZE: int = 192
 const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 80.0)
@@ -64,6 +65,7 @@ var _map_manager: Node2D = null
 var _settings_panel: CanvasLayer = null
 var _skill_system: Node = null
 var _spawn_states: Dictionary = {}
+var _warzone_director = null
 var _waves: Array[Dictionary] = []
 var _weapon_system: Node = null
 
@@ -171,6 +173,8 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_growth_curve = _load_growth_curve()
 	_growth_entries = _load_growth_entries(mode)
 	_waves = _load_waves(GAME_MODES.MODE_STANDARD_SURVIVAL)
+	_warzone_director = WARZONE_DIRECTOR_SCRIPT.new()
+	_warzone_director.configure(GAME_MODES.MODE_STANDARD_SURVIVAL, _load_warzone_director(GAME_MODES.MODE_STANDARD_SURVIVAL), _waves)
 	_spawn_states.clear()
 	_current_level = 1
 	_current_xp = 0
@@ -295,6 +299,7 @@ func debug_summary() -> Dictionary:
 		"active_hazards": PoolManager.active_count(POOL_IDS.HAZARD_SPIKE),
 		"map": _map_manager.call("debug_summary") if _map_manager != null and _map_manager.has_method("debug_summary") else {},
 		"skills": _skill_system.call("debug_summary") if _skill_system != null and _skill_system.has_method("debug_summary") else {},
+		"warzone_director": _warzone_director.debug_summary(GameClock.now()) if _warzone_director != null else {},
 	}
 
 
@@ -418,9 +423,11 @@ func debug_cast_primary_skill() -> Dictionary:
 func _update_spawner() -> void:
 	var elapsed: float = GameClock.now()
 	for wave: Dictionary in _waves:
+		var wave_key: String = String(wave.get("id", ""))
+		if _warzone_director != null and not _warzone_director.is_wave_enabled(wave_key, elapsed):
+			continue
 		if elapsed < float(wave.get("start_time", 0.0)) or elapsed > float(wave.get("end_time", 0.0)):
 			continue
-		var wave_key: String = String(wave.get("id", ""))
 		var state: Dictionary = _spawn_states.get(wave_key, {
 			"next_time": float(wave.get("start_time", 0.0)),
 			"spawned": 0,
@@ -1185,6 +1192,22 @@ func _load_waves(target_mode: String) -> Array[Dictionary]:
 			"spawn_budget": String(row.get("spawn_budget", "0")).to_int(),
 		})
 	return result
+
+
+func _load_warzone_director(target_mode: String) -> Dictionary:
+	var data: Variant = DataLoader.load_json(DataLoader.WARZONE_DIRECTORS_PATH)
+	if not data is Dictionary:
+		return {}
+	var raw_directors: Variant = (data as Dictionary).get("directors", [])
+	if not raw_directors is Array:
+		return {}
+	for raw_director: Variant in raw_directors as Array:
+		if not raw_director is Dictionary:
+			continue
+		var director: Dictionary = raw_director as Dictionary
+		if String(director.get("mode_id", "")) == target_mode:
+			return director.duplicate(true)
+	return {}
 
 
 func _load_growth_curve() -> Array[Dictionary]:

@@ -26,6 +26,7 @@ const GROWTH_CURVE_PATH: String = "res://data/growth.csv"
 const GROWTH_POOLS_PATH: String = "res://data/growth_pools.json"
 const GAME_MODES_PATH: String = "res://data/game_modes.json"
 const MAP_LAYOUTS_PATH: String = "res://data/map_layouts.json"
+const WARZONE_DIRECTORS_PATH: String = "res://data/warzone_directors.json"
 
 const INT_STATS: Array[String] = ["bullet_count", "pierce_count"]
 const NON_NEGATIVE_STATS: Array[String] = [
@@ -147,6 +148,7 @@ func validate_project_data() -> bool:
 	var game_mode_ids: Dictionary = _collect_game_mode_ids()
 	is_valid = _validate_map_layouts_json(hazard_ids, game_mode_ids) and is_valid
 	is_valid = _validate_spawn_waves_csv(enemy_ids, hazard_ids, game_mode_ids) and is_valid
+	is_valid = _validate_warzone_directors_json(game_mode_ids, _collect_spawn_wave_ids_by_mode(), hazard_ids, _collect_map_layout_ids()) and is_valid
 
 	return is_valid
 
@@ -1395,6 +1397,211 @@ func _validate_map_layouts_json(hazard_ids: Dictionary, game_mode_ids: Dictionar
 	return is_valid
 
 
+func _validate_warzone_directors_json(game_mode_ids: Dictionary, wave_ids_by_mode: Dictionary, hazard_ids: Dictionary, map_layout_ids: Dictionary) -> bool:
+	var data: Variant = load_json(WARZONE_DIRECTORS_PATH)
+	if not data is Dictionary:
+		return _schema_fail(WARZONE_DIRECTORS_PATH, "root", "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(WARZONE_DIRECTORS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var directors: Array = _require_array(WARZONE_DIRECTORS_PATH, "directors", payload.get("directors"))
+	if directors.is_empty():
+		is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "directors", "non-empty Array") and is_valid
+	var seen_directors: Dictionary = {}
+	var seen_modes: Dictionary = {}
+	_last_schema_counts["warzone_directors"] = directors.size()
+	for director_index: int in range(directors.size()):
+		var director_field: String = "directors[%d]" % director_index
+		var director: Variant = directors[director_index]
+		if not director is Dictionary:
+			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, director_field, "Dictionary") and is_valid
+			continue
+		var director_dict: Dictionary = director as Dictionary
+		var director_id: String = String(director_dict.get("id", ""))
+		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.id" % director_field, director_dict.get("id")) and is_valid
+		if not director_id.is_empty():
+			if seen_directors.has(director_id):
+				is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.id" % director_field, "unique director id") and is_valid
+			seen_directors[director_id] = true
+		var mode_id: String = _require_registered(WARZONE_DIRECTORS_PATH, "%s.mode_id" % director_field, director_dict.get("mode_id"), "game_modes")
+		if not mode_id.is_empty():
+			if not game_mode_ids.has(mode_id):
+				is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.mode_id" % director_field, "mode defined in game_modes.json") and is_valid
+			if seen_modes.has(mode_id):
+				is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.mode_id" % director_field, "unique director per mode") and is_valid
+			seen_modes[mode_id] = true
+		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.mutation_id" % director_field, director_dict.get("mutation_id")) and is_valid
+		if director_dict.has("description"):
+			is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.description" % director_field, director_dict.get("description")) and is_valid
+
+		var encounter_result: Dictionary = _validate_warzone_encounters("%s.encounters" % director_field, director_dict.get("encounters"))
+		var encounter_ids: Dictionary = encounter_result.get("ids", {}) as Dictionary
+		is_valid = bool(encounter_result.get("is_valid", false)) and is_valid
+		is_valid = _validate_warzone_interest_points("%s.interest_points" % director_field, director_dict.get("interest_points"), hazard_ids, map_layout_ids) and is_valid
+
+		var mode_wave_ids: Dictionary = {}
+		if wave_ids_by_mode.get(mode_id, {}) is Dictionary:
+			mode_wave_ids = wave_ids_by_mode.get(mode_id, {}) as Dictionary
+		var phase_result: Dictionary = _validate_warzone_phases(director_field, director_dict.get("phases"), mode_id, mode_wave_ids, encounter_ids)
+		var referenced_waves: Dictionary = phase_result.get("referenced_waves", {}) as Dictionary
+		is_valid = bool(phase_result.get("is_valid", false)) and is_valid
+		for wave_key: Variant in mode_wave_ids.keys():
+			var wave_id: String = String(wave_key)
+			if not referenced_waves.has(wave_id):
+				is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.phases" % director_field, "reference wave %s at least once" % wave_id) and is_valid
+	return is_valid
+
+
+func _validate_warzone_phases(director_field: String, data: Variant, mode_id: String, mode_wave_ids: Dictionary, encounter_ids: Dictionary) -> Dictionary:
+	var phases: Array = _require_array(WARZONE_DIRECTORS_PATH, "%s.phases" % director_field, data)
+	var is_valid: bool = true
+	if phases.is_empty():
+		is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.phases" % director_field, "non-empty Array") and is_valid
+	var seen_phases: Dictionary = {}
+	var referenced_waves: Dictionary = {}
+	var previous_end: Variant = null
+	for phase_index: int in range(phases.size()):
+		var phase_field: String = "%s.phases[%d]" % [director_field, phase_index]
+		var phase: Variant = phases[phase_index]
+		if not phase is Dictionary:
+			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, phase_field, "Dictionary") and is_valid
+			continue
+		var phase_dict: Dictionary = phase as Dictionary
+		var phase_id: String = String(phase_dict.get("id", ""))
+		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.id" % phase_field, phase_dict.get("id")) and is_valid
+		if not phase_id.is_empty():
+			if seen_phases.has(phase_id):
+				is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.id" % phase_field, "unique phase id") and is_valid
+			seen_phases[phase_id] = true
+		is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.start_time" % phase_field, phase_dict.get("start_time"), 0.0) and is_valid
+		is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.end_time" % phase_field, phase_dict.get("end_time"), 0.0, null, true) and is_valid
+		var start_time: Variant = phase_dict.get("start_time")
+		var end_time: Variant = phase_dict.get("end_time")
+		if (start_time is int or start_time is float) and (end_time is int or end_time is float):
+			if float(end_time) <= float(start_time):
+				is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.end_time" % phase_field, "greater than start_time") and is_valid
+			if previous_end != null and float(start_time) < float(previous_end):
+				is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.start_time" % phase_field, "ascending non-overlapping time window") and is_valid
+			previous_end = float(end_time)
+		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.pressure_tag" % phase_field, phase_dict.get("pressure_tag")) and is_valid
+		var wave_ids: Array = _require_array(WARZONE_DIRECTORS_PATH, "%s.wave_ids" % phase_field, phase_dict.get("wave_ids"))
+		is_valid = _validate_warzone_phase_wave_ids("%s.wave_ids" % phase_field, wave_ids, mode_id, mode_wave_ids, referenced_waves) and is_valid
+		var phase_encounters: Array = _require_array(WARZONE_DIRECTORS_PATH, "%s.encounter_ids" % phase_field, phase_dict.get("encounter_ids"))
+		is_valid = _validate_warzone_phase_encounter_ids("%s.encounter_ids" % phase_field, phase_encounters, encounter_ids) and is_valid
+	return {
+		"is_valid": is_valid,
+		"referenced_waves": referenced_waves,
+	}
+
+
+func _validate_warzone_phase_wave_ids(field: String, wave_ids: Array, mode_id: String, mode_wave_ids: Dictionary, referenced_waves: Dictionary) -> bool:
+	var is_valid: bool = true
+	if wave_ids.is_empty():
+		is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, field, "non-empty Array") and is_valid
+	var seen: Dictionary = {}
+	for index: int in range(wave_ids.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var raw_wave_id: Variant = wave_ids[index]
+		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, item_field, raw_wave_id) and is_valid
+		var wave_id: String = String(raw_wave_id)
+		if wave_id.is_empty():
+			continue
+		if seen.has(wave_id):
+			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, item_field, "unique wave id") and is_valid
+		seen[wave_id] = true
+		if not mode_wave_ids.has(wave_id):
+			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, item_field, "wave defined in spawn_waves.csv for mode %s" % mode_id) and is_valid
+		referenced_waves[wave_id] = true
+	return is_valid
+
+
+func _validate_warzone_phase_encounter_ids(field: String, phase_encounters: Array, encounter_ids: Dictionary) -> bool:
+	var is_valid: bool = true
+	if phase_encounters.is_empty():
+		is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, field, "non-empty Array") and is_valid
+	var seen: Dictionary = {}
+	for index: int in range(phase_encounters.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var raw_encounter_id: Variant = phase_encounters[index]
+		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, item_field, raw_encounter_id) and is_valid
+		var encounter_id: String = String(raw_encounter_id)
+		if encounter_id.is_empty():
+			continue
+		if seen.has(encounter_id):
+			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, item_field, "unique encounter id") and is_valid
+		seen[encounter_id] = true
+		if not encounter_ids.has(encounter_id):
+			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, item_field, "encounter defined in encounters") and is_valid
+	return is_valid
+
+
+func _validate_warzone_encounters(field: String, data: Variant) -> Dictionary:
+	var encounters: Array = _require_array(WARZONE_DIRECTORS_PATH, field, data)
+	var is_valid: bool = true
+	if encounters.is_empty():
+		is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, field, "non-empty Array") and is_valid
+	var seen: Dictionary = {}
+	for index: int in range(encounters.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var encounter: Variant = encounters[index]
+		if not encounter is Dictionary:
+			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var encounter_dict: Dictionary = encounter as Dictionary
+		var encounter_id: String = String(encounter_dict.get("id", ""))
+		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.id" % item_field, encounter_dict.get("id")) and is_valid
+		if not encounter_id.is_empty():
+			if seen.has(encounter_id):
+				is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.id" % item_field, "unique encounter id") and is_valid
+			seen[encounter_id] = true
+		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.kind" % item_field, encounter_dict.get("kind")) and is_valid
+		is_valid = _validate_registered_string_array(WARZONE_DIRECTORS_PATH, "%s.enemy_tags" % item_field, encounter_dict.get("enemy_tags"), "content_tags", false) and is_valid
+		if encounter_dict.has("notes"):
+			is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.notes" % item_field, encounter_dict.get("notes")) and is_valid
+	return {
+		"ids": seen,
+		"is_valid": is_valid,
+	}
+
+
+func _validate_warzone_interest_points(field: String, data: Variant, hazard_ids: Dictionary, map_layout_ids: Dictionary) -> bool:
+	var points: Array = _require_array(WARZONE_DIRECTORS_PATH, field, data)
+	var is_valid: bool = true
+	if points.is_empty():
+		is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, field, "non-empty Array") and is_valid
+	var seen: Dictionary = {}
+	for index: int in range(points.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var point: Variant = points[index]
+		if not point is Dictionary:
+			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var point_dict: Dictionary = point as Dictionary
+		var point_id: String = String(point_dict.get("id", ""))
+		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.id" % item_field, point_dict.get("id")) and is_valid
+		if not point_id.is_empty():
+			if seen.has(point_id):
+				is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.id" % item_field, "unique interest point id") and is_valid
+			seen[point_id] = true
+		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.kind" % item_field, point_dict.get("kind")) and is_valid
+		var point_hazards: Array = _require_array(WARZONE_DIRECTORS_PATH, "%s.hazard_ids" % item_field, point_dict.get("hazard_ids", []))
+		for hazard_index: int in range(point_hazards.size()):
+			var hazard_field: String = "%s.hazard_ids[%d]" % [item_field, hazard_index]
+			var raw_hazard_id: Variant = point_hazards[hazard_index]
+			is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, hazard_field, raw_hazard_id) and is_valid
+			var hazard_id: String = String(raw_hazard_id)
+			if not hazard_id.is_empty() and not hazard_ids.has(hazard_id):
+				is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, hazard_field, "hazard defined in hazards.csv") and is_valid
+		if point_dict.has("map_layout_id"):
+			var map_layout_id: String = String(point_dict.get("map_layout_id", ""))
+			is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.map_layout_id" % item_field, point_dict.get("map_layout_id")) and is_valid
+			if not map_layout_id.is_empty() and not map_layout_ids.has(map_layout_id):
+				is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.map_layout_id" % item_field, "map layout defined in map_layouts.json") and is_valid
+		if point_dict.has("notes"):
+			is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.notes" % item_field, point_dict.get("notes")) and is_valid
+	return is_valid
+
+
 func _validate_map_bounds(field: String, data: Variant) -> bool:
 	if not data is Dictionary:
 		return _schema_fail(MAP_LAYOUTS_PATH, field, "Dictionary")
@@ -2121,6 +2328,36 @@ func _collect_game_mode_ids() -> Dictionary:
 		if mode is Dictionary and (mode as Dictionary).get("id") is String:
 			ids[String((mode as Dictionary).get("id"))] = true
 	return ids
+
+
+func _collect_map_layout_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(MAP_LAYOUTS_PATH)
+	if not data is Dictionary:
+		return ids
+	var layouts: Variant = (data as Dictionary).get("layouts")
+	if not layouts is Array:
+		return ids
+	for layout: Variant in layouts:
+		if layout is Dictionary and (layout as Dictionary).get("id") is String:
+			ids[String((layout as Dictionary).get("id"))] = true
+	return ids
+
+
+func _collect_spawn_wave_ids_by_mode() -> Dictionary:
+	var ids_by_mode: Dictionary = {}
+	var rows: Array[Dictionary] = load_csv(SPAWN_WAVES_PATH)
+	for row: Dictionary in rows:
+		var mode_id: String = String(row.get("mode_id", ""))
+		var wave_id: String = String(row.get("id", ""))
+		if mode_id.is_empty() or wave_id.is_empty():
+			continue
+		if not ids_by_mode.has(mode_id):
+			ids_by_mode[mode_id] = {}
+		var mode_waves: Dictionary = ids_by_mode[mode_id]
+		mode_waves[wave_id] = true
+		ids_by_mode[mode_id] = mode_waves
+	return ids_by_mode
 
 
 func _collect_locale_keys() -> Dictionary:

@@ -85,6 +85,7 @@ func _run() -> void:
 	_expect(_map_boundary_is_diamond(run_loop), "MapManager should expose a diamond visual boundary")
 	_expect(_map_safe_zone_is_diamond(run_loop), "MapManager should draw the spawn safe zone as a grid-aligned diamond")
 	_expect(_map_summary_has_diamond_grid(run_loop), "MapManager should expose a positive diamond grid cell size")
+	_expect(_warzone_director_initial_summary_is_ready(run_loop), "WarzoneDirector should expose the standard warmup phase debug summary")
 	_expect(_map_clamps_to_diamond_boundary(run_loop), "MapManager should clamp positions to the diamond logic boundary")
 	_expect(_player_clamps_to_diamond_boundary(run_loop, player), "Player should clamp to the diamond logic boundary")
 	_expect(PoolManager.active_count(POOL_IDS.HAZARD_SPIKE) > 0, "PCG map should spawn active hazards")
@@ -264,6 +265,30 @@ func _map_summary_has_finite_bounds(run_loop: Node) -> bool:
 func _map_summary_has_diamond_grid(run_loop: Node) -> bool:
 	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
 	return grid_cell_size.x > 0.0 and grid_cell_size.y > 0.0 and grid_cell_size.x > grid_cell_size.y
+
+
+func _warzone_director_initial_summary_is_ready(run_loop: Node) -> bool:
+	if run_loop == null or not run_loop.has_method("debug_summary"):
+		return false
+	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
+	var raw_director: Variant = summary.get("warzone_director", {})
+	if not raw_director is Dictionary:
+		return false
+	var director: Dictionary = raw_director as Dictionary
+	var raw_wave_ids: Variant = director.get("wave_ids", [])
+	var raw_interest_point_ids: Variant = director.get("interest_point_ids", [])
+	if not raw_wave_ids is Array or not raw_interest_point_ids is Array:
+		return false
+	var wave_ids: Array = raw_wave_ids as Array
+	var interest_point_ids: Array = raw_interest_point_ids as Array
+	return (
+		bool(director.get("configured", false))
+		and String(director.get("director_id", "")) == "director_standard_warzone"
+		and String(director.get("mutation_id", "")) == "nest_mutation_hunting_ground"
+		and String(director.get("phase_id", "")) == "phase_warmup"
+		and wave_ids.has("wave_standard_early_chasers")
+		and interest_point_ids.has("poi_fea_12_pulse_field")
+	)
 
 
 func _map_boundary_is_diamond(run_loop: Node) -> bool:

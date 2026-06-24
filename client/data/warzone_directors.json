@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "directors": [
+    {
+      "id": "director_standard_warzone",
+      "mode_id": "mode_standard_survival",
+      "mutation_id": "nest_mutation_hunting_ground",
+      "description": "Standard scripted warzone director. It uses fixed phases and never reads player-state pressure.",
+      "phases": [
+        {
+          "id": "phase_warmup",
+          "start_time": 0.0,
+          "end_time": 20.0,
+          "pressure_tag": "warmup",
+          "wave_ids": ["wave_standard_early_chasers"],
+          "encounter_ids": ["encounter_chaser_screen"]
+        },
+        {
+          "id": "phase_prey_pressure",
+          "start_time": 20.0,
+          "end_time": 35.0,
+          "pressure_tag": "pressure",
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix"],
+          "encounter_ids": ["encounter_prey_swarm"]
+        },
+        {
+          "id": "phase_predator_ecology",
+          "start_time": 35.0,
+          "end_time": 55.0,
+          "pressure_tag": "ecology",
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers"],
+          "encounter_ids": ["encounter_predator_prey"]
+        },
+        {
+          "id": "phase_guarded_midfield",
+          "start_time": 55.0,
+          "end_time": 600.0,
+          "pressure_tag": "spike",
+          "wave_ids": [
+            "wave_standard_early_chasers",
+            "wave_standard_swarm_mix",
+            "wave_standard_stalkers",
+            "wave_standard_mid_bulwarks"
+          ],
+          "encounter_ids": ["encounter_territorial_pressure", "encounter_predator_prey"]
+        }
+      ],
+      "encounters": [
+        {
+          "id": "encounter_chaser_screen",
+          "kind": "enemy_ecology",
+          "enemy_tags": ["tag_enemy"],
+          "notes": "Baseline chaser screen for opening readability."
+        },
+        {
+          "id": "encounter_prey_swarm",
+          "kind": "enemy_ecology",
+          "enemy_tags": ["tag_enemy_prey"],
+          "notes": "Prey swarm enters before predator pressure."
+        },
+        {
+          "id": "encounter_predator_prey",
+          "kind": "enemy_ecology",
+          "enemy_tags": ["tag_enemy_prey", "tag_enemy_predator"],
+          "notes": "Predator and prey tags overlap to make the nest feel inhabited."
+        },
+        {
+          "id": "encounter_territorial_pressure",
+          "kind": "enemy_ecology",
+          "enemy_tags": ["tag_enemy_territorial"],
+          "notes": "Territorial pressure introduces the mid-run bulwark spike."
+        }
+      ],
+      "interest_points": [
+        {
+          "id": "poi_fea_12_pulse_field",
+          "kind": "hazard_field",
+          "hazard_ids": ["hazard_fea_12_pulse"],
+          "map_layout_id": "map_standard_nest",
+          "notes": "Existing FEA-12 hazard field is the first declared warzone interest point."
+        }
+      ]
+    }
+  ]
+}

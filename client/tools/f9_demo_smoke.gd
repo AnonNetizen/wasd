@@ -51,6 +51,7 @@ func _run() -> void:
 	if bulwark != null:
 		_expect(String(bulwark.get_meta("wave_key", "")) == BULWARK_WAVE_ID, "enemy_bulwark should carry its configured wave key")
 		_expect(_bulwark_color_matches(bulwark), "enemy_bulwark should use the F9.1 data-driven placeholder color")
+		_expect(_warzone_director_guarded_phase_active(run_loop), "WarzoneDirector should expose the guarded midfield phase for the bulwark wave")
 
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	_expect(_snapshot_has_bulwark(snapshot), "run snapshot should persist active enemy_bulwark entries")
@@ -146,6 +147,28 @@ func _debug_summary_has_fea_12(run_loop: Node) -> bool:
 		return false
 	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
 	return int(summary.get("active_hazards", 0)) > 0
+
+
+func _warzone_director_guarded_phase_active(run_loop: Node) -> bool:
+	if run_loop == null or not run_loop.has_method("debug_summary"):
+		return false
+	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
+	var raw_director: Variant = summary.get("warzone_director", {})
+	if not raw_director is Dictionary:
+		return false
+	var director: Dictionary = raw_director as Dictionary
+	var raw_wave_ids: Variant = director.get("wave_ids", [])
+	var raw_encounter_ids: Variant = director.get("encounter_ids", [])
+	if not raw_wave_ids is Array or not raw_encounter_ids is Array:
+		return false
+	var wave_ids: Array = raw_wave_ids as Array
+	var encounter_ids: Array = raw_encounter_ids as Array
+	return (
+		bool(director.get("configured", false))
+		and String(director.get("phase_id", "")) == "phase_guarded_midfield"
+		and wave_ids.has(BULWARK_WAVE_ID)
+		and encounter_ids.has("encounter_territorial_pressure")
+	)
 
 
 func _bulwark_color_matches(enemy: Node) -> bool:

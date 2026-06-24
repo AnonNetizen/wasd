@@ -322,6 +322,14 @@ def main() -> int:
             ],
         ),
         (
+            "warzone director wave reference must exist",
+            _mutate_json("client/data/warzone_directors.json", _set_warzone_phase_wave("wave_missing")),
+            [
+                "client/data/warzone_directors.json:directors[0].phases[0].wave_ids[0]",
+                "wave is not defined in spawn_waves.csv for mode mode_standard_survival: wave_missing",
+            ],
+        ),
+        (
             "relic must include relic tag",
             _mutate_json("client/data/relics.json", _set_relic_tags([])),
             [
@@ -668,6 +676,13 @@ def _set_game_mode_id(value: str) -> JsonMutator:
 def _set_mode_growth_pool(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["resource_pools"]["growth_pools"][0]["id"] = value
+
+    return mutate
+
+
+def _set_warzone_phase_wave(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["directors"][0]["phases"][0]["wave_ids"][0] = value
 
     return mutate
 
