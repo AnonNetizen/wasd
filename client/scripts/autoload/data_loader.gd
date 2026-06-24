@@ -938,6 +938,10 @@ func _validate_skill_effects(field: String, data: Variant) -> bool:
 				is_valid = _require_registered(SKILLS_PATH, "%s.params.damage_type" % effect_field, status_params.get("damage_type"), "damage_types") != "" and is_valid
 			elif _status_params_has_damage_tick(status_params):
 				is_valid = _schema_fail(SKILLS_PATH, "%s.params.damage_type" % effect_field, "registered damage_type when magnitude and tick_interval are positive") and is_valid
+		if effect_id == "skill_effect_weapon_modifiers":
+			var modifier_params: Dictionary = params as Dictionary
+			is_valid = _require_number(SKILLS_PATH, "%s.params.duration" % effect_field, modifier_params.get("duration"), 0.0, null, true) and is_valid
+			is_valid = _validate_modifiers(SKILLS_PATH, "%s.params.modifiers" % effect_field, modifier_params.get("modifiers"), false) and is_valid
 	return is_valid
 
 

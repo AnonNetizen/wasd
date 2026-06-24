@@ -79,12 +79,8 @@
         ],
         "skills": [
           {
-            "id": "skill_whirlwind_slash",
+            "id": "skill_overdrive_rounds",
             "weight": 100
-          },
-          {
-            "id": "skill_ignite_slash",
-            "weight": 60
           }
         ],
         "consumables": [

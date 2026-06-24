@@ -1,6 +1,6 @@
 {
 	"created_at": "golden:golden_basic_run",
-	"data_fingerprint": "0c2751d276e2b1d0f1a3f0a556313c559b3a8ced88684aeab7f5fdfdb15a24ae",
+	"data_fingerprint": "0a7e294f011784b808650e79b25f740d8a7b48a8a38d6c30c9df115a13fb13d4",
 	"file_schema_version": 1,
 	"game_version": "v1.5",
 	"recording": {
@@ -20,7 +20,7 @@
 		"reason": "game_over",
 		"run_seed": 20260619,
 		"run_summary": {
-			"active_bullets": 3,
+			"active_bullets": 0,
 			"active_enemies": 3,
 			"active_pickups": 0,
 			"capture_frames": 180,
@@ -29,7 +29,7 @@
 				{
 					"active_enemies": 1,
 					"active_pickups": 0,
-					"bullets_present": true,
+					"bullets_present": false,
 					"enemy_types": [
 						"enemy_chaser"
 					],
@@ -45,13 +45,13 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": false,
+					"weapon_cooldown_ready": true,
 					"xp": 0
 				},
 				{
 					"active_enemies": 1,
 					"active_pickups": 0,
-					"bullets_present": true,
+					"bullets_present": false,
 					"enemy_types": [
 						"enemy_chaser"
 					],
@@ -67,13 +67,13 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": false,
+					"weapon_cooldown_ready": true,
 					"xp": 0
 				},
 				{
 					"active_enemies": 2,
 					"active_pickups": 0,
-					"bullets_present": true,
+					"bullets_present": false,
 					"enemy_types": [
 						"enemy_chaser"
 					],
@@ -89,13 +89,13 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": false,
+					"weapon_cooldown_ready": true,
 					"xp": 0
 				},
 				{
 					"active_enemies": 2,
 					"active_pickups": 0,
-					"bullets_present": true,
+					"bullets_present": false,
 					"enemy_types": [
 						"enemy_chaser"
 					],
@@ -111,13 +111,13 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": false,
+					"weapon_cooldown_ready": true,
 					"xp": 0
 				},
 				{
 					"active_enemies": 3,
 					"active_pickups": 0,
-					"bullets_present": true,
+					"bullets_present": false,
 					"enemy_types": [
 						"enemy_chaser"
 					],
@@ -133,13 +133,13 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": false,
+					"weapon_cooldown_ready": true,
 					"xp": 0
 				},
 				{
 					"active_enemies": 3,
 					"active_pickups": 0,
-					"bullets_present": true,
+					"bullets_present": false,
 					"enemy_types": [
 						"enemy_chaser"
 					],
@@ -155,7 +155,7 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": false,
+					"weapon_cooldown_ready": true,
 					"xp": 0
 				}
 			],
@@ -168,13 +168,13 @@
 			"player_moved_right": false,
 			"pool_stats": {
 				"bullet_basic": {
-					"acquired": 8,
-					"active": 3,
-					"available": 21,
+					"acquired": 0,
+					"active": 0,
+					"available": 24,
 					"created": 24,
 					"max_size": 192,
 					"overflows": 0,
-					"released": 5
+					"released": 0
 				},
 				"enemy_chaser": {
 					"acquired": 3,
@@ -214,7 +214,7 @@
 		"started_tick": 0,
 		"started_time": 0.0
 	},
-	"recording_hash": "d5c3b36c2a25156ef38b525e6f7903abf725a20f8db63368d539a6104c424732",
+	"recording_hash": "d34a914c336595f566ccb7b8ab3468d47f59203279dfb3497dcfa769585cbd33",
 	"summary": {
 		"decision_events": 0,
 		"dropped_decision_events": 0,
@@ -225,7 +225,7 @@
 		"reason": "game_over",
 		"run_seed": 20260619,
 		"run_summary": {
-			"active_bullets": 3,
+			"active_bullets": 0,
 			"active_enemies": 3,
 			"active_pickups": 0,
 			"capture_frames": 180,
@@ -234,7 +234,7 @@
 				{
 					"active_enemies": 1,
 					"active_pickups": 0,
-					"bullets_present": true,
+					"bullets_present": false,
 					"enemy_types": [
 						"enemy_chaser"
 					],
@@ -250,13 +250,13 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": false,
+					"weapon_cooldown_ready": true,
 					"xp": 0
 				},
 				{
 					"active_enemies": 1,
 					"active_pickups": 0,
-					"bullets_present": true,
+					"bullets_present": false,
 					"enemy_types": [
 						"enemy_chaser"
 					],
@@ -272,13 +272,13 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": false,
+					"weapon_cooldown_ready": true,
 					"xp": 0
 				},
 				{
 					"active_enemies": 2,
 					"active_pickups": 0,
-					"bullets_present": true,
+					"bullets_present": false,
 					"enemy_types": [
 						"enemy_chaser"
 					],
@@ -294,13 +294,13 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": false,
+					"weapon_cooldown_ready": true,
 					"xp": 0
 				},
 				{
 					"active_enemies": 2,
 					"active_pickups": 0,
-					"bullets_present": true,
+					"bullets_present": false,
 					"enemy_types": [
 						"enemy_chaser"
 					],
@@ -316,13 +316,13 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": false,
+					"weapon_cooldown_ready": true,
 					"xp": 0
 				},
 				{
 					"active_enemies": 3,
 					"active_pickups": 0,
-					"bullets_present": true,
+					"bullets_present": false,
 					"enemy_types": [
 						"enemy_chaser"
 					],
@@ -338,13 +338,13 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": false,
+					"weapon_cooldown_ready": true,
 					"xp": 0
 				},
 				{
 					"active_enemies": 3,
 					"active_pickups": 0,
-					"bullets_present": true,
+					"bullets_present": false,
 					"enemy_types": [
 						"enemy_chaser"
 					],
@@ -360,7 +360,7 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": false,
+					"weapon_cooldown_ready": true,
 					"xp": 0
 				}
 			],
@@ -373,13 +373,13 @@
 			"player_moved_right": false,
 			"pool_stats": {
 				"bullet_basic": {
-					"acquired": 8,
-					"active": 3,
-					"available": 21,
+					"acquired": 0,
+					"active": 0,
+					"available": 24,
 					"created": 24,
 					"max_size": 192,
 					"overflows": 0,
-					"released": 5
+					"released": 0
 				},
 				"enemy_chaser": {
 					"acquired": 3,

@@ -67,7 +67,7 @@
 ## 数据与契约
 
 - `damage_type` 必须来自 `docs/词表与契约.md` 第 9 节，并由 `client/scripts/contracts/damage_types.gd` 生成。
-- F4 默认武器和敌人接触伤害使用现有 `physical`；burn DoT 使用 `fire` 并在 `DamageInfo.flags` 中带 `is_dot`。
+- F4 默认武器和敌人接触伤害使用现有 `physical`；状态 DoT 使用登记过的 `damage_type` 并在 `DamageInfo.flags` 中带 `is_dot`。
 - 本模块不读取数值配置；伤害数值由武器、敌人、机关或状态效果系统从数据中读取后传入。
 
 ## 依赖

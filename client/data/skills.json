@@ -2,74 +2,46 @@
   "schema_version": 1,
   "skills": [
     {
-      "id": "skill_whirlwind_slash",
-      "name_key": "skill_whirlwind_slash_name",
-      "desc_key": "skill_whirlwind_slash_desc",
+      "id": "skill_overdrive_rounds",
+      "name_key": "skill_overdrive_rounds_name",
+      "desc_key": "skill_overdrive_rounds_desc",
       "default_unlocked": true,
       "tags": ["tag_skill"],
-      "ability_tags": ["ability_tag_skill", "ability_tag_primary", "ability_tag_damage"],
+      "ability_tags": ["ability_tag_skill", "ability_tag_primary"],
       "activation": {
         "required_tags": [],
         "blocked_tags": ["ability_tag_silenced"],
         "granted_tags": ["ability_tag_activating"]
       },
-      "cooldown": 3.0,
+      "cooldown": 8.0,
       "costs": [
         {
           "resource": "mana",
-          "amount": 25.0
+          "amount": 40.0
         }
       ],
       "targeting": {
-        "type": "aoe_enemies_around_caster",
-        "radius": 120.0,
-        "max_targets": 0
-      },
-      "effects": [
-        {
-          "effect": "skill_effect_damage",
-          "params": {
-            "amount": 8.0,
-            "damage_type": "physical"
-          }
-        }
-      ]
-    },
-    {
-      "id": "skill_ignite_slash",
-      "name_key": "skill_ignite_slash_name",
-      "desc_key": "skill_ignite_slash_desc",
-      "default_unlocked": true,
-      "tags": ["tag_skill"],
-      "ability_tags": ["ability_tag_skill", "ability_tag_primary", "ability_tag_damage"],
-      "activation": {
-        "required_tags": [],
-        "blocked_tags": ["ability_tag_silenced"],
-        "granted_tags": ["ability_tag_activating"]
-      },
-      "cooldown": 4.0,
-      "costs": [
-        {
-          "resource": "mana",
-          "amount": 30.0
-        }
-      ],
-      "targeting": {
-        "type": "target_enemy",
-        "radius": 180.0,
+        "type": "target_ally",
+        "radius": 0.0,
         "max_targets": 1
       },
       "effects": [
         {
-          "effect": "skill_effect_apply_status",
+          "effect": "skill_effect_weapon_modifiers",
           "params": {
-            "status": "burn",
-            "duration": 1.2,
-            "stack_rule": "REFRESH",
-            "granted_ability_tags": [],
-            "magnitude": 1.5,
-            "tick_interval": 0.2,
-            "damage_type": "fire"
+            "duration": 4.0,
+            "modifiers": [
+              {
+                "stat": "fire_rate",
+                "type": "mult",
+                "value": 1.7
+              },
+              {
+                "stat": "bullet_speed",
+                "type": "mult",
+                "value": 1.15
+              }
+            ]
           }
         }
       ]

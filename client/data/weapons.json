@@ -6,7 +6,7 @@
       "name_key": "weapon_basic_blaster_name",
       "desc_key": "weapon_basic_blaster_desc",
       "default_unlocked": true,
-      "fire_mode": "auto_mouse",
+      "fire_mode": "hold_mouse",
       "fire_audio_id": "sfx_player_shoot",
       "base_stats": {
         "damage": 3.5,

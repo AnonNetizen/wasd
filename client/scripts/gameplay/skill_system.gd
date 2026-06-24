@@ -354,6 +354,8 @@ func _apply_effects(skill: Dictionary, targets: Array[Node]) -> int:
 			applied_targets += _apply_damage_effect(effect, targets)
 		elif effect_id == SKILL_EFFECTS.SKILL_EFFECT_APPLY_STATUS:
 			applied_targets += _apply_status_effect(effect, targets)
+		elif effect_id == SKILL_EFFECTS.SKILL_EFFECT_WEAPON_MODIFIERS:
+			applied_targets += _apply_weapon_modifiers_effect(effect, targets)
 	return applied_targets
 
 
@@ -386,6 +388,25 @@ func _apply_status_effect(effect: Dictionary, targets: Array[Node]) -> int:
 		var result: Dictionary = _apply_status_to_target(target, status_effect)
 		if bool(result.get("applied", false)):
 			applied_targets += 1
+	return applied_targets
+
+
+func _apply_weapon_modifiers_effect(effect: Dictionary, targets: Array[Node]) -> int:
+	var params: Dictionary = _dictionary_or_empty(effect.get("params", {}))
+	var duration: float = maxf(float(params.get("duration", 0.0)), 0.0)
+	var modifiers: Array = _array_or_empty(params.get("modifiers", []))
+	if duration <= 0.0 or modifiers.is_empty():
+		return 0
+
+	var applied_targets: int = 0
+	for target: Node in targets:
+		if target == null:
+			continue
+		var weapon_system: Node = target.get_node_or_null("WeaponSystem")
+		if weapon_system == null or not weapon_system.has_method("apply_temporary_modifiers"):
+			continue
+		weapon_system.call("apply_temporary_modifiers", modifiers, duration)
+		applied_targets += 1
 	return applied_targets
 
 
@@ -492,6 +513,12 @@ func _dictionary_or_empty(raw_value: Variant) -> Dictionary:
 	if raw_value is Dictionary:
 		return (raw_value as Dictionary).duplicate(true)
 	return {}
+
+
+func _array_or_empty(raw_value: Variant) -> Array:
+	if raw_value is Array:
+		return (raw_value as Array).duplicate(true)
+	return []
 
 
 func _result(ok: bool, reason: String, extra: Dictionary = {}) -> Dictionary:

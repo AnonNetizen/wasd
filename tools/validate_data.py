@@ -793,6 +793,9 @@ def _validate_skill_effects(ctx: ValidationContext, path: Path, field: str, data
                 _require_registered(ctx, path, f"{item_field}.params.damage_type", params.get("damage_type"), "damage_types")
             elif _status_params_has_damage_tick(params):
                 ctx.error(path, f"{item_field}.params.damage_type", "is required when magnitude and tick_interval are positive")
+        if effect_id == "skill_effect_weapon_modifiers":
+            _require_number(ctx, path, f"{item_field}.params.duration", params.get("duration"), minimum=0, exclusive_minimum=True)
+            _validate_modifiers(ctx, path, f"{item_field}.params.modifiers", params.get("modifiers"), require_value_per_level=False)
 
 
 def _status_params_has_damage_tick(params: dict[str, Any]) -> bool:

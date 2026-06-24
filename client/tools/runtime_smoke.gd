@@ -159,7 +159,7 @@ func _run() -> void:
 	await _expect_enemy_movement_bounds(run_loop, player)
 	await _expect_swarm_enemy_spawn(run_loop, player)
 	await _expect_enemy_ecology_ai(run_loop, player)
-	await _expect_whirlwind_slash_skill(run_loop, player)
+	await _expect_overdrive_rounds_skill(run_loop, player)
 	await _expect_pickup_orb_draw_order(run_loop, player)
 	await _expect_pickup_orb_feedback(run_loop, player)
 	var level_restored_run: Dictionary = await _expect_level_up_choice(run_loop, player)
@@ -178,9 +178,11 @@ func _run() -> void:
 	if restored_player_value != null:
 		player = restored_player_value
 
+	Input.action_press(ACTIONS.FIRE)
 	for _index: int in range(SPAWN_FRAMES):
 		await get_tree().process_frame
 		await get_tree().physics_frame
+	Input.action_release(ACTIONS.FIRE)
 
 	_expect(_pool_stat(POOL_IDS.BULLET_BASIC, "acquired") > 0, "WeaponSystem should acquire bullets")
 	_expect(PoolManager.active_count(POOL_IDS.ENEMY_CHASER) > 0, "Spawner should spawn active enemies")
@@ -745,25 +747,26 @@ func _expect_enemy_ecology_ai(run_loop: Node, player: Node2D) -> void:
 	PoolManager.release(predator)
 
 
-func _expect_whirlwind_slash_skill(run_loop: Node, player: Node2D) -> void:
-	var enemy: Node2D = _spawn_smoke_enemy(run_loop, "enemy_chaser", "smoke_skill_whirlwind")
-	_expect(enemy != null, "whirlwind smoke should spawn a target enemy")
-	if enemy == null:
+func _expect_overdrive_rounds_skill(run_loop: Node, player: Node2D) -> void:
+	var weapon_system: Node = _find_node_by_name(player, "WeaponSystem")
+	_expect(weapon_system != null, "overdrive smoke should find the player WeaponSystem")
+	if weapon_system == null:
 		return
-	enemy.global_position = player.global_position + Vector2(64.0, 0.0)
-	enemy.set_physics_process(false)
 	var before_summary: Dictionary = run_loop.call("debug_summary")
 	var mana_before: float = _skill_resource_current(before_summary, SKILL_RESOURCES.MANA)
+	var fire_rate_before: float = float(weapon_system.call("stat_value", STATS.FIRE_RATE))
+	var bullet_speed_before: float = float(weapon_system.call("stat_value", STATS.BULLET_SPEED))
 	var result: Dictionary = run_loop.call("debug_cast_primary_skill")
-	_expect(bool(result.get("ok", false)), "whirlwind slash should cast from the runtime skill system")
-	_expect(int(result.get("applied_targets", 0)) >= 1, "whirlwind slash should damage at least one nearby enemy")
+	_expect(bool(result.get("ok", false)), "overdrive rounds should cast from the runtime skill system")
+	_expect(int(result.get("applied_targets", 0)) == 1, "overdrive rounds should apply to the player's weapon")
+	_expect(float(weapon_system.call("stat_value", STATS.FIRE_RATE)) > fire_rate_before, "overdrive rounds should increase fire rate")
+	_expect(float(weapon_system.call("stat_value", STATS.BULLET_SPEED)) > bullet_speed_before, "overdrive rounds should increase bullet speed")
 	var after_summary: Dictionary = run_loop.call("debug_summary")
 	var mana_after: float = _skill_resource_current(after_summary, SKILL_RESOURCES.MANA)
-	_expect(mana_after < mana_before, "whirlwind slash should spend mana")
+	_expect(mana_after < mana_before, "overdrive rounds should spend mana")
 	var cooldown_result: Dictionary = run_loop.call("debug_cast_primary_skill")
-	_expect(not bool(cooldown_result.get("ok", true)), "whirlwind slash should not immediately recast")
-	_expect(String(cooldown_result.get("reason", "")) == "cooldown", "whirlwind recast should report cooldown")
-	PoolManager.release(enemy)
+	_expect(not bool(cooldown_result.get("ok", true)), "overdrive rounds should not immediately recast")
+	_expect(String(cooldown_result.get("reason", "")) == "cooldown", "overdrive recast should report cooldown")
 
 
 func _skill_resource_current(summary: Dictionary, resource_id: String) -> float:

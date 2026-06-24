@@ -29,7 +29,7 @@
 
 ## 3. 中期任务（P2）
 
-- [ ] 实现基础玩家、输入、自动射击、子弹、敌人、刷怪和对象池，进入完整项目 M1 / M2 可玩闭环。
+- [ ] 实现基础玩家、输入、按住开火、子弹、敌人、刷怪和对象池，进入完整项目 M1 / M2 可玩闭环。
 - [ ] 建立 L1 GUT 单测框架，优先覆盖 `RNG`、`GameClock`、`GameState`、`SaveManager`、`ModifierEngine`、`Combat`。
 - [ ] 扩展黄金回放：`golden_basic_run`、`golden_pause_resume`、`golden_full_death` 和 `golden_level_up_choice` 已有运行时摘要 + 扩展稳定帧样本 / 场景语义字段版，runner 已有输入播放与 runtime event 播放首片；后续在遗物运行时 / 协同原语存在后补 `golden_relic_synergy` 等更多场景。
 - [ ] 实现本地化导入与运行时语言切换，确保 `strings.csv` 中 `zh_CN` / `en` 可直接验证。

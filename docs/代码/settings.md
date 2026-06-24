@@ -104,7 +104,7 @@ SettingsPanel (CanvasLayer)
 | `audio.master` | float：0~1 | `1.0` | 主音量 |
 | `audio.music` | float：0~1 | `0.8` | 音乐音量 |
 | `audio.sfx` | float：0~1 | `0.9` | 音效音量 |
-| `gameplay.fire_on_release` | bool | `false` | 已登记，当前未接线生效；设置面板暂不显示 |
+| `gameplay.fire_on_release` | bool | `false` | 旧自动开火兼容项，当前未接线生效；正式开火改走 `fire` action 按住触发，设置面板暂不显示 |
 | `gameplay.aim_mode` | string：`mouse` / `4dir` / `auto` | `mouse` | 已登记；当前运行时默认鼠标瞄准，设置面板暂不显示，`4dir` / `auto` 仍为后续模式扩展预留 |
 | `gameplay.screen_shake` | bool | `true` | 已登记，当前未接线生效；设置面板暂不显示 |
 | `gameplay.pause_on_focus_loss` | bool | `true` | 已登记，当前未接线生效；设置面板暂不显示 |

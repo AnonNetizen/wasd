@@ -6,6 +6,7 @@ const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const EXPECTED_ACTIONS: Array[String] = [
 	ACTIONS.MOVE_RIGHT,
 	ACTIONS.AIM_UP,
+	ACTIONS.FIRE,
 	ACTIONS.PAUSE,
 	ACTIONS.UI_BACK,
 ]
@@ -55,6 +56,13 @@ func _run() -> void:
 	await get_tree().physics_frame
 	await get_tree().process_frame
 	Input.action_release(ACTIONS.AIM_UP)
+	await get_tree().physics_frame
+	await get_tree().process_frame
+
+	Input.action_press(ACTIONS.FIRE)
+	await get_tree().physics_frame
+	await get_tree().process_frame
+	Input.action_release(ACTIONS.FIRE)
 	await get_tree().physics_frame
 	await get_tree().process_frame
 

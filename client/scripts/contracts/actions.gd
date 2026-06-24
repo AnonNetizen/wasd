@@ -10,6 +10,7 @@ const VALUES: Array[String] = [
 	"aim_down",
 	"aim_left",
 	"aim_right",
+	"fire",
 	"use_active_item",
 	"show_stats_panel",
 	"pause",
@@ -29,6 +30,7 @@ const AIM_UP: String = "aim_up"
 const AIM_DOWN: String = "aim_down"
 const AIM_LEFT: String = "aim_left"
 const AIM_RIGHT: String = "aim_right"
+const FIRE: String = "fire"
 const USE_ACTIVE_ITEM: String = "use_active_item"
 const SHOW_STATS_PANEL: String = "show_stats_panel"
 const PAUSE: String = "pause"

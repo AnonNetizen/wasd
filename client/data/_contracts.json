@@ -107,6 +107,7 @@
       "aim_down",
       "aim_left",
       "aim_right",
+      "fire",
       "use_active_item",
       "show_stats_panel",
       "pause",
@@ -201,8 +202,7 @@
       "ai_action_guard_home"
     ],
     "skill_ids": [
-      "skill_whirlwind_slash",
-      "skill_ignite_slash"
+      "skill_overdrive_rounds"
     ],
     "skill_resources": [
       "mana"
@@ -214,7 +214,8 @@
     ],
     "skill_effects": [
       "skill_effect_damage",
-      "skill_effect_apply_status"
+      "skill_effect_apply_status",
+      "skill_effect_weapon_modifiers"
     ],
     "ability_tags": [
       "ability_tag_skill",

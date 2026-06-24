@@ -19,7 +19,7 @@
 | 改暂停 / 保存退出 | `client/scripts/ui/pause_menu.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、`docs/代码/save_manager.md` |
 | 改死亡结算 / 永久升级应用 | `client/scripts/gameplay/gameplay_run_loop.gd`、`client/scripts/autoload/meta_progression_system.gd`、`client/scripts/ui/game_over_panel.gd` |
 | 改玩家移动 / 相机 | `client/scripts/gameplay/player.gd` |
-| 改自动开火 / 子弹生成 | `client/scripts/gameplay/weapon_system.gd`、`bullet.gd` |
+| 改按住开火 / 子弹生成 | `client/scripts/gameplay/weapon_system.gd`、`bullet.gd` |
 | 改主动技能释放 / 资源消耗 | `docs/代码/skill_system.md`、`client/scripts/gameplay/skill_system.gd`、`client/data/skills.json` |
 | 改敌人生态 AI / 接触伤害 | `docs/代码/enemy_ai.md`、`client/scripts/gameplay/enemy.gd`、`enemy_ai_profiles.json` |
 | 改有限地图 / PCG / 人工摆点 | `docs/代码/map_manager.md`、`client/scripts/gameplay/map_manager.gd`、`client/data/map_layouts.json` |
@@ -44,7 +44,7 @@
 | `client/scripts/gameplay/world_background.gd` | 哈迪斯式量化菱形舞台网格背景；读取 `MapManager.grid_cell_size()`，让背景格、机关绘制和触发判定共享同一份地面格度量，不改变世界坐标或相机缩放 |
 | `client/scripts/gameplay/map_manager.gd` | 有限地图边界、PCG 机关摆放、人工摆点、刷怪位置 clamp 和地图快照 |
 | `client/scripts/gameplay/player.gd` | 玩家移动、鼠标相对玩家 / 视口中心方向瞄准、方向键 / 手柄兜底瞄准、左右朝向表现、相机居中、受伤 / 死亡；提供少量受控 debug 生命 API 给 GM 命令调用 |
-| `client/scripts/gameplay/weapon_system.gd` | 起始武器自动开火和子弹池获取 |
+| `client/scripts/gameplay/weapon_system.gd` | 起始武器按住开火、临时武器修正和子弹池获取 |
 | `client/scripts/gameplay/skill_system.gd` | 起始主动技能释放、技能资源、冷却、目标筛选、效果解释和 run 快照 |
 | `client/scripts/gameplay/bullet.gd` | 子弹飞行、射程 / 生命周期裁剪、敌人命中 |
 | `client/scripts/gameplay/enemy.gd` | 数据驱动敌人生态 AI、接触伤害、受伤 / 死亡和 AI 快照 |
@@ -111,9 +111,9 @@ UIManager
 | 背景 | 在玩家附近绘制哈迪斯式量化菱形舞台网格和原点十字；网格来自 `map_layouts.json.grid`，与机关尺寸 / 判定共用同一格度量，但不缩放或旋转世界坐标 | `WorldBackground.configure()` |
 | 输入 | `Settings` 在启动 / 加载 / 修改时把键盘主绑定写入 InputMap；运行时只确保同一 action 有手柄轴 / 按钮兜底事件。键鼠默认按鼠标相对视口中心的偏移瞄准，并通过当前 canvas / camera transform 换算成世界方向；方向键 / 手柄右摇杆 / D-pad 在没有鼠标动作时作为兜底。按住 `show_stats_panel` action（默认 Tab）只显示 HUD 详细数值面板，不进入暂停态。F8 输入录制首片会把移动 / 兜底瞄准 action 状态变化以及 `pause` / `ui_back` 离散事件写入 `Replay`，但鼠标向量录制仍待后续输入回放扩展 | `Settings`、`InputMap`、`Input.get_vector()`、`InputEventMouseMotion.position`、`Replay.record_input_action()`、`Replay.record_input_event()` |
 | 移动 / 瞄准 | 玩家按数据移速在 2D 平面移动，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放；世界横纵单位映射到屏幕保持同尺度，斜俯视感由舞台地面、障碍物、遮挡层级和 2.5D 视觉层承担。鼠标激活后按 canvas transform 换算后的世界方向瞄准；无鼠标动作时用方向键 / 手柄右摇杆 / D-pad 兜底，松开保持上一方向；玩家 2.5D 视觉和敌人占位表现只区分向左 / 向右，不做向上 / 向下朝向 | `Player.aim_direction` |
-| 自动开火 | WeaponSystem 按 `fire_rate` 从子弹池取节点并配置 | `PoolManager.acquire()` |
+| 按住开火 | WeaponSystem 读取 `fire` action；按住时按 `fire_rate` 从子弹池取节点并配置，松开停火 | `InputMap` / `PoolManager.acquire()` |
 | 子弹命中 | 子弹用距离检测命中 `active_enemies` 组，伤害走 `Combat.apply_damage()` | `DamageInfo` |
-| 主动技能 / 状态 | SkillSystem 从 `skills.json` 读取起始技能列表；默认 `use_active_item` action 仍释放第一个技能 `skill_whirlwind_slash`，消耗角色声明的 `mana`，对施法者半径内敌人造成 `Combat` AOE 伤害；第二个已加载技能 `skill_ignite_slash` 通过 `skill_effect_apply_status` 对最近敌人施加 burn DoT，可由系统/API 释放，后续技能 UI / 多技能输入再接玩家操作；技能激活使用项目版轻量 GAS 的 ability tag gating，状态效果通过目标实体的 `StatusEffectComponent` 管理，技能冷却、资源回复、状态过期和 DoT tick 都走 `GameClock` | `SkillSystem.cast_primary_skill()`、`SkillSystem.cast_skill(skill_id)`、`Combat.apply_damage()`、`Player.apply_status_effect()`、`Enemy.apply_status_effect()` |
+| 主动技能 / 状态 | SkillSystem 从 `skills.json` 读取起始技能列表；默认 `use_active_item` action 释放第一个技能 `skill_overdrive_rounds`，消耗角色声明的 `mana`，通过 `skill_effect_weapon_modifiers` 临时强化玩家主武器射速与弹速；技能激活使用项目版轻量 GAS 的 ability tag gating，状态效果通过目标实体的 `StatusEffectComponent` 管理，技能冷却、资源回复、状态过期和 DoT tick 都走 `GameClock` | `SkillSystem.cast_primary_skill()`、`SkillSystem.cast_skill(skill_id)`、`WeaponSystem.apply_temporary_modifiers()`、`Combat.apply_damage()`、`Player.apply_status_effect()`、`Enemy.apply_status_effect()` |
 | 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人；当前有追猎者、疾行者、潜猎者和壁垒四种数据化敌人 | `GameClock.now()`、`RNG.spawn` |
 | 机关触发 | `Hazard` 在 `PLAYING` 下按 `GameClock.delta_scaled()` 消耗冷却；玩家进入菱形范围后构造 `DamageInfo` 并交给 `Combat`，当前 FEA-12 用于验证 PCG / 手工摆点和伤害链路 | `Hazard.configure()`、`Combat.apply_damage()` |
 | 受击 / 击杀反馈 | `Combat.damage_applied` 成功应用伤害后生成池化 `hit_spark` 与 `damage_number`；玩家受伤时 `Player3DVisual` 胶囊短暂红闪，敌人命中时短暂暖白闪，敌人死亡后立即离开活敌组并橙色放大淡出后归池；玩家进入数据化受伤无敌窗口 | `Player3DVisual.set_hit_flash_active()` / `_draw()` / `queue_redraw()` / `PoolManager.acquire()` |
@@ -193,10 +193,10 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 ## 数据与契约
 
-- 角色：默认读取 `character_default`，其 id 来自生成常量 `CharacterIds`；默认角色使用鼠标瞄准、左右朝向和自动开火。
+- 角色：默认读取 `character_default`，其 id 来自生成常量 `CharacterIds`；默认角色使用鼠标瞄准、左右朝向和按住开火。
 - 模式：默认读取 `mode_standard_survival`，其 id 来自生成常量 `GameModes`。
 - 武器：从 `characters[].starting_loadout.weapon_id` 读取，不在代码写武器 id 分支。
-- 技能：从 `characters[].starting_loadout.skill_ids` 读取，不绑定英雄 id；默认主技能为列表第一项 `skill_whirlwind_slash`，`skill_ignite_slash` 作为第二个起始技能和模式池内容加载；技能定义在 `skills.json`，模式可用池在 `game_modes.resource_pools.skills`；ability tag / activation 条件来自词表 §12-G，状态效果与叠加规则来自词表 §9-A~§9-B。
+- 技能：从 `characters[].starting_loadout.skill_ids` 读取，不绑定英雄 id；默认主技能为列表第一项 `skill_overdrive_rounds`，通过 `skill_effect_weapon_modifiers` 服务射击强化；技能定义在 `skills.json`，模式可用池在 `game_modes.resource_pools.skills`；ability tag / activation 条件来自词表 §12-G，状态效果与叠加规则来自词表 §9-A~§9-B。
 - 技能资源：从 `characters[].skill_resources` 读取，当前默认资源为 `mana`；后续怒气、能量等资源应新增资源 id 和角色资源池，不在 SkillSystem 写死。
 - 子弹池：从 `weapons[].projectile.pool_id` 读取；当前样例为已登记 `bullet_basic`。子弹占位绘制为黄色圆点加暗色轮廓，不承载行为差异。
 - 敌人池：从 `enemies.csv.pool_id` 读取；当前注册已登记 `enemy_chaser` 与 `enemy_swarm`，不同敌人可复用同一 `Enemy` 场景和对象池。

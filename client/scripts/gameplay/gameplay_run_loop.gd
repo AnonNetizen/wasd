@@ -1413,6 +1413,8 @@ func _ensure_input_actions() -> void:
 	_ensure_axis_action(ACTIONS.AIM_RIGHT, JOY_AXIS_RIGHT_X, 1.0)
 	_ensure_axis_action(ACTIONS.AIM_UP, JOY_AXIS_RIGHT_Y, -1.0)
 	_ensure_axis_action(ACTIONS.AIM_DOWN, JOY_AXIS_RIGHT_Y, 1.0)
+	_ensure_axis_action(ACTIONS.FIRE, JOY_AXIS_TRIGGER_RIGHT, 1.0)
+	_ensure_mouse_button_action(ACTIONS.FIRE, MOUSE_BUTTON_LEFT)
 	_ensure_button_action(ACTIONS.AIM_UP, JOY_BUTTON_DPAD_UP)
 	_ensure_button_action(ACTIONS.AIM_DOWN, JOY_BUTTON_DPAD_DOWN)
 	_ensure_button_action(ACTIONS.AIM_LEFT, JOY_BUTTON_DPAD_LEFT)
@@ -1428,6 +1430,13 @@ func _ensure_axis_action(action_id: String, axis: JoyAxis, axis_value: float) ->
 	var event: InputEventJoypadMotion = InputEventJoypadMotion.new()
 	event.axis = axis
 	event.axis_value = axis_value
+	_add_event_if_missing(action_id, event)
+
+
+func _ensure_mouse_button_action(action_id: String, button: MouseButton) -> void:
+	_ensure_action(action_id)
+	var event: InputEventMouseButton = InputEventMouseButton.new()
+	event.button_index = button
 	_add_event_if_missing(action_id, event)
 
 

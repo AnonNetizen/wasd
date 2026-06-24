@@ -7,7 +7,7 @@
 
 - `StatusEffect` 是运行时状态效果的轻量 `Resource`，承载状态 id、持续时间、剩余时间、叠加规则、来源、强度、DoT 伤害类型 / tick 计时和授予的 ability tags。
 - `StatusEffectComponent` 是挂在可受状态影响实体上的 `Node`，负责按 `GameClock` 推进剩余时间、按叠加规则合并状态、通过 `Combat.apply_damage()` 结算 DoT、过期清理和释放由状态授予的 ability tags。
-- 当前首片服务项目版轻量 GAS 与真实实体状态：`SkillSystem`、`Player` 和 `Enemy` 都可挂载 `StatusEffectComponent`，`skill_effect_apply_status` 可对真实敌人施加 `silence` 或 `burn`；`silence` 授予 `ability_tag_silenced`，`burn` 用 `fire` 伤害类型按 tick 造成 DoT。
+- 当前首片服务项目版轻量 GAS 与真实实体状态：`SkillSystem`、`Player` 和 `Enemy` 都可挂载 `StatusEffectComponent`，`skill_effect_apply_status` 可对真实敌人施加 `silence` 或 DoT 状态；`silence` 授予 `ability_tag_silenced`，DoT 状态用登记过的伤害类型按 tick 造成伤害。
 - 本模块暂不实现视觉表现、抗性、免疫、驱散或 `ModifierEngine` 属性修正；这些后续应复用同一个状态生命周期，不在各效果原语里各自实现。
 
 ## 阅读方式
@@ -19,7 +19,7 @@
 | 让技能施加状态 | `docs/代码/skill_system.md` 的 `skill_effect_apply_status` |
 | 让新实体受状态影响 | 对应实体脚本的 `apply_status_effect()` / owned tag API，参考 `player.gd` 与 `enemy.gd` |
 | 调查沉默没有移除 | `StatusEffectComponent._tick_effects()`、`_expire_effect()` 与 tag owner 的 `remove_owned_tag()` |
-| 调查 burn 不掉血 | `StatusEffect.damage_type` / `magnitude` / `tick_interval`、`StatusEffectComponent._tick_damage()` 与 `Combat.damage_applied` |
+| 调查 DoT 不掉血 | `StatusEffect.damage_type` / `magnitude` / `tick_interval`、`StatusEffectComponent._tick_damage()` 与 `Combat.damage_applied` |
 | 改状态快照 | `snapshot()` / `restore_snapshot()`，同时看 `SkillSystem.snapshot()`、`Player.snapshot()` 与 `Enemy.snapshot()` |
 
 ## 代码位置
@@ -32,7 +32,7 @@
 | `client/scripts/gameplay/player.gd` | 玩家实体状态宿主；保存 / 恢复状态效果与状态授予 tags，新开局 `configure()` 清空状态 |
 | `client/scripts/gameplay/enemy.gd` | 敌人实体状态宿主；保存 / 恢复状态效果与状态授予 tags，对象池复用时清空状态 |
 | `client/scripts/contracts/status_effects.gd` / `status_stack_rules.gd` / `ability_tags.gd` | 由词表生成的状态、叠加规则和 ability tag 常量 |
-| `client/tools/l1_smoke.gd` | 覆盖自我沉默、真实 Enemy 目标施加状态、burn DoT、Player / Enemy 快照恢复、过期清理和复用清空 |
+| `client/tools/l1_smoke.gd` | 覆盖自我沉默、真实 Enemy 目标施加状态、测试用 DoT、Player / Enemy 快照恢复、过期清理和复用清空 |
 
 ## 场景 / 节点结构
 

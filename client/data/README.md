@@ -154,10 +154,10 @@ JSON 示例：
 
 ```json
 {
-  "id": "relic_split_burn",
+  "id": "relic_split_rounds",
   "behaviors": [
     { "event": "on_hit", "effect": "split", "params": { "count": 2, "angle": 20.0 } },
-    { "event": "on_hit", "effect": "ignite", "params": { "damage_type": "fire", "magnitude": 2.0, "tick_interval": 0.5, "duration": 3.0 } }
+    { "event": "on_fire", "effect": "pierce", "params": { "count": 1 } }
   ]
 }
 ```
@@ -210,7 +210,7 @@ JSON 示例：
 | `base_stats.move_speed` | float | `px/s`，`> 0` | 默认移动速度 | 走位更灵活，地图探索更快 |
 | `base_stats.damage_invulnerability_duration` | float | 秒，`>= 0` | 玩家受伤后的无敌窗口 | 更不容易被贴脸多段瞬杀，但受击节奏更宽松 |
 | `base_stats.player_separation_radius` | float | `px`，`>= 0` | 玩家中心排斥半径；与敌人 `separation_radius` 相加后决定敌人被推开的最小中心距离 | 更不容易被敌人中心贴身重叠，但过大可能让围怪显得松散 |
-| `base_stats.fire_rate` | float | 每秒发数，`> 0` | 默认自动射击频率 | DPS 提升，弹幕更密 |
+| `base_stats.fire_rate` | float | 每秒发数，`> 0` | 按住开火时的射击频率 | DPS 提升，弹幕更密 |
 | `base_stats.damage` | float | `>= 0` | 单发基础伤害 | 击杀更快 |
 | `base_stats.bullet_speed` | float | `px/s`，`> 0` | 子弹飞行速度 | 更容易命中远处移动敌人 |
 | `base_stats.bullet_range` | float | `px`，`> 0` | 子弹最大射程 | 可打到更远敌人 |
@@ -266,8 +266,7 @@ JSON 示例：
         "relics": [{ "id": "relic_sharp_rounds", "weight": 100 }],
         "active_items": [{ "id": "active_item_blink_burst", "weight": 100 }],
         "skills": [
-          { "id": "skill_whirlwind_slash", "weight": 100 },
-          { "id": "skill_ignite_slash", "weight": 60 }
+          { "id": "skill_overdrive_rounds", "weight": 100 }
         ],
         "consumables": [{ "id": "consumable_pocket_bomb", "weight": 100 }],
         "growth_pools": [{ "id": "default_level_up", "weight": 100 }]
@@ -555,12 +554,12 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
       "default_unlocked": true,
       "tags": ["tag_character"],
       "capabilities": [],
-      "control_profile": "default_mouse_auto",
+      "control_profile": "default_mouse_shooter",
       "starting_loadout": {
         "weapon_id": "weapon_basic_blaster",
         "active_item_id": "active_item_blink_burst",
         "consumable_ids": ["consumable_pocket_bomb"],
-        "skill_ids": ["skill_whirlwind_slash", "skill_ignite_slash"]
+        "skill_ids": ["skill_overdrive_rounds"]
       },
       "skill_resources": [
         {
@@ -596,7 +595,7 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `characters[].name_key` / `desc_key` | string | `character_*_name` / `character_*_desc` | 角色名称和描述译文 key |
 | `characters[].default_unlocked` | bool | true / false | 新存档中是否默认可用；仍需与 `meta_progression.json` 解锁项保持一致 |
 | `characters[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_character` | 内容标签；破限角色还需含 `tag_limit_break` 并声明 capability |
-| `characters[].capabilities` | array[string] | 词表 §12.2 capability id，可为空 | 允许突破的默认规则；空数组表示默认鼠标瞄准 / 左右朝向 / 自动开火 / 默认移动 |
+| `characters[].capabilities` | array[string] | 词表 §12.2 capability id，可为空 | 允许突破的默认规则；空数组表示默认鼠标瞄准 / 左右朝向 / 按住开火 / 默认移动 |
 | `characters[].control_profile` | string | 非空 | 控制配置标识；当前只做数据边界，不实现输入 profile 切换 |
 | `characters[].starting_loadout` | object | 必填 | 角色起始携带内容引用；当前只做 schema，不发放运行时实体 |
 | `characters[].starting_loadout.weapon_id` | string | 必须存在于 `weapons.json` | 默认起始武器引用 |
@@ -626,7 +625,7 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
       "name_key": "weapon_basic_blaster_name",
       "desc_key": "weapon_basic_blaster_desc",
       "default_unlocked": true,
-      "fire_mode": "auto_mouse",
+      "fire_mode": "hold_mouse",
       "fire_audio_id": "sfx_player_shoot",
       "base_stats": {
         "damage": 3.5,
@@ -777,69 +776,36 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
   "schema_version": 1,
   "skills": [
     {
-      "id": "skill_whirlwind_slash",
-      "name_key": "skill_whirlwind_slash_name",
-      "desc_key": "skill_whirlwind_slash_desc",
+      "id": "skill_overdrive_rounds",
+      "name_key": "skill_overdrive_rounds_name",
+      "desc_key": "skill_overdrive_rounds_desc",
       "default_unlocked": true,
       "tags": ["tag_skill"],
       "ability_tags": [
         "ability_tag_skill",
-        "ability_tag_primary",
-        "ability_tag_damage"
+        "ability_tag_primary"
       ],
       "activation": {
         "required_tags": [],
         "blocked_tags": ["ability_tag_silenced"],
         "granted_tags": ["ability_tag_activating"]
       },
-      "cooldown": 3.0,
-      "costs": [{ "resource": "mana", "amount": 25.0 }],
+      "cooldown": 8.0,
+      "costs": [{ "resource": "mana", "amount": 40.0 }],
       "targeting": {
-        "type": "aoe_enemies_around_caster",
-        "radius": 120.0,
-        "max_targets": 0
-      },
-      "effects": [
-        {
-          "effect": "skill_effect_damage",
-          "params": { "amount": 8.0, "damage_type": "physical" }
-        }
-      ]
-    },
-    {
-      "id": "skill_ignite_slash",
-      "name_key": "skill_ignite_slash_name",
-      "desc_key": "skill_ignite_slash_desc",
-      "default_unlocked": true,
-      "tags": ["tag_skill"],
-      "ability_tags": [
-        "ability_tag_skill",
-        "ability_tag_primary",
-        "ability_tag_damage"
-      ],
-      "activation": {
-        "required_tags": [],
-        "blocked_tags": ["ability_tag_silenced"],
-        "granted_tags": ["ability_tag_activating"]
-      },
-      "cooldown": 4.0,
-      "costs": [{ "resource": "mana", "amount": 30.0 }],
-      "targeting": {
-        "type": "target_enemy",
-        "radius": 180.0,
+        "type": "target_ally",
+        "radius": 0.0,
         "max_targets": 1
       },
       "effects": [
         {
-          "effect": "skill_effect_apply_status",
+          "effect": "skill_effect_weapon_modifiers",
           "params": {
-            "status": "burn",
-            "duration": 1.2,
-            "stack_rule": "REFRESH",
-            "granted_ability_tags": [],
-            "magnitude": 1.5,
-            "tick_interval": 0.2,
-            "damage_type": "fire"
+            "duration": 4.0,
+            "modifiers": [
+              { "stat": "fire_rate", "type": "mult", "value": 1.7 },
+              { "stat": "bullet_speed", "type": "mult", "value": 1.15 }
+            ]
           }
         }
       ]
@@ -867,22 +833,23 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `skills[].costs[].resource` | string | 词表 §12-D skill resource id | 消耗的资源 id；释放者必须在 `skill_resources` 中拥有该资源 |
 | `skills[].costs[].amount` | number | `>= 0` | 单次释放消耗量 |
 | `skills[].targeting` | object | 必填 | 目标选择声明，由 `SkillSystem` 解释 |
-| `skills[].targeting.type` | string | 词表 §12-E skill targeting id | 目标选择策略；当前旋风斩使用 `aoe_enemies_around_caster`，点燃斩使用 `target_enemy` |
+| `skills[].targeting.type` | string | 词表 §12-E skill targeting id | 目标选择策略；当前过载弹流使用 `target_ally` 作用于玩家主武器 |
 | `skills[].targeting.radius` | number | `> 0`，px | AOE 或近邻目标查询半径 |
 | `skills[].targeting.max_targets` | int | `>= 0` | 最大目标数量；0 表示不限制 |
 | `skills[].effects[]` | array[object] | 必须非空 | 命中目标后执行的技能效果原语列表 |
 | `skills[].effects[].effect` | string | 词表 §12-F skill effect id | 技能效果原语 |
 | `skills[].effects[].params` | object | 由 effect 解释 | 技能效果参数 |
 | `skills[].effects[].params.amount` | number | `> 0` | `skill_effect_damage` 的伤害量 |
-| `skills[].effects[].params.damage_type` | string | 词表 §9 damage type | `skill_effect_damage` 的伤害类型；`skill_effect_apply_status` 做 DoT 时也必须填写，例如 burn 使用 `fire`；结算走 `Combat.apply_damage` |
+| `skills[].effects[].params.damage_type` | string | 词表 §9 damage type | `skill_effect_damage` 的伤害类型；`skill_effect_apply_status` 做 DoT 时也必须填写；结算走 `Combat.apply_damage` |
 | `skills[].effects[].params.status` | string | 词表 §9-A status effect id | `skill_effect_apply_status` 施加的状态 id |
 | `skills[].effects[].params.duration` | number | 秒，`> 0` | `skill_effect_apply_status` 的持续时间，过期走 `GameClock` |
 | `skills[].effects[].params.stack_rule` | string | 词表 §9-B status stack rule | 状态重复施加时的叠加 / 刷新规则 |
 | `skills[].effects[].params.granted_ability_tags` | array[string] | 词表 §12-G ability tag，可为空 | 状态存在期间授予目标的 ability tags；当前沉默使用 `ability_tag_silenced` |
 | `skills[].effects[].params.magnitude` | number | 可选 | 状态强度；DoT 中表示单 tick 伤害，减速 / 增伤标记后续可复用 |
 | `skills[].effects[].params.tick_interval` | number | 可选，`>= 0` | DoT tick 间隔；与正 `magnitude` 同时出现时必须提供已登记 `damage_type` |
+| `skills[].effects[].params.modifiers[]` | array[object] | `skill_effect_weapon_modifiers` 必填；格式同词表 §1 modifier | 临时主武器属性修正列表；当前用于射击强化技能 |
 
-`skills.json` 是技能本体数据；技能不绑定英雄。当前 `SkillSystem` 采用项目版轻量 GAS 语义解释起始技能的 tag gating、冷却、资源消耗、AOE 敌人目标选择、`skill_effect_damage` 和 `skill_effect_apply_status`：伤害通过 `Combat.apply_damage` 结算，状态通过 `StatusEffectComponent` 管理叠加、过期、ability tag 生命周期和 burn DoT tick。当前内置技能包含默认主键释放的 `skill_whirlwind_slash` 与可由系统/API 释放的 `skill_ignite_slash`；后续若主动道具、敌人或遗物要释放同一个技能，应引用 skill id，而不是复制技能字段或按英雄 / 道具 id 写分支。
+`skills.json` 是技能本体数据；技能不绑定英雄。当前玩法方向要求技能服务射击强化，不再把默认技能池做成近战 AOE 或点燃法术。`SkillSystem` 采用项目版轻量 GAS 语义解释起始技能的 tag gating、冷却、资源消耗、目标选择、`skill_effect_damage`、`skill_effect_apply_status` 和 `skill_effect_weapon_modifiers`：伤害通过 `Combat.apply_damage` 结算，状态通过 `StatusEffectComponent` 管理叠加、过期、ability tag 生命周期，武器强化通过目标的 `WeaponSystem.apply_temporary_modifiers()` 在持续时间到期后还原。当前内置技能为默认主键释放的 `skill_overdrive_rounds`；后续若主动道具、敌人或遗物要释放同一个技能，应引用 skill id，而不是复制技能字段或按英雄 / 道具 id 写分支。
 
 ## `consumables.json`
 

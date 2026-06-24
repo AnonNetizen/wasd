@@ -458,6 +458,22 @@ def main() -> int:
             ],
         ),
         (
+            "skill weapon modifier duration must be positive",
+            _mutate_json("client/data/skills.json", _set_skill_weapon_modifier_duration(0.0)),
+            [
+                "client/data/skills.json:skills[0].effects[0].params.duration",
+                "must be > 0",
+            ],
+        ),
+        (
+            "skill weapon modifier stat must be registered",
+            _mutate_json("client/data/skills.json", _set_skill_weapon_modifier_stat("stat_missing")),
+            [
+                "client/data/skills.json:skills[0].effects[0].params.modifiers[0].stat",
+                "unknown id stat_missing; expected one of stats",
+            ],
+        ),
+        (
             "consumable must include consumable tag",
             _mutate_json("client/data/consumables.json", _set_consumable_tags([])),
             [
@@ -962,7 +978,7 @@ def _set_skill_apply_status_granted_tag(value: str) -> JsonMutator:
 def _set_skill_apply_status_dot_without_damage_type(payload: dict[str, Any]) -> None:
     payload["skills"][0]["effects"][0] = _apply_status_effect_payload()
     params = payload["skills"][0]["effects"][0]["params"]
-    params["status"] = "burn"
+    params["status"] = "poison"
     params["magnitude"] = 2.0
     params["tick_interval"] = 0.5
     params.pop("damage_type", None)
@@ -982,7 +998,28 @@ def _apply_status_effect_payload() -> dict[str, Any]:
 
 def _set_skill_damage_type(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["effects"][0] = {
+            "effect": "skill_effect_damage",
+            "params": {
+                "amount": 8.0,
+                "damage_type": "physical",
+            },
+        }
         payload["skills"][0]["effects"][0]["params"]["damage_type"] = value
+
+    return mutate
+
+
+def _set_skill_weapon_modifier_duration(value: float) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["effects"][0]["params"]["duration"] = value
+
+    return mutate
+
+
+def _set_skill_weapon_modifier_stat(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["skills"][0]["effects"][0]["params"]["modifiers"][0]["stat"] = value
 
     return mutate
 
