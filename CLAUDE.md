@@ -10,9 +10,10 @@
 
 1. 先读 `AGENTS.md`，按其中“快速开工 5 步”继续；日常接手优先读 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`，完整 `docs/AI记忆/项目记忆.md` 按任务需要再读。
 2. 强制编码规则读 `.claude/rules/game-coding-rules.md`（与其他三平台规则同源）；若外部 AI 库建议与本项目规则冲突，以 `AGENTS.md`、平台编码规则、`docs/决策记录.md` 为准。
-3. 需要可复用流程时优先用 `.claude/` 原生能力：复杂、专业或可并行任务默认已获项目授权，可主动启用 `.claude/agents/` 下对应 subagent；slash command 见 `.claude/commands/`（`/sync-contracts`、`/new-relic`、`/run-replay-regression`、`/health-check`、`/update-memory`），project skill 见 `.claude/skills/`；ECC 类外部 AI 大仓先读 `ai-resource-curator` 与 `docs/AI协作/ECC工具吸收清单.md`。
-4. 大型代码改动提交前按 `AGENTS.md` 追加事实型 code review；细微改动不触发正式 review。
-5. `.claude/settings.json` 当前只配 `draft/` / `DRAFT/` 的 deny（草稿禁区 harness 级强制）；权限 allow 白名单按需由用户单独授权后再加。不要创建 CCGS 默认 `design/`、`production/`、模板、示例或状态目录，也不要引入外部 hooks / vendor。
+3. 沟通默认中文；用户问问题 / 风险时基于事实回答；用户提需求后先简短反馈落地前景、性价比、复杂度和主要风险。需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题，不要自行脑补。
+4. 需要可复用流程时优先用 `.claude/` 原生能力：复杂、专业或可并行任务默认已获项目授权，可主动启用 `.claude/agents/` 下对应 subagent；slash command 见 `.claude/commands/`（`/sync-contracts`、`/new-relic`、`/run-replay-regression`、`/health-check`、`/update-memory`），project skill 见 `.claude/skills/`；ECC 类外部 AI 大仓先读 `ai-resource-curator` 与 `docs/AI协作/ECC工具吸收清单.md`。
+5. 大型代码改动提交前按 `AGENTS.md` 追加事实型 code review；细微改动不触发正式 review。
+6. `.claude/settings.json` 当前只配 `draft/` / `DRAFT/` 的 deny（草稿禁区 harness 级强制）；权限 allow 白名单按需由用户单独授权后再加。不要创建 CCGS 默认 `design/`、`production/`、模板、示例或状态目录，也不要引入外部 hooks / vendor。
 
 ## Claude 平台文件
 

@@ -1,63 +1,63 @@
 {
   "schema_version": 2,
-  "updated_at": "2026-06-23",
+  "updated_at": "2026-06-24",
   "description": "Machine-readable AI knowledge base index for the wasd project.",
   "documents": [
     {
       "path": "AGENTS.md",
       "type": "entrypoint",
-      "authority": "AI agent startup order, low-token quick-start route, red lines, required reading, language policy, task recovery after context compaction, AI Git commit policy, large-code-change review policy",
+      "authority": "AI agent startup order, low-token quick-start route, red lines, required reading, language policy, clarification-first rule for unclear requirements, task recovery after context compaction, AI Git commit policy, large-code-change review policy",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-14",
-      "canonical_for": ["ai_startup", "core_red_lines", "startup_reading_order", "task_recovery_after_compaction", "ai_git_commit_policy", "low_token_startup"],
+      "last_reviewed": "2026-06-24",
+      "canonical_for": ["ai_startup", "core_red_lines", "startup_reading_order", "clarification_first_rule", "task_recovery_after_compaction", "ai_git_commit_policy", "low_token_startup"],
       "must_read_for": ["new_session", "rule_change", "ai_platform_change"],
       "related_docs": ["CLAUDE.md", "CODEX.md", "OPENCODE.md", "docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json", "docs/AI导航.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/快速开工.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/"],
-      "update_triggers": ["startup flow changes", "core red line changes", "task recovery rule changes", "new cross-platform command, agent, skill, or platform entry", "AI Git commit policy changes", "large code review policy changes"],
-      "keywords": ["agent", "startup", "开工", "红线", "AI入口", "Claude", "不过度优化", "需求评估", "风险评估", "没有问题", "上下文压缩", "任务恢复", "最后明确指令", "Next Steps", "AI Git", "自动commit", "提交策略", "code review", "事实review", "大型代码改动", "skills", "project skills", "快速开工", "低token", "hot path"]
+      "update_triggers": ["startup flow changes", "core red line changes", "clarification-first rule changes", "task recovery rule changes", "new cross-platform command, agent, skill, or platform entry", "AI Git commit policy changes", "large code review policy changes"],
+      "keywords": ["agent", "startup", "开工", "红线", "AI入口", "Claude", "不过度优化", "需求评估", "风险评估", "没有问题", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "上下文压缩", "任务恢复", "最后明确指令", "Next Steps", "AI Git", "自动commit", "提交策略", "code review", "事实review", "大型代码改动", "skills", "project skills", "快速开工", "低token", "hot path"]
     },
     {
       "path": "CLAUDE.md",
       "type": "entrypoint",
-      "authority": "Claude Code startup adapter and external AI vendor reference boundary",
+      "authority": "Claude Code startup adapter, clarification-first collaboration baseline, and external AI vendor reference boundary",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-14",
-      "canonical_for": ["claude_entrypoint", "external_ai_reference_boundary"],
+      "last_reviewed": "2026-06-24",
+      "canonical_for": ["claude_entrypoint", "clarification_first_rule", "external_ai_reference_boundary"],
       "must_read_for": ["claude_session", "claude_config_change", "ai_platform_change"],
       "related_docs": ["AGENTS.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/AI技能资源评估.md", "docs/AI协作/快速开工.md"],
       "related_code": [".codebuddy/skills/", ".codex/skills/", ".opencode/skills/"],
-      "update_triggers": ["Claude startup flow changes", "project skill prompt-template usage changes"],
-      "keywords": ["Claude", "CLAUDE", "Claude Code", "project skills", "project skills"]
+      "update_triggers": ["Claude startup flow changes", "clarification-first rule changes", "project skill prompt-template usage changes"],
+      "keywords": ["Claude", "CLAUDE", "Claude Code", "project skills", "需求评估", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准"]
     },
     {
       "path": "CODEX.md",
       "type": "entrypoint",
-      "authority": "Codex CLI startup adapter and platform file map",
+      "authority": "Codex CLI startup adapter, clarification-first collaboration baseline, and platform file map",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-14",
-      "canonical_for": ["codex_entrypoint"],
+      "last_reviewed": "2026-06-24",
+      "canonical_for": ["codex_entrypoint", "clarification_first_rule"],
       "must_read_for": ["codex_session", "codex_config_change", "ai_platform_change"],
       "related_docs": ["AGENTS.md", "CLAUDE.md", "OPENCODE.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/快速开工.md"],
       "related_code": [".codex/"],
-      "update_triggers": ["Codex startup flow changes", "Codex agent or command changes", "cross-platform rule changes"],
-      "keywords": ["Codex", "CODEX", "codex cli", "平台入口", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "AI Git", "自动commit", "code review", "事实review"]
+      "update_triggers": ["Codex startup flow changes", "clarification-first rule changes", "Codex agent or command changes", "cross-platform rule changes"],
+      "keywords": ["Codex", "CODEX", "codex cli", "平台入口", "需求评估", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "不过度优化", "上下文压缩", "任务恢复", "AI Git", "自动commit", "code review", "事实review"]
     },
     {
       "path": "OPENCODE.md",
       "type": "entrypoint",
-      "authority": "OpenCode startup adapter, platform file map, project skills entry, and review-only vendor resource entry",
+      "authority": "OpenCode startup adapter, clarification-first collaboration baseline, platform file map, project skills entry, and review-only vendor resource entry",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-14",
-      "canonical_for": ["opencode_entrypoint"],
+      "last_reviewed": "2026-06-24",
+      "canonical_for": ["opencode_entrypoint", "clarification_first_rule"],
       "must_read_for": ["opencode_session", "opencode_config_change", "ai_platform_change"],
       "related_docs": ["AGENTS.md", "CLAUDE.md", "CODEX.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/快速开工.md"],
       "related_code": [".opencode/", ".codebuddy/skills/", ".codex/skills/", ".opencode/skills/"],
-      "update_triggers": ["OpenCode startup flow changes", "OpenCode agent, command, or skill changes", "cross-platform rule changes"],
-      "keywords": ["OpenCode", "OPENCODE", "opencode.json", "平台入口", "subagent", "skills", "project skills", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "AI Git", "自动commit", "code review", "事实review"]
+      "update_triggers": ["OpenCode startup flow changes", "clarification-first rule changes", "OpenCode agent, command, or skill changes", "cross-platform rule changes"],
+      "keywords": ["OpenCode", "OPENCODE", "opencode.json", "平台入口", "subagent", "skills", "project skills", "需求评估", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "不过度优化", "上下文压缩", "任务恢复", "AI Git", "自动commit", "code review", "事实review"]
     },
     {
       "path": "README.md",
@@ -183,7 +183,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #98", "ADR #103", "ADR #104", "ADR #105", "ADR #107", "ADR #108", "ADR #109", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "菱形机关", "diamond hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP决策", "破巢者", "Nestbreakers", "详细数值面板", "show_stats_panel", "Tab", "subagent", "subagent 默认主动调度", "自动调度", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
+      "keywords": ["ADR", "decision", "决策", "约束", "ADR #98", "ADR #103", "ADR #104", "ADR #105", "ADR #107", "ADR #108", "ADR #109", "ADR #110", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "菱形机关", "diamond hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP决策", "破巢者", "Nestbreakers", "详细数值面板", "show_stats_panel", "Tab", "subagent", "subagent 默认主动调度", "自动调度", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -272,16 +272,16 @@
     {
       "path": "docs/AI导航.md",
       "type": "index",
-      "authority": "Project map, extension points, dependency graph, red lines",
+      "authority": "Project map, extension points, dependency graph, red lines including clarification-first AI workflow",
       "status": "active",
       "owner_scope": "architecture",
-      "last_reviewed": "2026-06-23",
-      "canonical_for": ["project_map", "extension_points", "dependency_graph"],
+      "last_reviewed": "2026-06-24",
+      "canonical_for": ["project_map", "extension_points", "dependency_graph", "clarification_first_rule"],
       "must_read_for": ["new_task", "extension_change", "dependency_change"],
       "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/功能建议池.md", "docs/AI辅助开发机会清单.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": ["client/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
-      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化菱形地图格", "diamond map grid", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "SkillSystem", "StatusEffectComponent", "skill_effect_apply_status", "status_stack_rules", "silence", "沉默", "MapManager", "HazardSystem", "菱形机关", "diamond hazard", "map_layouts.json", "FEA-12", "有限地图", "PCG", "人工摆点", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
+      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化菱形地图格", "diamond map grid", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "SkillSystem", "StatusEffectComponent", "skill_effect_apply_status", "status_stack_rules", "silence", "沉默", "MapManager", "HazardSystem", "菱形机关", "diamond hazard", "map_layouts.json", "FEA-12", "有限地图", "PCG", "人工摆点", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
     },
     {
       "path": "docs/AI记忆/项目记忆.md",
@@ -289,13 +289,13 @@
       "authority": "Long-term cross-session memory index and stable project facts; cold storage for background details",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-23",
-      "canonical_for": ["project_memory", "long_term_memory_index", "session_continuity"],
+      "last_reviewed": "2026-06-24",
+      "canonical_for": ["project_memory", "long_term_memory_index", "session_continuity", "clarification_first_rule"],
       "must_read_for": ["new_session", "memory_update", "important_change"],
       "related_docs": ["docs/AI记忆/README.md", "docs/AI记忆/current_state.json", "docs/TODO.md", "docs/AI记忆/会话日志/", "docs/决策记录.md", "docs/AI导航.md", "docs/AI协作/快速开工.md"],
       "related_code": [],
       "update_triggers": ["new ADR", "important milestone", "memory structure change", "long-term fact change"],
-      "keywords": ["memory", "项目记忆", "long-term memory", "跨会话", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "上下文压缩", "任务恢复", "cold storage", "冷存储", "按需读取"]
+      "keywords": ["memory", "项目记忆", "long-term memory", "跨会话", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "上下文压缩", "任务恢复", "cold storage", "冷存储", "按需读取"]
     },
     {
       "path": "docs/AI记忆/current_state.json",
@@ -303,13 +303,13 @@
       "authority": "Machine-readable current phase, latest ADR, open decisions, candidate next actions, and recent hot-path verification",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-23",
-      "canonical_for": ["current_state", "candidate_next_actions", "latest_verification"],
+      "last_reviewed": "2026-06-24",
+      "canonical_for": ["current_state", "candidate_next_actions", "latest_verification", "clarification_first_rule"],
       "must_read_for": ["new_session", "memory_update", "task_resume"],
       "related_docs": ["docs/AI记忆/项目记忆.md", "docs/AI记忆/README.md", "docs/TODO.md", "docs/功能建议池.md", "docs/AI辅助开发机会清单.md", "docs/决策记录.md", "docs/修改建议.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": ["tools/docs_health_check.py", "tools/sync_contracts.py", "tools/validate_data.py"],
       "update_triggers": ["new ADR", "open decision changes", "next action changes", "verification run"],
-      "keywords": ["current_state", "candidate next actions", "Next Steps", "latest ADR", "open decisions", "当前状态", "候选下一步", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "hot path verification", "最近热验证"]
+      "keywords": ["current_state", "candidate next actions", "Next Steps", "latest ADR", "ADR #110", "open decisions", "当前状态", "候选下一步", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "hot path verification", "最近热验证"]
     },
     {
       "path": "docs/TODO.md",
@@ -401,41 +401,41 @@
       "authority": "AI collaboration workflows, templates, tool adapters, skills, validation loops",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-14",
-      "canonical_for": ["ai_workflow_docs"],
+      "last_reviewed": "2026-06-24",
+      "canonical_for": ["ai_workflow_docs", "clarification_first_rule"],
       "must_read_for": ["ai_workflow_change", "task_template_change", "tool_adapter_change", "skill_resource_change"],
       "related_docs": ["docs/AI协作/README.md", "docs/AI知识库索引.md", "AGENTS.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/", ".codebuddy/skills/", ".codex/skills/", ".opencode/skills/", "tools/"],
       "update_triggers": ["new AI workflow", "new command", "new agent", "new skill", "new validation loop"],
-      "keywords": ["AI协作", "workflow", "template", "agent", "command", "skill", "subagent", "game-designer", "numeric-designer", "ip-designer", "copywriter-packager", "ui-art-designer", "game-art-designer", "marketing-strategist", "godot-test-diagnostics", "上下文压缩", "任务恢复", "自动commit", "MCP", "playtest-review", "project skills"]
+      "keywords": ["AI协作", "workflow", "template", "agent", "command", "skill", "subagent", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "game-designer", "numeric-designer", "ip-designer", "copywriter-packager", "ui-art-designer", "game-art-designer", "marketing-strategist", "godot-test-diagnostics", "上下文压缩", "任务恢复", "自动commit", "MCP", "playtest-review", "project skills"]
     },
     {
       "path": "docs/AI协作/README.md",
       "type": "workflow",
-      "authority": "AI collaboration directory and workflow entry",
+      "authority": "AI collaboration directory, clarification-first baseline, and workflow entry",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-14",
-      "canonical_for": ["ai_workflow_entry"],
+      "last_reviewed": "2026-06-24",
+      "canonical_for": ["ai_workflow_entry", "clarification_first_rule"],
       "must_read_for": ["ai_workflow_lookup", "new_template", "new_command", "new_agent", "new_skill", "new_vendor_resource"],
       "related_docs": ["docs/AI协作/上下文预算.md", "docs/AI协作/文档维护指南.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/AI技能资源评估.md", "docs/AI协作/ECC工具吸收清单.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/", ".codebuddy/skills/", ".codex/skills/", ".opencode/skills/"],
       "update_triggers": ["new AI workflow", "new command", "new agent", "new skill", "new validation loop"],
-      "keywords": ["AI协作", "workflow", "command", "agent", "template", "subagent", "skill", "creative", "design", "Godot diagnostics", "GUT", "GdUnit4", "AI资源", "playtest-review"]
+      "keywords": ["AI协作", "workflow", "command", "agent", "template", "subagent", "skill", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "creative", "design", "Godot diagnostics", "GUT", "GdUnit4", "AI资源", "playtest-review"]
     },
     {
       "path": "docs/AI协作/快速开工.md",
       "type": "workflow",
-      "authority": "Low-token AI startup hot path and task-triggered reading rules",
+      "authority": "Low-token AI startup hot path, clarification-first baseline, and task-triggered reading rules",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-16",
-      "canonical_for": ["quick_start", "low_token_startup", "hot_path_reading"],
+      "last_reviewed": "2026-06-24",
+      "canonical_for": ["quick_start", "low_token_startup", "hot_path_reading", "clarification_first_rule"],
       "must_read_for": ["new_session", "task_resume", "ai_startup"],
       "related_docs": ["AGENTS.md", "docs/AI记忆/current_state.json", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI协作/上下文预算.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": [],
       "update_triggers": ["startup flow changes", "context budget changes", "AI memory structure changes", "task routing changes"],
-      "keywords": ["quick start", "快速开工", "low token", "上下文预算", "热路径", "冷存储", "current_state"]
+      "keywords": ["quick start", "快速开工", "low token", "上下文预算", "热路径", "冷存储", "current_state", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准"]
     },
     {
       "path": "docs/AI协作/工作包/",
@@ -622,16 +622,16 @@
     {
       "path": "docs/AI协作/工具适配指南.md",
       "type": "workflow",
-      "authority": "Cross-tool AI adapter guidance and platform entry mapping",
+      "authority": "Cross-tool AI adapter guidance, clarification-first baseline, and platform entry mapping",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-14",
-      "canonical_for": ["tool_adapter", "platform_mapping"],
+      "last_reviewed": "2026-06-24",
+      "canonical_for": ["tool_adapter", "platform_mapping", "clarification_first_rule"],
       "must_read_for": ["ai_platform_change", "new_command", "new_agent", "new_skill"],
       "related_docs": ["AGENTS.md", "CODEX.md", "OPENCODE.md", "docs/AI协作/README.md", "docs/AI协作/AI技能资源评估.md", "docs/AI协作/快速开工.md", "docs/AI协作/代码审核流程.md"],
       "related_code": [".codebuddy/", ".codex/", ".opencode/", ".codebuddy/skills/", ".codex/skills/", ".opencode/skills/"],
-      "update_triggers": ["AI platform config changes", "agent mapping changes", "command mapping changes", "skill mapping changes"],
-      "keywords": ["工具适配", "CodeBuddy", "Codex", "OpenCode", "platform", "subagent", "agent mapping", "skills", "需求评估", "不过度优化", "AI Git", "自动commit", "提交策略", "code review", "事实review", "工具先行review", "project skills"]
+      "update_triggers": ["AI platform config changes", "clarification-first rule changes", "agent mapping changes", "command mapping changes", "skill mapping changes"],
+      "keywords": ["工具适配", "CodeBuddy", "Codex", "OpenCode", "platform", "subagent", "agent mapping", "skills", "需求评估", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "不过度优化", "AI Git", "自动commit", "提交策略", "code review", "事实review", "工具先行review", "project skills"]
     },
     {
       "path": "docs/AI协作/AI技能资源评估.md",

@@ -191,6 +191,7 @@
 | #107 | 玩家出生安全区可见标记改为贴格菱形；`safe_radius` 仍是 PCG 避让距离下限，但 `MapManager` 视觉上按 grid 斜率和格线吸附绘制出生安全菱形，不再画正圆 | GDD §5、`client/data/README.md`、MapManager 文档、`client/scripts/gameplay/map_manager.gd`、`client/tools/runtime_smoke.gd`、AI记忆 |
 | #108 | subagent 默认主动调度授权；复杂、专业或可并行任务可直接启用对应项目 subagent，不支持原生调度时读取同名 agent `.md` 作为 prompt 模板 | `AGENTS.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、四平台规则入口、`.codebuddy/agents/`、`.codex/agents/`、`.opencode/agents/`、`.claude/agents/`、工具适配指南、AI协作 README、AI导航、AI记忆 |
 | #109 | 核心玩法改为固定斜俯视 2.5D 射击刷宝生存；默认武器按住 `fire` action（左键 / 右扳机）持续射击，技能首批内容服务射击强化，默认移除旋风斩 / 点燃斩 / 燃烧法术包装 | GDD、词表、DataLoader schema、`WeaponSystem`、`SkillSystem`、数据手册、locale、Gameplay Runtime、SkillSystem 文档、AI导航、AI记忆 |
+| #110 | AI 协作需求不明先问；需求、术语、验收标准、授权边界或上下文无法可靠确认时先澄清，不自行脑补高风险假设 | `AGENTS.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、四平台规则入口、快速开工、AI协作 README、工具适配指南、AI导航、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 
