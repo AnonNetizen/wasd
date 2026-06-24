@@ -24,6 +24,7 @@
 | `docs/AI知识库索引.md` | AI 知识库总索引、权威层级、任务入口和 ADR 追踪矩阵 |
 | `docs/术语表.md` | 中英文术语、别名和检索词 |
 | `docs/IP设定.md` | 《破巢者》IP、世界观包装、英雄 / 敌方势力 / 遗物命名和宣发基调 |
+| `docs/IP美术风格.md` | 《破巢者》IP 美术风格、敌巢色板、阵营色、地图兴趣点功能色和资产 brief 色彩规则 |
 | `docs/词表与契约.md` | 所有约定字符串白名单（stat/effect/event/key），**禁止编造** |
 | `docs/游戏设计文档.md` | 完整设计 |
 | `docs/代码文档规范.md` | 代码变更与对应文档的同步规范 |
@@ -80,6 +81,7 @@
 | `docs/AI知识库索引.md` / `docs/_kb_index.json` | 人工 / 机器可读 AI 知识库索引 |
 | `docs/术语表.md` | 术语、别名、英文检索词 |
 | `docs/IP设定.md` | 《破巢者》IP 设定与内容包装权威 |
+| `docs/IP美术风格.md` | 《破巢者》IP 美术风格、敌巢色板、阵营色与地图兴趣点功能色权威 |
 | `docs/词表与契约.md` | 约定字符串白名单 |
 | `docs/决策记录.md` | ADR |
 | `docs/修改建议.md` | 待决策项（C~E；A/B 与 J~R 已归档） |
@@ -135,13 +137,13 @@
 | **改经验/升级系统** | 查 GDD §7.1 与 `docs/代码/gameplay_runtime.md`；F4 阶段已落地池化经验球、经验累计、默认 3 选 1、`luck` 概率 4 选 1、`stat_modifier` 奖励应用；经验阈值 / 候选概率在 `client/data/growth.csv`，候选池在 `client/data/growth_pools.json`；候选抽取走 `RNG.ui_choice`，升级面板通过 `UIManager` 挂载，流程走 `GameState.LEVEL_UP`；升级界面按 `pause` 会叠出暂停菜单并在关闭后回到升级选择 |
 | **改局外成长 / 元进度** | 查 GDD §7.2；配置改 `client/data/meta_progression.json`，字段说明同步 `client/data/README.md`，文案同步 `client/locale/strings.csv`；存档走 `SaveManager` 的 `meta` kind，标题菜单显示账号等级 / 余额摘要并在有可购买升级时提示入口，购买入口集中在标题菜单的 `MetaProgressionPanel`，面板用状态行区分可购买 / 余额不足 / 锁定 / 满级，死亡结算页只展示收益和账号状态；当前首批升级已包含伤害与射速等数据驱动永久 modifier；新增 currency / upgrade / unlock id 先登记词表 §13 |
 | **改致谢 / 第三方来源** | 同步根目录 `CREDITS.md` 与 `client/data/credits.json`；新增分组标题、角色或用途标签时补 `client/locale/strings.csv` 的 `ui_credits_*` key；发行前复核许可证和 notice |
-| **加 / 改美术资产 / 占位表现** | 先看 GDD §8.2-A、`docs/代码/gameplay_runtime.md` 的占位表现规则和当前 F9 工作包。贴地范围（机关、AOE、地面符号、房间边界）优先用菱形或与菱形地图格对齐；机关和规则型地面 footprint 尺寸应是格子的整数倍。角色、敌人、拾取物、子弹、障碍物和特效不强制菱形，必须在 asset brief 里说明 `asset_type`、`footprint_shape`、`anchor_point`、`shadow`、`sort_layer`、`collision_or_trigger_shape`，并通过落地点 / 阴影 / 遮挡统一斜俯视读法 |
+| **加 / 改美术资产 / 占位表现** | 先看 `docs/IP美术风格.md`、GDD §8.2-A、`docs/代码/gameplay_runtime.md` 的占位表现规则和当前 F9 工作包。敌巢 / 虫族使用骨白、蜡黄、干肉粉、深红、黑紫和少量毒蓝；青、红、白归属虫族 / 敌巢，玩家和玩家子弹默认避开青、红、白，敌方远程攻击可用红色，宝箱与地图兴趣点按功能色区分。贴地范围（机关、AOE、地面符号、房间边界）优先用菱形或与菱形地图格对齐；角色、敌人、拾取物、子弹、障碍物和特效不强制菱形，asset brief 必须说明色彩归属、`footprint_shape`、`anchor_point`、`shadow`、`sort_layer`、`collision_or_trigger_shape` |
 | **加破限角色/道具** | 先判断是否能用 `capabilities` + `modifiers` + `behaviors` 表达；表达不了则新增可复用 primitive / strategy 并登记词表 §12，禁止按 id 写特殊分支 |
 | **写/改代码模块** | 先查 `docs/代码文档规范.md` + 对应 `docs/代码/<module_id>.md` + 目标源码；触碰 `.gd` 时按 Godot 4.7 官方 GDScript style guide 整理本次改动，并跑 `python tools/lint_gdscript_rules.py`；GDD / ADR 只在设计冲突、语义不明或新增决策时补读，不能默认整篇加载 |
 | **查知识库 / 找文档关系 / 任务路由** | 先看 `docs/AI知识库索引.md` 的任务路由表，需要机器可读元数据时看 `docs/_kb_index.json`，搜索同义词先看 `docs/术语表.md` |
 | **续接当前状态 / 下一步** | 先看 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`；上下文压缩后先以用户最后明确指令对齐，`Next Steps` 只作候选参考；需要长期事实 / ADR 摘要 / 历史细节时再看 `docs/AI记忆/项目记忆.md` 和当日会话日志 |
 | **查看 / 维护未来任务** | 看 `docs/TODO.md`；F9 第一轮 Demo 收口后的可选新功能菜单看 `docs/功能建议池.md`；AI 只辅助开发的玩法 / 内容管线 / 工具机会看 `docs/AI辅助开发机会清单.md`；小服务器 / 异步在线玩法参考看 `docs/小服务器玩法备忘.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
-| **改 IP / 世界观 / 英雄包装 / 宣传语** | 先看 `docs/IP设定.md`；若改变玩法承诺或系统边界，再同步 GDD / ADR / 术语表 / AI导航 / AI记忆 |
+| **改 IP / 世界观 / 英雄包装 / 宣传语** | 先看 `docs/IP设定.md`；涉及视觉风格、色板、阵营色、兴趣点颜色或资产 brief 时追加 `docs/IP美术风格.md`；若改变玩法承诺或系统边界，再同步 GDD / ADR / 术语表 / AI导航 / AI记忆 |
 | **选择下一项新功能** | 先看 `docs/功能建议池.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md` 与 `docs/AI记忆/current_state.json`；用户明确点名功能后，再建立 / 更新工作包、GDD / ADR / 模块文档并实现，不从建议文档自行挑选推进 |
 | **评估小服务器在线玩法** | 先看 `docs/小服务器玩法备忘.md`、GDD §6.7 / §9.21 / §9.22、`docs/代码/platform_services.md` 与 `docs/代码/replay.md`；短期优先异步玩法和离线可降级，实时多人 / PvP / 强竞技排行榜默认暂缓 |
 | **启动 / 推进正式项目** | 优先读当前阶段工作包；当前 F9 入口为 `docs/AI协作/工作包/F9-ContentDemoPolish.md`，用于内容扩展与 Demo 打磨准备。F8 已落地临时 `l1-smoke`、Replay 文件 roundtrip 的 `replay-smoke`、摘要 diff / 运行时摘要重跑 / 输入播放首片 / runtime event 播放 / 扩展稳定帧样本 diff 的 `replay-runner`、gameplay 输入录制首片的 `replay-input-smoke`、跨 RNG 子流相关性审计 `rng-audit`、`client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay`、`client/tests/replays/golden_level_up_choice.replay` 和轻量 `perf-probe`，现作为 F9 内容扩展的回归护栏；后续 `golden_relic_synergy` 等遗物协同 replay 等对应运行时存在后再补。F7 设置持久化、只显示已接线生效项的正式设置面板、核心 UI 运行时语言刷新、键盘主输入重绑定、输入绑定反馈 / 恢复默认和 UIManager 栈顶 `ui_back` / 默认焦点首片已落地并由 `settings-smoke` / `runtime-smoke` 覆盖；F9 已新增 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry` 与 `debug-tools-smoke` / `debug-tools-release-smoke`。维护入口：DebugTools 看 `docs/代码/debug_tools.md`，F7 看 `docs/AI协作/工作包/F7-SettingsLocalizationUI.md`，F6 局外成长看 `docs/AI协作/工作包/F6-MetaProgression.md`，F4 历史入口为 `docs/AI协作/工作包/F4-MinPlayableLoop.md`，F3 数据闭环入口为 `docs/AI协作/工作包/F3-DataLoader.md` |

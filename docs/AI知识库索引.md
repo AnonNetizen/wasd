@@ -49,6 +49,7 @@
 | 2 | `docs/决策记录.md` | 已采纳决策与不可逆约束 |
 | 3 | `docs/游戏设计文档.md` | 玩法、系统、长期设计 |
 | 3-A | `docs/IP设定.md` | 《破巢者》IP、世界观包装、命名体系和宣发基调 |
+| 3-B | `docs/IP美术风格.md` | 《破巢者》IP 美术风格、敌巢色板、阵营色、地图兴趣点功能色和资产 brief 色彩规则 |
 | 4 | `docs/词表与契约.md` | 约定字符串、id 白名单、InputMap action |
 | 5 | `docs/测试策略.md` | 测试层级、覆盖率、回放、手动回归 |
 | 6 | `docs/代码文档规范.md` + `docs/代码/` | 代码模块文档要求和模块契约 |
@@ -63,10 +64,10 @@
 | 新会话接入 | `AGENTS.md`、`docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、`docs/AI导航.md` 相关段、当前平台规则入口 | 通常不改文件 | 无；若发现文档漂移跑 `python tools/docs_health_check.py` |
 | 续接当前任务 | `docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、当日会话日志；需要长期背景时再读 `项目记忆.md` 相关节 | 通常不改文件 | 无；需要确认状态时跑 `python tools/docs_health_check.py` |
 | 查看 / 维护未来任务 | `docs/TODO.md`、`docs/功能建议池.md`、`docs/AI辅助开发机会清单.md`、`docs/小服务器玩法备忘.md`、`docs/AI记忆/current_state.json`、`docs/修改建议.md` | `docs/TODO.md`、必要时 current_state / 会话日志 / 修改建议 / 功能建议池 / AI辅助开发机会清单 / 小服务器玩法备忘 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
-| 改 IP / 世界观 / 英雄包装 / 宣传语 | `docs/IP设定.md`、`docs/游戏设计文档.md` §1.2、`docs/术语表.md` | IP 设定、GDD 摘要、术语表、AI导航、必要时 ADR / AI记忆 / locale 文案 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
+| 改 IP / 世界观 / 英雄包装 / 宣传语 | `docs/IP设定.md`、涉及视觉时追加 `docs/IP美术风格.md`、`docs/游戏设计文档.md` §1.2、`docs/术语表.md` | IP 设定、IP 美术风格、GDD 摘要、术语表、AI导航、必要时 ADR / AI记忆 / locale 文案 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
 | 选择下一项新功能 / 功能菜单 | `docs/功能建议池.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md`、`docs/AI记忆/current_state.json`；若用户点名具体系统，再读对应工作包 / 模块文档 / GDD 章节 | 用户点名后再改 TODO / current_state / 工作包 / GDD / ADR / 模块文档；未点名前不实现功能 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool`；进入实现后按目标工作包验收命令运行 |
 | 评估小服务器在线玩法 | `docs/小服务器玩法备忘.md`、GDD §6.7 / §9.21 / §9.22、`docs/代码/platform_services.md`、`docs/代码/replay.md` | 用户点名采纳后再改 GDD / ADR / 功能建议池 / 工作包 / 相关模块文档；未点名前只做评估 | `python tools/docs_health_check.py`；若新增在线服务 schema 或 JSON 索引，同步跑 `python -m json.tool` |
-| 加 / 改美术资产 / 占位表现 | GDD §8.2-A、`docs/代码/gameplay_runtime.md`、`docs/AI协作/工作包/F9-ContentDemoPolish.md`、`docs/术语表.md` 的“斜俯视资产落地规则” | `client/assets/`、目标 gameplay / UI 场景、相关模块文档；新增正式资源 brief 时写清 asset_type、footprint、anchor、shadow、sort layer、collision / trigger shape | 纯文档 / brief 跑 `python tools/docs_health_check.py`；触碰资源引用或运行时表现时按目标模块跑 smoke / lint；改 JSON 同步跑 `python -m json.tool` |
+| 加 / 改美术资产 / 占位表现 | `docs/IP美术风格.md`、GDD §8.2-A、`docs/代码/gameplay_runtime.md`、`docs/AI协作/工作包/F9-ContentDemoPolish.md`、`docs/术语表.md` 的“斜俯视资产落地规则” | `client/assets/`、目标 gameplay / UI 场景、相关模块文档；新增正式资源 brief 时写清色彩归属、asset_type、footprint、anchor、shadow、sort layer、collision / trigger shape | 纯文档 / brief 跑 `python tools/docs_health_check.py`；触碰资源引用或运行时表现时按目标模块跑 smoke / lint；改 JSON 同步跑 `python -m json.tool` |
 | 启动 / 推进正式项目 | 当前阶段工作包；F9 默认 `docs/AI协作/工作包/F9-ContentDemoPolish.md`、`docs/AI记忆/current_state.json`、目标模块文档；F8 回放 / 测试 / 平衡维护看 `docs/AI协作/工作包/F8-ReplayTestingBalance.md`；F7 设置 / 本地化 / UI 栈维护看 `docs/AI协作/工作包/F7-SettingsLocalizationUI.md`；F6 局外成长看 `docs/AI协作/工作包/F6-MetaProgression.md`；F4 最小可玩闭环看 `docs/AI协作/工作包/F4-MinPlayableLoop.md`；历史 F3 数据闭环看 `docs/AI协作/工作包/F3-DataLoader.md` | `client/`、模块文档、必要时 TODO / GDD / ADR / 词表 / 测试策略 | 按工作包验收命令运行；DataLoader schema 变化跑 `python tools/test_data_loader_schema.py`；项目规则变化跑 `python tools/lint_project_rules.py`；语义风险检查跑 `python tools/lint_semantic_rules.py`；文档变化跑 `python tools/docs_health_check.py`；JSON 变化跑 `python -m json.tool` |
 | 维护正式客户端启动骨架 | `client/README.md`、`docs/代码/formal_client_boot.md`、`docs/代码/gameplay_runtime.md`、`docs/正式项目工作规划.md` F1/F4 | `client/project.godot`、`client/scenes/boot/main.tscn`、`client/scripts/boot/formal_client_boot.gd`、AI导航、代码文档索引 | `python tools/godot_bridge.py headless-boot`、`python tools/godot_bridge.py export-tree`、`python tools/docs_health_check.py` |
 | 维护 F2+ autoload 骨架 | GDD §9.3~§9.22、`docs/代码/mod_loader.md`、`docs/代码/data_loader.md`、`docs/代码/rng.md`、`docs/代码/game_state.md`、`docs/代码/game_clock.md`、`docs/代码/platform_services.md`、`docs/代码/settings.md`、`docs/代码/analytics.md`、`docs/代码/replay.md`、`docs/代码/pool_manager.md`、`docs/代码/save_manager.md`、`docs/代码/audio_manager.md`、`docs/代码/localization.md`、`docs/代码/ui_manager.md` | `client/scripts/autoload/`、`client/project.godot`、AI导航、代码文档索引、current_state | `python tools/godot_bridge.py headless-boot`、`python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/docs_health_check.py` |
@@ -192,6 +193,7 @@
 | #108 | subagent 默认主动调度授权；复杂、专业或可并行任务可直接启用对应项目 subagent，不支持原生调度时读取同名 agent `.md` 作为 prompt 模板 | `AGENTS.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、四平台规则入口、`.codebuddy/agents/`、`.codex/agents/`、`.opencode/agents/`、`.claude/agents/`、工具适配指南、AI协作 README、AI导航、AI记忆 |
 | #109 | 核心玩法改为固定斜俯视 2.5D 射击刷宝生存；默认武器按住 `fire` action（左键 / 右扳机）持续射击，技能首批内容服务射击强化，默认移除旋风斩 / 点燃斩 / 燃烧法术包装 | GDD、词表、DataLoader schema、`WeaponSystem`、`SkillSystem`、数据手册、locale、Gameplay Runtime、SkillSystem 文档、AI导航、AI记忆 |
 | #110 | AI 协作需求不明先问；需求、术语、验收标准、授权边界或上下文无法可靠确认时先澄清，不自行脑补高风险假设 | `AGENTS.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、四平台规则入口、快速开工、AI协作 README、工具适配指南、AI导航、AI记忆 |
+| #111 | 《破巢者》IP 美术风格采用钙化活体建筑 + 阵营色隔离；敌巢 / 虫族使用骨白、蜡黄、干肉粉、深红、黑紫和少量毒蓝，玩家和玩家子弹默认避开青 / 红 / 白，敌方远程攻击可用红色，宝箱与地图兴趣点按功能色区分 | `docs/IP美术风格.md`、IP设定、GDD §8、术语表、AI导航、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 
