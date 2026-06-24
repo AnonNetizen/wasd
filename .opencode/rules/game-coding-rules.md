@@ -13,6 +13,7 @@
 ## OpenCode 平台约束
 
 - `.opencode/agents/*.md` 是 OpenCode subagent 入口；角色语义必须与 `.codebuddy/agents/`、`.codex/agents/` 同名文件一致。
+- 项目维护者已授权支持 subagent 的平台在复杂、专业或可并行任务中主动启用对应项目 subagent；只读小任务或直接实现更高效时不必强行拆分；平台不支持或外层工具策略限制时，读取同名 agent `.md` 作为 prompt 模板执行角色流程。
 - `.opencode/commands/*.md` 是 OpenCode 命令步骤手册；命令注册在 `.opencode/opencode.json` 的 `command` 字段。
 - `.codebuddy/skills/*/SKILL.md`、`.codex/skills/*/SKILL.md`、`.opencode/skills/*/SKILL.md` 与 `.claude/skills/*/SKILL.md` 是四平台同步的项目级 skills；用于按需加载可复用流程，不得放宽项目核心规则；新增或调整时同步 `docs/AI协作/AI技能资源评估.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md` 与工具适配指南。
 - Claude Code 入口是 `CLAUDE.md`，并配套项目自有的活跃 `.claude/`（agents / commands / skills / rules / settings.json，与三平台同源）；此处的活跃 `.claude/` 是项目自建配置，不是 ADR #56~#59 / #72 拒绝的外部 `.claude/` 整包（CCGS / ECC hooks / settings / vendor）。

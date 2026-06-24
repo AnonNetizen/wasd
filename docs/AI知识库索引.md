@@ -189,6 +189,7 @@
 | #105 | 地图采用量化菱形格度量；`map_layouts.json.grid.cell_width/cell_height` 定义格尺寸，bounds 是格尺寸奇数倍，出生点 / 人工机关 / PCG 机关中心吸附到格点，机关尺寸改用 `hazards.csv.radius_tiles` 正整数；机关锚点奇偶口径由 #106 修正 | GDD §5 / §8.2-A、`client/data/README.md`、MapManager / HazardSystem / Gameplay runtime 文档、`client/scripts/gameplay/map_manager.gd`、`client/scripts/gameplay/hazard.gd`、`client/scripts/gameplay/world_background.gd`、AI记忆 |
 | #106 | 机关锚点按 `radius_tiles` 奇偶吸附；奇数尺寸中心落在菱形格心，偶数尺寸中心落在网格顶点，人工摆点和 PCG 共用同一规则 | GDD §5、`client/data/README.md`、MapManager / HazardSystem 文档、`client/scripts/gameplay/map_manager.gd`、`client/scripts/autoload/data_loader.gd`、`tools/validate_data.py`、`client/tools/runtime_smoke.gd`、AI记忆 |
 | #107 | 玩家出生安全区可见标记改为贴格菱形；`safe_radius` 仍是 PCG 避让距离下限，但 `MapManager` 视觉上按 grid 斜率和格线吸附绘制出生安全菱形，不再画正圆 | GDD §5、`client/data/README.md`、MapManager 文档、`client/scripts/gameplay/map_manager.gd`、`client/tools/runtime_smoke.gd`、AI记忆 |
+| #108 | subagent 默认主动调度授权；复杂、专业或可并行任务可直接启用对应项目 subagent，不支持原生调度时读取同名 agent `.md` 作为 prompt 模板 | `AGENTS.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、四平台规则入口、`.codebuddy/agents/`、`.codex/agents/`、`.opencode/agents/`、`.claude/agents/`、工具适配指南、AI协作 README、AI导航、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

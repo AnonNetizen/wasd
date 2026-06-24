@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-23",
+  "updated_at": "2026-06-24",
   "current_phase": "formal_project_f9_content_demo_polish",
-  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；后续用户点名推进的《破巢者》IP、数据驱动 EnemyAI、可复用主动技能、英文 UI 尺寸基准、详细数值面板、有限地图 + 可人工调参 PCG / FEA-12 机关测试链路、项目版轻量 GAS 首片、状态效果 ability tag 生命周期首片、Player / Enemy 实体状态宿主接入、burn DoT 首个真实状态、点燃斩 burn 数据技能、敌人有限地图移动边界修复、600.0 浮点血量 + health_regen 基线、玩家 2.5D 视觉层首片，以及 ADR #100~#107 固定斜俯视 2.5D 当前视角口径、哈迪斯式等比屏幕尺度显示、菱形机关危险地块、固定斜俯视资产落地规则、量化菱形地图格、机关奇偶锚点和出生安全区贴格菱形均已落地。当前项目类型应表述为固定斜俯视 2.5D 刷宝动作生存：核心参考《星际战甲》与《暗黑》的装备 / 词条 / 长期养成和刷战利品循环，视角表现参考《哈迪斯》的斜俯视舞台可读性；移动、碰撞、刷怪、地图边界和回放仍保持 2D 平面，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放，不旋转、不非等比压缩，鼠标瞄准按 canvas transform 反算世界方向。地图使用 `map_layouts.json.grid.cell_width/cell_height` 定义量化菱形格，bounds 是菱形外接框，必须是格尺寸奇数倍且满足 height = width * cell_height / cell_width；可见边界和逻辑边界共享贴格菱形，玩家 / 敌人 / 刷怪 / 机关摆放都 clamp 到该菱形内；出生点吸附到格心；出生安全区可见提示按 grid 斜率吸附为贴格菱形，`safe_radius` 仍只作为 PCG 避让距离下限；通用 `Hazard` 使用菱形占位和归一化菱形触发判定，`hazards.csv.radius_tiles` 表示占用地图菱形格的整数倍，人工机关 / PCG 机关按 `radius_tiles` 奇偶吸附到合法锚点（奇数格心、偶数网格顶点），背景网格、机关绘制和触发判定共享同一份 grid cell size。固定斜俯视资产处理规则已确立：只有贴地范围 / 机关 / AOE / 地面符号优先用菱形并对齐地图格；角色、敌人、拾取物、子弹、障碍物和特效不强制菱形，必须通过落地点、footprint、阴影 / 底座、遮挡 / Y-sort 和真实判定形状统一读法。新增 docs/AI辅助开发机会清单.md 只是候选菜单，不是已采纳路线图，也不授权 AI 自行实现。当前没有阻塞，下一步应以用户最后明确指令为准。",
-  "latest_adr": 107,
+  "current_status": "F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口；后续用户点名推进的《破巢者》IP、数据驱动 EnemyAI、可复用主动技能、英文 UI 尺寸基准、详细数值面板、有限地图 + 可人工调参 PCG / FEA-12 机关测试链路、项目版轻量 GAS 首片、状态效果 ability tag 生命周期首片、Player / Enemy 实体状态宿主接入、burn DoT 首个真实状态、点燃斩 burn 数据技能、敌人有限地图移动边界修复、600.0 浮点血量 + health_regen 基线、玩家 2.5D 视觉层首片、ADR #100~#107 固定斜俯视 2.5D 当前视角口径 / 哈迪斯式等比屏幕尺度显示 / 菱形机关危险地块 / 固定斜俯视资产落地规则 / 量化菱形地图格 / 机关奇偶锚点 / 出生安全区贴格菱形，以及 ADR #108 subagent 默认主动调度授权均已落地。当前项目类型应表述为固定斜俯视 2.5D 刷宝动作生存：核心参考《星际战甲》与《暗黑》的装备 / 词条 / 长期养成和刷战利品循环，视角表现参考《哈迪斯》的斜俯视舞台可读性；移动、碰撞、刷怪、地图边界和回放仍保持 2D 平面，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放，不旋转、不非等比压缩，鼠标瞄准按 canvas transform 反算世界方向。地图使用 `map_layouts.json.grid.cell_width/cell_height` 定义量化菱形格，bounds 是菱形外接框，必须是格尺寸奇数倍且满足 height = width * cell_height / cell_width；可见边界和逻辑边界共享贴格菱形，玩家 / 敌人 / 刷怪 / 机关摆放都 clamp 到该菱形内；出生点吸附到格心；出生安全区可见提示按 grid 斜率吸附为贴格菱形，`safe_radius` 仍只作为 PCG 避让距离下限；通用 `Hazard` 使用菱形占位和归一化菱形触发判定，`hazards.csv.radius_tiles` 表示占用地图菱形格的整数倍，人工机关 / PCG 机关按 `radius_tiles` 奇偶吸附到合法锚点（奇数格心、偶数网格顶点），背景网格、机关绘制和触发判定共享同一份 grid cell size。固定斜俯视资产处理规则已确立：只有贴地范围 / 机关 / AOE / 地面符号优先用菱形并对齐地图格；角色、敌人、拾取物、子弹、障碍物和特效不强制菱形，必须通过落地点、footprint、阴影 / 底座、遮挡 / Y-sort 和真实判定形状统一读法。新增 docs/AI辅助开发机会清单.md 只是候选菜单，不是已采纳路线图，也不授权 AI 自行实现。支持 subagent 的平台在复杂 / 专业 / 可并行任务中可主动启用对应项目 subagent；不支持或受外层工具策略限制时读取同名 agent `.md` 作为 prompt 模板。当前没有阻塞，下一步应以用户最后明确指令为准。",
+  "latest_adr": 108,
   "open_decisions": [
     "A",
     "C",
@@ -11,6 +11,7 @@
     "E"
   ],
   "last_completed": [
+    "ADR #108：项目维护者授权 subagent 默认主动调度；支持 subagent 的平台在复杂、专业或可并行任务中可直接启用对应项目 subagent，只读小任务或直接实现更高效时不强行拆分，不支持原生调度或受外层工具策略限制时读取同名 agent .md 作为 prompt 模板。",
     "ADR #107：玩家出生安全区可见标记改为贴住菱形格线的菱形；MapManager 不再 draw_arc 画正圆，而是暴露 safe_zone_points() / safe_zone_half_extents() 并在 runtime-smoke 断言出生安全区为 grid-aligned diamond；safe_radius 的 PCG 避让距离语义不变。",
     "修正地图边界为真正的贴格菱形逻辑边界：map_layouts bounds 从 3840x2560 扩为符合 160x80 grid 斜率且落在格线上的 4000x2000，MapManager 可见边界、clamp_position、spawn_position、PCG 机关采样和机关完整性检查都使用同一套菱形公式；GameplayRunLoop 向 Player / Enemy 注入 set_movement_diamond_boundary()，runtime-smoke 覆盖 MapManager / Player / Enemy 菱形 clamp。",
     "ADR #106：机关锚点按 hazards.csv.radius_tiles 奇偶吸附；奇数尺寸中心落在菱形格心，偶数尺寸中心落在网格顶点，人工摆点、PCG 和旧快照恢复共用同一规则，避免偶数尺寸机关边缘穿过格心导致看起来不贴格。",
@@ -61,6 +62,11 @@
     "任何上下文恢复后，先对齐用户最后明确指令；本文件只提供候选方向。"
   ],
   "last_verified": [
+    {
+      "date": "2026-06-24",
+      "command": "json current_state/_kb_index, docs_health_check, diff --check excluding draft",
+      "result": "passed for ADR #108 subagent default proactive dispatch authorization docs; this was an AI collaboration policy/documentation-only update covering AGENTS, platform entries, four platform rules, AI collaboration README, tool adaptation guide, AI navigation, ADR, knowledge index and AI memory; no Godot runtime code changed"
+    },
     {
       "date": "2026-06-23",
       "command": "validate_data, lint_gdscript_rules, lint_project_rules, lint_semantic_rules, docs_health_check, json current_state/_kb_index, diff --check excluding draft, sync_contracts --check, headless-boot, runtime-smoke, f9-demo-smoke, save-smoke",
