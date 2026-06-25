@@ -65,7 +65,7 @@ repos:
         always_run: true
 
       - id: staged-whitespace-check
-        name: Check staged whitespace
+        name: Fix/check staged whitespace
         entry: python tools/check_staged_whitespace.py
         language: system
         pass_filenames: false

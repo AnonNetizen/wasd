@@ -204,6 +204,7 @@
 | #116 | 历史决策：旧 `purchased_upgrades` 曾计划按历史花费补偿为 `gear_mod_dust`；已由 #118 取消 | ADR #118、F11 工作包、GDD §7.2 / §9.16、AI导航、AI记忆 |
 | #117 | 旧局外成长运行时退役；删除旧 autoload / UI / 死亡结算 / `meta-smoke` | `docs/代码/gear_mod_system.md`、`docs/代码/save_manager.md`、F11 工作包、GDD §7.2 / §9.16、测试策略、AI导航、AI记忆 |
 | #118 | 旧局外成长测试档不再迁移；删除旧 `meta_progression.json`、旧 meta 契约常量、旧文案、旧 `purchased_upgrades` 补偿逻辑和相关 schema / smoke 覆盖 | `docs/代码/gear_mod_system.md`、`docs/代码/save_manager.md`、F11 工作包、GDD §7.2 / §9.16、测试策略、AI导航、AI记忆 |
+| #119 | 本地 staged whitespace hook 自动修复 EOF 多空行后再检查；其他 whitespace 错误仍失败 | `.pre-commit-config.yaml`、`tools/check_staged_whitespace.py`、实时验证回路、CICD规划、测试策略、文档健康检查、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 
