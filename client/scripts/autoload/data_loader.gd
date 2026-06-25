@@ -27,6 +27,9 @@ const GROWTH_POOLS_PATH: String = "res://data/growth_pools.json"
 const GAME_MODES_PATH: String = "res://data/game_modes.json"
 const MAP_LAYOUTS_PATH: String = "res://data/map_layouts.json"
 const WARZONE_DIRECTORS_PATH: String = "res://data/warzone_directors.json"
+const GEAR_MODS_PATH: String = "res://data/gear_mods.json"
+const GEAR_MOD_DROP_TABLES_PATH: String = "res://data/gear_mod_drop_tables.csv"
+const GEAR_MOD_FUSION_COSTS_PATH: String = "res://data/gear_mod_fusion_costs.csv"
 
 const INT_STATS: Array[String] = ["bullet_count", "pierce_count"]
 const NON_NEGATIVE_STATS: Array[String] = [
@@ -128,6 +131,11 @@ func validate_project_data() -> bool:
 	var enemy_ai_profile_ids: Dictionary = _collect_enemy_ai_profile_ids()
 	is_valid = _validate_enemies_csv(locale_keys, enemy_ai_profile_ids) and is_valid
 	var enemy_ids: Dictionary = _collect_enemy_ids()
+	is_valid = _validate_gear_mods_json(locale_keys) and is_valid
+	var gear_mod_ids: Dictionary = _collect_gear_mod_ids()
+	var gear_mod_rarity_max_ranks: Dictionary = _collect_gear_mod_rarity_max_ranks()
+	is_valid = _validate_gear_mod_drop_tables_csv(enemy_ids, gear_mod_ids) and is_valid
+	is_valid = _validate_gear_mod_fusion_costs_csv(gear_mod_rarity_max_ranks) and is_valid
 	is_valid = _validate_hazards_csv(locale_keys) and is_valid
 	var hazard_ids: Dictionary = _collect_hazard_ids()
 	is_valid = _validate_relics_json(locale_keys) and is_valid
@@ -944,6 +952,152 @@ func _validate_skill_effects(field: String, data: Variant) -> bool:
 			var modifier_params: Dictionary = params as Dictionary
 			is_valid = _require_number(SKILLS_PATH, "%s.params.duration" % effect_field, modifier_params.get("duration"), 0.0, null, true) and is_valid
 			is_valid = _validate_modifiers(SKILLS_PATH, "%s.params.modifiers" % effect_field, modifier_params.get("modifiers"), false) and is_valid
+	return is_valid
+
+
+func _validate_gear_mods_json(locale_keys: Dictionary) -> bool:
+	var data: Variant = load_json(GEAR_MODS_PATH)
+	if not data is Dictionary:
+		return _schema_fail(GEAR_MODS_PATH, "root", "Dictionary")
+
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(GEAR_MODS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var mods: Array = _require_array(GEAR_MODS_PATH, "mods", payload.get("mods"))
+	if mods.is_empty():
+		is_valid = _schema_fail(GEAR_MODS_PATH, "mods", "non-empty Array") and is_valid
+	var seen: Dictionary = {}
+	_last_schema_counts["gear_mods"] = mods.size()
+	for index: int in range(mods.size()):
+		var field: String = "mods[%d]" % index
+		var mod: Variant = mods[index]
+		if not mod is Dictionary:
+			is_valid = _schema_fail(GEAR_MODS_PATH, field, "Dictionary") and is_valid
+			continue
+		var mod_dict: Dictionary = mod as Dictionary
+		var mod_id: String = _require_registered(GEAR_MODS_PATH, "%s.id" % field, mod_dict.get("id"), "gear_mod_ids")
+		if not mod_id.is_empty():
+			if seen.has(mod_id):
+				is_valid = _schema_fail(GEAR_MODS_PATH, "%s.id" % field, "unique gear_mod_id") and is_valid
+			seen[mod_id] = true
+		is_valid = _require_locale_key(GEAR_MODS_PATH, "%s.name_key" % field, mod_dict.get("name_key"), locale_keys) and is_valid
+		is_valid = _require_locale_key(GEAR_MODS_PATH, "%s.desc_key" % field, mod_dict.get("desc_key"), locale_keys) and is_valid
+		is_valid = _require_registered(GEAR_MODS_PATH, "%s.slot" % field, mod_dict.get("slot"), "gear_mod_slots") != "" and is_valid
+		is_valid = _require_registered(GEAR_MODS_PATH, "%s.rarity" % field, mod_dict.get("rarity"), "gear_mod_rarities") != "" and is_valid
+		is_valid = _require_int(GEAR_MODS_PATH, "%s.max_rank" % field, mod_dict.get("max_rank"), 0) and is_valid
+		is_valid = _require_int(GEAR_MODS_PATH, "%s.base_drain" % field, mod_dict.get("base_drain"), 0) and is_valid
+		is_valid = _require_int(GEAR_MODS_PATH, "%s.drain_per_rank" % field, mod_dict.get("drain_per_rank"), 0) and is_valid
+		is_valid = _validate_gear_mod_rank_modifiers("%s.rank_modifiers" % field, mod_dict.get("rank_modifiers")) and is_valid
+		is_valid = _require_registered(GEAR_MODS_PATH, "%s.stack_rule" % field, mod_dict.get("stack_rule"), "gear_mod_stack_rules") != "" and is_valid
+		is_valid = _validate_gear_mod_dismantle("%s.dismantle" % field, mod_dict.get("dismantle")) and is_valid
+	return is_valid
+
+
+func _validate_gear_mod_rank_modifiers(field: String, data: Variant) -> bool:
+	var modifiers: Array = _require_array(GEAR_MODS_PATH, field, data)
+	var is_valid: bool = true
+	if modifiers.is_empty():
+		is_valid = _schema_fail(GEAR_MODS_PATH, field, "non-empty Array") and is_valid
+	for index: int in range(modifiers.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		var modifier: Variant = modifiers[index]
+		if not modifier is Dictionary:
+			is_valid = _schema_fail(GEAR_MODS_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var modifier_dict: Dictionary = modifier as Dictionary
+		is_valid = _require_registered(GEAR_MODS_PATH, "%s.stat" % item_field, modifier_dict.get("stat"), "stats") != "" and is_valid
+		var modifier_type: String = String(modifier_dict.get("type", ""))
+		if modifier_type != "add" and modifier_type != "mult":
+			is_valid = _schema_fail(GEAR_MODS_PATH, "%s.type" % item_field, "add or mult") and is_valid
+		is_valid = _require_number(GEAR_MODS_PATH, "%s.base_value" % item_field, modifier_dict.get("base_value")) and is_valid
+		is_valid = _require_number(GEAR_MODS_PATH, "%s.value_per_rank" % item_field, modifier_dict.get("value_per_rank")) and is_valid
+	return is_valid
+
+
+func _validate_gear_mod_dismantle(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(GEAR_MODS_PATH, field, "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_registered(GEAR_MODS_PATH, "%s.resource_id" % field, payload.get("resource_id"), "gear_mod_resources") != "" and is_valid
+	is_valid = _require_int(GEAR_MODS_PATH, "%s.amount" % field, payload.get("amount"), 0) and is_valid
+	return is_valid
+
+
+func _validate_gear_mod_drop_tables_csv(enemy_ids: Dictionary, gear_mod_ids: Dictionary) -> bool:
+	var rows: Array[Dictionary] = load_csv(GEAR_MOD_DROP_TABLES_PATH)
+	var is_valid: bool = true
+	if rows.is_empty():
+		is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, "rows", "non-empty CSV") and is_valid
+	var seen: Dictionary = {}
+	_last_schema_counts["gear_mod_drop_rows"] = rows.size()
+	for index: int in range(rows.size()):
+		var row: Dictionary = rows[index]
+		var field: String = "line %d" % (index + 2)
+		var source_enemy_id: String = String(row.get("source_enemy_id", ""))
+		if source_enemy_id.is_empty():
+			is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, "%s.source_enemy_id" % field, "non-empty string") and is_valid
+		elif not enemy_ids.has(source_enemy_id):
+			is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, "%s.source_enemy_id" % field, "enemy defined in enemies.csv") and is_valid
+		var mod_id: String = String(row.get("mod_id", ""))
+		if mod_id.is_empty():
+			is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, "%s.mod_id" % field, "non-empty string") and is_valid
+		elif not gear_mod_ids.has(mod_id):
+			is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, "%s.mod_id" % field, "gear mod defined in gear_mods.json") and is_valid
+		is_valid = _require_csv_number(GEAR_MOD_DROP_TABLES_PATH, "%s.drop_chance" % field, row.get("drop_chance"), 0.0, 1.0) and is_valid
+		var min_level_ok: bool = _require_csv_int(GEAR_MOD_DROP_TABLES_PATH, "%s.min_enemy_level" % field, row.get("min_enemy_level"), 1)
+		var max_level_ok: bool = _require_csv_int(GEAR_MOD_DROP_TABLES_PATH, "%s.max_enemy_level" % field, row.get("max_enemy_level"), 1)
+		is_valid = min_level_ok and is_valid
+		is_valid = max_level_ok and is_valid
+		if min_level_ok and max_level_ok:
+			var min_level: int = int(String(row.get("min_enemy_level", "0")))
+			var max_level: int = int(String(row.get("max_enemy_level", "0")))
+			if max_level < min_level:
+				is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, "%s.max_enemy_level" % field, "int >= min_enemy_level") and is_valid
+			if not source_enemy_id.is_empty() and not mod_id.is_empty():
+				var key: String = "%s:%s:%d:%d" % [source_enemy_id, mod_id, min_level, max_level]
+				if seen.has(key):
+					is_valid = _schema_fail(GEAR_MOD_DROP_TABLES_PATH, field, "unique source/mod/level range") and is_valid
+				seen[key] = true
+	return is_valid
+
+
+func _validate_gear_mod_fusion_costs_csv(rarity_max_ranks: Dictionary) -> bool:
+	var rows: Array[Dictionary] = load_csv(GEAR_MOD_FUSION_COSTS_PATH)
+	var is_valid: bool = true
+	if rows.is_empty():
+		is_valid = _schema_fail(GEAR_MOD_FUSION_COSTS_PATH, "rows", "non-empty CSV") and is_valid
+	var seen: Dictionary = {}
+	var costs_by_rarity: Dictionary = {}
+	_last_schema_counts["gear_mod_fusion_costs"] = rows.size()
+	for index: int in range(rows.size()):
+		var row: Dictionary = rows[index]
+		var field: String = "line %d" % (index + 2)
+		var rarity: String = _require_registered(GEAR_MOD_FUSION_COSTS_PATH, "%s.rarity" % field, row.get("rarity"), "gear_mod_rarities")
+		var rank_ok: bool = _require_csv_int(GEAR_MOD_FUSION_COSTS_PATH, "%s.rank" % field, row.get("rank"), 1)
+		is_valid = not rarity.is_empty() and is_valid
+		is_valid = rank_ok and is_valid
+		is_valid = _require_registered(GEAR_MOD_FUSION_COSTS_PATH, "%s.resource_id" % field, row.get("resource_id"), "gear_mod_resources") != "" and is_valid
+		is_valid = _require_csv_int(GEAR_MOD_FUSION_COSTS_PATH, "%s.cost" % field, row.get("cost"), 0) and is_valid
+		if not rarity.is_empty() and rank_ok:
+			var rank: int = int(String(row.get("rank", "0")))
+			var key: String = "%s:%d" % [rarity, rank]
+			if seen.has(key):
+				is_valid = _schema_fail(GEAR_MOD_FUSION_COSTS_PATH, field, "unique rarity/rank") and is_valid
+			seen[key] = true
+			if not costs_by_rarity.has(rarity):
+				costs_by_rarity[rarity] = {}
+			var rarity_costs: Dictionary = costs_by_rarity[rarity]
+			rarity_costs[rank] = true
+			costs_by_rarity[rarity] = rarity_costs
+
+	for rarity_key: Variant in rarity_max_ranks.keys():
+		var rarity_id: String = String(rarity_key)
+		var max_rank: int = int(rarity_max_ranks[rarity_key])
+		var covered: Dictionary = costs_by_rarity.get(rarity_id, {}) as Dictionary
+		for rank: int in range(1, max_rank + 1):
+			if not covered.has(rank):
+				is_valid = _schema_fail(GEAR_MOD_FUSION_COSTS_PATH, "%s.rank_%d" % [rarity_id, rank], "fusion cost row") and is_valid
 	return is_valid
 
 
@@ -2302,6 +2456,40 @@ func _collect_skill_ids() -> Dictionary:
 		if skill is Dictionary and (skill as Dictionary).get("id") is String:
 			ids[String((skill as Dictionary).get("id"))] = true
 	return ids
+
+
+func _collect_gear_mod_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(GEAR_MODS_PATH)
+	if not data is Dictionary:
+		return ids
+	var mods: Variant = (data as Dictionary).get("mods")
+	if not mods is Array:
+		return ids
+	for mod: Variant in mods:
+		if mod is Dictionary and (mod as Dictionary).get("id") is String:
+			ids[String((mod as Dictionary).get("id"))] = true
+	return ids
+
+
+func _collect_gear_mod_rarity_max_ranks() -> Dictionary:
+	var ranks: Dictionary = {}
+	var data: Variant = load_json(GEAR_MODS_PATH)
+	if not data is Dictionary:
+		return ranks
+	var mods: Variant = (data as Dictionary).get("mods")
+	if not mods is Array:
+		return ranks
+	for mod: Variant in mods:
+		if not mod is Dictionary:
+			continue
+		var mod_dict: Dictionary = mod as Dictionary
+		if not mod_dict.get("rarity") is String or not _is_int_like(mod_dict.get("max_rank")):
+			continue
+		var rarity: String = String(mod_dict.get("rarity"))
+		var max_rank: int = _variant_to_int(mod_dict.get("max_rank"))
+		ranks[rarity] = maxi(int(ranks.get(rarity, 0)), max_rank)
+	return ranks
 
 
 func _collect_growth_pool_ids() -> Dictionary:

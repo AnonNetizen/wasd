@@ -1,0 +1,6 @@
+rarity,rank,resource_id,cost
+common,1,gear_mod_dust,20
+common,2,gear_mod_dust,35
+common,3,gear_mod_dust,55
+common,4,gear_mod_dust,85
+common,5,gear_mod_dust,130

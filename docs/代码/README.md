@@ -27,7 +27,7 @@
 | Replay | `docs/代码/replay.md` | `client/scripts/autoload/replay.gd` | F2 第四片已建立 |
 | PoolManager | `docs/代码/pool_manager.md` | `client/scripts/autoload/pool_manager.gd` | F2 第五片已建立 |
 | SaveManager | `docs/代码/save_manager.md` | `client/scripts/autoload/save_manager.gd` | F2 第六片已建立 |
-| GearModSystem | `docs/代码/gear_mod_system.md` | `client/scripts/autoload/gear_mod_system.gd`、`client/data/gear_mods.json`、`client/data/gear_mod_drop_tables.csv`、`client/data/gear_mod_fusion_costs.csv` | F11 装备 Mod 装配系统规划中 |
+| GearModSystem | `docs/代码/gear_mod_system.md` | `client/scripts/autoload/gear_mod_system.gd`、`client/data/gear_mods.json`、`client/data/gear_mod_drop_tables.csv`、`client/data/gear_mod_fusion_costs.csv` | F11 数据 / 契约首片已建立，运行时待实现 |
 | MetaProgressionSystem | `docs/代码/meta_progression_system.md` | `client/scripts/autoload/meta_progression_system.gd` | Legacy：ADR #115 后仅作旧局外成长迁移参考 |
 | AudioManager | `docs/代码/audio_manager.md` | `client/scripts/autoload/audio_manager.gd` | F2 第七片已建立 |
 | Localization | `docs/代码/localization.md` | `client/scripts/autoload/localization.gd` | F2 第二片已建立 |

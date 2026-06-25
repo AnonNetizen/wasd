@@ -17,7 +17,7 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 实现 F11 装备 Mod / 局外装配首片：`GearModSystem`、英雄 / 武器两套 loadout、测试武器伤害 Mod、`enemy_chaser` 玩家击杀 1% 掉落、升级消耗资源、分解返还资源，并把旧 `MetaProgressionSystem` / `meta_progression.json` 迁到 legacy / 补偿路径。
+- [ ] 实现 F11 装备 Mod / 局外装配运行时首片：`GearModSystem`、英雄 / 武器两套 loadout、`enemy_chaser` 玩家击杀 1% 掉落解释、升级消耗 `gear_mod_dust`、分解返还资源、开局 modifier snapshot，并把旧 `MetaProgressionSystem` / `meta_progression.json` 迁到 legacy / 补偿路径。
 - [ ] 等用户从 `docs/功能建议池.md` 手动选择下一个新功能；AI 不从候选池自行推进。点名后再建立 / 更新对应工作包、GDD / ADR / 模块文档和验收命令。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
@@ -71,6 +71,7 @@
 - [x] 正式项目 F5 暂停 / 存档 / 续局：run roundtrip、备份回退、双坏档隔离、v1 -> v2 迁移、坏档提示、暂停 / 升级 UI 恢复点、升级界面暂停菜单叠层和最终手动存档 checklist 已完成。
 - [x] 正式项目 F6 局外成长首切片：`MetaProgressionSystem`、死亡结算、`meta` profile roundtrip、升级购买、解锁授予、下一局永久 modifiers 和 `meta-smoke` 已完成。
 - [x] F11 装备 Mod / 局外装配规划入口：ADR #115、GDD §7.2、`docs/AI协作/工作包/F11-GearModLoadout.md`、`docs/代码/gear_mod_system.md`、`client/data/README.md` planned schema 已建立；旧 F6 永久升级进入 legacy 迁移范围。
+- [x] F11 装备 Mod 数据 / 契约首片：登记 `gear_mod_*` id / slot / rarity / resource / stack rule，新增 `gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、测试武器伤害 Mod、`gear_mod_dust`、DataLoader / `validate_data` schema 和坏样例回归。
 - [x] 正式项目 F7 工作包准备：`docs/AI协作/工作包/F7-SettingsLocalizationUI.md` 已建立为设置 / 本地化 / UI 栈稳定化阶段入口。
 - [x] 正式项目 F7 设置 / 本地化 / UI 栈首片：设置持久化、正式设置面板、运行时语言刷新、键盘主输入重绑定、输入反馈 / 恢复默认和 `UIManager` 返回 / 焦点首片已完成。
 - [x] 正式项目 F8 工作包准备：`docs/AI协作/工作包/F8-ReplayTestingBalance.md` 已建立为回放 / 测试 / 平衡基线阶段入口。

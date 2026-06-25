@@ -26,7 +26,7 @@
 | 路径 | 责任 |
 |------|------|
 | `client/scripts/autoload/gear_mod_system.gd` | 运行时主入口；读取数据、维护 profile、输出 modifiers |
-| `client/data/gear_mods.json` | 装备 Mod 定义、slot、rarity、rank 效果和 drain |
+| `client/data/gear_mods.json` | 装备 Mod 定义、slot、rarity、rank 效果、drain 和分解返还 |
 | `client/data/gear_mod_drop_tables.csv` | Mod 掉落来源与概率 |
 | `client/data/gear_mod_fusion_costs.csv` | Mod 升级成本 |
 | `client/scripts/ui/gear_mod_panel.gd` / `.tscn` | 标题菜单下的最小装备 Mod UI |
@@ -48,8 +48,11 @@
 | `base_drain` / `drain_per_rank` | 装备容量消耗 |
 | `rank_modifiers[]` | 按 rank 计算的 modifier，stat 必须来自词表 |
 | `stack_rule` | 首片使用 `unique_by_id`，同一 loadout 不可装备重复 id |
+| `dismantle` | 分解返还资源；首片为 `gear_mod_dust`，返还量低于一次升级成本 |
 
 掉落表首片使用 `enemy_chaser -> weapon damage Mod -> 1%`，但实现时禁止按 enemy id 写逻辑分支；应由数据表声明 source，再由通用掉落解释器读取。
+
+当前 F11 数据 / 契约首片已经建立：`gear_mod_weapon_damage_test` 为 `weapon` 槽普通 Mod，rank 0 提供 `damage mult 1.10`，每 rank 额外 `+0.05`，`enemy_chaser` 玩家归因击杀掉落率为 `0.01`，升级消耗 `gear_mod_dust`。
 
 ## 5. 运行流程
 
@@ -76,7 +79,7 @@
 
 ### 升级与分解
 
-1. 升级读取 `gear_mod_fusion_costs.csv`，消耗资源并提升 rank。
+1. 升级读取 `gear_mod_fusion_costs.csv`，按 `rarity + rank` 消耗 `resource_id` 指定资源并提升 rank。
 2. rank 变化后如果已装备 Mod drain 变高导致容量不足，UI 必须阻止升级或要求先卸下；首片建议阻止升级并显示原因。
 3. 分解重复 Mod 获得资源；已装备 Mod 不能直接分解。
 

@@ -32,7 +32,7 @@
 | 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
 | 改刷怪强度 / 难度曲线 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
 | 改经验阈值 / 升级候选概率 | `growth.csv` | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
-| 改装备 Mod / 英雄或武器装配 | `gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`（规划中） | 装备 Mod 与本地数据包 mod 是不同概念；实现前先登记 Mod id / slot / rarity / resource 契约 |
+| 改装备 Mod / 英雄或武器装配 | `gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv` | 装备 Mod 与本地数据包 mod 是不同概念；Mod id / slot / rarity / resource / stack rule 必须先登记契约 |
 | 改旧局外货币 / 永久升级 / 解锁 | `meta_progression.json`（Legacy） | F11 后旧永久升级轨道将退役；不要再扩展为未来局外成长方向 |
 | 改致谢 / 第三方来源 | `credits.json` + 根目录 `CREDITS.md` | 游戏内 Credits UI 读 `credits.json`；发行前复核许可证与 notice |
 | 改界面、道具名、描述文案 | 不在这里改，去 `client/locale/strings.csv` | 数据只引用 key，译文集中管理 |
@@ -58,9 +58,9 @@
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
 | `growth_pools.json` | 已建立 | 升级选项池、权重、等级条件和候选奖励边界 |
-| `gear_mods.json` | 规划中 | 装备 Mod 定义：英雄 / 武器槽位、稀有度、rank、drain 和修正器 |
-| `gear_mod_drop_tables.csv` | 规划中 | 装备 Mod 掉落来源、概率和等级条件 |
-| `gear_mod_fusion_costs.csv` | 规划中 | 装备 Mod 升级成本 |
+| `gear_mods.json` | JSON | 装备 Mod 定义：英雄 / 武器槽位、稀有度、rank、drain、修正器和分解返还 |
+| `gear_mod_drop_tables.csv` | CSV | 装备 Mod 掉落来源、概率和等级条件 |
+| `gear_mod_fusion_costs.csv` | CSV | 装备 Mod 按稀有度 / rank 的升级资源成本 |
 | `meta_progression.json` | Legacy | F6 旧局外货币、结算奖励、账号等级、永久升级轨道和内容解锁；F11 实现时退役 / 迁移 |
 | `credits.json` | 已建立 | 游戏内致谢数据源：工作人员、外部资源、外部库与许可 / notice 状态 |
 | `_contracts.json` | 生成文件 | 由 `docs/词表与契约.md` 生成，禁止手改；`DataLoader` 用它校验 id |
@@ -1020,11 +1020,9 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `effect` | string | 词表 §2 effect id | 效果原语 |
 | `params` | object | 由 effect 定义 | 原语参数；新增参数要同步对应模块文档 |
 
-## `gear_mods.json`（规划中）
+## `gear_mods.json`
 
 > 装备 Mod 系统见 `docs/AI协作/工作包/F11-GearModLoadout.md` 与 `docs/代码/gear_mod_system.md`。这里的装备 Mod 是玩家装配系统，不是 `ModLoader` 读取的本地数据包 mod。
-
-建议结构：
 
 ```json
 {
@@ -1042,7 +1040,11 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
       "rank_modifiers": [
         { "stat": "damage", "type": "mult", "base_value": 1.10, "value_per_rank": 0.05 }
       ],
-      "stack_rule": "unique_by_id"
+      "stack_rule": "unique_by_id",
+      "dismantle": {
+        "resource_id": "gear_mod_dust",
+        "amount": 10
+      }
     }
   ]
 }
@@ -1053,23 +1055,23 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
 | `schema_version` | int | `>= 1` | 数据结构版本 |
-| `mods[].id` | string | 实现前登记到词表 | 装备 Mod id；示例 id 仅作为 F11 首片建议 |
+| `mods[].id` | string | 词表 §13-A `gear_mod_id` | 装备 Mod id |
 | `mods[].name_key` / `desc_key` | string | `gear_mod_*_name` / `gear_mod_*_desc` | 名称和描述译文 key |
-| `mods[].slot` | string | `hero` / `weapon`，实现前登记 | 可装备到英雄或武器 loadout |
-| `mods[].rarity` | string | 实现前登记 | 稀有度；用于掉落展示和升级成本 |
+| `mods[].slot` | string | 词表 §13-B | 可装备到英雄或武器 loadout |
+| `mods[].rarity` | string | 词表 §13-C | 稀有度；用于掉落展示和升级成本 |
 | `mods[].max_rank` | int | `>= 0` | 最大升级 rank；rank 0 表示初始获得状态 |
 | `mods[].base_drain` | int | `>= 0` | rank 0 装备容量消耗 |
 | `mods[].drain_per_rank` | int | `>= 0` | 每提升 1 rank 增加的容量消耗 |
 | `mods[].rank_modifiers[]` | array[object] | stat 来自词表 §1 | 随 rank 计算的 modifiers |
 | `rank_modifiers[].base_value` | number | 由 modifier 类型决定 | rank 0 的初始值；`mult` 用 `1.0` 表示不变 |
 | `rank_modifiers[].value_per_rank` | number | 可正可负 | 每 rank 增量 |
-| `mods[].stack_rule` | string | 首片 `unique_by_id` | 同一 loadout 内的重复装备规则 |
+| `mods[].stack_rule` | string | 词表 §13-E | 同一 loadout 内的重复装备规则；首片为 `unique_by_id` |
+| `mods[].dismantle.resource_id` | string | 词表 §13-D | 分解返还资源 |
+| `mods[].dismantle.amount` | int | `>= 0` | 分解返还数量；应低于一次升级成本，避免套利 |
 
 首个测试武器 Mod 目标：提高武器基础 `damage`，由玩家击杀 `enemy_chaser` 时以 `1%` 概率掉落。实现时必须用通用掉落表解释，不在敌人或武器代码中写按 id 分支。
 
-## `gear_mod_drop_tables.csv`（规划中）
-
-建议结构：
+## `gear_mod_drop_tables.csv`
 
 ```csv
 source_enemy_id,mod_id,drop_chance,min_enemy_level,max_enemy_level
@@ -1087,28 +1089,27 @@ enemy_chaser,gear_mod_weapon_damage_test,0.01,1,999
 
 掉落随机必须走 `RNG.drop`；怪物互杀、机关击杀或非玩家归因击杀不产出装备 Mod。
 
-## `gear_mod_fusion_costs.csv`（规划中）
-
-建议结构：
+## `gear_mod_fusion_costs.csv`
 
 ```csv
-rarity,rank,cost
-common,1,20
-common,2,35
-common,3,55
-common,4,85
-common,5,130
+rarity,rank,resource_id,cost
+common,1,gear_mod_dust,20
+common,2,gear_mod_dust,35
+common,3,gear_mod_dust,55
+common,4,gear_mod_dust,85
+common,5,gear_mod_dust,130
 ```
 
 字段说明：
 
 | 字段 | 类型 | 单位 / 范围 | 说明 |
 |------|------|-------------|------|
-| `rarity` | string | 实现前登记 | 装备 Mod 稀有度 |
+| `rarity` | string | 词表 §13-C | 装备 Mod 稀有度 |
 | `rank` | int | `1..max_rank` | 升到该 rank 需要的成本 |
+| `resource_id` | string | 词表 §13-D | 消耗的装备 Mod 资源 |
 | `cost` | int | `>= 0` | 升级资源消耗 |
 
-首片可以复用 `meta_essence`，但推荐实现时新增专用装备 Mod 资源，避免旧永久升级经济影响新系统。
+首片使用专用 `gear_mod_dust`，避免旧永久升级经济影响新系统。
 
 ## `meta_progression.json`（Legacy）
 

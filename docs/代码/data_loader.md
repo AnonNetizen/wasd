@@ -8,7 +8,7 @@
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
 - 通过 `ModLoader` 合并 `user://mods/<mod_id>/` 下声明式数据 patch，为本地玩家 mod 提供统一入口。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
-- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`meta_progression.json`、`growth.csv`、`growth_pools.json` 与 `strings.csv`。
+- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`meta_progression.json`、`growth.csv`、`growth_pools.json` 与 `strings.csv`。
 - 提供 fail-fast 错误输出，错误信息包含文件、字段路径和期望值。
 - 不负责业务解释、数值平衡、热重载 UI、升级奖励应用或游戏模式运行时；这些由后续业务模块接入。
 
@@ -34,6 +34,9 @@
 | `client/data/skills.json` | 项目版轻量 GAS 技能、ability tag、激活条件、资源消耗、目标类型、效果原语和冷却边界 |
 | `client/data/enemy_ai_profiles.json` | 敌人生态 AI profile、感知、目标权重和动作列表边界 |
 | `client/data/enemies.csv` | 敌人基础数值、生态 tag、AI profile 引用、对象池、伤害类型和模式引用边界 |
+| `client/data/gear_mods.json` | 装备 Mod 定义、槽位、稀有度、rank、drain、修正器和分解返还边界 |
+| `client/data/gear_mod_drop_tables.csv` | 装备 Mod 掉落来源、概率和敌人等级条件边界 |
+| `client/data/gear_mod_fusion_costs.csv` | 装备 Mod 按稀有度 / rank 的升级资源成本边界 |
 | `client/data/hazards.csv` | 机关基础数值、对象池、伤害类型和模式引用边界 |
 | `client/data/map_layouts.json` | 有限地图、玩家出生点、PCG 机关规则和人工摆点边界 |
 | `client/data/warzone_directors.json` | 敌巢战区导演、固定阶段、巢变异主题、生态 encounter、兴趣点和阶段启用 wave 边界 |
@@ -96,6 +99,9 @@
   - `skills.json`：技能 id、名称 / 描述 key、`tag_skill`、ability tags、activation required / blocked / granted tags、冷却、资源消耗、目标类型和效果原语；技能 id、资源、targeting、effect 和 ability tag 必须来自词表 §12-C~12-G，`skill_effect_damage` 的伤害类型交给 `Combat` 词表校验，`skill_effect_apply_status` 的 status / stack_rule / granted ability tags 必须来自词表 §9-A / §9-B / §12-G；当状态效果同时声明正 `magnitude` 与正 `tick_interval` 时，还必须声明已登记 `damage_type`。
   - `enemy_ai_profiles.json`：profile id、感知半径、决策间隔、接触冷却、玩家 / 生态 tag 目标权重、领地参数、动作参数和 action id；action 必须来自词表 §12-B，生态 tag 必须来自 content tags。
   - `enemies.csv`：敌人 id、名称 key、`tag_enemy`、生态 tags、对象池 id、AI profile 引用、生命、移速、接触伤害、接触伤害类型、经验奖励和命中半径；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
+  - `gear_mods.json`：装备 Mod id、名称 / 描述 key、英雄 / 武器 slot、稀有度、最大 rank、drain、按 rank 计算的 stat modifier、装配规则和分解返还资源；id、slot、rarity、resource、stack rule 均来自词表 §13-A~§13-E。
+  - `gear_mod_drop_tables.csv`：装备 Mod 掉落来源敌人、Mod id、掉落概率和敌人等级区间；敌人必须存在于 `enemies.csv`，Mod 必须存在于 `gear_mods.json`，概率必须是 `0.0..1.0`。
+  - `gear_mod_fusion_costs.csv`：装备 Mod 升到目标 rank 的资源成本；rarity 与 resource 必须来自词表，且覆盖 `gear_mods.json` 中每个已使用 rarity 的 `1..max_rank`。
   - `hazards.csv`：机关 id、名称 key、`tag_hazard`、对象池 id、伤害、伤害类型、触发间隔、范围和持续时间。
   - `map_layouts.json`：layout id、模式引用、有限地图菱形外接 bounds、玩家出生点、安全半径、刷怪边距、PCG 机关规则和人工机关摆点；`mode_id` 必须存在于 `game_modes.json`，所有机关 id 必须存在于 `hazards.csv`，bounds 必须是 `grid.cell_width/cell_height` 的奇数倍并匹配菱形斜率。
   - `spawn_waves.csv`：波次 id、模式 id、波次序号、时间窗、敌人引用、敌人权重、刷怪间隔、同时存活上限、预算，以及可选机关引用 / 权重。
@@ -109,7 +115,7 @@
   - `growth_pools.json`：候选池、条目 id、类型、权重、等级条件和属性修正。
   - `game_modes.json`：模式 id、名称 / 描述 key、默认解锁、participants / teams、角色池、武器池、技能池、敌人池、机关池、遗物池、主动道具池、消耗品池、成长池、content tag blocklist 与玩家基础属性轻量覆盖；角色池 id 必须存在于 `characters.json`，武器池 id 必须存在于 `weapons.json`，技能池 id 必须存在于 `skills.json`，敌人池 id 必须存在于 `enemies.csv`，机关池 id 必须存在于 `hazards.csv`，遗物池 id 必须存在于 `relics.json`，主动道具池 id 必须存在于 `active_items.json`，消耗品池 id 必须存在于 `consumables.json`。
   - `strings.csv`：key 前缀、`zh_CN` / `en` 必填、唯一 key。
-- 当前校验 `characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json` 与 `game_modes.json` 的数据边界；技能运行时首片由 `docs/代码/skill_system.md` 解释，状态效果生命周期见 `docs/代码/status_effect_component.md`，有限地图 / PCG 解释见 `docs/代码/map_manager.md`，机关运行时解释见 `docs/代码/hazard_system.md`，敌人 AI 的业务解释见 `docs/代码/enemy_ai.md`，战区导演解释见 `docs/代码/warzone_director.md`。其余尚不实现角色选择 UI、完整起始携带发放、遗物拾取 / 应用、主动道具栏 / 冷却 / 使用效果、消耗品拾取 / 背包 / 使用 / 数量扣减 / 效果执行、Credits UI、模式选择 UI、匹配、联网、成长抽取、输入 profile 切换或完整模式运行时。
+- 当前校验 `characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json` 与 `game_modes.json` 的数据边界；技能运行时首片由 `docs/代码/skill_system.md` 解释，状态效果生命周期见 `docs/代码/status_effect_component.md`，有限地图 / PCG 解释见 `docs/代码/map_manager.md`，机关运行时解释见 `docs/代码/hazard_system.md`，敌人 AI 的业务解释见 `docs/代码/enemy_ai.md`，战区导演解释见 `docs/代码/warzone_director.md`，装备 Mod 运行时解释见 `docs/代码/gear_mod_system.md`。其余尚不实现角色选择 UI、完整起始携带发放、遗物拾取 / 应用、主动道具栏 / 冷却 / 使用效果、消耗品拾取 / 背包 / 使用 / 数量扣减 / 效果执行、Credits UI、装备 Mod UI / 掉落 / 升级 / 分解运行时、模式选择 UI、匹配、联网、成长抽取、输入 profile 切换或完整模式运行时。
 
 ## 依赖
 

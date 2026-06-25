@@ -252,6 +252,22 @@
       "unlock_starting_relic_choice_2",
       "unlock_starting_relic_choice_3"
     ],
+    "gear_mod_ids": [
+      "gear_mod_weapon_damage_test"
+    ],
+    "gear_mod_slots": [
+      "hero",
+      "weapon"
+    ],
+    "gear_mod_rarities": [
+      "common"
+    ],
+    "gear_mod_resources": [
+      "gear_mod_dust"
+    ],
+    "gear_mod_stack_rules": [
+      "unique_by_id"
+    ],
     "save_kinds": [
       "meta",
       "run",
@@ -264,6 +280,7 @@
       "relic_",
       "item_",
       "skill_",
+      "gear_mod_",
       "enemy_",
       "hazard_",
       "hint_",

@@ -1,0 +1,2 @@
+source_enemy_id,mod_id,drop_chance,min_enemy_level,max_enemy_level
+enemy_chaser,gear_mod_weapon_damage_test,0.01,1,999

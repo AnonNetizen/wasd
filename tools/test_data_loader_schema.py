@@ -210,6 +210,62 @@ def main() -> int:
             ],
         ),
         (
+            "gear mod id must be registered",
+            _mutate_json("client/data/gear_mods.json", _set_gear_mod_id("gear_mod_missing")),
+            [
+                "client/data/gear_mods.json:mods[0].id",
+                "unknown id gear_mod_missing; expected one of gear_mod_ids",
+            ],
+        ),
+        (
+            "gear mod locale key must exist",
+            _mutate_json("client/data/gear_mods.json", _set_gear_mod_name_key("gear_mod_missing_name")),
+            [
+                "client/data/gear_mods.json:mods[0].name_key",
+                "locale key is missing from client/locale/strings.csv: gear_mod_missing_name",
+            ],
+        ),
+        (
+            "gear mod modifier stat must be registered",
+            _mutate_json("client/data/gear_mods.json", _set_gear_mod_modifier_stat("stat_missing")),
+            [
+                "client/data/gear_mods.json:mods[0].rank_modifiers[0].stat",
+                "unknown id stat_missing; expected one of stats",
+            ],
+        ),
+        (
+            "gear mod drop enemy reference must exist",
+            _mutate_csv("client/data/gear_mod_drop_tables.csv", _set_gear_mod_drop_enemy("enemy_missing")),
+            [
+                "client/data/gear_mod_drop_tables.csv:line 2.source_enemy_id",
+                "enemy is not defined in enemies.csv: enemy_missing",
+            ],
+        ),
+        (
+            "gear mod drop chance must be a ratio",
+            _mutate_csv("client/data/gear_mod_drop_tables.csv", _set_gear_mod_drop_chance("1.5")),
+            [
+                "client/data/gear_mod_drop_tables.csv:line 2.drop_chance",
+                "must be <= 1.0",
+            ],
+        ),
+        (
+            "gear mod fusion resource must be registered",
+            _mutate_csv("client/data/gear_mod_fusion_costs.csv", _set_gear_mod_fusion_resource("gear_mod_resource_missing")),
+            [
+                "client/data/gear_mod_fusion_costs.csv:line 2.resource_id",
+                "unknown id gear_mod_resource_missing; expected one of gear_mod_resources",
+            ],
+        ),
+        (
+            "gear mod fusion costs must cover max rank",
+            _mutate_csv("client/data/gear_mod_fusion_costs.csv", _remove_gear_mod_fusion_rank("5")),
+            [
+                "client/data/gear_mod_fusion_costs.csv:common.rank_5",
+                "missing fusion cost for gear mod rarity/rank",
+            ],
+        ),
+        (
             "hazard must include hazard tag",
             _mutate_csv("client/data/hazards.csv", _set_hazard_tags("")),
             [
@@ -811,6 +867,55 @@ def _set_enemy_ai_profile(value: str) -> CsvMutator:
 def _set_mode_enemy(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["resource_pools"]["enemies"][0]["id"] = value
+
+    return mutate
+
+
+def _set_gear_mod_id(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["mods"][0]["id"] = value
+
+    return mutate
+
+
+def _set_gear_mod_name_key(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["mods"][0]["name_key"] = value
+
+    return mutate
+
+
+def _set_gear_mod_modifier_stat(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["mods"][0]["rank_modifiers"][0]["stat"] = value
+
+    return mutate
+
+
+def _set_gear_mod_drop_enemy(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["source_enemy_id"] = value
+
+    return mutate
+
+
+def _set_gear_mod_drop_chance(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["drop_chance"] = value
+
+    return mutate
+
+
+def _set_gear_mod_fusion_resource(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["resource_id"] = value
+
+    return mutate
+
+
+def _remove_gear_mod_fusion_rank(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[:] = [row for row in rows if row.get("rank") != value]
 
     return mutate
 

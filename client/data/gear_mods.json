@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "mods": [
+    {
+      "id": "gear_mod_weapon_damage_test",
+      "name_key": "gear_mod_weapon_damage_test_name",
+      "desc_key": "gear_mod_weapon_damage_test_desc",
+      "slot": "weapon",
+      "rarity": "common",
+      "max_rank": 5,
+      "base_drain": 2,
+      "drain_per_rank": 1,
+      "rank_modifiers": [
+        {
+          "stat": "damage",
+          "type": "mult",
+          "base_value": 1.1,
+          "value_per_rank": 0.05
+        }
+      ],
+      "stack_rule": "unique_by_id",
+      "dismantle": {
+        "resource_id": "gear_mod_dust",
+        "amount": 10
+      }
+    }
+  ]
+}

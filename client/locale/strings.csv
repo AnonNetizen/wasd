@@ -78,6 +78,10 @@ ui_stats_crit_mult,暴击倍率,Crit Damage
 ui_stats_pickup_range,拾取范围,Pickup Range
 ui_stats_luck,幸运,Luck
 ui_stats_skill_resource,技能资源,Skill Resource
+gear_mod_weapon_damage_test_name,校准膛线,Calibrated Rifling
+gear_mod_weapon_damage_test_desc,提高主武器基础伤害；升级后进一步提高伤害。,Increases primary weapon base damage; upgrades improve the bonus.
+gear_mod_dust_name,模组尘,Mod Dust
+gear_mod_dust_desc,分解装备 Mod 获得的材料，用于升级装备 Mod。,A material gained by dismantling gear mods and spent to upgrade gear mods.
 ui_stats_skill_cooldown,技能冷却,Skill Cooldown
 ui_game_over,本局结束,Run Over
 ui_restart_hint,按暂停键重开,Press Pause to restart

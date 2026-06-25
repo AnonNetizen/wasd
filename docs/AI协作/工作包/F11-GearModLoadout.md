@@ -16,7 +16,7 @@ F11 将现有 F6 局外永久升级轨道替换为参考《星际战甲》的装
 
 必须包含：
 
-1. 新数据文件规划：`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv` 或等价拆分。
+1. 新数据文件：`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv` 或等价拆分。
 2. 新运行时模块：`GearModSystem`，负责读取 Mod 定义、保存拥有列表 / rank / 装配、输出当前英雄与武器 modifiers。
 3. 两套 loadout：`hero` 与 `weapon`，每套独立槽位、容量和已装备 Mod 列表。
 4. 一张测试武器 Mod：增加武器基础 `damage`，普通小怪 `enemy_chaser` 被玩家击杀时有 `1%` 概率掉落。
@@ -52,13 +52,17 @@ F11 将现有 F6 局外永久升级轨道替换为参考《星际战甲》的装
       "rank_modifiers": [
         { "stat": "damage", "type": "mult", "base_value": 1.10, "value_per_rank": 0.05 }
       ],
-      "stack_rule": "unique_by_id"
+      "stack_rule": "unique_by_id",
+      "dismantle": {
+        "resource_id": "gear_mod_dust",
+        "amount": 10
+      }
     }
   ]
 }
 ```
 
-实现前必须先在 `docs/词表与契约.md` 登记 `gear_mod_*` id、slot、rarity、resource、drop table 等需要代码引用的契约，并跑契约同步。
+`docs/词表与契约.md` 已登记首片 `gear_mod_*` id、slot、rarity、resource、stack rule 等需要代码引用的契约；新增条目前仍必须先登记并跑契约同步。
 
 ### `gear_mod_drop_tables.csv`
 
@@ -76,15 +80,15 @@ enemy_chaser,gear_mod_weapon_damage_test,0.01,1,999
 平表成本优先 CSV：
 
 ```csv
-rarity,rank,cost
-common,1,20
-common,2,35
-common,3,55
-common,4,85
-common,5,130
+rarity,rank,resource_id,cost
+common,1,gear_mod_dust,20
+common,2,gear_mod_dust,35
+common,3,gear_mod_dust,55
+common,4,gear_mod_dust,85
+common,5,gear_mod_dust,130
 ```
 
-资源来源为 Mod 分解和局外奖励。首片可以复用现有 `meta_essence`，但更推荐实现时新增专用资源，例如“mod dust / 模组尘”，避免和旧永久升级经济混在一起。
+资源来源为 Mod 分解和局外奖励。首片使用专用 `gear_mod_dust`（模组尘），避免和旧永久升级经济混在一起。
 
 ## 4. 存档与迁移
 
@@ -157,7 +161,7 @@ common,5,130
 - `python tools/validate_data.py`
 - `python tools/test_data_loader_schema.py`
 - `python tools/godot_bridge.py --project client headless-boot`
-- 新增 `gear-mod-smoke` 或并入 `meta-smoke`，覆盖掉落、升级、分解、装备、容量、下一局 modifier 应用和旧 meta 迁移。
+- 运行时阶段新增 `gear-mod-smoke` 或并入 `meta-smoke`，覆盖掉落、升级、分解、装备、容量、下一局 modifier 应用和旧 meta 迁移。
 - 若默认开局属性或掉落影响 golden 摘要，重跑四条 checked-in replay；有意变化时重录并说明。
 
 ## 8. 风险

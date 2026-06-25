@@ -31,6 +31,9 @@ GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
 GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
 MAP_LAYOUTS_JSON = ROOT / "client" / "data" / "map_layouts.json"
 WARZONE_DIRECTORS_JSON = ROOT / "client" / "data" / "warzone_directors.json"
+GEAR_MODS_JSON = ROOT / "client" / "data" / "gear_mods.json"
+GEAR_MOD_DROP_TABLES_CSV = ROOT / "client" / "data" / "gear_mod_drop_tables.csv"
+GEAR_MOD_FUSION_COSTS_CSV = ROOT / "client" / "data" / "gear_mod_fusion_costs.csv"
 PLACEHOLDER_RE = re.compile(r"\{[a-z0-9_]+\}")
 LOCALE_KEY_RE = re.compile(r"^[a-z0-9_]+$")
 HTML_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")
@@ -75,6 +78,11 @@ def main() -> int:
     enemy_ai_profile_ids = _collect_enemy_ai_profile_ids(ctx)
     _validate_enemies_csv(ctx, enemy_ai_profile_ids)
     enemy_ids = _collect_enemy_ids(ctx)
+    _validate_gear_mods(ctx)
+    gear_mod_ids = _collect_gear_mod_ids(ctx)
+    gear_mod_rarity_max_ranks = _collect_gear_mod_rarity_max_ranks(ctx)
+    _validate_gear_mod_drop_tables(ctx, enemy_ids, gear_mod_ids)
+    _validate_gear_mod_fusion_costs(ctx, gear_mod_rarity_max_ranks)
     _validate_hazards_csv(ctx)
     hazard_ids = _collect_hazard_ids(ctx)
     _validate_relics(ctx)
@@ -798,6 +806,142 @@ def _validate_skill_effects(ctx: ValidationContext, path: Path, field: str, data
         if effect_id == "skill_effect_weapon_modifiers":
             _require_number(ctx, path, f"{item_field}.params.duration", params.get("duration"), minimum=0, exclusive_minimum=True)
             _validate_modifiers(ctx, path, f"{item_field}.params.modifiers", params.get("modifiers"), require_value_per_level=False)
+
+
+def _validate_gear_mods(ctx: ValidationContext) -> None:
+    path = GEAR_MODS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    mods = _require_list(ctx, path, "mods", data.get("mods"))
+    if not mods:
+        ctx.error(path, "mods", "must be a non-empty array")
+    seen: set[str] = set()
+    for index, mod in enumerate(mods):
+        field = f"mods[{index}]"
+        if not isinstance(mod, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        mod_id = _require_registered(ctx, path, f"{field}.id", mod.get("id"), "gear_mod_ids")
+        if mod_id:
+            if mod_id in seen:
+                ctx.error(path, f"{field}.id", f"duplicate gear mod id {mod_id}")
+            seen.add(mod_id)
+        _require_locale_key(ctx, path, f"{field}.name_key", mod.get("name_key"))
+        _require_locale_key(ctx, path, f"{field}.desc_key", mod.get("desc_key"))
+        _require_registered(ctx, path, f"{field}.slot", mod.get("slot"), "gear_mod_slots")
+        _require_registered(ctx, path, f"{field}.rarity", mod.get("rarity"), "gear_mod_rarities")
+        _require_int(ctx, path, f"{field}.max_rank", mod.get("max_rank"), minimum=0)
+        _require_int(ctx, path, f"{field}.base_drain", mod.get("base_drain"), minimum=0)
+        _require_int(ctx, path, f"{field}.drain_per_rank", mod.get("drain_per_rank"), minimum=0)
+        _validate_gear_mod_rank_modifiers(ctx, path, f"{field}.rank_modifiers", mod.get("rank_modifiers"))
+        _require_registered(ctx, path, f"{field}.stack_rule", mod.get("stack_rule"), "gear_mod_stack_rules")
+        _validate_gear_mod_dismantle(ctx, path, f"{field}.dismantle", mod.get("dismantle"))
+
+
+def _validate_gear_mod_rank_modifiers(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    modifiers = _require_list(ctx, path, field, data)
+    if not modifiers:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, modifier in enumerate(modifiers):
+        item_field = f"{field}[{index}]"
+        if not isinstance(modifier, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        _require_registered(ctx, path, f"{item_field}.stat", modifier.get("stat"), "stats")
+        if modifier.get("type") not in {"add", "mult"}:
+            ctx.error(path, f"{item_field}.type", "must be add or mult")
+        _require_number(ctx, path, f"{item_field}.base_value", modifier.get("base_value"))
+        _require_number(ctx, path, f"{item_field}.value_per_rank", modifier.get("value_per_rank"))
+
+
+def _validate_gear_mod_dismantle(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    _require_registered(ctx, path, f"{field}.resource_id", data.get("resource_id"), "gear_mod_resources")
+    _require_int(ctx, path, f"{field}.amount", data.get("amount"), minimum=0)
+
+
+def _validate_gear_mod_drop_tables(ctx: ValidationContext, enemy_ids: set[str], gear_mod_ids: set[str]) -> None:
+    path = GEAR_MOD_DROP_TABLES_CSV
+    if not path.exists():
+        ctx.error(path, "$", "missing gear mod drop table CSV")
+        return
+
+    required = {"source_enemy_id", "mod_id", "drop_chance", "min_enemy_level", "max_enemy_level"}
+    seen: set[tuple[str, str, int, int]] = set()
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        fieldnames = reader.fieldnames or []
+        missing = required.difference(fieldnames)
+        if missing:
+            ctx.error(path, "header", f"missing required columns {sorted(missing)}")
+            return
+        row_count = 0
+        for line_number, row in enumerate(reader, start=2):
+            row_count += 1
+            field = f"line {line_number}"
+            source_enemy_id = _require_non_empty_string(ctx, path, f"{field}.source_enemy_id", row.get("source_enemy_id"))
+            if source_enemy_id and source_enemy_id not in enemy_ids:
+                ctx.error(path, f"{field}.source_enemy_id", f"enemy is not defined in enemies.csv: {source_enemy_id}")
+            mod_id = _require_non_empty_string(ctx, path, f"{field}.mod_id", row.get("mod_id"))
+            if mod_id and mod_id not in gear_mod_ids:
+                ctx.error(path, f"{field}.mod_id", f"gear mod is not defined in gear_mods.json: {mod_id}")
+            _parse_float(ctx, path, f"{field}.drop_chance", row.get("drop_chance"), minimum=0.0, maximum=1.0)
+            min_level = _parse_int(ctx, path, f"{field}.min_enemy_level", row.get("min_enemy_level"), minimum=1)
+            max_level = _parse_int(ctx, path, f"{field}.max_enemy_level", row.get("max_enemy_level"), minimum=1)
+            if min_level is not None and max_level is not None:
+                if max_level < min_level:
+                    ctx.error(path, f"{field}.max_enemy_level", "must be >= min_enemy_level")
+                if source_enemy_id and mod_id:
+                    key = (source_enemy_id, mod_id, min_level, max_level)
+                    if key in seen:
+                        ctx.error(path, field, f"duplicate drop row {source_enemy_id}/{mod_id}/{min_level}-{max_level}")
+                    seen.add(key)
+        if row_count == 0:
+            ctx.error(path, "rows", "must contain at least one gear mod drop row")
+
+
+def _validate_gear_mod_fusion_costs(ctx: ValidationContext, rarity_max_ranks: dict[str, int]) -> None:
+    path = GEAR_MOD_FUSION_COSTS_CSV
+    if not path.exists():
+        ctx.error(path, "$", "missing gear mod fusion costs CSV")
+        return
+
+    required = {"rarity", "rank", "resource_id", "cost"}
+    costs_by_rarity: dict[str, set[int]] = {}
+    seen: set[tuple[str, int]] = set()
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        fieldnames = reader.fieldnames or []
+        missing = required.difference(fieldnames)
+        if missing:
+            ctx.error(path, "header", f"missing required columns {sorted(missing)}")
+            return
+        row_count = 0
+        for line_number, row in enumerate(reader, start=2):
+            row_count += 1
+            field = f"line {line_number}"
+            rarity = _require_registered(ctx, path, f"{field}.rarity", row.get("rarity"), "gear_mod_rarities")
+            rank = _parse_int(ctx, path, f"{field}.rank", row.get("rank"), minimum=1)
+            _require_registered(ctx, path, f"{field}.resource_id", row.get("resource_id"), "gear_mod_resources")
+            _parse_int(ctx, path, f"{field}.cost", row.get("cost"), minimum=0)
+            if rarity and rank is not None:
+                key = (rarity, rank)
+                if key in seen:
+                    ctx.error(path, field, f"duplicate fusion cost for {rarity} rank {rank}")
+                seen.add(key)
+                costs_by_rarity.setdefault(rarity, set()).add(rank)
+        if row_count == 0:
+            ctx.error(path, "rows", "must contain at least one gear mod fusion cost row")
+
+    for rarity, max_rank in rarity_max_ranks.items():
+        covered = costs_by_rarity.get(rarity, set())
+        for rank in range(1, max_rank + 1):
+            if rank not in covered:
+                ctx.error(path, f"{rarity}.rank_{rank}", "missing fusion cost for gear mod rarity/rank")
 
 
 def _status_params_has_damage_tick(params: dict[str, Any]) -> bool:
@@ -1986,6 +2130,34 @@ def _collect_skill_ids(ctx: ValidationContext) -> set[str]:
     if not isinstance(skills, list):
         return set()
     return {item.get("id") for item in skills if isinstance(item, dict) and isinstance(item.get("id"), str)}
+
+
+def _collect_gear_mod_ids(ctx: ValidationContext) -> set[str]:
+    data = _load_json(GEAR_MODS_JSON, ctx)
+    if not isinstance(data, dict):
+        return set()
+    mods = data.get("mods")
+    if not isinstance(mods, list):
+        return set()
+    return {item.get("id") for item in mods if isinstance(item, dict) and isinstance(item.get("id"), str)}
+
+
+def _collect_gear_mod_rarity_max_ranks(ctx: ValidationContext) -> dict[str, int]:
+    data = _load_json(GEAR_MODS_JSON, ctx)
+    if not isinstance(data, dict):
+        return {}
+    mods = data.get("mods")
+    if not isinstance(mods, list):
+        return {}
+    max_ranks: dict[str, int] = {}
+    for item in mods:
+        if not isinstance(item, dict):
+            continue
+        rarity = item.get("rarity")
+        max_rank = item.get("max_rank")
+        if isinstance(rarity, str) and isinstance(max_rank, int) and not isinstance(max_rank, bool):
+            max_ranks[rarity] = max(max_ranks.get(rarity, 0), max_rank)
+    return max_ranks
 
 
 def _collect_growth_pool_ids(ctx: ValidationContext) -> set[str]:
