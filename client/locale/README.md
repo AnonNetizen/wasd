@@ -28,8 +28,7 @@
 | 加遗物 / 道具名和描述 | 在 `strings.csv` 加 `relic_*_name` / `relic_*_desc`、`item_*_name` / `item_*_desc`；数据填 `name_key` / `desc_key` |
 | 加技能名和描述 | 在 `strings.csv` 加 `skill_*_name` / `skill_*_desc`；`skills.json` 填 `name_key` / `desc_key` |
 | 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，动态数值用 `{value}` 这类占位符 |
-| 加局外成长文案 | 在 `strings.csv` 加 `meta_*_name` / `meta_*_desc`；`meta_progression.json` 填 `name_key` / `desc_key` |
-| 加装备 Mod / 局外装配 UI 文案 | 在 `strings.csv` 加 `ui_gear_mod_*` key，例如标题入口、容量、费用、锁定 / 满级状态、操作成功 / 失败反馈；UI 代码使用 `tr("ui_xxx")`。旧 `ui_meta_*` key 仅保留历史兼容，不再作为新 UI 方向 |
+| 加装备 Mod / 局外装配 UI 文案 | 在 `strings.csv` 加 `gear_mod_*` / `ui_gear_mod_*` key，例如 Mod 名称、资源名称、标题入口、容量、费用、操作成功 / 失败反馈；UI 代码使用 `tr("ui_xxx")` |
 | 加机关 / 危险物名 | 在 `strings.csv` 加 `hazard_*_name`；数据填 `name_key` |
 | 改中文或英文翻译 | 只改对应语言列，不改 key；另一语言由 AI 自动补首版译文后人工复核 |
 | 改 UI 布局或按钮文案 | 切到 `en` 验收宽度、换行和遮挡；英文长度是 UI 尺寸基准 |
@@ -79,10 +78,10 @@ ui_resume,继续,Resume
 | `relic_` | 被动遗物名称和描述 | `relic_sharp_rounds_name` / `relic_sharp_rounds_desc` |
 | `item_` | 主动道具 / 消耗品名称和描述 | `item_bomb_name` / `item_bomb_desc` |
 | `skill_` | 技能名称和描述 | `skill_overdrive_rounds_name` / `skill_overdrive_rounds_desc` |
+| `gear_mod_` | 装备 Mod 名称、描述和资源名 | `gear_mod_weapon_damage_test_name` / `gear_mod_dust_name` |
 | `enemy_` | 敌人名称 | `enemy_chaser_name` / `enemy_swarm_name` |
 | `hazard_` | 机关 / 危险物名称 | `hazard_spike_trap_name` |
 | `hint_` | 教程、提示、引导 | `hint_aim_with_right_stick` |
-| `meta_` | legacy 旧局外货币、永久升级、账号等级、解锁项 | `meta_upgrade_damage_name` / `meta_currency_essence_name` |
 
 命名规则：
 
@@ -200,27 +199,6 @@ relic_sharp_rounds_desc,伤害 +{value},Damage +{value}
 ```
 
 3. 代码显示时通过 key 查译文，不直接读取硬文本。
-
-### 加一个局外成长节点
-
-1. 在 `strings.csv` 新增名称和描述：
-
-```csv
-meta_upgrade_damage_name,淬火弹芯,Tempered Rounds
-meta_upgrade_damage_desc,永久提升基础伤害,Permanently increases base damage
-```
-
-2. 在 `client/data/meta_progression.json` 的 `upgrade_tracks` 中引用：
-
-```json
-{
-  "id": "meta_upgrade_damage",
-  "name_key": "meta_upgrade_damage_name",
-  "desc_key": "meta_upgrade_damage_desc"
-}
-```
-
-3. 若新增了货币、升级轨道或解锁 id，先登记 `docs/词表与契约.md` §13。
 
 ### 新增语言
 

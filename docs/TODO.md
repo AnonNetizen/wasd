@@ -17,7 +17,6 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] F11 手动迁移 checklist：用真实旧档样本确认旧 `purchased_upgrades` 成本补偿为 `gear_mod_dust` 后，标题 Gear Mod UI、继续游戏和坏档隔离体验都符合预期。
 - [ ] 等用户从 `docs/功能建议池.md` 手动选择下一个新功能；AI 不从候选池自行推进。点名后再建立 / 更新对应工作包、GDD / ADR / 模块文档和验收命令。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
@@ -60,7 +59,7 @@
 - [x] AI 知识库 v2：人工索引、机器索引、术语表、健康检查脚本。
 - [x] AI 记忆三层结构：长期索引、机器当前状态、每日会话日志。
 - [x] 完整项目数值 / 文案配置入口：`client/data/player.json`、`client/data/README.md`、`client/locale/strings.csv`、`client/locale/README.md`。
-- [x] 深局外成长设计入口：`client/data/meta_progression.json`、GDD §7.2、词表 §13、ADR #46。
+- [x] 深局外成长历史入口：GDD §7.2、ADR #46；旧 `meta_progression.json` 已按 ADR #118 删除。
 - [x] Stage 1 基础 CI：`.github/workflows/docs-check.yml` 跑契约同步、数据 / locale、文档健康检查和 whitespace diff。
 - [x] 10 个项目级 subagents：执行类 3 个 + 创意 / 策略类 7 个，三平台同名配置。
 - [x] 数据校验 / 契约同步 / 轻量 Godot Bridge：`tools/validate_data.py`、`tools/sync_contracts.py`、`tools/godot_bridge.py`，CI 接入 sync + validate + docs health。
@@ -71,7 +70,7 @@
 - [x] 正式项目 F5 暂停 / 存档 / 续局：run roundtrip、备份回退、双坏档隔离、v1 -> v2 迁移、坏档提示、暂停 / 升级 UI 恢复点、升级界面暂停菜单叠层和最终手动存档 checklist 已完成。
 - [x] 正式项目 F6 局外成长首切片：`MetaProgressionSystem`、死亡结算、`meta` profile roundtrip、升级购买、解锁授予、下一局永久 modifiers 和 `meta-smoke` 已完成。
 - [x] F11 装备 Mod / 局外装配规划入口：ADR #115、GDD §7.2、`docs/AI协作/工作包/F11-GearModLoadout.md`、`docs/代码/gear_mod_system.md`、`client/data/README.md` planned schema 已建立；旧 F6 永久升级进入 legacy 迁移范围。
-- [x] F11 旧局外成长运行时退役：ADR #117 已删除 `MetaProgressionSystem` autoload、`MetaProgressionPanel`、标题旧入口、死亡旧结算和 `meta-smoke`；`meta_progression.json` 仅保留为旧 purchased_upgrades 成本补偿表。
+- [x] F11 旧局外成长退役：ADR #117 已删除 `MetaProgressionSystem` autoload、`MetaProgressionPanel`、标题旧入口、死亡旧结算和 `meta-smoke`；ADR #118 已删除旧 `meta_progression.json`、旧 meta 契约、旧文案和旧测试档迁移 / 补偿路径。
 - [x] F11 装备 Mod 数据 / 契约首片：登记 `gear_mod_*` id / slot / rarity / resource / stack rule，新增 `gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、测试武器伤害 Mod、`gear_mod_dust`、DataLoader / `validate_data` schema 和坏样例回归。
 - [x] F11 装备 Mod 运行时首片：新增 `GearModSystem` autoload，支持 `meta.gear_mods` profile、英雄 / 武器两套 loadout、capacity / drain、唯一装备、升级消耗 `gear_mod_dust`、分解返还、`enemy_chaser` 玩家击杀 1% 掉落和开局 modifier snapshot，并新增 `gear-mod-smoke`。
 - [x] F11 装备 Mod 最小 UI：标题菜单进入 `GearModPanel`，支持英雄 / 武器两套配置切换、资源 / 容量 / 详情展示、装备 / 卸下 / 升级 / 分解，并由 `gear-mod-smoke` 覆盖按钮流。

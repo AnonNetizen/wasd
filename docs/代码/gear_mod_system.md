@@ -12,7 +12,7 @@
 - 管理两套 loadout：英雄 Mod 与武器 Mod。
 - 校验容量、槽位、唯一装备规则和资源消耗。
 - 在新局开始时输出英雄 / 武器 modifiers，交给现有 `ModifierEngine` / `Player` / `WeaponSystem` 管线应用。
-- 通过 `SaveManager` 的 `meta` kind 保存和迁移跨局状态，并把旧 `purchased_upgrades` 已购成本补偿为 Gear Mod 升级资源。
+- 通过 `SaveManager` 的 `meta` kind 保存跨局装备 Mod 状态。
 
 ## 2. 非职责
 
@@ -32,7 +32,7 @@
 | `client/scripts/ui/gear_mod_panel.gd` / `.tscn` | 标题菜单下的最小装备 Mod UI：切换英雄 / 武器 loadout、查看资源 / 容量 / Mod 效果，并执行装备、卸下、升级和分解 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 新局开始时读取 hero / weapon loadout 快照并分别应用到 Player / WeaponSystem；玩家归因击杀时请求 Gear Mod 掉落并转发 HUD 获得提示 |
 | `client/scripts/gameplay/enemy.gd` / `GameplayRunLoop` 击杀归因路径 | 玩家击杀普通小怪时触发 `RNG.drop` 掉落判定 |
-| `client/tools/gear_mod_smoke.gd` | F11 headless smoke，覆盖 profile、旧 purchased_upgrades 补偿、授予、装备、容量、升级、分解、掉落、HUD 获得提示和 Gear Mod 面板按钮流 |
+| `client/tools/gear_mod_smoke.gd` | F11 headless smoke，覆盖 profile、授予、装备、容量、升级、分解、掉落、HUD 获得提示和 Gear Mod 面板按钮流 |
 | `tools/godot_bridge.py` | `gear-mod-smoke` 命令入口 |
 
 ## 4. 数据契约草案
@@ -61,7 +61,7 @@
 
 1. `SaveManager.load(slot, "meta")` 读取 meta payload；缺档时由 `GearModSystem` 直接创建 `gear_mods` 子 payload。
 2. `GearModSystem` 归一化 `gear_mods` 字段，补默认资源、空背包、两套 loadout 和稳定 `next_instance_index`。
-3. `GearModSystem` 会保留旧 `purchased_upgrades`、账号等级、旧货币和解锁字段作为 legacy 数据；按旧升级表成本把尚未补偿的已购等级折算为 `gear_mod_dust`，并在 `gear_mods.legacy_migration.purchased_upgrades_compensation` 记录已补偿等级。旧 `MetaProgressionSystem` autoload、标题旧升级面板、旧死亡结算奖励和 `meta-smoke` 已删除。
+3. 项目尚未上线，不保留旧局外成长测试档迁移；`GearModSystem` 不读取旧 `purchased_upgrades`、旧货币或旧账号等级字段。
 
 ### 新局应用
 
@@ -126,8 +126,7 @@
 首片实现至少覆盖：
 
 - 数据校验：Mod id、slot、rarity、rank、drain、modifier stat、掉落表 source、成本表 rank。
-- profile roundtrip：新档默认字段、旧 meta payload 兼容、保存 / 读取一致。
-- 旧档补偿：旧 `purchased_upgrades` 已购等级按 `meta_progression.json` 成本折算为 `gear_mod_dust`，补偿记录保证二次读取不重复发放。
+- profile roundtrip：新档默认字段、保存 / 读取一致。
 - 掉落：`gear-mod-smoke` 用 `forced_roll=0.0` 稳定覆盖 `enemy_chaser` 掉落；真实运行时玩家归因击杀走 `RNG.drop` 和 1% 数据概率。
 - 装备：容量不足、槽位不匹配、同 id 重复装备被拒绝。
 - 升级：资源扣除、rank 增长、drain / 效果变化，已装备超容量拒绝。
@@ -137,10 +136,10 @@
 
 当前专用命令为 `python tools/godot_bridge.py --project client gear-mod-smoke`。改 `GameplayRunLoop` 开局应用、死亡面板或旧入口移除断言时，追加 `runtime-smoke`；改存档兼容时追加 `save-smoke`。
 
-## 10. 迁移说明
+## 10. 退役说明
 
-旧 `MetaProgressionSystem` 是 F6 首切片实现，ADR #117 后运行时代码与玩家入口已删除。保留兼容边界：
+旧 `MetaProgressionSystem` 是 F6 首切片实现，ADR #117 后运行时代码与玩家入口已删除。ADR #118 进一步确认项目尚未上线，不维护旧测试档迁移：
 
 1. `SaveManager` 的 `meta` kind 保持不变，Gear Mod 状态写入 `meta.gear_mods`。
-2. `client/data/meta_progression.json` 暂时保留为 legacy 成本表，只供旧 `purchased_upgrades` 补偿读取，不再产生死亡结算奖励、账号等级 UI 或永久属性。
-3. 旧 `purchased_upgrades` 补偿策略由 ADR #116 落地：每个旧升级轨道按已购等级的历史花费 1:1 折算为 `gear_mod_dust`，只补偿尚未记录的等级，旧字段不删除。
+2. `client/data/meta_progression.json`、旧 meta 契约常量和旧补偿逻辑已删除。
+3. 测试存档如不符合当前 `meta.gear_mods` schema，直接重置或隔离，不补偿旧永久升级投入。

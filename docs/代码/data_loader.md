@@ -8,7 +8,7 @@
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
 - 通过 `ModLoader` 合并 `user://mods/<mod_id>/` 下声明式数据 patch，为本地玩家 mod 提供统一入口。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
-- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`meta_progression.json`、`growth.csv`、`growth_pools.json` 与 `strings.csv`。
+- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`growth.csv`、`growth_pools.json` 与 `strings.csv`。
 - 提供 fail-fast 错误输出，错误信息包含文件、字段路径和期望值。
 - 不负责业务解释、数值平衡、热重载 UI、升级奖励应用或游戏模式运行时；这些由后续业务模块接入。
 
@@ -46,7 +46,6 @@
 | `client/data/consumables.json` | 消耗品堆叠 / 拾取数量 / 使用效果数据边界 |
 | `client/data/credits.json` | 游戏内致谢数据源，记录工作人员、外部资源、外部库和发行 notice 状态 |
 | `client/data/game_modes.json` | 游戏模式资源池、参与者 / 队伍与轻量覆盖边界 |
-| `client/data/meta_progression.json` | 当前复杂 JSON 配置样例 |
 | `client/data/growth.csv` | 经验阈值与升级候选数量概率曲线 |
 | `client/data/growth_pools.json` | 升级候选池与奖励条目边界 |
 | `client/locale/strings.csv` | 多语言 key 与译文表 |
@@ -110,12 +109,11 @@
   - `active_items.json`：主动道具 id、名称 / 描述 key、默认解锁、`tag_active_item`、冷却充能、初始 / 最大充能和使用效果原语。
   - `consumables.json`：消耗品 id、名称 / 描述 key、默认解锁、`tag_consumable`、最大堆叠、初始数量、单次拾取数量和使用效果原语。
   - `credits.json`：致谢分组、分组标题 locale key、工作人员条目、外部资源 / 库 / 工具条目的 URL、license、是否随构建分发、是否需要 notice 与复核状态。
-  - `meta_progression.json`：legacy 旧局外货币、结算奖励、账号等级、永久升级轨道、解锁项、locale key 与词表 id；ADR #117 后仅作为旧 purchased_upgrades 成本补偿表。
   - `growth.csv`：等级、累计经验阈值、默认候选数、幸运扩展候选概率和概率上限。
   - `growth_pools.json`：候选池、条目 id、类型、权重、等级条件和属性修正。
   - `game_modes.json`：模式 id、名称 / 描述 key、默认解锁、participants / teams、角色池、武器池、技能池、敌人池、机关池、遗物池、主动道具池、消耗品池、成长池、content tag blocklist 与玩家基础属性轻量覆盖；角色池 id 必须存在于 `characters.json`，武器池 id 必须存在于 `weapons.json`，技能池 id 必须存在于 `skills.json`，敌人池 id 必须存在于 `enemies.csv`，机关池 id 必须存在于 `hazards.csv`，遗物池 id 必须存在于 `relics.json`，主动道具池 id 必须存在于 `active_items.json`，消耗品池 id 必须存在于 `consumables.json`。
   - `strings.csv`：key 前缀、`zh_CN` / `en` 必填、唯一 key。
-- 当前校验 `characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json` 与 `game_modes.json` 的数据边界；技能运行时首片由 `docs/代码/skill_system.md` 解释，状态效果生命周期见 `docs/代码/status_effect_component.md`，有限地图 / PCG 解释见 `docs/代码/map_manager.md`，机关运行时解释见 `docs/代码/hazard_system.md`，敌人 AI 的业务解释见 `docs/代码/enemy_ai.md`，战区导演解释见 `docs/代码/warzone_director.md`，装备 Mod 运行时解释见 `docs/代码/gear_mod_system.md`。其余尚不实现角色选择 UI、完整起始携带发放、遗物拾取 / 应用、主动道具栏 / 冷却 / 使用效果、消耗品拾取 / 背包 / 使用 / 数量扣减 / 效果执行、Credits UI、装备 Mod UI / 掉落 / 升级 / 分解运行时、模式选择 UI、匹配、联网、成长抽取、输入 profile 切换或完整模式运行时。
+- 当前校验 `characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json` 与 `game_modes.json` 的数据边界；技能运行时首片由 `docs/代码/skill_system.md` 解释，状态效果生命周期见 `docs/代码/status_effect_component.md`，有限地图 / PCG 解释见 `docs/代码/map_manager.md`，机关运行时解释见 `docs/代码/hazard_system.md`，敌人 AI 的业务解释见 `docs/代码/enemy_ai.md`，战区导演解释见 `docs/代码/warzone_director.md`，装备 Mod 运行时解释见 `docs/代码/gear_mod_system.md`。其余尚不实现角色选择 UI、完整起始携带发放、遗物拾取 / 应用、主动道具栏 / 冷却 / 使用效果、消耗品拾取 / 背包 / 使用 / 数量扣减 / 效果执行、Credits UI、模式选择 UI、匹配、联网、成长抽取、输入 profile 切换或完整模式运行时。
 
 ## 依赖
 

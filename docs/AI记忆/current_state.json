@@ -2,19 +2,19 @@
   "schema_version": 1,
   "updated_at": "2026-06-25",
   "current_phase": "formal_project_f11_gear_mod_loadout",
-  "current_status": "用户已明确选择参考《星际战甲》的装备 Mod 系统替换现有局外成长：F11 规划入口、数据 / 契约首片、`GearModSystem` 运行时首片、标题 Gear Mod 最小 UI、掉落 HUD 获得提示、旧 purchased_upgrades 成本补偿和旧局外成长运行时退役已建立。已新增 ADR #115 / #116 / #117、`docs/AI协作/工作包/F11-GearModLoadout.md`、`docs/代码/gear_mod_system.md`，登记 `gear_mod_weapon_damage_test`、`hero` / `weapon` slot、`common` rarity、`gear_mod_dust` resource 和 `unique_by_id` stack rule；`client/data/gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv` 已包含测试武器伤害 Mod、`enemy_chaser` 玩家击杀 1% 掉落、rank 1..5 升级成本与分解返还资源，并纳入 `DataLoader`、`tools/validate_data.py` 和 `tools/test_data_loader_schema.py`。`client/scripts/autoload/gear_mod_system.gd` 已支持 `meta.gear_mods` profile、资源、库存、英雄 / 武器 loadout、capacity / drain、唯一装备、授予、掉落、升级、分解、开局 hero / weapon modifier snapshot，并会把旧 `purchased_upgrades` 尚未补偿的已购等级按 `meta_progression.json` 历史成本折算为 `gear_mod_dust`，记录在 `gear_mods.legacy_migration.purchased_upgrades_compensation` 防止重复领取；`client/scenes/ui/gear_mod_panel.tscn` / `client/scripts/ui/gear_mod_panel.gd` 已接入标题菜单，可切换 hero / weapon、查看资源 / 容量 / rank / drain / 效果，并执行装备、卸下、升级和分解；`GameplayRunLoop` 已停止使用旧 `MetaProgressionSystem.current_modifiers()` 作为下一局属性来源，并在玩家归因击杀时调用 Gear Mod 掉落解释器；掉落命中后通过 `GameplayHud.show_gear_mod_drop_feedback()` 显示 `ui_gear_mod_drop_obtained`。旧 `MetaProgressionSystem` autoload、旧标题升级入口、旧死亡结算奖励、`MetaProgressionPanel` 和 `meta-smoke` 已删除；`meta_progression.json` 暂时只作为旧 purchased_upgrades 成本补偿表保留，不再作为未来成长系统。F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口，F10 WarzoneDirector、兴趣点地图机关接入和普通新局 seed 策略已落地；F10 仍不读取玩家状态、不做隐藏 DDA、不在运行时接 LLM。当前项目类型应表述为固定斜俯视 2.5D 射击刷宝生存，核心操作是移动、鼠标 / 右摇杆瞄准、按住 `fire` action（默认左键 / 右扳机）持续射击，技能保留但首批内容应服务武器模组 / 射击强化 / 战术开火。当前没有阻塞，下一步应以用户最后明确指令为准；如果继续 F11，优先扩展更多 Gear Mod 内容或补正式手动迁移 checklist。",
-  "latest_adr": 117,
+  "current_status": "用户已明确选择参考《星际战甲》的装备 Mod 系统替换现有局外成长：F11 规划入口、数据 / 契约首片、`GearModSystem` 运行时首片、标题 Gear Mod 最小 UI、掉落 HUD 获得提示、旧局外成长运行时退役和旧测试档迁移 / 补偿路径删除已建立。已新增 ADR #115 / #116 / #117 / #118、`docs/AI协作/工作包/F11-GearModLoadout.md`、`docs/代码/gear_mod_system.md`，登记 `gear_mod_weapon_damage_test`、`hero` / `weapon` slot、`common` rarity、`gear_mod_dust` resource 和 `unique_by_id` stack rule；`client/data/gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv` 已包含测试武器伤害 Mod、`enemy_chaser` 玩家击杀 1% 掉落、rank 1..5 升级成本与分解返还资源，并纳入 `DataLoader`、`tools/validate_data.py` 和 `tools/test_data_loader_schema.py`。`client/scripts/autoload/gear_mod_system.gd` 已支持 `meta.gear_mods` profile、资源、库存、英雄 / 武器 loadout、capacity / drain、唯一装备、授予、掉落、升级、分解和开局 hero / weapon modifier snapshot；`client/scenes/ui/gear_mod_panel.tscn` / `client/scripts/ui/gear_mod_panel.gd` 已接入标题菜单，可切换 hero / weapon、查看资源 / 容量 / rank / drain / 效果，并执行装备、卸下、升级和分解；`GameplayRunLoop` 已停止使用旧 `MetaProgressionSystem.current_modifiers()` 作为下一局属性来源，并在玩家归因击杀时调用 Gear Mod 掉落解释器；掉落命中后通过 `GameplayHud.show_gear_mod_drop_feedback()` 显示 `ui_gear_mod_drop_obtained`。旧 `MetaProgressionSystem` autoload、旧标题升级入口、旧死亡结算奖励、`MetaProgressionPanel` 和 `meta-smoke` 已删除；项目尚未上线，ADR #118 后旧 `meta_progression.json`、旧 meta 契约常量、旧 `ui_meta` / `meta_*` 文案、旧 `purchased_upgrades` 补偿逻辑和相关 schema / smoke 覆盖也已删除，不符合当前 `meta.gear_mods` 的内部测试档直接重置或隔离。F1-F8 当前验收已完成，F9 第一轮 Demo 内容 / 表现打磨已由用户确认收口，F10 WarzoneDirector、兴趣点地图机关接入和普通新局 seed 策略已落地；F10 仍不读取玩家状态、不做隐藏 DDA、不在运行时接 LLM。当前项目类型应表述为固定斜俯视 2.5D 射击刷宝生存，核心操作是移动、鼠标 / 右摇杆瞄准、按住 `fire` action（默认左键 / 右扳机）持续射击，技能保留但首批内容应服务武器模组 / 射击强化 / 战术开火。当前没有阻塞，下一步应以用户最后明确指令为准；如果继续 F11，优先扩展更多 Gear Mod 内容。",
+  "latest_adr": 118,
   "open_decisions": [
     "C",
     "D",
     "E"
   ],
   "last_completed": [
-    "ADR #117：旧局外成长运行时退役；删除 MetaProgressionSystem autoload、MetaProgressionPanel、标题旧升级入口、死亡旧货币 / 账号经验结算和 meta-smoke，保留 meta_progression.json 作为旧 purchased_upgrades 成本补偿表，由 GearModSystem 直接读写 SaveManager 的 meta.gear_mods。",
-    "F11 旧 purchased_upgrades 成本补偿：ADR #116 规定旧永久升级已购等级按 meta_progression.json 历史成本折算为 gear_mod_dust；GearModSystem 在 profile 归一化时记录 gear_mods.legacy_migration.purchased_upgrades_compensation.compensated_levels，gear-mod-smoke 覆盖补偿金额和二次读取不重复发放。",
+    "ADR #118：旧局外成长测试档不再迁移；删除 client/data/meta_progression.json、旧 meta_* 契约常量、旧 ui_meta/meta_* 文案、旧 purchased_upgrades -> gear_mod_dust 补偿逻辑和相关 schema / smoke 覆盖；内部测试档不符合当前 meta.gear_mods 时直接重置或隔离。",
+    "ADR #117：旧局外成长运行时退役；删除 MetaProgressionSystem autoload、MetaProgressionPanel、标题旧升级入口、死亡旧货币 / 账号经验结算和 meta-smoke。",
     "F11 装备 Mod 掉落获得提示：GearModSystem 掉落结果携带 name_key，GameplayRunLoop 在玩家归因击杀掉落命中后调用 GameplayHud.show_gear_mod_drop_feedback() 显示 ui_gear_mod_drop_obtained；gear-mod-smoke 覆盖 HUD 文案和语言刷新，runtime-smoke 用受控 roll 覆盖击杀路径。",
     "F11 装备 Mod 运行时首片：新增 GearModSystem autoload 与 gear-mod-smoke，支持 meta.gear_mods profile、资源、库存、英雄 / 武器 loadout、capacity / drain、唯一装备、授予、enemy_chaser 1% 掉落、升级、分解和开局 modifier snapshot；GameplayRunLoop 已改为读取 GearModSystem hero / weapon modifiers，旧 MetaProgressionSystem.current_modifiers() 不再影响下一局。",
-    "ADR #115：跨局成长从 F6 永久升级轨道改为参考《星际战甲》的装备 Mod 系统；玩家配置英雄 / 武器两套 Mod，Mod 可掉落、升级和分解；旧 MetaProgressionSystem / meta_progression.json 进入 legacy 迁移范围，不再作为未来下一局属性来源。",
+    "ADR #115：跨局成长从 F6 永久升级轨道改为参考《星际战甲》的装备 Mod 系统；玩家配置英雄 / 武器两套 Mod，Mod 可掉落、升级和分解；旧 MetaProgressionSystem 不再作为未来下一局属性来源。",
     "F11 装备 Mod 数据 / 契约首片：登记 gear_mod id / slot / rarity / resource / stack rule，新增 gear_mods.json、gear_mod_drop_tables.csv、gear_mod_fusion_costs.csv、测试武器伤害 Mod、gear_mod_dust、DataLoader / validate_data schema 和坏样例回归。",
     "新增 F11 装备 Mod / 局外装配规划入口：docs/AI协作/工作包/F11-GearModLoadout.md 与 docs/代码/gear_mod_system.md，规划 gear_mods.json、gear_mod_drop_tables.csv、gear_mod_fusion_costs.csv、GearModSystem、测试武器伤害 Mod、enemy_chaser 玩家击杀 1% 掉落、升级消耗资源和分解返还资源。",
     "默认 map_standard_nest 已清空 manual_hazards；手摆能力和 schema 保留给后续非陷阱 / 关键兴趣点等用途，当前默认图只保留 PCG + director 机关。",
@@ -63,8 +63,8 @@
     "ADR #88：项目 IP 方向为 Nestbreakers / 破巢者，详细世界观、命名和宣发包装权威为 docs/IP设定.md。"
   ],
   "next_actions": [
-    "如果继续 F11 装备 Mod / 局外装配，先读 docs/AI协作/工作包/F11-GearModLoadout.md、docs/代码/gear_mod_system.md、GDD §7.2 / §9.16、client/data/README.md 和 docs/测试策略.md；数据 / 契约首片、GearModSystem 运行时首片、标题 Gear Mod 最小 UI、掉落 HUD 获得提示、旧 purchased_upgrades 成本补偿和旧局外成长运行时删除已完成，下一步优先扩展更多 Gear Mod 内容或补正式手动迁移 checklist；运行时或 UI 变更必跑 gear-mod-smoke，改击杀归因或开局应用追加 runtime-smoke。",
-    "旧 MetaProgressionSystem 运行时 / UI / smoke 已删除；meta_progression.json 后续只作旧 purchased_upgrades 成本补偿表，不要继续把旧永久升级轨道作为未来下一局属性来源。",
+    "如果继续 F11 装备 Mod / 局外装配，先读 docs/AI协作/工作包/F11-GearModLoadout.md、docs/代码/gear_mod_system.md、GDD §7.2 / §9.16、client/data/README.md 和 docs/测试策略.md；数据 / 契约首片、GearModSystem 运行时首片、标题 Gear Mod 最小 UI、掉落 HUD 获得提示、旧局外成长运行时删除和旧测试档迁移 / 补偿路径删除已完成，下一步优先扩展更多 Gear Mod 内容；运行时或 UI 变更必跑 gear-mod-smoke，改击杀归因或开局应用追加 runtime-smoke。",
+    "旧 MetaProgressionSystem 运行时 / UI / smoke 已删除；ADR #118 后旧 meta_progression.json、旧 meta 契约和旧测试档迁移 / 补偿路径也已删除，不要继续把旧永久升级轨道作为未来下一局属性来源。",
     "如果继续 F10 战区导演，当前入口是 docs/AI协作/工作包/F10-WarzoneDirector.md、docs/代码/warzone_director.md、docs/代码/map_manager.md 和 client/data/warzone_directors.json；只能用固定阶段、mode / mutation、encounter、interest point、map / hazard / enemy tag 组合来导演战区，interest_points 已能通过 MapManager 生成 source=director 初始机关；不读取玩家血量、DPS、位置、失误、输入等玩家状态，不做隐藏 DDA，不在运行时接 LLM；改动后至少跑 validate_data、test_data_loader_schema、runtime-smoke 和 f9-demo-smoke，影响地图 placement 时追加 save-smoke、perf-probe 与 golden replay runner 评估。",
     "如果继续概念图、资产 brief、宝箱 / 兴趣点或敌巢美术，先看 docs/IP美术风格.md：敌巢 / 虫族占用骨白、蜡黄、干肉粉、深红、黑紫和少量毒蓝，青 / 红 / 白归属虫族与敌巢；玩家和玩家子弹默认不用青 / 红 / 白，敌方远程攻击可用红色；宝箱、遗物祭坛、治疗点、升级站、武器缓存、巢穴终端和危险门按功能色区分。",
     "如果继续美术资产 / 占位替换，先按 GDD §8.2-A 写 asset brief：贴地范围、机关、AOE、地面符号优先用菱形或与量化菱形地图格对齐，机关和规则型地面 footprint 尺寸应是格子的整数倍；角色、敌人、拾取物、子弹、障碍物和特效不强制菱形，但必须声明 footprint、anchor、shadow、sort layer 和真实判定形状；不要把所有资产都做成菱形。",
@@ -83,12 +83,12 @@
     {
       "date": "2026-06-25",
       "command": "sync_contracts --check, validate_data, test_data_loader_schema, lint_gdscript_rules, lint_project_rules, test_project_rules_lint, lint_semantic_rules, test_semantic_rules_lint, json current_state/_kb_index, docs_health_check, diff --check excluding draft, headless-boot, gear-mod-smoke, runtime-smoke, settings-smoke, save-smoke, f9-demo-smoke, debug-tools-smoke, debug-tools-release-smoke, replay-smoke, replay-input-smoke, replay-runner, four checked-in golden replay captures and reruns",
-      "result": "passed for ADR #117 old meta progression runtime retirement; MetaProgressionSystem autoload, MetaProgressionPanel, title legacy entry, death legacy settlement rewards and meta-smoke are removed; GearModSystem directly reads/writes SaveManager meta.gear_mods and still compensates old purchased_upgrades from meta_progression.json costs"
+      "result": "passed for ADR #118 old test-save migration removal; meta_progression.json, old meta contracts, old locale keys, purchased_upgrades compensation code and schema/smoke coverage were removed; GearModSystem still passes profile/loadout/drop/upgrade/dismantle smoke, runtime/save/settings/replay/F9/debug smokes pass, and four checked-in golden replays were recaptured and rerun"
     },
     {
       "date": "2026-06-25",
       "command": "sync_contracts --check, validate_data, test_data_loader_schema, lint_gdscript_rules, lint_project_rules, test_project_rules_lint, lint_semantic_rules, test_semantic_rules_lint, json current_state/_kb_index, docs_health_check, diff --check excluding draft, headless-boot, gear-mod-smoke, meta-smoke, save-smoke, runtime-smoke",
-      "result": "passed for ADR #116 F11 old purchased_upgrades cost compensation; GearModSystem converts uncompensated legacy purchased upgrade levels to gear_mod_dust using meta_progression.json costs, records compensated_levels under gear_mods.legacy_migration, and gear-mod-smoke verifies the 70-dust synthetic old-save case plus no double grant; save-smoke/runtime-smoke include expected broken-save diagnostics while passing"
+      "result": "historical: passed for the now-superseded ADR #116 old purchased_upgrades compensation before ADR #118 removed old test-save migration and compensation paths"
     },
     {
       "date": "2026-06-25",

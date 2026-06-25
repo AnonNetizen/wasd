@@ -9,7 +9,7 @@
       "authority": "AI agent startup order, low-token quick-start route, red lines, required reading, language policy, clarification-first rule for unclear requirements, task recovery after context compaction, AI Git commit policy, large-code-change review policy",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-24",
+      "last_reviewed": "2026-06-25",
       "canonical_for": ["ai_startup", "core_red_lines", "startup_reading_order", "clarification_first_rule", "task_recovery_after_compaction", "ai_git_commit_policy", "low_token_startup"],
       "must_read_for": ["new_session", "rule_change", "ai_platform_change"],
       "related_docs": ["CLAUDE.md", "CODEX.md", "OPENCODE.md", "docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json", "docs/AI导航.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/快速开工.md"],
@@ -197,7 +197,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #98", "ADR #103", "ADR #104", "ADR #105", "ADR #107", "ADR #108", "ADR #109", "ADR #110", "ADR #112", "ADR #113", "ADR #114", "ADR #115", "ADR #116", "WarzoneDirector", "战区导演", "director hazards", "source=director", "random run seed", "普通新局 seed", "set_random_run_seed", "Gear Mod", "装备 Mod", "Warframe mod", "MetaProgression legacy", "purchased_upgrades compensation", "gear_mod_dust compensation", "no hidden DDA", "不读玩家状态", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "菱形机关", "diamond hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP决策", "破巢者", "Nestbreakers", "详细数值面板", "show_stats_panel", "Tab", "subagent", "subagent 默认主动调度", "自动调度", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
+      "keywords": ["ADR", "decision", "决策", "约束", "ADR #98", "ADR #103", "ADR #104", "ADR #105", "ADR #107", "ADR #108", "ADR #109", "ADR #110", "ADR #112", "ADR #113", "ADR #114", "ADR #115", "ADR #116", "ADR #117", "ADR #118", "WarzoneDirector", "战区导演", "director hazards", "source=director", "random run seed", "普通新局 seed", "set_random_run_seed", "Gear Mod", "装备 Mod", "Warframe mod", "MetaProgression legacy", "no old save migration", "no purchased_upgrades compensation", "internal test saves reset", "no hidden DDA", "不读玩家状态", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "菱形机关", "diamond hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP决策", "破巢者", "Nestbreakers", "详细数值面板", "show_stats_panel", "Tab", "subagent", "subagent 默认主动调度", "自动调度", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -225,13 +225,13 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/AI导航.md", "client/locale/README.md"],
       "related_code": ["client/data/", "tools/validate_data.py", "tools/sync_contracts.py"],
       "update_triggers": ["new data file", "new numeric field", "changed unit or range", "DataLoader schema change"],
-      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "characters.json", "weapons.json", "skills.json", "skill_effect_apply_status", "status_stack_rules", "relics.json", "credits.json", "game_modes.json", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "装备 Mod", "Gear Mod", "map_layouts.json", "grid.cell_width", "grid.cell_height", "safe_radius", "出生安全区", "spawn safe zone", "growth.csv", "enemies.csv", "hazards.csv", "radius_tiles", "菱形机关", "diamond hazard", "diamond map grid", "PCG", "有限地图", "人工摆点", "meta_progression.json", "局外成长", "validate_data"]
+      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "characters.json", "weapons.json", "skills.json", "skill_effect_apply_status", "status_stack_rules", "relics.json", "credits.json", "game_modes.json", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "装备 Mod", "Gear Mod", "map_layouts.json", "grid.cell_width", "grid.cell_height", "safe_radius", "出生安全区", "spawn safe zone", "growth.csv", "enemies.csv", "hazards.csv", "radius_tiles", "菱形机关", "diamond hazard", "diamond map grid", "PCG", "有限地图", "人工摆点", "局外成长", "validate_data"]
     },
     {
       "path": "client/locale/README.md",
       "type": "locale_manual",
       "authority": "Human-facing localization and copy configuration manual for client/locale",
-      "status": "active",
+      "status": "archive",
       "owner_scope": "localization",
       "last_reviewed": "2026-06-15",
       "canonical_for": ["locale_config_manual", "strings_csv", "translation_workflow", "placeholder_rules", "english_ui_sizing_baseline"],
@@ -459,7 +459,7 @@
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-06-16",
       "canonical_for": ["stage_work_packages", "formal_project_task_packages"],
-      "must_read_for": ["formal_project_stage_task", "f3_dataloader_schema", "f4_min_playable_loop", "f6_meta_progression", "f7_settings_localization_ui", "f8_replay_testing_balance", "f9_content_demo_polish", "f10_warzone_director", "f11_gear_mod_loadout"],
+      "must_read_for": ["formal_project_stage_task", "f3_dataloader_schema", "f4_min_playable_loop", "f6_meta_progression_history", "f7_settings_localization_ui", "f8_replay_testing_balance", "f9_content_demo_polish", "f10_warzone_director", "f11_gear_mod_loadout"],
       "related_docs": ["docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/快速开工.md", "docs/AI协作/上下文预算.md", "docs/AI协作/README.md", "docs/AI导航.md"],
       "related_code": ["client/"],
       "update_triggers": ["new formal project stage", "repeated high-context stage task", "work package route change"],
@@ -477,7 +477,7 @@
       "related_docs": ["docs/代码/data_loader.md", "client/data/README.md", "client/locale/README.md", "docs/词表与契约.md", "docs/AI协作/上下文预算.md", "docs/AI记忆/current_state.json"],
       "related_code": ["client/scripts/autoload/data_loader.gd", "client/scripts/boot/formal_client_boot.gd", "client/data/", "client/locale/", "tools/test_data_loader_schema.py"],
       "update_triggers": ["DataLoader F3 scope changes", "formal data schema target changes", "F3 acceptance command changes"],
-      "keywords": ["F3", "DataLoader", "schema", "player.json", "characters.json", "weapons.json", "enemies.csv", "hazards.csv", "relics.json", "growth.csv", "growth_pools", "meta_progression", "strings.csv", "game_modes", "test_data_loader_schema"]
+      "keywords": ["F3", "DataLoader", "schema", "player.json", "characters.json", "weapons.json", "enemies.csv", "hazards.csv", "relics.json", "growth.csv", "growth_pools", "strings.csv", "game_modes", "test_data_loader_schema"]
     },
     {
       "path": "docs/AI协作/工作包/F4-MinPlayableLoop.md",
@@ -501,11 +501,11 @@
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-06-23",
       "canonical_for": ["f6_meta_progression_work_package", "legacy_meta_progression_settlement_loop"],
-      "must_read_for": ["f6_meta_progression", "legacy_meta_progression_runtime", "settlement_rewards", "meta_save_roundtrip", "meta_progression_migration"],
+      "must_read_for": ["f6_meta_progression_history", "legacy_meta_progression_history"],
       "related_docs": ["docs/正式项目工作规划.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/save_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/gear_mod_system.md", "client/data/README.md", "client/locale/README.md", "docs/词表与契约.md", "docs/AI协作/上下文预算.md", "docs/AI记忆/current_state.json", "docs/AI协作/工作包/F11-GearModLoadout.md"],
-      "related_code": ["client/scripts/autoload/", "client/scripts/gameplay/", "client/scenes/", "client/data/meta_progression.json", "client/locale/strings.csv", "client/tools/", "tools/godot_bridge.py"],
-      "update_triggers": ["F6 meta progression scope changes", "settlement acceptance command changes", "meta save payload changes", "MetaProgressionSystem module split changes"],
-      "keywords": ["F6", "MetaProgression", "legacy", "局外成长", "元进度", "settlement", "结算", "meta save", "SaveManager", "meta_progression.json", "run_rewards", "account_level", "upgrade_tracks", "unlocks", "GearModSystem", "装备 Mod", "migration"]
+      "related_code": ["client/scripts/autoload/", "client/scripts/gameplay/", "client/scenes/", "client/locale/strings.csv", "client/tools/", "tools/godot_bridge.py"],
+      "update_triggers": ["legacy F6 history documentation changes", "new decision about reviving old meta progression"],
+      "keywords": ["F6", "MetaProgression", "legacy", "history", "局外成长", "元进度", "settlement", "结算", "meta save", "SaveManager", "run_rewards", "account_level", "upgrade_tracks", "unlocks", "GearModSystem", "装备 Mod", "no migration", "ADR #118"]
     },
     {
       "path": "docs/AI协作/工作包/F7-SettingsLocalizationUI.md",
@@ -566,16 +566,16 @@
     {
       "path": "docs/AI协作/工作包/F11-GearModLoadout.md",
       "type": "workflow",
-      "authority": "F11 Gear Mod loadout scope, data schema, migration boundary, and acceptance commands",
+      "authority": "F11 Gear Mod loadout scope, data schema, old meta retirement boundary, and acceptance commands",
       "status": "active",
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-06-25",
-      "canonical_for": ["f11_gear_mod_loadout_work_package", "gear_mod_progression_scope", "meta_progression_legacy_boundary"],
-      "must_read_for": ["f11_gear_mod_loadout", "gear_mod_system_change", "mod_loadout_change", "meta_progression_replacement"],
+      "canonical_for": ["f11_gear_mod_loadout_work_package", "gear_mod_progression_scope", "old_meta_retirement_boundary"],
+      "must_read_for": ["f11_gear_mod_loadout", "gear_mod_system_change", "mod_loadout_change", "old_meta_retirement"],
       "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/gear_mod_system.md", "docs/代码/save_manager.md", "client/data/README.md", "docs/AI记忆/current_state.json", "docs/AI协作/工作包/F6-MetaProgression.md"],
       "related_code": ["client/scripts/autoload/gear_mod_system.gd", "client/tools/gear_mod_smoke.gd", "client/scripts/ui/", "client/data/gear_mods.json", "client/data/gear_mod_drop_tables.csv", "client/data/gear_mod_fusion_costs.csv", "client/scripts/autoload/data_loader.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "tools/godot_bridge.py"],
-      "update_triggers": ["F11 scope changes", "gear mod schema changes", "mod loadout behavior changes", "mod drop or fusion cost changes", "meta progression migration boundary changes", "acceptance command changes"],
-      "keywords": ["F11", "GearModSystem", "Gear Mod", "装备 Mod", "Warframe mod", "星际战甲", "英雄 Mod", "武器 Mod", "hero mod loadout", "weapon mod loadout", "mod loadout", "mod upgrade", "mod dismantle", "enemy_chaser", "1% drop", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "MetaProgression legacy", "purchased_upgrades", "gear_mod_dust compensation", "legacy_migration"]
+      "update_triggers": ["F11 scope changes", "gear mod schema changes", "mod loadout behavior changes", "mod drop or fusion cost changes", "old meta retirement boundary changes", "acceptance command changes"],
+      "keywords": ["F11", "GearModSystem", "Gear Mod", "装备 Mod", "Warframe mod", "星际战甲", "英雄 Mod", "武器 Mod", "hero mod loadout", "weapon mod loadout", "mod loadout", "mod upgrade", "mod dismantle", "enemy_chaser", "1% drop", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "MetaProgression legacy", "no old save migration", "ADR #118"]
     },
     {
       "path": "docs/AI协作/上下文预算.md",
@@ -1074,8 +1074,8 @@
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-06-16",
-      "canonical_for": ["save_manager", "save_envelope", "save_migration", "run_resume_save", "meta_progression_save"],
-      "must_read_for": ["save_manager_change", "save_schema_change", "run_resume_change", "meta_progression_persistence"],
+      "canonical_for": ["save_manager", "save_envelope", "save_migration", "run_resume_save", "gear_mod_meta_save"],
+      "must_read_for": ["save_manager_change", "save_schema_change", "run_resume_change", "gear_mod_persistence"],
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/analytics.md", "docs/代码/game_state.md"],
       "related_code": ["client/scripts/autoload/save_manager.gd", "client/scripts/contracts/save_kinds.gd", "client/scripts/autoload/analytics.gd"],
       "update_triggers": ["SaveManager API changes", "save envelope changes", "save kind changes", "migration behavior changes", "atomic write or broken-save behavior changes"],
@@ -1088,12 +1088,12 @@
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-06-25",
-      "canonical_for": ["gear_mod_system", "gear_mod_inventory", "hero_weapon_mod_loadouts", "gear_mod_progression", "meta_progression_replacement"],
-      "must_read_for": ["gear_mod_system_change", "gear_mod_data_schema_change", "mod_loadout_ui_change", "meta_progression_replacement"],
+      "canonical_for": ["gear_mod_system", "gear_mod_inventory", "hero_weapon_mod_loadouts", "gear_mod_progression", "old_meta_retirement_boundary"],
+      "must_read_for": ["gear_mod_system_change", "gear_mod_data_schema_change", "mod_loadout_ui_change", "old_meta_retirement"],
       "related_docs": ["docs/AI协作/工作包/F11-GearModLoadout.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/save_manager.md", "docs/AI导航.md", "client/data/README.md"],
       "related_code": ["client/scripts/autoload/gear_mod_system.gd", "client/tools/gear_mod_smoke.gd", "client/scripts/ui/", "client/data/gear_mods.json", "client/data/gear_mod_drop_tables.csv", "client/data/gear_mod_fusion_costs.csv", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/scripts/gameplay/gameplay_run_loop.gd", "tools/godot_bridge.py"],
-      "update_triggers": ["GearModSystem API changes", "gear mod profile schema changes", "mod loadout UI changes", "mod drop behavior changes", "mod upgrade or dismantle behavior changes", "meta progression migration changes"],
-      "keywords": ["GearModSystem", "Gear Mod", "装备 Mod", "Warframe mod", "mod inventory", "mod rank", "mod fusion", "mod dismantle", "hero loadout", "weapon loadout", "Gear Mod drop feedback", "HUD 获得提示", "ui_gear_mod_drop_obtained", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "enemy_chaser", "MetaProgression legacy", "SaveManager meta", "purchased_upgrades compensation", "gear_mod_dust compensation", "legacy_migration"]
+      "update_triggers": ["GearModSystem API changes", "gear mod profile schema changes", "mod loadout UI changes", "mod drop behavior changes", "mod upgrade or dismantle behavior changes", "old meta retirement boundary changes"],
+      "keywords": ["GearModSystem", "Gear Mod", "装备 Mod", "Warframe mod", "mod inventory", "mod rank", "mod fusion", "mod dismantle", "hero loadout", "weapon loadout", "Gear Mod drop feedback", "HUD 获得提示", "ui_gear_mod_drop_obtained", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "enemy_chaser", "MetaProgression legacy", "SaveManager meta", "no old save migration", "ADR #118"]
     },
     {
       "path": "docs/代码/audio_manager.md",

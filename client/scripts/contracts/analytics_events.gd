@@ -22,10 +22,6 @@ const VALUES: Array[String] = [
 	"run_suspended",
 	"run_resumed",
 	"pool_overflow",
-	"meta_currency_earned",
-	"meta_upgrade_purchased",
-	"meta_unlock_granted",
-	"account_level_up",
 ]
 
 const RUN_START: String = "run_start"
@@ -48,7 +44,3 @@ const SAVE_CORRUPTED: String = "save_corrupted"
 const RUN_SUSPENDED: String = "run_suspended"
 const RUN_RESUMED: String = "run_resumed"
 const POOL_OVERFLOW: String = "pool_overflow"
-const META_CURRENCY_EARNED: String = "meta_currency_earned"
-const META_UPGRADE_PURCHASED: String = "meta_upgrade_purchased"
-const META_UNLOCK_GRANTED: String = "meta_unlock_granted"
-const ACCOUNT_LEVEL_UP: String = "account_level_up"

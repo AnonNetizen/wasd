@@ -11,9 +11,6 @@ const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
 const DEFAULT_CAPACITY: int = 8
 const INSTANCE_PREFIX: String = "gear_mod_"
-const LEGACY_MIGRATION_KEY: String = "legacy_migration"
-const LEGACY_PURCHASED_UPGRADES_COMPENSATION_KEY: String = "purchased_upgrades_compensation"
-const LEGACY_PURCHASED_UPGRADES_COMPENSATION_VERSION: int = 1
 const PROFILE_KEY: String = "gear_mods"
 const PROFILE_SCHEMA_VERSION: int = 1
 
@@ -307,7 +304,6 @@ func debug_set_loadout_capacity(loadout_slot: String, capacity: int, slot: Strin
 func _normalize_profile(raw_profile: Dictionary) -> Dictionary:
 	var profile: Dictionary = raw_profile.duplicate(true)
 	profile[PROFILE_KEY] = _normalize_gear_state(_dictionary_or_empty(profile.get(PROFILE_KEY, {})))
-	profile = _apply_legacy_purchased_upgrades_compensation(profile)
 	return profile
 
 
@@ -345,7 +341,6 @@ func _normalize_gear_state(raw_state: Dictionary) -> Dictionary:
 		"resources": resources,
 		"inventory": inventory,
 		"loadouts": {},
-		LEGACY_MIGRATION_KEY: _normalize_legacy_migration(_dictionary_or_empty(raw_state.get(LEGACY_MIGRATION_KEY, {}))),
 		"next_instance_index": next_index,
 	}
 	var raw_loadouts: Dictionary = _dictionary_or_empty(raw_state.get("loadouts", {}))
@@ -357,90 +352,6 @@ func _normalize_gear_state(raw_state: Dictionary) -> Dictionary:
 		}
 		(state["loadouts"] as Dictionary)[loadout_slot] = _trim_equipped_to_capacity(loadout_slot, loadout, state)
 	return state
-
-
-func _apply_legacy_purchased_upgrades_compensation(profile: Dictionary) -> Dictionary:
-	var purchased_upgrades: Dictionary = _dictionary_or_empty(profile.get("purchased_upgrades", {}))
-	if purchased_upgrades.is_empty():
-		return profile
-	var gear_state: Dictionary = _gear_state(profile)
-	var migration: Dictionary = _dictionary_or_empty(gear_state.get(LEGACY_MIGRATION_KEY, {}))
-	var compensation: Dictionary = _dictionary_or_empty(migration.get(LEGACY_PURCHASED_UPGRADES_COMPENSATION_KEY, {}))
-	var compensated_levels: Dictionary = _compensated_legacy_upgrade_levels(compensation)
-	var resource_id: String = GEAR_MOD_RESOURCES.GEAR_MOD_DUST
-	var grant_amount: int = 0
-	for track: Dictionary in _legacy_upgrade_tracks():
-		var upgrade_id: String = String(track.get("id", ""))
-		if upgrade_id.is_empty():
-			continue
-		var purchased_level: int = clampi(
-			int(purchased_upgrades.get(upgrade_id, 0)),
-			0,
-			int(track.get("max_level", 0))
-		)
-		var previous_compensated_level: int = maxi(int(compensated_levels.get(upgrade_id, 0)), 0)
-		if purchased_level <= previous_compensated_level:
-			continue
-		grant_amount += _legacy_upgrade_cost_between(track, previous_compensated_level, purchased_level)
-		compensated_levels[upgrade_id] = purchased_level
-	if grant_amount <= 0 and compensation.is_empty():
-		return profile
-	var resources: Dictionary = _dictionary_or_empty(gear_state.get("resources", {}))
-	resources[resource_id] = maxi(int(resources.get(resource_id, 0)) + grant_amount, 0)
-	compensation = {
-		"version": LEGACY_PURCHASED_UPGRADES_COMPENSATION_VERSION,
-		"resource_id": resource_id,
-		"compensated_levels": compensated_levels,
-		"total_granted": maxi(int(compensation.get("total_granted", 0)) + grant_amount, 0),
-	}
-	migration[LEGACY_PURCHASED_UPGRADES_COMPENSATION_KEY] = compensation
-	gear_state["resources"] = resources
-	gear_state[LEGACY_MIGRATION_KEY] = migration
-	profile[PROFILE_KEY] = gear_state
-	return profile
-
-
-func _normalize_legacy_migration(raw_migration: Dictionary) -> Dictionary:
-	var migration: Dictionary = raw_migration.duplicate(true)
-	var compensation: Dictionary = _dictionary_or_empty(migration.get(LEGACY_PURCHASED_UPGRADES_COMPENSATION_KEY, {}))
-	if compensation.is_empty():
-		return migration
-	compensation = {
-		"version": maxi(int(compensation.get("version", LEGACY_PURCHASED_UPGRADES_COMPENSATION_VERSION)), 1),
-		"resource_id": GEAR_MOD_RESOURCES.GEAR_MOD_DUST,
-		"compensated_levels": _compensated_legacy_upgrade_levels(compensation),
-		"total_granted": maxi(int(compensation.get("total_granted", 0)), 0),
-	}
-	migration[LEGACY_PURCHASED_UPGRADES_COMPENSATION_KEY] = compensation
-	return migration
-
-
-func _compensated_legacy_upgrade_levels(compensation: Dictionary) -> Dictionary:
-	var result: Dictionary = {}
-	var raw_levels: Dictionary = _dictionary_or_empty(compensation.get("compensated_levels", {}))
-	for raw_upgrade_id: Variant in raw_levels.keys():
-		var upgrade_id: String = String(raw_upgrade_id)
-		if upgrade_id.is_empty():
-			continue
-		result[upgrade_id] = maxi(int(raw_levels.get(raw_upgrade_id, 0)), 0)
-	return result
-
-
-func _legacy_upgrade_cost_between(track: Dictionary, from_level: int, to_level: int) -> int:
-	var costs: Array = _array_or_empty(track.get("costs", []))
-	var start_index: int = clampi(from_level, 0, costs.size())
-	var end_index: int = clampi(to_level, 0, costs.size())
-	var total: int = 0
-	for index: int in range(start_index, end_index):
-		total += maxi(int(costs[index]), 0)
-	return total
-
-
-func _legacy_upgrade_tracks() -> Array[Dictionary]:
-	var data: Variant = DataLoader.load_json(DataLoader.META_PROGRESSION_PATH)
-	if not data is Dictionary:
-		return []
-	return _typed_dictionary_array((data as Dictionary).get("upgrade_tracks", []))
 
 
 func _normalized_equipped_ids(loadout_slot: String, raw_loadout: Dictionary, inventory: Array[Dictionary]) -> Array[String]:

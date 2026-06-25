@@ -65,11 +65,7 @@
       "save_corrupted",
       "run_suspended",
       "run_resumed",
-      "pool_overflow",
-      "meta_currency_earned",
-      "meta_upgrade_purchased",
-      "meta_unlock_granted",
-      "account_level_up"
+      "pool_overflow"
     ],
     "settings_keys": [
       "general.locale",
@@ -224,34 +220,6 @@
       "ability_tag_activating",
       "ability_tag_silenced"
     ],
-    "meta_currencies": [
-      "meta_essence"
-    ],
-    "meta_upgrades": [
-      "meta_upgrade_max_hp",
-      "meta_upgrade_damage",
-      "meta_upgrade_fire_rate",
-      "meta_upgrade_move_speed",
-      "meta_upgrade_pickup_range",
-      "meta_upgrade_luck",
-      "meta_upgrade_starter_choice"
-    ],
-    "meta_unlock_kinds": [
-      "character",
-      "relic_pool",
-      "mode",
-      "difficulty_tier",
-      "run_start_option"
-    ],
-    "meta_unlocks": [
-      "unlock_character_default",
-      "unlock_relic_pool_basic",
-      "unlock_challenge_room",
-      "unlock_difficulty_tier_2",
-      "unlock_starting_relic_choice_1",
-      "unlock_starting_relic_choice_2",
-      "unlock_starting_relic_choice_3"
-    ],
     "gear_mod_ids": [
       "gear_mod_weapon_damage_test"
     ],
@@ -284,8 +252,7 @@
       "gear_mod_",
       "enemy_",
       "hazard_",
-      "hint_",
-      "meta_"
+      "hint_"
     ]
   }
 }

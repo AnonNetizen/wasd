@@ -96,7 +96,6 @@ def main() -> int:
     _validate_credits(ctx)
     _validate_characters(ctx, weapon_ids, active_item_ids, consumable_ids, skill_ids)
     character_ids = _collect_character_ids(ctx)
-    _validate_meta_progression(ctx, character_ids)
     _validate_growth_csv(ctx)
     _validate_growth_pools(ctx)
     _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids)
@@ -1058,22 +1057,6 @@ def _validate_credit_entry(ctx: ValidationContext, path: Path, field: str, data:
         _require_non_empty_string(ctx, path, f"{field}.copyright", data.get("copyright"))
 
 
-def _validate_meta_progression(ctx: ValidationContext, character_ids: set[str]) -> None:
-    path = CLIENT_DATA / "meta_progression.json"
-    data = _load_json(path, ctx)
-    if not isinstance(data, dict):
-        return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
-
-    currencies = _require_list(ctx, path, "currencies", data.get("currencies"))
-    currency_ids = _validate_currencies(ctx, path, currencies)
-    _validate_run_rewards(ctx, path, data.get("run_rewards"), currency_ids)
-    unlock_ids = _collect_unlock_ids(data.get("unlocks"))
-    _validate_account_level(ctx, path, data.get("account_level"), unlock_ids)
-    _validate_upgrade_tracks(ctx, path, data.get("upgrade_tracks"), currency_ids, unlock_ids)
-    _validate_unlocks(ctx, path, data.get("unlocks"), character_ids)
-
-
 def _validate_growth_csv(ctx: ValidationContext) -> None:
     if not GROWTH_CSV.exists():
         ctx.error(GROWTH_CSV, "$", "missing growth curve CSV")
@@ -1824,130 +1807,6 @@ def _validate_mode_overrides(ctx: ValidationContext, path: Path, field: str, dat
             _validate_stat_value(ctx, path, f"{field}.player_base_stats.{stat}", stat, value)
 
 
-def _validate_currencies(ctx: ValidationContext, path: Path, currencies: list[Any]) -> set[str]:
-    seen: set[str] = set()
-    for index, currency in enumerate(currencies):
-        field = f"currencies[{index}]"
-        if not isinstance(currency, dict):
-            ctx.error(path, field, "must be an object")
-            continue
-        currency_id = _require_registered(ctx, path, f"{field}.id", currency.get("id"), "meta_currencies")
-        if currency_id:
-            if currency_id in seen:
-                ctx.error(path, f"{field}.id", f"duplicate currency id {currency_id}")
-            seen.add(currency_id)
-        _require_locale_key(ctx, path, f"{field}.name_key", currency.get("name_key"))
-        _require_int(ctx, path, f"{field}.default_amount", currency.get("default_amount"), minimum=0)
-        max_amount = _require_int(ctx, path, f"{field}.max_amount", currency.get("max_amount"), minimum=1)
-        default_amount = currency.get("default_amount")
-        if isinstance(default_amount, int) and isinstance(max_amount, int) and max_amount <= default_amount:
-            ctx.error(path, f"{field}.max_amount", "must be greater than default_amount")
-    return seen
-
-
-def _validate_run_rewards(ctx: ValidationContext, path: Path, data: Any, currency_ids: set[str]) -> None:
-    if not isinstance(data, dict):
-        ctx.error(path, "run_rewards", "must be an object")
-        return
-    currency_id = _require_registered(ctx, path, "run_rewards.currency_id", data.get("currency_id"), "meta_currencies")
-    if currency_id and currency_id not in currency_ids:
-        ctx.error(path, "run_rewards.currency_id", f"currency is not defined in currencies: {currency_id}")
-    for field in ("base_amount", "per_minute_survived", "per_50_kills", "first_boss_bonus"):
-        _require_int(ctx, path, f"run_rewards.{field}", data.get(field), minimum=0)
-    _require_int(ctx, path, "run_rewards.max_amount_per_run", data.get("max_amount_per_run"), minimum=1)
-
-
-def _validate_account_level(ctx: ValidationContext, path: Path, data: Any, unlock_ids: set[str]) -> None:
-    if not isinstance(data, dict):
-        ctx.error(path, "account_level", "must be an object")
-        return
-    _require_int(ctx, path, "account_level.xp_per_minute_survived", data.get("xp_per_minute_survived"), minimum=0)
-    _require_int(ctx, path, "account_level.xp_per_50_kills", data.get("xp_per_50_kills"), minimum=0)
-    thresholds = _require_list(ctx, path, "account_level.thresholds", data.get("thresholds"))
-    previous = -1
-    for index, value in enumerate(thresholds):
-        current = _require_int(ctx, path, f"account_level.thresholds[{index}]", value, minimum=0)
-        if isinstance(current, int) and current <= previous:
-            ctx.error(path, f"account_level.thresholds[{index}]", "must be strictly increasing")
-        if isinstance(current, int):
-            previous = current
-    level_rewards = _require_list(ctx, path, "account_level.level_rewards", data.get("level_rewards"))
-    for index, reward in enumerate(level_rewards):
-        field = f"account_level.level_rewards[{index}]"
-        if not isinstance(reward, dict):
-            ctx.error(path, field, "must be an object")
-            continue
-        level = _require_int(ctx, path, f"{field}.level", reward.get("level"), minimum=1)
-        if isinstance(level, int) and thresholds and level > len(thresholds):
-            ctx.error(path, f"{field}.level", "must not exceed threshold count")
-        _validate_unlock_id_list(ctx, path, f"{field}.unlock_ids", reward.get("unlock_ids"), unlock_ids)
-
-
-def _validate_upgrade_tracks(ctx: ValidationContext, path: Path, data: Any, currency_ids: set[str], unlock_ids: set[str]) -> None:
-    tracks = _require_list(ctx, path, "upgrade_tracks", data)
-    seen: set[str] = set()
-    for index, track in enumerate(tracks):
-        field = f"upgrade_tracks[{index}]"
-        if not isinstance(track, dict):
-            ctx.error(path, field, "must be an object")
-            continue
-        track_id = _require_registered(ctx, path, f"{field}.id", track.get("id"), "meta_upgrades")
-        if track_id:
-            if track_id in seen:
-                ctx.error(path, f"{field}.id", f"duplicate upgrade id {track_id}")
-            seen.add(track_id)
-        _require_locale_key(ctx, path, f"{field}.name_key", track.get("name_key"))
-        _require_locale_key(ctx, path, f"{field}.desc_key", track.get("desc_key"))
-        currency_id = _require_registered(ctx, path, f"{field}.currency_id", track.get("currency_id"), "meta_currencies")
-        if currency_id and currency_id not in currency_ids:
-            ctx.error(path, f"{field}.currency_id", f"currency is not defined in currencies: {currency_id}")
-        max_level = _require_int(ctx, path, f"{field}.max_level", track.get("max_level"), minimum=1)
-        costs = _require_list(ctx, path, f"{field}.costs", track.get("costs"))
-        if isinstance(max_level, int) and len(costs) != max_level:
-            ctx.error(path, f"{field}.costs", "length must equal max_level")
-        for cost_index, cost in enumerate(costs):
-            _require_int(ctx, path, f"{field}.costs[{cost_index}]", cost, minimum=0)
-        _validate_modifiers(ctx, path, f"{field}.modifiers", track.get("modifiers", []), require_value_per_level=True)
-        if "unlock_ids_by_level" in track:
-            by_level = _require_list(ctx, path, f"{field}.unlock_ids_by_level", track.get("unlock_ids_by_level"))
-            if isinstance(max_level, int) and len(by_level) != max_level:
-                ctx.error(path, f"{field}.unlock_ids_by_level", "length must equal max_level")
-            for level_index, ids in enumerate(by_level):
-                _validate_unlock_id_list(ctx, path, f"{field}.unlock_ids_by_level[{level_index}]", ids, unlock_ids)
-        condition = track.get("unlock_condition")
-        if condition is not None:
-            if not isinstance(condition, dict):
-                ctx.error(path, f"{field}.unlock_condition", "must be an object")
-            elif "account_level" in condition:
-                _require_int(ctx, path, f"{field}.unlock_condition.account_level", condition.get("account_level"), minimum=1)
-
-
-def _validate_unlocks(ctx: ValidationContext, path: Path, data: Any, character_ids: set[str]) -> None:
-    unlocks = _require_list(ctx, path, "unlocks", data)
-    seen: set[str] = set()
-    for index, unlock in enumerate(unlocks):
-        field = f"unlocks[{index}]"
-        if not isinstance(unlock, dict):
-            ctx.error(path, field, "must be an object")
-            continue
-        unlock_id = _require_registered(ctx, path, f"{field}.id", unlock.get("id"), "meta_unlocks")
-        if unlock_id:
-            if unlock_id in seen:
-                ctx.error(path, f"{field}.id", f"duplicate unlock id {unlock_id}")
-            seen.add(unlock_id)
-        _require_registered(ctx, path, f"{field}.kind", unlock.get("kind"), "meta_unlock_kinds")
-        if "target_id" in unlock:
-            target_id = unlock.get("target_id")
-            if not isinstance(target_id, str) or not target_id:
-                ctx.error(path, f"{field}.target_id", "must be a non-empty string")
-            elif unlock.get("kind") == "character" and target_id not in character_ids:
-                ctx.error(path, f"{field}.target_id", f"character is not defined in characters.json: {target_id}")
-        if "name_key" in unlock:
-            _require_locale_key(ctx, path, f"{field}.name_key", unlock.get("name_key"))
-        if not isinstance(unlock.get("default_unlocked"), bool):
-            ctx.error(path, f"{field}.default_unlocked", "must be bool")
-
-
 def _validate_stat_value(ctx: ValidationContext, path: Path, field: str, stat: str, value: Any) -> None:
     if stat not in ctx.contracts["stats"]:
         ctx.error(path, field, f"unknown stat id {stat}")
@@ -2018,20 +1877,6 @@ def _validate_registered_string_list(
                 ctx.error(path, f"{field}[{index}]", f"duplicate id {item}")
             seen.add(item)
     return seen
-
-
-def _validate_unlock_id_list(ctx: ValidationContext, path: Path, field: str, data: Any, defined_unlock_ids: set[str]) -> None:
-    unlock_ids = _require_list(ctx, path, field, data)
-    for index, unlock_id in enumerate(unlock_ids):
-        value = _require_registered(ctx, path, f"{field}[{index}]", unlock_id, "meta_unlocks")
-        if value and value not in defined_unlock_ids:
-            ctx.error(path, f"{field}[{index}]", f"unlock is not defined in unlocks: {value}")
-
-
-def _collect_unlock_ids(data: Any) -> set[str]:
-    if not isinstance(data, list):
-        return set()
-    return {item.get("id") for item in data if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
 def _collect_character_ids(ctx: ValidationContext) -> set[str]:

@@ -27,7 +27,7 @@
 | Replay | `docs/代码/replay.md` | `client/scripts/autoload/replay.gd` | F2 第四片已建立 |
 | PoolManager | `docs/代码/pool_manager.md` | `client/scripts/autoload/pool_manager.gd` | F2 第五片已建立 |
 | SaveManager | `docs/代码/save_manager.md` | `client/scripts/autoload/save_manager.gd` | F2 第六片已建立 |
-| GearModSystem | `docs/代码/gear_mod_system.md` | `client/scripts/autoload/gear_mod_system.gd`、`client/scripts/ui/gear_mod_panel.gd`、`client/data/gear_mods.json`、`client/data/gear_mod_drop_tables.csv`、`client/data/gear_mod_fusion_costs.csv`、`client/tools/gear_mod_smoke.gd` | F11 数据 / 契约、运行时、最小 UI、掉落 HUD 获得提示、旧 purchased_upgrades 成本补偿与旧局外成长运行时删除已建立 |
+| GearModSystem | `docs/代码/gear_mod_system.md` | `client/scripts/autoload/gear_mod_system.gd`、`client/scripts/ui/gear_mod_panel.gd`、`client/data/gear_mods.json`、`client/data/gear_mod_drop_tables.csv`、`client/data/gear_mod_fusion_costs.csv`、`client/tools/gear_mod_smoke.gd` | F11 数据 / 契约、运行时、最小 UI、掉落 HUD 获得提示、旧局外成长运行时与旧测试档迁移 / 补偿路径删除已建立 |
 | AudioManager | `docs/代码/audio_manager.md` | `client/scripts/autoload/audio_manager.gd` | F2 第七片已建立 |
 | Localization | `docs/代码/localization.md` | `client/scripts/autoload/localization.gd` | F2 第二片已建立 |
 | UIManager | `docs/代码/ui_manager.md` | `client/scripts/autoload/ui_manager.gd` | F2 第二片已建立 |

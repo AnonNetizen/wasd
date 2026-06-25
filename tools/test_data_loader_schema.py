@@ -66,14 +66,6 @@ def main() -> int:
             ],
         ),
         (
-            "meta unlock character target must exist",
-            _mutate_json("client/data/meta_progression.json", _set_meta_character_target("character_missing")),
-            [
-                "client/data/meta_progression.json:unlocks[0].target_id",
-                "character is not defined in characters.json: character_missing",
-            ],
-        ),
-        (
             "unknown game mode id fails",
             _mutate_json("client/data/game_modes.json", _set_game_mode_id("mode_unregistered")),
             [
@@ -729,13 +721,6 @@ def _set_character_stat(stat: str, value: object) -> JsonMutator:
 
 def _clear_characters(payload: dict[str, Any]) -> None:
     payload["characters"] = []
-
-
-def _set_meta_character_target(value: str) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["unlocks"][0]["target_id"] = value
-
-    return mutate
 
 
 def _set_game_mode_id(value: str) -> JsonMutator:

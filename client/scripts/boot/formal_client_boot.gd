@@ -44,7 +44,7 @@ func _ready() -> void:
 	var save_kind_count: int = SaveManager.registered_save_kinds().size()
 	var audio_prefix_count: int = AudioManager.registered_audio_prefixes().size()
 	var state_name: StringName = GameState.current()
-	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d data_schema_ok=%s mods=%d player_stats=%d weapons=%d enemies=%d hazards=%d spawn_waves=%d relics=%d active_items=%d consumables=%d skills=%d credits=%d credit_sections=%d characters=%d locale_keys=%d growth_levels=%d growth_pools=%d game_modes=%d map_layouts=%d warzone_directors=%d meta_upgrades=%d meta_unlocks=%d settings=%d analytics_events=%d analytics_enabled=%s replay_enabled=%s replay_recording=%s platform_provider=%s platform_available=%s pool_ids=%d active_pools=%d save_kinds=%d save_slots=%d audio_prefixes=%d audio_streams=%d audio_buses_ready=%s locale=%s ui_stack=%d state=%s seed=%d" % [
+	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d data_schema_ok=%s mods=%d player_stats=%d weapons=%d enemies=%d hazards=%d spawn_waves=%d relics=%d active_items=%d consumables=%d skills=%d credits=%d credit_sections=%d characters=%d locale_keys=%d growth_levels=%d growth_pools=%d game_modes=%d map_layouts=%d warzone_directors=%d settings=%d analytics_events=%d analytics_enabled=%s replay_enabled=%s replay_recording=%s platform_provider=%s platform_available=%s pool_ids=%d active_pools=%d save_kinds=%d save_slots=%d audio_prefixes=%d audio_streams=%d audio_buses_ready=%s locale=%s ui_stack=%d state=%s seed=%d" % [
 		BOOT_LOG_PREFIX,
 		contract_count,
 		stream_count,
@@ -68,8 +68,6 @@ func _ready() -> void:
 		int(schema_counts.get("game_modes", 0)),
 		int(schema_counts.get("map_layouts", 0)),
 		int(schema_counts.get("warzone_directors", 0)),
-		int(schema_counts.get("meta_upgrade_tracks", 0)),
-		int(schema_counts.get("meta_unlocks", 0)),
 		settings_count,
 		analytics_event_count,
 		str(Analytics.is_enabled()),

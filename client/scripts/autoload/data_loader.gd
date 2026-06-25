@@ -21,7 +21,6 @@ const ACTIVE_ITEMS_PATH: String = "res://data/active_items.json"
 const CONSUMABLES_PATH: String = "res://data/consumables.json"
 const SKILLS_PATH: String = "res://data/skills.json"
 const CREDITS_PATH: String = "res://data/credits.json"
-const META_PROGRESSION_PATH: String = "res://data/meta_progression.json"
 const GROWTH_CURVE_PATH: String = "res://data/growth.csv"
 const GROWTH_POOLS_PATH: String = "res://data/growth_pools.json"
 const GAME_MODES_PATH: String = "res://data/game_modes.json"
@@ -149,7 +148,6 @@ func validate_project_data() -> bool:
 	is_valid = _validate_credits_json(locale_keys) and is_valid
 	is_valid = _validate_characters_json(locale_keys, weapon_ids, active_item_ids, consumable_ids, skill_ids) and is_valid
 	var character_ids: Dictionary = _collect_character_ids()
-	is_valid = _validate_meta_progression(locale_keys, character_ids) and is_valid
 	is_valid = _validate_growth_csv() and is_valid
 	is_valid = _validate_growth_pools(locale_keys) and is_valid
 	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids) and is_valid
@@ -1244,157 +1242,6 @@ func _validate_credit_entry(field: String, data: Variant, locale_keys: Dictionar
 	return is_valid
 
 
-func _validate_meta_progression(locale_keys: Dictionary, character_ids: Dictionary) -> bool:
-	var data: Variant = load_json(META_PROGRESSION_PATH)
-	if not data is Dictionary:
-		return _schema_fail(META_PROGRESSION_PATH, "root", "Dictionary")
-
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_int(META_PROGRESSION_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
-
-	var currencies: Array = _require_array(META_PROGRESSION_PATH, "currencies", payload.get("currencies"))
-	var currency_ids: Dictionary = {}
-	_last_schema_counts["meta_currencies"] = currencies.size()
-	for index: int in range(currencies.size()):
-		var field: String = "currencies[%d]" % index
-		var currency: Variant = currencies[index]
-		if not currency is Dictionary:
-			is_valid = _schema_fail(META_PROGRESSION_PATH, field, "Dictionary") and is_valid
-			continue
-		var currency_dict: Dictionary = currency as Dictionary
-		var currency_id: String = _require_registered(META_PROGRESSION_PATH, "%s.id" % field, currency_dict.get("id"), "meta_currencies")
-		if not currency_id.is_empty():
-			if currency_ids.has(currency_id):
-				is_valid = _schema_fail(META_PROGRESSION_PATH, "%s.id" % field, "unique currency id") and is_valid
-			currency_ids[currency_id] = true
-		is_valid = _require_locale_key(META_PROGRESSION_PATH, "%s.name_key" % field, currency_dict.get("name_key"), locale_keys) and is_valid
-		is_valid = _require_int(META_PROGRESSION_PATH, "%s.default_amount" % field, currency_dict.get("default_amount"), 0) and is_valid
-		is_valid = _require_int(META_PROGRESSION_PATH, "%s.max_amount" % field, currency_dict.get("max_amount"), 1) and is_valid
-		if _is_int_like(currency_dict.get("default_amount")) and _is_int_like(currency_dict.get("max_amount")) and _variant_to_int(currency_dict.get("max_amount")) <= _variant_to_int(currency_dict.get("default_amount")):
-			is_valid = _schema_fail(META_PROGRESSION_PATH, "%s.max_amount" % field, "greater than default_amount") and is_valid
-
-	is_valid = _validate_run_rewards(payload.get("run_rewards"), currency_ids) and is_valid
-	var unlock_ids: Dictionary = _collect_defined_unlock_ids(payload.get("unlocks"))
-	is_valid = _validate_account_level(payload.get("account_level"), unlock_ids) and is_valid
-	is_valid = _validate_upgrade_tracks(payload.get("upgrade_tracks"), currency_ids, unlock_ids, locale_keys) and is_valid
-	is_valid = _validate_unlocks(payload.get("unlocks"), locale_keys, character_ids) and is_valid
-	return is_valid
-
-
-func _validate_run_rewards(data: Variant, currency_ids: Dictionary) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(META_PROGRESSION_PATH, "run_rewards", "Dictionary")
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	var currency_id: String = _require_registered(META_PROGRESSION_PATH, "run_rewards.currency_id", payload.get("currency_id"), "meta_currencies")
-	if not currency_id.is_empty() and not currency_ids.has(currency_id):
-		is_valid = _schema_fail(META_PROGRESSION_PATH, "run_rewards.currency_id", "currency defined in currencies") and is_valid
-	for field: String in ["base_amount", "per_minute_survived", "per_50_kills", "first_boss_bonus"]:
-		is_valid = _require_int(META_PROGRESSION_PATH, "run_rewards.%s" % field, payload.get(field), 0) and is_valid
-	is_valid = _require_int(META_PROGRESSION_PATH, "run_rewards.max_amount_per_run", payload.get("max_amount_per_run"), 1) and is_valid
-	return is_valid
-
-
-func _validate_account_level(data: Variant, unlock_ids: Dictionary) -> bool:
-	if not data is Dictionary:
-		return _schema_fail(META_PROGRESSION_PATH, "account_level", "Dictionary")
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_int(META_PROGRESSION_PATH, "account_level.xp_per_minute_survived", payload.get("xp_per_minute_survived"), 0) and is_valid
-	is_valid = _require_int(META_PROGRESSION_PATH, "account_level.xp_per_50_kills", payload.get("xp_per_50_kills"), 0) and is_valid
-	var thresholds: Array = _require_array(META_PROGRESSION_PATH, "account_level.thresholds", payload.get("thresholds"))
-	var previous: int = -1
-	for index: int in range(thresholds.size()):
-		var value: Variant = thresholds[index]
-		is_valid = _require_int(META_PROGRESSION_PATH, "account_level.thresholds[%d]" % index, value, 0) and is_valid
-		if _is_int_like(value):
-			if _variant_to_int(value) <= previous:
-				is_valid = _schema_fail(META_PROGRESSION_PATH, "account_level.thresholds[%d]" % index, "strictly increasing int") and is_valid
-			previous = _variant_to_int(value)
-	var rewards: Array = _require_array(META_PROGRESSION_PATH, "account_level.level_rewards", payload.get("level_rewards"))
-	for index: int in range(rewards.size()):
-		var field: String = "account_level.level_rewards[%d]" % index
-		var reward: Variant = rewards[index]
-		if not reward is Dictionary:
-			is_valid = _schema_fail(META_PROGRESSION_PATH, field, "Dictionary") and is_valid
-			continue
-		var reward_dict: Dictionary = reward as Dictionary
-		is_valid = _require_int(META_PROGRESSION_PATH, "%s.level" % field, reward_dict.get("level"), 1) and is_valid
-		is_valid = _validate_unlock_id_list("%s.unlock_ids" % field, reward_dict.get("unlock_ids"), unlock_ids) and is_valid
-	return is_valid
-
-
-func _validate_upgrade_tracks(data: Variant, currency_ids: Dictionary, unlock_ids: Dictionary, locale_keys: Dictionary) -> bool:
-	var tracks: Array = _require_array(META_PROGRESSION_PATH, "upgrade_tracks", data)
-	var is_valid: bool = true
-	var seen: Dictionary = {}
-	_last_schema_counts["meta_upgrade_tracks"] = tracks.size()
-	for index: int in range(tracks.size()):
-		var field: String = "upgrade_tracks[%d]" % index
-		var track: Variant = tracks[index]
-		if not track is Dictionary:
-			is_valid = _schema_fail(META_PROGRESSION_PATH, field, "Dictionary") and is_valid
-			continue
-		var track_dict: Dictionary = track as Dictionary
-		var track_id: String = _require_registered(META_PROGRESSION_PATH, "%s.id" % field, track_dict.get("id"), "meta_upgrades")
-		if not track_id.is_empty():
-			if seen.has(track_id):
-				is_valid = _schema_fail(META_PROGRESSION_PATH, "%s.id" % field, "unique upgrade id") and is_valid
-			seen[track_id] = true
-		is_valid = _require_locale_key(META_PROGRESSION_PATH, "%s.name_key" % field, track_dict.get("name_key"), locale_keys) and is_valid
-		is_valid = _require_locale_key(META_PROGRESSION_PATH, "%s.desc_key" % field, track_dict.get("desc_key"), locale_keys) and is_valid
-		var currency_id: String = _require_registered(META_PROGRESSION_PATH, "%s.currency_id" % field, track_dict.get("currency_id"), "meta_currencies")
-		if not currency_id.is_empty() and not currency_ids.has(currency_id):
-			is_valid = _schema_fail(META_PROGRESSION_PATH, "%s.currency_id" % field, "currency defined in currencies") and is_valid
-		var max_level: Variant = track_dict.get("max_level")
-		is_valid = _require_int(META_PROGRESSION_PATH, "%s.max_level" % field, max_level, 1) and is_valid
-		var costs: Array = _require_array(META_PROGRESSION_PATH, "%s.costs" % field, track_dict.get("costs"))
-		if _is_int_like(max_level) and costs.size() != _variant_to_int(max_level):
-			is_valid = _schema_fail(META_PROGRESSION_PATH, "%s.costs" % field, "length equals max_level") and is_valid
-		for cost_index: int in range(costs.size()):
-			is_valid = _require_int(META_PROGRESSION_PATH, "%s.costs[%d]" % [field, cost_index], costs[cost_index], 0) and is_valid
-		is_valid = _validate_modifiers(META_PROGRESSION_PATH, "%s.modifiers" % field, track_dict.get("modifiers", []), true) and is_valid
-		if track_dict.has("unlock_ids_by_level"):
-			var by_level: Array = _require_array(META_PROGRESSION_PATH, "%s.unlock_ids_by_level" % field, track_dict.get("unlock_ids_by_level"))
-			if _is_int_like(max_level) and by_level.size() != _variant_to_int(max_level):
-				is_valid = _schema_fail(META_PROGRESSION_PATH, "%s.unlock_ids_by_level" % field, "length equals max_level") and is_valid
-			for level_index: int in range(by_level.size()):
-				is_valid = _validate_unlock_id_list("%s.unlock_ids_by_level[%d]" % [field, level_index], by_level[level_index], unlock_ids) and is_valid
-	return is_valid
-
-
-func _validate_unlocks(data: Variant, locale_keys: Dictionary, character_ids: Dictionary) -> bool:
-	var unlocks: Array = _require_array(META_PROGRESSION_PATH, "unlocks", data)
-	var is_valid: bool = true
-	var seen: Dictionary = {}
-	_last_schema_counts["meta_unlocks"] = unlocks.size()
-	for index: int in range(unlocks.size()):
-		var field: String = "unlocks[%d]" % index
-		var unlock: Variant = unlocks[index]
-		if not unlock is Dictionary:
-			is_valid = _schema_fail(META_PROGRESSION_PATH, field, "Dictionary") and is_valid
-			continue
-		var unlock_dict: Dictionary = unlock as Dictionary
-		var unlock_id: String = _require_registered(META_PROGRESSION_PATH, "%s.id" % field, unlock_dict.get("id"), "meta_unlocks")
-		if not unlock_id.is_empty():
-			if seen.has(unlock_id):
-				is_valid = _schema_fail(META_PROGRESSION_PATH, "%s.id" % field, "unique unlock id") and is_valid
-			seen[unlock_id] = true
-		is_valid = _require_registered(META_PROGRESSION_PATH, "%s.kind" % field, unlock_dict.get("kind"), "meta_unlock_kinds") != "" and is_valid
-		if unlock_dict.has("target_id"):
-			var target_id: String = String(unlock_dict.get("target_id", ""))
-			if target_id.is_empty():
-				is_valid = _schema_fail(META_PROGRESSION_PATH, "%s.target_id" % field, "non-empty string") and is_valid
-			elif unlock_dict.get("kind") == "character" and not character_ids.has(target_id):
-				is_valid = _schema_fail(META_PROGRESSION_PATH, "%s.target_id" % field, "character defined in characters.json") and is_valid
-		if unlock_dict.has("name_key"):
-			is_valid = _require_locale_key(META_PROGRESSION_PATH, "%s.name_key" % field, unlock_dict.get("name_key"), locale_keys) and is_valid
-		if not unlock_dict.get("default_unlocked") is bool:
-			is_valid = _schema_fail(META_PROGRESSION_PATH, "%s.default_unlocked" % field, "bool") and is_valid
-	return is_valid
-
-
 func _validate_growth_csv() -> bool:
 	var rows: Array[Dictionary] = load_csv(GROWTH_CURVE_PATH)
 	var is_valid: bool = true
@@ -2318,26 +2165,6 @@ func _validate_stat_value(resource_path: String, field: String, stat: String, va
 	if NON_NEGATIVE_STATS.has(stat):
 		return _require_number(resource_path, field, value, 0.0)
 	return _require_number(resource_path, field, value)
-
-
-func _validate_unlock_id_list(field: String, data: Variant, defined_unlock_ids: Dictionary) -> bool:
-	var ids: Array = _require_array(META_PROGRESSION_PATH, field, data)
-	var is_valid: bool = true
-	for index: int in range(ids.size()):
-		var unlock_id: String = _require_registered(META_PROGRESSION_PATH, "%s[%d]" % [field, index], ids[index], "meta_unlocks")
-		if not unlock_id.is_empty() and not defined_unlock_ids.has(unlock_id):
-			is_valid = _schema_fail(META_PROGRESSION_PATH, "%s[%d]" % [field, index], "unlock defined in unlocks") and is_valid
-	return is_valid
-
-
-func _collect_defined_unlock_ids(data: Variant) -> Dictionary:
-	var ids: Dictionary = {}
-	if not data is Array:
-		return ids
-	for item: Variant in data:
-		if item is Dictionary and (item as Dictionary).get("id") is String:
-			ids[String((item as Dictionary).get("id"))] = true
-	return ids
 
 
 func _collect_character_ids() -> Dictionary:
