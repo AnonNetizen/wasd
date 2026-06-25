@@ -162,6 +162,10 @@ func is_alive() -> bool:
 	return _life_points > 0.0 and _defeat_feedback_remaining <= 0.0
 
 
+func enemy_id() -> String:
+	return _enemy_id
+
+
 func is_defeat_feedback_active() -> bool:
 	return _defeat_feedback_remaining > 0.0
 

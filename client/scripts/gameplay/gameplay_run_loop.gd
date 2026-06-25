@@ -14,6 +14,7 @@ const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
 const DAMAGE_NUMBER_SCENE := preload("res://scenes/gameplay/damage_number.tscn")
 const GAME_MODES := preload("res://scripts/contracts/game_modes.gd")
+const GEAR_MOD_SLOTS := preload("res://scripts/contracts/gear_mod_slots.gd")
 const HAZARD_SCENE := preload("res://scenes/gameplay/hazard.tscn")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const BULLET_SCENE := preload("res://scenes/gameplay/bullet.tscn")
@@ -206,7 +207,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		return
 	_weapon_system.call("configure", _player, _active_world, weapon)
 	_configure_skill_system(character)
-	_apply_meta_modifiers(MetaProgressionSystem.current_modifiers())
+	_apply_loadout_modifiers()
 
 	_hud = get_node_or_null("GameplayHud") as CanvasLayer
 	if _hud == null:
@@ -554,6 +555,8 @@ func _on_enemy_defeated(_enemy: Node, _exp_reward: int, wave_key: String) -> voi
 			_hud.call("set_kills", _kills)
 		if _enemy is Node2D and _exp_reward > 0:
 			_spawn_pickup_orb((_enemy as Node2D).global_position, _exp_reward)
+		if _enemy != null:
+			_roll_gear_mod_drop(_enemy)
 	if _spawn_states.has(wave_key):
 		var state: Dictionary = _spawn_states[wave_key]
 		state["alive"] = maxi(int(state.get("alive", 0)) - 1, 0)
@@ -723,13 +726,24 @@ func _run_settlement_summary() -> Dictionary:
 	}
 
 
-func _apply_meta_modifiers(modifiers: Array[Dictionary]) -> void:
-	if modifiers.is_empty():
+func _roll_gear_mod_drop(enemy: Node) -> void:
+	var enemy_id: String = ""
+	if enemy.has_method("enemy_id"):
+		enemy_id = String(enemy.call("enemy_id"))
+	elif enemy.has_meta("enemy_id"):
+		enemy_id = String(enemy.get_meta("enemy_id"))
+	if enemy_id.is_empty():
 		return
+	GearModSystem.roll_drop_for_enemy(enemy_id)
+
+
+func _apply_loadout_modifiers() -> void:
+	var hero_modifiers: Array[Dictionary] = GearModSystem.current_modifiers(GEAR_MOD_SLOTS.HERO)
+	var weapon_modifiers: Array[Dictionary] = GearModSystem.current_modifiers(GEAR_MOD_SLOTS.WEAPON)
 	if _player != null and _player.has_method("apply_modifiers"):
-		_player.call("apply_modifiers", modifiers)
+		_player.call("apply_modifiers", hero_modifiers)
 	if _weapon_system != null and _weapon_system.has_method("apply_modifiers"):
-		_weapon_system.call("apply_modifiers", modifiers)
+		_weapon_system.call("apply_modifiers", weapon_modifiers)
 
 
 func _show_pause_menu() -> void:

@@ -24,6 +24,13 @@ F11 将现有 F6 局外永久升级轨道替换为参考《星际战甲》的装
 6. Mod 分解：把重复或不需要的 Mod 转成升级资源。
 7. 迁移策略：旧局外永久升级系统停止作为下一局属性来源；旧存档字段迁移或隔离为兼容数据，不能导致坏档。
 
+当前实现状态（2026-06-25）：
+
+- 已完成数据 / 契约首片：`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、测试武器伤害 Mod、`gear_mod_dust`、DataLoader / validate_data / schema regression。
+- 已完成运行时首片：`GearModSystem` autoload 保存 `meta.gear_mods`，支持 profile roundtrip、授予、英雄 / 武器 loadout、capacity / drain、唯一装备、升级、分解、`enemy_chaser` 玩家归因击杀掉落和开局 hero / weapon modifier snapshot。
+- 已完成专用验证：`python tools/godot_bridge.py --project client gear-mod-smoke` 覆盖授予、槽位拒绝、装备、重复拒绝、分解返还、容量阻止升级、资源升级、modifier 数值变化和强制掉落。
+- 待做：标题菜单 Gear Mod UI、旧 `purchased_upgrades` 补偿迁移、获得 Mod 的 HUD / UI 提示、更多 Mod 内容与手动迁移 checklist。
+
 首片不做：
 
 - 极性、Forma、不同武器类型专属槽、交易、套装加成、Riven 随机词条。
@@ -112,8 +119,8 @@ common,5,gear_mod_dust,130
 实现要求：
 
 - `SaveManager` 仍是唯一存档入口，`meta` kind 保留。
-- `MetaProgressionSystem` 的旧购买轨道不能继续给下一局注入永久 modifiers。
-- 如果旧存档已有 purchased upgrades，首片可以迁移为补偿资源、转换成初始 Mod，或保留为 legacy 字段但不生效；具体策略必须写 ADR / 模块文档并覆盖 smoke。
+- `MetaProgressionSystem` 的旧购买轨道不能继续给下一局注入永久 modifiers；当前 `GameplayRunLoop` 已改为读取 `GearModSystem` 的 hero / weapon modifiers。
+- 如果旧存档已有 purchased upgrades，首片当前保留为 legacy 字段但不生效；后续应迁移为补偿资源、starter Mod 或其它可解释补偿，具体策略必须写 ADR / 模块文档并覆盖 smoke。
 - `run` 存档只需要记录开局时已应用的 loadout/modifier 快照；不要在局中读取玩家背包实时改属性。
 
 ## 5. UI / 操作边界
@@ -161,7 +168,9 @@ common,5,gear_mod_dust,130
 - `python tools/validate_data.py`
 - `python tools/test_data_loader_schema.py`
 - `python tools/godot_bridge.py --project client headless-boot`
-- 运行时阶段新增 `gear-mod-smoke` 或并入 `meta-smoke`，覆盖掉落、升级、分解、装备、容量、下一局 modifier 应用和旧 meta 迁移。
+- `python tools/godot_bridge.py --project client gear-mod-smoke`
+- 改 `GameplayRunLoop` 开局应用、击杀归因或死亡结算旁路时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
+- 改旧 meta 迁移 / 补偿时追加 `python tools/godot_bridge.py --project client meta-smoke` 与 `save-smoke`。
 - 若默认开局属性或掉落影响 golden 摘要，重跑四条 checked-in replay；有意变化时重录并说明。
 
 ## 8. 风险

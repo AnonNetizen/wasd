@@ -21,18 +21,19 @@
 - 不在局中动态修改玩家背包影响当前属性；当前 run 使用开局 loadout 快照，保障回放和续局稳定。
 - 不做随机词条、交易、套装、极性或 Forma；这些属于后续扩展。
 
-## 3. 规划代码地图
+## 3. 代码地图
 
 | 路径 | 责任 |
 |------|------|
-| `client/scripts/autoload/gear_mod_system.gd` | 运行时主入口；读取数据、维护 profile、输出 modifiers |
+| `client/scripts/autoload/gear_mod_system.gd` | 运行时主入口；读取数据，维护 `meta.gear_mods` profile，处理授予 / 掉落 / 装配 / 升级 / 分解，输出英雄 / 武器 modifiers |
 | `client/data/gear_mods.json` | 装备 Mod 定义、slot、rarity、rank 效果、drain 和分解返还 |
 | `client/data/gear_mod_drop_tables.csv` | Mod 掉落来源与概率 |
 | `client/data/gear_mod_fusion_costs.csv` | Mod 升级成本 |
-| `client/scripts/ui/gear_mod_panel.gd` / `.tscn` | 标题菜单下的最小装备 Mod UI |
-| `client/scripts/gameplay/gameplay_run_loop.gd` | 新局开始时读取 loadout 快照并应用英雄 / 武器 modifiers |
+| `client/scripts/ui/gear_mod_panel.gd` / `.tscn` | 待实现：标题菜单下的最小装备 Mod UI |
+| `client/scripts/gameplay/gameplay_run_loop.gd` | 新局开始时读取 hero / weapon loadout 快照并分别应用到 Player / WeaponSystem；玩家归因击杀时请求 Gear Mod 掉落 |
 | `client/scripts/gameplay/enemy.gd` / `GameplayRunLoop` 击杀归因路径 | 玩家击杀普通小怪时触发 `RNG.drop` 掉落判定 |
-| `client/tools/gear_mod_smoke.gd` | 首片 headless 验证 |
+| `client/tools/gear_mod_smoke.gd` | F11 headless smoke，覆盖 profile、授予、装备、容量、升级、分解和掉落 |
+| `tools/godot_bridge.py` | `gear-mod-smoke` 命令入口 |
 
 ## 4. 数据契约草案
 
@@ -59,22 +60,22 @@
 ### 新建 / 读取 profile
 
 1. `SaveManager.load(slot, "meta")` 读取 meta payload。
-2. `GearModSystem` 归一化 `gear_mods` 字段，补默认资源、空背包和两套 loadout。
-3. 如果旧 payload 含 `purchased_upgrades`，按迁移策略处理，避免继续输出旧永久升级 modifiers。
+2. `GearModSystem` 归一化 `gear_mods` 字段，补默认资源、空背包、两套 loadout 和稳定 `next_instance_index`。
+3. 当前实现保留旧 `purchased_upgrades`、账号等级、旧货币和解锁字段作为 legacy 数据；`GameplayRunLoop` 已停止读取 `MetaProgressionSystem.current_modifiers()`，旧购买轨道不再影响下一局属性。
 
 ### 新局应用
 
 1. 标题开始新局前，读取当前 `hero` / `weapon` loadout。
 2. 校验装配仍合法；数据被删除或 rank 超限时 fail-fast 或安全卸下并记录诊断。
-3. 生成 modifiers 快照。
-4. `GameplayRunLoop` 配置玩家和武器后应用 modifiers。
+3. 生成 hero / weapon 两组 modifiers 快照。
+4. `GameplayRunLoop` 配置玩家和武器后，把 hero modifiers 应用到 `Player.apply_modifiers()`，weapon modifiers 应用到 `WeaponSystem.apply_modifiers()`。
 5. run 快照保存已应用结果，续局不重新读取背包。
 
 ### 掉落
 
 1. 玩家归因击杀敌人后，系统查 `gear_mod_drop_tables.csv`。
 2. 所有随机走 `RNG.drop`。
-3. 命中后写入 meta inventory，并通过 UI / HUD 提示获得 Mod。
+3. 命中后写入 meta inventory；UI / HUD 获得提示仍待后续界面切片实现。
 4. 怪物互杀、机关击杀或非玩家归因击杀不掉落装备 Mod。
 
 ### 升级与分解
@@ -87,21 +88,25 @@
 
 | API | 返回 | 说明 |
 |-----|------|------|
-| `profile_summary(slot := "slot_0")` | `Dictionary` | UI 摘要：资源、拥有数量、loadout 容量 |
-| `mod_summaries(loadout_slot)` | `Array[Dictionary]` | UI 列表：rank、drain、可装备状态、效果 |
-| `equip_mod(loadout_slot, instance_id)` | `Dictionary` | 装备 Mod；容量 / 槽位 / 唯一规则不满足时返回原因 |
-| `unequip_mod(loadout_slot, instance_id)` | `Dictionary` | 卸下 Mod |
-| `upgrade_mod(instance_id)` | `Dictionary` | 消耗资源升级 |
-| `dismantle_mod(instance_id)` | `Dictionary` | 分解未装备 Mod |
-| `grant_mod(mod_id, count := 1)` | `Dictionary` | 掉落 / 调试授予 |
-| `current_modifiers(loadout_slot)` | `Array[Dictionary]` | 输出 hero 或 weapon modifiers |
+| `load_or_create_profile(slot := "slot_0")` | `Dictionary` | 读取并归一化 `meta.gear_mods`；缺档时创建并保存 |
+| `profile_summary(slot := "slot_0")` | `Dictionary` | UI 摘要：资源、拥有数量、loadout 容量和已用 drain |
+| `mod_summaries(loadout_slot, slot := "slot_0")` | `Array[Dictionary]` | UI 列表：rank、drain、可装备状态、效果和 equipped 状态 |
+| `grant_mod(mod_id, count := 1, slot := "slot_0")` | `Dictionary` | 掉落 / 调试授予；每个实例生成稳定 `instance_id` |
+| `equip_mod(loadout_slot, instance_id, slot := "slot_0")` | `Dictionary` | 装备 Mod；容量 / 槽位 / 唯一规则不满足时返回原因 |
+| `unequip_mod(loadout_slot, instance_id, slot := "slot_0")` | `Dictionary` | 卸下 Mod |
+| `upgrade_mod(instance_id, slot := "slot_0")` | `Dictionary` | 消耗 `gear_mod_fusion_costs.csv` 声明资源升级；已装备且升级后超容量时拒绝 |
+| `dismantle_mod(instance_id, slot := "slot_0")` | `Dictionary` | 分解未装备 Mod 并返还资源；已装备 Mod 拒绝 |
+| `roll_drop_for_enemy(enemy_id, enemy_level := 1, slot := "slot_0", forced_roll := -1.0)` | `Dictionary` | 解释掉落表并用 `RNG.drop` 判定；`forced_roll` 仅供 smoke / 调试稳定覆盖 |
+| `current_modifiers(loadout_slot, slot := "slot_0")` | `Array[Dictionary]` | 输出 hero 或 weapon modifiers |
+| `current_all_modifiers(slot := "slot_0")` | `Dictionary` | 同时输出两套 loadout modifier |
+| `debug_grant_resource(resource_id, amount, slot := "slot_0")` / `debug_set_loadout_capacity(loadout_slot, capacity, slot := "slot_0")` | `Dictionary` | 仅供 smoke / dev_tools 调试，仍走 `SaveManager` |
 
 ## 7. 依赖
 
 - `DataLoader`：读取装备 Mod、掉落表和成本表。
 - `SaveManager`：保存 `meta` payload 和迁移。
 - `RNG.drop`：掉落判定。
-- `ModifierEngine` / `Player` / `WeaponSystem`：应用修正。
+- `Player` / `WeaponSystem`：应用开局 loadout 修正；当前项目没有独立 `ModifierEngine` 运行时。
 - `UIManager` / `Localization`：装备 Mod UI 与双语文案。
 - `Analytics`：后续可记录获得、升级、分解和装备事件。
 
@@ -110,20 +115,20 @@
 首片实现至少覆盖：
 
 - 数据校验：Mod id、slot、rarity、rank、drain、modifier stat、掉落表 source、成本表 rank。
-- profile roundtrip：新档默认字段、旧 meta payload 迁移、保存 / 读取一致。
-- 掉落：固定 seed 下 `enemy_chaser` 玩家击杀可以触发或稳定不触发；概率边界用合成高概率测试。
+- profile roundtrip：新档默认字段、旧 meta payload 兼容、保存 / 读取一致。
+- 掉落：`gear-mod-smoke` 用 `forced_roll=0.0` 稳定覆盖 `enemy_chaser` 掉落；真实运行时玩家归因击杀走 `RNG.drop` 和 1% 数据概率。
 - 装备：容量不足、槽位不匹配、同 id 重复装备被拒绝。
-- 升级：资源扣除、rank 增长、drain / 效果变化，满级拒绝。
+- 升级：资源扣除、rank 增长、drain / 效果变化，已装备超容量拒绝。
 - 分解：已装备拒绝，未装备返还资源。
 - 新局应用：hero / weapon modifiers 只在新局配置时应用，run 续局使用快照。
 
-建议新增 `python tools/godot_bridge.py --project client gear-mod-smoke`。如果暂时复用 `meta-smoke`，必须在文档和工具输出中明确覆盖 GearModSystem。
+当前专用命令为 `python tools/godot_bridge.py --project client gear-mod-smoke`。改 `GameplayRunLoop` 开局应用或死亡结算旁路时，追加 `runtime-smoke`；改旧 F6 迁移兼容时，追加 `meta-smoke` 和 `save-smoke`。
 
 ## 9. 迁移说明
 
 旧 `MetaProgressionSystem` 是 F6 首切片实现，不再作为未来局外成长方向。实现 F11 时建议：
 
-1. 新增 `GearModSystem` 并保留 `SaveManager` 的 `meta` kind。
-2. 停止 `MetaProgressionSystem.current_modifiers()` 对下一局属性的影响。
-3. 将旧 `meta_progression.json` 标记为 legacy 或删除，删除前先完成 DataLoader / UI / smoke 引用替换。
-4. 旧 `purchased_upgrades` 迁移成补偿资源或 starter Mod；迁移策略写入 ADR 和 smoke。
+1. 已新增 `GearModSystem` 并保留 `SaveManager` 的 `meta` kind，Gear Mod 状态写入 `meta.gear_mods`。
+2. 已停止 `MetaProgressionSystem.current_modifiers()` 对 `GameplayRunLoop` 下一局属性的影响；该 API 仅保留 legacy smoke / 迁移参考。
+3. `meta_progression.json` 与 `MetaProgressionPanel` 当前仍保留为 legacy UI / 回归诊断，删除前必须完成 Gear Mod UI、旧档补偿和 smoke 替换。
+4. 旧 `purchased_upgrades` 迁移成补偿资源或 starter Mod 尚未实现；迁移策略仍需写入 ADR / 模块文档并覆盖 smoke。

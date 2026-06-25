@@ -70,6 +70,7 @@ def main() -> int:
     subparsers.add_parser("runtime-smoke", help="Run the formal gameplay runtime smoke in headless Godot.")
     subparsers.add_parser("f4-smoke", help="Compatibility alias for runtime-smoke.")
     subparsers.add_parser("meta-smoke", help="Run the F6 meta progression smoke in headless Godot.")
+    subparsers.add_parser("gear-mod-smoke", help="Run the F11 Gear Mod loadout smoke in headless Godot.")
     subparsers.add_parser("save-smoke", help="Run the SaveManager run-save reliability smoke in headless Godot.")
     subparsers.add_parser("settings-smoke", help="Run the F7 Settings persistence smoke in headless Godot.")
 
@@ -237,6 +238,18 @@ def main() -> int:
             [str(godot), "--headless", "--path", str(project), "--", "--save-smoke"],
             cwd=project,
         )
+    if args.command == "gear-mod-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        smoke_script = project / "tools" / "gear_mod_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing GearMod smoke script: {_rel(smoke_script)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", "--gear-mod-smoke"],
+            cwd=project,
+        )
     if args.command == "settings-smoke":
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
@@ -357,7 +370,15 @@ def _run_python_tool(script_name: str) -> int:
 
 
 def _run_command(command: list[str], *, cwd: Path) -> int:
-    completed = subprocess.run(command, cwd=cwd, text=True, capture_output=True, check=False)
+    completed = subprocess.run(
+        command,
+        cwd=cwd,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        capture_output=True,
+        check=False,
+    )
     if completed.stdout:
         print(completed.stdout, end="")
     if completed.stderr:

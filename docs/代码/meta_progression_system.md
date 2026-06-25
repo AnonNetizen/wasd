@@ -17,7 +17,7 @@
 |------|------|
 | `client/scripts/autoload/meta_progression_system.gd` | `MetaProgressionSystem` autoload 脚本 |
 | `client/data/meta_progression.json` | 局外货币、结算奖励、账号等级、升级轨道和解锁配置 |
-| `client/scripts/gameplay/gameplay_run_loop.gd` | 玩家死亡时提交结算摘要；新开局时应用永久 modifiers |
+| `client/scripts/gameplay/gameplay_run_loop.gd` | 玩家死亡时提交 legacy 结算摘要；新开局属性已改由 `GearModSystem` 应用 |
 | `client/scripts/ui/title_menu.gd` | 标题菜单账号等级 / 余额摘要，以及有可购买升级时的入口提示 |
 | `client/scripts/ui/meta_progression_panel.gd` | 标题菜单进入的最小局外升级列表面板，显示可购买 / 余额不足 / 锁定 / 满级状态 |
 | `client/scripts/ui/game_over_panel.gd` | F6 死亡结算展示、账号等级 / 余额、重开和回标题 |
@@ -30,7 +30,7 @@
 | 阶段 | 发生什么 | 关键 API |
 |------|----------|----------|
 | 创建 / 读取 profile | 若 `slot_0/meta.save` 存在则加载并归一化；不存在则创建默认货币、默认解锁和统计字段并写入 `SaveManager` | `load_or_create_profile()` |
-| 新局应用永久升级 | Legacy：F4 开局配置玩家和武器后读取已购买升级，转换为 `stat/type/value` modifiers 并传给玩家与武器；F11 实现后应改为读取 `GearModSystem` loadout snapshot | `current_modifiers()` |
+| 新局应用永久升级 | Legacy API 仍可读取已购买升级并转换为 `stat/type/value` modifiers，供 `meta-smoke` 和迁移诊断使用；正式 `GameplayRunLoop` 已改为读取 `GearModSystem` hero / weapon loadout snapshot，不再调用本 API 应用下一局属性 | `current_modifiers()` |
 | 死亡结算 | F4 玩家死亡时提交击杀数、存活时长和首领击杀标记；系统按数据配置计算局外货币与账号经验、更新等级奖励解锁并保存 meta | `apply_run_settlement()` |
 | 清理 run | F4 在结算后删除 `run` 存档，避免死亡 / 结算后继续读旧局造成重复奖励 | `SaveManager.delete(slot_0, run)` |
 | 购买升级 | 标题局外升级面板请求购买可负担升级；系统检查账号等级、当前等级、费用和余额，扣货币、提升等级、发放升级解锁并保存 meta | `purchase_upgrade()` |
@@ -63,7 +63,7 @@
 | `save_profile(profile, slot=slot_0)` | profile、slot | `bool` | 写入前归一化；失败时通过 `SaveManager.last_error()` 诊断 |
 | `apply_run_settlement(summary, slot=slot_0)` | `kills`、`run_time`、`first_boss_defeated` | 结算结果 `Dictionary` | 奖励公式完全来自 `meta_progression.json`；返回本局获得货币 / XP、结算前后账号等级和 profile；保存失败时 `ok=false` |
 | `purchase_upgrade(upgrade_id, slot=slot_0)` | upgrade id | 购买结果 `Dictionary` | 只允许购买已解锁、未满级且余额足够的升级 |
-| `current_modifiers(slot=slot_0)` | slot | `Array[Dictionary]` | 每条 modifier 只输出 `stat`、`type`、`value`，供 F4 玩家 / 武器复用现有成长管线 |
+| `current_modifiers(slot=slot_0)` | slot | `Array[Dictionary]` | Legacy：每条 modifier 只输出 `stat`、`type`、`value`，仅供旧 UI / smoke / 迁移诊断；正式新局属性来源为 `GearModSystem` |
 | `profile_summary(slot=slot_0)` | slot | profile 摘要 `Dictionary` | 供标题局外升级 UI 展示账号等级、账号经验和主货币余额，不暴露完整存档结构 |
 | `debug_grant_currency(amount, slot=slot_0)` | amount、slot | 调试授予结果 `Dictionary` | 仅供 debug/dev_tools GM 指令使用；仍通过 profile 归一化和 `save_profile()` 写入 |
 | `upgrade_summaries(slot=slot_0)` | slot | `Array[Dictionary]` | 供 UI 展示所有升级轨道的名称、描述、当前等级、费用、余额、解锁等级、可购买状态和不可购买原因 |
@@ -107,7 +107,7 @@
 | 标题菜单看不到局外升级 | `TitleMenu` 是否有 `MetaProgressionButton`；`FormalClientBoot` 是否连接 `meta_progression_requested` 并 `UIManager.push()` `MetaProgressionPanel` |
 | 死亡结算页出现购买或局外升级入口 | `GameOverPanel` 是否意外恢复购买 / 跳转按钮；`GameplayRunLoop` 是否重新连接失败页购买信号；`runtime-smoke` 是否通过失败页不显示局外成长入口断言 |
 | 局外升级列表为空 | `MetaProgressionSystem.upgrade_summaries()` 是否返回配置轨道；`meta_progression.json.upgrade_tracks` 是否通过数据校验 |
-| 下一局永久升级无效 | `current_modifiers()` 是否输出目标 stat；`GameplayRunLoop` 是否在玩家 / 武器 configure 后调用 `_apply_meta_modifiers()` |
+| 下一局旧永久升级无效 | ADR #115 后这是预期行为；正式开局不再调用 `MetaProgressionSystem.current_modifiers()`。如要检查新系统，看 `GearModSystem.current_modifiers("hero"/"weapon")` 与 `GameplayRunLoop._apply_loadout_modifiers()` |
 | run 奖励可重复领取 | 死亡结算后是否删除 `run` 存档；`runtime-smoke` 是否通过“player death should consume the active run save”断言 |
 
 ## 测试义务
@@ -115,12 +115,12 @@
 - 改本模块必跑：`python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_gdscript_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client meta-smoke`。
 - 改 `debug_grant_currency()` 或 GM 局外货币命令时，追加 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`。
 - 改标题入口、购买反馈或 `MetaProgressionPanel` 时追加 `meta-smoke`；当前 smoke 会检查标题面板升级列表、购买反馈、伤害升级状态行中的余额 / 下一档成本，以及新数据轨道购买后输出 `fire_rate` modifier。改死亡结算页展示时追加 `meta-smoke` 和 `runtime-smoke`，必要时手动从标题菜单点开“局外升级”确认按钮可见、购买后余额、等级和反馈刷新。
-- 改 F4 结算接入、失败面板或新开局 modifier 应用时追加：`python tools/godot_bridge.py --project client runtime-smoke`。
+- 改 F4 结算接入或失败面板时追加：`python tools/godot_bridge.py --project client runtime-smoke`。改新开局 modifier 应用时追加 `python tools/godot_bridge.py --project client gear-mod-smoke` 和 `runtime-smoke`。
 - 改 SaveManager envelope / kind version 时追加：`python tools/godot_bridge.py --project client save-smoke` 和迁移测试。
 
 ## 迁移 / 兼容
 
-当前 `meta` payload schema version 为 1，`SaveManager` 的 `meta` kind version 也为 1。`load_or_create_profile()` 会对缺字段旧档做温和归一化，但没有跨版本迁移；F11 删除或旁路旧字段时，必须新增显式迁移 / 补偿策略并更新 `SaveManager.CURRENT_KIND_VERSIONS` 或 `GearModSystem` 的 profile migration。
+当前 `meta` payload schema version 为 1，`SaveManager` 的 `meta` kind version 也为 1。`load_or_create_profile()` 会对缺字段旧档做温和归一化，并保留 `gear_mods` 等未知字段。F11 已把正式下一局属性来源旁路到 `GearModSystem`，但旧 `purchased_upgrades` 迁移 / 补偿尚未落地；后续若删除旧字段或提升 schema，必须新增显式迁移 / 补偿策略并更新 `SaveManager.CURRENT_KIND_VERSIONS` 或 `GearModSystem` 的 profile migration。
 
 ## 相关文档
 

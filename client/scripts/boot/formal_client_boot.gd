@@ -9,6 +9,7 @@ const DEBUG_CONSOLE_SCRIPT_PATH: String = "res://scripts/debug/debug_console.gd"
 const DEBUG_TOOLS_SMOKE_RUNNER := preload("res://tools/debug_tools_smoke.gd")
 const F9_DEMO_SMOKE_RUNNER := preload("res://tools/f9_demo_smoke.gd")
 const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loop.tscn")
+const GEAR_MOD_SMOKE_RUNNER := preload("res://tools/gear_mod_smoke.gd")
 const GOLDEN_REPLAY_CAPTURE_RUNNER := preload("res://tools/golden_replay_capture.gd")
 const L1_SMOKE_RUNNER := preload("res://tools/l1_smoke.gd")
 const RUNTIME_SMOKE_RUNNER := preload("res://tools/runtime_smoke.gd")
@@ -142,6 +143,10 @@ func _ready() -> void:
 		var save_smoke_runner: Node = SAVE_SMOKE_RUNNER.new()
 		save_smoke_runner.name = "SaveManagerSmoke"
 		add_child(save_smoke_runner)
+	elif _is_gear_mod_smoke_enabled():
+		var gear_mod_smoke_runner: Node = GEAR_MOD_SMOKE_RUNNER.new()
+		gear_mod_smoke_runner.name = "GearModSmoke"
+		add_child(gear_mod_smoke_runner)
 	elif _is_settings_smoke_enabled():
 		var settings_smoke_runner: Node = SETTINGS_SMOKE_RUNNER.new()
 		settings_smoke_runner.name = "SettingsSmoke"
@@ -206,6 +211,10 @@ func _is_f9_demo_smoke_enabled() -> bool:
 
 func _is_save_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--save-smoke")
+
+
+func _is_gear_mod_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--gear-mod-smoke")
 
 
 func _is_settings_smoke_enabled() -> bool:
