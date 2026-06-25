@@ -10,6 +10,7 @@
     "E"
   ],
   "last_completed": [
+    "默认 map_standard_nest 已清空 manual_hazards；手摆能力和 schema 保留给后续非陷阱 / 关键兴趣点等用途，当前默认图只保留 PCG + director 机关。",
     "ADR #114：普通新局 / 重开通过 RNG.set_random_run_seed() 生成新的 run seed；继续游戏从 run snapshot 恢复，replay / smoke / golden 工具仍显式固定 seed 或直接启动固定路径保持可复现。",
     "ADR #113：F10 兴趣点接入 MapManager 初始机关生成；WarzoneDirector 按当前 layout 过滤 interest_points，MapManager 用通用 PCG / 菱形锚点规则生成 source=director hazards 并保留 interest_point_id。该接线不读取玩家状态、不按 poi_id / hazard_id 特判、不提升 run 存档 schema。",
     "ADR #112：F10 战区导演首片落地；新增 docs/AI协作/工作包/F10-WarzoneDirector.md、client/data/warzone_directors.json、WarzoneDirector 模块、DataLoader / validate_data schema 校验和 runtime / F9 smoke 覆盖。当前导演只用固定阶段、巢变异、遭遇组合和兴趣点表达局势，不读取玩家状态，不做隐藏 DDA，不在运行时接 LLM。",
@@ -70,6 +71,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-06-25",
+      "command": "sync_contracts --check, validate_data, test_data_loader_schema, lint_gdscript_rules, lint_project_rules, headless-boot, runtime-smoke, f9-demo-smoke, save-smoke, perf-probe, four checked-in golden replay reruns",
+      "result": "passed for clearing default map_standard_nest manual_hazards; default map now has no source=manual hazards, perf-probe reports 8 active hazards from PCG + director generation, F9 smoke still verifies FEA-12 hazards and snapshot roundtrip, and checked-in golden replay reruns did not require recapture; runtime/save smoke include expected broken-save diagnostics while passing"
+    },
     {
       "date": "2026-06-25",
       "command": "lint_gdscript_rules, lint_project_rules, lint_semantic_rules, json current_state/_kb_index, docs_health_check, diff --check excluding draft, headless-boot, l1-smoke, runtime-smoke, save-smoke, four checked-in golden replay reruns",

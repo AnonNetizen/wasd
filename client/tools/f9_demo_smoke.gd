@@ -123,7 +123,7 @@ func _first_enemy_with_id(enemy_id: String) -> Node:
 func _expect_fea_12_hazard(run_loop: Node, player: Node2D) -> void:
 	_expect(_debug_summary_has_fea_12(run_loop), "MapManager debug summary should include director-sourced hazards")
 	var hazard: Node2D = _first_hazard_with_id(FEA_12_HAZARD_ID) as Node2D
-	_expect(hazard != null, "FEA-12 hazard should spawn from PCG/manual map layout")
+	_expect(hazard != null, "FEA-12 hazard should spawn from map generation")
 	if hazard == null:
 		return
 	if player.has_method("debug_clear_invulnerability"):

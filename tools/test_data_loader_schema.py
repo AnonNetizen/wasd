@@ -881,8 +881,11 @@ def _set_map_layout_bounds_size(width: float, height: float) -> JsonMutator:
 
 def _set_manual_hazard_position(index: int, x: float, y: float) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["layouts"][0]["manual_hazards"][index]["x"] = x
-        payload["layouts"][0]["manual_hazards"][index]["y"] = y
+        manual_hazards = payload["layouts"][0].setdefault("manual_hazards", [])
+        while len(manual_hazards) <= index:
+            manual_hazards.append({"id": "hazard_fea_12_pulse", "x": 480.0, "y": -200.0})
+        manual_hazards[index]["x"] = x
+        manual_hazards[index]["y"] = y
 
     return mutate
 
