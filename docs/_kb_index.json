@@ -110,7 +110,7 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["knowledge_base", "authority_hierarchy", "task_routes", "adr_tracking_matrix"],
       "must_read_for": ["doc_structure_change", "task_routing", "knowledge_base_change"],
-      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/AI辅助开发机会清单.md", "docs/小服务器玩法备忘.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/status_effect_component.md", "docs/代码/warzone_director.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md"],
+      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/AI辅助开发机会清单.md", "docs/小服务器玩法备忘.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/status_effect_component.md", "docs/代码/warzone_director.md", "docs/代码/gear_mod_system.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md"],
       "related_code": ["tools/docs_health_check.py"],
       "update_triggers": ["new long-lived document", "document rename", "authority hierarchy change", "task route change"],
       "keywords": ["knowledge base", "知识库", "index", "索引", "权威层级", "任务路由", "FormalClientBoot", "正式项目启动骨架", "F1"]
@@ -141,7 +141,7 @@
       "related_docs": ["docs/IP设定.md", "docs/IP美术风格.md", "docs/词表与契约.md", "docs/游戏设计文档.md", "docs/AI导航.md"],
       "related_code": [],
       "update_triggers": ["new domain term", "new English alias", "new abbreviation"],
-      "keywords": ["glossary", "术语", "别名", "同义词", "search", "射击刷宝生存", "looter shooter survival", "刷宝动作生存", "looter action survival", "按住开火", "fire action", "刷子游戏", "刷宝游戏", "固定斜俯视", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP美术风格", "art direction", "阵营色", "功能色", "兴趣点色彩", "装备", "词条", "战利品", "破巢者", "Nestbreakers", "敌巢", "巢核", "经验", "升级", "level-up", "局外成长", "meta progression"]
+      "keywords": ["glossary", "术语", "别名", "同义词", "search", "射击刷宝生存", "looter shooter survival", "刷宝动作生存", "looter action survival", "按住开火", "fire action", "刷子游戏", "刷宝游戏", "固定斜俯视", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP美术风格", "art direction", "阵营色", "功能色", "兴趣点色彩", "装备", "词条", "战利品", "装备 Mod", "Gear Mod", "Warframe mod", "hero mod loadout", "weapon mod loadout", "破巢者", "Nestbreakers", "敌巢", "巢核", "经验", "升级", "level-up", "局外成长", "meta progression"]
     },
     {
       "path": "docs/IP设定.md",
@@ -174,7 +174,7 @@
     {
       "path": "docs/游戏设计文档.md",
       "type": "authority",
-      "authority": "Gameplay, systems, long-term design, GDD v1.13; Hades-like oblique stage presentation with uniform Camera2D scale, quantized diamond map grid, grid-aligned spawn safe zone, diamond hazard tiles, and oblique asset anchoring rules",
+      "authority": "Gameplay, systems, long-term design, GDD v1.14; Gear Mod loadout progression, Hades-like oblique stage presentation with uniform Camera2D scale, quantized diamond map grid, grid-aligned spawn safe zone, diamond hazard tiles, and oblique asset anchoring rules",
       "status": "active",
       "owner_scope": "design",
       "last_reviewed": "2026-06-24",
@@ -183,7 +183,7 @@
       "related_docs": ["docs/IP设定.md", "docs/IP美术风格.md", "docs/决策记录.md", "docs/AI导航.md", "docs/词表与契约.md", "docs/测试策略.md"],
       "related_code": ["client/"],
       "update_triggers": ["gameplay behavior change", "system design change", "new infrastructure decision"],
-      "keywords": ["GDD", "design", "玩法", "系统", "固定斜俯视", "2.5D", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "hold_mouse", "skill_overdrive_rounds", "Overdrive Rounds", "过载弹流", "哈迪斯", "Hades", "等比相机", "屏幕尺度", "斜俯视舞台", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "grid.cell_height", "safe_radius", "出生安全区", "spawn safe zone", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "IP美术风格", "阵营色", "功能色", "骨白", "蜡黄", "毒蓝", "玩家子弹", "敌方远程攻击", "菱形机关", "diamond hazard", "radius_tiles", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "长期养成", "IP", "世界观", "破巢者", "Nestbreakers", "敌巢", "巢核", "界门", "首都星域", "跨宇宙", "多英雄", "手柄", "autoload", "经验", "升级", "luck", "level-up", "局外成长", "meta progression", "SaveManager", "run save", "续局", "random run seed", "普通新局 seed", "set_random_run_seed", "数值配置", "本地化", "文案", "StatusEffect", "StatusEffectComponent", "状态效果", "silence", "沉默"]
+      "keywords": ["GDD", "design", "玩法", "系统", "固定斜俯视", "2.5D", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "hold_mouse", "skill_overdrive_rounds", "Overdrive Rounds", "过载弹流", "哈迪斯", "Hades", "等比相机", "屏幕尺度", "斜俯视舞台", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "grid.cell_height", "safe_radius", "出生安全区", "spawn safe zone", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "IP美术风格", "阵营色", "功能色", "骨白", "蜡黄", "毒蓝", "玩家子弹", "敌方远程攻击", "菱形机关", "diamond hazard", "radius_tiles", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "长期养成", "装备 Mod", "Gear Mod", "Warframe mod", "hero mod loadout", "weapon mod loadout", "IP", "世界观", "破巢者", "Nestbreakers", "敌巢", "巢核", "界门", "首都星域", "跨宇宙", "多英雄", "手柄", "autoload", "经验", "升级", "luck", "level-up", "局外成长", "meta progression", "SaveManager", "run save", "续局", "random run seed", "普通新局 seed", "set_random_run_seed", "数值配置", "本地化", "文案", "StatusEffect", "StatusEffectComponent", "状态效果", "silence", "沉默"]
     },
     {
       "path": "docs/决策记录.md",
@@ -197,7 +197,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #98", "ADR #103", "ADR #104", "ADR #105", "ADR #107", "ADR #108", "ADR #109", "ADR #110", "ADR #112", "ADR #113", "ADR #114", "WarzoneDirector", "战区导演", "director hazards", "source=director", "random run seed", "普通新局 seed", "set_random_run_seed", "no hidden DDA", "不读玩家状态", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "菱形机关", "diamond hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP决策", "破巢者", "Nestbreakers", "详细数值面板", "show_stats_panel", "Tab", "subagent", "subagent 默认主动调度", "自动调度", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
+      "keywords": ["ADR", "decision", "决策", "约束", "ADR #98", "ADR #103", "ADR #104", "ADR #105", "ADR #107", "ADR #108", "ADR #109", "ADR #110", "ADR #112", "ADR #113", "ADR #114", "ADR #115", "WarzoneDirector", "战区导演", "director hazards", "source=director", "random run seed", "普通新局 seed", "set_random_run_seed", "Gear Mod", "装备 Mod", "Warframe mod", "MetaProgression legacy", "no hidden DDA", "不读玩家状态", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "菱形机关", "diamond hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP决策", "破巢者", "Nestbreakers", "详细数值面板", "show_stats_panel", "Tab", "subagent", "subagent 默认主动调度", "自动调度", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -211,7 +211,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI导航.md", "docs/代码文档规范.md", "client/data/README.md", "client/locale/README.md"],
       "related_code": ["client/data/_contracts.json", "client/scripts/contracts/", "tools/sync_contracts.py", "tools/validate_data.py"],
       "update_triggers": ["new id", "renamed id", "deleted id", "contract schema change"],
-      "keywords": ["contract", "词表", "action", "stat", "effect", "status_effect", "status_stack_rules", "skill_effect_apply_status", "setting", "input.show_stats_panel", "show_stats_panel", "rng", "locale", "本地化key", "meta", "unlock", "局外成长", "save_kind", "run save", "sync_contracts", "_contracts.json"]
+      "keywords": ["contract", "词表", "action", "stat", "effect", "status_effect", "status_stack_rules", "skill_effect_apply_status", "setting", "input.show_stats_panel", "show_stats_panel", "rng", "locale", "本地化key", "gear_mod", "装备 Mod", "mod rarity", "mod slot", "meta", "unlock", "局外成长", "save_kind", "run save", "sync_contracts", "_contracts.json"]
     },
     {
       "path": "client/data/README.md",
@@ -225,7 +225,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/AI导航.md", "client/locale/README.md"],
       "related_code": ["client/data/", "tools/validate_data.py", "tools/sync_contracts.py"],
       "update_triggers": ["new data file", "new numeric field", "changed unit or range", "DataLoader schema change"],
-      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "characters.json", "weapons.json", "skills.json", "skill_effect_apply_status", "status_stack_rules", "relics.json", "credits.json", "game_modes.json", "map_layouts.json", "grid.cell_width", "grid.cell_height", "safe_radius", "出生安全区", "spawn safe zone", "growth.csv", "enemies.csv", "hazards.csv", "radius_tiles", "菱形机关", "diamond hazard", "diamond map grid", "PCG", "有限地图", "人工摆点", "meta_progression.json", "局外成长", "validate_data"]
+      "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "characters.json", "weapons.json", "skills.json", "skill_effect_apply_status", "status_stack_rules", "relics.json", "credits.json", "game_modes.json", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "装备 Mod", "Gear Mod", "map_layouts.json", "grid.cell_width", "grid.cell_height", "safe_radius", "出生安全区", "spawn safe zone", "growth.csv", "enemies.csv", "hazards.csv", "radius_tiles", "菱形机关", "diamond hazard", "diamond map grid", "PCG", "有限地图", "人工摆点", "meta_progression.json", "局外成长", "validate_data"]
     },
     {
       "path": "client/locale/README.md",
@@ -278,7 +278,7 @@
       "last_reviewed": "2026-06-23",
       "canonical_for": ["module_doc_index"],
       "must_read_for": ["code_module_change", "module_doc_lookup"],
-      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/meta_progression_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md"],
+      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/gear_mod_system.md", "docs/代码/meta_progression_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md"],
       "related_code": ["client/"],
       "update_triggers": ["new module document", "module document rename", "module document deletion"],
       "keywords": ["代码", "module", "documentation", "index"]
@@ -292,7 +292,7 @@
       "last_reviewed": "2026-06-24",
       "canonical_for": ["project_map", "extension_points", "dependency_graph", "clarification_first_rule"],
       "must_read_for": ["new_task", "extension_change", "dependency_change"],
-      "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/AI辅助开发机会清单.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md"],
+      "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/AI辅助开发机会清单.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/gear_mod_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md"],
       "related_code": ["client/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
       "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "IP美术风格", "art direction", "阵营色", "功能色", "兴趣点色彩", "量化菱形地图格", "diamond map grid", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "SkillSystem", "StatusEffectComponent", "skill_effect_apply_status", "status_stack_rules", "silence", "沉默", "MapManager", "HazardSystem", "菱形机关", "diamond hazard", "map_layouts.json", "FEA-12", "有限地图", "PCG", "人工摆点", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
@@ -459,11 +459,11 @@
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-06-16",
       "canonical_for": ["stage_work_packages", "formal_project_task_packages"],
-      "must_read_for": ["formal_project_stage_task", "f3_dataloader_schema", "f4_min_playable_loop", "f6_meta_progression", "f7_settings_localization_ui", "f8_replay_testing_balance", "f9_content_demo_polish", "f10_warzone_director"],
-      "related_docs": ["docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/快速开工.md", "docs/AI协作/上下文预算.md", "docs/AI协作/README.md", "docs/AI导航.md"],
+      "must_read_for": ["formal_project_stage_task", "f3_dataloader_schema", "f4_min_playable_loop", "f6_meta_progression", "f7_settings_localization_ui", "f8_replay_testing_balance", "f9_content_demo_polish", "f10_warzone_director", "f11_gear_mod_loadout"],
+      "related_docs": ["docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/快速开工.md", "docs/AI协作/上下文预算.md", "docs/AI协作/README.md", "docs/AI导航.md"],
       "related_code": ["client/"],
       "update_triggers": ["new formal project stage", "repeated high-context stage task", "work package route change"],
-      "keywords": ["工作包", "stage work package", "formal project", "F3", "DataLoader", "F4", "min playable loop", "最小可玩闭环", "F6", "MetaProgression", "局外成长", "结算", "F7", "Settings", "Localization", "UIManager", "设置", "本地化", "UI栈", "F8", "Replay", "testing", "balance", "回放", "测试", "平衡", "F9", "content", "demo polish", "内容扩展", "Demo打磨", "F10", "WarzoneDirector", "战区导演", "低token"]
+      "keywords": ["工作包", "stage work package", "formal project", "F3", "DataLoader", "F4", "min playable loop", "最小可玩闭环", "F6", "MetaProgression", "局外成长", "结算", "F7", "Settings", "Localization", "UIManager", "设置", "本地化", "UI栈", "F8", "Replay", "testing", "balance", "回放", "测试", "平衡", "F9", "content", "demo polish", "内容扩展", "Demo打磨", "F10", "WarzoneDirector", "战区导演", "F11", "GearModSystem", "装备 Mod", "低token"]
     },
     {
       "path": "docs/AI协作/工作包/F3-DataLoader.md",
@@ -496,16 +496,16 @@
     {
       "path": "docs/AI协作/工作包/F6-MetaProgression.md",
       "type": "workflow",
-      "authority": "F6 meta progression task scope, reading budget, split order, editable files, and acceptance commands",
+      "authority": "F6 legacy meta progression task scope, reading budget, split order, editable files, and acceptance commands",
       "status": "active",
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-06-23",
-      "canonical_for": ["f6_meta_progression_work_package", "meta_progression_settlement_loop"],
-      "must_read_for": ["f6_meta_progression", "meta_progression_runtime", "settlement_rewards", "meta_save_roundtrip"],
-      "related_docs": ["docs/正式项目工作规划.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/save_manager.md", "docs/代码/gameplay_runtime.md", "client/data/README.md", "client/locale/README.md", "docs/词表与契约.md", "docs/AI协作/上下文预算.md", "docs/AI记忆/current_state.json"],
+      "canonical_for": ["f6_meta_progression_work_package", "legacy_meta_progression_settlement_loop"],
+      "must_read_for": ["f6_meta_progression", "legacy_meta_progression_runtime", "settlement_rewards", "meta_save_roundtrip", "meta_progression_migration"],
+      "related_docs": ["docs/正式项目工作规划.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/save_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/gear_mod_system.md", "client/data/README.md", "client/locale/README.md", "docs/词表与契约.md", "docs/AI协作/上下文预算.md", "docs/AI记忆/current_state.json", "docs/AI协作/工作包/F11-GearModLoadout.md"],
       "related_code": ["client/scripts/autoload/", "client/scripts/gameplay/", "client/scenes/", "client/data/meta_progression.json", "client/locale/strings.csv", "client/tools/", "tools/godot_bridge.py"],
       "update_triggers": ["F6 meta progression scope changes", "settlement acceptance command changes", "meta save payload changes", "MetaProgressionSystem module split changes"],
-      "keywords": ["F6", "MetaProgression", "局外成长", "元进度", "settlement", "结算", "meta save", "SaveManager", "meta_progression.json", "run_rewards", "account_level", "upgrade_tracks", "unlocks"]
+      "keywords": ["F6", "MetaProgression", "legacy", "局外成长", "元进度", "settlement", "结算", "meta save", "SaveManager", "meta_progression.json", "run_rewards", "account_level", "upgrade_tracks", "unlocks", "GearModSystem", "装备 Mod", "migration"]
     },
     {
       "path": "docs/AI协作/工作包/F7-SettingsLocalizationUI.md",
@@ -562,6 +562,20 @@
       "related_code": ["client/data/warzone_directors.json", "client/data/spawn_waves.csv", "client/data/map_layouts.json", "client/data/enemies.csv", "client/data/enemy_ai_profiles.json", "client/scripts/gameplay/warzone_director.gd", "client/scripts/gameplay/map_manager.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd"],
       "update_triggers": ["F10 scope changes", "warzone director schema changes", "phase gating behavior changes", "director interest point map placement changes", "player-state-reading boundary changes", "hidden DDA policy changes", "acceptance command changes"],
       "keywords": ["F10", "WarzoneDirector", "战区导演", "敌巢战区", "巢变异", "nest mutation", "phase", "阶段", "encounter", "兴趣点", "POI", "source=director", "director hazards", "MapManager", "no hidden DDA", "不读玩家状态", "player state", "runtime LLM", "wave gating", "warzone_directors.json"]
+    },
+    {
+      "path": "docs/AI协作/工作包/F11-GearModLoadout.md",
+      "type": "workflow",
+      "authority": "F11 Gear Mod loadout planning, scope, data schema sketch, migration boundary, and acceptance commands",
+      "status": "active",
+      "owner_scope": "ai-workflow",
+      "last_reviewed": "2026-06-25",
+      "canonical_for": ["f11_gear_mod_loadout_work_package", "gear_mod_progression_scope", "meta_progression_legacy_boundary"],
+      "must_read_for": ["f11_gear_mod_loadout", "gear_mod_system_change", "mod_loadout_change", "meta_progression_replacement"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/gear_mod_system.md", "docs/代码/meta_progression_system.md", "docs/代码/save_manager.md", "client/data/README.md", "docs/AI记忆/current_state.json", "docs/AI协作/工作包/F6-MetaProgression.md"],
+      "related_code": ["client/scripts/autoload/", "client/scripts/ui/", "client/data/", "client/scripts/autoload/meta_progression_system.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/tools/"],
+      "update_triggers": ["F11 scope changes", "gear mod schema changes", "mod loadout behavior changes", "mod drop or fusion cost changes", "meta progression migration boundary changes", "acceptance command changes"],
+      "keywords": ["F11", "GearModSystem", "Gear Mod", "装备 Mod", "Warframe mod", "星际战甲", "英雄 Mod", "武器 Mod", "hero mod loadout", "weapon mod loadout", "mod loadout", "mod upgrade", "mod dismantle", "enemy_chaser", "1% drop", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "MetaProgression legacy"]
     },
     {
       "path": "docs/AI协作/上下文预算.md",
@@ -1068,18 +1082,32 @@
       "keywords": ["SaveManager", "autoload", "save_kinds", "meta", "run", "replay_index", "run payload", "map", "hazards", "JSON normalization", "data_hash", "migration", "atomic save", "backup", "broken save"]
     },
     {
+      "path": "docs/代码/gear_mod_system.md",
+      "type": "module_doc",
+      "authority": "Planned GearModSystem autoload contract for Warframe-like gear mods, inventory, rank, resources, hero / weapon loadouts, drops, upgrades, dismantle, and run-start modifier snapshots",
+      "status": "planned",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-06-25",
+      "canonical_for": ["gear_mod_system", "gear_mod_inventory", "hero_weapon_mod_loadouts", "gear_mod_progression", "meta_progression_replacement"],
+      "must_read_for": ["gear_mod_system_change", "gear_mod_data_schema_change", "mod_loadout_ui_change", "meta_progression_replacement"],
+      "related_docs": ["docs/AI协作/工作包/F11-GearModLoadout.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/save_manager.md", "docs/代码/meta_progression_system.md", "docs/AI导航.md", "client/data/README.md"],
+      "related_code": ["client/scripts/autoload/", "client/scripts/ui/", "client/data/", "client/scripts/gameplay/gameplay_run_loop.gd", "client/tools/"],
+      "update_triggers": ["GearModSystem API changes", "gear mod profile schema changes", "mod loadout UI changes", "mod drop behavior changes", "mod upgrade or dismantle behavior changes", "meta progression migration changes"],
+      "keywords": ["GearModSystem", "Gear Mod", "装备 Mod", "Warframe mod", "mod inventory", "mod rank", "mod fusion", "mod dismantle", "hero loadout", "weapon loadout", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "enemy_chaser", "MetaProgression legacy", "SaveManager meta"]
+    },
+    {
       "path": "docs/代码/meta_progression_system.md",
       "type": "module_doc",
-      "authority": "MetaProgressionSystem autoload contract for F6 meta profile, settlement rewards, title upgrade panel, upgrade purchases, unlocks, and permanent modifiers",
+      "authority": "Legacy MetaProgressionSystem autoload contract for F6 meta profile, settlement rewards, title upgrade panel, upgrade purchases, unlocks, permanent modifiers, and F11 migration reference",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-06-18",
-      "canonical_for": ["meta_progression_system", "meta_profile", "settlement_rewards", "title_meta_upgrade_panel", "permanent_upgrades"],
-      "must_read_for": ["meta_progression_change", "settlement_change", "meta_profile_schema_change", "title_meta_upgrade_ui_change", "permanent_upgrade_change"],
-      "related_docs": ["docs/AI协作/工作包/F6-MetaProgression.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/save_manager.md", "docs/代码/gameplay_runtime.md", "docs/AI导航.md"],
+      "canonical_for": ["meta_progression_system_legacy", "meta_profile_legacy", "settlement_rewards", "title_meta_upgrade_panel", "permanent_upgrades_legacy"],
+      "must_read_for": ["meta_progression_change", "meta_progression_migration", "settlement_change", "meta_profile_schema_change", "title_meta_upgrade_ui_change", "permanent_upgrade_change"],
+      "related_docs": ["docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/save_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/gear_mod_system.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/autoload/meta_progression_system.gd", "client/scripts/ui/meta_progression_panel.gd", "client/data/meta_progression.json", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/tools/meta_progression_smoke.gd", "tools/godot_bridge.py"],
       "update_triggers": ["MetaProgressionSystem API changes", "meta profile schema changes", "settlement formula changes", "title meta upgrade UI changes", "upgrade purchase behavior changes", "meta-smoke behavior changes"],
-      "keywords": ["MetaProgressionSystem", "MetaProgressionPanel", "autoload", "meta", "局外成长", "标题局外升级", "settlement", "结算", "meta_progression.json", "upgrade_tracks", "account_level", "meta-smoke", "permanent modifiers"]
+      "keywords": ["MetaProgressionSystem", "MetaProgressionPanel", "autoload", "meta", "legacy", "局外成长", "标题局外升级", "settlement", "结算", "meta_progression.json", "upgrade_tracks", "account_level", "meta-smoke", "permanent modifiers", "GearModSystem", "装备 Mod", "migration"]
     },
     {
       "path": "docs/代码/audio_manager.md",

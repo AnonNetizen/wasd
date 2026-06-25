@@ -32,7 +32,8 @@
 | 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
 | 改刷怪强度 / 难度曲线 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
 | 改经验阈值 / 升级候选概率 | `growth.csv` | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
-| 改局外货币 / 永久升级 / 解锁 | `meta_progression.json` | 存档走 `SaveManager` 的 `meta` kind，id 必须来自词表 §13 |
+| 改装备 Mod / 英雄或武器装配 | `gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`（规划中） | 装备 Mod 与本地数据包 mod 是不同概念；实现前先登记 Mod id / slot / rarity / resource 契约 |
+| 改旧局外货币 / 永久升级 / 解锁 | `meta_progression.json`（Legacy） | F11 后旧永久升级轨道将退役；不要再扩展为未来局外成长方向 |
 | 改致谢 / 第三方来源 | `credits.json` + 根目录 `CREDITS.md` | 游戏内 Credits UI 读 `credits.json`；发行前复核许可证与 notice |
 | 改界面、道具名、描述文案 | 不在这里改，去 `client/locale/strings.csv` | 数据只引用 key，译文集中管理 |
 | 做本地 mod 内容包 | `user://mods/<mod_id>/mod.json` + mod 自带 `data/` patch | 通过 `ModLoader` 声明式追加 JSON / CSV；不改 `client/data/` 原文件，不执行脚本 |
@@ -57,7 +58,10 @@
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
 | `growth_pools.json` | 已建立 | 升级选项池、权重、等级条件和候选奖励边界 |
-| `meta_progression.json` | 已建立 | 局外货币、结算奖励、账号等级、永久升级轨道和内容解锁 |
+| `gear_mods.json` | 规划中 | 装备 Mod 定义：英雄 / 武器槽位、稀有度、rank、drain 和修正器 |
+| `gear_mod_drop_tables.csv` | 规划中 | 装备 Mod 掉落来源、概率和等级条件 |
+| `gear_mod_fusion_costs.csv` | 规划中 | 装备 Mod 升级成本 |
+| `meta_progression.json` | Legacy | F6 旧局外货币、结算奖励、账号等级、永久升级轨道和内容解锁；F11 实现时退役 / 迁移 |
 | `credits.json` | 已建立 | 游戏内致谢数据源：工作人员、外部资源、外部库与许可 / notice 状态 |
 | `_contracts.json` | 生成文件 | 由 `docs/词表与契约.md` 生成，禁止手改；`DataLoader` 用它校验 id |
 
@@ -138,7 +142,7 @@ user://mods/my_first_mod/
 | 数据形态 | 优先格式 | 示例 |
 |----------|----------|------|
 | 一行一个条目、列固定、经常人工排序 / 筛选 / 批量调参 | CSV | `enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`growth.csv` |
-| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`map_layouts.json`、`warzone_directors.json`、`enemy_ai_profiles.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`meta_progression.json`、`growth_pools.json` |
+| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`map_layouts.json`、`warzone_directors.json`、`enemy_ai_profiles.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`gear_mods.json`、`meta_progression.json`、`growth_pools.json` |
 | 玩家可见文案 | CSV | `client/locale/strings.csv` |
 | 致谢 / 第三方来源清单 | JSON | `credits.json`，需同时同步根目录 `CREDITS.md` |
 | 自动生成契约 | JSON | `_contracts.json`，禁止手改 |
@@ -670,7 +674,7 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `schema_version` | int | `>= 1` | 数据结构版本 |
 | `characters[].id` | string | 词表 §12.1 character id，文件内唯一 | 角色 id；模式池、局外解锁和存档引用此 id |
 | `characters[].name_key` / `desc_key` | string | `character_*_name` / `character_*_desc` | 角色名称和描述译文 key |
-| `characters[].default_unlocked` | bool | true / false | 新存档中是否默认可用；仍需与 `meta_progression.json` 解锁项保持一致 |
+| `characters[].default_unlocked` | bool | true / false | 新存档中是否默认可用；后续需与跨局解锁 / 装备 Mod 系统的解锁状态保持一致 |
 | `characters[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_character` | 内容标签；破限角色还需含 `tag_limit_break` 并声明 capability |
 | `characters[].capabilities` | array[string] | 词表 §12.2 capability id，可为空 | 允许突破的默认规则；空数组表示默认鼠标瞄准 / 左右朝向 / 按住开火 / 默认移动 |
 | `characters[].control_profile` | string | 非空 | 控制配置标识；当前只做数据边界，不实现输入 profile 切换 |
@@ -1016,7 +1020,99 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `effect` | string | 词表 §2 effect id | 效果原语 |
 | `params` | object | 由 effect 定义 | 原语参数；新增参数要同步对应模块文档 |
 
-## `meta_progression.json`
+## `gear_mods.json`（规划中）
+
+> 装备 Mod 系统见 `docs/AI协作/工作包/F11-GearModLoadout.md` 与 `docs/代码/gear_mod_system.md`。这里的装备 Mod 是玩家装配系统，不是 `ModLoader` 读取的本地数据包 mod。
+
+建议结构：
+
+```json
+{
+  "schema_version": 1,
+  "mods": [
+    {
+      "id": "gear_mod_weapon_damage_test",
+      "name_key": "gear_mod_weapon_damage_test_name",
+      "desc_key": "gear_mod_weapon_damage_test_desc",
+      "slot": "weapon",
+      "rarity": "common",
+      "max_rank": 5,
+      "base_drain": 2,
+      "drain_per_rank": 1,
+      "rank_modifiers": [
+        { "stat": "damage", "type": "mult", "base_value": 1.10, "value_per_rank": 0.05 }
+      ],
+      "stack_rule": "unique_by_id"
+    }
+  ]
+}
+```
+
+字段说明：
+
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `mods[].id` | string | 实现前登记到词表 | 装备 Mod id；示例 id 仅作为 F11 首片建议 |
+| `mods[].name_key` / `desc_key` | string | `gear_mod_*_name` / `gear_mod_*_desc` | 名称和描述译文 key |
+| `mods[].slot` | string | `hero` / `weapon`，实现前登记 | 可装备到英雄或武器 loadout |
+| `mods[].rarity` | string | 实现前登记 | 稀有度；用于掉落展示和升级成本 |
+| `mods[].max_rank` | int | `>= 0` | 最大升级 rank；rank 0 表示初始获得状态 |
+| `mods[].base_drain` | int | `>= 0` | rank 0 装备容量消耗 |
+| `mods[].drain_per_rank` | int | `>= 0` | 每提升 1 rank 增加的容量消耗 |
+| `mods[].rank_modifiers[]` | array[object] | stat 来自词表 §1 | 随 rank 计算的 modifiers |
+| `rank_modifiers[].base_value` | number | 由 modifier 类型决定 | rank 0 的初始值；`mult` 用 `1.0` 表示不变 |
+| `rank_modifiers[].value_per_rank` | number | 可正可负 | 每 rank 增量 |
+| `mods[].stack_rule` | string | 首片 `unique_by_id` | 同一 loadout 内的重复装备规则 |
+
+首个测试武器 Mod 目标：提高武器基础 `damage`，由玩家击杀 `enemy_chaser` 时以 `1%` 概率掉落。实现时必须用通用掉落表解释，不在敌人或武器代码中写按 id 分支。
+
+## `gear_mod_drop_tables.csv`（规划中）
+
+建议结构：
+
+```csv
+source_enemy_id,mod_id,drop_chance,min_enemy_level,max_enemy_level
+enemy_chaser,gear_mod_weapon_damage_test,0.01,1,999
+```
+
+字段说明：
+
+| 字段 | 类型 | 单位 / 范围 | 说明 |
+|------|------|-------------|------|
+| `source_enemy_id` | string | 必须存在于 `enemies.csv` | 掉落来源敌人；首片为最普通小怪 `enemy_chaser` |
+| `mod_id` | string | 必须存在于 `gear_mods.json` | 掉落的装备 Mod |
+| `drop_chance` | float | `0.0..1.0` | 单次玩家归因击杀掉落概率；首片测试 Mod 为 `0.01` |
+| `min_enemy_level` / `max_enemy_level` | int | `>= 1` | 可选等级区间；未实现敌人等级前可先填宽范围 |
+
+掉落随机必须走 `RNG.drop`；怪物互杀、机关击杀或非玩家归因击杀不产出装备 Mod。
+
+## `gear_mod_fusion_costs.csv`（规划中）
+
+建议结构：
+
+```csv
+rarity,rank,cost
+common,1,20
+common,2,35
+common,3,55
+common,4,85
+common,5,130
+```
+
+字段说明：
+
+| 字段 | 类型 | 单位 / 范围 | 说明 |
+|------|------|-------------|------|
+| `rarity` | string | 实现前登记 | 装备 Mod 稀有度 |
+| `rank` | int | `1..max_rank` | 升到该 rank 需要的成本 |
+| `cost` | int | `>= 0` | 升级资源消耗 |
+
+首片可以复用 `meta_essence`，但推荐实现时新增专用装备 Mod 资源，避免旧永久升级经济影响新系统。
+
+## `meta_progression.json`（Legacy）
+
+> F11 起跨局成长方向改为装备 Mod loadout。`meta_progression.json` 是 F6 旧永久升级首切片的数据文件；实现 F11 时应退役或迁移，不再扩展为未来成长系统。
 
 当前结构分为五块：
 

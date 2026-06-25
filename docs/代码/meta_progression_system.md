@@ -1,12 +1,14 @@
-# MetaProgressionSystem 模块文档
+# MetaProgressionSystem 模块文档（Legacy）
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是 F6 局外成长首切片的代码契约；改 profile schema、结算公式、购买规则、永久 modifier 输出或 `meta-smoke` 时必须同步本文档、AI 导航、SaveManager 文档和 F6 工作包。
+> 本文档是 F6 旧局外成长首切片的代码契约。ADR #115 后，未来跨局属性来源改为 `GearModSystem`；改旧 profile schema、迁移 / 补偿、结算兼容、购买规则或 `meta-smoke` 时必须同步本文档、AI 导航、SaveManager 文档、F6 工作包和 `docs/代码/gear_mod_system.md`。
+
+> **Legacy 状态**：`MetaProgressionSystem` / `client/data/meta_progression.json` 不再作为未来下一局属性来源。F11 起，英雄 / 武器两套装备 Mod loadout、Mod 升级和分解资源由 `GearModSystem` 负责；本模块只保留旧档读取、迁移 / 补偿、回归诊断和必要的兼容 UI 参考。
 
 ## 职责
 
-- `MetaProgressionSystem` 是局外成长运行时入口，负责读取 `client/data/meta_progression.json`，维护 `SaveManager` 的 `meta` payload，并向玩法层输出永久升级 modifiers。
-- F6 闭环“本局死亡结算 -> meta 存档 -> 标题菜单购买永久升级 -> 下一局应用 modifier”，并提供标题菜单可见的最小局外升级面板；死亡结算页只展示收益和账号状态，不提供局外成长购买入口；不扩展角色选择、完整商店页、遗物开局候选或复杂解锁消费。
+- `MetaProgressionSystem` 是旧局外成长运行时入口，负责读取 `client/data/meta_progression.json`，维护旧 `SaveManager` `meta` payload，并向玩法层输出旧永久升级 modifiers；ADR #115 后该输出路径应被替换为 `GearModSystem` 的 loadout modifier snapshot。
+- F6 闭环“本局死亡结算 -> meta 存档 -> 标题菜单购买永久升级 -> 下一局应用 modifier”已经完成并通过手动验收；该闭环现在是 legacy 迁移来源，不再继续扩展为多页永久成长树。
 - `SaveManager` 只负责 envelope、原子写入、备份和坏档隔离；`MetaProgressionSystem` 解释局外成长字段并做 profile 归一化。
 
 ## 代码位置
@@ -21,13 +23,14 @@
 | `client/scripts/ui/game_over_panel.gd` | F6 死亡结算展示、账号等级 / 余额、重开和回标题 |
 | `client/tools/meta_progression_smoke.gd` | F6 headless smoke：meta roundtrip、结算、购买、modifier |
 | `tools/godot_bridge.py` | `meta-smoke` 命令入口 |
+| `docs/代码/gear_mod_system.md` | F11 装备 Mod 系统规划文档；新跨局成长入口 |
 
 ## 运行流程
 
 | 阶段 | 发生什么 | 关键 API |
 |------|----------|----------|
 | 创建 / 读取 profile | 若 `slot_0/meta.save` 存在则加载并归一化；不存在则创建默认货币、默认解锁和统计字段并写入 `SaveManager` | `load_or_create_profile()` |
-| 新局应用永久升级 | F4 开局配置玩家和武器后读取已购买升级，转换为 `stat/type/value` modifiers 并传给玩家与武器 | `current_modifiers()` |
+| 新局应用永久升级 | Legacy：F4 开局配置玩家和武器后读取已购买升级，转换为 `stat/type/value` modifiers 并传给玩家与武器；F11 实现后应改为读取 `GearModSystem` loadout snapshot | `current_modifiers()` |
 | 死亡结算 | F4 玩家死亡时提交击杀数、存活时长和首领击杀标记；系统按数据配置计算局外货币与账号经验、更新等级奖励解锁并保存 meta | `apply_run_settlement()` |
 | 清理 run | F4 在结算后删除 `run` 存档，避免死亡 / 结算后继续读旧局造成重复奖励 | `SaveManager.delete(slot_0, run)` |
 | 购买升级 | 标题局外升级面板请求购买可负担升级；系统检查账号等级、当前等级、费用和余额，扣货币、提升等级、发放升级解锁并保存 meta | `purchase_upgrade()` |
@@ -73,7 +76,7 @@
 - 结算货币公式读取 `run_rewards.base_amount`、`per_minute_survived`、`per_50_kills`、`first_boss_bonus` 和 `max_amount_per_run`。
 - 账号经验公式读取 `account_level.xp_per_minute_survived` 与 `xp_per_50_kills`；等级由 `thresholds` 推导，等级奖励读取 `level_rewards.unlock_ids`。
 - 永久升级读取 `upgrade_tracks[].costs`、`max_level`、`unlock_condition.account_level`、`modifiers[].value_per_level` 和可选 `unlock_ids_by_level`。
-- 当前配置已有 `damage` 与 `fire_rate` 等数据驱动永久属性轨道；这类轨道只通过 `current_modifiers()` 输出，不在运行时写特殊分支。
+- 当前配置已有 `damage` 与 `fire_rate` 等数据驱动永久属性轨道；ADR #115 后这类轨道进入 legacy，不再新增为未来成长内容。新跨局数值应做成 Gear Mod 定义。
 - 玩家可见文案走 `client/locale/strings.csv`；F6 使用 `ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_account_level_up`、`ui_meta_title_summary`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_purchase_success`、`ui_meta_purchase_failed`、`ui_meta_progression`、`ui_meta_progression_available`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`。
 
 ## 依赖
@@ -84,8 +87,8 @@
 
 ## 扩展点
 
-- 完整局外成长 UI：保留 `MetaProgressionSystem` 作为数据 / 存档 API，后续完整 UI 继续消费 `profile_summary()`、`upgrade_summaries()` 与 `purchase_upgrade()`，不要直接读取 / 改写 `meta` payload。
-- 新升级轨道：优先改 `meta_progression.json` 与 locale；只要仍输出 `stat_modifier`，不需要改 F4 应用逻辑。
+- 旧档迁移 / 补偿：保留 `MetaProgressionSystem` 作为旧数据解释器，后续由迁移逻辑把已购买永久升级折算为 Gear Mod 升级资源、起始 Mod 或其他补偿。
+- 新成长内容：不要再向 `meta_progression.json` 增加未来永久升级轨道；优先改 `gear_mods.json` / Gear Mod 数据与 `GearModSystem`。
 - 新结算来源：向 `apply_run_settlement()` summary 增加 JSON 友好字段，并同步 GDD、测试策略和 smoke。
 - profile 版本提升：更新 payload schema、添加迁移策略和 roundtrip 测试，同时评估是否需要提升 `SaveManager` 的 `meta` kind version。
 
@@ -117,12 +120,14 @@
 
 ## 迁移 / 兼容
 
-当前 `meta` payload schema version 为 1，`SaveManager` 的 `meta` kind version 也为 1。`load_or_create_profile()` 会对缺字段旧档做温和归一化，但没有跨版本迁移；未来若删除字段、改字段含义或改变结算统计结构，必须新增显式迁移并更新 `SaveManager.CURRENT_KIND_VERSIONS`。
+当前 `meta` payload schema version 为 1，`SaveManager` 的 `meta` kind version 也为 1。`load_or_create_profile()` 会对缺字段旧档做温和归一化，但没有跨版本迁移；F11 删除或旁路旧字段时，必须新增显式迁移 / 补偿策略并更新 `SaveManager.CURRENT_KIND_VERSIONS` 或 `GearModSystem` 的 profile migration。
 
 ## 相关文档
 
 - `docs/AI协作/工作包/F6-MetaProgression.md`
+- `docs/AI协作/工作包/F11-GearModLoadout.md`
 - `docs/游戏设计文档.md` §7.2 / §9.16
+- `docs/代码/gear_mod_system.md`
 - `docs/代码/save_manager.md`
 - `docs/代码/gameplay_runtime.md`
 - `docs/代码/debug_tools.md`

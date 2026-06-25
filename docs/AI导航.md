@@ -65,9 +65,9 @@
 | `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `AudioManager` / `Localization` / `UIManager` |
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口、`DamageInfo`、`StatusEffect` 与 `StatusEffectComponent` |
 | `client/scripts/gameplay/` | F4/F5/F9 阶段脚本：`gameplay_run_loop` / `world_background` / `map_manager` / `player` / `weapon_system` / `skill_system` / `bullet` / `enemy` / `hazard` / `pickup_orb` / `level_up_panel` / `gameplay_hud`，当前还承载 F5+ run 快照生产 / 恢复 |
-| `client/scripts/ui/` | 阶段性 UI：`title_menu` / `pause_menu` / `game_over_panel` / `meta_progression_panel` |
+| `client/scripts/ui/` | 阶段性 UI：`title_menu` / `pause_menu` / `game_over_panel` / `meta_progression_panel`（legacy）/ 后续 `gear_mod_panel` |
 | `client/scripts/debug/` | debug/dev_tools 专用 `DebugConsole` 与 `GMCommandRegistry`；正式 release 不应加载或导出 |
-| `client/tools/` | Godot 项目内 headless smoke 脚本；当前含 gameplay runtime、MetaProgression、SaveManager、Settings、Replay、RNG、perf 和 DebugTools smoke |
+| `client/tools/` | Godot 项目内 headless smoke 脚本；当前含 gameplay runtime、MetaProgression legacy、SaveManager、Settings、Replay、RNG、perf 和 DebugTools smoke；后续 F11 追加 GearMod smoke |
 | `user://settings.cfg` | 玩家设置存档；游戏进度存档走 `user://saves/<slot>/<kind>.save`（`meta` / `run` / `replay_index`） |
 
 `docs/` 下：
@@ -98,7 +98,7 @@
 | `docs/AI协作/README.md` | AI 协作工程目录索引 |
 | `docs/AI协作/快速开工.md` | **AI 日常开工热路径**，降低默认上下文开销 |
 | `docs/AI协作/任务模板/` | 高频任务的标准 prompt + 文件操作清单 |
-| `docs/AI协作/工作包/` | 正式项目阶段任务的低 token 工作包；当前 F10 战区导演入口是 `F10-WarzoneDirector.md`，F9 Demo 内容 / 表现打磨入口是 `F9-ContentDemoPolish.md`，F8 回放 / 测试 / 平衡维护入口是 `F8-ReplayTestingBalance.md`，F7 设置 / 本地化 / UI 栈维护入口是 `F7-SettingsLocalizationUI.md`，F6 局外成长入口是 `F6-MetaProgression.md`，F4 最小可玩闭环入口是 `F4-MinPlayableLoop.md`，历史 F3 数据闭环入口是 `F3-DataLoader.md` |
+| `docs/AI协作/工作包/` | 正式项目阶段任务的低 token 工作包；当前装备 Mod 规划入口是 `F11-GearModLoadout.md`，F10 战区导演入口是 `F10-WarzoneDirector.md`，F9 Demo 内容 / 表现打磨入口是 `F9-ContentDemoPolish.md`，F8 回放 / 测试 / 平衡维护入口是 `F8-ReplayTestingBalance.md`，F7 设置 / 本地化 / UI 栈维护入口是 `F7-SettingsLocalizationUI.md`，F6 旧局外成长入口是 `F6-MetaProgression.md`，F4 最小可玩闭环入口是 `F4-MinPlayableLoop.md`，历史 F3 数据闭环入口是 `F3-DataLoader.md` |
 | `docs/AI协作/上下文预算.md` | 不同任务该读哪些文件 |
 | `docs/AI协作/角色分工.md` | 设计/实现/评审/平衡 四角色协作 |
 | `docs/AI协作/引擎集成.md` | Godot MCP / Bridge 接入指南 |
@@ -136,7 +136,8 @@
 | **加 / 改消耗品** | 在 `client/data/consumables.json` 加一条：`stack` 声明最大堆叠 / 初始数量 / 单次拾取数量，`use_effects` 引用已登记 effect，文案用 `item_*` key；模式引用走 `game_modes.resource_pools.consumables`，不实现拾取物 / 背包 / 使用输入 / 数量扣减 / 效果运行时 |
 | **加 / 改游戏模式** | 在 `client/data/game_modes.json` 声明可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 消耗品 / 成长资源池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖；mode id 先登记 `docs/词表与契约.md` §12-A；资源本体保持模式无关，禁止为模式复制一套资源或在代码写 `if mode_id == ...` |
 | **改经验/升级系统** | 查 GDD §7.1 与 `docs/代码/gameplay_runtime.md`；F4 阶段已落地池化经验球、经验累计、默认 3 选 1、`luck` 概率 4 选 1、`stat_modifier` 奖励应用；经验阈值 / 候选概率在 `client/data/growth.csv`，候选池在 `client/data/growth_pools.json`；候选抽取走 `RNG.ui_choice`，升级面板通过 `UIManager` 挂载，流程走 `GameState.LEVEL_UP`；升级界面按 `pause` 会叠出暂停菜单并在关闭后回到升级选择 |
-| **改局外成长 / 元进度** | 查 GDD §7.2；配置改 `client/data/meta_progression.json`，字段说明同步 `client/data/README.md`，文案同步 `client/locale/strings.csv`；存档走 `SaveManager` 的 `meta` kind，标题菜单显示账号等级 / 余额摘要并在有可购买升级时提示入口，购买入口集中在标题菜单的 `MetaProgressionPanel`，面板用状态行区分可购买 / 余额不足 / 锁定 / 满级，死亡结算页只展示收益和账号状态；当前首批升级已包含伤害与射速等数据驱动永久 modifier；新增 currency / upgrade / unlock id 先登记词表 §13 |
+| **改装备 Mod / 局外装配** | 查 GDD §7.2、`docs/AI协作/工作包/F11-GearModLoadout.md` 与 `docs/代码/gear_mod_system.md`；规划数据为 `gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`，首片只做英雄 / 武器两套 loadout、一张提高武器 `damage` 的测试武器 Mod、`enemy_chaser` 玩家击杀 1% 掉落、升级消耗资源和分解返还资源；实现前先登记 Mod id / slot / rarity / resource 等词表契约，并同步 `client/data/README.md`、locale、DataLoader schema、SaveManager / Gameplay Runtime 文档和 smoke |
+| **维护旧局外成长 / 元进度迁移** | `MetaProgressionSystem` / `meta_progression.json` 是 F6 legacy 永久升级首切片；F11 实现装备 Mod 后旧永久升级轨道不得继续作为下一局属性来源。需要处理旧档时查 `docs/代码/meta_progression_system.md`、`docs/代码/gear_mod_system.md` 与 `docs/代码/save_manager.md`，通过 `SaveManager` 的 `meta` kind 迁移或隔离旧字段 |
 | **改致谢 / 第三方来源** | 同步根目录 `CREDITS.md` 与 `client/data/credits.json`；新增分组标题、角色或用途标签时补 `client/locale/strings.csv` 的 `ui_credits_*` key；发行前复核许可证和 notice |
 | **加 / 改美术资产 / 占位表现** | 先看 `docs/IP美术风格.md`、GDD §8.2-A、`docs/代码/gameplay_runtime.md` 的占位表现规则和当前 F9 工作包。敌巢 / 虫族使用骨白、蜡黄、干肉粉、深红、黑紫和少量毒蓝；青、红、白归属虫族 / 敌巢，玩家和玩家子弹默认避开青、红、白，敌方远程攻击可用红色，宝箱与地图兴趣点按功能色区分。贴地范围（机关、AOE、地面符号、房间边界）优先用菱形或与菱形地图格对齐；角色、敌人、拾取物、子弹、障碍物和特效不强制菱形，asset brief 必须说明色彩归属、`footprint_shape`、`anchor_point`、`shadow`、`sort_layer`、`collision_or_trigger_shape` |
 | **加破限角色/道具** | 先判断是否能用 `capabilities` + `modifiers` + `behaviors` 表达；表达不了则新增可复用 primitive / strategy 并登记词表 §12，禁止按 id 写特殊分支 |
@@ -147,7 +148,7 @@
 | **改 IP / 世界观 / 英雄包装 / 宣传语** | 先看 `docs/IP设定.md`；涉及视觉风格、色板、阵营色、兴趣点颜色或资产 brief 时追加 `docs/IP美术风格.md`；若改变玩法承诺或系统边界，再同步 GDD / ADR / 术语表 / AI导航 / AI记忆 |
 | **选择下一项新功能** | 先看 `docs/功能建议池.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md` 与 `docs/AI记忆/current_state.json`；用户明确点名功能后，再建立 / 更新工作包、GDD / ADR / 模块文档并实现，不从建议文档自行挑选推进 |
 | **评估小服务器在线玩法** | 先看 `docs/小服务器玩法备忘.md`、GDD §6.7 / §9.21 / §9.22、`docs/代码/platform_services.md` 与 `docs/代码/replay.md`；短期优先异步玩法和离线可降级，实时多人 / PvP / 强竞技排行榜默认暂缓 |
-| **启动 / 推进正式项目** | 优先读当前阶段工作包；当前 F9 入口为 `docs/AI协作/工作包/F9-ContentDemoPolish.md`，用于内容扩展与 Demo 打磨准备。F8 已落地临时 `l1-smoke`、Replay 文件 roundtrip 的 `replay-smoke`、摘要 diff / 运行时摘要重跑 / 输入播放首片 / runtime event 播放 / 扩展稳定帧样本 diff 的 `replay-runner`、gameplay 输入录制首片的 `replay-input-smoke`、跨 RNG 子流相关性审计 `rng-audit`、`client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay`、`client/tests/replays/golden_level_up_choice.replay` 和轻量 `perf-probe`，现作为 F9 内容扩展的回归护栏；后续 `golden_relic_synergy` 等遗物协同 replay 等对应运行时存在后再补。F7 设置持久化、只显示已接线生效项的正式设置面板、核心 UI 运行时语言刷新、键盘主输入重绑定、输入绑定反馈 / 恢复默认和 UIManager 栈顶 `ui_back` / 默认焦点首片已落地并由 `settings-smoke` / `runtime-smoke` 覆盖；F9 已新增 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry` 与 `debug-tools-smoke` / `debug-tools-release-smoke`。维护入口：DebugTools 看 `docs/代码/debug_tools.md`，F7 看 `docs/AI协作/工作包/F7-SettingsLocalizationUI.md`，F6 局外成长看 `docs/AI协作/工作包/F6-MetaProgression.md`，F4 历史入口为 `docs/AI协作/工作包/F4-MinPlayableLoop.md`，F3 数据闭环入口为 `docs/AI协作/工作包/F3-DataLoader.md` |
+| **启动 / 推进正式项目** | 优先读当前阶段工作包；装备 Mod / 局外装配看 `docs/AI协作/工作包/F11-GearModLoadout.md` 和 `docs/代码/gear_mod_system.md`，F10 战区导演看 `docs/AI协作/工作包/F10-WarzoneDirector.md`。F8 已落地临时 `l1-smoke`、Replay 文件 roundtrip 的 `replay-smoke`、摘要 diff / 运行时摘要重跑 / 输入播放首片 / runtime event 播放 / 扩展稳定帧样本 diff 的 `replay-runner`、gameplay 输入录制首片的 `replay-input-smoke`、跨 RNG 子流相关性审计 `rng-audit`、四条 checked-in replay 和轻量 `perf-probe`，现作为内容扩展的回归护栏。F7 设置持久化、正式设置面板和 UIManager 栈顶 `ui_back` 已落地；F9 已新增 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`。维护入口：DebugTools 看 `docs/代码/debug_tools.md`，F7 看 `docs/AI协作/工作包/F7-SettingsLocalizationUI.md`，F6 旧局外成长迁移看 `docs/AI协作/工作包/F6-MetaProgression.md` 与 `docs/代码/meta_progression_system.md`，F4 历史入口为 `docs/AI协作/工作包/F4-MinPlayableLoop.md`，F3 数据闭环入口为 `docs/AI协作/工作包/F3-DataLoader.md` |
 | **维护正式客户端启动骨架 / 默认分辨率** | 看 `client/README.md`、`docs/代码/formal_client_boot.md` 与 `docs/代码/gameplay_runtime.md`；默认 viewport 当前为 1920×1080，窗口不允许任意拖拽缩放，拉伸策略为 `canvas_items + keep`；改主场景、窗口配置或启动验证时同步本导航和 `docs/代码/README.md` |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
 | **校验数据 / 文案** | 跑 `python tools/validate_data.py` 与 `python tools/lint_project_rules.py`；改 DataLoader schema 时追加 `python tools/test_data_loader_schema.py`，改项目规则 lint 时追加 `python tools/test_project_rules_lint.py` |
@@ -185,7 +186,7 @@
 ## 5. 核心系统模块
 
 ### 5.1 模块清单
-**业务模块**：`InputController` / `Player` / `WeaponSystem` / `SkillSystem`（主动技能）/ `Enemy(EnemyAI)` / `Spawner` / `WarzoneDirector`（敌巢战区导演）/ `HazardSystem` / `ItemSystem` / `GrowthSystem`（经验/升级选择）/ `MetaProgressionSystem`（局外成长）/ `ModifierEngine` / `MapManager` / `Camera2D` / `DataLoader` / `PauseMenu`（UI）/ `Combat`（伤害结算）/ `StatusEffectComponent`（状态效果与 DoT tick）。
+**业务模块**：`InputController` / `Player` / `WeaponSystem` / `SkillSystem`（主动技能）/ `Enemy(EnemyAI)` / `Spawner` / `WarzoneDirector`（敌巢战区导演）/ `HazardSystem` / `ItemSystem` / `GrowthSystem`（经验/升级选择）/ `GearModSystem`（装备 Mod 与局外装配）/ `MetaProgressionSystem`（legacy 迁移）/ `ModifierEngine` / `MapManager` / `Camera2D` / `DataLoader` / `PauseMenu`（UI）/ `Combat`（伤害结算）/ `StatusEffectComponent`（状态效果与 DoT tick）。
 
 **Autoload 单例（横向基础设施 + 协调中枢）**：
 - 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
@@ -197,7 +198,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`MetaProgressionSystem`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、gameplay runtime、TitleMenu / WorldBackground / Player / WeaponSystem / Bullet / Enemy / Spawner / PickupOrb / LevelUpPanel / HUD / GameOverPanel 的最小闭环；F5 已新增 `PauseMenu`、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、升级界面 Esc 叠出暂停菜单、坏档重置提示、run payload、`RNG.snapshot()` / `restore_snapshot()` 与 `GameClock.snapshot()` / `restore_snapshot()`，并用 `SaveManager` 的 `run` kind 保存 / 读取局内快照；F6 已新增 `MetaProgressionSystem`、死亡结算、`meta` profile roundtrip、标题 `MetaProgressionPanel` 局外升级入口、数据驱动伤害 / 射速等永久升级轨道和下一局永久 modifiers；F7 已落地设置持久化、只显示已接线设置的正式设置面板、核心 UI 运行时语言刷新、键盘主输入重绑定、输入绑定保存 / 共用键位反馈、一键恢复输入默认，以及 `UIManager` 栈顶 `ui_back` / 默认焦点首片。F8 已通过当前验收基线收口审计，包含临时 L1 runner、Replay `.replay` 文件 roundtrip、summary diff / 运行时摘要 runner、runner 输入播放首片、runtime event 播放首片、扩展稳定帧样本 diff、gameplay 输入录制首片、`client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay`、`client/tests/replays/golden_level_up_choice.replay`、`rng-audit` 跨子流相关性审计和 schema v2 perf / balance baseline；升级选择已记录 `level_up` decision，RNG 子流 seed 派生已升级为域隔离 SHA-256 mixer 以同时保护跨进程回放确定性与跨子流防相关性。F9 已新增 `ModLoader` 本地 mod 接口首片、`PlatformServices` 平台服务接口首片、可复用 `SkillSystem` 主动技能首片并升级为项目版轻量 GAS 首片、有限地图 / 可调 PCG 的 `MapManager`、通用 `HazardSystem` 与 FEA-12 测试机关，以及 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`。F10 已新增 `WarzoneDirector` 敌巢战区导演首片：`warzone_directors.json` 用固定 phase、巢变异主题、生态 encounter 和兴趣点组合组织标准模式 wave，运行时只按 `GameClock` 时间 gating `spawn_waves.csv`，并把匹配当前 layout 的兴趣点通过 `MapManager` 生成 `source="director"` 初始机关；`debug_summary().map.hazard_sources` 可诊断 manual / pcg / director placement 数量；不读取玩家状态、不做隐藏 DDA、不接运行时 LLM、不提升 run 存档 schema。WeaponSystem 读取 `fire` action，默认按住左键 / 右扳机才按 `fire_rate` 出弹，松开停火；SkillSystem 读取 `skills.json`，默认角色通过 `starting_loadout.skill_ids` 引用 `skill_overdrive_rounds`，主动键释放后用 `skill_effect_weapon_modifiers` 临时提高主武器射速与弹速；技能用 `skill_resources` 的 `mana` 支付成本，activation 支持 required / blocked / granted ability tags，技能伤害仍走 `Combat`，状态效果通过目标实体的 `StatusEffectComponent` 授予 / 释放 ability tags 或造成 DoT，Player / Enemy 状态和 WeaponSystem 临时 modifiers 都进入 run 快照；MapManager 读取 `map_layouts.json`，用有限 bounds、玩家出生点、安全半径、刷怪边距、PCG 机关规则、人工摆点和导演兴趣点生成初始地图，FEA-12 通过通用菱形 `Hazard` 节点、`PoolManager` 和 `Combat` 验证机关伤害；ModLoader 扫描 `user://mods/<mod_id>/mod.json`，只接受声明式 JSON / CSV append patch 和少量动态契约扩展，暂不接创意工坊、不执行玩家脚本；PlatformServices Steam 优先预留成就、统计、富状态 / 状态显示、overlay、Lobby / 联机入口和用户身份，当前不接 Steamworks SDK、不联网，后续其他平台走 provider adapter；DebugTools 通过 F1 / 反引号打开控制台，当前命令覆盖 help/stats/spawn/xp/hp/damage/heal/meta/kill/clear/seed，release 路径由 runtime guard 与导出资源排除约束。当前 F10 入口是 `docs/AI协作/工作包/F10-WarzoneDirector.md`；F9 的 `docs/AI协作/工作包/F9-ContentDemoPolish.md` 用于首批 Demo 内容切片、手感 / 可读性打磨、固定斜俯视资产占位规范和手动 checklist；F8 的 `l1-smoke`、`replay-smoke`、`rng-audit`、四条 checked-in replay runner 和 `perf-probe` 是内容扩展的回归护栏。正式客户端默认 viewport 为 1920×1080，窗口禁止任意拖拽缩放并采用 `canvas_items + keep` 保比例黑边策略，GameplayHud / LevelUpPanel 已改为锚点与容器布局；GameplayHud 现在提供按住 `show_stats_panel` action（默认 Tab）的详细数值面板，显示期间不暂停；首轮手动试玩反馈已补朝向指示、受击闪白、背景参照、GAME_OVER 计时冻结和持续刷怪，玩家生命体系已改为 600.0 浮点血量并新增 `health_regen` 自动生命恢复，接触伤害已改为玩家侧 `damage_invulnerability_duration` 无敌窗口裁决，敌人中心已按 `enemies.csv.separation_radius` 做小范围排斥以避免完全重叠，玩家中心也通过 `player_separation_radius` 提供不可重叠区域并在碰到敌人分离圈时只推开敌人，经验球与升级三选一已接入 `growth.csv` / `growth_pools.json`，升级选择后有 HUD 获得反馈，`enemies.csv.visual_color` 支持数据化敌人占位色；敌人生态 AI 首片已接入 `enemy_ai_profiles.json`、`enemies.csv.ai_profile_id`、`tag_enemy_prey` / `tag_enemy_predator` / `tag_enemy_territorial` 和 `Enemy.ai_debug_summary()`，当前已有追猎者、疾行者、潜猎者与壁垒四种敌人，怪物可按 profile 接近玩家、逃离威胁、狩猎其他怪物、守出生点或冲锋。
+当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`MetaProgressionSystem`（legacy）、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、gameplay runtime、TitleMenu / WorldBackground / Player / WeaponSystem / Bullet / Enemy / Spawner / PickupOrb / LevelUpPanel / HUD / GameOverPanel 的最小闭环；F5 已新增 `PauseMenu`、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、升级界面 Esc 叠出暂停菜单、坏档重置提示和 run payload；F6 旧 `MetaProgressionSystem` 已实现死亡结算、`meta` profile roundtrip、标题 `MetaProgressionPanel` 和永久升级轨道，但 ADR #115 后它只作为 legacy 迁移参考，未来下一局属性来源改为 `GearModSystem`。F8 已通过当前验收基线收口审计，包含临时 L1 runner、Replay `.replay` 文件 roundtrip、四条 checked-in replay、`rng-audit` 和 schema v2 perf / balance baseline。F9 已新增 `ModLoader` 本地 mod 接口首片、`PlatformServices` 平台服务接口首片、可复用 `SkillSystem` 主动技能首片并升级为项目版轻量 GAS 首片、有限地图 / 可调 PCG 的 `MapManager`、通用 `HazardSystem` 与 FEA-12 测试机关，以及 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`。F10 已新增 `WarzoneDirector` 敌巢战区导演首片：`warzone_directors.json` 用固定 phase、巢变异主题、生态 encounter 和兴趣点组合组织标准模式 wave，运行时只按 `GameClock` 时间 gating `spawn_waves.csv`，并把匹配当前 layout 的兴趣点通过 `MapManager` 生成 `source="director"` 初始机关；不读取玩家状态、不做隐藏 DDA、不接运行时 LLM、不提升 run 存档 schema。当前 F11 规划入口是 `docs/AI协作/工作包/F11-GearModLoadout.md`：后续新增英雄 / 武器两套装备 Mod loadout、测试武器伤害 Mod、玩家击杀 `enemy_chaser` 1% 掉落、升级消耗资源和分解返还资源；装备 Mod 与 `ModLoader` 本地数据包 mod 必须保持命名边界。WeaponSystem 读取 `fire` action，默认按住左键 / 右扳机才按 `fire_rate` 出弹，松开停火；SkillSystem 读取 `skills.json`，默认角色通过 `starting_loadout.skill_ids` 引用 `skill_overdrive_rounds`，主动键释放后用 `skill_effect_weapon_modifiers` 临时提高主武器射速与弹速。F10 维护入口是 `docs/AI协作/工作包/F10-WarzoneDirector.md`；F8 的 `l1-smoke`、`replay-smoke`、`rng-audit`、四条 checked-in replay runner 和 `perf-probe` 是内容扩展的回归护栏。
 
 > 普通开始新局 / 重开会生成新的 `RNG` run seed；继续游戏恢复 run snapshot；回放、smoke、golden 和调试复现仍应显式固定 seed 或走工具启动路径。
 
@@ -248,25 +249,26 @@ flowchart LR
   Hazard[HazardSystem]
   Item[ItemSystem]
   Growth[GrowthSystem]
-  Meta[MetaProgressionSystem]
+  GearMod[GearModSystem]
+  MetaLegacy[MetaProgressionSystem<br/>legacy]
 
   Map[MapManager]
   Cam[Camera2D]
   UI[UI/HUD<br/>PauseMenu/...]
 
   Mod -. 本地 mod 数据 patch .-> Loader
-  Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & Meta & Spawner & Director & Hazard & Map
+  Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & GearMod & MetaLegacy & Spawner & Director & Hazard & Map
   Set --> Player & Weapon & Input & UIM & Aud
   Loc --> UIM & Item
-  Ana <-- 埋点 --- Player & Enemy & Item & Growth & Meta & Spawner & GS & Save
-  RNG --> Map & Spawner & Item & Growth & Meta & Enemy & Combat
+  Ana <-- 埋点 --- Player & Enemy & Item & Growth & GearMod & Spawner & GS & Save
+  RNG --> Map & Spawner & Item & Growth & GearMod & Enemy & Combat
   Clk --> Spawner & Director & Hazard & Weapon & Skill & SE
   Rep -. 录制/重放 .-> Input & RNG & Clk & GS
-  Plat -. 成就/状态/overlay/Lobby .-> UI & Meta & GS
+  Plat -. 成就/状态/overlay/Lobby .-> UI & GearMod & GS
 
   GS --> UIM
   GS --> Growth
-  GS --> Meta
+  GS --> GearMod
   GS -.- Rep
   UIM --> UI
   Pool --> Weapon & Spawner & Hazard & Item & Aud
@@ -289,12 +291,15 @@ flowchart LR
   ME -. 修正器叠加 .- Player & Weapon
   Item -. 注册 modifiers/behaviors .- ME
   Growth -. 升级奖励 .- ME
-  Meta -. 永久升级 .- ME
+  GearMod -. loadout modifiers .- ME
+  GearMod -. 武器 Mod .- Weapon
+  GearMod -. 英雄 Mod .- Player
+  MetaLegacy -. legacy migration .- GearMod
   SE -. 注入 modifier .- ME
 
   Save -. meta/run kind .- GS
   Save -. run skill snapshot .- Skill
-  Save -. meta kind .- Meta
+  Save -. meta kind .- GearMod
   Aud -. play_sfx/music .- Combat & UI & Item
 
   classDef infra fill:#eef,stroke:#88a;

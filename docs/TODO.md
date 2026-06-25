@@ -17,12 +17,13 @@
 
 ## 1. 当前优先级（P0）
 
+- [ ] 实现 F11 装备 Mod / 局外装配首片：`GearModSystem`、英雄 / 武器两套 loadout、测试武器伤害 Mod、`enemy_chaser` 玩家击杀 1% 掉落、升级消耗资源、分解返还资源，并把旧 `MetaProgressionSystem` / `meta_progression.json` 迁到 legacy / 补偿路径。
 - [ ] 等用户从 `docs/功能建议池.md` 手动选择下一个新功能；AI 不从候选池自行推进。点名后再建立 / 更新对应工作包、GDD / ADR / 模块文档和验收命令。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）
 
-- [ ] 深化接入强 `SaveManager`：在 F5 run 与 F6 meta 首切片后，后续补 profile 迁移样例、更多 meta 字段回归和正式手动存档迁移 checklist。
+- [ ] 深化接入强 `SaveManager`：在 F11 Gear Mod meta payload 接入后，补旧 F6 profile 迁移 / 补偿样例、更多 meta 字段回归和正式手动存档迁移 checklist。
 - [ ] 扩展暂停菜单“保存并退出”和主菜单“继续游戏”流程：首片已恢复玩家、敌人、子弹、掉落、经验、RNG、GameClock、暂停菜单和升级选择面板；后续补遗物、主动道具和正式测试。
 - [ ] 扩展 `client/data/growth_pools.json` 内容：在属性奖励样例后，评估遗物、主动强化、回血、刷新 / 跳过 / banish 等候选类型。
 - [ ] 决策待定项 E：升级选项池内容是否包含遗物、属性、主动强化、回血、刷新 / 跳过 / banish。
@@ -33,14 +34,14 @@
 - [ ] 建立 L1 GUT 单测框架，优先覆盖 `RNG`、`GameClock`、`GameState`、`SaveManager`、`ModifierEngine`、`Combat`。
 - [ ] 扩展黄金回放：`golden_basic_run`、`golden_pause_resume`、`golden_full_death` 和 `golden_level_up_choice` 已有运行时摘要 + 扩展稳定帧样本 / 场景语义字段版，runner 已有输入播放与 runtime event 播放首片；后续在遗物运行时 / 协同原语存在后补 `golden_relic_synergy` 等更多场景。
 - [ ] 实现本地化导入与运行时语言切换，确保 `strings.csv` 中 `zh_CN` / `en` 可直接验证。
-- [ ] 建立基础 UI：主菜单、HUD、暂停菜单、设置菜单、升级选择、结算、局外成长界面。
+- [ ] 建立基础 UI：主菜单、HUD、暂停菜单、设置菜单、升级选择、结算、装备 Mod / 旧局外迁移界面。
 - [ ] 建立首批数据内容：扩展到 3~5 个遗物、更多武器 / 主动道具 / 消耗品和 2 种机关，并保持默认角色起始携带引用可校验。
 
 ## 4. 长期积压（P3）
 
 - [ ] 平衡 sim：实现 `AIPlayer` 接口与 headless 批量模拟，输出胜率、存活时长、构筑强度报表。
-- [ ] 局外成长扩展为多页成长树：前置节点、互斥分支、重置 / 退款规则、挑战驱动解锁。
-- [ ] 内容生产流水线：加敌人 / 加遗物 / 加局外成长节点的 schema、模板、自动校验和示例数据。
+- [ ] 装备 Mod 扩展：更多稀有度、套装 / 标签协同、容量成长、可视化筛选、重置 / 退款规则和挑战驱动解锁。
+- [ ] 内容生产流水线：加敌人 / 加遗物 / 加装备 Mod 节点的 schema、模板、自动校验和示例数据。
 - [ ] 音频与美术资源规范落地：Bus 配置、SFX / BGM id、占位美术替换策略。
 - [ ] 发版前完整 L5 手动回归 checklist，覆盖输入设备插拔、语言切换、存档迁移、回放重现和性能预算。
 
@@ -69,6 +70,7 @@
 - [x] 正式项目 F3 数据 / 契约闭环：`DataLoader`、`tools/validate_data.py`、schema 回归测试和 headless boot 已覆盖正式项目首批数据文件，并新增 F4 最小可玩闭环工作包。
 - [x] 正式项目 F5 暂停 / 存档 / 续局：run roundtrip、备份回退、双坏档隔离、v1 -> v2 迁移、坏档提示、暂停 / 升级 UI 恢复点、升级界面暂停菜单叠层和最终手动存档 checklist 已完成。
 - [x] 正式项目 F6 局外成长首切片：`MetaProgressionSystem`、死亡结算、`meta` profile roundtrip、升级购买、解锁授予、下一局永久 modifiers 和 `meta-smoke` 已完成。
+- [x] F11 装备 Mod / 局外装配规划入口：ADR #115、GDD §7.2、`docs/AI协作/工作包/F11-GearModLoadout.md`、`docs/代码/gear_mod_system.md`、`client/data/README.md` planned schema 已建立；旧 F6 永久升级进入 legacy 迁移范围。
 - [x] 正式项目 F7 工作包准备：`docs/AI协作/工作包/F7-SettingsLocalizationUI.md` 已建立为设置 / 本地化 / UI 栈稳定化阶段入口。
 - [x] 正式项目 F7 设置 / 本地化 / UI 栈首片：设置持久化、正式设置面板、运行时语言刷新、键盘主输入重绑定、输入反馈 / 恢复默认和 `UIManager` 返回 / 焦点首片已完成。
 - [x] 正式项目 F8 工作包准备：`docs/AI协作/工作包/F8-ReplayTestingBalance.md` 已建立为回放 / 测试 / 平衡基线阶段入口。
