@@ -1,6 +1,6 @@
 {
 	"created_at": "golden:golden_full_death",
-	"data_fingerprint": "afe4a965fdfa40e6de943ecef618f966a1d1900003bf199d84dacc3b8ff148a9",
+	"data_fingerprint": "3925934d4c53abc4315292ee0d4ef82b877d0fd370e3972c350dd9b96aac8f5c",
 	"file_schema_version": 1,
 	"game_version": "v1.5",
 	"recording": {
@@ -168,7 +168,6 @@
 			"game_over_panel_visible": true,
 			"kills": 0,
 			"level": 1,
-			"meta_currency_amount": 8,
 			"meta_save_exists": true,
 			"player_aim_direction": {
 				"x": 1.0,
@@ -195,7 +194,7 @@
 		"started_tick": 0,
 		"started_time": 0.0
 	},
-	"recording_hash": "747725645a04dbbdce7f800799db463dd8cbcd249333ffa96b78670f1ebb489b",
+	"recording_hash": "ea9f7bad99aa97db5fc2c1deb3de49ddae99dd839103c48ac8ba04320c5fc67a",
 	"summary": {
 		"decision_events": 0,
 		"dropped_decision_events": 0,
@@ -354,7 +353,6 @@
 			"game_over_panel_visible": true,
 			"kills": 0,
 			"level": 1,
-			"meta_currency_amount": 8,
 			"meta_save_exists": true,
 			"player_aim_direction": {
 				"x": 1.0,

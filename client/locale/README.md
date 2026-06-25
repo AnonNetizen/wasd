@@ -29,7 +29,7 @@
 | 加技能名和描述 | 在 `strings.csv` 加 `skill_*_name` / `skill_*_desc`；`skills.json` 填 `name_key` / `desc_key` |
 | 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，动态数值用 `{value}` 这类占位符 |
 | 加局外成长文案 | 在 `strings.csv` 加 `meta_*_name` / `meta_*_desc`；`meta_progression.json` 填 `name_key` / `desc_key` |
-| 加结算 / 局外成长 UI 文案 | 在 `strings.csv` 加 `ui_meta_*`（legacy 局外升级）或 `ui_gear_mod_*`（装备 Mod）key，例如结算、标题入口、容量、费用、锁定 / 满级状态、操作成功 / 失败反馈；UI 代码使用 `tr("ui_xxx")` |
+| 加装备 Mod / 局外装配 UI 文案 | 在 `strings.csv` 加 `ui_gear_mod_*` key，例如标题入口、容量、费用、锁定 / 满级状态、操作成功 / 失败反馈；UI 代码使用 `tr("ui_xxx")`。旧 `ui_meta_*` key 仅保留历史兼容，不再作为新 UI 方向 |
 | 加机关 / 危险物名 | 在 `strings.csv` 加 `hazard_*_name`；数据填 `name_key` |
 | 改中文或英文翻译 | 只改对应语言列，不改 key；另一语言由 AI 自动补首版译文后人工复核 |
 | 改 UI 布局或按钮文案 | 切到 `en` 验收宽度、换行和遮挡；英文长度是 UI 尺寸基准 |
@@ -82,7 +82,7 @@ ui_resume,继续,Resume
 | `enemy_` | 敌人名称 | `enemy_chaser_name` / `enemy_swarm_name` |
 | `hazard_` | 机关 / 危险物名称 | `hazard_spike_trap_name` |
 | `hint_` | 教程、提示、引导 | `hint_aim_with_right_stick` |
-| `meta_` | 局外货币、永久升级、账号等级、解锁项 | `meta_upgrade_damage_name` / `meta_currency_essence_name` |
+| `meta_` | legacy 旧局外货币、永久升级、账号等级、解锁项 | `meta_upgrade_damage_name` / `meta_currency_essence_name` |
 
 命名规则：
 

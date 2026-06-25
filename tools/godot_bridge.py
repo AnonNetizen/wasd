@@ -69,7 +69,6 @@ def main() -> int:
     subparsers.add_parser("f9-demo-smoke", help="Run the F9 demo content slice smoke in headless Godot.")
     subparsers.add_parser("runtime-smoke", help="Run the formal gameplay runtime smoke in headless Godot.")
     subparsers.add_parser("f4-smoke", help="Compatibility alias for runtime-smoke.")
-    subparsers.add_parser("meta-smoke", help="Run the F6 meta progression smoke in headless Godot.")
     subparsers.add_parser("gear-mod-smoke", help="Run the F11 Gear Mod loadout smoke in headless Godot.")
     subparsers.add_parser("save-smoke", help="Run the SaveManager run-save reliability smoke in headless Godot.")
     subparsers.add_parser("settings-smoke", help="Run the F7 Settings persistence smoke in headless Godot.")
@@ -262,19 +261,6 @@ def main() -> int:
             [str(godot), "--headless", "--path", str(project), "--", "--settings-smoke"],
             cwd=project,
         )
-    if args.command == "meta-smoke":
-        if not (project / "project.godot").exists():
-            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
-            return 1
-        smoke_script = project / "tools" / "meta_progression_smoke.gd"
-        if not smoke_script.exists():
-            print(f"[godot-bridge] missing MetaProgression smoke script: {_rel(smoke_script)}")
-            return 1
-        return _run_command(
-            [str(godot), "--headless", "--path", str(project), "--", "--meta-smoke"],
-            cwd=project,
-        )
-
     print(f"[godot-bridge] unknown command: {args.command}")
     return 1
 

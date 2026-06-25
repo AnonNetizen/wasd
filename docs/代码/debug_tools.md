@@ -6,7 +6,7 @@
 ## 职责
 
 - 只在 Godot debug build 或带 `dev_tools` feature 的构建中挂载调试控制台。
-- 提供 GM 命令注册与执行入口，当前覆盖 `help` / `stats` / `spawn` / `xp` / `heal` / `hp` / `damage` / `kill_player` / `kill_enemies` / `clear_enemies` / `meta` / `seed`。
+- 提供 GM 命令注册与执行入口，当前覆盖 `help` / `stats` / `spawn` / `xp` / `heal` / `hp` / `damage` / `kill_player` / `kill_enemies` / `clear_enemies` / `dust` / `seed`。
 - GM 命令只能调用正式系统 API 或受控 `debug_*` API，不直接散落修改 gameplay 私有状态、存档文件或 analytics。
 - release 构建默认不会挂载 `DebugConsole` / `GMCommandRegistry`，也不会注册 `debug_*` InputMap action。
 
@@ -19,7 +19,7 @@
 | `client/scripts/boot/formal_client_boot.gd` | 通过字符串路径动态加载 `DebugConsole`，并提供 release 双重 guard |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 提供 `debug_summary()`、刷怪、经验、玩家生命、杀敌 / 清敌等受控 runtime debug API |
 | `client/scripts/gameplay/player.gd` | 提供生命值设置 / 治疗 / 清无敌的 debug API |
-| `client/scripts/autoload/meta_progression_system.gd` | 提供 `debug_grant_currency()`，仍走 profile normalize 与 `save_profile()` |
+| `client/scripts/autoload/gear_mod_system.gd` | 提供 `debug_grant_resource()`，仍走 profile normalize 与 `save_meta_profile()` |
 | `client/tools/debug_tools_smoke.gd` | headless 自动验证 debug 可用与 release 模拟禁用 |
 | `tools/godot_bridge.py` | 暴露 `debug-tools-smoke` 与 `debug-tools-release-smoke` |
 
@@ -47,7 +47,7 @@
 | `kill_player` | 通过 `Combat.apply_damage()` 造成足量伤害 |
 | `kill_enemies` | 对当前 active enemies 走 `Combat.apply_damage()` |
 | `clear_enemies` | 通过 `PoolManager.release()` 清理当前 active enemies |
-| `meta <amount>` | 通过 `MetaProgressionSystem.debug_grant_currency()` 增加主局外货币 |
+| `dust <amount>` | 通过 `GearModSystem.debug_grant_resource()` 增加 Gear Mod 升级资源 |
 | `seed <int>` | 调用 `RNG.set_run_seed()` 设置 run seed |
 
 ## Release 边界
@@ -61,7 +61,7 @@
 
 - 改控制台 / 命令注册 / debug action：跑 `py tools/godot_bridge.py --project client debug-tools-smoke` 和 `py tools/godot_bridge.py --project client debug-tools-release-smoke`。
 - 改 runtime debug API：追加 `py tools/godot_bridge.py --project client runtime-smoke`。
-- 改局外货币 GM：追加 `py tools/godot_bridge.py --project client meta-smoke` 或确认 `debug-tools-smoke` 已覆盖对应路径。
+- 改 Gear Mod 资源 GM：追加 `py tools/godot_bridge.py --project client gear-mod-smoke` 或确认 `debug-tools-smoke` 已覆盖对应路径。
 - 改 release preset：跑 `py tools/lint_project_rules.py`，并人工确认导出资源不含调试脚本。
 
 ## 相关文档

@@ -5,12 +5,12 @@
 
 ## 1. 目标
 
-F11 将现有 F6 局外永久升级轨道替换为参考《星际战甲》的装备 Mod 装配系统。首片只做两套可配置 Mod：
+F11 将现有 F6 局外永久升级轨道替换为参考《星际战甲》的装备 Mod 装配系统。ADR #117 后旧运行时 / UI 已退役，`meta_progression.json` 仅保留为旧购买成本补偿表。首片只做两套可配置 Mod：
 
 - **英雄 Mod 配置**：作用于英雄 / 玩家基础属性、拾取、生存或后续技能资源。
 - **武器 Mod 配置**：作用于当前主武器属性，例如基础伤害、射速、弹速和暴击。
 
-系统应提供长期刷取、升级、分解和装配取舍，而不是把所有永久属性无条件叠到下一局。玩家仍通过 `SaveManager` 的 `meta` kind 保存跨局档案，但旧 `MetaProgressionSystem` / `meta_progression.json` 的永久升级轨道要在实现阶段退役。
+系统应提供长期刷取、升级、分解和装配取舍，而不是把所有永久属性无条件叠到下一局。玩家仍通过 `SaveManager` 的 `meta` kind 保存跨局档案；旧 `MetaProgressionSystem` 运行时已删除，旧 `meta_progression.json` 只供补偿读取。
 
 ## 2. 首片范围
 
@@ -174,7 +174,7 @@ common,5,gear_mod_dust,130
 - `python tools/godot_bridge.py --project client headless-boot`
 - `python tools/godot_bridge.py --project client gear-mod-smoke`
 - 改 `GameplayRunLoop` 开局应用、击杀归因或死亡结算旁路时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
-- 改旧 meta 迁移 / 补偿时追加 `python tools/godot_bridge.py --project client meta-smoke` 与 `save-smoke`。
+- 改旧 meta 迁移 / 补偿时追加 `python tools/godot_bridge.py --project client gear-mod-smoke` 与 `save-smoke`。
 - 若默认开局属性或掉落影响 golden 摘要，重跑四条 checked-in replay；有意变化时重录并说明。
 
 ## 8. 风险

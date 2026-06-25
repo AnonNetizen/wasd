@@ -56,7 +56,6 @@ var _hazard_rows: Dictionary = {}
 var _hud: CanvasLayer = null
 var _kills: int = 0
 var _level_panel: CanvasLayer = null
-var _last_settlement: Dictionary = {}
 var _pending_level_up_choices: Array[Dictionary] = []
 var _pending_restore_snapshot: Dictionary = {}
 var _pause_menu: CanvasLayer = null
@@ -185,7 +184,6 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_current_level = 1
 	_current_xp = 0
 	_kills = 0
-	_last_settlement.clear()
 
 	_player = _active_world.get_node_or_null("Player") as CharacterBody2D
 	if _player == null:
@@ -694,12 +692,10 @@ func _spawn_damage_number(spawn_position: Vector2, amount: float, defeated: bool
 
 
 func _on_player_died() -> void:
-	_last_settlement = MetaProgressionSystem.apply_run_settlement(_run_settlement_summary())
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	GameState.change_state(GameState.GAME_OVER, {
 		"kills": _kills,
 		"run_time": GameClock.now(),
-		"settlement": _last_settlement.duplicate(true),
 	})
 	_show_game_over_panel()
 
@@ -708,7 +704,7 @@ func _show_game_over_panel() -> void:
 	_game_over_panel = UIManager.push(GAME_OVER_PANEL_SCENE, {"source": "game_over"}) as CanvasLayer
 	if _game_over_panel == null:
 		return
-	_game_over_panel.call("configure", _kills, GameClock.now(), _last_settlement)
+	_game_over_panel.call("configure", _kills, GameClock.now())
 	_game_over_panel.connect("restart_requested", Callable(self, "_on_game_over_restart_requested"), CONNECT_ONE_SHOT)
 	_game_over_panel.connect("quit_to_title_requested", Callable(self, "_on_game_over_quit_to_title_requested"), CONNECT_ONE_SHOT)
 
@@ -721,14 +717,6 @@ func _on_game_over_restart_requested() -> void:
 func _on_game_over_quit_to_title_requested() -> void:
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	quit_to_title_requested.emit()
-
-
-func _run_settlement_summary() -> Dictionary:
-	return {
-		"kills": _kills,
-		"run_time": GameClock.now(),
-		"first_boss_defeated": false,
-	}
 
 
 func _roll_gear_mod_drop(enemy: Node) -> void:

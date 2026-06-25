@@ -5,7 +5,6 @@ const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
-const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
@@ -143,7 +142,6 @@ func _runtime_summary(run_loop: Node, frame_samples: Array[Dictionary]) -> Dicti
 		summary["game_over_panel_visible"] = _find_node_by_name(get_tree().root, "GameOverPanel") != null
 		summary["meta_save_exists"] = SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
 		summary["run_save_exists"] = SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
-		summary["meta_currency_amount"] = _meta_currency_amount()
 	elif _scenario == "golden_level_up_choice":
 		var level_up_decisions: Array[Dictionary] = _level_up_decision_payloads()
 		summary["level_up_decisions"] = level_up_decisions
@@ -419,14 +417,6 @@ func _enemy_types(snapshot: Dictionary) -> Array[String]:
 			types.append(enemy_id)
 	types.sort()
 	return types
-
-
-func _meta_currency_amount() -> int:
-	if not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META):
-		return 0
-	var profile: Dictionary = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
-	var currencies: Dictionary = _dictionary_or_empty(profile.get("currencies", {}))
-	return int(currencies.get(META_CURRENCIES.META_ESSENCE, 0))
 
 
 func _level_up_decision_payloads() -> Array[Dictionary]:

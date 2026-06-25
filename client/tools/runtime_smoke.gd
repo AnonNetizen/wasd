@@ -7,7 +7,6 @@ const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
 const ENEMY_SCENE := preload("res://scenes/gameplay/enemy.tscn")
 const PLAYER_SCENE := preload("res://scenes/gameplay/player.tscn")
-const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
@@ -238,11 +237,7 @@ func _run() -> void:
 	var game_over_panel: Node = _find_node_by_name(get_tree().root, "GameOverPanel")
 	_expect(game_over_panel != null, "player death should show game-over panel")
 	_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "player death should consume the active run save")
-	_expect(SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META), "player death should write a meta save")
-	var meta_profile: Dictionary = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
-	_expect(int((meta_profile.get("currencies", {}) as Dictionary).get(META_CURRENCIES.META_ESSENCE, 0)) >= 8, "player death should grant configured meta currency")
-	var settlement_label: Label = _find_node_by_name(game_over_panel, "SettlementLabel") as Label
-	_expect(settlement_label != null and settlement_label.visible and not String(settlement_label.text).is_empty(), "game-over panel should show settlement rewards")
+	_expect(_find_node_by_name(game_over_panel, "SettlementLabel") == null, "game-over panel should not show legacy meta settlement rewards")
 	var game_over_hud: Node = _find_node_by_name(run_loop, "GameplayHud")
 	_expect(
 		game_over_hud != null
@@ -1053,7 +1048,7 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 	var title_menu: Node = _find_node_by_name(get_tree().root, "TitleMenu")
 	var continue_button: Button = _find_node_by_name(title_menu, "ContinueRunButton") as Button
 	await _verify_title_settings_entry(title_menu)
-	await _verify_meta_progression_entry(title_menu)
+	_verify_no_meta_progression_entry(title_menu)
 	_expect(continue_button != null and continue_button.visible and not continue_button.disabled, "title menu should continue a pending level-up run")
 	if continue_button == null:
 		return {
@@ -1252,45 +1247,9 @@ func _click_button(button: Button) -> void:
 	await get_tree().process_frame
 
 
-func _verify_meta_progression_entry(title_menu: Node) -> void:
-	var summary_label: Label = _find_node_by_name(title_menu, "MetaProfileSummaryLabel") as Label
-	var expected_summary_text: String = tr("ui_meta_title_summary").format({
-		"level": 1,
-		"currency": tr("meta_currency_essence_name"),
-		"amount": 0,
-	})
-	_expect(summary_label != null and String(summary_label.text) == expected_summary_text, "title menu should show account level and meta balance summary")
-	var meta_button: Button = _find_node_by_name(title_menu, "MetaProgressionButton") as Button
-	_expect(meta_button != null and meta_button.visible and not meta_button.disabled, "title menu should expose the meta progression entry")
-	if meta_button == null:
-		return
-	_expect(String(meta_button.text) == tr("ui_meta_progression"), "title meta progression button should use the base label when no upgrade is affordable")
-	await _click_button(meta_button)
-
-	var panel: Node = null
-	for _index: int in range(BOOT_FRAMES):
-		await get_tree().process_frame
-		panel = _find_node_by_name(get_tree().root, "MetaProgressionPanel")
-		if panel != null:
-			break
-	_expect(panel != null, "clicking the meta progression entry should open MetaProgressionPanel")
-	if panel == null:
-		return
-
-	var upgrade_list: Node = _find_node_by_name(panel, "MetaUpgradeList")
-	_expect(upgrade_list != null and upgrade_list.get_child_count() > 0, "MetaProgressionPanel should show upgrade rows")
-	_expect(not _focus_is_inside(panel), "MetaProgressionPanel should not receive focus after pointer push")
-	await _push_joypad_navigation_once()
-	_expect(_focus_is_inside(panel), "MetaProgressionPanel should receive focus after joypad navigation")
-	var close_button: Button = _find_node_by_name(panel, "CloseButton") as Button
-	_expect(close_button != null, "MetaProgressionPanel should expose a close button")
-	await _push_action_once(ACTIONS.UI_BACK)
-	for _index: int in range(BOOT_FRAMES):
-		await get_tree().process_frame
-		if _find_node_by_name(get_tree().root, "MetaProgressionPanel") == null:
-			break
-	_expect(_find_node_by_name(get_tree().root, "MetaProgressionPanel") == null, "ui_back should close MetaProgressionPanel")
-	_expect(_find_node_by_name(get_tree().root, "TitleMenu") == title_menu, "closing meta progression with ui_back should leave TitleMenu visible")
+func _verify_no_meta_progression_entry(title_menu: Node) -> void:
+	_expect(_find_node_by_name(title_menu, "MetaProfileSummaryLabel") == null, "title menu should not show legacy meta summary")
+	_expect(_find_node_by_name(title_menu, "MetaProgressionButton") == null, "title menu should not expose the legacy meta progression entry")
 
 
 func _verify_title_settings_entry(title_menu: Node) -> void:

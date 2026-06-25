@@ -15,8 +15,6 @@ const GOLDEN_REPLAY_CAPTURE_RUNNER := preload("res://tools/golden_replay_capture
 const L1_SMOKE_RUNNER := preload("res://tools/l1_smoke.gd")
 const RUNTIME_SMOKE_RUNNER := preload("res://tools/runtime_smoke.gd")
 const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
-const META_PROGRESSION_PANEL_SCENE := preload("res://scenes/ui/meta_progression_panel.tscn")
-const META_SMOKE_RUNNER := preload("res://tools/meta_progression_smoke.gd")
 const PERF_PROBE_RUNNER := preload("res://tools/perf_probe.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const REPLAY_INPUT_SMOKE_RUNNER := preload("res://tools/replay_input_smoke.gd")
@@ -31,7 +29,6 @@ const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 var _run_loop: Node = null
 var _debug_console: CanvasLayer = null
 var _gear_mod_panel: CanvasLayer = null
-var _meta_progression_panel: CanvasLayer = null
 var _settings_panel: CanvasLayer = null
 var _title_menu: CanvasLayer = null
 
@@ -153,10 +150,6 @@ func _ready() -> void:
 		var settings_smoke_runner: Node = SETTINGS_SMOKE_RUNNER.new()
 		settings_smoke_runner.name = "SettingsSmoke"
 		add_child(settings_smoke_runner)
-	elif _is_meta_smoke_enabled():
-		var meta_smoke_runner: Node = META_SMOKE_RUNNER.new()
-		meta_smoke_runner.name = "MetaProgressionSmoke"
-		add_child(meta_smoke_runner)
 	elif data_schema_ok:
 		_show_title_menu()
 
@@ -223,10 +216,6 @@ func _is_settings_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--settings-smoke")
 
 
-func _is_meta_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--meta-smoke")
-
-
 func _show_title_menu(notice_key: String = "") -> void:
 	_clear_gameplay_runtime()
 	GameState.change_state(GameState.MAIN_MENU, {"source": "formal_client_boot"})
@@ -239,7 +228,6 @@ func _show_title_menu(notice_key: String = "") -> void:
 	_title_menu.connect("start_requested", Callable(self, "_on_title_start_requested"), CONNECT_ONE_SHOT)
 	_title_menu.connect("continue_requested", Callable(self, "_on_title_continue_requested"), CONNECT_ONE_SHOT)
 	_title_menu.connect("gear_mod_requested", Callable(self, "_on_title_gear_mod_requested"))
-	_title_menu.connect("meta_progression_requested", Callable(self, "_on_title_meta_progression_requested"))
 	_title_menu.connect("settings_requested", Callable(self, "_on_title_settings_requested"))
 	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
 
@@ -295,15 +283,6 @@ func _on_title_continue_requested() -> void:
 	call_deferred("_start_gameplay_run", payload)
 
 
-func _on_title_meta_progression_requested() -> void:
-	if _meta_progression_panel != null and is_instance_valid(_meta_progression_panel):
-		return
-	_meta_progression_panel = UIManager.push(META_PROGRESSION_PANEL_SCENE, {"source": "formal_client_boot"}) as CanvasLayer
-	if _meta_progression_panel == null:
-		return
-	_meta_progression_panel.connect("closed_requested", Callable(self, "_on_meta_progression_closed"), CONNECT_ONE_SHOT)
-
-
 func _on_title_gear_mod_requested() -> void:
 	if _gear_mod_panel != null and is_instance_valid(_gear_mod_panel):
 		return
@@ -324,16 +303,6 @@ func _on_title_settings_requested() -> void:
 	if _settings_panel == null:
 		return
 	_settings_panel.connect("closed_requested", Callable(self, "_on_settings_panel_closed"), CONNECT_ONE_SHOT)
-
-
-func _on_meta_progression_closed() -> void:
-	if UIManager.top() == _meta_progression_panel:
-		UIManager.pop()
-	elif _meta_progression_panel != null and is_instance_valid(_meta_progression_panel):
-		_meta_progression_panel.queue_free()
-	_meta_progression_panel = null
-	if _title_menu != null and is_instance_valid(_title_menu) and _title_menu.has_method("refresh_meta_summary"):
-		_title_menu.call("refresh_meta_summary")
 
 
 func _on_gear_mod_closed() -> void:

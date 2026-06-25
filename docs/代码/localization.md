@@ -8,7 +8,7 @@
 - `Localization` 负责维护当前语言、响应 `Settings.general.locale` 变化，并提供统一的 `tr_key()` 翻译入口和 `locale_changed` 刷新信号。
 - 当前首批语言固定为 `zh_CN` 与 `en`，符合 ADR #64 和 `client/locale/README.md`。
 - 玩家可见文本仍必须通过 Godot `tr("key")` 或本模块 `tr_key(key)` 获取；本文档不新增玩家文案。
-- 当前 `strings.csv` 已导入为 Godot `.translation` 资源；F7 已让标题、暂停、设置、HUD、升级、结算和局外成长面板接入运行时刷新链路。
+- 当前 `strings.csv` 已导入为 Godot `.translation` 资源；F7 已让标题、暂停、设置、HUD、升级和失败页接入运行时刷新链路，F11 已让装备 Mod 面板接入刷新链路。
 
 ## 阅读方式
 
@@ -67,7 +67,7 @@
 ## 依赖
 
 - 上游依赖：`Settings` 提供 `general.locale`；Godot `TranslationServer` 提供运行时语言状态。
-- 下游调用方：标题菜单、暂停菜单、设置面板、Gameplay HUD、升级面板、失败结算面板、局外成长面板和后续数据展示读取翻译。
+- 下游调用方：标题菜单、暂停菜单、设置面板、Gameplay HUD、升级面板、失败页、装备 Mod 面板和后续数据展示读取翻译。
 - 禁止依赖：业务代码不得硬编码玩家可见文本；不得把语言写成 key 后缀。
 
 ## 扩展点
@@ -97,7 +97,7 @@
 ## 测试义务
 
 - 修改本模块必跑 L0 和 L2 headless boot，确认 autoload 可启动。
-- 修改运行时 UI 语言刷新时追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`；`settings-smoke` 当前覆盖 SettingsPanel、TitleMenu、PauseMenu、GameplayHud、LevelUpPanel、GameOverPanel 和 MetaProgressionPanel 的既有实例刷新。修改 Gear Mod 面板语言刷新时追加 `python tools/godot_bridge.py --project client gear-mod-smoke`。
+- 修改运行时 UI 语言刷新时追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`；`settings-smoke` 当前覆盖 SettingsPanel、TitleMenu、PauseMenu、GameplayHud、LevelUpPanel 和 GameOverPanel 的既有实例刷新。修改 Gear Mod 面板语言刷新时追加 `python tools/godot_bridge.py --project client gear-mod-smoke`。
 - 后续引入 GUT 后，需要覆盖缺 key 行为、语言切换、`Settings` 联动和 UI 刷新。
 - 手动回归仍建议切换 `zh_CN -> en` 检查核心 UI 文案即时刷新。
 

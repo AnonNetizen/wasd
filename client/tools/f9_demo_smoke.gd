@@ -3,7 +3,6 @@ extends Node
 
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
-const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 
@@ -65,10 +64,10 @@ func _run() -> void:
 
 	await _kill_player_for_settlement(run_loop, player)
 	_expect(GameState.is_state(GameState.GAME_OVER), "F9 demo smoke death should enter GAME_OVER")
-	_expect(SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META), "F9 demo smoke death should write meta save")
-	var meta_profile: Dictionary = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
-	var currencies: Dictionary = meta_profile.get("currencies", {}) as Dictionary
-	_expect(int(currencies.get(META_CURRENCIES.META_ESSENCE, 0)) >= 8, "F9 demo smoke death should grant Memory Embers")
+	var meta_profile: Dictionary = {}
+	if SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META):
+		meta_profile = SaveManager.load(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
+	_expect(not meta_profile.has("currencies"), "F9 demo smoke death should not grant legacy meta currencies")
 
 	_finish()
 

@@ -484,18 +484,12 @@ func _trim_equipped_to_capacity(loadout_slot: String, loadout: Dictionary, gear_
 
 
 func _load_meta_profile(slot: String) -> Dictionary:
-	var meta_system: Node = get_node_or_null("/root/MetaProgressionSystem")
-	if meta_system != null and meta_system.has_method("load_or_create_profile"):
-		return meta_system.call("load_or_create_profile", slot) as Dictionary
 	if SaveManager.has_save(slot, SAVE_KINDS.META):
 		return SaveManager.load(slot, SAVE_KINDS.META)
 	return {}
 
 
 func _save_meta_profile(profile: Dictionary, slot: String) -> bool:
-	var meta_system: Node = get_node_or_null("/root/MetaProgressionSystem")
-	if meta_system != null and meta_system.has_method("save_profile"):
-		return bool(meta_system.call("save_profile", profile, slot))
 	return SaveManager.save(slot, SAVE_KINDS.META, profile)
 
 

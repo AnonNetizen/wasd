@@ -64,18 +64,6 @@ mouse_filter = 2
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 20
 
-[node name="SettlementLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
-layout_mode = 2
-mouse_filter = 2
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 18
-
-[node name="MetaProfileLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
-layout_mode = 2
-mouse_filter = 2
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 16
-
 [node name="RestartButton" type="Button" parent="Root/Center/Panel/Margin/Layout"]
 custom_minimum_size = Vector2(260, 52)
 layout_mode = 2

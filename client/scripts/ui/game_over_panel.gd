@@ -16,13 +16,10 @@ var _pressed_button_index: int = -1
 var _quit_button: Button = null
 var _restart_button: Button = null
 var _selection_locked: bool = false
-var _settlement_label: Label = null
-var _profile_label: Label = null
 var _summary_label: Label = null
 var _title_label: Label = null
 var _kills: int = 0
 var _run_time: float = 0.0
-var _settlement: Dictionary = {}
 
 
 func _input(event: InputEvent) -> void:
@@ -55,12 +52,10 @@ func _ready() -> void:
 	_restart_button = get_node_or_null("Root/Center/Panel/Margin/Layout/RestartButton") as Button
 	_quit_button = get_node_or_null("Root/Center/Panel/Margin/Layout/QuitToTitleButton") as Button
 	_summary_label = get_node_or_null("Root/Center/Panel/Margin/Layout/SummaryLabel") as Label
-	_settlement_label = get_node_or_null("Root/Center/Panel/Margin/Layout/SettlementLabel") as Label
-	_profile_label = get_node_or_null("Root/Center/Panel/Margin/Layout/MetaProfileLabel") as Label
 	if _title_label == null or _restart_button == null or _quit_button == null:
 		push_error("[GameOverPanel] missing required scene nodes")
 		return
-	if _summary_label == null or _settlement_label == null or _profile_label == null:
+	if _summary_label == null:
 		push_error("[GameOverPanel] missing required scene nodes")
 		return
 
@@ -80,10 +75,9 @@ func _exit_tree() -> void:
 		Localization.locale_changed.disconnect(_on_locale_changed)
 
 
-func configure(kills: int, run_time: float, settlement: Dictionary = {}) -> void:
+func configure(kills: int, run_time: float) -> void:
 	_kills = kills
 	_run_time = run_time
-	_settlement = settlement.duplicate(true)
 	refresh_texts()
 
 
@@ -100,7 +94,6 @@ func refresh_texts() -> void:
 		"kills": _kills,
 		"time": int(_run_time),
 	})
-	_configure_settlement(_settlement)
 
 
 func grab_default_focus() -> void:
@@ -112,46 +105,6 @@ func _register_button(button: Button, action: String) -> void:
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	_buttons.append(button)
 	_button_actions.append(action)
-
-
-func _configure_settlement(settlement: Dictionary) -> void:
-	if _settlement_label == null or _profile_label == null:
-		return
-	if settlement.is_empty():
-		_settlement_label.visible = false
-		_profile_label.visible = false
-		return
-	_settlement_label.visible = true
-	_profile_label.visible = true
-
-	var currency_name: String = tr(String(settlement.get("currency_name_key", "")))
-	_settlement_label.text = tr("ui_meta_settlement").format({
-		"currency": currency_name,
-		"amount": int(settlement.get("currency_amount", 0)),
-		"xp": int(settlement.get("account_xp", 0)),
-	})
-
-	var profile: Dictionary = settlement.get("profile", {}) as Dictionary
-	var currencies: Dictionary = profile.get("currencies", {}) as Dictionary
-	var currency_id: String = String(settlement.get("currency_id", ""))
-	var balance_text: String = tr("ui_meta_balance").format({
-		"currency": currency_name,
-		"amount": int(currencies.get(currency_id, 0)),
-	})
-	var current_level: int = int(settlement.get("account_level", profile.get("account_level", 1)))
-	var previous_level: int = int(settlement.get("previous_account_level", current_level))
-	var level_text: String = tr("ui_meta_account_level").format({
-		"level": current_level,
-	})
-	if current_level > previous_level:
-		level_text = "%s · %s" % [
-			level_text,
-			tr("ui_meta_account_level_up").format({
-				"from": previous_level,
-				"to": current_level,
-			}),
-		]
-	_profile_label.text = "%s\n%s" % [level_text, balance_text]
 
 
 func _on_restart_pressed() -> void:

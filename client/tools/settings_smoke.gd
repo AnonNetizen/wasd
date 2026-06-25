@@ -3,11 +3,9 @@ extends Node
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
-const META_CURRENCIES := preload("res://scripts/contracts/meta_currencies.gd")
 const GAME_OVER_PANEL_SCENE := preload("res://scenes/ui/game_over_panel.tscn")
 const GAMEPLAY_HUD_SCENE := preload("res://scenes/gameplay/gameplay_hud.tscn")
 const LEVEL_UP_PANEL_SCENE := preload("res://scenes/ui/level_up_panel.tscn")
-const META_PROGRESSION_PANEL_SCENE := preload("res://scenes/ui/meta_progression_panel.tscn")
 const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause_menu.tscn")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
@@ -290,7 +288,6 @@ func _expect_runtime_locale_refresh() -> void:
 	await _expect_hud_locale_refresh()
 	await _expect_level_up_locale_refresh()
 	await _expect_game_over_locale_refresh()
-	await _expect_meta_progression_locale_refresh()
 	Localization.set_locale("zh_CN")
 
 
@@ -372,68 +369,23 @@ func _expect_game_over_locale_refresh() -> void:
 	panel.name = "GameOverPanel"
 	add_child(panel)
 	await get_tree().process_frame
-	var settlement: Dictionary = {
-		"account_level": 2,
-		"account_xp": 12,
-		"currency_amount": 8,
-		"currency_id": META_CURRENCIES.META_ESSENCE,
-		"currency_name_key": "meta_currency_essence_name",
-		"previous_account_level": 1,
-		"profile": {
-			"account_level": 2,
-			"currencies": {
-				META_CURRENCIES.META_ESSENCE: 8,
-			},
-		},
-	}
-	panel.call("configure", 5, 42.0, settlement)
+	panel.call("configure", 5, 42.0)
 	await get_tree().process_frame
 
 	var title_label: Label = _find_node_by_name(panel, "TitleLabel") as Label
 	var summary_label: Label = _find_node_by_name(panel, "SummaryLabel") as Label
-	var settlement_label: Label = _find_node_by_name(panel, "SettlementLabel") as Label
-	var profile_label: Label = _find_node_by_name(panel, "MetaProfileLabel") as Label
 	var restart_button: Button = _find_node_by_name(panel, "RestartButton") as Button
 	var quit_button: Button = _find_node_by_name(panel, "QuitToTitleButton") as Button
 	_expect(title_label != null and String(title_label.text) == tr("ui_game_over"), "game-over title should start in zh_CN")
 	_expect(summary_label != null and String(summary_label.text).contains(tr("ui_hud_kills")), "game-over summary should start in zh_CN")
-	_expect(settlement_label != null and String(settlement_label.text).contains(tr("meta_currency_essence_name")), "game-over settlement should start in zh_CN")
-	_expect(profile_label != null and String(profile_label.text).contains(tr("ui_meta_account_level_up").format({
-		"from": 1,
-		"to": 2,
-	})), "game-over profile should start in zh_CN")
 
 	Localization.set_locale("en")
 	await get_tree().process_frame
 	_expect(title_label != null and String(title_label.text) == "Run Over", "game-over title should refresh to en")
 	_expect(summary_label != null and String(summary_label.text).contains("Kills"), "game-over summary should refresh to en")
-	_expect(settlement_label != null and String(settlement_label.text).contains("Earned"), "game-over settlement should refresh to en")
-	_expect(profile_label != null and String(profile_label.text).contains("Account Level Up"), "game-over profile should refresh to en")
 	_expect(restart_button != null and String(restart_button.text) == "Restart", "game-over restart button should refresh to en")
 	_expect(quit_button != null and String(quit_button.text) == "Back to Title", "game-over quit button should refresh to en")
 	_expect_english_buttons_fit(panel, "game-over panel")
-
-	remove_child(panel)
-	panel.queue_free()
-
-
-func _expect_meta_progression_locale_refresh() -> void:
-	Localization.set_locale("zh_CN")
-	var panel: CanvasLayer = META_PROGRESSION_PANEL_SCENE.instantiate() as CanvasLayer
-	panel.name = "MetaProgressionPanel"
-	add_child(panel)
-	await get_tree().process_frame
-
-	var title_label: Label = _find_node_by_name(panel, "TitleLabel") as Label
-	var close_button: Button = _find_node_by_name(panel, "CloseButton") as Button
-	_expect(title_label != null and String(title_label.text) == tr("ui_meta_progression_title"), "meta progression title should start in zh_CN")
-	_expect(close_button != null and String(close_button.text) == tr("ui_cancel"), "meta progression close button should start in zh_CN")
-
-	Localization.set_locale("en")
-	await get_tree().process_frame
-	_expect(title_label != null and String(title_label.text) == "Meta Upgrades", "meta progression title should refresh to en")
-	_expect(close_button != null and String(close_button.text) == "Cancel", "meta progression close button should refresh to en")
-	_expect_english_buttons_fit(panel, "meta progression panel")
 
 	remove_child(panel)
 	panel.queue_free()

@@ -4,6 +4,7 @@ extends Node
 
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const GEAR_MOD_RESOURCES := preload("res://scripts/contracts/gear_mod_resources.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
 const BOOT_FRAMES: int = 12
@@ -86,13 +87,15 @@ func _run_debug_smoke() -> void:
 	_expect(bool(hp_result.get("ok", false)), "hp command should succeed")
 	_expect(is_equal_approx(_player_life(run_loop), 2.0), "hp command should set player life")
 
-	var before_meta: Dictionary = MetaProgressionSystem.profile_summary()
-	var meta_result: Dictionary = console.call("execute_command_for_test", "meta 5")
-	var after_meta: Dictionary = MetaProgressionSystem.profile_summary()
-	_expect(bool(meta_result.get("ok", false)), "meta command should succeed")
+	var before_profile: Dictionary = GearModSystem.load_or_create_profile()
+	var before_dust: int = _gear_mod_resource_balance(before_profile, GEAR_MOD_RESOURCES.GEAR_MOD_DUST)
+	var dust_result: Dictionary = console.call("execute_command_for_test", "dust 5")
+	var after_profile: Dictionary = GearModSystem.load_or_create_profile()
+	var after_dust: int = _gear_mod_resource_balance(after_profile, GEAR_MOD_RESOURCES.GEAR_MOD_DUST)
+	_expect(bool(dust_result.get("ok", false)), "dust command should succeed")
 	_expect(
-		int(after_meta.get("currency_amount", 0)) == int(before_meta.get("currency_amount", 0)) + 5,
-		"meta command should grant primary currency through MetaProgressionSystem"
+		after_dust == before_dust + 5,
+		"dust command should grant Gear Mod dust through GearModSystem"
 	)
 
 	var kill_result: Dictionary = console.call("execute_command_for_test", "kill_enemies")
@@ -119,6 +122,12 @@ func _run_release_sim_smoke() -> void:
 func _player_life(run_loop: Node) -> float:
 	var summary: Dictionary = run_loop.call("debug_summary")
 	return float(summary.get("player_life", 0.0))
+
+
+func _gear_mod_resource_balance(profile: Dictionary, resource_id: String) -> int:
+	var gear_state: Dictionary = profile.get("gear_mods", {}) as Dictionary
+	var resources: Dictionary = gear_state.get("resources", {}) as Dictionary
+	return int(resources.get(resource_id, 0))
 
 
 func _wait_for_node(target_name: String) -> Node:

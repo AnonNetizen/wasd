@@ -15,7 +15,6 @@ const PAUSED: StringName = &"paused"
 const LEVEL_UP: StringName = &"level_up"
 const GAME_OVER: StringName = &"game_over"
 const RESULT: StringName = &"result"
-const META_PROGRESSION: StringName = &"meta_progression"
 const STATES: Array[StringName] = [
 	MAIN_MENU,
 	LOADING,
@@ -24,7 +23,6 @@ const STATES: Array[StringName] = [
 	LEVEL_UP,
 	GAME_OVER,
 	RESULT,
-	META_PROGRESSION,
 ]
 
 var _current_state: StringName = MAIN_MENU

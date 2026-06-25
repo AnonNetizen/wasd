@@ -33,7 +33,7 @@
 | 改刷怪强度 / 难度曲线 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
 | 改经验阈值 / 升级候选概率 | `growth.csv` | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
 | 改装备 Mod / 英雄或武器装配 | `gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv` | 装备 Mod 与本地数据包 mod 是不同概念；Mod id / slot / rarity / resource / stack rule 必须先登记契约 |
-| 改旧局外货币 / 永久升级 / 解锁 | `meta_progression.json`（Legacy） | F11 后旧永久升级轨道将退役；不要再扩展为未来局外成长方向 |
+| 改旧局外货币 / 永久升级 / 解锁 | `meta_progression.json`（Legacy） | ADR #117 后旧运行时已退役；当前只作为旧 purchased_upgrades 成本补偿表，不再扩展为未来局外成长方向 |
 | 改致谢 / 第三方来源 | `credits.json` + 根目录 `CREDITS.md` | 游戏内 Credits UI 读 `credits.json`；发行前复核许可证与 notice |
 | 改界面、道具名、描述文案 | 不在这里改，去 `client/locale/strings.csv` | 数据只引用 key，译文集中管理 |
 | 做本地 mod 内容包 | `user://mods/<mod_id>/mod.json` + mod 自带 `data/` patch | 通过 `ModLoader` 声明式追加 JSON / CSV；不改 `client/data/` 原文件，不执行脚本 |
@@ -61,7 +61,7 @@
 | `gear_mods.json` | JSON | 装备 Mod 定义：英雄 / 武器槽位、稀有度、rank、drain、修正器和分解返还 |
 | `gear_mod_drop_tables.csv` | CSV | 装备 Mod 掉落来源、概率和等级条件 |
 | `gear_mod_fusion_costs.csv` | CSV | 装备 Mod 按稀有度 / rank 的升级资源成本 |
-| `meta_progression.json` | Legacy | F6 旧局外货币、结算奖励、账号等级、永久升级轨道和内容解锁；F11 实现时退役 / 迁移 |
+| `meta_progression.json` | Legacy | F6 旧局外货币、结算奖励、账号等级、永久升级轨道和内容解锁数据；ADR #117 后运行时退役，仅保留给 `GearModSystem` 读取旧 purchased_upgrades 历史成本并补偿 `gear_mod_dust` |
 | `credits.json` | 已建立 | 游戏内致谢数据源：工作人员、外部资源、外部库与许可 / notice 状态 |
 | `_contracts.json` | 生成文件 | 由 `docs/词表与契约.md` 生成，禁止手改；`DataLoader` 用它校验 id |
 
@@ -1113,7 +1113,7 @@ common,5,gear_mod_dust,130
 
 ## `meta_progression.json`（Legacy）
 
-> F11 起跨局成长方向改为装备 Mod loadout。`meta_progression.json` 是 F6 旧永久升级首切片的数据文件；实现 F11 时应退役或迁移，不再扩展为未来成长系统。
+> F11 起跨局成长方向改为装备 Mod loadout。`meta_progression.json` 是 F6 旧永久升级首切片的数据文件；ADR #117 后旧运行时和 UI 已退役，当前仅作为旧 `purchased_upgrades` 历史成本补偿表，不再扩展为未来成长系统。
 
 当前结构分为五块：
 
@@ -1174,7 +1174,7 @@ common,5,gear_mod_dust,130
 { "stat": "damage", "type": "add", "value_per_level": 0.25 }
 ```
 
-当前首批永久属性轨道覆盖生命、伤害、射速、移动速度、拾取范围和幸运；运行时由 `MetaProgressionSystem` 把已购等级转换为 `ModifierEngine` 修正器，禁止直接改 `player.json` 基础值。
+当前首批永久属性轨道是历史数据，覆盖生命、伤害、射速、移动速度、拾取范围和幸运；ADR #117 后不再转换为下一局 modifiers。`GearModSystem` 只读取这些轨道的历史成本，把旧 `purchased_upgrades` 已购等级一次性补偿为 `gear_mod_dust`，禁止再把它扩展成当前成长方向。
 
 ### `unlocks`
 

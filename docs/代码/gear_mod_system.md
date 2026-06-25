@@ -5,7 +5,7 @@
 
 ## 1. 职责
 
-`GearModSystem` 将替代旧 `MetaProgressionSystem` 的永久升级轨道，作为跨局成长的主要运行时入口。它负责：
+`GearModSystem` 已替代旧永久升级轨道，作为跨局成长的主要运行时入口。它负责：
 
 - 读取装备 Mod 定义、掉落表和升级成本。
 - 管理玩家拥有的 Mod、rank、重复数量或实例。
@@ -59,9 +59,9 @@
 
 ### 新建 / 读取 profile
 
-1. `SaveManager.load(slot, "meta")` 读取 meta payload。
+1. `SaveManager.load(slot, "meta")` 读取 meta payload；缺档时由 `GearModSystem` 直接创建 `gear_mods` 子 payload。
 2. `GearModSystem` 归一化 `gear_mods` 字段，补默认资源、空背包、两套 loadout 和稳定 `next_instance_index`。
-3. 当前实现保留旧 `purchased_upgrades`、账号等级、旧货币和解锁字段作为 legacy 数据；`GearModSystem` 会按旧升级表成本把尚未补偿的已购等级折算为 `gear_mod_dust`，并在 `gear_mods.legacy_migration.purchased_upgrades_compensation` 记录已补偿等级；`GameplayRunLoop` 已停止读取 `MetaProgressionSystem.current_modifiers()`，旧购买轨道不再影响下一局属性。
+3. `GearModSystem` 会保留旧 `purchased_upgrades`、账号等级、旧货币和解锁字段作为 legacy 数据；按旧升级表成本把尚未补偿的已购等级折算为 `gear_mod_dust`，并在 `gear_mods.legacy_migration.purchased_upgrades_compensation` 记录已补偿等级。旧 `MetaProgressionSystem` autoload、标题旧升级面板、旧死亡结算奖励和 `meta-smoke` 已删除。
 
 ### 新局应用
 
@@ -135,13 +135,12 @@
 - UI：`gear-mod-smoke` 实例化 `GearModPanel`，验证标题、资源、Mod 行、详情效果、装备、升级、卸下、分解和反馈文案解析。
 - 新局应用：hero / weapon modifiers 只在新局配置时应用，run 续局使用快照。
 
-当前专用命令为 `python tools/godot_bridge.py --project client gear-mod-smoke`。改 `GameplayRunLoop` 开局应用或死亡结算旁路时，追加 `runtime-smoke`；改旧 F6 迁移兼容时，追加 `meta-smoke` 和 `save-smoke`。
+当前专用命令为 `python tools/godot_bridge.py --project client gear-mod-smoke`。改 `GameplayRunLoop` 开局应用、死亡面板或旧入口移除断言时，追加 `runtime-smoke`；改存档兼容时追加 `save-smoke`。
 
 ## 10. 迁移说明
 
-旧 `MetaProgressionSystem` 是 F6 首切片实现，不再作为未来局外成长方向。实现 F11 时建议：
+旧 `MetaProgressionSystem` 是 F6 首切片实现，ADR #117 后运行时代码与玩家入口已删除。保留兼容边界：
 
-1. 已新增 `GearModSystem` 并保留 `SaveManager` 的 `meta` kind，Gear Mod 状态写入 `meta.gear_mods`。
-2. 已停止 `MetaProgressionSystem.current_modifiers()` 对 `GameplayRunLoop` 下一局属性的影响；该 API 仅保留 legacy smoke / 迁移参考。
-3. `meta_progression.json` 与 `MetaProgressionPanel` 当前仍保留为 legacy UI / 回归诊断，删除前必须完成 smoke 替换和人工迁移 checklist。
-4. 旧 `purchased_upgrades` 补偿策略已由 ADR #116 落地：每个旧升级轨道按已购等级的历史花费 1:1 折算为 `gear_mod_dust`，只补偿尚未记录的等级，旧字段不删除。
+1. `SaveManager` 的 `meta` kind 保持不变，Gear Mod 状态写入 `meta.gear_mods`。
+2. `client/data/meta_progression.json` 暂时保留为 legacy 成本表，只供旧 `purchased_upgrades` 补偿读取，不再产生死亡结算奖励、账号等级 UI 或永久属性。
+3. 旧 `purchased_upgrades` 补偿策略由 ADR #116 落地：每个旧升级轨道按已购等级的历史花费 1:1 折算为 `gear_mod_dust`，只补偿尚未记录的等级，旧字段不删除。

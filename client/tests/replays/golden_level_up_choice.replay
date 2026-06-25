@@ -1,6 +1,6 @@
 {
 	"created_at": "golden:golden_level_up_choice",
-	"data_fingerprint": "afe4a965fdfa40e6de943ecef618f966a1d1900003bf199d84dacc3b8ff148a9",
+	"data_fingerprint": "3925934d4c53abc4315292ee0d4ef82b877d0fd370e3972c350dd9b96aac8f5c",
 	"file_schema_version": 1,
 	"game_version": "v1.5",
 	"recording": {
@@ -24,8 +24,8 @@
 					"luck": 0.0,
 					"selected": "growth_damage_small"
 				},
-				"tick": 29,
-				"time": 0.490909090909091
+				"tick": 27,
+				"time": 0.461984888888888
 			}
 		],
 		"dropped_decision_events": 0,
@@ -223,7 +223,7 @@
 		"started_tick": 0,
 		"started_time": 0.0
 	},
-	"recording_hash": "b866d437d02c88039d922ef582f0a63c9b5e0ae8a32f2f8dda9c0d784ce325d9",
+	"recording_hash": "16dcc1a1fb2af41495a91191e330aded3a608a4b6513a40b991efea54a75cd5e",
 	"summary": {
 		"decision_events": 1,
 		"dropped_decision_events": 0,
