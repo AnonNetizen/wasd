@@ -6,6 +6,7 @@ const GAMEPLAY_HUD_SCENE := preload("res://scenes/gameplay/gameplay_hud.tscn")
 const GEAR_MOD_IDS := preload("res://scripts/contracts/gear_mod_ids.gd")
 const GEAR_MOD_RESOURCES := preload("res://scripts/contracts/gear_mod_resources.gd")
 const GEAR_MOD_SLOTS := preload("res://scripts/contracts/gear_mod_slots.gd")
+const META_UPGRADES := preload("res://scripts/contracts/meta_upgrades.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
@@ -23,6 +24,9 @@ func _ready() -> void:
 func _run() -> void:
 	SaveManager.delete(SMOKE_SLOT, SAVE_KINDS.META)
 	RNG.set_run_seed(101)
+
+	_expect_legacy_purchased_upgrades_compensation()
+	SaveManager.delete(SMOKE_SLOT, SAVE_KINDS.META)
 
 	var initial_profile: Dictionary = GearModSystem.load_or_create_profile(SMOKE_SLOT)
 	_expect(initial_profile.has("gear_mods"), "fresh profile should include gear_mods payload")
@@ -89,6 +93,48 @@ func _run() -> void:
 	_finish()
 
 
+func _expect_legacy_purchased_upgrades_compensation() -> void:
+	var legacy_profile: Dictionary = {
+		"schema_version": 1,
+		"currencies": {},
+		"account_xp": 0,
+		"account_level": 1,
+		"purchased_upgrades": {
+			META_UPGRADES.META_UPGRADE_DAMAGE: 2,
+			META_UPGRADES.META_UPGRADE_FIRE_RATE: 1,
+		},
+		"unlocked_ids": [],
+		"stats": {},
+	}
+	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.META, legacy_profile), "synthetic legacy meta profile should save")
+	var migrated_profile: Dictionary = GearModSystem.load_or_create_profile(SMOKE_SLOT)
+	var expected_compensation: int = 18 + 30 + 22
+	_expect(
+		_gear_mod_dust_balance(migrated_profile) == expected_compensation,
+		"legacy purchased upgrades should convert spent costs to gear mod dust"
+	)
+	_expect(
+		_legacy_compensated_level(migrated_profile, META_UPGRADES.META_UPGRADE_DAMAGE) == 2,
+		"legacy compensation should record compensated damage upgrade levels"
+	)
+	_expect(
+		_legacy_compensated_level(migrated_profile, META_UPGRADES.META_UPGRADE_FIRE_RATE) == 1,
+		"legacy compensation should record compensated fire-rate upgrade levels"
+	)
+	var second_profile: Dictionary = GearModSystem.load_or_create_profile(SMOKE_SLOT)
+	_expect(
+		_gear_mod_dust_balance(second_profile) == expected_compensation,
+		"legacy purchased upgrades compensation should not be granted twice"
+	)
+	var gear_state: Dictionary = second_profile.get("gear_mods", {}) as Dictionary
+	var migration: Dictionary = gear_state.get("legacy_migration", {}) as Dictionary
+	var compensation: Dictionary = migration.get("purchased_upgrades_compensation", {}) as Dictionary
+	_expect(
+		int(compensation.get("total_granted", 0)) == expected_compensation,
+		"legacy compensation should persist the total granted amount"
+	)
+
+
 func _first_instance_id(result: Dictionary) -> String:
 	var ids: Array = _array_or_empty(result.get("instance_ids", []))
 	return String(ids[0]) if not ids.is_empty() else ""
@@ -103,9 +149,25 @@ func _instance_ids(result: Dictionary) -> Array[String]:
 
 func _resource_balance(result: Dictionary, resource_id: String) -> int:
 	var profile: Dictionary = result.get("profile", {}) as Dictionary
+	return _gear_mod_resource_balance(profile, resource_id)
+
+
+func _gear_mod_dust_balance(profile: Dictionary) -> int:
+	return _gear_mod_resource_balance(profile, GEAR_MOD_RESOURCES.GEAR_MOD_DUST)
+
+
+func _gear_mod_resource_balance(profile: Dictionary, resource_id: String) -> int:
 	var gear_state: Dictionary = profile.get("gear_mods", {}) as Dictionary
 	var resources: Dictionary = gear_state.get("resources", {}) as Dictionary
 	return int(resources.get(resource_id, 0))
+
+
+func _legacy_compensated_level(profile: Dictionary, upgrade_id: String) -> int:
+	var gear_state: Dictionary = profile.get("gear_mods", {}) as Dictionary
+	var migration: Dictionary = gear_state.get("legacy_migration", {}) as Dictionary
+	var compensation: Dictionary = migration.get("purchased_upgrades_compensation", {}) as Dictionary
+	var compensated_levels: Dictionary = compensation.get("compensated_levels", {}) as Dictionary
+	return int(compensated_levels.get(upgrade_id, 0))
 
 
 func _has_modifier(modifiers: Array[Dictionary], stat_id: String, modifier_type: String, value: float) -> bool:

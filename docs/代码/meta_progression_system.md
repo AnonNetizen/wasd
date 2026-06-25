@@ -87,7 +87,7 @@
 
 ## 扩展点
 
-- 旧档迁移 / 补偿：保留 `MetaProgressionSystem` 作为旧数据解释器，后续由迁移逻辑把已购买永久升级折算为 Gear Mod 升级资源、起始 Mod 或其他补偿。
+- 旧档迁移 / 补偿：保留 `MetaProgressionSystem` 作为旧数据解释器；ADR #116 后，`GearModSystem` 会读取旧 `purchased_upgrades` 与 `meta_progression.json.upgrade_tracks[].costs`，把尚未补偿的已购等级历史花费 1:1 折算为 `gear_mod_dust`。
 - 新成长内容：不要再向 `meta_progression.json` 增加未来永久升级轨道；优先改 `gear_mods.json` / Gear Mod 数据与 `GearModSystem`。
 - 新结算来源：向 `apply_run_settlement()` summary 增加 JSON 友好字段，并同步 GDD、测试策略和 smoke。
 - profile 版本提升：更新 payload schema、添加迁移策略和 roundtrip 测试，同时评估是否需要提升 `SaveManager` 的 `meta` kind version。
@@ -120,7 +120,7 @@
 
 ## 迁移 / 兼容
 
-当前 `meta` payload schema version 为 1，`SaveManager` 的 `meta` kind version 也为 1。`load_or_create_profile()` 会对缺字段旧档做温和归一化，并保留 `gear_mods` 等未知字段。F11 已把正式下一局属性来源旁路到 `GearModSystem`，但旧 `purchased_upgrades` 迁移 / 补偿尚未落地；后续若删除旧字段或提升 schema，必须新增显式迁移 / 补偿策略并更新 `SaveManager.CURRENT_KIND_VERSIONS` 或 `GearModSystem` 的 profile migration。
+当前 `meta` payload schema version 为 1，`SaveManager` 的 `meta` kind version 也为 1。`load_or_create_profile()` 会对缺字段旧档做温和归一化，并保留 `gear_mods` 等未知字段。F11 已把正式下一局属性来源旁路到 `GearModSystem`；旧 `purchased_upgrades` 由 `GearModSystem` 在读取 profile 时补偿为 `gear_mod_dust`，并记录 `gear_mods.legacy_migration.purchased_upgrades_compensation.compensated_levels` 防止重复领取。后续若删除旧字段或提升 schema，必须保留该补偿记录或补迁移链。
 
 ## 相关文档
 

@@ -17,13 +17,13 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 实现 F11 旧档补偿迁移：旧 `purchased_upgrades` 补偿为 Gear Mod 资源或 starter Mod。
+- [ ] F11 手动迁移 checklist：用真实旧档样本确认旧 `purchased_upgrades` 成本补偿为 `gear_mod_dust` 后，标题 Gear Mod UI、继续游戏和坏档隔离体验都符合预期。
 - [ ] 等用户从 `docs/功能建议池.md` 手动选择下一个新功能；AI 不从候选池自行推进。点名后再建立 / 更新对应工作包、GDD / ADR / 模块文档和验收命令。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）
 
-- [ ] 深化接入强 `SaveManager`：在 F11 Gear Mod meta payload 接入后，补旧 F6 profile 迁移 / 补偿样例、更多 meta 字段回归和正式手动存档迁移 checklist。
+- [ ] 深化接入强 `SaveManager`：在 F11 Gear Mod meta payload 接入后，补更多 meta 字段回归和正式手动存档迁移 checklist。
 - [ ] 扩展暂停菜单“保存并退出”和主菜单“继续游戏”流程：首片已恢复玩家、敌人、子弹、掉落、经验、RNG、GameClock、暂停菜单和升级选择面板；后续补遗物、主动道具和正式测试。
 - [ ] 扩展 `client/data/growth_pools.json` 内容：在属性奖励样例后，评估遗物、主动强化、回血、刷新 / 跳过 / banish 等候选类型。
 - [ ] 决策待定项 E：升级选项池内容是否包含遗物、属性、主动强化、回血、刷新 / 跳过 / banish。

@@ -12,7 +12,7 @@
 - 管理两套 loadout：英雄 Mod 与武器 Mod。
 - 校验容量、槽位、唯一装备规则和资源消耗。
 - 在新局开始时输出英雄 / 武器 modifiers，交给现有 `ModifierEngine` / `Player` / `WeaponSystem` 管线应用。
-- 通过 `SaveManager` 的 `meta` kind 保存和迁移跨局状态。
+- 通过 `SaveManager` 的 `meta` kind 保存和迁移跨局状态，并把旧 `purchased_upgrades` 已购成本补偿为 Gear Mod 升级资源。
 
 ## 2. 非职责
 
@@ -32,7 +32,7 @@
 | `client/scripts/ui/gear_mod_panel.gd` / `.tscn` | 标题菜单下的最小装备 Mod UI：切换英雄 / 武器 loadout、查看资源 / 容量 / Mod 效果，并执行装备、卸下、升级和分解 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 新局开始时读取 hero / weapon loadout 快照并分别应用到 Player / WeaponSystem；玩家归因击杀时请求 Gear Mod 掉落并转发 HUD 获得提示 |
 | `client/scripts/gameplay/enemy.gd` / `GameplayRunLoop` 击杀归因路径 | 玩家击杀普通小怪时触发 `RNG.drop` 掉落判定 |
-| `client/tools/gear_mod_smoke.gd` | F11 headless smoke，覆盖 profile、授予、装备、容量、升级、分解、掉落、HUD 获得提示和 Gear Mod 面板按钮流 |
+| `client/tools/gear_mod_smoke.gd` | F11 headless smoke，覆盖 profile、旧 purchased_upgrades 补偿、授予、装备、容量、升级、分解、掉落、HUD 获得提示和 Gear Mod 面板按钮流 |
 | `tools/godot_bridge.py` | `gear-mod-smoke` 命令入口 |
 
 ## 4. 数据契约草案
@@ -61,7 +61,7 @@
 
 1. `SaveManager.load(slot, "meta")` 读取 meta payload。
 2. `GearModSystem` 归一化 `gear_mods` 字段，补默认资源、空背包、两套 loadout 和稳定 `next_instance_index`。
-3. 当前实现保留旧 `purchased_upgrades`、账号等级、旧货币和解锁字段作为 legacy 数据；`GameplayRunLoop` 已停止读取 `MetaProgressionSystem.current_modifiers()`，旧购买轨道不再影响下一局属性。
+3. 当前实现保留旧 `purchased_upgrades`、账号等级、旧货币和解锁字段作为 legacy 数据；`GearModSystem` 会按旧升级表成本把尚未补偿的已购等级折算为 `gear_mod_dust`，并在 `gear_mods.legacy_migration.purchased_upgrades_compensation` 记录已补偿等级；`GameplayRunLoop` 已停止读取 `MetaProgressionSystem.current_modifiers()`，旧购买轨道不再影响下一局属性。
 
 ### 新局应用
 
@@ -127,6 +127,7 @@
 
 - 数据校验：Mod id、slot、rarity、rank、drain、modifier stat、掉落表 source、成本表 rank。
 - profile roundtrip：新档默认字段、旧 meta payload 兼容、保存 / 读取一致。
+- 旧档补偿：旧 `purchased_upgrades` 已购等级按 `meta_progression.json` 成本折算为 `gear_mod_dust`，补偿记录保证二次读取不重复发放。
 - 掉落：`gear-mod-smoke` 用 `forced_roll=0.0` 稳定覆盖 `enemy_chaser` 掉落；真实运行时玩家归因击杀走 `RNG.drop` 和 1% 数据概率。
 - 装备：容量不足、槽位不匹配、同 id 重复装备被拒绝。
 - 升级：资源扣除、rank 增长、drain / 效果变化，已装备超容量拒绝。
@@ -142,5 +143,5 @@
 
 1. 已新增 `GearModSystem` 并保留 `SaveManager` 的 `meta` kind，Gear Mod 状态写入 `meta.gear_mods`。
 2. 已停止 `MetaProgressionSystem.current_modifiers()` 对 `GameplayRunLoop` 下一局属性的影响；该 API 仅保留 legacy smoke / 迁移参考。
-3. `meta_progression.json` 与 `MetaProgressionPanel` 当前仍保留为 legacy UI / 回归诊断，删除前必须完成旧档补偿和 smoke 替换。
-4. 旧 `purchased_upgrades` 迁移成补偿资源或 starter Mod 尚未实现；迁移策略仍需写入 ADR / 模块文档并覆盖 smoke。
+3. `meta_progression.json` 与 `MetaProgressionPanel` 当前仍保留为 legacy UI / 回归诊断，删除前必须完成 smoke 替换和人工迁移 checklist。
+4. 旧 `purchased_upgrades` 补偿策略已由 ADR #116 落地：每个旧升级轨道按已购等级的历史花费 1:1 折算为 `gear_mod_dust`，只补偿尚未记录的等级，旧字段不删除。

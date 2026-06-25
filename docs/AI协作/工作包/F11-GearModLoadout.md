@@ -30,7 +30,8 @@ F11 将现有 F6 局外永久升级轨道替换为参考《星际战甲》的装
 - 已完成运行时首片：`GearModSystem` autoload 保存 `meta.gear_mods`，支持 profile roundtrip、授予、英雄 / 武器 loadout、capacity / drain、唯一装备、升级、分解、`enemy_chaser` 玩家归因击杀掉落和开局 hero / weapon modifier snapshot。
 - 已完成最小 UI：标题菜单进入 `GearModPanel`，可切换英雄 / 武器 loadout，查看资源、容量、rank、drain 和效果，并执行装备、卸下、升级和分解。
 - 已完成专用验证：`python tools/godot_bridge.py --project client gear-mod-smoke` 覆盖授予、槽位拒绝、装备、重复拒绝、分解返还、容量阻止升级、资源升级、modifier 数值变化、强制掉落、获得提示和 Gear Mod 面板按钮流；`runtime-smoke` 覆盖玩家归因击杀后的强制掉落 HUD 提示路径。
-- 待做：旧 `purchased_upgrades` 补偿迁移、更多 Mod 内容与手动迁移 checklist。
+- 已完成旧档补偿迁移：旧 `purchased_upgrades` 按 `meta_progression.json.upgrade_tracks[].costs` 的已购等级历史花费折算为 `gear_mod_dust`，补偿进度记录在 `meta.gear_mods.legacy_migration.purchased_upgrades_compensation`，`gear-mod-smoke` 覆盖不重复领取。
+- 待做：更多 Mod 内容与手动迁移 checklist。
 
 首片不做：
 
@@ -121,7 +122,7 @@ common,5,gear_mod_dust,130
 
 - `SaveManager` 仍是唯一存档入口，`meta` kind 保留。
 - `MetaProgressionSystem` 的旧购买轨道不能继续给下一局注入永久 modifiers；当前 `GameplayRunLoop` 已改为读取 `GearModSystem` 的 hero / weapon modifiers。
-- 如果旧存档已有 purchased upgrades，首片当前保留为 legacy 字段但不生效；后续应迁移为补偿资源、starter Mod 或其它可解释补偿，具体策略必须写 ADR / 模块文档并覆盖 smoke。
+- 如果旧存档已有 purchased upgrades，`GearModSystem` 读取 / 归一化 profile 时按旧升级表成本把尚未补偿的已购等级折算为 `gear_mod_dust`。旧字段保留为 legacy 诊断数据但不再影响下一局；补偿进度按 upgrade id 记录已补偿等级，避免重复领取，也允许旧字段后续出现增量时只补差额。
 - `run` 存档只需要记录开局时已应用的 loadout/modifier 快照；不要在局中读取玩家背包实时改属性。
 
 ## 5. UI / 操作边界
