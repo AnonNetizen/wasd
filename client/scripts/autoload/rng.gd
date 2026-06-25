@@ -94,6 +94,18 @@ func set_run_seed(seed_value: int) -> void:
 		stream.configure(stream_id, _derive_stream_seed(seed_value, stream_id))
 
 
+func set_random_run_seed() -> int:
+	var seed_source: RandomNumberGenerator = RandomNumberGenerator.new()
+	seed_source.randomize()
+	var seed_value: int = int(seed_source.randi() % (STREAM_SEED_MODULUS - 1)) + DEFAULT_RUN_SEED
+	if seed_value == _run_seed:
+		seed_value += 1
+		if seed_value >= STREAM_SEED_MODULUS:
+			seed_value = DEFAULT_RUN_SEED
+	set_run_seed(seed_value)
+	return _run_seed
+
+
 func run_seed() -> int:
 	return _run_seed
 

@@ -245,6 +245,11 @@ func _start_gameplay_run(restore_snapshot: Dictionary = {}) -> void:
 	add_child(_run_loop)
 
 
+func _start_new_gameplay_run() -> void:
+	RNG.set_random_run_seed()
+	_start_gameplay_run()
+
+
 func _clear_gameplay_runtime() -> void:
 	if _run_loop != null and is_instance_valid(_run_loop):
 		var parent: Node = _run_loop.get_parent()
@@ -263,7 +268,7 @@ func _clear_gameplay_runtime() -> void:
 
 func _on_title_start_requested() -> void:
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
-	call_deferred("_start_gameplay_run")
+	call_deferred("_start_new_gameplay_run")
 
 
 func _on_title_continue_requested() -> void:
@@ -318,7 +323,7 @@ func _on_settings_panel_closed() -> void:
 
 func _on_run_restart_requested() -> void:
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
-	call_deferred("_start_gameplay_run")
+	call_deferred("_start_new_gameplay_run")
 
 
 func _on_run_quit_to_title_requested() -> void:

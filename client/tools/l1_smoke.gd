@@ -96,6 +96,10 @@ func _expect_rng_same_seed_stable() -> void:
 	RNG.set_run_seed(13579)
 	_expect(RNG.spawn.randi() == first_spawn_roll, "RNG.spawn should repeat with the same run seed")
 	_expect(is_equal_approx(RNG.ui_choice.randf(), first_choice_roll), "RNG.ui_choice should repeat with the same run seed")
+	var random_seed: int = RNG.set_random_run_seed()
+	_expect(random_seed >= RNG.DEFAULT_RUN_SEED, "RNG should generate a positive random run seed")
+	_expect(random_seed != 13579, "RNG random run seed should differ from the active run seed")
+	_expect(RNG.run_seed() == random_seed, "RNG random run seed should become the active run seed")
 
 
 func _expect_rng_snapshot_restore() -> void:

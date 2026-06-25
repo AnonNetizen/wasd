@@ -197,6 +197,7 @@
 | #111 | 《破巢者》IP 美术风格采用钙化活体建筑 + 阵营色隔离；敌巢 / 虫族使用骨白、蜡黄、干肉粉、深红、黑紫和少量毒蓝，玩家和玩家子弹默认避开青 / 红 / 白，敌方远程攻击可用红色，宝箱与地图兴趣点按功能色区分 | `docs/IP美术风格.md`、IP设定、GDD §8、术语表、AI导航、AI记忆 |
 | #112 | 敌巢战区导演首片；`warzone_directors.json` + `WarzoneDirector` 用固定 phase / mutation / encounter / interest point 组织 wave，首片只按时间 gating 刷怪，不读玩家状态、不做隐藏动态难度、不接运行时 LLM | F10 工作包、`docs/代码/warzone_director.md`、`client/data/warzone_directors.json`、Gameplay Runtime、DataLoader schema、GDD §7.3、AI导航、AI记忆 |
 | #113 | F10 兴趣点接入 MapManager 初始机关生成；`WarzoneDirector` 过滤当前 layout 的 interest points，`MapManager` 用通用 PCG / 菱形锚点规则生成 `source=director` hazards；不读玩家状态、不按 id 特判、不提升 run schema | F10 工作包、`docs/代码/warzone_director.md`、`docs/代码/map_manager.md`、Gameplay Runtime、DataLoader schema、`client/data/README.md`、GDD §7.3、AI导航、AI记忆 |
+| #114 | 普通新局 / 重开生成新的 run seed；继续游戏恢复 run snapshot，replay / smoke / golden 工具保持固定 seed | `client/scripts/autoload/rng.gd`、`client/scripts/boot/formal_client_boot.gd`、`client/tools/l1_smoke.gd`、RNG / FormalClientBoot / Gameplay Runtime 文档、GDD §9.18.1、AI导航、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

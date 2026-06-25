@@ -1404,12 +1404,14 @@ func _expect_game_over_buttons(game_over_panel: Node) -> void:
 	_expect(restart_button.process_mode == Node.PROCESS_MODE_ALWAYS, "game-over restart button should accept input")
 	_expect(restart_button.visible, "game-over restart button should be visible before click")
 	_expect(not restart_button.disabled, "game-over restart button should be enabled before click")
+	var seed_before_restart: int = RNG.run_seed()
 	await _click_button(restart_button)
 
 	var restarted_run_loop: Node = await _wait_for_playing_run_loop()
 	_expect(restarted_run_loop != null, "clicking restart should mount GameplayRunLoop")
 	_expect(GameState.is_state(GameState.PLAYING), "clicking restart should resume PLAYING")
 	_expect(_find_node_by_name(get_tree().root, "GameOverPanel") == null, "clicking restart should close the game-over panel")
+	_expect(RNG.run_seed() != seed_before_restart, "clicking restart should generate a new run seed")
 	if restarted_run_loop == null:
 		return
 

@@ -183,7 +183,7 @@
       "related_docs": ["docs/IP设定.md", "docs/IP美术风格.md", "docs/决策记录.md", "docs/AI导航.md", "docs/词表与契约.md", "docs/测试策略.md"],
       "related_code": ["client/"],
       "update_triggers": ["gameplay behavior change", "system design change", "new infrastructure decision"],
-      "keywords": ["GDD", "design", "玩法", "系统", "固定斜俯视", "2.5D", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "hold_mouse", "skill_overdrive_rounds", "Overdrive Rounds", "过载弹流", "哈迪斯", "Hades", "等比相机", "屏幕尺度", "斜俯视舞台", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "grid.cell_height", "safe_radius", "出生安全区", "spawn safe zone", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "IP美术风格", "阵营色", "功能色", "骨白", "蜡黄", "毒蓝", "玩家子弹", "敌方远程攻击", "菱形机关", "diamond hazard", "radius_tiles", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "长期养成", "IP", "世界观", "破巢者", "Nestbreakers", "敌巢", "巢核", "界门", "首都星域", "跨宇宙", "多英雄", "手柄", "autoload", "经验", "升级", "luck", "level-up", "局外成长", "meta progression", "SaveManager", "run save", "续局", "数值配置", "本地化", "文案", "StatusEffect", "StatusEffectComponent", "状态效果", "silence", "沉默"]
+      "keywords": ["GDD", "design", "玩法", "系统", "固定斜俯视", "2.5D", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "hold_mouse", "skill_overdrive_rounds", "Overdrive Rounds", "过载弹流", "哈迪斯", "Hades", "等比相机", "屏幕尺度", "斜俯视舞台", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "grid.cell_height", "safe_radius", "出生安全区", "spawn safe zone", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "IP美术风格", "阵营色", "功能色", "骨白", "蜡黄", "毒蓝", "玩家子弹", "敌方远程攻击", "菱形机关", "diamond hazard", "radius_tiles", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "长期养成", "IP", "世界观", "破巢者", "Nestbreakers", "敌巢", "巢核", "界门", "首都星域", "跨宇宙", "多英雄", "手柄", "autoload", "经验", "升级", "luck", "level-up", "局外成长", "meta progression", "SaveManager", "run save", "续局", "random run seed", "普通新局 seed", "set_random_run_seed", "数值配置", "本地化", "文案", "StatusEffect", "StatusEffectComponent", "状态效果", "silence", "沉默"]
     },
     {
       "path": "docs/决策记录.md",
@@ -197,7 +197,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #98", "ADR #103", "ADR #104", "ADR #105", "ADR #107", "ADR #108", "ADR #109", "ADR #110", "ADR #112", "ADR #113", "WarzoneDirector", "战区导演", "director hazards", "source=director", "no hidden DDA", "不读玩家状态", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "菱形机关", "diamond hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP决策", "破巢者", "Nestbreakers", "详细数值面板", "show_stats_panel", "Tab", "subagent", "subagent 默认主动调度", "自动调度", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
+      "keywords": ["ADR", "decision", "决策", "约束", "ADR #98", "ADR #103", "ADR #104", "ADR #105", "ADR #107", "ADR #108", "ADR #109", "ADR #110", "ADR #112", "ADR #113", "ADR #114", "WarzoneDirector", "战区导演", "director hazards", "source=director", "random run seed", "普通新局 seed", "set_random_run_seed", "no hidden DDA", "不读玩家状态", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化菱形地图格", "diamond map grid", "quantized diamond grid", "grid.cell_width", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "菱形机关", "diamond hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP决策", "破巢者", "Nestbreakers", "详细数值面板", "show_stats_panel", "Tab", "subagent", "subagent 默认主动调度", "自动调度", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -317,13 +317,13 @@
       "authority": "Machine-readable current phase, latest ADR, open decisions, candidate next actions, and recent hot-path verification",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-24",
+      "last_reviewed": "2026-06-25",
       "canonical_for": ["current_state", "candidate_next_actions", "latest_verification", "clarification_first_rule"],
       "must_read_for": ["new_session", "memory_update", "task_resume"],
       "related_docs": ["docs/AI记忆/项目记忆.md", "docs/AI记忆/README.md", "docs/TODO.md", "docs/功能建议池.md", "docs/AI辅助开发机会清单.md", "docs/决策记录.md", "docs/修改建议.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md"],
       "related_code": ["tools/docs_health_check.py", "tools/sync_contracts.py", "tools/validate_data.py"],
       "update_triggers": ["new ADR", "open decision changes", "next action changes", "verification run"],
-      "keywords": ["current_state", "candidate next actions", "Next Steps", "latest ADR", "ADR #112", "ADR #113", "WarzoneDirector", "战区导演", "source=director", "director hazards", "不读玩家状态", "open decisions", "当前状态", "候选下一步", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "hot path verification", "最近热验证"]
+      "keywords": ["current_state", "candidate next actions", "Next Steps", "latest ADR", "ADR #112", "ADR #113", "ADR #114", "WarzoneDirector", "战区导演", "source=director", "director hazards", "random run seed", "普通新局 seed", "set_random_run_seed", "不读玩家状态", "open decisions", "当前状态", "候选下一步", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "hot path verification", "最近热验证"]
     },
     {
       "path": "docs/TODO.md",
@@ -771,7 +771,7 @@
       "related_docs": ["client/README.md", "docs/正式项目工作规划.md", "docs/代码/README.md", "docs/AI导航.md"],
       "related_code": ["client/project.godot", "client/scenes/boot/main.tscn", "client/scripts/boot/formal_client_boot.gd"],
       "update_triggers": ["client main scene changes", "formal boot script changes", "formal project startup validation changes"],
-      "keywords": ["FormalClientBoot", "client startup", "project.godot", "F1", "headless boot", "正式项目", "启动骨架"]
+      "keywords": ["FormalClientBoot", "client startup", "project.godot", "F1", "headless boot", "正式项目", "启动骨架", "new run seed", "random run seed", "普通新局 seed", "set_random_run_seed"]
     },
     {
       "path": "docs/代码/combat.md",
@@ -799,7 +799,7 @@
       "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/map_manager.gd", "client/scripts/gameplay/hazard.gd", "client/scripts/gameplay/warzone_director.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/scripts/debug/gm_command_registry.gd", "client/data/map_layouts.json", "client/data/hazards.csv", "client/data/warzone_directors.json", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd", "client/tools/debug_tools_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
       "update_triggers": ["Gameplay runtime behavior changes", "Player, weapon, skill, map, or hazard runtime changes", "Player/Enemy status host changes", "Spawner behavior changes", "HUD or restart flow changes", "run payload schema changes", "runtime debug API changes", "runtime module split or scene-resource migration"],
-      "keywords": ["GameplayRunLoop", "runtime-smoke", "f9-demo-smoke", "debug-tools-smoke", "F4", "F9", "F10", "MinPlayableLoop", "WarzoneDirector", "战区导演", "warzone_directors.json", "巢变异", "source=director", "director hazards", "hazard_sources", "no hidden DDA", "不读玩家状态", "MapManager", "HazardSystem", "菱形机关", "diamond hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "map_layouts.json", "hazard_fea_12_pulse", "FEA-12", "有限地图", "PCG", "人工摆点", "Player", "WeaponSystem", "按住开火", "fire action", "hold_mouse", "temporary_modifiers", "SkillSystem", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "StatusEffectComponent", "entity status", "owned_tag_counts", "status_effects", "skills.json", "Bullet", "Enemy", "Spawner", "HUD", "详细数值面板", "show_stats_panel", "StatsPanel", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
+      "keywords": ["GameplayRunLoop", "runtime-smoke", "f9-demo-smoke", "debug-tools-smoke", "F4", "F9", "F10", "MinPlayableLoop", "WarzoneDirector", "战区导演", "warzone_directors.json", "巢变异", "source=director", "director hazards", "hazard_sources", "random run seed", "普通新局 seed", "set_random_run_seed", "no hidden DDA", "不读玩家状态", "MapManager", "HazardSystem", "菱形机关", "diamond hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "map_layouts.json", "hazard_fea_12_pulse", "FEA-12", "有限地图", "PCG", "人工摆点", "Player", "WeaponSystem", "按住开火", "fire action", "hold_mouse", "temporary_modifiers", "SkillSystem", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "StatusEffectComponent", "entity status", "owned_tag_counts", "status_effects", "skills.json", "Bullet", "Enemy", "Spawner", "HUD", "详细数值面板", "show_stats_panel", "StatsPanel", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
     },
     {
       "path": "docs/代码/skill_system.md",
@@ -947,13 +947,13 @@
       "authority": "RNG autoload contract for deterministic named streams and run seed handling",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-16",
-      "canonical_for": ["rng", "deterministic_random", "rng_streams"],
+      "last_reviewed": "2026-06-25",
+      "canonical_for": ["rng", "deterministic_random", "rng_streams", "run_seed"],
       "must_read_for": ["rng_change", "random_stream_change", "replay_determinism"],
       "related_docs": ["docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/autoload/rng.gd", "client/scripts/contracts/rng_streams.gd", "client/tools/rng_audit.gd", "tools/godot_bridge.py"],
-      "update_triggers": ["RNG stream changes", "seed derivation changes", "weighted random API changes", "RNG correlation audit changes"],
-      "keywords": ["RNG", "autoload", "seed", "rng_streams", "determinism", "replay", "rng-audit", "SHA-256", "cross-stream correlation", "seed mixer"]
+      "update_triggers": ["RNG stream changes", "seed derivation changes", "random run seed changes", "weighted random API changes", "RNG correlation audit changes"],
+      "keywords": ["RNG", "autoload", "seed", "run seed", "random run seed", "普通新局 seed", "set_random_run_seed", "rng_streams", "determinism", "replay", "rng-audit", "SHA-256", "cross-stream correlation", "seed mixer"]
     },
     {
       "path": "docs/代码/game_state.md",
