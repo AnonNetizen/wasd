@@ -230,10 +230,12 @@ func roll_drop_for_enemy(enemy_id: String, enemy_level: int = 1, slot: String = 
 		if roll > chance:
 			continue
 		var mod_id: String = String(row.get("mod_id", ""))
+		var definition: Dictionary = _mod_definition(mod_id)
 		var grant: Dictionary = grant_mod(mod_id, 1, slot)
 		if bool(grant.get("ok", false)):
 			drops.append({
 				"mod_id": mod_id,
+				"name_key": String(definition.get("name_key", "")),
 				"instance_ids": grant.get("instance_ids", []),
 				"chance": chance,
 				"roll": roll,

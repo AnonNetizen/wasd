@@ -30,9 +30,9 @@
 | `client/data/gear_mod_drop_tables.csv` | Mod 掉落来源与概率 |
 | `client/data/gear_mod_fusion_costs.csv` | Mod 升级成本 |
 | `client/scripts/ui/gear_mod_panel.gd` / `.tscn` | 标题菜单下的最小装备 Mod UI：切换英雄 / 武器 loadout、查看资源 / 容量 / Mod 效果，并执行装备、卸下、升级和分解 |
-| `client/scripts/gameplay/gameplay_run_loop.gd` | 新局开始时读取 hero / weapon loadout 快照并分别应用到 Player / WeaponSystem；玩家归因击杀时请求 Gear Mod 掉落 |
+| `client/scripts/gameplay/gameplay_run_loop.gd` | 新局开始时读取 hero / weapon loadout 快照并分别应用到 Player / WeaponSystem；玩家归因击杀时请求 Gear Mod 掉落并转发 HUD 获得提示 |
 | `client/scripts/gameplay/enemy.gd` / `GameplayRunLoop` 击杀归因路径 | 玩家击杀普通小怪时触发 `RNG.drop` 掉落判定 |
-| `client/tools/gear_mod_smoke.gd` | F11 headless smoke，覆盖 profile、授予、装备、容量、升级、分解、掉落和 Gear Mod 面板按钮流 |
+| `client/tools/gear_mod_smoke.gd` | F11 headless smoke，覆盖 profile、授予、装备、容量、升级、分解、掉落、HUD 获得提示和 Gear Mod 面板按钮流 |
 | `tools/godot_bridge.py` | `gear-mod-smoke` 命令入口 |
 
 ## 4. 数据契约草案
@@ -75,7 +75,7 @@
 
 1. 玩家归因击杀敌人后，系统查 `gear_mod_drop_tables.csv`。
 2. 所有随机走 `RNG.drop`。
-3. 命中后写入 meta inventory；HUD / 获得提示仍待后续界面切片实现。
+3. 命中后写入 meta inventory，并把 `name_key` 放进掉落结果；`GameplayRunLoop` 转发给 `GameplayHud.show_gear_mod_drop_feedback()`，显示本地化获得提示。
 4. 怪物互杀、机关击杀或非玩家归因击杀不掉落装备 Mod。
 
 ### 升级与分解
@@ -142,5 +142,5 @@
 
 1. 已新增 `GearModSystem` 并保留 `SaveManager` 的 `meta` kind，Gear Mod 状态写入 `meta.gear_mods`。
 2. 已停止 `MetaProgressionSystem.current_modifiers()` 对 `GameplayRunLoop` 下一局属性的影响；该 API 仅保留 legacy smoke / 迁移参考。
-3. `meta_progression.json` 与 `MetaProgressionPanel` 当前仍保留为 legacy UI / 回归诊断，删除前必须完成旧档补偿、获得提示和 smoke 替换。
+3. `meta_progression.json` 与 `MetaProgressionPanel` 当前仍保留为 legacy UI / 回归诊断，删除前必须完成旧档补偿和 smoke 替换。
 4. 旧 `purchased_upgrades` 迁移成补偿资源或 starter Mod 尚未实现；迁移策略仍需写入 ADR / 模块文档并覆盖 smoke。

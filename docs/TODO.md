@@ -17,7 +17,7 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 实现 F11 获得提示 / 旧档补偿迁移：获得 Mod 提示、旧 `purchased_upgrades` 补偿为 Gear Mod 资源或 starter Mod。
+- [ ] 实现 F11 旧档补偿迁移：旧 `purchased_upgrades` 补偿为 Gear Mod 资源或 starter Mod。
 - [ ] 等用户从 `docs/功能建议池.md` 手动选择下一个新功能；AI 不从候选池自行推进。点名后再建立 / 更新对应工作包、GDD / ADR / 模块文档和验收命令。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 

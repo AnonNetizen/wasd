@@ -66,6 +66,7 @@ var _map_manager: Node2D = null
 var _settings_panel: CanvasLayer = null
 var _skill_system: Node = null
 var _spawn_states: Dictionary = {}
+var _debug_next_gear_mod_drop_forced_roll: float = -1.0
 var _warzone_director = null
 var _waves: Array[Dictionary] = []
 var _weapon_system: Node = null
@@ -102,6 +103,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func configure_restore_snapshot(snapshot_data: Dictionary) -> void:
 	_pending_restore_snapshot = snapshot_data.duplicate(true)
+
+
+func debug_force_next_gear_mod_drop_roll(roll: float) -> void:
+	_debug_next_gear_mod_drop_forced_roll = roll
 
 
 func create_run_snapshot() -> Dictionary:
@@ -734,7 +739,18 @@ func _roll_gear_mod_drop(enemy: Node) -> void:
 		enemy_id = String(enemy.get_meta("enemy_id"))
 	if enemy_id.is_empty():
 		return
-	GearModSystem.roll_drop_for_enemy(enemy_id)
+	var forced_roll: float = _debug_next_gear_mod_drop_forced_roll
+	_debug_next_gear_mod_drop_forced_roll = -1.0
+	var drop_result: Dictionary = GearModSystem.roll_drop_for_enemy(enemy_id, 1, SaveManager.DEFAULT_SLOT, forced_roll)
+	for raw_drop: Variant in drop_result.get("drops", []):
+		if not raw_drop is Dictionary:
+			continue
+		var drop: Dictionary = raw_drop as Dictionary
+		var name_key: String = String(drop.get("name_key", ""))
+		if name_key.is_empty():
+			continue
+		if _hud != null and _hud.has_method("show_gear_mod_drop_feedback"):
+			_hud.call("show_gear_mod_drop_feedback", name_key)
 
 
 func _apply_loadout_modifiers() -> void:

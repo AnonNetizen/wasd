@@ -2,6 +2,7 @@ extends Node
 
 
 const GEAR_MOD_PANEL_SCENE := preload("res://scenes/ui/gear_mod_panel.tscn")
+const GAMEPLAY_HUD_SCENE := preload("res://scenes/gameplay/gameplay_hud.tscn")
 const GEAR_MOD_IDS := preload("res://scripts/contracts/gear_mod_ids.gd")
 const GEAR_MOD_RESOURCES := preload("res://scripts/contracts/gear_mod_resources.gd")
 const GEAR_MOD_SLOTS := preload("res://scripts/contracts/gear_mod_slots.gd")
@@ -73,8 +74,15 @@ func _run() -> void:
 
 	var drop: Dictionary = GearModSystem.roll_drop_for_enemy(POOL_IDS.ENEMY_CHASER, 1, SMOKE_SLOT, 0.0)
 	_expect(bool(drop.get("ok", false)) and _array_or_empty(drop.get("drops", [])).size() == 1, "forced enemy_chaser drop should grant the test Mod")
+	var drop_rows: Array = _array_or_empty(drop.get("drops", []))
+	var first_drop: Dictionary = drop_rows[0] as Dictionary if not drop_rows.is_empty() and drop_rows[0] is Dictionary else {}
+	_expect(
+		String(first_drop.get("name_key", "")) == "gear_mod_weapon_damage_test_name",
+		"forced enemy_chaser drop should include the dropped Mod display key"
+	)
 	_expect(GearModSystem.current_modifiers(GEAR_MOD_SLOTS.WEAPON, SMOKE_SLOT).is_empty(), "dropped but unequipped Mod should not affect current modifiers")
 
+	await _expect_hud_drop_feedback()
 	await _expect_panel_flow()
 
 	SaveManager.delete(SMOKE_SLOT, SAVE_KINDS.META)
@@ -175,6 +183,52 @@ func _expect_panel_flow() -> void:
 
 	remove_child(panel)
 	panel.queue_free()
+
+
+func _expect_hud_drop_feedback() -> void:
+	var hud: CanvasLayer = GAMEPLAY_HUD_SCENE.instantiate() as CanvasLayer
+	hud.name = "GameplayHud"
+	add_child(hud)
+	await get_tree().process_frame
+
+	hud.call("show_gear_mod_drop_feedback", "gear_mod_weapon_damage_test_name")
+	await get_tree().process_frame
+	var feedback_label: Label = _find_node_by_name(hud, "UpgradeFeedbackLabel") as Label
+	_expect(
+		tr("ui_gear_mod_drop_obtained") != "ui_gear_mod_drop_obtained"
+		and tr("gear_mod_weapon_damage_test_name") != "gear_mod_weapon_damage_test_name",
+		"Gear Mod drop feedback keys should resolve through imported translations"
+	)
+	var expected_text: String = tr("ui_gear_mod_drop_obtained").format({
+		"name": tr("gear_mod_weapon_damage_test_name"),
+	})
+	_expect(
+		feedback_label != null
+		and feedback_label.visible
+		and String(feedback_label.text) == expected_text,
+		"GameplayHud should show localized Gear Mod drop feedback; text=%s expected=%s" % [
+			String(feedback_label.text) if feedback_label != null else "<missing>",
+			expected_text,
+		]
+	)
+
+	Localization.set_locale("en")
+	await get_tree().process_frame
+	expected_text = tr("ui_gear_mod_drop_obtained").format({
+		"name": tr("gear_mod_weapon_damage_test_name"),
+	})
+	_expect(
+		feedback_label != null
+		and String(feedback_label.text) == expected_text,
+		"GameplayHud Gear Mod drop feedback should refresh after locale change; text=%s expected=%s" % [
+			String(feedback_label.text) if feedback_label != null else "<missing>",
+			expected_text,
+		]
+	)
+
+	Localization.set_locale("zh_CN")
+	remove_child(hud)
+	hud.queue_free()
 
 
 func _array_or_empty(raw_value: Variant) -> Array:

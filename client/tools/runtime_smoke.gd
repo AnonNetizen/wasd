@@ -191,9 +191,11 @@ func _run() -> void:
 	_expect(PoolManager.has_pool(POOL_IDS.PICKUP_ORB), "experience pickup pool should remain registered after continue")
 	_expect(PoolManager.active_count(POOL_IDS.HAZARD_SPIKE) > 0, "hazards should remain active after continue")
 
-	var enemy: Node = _first_enemy()
-	_expect(enemy != null, "at least one enemy should be in active_enemies")
+	var enemy: Node = _first_enemy_with_name_prefix(POOL_IDS.ENEMY_CHASER)
+	_expect(enemy != null, "at least one chaser enemy should be in active_enemies")
 	if enemy != null:
+		if run_loop.has_method("debug_force_next_gear_mod_drop_roll"):
+			run_loop.call("debug_force_next_gear_mod_drop_roll", 0.0)
 		var enemy_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 			999.0,
 			DAMAGE_TYPES.PHYSICAL,
@@ -209,6 +211,13 @@ func _run() -> void:
 		_expect(not enemy.is_in_group("active_enemies"), "defeated enemies should leave the live enemy group during feedback")
 		_expect(_pool_stat(POOL_IDS.HIT_SPARK, "acquired") > 0, "enemy damage should acquire hit spark feedback")
 		_expect(_pool_stat(POOL_IDS.DAMAGE_NUMBER, "acquired") > 0, "enemy damage should acquire damage number feedback")
+		var gear_mod_hud: Node = _find_node_by_name(run_loop, "GameplayHud")
+		_expect(
+			gear_mod_hud != null
+			and gear_mod_hud.has_method("is_gear_mod_drop_feedback_visible")
+			and bool(gear_mod_hud.call("is_gear_mod_drop_feedback_visible")),
+			"forced player-attributed enemy defeat should show Gear Mod drop HUD feedback"
+		)
 
 	await _wait_player_vulnerability(player)
 	var smoke_player_damage_source: Node = Node.new()

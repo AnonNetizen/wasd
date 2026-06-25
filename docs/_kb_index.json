@@ -1085,7 +1085,7 @@
       "path": "docs/代码/gear_mod_system.md",
       "type": "module_doc",
       "authority": "GearModSystem autoload contract for Warframe-like gear mods, inventory, rank, resources, hero / weapon loadouts, drops, upgrades, dismantle, and run-start modifier snapshots",
-      "status": "planned",
+      "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-06-25",
       "canonical_for": ["gear_mod_system", "gear_mod_inventory", "hero_weapon_mod_loadouts", "gear_mod_progression", "meta_progression_replacement"],
@@ -1093,7 +1093,7 @@
       "related_docs": ["docs/AI协作/工作包/F11-GearModLoadout.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/save_manager.md", "docs/代码/meta_progression_system.md", "docs/AI导航.md", "client/data/README.md"],
       "related_code": ["client/scripts/autoload/gear_mod_system.gd", "client/tools/gear_mod_smoke.gd", "client/scripts/ui/", "client/data/gear_mods.json", "client/data/gear_mod_drop_tables.csv", "client/data/gear_mod_fusion_costs.csv", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/scripts/gameplay/gameplay_run_loop.gd", "tools/godot_bridge.py"],
       "update_triggers": ["GearModSystem API changes", "gear mod profile schema changes", "mod loadout UI changes", "mod drop behavior changes", "mod upgrade or dismantle behavior changes", "meta progression migration changes"],
-      "keywords": ["GearModSystem", "Gear Mod", "装备 Mod", "Warframe mod", "mod inventory", "mod rank", "mod fusion", "mod dismantle", "hero loadout", "weapon loadout", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "enemy_chaser", "MetaProgression legacy", "SaveManager meta"]
+      "keywords": ["GearModSystem", "Gear Mod", "装备 Mod", "Warframe mod", "mod inventory", "mod rank", "mod fusion", "mod dismantle", "hero loadout", "weapon loadout", "Gear Mod drop feedback", "HUD 获得提示", "ui_gear_mod_drop_obtained", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "enemy_chaser", "MetaProgression legacy", "SaveManager meta"]
     },
     {
       "path": "docs/代码/meta_progression_system.md",

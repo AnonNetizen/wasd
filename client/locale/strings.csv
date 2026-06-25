@@ -109,6 +109,7 @@ ui_gear_mod_action_dismantle,分解,Dismantled
 ui_gear_mod_feedback_success,{action} {name},{action} {name}
 ui_gear_mod_feedback_upgrade_success,{name} 升至 {rank} 级,{name} upgraded to Rank {rank}
 ui_gear_mod_feedback_failed,操作失败：{reason},Action failed: {reason}
+ui_gear_mod_drop_obtained,获得 Mod：{name},Mod acquired: {name}
 ui_gear_mod_reason_unknown,未知原因,Unknown reason
 ui_gear_mod_reason_unknown_instance,未找到该 Mod,Mod not found
 ui_gear_mod_reason_unknown_mod,未知 Mod,Unknown mod
