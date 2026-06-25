@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="76" viewBox="0 0 360 76">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2140"/>
+      <stop offset="0.52" stop-color="#171225"/>
+      <stop offset="1" stop-color="#0b0a12"/>
+    </linearGradient>
+    <linearGradient id="shell" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d7ad5a"/>
+      <stop offset="0.42" stop-color="#704b30"/>
+      <stop offset="1" stop-color="#2b1740"/>
+    </linearGradient>
+    <linearGradient id="violet" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6f52aa"/>
+      <stop offset="0.5" stop-color="#bd9cff"/>
+      <stop offset="1" stop-color="#6f52aa"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-35%" width="140%" height="170%">
+      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#8f6ed0" flood-opacity="0.55"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="#d7ad5a" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <rect width="360" height="76" fill="none"/>
+  <path d="M18 14 L43 4 H317 L342 14 L350 38 L342 62 L317 72 H43 L18 62 L10 38 Z" fill="#08040f" opacity="0.96" filter="url(#glow)"/>
+  <path d="M24 16 L47 7 H313 L336 16 L343 38 L336 60 L313 69 H47 L24 60 L17 38 Z" fill="url(#body)" stroke="url(#violet)" stroke-width="2.5"/>
+  <path d="M24 16 L47 7 H84 L72 25 L32 29 Z" fill="url(#shell)" opacity="0.82"/>
+  <path d="M336 16 L313 7 H276 L288 25 L328 29 Z" fill="url(#shell)" opacity="0.82"/>
+  <path d="M24 60 L47 69 H88 L70 51 L31 47 Z" fill="#322144" stroke="#9b75ea" stroke-width="1.2" opacity="0.88"/>
+  <path d="M336 60 L313 69 H272 L290 51 L329 47 Z" fill="#322144" stroke="#9b75ea" stroke-width="1.2" opacity="0.88"/>
+  <path d="M90 14 C134 8,224 8,270 14" stroke="#d7ad5a" stroke-width="1.6" opacity="0.55" fill="none"/>
+  <path d="M88 62 C130 69,226 69,272 62" stroke="#bd9cff" stroke-width="1.8" opacity="0.58" fill="none"/>
+  <path d="M46 28 C58 19,72 20,84 31" stroke="#d7ad5a" stroke-width="2.4" opacity="0.82" fill="none"/>
+  <path d="M314 28 C302 19,288 20,276 31" stroke="#d7ad5a" stroke-width="2.4" opacity="0.82" fill="none"/>
+  <ellipse cx="94" cy="24" rx="5.5" ry="3" fill="#05040a" stroke="#bd9cff" stroke-width="1.1"/>
+  <ellipse cx="265" cy="52" rx="7" ry="3.5" fill="#05040a" stroke="#bd9cff" stroke-width="1.1"/>
+  <path d="M112 58 C144 49,162 63,185 57 C207 51,224 54,246 59" stroke="#bd9cff" stroke-width="1.8" opacity="0.48" fill="none"/>
+</svg>

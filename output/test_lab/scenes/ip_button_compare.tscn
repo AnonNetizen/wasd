@@ -1,0 +1,1161 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/ip_chitin_button_normal.svg" id="1_svg_normal"]
+[ext_resource type="Texture2D" path="res://assets/ip_chitin_button_hover.svg" id="2_svg_hover"]
+[ext_resource type="Texture2D" path="res://assets/ip_chitin_button_pressed.svg" id="3_svg_pressed"]
+[ext_resource type="Texture2D" path="res://assets/ip_chitin_button_disabled.svg" id="4_svg_disabled"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_stcyf"]
+bg_color = Color(0.057, 0.064, 0.07, 0.94)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.15, 0.13, 0.11, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.34)
+shadow_size = 18
+shadow_offset = Vector2(0, 10)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_l22mt"]
+content_margin_left = 28.0
+content_margin_top = 18.0
+content_margin_right = 28.0
+content_margin_bottom = 8.0
+bg_color = Color(0.075, 0.07, 0.105, 0.62)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.48, 0.36, 0.75, 0.35)
+border_blend = true
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.44)
+shadow_size = 12
+shadow_offset = Vector2(0, 8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_u25kt"]
+content_margin_left = 28.0
+content_margin_top = 18.0
+content_margin_right = 28.0
+content_margin_bottom = 8.0
+bg_color = Color(0.105, 0.08, 0.145, 0.66)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.7, 0.55, 0.98, 0.42)
+border_blend = true
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0.45, 0.3, 0.78, 0.36)
+shadow_size = 18
+shadow_offset = Vector2(0, 8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1dcib"]
+content_margin_left = 28.0
+content_margin_top = 20.0
+content_margin_right = 28.0
+content_margin_bottom = 8.0
+bg_color = Color(0.052, 0.05, 0.072, 0.64)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.78, 0.58, 0.28, 0.5)
+border_blend = true
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 8
+shadow_offset = Vector2(0, 4)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_e4bfk"]
+content_margin_left = 28.0
+content_margin_top = 18.0
+content_margin_right = 28.0
+content_margin_bottom = 8.0
+bg_color = Color(0.065, 0.065, 0.08, 0.58)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.27, 0.25, 0.34, 0.36)
+border_blend = true
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.18)
+shadow_size = 6
+shadow_offset = Vector2(0, 8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dkj4w"]
+bg_color = Color(0.057, 0.064, 0.07, 0.94)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.15, 0.13, 0.11, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.34)
+shadow_size = 18
+shadow_offset = Vector2(0, 10)
+
+[node name="IpButtonCompare" type="Control" unique_id=249559191]
+custom_minimum_size = Vector2(1280, 760)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="BackgroundBlackPurple" type="ColorRect" parent="." unique_id=1628771571]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.02, 0.02, 0.03, 1)
+
+[node name="ObliqueStageLines" type="Control" parent="." unique_id=1053828870]
+anchors_preset = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="AmberStageLineA" type="Line2D" parent="ObliqueStageLines" unique_id=777141930]
+points = PackedVector2Array(-60, 598, 1340, 312)
+width = 1.0
+default_color = Color(0.76, 0.54, 0.23, 0.1)
+
+[node name="VioletStageLineA" type="Line2D" parent="ObliqueStageLines" unique_id=1451787281]
+points = PackedVector2Array(-60, 646, 1340, 360)
+width = 1.0
+default_color = Color(0.45, 0.32, 0.78, 0.16)
+
+[node name="VioletStageLineB" type="Line2D" parent="ObliqueStageLines" unique_id=182337939]
+points = PackedVector2Array(-60, 694, 1340, 408)
+width = 1.0
+default_color = Color(0.3, 0.2, 0.48, 0.13)
+
+[node name="Title" type="Label" parent="." unique_id=381246303]
+layout_mode = 0
+offset_top = 32.0
+offset_right = 1280.0
+offset_bottom = 74.0
+theme_override_font_sizes/font_size = 30
+theme_override_colors/font_color = Color(0.94, 0.82, 0.56, 1)
+text = "Nestbreakers UI Button State Test"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="." unique_id=1817235441]
+layout_mode = 0
+offset_top = 78.0
+offset_right = 1280.0
+offset_bottom = 102.0
+theme_override_font_sizes/font_size = 15
+theme_override_colors/font_color = Color(0.56, 0.62, 0.6, 1)
+text = "player/reward palette: graphite black, restrained amber, relic violet; cyan/red/white avoided as primary button color"
+horizontal_alignment = 1
+
+[node name="GodotNativeColumn" type="Panel" parent="." unique_id=832857402]
+layout_mode = 0
+offset_left = 64.0
+offset_top = 128.0
+offset_right = 608.0
+offset_bottom = 680.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_stcyf")
+
+[node name="ColumnTitle" type="Label" parent="GodotNativeColumn" unique_id=1182755207]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 24.0
+offset_right = 512.0
+offset_bottom = 54.0
+theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(0.93, 0.76, 0.44, 1)
+text = "GODOT NATIVE"
+
+[node name="ColumnSubtitle" type="Label" parent="GodotNativeColumn" unique_id=456797641]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 58.0
+offset_right = 512.0
+offset_bottom = 81.0
+theme_override_font_sizes/font_size = 13
+theme_override_colors/font_color = Color(0.58, 0.55, 0.66, 1)
+text = "Button + StyleBoxFlat, editable controls"
+
+[node name="NormalStateChip" type="Label" parent="GodotNativeColumn" unique_id=108770730]
+layout_mode = 0
+offset_left = 36.0
+offset_top = 135.0
+offset_right = 112.0
+offset_bottom = 159.0
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.62, 0.67, 0.63, 1)
+text = "Normal"
+horizontal_alignment = 2
+
+[node name="NativeNormalChitinFrame" type="Control" parent="GodotNativeColumn" unique_id=307291799]
+anchors_preset = 0
+offset_left = 128.0
+offset_top = 112.0
+offset_right = 488.0
+offset_bottom = 188.0
+mouse_filter = 2
+
+[node name="OrganicShadow" type="Polygon2D" parent="GodotNativeColumn/NativeNormalChitinFrame" unique_id=561545681]
+position = Vector2(0, 7)
+color = Color(0, 0, 0, 0.34)
+polygon = PackedVector2Array(16, 15, 42, 4, 318, 4, 344, 15, 352, 38, 344, 62, 318, 72, 42, 72, 16, 62, 8, 38)
+
+[node name="ChitinBody" type="Polygon2D" parent="GodotNativeColumn/NativeNormalChitinFrame" unique_id=1155797099]
+color = Color(0.19, 0.13, 0.26, 0.82)
+polygon = PackedVector2Array(18, 14, 44, 5, 316, 5, 342, 14, 350, 38, 342, 61, 316, 70, 44, 70, 18, 61, 10, 38)
+
+[node name="ChitinBodyRim" type="Line2D" parent="GodotNativeColumn/NativeNormalChitinFrame" unique_id=1029397005]
+points = PackedVector2Array(18, 14, 44, 5, 316, 5, 342, 14, 350, 38, 342, 61, 316, 70, 44, 70, 18, 61, 10, 38, 18, 14)
+width = 1.8
+default_color = Color(0.58, 0.43, 0.86, 0.9)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="LeftShellPlate" type="Polygon2D" parent="GodotNativeColumn/NativeNormalChitinFrame" unique_id=1623033269]
+color = Color(0.43, 0.3, 0.19, 0.7)
+polygon = PackedVector2Array(22, 17, 47, 8, 84, 9, 72, 27, 31, 30)
+
+[node name="RightShellPlate" type="Polygon2D" parent="GodotNativeColumn/NativeNormalChitinFrame" unique_id=1820688242]
+color = Color(0.43, 0.3, 0.19, 0.7)
+polygon = PackedVector2Array(338, 17, 313, 8, 276, 9, 288, 27, 329, 30)
+
+[node name="TopCarapaceCurve" type="Line2D" parent="GodotNativeColumn/NativeNormalChitinFrame" unique_id=1608790918]
+points = PackedVector2Array(90, 14, 134, 9, 225, 9, 270, 14)
+width = 1.4
+default_color = Color(0.77, 0.58, 0.29, 0.72)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="BottomMembraneCurve" type="Line2D" parent="GodotNativeColumn/NativeNormalChitinFrame" unique_id=141224325]
+points = PackedVector2Array(90, 62, 132, 68, 226, 68, 272, 62)
+width = 1.4
+default_color = Color(0.58, 0.43, 0.86, 0.9)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="NativeNormalButton" type="Button" parent="GodotNativeColumn" unique_id=1084581808]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 112.0
+offset_right = 488.0
+offset_bottom = 188.0
+theme_override_styles/normal = SubResource("StyleBoxFlat_l22mt")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_l22mt")
+theme_override_styles/hover = SubResource("StyleBoxFlat_l22mt")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_l22mt")
+theme_override_colors/font_color = Color(0.95, 0.86, 0.66, 1)
+theme_override_colors/font_disabled_color = Color(0.46, 0.47, 0.43, 1)
+theme_override_font_sizes/font_size = 22
+theme_override_constants/outline_size = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.78)
+text = "EQUIP MOD"
+
+[node name="NativeNormalEyebrow" type="Label" parent="GodotNativeColumn" unique_id=1793691360]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 126.0
+offset_right = 488.0
+offset_bottom = 149.0
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.67, 0.58, 0.86, 1)
+text = "LOADOUT"
+horizontal_alignment = 1
+
+[node name="NativeNormalHiveOverlay" type="Control" parent="GodotNativeColumn" unique_id=1667594855]
+anchors_preset = 0
+offset_left = 128.0
+offset_top = 112.0
+offset_right = 488.0
+offset_bottom = 188.0
+mouse_filter = 2
+
+[node name="LeftChitinRibA" type="Line2D" parent="GodotNativeColumn/NativeNormalHiveOverlay" unique_id=85184365]
+points = PackedVector2Array(18, 40, 30, 25, 48, 23, 63, 30)
+width = 2.0
+default_color = Color(0.78, 0.6, 0.3, 0.68)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="LeftChitinRibB" type="Line2D" parent="GodotNativeColumn/NativeNormalHiveOverlay" unique_id=538392427]
+points = PackedVector2Array(22, 52, 38, 42, 56, 45)
+width = 1.5
+default_color = Color(0.55, 0.4, 0.82, 0.48)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="RightChitinRibA" type="Line2D" parent="GodotNativeColumn/NativeNormalHiveOverlay" unique_id=848511306]
+points = PackedVector2Array(342, 40, 330, 25, 312, 23, 297, 30)
+width = 2.0
+default_color = Color(0.78, 0.6, 0.3, 0.68)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="RightChitinRibB" type="Line2D" parent="GodotNativeColumn/NativeNormalHiveOverlay" unique_id=1171624978]
+points = PackedVector2Array(338, 52, 322, 42, 304, 45)
+width = 1.5
+default_color = Color(0.55, 0.4, 0.82, 0.48)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="LeftLowerMembrane" type="Line2D" parent="GodotNativeColumn/NativeNormalHiveOverlay" unique_id=256983886]
+points = PackedVector2Array(84, 60, 110, 55, 136, 58)
+width = 1.8
+default_color = Color(0.55, 0.4, 0.82, 0.48)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="RightLowerMembrane" type="Line2D" parent="GodotNativeColumn/NativeNormalHiveOverlay" unique_id=622263186]
+points = PackedVector2Array(224, 58, 250, 54, 278, 59)
+width = 1.8
+default_color = Color(0.55, 0.4, 0.82, 0.48)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="PoreLeftUpper" type="Polygon2D" parent="GodotNativeColumn/NativeNormalHiveOverlay" unique_id=802660449]
+color = Color(0.025, 0.02, 0.035, 0.88)
+polygon = PackedVector2Array(107, 22, 105.9282, 24.5, 103, 26.330128, 99, 27, 95, 26.330128, 92.0718, 24.5, 91, 22, 92.0718, 19.5, 95, 17.669872, 99, 17, 103, 17.669872, 105.9282, 19.5)
+
+[node name="PoreLeftUpperRim" type="Line2D" parent="GodotNativeColumn/NativeNormalHiveOverlay" unique_id=2009660876]
+points = PackedVector2Array(107, 22, 105.9282, 24.5, 103, 26.330128, 99, 27, 95, 26.330128, 92.0718, 24.5, 91, 22, 92.0718, 19.5, 95, 17.669872, 99, 17, 103, 17.669872, 105.9282, 19.5, 107, 22)
+width = 1.0
+default_color = Color(0.45, 0.34, 0.7, 0.78)
+joint_mode = 2
+
+[node name="PoreRightLower" type="Polygon2D" parent="GodotNativeColumn/NativeNormalHiveOverlay" unique_id=1426347604]
+color = Color(0.025, 0.02, 0.035, 0.88)
+polygon = PackedVector2Array(268, 52, 266.66025, 55, 263, 57.19615, 258, 58, 253, 57.19615, 249.33975, 55, 248, 52, 249.33975, 49, 253, 46.80385, 258, 46, 263, 46.80385, 266.66025, 49)
+
+[node name="PoreRightLowerRim" type="Line2D" parent="GodotNativeColumn/NativeNormalHiveOverlay" unique_id=105219923]
+points = PackedVector2Array(268, 52, 266.66025, 55, 263, 57.19615, 258, 58, 253, 57.19615, 249.33975, 55, 248, 52, 249.33975, 49, 253, 46.80385, 258, 46, 263, 46.80385, 266.66025, 49, 268, 52)
+width = 1.0
+default_color = Color(0.45, 0.34, 0.7, 0.78)
+joint_mode = 2
+
+[node name="PoreRightUpper" type="Polygon2D" parent="GodotNativeColumn/NativeNormalHiveOverlay" unique_id=8027132]
+color = Color(0.025, 0.02, 0.035, 0.88)
+polygon = PackedVector2Array(286, 26, 285.19617, 28, 283, 29.464102, 280, 30, 277, 29.464102, 274.80383, 28, 274, 26, 274.80383, 24, 277, 22.535898, 280, 22, 283, 22.535898, 285.19617, 24)
+
+[node name="PoreRightUpperRim" type="Line2D" parent="GodotNativeColumn/NativeNormalHiveOverlay" unique_id=1683778615]
+points = PackedVector2Array(286, 26, 285.19617, 28, 283, 29.464102, 280, 30, 277, 29.464102, 274.80383, 28, 274, 26, 274.80383, 24, 277, 22.535898, 280, 22, 283, 22.535898, 285.19617, 24, 286, 26)
+width = 1.0
+default_color = Color(0.78, 0.6, 0.3, 0.68)
+joint_mode = 2
+
+[node name="HoverStateChip" type="Label" parent="GodotNativeColumn" unique_id=795291716]
+layout_mode = 0
+offset_left = 36.0
+offset_top = 231.0
+offset_right = 112.0
+offset_bottom = 255.0
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.62, 0.67, 0.63, 1)
+text = "Hover"
+horizontal_alignment = 2
+
+[node name="NativeHoverChitinFrame" type="Control" parent="GodotNativeColumn" unique_id=1047670487]
+anchors_preset = 0
+offset_left = 128.0
+offset_top = 208.0
+offset_right = 488.0
+offset_bottom = 284.0
+mouse_filter = 2
+
+[node name="OrganicShadow" type="Polygon2D" parent="GodotNativeColumn/NativeHoverChitinFrame" unique_id=1918452096]
+position = Vector2(0, 7)
+color = Color(0, 0, 0, 0.34)
+polygon = PackedVector2Array(16, 15, 42, 4, 318, 4, 344, 15, 352, 38, 344, 62, 318, 72, 42, 72, 16, 62, 8, 38)
+
+[node name="ChitinBody" type="Polygon2D" parent="GodotNativeColumn/NativeHoverChitinFrame" unique_id=1421512185]
+color = Color(0.19, 0.13, 0.26, 0.82)
+polygon = PackedVector2Array(18, 14, 44, 5, 316, 5, 342, 14, 350, 38, 342, 61, 316, 70, 44, 70, 18, 61, 10, 38)
+
+[node name="ChitinBodyRim" type="Line2D" parent="GodotNativeColumn/NativeHoverChitinFrame" unique_id=1197119438]
+points = PackedVector2Array(18, 14, 44, 5, 316, 5, 342, 14, 350, 38, 342, 61, 316, 70, 44, 70, 18, 61, 10, 38, 18, 14)
+width = 1.8
+default_color = Color(0.58, 0.43, 0.86, 0.9)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="LeftShellPlate" type="Polygon2D" parent="GodotNativeColumn/NativeHoverChitinFrame" unique_id=922453491]
+color = Color(0.43, 0.3, 0.19, 0.7)
+polygon = PackedVector2Array(22, 17, 47, 8, 84, 9, 72, 27, 31, 30)
+
+[node name="RightShellPlate" type="Polygon2D" parent="GodotNativeColumn/NativeHoverChitinFrame" unique_id=2056696375]
+color = Color(0.43, 0.3, 0.19, 0.7)
+polygon = PackedVector2Array(338, 17, 313, 8, 276, 9, 288, 27, 329, 30)
+
+[node name="TopCarapaceCurve" type="Line2D" parent="GodotNativeColumn/NativeHoverChitinFrame" unique_id=1925128156]
+points = PackedVector2Array(90, 14, 134, 9, 225, 9, 270, 14)
+width = 1.4
+default_color = Color(0.77, 0.58, 0.29, 0.72)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="BottomMembraneCurve" type="Line2D" parent="GodotNativeColumn/NativeHoverChitinFrame" unique_id=1878462973]
+points = PackedVector2Array(90, 62, 132, 68, 226, 68, 272, 62)
+width = 1.4
+default_color = Color(0.58, 0.43, 0.86, 0.9)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="NativeHoverButton" type="Button" parent="GodotNativeColumn" unique_id=205026260]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 208.0
+offset_right = 488.0
+offset_bottom = 284.0
+theme_override_styles/normal = SubResource("StyleBoxFlat_u25kt")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_u25kt")
+theme_override_styles/hover = SubResource("StyleBoxFlat_u25kt")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_u25kt")
+theme_override_colors/font_color = Color(0.95, 0.86, 0.66, 1)
+theme_override_colors/font_disabled_color = Color(0.46, 0.47, 0.43, 1)
+theme_override_font_sizes/font_size = 22
+theme_override_constants/outline_size = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.78)
+text = "EQUIP MOD"
+
+[node name="NativeHoverEyebrow" type="Label" parent="GodotNativeColumn" unique_id=463454891]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 222.0
+offset_right = 488.0
+offset_bottom = 245.0
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.67, 0.58, 0.86, 1)
+text = "LOADOUT"
+horizontal_alignment = 1
+
+[node name="NativeHoverHiveOverlay" type="Control" parent="GodotNativeColumn" unique_id=1818727972]
+anchors_preset = 0
+offset_left = 128.0
+offset_top = 208.0
+offset_right = 488.0
+offset_bottom = 284.0
+mouse_filter = 2
+
+[node name="LeftChitinRibA" type="Line2D" parent="GodotNativeColumn/NativeHoverHiveOverlay" unique_id=1643634159]
+points = PackedVector2Array(18, 40, 30, 25, 48, 23, 63, 30)
+width = 2.0
+default_color = Color(0.78, 0.6, 0.3, 0.68)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="LeftChitinRibB" type="Line2D" parent="GodotNativeColumn/NativeHoverHiveOverlay" unique_id=1264088335]
+points = PackedVector2Array(22, 52, 38, 42, 56, 45)
+width = 1.5
+default_color = Color(0.55, 0.4, 0.82, 0.48)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="RightChitinRibA" type="Line2D" parent="GodotNativeColumn/NativeHoverHiveOverlay" unique_id=1002632074]
+points = PackedVector2Array(342, 40, 330, 25, 312, 23, 297, 30)
+width = 2.0
+default_color = Color(0.78, 0.6, 0.3, 0.68)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="RightChitinRibB" type="Line2D" parent="GodotNativeColumn/NativeHoverHiveOverlay" unique_id=2020280621]
+points = PackedVector2Array(338, 52, 322, 42, 304, 45)
+width = 1.5
+default_color = Color(0.55, 0.4, 0.82, 0.48)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="LeftLowerMembrane" type="Line2D" parent="GodotNativeColumn/NativeHoverHiveOverlay" unique_id=1319230435]
+points = PackedVector2Array(84, 60, 110, 55, 136, 58)
+width = 1.8
+default_color = Color(0.55, 0.4, 0.82, 0.48)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="RightLowerMembrane" type="Line2D" parent="GodotNativeColumn/NativeHoverHiveOverlay" unique_id=1503850598]
+points = PackedVector2Array(224, 58, 250, 54, 278, 59)
+width = 1.8
+default_color = Color(0.55, 0.4, 0.82, 0.48)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="PoreLeftUpper" type="Polygon2D" parent="GodotNativeColumn/NativeHoverHiveOverlay" unique_id=1764736105]
+color = Color(0.025, 0.02, 0.035, 0.88)
+polygon = PackedVector2Array(107, 22, 105.9282, 24.5, 103, 26.330128, 99, 27, 95, 26.330128, 92.0718, 24.5, 91, 22, 92.0718, 19.5, 95, 17.669872, 99, 17, 103, 17.669872, 105.9282, 19.5)
+
+[node name="PoreLeftUpperRim" type="Line2D" parent="GodotNativeColumn/NativeHoverHiveOverlay" unique_id=800053673]
+points = PackedVector2Array(107, 22, 105.9282, 24.5, 103, 26.330128, 99, 27, 95, 26.330128, 92.0718, 24.5, 91, 22, 92.0718, 19.5, 95, 17.669872, 99, 17, 103, 17.669872, 105.9282, 19.5, 107, 22)
+width = 1.0
+default_color = Color(0.45, 0.34, 0.7, 0.78)
+joint_mode = 2
+
+[node name="PoreRightLower" type="Polygon2D" parent="GodotNativeColumn/NativeHoverHiveOverlay" unique_id=973197982]
+color = Color(0.025, 0.02, 0.035, 0.88)
+polygon = PackedVector2Array(268, 52, 266.66025, 55, 263, 57.19615, 258, 58, 253, 57.19615, 249.33975, 55, 248, 52, 249.33975, 49, 253, 46.80385, 258, 46, 263, 46.80385, 266.66025, 49)
+
+[node name="PoreRightLowerRim" type="Line2D" parent="GodotNativeColumn/NativeHoverHiveOverlay" unique_id=1500129490]
+points = PackedVector2Array(268, 52, 266.66025, 55, 263, 57.19615, 258, 58, 253, 57.19615, 249.33975, 55, 248, 52, 249.33975, 49, 253, 46.80385, 258, 46, 263, 46.80385, 266.66025, 49, 268, 52)
+width = 1.0
+default_color = Color(0.45, 0.34, 0.7, 0.78)
+joint_mode = 2
+
+[node name="PoreRightUpper" type="Polygon2D" parent="GodotNativeColumn/NativeHoverHiveOverlay" unique_id=476426373]
+color = Color(0.025, 0.02, 0.035, 0.88)
+polygon = PackedVector2Array(286, 26, 285.19617, 28, 283, 29.464102, 280, 30, 277, 29.464102, 274.80383, 28, 274, 26, 274.80383, 24, 277, 22.535898, 280, 22, 283, 22.535898, 285.19617, 24)
+
+[node name="PoreRightUpperRim" type="Line2D" parent="GodotNativeColumn/NativeHoverHiveOverlay" unique_id=316265108]
+points = PackedVector2Array(286, 26, 285.19617, 28, 283, 29.464102, 280, 30, 277, 29.464102, 274.80383, 28, 274, 26, 274.80383, 24, 277, 22.535898, 280, 22, 283, 22.535898, 285.19617, 24, 286, 26)
+width = 1.0
+default_color = Color(0.78, 0.6, 0.3, 0.68)
+joint_mode = 2
+
+[node name="PressedStateChip" type="Label" parent="GodotNativeColumn" unique_id=804266648]
+layout_mode = 0
+offset_left = 36.0
+offset_top = 327.0
+offset_right = 112.0
+offset_bottom = 351.0
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.62, 0.67, 0.63, 1)
+text = "Pressed"
+horizontal_alignment = 2
+
+[node name="NativePressedChitinFrame" type="Control" parent="GodotNativeColumn" unique_id=657794464]
+anchors_preset = 0
+offset_left = 128.0
+offset_top = 304.0
+offset_right = 488.0
+offset_bottom = 380.0
+mouse_filter = 2
+
+[node name="OrganicShadow" type="Polygon2D" parent="GodotNativeColumn/NativePressedChitinFrame" unique_id=1613675222]
+position = Vector2(0, 7)
+color = Color(0, 0, 0, 0.34)
+polygon = PackedVector2Array(16, 15, 42, 4, 318, 4, 344, 15, 352, 38, 344, 62, 318, 72, 42, 72, 16, 62, 8, 38)
+
+[node name="ChitinBody" type="Polygon2D" parent="GodotNativeColumn/NativePressedChitinFrame" unique_id=1485052753]
+color = Color(0.19, 0.13, 0.26, 0.82)
+polygon = PackedVector2Array(18, 14, 44, 5, 316, 5, 342, 14, 350, 38, 342, 61, 316, 70, 44, 70, 18, 61, 10, 38)
+
+[node name="ChitinBodyRim" type="Line2D" parent="GodotNativeColumn/NativePressedChitinFrame" unique_id=2019356151]
+points = PackedVector2Array(18, 14, 44, 5, 316, 5, 342, 14, 350, 38, 342, 61, 316, 70, 44, 70, 18, 61, 10, 38, 18, 14)
+width = 1.8
+default_color = Color(0.58, 0.43, 0.86, 0.9)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="LeftShellPlate" type="Polygon2D" parent="GodotNativeColumn/NativePressedChitinFrame" unique_id=1871636080]
+color = Color(0.43, 0.3, 0.19, 0.7)
+polygon = PackedVector2Array(22, 17, 47, 8, 84, 9, 72, 27, 31, 30)
+
+[node name="RightShellPlate" type="Polygon2D" parent="GodotNativeColumn/NativePressedChitinFrame" unique_id=554250444]
+color = Color(0.43, 0.3, 0.19, 0.7)
+polygon = PackedVector2Array(338, 17, 313, 8, 276, 9, 288, 27, 329, 30)
+
+[node name="TopCarapaceCurve" type="Line2D" parent="GodotNativeColumn/NativePressedChitinFrame" unique_id=2126638938]
+points = PackedVector2Array(90, 14, 134, 9, 225, 9, 270, 14)
+width = 1.4
+default_color = Color(0.77, 0.58, 0.29, 0.72)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="BottomMembraneCurve" type="Line2D" parent="GodotNativeColumn/NativePressedChitinFrame" unique_id=1422200331]
+points = PackedVector2Array(90, 62, 132, 68, 226, 68, 272, 62)
+width = 1.4
+default_color = Color(0.58, 0.43, 0.86, 0.9)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="NativePressedButton" type="Button" parent="GodotNativeColumn" unique_id=1159565827]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 304.0
+offset_right = 488.0
+offset_bottom = 380.0
+theme_override_styles/normal = SubResource("StyleBoxFlat_1dcib")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_1dcib")
+theme_override_styles/hover = SubResource("StyleBoxFlat_1dcib")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_1dcib")
+theme_override_colors/font_color = Color(0.95, 0.86, 0.66, 1)
+theme_override_colors/font_disabled_color = Color(0.46, 0.47, 0.43, 1)
+theme_override_font_sizes/font_size = 22
+theme_override_constants/outline_size = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.78)
+text = "EQUIP MOD"
+
+[node name="NativePressedEyebrow" type="Label" parent="GodotNativeColumn" unique_id=123034440]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 318.0
+offset_right = 488.0
+offset_bottom = 341.0
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.67, 0.58, 0.86, 1)
+text = "LOADOUT"
+horizontal_alignment = 1
+
+[node name="NativePressedHiveOverlay" type="Control" parent="GodotNativeColumn" unique_id=133872163]
+anchors_preset = 0
+offset_left = 128.0
+offset_top = 304.0
+offset_right = 488.0
+offset_bottom = 380.0
+mouse_filter = 2
+
+[node name="LeftChitinRibA" type="Line2D" parent="GodotNativeColumn/NativePressedHiveOverlay" unique_id=1528675383]
+points = PackedVector2Array(18, 40, 30, 25, 48, 23, 63, 30)
+width = 2.0
+default_color = Color(0.78, 0.6, 0.3, 0.68)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="LeftChitinRibB" type="Line2D" parent="GodotNativeColumn/NativePressedHiveOverlay" unique_id=1752352592]
+points = PackedVector2Array(22, 52, 38, 42, 56, 45)
+width = 1.5
+default_color = Color(0.55, 0.4, 0.82, 0.48)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="RightChitinRibA" type="Line2D" parent="GodotNativeColumn/NativePressedHiveOverlay" unique_id=1323033001]
+points = PackedVector2Array(342, 40, 330, 25, 312, 23, 297, 30)
+width = 2.0
+default_color = Color(0.78, 0.6, 0.3, 0.68)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="RightChitinRibB" type="Line2D" parent="GodotNativeColumn/NativePressedHiveOverlay" unique_id=1094749691]
+points = PackedVector2Array(338, 52, 322, 42, 304, 45)
+width = 1.5
+default_color = Color(0.55, 0.4, 0.82, 0.48)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="LeftLowerMembrane" type="Line2D" parent="GodotNativeColumn/NativePressedHiveOverlay" unique_id=1158046000]
+points = PackedVector2Array(84, 60, 110, 55, 136, 58)
+width = 1.8
+default_color = Color(0.55, 0.4, 0.82, 0.48)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="RightLowerMembrane" type="Line2D" parent="GodotNativeColumn/NativePressedHiveOverlay" unique_id=531321535]
+points = PackedVector2Array(224, 58, 250, 54, 278, 59)
+width = 1.8
+default_color = Color(0.55, 0.4, 0.82, 0.48)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="PoreLeftUpper" type="Polygon2D" parent="GodotNativeColumn/NativePressedHiveOverlay" unique_id=1740276684]
+color = Color(0.025, 0.02, 0.035, 0.88)
+polygon = PackedVector2Array(107, 22, 105.9282, 24.5, 103, 26.330128, 99, 27, 95, 26.330128, 92.0718, 24.5, 91, 22, 92.0718, 19.5, 95, 17.669872, 99, 17, 103, 17.669872, 105.9282, 19.5)
+
+[node name="PoreLeftUpperRim" type="Line2D" parent="GodotNativeColumn/NativePressedHiveOverlay" unique_id=124656213]
+points = PackedVector2Array(107, 22, 105.9282, 24.5, 103, 26.330128, 99, 27, 95, 26.330128, 92.0718, 24.5, 91, 22, 92.0718, 19.5, 95, 17.669872, 99, 17, 103, 17.669872, 105.9282, 19.5, 107, 22)
+width = 1.0
+default_color = Color(0.45, 0.34, 0.7, 0.78)
+joint_mode = 2
+
+[node name="PoreRightLower" type="Polygon2D" parent="GodotNativeColumn/NativePressedHiveOverlay" unique_id=1326520965]
+color = Color(0.025, 0.02, 0.035, 0.88)
+polygon = PackedVector2Array(268, 52, 266.66025, 55, 263, 57.19615, 258, 58, 253, 57.19615, 249.33975, 55, 248, 52, 249.33975, 49, 253, 46.80385, 258, 46, 263, 46.80385, 266.66025, 49)
+
+[node name="PoreRightLowerRim" type="Line2D" parent="GodotNativeColumn/NativePressedHiveOverlay" unique_id=1119455753]
+points = PackedVector2Array(268, 52, 266.66025, 55, 263, 57.19615, 258, 58, 253, 57.19615, 249.33975, 55, 248, 52, 249.33975, 49, 253, 46.80385, 258, 46, 263, 46.80385, 266.66025, 49, 268, 52)
+width = 1.0
+default_color = Color(0.45, 0.34, 0.7, 0.78)
+joint_mode = 2
+
+[node name="PoreRightUpper" type="Polygon2D" parent="GodotNativeColumn/NativePressedHiveOverlay" unique_id=369867197]
+color = Color(0.025, 0.02, 0.035, 0.88)
+polygon = PackedVector2Array(286, 26, 285.19617, 28, 283, 29.464102, 280, 30, 277, 29.464102, 274.80383, 28, 274, 26, 274.80383, 24, 277, 22.535898, 280, 22, 283, 22.535898, 285.19617, 24)
+
+[node name="PoreRightUpperRim" type="Line2D" parent="GodotNativeColumn/NativePressedHiveOverlay" unique_id=931101239]
+points = PackedVector2Array(286, 26, 285.19617, 28, 283, 29.464102, 280, 30, 277, 29.464102, 274.80383, 28, 274, 26, 274.80383, 24, 277, 22.535898, 280, 22, 283, 22.535898, 285.19617, 24, 286, 26)
+width = 1.0
+default_color = Color(0.78, 0.6, 0.3, 0.68)
+joint_mode = 2
+
+[node name="DisabledStateChip" type="Label" parent="GodotNativeColumn" unique_id=1366928772]
+layout_mode = 0
+offset_left = 36.0
+offset_top = 423.0
+offset_right = 112.0
+offset_bottom = 447.0
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.62, 0.67, 0.63, 1)
+text = "Disabled"
+horizontal_alignment = 2
+
+[node name="NativeDisabledChitinFrame" type="Control" parent="GodotNativeColumn" unique_id=1529740477]
+anchors_preset = 0
+offset_left = 128.0
+offset_top = 400.0
+offset_right = 488.0
+offset_bottom = 476.0
+mouse_filter = 2
+
+[node name="OrganicShadow" type="Polygon2D" parent="GodotNativeColumn/NativeDisabledChitinFrame" unique_id=1227196744]
+position = Vector2(0, 7)
+color = Color(0, 0, 0, 0.34)
+polygon = PackedVector2Array(16, 15, 42, 4, 318, 4, 344, 15, 352, 38, 344, 62, 318, 72, 42, 72, 16, 62, 8, 38)
+
+[node name="ChitinBody" type="Polygon2D" parent="GodotNativeColumn/NativeDisabledChitinFrame" unique_id=2025551332]
+color = Color(0.1, 0.1, 0.13, 0.62)
+polygon = PackedVector2Array(18, 14, 44, 5, 316, 5, 342, 14, 350, 38, 342, 61, 316, 70, 44, 70, 18, 61, 10, 38)
+
+[node name="ChitinBodyRim" type="Line2D" parent="GodotNativeColumn/NativeDisabledChitinFrame" unique_id=2035010588]
+points = PackedVector2Array(18, 14, 44, 5, 316, 5, 342, 14, 350, 38, 342, 61, 316, 70, 44, 70, 18, 61, 10, 38, 18, 14)
+width = 1.8
+default_color = Color(0.25, 0.23, 0.34, 0.72)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="LeftShellPlate" type="Polygon2D" parent="GodotNativeColumn/NativeDisabledChitinFrame" unique_id=168004407]
+color = Color(0.18, 0.16, 0.18, 0.52)
+polygon = PackedVector2Array(22, 17, 47, 8, 84, 9, 72, 27, 31, 30)
+
+[node name="RightShellPlate" type="Polygon2D" parent="GodotNativeColumn/NativeDisabledChitinFrame" unique_id=874103582]
+color = Color(0.18, 0.16, 0.18, 0.52)
+polygon = PackedVector2Array(338, 17, 313, 8, 276, 9, 288, 27, 329, 30)
+
+[node name="TopCarapaceCurve" type="Line2D" parent="GodotNativeColumn/NativeDisabledChitinFrame" unique_id=547464625]
+points = PackedVector2Array(90, 14, 134, 9, 225, 9, 270, 14)
+width = 1.4
+default_color = Color(0.34, 0.3, 0.24, 0.45)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="BottomMembraneCurve" type="Line2D" parent="GodotNativeColumn/NativeDisabledChitinFrame" unique_id=1759291685]
+points = PackedVector2Array(90, 62, 132, 68, 226, 68, 272, 62)
+width = 1.4
+default_color = Color(0.25, 0.23, 0.34, 0.72)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="NativeDisabledButton" type="Button" parent="GodotNativeColumn" unique_id=1518476479]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 400.0
+offset_right = 488.0
+offset_bottom = 476.0
+theme_override_styles/normal = SubResource("StyleBoxFlat_e4bfk")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_e4bfk")
+theme_override_styles/hover = SubResource("StyleBoxFlat_e4bfk")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_e4bfk")
+theme_override_colors/font_color = Color(0.95, 0.86, 0.66, 1)
+theme_override_colors/font_disabled_color = Color(0.46, 0.47, 0.43, 1)
+theme_override_font_sizes/font_size = 22
+theme_override_constants/outline_size = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.78)
+disabled = true
+text = "EQUIP MOD"
+
+[node name="NativeDisabledEyebrow" type="Label" parent="GodotNativeColumn" unique_id=1299574218]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 414.0
+offset_right = 488.0
+offset_bottom = 437.0
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.4, 0.38, 0.45, 1)
+text = "LOADOUT"
+horizontal_alignment = 1
+
+[node name="NativeDisabledHiveOverlay" type="Control" parent="GodotNativeColumn" unique_id=465340738]
+anchors_preset = 0
+offset_left = 128.0
+offset_top = 400.0
+offset_right = 488.0
+offset_bottom = 476.0
+mouse_filter = 2
+
+[node name="LeftChitinRibA" type="Line2D" parent="GodotNativeColumn/NativeDisabledHiveOverlay" unique_id=535413041]
+points = PackedVector2Array(18, 40, 30, 25, 48, 23, 63, 30)
+width = 2.0
+default_color = Color(0.33, 0.3, 0.38, 0.42)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="LeftChitinRibB" type="Line2D" parent="GodotNativeColumn/NativeDisabledHiveOverlay" unique_id=1573846849]
+points = PackedVector2Array(22, 52, 38, 42, 56, 45)
+width = 1.5
+default_color = Color(0.3, 0.26, 0.4, 0.32)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="RightChitinRibA" type="Line2D" parent="GodotNativeColumn/NativeDisabledHiveOverlay" unique_id=554121745]
+points = PackedVector2Array(342, 40, 330, 25, 312, 23, 297, 30)
+width = 2.0
+default_color = Color(0.33, 0.3, 0.38, 0.42)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="RightChitinRibB" type="Line2D" parent="GodotNativeColumn/NativeDisabledHiveOverlay" unique_id=236317978]
+points = PackedVector2Array(338, 52, 322, 42, 304, 45)
+width = 1.5
+default_color = Color(0.3, 0.26, 0.4, 0.32)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="LeftLowerMembrane" type="Line2D" parent="GodotNativeColumn/NativeDisabledHiveOverlay" unique_id=1651762148]
+points = PackedVector2Array(84, 60, 110, 55, 136, 58)
+width = 1.8
+default_color = Color(0.3, 0.26, 0.4, 0.32)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="RightLowerMembrane" type="Line2D" parent="GodotNativeColumn/NativeDisabledHiveOverlay" unique_id=42533145]
+points = PackedVector2Array(224, 58, 250, 54, 278, 59)
+width = 1.8
+default_color = Color(0.3, 0.26, 0.4, 0.32)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="PoreLeftUpper" type="Polygon2D" parent="GodotNativeColumn/NativeDisabledHiveOverlay" unique_id=978105344]
+color = Color(0.03, 0.03, 0.038, 0.62)
+polygon = PackedVector2Array(107, 22, 105.9282, 24.5, 103, 26.330128, 99, 27, 95, 26.330128, 92.0718, 24.5, 91, 22, 92.0718, 19.5, 95, 17.669872, 99, 17, 103, 17.669872, 105.9282, 19.5)
+
+[node name="PoreLeftUpperRim" type="Line2D" parent="GodotNativeColumn/NativeDisabledHiveOverlay" unique_id=1755610981]
+points = PackedVector2Array(107, 22, 105.9282, 24.5, 103, 26.330128, 99, 27, 95, 26.330128, 92.0718, 24.5, 91, 22, 92.0718, 19.5, 95, 17.669872, 99, 17, 103, 17.669872, 105.9282, 19.5, 107, 22)
+width = 1.0
+default_color = Color(0.28, 0.25, 0.36, 0.48)
+joint_mode = 2
+
+[node name="PoreRightLower" type="Polygon2D" parent="GodotNativeColumn/NativeDisabledHiveOverlay" unique_id=871256923]
+color = Color(0.03, 0.03, 0.038, 0.62)
+polygon = PackedVector2Array(268, 52, 266.66025, 55, 263, 57.19615, 258, 58, 253, 57.19615, 249.33975, 55, 248, 52, 249.33975, 49, 253, 46.80385, 258, 46, 263, 46.80385, 266.66025, 49)
+
+[node name="PoreRightLowerRim" type="Line2D" parent="GodotNativeColumn/NativeDisabledHiveOverlay" unique_id=597466071]
+points = PackedVector2Array(268, 52, 266.66025, 55, 263, 57.19615, 258, 58, 253, 57.19615, 249.33975, 55, 248, 52, 249.33975, 49, 253, 46.80385, 258, 46, 263, 46.80385, 266.66025, 49, 268, 52)
+width = 1.0
+default_color = Color(0.28, 0.25, 0.36, 0.48)
+joint_mode = 2
+
+[node name="PoreRightUpper" type="Polygon2D" parent="GodotNativeColumn/NativeDisabledHiveOverlay" unique_id=92257143]
+color = Color(0.03, 0.03, 0.038, 0.62)
+polygon = PackedVector2Array(286, 26, 285.19617, 28, 283, 29.464102, 280, 30, 277, 29.464102, 274.80383, 28, 274, 26, 274.80383, 24, 277, 22.535898, 280, 22, 283, 22.535898, 285.19617, 24)
+
+[node name="PoreRightUpperRim" type="Line2D" parent="GodotNativeColumn/NativeDisabledHiveOverlay" unique_id=698821016]
+points = PackedVector2Array(286, 26, 285.19617, 28, 283, 29.464102, 280, 30, 277, 29.464102, 274.80383, 28, 274, 26, 274.80383, 24, 277, 22.535898, 280, 22, 283, 22.535898, 285.19617, 24, 286, 26)
+width = 1.0
+default_color = Color(0.33, 0.3, 0.38, 0.42)
+joint_mode = 2
+
+[node name="NativeNote" type="Label" parent="GodotNativeColumn" unique_id=237118623]
+layout_mode = 0
+offset_left = 52.0
+offset_top = 502.0
+offset_right = 500.0
+offset_bottom = 546.0
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.62, 0.58, 0.7, 1)
+text = "Best for layout, localization, focus, hover/pressed logic, and fast iteration."
+autowrap_mode = 3
+
+[node name="SvgColumn" type="Panel" parent="." unique_id=1679238330]
+layout_mode = 0
+offset_left = 672.0
+offset_top = 128.0
+offset_right = 1216.0
+offset_bottom = 680.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_dkj4w")
+
+[node name="ColumnTitle" type="Label" parent="SvgColumn" unique_id=1527604913]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 24.0
+offset_right = 512.0
+offset_bottom = 54.0
+theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(0.93, 0.76, 0.44, 1)
+text = "SVG TEXTURE"
+
+[node name="ColumnSubtitle" type="Label" parent="SvgColumn" unique_id=1205171434]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 58.0
+offset_right = 512.0
+offset_bottom = 81.0
+theme_override_font_sizes/font_size = 13
+theme_override_colors/font_color = Color(0.58, 0.55, 0.66, 1)
+text = "SVG frame assets inside TextureRect/TextureButton"
+
+[node name="NormalStateChip" type="Label" parent="SvgColumn" unique_id=2086037750]
+layout_mode = 0
+offset_left = 36.0
+offset_top = 135.0
+offset_right = 112.0
+offset_bottom = 159.0
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.62, 0.67, 0.63, 1)
+text = "Normal"
+horizontal_alignment = 2
+
+[node name="SvgNormalFrame" type="TextureRect" parent="SvgColumn" unique_id=116324386]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 112.0
+offset_right = 488.0
+offset_bottom = 188.0
+texture = ExtResource("1_svg_normal")
+expand_mode = 1
+
+[node name="SvgNormalEyebrow" type="Label" parent="SvgColumn" unique_id=1235550663]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 129.0
+offset_right = 488.0
+offset_bottom = 152.0
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.67, 0.58, 0.86, 1)
+text = "LOADOUT"
+horizontal_alignment = 1
+
+[node name="SvgNormalText" type="Label" parent="SvgColumn" unique_id=829813542]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 132.0
+offset_right = 488.0
+offset_bottom = 178.0
+theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(0.95, 0.86, 0.66, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.78)
+theme_override_constants/outline_size = 2
+text = "EQUIP MOD"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HoverStateChip" type="Label" parent="SvgColumn" unique_id=1462173478]
+layout_mode = 0
+offset_left = 36.0
+offset_top = 231.0
+offset_right = 112.0
+offset_bottom = 255.0
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.62, 0.67, 0.63, 1)
+text = "Hover"
+horizontal_alignment = 2
+
+[node name="SvgHoverFrame" type="TextureRect" parent="SvgColumn" unique_id=157700596]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 208.0
+offset_right = 488.0
+offset_bottom = 284.0
+texture = ExtResource("2_svg_hover")
+expand_mode = 1
+
+[node name="SvgHoverEyebrow" type="Label" parent="SvgColumn" unique_id=1590705780]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 225.0
+offset_right = 488.0
+offset_bottom = 248.0
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.67, 0.58, 0.86, 1)
+text = "LOADOUT"
+horizontal_alignment = 1
+
+[node name="SvgHoverText" type="Label" parent="SvgColumn" unique_id=1370959593]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 228.0
+offset_right = 488.0
+offset_bottom = 274.0
+theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(0.95, 0.86, 0.66, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.78)
+theme_override_constants/outline_size = 2
+text = "EQUIP MOD"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PressedStateChip" type="Label" parent="SvgColumn" unique_id=239111161]
+layout_mode = 0
+offset_left = 36.0
+offset_top = 327.0
+offset_right = 112.0
+offset_bottom = 351.0
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.62, 0.67, 0.63, 1)
+text = "Pressed"
+horizontal_alignment = 2
+
+[node name="SvgPressedFrame" type="TextureRect" parent="SvgColumn" unique_id=110985745]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 304.0
+offset_right = 488.0
+offset_bottom = 380.0
+texture = ExtResource("3_svg_pressed")
+expand_mode = 1
+
+[node name="SvgPressedEyebrow" type="Label" parent="SvgColumn" unique_id=1968105652]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 321.0
+offset_right = 488.0
+offset_bottom = 344.0
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.67, 0.58, 0.86, 1)
+text = "LOADOUT"
+horizontal_alignment = 1
+
+[node name="SvgPressedText" type="Label" parent="SvgColumn" unique_id=2120110175]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 324.0
+offset_right = 488.0
+offset_bottom = 370.0
+theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(0.95, 0.86, 0.66, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.78)
+theme_override_constants/outline_size = 2
+text = "EQUIP MOD"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DisabledStateChip" type="Label" parent="SvgColumn" unique_id=1556518891]
+layout_mode = 0
+offset_left = 36.0
+offset_top = 423.0
+offset_right = 112.0
+offset_bottom = 447.0
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.62, 0.67, 0.63, 1)
+text = "Disabled"
+horizontal_alignment = 2
+
+[node name="SvgDisabledFrame" type="TextureRect" parent="SvgColumn" unique_id=697205280]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 400.0
+offset_right = 488.0
+offset_bottom = 476.0
+texture = ExtResource("4_svg_disabled")
+expand_mode = 1
+
+[node name="SvgDisabledEyebrow" type="Label" parent="SvgColumn" unique_id=24991018]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 417.0
+offset_right = 488.0
+offset_bottom = 440.0
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.4, 0.38, 0.45, 1)
+text = "LOADOUT"
+horizontal_alignment = 1
+
+[node name="SvgDisabledText" type="Label" parent="SvgColumn" unique_id=1570538021]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 420.0
+offset_right = 488.0
+offset_bottom = 466.0
+theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(0.46, 0.47, 0.43, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.78)
+theme_override_constants/outline_size = 2
+text = "EQUIP MOD"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="InteractiveTextureButtonWithFourStates" type="TextureButton" parent="SvgColumn" unique_id=1803249110]
+layout_mode = 0
+offset_left = 52.0
+offset_top = 500.0
+offset_right = 272.0
+offset_bottom = 546.0
+texture_normal = ExtResource("1_svg_normal")
+texture_pressed = ExtResource("3_svg_pressed")
+texture_hover = ExtResource("2_svg_hover")
+texture_disabled = ExtResource("4_svg_disabled")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="InteractiveTextureButtonLabel" type="Label" parent="SvgColumn" unique_id=1678645839]
+layout_mode = 0
+offset_left = 52.0
+offset_top = 500.0
+offset_right = 272.0
+offset_bottom = 546.0
+theme_override_font_sizes/font_size = 13
+theme_override_colors/font_color = Color(0.95, 0.86, 0.66, 1)
+text = "TEXTUREBUTTON"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SvgNote" type="Label" parent="SvgColumn" unique_id=611714863]
+layout_mode = 0
+offset_left = 292.0
+offset_top = 500.0
+offset_right = 512.0
+offset_bottom = 550.0
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.62, 0.58, 0.7, 1)
+text = "Best for detailed icon/frame art. State art is explicit but less flexible for text and resizing."
+autowrap_mode = 3
+
+[node name="IpPaletteNote" type="Label" parent="." unique_id=951667922]
+layout_mode = 0
+offset_left = 178.0
+offset_top = 704.0
+offset_right = 1102.0
+offset_bottom = 746.0
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.52, 0.58, 0.57, 1)
+text = "IP fit: graphite-black metal carries the UI body; violet suggests relic/overload tech; amber stays as a restrained loadout/reward accent. Cyan, red, and bone white are kept out of the primary player button signal."
+horizontal_alignment = 1
+autowrap_mode = 3

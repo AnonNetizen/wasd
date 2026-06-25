@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="76" viewBox="0 0 360 76">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#15151d"/>
+      <stop offset="1" stop-color="#0b0c11"/>
+    </linearGradient>
+  </defs>
+  <rect width="360" height="76" fill="none"/>
+  <path d="M24 16 L47 7 H313 L336 16 L343 38 L336 60 L313 69 H47 L24 60 L17 38 Z" fill="url(#body)" stroke="#3d394a" stroke-width="2"/>
+  <path d="M24 16 L47 7 H82 L72 25 L32 29 Z" fill="#2a2531" opacity="0.52"/>
+  <path d="M336 16 L313 7 H278 L288 25 L328 29 Z" fill="#2a2531" opacity="0.52"/>
+  <path d="M46 29 C58 23,70 24,80 32" stroke="#5a5266" stroke-width="2" opacity="0.45" fill="none"/>
+  <path d="M314 29 C302 23,290 24,280 32" stroke="#5a5266" stroke-width="2" opacity="0.45" fill="none"/>
+  <ellipse cx="96" cy="25" rx="5" ry="2.8" fill="#07070c" stroke="#494158" stroke-width="1" opacity="0.7"/>
+  <ellipse cx="262" cy="51" rx="6.5" ry="3.2" fill="#07070c" stroke="#494158" stroke-width="1" opacity="0.62"/>
+  <path d="M116 58 C145 53,162 61,184 57 C205 54,222 55,242 59" stroke="#494158" stroke-width="1.4" opacity="0.32" fill="none"/>
+</svg>

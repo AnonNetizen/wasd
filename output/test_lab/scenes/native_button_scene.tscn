@@ -1,0 +1,229 @@
+[gd_scene format=3]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0sy6b"]
+bg_color = Color(0, 0, 0, 0.36)
+border_color = Color(1, 1, 1, 0)
+corner_radius_top_left = 7
+corner_radius_top_right = 7
+corner_radius_bottom_right = 7
+corner_radius_bottom_left = 7
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lxasx"]
+content_margin_left = 34.0
+content_margin_top = 34.0
+content_margin_right = 34.0
+content_margin_bottom = 18.0
+bg_color = Color(0.09, 0.125, 0.14, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.72, 0.55, 0.25, 1)
+border_blend = true
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 14
+shadow_offset = Vector2(0, 10)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btfma"]
+content_margin_left = 34.0
+content_margin_top = 34.0
+content_margin_right = 34.0
+content_margin_bottom = 18.0
+bg_color = Color(0.055, 0.075, 0.08, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.46, 0.76, 0.56, 1)
+border_blend = true
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 14
+shadow_offset = Vector2(0, 10)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gaehg"]
+content_margin_left = 34.0
+content_margin_top = 34.0
+content_margin_right = 34.0
+content_margin_bottom = 18.0
+bg_color = Color(0.12, 0.17, 0.18, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.94, 0.74, 0.34, 1)
+border_blend = true
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 14
+shadow_offset = Vector2(0, 10)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_01ynb"]
+bg_color = Color(1, 1, 1, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.48, 0.82, 0.64, 0.85)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[node name="NativeButtonScene" type="Control" unique_id=422741267]
+custom_minimum_size = Vector2(960, 360)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Background" type="ColorRect" parent="." unique_id=1609550276]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.035, 0.047, 0.052, 1)
+
+[node name="DiagonalBackgroundLines" type="Control" parent="." unique_id=1311692861]
+anchors_preset = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="AmberLineTop" type="Line2D" parent="DiagonalBackgroundLines" unique_id=1398313146]
+points = PackedVector2Array(-40, 272, 1000, 80)
+width = 1.0
+default_color = Color(0.63, 0.44, 0.18, 0.12)
+
+[node name="GreenLine" type="Line2D" parent="DiagonalBackgroundLines" unique_id=1615345392]
+points = PackedVector2Array(-40, 306, 1000, 114)
+width = 1.0
+default_color = Color(0.27, 0.58, 0.43, 0.15)
+
+[node name="AmberLineBottom" type="Line2D" parent="DiagonalBackgroundLines" unique_id=955012448]
+points = PackedVector2Array(-40, 340, 1000, 148)
+width = 1.0
+default_color = Color(0.63, 0.44, 0.18, 0.12)
+
+[node name="ButtonGroup" type="Control" parent="." unique_id=1211888839]
+anchors_preset = 0
+offset_left = 260.0
+offset_top = 82.0
+offset_right = 700.0
+offset_bottom = 194.0
+
+[node name="DropShadow" type="Panel" parent="ButtonGroup" unique_id=1227844120]
+layout_mode = 0
+offset_left = -6.0
+offset_top = 14.0
+offset_right = 446.0
+offset_bottom = 134.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_0sy6b")
+
+[node name="EquipModButton" type="Button" parent="ButtonGroup" unique_id=1349789897]
+layout_mode = 0
+offset_right = 440.0
+offset_bottom = 112.0
+theme_override_styles/normal = SubResource("StyleBoxFlat_lxasx")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btfma")
+theme_override_styles/hover = SubResource("StyleBoxFlat_gaehg")
+theme_override_styles/focus = SubResource("StyleBoxFlat_01ynb")
+theme_override_colors/font_color = Color(0.95, 0.86, 0.66, 1)
+theme_override_colors/font_focus_color = Color(1, 0.94, 0.72, 1)
+theme_override_colors/font_pressed_color = Color(0.77, 0.96, 0.78, 1)
+theme_override_colors/font_hover_color = Color(1, 0.94, 0.72, 1)
+theme_override_font_sizes/font_size = 28
+theme_override_constants/outline_size = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.72)
+text = "EQUIP MOD"
+
+[node name="EyebrowLabel" type="Label" parent="ButtonGroup" unique_id=895722757]
+layout_mode = 0
+offset_top = 22.0
+offset_right = 440.0
+offset_bottom = 46.0
+theme_override_font_sizes/font_size = 15
+theme_override_colors/font_color = Color(0.5, 0.7, 0.58, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.75)
+theme_override_constants/outline_size = 1
+text = "LOADOUT"
+horizontal_alignment = 1
+
+[node name="SideBars" type="Control" parent="ButtonGroup" unique_id=1603141975]
+anchors_preset = 0
+mouse_filter = 2
+
+[node name="LeftAmberBar" type="ColorRect" parent="ButtonGroup/SideBars" unique_id=2067580170]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 34.0
+offset_right = 45.0
+offset_bottom = 78.0
+color = Color(0.85, 0.67, 0.31, 0.95)
+
+[node name="LeftGreenBar" type="ColorRect" parent="ButtonGroup/SideBars" unique_id=112776007]
+layout_mode = 0
+offset_left = 55.0
+offset_top = 34.0
+offset_right = 60.0
+offset_bottom = 78.0
+color = Color(0.3, 0.54, 0.43, 0.95)
+
+[node name="RightGreenBar" type="ColorRect" parent="ButtonGroup/SideBars" unique_id=637934009]
+layout_mode = 0
+offset_left = 380.0
+offset_top = 34.0
+offset_right = 385.0
+offset_bottom = 78.0
+color = Color(0.3, 0.54, 0.43, 0.95)
+
+[node name="RightAmberBar" type="ColorRect" parent="ButtonGroup/SideBars" unique_id=1235726617]
+layout_mode = 0
+offset_left = 395.0
+offset_top = 34.0
+offset_right = 400.0
+offset_bottom = 78.0
+color = Color(0.85, 0.67, 0.31, 0.95)
+
+[node name="CornerMarks" type="Control" parent="ButtonGroup" unique_id=437669312]
+anchors_preset = 0
+mouse_filter = 2
+
+[node name="TopLeftMark" type="Line2D" parent="ButtonGroup/CornerMarks" unique_id=1513300406]
+points = PackedVector2Array(16, 16, 56, 16)
+width = 2.0
+default_color = Color(0.85, 0.67, 0.31, 0.78)
+
+[node name="TopRightMark" type="Line2D" parent="ButtonGroup/CornerMarks" unique_id=878545195]
+points = PackedVector2Array(384, 16, 424, 16)
+width = 2.0
+default_color = Color(0.85, 0.67, 0.31, 0.78)
+
+[node name="BottomLeftMark" type="Line2D" parent="ButtonGroup/CornerMarks" unique_id=1843584611]
+points = PackedVector2Array(16, 96, 56, 96)
+width = 2.0
+default_color = Color(0.85, 0.67, 0.31, 0.78)
+
+[node name="BottomRightMark" type="Line2D" parent="ButtonGroup/CornerMarks" unique_id=1578137921]
+points = PackedVector2Array(384, 96, 424, 96)
+width = 2.0
+default_color = Color(0.85, 0.67, 0.31, 0.78)
+
+[node name="Caption" type="Label" parent="." unique_id=837941250]
+layout_mode = 0
+offset_left = 140.0
+offset_top = 284.0
+offset_right = 820.0
+offset_bottom = 308.0
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.58, 0.64, 0.66, 1)
+text = "Visible .tscn preview: editable nodes + StyleBoxFlat resources, no runtime-built button"
+horizontal_alignment = 1
