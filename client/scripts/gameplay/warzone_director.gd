@@ -78,6 +78,18 @@ func current_phase(elapsed: float) -> Dictionary:
 	return {}
 
 
+func interest_points_for_layout(layout_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not _configured:
+		return result
+	for point: Dictionary in _interest_points:
+		var point_layout_id: String = String(point.get("map_layout_id", ""))
+		if not point_layout_id.is_empty() and point_layout_id != layout_id:
+			continue
+		result.append(point.duplicate(true))
+	return result
+
+
 func debug_summary(elapsed: float) -> Dictionary:
 	var phase: Dictionary = current_phase(elapsed)
 	return {

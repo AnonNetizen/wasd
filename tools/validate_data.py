@@ -1260,6 +1260,8 @@ def _validate_warzone_interest_points(
             seen.add(point_id)
         _require_non_empty_string(ctx, path, f"{item_field}.kind", point.get("kind"))
         point_hazards = _require_list(ctx, path, f"{item_field}.hazard_ids", point.get("hazard_ids", []))
+        if not point_hazards:
+            ctx.error(path, f"{item_field}.hazard_ids", "must be a non-empty array")
         for hazard_index, hazard in enumerate(point_hazards):
             hazard_field = f"{item_field}.hazard_ids[{hazard_index}]"
             hazard_id = _require_non_empty_string(ctx, path, hazard_field, hazard)

@@ -121,7 +121,7 @@ func _first_enemy_with_id(enemy_id: String) -> Node:
 
 
 func _expect_fea_12_hazard(run_loop: Node, player: Node2D) -> void:
-	_expect(_debug_summary_has_fea_12(run_loop), "MapManager debug summary should include generated hazards")
+	_expect(_debug_summary_has_fea_12(run_loop), "MapManager debug summary should include director-sourced hazards")
 	var hazard: Node2D = _first_hazard_with_id(FEA_12_HAZARD_ID) as Node2D
 	_expect(hazard != null, "FEA-12 hazard should spawn from PCG/manual map layout")
 	if hazard == null:
@@ -146,7 +146,15 @@ func _debug_summary_has_fea_12(run_loop: Node) -> bool:
 	if run_loop == null or not run_loop.has_method("debug_summary"):
 		return false
 	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
-	return int(summary.get("active_hazards", 0)) > 0
+	var raw_map: Variant = summary.get("map", {})
+	if not raw_map is Dictionary:
+		return false
+	var map_summary: Dictionary = raw_map as Dictionary
+	var raw_sources: Variant = map_summary.get("hazard_sources", {})
+	if not raw_sources is Dictionary:
+		return false
+	var sources: Dictionary = raw_sources as Dictionary
+	return int(summary.get("active_hazards", 0)) > 0 and int(sources.get("director", 0)) > 0
 
 
 func _warzone_director_guarded_phase_active(run_loop: Node) -> bool:

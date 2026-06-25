@@ -226,7 +226,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		_restore_run_snapshot(restore_snapshot)
 		_restore_ui_state(restore_snapshot.get("ui_restore", {}))
 	else:
-		var hazard_placements: Array[Dictionary] = _map_manager.call("generate_hazard_placements", _map_layout)
+		var hazard_placements: Array[Dictionary] = _generate_map_hazard_placements()
 		_spawn_map_hazards(hazard_placements)
 
 
@@ -473,6 +473,18 @@ func _spawn_enemy(wave: Dictionary, wave_key: String) -> bool:
 func _spawn_map_hazards(placements: Array[Dictionary]) -> void:
 	for placement: Dictionary in placements:
 		_spawn_hazard(placement)
+
+
+func _generate_map_hazard_placements() -> Array[Dictionary]:
+	if _map_manager == null or not _map_manager.has_method("generate_hazard_placements"):
+		return []
+	var director_interest_points: Array[Dictionary] = []
+	if _warzone_director != null and _warzone_director.has_method("interest_points_for_layout"):
+		director_interest_points = _typed_dictionary_array(_warzone_director.call(
+			"interest_points_for_layout",
+			String(_map_layout.get("id", ""))
+		))
+	return _map_manager.call("generate_hazard_placements", _map_layout, director_interest_points)
 
 
 func _spawn_hazard(placement: Dictionary) -> Node2D:
@@ -840,7 +852,7 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> void:
 
 	var hazard_snapshots: Array = _array_or_empty(snapshot_data.get("hazards", []))
 	if hazard_snapshots.is_empty() and _map_manager != null and _map_manager.has_method("generate_hazard_placements"):
-		var hazard_placements: Array[Dictionary] = _map_manager.call("generate_hazard_placements", _map_layout)
+		var hazard_placements: Array[Dictionary] = _generate_map_hazard_placements()
 		_spawn_map_hazards(hazard_placements)
 	else:
 		_restore_hazard_snapshots(hazard_snapshots)

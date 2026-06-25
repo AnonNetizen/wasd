@@ -99,7 +99,7 @@
   - `hazards.csv`：机关 id、名称 key、`tag_hazard`、对象池 id、伤害、伤害类型、触发间隔、范围和持续时间。
   - `map_layouts.json`：layout id、模式引用、有限地图菱形外接 bounds、玩家出生点、安全半径、刷怪边距、PCG 机关规则和人工机关摆点；`mode_id` 必须存在于 `game_modes.json`，所有机关 id 必须存在于 `hazards.csv`，bounds 必须是 `grid.cell_width/cell_height` 的奇数倍并匹配菱形斜率。
   - `spawn_waves.csv`：波次 id、模式 id、波次序号、时间窗、敌人引用、敌人权重、刷怪间隔、同时存活上限、预算，以及可选机关引用 / 权重。
-  - `warzone_directors.json`：director id、模式引用、固定 mutation、阶段时间窗、阶段启用 wave、生态 encounter 和兴趣点；`mode_id` 必须存在于 `game_modes.json`，`wave_ids` 必须引用同模式 `spawn_waves.csv`，同模式所有 wave 必须至少被一个 phase 引用，encounter enemy tags 必须来自 `content_tags`，兴趣点的机关 / 地图引用必须存在。
+  - `warzone_directors.json`：director id、模式引用、固定 mutation、阶段时间窗、阶段启用 wave、生态 encounter 和兴趣点；`mode_id` 必须存在于 `game_modes.json`，`wave_ids` 必须引用同模式 `spawn_waves.csv`，同模式所有 wave 必须至少被一个 phase 引用，encounter enemy tags 必须来自 `content_tags`，兴趣点的 `hazard_ids` 必须非空且机关 / 地图引用必须存在。
   - `relics.json`：遗物 id、名称 / 描述 key、默认解锁、`tag_relic`、数值 modifiers、行为 behaviors，以及至少一个 modifier 或 behavior。
   - `active_items.json`：主动道具 id、名称 / 描述 key、默认解锁、`tag_active_item`、冷却充能、初始 / 最大充能和使用效果原语。
   - `consumables.json`：消耗品 id、名称 / 描述 key、默认解锁、`tag_consumable`、最大堆叠、初始数量、单次拾取数量和使用效果原语。

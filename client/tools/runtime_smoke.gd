@@ -90,6 +90,7 @@ func _run() -> void:
 	_expect(_player_clamps_to_diamond_boundary(run_loop, player), "Player should clamp to the diamond logic boundary")
 	_expect(PoolManager.active_count(POOL_IDS.HAZARD_SPIKE) > 0, "PCG map should spawn active hazards")
 	_expect(_active_hazards_are_on_grid(run_loop), "spawned hazards should align to radius-aware diamond grid anchors")
+	_expect(_map_has_director_interest_point_hazard(run_loop), "WarzoneDirector interest points should add director-sourced map hazards")
 	_expect(_map_restore_snaps_legacy_hazards(run_loop), "restored legacy hazard placements should snap to radius-aware diamond grid anchors")
 	_expect(_map_normalizes_edge_hazards_to_grid(run_loop), "edge hazard normalization should keep positions on diamond grid centers")
 
@@ -417,6 +418,21 @@ func _active_hazards_are_on_grid(run_loop: Node) -> bool:
 			push_error("[RuntimeSmoke] hazard anchor mismatch id=%s position=%s normalized=%s" % [hazard_id, hazard_2d.global_position, normalized_position])
 			return false
 	return saw_hazard
+
+
+func _map_has_director_interest_point_hazard(run_loop: Node) -> bool:
+	if run_loop == null or not run_loop.has_method("debug_summary"):
+		return false
+	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
+	var raw_map: Variant = summary.get("map", {})
+	if not raw_map is Dictionary:
+		return false
+	var map_summary: Dictionary = raw_map as Dictionary
+	var raw_sources: Variant = map_summary.get("hazard_sources", {})
+	if not raw_sources is Dictionary:
+		return false
+	var sources: Dictionary = raw_sources as Dictionary
+	return int(sources.get("director", 0)) > 0
 
 
 func _map_restore_snaps_legacy_hazards(run_loop: Node) -> bool:

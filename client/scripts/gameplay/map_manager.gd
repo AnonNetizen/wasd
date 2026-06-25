@@ -9,6 +9,7 @@ const BOUNDS_FILL_COLOR: Color = Color(0.08, 0.10, 0.11, 0.12)
 const BOUNDS_WIDTH: float = 4.0
 const DEFAULT_BOUNDS_SIZE: Vector2 = Vector2(3200.0, 1600.0)
 const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 80.0)
+const DIRECTOR_SOURCE: String = "director"
 const INVALID_POSITION: Vector2 = Vector2(1.0e20, 1.0e20)
 const MANUAL_SOURCE: String = "manual"
 const PCG_SOURCE: String = "pcg"
@@ -40,11 +41,12 @@ func configure(layout_data: Dictionary, hazard_rows: Dictionary) -> void:
 	queue_redraw()
 
 
-func generate_hazard_placements(layout_data: Dictionary) -> Array[Dictionary]:
+func generate_hazard_placements(layout_data: Dictionary, director_interest_points: Array[Dictionary] = []) -> Array[Dictionary]:
 	_hazard_placements.clear()
 	_add_manual_hazards(layout_data.get("manual_hazards", []))
 	var pcg: Dictionary = _dictionary_or_empty(layout_data.get("pcg", {}))
 	_add_pcg_hazards(pcg.get("hazards", []))
+	_add_director_interest_points(director_interest_points, String(layout_data.get("id", "")))
 	queue_redraw()
 	return hazard_placements()
 
@@ -149,6 +151,7 @@ func debug_summary() -> Dictionary:
 		"safe_zone_points": _points_to_array(_safe_zone_points()),
 		"player_start": _vector_to_dict(_player_start),
 		"hazard_count": _hazard_placements.size(),
+		"hazard_sources": _hazard_source_counts(),
 		"safe_radius": _safe_radius,
 	}
 
@@ -318,6 +321,30 @@ func _add_pcg_hazards(raw_value: Variant) -> void:
 				_hazard_placements.append(_placement(hazard_id, position, PCG_SOURCE))
 
 
+func _add_director_interest_points(raw_value: Variant, layout_id: String) -> void:
+	for raw_point: Variant in _array_or_empty(raw_value):
+		if not raw_point is Dictionary:
+			continue
+		var point: Dictionary = raw_point as Dictionary
+		var point_layout_id: String = String(point.get("map_layout_id", ""))
+		if not point_layout_id.is_empty() and point_layout_id != layout_id:
+			continue
+		var point_id: String = String(point.get("id", ""))
+		var min_distance: float = maxf(float(point.get("min_distance_from_player", _safe_radius)), 0.0)
+		var min_spacing: float = maxf(float(point.get("min_spacing", 0.0)), 0.0)
+		for raw_hazard_id: Variant in _array_or_empty(point.get("hazard_ids", [])):
+			var hazard_id: String = String(raw_hazard_id)
+			if not _hazard_rows.has(hazard_id):
+				continue
+			var position: Vector2 = _roll_hazard_position(hazard_id, min_distance, min_spacing)
+			if position == INVALID_POSITION:
+				continue
+			var placement: Dictionary = _placement(hazard_id, position, DIRECTOR_SOURCE)
+			if not point_id.is_empty():
+				placement["interest_point_id"] = point_id
+			_hazard_placements.append(placement)
+
+
 func _roll_hazard_position(hazard_id: String, min_distance: float, min_spacing: float) -> Vector2:
 	var half_extents: Vector2 = _hazard_half_extents(hazard_id)
 	var placement_padding: Vector2 = Vector2(
@@ -357,6 +384,16 @@ func _placement(hazard_id: String, position: Vector2, source: String) -> Diction
 		"position": _vector_to_dict(position),
 		"source": source,
 	}
+
+
+func _hazard_source_counts() -> Dictionary:
+	var result: Dictionary = {}
+	for placement: Dictionary in _hazard_placements:
+		var source: String = String(placement.get("source", ""))
+		if source.is_empty():
+			source = "unknown"
+		result[source] = int(result.get(source, 0)) + 1
+	return result
 
 
 func _normalize_hazard_position(world_position: Vector2, hazard_id: String) -> Vector2:

@@ -1585,6 +1585,8 @@ func _validate_warzone_interest_points(field: String, data: Variant, hazard_ids:
 			seen[point_id] = true
 		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.kind" % item_field, point_dict.get("kind")) and is_valid
 		var point_hazards: Array = _require_array(WARZONE_DIRECTORS_PATH, "%s.hazard_ids" % item_field, point_dict.get("hazard_ids", []))
+		if point_hazards.is_empty():
+			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.hazard_ids" % item_field, "non-empty Array") and is_valid
 		for hazard_index: int in range(point_hazards.size()):
 			var hazard_field: String = "%s.hazard_ids[%d]" % [item_field, hazard_index]
 			var raw_hazard_id: Variant = point_hazards[hazard_index]

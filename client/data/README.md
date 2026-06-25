@@ -24,7 +24,7 @@
 | 改敌人生态 AI / 怪物互相克制 | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；生态关系通过 content tag 权重表达 |
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
 | 改地图边界 / 菱形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是菱形外接框，必须是格尺寸奇数倍且比例贴住格线；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法锚点 |
-| 改敌巢战区导演 / 阶段主题 / 兴趣点组合 | `warzone_directors.json` | 首片只按固定时间阶段启用 wave，不读取玩家状态、不做隐藏动态难度；wave / 机关 / 地图引用必须存在 |
+| 改敌巢战区导演 / 阶段主题 / 兴趣点组合 | `warzone_directors.json` | 只按固定时间阶段启用 wave，不读取玩家状态、不做隐藏动态难度；匹配当前 layout 的兴趣点会生成初始 `source="director"` 机关；wave / 机关 / 地图引用必须存在 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
 | 改技能消耗 / 冷却 / 目标 / 伤害 | `skills.json` | 技能不绑定英雄；角色或道具只引用 skill id，资源消耗用 `skill_resources` 声明 |
@@ -607,14 +607,14 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `encounters[].kind` | string | 非空 | encounter 类型；首片为 `enemy_ecology` |
 | `encounters[].enemy_tags[]` | array[string] | 非空；必须来自 `content_tags` | 用敌人 tag 表达生态组合，避免按敌人 id 写逻辑 |
 | `encounters[].notes` | string | 可选，非空 | 开发者说明；不玩家可见 |
-| `directors[].interest_points[]` | array[object] | 非空 | 战区兴趣点 / 机关组合声明；首片只进入数据与调试摘要 |
+| `directors[].interest_points[]` | array[object] | 非空 | 战区兴趣点 / 机关组合声明；匹配当前 layout 时进入初始地图机关生成 |
 | `interest_points[].id` | string | 同 director 内唯一，非空 | 兴趣点 id |
 | `interest_points[].kind` | string | 非空 | 兴趣点类型；首片为 `hazard_field` |
-| `interest_points[].hazard_ids[]` | array[string] | 可空；非空时必须存在于 `hazards.csv` | 兴趣点关联机关 |
+| `interest_points[].hazard_ids[]` | array[string] | 非空；每项必须存在于 `hazards.csv` | 兴趣点关联机关；每个 id 会生成一个 `source="director"` placement |
 | `interest_points[].map_layout_id` | string | 可选；非空时必须存在于 `map_layouts.json` | 兴趣点所属地图 layout |
 | `interest_points[].notes` | string | 可选，非空 | 开发者说明；不玩家可见 |
 
-`warzone_directors.json` 是 F10 敌巢战区导演首片。当前运行时只使用 `phases[].wave_ids` 给 `GameplayRunLoop` 的 Spawner 做阶段 gating；刷怪本身仍由 `spawn_waves.csv` 的时间窗、间隔、预算和同时存活上限决定。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态；后续若增加随机 mutation、地图兴趣点生成或玩家可见主题，必须先同步 `docs/代码/warzone_director.md`、GDD、ADR、DataLoader schema 和对应 smoke / replay 策略。
+`warzone_directors.json` 是 F10 敌巢战区导演数据源。运行时使用 `phases[].wave_ids` 给 `GameplayRunLoop` 的 Spawner 做阶段 gating；刷怪本身仍由 `spawn_waves.csv` 的时间窗、间隔、预算和同时存活上限决定。匹配当前 `map_layout_id` 的 `interest_points[]` 会交给 `MapManager`，为每个 `hazard_ids[]` 用既有 PCG / 锚点 / 边界规则生成一个初始 `source="director"` placement，并随已有 `map.hazard_placements` 与活跃机关快照保存，不提升 run schema。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态；后续若增加随机 mutation、玩家可见主题或奖励语义，必须先同步 `docs/代码/warzone_director.md`、GDD、ADR、DataLoader schema 和对应 smoke / replay 策略。
 
 ## `characters.json`
 

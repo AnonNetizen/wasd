@@ -109,8 +109,8 @@ UIManager
 |------|----------|-------------------|
 | 启动 | `FormalClientBoot` 跑数据 schema smoke，正常启动显示 `TitleMenu`；标题菜单显示账号等级 / 局外货币摘要，有可购买升级时局外升级按钮显示可购买提示；标题菜单可打开 `MetaProgressionPanel` 查看 / 购买局外升级，也可打开 `SettingsPanel` 修改设置；`--runtime-smoke` 模式跳过标题并直接创建 `GameplayRunLoop` | `DataLoader.validate_project_data()`、`UIManager.push()` |
 | 开局 | `FormalClientBoot` 实例化 `gameplay_run_loop.tscn`；运行时重置 `GameClock`，注册 / 预热子弹、经验球、机关、命中反馈和当前 F4 敌人对象池，读取默认模式 / 角色 / 起始武器，并在玩家 / 武器配置后应用 `MetaProgressionSystem.current_modifiers()` | `PackedScene.instantiate()`、`PoolManager.register_pool()`、`DataLoader.load_json()`、`MetaProgressionSystem.current_modifiers()` |
-| 地图 / 机关 | `MapManager` 按 `map_layouts.json` 配置有限菱形边界、出生点、安全半径、刷怪边距、手工机关摆点和 PCG 机关；玩家与敌人中心移动都会被菱形边界 clamp，机关通过对象池生成，触发伤害走 `Combat` | `MapManager.configure()`、`generate_hazard_placements()`、`Player.set_movement_diamond_boundary()`、`Enemy.set_movement_diamond_boundary()`、`PoolManager.acquire()`、`Combat.apply_damage()` |
-| 战区导演 | `WarzoneDirector` 读取 `warzone_directors.json` 的当前模式导演，用固定时间 phase 组织巢变异主题、生态 encounter、兴趣点和启用 wave；首片不读玩家状态、不随机、不改存档 schema | `WarzoneDirector.configure()`、`is_wave_enabled()`、`debug_summary()` |
+| 地图 / 机关 | `MapManager` 按 `map_layouts.json` 配置有限菱形边界、出生点、安全半径、刷怪边距、手工机关摆点和 PCG 机关；开局还会解释当前 layout 匹配的 WarzoneDirector 兴趣点并生成 `source="director"` 机关；玩家与敌人中心移动都会被菱形边界 clamp，机关通过对象池生成，触发伤害走 `Combat` | `MapManager.configure()`、`generate_hazard_placements()`、`Player.set_movement_diamond_boundary()`、`Enemy.set_movement_diamond_boundary()`、`PoolManager.acquire()`、`Combat.apply_damage()` |
+| 战区导演 | `WarzoneDirector` 读取 `warzone_directors.json` 的当前模式导演，用固定时间 phase 组织巢变异主题、生态 encounter、兴趣点和启用 wave；兴趣点只交给 `MapManager` 初始机关生成；不读玩家状态、不随机、不改存档 schema | `WarzoneDirector.configure()`、`is_wave_enabled()`、`interest_points_for_layout()`、`debug_summary()` |
 | 背景 | 在玩家附近绘制哈迪斯式量化菱形舞台网格和原点十字；网格来自 `map_layouts.json.grid`，与机关尺寸 / 判定共用同一格度量，但不缩放或旋转世界坐标 | `WorldBackground.configure()` |
 | 输入 | `Settings` 在启动 / 加载 / 修改时把键盘主绑定写入 InputMap；运行时只确保同一 action 有手柄轴 / 按钮兜底事件。键鼠默认按鼠标相对视口中心的偏移瞄准，并通过当前 canvas / camera transform 换算成世界方向；方向键 / 手柄右摇杆 / D-pad 在没有鼠标动作时作为兜底。按住 `show_stats_panel` action（默认 Tab）只显示 HUD 详细数值面板，不进入暂停态。F8 输入录制首片会把移动 / 兜底瞄准 action 状态变化以及 `pause` / `ui_back` 离散事件写入 `Replay`，但鼠标向量录制仍待后续输入回放扩展 | `Settings`、`InputMap`、`Input.get_vector()`、`InputEventMouseMotion.position`、`Replay.record_input_action()`、`Replay.record_input_event()` |
 | 移动 / 瞄准 | 玩家按数据移速在 2D 平面移动，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放；世界横纵单位映射到屏幕保持同尺度，斜俯视感由舞台地面、障碍物、遮挡层级和 2.5D 视觉层承担。鼠标激活后按 canvas transform 换算后的世界方向瞄准；无鼠标动作时用方向键 / 手柄右摇杆 / D-pad 兜底，松开保持上一方向；玩家 2.5D 视觉和敌人占位表现只区分向左 / 向右，不做向上 / 向下朝向 | `Player.aim_direction` |
@@ -210,7 +210,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 玩家占位表现：默认通过 `Player3DVisual` 显示低模 3D 胶囊、暗色地面阴影和朝向标记；若视觉子场景缺失，`Player` 会回退绘制蓝色 2D 圆点。受伤反馈为 0.16 秒红闪，不承载行为差异。
 - 敌人占位表现：从 `enemies.csv.visual_color` 读取 HTML 色值作为填充色，运行时统一绘制几何三角、暗色轮廓和眼睛描边；命中反馈为 0.16 秒暖白闪，死亡反馈为 0.18 秒橙色放大淡出，只用于开发期占位可读性，不承载行为分支。
 - 机关占位表现：通用 `Hazard` 绘制哈迪斯式地面菱形危险地块；`hazards.csv.radius_tiles` 表示占用地图菱形格的整数倍，`MapManager.grid_cell_size()` 同时驱动背景网格、机关绘制和触发判定。
-- 战区导演：`warzone_directors.json` 声明当前模式的固定 phase、mutation、encounter 和兴趣点；`GameplayRunLoop` 只用它 gating wave，不能让它读取玩家血量、DPS、受伤次数、输入节奏或其它玩家状态。
+- 战区导演：`warzone_directors.json` 声明当前模式的固定 phase、mutation、encounter 和兴趣点；`GameplayRunLoop` 用它 gating wave，并把当前 layout 的兴趣点交给 `MapManager` 生成初始 `source="director"` 机关；不能让它读取玩家血量、DPS、受伤次数、输入节奏或其它玩家状态。
 - 玩家生命尺度：默认角色 `max_hp` 为 600.0，采用浮点血量尺度而非旧心数尺度；`health_regen` 在 `PLAYING` 状态下按 `GameClock.delta_scaled()` 自动恢复生命且不超过上限，当前默认 1.5 HP/s。
 - 玩家 2.5D 表现：`Player` 仍是 `CharacterBody2D`，移动、碰撞、受击和 run 快照都维持 2D；`Player3DVisual` 只是表现层，内部用 `SubViewport + Camera3D + MeshInstance3D` 渲染低模胶囊，再通过 `Sprite2D` 显示在玩家位置。`CenteredCamera` 不滚转屏幕、不非等比缩放，当前由 `player.gd` 设置 `ignore_rotation=true`、`rotation_degrees=0.0` 和等比 `zoom`；鼠标瞄准通过 canvas transform 反投影回世界方向，避免屏幕指向和射击方向错位。
 - 受伤无敌：从合并后的玩家 `base_stats.damage_invulnerability_duration` 读取；当前默认 `player.json` 为 0.7 秒，和受伤红闪时长分离。
@@ -236,8 +236,8 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 加技能：优先改 `skills.json`、`characters.json` 的 `starting_loadout.skill_ids` / `skill_resources` 和 `game_modes.json` 的 `resource_pools.skills`；新 ability tag、状态效果、叠加规则、目标类型或效果原语先登记词表，再扩展 SkillSystem / StatusEffectComponent，不按技能 id 写分支。
 - 加状态宿主：可被状态影响的新实体应复用 `StatusEffectComponent`，实现 `apply_status_effect()`、owned ability tag 查询、`combat_team_id()` 和 JSON 友好快照；对象池实体必须在 `configure()` / 回收路径清空状态。
 - 加敌人：优先改 `enemies.csv`、`enemy_ai_profiles.json`、`game_modes.json` 和 `spawn_waves.csv`；行为差异通过 AI profile / tag 权重表达，不在 `enemy.gd` 按 id 分支。
-- 加地图 / PCG 规则：优先改 `map_layouts.json`；运行时通过 `MapManager` 解释有限边界、手工摆点和 PCG，不在 `GameplayRunLoop` 按 layout id 分支。
-- 加 / 改战区导演：优先改 `warzone_directors.json`；固定节奏、巢变异主题、生态 encounter 和兴趣点都应由数据表达，首片不读取玩家状态、不做隐藏 DDA、不接运行时 LLM。
+- 加地图 / PCG 规则：优先改 `map_layouts.json`；运行时通过 `MapManager` 解释有限边界、手工摆点、PCG 和导演传入的通用兴趣点机关，不在 `GameplayRunLoop` 按 layout id 分支。
+- 加 / 改战区导演：优先改 `warzone_directors.json`；固定节奏、巢变异主题、生态 encounter 和兴趣点都应由数据表达，兴趣点可通过 `MapManager` 变成初始地图机关，但仍不读取玩家状态、不做隐藏 DDA、不接运行时 LLM。
 - 加机关：优先改 `hazards.csv`、`game_modes.json.resource_pools.hazards` 和 `map_layouts.json`；普通菱形范围机关复用 `Hazard`，新行为先设计通用 primitive，不按机关 id 写分支。
 - 加刷怪：改 `spawn_waves.csv`；多个波次可复用当前时间窗 / 预算解释。
 - 加升级候选：优先改 `growth_pools.json`；新候选如果仍是 `stat_modifier` 不需要改逻辑，新增候选类型才需要扩展运行时解释和文档。
@@ -258,7 +258,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 调敌人生态 AI | `enemy_ai_profiles.json`、`enemies.csv.tags` | `client/data/README.md`、`docs/代码/enemy_ai.md` | `validate_data` + `runtime-smoke` + 必要时 golden replay |
 | 调地图边界 / PCG 机关 / 手工摆点 | `map_layouts.json` | `client/data/README.md`、`docs/代码/map_manager.md` | `validate_data` + `runtime-smoke` + `f9-demo-smoke` |
 | 调机关伤害 / 占格尺寸 / 冷却 | `hazards.csv` | `client/data/README.md`、`docs/代码/hazard_system.md` | `validate_data` + `f9-demo-smoke` |
-| 调战区导演阶段 / encounter / 兴趣点 | `warzone_directors.json` | `client/data/README.md`、`docs/代码/warzone_director.md` | `validate_data` + `test_data_loader_schema` + `runtime-smoke` + `f9-demo-smoke` |
+| 调战区导演阶段 / encounter / 兴趣点 | `warzone_directors.json` | `client/data/README.md`、`docs/代码/warzone_director.md`、必要时 `docs/代码/map_manager.md` | `validate_data` + `test_data_loader_schema` + `runtime-smoke` + `f9-demo-smoke` |
 | 调刷怪节奏 | `spawn_waves.csv` | `client/data/README.md` | `validate_data` + 手动 1 分钟 |
 | 调升级阈值 / 候选 | `growth.csv` / `growth_pools.json` | `client/data/README.md` | `validate_data` + `runtime-smoke` |
 | 改 HUD 文案 | `strings.csv` | `client/locale/README.md` | `validate_data` |
@@ -284,6 +284,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 不开火 | `starting_loadout.weapon_id` 是否存在；`fire_rate` 是否大于 0；子弹池是否注册 |
 | 不刷怪 | `spawn_waves.csv` 时间窗、预算、`max_alive` 是否允许；敌人池是否注册 |
 | 特定阶段不刷预期 wave | `warzone_directors.json.phases[].wave_ids` 是否包含该 wave；`debug_summary().warzone_director.phase_id` 是否符合当前时间 |
+| 战区兴趣点机关不出现 | `warzone_directors.json.interest_points[].map_layout_id` 是否匹配当前 layout；`hazard_ids[]` 是否非空且引用存在；`debug_summary().map.hazard_sources.director` 是否大于 0 |
 | 玩家走出地图 | `MapManager.boundary_half_extents()` 是否配置；`Player.set_movement_diamond_boundary()` 是否调用；`map_layouts.json.bounds` 外接框比例是否贴住 grid |
 | 敌人走出地图 | `MapManager.boundary_half_extents()` 是否配置；`GameplayRunLoop._apply_enemy_movement_bounds()` 是否在生成 / 续局恢复时调用；`Enemy.set_movement_diamond_boundary()` 是否在移动、分离和快照恢复后 clamp |
 | 机关不出现 | `map_layouts.json` 是否生成 placement；`hazards.csv.pool_id` 是否已注册；`runtime-smoke` 是否通过 active hazards 断言 |
@@ -325,7 +326,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - Gameplay runtime 代码改动必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`。
 - Gameplay runtime / UI 场景结构改动还必须跑 `python tools/godot_bridge.py --project client runtime-smoke`，涉及标题局外升级面板时追加 `meta-smoke`。
 - 涉及启动、输入、WeaponSystem、SkillSystem、子弹、敌人、EnemyAI、Spawner、经验球、升级选择、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
-- 涉及有限地图、`map_layouts.json`、PCG 摆放、手工机关摆点、HazardSystem 或 `hazards.csv` 时追加 `python tools/godot_bridge.py --project client runtime-smoke`、`python tools/godot_bridge.py --project client f9-demo-smoke`；涉及 run 快照恢复时追加 `save-smoke`。
+- 涉及有限地图、`map_layouts.json`、PCG 摆放、WarzoneDirector 兴趣点接入、手工机关摆点、HazardSystem 或 `hazards.csv` 时追加 `python tools/godot_bridge.py --project client runtime-smoke`、`python tools/godot_bridge.py --project client f9-demo-smoke`；涉及 run 快照恢复时追加 `save-smoke`。
 - 涉及技能目标、资源、冷却、效果解释或 run 技能快照时追加 `python tools/godot_bridge.py --project client l1-smoke`；改 run 快照恢复还要追加 `save-smoke`。
 - 涉及 Player / Enemy 状态宿主、owned ability tag 或实体状态快照时追加 `python tools/godot_bridge.py --project client l1-smoke`、`python tools/godot_bridge.py --project client runtime-smoke` 与 `python tools/godot_bridge.py --project client save-smoke`；对象池状态清理变化还要检查复用路径。
 - 涉及 gameplay 输入录制、`Replay` 输入事件、升级选择 decision、暂停 / 返回 action 录制时追加 `python tools/godot_bridge.py --project client replay-input-smoke`；涉及升级选择 replay 基线时追加 `capture-golden-replay --golden-scenario golden_level_up_choice` 与对应 `replay-runner --replay-file client/tests/replays/golden_level_up_choice.replay --rerun-runtime-summary`。

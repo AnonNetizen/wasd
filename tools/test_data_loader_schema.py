@@ -330,6 +330,22 @@ def main() -> int:
             ],
         ),
         (
+            "warzone interest point hazards must be non-empty",
+            _mutate_json("client/data/warzone_directors.json", _set_warzone_interest_point_hazards([])),
+            [
+                "client/data/warzone_directors.json:directors[0].interest_points[0].hazard_ids",
+                "must be a non-empty array",
+            ],
+        ),
+        (
+            "warzone interest point hazard reference must exist",
+            _mutate_json("client/data/warzone_directors.json", _set_warzone_interest_point_hazards(["hazard_missing"])),
+            [
+                "client/data/warzone_directors.json:directors[0].interest_points[0].hazard_ids[0]",
+                "hazard is not defined in hazards.csv: hazard_missing",
+            ],
+        ),
+        (
             "relic must include relic tag",
             _mutate_json("client/data/relics.json", _set_relic_tags([])),
             [
@@ -683,6 +699,13 @@ def _set_mode_growth_pool(value: str) -> JsonMutator:
 def _set_warzone_phase_wave(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["directors"][0]["phases"][0]["wave_ids"][0] = value
+
+    return mutate
+
+
+def _set_warzone_interest_point_hazards(value: list[str]) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["directors"][0]["interest_points"][0]["hazard_ids"] = value
 
     return mutate
 
