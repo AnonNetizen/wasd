@@ -17,7 +17,7 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 实现 F11 装备 Mod UI / 旧档补偿迁移：标题菜单进入装备 Mod 界面、英雄 / 武器两套配置操作、获得 Mod 提示、旧 `purchased_upgrades` 补偿为 Gear Mod 资源或 starter Mod。
+- [ ] 实现 F11 获得提示 / 旧档补偿迁移：获得 Mod 提示、旧 `purchased_upgrades` 补偿为 Gear Mod 资源或 starter Mod。
 - [ ] 等用户从 `docs/功能建议池.md` 手动选择下一个新功能；AI 不从候选池自行推进。点名后再建立 / 更新对应工作包、GDD / ADR / 模块文档和验收命令。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
@@ -73,6 +73,7 @@
 - [x] F11 装备 Mod / 局外装配规划入口：ADR #115、GDD §7.2、`docs/AI协作/工作包/F11-GearModLoadout.md`、`docs/代码/gear_mod_system.md`、`client/data/README.md` planned schema 已建立；旧 F6 永久升级进入 legacy 迁移范围。
 - [x] F11 装备 Mod 数据 / 契约首片：登记 `gear_mod_*` id / slot / rarity / resource / stack rule，新增 `gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、测试武器伤害 Mod、`gear_mod_dust`、DataLoader / `validate_data` schema 和坏样例回归。
 - [x] F11 装备 Mod 运行时首片：新增 `GearModSystem` autoload，支持 `meta.gear_mods` profile、英雄 / 武器两套 loadout、capacity / drain、唯一装备、升级消耗 `gear_mod_dust`、分解返还、`enemy_chaser` 玩家击杀 1% 掉落和开局 modifier snapshot，并新增 `gear-mod-smoke`。
+- [x] F11 装备 Mod 最小 UI：标题菜单进入 `GearModPanel`，支持英雄 / 武器两套配置切换、资源 / 容量 / 详情展示、装备 / 卸下 / 升级 / 分解，并由 `gear-mod-smoke` 覆盖按钮流。
 - [x] 正式项目 F7 工作包准备：`docs/AI协作/工作包/F7-SettingsLocalizationUI.md` 已建立为设置 / 本地化 / UI 栈稳定化阶段入口。
 - [x] 正式项目 F7 设置 / 本地化 / UI 栈首片：设置持久化、正式设置面板、运行时语言刷新、键盘主输入重绑定、输入反馈 / 恢复默认和 `UIManager` 返回 / 焦点首片已完成。
 - [x] 正式项目 F8 工作包准备：`docs/AI协作/工作包/F8-ReplayTestingBalance.md` 已建立为回放 / 测试 / 平衡基线阶段入口。

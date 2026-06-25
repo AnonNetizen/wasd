@@ -1,6 +1,7 @@
 extends Node
 
 
+const GEAR_MOD_PANEL_SCENE := preload("res://scenes/ui/gear_mod_panel.tscn")
 const GEAR_MOD_IDS := preload("res://scripts/contracts/gear_mod_ids.gd")
 const GEAR_MOD_RESOURCES := preload("res://scripts/contracts/gear_mod_resources.gd")
 const GEAR_MOD_SLOTS := preload("res://scripts/contracts/gear_mod_slots.gd")
@@ -74,6 +75,8 @@ func _run() -> void:
 	_expect(bool(drop.get("ok", false)) and _array_or_empty(drop.get("drops", [])).size() == 1, "forced enemy_chaser drop should grant the test Mod")
 	_expect(GearModSystem.current_modifiers(GEAR_MOD_SLOTS.WEAPON, SMOKE_SLOT).is_empty(), "dropped but unequipped Mod should not affect current modifiers")
 
+	await _expect_panel_flow()
+
 	SaveManager.delete(SMOKE_SLOT, SAVE_KINDS.META)
 	_finish()
 
@@ -108,10 +111,86 @@ func _has_modifier(modifiers: Array[Dictionary], stat_id: String, modifier_type:
 	return false
 
 
+func _expect_panel_flow() -> void:
+	SaveManager.delete(SMOKE_SLOT, SAVE_KINDS.META)
+	var grant: Dictionary = GearModSystem.grant_mod(GEAR_MOD_IDS.GEAR_MOD_WEAPON_DAMAGE_TEST, 1, SMOKE_SLOT)
+	var instance_id: String = _first_instance_id(grant)
+	GearModSystem.debug_grant_resource(GEAR_MOD_RESOURCES.GEAR_MOD_DUST, 20, SMOKE_SLOT)
+
+	var panel: CanvasLayer = GEAR_MOD_PANEL_SCENE.instantiate() as CanvasLayer
+	panel.name = "GearModPanel"
+	add_child(panel)
+	panel.configure(SMOKE_SLOT)
+	await get_tree().process_frame
+
+	var title_label: Label = _find_node_by_name(panel, "TitleLabel") as Label
+	var resource_label: Label = _find_node_by_name(panel, "ResourceLabel") as Label
+	var row: Button = _find_node_by_name(panel, "GearModRow_%s" % instance_id) as Button
+	var details_label: Label = _find_node_by_name(panel, "DetailsLabel") as Label
+	var equip_button: Button = _find_node_by_name(panel, "EquipButton") as Button
+	var upgrade_button: Button = _find_node_by_name(panel, "UpgradeButton") as Button
+	var dismantle_button: Button = _find_node_by_name(panel, "DismantleButton") as Button
+	var feedback_label: Label = _find_node_by_name(panel, "FeedbackLabel") as Label
+	_expect(title_label != null and String(title_label.text) == tr("ui_gear_mod_title"), "GearModPanel should show localized title")
+	Localization.set_locale("en")
+	await get_tree().process_frame
+	_expect(title_label != null and String(title_label.text) == "Gear Mods", "GearModPanel should refresh title after locale change")
+	Localization.set_locale("zh_CN")
+	await get_tree().process_frame
+	row = _find_node_by_name(panel, "GearModRow_%s" % instance_id) as Button
+	_expect(
+		resource_label != null and String(resource_label.text).find("20") >= 0,
+		"GearModPanel should show gear mod resource balance; text=%s" % [
+			String(resource_label.text) if resource_label != null else "<missing>",
+		]
+	)
+	_expect(row != null and String(row.text).find(tr("gear_mod_weapon_damage_test_name")) >= 0, "GearModPanel should build a row for the granted weapon Mod")
+	_expect(
+		details_label != null and String(details_label.text).find("+10%") >= 0,
+		"GearModPanel should show rank 0 damage effect; text=%s" % [
+			String(details_label.text) if details_label != null else "<missing>",
+		]
+	)
+
+	if equip_button != null:
+		equip_button.pressed.emit()
+	_expect(_has_modifier(GearModSystem.current_modifiers(GEAR_MOD_SLOTS.WEAPON, SMOKE_SLOT), STATS.DAMAGE, "mult", 1.1), "GearModPanel equip button should equip the selected Mod")
+	_expect(dismantle_button != null and dismantle_button.disabled, "GearModPanel should disable dismantle for equipped Mods")
+
+	if upgrade_button != null:
+		upgrade_button.pressed.emit()
+	_expect(_has_modifier(GearModSystem.current_modifiers(GEAR_MOD_SLOTS.WEAPON, SMOKE_SLOT), STATS.DAMAGE, "mult", 1.15), "GearModPanel upgrade button should raise the selected Mod rank")
+	_expect(
+		feedback_label != null and feedback_label.visible and String(feedback_label.text).find(tr("gear_mod_weapon_damage_test_name")) >= 0,
+		"GearModPanel should show action feedback with the Mod name; text=%s" % [
+			String(feedback_label.text) if feedback_label != null else "<missing>",
+		]
+	)
+
+	if equip_button != null:
+		equip_button.pressed.emit()
+	if dismantle_button != null:
+		dismantle_button.pressed.emit()
+	_expect(int(GearModSystem.profile_summary(SMOKE_SLOT).get("inventory_count", -1)) == 0, "GearModPanel dismantle button should remove an unequipped Mod")
+
+	remove_child(panel)
+	panel.queue_free()
+
+
 func _array_or_empty(raw_value: Variant) -> Array:
 	if raw_value is Array:
 		return (raw_value as Array).duplicate(true)
 	return []
+
+
+func _find_node_by_name(root: Node, target_name: String) -> Node:
+	if root.name == target_name:
+		return root
+	for child: Node in root.get_children():
+		var found: Node = _find_node_by_name(child, target_name)
+		if found != null:
+			return found
+	return null
 
 
 func _expect(condition: bool, message: String) -> void:

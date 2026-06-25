@@ -29,7 +29,7 @@
 | 加技能名和描述 | 在 `strings.csv` 加 `skill_*_name` / `skill_*_desc`；`skills.json` 填 `name_key` / `desc_key` |
 | 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，动态数值用 `{value}` 这类占位符 |
 | 加局外成长文案 | 在 `strings.csv` 加 `meta_*_name` / `meta_*_desc`；`meta_progression.json` 填 `name_key` / `desc_key` |
-| 加结算 / 局外成长 UI 文案 | 在 `strings.csv` 加 `ui_meta_*` key，例如结算、标题局外升级入口、标题 meta 摘要、费用、锁定 / 满级状态、购买成功 / 失败反馈；UI 代码使用 `tr("ui_meta_xxx")` |
+| 加结算 / 局外成长 UI 文案 | 在 `strings.csv` 加 `ui_meta_*`（legacy 局外升级）或 `ui_gear_mod_*`（装备 Mod）key，例如结算、标题入口、容量、费用、锁定 / 满级状态、操作成功 / 失败反馈；UI 代码使用 `tr("ui_xxx")` |
 | 加机关 / 危险物名 | 在 `strings.csv` 加 `hazard_*_name`；数据填 `name_key` |
 | 改中文或英文翻译 | 只改对应语言列，不改 key；另一语言由 AI 自动补首版译文后人工复核 |
 | 改 UI 布局或按钮文案 | 切到 `en` 验收宽度、换行和遮挡；英文长度是 UI 尺寸基准 |
@@ -72,6 +72,7 @@ ui_resume,继续,Resume
 | `ui_settings_input_` | 设置面板输入绑定动作标签 | `ui_settings_input_move_up` / `ui_settings_input_pause` |
 | `ui_hud_` | 局内常驻 HUD 标签 | `ui_hud_life` / `ui_hud_kills` |
 | `ui_stats_` | 局内详细数值面板标签 | `ui_stats_damage` / `ui_stats_skill_resource` |
+| `ui_gear_mod_` | 装备 Mod 面板、标题入口和操作反馈 | `ui_gear_mod_title` / `ui_gear_mod_upgrade_cost` |
 | `ui_credits_` | 致谢界面分组、角色和用途标签 | `ui_credits_section_staff` / `ui_credits_usage_engine_runtime` |
 | `character_` | 角色名称和描述 | `character_default_name` / `character_default_desc` |
 | `weapon_` | 武器名称和描述 | `weapon_basic_blaster_name` / `weapon_basic_blaster_desc` |

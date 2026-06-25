@@ -97,7 +97,7 @@
 ## 测试义务
 
 - 修改本模块必跑 L0 和 L2 headless boot，确认 autoload 可启动。
-- 修改运行时 UI 语言刷新时追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`；`settings-smoke` 当前覆盖 SettingsPanel、TitleMenu、PauseMenu、GameplayHud、LevelUpPanel、GameOverPanel 和 MetaProgressionPanel 的既有实例刷新。
+- 修改运行时 UI 语言刷新时追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`；`settings-smoke` 当前覆盖 SettingsPanel、TitleMenu、PauseMenu、GameplayHud、LevelUpPanel、GameOverPanel 和 MetaProgressionPanel 的既有实例刷新。修改 Gear Mod 面板语言刷新时追加 `python tools/godot_bridge.py --project client gear-mod-smoke`。
 - 后续引入 GUT 后，需要覆盖缺 key 行为、语言切换、`Settings` 联动和 UI 刷新。
 - 手动回归仍建议切换 `zh_CN -> en` 检查核心 UI 文案即时刷新。
 

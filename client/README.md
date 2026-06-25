@@ -5,7 +5,7 @@
 
 `client/` 是完整项目的 Godot 4.7 项目根，即 Godot 内的 `res://`。
 
-当前阶段为 F9 内容扩展 / Demo 打磨准备：正式工程已迁移到 Godot 4.7，F1-F8 当前验收基线已完成，F9 已预留本地数据包式 `ModLoader`、Steam 优先 `PlatformServices`，以及 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`。启动场景在数据校验通过后会显示最小标题界面，开始后进入战斗 runtime；若存在 `SaveManager` 的 `run` 存档，标题菜单会显示“继续游戏”，续局读取失败时会提示本局存档已重置；标题菜单常驻“局外升级”和“设置”入口，可查看余额、账号等级和升级轨道并购买永久升级，也可打开设置面板修改语言、音量、显示、玩法和隐私开关。当前 runtime 覆盖玩家移动与居中相机、默认起始武器、池化子弹、两种池化敌人、`spawn_waves.csv` 刷怪、`Combat.apply_damage()` 伤害入口、经验 / 升级选择、升级获得反馈、响应式基础 HUD、主动暂停、暂停设置入口、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、死亡结算、`meta` profile roundtrip、标题局外升级面板和下一局永久 modifiers；死亡结算页只展示本局收益、账号等级 / 余额、重开和回标题，不提供局外购买入口。`Settings` 已有 `user://settings.cfg` 持久化、正式设置面板和 `settings-smoke` 验证，`SaveManager` 的 `run` kind 已有 version 2 迁移与 `save-smoke` 可靠性验证，`MetaProgressionSystem` 已有 `meta-smoke` 局外成长验证，DebugTools 已有 `debug-tools-smoke` 与 release guard smoke，Replay / golden replay / perf-probe 已作为 F9 内容扩展的回归护栏。项目默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，并通过 `canvas_items + keep` 在比例不匹配时保比例加黑边。
+当前阶段为 F11 装备 Mod / 局外装配推进中：正式工程已迁移到 Godot 4.7，F1-F8 当前验收基线已完成，F9 已预留本地数据包式 `ModLoader`、Steam 优先 `PlatformServices`，以及 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`。启动场景在数据校验通过后会显示最小标题界面，开始后进入战斗 runtime；若存在 `SaveManager` 的 `run` 存档，标题菜单会显示“继续游戏”，续局读取失败时会提示本局存档已重置；标题菜单常驻“装备 Mod”、“局外升级”和“设置”入口，可配置英雄 / 武器两套 Gear Mod，也可查看 legacy 余额、账号等级和升级轨道，或打开设置面板修改语言、音量、显示、玩法和隐私开关。当前 runtime 覆盖玩家移动与居中相机、默认起始武器、池化子弹、两种池化敌人、`spawn_waves.csv` 刷怪、`Combat.apply_damage()` 伤害入口、经验 / 升级选择、升级获得反馈、响应式基础 HUD、主动暂停、暂停设置入口、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、死亡结算、`meta` profile roundtrip、标题装备 Mod 面板、标题 legacy 局外升级面板和 Gear Mod 下一局 hero / weapon modifier snapshot；死亡结算页只展示本局收益、账号等级 / 余额、重开和回标题，不提供局外购买入口。`Settings` 已有 `user://settings.cfg` 持久化、正式设置面板和 `settings-smoke` 验证，`SaveManager` 的 `run` kind 已有 version 2 迁移与 `save-smoke` 可靠性验证，`MetaProgressionSystem` 已有 `meta-smoke` legacy 局外成长验证，`GearModSystem` 已有 `gear-mod-smoke` 装配 / UI 验证，DebugTools 已有 `debug-tools-smoke` 与 release guard smoke，Replay / golden replay / perf-probe 已作为内容扩展的回归护栏。项目默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，并通过 `canvas_items + keep` 在比例不匹配时保比例加黑边。
 
 ## 目录
 
@@ -38,7 +38,8 @@
 | `Replay` | `res://scripts/autoload/replay.gd` | 输入 / 关键决策的内存态回放录制边界 |
 | `PoolManager` | `res://scripts/autoload/pool_manager.gd` | 高频实体对象池注册、获取、释放、统计与溢出埋点 |
 | `SaveManager` | `res://scripts/autoload/save_manager.gd` | `meta` / `run` / `replay_index` 存档 envelope、原子写入、备份回退、迁移与坏档隔离 |
-| `MetaProgressionSystem` | `res://scripts/autoload/meta_progression_system.gd` | 局外成长 profile、结算奖励、升级购买、解锁和永久 modifiers |
+| `MetaProgressionSystem` | `res://scripts/autoload/meta_progression_system.gd` | Legacy 局外成长 profile、结算奖励、升级购买、解锁和旧永久 modifiers |
+| `GearModSystem` | `res://scripts/autoload/gear_mod_system.gd` | 装备 Mod profile、资源、库存、英雄 / 武器 loadout、掉落、升级、分解和下一局 modifier snapshot |
 | `AudioManager` | `res://scripts/autoload/audio_manager.gd` | SFX / voice / music 注册、播放入口、Bus 路由与音量设置同步 |
 | `Localization` | `res://scripts/autoload/localization.gd` | 当前语言、语言切换与翻译入口 |
 | `UIManager` | `res://scripts/autoload/ui_manager.gd` | UI 场景栈与暂停 UI 联动 |
@@ -70,6 +71,12 @@ F6 局外成长 smoke：
 python tools/godot_bridge.py --project client meta-smoke
 ```
 
+F11 装备 Mod smoke：
+
+```powershell
+python tools/godot_bridge.py --project client gear-mod-smoke
+```
+
 F7 设置持久化 smoke：
 
 ```powershell
@@ -93,6 +100,6 @@ python tools/godot_bridge.py --project client debug-tools-release-smoke
 
 ## 当前启动场景
 
-`res://scenes/boot/main.tscn` 挂载 `res://scripts/boot/formal_client_boot.gd`。启动脚本会先执行正式数据 schema smoke 并输出日志；若校验通过，会显示最小标题界面；开始新局会挂载 `res://scripts/gameplay/gameplay_run_loop.gd`，继续游戏会先从 `SaveManager` 读取 `run` payload 再挂载同一 runtime，并按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板；读取失败或坏档被隔离时会回到标题菜单并显示本局存档重置提示；局外升级会通过 `UIManager` 把 `MetaProgressionPanel` 叠在标题菜单上，设置入口会把 `SettingsPanel` 叠在标题菜单或暂停菜单上。死亡后 gameplay runtime 会通过 `MetaProgressionSystem` 写入 `meta` profile 并清理旧 `run`。debug/dev_tools 构建中，启动脚本会动态加载 `res://scripts/debug/debug_console.gd`，用 F1 或反引号打开 GM 控制台；正式 release 构建不应启用 `dev_tools`，也不应导出 `res://scripts/debug/*`。
+`res://scenes/boot/main.tscn` 挂载 `res://scripts/boot/formal_client_boot.gd`。启动脚本会先执行正式数据 schema smoke 并输出日志；若校验通过，会显示最小标题界面；开始新局会挂载 `res://scripts/gameplay/gameplay_run_loop.gd`，继续游戏会先从 `SaveManager` 读取 `run` payload 再挂载同一 runtime，并按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板；读取失败或坏档被隔离时会回到标题菜单并显示本局存档重置提示；装备 Mod 会通过 `UIManager` 把 `GearModPanel` 叠在标题菜单上，legacy 局外升级会把 `MetaProgressionPanel` 叠在标题菜单上，设置入口会把 `SettingsPanel` 叠在标题菜单或暂停菜单上。死亡后 gameplay runtime 会通过 `MetaProgressionSystem` 写入 `meta` profile 并清理旧 `run`。debug/dev_tools 构建中，启动脚本会动态加载 `res://scripts/debug/debug_console.gd`，用 F1 或反引号打开 GM 控制台；正式 release 构建不应启用 `dev_tools`，也不应导出 `res://scripts/debug/*`。
 
-Gameplay runtime 的稳定结构已迁入 `client/scenes/gameplay/*.tscn` 与 `client/scenes/ui/*.tscn`，文档见 `docs/代码/gameplay_runtime.md`、`docs/代码/meta_progression_system.md` 与 `docs/代码/debug_tools.md`。它不迁移 MVP 临时代码；当前实现 `run` 暂停保存续局、暂停 / 升级 UI 恢复点、坏档提示、v1 -> v2 迁移、死亡结算、标题局外升级购买、`meta` 存档验证和调试专用 GM 指令入口。完整局外包装、更多内容切片、更多 replay 场景和平衡 sim 属于后续 F9+ 工作。
+Gameplay runtime 的稳定结构已迁入 `client/scenes/gameplay/*.tscn` 与 `client/scenes/ui/*.tscn`，文档见 `docs/代码/gameplay_runtime.md`、`docs/代码/gear_mod_system.md`、`docs/代码/meta_progression_system.md` 与 `docs/代码/debug_tools.md`。它不迁移 MVP 临时代码；当前实现 `run` 暂停保存续局、暂停 / 升级 UI 恢复点、坏档提示、v1 -> v2 迁移、死亡结算、标题装备 Mod 配置、标题 legacy 局外升级购买、`meta` 存档验证和调试专用 GM 指令入口。完整局外包装、更多内容切片、更多 replay 场景和平衡 sim 属于后续工作。

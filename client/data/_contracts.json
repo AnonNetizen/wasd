@@ -275,6 +275,7 @@
     ],
     "locale_prefixes": [
       "ui_",
+      "ui_gear_mod_",
       "character_",
       "weapon_",
       "relic_",

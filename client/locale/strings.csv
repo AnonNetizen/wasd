@@ -82,6 +82,46 @@ gear_mod_weapon_damage_test_name,校准膛线,Calibrated Rifling
 gear_mod_weapon_damage_test_desc,提高主武器基础伤害；升级后进一步提高伤害。,Increases primary weapon base damage; upgrades improve the bonus.
 gear_mod_dust_name,模组尘,Mod Dust
 gear_mod_dust_desc,分解装备 Mod 获得的材料，用于升级装备 Mod。,A material gained by dismantling gear mods and spent to upgrade gear mods.
+ui_gear_mod_title_entry,装备 Mod,Gear Mods
+ui_gear_mod_title,装备 Mod,Gear Mods
+ui_gear_mod_tab_hero,英雄,Hero
+ui_gear_mod_tab_weapon,武器,Weapon
+ui_gear_mod_resource_summary,{resource} {amount},{resource} {amount}
+ui_gear_mod_capacity,容量 {used}/{capacity},Capacity {used}/{capacity}
+ui_gear_mod_empty,当前槽位暂无 Mod,No mods for this slot
+ui_gear_mod_no_selection,未选择 Mod,No mod selected
+ui_gear_mod_rank,等级 {rank}/{max},Rank {rank}/{max}
+ui_gear_mod_drain,消耗 {drain},Drain {drain}
+ui_gear_mod_equipped,已装备,Equipped
+ui_gear_mod_effect_line,{stat} {type} {value},{stat} {type} {value}
+ui_gear_mod_modifier_type_mult,倍率,Multiplier
+ui_gear_mod_modifier_type_add,加值,Additive
+ui_gear_mod_equip,装备,Equip
+ui_gear_mod_unequip,卸下,Unequip
+ui_gear_mod_upgrade,升级,Upgrade
+ui_gear_mod_upgrade_cost,升级：{resource} {cost},Upgrade: {resource} {cost}
+ui_gear_mod_max_rank,已满级,Max Rank
+ui_gear_mod_dismantle,分解,Dismantle
+ui_gear_mod_dismantle_value,分解：{resource} +{amount},Dismantle: {resource} +{amount}
+ui_gear_mod_action_equip,装备,Equipped
+ui_gear_mod_action_unequip,卸下,Unequipped
+ui_gear_mod_action_dismantle,分解,Dismantled
+ui_gear_mod_feedback_success,{action} {name},{action} {name}
+ui_gear_mod_feedback_upgrade_success,{name} 升至 {rank} 级,{name} upgraded to Rank {rank}
+ui_gear_mod_feedback_failed,操作失败：{reason},Action failed: {reason}
+ui_gear_mod_reason_unknown,未知原因,Unknown reason
+ui_gear_mod_reason_unknown_instance,未找到该 Mod,Mod not found
+ui_gear_mod_reason_unknown_mod,未知 Mod,Unknown mod
+ui_gear_mod_reason_unknown_loadout_slot,未知槽位,Unknown slot
+ui_gear_mod_reason_slot_mismatch,槽位不匹配,Slot mismatch
+ui_gear_mod_reason_capacity_exceeded,容量不足,Not enough capacity
+ui_gear_mod_reason_duplicate_mod,同名 Mod 已装备,Matching mod already equipped
+ui_gear_mod_reason_not_equipped,尚未装备,Not equipped
+ui_gear_mod_reason_equipped,已装备的 Mod 不能分解,Equipped mods cannot be dismantled
+ui_gear_mod_reason_max_rank,已满级,Max rank reached
+ui_gear_mod_reason_missing_cost,缺少升级消耗配置,Upgrade cost missing
+ui_gear_mod_reason_insufficient_resource,资源不足,Not enough resources
+ui_gear_mod_reason_save_failed,保存失败,Save failed
 ui_stats_skill_cooldown,技能冷却,Skill Cooldown
 ui_game_over,本局结束,Run Over
 ui_restart_hint,按暂停键重开,Press Pause to restart

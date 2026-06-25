@@ -51,6 +51,7 @@ func mod_summaries(loadout_slot: String, slot: String = SaveManager.DEFAULT_SLOT
 		var is_equipped: bool = _loadout_equipped_ids(gear_state, loadout_slot).has(instance_id)
 		var rank: int = int(item.get("rank", 0))
 		var drain: int = _mod_drain(definition, rank)
+		var next_rank: int = rank + 1
 		summaries.append({
 			"instance_id": instance_id,
 			"mod_id": mod_id,
@@ -63,6 +64,8 @@ func mod_summaries(loadout_slot: String, slot: String = SaveManager.DEFAULT_SLOT
 			"drain": drain,
 			"equipped": is_equipped,
 			"can_equip": _can_equip(gear_state, loadout_slot, item, definition).get("ok", false),
+			"upgrade_cost": _fusion_cost(String(definition.get("rarity", "")), next_rank) if next_rank <= int(definition.get("max_rank", 0)) else {},
+			"dismantle": _dictionary_or_empty(definition.get("dismantle", {})),
 			"modifiers": _modifiers_for_item(item, definition, loadout_slot),
 		})
 	return summaries

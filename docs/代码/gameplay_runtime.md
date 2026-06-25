@@ -7,7 +7,7 @@
 
 - 在正式 `client/` 内提供一局最小战斗：最小标题入口、标题设置入口、标题局外成长摘要与升级入口、有限地图、玩家移动、相机居中、基础背景参照、起始武器、起始主动技能、池化子弹、池化敌人、池化机关、波次刷怪、经验掉落、升级三选一、HUD、主动暂停、暂停设置入口、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、失败后结算、重开 / 回标题。
 - 复用 F3/F9/F10 已建立的数据边界：`player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemies.csv`、`enemy_ai_profiles.json`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`spawn_waves.csv`、`growth.csv`、`growth_pools.json` 和 `game_modes.json`。
-- 第一版只做标准生存模式、默认角色、默认起始武器、默认主技能、第二个数据驱动技能和通用范围机关的竖切；F5 首片已接入 gameplay runtime 的 `run` 续局快照，F6 首片已接入死亡结算、`meta` 存档、标题局外升级面板和下一局永久 modifiers；游戏结束页只展示结算收益、账号等级 / 余额、重开和回标题，不提供局外成长购买入口；角色选择、完整商店 / 局外包装、技能 UI、音频、美术资产或平衡 sim 仍未实现。升级内容只落地 `stat_modifier` 最小切片，后续遗物 / 主动强化 / 刷新等仍按数据与设计扩展。
+- 第一版只做标准生存模式、默认角色、默认起始武器、默认主技能、第二个数据驱动技能和通用范围机关的竖切；F5 首片已接入 gameplay runtime 的 `run` 续局快照，F6 首片已接入死亡结算、`meta` 存档和标题 legacy 局外升级面板；F11 已把下一局属性来源切到 Gear Mod 英雄 / 武器 loadout，并接入标题装备 Mod 面板。游戏结束页只展示结算收益、账号等级 / 余额、重开和回标题，不提供局外成长购买入口；角色选择、完整商店 / 局外包装、技能 UI、音频、美术资产或平衡 sim 仍未实现。升级内容只落地 `stat_modifier` 最小切片，后续遗物 / 主动强化 / 刷新等仍按数据与设计扩展。
 
 ## 阅读方式
 
@@ -15,6 +15,7 @@
 |------------|----------|
 | 改运行时启动 / 重开 | `client/scripts/gameplay/gameplay_run_loop.gd` |
 | 改标题 / 失败面板 | `client/scripts/ui/title_menu.gd`、`client/scripts/ui/game_over_panel.gd` |
+| 改标题装备 Mod 面板 | `client/scripts/ui/gear_mod_panel.gd`、`client/scripts/autoload/gear_mod_system.gd`、`client/scripts/boot/formal_client_boot.gd` |
 | 改标题局外升级面板 | `client/scripts/ui/meta_progression_panel.gd`、`client/scripts/autoload/meta_progression_system.gd`、`client/scripts/boot/formal_client_boot.gd` |
 | 改暂停 / 保存退出 | `client/scripts/ui/pause_menu.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、`docs/代码/save_manager.md` |
 | 改死亡结算 / 永久升级应用 | `client/scripts/gameplay/gameplay_run_loop.gd`、`client/scripts/autoload/meta_progression_system.gd`、`client/scripts/ui/game_over_panel.gd` |
@@ -40,7 +41,7 @@
 | `client/scenes/gameplay/player.tscn` | 正式玩家场景；包含 `CenteredCamera`、`Player3DVisual` 与 `WeaponSystem`；`CenteredCamera` 由 `player.gd` 固定配置为水平居中 + 等比缩放 |
 | `client/scenes/gameplay/player_3d_visual.tscn` / `client/scripts/gameplay/player_3d_visual.gd` | 玩家 2.5D 视觉首片：SubViewport 渲染低模 3D 胶囊角色，再用 `Sprite2D` 贴回 2D 世界 |
 | `client/scenes/gameplay/bullet.tscn` / `enemy.tscn` / `pickup_orb.tscn` / `hit_spark.tscn` / `damage_number.tscn` / `hazard.tscn` | 对象池实体场景；由 `PoolManager` 工厂实例化并复用 |
-| `client/scenes/ui/title_menu.tscn` / `pause_menu.tscn` / `settings_panel.tscn` / `game_over_panel.tscn` / `level_up_panel.tscn` / `meta_progression_panel.tscn` | 正式 UI 场景；脚本只绑定稳定节点、连接 signal 和刷新数据 |
+| `client/scenes/ui/title_menu.tscn` / `gear_mod_panel.tscn` / `pause_menu.tscn` / `settings_panel.tscn` / `game_over_panel.tscn` / `level_up_panel.tscn` / `meta_progression_panel.tscn` | 正式 UI 场景；脚本只绑定稳定节点、连接 signal 和刷新数据 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 正式运行时编排、输入 action 手柄兜底注册、对象池注册、刷怪和重开 |
 | `client/scripts/gameplay/world_background.gd` | 哈迪斯式量化菱形舞台网格背景；读取 `MapManager.grid_cell_size()`，让背景格、机关绘制和触发判定共享同一份地面格度量，不改变世界坐标或相机缩放 |
 | `client/scripts/gameplay/map_manager.gd` | 有限地图边界、PCG 机关摆放、人工摆点、刷怪位置 clamp 和地图快照 |
@@ -55,15 +56,16 @@
 | `client/scripts/gameplay/hit_spark.gd` / `damage_number.gd` | 池化命中反馈：Combat 成功造成伤害时生成短命火花和飘字；不进入 run 快照 |
 | `client/scripts/gameplay/level_up_panel.gd` | 响应式升级三选一面板；通过 `UIManager.push()` 挂载；语言切换时用缓存候选重建按钮 |
 | `client/scripts/gameplay/gameplay_hud.gd` | 响应式最小 HUD：生命、击杀、时间、等级、经验、升级获得反馈；语言切换时用当前 HUD 状态重画 |
-| `client/scripts/ui/title_menu.gd` | 最小标题界面：账号等级 / 余额摘要、开始 / 继续 / 局外升级 / 设置 / 退出 |
+| `client/scripts/ui/title_menu.gd` | 最小标题界面：账号等级 / 余额摘要、开始 / 继续 / 装备 Mod / legacy 局外升级 / 设置 / 退出 |
 | `client/scripts/ui/settings_panel.gd` | F7 设置面板：从标题或暂停菜单打开，读写 `Settings` 并响应语言切换 |
+| `client/scripts/ui/gear_mod_panel.gd` | F11 装备 Mod 面板：从标题菜单打开，切换英雄 / 武器 loadout，显示资源、容量、Mod 列表、详情和操作反馈 |
 | `client/scripts/ui/meta_progression_panel.gd` | F6 阶段局外升级面板：从标题菜单打开，显示余额、账号等级、所有升级轨道、购买状态和购买反馈；语言切换时刷新标题、余额、升级列表和可见反馈 |
 | `client/scripts/ui/pause_menu.gd` | F5 / F7 暂停菜单：继续、设置、保存并退出、重新开始、回标题；语言切换时刷新按钮 |
 | `client/scripts/ui/game_over_panel.gd` | 失败面板：结算摘要、账号等级 / 余额、重开 / 回标题；语言切换时用缓存结算重画 |
 | `client/tools/runtime_smoke.gd` | gameplay runtime headless smoke，覆盖启动、输入、池化、伤害、失败状态和真实死亡结算 |
 | `client/tools/debug_tools_smoke.gd` | DebugTools headless smoke，覆盖 GM 命令调用 runtime debug API 和 release guard |
 | `client/tools/meta_progression_smoke.gd` | F6 MetaProgression legacy smoke，覆盖 meta roundtrip、结算、购买和旧永久 modifier API |
-| `client/tools/gear_mod_smoke.gd` | F11 Gear Mod smoke，覆盖 profile、授予、装备、容量、升级、分解和掉落 |
+| `client/tools/gear_mod_smoke.gd` | F11 Gear Mod smoke，覆盖 profile、授予、装备、容量、升级、分解、掉落和 Gear Mod 面板按钮流 |
 | `client/tools/save_manager_smoke.gd` | F5 SaveManager run 存档可靠性 smoke，覆盖 roundtrip、备份回退、坏档隔离和迁移 |
 | `client/tools/perf_probe.gd` | F8 轻量 perf / 平衡采样入口，输出 schema v2 可比较 JSON：warmup 后帧时间分布、实体峰值、池峰值、等级、击杀和预算状态 |
 | `client/tools/golden_replay_capture.gd` | F8 golden replay capture 工具，固定 seed 启动真实 `GameplayRunLoop` 并采样运行时摘要；支持 basic、pause/resume、full-death 和 level-up choice 场景 |
@@ -76,7 +78,7 @@
 
 ## 场景 / 节点结构
 
-Gameplay runtime 的稳定节点结构已迁入正式 `.tscn` 场景资源。脚本职责是读取数据、绑定场景节点、连接 signal 和刷新运行时状态；不再在业务脚本中临时拼出长期 UI / runtime 层级。允许动态生成的范围限于对象池工厂实例化场景、升级候选按钮、局外升级列表这类数据驱动重复项。
+Gameplay runtime 的稳定节点结构已迁入正式 `.tscn` 场景资源。脚本职责是读取数据、绑定场景节点、连接 signal 和刷新运行时状态；不再在业务脚本中临时拼出长期 UI / runtime 层级。允许动态生成的范围限于对象池工厂实例化场景、升级候选按钮、局外升级列表、装备 Mod 列表这类数据驱动重复项。
 
 ```text
 FormalClientBoot
@@ -95,6 +97,7 @@ FormalClientBoot
 UIManager
     └── UIRoot
     ├── TitleMenu (normal boot before a run; includes MetaProfileSummaryLabel)
+    ├── GearModPanel (opened from title menu)
     ├── MetaProgressionPanel (opened from title menu)
     ├── SettingsPanel (opened from title menu or pause menu)
     ├── PauseMenu (only while GameState.PAUSED)
@@ -108,8 +111,8 @@ UIManager
 
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
-| 启动 | `FormalClientBoot` 跑数据 schema smoke，正常启动显示 `TitleMenu`；标题菜单显示账号等级 / 局外货币摘要，有可购买升级时局外升级按钮显示可购买提示；标题菜单可打开 `MetaProgressionPanel` 查看 / 购买局外升级，也可打开 `SettingsPanel` 修改设置；`--runtime-smoke` 模式跳过标题并直接创建 `GameplayRunLoop` | `DataLoader.validate_project_data()`、`UIManager.push()` |
-| 开局 | 普通标题开始 / 局内重开由 `FormalClientBoot` 先调用 `RNG.set_random_run_seed()`，再实例化 `gameplay_run_loop.tscn`；运行时重置 `GameClock`，注册 / 预热子弹、经验球、机关、命中反馈和当前 F4 敌人对象池，读取默认模式 / 角色 / 起始武器，并在玩家 / 武器配置后应用 `MetaProgressionSystem.current_modifiers()`；工具 / replay 路径可显式固定 seed 后直接启动 runtime | `RNG.set_random_run_seed()`、`PackedScene.instantiate()`、`PoolManager.register_pool()`、`DataLoader.load_json()`、`MetaProgressionSystem.current_modifiers()` |
+| 启动 | `FormalClientBoot` 跑数据 schema smoke，正常启动显示 `TitleMenu`；标题菜单显示账号等级 / 局外货币摘要，有可购买升级时 legacy 局外升级按钮显示可购买提示；标题菜单可打开 `GearModPanel` 配置英雄 / 武器 Mod，也可打开 `MetaProgressionPanel` 查看 legacy 局外升级或打开 `SettingsPanel` 修改设置；`--runtime-smoke` 模式跳过标题并直接创建 `GameplayRunLoop` | `DataLoader.validate_project_data()`、`UIManager.push()` |
+| 开局 | 普通标题开始 / 局内重开由 `FormalClientBoot` 先调用 `RNG.set_random_run_seed()`，再实例化 `gameplay_run_loop.tscn`；运行时重置 `GameClock`，注册 / 预热子弹、经验球、机关、命中反馈和当前 F4 敌人对象池，读取默认模式 / 角色 / 起始武器，并在玩家 / 武器配置后分别应用 `GearModSystem.current_modifiers("hero")` 与 `GearModSystem.current_modifiers("weapon")`；工具 / replay 路径可显式固定 seed 后直接启动 runtime | `RNG.set_random_run_seed()`、`PackedScene.instantiate()`、`PoolManager.register_pool()`、`DataLoader.load_json()`、`GearModSystem.current_modifiers()` |
 | 地图 / 机关 | `MapManager` 按 `map_layouts.json` 配置有限菱形边界、出生点、安全半径、刷怪边距、手工机关摆点和 PCG 机关；开局还会解释当前 layout 匹配的 WarzoneDirector 兴趣点并生成 `source="director"` 机关；玩家与敌人中心移动都会被菱形边界 clamp，机关通过对象池生成，触发伤害走 `Combat` | `MapManager.configure()`、`generate_hazard_placements()`、`Player.set_movement_diamond_boundary()`、`Enemy.set_movement_diamond_boundary()`、`PoolManager.acquire()`、`Combat.apply_damage()` |
 | 战区导演 | `WarzoneDirector` 读取 `warzone_directors.json` 的当前模式导演，用固定时间 phase 组织巢变异主题、生态 encounter、兴趣点和启用 wave；兴趣点只交给 `MapManager` 初始机关生成；不读玩家状态、不随机、不改存档 schema | `WarzoneDirector.configure()`、`is_wave_enabled()`、`interest_points_for_layout()`、`debug_summary()` |
 | 背景 | 在玩家附近绘制哈迪斯式量化菱形舞台网格和原点十字；网格来自 `map_layouts.json.grid`，与机关尺寸 / 判定共用同一格度量，但不缩放或旋转世界坐标 | `WorldBackground.configure()` |
@@ -174,7 +177,8 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `LevelUpPanel.configure(choices)` / `choose_index(index)` | 升级候选 | `void` | 面板节点通过 `UIManager` 挂载；玩家可见文案来自 locale；面板宽度随视口宽度在最小 / 最大值之间自适应；按 `pause` action 时发出 `pause_requested`；语言切换时重用 `_choices` 重建按钮 |
 | `GameplayHud.set_life()` / `set_kills()` / `set_level()` / `set_xp()` / `show_upgrade_feedback()` / `set_stats_panel_visible()` / `set_detailed_stats()` | HUD 状态 | `void` | 文案使用 `tr()`；布局使用容器和锚点而非固定屏幕坐标；详细数值面板是非模态 HUD 叠层，按住 action 显示、松开隐藏，不暂停；失败 UI 由 `GameOverPanel` 独占显示；语言切换时重用缓存生命、击杀、等级、经验、详细数值和最近升级反馈 key 刷新 |
 | `TitleMenu.refresh_meta_summary()` | 无 | `void` | 刷新标题菜单账号等级 / 余额摘要；有可购买升级时把 `MetaProgressionButton` 文案切到可购买提示，局外升级面板关闭后由 `FormalClientBoot` 调用 |
-| `TitleMenu.start_requested` / `continue_requested` / `meta_progression_requested` / `settings_requested` / `quit_requested` | 无 | signal | 由 `FormalClientBoot` 处理，不在标题菜单里直接创建 run；`continue_requested` 只在有 `run` 存档时可见；`meta_progression_requested` 和 `settings_requested` 会通过 `UIManager` 打开对应面板 |
+| `TitleMenu.start_requested` / `continue_requested` / `gear_mod_requested` / `meta_progression_requested` / `settings_requested` / `quit_requested` | 无 | signal | 由 `FormalClientBoot` 处理，不在标题菜单里直接创建 run；`continue_requested` 只在有 `run` 存档时可见；`gear_mod_requested`、`meta_progression_requested` 和 `settings_requested` 会通过 `UIManager` 打开对应面板 |
+| `GearModPanel.closed_requested` | 无 | signal | 由 `FormalClientBoot` 从标题菜单弹出面板并回到标题；装备、升级和分解由面板调用 `GearModSystem` API 后刷新列表、资源、容量和反馈；语言切换时刷新标题、按钮、列表和可见反馈 |
 | `MetaProgressionPanel.closed_requested` | 无 | signal | 由 `FormalClientBoot` 从标题菜单弹出面板并回到标题；购买升级由面板调用 `MetaProgressionSystem.purchase_upgrade()` 后刷新列表、余额和购买反馈；语言切换时刷新标题、关闭按钮、列表和可见反馈；关闭按钮和 `ui_back` 共用 `request_close()` |
 | `PauseMenu.resume_requested` / `settings_requested` / `save_and_quit_requested` / `restart_requested` / `quit_to_title_requested` | 无 | signal | 由 `GameplayRunLoop` 处理；设置只叠加 `SettingsPanel`，保存退出保留 `run` 存档，重开 / 回标题会删除旧 `run` 存档；`ui_back` 通过 `request_close()` 走继续游戏路径 |
 | `GameOverPanel.configure(kills, run_time, settlement)` | 击杀、时长、结算结果 | `void` | F6 只展示结算奖励、账号等级 / 余额、重开和回标题；文案全部来自 locale；语言切换时重用缓存的击杀、时长和结算字典重画 |
@@ -223,12 +227,12 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 局外成长接入：F6 首片仍使用 `SaveManager` 的 `meta` kind 做死亡结算；F4 只向 `MetaProgressionSystem.apply_run_settlement()` 提交 `kills`、`run_time`、`first_boss_defeated`，不在 F4 复制奖励公式。结算后必须删除 `run` 存档，避免死亡结算后的旧局重复领取奖励。标题菜单当前仍通过 legacy `MetaProgressionSystem.profile_summary()` 显示账号等级 / 余额摘要，并通过 `MetaProgressionPanel` 展示旧升级列表；该 UI 后续会被 Gear Mod 面板替换。新开局属性来源已切到 `GearModSystem.current_modifiers("hero")` / `current_modifiers("weapon")`：hero modifiers 只应用到 `Player.apply_modifiers()`，weapon modifiers 只应用到 `WeaponSystem.apply_modifiers()`，旧 `MetaProgressionSystem.current_modifiers()` 不再影响下一局。
 - 装备 Mod 掉落：玩家归因击败敌人时，`GameplayRunLoop._on_enemy_defeated()` 会在发放击杀 / 经验后调用 `GearModSystem.roll_drop_for_enemy(enemy_id)`；怪物互杀或非玩家归因击杀不会计入击杀、经验或 Gear Mod 掉落。首片 `enemy_chaser` 掉落率来自 `gear_mod_drop_tables.csv` 的 `0.01`，随机走 `RNG.drop`。
 - 伤害类型：从 `weapons.json` / `enemies.csv` / `hazards.csv` 读取，交给 `Combat` 校验。
-- UI / HUD / 升级文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_settings*`、`ui_pause_title`、`ui_save_and_quit`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_stats_*`、`ui_level_up_title`、`ui_upgrade_applied`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`、`ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_account_level_up`、`ui_meta_title_summary`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_purchase_success`、`ui_meta_purchase_failed`、`ui_meta_progression`、`ui_meta_progression_available`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。常驻 UI 必须在 `Localization.locale_changed` 后刷新已有节点，不依赖重启或重新实例化。
+- UI / HUD / 升级文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_settings*`、`ui_pause_title`、`ui_save_and_quit`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_stats_*`、`ui_level_up_title`、`ui_upgrade_applied`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`、`ui_gear_mod_*`、`ui_meta_settlement`、`ui_meta_balance`、`ui_meta_account_level`、`ui_meta_account_level_up`、`ui_meta_title_summary`、`ui_meta_purchase_upgrade`、`ui_meta_purchase_unavailable`、`ui_meta_purchase_success`、`ui_meta_purchase_failed`、`ui_meta_progression`、`ui_meta_progression_available`、`ui_meta_progression_title`、`ui_meta_upgrade_level`、`ui_meta_upgrade_cost`、`ui_meta_upgrade_maxed`、`ui_meta_upgrade_locked`、`ui_meta_upgrade_insufficient`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。常驻 UI 必须在 `Localization.locale_changed` 后刷新已有节点，不依赖重启或重新实例化。
 - GM / DebugTools：`debug_*` action 只由 `DebugConsole` 在 debug/dev_tools guard 通过后注册；GM 对局内状态的变更集中走本节公开 `debug_*` runtime API，且不得写入正式 analytics。
 
 ## 依赖
 
-- 上游依赖：`DataLoader`、`GameState`、`GameClock`、`RNG.spawn`、`RNG.world`、`RNG.ui_choice`、`PoolManager`、`UIManager`、`SaveManager`、`MetaProgressionSystem`、`Combat`、`StatusEffectComponent`、`MapManager`、`WarzoneDirector`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`Settings` 写入的 InputMap action、locale。
+- 上游依赖：`DataLoader`、`GameState`、`GameClock`、`RNG.spawn`、`RNG.world`、`RNG.ui_choice`、`PoolManager`、`UIManager`、`SaveManager`、`GearModSystem`、`MetaProgressionSystem`、`Combat`、`StatusEffectComponent`、`MapManager`、`WarzoneDirector`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`Settings` 写入的 InputMap action、locale。
 - 下游调用方：当前无；后续可拆分为正式 Player / WeaponSystem / Spawner / HUD 模块。
 - 禁止依赖：不得复制历史 MVP 代码；不得绕过正式 `.tscn` 场景资源临时拼长期 UI / runtime 节点；不得绕过 `PoolManager` 创建高频实体；不得直接扣生命；不得绕过 InputMap 读物理输入；不得用裸随机或原始时间。
 
@@ -270,6 +274,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 改普通新局 / 重开 seed | `client/scripts/autoload/rng.gd`、`client/scripts/boot/formal_client_boot.gd`、`client/tools/l1_smoke.gd` | 本文档、RNG / FormalClientBoot 文档、ADR、AI记忆 | `l1-smoke` + `runtime-smoke` + `save-smoke` + checked-in replay runner 抽查 |
 | 改设置入口 / 设置叠层 | `title_menu.gd`、`pause_menu.gd`、`settings_panel.gd`、`formal_client_boot.gd`、`gameplay_run_loop.gd` | 本文档、Settings / UIManager / FormalClientBoot 文档 | `settings-smoke` + `runtime-smoke` |
 | 改死亡结算 / 局外升级应用 | `client/scripts/gameplay/gameplay_run_loop.gd`、`client/scripts/ui/game_over_panel.gd`、`client/scripts/autoload/meta_progression_system.gd` | 本文档、MetaProgressionSystem / SaveManager 文档 | `runtime-smoke` + `meta-smoke` |
+| 改标题装备 Mod 入口 / 面板 | `client/scenes/ui/title_menu.tscn`、`client/scenes/ui/gear_mod_panel.tscn`、对应脚本、`client/scripts/boot/formal_client_boot.gd`、`client/scripts/autoload/gear_mod_system.gd` | 本文档、FormalClientBoot / GearModSystem 文档 | `headless-boot` + `gear-mod-smoke` + 手动标题菜单点开 |
 | 改标题局外升级入口 / 摘要 | `client/scenes/ui/title_menu.tscn`、`client/scenes/ui/meta_progression_panel.tscn`、对应脚本、`client/scripts/boot/formal_client_boot.gd`、`client/scripts/autoload/meta_progression_system.gd` | 本文档、FormalClientBoot / MetaProgressionSystem 文档 | `headless-boot` + `meta-smoke` + `runtime-smoke` + 手动标题菜单点开 |
 | 改 GM 指令影响运行时 | `client/scripts/debug/gm_command_registry.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、目标系统脚本 | 本文档、DebugTools 文档、测试策略 | `debug-tools-smoke` + `debug-tools-release-smoke`，必要时追加 `runtime-smoke` / `meta-smoke` |
 | 改运行时行为 | `client/scripts/gameplay/*.gd` | 本文档、必要时 GDD / ADR | L0 + L2 + `runtime-smoke`，必要时补 L1 |
@@ -308,6 +313,8 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 死亡后没有局外奖励 | `MetaProgressionSystem.apply_run_settlement()` 是否被调用；`meta.save` 是否写入；`client/tools/runtime_smoke.gd` 是否通过死亡结算断言 |
 | 死亡后没有账号等级提升提示 | 本局账号经验是否跨过 `meta_progression.json.account_level.thresholds`；`GameOverPanel` 是否收到 `previous_account_level`；`meta-smoke` 是否通过 GameOverPanel 账号进度断言 |
 | 死亡后还能继续旧局 | `SaveManager.delete(slot_0, run)` 是否在结算后执行；标题继续按钮是否仍看见旧 `run` |
+| 标题装备 Mod 面板打不开 | `TitleMenu` 是否有 `GearModButton`；`gear_mod_requested` 是否被 `FormalClientBoot` 连接；`ui_gear_mod_title_entry` 是否已导入 `.translation` |
+| Gear Mod 面板按钮没有生效 | `GearModPanel` 是否调用 `GearModSystem` API；`gear-mod-smoke` 是否通过面板按钮流；当前槽位是否有对应 slot 的 Mod |
 | 标题菜单看不到局外升级 | `TitleMenu` 是否有 `MetaProgressionButton`；locale 是否有 `ui_meta_progression`；`FormalClientBoot` 是否连接 `meta_progression_requested` |
 | 标题菜单账号 / 余额摘要不刷新 | `TitleMenu.refresh_meta_summary()` 是否被调用；`FormalClientBoot._on_meta_progression_closed()` 是否在关闭面板后刷新标题菜单；`meta-smoke` 是否通过可购买提示断言 |
 | 局外升级面板没有升级列表 | `MetaProgressionSystem.upgrade_summaries()` 是否返回轨道；`MetaProgressionPanel` 是否能找到 `MetaUpgradeList`；`meta-smoke` 是否通过面板列表断言 |
@@ -329,7 +336,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 ## 测试义务
 
 - Gameplay runtime 代码改动必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`。
-- Gameplay runtime / UI 场景结构改动还必须跑 `python tools/godot_bridge.py --project client runtime-smoke`，涉及标题局外升级面板时追加 `meta-smoke`。
+- Gameplay runtime / UI 场景结构改动还必须跑 `python tools/godot_bridge.py --project client runtime-smoke`，涉及标题 Gear Mod 面板时追加 `gear-mod-smoke`，涉及标题 legacy 局外升级面板时追加 `meta-smoke`。
 - 涉及启动、输入、WeaponSystem、SkillSystem、子弹、敌人、EnemyAI、Spawner、经验球、升级选择、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 涉及有限地图、`map_layouts.json`、PCG 摆放、WarzoneDirector 兴趣点接入、手工机关摆点、HazardSystem 或 `hazards.csv` 时追加 `python tools/godot_bridge.py --project client runtime-smoke`、`python tools/godot_bridge.py --project client f9-demo-smoke`；涉及 run 快照恢复时追加 `save-smoke`。
 - 涉及技能目标、资源、冷却、效果解释或 run 技能快照时追加 `python tools/godot_bridge.py --project client l1-smoke`；改 run 快照恢复还要追加 `save-smoke`。

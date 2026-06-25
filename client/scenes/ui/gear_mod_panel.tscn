@@ -1,0 +1,176 @@
+[gd_scene load_steps=2 format=3 uid="uid://dbx42pu6up8jv"]
+
+[ext_resource type="Script" path="res://scripts/ui/gear_mod_panel.gd" id="1_gear_mod"]
+
+[node name="GearModPanel" type="CanvasLayer"]
+script = ExtResource("1_gear_mod")
+
+[node name="Root" type="Control" parent="."]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Backdrop" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0, 0, 0, 0.48)
+
+[node name="Center" type="CenterContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="GearModPanelContainer" type="PanelContainer" parent="Root/Center"]
+custom_minimum_size = Vector2(860, 700)
+layout_mode = 2
+mouse_filter = 1
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/GearModPanelContainer"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 22
+
+[node name="Layout" type="VBoxContainer" parent="Root/Center/GearModPanelContainer/Margin"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="Root/Center/GearModPanelContainer/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 32
+
+[node name="TabRow" type="HBoxContainer" parent="Root/Center/GearModPanelContainer/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 10
+
+[node name="HeroTabButton" type="Button" parent="Root/Center/GearModPanelContainer/Margin/Layout/TabRow"]
+custom_minimum_size = Vector2(180, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+
+[node name="WeaponTabButton" type="Button" parent="Root/Center/GearModPanelContainer/Margin/Layout/TabRow"]
+custom_minimum_size = Vector2(180, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+
+[node name="SummaryRow" type="HBoxContainer" parent="Root/Center/GearModPanelContainer/Margin/Layout"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="ResourceLabel" type="Label" parent="Root/Center/GearModPanelContainer/Margin/Layout/SummaryRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+horizontal_alignment = 1
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 16
+
+[node name="CapacityLabel" type="Label" parent="Root/Center/GearModPanelContainer/Margin/Layout/SummaryRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+horizontal_alignment = 1
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 16
+
+[node name="FeedbackLabel" type="Label" parent="Root/Center/GearModPanelContainer/Margin/Layout"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+horizontal_alignment = 1
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 16
+
+[node name="ContentRow" type="HBoxContainer" parent="Root/Center/GearModPanelContainer/Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 1
+theme_override_constants/separation = 12
+
+[node name="InventoryScroll" type="ScrollContainer" parent="Root/Center/GearModPanelContainer/Margin/Layout/ContentRow"]
+custom_minimum_size = Vector2(410, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 1
+
+[node name="ModList" type="VBoxContainer" parent="Root/Center/GearModPanelContainer/Margin/Layout/ContentRow/InventoryScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 1
+theme_override_constants/separation = 10
+
+[node name="DetailsPanel" type="PanelContainer" parent="Root/Center/GearModPanelContainer/Margin/Layout/ContentRow"]
+custom_minimum_size = Vector2(360, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 1
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/GearModPanelContainer/Margin/Layout/ContentRow/DetailsPanel"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="DetailsLayout" type="VBoxContainer" parent="Root/Center/GearModPanelContainer/Margin/Layout/ContentRow/DetailsPanel/Margin"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 12
+
+[node name="DetailsLabel" type="Label" parent="Root/Center/GearModPanelContainer/Margin/Layout/ContentRow/DetailsPanel/Margin/DetailsLayout"]
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 16
+
+[node name="ActionRow" type="VBoxContainer" parent="Root/Center/GearModPanelContainer/Margin/Layout/ContentRow/DetailsPanel/Margin/DetailsLayout"]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 8
+
+[node name="EquipButton" type="Button" parent="Root/Center/GearModPanelContainer/Margin/Layout/ContentRow/DetailsPanel/Margin/DetailsLayout/ActionRow"]
+custom_minimum_size = Vector2(260, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="UpgradeButton" type="Button" parent="Root/Center/GearModPanelContainer/Margin/Layout/ContentRow/DetailsPanel/Margin/DetailsLayout/ActionRow"]
+custom_minimum_size = Vector2(260, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="DismantleButton" type="Button" parent="Root/Center/GearModPanelContainer/Margin/Layout/ContentRow/DetailsPanel/Margin/DetailsLayout/ActionRow"]
+custom_minimum_size = Vector2(260, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="CloseButton" type="Button" parent="Root/Center/GearModPanelContainer/Margin/Layout"]
+custom_minimum_size = Vector2(180, 46)
+layout_mode = 2
+size_flags_horizontal = 4

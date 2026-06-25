@@ -7,7 +7,7 @@
 
 - 负责提供完整项目 `client/` 的最小 Godot 启动入口。
 - 负责让 F1 阶段可以通过 headless 启动验证。
-- F2/F3 期间作为正式客户端 smoke 场景，负责触发 autoload 和数据 schema 启动检查；F4 起在数据校验通过后显示最小标题界面，并在玩家开始游戏、继续 run 存档、打开局外升级面板、打开设置面板或 smoke 模式下编排对应流程。
+- F2/F3 期间作为正式客户端 smoke 场景，负责触发 autoload 和数据 schema 启动检查；F4 起在数据校验通过后显示最小标题界面，并在玩家开始游戏、继续 run 存档、打开装备 Mod 面板、打开 legacy 局外升级面板、打开设置面板或 smoke 模式下编排对应流程。
 - 不负责长期主菜单视觉包装、输入重绑定 UI、业务数据解释或完整加载流程；这些属于后续正式 UI / 玩法模块。
 
 ## 阅读方式
@@ -29,9 +29,11 @@
 | `client/scripts/debug/debug_console.gd` | debug/dev_tools 构建才动态加载的调试控制台 |
 | `client/scenes/gameplay/gameplay_run_loop.tscn` | F4+ 正式 gameplay runtime 场景，由启动脚本实例化 |
 | `client/scenes/ui/title_menu.tscn` | 正常启动后的正式标题菜单场景 |
+| `client/scenes/ui/gear_mod_panel.tscn` | F11 标题装备 Mod 面板场景 |
 | `client/scenes/ui/meta_progression_panel.tscn` | F6 标题局外升级面板场景 |
 | `client/scenes/ui/settings_panel.tscn` | F7 标题设置面板场景 |
 | `client/scripts/ui/title_menu.gd` | F4 阶段最小标题界面，通过 `UIManager` 挂载 |
+| `client/scripts/ui/gear_mod_panel.gd` | F11 装备 Mod 面板，通过 `UIManager` 叠在标题菜单上 |
 | `client/scripts/ui/meta_progression_panel.gd` | F6 阶段标题局外升级面板，通过 `UIManager` 叠在标题菜单上 |
 | `client/scripts/ui/settings_panel.gd` | F7 设置面板，通过 `UIManager` 叠在标题菜单上 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | F4 数据校验通过后挂载的最小可玩闭环 runtime |
@@ -58,6 +60,7 @@ FormalClientBoot (Node)
 UIManager
 └── UIRoot
     ├── TitleMenu (scene; normal boot after data schema passes; shows continue when run.save exists)
+    ├── GearModPanel (scene; opened from title menu)
     ├── MetaProgressionPanel (scene; pushed above title menu when requested)
     └── SettingsPanel (scene; pushed above title menu when requested)
 ```
@@ -72,6 +75,7 @@ UIManager
 | 主场景加载 | 实例化 `FormalClientBoot` 根节点 | 无 |
 | `_ready()` | 调用 `DataLoader.validate_project_data()` 并输出正式客户端启动日志 | `print()` |
 | 正常启动 | 数据校验通过后通过 `UIManager` 显示 `TitleMenu`，保持 `GameState.MAIN_MENU` | `UIManager.push()` |
+| 标题装备 Mod | 标题菜单发出 `gear_mod_requested` 后，启动脚本把 `GearModPanel` 推入 UI 栈；关闭时弹出该面板并保留标题菜单 | `UIManager.push()` / `UIManager.pop()` |
 | 标题局外升级 | 标题菜单发出 `meta_progression_requested` 后，启动脚本把 `MetaProgressionPanel` 推入 UI 栈；关闭时弹出该面板并保留标题菜单 | `UIManager.push()` / `UIManager.pop()` |
 | 标题设置 | 标题菜单发出 `settings_requested` 后，启动脚本把 `SettingsPanel` 推入 UI 栈；关闭时只弹出设置面板并保留标题菜单 | `UIManager.push()` / `UIManager.pop()` |
 | Gameplay runtime 挂载 | 玩家选择开始 / 重开时先生成新的 `RNG` run seed，再实例化 `gameplay_run_loop.tscn` 进入最小战斗闭环；继续游戏会先从 `SaveManager` 读取 `run` payload，交给 runtime 恢复实体、GameClock、RNG 和 `ui_restore`；`--runtime-smoke` 等工具路径直接挂载 runtime，保持固定 seed / 可复现 | `RNG.set_random_run_seed()`、`PackedScene.instantiate()`、`add_child()`、`SaveManager.load_envelope()`、`GameState.PLAYING` |
@@ -106,7 +110,7 @@ UIManager
 - `client/project.godot` 的默认 viewport 为 1920×1080；窗口禁止任意拖拽缩放，2D 内容和 UI 通过 `display/window/stretch/mode="canvas_items"` 与 `display/window/stretch/aspect="keep"` 在屏幕比例不匹配时保比例加黑边。后续设置页应只暴露经过验证的分辨率预设列表，不接受任意宽高输入。
 - 启动日志输出 `data_schema_ok`、`mods`、`player_stats`、`characters`、`weapons`、`enemies`、`hazards`、`map_layouts`、`warzone_directors`、`spawn_waves`、`relics`、`active_items`、`consumables`、`locale_keys`、`growth_levels`、`growth_pools`、`game_modes`、`meta_upgrades`、`meta_unlocks`、`platform_provider`、`platform_available` 等 smoke 计数 / 状态。
 - 启动脚本本身不包含玩家可见文本；标题、HUD、设置、结算面板和局外升级面板文案见 `client/locale/strings.csv`。
-- 标题菜单的“继续游戏”只在 `SaveManager.has_save(slot_0, run)` 为真时可见；“局外升级”常驻可见并由 `MetaProgressionPanel` 展示 `MetaProgressionSystem` 的 profile / upgrade summaries。开始新局和重开会删除旧 `run` 存档，并通过 `RNG.set_random_run_seed()` 生成新的主 seed，避免重复继续旧局或每局固定序列。若继续读取失败或坏档被隔离，标题菜单显示 `ui_run_save_unavailable` 提示并隐藏继续按钮。成功继续后，`GameplayRunLoop` 会按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板，不生成新 seed。
+- 标题菜单的“继续游戏”只在 `SaveManager.has_save(slot_0, run)` 为真时可见；“装备 Mod”常驻可见并由 `GearModPanel` 展示 `GearModSystem` 的 profile / mod summaries；“局外升级”当前仍作为 legacy 入口常驻可见并由 `MetaProgressionPanel` 展示旧 `MetaProgressionSystem` 的 profile / upgrade summaries。开始新局和重开会删除旧 `run` 存档，并通过 `RNG.set_random_run_seed()` 生成新的主 seed，避免重复继续旧局或每局固定序列。若继续读取失败或坏档被隔离，标题菜单显示 `ui_run_save_unavailable` 提示并隐藏继续按钮。成功继续后，`GameplayRunLoop` 会按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板，不生成新 seed。
 - DebugTools 只在 `OS.is_debug_build()` 或 `OS.has_feature("dev_tools")` 为真时动态加载；release 构建不应启用 `dev_tools`，也不应包含 `res://scripts/debug/*` 调试资源。
 
 ## 依赖
@@ -128,6 +132,7 @@ UIManager
 | 调整默认分辨率 / 拉伸策略 | `client/project.godot` | 本文档、`client/README.md`、相关 UI 模块文档 | `headless-boot` + `runtime-smoke` + 手动不同窗口尺寸检查 |
 | 增加启动前检查 | `client/scripts/boot/formal_client_boot.gd` | 本文档；必要时新增模块文档 | headless boot |
 | 调整 gameplay runtime 挂载 / 新局 seed / 继续游戏 | `formal_client_boot.gd`、`gameplay_run_loop.tscn`、`gameplay_run_loop.gd` | 本文档、`docs/代码/gameplay_runtime.md`、RNG 文档、AI导航 | headless boot、`l1-smoke`、`runtime-smoke`、`save-smoke`、checked-in replay runner 抽查、手动保存续局 |
+| 调整标题装备 Mod 入口 | `formal_client_boot.gd`、`title_menu.tscn`、`gear_mod_panel.tscn`、对应脚本 | 本文档、`docs/代码/gameplay_runtime.md`、`docs/代码/gear_mod_system.md`、AI导航 | headless boot、`gear-mod-smoke`、手动标题菜单点开 |
 | 调整标题局外升级入口 | `formal_client_boot.gd`、`title_menu.tscn`、`meta_progression_panel.tscn`、对应脚本 | 本文档、`docs/代码/gameplay_runtime.md`、`docs/代码/meta_progression_system.md`、AI导航 | headless boot、`meta-smoke`、手动标题菜单点开 |
 | 调整标题设置入口 | `formal_client_boot.gd`、`title_menu.tscn`、`settings_panel.tscn`、对应脚本 | 本文档、`docs/代码/settings.md`、AI导航 | headless boot、`settings-smoke`、`runtime-smoke` |
 | 调整 F7 设置 smoke 挂载 | `formal_client_boot.gd`、`client/tools/settings_smoke.gd` | 本文档、`docs/代码/settings.md`、AI导航 | headless boot、`settings-smoke` |
@@ -148,6 +153,8 @@ UIManager
 | 数据通过但没有运行时节点 | `formal_client_boot.gd` 是否创建 `GameplayRunLoop`，以及脚本编译是否失败 |
 | 场景加载报警或找不到节点 | `gameplay_run_loop.tscn` / UI `.tscn` 的 ext_resource 路径、节点名和脚本 `get_node_or_null()` 路径是否一致 |
 | 正常启动没有标题菜单 | `TitleMenu` 是否通过 `UIManager.push()` 挂载，`UIManager.stack_size()` 是否异常 |
+| 标题菜单看不到装备 Mod | `TitleMenu` 是否有 `GearModButton`；locale 是否有 `ui_gear_mod_title_entry`；`FormalClientBoot` 是否连接 `gear_mod_requested` |
+| 装备 Mod 面板没有 Mod 列表 | `GearModSystem.mod_summaries()` 是否返回当前槽位 Mod；`GearModPanel` 是否能找到 `ModList`；`gear-mod-smoke` 是否通过面板按钮流 |
 | 标题菜单看不到局外升级 | `TitleMenu` 是否发出 `meta_progression_requested`；`ui_meta_progression` 是否在 locale 中；`FormalClientBoot` 是否连接该 signal |
 | 局外升级面板关闭后没回标题 | `_on_meta_progression_closed()` 是否 `UIManager.pop()` 顶层面板；`UIManager.top()` 是否为 `MetaProgressionPanel` |
 | 设置面板关闭后没回标题 | `_on_settings_panel_closed()` 是否只弹出 `SettingsPanel`；`UIManager.top()` 是否为设置面板 |
@@ -166,6 +173,7 @@ UIManager
 - 修改 `--gear-mod-smoke` 挂载或 GearModSystem 启动诊断时，追加 `python tools/godot_bridge.py --project client gear-mod-smoke`。
 - 修改 `--l1-smoke` / `--replay-smoke` / `--replay-runner` / `--replay-input-smoke` / `--capture-golden-replay` / `--perf-probe` / `--f9-demo-smoke` 挂载时，追加对应 `python tools/godot_bridge.py --project client l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_level_up_choice`、`perf-probe`、`f9-demo-smoke`；改 golden 对照逻辑时还要跑四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`。
 - 修改 DebugTools 挂载或 release guard 时，追加 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`。
+- 修改标题装备 Mod 入口或 `GearModPanel` 挂载时，追加 `python tools/godot_bridge.py --project client gear-mod-smoke` 并做一次手动标题菜单点开检查。
 - 修改标题局外升级入口或 `MetaProgressionPanel` 挂载时，追加 `python tools/godot_bridge.py --project client meta-smoke` 并做一次手动标题菜单点开检查。
 - 修改标题设置入口或 `SettingsPanel` 挂载时，追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 修改长期文档或索引后跑 `tools/docs_health_check.py`。
