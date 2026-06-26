@@ -732,7 +732,7 @@ def _set_game_mode_id(value: str) -> JsonMutator:
 
 def _set_mode_growth_pool(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["modes"][0]["resource_pools"]["growth_pools"][0]["id"] = value
+        payload["modes"][0]["resource_pools"]["growth_pools"] = [{"id": value, "weight": 100}]
 
     return mutate
 

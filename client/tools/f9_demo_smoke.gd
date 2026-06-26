@@ -60,7 +60,7 @@ func _run() -> void:
 	_expect(_snapshot_has_bulwark(saved_payload), "saved run payload should roundtrip enemy_bulwark")
 	_expect(_snapshot_has_fea_12_hazard(saved_payload), "saved run payload should roundtrip FEA-12 hazards")
 
-	_expect(_level_three_entries_available(run_loop), "level 3 growth pool should expose the F9.1 move speed and max HP candidates")
+	_expect(not _standard_growth_enabled(run_loop), "standard mode should keep level-up growth disabled for short loot runs")
 
 	await _kill_player_for_settlement(run_loop, player)
 	_expect(GameState.is_state(GameState.GAME_OVER), "F9 demo smoke death should enter GAME_OVER")
@@ -211,22 +211,9 @@ func _snapshot_has_fea_12_hazard(snapshot: Dictionary) -> bool:
 	return false
 
 
-func _level_three_entries_available(run_loop: Node) -> bool:
-	var raw_entries: Variant = run_loop.get("_growth_entries")
-	if not raw_entries is Array:
-		return false
-	var seen_move_speed: bool = false
-	var seen_max_hp: bool = false
-	for raw_entry: Variant in raw_entries as Array:
-		if not raw_entry is Dictionary:
-			continue
-		var entry: Dictionary = raw_entry as Dictionary
-		if int(entry.get("min_level", 1)) > 3:
-			continue
-		var entry_id: String = String(entry.get("id", ""))
-		seen_move_speed = seen_move_speed or entry_id == "growth_move_speed_small"
-		seen_max_hp = seen_max_hp or entry_id == "growth_max_hp_small"
-	return seen_move_speed and seen_max_hp
+func _standard_growth_enabled(run_loop: Node) -> bool:
+	var summary: Dictionary = run_loop.call("debug_summary")
+	return bool(summary.get("level_up_growth_enabled", false))
 
 
 func _kill_player_for_settlement(run_loop: Node, player: Node) -> void:

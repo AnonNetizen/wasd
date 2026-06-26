@@ -56,6 +56,8 @@ func _run() -> void:
 		_restore_scenario_saves()
 		_finish("")
 		return
+	if _scenario == "golden_level_up_choice" and run_loop.has_method("debug_enable_level_up_growth"):
+		run_loop.call("debug_enable_level_up_growth")
 
 	var frame_samples: Array[Dictionary] = []
 	for frame_number: int in range(1, CAPTURE_FRAMES + 1):

@@ -163,13 +163,7 @@ func _run() -> void:
 	await _expect_overdrive_rounds_skill(run_loop, player)
 	await _expect_pickup_orb_draw_order(run_loop, player)
 	await _expect_pickup_orb_feedback(run_loop, player)
-	var level_restored_run: Dictionary = await _expect_level_up_choice(run_loop, player)
-	var level_restored_run_loop_value: Node = level_restored_run.get("run_loop", run_loop) as Node
-	var level_restored_player_value: Node2D = level_restored_run.get("player", player) as Node2D
-	if level_restored_run_loop_value != null:
-		run_loop = level_restored_run_loop_value
-	if level_restored_player_value != null:
-		player = level_restored_player_value
+	await _expect_default_growth_disabled(run_loop, player)
 
 	var restored_run: Dictionary = await _expect_pause_save_resume(run_loop, player)
 	var restored_run_loop_value: Node = restored_run.get("run_loop", run_loop) as Node
@@ -993,6 +987,46 @@ func _expect_pickup_orb_feedback(run_loop: Node, player: Node2D) -> void:
 	for _index: int in range(PICKUP_FEEDBACK_FRAMES):
 		await get_tree().process_frame
 	_expect(not bool(pickup_orb.call("is_collect_feedback_active")), "pickup orb collect feedback should finish and release")
+
+
+func _expect_default_growth_disabled(run_loop: Node, player: Node2D) -> void:
+	var summary: Dictionary = run_loop.call("debug_summary")
+	_expect(
+		not bool(summary.get("level_up_growth_enabled", true)),
+		"standard mode should not enable level-up growth by default"
+	)
+	var previous_xp: int = int(run_loop.call("current_xp"))
+	run_loop.call("_on_pickup_orb_collected", 20)
+	for _index: int in range(LEVEL_UP_FRAMES):
+		await get_tree().process_frame
+	_expect(int(run_loop.call("current_xp")) == previous_xp + 20, "debug XP flow should still record XP for future modes/tools")
+	_expect(int(run_loop.call("current_level")) == 1, "standard mode XP should not raise the level")
+	_expect(int(run_loop.call("current_level_xp_required")) == 0, "standard mode should not expose a level-up XP target")
+	_expect(GameState.is_state(GameState.PLAYING), "standard mode XP should not enter LEVEL_UP")
+	_expect(_find_node_by_name(get_tree().root, "LevelUpPanel") == null, "standard mode should not show the level-up panel")
+
+	var active_pickups_before: int = PoolManager.active_count(POOL_IDS.PICKUP_ORB)
+	var spawn_result: Dictionary = run_loop.call("debug_spawn_enemy", "enemy_chaser", 1)
+	_expect(bool(spawn_result.get("ok", false)), "standard growth smoke should spawn a chaser")
+	var enemy: Node = _first_enemy_with_name_prefix(POOL_IDS.ENEMY_CHASER)
+	_expect(enemy != null, "standard growth smoke should find the spawned chaser")
+	if enemy == null:
+		return
+	var enemy_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		999.0,
+		DAMAGE_TYPES.PHYSICAL,
+		player,
+		enemy,
+		"team_player",
+		"team_enemy"
+	)
+	var enemy_result: Dictionary = Combat.apply_damage(enemy, enemy_info)
+	_expect(bool(enemy_result.get("defeated", false)), "standard growth smoke should defeat the chaser")
+	await get_tree().process_frame
+	_expect(
+		PoolManager.active_count(POOL_IDS.PICKUP_ORB) == active_pickups_before,
+		"player-attributed enemy defeat should not spawn XP pickups while standard growth is disabled"
+	)
 
 
 func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:

@@ -44,6 +44,7 @@ const UI_RESTORE_PAUSED: String = "paused"
 const UI_RESTORE_PLAYING: String = "playing"
 const UI_RESTORE_UNDERLYING_STATE: String = "underlying_state"
 const REPLAY_PARTICIPANT_ID: String = "player_0"
+const DEFAULT_DEBUG_GROWTH_POOL: String = "default_level_up"
 
 var _active_world: Node2D = null
 var _current_level: int = 1
@@ -106,6 +107,21 @@ func configure_restore_snapshot(snapshot_data: Dictionary) -> void:
 
 func debug_force_next_gear_mod_drop_roll(roll: float) -> void:
 	_debug_next_gear_mod_drop_forced_roll = roll
+
+
+func debug_enable_level_up_growth(pool_id: String = DEFAULT_DEBUG_GROWTH_POOL) -> void:
+	_growth_curve = _load_growth_curve()
+	_growth_entries = _load_growth_entries({
+		"resource_pools": {
+			"growth_pools": [
+				{
+					"id": pool_id,
+					"weight": 100,
+				},
+			],
+		},
+	})
+	_refresh_xp_hud()
 
 
 func create_run_snapshot() -> Dictionary:
@@ -283,10 +299,14 @@ func current_xp() -> int:
 
 
 func current_level_xp() -> int:
+	if not _has_level_up_growth():
+		return 0
 	return _xp_progress_for_level(_current_level)
 
 
 func current_level_xp_required() -> int:
+	if not _has_level_up_growth():
+		return 0
 	return _xp_required_within_level(_current_level)
 
 
@@ -296,6 +316,7 @@ func debug_summary() -> Dictionary:
 		"xp": _current_xp,
 		"level_xp": current_level_xp(),
 		"level_xp_required": current_level_xp_required(),
+		"level_up_growth_enabled": _has_level_up_growth(),
 		"kills": _kills,
 		"player_life": float(_player.call("current_life")) if _player != null and _player.has_method("current_life") else 0.0,
 		"player_max_life": float(_player.call("max_life")) if _player != null and _player.has_method("max_life") else 0.0,
@@ -556,7 +577,7 @@ func _on_enemy_defeated(_enemy: Node, _exp_reward: int, wave_key: String) -> voi
 		_kills += 1
 		if _hud != null:
 			_hud.call("set_kills", _kills)
-		if _enemy is Node2D and _exp_reward > 0:
+		if _has_level_up_growth() and _enemy is Node2D and _exp_reward > 0:
 			_spawn_pickup_orb((_enemy as Node2D).global_position, _exp_reward)
 		if _enemy != null:
 			_roll_gear_mod_drop(_enemy)
@@ -1280,7 +1301,13 @@ func _load_growth_entries(mode: Dictionary) -> Array[Dictionary]:
 
 
 func _can_level_up() -> bool:
+	if not _has_level_up_growth():
+		return false
 	return _current_xp >= _xp_required_for_level(_current_level + 1)
+
+
+func _has_level_up_growth() -> bool:
+	return not _growth_entries.is_empty() and not _growth_curve.is_empty()
 
 
 func _refresh_xp_hud() -> void:

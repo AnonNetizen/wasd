@@ -88,12 +88,6 @@
             "id": "consumable_pocket_bomb",
             "weight": 100
           }
-        ],
-        "growth_pools": [
-          {
-            "id": "default_level_up",
-            "weight": 100
-          }
         ]
       },
       "blocklists": {

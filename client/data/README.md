@@ -272,8 +272,7 @@ JSON 示例：
         "skills": [
           { "id": "skill_overdrive_rounds", "weight": 100 }
         ],
-        "consumables": [{ "id": "consumable_pocket_bomb", "weight": 100 }],
-        "growth_pools": [{ "id": "default_level_up", "weight": 100 }]
+        "consumables": [{ "id": "consumable_pocket_bomb", "weight": 100 }]
       },
       "blocklists": { "content_tags": [] },
       "overrides": { "player_base_stats": {} }
@@ -313,12 +312,12 @@ JSON 示例：
 | `resource_pools.consumables[]` | array[object] | 已声明时必须非空 | 本模式可用消耗品池 |
 | `resource_pools.consumables[].id` | string | 必须存在于 `consumables.json` | 可用消耗品 id |
 | `resource_pools.*[].weight` | int | `>= 0` | 抽取 / 展示权重；具体抽取由后续系统实现 |
-| `resource_pools.growth_pools[]` | array[object] | 已声明时必须非空 | 本模式使用的升级候选池 |
+| `resource_pools.growth_pools[]` | array[object] | 可选；已声明时必须非空 | 本模式使用的升级候选池；默认标准模式按 ADR #120 不声明该字段，因此不启用局内 3 选 1 |
 | `resource_pools.growth_pools[].id` | string | `growth_pools.json` 中已定义池 id | 升级候选池 id |
 | `blocklists.content_tags[]` | array[string] | 词表 §12.3 content tag | 禁用某类内容标签；当前样例为空 |
 | `overrides.player_base_stats` | object | stat 来自词表 §1 | 轻量覆盖玩家基础属性；只用于模式差异，不复制角色本体 |
 
-`game_modes.json` 只声明模式边界，不实现模式选择 UI、匹配、联网、刷怪、成长抽取、敌人生成、遗物抽取或实际战斗规则。地图尺寸、PCG 机关和人工摆点不写在模式资源池里，改 `map_layouts.json`。新增资源池类型时，必须同步本文档、`DataLoader` schema、词表或对应数据注册表。
+`game_modes.json` 只声明模式边界，不实现模式选择 UI、匹配、联网、刷怪、成长抽取、敌人生成、遗物抽取或实际战斗规则。地图尺寸、PCG 机关和人工摆点不写在模式资源池里，改 `map_layouts.json`。默认标准模式不挂 `growth_pools`；未来非默认模式需要局内升级选择时，再显式引用对应升级池。新增资源池类型时，必须同步本文档、`DataLoader` schema、词表或对应数据注册表。
 
 ## `map_layouts.json`
 
@@ -1125,11 +1124,11 @@ level,total_xp_required,candidate_count,bonus_candidate_chance_per_luck,bonus_ca
 |------|------|-------------|------|
 | `level` | int | `>= 1`，严格递增 | 玩家局内等级 |
 | `total_xp_required` | int | 累计经验，`>= 0`，严格递增 | 达到该等级所需累计经验；第 1 级为 0 |
-| `candidate_count` | int | `>= 1`，默认 3 | 本级升级时默认候选数量；当前设计默认 3 选 1 |
+| `candidate_count` | int | `>= 1`，默认 3 | 本级升级时默认候选数量；只在目标模式声明 `growth_pools` 时生效 |
 | `bonus_candidate_chance_per_luck` | float | `0.0`~`1.0` | 每点 `luck` 增加 4 选 1 的概率 |
 | `bonus_candidate_chance_cap` | float | `0.0`~`1.0` | 幸运扩展候选概率上限 |
 
-运行时候选数量判定必须走 `RNG.ui_choice`；本表只提供概率参数，不负责抽取实现。
+运行时候选数量判定必须走 `RNG.ui_choice`；本表只提供概率参数，不负责抽取实现。ADR #120 后默认标准模式不启用局内 3 选 1，本表作为未来模式 / 工具验证能力保留。
 
 ## `growth_pools.json`
 
@@ -1173,7 +1172,7 @@ level,total_xp_required,candidate_count,bonus_candidate_chance_per_luck,bonus_ca
 | `entries[].min_level` | int | `>= 1`，可选 | 条目最早出现等级 |
 | `entries[].modifiers` | array[object] | stat 来自词表 §1 | 属性修正奖励；格式同通用 `modifiers`，使用 `value` |
 
-F4 当前已解释 `kind=stat_modifier`，用于升级选择后即时应用属性修正；遗物、主动道具强化、回血、刷新 / 跳过等其他候选类型仍未落地。新增 `kind` 影响运行时行为时，必须同步对应系统模块文档和测试。
+F4 当前已解释 `kind=stat_modifier`，用于升级选择后即时应用属性修正；遗物、主动道具强化、回血、刷新 / 跳过等其他候选类型仍未落地。ADR #120 后默认标准模式不引用本池，未来模式需要局内 3 选 1 时再在 `game_modes.json.resource_pools.growth_pools` 挂接。新增 `kind` 影响运行时行为时，必须同步对应系统模块文档和测试。
 
 ## `credits.json`
 

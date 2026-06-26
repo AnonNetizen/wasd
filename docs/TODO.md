@@ -74,6 +74,7 @@
 - [x] F11 装备 Mod 数据 / 契约首片：登记 `gear_mod_*` id / slot / rarity / resource / stack rule，新增 `gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、测试武器伤害 Mod、`gear_mod_dust`、DataLoader / `validate_data` schema 和坏样例回归。
 - [x] F11 装备 Mod 运行时首片：新增 `GearModSystem` autoload，支持 `meta.gear_mods` profile、英雄 / 武器两套 loadout、capacity / drain、唯一装备、升级消耗 `gear_mod_dust`、分解返还、`enemy_chaser` 玩家击杀 1% 掉落和开局 modifier snapshot，并新增 `gear-mod-smoke`。
 - [x] F11 装备 Mod 最小 UI：标题菜单进入 `GearModPanel`，支持英雄 / 武器两套配置切换、资源 / 容量 / 详情展示、装备 / 卸下 / 升级 / 分解，并由 `gear-mod-smoke` 覆盖按钮流。
+- [x] F12 短刷图默认循环规划入口：ADR #120、`docs/AI协作/工作包/F12-ShortLootRuns.md`、GDD、AI 导航、数据手册、Gameplay Runtime 模块文档和测试策略已同步；默认标准模式改为 8-12 分钟短刷图，并暂时屏蔽局内升级 3 选 1。
 - [x] 正式项目 F7 工作包准备：`docs/AI协作/工作包/F7-SettingsLocalizationUI.md` 已建立为设置 / 本地化 / UI 栈稳定化阶段入口。
 - [x] 正式项目 F7 设置 / 本地化 / UI 栈首片：设置持久化、正式设置面板、运行时语言刷新、键盘主输入重绑定、输入反馈 / 恢复默认和 `UIManager` 返回 / 焦点首片已完成。
 - [x] 正式项目 F8 工作包准备：`docs/AI协作/工作包/F8-ReplayTestingBalance.md` 已建立为回放 / 测试 / 平衡基线阶段入口。

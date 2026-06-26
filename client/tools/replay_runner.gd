@@ -244,6 +244,8 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 	if run_loop == null:
 		_restore_runtime_scenario(scenario)
 		return {}
+	if scenario == "golden_level_up_choice" and run_loop.has_method("debug_enable_level_up_growth"):
+		run_loop.call("debug_enable_level_up_growth")
 
 	var input_events: Array[Dictionary] = _sorted_input_events(recording.get("input_events", []))
 	var runtime_events: Array[Dictionary] = _sorted_runtime_events(recording.get("runtime_events", []))

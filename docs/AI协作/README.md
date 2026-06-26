@@ -38,7 +38,8 @@ docs/AI协作/
 │   ├── F8-ReplayTestingBalance.md
 │   ├── F9-ContentDemoPolish.md
 │   ├── F10-WarzoneDirector.md
-│   └── F11-GearModLoadout.md
+│   ├── F11-GearModLoadout.md
+│   └── F12-ShortLootRuns.md
 ├── 上下文预算.md         # 不同任务该读哪些文件、读多少
 ├── 角色分工.md           # 设计/实现/评审/平衡 四角色协作
 ├── 代码审核流程.md       # 工具先行、LLM 聚焦 diff 的 review SOP
@@ -102,7 +103,7 @@ AI agent 接到任务时优先按以下顺序：
 1. **先完成快速开工**：读 `快速开工.md`、`current_state.json`、当前平台规则入口和 `AI导航.md` 相关段落。
 2. **是不是有专属 slash command**？是 → 直接用（如 `/new-relic`）。
 3. **是不是该转给 subagent**？项目默认授权支持 subagent 的平台主动调度复杂、专业或可并行任务；只读小任务或直接实现更高效时不必拆分；平台不支持或外层工具策略限制时，把对应 `.md` 当 prompt 模板读。数据条目改动 → `data-author`；契约校验 → `contract-validator`；平衡相关 → `balancer`；玩法评估 → `game-designer`；数值模型 → `numeric-designer`；世界观 → `ip-designer`；文案包装 → `copywriter-packager`；UI 美术 → `ui-art-designer`；游戏美术 → `game-art-designer`；宣发策略 → `marketing-strategist`。
-4. **是不是正式项目阶段任务**？优先读 `工作包/`；当前用户点名规划的 F11 装备 Mod / 局外装配用 `工作包/F11-GearModLoadout.md`；F10 战区导演用 `工作包/F10-WarzoneDirector.md`，F9 Demo 内容 / 表现打磨看 `工作包/F9-ContentDemoPolish.md`，F8 回放 / 测试 / 平衡维护看 `工作包/F8-ReplayTestingBalance.md`，F7 设置 / 本地化 / UI 栈维护看 `工作包/F7-SettingsLocalizationUI.md`，F6 旧局外成长闭环只作 legacy / 迁移参考看 `工作包/F6-MetaProgression.md`，F4 最小可玩闭环看 `工作包/F4-MinPlayableLoop.md`，历史 F3 数据闭环看 `工作包/F3-DataLoader.md`。
+4. **是不是正式项目阶段任务**？优先读 `工作包/`；当前短刷图默认循环与默认模式屏蔽升级三选一用 `工作包/F12-ShortLootRuns.md`；F11 装备 Mod / 局外装配用 `工作包/F11-GearModLoadout.md`；F10 战区导演用 `工作包/F10-WarzoneDirector.md`，F9 Demo 内容 / 表现打磨看 `工作包/F9-ContentDemoPolish.md`，F8 回放 / 测试 / 平衡维护看 `工作包/F8-ReplayTestingBalance.md`，F7 设置 / 本地化 / UI 栈维护看 `工作包/F7-SettingsLocalizationUI.md`，F6 旧局外成长闭环只作 legacy / 迁移参考看 `工作包/F6-MetaProgression.md`，F4 最小可玩闭环看 `工作包/F4-MinPlayableLoop.md`，历史 F3 数据闭环看 `工作包/F3-DataLoader.md`。
 5. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。
 6. **不是高频任务**？读 `上下文预算.md` 决定读取范围，避免盲目全仓搜索。
 7. **任务复杂**？参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
