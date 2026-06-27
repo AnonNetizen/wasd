@@ -151,6 +151,8 @@
           "claim_start_time": 420.0,
           "target_hp": 240.0,
           "target_hit_radius": 48.0,
+          "extraction_radius": 220.0,
+          "extraction_hold_time": 2.0,
           "resource_rewards": [
             {
               "resource_id": "gear_mod_dust",

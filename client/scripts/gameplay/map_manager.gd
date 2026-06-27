@@ -433,6 +433,10 @@ func _roll_interest_point_target_position(point: Dictionary, min_distance: float
 		var candidate: Vector2 = _normalize_interest_point_target_position(_random_diamond_position(placement_padding), point)
 		if _is_valid_interest_point_target_position(candidate, point, min_distance, min_spacing):
 			return candidate
+	for _attempt: int in range(attempts):
+		var fallback_candidate: Vector2 = _normalize_interest_point_target_position(_random_diamond_position(placement_padding), point)
+		if _is_valid_interest_point_target_position(fallback_candidate, point, min_distance, 0.0):
+			return fallback_candidate
 	return INVALID_POSITION
 
 
@@ -499,6 +503,8 @@ func _copy_interest_point_metadata(point: Dictionary, placement: Dictionary) -> 
 		"resource_rewards",
 		"gear_mod_rewards",
 		"completes_run",
+		"extraction_radius",
+		"extraction_hold_time",
 		"target_hp",
 		"target_hit_radius",
 	]:

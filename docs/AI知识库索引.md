@@ -209,6 +209,7 @@
 | #120 | 默认标准模式改为 8-12 分钟短刷图循环，局内经验升级 3 选 1 暂不在默认模式启用 | F12 工作包、GDD、AI导航、Gameplay Runtime 文档、Data README、测试策略、current_state、AI记忆 |
 | #121 | AI 上下文预算新增 S / M / L / XL 任务复杂度分级，先判流程深度再按任务类型读取文件 | `docs/AI协作/上下文预算.md`、AI协作 README、AI导航、决策记录、AI记忆、current_state |
 | #122 | 默认短刷图战利品采用暂存后结算：本局 Gear Mod / dust 先进入 `run.pending_loot`，完成小巢核或未来撤离成功才写入 `meta.gear_mods`，死亡 / 放弃丢失 | F12 工作包、GDD、Gameplay Runtime 文档、SaveManager / GearModSystem 边界、测试策略、current_state、AI记忆 |
+| #123 | 默认短刷图小巢核击破后开启贴格撤离区，玩家完成撤离读条后才提交 `run.pending_loot`、删除 `run` 并显示完成面板 | F12 工作包、GDD、Gameplay Runtime 文档、WarzoneDirector / MapManager 文档、测试策略、current_state、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

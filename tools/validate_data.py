@@ -1404,13 +1404,18 @@ def _validate_warzone_interest_points(
             _require_number(ctx, path, f"{item_field}.min_distance_from_player", point.get("min_distance_from_player"), minimum=0)
         if "min_spacing" in point:
             _require_number(ctx, path, f"{item_field}.min_spacing", point.get("min_spacing"), minimum=0)
-        has_reward_payload = "resource_rewards" in point or "gear_mod_rewards" in point or bool(point.get("completes_run", False))
+        completes_run = bool(point.get("completes_run", False))
+        has_reward_payload = "resource_rewards" in point or "gear_mod_rewards" in point or completes_run
         if "claim_radius" in point or has_reward_payload:
             _require_number(ctx, path, f"{item_field}.claim_radius", point.get("claim_radius"), minimum=0, exclusive_minimum=True)
         if "claim_start_time" in point:
             _require_number(ctx, path, f"{item_field}.claim_start_time", point.get("claim_start_time"), minimum=0)
         if "completes_run" in point:
             _require_bool(ctx, path, f"{item_field}.completes_run", point.get("completes_run"))
+        if "extraction_radius" in point or completes_run:
+            _require_number(ctx, path, f"{item_field}.extraction_radius", point.get("extraction_radius"), minimum=0, exclusive_minimum=True)
+        if "extraction_hold_time" in point or completes_run:
+            _require_number(ctx, path, f"{item_field}.extraction_hold_time", point.get("extraction_hold_time"), minimum=0, exclusive_minimum=True)
         if "target_hp" in point:
             _require_number(ctx, path, f"{item_field}.target_hp", point.get("target_hp"), minimum=0, exclusive_minimum=True)
         if "target_hit_radius" in point:

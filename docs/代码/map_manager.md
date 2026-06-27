@@ -8,7 +8,7 @@
 - 把每局地图从无限扩展改为有明确边界的开放有限地图。
 - 读取 `client/data/map_layouts.json`，解释地图尺寸、菱形格尺寸、玩家出生点、安全半径、刷怪边距、PCG 机关规则和人工摆点。
 - 提供统一的世界坐标 ↔ 菱形格锚点吸附口径；玩家出生点落在格心，机关按 `radius_tiles` 奇偶吸附到能让外边缘贴格线的锚点。
-- 使用 `RNG.world` 生成可复现的初始机关摆放；手工摆点先放置，PCG 和 WarzoneDirector 兴趣点机关会按同一锚点规则吸附并避开已有 placement；带可伤害目标的兴趣点会先生成独立格心 anchor，再把机关放到附近并避开目标 footprint。
+- 使用 `RNG.world` 生成可复现的初始机关摆放；手工摆点先放置，PCG 和 WarzoneDirector 兴趣点机关会按同一锚点规则吸附并避开已有 placement；带可伤害目标的兴趣点会先生成独立格心 anchor，再把机关放到附近并避开目标 footprint；目标摆位首轮尊重 `min_spacing`，空间过紧时降级为只保证不重叠，避免 POI 目标语义消失。
 - 给玩家移动、敌人实体移动、刷怪和机关摆放提供同一套菱形逻辑边界 clamp，不直接处理输入、敌人 AI 评分或机关伤害。
 - 绘制与菱形地图格一致的可见地图边界和出生安全区提示；当前 `bounds` 表示菱形外接框，外接框比例必须匹配 `grid.cell_width/cell_height`，可见边界和逻辑边界共享 `boundary_points()` / `boundary_half_extents()`；出生安全区视觉使用吸附到格线的菱形，不再画正圆。
 - 提供 JSON 友好的 `snapshot()` / `restore_snapshot()`，让暂停续局恢复同一张地图和同一批机关位置；旧快照里的自由坐标 placement 会在恢复时按当前菱形格吸附并 clamp。
@@ -57,7 +57,7 @@ GameplayRunLoop
 |------|----------|----------|
 | 数据加载 | `GameplayRunLoop` 读取 `game_modes.json` 后按 `mode_id` 找第一条 layout | `_load_map_layout()` |
 | 配置 | 运行时把 layout 与 `hazards.csv` 行数据交给 `MapManager`，解析 bounds 与 `grid.cell_width/cell_height` | `configure(layout_data, hazard_rows)` |
-| 开局 | `MapManager` 先放 `manual_hazards`，再按 `pcg.hazards` 摆放机关，最后解释 WarzoneDirector 当前 layout 的兴趣点机关；奇数 `radius_tiles` 吸附格心，偶数吸附网格顶点；带 `target_hp` 的兴趣点会额外生成 `interest_point_target_position` 目标 marker，并让关联机关避开该目标占格；即使关联机关找不到合法摆位，目标 marker 仍保留，避免 POI 奖励 / 完成语义丢失 | `generate_hazard_placements()` |
+| 开局 | `MapManager` 先放 `manual_hazards`，再按 `pcg.hazards` 摆放机关，最后解释 WarzoneDirector 当前 layout 的兴趣点机关；奇数 `radius_tiles` 吸附格心，偶数吸附网格顶点；带 `target_hp` 的兴趣点会额外生成 `interest_point_target_position` 目标 marker，并让关联机关避开该目标占格；即使关联机关找不到合法摆位，目标 marker 仍保留，目标摆位也会在严格间距失败后降级为不重叠摆位，避免 POI 奖励 / 撤离语义丢失 | `generate_hazard_placements()` |
 | 实体边界 | 玩家出生点、玩家移动位置和敌人移动位置由菱形逻辑边界 clamp | `player_start()`、`clamp_position()`、`Player.set_movement_diamond_boundary()`、`Enemy.set_movement_diamond_boundary()` |
 | 可见边界 | 地图边框按 `bounds` 外接框的上 / 右 / 下 / 左四点绘制成菱形，边线斜率必须等于 `grid.cell_height/grid.cell_width` | `boundary_points()`、`boundary_half_extents()`、`debug_summary()` |
 | 出生安全区 | `safe_radius` 仍用于 PCG 避让距离；可见提示按同一菱形格斜率吸附到 `N+0.5` 格线，显示为贴地菱形而不是圆 | `safe_zone_points()`、`safe_zone_half_extents()`、`debug_summary()` |
@@ -100,7 +100,7 @@ GameplayRunLoop
 - `safe_radius` 是 PCG 避让出生点的距离下限，视觉提示会转换成贴格菱形并向外吸附到最近格线；它不是一个正圆地面资产。
 - 机关实际边界由 `hazards.csv.radius_tiles` 与当前 grid cell size 推导；奇数 / 偶数锚点不同是为了保证机关外边缘贴住背景菱形格线，PCG 会确保机关完整留在菱形地图内。
 - PCG 随机只用 `RNG.world`；刷怪候选位置只用 `RNG.spawn`。
-- placement 的 `source` 当前使用 `"manual"`、`"pcg"` 与 `"director"`，用于诊断，不作为 gameplay 分支条件；`"director"` placement 来自 `warzone_directors.json.interest_points[]`，可带 `interest_point_id`，带 `target_hp` 时会附加 `interest_point_target_position` 作为目标格心，并透传 `interest_point_claim_radius`、`interest_point_resource_rewards`、`interest_point_gear_mod_rewards`、`interest_point_target_hp`、`interest_point_target_hit_radius`、`interest_point_completes_run` 等元数据给 `GameplayRunLoop`。目标 marker 的 `hazard_id` 为空，表示只提供 POI 目标 / 奖励元数据；`GameplayRunLoop._spawn_hazard()` 会跳过它。`MapManager` 只负责摆放和快照，不负责发奖励、生成目标或结束本局。
+- placement 的 `source` 当前使用 `"manual"`、`"pcg"` 与 `"director"`，用于诊断，不作为 gameplay 分支条件；`"director"` placement 来自 `warzone_directors.json.interest_points[]`，可带 `interest_point_id`，带 `target_hp` 时会附加 `interest_point_target_position` 作为目标格心，并透传 `interest_point_claim_radius`、`interest_point_resource_rewards`、`interest_point_gear_mod_rewards`、`interest_point_target_hp`、`interest_point_target_hit_radius`、`interest_point_completes_run`、`interest_point_extraction_radius`、`interest_point_extraction_hold_time` 等元数据给 `GameplayRunLoop`。目标 marker 的 `hazard_id` 为空，表示只提供 POI 目标 / 奖励 / 撤离元数据；`GameplayRunLoop._spawn_hazard()` 会跳过它。`MapManager` 只负责摆放和快照，不负责发奖励、生成目标、开启撤离或结束本局。
 
 ## 依赖
 
@@ -112,7 +112,7 @@ GameplayRunLoop
 
 - 新地图：新增 `layouts[]`，绑定现有或新模式；如果同一模式需要多张图，先明确选择规则再扩 schema。
 - 新 PCG 内容类型：优先在 `map_layouts.json` 增加同级规则，例如后续 `pcg.points_of_interest`；运行时先做通用规则解释，避免按内容 id 特判。
-- 战区兴趣点：优先在 `warzone_directors.json.interest_points[]` 声明战区主题机关组合；`MapManager` 只解释 `hazard_ids[]`、可选 `min_distance_from_player` / `min_spacing` 与 layout 过滤后的通用 placement，并透传奖励 / 可伤害目标元数据，不按兴趣点 id 分支。有可伤害目标时，目标 anchor 使用格心，机关围绕目标摆放但不得与目标 footprint 重合。F12 首片用该机制表达精英巢点、Mod 缓存、资源缓存和小巢核占位。
+- 战区兴趣点：优先在 `warzone_directors.json.interest_points[]` 声明战区主题机关组合；`MapManager` 只解释 `hazard_ids[]`、可选 `min_distance_from_player` / `min_spacing` 与 layout 过滤后的通用 placement，并透传奖励 / 可伤害目标 / 撤离元数据，不按兴趣点 id 分支。有可伤害目标时，目标 anchor 使用格心，机关围绕目标摆放但不得与目标 footprint 重合；若严格 `min_spacing` 找不到目标点，会降级到目标与已有目标 / 机关 footprint 不重叠的合法点。F12 首片用该机制表达精英巢点、Mod 缓存、资源缓存和小巢核占位。
 - 新机关类型：先在 `hazards.csv` 加基础数值，再在 `map_layouts.json` 引用；运行时仍走通用 `Hazard`，除非需要全新行为 primitive。
 - 边界表现：可扩展 `MapManager._draw()` 或替换为 TileMap / 美术资源；当前可见边界和逻辑边界必须保持同一套菱形轮廓，玩家与敌人中心移动边界由 `boundary_center()` / `boundary_half_extents()` 注入。
 
@@ -135,7 +135,7 @@ GameplayRunLoop
 | 玩家出生点 / 人工机关校验失败 | 玩家出生点必须在格心；人工机关看 `hazards.csv.radius_tiles`，奇数在格心，偶数在网格顶点 |
 | 敌人跑出地图 | `Enemy.set_movement_diamond_boundary()` 是否由 `GameplayRunLoop` 在生成 / 续局恢复时调用；`runtime-smoke` 是否通过菱形移动边界断言 |
 | 机关数量少于配置 | `safe_radius` / `min_distance_from_player` / `min_spacing` 是否过大；地图是否太小 |
-| 战区兴趣点机关没有生成 | `warzone_directors.json.interest_points[].map_layout_id` 是否匹配当前 layout；`hazard_ids[]` 是否非空且已定义；`min_distance_from_player` / `min_spacing` 是否过大；`MapManager.debug_summary().hazard_sources.director` 是否大于 0 |
+| 战区兴趣点机关没有生成 | `warzone_directors.json.interest_points[].map_layout_id` 是否匹配当前 layout；`hazard_ids[]` 是否非空且已定义；`MapManager.debug_summary().hazard_sources.director` 是否大于 0；带目标兴趣点若只有关联机关缺失，先查目标 marker 是否仍存在 |
 | 兴趣点目标和机关重合 | `interest_points[].min_spacing` 是否小于目标 footprint + 机关 footprint；runtime-smoke 的 `interest point targets should not overlap active hazards` 是否通过 |
 | 机关看起来不像格子整数倍 | `hazards.csv.radius_tiles` 是否为正整数；偶数尺寸机关是否被放在网格顶点；`WorldBackground`、`MapManager`、`Hazard.configure()` 是否拿到同一份 `grid_cell_size` |
 | 地图边界看起来还是旧矩形、不贴格或小半格 | `MapManager.debug_summary().boundary_shape` 是否为 `diamond`；`boundary_points` 是否为 `bounds` 的上 / 右 / 下 / 左四点；`bounds.height` 是否等于 `bounds.width * grid.cell_height / grid.cell_width`；`bounds.width / grid.cell_width` 是否为奇数；`runtime-smoke` 的菱形边界断言是否通过 |

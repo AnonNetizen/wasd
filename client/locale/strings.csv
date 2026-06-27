@@ -129,9 +129,10 @@ ui_gear_mod_reason_missing_cost,缺少升级消耗配置,Upgrade cost missing
 ui_gear_mod_reason_insufficient_resource,资源不足,Not enough resources
 ui_gear_mod_reason_save_failed,保存失败,Save failed
 ui_gear_mod_resource_obtained,暂存资源：{resource} +{amount},Resource stashed: {resource} +{amount}
+ui_extraction_available,撤离点已开启,Extraction point active
 ui_stats_skill_cooldown,技能冷却,Skill Cooldown
 ui_game_over,本局结束,Run Over
-ui_run_complete,巢核击破,Nest Core Broken
+ui_run_complete,撤离成功,Extracted
 ui_run_complete_summary,击杀 {kills} · 时间 {time}s · 战利品已回收,Kills {kills} · Time {time}s · Loot secured
 ui_restart_hint,按暂停键重开,Press Pause to restart
 ui_hud_level,等级,Level

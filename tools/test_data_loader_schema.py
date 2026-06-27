@@ -418,6 +418,22 @@ def main() -> int:
             ],
         ),
         (
+            "warzone completion point extraction radius must be positive",
+            _mutate_json("client/data/warzone_directors.json", _set_warzone_completion_extraction_radius(0)),
+            [
+                "client/data/warzone_directors.json:directors[0].interest_points[3].extraction_radius",
+                "must be > 0",
+            ],
+        ),
+        (
+            "warzone completion point extraction hold time must be positive",
+            _mutate_json("client/data/warzone_directors.json", _set_warzone_completion_extraction_hold_time(0)),
+            [
+                "client/data/warzone_directors.json:directors[0].interest_points[3].extraction_hold_time",
+                "must be > 0",
+            ],
+        ),
+        (
             "relic must include relic tag",
             _mutate_json("client/data/relics.json", _set_relic_tags([])),
             [
@@ -792,6 +808,20 @@ def _set_warzone_gear_mod_reward(value: str) -> JsonMutator:
 def _set_warzone_interest_point_target_hp(value: int) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["directors"][0]["interest_points"][0]["target_hp"] = value
+
+    return mutate
+
+
+def _set_warzone_completion_extraction_radius(value: int) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["directors"][0]["interest_points"][3]["extraction_radius"] = value
+
+    return mutate
+
+
+def _set_warzone_completion_extraction_hold_time(value: int) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["directors"][0]["interest_points"][3]["extraction_hold_time"] = value
 
     return mutate
 

@@ -137,6 +137,10 @@ func show_gear_mod_resource_feedback(resource_key: String, amount: int) -> void:
 	_show_resource_feedback("ui_gear_mod_resource_obtained", resource_key, amount)
 
 
+func show_extraction_feedback() -> void:
+	_show_feedback("ui_extraction_available", "")
+
+
 func is_gear_mod_drop_feedback_visible() -> bool:
 	return (
 		_upgrade_feedback_label != null

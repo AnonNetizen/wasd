@@ -1604,13 +1604,18 @@ func _validate_warzone_interest_points(field: String, data: Variant, hazard_ids:
 			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.min_distance_from_player" % item_field, point_dict.get("min_distance_from_player"), 0.0) and is_valid
 		if point_dict.has("min_spacing"):
 			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.min_spacing" % item_field, point_dict.get("min_spacing"), 0.0) and is_valid
-		var has_reward_payload: bool = point_dict.has("resource_rewards") or point_dict.has("gear_mod_rewards") or bool(point_dict.get("completes_run", false))
+		var completes_run: bool = bool(point_dict.get("completes_run", false))
+		var has_reward_payload: bool = point_dict.has("resource_rewards") or point_dict.has("gear_mod_rewards") or completes_run
 		if point_dict.has("claim_radius") or has_reward_payload:
 			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.claim_radius" % item_field, point_dict.get("claim_radius"), 0.0, null, true) and is_valid
 		if point_dict.has("claim_start_time"):
 			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.claim_start_time" % item_field, point_dict.get("claim_start_time"), 0.0) and is_valid
 		if point_dict.has("completes_run"):
 			is_valid = _require_bool(WARZONE_DIRECTORS_PATH, "%s.completes_run" % item_field, point_dict.get("completes_run")) and is_valid
+		if point_dict.has("extraction_radius") or completes_run:
+			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.extraction_radius" % item_field, point_dict.get("extraction_radius"), 0.0, null, true) and is_valid
+		if point_dict.has("extraction_hold_time") or completes_run:
+			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.extraction_hold_time" % item_field, point_dict.get("extraction_hold_time"), 0.0, null, true) and is_valid
 		if point_dict.has("target_hp"):
 			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.target_hp" % item_field, point_dict.get("target_hp"), 0.0, null, true) and is_valid
 		if point_dict.has("target_hit_radius"):

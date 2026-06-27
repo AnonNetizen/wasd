@@ -671,20 +671,22 @@ wave_standard_mid_bulwarks,mode_standard_survival,4,420.0,9999.0,enemy_bulwark,2
 | `interest_points[].map_layout_id` | string | 可选；非空时必须存在于 `map_layouts.json` | 兴趣点所属地图 layout |
 | `interest_points[].min_distance_from_player` | number | 可选，`>= 0`，px | 运行时摆放时距玩家出生点的额外最小距离；会与 layout `safe_radius` 取较大值 |
 | `interest_points[].min_spacing` | number | 可选，`>= 0`，px | 与已放置机关之间的最小间距；用于把收益点分散到小而密的路线中 |
-| `interest_points[].claim_radius` | number | 可选；有奖励或 `completes_run=true` 时必填且 `> 0`，px | 玩家进入该半径后可领取一次兴趣点奖励；首片由 `GameplayRunLoop` 解释 |
+| `interest_points[].claim_radius` | number | 可选；有奖励或 `completes_run=true` 时必填且 `> 0`，px | 无目标兴趣点中，玩家进入该半径后可领取一次兴趣点奖励；有目标兴趣点由目标摧毁触发领取 |
+| `interest_points[].extraction_radius` | number | 可选；`completes_run=true` 时必填且 `> 0`，px | 小巢核领取后开启撤离区的基础半径；运行时会吸附为贴合 `map_layouts.json.grid` 的菱形范围 |
+| `interest_points[].extraction_hold_time` | number | 可选；`completes_run=true` 时必填且 `> 0`，秒 | 玩家站在撤离区内需要保持的结算读条时间；离开撤离区会重置首版读条进度 |
 | `interest_points[].claim_start_time` | number | 可选，`>= 0`，秒 | 奖励最早可领取时间；使用 `GameClock.now()`，不读取玩家状态 |
 | `interest_points[].target_hp` | number | 可选，`> 0` | 有值时 `GameplayRunLoop` 会生成可被子弹命中的 `InterestPointTarget`，摧毁后触发同一套奖励；目标生成后立即可受伤，无值时仍按进圈领取 |
 | `interest_points[].target_hit_radius` | number | 可选，`> 0`，px | 可伤害目标的命中半径；只在 `target_hp` 存在时使用，视觉 footprint 会向上吸附到地图菱形格整数尺寸 |
-| `interest_points[].resource_rewards[]` | array[object] | 可选，非空；`resource_id` 必须来自 `gear_mod_resources`，`amount >= 1` | 领取时先进入 `run.pending_loot.resources`；击破小巢核或未来撤离成功时才通过 `GearModSystem.grant_resource()` 写入 `meta.gear_mods.resources` |
+| `interest_points[].resource_rewards[]` | array[object] | 可选，非空；`resource_id` 必须来自 `gear_mod_resources`，`amount >= 1` | 领取时先进入 `run.pending_loot.resources`；撤离成功时才通过 `GearModSystem.grant_resource()` 写入 `meta.gear_mods.resources` |
 | `resource_rewards[].resource_id` | string | 必须存在于 `gear_mod_resources` | 当前首片使用 `gear_mod_dust` |
 | `resource_rewards[].amount` | int | `>= 1` | 发放资源数量 |
-| `interest_points[].gear_mod_rewards[]` | array[object] | 可选，非空；`mod_id` 必须存在于 `gear_mods.json`，`count >= 1` | 领取时先进入 `run.pending_loot.gear_mods`；击破小巢核或未来撤离成功时才通过 `GearModSystem.grant_mod()` 写入库存 |
+| `interest_points[].gear_mod_rewards[]` | array[object] | 可选，非空；`mod_id` 必须存在于 `gear_mods.json`，`count >= 1` | 领取时先进入 `run.pending_loot.gear_mods`；撤离成功时才通过 `GearModSystem.grant_mod()` 写入库存 |
 | `gear_mod_rewards[].mod_id` | string | 必须存在于 `gear_mods.json` 且来自 `gear_mod_ids` | 当前首片使用测试武器 Mod |
 | `gear_mod_rewards[].count` | int | `>= 1` | 发放 Mod 实例数量 |
-| `interest_points[].completes_run` | bool | 可选 | 为 `true` 时领取后删除当前 `run` 存档并显示完成结果面板；首片用于小巢核 |
+| `interest_points[].completes_run` | bool | 可选 | 为 `true` 时领取后开启撤离区；撤离读条完成才删除当前 `run` 存档、提交暂存战利品并显示完成结果面板；首片用于小巢核 |
 | `interest_points[].notes` | string | 可选，非空 | 开发者说明；不玩家可见 |
 
-`warzone_directors.json` 是 F10/F12 敌巢战区导演数据源。运行时使用 `phases[].wave_ids` 给 `GameplayRunLoop` 的 Spawner 做阶段 gating；刷怪本身仍由 `spawn_waves.csv` 的时间窗、间隔、预算和同时存活上限决定。F12 标准局按 0-1 分钟投放、1-4 分钟第一收益点、4-7 分钟路线压力、7-9 分钟小巢核、9 分钟后软加压组织；`phase_overtime_collapse` 只表达继续贪局时的高压段，不是硬性强制结束。匹配当前 `map_layout_id` 的 `interest_points[]` 会交给 `MapManager`；有 `target_hp` 的兴趣点先生成独立的格心 target anchor，再把 `hazard_ids[]` 机关放到目标附近并避开该 footprint；无目标兴趣点仍为每个 `hazard_ids[]` 用既有 PCG / 锚点 / 边界规则生成一个初始 `source="director"` placement，并把兴趣点奖励元数据透传给 `GameplayRunLoop`。无 `target_hp` 的兴趣点在玩家进入 `claim_radius` 且达到 `claim_start_time` 后领取；有 `target_hp` 的兴趣点会生成可伤害目标，目标生成后即可被子弹 / Combat 伤害摧毁，摧毁后按通用 `resource_rewards[]` / `gear_mod_rewards[]` 放入 `run.pending_loot` 暂存；`completes_run=true` 的小巢核会提交暂存战利品、删除当前 `run` 存档并显示完成结果面板。领取状态、目标状态和暂存战利品保存到 run payload，旧存档缺失时按未领取 / 无暂存处理。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态；后续若增加随机 mutation、玩家可见主题或更复杂奖励语义，必须先同步 `docs/代码/warzone_director.md`、GDD、ADR、DataLoader schema 和对应 smoke / replay 策略。
+`warzone_directors.json` 是 F10/F12 敌巢战区导演数据源。运行时使用 `phases[].wave_ids` 给 `GameplayRunLoop` 的 Spawner 做阶段 gating；刷怪本身仍由 `spawn_waves.csv` 的时间窗、间隔、预算和同时存活上限决定。F12 标准局按 0-1 分钟投放、1-4 分钟第一收益点、4-7 分钟路线压力、7-9 分钟小巢核、9 分钟后软加压组织；`phase_overtime_collapse` 只表达继续贪局时的高压段，不是硬性强制结束。匹配当前 `map_layout_id` 的 `interest_points[]` 会交给 `MapManager`；有 `target_hp` 的兴趣点先生成独立的格心 target anchor，再把 `hazard_ids[]` 机关放到目标附近并避开该 footprint；无目标兴趣点仍为每个 `hazard_ids[]` 用既有 PCG / 锚点 / 边界规则生成一个初始 `source="director"` placement，并把兴趣点奖励元数据透传给 `GameplayRunLoop`。无 `target_hp` 的兴趣点在玩家进入 `claim_radius` 且达到 `claim_start_time` 后领取；有 `target_hp` 的兴趣点会生成可伤害目标，目标生成后即可被子弹 / Combat 伤害摧毁，摧毁后按通用 `resource_rewards[]` / `gear_mod_rewards[]` 放入 `run.pending_loot` 暂存；`completes_run=true` 的小巢核领取后只开启撤离区，玩家进入贴合地图格的撤离菱形并完成 `extraction_hold_time` 读条后，才提交暂存战利品、删除当前 `run` 存档并显示完成结果面板。领取状态、目标状态、撤离状态和暂存战利品保存到 run payload，旧存档缺失时按未领取 / 未开启撤离 / 无暂存处理。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态；后续若增加随机 mutation、玩家可见主题或更复杂奖励语义，必须先同步 `docs/代码/warzone_director.md`、GDD、ADR、DataLoader schema 和对应 smoke / replay 策略。
 
 ## `characters.json`
 

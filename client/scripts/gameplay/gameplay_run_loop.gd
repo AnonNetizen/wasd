@@ -35,6 +35,10 @@ const WARZONE_DIRECTOR_SCRIPT := preload("res://scripts/gameplay/warzone_directo
 const BULLET_POOL_SIZE: int = 192
 const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 80.0)
 const ENEMY_POOL_SIZE: int = 96
+const EXTRACTION_ZONE_FILL_COLOR: Color = Color(0.18, 0.82, 0.68, 0.16)
+const EXTRACTION_ZONE_PROGRESS_COLOR: Color = Color(0.38, 0.96, 0.78, 0.35)
+const EXTRACTION_ZONE_RING_COLOR: Color = Color(0.38, 0.96, 0.78, 0.92)
+const EXTRACTION_ZONE_RING_WIDTH: float = 4.0
 const FEEDBACK_POOL_SIZE: int = 128
 const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
@@ -51,6 +55,12 @@ var _active_world: Node2D = null
 var _current_level: int = 1
 var _current_xp: int = 0
 var _enemy_rows: Dictionary = {}
+var _extraction_active: bool = false
+var _extraction_hold_time: float = 0.0
+var _extraction_position: Vector2 = Vector2.ZERO
+var _extraction_progress: float = 0.0
+var _extraction_radius: float = 0.0
+var _extraction_source_point_id: String = ""
 var _growth_curve: Array[Dictionary] = []
 var _growth_entries: Array[Dictionary] = []
 var _game_over_panel: CanvasLayer = null
@@ -88,11 +98,38 @@ func _exit_tree() -> void:
 		Combat.damage_applied.disconnect(_on_combat_damage_applied)
 
 
-func _process(_delta: float) -> void:
+func _draw() -> void:
+	if not _extraction_active:
+		return
+	var half_extents: Vector2 = _extraction_half_extents()
+	var zone_points: PackedVector2Array = PackedVector2Array([
+		_extraction_position + Vector2(0.0, -half_extents.y),
+		_extraction_position + Vector2(half_extents.x, 0.0),
+		_extraction_position + Vector2(0.0, half_extents.y),
+		_extraction_position + Vector2(-half_extents.x, 0.0),
+	])
+	draw_colored_polygon(zone_points, EXTRACTION_ZONE_FILL_COLOR)
+	_draw_polygon_outline(zone_points, EXTRACTION_ZONE_RING_COLOR, EXTRACTION_ZONE_RING_WIDTH)
+	var progress_ratio: float = clampf(_extraction_progress / maxf(_extraction_hold_time, 0.001), 0.0, 1.0)
+	if progress_ratio > 0.0:
+		var progress_half_extents: Vector2 = half_extents * progress_ratio
+		var progress_points: PackedVector2Array = PackedVector2Array([
+			_extraction_position + Vector2(0.0, -progress_half_extents.y),
+			_extraction_position + Vector2(progress_half_extents.x, 0.0),
+			_extraction_position + Vector2(0.0, progress_half_extents.y),
+			_extraction_position + Vector2(-progress_half_extents.x, 0.0),
+		])
+		draw_colored_polygon(progress_points, EXTRACTION_ZONE_PROGRESS_COLOR)
+
+
+func _process(delta: float) -> void:
 	_update_stats_panel()
 	if not GameState.is_state(GameState.PLAYING):
 		return
 	_update_interest_points()
+	if not GameState.is_state(GameState.PLAYING):
+		return
+	_update_extraction(delta)
 	if not GameState.is_state(GameState.PLAYING):
 		return
 	_update_spawner()
@@ -144,6 +181,7 @@ func create_run_snapshot() -> Dictionary:
 		"rng": RNG.snapshot(),
 		"map": _map_manager.call("snapshot") if _map_manager != null and _map_manager.has_method("snapshot") else {},
 		"interest_points": _interest_points_snapshot(),
+		"extraction": _extraction_snapshot(),
 		"pending_loot": _pending_loot.duplicate(true),
 		"spawn_states": _spawn_states.duplicate(true),
 		"player": _player.call("snapshot") if _player != null and _player.has_method("snapshot") else {},
@@ -213,6 +251,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_current_xp = 0
 	_kills = 0
 	_pending_loot = _empty_pending_loot()
+	_reset_extraction()
 	_run_completed = false
 
 	_player = _active_world.get_node_or_null("Player") as CharacterBody2D
@@ -339,6 +378,7 @@ func debug_summary() -> Dictionary:
 		"active_enemies": _active_enemy_count(),
 		"active_hazards": PoolManager.active_count(POOL_IDS.HAZARD_SPIKE),
 		"interest_points": _interest_point_debug_summary(),
+		"extraction": _extraction_snapshot(),
 		"pending_loot": _pending_loot.duplicate(true),
 		"map": _map_manager.call("debug_summary") if _map_manager != null and _map_manager.has_method("debug_summary") else {},
 		"skills": _skill_system.call("debug_summary") if _skill_system != null and _skill_system.has_method("debug_summary") else {},
@@ -481,6 +521,44 @@ func debug_damage_interest_point_target(point_id: String, amount: float) -> Dict
 	return debug_result
 
 
+func _update_extraction(delta: float) -> void:
+	if not _extraction_active or _player == null or _run_completed:
+		return
+	if not _is_position_in_extraction_zone(_player.global_position):
+		if _extraction_progress > 0.0:
+			_extraction_progress = 0.0
+			queue_redraw()
+		return
+	_extraction_progress += GameClock.delta_scaled(delta)
+	queue_redraw()
+	if _extraction_progress >= _extraction_hold_time:
+		_complete_run(_extraction_source_point_id)
+
+
+func _activate_extraction(point_id: String, state: Dictionary) -> void:
+	_extraction_active = true
+	_extraction_source_point_id = point_id
+	_extraction_position = _dict_to_vector(state.get("position", {}), Vector2.ZERO)
+	_extraction_radius = maxf(float(state.get("extraction_radius", 0.0)), float(state.get("claim_radius", 0.0)))
+	_extraction_hold_time = maxf(float(state.get("extraction_hold_time", 0.0)), 0.0)
+	_extraction_progress = 0.0
+	if _hud != null and _hud.has_method("show_extraction_feedback"):
+		_hud.call("show_extraction_feedback")
+	queue_redraw()
+	if _extraction_hold_time <= 0.0:
+		_complete_run(point_id)
+
+
+func _reset_extraction() -> void:
+	_extraction_active = false
+	_extraction_source_point_id = ""
+	_extraction_position = Vector2.ZERO
+	_extraction_radius = 0.0
+	_extraction_hold_time = 0.0
+	_extraction_progress = 0.0
+	queue_redraw()
+
+
 func _update_spawner() -> void:
 	var elapsed: float = GameClock.now()
 	for wave: Dictionary in _waves:
@@ -566,6 +644,8 @@ func _new_interest_point_state(point_id: String, placement: Dictionary) -> Dicti
 		"resource_rewards": _typed_dictionary_array(placement.get("interest_point_resource_rewards", [])),
 		"gear_mod_rewards": _typed_dictionary_array(placement.get("interest_point_gear_mod_rewards", [])),
 		"completes_run": bool(placement.get("interest_point_completes_run", false)),
+		"extraction_radius": maxf(float(placement.get("interest_point_extraction_radius", 0.0)), 0.0),
+		"extraction_hold_time": maxf(float(placement.get("interest_point_extraction_hold_time", 0.0)), 0.0),
 		"target_hp": maxf(float(placement.get("interest_point_target_hp", 0.0)), 0.0),
 		"target_hit_radius": maxf(float(placement.get("interest_point_target_hit_radius", 24.0)), 1.0),
 		"target_destroyed": false,
@@ -614,12 +694,13 @@ func _claim_interest_point(point_id: String, force: bool = false) -> Dictionary:
 	_interest_points[point_id] = state
 	_mark_interest_point_target_claimed(point_id)
 	if bool(state.get("completes_run", false)):
-		_complete_run(point_id)
+		_activate_extraction(point_id, state)
 
 	var result: Dictionary = rewards.duplicate(true)
 	result["ok"] = true
 	result["interest_point_id"] = point_id
-	result["completed_run"] = bool(state.get("completes_run", false))
+	result["completed_run"] = false
+	result["extraction_active"] = _extraction_active
 	return result
 
 
@@ -748,6 +829,31 @@ func _map_grid_cell_size() -> Vector2:
 	if _map_manager != null and _map_manager.has_method("grid_cell_size"):
 		return _map_manager.call("grid_cell_size")
 	return DEFAULT_GRID_CELL_SIZE
+
+
+func _extraction_half_extents() -> Vector2:
+	var grid_size: Vector2 = _map_grid_cell_size()
+	var half_width: float = maxf(ceilf(_extraction_radius / maxf(grid_size.x, 1.0)) * grid_size.x, grid_size.x)
+	return Vector2(half_width, half_width * grid_size.y / maxf(grid_size.x, 1.0))
+
+
+func _is_position_in_extraction_zone(world_position: Vector2) -> bool:
+	if not _extraction_active:
+		return false
+	var half_extents: Vector2 = _extraction_half_extents()
+	if half_extents.x <= 0.0 or half_extents.y <= 0.0:
+		return false
+	var offset: Vector2 = world_position - _extraction_position
+	return absf(offset.x) / half_extents.x + absf(offset.y) / half_extents.y <= 1.0
+
+
+func _draw_polygon_outline(points: PackedVector2Array, color: Color, width: float) -> void:
+	if points.size() < 2:
+		return
+	for index: int in range(points.size()):
+		var start_point: Vector2 = points[index]
+		var end_point: Vector2 = points[(index + 1) % points.size()]
+		draw_line(start_point, end_point, color, width)
 
 
 func _reparent_to_active_world(node: Node) -> void:
@@ -933,6 +1039,7 @@ func _complete_run(point_id: String) -> void:
 		return
 	_run_completed = true
 	var settlement: Dictionary = _commit_pending_loot()
+	_reset_extraction()
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	GameState.change_state(GameState.GAME_OVER, {
 		"kills": _kills,
@@ -1102,6 +1209,17 @@ func _interest_points_snapshot() -> Dictionary:
 	return result
 
 
+func _extraction_snapshot() -> Dictionary:
+	return {
+		"active": _extraction_active,
+		"source_point_id": _extraction_source_point_id,
+		"position": _vector_to_dict(_extraction_position),
+		"radius": _extraction_radius,
+		"hold_time": _extraction_hold_time,
+		"progress": _extraction_progress,
+	}
+
+
 func _interest_point_debug_summary() -> Dictionary:
 	var result: Dictionary = {}
 	for point_key: Variant in _interest_points.keys():
@@ -1115,6 +1233,8 @@ func _interest_point_debug_summary() -> Dictionary:
 			"claimed": bool(state.get("claimed", false)),
 			"claimed_time": float(state.get("claimed_time", 0.0)),
 			"completes_run": bool(state.get("completes_run", false)),
+			"extraction_radius": float(state.get("extraction_radius", 0.0)),
+			"extraction_hold_time": float(state.get("extraction_hold_time", 0.0)),
 			"target_hp": float(state.get("target_hp", 0.0)),
 			"target_destroyed": bool(state.get("target_destroyed", false)),
 			"resource_reward_count": _typed_dictionary_array(state.get("resource_rewards", [])).size(),
@@ -1172,6 +1292,7 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> void:
 		_configure_interest_points(_typed_dictionary_array(_map_manager.call("hazard_placements")))
 	_restore_interest_points(snapshot_data.get("interest_points", {}))
 	_restore_pending_loot(snapshot_data.get("pending_loot", {}))
+	_restore_extraction(snapshot_data.get("extraction", {}))
 	_spawn_interest_point_targets()
 	_restore_enemy_snapshots(_array_or_empty(snapshot_data.get("enemies", [])))
 	_restore_bullet_snapshots(_array_or_empty(snapshot_data.get("bullets", [])))
@@ -1221,6 +1342,20 @@ func _restore_pending_loot(raw_value: Variant) -> void:
 		if mod_id.is_empty():
 			continue
 		_add_pending_mod(mod_id, String(entry.get("name_key", _gear_mod_name_key(mod_id))))
+
+
+func _restore_extraction(raw_value: Variant) -> void:
+	var saved_state: Dictionary = _dictionary_or_empty(raw_value)
+	if saved_state.is_empty() or not bool(saved_state.get("active", false)):
+		_reset_extraction()
+		return
+	_extraction_active = true
+	_extraction_source_point_id = String(saved_state.get("source_point_id", ""))
+	_extraction_position = _dict_to_vector(saved_state.get("position", {}), Vector2.ZERO)
+	_extraction_radius = maxf(float(saved_state.get("radius", 0.0)), 0.0)
+	_extraction_hold_time = maxf(float(saved_state.get("hold_time", 0.0)), 0.0)
+	_extraction_progress = clampf(float(saved_state.get("progress", 0.0)), 0.0, _extraction_hold_time)
+	queue_redraw()
 
 
 func _empty_pending_loot() -> Dictionary:

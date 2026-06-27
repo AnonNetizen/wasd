@@ -1653,16 +1653,41 @@ func _expect_minor_nest_core_completion(run_loop: Node) -> void:
 	_expect(run_loop.has_method("debug_damage_interest_point_target"), "runtime should expose minor nest core target damage hook")
 	if not run_loop.has_method("debug_damage_interest_point_target"):
 		return
+	var player: Node2D = _find_node_by_name(run_loop, "Player") as Node2D
+	_expect(player != null, "minor nest core completion smoke should find the player")
+	if player == null:
+		return
 	var inventory_before: int = _gear_mod_inventory_count()
 	var dust_before: int = _gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST)
 	var core_damage: Dictionary = run_loop.call("debug_damage_interest_point_target", "poi_minor_nest_core", 9999.0) as Dictionary
 	_expect(bool(core_damage.get("ok", false)), "minor nest core target damage should apply")
-	_expect(GameState.is_state(GameState.GAME_OVER), "minor nest core completion should freeze gameplay in GAME_OVER state")
-	_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "minor nest core completion should consume the active run save")
+	_expect(GameState.is_state(GameState.PLAYING), "minor nest core destruction should keep gameplay active until extraction")
+	_expect(_gear_mod_inventory_count() == inventory_before, "minor nest core should keep Gear Mod loot pending before extraction")
+	_expect(
+		_gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST) == dust_before,
+		"minor nest core should keep dust pending before extraction"
+	)
+	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
+	var extraction: Dictionary = summary.get("extraction", {}) as Dictionary
+	_expect(bool(extraction.get("active", false)), "minor nest core destruction should activate extraction")
+	_expect(String(extraction.get("source_point_id", "")) == "poi_minor_nest_core", "extraction should remember the core source point")
+	var run_snapshot: Dictionary = run_loop.call("create_run_snapshot") as Dictionary
+	var saved_extraction: Dictionary = run_snapshot.get("extraction", {}) as Dictionary
+	_expect(bool(saved_extraction.get("active", false)), "active extraction should enter the run snapshot")
+	_expect(
+		String(saved_extraction.get("source_point_id", "")) == "poi_minor_nest_core",
+		"run snapshot should remember the extraction source point"
+	)
+	var extraction_position: Dictionary = extraction.get("position", {}) as Dictionary
+	player.global_position = Vector2(float(extraction_position.get("x", 0.0)), float(extraction_position.get("y", 0.0)))
+	var hold_time: float = float(extraction.get("hold_time", 0.0))
+	await get_tree().create_timer(maxf(hold_time + 0.35, 0.1)).timeout
+	_expect(GameState.is_state(GameState.GAME_OVER), "standing in extraction should freeze gameplay in GAME_OVER state")
+	_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "extraction completion should consume the active run save")
 	_expect(_gear_mod_inventory_count() >= inventory_before + 1, "minor nest core should grant a Gear Mod")
 	_expect(
 		_gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST) >= dust_before + 60,
-		"minor nest core should grant gear mod dust"
+		"minor nest core extraction should grant gear mod dust"
 	)
 
 
