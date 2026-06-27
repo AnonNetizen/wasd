@@ -6,6 +6,7 @@ const ACTION_MOVE_FORWARD: String = "lab_move_forward"
 const ACTION_MOVE_LEFT: String = "lab_move_left"
 const ACTION_MOVE_RIGHT: String = "lab_move_right"
 const MOVE_SPEED: float = 4.0
+const MOUSE_AIM_DEADZONE: float = 0.08
 const PLAYER_BOUNDS: float = 5.5
 const SCREEN_AXIS_SAMPLE_OFFSET: float = 64.0
 
@@ -25,6 +26,7 @@ func _process(delta: float) -> void:
 		_return_to_index()
 		return
 	_update_player(delta)
+	_update_mouse_aim()
 
 
 func _ensure_input_actions() -> void:
@@ -59,7 +61,18 @@ func _update_player(delta: float) -> void:
 	_player_root.position += movement
 	_player_root.position.x = clampf(_player_root.position.x, -PLAYER_BOUNDS, PLAYER_BOUNDS)
 	_player_root.position.z = clampf(_player_root.position.z, -PLAYER_BOUNDS, PLAYER_BOUNDS)
-	_player_root.rotation.y = atan2(-movement_direction.x, -movement_direction.z)
+
+
+func _update_mouse_aim() -> void:
+	if _player_root == null:
+		return
+	var mouse_ground := _ground_point_from_screen(get_viewport().get_mouse_position())
+	var raw_aim := mouse_ground - _player_root.global_position
+	var aim_direction := Vector3(raw_aim.x, 0.0, raw_aim.z)
+	if aim_direction.length_squared() <= MOUSE_AIM_DEADZONE * MOUSE_AIM_DEADZONE:
+		return
+	aim_direction = aim_direction.normalized()
+	_player_root.rotation.y = atan2(-aim_direction.x, -aim_direction.z)
 
 
 func _return_to_index() -> void:
