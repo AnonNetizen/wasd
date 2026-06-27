@@ -62,7 +62,7 @@ func _run() -> void:
 		_finish()
 		return
 	_expect(player is CharacterBody2D, "Player should keep 2D CharacterBody2D movement")
-	_expect(_find_node_by_name(player, "Player3DVisual") != null, "Player should mount the 3D visual child")
+	_expect(_find_node_by_name(player, "Player3DVisual") == null, "Player should use the top-down 2D placeholder instead of a 3D orthographic visual child")
 
 	await _expect_stats_panel_hold_to_show(run_loop)
 
@@ -73,11 +73,7 @@ func _run() -> void:
 		_expect(absf(camera.rotation_degrees) < 0.01, "CenteredCamera should not roll the viewport")
 		_expect(is_equal_approx(camera.zoom.x, camera.zoom.y), "CenteredCamera should keep uniform zoom so screen-space movement matches 2D math")
 	_expect_camera_preserves_screen_axis_scale(player)
-	var visual_camera: Camera3D = _find_node_by_name(player, "Camera3D") as Camera3D
-	_expect(visual_camera != null, "Player3DVisual should keep an internal Camera3D")
-	if visual_camera != null:
-		_expect(visual_camera.projection == Camera3D.PROJECTION_ORTHOGONAL, "Player3DVisual should use an orthogonal 3D camera")
-		_expect(visual_camera.rotation_degrees.x < -25.0, "Player3DVisual should use a clear three-quarter top-down camera angle")
+	_expect(_find_node_by_name(player, "Camera3D") == null, "Player should not rely on an internal Camera3D for the formal top-down view")
 	await _expect_mouse_aim_uses_canvas_transform(player)
 	_expect(_find_node_by_name(run_loop, "WorldBackground") != null, "WorldBackground should provide movement reference")
 	_expect(_find_node_by_name(run_loop, "MapManager") != null, "finite MapManager should be mounted")
@@ -120,7 +116,7 @@ func _run() -> void:
 	var mouse_aim: Vector2 = player.get("aim_direction")
 	_expect(mouse_aim.x > 0.75 and mouse_aim.y < -0.25, "mouse aim should support diagonal mouse direction")
 	_expect(absf(mouse_aim.x) < 0.98 and absf(mouse_aim.y) > 0.1, "mouse aim should not snap back to four directions")
-	_expect(_player_3d_visual_tracks_aim_direction(player, mouse_aim), "Player3DVisual should rotate toward full aim direction")
+	_expect(_player_top_down_visual_tracks_aim_direction(player, mouse_aim), "top-down player placeholder should expose full aim direction")
 	_expect(_interest_point_caches_use_ground_layer(run_loop, player), "interest point caches should render on the ground layer below actors")
 
 	var isolated_player: Node2D = PLAYER_SCENE.instantiate() as Node2D
@@ -545,19 +541,13 @@ func _interest_point_caches_avoid_hazards(run_loop: Node) -> bool:
 	return saw_cache
 
 
-func _player_3d_visual_tracks_aim_direction(player: Node2D, expected_direction: Vector2) -> bool:
-	var visual: Node = _find_node_by_name(player, "Player3DVisual")
-	if visual == null or not visual.has_method("facing_direction"):
-		return false
-	var actual_direction: Vector2 = visual.call("facing_direction") as Vector2
+func _player_top_down_visual_tracks_aim_direction(player: Node2D, expected_direction: Vector2) -> bool:
+	var actual_direction: Vector2 = player.get("aim_direction")
 	return actual_direction.distance_to(expected_direction.normalized()) <= 0.01
 
 
 func _interest_point_caches_use_ground_layer(run_loop: Node, player: Node2D) -> bool:
 	var map_manager: CanvasItem = _find_node_by_name(run_loop, "MapManager") as CanvasItem
-	var visual_sprite: CanvasItem = _find_node_by_name(player, "VisualSprite") as CanvasItem
-	if visual_sprite == null:
-		return false
 	var saw_cache: bool = false
 	for cache: Node in get_tree().get_nodes_in_group("active_interest_point_caches"):
 		if not cache is CanvasItem or not _is_descendant_of(cache, run_loop):
@@ -568,7 +558,7 @@ func _interest_point_caches_use_ground_layer(run_loop: Node, player: Node2D) -> 
 			return false
 		if cache_item.z_index >= 0:
 			return false
-		if cache_item.z_index >= visual_sprite.z_index:
+		if cache_item.z_index >= player.z_index:
 			return false
 	return saw_cache
 

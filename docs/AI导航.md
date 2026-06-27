@@ -8,7 +8,7 @@
 ---
 
 ## 1. 项目是什么
-固定斜俯视 2.5D 射击刷宝生存游戏（灵感：手动按住开火的俯视射击身份 + 《星际战甲》与《暗黑》的刷装备 / 刷词条长期追求 + 《哈迪斯》的斜俯视舞台可读性 + 开放有限大地图生存压力 + 《以撒的结合》的道具 / 机关 / 构筑组合）。项目保留局内随机奖励和单局构筑变化，但核心操作是移动、瞄准和按住 `fire` action 持续射击；玩法判定仍在 2D 平面内，当前 `Camera2D` 保持水平居中和等比缩放，斜俯视观感由舞台地面、资产落地点 / 阴影、障碍物、遮挡层级与 2.5D 角色视觉承担。
+俯视角射击刷宝生存游戏（灵感：手动按住开火的俯视射击身份 + 《星际战甲》与《暗黑》的刷装备 / 刷词条长期追求 + 开放有限大地图生存压力 + 《以撒的结合》的道具 / 机关 / 构筑组合）。项目保留局内随机奖励和单局构筑变化，但核心操作是移动、瞄准和按住 `fire` action 持续射击；玩法判定与显示都以 2D 平面为准，当前 `Camera2D` 保持水平居中和等比缩放，不再用 `Camera3D` 正交渲染层、低模 3D 视觉或相机变形模拟斜俯视。菱形地图格、菱形边界和菱形机关只作为地图 / 危险区的玩法度量。
 - 引擎：**Godot 4.7 + GDScript**
 - IP 方向：**《破巢者》**（英文暂定 `Nestbreakers`）——未知原因导致其他宇宙与本宇宙的通道突然打开，银河系星际文明被打散，首都星域仍能组织反击；多英雄主动突入敌方“巢”，在怪潮中夺取遗物、升级构筑并尝试打穿巢核、切断通道或削弱敌方源头；“巢”泛指敌方核心据点 / 生产源头 / 通道锚点 / 意志中枢，不限定为虫巢。
 - 核心理念：**数据驱动 + 扩展优先 + 模式友好资源复用 + 未来多人友好边界 + 框架级基础设施（本地化 / 设置 / 数据埋点）+ AI 易扩展**
@@ -207,7 +207,7 @@
 
 > 有限地图可见边界和逻辑边界当前都由 `MapManager.boundary_points()` / `boundary_half_extents()` 定义为贴住格线的菱形；玩家和敌人中心点由 `set_movement_diamond_boundary()` 约束。排查敌人越界时先看 `GameplayRunLoop._apply_enemy_movement_bounds()`、`Enemy.set_movement_diamond_boundary()` 与 `runtime-smoke` 的敌人边界断言。
 
-> F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射。当前正式视角为固定斜俯视 2.5D：`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放，不滚转整个 2D 画面，也不压缩某个轴；鼠标瞄准会把屏幕偏移按当前 canvas transform 换算回世界方向；`Player` 仍是 `CharacterBody2D` 并按 2D 平面移动，表现层通过 `Player3DVisual` 显示低模 3D 胶囊并按完整瞄准方向 360 度旋转，斜俯视感后续由哈迪斯式舞台地面、障碍物、遮挡层级和敌人 / 场景视觉层承担。敌人占位表现仍暂时只做左 / 右两种朝向。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
+> F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射。ADR #124 后当前正式视角改回俯视角 2D：`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放，不滚转整个 2D 画面，也不压缩某个轴；鼠标瞄准会把屏幕偏移按当前 canvas transform 换算回世界方向；`Player` 仍是 `CharacterBody2D` 并按 2D 平面移动，正式玩家场景不再挂 `Player3DVisual`，默认 2D 占位按完整 `aim_direction` 绘制朝向标记。敌人占位表现仍暂时只做左 / 右两种朝向。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
 
 ### 5.2 系统依赖图（Mermaid，AI 改动前先看影响范围）
 
@@ -334,7 +334,7 @@ flowchart LR
 - ❌ 业务系统直接读取 `user://mods`、执行玩家脚本或让 mod 扩展核心契约（mod 必须走 `ModLoader` + `DataLoader` 声明式数据 patch）
 - ❌ 业务系统直接调用 Steamworks / GodotSteam / 平台 SDK（Steam 成就、状态显示、overlay、Lobby / 邀请和其他平台能力必须走 `PlatformServices`）
 - ❌ 手改 `client/scripts/contracts/*.gd`（自动生成，改 `docs/词表与契约.md` + 跑 `tools/sync_contracts.py`）
-- ❌ 把菱形机关误扩展成“所有美术资产都必须菱形”；只有贴地范围优先用菱形，角色 / 敌人 / 拾取 / 子弹 / 障碍 / 特效靠落地点、阴影、遮挡和排序统一斜俯视读法
+- ❌ 把菱形机关误扩展成“所有美术资产都必须菱形”；菱形只服务地图格、边界、机关危险区和贴地范围，角色 / 敌人 / 拾取 / 子弹 / 障碍 / 特效靠俯视轮廓、方向标记、功能色和真实判定形状保持读法
 - ❌ 改了数据 / 文案 / 词表却不跑 `tools/validate_data.py`、`tools/lint_project_rules.py` 或 `tools/sync_contracts.py --check`；改 DataLoader schema 却不跑 `tools/test_data_loader_schema.py`
 - ⚠️ 改正式 GDScript 后忽略 `tools/lint_semantic_rules.py` 的 advisory warning；第三档不阻塞 CI，但提示需要人工判断的语义风险
 - ❌ review 时跳过 lint / test / docs check 输出，直接让 LLM 全仓“感觉一下”规则是否符合；正式 review 必须先工具后 diff

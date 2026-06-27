@@ -36,7 +36,6 @@ const REPLAY_STATE_ACTIONS: Array[String] = [
 var aim_direction: Vector2 = Vector2.RIGHT
 var _base_stats: Dictionary = {}
 var _damage_invulnerability_duration: float = 0.0
-var _facing_sign: float = 1.0
 var _hit_flash_remaining: float = 0.0
 var _has_movement_bounds: bool = false
 var _has_movement_diamond_boundary: bool = false
@@ -59,19 +58,17 @@ var _replay_action_pressed: Dictionary = {}
 var _stat_additions: Dictionary = {}
 var _stat_multipliers: Dictionary = {}
 var _status_effect_component: Node = null
-var _visual_3d: Node = null
 
 
 func _ready() -> void:
 	_ensure_status_effect_component()
-	_visual_3d = get_node_or_null("Player3DVisual")
 
 	var camera: Camera2D = get_node_or_null("CenteredCamera") as Camera2D
 	if camera == null:
 		push_error("[Player] missing CenteredCamera scene node")
 		return
 	_configure_camera(camera)
-	_sync_visual_state()
+	queue_redraw()
 
 
 func _input(event: InputEvent) -> void:
@@ -334,25 +331,25 @@ func receive_damage(info: RefCounted) -> Dictionary:
 
 
 func _draw() -> void:
-	if _visual_3d != null:
-		return
 	var body_color: Color = PLACEHOLDER_HURT_COLOR if _hit_flash_remaining > 0.0 else PLACEHOLDER_FILL_COLOR
-	var marker_tip: Vector2 = Vector2(FACING_MARKER_LENGTH * _facing_sign, 0.0)
-	var marker_tail: Vector2 = marker_tip - Vector2(8.0 * _facing_sign, 0.0)
+	var facing_direction: Vector2 = aim_direction.normalized()
+	var marker_tip: Vector2 = facing_direction * FACING_MARKER_LENGTH
+	var marker_tail: Vector2 = marker_tip - facing_direction * 8.0
+	var marker_side: Vector2 = facing_direction.orthogonal() * 5.0
+	var eye_offset: Vector2 = facing_direction * DRAW_RADIUS * 0.38 + marker_side * 0.25
 	draw_circle(Vector2.ZERO, DRAW_RADIUS * PLACEHOLDER_OUTLINE_SCALE, PLACEHOLDER_OUTLINE_COLOR)
 	draw_circle(Vector2.ZERO, DRAW_RADIUS, body_color)
-	draw_circle(Vector2(DRAW_RADIUS * 0.35 * _facing_sign, -3.5), 2.0, Color.WHITE)
+	draw_circle(eye_offset, 2.0, Color.WHITE)
 	draw_line(Vector2.ZERO, marker_tip, Color.WHITE, 3.0)
 	draw_colored_polygon(PackedVector2Array([
 		marker_tip,
-		marker_tail + Vector2(0.0, 5.0),
-		marker_tail - Vector2(0.0, 5.0),
+		marker_tail + marker_side,
+		marker_tail - marker_side,
 	]), Color.WHITE)
 
 
 func _start_hit_flash() -> void:
 	_hit_flash_remaining = HIT_FLASH_DURATION
-	_sync_visual_state()
 	queue_redraw()
 
 
@@ -364,7 +361,6 @@ func _update_hit_flash(delta: float) -> void:
 	if _hit_flash_remaining <= 0.0:
 		return
 	_hit_flash_remaining = maxf(_hit_flash_remaining - delta, 0.0)
-	_sync_visual_state()
 	queue_redraw()
 
 
@@ -421,26 +417,9 @@ func _set_aim_direction(raw_direction: Vector2) -> void:
 
 	var next_direction: Vector2 = raw_direction.normalized()
 	var previous_direction: Vector2 = aim_direction
-	var previous_facing_sign: float = _facing_sign
 	aim_direction = next_direction
-	if next_direction.x > 0.01:
-		_facing_sign = 1.0
-	elif next_direction.x < -0.01:
-		_facing_sign = -1.0
-	if previous_direction.distance_squared_to(aim_direction) > 0.0001 or not is_equal_approx(previous_facing_sign, _facing_sign):
-		_sync_visual_state()
+	if previous_direction.distance_squared_to(aim_direction) > 0.0001:
 		queue_redraw()
-
-
-func _sync_visual_state() -> void:
-	if _visual_3d == null:
-		return
-	if _visual_3d.has_method("set_facing_direction"):
-		_visual_3d.call("set_facing_direction", aim_direction)
-	elif _visual_3d.has_method("set_facing_sign"):
-		_visual_3d.call("set_facing_sign", _facing_sign)
-	if _visual_3d.has_method("set_hit_flash_active"):
-		_visual_3d.call("set_hit_flash_active", _hit_flash_remaining > 0.0)
 
 
 func _configure_camera(camera: Camera2D) -> void:
