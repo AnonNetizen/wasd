@@ -94,6 +94,8 @@
           "min_spacing": 360.0,
           "claim_radius": 190.0,
           "claim_start_time": 60.0,
+          "target_hp": 120.0,
+          "target_hit_radius": 36.0,
           "resource_rewards": [
             {
               "resource_id": "gear_mod_dust",
@@ -111,6 +113,8 @@
           "min_spacing": 360.0,
           "claim_radius": 180.0,
           "claim_start_time": 240.0,
+          "target_hp": 90.0,
+          "target_hit_radius": 32.0,
           "gear_mod_rewards": [
             {
               "mod_id": "gear_mod_weapon_damage_test",
@@ -145,6 +149,8 @@
           "min_spacing": 420.0,
           "claim_radius": 220.0,
           "claim_start_time": 420.0,
+          "target_hp": 240.0,
+          "target_hit_radius": 48.0,
           "resource_rewards": [
             {
               "resource_id": "gear_mod_dust",

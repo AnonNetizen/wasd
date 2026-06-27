@@ -395,6 +395,8 @@ func _copy_interest_point_metadata(point: Dictionary, placement: Dictionary) -> 
 		"resource_rewards",
 		"gear_mod_rewards",
 		"completes_run",
+		"target_hp",
+		"target_hit_radius",
 	]:
 		if point.has(key):
 			placement["interest_point_%s" % key] = point.get(key)

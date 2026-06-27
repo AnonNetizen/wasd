@@ -1611,6 +1611,10 @@ func _validate_warzone_interest_points(field: String, data: Variant, hazard_ids:
 			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.claim_start_time" % item_field, point_dict.get("claim_start_time"), 0.0) and is_valid
 		if point_dict.has("completes_run"):
 			is_valid = _require_bool(WARZONE_DIRECTORS_PATH, "%s.completes_run" % item_field, point_dict.get("completes_run")) and is_valid
+		if point_dict.has("target_hp"):
+			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.target_hp" % item_field, point_dict.get("target_hp"), 0.0, null, true) and is_valid
+		if point_dict.has("target_hit_radius"):
+			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.target_hit_radius" % item_field, point_dict.get("target_hit_radius"), 0.0, null, true) and is_valid
 		if point_dict.has("resource_rewards"):
 			is_valid = _validate_warzone_resource_rewards("%s.resource_rewards" % item_field, point_dict.get("resource_rewards")) and is_valid
 		if point_dict.has("gear_mod_rewards"):

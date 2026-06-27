@@ -410,6 +410,14 @@ def main() -> int:
             ],
         ),
         (
+            "warzone interest point target hp must be positive",
+            _mutate_json("client/data/warzone_directors.json", _set_warzone_interest_point_target_hp(0)),
+            [
+                "client/data/warzone_directors.json:directors[0].interest_points[0].target_hp",
+                "must be > 0",
+            ],
+        ),
+        (
             "relic must include relic tag",
             _mutate_json("client/data/relics.json", _set_relic_tags([])),
             [
@@ -777,6 +785,13 @@ def _set_warzone_resource_reward(value: str) -> JsonMutator:
 def _set_warzone_gear_mod_reward(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["directors"][0]["interest_points"][0]["gear_mod_rewards"] = [{"mod_id": value, "count": 1}]
+
+    return mutate
+
+
+def _set_warzone_interest_point_target_hp(value: int) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["directors"][0]["interest_points"][0]["target_hp"] = value
 
     return mutate
 

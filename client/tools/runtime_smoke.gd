@@ -1047,6 +1047,9 @@ func _expect_interest_point_rewards(run_loop: Node) -> void:
 	_expect(run_loop.has_method("debug_claim_interest_point"), "runtime should expose a smoke hook for interest point claims")
 	if not run_loop.has_method("debug_claim_interest_point"):
 		return
+	_expect(run_loop.has_method("debug_damage_interest_point_target"), "runtime should expose a smoke hook for interest point target damage")
+	if not run_loop.has_method("debug_damage_interest_point_target"):
+		return
 
 	var dust_before: int = _gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST)
 	var resource_claim: Dictionary = run_loop.call("debug_claim_interest_point", "poi_resource_cache") as Dictionary
@@ -1064,8 +1067,8 @@ func _expect_interest_point_rewards(run_loop: Node) -> void:
 	)
 
 	var inventory_before: int = _gear_mod_inventory_count()
-	var mod_claim: Dictionary = run_loop.call("debug_claim_interest_point", "poi_mod_cache") as Dictionary
-	_expect(bool(mod_claim.get("ok", false)), "mod cache claim should grant its reward")
+	var mod_damage: Dictionary = run_loop.call("debug_damage_interest_point_target", "poi_mod_cache", 9999.0) as Dictionary
+	_expect(bool(mod_damage.get("ok", false)), "destroying mod cache target should apply damage")
 	_expect(_gear_mod_inventory_count() >= inventory_before + 1, "mod cache should add a Gear Mod instance")
 	_expect(
 		hud != null
@@ -1537,14 +1540,13 @@ func _expect_game_over_buttons(game_over_panel: Node) -> void:
 
 
 func _expect_minor_nest_core_completion(run_loop: Node) -> void:
-	_expect(run_loop.has_method("debug_claim_interest_point"), "runtime should expose minor nest core claim hook")
-	if not run_loop.has_method("debug_claim_interest_point"):
+	_expect(run_loop.has_method("debug_damage_interest_point_target"), "runtime should expose minor nest core target damage hook")
+	if not run_loop.has_method("debug_damage_interest_point_target"):
 		return
 	var inventory_before: int = _gear_mod_inventory_count()
 	var dust_before: int = _gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST)
-	var core_claim: Dictionary = run_loop.call("debug_claim_interest_point", "poi_minor_nest_core") as Dictionary
-	_expect(bool(core_claim.get("ok", false)), "minor nest core claim should succeed")
-	_expect(bool(core_claim.get("completed_run", false)), "minor nest core claim should complete the run")
+	var core_damage: Dictionary = run_loop.call("debug_damage_interest_point_target", "poi_minor_nest_core", 9999.0) as Dictionary
+	_expect(bool(core_damage.get("ok", false)), "minor nest core target damage should apply")
 	_expect(GameState.is_state(GameState.GAME_OVER), "minor nest core completion should freeze gameplay in GAME_OVER state")
 	_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "minor nest core completion should consume the active run save")
 	_expect(_gear_mod_inventory_count() >= inventory_before + 1, "minor nest core should grant a Gear Mod")

@@ -1411,6 +1411,10 @@ def _validate_warzone_interest_points(
             _require_number(ctx, path, f"{item_field}.claim_start_time", point.get("claim_start_time"), minimum=0)
         if "completes_run" in point:
             _require_bool(ctx, path, f"{item_field}.completes_run", point.get("completes_run"))
+        if "target_hp" in point:
+            _require_number(ctx, path, f"{item_field}.target_hp", point.get("target_hp"), minimum=0, exclusive_minimum=True)
+        if "target_hit_radius" in point:
+            _require_number(ctx, path, f"{item_field}.target_hit_radius", point.get("target_hit_radius"), minimum=0, exclusive_minimum=True)
         if "resource_rewards" in point:
             _validate_warzone_resource_rewards(ctx, path, f"{item_field}.resource_rewards", point.get("resource_rewards"))
         if "gear_mod_rewards" in point:

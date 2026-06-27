@@ -10,6 +10,7 @@ const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const PLACEHOLDER_FILL_COLOR: Color = Color(1.0, 0.92, 0.35)
 const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
 const PLACEHOLDER_OUTLINE_SCALE: float = 1.45
+const DAMAGE_TARGET_GROUPS: Array[String] = ["active_enemies", "active_interest_point_targets"]
 
 var _damage: float = 0.0
 var _damage_type: String = ""
@@ -40,7 +41,7 @@ func _physics_process(delta: float) -> void:
 		PoolManager.release(self)
 		return
 
-	_check_enemy_hits()
+	_check_damage_target_hits()
 
 
 func configure(stats: Dictionary, projectile: Dictionary, direction: Vector2, source: Node) -> void:
@@ -113,26 +114,33 @@ func _draw() -> void:
 	draw_circle(Vector2.ZERO, radius, PLACEHOLDER_FILL_COLOR)
 
 
-func _check_enemy_hits() -> void:
-	for raw_enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
-		if not raw_enemy is Node2D or not raw_enemy.has_method("is_alive") or not raw_enemy.has_method("hit_radius"):
-			continue
-		if not bool(raw_enemy.call("is_alive")):
-			continue
-		var instance_id: int = raw_enemy.get_instance_id()
-		if _hit_targets.has(instance_id):
-			continue
-		var enemy: Node2D = raw_enemy as Node2D
-		if global_position.distance_to(enemy.global_position) > _hit_radius + float(raw_enemy.call("hit_radius")):
-			continue
+func _check_damage_target_hits() -> void:
+	for group_name: String in DAMAGE_TARGET_GROUPS:
+		for raw_target: Node in get_tree().get_nodes_in_group(group_name):
+			if _try_hit_damage_target(raw_target):
+				return
 
-		_hit_targets[instance_id] = true
-		var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(_damage, _damage_type, _source, enemy, "team_player", "team_enemy")
-		Combat.apply_damage(enemy, info)
-		if _pierce_remaining <= 0:
-			PoolManager.release(self)
-			return
-		_pierce_remaining -= 1
+
+func _try_hit_damage_target(raw_target: Node) -> bool:
+	if not raw_target is Node2D or not raw_target.has_method("is_alive") or not raw_target.has_method("hit_radius"):
+		return false
+	if not bool(raw_target.call("is_alive")):
+		return false
+	var instance_id: int = raw_target.get_instance_id()
+	if _hit_targets.has(instance_id):
+		return false
+	var target: Node2D = raw_target as Node2D
+	if global_position.distance_to(target.global_position) > _hit_radius + float(raw_target.call("hit_radius")):
+		return false
+
+	_hit_targets[instance_id] = true
+	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(_damage, _damage_type, _source, target, "team_player", "team_enemy")
+	Combat.apply_damage(target, info)
+	if _pierce_remaining <= 0:
+		PoolManager.release(self)
+		return true
+	_pierce_remaining -= 1
+	return false
 
 
 func _vector_to_dict(value: Vector2) -> Dictionary:

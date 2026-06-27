@@ -115,7 +115,7 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 
 `data_hash` 使用稳定序列化：字典按 key 排序，数组按原顺序，数字做整数 / 浮点规范化。写入前会先把 payload 通过 JSON stringify / parse 归一化，再基于归一化 payload 计算 hash 和落盘，避免高精度浮点或 JSON 读回后 `3` / `3.0` 类型差异造成误报。
 
-F5/F9/F12 的 run payload 当前包含：schema version、模式 / 角色 id、等级、累计经验、击杀数、`GameClock` 快照、`RNG` 快照、有限地图状态、刷怪状态、玩家状态、武器状态、技能状态、活跃敌人、活跃子弹、活跃机关、活跃经验球、可选 `interest_points` 领取状态和 `ui_restore`。`map` / `hazards` / `interest_points` 只由玩法运行时解释，用于恢复有限边界、PCG / 人工 / director 机关摆放、机关冷却、激活表现和兴趣点一次性奖励 claimed 状态；`ui_restore` 当前用于区分普通游玩、暂停菜单和升级选择面板。旧 payload 缺失 `ui_restore` 或 `interest_points` 时由运行时按普通游玩和未领取兴趣点处理。`RNG` seed/state 这类可能超过 JSON 安全整数精度的值必须以字符串保存。
+F5/F9/F12 的 run payload 当前包含：schema version、模式 / 角色 id、等级、累计经验、击杀数、`GameClock` 快照、`RNG` 快照、有限地图状态、刷怪状态、玩家状态、武器状态、技能状态、活跃敌人、活跃子弹、活跃机关、活跃经验球、可选 `interest_points` 领取 / 目标状态和 `ui_restore`。`map` / `hazards` / `interest_points` 只由玩法运行时解释，用于恢复有限边界、PCG / 人工 / director 机关摆放、机关冷却、激活表现、兴趣点一次性奖励 claimed 状态和可伤害目标生命 / 摧毁状态；`ui_restore` 当前用于区分普通游玩、暂停菜单和升级选择面板。旧 payload 缺失 `ui_restore` 或 `interest_points` 时由运行时按普通游玩和未领取 / 未摧毁兴趣点处理。`RNG` seed/state 这类可能超过 JSON 安全整数精度的值必须以字符串保存。
 
 `run` kind version 2 会在 `SaveManager` 层为 v1 旧 envelope 补齐缺失的结构字段：`schema_version`、`spawn_states`、`player`、`weapon`、`game_clock`、`rng`、`map`、`enemies`、`bullets`、`hazards`、`pickups`。这样早期 F5 run 存档即使缺少可选数组 / 字典，也能加载为结构完整的 payload 后交给 runtime 恢复；旧档没有机关快照时由 runtime 按当前 layout 重新生成。
 

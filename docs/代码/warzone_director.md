@@ -47,6 +47,7 @@
 - `interest_points[].map_layout_id` 必须存在于 `map_layouts.json`。
 - `interest_points[].min_distance_from_player` / `min_spacing` 为可选摆放约束，由 `MapManager` 解释；首片用它们把精英巢点、Mod 缓存、资源缓存和小巢核分散到战区中。
 - `interest_points[].claim_radius` / `claim_start_time` 为 F12 领取约束，由 `GameplayRunLoop` 解释；有奖励或 `completes_run=true` 时必须提供正数 `claim_radius`。
+- `interest_points[].target_hp` / `target_hit_radius` 为可选可伤害目标数值；存在 `target_hp` 时运行时生成 `InterestPointTarget`，目标达到 `claim_start_time` 后可被子弹 / `Combat` 摧毁并触发同一套奖励。
 - `interest_points[].resource_rewards[]` 必须引用 `gear_mod_resources`；`gear_mod_rewards[]` 必须引用 `gear_mods.json` 中存在的 `gear_mod_ids`；领取时分别走 `GearModSystem.grant_resource()` 与 `grant_mod()`。
 - `interest_points[].completes_run` 为可选 bool；为 `true` 时领取后进入完成结果面板，并删除当前 `run` 存档。
 
@@ -67,8 +68,8 @@
 2. `GameplayRunLoop` 读取 `DataLoader.WARZONE_DIRECTORS_PATH`，选择当前 mode 的 director。
 3. `WarzoneDirector.configure()` 缓存 phases / encounters / interest_points。
 4. 开局生成地图机关时，`GameplayRunLoop` 用 `interest_points_for_layout(layout_id)` 取当前地图兴趣点，并传给 `MapManager.generate_hazard_placements()`。
-5. `MapManager` 为每个兴趣点的 `hazard_ids[]` 走通用 PCG 规则生成 `source="director"` placement，并透传 `claim_radius`、奖励数组和 `completes_run` 等兴趣点元数据。
-6. `GameplayRunLoop` 从 placement 重建兴趣点状态；每帧只按 `GameClock.now()`、玩家位置和 `claim_radius` 判断能否领取，不读取玩家表现数据。
+5. `MapManager` 为每个兴趣点的 `hazard_ids[]` 走通用 PCG 规则生成 `source="director"` placement，并透传 `claim_radius`、奖励数组、可伤害目标数值和 `completes_run` 等兴趣点元数据。
+6. `GameplayRunLoop` 从 placement 重建兴趣点状态；无目标的兴趣点每帧只按 `GameClock.now()`、玩家位置和 `claim_radius` 判断能否领取；有目标的兴趣点生成可伤害 `InterestPointTarget`，目标被摧毁后领取，不读取玩家表现数据。
 7. 每帧 `GameplayRunLoop._update_spawner()` 先询问 `is_wave_enabled(wave_key, GameClock.now())`，被当前 phase 禁用的 wave 直接跳过。
 8. 通过导演后，原有 wave 时间窗、预算、同时存活上限和对象池生成逻辑继续执行。
 
@@ -81,7 +82,7 @@
 ## 扩展点
 
 - 随机 mutation：必须先决定 RNG stream、保存 / 恢复策略和 replay 影响；首片不做。
-- 地图兴趣点生成：已接入 `MapManager` 的数据化生成接口；F12 首片已有 `poi_elite_nest`、`poi_mod_cache`、`poi_resource_cache`、`poi_minor_nest_core` 四个调试语义点位，并通过通用 `resource_rewards[]` / `gear_mod_rewards[]` 表达 dust / Mod 奖励。后续扩展 kind / 奖励语义仍不能按 `poi_id` 或 `hazard_id` 写特殊分支。
+- 地图兴趣点生成：已接入 `MapManager` 的数据化生成接口；F12 首片已有 `poi_elite_nest`、`poi_mod_cache`、`poi_resource_cache`、`poi_minor_nest_core` 四个调试语义点位，并通过通用 `resource_rewards[]` / `gear_mod_rewards[]` 表达 dust / Mod 奖励，通过 `target_hp` / `target_hit_radius` 表达可伤害缓存 / 巢核目标。后续扩展 kind / 奖励语义仍不能按 `poi_id` 或 `hazard_id` 写特殊分支。
 - 生态 encounter：优先基于 enemy tags / AI profile / wave 组合，不按敌人 id 写逻辑。
 - 玩家可见主题：新增 name / desc 前先补 `client/locale/strings.csv`，数据只存 locale key。
 
@@ -91,7 +92,7 @@
 |------------|----------|------|
 | 调阶段时间 / wave 组合 | `client/data/warzone_directors.json` | `validate_data`、`test_data_loader_schema`、`runtime-smoke`、`f9-demo-smoke` |
 | 新增 encounter / interest point | `warzone_directors.json`、必要时 `map_layouts.json` / `hazards.csv` | `validate_data` + `test_data_loader_schema`；兴趣点影响地图时追加 runtime / F9 smoke |
-| 调兴趣点奖励 / 小巢核完成 | `warzone_directors.json`、`gameplay_run_loop.gd`、`gear_mod_system.gd` | `validate_data` + `test_data_loader_schema` + `runtime-smoke` + `gear-mod-smoke` + `save-smoke` |
+| 调兴趣点奖励 / 目标 / 小巢核完成 | `warzone_directors.json`、`gameplay_run_loop.gd`、`interest_point_target.gd`、`gear_mod_system.gd` | `validate_data` + `test_data_loader_schema` + `runtime-smoke` + `gear-mod-smoke` + `save-smoke` |
 | 改 schema | `data_loader.gd`、`validate_data.py`、`test_data_loader_schema.py`、本文档、数据手册 | schema test + docs health |
 | 让导演影响地图 | `warzone_director.gd`、`map_manager.gd`、`gameplay_run_loop.gd` | runtime-smoke、f9-demo-smoke、save-smoke、perf-probe，评估 golden |
 
