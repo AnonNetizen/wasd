@@ -120,6 +120,8 @@ func _run() -> void:
 	var mouse_aim: Vector2 = player.get("aim_direction")
 	_expect(mouse_aim.x > 0.75 and mouse_aim.y < -0.25, "mouse aim should support diagonal mouse direction")
 	_expect(absf(mouse_aim.x) < 0.98 and absf(mouse_aim.y) > 0.1, "mouse aim should not snap back to four directions")
+	_expect(_player_3d_visual_tracks_aim_direction(player, mouse_aim), "Player3DVisual should rotate toward full aim direction")
+	_expect(_interest_point_caches_render_below_player(run_loop, player), "interest point caches should render below the player model")
 
 	var isolated_player: Node2D = PLAYER_SCENE.instantiate() as Node2D
 	isolated_player.name = "SmokeIsolatedPlayer"
@@ -540,6 +542,29 @@ func _interest_point_caches_avoid_hazards(run_loop: Node) -> bool:
 			var hazard_radius: float = _hazard_spacing_radius(hazard, grid_cell_size)
 			if cache_2d.global_position.distance_to(hazard_2d.global_position) < cache_radius + hazard_radius:
 				return false
+	return saw_cache
+
+
+func _player_3d_visual_tracks_aim_direction(player: Node2D, expected_direction: Vector2) -> bool:
+	var visual: Node = _find_node_by_name(player, "Player3DVisual")
+	if visual == null or not visual.has_method("facing_direction"):
+		return false
+	var actual_direction: Vector2 = visual.call("facing_direction") as Vector2
+	return actual_direction.distance_to(expected_direction.normalized()) <= 0.01
+
+
+func _interest_point_caches_render_below_player(run_loop: Node, player: Node2D) -> bool:
+	var visual_sprite: CanvasItem = _find_node_by_name(player, "VisualSprite") as CanvasItem
+	if visual_sprite == null:
+		return false
+	var saw_cache: bool = false
+	for cache: Node in get_tree().get_nodes_in_group("active_interest_point_caches"):
+		if not cache is CanvasItem or not _is_descendant_of(cache, run_loop):
+			continue
+		saw_cache = true
+		var cache_item: CanvasItem = cache as CanvasItem
+		if cache_item.z_index >= visual_sprite.z_index:
+			return false
 	return saw_cache
 
 

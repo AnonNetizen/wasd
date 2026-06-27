@@ -8,7 +8,6 @@ const BASE_COLOR: Color = Color(0.34, 0.72, 1.0)
 const HURT_COLOR: Color = Color(1.0, 0.34, 0.30)
 const MARKER_COLOR: Color = Color(0.95, 0.96, 0.92)
 const MARKER_OFFSET_X: float = 0.38
-const MODEL_YAW_DEGREES: float = 14.0
 const PACK_COLOR: Color = Color(0.11, 0.12, 0.15)
 const SHADOW_COLOR: Color = Color(0.03, 0.025, 0.02, 0.34)
 const SHADOW_RADIUS_X: float = 13.0
@@ -21,7 +20,7 @@ const VISUAL_CAMERA_ROTATION_DEGREES: Vector3 = Vector3(-32.0, 0.0, 0.0)
 const VIEWPORT_SIZE: Vector2i = Vector2i(72, 96)
 
 var _base_material: StandardMaterial3D
-var _facing_sign: float = 1.0
+var _facing_direction: Vector2 = Vector2.RIGHT
 var _hit_flash_active: bool = false
 var _hurt_material: StandardMaterial3D
 
@@ -42,11 +41,22 @@ func _ready() -> void:
 
 
 func set_facing_sign(facing_sign: float) -> void:
-	var next_sign: float = 1.0 if facing_sign >= 0.0 else -1.0
-	if is_equal_approx(_facing_sign, next_sign):
+	var next_direction: Vector2 = Vector2.RIGHT if facing_sign >= 0.0 else Vector2.LEFT
+	set_facing_direction(next_direction)
+
+
+func set_facing_direction(direction: Vector2) -> void:
+	if direction.length_squared() <= 0.0:
 		return
-	_facing_sign = next_sign
+	var next_direction: Vector2 = direction.normalized()
+	if _facing_direction.distance_squared_to(next_direction) <= 0.0001:
+		return
+	_facing_direction = next_direction
 	_apply_visual_state()
+
+
+func facing_direction() -> Vector2:
+	return _facing_direction
 
 
 func set_hit_flash_active(active: bool) -> void:
@@ -92,9 +102,9 @@ func _configure_materials() -> void:
 
 func _apply_visual_state() -> void:
 	if _model_root != null:
-		_model_root.rotation_degrees.y = -MODEL_YAW_DEGREES * _facing_sign
+		_model_root.rotation_degrees.y = -rad_to_deg(atan2(_facing_direction.y, _facing_direction.x))
 	if _facing_marker != null:
-		_facing_marker.position.x = MARKER_OFFSET_X * _facing_sign
+		_facing_marker.position.x = MARKER_OFFSET_X
 	if _body != null:
 		_body.material_override = _hurt_material if _hit_flash_active else _base_material
 

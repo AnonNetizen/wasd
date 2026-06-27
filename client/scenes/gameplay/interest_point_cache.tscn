@@ -3,5 +3,5 @@
 [ext_resource type="Script" path="res://scripts/gameplay/interest_point_cache.gd" id="1_cache"]
 
 [node name="InterestPointCache" type="Node2D"]
-z_index = 8
+z_index = 2
 script = ExtResource("1_cache")

@@ -207,7 +207,7 @@
 
 > 有限地图可见边界和逻辑边界当前都由 `MapManager.boundary_points()` / `boundary_half_extents()` 定义为贴住格线的菱形；玩家和敌人中心点由 `set_movement_diamond_boundary()` 约束。排查敌人越界时先看 `GameplayRunLoop._apply_enemy_movement_bounds()`、`Enemy.set_movement_diamond_boundary()` 与 `runtime-smoke` 的敌人边界断言。
 
-> F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射。当前正式视角为固定斜俯视 2.5D：`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放，不滚转整个 2D 画面，也不压缩某个轴；鼠标瞄准会把屏幕偏移按当前 canvas transform 换算回世界方向；`Player` 仍是 `CharacterBody2D` 并按 2D 平面移动，表现层通过 `Player3DVisual` 显示低模 3D 胶囊，斜俯视感后续由哈迪斯式舞台地面、障碍物、遮挡层级和敌人 / 场景视觉层承担。敌人占位表现和玩家 2.5D 视觉都只做左 / 右两种朝向。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
+> F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射。当前正式视角为固定斜俯视 2.5D：`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放，不滚转整个 2D 画面，也不压缩某个轴；鼠标瞄准会把屏幕偏移按当前 canvas transform 换算回世界方向；`Player` 仍是 `CharacterBody2D` 并按 2D 平面移动，表现层通过 `Player3DVisual` 显示低模 3D 胶囊并按完整瞄准方向 360 度旋转，斜俯视感后续由哈迪斯式舞台地面、障碍物、遮挡层级和敌人 / 场景视觉层承担。敌人占位表现仍暂时只做左 / 右两种朝向。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
 
 ### 5.2 系统依赖图（Mermaid，AI 改动前先看影响范围）
 

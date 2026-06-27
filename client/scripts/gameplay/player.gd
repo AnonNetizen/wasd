@@ -435,7 +435,9 @@ func _set_aim_direction(raw_direction: Vector2) -> void:
 func _sync_visual_state() -> void:
 	if _visual_3d == null:
 		return
-	if _visual_3d.has_method("set_facing_sign"):
+	if _visual_3d.has_method("set_facing_direction"):
+		_visual_3d.call("set_facing_direction", aim_direction)
+	elif _visual_3d.has_method("set_facing_sign"):
 		_visual_3d.call("set_facing_sign", _facing_sign)
 	if _visual_3d.has_method("set_hit_flash_active"):
 		_visual_3d.call("set_hit_flash_active", _hit_flash_remaining > 0.0)
