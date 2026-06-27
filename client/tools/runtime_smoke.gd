@@ -91,6 +91,9 @@ func _run() -> void:
 	_expect(PoolManager.active_count(POOL_IDS.HAZARD_SPIKE) > 0, "PCG map should spawn active hazards")
 	_expect(_active_hazards_are_on_grid(run_loop), "spawned hazards should align to radius-aware diamond grid anchors")
 	_expect(_map_has_director_interest_point_hazard(run_loop), "WarzoneDirector interest points should add director-sourced map hazards")
+	_expect(_interest_point_targets_are_on_grid(run_loop), "interest point targets should align to diamond grid anchors")
+	_expect(_interest_point_targets_avoid_hazards(run_loop), "interest point targets should not overlap active hazards")
+	await _expect_bullet_hits_interest_point_target(run_loop, player)
 	_expect(_map_restore_snaps_legacy_hazards(run_loop), "restored legacy hazard placements should snap to radius-aware diamond grid anchors")
 	_expect(_map_normalizes_edge_hazards_to_grid(run_loop), "edge hazard normalization should keep positions on diamond grid centers")
 
@@ -438,6 +441,97 @@ func _map_has_director_interest_point_hazard(run_loop: Node) -> bool:
 		return false
 	var sources: Dictionary = raw_sources as Dictionary
 	return int(sources.get("director", 0)) >= 4
+
+
+func _interest_point_targets_are_on_grid(run_loop: Node) -> bool:
+	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
+	if grid_cell_size.x <= 0.0 or grid_cell_size.y <= 0.0:
+		return false
+	var saw_target: bool = false
+	for target: Node in get_tree().get_nodes_in_group("active_interest_point_targets"):
+		if not target is Node2D or not _is_descendant_of(target, run_loop):
+			continue
+		saw_target = true
+		var target_2d: Node2D = target as Node2D
+		var snapped_position: Vector2 = _snap_to_diamond_grid(target_2d.global_position, grid_cell_size)
+		if target_2d.global_position.distance_to(snapped_position) > 0.01:
+			return false
+	return saw_target
+
+
+func _interest_point_targets_avoid_hazards(run_loop: Node) -> bool:
+	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
+	var fallback_radius: float = maxf(grid_cell_size.x * 0.5, 1.0)
+	var saw_target: bool = false
+	for target: Node in get_tree().get_nodes_in_group("active_interest_point_targets"):
+		if not target is Node2D or not _is_descendant_of(target, run_loop):
+			continue
+		saw_target = true
+		var target_2d: Node2D = target as Node2D
+		var target_radius: float = float(target.call("hit_radius")) if target.has_method("hit_radius") else fallback_radius
+		for hazard: Node in get_tree().get_nodes_in_group("active_hazards"):
+			if not hazard is Node2D or not _is_descendant_of(hazard, run_loop):
+				continue
+			var hazard_2d: Node2D = hazard as Node2D
+			var hazard_radius: float = _hazard_spacing_radius(hazard, grid_cell_size)
+			if target_2d.global_position.distance_to(hazard_2d.global_position) < target_radius + hazard_radius:
+				return false
+	return saw_target
+
+
+func _hazard_spacing_radius(hazard: Node, grid_cell_size: Vector2) -> float:
+	var hazard_id: String = String(hazard.call("hazard_id")) if hazard.has_method("hazard_id") else ""
+	for row: Dictionary in DataLoader.load_csv("res://data/hazards.csv"):
+		if String(row.get("id", "")) == hazard_id:
+			var radius_tiles: int = maxi(int(row.get("radius_tiles", 1)), 1)
+			var half_extents: Vector2 = grid_cell_size * 0.5 * float(radius_tiles)
+			return maxf(half_extents.x, half_extents.y)
+	return maxf(grid_cell_size.x * 0.5, 1.0)
+
+
+func _expect_bullet_hits_interest_point_target(run_loop: Node, player: Node2D) -> void:
+	var target: Node2D = _first_interest_point_target("poi_elite_nest")
+	_expect(target != null, "smoke should find a live elite nest interest point target")
+	if target == null:
+		return
+	_expect(target.has_method("snapshot"), "interest point target should expose a snapshot for smoke damage checks")
+	if not target.has_method("snapshot"):
+		return
+	var before_snapshot: Dictionary = target.call("snapshot") as Dictionary
+	var life_before: float = float(before_snapshot.get("life_points", 0.0))
+	var raw_bullet: Node = PoolManager.acquire(POOL_IDS.BULLET_BASIC)
+	_expect(raw_bullet is Node2D and raw_bullet.has_method("configure"), "bullet pool should provide a configurable Bullet node")
+	if not raw_bullet is Node2D or not raw_bullet.has_method("configure"):
+		return
+	var bullet: Node2D = raw_bullet as Node2D
+	bullet.global_position = target.global_position
+	var old_parent: Node = bullet.get_parent()
+	if old_parent != null:
+		old_parent.remove_child(bullet)
+	target.get_parent().add_child(bullet)
+	bullet.call("configure", {
+		STATS.DAMAGE: 7.0,
+		STATS.BULLET_SPEED: 0.0,
+		STATS.BULLET_RANGE: 96.0,
+		STATS.PIERCE_COUNT: 0,
+	}, {
+		"damage_type": DAMAGE_TYPES.PHYSICAL,
+		"hit_radius": 8.0,
+		"lifetime": 1.0,
+	}, Vector2.RIGHT, player)
+	for _index: int in range(2):
+		await get_tree().physics_frame
+	var after_snapshot: Dictionary = target.call("snapshot") as Dictionary
+	_expect(float(after_snapshot.get("life_points", life_before)) < life_before, "real Bullet physics should damage interest point targets before claim_start_time")
+
+
+func _first_interest_point_target(point_id: String) -> Node2D:
+	for target: Node in get_tree().get_nodes_in_group("active_interest_point_targets"):
+		if not target is Node2D:
+			continue
+		if target.has_method("point_id") and String(target.call("point_id")) == point_id:
+			return target as Node2D
+	return null
 
 
 func _array_has_all_strings(values: Array, expected_values: Array[String]) -> bool:

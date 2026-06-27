@@ -538,13 +538,17 @@ func _configure_interest_points(placements: Array[Dictionary]) -> void:
 		var point_id: String = String(placement.get("interest_point_id", ""))
 		if point_id.is_empty():
 			continue
-		var position: Vector2 = _dict_to_vector(placement.get("position", {}), Vector2.ZERO)
 		var state: Dictionary = _interest_points.get(point_id, _new_interest_point_state(point_id, placement))
-		var placement_count: int = int(state.get("_placement_count", 0))
-		var previous_position: Vector2 = _dict_to_vector(state.get("position", {}), position)
-		var averaged_position: Vector2 = ((previous_position * float(placement_count)) + position) / float(placement_count + 1)
-		state["position"] = _vector_to_dict(averaged_position)
-		state["_placement_count"] = placement_count + 1
+		if placement.has("interest_point_target_position"):
+			state["position"] = _dictionary_or_empty(placement.get("interest_point_target_position", {}))
+			state["_placement_count"] = 1
+		else:
+			var position: Vector2 = _dict_to_vector(placement.get("position", {}), Vector2.ZERO)
+			var placement_count: int = int(state.get("_placement_count", 0))
+			var previous_position: Vector2 = _dict_to_vector(state.get("position", {}), position)
+			var averaged_position: Vector2 = ((previous_position * float(placement_count)) + position) / float(placement_count + 1)
+			state["position"] = _vector_to_dict(averaged_position)
+			state["_placement_count"] = placement_count + 1
 		_interest_points[point_id] = state
 
 
@@ -673,7 +677,7 @@ func _spawn_interest_point_targets() -> void:
 			String(state.get("kind", "")),
 			float(state.get("target_hp", 0.0)),
 			float(state.get("target_hit_radius", 24.0)),
-			float(state.get("claim_start_time", 0.0))
+			_map_grid_cell_size()
 		)
 		var target_snapshot: Dictionary = _dictionary_or_empty(state.get("target_snapshot", {}))
 		if not target_snapshot.is_empty() and target.has_method("restore_snapshot"):
