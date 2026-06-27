@@ -207,8 +207,12 @@ func _add_stage(stage_root: Node3D) -> void:
 		"Floor",
 		Vector3(0.0, -0.11, 0.0),
 		Vector3(STAGE_SIZE, 0.22, STAGE_SIZE),
-		Color(0.060, 0.074, 0.072),
-		stage_root
+		Color(0.165, 0.185, 0.170),
+		stage_root,
+		false,
+		false,
+		0.10,
+		Color(0.12, 0.18, 0.16)
 	)
 	_add_floor_variation(stage_root)
 	_add_stage_borders(stage_root)
@@ -217,15 +221,15 @@ func _add_stage(stage_root: Node3D) -> void:
 
 
 func _add_floor_variation(stage_root: Node3D) -> void:
-	_add_box("FloorPlateA", Vector3(-4.0, -0.001, -1.6), Vector3(4.4, 0.012, 1.10), Color(0.060, 0.090, 0.096, 0.58), stage_root, true)
-	_add_box("FloorPlateB", Vector3(4.3, 0.000, 2.8), Vector3(3.6, 0.012, 1.20), Color(0.160, 0.104, 0.060, 0.36), stage_root, true)
-	_add_box("FloorPlateC", Vector3(1.2, 0.002, -4.6), Vector3(5.2, 0.012, 0.80), Color(0.035, 0.056, 0.072, 0.52), stage_root, true)
-	_add_box("InsetLineA", Vector3(-3.8, 0.018, 2.2), Vector3(5.8, 0.018, 0.045), Color(0.38, 0.22, 0.10, 0.32), stage_root, true, true)
-	_add_box("InsetLineB", Vector3(3.0, 0.019, -2.9), Vector3(0.045, 0.018, 4.8), Color(0.18, 0.30, 0.36, 0.30), stage_root, true, true)
-	_add_box("CrackA", Vector3(-0.7, 0.020, 4.4), Vector3(2.2, 0.016, 0.030), Color(0.018, 0.016, 0.014, 0.55), stage_root, true)
-	_add_box("CrackB", Vector3(5.0, 0.021, -0.9), Vector3(0.030, 0.016, 2.0), Color(0.018, 0.016, 0.014, 0.45), stage_root, true)
-	_add_box("ScorchMarkA", Vector3(-5.6, 0.024, 3.7), Vector3(1.35, 0.014, 0.72), Color(0.010, 0.009, 0.008, 0.30), stage_root, true)
-	_add_box("ScorchMarkB", Vector3(5.1, 0.024, 3.0), Vector3(1.10, 0.014, 0.54), Color(0.010, 0.009, 0.008, 0.24), stage_root, true)
+	_add_box("FloorPlateA", Vector3(-4.0, -0.001, -1.6), Vector3(4.4, 0.012, 1.10), Color(0.120, 0.170, 0.170), stage_root, false, false, 0.04, Color(0.10, 0.20, 0.20))
+	_add_box("FloorPlateB", Vector3(4.3, 0.000, 2.8), Vector3(3.6, 0.012, 1.20), Color(0.210, 0.145, 0.085), stage_root, false, false, 0.03, Color(0.25, 0.14, 0.06))
+	_add_box("FloorPlateC", Vector3(1.2, 0.002, -4.6), Vector3(5.2, 0.012, 0.80), Color(0.080, 0.115, 0.140), stage_root, false, false, 0.04, Color(0.05, 0.12, 0.16))
+	_add_box("InsetLineA", Vector3(-3.8, 0.018, 2.2), Vector3(5.8, 0.018, 0.045), Color(0.56, 0.31, 0.12), stage_root, false, true, 0.16, Color(0.72, 0.34, 0.10))
+	_add_box("InsetLineB", Vector3(3.0, 0.019, -2.9), Vector3(0.045, 0.018, 4.8), Color(0.20, 0.42, 0.50), stage_root, false, true, 0.14, Color(0.16, 0.52, 0.68))
+	_add_box("CrackA", Vector3(-0.7, 0.020, 4.4), Vector3(2.2, 0.016, 0.030), Color(0.025, 0.022, 0.020), stage_root)
+	_add_box("CrackB", Vector3(5.0, 0.021, -0.9), Vector3(0.030, 0.016, 2.0), Color(0.025, 0.022, 0.020), stage_root)
+	_add_box("ScorchMarkA", Vector3(-5.6, 0.024, 3.7), Vector3(1.35, 0.014, 0.72), Color(0.036, 0.030, 0.024), stage_root)
+	_add_box("ScorchMarkB", Vector3(5.1, 0.024, 3.0), Vector3(1.10, 0.014, 0.54), Color(0.038, 0.032, 0.025), stage_root)
 
 
 func _add_stage_borders(stage_root: Node3D) -> void:
@@ -255,17 +259,17 @@ func _add_poi_focus(stage_root: Node3D) -> void:
 		0.75,
 		Color(0.18, 0.72, 1.0)
 	)
-	_add_box("PoiCorePlate", Vector3(0.0, 0.040, 0.0), Vector3(CELL_SIZE * 0.94, 0.024, CELL_SIZE * 0.94), Color(0.92, 0.54, 0.18, 0.20), stage_root, true)
-	_add_box("PoiSlashA", Vector3(0.0, 0.055, 0.0), Vector3(CELL_SIZE * 1.15, 0.020, 0.050), Color(0.22, 0.70, 1.0, 0.34), stage_root, true, true, 0.50, Color(0.24, 0.76, 1.0))
-	_add_box("PoiSlashB", Vector3(0.0, 0.056, 0.0), Vector3(0.050, 0.020, CELL_SIZE * 1.15), Color(0.22, 0.70, 1.0, 0.24), stage_root, true, true, 0.38, Color(0.24, 0.76, 1.0))
+	_add_box("PoiCorePlate", Vector3(0.0, 0.040, 0.0), Vector3(CELL_SIZE * 0.94, 0.024, CELL_SIZE * 0.94), Color(0.46, 0.31, 0.15), stage_root, false, false, 0.08, Color(0.70, 0.36, 0.12))
+	_add_box("PoiSlashA", Vector3(0.0, 0.055, 0.0), Vector3(CELL_SIZE * 1.15, 0.020, 0.050), Color(0.24, 0.76, 1.0), stage_root, false, true, 0.55, Color(0.24, 0.76, 1.0))
+	_add_box("PoiSlashB", Vector3(0.0, 0.056, 0.0), Vector3(0.050, 0.020, CELL_SIZE * 1.15), Color(0.16, 0.55, 0.78), stage_root, false, true, 0.42, Color(0.24, 0.76, 1.0))
 
 
 func _add_grid(stage_root: Node3D) -> void:
 	var grid_root := _add_group(stage_root, "GridLines")
-	var line_material := _make_material(Color(0.86, 0.50, 0.20, 0.24), true, true)
-	var axis_material := _make_material(Color(1.0, 0.70, 0.28, 0.38), true, true, 0.16, Color(1.0, 0.54, 0.18))
+	var line_material := _make_material(Color(0.74, 0.42, 0.15), false, true, 0.18, Color(0.95, 0.50, 0.16))
+	var axis_material := _make_material(Color(1.0, 0.66, 0.22), false, true, 0.30, Color(1.0, 0.54, 0.18))
 	var grid_size: float = STAGE_SIZE
-	var line_thickness: float = 0.030
+	var line_thickness: float = 0.038
 	for index in range(-GRID_HALF_CELLS, GRID_HALF_CELLS + 1):
 		var offset: float = float(index) * CELL_SIZE
 		var material: Material = axis_material if index == 0 else line_material
