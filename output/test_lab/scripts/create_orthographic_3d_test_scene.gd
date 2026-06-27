@@ -51,8 +51,21 @@ func _build_scene() -> Node3D:
 	var environment := WorldEnvironment.new()
 	environment.name = "WorldEnvironment"
 	var world_environment := Environment.new()
-	world_environment.background_mode = Environment.BG_COLOR
-	world_environment.background_color = Color(0.025, 0.032, 0.042)
+	var sky_material := ProceduralSkyMaterial.new()
+	sky_material.sky_top_color = Color(0.014, 0.020, 0.032)
+	sky_material.sky_horizon_color = Color(0.026, 0.034, 0.048)
+	sky_material.sky_curve = 0.24
+	sky_material.sky_energy_multiplier = 0.30
+	sky_material.ground_bottom_color = Color(0.006, 0.007, 0.010)
+	sky_material.ground_horizon_color = Color(0.026, 0.025, 0.028)
+	sky_material.ground_curve = 0.38
+	sky_material.ground_energy_multiplier = 0.48
+	sky_material.sun_angle_max = 0.0
+	sky_material.sun_curve = 0.01
+	var sky := Sky.new()
+	sky.sky_material = sky_material
+	world_environment.background_mode = Environment.BG_SKY
+	world_environment.sky = sky
 	world_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	world_environment.ambient_light_color = Color(0.30, 0.36, 0.43)
 	world_environment.ambient_light_energy = 0.44
@@ -86,6 +99,7 @@ func _build_scene() -> Node3D:
 	var world_root := Node3D.new()
 	world_root.name = "World3D"
 	root_node.add_child(world_root)
+	_add_backdrop(world_root)
 	_add_floor(world_root)
 	_add_grid(world_root)
 	_add_cache(world_root, Vector3(-1.8, 0.0, 1.2))
@@ -125,6 +139,25 @@ func _add_floor(world_root: Node3D) -> void:
 		Vector3(0.0, 0.01, 0.0),
 		Vector3(CELL_SIZE, 0.018, CELL_SIZE),
 		Color(0.95, 0.58, 0.23, 0.22),
+		world_root,
+		true
+	)
+
+
+func _add_backdrop(world_root: Node3D) -> void:
+	_add_box(
+		"FarHorizon",
+		Vector3(0.0, 1.2, -STAGE_SIZE * 0.62),
+		Vector3(STAGE_SIZE * 1.18, 2.8, 0.08),
+		Color(0.014, 0.018, 0.026, 0.34),
+		world_root,
+		true
+	)
+	_add_box(
+		"HorizonGlow",
+		Vector3(0.0, 0.16, -STAGE_SIZE * 0.60),
+		Vector3(STAGE_SIZE * 1.10, 0.10, 0.10),
+		Color(0.46, 0.22, 0.08, 0.06),
 		world_root,
 		true
 	)
