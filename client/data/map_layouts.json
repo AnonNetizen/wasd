@@ -6,15 +6,15 @@
       "mode_id": "mode_standard_survival",
       "bounds": {
         "width": 4000.0,
-        "height": 2000.0
+        "height": 2400.0
       },
       "grid": {
         "cell_width": 160.0,
-        "cell_height": 80.0
+        "cell_height": 160.0
       },
       "player_start": {
         "x": -800.0,
-        "y": 400.0
+        "y": 480.0
       },
       "safe_radius": 320.0,
       "enemy_spawn_margin": 160.0,

@@ -1484,24 +1484,9 @@ def _validate_map_bounds_grid_alignment(ctx: ValidationContext, path: Path, fiel
     if isinstance(width, (int, float)) and isinstance(cell_width, (int, float)):
         if not _is_nearly_grid_multiple(float(width), float(cell_width)):
             ctx.error(path, f"{field}.bounds.width", "must be an integer multiple of grid.cell_width")
-        elif float(cell_width) > 0 and round(float(width) / float(cell_width)) % 2 == 0:
-            ctx.error(path, f"{field}.bounds.width", "must span an odd number of grid.cell_width cells so the boundary lands on diamond grid lines")
     if isinstance(height, (int, float)) and isinstance(cell_height, (int, float)):
         if not _is_nearly_grid_multiple(float(height), float(cell_height)):
             ctx.error(path, f"{field}.bounds.height", "must be an integer multiple of grid.cell_height")
-        elif float(cell_height) > 0 and round(float(height) / float(cell_height)) % 2 == 0:
-            ctx.error(path, f"{field}.bounds.height", "must span an odd number of grid.cell_height cells so the boundary lands on diamond grid lines")
-    if (
-        isinstance(width, (int, float))
-        and isinstance(height, (int, float))
-        and isinstance(cell_width, (int, float))
-        and isinstance(cell_height, (int, float))
-        and float(cell_width) > 0
-        and float(cell_height) > 0
-    ):
-        expected_height = float(width) * float(cell_height) / float(cell_width)
-        if abs(float(height) - expected_height) > 0.01:
-            ctx.error(path, f"{field}.bounds", "must match the grid-aligned diamond aspect")
 
 
 def _validate_map_point(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
@@ -1515,7 +1500,7 @@ def _validate_map_point(ctx: ValidationContext, path: Path, field: str, data: An
 def _validate_map_point_on_grid(ctx: ValidationContext, path: Path, field: str, point: Any, grid: Any) -> None:
     if _is_map_point_on_grid_center(point, grid):
         return
-    ctx.error(path, field, "must be a diamond grid center")
+    ctx.error(path, field, "must be a rectangular grid center")
 
 
 def _validate_map_point_on_hazard_anchor(
@@ -1529,11 +1514,11 @@ def _validate_map_point_on_hazard_anchor(
     if radius_tiles % 2 == 1:
         if _is_map_point_on_grid_center(point, grid):
             return
-        ctx.error(path, field, "must be a diamond grid center for odd radius_tiles")
+        ctx.error(path, field, "must be a rectangular grid center for odd radius_tiles")
         return
     if _is_map_point_on_grid_vertex(point, grid):
         return
-    ctx.error(path, field, "must be a diamond grid vertex for even radius_tiles")
+    ctx.error(path, field, "must be a rectangular grid vertex for even radius_tiles")
 
 
 def _is_map_point_on_grid_center(point: Any, grid: Any) -> bool:
@@ -1547,12 +1532,8 @@ def _is_map_point_on_grid_center(point: Any, grid: Any) -> bool:
         return True
     if not isinstance(cell_width, (int, float)) or not isinstance(cell_height, (int, float)):
         return True
-    half_width = max(float(cell_width) * 0.5, 1.0)
-    half_height = max(float(cell_height) * 0.5, 1.0)
-    u = float(x) / half_width
-    v = float(y) / half_height
-    column = (u + v) * 0.5
-    row = (v - u) * 0.5
+    column = float(x) / max(float(cell_width), 1.0)
+    row = float(y) / max(float(cell_height), 1.0)
     return _is_nearly_integer(column) and _is_nearly_integer(row)
 
 
@@ -1567,13 +1548,9 @@ def _is_map_point_on_grid_vertex(point: Any, grid: Any) -> bool:
         return True
     if not isinstance(cell_width, (int, float)) or not isinstance(cell_height, (int, float)):
         return True
-    half_width = max(float(cell_width) * 0.5, 1.0)
-    half_height = max(float(cell_height) * 0.5, 1.0)
-    u = float(x) / half_width
-    v = float(y) / half_height
-    if not _is_nearly_integer(u) or not _is_nearly_integer(v):
-        return False
-    return (round(u) + round(v)) % 2 != 0
+    column = float(x) / max(float(cell_width), 1.0) - 0.5
+    row = float(y) / max(float(cell_height), 1.0) - 0.5
+    return _is_nearly_integer(column) and _is_nearly_integer(row)
 
 
 def _validate_map_pcg(ctx: ValidationContext, path: Path, field: str, data: Any, hazard_ids: dict[str, int]) -> None:

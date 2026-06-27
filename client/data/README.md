@@ -23,7 +23,7 @@
 | 改敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | 敌人标签、对象池 id、AI profile id、伤害类型必须来自词表或数据注册表 |
 | 改敌人生态 AI / 怪物互相克制 | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；生态关系通过 content tag 权重表达 |
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
-| 改地图边界 / 菱形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是菱形外接框，必须是格尺寸奇数倍且比例贴住格线；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法锚点 |
+| 改地图边界 / 矩形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是轴对齐矩形，必须分别整除 `grid.cell_width` / `grid.cell_height`；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法矩形格锚点 |
 | 改敌巢战区导演 / 阶段主题 / 兴趣点组合 | `warzone_directors.json` | 只按固定时间阶段启用 wave，不读取玩家状态、不做隐藏动态难度；匹配当前 layout 的兴趣点会生成初始 `source="director"` 机关；wave / 机关 / 地图引用必须存在 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
@@ -52,7 +52,7 @@
 | `enemy_ai_profiles.json` | 已建立 | 敌人生态 AI profile：感知、目标权重、动作列表、冲锋 / 领地等复杂行为参数 |
 | `enemies.csv` | 已建立 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励、占位色等 |
 | `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、占格尺寸、持续时间 |
-| `map_layouts.json` | 已建立 | 有限地图配置：地图边界、菱形格尺寸、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
+| `map_layouts.json` | 已建立 | 有限地图配置：矩形地图边界、矩形格尺寸、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
 | `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、生态 encounter、兴趣点 / 机关组合和阶段启用 wave |
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
@@ -356,27 +356,27 @@ JSON 示例：
 | `schema_version` | int | 当前 `1` | 文件 schema 版本 |
 | `layouts[].id` | string | 文件内唯一，非空 | 地图 layout id，用于诊断和 run 快照 |
 | `layouts[].mode_id` | string | 必须存在于 `game_modes.json` | 该 layout 绑定的游戏模式；当前每个模式使用第一条匹配 layout |
-| `bounds.width` / `bounds.height` | number | `> 0`，px；分别为 `grid.cell_width` / `grid.cell_height` 的奇数倍，且 `height == width * grid.cell_height / grid.cell_width` | 有限菱形地图外接框；运行时以原点为中心生成可见 / 逻辑菱形边界，奇数格跨度保证边线落在菱形格线上 |
-| `grid.cell_width` | number | `> 0`，px | 单个菱形格的水平对角线长度 |
-| `grid.cell_height` | number | `> 0`，px | 单个菱形格的垂直对角线长度 |
-| `player_start.x` | number | 菱形格中心坐标 | 玩家出生点 X 坐标；运行时会吸附并 clamp 到地图边界 |
-| `player_start.y` | number | 菱形格中心坐标 | 玩家出生点 Y 坐标；运行时会吸附并 clamp 到地图边界 |
-| `safe_radius` | number | `>= 0`，px | PCG 机关距离出生点的最小安全距离下限；运行时可见提示画成贴住菱形格线的出生安全菱形，不再画正圆 |
+| `bounds.width` / `bounds.height` | number | `> 0`，px；分别为 `grid.cell_width` / `grid.cell_height` 的整数倍 | 有限地图的轴对齐矩形范围；运行时以原点为中心生成可见 / 逻辑矩形边界 |
+| `grid.cell_width` | number | `> 0`，px | 单个矩形格的水平宽度 |
+| `grid.cell_height` | number | `> 0`，px | 单个矩形格的垂直高度 |
+| `player_start.x` | number | 矩形格中心坐标 | 玩家出生点 X 坐标；运行时会吸附并 clamp 到地图边界 |
+| `player_start.y` | number | 矩形格中心坐标 | 玩家出生点 Y 坐标；运行时会吸附并 clamp 到地图边界 |
+| `safe_radius` | number | `>= 0`，px | PCG 机关距离出生点的最小安全距离下限；运行时可见提示画成按矩形格向外吸附的出生安全矩形，不再画正圆 |
 | `enemy_spawn_margin` | number | `>= 0`，px | 刷怪位置距地图边缘的 clamp 边距 |
-| `pcg.hazards[]` | array[object] | 可空 | 程序化机关规则；当前使用 `RNG.world` 按 seed 可复现地撒布，并按 `radius_tiles` 奇偶吸附到合法菱形格锚点 |
+| `pcg.hazards[]` | array[object] | 可空 | 程序化机关规则；当前使用 `RNG.world` 按 seed 可复现地撒布，并按 `radius_tiles` 奇偶吸附到合法矩形格锚点 |
 | `pcg.hazards[].id` | string | 必须存在于 `hazards.csv` | 要生成的机关 id |
 | `pcg.hazards[].count` | int | `>= 0` | 目标生成数量；约束太紧时实际生成数量可能少于目标 |
 | `pcg.hazards[].min_distance_from_player` | number | `>= 0`，px | 距玩家出生点的额外最小距离，会与 `safe_radius` 取较大值 |
 | `pcg.hazards[].min_spacing` | number | `>= 0`，px | 与已放置机关之间的最小间距；同时至少避开双方格子半宽 / 半高推导出的近似半径 |
 | `manual_hazards[]` | array[object] | 可空 | 人工固定摆点，先于 PCG 放置，PCG 会避开这些点 |
 | `manual_hazards[].id` | string | 必须存在于 `hazards.csv` | 固定摆放的机关 id |
-| `manual_hazards[].x` | number | 合法菱形格锚点坐标 | 固定机关世界 X 坐标；奇数 `radius_tiles` 校验为格心，偶数 `radius_tiles` 校验为网格顶点，运行时也会按同一规则吸附并 clamp |
-| `manual_hazards[].y` | number | 合法菱形格锚点坐标 | 固定机关世界 Y 坐标；奇数 `radius_tiles` 校验为格心，偶数 `radius_tiles` 校验为网格顶点，运行时也会按同一规则吸附并 clamp |
+| `manual_hazards[].x` | number | 合法矩形格锚点坐标 | 固定机关世界 X 坐标；奇数 `radius_tiles` 校验为格心，偶数 `radius_tiles` 校验为网格顶点，运行时也会按同一规则吸附并 clamp |
+| `manual_hazards[].y` | number | 合法矩形格锚点坐标 | 固定机关世界 Y 坐标；奇数 `radius_tiles` 校验为格心，偶数 `radius_tiles` 校验为网格顶点，运行时也会按同一规则吸附并 clamp |
 
 调参建议：
-- 需要改变地图大小或边界节奏时，先改 `bounds`，并保持外接框比例贴住 `grid.cell_width/cell_height` 且跨过奇数个格子，再跑 `runtime-smoke` 和 `perf-probe`。
-- 改格子尺度时优先成对调整 `grid.cell_width` / `grid.cell_height`，并保持 `bounds` 为奇数倍且同斜率；当前默认一格为 `160 x 80` 的地面菱形。
-- 机关锚点按 `hazards.csv.radius_tiles` 奇偶决定：奇数尺寸中心在格心，偶数尺寸中心在网格顶点，这样机关外边缘才能贴住背景菱形格线。
+- 需要改变地图大小或边界节奏时，先改 `bounds`，并保持宽高分别整除 `grid.cell_width/cell_height`，再跑 `runtime-smoke` 和 `perf-probe`。
+- 改格子尺度时优先成对调整 `grid.cell_width` / `grid.cell_height`，并保持 `bounds` 为格尺寸整数倍；当前默认一格为 `160 x 160` 的矩形 / 方形俯视格。
+- 机关锚点按 `hazards.csv.radius_tiles` 奇偶决定：奇数尺寸中心在格心，偶数尺寸中心在网格顶点，这样机关外边缘才能贴住背景矩形格线。
 - 需要测试特定机关交互时，用 `manual_hazards` 固定位置；需要测试 PCG 稳定性时改 `pcg.hazards[].count` / `min_spacing`。
 - `hazards.csv` 只管机关基础数值和占格尺寸，`map_layouts.json` 才管初始地图上的机关位置。
 - PCG 摆放使用 `RNG.world`，刷怪位置仍使用 `RNG.spawn`，不要把二者混用。
@@ -507,10 +507,10 @@ hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,100,physical,1.
 | `damage` | int | `>= 0` | 单次触发伤害；运行时必须经 `Combat.apply_damage` 结算 |
 | `damage_type` | string | 词表 §9 damage type | 机关伤害类型 |
 | `trigger_interval` | number | `> 0`，秒 | 持续存在机关的触发间隔 |
-| `radius_tiles` | int | `>= 1` | 机关菱形从中心到顶点占用的地图格数；最终半宽 / 半高由 `map_layouts.json.grid` 推导，视觉菱形和触发判定都据此生成；奇数尺寸中心吸附格心，偶数尺寸中心吸附网格顶点 |
+| `radius_tiles` | int | `>= 1` | 机关矩形 footprint 从中心到边缘占用的半格数；最终半宽 / 半高由 `map_layouts.json.grid` 推导，视觉矩形和触发判定都据此生成；奇数尺寸中心吸附格心，偶数尺寸中心吸附网格顶点 |
 | `duration` | number | `>= 0`，秒 | 单次触发后的激活 / 预警表现时长 |
 
-`hazards.csv` 只声明机关基础数值和占格尺寸。当前运行时已有通用 `Hazard` 节点：由 `MapManager` 读取 `map_layouts.json` 的 PCG / 人工摆点，经 `PoolManager` 取节点，在玩家进入菱形触发范围且冷却结束时通过 `Combat.apply_damage()` 结算。游戏模式仍通过 `resource_pools.hazards` 声明可用机关池；实际初始位置和格子尺度改 `map_layouts.json`。
+`hazards.csv` 只声明机关基础数值和占格尺寸。当前运行时已有通用 `Hazard` 节点：由 `MapManager` 读取 `map_layouts.json` 的 PCG / 人工摆点，经 `PoolManager` 取节点，在玩家进入矩形触发范围且冷却结束时通过 `Combat.apply_damage()` 结算。游戏模式仍通过 `resource_pools.hazards` 声明可用机关池；实际初始位置和格子尺度改 `map_layouts.json`。
 
 ## `spawn_waves.csv`
 
@@ -672,12 +672,12 @@ wave_standard_mid_bulwarks,mode_standard_survival,4,420.0,9999.0,enemy_bulwark,2
 | `interest_points[].min_distance_from_player` | number | 可选，`>= 0`，px | 运行时摆放时距玩家出生点的额外最小距离；会与 layout `safe_radius` 取较大值 |
 | `interest_points[].min_spacing` | number | 可选，`>= 0`，px | 与已放置机关之间的最小间距；用于把收益点分散到小而密的路线中 |
 | `interest_points[].claim_radius` | number | 可选；有奖励或 `completes_run=true` 时必填且 `> 0`，px | 无目标兴趣点中，玩家进入该半径后可领取 / 交互一次兴趣点奖励；有目标兴趣点由目标摧毁触发领取 |
-| `interest_points[].extraction_radius` | number | 可选；`completes_run=true` 时必填且 `> 0`，px | 小巢核领取后开启撤离区的基础半径；运行时会吸附为贴合 `map_layouts.json.grid` 的菱形范围 |
+| `interest_points[].extraction_radius` | number | 可选；`completes_run=true` 时必填且 `> 0`，px | 小巢核领取后开启撤离区的基础半径；运行时会吸附为贴合 `map_layouts.json.grid` 的矩形范围 |
 | `interest_points[].extraction_hold_time` | number | 可选；`completes_run=true` 时必填且 `> 0`，秒 | 玩家站在撤离区内需要保持的结算读条时间；离开撤离区会重置首版读条进度 |
 | `interest_points[].claim_start_time` | number | 可选，`>= 0`，秒 | 奖励最早可领取时间；使用 `GameClock.now()`，不读取玩家状态 |
 | `interest_points[].requires_interaction` | bool | 可选 | 为 `true` 时不会进圈自动领取；运行时生成可见缓存箱，玩家进入 `claim_radius` 后按 `interact` action 打开并把奖励放入 `run.pending_loot` |
 | `interest_points[].target_hp` | number | 可选，`> 0` | 有值时 `GameplayRunLoop` 会生成可被子弹命中的 `InterestPointTarget`，摧毁后触发同一套奖励；目标生成后立即可受伤，无值时仍按进圈领取 |
-| `interest_points[].target_hit_radius` | number | 可选，`> 0`，px | 可伤害目标的命中半径；只在 `target_hp` 存在时使用，视觉 footprint 会向上吸附到地图菱形格整数尺寸 |
+| `interest_points[].target_hit_radius` | number | 可选，`> 0`，px | 可伤害目标的命中半径；只在 `target_hp` 存在时使用，视觉 footprint 会向上吸附到地图矩形格整数尺寸 |
 | `interest_points[].resource_rewards[]` | array[object] | 可选，非空；`resource_id` 必须来自 `gear_mod_resources`，`amount >= 1` | 领取时先进入 `run.pending_loot.resources`；撤离成功时才通过 `GearModSystem.grant_resource()` 写入 `meta.gear_mods.resources` |
 | `resource_rewards[].resource_id` | string | 必须存在于 `gear_mod_resources` | 当前首片使用 `gear_mod_dust` |
 | `resource_rewards[].amount` | int | `>= 1` | 发放资源数量 |
@@ -687,7 +687,7 @@ wave_standard_mid_bulwarks,mode_standard_survival,4,420.0,9999.0,enemy_bulwark,2
 | `interest_points[].completes_run` | bool | 可选 | 为 `true` 时领取后开启撤离区；撤离读条完成才删除当前 `run` 存档、提交暂存战利品并显示完成结果面板；首片用于小巢核 |
 | `interest_points[].notes` | string | 可选，非空 | 开发者说明；不玩家可见 |
 
-`warzone_directors.json` 是 F10/F12 敌巢战区导演数据源。运行时使用 `phases[].wave_ids` 给 `GameplayRunLoop` 的 Spawner 做阶段 gating；刷怪本身仍由 `spawn_waves.csv` 的时间窗、间隔、预算和同时存活上限决定。F12 标准局按 0-1 分钟投放、1-4 分钟第一收益点、4-7 分钟路线压力、7-9 分钟小巢核、9 分钟后软加压组织；`phase_overtime_collapse` 只表达继续贪局时的高压段，不是硬性强制结束。匹配当前 `map_layout_id` 的 `interest_points[]` 会交给 `MapManager`；有 `target_hp` 的兴趣点先生成独立的格心 target anchor，再把 `hazard_ids[]` 机关放到目标附近并避开该 footprint；无目标兴趣点仍为每个 `hazard_ids[]` 用既有 PCG / 锚点 / 边界规则生成一个初始 `source="director"` placement，并把兴趣点奖励元数据透传给 `GameplayRunLoop`。无 `target_hp` 且无 `requires_interaction` 的兴趣点在玩家进入 `claim_radius` 且达到 `claim_start_time` 后领取；有 `requires_interaction=true` 的兴趣点会生成可见缓存箱，玩家进入半径后按 `interact` action 打开；有 `target_hp` 的兴趣点会生成可伤害目标，目标生成后即可被子弹 / Combat 伤害摧毁，摧毁后按通用 `resource_rewards[]` / `gear_mod_rewards[]` 放入 `run.pending_loot` 暂存；`completes_run=true` 的小巢核领取后只开启撤离区，玩家进入贴合地图格的撤离菱形并完成 `extraction_hold_time` 读条后，才提交暂存战利品、删除当前 `run` 存档并显示完成结果面板。领取状态、目标状态、撤离状态和暂存战利品保存到 run payload，旧存档缺失时按未领取 / 未开启撤离 / 无暂存处理。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态；后续若增加随机 mutation、玩家可见主题或更复杂奖励语义，必须先同步 `docs/代码/warzone_director.md`、GDD、ADR、DataLoader schema 和对应 smoke / replay 策略。
+`warzone_directors.json` 是 F10/F12 敌巢战区导演数据源。运行时使用 `phases[].wave_ids` 给 `GameplayRunLoop` 的 Spawner 做阶段 gating；刷怪本身仍由 `spawn_waves.csv` 的时间窗、间隔、预算和同时存活上限决定。F12 标准局按 0-1 分钟投放、1-4 分钟第一收益点、4-7 分钟路线压力、7-9 分钟小巢核、9 分钟后软加压组织；`phase_overtime_collapse` 只表达继续贪局时的高压段，不是硬性强制结束。匹配当前 `map_layout_id` 的 `interest_points[]` 会交给 `MapManager`；有 `target_hp` 的兴趣点先生成独立的格心 target anchor，再把 `hazard_ids[]` 机关放到目标附近并避开该 footprint；无目标兴趣点仍为每个 `hazard_ids[]` 用既有 PCG / 锚点 / 边界规则生成一个初始 `source="director"` placement，并把兴趣点奖励元数据透传给 `GameplayRunLoop`。无 `target_hp` 且无 `requires_interaction` 的兴趣点在玩家进入 `claim_radius` 且达到 `claim_start_time` 后领取；有 `requires_interaction=true` 的兴趣点会生成可见缓存箱，玩家进入半径后按 `interact` action 打开；有 `target_hp` 的兴趣点会生成可伤害目标，目标生成后即可被子弹 / Combat 伤害摧毁，摧毁后按通用 `resource_rewards[]` / `gear_mod_rewards[]` 放入 `run.pending_loot` 暂存；`completes_run=true` 的小巢核领取后只开启撤离区，玩家进入贴合地图矩形格的撤离矩形并完成 `extraction_hold_time` 读条后，才提交暂存战利品、删除当前 `run` 存档并显示完成结果面板。领取状态、目标状态、撤离状态和暂存战利品保存到 run payload，旧存档缺失时按未领取 / 未开启撤离 / 无暂存处理。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态；后续若增加随机 mutation、玩家可见主题或更复杂奖励语义，必须先同步 `docs/代码/warzone_director.md`、GDD、ADR、DataLoader schema 和对应 smoke / replay 策略。
 
 ## `characters.json`
 

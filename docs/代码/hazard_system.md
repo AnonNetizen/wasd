@@ -7,9 +7,9 @@
 
 - 提供通用 `Hazard` 节点，解释 `hazards.csv` 的基础数值。
 - 通过 `PoolManager` 复用机关实体，避免运行时频繁创建 / 销毁。
-- 当玩家进入机关菱形触发范围且冷却结束时，使用 `Combat.apply_damage()` 统一结算伤害。
+- 当玩家进入机关矩形触发范围且冷却结束时，使用 `Combat.apply_damage()` 统一结算伤害。
 - 保存机关 id、位置、冷却和激活表现状态，支持暂停续局恢复。
-- 当前只实现通用菱形范围机关；具体摆放由 `MapManager` / `map_layouts.json` 负责。
+- 当前只实现通用矩形范围机关；具体摆放由 `MapManager` / `map_layouts.json` 负责。
 
 ## 阅读方式
 
@@ -53,7 +53,7 @@ ActiveWorld
 | 预热 | `GameplayRunLoop` 注册并预热 `POOL_IDS.HAZARD_SPIKE` | `PoolManager.register_pool()` / `prewarm()` |
 | 开局摆放 | `MapManager` 返回 placement，运行时按 `hazard_id` 查 `hazards.csv` 行数据 | `_spawn_map_hazards()` |
 | 配置 | 对象池取得节点后设置 id、伤害、伤害类型、触发间隔、`radius_tiles`、grid cell size、持续时间和目标玩家 | `Hazard.configure()` |
-| 物理帧 | 仅在 `GameState.PLAYING` 时消耗 `GameClock.delta_scaled()`；玩家在菱形范围内且冷却结束则触发 | `_physics_process()` |
+| 物理帧 | 仅在 `GameState.PLAYING` 时消耗 `GameClock.delta_scaled()`；玩家在矩形范围内且冷却结束则触发 | `_physics_process()` |
 | 伤害 | 构造 `DamageInfo`，source team 为敌对，target team 为玩家，统一交给 `Combat` | `Combat.apply_damage()` |
 | 保存 | run payload 记录活动机关 id、位置和剩余冷却 / 激活时间 | `snapshot()` |
 | 恢复 | 先按 id 重新配置，再恢复位置与冷却 | `restore_snapshot()` |
@@ -63,7 +63,7 @@ ActiveWorld
 
 | 名称 | 输入 | 输出 | 约束 |
 |------|------|------|------|
-| `configure(hazard_data, target, grid_cell_size)` | `hazards.csv` 行数据、玩家节点、地图菱形格尺寸 | `void` | 对象池 acquire 后唯一配置入口 |
+| `configure(hazard_data, target, grid_cell_size)` | `hazards.csv` 行数据、玩家节点、地图矩形格尺寸 | `void` | 对象池 acquire 后唯一配置入口 |
 | `hazard_id()` | 无 | `String` | smoke、调试和保存使用 |
 | `snapshot()` | 无 | `Dictionary` | JSON 友好；不保存目标节点引用 |
 | `restore_snapshot(snapshot_data)` | 机关快照 | `void` | 配置后调用 |
@@ -77,8 +77,8 @@ ActiveWorld
 - `pool_id` 必须来自词表 §8；当前 `hazard_spike` 复用通用 `Hazard` 场景。
 - `damage_type` 必须来自词表 §9，并经 `Combat` 校验。
 - `trigger_interval` 单位秒，运行时下限为 `0.01`。
-- `radius_tiles` 为正整数，表示机关菱形从中心到顶点占用多少个地图菱形格；最终半宽 / 半高由 `MapManager.grid_cell_size()` 推导。为让外边缘贴住背景菱形格线，奇数尺寸机关中心吸附到格心，偶数尺寸机关中心吸附到网格顶点。
-- 触发判定与视觉菱形使用同一套归一化公式：`abs(dx) / half_width + abs(dy) / half_height <= 1.0`。不要再用旧的像素 `radius` 或正方形 / 圆形近似。
+- `radius_tiles` 为正整数，表示机关矩形 footprint 从中心到边缘占用的半格数；最终半宽 / 半高由 `MapManager.grid_cell_size()` 推导。为让外边缘贴住背景矩形格线，奇数尺寸机关中心吸附到格心，偶数尺寸机关中心吸附到网格顶点。
+- 触发判定与视觉矩形使用同一套轴对齐范围：`abs(dx) <= half_width and abs(dy) <= half_height`。不要再用旧的像素 `radius`、菱形或圆形近似。
 - `duration` 当前只影响触发后的占位激活表现，不控制伤害总时长。
 - FEA-12 首片 id 为 `hazard_fea_12_pulse`，用于测试 PCG 和机关伤害链路；代码不得按该 id 特判。
 
@@ -90,7 +90,7 @@ ActiveWorld
 
 ## 扩展点
 
-- 新普通菱形范围机关：只加 `hazards.csv` 行、locale 文案、模式池引用和 `map_layouts.json` 摆放规则；尺寸用 `radius_tiles` 表达为格子的整数倍。
+- 新普通矩形范围机关：只加 `hazards.csv` 行、locale 文案、模式池引用和 `map_layouts.json` 摆放规则；尺寸用 `radius_tiles` 表达为格子的整数倍。
 - 新视觉表现：可扩展 `Hazard._draw()` 或替换为子节点资源，但不要改变 `configure()` 契约。
 - 新触发 primitive：例如喷火口、激光、毒池，应先确定是否仍可由通用 `Hazard` 参数表达；不能表达时再新增可复用策略字段和对应文档 / smoke，不按单个 id 分支。
 - 后续波次机关：`spawn_waves.csv.hazard_id` / `hazard_weight` 是时间压力预留；接入时仍应走 `PoolManager` 与 `Combat`。
@@ -110,8 +110,8 @@ ActiveWorld
 | 现象 | 优先检查 |
 |------|----------|
 | 机关不出现 | `map_layouts.json` 是否生成 placement；`game_modes.json.resource_pools.hazards` 是否包含 id；对象池是否注册 |
-| 机关出现但不伤害 | `GameState` 是否为 `PLAYING`；玩家是否在 `radius_tiles` 与地图 grid 推导出的菱形范围内；`damage` / `damage_type` 是否有效；玩家是否仍在受伤无敌期 |
-| 机关看起来是正方形或不贴格 | `GameplayRunLoop` 是否把 `MapManager.grid_cell_size()` 传给 `Hazard.configure()`；`hazards.csv.radius_tiles` 是否为正整数；偶数尺寸机关是否吸附到网格顶点；背景网格是否来自同一份 `grid.cell_width/cell_height` |
+| 机关出现但不伤害 | `GameState` 是否为 `PLAYING`；玩家是否在 `radius_tiles` 与地图 grid 推导出的矩形范围内；`damage` / `damage_type` 是否有效；玩家是否仍在受伤无敌期 |
+| 机关看起来不像矩形格整数倍 | `GameplayRunLoop` 是否把 `MapManager.grid_cell_size()` 传给 `Hazard.configure()`；`hazards.csv.radius_tiles` 是否为正整数；偶数尺寸机关是否吸附到网格顶点；背景网格是否来自同一份 `grid.cell_width/cell_height` |
 | 机关重复伤害太快 | `trigger_interval` 是否过低；玩家无敌窗口是否被测试清零 |
 | 续局后机关消失 | run payload 是否有 `hazards`；恢复时是否按 `hazard_id` 查到 `hazards.csv` 数据 |
 | 切回标题后 pool 报失效节点 | `GameplayRunLoop._exit_tree()` 是否 release 活跃池化节点；`PoolManager.clear_pool()` 是否清掉对应 pool id 映射 |
@@ -129,7 +129,7 @@ ADR #93 后 runtime payload schema 提升到 `2`，新增 `hazards` 数组保存
 ## 相关文档
 
 - `docs/游戏设计文档.md` §5.4 / §9.15.1 / §9.16
-- `docs/决策记录.md` ADR #93 / ADR #103 / ADR #105
+- `docs/决策记录.md` ADR #93 / ADR #103 / ADR #105 / ADR #125
 - `docs/代码/map_manager.md`
 - `docs/代码/gameplay_runtime.md`
 - `docs/代码/combat.md`

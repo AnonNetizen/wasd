@@ -78,22 +78,22 @@ func _run() -> void:
 	_expect(_find_node_by_name(run_loop, "WorldBackground") != null, "WorldBackground should provide movement reference")
 	_expect(_find_node_by_name(run_loop, "MapManager") != null, "finite MapManager should be mounted")
 	_expect(_map_summary_has_finite_bounds(run_loop), "MapManager should expose finite map bounds")
-	_expect(_map_boundary_is_diamond(run_loop), "MapManager should expose a diamond visual boundary")
-	_expect(_map_safe_zone_is_diamond(run_loop), "MapManager should draw the spawn safe zone as a grid-aligned diamond")
-	_expect(_map_summary_has_diamond_grid(run_loop), "MapManager should expose a positive diamond grid cell size")
+	_expect(_map_boundary_is_rectangle(run_loop), "MapManager should expose a rectangular top-down boundary")
+	_expect(_map_safe_zone_is_rectangle(run_loop), "MapManager should draw the spawn safe zone as a grid-aligned rectangle")
+	_expect(_map_summary_has_rect_grid(run_loop), "MapManager should expose a positive rectangular grid cell size")
 	_expect(_warzone_director_initial_summary_is_ready(run_loop), "WarzoneDirector should expose the standard warmup phase debug summary")
-	_expect(_map_clamps_to_diamond_boundary(run_loop), "MapManager should clamp positions to the diamond logic boundary")
-	_expect(_player_clamps_to_diamond_boundary(run_loop, player), "Player should clamp to the diamond logic boundary")
+	_expect(_map_clamps_to_rect_boundary(run_loop), "MapManager should clamp positions to the rectangular logic boundary")
+	_expect(_player_clamps_to_rect_boundary(run_loop, player), "Player should clamp to the rectangular logic boundary")
 	_expect(PoolManager.active_count(POOL_IDS.HAZARD_SPIKE) > 0, "PCG map should spawn active hazards")
-	_expect(_active_hazards_are_on_grid(run_loop), "spawned hazards should align to radius-aware diamond grid anchors")
+	_expect(_active_hazards_are_on_grid(run_loop), "spawned hazards should align to radius-aware rectangular grid anchors")
 	_expect(_map_has_director_interest_point_hazard(run_loop), "WarzoneDirector interest points should add director-sourced map hazards")
-	_expect(_interest_point_targets_are_on_grid(run_loop), "interest point targets should align to diamond grid anchors")
+	_expect(_interest_point_targets_are_on_grid(run_loop), "interest point targets should align to rectangular grid anchors")
 	_expect(_interest_point_targets_avoid_hazards(run_loop), "interest point targets should not overlap active hazards")
-	_expect(_interest_point_caches_are_on_grid(run_loop), "interest point caches should align to diamond grid anchors")
+	_expect(_interest_point_caches_are_on_grid(run_loop), "interest point caches should align to rectangular grid anchors")
 	_expect(_interest_point_caches_avoid_hazards(run_loop), "interest point caches should not overlap active hazards")
 	await _expect_bullet_hits_interest_point_target(run_loop, player)
-	_expect(_map_restore_snaps_legacy_hazards(run_loop), "restored legacy hazard placements should snap to radius-aware diamond grid anchors")
-	_expect(_map_normalizes_edge_hazards_to_grid(run_loop), "edge hazard normalization should keep positions on diamond grid centers")
+	_expect(_map_restore_snaps_legacy_hazards(run_loop), "restored legacy hazard placements should snap to radius-aware rectangular grid anchors")
+	_expect(_map_normalizes_edge_hazards_to_grid(run_loop), "edge hazard normalization should keep positions on rectangular grid anchors")
 
 	var start_position: Vector2 = player.global_position
 	Input.action_press(ACTIONS.MOVE_RIGHT)
@@ -280,9 +280,9 @@ func _map_summary_has_finite_bounds(run_loop: Node) -> bool:
 	return _map_bounds(run_loop).size.x > 0.0 and _map_bounds(run_loop).size.y > 0.0
 
 
-func _map_summary_has_diamond_grid(run_loop: Node) -> bool:
+func _map_summary_has_rect_grid(run_loop: Node) -> bool:
 	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
-	return grid_cell_size.x > 0.0 and grid_cell_size.y > 0.0 and grid_cell_size.x > grid_cell_size.y
+	return grid_cell_size.x > 0.0 and grid_cell_size.y > 0.0
 
 
 func _warzone_director_initial_summary_is_ready(run_loop: Node) -> bool:
@@ -326,7 +326,7 @@ func _interest_point_position(run_loop: Node, point_id: String) -> Vector2:
 	return _dict_to_vector(point.get("position", {}), Vector2.ZERO)
 
 
-func _map_boundary_is_diamond(run_loop: Node) -> bool:
+func _map_boundary_is_rectangle(run_loop: Node) -> bool:
 	if run_loop == null or not run_loop.has_method("debug_summary"):
 		return false
 	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
@@ -334,7 +334,7 @@ func _map_boundary_is_diamond(run_loop: Node) -> bool:
 	if not raw_map is Dictionary:
 		return false
 	var map_summary: Dictionary = raw_map as Dictionary
-	if String(map_summary.get("boundary_shape", "")) != "diamond":
+	if String(map_summary.get("boundary_shape", "")) != "rectangle":
 		return false
 	var raw_points: Variant = map_summary.get("boundary_points", [])
 	if not raw_points is Array:
@@ -347,18 +347,15 @@ func _map_boundary_is_diamond(run_loop: Node) -> bool:
 	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
 	if half_extents.x <= 0.0 or half_extents.y <= 0.0 or grid_cell_size.x <= 0.0 or grid_cell_size.y <= 0.0:
 		return false
-	var expected_ratio: float = grid_cell_size.y / grid_cell_size.x
-	if absf((half_extents.y / half_extents.x) - expected_ratio) > 0.001:
+	if absf(fmod(half_extents.x * 2.0, grid_cell_size.x)) > 0.01:
 		return false
-	if absf(fmod(half_extents.x, grid_cell_size.x) - grid_cell_size.x * 0.5) > 0.01:
-		return false
-	if absf(fmod(half_extents.y, grid_cell_size.y) - grid_cell_size.y * 0.5) > 0.01:
+	if absf(fmod(half_extents.y * 2.0, grid_cell_size.y)) > 0.01:
 		return false
 	var expected_points: Array[Vector2] = [
-		center + Vector2(0.0, -half_extents.y),
-		center + Vector2(half_extents.x, 0.0),
-		center + Vector2(0.0, half_extents.y),
-		center + Vector2(-half_extents.x, 0.0),
+		center + Vector2(-half_extents.x, -half_extents.y),
+		center + Vector2(half_extents.x, -half_extents.y),
+		center + Vector2(half_extents.x, half_extents.y),
+		center + Vector2(-half_extents.x, half_extents.y),
 	]
 	for index: int in range(expected_points.size()):
 		if not points[index] is Dictionary:
@@ -369,7 +366,7 @@ func _map_boundary_is_diamond(run_loop: Node) -> bool:
 	return true
 
 
-func _map_safe_zone_is_diamond(run_loop: Node) -> bool:
+func _map_safe_zone_is_rectangle(run_loop: Node) -> bool:
 	if run_loop == null or not run_loop.has_method("debug_summary"):
 		return false
 	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
@@ -379,7 +376,7 @@ func _map_safe_zone_is_diamond(run_loop: Node) -> bool:
 	var map_summary: Dictionary = raw_map as Dictionary
 	if float(map_summary.get("safe_radius", 0.0)) <= 0.0:
 		return false
-	if String(map_summary.get("safe_zone_shape", "")) != "diamond":
+	if String(map_summary.get("safe_zone_shape", "")) != "rectangle":
 		return false
 	var raw_points: Variant = map_summary.get("safe_zone_points", [])
 	if not raw_points is Array:
@@ -391,19 +388,16 @@ func _map_safe_zone_is_diamond(run_loop: Node) -> bool:
 	var half_extents: Vector2 = _dict_to_vector(map_summary.get("safe_zone_half_extents", {}), Vector2.ZERO)
 	if half_extents.x <= 0.0 or half_extents.y <= 0.0 or grid_cell_size.x <= 0.0 or grid_cell_size.y <= 0.0:
 		return false
-	var expected_ratio: float = grid_cell_size.y / grid_cell_size.x
-	if absf((half_extents.y / half_extents.x) - expected_ratio) > 0.001:
+	if absf(fmod(half_extents.x, grid_cell_size.x)) > 0.01:
 		return false
-	if absf(fmod(half_extents.x, grid_cell_size.x) - grid_cell_size.x * 0.5) > 0.01:
-		return false
-	if absf(fmod(half_extents.y, grid_cell_size.y) - grid_cell_size.y * 0.5) > 0.01:
+	if absf(fmod(half_extents.y, grid_cell_size.y)) > 0.01:
 		return false
 	var start_position: Vector2 = _dict_to_vector(map_summary.get("player_start", {}), Vector2.ZERO)
 	var expected_points: Array[Vector2] = [
-		start_position + Vector2(0.0, -half_extents.y),
-		start_position + Vector2(half_extents.x, 0.0),
-		start_position + Vector2(0.0, half_extents.y),
-		start_position + Vector2(-half_extents.x, 0.0),
+		start_position + Vector2(-half_extents.x, -half_extents.y),
+		start_position + Vector2(half_extents.x, -half_extents.y),
+		start_position + Vector2(half_extents.x, half_extents.y),
+		start_position + Vector2(-half_extents.x, half_extents.y),
 	]
 	for index: int in range(expected_points.size()):
 		if not points[index] is Dictionary:
@@ -414,26 +408,28 @@ func _map_safe_zone_is_diamond(run_loop: Node) -> bool:
 	return true
 
 
-func _map_clamps_to_diamond_boundary(run_loop: Node) -> bool:
+func _map_clamps_to_rect_boundary(run_loop: Node) -> bool:
 	var map_manager: Node = _find_node_by_name(run_loop, "MapManager")
 	if map_manager == null or not map_manager.has_method("clamp_position"):
 		return false
 	var bounds: Rect2 = _map_bounds(run_loop)
-	var outside_corner: Vector2 = bounds.end
+	var outside_corner: Vector2 = bounds.end + Vector2(128.0, 128.0)
 	var clamped: Vector2 = map_manager.call("clamp_position", outside_corner)
 	return clamped.distance_to(outside_corner) > 1.0 and _position_inside_map_boundary(run_loop, clamped)
 
 
-func _player_clamps_to_diamond_boundary(run_loop: Node, player: Node2D) -> bool:
-	if player == null or not player.has_method("set_movement_diamond_boundary"):
+func _player_clamps_to_rect_boundary(run_loop: Node, player: Node2D) -> bool:
+	if player == null or not player.has_method("set_movement_bounds"):
 		return false
 	var original_position: Vector2 = player.global_position
 	var bounds: Rect2 = _map_bounds(run_loop)
-	player.global_position = bounds.end
-	player.call("set_movement_diamond_boundary", _map_boundary_center(run_loop), _map_boundary_half_extents(run_loop))
+	var outside_corner: Vector2 = bounds.end + Vector2(128.0, 128.0)
+	player.global_position = outside_corner
+	player.call("set_movement_bounds", bounds)
 	var clamped: Vector2 = player.global_position
 	player.global_position = original_position
-	return clamped.distance_to(bounds.end) > 1.0 and _position_inside_map_boundary(run_loop, clamped)
+	player.call("set_movement_bounds", bounds)
+	return clamped.distance_to(outside_corner) > 1.0 and _position_inside_map_boundary(run_loop, clamped)
 
 
 func _active_hazards_are_on_grid(run_loop: Node) -> bool:
@@ -479,7 +475,7 @@ func _interest_point_targets_are_on_grid(run_loop: Node) -> bool:
 			continue
 		saw_target = true
 		var target_2d: Node2D = target as Node2D
-		var snapped_position: Vector2 = _snap_to_diamond_grid(target_2d.global_position, grid_cell_size)
+		var snapped_position: Vector2 = _snap_to_rect_grid(target_2d.global_position, grid_cell_size)
 		if target_2d.global_position.distance_to(snapped_position) > 0.01:
 			return false
 	return saw_target
@@ -515,7 +511,7 @@ func _interest_point_caches_are_on_grid(run_loop: Node) -> bool:
 			continue
 		saw_cache = true
 		var cache_2d: Node2D = cache as Node2D
-		var snapped_position: Vector2 = _snap_to_diamond_grid(cache_2d.global_position, grid_cell_size)
+		var snapped_position: Vector2 = _snap_to_rect_grid(cache_2d.global_position, grid_cell_size)
 		if cache_2d.global_position.distance_to(snapped_position) > 0.01:
 			return false
 	return saw_cache
@@ -704,14 +700,11 @@ func _map_grid_cell_size(run_loop: Node) -> Vector2:
 	return Vector2(float(grid.get("x", 0.0)), float(grid.get("y", 0.0)))
 
 
-func _snap_to_diamond_grid(world_position: Vector2, grid_cell_size: Vector2) -> Vector2:
-	var half_width: float = maxf(grid_cell_size.x * 0.5, 1.0)
-	var half_height: float = maxf(grid_cell_size.y * 0.5, 1.0)
-	var u: float = world_position.x / half_width
-	var v: float = world_position.y / half_height
-	var column: int = roundi((u + v) * 0.5)
-	var row: int = roundi((v - u) * 0.5)
-	return Vector2(float(column - row) * half_width, float(column + row) * half_height)
+func _snap_to_rect_grid(world_position: Vector2, grid_cell_size: Vector2) -> Vector2:
+	return Vector2(
+		roundf(world_position.x / maxf(grid_cell_size.x, 1.0)) * grid_cell_size.x,
+		roundf(world_position.y / maxf(grid_cell_size.y, 1.0)) * grid_cell_size.y
+	)
 
 
 func _dict_to_vector(raw_value: Variant, fallback: Vector2) -> Vector2:
@@ -900,7 +893,7 @@ func _expect_enemy_movement_bounds(run_loop: Node, _player: Node2D) -> void:
 
 	for _index: int in range(16):
 		await get_tree().physics_frame
-	_expect(_position_inside_map_boundary(run_loop, prey.global_position), "enemy flee movement should stay inside diamond map bounds")
+	_expect(_position_inside_map_boundary(run_loop, prey.global_position), "enemy flee movement should stay inside rectangular map bounds")
 	_expect(prey.global_position.x <= bounds.end.x + 0.01, "enemy movement should clamp at the map right edge")
 
 	var snapshot: Dictionary = prey.call("snapshot")
@@ -913,7 +906,7 @@ func _expect_enemy_movement_bounds(run_loop: Node, _player: Node2D) -> void:
 		"y": bounds.end.y + 240.0,
 	}
 	prey.call("restore_snapshot", snapshot)
-	_expect(_position_inside_map_boundary(run_loop, prey.global_position), "enemy restore should clamp position inside diamond map bounds")
+	_expect(_position_inside_map_boundary(run_loop, prey.global_position), "enemy restore should clamp position inside rectangular map bounds")
 
 	predator.set_physics_process(true)
 	PoolManager.release(prey)
@@ -1085,16 +1078,14 @@ func _position_inside_map_boundary(run_loop: Node, position: Vector2, inset_exte
 	var half_extents: Vector2 = _map_boundary_half_extents(run_loop)
 	if half_extents.x <= 0.0 or half_extents.y <= 0.0:
 		return false
-	var inset_ratio: float = maxf(
-		maxf(inset_extents.x, 0.0) / half_extents.x,
-		maxf(inset_extents.y, 0.0) / half_extents.y
+	var usable_half_extents: Vector2 = Vector2(
+		half_extents.x - maxf(inset_extents.x, 0.0),
+		half_extents.y - maxf(inset_extents.y, 0.0)
 	)
-	var limit: float = 1.0 - inset_ratio
-	if limit < 0.0:
+	if usable_half_extents.x < 0.0 or usable_half_extents.y < 0.0:
 		return false
 	var offset: Vector2 = position - center
-	var normalized_distance: float = absf(offset.x) / half_extents.x + absf(offset.y) / half_extents.y
-	return normalized_distance <= limit + 0.01
+	return absf(offset.x) <= usable_half_extents.x + 0.01 and absf(offset.y) <= usable_half_extents.y + 0.01
 
 
 func _expect_stats_panel_hold_to_show(run_loop: Node) -> void:

@@ -1,11 +1,11 @@
 # Doc: docs/代码/gameplay_runtime.md
-# Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md, docs/游戏设计文档.md §3, docs/决策记录.md ADR #105
+# Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md, docs/游戏设计文档.md §3, docs/决策记录.md ADR #125
 class_name WorldBackground
 extends Node2D
 
 
 const AXIS_COLOR: Color = Color(0.35, 0.40, 0.43, 0.58)
-const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 80.0)
+const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 160.0)
 const GRID_COLOR: Color = Color(0.18, 0.23, 0.26, 0.42)
 const GRID_EXTENT: int = 26
 const ORIGIN_MARKER_SIZE: float = 14.0
@@ -29,34 +29,20 @@ func configure(target: Node2D, grid_cell_size: Vector2 = DEFAULT_GRID_CELL_SIZE)
 
 
 func _draw() -> void:
-	var half_width: float = maxf(_grid_cell_size.x * 0.5, 1.0)
-	var half_height: float = maxf(_grid_cell_size.y * 0.5, 1.0)
-	var slope: float = half_height / half_width
-	var extent: float = _grid_cell_size.x * float(GRID_EXTENT)
+	var extent_x: float = _grid_cell_size.x * float(GRID_EXTENT)
+	var extent_y: float = _grid_cell_size.y * float(GRID_EXTENT)
 	for index: int in range(-GRID_EXTENT, GRID_EXTENT + 1):
-		var offset: float = (float(index) + 0.5) * _grid_cell_size.y
-		draw_line(
-			Vector2(-extent, offset - extent * slope),
-			Vector2(extent, offset + extent * slope),
-			GRID_COLOR,
-			1.0
-		)
-		draw_line(
-			Vector2(-extent, offset + extent * slope),
-			Vector2(extent, offset - extent * slope),
-			GRID_COLOR,
-			1.0
-		)
+		var x_offset: float = float(index) * _grid_cell_size.x
+		var y_offset: float = float(index) * _grid_cell_size.y
+		draw_line(Vector2(x_offset, -extent_y), Vector2(x_offset, extent_y), GRID_COLOR, 1.0)
+		draw_line(Vector2(-extent_x, y_offset), Vector2(extent_x, y_offset), GRID_COLOR, 1.0)
 
 	draw_line(Vector2(-ORIGIN_MARKER_SIZE, 0.0), Vector2(ORIGIN_MARKER_SIZE, 0.0), AXIS_COLOR, 2.0)
 	draw_line(Vector2(0.0, -ORIGIN_MARKER_SIZE), Vector2(0.0, ORIGIN_MARKER_SIZE), AXIS_COLOR, 2.0)
 
 
 func _snap_to_grid(world_position: Vector2) -> Vector2:
-	var half_width: float = maxf(_grid_cell_size.x * 0.5, 1.0)
-	var half_height: float = maxf(_grid_cell_size.y * 0.5, 1.0)
-	var u: float = world_position.x / half_width
-	var v: float = world_position.y / half_height
-	var column: int = roundi((u + v) * 0.5)
-	var row: int = roundi((v - u) * 0.5)
-	return Vector2(float(column - row) * half_width, float(column + row) * half_height)
+	return Vector2(
+		roundf(world_position.x / maxf(_grid_cell_size.x, 1.0)) * _grid_cell_size.x,
+		roundf(world_position.y / maxf(_grid_cell_size.y, 1.0)) * _grid_cell_size.y
+	)

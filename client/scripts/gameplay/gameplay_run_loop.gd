@@ -107,10 +107,10 @@ func _draw() -> void:
 		return
 	var half_extents: Vector2 = _extraction_half_extents()
 	var zone_points: PackedVector2Array = PackedVector2Array([
-		_extraction_position + Vector2(0.0, -half_extents.y),
-		_extraction_position + Vector2(half_extents.x, 0.0),
-		_extraction_position + Vector2(0.0, half_extents.y),
-		_extraction_position + Vector2(-half_extents.x, 0.0),
+		_extraction_position + Vector2(-half_extents.x, -half_extents.y),
+		_extraction_position + Vector2(half_extents.x, -half_extents.y),
+		_extraction_position + Vector2(half_extents.x, half_extents.y),
+		_extraction_position + Vector2(-half_extents.x, half_extents.y),
 	])
 	draw_colored_polygon(zone_points, EXTRACTION_ZONE_FILL_COLOR)
 	_draw_polygon_outline(zone_points, EXTRACTION_ZONE_RING_COLOR, EXTRACTION_ZONE_RING_WIDTH)
@@ -118,10 +118,10 @@ func _draw() -> void:
 	if progress_ratio > 0.0:
 		var progress_half_extents: Vector2 = half_extents * progress_ratio
 		var progress_points: PackedVector2Array = PackedVector2Array([
-			_extraction_position + Vector2(0.0, -progress_half_extents.y),
-			_extraction_position + Vector2(progress_half_extents.x, 0.0),
-			_extraction_position + Vector2(0.0, progress_half_extents.y),
-			_extraction_position + Vector2(-progress_half_extents.x, 0.0),
+			_extraction_position + Vector2(-progress_half_extents.x, -progress_half_extents.y),
+			_extraction_position + Vector2(progress_half_extents.x, -progress_half_extents.y),
+			_extraction_position + Vector2(progress_half_extents.x, progress_half_extents.y),
+			_extraction_position + Vector2(-progress_half_extents.x, progress_half_extents.y),
 		])
 		draw_colored_polygon(progress_points, EXTRACTION_ZONE_PROGRESS_COLOR)
 
@@ -954,7 +954,8 @@ func _map_grid_cell_size() -> Vector2:
 func _extraction_half_extents() -> Vector2:
 	var grid_size: Vector2 = _map_grid_cell_size()
 	var half_width: float = maxf(ceilf(_extraction_radius / maxf(grid_size.x, 1.0)) * grid_size.x, grid_size.x)
-	return Vector2(half_width, half_width * grid_size.y / maxf(grid_size.x, 1.0))
+	var half_height: float = maxf(ceilf(_extraction_radius / maxf(grid_size.y, 1.0)) * grid_size.y, grid_size.y)
+	return Vector2(half_width, half_height)
 
 
 func _is_position_in_extraction_zone(world_position: Vector2) -> bool:
@@ -964,7 +965,7 @@ func _is_position_in_extraction_zone(world_position: Vector2) -> bool:
 	if half_extents.x <= 0.0 or half_extents.y <= 0.0:
 		return false
 	var offset: Vector2 = world_position - _extraction_position
-	return absf(offset.x) / half_extents.x + absf(offset.y) / half_extents.y <= 1.0
+	return absf(offset.x) <= half_extents.x and absf(offset.y) <= half_extents.y
 
 
 func _draw_polygon_outline(points: PackedVector2Array, color: Color, width: float) -> void:
@@ -1668,12 +1669,6 @@ func _apply_enemy_movement_bounds(enemy: Node2D) -> void:
 	if not enemy.has_method("set_movement_bounds"):
 		return
 	enemy.call("set_movement_bounds", _map_manager.call("bounds"))
-	if (
-		enemy.has_method("set_movement_diamond_boundary")
-		and _map_manager.has_method("boundary_center")
-		and _map_manager.has_method("boundary_half_extents")
-	):
-		enemy.call("set_movement_diamond_boundary", _map_manager.call("boundary_center"), _map_manager.call("boundary_half_extents"))
 
 
 func _apply_player_movement_bounds() -> void:
@@ -1681,12 +1676,6 @@ func _apply_player_movement_bounds() -> void:
 		return
 	if _player.has_method("set_movement_bounds"):
 		_player.call("set_movement_bounds", _map_manager.call("bounds"))
-	if (
-		_player.has_method("set_movement_diamond_boundary")
-		and _map_manager.has_method("boundary_center")
-		and _map_manager.has_method("boundary_half_extents")
-	):
-		_player.call("set_movement_diamond_boundary", _map_manager.call("boundary_center"), _map_manager.call("boundary_half_extents"))
 
 
 func _connect_enemy_defeated(enemy: Node, wave_key: String) -> void:

@@ -1,5 +1,5 @@
 # Doc: docs/代码/hazard_system.md
-# Authority: docs/游戏设计文档.md §5.4, docs/决策记录.md ADR #93 / ADR #103 / ADR #105
+# Authority: docs/游戏设计文档.md §5.4, docs/决策记录.md ADR #93 / ADR #125
 class_name Hazard
 extends Node2D
 
@@ -10,9 +10,9 @@ const ACTIVE_FILL_COLOR: Color = Color(1.0, 0.42, 0.24, 0.34)
 const ACTIVE_RING_COLOR: Color = Color(1.0, 0.72, 0.32, 0.88)
 const IDLE_FILL_COLOR: Color = Color(0.34, 0.58, 0.78, 0.16)
 const IDLE_RING_COLOR: Color = Color(0.65, 0.84, 0.94, 0.78)
-const CENTER_DIAMOND_SCALE: float = 0.16
-const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 80.0)
-const INNER_DIAMOND_SCALE: float = 0.58
+const CENTER_RECT_SCALE: float = 0.16
+const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 160.0)
+const INNER_RECT_SCALE: float = 0.58
 const INNER_RING_WIDTH: float = 1.5
 const RING_WIDTH: float = 3.0
 const TEAM_ENEMY: String = "team_enemy"
@@ -104,12 +104,12 @@ func _draw() -> void:
 	var half_extents: Vector2 = _half_extents()
 	var fill_color: Color = ACTIVE_FILL_COLOR if _active_remaining > 0.0 else IDLE_FILL_COLOR
 	var ring_color: Color = ACTIVE_RING_COLOR if _active_remaining > 0.0 else IDLE_RING_COLOR
-	var outer_points: PackedVector2Array = _diamond_points(half_extents)
-	var inner_points: PackedVector2Array = _diamond_points(half_extents * INNER_DIAMOND_SCALE)
-	var center_points: PackedVector2Array = _diamond_points(half_extents * CENTER_DIAMOND_SCALE)
+	var outer_points: PackedVector2Array = _rect_points(half_extents)
+	var inner_points: PackedVector2Array = _rect_points(half_extents * INNER_RECT_SCALE)
+	var center_points: PackedVector2Array = _rect_points(half_extents * CENTER_RECT_SCALE)
 	draw_colored_polygon(outer_points, fill_color)
-	_draw_diamond_outline(outer_points, ring_color, RING_WIDTH)
-	_draw_diamond_outline(inner_points, ring_color, INNER_RING_WIDTH)
+	_draw_outline(outer_points, ring_color, RING_WIDTH)
+	_draw_outline(inner_points, ring_color, INNER_RING_WIDTH)
 	draw_colored_polygon(center_points, ring_color)
 
 
@@ -134,23 +134,23 @@ func _is_target_inside_trigger() -> bool:
 		return false
 	var offset: Vector2 = _target.global_position - global_position
 	var half_extents: Vector2 = _half_extents()
-	return absf(offset.x) / half_extents.x + absf(offset.y) / half_extents.y <= 1.0
+	return absf(offset.x) <= half_extents.x and absf(offset.y) <= half_extents.y
 
 
 func _half_extents() -> Vector2:
 	return _grid_cell_size * 0.5 * float(maxi(_radius_tiles, 1))
 
 
-func _diamond_points(half_extents: Vector2) -> PackedVector2Array:
+func _rect_points(half_extents: Vector2) -> PackedVector2Array:
 	return PackedVector2Array([
-		Vector2(0.0, -half_extents.y),
-		Vector2(half_extents.x, 0.0),
-		Vector2(0.0, half_extents.y),
-		Vector2(-half_extents.x, 0.0),
+		Vector2(-half_extents.x, -half_extents.y),
+		Vector2(half_extents.x, -half_extents.y),
+		Vector2(half_extents.x, half_extents.y),
+		Vector2(-half_extents.x, half_extents.y),
 	])
 
 
-func _draw_diamond_outline(points: PackedVector2Array, color: Color, width: float) -> void:
+func _draw_outline(points: PackedVector2Array, color: Color, width: float) -> void:
 	for index: int in range(points.size()):
 		draw_line(points[index], points[(index + 1) % points.size()], color, width)
 

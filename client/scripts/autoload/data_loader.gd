@@ -1696,27 +1696,9 @@ func _validate_map_bounds_grid_alignment(field: String, bounds_data: Variant, gr
 	if (bounds.get("width") is int or bounds.get("width") is float) and (grid.get("cell_width") is int or grid.get("cell_width") is float):
 		if not _is_nearly_grid_multiple(float(bounds.get("width")), float(grid.get("cell_width"))):
 			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.bounds.width" % field, "integer multiple of grid.cell_width") and is_valid
-		elif float(grid.get("cell_width")) > 0.0 and int(roundf(float(bounds.get("width")) / float(grid.get("cell_width")))) % 2 == 0:
-			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.bounds.width" % field, "odd grid span so boundary lands on diamond grid lines") and is_valid
 	if (bounds.get("height") is int or bounds.get("height") is float) and (grid.get("cell_height") is int or grid.get("cell_height") is float):
 		if not _is_nearly_grid_multiple(float(bounds.get("height")), float(grid.get("cell_height"))):
 			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.bounds.height" % field, "integer multiple of grid.cell_height") and is_valid
-		elif float(grid.get("cell_height")) > 0.0 and int(roundf(float(bounds.get("height")) / float(grid.get("cell_height")))) % 2 == 0:
-			is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.bounds.height" % field, "odd grid span so boundary lands on diamond grid lines") and is_valid
-	if (
-		(bounds.get("width") is int or bounds.get("width") is float)
-		and (bounds.get("height") is int or bounds.get("height") is float)
-		and (grid.get("cell_width") is int or grid.get("cell_width") is float)
-		and (grid.get("cell_height") is int or grid.get("cell_height") is float)
-	):
-		var width: float = float(bounds.get("width"))
-		var height: float = float(bounds.get("height"))
-		var cell_width: float = float(grid.get("cell_width"))
-		var cell_height: float = float(grid.get("cell_height"))
-		if cell_width > 0.0 and cell_height > 0.0:
-			var expected_height: float = width * cell_height / cell_width
-			if absf(height - expected_height) > 0.01:
-				is_valid = _schema_fail(MAP_LAYOUTS_PATH, "%s.bounds" % field, "grid-aligned diamond aspect") and is_valid
 	return is_valid
 
 
@@ -1733,17 +1715,17 @@ func _validate_map_point(field: String, data: Variant) -> bool:
 func _validate_map_point_on_grid(field: String, point_data: Variant, grid_data: Variant) -> bool:
 	if _is_map_point_on_grid_center(point_data, grid_data):
 		return true
-	return _schema_fail(MAP_LAYOUTS_PATH, field, "diamond grid center")
+	return _schema_fail(MAP_LAYOUTS_PATH, field, "rectangular grid center")
 
 
 func _validate_map_point_on_hazard_anchor(field: String, point_data: Variant, grid_data: Variant, radius_tiles: int) -> bool:
 	if radius_tiles % 2 == 1:
 		if _is_map_point_on_grid_center(point_data, grid_data):
 			return true
-		return _schema_fail(MAP_LAYOUTS_PATH, field, "diamond grid center for odd radius_tiles")
+		return _schema_fail(MAP_LAYOUTS_PATH, field, "rectangular grid center for odd radius_tiles")
 	if _is_map_point_on_grid_vertex(point_data, grid_data):
 		return true
-	return _schema_fail(MAP_LAYOUTS_PATH, field, "diamond grid vertex for even radius_tiles")
+	return _schema_fail(MAP_LAYOUTS_PATH, field, "rectangular grid vertex for even radius_tiles")
 
 
 func _is_map_point_on_grid_center(point_data: Variant, grid_data: Variant) -> bool:
@@ -1759,12 +1741,8 @@ func _is_map_point_on_grid_center(point_data: Variant, grid_data: Variant) -> bo
 		return true
 	if not (grid.get("cell_height") is int or grid.get("cell_height") is float):
 		return true
-	var half_width: float = maxf(float(grid.get("cell_width")) * 0.5, 1.0)
-	var half_height: float = maxf(float(grid.get("cell_height")) * 0.5, 1.0)
-	var u: float = float(point.get("x")) / half_width
-	var v: float = float(point.get("y")) / half_height
-	var column: float = (u + v) * 0.5
-	var row: float = (v - u) * 0.5
+	var column: float = float(point.get("x")) / maxf(float(grid.get("cell_width")), 1.0)
+	var row: float = float(point.get("y")) / maxf(float(grid.get("cell_height")), 1.0)
 	if _is_nearly_integer(column) and _is_nearly_integer(row):
 		return true
 	return false
@@ -1783,14 +1761,9 @@ func _is_map_point_on_grid_vertex(point_data: Variant, grid_data: Variant) -> bo
 		return true
 	if not (grid.get("cell_height") is int or grid.get("cell_height") is float):
 		return true
-	var half_width: float = maxf(float(grid.get("cell_width")) * 0.5, 1.0)
-	var half_height: float = maxf(float(grid.get("cell_height")) * 0.5, 1.0)
-	var u: float = float(point.get("x")) / half_width
-	var v: float = float(point.get("y")) / half_height
-	if not _is_nearly_integer(u) or not _is_nearly_integer(v):
-		return false
-	var parity_sum: int = int(roundf(u)) + int(roundf(v))
-	return parity_sum % 2 != 0
+	var column: float = float(point.get("x")) / maxf(float(grid.get("cell_width")), 1.0) - 0.5
+	var row: float = float(point.get("y")) / maxf(float(grid.get("cell_height")), 1.0) - 0.5
+	return _is_nearly_integer(column) and _is_nearly_integer(row)
 
 
 func _validate_map_pcg(field: String, data: Variant, hazard_ids: Dictionary) -> bool:

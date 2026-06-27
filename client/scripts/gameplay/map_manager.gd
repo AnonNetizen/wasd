@@ -1,5 +1,5 @@
 # Doc: docs/代码/map_manager.md
-# Authority: docs/游戏设计文档.md §5, docs/决策记录.md ADR #93 / ADR #105
+# Authority: docs/游戏设计文档.md §5, docs/决策记录.md ADR #93 / ADR #125
 class_name MapManager
 extends Node2D
 
@@ -7,8 +7,8 @@ extends Node2D
 const BOUNDS_COLOR: Color = Color(0.48, 0.62, 0.70, 0.62)
 const BOUNDS_FILL_COLOR: Color = Color(0.08, 0.10, 0.11, 0.12)
 const BOUNDS_WIDTH: float = 4.0
-const DEFAULT_BOUNDS_SIZE: Vector2 = Vector2(3200.0, 1600.0)
-const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 80.0)
+const DEFAULT_BOUNDS_SIZE: Vector2 = Vector2(4000.0, 2400.0)
+const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 160.0)
 const DIRECTOR_SOURCE: String = "director"
 const INVALID_POSITION: Vector2 = Vector2(1.0e20, 1.0e20)
 const MANUAL_SOURCE: String = "manual"
@@ -108,7 +108,7 @@ func boundary_center() -> Vector2:
 
 
 func boundary_half_extents() -> Vector2:
-	return _diamond_half_extents()
+	return _rect_half_extents()
 
 
 func safe_zone_points() -> PackedVector2Array:
@@ -120,7 +120,7 @@ func safe_zone_half_extents() -> Vector2:
 
 
 func clamp_position(world_position: Vector2) -> Vector2:
-	return _clamp_to_diamond(world_position)
+	return _clamp_to_rect(world_position)
 
 
 func snap_to_grid(world_position: Vector2) -> Vector2:
@@ -134,12 +134,12 @@ func normalize_hazard_position(world_position: Vector2, hazard_id: String) -> Ve
 
 func spawn_position(player_position: Vector2, viewport_size: Vector2) -> Vector2:
 	var radius: float = maxf(viewport_size.x, viewport_size.y) * 0.55
-	var spawn_padding: Vector2 = _diamond_padding_extents(maxf(_enemy_spawn_margin, SPAWN_EDGE_PADDING))
-	if not _has_diamond_room(spawn_padding):
-		spawn_padding = _diamond_padding_extents(SPAWN_EDGE_PADDING)
+	var spawn_padding: Vector2 = _rect_padding_extents(maxf(_enemy_spawn_margin, SPAWN_EDGE_PADDING))
+	if not _has_rect_room(spawn_padding):
+		spawn_padding = _rect_padding_extents(SPAWN_EDGE_PADDING)
 	var angle: float = RNG.spawn.randf_range(0.0, TAU)
 	var candidate: Vector2 = player_position + Vector2.RIGHT.rotated(angle) * radius
-	return _clamp_to_diamond(candidate, spawn_padding)
+	return _clamp_to_rect(candidate, spawn_padding)
 
 
 func debug_summary() -> Dictionary:
@@ -147,11 +147,11 @@ func debug_summary() -> Dictionary:
 		"layout_id": _layout_id,
 		"bounds": _rect_to_dict(_bounds),
 		"grid_cell_size": _vector_to_dict(_grid_cell_size),
-		"boundary_shape": "diamond",
+		"boundary_shape": "rectangle",
 		"boundary_center": _vector_to_dict(boundary_center()),
-		"boundary_half_extents": _vector_to_dict(_diamond_half_extents()),
+		"boundary_half_extents": _vector_to_dict(_rect_half_extents()),
 		"boundary_points": _points_to_array(_boundary_points()),
-		"safe_zone_shape": "diamond" if _safe_radius > 0.0 else "none",
+		"safe_zone_shape": "rectangle" if _safe_radius > 0.0 else "none",
 		"safe_zone_half_extents": _vector_to_dict(_safe_zone_half_extents()),
 		"safe_zone_points": _points_to_array(_safe_zone_points()),
 		"player_start": _vector_to_dict(_player_start),
@@ -190,37 +190,26 @@ func _parse_grid(raw_value: Variant) -> Vector2:
 
 func _boundary_points() -> PackedVector2Array:
 	var center: Vector2 = boundary_center()
-	var half_extents: Vector2 = _diamond_half_extents()
+	var half_extents: Vector2 = _rect_half_extents()
 	return PackedVector2Array([
-		center + Vector2(0.0, -half_extents.y),
-		center + Vector2(half_extents.x, 0.0),
-		center + Vector2(0.0, half_extents.y),
-		center + Vector2(-half_extents.x, 0.0),
+		center + Vector2(-half_extents.x, -half_extents.y),
+		center + Vector2(half_extents.x, -half_extents.y),
+		center + Vector2(half_extents.x, half_extents.y),
+		center + Vector2(-half_extents.x, half_extents.y),
 	])
 
 
-func _diamond_half_extents() -> Vector2:
-	var ratio: float = _diamond_slope_ratio()
-	var horizontal_limit: float = maxf(_bounds.size.x * 0.5, 1.0)
-	var vertical_limit: float = maxf(_bounds.size.y * 0.5, 1.0)
-	var vertical_from_width: float = horizontal_limit * ratio
-	if vertical_from_width <= vertical_limit:
-		return Vector2(horizontal_limit, vertical_from_width)
-	return Vector2(vertical_limit / ratio, vertical_limit)
-
-
-func _diamond_slope_ratio() -> float:
-	return maxf(_grid_cell_size.y, 1.0) / maxf(_grid_cell_size.x, 1.0)
+func _rect_half_extents() -> Vector2:
+	return Vector2(maxf(_bounds.size.x * 0.5, 1.0), maxf(_bounds.size.y * 0.5, 1.0))
 
 
 func _safe_zone_half_extents() -> Vector2:
 	if _safe_radius <= 0.0:
 		return Vector2.ZERO
-	var grid_width: float = maxf(_grid_cell_size.x, 1.0)
-	var horizontal_grid_span: float = maxf(_safe_radius / grid_width, 0.0)
-	var grid_line_span: float = maxf(ceilf(horizontal_grid_span - 0.5) + 0.5, 0.5)
-	var half_width: float = grid_width * grid_line_span
-	return Vector2(half_width, half_width * _diamond_slope_ratio())
+	return Vector2(
+		maxf(ceilf(_safe_radius / maxf(_grid_cell_size.x, 1.0)) * _grid_cell_size.x, _grid_cell_size.x),
+		maxf(ceilf(_safe_radius / maxf(_grid_cell_size.y, 1.0)) * _grid_cell_size.y, _grid_cell_size.y)
+	)
 
 
 func _safe_zone_points() -> PackedVector2Array:
@@ -228,68 +217,59 @@ func _safe_zone_points() -> PackedVector2Array:
 		return PackedVector2Array()
 	var half_extents: Vector2 = _safe_zone_half_extents()
 	return PackedVector2Array([
-		_player_start + Vector2(0.0, -half_extents.y),
-		_player_start + Vector2(half_extents.x, 0.0),
-		_player_start + Vector2(0.0, half_extents.y),
-		_player_start + Vector2(-half_extents.x, 0.0),
+		_player_start + Vector2(-half_extents.x, -half_extents.y),
+		_player_start + Vector2(half_extents.x, -half_extents.y),
+		_player_start + Vector2(half_extents.x, half_extents.y),
+		_player_start + Vector2(-half_extents.x, half_extents.y),
 	])
 
 
-func _diamond_padding_extents(horizontal_padding: float) -> Vector2:
-	var padding: float = maxf(horizontal_padding, 0.0)
-	return Vector2(padding, padding * _diamond_slope_ratio())
+func _rect_padding_extents(padding_value: float) -> Vector2:
+	var padding: float = maxf(padding_value, 0.0)
+	return Vector2(padding, padding)
 
 
-func _diamond_inset_ratio(inset_extents: Vector2) -> float:
-	var half_extents: Vector2 = _diamond_half_extents()
-	return maxf(
-		maxf(inset_extents.x, 0.0) / maxf(half_extents.x, 1.0),
-		maxf(inset_extents.y, 0.0) / maxf(half_extents.y, 1.0)
+func _has_rect_room(inset_extents: Vector2) -> bool:
+	var half_extents: Vector2 = _rect_half_extents()
+	return inset_extents.x < half_extents.x and inset_extents.y < half_extents.y
+
+
+func _is_position_inside_rect(world_position: Vector2, inset_extents: Vector2 = Vector2.ZERO) -> bool:
+	var center: Vector2 = boundary_center()
+	var half_extents: Vector2 = _rect_half_extents() - Vector2(maxf(inset_extents.x, 0.0), maxf(inset_extents.y, 0.0))
+	if half_extents.x < 0.0 or half_extents.y < 0.0:
+		return false
+	var offset: Vector2 = world_position - center
+	return absf(offset.x) <= half_extents.x + 0.01 and absf(offset.y) <= half_extents.y + 0.01
+
+
+func _clamp_to_rect(world_position: Vector2, inset_extents: Vector2 = Vector2.ZERO) -> Vector2:
+	var center: Vector2 = boundary_center()
+	var half_extents: Vector2 = Vector2(
+		maxf(_rect_half_extents().x - maxf(inset_extents.x, 0.0), 0.0),
+		maxf(_rect_half_extents().y - maxf(inset_extents.y, 0.0), 0.0)
+	)
+	return Vector2(
+		clampf(world_position.x, center.x - half_extents.x, center.x + half_extents.x),
+		clampf(world_position.y, center.y - half_extents.y, center.y + half_extents.y)
 	)
 
 
-func _has_diamond_room(inset_extents: Vector2) -> bool:
-	return _diamond_inset_ratio(inset_extents) < 1.0
-
-
-func _is_position_inside_diamond(world_position: Vector2, inset_extents: Vector2 = Vector2.ZERO) -> bool:
+func _inset_rect(inset_extents: Vector2 = Vector2.ZERO) -> Rect2:
 	var center: Vector2 = boundary_center()
-	var half_extents: Vector2 = _diamond_half_extents()
-	var offset: Vector2 = world_position - center
-	var limit: float = 1.0 - _diamond_inset_ratio(inset_extents)
-	if limit < 0.0:
-		return false
-	var normalized_distance: float = absf(offset.x) / maxf(half_extents.x, 1.0) + absf(offset.y) / maxf(half_extents.y, 1.0)
-	return normalized_distance <= limit + 0.01
-
-
-func _clamp_to_diamond(world_position: Vector2, inset_extents: Vector2 = Vector2.ZERO) -> Vector2:
-	var center: Vector2 = boundary_center()
-	var half_extents: Vector2 = _diamond_half_extents()
-	var offset: Vector2 = world_position - center
-	var limit: float = maxf(1.0 - _diamond_inset_ratio(inset_extents), 0.0)
-	var normalized_distance: float = absf(offset.x) / maxf(half_extents.x, 1.0) + absf(offset.y) / maxf(half_extents.y, 1.0)
-	if normalized_distance <= limit or normalized_distance <= 0.0:
-		return world_position
-	return center + offset * (limit / normalized_distance)
-
-
-func _diamond_rect(inset_extents: Vector2 = Vector2.ZERO) -> Rect2:
-	var center: Vector2 = boundary_center()
-	var half_extents: Vector2 = _diamond_half_extents() * maxf(1.0 - _diamond_inset_ratio(inset_extents), 0.0)
+	var half_extents: Vector2 = Vector2(
+		maxf(_rect_half_extents().x - maxf(inset_extents.x, 0.0), 0.0),
+		maxf(_rect_half_extents().y - maxf(inset_extents.y, 0.0), 0.0)
+	)
 	return Rect2(center - half_extents, half_extents * 2.0)
 
 
-func _random_diamond_position(inset_extents: Vector2 = Vector2.ZERO) -> Vector2:
-	var rect: Rect2 = _diamond_rect(inset_extents)
-	for _attempt: int in range(16):
-		var candidate: Vector2 = Vector2(
-			RNG.world.randf_range(rect.position.x, rect.end.x),
-			RNG.world.randf_range(rect.position.y, rect.end.y)
-		)
-		if _is_position_inside_diamond(candidate, inset_extents):
-			return candidate
-	return _clamp_to_diamond(rect.get_center(), inset_extents)
+func _random_rect_position(inset_extents: Vector2 = Vector2.ZERO) -> Vector2:
+	var rect: Rect2 = _inset_rect(inset_extents)
+	return Vector2(
+		RNG.world.randf_range(rect.position.x, rect.end.x),
+		RNG.world.randf_range(rect.position.y, rect.end.y)
+	)
 
 
 func _draw_polygon_outline(points: PackedVector2Array, color: Color, width: float) -> void:
@@ -393,13 +373,13 @@ func _roll_hazard_position(
 	var half_extents: Vector2 = _hazard_half_extents(hazard_id)
 	var placement_padding: Vector2 = Vector2(
 		maxf(half_extents.x, SPAWN_EDGE_PADDING),
-		maxf(half_extents.y, SPAWN_EDGE_PADDING * _diamond_slope_ratio())
+		maxf(half_extents.y, SPAWN_EDGE_PADDING)
 	)
-	if not _has_diamond_room(placement_padding):
+	if not _has_rect_room(placement_padding):
 		return INVALID_POSITION
 	var attempts: int = maxi(PLACEMENT_ATTEMPTS_PER_HAZARD, 1)
 	for _attempt: int in range(attempts):
-		var candidate: Vector2 = _random_diamond_position(placement_padding)
+		var candidate: Vector2 = _random_rect_position(placement_padding)
 		candidate = _normalize_hazard_position(candidate, hazard_id)
 		if _is_valid_hazard_position(candidate, hazard_id, min_distance, min_spacing, extra_blockers):
 			return candidate
@@ -433,17 +413,17 @@ func _roll_interest_point_anchor_position(point: Dictionary, min_distance: float
 	var half_extents: Vector2 = _interest_point_anchor_half_extents(point)
 	var placement_padding: Vector2 = Vector2(
 		maxf(half_extents.x, SPAWN_EDGE_PADDING),
-		maxf(half_extents.y, SPAWN_EDGE_PADDING * _diamond_slope_ratio())
+		maxf(half_extents.y, SPAWN_EDGE_PADDING)
 	)
-	if not _has_diamond_room(placement_padding):
+	if not _has_rect_room(placement_padding):
 		return INVALID_POSITION
 	var attempts: int = maxi(PLACEMENT_ATTEMPTS_PER_HAZARD, 1)
 	for _attempt: int in range(attempts):
-		var candidate: Vector2 = _normalize_interest_point_anchor_position(_random_diamond_position(placement_padding), point)
+		var candidate: Vector2 = _normalize_interest_point_anchor_position(_random_rect_position(placement_padding), point)
 		if _is_valid_interest_point_anchor_position(candidate, point, min_distance, min_spacing):
 			return candidate
 	for _attempt: int in range(attempts):
-		var fallback_candidate: Vector2 = _normalize_interest_point_anchor_position(_random_diamond_position(placement_padding), point)
+		var fallback_candidate: Vector2 = _normalize_interest_point_anchor_position(_random_rect_position(placement_padding), point)
 		if _is_valid_interest_point_anchor_position(fallback_candidate, point, min_distance, 0.0):
 			return fallback_candidate
 	return INVALID_POSITION
@@ -478,7 +458,7 @@ func _is_valid_hazard_position(
 
 
 func _is_valid_interest_point_anchor_position(candidate: Vector2, point: Dictionary, min_distance: float, min_spacing: float) -> bool:
-	if not _is_position_inside_diamond(candidate, _interest_point_anchor_half_extents(point)):
+	if not _is_position_inside_rect(candidate, _interest_point_anchor_half_extents(point)):
 		return false
 	var minimum_player_distance: float = maxf(min_distance, _safe_radius)
 	if candidate.distance_to(_player_start) < minimum_player_distance:
@@ -548,17 +528,17 @@ func _hazard_source_counts() -> Dictionary:
 
 func _normalize_hazard_position(world_position: Vector2, hazard_id: String) -> Vector2:
 	var half_extents: Vector2 = _hazard_half_extents(hazard_id)
-	if not _has_diamond_room(half_extents):
+	if not _has_rect_room(half_extents):
 		return _nearest_hazard_anchor_position(clamp_position(world_position), hazard_id)
-	var clamped_target: Vector2 = _clamp_to_diamond(world_position, half_extents)
+	var clamped_target: Vector2 = _clamp_to_rect(world_position, half_extents)
 	return _nearest_hazard_anchor_position(clamped_target, hazard_id)
 
 
 func _normalize_interest_point_anchor_position(world_position: Vector2, point: Dictionary) -> Vector2:
 	var half_extents: Vector2 = _interest_point_anchor_half_extents(point)
-	if not _has_diamond_room(half_extents):
+	if not _has_rect_room(half_extents):
 		return snap_to_grid(clamp_position(world_position))
-	var clamped_target: Vector2 = _clamp_to_diamond(world_position, half_extents)
+	var clamped_target: Vector2 = _clamp_to_rect(world_position, half_extents)
 	return snap_to_grid(clamped_target)
 
 
@@ -594,27 +574,18 @@ func _hazard_anchor_candidates(grid_index: Vector2i, hazard_id: String) -> Array
 	var half_width: float = maxf(_grid_cell_size.x * 0.5, 1.0)
 	var half_height: float = maxf(_grid_cell_size.y * 0.5, 1.0)
 	var base_position: Vector2 = _grid_position(grid_index)
-	return [
-		base_position + Vector2(0.0, half_height),
-		base_position + Vector2(half_width, 0.0),
-	]
+	return [base_position + Vector2(half_width, half_height)]
 
 
 func _grid_index(world_position: Vector2) -> Vector2i:
-	var half_width: float = maxf(_grid_cell_size.x * 0.5, 1.0)
-	var half_height: float = maxf(_grid_cell_size.y * 0.5, 1.0)
-	var u: float = world_position.x / half_width
-	var v: float = world_position.y / half_height
-	return Vector2i(roundi((u + v) * 0.5), roundi((v - u) * 0.5))
+	return Vector2i(
+		roundi(world_position.x / maxf(_grid_cell_size.x, 1.0)),
+		roundi(world_position.y / maxf(_grid_cell_size.y, 1.0))
+	)
 
 
 func _grid_position(grid_index: Vector2i) -> Vector2:
-	var half_width: float = maxf(_grid_cell_size.x * 0.5, 1.0)
-	var half_height: float = maxf(_grid_cell_size.y * 0.5, 1.0)
-	return Vector2(
-		float(grid_index.x - grid_index.y) * half_width,
-		float(grid_index.x + grid_index.y) * half_height
-	)
+	return Vector2(float(grid_index.x) * _grid_cell_size.x, float(grid_index.y) * _grid_cell_size.y)
 
 
 func _hazard_grid_search_radius(hazard_id: String) -> int:
@@ -626,7 +597,7 @@ func _hazard_grid_search_radius(hazard_id: String) -> int:
 
 func _is_hazard_inside_bounds(candidate: Vector2, hazard_id: String) -> bool:
 	var half_extents: Vector2 = _hazard_half_extents(hazard_id)
-	return _is_position_inside_diamond(candidate, half_extents)
+	return _is_position_inside_rect(candidate, half_extents)
 
 
 func _hazard_spacing_radius(hazard_id: String) -> float:
@@ -669,7 +640,8 @@ func _interest_point_target_half_extents(point: Dictionary) -> Vector2:
 func _interest_point_target_radius_tiles(point: Dictionary) -> int:
 	var hit_radius: float = maxf(float(point.get("target_hit_radius", 0.0)), 1.0)
 	var half_width: float = maxf(_grid_cell_size.x * 0.5, 1.0)
-	return maxi(int(ceilf(hit_radius / half_width)), 1)
+	var half_height: float = maxf(_grid_cell_size.y * 0.5, 1.0)
+	return maxi(int(ceilf(maxf(hit_radius / half_width, hit_radius / half_height))), 1)
 
 
 func _typed_placements(raw_value: Variant) -> Array[Dictionary]:

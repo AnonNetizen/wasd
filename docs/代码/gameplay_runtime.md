@@ -7,7 +7,7 @@
 
 - 在正式 `client/` 内提供一局最小战斗：最小标题入口、标题设置入口、标题装备 Mod 入口、有限地图、玩家移动、相机居中、基础背景参照、起始武器、起始主动技能、池化子弹、池化敌人、池化机关、波次刷怪、HUD、主动暂停、暂停设置入口、暂停保存退出、标题继续游戏、暂停 / 可选升级 UI 恢复点、失败后摘要、重开 / 回标题。ADR #120 后默认标准模式不启用局内升级三选一；经验升级能力保留给未来挂接 `growth_pools` 的非默认模式。
 - 复用 F3/F9/F10 已建立的数据边界：`player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemies.csv`、`enemy_ai_profiles.json`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`spawn_waves.csv`、`growth.csv`、`growth_pools.json` 和 `game_modes.json`。
-- 第一版只做标准生存模式、默认角色、默认起始武器、默认主技能、第二个数据驱动技能和通用范围机关的竖切；F5 首片已接入 gameplay runtime 的 `run` 续局快照；F11 已把下一局属性来源切到 Gear Mod 英雄 / 武器 loadout，接入标题装备 Mod 面板，并在玩家归因掉落 Mod 时显示 HUD 暂存提示。ADR #117 后旧 `MetaProgressionSystem` 运行时、标题旧升级面板、死亡结算旧货币 / 账号经验奖励和 `meta-smoke` 已删除；ADR #120 后标准模式转为暗黑式短刷图，`mode_standard_survival` 不挂 `growth_pools`，因此默认不产经验球、不弹升级三选一。F12 首片已把标准局数据调为 8-12 分钟软目标：偏外侧出生、0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟导演阶段、四个 director 兴趣点、7 分钟小巢核压力、兴趣点 dust / Mod 暂存、可见缓存箱交互，以及可被子弹 / Combat 摧毁的精英巢点 / 小巢核目标；资源缓存 / Mod 缓存通过 `requires_interaction` 生成低频 `InterestPointCache`，玩家进入半径后按 `interact` 打开，不再被子弹摧毁或进圈自动领取；缓存箱使用独立格心 anchor、淡菱形 footprint 和低矮箱体表现，功能色仅作为小嵌片区分 Mod / 资源缓存，MapManager 会让关联 director 机关避开缓存箱 footprint；ADR #122 后 Gear Mod / dust 先进入 `run.pending_loot`，ADR #123 后击破小巢核只开启贴格撤离区，玩家站进撤离区完成短读条后才提交到 `meta.gear_mods`、删除 `run` 并显示完成面板；`GameOverPanel` 会按成功 / 失败列出带回或丢失的 dust / Gear Mod、击杀数和用时；死亡 / 放弃不带回。正式核心美术 / 行为、多出口撤离、更正式 Result UI、缓存箱守卫 / 爆出表现还未实现。角色选择、完整商店 / 局外包装、技能 UI、音频、美术资产或平衡 sim 仍未实现。升级内容只保留 `stat_modifier` 最小切片，供未来非默认模式按数据与设计重新启用。
+- 第一版只做标准生存模式、默认角色、默认起始武器、默认主技能、第二个数据驱动技能和通用范围机关的竖切；F5 首片已接入 gameplay runtime 的 `run` 续局快照；F11 已把下一局属性来源切到 Gear Mod 英雄 / 武器 loadout，接入标题装备 Mod 面板，并在玩家归因掉落 Mod 时显示 HUD 暂存提示。ADR #117 后旧 `MetaProgressionSystem` 运行时、标题旧升级面板、死亡结算旧货币 / 账号经验奖励和 `meta-smoke` 已删除；ADR #120 后标准模式转为暗黑式短刷图，`mode_standard_survival` 不挂 `growth_pools`，因此默认不产经验球、不弹升级三选一。F12 首片已把标准局数据调为 8-12 分钟软目标：偏外侧出生、0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟导演阶段、四个 director 兴趣点、7 分钟小巢核压力、兴趣点 dust / Mod 暂存、可见缓存箱交互，以及可被子弹 / Combat 摧毁的精英巢点 / 小巢核目标；资源缓存 / Mod 缓存通过 `requires_interaction` 生成低频 `InterestPointCache`，玩家进入半径后按 `interact` 打开，不再被子弹摧毁或进圈自动领取；缓存箱使用独立格心 anchor、矩形 footprint 和低矮俯视箱体表现，功能色仅作为小嵌片区分 Mod / 资源缓存，MapManager 会让关联 director 机关避开缓存箱 footprint；ADR #122 后 Gear Mod / dust 先进入 `run.pending_loot`，ADR #123 后击破小巢核只开启贴格撤离区，ADR #125 后该撤离区按矩形俯视格绘制和判定；玩家站进撤离区完成短读条后才提交到 `meta.gear_mods`、删除 `run` 并显示完成面板；`GameOverPanel` 会按成功 / 失败列出带回或丢失的 dust / Gear Mod、击杀数和用时；死亡 / 放弃不带回。正式核心美术 / 行为、多出口撤离、更正式 Result UI、缓存箱守卫 / 爆出表现还未实现。角色选择、完整商店 / 局外包装、技能 UI、音频、美术资产或平衡 sim 仍未实现。升级内容只保留 `stat_modifier` 最小切片，供未来非默认模式按数据与设计重新启用。
 
 ## 阅读方式
 
@@ -39,11 +39,11 @@
 | `client/scenes/gameplay/gameplay_run_loop.tscn` | 正式 gameplay runtime 场景；包含 `ActiveWorld`、`WorldBackground`、`Player` 和 `GameplayHud` |
 | `client/scenes/gameplay/player.tscn` | 正式玩家场景；包含 `CenteredCamera` 与 `WeaponSystem`；`CenteredCamera` 由 `player.gd` 固定配置为水平居中 + 等比缩放，不挂 3D 正交视觉层 |
 | `client/scenes/gameplay/bullet.tscn` / `enemy.tscn` / `pickup_orb.tscn` / `hit_spark.tscn` / `damage_number.tscn` / `hazard.tscn` | 对象池实体场景；由 `PoolManager` 工厂实例化并复用 |
-| `client/scenes/gameplay/interest_point_target.tscn` / `client/scripts/gameplay/interest_point_target.gd` | F12 低频兴趣点目标：精英巢点和小巢核可伤害占位；视觉 footprint 对齐地图菱形格，摧毁后通过 signal 触发通用兴趣点奖励 |
-| `client/scenes/gameplay/interest_point_cache.tscn` / `client/scripts/gameplay/interest_point_cache.gd` | F12 低频缓存箱：资源缓存 / Mod 缓存可见交互占位；淡菱形 footprint 对齐地图菱形格，主体是低矮箱体，功能色只作为小嵌片，渲染在地图背景之上、机关 / 敌人 / 玩家模型之下，打开后保留已开启状态 |
+| `client/scenes/gameplay/interest_point_target.tscn` / `client/scripts/gameplay/interest_point_target.gd` | F12 低频兴趣点目标：精英巢点和小巢核可伤害占位；视觉 footprint 对齐地图矩形格，摧毁后通过 signal 触发通用兴趣点奖励 |
+| `client/scenes/gameplay/interest_point_cache.tscn` / `client/scripts/gameplay/interest_point_cache.gd` | F12 低频缓存箱：资源缓存 / Mod 缓存可见交互占位；矩形 footprint 对齐地图矩形格，主体是低矮俯视箱体，功能色只作为小嵌片，渲染在地图背景之上、机关 / 敌人 / 玩家之下，打开后保留已开启状态 |
 | `client/scenes/ui/title_menu.tscn` / `gear_mod_panel.tscn` / `pause_menu.tscn` / `settings_panel.tscn` / `game_over_panel.tscn` / `level_up_panel.tscn` | 正式 UI 场景；脚本只绑定稳定节点、连接 signal 和刷新数据 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 正式运行时编排、输入 action 手柄兜底注册、对象池注册、刷怪和重开 |
-| `client/scripts/gameplay/world_background.gd` | 量化菱形地图格背景；读取 `MapManager.grid_cell_size()`，让背景格、机关绘制和触发判定共享同一份地图度量，不改变世界坐标或相机缩放 |
+| `client/scripts/gameplay/world_background.gd` | 量化矩形地图格背景；读取 `MapManager.grid_cell_size()`，让背景格、机关绘制和触发判定共享同一份地图度量，不改变世界坐标或相机缩放 |
 | `client/scripts/gameplay/map_manager.gd` | 有限地图边界、PCG 机关摆放、人工摆点、刷怪位置 clamp 和地图快照 |
 | `client/scripts/gameplay/player.gd` | 玩家移动、鼠标相对玩家 / 视口中心方向瞄准、方向键 / 手柄兜底瞄准、2D 俯视占位按完整 `aim_direction` 绘制朝向标记、相机居中、受伤 / 死亡；提供少量受控 debug 生命 API 给 GM 命令调用 |
 | `client/scripts/gameplay/warzone_director.gd` | F10 敌巢战区导演，解释固定阶段、巢变异主题、生态 encounter、兴趣点和阶段启用 wave |
@@ -51,7 +51,7 @@
 | `client/scripts/gameplay/skill_system.gd` | 起始主动技能释放、技能资源、冷却、目标筛选、效果解释和 run 快照 |
 | `client/scripts/gameplay/bullet.gd` | 子弹飞行、射程 / 生命周期裁剪、敌人和兴趣点目标命中 |
 | `client/scripts/gameplay/enemy.gd` | 数据驱动敌人生态 AI、接触伤害、受伤 / 死亡和 AI 快照 |
-| `client/scripts/gameplay/hazard.gd` | 通用机关节点：菱形范围触发、冷却、占位表现、`Combat` 伤害和快照 |
+| `client/scripts/gameplay/hazard.gd` | 通用机关节点：矩形范围触发、冷却、占位表现、`Combat` 伤害和快照 |
 | `client/scripts/gameplay/pickup_orb.gd` | 池化经验球：进入玩家拾取范围后吸附并发放经验 |
 | `client/scripts/gameplay/hit_spark.gd` / `damage_number.gd` | 池化命中反馈：Combat 成功造成伤害时生成短命火花和飘字；不进入 run 快照 |
 | `client/scripts/gameplay/level_up_panel.gd` | 响应式升级三选一面板；通过 `UIManager.push()` 挂载；语言切换时用缓存候选重建按钮 |
@@ -111,18 +111,18 @@ UIManager
 |------|----------|-------------------|
 | 启动 | `FormalClientBoot` 跑数据 schema smoke，正常启动显示 `TitleMenu`；标题菜单可打开 `GearModPanel` 配置英雄 / 武器 Mod，也可打开 `SettingsPanel` 修改设置；旧局外升级入口和面板已删除；`--runtime-smoke` 模式跳过标题并直接创建 `GameplayRunLoop` | `DataLoader.validate_project_data()`、`UIManager.push()` |
 | 开局 | 普通标题开始 / 局内重开由 `FormalClientBoot` 先调用 `RNG.set_random_run_seed()`，再实例化 `gameplay_run_loop.tscn`；运行时重置 `GameClock`，注册 / 预热子弹、经验球、机关、命中反馈和当前 F4 敌人对象池，读取默认模式 / 角色 / 起始武器，并在玩家 / 武器配置后分别应用 `GearModSystem.current_modifiers("hero")` 与 `GearModSystem.current_modifiers("weapon")`；工具 / replay 路径可显式固定 seed 后直接启动 runtime | `RNG.set_random_run_seed()`、`PackedScene.instantiate()`、`PoolManager.register_pool()`、`DataLoader.load_json()`、`GearModSystem.current_modifiers()` |
-| 地图 / 机关 | `MapManager` 按 `map_layouts.json` 配置有限菱形边界、出生点、安全半径、刷怪边距、手工机关摆点和 PCG 机关；开局还会解释当前 layout 匹配的 WarzoneDirector 兴趣点并生成 `source="director"` 机关；玩家与敌人中心移动都会被菱形边界 clamp，机关通过对象池生成，触发伤害走 `Combat` | `MapManager.configure()`、`generate_hazard_placements()`、`Player.set_movement_diamond_boundary()`、`Enemy.set_movement_diamond_boundary()`、`PoolManager.acquire()`、`Combat.apply_damage()` |
-| 战区导演 | `WarzoneDirector` 读取 `warzone_directors.json` 的当前模式导演，用固定时间 phase 组织巢变异主题、生态 encounter、兴趣点和启用 wave；F12 标准局按 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟组织短刷图节奏，9 分钟后软加压但不硬切；兴趣点交给 `MapManager` 初始机关生成并透传领取 / 奖励 / 交互 / 可伤害目标 / 撤离元数据；`GameplayRunLoop` 对无目标且不要求交互的兴趣点按 `claim_radius`、`claim_start_time` 和玩家位置把 dust / Mod 放入 `run.pending_loot`；对 `requires_interaction=true` 的兴趣点按 `interest_point_cache_position` 生成可见 `InterestPointCache`，玩家进入半径后按 `interact` 打开并暂存奖励；对有 `target_hp` 的兴趣点按 `interest_point_target_position` 生成立即可被子弹 / `Combat` 伤害的格子化 `InterestPointTarget`，摧毁后暂存奖励；POI 目标 / 缓存 anchor 均由 MapManager 保证贴格并避开 active hazards；小巢核领取后开启贴合地图格的撤离菱形，玩家完成 `extraction_hold_time` 读条后提交暂存战利品并进入结果面板；不读玩家状态、不随机动态调难 | `WarzoneDirector.configure()`、`is_wave_enabled()`、`interest_points_for_layout()`、`GearModSystem.grant_resource()`、`GearModSystem.grant_mod()`、`debug_summary()` |
-| 背景 | 在玩家附近绘制量化菱形地图格和原点十字；网格来自 `map_layouts.json.grid`，与机关尺寸 / 判定共用同一格度量，但不缩放或旋转世界坐标，也不模拟斜俯视透视 | `WorldBackground.configure()` |
+| 地图 / 机关 | `MapManager` 按 `map_layouts.json` 配置有限矩形边界、出生点、安全半径、刷怪边距、手工机关摆点和 PCG 机关；开局还会解释当前 layout 匹配的 WarzoneDirector 兴趣点并生成 `source="director"` 机关；玩家与敌人中心移动都会被矩形边界 clamp，机关通过对象池生成，触发伤害走 `Combat` | `MapManager.configure()`、`generate_hazard_placements()`、`Player.set_movement_bounds()`、`Enemy.set_movement_bounds()`、`PoolManager.acquire()`、`Combat.apply_damage()` |
+| 战区导演 | `WarzoneDirector` 读取 `warzone_directors.json` 的当前模式导演，用固定时间 phase 组织巢变异主题、生态 encounter、兴趣点和启用 wave；F12 标准局按 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟组织短刷图节奏，9 分钟后软加压但不硬切；兴趣点交给 `MapManager` 初始机关生成并透传领取 / 奖励 / 交互 / 可伤害目标 / 撤离元数据；`GameplayRunLoop` 对无目标且不要求交互的兴趣点按 `claim_radius`、`claim_start_time` 和玩家位置把 dust / Mod 放入 `run.pending_loot`；对 `requires_interaction=true` 的兴趣点按 `interest_point_cache_position` 生成可见 `InterestPointCache`，玩家进入半径后按 `interact` 打开并暂存奖励；对有 `target_hp` 的兴趣点按 `interest_point_target_position` 生成立即可被子弹 / `Combat` 伤害的格子化 `InterestPointTarget`，摧毁后暂存奖励；POI 目标 / 缓存 anchor 均由 MapManager 保证贴格并避开 active hazards；小巢核领取后开启贴合地图矩形格的撤离矩形，玩家完成 `extraction_hold_time` 读条后提交暂存战利品并进入结果面板；不读玩家状态、不随机动态调难 | `WarzoneDirector.configure()`、`is_wave_enabled()`、`interest_points_for_layout()`、`GearModSystem.grant_resource()`、`GearModSystem.grant_mod()`、`debug_summary()` |
+| 背景 | 在玩家附近绘制量化矩形地图格和原点十字；网格来自 `map_layouts.json.grid`，与机关尺寸 / 判定共用同一格度量，但不缩放或旋转世界坐标，也不模拟斜俯视透视 | `WorldBackground.configure()` |
 | 输入 | `Settings` 在启动 / 加载 / 修改时把键盘主绑定写入 InputMap；运行时只确保同一 action 有手柄轴 / 按钮兜底事件。键鼠默认按鼠标相对视口中心的偏移瞄准，并通过当前 canvas / camera transform 换算成世界方向；方向键 / 手柄右摇杆 / D-pad 在没有鼠标动作时作为兜底。按住 `show_stats_panel` action（默认 Tab）只显示 HUD 详细数值面板，不进入暂停态。`interact` action（默认 E / 手柄 X）用于打开半径内的交互缓存箱。F8 输入录制首片会把移动 / 兜底瞄准 action 状态变化以及 `pause` / `ui_back` / `interact` 离散事件写入 `Replay`，但鼠标向量录制仍待后续输入回放扩展 | `Settings`、`InputMap`、`Input.get_vector()`、`InputEventMouseMotion.position`、`Replay.record_input_action()`、`Replay.record_input_event()` |
 | 移动 / 瞄准 | 玩家按数据移速在 2D 平面移动，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放；世界横纵单位映射到屏幕保持同尺度。鼠标激活后按 canvas transform 换算后的世界方向瞄准；无鼠标动作时用方向键 / 手柄右摇杆 / D-pad 兜底，松开保持上一方向；玩家 2D 俯视占位按完整 `aim_direction` 绘制朝向标记，敌人占位表现仍暂时只区分向左 / 向右 | `Player.aim_direction` |
 | 按住开火 | WeaponSystem 读取 `fire` action；按住时按 `fire_rate` 从子弹池取节点并配置，松开停火 | `InputMap` / `PoolManager.acquire()` |
 | 子弹命中 | 子弹用距离检测命中 `active_enemies` 与 `active_interest_point_targets` 组，伤害走 `Combat.apply_damage()`；F12 smoke 会用真实 `Bullet` 验证兴趣点目标在 `claim_start_time` 前也可受伤 | `DamageInfo` |
 | 主动技能 / 状态 | SkillSystem 从 `skills.json` 读取起始技能列表；默认 `use_active_item` action 释放第一个技能 `skill_overdrive_rounds`，消耗角色声明的 `mana`，通过 `skill_effect_weapon_modifiers` 临时强化玩家主武器射速与弹速；技能激活使用项目版轻量 GAS 的 ability tag gating，状态效果通过目标实体的 `StatusEffectComponent` 管理，技能冷却、资源回复、状态过期和 DoT tick 都走 `GameClock` | `SkillSystem.cast_primary_skill()`、`SkillSystem.cast_skill(skill_id)`、`WeaponSystem.apply_temporary_modifiers()`、`Combat.apply_damage()`、`Player.apply_status_effect()`、`Enemy.apply_status_effect()` |
 | 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人；F10 起先通过 `WarzoneDirector.is_wave_enabled()` 判断当前 phase 是否允许该 wave，当前有追猎者、疾行者、潜猎者和壁垒四种数据化敌人 | `GameClock.now()`、`RNG.spawn`、`WarzoneDirector.is_wave_enabled()` |
-| 机关触发 | `Hazard` 在 `PLAYING` 下按 `GameClock.delta_scaled()` 消耗冷却；玩家进入菱形范围后构造 `DamageInfo` 并交给 `Combat`，当前 FEA-12 用于验证 PCG / 手工摆点和伤害链路 | `Hazard.configure()`、`Combat.apply_damage()` |
+| 机关触发 | `Hazard` 在 `PLAYING` 下按 `GameClock.delta_scaled()` 消耗冷却；玩家进入矩形范围后构造 `DamageInfo` 并交给 `Combat`，当前 FEA-12 用于验证 PCG / 手工摆点和伤害链路 | `Hazard.configure()`、`Combat.apply_damage()` |
 | 受击 / 击杀反馈 | `Combat.damage_applied` 成功应用伤害后生成池化 `hit_spark` 与 `damage_number`；玩家受伤时 2D 俯视占位短暂红闪，敌人命中时短暂暖白闪，敌人死亡后立即离开活敌组并橙色放大淡出后归池；玩家进入数据化受伤无敌窗口 | `_draw()` / `queue_redraw()` / `PoolManager.acquire()` |
-| 敌人行为 | 敌人从 `enemy_ai_profiles.json` 读取感知、目标权重和动作列表；运行时可接近玩家、逃离威胁、狩猎其他敌人、守出生点或冲锋，移动 / 分离 / 快照恢复后仍被有限地图菱形边界 clamp。敌人与玩家 / 敌人接触伤害都走 `Combat`；怪物互杀不会计入玩家击杀或经验掉落 | `Enemy.defeated`、`docs/代码/enemy_ai.md` |
+| 敌人行为 | 敌人从 `enemy_ai_profiles.json` 读取感知、目标权重和动作列表；运行时可接近玩家、逃离威胁、狩猎其他敌人、守出生点或冲锋，移动 / 分离 / 快照恢复后仍被有限地图矩形边界 clamp。敌人与玩家 / 敌人接触伤害都走 `Combat`；怪物互杀不会计入玩家击杀或经验掉落 | `Enemy.defeated`、`docs/代码/enemy_ai.md` |
 | 经验掉落 | ADR #120 后默认标准模式没有成长候选池，玩家归因击杀不生成经验球；未来模式若在 `game_modes.json.resource_pools.growth_pools` 声明升级池，则敌人死亡按 `exp_reward` 生成池化经验球，进入 `pickup_range` 后吸附并发放经验 | `PoolManager.acquire(PICKUP_ORB)` |
 | 升级选择 | 只在当前模式加载到 `growth_pools` 候选池时启用。累计经验达到 `growth.csv` 阈值后进入 `GameState.LEVEL_UP`，玩法时间冻结；候选按权重和 `RNG.ui_choice` 抽取，入选后按 id 稳定排序以保证选择索引可回放；升级面板可在暂停态响应鼠标选择，也可按 `pause` action 把暂停菜单叠到升级面板上；选择后通过 `Replay.record_decision(level_up, ...)` 记录等级、候选数量、候选 id、选择 id 和 luck 快照，再应用 `stat_modifier`、显示获得反馈并回到 `PLAYING`。`golden_level_up_choice` 是测试 harness 显式调用 `debug_enable_level_up_growth()` 的能力回归，不代表默认标准模式启用升级。 | `LevelUpPanel.choice_selected`、`LevelUpPanel.pause_requested` |
 | 主动暂停 | `pause` action 在 `PLAYING` 中打开 `PauseMenu`，在 `LEVEL_UP` 中由升级面板请求把 `PauseMenu` 叠在升级面板上；菜单通过 `UIManager` 请求 `GameState.PAUSED`，玩法时间、敌人、子弹和刷怪冻结，菜单仍响应鼠标、`ui_back` 和再次 `pause` action；暂停菜单可打开 `SettingsPanel`，关闭后仍回到同一个暂停菜单；关闭升级态上方的暂停菜单后必须回到 `LEVEL_UP` | `UIManager.push()`、`GameState.PAUSED` |
@@ -208,10 +208,10 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 敌人 AI profile：从 `enemies.csv.ai_profile_id` 引用 `enemy_ai_profiles.json`；profile 负责感知半径、动作评分、怪物互相狩猎 / 逃跑、领地和冲锋参数。详细规则见 `docs/代码/enemy_ai.md`。
 - 敌人中心间距：从 `enemies.csv.separation_radius` 读取；当前默认 9px，低于 `hit_radius` 以允许视觉重叠。
 - 玩家中心排斥：从合并后的玩家 `base_stats.player_separation_radius` 读取；当前默认 10px。敌人与玩家的最小中心距离为两者分离半径之和，碰到时只推开敌人，不改变玩家移动手感；接触伤害距离会取敌人 `hit_radius` 与双方分离半径之和的较大值，避免推开后反而打不到玩家。
-- 俯视资产规则：地面范围类资产（机关、AOE、房间边界、地面符号）可继续用菱形或与菱形地图格对齐的轮廓；机关和规则型地面 footprint 尺寸应表达为格子整数倍。角色、敌人、拾取物、子弹、障碍物和特效不强制菱形，但必须有清晰俯视轮廓、方向标记、功能色和真实判定形状。AI 生成正式资源或占位替换时先写清 footprint、anchor、orientation_read、sort layer 和真实判定形状。
+- 俯视资产规则：地面范围类资产（机关、AOE、房间边界、地面符号）默认使用矩形 / 方形俯视格或清晰俯视轮廓；机关和规则型地面 footprint 尺寸应表达为格子整数倍。角色、敌人、拾取物、子弹、障碍物和特效不强制矩形，但必须有清晰俯视轮廓、方向标记、功能色和真实判定形状。AI 生成正式资源或占位替换时先写清 footprint、anchor、orientation_read、sort layer 和真实判定形状。
 - 玩家占位表现：默认由 `Player._draw()` 绘制蓝色 2D 圆点、白色朝向线和箭头，朝向标记按完整 `aim_direction` 旋转；受伤反馈为 0.16 秒红闪，不承载行为差异。正式玩家场景不再挂 `Player3DVisual`，不再用 `SubViewport + Camera3D` 正交渲染低模胶囊。
 - 敌人占位表现：从 `enemies.csv.visual_color` 读取 HTML 色值作为填充色，运行时统一绘制几何三角、暗色轮廓和眼睛描边；命中反馈为 0.16 秒暖白闪，死亡反馈为 0.18 秒橙色放大淡出，只用于开发期占位可读性，不承载行为分支。
-- 机关占位表现：通用 `Hazard` 绘制菱形危险地块；`hazards.csv.radius_tiles` 表示占用地图菱形格的整数倍，`MapManager.grid_cell_size()` 同时驱动背景网格、机关绘制和触发判定。
+- 机关占位表现：通用 `Hazard` 绘制矩形危险地块；`hazards.csv.radius_tiles` 表示占用地图矩形格的整数倍，`MapManager.grid_cell_size()` 同时驱动背景网格、机关绘制和触发判定。
 - 战区导演：`warzone_directors.json` 声明当前模式的固定 phase、mutation、encounter 和兴趣点；`GameplayRunLoop` 用它 gating wave，并把当前 layout 的兴趣点交给 `MapManager` 生成初始 `source="director"` 机关；不能让它读取玩家血量、DPS、受伤次数、输入节奏或其它玩家状态。F12 当前四个兴趣点通过通用 `resource_rewards[]` / `gear_mod_rewards[]`、`requires_interaction`、`target_hp` / `target_hit_radius` 和 `completes_run` 接线，不按 `poi_id` 特判；`requires_interaction` 缓存箱和 `target_hp` 目标都必须走 MapManager 的独立 POI anchor，不能复用陷阱位置；缓存箱是贴地 POI 视觉，层级应在地图背景之上、机关 / 敌人 / 玩家模型之下；后续守卫或核心实体仍应复用 reward / objective 数据而不是新增 id 分支。
 - 玩家生命尺度：默认角色 `max_hp` 为 600.0，采用浮点血量尺度而非旧心数尺度；`health_regen` 在 `PLAYING` 状态下按 `GameClock.delta_scaled()` 自动恢复生命且不超过上限，当前默认 1.5 HP/s。
 - 玩家俯视表现：`Player` 是 `CharacterBody2D`，移动、碰撞、受击、显示占位和 run 快照都维持 2D；`CenteredCamera` 不滚转屏幕、不非等比缩放，当前由 `player.gd` 设置 `ignore_rotation=true`、`rotation_degrees=0.0` 和等比 `zoom`；鼠标瞄准通过 canvas transform 反投影回世界方向，避免屏幕指向和射击方向错位。
@@ -241,7 +241,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 加敌人：优先改 `enemies.csv`、`enemy_ai_profiles.json`、`game_modes.json` 和 `spawn_waves.csv`；行为差异通过 AI profile / tag 权重表达，不在 `enemy.gd` 按 id 分支。
 - 加地图 / PCG 规则：优先改 `map_layouts.json`；运行时通过 `MapManager` 解释有限边界、手工摆点、PCG 和导演传入的通用兴趣点机关，不在 `GameplayRunLoop` 按 layout id 分支。
 - 加 / 改战区导演：优先改 `warzone_directors.json`；固定节奏、巢变异主题、生态 encounter 和兴趣点都应由数据表达，兴趣点可通过 `MapManager` 变成初始地图机关，但仍不读取玩家状态、不做隐藏 DDA、不接运行时 LLM。
-- 加机关：优先改 `hazards.csv`、`game_modes.json.resource_pools.hazards` 和 `map_layouts.json`；普通菱形范围机关复用 `Hazard`，新行为先设计通用 primitive，不按机关 id 写分支。
+- 加机关：优先改 `hazards.csv`、`game_modes.json.resource_pools.hazards` 和 `map_layouts.json`；普通矩形范围机关复用 `Hazard`，新行为先设计通用 primitive，不按机关 id 写分支。
 - 加刷怪：改 `spawn_waves.csv`；多个波次可复用当前时间窗 / 预算解释。
 - 加升级候选：优先改 `growth_pools.json`；目标模式还必须在 `game_modes.json.resource_pools.growth_pools` 引用候选池，否则默认标准模式不会启用局内升级选择。新候选如果仍是 `stat_modifier` 不需要改逻辑，新增候选类型才需要扩展运行时解释和文档。
 - 场景资源化：新增稳定 gameplay / UI 层级时优先新增 `.tscn`，脚本只做节点绑定、配置和 signal 编排；只有对象池工厂与数据驱动重复项可以在运行时创建节点，并要在模块文档说明原因。
@@ -293,10 +293,10 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 战区兴趣点机关不出现 | `warzone_directors.json.interest_points[].map_layout_id` 是否匹配当前 layout；`hazard_ids[]` 是否非空且引用存在；`debug_summary().map.hazard_sources.director` 是否大于 0 |
 | 兴趣点不领奖 | `claim_radius` 是否大于 0；`claim_start_time` 是否已到；无 `target_hp` 时玩家是否进入 `debug_summary().interest_points[point_id].position` 附近；若 `requires_interaction=true`，HUD 是否出现交互提示且玩家是否按了 `interact` action；有 `target_hp` 时目标是否被摧毁；奖励 id 是否通过 DataLoader schema |
 | 小巢核领取后不出现结果面板 | `completes_run` 是否为 `true`；`target_hp` 目标是否被摧毁或已领取；撤离区是否激活；玩家是否站进撤离区并完成 `extraction_hold_time`；`GameOverPanel.configure(..., completed=true)` 是否在撤离成功后调用；当前 `run` 存档是否被删除；`pending_loot` 是否已提交 |
-| 玩家走出地图 | `MapManager.boundary_half_extents()` 是否配置；`Player.set_movement_diamond_boundary()` 是否调用；`map_layouts.json.bounds` 外接框比例是否贴住 grid |
-| 敌人走出地图 | `MapManager.boundary_half_extents()` 是否配置；`GameplayRunLoop._apply_enemy_movement_bounds()` 是否在生成 / 续局恢复时调用；`Enemy.set_movement_diamond_boundary()` 是否在移动、分离和快照恢复后 clamp |
+| 玩家走出地图 | `MapManager.bounds()` 是否配置；`Player.set_movement_bounds()` 是否调用；`map_layouts.json.bounds` 是否是 grid 的整数倍 |
+| 敌人走出地图 | `MapManager.bounds()` 是否配置；`GameplayRunLoop._apply_enemy_movement_bounds()` 是否在生成 / 续局恢复时调用；`Enemy.set_movement_bounds()` 是否在移动、分离和快照恢复后 clamp |
 | 机关不出现 | `map_layouts.json` 是否生成 placement；`hazards.csv.pool_id` 是否已注册；`runtime-smoke` 是否通过 active hazards 断言 |
-| FEA-12 不伤害玩家 | 玩家是否在机关菱形范围内；玩家无敌窗口是否清零；`hazards.csv.damage` / `damage_type` 是否有效；`f9-demo-smoke` 是否通过 |
+| FEA-12 不伤害玩家 | 玩家是否在机关矩形范围内；玩家无敌窗口是否清零；`hazards.csv.damage` / `damage_type` 是否有效；`f9-demo-smoke` 是否通过 |
 | 机关续局后位置变化 | run payload 是否包含 `map.hazard_placements` 与 `hazards`；恢复是否误重新消耗 `RNG.world` |
 | 普通新局 seed 总是一样 / replay 变随机 | 普通开始 / 重开是否走 `FormalClientBoot._start_new_gameplay_run()`；继续、replay runner、golden capture 和 smoke 是否仍走恢复 / 固定 seed 路径 |
 | 第二敌人不出现 | `enemies.csv.pool_id` 是否为已注册池；`game_modes.json.resource_pools.enemies` 与 `spawn_waves.csv.enemy_id` 是否引用该敌人；`runtime-smoke` 是否通过第二敌人池断言 |

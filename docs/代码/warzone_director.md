@@ -47,8 +47,8 @@
 - `interest_points[].map_layout_id` 必须存在于 `map_layouts.json`。
 - `interest_points[].min_distance_from_player` / `min_spacing` 为可选摆放约束，由 `MapManager` 解释；首片用它们把精英巢点、Mod 缓存、资源缓存和小巢核分散到战区中。
 - `interest_points[].claim_radius` / `claim_start_time` 为 F12 领取约束，由 `GameplayRunLoop` 解释；有奖励或 `completes_run=true` 时必须提供正数 `claim_radius`。
-- `interest_points[].requires_interaction` 为可选交互领取标记；为 `true` 时运行时生成贴合地图菱形格的 `InterestPointCache`，玩家进入 `claim_radius` 后按 `interact` action 打开并触发同一套暂存奖励。
-- `interest_points[].target_hp` / `target_hit_radius` 为可选可伤害目标数值；存在 `target_hp` 时运行时生成贴合地图菱形格的 `InterestPointTarget`，目标一生成即可被子弹 / `Combat` 摧毁并触发同一套奖励，`claim_start_time` 只继续约束无目标兴趣点的进圈领取。
+- `interest_points[].requires_interaction` 为可选交互领取标记；为 `true` 时运行时生成贴合地图矩形格的 `InterestPointCache`，玩家进入 `claim_radius` 后按 `interact` action 打开并触发同一套暂存奖励。
+- `interest_points[].target_hp` / `target_hit_radius` 为可选可伤害目标数值；存在 `target_hp` 时运行时生成贴合地图矩形格的 `InterestPointTarget`，目标一生成即可被子弹 / `Combat` 摧毁并触发同一套奖励，`claim_start_time` 只继续约束无目标兴趣点的进圈领取。
 - `interest_points[].resource_rewards[]` 必须引用 `gear_mod_resources`；`gear_mod_rewards[]` 必须引用 `gear_mods.json` 中存在的 `gear_mod_ids`；领取时分别走 `GearModSystem.grant_resource()` 与 `grant_mod()`。
 - `interest_points[].extraction_radius` / `extraction_hold_time` 为 F12 撤离约束；`completes_run=true` 时必须提供正数，运行时用它们开启贴合地图格的撤离区和读条。
 - `interest_points[].completes_run` 为可选 bool；为 `true` 时领取后只开启撤离区，玩家完成撤离读条后才提交暂存战利品、进入完成结果面板并删除当前 `run` 存档。

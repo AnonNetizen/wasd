@@ -306,19 +306,11 @@ def main() -> int:
             ],
         ),
         (
-            "map layout bounds must match diamond grid aspect",
-            _mutate_json("client/data/map_layouts.json", _set_map_layout_bounds_height(2560.0)),
-            [
-                "client/data/map_layouts.json:layouts[0].bounds",
-                "must match the grid-aligned diamond aspect",
-            ],
-        ),
-        (
-            "map layout bounds must land on diamond grid lines",
-            _mutate_json("client/data/map_layouts.json", _set_map_layout_bounds_size(3840.0, 1920.0)),
+            "map layout bounds must align to rectangular grid",
+            _mutate_json("client/data/map_layouts.json", _set_map_layout_bounds_size(3841.0, 2400.0)),
             [
                 "client/data/map_layouts.json:layouts[0].bounds.width",
-                "must span an odd number of grid.cell_width cells",
+                "must be an integer multiple of grid.cell_width",
             ],
         ),
         (
@@ -330,11 +322,11 @@ def main() -> int:
             ],
         ),
         (
-            "even radius manual hazard must use grid vertex",
+            "even radius manual hazard must use rectangular grid vertex",
             _mutate_json("client/data/map_layouts.json", _set_manual_hazard_position(0, 480.0, -240.0)),
             [
                 "client/data/map_layouts.json:layouts[0].manual_hazards[0]",
-                "must be a diamond grid vertex for even radius_tiles",
+                "must be a rectangular grid vertex for even radius_tiles",
             ],
         ),
         (

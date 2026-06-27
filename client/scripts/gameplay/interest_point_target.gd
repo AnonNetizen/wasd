@@ -7,9 +7,9 @@ extends Node2D
 signal destroyed(point_id: String)
 
 const ACTIVE_GROUP: String = "active_interest_point_targets"
-const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 80.0)
+const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 160.0)
 const HIT_FLASH_COLOR: Color = Color(1.0, 0.92, 0.58)
-const INNER_DIAMOND_SCALE: float = 0.58
+const INNER_RECT_SCALE: float = 0.58
 const KIND_COLORS: Dictionary = {
 	"elite_nest": Color(0.84, 0.24, 0.28),
 	"mod_cache": Color(0.34, 0.62, 1.0),
@@ -108,10 +108,10 @@ func debug_force_vulnerable() -> void:
 func _draw() -> void:
 	var half_extents: Vector2 = _footprint_half_extents()
 	var fill: Color = _fill_color()
-	var outer_points: PackedVector2Array = _diamond_points(half_extents)
-	var inner_points: PackedVector2Array = _diamond_points(half_extents * INNER_DIAMOND_SCALE)
+	var outer_points: PackedVector2Array = _rect_points(half_extents)
+	var inner_points: PackedVector2Array = _rect_points(half_extents * INNER_RECT_SCALE)
 	draw_colored_polygon(outer_points, fill)
-	_draw_diamond_outline(outer_points, OUTLINE_COLOR, OUTLINE_WIDTH)
+	_draw_outline(outer_points, OUTLINE_COLOR, OUTLINE_WIDTH)
 	draw_colored_polygon(inner_points, fill.lightened(0.26))
 	if _max_life > 0.0 and not _destroyed:
 		var ratio: float = clampf(_life_points / _max_life, 0.0, 1.0)
@@ -130,21 +130,23 @@ func _fill_color() -> Color:
 
 
 func _footprint_half_extents() -> Vector2:
+	var hit_radius: float = maxf(_hit_radius, 1.0)
 	var half_width: float = maxf(_grid_cell_size.x * 0.5, 1.0)
-	var radius_tiles: int = maxi(int(ceilf(maxf(_hit_radius, 1.0) / half_width)), 1)
+	var half_height: float = maxf(_grid_cell_size.y * 0.5, 1.0)
+	var radius_tiles: int = maxi(int(ceilf(maxf(hit_radius / half_width, hit_radius / half_height))), 1)
 	return _grid_cell_size * 0.5 * float(radius_tiles)
 
 
-func _diamond_points(half_extents: Vector2) -> PackedVector2Array:
+func _rect_points(half_extents: Vector2) -> PackedVector2Array:
 	return PackedVector2Array([
-		Vector2(0.0, -half_extents.y),
-		Vector2(half_extents.x, 0.0),
-		Vector2(0.0, half_extents.y),
-		Vector2(-half_extents.x, 0.0),
+		Vector2(-half_extents.x, -half_extents.y),
+		Vector2(half_extents.x, -half_extents.y),
+		Vector2(half_extents.x, half_extents.y),
+		Vector2(-half_extents.x, half_extents.y),
 	])
 
 
-func _draw_diamond_outline(points: PackedVector2Array, color: Color, width: float) -> void:
+func _draw_outline(points: PackedVector2Array, color: Color, width: float) -> void:
 	for index: int in range(points.size()):
 		draw_line(points[index], points[(index + 1) % points.size()], color, width)
 
