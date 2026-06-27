@@ -35,7 +35,7 @@ grow_vertical = 2
 mouse_filter = 1
 
 [node name="Panel" type="PanelContainer" parent="Root/Center"]
-custom_minimum_size = Vector2(520, 0)
+custom_minimum_size = Vector2(640, 0)
 layout_mode = 2
 mouse_filter = 1
 
@@ -62,6 +62,7 @@ theme_override_font_sizes/font_size = 32
 layout_mode = 2
 mouse_filter = 2
 horizontal_alignment = 1
+autowrap_mode = 3
 theme_override_font_sizes/font_size = 20
 
 [node name="RestartButton" type="Button" parent="Root/Center/Panel/Margin/Layout"]

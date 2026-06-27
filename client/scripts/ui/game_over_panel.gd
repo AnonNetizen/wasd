@@ -106,24 +106,31 @@ func refresh_texts() -> void:
 
 
 func _loot_summary_text() -> String:
-	var parts: PackedStringArray = PackedStringArray()
+	var lines: PackedStringArray = PackedStringArray()
 	var resources: Dictionary = _loot_summary.get("resources", {}) if _loot_summary.get("resources", {}) is Dictionary else {}
-	for resource_key: Variant in resources.keys():
-		var amount: int = int(resources.get(resource_key, 0))
+	var resource_ids: Array[String] = _sorted_keys(resources)
+	for resource_id: String in resource_ids:
+		var amount: int = int(resources.get(resource_id, 0))
 		if amount <= 0:
 			continue
-		parts.append("%s x%d" % [tr("%s_name" % String(resource_key)), amount])
-	var gear_mods: Array = _loot_summary.get("gear_mods", []) if _loot_summary.get("gear_mods", []) is Array else []
-	if not gear_mods.is_empty():
-		parts.append(tr("ui_result_gear_mod_count").format({
-			"count": gear_mods.size(),
+		lines.append(tr("ui_result_resource_line").format({
+			"name": tr("%s_name" % resource_id),
+			"amount": amount,
 		}))
-	if parts.is_empty():
+	var gear_mods: Array = _loot_summary.get("gear_mods", []) if _loot_summary.get("gear_mods", []) is Array else []
+	var gear_mod_counts: Dictionary = _gear_mod_counts(gear_mods)
+	for mod_name_key: String in _sorted_keys(gear_mod_counts):
+		var count: int = int(gear_mod_counts.get(mod_name_key, 0))
+		if count <= 0:
+			continue
+		lines.append(tr("ui_result_gear_mod_line").format({
+			"name": tr(mod_name_key),
+			"count": count,
+		}))
+	if lines.is_empty():
 		return tr("ui_result_no_loot") if _completed else tr("ui_result_no_lost_loot")
-	var loot_key: String = "ui_result_loot_secured" if _completed else "ui_result_loot_lost"
-	return tr(loot_key).format({
-		"loot": _join_text(parts, " · "),
-	})
+	var header_key: String = "ui_result_secured_header" if _completed else "ui_result_lost_header"
+	return "%s\n%s" % [tr(header_key), _join_text(lines, "\n")]
 
 
 func _join_text(parts: PackedStringArray, separator: String) -> String:
@@ -132,6 +139,29 @@ func _join_text(parts: PackedStringArray, separator: String) -> String:
 		if index > 0:
 			result += separator
 		result += parts[index]
+	return result
+
+
+func _gear_mod_counts(gear_mods: Array) -> Dictionary:
+	var counts: Dictionary = {}
+	for raw_entry: Variant in gear_mods:
+		if not raw_entry is Dictionary:
+			continue
+		var entry: Dictionary = raw_entry as Dictionary
+		var name_key: String = String(entry.get("name_key", ""))
+		if name_key.is_empty():
+			continue
+		counts[name_key] = int(counts.get(name_key, 0)) + 1
+	return counts
+
+
+func _sorted_keys(values: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for key: Variant in values.keys():
+		var value: String = String(key)
+		if not value.is_empty():
+			result.append(value)
+	result.sort()
 	return result
 
 

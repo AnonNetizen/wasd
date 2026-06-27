@@ -61,6 +61,10 @@ ui_result_loot_lost,战利品丢失：{loot},Loot lost: {loot}
 ui_result_loot_secured,带回战利品：{loot},Loot secured: {loot}
 ui_result_no_loot,没有带回战利品,No loot secured
 ui_result_no_lost_loot,没有丢失战利品,No loot lost
+ui_result_secured_header,带回战利品,Loot Secured
+ui_result_lost_header,丢失战利品,Loot Lost
+ui_result_resource_line,{name} x{amount},{name} x{amount}
+ui_result_gear_mod_line,{name} x{count},{name} x{count}
 ui_hud_life,生命,Life
 ui_hud_kills,击杀,Kills
 ui_hud_time,时间,Time

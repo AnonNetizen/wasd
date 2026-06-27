@@ -7,7 +7,7 @@
 
 - 在正式 `client/` 内提供一局最小战斗：最小标题入口、标题设置入口、标题装备 Mod 入口、有限地图、玩家移动、相机居中、基础背景参照、起始武器、起始主动技能、池化子弹、池化敌人、池化机关、波次刷怪、HUD、主动暂停、暂停设置入口、暂停保存退出、标题继续游戏、暂停 / 可选升级 UI 恢复点、失败后摘要、重开 / 回标题。ADR #120 后默认标准模式不启用局内升级三选一；经验升级能力保留给未来挂接 `growth_pools` 的非默认模式。
 - 复用 F3/F9/F10 已建立的数据边界：`player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemies.csv`、`enemy_ai_profiles.json`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`spawn_waves.csv`、`growth.csv`、`growth_pools.json` 和 `game_modes.json`。
-- 第一版只做标准生存模式、默认角色、默认起始武器、默认主技能、第二个数据驱动技能和通用范围机关的竖切；F5 首片已接入 gameplay runtime 的 `run` 续局快照；F11 已把下一局属性来源切到 Gear Mod 英雄 / 武器 loadout，接入标题装备 Mod 面板，并在玩家归因掉落 Mod 时显示 HUD 暂存提示。ADR #117 后旧 `MetaProgressionSystem` 运行时、标题旧升级面板、死亡结算旧货币 / 账号经验奖励和 `meta-smoke` 已删除；ADR #120 后标准模式转为暗黑式短刷图，`mode_standard_survival` 不挂 `growth_pools`，因此默认不产经验球、不弹升级三选一。F12 首片已把标准局数据调为 8-12 分钟软目标：偏外侧出生、0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟导演阶段、四个 director 兴趣点、7 分钟小巢核压力、兴趣点 dust / Mod 暂存，以及可被子弹 / Combat 摧毁的 Mod 缓存 / 精英巢点 / 小巢核目标；ADR #122 后 Gear Mod / dust 先进入 `run.pending_loot`，ADR #123 后击破小巢核只开启贴格撤离区，玩家站进撤离区完成短读条后才提交到 `meta.gear_mods`、删除 `run` 并显示完成面板；死亡 / 放弃不带回。真实宝箱交互、正式核心美术 / 行为、多出口撤离和完整战利品结算清单还未实现。角色选择、完整商店 / 局外包装、技能 UI、音频、美术资产或平衡 sim 仍未实现。升级内容只保留 `stat_modifier` 最小切片，供未来非默认模式按数据与设计重新启用。
+- 第一版只做标准生存模式、默认角色、默认起始武器、默认主技能、第二个数据驱动技能和通用范围机关的竖切；F5 首片已接入 gameplay runtime 的 `run` 续局快照；F11 已把下一局属性来源切到 Gear Mod 英雄 / 武器 loadout，接入标题装备 Mod 面板，并在玩家归因掉落 Mod 时显示 HUD 暂存提示。ADR #117 后旧 `MetaProgressionSystem` 运行时、标题旧升级面板、死亡结算旧货币 / 账号经验奖励和 `meta-smoke` 已删除；ADR #120 后标准模式转为暗黑式短刷图，`mode_standard_survival` 不挂 `growth_pools`，因此默认不产经验球、不弹升级三选一。F12 首片已把标准局数据调为 8-12 分钟软目标：偏外侧出生、0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟导演阶段、四个 director 兴趣点、7 分钟小巢核压力、兴趣点 dust / Mod 暂存，以及可被子弹 / Combat 摧毁的 Mod 缓存 / 精英巢点 / 小巢核目标；ADR #122 后 Gear Mod / dust 先进入 `run.pending_loot`，ADR #123 后击破小巢核只开启贴格撤离区，玩家站进撤离区完成短读条后才提交到 `meta.gear_mods`、删除 `run` 并显示完成面板；`GameOverPanel` 会按成功 / 失败列出带回或丢失的 dust / Gear Mod、击杀数和用时；死亡 / 放弃不带回。真实宝箱交互、正式核心美术 / 行为、多出口撤离和更正式 Result UI 还未实现。角色选择、完整商店 / 局外包装、技能 UI、音频、美术资产或平衡 sim 仍未实现。升级内容只保留 `stat_modifier` 最小切片，供未来非默认模式按数据与设计重新启用。
 
 ## 阅读方式
 
@@ -129,7 +129,7 @@ UIManager
 | 保存退出 / 继续 | 暂停菜单“保存并退出”生成 `run` payload 并写入 `SaveManager`，其中包含 `RNG.snapshot()`、`pending_loot` 和撤离状态；标题菜单检测到 `run.save` 后显示“继续游戏”，加载 payload 后由 gameplay runtime 恢复 RNG / GameClock、暂存战利品、已开启撤离区和读条进度，并通过对象池重建活跃敌人、子弹和经验球，再按 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板；继续游戏不生成新 seed，也不结算战利品；若续局读取失败，坏档由 `SaveManager` 隔离，标题菜单显示重置提示并隐藏继续按钮 | `SaveManager.save()`、`SaveManager.load_envelope()`、`configure_restore_snapshot()` |
 | UI 布局 | HUD 使用全屏锚点下的 `MarginContainer + VBoxContainer`；升级面板使用全屏遮罩、居中容器和按视口宽度夹取的面板宽度，随窗口尺寸调整 | `Control.set_anchors_preset()` |
 | 运行时语言刷新 | `Localization.locale_changed` 发出后，标题、暂停、设置、HUD、升级、失败页和 Gear Mod 面板用自身缓存的状态或配置数据刷新文本；订阅的 UI 在 `_exit_tree()` 断开 signal，避免离树节点收到后续语言切换 | `Localization.locale_changed`、`refresh_texts()` |
-| 失败 / 撤离 / 重开 | 玩家生命归零后删除 `run` 存档、丢失 `pending_loot`、进入 `GameState.GAME_OVER`、冻结 `GameClock` 并显示唯一失败面板；小巢核击破后仍保持 `PLAYING`，只有玩家站进撤离区完成读条才提交 `pending_loot`、删除 `run` 并显示完成面板。失败面板展示本局击杀、时长和丢失战利品摘要，不写旧局外货币 / 账号经验，也不提供旧局外升级购买或跳转入口。玩家可重开或回标题，按 `pause` 仍可快捷重开 | `SaveManager.delete(run)`、`UIManager.push()`、`GameState.change_state()`、`GameplayRunLoop.restart_requested` |
+| 失败 / 撤离 / 重开 | 玩家生命归零后删除 `run` 存档、丢失 `pending_loot`、进入 `GameState.GAME_OVER`、冻结 `GameClock` 并显示唯一失败面板；小巢核击破后仍保持 `PLAYING`，只有玩家站进撤离区完成读条才提交 `pending_loot`、删除 `run` 并显示完成面板。结果面板展示本局击杀、时长，以及成功带回或失败丢失的 dust / Gear Mod 清单；不写旧局外货币 / 账号经验，也不提供旧局外升级购买或跳转入口。玩家可重开或回标题，按 `pause` 仍可快捷重开 | `SaveManager.delete(run)`、`UIManager.push()`、`GameState.change_state()`、`GameplayRunLoop.restart_requested` |
 | DebugTools smoke | `debug-tools-smoke` 启动一局并通过 `DebugConsole` 调用 `GMCommandRegistry`，验证 help/stats/spawn/xp/hp/damage/heal/dust/kill/clear；`debug-tools-release-smoke` 模拟 release guard，确认没有 `DebugConsole` / `GMCommandRegistry` 或 debug action | `client/tools/debug_tools_smoke.gd` / `docs/代码/debug_tools.md` |
 | 自动 smoke / probe | `godot_bridge.py runtime-smoke` 以 `--runtime-smoke` 用户参数启动正式主场景，并挂载 runtime smoke；`save-smoke` / `settings-smoke` / `gear-mod-smoke` 分别挂载对应 smoke；F8 `replay-runner` 对照 `.replay` 摘要并在 `--rerun-runtime-summary` 下播放录制输入和工具层 runtime event，`replay-input-smoke` 验证 gameplay 输入录制，`capture-golden-replay` 生成 basic / pause-resume / full-death golden，`perf-probe` 会启动一局并输出 schema v2 可比较性能 / 平衡基线 | `client/tools/runtime_smoke.gd` / `client/tools/save_manager_smoke.gd` / `client/tools/settings_smoke.gd` / `client/tools/gear_mod_smoke.gd` / `client/tools/replay_runner.gd` / `client/tools/replay_input_smoke.gd` / `client/tools/golden_replay_capture.gd` / `client/tools/perf_probe.gd` |
 
@@ -178,7 +178,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `TitleMenu.start_requested` / `continue_requested` / `gear_mod_requested` / `settings_requested` / `quit_requested` | 无 | signal | 由 `FormalClientBoot` 处理，不在标题菜单里直接创建 run；`continue_requested` 只在有 `run` 存档时可见；`gear_mod_requested` 和 `settings_requested` 会通过 `UIManager` 打开对应面板 |
 | `GearModPanel.closed_requested` | 无 | signal | 由 `FormalClientBoot` 从标题菜单弹出面板并回到标题；装备、升级和分解由面板调用 `GearModSystem` API 后刷新列表、资源、容量和反馈；语言切换时刷新标题、按钮、列表和可见反馈 |
 | `PauseMenu.resume_requested` / `settings_requested` / `save_and_quit_requested` / `restart_requested` / `quit_to_title_requested` | 无 | signal | 由 `GameplayRunLoop` 处理；设置只叠加 `SettingsPanel`，保存退出保留 `run` 存档，重开 / 回标题会删除旧 `run` 存档；`ui_back` 通过 `request_close()` 走继续游戏路径 |
-| `GameOverPanel.configure(kills, run_time, completed, loot_summary)` | 击杀、时长、是否完成、战利品摘要 | `void` | 展示本局摘要、带回 / 丢失战利品、重开和回标题；文案全部来自 locale；语言切换时重用缓存状态重画 |
+| `GameOverPanel.configure(kills, run_time, completed, loot_summary)` | 击杀、时长、是否完成、战利品摘要 | `void` | 展示本局摘要、带回 / 丢失战利品逐项清单、重开和回标题；`loot_summary.resources` 显示资源名称和数量，`loot_summary.gear_mods[].name_key` 按 Mod 名聚合数量；文案全部来自 locale；语言切换时重用缓存状态重画 |
 | `GameOverPanel.restart_requested` / `quit_to_title_requested` | 无 | signal | 由 `GameplayRunLoop` 转发给 `FormalClientBoot` 清理并切换流程 |
 
 ## Signal / Event
@@ -224,7 +224,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 局外成长接入：F11 后 Gear Mod 是唯一当前跨局装配运行时。死亡不再写旧局外货币 / 账号经验，也不再弹旧升级入口；死亡后仍必须删除 `run` 存档，避免继续旧局。新开局属性来源为 `GearModSystem.current_modifiers("hero")` / `current_modifiers("weapon")`：hero modifiers 只应用到 `Player.apply_modifiers()`，weapon modifiers 只应用到 `WeaponSystem.apply_modifiers()`。项目尚未上线，不维护旧局外成长测试档迁移或补偿。
 - 装备 Mod 掉落：玩家归因击败敌人时，`GameplayRunLoop._on_enemy_defeated()` 会在发放击杀 / 经验后调用 `GearModSystem.roll_drop_for_enemy(enemy_id, ..., commit_immediately=false)`，把命中的 Mod 放进 `run.pending_loot`；怪物互杀或非玩家归因击杀不会计入击杀、经验或 Gear Mod 掉落。首片 `enemy_chaser` 掉落率来自 `gear_mod_drop_tables.csv` 的 `0.01`，随机走 `RNG.drop`。掉落结果携带 `name_key`，命中后通过 `GameplayHud.show_gear_mod_drop_feedback()` 显示暂存反馈；击破小巢核或未来撤离成功时才调用 `GearModSystem.grant_mod()` / `grant_resource()` 写入 `meta.gear_mods`。
 - 伤害类型：从 `weapons.json` / `enemies.csv` / `hazards.csv` 读取，交给 `Combat` 校验。
-- UI / HUD / 升级文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_settings*`、`ui_pause_title`、`ui_save_and_quit`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_stats_*`、`ui_level_up_title`、`ui_upgrade_applied`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`、`ui_gear_mod_*`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。常驻 UI 必须在 `Localization.locale_changed` 后刷新已有节点，不依赖重启或重新实例化。
+- UI / HUD / 升级文案：`ui_title_name`、`ui_title_subtitle`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_settings*`、`ui_pause_title`、`ui_save_and_quit`、`ui_quit`、`ui_hud_life`、`ui_hud_kills`、`ui_hud_time`、`ui_hud_level`、`ui_hud_xp`、`ui_stats_*`、`ui_level_up_title`、`ui_upgrade_applied`、`ui_game_over`、`ui_restart_hint`、`ui_restart`、`ui_quit_to_title`、`ui_run_summary`、`ui_result_*`、`ui_gear_mod_*`，升级候选使用 `growth_pools.json` 的 `name_key` / `desc_key`。常驻 UI 必须在 `Localization.locale_changed` 后刷新已有节点，不依赖重启或重新实例化。
 - GM / DebugTools：`debug_*` action 只由 `DebugConsole` 在 debug/dev_tools guard 通过后注册；GM 对局内状态的变更集中走本节公开 `debug_*` runtime API，且不得写入正式 analytics。
 
 ## 依赖
@@ -292,7 +292,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 特定阶段不刷预期 wave | `warzone_directors.json.phases[].wave_ids` 是否包含该 wave；`debug_summary().warzone_director.phase_id` 是否符合当前时间；9 分钟后应处于软加压 `phase_overtime_collapse` |
 | 战区兴趣点机关不出现 | `warzone_directors.json.interest_points[].map_layout_id` 是否匹配当前 layout；`hazard_ids[]` 是否非空且引用存在；`debug_summary().map.hazard_sources.director` 是否大于 0 |
 | 兴趣点不领奖 | `claim_radius` 是否大于 0；`claim_start_time` 是否已到；无 `target_hp` 时玩家是否进入 `debug_summary().interest_points[point_id].position` 附近；有 `target_hp` 时目标是否被摧毁；奖励 id 是否通过 DataLoader schema |
-| 小巢核领取后不结束 | `completes_run` 是否为 `true`；`target_hp` 目标是否被摧毁或已领取；`GameOverPanel.configure(..., completed=true)` 是否调用；当前 `run` 存档是否被删除；`pending_loot` 是否已提交 |
+| 小巢核领取后不出现结果面板 | `completes_run` 是否为 `true`；`target_hp` 目标是否被摧毁或已领取；撤离区是否激活；玩家是否站进撤离区并完成 `extraction_hold_time`；`GameOverPanel.configure(..., completed=true)` 是否在撤离成功后调用；当前 `run` 存档是否被删除；`pending_loot` 是否已提交 |
 | 玩家走出地图 | `MapManager.boundary_half_extents()` 是否配置；`Player.set_movement_diamond_boundary()` 是否调用；`map_layouts.json.bounds` 外接框比例是否贴住 grid |
 | 敌人走出地图 | `MapManager.boundary_half_extents()` 是否配置；`GameplayRunLoop._apply_enemy_movement_bounds()` 是否在生成 / 续局恢复时调用；`Enemy.set_movement_diamond_boundary()` 是否在移动、分离和快照恢复后 clamp |
 | 机关不出现 | `map_layouts.json` 是否生成 placement；`hazards.csv.pool_id` 是否已注册；`runtime-smoke` 是否通过 active hazards 断言 |
@@ -310,7 +310,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 升级面板不出现或无法选择 | `GameState` 是否进入 `LEVEL_UP`；`UIManager.top()` 是否为 `LevelUpPanel`；`growth_pools.json` 是否有满足 `min_level` 的候选 |
 | 升级界面按暂停键无反应 | `LevelUpPanel.pause_requested` 是否连接到 `GameplayRunLoop._on_level_up_pause_requested()`；升级面板是否是 `UIManager.top()`；`pause` action 是否已注册 |
 | 游戏结束后计时继续 | `GameClock` 是否把 `GAME_OVER` 视为冻结状态；`runtime-smoke` 是否通过冻结断言 |
-| 死亡后仍带回战利品 | `GameplayRunLoop._on_player_died()` 是否只清理 `run`、显示丢失摘要且没有调用 `_commit_pending_loot()`；`GearModSystem` inventory / resources 是否未增长 |
+| 死亡后仍带回战利品 | `GameplayRunLoop._on_player_died()` 是否只清理 `run`、显示丢失清单且没有调用 `_commit_pending_loot()`；`GearModSystem` inventory / resources 是否未增长；`GameOverPanel` 是否显示 `ui_result_lost_header` 而不是成功带回标题 |
 | 死亡后还能继续旧局 | `SaveManager.delete(slot_0, run)` 是否在死亡后执行；标题继续按钮是否仍看见旧 `run` |
 | 标题装备 Mod 面板打不开 | `TitleMenu` 是否有 `GearModButton`；`gear_mod_requested` 是否被 `FormalClientBoot` 连接；`ui_gear_mod_title_entry` 是否已导入 `.translation` |
 | Gear Mod 面板按钮没有生效 | `GearModPanel` 是否调用 `GearModSystem` API；`gear-mod-smoke` 是否通过面板按钮流；当前槽位是否有对应 slot 的 Mod |
@@ -350,7 +350,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 ## 迁移 / 兼容
 
-F5 已开始写 `SaveManager` 的 `run` kind，F11 当前 `meta` profile 由 `GearModSystem` 管理 `gear_mods` 子 payload。当前 gameplay runtime 自身 payload schema version 为 2；`SaveManager` 的 `run` envelope version 仍为 2，并提供 v1 -> v2 迁移来补齐早期 payload 可能缺失的结构字段。`ui_restore` 是 run payload 的可选恢复提示，缺失时按 `playing` 兼容旧 run 存档；`interest_points` 是 F12 后的可选领取状态，缺失时按未领取处理；`pending_loot` 是 F12 后的可选暂存战利品，缺失时按空暂存处理；`skills` 是可选技能快照，缺失时按空技能状态兼容旧 run 存档；玩家和敌人快照中的 `status_effects` / `owned_tag_counts` 也是可选字段，缺失时按无状态处理；`map` / `hazards` 缺失时由迁移补空结构，运行时会按当前 layout 重新生成初始机关，保证可加载但不保证旧局逐帧一致。死亡不写入旧局外结算，只删除 `run`、显示失败摘要并丢失 `pending_loot`；小巢核完成会先把 `pending_loot` 结算进 `meta.gear_mods`，再删除 `run` 并显示完成摘要。旧局外成长测试档不迁移。后续新增遗物、主动道具、技能栏、地图兴趣点、撤离或局外奖励时，需要决定是否提升 runtime payload schema、`meta` payload schema 或 SaveManager kind version，并补迁移 / roundtrip 测试；不得保存对象池内部状态或节点引用。
+F5 已开始写 `SaveManager` 的 `run` kind，F11 当前 `meta` profile 由 `GearModSystem` 管理 `gear_mods` 子 payload。当前 gameplay runtime 自身 payload schema version 为 2；`SaveManager` 的 `run` envelope version 仍为 2，并提供 v1 -> v2 迁移来补齐早期 payload 可能缺失的结构字段。`ui_restore` 是 run payload 的可选恢复提示，缺失时按 `playing` 兼容旧 run 存档；`interest_points` 是 F12 后的可选领取状态，缺失时按未领取处理；`pending_loot` 是 F12 后的可选暂存战利品，缺失时按空暂存处理；`extraction` 是 F12 后的可选撤离状态，缺失时按未开启撤离处理；`skills` 是可选技能快照，缺失时按空技能状态兼容旧 run 存档；玩家和敌人快照中的 `status_effects` / `owned_tag_counts` 也是可选字段，缺失时按无状态处理；`map` / `hazards` 缺失时由迁移补空结构，运行时会按当前 layout 重新生成初始机关，保证可加载但不保证旧局逐帧一致。死亡不写入旧局外结算，只删除 `run`、显示失败清单并丢失 `pending_loot`；撤离成功会先把 `pending_loot` 结算进 `meta.gear_mods`，再删除 `run` 并显示完成清单。旧局外成长测试档不迁移。后续新增遗物、主动道具、技能栏、地图兴趣点、多出口撤离或局外奖励时，需要决定是否提升 runtime payload schema、`meta` payload schema 或 SaveManager kind version，并补迁移 / roundtrip 测试；不得保存对象池内部状态或节点引用。
 
 ## 相关文档
 

@@ -243,6 +243,14 @@ func _run() -> void:
 	_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "player death should consume the active run save")
 	_expect(_gear_mod_inventory_count() == inventory_before_forced_drop, "player death should not commit pending Gear Mod loot")
 	_expect(_find_node_by_name(game_over_panel, "SettlementLabel") == null, "game-over panel should not show legacy meta settlement rewards")
+	var game_over_summary: Label = _find_node_by_name(game_over_panel, "SummaryLabel") as Label
+	var game_over_summary_text: String = String(game_over_summary.text) if game_over_summary != null else ""
+	_expect(
+		game_over_summary != null
+		and game_over_summary_text.contains(tr("ui_result_lost_header"))
+		and game_over_summary_text.contains(tr("gear_mod_weapon_damage_test_name")),
+		"player death result panel should list lost pending Gear Mod loot: %s" % game_over_summary_text
+	)
 	var game_over_hud: Node = _find_node_by_name(run_loop, "GameplayHud")
 	_expect(
 		game_over_hud != null
@@ -1615,6 +1623,15 @@ func _expect_game_over_buttons(game_over_panel: Node) -> void:
 		return
 	var completion_title: Label = _find_node_by_name(completion_panel, "TitleLabel") as Label
 	_expect(completion_title != null and String(completion_title.text) == tr("ui_run_complete"), "completion result panel should use the localized completion title")
+	var completion_summary: Label = _find_node_by_name(completion_panel, "SummaryLabel") as Label
+	var completion_summary_text: String = String(completion_summary.text) if completion_summary != null else ""
+	_expect(
+		completion_summary != null
+		and completion_summary_text.contains(tr("ui_result_secured_header"))
+		and completion_summary_text.contains(tr("gear_mod_dust_name"))
+		and completion_summary_text.contains(tr("gear_mod_weapon_damage_test_name")),
+		"completion result panel should list secured Gear Mod and dust loot: %s" % completion_summary_text
+	)
 	var completion_restart_button: Button = _find_node_by_name(completion_panel, "RestartButton") as Button
 	_expect(completion_restart_button != null, "completion panel should expose restart")
 	if completion_restart_button == null:
