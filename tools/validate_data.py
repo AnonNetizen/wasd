@@ -1410,6 +1410,8 @@ def _validate_warzone_interest_points(
             _require_number(ctx, path, f"{item_field}.claim_radius", point.get("claim_radius"), minimum=0, exclusive_minimum=True)
         if "claim_start_time" in point:
             _require_number(ctx, path, f"{item_field}.claim_start_time", point.get("claim_start_time"), minimum=0)
+        if "requires_interaction" in point:
+            _require_bool(ctx, path, f"{item_field}.requires_interaction", point.get("requires_interaction"))
         if "completes_run" in point:
             _require_bool(ctx, path, f"{item_field}.completes_run", point.get("completes_run"))
         if "extraction_radius" in point or completes_run:

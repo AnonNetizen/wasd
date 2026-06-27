@@ -168,7 +168,7 @@ func _run() -> void:
 	await _expect_pickup_orb_draw_order(run_loop, player)
 	await _expect_pickup_orb_feedback(run_loop, player)
 	await _expect_default_growth_disabled(run_loop, player)
-	await _expect_interest_point_rewards(run_loop)
+	await _expect_interest_point_rewards(run_loop, player)
 
 	var restored_run: Dictionary = await _expect_pause_save_resume(run_loop, player)
 	var restored_run_loop_value: Node = restored_run.get("run_loop", run_loop) as Node
@@ -312,6 +312,18 @@ func _warzone_director_initial_summary_is_ready(run_loop: Node) -> bool:
 			"poi_minor_nest_core",
 		])
 	)
+
+
+func _interest_point_position(run_loop: Node, point_id: String) -> Vector2:
+	if run_loop == null or not run_loop.has_method("debug_summary"):
+		return Vector2.ZERO
+	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
+	var raw_points: Variant = summary.get("interest_points", {})
+	if not raw_points is Dictionary:
+		return Vector2.ZERO
+	var points: Dictionary = raw_points as Dictionary
+	var point: Dictionary = points.get(point_id, {}) as Dictionary
+	return _dict_to_vector(point.get("position", {}), Vector2.ZERO)
 
 
 func _map_boundary_is_diamond(run_loop: Node) -> bool:
@@ -1151,22 +1163,39 @@ func _expect_default_growth_disabled(run_loop: Node, player: Node2D) -> void:
 	)
 
 
-func _expect_interest_point_rewards(run_loop: Node) -> void:
+func _expect_interest_point_rewards(run_loop: Node, player: Node2D) -> void:
 	_expect(run_loop.has_method("debug_claim_interest_point"), "runtime should expose a smoke hook for interest point claims")
 	if not run_loop.has_method("debug_claim_interest_point"):
 		return
 	_expect(run_loop.has_method("debug_damage_interest_point_target"), "runtime should expose a smoke hook for interest point target damage")
 	if not run_loop.has_method("debug_damage_interest_point_target"):
 		return
+	_expect(_action_has_key(ACTIONS.INTERACT, KEY_E), "interact should include KEY_E")
 
 	var dust_before: int = _gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST)
-	var resource_claim: Dictionary = run_loop.call("debug_claim_interest_point", "poi_resource_cache") as Dictionary
-	_expect(bool(resource_claim.get("ok", false)), "resource cache claim should add its reward to pending loot")
+	player.global_position = _interest_point_position(run_loop, "poi_resource_cache")
+	for _index: int in range(BOOT_FRAMES):
+		await get_tree().process_frame
+	var hud: Node = _find_node_by_name(run_loop, "GameplayHud")
+	_expect(
+		hud != null
+		and hud.has_method("is_interaction_prompt_visible")
+		and bool(hud.call("is_interaction_prompt_visible")),
+		"resource cache should show an interaction prompt before opening"
+	)
+	var pre_interact_snapshot: Dictionary = run_loop.call("create_run_snapshot")
+	var pre_interact_points: Dictionary = pre_interact_snapshot.get("interest_points", {}) as Dictionary
+	var pre_interact_resource_state: Dictionary = pre_interact_points.get("poi_resource_cache", {}) as Dictionary
+	_expect(not bool(pre_interact_resource_state.get("claimed", true)), "resource cache should not auto-claim while the player only stands nearby")
+	await _push_action_once(ACTIONS.INTERACT)
+	var resource_snapshot: Dictionary = run_loop.call("create_run_snapshot")
+	var resource_points: Dictionary = resource_snapshot.get("interest_points", {}) as Dictionary
+	var resource_claimed_state: Dictionary = resource_points.get("poi_resource_cache", {}) as Dictionary
+	_expect(bool(resource_claimed_state.get("claimed", false)), "interact should open the resource cache")
 	_expect(
 		_gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST) == dust_before,
 		"resource cache should not commit gear mod dust before extraction"
 	)
-	var hud: Node = _find_node_by_name(run_loop, "GameplayHud")
 	_expect(
 		hud != null
 		and hud.has_method("is_gear_mod_resource_feedback_visible")
@@ -1175,8 +1204,25 @@ func _expect_interest_point_rewards(run_loop: Node) -> void:
 	)
 
 	var inventory_before: int = _gear_mod_inventory_count()
-	var mod_damage: Dictionary = run_loop.call("debug_damage_interest_point_target", "poi_mod_cache", 9999.0) as Dictionary
-	_expect(bool(mod_damage.get("ok", false)), "destroying mod cache target should apply damage")
+	GameClock.restore_snapshot({
+		"elapsed": 240.0,
+		"tick": GameClock.tick(),
+		"time_scale": GameClock.time_scale(),
+	})
+	player.global_position = _interest_point_position(run_loop, "poi_mod_cache")
+	for _index: int in range(BOOT_FRAMES):
+		await get_tree().process_frame
+	_expect(
+		hud != null
+		and hud.has_method("is_interaction_prompt_visible")
+		and bool(hud.call("is_interaction_prompt_visible")),
+		"mod cache should show an interaction prompt before opening"
+	)
+	await _push_action_once(ACTIONS.INTERACT)
+	var mod_snapshot: Dictionary = run_loop.call("create_run_snapshot")
+	var mod_points: Dictionary = mod_snapshot.get("interest_points", {}) as Dictionary
+	var mod_claimed_state: Dictionary = mod_points.get("poi_mod_cache", {}) as Dictionary
+	_expect(bool(mod_claimed_state.get("claimed", false)), "interact should open the mod cache")
 	_expect(_gear_mod_inventory_count() == inventory_before, "mod cache should keep Gear Mod loot pending before extraction")
 	_expect(
 		hud != null

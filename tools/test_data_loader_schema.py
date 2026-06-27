@@ -410,6 +410,14 @@ def main() -> int:
             ],
         ),
         (
+            "warzone interest point interaction flag must be bool",
+            _mutate_json("client/data/warzone_directors.json", _set_warzone_interest_point_requires_interaction("yes")),
+            [
+                "client/data/warzone_directors.json:directors[0].interest_points[0].requires_interaction",
+                "must be bool",
+            ],
+        ),
+        (
             "warzone interest point target hp must be positive",
             _mutate_json("client/data/warzone_directors.json", _set_warzone_interest_point_target_hp(0)),
             [
@@ -801,6 +809,13 @@ def _set_warzone_resource_reward(value: str) -> JsonMutator:
 def _set_warzone_gear_mod_reward(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["directors"][0]["interest_points"][0]["gear_mod_rewards"] = [{"mod_id": value, "count": 1}]
+
+    return mutate
+
+
+def _set_warzone_interest_point_requires_interaction(value: Any) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["directors"][0]["interest_points"][0]["requires_interaction"] = value
 
     return mutate
 

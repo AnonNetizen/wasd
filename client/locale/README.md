@@ -142,9 +142,9 @@ label.text = tr("ui_damage") + str(value)
 
 ### 加一段 HUD 文案
 
-1. 在 `strings.csv` 新增 `ui_hud_*` 或 `ui_stats_*` key，例如 `ui_hud_life,生命,Life` / `ui_stats_fire_rate,射速,Fire Rate`。
+1. 在 `strings.csv` 新增 `ui_hud_*`、`ui_stats_*` 或局内交互提示 key，例如 `ui_hud_life,生命,Life` / `ui_stats_fire_rate,射速,Fire Rate` / `ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cache`。
 2. HUD 代码只显示 `tr("ui_hud_life")` / `tr("ui_stats_fire_rate")` 和格式化数值，不硬编码玩家可见标签。
-3. 若 HUD 会常驻局内或按住显示，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、击杀、时间、等级、经验、详细数值和升级反馈重画。
+3. 若 HUD 会常驻局内或按住显示，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、击杀、时间、等级、经验、详细数值、升级反馈和交互提示重画。
 
 ### 加一个设置面板控件文案
 

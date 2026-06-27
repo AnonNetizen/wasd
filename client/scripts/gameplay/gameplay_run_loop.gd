@@ -21,12 +21,14 @@ const BULLET_SCENE := preload("res://scenes/gameplay/bullet.tscn")
 const ENEMY_SCENE := preload("res://scenes/gameplay/enemy.tscn")
 const GAME_OVER_PANEL_SCENE := preload("res://scenes/ui/game_over_panel.tscn")
 const HIT_SPARK_SCENE := preload("res://scenes/gameplay/hit_spark.tscn")
+const INTEREST_POINT_CACHE_SCENE := preload("res://scenes/gameplay/interest_point_cache.tscn")
 const INTEREST_POINT_TARGET_SCENE := preload("res://scenes/gameplay/interest_point_target.tscn")
 const LEVEL_UP_PANEL_SCENE := preload("res://scenes/ui/level_up_panel.tscn")
 const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause_menu.tscn")
 const PICKUP_ORB_SCENE := preload("res://scenes/gameplay/pickup_orb.tscn")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
+const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const SKILL_SYSTEM_SCRIPT := preload("res://scripts/gameplay/skill_system.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
@@ -66,6 +68,7 @@ var _growth_entries: Array[Dictionary] = []
 var _game_over_panel: CanvasLayer = null
 var _hazard_rows: Dictionary = {}
 var _hud: CanvasLayer = null
+var _interest_point_caches: Dictionary = {}
 var _interest_points: Dictionary = {}
 var _interest_point_targets: Dictionary = {}
 var _kills: int = 0
@@ -93,6 +96,7 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	_clear_interest_point_caches()
 	_release_active_world_pool_entities()
 	if Combat.damage_applied.is_connected(_on_combat_damage_applied):
 		Combat.damage_applied.disconnect(_on_combat_damage_applied)
@@ -136,8 +140,12 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	Replay.record_input_event(event, [ACTIONS.PAUSE], REPLAY_PARTICIPANT_ID)
+	Replay.record_input_event(event, [ACTIONS.PAUSE, ACTIONS.INTERACT], REPLAY_PARTICIPANT_ID)
 
+	if GameState.is_state(GameState.PLAYING) and event.is_action_pressed(ACTIONS.INTERACT):
+		if _try_interact_interest_point():
+			get_viewport().set_input_as_handled()
+		return
 	if GameState.is_state(GameState.PLAYING) and event.is_action_pressed(ACTIONS.PAUSE):
 		get_viewport().set_input_as_handled()
 		_show_pause_menu()
@@ -245,7 +253,9 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_warzone_director = WARZONE_DIRECTOR_SCRIPT.new()
 	_warzone_director.configure(GAME_MODES.MODE_STANDARD_SURVIVAL, _load_warzone_director(GAME_MODES.MODE_STANDARD_SURVIVAL), _waves)
 	_spawn_states.clear()
+	_clear_interest_point_caches()
 	_interest_points.clear()
+	_interest_point_caches.clear()
 	_interest_point_targets.clear()
 	_current_level = 1
 	_current_xp = 0
@@ -302,6 +312,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		var hazard_placements: Array[Dictionary] = _generate_map_hazard_placements()
 		_configure_interest_points(hazard_placements)
 		_spawn_map_hazards(hazard_placements)
+		_spawn_interest_point_caches()
 		_spawn_interest_point_targets()
 
 
@@ -641,6 +652,7 @@ func _new_interest_point_state(point_id: String, placement: Dictionary) -> Dicti
 		"position": placement.get("position", {}),
 		"claim_radius": maxf(float(placement.get("interest_point_claim_radius", 0.0)), 0.0),
 		"claim_start_time": maxf(float(placement.get("interest_point_claim_start_time", 0.0)), 0.0),
+		"requires_interaction": bool(placement.get("interest_point_requires_interaction", false)),
 		"resource_rewards": _typed_dictionary_array(placement.get("interest_point_resource_rewards", [])),
 		"gear_mod_rewards": _typed_dictionary_array(placement.get("interest_point_gear_mod_rewards", [])),
 		"completes_run": bool(placement.get("interest_point_completes_run", false)),
@@ -672,9 +684,12 @@ func _update_interest_points() -> void:
 			continue
 		var position: Vector2 = _dict_to_vector(state.get("position", {}), Vector2.ZERO)
 		if _player.global_position.distance_to(position) <= claim_radius:
+			if bool(state.get("requires_interaction", false)):
+				continue
 			_claim_interest_point(point_id)
 			if _run_completed:
 				return
+	_update_interaction_prompt(_nearest_interactable_interest_point())
 
 
 func _claim_interest_point(point_id: String, force: bool = false) -> Dictionary:
@@ -693,6 +708,9 @@ func _claim_interest_point(point_id: String, force: bool = false) -> Dictionary:
 	state["target_destroyed"] = true
 	_interest_points[point_id] = state
 	_mark_interest_point_target_claimed(point_id)
+	_mark_interest_point_cache_opened(point_id)
+	if _hud != null and _hud.has_method("hide_interaction_prompt"):
+		_hud.call("hide_interaction_prompt")
 	if bool(state.get("completes_run", false)):
 		_activate_extraction(point_id, state)
 
@@ -702,6 +720,66 @@ func _claim_interest_point(point_id: String, force: bool = false) -> Dictionary:
 	result["completed_run"] = false
 	result["extraction_active"] = _extraction_active
 	return result
+
+
+func _try_interact_interest_point() -> bool:
+	var point_id: String = _nearest_interactable_interest_point()
+	if point_id.is_empty():
+		return false
+	var result: Dictionary = _claim_interest_point(point_id)
+	return bool(result.get("ok", false))
+
+
+func _update_interaction_prompt(point_id: String) -> void:
+	if _hud == null:
+		return
+	if point_id.is_empty():
+		if _hud.has_method("hide_interaction_prompt"):
+			_hud.call("hide_interaction_prompt")
+		return
+	if _hud.has_method("show_interaction_prompt"):
+		_hud.call("show_interaction_prompt", _interaction_binding_label())
+
+
+func _nearest_interactable_interest_point() -> String:
+	if _player == null:
+		return ""
+	var best_point_id: String = ""
+	var best_distance: float = INF
+	for point_key: Variant in _interest_points.keys():
+		var point_id: String = String(point_key)
+		var state: Dictionary = _interest_points[point_key] as Dictionary
+		if not _is_interest_point_interactable(state):
+			continue
+		var position: Vector2 = _dict_to_vector(state.get("position", {}), Vector2.ZERO)
+		var distance: float = _player.global_position.distance_to(position)
+		if distance < best_distance:
+			best_distance = distance
+			best_point_id = point_id
+	return best_point_id
+
+
+func _is_interest_point_interactable(state: Dictionary) -> bool:
+	if _player == null:
+		return false
+	if bool(state.get("claimed", false)):
+		return false
+	if not bool(state.get("requires_interaction", false)):
+		return false
+	if _interest_point_has_target(state) and not bool(state.get("target_destroyed", false)):
+		return false
+	if GameClock.now() < float(state.get("claim_start_time", 0.0)):
+		return false
+	var claim_radius: float = float(state.get("claim_radius", 0.0))
+	if claim_radius <= 0.0:
+		return false
+	var position: Vector2 = _dict_to_vector(state.get("position", {}), Vector2.ZERO)
+	return _player.global_position.distance_to(position) <= claim_radius
+
+
+func _interaction_binding_label() -> String:
+	var raw_binding: String = String(Settings.get_value(SETTINGS_KEYS.INPUT_INTERACT, "E"))
+	return raw_binding if not raw_binding.is_empty() else "E"
 
 
 func _grant_interest_point_rewards(state: Dictionary) -> Dictionary:
@@ -739,6 +817,45 @@ func _grant_interest_point_rewards(state: Dictionary) -> Dictionary:
 		"resources": granted_resources,
 		"gear_mods": granted_mods,
 	}
+
+
+func _spawn_interest_point_caches() -> void:
+	_clear_interest_point_caches()
+	for point_key: Variant in _interest_points.keys():
+		var point_id: String = String(point_key)
+		var state: Dictionary = _interest_points[point_key] as Dictionary
+		if not bool(state.get("requires_interaction", false)):
+			continue
+		var cache: Node2D = INTEREST_POINT_CACHE_SCENE.instantiate() as Node2D
+		if cache == null or not cache.has_method("configure"):
+			continue
+		cache.name = "InterestPointCache_%s" % point_id
+		cache.global_position = _dict_to_vector(state.get("position", {}), Vector2.ZERO)
+		cache.call(
+			"configure",
+			point_id,
+			String(state.get("kind", "")),
+			_map_grid_cell_size(),
+			bool(state.get("claimed", false))
+		)
+		_active_world.add_child(cache)
+		_interest_point_caches[point_id] = cache
+
+
+func _clear_interest_point_caches() -> void:
+	for cache_key: Variant in _interest_point_caches.keys():
+		var cache: Node = _interest_point_caches[cache_key] as Node
+		if cache != null and is_instance_valid(cache):
+			cache.queue_free()
+	_interest_point_caches.clear()
+
+
+func _mark_interest_point_cache_opened(point_id: String) -> void:
+	var cache: Node = _interest_point_caches.get(point_id, null) as Node
+	if cache == null or not is_instance_valid(cache):
+		return
+	if cache.has_method("mark_opened"):
+		cache.call("mark_opened")
 
 
 func _spawn_interest_point_targets() -> void:
@@ -1230,6 +1347,8 @@ func _interest_point_debug_summary() -> Dictionary:
 			"position": _dictionary_or_empty(state.get("position", {})),
 			"claim_radius": float(state.get("claim_radius", 0.0)),
 			"claim_start_time": float(state.get("claim_start_time", 0.0)),
+			"requires_interaction": bool(state.get("requires_interaction", false)),
+			"interactable": _is_interest_point_interactable(state),
 			"claimed": bool(state.get("claimed", false)),
 			"claimed_time": float(state.get("claimed_time", 0.0)),
 			"completes_run": bool(state.get("completes_run", false)),
@@ -1293,6 +1412,7 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> void:
 	_restore_interest_points(snapshot_data.get("interest_points", {}))
 	_restore_pending_loot(snapshot_data.get("pending_loot", {}))
 	_restore_extraction(snapshot_data.get("extraction", {}))
+	_spawn_interest_point_caches()
 	_spawn_interest_point_targets()
 	_restore_enemy_snapshots(_array_or_empty(snapshot_data.get("enemies", [])))
 	_restore_bullet_snapshots(_array_or_empty(snapshot_data.get("bullets", [])))
@@ -2024,6 +2144,7 @@ func _ensure_input_actions() -> void:
 	_ensure_button_action(ACTIONS.AIM_LEFT, JOY_BUTTON_DPAD_LEFT)
 	_ensure_button_action(ACTIONS.AIM_RIGHT, JOY_BUTTON_DPAD_RIGHT)
 	_ensure_button_action(ACTIONS.USE_ACTIVE_ITEM, JOY_BUTTON_A)
+	_ensure_button_action(ACTIONS.INTERACT, JOY_BUTTON_X)
 	_ensure_button_action(ACTIONS.PAUSE, JOY_BUTTON_START)
 	_ensure_button_action(ACTIONS.UI_CONFIRM, JOY_BUTTON_A)
 	_ensure_button_action(ACTIONS.UI_BACK, JOY_BUTTON_B)

@@ -30,6 +30,7 @@ ui_settings_input_aim_down,向下瞄准,Aim Down
 ui_settings_input_aim_left,向左瞄准,Aim Left
 ui_settings_input_aim_right,向右瞄准,Aim Right
 ui_settings_input_use_active_item,主动道具,Active Item
+ui_settings_input_interact,交互,Interact
 ui_settings_input_show_stats_panel,详细数值面板,Details Panel
 ui_settings_input_pause,暂停,Pause
 ui_settings_input_ui_confirm,确认,Confirm
@@ -134,6 +135,7 @@ ui_gear_mod_reason_insufficient_resource,资源不足,Not enough resources
 ui_gear_mod_reason_save_failed,保存失败,Save failed
 ui_gear_mod_resource_obtained,暂存资源：{resource} +{amount},Resource stashed: {resource} +{amount}
 ui_extraction_available,撤离点已开启,Extraction point active
+ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cache
 ui_stats_skill_cooldown,技能冷却,Skill Cooldown
 ui_game_over,本局结束,Run Over
 ui_run_complete,撤离成功,Extracted

@@ -113,8 +113,7 @@
           "min_spacing": 360.0,
           "claim_radius": 180.0,
           "claim_start_time": 240.0,
-          "target_hp": 90.0,
-          "target_hit_radius": 32.0,
+          "requires_interaction": true,
           "gear_mod_rewards": [
             {
               "mod_id": "gear_mod_weapon_damage_test",
@@ -132,6 +131,7 @@
           "min_spacing": 320.0,
           "claim_radius": 170.0,
           "claim_start_time": 0.0,
+          "requires_interaction": true,
           "resource_rewards": [
             {
               "resource_id": "gear_mod_dust",

@@ -48,6 +48,8 @@ var _last_upgrade_feedback_key: String = "ui_upgrade_applied"
 var _last_upgrade_name_key: String = ""
 var _last_upgrade_resource_key: String = ""
 var _last_upgrade_amount: int = 0
+var _interaction_binding: String = ""
+var _interaction_prompt_visible: bool = false
 var _current_life: float = 0.0
 var _max_life: float = 0.0
 var _kills: int = 0
@@ -122,6 +124,8 @@ func set_xp(xp: int, xp_required: int) -> void:
 
 
 func show_game_over() -> void:
+	_interaction_prompt_visible = false
+	_interaction_binding = ""
 	_message_label.hide()
 
 
@@ -139,6 +143,29 @@ func show_gear_mod_resource_feedback(resource_key: String, amount: int) -> void:
 
 func show_extraction_feedback() -> void:
 	_show_feedback("ui_extraction_available", "")
+
+
+func show_interaction_prompt(binding: String) -> void:
+	if _message_label == null:
+		return
+	_interaction_binding = binding
+	_interaction_prompt_visible = true
+	_message_label.text = tr("ui_interact_open_cache").format({
+		"binding": binding,
+	})
+	_message_label.show()
+
+
+func hide_interaction_prompt() -> void:
+	if _message_label == null or not _interaction_prompt_visible:
+		return
+	_interaction_prompt_visible = false
+	_interaction_binding = ""
+	_message_label.hide()
+
+
+func is_interaction_prompt_visible() -> bool:
+	return _message_label != null and _message_label.visible and _interaction_prompt_visible
 
 
 func is_gear_mod_drop_feedback_visible() -> bool:
@@ -212,6 +239,8 @@ func _refresh_static_labels() -> void:
 	set_level(_level)
 	set_xp(_xp, _xp_required)
 	_refresh_time_label()
+	if _interaction_prompt_visible:
+		show_interaction_prompt(_interaction_binding)
 	if _upgrade_feedback_label.visible:
 		_refresh_upgrade_feedback()
 	_refresh_stats_panel()

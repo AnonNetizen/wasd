@@ -339,6 +339,19 @@ mouse_filter = 2
 custom_minimum_size = Vector2(190, 34)
 layout_mode = 2
 
+[node name="InteractBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
+custom_minimum_size = Vector2(190, 72)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="InteractBindingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/InteractBindingBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="InteractBindingOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid/InteractBindingBox"]
+custom_minimum_size = Vector2(190, 34)
+layout_mode = 2
+
 [node name="ShowStatsPanelBindingBox" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/InputBindingsGrid"]
 custom_minimum_size = Vector2(190, 72)
 layout_mode = 2

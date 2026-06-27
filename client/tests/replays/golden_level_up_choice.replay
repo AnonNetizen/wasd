@@ -1,6 +1,6 @@
 {
 	"created_at": "golden:golden_level_up_choice",
-	"data_fingerprint": "a05099a1c251d1289e1006e5102b2dc54df2450ef927013e805a8091788825c9",
+	"data_fingerprint": "3c6a70d34f279cb41dce5dd79b61a554543dffcb784dd64cb4d1ade3b8e37ff5",
 	"file_schema_version": 1,
 	"game_version": "v1.5",
 	"recording": {
@@ -25,7 +25,7 @@
 					"selected": "growth_damage_small"
 				},
 				"tick": 29,
-				"time": 0.495833333333333
+				"time": 0.498778
 			}
 		],
 		"dropped_decision_events": 0,
@@ -223,7 +223,7 @@
 		"started_tick": 0,
 		"started_time": 0.0
 	},
-	"recording_hash": "bfe148433ff1e408d54566a13652e2decddccae1c0d5bc9287d3ee7abe83b229",
+	"recording_hash": "478863063e625116b3bc7f33ae805a4f24c892c08b2c95160a9758db52d0d0c2",
 	"summary": {
 		"decision_events": 1,
 		"dropped_decision_events": 0,

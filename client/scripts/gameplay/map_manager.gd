@@ -500,6 +500,7 @@ func _copy_interest_point_metadata(point: Dictionary, placement: Dictionary) -> 
 		"kind",
 		"claim_radius",
 		"claim_start_time",
+		"requires_interaction",
 		"resource_rewards",
 		"gear_mod_rewards",
 		"completes_run",

@@ -1610,6 +1610,8 @@ func _validate_warzone_interest_points(field: String, data: Variant, hazard_ids:
 			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.claim_radius" % item_field, point_dict.get("claim_radius"), 0.0, null, true) and is_valid
 		if point_dict.has("claim_start_time"):
 			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.claim_start_time" % item_field, point_dict.get("claim_start_time"), 0.0) and is_valid
+		if point_dict.has("requires_interaction"):
+			is_valid = _require_bool(WARZONE_DIRECTORS_PATH, "%s.requires_interaction" % item_field, point_dict.get("requires_interaction")) and is_valid
 		if point_dict.has("completes_run"):
 			is_valid = _require_bool(WARZONE_DIRECTORS_PATH, "%s.completes_run" % item_field, point_dict.get("completes_run")) and is_valid
 		if point_dict.has("extraction_radius") or completes_run:
