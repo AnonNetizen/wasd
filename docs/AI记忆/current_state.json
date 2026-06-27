@@ -10,6 +10,7 @@
     "E"
   ],
   "last_completed": [
+    "新增 docs/局内刷取参考研究.md：整理 F12 局内刷取 / 兴趣点 / 撤离带回 / 射击构筑可参考游戏，优先级为 Escape From Duckov、SYNTHETIK、HELLDIVERS、ZERO Sievert 等；该文档是设计参考，不是已采纳路线图，并已登记到 AI 导航与知识库索引。",
     "F12 真实缓存箱交互首片：资源缓存 / Mod 缓存改为 requires_interaction，可见 InterestPointCache 贴合地图菱形格；玩家进入 claim_radius 后 HUD 显示 interact 提示并按键打开，奖励继续进入 run.pending_loot；input.interact 已登记词表、Settings、SettingsPanel 和 runtime-smoke / settings-smoke 覆盖。",
     "F12 结果清单首片：GameOverPanel 成功撤离时列出带回的 gear_mod_dust / Gear Mod、击杀数和用时；死亡失败时列出丢失的暂存 Gear Mod，runtime-smoke 覆盖成功 / 失败两条清单路径，locale .translation 已重新导入。",
     "ADR #123 / F12 小巢核撤离首片：击破小巢核不再直接结算，而是开启贴合菱形地图格的撤离区；玩家站进撤离区完成短读条后，才提交 run.pending_loot、删除 run 存档并显示完成面板。撤离状态进入 run snapshot；runtime-smoke 覆盖核心击破后仍 PLAYING、撤离成功后才提交 Gear Mod / dust；MapManager 目标摆位严格间距失败时降级为不重叠摆位。",

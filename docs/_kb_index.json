@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_at": "2026-06-25",
+  "updated_at": "2026-06-27",
   "description": "Machine-readable AI knowledge base index for the wasd project.",
   "documents": [
     {
@@ -110,7 +110,7 @@
       "last_reviewed": "2026-06-16",
       "canonical_for": ["knowledge_base", "authority_hierarchy", "task_routes", "adr_tracking_matrix"],
       "must_read_for": ["doc_structure_change", "task_routing", "knowledge_base_change"],
-      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/AI辅助开发机会清单.md", "docs/小服务器玩法备忘.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/status_effect_component.md", "docs/代码/warzone_director.md", "docs/代码/gear_mod_system.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md"],
+      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/局内刷取参考研究.md", "docs/AI辅助开发机会清单.md", "docs/小服务器玩法备忘.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/status_effect_component.md", "docs/代码/warzone_director.md", "docs/代码/gear_mod_system.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md"],
       "related_code": ["tools/docs_health_check.py"],
       "update_triggers": ["new long-lived document", "document rename", "authority hierarchy change", "task route change"],
       "keywords": ["knowledge base", "知识库", "index", "索引", "权威层级", "任务路由", "FormalClientBoot", "正式项目启动骨架", "F1"]
@@ -292,7 +292,7 @@
       "last_reviewed": "2026-06-24",
       "canonical_for": ["project_map", "extension_points", "dependency_graph", "clarification_first_rule"],
       "must_read_for": ["new_task", "extension_change", "dependency_change"],
-      "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/AI辅助开发机会清单.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/gear_mod_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md"],
+      "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/局内刷取参考研究.md", "docs/AI辅助开发机会清单.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/gear_mod_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md"],
       "related_code": ["client/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
       "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "IP美术风格", "art direction", "阵营色", "功能色", "兴趣点色彩", "量化菱形地图格", "diamond map grid", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "SkillSystem", "StatusEffectComponent", "skill_effect_apply_status", "status_stack_rules", "silence", "沉默", "MapManager", "HazardSystem", "菱形机关", "diamond hazard", "map_layouts.json", "FEA-12", "有限地图", "PCG", "人工摆点", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
@@ -348,10 +348,24 @@
       "last_reviewed": "2026-06-26",
       "canonical_for": ["feature_suggestion_pool", "post_f9_feature_menu", "future_feature_options"],
       "must_read_for": ["feature_selection", "post_f9_planning", "new_feature_brainstorming"],
-      "related_docs": ["docs/TODO.md", "docs/AI辅助开发机会清单.md", "docs/小服务器玩法备忘.md", "docs/AI记忆/current_state.json", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/修改建议.md", "docs/游戏设计文档.md", "docs/决策记录.md"],
+      "related_docs": ["docs/TODO.md", "docs/局内刷取参考研究.md", "docs/AI辅助开发机会清单.md", "docs/小服务器玩法备忘.md", "docs/AI记忆/current_state.json", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/修改建议.md", "docs/游戏设计文档.md", "docs/决策记录.md"],
       "related_code": ["client/"],
       "update_triggers": ["new feature suggestion category", "post-demo planning changes", "user accepts or rejects a feature direction"],
       "keywords": ["功能建议", "功能池", "feature menu", "feature suggestion", "post F9", "新功能", "路线选择", "武器选择", "遗物", "机关", "角色选择", "音频", "Steam", "ADR #120", "默认无升级三选一", "Gear Mod"]
+    },
+    {
+      "path": "docs/局内刷取参考研究.md",
+      "type": "planning",
+      "authority": "Reference research for 2D / fixed-oblique in-run loot gameplay, shooting buildcraft, points of interest, extraction settlement, and Gear Mod loop inspirations; not an accepted roadmap or implementation authorization",
+      "status": "active",
+      "owner_scope": "design-planning",
+      "last_reviewed": "2026-06-27",
+      "canonical_for": ["in_run_loot_reference", "short_loot_run_reference", "extraction_loot_reference", "shooting_build_reference"],
+      "must_read_for": ["short_loot_run_design", "f12_reference_research", "poi_reward_planning", "extraction_settlement_planning", "shooting_build_brainstorming"],
+      "related_docs": ["docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/游戏设计文档.md", "docs/AI导航.md", "docs/功能建议池.md", "docs/代码/gameplay_runtime.md", "docs/代码/warzone_director.md", "docs/代码/gear_mod_system.md", "docs/决策记录.md"],
+      "related_code": ["client/data/warzone_directors.json", "client/data/gear_mods.json", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/autoload/gear_mod_system.gd"],
+      "update_triggers": ["new reference game research", "short loot run design reference changes", "external benchmark priority changes", "user accepts a reference-derived mechanic"],
+      "keywords": ["局内刷取", "短刷图参考", "in-run loot", "loot run", "extraction", "撤离", "pending_loot", "Gear Mod", "装备 Mod", "SYNTHETIK", "Escape From Duckov", "ZERO Sievert", "HELLDIVERS", "Enter the Gungeon", "Nuclear Throne", "20 Minutes Till Dawn", "Nova Drift", "Hades", "Vampire Survivors", "Brotato", "Deep Rock Galactic Survivor", "Halls of Torment", "Warframe", "兴趣点", "POI", "小巢核", "缓存箱", "射击构筑", "枪感"]
     },
     {
       "path": "docs/AI辅助开发机会清单.md",

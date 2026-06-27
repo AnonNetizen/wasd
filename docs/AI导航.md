@@ -31,6 +31,7 @@
 | `docs/决策记录.md` | 既定决策与原因，勿误改 |
 | `docs/修改建议.md` | 待决策的开放问题（C~E；A/B 与 J~R 已归档） |
 | `docs/功能建议池.md` | F9 第一轮 Demo 收口后的可选新功能菜单；不是已采纳路线图，用户点名后才推进 |
+| `docs/局内刷取参考研究.md` | F12 局内刷取、兴趣点、撤离结算、射击构筑可参考的外部游戏研究；不是已采纳路线图 |
 | `docs/AI辅助开发机会清单.md` | 不在运行时接 LLM、只利用 AI 辅助写代码 / 数据 / 工具时的玩法与内容管线机会清单；不是已采纳路线图 |
 | `docs/小服务器玩法备忘.md` | 小服务器条件下的异步在线 / 敌巢进化玩法参考；不是已采纳路线图 |
 | `docs/AI记忆/项目记忆.md` | AI 协作长期索引（长期冷存储；需要背景 / ADR 摘要 / 历史脉络时读） |
@@ -86,6 +87,7 @@
 | `docs/决策记录.md` | ADR |
 | `docs/修改建议.md` | 待决策项（C~E；A/B 与 J~R 已归档） |
 | `docs/功能建议池.md` | F9 第一轮 Demo 收口后的可选新功能建议池；只作为人工选择菜单 |
+| `docs/局内刷取参考研究.md` | F12 局内刷取、射击构筑、兴趣点路线和撤离带回的外部参考研究；只作为设计参考 |
 | `docs/AI辅助开发机会清单.md` | AI 只辅助开发、不进入运行时的玩法机会、内容生产管线、DSL / 编辑器 / 模拟器 / lint 工具候选；只作为人工选择菜单 |
 | `docs/小服务器玩法备忘.md` | 小服务器可承载的异步在线、敌巢进化、死亡残响、星域污染图等玩法参考；只作为人工选择菜单 |
 | `docs/TODO.md` | 未来任务清单（P0 当前优先级 / P1 下一批 / P2 中期 / P3 长期积压） |
@@ -136,7 +138,7 @@
 | **加 / 改消耗品** | 在 `client/data/consumables.json` 加一条：`stack` 声明最大堆叠 / 初始数量 / 单次拾取数量，`use_effects` 引用已登记 effect，文案用 `item_*` key；模式引用走 `game_modes.resource_pools.consumables`，不实现拾取物 / 背包 / 使用输入 / 数量扣减 / 效果运行时 |
 | **加 / 改游戏模式** | 在 `client/data/game_modes.json` 声明可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 消耗品 / 成长资源池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖；mode id 先登记 `docs/词表与契约.md` §12-A；资源本体保持模式无关，禁止为模式复制一套资源或在代码写 `if mode_id == ...` |
 | **改经验/升级系统** | 查 GDD §7.1 与 `docs/代码/gameplay_runtime.md`；ADR #120 后默认标准模式不启用局内 3 选 1，`mode_standard_survival` 不挂 `growth_pools`，运行时没有候选池时不生成经验球 / 不进入 `GameState.LEVEL_UP`；F4 的池化经验球、`growth.csv`、`growth_pools.json`、`LevelUpPanel` 和 `RNG.ui_choice` 候选抽取保留给未来非默认模式，目标模式必须在 `game_modes.json.resource_pools.growth_pools` 显式引用候选池 |
-| **改短刷图默认循环** | 查 `docs/AI协作/工作包/F12-ShortLootRuns.md`、GDD §2 / §5 / §7、`docs/代码/gameplay_runtime.md`、`docs/代码/warzone_director.md`、`docs/代码/map_manager.md` 和 `docs/代码/gear_mod_system.md`；默认模式应围绕 8-12 分钟、3 个兴趣点、小巢核和 Gear Mod / dust 回报组织，不做 25 分钟默认长局，不恢复默认局内 3 选 1；当前 8-12 分钟是软目标，不是硬倒计时，资源缓存 / Mod 缓存 / 小巢核已接最小暂存奖励，资源缓存 / Mod 缓存已有可见缓存箱并用 `interact` 打开，精英巢点 / 小巢核已有可伤害目标占位；ADR #122/#123 后奖励先进入 `run.pending_loot`，击破小巢核只开启撤离区，玩家完成撤离读条才写入 `meta.gear_mods`，死亡 / 放弃不带回；`GameOverPanel` 已列出撤离成功带回或死亡失败丢失的 dust / Gear Mod 清单 |
+| **改短刷图默认循环** | 查 `docs/AI协作/工作包/F12-ShortLootRuns.md`、GDD §2 / §5 / §7、`docs/局内刷取参考研究.md`、`docs/代码/gameplay_runtime.md`、`docs/代码/warzone_director.md`、`docs/代码/map_manager.md` 和 `docs/代码/gear_mod_system.md`；默认模式应围绕 8-12 分钟、3 个兴趣点、小巢核和 Gear Mod / dust 回报组织，不做 25 分钟默认长局，不恢复默认局内 3 选 1；当前 8-12 分钟是软目标，不是硬倒计时，资源缓存 / Mod 缓存 / 小巢核已接最小暂存奖励，资源缓存 / Mod 缓存已有可见缓存箱并用 `interact` 打开，精英巢点 / 小巢核已有可伤害目标占位；ADR #122/#123 后奖励先进入 `run.pending_loot`，击破小巢核只开启撤离区，玩家完成撤离读条才写入 `meta.gear_mods`，死亡 / 放弃不带回；`GameOverPanel` 已列出撤离成功带回或死亡失败丢失的 dust / Gear Mod 清单 |
 | **改装备 Mod / 局外装配** | 查 GDD §7.2、`docs/AI协作/工作包/F11-GearModLoadout.md` 与 `docs/代码/gear_mod_system.md`；数据 / 契约、运行时首片和最小 UI 已建立：`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、一张提高武器 `damage` 的测试武器 Mod、`enemy_chaser` 玩家击杀 1% 掉落、升级消耗 `gear_mod_dust`、分解返还资源、英雄 / 武器两套 loadout、capacity / drain、开局 modifier snapshot、标题 `GearModPanel`、HUD 暂存提示和 `gear-mod-smoke` 面板按钮流；后续优先补更多 Mod 内容。新增 Mod id / slot / rarity / resource / stack rule 前先登记词表契约，并同步 `client/data/README.md`、locale、DataLoader schema、SaveManager / Gameplay Runtime 文档和 smoke |
 | **维护旧局外成长历史** | 旧 `MetaProgressionSystem` 运行时和 UI 已按 ADR #117 删除；项目尚未上线，ADR #118 后旧测试档迁移、`meta_progression.json`、旧 meta 契约常量和旧 `purchased_upgrades` 补偿路径也已删除。需要查历史时看 F6 工作包与 ADR 记录；不要恢复旧永久升级树作为当前成长方向 |
 | **改致谢 / 第三方来源** | 同步根目录 `CREDITS.md` 与 `client/data/credits.json`；新增分组标题、角色或用途标签时补 `client/locale/strings.csv` 的 `ui_credits_*` key；发行前复核许可证和 notice |
@@ -145,9 +147,9 @@
 | **写/改代码模块** | 先查 `docs/代码文档规范.md` + 对应 `docs/代码/<module_id>.md` + 目标源码；触碰 `.gd` 时按 Godot 4.7 官方 GDScript style guide 整理本次改动，并跑 `python tools/lint_gdscript_rules.py`；GDD / ADR 只在设计冲突、语义不明或新增决策时补读，不能默认整篇加载 |
 | **查知识库 / 找文档关系 / 任务路由** | 先看 `docs/AI知识库索引.md` 的任务路由表，需要机器可读元数据时看 `docs/_kb_index.json`，搜索同义词先看 `docs/术语表.md` |
 | **续接当前状态 / 下一步** | 先看 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`；上下文压缩后先以用户最后明确指令对齐，`Next Steps` 只作候选参考；需要长期事实 / ADR 摘要 / 历史细节时再看 `docs/AI记忆/项目记忆.md` 和当日会话日志 |
-| **查看 / 维护未来任务** | 看 `docs/TODO.md`；F9 第一轮 Demo 收口后的可选新功能菜单看 `docs/功能建议池.md`；AI 只辅助开发的玩法 / 内容管线 / 工具机会看 `docs/AI辅助开发机会清单.md`；小服务器 / 异步在线玩法参考看 `docs/小服务器玩法备忘.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
+| **查看 / 维护未来任务** | 看 `docs/TODO.md`；F9 第一轮 Demo 收口后的可选新功能菜单看 `docs/功能建议池.md`；F12 局内刷取、兴趣点、撤离带回和射击构筑参考看 `docs/局内刷取参考研究.md`；AI 只辅助开发的玩法 / 内容管线 / 工具机会看 `docs/AI辅助开发机会清单.md`；小服务器 / 异步在线玩法参考看 `docs/小服务器玩法备忘.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
 | **改 IP / 世界观 / 英雄包装 / 宣传语** | 先看 `docs/IP设定.md`；涉及视觉风格、色板、阵营色、兴趣点颜色或资产 brief 时追加 `docs/IP美术风格.md`；若改变玩法承诺或系统边界，再同步 GDD / ADR / 术语表 / AI导航 / AI记忆 |
-| **选择下一项新功能** | 先看 `docs/功能建议池.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md` 与 `docs/AI记忆/current_state.json`；用户明确点名功能后，再建立 / 更新工作包、GDD / ADR / 模块文档并实现，不从建议文档自行挑选推进 |
+| **选择下一项新功能** | 先看 `docs/功能建议池.md`、`docs/局内刷取参考研究.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md` 与 `docs/AI记忆/current_state.json`；用户明确点名功能后，再建立 / 更新工作包、GDD / ADR / 模块文档并实现，不从建议文档自行挑选推进 |
 | **评估小服务器在线玩法** | 先看 `docs/小服务器玩法备忘.md`、GDD §6.7 / §9.21 / §9.22、`docs/代码/platform_services.md` 与 `docs/代码/replay.md`；短期优先异步玩法和离线可降级，实时多人 / PvP / 强竞技排行榜默认暂缓 |
 | **启动 / 推进正式项目** | 优先读当前阶段工作包；装备 Mod / 局外装配看 `docs/AI协作/工作包/F11-GearModLoadout.md` 和 `docs/代码/gear_mod_system.md`，F10 战区导演看 `docs/AI协作/工作包/F10-WarzoneDirector.md`。F8 已落地临时 `l1-smoke`、Replay 文件 roundtrip 的 `replay-smoke`、摘要 diff / 运行时摘要重跑 / 输入播放首片 / runtime event 播放 / 扩展稳定帧样本 diff 的 `replay-runner`、gameplay 输入录制首片的 `replay-input-smoke`、跨 RNG 子流相关性审计 `rng-audit`、四条 checked-in replay 和轻量 `perf-probe`，现作为内容扩展的回归护栏。F7 设置持久化、正式设置面板和 UIManager 栈顶 `ui_back` 已落地；F9 已新增 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`。维护入口：DebugTools 看 `docs/代码/debug_tools.md`，F7 看 `docs/AI协作/工作包/F7-SettingsLocalizationUI.md`，F6 历史工作包只作背景参考，F4 历史入口为 `docs/AI协作/工作包/F4-MinPlayableLoop.md`，F3 数据闭环入口为 `docs/AI协作/工作包/F3-DataLoader.md` |
 | **维护正式客户端启动骨架 / 默认分辨率** | 看 `client/README.md`、`docs/代码/formal_client_boot.md` 与 `docs/代码/gameplay_runtime.md`；默认 viewport 当前为 1920×1080，窗口不允许任意拖拽缩放，拉伸策略为 `canvas_items + keep`；改主场景、窗口配置或启动验证时同步本导航和 `docs/代码/README.md` |
