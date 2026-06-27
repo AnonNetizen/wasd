@@ -8,6 +8,7 @@ const CELL_SIZE: float = 2.0
 const GRID_HALF_CELLS: int = 6
 const OUTPUT_SCENE_PATH := "res://scenes/orthographic_3d_test.tscn"
 const SCENE_SCRIPT_PATH := "res://scripts/orthographic_3d_test.gd"
+const STAGE_SIZE: float = float(GRID_HALF_CELLS * 2) * CELL_SIZE
 
 
 func _initialize() -> void:
@@ -51,19 +52,36 @@ func _build_scene() -> Node3D:
 	environment.name = "WorldEnvironment"
 	var world_environment := Environment.new()
 	world_environment.background_mode = Environment.BG_COLOR
-	world_environment.background_color = Color(0.045, 0.041, 0.048)
+	world_environment.background_color = Color(0.025, 0.032, 0.042)
 	world_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	world_environment.ambient_light_color = Color(0.46, 0.43, 0.38)
-	world_environment.ambient_light_energy = 0.8
+	world_environment.ambient_light_color = Color(0.30, 0.36, 0.43)
+	world_environment.ambient_light_energy = 0.44
 	environment.environment = world_environment
 	root_node.add_child(environment)
 
 	var light := DirectionalLight3D.new()
 	light.name = "KeyLight"
-	light.light_energy = 2.2
+	light.light_color = Color(1.0, 0.78, 0.48)
+	light.light_energy = 2.65
 	light.shadow_enabled = true
-	light.position = Vector3(-5.0, 8.0, 4.0)
+	light.position = Vector3(-6.5, 9.5, 5.0)
 	root_node.add_child(light)
+
+	var fill_light := DirectionalLight3D.new()
+	fill_light.name = "CoolFillLight"
+	fill_light.light_color = Color(0.38, 0.56, 0.86)
+	fill_light.light_energy = 0.48
+	fill_light.shadow_enabled = false
+	fill_light.position = Vector3(6.0, 5.0, -5.5)
+	root_node.add_child(fill_light)
+
+	var rim_light := DirectionalLight3D.new()
+	rim_light.name = "RimLight"
+	rim_light.light_color = Color(0.55, 0.86, 1.0)
+	rim_light.light_energy = 1.05
+	rim_light.shadow_enabled = false
+	rim_light.position = Vector3(0.0, 6.5, -8.0)
+	root_node.add_child(rim_light)
 
 	var world_root := Node3D.new()
 	world_root.name = "World3D"
@@ -84,30 +102,37 @@ func _aim_camera(scene_root: Node3D) -> void:
 	camera.look_at_from_position(camera.position, Vector3.ZERO, Vector3.UP)
 	var light := scene_root.get_node("KeyLight") as DirectionalLight3D
 	light.look_at_from_position(light.position, Vector3.ZERO, Vector3.UP)
+	var fill_light := scene_root.get_node("CoolFillLight") as DirectionalLight3D
+	fill_light.look_at_from_position(fill_light.position, Vector3.ZERO, Vector3.UP)
+	var rim_light := scene_root.get_node("RimLight") as DirectionalLight3D
+	rim_light.look_at_from_position(rim_light.position, Vector3.ZERO, Vector3.UP)
 
 
 func _add_floor(world_root: Node3D) -> void:
-	var floor_size: float = float(GRID_HALF_CELLS * 2) * CELL_SIZE
 	_add_box(
 		"Floor",
 		Vector3(0.0, -0.035, 0.0),
-		Vector3(floor_size, 0.06, floor_size),
-		Color(0.115, 0.101, 0.09),
+		Vector3(STAGE_SIZE, 0.06, STAGE_SIZE),
+		Color(0.105, 0.105, 0.105),
 		world_root
 	)
+	_add_box("StageBorderNorth", Vector3(0.0, 0.02, -STAGE_SIZE * 0.5), Vector3(STAGE_SIZE, 0.08, 0.09), Color(0.78, 0.42, 0.18), world_root)
+	_add_box("StageBorderSouth", Vector3(0.0, 0.02, STAGE_SIZE * 0.5), Vector3(STAGE_SIZE, 0.08, 0.09), Color(0.78, 0.42, 0.18), world_root)
+	_add_box("StageBorderWest", Vector3(-STAGE_SIZE * 0.5, 0.02, 0.0), Vector3(0.09, 0.08, STAGE_SIZE), Color(0.78, 0.42, 0.18), world_root)
+	_add_box("StageBorderEast", Vector3(STAGE_SIZE * 0.5, 0.02, 0.0), Vector3(0.09, 0.08, STAGE_SIZE), Color(0.78, 0.42, 0.18), world_root)
 	_add_box(
 		"ProjectedCellFootprint",
 		Vector3(0.0, 0.01, 0.0),
 		Vector3(CELL_SIZE, 0.018, CELL_SIZE),
-		Color(0.42, 0.32, 0.19, 0.34),
+		Color(0.95, 0.58, 0.23, 0.22),
 		world_root,
 		true
 	)
 
 
 func _add_grid(world_root: Node3D) -> void:
-	var line_material := _make_material(Color(0.56, 0.47, 0.35, 0.62), true, true)
-	var grid_size: float = float(GRID_HALF_CELLS * 2) * CELL_SIZE
+	var line_material := _make_material(Color(0.92, 0.58, 0.25, 0.34), true, true)
+	var grid_size: float = STAGE_SIZE
 	var line_thickness: float = 0.035
 	for index in range(-GRID_HALF_CELLS, GRID_HALF_CELLS + 1):
 		var offset: float = float(index) * CELL_SIZE
@@ -133,19 +158,20 @@ func _add_cache(world_root: Node3D, origin: Vector3) -> void:
 	cache_root.position = origin
 	world_root.add_child(cache_root)
 
-	_add_box("CacheFootprint", Vector3(0.0, 0.02, 0.0), Vector3(CELL_SIZE * 0.92, 0.025, CELL_SIZE * 0.92), Color(0.08, 0.07, 0.055, 0.32), cache_root, true)
-	_add_box("CacheBody", Vector3(0.0, 0.24, 0.0), Vector3(1.2, 0.48, 0.86), Color(0.42, 0.32, 0.22), cache_root)
-	_add_box("CacheLid", Vector3(0.0, 0.54, -0.08), Vector3(1.32, 0.18, 0.92), Color(0.72, 0.54, 0.34), cache_root)
-	_add_box("CacheAccent", Vector3(0.0, 0.66, -0.09), Vector3(0.32, 0.04, 0.18), Color(0.25, 0.56, 0.92), cache_root)
+	_add_box("CacheFootprint", Vector3(0.0, 0.02, 0.0), Vector3(CELL_SIZE * 0.92, 0.025, CELL_SIZE * 0.92), Color(0.03, 0.025, 0.018, 0.36), cache_root, true)
+	_add_box("CacheBody", Vector3(0.0, 0.24, 0.0), Vector3(1.2, 0.48, 0.86), Color(0.50, 0.34, 0.20), cache_root)
+	_add_box("CacheLid", Vector3(0.0, 0.54, -0.08), Vector3(1.32, 0.18, 0.92), Color(0.95, 0.62, 0.30), cache_root)
+	_add_box("CacheAccent", Vector3(0.0, 0.66, -0.09), Vector3(0.32, 0.04, 0.18), Color(0.23, 0.74, 1.0), cache_root)
 
 
 func _add_wall(world_root: Node3D, position: Vector3, size: Vector3) -> void:
-	_add_box("ForegroundWall", position, size, Color(0.27, 0.24, 0.22), world_root)
+	_add_box("WallShadow", Vector3(position.x - 0.2, 0.03, position.z + 0.55), Vector3(size.x * 1.05, 0.018, 0.72), Color(0.02, 0.018, 0.015, 0.36), world_root, true)
+	_add_box("ForegroundWall", position, size, Color(0.34, 0.30, 0.27), world_root)
 	_add_box(
 		"WallTop",
 		position + Vector3(0.0, size.y * 0.5 + 0.035, 0.0),
 		Vector3(size.x, 0.07, size.z * 1.25),
-		Color(0.52, 0.43, 0.31),
+		Color(0.68, 0.50, 0.30),
 		world_root
 	)
 
@@ -159,7 +185,7 @@ func _add_column(world_root: Node3D, column_name: String, position: Vector3) -> 
 	mesh.height = 1.6
 	mesh.radial_segments = 8
 	column.mesh = mesh
-	column.material_override = _make_material(Color(0.38, 0.33, 0.28))
+	column.material_override = _make_material(Color(0.50, 0.42, 0.34))
 	column.position = position
 	world_root.add_child(column)
 
@@ -176,12 +202,12 @@ func _add_player(world_root: Node3D, position: Vector3) -> void:
 	capsule.radius = 0.34
 	capsule.height = 1.36
 	body.mesh = capsule
-	body.material_override = _make_material(Color(0.28, 0.55, 0.88))
+	body.material_override = _make_material(Color(0.20, 0.67, 1.0))
 	body.position = Vector3(0.0, 0.78, 0.0)
 	player_root.add_child(body)
 
-	_add_box("AimMarker", Vector3(0.0, 0.34, -0.48), Vector3(0.22, 0.16, 0.58), Color(0.92, 0.74, 0.42), player_root)
-	_add_box("PlayerShadow", Vector3(0.0, 0.025, 0.0), Vector3(0.88, 0.02, 0.64), Color(0.02, 0.018, 0.015, 0.42), player_root, true)
+	_add_box("AimMarker", Vector3(0.0, 0.34, -0.48), Vector3(0.22, 0.16, 0.58), Color(1.0, 0.82, 0.34), player_root)
+	_add_box("PlayerShadow", Vector3(0.0, 0.025, 0.0), Vector3(0.92, 0.02, 0.68), Color(0.02, 0.018, 0.015, 0.48), player_root, true)
 
 
 func _add_overlay(root_node: Node3D) -> void:
