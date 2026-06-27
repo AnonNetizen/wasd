@@ -11,8 +11,15 @@ const PLAYER_BOUNDS: float = 5.5
 const SCREEN_AXIS_SAMPLE_OFFSET: float = 64.0
 
 @onready var _camera: Camera3D = get_node_or_null("OrthographicCamera") as Camera3D
-@onready var _player_root: Node3D = get_node_or_null("World3D/Player3D") as Node3D
+@onready var _player_root: Node3D = get_node_or_null("World3D/Actors/Player3D") as Node3D
 @onready var _back_button: Button = get_node_or_null("Overlay/Panel/Margin/Rows/BackButton") as Button
+@onready var _aim_marker: MeshInstance3D = get_node_or_null("World3D/Actors/Player3D/AimMarker") as MeshInstance3D
+@onready var _amber_beacon: MeshInstance3D = get_node_or_null("World3D/Props/AmberBeacon/GlowCore") as MeshInstance3D
+@onready var _blue_beacon: MeshInstance3D = get_node_or_null("World3D/Props/BlueBeacon/GlowCore") as MeshInstance3D
+@onready var _cache_accent: MeshInstance3D = get_node_or_null("World3D/Props/CacheBox3D/CacheAccent") as MeshInstance3D
+@onready var _poi_glow: MeshInstance3D = get_node_or_null("World3D/Stage/PoiGlow") as MeshInstance3D
+
+var _pulse_time: float = 0.0
 
 
 func _ready() -> void:
@@ -25,8 +32,10 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed(ACTION_BACK):
 		_return_to_index()
 		return
+	_pulse_time += delta
 	_update_player(delta)
 	_update_mouse_aim()
+	_update_visual_pulse()
 
 
 func _ensure_input_actions() -> void:
@@ -77,6 +86,24 @@ func _update_mouse_aim() -> void:
 
 func _return_to_index() -> void:
 	get_tree().change_scene_to_file("res://scenes/test_lab_index.tscn")
+
+
+func _update_visual_pulse() -> void:
+	var pulse: float = (sin(_pulse_time * 3.2) + 1.0) * 0.5
+	_set_emission_energy(_cache_accent, 0.85 + pulse * 0.55)
+	_set_emission_energy(_aim_marker, 0.65 + pulse * 0.42)
+	_set_emission_energy(_poi_glow, 0.46 + pulse * 0.28)
+	_set_emission_energy(_blue_beacon, 0.95 + pulse * 0.44)
+	_set_emission_energy(_amber_beacon, 0.88 + (1.0 - pulse) * 0.38)
+
+
+func _set_emission_energy(mesh_instance: MeshInstance3D, energy: float) -> void:
+	if mesh_instance == null:
+		return
+	var material := mesh_instance.material_override as StandardMaterial3D
+	if material == null:
+		return
+	material.emission_energy_multiplier = energy
 
 
 func _screen_relative_ground_direction(screen_input: Vector2) -> Vector3:
