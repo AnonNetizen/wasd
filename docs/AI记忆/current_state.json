@@ -1,15 +1,16 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-26",
+  "updated_at": "2026-06-27",
   "current_phase": "formal_project_f12_short_loot_runs",
-  "current_status": "用户已决定默认标准模式不做 25 分钟长局，先改为暗黑式 8-12 分钟短刷图循环：进图、找兴趣点、打小巢核 / 精英 / 宝箱、拿 Gear Mod / 材料 / 词条价值、结算后快速再开。ADR #120 与 docs/AI协作/工作包/F12-ShortLootRuns.md 已建立；GDD、AI 导航、数据手册、测试策略和 gameplay_runtime 模块文档已同步。默认 mode_standard_survival 不再声明 resource_pools.growth_pools，因此 GameplayRunLoop 在默认模式不会生成 XP pickup、不会进入 LEVEL_UP、不会弹 LevelUpPanel，debug_summary 暴露 level_up_growth_enabled=false；GrowthSystem / growth.csv / growth_pools.json / LevelUpPanel 作为未来非默认模式能力保留，只要某个模式显式声明 growth_pools 就可复用升级 3 选 1。F11 Gear Mod 仍是跨局成长主路线，旧 MetaProgressionSystem 已退役。F10 WarzoneDirector 仍只用固定阶段、巢变异、遭遇和兴趣点，不读取玩家状态、不做隐藏 DDA、不接运行时 LLM。后续工作以用户最后明确指令为准；如果继续 F12，优先实现 8-12 分钟短刷图的 POI 节奏、小巢核目标、撤离 / 结算和掉落频率。",
-  "latest_adr": 120,
+  "current_status": "用户已决定默认标准模式不做 25 分钟长局，先改为暗黑式 8-12 分钟短刷图循环：进图、找兴趣点、打小巢核 / 精英 / 宝箱、拿 Gear Mod / 材料 / 词条价值、结算后快速再开。ADR #120 与 docs/AI协作/工作包/F12-ShortLootRuns.md 已建立；GDD、AI 导航、数据手册、测试策略和 gameplay_runtime 模块文档已同步。ADR #121 已把 AI 上下文预算补充为 S / M / L / XL 复杂度分级：先判流程深度，再按任务类型读取文件，避免小任务过载和大任务欠规划。默认 mode_standard_survival 不再声明 resource_pools.growth_pools，因此 GameplayRunLoop 在默认模式不会生成 XP pickup、不会进入 LEVEL_UP、不会弹 LevelUpPanel，debug_summary 暴露 level_up_growth_enabled=false；GrowthSystem / growth.csv / growth_pools.json / LevelUpPanel 作为未来非默认模式能力保留，只要某个模式显式声明 growth_pools 就可复用升级 3 选 1。F11 Gear Mod 仍是跨局成长主路线，旧 MetaProgressionSystem 已退役。F10 WarzoneDirector 仍只用固定阶段、巢变异、遭遇和兴趣点，不读取玩家状态、不做隐藏 DDA、不接运行时 LLM。后续工作以用户最后明确指令为准；如果继续 F12，优先实现 8-12 分钟短刷图的 POI 节奏、小巢核目标、撤离 / 结算和掉落频率。",
+  "latest_adr": 121,
   "open_decisions": [
     "C",
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #121：AI 上下文预算新增 S / M / L / XL 任务复杂度分级；AI 接任务后先判流程深度，再按任务类型读取文件，避免小任务过载和大任务欠规划。",
     "ADR #120：默认标准模式改为暗黑式 8-12 分钟短刷图循环，局内经验升级 3 选 1 暂不在默认模式启用；F4 GrowthSystem、growth.csv、growth_pools.json 和 LevelUpPanel 保留为未来非默认模式能力。",
     "F12 短刷图工作包建立：docs/AI协作/工作包/F12-ShortLootRuns.md 记录默认目标、8-12 分钟时间盒、兴趣点 / 小巢核 / Gear Mod 掉落主轴、默认成长屏蔽边界、实施顺序和验收命令。",
     "默认模式局内成长屏蔽：mode_standard_survival 移除 growth_pools；GameplayRunLoop 在无 growth pool 时不掉 XP、不升级、不进 LEVEL_UP，runtime-smoke 和 f9-demo-smoke 改为断言默认 level_up_growth_enabled=false；GrowthSystem / LevelUpPanel 留给显式声明 growth_pools 的未来模式。",
