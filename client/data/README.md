@@ -332,7 +332,7 @@ JSON 示例：
       "mode_id": "mode_standard_survival",
       "bounds": { "width": 4000.0, "height": 2000.0 },
       "grid": { "cell_width": 160.0, "cell_height": 80.0 },
-      "player_start": { "x": 0.0, "y": 0.0 },
+      "player_start": { "x": -800.0, "y": 400.0 },
       "safe_radius": 320.0,
       "enemy_spawn_margin": 160.0,
       "pcg": {
@@ -345,10 +345,7 @@ JSON 示例：
           }
         ]
       },
-      "manual_hazards": [
-        { "id": "hazard_fea_12_pulse", "x": 480.0, "y": -200.0 },
-        { "id": "hazard_spike_trap", "x": -640.0, "y": 320.0 }
-      ]
+      "manual_hazards": []
     }
   ]
 }
@@ -383,6 +380,7 @@ JSON 示例：
 - 需要测试特定机关交互时，用 `manual_hazards` 固定位置；需要测试 PCG 稳定性时改 `pcg.hazards[].count` / `min_spacing`。
 - `hazards.csv` 只管机关基础数值和占格尺寸，`map_layouts.json` 才管初始地图上的机关位置。
 - PCG 摆放使用 `RNG.world`，刷怪位置仍使用 `RNG.spawn`，不要把二者混用。
+- F12 标准短刷图首片把 `player_start` 放在偏外侧格心，让玩家从边缘切入战区；兴趣点本身仍由 `warzone_directors.json.interest_points[]` 通过 `source="director"` 初始机关表达。
 
 ## `enemies.csv`
 
@@ -520,7 +518,10 @@ hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,100,physical,1.
 
 ```csv
 id,mode_id,wave_index,start_time,end_time,enemy_id,enemy_weight,spawn_interval,max_alive,spawn_budget,hazard_id,hazard_weight
-wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,1.2,12,9999,,0
+wave_standard_early_chasers,mode_standard_survival,1,0.0,9999.0,enemy_chaser,100,1.15,14,9999,,0
+wave_standard_swarm_mix,mode_standard_survival,2,60.0,9999.0,enemy_swarm,45,1.7,10,9999,,0
+wave_standard_stalkers,mode_standard_survival,3,240.0,9999.0,enemy_stalker,18,5.0,3,9999,,0
+wave_standard_mid_bulwarks,mode_standard_survival,4,420.0,9999.0,enemy_bulwark,25,4.2,4,9999,,0
 ```
 
 字段说明：
@@ -540,7 +541,7 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `hazard_id` | string | 可空；非空时必须存在于 `hazards.csv` | 可选机关 id，用于把机关生成作为波次压力的一部分 |
 | `hazard_weight` | int | `>= 0`；大于 0 时 `hazard_id` 必填 | 可选机关权重；`0` 表示本波次不使用机关 |
 
-`spawn_waves.csv` 只声明刷怪 / 难度曲线数据边界；当前初始地图机关由 `map_layouts.json` 管理，波次中的 `hazard_id` / `hazard_weight` 仍是后续“把机关作为时间压力”时的预留字段。实际刷怪随机必须走 `RNG.spawn`，局内时间必须走 `GameClock`，高频实体必须走 `PoolManager`。
+`spawn_waves.csv` 只声明刷怪 / 难度曲线数据边界；当前初始地图机关由 `map_layouts.json` 管理，波次中的 `hazard_id` / `hazard_weight` 仍是后续“把机关作为时间压力”时的预留字段。F12 标准短刷图用 0:00 / 1:00 / 4:00 / 7:00 打开敌群层级，并用 `9999.0` 作为软上限后的持续压力窗口；这不是硬性局长限制。实际刷怪随机必须走 `RNG.spawn`，局内时间必须走 `GameClock`，高频实体必须走 `PoolManager`。
 
 ## `warzone_directors.json`
 
@@ -554,15 +555,47 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
       "id": "director_standard_warzone",
       "mode_id": "mode_standard_survival",
       "mutation_id": "nest_mutation_hunting_ground",
-      "description": "Standard scripted warzone director. It uses fixed phases and never reads player-state pressure.",
+      "description": "Standard short loot-run director. It targets an 8-12 minute clear, uses fixed phases, and never reads player-state pressure.",
       "phases": [
         {
-          "id": "phase_warmup",
+          "id": "phase_insertion",
           "start_time": 0.0,
-          "end_time": 20.0,
+          "end_time": 60.0,
           "pressure_tag": "warmup",
           "wave_ids": ["wave_standard_early_chasers"],
           "encounter_ids": ["encounter_chaser_screen"]
+        },
+        {
+          "id": "phase_first_reward_node",
+          "start_time": 60.0,
+          "end_time": 240.0,
+          "pressure_tag": "pressure",
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix"],
+          "encounter_ids": ["encounter_prey_swarm"]
+        },
+        {
+          "id": "phase_route_pressure",
+          "start_time": 240.0,
+          "end_time": 420.0,
+          "pressure_tag": "ecology",
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers"],
+          "encounter_ids": ["encounter_predator_prey"]
+        },
+        {
+          "id": "phase_minor_nest_core",
+          "start_time": 420.0,
+          "end_time": 540.0,
+          "pressure_tag": "core",
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers", "wave_standard_mid_bulwarks"],
+          "encounter_ids": ["encounter_territorial_pressure", "encounter_predator_prey"]
+        },
+        {
+          "id": "phase_overtime_collapse",
+          "start_time": 540.0,
+          "end_time": 9999.0,
+          "pressure_tag": "overtime",
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers", "wave_standard_mid_bulwarks"],
+          "encounter_ids": ["encounter_territorial_pressure", "encounter_predator_prey"]
         }
       ],
       "encounters": [
@@ -575,9 +608,27 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
       ],
       "interest_points": [
         {
-          "id": "poi_fea_12_pulse_field",
-          "kind": "hazard_field",
+          "id": "poi_elite_nest",
+          "kind": "elite_nest",
+          "hazard_ids": ["hazard_fea_12_pulse", "hazard_spike_trap"],
+          "map_layout_id": "map_standard_nest"
+        },
+        {
+          "id": "poi_mod_cache",
+          "kind": "mod_cache",
           "hazard_ids": ["hazard_fea_12_pulse"],
+          "map_layout_id": "map_standard_nest"
+        },
+        {
+          "id": "poi_resource_cache",
+          "kind": "resource_cache",
+          "hazard_ids": ["hazard_spike_trap"],
+          "map_layout_id": "map_standard_nest"
+        },
+        {
+          "id": "poi_minor_nest_core",
+          "kind": "minor_nest_core",
+          "hazard_ids": ["hazard_fea_12_pulse", "hazard_spike_trap"],
           "map_layout_id": "map_standard_nest"
         }
       ]
@@ -610,12 +661,14 @@ wave_standard_early_chasers,mode_standard_survival,1,0.0,600.0,enemy_chaser,100,
 | `encounters[].notes` | string | 可选，非空 | 开发者说明；不玩家可见 |
 | `directors[].interest_points[]` | array[object] | 非空 | 战区兴趣点 / 机关组合声明；匹配当前 layout 时进入初始地图机关生成 |
 | `interest_points[].id` | string | 同 director 内唯一，非空 | 兴趣点 id |
-| `interest_points[].kind` | string | 非空 | 兴趣点类型；首片为 `hazard_field` |
+| `interest_points[].kind` | string | 非空 | 兴趣点类型；F12 首片为 `elite_nest` / `mod_cache` / `resource_cache` / `minor_nest_core` 等调试语义 |
 | `interest_points[].hazard_ids[]` | array[string] | 非空；每项必须存在于 `hazards.csv` | 兴趣点关联机关；每个 id 会生成一个 `source="director"` placement |
 | `interest_points[].map_layout_id` | string | 可选；非空时必须存在于 `map_layouts.json` | 兴趣点所属地图 layout |
+| `interest_points[].min_distance_from_player` | number | 可选，`>= 0`，px | 运行时摆放时距玩家出生点的额外最小距离；会与 layout `safe_radius` 取较大值 |
+| `interest_points[].min_spacing` | number | 可选，`>= 0`，px | 与已放置机关之间的最小间距；用于把收益点分散到小而密的路线中 |
 | `interest_points[].notes` | string | 可选，非空 | 开发者说明；不玩家可见 |
 
-`warzone_directors.json` 是 F10 敌巢战区导演数据源。运行时使用 `phases[].wave_ids` 给 `GameplayRunLoop` 的 Spawner 做阶段 gating；刷怪本身仍由 `spawn_waves.csv` 的时间窗、间隔、预算和同时存活上限决定。匹配当前 `map_layout_id` 的 `interest_points[]` 会交给 `MapManager`，为每个 `hazard_ids[]` 用既有 PCG / 锚点 / 边界规则生成一个初始 `source="director"` placement，并随已有 `map.hazard_placements` 与活跃机关快照保存，不提升 run schema。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态；后续若增加随机 mutation、玩家可见主题或奖励语义，必须先同步 `docs/代码/warzone_director.md`、GDD、ADR、DataLoader schema 和对应 smoke / replay 策略。
+`warzone_directors.json` 是 F10/F12 敌巢战区导演数据源。运行时使用 `phases[].wave_ids` 给 `GameplayRunLoop` 的 Spawner 做阶段 gating；刷怪本身仍由 `spawn_waves.csv` 的时间窗、间隔、预算和同时存活上限决定。F12 标准局按 0-1 分钟投放、1-4 分钟第一收益点、4-7 分钟路线压力、7-9 分钟小巢核、9 分钟后软加压组织；`phase_overtime_collapse` 只表达继续贪局时的高压段，不是硬性强制结束。匹配当前 `map_layout_id` 的 `interest_points[]` 会交给 `MapManager`，为每个 `hazard_ids[]` 用既有 PCG / 锚点 / 边界规则生成一个初始 `source="director"` placement，并随已有 `map.hazard_placements` 与活跃机关快照保存，不提升 run schema。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态；后续若增加随机 mutation、玩家可见主题或奖励语义，必须先同步 `docs/代码/warzone_director.md`、GDD、ADR、DataLoader schema 和对应 smoke / replay 策略。
 
 ## `characters.json`
 

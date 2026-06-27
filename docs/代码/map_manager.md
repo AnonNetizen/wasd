@@ -112,7 +112,7 @@ GameplayRunLoop
 
 - 新地图：新增 `layouts[]`，绑定现有或新模式；如果同一模式需要多张图，先明确选择规则再扩 schema。
 - 新 PCG 内容类型：优先在 `map_layouts.json` 增加同级规则，例如后续 `pcg.points_of_interest`；运行时先做通用规则解释，避免按内容 id 特判。
-- 战区兴趣点：优先在 `warzone_directors.json.interest_points[]` 声明战区主题机关组合；`MapManager` 只解释 `hazard_ids[]` 与 layout 过滤后的通用 placement，不按兴趣点 id 分支。
+- 战区兴趣点：优先在 `warzone_directors.json.interest_points[]` 声明战区主题机关组合；`MapManager` 只解释 `hazard_ids[]`、可选 `min_distance_from_player` / `min_spacing` 与 layout 过滤后的通用 placement，不按兴趣点 id 分支。F12 首片用该机制表达精英巢点、Mod 缓存、资源缓存和小巢核占位。
 - 新机关类型：先在 `hazards.csv` 加基础数值，再在 `map_layouts.json` 引用；运行时仍走通用 `Hazard`，除非需要全新行为 primitive。
 - 边界表现：可扩展 `MapManager._draw()` 或替换为 TileMap / 美术资源；当前可见边界和逻辑边界必须保持同一套菱形轮廓，玩家与敌人中心移动边界由 `boundary_center()` / `boundary_half_extents()` 注入。
 
@@ -135,7 +135,7 @@ GameplayRunLoop
 | 玩家出生点 / 人工机关校验失败 | 玩家出生点必须在格心；人工机关看 `hazards.csv.radius_tiles`，奇数在格心，偶数在网格顶点 |
 | 敌人跑出地图 | `Enemy.set_movement_diamond_boundary()` 是否由 `GameplayRunLoop` 在生成 / 续局恢复时调用；`runtime-smoke` 是否通过菱形移动边界断言 |
 | 机关数量少于配置 | `safe_radius` / `min_distance_from_player` / `min_spacing` 是否过大；地图是否太小 |
-| 战区兴趣点机关没有生成 | `warzone_directors.json.interest_points[].map_layout_id` 是否匹配当前 layout；`hazard_ids[]` 是否非空且已定义；`MapManager.debug_summary().hazard_sources.director` 是否大于 0 |
+| 战区兴趣点机关没有生成 | `warzone_directors.json.interest_points[].map_layout_id` 是否匹配当前 layout；`hazard_ids[]` 是否非空且已定义；`min_distance_from_player` / `min_spacing` 是否过大；`MapManager.debug_summary().hazard_sources.director` 是否大于 0 |
 | 机关看起来不像格子整数倍 | `hazards.csv.radius_tiles` 是否为正整数；偶数尺寸机关是否被放在网格顶点；`WorldBackground`、`MapManager`、`Hazard.configure()` 是否拿到同一份 `grid_cell_size` |
 | 地图边界看起来还是旧矩形、不贴格或小半格 | `MapManager.debug_summary().boundary_shape` 是否为 `diamond`；`boundary_points` 是否为 `bounds` 的上 / 右 / 下 / 左四点；`bounds.height` 是否等于 `bounds.width * grid.cell_height / grid.cell_width`；`bounds.width / grid.cell_width` 是否为奇数；`runtime-smoke` 的菱形边界断言是否通过 |
 | 出生安全区看起来还是正圆或不贴格 | `MapManager.debug_summary().safe_zone_shape` 是否为 `diamond`；`safe_zone_half_extents` 是否按 `grid.cell_height/grid.cell_width` 比例并落在半格线；`runtime-smoke` 的出生安全区菱形断言是否通过 |

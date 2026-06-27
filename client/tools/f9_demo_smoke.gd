@@ -9,10 +9,10 @@ const STATS := preload("res://scripts/contracts/stats.gd")
 const BULWARK_COLOR: Color = Color(0.690196, 0.490196, 0.321569)
 const BULWARK_ID: String = "enemy_bulwark"
 const BULWARK_WAVE_ID: String = "wave_standard_mid_bulwarks"
-const FAST_FORWARD_SCALE: float = 20.0
+const FAST_FORWARD_SCALE: float = 120.0
 const FEA_12_HAZARD_ID: String = "hazard_fea_12_pulse"
 const MAX_WAIT_FRAMES: int = 420
-const TARGET_BULWARK_TIME: float = 55.0
+const TARGET_BULWARK_TIME: float = 420.0
 
 var _failures: Array[String] = []
 
@@ -45,12 +45,12 @@ func _run() -> void:
 	var bulwark: Node = await _wait_for_bulwark()
 	GameClock.set_time_scale(previous_time_scale)
 
-	_expect(GameClock.now() >= TARGET_BULWARK_TIME, "F9 demo smoke should reach the mid-run bulwark wave time")
-	_expect(bulwark != null, "enemy_bulwark should spawn from the 55s mid-run wave")
+	_expect(GameClock.now() >= TARGET_BULWARK_TIME, "F9 demo smoke should reach the minor nest core bulwark wave time")
+	_expect(bulwark != null, "enemy_bulwark should spawn from the 7-minute minor nest core wave")
 	if bulwark != null:
 		_expect(String(bulwark.get_meta("wave_key", "")) == BULWARK_WAVE_ID, "enemy_bulwark should carry its configured wave key")
 		_expect(_bulwark_color_matches(bulwark), "enemy_bulwark should use the F9.1 data-driven placeholder color")
-		_expect(_warzone_director_guarded_phase_active(run_loop), "WarzoneDirector should expose the guarded midfield phase for the bulwark wave")
+		_expect(_warzone_director_core_phase_active(run_loop), "WarzoneDirector should expose the minor nest core phase for the bulwark wave")
 
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	_expect(_snapshot_has_bulwark(snapshot), "run snapshot should persist active enemy_bulwark entries")
@@ -156,7 +156,7 @@ func _debug_summary_has_fea_12(run_loop: Node) -> bool:
 	return int(summary.get("active_hazards", 0)) > 0 and int(sources.get("director", 0)) > 0
 
 
-func _warzone_director_guarded_phase_active(run_loop: Node) -> bool:
+func _warzone_director_core_phase_active(run_loop: Node) -> bool:
 	if run_loop == null or not run_loop.has_method("debug_summary"):
 		return false
 	var summary: Dictionary = run_loop.call("debug_summary") as Dictionary
@@ -172,7 +172,7 @@ func _warzone_director_guarded_phase_active(run_loop: Node) -> bool:
 	var encounter_ids: Array = raw_encounter_ids as Array
 	return (
 		bool(director.get("configured", false))
-		and String(director.get("phase_id", "")) == "phase_guarded_midfield"
+		and String(director.get("phase_id", "")) == "phase_minor_nest_core"
 		and wave_ids.has(BULWARK_WAVE_ID)
 		and encounter_ids.has("encounter_territorial_pressure")
 	)

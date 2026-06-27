@@ -5,37 +5,50 @@
       "id": "director_standard_warzone",
       "mode_id": "mode_standard_survival",
       "mutation_id": "nest_mutation_hunting_ground",
-      "description": "Standard scripted warzone director. It uses fixed phases and never reads player-state pressure.",
+      "description": "Standard short loot-run director. It targets an 8-12 minute clear, uses fixed phases, and never reads player-state pressure.",
       "phases": [
         {
-          "id": "phase_warmup",
+          "id": "phase_insertion",
           "start_time": 0.0,
-          "end_time": 20.0,
+          "end_time": 60.0,
           "pressure_tag": "warmup",
           "wave_ids": ["wave_standard_early_chasers"],
           "encounter_ids": ["encounter_chaser_screen"]
         },
         {
-          "id": "phase_prey_pressure",
-          "start_time": 20.0,
-          "end_time": 35.0,
+          "id": "phase_first_reward_node",
+          "start_time": 60.0,
+          "end_time": 240.0,
           "pressure_tag": "pressure",
           "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix"],
           "encounter_ids": ["encounter_prey_swarm"]
         },
         {
-          "id": "phase_predator_ecology",
-          "start_time": 35.0,
-          "end_time": 55.0,
+          "id": "phase_route_pressure",
+          "start_time": 240.0,
+          "end_time": 420.0,
           "pressure_tag": "ecology",
           "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers"],
           "encounter_ids": ["encounter_predator_prey"]
         },
         {
-          "id": "phase_guarded_midfield",
-          "start_time": 55.0,
-          "end_time": 600.0,
-          "pressure_tag": "spike",
+          "id": "phase_minor_nest_core",
+          "start_time": 420.0,
+          "end_time": 540.0,
+          "pressure_tag": "core",
+          "wave_ids": [
+            "wave_standard_early_chasers",
+            "wave_standard_swarm_mix",
+            "wave_standard_stalkers",
+            "wave_standard_mid_bulwarks"
+          ],
+          "encounter_ids": ["encounter_territorial_pressure", "encounter_predator_prey"]
+        },
+        {
+          "id": "phase_overtime_collapse",
+          "start_time": 540.0,
+          "end_time": 9999.0,
+          "pressure_tag": "overtime",
           "wave_ids": [
             "wave_standard_early_chasers",
             "wave_standard_swarm_mix",
@@ -73,11 +86,40 @@
       ],
       "interest_points": [
         {
-          "id": "poi_fea_12_pulse_field",
-          "kind": "hazard_field",
+          "id": "poi_elite_nest",
+          "kind": "elite_nest",
+          "hazard_ids": ["hazard_fea_12_pulse", "hazard_spike_trap"],
+          "map_layout_id": "map_standard_nest",
+          "min_distance_from_player": 720.0,
+          "min_spacing": 360.0,
+          "notes": "First reward node: an elite nest guard point that should pay medium Gear Mod or dust value in later reward wiring."
+        },
+        {
+          "id": "poi_mod_cache",
+          "kind": "mod_cache",
           "hazard_ids": ["hazard_fea_12_pulse"],
           "map_layout_id": "map_standard_nest",
-          "notes": "Existing FEA-12 hazard field is the first declared warzone interest point."
+          "min_distance_from_player": 560.0,
+          "min_spacing": 360.0,
+          "notes": "Second reward node: guarded Mod cache placeholder, represented by a director-sourced FEA-12 pulse in the first slice."
+        },
+        {
+          "id": "poi_resource_cache",
+          "kind": "resource_cache",
+          "hazard_ids": ["hazard_spike_trap"],
+          "map_layout_id": "map_standard_nest",
+          "min_distance_from_player": 480.0,
+          "min_spacing": 320.0,
+          "notes": "Lower-risk dust and sustain cache placeholder for the short loot-run route."
+        },
+        {
+          "id": "poi_minor_nest_core",
+          "kind": "minor_nest_core",
+          "hazard_ids": ["hazard_fea_12_pulse", "hazard_spike_trap"],
+          "map_layout_id": "map_standard_nest",
+          "min_distance_from_player": 880.0,
+          "min_spacing": 420.0,
+          "notes": "Run endpoint placeholder: a compact minor nest core guarded by hazards and the 7-9 minute bulwark wave."
         }
       ]
     }

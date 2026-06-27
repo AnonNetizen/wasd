@@ -284,9 +284,14 @@ func _warzone_director_initial_summary_is_ready(run_loop: Node) -> bool:
 		bool(director.get("configured", false))
 		and String(director.get("director_id", "")) == "director_standard_warzone"
 		and String(director.get("mutation_id", "")) == "nest_mutation_hunting_ground"
-		and String(director.get("phase_id", "")) == "phase_warmup"
+		and String(director.get("phase_id", "")) == "phase_insertion"
 		and wave_ids.has("wave_standard_early_chasers")
-		and interest_point_ids.has("poi_fea_12_pulse_field")
+		and _array_has_all_strings(interest_point_ids, [
+			"poi_elite_nest",
+			"poi_mod_cache",
+			"poi_resource_cache",
+			"poi_minor_nest_core",
+		])
 	)
 
 
@@ -430,7 +435,14 @@ func _map_has_director_interest_point_hazard(run_loop: Node) -> bool:
 	if not raw_sources is Dictionary:
 		return false
 	var sources: Dictionary = raw_sources as Dictionary
-	return int(sources.get("director", 0)) > 0
+	return int(sources.get("director", 0)) >= 4
+
+
+func _array_has_all_strings(values: Array, expected_values: Array[String]) -> bool:
+	for expected_value: String in expected_values:
+		if not values.has(expected_value):
+			return false
+	return true
 
 
 func _map_restore_snaps_legacy_hazards(run_loop: Node) -> bool:

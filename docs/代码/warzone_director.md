@@ -9,6 +9,7 @@
 - 按 `GameClock.now()` 对局内时间解释固定阶段。
 - 判断某个 `spawn_waves.csv` wave 是否在当前阶段被允许。
 - 按当前 `map_layout_id` 输出可用于初始地图机关生成的兴趣点。
+- F12 标准模式用 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟阶段组织短刷图节奏；9 分钟后是软加压，不是硬性结束。
 - 输出 debug summary，供 smoke、DebugTools 或后续平衡诊断查看当前 director / mutation / phase / encounter / interest point。
 - 保持首片确定性：不随机、不读玩家状态、不改变 run snapshot schema。
 
@@ -29,8 +30,8 @@
 | `client/scripts/autoload/data_loader.gd` | Godot 侧 schema 校验 |
 | `tools/validate_data.py` | Python 侧数据校验 |
 | `tools/test_data_loader_schema.py` | 坏样例回归：导演引用不存在的 wave / 空兴趣点机关列表必须 fail-fast |
-| `client/tools/runtime_smoke.gd` | 验证开局 warmup phase 摘要与 director-sourced 地图机关 |
-| `client/tools/f9_demo_smoke.gd` | 验证 55 秒后 guarded phase 仍允许 bulwark wave，且 FEA-12 兴趣点进入地图 |
+| `client/tools/runtime_smoke.gd` | 验证开局 insertion phase 摘要、F12 四个兴趣点和 director-sourced 地图机关 |
+| `client/tools/f9_demo_smoke.gd` | 验证 7 分钟小巢核 phase 仍允许 bulwark wave，且 FEA-12 兴趣点进入地图 |
 
 ## 数据契约
 
@@ -44,6 +45,7 @@
 - `encounters[].enemy_tags[]` 必须来自 `content_tags`。
 - `interest_points[].hazard_ids[]` 必须是非空数组，且每项存在于 `hazards.csv`。
 - `interest_points[].map_layout_id` 必须存在于 `map_layouts.json`。
+- `interest_points[].min_distance_from_player` / `min_spacing` 为可选摆放约束，由 `MapManager` 解释；首片用它们把精英巢点、Mod 缓存、资源缓存和小巢核分散到战区中。
 
 ## 公共 API
 
@@ -75,7 +77,7 @@
 ## 扩展点
 
 - 随机 mutation：必须先决定 RNG stream、保存 / 恢复策略和 replay 影响；首片不做。
-- 地图兴趣点生成：已接入 `MapManager` 的数据化生成接口；后续扩展 kind / 奖励语义仍不能按 `poi_id` 或 `hazard_id` 写特殊分支。
+- 地图兴趣点生成：已接入 `MapManager` 的数据化生成接口；F12 首片已有 `poi_elite_nest`、`poi_mod_cache`、`poi_resource_cache`、`poi_minor_nest_core` 四个调试语义点位。后续扩展 kind / 奖励语义仍不能按 `poi_id` 或 `hazard_id` 写特殊分支。
 - 生态 encounter：优先基于 enemy tags / AI profile / wave 组合，不按敌人 id 写逻辑。
 - 玩家可见主题：新增 name / desc 前先补 `client/locale/strings.csv`，数据只存 locale key。
 
@@ -92,7 +94,7 @@
 
 - 改数据或 schema：`python tools/validate_data.py`、`python tools/test_data_loader_schema.py`。
 - 改 GDScript：`python tools/lint_gdscript_rules.py`、`python tools/godot_bridge.py --project client runtime-smoke`。
-- 改 55 秒后中段压力或 FEA-12 兴趣点：追加 `python tools/godot_bridge.py --project client f9-demo-smoke`。
+- 改 7 分钟小巢核压力、9 分钟后软加压或 FEA-12 兴趣点：追加 `python tools/godot_bridge.py --project client f9-demo-smoke`。
 - 改兴趣点地图生成接线：追加 `python tools/godot_bridge.py --project client save-smoke`、`python tools/godot_bridge.py --project client perf-probe`，并跑 checked-in golden replay runner 评估行为漂移。
 - 若引入随机 mutation、run snapshot 字段或 replay summary 变化，必须追加对应 save / replay runner 并更新 ADR。
 
