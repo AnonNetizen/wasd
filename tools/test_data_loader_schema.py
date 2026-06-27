@@ -394,6 +394,22 @@ def main() -> int:
             ],
         ),
         (
+            "warzone resource reward must use registered resource",
+            _mutate_json("client/data/warzone_directors.json", _set_warzone_resource_reward("resource_missing")),
+            [
+                "client/data/warzone_directors.json:directors[0].interest_points[0].resource_rewards[0].resource_id",
+                "unknown id resource_missing; expected one of gear_mod_resources",
+            ],
+        ),
+        (
+            "warzone gear mod reward must reference existing mod",
+            _mutate_json("client/data/warzone_directors.json", _set_warzone_gear_mod_reward("gear_mod_missing")),
+            [
+                "client/data/warzone_directors.json:directors[0].interest_points[0].gear_mod_rewards[0].mod_id",
+                "unknown id gear_mod_missing; expected one of gear_mod_ids",
+            ],
+        ),
+        (
             "relic must include relic tag",
             _mutate_json("client/data/relics.json", _set_relic_tags([])),
             [
@@ -747,6 +763,20 @@ def _set_warzone_phase_wave(value: str) -> JsonMutator:
 def _set_warzone_interest_point_hazards(value: list[str]) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["directors"][0]["interest_points"][0]["hazard_ids"] = value
+
+    return mutate
+
+
+def _set_warzone_resource_reward(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["directors"][0]["interest_points"][0]["resource_rewards"] = [{"resource_id": value, "amount": 10}]
+
+    return mutate
+
+
+def _set_warzone_gear_mod_reward(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["directors"][0]["interest_points"][0]["gear_mod_rewards"] = [{"mod_id": value, "count": 1}]
 
     return mutate
 

@@ -55,6 +55,7 @@ var _growth_entries: Array[Dictionary] = []
 var _game_over_panel: CanvasLayer = null
 var _hazard_rows: Dictionary = {}
 var _hud: CanvasLayer = null
+var _interest_points: Dictionary = {}
 var _kills: int = 0
 var _level_panel: CanvasLayer = null
 var _pending_level_up_choices: Array[Dictionary] = []
@@ -67,6 +68,7 @@ var _settings_panel: CanvasLayer = null
 var _skill_system: Node = null
 var _spawn_states: Dictionary = {}
 var _debug_next_gear_mod_drop_forced_roll: float = -1.0
+var _run_completed: bool = false
 var _warzone_director = null
 var _waves: Array[Dictionary] = []
 var _weapon_system: Node = null
@@ -85,6 +87,9 @@ func _exit_tree() -> void:
 
 func _process(_delta: float) -> void:
 	_update_stats_panel()
+	if not GameState.is_state(GameState.PLAYING):
+		return
+	_update_interest_points()
 	if not GameState.is_state(GameState.PLAYING):
 		return
 	_update_spawner()
@@ -135,6 +140,7 @@ func create_run_snapshot() -> Dictionary:
 		"game_clock": GameClock.snapshot(),
 		"rng": RNG.snapshot(),
 		"map": _map_manager.call("snapshot") if _map_manager != null and _map_manager.has_method("snapshot") else {},
+		"interest_points": _interest_points_snapshot(),
 		"spawn_states": _spawn_states.duplicate(true),
 		"player": _player.call("snapshot") if _player != null and _player.has_method("snapshot") else {},
 		"weapon": _weapon_system.call("snapshot") if _weapon_system != null and _weapon_system.has_method("snapshot") else {},
@@ -197,9 +203,11 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_warzone_director = WARZONE_DIRECTOR_SCRIPT.new()
 	_warzone_director.configure(GAME_MODES.MODE_STANDARD_SURVIVAL, _load_warzone_director(GAME_MODES.MODE_STANDARD_SURVIVAL), _waves)
 	_spawn_states.clear()
+	_interest_points.clear()
 	_current_level = 1
 	_current_xp = 0
 	_kills = 0
+	_run_completed = false
 
 	_player = _active_world.get_node_or_null("Player") as CharacterBody2D
 	if _player == null:
@@ -247,6 +255,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		_restore_ui_state(restore_snapshot.get("ui_restore", {}))
 	else:
 		var hazard_placements: Array[Dictionary] = _generate_map_hazard_placements()
+		_configure_interest_points(hazard_placements)
 		_spawn_map_hazards(hazard_placements)
 
 
@@ -322,6 +331,7 @@ func debug_summary() -> Dictionary:
 		"player_max_life": float(_player.call("max_life")) if _player != null and _player.has_method("max_life") else 0.0,
 		"active_enemies": _active_enemy_count(),
 		"active_hazards": PoolManager.active_count(POOL_IDS.HAZARD_SPIKE),
+		"interest_points": _interest_point_debug_summary(),
 		"map": _map_manager.call("debug_summary") if _map_manager != null and _map_manager.has_method("debug_summary") else {},
 		"skills": _skill_system.call("debug_summary") if _skill_system != null and _skill_system.has_method("debug_summary") else {},
 		"warzone_director": _warzone_director.debug_summary(GameClock.now()) if _warzone_director != null else {},
@@ -445,6 +455,10 @@ func debug_cast_primary_skill() -> Dictionary:
 	return _skill_system.call("cast_primary_skill") as Dictionary
 
 
+func debug_claim_interest_point(point_id: String) -> Dictionary:
+	return _claim_interest_point(point_id, true)
+
+
 func _update_spawner() -> void:
 	var elapsed: float = GameClock.now()
 	for wave: Dictionary in _waves:
@@ -498,6 +512,122 @@ func _spawn_enemy(wave: Dictionary, wave_key: String) -> bool:
 func _spawn_map_hazards(placements: Array[Dictionary]) -> void:
 	for placement: Dictionary in placements:
 		_spawn_hazard(placement)
+
+
+func _configure_interest_points(placements: Array[Dictionary]) -> void:
+	_interest_points.clear()
+	for placement: Dictionary in placements:
+		var point_id: String = String(placement.get("interest_point_id", ""))
+		if point_id.is_empty():
+			continue
+		var position: Vector2 = _dict_to_vector(placement.get("position", {}), Vector2.ZERO)
+		var state: Dictionary = _interest_points.get(point_id, _new_interest_point_state(point_id, placement))
+		var placement_count: int = int(state.get("_placement_count", 0))
+		var previous_position: Vector2 = _dict_to_vector(state.get("position", {}), position)
+		var averaged_position: Vector2 = ((previous_position * float(placement_count)) + position) / float(placement_count + 1)
+		state["position"] = _vector_to_dict(averaged_position)
+		state["_placement_count"] = placement_count + 1
+		_interest_points[point_id] = state
+
+
+func _new_interest_point_state(point_id: String, placement: Dictionary) -> Dictionary:
+	return {
+		"id": point_id,
+		"kind": String(placement.get("interest_point_kind", "")),
+		"position": placement.get("position", {}),
+		"claim_radius": maxf(float(placement.get("interest_point_claim_radius", 0.0)), 0.0),
+		"claim_start_time": maxf(float(placement.get("interest_point_claim_start_time", 0.0)), 0.0),
+		"resource_rewards": _typed_dictionary_array(placement.get("interest_point_resource_rewards", [])),
+		"gear_mod_rewards": _typed_dictionary_array(placement.get("interest_point_gear_mod_rewards", [])),
+		"completes_run": bool(placement.get("interest_point_completes_run", false)),
+		"claimed": false,
+		"claimed_time": 0.0,
+		"_placement_count": 0,
+	}
+
+
+func _update_interest_points() -> void:
+	if _player == null or _run_completed:
+		return
+	for point_key: Variant in _interest_points.keys():
+		var point_id: String = String(point_key)
+		var state: Dictionary = _interest_points[point_key] as Dictionary
+		if bool(state.get("claimed", false)):
+			continue
+		if GameClock.now() < float(state.get("claim_start_time", 0.0)):
+			continue
+		var claim_radius: float = float(state.get("claim_radius", 0.0))
+		if claim_radius <= 0.0:
+			continue
+		var position: Vector2 = _dict_to_vector(state.get("position", {}), Vector2.ZERO)
+		if _player.global_position.distance_to(position) <= claim_radius:
+			_claim_interest_point(point_id)
+			if _run_completed:
+				return
+
+
+func _claim_interest_point(point_id: String, force: bool = false) -> Dictionary:
+	if not _interest_points.has(point_id):
+		return _debug_result(false, "unknown_interest_point")
+	var state: Dictionary = _interest_points[point_id] as Dictionary
+	if bool(state.get("claimed", false)):
+		return _debug_result(false, "already_claimed")
+	if not force and GameClock.now() < float(state.get("claim_start_time", 0.0)):
+		return _debug_result(false, "not_ready")
+
+	var rewards: Dictionary = _grant_interest_point_rewards(state)
+	state["claimed"] = true
+	state["claimed_time"] = GameClock.now()
+	state["reward_result"] = rewards
+	_interest_points[point_id] = state
+	if bool(state.get("completes_run", false)):
+		_complete_run(point_id)
+
+	var result: Dictionary = rewards.duplicate(true)
+	result["ok"] = true
+	result["interest_point_id"] = point_id
+	result["completed_run"] = bool(state.get("completes_run", false))
+	return result
+
+
+func _grant_interest_point_rewards(state: Dictionary) -> Dictionary:
+	var granted_resources: Array[Dictionary] = []
+	for reward: Dictionary in _typed_dictionary_array(state.get("resource_rewards", [])):
+		var resource_id: String = String(reward.get("resource_id", ""))
+		var amount: int = maxi(int(reward.get("amount", 0)), 0)
+		if resource_id.is_empty() or amount <= 0:
+			continue
+		var grant: Dictionary = GearModSystem.grant_resource(resource_id, amount, SaveManager.DEFAULT_SLOT)
+		if bool(grant.get("ok", false)):
+			granted_resources.append({
+				"resource_id": resource_id,
+				"amount": amount,
+				"balance": int(grant.get("balance", 0)),
+			})
+			if _hud != null and _hud.has_method("show_gear_mod_resource_feedback"):
+				_hud.call("show_gear_mod_resource_feedback", "%s_name" % resource_id, amount)
+
+	var granted_mods: Array[Dictionary] = []
+	for reward: Dictionary in _typed_dictionary_array(state.get("gear_mod_rewards", [])):
+		var mod_id: String = String(reward.get("mod_id", ""))
+		var count: int = maxi(int(reward.get("count", 1)), 1)
+		if mod_id.is_empty():
+			continue
+		var grant: Dictionary = GearModSystem.grant_mod(mod_id, count, SaveManager.DEFAULT_SLOT)
+		if bool(grant.get("ok", false)):
+			var name_key: String = String(grant.get("name_key", ""))
+			granted_mods.append({
+				"mod_id": mod_id,
+				"name_key": name_key,
+				"instance_ids": grant.get("instance_ids", []),
+			})
+			if not name_key.is_empty() and _hud != null and _hud.has_method("show_gear_mod_drop_feedback"):
+				_hud.call("show_gear_mod_drop_feedback", name_key)
+
+	return {
+		"resources": granted_resources,
+		"gear_mods": granted_mods,
+	}
 
 
 func _generate_map_hazard_placements() -> Array[Dictionary]:
@@ -717,15 +847,30 @@ func _on_player_died() -> void:
 	GameState.change_state(GameState.GAME_OVER, {
 		"kills": _kills,
 		"run_time": GameClock.now(),
+		"completed": false,
 	})
-	_show_game_over_panel()
+	_show_game_over_panel(false)
 
 
-func _show_game_over_panel() -> void:
+func _complete_run(point_id: String) -> void:
+	if _run_completed:
+		return
+	_run_completed = true
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+	GameState.change_state(GameState.GAME_OVER, {
+		"kills": _kills,
+		"run_time": GameClock.now(),
+		"completed": true,
+		"interest_point_id": point_id,
+	})
+	_show_game_over_panel(true)
+
+
+func _show_game_over_panel(completed: bool = false) -> void:
 	_game_over_panel = UIManager.push(GAME_OVER_PANEL_SCENE, {"source": "game_over"}) as CanvasLayer
 	if _game_over_panel == null:
 		return
-	_game_over_panel.call("configure", _kills, GameClock.now())
+	_game_over_panel.call("configure", _kills, GameClock.now(), completed)
 	_game_over_panel.connect("restart_requested", Callable(self, "_on_game_over_restart_requested"), CONNECT_ONE_SHOT)
 	_game_over_panel.connect("quit_to_title_requested", Callable(self, "_on_game_over_quit_to_title_requested"), CONNECT_ONE_SHOT)
 
@@ -861,6 +1006,38 @@ func _ui_restore_snapshot() -> Dictionary:
 	}
 
 
+func _interest_points_snapshot() -> Dictionary:
+	var result: Dictionary = {}
+	for point_key: Variant in _interest_points.keys():
+		var point_id: String = String(point_key)
+		var state: Dictionary = _interest_points[point_key] as Dictionary
+		result[point_id] = {
+			"claimed": bool(state.get("claimed", false)),
+			"claimed_time": float(state.get("claimed_time", 0.0)),
+			"reward_result": _dictionary_or_empty(state.get("reward_result", {})),
+		}
+	return result
+
+
+func _interest_point_debug_summary() -> Dictionary:
+	var result: Dictionary = {}
+	for point_key: Variant in _interest_points.keys():
+		var point_id: String = String(point_key)
+		var state: Dictionary = _interest_points[point_key] as Dictionary
+		result[point_id] = {
+			"kind": String(state.get("kind", "")),
+			"position": _dictionary_or_empty(state.get("position", {})),
+			"claim_radius": float(state.get("claim_radius", 0.0)),
+			"claim_start_time": float(state.get("claim_start_time", 0.0)),
+			"claimed": bool(state.get("claimed", false)),
+			"claimed_time": float(state.get("claimed_time", 0.0)),
+			"completes_run": bool(state.get("completes_run", false)),
+			"resource_reward_count": _typed_dictionary_array(state.get("resource_rewards", [])).size(),
+			"gear_mod_reward_count": _typed_dictionary_array(state.get("gear_mod_rewards", [])).size(),
+		}
+	return result
+
+
 func _is_active_world_entity(node: Node) -> bool:
 	if node == null or _active_world == null:
 		return false
@@ -895,6 +1072,9 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> void:
 		_spawn_map_hazards(hazard_placements)
 	else:
 		_restore_hazard_snapshots(hazard_snapshots)
+	if _map_manager != null and _map_manager.has_method("hazard_placements"):
+		_configure_interest_points(_typed_dictionary_array(_map_manager.call("hazard_placements")))
+	_restore_interest_points(snapshot_data.get("interest_points", {}))
 	_restore_enemy_snapshots(_array_or_empty(snapshot_data.get("enemies", [])))
 	_restore_bullet_snapshots(_array_or_empty(snapshot_data.get("bullets", [])))
 	_restore_pickup_snapshots(_array_or_empty(snapshot_data.get("pickups", [])))
@@ -908,6 +1088,21 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> void:
 		_hud.call("set_kills", _kills)
 		_hud.call("set_level", _current_level)
 	_refresh_xp_hud()
+
+
+func _restore_interest_points(raw_value: Variant) -> void:
+	var saved_points: Dictionary = _dictionary_or_empty(raw_value)
+	for point_key: Variant in saved_points.keys():
+		var point_id: String = String(point_key)
+		if not _interest_points.has(point_id):
+			continue
+		var saved_state: Dictionary = _dictionary_or_empty(saved_points[point_key])
+		var state: Dictionary = _interest_points[point_id] as Dictionary
+		state["claimed"] = bool(saved_state.get("claimed", state.get("claimed", false)))
+		state["claimed_time"] = float(saved_state.get("claimed_time", state.get("claimed_time", 0.0)))
+		if saved_state.has("reward_result"):
+			state["reward_result"] = _dictionary_or_empty(saved_state.get("reward_result", {}))
+		_interest_points[point_id] = state
 
 
 func _restore_ui_state(raw_ui_restore: Variant) -> void:
@@ -1078,6 +1273,13 @@ func _dict_to_vector(raw_value: Variant, fallback: Vector2) -> Vector2:
 		return fallback
 	var value: Dictionary = raw_value as Dictionary
 	return Vector2(float(value.get("x", fallback.x)), float(value.get("y", fallback.y)))
+
+
+func _vector_to_dict(value: Vector2) -> Dictionary:
+	return {
+		"x": value.x,
+		"y": value.y,
+	}
 
 
 func _typed_dictionary_array(raw_value: Variant) -> Array[Dictionary]:

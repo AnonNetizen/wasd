@@ -342,6 +342,7 @@ func _add_director_interest_points(raw_value: Variant, layout_id: String) -> voi
 			var placement: Dictionary = _placement(hazard_id, position, DIRECTOR_SOURCE)
 			if not point_id.is_empty():
 				placement["interest_point_id"] = point_id
+			_copy_interest_point_metadata(point, placement)
 			_hazard_placements.append(placement)
 
 
@@ -384,6 +385,19 @@ func _placement(hazard_id: String, position: Vector2, source: String) -> Diction
 		"position": _vector_to_dict(position),
 		"source": source,
 	}
+
+
+func _copy_interest_point_metadata(point: Dictionary, placement: Dictionary) -> void:
+	for key: String in [
+		"kind",
+		"claim_radius",
+		"claim_start_time",
+		"resource_rewards",
+		"gear_mod_rewards",
+		"completes_run",
+	]:
+		if point.has(key):
+			placement["interest_point_%s" % key] = point.get(key)
 
 
 func _hazard_source_counts() -> Dictionary:

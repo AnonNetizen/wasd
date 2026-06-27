@@ -96,7 +96,26 @@ func grant_mod(mod_id: String, count: int = 1, slot: String = SaveManager.DEFAUL
 	profile[PROFILE_KEY] = gear_state
 	return _save_result(profile, slot, {
 		"mod_id": mod_id,
+		"name_key": String(definition.get("name_key", "")),
 		"instance_ids": instance_ids,
+	})
+
+
+func grant_resource(resource_id: String, amount: int, slot: String = SaveManager.DEFAULT_SLOT) -> Dictionary:
+	if not GEAR_MOD_RESOURCES.VALUES.has(resource_id):
+		return _result(false, "unknown_resource")
+	var profile: Dictionary = load_or_create_profile(slot)
+	var gear_state: Dictionary = _gear_state(profile)
+	var resources: Dictionary = _dictionary_or_empty(gear_state.get("resources", {}))
+	var previous_balance: int = int(resources.get(resource_id, 0))
+	resources[resource_id] = maxi(previous_balance + maxi(amount, 0), 0)
+	gear_state["resources"] = resources
+	profile[PROFILE_KEY] = gear_state
+	return _save_result(profile, slot, {
+		"resource_id": resource_id,
+		"amount": maxi(amount, 0),
+		"previous_balance": previous_balance,
+		"balance": int(resources.get(resource_id, 0)),
 	})
 
 
@@ -270,20 +289,7 @@ func current_all_modifiers(slot: String = SaveManager.DEFAULT_SLOT) -> Dictionar
 
 
 func debug_grant_resource(resource_id: String, amount: int, slot: String = SaveManager.DEFAULT_SLOT) -> Dictionary:
-	if not GEAR_MOD_RESOURCES.VALUES.has(resource_id):
-		return _result(false, "unknown_resource")
-	var profile: Dictionary = load_or_create_profile(slot)
-	var gear_state: Dictionary = _gear_state(profile)
-	var resources: Dictionary = _dictionary_or_empty(gear_state.get("resources", {}))
-	var previous_balance: int = int(resources.get(resource_id, 0))
-	resources[resource_id] = maxi(previous_balance + maxi(amount, 0), 0)
-	gear_state["resources"] = resources
-	profile[PROFILE_KEY] = gear_state
-	return _save_result(profile, slot, {
-		"resource_id": resource_id,
-		"previous_balance": previous_balance,
-		"balance": int(resources.get(resource_id, 0)),
-	})
+	return grant_resource(resource_id, amount, slot)
 
 
 func debug_set_loadout_capacity(loadout_slot: String, capacity: int, slot: String = SaveManager.DEFAULT_SLOT) -> Dictionary:

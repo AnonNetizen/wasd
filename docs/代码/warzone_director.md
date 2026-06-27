@@ -8,10 +8,10 @@
 - 读取 `client/data/warzone_directors.json` 中与当前模式匹配的导演配置。
 - 按 `GameClock.now()` 对局内时间解释固定阶段。
 - 判断某个 `spawn_waves.csv` wave 是否在当前阶段被允许。
-- 按当前 `map_layout_id` 输出可用于初始地图机关生成的兴趣点。
+- 按当前 `map_layout_id` 输出可用于初始地图机关生成和 F12 奖励领取的兴趣点。
 - F12 标准模式用 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟阶段组织短刷图节奏；9 分钟后是软加压，不是硬性结束。
 - 输出 debug summary，供 smoke、DebugTools 或后续平衡诊断查看当前 director / mutation / phase / encounter / interest point。
-- 保持首片确定性：不随机、不读玩家状态、不改变 run snapshot schema。
+- 保持首片确定性：不随机、不读玩家状态；奖励领取状态由 `GameplayRunLoop` 保存，不由导演保存运行时状态。
 
 ## 非职责
 
@@ -29,8 +29,8 @@
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 创建导演、把 `debug_summary()` 暴露给运行时摘要、在 `_update_spawner()` 调用 `is_wave_enabled()`、把当前 layout 的兴趣点传给 `MapManager` |
 | `client/scripts/autoload/data_loader.gd` | Godot 侧 schema 校验 |
 | `tools/validate_data.py` | Python 侧数据校验 |
-| `tools/test_data_loader_schema.py` | 坏样例回归：导演引用不存在的 wave / 空兴趣点机关列表必须 fail-fast |
-| `client/tools/runtime_smoke.gd` | 验证开局 insertion phase 摘要、F12 四个兴趣点和 director-sourced 地图机关 |
+| `tools/test_data_loader_schema.py` | 坏样例回归：导演引用不存在的 wave、空兴趣点机关列表、非法兴趣点奖励必须 fail-fast |
+| `client/tools/runtime_smoke.gd` | 验证开局 insertion phase 摘要、F12 四个兴趣点、director-sourced 地图机关、兴趣点奖励领取和小巢核完成面板 |
 | `client/tools/f9_demo_smoke.gd` | 验证 7 分钟小巢核 phase 仍允许 bulwark wave，且 FEA-12 兴趣点进入地图 |
 
 ## 数据契约
@@ -46,6 +46,9 @@
 - `interest_points[].hazard_ids[]` 必须是非空数组，且每项存在于 `hazards.csv`。
 - `interest_points[].map_layout_id` 必须存在于 `map_layouts.json`。
 - `interest_points[].min_distance_from_player` / `min_spacing` 为可选摆放约束，由 `MapManager` 解释；首片用它们把精英巢点、Mod 缓存、资源缓存和小巢核分散到战区中。
+- `interest_points[].claim_radius` / `claim_start_time` 为 F12 领取约束，由 `GameplayRunLoop` 解释；有奖励或 `completes_run=true` 时必须提供正数 `claim_radius`。
+- `interest_points[].resource_rewards[]` 必须引用 `gear_mod_resources`；`gear_mod_rewards[]` 必须引用 `gear_mods.json` 中存在的 `gear_mod_ids`；领取时分别走 `GearModSystem.grant_resource()` 与 `grant_mod()`。
+- `interest_points[].completes_run` 为可选 bool；为 `true` 时领取后进入完成结果面板，并删除当前 `run` 存档。
 
 ## 公共 API
 
@@ -64,9 +67,10 @@
 2. `GameplayRunLoop` 读取 `DataLoader.WARZONE_DIRECTORS_PATH`，选择当前 mode 的 director。
 3. `WarzoneDirector.configure()` 缓存 phases / encounters / interest_points。
 4. 开局生成地图机关时，`GameplayRunLoop` 用 `interest_points_for_layout(layout_id)` 取当前地图兴趣点，并传给 `MapManager.generate_hazard_placements()`。
-5. `MapManager` 为每个兴趣点的 `hazard_ids[]` 走通用 PCG 规则生成 `source="director"` placement；该 placement 会进入已有 `map.hazard_placements` 和活跃机关快照，不提升 run schema。
-6. 每帧 `GameplayRunLoop._update_spawner()` 先询问 `is_wave_enabled(wave_key, GameClock.now())`，被当前 phase 禁用的 wave 直接跳过。
-7. 通过导演后，原有 wave 时间窗、预算、同时存活上限和对象池生成逻辑继续执行。
+5. `MapManager` 为每个兴趣点的 `hazard_ids[]` 走通用 PCG 规则生成 `source="director"` placement，并透传 `claim_radius`、奖励数组和 `completes_run` 等兴趣点元数据。
+6. `GameplayRunLoop` 从 placement 重建兴趣点状态；每帧只按 `GameClock.now()`、玩家位置和 `claim_radius` 判断能否领取，不读取玩家表现数据。
+7. 每帧 `GameplayRunLoop._update_spawner()` 先询问 `is_wave_enabled(wave_key, GameClock.now())`，被当前 phase 禁用的 wave 直接跳过。
+8. 通过导演后，原有 wave 时间窗、预算、同时存活上限和对象池生成逻辑继续执行。
 
 ## 依赖
 
@@ -77,7 +81,7 @@
 ## 扩展点
 
 - 随机 mutation：必须先决定 RNG stream、保存 / 恢复策略和 replay 影响；首片不做。
-- 地图兴趣点生成：已接入 `MapManager` 的数据化生成接口；F12 首片已有 `poi_elite_nest`、`poi_mod_cache`、`poi_resource_cache`、`poi_minor_nest_core` 四个调试语义点位。后续扩展 kind / 奖励语义仍不能按 `poi_id` 或 `hazard_id` 写特殊分支。
+- 地图兴趣点生成：已接入 `MapManager` 的数据化生成接口；F12 首片已有 `poi_elite_nest`、`poi_mod_cache`、`poi_resource_cache`、`poi_minor_nest_core` 四个调试语义点位，并通过通用 `resource_rewards[]` / `gear_mod_rewards[]` 表达 dust / Mod 奖励。后续扩展 kind / 奖励语义仍不能按 `poi_id` 或 `hazard_id` 写特殊分支。
 - 生态 encounter：优先基于 enemy tags / AI profile / wave 组合，不按敌人 id 写逻辑。
 - 玩家可见主题：新增 name / desc 前先补 `client/locale/strings.csv`，数据只存 locale key。
 
@@ -87,6 +91,7 @@
 |------------|----------|------|
 | 调阶段时间 / wave 组合 | `client/data/warzone_directors.json` | `validate_data`、`test_data_loader_schema`、`runtime-smoke`、`f9-demo-smoke` |
 | 新增 encounter / interest point | `warzone_directors.json`、必要时 `map_layouts.json` / `hazards.csv` | `validate_data` + `test_data_loader_schema`；兴趣点影响地图时追加 runtime / F9 smoke |
+| 调兴趣点奖励 / 小巢核完成 | `warzone_directors.json`、`gameplay_run_loop.gd`、`gear_mod_system.gd` | `validate_data` + `test_data_loader_schema` + `runtime-smoke` + `gear-mod-smoke` + `save-smoke` |
 | 改 schema | `data_loader.gd`、`validate_data.py`、`test_data_loader_schema.py`、本文档、数据手册 | schema test + docs health |
 | 让导演影响地图 | `warzone_director.gd`、`map_manager.gd`、`gameplay_run_loop.gd` | runtime-smoke、f9-demo-smoke、save-smoke、perf-probe，评估 golden |
 
@@ -95,9 +100,10 @@
 - 改数据或 schema：`python tools/validate_data.py`、`python tools/test_data_loader_schema.py`。
 - 改 GDScript：`python tools/lint_gdscript_rules.py`、`python tools/godot_bridge.py --project client runtime-smoke`。
 - 改 7 分钟小巢核压力、9 分钟后软加压或 FEA-12 兴趣点：追加 `python tools/godot_bridge.py --project client f9-demo-smoke`。
+- 改兴趣点奖励、`claim_radius`、`completes_run` 或结果面板：追加 `python tools/godot_bridge.py --project client gear-mod-smoke` 与 `save-smoke`。
 - 改兴趣点地图生成接线：追加 `python tools/godot_bridge.py --project client save-smoke`、`python tools/godot_bridge.py --project client perf-probe`，并跑 checked-in golden replay runner 评估行为漂移。
 - 若引入随机 mutation、run snapshot 字段或 replay summary 变化，必须追加对应 save / replay runner 并更新 ADR。
 
 ## 迁移 / 兼容
 
-F10.2 仍不提升 run snapshot schema。导演当前由静态数据和 `GameClock.now()` 推导；兴趣点只在开局生成已有 `map.hazard_placements` 与活跃 `hazards` 快照，续局直接恢复这些 placement。后续若加入随机 mutation、阶段内部计数器或玩家可见选择，必须保存 director state 并同步 `GameplayRunLoop.create_run_snapshot()` / `configure_restore_snapshot()`。
+导演当前由静态数据和 `GameClock.now()` 推导，本身不保存状态。F12 奖励领取状态保存于 run payload 的可选 `interest_points` 字段；旧 payload 缺失该字段时按未领取处理，旧 `map.hazard_placements` 缺少奖励元数据时只恢复机关，不补发奖励。后续若加入随机 mutation、阶段内部计数器或玩家可见选择，必须保存 director state 并同步 `GameplayRunLoop.create_run_snapshot()` / `configure_restore_snapshot()`。

@@ -154,7 +154,7 @@ func validate_project_data() -> bool:
 	var game_mode_ids: Dictionary = _collect_game_mode_ids()
 	is_valid = _validate_map_layouts_json(hazard_ids, game_mode_ids) and is_valid
 	is_valid = _validate_spawn_waves_csv(enemy_ids, hazard_ids, game_mode_ids) and is_valid
-	is_valid = _validate_warzone_directors_json(game_mode_ids, _collect_spawn_wave_ids_by_mode(), hazard_ids, _collect_map_layout_ids()) and is_valid
+	is_valid = _validate_warzone_directors_json(game_mode_ids, _collect_spawn_wave_ids_by_mode(), hazard_ids, _collect_map_layout_ids(), gear_mod_ids) and is_valid
 
 	return is_valid
 
@@ -1398,7 +1398,7 @@ func _validate_map_layouts_json(hazard_ids: Dictionary, game_mode_ids: Dictionar
 	return is_valid
 
 
-func _validate_warzone_directors_json(game_mode_ids: Dictionary, wave_ids_by_mode: Dictionary, hazard_ids: Dictionary, map_layout_ids: Dictionary) -> bool:
+func _validate_warzone_directors_json(game_mode_ids: Dictionary, wave_ids_by_mode: Dictionary, hazard_ids: Dictionary, map_layout_ids: Dictionary, gear_mod_ids: Dictionary) -> bool:
 	var data: Variant = load_json(WARZONE_DIRECTORS_PATH)
 	if not data is Dictionary:
 		return _schema_fail(WARZONE_DIRECTORS_PATH, "root", "Dictionary")
@@ -1438,7 +1438,7 @@ func _validate_warzone_directors_json(game_mode_ids: Dictionary, wave_ids_by_mod
 		var encounter_result: Dictionary = _validate_warzone_encounters("%s.encounters" % director_field, director_dict.get("encounters"))
 		var encounter_ids: Dictionary = encounter_result.get("ids", {}) as Dictionary
 		is_valid = bool(encounter_result.get("is_valid", false)) and is_valid
-		is_valid = _validate_warzone_interest_points("%s.interest_points" % director_field, director_dict.get("interest_points"), hazard_ids, map_layout_ids) and is_valid
+		is_valid = _validate_warzone_interest_points("%s.interest_points" % director_field, director_dict.get("interest_points"), hazard_ids, map_layout_ids, gear_mod_ids) and is_valid
 
 		var mode_wave_ids: Dictionary = {}
 		if wave_ids_by_mode.get(mode_id, {}) is Dictionary:
@@ -1565,7 +1565,7 @@ func _validate_warzone_encounters(field: String, data: Variant) -> Dictionary:
 	}
 
 
-func _validate_warzone_interest_points(field: String, data: Variant, hazard_ids: Dictionary, map_layout_ids: Dictionary) -> bool:
+func _validate_warzone_interest_points(field: String, data: Variant, hazard_ids: Dictionary, map_layout_ids: Dictionary, gear_mod_ids: Dictionary) -> bool:
 	var points: Array = _require_array(WARZONE_DIRECTORS_PATH, field, data)
 	var is_valid: bool = true
 	if points.is_empty():
@@ -1600,8 +1600,59 @@ func _validate_warzone_interest_points(field: String, data: Variant, hazard_ids:
 			is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.map_layout_id" % item_field, point_dict.get("map_layout_id")) and is_valid
 			if not map_layout_id.is_empty() and not map_layout_ids.has(map_layout_id):
 				is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.map_layout_id" % item_field, "map layout defined in map_layouts.json") and is_valid
+		if point_dict.has("min_distance_from_player"):
+			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.min_distance_from_player" % item_field, point_dict.get("min_distance_from_player"), 0.0) and is_valid
+		if point_dict.has("min_spacing"):
+			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.min_spacing" % item_field, point_dict.get("min_spacing"), 0.0) and is_valid
+		var has_reward_payload: bool = point_dict.has("resource_rewards") or point_dict.has("gear_mod_rewards") or bool(point_dict.get("completes_run", false))
+		if point_dict.has("claim_radius") or has_reward_payload:
+			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.claim_radius" % item_field, point_dict.get("claim_radius"), 0.0, null, true) and is_valid
+		if point_dict.has("claim_start_time"):
+			is_valid = _require_number(WARZONE_DIRECTORS_PATH, "%s.claim_start_time" % item_field, point_dict.get("claim_start_time"), 0.0) and is_valid
+		if point_dict.has("completes_run"):
+			is_valid = _require_bool(WARZONE_DIRECTORS_PATH, "%s.completes_run" % item_field, point_dict.get("completes_run")) and is_valid
+		if point_dict.has("resource_rewards"):
+			is_valid = _validate_warzone_resource_rewards("%s.resource_rewards" % item_field, point_dict.get("resource_rewards")) and is_valid
+		if point_dict.has("gear_mod_rewards"):
+			is_valid = _validate_warzone_gear_mod_rewards("%s.gear_mod_rewards" % item_field, point_dict.get("gear_mod_rewards"), gear_mod_ids) and is_valid
 		if point_dict.has("notes"):
 			is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.notes" % item_field, point_dict.get("notes")) and is_valid
+	return is_valid
+
+
+func _validate_warzone_resource_rewards(field: String, data: Variant) -> bool:
+	var rewards: Array = _require_array(WARZONE_DIRECTORS_PATH, field, data)
+	var is_valid: bool = true
+	if rewards.is_empty():
+		is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, field, "non-empty Array") and is_valid
+	for reward_index: int in range(rewards.size()):
+		var reward_field: String = "%s[%d]" % [field, reward_index]
+		var reward: Variant = rewards[reward_index]
+		if not reward is Dictionary:
+			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, reward_field, "Dictionary") and is_valid
+			continue
+		var reward_dict: Dictionary = reward as Dictionary
+		is_valid = _require_registered(WARZONE_DIRECTORS_PATH, "%s.resource_id" % reward_field, reward_dict.get("resource_id"), "gear_mod_resources") != "" and is_valid
+		is_valid = _require_int(WARZONE_DIRECTORS_PATH, "%s.amount" % reward_field, reward_dict.get("amount"), 1) and is_valid
+	return is_valid
+
+
+func _validate_warzone_gear_mod_rewards(field: String, data: Variant, gear_mod_ids: Dictionary) -> bool:
+	var rewards: Array = _require_array(WARZONE_DIRECTORS_PATH, field, data)
+	var is_valid: bool = true
+	if rewards.is_empty():
+		is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, field, "non-empty Array") and is_valid
+	for reward_index: int in range(rewards.size()):
+		var reward_field: String = "%s[%d]" % [field, reward_index]
+		var reward: Variant = rewards[reward_index]
+		if not reward is Dictionary:
+			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, reward_field, "Dictionary") and is_valid
+			continue
+		var reward_dict: Dictionary = reward as Dictionary
+		var mod_id: String = _require_registered(WARZONE_DIRECTORS_PATH, "%s.mod_id" % reward_field, reward_dict.get("mod_id"), "gear_mod_ids")
+		if not mod_id.is_empty() and not gear_mod_ids.has(mod_id):
+			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.mod_id" % reward_field, "mod defined in gear_mods.json") and is_valid
+		is_valid = _require_int(WARZONE_DIRECTORS_PATH, "%s.count" % reward_field, reward_dict.get("count"), 1) and is_valid
 	return is_valid
 
 

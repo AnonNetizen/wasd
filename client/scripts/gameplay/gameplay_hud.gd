@@ -46,6 +46,8 @@ var _upgrade_feedback_label: Label = null
 var _upgrade_feedback_remaining: float = 0.0
 var _last_upgrade_feedback_key: String = "ui_upgrade_applied"
 var _last_upgrade_name_key: String = ""
+var _last_upgrade_resource_key: String = ""
+var _last_upgrade_amount: int = 0
 var _current_life: float = 0.0
 var _max_life: float = 0.0
 var _kills: int = 0
@@ -131,6 +133,10 @@ func show_gear_mod_drop_feedback(name_key: String) -> void:
 	_show_feedback("ui_gear_mod_drop_obtained", name_key)
 
 
+func show_gear_mod_resource_feedback(resource_key: String, amount: int) -> void:
+	_show_resource_feedback("ui_gear_mod_resource_obtained", resource_key, amount)
+
+
 func is_gear_mod_drop_feedback_visible() -> bool:
 	return (
 		_upgrade_feedback_label != null
@@ -139,9 +145,31 @@ func is_gear_mod_drop_feedback_visible() -> bool:
 	)
 
 
+func is_gear_mod_resource_feedback_visible() -> bool:
+	return (
+		_upgrade_feedback_label != null
+		and _upgrade_feedback_label.visible
+		and _last_upgrade_feedback_key == "ui_gear_mod_resource_obtained"
+	)
+
+
 func _show_feedback(feedback_key: String, name_key: String) -> void:
 	_last_upgrade_feedback_key = feedback_key
 	_last_upgrade_name_key = name_key
+	_last_upgrade_resource_key = ""
+	_last_upgrade_amount = 0
+	_start_feedback()
+
+
+func _show_resource_feedback(feedback_key: String, resource_key: String, amount: int) -> void:
+	_last_upgrade_feedback_key = feedback_key
+	_last_upgrade_name_key = ""
+	_last_upgrade_resource_key = resource_key
+	_last_upgrade_amount = maxi(amount, 0)
+	_start_feedback()
+
+
+func _start_feedback() -> void:
 	_refresh_upgrade_feedback()
 	_upgrade_feedback_remaining = UPGRADE_FEEDBACK_DURATION
 	_update_upgrade_feedback_visual()
@@ -196,6 +224,8 @@ func _refresh_upgrade_feedback() -> void:
 		return
 	_upgrade_feedback_label.text = tr(_last_upgrade_feedback_key).format({
 		"name": tr(_last_upgrade_name_key),
+		"resource": tr(_last_upgrade_resource_key),
+		"amount": _last_upgrade_amount,
 	})
 
 

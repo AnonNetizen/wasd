@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-06-27",
   "current_phase": "formal_project_f12_short_loot_runs",
-  "current_status": "用户已决定默认标准模式不做 25 分钟长局，先改为暗黑式 8-12 分钟短刷图循环：进图、找兴趣点、打小巢核 / 精英 / 宝箱、拿 Gear Mod / 材料 / 词条价值、结算后快速再开。ADR #120 与 docs/AI协作/工作包/F12-ShortLootRuns.md 已建立；GDD、AI 导航、数据手册、测试策略和 gameplay_runtime 模块文档已同步。F12 数据首片已落地：map_standard_nest 玩家出生点改为偏外侧格心；WarzoneDirector 阶段改为 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟，9+ 是软加压而非硬性时间限制；spawn_waves 改为 0:00 chaser、1:00 swarm、4:00 stalker、7:00 bulwark 持续窗口；director interest_points 已声明 poi_elite_nest、poi_mod_cache、poi_resource_cache、poi_minor_nest_core 四个首片点位并由 MapManager 生成 source=director 初始机关。当前兴趣点仍是机关占位，奖励 / 宝箱 / 小巢核实体 / 结算 UI 尚未接线。ADR #121 已把 AI 上下文预算补充为 S / M / L / XL 复杂度分级：先判流程深度，再按任务类型读取文件，避免小任务过载和大任务欠规划。默认 mode_standard_survival 不再声明 resource_pools.growth_pools，因此 GameplayRunLoop 在默认模式不会生成 XP pickup、不会进入 LEVEL_UP、不会弹 LevelUpPanel，debug_summary 暴露 level_up_growth_enabled=false；GrowthSystem / growth.csv / growth_pools.json / LevelUpPanel 作为未来非默认模式能力保留，只要某个模式显式声明 growth_pools 就可复用升级 3 选 1。F11 Gear Mod 仍是跨局成长主路线，旧 MetaProgressionSystem 已退役。F10/F12 WarzoneDirector 仍只用固定阶段、巢变异、遭遇和兴趣点，不读取玩家状态、不做隐藏 DDA、不接运行时 LLM。后续工作以用户最后明确指令为准；如果继续 F12，优先实现兴趣点奖励语义、小巢核目标实体、撤离 / 结算和 Gear Mod / 材料掉落频率。",
+  "current_status": "用户已决定默认标准模式不做 25 分钟长局，先改为暗黑式 8-12 分钟短刷图循环：进图、找兴趣点、打小巢核 / 精英 / 宝箱、拿 Gear Mod / 材料 / 词条价值、结算后快速再开。ADR #120 与 docs/AI协作/工作包/F12-ShortLootRuns.md 已建立；GDD、AI 导航、数据手册、测试策略和 gameplay_runtime 模块文档已同步。F12 数据首片已落地：map_standard_nest 玩家出生点改为偏外侧格心；WarzoneDirector 阶段改为 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟，9+ 是软加压而非硬性时间限制；spawn_waves 改为 0:00 chaser、1:00 swarm、4:00 stalker、7:00 bulwark 持续窗口；director interest_points 已声明 poi_elite_nest、poi_mod_cache、poi_resource_cache、poi_minor_nest_core 四个首片点位并由 MapManager 生成 source=director 初始机关。F12 奖励首片已落地：warzone_directors 兴趣点可声明 claim_radius、claim_start_time、resource_rewards、gear_mod_rewards 和 completes_run；GameplayRunLoop 保存 / 恢复 interest_points claimed 状态，资源缓存给 dust，Mod 缓存给测试 Gear Mod，小巢核给 dust + Mod 并进入完成面板，重复领取会拒绝。兴趣点仍复用初始机关占位，真实宝箱交互、核心实体、撤离和完整战利品清单尚未接线。ADR #121 已把 AI 上下文预算补充为 S / M / L / XL 复杂度分级：先判流程深度，再按任务类型读取文件，避免小任务过载和大任务欠规划。默认 mode_standard_survival 不再声明 resource_pools.growth_pools，因此 GameplayRunLoop 在默认模式不会生成 XP pickup、不会进入 LEVEL_UP、不会弹 LevelUpPanel，debug_summary 暴露 level_up_growth_enabled=false；GrowthSystem / growth.csv / growth_pools.json / LevelUpPanel 作为未来非默认模式能力保留，只要某个模式显式声明 growth_pools 就可复用升级 3 选 1。F11 Gear Mod 仍是跨局成长主路线，旧 MetaProgressionSystem 已退役。F10/F12 WarzoneDirector 仍只用固定阶段、巢变异、遭遇和兴趣点，不读取玩家状态、不做隐藏 DDA、不接运行时 LLM。后续工作以用户最后明确指令为准；如果继续 F12，优先实现真实宝箱 / 核心实体、撤离或正式 Result UI、完整战利品清单、精英巢点奖励语义和 Gear Mod / 材料掉落频率。",
   "latest_adr": 121,
   "open_decisions": [
     "C",
@@ -10,6 +10,7 @@
     "E"
   ],
   "last_completed": [
+    "F12 兴趣点奖励首片：warzone_directors 兴趣点新增领取半径、解锁时间、resource_rewards、gear_mod_rewards 和 completes_run；GameplayRunLoop 可一次性领取资源缓存 / Mod 缓存 / 小巢核奖励，保存 / 续局恢复 claimed 状态，小巢核完成后删除 run save 并显示完成面板；runtime-smoke 覆盖 dust、Gear Mod、重复领取、续局恢复和小巢核完成。",
     "F12 短刷图数据首片：map_standard_nest 改为偏外侧投放；warzone_directors 标准局阶段改为 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟，9+ 软加压不硬切；spawn_waves 改为 0:00 chaser、1:00 swarm、4:00 stalker、7:00 bulwark；新增精英巢点、Mod 缓存、资源缓存和小巢核四个 director 兴趣点占位，runtime-smoke / f9-demo-smoke 覆盖四点位与 7 分钟小巢核压力。",
     "ADR #121：AI 上下文预算新增 S / M / L / XL 任务复杂度分级；AI 接任务后先判流程深度，再按任务类型读取文件，避免小任务过载和大任务欠规划。",
     "ADR #120：默认标准模式改为暗黑式 8-12 分钟短刷图循环，局内经验升级 3 选 1 暂不在默认模式启用；F4 GrowthSystem、growth.csv、growth_pools.json 和 LevelUpPanel 保留为未来非默认模式能力。",
@@ -70,7 +71,7 @@
     "ADR #88：项目 IP 方向为 Nestbreakers / 破巢者，详细世界观、命名和宣发包装权威为 docs/IP设定.md。"
   ],
   "next_actions": [
-    "如果继续 F12 短刷图默认循环，先读 docs/AI协作/工作包/F12-ShortLootRuns.md、docs/代码/gameplay_runtime.md、docs/代码/warzone_director.md、docs/代码/map_manager.md、docs/代码/gear_mod_system.md、client/data/README.md 和 docs/测试策略.md；默认 mode_standard_survival 当前不声明 growth_pools，运行时不掉 XP、不弹 LevelUpPanel、不进入 LEVEL_UP；8-12 分钟数据节奏和四个 director 兴趣点占位已落地，且 9+ 是软加压不是硬倒计时；下一步优先做兴趣点奖励语义、小巢核目标实体、击破后撤离 / 结算、Gear Mod / 材料掉落频率和对应 smoke / 回放护栏。",
+    "如果继续 F12 短刷图默认循环，先读 docs/AI协作/工作包/F12-ShortLootRuns.md、docs/代码/gameplay_runtime.md、docs/代码/warzone_director.md、docs/代码/map_manager.md、docs/代码/gear_mod_system.md、client/data/README.md 和 docs/测试策略.md；默认 mode_standard_survival 当前不声明 growth_pools，运行时不掉 XP、不弹 LevelUpPanel、不进入 LEVEL_UP；8-12 分钟数据节奏、四个 director 兴趣点、资源 / Mod 奖励领取、小巢核完成面板和 interest_points run snapshot 已落地，且 9+ 是软加压不是硬倒计时；下一步优先做真实宝箱 / 核心实体、撤离或正式 Result UI、完整战利品清单、精英巢点奖励语义、Gear Mod / 材料掉落频率和对应 smoke / 回放护栏。",
     "如果继续 F11 装备 Mod / 局外装配，先读 docs/AI协作/工作包/F11-GearModLoadout.md、docs/代码/gear_mod_system.md、GDD §7.2 / §9.16、client/data/README.md 和 docs/测试策略.md；数据 / 契约首片、GearModSystem 运行时首片、标题 Gear Mod 最小 UI、掉落 HUD 获得提示、旧局外成长运行时删除和旧测试档迁移 / 补偿路径删除已完成，下一步优先扩展更多 Gear Mod 内容；运行时或 UI 变更必跑 gear-mod-smoke，改击杀归因或开局应用追加 runtime-smoke。",
     "旧 MetaProgressionSystem 运行时 / UI / smoke 已删除；ADR #118 后旧 meta_progression.json、旧 meta 契约和旧测试档迁移 / 补偿路径也已删除，不要继续把旧永久升级轨道作为未来下一局属性来源。",
     "如果继续 F10 战区导演，当前入口是 docs/AI协作/工作包/F10-WarzoneDirector.md、docs/代码/warzone_director.md、docs/代码/map_manager.md 和 client/data/warzone_directors.json；只能用固定阶段、mode / mutation、encounter、interest point、map / hazard / enemy tag 组合来导演战区，interest_points 已能通过 MapManager 生成 source=director 初始机关；不读取玩家血量、DPS、位置、失误、输入等玩家状态，不做隐藏 DDA，不在运行时接 LLM；改动后至少跑 validate_data、test_data_loader_schema、runtime-smoke 和 f9-demo-smoke，影响地图 placement 时追加 save-smoke、perf-probe 与 golden replay runner 评估。",
@@ -88,6 +89,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-06-27",
+      "command": "sync_contracts --check, validate_data, test_data_loader_schema, lint_gdscript_rules, lint_project_rules, test_project_rules_lint, lint_semantic_rules, test_semantic_rules_lint, json current_state, docs_health_check, diff --check excluding draft, headless-boot, runtime-smoke, gear-mod-smoke, save-smoke, f9-demo-smoke, perf-probe, four checked-in golden replay captures and serial reruns",
+      "result": "passed for F12 interest point reward first slice; runtime-smoke verifies resource cache dust, Mod cache Gear Mod, duplicate claim rejection, claimed interest point save/continue restore and minor nest core completion panel/run save deletion; Gear Mod/save/F9/perf checks pass, perf-probe reports 13 active hazards under budget, four checked-in golden replays were intentionally recaptured after data_fingerprint changed and serial reruns pass; save/runtime smoke include expected broken-save diagnostics while passing, semantic lint exits 0 with 23 existing autoload-bypass-pool-ui advisories"
+    },
     {
       "date": "2026-06-27",
       "command": "json warzone_directors/map_layouts/current_state/_kb_index, sync_contracts --check, validate_data, test_data_loader_schema, lint_gdscript_rules, lint_project_rules, lint_semantic_rules, docs_health_check, diff --check excluding draft, headless-boot, runtime-smoke, f9-demo-smoke, gear-mod-smoke, perf-probe, save-smoke, four checked-in golden replay reruns",

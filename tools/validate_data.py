@@ -102,7 +102,7 @@ def main() -> int:
     game_mode_ids = _collect_game_mode_ids(ctx)
     _validate_map_layouts(ctx, hazard_ids, game_mode_ids)
     _validate_spawn_waves_csv(ctx, enemy_ids, hazard_ids, game_mode_ids)
-    _validate_warzone_directors(ctx, game_mode_ids, _collect_spawn_wave_ids_by_mode(ctx), hazard_ids, _collect_map_layout_ids(ctx))
+    _validate_warzone_directors(ctx, game_mode_ids, _collect_spawn_wave_ids_by_mode(ctx), hazard_ids, _collect_map_layout_ids(ctx), gear_mod_ids)
 
     if ctx.errors:
         for error in ctx.errors:
@@ -1232,6 +1232,7 @@ def _validate_warzone_directors(
     wave_ids_by_mode: dict[str, set[str]],
     hazard_ids: dict[str, int],
     map_layout_ids: set[str],
+    gear_mod_ids: set[str],
 ) -> None:
     path = WARZONE_DIRECTORS_JSON
     data = _load_json(path, ctx)
@@ -1265,7 +1266,7 @@ def _validate_warzone_directors(
             _require_non_empty_string(ctx, path, f"{director_field}.description", director.get("description"))
 
         encounter_ids = _validate_warzone_encounters(ctx, path, f"{director_field}.encounters", director.get("encounters"))
-        _validate_warzone_interest_points(ctx, path, f"{director_field}.interest_points", director.get("interest_points"), hazard_ids, map_layout_ids)
+        _validate_warzone_interest_points(ctx, path, f"{director_field}.interest_points", director.get("interest_points"), hazard_ids, map_layout_ids, gear_mod_ids)
         mode_wave_ids = wave_ids_by_mode.get(mode_id or "", set())
         referenced_waves = _validate_warzone_phases(ctx, path, director_field, director.get("phases"), mode_id or "", mode_wave_ids, encounter_ids)
         for wave_id in mode_wave_ids:
@@ -1370,6 +1371,7 @@ def _validate_warzone_interest_points(
     data: Any,
     hazard_ids: dict[str, int],
     map_layout_ids: set[str],
+    gear_mod_ids: set[str],
 ) -> None:
     points = _require_list(ctx, path, field, data)
     if not points:
@@ -1398,8 +1400,51 @@ def _validate_warzone_interest_points(
             map_layout_id = _require_non_empty_string(ctx, path, f"{item_field}.map_layout_id", point.get("map_layout_id"))
             if map_layout_id and map_layout_id not in map_layout_ids:
                 ctx.error(path, f"{item_field}.map_layout_id", f"map layout is not defined in map_layouts.json: {map_layout_id}")
+        if "min_distance_from_player" in point:
+            _require_number(ctx, path, f"{item_field}.min_distance_from_player", point.get("min_distance_from_player"), minimum=0)
+        if "min_spacing" in point:
+            _require_number(ctx, path, f"{item_field}.min_spacing", point.get("min_spacing"), minimum=0)
+        has_reward_payload = "resource_rewards" in point or "gear_mod_rewards" in point or bool(point.get("completes_run", False))
+        if "claim_radius" in point or has_reward_payload:
+            _require_number(ctx, path, f"{item_field}.claim_radius", point.get("claim_radius"), minimum=0, exclusive_minimum=True)
+        if "claim_start_time" in point:
+            _require_number(ctx, path, f"{item_field}.claim_start_time", point.get("claim_start_time"), minimum=0)
+        if "completes_run" in point:
+            _require_bool(ctx, path, f"{item_field}.completes_run", point.get("completes_run"))
+        if "resource_rewards" in point:
+            _validate_warzone_resource_rewards(ctx, path, f"{item_field}.resource_rewards", point.get("resource_rewards"))
+        if "gear_mod_rewards" in point:
+            _validate_warzone_gear_mod_rewards(ctx, path, f"{item_field}.gear_mod_rewards", point.get("gear_mod_rewards"), gear_mod_ids)
         if "notes" in point:
             _require_non_empty_string(ctx, path, f"{item_field}.notes", point.get("notes"))
+
+
+def _validate_warzone_resource_rewards(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    rewards = _require_list(ctx, path, field, data)
+    if not rewards:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, reward in enumerate(rewards):
+        reward_field = f"{field}[{index}]"
+        if not isinstance(reward, dict):
+            ctx.error(path, reward_field, "must be an object")
+            continue
+        _require_registered(ctx, path, f"{reward_field}.resource_id", reward.get("resource_id"), "gear_mod_resources")
+        _require_int(ctx, path, f"{reward_field}.amount", reward.get("amount"), minimum=1)
+
+
+def _validate_warzone_gear_mod_rewards(ctx: ValidationContext, path: Path, field: str, data: Any, gear_mod_ids: set[str]) -> None:
+    rewards = _require_list(ctx, path, field, data)
+    if not rewards:
+        ctx.error(path, field, "must be a non-empty array")
+    for index, reward in enumerate(rewards):
+        reward_field = f"{field}[{index}]"
+        if not isinstance(reward, dict):
+            ctx.error(path, reward_field, "must be an object")
+            continue
+        mod_id = _require_registered(ctx, path, f"{reward_field}.mod_id", reward.get("mod_id"), "gear_mod_ids")
+        if mod_id and mod_id not in gear_mod_ids:
+            ctx.error(path, f"{reward_field}.mod_id", f"mod is not defined in gear_mods.json: {mod_id}")
+        _require_int(ctx, path, f"{reward_field}.count", reward.get("count"), minimum=1)
 
 
 def _validate_map_bounds(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:

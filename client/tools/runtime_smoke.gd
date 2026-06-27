@@ -6,6 +6,7 @@ const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
 const ENEMY_SCENE := preload("res://scenes/gameplay/enemy.tscn")
+const GEAR_MOD_RESOURCES := preload("res://scripts/contracts/gear_mod_resources.gd")
 const PLAYER_SCENE := preload("res://scenes/gameplay/player.tscn")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
@@ -164,6 +165,7 @@ func _run() -> void:
 	await _expect_pickup_orb_draw_order(run_loop, player)
 	await _expect_pickup_orb_feedback(run_loop, player)
 	await _expect_default_growth_disabled(run_loop, player)
+	await _expect_interest_point_rewards(run_loop)
 
 	var restored_run: Dictionary = await _expect_pause_save_resume(run_loop, player)
 	var restored_run_loop_value: Node = restored_run.get("run_loop", run_loop) as Node
@@ -1041,6 +1043,47 @@ func _expect_default_growth_disabled(run_loop: Node, player: Node2D) -> void:
 	)
 
 
+func _expect_interest_point_rewards(run_loop: Node) -> void:
+	_expect(run_loop.has_method("debug_claim_interest_point"), "runtime should expose a smoke hook for interest point claims")
+	if not run_loop.has_method("debug_claim_interest_point"):
+		return
+
+	var dust_before: int = _gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST)
+	var resource_claim: Dictionary = run_loop.call("debug_claim_interest_point", "poi_resource_cache") as Dictionary
+	_expect(bool(resource_claim.get("ok", false)), "resource cache claim should grant its reward")
+	_expect(
+		_gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST) >= dust_before + 20,
+		"resource cache should add gear mod dust"
+	)
+	var hud: Node = _find_node_by_name(run_loop, "GameplayHud")
+	_expect(
+		hud != null
+		and hud.has_method("is_gear_mod_resource_feedback_visible")
+		and bool(hud.call("is_gear_mod_resource_feedback_visible")),
+		"resource cache claim should show resource HUD feedback"
+	)
+
+	var inventory_before: int = _gear_mod_inventory_count()
+	var mod_claim: Dictionary = run_loop.call("debug_claim_interest_point", "poi_mod_cache") as Dictionary
+	_expect(bool(mod_claim.get("ok", false)), "mod cache claim should grant its reward")
+	_expect(_gear_mod_inventory_count() >= inventory_before + 1, "mod cache should add a Gear Mod instance")
+	_expect(
+		hud != null
+		and hud.has_method("is_gear_mod_drop_feedback_visible")
+		and bool(hud.call("is_gear_mod_drop_feedback_visible")),
+		"mod cache claim should show Gear Mod HUD feedback"
+	)
+
+	var duplicate_claim: Dictionary = run_loop.call("debug_claim_interest_point", "poi_resource_cache") as Dictionary
+	_expect(not bool(duplicate_claim.get("ok", true)), "claimed interest points should not pay rewards twice")
+	_expect(String(duplicate_claim.get("reason", "")) == "already_claimed", "duplicate interest point claim should report already_claimed")
+
+	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
+	var points: Dictionary = snapshot.get("interest_points", {}) as Dictionary
+	var resource_state: Dictionary = points.get("poi_resource_cache", {}) as Dictionary
+	_expect(bool(resource_state.get("claimed", false)), "run snapshot should persist claimed interest point state")
+
+
 func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 	var weapon_system: Node = _find_node_by_name(player, "WeaponSystem")
 	_expect(weapon_system != null, "WeaponSystem should be available before level up")
@@ -1247,7 +1290,11 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	_expect(absf(GameClock.now() - saved_time) < 0.2, "continue should restore GameClock time")
 	var restored_pause_menu: Node = _find_node_by_name(get_tree().root, "PauseMenu")
 	_expect(restored_pause_menu != null, "continue should restore the pause menu when the run was saved while paused")
-	_expect(_snapshot_has_hazards(restored_run_loop.call("create_run_snapshot")), "continue should restore finite map hazards")
+	var restored_snapshot: Dictionary = restored_run_loop.call("create_run_snapshot")
+	_expect(_snapshot_has_hazards(restored_snapshot), "continue should restore finite map hazards")
+	var restored_points: Dictionary = restored_snapshot.get("interest_points", {}) as Dictionary
+	var restored_resource_state: Dictionary = restored_points.get("poi_resource_cache", {}) as Dictionary
+	_expect(bool(restored_resource_state.get("claimed", false)), "continue should restore claimed interest point state")
 	var resume_button: Button = _find_node_by_name(restored_pause_menu, "ResumeButton") as Button
 	_expect(resume_button != null, "restored pause menu should expose resume")
 	await _push_action_once(ACTIONS.UI_BACK)
@@ -1401,6 +1448,20 @@ func _run_save_path() -> String:
 	return SaveManager.save_root().path_join(SaveManager.DEFAULT_SLOT).path_join("%s.save" % SAVE_KINDS.RUN)
 
 
+func _gear_mod_resource_balance(resource_id: String) -> int:
+	var profile: Dictionary = GearModSystem.load_or_create_profile(SaveManager.DEFAULT_SLOT)
+	var gear_state: Dictionary = profile.get("gear_mods", {}) as Dictionary
+	var resources: Dictionary = gear_state.get("resources", {}) as Dictionary
+	return int(resources.get(resource_id, 0))
+
+
+func _gear_mod_inventory_count() -> int:
+	var profile: Dictionary = GearModSystem.load_or_create_profile(SaveManager.DEFAULT_SLOT)
+	var gear_state: Dictionary = profile.get("gear_mods", {}) as Dictionary
+	var inventory: Array = gear_state.get("inventory", []) as Array
+	return inventory.size()
+
+
 func _expect_game_over_buttons(game_over_panel: Node) -> void:
 	_expect(
 		_find_node_by_name(game_over_panel, "PurchaseUpgradeButton") == null,
@@ -1434,6 +1495,28 @@ func _expect_game_over_buttons(game_over_panel: Node) -> void:
 	if restarted_player == null:
 		return
 
+	await _expect_minor_nest_core_completion(restarted_run_loop)
+	var completion_panel: Node = _find_node_by_name(get_tree().root, "GameOverPanel")
+	_expect(completion_panel != null, "minor nest core completion should show the result panel")
+	if completion_panel == null:
+		return
+	var completion_title: Label = _find_node_by_name(completion_panel, "TitleLabel") as Label
+	_expect(completion_title != null and String(completion_title.text) == tr("ui_run_complete"), "completion result panel should use the localized completion title")
+	var completion_restart_button: Button = _find_node_by_name(completion_panel, "RestartButton") as Button
+	_expect(completion_restart_button != null, "completion panel should expose restart")
+	if completion_restart_button == null:
+		return
+	await _click_button(completion_restart_button)
+
+	restarted_run_loop = await _wait_for_playing_run_loop()
+	_expect(restarted_run_loop != null, "restart from completion panel should mount GameplayRunLoop")
+	if restarted_run_loop == null:
+		return
+	restarted_player = _find_node_by_name(restarted_run_loop, "Player") as Node2D
+	_expect(restarted_player != null, "second restarted run should create a player")
+	if restarted_player == null:
+		return
+
 	await _defeat_player_for_game_over(restarted_run_loop, restarted_player)
 	var second_game_over_panel: Node = _find_node_by_name(get_tree().root, "GameOverPanel")
 	_expect(second_game_over_panel != null, "second player death should show game-over panel")
@@ -1451,6 +1534,24 @@ func _expect_game_over_buttons(game_over_panel: Node) -> void:
 	await _wait_for_title_menu()
 	_expect(GameState.is_state(GameState.MAIN_MENU), "clicking quit-to-title should return to MAIN_MENU")
 	_expect(_find_node_by_name(get_tree().root, "TitleMenu") != null, "clicking quit-to-title should show the title menu")
+
+
+func _expect_minor_nest_core_completion(run_loop: Node) -> void:
+	_expect(run_loop.has_method("debug_claim_interest_point"), "runtime should expose minor nest core claim hook")
+	if not run_loop.has_method("debug_claim_interest_point"):
+		return
+	var inventory_before: int = _gear_mod_inventory_count()
+	var dust_before: int = _gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST)
+	var core_claim: Dictionary = run_loop.call("debug_claim_interest_point", "poi_minor_nest_core") as Dictionary
+	_expect(bool(core_claim.get("ok", false)), "minor nest core claim should succeed")
+	_expect(bool(core_claim.get("completed_run", false)), "minor nest core claim should complete the run")
+	_expect(GameState.is_state(GameState.GAME_OVER), "minor nest core completion should freeze gameplay in GAME_OVER state")
+	_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "minor nest core completion should consume the active run save")
+	_expect(_gear_mod_inventory_count() >= inventory_before + 1, "minor nest core should grant a Gear Mod")
+	_expect(
+		_gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST) >= dust_before + 60,
+		"minor nest core should grant gear mod dust"
+	)
 
 
 func _expect_bad_run_notice() -> void:

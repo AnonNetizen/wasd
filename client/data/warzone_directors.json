@@ -92,6 +92,14 @@
           "map_layout_id": "map_standard_nest",
           "min_distance_from_player": 720.0,
           "min_spacing": 360.0,
+          "claim_radius": 190.0,
+          "claim_start_time": 60.0,
+          "resource_rewards": [
+            {
+              "resource_id": "gear_mod_dust",
+              "amount": 25
+            }
+          ],
           "notes": "First reward node: an elite nest guard point that should pay medium Gear Mod or dust value in later reward wiring."
         },
         {
@@ -101,6 +109,14 @@
           "map_layout_id": "map_standard_nest",
           "min_distance_from_player": 560.0,
           "min_spacing": 360.0,
+          "claim_radius": 180.0,
+          "claim_start_time": 240.0,
+          "gear_mod_rewards": [
+            {
+              "mod_id": "gear_mod_weapon_damage_test",
+              "count": 1
+            }
+          ],
           "notes": "Second reward node: guarded Mod cache placeholder, represented by a director-sourced FEA-12 pulse in the first slice."
         },
         {
@@ -110,6 +126,14 @@
           "map_layout_id": "map_standard_nest",
           "min_distance_from_player": 480.0,
           "min_spacing": 320.0,
+          "claim_radius": 170.0,
+          "claim_start_time": 0.0,
+          "resource_rewards": [
+            {
+              "resource_id": "gear_mod_dust",
+              "amount": 20
+            }
+          ],
           "notes": "Lower-risk dust and sustain cache placeholder for the short loot-run route."
         },
         {
@@ -119,6 +143,21 @@
           "map_layout_id": "map_standard_nest",
           "min_distance_from_player": 880.0,
           "min_spacing": 420.0,
+          "claim_radius": 220.0,
+          "claim_start_time": 420.0,
+          "resource_rewards": [
+            {
+              "resource_id": "gear_mod_dust",
+              "amount": 60
+            }
+          ],
+          "gear_mod_rewards": [
+            {
+              "mod_id": "gear_mod_weapon_damage_test",
+              "count": 1
+            }
+          ],
+          "completes_run": true,
           "notes": "Run endpoint placeholder: a compact minor nest core guarded by hazards and the 7-9 minute bulwark wave."
         }
       ]

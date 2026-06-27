@@ -20,6 +20,7 @@ var _summary_label: Label = null
 var _title_label: Label = null
 var _kills: int = 0
 var _run_time: float = 0.0
+var _completed: bool = false
 
 
 func _input(event: InputEvent) -> void:
@@ -75,22 +76,24 @@ func _exit_tree() -> void:
 		Localization.locale_changed.disconnect(_on_locale_changed)
 
 
-func configure(kills: int, run_time: float) -> void:
+func configure(kills: int, run_time: float, completed: bool = false) -> void:
 	_kills = kills
 	_run_time = run_time
+	_completed = completed
 	refresh_texts()
 
 
 func refresh_texts() -> void:
 	if _title_label != null:
-		_title_label.text = tr("ui_game_over")
+		_title_label.text = tr("ui_run_complete") if _completed else tr("ui_game_over")
 	if _restart_button != null:
 		_restart_button.text = tr("ui_restart")
 	if _quit_button != null:
 		_quit_button.text = tr("ui_quit_to_title")
 	if _summary_label == null:
 		return
-	_summary_label.text = tr("ui_run_summary").format({
+	var summary_key: String = "ui_run_complete_summary" if _completed else "ui_run_summary"
+	_summary_label.text = tr(summary_key).format({
 		"kills": _kills,
 		"time": int(_run_time),
 	})
