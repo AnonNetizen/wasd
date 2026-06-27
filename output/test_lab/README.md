@@ -19,6 +19,10 @@
 3. 在 `scenes/test_lab_index.tscn` 里加入口按钮。
 4. 在 `scripts/test_lab_index.gd` 里登记按钮路径和场景路径。
 
+## 当前实验
+
+- `orthographic_3d_test.tscn`：3D 地面 / 正交摄像机测试。摄像机使用 45 度 yaw 与 30 度仰角，让 XZ 平面的等距方格在屏幕上接近 2:1 菱形；场景包含可移动玩家胶囊、低矮缓存箱、墙体和柱子，用于观察真 3D 深度遮挡与当前 2D 菱形地图方案的差异。
+
 ## 位图 UI 素材注意事项
 
 - `.tscn` 文件要保持轻量，不要保存生成 PNG、`ImageTexture` 或大段 `PackedByteArray`。

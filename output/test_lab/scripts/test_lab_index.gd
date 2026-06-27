@@ -1,6 +1,7 @@
 extends Control
 
 const TEST_SCENES := {
+	"Panel/Margin/Rows/Orthographic3DButton": "res://scenes/orthographic_3d_test.tscn",
 	"Panel/Margin/Rows/AiBitmapButton": "res://scenes/ai_bitmap_button_test.tscn",
 	"Panel/Margin/Rows/NativeButton": "res://scenes/native_button_scene.tscn",
 	"Panel/Margin/Rows/CompareButton": "res://scenes/ip_button_compare.tscn",
