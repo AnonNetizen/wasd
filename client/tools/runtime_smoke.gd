@@ -93,6 +93,8 @@ func _run() -> void:
 	_expect(_map_has_director_interest_point_hazard(run_loop), "WarzoneDirector interest points should add director-sourced map hazards")
 	_expect(_interest_point_targets_are_on_grid(run_loop), "interest point targets should align to diamond grid anchors")
 	_expect(_interest_point_targets_avoid_hazards(run_loop), "interest point targets should not overlap active hazards")
+	_expect(_interest_point_caches_are_on_grid(run_loop), "interest point caches should align to diamond grid anchors")
+	_expect(_interest_point_caches_avoid_hazards(run_loop), "interest point caches should not overlap active hazards")
 	await _expect_bullet_hits_interest_point_target(run_loop, player)
 	_expect(_map_restore_snaps_legacy_hazards(run_loop), "restored legacy hazard placements should snap to radius-aware diamond grid anchors")
 	_expect(_map_normalizes_edge_hazards_to_grid(run_loop), "edge hazard normalization should keep positions on diamond grid centers")
@@ -503,6 +505,42 @@ func _interest_point_targets_avoid_hazards(run_loop: Node) -> bool:
 			if target_2d.global_position.distance_to(hazard_2d.global_position) < target_radius + hazard_radius:
 				return false
 	return saw_target
+
+
+func _interest_point_caches_are_on_grid(run_loop: Node) -> bool:
+	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
+	if grid_cell_size.x <= 0.0 or grid_cell_size.y <= 0.0:
+		return false
+	var saw_cache: bool = false
+	for cache: Node in get_tree().get_nodes_in_group("active_interest_point_caches"):
+		if not cache is Node2D or not _is_descendant_of(cache, run_loop):
+			continue
+		saw_cache = true
+		var cache_2d: Node2D = cache as Node2D
+		var snapped_position: Vector2 = _snap_to_diamond_grid(cache_2d.global_position, grid_cell_size)
+		if cache_2d.global_position.distance_to(snapped_position) > 0.01:
+			return false
+	return saw_cache
+
+
+func _interest_point_caches_avoid_hazards(run_loop: Node) -> bool:
+	var grid_cell_size: Vector2 = _map_grid_cell_size(run_loop)
+	var fallback_radius: float = maxf(grid_cell_size.x * 0.5, 1.0)
+	var saw_cache: bool = false
+	for cache: Node in get_tree().get_nodes_in_group("active_interest_point_caches"):
+		if not cache is Node2D or not _is_descendant_of(cache, run_loop):
+			continue
+		saw_cache = true
+		var cache_2d: Node2D = cache as Node2D
+		var cache_radius: float = float(cache.call("spacing_radius")) if cache.has_method("spacing_radius") else fallback_radius
+		for hazard: Node in get_tree().get_nodes_in_group("active_hazards"):
+			if not hazard is Node2D or not _is_descendant_of(hazard, run_loop):
+				continue
+			var hazard_2d: Node2D = hazard as Node2D
+			var hazard_radius: float = _hazard_spacing_radius(hazard, grid_cell_size)
+			if cache_2d.global_position.distance_to(hazard_2d.global_position) < cache_radius + hazard_radius:
+				return false
+	return saw_cache
 
 
 func _hazard_spacing_radius(hazard: Node, grid_cell_size: Vector2) -> float:

@@ -25,7 +25,7 @@ var _enemy_spawn_margin: float = 128.0
 var _hazard_rows: Dictionary = {}
 var _hazard_placements: Array[Dictionary] = []
 var _grid_cell_size: Vector2 = DEFAULT_GRID_CELL_SIZE
-var _interest_point_target_blockers: Array[Dictionary] = []
+var _interest_point_anchor_blockers: Array[Dictionary] = []
 var _layout_id: String = ""
 var _player_start: Vector2 = Vector2.ZERO
 var _safe_radius: float = 0.0
@@ -40,13 +40,13 @@ func configure(layout_data: Dictionary, hazard_rows: Dictionary) -> void:
 	_bounds = _parse_bounds(layout_data.get("bounds", {}))
 	_player_start = clamp_position(snap_to_grid(_dict_to_vector(layout_data.get("player_start", {}), Vector2.ZERO)))
 	_hazard_placements.clear()
-	_interest_point_target_blockers.clear()
+	_interest_point_anchor_blockers.clear()
 	queue_redraw()
 
 
 func generate_hazard_placements(layout_data: Dictionary, director_interest_points: Array[Dictionary] = []) -> Array[Dictionary]:
 	_hazard_placements.clear()
-	_interest_point_target_blockers.clear()
+	_interest_point_anchor_blockers.clear()
 	_add_manual_hazards(layout_data.get("manual_hazards", []))
 	var pcg: Dictionary = _dictionary_or_empty(layout_data.get("pcg", {}))
 	_add_pcg_hazards(pcg.get("hazards", []))
@@ -63,7 +63,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_safe_radius = maxf(float(snapshot_data.get("safe_radius", _safe_radius)), 0.0)
 	_enemy_spawn_margin = maxf(float(snapshot_data.get("enemy_spawn_margin", _enemy_spawn_margin)), 0.0)
 	_hazard_placements = _typed_placements(snapshot_data.get("hazard_placements", []))
-	_interest_point_target_blockers.clear()
+	_interest_point_anchor_blockers.clear()
 	queue_redraw()
 
 
@@ -337,28 +337,33 @@ func _add_director_interest_points(raw_value: Variant, layout_id: String) -> voi
 		var point_id: String = String(point.get("id", ""))
 		var min_distance: float = maxf(float(point.get("min_distance_from_player", _safe_radius)), 0.0)
 		var min_spacing: float = maxf(float(point.get("min_spacing", 0.0)), 0.0)
-		var target_position: Vector2 = INVALID_POSITION
-		var target_blockers: Array[Dictionary] = []
-		var target_blocker_registered: bool = false
-		if _interest_point_has_target(point):
-			target_position = _roll_interest_point_target_position(point, min_distance, min_spacing)
-			if target_position == INVALID_POSITION:
+		var anchor_position: Vector2 = INVALID_POSITION
+		var anchor_blockers: Array[Dictionary] = []
+		var anchor_blocker_registered: bool = false
+		var has_target_anchor: bool = _interest_point_has_target(point)
+		var has_cache_anchor: bool = _interest_point_has_cache(point) and not has_target_anchor
+		if has_target_anchor or has_cache_anchor:
+			anchor_position = _roll_interest_point_anchor_position(point, min_distance, min_spacing)
+			if anchor_position == INVALID_POSITION:
 				continue
-			var target_radius: float = _interest_point_target_spacing_radius(point)
-			var target_blocker: Dictionary = _placement_blocker(target_position, target_radius)
-			target_blockers.append(target_blocker)
-			var target_marker: Dictionary = _placement("", target_position, DIRECTOR_SOURCE)
-			target_marker["interest_point_id"] = point_id
-			target_marker["interest_point_target_position"] = _vector_to_dict(target_position)
-			_copy_interest_point_metadata(point, target_marker)
-			_hazard_placements.append(target_marker)
+			var anchor_radius: float = _interest_point_anchor_spacing_radius(point)
+			var anchor_blocker: Dictionary = _placement_blocker(anchor_position, anchor_radius)
+			anchor_blockers.append(anchor_blocker)
+			var anchor_marker: Dictionary = _placement("", anchor_position, DIRECTOR_SOURCE)
+			anchor_marker["interest_point_id"] = point_id
+			if has_target_anchor:
+				anchor_marker["interest_point_target_position"] = _vector_to_dict(anchor_position)
+			elif has_cache_anchor:
+				anchor_marker["interest_point_cache_position"] = _vector_to_dict(anchor_position)
+			_copy_interest_point_metadata(point, anchor_marker)
+			_hazard_placements.append(anchor_marker)
 		for raw_hazard_id: Variant in _array_or_empty(point.get("hazard_ids", [])):
 			var hazard_id: String = String(raw_hazard_id)
 			if not _hazard_rows.has(hazard_id):
 				continue
 			var position: Vector2 = INVALID_POSITION
-			if target_position != INVALID_POSITION:
-				position = _roll_hazard_position_near_anchor(hazard_id, target_position, min_distance, min_spacing, target_blockers)
+			if anchor_position != INVALID_POSITION:
+				position = _roll_hazard_position_near_anchor(hazard_id, anchor_position, min_distance, min_spacing, anchor_blockers)
 			else:
 				position = _roll_hazard_position(hazard_id, min_distance, min_spacing)
 			if position == INVALID_POSITION:
@@ -366,13 +371,17 @@ func _add_director_interest_points(raw_value: Variant, layout_id: String) -> voi
 			var placement: Dictionary = _placement(hazard_id, position, DIRECTOR_SOURCE)
 			if not point_id.is_empty():
 				placement["interest_point_id"] = point_id
-			if target_position != INVALID_POSITION:
-				placement["interest_point_target_position"] = _vector_to_dict(target_position)
+			if has_target_anchor:
+				placement["interest_point_target_position"] = _vector_to_dict(anchor_position)
+			elif has_cache_anchor:
+				placement["interest_point_cache_position"] = _vector_to_dict(anchor_position)
 			_copy_interest_point_metadata(point, placement)
 			_hazard_placements.append(placement)
-			if not target_blocker_registered and not target_blockers.is_empty():
-				_interest_point_target_blockers.append(target_blockers[0])
-				target_blocker_registered = true
+			if not anchor_blocker_registered and not anchor_blockers.is_empty():
+				_interest_point_anchor_blockers.append(anchor_blockers[0])
+				anchor_blocker_registered = true
+		if not anchor_blocker_registered and not anchor_blockers.is_empty():
+			_interest_point_anchor_blockers.append(anchor_blockers[0])
 
 
 func _roll_hazard_position(
@@ -420,8 +429,8 @@ func _roll_hazard_position_near_anchor(
 	return _roll_hazard_position(hazard_id, min_distance, min_spacing, extra_blockers)
 
 
-func _roll_interest_point_target_position(point: Dictionary, min_distance: float, min_spacing: float) -> Vector2:
-	var half_extents: Vector2 = _interest_point_target_half_extents(point)
+func _roll_interest_point_anchor_position(point: Dictionary, min_distance: float, min_spacing: float) -> Vector2:
+	var half_extents: Vector2 = _interest_point_anchor_half_extents(point)
 	var placement_padding: Vector2 = Vector2(
 		maxf(half_extents.x, SPAWN_EDGE_PADDING),
 		maxf(half_extents.y, SPAWN_EDGE_PADDING * _diamond_slope_ratio())
@@ -430,12 +439,12 @@ func _roll_interest_point_target_position(point: Dictionary, min_distance: float
 		return INVALID_POSITION
 	var attempts: int = maxi(PLACEMENT_ATTEMPTS_PER_HAZARD, 1)
 	for _attempt: int in range(attempts):
-		var candidate: Vector2 = _normalize_interest_point_target_position(_random_diamond_position(placement_padding), point)
-		if _is_valid_interest_point_target_position(candidate, point, min_distance, min_spacing):
+		var candidate: Vector2 = _normalize_interest_point_anchor_position(_random_diamond_position(placement_padding), point)
+		if _is_valid_interest_point_anchor_position(candidate, point, min_distance, min_spacing):
 			return candidate
 	for _attempt: int in range(attempts):
-		var fallback_candidate: Vector2 = _normalize_interest_point_target_position(_random_diamond_position(placement_padding), point)
-		if _is_valid_interest_point_target_position(fallback_candidate, point, min_distance, 0.0):
+		var fallback_candidate: Vector2 = _normalize_interest_point_anchor_position(_random_diamond_position(placement_padding), point)
+		if _is_valid_interest_point_anchor_position(fallback_candidate, point, min_distance, 0.0):
 			return fallback_candidate
 	return INVALID_POSITION
 
@@ -462,26 +471,26 @@ func _is_valid_hazard_position(
 	for blocker: Dictionary in extra_blockers:
 		if _position_hits_blocker(candidate, candidate_radius, blocker, min_spacing):
 			return false
-	for blocker: Dictionary in _interest_point_target_blockers:
+	for blocker: Dictionary in _interest_point_anchor_blockers:
 		if _position_hits_blocker(candidate, candidate_radius, blocker, min_spacing):
 			return false
 	return true
 
 
-func _is_valid_interest_point_target_position(candidate: Vector2, point: Dictionary, min_distance: float, min_spacing: float) -> bool:
-	if not _is_position_inside_diamond(candidate, _interest_point_target_half_extents(point)):
+func _is_valid_interest_point_anchor_position(candidate: Vector2, point: Dictionary, min_distance: float, min_spacing: float) -> bool:
+	if not _is_position_inside_diamond(candidate, _interest_point_anchor_half_extents(point)):
 		return false
 	var minimum_player_distance: float = maxf(min_distance, _safe_radius)
 	if candidate.distance_to(_player_start) < minimum_player_distance:
 		return false
-	var candidate_radius: float = _interest_point_target_spacing_radius(point)
+	var candidate_radius: float = _interest_point_anchor_spacing_radius(point)
 	for placement: Dictionary in _hazard_placements:
 		var other_position: Vector2 = _dict_to_vector(placement.get("position", {}), Vector2.ZERO)
 		var other_radius: float = _hazard_spacing_radius(String(placement.get("hazard_id", "")))
 		var required_spacing: float = maxf(min_spacing, candidate_radius + other_radius)
 		if candidate.distance_to(other_position) < required_spacing:
 			return false
-	for blocker: Dictionary in _interest_point_target_blockers:
+	for blocker: Dictionary in _interest_point_anchor_blockers:
 		if _position_hits_blocker(candidate, candidate_radius, blocker, min_spacing):
 			return false
 	return true
@@ -545,8 +554,8 @@ func _normalize_hazard_position(world_position: Vector2, hazard_id: String) -> V
 	return _nearest_hazard_anchor_position(clamped_target, hazard_id)
 
 
-func _normalize_interest_point_target_position(world_position: Vector2, point: Dictionary) -> Vector2:
-	var half_extents: Vector2 = _interest_point_target_half_extents(point)
+func _normalize_interest_point_anchor_position(world_position: Vector2, point: Dictionary) -> Vector2:
+	var half_extents: Vector2 = _interest_point_anchor_half_extents(point)
 	if not _has_diamond_room(half_extents):
 		return snap_to_grid(clamp_position(world_position))
 	var clamped_target: Vector2 = _clamp_to_diamond(world_position, half_extents)
@@ -638,13 +647,23 @@ func _interest_point_has_target(point: Dictionary) -> bool:
 	return float(point.get("target_hp", 0.0)) > 0.0
 
 
+func _interest_point_has_cache(point: Dictionary) -> bool:
+	return bool(point.get("requires_interaction", false))
+
+
+func _interest_point_anchor_half_extents(point: Dictionary) -> Vector2:
+	if _interest_point_has_target(point):
+		return _interest_point_target_half_extents(point)
+	return _grid_cell_size * 0.5
+
+
+func _interest_point_anchor_spacing_radius(point: Dictionary) -> float:
+	var half_extents: Vector2 = _interest_point_anchor_half_extents(point)
+	return maxf(half_extents.x, half_extents.y)
+
+
 func _interest_point_target_half_extents(point: Dictionary) -> Vector2:
 	return _grid_cell_size * 0.5 * float(_interest_point_target_radius_tiles(point))
-
-
-func _interest_point_target_spacing_radius(point: Dictionary) -> float:
-	var half_extents: Vector2 = _interest_point_target_half_extents(point)
-	return maxf(half_extents.x, half_extents.y)
 
 
 func _interest_point_target_radius_tiles(point: Dictionary) -> int:
@@ -660,6 +679,10 @@ func _typed_placements(raw_value: Variant) -> Array[Dictionary]:
 			var item: Dictionary = (raw_item as Dictionary).duplicate(true)
 			var hazard_id: String = String(item.get("hazard_id", ""))
 			item["position"] = _vector_to_dict(_normalize_hazard_position(_dict_to_vector(item.get("position", {}), Vector2.ZERO), hazard_id))
+			if item.has("interest_point_target_position"):
+				item["interest_point_target_position"] = _vector_to_dict(snap_to_grid(_dict_to_vector(item.get("interest_point_target_position", {}), Vector2.ZERO)))
+			if item.has("interest_point_cache_position"):
+				item["interest_point_cache_position"] = _vector_to_dict(snap_to_grid(_dict_to_vector(item.get("interest_point_cache_position", {}), Vector2.ZERO)))
 			result.append(item)
 	return result
 

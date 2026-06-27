@@ -635,6 +635,9 @@ func _configure_interest_points(placements: Array[Dictionary]) -> void:
 		if placement.has("interest_point_target_position"):
 			state["position"] = _dictionary_or_empty(placement.get("interest_point_target_position", {}))
 			state["_placement_count"] = 1
+		elif placement.has("interest_point_cache_position"):
+			state["position"] = _dictionary_or_empty(placement.get("interest_point_cache_position", {}))
+			state["_placement_count"] = 1
 		else:
 			var position: Vector2 = _dict_to_vector(placement.get("position", {}), Vector2.ZERO)
 			var placement_count: int = int(state.get("_placement_count", 0))
