@@ -121,7 +121,7 @@ func _run() -> void:
 	_expect(mouse_aim.x > 0.75 and mouse_aim.y < -0.25, "mouse aim should support diagonal mouse direction")
 	_expect(absf(mouse_aim.x) < 0.98 and absf(mouse_aim.y) > 0.1, "mouse aim should not snap back to four directions")
 	_expect(_player_3d_visual_tracks_aim_direction(player, mouse_aim), "Player3DVisual should rotate toward full aim direction")
-	_expect(_interest_point_caches_render_below_player(run_loop, player), "interest point caches should render below the player model")
+	_expect(_interest_point_caches_use_ground_layer(run_loop, player), "interest point caches should render on the ground layer below actors")
 
 	var isolated_player: Node2D = PLAYER_SCENE.instantiate() as Node2D
 	isolated_player.name = "SmokeIsolatedPlayer"
@@ -553,7 +553,8 @@ func _player_3d_visual_tracks_aim_direction(player: Node2D, expected_direction: 
 	return actual_direction.distance_to(expected_direction.normalized()) <= 0.01
 
 
-func _interest_point_caches_render_below_player(run_loop: Node, player: Node2D) -> bool:
+func _interest_point_caches_use_ground_layer(run_loop: Node, player: Node2D) -> bool:
+	var map_manager: CanvasItem = _find_node_by_name(run_loop, "MapManager") as CanvasItem
 	var visual_sprite: CanvasItem = _find_node_by_name(player, "VisualSprite") as CanvasItem
 	if visual_sprite == null:
 		return false
@@ -563,6 +564,10 @@ func _interest_point_caches_render_below_player(run_loop: Node, player: Node2D) 
 			continue
 		saw_cache = true
 		var cache_item: CanvasItem = cache as CanvasItem
+		if map_manager != null and cache_item.z_index <= map_manager.z_index:
+			return false
+		if cache_item.z_index >= 0:
+			return false
 		if cache_item.z_index >= visual_sprite.z_index:
 			return false
 	return saw_cache
