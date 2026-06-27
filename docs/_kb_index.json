@@ -1107,7 +1107,7 @@
       "related_docs": ["docs/AI协作/工作包/F11-GearModLoadout.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/save_manager.md", "docs/AI导航.md", "client/data/README.md"],
       "related_code": ["client/scripts/autoload/gear_mod_system.gd", "client/tools/gear_mod_smoke.gd", "client/scripts/ui/", "client/data/gear_mods.json", "client/data/gear_mod_drop_tables.csv", "client/data/gear_mod_fusion_costs.csv", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/scripts/gameplay/gameplay_run_loop.gd", "tools/godot_bridge.py"],
       "update_triggers": ["GearModSystem API changes", "gear mod profile schema changes", "mod loadout UI changes", "mod drop behavior changes", "mod upgrade or dismantle behavior changes", "old meta retirement boundary changes"],
-      "keywords": ["GearModSystem", "Gear Mod", "装备 Mod", "Warframe mod", "mod inventory", "mod rank", "mod fusion", "mod dismantle", "hero loadout", "weapon loadout", "Gear Mod drop feedback", "HUD 获得提示", "ui_gear_mod_drop_obtained", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "enemy_chaser", "MetaProgression legacy", "SaveManager meta", "no old save migration", "ADR #118"]
+      "keywords": ["GearModSystem", "Gear Mod", "装备 Mod", "Warframe mod", "mod inventory", "mod rank", "mod fusion", "mod dismantle", "hero loadout", "weapon loadout", "Gear Mod drop feedback", "HUD 暂存提示", "pending_loot", "ui_gear_mod_drop_obtained", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "enemy_chaser", "MetaProgression legacy", "SaveManager meta", "no old save migration", "ADR #118", "ADR #122"]
     },
     {
       "path": "docs/代码/audio_manager.md",

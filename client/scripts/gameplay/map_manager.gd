@@ -347,6 +347,11 @@ func _add_director_interest_points(raw_value: Variant, layout_id: String) -> voi
 			var target_radius: float = _interest_point_target_spacing_radius(point)
 			var target_blocker: Dictionary = _placement_blocker(target_position, target_radius)
 			target_blockers.append(target_blocker)
+			var target_marker: Dictionary = _placement("", target_position, DIRECTOR_SOURCE)
+			target_marker["interest_point_id"] = point_id
+			target_marker["interest_point_target_position"] = _vector_to_dict(target_position)
+			_copy_interest_point_metadata(point, target_marker)
+			_hazard_placements.append(target_marker)
 		for raw_hazard_id: Variant in _array_or_empty(point.get("hazard_ids", [])):
 			var hazard_id: String = String(raw_hazard_id)
 			if not _hazard_rows.has(hazard_id):

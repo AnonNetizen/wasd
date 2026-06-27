@@ -56,6 +56,11 @@ ui_quit_to_title,返回标题,Back to Title
 ui_confirm,确认,Confirm
 ui_cancel,取消,Cancel
 ui_run_summary,击杀 {kills} · 时间 {time}s,Kills {kills} · Time {time}s
+ui_result_gear_mod_count,Mod x{count},Mods x{count}
+ui_result_loot_lost,战利品丢失：{loot},Loot lost: {loot}
+ui_result_loot_secured,带回战利品：{loot},Loot secured: {loot}
+ui_result_no_loot,没有带回战利品,No loot secured
+ui_result_no_lost_loot,没有丢失战利品,No loot lost
 ui_hud_life,生命,Life
 ui_hud_kills,击杀,Kills
 ui_hud_time,时间,Time
@@ -109,7 +114,7 @@ ui_gear_mod_action_dismantle,分解,Dismantled
 ui_gear_mod_feedback_success,{action} {name},{action} {name}
 ui_gear_mod_feedback_upgrade_success,{name} 升至 {rank} 级,{name} upgraded to Rank {rank}
 ui_gear_mod_feedback_failed,操作失败：{reason},Action failed: {reason}
-ui_gear_mod_drop_obtained,获得 Mod：{name},Mod acquired: {name}
+ui_gear_mod_drop_obtained,暂存 Mod：{name},Mod stashed: {name}
 ui_gear_mod_reason_unknown,未知原因,Unknown reason
 ui_gear_mod_reason_unknown_instance,未找到该 Mod,Mod not found
 ui_gear_mod_reason_unknown_mod,未知 Mod,Unknown mod
@@ -123,7 +128,7 @@ ui_gear_mod_reason_max_rank,已满级,Max rank reached
 ui_gear_mod_reason_missing_cost,缺少升级消耗配置,Upgrade cost missing
 ui_gear_mod_reason_insufficient_resource,资源不足,Not enough resources
 ui_gear_mod_reason_save_failed,保存失败,Save failed
-ui_gear_mod_resource_obtained,获得资源：{resource} +{amount},Resource gained: {resource} +{amount}
+ui_gear_mod_resource_obtained,暂存资源：{resource} +{amount},Resource stashed: {resource} +{amount}
 ui_stats_skill_cooldown,技能冷却,Skill Cooldown
 ui_game_over,本局结束,Run Over
 ui_run_complete,巢核击破,Nest Core Broken

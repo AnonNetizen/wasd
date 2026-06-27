@@ -19,6 +19,7 @@ var _selection_locked: bool = false
 var _summary_label: Label = null
 var _title_label: Label = null
 var _kills: int = 0
+var _loot_summary: Dictionary = {}
 var _run_time: float = 0.0
 var _completed: bool = false
 
@@ -76,10 +77,11 @@ func _exit_tree() -> void:
 		Localization.locale_changed.disconnect(_on_locale_changed)
 
 
-func configure(kills: int, run_time: float, completed: bool = false) -> void:
+func configure(kills: int, run_time: float, completed: bool = false, loot_summary: Dictionary = {}) -> void:
 	_kills = kills
 	_run_time = run_time
 	_completed = completed
+	_loot_summary = loot_summary.duplicate(true)
 	refresh_texts()
 
 
@@ -93,10 +95,44 @@ func refresh_texts() -> void:
 	if _summary_label == null:
 		return
 	var summary_key: String = "ui_run_complete_summary" if _completed else "ui_run_summary"
-	_summary_label.text = tr(summary_key).format({
+	var summary_text: String = tr(summary_key).format({
 		"kills": _kills,
 		"time": int(_run_time),
 	})
+	var loot_text: String = _loot_summary_text()
+	if not loot_text.is_empty():
+		summary_text = "%s\n%s" % [summary_text, loot_text]
+	_summary_label.text = summary_text
+
+
+func _loot_summary_text() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	var resources: Dictionary = _loot_summary.get("resources", {}) if _loot_summary.get("resources", {}) is Dictionary else {}
+	for resource_key: Variant in resources.keys():
+		var amount: int = int(resources.get(resource_key, 0))
+		if amount <= 0:
+			continue
+		parts.append("%s x%d" % [tr("%s_name" % String(resource_key)), amount])
+	var gear_mods: Array = _loot_summary.get("gear_mods", []) if _loot_summary.get("gear_mods", []) is Array else []
+	if not gear_mods.is_empty():
+		parts.append(tr("ui_result_gear_mod_count").format({
+			"count": gear_mods.size(),
+		}))
+	if parts.is_empty():
+		return tr("ui_result_no_loot") if _completed else tr("ui_result_no_lost_loot")
+	var loot_key: String = "ui_result_loot_secured" if _completed else "ui_result_loot_lost"
+	return tr(loot_key).format({
+		"loot": _join_text(parts, " · "),
+	})
+
+
+func _join_text(parts: PackedStringArray, separator: String) -> String:
+	var result: String = ""
+	for index: int in range(parts.size()):
+		if index > 0:
+			result += separator
+		result += parts[index]
+	return result
 
 
 func grab_default_focus() -> void:

@@ -29,7 +29,7 @@ F11 将现有 F6 局外永久升级轨道替换为参考《星际战甲》的装
 - 已完成数据 / 契约首片：`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、测试武器伤害 Mod、`gear_mod_dust`、DataLoader / validate_data / schema regression。
 - 已完成运行时首片：`GearModSystem` autoload 保存 `meta.gear_mods`，支持 profile roundtrip、授予、英雄 / 武器 loadout、capacity / drain、唯一装备、升级、分解、`enemy_chaser` 玩家归因击杀掉落和开局 hero / weapon modifier snapshot。
 - 已完成最小 UI：标题菜单进入 `GearModPanel`，可切换英雄 / 武器 loadout，查看资源、容量、rank、drain 和效果，并执行装备、卸下、升级和分解。
-- 已完成专用验证：`python tools/godot_bridge.py --project client gear-mod-smoke` 覆盖授予、槽位拒绝、装备、重复拒绝、分解返还、容量阻止升级、资源升级、modifier 数值变化、强制掉落、获得提示和 Gear Mod 面板按钮流；`runtime-smoke` 覆盖玩家归因击杀后的强制掉落 HUD 提示路径。
+- 已完成专用验证：`python tools/godot_bridge.py --project client gear-mod-smoke` 覆盖授予、槽位拒绝、装备、重复拒绝、分解返还、容量阻止升级、资源升级、modifier 数值变化、强制掉落、暂存提示和 Gear Mod 面板按钮流；`runtime-smoke` 覆盖玩家归因击杀后的强制掉落 HUD 提示路径。
 - 已完成旧迁移路径清理：旧 `meta_progression.json`、旧 meta 契约常量和旧 `purchased_upgrades` 补偿逻辑已删除。
 - 待做：更多 Mod 内容。
 
@@ -138,7 +138,7 @@ common,5,gear_mod_dust,130
 
 所有玩家可见文本走 `client/locale/strings.csv`，英文 `en` 文案长度作为布局验收基准。
 
-玩家归因击杀触发 Mod 掉落时，`GameplayRunLoop` 会把掉落结果交给 `GameplayHud.show_gear_mod_drop_feedback()`，用 `ui_gear_mod_drop_obtained` 显示短暂获得提示；该提示与升级获得提示共用 HUD 样式，但使用独立文案 key。
+玩家归因击杀触发 Mod 掉落时，`GameplayRunLoop` 会把掉落结果交给 `GameplayHud.show_gear_mod_drop_feedback()`，用 `ui_gear_mod_drop_obtained` 显示短暂暂存提示；该提示与升级获得提示共用 HUD 样式，但使用独立文案 key。ADR #122 后默认标准局的掉落先进入 `run.pending_loot`，完成或撤离成功后才写入 `meta.gear_mods`。
 
 ## 6. 数值首片
 

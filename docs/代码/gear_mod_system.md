@@ -30,9 +30,9 @@
 | `client/data/gear_mod_drop_tables.csv` | Mod 掉落来源与概率 |
 | `client/data/gear_mod_fusion_costs.csv` | Mod 升级成本 |
 | `client/scripts/ui/gear_mod_panel.gd` / `.tscn` | 标题菜单下的最小装备 Mod UI：切换英雄 / 武器 loadout、查看资源 / 容量 / Mod 效果，并执行装备、卸下、升级和分解 |
-| `client/scripts/gameplay/gameplay_run_loop.gd` | 新局开始时读取 hero / weapon loadout 快照并分别应用到 Player / WeaponSystem；玩家归因击杀时请求 Gear Mod 掉落并转发 HUD 获得提示；F12 兴趣点领取时调用 `grant_resource()` / `grant_mod()` 发放 dust / Mod |
+| `client/scripts/gameplay/gameplay_run_loop.gd` | 新局开始时读取 hero / weapon loadout 快照并分别应用到 Player / WeaponSystem；玩家归因击杀时请求 Gear Mod 掉落并转发 HUD 暂存提示；F12 兴趣点奖励先进入 `run.pending_loot`，完成小巢核或未来撤离成功时再调用 `grant_resource()` / `grant_mod()` 结算 dust / Mod |
 | `client/scripts/gameplay/enemy.gd` / `GameplayRunLoop` 击杀归因路径 | 玩家击杀普通小怪时触发 `RNG.drop` 掉落判定 |
-| `client/tools/gear_mod_smoke.gd` | F11 headless smoke，覆盖 profile、授予、装备、容量、升级、分解、掉落、HUD 获得提示和 Gear Mod 面板按钮流 |
+| `client/tools/gear_mod_smoke.gd` | F11 headless smoke，覆盖 profile、授予、装备、容量、升级、分解、掉落、HUD 暂存提示和 Gear Mod 面板按钮流 |
 | `tools/godot_bridge.py` | `gear-mod-smoke` 命令入口 |
 
 ## 4. 数据契约草案
@@ -75,14 +75,16 @@
 
 1. 玩家归因击杀敌人后，系统查 `gear_mod_drop_tables.csv`。
 2. 所有随机走 `RNG.drop`。
-3. 命中后写入 meta inventory，并把 `name_key` 放进掉落结果；`GameplayRunLoop` 转发给 `GameplayHud.show_gear_mod_drop_feedback()`，显示本地化获得提示。
-4. 怪物互杀、机关击杀或非玩家归因击杀不掉落装备 Mod。
+3. 默认 API 调用命中后可立即写入 meta inventory；F12 标准局由 `GameplayRunLoop` 传入 `commit_immediately=false`，只返回掉落 `mod_id` / `name_key` 并放入 `run.pending_loot`。
+4. `GameplayRunLoop` 转发给 `GameplayHud.show_gear_mod_drop_feedback()`，显示本地化暂存提示。
+5. 怪物互杀、机关击杀或非玩家归因击杀不掉落装备 Mod。
 
 ### 兴趣点奖励
 
 1. F12 `warzone_directors.json.interest_points[]` 可声明 `resource_rewards[]` 与 `gear_mod_rewards[]`。
-2. `GameplayRunLoop` 领取兴趣点时调用 `GearModSystem.grant_resource()` 或 `grant_mod()`，写入同一份 `meta.gear_mods` profile。
-3. 资源奖励显示 `ui_gear_mod_resource_obtained` HUD 反馈；Mod 奖励复用掉落获得反馈。
+2. `GameplayRunLoop` 领取兴趣点时只把奖励写入 `run.pending_loot`，不立即写入 `meta.gear_mods` profile。
+3. 击破小巢核或未来撤离成功时，`GameplayRunLoop` 统一调用 `GearModSystem.grant_resource()` / `grant_mod()` 结算暂存战利品；死亡、重开、回标题或主动放弃会丢失未结算战利品。
+4. 资源奖励显示 `ui_gear_mod_resource_obtained` HUD 暂存反馈；Mod 奖励复用掉落暂存反馈。
 
 ### 升级与分解
 
@@ -103,7 +105,7 @@
 | `unequip_mod(loadout_slot, instance_id, slot := "slot_0")` | `Dictionary` | 卸下 Mod |
 | `upgrade_mod(instance_id, slot := "slot_0")` | `Dictionary` | 消耗 `gear_mod_fusion_costs.csv` 声明资源升级；已装备且升级后超容量时拒绝 |
 | `dismantle_mod(instance_id, slot := "slot_0")` | `Dictionary` | 分解未装备 Mod 并返还资源；已装备 Mod 拒绝 |
-| `roll_drop_for_enemy(enemy_id, enemy_level := 1, slot := "slot_0", forced_roll := -1.0)` | `Dictionary` | 解释掉落表并用 `RNG.drop` 判定；`forced_roll` 仅供 smoke / 调试稳定覆盖 |
+| `roll_drop_for_enemy(enemy_id, enemy_level := 1, slot := "slot_0", forced_roll := -1.0, commit_immediately := true)` | `Dictionary` | 解释掉落表并用 `RNG.drop` 判定；默认立即授予以兼容调试 / 面板 smoke，F12 标准局传 `false` 只返回掉落信息并交给 `run.pending_loot`；`forced_roll` 仅供 smoke / 调试稳定覆盖 |
 | `current_modifiers(loadout_slot, slot := "slot_0")` | `Array[Dictionary]` | 输出 hero 或 weapon modifiers |
 | `current_all_modifiers(slot := "slot_0")` | `Dictionary` | 同时输出两套 loadout modifier |
 | `debug_grant_resource(resource_id, amount, slot := "slot_0")` / `debug_set_loadout_capacity(loadout_slot, capacity, slot := "slot_0")` | `Dictionary` | 仅供 smoke / dev_tools 调试，仍走 `SaveManager` |
@@ -134,8 +136,8 @@
 
 - 数据校验：Mod id、slot、rarity、rank、drain、modifier stat、掉落表 source、成本表 rank。
 - profile roundtrip：新档默认字段、保存 / 读取一致。
-- 掉落：`gear-mod-smoke` 用 `forced_roll=0.0` 稳定覆盖 `enemy_chaser` 掉落；真实运行时玩家归因击杀走 `RNG.drop` 和 1% 数据概率。
-- 兴趣点奖励：`runtime-smoke` 覆盖 resource cache / Mod cache / minor nest core 通过 `GameplayRunLoop` 调用 `grant_resource()` / `grant_mod()`，并验证 HUD 反馈与完成面板。
+- 掉落：`gear-mod-smoke` 用 `forced_roll=0.0` 稳定覆盖 `enemy_chaser` 掉落；真实运行时玩家归因击杀走 `RNG.drop` 和 1% 数据概率，并先进入 `run.pending_loot`。
+- 兴趣点奖励：`runtime-smoke` 覆盖 resource cache / Mod cache / minor nest core 通过 `GameplayRunLoop` 写入 `run.pending_loot`，并验证 HUD 反馈、死亡不结算、续局恢复与完成面板结算。
 - 装备：容量不足、槽位不匹配、同 id 重复装备被拒绝。
 - 升级：资源扣除、rank 增长、drain / 效果变化，已装备超容量拒绝。
 - 分解：已装备拒绝，未装备返还资源。

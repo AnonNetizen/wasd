@@ -60,6 +60,7 @@ var _interest_points: Dictionary = {}
 var _interest_point_targets: Dictionary = {}
 var _kills: int = 0
 var _level_panel: CanvasLayer = null
+var _pending_loot: Dictionary = {}
 var _pending_level_up_choices: Array[Dictionary] = []
 var _pending_restore_snapshot: Dictionary = {}
 var _pause_menu: CanvasLayer = null
@@ -143,6 +144,7 @@ func create_run_snapshot() -> Dictionary:
 		"rng": RNG.snapshot(),
 		"map": _map_manager.call("snapshot") if _map_manager != null and _map_manager.has_method("snapshot") else {},
 		"interest_points": _interest_points_snapshot(),
+		"pending_loot": _pending_loot.duplicate(true),
 		"spawn_states": _spawn_states.duplicate(true),
 		"player": _player.call("snapshot") if _player != null and _player.has_method("snapshot") else {},
 		"weapon": _weapon_system.call("snapshot") if _weapon_system != null and _weapon_system.has_method("snapshot") else {},
@@ -210,6 +212,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_current_level = 1
 	_current_xp = 0
 	_kills = 0
+	_pending_loot = _empty_pending_loot()
 	_run_completed = false
 
 	_player = _active_world.get_node_or_null("Player") as CharacterBody2D
@@ -336,6 +339,7 @@ func debug_summary() -> Dictionary:
 		"active_enemies": _active_enemy_count(),
 		"active_hazards": PoolManager.active_count(POOL_IDS.HAZARD_SPIKE),
 		"interest_points": _interest_point_debug_summary(),
+		"pending_loot": _pending_loot.duplicate(true),
 		"map": _map_manager.call("debug_summary") if _map_manager != null and _map_manager.has_method("debug_summary") else {},
 		"skills": _skill_system.call("debug_summary") if _skill_system != null and _skill_system.has_method("debug_summary") else {},
 		"warzone_director": _warzone_director.debug_summary(GameClock.now()) if _warzone_director != null else {},
@@ -626,15 +630,13 @@ func _grant_interest_point_rewards(state: Dictionary) -> Dictionary:
 		var amount: int = maxi(int(reward.get("amount", 0)), 0)
 		if resource_id.is_empty() or amount <= 0:
 			continue
-		var grant: Dictionary = GearModSystem.grant_resource(resource_id, amount, SaveManager.DEFAULT_SLOT)
-		if bool(grant.get("ok", false)):
-			granted_resources.append({
-				"resource_id": resource_id,
-				"amount": amount,
-				"balance": int(grant.get("balance", 0)),
-			})
-			if _hud != null and _hud.has_method("show_gear_mod_resource_feedback"):
-				_hud.call("show_gear_mod_resource_feedback", "%s_name" % resource_id, amount)
+		_add_pending_resource(resource_id, amount)
+		granted_resources.append({
+			"resource_id": resource_id,
+			"amount": amount,
+		})
+		if _hud != null and _hud.has_method("show_gear_mod_resource_feedback"):
+			_hud.call("show_gear_mod_resource_feedback", "%s_name" % resource_id, amount)
 
 	var granted_mods: Array[Dictionary] = []
 	for reward: Dictionary in _typed_dictionary_array(state.get("gear_mod_rewards", [])):
@@ -642,13 +644,12 @@ func _grant_interest_point_rewards(state: Dictionary) -> Dictionary:
 		var count: int = maxi(int(reward.get("count", 1)), 1)
 		if mod_id.is_empty():
 			continue
-		var grant: Dictionary = GearModSystem.grant_mod(mod_id, count, SaveManager.DEFAULT_SLOT)
-		if bool(grant.get("ok", false)):
-			var name_key: String = String(grant.get("name_key", ""))
+		for _index: int in range(count):
+			var name_key: String = _gear_mod_name_key(mod_id)
+			_add_pending_mod(mod_id, name_key)
 			granted_mods.append({
 				"mod_id": mod_id,
 				"name_key": name_key,
-				"instance_ids": grant.get("instance_ids", []),
 			})
 			if not name_key.is_empty() and _hud != null and _hud.has_method("show_gear_mod_drop_feedback"):
 				_hud.call("show_gear_mod_drop_feedback", name_key)
@@ -922,29 +923,32 @@ func _on_player_died() -> void:
 		"kills": _kills,
 		"run_time": GameClock.now(),
 		"completed": false,
+		"lost_loot": _pending_loot.duplicate(true),
 	})
-	_show_game_over_panel(false)
+	_show_game_over_panel(false, _lost_loot_summary())
 
 
 func _complete_run(point_id: String) -> void:
 	if _run_completed:
 		return
 	_run_completed = true
+	var settlement: Dictionary = _commit_pending_loot()
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	GameState.change_state(GameState.GAME_OVER, {
 		"kills": _kills,
 		"run_time": GameClock.now(),
 		"completed": true,
 		"interest_point_id": point_id,
+		"settlement": settlement.duplicate(true),
 	})
-	_show_game_over_panel(true)
+	_show_game_over_panel(true, settlement)
 
 
-func _show_game_over_panel(completed: bool = false) -> void:
+func _show_game_over_panel(completed: bool = false, loot_summary: Dictionary = {}) -> void:
 	_game_over_panel = UIManager.push(GAME_OVER_PANEL_SCENE, {"source": "game_over"}) as CanvasLayer
 	if _game_over_panel == null:
 		return
-	_game_over_panel.call("configure", _kills, GameClock.now(), completed)
+	_game_over_panel.call("configure", _kills, GameClock.now(), completed, loot_summary)
 	_game_over_panel.connect("restart_requested", Callable(self, "_on_game_over_restart_requested"), CONNECT_ONE_SHOT)
 	_game_over_panel.connect("quit_to_title_requested", Callable(self, "_on_game_over_quit_to_title_requested"), CONNECT_ONE_SHOT)
 
@@ -969,12 +973,15 @@ func _roll_gear_mod_drop(enemy: Node) -> void:
 		return
 	var forced_roll: float = _debug_next_gear_mod_drop_forced_roll
 	_debug_next_gear_mod_drop_forced_roll = -1.0
-	var drop_result: Dictionary = GearModSystem.roll_drop_for_enemy(enemy_id, 1, SaveManager.DEFAULT_SLOT, forced_roll)
+	var drop_result: Dictionary = GearModSystem.roll_drop_for_enemy(enemy_id, 1, SaveManager.DEFAULT_SLOT, forced_roll, false)
 	for raw_drop: Variant in drop_result.get("drops", []):
 		if not raw_drop is Dictionary:
 			continue
 		var drop: Dictionary = raw_drop as Dictionary
+		var mod_id: String = String(drop.get("mod_id", ""))
 		var name_key: String = String(drop.get("name_key", ""))
+		if not mod_id.is_empty():
+			_add_pending_mod(mod_id, name_key)
 		if name_key.is_empty():
 			continue
 		if _hud != null and _hud.has_method("show_gear_mod_drop_feedback"):
@@ -1164,6 +1171,7 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> void:
 	if _map_manager != null and _map_manager.has_method("hazard_placements"):
 		_configure_interest_points(_typed_dictionary_array(_map_manager.call("hazard_placements")))
 	_restore_interest_points(snapshot_data.get("interest_points", {}))
+	_restore_pending_loot(snapshot_data.get("pending_loot", {}))
 	_spawn_interest_point_targets()
 	_restore_enemy_snapshots(_array_or_empty(snapshot_data.get("enemies", [])))
 	_restore_bullet_snapshots(_array_or_empty(snapshot_data.get("bullets", [])))
@@ -1196,6 +1204,92 @@ func _restore_interest_points(raw_value: Variant) -> void:
 		if saved_state.has("target"):
 			state["target_snapshot"] = _dictionary_or_empty(saved_state.get("target", {}))
 		_interest_points[point_id] = state
+
+
+func _restore_pending_loot(raw_value: Variant) -> void:
+	var saved_loot: Dictionary = _dictionary_or_empty(raw_value)
+	_pending_loot = _empty_pending_loot()
+	var resources: Dictionary = _dictionary_or_empty(saved_loot.get("resources", {}))
+	for resource_key: Variant in resources.keys():
+		var resource_id: String = String(resource_key)
+		var amount: int = maxi(int(resources.get(resource_key, 0)), 0)
+		if resource_id.is_empty() or amount <= 0:
+			continue
+		_add_pending_resource(resource_id, amount)
+	for entry: Dictionary in _typed_dictionary_array(saved_loot.get("gear_mods", [])):
+		var mod_id: String = String(entry.get("mod_id", ""))
+		if mod_id.is_empty():
+			continue
+		_add_pending_mod(mod_id, String(entry.get("name_key", _gear_mod_name_key(mod_id))))
+
+
+func _empty_pending_loot() -> Dictionary:
+	return {
+		"resources": {},
+		"gear_mods": [],
+	}
+
+
+func _add_pending_resource(resource_id: String, amount: int) -> void:
+	if resource_id.is_empty() or amount <= 0:
+		return
+	var resources: Dictionary = _dictionary_or_empty(_pending_loot.get("resources", {}))
+	resources[resource_id] = int(resources.get(resource_id, 0)) + amount
+	_pending_loot["resources"] = resources
+
+
+func _add_pending_mod(mod_id: String, name_key: String) -> void:
+	if mod_id.is_empty():
+		return
+	var mods: Array = _array_or_empty(_pending_loot.get("gear_mods", []))
+	mods.append({
+		"mod_id": mod_id,
+		"name_key": name_key if not name_key.is_empty() else _gear_mod_name_key(mod_id),
+	})
+	_pending_loot["gear_mods"] = mods
+
+
+func _gear_mod_name_key(mod_id: String) -> String:
+	for mod: Dictionary in _typed_dictionary_array(_load_array(DataLoader.GEAR_MODS_PATH, "mods")):
+		if String(mod.get("id", "")) == mod_id:
+			return String(mod.get("name_key", ""))
+	return ""
+
+
+func _commit_pending_loot() -> Dictionary:
+	var settlement: Dictionary = _empty_pending_loot()
+	var resources: Dictionary = _dictionary_or_empty(_pending_loot.get("resources", {}))
+	for resource_key: Variant in resources.keys():
+		var resource_id: String = String(resource_key)
+		var amount: int = maxi(int(resources.get(resource_key, 0)), 0)
+		if resource_id.is_empty() or amount <= 0:
+			continue
+		var grant: Dictionary = GearModSystem.grant_resource(resource_id, amount, SaveManager.DEFAULT_SLOT)
+		if bool(grant.get("ok", false)):
+			var settled_resources: Dictionary = _dictionary_or_empty(settlement.get("resources", {}))
+			settled_resources[resource_id] = int(settled_resources.get(resource_id, 0)) + amount
+			settlement["resources"] = settled_resources
+
+	for entry: Dictionary in _typed_dictionary_array(_pending_loot.get("gear_mods", [])):
+		var mod_id: String = String(entry.get("mod_id", ""))
+		if mod_id.is_empty():
+			continue
+		var grant: Dictionary = GearModSystem.grant_mod(mod_id, 1, SaveManager.DEFAULT_SLOT)
+		if bool(grant.get("ok", false)):
+			var settled_mods: Array = _array_or_empty(settlement.get("gear_mods", []))
+			settled_mods.append({
+				"mod_id": mod_id,
+				"name_key": String(grant.get("name_key", entry.get("name_key", ""))),
+				"instance_ids": grant.get("instance_ids", []),
+			})
+			settlement["gear_mods"] = settled_mods
+
+	_pending_loot = _empty_pending_loot()
+	return settlement
+
+
+func _lost_loot_summary() -> Dictionary:
+	return _pending_loot.duplicate(true)
 
 
 func _restore_ui_state(raw_ui_restore: Variant) -> void:

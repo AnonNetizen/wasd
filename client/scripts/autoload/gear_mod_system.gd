@@ -239,7 +239,13 @@ func dismantle_mod(instance_id: String, slot: String = SaveManager.DEFAULT_SLOT)
 	})
 
 
-func roll_drop_for_enemy(enemy_id: String, enemy_level: int = 1, slot: String = SaveManager.DEFAULT_SLOT, forced_roll: float = -1.0) -> Dictionary:
+func roll_drop_for_enemy(
+	enemy_id: String,
+	enemy_level: int = 1,
+	slot: String = SaveManager.DEFAULT_SLOT,
+	forced_roll: float = -1.0,
+	commit_immediately: bool = true
+) -> Dictionary:
 	var drops: Array[Dictionary] = []
 	var attempts: int = 0
 	for row: Dictionary in _drop_rows_for_enemy(enemy_id, enemy_level):
@@ -250,12 +256,17 @@ func roll_drop_for_enemy(enemy_id: String, enemy_level: int = 1, slot: String = 
 			continue
 		var mod_id: String = String(row.get("mod_id", ""))
 		var definition: Dictionary = _mod_definition(mod_id)
-		var grant: Dictionary = grant_mod(mod_id, 1, slot)
-		if bool(grant.get("ok", false)):
+		var instance_ids: Array = []
+		var should_append: bool = true
+		if commit_immediately:
+			var grant: Dictionary = grant_mod(mod_id, 1, slot)
+			should_append = bool(grant.get("ok", false))
+			instance_ids = _array_or_empty(grant.get("instance_ids", []))
+		if should_append:
 			drops.append({
 				"mod_id": mod_id,
 				"name_key": String(definition.get("name_key", "")),
-				"instance_ids": grant.get("instance_ids", []),
+				"instance_ids": instance_ids,
 				"chance": chance,
 				"roll": roll,
 			})

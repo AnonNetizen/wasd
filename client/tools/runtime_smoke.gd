@@ -191,6 +191,7 @@ func _run() -> void:
 
 	var enemy: Node = _first_enemy_with_name_prefix(POOL_IDS.ENEMY_CHASER)
 	_expect(enemy != null, "at least one chaser enemy should be in active_enemies")
+	var inventory_before_forced_drop: int = _gear_mod_inventory_count()
 	if enemy != null:
 		if run_loop.has_method("debug_force_next_gear_mod_drop_roll"):
 			run_loop.call("debug_force_next_gear_mod_drop_roll", 0.0)
@@ -216,6 +217,10 @@ func _run() -> void:
 			and bool(gear_mod_hud.call("is_gear_mod_drop_feedback_visible")),
 			"forced player-attributed enemy defeat should show Gear Mod drop HUD feedback"
 		)
+		_expect(
+			_gear_mod_inventory_count() == inventory_before_forced_drop,
+			"enemy Gear Mod drops should stay in pending loot before extraction"
+		)
 
 	await _wait_player_vulnerability(player)
 	var smoke_player_damage_source: Node = Node.new()
@@ -236,6 +241,7 @@ func _run() -> void:
 	var game_over_panel: Node = _find_node_by_name(get_tree().root, "GameOverPanel")
 	_expect(game_over_panel != null, "player death should show game-over panel")
 	_expect(not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), "player death should consume the active run save")
+	_expect(_gear_mod_inventory_count() == inventory_before_forced_drop, "player death should not commit pending Gear Mod loot")
 	_expect(_find_node_by_name(game_over_panel, "SettlementLabel") == null, "game-over panel should not show legacy meta settlement rewards")
 	var game_over_hud: Node = _find_node_by_name(run_loop, "GameplayHud")
 	_expect(
@@ -1147,10 +1153,10 @@ func _expect_interest_point_rewards(run_loop: Node) -> void:
 
 	var dust_before: int = _gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST)
 	var resource_claim: Dictionary = run_loop.call("debug_claim_interest_point", "poi_resource_cache") as Dictionary
-	_expect(bool(resource_claim.get("ok", false)), "resource cache claim should grant its reward")
+	_expect(bool(resource_claim.get("ok", false)), "resource cache claim should add its reward to pending loot")
 	_expect(
-		_gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST) >= dust_before + 20,
-		"resource cache should add gear mod dust"
+		_gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST) == dust_before,
+		"resource cache should not commit gear mod dust before extraction"
 	)
 	var hud: Node = _find_node_by_name(run_loop, "GameplayHud")
 	_expect(
@@ -1163,7 +1169,7 @@ func _expect_interest_point_rewards(run_loop: Node) -> void:
 	var inventory_before: int = _gear_mod_inventory_count()
 	var mod_damage: Dictionary = run_loop.call("debug_damage_interest_point_target", "poi_mod_cache", 9999.0) as Dictionary
 	_expect(bool(mod_damage.get("ok", false)), "destroying mod cache target should apply damage")
-	_expect(_gear_mod_inventory_count() >= inventory_before + 1, "mod cache should add a Gear Mod instance")
+	_expect(_gear_mod_inventory_count() == inventory_before, "mod cache should keep Gear Mod loot pending before extraction")
 	_expect(
 		hud != null
 		and hud.has_method("is_gear_mod_drop_feedback_visible")
@@ -1179,6 +1185,11 @@ func _expect_interest_point_rewards(run_loop: Node) -> void:
 	var points: Dictionary = snapshot.get("interest_points", {}) as Dictionary
 	var resource_state: Dictionary = points.get("poi_resource_cache", {}) as Dictionary
 	_expect(bool(resource_state.get("claimed", false)), "run snapshot should persist claimed interest point state")
+	var pending_loot: Dictionary = snapshot.get("pending_loot", {}) as Dictionary
+	var pending_resources: Dictionary = pending_loot.get("resources", {}) as Dictionary
+	var pending_mods: Array = pending_loot.get("gear_mods", []) as Array
+	_expect(int(pending_resources.get(GEAR_MOD_RESOURCES.GEAR_MOD_DUST, 0)) >= 20, "run snapshot should persist pending dust loot")
+	_expect(pending_mods.size() >= 1, "run snapshot should persist pending Gear Mod loot")
 
 
 func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
@@ -1392,6 +1403,11 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	var restored_points: Dictionary = restored_snapshot.get("interest_points", {}) as Dictionary
 	var restored_resource_state: Dictionary = restored_points.get("poi_resource_cache", {}) as Dictionary
 	_expect(bool(restored_resource_state.get("claimed", false)), "continue should restore claimed interest point state")
+	var restored_loot: Dictionary = restored_snapshot.get("pending_loot", {}) as Dictionary
+	var restored_resources: Dictionary = restored_loot.get("resources", {}) as Dictionary
+	var restored_mods: Array = restored_loot.get("gear_mods", []) as Array
+	_expect(int(restored_resources.get(GEAR_MOD_RESOURCES.GEAR_MOD_DUST, 0)) >= 20, "continue should restore pending dust loot")
+	_expect(restored_mods.size() >= 1, "continue should restore pending Gear Mod loot")
 	var resume_button: Button = _find_node_by_name(restored_pause_menu, "ResumeButton") as Button
 	_expect(resume_button != null, "restored pause menu should expose resume")
 	await _push_action_once(ACTIONS.UI_BACK)
