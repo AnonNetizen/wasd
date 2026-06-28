@@ -18,7 +18,7 @@ const DEFAULT_SLOT: String = "slot_0"
 const GAME_VERSION: String = "v1.5"
 const CURRENT_KIND_VERSIONS: Dictionary = {
 	SAVE_KINDS.META: 1,
-	SAVE_KINDS.RUN: 2,
+	SAVE_KINDS.RUN: 3,
 	SAVE_KINDS.REPLAY_INDEX: 1,
 }
 
@@ -28,6 +28,7 @@ var _last_error: String = ""
 
 func _ready() -> void:
 	register_migration(SAVE_KINDS.RUN, 1, 2, Callable(self, "_migrate_run_v1_to_v2"))
+	register_migration(SAVE_KINDS.RUN, 2, 3, Callable(self, "_migrate_run_v2_to_v3"))
 
 
 func registered_save_kinds() -> Array[String]:
@@ -321,6 +322,15 @@ func _migrate_run_v1_to_v2(payload: Dictionary) -> Dictionary:
 	for key: String in ["hazards", "enemies", "bullets", "pickups"]:
 		if not result.has(key) or not result.get(key, []) is Array:
 			result[key] = []
+	return result
+
+
+func _migrate_run_v2_to_v3(payload: Dictionary) -> Dictionary:
+	# v3 adds the F13 room carrier state. Pre-F13 (open-warzone) runs migrate to an empty
+	# room block, which restore reads as "no room carrier" and keeps the open-warzone path.
+	var result: Dictionary = payload.duplicate(true)
+	if not result.has("room") or not result.get("room", {}) is Dictionary:
+		result["room"] = {}
 	return result
 
 

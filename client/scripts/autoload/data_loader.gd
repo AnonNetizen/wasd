@@ -26,6 +26,8 @@ const GROWTH_POOLS_PATH: String = "res://data/growth_pools.json"
 const GAME_MODES_PATH: String = "res://data/game_modes.json"
 const MAP_LAYOUTS_PATH: String = "res://data/map_layouts.json"
 const WARZONE_DIRECTORS_PATH: String = "res://data/warzone_directors.json"
+const ROOMS_PATH: String = "res://data/rooms.json"
+const ROOM_SEQUENCES_PATH: String = "res://data/room_sequences.json"
 const GEAR_MODS_PATH: String = "res://data/gear_mods.json"
 const GEAR_MOD_DROP_TABLES_PATH: String = "res://data/gear_mod_drop_tables.csv"
 const GEAR_MOD_FUSION_COSTS_PATH: String = "res://data/gear_mod_fusion_costs.csv"
@@ -155,6 +157,9 @@ func validate_project_data() -> bool:
 	is_valid = _validate_map_layouts_json(hazard_ids, game_mode_ids) and is_valid
 	is_valid = _validate_spawn_waves_csv(enemy_ids, hazard_ids, game_mode_ids) and is_valid
 	is_valid = _validate_warzone_directors_json(game_mode_ids, _collect_spawn_wave_ids_by_mode(), hazard_ids, _collect_map_layout_ids(), gear_mod_ids) and is_valid
+	is_valid = _validate_rooms_json(game_mode_ids) and is_valid
+	var room_ids: Dictionary = _collect_room_ids()
+	is_valid = _validate_room_sequences_json(room_ids, game_mode_ids) and is_valid
 
 	return is_valid
 
@@ -2383,6 +2388,138 @@ func _collect_growth_pool_ids() -> Dictionary:
 	for pool: Variant in pools:
 		if pool is Dictionary and (pool as Dictionary).get("id") is String:
 			ids[String((pool as Dictionary).get("id"))] = true
+	return ids
+
+
+func _validate_rooms_json(game_mode_ids: Dictionary) -> bool:
+	var data: Variant = load_json(ROOMS_PATH)
+	if not data is Dictionary:
+		return _schema_fail(ROOMS_PATH, "root", "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(ROOMS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var rooms: Array = _require_array(ROOMS_PATH, "rooms", payload.get("rooms"))
+	if rooms.is_empty():
+		is_valid = _schema_fail(ROOMS_PATH, "rooms", "non-empty Array") and is_valid
+	var seen_rooms: Dictionary = {}
+	_last_schema_counts["rooms"] = rooms.size()
+	for room_index: int in range(rooms.size()):
+		var room_field: String = "rooms[%d]" % room_index
+		var room_variant: Variant = rooms[room_index]
+		if not room_variant is Dictionary:
+			is_valid = _schema_fail(ROOMS_PATH, room_field, "Dictionary") and is_valid
+			continue
+		var room_dict: Dictionary = room_variant as Dictionary
+		var room_id: String = String(room_dict.get("id", ""))
+		is_valid = _require_non_empty_string(ROOMS_PATH, "%s.id" % room_field, room_dict.get("id")) and is_valid
+		if not room_id.is_empty():
+			if seen_rooms.has(room_id):
+				is_valid = _schema_fail(ROOMS_PATH, "%s.id" % room_field, "unique room id") and is_valid
+			seen_rooms[room_id] = true
+		is_valid = _validate_room_scene_path(ROOMS_PATH, "%s.scene_path" % room_field, room_dict.get("scene_path")) and is_valid
+		var clear_condition: String = _require_registered(ROOMS_PATH, "%s.clear_condition" % room_field, room_dict.get("clear_condition"), "room_clear_conditions")
+		if clear_condition.is_empty():
+			is_valid = false
+		is_valid = _validate_room_tags(ROOMS_PATH, "%s.tags" % room_field, room_dict.get("tags", [])) and is_valid
+		is_valid = _validate_room_allowed_modes(ROOMS_PATH, "%s.allowed_modes" % room_field, room_dict.get("allowed_modes"), game_mode_ids) and is_valid
+	return is_valid
+
+
+func _validate_room_scene_path(resource_path: String, field: String, value: Variant) -> bool:
+	if not value is String or String(value).is_empty():
+		return _schema_fail(resource_path, field, "non-empty string")
+	var scene_path: String = String(value)
+	if not scene_path.begins_with("res://") or not scene_path.ends_with(".tscn"):
+		return _schema_fail(resource_path, field, "res:// path to a .tscn scene")
+	if not ResourceLoader.exists(scene_path):
+		return _schema_fail(resource_path, field, "existing room scene file")
+	return true
+
+
+func _validate_room_tags(resource_path: String, field: String, value: Variant) -> bool:
+	var tags: Array = _require_array(resource_path, field, value)
+	var is_valid: bool = true
+	for tag_index: int in range(tags.size()):
+		var tag_value: String = _require_registered(resource_path, "%s[%d]" % [field, tag_index], tags[tag_index], "content_tags")
+		if tag_value.is_empty():
+			is_valid = false
+	return is_valid
+
+
+func _validate_room_allowed_modes(resource_path: String, field: String, value: Variant, game_mode_ids: Dictionary) -> bool:
+	var modes: Array = _require_array(resource_path, field, value)
+	var is_valid: bool = true
+	if modes.is_empty():
+		is_valid = _schema_fail(resource_path, field, "non-empty Array") and is_valid
+	for mode_index: int in range(modes.size()):
+		var mode_field: String = "%s[%d]" % [field, mode_index]
+		var mode_id: String = _require_registered(resource_path, mode_field, modes[mode_index], "game_modes")
+		if not mode_id.is_empty() and not game_mode_ids.has(mode_id):
+			is_valid = _schema_fail(resource_path, mode_field, "mode defined in game_modes.json") and is_valid
+		elif mode_id.is_empty():
+			is_valid = false
+	return is_valid
+
+
+func _validate_room_sequences_json(room_ids: Dictionary, game_mode_ids: Dictionary) -> bool:
+	var data: Variant = load_json(ROOM_SEQUENCES_PATH)
+	if not data is Dictionary:
+		return _schema_fail(ROOM_SEQUENCES_PATH, "root", "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(ROOM_SEQUENCES_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var sequences: Array = _require_array(ROOM_SEQUENCES_PATH, "sequences", payload.get("sequences"))
+	if sequences.is_empty():
+		is_valid = _schema_fail(ROOM_SEQUENCES_PATH, "sequences", "non-empty Array") and is_valid
+	var seen_sequences: Dictionary = {}
+	_last_schema_counts["room_sequences"] = sequences.size()
+	for sequence_index: int in range(sequences.size()):
+		var sequence_field: String = "sequences[%d]" % sequence_index
+		var sequence_variant: Variant = sequences[sequence_index]
+		if not sequence_variant is Dictionary:
+			is_valid = _schema_fail(ROOM_SEQUENCES_PATH, sequence_field, "Dictionary") and is_valid
+			continue
+		var sequence_dict: Dictionary = sequence_variant as Dictionary
+		var sequence_id: String = String(sequence_dict.get("id", ""))
+		is_valid = _require_non_empty_string(ROOM_SEQUENCES_PATH, "%s.id" % sequence_field, sequence_dict.get("id")) and is_valid
+		if not sequence_id.is_empty():
+			if seen_sequences.has(sequence_id):
+				is_valid = _schema_fail(ROOM_SEQUENCES_PATH, "%s.id" % sequence_field, "unique sequence id") and is_valid
+			seen_sequences[sequence_id] = true
+		var mode_id: String = _require_registered(ROOM_SEQUENCES_PATH, "%s.mode_id" % sequence_field, sequence_dict.get("mode_id"), "game_modes")
+		if not mode_id.is_empty() and not game_mode_ids.has(mode_id):
+			is_valid = _schema_fail(ROOM_SEQUENCES_PATH, "%s.mode_id" % sequence_field, "mode defined in game_modes.json") and is_valid
+		var listed_rooms: Dictionary = {}
+		var room_id_list: Array = _require_array(ROOM_SEQUENCES_PATH, "%s.room_ids" % sequence_field, sequence_dict.get("room_ids"))
+		if room_id_list.is_empty():
+			is_valid = _schema_fail(ROOM_SEQUENCES_PATH, "%s.room_ids" % sequence_field, "non-empty Array") and is_valid
+		for room_ref_index: int in range(room_id_list.size()):
+			var room_ref_field: String = "%s.room_ids[%d]" % [sequence_field, room_ref_index]
+			if not _require_non_empty_string(ROOM_SEQUENCES_PATH, room_ref_field, room_id_list[room_ref_index]):
+				is_valid = false
+				continue
+			var room_ref_id: String = String(room_id_list[room_ref_index])
+			listed_rooms[room_ref_id] = true
+			if not room_ids.has(room_ref_id):
+				is_valid = _schema_fail(ROOM_SEQUENCES_PATH, room_ref_field, "room defined in rooms.json") and is_valid
+		var final_room_id: String = String(sequence_dict.get("final_room_id", ""))
+		is_valid = _require_non_empty_string(ROOM_SEQUENCES_PATH, "%s.final_room_id" % sequence_field, sequence_dict.get("final_room_id")) and is_valid
+		if not final_room_id.is_empty() and not listed_rooms.has(final_room_id):
+			is_valid = _schema_fail(ROOM_SEQUENCES_PATH, "%s.final_room_id" % sequence_field, "final_room_id listed in room_ids") and is_valid
+	return is_valid
+
+
+func _collect_room_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(ROOMS_PATH)
+	if not data is Dictionary:
+		return ids
+	var rooms: Variant = (data as Dictionary).get("rooms")
+	if not rooms is Array:
+		return ids
+	for room: Variant in rooms:
+		if room is Dictionary and (room as Dictionary).get("id") is String:
+			ids[String((room as Dictionary).get("id"))] = true
 	return ids
 
 

@@ -31,6 +31,8 @@ GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
 GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
 MAP_LAYOUTS_JSON = ROOT / "client" / "data" / "map_layouts.json"
 WARZONE_DIRECTORS_JSON = ROOT / "client" / "data" / "warzone_directors.json"
+ROOMS_JSON = ROOT / "client" / "data" / "rooms.json"
+ROOM_SEQUENCES_JSON = ROOT / "client" / "data" / "room_sequences.json"
 GEAR_MODS_JSON = ROOT / "client" / "data" / "gear_mods.json"
 GEAR_MOD_DROP_TABLES_CSV = ROOT / "client" / "data" / "gear_mod_drop_tables.csv"
 GEAR_MOD_FUSION_COSTS_CSV = ROOT / "client" / "data" / "gear_mod_fusion_costs.csv"
@@ -103,6 +105,9 @@ def main() -> int:
     _validate_map_layouts(ctx, hazard_ids, game_mode_ids)
     _validate_spawn_waves_csv(ctx, enemy_ids, hazard_ids, game_mode_ids)
     _validate_warzone_directors(ctx, game_mode_ids, _collect_spawn_wave_ids_by_mode(ctx), hazard_ids, _collect_map_layout_ids(ctx), gear_mod_ids)
+    _validate_rooms(ctx, game_mode_ids)
+    room_ids = _collect_room_ids(ctx)
+    _validate_room_sequences(ctx, room_ids, game_mode_ids)
 
     if ctx.errors:
         for error in ctx.errors:
@@ -2073,6 +2078,111 @@ def _collect_growth_pool_ids(ctx: ValidationContext) -> set[str]:
     if not isinstance(pools, list):
         return set()
     return {item.get("id") for item in pools if isinstance(item, dict) and isinstance(item.get("id"), str)}
+
+
+def _validate_rooms(ctx: ValidationContext, game_mode_ids: set[str]) -> None:
+    path = ROOMS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    rooms = _require_list(ctx, path, "rooms", data.get("rooms"))
+    if not rooms:
+        ctx.error(path, "rooms", "must be a non-empty array")
+    seen_rooms: set[str] = set()
+    for room_index, room in enumerate(rooms):
+        room_field = f"rooms[{room_index}]"
+        if not isinstance(room, dict):
+            ctx.error(path, room_field, "must be an object")
+            continue
+        room_id = _require_non_empty_string(ctx, path, f"{room_field}.id", room.get("id"))
+        if room_id:
+            if room_id in seen_rooms:
+                ctx.error(path, f"{room_field}.id", f"duplicate room id {room_id}")
+            seen_rooms.add(room_id)
+        _validate_room_scene_path(ctx, path, f"{room_field}.scene_path", room.get("scene_path"))
+        _require_registered(ctx, path, f"{room_field}.clear_condition", room.get("clear_condition"), "room_clear_conditions")
+        _validate_room_tags(ctx, path, f"{room_field}.tags", room.get("tags", []))
+        _validate_room_allowed_modes(ctx, path, f"{room_field}.allowed_modes", room.get("allowed_modes"), game_mode_ids)
+
+
+def _validate_room_scene_path(ctx: ValidationContext, path: Path, field: str, value: Any) -> None:
+    scene_path = _require_non_empty_string(ctx, path, field, value)
+    if scene_path is None:
+        return
+    if not scene_path.startswith("res://") or not scene_path.endswith(".tscn"):
+        ctx.error(path, field, f"must be a res:// path to a .tscn scene: {scene_path}")
+        return
+    relative = scene_path[len("res://"):]
+    scene_file = ROOT / "client" / Path(relative)
+    if not scene_file.exists():
+        ctx.error(path, field, f"room scene file is missing: {scene_path}")
+
+
+def _validate_room_tags(ctx: ValidationContext, path: Path, field: str, value: Any) -> None:
+    tags = _require_list(ctx, path, field, value)
+    for tag_index, tag in enumerate(tags):
+        _require_registered(ctx, path, f"{field}[{tag_index}]", tag, "content_tags")
+
+
+def _validate_room_allowed_modes(ctx: ValidationContext, path: Path, field: str, value: Any, game_mode_ids: set[str]) -> None:
+    modes = _require_list(ctx, path, field, value)
+    if not modes:
+        ctx.error(path, field, "must be a non-empty array")
+    for mode_index, mode in enumerate(modes):
+        mode_id = _require_registered(ctx, path, f"{field}[{mode_index}]", mode, "game_modes")
+        if mode_id and mode_id not in game_mode_ids:
+            ctx.error(path, f"{field}[{mode_index}]", f"mode is not defined in game_modes.json: {mode_id}")
+
+
+def _collect_room_ids(ctx: ValidationContext) -> set[str]:
+    data = _load_json(ROOMS_JSON, ctx)
+    if not isinstance(data, dict):
+        return set()
+    rooms = data.get("rooms")
+    if not isinstance(rooms, list):
+        return set()
+    return {item.get("id") for item in rooms if isinstance(item, dict) and isinstance(item.get("id"), str)}
+
+
+def _validate_room_sequences(ctx: ValidationContext, room_ids: set[str], game_mode_ids: set[str]) -> None:
+    path = ROOM_SEQUENCES_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    sequences = _require_list(ctx, path, "sequences", data.get("sequences"))
+    if not sequences:
+        ctx.error(path, "sequences", "must be a non-empty array")
+    seen_sequences: set[str] = set()
+    for sequence_index, sequence in enumerate(sequences):
+        sequence_field = f"sequences[{sequence_index}]"
+        if not isinstance(sequence, dict):
+            ctx.error(path, sequence_field, "must be an object")
+            continue
+        sequence_id = _require_non_empty_string(ctx, path, f"{sequence_field}.id", sequence.get("id"))
+        if sequence_id:
+            if sequence_id in seen_sequences:
+                ctx.error(path, f"{sequence_field}.id", f"duplicate sequence id {sequence_id}")
+            seen_sequences.add(sequence_id)
+        mode_id = _require_registered(ctx, path, f"{sequence_field}.mode_id", sequence.get("mode_id"), "game_modes")
+        if mode_id and mode_id not in game_mode_ids:
+            ctx.error(path, f"{sequence_field}.mode_id", f"mode is not defined in game_modes.json: {mode_id}")
+        room_id_list = _require_list(ctx, path, f"{sequence_field}.room_ids", sequence.get("room_ids"))
+        if not room_id_list:
+            ctx.error(path, f"{sequence_field}.room_ids", "must be a non-empty array")
+        listed_rooms: set[str] = set()
+        for room_ref_index, room_ref in enumerate(room_id_list):
+            room_ref_field = f"{sequence_field}.room_ids[{room_ref_index}]"
+            room_ref_id = _require_non_empty_string(ctx, path, room_ref_field, room_ref)
+            if room_ref_id is None:
+                continue
+            listed_rooms.add(room_ref_id)
+            if room_ref_id not in room_ids:
+                ctx.error(path, room_ref_field, f"room is not defined in rooms.json: {room_ref_id}")
+        final_room_id = _require_non_empty_string(ctx, path, f"{sequence_field}.final_room_id", sequence.get("final_room_id"))
+        if final_room_id is not None and final_room_id not in listed_rooms:
+            ctx.error(path, f"{sequence_field}.final_room_id", f"final_room_id is not listed in room_ids: {final_room_id}")
 
 
 def _collect_game_mode_ids(ctx: ValidationContext) -> set[str]:

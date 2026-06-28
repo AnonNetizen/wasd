@@ -57,6 +57,9 @@ SECTIONS: tuple[ContractSection, ...] = (
     ContractSection("gear_mod_resources", "## 13-D. 装备 Mod 资源 gear_mod_resource", "gear_mod_resources.gd", "GearModResources"),
     ContractSection("gear_mod_stack_rules", "## 13-E. 装备 Mod 装配规则 gear_mod_stack_rule", "gear_mod_stack_rules.gd", "GearModStackRules"),
     ContractSection("save_kinds", "## 14. 存档种类 save_kind", "save_kinds.gd", "SaveKinds"),
+    ContractSection("door_directions", "## 15-A. 门朝向 door_direction", "door_directions.gd", "DoorDirections"),
+    ContractSection("door_unlock_rules", "## 15-B. 门解锁规则 door_unlock_rule", "door_unlock_rules.gd", "DoorUnlockRules"),
+    ContractSection("room_clear_conditions", "## 15-C. 房间清房条件 room_clear_condition", "room_clear_conditions.gd", "RoomClearConditions"),
 )
 
 LOCALE_PREFIXES_HEADING = "## 6. 本地化 key 命名规范"

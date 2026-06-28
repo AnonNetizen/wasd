@@ -1,0 +1,19 @@
+{
+	"schema_version": 1,
+	"rooms": [
+		{
+			"id": "room_demo_entry",
+			"scene_path": "res://scenes/gameplay/rooms/room_demo_entry.tscn",
+			"tags": [],
+			"clear_condition": "room_clear_all_enemies",
+			"allowed_modes": ["mode_standard_survival"]
+		},
+		{
+			"id": "room_demo_arena",
+			"scene_path": "res://scenes/gameplay/rooms/room_demo_arena.tscn",
+			"tags": [],
+			"clear_condition": "room_clear_all_enemies",
+			"allowed_modes": ["mode_standard_survival"]
+		}
+	]
+}

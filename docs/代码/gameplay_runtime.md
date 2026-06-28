@@ -14,6 +14,7 @@
 | 你想做什么 | 先看哪里 |
 |------------|----------|
 | 改运行时启动 / 重开 | `client/scripts/gameplay/gameplay_run_loop.gd` |
+| 改房间 carrier / 手工房间制短刷图 | `docs/代码/room_manager.md`、`client/scripts/gameplay/room_manager.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、`client/data/rooms.json`、`client/data/room_sequences.json` |
 | 改标题 / 失败面板 | `client/scripts/ui/title_menu.gd`、`client/scripts/ui/game_over_panel.gd` |
 | 改标题装备 Mod 面板 | `client/scripts/ui/gear_mod_panel.gd`、`client/scripts/autoload/gear_mod_system.gd`、`client/scripts/boot/formal_client_boot.gd` |
 | 改暂停 / 保存退出 | `client/scripts/ui/pause_menu.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、`docs/代码/save_manager.md` |
@@ -43,6 +44,10 @@
 | `client/scenes/gameplay/interest_point_cache.tscn` / `client/scripts/gameplay/interest_point_cache.gd` | F12 低频缓存箱：资源缓存 / Mod 缓存可见交互占位；矩形 footprint 对齐地图矩形格，主体是低矮俯视箱体，功能色只作为小嵌片，渲染在地图背景之上、机关 / 敌人 / 玩家之下，打开后保留已开启状态 |
 | `client/scenes/ui/title_menu.tscn` / `gear_mod_panel.tscn` / `pause_menu.tscn` / `settings_panel.tscn` / `game_over_panel.tscn` / `level_up_panel.tscn` | 正式 UI 场景；脚本只绑定稳定节点、连接 signal 和刷新数据 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 正式运行时编排、输入 action 手柄兜底注册、对象池注册、刷怪和重开 |
+| `client/scripts/gameplay/room_manager.gd` | F13 房间 carrier 运行时：由 `GameplayRunLoop` 在房间 carrier 模式下于 `ActiveWorld` 下创建（非 autoload），加载 `room_sequences.json` 线性序列、实例化房间 `.tscn`、读 marker、按 `door_unlock_rule` 锁 / 开门、按 `room_clear_condition` 检测清房、切房和 snapshot / restore；对象池生成、`Combat`、击杀归因、战利品仍由 `GameplayRunLoop` 负责。详见 `docs/代码/room_manager.md` |
+| `client/scripts/gameplay/rooms/*.gd` | F13 房间编辑器数据 marker（`RoomRoot` / `RoomPlayerStartMarker` / `RoomDoorMarker` / `RoomEnemySpawnMarker` / `RoomHazardMarker`，均 `extends Marker2D` + 类型化 `@export` + `to_data()`），供 `RoomManager` 读取房间 `.tscn` 摆点 |
+| `client/scenes/gameplay/rooms/room_demo_entry.tscn` / `room_demo_arena.tscn` | F13 演示房间场景：入口房（玩家入口 + 1 敌 + `dir_east` / `unlock_on_clear` 出口门）和竞技房（入口 + 1 敌 + 1 陷阱 + 完成门） |
+| `client/tools/room_switch_smoke.gd` | F13 `room-switch-smoke` runner：覆盖房间 1 从数据序列加载 / 1 敌 / 出口锁、清房后门开、触碰出口切到房间 2、pause→save→continue 恢复当前房间 / 门状态 / 活体敌人陷阱 |
 | `client/scripts/gameplay/world_background.gd` | 量化矩形地图格背景；读取 `MapManager.grid_cell_size()`，让背景格、机关绘制和触发判定共享同一份地图度量，不改变世界坐标或相机缩放 |
 | `client/scripts/gameplay/map_manager.gd` | 有限地图边界、PCG 机关摆放、人工摆点、刷怪位置 clamp 和地图快照 |
 | `client/scripts/gameplay/player.gd` | 玩家移动、鼠标相对玩家 / 视口中心方向瞄准、方向键 / 手柄兜底瞄准、2D 俯视占位按完整 `aim_direction` 绘制朝向标记、相机居中、受伤 / 死亡；提供少量受控 debug 生命 API 给 GM 命令调用 |
@@ -71,6 +76,7 @@
 | `tools/godot_bridge.py` | `runtime-smoke` / `save-smoke` / `settings-smoke` / `gear-mod-smoke` / `debug-tools-smoke` / `debug-tools-release-smoke` / F8 `l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_full_death`、`perf-probe` 命令入口 |
 | `docs/代码/combat.md` | 伤害统一入口文档 |
 | `docs/代码/map_manager.md` | 有限地图 / PCG / 人工摆点文档 |
+| `docs/代码/room_manager.md` | F13 房间 carrier / RoomManager 文档 |
 | `docs/代码/hazard_system.md` | 机关运行时文档 |
 | `docs/代码/debug_tools.md` | GM 控制台、命令和 release guard 文档 |
 
@@ -84,6 +90,7 @@ FormalClientBoot
     ├── ActiveWorld (Node2D)
     │   ├── WorldBackground (Node2D)
     │   ├── MapManager (Node2D)
+    │   ├── RoomManager (Node2D; only in the room carrier; holds the active room .tscn)
     │   ├── Player (CharacterBody2D)
     │   │   ├── CenteredCamera (Camera2D; level screen with uniform scale)
     │   │   └── WeaponSystem (Node)
@@ -105,6 +112,16 @@ UIManager
 
 闲置子弹、敌人、机关和经验球节点归 `PoolManager` autoload 管理。
 
+### Carrier 概念（F13）
+
+`GameplayRunLoop` 从 F13 起引入 **carrier** 概念，用来区分一局的“地图载体”：
+
+- 默认仍是 **open-warzone**（F12 短刷图，行为不变）：用 `MapManager` / `WarzoneDirector` 组织有限战区、刷怪和兴趣点。
+- **房间 carrier** 是手工房间制短刷图首片，当前为 **opt-in**：测试 / harness 调用 `debug_enable_room_carrier()`（仿 `debug_enable_level_up_growth()`），或加载到 run 存档含**非空 `room` 块**时自动启用。
+- 进入房间 carrier 时，`GameplayRunLoop` 在 `ActiveWorld` 下创建并驱动 `RoomManager`（它**不是** autoload）；房间 carrier 下 `_process` 只走 `_update_room`，不跑 open-warzone 的导演 / 刷怪节奏。
+- carrier 只决定地图载体与刷怪入口；对象池生成、`Combat`、击杀归因、战利品提交仍由 `GameplayRunLoop` 负责，`RoomManager` 不直接 `acquire` / `Combat`。
+- 把房间设为默认可玩模式是后续切片（需重写 F12 runtime / f9 smoke 并重录黄金回放）；当前 `mode_standard_survival` 仍是 open-warzone。详见 `docs/代码/room_manager.md`。
+
 ## 运行流程
 
 | 阶段 | 发生什么 | 关键 API / signal |
@@ -113,6 +130,7 @@ UIManager
 | 开局 | 普通标题开始 / 局内重开由 `FormalClientBoot` 先调用 `RNG.set_random_run_seed()`，再实例化 `gameplay_run_loop.tscn`；运行时重置 `GameClock`，注册 / 预热子弹、经验球、机关、命中反馈和当前 F4 敌人对象池，读取默认模式 / 角色 / 起始武器，并在玩家 / 武器配置后分别应用 `GearModSystem.current_modifiers("hero")` 与 `GearModSystem.current_modifiers("weapon")`；工具 / replay 路径可显式固定 seed 后直接启动 runtime | `RNG.set_random_run_seed()`、`PackedScene.instantiate()`、`PoolManager.register_pool()`、`DataLoader.load_json()`、`GearModSystem.current_modifiers()` |
 | 地图 / 机关 | `MapManager` 按 `map_layouts.json` 配置有限矩形边界、出生点、安全半径、刷怪边距、手工机关摆点和 PCG 机关；开局还会解释当前 layout 匹配的 WarzoneDirector 兴趣点并生成 `source="director"` 机关；玩家与敌人中心移动都会被矩形边界 clamp，机关通过对象池生成，触发伤害走 `Combat` | `MapManager.configure()`、`generate_hazard_placements()`、`Player.set_movement_bounds()`、`Enemy.set_movement_bounds()`、`PoolManager.acquire()`、`Combat.apply_damage()` |
 | 战区导演 | `WarzoneDirector` 读取 `warzone_directors.json` 的当前模式导演，用固定时间 phase 组织巢变异主题、生态 encounter、兴趣点和启用 wave；F12 标准局按 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟组织短刷图节奏，9 分钟后软加压但不硬切；兴趣点交给 `MapManager` 初始机关生成并透传领取 / 奖励 / 交互 / 可伤害目标 / 撤离元数据；`GameplayRunLoop` 对无目标且不要求交互的兴趣点按 `claim_radius`、`claim_start_time` 和玩家位置把 dust / Mod 放入 `run.pending_loot`；对 `requires_interaction=true` 的兴趣点按 `interest_point_cache_position` 生成可见 `InterestPointCache`，玩家进入半径后按 `interact` 打开并暂存奖励；对有 `target_hp` 的兴趣点按 `interest_point_target_position` 生成立即可被子弹 / `Combat` 伤害的格子化 `InterestPointTarget`，摧毁后暂存奖励；POI 目标 / 缓存 anchor 均由 MapManager 保证贴格并避开 active hazards；小巢核领取后开启贴合地图矩形格的撤离矩形，玩家完成 `extraction_hold_time` 读条后提交暂存战利品并进入结果面板；不读玩家状态、不随机动态调难 | `WarzoneDirector.configure()`、`is_wave_enabled()`、`interest_points_for_layout()`、`GearModSystem.grant_resource()`、`GearModSystem.grant_mod()`、`debug_summary()` |
+| 房间 carrier（F13） | 启用房间 carrier 后，`GameplayRunLoop` 走 `_start_room_carrier_fresh`：在 `ActiveWorld` 下创建 `RoomManager`、加载 `room_sequences.json` 线性序列、`_enter_room` 实例化首个房间 `.tscn` 并读 marker，玩家放到 `RoomPlayerStartMarker`，`_spawn_room_content` 按 `RoomEnemySpawnMarker` / `RoomHazardMarker` 经 `_spawn_enemy_at` 用对象池在 marker 位置生成敌人 / 机关；`_process` 只走 `_update_room`，由 `RoomManager` 按 `room_clear_condition` 检测清房并按 `door_unlock_rule` 锁 / 开门。玩家触碰满足条件的门触发 `_handle_room_switch` 切到序列下一房间；续局时 `_restore_room_carrier` 按 run 的 `room` 块恢复当前房间、门状态和活体敌人 / 陷阱。`_on_enemy_defeated` 在房间敌人（`spawn_key="room"`）被击杀时 notify `RoomManager` | `GameplayRunLoop.debug_enable_room_carrier()`、`RoomManager.configure()`、`RoomManager.snapshot()` / `restore_state()`、`PoolManager.acquire()` |
 | 背景 | 在玩家附近绘制量化矩形地图格和原点十字；网格来自 `map_layouts.json.grid`，与机关尺寸 / 判定共用同一格度量，但不缩放或旋转世界坐标，也不模拟斜俯视透视 | `WorldBackground.configure()` |
 | 输入 | `Settings` 在启动 / 加载 / 修改时把键盘主绑定写入 InputMap；运行时只确保同一 action 有手柄轴 / 按钮兜底事件。键鼠默认按鼠标相对视口中心的偏移瞄准，并通过当前 canvas / camera transform 换算成世界方向；方向键 / 手柄右摇杆 / D-pad 在没有鼠标动作时作为兜底。按住 `show_stats_panel` action（默认 Tab）只显示 HUD 详细数值面板，不进入暂停态。`interact` action（默认 E / 手柄 X）用于打开半径内的交互缓存箱。F8 输入录制首片会把移动 / 兜底瞄准 action 状态变化以及 `pause` / `ui_back` / `interact` 离散事件写入 `Replay`，但鼠标向量录制仍待后续输入回放扩展 | `Settings`、`InputMap`、`Input.get_vector()`、`InputEventMouseMotion.position`、`Replay.record_input_action()`、`Replay.record_input_event()` |
 | 移动 / 瞄准 | 玩家按数据移速在 2D 平面移动，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放；世界横纵单位映射到屏幕保持同尺度。鼠标激活后按 canvas transform 换算后的世界方向瞄准；无鼠标动作时用方向键 / 手柄右摇杆 / D-pad 兜底，松开保持上一方向；玩家 2D 俯视占位按完整 `aim_direction` 绘制朝向标记，敌人占位表现仍暂时只区分向左 / 向右 | `Player.aim_direction` |
@@ -169,10 +187,11 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `PickupOrb.is_attracting()` / `is_collect_feedback_active()` | 无 | `bool` | 只读诊断值；用于 smoke 确认吸附 / 拾取反馈生命周期 |
 | `HitSpark.configure(spawn_position)` / `DamageNumber.configure(spawn_position, amount, defeated, player_damage)` | 反馈位置与伤害摘要 | `void` | 节点必须来自 `PoolManager`；只做短命视觉反馈，不写入 run 快照 |
 | `GameplayRunLoop.current_xp()` / `current_level_xp()` / `current_level_xp_required()` | 无 | `int` | `current_xp()` 是累计总经验；HUD 使用本级经验和本级需求显示升级进度 |
-| `GameplayRunLoop.create_run_snapshot()` | 无 | `Dictionary` | 生成 `SaveManager` 的 `run` payload；只保存 JSON 友好的状态，不保存对象池内部队列；`interest_points` 保存领取和目标生命 / 摧毁状态，`extraction` 保存撤离区开启、位置、半径、读条和来源点，`ui_restore` 记录普通游玩、暂停菜单或升级选择面板恢复点 |
+| `GameplayRunLoop.create_run_snapshot()` | 无 | `Dictionary` | 生成 `SaveManager` 的 `run` payload；`RUN_SNAPSHOT_SCHEMA_VERSION` F13 起为 3（2→3 新增 `room` 块）；只保存 JSON 友好的状态，不保存对象池内部队列；`interest_points` 保存领取和目标生命 / 摧毁状态，`extraction` 保存撤离区开启、位置、半径、读条和来源点，`room` 块保存房间 carrier 的当前房间 / 门状态 / 活体敌人陷阱（open-warzone 局为空 `{}`），`ui_restore` 记录普通游玩、暂停菜单或升级选择面板恢复点 |
 | `GameplayRunLoop.configure_restore_snapshot(snapshot)` | `Dictionary` | `void` | 在节点入树前由 `FormalClientBoot` 调用；`_ready()` 后重建玩家、武器、敌人、子弹、经验球、RNG、GameClock 和 `ui_restore` 状态 |
 | `GameplayRunLoop.debug_summary()` / `debug_spawn_enemy()` / `debug_give_xp()` / `debug_heal_player()` / `debug_set_player_hp()` / `debug_damage_player()` / `debug_kill_player()` / `debug_kill_enemies()` / `debug_clear_enemies()` / `debug_damage_interest_point_target()` | GM 指令参数 | `Dictionary` | 只作为 DebugTools / smoke 的受控 runtime API；`debug_summary()` 包含 map / skills / warzone_director / interest point / extraction 摘要；刷怪走对象池，伤害 / 击杀走 `Combat`，经验走原有升级流程 |
 | `GameplayRunLoop.debug_enable_level_up_growth(pool_id="default_level_up")` | growth pool id | `void` | 仅测试 / golden replay harness 显式启用局内升级池；默认标准模式仍以 `game_modes.json` 无 `growth_pools` 为准 |
+| `GameplayRunLoop.debug_enable_room_carrier()` | 无 | `void` | F13 仅测试 / `room-switch-smoke` harness 显式切到房间 carrier（仿 `debug_enable_level_up_growth()`）；正式路径仍默认 open-warzone，或 run 存档含非空 `room` 块时自动启用 |
 | `LevelUpPanel.configure(choices)` / `choose_index(index)` | 升级候选 | `void` | 面板节点通过 `UIManager` 挂载；玩家可见文案来自 locale；面板宽度随视口宽度在最小 / 最大值之间自适应；按 `pause` action 时发出 `pause_requested`；语言切换时重用 `_choices` 重建按钮 |
 | `GameplayHud.set_life()` / `set_kills()` / `set_level()` / `set_xp()` / `show_upgrade_feedback()` / `show_extraction_feedback()` / `set_stats_panel_visible()` / `set_detailed_stats()` | HUD 状态 | `void` | 文案使用 `tr()`；布局使用容器和锚点而非固定屏幕坐标；详细数值面板是非模态 HUD 叠层，按住 action 显示、松开隐藏，不暂停；失败 UI 由 `GameOverPanel` 独占显示；语言切换时重用缓存生命、击杀、等级、经验、详细数值和最近反馈 key 刷新 |
 | `TitleMenu.start_requested` / `continue_requested` / `gear_mod_requested` / `settings_requested` / `quit_requested` | 无 | signal | 由 `FormalClientBoot` 处理，不在标题菜单里直接创建 run；`continue_requested` 只在有 `run` 存档时可见；`gear_mod_requested` 和 `settings_requested` 会通过 `UIManager` 打开对应面板 |
@@ -220,7 +239,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 等级阈值：从 `growth.csv.total_xp_required` 读取累计总经验阈值；运行时内部保留累计经验判定升级，HUD 显示 `当前累计经验 - 当前等级累计阈值` / `下一级累计阈值 - 当前等级累计阈值`。
 - 升级候选：从当前模式 `resource_pools.growth_pools` 引用的 `growth_pools.json` 池读取；当前 F4 只解释 `kind=stat_modifier` 且应用其 `modifiers`。候选入选使用 `RNG.ui_choice`，显示 / 选择顺序按候选 `id` 稳定排序，避免同一候选集合在不同进程中只因抽取顺序影响 replay 选择索引。选择后 HUD 使用金色文字、暗色阴影和 1.35 秒淡出显示获得反馈。
 - 分辨率与 UI：默认 viewport 由 `client/project.godot` 设为 1920×1080；窗口禁止任意拖拽缩放，屏幕比例不匹配时通过 `canvas_items + keep` 保比例加黑边；F4 HUD 和升级面板应使用 `Control` 锚点 / 容器布局适配预设分辨率。
-- run 续局快照：F5 首片使用 `SaveManager` 的 `run` kind，payload schema version 当前为 2，字段包括模式 / 角色 id、等级、累计经验、击杀、`GameClock.snapshot()`、`RNG.snapshot()`、有限地图状态、兴趣点领取 / 目标状态、`pending_loot` 暂存战利品、刷怪状态、玩家状态、武器状态、技能状态、活跃敌人、活跃子弹、活跃机关、活跃经验球和 `ui_restore`。`map` 保存 layout id、bounds、grid cell size、玩家出生点、安全半径、刷怪边距和机关 placement；director placement 可带 `interest_point_*` 元数据。`interest_points` 是可选字典，保存每个兴趣点是否已领取、领取时间、奖励结果、目标是否摧毁和目标生命快照，旧 payload 缺失时按未领取 / 未摧毁处理。`pending_loot` 是可选字典，保存本局尚未带回的 Gear Mod / dust，旧 payload 缺失时按空暂存处理。`hazards` 保存活动机关 id、位置、冷却和激活表现状态。技能、玩家和敌人快照都可保存 owned ability tag 计数与状态效果剩余时间，不保存对象池内部队列；续局恢复已有 tag 计数时，状态组件不会重复授予 tags，只负责后续过期释放。敌人快照现在额外保存出生点、当前 AI action、冲锋 FSM、冲锋 cooldown、最后伤害来源队伍和实体状态，以保证生态 AI 与状态生命周期续局后可恢复；不保存感知到的节点引用。`ui_restore.state` 当前支持 `playing`、`paused`、`level_up`：暂停保存后续局会先回到暂停菜单；升级选择面板打开时保存会保留已经掷出的候选列表并续回同一组选择，不重新消耗 `RNG.ui_choice`；暂停菜单叠在升级面板上时保存为 `state=paused` 且 `underlying_state=level_up`，恢复时先重建升级面板再叠回暂停菜单。旧 payload 没有 `ui_restore` 时按 `playing` 处理，旧 payload 没有 `skills` 时按空技能快照处理；旧技能 / 玩家 / 敌人快照没有 `status_effects` 或 `owned_tag_counts` 时按空状态处理；旧 payload 没有 `map` / `hazards` 时由 `SaveManager` 迁移补空结构，运行时可按当前 layout 重新生成初始机关。`SaveManager` 的 `run` kind envelope 当前为 version 2，v1 -> v2 迁移只补齐缺失结构字段。RNG 大整数 state 以字符串保存，SaveManager 会在写入前做 JSON 归一化再计算 `data_hash`，避免高精度浮点 / JSON 读回类型差异导致 hash mismatch。
+- run 续局快照：F5 首片使用 `SaveManager` 的 `run` kind，payload schema version（`RUN_SNAPSHOT_SCHEMA_VERSION`）F13 起为 3（2→3 新增 `room` 块），字段包括模式 / 角色 id、等级、累计经验、击杀、`GameClock.snapshot()`、`RNG.snapshot()`、有限地图状态、兴趣点领取 / 目标状态、`pending_loot` 暂存战利品、刷怪状态、玩家状态、武器状态、技能状态、活跃敌人、活跃子弹、活跃机关、活跃经验球、`room` 房间 carrier 块和 `ui_restore`。`room` 是可选字典：open-warzone 局为空 `{}`，房间 carrier 局保存当前房间 / 门状态 / 活体敌人陷阱，加载到非空 `room` 块时 `_restore_run_snapshot` 走 `_restore_room_carrier` 启用房间 carrier；旧 v2 存档由 `SaveManager` 迁移回填 `room={}` 走 open-warzone 路径。`map` 保存 layout id、bounds、grid cell size、玩家出生点、安全半径、刷怪边距和机关 placement；director placement 可带 `interest_point_*` 元数据。`interest_points` 是可选字典，保存每个兴趣点是否已领取、领取时间、奖励结果、目标是否摧毁和目标生命快照，旧 payload 缺失时按未领取 / 未摧毁处理。`pending_loot` 是可选字典，保存本局尚未带回的 Gear Mod / dust，旧 payload 缺失时按空暂存处理。`hazards` 保存活动机关 id、位置、冷却和激活表现状态。技能、玩家和敌人快照都可保存 owned ability tag 计数与状态效果剩余时间，不保存对象池内部队列；续局恢复已有 tag 计数时，状态组件不会重复授予 tags，只负责后续过期释放。敌人快照现在额外保存出生点、当前 AI action、冲锋 FSM、冲锋 cooldown、最后伤害来源队伍和实体状态，以保证生态 AI 与状态生命周期续局后可恢复；不保存感知到的节点引用。`ui_restore.state` 当前支持 `playing`、`paused`、`level_up`：暂停保存后续局会先回到暂停菜单；升级选择面板打开时保存会保留已经掷出的候选列表并续回同一组选择，不重新消耗 `RNG.ui_choice`；暂停菜单叠在升级面板上时保存为 `state=paused` 且 `underlying_state=level_up`，恢复时先重建升级面板再叠回暂停菜单。旧 payload 没有 `ui_restore` 时按 `playing` 处理，旧 payload 没有 `skills` 时按空技能快照处理；旧技能 / 玩家 / 敌人快照没有 `status_effects` 或 `owned_tag_counts` 时按空状态处理；旧 payload 没有 `map` / `hazards` 时由 `SaveManager` 迁移补空结构，运行时可按当前 layout 重新生成初始机关。`SaveManager` 的 `run` kind envelope F13 起为 version 3：v1 -> v2 迁移补齐缺失结构字段，v2 -> v3 迁移（`_migrate_run_v2_to_v3`）给旧 open-warzone 存档回填 `room={}` 并迁移后重算 `data_hash`。RNG 大整数 state 以字符串保存，SaveManager 会在写入前做 JSON 归一化再计算 `data_hash`，避免高精度浮点 / JSON 读回类型差异导致 hash mismatch。
 - 局外成长接入：F11 后 Gear Mod 是唯一当前跨局装配运行时。死亡不再写旧局外货币 / 账号经验，也不再弹旧升级入口；死亡后仍必须删除 `run` 存档，避免继续旧局。新开局属性来源为 `GearModSystem.current_modifiers("hero")` / `current_modifiers("weapon")`：hero modifiers 只应用到 `Player.apply_modifiers()`，weapon modifiers 只应用到 `WeaponSystem.apply_modifiers()`。项目尚未上线，不维护旧局外成长测试档迁移或补偿。
 - 装备 Mod 掉落：玩家归因击败敌人时，`GameplayRunLoop._on_enemy_defeated()` 会在发放击杀 / 经验后调用 `GearModSystem.roll_drop_for_enemy(enemy_id, ..., commit_immediately=false)`，把命中的 Mod 放进 `run.pending_loot`；怪物互杀或非玩家归因击杀不会计入击杀、经验或 Gear Mod 掉落。首片 `enemy_chaser` 掉落率来自 `gear_mod_drop_tables.csv` 的 `0.01`，随机走 `RNG.drop`。掉落结果携带 `name_key`，命中后通过 `GameplayHud.show_gear_mod_drop_feedback()` 显示暂存反馈；击破小巢核或未来撤离成功时才调用 `GearModSystem.grant_mod()` / `grant_resource()` 写入 `meta.gear_mods`。
 - 伤害类型：从 `weapons.json` / `enemies.csv` / `hazards.csv` 读取，交给 `Combat` 校验。
@@ -241,6 +260,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 加敌人：优先改 `enemies.csv`、`enemy_ai_profiles.json`、`game_modes.json` 和 `spawn_waves.csv`；行为差异通过 AI profile / tag 权重表达，不在 `enemy.gd` 按 id 分支。
 - 加地图 / PCG 规则：优先改 `map_layouts.json`；运行时通过 `MapManager` 解释有限边界、手工摆点、PCG 和导演传入的通用兴趣点机关，不在 `GameplayRunLoop` 按 layout id 分支。
 - 加 / 改战区导演：优先改 `warzone_directors.json`；固定节奏、巢变异主题、生态 encounter 和兴趣点都应由数据表达，兴趣点可通过 `MapManager` 变成初始地图机关，但仍不读取玩家状态、不做隐藏 DDA、不接运行时 LLM。
+- 加房间 / 房间序列（F13）：新增房间优先加 `client/data/rooms.json` 条目和房间 `.tscn`（用 `client/scripts/gameplay/rooms/` 的 marker 摆点），把房间 id 串进 `client/data/room_sequences.json` 的 `room_ids` / `final_room_id`；门 / 清房 / 朝向走词表 `door_direction` / `door_unlock_rule` / `room_clear_condition` 契约常量，不在 `RoomManager` / `GameplayRunLoop` 按 `room_id` / `sequence_id` 写分支。新房间行为差异先扩展通用 marker / 规则常量，详见 `docs/代码/room_manager.md`。
 - 加机关：优先改 `hazards.csv`、`game_modes.json.resource_pools.hazards` 和 `map_layouts.json`；普通矩形范围机关复用 `Hazard`，新行为先设计通用 primitive，不按机关 id 写分支。
 - 加刷怪：改 `spawn_waves.csv`；多个波次可复用当前时间窗 / 预算解释。
 - 加升级候选：优先改 `growth_pools.json`；目标模式还必须在 `game_modes.json.resource_pools.growth_pools` 引用候选池，否则默认标准模式不会启用局内升级选择。新候选如果仍是 `stat_modifier` 不需要改逻辑，新增候选类型才需要扩展运行时解释和文档。
@@ -269,6 +289,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 改 HUD 文案 | `strings.csv` | `client/locale/README.md` | `validate_data` |
 | 改 HUD / 升级面板布局 | `client/scenes/gameplay/gameplay_hud.tscn`、`client/scenes/ui/level_up_panel.tscn`、对应脚本 | 本文档 | `runtime-smoke` + 手动不同窗口尺寸检查 |
 | 改暂停 / 保存续局 | `client/scripts/ui/pause_menu.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、`formal_client_boot.gd` | 本文档、SaveManager / FormalClientBoot 文档 | `runtime-smoke` + `save-smoke` + L5 暂停 / 存档 checklist |
+| 改房间 / 房间序列 / 房间 carrier | `client/data/rooms.json`、`client/data/room_sequences.json`、房间 `.tscn`、`client/scripts/gameplay/room_manager.gd`、`client/scripts/gameplay/gameplay_run_loop.gd` | `client/data/README.md`、本文档、`docs/代码/room_manager.md` | `validate_data` + `test_data_loader_schema` + `room-switch-smoke` + `save-smoke` |
 | 改普通新局 / 重开 seed | `client/scripts/autoload/rng.gd`、`client/scripts/boot/formal_client_boot.gd`、`client/tools/l1_smoke.gd` | 本文档、RNG / FormalClientBoot 文档、ADR、AI记忆 | `l1-smoke` + `runtime-smoke` + `save-smoke` + checked-in replay runner 抽查 |
 | 改设置入口 / 设置叠层 | `title_menu.gd`、`pause_menu.gd`、`settings_panel.gd`、`formal_client_boot.gd`、`gameplay_run_loop.gd` | 本文档、Settings / UIManager / FormalClientBoot 文档 | `settings-smoke` + `runtime-smoke` |
 | 改失败页 / 死亡清理 | `client/scripts/gameplay/gameplay_run_loop.gd`、`client/scripts/ui/game_over_panel.gd` | 本文档、SaveManager 文档 | `runtime-smoke` + `save-smoke` |
@@ -294,6 +315,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 战区兴趣点机关不出现 | `warzone_directors.json.interest_points[].map_layout_id` 是否匹配当前 layout；`hazard_ids[]` 是否非空且引用存在；`debug_summary().map.hazard_sources.director` 是否大于 0 |
 | 兴趣点不领奖 | `claim_radius` 是否大于 0；`claim_start_time` 是否已到；无 `target_hp` 时玩家是否进入 `debug_summary().interest_points[point_id].position` 附近；若 `requires_interaction=true`，HUD 是否出现交互提示且玩家是否按了 `interact` action；有 `target_hp` 时目标是否被摧毁；奖励 id 是否通过 DataLoader schema |
 | 小巢核领取后不出现结果面板 | `completes_run` 是否为 `true`；`target_hp` 目标是否被摧毁或已领取；撤离区是否激活；玩家是否站进撤离区并完成 `extraction_hold_time`；`GameOverPanel.configure(..., completed=true)` 是否在撤离成功后调用；当前 `run` 存档是否被删除；`pending_loot` 是否已提交 |
+| 房间 carrier 不启用 / 没切到房间 | 测试是否调用 `debug_enable_room_carrier()`，或 run 存档 `room` 块是否非空；`RoomManager` 是否在 `ActiveWorld` 下创建；`room_sequences.json` 序列 / `rooms.json` 房间是否通过 DataLoader 校验；`room-switch-smoke` 是否通过 |
+| 房间门不开 / 切不到下一房 | `RoomDoorMarker.unlock_rule` 是否为 `unlock_on_clear`；`room_clear_condition` 是否满足（`room_clear_all_enemies` 时房内敌人是否清空）；玩家是否进入门 `trigger_radius`；`door_id` / `target_entry_id` 是否指向序列下一房间的 `entry_id` |
+| 房间续局后房间 / 门 / 敌人陷阱不对 | run payload 是否含非空 `room` 块；`_restore_room_carrier` 是否执行；活体敌人 / 陷阱是否经 `PoolManager.acquire()` 重建；旧 v2 存档是否被 `_migrate_run_v2_to_v3` 回填 `room={}` 而误走 open-warzone |
 | 玩家走出地图 | `MapManager.bounds()` 是否配置；`Player.set_movement_bounds()` 是否调用；`map_layouts.json.bounds` 是否是 grid 的整数倍 |
 | 敌人走出地图 | `MapManager.bounds()` 是否配置；`GameplayRunLoop._apply_enemy_movement_bounds()` 是否在生成 / 续局恢复时调用；`Enemy.set_movement_bounds()` 是否在移动、分离和快照恢复后 clamp |
 | 机关不出现 | `map_layouts.json` 是否生成 placement；`hazards.csv.pool_id` 是否已注册；`runtime-smoke` 是否通过 active hazards 断言 |
@@ -345,22 +369,25 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 涉及标题 / 暂停设置入口、设置面板关闭、`ui_back` 返回或运行时语言刷新时，追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 涉及 `meta.gear_mods` 存档结构、Gear Mod loadout、掉落、升级、分解或下一局 modifier snapshot 时追加 `python tools/godot_bridge.py --project client gear-mod-smoke`；如果改了 F4 死亡接入、敌人击杀归因或失败面板，同时跑 `runtime-smoke`。
 - 涉及 GM 指令或 runtime debug API 时，追加 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`；命令影响局内战斗时追加 `runtime-smoke`。
+- 涉及房间 carrier、`RoomManager`、`rooms.json` / `room_sequences.json`、房间 `.tscn` marker、门 / 清房契约、`room` run 快照块或 `_migrate_run_v2_to_v3` 时，追加 `python tools/godot_bridge.py --project client room-switch-smoke` 与 `python tools/godot_bridge.py --project client save-smoke`，并跑 `python tools/validate_data.py`、`python tools/test_data_loader_schema.py`；改门方向 / 解锁 / 清房词表常量时还要跑 `python tools/sync_contracts.py --check`；详见 `docs/代码/room_manager.md`。
 - 数据 / locale 变化还要跑 `python tools/validate_data.py`、`python tools/lint_project_rules.py`。
 - 地图 / 机关数量、对象池生命周期或性能相关变化追加 `python tools/godot_bridge.py --project client perf-probe`；影响稳定运行时摘要时重跑 checked-in golden replay runner。
 - 当前没有 GUT runner，F4 首切片用 L0 + L2 + `runtime-smoke` + 手动 1 分钟跑通作为阶段门槛；后续接入 Godot 测试时补 Player / Combat / Pool / Spawner 的 L1。
 
 ## 迁移 / 兼容
 
-F5 已开始写 `SaveManager` 的 `run` kind，F11 当前 `meta` profile 由 `GearModSystem` 管理 `gear_mods` 子 payload。当前 gameplay runtime 自身 payload schema version 为 2；`SaveManager` 的 `run` envelope version 仍为 2，并提供 v1 -> v2 迁移来补齐早期 payload 可能缺失的结构字段。`ui_restore` 是 run payload 的可选恢复提示，缺失时按 `playing` 兼容旧 run 存档；`interest_points` 是 F12 后的可选领取状态，缺失时按未领取处理；`pending_loot` 是 F12 后的可选暂存战利品，缺失时按空暂存处理；`extraction` 是 F12 后的可选撤离状态，缺失时按未开启撤离处理；`skills` 是可选技能快照，缺失时按空技能状态兼容旧 run 存档；玩家和敌人快照中的 `status_effects` / `owned_tag_counts` 也是可选字段，缺失时按无状态处理；`map` / `hazards` 缺失时由迁移补空结构，运行时会按当前 layout 重新生成初始机关，保证可加载但不保证旧局逐帧一致。死亡不写入旧局外结算，只删除 `run`、显示失败清单并丢失 `pending_loot`；撤离成功会先把 `pending_loot` 结算进 `meta.gear_mods`，再删除 `run` 并显示完成清单。旧局外成长测试档不迁移。后续新增遗物、主动道具、技能栏、地图兴趣点、多出口撤离或局外奖励时，需要决定是否提升 runtime payload schema、`meta` payload schema 或 SaveManager kind version，并补迁移 / roundtrip 测试；不得保存对象池内部状态或节点引用。
+F5 已开始写 `SaveManager` 的 `run` kind，F11 当前 `meta` profile 由 `GearModSystem` 管理 `gear_mods` 子 payload。F13 起 gameplay runtime 自身 payload schema version（`RUN_SNAPSHOT_SCHEMA_VERSION`）为 3（2→3 新增 `room` 块）；`SaveManager` 的 `run` envelope version 同步为 3，提供 v1 -> v2 补结构字段和 v2 -> v3（`_migrate_run_v2_to_v3`）回填 `room={}` 走 open-warzone 路径的迁移，迁移后重算 `data_hash`。`ui_restore` 是 run payload 的可选恢复提示，缺失时按 `playing` 兼容旧 run 存档；`interest_points` 是 F12 后的可选领取状态，缺失时按未领取处理；`pending_loot` 是 F12 后的可选暂存战利品，缺失时按空暂存处理；`extraction` 是 F12 后的可选撤离状态，缺失时按未开启撤离处理；`room` 是 F13 后的可选房间 carrier 块，缺失或为空 `{}` 时按 open-warzone 处理，非空时走 `_restore_room_carrier`；`skills` 是可选技能快照，缺失时按空技能状态兼容旧 run 存档；玩家和敌人快照中的 `status_effects` / `owned_tag_counts` 也是可选字段，缺失时按无状态处理；`map` / `hazards` 缺失时由迁移补空结构，运行时会按当前 layout 重新生成初始机关，保证可加载但不保证旧局逐帧一致。死亡不写入旧局外结算，只删除 `run`、显示失败清单并丢失 `pending_loot`；撤离成功会先把 `pending_loot` 结算进 `meta.gear_mods`，再删除 `run` 并显示完成清单。旧局外成长测试档不迁移。后续新增遗物、主动道具、技能栏、地图兴趣点、多出口撤离或局外奖励时，需要决定是否提升 runtime payload schema、`meta` payload schema 或 SaveManager kind version，并补迁移 / roundtrip 测试；不得保存对象池内部状态或节点引用。
 
 ## 相关文档
 
 - `docs/AI协作/工作包/F4-MinPlayableLoop.md`
+- `docs/AI协作/工作包/F13-HandcraftedRooms.md`
 - `docs/正式项目工作规划.md` F4
 - `docs/代码/debug_tools.md`
 - `docs/游戏设计文档.md` §3 / §4 / §5.3 / §9.13 / §9.15.1
 - `docs/代码/combat.md`
 - `docs/代码/map_manager.md`
+- `docs/代码/room_manager.md`
 - `docs/代码/hazard_system.md`
 - `docs/代码/skill_system.md`
 - `docs/代码/gear_mod_system.md`

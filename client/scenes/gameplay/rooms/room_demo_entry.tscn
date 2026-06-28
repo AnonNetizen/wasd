@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://cuey2dgkjr1no"]
+
+[ext_resource type="Script" uid="uid://c1ym0btaypld8" path="res://scripts/gameplay/rooms/room_root.gd" id="1_gdfcj"]
+[ext_resource type="Script" uid="uid://c2o1v8ami04w" path="res://scripts/gameplay/rooms/room_player_start_marker.gd" id="2_h34bl"]
+[ext_resource type="Script" uid="uid://iy7q4dgvlpih" path="res://scripts/gameplay/rooms/room_enemy_spawn_marker.gd" id="3_5n4we"]
+[ext_resource type="Script" uid="uid://dwjlg53m5cvp5" path="res://scripts/gameplay/rooms/room_door_marker.gd" id="4_00ttx"]
+
+[node name="RoomRoot" type="Node2D" unique_id=1629903174]
+script = ExtResource("1_gdfcj")
+
+[node name="PlayerStart" type="Marker2D" parent="." unique_id=2042593989]
+position = Vector2(-400, 0)
+script = ExtResource("2_h34bl")
+
+[node name="EnemySpawn1" type="Marker2D" parent="." unique_id=1360661402]
+position = Vector2(240, 0)
+script = ExtResource("3_5n4we")
+
+[node name="DoorExit" type="Marker2D" parent="." unique_id=1122443855]
+position = Vector2(560, 0)
+script = ExtResource("4_00ttx")
+target_entry_id = "entry_from_west"

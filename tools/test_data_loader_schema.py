@@ -434,6 +434,46 @@ def main() -> int:
             ],
         ),
         (
+            "room clear condition must be registered",
+            _mutate_json("client/data/rooms.json", _set_room_clear_condition("clear_unknown")),
+            [
+                "client/data/rooms.json:rooms[0].clear_condition",
+                "unknown id clear_unknown; expected one of room_clear_conditions",
+            ],
+        ),
+        (
+            "room scene path must point to an existing scene",
+            _mutate_json("client/data/rooms.json", _set_room_scene_path("res://scenes/gameplay/rooms/room_missing.tscn")),
+            [
+                "client/data/rooms.json:rooms[0].scene_path",
+                "room scene file is missing: res://scenes/gameplay/rooms/room_missing.tscn",
+            ],
+        ),
+        (
+            "room allowed mode must be a registered mode",
+            _mutate_json("client/data/rooms.json", _set_room_allowed_mode("mode_missing")),
+            [
+                "client/data/rooms.json:rooms[0].allowed_modes[0]",
+                "unknown id mode_missing; expected one of game_modes",
+            ],
+        ),
+        (
+            "room sequence room reference must exist",
+            _mutate_json("client/data/room_sequences.json", _set_room_sequence_room("room_missing")),
+            [
+                "client/data/room_sequences.json:sequences[0].room_ids[0]",
+                "room is not defined in rooms.json: room_missing",
+            ],
+        ),
+        (
+            "room sequence final room must be listed in room_ids",
+            _mutate_json("client/data/room_sequences.json", _set_room_sequence_final_room("room_unlisted")),
+            [
+                "client/data/room_sequences.json:sequences[0].final_room_id",
+                "final_room_id is not listed in room_ids: room_unlisted",
+            ],
+        ),
+        (
             "relic must include relic tag",
             _mutate_json("client/data/relics.json", _set_relic_tags([])),
             [
@@ -687,6 +727,7 @@ def _run_case(name: str, mutator: RepoMutator | None, expected_fragments: list[s
 def _copy_test_repo(temp_root: Path) -> None:
     _copy_tree(ROOT / "client" / "data", temp_root / "client" / "data")
     _copy_tree(ROOT / "client" / "locale", temp_root / "client" / "locale")
+    _copy_tree(ROOT / "client" / "scenes" / "gameplay" / "rooms", temp_root / "client" / "scenes" / "gameplay" / "rooms")
     _copy_python_tools(temp_root / "tools")
     _copy_file(ROOT / "docs" / "词表与契约.md", temp_root / "docs" / "词表与契约.md")
 
@@ -829,6 +870,41 @@ def _set_warzone_completion_extraction_radius(value: int) -> JsonMutator:
 def _set_warzone_completion_extraction_hold_time(value: int) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["directors"][0]["interest_points"][3]["extraction_hold_time"] = value
+
+    return mutate
+
+
+def _set_room_clear_condition(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["rooms"][0]["clear_condition"] = value
+
+    return mutate
+
+
+def _set_room_scene_path(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["rooms"][0]["scene_path"] = value
+
+    return mutate
+
+
+def _set_room_allowed_mode(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["rooms"][0]["allowed_modes"][0] = value
+
+    return mutate
+
+
+def _set_room_sequence_room(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["sequences"][0]["room_ids"][0] = value
+
+    return mutate
+
+
+def _set_room_sequence_final_room(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["sequences"][0]["final_room_id"] = value
 
     return mutate
 

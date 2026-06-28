@@ -244,6 +244,20 @@
       "run",
       "replay_index"
     ],
+    "door_directions": [
+      "dir_north",
+      "dir_south",
+      "dir_east",
+      "dir_west"
+    ],
+    "door_unlock_rules": [
+      "unlock_on_clear",
+      "unlock_open"
+    ],
+    "room_clear_conditions": [
+      "room_clear_all_enemies",
+      "room_clear_none"
+    ],
     "locale_prefixes": [
       "ui_",
       "ui_gear_mod_",

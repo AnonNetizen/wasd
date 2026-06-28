@@ -21,6 +21,7 @@ const REPLAY_INPUT_SMOKE_RUNNER := preload("res://tools/replay_input_smoke.gd")
 const REPLAY_RUNNER := preload("res://tools/replay_runner.gd")
 const REPLAY_SMOKE_RUNNER := preload("res://tools/replay_smoke.gd")
 const RNG_AUDIT_RUNNER := preload("res://tools/rng_audit.gd")
+const ROOM_SWITCH_SMOKE_RUNNER := preload("res://tools/room_switch_smoke.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SAVE_SMOKE_RUNNER := preload("res://tools/save_manager_smoke.gd")
 const SETTINGS_SMOKE_RUNNER := preload("res://tools/settings_smoke.gd")
@@ -130,6 +131,12 @@ func _ready() -> void:
 		var f9_demo_smoke_runner: Node = F9_DEMO_SMOKE_RUNNER.new()
 		f9_demo_smoke_runner.name = "F9DemoSmoke"
 		add_child(f9_demo_smoke_runner)
+	elif _is_room_switch_smoke_enabled():
+		if data_schema_ok:
+			_start_gameplay_run({}, true)
+		var room_switch_smoke_runner: Node = ROOM_SWITCH_SMOKE_RUNNER.new()
+		room_switch_smoke_runner.name = "RoomSwitchSmoke"
+		add_child(room_switch_smoke_runner)
 	elif _is_runtime_smoke_enabled():
 		if data_schema_ok:
 			_start_gameplay_run()
@@ -164,6 +171,10 @@ func debug_active_run_loop() -> Node:
 
 func _is_runtime_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--runtime-smoke") or OS.get_cmdline_user_args().has("--f4-smoke")
+
+
+func _is_room_switch_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--room-switch-smoke")
 
 
 func _is_l1_smoke_enabled() -> bool:
@@ -230,12 +241,14 @@ func _show_title_menu(notice_key: String = "") -> void:
 	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
 
 
-func _start_gameplay_run(restore_snapshot: Dictionary = {}) -> void:
+func _start_gameplay_run(restore_snapshot: Dictionary = {}, room_carrier: bool = false) -> void:
 	UIManager.clear()
 	GameState.change_state(GameState.LOADING, {"source": "formal_client_boot"})
 	_clear_gameplay_runtime()
 
 	_run_loop = GAMEPLAY_RUN_LOOP_SCENE.instantiate()
+	if room_carrier and _run_loop.has_method("debug_enable_room_carrier"):
+		_run_loop.call("debug_enable_room_carrier")
 	if not restore_snapshot.is_empty() and _run_loop.has_method("configure_restore_snapshot"):
 		_run_loop.call("configure_restore_snapshot", restore_snapshot)
 	_run_loop.connect("restart_requested", Callable(self, "_on_run_restart_requested"))

@@ -33,6 +33,7 @@ const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const SKILL_SYSTEM_SCRIPT := preload("res://scripts/gameplay/skill_system.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 const WARZONE_DIRECTOR_SCRIPT := preload("res://scripts/gameplay/warzone_director.gd")
+const ROOM_MANAGER_SCRIPT := preload("res://scripts/gameplay/room_manager.gd")
 
 const BULLET_POOL_SIZE: int = 192
 const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 80.0)
@@ -44,7 +45,7 @@ const EXTRACTION_ZONE_RING_WIDTH: float = 4.0
 const FEEDBACK_POOL_SIZE: int = 128
 const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 2
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 3
 const ACTIVE_POOL_GROUPS: Array[String] = ["active_hazards", "active_enemies", "active_bullets", "active_pickups"]
 const UI_RESTORE_LEVEL_UP: String = "level_up"
 const UI_RESTORE_PAUSED: String = "paused"
@@ -85,6 +86,8 @@ var _skill_system: Node = null
 var _spawn_states: Dictionary = {}
 var _debug_next_gear_mod_drop_forced_roll: float = -1.0
 var _run_completed: bool = false
+var _room_carrier_enabled: bool = false
+var _room_manager: Node2D = null
 var _warzone_director = null
 var _waves: Array[Dictionary] = []
 var _weapon_system: Node = null
@@ -130,6 +133,9 @@ func _process(delta: float) -> void:
 	_update_stats_panel()
 	if not GameState.is_state(GameState.PLAYING):
 		return
+	if _room_carrier_enabled:
+		_update_room(delta)
+		return
 	_update_interest_points()
 	if not GameState.is_state(GameState.PLAYING):
 		return
@@ -160,6 +166,13 @@ func configure_restore_snapshot(snapshot_data: Dictionary) -> void:
 
 func debug_force_next_gear_mod_drop_roll(roll: float) -> void:
 	_debug_next_gear_mod_drop_forced_roll = roll
+
+
+## Test-harness-only toggle (mirrors debug_enable_level_up_growth). Must be called before the
+## node enters the tree (before _ready/_start_run) to make a fresh run use the F13 room carrier
+## instead of the default open-warzone carrier. Loaded room saves enable the carrier from data.
+func debug_enable_room_carrier() -> void:
+	_room_carrier_enabled = true
 
 
 func debug_enable_level_up_growth(pool_id: String = DEFAULT_DEBUG_GROWTH_POOL) -> void:
@@ -199,6 +212,7 @@ func create_run_snapshot() -> Dictionary:
 		"enemies": _entity_snapshots("active_enemies"),
 		"bullets": _entity_snapshots("active_bullets"),
 		"pickups": _entity_snapshots("active_pickups"),
+		"room": _room_snapshot(),
 		"ui_restore": _ui_restore_snapshot(),
 	}
 
@@ -253,8 +267,11 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_growth_curve = _load_growth_curve()
 	_growth_entries = _load_growth_entries(mode)
 	_waves = _load_waves(GAME_MODES.MODE_STANDARD_SURVIVAL)
-	_warzone_director = WARZONE_DIRECTOR_SCRIPT.new()
-	_warzone_director.configure(GAME_MODES.MODE_STANDARD_SURVIVAL, _load_warzone_director(GAME_MODES.MODE_STANDARD_SURVIVAL), _waves)
+	if _room_carrier_enabled:
+		_warzone_director = null
+	else:
+		_warzone_director = WARZONE_DIRECTOR_SCRIPT.new()
+		_warzone_director.configure(GAME_MODES.MODE_STANDARD_SURVIVAL, _load_warzone_director(GAME_MODES.MODE_STANDARD_SURVIVAL), _waves)
 	_spawn_states.clear()
 	_clear_interest_point_caches()
 	_interest_points.clear()
@@ -311,6 +328,8 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	if not restore_snapshot.is_empty():
 		_restore_run_snapshot(restore_snapshot)
 		_restore_ui_state(restore_snapshot.get("ui_restore", {}))
+	elif _room_carrier_enabled:
+		_start_room_carrier_fresh()
 	else:
 		var hazard_placements: Array[Dictionary] = _generate_map_hazard_placements()
 		_configure_interest_points(hazard_placements)
@@ -511,6 +530,25 @@ func debug_clear_enemies() -> Dictionary:
 	}
 
 
+func debug_room_carrier_enabled() -> bool:
+	return _room_carrier_enabled
+
+
+func debug_room_state() -> Dictionary:
+	return _room_snapshot()
+
+
+func debug_room_doors() -> Dictionary:
+	if _room_manager != null and is_instance_valid(_room_manager) and _room_manager.has_method("debug_doors"):
+		return _room_manager.call("debug_doors")
+	return {}
+
+
+func debug_set_player_position(world_position: Vector2) -> void:
+	if _player != null and is_instance_valid(_player):
+		_player.global_position = world_position
+
+
 func debug_cast_primary_skill() -> Dictionary:
 	if _skill_system == null or not _skill_system.has_method("cast_primary_skill"):
 		return _debug_result(false, "skill_system_unavailable")
@@ -626,6 +664,148 @@ func _spawn_enemy(wave: Dictionary, wave_key: String) -> bool:
 func _spawn_map_hazards(placements: Array[Dictionary]) -> void:
 	for placement: Dictionary in placements:
 		_spawn_hazard(placement)
+
+
+func _start_room_carrier_fresh() -> void:
+	var sequence: Dictionary = _load_room_sequence(GAME_MODES.MODE_STANDARD_SURVIVAL)
+	if sequence.is_empty():
+		push_error("[GameplayRunLoop] no room sequence for mode %s" % GAME_MODES.MODE_STANDARD_SURVIVAL)
+		return
+	_ensure_room_manager()
+	_room_manager.call("configure", sequence, _load_rooms_by_id())
+	_enter_room(0, "")
+
+
+func _ensure_room_manager() -> void:
+	if _room_manager != null and is_instance_valid(_room_manager):
+		return
+	_room_manager = ROOM_MANAGER_SCRIPT.new()
+	_room_manager.name = "RoomManager"
+	_active_world.add_child(_room_manager)
+
+
+func _enter_room(index: int, entry_id: String) -> void:
+	if _room_manager == null:
+		return
+	var info: Dictionary = _room_manager.call("enter_room_index", index, entry_id)
+	if info.is_empty():
+		push_error("[GameplayRunLoop] failed to enter room index %d" % index)
+		return
+	_configure_map_for_room(_dictionary_or_empty(info.get("bounds_layout", {})))
+	if _player != null and _map_manager != null and _map_manager.has_method("player_start"):
+		_player.global_position = _map_manager.call("player_start")
+		_apply_player_movement_bounds()
+	_spawn_room_content(info)
+
+
+func _configure_map_for_room(bounds_layout: Dictionary) -> void:
+	if _map_manager == null or bounds_layout.is_empty():
+		return
+	_map_layout = bounds_layout
+	if _map_manager.has_method("configure"):
+		_map_manager.call("configure", bounds_layout, _hazard_rows)
+	var background: Node2D = _active_world.get_node_or_null("WorldBackground") as Node2D
+	if background != null and background.has_method("configure"):
+		background.call("configure", _player, _map_grid_cell_size())
+
+
+func _spawn_room_content(info: Dictionary) -> void:
+	var spawned: int = 0
+	for raw_spawn: Variant in _array_or_empty(info.get("enemy_spawns", [])):
+		if not raw_spawn is Dictionary:
+			continue
+		var spawn: Dictionary = raw_spawn as Dictionary
+		var enemy_id: String = String(spawn.get("enemy_id", ""))
+		var count: int = maxi(int(spawn.get("count", 1)), 1)
+		var spawn_position: Vector2 = _dict_to_vector(spawn.get("position", {}), Vector2.ZERO)
+		for _index: int in range(count):
+			if _spawn_enemy_at(enemy_id, spawn_position, ROOM_MANAGER_SCRIPT.ROOM_SPAWN_KEY):
+				spawned += 1
+	if _room_manager != null:
+		_room_manager.call("notify_room_enemies_spawned", spawned)
+	for raw_hazard: Variant in _array_or_empty(info.get("hazard_spawns", [])):
+		if not raw_hazard is Dictionary:
+			continue
+		var hazard_spawn: Dictionary = raw_hazard as Dictionary
+		if not bool(hazard_spawn.get("enabled_at_start", true)):
+			continue
+		var hazard_id: String = String(hazard_spawn.get("hazard_id", ""))
+		var hazard_position: Vector2 = _dict_to_vector(hazard_spawn.get("position", {}), Vector2.ZERO)
+		if _map_manager != null and _map_manager.has_method("normalize_hazard_position"):
+			hazard_position = _map_manager.call("normalize_hazard_position", hazard_position, hazard_id)
+		_spawn_hazard({"hazard_id": hazard_id, "position": _vector_to_dict(hazard_position)})
+
+
+func _spawn_enemy_at(enemy_id: String, spawn_position: Vector2, spawn_key: String) -> bool:
+	if not _enemy_rows.has(enemy_id):
+		return false
+	var enemy_data: Dictionary = _enemy_rows[enemy_id]
+	var pool_id: String = String(enemy_data.get("pool_id", ""))
+	var raw_node: Node = PoolManager.acquire(pool_id)
+	if not raw_node is Node2D or not raw_node.has_method("configure"):
+		return false
+	var enemy: Node2D = raw_node as Node2D
+	enemy.global_position = spawn_position
+	_reparent_to_active_world(enemy)
+	enemy.set_meta("wave_key", spawn_key)
+	enemy.call("configure", enemy_data, _player)
+	_apply_enemy_movement_bounds(enemy)
+	_connect_enemy_defeated(enemy, spawn_key)
+	return true
+
+
+func _update_room(_delta: float) -> void:
+	if _room_manager == null or not is_instance_valid(_room_manager):
+		return
+	var intent: Dictionary = _room_manager.call("tick", _player.global_position)
+	if String(intent.get("action", "")) == "switch":
+		_handle_room_switch(intent)
+
+
+func _handle_room_switch(intent: Dictionary) -> void:
+	if bool(intent.get("is_final", false)):
+		_complete_run(String(_room_manager.call("current_room_id")))
+		return
+	var target_entry_id: String = String(intent.get("target_entry_id", ""))
+	var next_index: int = int(_room_manager.call("current_room_index")) + 1
+	_clear_room_entities()
+	_enter_room(next_index, target_entry_id)
+
+
+func _clear_room_entities() -> void:
+	_release_active_world_pool_entities()
+
+
+func _restore_room_carrier(room_snapshot: Dictionary) -> void:
+	_ensure_room_manager()
+	_room_manager.call("configure", _load_room_sequence(GAME_MODES.MODE_STANDARD_SURVIVAL), _load_rooms_by_id())
+	var index: int = maxi(int(room_snapshot.get("room_index", 0)), 0)
+	var info: Dictionary = _room_manager.call("enter_room_index", index, "")
+	if not info.is_empty():
+		_configure_map_for_room(_dictionary_or_empty(info.get("bounds_layout", {})))
+	_room_manager.call("restore_state", room_snapshot)
+
+
+func _room_snapshot() -> Dictionary:
+	if _room_carrier_enabled and _room_manager != null and is_instance_valid(_room_manager) and _room_manager.has_method("snapshot"):
+		return _room_manager.call("snapshot")
+	return {}
+
+
+func _load_room_sequence(mode_id: String) -> Dictionary:
+	for sequence: Dictionary in _typed_dictionary_array(_load_array(DataLoader.ROOM_SEQUENCES_PATH, "sequences")):
+		if String(sequence.get("mode_id", "")) == mode_id:
+			return sequence
+	return {}
+
+
+func _load_rooms_by_id() -> Dictionary:
+	var result: Dictionary = {}
+	for room: Dictionary in _typed_dictionary_array(_load_array(DataLoader.ROOMS_PATH, "rooms")):
+		var room_id: String = String(room.get("id", ""))
+		if not room_id.is_empty():
+			result[room_id] = room
+	return result
 
 
 func _configure_interest_points(placements: Array[Dictionary]) -> void:
@@ -1020,6 +1200,8 @@ func _on_enemy_defeated(_enemy: Node, _exp_reward: int, wave_key: String) -> voi
 		var state: Dictionary = _spawn_states[wave_key]
 		state["alive"] = maxi(int(state.get("alive", 0)) - 1, 0)
 		_spawn_states[wave_key] = state
+	if _room_carrier_enabled and _room_manager != null and is_instance_valid(_room_manager) and wave_key == ROOM_MANAGER_SCRIPT.ROOM_SPAWN_KEY:
+		_room_manager.call("notify_enemy_defeated")
 
 
 func _spawn_pickup_orb(spawn_position: Vector2, amount: int) -> void:
@@ -1392,6 +1574,11 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> void:
 	_kills = maxi(int(snapshot_data.get("kills", 0)), 0)
 	_spawn_states = _dictionary_or_empty(snapshot_data.get("spawn_states", {}))
 
+	var room_snapshot: Dictionary = _dictionary_or_empty(snapshot_data.get("room", {}))
+	if not room_snapshot.is_empty():
+		_room_carrier_enabled = true
+		_restore_room_carrier(room_snapshot)
+
 	var rng_snapshot: Variant = snapshot_data.get("rng", {})
 	if rng_snapshot is Dictionary:
 		RNG.restore_snapshot(rng_snapshot as Dictionary)
@@ -1409,7 +1596,7 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> void:
 		_skill_system.call("restore_snapshot", snapshot_data.get("skills", {}) as Dictionary)
 
 	var hazard_snapshots: Array = _array_or_empty(snapshot_data.get("hazards", []))
-	if hazard_snapshots.is_empty() and _map_manager != null and _map_manager.has_method("generate_hazard_placements"):
+	if hazard_snapshots.is_empty() and not _room_carrier_enabled and _map_manager != null and _map_manager.has_method("generate_hazard_placements"):
 		var hazard_placements: Array[Dictionary] = _generate_map_hazard_placements()
 		_spawn_map_hazards(hazard_placements)
 	else:

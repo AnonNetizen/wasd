@@ -97,7 +97,9 @@ func _expect_migration_chain() -> void:
 	_expect(migrated_payload.get("pickups", null) is Array, "run v1->v2 migration should normalize missing pickup snapshots")
 	_expect(migrated_payload.get("map", null) is Dictionary, "run v1->v2 migration should normalize missing map snapshot")
 	_expect(migrated_payload.get("hazards", null) is Array, "run v1->v2 migration should normalize missing hazard snapshots")
-	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 1, SaveManager.current_version(RUN_KIND)]), "run migration should emit save_migrated")
+	_expect(migrated_payload.get("room", null) is Dictionary, "run v2->v3 migration should normalize missing room snapshot")
+	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 1, 2]), "run migration should emit save_migrated for run 1->2")
+	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 2, 3]), "run migration should emit save_migrated for run 2->3")
 
 
 func _run_payload(marker: String, level: int) -> Dictionary:

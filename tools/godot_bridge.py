@@ -69,6 +69,7 @@ def main() -> int:
     subparsers.add_parser("f9-demo-smoke", help="Run the F9 demo content slice smoke in headless Godot.")
     subparsers.add_parser("runtime-smoke", help="Run the formal gameplay runtime smoke in headless Godot.")
     subparsers.add_parser("f4-smoke", help="Compatibility alias for runtime-smoke.")
+    subparsers.add_parser("room-switch-smoke", help="Run the F13 handcrafted room switch smoke in headless Godot.")
     subparsers.add_parser("gear-mod-smoke", help="Run the F11 Gear Mod loadout smoke in headless Godot.")
     subparsers.add_parser("save-smoke", help="Run the SaveManager run-save reliability smoke in headless Godot.")
     subparsers.add_parser("settings-smoke", help="Run the F7 Settings persistence smoke in headless Godot.")
@@ -223,6 +224,18 @@ def main() -> int:
         smoke_flag = "--runtime-smoke" if args.command == "runtime-smoke" else "--f4-smoke"
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--", smoke_flag],
+            cwd=project,
+        )
+    if args.command == "room-switch-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        smoke_script = project / "tools" / "room_switch_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing room switch smoke script: {_rel(smoke_script)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", "--room-switch-smoke"],
             cwd=project,
         )
     if args.command == "save-smoke":

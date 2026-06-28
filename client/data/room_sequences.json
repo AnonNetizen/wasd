@@ -1,0 +1,11 @@
+{
+	"schema_version": 1,
+	"sequences": [
+		{
+			"id": "sequence_demo_linear",
+			"mode_id": "mode_standard_survival",
+			"room_ids": ["room_demo_entry", "room_demo_arena"],
+			"final_room_id": "room_demo_arena"
+		}
+	]
+}

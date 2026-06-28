@@ -215,6 +215,7 @@
 | #125 | 俯视角地面语言改为矩形 / 方形 2D 网格；`map_layouts.json.grid.cell_width/cell_height` 表示水平 / 垂直格宽高，`MapManager` 使用矩形边界、矩形出生安全区和矩形 clamp，`Hazard` / POI target / cache / extraction 都用矩形俯视 footprint | GDD、AI导航、术语表、IP美术风格、F9 / F12 工作包、MapManager / HazardSystem / Gameplay Runtime / WarzoneDirector 文档、Data README、测试策略、四平台规则入口、current_state、AI记忆 |
 | #126 | 敌人 AI 新增通用远程攻击 action；`enemy_ai_profiles.json.movement.ranged_*` 配置距离、冷却和投射物参数，默认短刷图 5:00 引入 `enemy_spitter` 喷棘者，敌弹复用池化子弹并通过 `Combat.apply_damage()` 伤害玩家 | GDD、AI导航、AI记忆、Gameplay Runtime / EnemyAI 文档、Data README、词表与契约、`client/data/enemy_ai_profiles.json`、`client/data/enemies.csv`、`client/data/spawn_waves.csv`、`client/scripts/gameplay/enemy.gd`、`client/scripts/gameplay/bullet.gd`、`client/tools/runtime_smoke.gd` |
 | #127 | 默认短刷图下一阶段转向手工房间串联；每个房间用 Godot `.tscn` + marker 手工制作，首片只做线性房间序列、清房开门和进入下一房间，暂不自研完整关卡编辑器 UI | F13 工作包、GDD、AI导航、测试策略、正式项目工作规划、TODO、current_state、AI记忆；实现后追加 RoomManager / Gameplay Runtime / MapManager / SaveManager 文档和房间数据手册 |
+| #128 | F13 手工房间制短刷图首片运行时落地；`RoomManager`（Node2D，房间 carrier 下由 `GameplayRunLoop` 在 `ActiveWorld` 创建 / 驱动）、`rooms.json` / `room_sequences.json`、`RoomRoot` + 四类房间 marker、两个演示房间 `.tscn`、词表 §15-A/B/C 门 / 清房契约、run payload v2→v3 + 迁移、`room-switch-smoke`；房间 carrier 首片 opt-in，默认 open-warzone 不变；四条黄金回放因 data_fingerprint 变化重录、行为 summary 未变 | `docs/代码/room_manager.md`、F13 工作包、Gameplay Runtime / MapManager / SaveManager 文档、词表、`client/data/README.md`、GDD、AI导航、测试策略、引擎集成、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 
@@ -223,7 +224,7 @@
 | 类型 | 路径 | 用途 |
 |------|------|------|
 | 正式项目启动模块文档 | `docs/代码/formal_client_boot.md` | 展示 F1 最小启动骨架与 gameplay runtime 挂载的职责边界、场景结构与验证方式 |
-| Gameplay Runtime 模块文档 | `docs/代码/gameplay_runtime.md` / `docs/代码/combat.md` / `docs/代码/skill_system.md` / `docs/代码/status_effect_component.md` / `docs/代码/map_manager.md` / `docs/代码/hazard_system.md` / `docs/代码/warzone_director.md` | 展示最小可玩闭环、统一伤害入口、可复用主动技能、状态效果生命周期、有限地图、PCG 机关、战区导演、对象池实体、HUD 与验证方式 |
+| Gameplay Runtime 模块文档 | `docs/代码/gameplay_runtime.md` / `docs/代码/combat.md` / `docs/代码/skill_system.md` / `docs/代码/status_effect_component.md` / `docs/代码/map_manager.md` / `docs/代码/hazard_system.md` / `docs/代码/warzone_director.md` / `docs/代码/room_manager.md` | 展示最小可玩闭环、统一伤害入口、可复用主动技能、状态效果生命周期、有限地图、PCG 机关、战区导演、F13 手工房间制、对象池实体、HUD 与验证方式 |
 | EnemyAI 模块文档 | `docs/代码/enemy_ai.md` | 展示怪物生态 profile、Utility/FSM/Steering 分工、怪物互相伤害归因与验证方式 |
 | 正式项目 autoload 模块文档 | `docs/代码/mod_loader.md` / `data_loader.md` / `rng.md` / `game_state.md` / `game_clock.md` / `platform_services.md` / `settings.md` / `analytics.md` / `replay.md` / `pool_manager.md` / `save_manager.md` / `audio_manager.md` / `localization.md` / `ui_manager.md` | 展示基础设施模块的 API、依赖与测试义务 |
 | 功能建议池 | `docs/功能建议池.md` | 展示 F9 第一轮 Demo 收口后可人工点名的新功能菜单；不是已采纳路线图 |
