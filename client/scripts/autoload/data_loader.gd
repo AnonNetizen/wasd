@@ -565,7 +565,25 @@ func _validate_enemy_ai_movement(field: String, data: Variant) -> bool:
 	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_duration" % field, payload.get("charge_duration"), 0.0) and is_valid
 	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_cooldown" % field, payload.get("charge_cooldown"), 0.0) and is_valid
 	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_speed_scale" % field, payload.get("charge_speed_scale"), 0.0, null, true) and is_valid
+	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_attack_range", 0.0, true) and is_valid
+	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_keep_distance", 0.0, false) and is_valid
+	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_cooldown", 0.0, true) and is_valid
+	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_initial_cooldown", 0.0, false) and is_valid
+	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_damage", 0.0, true) and is_valid
+	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_speed", 0.0, true) and is_valid
+	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_range", 0.0, true) and is_valid
+	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_hit_radius", 0.0, true) and is_valid
+	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_lifetime", 0.0, true) and is_valid
+	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_muzzle_distance", 0.0, false) and is_valid
+	if payload.has("ranged_projectile_damage_type"):
+		is_valid = _require_registered(ENEMY_AI_PROFILES_PATH, "%s.ranged_projectile_damage_type" % field, payload.get("ranged_projectile_damage_type"), "damage_types") != "" and is_valid
 	return is_valid
+
+
+func _validate_optional_enemy_ai_movement_number(field: String, payload: Dictionary, key: String, minimum: float, exclusive_minimum: bool) -> bool:
+	if not payload.has(key):
+		return true
+	return _require_number(ENEMY_AI_PROFILES_PATH, "%s.%s" % [field, key], payload.get(key), minimum, null, exclusive_minimum)
 
 
 func _validate_enemy_ai_actions(field: String, data: Variant) -> bool:

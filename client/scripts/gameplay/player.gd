@@ -20,6 +20,7 @@ const PLACEHOLDER_FILL_COLOR: Color = Color(0.35, 0.72, 1.0)
 const PLACEHOLDER_HURT_COLOR: Color = Color(1.0, 0.34, 0.30)
 const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
 const PLACEHOLDER_OUTLINE_SCALE: float = 1.18
+const ACTIVE_PLAYER_GROUP: String = "active_player"
 const REPLAY_PARTICIPANT_ID: String = "player_0"
 const TEAM_PLAYER: String = "team_player"
 const REPLAY_STATE_ACTIONS: Array[String] = [
@@ -130,6 +131,7 @@ func configure(base_stats: Dictionary) -> void:
 	_mouse_aim_active = false
 	_mouse_aim_viewport_offset = Vector2.ZERO
 	_rebuild_stats(true)
+	add_to_group(ACTIVE_PLAYER_GROUP)
 
 
 func current_life() -> float:
@@ -138,6 +140,10 @@ func current_life() -> float:
 
 func max_life() -> float:
 	return _max_life
+
+
+func is_alive() -> bool:
+	return _life_points > 0.0
 
 
 func debug_heal(amount: float) -> Dictionary:
@@ -189,6 +195,10 @@ func luck() -> float:
 
 func separation_radius() -> float:
 	return _separation_radius
+
+
+func hit_radius() -> float:
+	return DRAW_RADIUS
 
 
 func stat_value(stat: String) -> float:

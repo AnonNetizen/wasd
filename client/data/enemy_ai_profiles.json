@@ -155,6 +155,56 @@
           "speed_scale": 0.9
         }
       ]
+    },
+    {
+      "id": "enemy_ai_ranged_spitter",
+      "sense_radius": 860.0,
+      "decision_interval": 0.12,
+      "contact_interval": 0.8,
+      "targeting": {
+        "player_weight": 1.0,
+        "hunt_tags": [],
+        "flee_tags": [],
+        "territory_radius": 0.0,
+        "territory_weight": 0.0
+      },
+      "movement": {
+        "orbit_radius": 280.0,
+        "flee_distance": 260.0,
+        "charge_range": 0.0,
+        "charge_windup": 0.0,
+        "charge_duration": 0.0,
+        "charge_cooldown": 0.0,
+        "charge_speed_scale": 1.0,
+        "ranged_attack_range": 560.0,
+        "ranged_keep_distance": 230.0,
+        "ranged_cooldown": 1.35,
+        "ranged_initial_cooldown": 0.45,
+        "ranged_projectile_damage": 48.0,
+        "ranged_projectile_damage_type": "physical",
+        "ranged_projectile_speed": 360.0,
+        "ranged_projectile_range": 620.0,
+        "ranged_projectile_hit_radius": 7.0,
+        "ranged_projectile_lifetime": 2.0,
+        "ranged_projectile_muzzle_distance": 18.0
+      },
+      "actions": [
+        {
+          "id": "ai_action_ranged_attack",
+          "base_score": 0.95,
+          "speed_scale": 0.82
+        },
+        {
+          "id": "ai_action_orbit_target",
+          "base_score": 0.35,
+          "speed_scale": 0.85
+        },
+        {
+          "id": "ai_action_approach_target",
+          "base_score": 0.2,
+          "speed_scale": 0.75
+        }
+      ]
     }
   ]
 }

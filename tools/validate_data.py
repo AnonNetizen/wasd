@@ -415,6 +415,33 @@ def _validate_enemy_ai_movement(ctx: ValidationContext, path: Path, field: str, 
     _require_number(ctx, path, f"{field}.charge_duration", data.get("charge_duration"), minimum=0)
     _require_number(ctx, path, f"{field}.charge_cooldown", data.get("charge_cooldown"), minimum=0)
     _require_number(ctx, path, f"{field}.charge_speed_scale", data.get("charge_speed_scale"), minimum=0, exclusive_minimum=True)
+    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_attack_range", minimum=0, exclusive_minimum=True)
+    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_keep_distance", minimum=0)
+    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_cooldown", minimum=0, exclusive_minimum=True)
+    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_initial_cooldown", minimum=0)
+    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_projectile_damage", minimum=0, exclusive_minimum=True)
+    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_projectile_speed", minimum=0, exclusive_minimum=True)
+    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_projectile_range", minimum=0, exclusive_minimum=True)
+    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_projectile_hit_radius", minimum=0, exclusive_minimum=True)
+    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_projectile_lifetime", minimum=0, exclusive_minimum=True)
+    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_projectile_muzzle_distance", minimum=0)
+    if "ranged_projectile_damage_type" in data:
+        _require_registered(ctx, path, f"{field}.ranged_projectile_damage_type", data.get("ranged_projectile_damage_type"), "damage_types")
+
+
+def _require_optional_enemy_ai_movement_number(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    data: dict[str, Any],
+    key: str,
+    *,
+    minimum: float,
+    exclusive_minimum: bool = False,
+) -> None:
+    if key not in data:
+        return
+    _require_number(ctx, path, f"{field}.{key}", data.get(key), minimum=minimum, exclusive_minimum=exclusive_minimum)
 
 
 def _validate_enemy_ai_actions(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:

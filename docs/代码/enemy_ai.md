@@ -82,6 +82,7 @@
 | `enemy_ai_prey_swarm` | 群集弱怪；会靠近玩家，但遇到掠食者 / 领地怪优先逃跑 |
 | `enemy_ai_predator_stalker` | 掠食者；优先狩猎 `tag_enemy_prey`，近距离进入冲锋 |
 | `enemy_ai_territorial_guard` | 领地怪；会回到出生点附近，也会攻击玩家或掠食者 |
+| `enemy_ai_ranged_spitter` | 远程喷吐怪；保持距离、绕行并用池化投射物攻击玩家 |
 
 ## 公共 API
 
@@ -100,7 +101,7 @@
 
 ## 依赖
 
-- 上游依赖：`DataLoader`、`GameClock`、`GameState`、`PoolManager`、`Combat`、`DamageInfo`、`StatusEffectComponent`、`MapManager.boundary_half_extents()`、生成契约 `EnemyAiActions` / `AbilityTags`、`content_tags`。
+- 上游依赖：`DataLoader`、`GameClock`、`GameState`、`PoolManager`、`Combat`、`DamageInfo`、`StatusEffectComponent`、`MapManager.boundary_half_extents()`、生成契约 `EnemyAiActions` / `PoolIds` / `Stats` / `AbilityTags`、`content_tags`。
 - 下游调用方：`GameplayRunLoop`、`runtime-smoke`、未来 debug / 可视化工具。
 - 禁止依赖：不得直接读物理输入、原始时间、裸随机或绕过 `Combat` 扣血；不得在 `enemy.gd` 写 `if enemy_id == ...` 的内容分支。
 
@@ -109,6 +110,7 @@
 - 新敌人：先决定是否复用现有 profile；能复用就只改 `enemies.csv`、`game_modes.json`、`spawn_waves.csv` 和 locale。
 - 新生态关系：优先加 / 复用 `content_tags`，再调 `hunt_tags` / `flee_tags` 权重。
 - 新动作：先在词表 §12-B 登记 action id 并生成常量，再实现评分、执行、必要的快照字段和 smoke。
+- 远程敌人：复用 `ai_action_ranged_attack` 和 `movement.ranged_*` 字段；投射物必须走 `PoolManager` 的 `bullet_basic`、命中玩家组并通过 `Combat.apply_damage()`，不要直接扣玩家血。
 - 新持续状态：优先通过 `StatusEffectComponent` 和 ability tag / DoT 参数表达，不在 AI action 里手写计时；需要影响移动 / 伤害时后续接 ModifierEngine 或 on-hit primitive。
 - 新复杂 AI 状态：只把可恢复、JSON 友好的状态写入 snapshot；节点引用、临时感知缓存和 cooldown 字典不进存档。
 - 后续如引入导航 / 地形感知，先把环境查询抽成小接口或感知层数据，不把地图规则散落到每个 action。
@@ -119,6 +121,7 @@
 |------------|----------|------|
 | 调猎物更胆小 | `enemy_ai_profiles.json` 中 `flee_tags.weight` / flee `base_score` | `validate_data` + `runtime-smoke` |
 | 调掠食者冲锋频率 | `charge_range`、`charge_cooldown`、`ai_action_charge_target.base_score` | `runtime-smoke` + golden replay |
+| 调远程喷吐压力 | `ranged_attack_range`、`ranged_keep_distance`、`ranged_cooldown`、`ranged_projectile_*` | `validate_data` + `runtime-smoke` |
 | 加新生态 tag | `docs/词表与契约.md`、`enemies.csv.tags`、profile 的 hunt/flee tags | `sync_contracts --check` + schema test |
 | 新增 AI profile | `enemy_ai_profiles.json`、`enemies.csv.ai_profile_id` | `validate_data` + schema test |
 | 改敌人互相击杀收益 | `gameplay_run_loop.gd` 的 `_on_enemy_defeated()` | `runtime-smoke` + 相关 replay |

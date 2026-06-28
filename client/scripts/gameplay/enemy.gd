@@ -9,10 +9,13 @@ signal defeated(enemy: Node, exp_reward: int)
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
+const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
+const STATS := preload("res://scripts/contracts/stats.gd")
 const STATUS_EFFECT_COMPONENT_SCRIPT := preload("res://scripts/combat/status_effect_component.gd")
 
 const ACTION_STATE_CHARGE_RELEASE: String = "charge_release"
 const ACTION_STATE_CHARGE_WINDUP: String = "charge_windup"
+const ACTIVE_PLAYER_GROUP: String = "active_player"
 const DEFEAT_FEEDBACK_DURATION: float = 0.18
 const DEFEAT_FEEDBACK_COLOR: Color = Color(1.0, 0.62, 0.22)
 const EYE_OUTLINE_SCALE: float = 1.65
@@ -53,6 +56,7 @@ var _movement_bounds: Rect2 = Rect2()
 var _move_speed: float = 0.0
 var _owned_tag_counts: Dictionary = {}
 var _player_target: Node2D = null
+var _ranged_cooldown_remaining: float = 0.0
 var _separation_radius: float = 0.0
 var _status_effect_component: Node = null
 var _tags: Array[String] = []
@@ -109,6 +113,7 @@ func configure(enemy_data: Dictionary, target: Node2D) -> void:
 	_charge_cooldown_remaining = 0.0
 	_charge_direction = Vector2.ZERO
 	_contact_cooldowns.clear()
+	_ranged_cooldown_remaining = _movement_value("ranged_initial_cooldown")
 	_last_damage_source_team = ""
 	_last_scores.clear()
 	_decision_remaining = 0.0
@@ -260,6 +265,7 @@ func snapshot() -> Dictionary:
 		"action_timer": _action_timer,
 		"charge_cooldown_remaining": _charge_cooldown_remaining,
 		"charge_direction": _vector_to_dict(_charge_direction),
+		"ranged_cooldown_remaining": _ranged_cooldown_remaining,
 		"last_damage_source_team": _last_damage_source_team,
 		"owned_tag_counts": _owned_tag_counts.duplicate(true),
 		"status_effects": _status_effect_snapshot(),
@@ -280,6 +286,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_action_timer = maxf(float(snapshot_data.get("action_timer", 0.0)), 0.0)
 	_charge_cooldown_remaining = maxf(float(snapshot_data.get("charge_cooldown_remaining", 0.0)), 0.0)
 	_charge_direction = _dict_to_vector(snapshot_data.get("charge_direction", {}), Vector2.ZERO)
+	_ranged_cooldown_remaining = maxf(float(snapshot_data.get("ranged_cooldown_remaining", 0.0)), 0.0)
 	_last_damage_source_team = String(snapshot_data.get("last_damage_source_team", ""))
 	_restore_status_snapshot(snapshot_data)
 	if _life_points <= 0.0:
@@ -296,6 +303,7 @@ func _pool_reset() -> void:
 	_charge_cooldown_remaining = 0.0
 	_charge_direction = Vector2.ZERO
 	_contact_cooldowns.clear()
+	_ranged_cooldown_remaining = 0.0
 	_contact_damage = 0.0
 	_contact_damage_type = ""
 	_current_action = ""
@@ -447,6 +455,8 @@ func _action_candidate(action: Dictionary, context: Dictionary) -> Dictionary:
 		return _flee_candidate(base_score, context)
 	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET:
 		return _charge_candidate(base_score, context)
+	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK:
+		return _ranged_attack_candidate(base_score, context)
 	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_ORBIT_TARGET:
 		return _orbit_candidate(base_score, context)
 	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME:
@@ -479,6 +489,18 @@ func _charge_candidate(base_score: float, context: Dictionary) -> Dictionary:
 	if charge_range <= 0.0 or distance > charge_range:
 		return _candidate(0.0, null)
 	var range_score: float = _proximity_score(distance, charge_range)
+	return _candidate(base_score + float(context.get("target_score", 0.0)) + range_score, target)
+
+
+func _ranged_attack_candidate(base_score: float, context: Dictionary) -> Dictionary:
+	var target: Node2D = context.get("target") as Node2D
+	if target == null or not is_instance_valid(target):
+		return _candidate(0.0, null)
+	var distance: float = float(context.get("target_distance", global_position.distance_to(target.global_position)))
+	var attack_range: float = _movement_value("ranged_attack_range")
+	if attack_range <= 0.0 or distance > attack_range:
+		return _candidate(0.0, null)
+	var range_score: float = _proximity_score(distance, attack_range)
 	return _candidate(base_score + float(context.get("target_score", 0.0)) + range_score, target)
 
 
@@ -526,10 +548,71 @@ func _apply_current_action(delta: float) -> void:
 	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET:
 		_start_charge()
 		return
+	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK:
+		_apply_ranged_attack(delta)
+		return
 	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME:
 		_move_in_direction(_home_position - global_position, _action_speed_scale(_current_action), delta)
 		return
 	_move_in_direction(_target_direction(), _action_speed_scale(_current_action), delta)
+
+
+func _apply_ranged_attack(delta: float) -> void:
+	if _focus_target == null or not is_instance_valid(_focus_target):
+		return
+	var target_direction: Vector2 = _focus_target.global_position - global_position
+	if target_direction.length_squared() > 0.0:
+		_update_facing(target_direction)
+	var distance: float = target_direction.length()
+	var keep_distance: float = _movement_value("ranged_keep_distance")
+	var attack_range: float = _movement_value("ranged_attack_range")
+	if keep_distance > 0.0 and distance < keep_distance:
+		_move_in_direction(-target_direction, _action_speed_scale(_current_action), delta)
+	elif attack_range > 0.0 and distance > attack_range * 0.82:
+		_move_in_direction(target_direction, _action_speed_scale(_current_action), delta)
+	else:
+		_move_in_direction(_orbit_direction(), _action_speed_scale(_current_action), delta)
+	if distance <= attack_range and _ranged_cooldown_remaining <= 0.0:
+		_fire_ranged_projectile(target_direction)
+
+
+func _fire_ranged_projectile(target_direction: Vector2) -> void:
+	if target_direction.length_squared() <= 0.0:
+		return
+	var raw_node: Node = PoolManager.acquire(POOL_IDS.BULLET_BASIC)
+	if not raw_node is Node2D or not raw_node.has_method("configure"):
+		return
+	var direction: Vector2 = target_direction.normalized()
+	var muzzle_distance: float = _movement_value("ranged_projectile_muzzle_distance")
+	var bullet: Node2D = raw_node as Node2D
+	bullet.global_position = global_position + direction * muzzle_distance
+	_reparent_to_parent(bullet)
+	bullet.call("configure", {
+		STATS.DAMAGE: _movement_value("ranged_projectile_damage"),
+		STATS.BULLET_SPEED: _movement_value("ranged_projectile_speed"),
+		STATS.BULLET_RANGE: _movement_value("ranged_projectile_range"),
+		STATS.PIERCE_COUNT: 0,
+	}, {
+		"damage_type": _movement_string("ranged_projectile_damage_type", _contact_damage_type),
+		"damage_target_groups": [ACTIVE_PLAYER_GROUP],
+		"hit_radius": _movement_value("ranged_projectile_hit_radius"),
+		"lifetime": _movement_value("ranged_projectile_lifetime"),
+		"source_team": TEAM_ENEMY,
+		"target_team": TEAM_PLAYER,
+	}, direction, self)
+	_ranged_cooldown_remaining = _movement_value("ranged_cooldown")
+
+
+func _reparent_to_parent(node: Node) -> void:
+	var active_parent: Node = get_parent()
+	if active_parent == null:
+		return
+	var old_parent: Node = node.get_parent()
+	if old_parent == active_parent:
+		return
+	if old_parent != null:
+		old_parent.remove_child(node)
+	active_parent.add_child(node)
 
 
 func _start_charge() -> void:
@@ -600,6 +683,7 @@ func _orbit_direction() -> Vector2:
 
 func _update_ai_timers(delta: float) -> void:
 	_charge_cooldown_remaining = maxf(_charge_cooldown_remaining - delta, 0.0)
+	_ranged_cooldown_remaining = maxf(_ranged_cooldown_remaining - delta, 0.0)
 	var cooldown_keys: Array = _contact_cooldowns.keys()
 	for key: Variant in cooldown_keys:
 		var remaining: float = maxf(float(_contact_cooldowns[key]) - delta, 0.0)
@@ -788,6 +872,10 @@ func _targeting_array(key: String) -> Array[Dictionary]:
 
 func _movement_value(key: String) -> float:
 	return float(_movement().get(key, 0.0))
+
+
+func _movement_string(key: String, fallback: String = "") -> String:
+	return String(_movement().get(key, fallback))
 
 
 func _player_weight() -> float:

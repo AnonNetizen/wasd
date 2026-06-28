@@ -470,6 +470,17 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,
 | `movement.charge_range` | number | `>= 0`，px | 进入冲锋评分的最大距离；0 表示不冲锋 |
 | `movement.charge_windup` / `charge_duration` / `charge_cooldown` | number | `>= 0`，秒 | 冲锋蓄力、释放和冷却时间 |
 | `movement.charge_speed_scale` | number | `>= 0` | 冲锋释放阶段速度倍率 |
+| `movement.ranged_attack_range` | number | `> 0`，px；仅远程 action 需要 | 远程攻击可开火的最大距离 |
+| `movement.ranged_keep_distance` | number | `>= 0`，px；可选 | 远程敌人低于该距离时尝试后撤 |
+| `movement.ranged_cooldown` | number | `> 0`，秒；仅远程 action 需要 | 远程投射物发射间隔 |
+| `movement.ranged_initial_cooldown` | number | `>= 0`，秒；可选 | 生成后首次远程开火前的延迟 |
+| `movement.ranged_projectile_damage` | number | `> 0` | 远程投射物伤害，运行时走 `Combat.apply_damage()` |
+| `movement.ranged_projectile_damage_type` | string | 词表 §9 damage type；可选 | 远程投射物伤害类型，缺省时回退到敌人接触伤害类型 |
+| `movement.ranged_projectile_speed` | number | `> 0`，px/s | 远程投射物速度 |
+| `movement.ranged_projectile_range` | number | `> 0`，px | 远程投射物最大射程 |
+| `movement.ranged_projectile_hit_radius` | number | `> 0`，px | 远程投射物命中半径 |
+| `movement.ranged_projectile_lifetime` | number | `> 0`，秒 | 远程投射物最大存活时间 |
+| `movement.ranged_projectile_muzzle_distance` | number | `>= 0`，px；可选 | 远程投射物从敌人中心外偏移发射的距离 |
 | `actions[]` | array[object] | 至少 1 个 | 此 profile 可参与评分的动作列表 |
 | `actions[].id` | string | 词表 §12-B enemy AI action | 动作 id；运行时通过生成常量解释 |
 | `actions[].base_score` | number | `>= 0` | 动作基础分；越高越容易选中 |
@@ -484,8 +495,9 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,
 | `ai_action_orbit_target` | 在目标附近绕行，预留给远程 / 试探型敌人 |
 | `ai_action_charge_target` | 近距离进入蓄力和冲锋释放 FSM |
 | `ai_action_guard_home` | 离出生点太远时返回领地 |
+| `ai_action_ranged_attack` | 保持距离并发射池化投射物；投射参数来自 `movement.ranged_*` 字段 |
 
-调参建议：先改 `base_score` 和 tag `weight`，再改速度 / 半径；大幅改变生态关系后需要跑 `runtime-smoke`、golden replay 和 `perf-probe`。新增 action 必须先登记 `docs/词表与契约.md` §12-B，再同步生成常量、schema、`docs/代码/enemy_ai.md` 和测试。
+调参建议：先改 `base_score` 和 tag `weight`，再改速度 / 半径；远程敌人先调 `ranged_cooldown`、`ranged_projectile_speed` 和 `ranged_keep_distance`，避免命中过密或玩家无法贴近。大幅改变生态关系后需要跑 `runtime-smoke`、golden replay 和 `perf-probe`。新增 action 必须先登记 `docs/词表与契约.md` §12-B，再同步生成常量、schema、`docs/代码/enemy_ai.md` 和测试。
 
 ## `hazards.csv`
 
@@ -521,7 +533,8 @@ id,mode_id,wave_index,start_time,end_time,enemy_id,enemy_weight,spawn_interval,m
 wave_standard_early_chasers,mode_standard_survival,1,0.0,9999.0,enemy_chaser,100,1.15,14,9999,,0
 wave_standard_swarm_mix,mode_standard_survival,2,60.0,9999.0,enemy_swarm,45,1.7,10,9999,,0
 wave_standard_stalkers,mode_standard_survival,3,240.0,9999.0,enemy_stalker,18,5.0,3,9999,,0
-wave_standard_mid_bulwarks,mode_standard_survival,4,420.0,9999.0,enemy_bulwark,25,4.2,4,9999,,0
+wave_standard_ranged_spitters,mode_standard_survival,4,300.0,9999.0,enemy_spitter,16,5.6,4,9999,,0
+wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,25,4.2,4,9999,,0
 ```
 
 字段说明：
@@ -541,7 +554,7 @@ wave_standard_mid_bulwarks,mode_standard_survival,4,420.0,9999.0,enemy_bulwark,2
 | `hazard_id` | string | 可空；非空时必须存在于 `hazards.csv` | 可选机关 id，用于把机关生成作为波次压力的一部分 |
 | `hazard_weight` | int | `>= 0`；大于 0 时 `hazard_id` 必填 | 可选机关权重；`0` 表示本波次不使用机关 |
 
-`spawn_waves.csv` 只声明刷怪 / 难度曲线数据边界；当前初始地图机关由 `map_layouts.json` 管理，波次中的 `hazard_id` / `hazard_weight` 仍是后续“把机关作为时间压力”时的预留字段。F12 标准短刷图用 0:00 / 1:00 / 4:00 / 7:00 打开敌群层级，并用 `9999.0` 作为软上限后的持续压力窗口；这不是硬性局长限制。实际刷怪随机必须走 `RNG.spawn`，局内时间必须走 `GameClock`，高频实体必须走 `PoolManager`。
+`spawn_waves.csv` 只声明刷怪 / 难度曲线数据边界；当前初始地图机关由 `map_layouts.json` 管理，波次中的 `hazard_id` / `hazard_weight` 仍是后续“把机关作为时间压力”时的预留字段。F12 标准短刷图用 0:00 / 1:00 / 4:00 / 5:00 / 7:00 打开敌群层级，其中 5:00 远程喷棘者用于制造走位压力；`9999.0` 是软上限后的持续压力窗口，不是硬性局长限制。实际刷怪随机必须走 `RNG.spawn`，局内时间必须走 `GameClock`，高频实体必须走 `PoolManager`。
 
 ## `warzone_directors.json`
 

@@ -51,6 +51,10 @@
             "weight": 18
           },
           {
+            "id": "enemy_spitter",
+            "weight": 16
+          },
+          {
             "id": "enemy_bulwark",
             "weight": 25
           }

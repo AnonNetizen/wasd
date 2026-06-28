@@ -49,6 +49,7 @@ func _run() -> void:
 	_expect(tr("ui_start") != "ui_start", "registered translations should resolve UI keys")
 	_expect(PoolManager.has_pool(POOL_IDS.BULLET_BASIC), "bullet pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_CHASER), "enemy pool should be registered")
+	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_RANGED), "ranged enemy pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_SWARM), "swarm enemy pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.HAZARD_SPIKE), "hazard pool should be registered")
 	_expect(_action_has_key(ACTIONS.MOVE_UP, KEY_W), "move_up should include KEY_W")
@@ -164,6 +165,7 @@ func _run() -> void:
 	await _expect_enemy_movement_bounds(run_loop, player)
 	await _expect_swarm_enemy_spawn(run_loop, player)
 	await _expect_enemy_ecology_ai(run_loop, player)
+	await _expect_ranged_enemy_projectile_damage(run_loop, player)
 	await _expect_overdrive_rounds_skill(run_loop, player)
 	await _expect_pickup_orb_draw_order(run_loop, player)
 	await _expect_pickup_orb_feedback(run_loop, player)
@@ -799,6 +801,11 @@ func _disable_enemy_physics() -> void:
 		active_enemy.set_physics_process(false)
 
 
+func _release_active_bullets() -> void:
+	for active_bullet: Node in get_tree().get_nodes_in_group("active_bullets"):
+		PoolManager.release(active_bullet)
+
+
 func _expect_enemy_center_separation(run_loop: Node, player: Node2D) -> void:
 	var enemy_data: Dictionary = {
 		"max_hp": 6,
@@ -969,6 +976,36 @@ func _expect_enemy_ecology_ai(run_loop: Node, player: Node2D) -> void:
 	)
 	PoolManager.release(prey)
 	PoolManager.release(predator)
+
+
+func _expect_ranged_enemy_projectile_damage(run_loop: Node, player: Node2D) -> void:
+	_disable_enemy_physics()
+	var spitter: Node2D = _spawn_smoke_enemy(run_loop, "enemy_spitter", "smoke_ranged_spitter")
+	_expect(spitter != null, "ranged smoke should spawn the spitter enemy")
+	if spitter == null:
+		return
+
+	var bounds: Rect2 = _map_bounds(run_loop)
+	var test_position: Vector2 = Vector2(
+		clampf(player.global_position.x + 120.0, bounds.position.x + 360.0, bounds.end.x - 360.0),
+		clampf(player.global_position.y, bounds.position.y + 260.0, bounds.end.y - 260.0)
+	)
+	player.global_position = test_position
+	spitter.global_position = test_position + Vector2(320.0, 0.0)
+	spitter.set_physics_process(true)
+	if player.has_method("debug_clear_invulnerability"):
+		player.call("debug_clear_invulnerability")
+	var life_before: float = float(player.call("current_life"))
+	var bullets_before: int = _pool_stat(POOL_IDS.BULLET_BASIC, "acquired")
+	for _index: int in range(120):
+		await get_tree().physics_frame
+		if float(player.call("current_life")) < life_before:
+			break
+
+	_expect(_pool_stat(POOL_IDS.BULLET_BASIC, "acquired") > bullets_before, "ranged enemy should fire a pooled bullet")
+	_expect(float(player.call("current_life")) < life_before, "ranged enemy projectile should damage the player through Combat")
+	PoolManager.release(spitter)
+	_release_active_bullets()
 
 
 func _expect_overdrive_rounds_skill(run_loop: Node, player: Node2D) -> void:

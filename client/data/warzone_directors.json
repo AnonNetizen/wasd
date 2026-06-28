@@ -28,7 +28,12 @@
           "start_time": 240.0,
           "end_time": 420.0,
           "pressure_tag": "ecology",
-          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers"],
+          "wave_ids": [
+            "wave_standard_early_chasers",
+            "wave_standard_swarm_mix",
+            "wave_standard_stalkers",
+            "wave_standard_ranged_spitters"
+          ],
           "encounter_ids": ["encounter_predator_prey"]
         },
         {
@@ -40,6 +45,7 @@
             "wave_standard_early_chasers",
             "wave_standard_swarm_mix",
             "wave_standard_stalkers",
+            "wave_standard_ranged_spitters",
             "wave_standard_mid_bulwarks"
           ],
           "encounter_ids": ["encounter_territorial_pressure", "encounter_predator_prey"]
@@ -53,6 +59,7 @@
             "wave_standard_early_chasers",
             "wave_standard_swarm_mix",
             "wave_standard_stalkers",
+            "wave_standard_ranged_spitters",
             "wave_standard_mid_bulwarks"
           ],
           "encounter_ids": ["encounter_territorial_pressure", "encounter_predator_prey"]

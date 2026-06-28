@@ -197,7 +197,8 @@
       "ai_action_flee_threat",
       "ai_action_orbit_target",
       "ai_action_charge_target",
-      "ai_action_guard_home"
+      "ai_action_guard_home",
+      "ai_action_ranged_attack"
     ],
     "skill_ids": [
       "skill_overdrive_rounds"

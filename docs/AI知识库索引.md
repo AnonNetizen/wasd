@@ -212,6 +212,7 @@
 | #123 | 默认短刷图小巢核击破后开启贴格撤离区，玩家完成撤离读条后才提交 `run.pending_loot`、删除 `run` 并显示完成面板 | F12 工作包、GDD、Gameplay Runtime 文档、WarzoneDirector / MapManager 文档、测试策略、current_state、AI记忆 |
 | #124 | 当前正式视角改回俯视角 2D；删除正式玩家场景的 `Player3DVisual` / `SubViewport + Camera3D` 正交视觉层，玩家由 `Player._draw()` 按完整 `aim_direction` 绘制方向标记；地图格 / 机关口径随后由 #125 修正为矩形俯视格 | README、GDD、IP设定、IP美术风格、术语表、AI导航、Gameplay Runtime 文档、四平台规则入口、`client/scenes/gameplay/player.tscn`、`client/scripts/gameplay/player.gd`、`client/tools/runtime_smoke.gd`、current_state、AI记忆 |
 | #125 | 俯视角地面语言改为矩形 / 方形 2D 网格；`map_layouts.json.grid.cell_width/cell_height` 表示水平 / 垂直格宽高，`MapManager` 使用矩形边界、矩形出生安全区和矩形 clamp，`Hazard` / POI target / cache / extraction 都用矩形俯视 footprint | GDD、AI导航、术语表、IP美术风格、F9 / F12 工作包、MapManager / HazardSystem / Gameplay Runtime / WarzoneDirector 文档、Data README、测试策略、四平台规则入口、current_state、AI记忆 |
+| #126 | 敌人 AI 新增通用远程攻击 action；`enemy_ai_profiles.json.movement.ranged_*` 配置距离、冷却和投射物参数，默认短刷图 5:00 引入 `enemy_spitter` 喷棘者，敌弹复用池化子弹并通过 `Combat.apply_damage()` 伤害玩家 | GDD、AI导航、AI记忆、Gameplay Runtime / EnemyAI 文档、Data README、词表与契约、`client/data/enemy_ai_profiles.json`、`client/data/enemies.csv`、`client/data/spawn_waves.csv`、`client/scripts/gameplay/enemy.gd`、`client/scripts/gameplay/bullet.gd`、`client/tools/runtime_smoke.gd` |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 
