@@ -28,6 +28,7 @@ const SETTINGS_SMOKE_RUNNER := preload("res://tools/settings_smoke.gd")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 
 var _run_loop: Node = null
+var _room_carrier_launch: bool = false
 var _debug_console: CanvasLayer = null
 var _gear_mod_panel: CanvasLayer = null
 var _settings_panel: CanvasLayer = null
@@ -155,6 +156,12 @@ func _ready() -> void:
 		var settings_smoke_runner: Node = SETTINGS_SMOKE_RUNNER.new()
 		settings_smoke_runner.name = "SettingsSmoke"
 		add_child(settings_smoke_runner)
+	elif _is_room_carrier_launch_enabled():
+		_room_carrier_launch = true
+		if data_schema_ok:
+			_start_gameplay_run({}, true)
+		else:
+			_show_title_menu()
 	elif data_schema_ok:
 		_show_title_menu()
 
@@ -175,6 +182,12 @@ func _is_runtime_smoke_enabled() -> bool:
 
 func _is_room_switch_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--room-switch-smoke")
+
+
+## Debug-only windowed launch: start a playable F13 room-carrier run instead of the default
+## open-warzone run. Opt-in via the --room-carrier user arg; does not change the default flow.
+func _is_room_carrier_launch_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--room-carrier")
 
 
 func _is_l1_smoke_enabled() -> bool:
@@ -258,7 +271,7 @@ func _start_gameplay_run(restore_snapshot: Dictionary = {}, room_carrier: bool =
 
 func _start_new_gameplay_run() -> void:
 	RNG.set_random_run_seed()
-	_start_gameplay_run()
+	_start_gameplay_run({}, _room_carrier_launch)
 
 
 func _clear_gameplay_runtime() -> void:
