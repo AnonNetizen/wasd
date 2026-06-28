@@ -1,6 +1,6 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://ceuqjsk8avf0d"]
 
-[ext_resource type="Script" path="res://scripts/orthographic_3d_test.gd" id="1_wxko0"]
+[ext_resource type="Script" uid="uid://cqeeoo7mfpn52" path="res://scripts/orthographic_3d_test.gd" id="1_wxko0"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_0o2b8"]
 sky_top_color = Color(0.012, 0.018, 0.03, 1)
@@ -30,6 +30,7 @@ glow_intensity = 0.38
 glow_strength = 0.62
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kmvr3"]
+transparency = 1
 albedo_color = Color(0.01, 0.022, 0.03, 1)
 roughness = 0.82
 
@@ -70,8 +71,8 @@ size = Vector3(0.6, 2.3, 0.26)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0loc1"]
 transparency = 1
+shading_mode = 0
 albedo_color = Color(0.008, 0.011, 0.016, 0.62)
-roughness = 0.82
 
 [sub_resource type="BoxMesh" id="BoxMesh_4mge4"]
 size = Vector3(0.48, 1.85, 0.22)
@@ -85,6 +86,7 @@ roughness = 0.82
 size = Vector3(0.7, 2.1, 0.28)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_uyn6e"]
+transparency = 1
 albedo_color = Color(0.165, 0.185, 0.17, 1)
 roughness = 0.82
 emission_enabled = true
@@ -95,36 +97,31 @@ emission_energy_multiplier = 0.1
 size = Vector3(24, 0.22, 24)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3cuk0"]
+transparency = 1
+shading_mode = 0
 albedo_color = Color(0.12, 0.17, 0.17, 1)
-roughness = 0.82
-emission_enabled = true
-emission = Color(0.1, 0.2, 0.2, 1)
-emission_energy_multiplier = 0.04
 
 [sub_resource type="BoxMesh" id="BoxMesh_dh0dw"]
 size = Vector3(4.4, 0.012, 1.1)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_56ltd"]
+transparency = 1
+shading_mode = 0
 albedo_color = Color(0.21, 0.145, 0.085, 1)
-roughness = 0.82
-emission_enabled = true
-emission = Color(0.25, 0.14, 0.06, 1)
-emission_energy_multiplier = 0.03
 
 [sub_resource type="BoxMesh" id="BoxMesh_wsf02"]
 size = Vector3(3.6, 0.012, 1.2)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_vne6c"]
+transparency = 1
+shading_mode = 0
 albedo_color = Color(0.08, 0.115, 0.14, 1)
-roughness = 0.82
-emission_enabled = true
-emission = Color(0.05, 0.12, 0.16, 1)
-emission_energy_multiplier = 0.04
 
 [sub_resource type="BoxMesh" id="BoxMesh_f3d04"]
 size = Vector3(5.2, 0.012, 0.8)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ua4tn"]
+transparency = 1
 shading_mode = 0
 albedo_color = Color(0.56, 0.31, 0.12, 1)
 
@@ -132,6 +129,7 @@ albedo_color = Color(0.56, 0.31, 0.12, 1)
 size = Vector3(5.8, 0.018, 0.045)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_uak2c"]
+transparency = 1
 shading_mode = 0
 albedo_color = Color(0.2, 0.42, 0.5, 1)
 
@@ -139,6 +137,7 @@ albedo_color = Color(0.2, 0.42, 0.5, 1)
 size = Vector3(0.045, 0.018, 4.8)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5reas"]
+transparency = 1
 albedo_color = Color(0.025, 0.022, 0.02, 1)
 roughness = 0.82
 
@@ -146,6 +145,7 @@ roughness = 0.82
 size = Vector3(2.2, 0.016, 0.03)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5l5xs"]
+transparency = 1
 albedo_color = Color(0.025, 0.022, 0.02, 1)
 roughness = 0.82
 
@@ -155,6 +155,9 @@ size = Vector3(0.03, 0.016, 2)
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3gwu3"]
 albedo_color = Color(0.036, 0.03, 0.024, 1)
 roughness = 0.82
+emission_enabled = true
+emission = Color(1, 0.45, 0.12, 1)
+emission_energy_multiplier = 0.16
 
 [sub_resource type="BoxMesh" id="BoxMesh_m7a3q"]
 size = Vector3(1.35, 0.014, 0.72)
@@ -162,6 +165,9 @@ size = Vector3(1.35, 0.014, 0.72)
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_34y4s"]
 albedo_color = Color(0.038, 0.032, 0.025, 1)
 roughness = 0.82
+emission_enabled = true
+emission = Color(1, 0.45, 0.12, 1)
+emission_energy_multiplier = 0.16
 
 [sub_resource type="BoxMesh" id="BoxMesh_ichgo"]
 size = Vector3(1.1, 0.014, 0.54)
@@ -169,6 +175,9 @@ size = Vector3(1.1, 0.014, 0.54)
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ktrys"]
 albedo_color = Color(0.055, 0.04, 0.026, 1)
 roughness = 0.82
+emission_enabled = true
+emission = Color(1, 0.45, 0.12, 1)
+emission_energy_multiplier = 0.16
 
 [sub_resource type="BoxMesh" id="BoxMesh_qjqcv"]
 size = Vector3(24, 0.3, 0.12)
@@ -176,35 +185,39 @@ size = Vector3(24, 0.3, 0.12)
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kh7ks"]
 albedo_color = Color(0.09, 0.048, 0.026, 1)
 roughness = 0.82
+emission_enabled = true
+emission = Color(1, 0.45, 0.12, 1)
+emission_energy_multiplier = 0.16
 
 [sub_resource type="BoxMesh" id="BoxMesh_k14tk"]
 size = Vector3(24, 0.3, 0.12)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ofqqh"]
+transparency = 1
+shading_mode = 0
 albedo_color = Color(0.055, 0.04, 0.026, 1)
-roughness = 0.82
 
 [sub_resource type="BoxMesh" id="BoxMesh_35v2g"]
 size = Vector3(0.12, 0.3, 24)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_8br46"]
+transparency = 1
+shading_mode = 0
 albedo_color = Color(0.09, 0.048, 0.026, 1)
-roughness = 0.82
 
 [sub_resource type="BoxMesh" id="BoxMesh_ucspb"]
 size = Vector3(0.12, 0.3, 24)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ctaqu"]
+transparency = 1
+shading_mode = 0
 albedo_color = Color(0.84, 0.43, 0.15, 1)
-roughness = 0.82
-emission_enabled = true
-emission = Color(1, 0.45, 0.12, 1)
-emission_energy_multiplier = 0.16
 
 [sub_resource type="BoxMesh" id="BoxMesh_tgwrk"]
 size = Vector3(24, 0.1, 0.09)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_d7qxm"]
+transparency = 1
 albedo_color = Color(0.84, 0.43, 0.15, 1)
 roughness = 0.82
 emission_enabled = true
@@ -215,21 +228,17 @@ emission_energy_multiplier = 0.16
 size = Vector3(24, 0.1, 0.09)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wteye"]
+transparency = 1
+shading_mode = 0
 albedo_color = Color(0.84, 0.43, 0.15, 1)
-roughness = 0.82
-emission_enabled = true
-emission = Color(1, 0.45, 0.12, 1)
-emission_energy_multiplier = 0.16
 
 [sub_resource type="BoxMesh" id="BoxMesh_jfgkf"]
 size = Vector3(0.09, 0.1, 24)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_o8led"]
+transparency = 1
+shading_mode = 0
 albedo_color = Color(0.84, 0.43, 0.15, 1)
-roughness = 0.82
-emission_enabled = true
-emission = Color(1, 0.45, 0.12, 1)
-emission_energy_multiplier = 0.16
 
 [sub_resource type="BoxMesh" id="BoxMesh_2euko"]
 size = Vector3(0.09, 0.1, 24)
@@ -380,6 +389,9 @@ size = Vector3(1.62, 0.018, 1.04)
 transparency = 1
 albedo_color = Color(0.03, 0.024, 0.018, 0.28)
 roughness = 0.82
+emission_enabled = true
+emission = Color(0.18, 0.8, 1, 1)
+emission_energy_multiplier = 1.2
 
 [sub_resource type="BoxMesh" id="BoxMesh_u716d"]
 size = Vector3(1.8, 0.02, 1.8)
@@ -387,11 +399,15 @@ size = Vector3(1.8, 0.02, 1.8)
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dln8g"]
 albedo_color = Color(0.52, 0.34, 0.19, 1)
 roughness = 0.82
+emission_enabled = true
+emission = Color(1, 0.64, 0.2, 1)
+emission_energy_multiplier = 0.28
 
 [sub_resource type="BoxMesh" id="BoxMesh_j6pnh"]
 size = Vector3(1.2, 0.5, 0.86)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_rm8lg"]
+transparency = 1
 albedo_color = Color(0.2, 0.15, 0.12, 1)
 roughness = 0.82
 
@@ -418,21 +434,23 @@ size = Vector3(0.07, 0.22, 0.96)
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0toke"]
 albedo_color = Color(0.16, 0.12, 0.1, 1)
 roughness = 0.82
+emission_enabled = true
+emission = Color(1, 0.58, 0.2, 1)
+emission_energy_multiplier = 0.12
 
 [sub_resource type="BoxMesh" id="BoxMesh_31ien"]
 size = Vector3(0.07, 0.22, 0.96)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gkr7u"]
+transparency = 1
+shading_mode = 0
 albedo_color = Color(0.17, 0.78, 1, 1)
-roughness = 0.82
-emission_enabled = true
-emission = Color(0.18, 0.8, 1, 1)
-emission_energy_multiplier = 1.2
 
 [sub_resource type="BoxMesh" id="BoxMesh_6ggmi"]
 size = Vector3(0.32, 0.045, 0.18)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_l4msg"]
+transparency = 1
 albedo_color = Color(0.95, 0.75, 0.34, 1)
 roughness = 0.82
 emission_enabled = true
@@ -460,16 +478,17 @@ size = Vector3(3.2, 1.4, 0.28)
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_43ksk"]
 albedo_color = Color(0.12, 0.13, 0.14, 1)
 roughness = 0.82
+emission_enabled = true
+emission = Color(1, 0.72, 0.38, 1)
+emission_energy_multiplier = 0.1
 
 [sub_resource type="BoxMesh" id="BoxMesh_p4avm"]
 size = Vector3(0.08, 1.4, 0.28)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5hrmb"]
+transparency = 1
+shading_mode = 0
 albedo_color = Color(0.72, 0.52, 0.3, 1)
-roughness = 0.82
-emission_enabled = true
-emission = Color(1, 0.58, 0.2, 1)
-emission_energy_multiplier = 0.12
 
 [sub_resource type="BoxMesh" id="BoxMesh_wt0r3"]
 size = Vector3(3.2, 0.07, 0.35)
@@ -503,6 +522,9 @@ radial_segments = 10
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_rf0lm"]
 albedo_color = Color(0.5, 0.42, 0.34, 1)
 roughness = 0.82
+emission_enabled = true
+emission = Color(1, 0.72, 0.38, 1)
+emission_energy_multiplier = 0.1
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_eu7a8"]
 top_radius = 0.34
@@ -511,11 +533,9 @@ height = 1.54
 radial_segments = 10
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dv05q"]
+transparency = 1
+shading_mode = 0
 albedo_color = Color(0.76, 0.62, 0.45, 1)
-roughness = 0.82
-emission_enabled = true
-emission = Color(1, 0.72, 0.38, 1)
-emission_energy_multiplier = 0.1
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_rst8r"]
 top_radius = 0.48
@@ -550,8 +570,12 @@ height = 0.2
 radial_segments = 10
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_euq0i"]
+transparency = 1
 albedo_color = Color(0.5, 0.42, 0.34, 1)
 roughness = 0.82
+emission_enabled = true
+emission = Color(0.18, 0.72, 1, 1)
+emission_energy_multiplier = 1.35
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_c7mqo"]
 top_radius = 0.34
@@ -560,11 +584,9 @@ height = 1.54
 radial_segments = 10
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ohw2f"]
+transparency = 1
+shading_mode = 0
 albedo_color = Color(0.76, 0.62, 0.45, 1)
-roughness = 0.82
-emission_enabled = true
-emission = Color(1, 0.72, 0.38, 1)
-emission_energy_multiplier = 0.1
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_gh8lh"]
 top_radius = 0.48
@@ -599,8 +621,12 @@ height = 0.2
 radial_segments = 10
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fnr6a"]
+transparency = 1
 albedo_color = Color(0.38, 0.34, 0.28, 1)
 roughness = 0.82
+emission_enabled = true
+emission = Color(1, 0.56, 0.18, 1)
+emission_energy_multiplier = 1.35
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_kue4v"]
 top_radius = 0.12
@@ -610,11 +636,8 @@ radial_segments = 10
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ejp0m"]
 transparency = 1
+shading_mode = 0
 albedo_color = Color(0.18, 0.72, 1, 0.7)
-roughness = 0.82
-emission_enabled = true
-emission = Color(0.18, 0.72, 1, 1)
-emission_energy_multiplier = 1.35
 
 [sub_resource type="BoxMesh" id="BoxMesh_rtekg"]
 size = Vector3(0.34, 0.16, 0.34)
@@ -631,6 +654,9 @@ size = Vector3(0.88, 0.018, 0.88)
 transparency = 1
 albedo_color = Color(0.01, 0.009, 0.008, 0.34)
 roughness = 0.82
+emission_enabled = true
+emission = Color(0.2, 0.75, 1, 1)
+emission_energy_multiplier = 0.18
 
 [sub_resource type="BoxMesh" id="BoxMesh_w1ld8"]
 size = Vector3(0.7, 0.016, 0.48)
@@ -638,6 +664,9 @@ size = Vector3(0.7, 0.016, 0.48)
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_4pb0b"]
 albedo_color = Color(0.24, 0.22, 0.2, 1)
 roughness = 0.82
+emission_enabled = true
+emission = Color(1, 0.7, 0.18, 1)
+emission_energy_multiplier = 0.92
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_wlgtb"]
 top_radius = 0.3
@@ -646,8 +675,9 @@ height = 0.2
 radial_segments = 10
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_nadr0"]
+transparency = 1
+shading_mode = 0
 albedo_color = Color(0.38, 0.34, 0.28, 1)
-roughness = 0.82
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_1xo45"]
 top_radius = 0.12
@@ -657,11 +687,8 @@ radial_segments = 10
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lg0q4"]
 transparency = 1
+shading_mode = 0
 albedo_color = Color(1, 0.56, 0.18, 0.7)
-roughness = 0.82
-emission_enabled = true
-emission = Color(1, 0.56, 0.18, 1)
-emission_energy_multiplier = 1.35
 
 [sub_resource type="BoxMesh" id="BoxMesh_rvwcw"]
 size = Vector3(0.34, 0.16, 0.34)
