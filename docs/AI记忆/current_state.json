@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
   "updated_at": "2026-06-28",
-  "current_phase": "formal_project_f12_short_loot_runs",
-  "current_status": "ADR #126 后敌人 AI 新增通用远程攻击 action：ai_action_ranged_attack 通过 enemy_ai_profiles.json 的 movement.ranged_* 字段保持距离、发射池化投射物并经 Combat.apply_damage() 伤害玩家；首个默认内容为 5:00 左右进入标准模式的 enemy_spitter 喷棘者。ADR #125 后当前俯视角地面语言已改为矩形 / 方形 2D 网格：map_layouts.json.grid.cell_width/cell_height 表示水平 / 垂直格宽高，默认 160 x 160；MapManager 使用轴对齐矩形边界、矩形出生安全区和矩形 clamp；Hazard、InterestPointTarget、InterestPointCache 和撤离区都使用矩形俯视 footprint，不再用菱形地图格 / 菱形机关模拟等距或正交视角。ADR #124 仍规定正式玩家场景删除 Player3DVisual / SubViewport + Camera3D 正交视觉层，Player._draw() 直接绘制 2D 俯视占位并按完整 aim_direction 显示朝向标记；Camera2D 保持屏幕水平、等比缩放和玩家居中。F12 默认短刷图首片仍是当前阶段：8-12 分钟软目标、四个 director 兴趣点、资源 / Mod 缓存 interact 打开、可伤害精英巢点 / 小巢核目标、run.pending_loot 暂存、击破小巢核后开启矩形撤离区并在完成读条后提交战利品；死亡、重开、回标题或主动放弃会丢失未结算战利品。正式核心实体行为、多出口撤离、更正式 Result UI、缓存箱守卫 / 爆出表现尚未接线。F10/F12 WarzoneDirector 仍只用固定阶段、巢变异、遭遇和兴趣点，不读取玩家状态、不做隐藏 DDA、不接运行时 LLM。后续工作以用户最后明确指令为准。",
-  "latest_adr": 126,
+  "current_phase": "formal_project_f13_handcrafted_rooms",
+  "current_status": "ADR #127 后默认短刷图下一阶段转向手工房间串联：每个房间用 Godot `.tscn` + marker 手工制作，首片只做线性 room_sequence、清房开门、触碰出口进入下一房间；暂不自研完整关卡编辑器 UI，也不继续用 PCG 作为默认房间内容来源。F13 工作包 `docs/AI协作/工作包/F13-HandcraftedRooms.md` 已建立，后续优先实现 `rooms.json` / `room_sequences.json`、房间 marker、RoomManager、两房间清房开门 / 切房间、房间校验和保存恢复 smoke。F12 开放战区短刷图首片仍是已落地能力：8-12 分钟软目标、WarzoneDirector 阶段、四个兴趣点、可交互缓存箱、可伤害小巢核、run.pending_loot 暂存、矩形撤离区和结果清单；这些规则作为过渡 / 参考保留，但默认后续关卡承载不再继续以开放地图 PCG 为主。ADR #126 的通用远程敌人 action 和 enemy_spitter 仍保留为房间内容可用敌人能力。Gear Mod / dust 仍先进入 run.pending_loot，死亡 / 放弃不带回，成功完成或未来撤离才写入 meta.gear_mods。后续工作以用户最后明确指令为准。",
+  "latest_adr": 127,
   "open_decisions": [
-    "C",
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #127 / F13 手工房间制短刷图规划入口：默认短刷图下一阶段转向 Godot `.tscn` + marker 手工房间串联；新增 F13 工作包，GDD / AI 导航 / 正式项目规划 / 测试策略 / 知识库索引 / TODO / 快速开工 / AI 记忆同步；C 待决策关闭，后续首片目标是 rooms.json、room_sequences.json、房间 marker、RoomManager、两房间清房开门 / 切房间、房间校验和保存恢复 smoke。",
     "ADR #126：新增通用远程敌人 action ai_action_ranged_attack、enemy_ai_ranged_spitter profile 和 enemy_spitter 喷棘者；Bullet 支持可配置 source/target team 与 damage_target_groups，Player 暴露 active_player 命中组与 is_alive()/hit_radius()，GameplayRunLoop 注册 enemy_ranged 池并在 5:00 接入远程波次；runtime-smoke 覆盖远程敌弹伤害玩家。",
     "ADR #125：俯视角地面语言改为矩形 / 方形 2D 网格；MapManager / WorldBackground / Hazard / POI target / POI cache / extraction / Player / Enemy movement bounds / DataLoader schema / validate_data / runtime-smoke 已从菱形格口径改为矩形格口径；GDD、AI 导航、数据手册、测试策略、术语、IP 美术风格、模块文档、F9/F12 工作包、知识库索引、平台规则入口和记忆已同步。",
     "ADR #124：当前正式视角改回俯视角 2D；删除正式玩家场景的 Player3DVisual / SubViewport + Camera3D 正交视觉层，玩家由 Player._draw() 按完整 aim_direction 绘制 2D 朝向标记；runtime-smoke 断言正式玩家不再依赖内部 Camera3D；GDD、README、AI 导航、术语、IP、模块文档和平台规则入口已同步。",

@@ -8,7 +8,7 @@
 ---
 
 ## 1. 项目是什么
-俯视角射击刷宝生存游戏（灵感：手动按住开火的俯视射击身份 + 《星际战甲》与《暗黑》的刷装备 / 刷词条长期追求 + 开放有限大地图生存压力 + 《以撒的结合》的道具 / 机关 / 构筑组合）。项目保留局内随机奖励和单局构筑变化，但核心操作是移动、瞄准和按住 `fire` action 持续射击；玩法判定与显示都以 2D 平面为准，当前 `Camera2D` 保持水平居中和等比缩放，不再用 `Camera3D` 正交渲染层、低模 3D 视觉、相机变形或菱形 / 等距地图格模拟斜俯视。地图格、边界、机关、兴趣点 footprint 和撤离区默认使用水平 / 垂直矩形俯视格。
+俯视角射击刷宝生存游戏（灵感：手动按住开火的俯视射击身份 + 《星际战甲》与《暗黑》的刷装备 / 刷词条长期追求 + 手工房间串联短刷图 + 《以撒的结合》的道具 / 机关 / 构筑组合）。项目保留局内随机奖励和单局构筑变化，但核心操作是移动、瞄准和按住 `fire` action 持续射击；玩法判定与显示都以 2D 平面为准，当前 `Camera2D` 保持水平居中和等比缩放，不再用 `Camera3D` 正交渲染层、低模 3D 视觉、相机变形或菱形 / 等距地图格模拟斜俯视。地图格、边界、机关、房间 footprint 和撤离区默认使用水平 / 垂直矩形俯视格。ADR #127 后默认短刷图下一阶段转向手工房间串联：首片用 Godot `.tscn` + marker 手工制作房间，线性清房开门并进入下一个房间。
 - 引擎：**Godot 4.7 + GDScript**
 - IP 方向：**《破巢者》**（英文暂定 `Nestbreakers`）——未知原因导致其他宇宙与本宇宙的通道突然打开，银河系星际文明被打散，首都星域仍能组织反击；多英雄主动突入敌方“巢”，在怪潮中夺取遗物、升级构筑并尝试打穿巢核、切断通道或削弱敌方源头；“巢”泛指敌方核心据点 / 生产源头 / 通道锚点 / 意志中枢，不限定为虫巢。
 - 核心理念：**数据驱动 + 扩展优先 + 模式友好资源复用 + 未来多人友好边界 + 框架级基础设施（本地化 / 设置 / 数据埋点）+ AI 易扩展**
@@ -29,7 +29,7 @@
 | `docs/游戏设计文档.md` | 完整设计 |
 | `docs/代码文档规范.md` | 代码变更与对应文档的同步规范 |
 | `docs/决策记录.md` | 既定决策与原因，勿误改 |
-| `docs/修改建议.md` | 待决策的开放问题（C~E；A/B 与 J~R 已归档） |
+| `docs/修改建议.md` | 待决策的开放问题（D~E；A/B/C 与 J~R 已归档） |
 | `docs/功能建议池.md` | F9 第一轮 Demo 收口后的可选新功能菜单；不是已采纳路线图，用户点名后才推进 |
 | `docs/局内刷取参考研究.md` | F12 局内刷取、兴趣点、撤离结算、射击构筑可参考的外部游戏研究；不是已采纳路线图 |
 | `docs/AI辅助开发机会清单.md` | 不在运行时接 LLM、只利用 AI 辅助写代码 / 数据 / 工具时的玩法与内容管线机会清单；不是已采纳路线图 |
@@ -65,7 +65,7 @@
 | `client/scenes/boot/main.tscn` | F1 最小启动场景，详见 `docs/代码/formal_client_boot.md` |
 | `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `GearModSystem` / `AudioManager` / `Localization` / `UIManager` |
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口、`DamageInfo`、`StatusEffect` 与 `StatusEffectComponent` |
-| `client/scripts/gameplay/` | F4/F5/F9 阶段脚本：`gameplay_run_loop` / `world_background` / `map_manager` / `player` / `weapon_system` / `skill_system` / `bullet` / `enemy` / `hazard` / `pickup_orb` / `level_up_panel` / `gameplay_hud`，当前还承载 F5+ run 快照生产 / 恢复 |
+| `client/scripts/gameplay/` | F4/F5/F9 阶段脚本：`gameplay_run_loop` / `world_background` / `map_manager` / `player` / `weapon_system` / `skill_system` / `bullet` / `enemy` / `hazard` / `pickup_orb` / `level_up_panel` / `gameplay_hud`，当前还承载 F5+ run 快照生产 / 恢复；F13 将新增 `room_manager` 与房间 marker 运行时 |
 | `client/scripts/ui/` | 阶段性 UI：`title_menu` / `pause_menu` / `game_over_panel` / `gear_mod_panel` |
 | `client/scripts/debug/` | debug/dev_tools 专用 `DebugConsole` 与 `GMCommandRegistry`；正式 release 不应加载或导出 |
 | `client/tools/` | Godot 项目内 headless smoke 脚本；当前含 gameplay runtime、GearMod、SaveManager、Settings、Replay、RNG、perf 和 DebugTools smoke |
@@ -85,7 +85,7 @@
 | `docs/IP美术风格.md` | 《破巢者》IP 美术风格、敌巢色板、阵营色与地图兴趣点功能色权威 |
 | `docs/词表与契约.md` | 约定字符串白名单 |
 | `docs/决策记录.md` | ADR |
-| `docs/修改建议.md` | 待决策项（C~E；A/B 与 J~R 已归档） |
+| `docs/修改建议.md` | 待决策项（D~E；A/B/C 与 J~R 已归档） |
 | `docs/功能建议池.md` | F9 第一轮 Demo 收口后的可选新功能建议池；只作为人工选择菜单 |
 | `docs/局内刷取参考研究.md` | F12 局内刷取、射击构筑、兴趣点路线和撤离带回的外部参考研究；只作为设计参考 |
 | `docs/AI辅助开发机会清单.md` | AI 只辅助开发、不进入运行时的玩法机会、内容生产管线、DSL / 编辑器 / 模拟器 / lint 工具候选；只作为人工选择菜单 |
@@ -100,7 +100,7 @@
 | `docs/AI协作/README.md` | AI 协作工程目录索引 |
 | `docs/AI协作/快速开工.md` | **AI 日常开工热路径**，降低默认上下文开销 |
 | `docs/AI协作/任务模板/` | 高频任务的标准 prompt + 文件操作清单 |
-| `docs/AI协作/工作包/` | 正式项目阶段任务的低 token 工作包；当前短刷图默认循环入口是 `F12-ShortLootRuns.md`，装备 Mod 入口是 `F11-GearModLoadout.md`，F10 战区导演入口是 `F10-WarzoneDirector.md`，F9 Demo 内容 / 表现打磨入口是 `F9-ContentDemoPolish.md`，F8 回放 / 测试 / 平衡维护入口是 `F8-ReplayTestingBalance.md`，F7 设置 / 本地化 / UI 栈维护入口是 `F7-SettingsLocalizationUI.md`，F6 旧局外成长入口是 `F6-MetaProgression.md`，F4 最小可玩闭环入口是 `F4-MinPlayableLoop.md`，历史 F3 数据闭环入口是 `F3-DataLoader.md` |
+| `docs/AI协作/工作包/` | 正式项目阶段任务的低 token 工作包；当前手工房间制入口是 `F13-HandcraftedRooms.md`，F12 开放战区短刷图入口是 `F12-ShortLootRuns.md`，装备 Mod 入口是 `F11-GearModLoadout.md`，F10 战区导演入口是 `F10-WarzoneDirector.md`，F9 Demo 内容 / 表现打磨入口是 `F9-ContentDemoPolish.md`，F8 回放 / 测试 / 平衡维护入口是 `F8-ReplayTestingBalance.md`，F7 设置 / 本地化 / UI 栈维护入口是 `F7-SettingsLocalizationUI.md`，F6 旧局外成长入口是 `F6-MetaProgression.md`，F4 最小可玩闭环入口是 `F4-MinPlayableLoop.md`，历史 F3 数据闭环入口是 `F3-DataLoader.md` |
 | `docs/AI协作/上下文预算.md` | 不同复杂度 / 任务类型该读哪些文件 |
 | `docs/AI协作/角色分工.md` | 设计/实现/评审/平衡 四角色协作 |
 | `docs/AI协作/引擎集成.md` | Godot MCP / Bridge 接入指南 |
@@ -131,6 +131,7 @@
 | **加 / 改状态效果** | 先看 `docs/代码/status_effect_component.md`；状态 id 登记 `docs/词表与契约.md` §9-A，叠加规则登记 §9-B，通过 `skill_effect_apply_status` 或未来 on-hit primitive 注入；当前 Player / Enemy / SkillSystem 自身已实现 `apply_status_effect()` 和 owned ability tag 查询，DoT 由状态组件按 `GameClock` tick 并经 `Combat.apply_damage()` 结算；新可受状态影响实体应照此接入；状态存在期间要授予 / 移除 ability tag 时引用 §12-G，不在业务脚本手动计时 |
 | **加 / 改机关** | 在 `client/data/hazards.csv` 加一行：伤害、伤害类型、触发间隔、`radius_tiles` 占格尺寸、持续时间和 `hazard_*_name` 文案；`tag_hazard`、`pool_id`、`damage_type` 必须来自词表；初始摆放改 `client/data/map_layouts.json`，普通矩形范围机关复用 `docs/代码/hazard_system.md` 的通用 `Hazard` 运行时 |
 | **改地图边界 / 矩形格 / PCG / 人工摆点** | 查 `docs/代码/map_manager.md`；地图尺寸、`grid.cell_width/cell_height`、玩家出生点、安全半径、刷怪边距、PCG 机关数量 / 间距和人工固定摆点都改 `client/data/map_layouts.json`；bounds 是轴对齐矩形，必须分别是 `grid.cell_width/cell_height` 的整数倍；玩家出生点必须在格心，出生安全区可见提示必须是贴住矩形格的矩形，机关按 `radius_tiles` 奇偶吸附到合法锚点（奇数格心、偶数网格顶点），可见和逻辑地图边界必须是同一个矩形，刷怪位置仍用 `RNG.spawn`；玩家和敌人中心移动都应保持在矩形边界内；改完跑 `validate_data`、`runtime-smoke`，机关相关追加 `f9-demo-smoke` |
+| **改手工房间 / 关卡编辑器首片** | 查 `docs/AI协作/工作包/F13-HandcraftedRooms.md`、GDD §5、`docs/测试策略.md` 和后续 `docs/代码/room_manager.md`；首片用 Godot `.tscn` + marker 作为房间编辑工作流，房间至少有玩家入口、出口门、敌人生成点和陷阱点；房间连接先走线性 `room_sequences.json`，房间注册走 `rooms.json`，房间内坐标保留在 `.tscn` marker；默认不要先做完整自研 EditorPlugin UI，也不要继续用 PCG 作为房间内容来源；实现后必须覆盖房间校验、清房开门、切房间和保存恢复 |
 | **加 / 改刷怪波次** | 在 `client/data/spawn_waves.csv` 加一行：模式 id、时间窗、敌人 id / 权重、刷怪间隔、同时存活上限、预算和可选机关权重；敌人 / 机关 / 模式引用必须存在，不实现 Spawner 运行时 |
 | **加 / 改战区导演** | 查 `docs/代码/warzone_director.md` 和 F10 工作包；在 `client/data/warzone_directors.json` 改固定 phase、巢变异主题、生态 encounter、兴趣点和阶段启用 wave；运行时只按 `GameClock` 时间 gating `spawn_waves.csv`，匹配当前 layout 的兴趣点会通过 `MapManager` 生成 `source="director"` 初始机关；禁止读取玩家状态、隐藏动态调难或运行时接 LLM；改完跑 `validate_data`、`test_data_loader_schema`、`runtime-smoke` 和 `f9-demo-smoke` |
 | **加一个遗物/道具** | 在 `client/data/relics.json` 加一条，用 `modifiers` + `behaviors` 描述；文案用 `relic_*` key；**只用 `docs/词表与契约.md` 已登记的 effect / event / stat / tag**，新原语先登记再实现，不实现遗物运行时 |
@@ -138,7 +139,7 @@
 | **加 / 改消耗品** | 在 `client/data/consumables.json` 加一条：`stack` 声明最大堆叠 / 初始数量 / 单次拾取数量，`use_effects` 引用已登记 effect，文案用 `item_*` key；模式引用走 `game_modes.resource_pools.consumables`，不实现拾取物 / 背包 / 使用输入 / 数量扣减 / 效果运行时 |
 | **加 / 改游戏模式** | 在 `client/data/game_modes.json` 声明可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 消耗品 / 成长资源池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖；mode id 先登记 `docs/词表与契约.md` §12-A；资源本体保持模式无关，禁止为模式复制一套资源或在代码写 `if mode_id == ...` |
 | **改经验/升级系统** | 查 GDD §7.1 与 `docs/代码/gameplay_runtime.md`；ADR #120 后默认标准模式不启用局内 3 选 1，`mode_standard_survival` 不挂 `growth_pools`，运行时没有候选池时不生成经验球 / 不进入 `GameState.LEVEL_UP`；F4 的池化经验球、`growth.csv`、`growth_pools.json`、`LevelUpPanel` 和 `RNG.ui_choice` 候选抽取保留给未来非默认模式，目标模式必须在 `game_modes.json.resource_pools.growth_pools` 显式引用候选池 |
-| **改短刷图默认循环** | 查 `docs/AI协作/工作包/F12-ShortLootRuns.md`、GDD §2 / §5 / §7、`docs/局内刷取参考研究.md`、`docs/代码/gameplay_runtime.md`、`docs/代码/warzone_director.md`、`docs/代码/map_manager.md` 和 `docs/代码/gear_mod_system.md`；默认模式应围绕 8-12 分钟、3 个兴趣点、小巢核和 Gear Mod / dust 回报组织，不做 25 分钟默认长局，不恢复默认局内 3 选 1；当前 8-12 分钟是软目标，不是硬倒计时，资源缓存 / Mod 缓存 / 小巢核已接最小暂存奖励，资源缓存 / Mod 缓存已有可见缓存箱并用 `interact` 打开，缓存箱使用独立矩形格心 anchor、矩形 footprint 和俯视箱体表现，避开陷阱 footprint，并位于地图背景之上、机关 / 敌人 / 玩家之下，精英巢点 / 小巢核已有可伤害目标占位；ADR #122/#123/#125 后奖励先进入 `run.pending_loot`，击破小巢核只开启矩形撤离区，玩家完成撤离读条才写入 `meta.gear_mods`，死亡 / 放弃不带回；`GameOverPanel` 已列出撤离成功带回或死亡失败丢失的 dust / Gear Mod 清单 |
+| **改短刷图默认循环** | F12 开放战区首片查 `docs/AI协作/工作包/F12-ShortLootRuns.md`、GDD §2 / §5 / §7、`docs/局内刷取参考研究.md`、`docs/代码/gameplay_runtime.md`、`docs/代码/warzone_director.md`、`docs/代码/map_manager.md` 和 `docs/代码/gear_mod_system.md`；ADR #127 后默认下一阶段转向 F13 手工房间串联，查 `docs/AI协作/工作包/F13-HandcraftedRooms.md`；默认模式仍保持 8-12 分钟短刷图、Gear Mod / dust 暂存和完成 / 撤离结算，不做 25 分钟默认长局，不恢复默认局内 3 选 1；F12 当前资源缓存 / Mod 缓存 / 小巢核奖励先进入 `run.pending_loot`，击破小巢核只开启矩形撤离区，死亡 / 放弃不带回；F13 首片则先验证清房开门和线性进下一个房间 |
 | **改装备 Mod / 局外装配** | 查 GDD §7.2、`docs/AI协作/工作包/F11-GearModLoadout.md` 与 `docs/代码/gear_mod_system.md`；数据 / 契约、运行时首片和最小 UI 已建立：`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、一张提高武器 `damage` 的测试武器 Mod、`enemy_chaser` 玩家击杀 1% 掉落、升级消耗 `gear_mod_dust`、分解返还资源、英雄 / 武器两套 loadout、capacity / drain、开局 modifier snapshot、标题 `GearModPanel`、HUD 暂存提示和 `gear-mod-smoke` 面板按钮流；后续优先补更多 Mod 内容。新增 Mod id / slot / rarity / resource / stack rule 前先登记词表契约，并同步 `client/data/README.md`、locale、DataLoader schema、SaveManager / Gameplay Runtime 文档和 smoke |
 | **维护旧局外成长历史** | 旧 `MetaProgressionSystem` 运行时和 UI 已按 ADR #117 删除；项目尚未上线，ADR #118 后旧测试档迁移、`meta_progression.json`、旧 meta 契约常量和旧 `purchased_upgrades` 补偿路径也已删除。需要查历史时看 F6 工作包与 ADR 记录；不要恢复旧永久升级树作为当前成长方向 |
 | **改致谢 / 第三方来源** | 同步根目录 `CREDITS.md` 与 `client/data/credits.json`；新增分组标题、角色或用途标签时补 `client/locale/strings.csv` 的 `ui_credits_*` key；发行前复核许可证和 notice |
@@ -151,7 +152,7 @@
 | **改 IP / 世界观 / 英雄包装 / 宣传语** | 先看 `docs/IP设定.md`；涉及视觉风格、色板、阵营色、兴趣点颜色或资产 brief 时追加 `docs/IP美术风格.md`；若改变玩法承诺或系统边界，再同步 GDD / ADR / 术语表 / AI导航 / AI记忆 |
 | **选择下一项新功能** | 先看 `docs/功能建议池.md`、`docs/局内刷取参考研究.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md` 与 `docs/AI记忆/current_state.json`；用户明确点名功能后，再建立 / 更新工作包、GDD / ADR / 模块文档并实现，不从建议文档自行挑选推进 |
 | **评估小服务器在线玩法** | 先看 `docs/小服务器玩法备忘.md`、GDD §6.7 / §9.21 / §9.22、`docs/代码/platform_services.md` 与 `docs/代码/replay.md`；短期优先异步玩法和离线可降级，实时多人 / PvP / 强竞技排行榜默认暂缓 |
-| **启动 / 推进正式项目** | 优先读当前阶段工作包；装备 Mod / 局外装配看 `docs/AI协作/工作包/F11-GearModLoadout.md` 和 `docs/代码/gear_mod_system.md`，F10 战区导演看 `docs/AI协作/工作包/F10-WarzoneDirector.md`。F8 已落地临时 `l1-smoke`、Replay 文件 roundtrip 的 `replay-smoke`、摘要 diff / 运行时摘要重跑 / 输入播放首片 / runtime event 播放 / 扩展稳定帧样本 diff 的 `replay-runner`、gameplay 输入录制首片的 `replay-input-smoke`、跨 RNG 子流相关性审计 `rng-audit`、四条 checked-in replay 和轻量 `perf-probe`，现作为内容扩展的回归护栏。F7 设置持久化、正式设置面板和 UIManager 栈顶 `ui_back` 已落地；F9 已新增 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`。维护入口：DebugTools 看 `docs/代码/debug_tools.md`，F7 看 `docs/AI协作/工作包/F7-SettingsLocalizationUI.md`，F6 历史工作包只作背景参考，F4 历史入口为 `docs/AI协作/工作包/F4-MinPlayableLoop.md`，F3 数据闭环入口为 `docs/AI协作/工作包/F3-DataLoader.md` |
+| **启动 / 推进正式项目** | 优先读当前阶段工作包；F13 手工房间串联看 `docs/AI协作/工作包/F13-HandcraftedRooms.md`，F12 开放战区短刷图首片看 `docs/AI协作/工作包/F12-ShortLootRuns.md`，装备 Mod / 局外装配看 `docs/AI协作/工作包/F11-GearModLoadout.md` 和 `docs/代码/gear_mod_system.md`，F10 战区导演看 `docs/AI协作/工作包/F10-WarzoneDirector.md`。F8 已落地临时 `l1-smoke`、Replay 文件 roundtrip 的 `replay-smoke`、摘要 diff / 运行时摘要重跑 / 输入播放首片 / runtime event 播放 / 扩展稳定帧样本 diff 的 `replay-runner`、gameplay 输入录制首片的 `replay-input-smoke`、跨 RNG 子流相关性审计 `rng-audit`、四条 checked-in replay 和轻量 `perf-probe`，现作为内容扩展的回归护栏。F7 设置持久化、正式设置面板和 UIManager 栈顶 `ui_back` 已落地；F9 已新增 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`。维护入口：DebugTools 看 `docs/代码/debug_tools.md`，F7 看 `docs/AI协作/工作包/F7-SettingsLocalizationUI.md`，F6 历史工作包只作背景参考，F4 历史入口为 `docs/AI协作/工作包/F4-MinPlayableLoop.md`，F3 数据闭环入口为 `docs/AI协作/工作包/F3-DataLoader.md` |
 | **维护正式客户端启动骨架 / 默认分辨率** | 看 `client/README.md`、`docs/代码/formal_client_boot.md` 与 `docs/代码/gameplay_runtime.md`；默认 viewport 当前为 1920×1080，窗口不允许任意拖拽缩放，拉伸策略为 `canvas_items + keep`；改主场景、窗口配置或启动验证时同步本导航和 `docs/代码/README.md` |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
 | **校验数据 / 文案** | 跑 `python tools/validate_data.py` 与 `python tools/lint_project_rules.py`；改 DataLoader schema 时追加 `python tools/test_data_loader_schema.py`，改项目规则 lint 时追加 `python tools/test_project_rules_lint.py` |
@@ -189,7 +190,7 @@
 ## 5. 核心系统模块
 
 ### 5.1 模块清单
-**业务模块**：`InputController` / `Player` / `WeaponSystem` / `SkillSystem`（主动技能）/ `Enemy(EnemyAI)` / `Spawner` / `WarzoneDirector`（敌巢战区导演）/ `HazardSystem` / `ItemSystem` / `GrowthSystem`（经验/升级选择）/ `GearModSystem`（装备 Mod 与局外装配）/ `ModifierEngine` / `MapManager` / `Camera2D` / `DataLoader` / `PauseMenu`（UI）/ `Combat`（伤害结算）/ `StatusEffectComponent`（状态效果与 DoT tick）。
+**业务模块**：`InputController` / `Player` / `WeaponSystem` / `SkillSystem`（主动技能）/ `Enemy(EnemyAI)` / `Spawner` / `RoomManager`（F13 手工房间流程）/ `WarzoneDirector`（敌巢战区导演）/ `HazardSystem` / `ItemSystem` / `GrowthSystem`（经验/升级选择）/ `GearModSystem`（装备 Mod 与局外装配）/ `ModifierEngine` / `MapManager` / `Camera2D` / `DataLoader` / `PauseMenu`（UI）/ `Combat`（伤害结算）/ `StatusEffectComponent`（状态效果与 DoT tick）。
 
 **Autoload 单例（横向基础设施 + 协调中枢）**：
 - 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
@@ -201,7 +202,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`GearModSystem`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、gameplay runtime、TitleMenu / WorldBackground / Player / WeaponSystem / Bullet / Enemy / Spawner / PickupOrb / LevelUpPanel / HUD / GameOverPanel 的最小闭环；F5 已新增 `PauseMenu`、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、升级界面 Esc 叠出暂停菜单、坏档重置提示和 run payload；F6 旧 `MetaProgressionSystem` 曾实现死亡结算、`meta` profile roundtrip、标题 `MetaProgressionPanel` 和永久升级轨道，ADR #117 后运行时代码与玩家入口已删除，ADR #118 后不再维护旧测试档迁移。F8 已通过当前验收基线收口审计，包含临时 L1 runner、Replay `.replay` 文件 roundtrip、四条 checked-in replay、`rng-audit` 和 schema v2 perf / balance baseline。F9 已新增 `ModLoader` 本地 mod 接口首片、`PlatformServices` 平台服务接口首片、可复用 `SkillSystem` 主动技能首片并升级为项目版轻量 GAS 首片、有限地图 / 可调 PCG 的 `MapManager`、通用 `HazardSystem` 与 FEA-12 测试机关，以及 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`。F10 已新增 `WarzoneDirector` 敌巢战区导演首片：`warzone_directors.json` 用固定 phase、巢变异主题、生态 encounter 和兴趣点组合组织标准模式 wave，运行时只按 `GameClock` 时间 gating `spawn_waves.csv`，并把匹配当前 layout 的兴趣点通过 `MapManager` 生成 `source="director"` 初始机关；不读取玩家状态、不做隐藏 DDA、不接运行时 LLM、不提升 run 存档 schema。F11 入口是 `docs/AI协作/工作包/F11-GearModLoadout.md`：已新增英雄 / 武器两套装备 Mod loadout、测试武器伤害 Mod、玩家击杀 `enemy_chaser` 1% 掉落、升级消耗资源、分解返还资源、标题 `GearModPanel`、HUD 暂存提示、旧局外成长运行时 / UI 删除、旧数据 / 迁移路径清理和 `gear-mod-smoke` 覆盖。当前 F12 入口是 `docs/AI协作/工作包/F12-ShortLootRuns.md`：默认标准模式改为 8-12 分钟暗黑式短刷图，标准模式不挂 `growth_pools`，局内 3 选 1 保留给未来非默认模式；首片已把出生点改为偏外侧、导演阶段改为 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟，新增 5:00 `enemy_spitter` 远程喷棘者波次，声明精英巢点、Mod 缓存、资源缓存和小巢核四个 director 兴趣点，其中资源缓存 / Mod 缓存 / 小巢核已接可暂存 dust / Gear Mod 奖励，资源缓存 / Mod 缓存已有可见缓存箱并用 `interact` 打开，缓存箱当前为矩形 footprint + 低矮俯视箱体表现并处在地图背景之上、机关 / 敌人 / 玩家之下，小巢核击破后开启矩形格撤离区，撤离读条成功后才提交 `run.pending_loot`、删除 run 并显示完成面板，结果面板会列出成功带回或失败丢失的 dust / Gear Mod，9+ 是软加压而非硬时间限制；ADR #125 后地图格、边界、机关、兴趣点 footprint 和撤离区均改为水平 / 垂直矩形俯视格，不再用菱形 / 等距格模拟斜俯视；死亡 / 放弃不带回未结算战利品，正式核心实体、多出口撤离、更正式 Result UI、缓存箱守卫 / 爆出表现仍待做。装备 Mod 与 `ModLoader` 本地数据包 mod 必须保持命名边界。WeaponSystem 读取 `fire` action，默认按住左键 / 右扳机才按 `fire_rate` 出弹，松开停火；SkillSystem 读取 `skills.json`，默认角色通过 `starting_loadout.skill_ids` 引用 `skill_overdrive_rounds`，主动键释放后用 `skill_effect_weapon_modifiers` 临时提高主武器射速与弹速。F10 维护入口是 `docs/AI协作/工作包/F10-WarzoneDirector.md`；F8 的 `l1-smoke`、`replay-smoke`、`rng-audit`、四条 checked-in replay runner 和 `perf-probe` 是内容扩展的回归护栏。
+当前 F2 已落地 `DataLoader`、`RNG`、`GameState`、`GameClock`、`Settings`、`Analytics`、`Replay`、`PoolManager`、`SaveManager`、`GearModSystem`、`AudioManager`、`Localization`、`UIManager` 的 autoload 骨架；F3 数据 / 契约闭环已通过验收；F4 已落地 `Combat` autoload、`DamageInfo`、gameplay runtime、TitleMenu / WorldBackground / Player / WeaponSystem / Bullet / Enemy / Spawner / PickupOrb / LevelUpPanel / HUD / GameOverPanel 的最小闭环；F5 已新增 `PauseMenu`、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、升级界面 Esc 叠出暂停菜单、坏档重置提示和 run payload；F6 旧 `MetaProgressionSystem` 曾实现死亡结算、`meta` profile roundtrip、标题 `MetaProgressionPanel` 和永久升级轨道，ADR #117 后运行时代码与玩家入口已删除，ADR #118 后不再维护旧测试档迁移。F8 已通过当前验收基线收口审计，包含临时 L1 runner、Replay `.replay` 文件 roundtrip、四条 checked-in replay、`rng-audit` 和 schema v2 perf / balance baseline。F9 已新增 `ModLoader` 本地 mod 接口首片、`PlatformServices` 平台服务接口首片、可复用 `SkillSystem` 主动技能首片并升级为项目版轻量 GAS 首片、有限地图 / 可调 PCG 的 `MapManager`、通用 `HazardSystem` 与 FEA-12 测试机关，以及 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`。F10 已新增 `WarzoneDirector` 敌巢战区导演首片：`warzone_directors.json` 用固定 phase、巢变异主题、生态 encounter 和兴趣点组合组织标准模式 wave，运行时只按 `GameClock` 时间 gating `spawn_waves.csv`，并把匹配当前 layout 的兴趣点通过 `MapManager` 生成 `source="director"` 初始机关；不读取玩家状态、不做隐藏 DDA、不接运行时 LLM、不提升 run 存档 schema。F11 入口是 `docs/AI协作/工作包/F11-GearModLoadout.md`：已新增英雄 / 武器两套装备 Mod loadout、测试武器伤害 Mod、玩家击杀 `enemy_chaser` 1% 掉落、升级消耗资源、分解返还资源、标题 `GearModPanel`、HUD 暂存提示、旧局外成长运行时 / UI 删除、旧数据 / 迁移路径清理和 `gear-mod-smoke` 覆盖。F12 入口是 `docs/AI协作/工作包/F12-ShortLootRuns.md`：默认标准模式改为 8-12 分钟暗黑式短刷图，标准模式不挂 `growth_pools`，局内 3 选 1 保留给未来非默认模式；首片已把出生点改为偏外侧、导演阶段改为 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟，新增 5:00 `enemy_spitter` 远程喷棘者波次，声明精英巢点、Mod 缓存、资源缓存和小巢核四个 director 兴趣点，其中资源缓存 / Mod 缓存 / 小巢核已接可暂存 dust / Gear Mod 奖励，资源缓存 / Mod 缓存已有可见缓存箱并用 `interact` 打开，小巢核击破后开启矩形格撤离区，撤离读条成功后才提交 `run.pending_loot`、删除 run 并显示完成面板。当前 F13 入口是 `docs/AI协作/工作包/F13-HandcraftedRooms.md`：ADR #127 后默认短刷图下一阶段转向手工房间串联，首片用 Godot `.tscn` + marker 制作房间，线性清房开门并进入下一个房间；暂不自研完整关卡编辑器 UI，也不继续用 PCG 作为默认房间内容来源。装备 Mod 与 `ModLoader` 本地数据包 mod 必须保持命名边界。WeaponSystem 读取 `fire` action，默认按住左键 / 右扳机才按 `fire_rate` 出弹，松开停火；SkillSystem 读取 `skills.json`，默认角色通过 `starting_loadout.skill_ids` 引用 `skill_overdrive_rounds`，主动键释放后用 `skill_effect_weapon_modifiers` 临时提高主武器射速与弹速。F10 维护入口是 `docs/AI协作/工作包/F10-WarzoneDirector.md`；F8 的 `l1-smoke`、`replay-smoke`、`rng-audit`、四条 checked-in replay runner 和 `perf-probe` 是内容扩展的回归护栏。
 
 > 普通开始新局 / 重开会生成新的 `RNG` run seed；继续游戏恢复 run snapshot；回放、smoke、golden 和调试复现仍应显式固定 seed 或走工具启动路径。
 
@@ -247,6 +248,7 @@ flowchart LR
   Skill[SkillSystem]
 
   Spawner[Spawner]
+  Room[RoomManager]
   Director[WarzoneDirector]
   Enemy[Enemy / EnemyAI]
   Hazard[HazardSystem]
@@ -259,7 +261,7 @@ flowchart LR
   UI[UI/HUD<br/>PauseMenu/...]
 
   Mod -. 本地 mod 数据 patch .-> Loader
-  Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & GearMod & Spawner & Director & Hazard & Map
+  Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & GearMod & Spawner & Room & Director & Hazard & Map
   Set --> Player & Weapon & Input & UIM & Aud
   Loc --> UIM & Item
   Ana <-- 埋点 --- Player & Enemy & Item & Growth & GearMod & Spawner & GS & Save
@@ -285,6 +287,10 @@ flowchart LR
   Enemy --> Combat
   Combat --> Player & Enemy
   Combat -.- SE
+  Room --> Map
+  Room --> Spawner
+  Room --> Hazard
+  Room -. room state .- Save
   Director --> Spawner
   Map --> Player & Spawner & Hazard
   Spawner --> Enemy

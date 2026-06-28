@@ -17,7 +17,7 @@
 
 ## 1. 当前优先级（P0）
 
-- [ ] 等用户从 `docs/功能建议池.md` 手动选择下一个新功能；AI 不从候选池自行推进。点名后再建立 / 更新对应工作包、GDD / ADR / 模块文档和验收命令。
+- [ ] 推进 F13 手工房间制短刷图首片：按 `docs/AI协作/工作包/F13-HandcraftedRooms.md` 建立 `rooms.json` / `room_sequences.json`、房间 marker、`RoomManager`、两房间清房开门 / 切房间流程、房间校验和保存恢复 smoke。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）
@@ -75,6 +75,7 @@
 - [x] F11 装备 Mod 运行时首片：新增 `GearModSystem` autoload，支持 `meta.gear_mods` profile、英雄 / 武器两套 loadout、capacity / drain、唯一装备、升级消耗 `gear_mod_dust`、分解返还、`enemy_chaser` 玩家击杀 1% 掉落和开局 modifier snapshot，并新增 `gear-mod-smoke`。
 - [x] F11 装备 Mod 最小 UI：标题菜单进入 `GearModPanel`，支持英雄 / 武器两套配置切换、资源 / 容量 / 详情展示、装备 / 卸下 / 升级 / 分解，并由 `gear-mod-smoke` 覆盖按钮流。
 - [x] F12 短刷图默认循环规划入口：ADR #120、`docs/AI协作/工作包/F12-ShortLootRuns.md`、GDD、AI 导航、数据手册、Gameplay Runtime 模块文档和测试策略已同步；默认标准模式改为 8-12 分钟短刷图，并暂时屏蔽局内升级 3 选 1。
+- [x] F13 手工房间制短刷图规划入口：ADR #127、`docs/AI协作/工作包/F13-HandcraftedRooms.md`、GDD、AI 导航、正式项目规划、测试策略、知识库索引和 AI 记忆已同步；默认下一阶段转向 Godot `.tscn` + marker 的手工房间串联，首片目标是两房间清房开门 / 进入下一房间。
 - [x] 正式项目 F7 工作包准备：`docs/AI协作/工作包/F7-SettingsLocalizationUI.md` 已建立为设置 / 本地化 / UI 栈稳定化阶段入口。
 - [x] 正式项目 F7 设置 / 本地化 / UI 栈首片：设置持久化、正式设置面板、运行时语言刷新、键盘主输入重绑定、输入反馈 / 恢复默认和 `UIManager` 返回 / 焦点首片已完成。
 - [x] 正式项目 F8 工作包准备：`docs/AI协作/工作包/F8-ReplayTestingBalance.md` 已建立为回放 / 测试 / 平衡基线阶段入口。
