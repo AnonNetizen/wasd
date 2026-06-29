@@ -15,6 +15,7 @@ extends Node2D
 @export var area_pressure: float = 42.0
 @export var obstacle_edge_force: float = 1280.0
 @export var edge_contact_distance: float = 34.0
+@export var membrane_obstacle_clearance: float = 2.0
 @export var breath_amount: float = 4.0
 @export var breath_speed: float = 1.4
 @export var surface_noise_amount: float = 3.2
@@ -155,7 +156,12 @@ func _update_edge_points(delta: float) -> void:
 
 		_radial_velocities[index] += acceleration * delta
 		_radial_velocities[index] *= max(0.0, 1.0 - edge_damping * delta)
-		next_radii[index] = clamp(_radii[index] + _radial_velocities[index] * delta, min_radius, max_radius)
+		var candidate_radius: float = clamp(_radii[index] + _radial_velocities[index] * delta, min_radius, max_radius)
+		var limited_radius: float = _limit_radius_against_obstacle(index, candidate_radius)
+		if limited_radius < candidate_radius:
+			_radial_velocities[index] = min(_radial_velocities[index], 0.0)
+			_impact_strength = max(_impact_strength, clamp((candidate_radius - limited_radius) / 32.0, 0.0, 1.0))
+		next_radii[index] = limited_radius
 
 	_radii = next_radii
 
@@ -192,6 +198,50 @@ func _obstacle_radial_force(index: int) -> float:
 
 	_impact_strength = max(_impact_strength, pressure * 0.45)
 	return radial_alignment * pressure * obstacle_edge_force
+
+
+func _limit_radius_against_obstacle(index: int, candidate_radius: float) -> float:
+	if not obstacle_enabled:
+		return candidate_radius
+
+	var direction := _directions[index]
+	var hit_distance: float = _ray_rect_entry_distance(global_position, direction, obstacle_rect)
+	if hit_distance < 0.0:
+		return candidate_radius
+
+	var allowed_radius: float = max(0.0, hit_distance - membrane_obstacle_clearance)
+	if candidate_radius <= allowed_radius:
+		return candidate_radius
+
+	return allowed_radius
+
+
+func _ray_rect_entry_distance(origin: Vector2, direction: Vector2, rect: Rect2) -> float:
+	var t_min := -INF
+	var t_max := INF
+	var rect_end := rect.position + rect.size
+
+	if abs(direction.x) <= 0.0001:
+		if origin.x < rect.position.x or origin.x > rect_end.x:
+			return -1.0
+	else:
+		var tx_1 := (rect.position.x - origin.x) / direction.x
+		var tx_2 := (rect_end.x - origin.x) / direction.x
+		t_min = max(t_min, min(tx_1, tx_2))
+		t_max = min(t_max, max(tx_1, tx_2))
+
+	if abs(direction.y) <= 0.0001:
+		if origin.y < rect.position.y or origin.y > rect_end.y:
+			return -1.0
+	else:
+		var ty_1 := (rect.position.y - origin.y) / direction.y
+		var ty_2 := (rect_end.y - origin.y) / direction.y
+		t_min = max(t_min, min(ty_1, ty_2))
+		t_max = min(t_max, max(ty_1, ty_2))
+
+	if t_max < 0.0 or t_min > t_max:
+		return -1.0
+	return max(0.0, t_min)
 
 
 func _average_radius() -> float:
