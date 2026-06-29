@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/soft_body_cell_test.gd" id="1_byjrq"]
+
+[node name="SoftBodyCellTest" type="Node2D" unique_id=116364974]
+script = ExtResource("1_byjrq")
