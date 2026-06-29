@@ -1,19 +1,6 @@
 [remap]
 
-importer="csv_translation"
-type="Translation"
-uid="uid://cg4fw78bvo70t"
-
-[deps]
-
-files=["res://data/gear_mod_drop_tables.mod.translation", "res://data/gear_mod_drop_tables.drop.translation", "res://data/gear_mod_drop_tables.min.translation", "res://data/gear_mod_drop_tables.max.translation"]
-
-source_file="res://data/gear_mod_drop_tables.csv"
-dest_files=["res://data/gear_mod_drop_tables.mod.translation", "res://data/gear_mod_drop_tables.drop.translation", "res://data/gear_mod_drop_tables.min.translation", "res://data/gear_mod_drop_tables.max.translation"]
+importer="keep"
+type="Resource"
 
 [params]
-
-compress=1
-delimiter=0
-unescape_keys=false
-unescape_translations=true

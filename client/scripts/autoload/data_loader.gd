@@ -263,7 +263,11 @@ func _mod_count() -> int:
 
 
 func _validate_locale_strings(_locale_keys: Dictionary) -> bool:
-	var rows: Array[Dictionary] = load_csv(LOCALE_STRINGS_PATH)
+	var rows: Array[Dictionary] = _load_locale_string_rows()
+	if rows.is_empty() and _should_collect_locale_keys_from_translations():
+		_last_schema_counts["locale_keys"] = 0
+		return true
+
 	var is_valid: bool = true
 	var seen_keys: Dictionary = {}
 	_last_schema_counts["locale_keys"] = rows.size()
@@ -2568,7 +2572,10 @@ func _collect_spawn_wave_ids_by_mode() -> Dictionary:
 
 
 func _collect_locale_keys() -> Dictionary:
-	var rows: Array[Dictionary] = load_csv(LOCALE_STRINGS_PATH)
+	var rows: Array[Dictionary] = _load_locale_string_rows()
+	if rows.is_empty() and _should_collect_locale_keys_from_translations():
+		return {}
+
 	var keys: Dictionary = {}
 	for row: Dictionary in rows:
 		var key: String = String(row.get("keys", ""))
@@ -2576,6 +2583,30 @@ func _collect_locale_keys() -> Dictionary:
 			continue
 		keys[key] = true
 	return keys
+
+
+func _load_locale_string_rows() -> Array[Dictionary]:
+	if _should_collect_locale_keys_from_translations():
+		return []
+	return load_csv(LOCALE_STRINGS_PATH)
+
+
+func _should_collect_locale_keys_from_translations() -> bool:
+	return not OS.has_feature("editor") and not FileAccess.file_exists(LOCALE_STRINGS_PATH)
+
+
+func _has_locale_key(key: String, locale_keys: Dictionary) -> bool:
+	if locale_keys.has(key):
+		return true
+	if not _should_collect_locale_keys_from_translations():
+		return false
+	return tr(key) != key
+
+
+func _locale_key_source_label() -> String:
+	if _should_collect_locale_keys_from_translations():
+		return "key present in active translation resources"
+	return "key present in strings.csv"
 
 
 func _require_registered(resource_path: String, field: String, value: Variant, contract_key: String) -> String:
@@ -2611,8 +2642,8 @@ func _require_locale_key(resource_path: String, field: String, value: Variant, l
 	var is_valid: bool = true
 	if not _has_registered_prefix("locale_prefixes", key):
 		is_valid = _schema_fail(resource_path, field, "registered locale key prefix") and is_valid
-	if not locale_keys.has(key):
-		is_valid = _schema_fail(resource_path, field, "key present in strings.csv") and is_valid
+	if not _has_locale_key(key, locale_keys):
+		is_valid = _schema_fail(resource_path, field, _locale_key_source_label()) and is_valid
 	return is_valid
 
 

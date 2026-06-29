@@ -113,6 +113,7 @@
   - `growth_pools.json`：候选池、条目 id、类型、权重、等级条件和属性修正。
   - `game_modes.json`：模式 id、名称 / 描述 key、默认解锁、participants / teams、角色池、武器池、技能池、敌人池、机关池、遗物池、主动道具池、消耗品池、成长池、content tag blocklist 与玩家基础属性轻量覆盖；角色池 id 必须存在于 `characters.json`，武器池 id 必须存在于 `weapons.json`，技能池 id 必须存在于 `skills.json`，敌人池 id 必须存在于 `enemies.csv`，机关池 id 必须存在于 `hazards.csv`，遗物池 id 必须存在于 `relics.json`，主动道具池 id 必须存在于 `active_items.json`，消耗品池 id 必须存在于 `consumables.json`。
   - `strings.csv`：key 前缀、`zh_CN` / `en` 必填、唯一 key。
+- 导出版中 `client/data/*.csv` 必须作为原始 CSV 随包分发，DataLoader 依赖 `FileAccess` 读取原文件；`client/locale/strings.csv` 继续由 Godot 作为 `csv_translation` 导入，导出版缺少原始 `strings.csv` 时不枚举 optimized translation 全量 key，只在数据引用 locale key 时用当前翻译资源按需校验。
 - 当前校验 `characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json` 与 `game_modes.json` 的数据边界；技能运行时首片由 `docs/代码/skill_system.md` 解释，状态效果生命周期见 `docs/代码/status_effect_component.md`，有限地图 / PCG 解释见 `docs/代码/map_manager.md`，机关运行时解释见 `docs/代码/hazard_system.md`，敌人 AI 的业务解释见 `docs/代码/enemy_ai.md`，战区导演解释见 `docs/代码/warzone_director.md`，装备 Mod 运行时解释见 `docs/代码/gear_mod_system.md`。其余尚不实现角色选择 UI、完整起始携带发放、遗物拾取 / 应用、主动道具栏 / 冷却 / 使用效果、消耗品拾取 / 背包 / 使用 / 数量扣减 / 效果执行、Credits UI、模式选择 UI、匹配、联网、成长抽取、输入 profile 切换或完整模式运行时。
 
 ## 依赖
@@ -149,6 +150,7 @@
 | `contract_values()` 返回空 | contract id 是否存在于 `_contracts.json` 的 `contracts` |
 | CSV 行字段错位 | 表头数量与数据列数量是否一致 |
 | `data_schema_ok=false` | headless boot 日志前后的 `[DataLoader]` fail-fast 错误 |
+| 导出版打开后像空场景 / 空界面 | 用 console 导出版检查 `data_schema_ok` 与 CSV 计数；若 `enemies`、`hazards`、`spawn_waves` 等为 0，确认 `client/data/*.csv.import` 是 `importer="keep"`，且 `export_presets.cfg` 的 `include_filter` 包含 `*.csv` |
 | mod 内容没进数据 | `DataLoader.mod_diagnostics()` 与 `[ModLoader]` warning；确认 manifest `target` / `path` / `array_key` |
 
 ## 测试义务
