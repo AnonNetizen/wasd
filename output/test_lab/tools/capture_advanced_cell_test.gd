@@ -19,13 +19,13 @@ func _capture() -> void:
 	root.add_child(scene)
 	current_scene = scene
 
-	# 等初始化后触发"分裂"，停在收腰峰值做封面（更能体现可控复杂动画）
+	# 等初始化后把细胞贴向障碍物，idle 态展示膜贴壁凹陷的碰撞挤压效果
 	for _warmup in range(4):
 		await process_frame
 	var cell := scene.get_node_or_null("AdvancedCell")
 	if cell != null:
-		cell.call("trigger_divide")
-	for _index in range(96):
+		cell.position = Vector2(706.0, 388.0)
+	for _index in range(40):
 		await process_frame
 
 	var viewport_texture := root.get_texture()

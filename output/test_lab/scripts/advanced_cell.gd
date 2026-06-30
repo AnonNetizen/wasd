@@ -29,6 +29,11 @@ var _organelles: Array[Dictionary] = []
 var _time: float = 0.0
 var _current_state: String = "idle"
 
+var _has_obstacle: bool = false
+var _obstacle_center: Vector2 = Vector2.ZERO
+var _obstacle_radius: float = 0.0
+var _contact_points: PackedVector2Array = PackedVector2Array()
+
 
 func _ready() -> void:
 	_build_rig()
@@ -63,6 +68,13 @@ func trigger_engulf() -> void:
 
 func current_state() -> String:
 	return _current_state
+
+
+# 设置一个圆形障碍物（全局坐标），膜会在接触处被夹到障碍物表面（软体贴壁）
+func set_obstacle_circle(center_global: Vector2, radius: float) -> void:
+	_has_obstacle = true
+	_obstacle_center = center_global
+	_obstacle_radius = radius
 
 
 func _play_action(action_name: String) -> void:
@@ -195,6 +207,7 @@ func _update_membrane() -> void:
 		radii.append(_bones[index].position.length())
 
 	var sigma := (TAU / float(BONE_COUNT)) * 0.9
+	_contact_points.clear()
 	var polygon := PackedVector2Array()
 	for point in range(MEMBRANE_POINTS):
 		var angle := float(point) / float(MEMBRANE_POINTS) * TAU
@@ -206,8 +219,29 @@ func _update_membrane() -> void:
 			denominator += weight
 		var radius := numerator / denominator
 		radius += sin(angle * 7.0 + _time * 1.6) * 2.2 # 表面微波纹（常开生命感）
+		radius = _clamp_radius_to_obstacle(angle, radius)
 		polygon.append(Vector2.from_angle(angle) * radius)
 	_membrane.polygon = polygon
+
+
+# 射线-圆近交点：把该方向的膜半径截断在障碍物近表面，使膜停在障碍物这一侧（贴壁凹陷），
+# 而不是越过障碍物把它包进膜内。记录接触点用于压力高亮。
+func _clamp_radius_to_obstacle(angle: float, radius: float) -> float:
+	if not _has_obstacle:
+		return radius
+	var direction := Vector2.from_angle(angle)
+	var obstacle_local := to_local(_obstacle_center) # 障碍物中心在细胞局部坐标
+	var projection := direction.dot(obstacle_local)
+	var discriminant := projection * projection - obstacle_local.length_squared() + _obstacle_radius * _obstacle_radius
+	if discriminant <= 0.0:
+		return radius # 射线没打中障碍物
+	var near := projection - sqrt(discriminant)
+	if near <= 0.0:
+		return radius # 障碍物不在该方向前方（或已包住中心）
+	if near < radius:
+		_contact_points.append(direction * near)
+		return near
+	return radius
 
 
 func _avg_radius() -> float:
@@ -230,9 +264,19 @@ func _anim_progress() -> float:
 
 func _draw() -> void:
 	_draw_membrane_edge()
+	_draw_contact()
 	_draw_organelles()
 	_draw_nuclei()
 	_draw_food()
+
+
+func _draw_contact() -> void:
+	if _contact_points.size() < 2:
+		return
+	# 接触障碍物处的膜被压平，叠一条亮的"压力"线表现挤压张力
+	var pulse := 0.6 + sin(_time * 6.0) * 0.2
+	draw_polyline(_contact_points, Color(0.92, 1.0, 0.96, 0.55 * pulse), 5.0, true)
+	draw_polyline(_contact_points, Color(0.60, 0.96, 0.88, 0.7), 2.0, true)
 
 
 func _draw_membrane_edge() -> void:
