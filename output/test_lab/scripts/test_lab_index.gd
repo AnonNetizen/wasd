@@ -10,6 +10,11 @@ const TEST_SCENES := {
 
 const EXTRA_TEST_SCENES := [
 	{
+		"button_name": "MyceliumGrowthButton",
+		"label": "Mycelium Growth Test",
+		"scene_path": "res://scenes/mycelium_growth_test.tscn",
+	},
+	{
 		"button_name": "SoftBodyCellButton",
 		"label": "Soft Body Cell Edge Test",
 		"scene_path": "res://scenes/soft_body_cell_test.tscn",
