@@ -24,6 +24,11 @@ const EXTRA_TEST_SCENES := [
 		"label": "Emotion Blob Test",
 		"scene_path": "res://scenes/emotion_blob_test.tscn",
 	},
+	{
+		"button_name": "InkWashButton",
+		"label": "Ink Wash Test",
+		"scene_path": "res://scenes/ink_test.tscn",
+	},
 ]
 
 
