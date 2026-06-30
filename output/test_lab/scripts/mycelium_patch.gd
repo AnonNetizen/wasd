@@ -4,37 +4,45 @@ extends Node2D
 const SUBSTRATE_SHADER := preload("res://shaders/mycelium_substrate.gdshader")
 const STRAND_SHADER := preload("res://shaders/mycelium_strand.gdshader")
 
-const SUBSTRATE_MARGIN: float = 1.16
-const SOURCE_INSET_RATIO: float = 0.88
-const BONE_WHITE := Color(0.72, 0.66, 0.52, 0.74)
-const WAX_AMBER := Color(0.92, 0.68, 0.36, 0.62)
-const TOXIN_BLUE := Color(0.36, 0.62, 0.68, 0.46)
+const MAX_BLOBS: int = 8
+const SUBSTRATE_MARGIN: float = 1.18
+const CREEP_DARK := Color(0.070, 0.025, 0.085, 0.94)
+const CREEP_MID := Color(0.285, 0.065, 0.270, 0.92)
+const CREEP_EDGE := Color(0.620, 0.135, 0.315, 0.86)
+const CREEP_GLOSS := Color(0.900, 0.560, 0.980, 0.54)
+const TENDRIL_DORMANT := Color(0.265, 0.115, 0.200, 0.58)
+const TENDRIL_ACTIVE := Color(0.680, 0.245, 0.410, 0.66)
+const TENDRIL_PULSE := Color(0.760, 0.560, 0.860, 0.40)
+const PUSTULE_DARK := Color(0.155, 0.030, 0.055, 0.66)
+const PUSTULE_CORE := Color(0.880, 0.530, 0.230, 0.76)
 
 @export var seed: int = 1739
-@export_range(160.0, 560.0, 1.0) var patch_radius: float = 340.0
-@export_range(4, 6, 1) var source_count: int = 5
-@export_range(0.55, 1.75, 0.05) var strand_density: float = 1.0
+@export_range(180.0, 620.0, 1.0) var patch_radius: float = 350.0
+@export_range(5, 7, 1) var source_count: int = 6
+@export_range(0.4, 1.8, 0.05) var strand_density: float = 1.0
 @export_range(0.0, 1.0, 0.01) var growth_amount: float = 0.76
-@export_range(48.0, 260.0, 1.0) var focus_radius: float = 150.0
+@export_range(48.0, 280.0, 1.0) var focus_radius: float = 150.0
 @export var active: bool = true
 
 var focus_position: Vector2 = Vector2.ZERO
 
 var _substrate: Polygon2D
 var _substrate_material: ShaderMaterial
-var _strand_root: Node2D
-var _strands: Array[MyceliumStrand] = []
-var _strand_lines: Array[Line2D] = []
-var _strand_materials: Array[ShaderMaterial] = []
-var _source_points := PackedVector2Array()
-var _spore_points := PackedVector2Array()
+var _tendril_root: Node2D
+var _tendrils: Array[CreepTendril] = []
+var _tendril_lines: Array[Line2D] = []
+var _tendril_materials: Array[ShaderMaterial] = []
+var _blob_data := PackedVector4Array()
+var _blob_local_centers := PackedVector2Array()
+var _creep_polygon := PackedVector2Array()
+var _pustules: Array[CreepPustule] = []
 var _time: float = 0.0
 
 
 func _ready() -> void:
 	focus_position = Vector2.ZERO
 	_ensure_nodes()
-	_generate_network()
+	_generate_creep()
 
 
 func _process(delta: float) -> void:
@@ -53,20 +61,22 @@ func set_growth_amount(new_growth_amount: float) -> void:
 
 func regenerate(new_seed: int) -> void:
 	seed = new_seed
-	_generate_network()
+	_generate_creep()
 	queue_redraw()
 
 
 func _draw() -> void:
-	_draw_source_pores()
-	_draw_spore_dust()
+	_draw_edge_rim()
+	_draw_visible_tendrils()
+	_draw_membrane_veins()
+	_draw_pustules()
 	_draw_focus_glow()
 
 
 func _ensure_nodes() -> void:
 	if _substrate == null:
 		_substrate = Polygon2D.new()
-		_substrate.name = "WetSubstrate"
+		_substrate.name = "CreepSubstrate"
 		_substrate.z_index = 0
 		add_child(_substrate)
 
@@ -75,204 +85,189 @@ func _ensure_nodes() -> void:
 		_substrate_material.shader = SUBSTRATE_SHADER
 		_substrate.material = _substrate_material
 
-	if _strand_root == null:
-		_strand_root = Node2D.new()
-		_strand_root.name = "CreepingStrands"
-		_strand_root.z_index = 2
-		add_child(_strand_root)
+	if _tendril_root == null:
+		_tendril_root = Node2D.new()
+		_tendril_root.name = "EdgeTendrils"
+		_tendril_root.z_index = 2
+		add_child(_tendril_root)
 
 
-func _generate_network() -> void:
+func _generate_creep() -> void:
 	_ensure_nodes()
-	_clear_strand_nodes()
-	_strands.clear()
-	_strand_lines.clear()
-	_strand_materials.clear()
-	_source_points.clear()
-	_spore_points.clear()
-	_configure_substrate_polygon()
+	_clear_tendril_nodes()
+	_tendrils.clear()
+	_tendril_lines.clear()
+	_tendril_materials.clear()
+	_blob_data.clear()
+	_blob_local_centers.clear()
+	_creep_polygon.clear()
+	_pustules.clear()
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
-	_source_points = _make_source_points(rng)
-
-	for source_index in range(_source_points.size()):
-		_grow_from_source(rng, source_index, _source_points[source_index])
-
-	_build_strand_nodes()
+	_generate_blob_field(rng)
+	_configure_substrate_polygon(rng)
+	_generate_edge_tendrils(rng)
+	_generate_pustules(rng)
+	_build_tendril_nodes()
 	_update_material_uniforms()
 
 
-func _configure_substrate_polygon() -> void:
+func _configure_substrate_polygon(_rng: RandomNumberGenerator) -> void:
 	var half_size := patch_radius * SUBSTRATE_MARGIN
-	_substrate.polygon = PackedVector2Array([
-		Vector2(-half_size, -half_size),
-		Vector2(half_size, -half_size),
-		Vector2(half_size, half_size),
-		Vector2(-half_size, half_size),
-	])
-	_substrate.uv = PackedVector2Array([
-		Vector2(0.0, 0.0),
-		Vector2(1.0, 0.0),
-		Vector2(1.0, 1.0),
-		Vector2(0.0, 1.0),
-	])
+	var polygon := PackedVector2Array()
+	var uvs := PackedVector2Array()
+	var contour_count := 160
+	for index in range(contour_count):
+		var ratio := float(index) / float(contour_count)
+		var angle := ratio * TAU
+		var direction := Vector2.from_angle(angle)
+		var radius := _radius_for_direction(direction, half_size)
+		radius *= 0.96
+		radius += sin(angle * 3.0 + float(seed) * 0.013) * patch_radius * 0.030
+		radius += sin(angle * 7.0 + float(seed) * 0.021) * patch_radius * 0.018
+		radius += sin(angle * 11.0 + float(seed) * 0.034) * patch_radius * 0.010
+		var point := direction * radius
+		polygon.append(point)
+		uvs.append(Vector2(
+			(point.x + half_size) / (half_size * 2.0),
+			(point.y + half_size) / (half_size * 2.0)
+		))
+
+	_substrate.polygon = polygon
+	_substrate.uv = uvs
 	_substrate.color = Color.WHITE
+	_creep_polygon = polygon
 
 
-func _clear_strand_nodes() -> void:
-	if _strand_root == null:
+func _radius_for_direction(direction: Vector2, half_size: float) -> float:
+	var best_radius: float = patch_radius * 0.26
+	for blob in _blob_data:
+		if blob.z <= 0.0:
+			continue
+		var center := Vector2(
+			blob.x * half_size * 2.0 - half_size,
+			blob.y * half_size * 2.0 - half_size
+		)
+		var local_radius: float = blob.z * half_size * 1.28
+		var projection: float = center.dot(direction)
+		var perpendicular: float = absf(center.cross(direction))
+		if perpendicular > local_radius:
+			continue
+		var reach: float = projection + sqrt(maxf(0.0, local_radius * local_radius - perpendicular * perpendicular))
+		best_radius = maxf(best_radius, reach)
+	return clampf(best_radius, patch_radius * 0.28, patch_radius * 0.98)
+
+
+func _clear_tendril_nodes() -> void:
+	if _tendril_root == null:
 		return
 
-	for child in _strand_root.get_children():
+	for child in _tendril_root.get_children():
 		child.queue_free()
 
 
-func _make_source_points(rng: RandomNumberGenerator) -> PackedVector2Array:
-	var points := PackedVector2Array()
-	var angle_offset := rng.randf_range(0.0, TAU)
-	for index in range(source_count):
-		var ratio := float(index) / float(source_count)
-		var angle := angle_offset + ratio * TAU + rng.randf_range(-0.22, 0.22)
-		var radius := patch_radius * rng.randf_range(0.72, SOURCE_INSET_RATIO)
-		points.append(Vector2.from_angle(angle) * radius)
-	return points
+func _generate_blob_field(rng: RandomNumberGenerator) -> void:
+	var half_size := patch_radius * SUBSTRATE_MARGIN
+	var primary_angle := rng.randf_range(0.0, TAU)
+	var primary_radius := patch_radius * rng.randf_range(0.08, 0.18)
+	var primary_center := Vector2.from_angle(primary_angle) * primary_radius
+	_add_blob(primary_center, rng.randf_range(0.27, 0.34), rng.randf_range(0.0, TAU), half_size)
+
+	for index in range(source_count - 1):
+		var ratio := float(index) / float(maxi(1, source_count - 1))
+		var angle := primary_angle + ratio * TAU + rng.randf_range(-0.36, 0.36)
+		var radius := patch_radius * rng.randf_range(0.25, 0.70)
+		var center := Vector2.from_angle(angle) * radius
+		var blob_radius := rng.randf_range(0.18, 0.27)
+		_add_blob(center, blob_radius, rng.randf_range(0.0, TAU), half_size)
+
+	while _blob_data.size() < MAX_BLOBS:
+		_blob_data.append(Vector4(0.5, 0.5, 0.0, 0.0))
 
 
-func _grow_from_source(rng: RandomNumberGenerator, source_index: int, source_point: Vector2) -> void:
-	var main_count := maxi(5, int(round(7.0 * strand_density)))
-	var inward := (-source_point).normalized()
-	var tangent := inward.rotated(PI * 0.5)
-
-	for index in range(main_count):
-		var fan_ratio := 0.0
-		if main_count > 1:
-			fan_ratio = float(index) / float(main_count - 1) - 0.5
-
-		var start := source_point + tangent * fan_ratio * 44.0
-		var direction := inward.rotated(fan_ratio * 1.08 + rng.randf_range(-0.28, 0.28))
-		var step_count := rng.randi_range(9, 15)
-		var step_length := rng.randf_range(12.0, 19.0)
-		var phase := rng.randf_range(0.0, TAU)
-		var points := _walk_path(source_index, start, direction, step_count, step_length, phase)
-		if points.size() < 4:
-			continue
-
-		var strand := MyceliumStrand.new()
-		strand.points = points
-		strand.width = rng.randf_range(0.92, 1.55)
-		strand.phase = phase
-		strand.flow_speed = rng.randf_range(0.08, 0.22)
-		strand.growth_start = rng.randf_range(0.0, 0.16)
-		strand.growth_end = rng.randf_range(0.66, 0.98)
-		strand.gap_phase = rng.randf_range(0.0, 1.0)
-		strand.activation_bias = rng.randf_range(0.0, 0.22)
-		_strands.append(strand)
-		_add_capillaries(rng, source_index, strand)
+func _add_blob(local_center: Vector2, normalized_radius: float, phase: float, half_size: float) -> void:
+	var clamped_center := local_center.limit_length(patch_radius * 0.82)
+	_blob_local_centers.append(clamped_center)
+	_blob_data.append(Vector4(
+		(clamped_center.x + half_size) / (half_size * 2.0),
+		(clamped_center.y + half_size) / (half_size * 2.0),
+		normalized_radius,
+		phase
+	))
 
 
-func _walk_path(
-	source_index: int,
-	start: Vector2,
-	initial_direction: Vector2,
-	step_count: int,
-	step_length: float,
-	phase: float
-) -> PackedVector2Array:
-	var points := PackedVector2Array()
-	var current := start
-	var direction := initial_direction.normalized()
-	points.append(current)
-
-	for step in range(step_count):
-		var ratio := float(step) / float(maxi(1, step_count - 1))
-		var flow_bend := _flow_bend(current, source_index, phase, ratio)
-		var flow_direction := direction.rotated(flow_bend)
-		var center_pressure := _center_avoidance_direction(current, flow_direction)
-		direction = direction.lerp(flow_direction, 0.34).lerp(center_pressure, 0.11).normalized()
-		current += direction * step_length * (0.84 + sin(ratio * TAU + phase) * 0.12)
-		current = _clamp_to_patch(current)
-		points.append(current)
-
-	return _simplify_short_steps(points)
-
-
-func _add_capillaries(rng: RandomNumberGenerator, source_index: int, parent: MyceliumStrand) -> void:
-	if parent.points.size() < 7:
-		return
-
-	var branch_count := maxi(3, int(round(5.0 * strand_density)))
-	for _index in range(branch_count):
-		var origin_index := rng.randi_range(2, parent.points.size() - 3)
-		var origin := parent.points[origin_index]
-		var parent_direction := (parent.points[origin_index + 1] - parent.points[origin_index - 1]).normalized()
-		var side := -1.0 if rng.randf() < 0.5 else 1.0
-		var direction := parent_direction.rotated(side * rng.randf_range(0.36, 1.05))
-		var step_count := rng.randi_range(4, 8)
-		var step_length := rng.randf_range(5.5, 11.5)
-		var phase := rng.randf_range(0.0, TAU)
-		var points := _walk_path(source_index, origin, direction, step_count, step_length, phase)
+func _generate_edge_tendrils(rng: RandomNumberGenerator) -> void:
+	var tendril_count := maxi(9, int(round(13.0 * strand_density)))
+	for index in range(tendril_count):
+		var blob_index := rng.randi_range(0, _blob_local_centers.size() - 1)
+		var blob_center := _blob_local_centers[blob_index]
+		var direction := _edge_direction_for_blob(blob_center, rng)
+		var origin := blob_center + direction * patch_radius * rng.randf_range(0.18, 0.34)
+		var length := rng.randf_range(34.0, 82.0)
+		var points := _make_tendril_points(rng, origin, direction, length)
 		if points.size() < 3:
 			continue
 
-		var branch := MyceliumStrand.new()
-		branch.points = points
-		branch.width = rng.randf_range(0.42, 0.92)
-		branch.phase = phase
-		branch.flow_speed = rng.randf_range(0.12, 0.28)
-		branch.growth_start = clampf(parent.growth_start + rng.randf_range(0.08, 0.26), 0.0, 0.82)
-		branch.growth_end = clampf(parent.growth_end + rng.randf_range(-0.05, 0.08), branch.growth_start + 0.08, 1.0)
-		branch.gap_phase = rng.randf_range(0.0, 1.0)
-		branch.activation_bias = rng.randf_range(0.08, 0.34)
-		_strands.append(branch)
+		var tendril := CreepTendril.new()
+		tendril.points = points
+		tendril.width = rng.randf_range(1.4, 3.2)
+		tendril.phase = rng.randf_range(0.0, TAU)
+		tendril.flow_speed = rng.randf_range(0.10, 0.24)
+		tendril.growth_start = rng.randf_range(0.18, 0.58)
+		tendril.growth_end = rng.randf_range(0.62, 1.0)
+		_tendrils.append(tendril)
 
 
-func _flow_bend(point: Vector2, source_index: int, phase: float, ratio: float) -> float:
-	var scale := 0.0065
-	var low_frequency := sin(point.x * scale + phase + float(source_index) * 1.7)
-	var cross_frequency := cos(point.y * scale * 1.28 - phase * 0.63)
-	var crawl_frequency := sin(ratio * TAU * 1.7 + phase)
-	return low_frequency * 0.34 + cross_frequency * 0.22 + crawl_frequency * 0.18
+func _edge_direction_for_blob(blob_center: Vector2, rng: RandomNumberGenerator) -> Vector2:
+	if blob_center.length_squared() <= 1.0:
+		return Vector2.from_angle(rng.randf_range(0.0, TAU))
+	return blob_center.normalized().rotated(rng.randf_range(-0.85, 0.85))
 
 
-func _center_avoidance_direction(point: Vector2, fallback: Vector2) -> Vector2:
-	var distance := point.length()
-	if distance > patch_radius * 0.28:
-		return fallback
-	if distance <= 0.001:
-		return fallback.rotated(PI * 0.5)
+func _make_tendril_points(
+	rng: RandomNumberGenerator,
+	origin: Vector2,
+	direction: Vector2,
+	length: float
+) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	var current := origin
+	var current_direction := direction.normalized()
+	var segment_count := rng.randi_range(4, 7)
+	points.append(current)
 
-	var push := point.normalized().rotated(sin(distance * 0.01) * 0.42)
-	return fallback.lerp(push, 0.68).normalized()
+	for index in range(segment_count):
+		var ratio := float(index) / float(maxi(1, segment_count - 1))
+		current_direction = current_direction.rotated(sin(ratio * PI + length * 0.01) * 0.16 + rng.randf_range(-0.16, 0.16))
+		current += current_direction * length / float(segment_count)
+		current = current.limit_length(patch_radius * 1.06)
+		points.append(current)
 
-
-func _clamp_to_patch(point: Vector2) -> Vector2:
-	var distance := point.length()
-	var max_radius := patch_radius * 0.96
-	if distance <= max_radius:
-		return point
-	return point.normalized() * max_radius
-
-
-func _simplify_short_steps(points: PackedVector2Array) -> PackedVector2Array:
-	if points.size() < 2:
-		return points
-
-	var simplified := PackedVector2Array()
-	simplified.append(points[0])
-	for index in range(1, points.size()):
-		if points[index].distance_to(simplified[simplified.size() - 1]) >= 5.0:
-			simplified.append(points[index])
-	return simplified
+	return points
 
 
-func _build_strand_nodes() -> void:
-	for index in range(_strands.size()):
-		var strand := _strands[index]
+func _generate_pustules(rng: RandomNumberGenerator) -> void:
+	var pustule_count := rng.randi_range(10, 18)
+	for index in range(pustule_count):
+		var blob_index := rng.randi_range(0, _blob_local_centers.size() - 1)
+		var base := _blob_local_centers[blob_index]
+		var offset := Vector2.from_angle(rng.randf_range(0.0, TAU)) * patch_radius * rng.randf_range(0.02, 0.20)
+		var pustule := CreepPustule.new()
+		pustule.position = (base + offset).limit_length(patch_radius * 0.88)
+		pustule.radius = rng.randf_range(5.0, 15.0)
+		pustule.phase = rng.randf_range(0.0, TAU)
+		pustule.core_ratio = rng.randf_range(0.32, 0.55)
+		_pustules.append(pustule)
+
+
+func _build_tendril_nodes() -> void:
+	for index in range(_tendrils.size()):
+		var tendril := _tendrils[index]
 		var line := Line2D.new()
-		line.name = "Strand%03d" % index
-		line.points = strand.points
-		line.width = strand.width
+		line.name = "EdgeTendril%02d" % index
+		line.points = tendril.points
+		line.width = tendril.width
 		line.default_color = Color.WHITE
 		line.joint_mode = Line2D.LINE_JOINT_ROUND
 		line.begin_cap_mode = Line2D.LINE_CAP_ROUND
@@ -281,20 +276,16 @@ func _build_strand_nodes() -> void:
 
 		var material := ShaderMaterial.new()
 		material.shader = STRAND_SHADER
-		material.set_shader_parameter("line_phase", strand.phase)
-		material.set_shader_parameter("flow_speed", strand.flow_speed)
-		material.set_shader_parameter("growth_start", strand.growth_start)
-		material.set_shader_parameter("growth_end", strand.growth_end)
-		material.set_shader_parameter("gap_phase", strand.gap_phase)
-		material.set_shader_parameter("strand_width", strand.width)
+		material.set_shader_parameter("line_phase", tendril.phase)
+		material.set_shader_parameter("flow_speed", tendril.flow_speed)
+		material.set_shader_parameter("growth_start", tendril.growth_start)
+		material.set_shader_parameter("growth_end", tendril.growth_end)
+		material.set_shader_parameter("strand_width", tendril.width)
 		line.material = material
 
-		_strand_root.add_child(line)
-		_strand_lines.append(line)
-		_strand_materials.append(material)
-
-		if index % 5 == 0 and strand.points.size() > 2:
-			_spore_points.append(strand.points[strand.points.size() - 1])
+		_tendril_root.add_child(line)
+		_tendril_lines.append(line)
+		_tendril_materials.append(material)
 
 
 func _update_material_uniforms() -> void:
@@ -308,27 +299,48 @@ func _update_material_uniforms() -> void:
 		_substrate_material.set_shader_parameter("decay_amount", decay_amount)
 		_substrate_material.set_shader_parameter("focus_position", focus_uv)
 		_substrate_material.set_shader_parameter("focus_radius", normalized_focus_radius)
+		_substrate_material.set_shader_parameter("blob_count", mini(source_count, MAX_BLOBS))
+		_substrate_material.set_shader_parameter("blob_data", _blob_data)
+		for index in range(MAX_BLOBS):
+			var blob := _blob_data[index]
+			_substrate_material.set_shader_parameter("blob_%d" % index, Color(blob.x, blob.y, blob.z, blob.w))
+		_substrate_material.set_shader_parameter("dark_color", CREEP_DARK)
+		_substrate_material.set_shader_parameter("mid_color", CREEP_MID)
+		_substrate_material.set_shader_parameter("edge_color", CREEP_EDGE)
+		_substrate_material.set_shader_parameter("gloss_color", CREEP_GLOSS)
 
-	for index in range(_strand_materials.size()):
-		var material := _strand_materials[index]
-		var strand := _strands[index]
-		var line := _strand_lines[index]
-		var reveal := _strand_reveal(strand)
-		line.points = _partial_points(strand.points, reveal)
+	for index in range(_tendril_materials.size()):
+		var material := _tendril_materials[index]
+		var tendril := _tendrils[index]
+		var line := _tendril_lines[index]
+		var reveal := smoothstep(tendril.growth_start, tendril.growth_end, growth_amount)
+		line.points = _partial_points(tendril.points, reveal)
 		line.visible = line.points.size() >= 2
 		material.set_shader_parameter("time", _time)
 		material.set_shader_parameter("growth_amount", growth_amount)
 		material.set_shader_parameter("decay_amount", decay_amount)
-		material.set_shader_parameter("activation", _activation_for_strand(strand))
-		material.set_shader_parameter("focus_position", focus_uv)
-		material.set_shader_parameter("focus_radius", normalized_focus_radius)
-		material.set_shader_parameter("dormant_color", BONE_WHITE)
-		material.set_shader_parameter("active_color", WAX_AMBER)
-		material.set_shader_parameter("pulse_color", TOXIN_BLUE)
+		material.set_shader_parameter("activation", _activation_for_points(tendril.points))
+		material.set_shader_parameter("dormant_color", TENDRIL_DORMANT)
+		material.set_shader_parameter("active_color", TENDRIL_ACTIVE)
+		material.set_shader_parameter("pulse_color", TENDRIL_PULSE)
 
 
-func _strand_reveal(strand: MyceliumStrand) -> float:
-	return smoothstep(strand.growth_start, strand.growth_end, growth_amount)
+func _focus_uv() -> Vector2:
+	var half_size := patch_radius * SUBSTRATE_MARGIN
+	return Vector2(
+		(focus_position.x + half_size) / (half_size * 2.0),
+		(focus_position.y + half_size) / (half_size * 2.0)
+	)
+
+
+func _activation_for_points(points: PackedVector2Array) -> float:
+	if not active or points.is_empty():
+		return 0.0
+
+	var best_distance := INF
+	for point in points:
+		best_distance = minf(best_distance, point.distance_to(focus_position))
+	return 1.0 - clampf((best_distance - focus_radius * 0.15) / focus_radius, 0.0, 1.0)
 
 
 func _partial_points(points: PackedVector2Array, ratio: float) -> PackedVector2Array:
@@ -349,66 +361,98 @@ func _partial_points(points: PackedVector2Array, ratio: float) -> PackedVector2A
 	return partial
 
 
-func _focus_uv() -> Vector2:
-	var half_size := patch_radius * SUBSTRATE_MARGIN
-	return Vector2(
-		(focus_position.x + half_size) / (half_size * 2.0),
-		(focus_position.y + half_size) / (half_size * 2.0)
-	)
+func _draw_pustules() -> void:
+	var reveal := smoothstep(0.18, 0.62, growth_amount)
+	for pustule in _pustules:
+		var pulse := (sin(_time * 2.0 + pustule.phase) + 1.0) * 0.5
+		var radius := pustule.radius * (0.88 + pulse * 0.14)
+		draw_circle(pustule.position, radius * 1.72, Color(0.060, 0.015, 0.036, 0.30 * reveal))
+		draw_circle(pustule.position, radius, Color(PUSTULE_DARK, PUSTULE_DARK.a * reveal))
+		draw_circle(pustule.position, radius * pustule.core_ratio, Color(PUSTULE_CORE, PUSTULE_CORE.a * reveal * (0.72 + pulse * 0.20)))
+		draw_arc(
+			pustule.position,
+			radius * 1.18,
+			0.0,
+			TAU,
+			24,
+			Color(0.86, 0.34, 0.58, 0.18 * reveal),
+			1.0,
+			true
+		)
 
 
-func _activation_for_strand(strand: MyceliumStrand) -> float:
-	if not active or strand.points.is_empty():
-		return 0.0
+func _draw_edge_rim() -> void:
+	if _creep_polygon.size() < 3:
+		return
 
-	var best_distance := INF
-	for point in strand.points:
-		best_distance = minf(best_distance, point.distance_to(focus_position))
-
-	var activation := 1.0 - clampf((best_distance - focus_radius * 0.18) / focus_radius, 0.0, 1.0)
-	return clampf(activation + strand.activation_bias * 0.18, 0.0, 1.0)
-
-
-func _draw_source_pores() -> void:
-	for index in range(_source_points.size()):
-		var source_point := _source_points[index]
-		var pulse := (sin(_time * 1.8 + float(index) * 1.3) + 1.0) * 0.5
-		var reveal := smoothstep(0.0, 0.35, growth_amount)
-		draw_circle(source_point, 21.0 + pulse * 2.5, Color(0.22, 0.10, 0.12, 0.22 * reveal))
-		draw_circle(source_point, 5.5 + pulse * 1.1, Color(0.67, 0.50, 0.30, 0.46 * reveal))
+	var closed_polygon := PackedVector2Array(_creep_polygon)
+	closed_polygon.append(_creep_polygon[0])
+	var reveal := smoothstep(0.08, 0.50, growth_amount)
+	draw_polyline(closed_polygon, Color(0.040, 0.005, 0.030, 0.52 * reveal), 8.0, true)
+	draw_polyline(closed_polygon, Color(0.56, 0.11, 0.30, 0.34 * reveal), 3.0, true)
+	draw_polyline(closed_polygon, Color(0.98, 0.50, 0.82, 0.12 * reveal), 1.0, true)
 
 
-func _draw_spore_dust() -> void:
-	for index in range(_spore_points.size()):
-		var point := _spore_points[index]
-		var pulse := (sin(_time * 2.5 + float(index) * 0.9) + 1.0) * 0.5
-		draw_circle(point, 1.5 + pulse * 0.8, Color(0.63, 0.69, 0.47, 0.20 + pulse * 0.16))
+func _draw_visible_tendrils() -> void:
+	var reveal := smoothstep(0.38, 0.86, growth_amount)
+	if reveal <= 0.0:
+		return
+
+	for index in range(_tendrils.size()):
+		if index % 2 != 0:
+			continue
+		var tendril := _tendrils[index]
+		var partial := _partial_points(tendril.points, smoothstep(tendril.growth_start, tendril.growth_end, growth_amount))
+		if partial.size() < 2:
+			continue
+		var pulse := (sin(_time * tendril.flow_speed * 5.0 + tendril.phase) + 1.0) * 0.5
+		draw_polyline(partial, Color(0.10, 0.015, 0.075, 0.32 * reveal), tendril.width + 2.0, true)
+		draw_polyline(partial, Color(0.72, 0.20, 0.48, (0.14 + pulse * 0.05) * reveal), maxf(1.0, tendril.width * 0.72), true)
+
+
+func _draw_membrane_veins() -> void:
+	var reveal := smoothstep(0.24, 0.68, growth_amount)
+	if reveal <= 0.0:
+		return
+
+	for index in range(_blob_local_centers.size()):
+		var center := _blob_local_centers[index]
+		var next_center := _blob_local_centers[(index + 1) % _blob_local_centers.size()]
+		var midpoint := center.lerp(next_center, 0.5)
+		var pulse := (sin(_time * 1.25 + float(index) * 1.7) + 1.0) * 0.5
+		draw_line(center, midpoint, Color(0.50, 0.13, 0.42, (0.10 + pulse * 0.05) * reveal), 2.0)
+		draw_line(midpoint, next_center, Color(0.11, 0.02, 0.10, 0.16 * reveal), 1.5)
 
 
 func _draw_focus_glow() -> void:
 	if not active:
 		return
 
-	var pulse := (sin(_time * 3.8) + 1.0) * 0.5
-	draw_circle(focus_position, focus_radius * (0.18 + pulse * 0.025), Color(0.44, 0.63, 0.58, 0.045))
+	var pulse := (sin(_time * 3.6) + 1.0) * 0.5
+	draw_circle(focus_position, focus_radius * (0.22 + pulse * 0.03), Color(0.62, 0.38, 0.70, 0.050))
 	draw_arc(
 		focus_position,
-		focus_radius * 0.26,
+		focus_radius * 0.30,
 		0.0,
 		TAU,
 		48,
-		Color(0.62, 0.78, 0.65, 0.12 + pulse * 0.08),
+		Color(0.78, 0.54, 0.86, 0.13 + pulse * 0.08),
 		1.0,
 		true
 	)
 
 
-class MyceliumStrand:
+class CreepTendril:
 	var points := PackedVector2Array()
-	var width: float = 1.0
+	var width: float = 2.0
 	var phase: float = 0.0
 	var flow_speed: float = 0.16
 	var growth_start: float = 0.0
 	var growth_end: float = 1.0
-	var gap_phase: float = 0.0
-	var activation_bias: float = 0.0
+
+
+class CreepPustule:
+	var position: Vector2 = Vector2.ZERO
+	var radius: float = 8.0
+	var phase: float = 0.0
+	var core_ratio: float = 0.42
