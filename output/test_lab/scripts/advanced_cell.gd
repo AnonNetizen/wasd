@@ -33,6 +33,7 @@ var _has_obstacle: bool = false
 var _obstacle_center: Vector2 = Vector2.ZERO
 var _obstacle_radius: float = 0.0
 var _contact_points: PackedVector2Array = PackedVector2Array()
+var _show_skeleton: bool = true
 
 
 func _ready() -> void:
@@ -75,6 +76,15 @@ func set_obstacle_circle(center_global: Vector2, radius: float) -> void:
 	_has_obstacle = true
 	_obstacle_center = center_global
 	_obstacle_radius = radius
+
+
+# 切换骨架调试显示（从中心到各骨控制点的辐条 + 关节 + 序号）
+func set_show_skeleton(value: bool) -> void:
+	_show_skeleton = value
+
+
+func is_skeleton_shown() -> bool:
+	return _show_skeleton
 
 
 func _play_action(action_name: String) -> void:
@@ -268,6 +278,30 @@ func _draw() -> void:
 	_draw_organelles()
 	_draw_nuclei()
 	_draw_food()
+	_draw_skeleton()
+
+
+func _draw_skeleton() -> void:
+	if not _show_skeleton:
+		return
+	var hub := Vector2.ZERO
+	var spoke_color := Color(1.0, 0.70, 0.22, 0.50)
+	var joint_color := Color(1.0, 0.80, 0.30, 0.95)
+	# 辐条：中心 → 各骨控制点（骨骼即膜的径向控制点；动画驱动其位置）
+	for index in range(BONE_COUNT):
+		var tip := _bones[index].position
+		draw_line(hub, tip, spoke_color, 2.0, true)
+		draw_circle(tip, 5.5, joint_color)
+		draw_arc(tip, 5.5, 0.0, TAU, 16, Color(0.4, 0.22, 0.05, 0.9), 1.5, true)
+	# 中心枢纽（Skeleton2D 根）
+	draw_circle(hub, 9.0, Color(1.0, 0.86, 0.40, 0.98))
+	draw_arc(hub, 9.0, 0.0, TAU, 24, Color(0.4, 0.22, 0.05, 0.9), 2.0, true)
+	# 骨序号
+	var font := ThemeDB.fallback_font
+	if font != null:
+		for index in range(BONE_COUNT):
+			var tip := _bones[index].position
+			draw_string(font, tip + tip.normalized() * 13.0 + Vector2(-5.0, 5.0), str(index), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1.0, 0.92, 0.66, 0.95))
 
 
 func _draw_contact() -> void:

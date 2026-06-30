@@ -16,6 +16,7 @@ const ACTION_PSEUDOPOD := "cell_pseudopod"
 const ACTION_DIVIDE := "cell_divide"
 const ACTION_ENGULF := "cell_engulf"
 const ACTION_CYCLE := "cell_cycle"
+const ACTION_TOGGLE_BONES := "cell_toggle_bones"
 
 var _cell: Node2D
 var _state_label: Label
@@ -23,6 +24,7 @@ var _cycle_index: int = 0
 var _time: float = 0.0
 var _dragging: bool = false
 var _drag_offset: Vector2 = Vector2.ZERO
+var _bones_shown: bool = true
 
 
 func _ready() -> void:
@@ -48,6 +50,9 @@ func _process(delta: float) -> void:
 		_cell.call("trigger_engulf")
 	elif Input.is_action_just_pressed(ACTION_CYCLE):
 		_cycle_next()
+	elif Input.is_action_just_pressed(ACTION_TOGGLE_BONES):
+		_bones_shown = not _bones_shown
+		_cell.call("set_show_skeleton", _bones_shown)
 
 	_update_drag()
 
@@ -102,7 +107,7 @@ func _create_labels() -> void:
 
 	var hint := Label.new()
 	hint.name = "Hint"
-	hint.text = "1 idle · 2 伪足 · 3 分裂 · 4 吞噬 · Space 顺次 · 左键拖动细胞撞障碍物 · Esc 返回"
+	hint.text = "1 idle · 2 伪足 · 3 分裂 · 4 吞噬 · Space 顺次 · B 骨骼显示 · 左键拖动细胞撞障碍物 · Esc 返回"
 	hint.add_theme_font_size_override("font_size", 16)
 	hint.add_theme_color_override("font_color", Color(0.58, 0.72, 0.72, 0.7))
 	hint.position = Vector2(40.0, 64.0)
@@ -129,6 +134,7 @@ func _ensure_input_actions() -> void:
 	_register_key_action(ACTION_DIVIDE, KEY_3)
 	_register_key_action(ACTION_ENGULF, KEY_4)
 	_register_key_action(ACTION_CYCLE, KEY_SPACE)
+	_register_key_action(ACTION_TOGGLE_BONES, KEY_B)
 
 
 func _register_key_action(action_name: String, keycode: Key) -> void:

@@ -19,13 +19,14 @@ func _capture() -> void:
 	root.add_child(scene)
 	current_scene = scene
 
-	# 等初始化后把细胞贴向障碍物，idle 态展示膜贴壁凹陷的碰撞挤压效果
+	# 封面：把细胞移开障碍物、触发分裂，展示骨架（辐条 + 关节 + 序号）如何驱动膜形变
 	for _warmup in range(4):
 		await process_frame
 	var cell := scene.get_node_or_null("AdvancedCell")
 	if cell != null:
-		cell.position = Vector2(706.0, 388.0)
-	for _index in range(40):
+		cell.position = Vector2(556.0, 388.0)
+		cell.call("trigger_divide")
+	for _index in range(96):
 		await process_frame
 
 	var viewport_texture := root.get_texture()
