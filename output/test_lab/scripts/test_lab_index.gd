@@ -19,6 +19,11 @@ const EXTRA_TEST_SCENES := [
 		"label": "Soft Body Cell Edge Test",
 		"scene_path": "res://scenes/soft_body_cell_test.tscn",
 	},
+	{
+		"button_name": "EmotionBlobButton",
+		"label": "Emotion Blob Test",
+		"scene_path": "res://scenes/emotion_blob_test.tscn",
+	},
 ]
 
 
