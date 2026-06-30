@@ -29,6 +29,11 @@ const EXTRA_TEST_SCENES := [
 		"label": "Ink Wash Test",
 		"scene_path": "res://scenes/ink_test.tscn",
 	},
+	{
+		"button_name": "CloudMistButton",
+		"label": "Cloud Mist Test",
+		"scene_path": "res://scenes/cloud_mist_test.tscn",
+	},
 ]
 
 
