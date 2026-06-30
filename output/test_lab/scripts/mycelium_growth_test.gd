@@ -62,7 +62,8 @@ func _create_patch() -> void:
 	_patch.name = "MyceliumPatch"
 	_patch.set("seed", _seed)
 	_patch.set("patch_radius", 340.0)
-	_patch.set("strand_count", 42)
+	_patch.set("source_count", 5)
+	_patch.set("strand_density", 1.08)
 	_patch.set("growth_amount", 0.74)
 	_patch.global_position = VIEWPORT_SIZE * 0.5 + Vector2(12.0, 26.0)
 	add_child(_patch)

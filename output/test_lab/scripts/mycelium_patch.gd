@@ -1,40 +1,50 @@
 class_name TestLabMyceliumPatch
 extends Node2D
 
-const BASE_STAIN_COLOR := Color(0.145, 0.095, 0.125, 0.56)
-const BASE_EDGE_COLOR := Color(0.45, 0.31, 0.25, 0.32)
-const STRAND_SHADOW_COLOR := Color(0.025, 0.018, 0.024, 0.42)
-const STRAND_DORMANT_COLOR := Color(0.62, 0.49, 0.38, 0.70)
-const STRAND_ALIVE_COLOR := Color(0.92, 0.83, 0.58, 0.92)
-const STRAND_PULSE_COLOR := Color(0.52, 0.78, 0.82, 0.78)
-const SPORE_COLOR := Color(0.78, 0.90, 0.64, 0.74)
-const MIN_VISIBLE_SEGMENT_RATIO := 0.015
+const SUBSTRATE_SHADER := preload("res://shaders/mycelium_substrate.gdshader")
+const STRAND_SHADER := preload("res://shaders/mycelium_strand.gdshader")
+
+const SUBSTRATE_MARGIN: float = 1.16
+const SOURCE_INSET_RATIO: float = 0.88
+const BONE_WHITE := Color(0.72, 0.66, 0.52, 0.74)
+const WAX_AMBER := Color(0.92, 0.68, 0.36, 0.62)
+const TOXIN_BLUE := Color(0.36, 0.62, 0.68, 0.46)
 
 @export var seed: int = 1739
-@export_range(120.0, 520.0, 1.0) var patch_radius: float = 300.0
-@export_range(8, 72, 1) var strand_count: int = 34
+@export_range(160.0, 560.0, 1.0) var patch_radius: float = 340.0
+@export_range(4, 6, 1) var source_count: int = 5
+@export_range(0.55, 1.75, 0.05) var strand_density: float = 1.0
 @export_range(0.0, 1.0, 0.01) var growth_amount: float = 0.76
-@export_range(24.0, 260.0, 1.0) var focus_radius: float = 150.0
+@export_range(48.0, 260.0, 1.0) var focus_radius: float = 150.0
 @export var active: bool = true
 
 var focus_position: Vector2 = Vector2.ZERO
 
+var _substrate: Polygon2D
+var _substrate_material: ShaderMaterial
+var _strand_root: Node2D
 var _strands: Array[MyceliumStrand] = []
+var _strand_lines: Array[Line2D] = []
+var _strand_materials: Array[ShaderMaterial] = []
+var _source_points := PackedVector2Array()
+var _spore_points := PackedVector2Array()
 var _time: float = 0.0
 
 
 func _ready() -> void:
 	focus_position = Vector2.ZERO
+	_ensure_nodes()
 	_generate_network()
 
 
 func _process(delta: float) -> void:
 	_time += delta
+	_update_material_uniforms()
 	queue_redraw()
 
 
 func set_focus_position(local_position: Vector2) -> void:
-	focus_position = local_position.limit_length(patch_radius * 1.1)
+	focus_position = local_position.limit_length(patch_radius * SUBSTRATE_MARGIN)
 
 
 func set_growth_amount(new_growth_amount: float) -> void:
@@ -48,192 +58,277 @@ func regenerate(new_seed: int) -> void:
 
 
 func _draw() -> void:
-	if _strands.is_empty():
-		return
-
-	_draw_substrate()
-	_draw_strand_shadows()
-	_draw_strands()
-	_draw_spores()
+	_draw_source_pores()
+	_draw_spore_dust()
 	_draw_focus_glow()
 
 
+func _ensure_nodes() -> void:
+	if _substrate == null:
+		_substrate = Polygon2D.new()
+		_substrate.name = "WetSubstrate"
+		_substrate.z_index = 0
+		add_child(_substrate)
+
+	if _substrate_material == null:
+		_substrate_material = ShaderMaterial.new()
+		_substrate_material.shader = SUBSTRATE_SHADER
+		_substrate.material = _substrate_material
+
+	if _strand_root == null:
+		_strand_root = Node2D.new()
+		_strand_root.name = "CreepingStrands"
+		_strand_root.z_index = 2
+		add_child(_strand_root)
+
+
 func _generate_network() -> void:
+	_ensure_nodes()
+	_clear_strand_nodes()
 	_strands.clear()
+	_strand_lines.clear()
+	_strand_materials.clear()
+	_source_points.clear()
+	_spore_points.clear()
+	_configure_substrate_polygon()
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
+	_source_points = _make_source_points(rng)
 
-	for index in range(strand_count):
-		var base_angle: float = TAU * float(index) / float(strand_count)
-		base_angle += rng.randf_range(-0.19, 0.19)
-		var length := rng.randf_range(patch_radius * 0.58, patch_radius)
-		var start := Vector2.from_angle(base_angle + PI) * rng.randf_range(0.0, 22.0)
-		var width := rng.randf_range(2.2, 4.4)
-		var step_count := rng.randi_range(9, 15)
-		var growth_offset := rng.randf_range(0.0, 0.24)
-		var strand := _make_strand(rng, start, base_angle, length, step_count, width, growth_offset)
-		_strands.append(strand)
-		_add_branches(rng, strand, length, width, growth_offset)
+	for source_index in range(_source_points.size()):
+		_grow_from_source(rng, source_index, _source_points[source_index])
+
+	_build_strand_nodes()
+	_update_material_uniforms()
 
 
-func _make_strand(
-	rng: RandomNumberGenerator,
-	start: Vector2,
-	angle: float,
-	length: float,
-	step_count: int,
-	width: float,
-	growth_offset: float
-) -> MyceliumStrand:
-	var strand := MyceliumStrand.new()
-	strand.width = width
-	strand.phase = rng.randf_range(0.0, TAU)
-	strand.flow_speed = rng.randf_range(0.22, 0.54)
-	strand.growth_offset = growth_offset
-	strand.points.append(start)
-
-	var direction := Vector2.from_angle(angle)
-	var current := start
-	var bend := rng.randf_range(-0.9, 0.9)
-	for step in range(1, step_count + 1):
-		var ratio := float(step) / float(step_count)
-		var wave_angle := angle + sin(ratio * PI + strand.phase) * bend * 0.28
-		wave_angle += rng.randf_range(-0.14, 0.14)
-		direction = direction.lerp(Vector2.from_angle(wave_angle), 0.52).normalized()
-		current += direction * (length / float(step_count)) * rng.randf_range(0.82, 1.16)
-		if current.length() > patch_radius:
-			current = current.normalized() * patch_radius
-		strand.points.append(current)
-
-	return strand
+func _configure_substrate_polygon() -> void:
+	var half_size := patch_radius * SUBSTRATE_MARGIN
+	_substrate.polygon = PackedVector2Array([
+		Vector2(-half_size, -half_size),
+		Vector2(half_size, -half_size),
+		Vector2(half_size, half_size),
+		Vector2(-half_size, half_size),
+	])
+	_substrate.uv = PackedVector2Array([
+		Vector2(0.0, 0.0),
+		Vector2(1.0, 0.0),
+		Vector2(1.0, 1.0),
+		Vector2(0.0, 1.0),
+	])
+	_substrate.color = Color.WHITE
 
 
-func _add_branches(
-	rng: RandomNumberGenerator,
-	parent: MyceliumStrand,
-	parent_length: float,
-	parent_width: float,
-	parent_growth_offset: float
-) -> void:
-	if parent.points.size() < 5:
+func _clear_strand_nodes() -> void:
+	if _strand_root == null:
 		return
 
-	var branch_count := rng.randi_range(1, 3)
-	for _branch_index in range(branch_count):
-		var start_index := rng.randi_range(2, parent.points.size() - 2)
-		var origin := parent.points[start_index]
-		var parent_direction := (parent.points[start_index + 1] - parent.points[start_index - 1]).normalized()
+	for child in _strand_root.get_children():
+		child.queue_free()
+
+
+func _make_source_points(rng: RandomNumberGenerator) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	var angle_offset := rng.randf_range(0.0, TAU)
+	for index in range(source_count):
+		var ratio := float(index) / float(source_count)
+		var angle := angle_offset + ratio * TAU + rng.randf_range(-0.22, 0.22)
+		var radius := patch_radius * rng.randf_range(0.72, SOURCE_INSET_RATIO)
+		points.append(Vector2.from_angle(angle) * radius)
+	return points
+
+
+func _grow_from_source(rng: RandomNumberGenerator, source_index: int, source_point: Vector2) -> void:
+	var main_count := maxi(5, int(round(7.0 * strand_density)))
+	var inward := (-source_point).normalized()
+	var tangent := inward.rotated(PI * 0.5)
+
+	for index in range(main_count):
+		var fan_ratio := 0.0
+		if main_count > 1:
+			fan_ratio = float(index) / float(main_count - 1) - 0.5
+
+		var start := source_point + tangent * fan_ratio * 44.0
+		var direction := inward.rotated(fan_ratio * 1.08 + rng.randf_range(-0.28, 0.28))
+		var step_count := rng.randi_range(9, 15)
+		var step_length := rng.randf_range(12.0, 19.0)
+		var phase := rng.randf_range(0.0, TAU)
+		var points := _walk_path(source_index, start, direction, step_count, step_length, phase)
+		if points.size() < 4:
+			continue
+
+		var strand := MyceliumStrand.new()
+		strand.points = points
+		strand.width = rng.randf_range(0.92, 1.55)
+		strand.phase = phase
+		strand.flow_speed = rng.randf_range(0.08, 0.22)
+		strand.growth_start = rng.randf_range(0.0, 0.16)
+		strand.growth_end = rng.randf_range(0.66, 0.98)
+		strand.gap_phase = rng.randf_range(0.0, 1.0)
+		strand.activation_bias = rng.randf_range(0.0, 0.22)
+		_strands.append(strand)
+		_add_capillaries(rng, source_index, strand)
+
+
+func _walk_path(
+	source_index: int,
+	start: Vector2,
+	initial_direction: Vector2,
+	step_count: int,
+	step_length: float,
+	phase: float
+) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	var current := start
+	var direction := initial_direction.normalized()
+	points.append(current)
+
+	for step in range(step_count):
+		var ratio := float(step) / float(maxi(1, step_count - 1))
+		var flow_bend := _flow_bend(current, source_index, phase, ratio)
+		var flow_direction := direction.rotated(flow_bend)
+		var center_pressure := _center_avoidance_direction(current, flow_direction)
+		direction = direction.lerp(flow_direction, 0.34).lerp(center_pressure, 0.11).normalized()
+		current += direction * step_length * (0.84 + sin(ratio * TAU + phase) * 0.12)
+		current = _clamp_to_patch(current)
+		points.append(current)
+
+	return _simplify_short_steps(points)
+
+
+func _add_capillaries(rng: RandomNumberGenerator, source_index: int, parent: MyceliumStrand) -> void:
+	if parent.points.size() < 7:
+		return
+
+	var branch_count := maxi(3, int(round(5.0 * strand_density)))
+	for _index in range(branch_count):
+		var origin_index := rng.randi_range(2, parent.points.size() - 3)
+		var origin := parent.points[origin_index]
+		var parent_direction := (parent.points[origin_index + 1] - parent.points[origin_index - 1]).normalized()
 		var side := -1.0 if rng.randf() < 0.5 else 1.0
-		var branch_angle := parent_direction.angle() + side * rng.randf_range(0.48, 1.15)
-		var branch_length := parent_length * rng.randf_range(0.16, 0.34)
-		var branch_steps := rng.randi_range(4, 7)
-		var branch_width := maxf(1.0, parent_width * rng.randf_range(0.34, 0.56))
-		var growth_offset := clampf(parent_growth_offset + rng.randf_range(0.12, 0.34), 0.0, 0.82)
-		var branch := _make_strand(rng, origin, branch_angle, branch_length, branch_steps, branch_width, growth_offset)
+		var direction := parent_direction.rotated(side * rng.randf_range(0.36, 1.05))
+		var step_count := rng.randi_range(4, 8)
+		var step_length := rng.randf_range(5.5, 11.5)
+		var phase := rng.randf_range(0.0, TAU)
+		var points := _walk_path(source_index, origin, direction, step_count, step_length, phase)
+		if points.size() < 3:
+			continue
+
+		var branch := MyceliumStrand.new()
+		branch.points = points
+		branch.width = rng.randf_range(0.42, 0.92)
+		branch.phase = phase
+		branch.flow_speed = rng.randf_range(0.12, 0.28)
+		branch.growth_start = clampf(parent.growth_start + rng.randf_range(0.08, 0.26), 0.0, 0.82)
+		branch.growth_end = clampf(parent.growth_end + rng.randf_range(-0.05, 0.08), branch.growth_start + 0.08, 1.0)
+		branch.gap_phase = rng.randf_range(0.0, 1.0)
+		branch.activation_bias = rng.randf_range(0.08, 0.34)
 		_strands.append(branch)
 
 
-func _draw_substrate() -> void:
-	var points := PackedVector2Array()
-	for index in range(72):
-		var angle := TAU * float(index) / 72.0
-		var radius := patch_radius * 0.76
-		radius += sin(angle * 3.0 + _time * 0.18) * patch_radius * 0.045
-		radius += sin(angle * 7.0 - _time * 0.11) * patch_radius * 0.025
-		points.append(Vector2.from_angle(angle) * radius)
-
-	var alpha_scale := smoothstep(0.05, 0.64, growth_amount)
-	draw_colored_polygon(points, Color(BASE_STAIN_COLOR, BASE_STAIN_COLOR.a * alpha_scale))
-
-	var outline := PackedVector2Array(points)
-	outline.append(points[0])
-	draw_polyline(outline, Color(BASE_EDGE_COLOR, BASE_EDGE_COLOR.a * alpha_scale), 2.0, true)
+func _flow_bend(point: Vector2, source_index: int, phase: float, ratio: float) -> float:
+	var scale := 0.0065
+	var low_frequency := sin(point.x * scale + phase + float(source_index) * 1.7)
+	var cross_frequency := cos(point.y * scale * 1.28 - phase * 0.63)
+	var crawl_frequency := sin(ratio * TAU * 1.7 + phase)
+	return low_frequency * 0.34 + cross_frequency * 0.22 + crawl_frequency * 0.18
 
 
-func _draw_strand_shadows() -> void:
-	for strand in _strands:
-		var partial_points := _partial_points(strand.points, _strand_visibility(strand))
-		if partial_points.size() < 2:
-			continue
-		draw_polyline(partial_points, STRAND_SHADOW_COLOR, strand.width + 4.0, true)
+func _center_avoidance_direction(point: Vector2, fallback: Vector2) -> Vector2:
+	var distance := point.length()
+	if distance > patch_radius * 0.28:
+		return fallback
+	if distance <= 0.001:
+		return fallback.rotated(PI * 0.5)
+
+	var push := point.normalized().rotated(sin(distance * 0.01) * 0.42)
+	return fallback.lerp(push, 0.68).normalized()
 
 
-func _draw_strands() -> void:
-	for strand in _strands:
-		var visibility := _strand_visibility(strand)
-		var partial_points := _partial_points(strand.points, visibility)
-		if partial_points.size() < 2:
-			continue
-
-		var activation := _activation_for_strand(strand)
-		var pulse := (sin(_time * 3.4 + strand.phase) + 1.0) * 0.5
-		var color := STRAND_DORMANT_COLOR.lerp(STRAND_ALIVE_COLOR, activation)
-		color.a *= 0.56 + pulse * 0.18 + activation * 0.24
-		draw_polyline(partial_points, color, strand.width, true)
-
-		var highlight := Color(STRAND_PULSE_COLOR, STRAND_PULSE_COLOR.a * activation * (0.45 + pulse * 0.42))
-		if activation > 0.05:
-			draw_polyline(partial_points, highlight, maxf(1.0, strand.width * 0.36), true)
-			_draw_flow_pulse(strand, visibility, activation)
+func _clamp_to_patch(point: Vector2) -> Vector2:
+	var distance := point.length()
+	var max_radius := patch_radius * 0.96
+	if distance <= max_radius:
+		return point
+	return point.normalized() * max_radius
 
 
-func _draw_spores() -> void:
+func _simplify_short_steps(points: PackedVector2Array) -> PackedVector2Array:
+	if points.size() < 2:
+		return points
+
+	var simplified := PackedVector2Array()
+	simplified.append(points[0])
+	for index in range(1, points.size()):
+		if points[index].distance_to(simplified[simplified.size() - 1]) >= 5.0:
+			simplified.append(points[index])
+	return simplified
+
+
+func _build_strand_nodes() -> void:
 	for index in range(_strands.size()):
-		if index % 3 != 0:
-			continue
 		var strand := _strands[index]
-		var visibility := _strand_visibility(strand)
-		if visibility < 0.92 or strand.points.is_empty():
-			continue
+		var line := Line2D.new()
+		line.name = "Strand%03d" % index
+		line.points = strand.points
+		line.width = strand.width
+		line.default_color = Color.WHITE
+		line.joint_mode = Line2D.LINE_JOINT_ROUND
+		line.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		line.end_cap_mode = Line2D.LINE_CAP_ROUND
+		line.antialiased = true
 
-		var activation := _activation_for_strand(strand)
-		var end_point := strand.points[strand.points.size() - 1]
-		var spore_radius := 2.4 + sin(_time * 4.2 + strand.phase) * 0.8
-		var spore_color := Color(SPORE_COLOR, SPORE_COLOR.a * (0.35 + activation * 0.58))
-		draw_circle(end_point, maxf(1.0, spore_radius), spore_color)
+		var material := ShaderMaterial.new()
+		material.shader = STRAND_SHADER
+		material.set_shader_parameter("line_phase", strand.phase)
+		material.set_shader_parameter("flow_speed", strand.flow_speed)
+		material.set_shader_parameter("growth_start", strand.growth_start)
+		material.set_shader_parameter("growth_end", strand.growth_end)
+		material.set_shader_parameter("gap_phase", strand.gap_phase)
+		material.set_shader_parameter("strand_width", strand.width)
+		line.material = material
 
+		_strand_root.add_child(line)
+		_strand_lines.append(line)
+		_strand_materials.append(material)
 
-func _draw_focus_glow() -> void:
-	if not active:
-		return
-
-	var pulse := (sin(_time * 4.8) + 1.0) * 0.5
-	draw_circle(focus_position, focus_radius * (0.25 + pulse * 0.04), Color(0.42, 0.64, 0.62, 0.08))
-	draw_arc(
-		focus_position,
-		focus_radius * 0.31,
-		0.0,
-		TAU,
-		48,
-		Color(0.74, 0.90, 0.78, 0.22 + pulse * 0.14),
-		1.5,
-		true
-	)
-
-
-func _draw_flow_pulse(strand: MyceliumStrand, visibility: float, activation: float) -> void:
-	var pulse_ratio := fposmod(_time * strand.flow_speed + strand.phase / TAU, 1.0)
-	if pulse_ratio > visibility:
-		return
-
-	var pulse_point := _point_at_ratio(strand.points, pulse_ratio)
-	var pulse_radius := maxf(2.0, strand.width * 0.85)
-	draw_circle(pulse_point, pulse_radius, Color(STRAND_PULSE_COLOR, STRAND_PULSE_COLOR.a * activation))
+		if index % 5 == 0 and strand.points.size() > 2:
+			_spore_points.append(strand.points[strand.points.size() - 1])
 
 
-func _strand_visibility(strand: MyceliumStrand) -> float:
-	var visible := (growth_amount - strand.growth_offset) / maxf(MIN_VISIBLE_SEGMENT_RATIO, 1.0 - strand.growth_offset)
-	return smoothstep(0.0, 1.0, clampf(visible, 0.0, 1.0))
+func _update_material_uniforms() -> void:
+	var decay_amount := 1.0 - growth_amount
+	var focus_uv := _focus_uv()
+	var normalized_focus_radius := clampf(focus_radius / (patch_radius * SUBSTRATE_MARGIN * 2.0), 0.02, 0.48)
+
+	if _substrate_material != null:
+		_substrate_material.set_shader_parameter("time", _time)
+		_substrate_material.set_shader_parameter("growth_amount", growth_amount)
+		_substrate_material.set_shader_parameter("decay_amount", decay_amount)
+		_substrate_material.set_shader_parameter("focus_position", focus_uv)
+		_substrate_material.set_shader_parameter("focus_radius", normalized_focus_radius)
+
+	for index in range(_strand_materials.size()):
+		var material := _strand_materials[index]
+		var strand := _strands[index]
+		var line := _strand_lines[index]
+		var reveal := _strand_reveal(strand)
+		line.points = _partial_points(strand.points, reveal)
+		line.visible = line.points.size() >= 2
+		material.set_shader_parameter("time", _time)
+		material.set_shader_parameter("growth_amount", growth_amount)
+		material.set_shader_parameter("decay_amount", decay_amount)
+		material.set_shader_parameter("activation", _activation_for_strand(strand))
+		material.set_shader_parameter("focus_position", focus_uv)
+		material.set_shader_parameter("focus_radius", normalized_focus_radius)
+		material.set_shader_parameter("dormant_color", BONE_WHITE)
+		material.set_shader_parameter("active_color", WAX_AMBER)
+		material.set_shader_parameter("pulse_color", TOXIN_BLUE)
 
 
-func _activation_for_strand(strand: MyceliumStrand) -> float:
-	if not active or strand.points.is_empty():
-		return 0.0
-
-	var tip := strand.points[strand.points.size() - 1]
-	var distance := tip.distance_to(focus_position)
-	return 1.0 - clampf((distance - focus_radius * 0.25) / focus_radius, 0.0, 1.0)
+func _strand_reveal(strand: MyceliumStrand) -> float:
+	return smoothstep(strand.growth_start, strand.growth_end, growth_amount)
 
 
 func _partial_points(points: PackedVector2Array, ratio: float) -> PackedVector2Array:
@@ -254,22 +349,66 @@ func _partial_points(points: PackedVector2Array, ratio: float) -> PackedVector2A
 	return partial
 
 
-func _point_at_ratio(points: PackedVector2Array, ratio: float) -> Vector2:
-	if points.is_empty():
-		return Vector2.ZERO
-	if points.size() == 1:
-		return points[0]
+func _focus_uv() -> Vector2:
+	var half_size := patch_radius * SUBSTRATE_MARGIN
+	return Vector2(
+		(focus_position.x + half_size) / (half_size * 2.0),
+		(focus_position.y + half_size) / (half_size * 2.0)
+	)
 
-	var segment_count := points.size() - 1
-	var segment_position := clampf(ratio, 0.0, 1.0) * float(segment_count)
-	var segment_index := mini(int(floor(segment_position)), segment_count - 1)
-	var local_ratio := segment_position - float(segment_index)
-	return points[segment_index].lerp(points[segment_index + 1], local_ratio)
+
+func _activation_for_strand(strand: MyceliumStrand) -> float:
+	if not active or strand.points.is_empty():
+		return 0.0
+
+	var best_distance := INF
+	for point in strand.points:
+		best_distance = minf(best_distance, point.distance_to(focus_position))
+
+	var activation := 1.0 - clampf((best_distance - focus_radius * 0.18) / focus_radius, 0.0, 1.0)
+	return clampf(activation + strand.activation_bias * 0.18, 0.0, 1.0)
+
+
+func _draw_source_pores() -> void:
+	for index in range(_source_points.size()):
+		var source_point := _source_points[index]
+		var pulse := (sin(_time * 1.8 + float(index) * 1.3) + 1.0) * 0.5
+		var reveal := smoothstep(0.0, 0.35, growth_amount)
+		draw_circle(source_point, 21.0 + pulse * 2.5, Color(0.22, 0.10, 0.12, 0.22 * reveal))
+		draw_circle(source_point, 5.5 + pulse * 1.1, Color(0.67, 0.50, 0.30, 0.46 * reveal))
+
+
+func _draw_spore_dust() -> void:
+	for index in range(_spore_points.size()):
+		var point := _spore_points[index]
+		var pulse := (sin(_time * 2.5 + float(index) * 0.9) + 1.0) * 0.5
+		draw_circle(point, 1.5 + pulse * 0.8, Color(0.63, 0.69, 0.47, 0.20 + pulse * 0.16))
+
+
+func _draw_focus_glow() -> void:
+	if not active:
+		return
+
+	var pulse := (sin(_time * 3.8) + 1.0) * 0.5
+	draw_circle(focus_position, focus_radius * (0.18 + pulse * 0.025), Color(0.44, 0.63, 0.58, 0.045))
+	draw_arc(
+		focus_position,
+		focus_radius * 0.26,
+		0.0,
+		TAU,
+		48,
+		Color(0.62, 0.78, 0.65, 0.12 + pulse * 0.08),
+		1.0,
+		true
+	)
 
 
 class MyceliumStrand:
 	var points := PackedVector2Array()
-	var width: float = 2.0
+	var width: float = 1.0
 	var phase: float = 0.0
-	var flow_speed: float = 0.35
-	var growth_offset: float = 0.0
+	var flow_speed: float = 0.16
+	var growth_start: float = 0.0
+	var growth_end: float = 1.0
+	var gap_phase: float = 0.0
+	var activation_bias: float = 0.0
