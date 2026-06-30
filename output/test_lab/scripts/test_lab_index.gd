@@ -34,6 +34,11 @@ const EXTRA_TEST_SCENES := [
 		"label": "Cloud Mist Test",
 		"scene_path": "res://scenes/cloud_mist_test.tscn",
 	},
+	{
+		"button_name": "AdvancedCellButton",
+		"label": "Advanced Cell Test",
+		"scene_path": "res://scenes/advanced_cell_test.tscn",
+	},
 ]
 
 
