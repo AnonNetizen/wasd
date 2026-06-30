@@ -12,13 +12,6 @@ var _patch: Node2D
 var _time: float = 0.0
 var _seed: int = 24017
 var _decaying: bool = false
-var _nutrient_nodes := PackedVector2Array([
-	Vector2(244.0, 202.0),
-	Vector2(1010.0, 184.0),
-	Vector2(918.0, 598.0),
-	Vector2(352.0, 612.0),
-	Vector2(640.0, 160.0),
-])
 
 
 func _ready() -> void:
@@ -53,7 +46,6 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	_draw_floor()
-	_draw_nutrient_nodes()
 	_draw_status_marks()
 
 
@@ -61,11 +53,11 @@ func _create_patch() -> void:
 	_patch = PATCH_SCRIPT.new() as Node2D
 	_patch.name = "MyceliumPatch"
 	_patch.set("seed", _seed)
-	_patch.set("patch_radius", 365.0)
-	_patch.set("source_count", 6)
-	_patch.set("strand_density", 0.95)
+	_patch.set("field_size", Vector2(1020.0, 560.0))
+	_patch.set("source_count", 8)
+	_patch.set("strand_density", 1.0)
 	_patch.set("growth_amount", 0.74)
-	_patch.global_position = VIEWPORT_SIZE * 0.5 + Vector2(12.0, 26.0)
+	_patch.global_position = ROOM_RECT.position + ROOM_RECT.size * 0.5
 	add_child(_patch)
 
 
@@ -88,15 +80,6 @@ func _draw_floor() -> void:
 		var y := ROOM_RECT.position.y + 64.0 + float(band_index) * 58.0
 		var color := Color(0.30, 0.20, 0.22, 0.10 + sin(_time * 0.6 + float(band_index)) * 0.025)
 		draw_line(Vector2(ROOM_RECT.position.x + 20.0, y), Vector2(ROOM_RECT.end.x - 20.0, y + 22.0), color, 3.0)
-
-
-func _draw_nutrient_nodes() -> void:
-	for index in range(_nutrient_nodes.size()):
-		var node_position := _nutrient_nodes[index]
-		var pulse := (sin(_time * 2.6 + float(index) * 1.7) + 1.0) * 0.5
-		draw_circle(node_position, 26.0 + pulse * 4.0, Color(0.26, 0.12, 0.13, 0.48))
-		draw_circle(node_position, 8.0 + pulse * 2.0, Color(0.82, 0.62, 0.38, 0.70))
-		draw_arc(node_position, 22.0, 0.0, TAU, 32, Color(0.64, 0.42, 0.28, 0.40), 2.0, true)
 
 
 func _draw_status_marks() -> void:
