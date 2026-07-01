@@ -20,6 +20,7 @@ const ACTION_EXPRESSION_WHEEL := "expression_wheel"
 const ACTION_FIRE := "fire"
 const EXPRESSION_DURATION: float = 2.2
 const FIRE_COOLDOWN: float = 0.18
+const FIRE_SPREAD_DEGREES: float = 2.5
 const ACTIVE_EXPRESSIONS: Array[Dictionary] = [
 	{"id": "happy_01", "text": "(^_^)", "label": "开心"},
 	{"id": "wave_01", "text": "ヾ(^▽^*)", "label": "招呼"},
@@ -40,6 +41,7 @@ var _screen: String = SCREEN_START
 var _suppress_session_end_navigation: bool = false
 var _fire_held: bool = false
 var _fire_cooldown_remaining: float = 0.0
+var _fire_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 var _ui_root: Control
 var _start_page: Control
@@ -58,6 +60,7 @@ var _expression_wheel: Control
 
 
 func _ready() -> void:
+	_fire_rng.randomize()
 	_ensure_input_actions()
 	_create_session()
 	_create_ui()
@@ -512,9 +515,10 @@ func _on_shot_requested(peer_id: int, direction: Vector2) -> void:
 		return
 	if not _players.has(peer_id):
 		return
-	var origin := _player_fire_surface(peer_id, direction)
-	_spawn_bullet(peer_id, origin, direction)
-	_session.call("broadcast_shot", peer_id, origin, direction)
+	var shot_direction := _jitter_fire_direction(direction)
+	var origin := _player_fire_surface(peer_id, shot_direction)
+	_spawn_bullet(peer_id, origin, shot_direction)
+	_session.call("broadcast_shot", peer_id, origin, shot_direction)
 
 
 func _on_shot_received(peer_id: int, origin: Vector2, direction: Vector2) -> void:
@@ -584,7 +588,8 @@ func _try_fire() -> void:
 	var direction := _local_aim_direction()
 	_fire_cooldown_remaining = FIRE_COOLDOWN
 	if _session == null or String(_session.call("active_transport")) == "offline":
-		_spawn_bullet(1, _player_fire_surface(1, direction), direction)
+		var shot_direction := _jitter_fire_direction(direction)
+		_spawn_bullet(1, _player_fire_surface(1, shot_direction), shot_direction)
 		return
 	_session.call("send_shot_to_host", direction)
 
@@ -595,6 +600,14 @@ func _local_aim_direction() -> Vector2:
 	if direction.length_squared() <= 0.0001:
 		return Vector2.RIGHT
 	return direction.normalized()
+
+
+func _jitter_fire_direction(direction: Vector2) -> Vector2:
+	var normalized := direction.normalized()
+	if normalized.length_squared() <= 0.0001:
+		normalized = Vector2.RIGHT
+	var spread_radians := deg_to_rad(FIRE_SPREAD_DEGREES)
+	return normalized.rotated(_fire_rng.randf_range(-spread_radians, spread_radians)).normalized()
 
 
 func _player_body_center(peer_id: int) -> Vector2:
