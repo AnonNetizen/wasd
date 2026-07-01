@@ -1,6 +1,9 @@
 class_name SteamLabSlimeBody
 extends Node2D
 
+const CURVE_CENTRIPETAL_ALPHA: float = 0.5
+const CURVE_MIN_KNOT_SPACING: float = 0.0001
+
 @export_range(16, 128, 1) var point_count: int = 64
 @export var base_radius: float = 56.0
 @export var min_radius: float = 34.0
@@ -25,6 +28,7 @@ extends Node2D
 @export var breath_amount: float = 3.0
 @export var breath_speed: float = 1.6
 @export var surface_noise_amount: float = 2.4
+@export_range(1, 10, 1) var curve_samples_per_segment: int = 5
 
 var obstacle_rect: Rect2 = Rect2()
 var obstacle_enabled: bool = false
@@ -100,10 +104,9 @@ func _draw() -> void:
 	if _directions.is_empty():
 		return
 
-	var membrane_points := PackedVector2Array()
-	for index in range(point_count):
-		membrane_points.append(_edge_offsets[index])
-
+	var membrane_points := _smoothed_membrane_points()
+	if membrane_points.size() < 3:
+		return
 	var closed_points := PackedVector2Array(membrane_points)
 	closed_points.append(membrane_points[0])
 
@@ -116,8 +119,8 @@ func _draw() -> void:
 	draw_circle(Vector2.ZERO, base_radius * 0.38, _core_color)
 	draw_arc(Vector2.ZERO, base_radius * 0.38, 0.0, TAU, 48, Color(_edge_color, 0.36), 1.6, true)
 
-	for index in range(0, point_count, 8):
-		draw_circle(_directions[index] * _radii[index], 2.0, Color(1.0, 0.94, 0.64, 0.56))
+	for index in range(0, _edge_offsets.size(), 8):
+		draw_circle(_edge_offsets[index], 2.0, Color(1.0, 0.94, 0.64, 0.56))
 
 
 func _initialize_edge_points() -> void:
@@ -270,6 +273,79 @@ func _clamped_membrane_offset(candidate_offset: Vector2, fallback_direction: Vec
 	var minimum_distance := min_radius * 0.78
 	var maximum_distance := max_radius + movement_push_amount
 	return direction * clampf(distance, minimum_distance, maximum_distance)
+
+
+func _smoothed_membrane_points() -> PackedVector2Array:
+	var smoothed_points := PackedVector2Array()
+	if _edge_offsets.size() < 4:
+		for edge_offset in _edge_offsets:
+			smoothed_points.append(edge_offset)
+		return smoothed_points
+
+	var samples_per_segment: int = maxi(1, curve_samples_per_segment)
+	for index in range(_edge_offsets.size()):
+		var previous_index := posmod(index - 1, _edge_offsets.size())
+		var next_index := (index + 1) % _edge_offsets.size()
+		var next_next_index := (index + 2) % _edge_offsets.size()
+		var previous_point := _edge_offsets[previous_index]
+		var current_point := _edge_offsets[index]
+		var next_point := _edge_offsets[next_index]
+		var next_next_point := _edge_offsets[next_next_index]
+
+		for sample_index in range(samples_per_segment):
+			var segment_ratio := float(sample_index) / float(samples_per_segment)
+			smoothed_points.append(
+				_sample_centripetal_catmull_rom(
+					previous_point,
+					current_point,
+					next_point,
+					next_next_point,
+					segment_ratio
+				)
+			)
+
+	return smoothed_points
+
+
+func _sample_centripetal_catmull_rom(
+	point_0: Vector2,
+	point_1: Vector2,
+	point_2: Vector2,
+	point_3: Vector2,
+	segment_ratio: float
+) -> Vector2:
+	var time_0 := 0.0
+	var time_1 := _curve_knot(time_0, point_0, point_1)
+	var time_2 := _curve_knot(time_1, point_1, point_2)
+	var time_3 := _curve_knot(time_2, point_2, point_3)
+	var sample_time: float = lerpf(time_1, time_2, segment_ratio)
+
+	var point_a_1 := _interpolate_curve_point(point_0, point_1, time_0, time_1, sample_time)
+	var point_a_2 := _interpolate_curve_point(point_1, point_2, time_1, time_2, sample_time)
+	var point_a_3 := _interpolate_curve_point(point_2, point_3, time_2, time_3, sample_time)
+	var point_b_1 := _interpolate_curve_point(point_a_1, point_a_2, time_0, time_2, sample_time)
+	var point_b_2 := _interpolate_curve_point(point_a_2, point_a_3, time_1, time_3, sample_time)
+	return _interpolate_curve_point(point_b_1, point_b_2, time_1, time_2, sample_time)
+
+
+func _curve_knot(previous_time: float, from_point: Vector2, to_point: Vector2) -> float:
+	var point_distance: float = maxf(from_point.distance_to(to_point), CURVE_MIN_KNOT_SPACING)
+	return previous_time + pow(point_distance, CURVE_CENTRIPETAL_ALPHA)
+
+
+func _interpolate_curve_point(
+	from_point: Vector2,
+	to_point: Vector2,
+	from_time: float,
+	to_time: float,
+	sample_time: float
+) -> Vector2:
+	var time_span := to_time - from_time
+	if time_span <= CURVE_MIN_KNOT_SPACING:
+		return to_point
+	var from_weight := (to_time - sample_time) / time_span
+	var to_weight := (sample_time - from_time) / time_span
+	return from_point * from_weight + to_point * to_weight
 
 
 func _obstacle_radial_force(index: int) -> float:

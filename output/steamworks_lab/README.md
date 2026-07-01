@@ -41,7 +41,7 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=1
 
 ## 文件结构
 
-- `scripts/slime_body.gd`：从 `output/test_lab/scripts/soft_body_cell.gd` 改造的无骨骼软体史莱姆；中心点先移动，外膜点用弹簧和惯性滞后跟随，形成更像史莱姆的挤压回弹。
+- `scripts/slime_body.gd`：从 `output/test_lab/scripts/soft_body_cell.gd` 改造的无骨骼软体史莱姆；中心点先移动，外膜点用弹簧和惯性滞后跟随，渲染时用闭合 centripetal Catmull-Rom 曲线平滑外轮廓，形成更像史莱姆的挤压回弹。
 - `scripts/slime_player.gd`：玩家实体包装，把输入转换成软体 follow target，并支持远端插值。
 - `scripts/network_session.gd`：统一 host / join / leave / RPC 同步入口。
 - `scripts/transport_adapter.gd`：本地 ENet 与可选 GodotSteam adapter。
