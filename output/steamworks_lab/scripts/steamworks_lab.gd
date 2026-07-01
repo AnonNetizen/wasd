@@ -3,6 +3,7 @@ extends Node2D
 const SESSION_SCRIPT := preload("res://scripts/network_session.gd")
 const PLAYER_SCRIPT := preload("res://scripts/slime_player.gd")
 const EXPRESSION_WHEEL_SCRIPT := preload("res://scripts/expression_wheel.gd")
+const BULLET_SCRIPT := preload("res://scripts/slime_bullet.gd")
 
 const VIEWPORT_SIZE := Vector2(1280.0, 760.0)
 const WORLD_RECT := Rect2(Vector2(160.0, 90.0), Vector2(960.0, 580.0))
@@ -16,7 +17,9 @@ const ACTION_MOVE_DOWN := "move_down"
 const ACTION_MOVE_LEFT := "move_left"
 const ACTION_MOVE_RIGHT := "move_right"
 const ACTION_EXPRESSION_WHEEL := "expression_wheel"
+const ACTION_FIRE := "fire"
 const EXPRESSION_DURATION: float = 2.2
+const FIRE_COOLDOWN: float = 0.18
 const ACTIVE_EXPRESSIONS: Array[Dictionary] = [
 	{"id": "happy_01", "text": "(^_^)", "label": "开心"},
 	{"id": "wave_01", "text": "ヾ(^▽^*)", "label": "招呼"},
@@ -31,9 +34,12 @@ const ACTIVE_EXPRESSIONS: Array[Dictionary] = [
 var _session: Node
 var _players: Dictionary = {}
 var _peer_inputs: Dictionary = {}
+var _bullets: Array[Node] = []
 var _log_lines: Array[String] = []
 var _screen: String = SCREEN_START
 var _suppress_session_end_navigation: bool = false
+var _fire_held: bool = false
+var _fire_cooldown_remaining: float = 0.0
 
 var _ui_root: Control
 var _start_page: Control
@@ -58,9 +64,9 @@ func _ready() -> void:
 	_show_start_page()
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if _screen == SCREEN_GAME:
-		_update_gameplay()
+		_update_gameplay(delta)
 	_update_status()
 	queue_redraw()
 
@@ -75,6 +81,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_released(ACTION_EXPRESSION_WHEEL):
 		_release_expression_wheel()
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed(ACTION_FIRE):
+		_fire_held = true
+		_try_fire()
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_released(ACTION_FIRE):
+		_fire_held = false
 		get_viewport().set_input_as_handled()
 
 
@@ -98,6 +113,8 @@ func _create_session() -> void:
 	_session.connect("input_received", Callable(self, "_on_input_received"))
 	_session.connect("snapshot_received", Callable(self, "_on_snapshot_received"))
 	_session.connect("expression_received", Callable(self, "_on_expression_received"))
+	_session.connect("shot_requested", Callable(self, "_on_shot_requested"))
+	_session.connect("shot_received", Callable(self, "_on_shot_received"))
 
 
 func _create_ui() -> void:
@@ -328,6 +345,9 @@ func _set_screen(screen_name: String) -> void:
 		_game_page.visible = screen_name == SCREEN_GAME
 	if screen_name != SCREEN_GAME and _expression_wheel != null:
 		_expression_wheel.call("close")
+	if screen_name != SCREEN_GAME:
+		_fire_held = false
+		_fire_cooldown_remaining = 0.0
 	queue_redraw()
 
 
@@ -338,6 +358,7 @@ func _on_start_single_player_pressed() -> void:
 func _on_start_multiplayer_pressed() -> void:
 	_leave_session_without_navigation()
 	_clear_players()
+	_clear_bullets()
 	_peer_inputs.clear()
 	_show_multiplayer_page()
 	_append_log("Multiplayer setup.")
@@ -346,6 +367,7 @@ func _on_start_multiplayer_pressed() -> void:
 func _begin_single_player() -> void:
 	_leave_session_without_navigation()
 	_clear_players()
+	_clear_bullets()
 	_peer_inputs.clear()
 	var player: Node = _ensure_player(1, "Slime")
 	player.call("warp_to", WORLD_RECT.get_center())
@@ -356,24 +378,28 @@ func _begin_single_player() -> void:
 
 func _on_host_local_pressed() -> void:
 	_clear_players()
+	_clear_bullets()
 	_peer_inputs.clear()
 	_session.call("host_local", int(_port_input.value))
 
 
 func _on_join_local_pressed() -> void:
 	_clear_players()
+	_clear_bullets()
 	_peer_inputs.clear()
 	_session.call("join_local", _address_input.text, int(_port_input.value))
 
 
 func _on_host_steam_pressed() -> void:
 	_clear_players()
+	_clear_bullets()
 	_peer_inputs.clear()
 	_session.call("host_steam")
 
 
 func _on_join_steam_pressed() -> void:
 	_clear_players()
+	_clear_bullets()
 	_peer_inputs.clear()
 	_session.call("join_steam_lobby", _lobby_input.text)
 
@@ -381,6 +407,7 @@ func _on_join_steam_pressed() -> void:
 func _on_multiplayer_leave_pressed() -> void:
 	_session.call("leave_session")
 	_clear_players()
+	_clear_bullets()
 	_peer_inputs.clear()
 	_show_multiplayer_page()
 	_append_log("Multiplayer session left.")
@@ -389,6 +416,7 @@ func _on_multiplayer_leave_pressed() -> void:
 func _on_multiplayer_back_pressed() -> void:
 	_leave_session_without_navigation()
 	_clear_players()
+	_clear_bullets()
 	_peer_inputs.clear()
 	_show_start_page()
 
@@ -396,6 +424,7 @@ func _on_multiplayer_back_pressed() -> void:
 func _on_leave_game_pressed() -> void:
 	_leave_session_without_navigation()
 	_clear_players()
+	_clear_bullets()
 	_peer_inputs.clear()
 	_show_start_page()
 	_append_log("Returned to start page.")
@@ -425,6 +454,7 @@ func _on_session_started(host: bool, transport: String, lobby_id: String) -> voi
 func _on_session_ended() -> void:
 	if not _suppress_session_end_navigation and _screen == SCREEN_GAME:
 		_clear_players()
+		_clear_bullets()
 		_peer_inputs.clear()
 		_show_multiplayer_page()
 	_update_status()
@@ -477,7 +507,23 @@ func _on_expression_received(peer_id: int, expression_id: String) -> void:
 	_show_player_expression(peer_id, expression_id)
 
 
-func _update_gameplay() -> void:
+func _on_shot_requested(peer_id: int, direction: Vector2) -> void:
+	if not bool(_session.call("is_host")):
+		return
+	if not _players.has(peer_id):
+		return
+	var origin := _player_body_center(peer_id)
+	_spawn_bullet(peer_id, origin, direction)
+	_session.call("broadcast_shot", peer_id, origin, direction)
+
+
+func _on_shot_received(peer_id: int, origin: Vector2, direction: Vector2) -> void:
+	_spawn_bullet(peer_id, origin, direction)
+
+
+func _update_gameplay(delta: float) -> void:
+	_fire_cooldown_remaining = maxf(0.0, _fire_cooldown_remaining - delta)
+	_prune_bullets()
 	var input_vector := _local_input_vector()
 	if bool(_session.call("is_host")):
 		_peer_inputs[1] = input_vector
@@ -488,6 +534,8 @@ func _update_gameplay() -> void:
 	else:
 		var offline_player: Node = _ensure_player(1, "Slime")
 		offline_player.call("set_input_vector", input_vector)
+	if _fire_held:
+		_try_fire()
 
 
 func _apply_host_inputs() -> void:
@@ -523,6 +571,64 @@ func _ensure_player(peer_id: int, display_name: String) -> Node:
 	player.call("warp_to", _spawn_position_for_slot(_players.size()))
 	_players[peer_id] = player
 	return player
+
+
+func _try_fire() -> void:
+	if _fire_cooldown_remaining > 0.0 or _screen != SCREEN_GAME:
+		return
+	if _expression_wheel != null and bool(_expression_wheel.call("is_open")):
+		return
+	if not _players.has(1):
+		return
+	var direction := _local_aim_direction()
+	_fire_cooldown_remaining = FIRE_COOLDOWN
+	if _session == null or String(_session.call("active_transport")) == "offline":
+		_spawn_bullet(1, _player_body_center(1), direction)
+		return
+	_session.call("send_shot_to_host", direction)
+
+
+func _local_aim_direction() -> Vector2:
+	var center := _player_body_center(1)
+	var direction := get_global_mouse_position() - center
+	if direction.length_squared() <= 0.0001:
+		return Vector2.RIGHT
+	return direction.normalized()
+
+
+func _player_body_center(peer_id: int) -> Vector2:
+	if not _players.has(peer_id):
+		return WORLD_RECT.get_center()
+	var player := _players[peer_id] as Node
+	if player == null:
+		return WORLD_RECT.get_center()
+	var body_center: Vector2 = player.call("body_center")
+	return body_center
+
+
+func _spawn_bullet(peer_id: int, origin: Vector2, direction: Vector2) -> void:
+	var bullet := BULLET_SCRIPT.new() as Node2D
+	bullet.name = "SlimeBullet%d" % (_bullets.size() + 1)
+	var palette := _bullet_palette_for_peer(peer_id)
+	bullet.call("configure", origin, direction, palette["fill"], palette["edge"])
+	add_child(bullet)
+	_bullets.append(bullet)
+
+
+func _bullet_palette_for_peer(peer_id: int) -> Dictionary:
+	if not _players.has(peer_id):
+		return {
+			"fill": Color(0.82, 1.0, 0.70, 0.96),
+			"edge": Color(0.98, 1.0, 0.84, 0.98),
+		}
+	var player := _players[peer_id] as Node
+	if player == null:
+		return {
+			"fill": Color(0.82, 1.0, 0.70, 0.96),
+			"edge": Color(0.98, 1.0, 0.84, 0.98),
+		}
+	var palette: Dictionary = player.call("bullet_palette")
+	return palette
 
 
 func _open_expression_wheel() -> void:
@@ -584,6 +690,21 @@ func _clear_players() -> void:
 		if is_instance_valid(player):
 			player.queue_free()
 	_players.clear()
+
+
+func _clear_bullets() -> void:
+	for bullet in _bullets:
+		if is_instance_valid(bullet):
+			bullet.queue_free()
+	_bullets.clear()
+
+
+func _prune_bullets() -> void:
+	var live_bullets: Array[Node] = []
+	for bullet in _bullets:
+		if is_instance_valid(bullet) and not bullet.is_queued_for_deletion():
+			live_bullets.append(bullet)
+	_bullets = live_bullets
 
 
 func _local_input_vector() -> Vector2:
@@ -676,6 +797,7 @@ func _ensure_input_actions() -> void:
 	_register_key_action(ACTION_MOVE_RIGHT, KEY_D)
 	_register_key_action(ACTION_MOVE_RIGHT, KEY_RIGHT)
 	_register_key_action(ACTION_EXPRESSION_WHEEL, KEY_T)
+	_register_mouse_action(ACTION_FIRE, MOUSE_BUTTON_LEFT)
 
 
 func _register_key_action(action_name: String, keycode: Key) -> void:
@@ -687,4 +809,16 @@ func _register_key_action(action_name: String, keycode: Key) -> void:
 			return
 	var event := InputEventKey.new()
 	event.keycode = keycode
+	InputMap.action_add_event(action_name, event)
+
+
+func _register_mouse_action(action_name: String, button_index: MouseButton) -> void:
+	if not InputMap.has_action(action_name):
+		InputMap.add_action(action_name)
+	for event in InputMap.action_get_events(action_name):
+		var mouse_event := event as InputEventMouseButton
+		if mouse_event != null and mouse_event.button_index == button_index:
+			return
+	var event := InputEventMouseButton.new()
+	event.button_index = button_index
 	InputMap.action_add_event(action_name, event)

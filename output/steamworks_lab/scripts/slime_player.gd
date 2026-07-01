@@ -5,7 +5,7 @@ const BODY_SCRIPT := preload("res://scripts/slime_body.gd")
 const FOLLOW_DISTANCE: float = 90.0
 const REMOTE_INTERPOLATION: float = 14.0
 const EXPRESSION_LABEL_SIZE := Vector2(190.0, 42.0)
-const EXPRESSION_OFFSET := Vector2(-95.0, -142.0)
+const EXPRESSION_OFFSET := Vector2(-95.0, -21.0)
 const NAME_OFFSET := Vector2(-54.0, -96.0)
 
 var peer_id: int = 0
@@ -20,6 +20,8 @@ var _authoritative_velocity: Vector2 = Vector2.ZERO
 var _is_local_or_host_simulated: bool = false
 var _palette_index: int = 0
 var _expression_time_remaining: float = 0.0
+var _bullet_fill_color: Color = Color(0.82, 1.0, 0.70, 0.96)
+var _bullet_edge_color: Color = Color(0.98, 1.0, 0.84, 0.98)
 
 
 func _ready() -> void:
@@ -91,6 +93,19 @@ func show_expression(expression_text: String, duration: float = 2.2) -> void:
 	_expression_time_remaining = maxf(duration, 0.1)
 
 
+func body_center() -> Vector2:
+	if _body == null:
+		return global_position
+	return _body.global_position
+
+
+func bullet_palette() -> Dictionary:
+	return {
+		"fill": _bullet_fill_color,
+		"edge": _bullet_edge_color,
+	}
+
+
 func snapshot_state() -> Dictionary:
 	var position := global_position
 	var velocity := _authoritative_velocity
@@ -142,6 +157,9 @@ func _apply_player_visuals() -> void:
 	if _body != null:
 		var palette := _palette_for_index(_palette_index)
 		_body.call("set_palette", palette["fill"], palette["edge"], palette["core"])
+		var edge_color: Color = palette["edge"]
+		_bullet_fill_color = Color(edge_color, 0.96)
+		_bullet_edge_color = Color(1.0, 1.0, 0.86, 0.98)
 
 
 func _update_expression_label(delta: float) -> void:

@@ -9,6 +9,8 @@ signal peer_left(peer_id: int)
 signal input_received(peer_id: int, input_vector: Vector2)
 signal snapshot_received(snapshot: Dictionary)
 signal expression_received(peer_id: int, expression_id: String)
+signal shot_requested(peer_id: int, direction: Vector2)
+signal shot_received(peer_id: int, origin: Vector2, direction: Vector2)
 
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
 const DEFAULT_PORT: int = 24567
@@ -140,6 +142,27 @@ func broadcast_expression(peer_id: int, expression_id: String) -> void:
 	_receive_expression.rpc(peer_id, expression_id)
 
 
+func send_shot_to_host(direction: Vector2) -> void:
+	var limited_direction := direction.normalized()
+	if limited_direction.length_squared() <= 0.0001:
+		return
+	if _is_host:
+		shot_requested.emit(1, limited_direction)
+		return
+	if multiplayer.multiplayer_peer == null:
+		return
+	_submit_shot.rpc_id(1, limited_direction.x, limited_direction.y)
+
+
+func broadcast_shot(peer_id: int, origin: Vector2, direction: Vector2) -> void:
+	if not _is_host or multiplayer.multiplayer_peer == null:
+		return
+	var limited_direction := direction.normalized()
+	if limited_direction.length_squared() <= 0.0001:
+		return
+	_receive_shot.rpc(peer_id, origin.x, origin.y, limited_direction.x, limited_direction.y)
+
+
 @rpc("any_peer", "unreliable")
 func _submit_input(input_x: float, input_y: float) -> void:
 	if not _is_host:
@@ -160,6 +183,16 @@ func _submit_expression(expression_id: String) -> void:
 	broadcast_expression(sender_id, clean_expression_id)
 
 
+@rpc("any_peer", "reliable")
+func _submit_shot(direction_x: float, direction_y: float) -> void:
+	if not _is_host:
+		return
+	var direction := Vector2(direction_x, direction_y).normalized()
+	if direction.length_squared() <= 0.0001:
+		return
+	shot_requested.emit(multiplayer.get_remote_sender_id(), direction)
+
+
 @rpc("authority", "unreliable")
 func _receive_snapshot(snapshot: Dictionary) -> void:
 	snapshot_received.emit(snapshot)
@@ -168,6 +201,11 @@ func _receive_snapshot(snapshot: Dictionary) -> void:
 @rpc("authority", "reliable")
 func _receive_expression(peer_id: int, expression_id: String) -> void:
 	expression_received.emit(peer_id, expression_id)
+
+
+@rpc("authority", "reliable")
+func _receive_shot(peer_id: int, origin_x: float, origin_y: float, direction_x: float, direction_y: float) -> void:
+	shot_received.emit(peer_id, Vector2(origin_x, origin_y), Vector2(direction_x, direction_y).normalized())
 
 
 func _connect_multiplayer_signals() -> void:
