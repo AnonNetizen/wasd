@@ -6,7 +6,7 @@ const FOLLOW_DISTANCE: float = 90.0
 const REMOTE_INTERPOLATION: float = 14.0
 const EXPRESSION_LABEL_SIZE := Vector2(190.0, 42.0)
 const EXPRESSION_OFFSET := Vector2(-95.0, -21.0)
-const NAME_OFFSET := Vector2(-54.0, -96.0)
+const NAME_OFFSET := Vector2(-54.0, -58.0)
 
 var peer_id: int = 0
 var display_name: String = "Player"
