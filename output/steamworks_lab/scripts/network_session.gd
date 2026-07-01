@@ -8,6 +8,7 @@ signal peer_joined(peer_id: int)
 signal peer_left(peer_id: int)
 signal input_received(peer_id: int, input_vector: Vector2)
 signal snapshot_received(snapshot: Dictionary)
+signal expression_received(peer_id: int, expression_id: String)
 
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
 const DEFAULT_PORT: int = 24567
@@ -120,6 +121,25 @@ func broadcast_snapshot(snapshot: Dictionary) -> void:
 	_receive_snapshot.rpc(snapshot)
 
 
+func send_expression_to_host(expression_id: String) -> void:
+	var clean_expression_id := expression_id.strip_edges()
+	if clean_expression_id == "":
+		return
+	if _is_host:
+		expression_received.emit(1, clean_expression_id)
+		broadcast_expression(1, clean_expression_id)
+		return
+	if multiplayer.multiplayer_peer == null:
+		return
+	_submit_expression.rpc_id(1, clean_expression_id)
+
+
+func broadcast_expression(peer_id: int, expression_id: String) -> void:
+	if not _is_host or multiplayer.multiplayer_peer == null:
+		return
+	_receive_expression.rpc(peer_id, expression_id)
+
+
 @rpc("any_peer", "unreliable")
 func _submit_input(input_x: float, input_y: float) -> void:
 	if not _is_host:
@@ -128,9 +148,26 @@ func _submit_input(input_x: float, input_y: float) -> void:
 	input_received.emit(sender_id, Vector2(input_x, input_y).limit_length(1.0))
 
 
+@rpc("any_peer", "reliable")
+func _submit_expression(expression_id: String) -> void:
+	if not _is_host:
+		return
+	var clean_expression_id := expression_id.strip_edges()
+	if clean_expression_id == "":
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	expression_received.emit(sender_id, clean_expression_id)
+	broadcast_expression(sender_id, clean_expression_id)
+
+
 @rpc("authority", "unreliable")
 func _receive_snapshot(snapshot: Dictionary) -> void:
 	snapshot_received.emit(snapshot)
+
+
+@rpc("authority", "reliable")
+func _receive_expression(peer_id: int, expression_id: String) -> void:
+	expression_received.emit(peer_id, expression_id)
 
 
 func _connect_multiplayer_signals() -> void:

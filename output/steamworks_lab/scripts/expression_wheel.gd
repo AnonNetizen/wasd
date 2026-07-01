@@ -1,0 +1,162 @@
+class_name SteamLabExpressionWheel
+extends Control
+
+const WHEEL_RADIUS: float = 148.0
+const INNER_RADIUS: float = 38.0
+const TEXT_RADIUS: float = 94.0
+const SECTOR_GAP: float = 0.035
+const ARC_STEPS: int = 8
+
+var _options: Array[Dictionary] = []
+var _center_position: Vector2 = Vector2.ZERO
+var _selected_index: int = -1
+
+
+func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	set_process(false)
+	visible = false
+
+
+func _process(_delta: float) -> void:
+	_update_selected_index(get_global_mouse_position())
+
+
+func set_options(options: Array[Dictionary]) -> void:
+	_options = options.duplicate(true)
+	_selected_index = -1
+	queue_redraw()
+
+
+func open_at(screen_position: Vector2) -> void:
+	_center_position = screen_position
+	_selected_index = -1
+	visible = true
+	set_process(true)
+	_update_selected_index(get_global_mouse_position())
+	queue_redraw()
+
+
+func close() -> void:
+	visible = false
+	set_process(false)
+	_selected_index = -1
+	queue_redraw()
+
+
+func selected_expression_id() -> String:
+	if _selected_index < 0 or _selected_index >= _options.size():
+		return ""
+	return String(_options[_selected_index].get("id", ""))
+
+
+func selected_expression_text() -> String:
+	if _selected_index < 0 or _selected_index >= _options.size():
+		return ""
+	return String(_options[_selected_index].get("text", ""))
+
+
+func selected_index() -> int:
+	return _selected_index
+
+
+func is_open() -> bool:
+	return visible
+
+
+func _draw() -> void:
+	if not visible or _options.is_empty():
+		return
+
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.0, 0.0, 0.0, 0.20), true)
+	draw_circle(_center_position, INNER_RADIUS, Color(0.05, 0.07, 0.07, 0.92))
+
+	var font := get_theme_default_font()
+	var expression_font_size := 24
+	var label_font_size := 12
+	for index in range(_options.size()):
+		_draw_sector(font, index, expression_font_size, label_font_size)
+
+
+func _draw_sector(font: Font, index: int, expression_font_size: int, label_font_size: int) -> void:
+	var segment_size := TAU / float(maxi(1, _options.size()))
+	var start_angle := float(index) * segment_size + SECTOR_GAP
+	var end_angle := float(index + 1) * segment_size - SECTOR_GAP
+	var selected := index == _selected_index
+	var fill_color := Color(0.13, 0.20, 0.18, 0.84)
+	var edge_color := Color(0.52, 0.85, 0.72, 0.62)
+	var text_color := Color(0.78, 1.0, 0.88, 0.96)
+	if selected:
+		fill_color = Color(0.34, 0.70, 0.54, 0.92)
+		edge_color = Color(0.87, 1.0, 0.80, 0.95)
+		text_color = Color(1.0, 1.0, 0.88, 1.0)
+
+	var sector_points := _sector_points(start_angle, end_angle)
+	draw_colored_polygon(sector_points, fill_color)
+	draw_polyline(_closed_points(sector_points), edge_color, 2.0, true)
+
+	var middle_angle := (start_angle + end_angle) * 0.5
+	var text_position := _center_position + _direction_from_wheel_angle(middle_angle) * TEXT_RADIUS
+	var expression_text := String(_options[index].get("text", ""))
+	var label_text := String(_options[index].get("label", ""))
+	_draw_centered_string(font, expression_text, text_position + Vector2(0.0, -5.0), expression_font_size, text_color)
+	_draw_centered_string(font, label_text, text_position + Vector2(0.0, 18.0), label_font_size, Color(text_color, 0.74))
+
+
+func _sector_points(start_angle: float, end_angle: float) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	for step_index in range(ARC_STEPS + 1):
+		var ratio := float(step_index) / float(ARC_STEPS)
+		var angle := lerpf(start_angle, end_angle, ratio)
+		points.append(_center_position + _direction_from_wheel_angle(angle) * WHEEL_RADIUS)
+	for step_index in range(ARC_STEPS, -1, -1):
+		var ratio := float(step_index) / float(ARC_STEPS)
+		var angle := lerpf(start_angle, end_angle, ratio)
+		points.append(_center_position + _direction_from_wheel_angle(angle) * INNER_RADIUS)
+	return points
+
+
+func _closed_points(points: PackedVector2Array) -> PackedVector2Array:
+	var closed := PackedVector2Array(points)
+	if not points.is_empty():
+		closed.append(points[0])
+	return closed
+
+
+func _draw_centered_string(font: Font, text: String, text_position: Vector2, font_size: int, color: Color) -> void:
+	if text == "":
+		return
+	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
+	draw_string(
+		font,
+		text_position + Vector2(text_size.x * -0.5, text_size.y * 0.35),
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		font_size,
+		color
+	)
+
+
+func _update_selected_index(mouse_position: Vector2) -> void:
+	if _options.is_empty():
+		_selected_index = -1
+		return
+
+	var offset := mouse_position - _center_position
+	if offset.length() < INNER_RADIUS:
+		if _selected_index != -1:
+			_selected_index = -1
+			queue_redraw()
+		return
+
+	var angle := fposmod(atan2(offset.y, offset.x) + PI * 0.5, TAU)
+	var next_selected_index := int(floor(angle / TAU * float(_options.size())))
+	next_selected_index = clampi(next_selected_index, 0, _options.size() - 1)
+	if next_selected_index != _selected_index:
+		_selected_index = next_selected_index
+		queue_redraw()
+
+
+func _direction_from_wheel_angle(angle: float) -> Vector2:
+	return Vector2(sin(angle), -cos(angle))

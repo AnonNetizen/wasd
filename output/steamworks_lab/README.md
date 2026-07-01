@@ -2,7 +2,7 @@
 
 独立 Godot 4.7 测试项目，用来验证 Steamworks / GodotSteam 联机链路。它不属于正式 `client/`，也不依赖正式项目的 `PlatformServices`。
 
-第一版功能很窄：每个玩家是一只无骨骼软体史莱姆，使用 WASD 或方向键移动，host 权威同步所有史莱姆位置。没有攻击、存档、正式大厅浏览、好友邀请或成就。
+第一版功能很窄：每个玩家是一只无骨骼软体史莱姆，使用 WASD 或方向键移动，host 权威同步所有史莱姆位置；游戏中按住 `T` 打开表情轮盘，用鼠标选中表情，松开 `T` 发送。没有攻击、存档、正式大厅浏览、好友邀请或成就。
 
 ## 运行
 
@@ -17,6 +17,7 @@ py -3 tools\godot_bridge.py --project output\steamworks_lab headless-boot
 1. 点 `开始单人游戏` 会直接进入单人游戏页。
 2. 点 `开始联机游戏` 会进入独立联机页；联机页只放 host / join / lobby / 日志控件。
 3. 本地或 Steam 联机 session 创建 / 加入成功后，自动进入游戏页。游戏页只显示史莱姆、场景和简短状态，不再混放联机表单。
+4. 游戏页按住 `T` 打开表情轮盘，松开 `T` 会发送当前鼠标选中的颜文字表情。
 
 ## 本地双开测试
 
@@ -42,7 +43,8 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=1
 ## 文件结构
 
 - `scripts/slime_body.gd`：从 `output/test_lab/scripts/soft_body_cell.gd` 改造的无骨骼软体史莱姆；中心点先移动，外膜点用弹簧和惯性滞后跟随，渲染时用闭合 centripetal Catmull-Rom 曲线平滑外轮廓，形成更像史莱姆的挤压回弹。
-- `scripts/slime_player.gd`：玩家实体包装，把输入转换成软体 follow target，并支持远端插值。
+- `scripts/slime_player.gd`：玩家实体包装，把输入转换成软体 follow target，支持远端插值和头顶短时表情显示。
+- `scripts/expression_wheel.gd`：主动表情轮盘；按住 `T` 时显示，鼠标方向决定当前选中项。
 - `scripts/network_session.gd`：统一 host / join / leave / RPC 同步入口。
 - `scripts/transport_adapter.gd`：本地 ENet 与可选 GodotSteam adapter。
 - `scripts/steamworks_lab.gd`：主场景、测试 UI、玩家生成和 host 权威同步。

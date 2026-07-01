@@ -4,22 +4,28 @@ extends Node2D
 const BODY_SCRIPT := preload("res://scripts/slime_body.gd")
 const FOLLOW_DISTANCE: float = 90.0
 const REMOTE_INTERPOLATION: float = 14.0
+const EXPRESSION_LABEL_SIZE := Vector2(190.0, 42.0)
+const EXPRESSION_OFFSET := Vector2(-95.0, -142.0)
+const NAME_OFFSET := Vector2(-54.0, -96.0)
 
 var peer_id: int = 0
 var display_name: String = "Player"
 
 var _body: Node2D
 var _name_label: Label
+var _expression_label: Label
 var _input_vector: Vector2 = Vector2.ZERO
 var _authoritative_position: Vector2 = Vector2.ZERO
 var _authoritative_velocity: Vector2 = Vector2.ZERO
 var _is_local_or_host_simulated: bool = false
 var _palette_index: int = 0
+var _expression_time_remaining: float = 0.0
 
 
 func _ready() -> void:
 	_create_body()
 	_create_label()
+	_create_expression_label()
 	_apply_player_visuals()
 	_authoritative_position = global_position
 
@@ -27,7 +33,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _body == null:
 		return
-	_name_label.global_position = _body.global_position + Vector2(-54.0, -96.0)
+	_name_label.global_position = _body.global_position + NAME_OFFSET
+	_update_expression_label(delta)
 	if not _is_local_or_host_simulated:
 		var response := 1.0 - exp(-REMOTE_INTERPOLATION * delta)
 		_body.global_position = _body.global_position.lerp(_authoritative_position, response)
@@ -73,6 +80,17 @@ func warp_to(new_position: Vector2) -> void:
 		_body.call("warp_to", new_position)
 
 
+func show_expression(expression_text: String, duration: float = 2.2) -> void:
+	if expression_text == "":
+		return
+	if _expression_label == null:
+		_create_expression_label()
+	_expression_label.text = expression_text
+	_expression_label.visible = true
+	_expression_label.modulate = Color.WHITE
+	_expression_time_remaining = maxf(duration, 0.1)
+
+
 func snapshot_state() -> Dictionary:
 	var position := global_position
 	var velocity := _authoritative_velocity
@@ -104,12 +122,39 @@ func _create_label() -> void:
 	add_child(_name_label)
 
 
+func _create_expression_label() -> void:
+	_expression_label = Label.new()
+	_expression_label.name = "ExpressionLabel"
+	_expression_label.size = EXPRESSION_LABEL_SIZE
+	_expression_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_expression_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_expression_label.visible = false
+	_expression_label.add_theme_font_size_override("font_size", 24)
+	_expression_label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.88, 0.96))
+	_expression_label.add_theme_color_override("font_outline_color", Color(0.03, 0.05, 0.05, 0.82))
+	_expression_label.add_theme_constant_override("outline_size", 4)
+	add_child(_expression_label)
+
+
 func _apply_player_visuals() -> void:
 	if _name_label != null:
 		_name_label.text = display_name
 	if _body != null:
 		var palette := _palette_for_index(_palette_index)
 		_body.call("set_palette", palette["fill"], palette["edge"], palette["core"])
+
+
+func _update_expression_label(delta: float) -> void:
+	if _expression_label == null:
+		return
+	_expression_label.global_position = _body.global_position + EXPRESSION_OFFSET
+	if _expression_time_remaining <= 0.0:
+		_expression_label.visible = false
+		return
+	_expression_time_remaining = maxf(0.0, _expression_time_remaining - delta)
+	_expression_label.visible = true
+	var fade_alpha := clampf(_expression_time_remaining / 0.25, 0.0, 1.0)
+	_expression_label.modulate = Color(1.0, 1.0, 1.0, fade_alpha)
 
 
 func _palette_for_index(index: int) -> Dictionary:

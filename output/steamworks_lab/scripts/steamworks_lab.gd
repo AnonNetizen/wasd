@@ -2,6 +2,7 @@ extends Node2D
 
 const SESSION_SCRIPT := preload("res://scripts/network_session.gd")
 const PLAYER_SCRIPT := preload("res://scripts/slime_player.gd")
+const EXPRESSION_WHEEL_SCRIPT := preload("res://scripts/expression_wheel.gd")
 
 const VIEWPORT_SIZE := Vector2(1280.0, 760.0)
 const WORLD_RECT := Rect2(Vector2(160.0, 90.0), Vector2(960.0, 580.0))
@@ -14,6 +15,18 @@ const ACTION_MOVE_UP := "move_up"
 const ACTION_MOVE_DOWN := "move_down"
 const ACTION_MOVE_LEFT := "move_left"
 const ACTION_MOVE_RIGHT := "move_right"
+const ACTION_EXPRESSION_WHEEL := "expression_wheel"
+const EXPRESSION_DURATION: float = 2.2
+const ACTIVE_EXPRESSIONS: Array[Dictionary] = [
+	{"id": "happy_01", "text": "(^_^)", "label": "开心"},
+	{"id": "wave_01", "text": "ヾ(^▽^*)", "label": "招呼"},
+	{"id": "surprised_01", "text": "(⊙_⊙)", "label": "惊讶"},
+	{"id": "love_01", "text": "(♡ω♡)", "label": "喜欢"},
+	{"id": "angry_01", "text": "(｀へ´)", "label": "生气"},
+	{"id": "panic_01", "text": "(°ロ°)", "label": "慌张"},
+	{"id": "ready_01", "text": "(๑•̀ㅂ•́)و", "label": "准备"},
+	{"id": "sleepy_01", "text": "(-_-) zzz", "label": "困了"},
+]
 
 var _session: Node
 var _players: Dictionary = {}
@@ -35,6 +48,7 @@ var _lobby_input: LineEdit
 var _steam_status_label: Label
 var _host_steam_button: Button
 var _join_steam_button: Button
+var _expression_wheel: Control
 
 
 func _ready() -> void:
@@ -49,6 +63,19 @@ func _physics_process(_delta: float) -> void:
 		_update_gameplay()
 	_update_status()
 	queue_redraw()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _screen != SCREEN_GAME:
+		return
+	var key_event := event as InputEventKey
+	if event.is_action_pressed(ACTION_EXPRESSION_WHEEL) and (key_event == null or not key_event.echo):
+		_open_expression_wheel()
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_released(ACTION_EXPRESSION_WHEEL):
+		_release_expression_wheel()
+		get_viewport().set_input_as_handled()
 
 
 func _draw() -> void:
@@ -70,6 +97,7 @@ func _create_session() -> void:
 	_session.connect("peer_left", Callable(self, "_on_peer_left"))
 	_session.connect("input_received", Callable(self, "_on_input_received"))
 	_session.connect("snapshot_received", Callable(self, "_on_snapshot_received"))
+	_session.connect("expression_received", Callable(self, "_on_expression_received"))
 
 
 func _create_ui() -> void:
@@ -219,6 +247,8 @@ func _create_game_page() -> void:
 	leave_button.pressed.connect(_on_leave_game_pressed)
 	rows.add_child(leave_button)
 
+	_create_expression_wheel()
+
 
 func _make_page(page_name: String) -> Control:
 	var page := Control.new()
@@ -268,6 +298,14 @@ func _make_button(label: String, minimum_size: Vector2 = Vector2(0.0, 38.0)) -> 
 	return button
 
 
+func _create_expression_wheel() -> void:
+	_expression_wheel = EXPRESSION_WHEEL_SCRIPT.new() as Control
+	_expression_wheel.name = "ExpressionWheel"
+	_expression_wheel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_expression_wheel.call("set_options", ACTIVE_EXPRESSIONS)
+	_game_page.add_child(_expression_wheel)
+
+
 func _show_start_page() -> void:
 	_set_screen(SCREEN_START)
 
@@ -288,6 +326,8 @@ func _set_screen(screen_name: String) -> void:
 		_multiplayer_page.visible = screen_name == SCREEN_MULTIPLAYER
 	if _game_page != null:
 		_game_page.visible = screen_name == SCREEN_GAME
+	if screen_name != SCREEN_GAME and _expression_wheel != null:
+		_expression_wheel.call("close")
 	queue_redraw()
 
 
@@ -433,6 +473,10 @@ func _on_snapshot_received(snapshot: Dictionary) -> void:
 			_remove_player(peer_id)
 
 
+func _on_expression_received(peer_id: int, expression_id: String) -> void:
+	_show_player_expression(peer_id, expression_id)
+
+
 func _update_gameplay() -> void:
 	var input_vector := _local_input_vector()
 	if bool(_session.call("is_host")):
@@ -479,6 +523,50 @@ func _ensure_player(peer_id: int, display_name: String) -> Node:
 	player.call("warp_to", _spawn_position_for_slot(_players.size()))
 	_players[peer_id] = player
 	return player
+
+
+func _open_expression_wheel() -> void:
+	if _expression_wheel == null:
+		return
+	_expression_wheel.call("open_at", VIEWPORT_SIZE * 0.5)
+
+
+func _release_expression_wheel() -> void:
+	if _expression_wheel == null or not bool(_expression_wheel.call("is_open")):
+		return
+	var expression_id := String(_expression_wheel.call("selected_expression_id"))
+	_expression_wheel.call("close")
+	if expression_id != "":
+		_send_expression(expression_id)
+
+
+func _send_expression(expression_id: String) -> void:
+	if not _is_expression_id_allowed(expression_id):
+		return
+	if _session == null or String(_session.call("active_transport")) == "offline":
+		_show_player_expression(1, expression_id)
+		return
+	_session.call("send_expression_to_host", expression_id)
+
+
+func _show_player_expression(peer_id: int, expression_id: String) -> void:
+	var expression_text := _expression_text(expression_id)
+	if expression_text == "" or not _players.has(peer_id):
+		return
+	var player := _players[peer_id] as Node
+	if player != null:
+		player.call("show_expression", expression_text, EXPRESSION_DURATION)
+
+
+func _expression_text(expression_id: String) -> String:
+	for expression in ACTIVE_EXPRESSIONS:
+		if String(expression.get("id", "")) == expression_id:
+			return String(expression.get("text", ""))
+	return ""
+
+
+func _is_expression_id_allowed(expression_id: String) -> bool:
+	return _expression_text(expression_id) != ""
 
 
 func _remove_player(peer_id: int) -> void:
@@ -587,6 +675,7 @@ func _ensure_input_actions() -> void:
 	_register_key_action(ACTION_MOVE_LEFT, KEY_LEFT)
 	_register_key_action(ACTION_MOVE_RIGHT, KEY_D)
 	_register_key_action(ACTION_MOVE_RIGHT, KEY_RIGHT)
+	_register_key_action(ACTION_EXPRESSION_WHEEL, KEY_T)
 
 
 func _register_key_action(action_name: String, keycode: Key) -> void:
