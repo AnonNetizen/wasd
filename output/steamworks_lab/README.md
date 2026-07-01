@@ -2,7 +2,7 @@
 
 独立 Godot 4.7 测试项目，用来验证 Steamworks / GodotSteam 联机链路。它不属于正式 `client/`，也不依赖正式项目的 `PlatformServices`。
 
-第一版功能很窄：每个玩家是一只小型无骨骼软体史莱姆，使用 WASD 或方向键高速移动，host 权威同步所有史莱姆位置；游戏中按住鼠标左键会向鼠标方向连续射出视觉子弹，按住 `T` 打开表情轮盘，用鼠标选中表情，松开 `T` 发送。暂时没有伤害、碰撞玩法、存档、正式大厅浏览、好友邀请或成就。
+第一版功能很窄：每个玩家是一只无骨骼软体史莱姆，使用 WASD 或方向键高速移动，host 权威同步所有史莱姆位置；游戏中按住鼠标左键会向鼠标方向连续射出视觉子弹，按住 `T` 打开表情轮盘，用鼠标选中表情，松开 `T` 发送。暂时没有伤害、碰撞玩法、存档、正式大厅浏览、好友邀请或成就。
 
 ## 运行
 
@@ -43,7 +43,7 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=1
 
 ## 文件结构
 
-- `scripts/slime_body.gd`：从 `output/test_lab/scripts/soft_body_cell.gd` 改造的小型无骨骼软体史莱姆；中心点先移动，外膜点用弹簧和惯性滞后跟随，渲染时用闭合 centripetal Catmull-Rom 曲线平滑外轮廓，形成更像史莱姆的挤压回弹。
+- `scripts/slime_body.gd`：从 `output/test_lab/scripts/soft_body_cell.gd` 改造的无骨骼软体史莱姆；中心点先移动，外膜点用弹簧和惯性滞后跟随，渲染时用闭合 centripetal Catmull-Rom 曲线平滑外轮廓，形成更像史莱姆的挤压回弹。
 - `scripts/slime_player.gd`：玩家实体包装，把输入转换成软体 follow target，支持远端插值、表情显示和子弹配色。
 - `scripts/slime_bullet.gd`：短生命周期视觉子弹；出生时锚在史莱姆外膜上，先画出软膜连接，再沿带轻微散布的鼠标方向分裂飞出。
 - `scripts/expression_wheel.gd`：主动表情轮盘；按住 `T` 时显示，鼠标方向决定当前选中项。

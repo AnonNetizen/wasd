@@ -5,13 +5,13 @@ const CURVE_CENTRIPETAL_ALPHA: float = 0.5
 const CURVE_MIN_KNOT_SPACING: float = 0.0001
 const FIRE_BUD_DURATION: float = 0.18
 const FIRE_BUD_IMPULSE: float = 120.0
-const FIRE_BUD_PUSH: float = 7.0
+const FIRE_BUD_PUSH: float = 14.0
 
 @export_range(16, 128, 1) var point_count: int = 64
-@export var base_radius: float = 28.0
-@export var min_radius: float = 17.0
-@export var max_radius: float = 39.0
-@export var core_collision_radius: float = 19.0
+@export var base_radius: float = 56.0
+@export var min_radius: float = 34.0
+@export var max_radius: float = 78.0
+@export var core_collision_radius: float = 38.0
 @export var follow_strength: float = 4.2
 @export var follow_response: float = 9.5
 @export var max_speed: float = 360.0
@@ -22,15 +22,15 @@ const FIRE_BUD_PUSH: float = 7.0
 @export var membrane_follow_damping: float = 7.2
 @export var membrane_neighbor_smoothing: float = 18.0
 @export var membrane_inertia: float = 0.82
-@export var movement_push_amount: float = 9.0
+@export var movement_push_amount: float = 18.0
 @export var movement_squash_amount: float = 0.14
 @export var area_pressure: float = 42.0
 @export var obstacle_edge_force: float = 1280.0
-@export var edge_contact_distance: float = 12.0
+@export var edge_contact_distance: float = 24.0
 @export var membrane_obstacle_clearance: float = 2.0
-@export var breath_amount: float = 1.5
+@export var breath_amount: float = 3.0
 @export var breath_speed: float = 1.6
-@export var surface_noise_amount: float = 1.2
+@export var surface_noise_amount: float = 2.4
 @export_range(1, 10, 1) var curve_samples_per_segment: int = 5
 
 var obstacle_rect: Rect2 = Rect2()
@@ -349,11 +349,11 @@ func _draw_fire_buds() -> void:
 		var life_ratio := clampf(time_remaining / FIRE_BUD_DURATION, 0.0, 1.0)
 		var bulge_ratio := sin((1.0 - life_ratio) * PI)
 		var alpha := 0.52 * life_ratio
-		var base_point := surface_offset - local_direction * (4.0 + 2.5 * bulge_ratio)
-		var tip_point := surface_offset + local_direction * (8.0 + 5.0 * bulge_ratio)
-		draw_line(base_point, tip_point, Color(_fill_color, alpha), 7.0 * life_ratio, true)
-		draw_circle(tip_point, 3.0 + 2.0 * bulge_ratio, Color(_fill_color, alpha))
-		draw_circle(tip_point, 3.0 + 2.0 * bulge_ratio, Color(_edge_color, 0.55 * life_ratio), false, 1.2, true)
+		var base_point := surface_offset - local_direction * (8.0 + 5.0 * bulge_ratio)
+		var tip_point := surface_offset + local_direction * (16.0 + 10.0 * bulge_ratio)
+		draw_line(base_point, tip_point, Color(_fill_color, alpha), 14.0 * life_ratio, true)
+		draw_circle(tip_point, 6.0 + 4.0 * bulge_ratio, Color(_fill_color, alpha))
+		draw_circle(tip_point, 6.0 + 4.0 * bulge_ratio, Color(_edge_color, 0.55 * life_ratio), false, 1.8, true)
 
 
 func _smoothed_membrane_points() -> PackedVector2Array:
