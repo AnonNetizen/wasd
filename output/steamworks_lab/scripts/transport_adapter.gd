@@ -8,15 +8,23 @@ signal steam_status(message: String)
 const LOBBY_TYPE_PUBLIC: int = 2
 const RESULT_OK: int = 1
 const CHAT_ROOM_ENTER_RESPONSE_SUCCESS: int = 1
+const CHAT_MEMBER_STATE_CHANGE_ENTERED: int = 0x0001
+const CHAT_MEMBER_STATE_CHANGE_LEFT: int = 0x0002
+const CHAT_MEMBER_STATE_CHANGE_DISCONNECTED: int = 0x0004
+const CHAT_MEMBER_STATE_CHANGE_KICKED: int = 0x0008
+const CHAT_MEMBER_STATE_CHANGE_BANNED: int = 0x0010
 const LAB_MARKER_KEY: String = "wasd_lab"
 const LAB_MARKER_VALUE: String = "steamworks_slime_v1"
 const LAB_VERSION_KEY: String = "lab_version"
 const LAB_VERSION_VALUE: String = "1"
 
 var _steam: Object
+var _active_steam_peer: MultiplayerPeer
+var _known_steam_ids: Dictionary = {}
 var _pending_host: bool = false
 var _pending_join: bool = false
 var _active_lobby_id: String = ""
+var _is_steam_host: bool = false
 var _steam_initialized: bool = false
 
 
@@ -96,7 +104,10 @@ func join_steam_lobby(lobby_id_text: String) -> bool:
 func leave_steam_lobby() -> void:
 	if _steam != null and _active_lobby_id.is_valid_int() and _steam.has_method("leaveLobby"):
 		_steam.call("leaveLobby", int(_active_lobby_id))
+	_active_steam_peer = null
+	_known_steam_ids.clear()
 	_active_lobby_id = ""
+	_is_steam_host = false
 	_pending_host = false
 	_pending_join = false
 
@@ -114,6 +125,7 @@ func _connect_steam_signals() -> void:
 		return
 	_connect_signal_if_present("lobby_created", Callable(self, "_on_lobby_created"))
 	_connect_signal_if_present("lobby_joined", Callable(self, "_on_lobby_joined"))
+	_connect_signal_if_present("lobby_chat_update", Callable(self, "_on_lobby_chat_update"))
 
 
 func _connect_signal_if_present(signal_name: StringName, callable: Callable) -> void:
@@ -151,6 +163,9 @@ func _on_lobby_created(connect: int, lobby_id: int) -> void:
 		return
 
 	_pending_host = false
+	_active_steam_peer = peer_result["peer"] as MultiplayerPeer
+	_is_steam_host = true
+	_track_current_lobby_members(lobby_id)
 	steam_peer_ready.emit(peer_result["peer"], _active_lobby_id, true)
 
 
@@ -178,7 +193,40 @@ func _on_lobby_joined(lobby_id: int, _permissions: int, _locked: bool, response:
 		return
 
 	_pending_join = false
+	_active_steam_peer = peer_result["peer"] as MultiplayerPeer
+	_is_steam_host = false
+	var member_count := _track_current_lobby_members(lobby_id)
+	if member_count <= 1:
+		steam_status.emit("Steam lobby reports one account after join; same-account double launch cannot create a second P2P peer.")
 	steam_peer_ready.emit(peer_result["peer"], _active_lobby_id, false)
+
+
+func _on_lobby_chat_update(lobby_id: int, changed_id: int, _making_change_id: int, chat_state: int) -> void:
+	if _active_lobby_id != str(lobby_id):
+		return
+	if _has_member_state(chat_state, CHAT_MEMBER_STATE_CHANGE_ENTERED):
+		steam_status.emit("Steam lobby member entered: %s." % str(changed_id))
+		if _is_steam_host:
+			_add_lobby_member_peer(changed_id)
+		else:
+			_remember_steam_id(changed_id)
+		return
+
+	if _has_member_state(chat_state, CHAT_MEMBER_STATE_CHANGE_LEFT):
+		_forget_steam_id(changed_id)
+		steam_status.emit("Steam lobby member left: %s." % str(changed_id))
+		return
+	if _has_member_state(chat_state, CHAT_MEMBER_STATE_CHANGE_DISCONNECTED):
+		_forget_steam_id(changed_id)
+		steam_status.emit("Steam lobby member disconnected: %s." % str(changed_id))
+		return
+	if _has_member_state(chat_state, CHAT_MEMBER_STATE_CHANGE_KICKED):
+		_forget_steam_id(changed_id)
+		steam_status.emit("Steam lobby member kicked: %s." % str(changed_id))
+		return
+	if _has_member_state(chat_state, CHAT_MEMBER_STATE_CHANGE_BANNED):
+		_forget_steam_id(changed_id)
+		steam_status.emit("Steam lobby member banned: %s." % str(changed_id))
 
 
 func _set_lobby_metadata(lobby_id: int) -> void:
@@ -225,3 +273,66 @@ func _create_steam_client_peer(lobby_id: int) -> Dictionary:
 	else:
 		return {"ok": false, "message": "SteamMultiplayerPeer has no connect_to_lobby/create_client method."}
 	return {"ok": true, "peer": peer}
+
+
+func _track_current_lobby_members(lobby_id: int) -> int:
+	_known_steam_ids.clear()
+	if _steam == null:
+		return 0
+	if not _steam.has_method("getNumLobbyMembers") or not _steam.has_method("getLobbyMemberByIndex"):
+		return 0
+
+	var member_count := int(_steam.call("getNumLobbyMembers", lobby_id))
+	for index in range(member_count):
+		var member_id := int(_steam.call("getLobbyMemberByIndex", lobby_id, index))
+		if member_id > 0:
+			_remember_steam_id(member_id)
+	steam_status.emit("Steam lobby currently has %d member(s)." % member_count)
+	return member_count
+
+
+func _add_lobby_member_peer(steam_id: int) -> void:
+	if _active_steam_peer == null:
+		steam_status.emit("Steam peer is not ready; cannot add lobby member %s." % str(steam_id))
+		return
+	if steam_id <= 0:
+		return
+
+	var local_steam_id := _local_steam_id()
+	if local_steam_id != 0 and steam_id == local_steam_id:
+		_remember_steam_id(steam_id)
+		steam_status.emit("Steam reported this same account in the lobby; use a second Steam account/device for true Steam P2P.")
+		return
+
+	var key := str(steam_id)
+	if _known_steam_ids.has(key):
+		return
+	if not _active_steam_peer.has_method("add_peer"):
+		steam_failed.emit("SteamMultiplayerPeer has no add_peer method for lobby member %s." % key)
+		return
+
+	var error := int(_active_steam_peer.call("add_peer", steam_id, 0))
+	if error != OK:
+		steam_failed.emit("Steam add_peer failed for lobby member %s: %s" % [key, error])
+		return
+	_remember_steam_id(steam_id)
+	steam_status.emit("Steam P2P peer added for lobby member %s." % key)
+
+
+func _local_steam_id() -> int:
+	if _steam != null and _steam.has_method("getSteamID"):
+		return int(_steam.call("getSteamID"))
+	return 0
+
+
+func _remember_steam_id(steam_id: int) -> void:
+	if steam_id > 0:
+		_known_steam_ids[str(steam_id)] = true
+
+
+func _forget_steam_id(steam_id: int) -> void:
+	_known_steam_ids.erase(str(steam_id))
+
+
+func _has_member_state(chat_state: int, state: int) -> bool:
+	return (chat_state & state) != 0

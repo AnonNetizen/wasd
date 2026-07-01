@@ -46,4 +46,5 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=1
 - `GodotSteam singleton is not installed`：未安装 GodotSteam，先用本地 ENet 路径验证。
 - `SteamMultiplayerPeer is missing`：当前 Steam 插件组合不含高层 multiplayer peer，换用支持该类的版本或追加对应 GDExtension。
 - `Steam is available, but the user is not logged on`：Steam 客户端未登录或未通过 App ID 启动。
+- Host 只显示 1 个玩家、Client 显示 0 个玩家：说明 lobby 可能加入成功，但 Steam P2P peer 没连上。观察左侧日志是否出现 `Steam P2P peer added`；如果出现 `same account` 或 `one account after join` 提示，说明同一 Steam 账号双开无法形成第二个真实 P2P peer，请用另一台设备 / 另一个 Steam 账号测 Steam 路径，本机同步先用 `Host Local` / `Join Local` 验证。
 - `Failed to host local ENet server`：端口可能被占用，换端口或关闭旧实例。
