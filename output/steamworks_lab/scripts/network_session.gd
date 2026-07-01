@@ -1,0 +1,193 @@
+class_name SteamLabNetworkSession
+extends Node
+
+signal status_changed(message: String)
+signal session_started(host: bool, transport: String, lobby_id: String)
+signal session_ended()
+signal peer_joined(peer_id: int)
+signal peer_left(peer_id: int)
+signal input_received(peer_id: int, input_vector: Vector2)
+signal snapshot_received(snapshot: Dictionary)
+
+const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
+const DEFAULT_PORT: int = 24567
+const MAX_PLAYERS: int = 8
+
+var _transport: Node
+var _is_host: bool = false
+var _active_transport: String = "offline"
+var _lobby_id: String = ""
+
+
+func _ready() -> void:
+	_transport = TRANSPORT_SCRIPT.new() as Node
+	_transport.name = "TransportAdapter"
+	add_child(_transport)
+	_transport.connect("steam_peer_ready", Callable(self, "_on_steam_peer_ready"))
+	_transport.connect("steam_failed", Callable(self, "_emit_status"))
+	_transport.connect("steam_status", Callable(self, "_emit_status"))
+	_connect_multiplayer_signals()
+
+
+func host_local(port: int = DEFAULT_PORT) -> void:
+	leave_session()
+	var result: Dictionary = _transport.call("create_local_server", port, MAX_PLAYERS)
+	if not bool(result.get("ok", false)):
+		_emit_status(String(result.get("message", "Local host failed.")))
+		return
+	_apply_peer(result["peer"], true, "local", "")
+	_emit_status(String(result.get("message", "Local host ready.")))
+
+
+func join_local(address: String = "127.0.0.1", port: int = DEFAULT_PORT) -> void:
+	leave_session()
+	var result: Dictionary = _transport.call("create_local_client", address, port)
+	if not bool(result.get("ok", false)):
+		_emit_status(String(result.get("message", "Local join failed.")))
+		return
+	_apply_peer(result["peer"], false, "local", "")
+	_emit_status(String(result.get("message", "Joining local host...")))
+
+
+func host_steam() -> void:
+	leave_session()
+	if not bool(_transport.call("host_steam_lobby", MAX_PLAYERS)):
+		return
+	_active_transport = "steam"
+
+
+func join_steam_lobby(lobby_id: String) -> void:
+	leave_session()
+	if not bool(_transport.call("join_steam_lobby", lobby_id)):
+		return
+	_active_transport = "steam"
+
+
+func leave_session() -> void:
+	if multiplayer.multiplayer_peer != null:
+		multiplayer.multiplayer_peer.close()
+	multiplayer.multiplayer_peer = null
+	_transport.call("leave_steam_lobby")
+	_is_host = false
+	_active_transport = "offline"
+	_lobby_id = ""
+	session_ended.emit()
+
+
+func is_host() -> bool:
+	return _is_host
+
+
+func active_transport() -> String:
+	return _active_transport
+
+
+func lobby_id() -> String:
+	return _lobby_id
+
+
+func local_peer_id() -> int:
+	if multiplayer.multiplayer_peer == null:
+		return 1
+	return multiplayer.get_unique_id()
+
+
+func steam_status_text() -> String:
+	if _transport == null:
+		return "Steam transport adapter is not ready."
+	return String(_transport.call("steam_diagnostics"))
+
+
+func steam_available() -> bool:
+	if _transport == null:
+		return false
+	return bool(_transport.call("steam_available"))
+
+
+func send_input_to_host(input_vector: Vector2) -> void:
+	var limited := input_vector.limit_length(1.0)
+	if _is_host:
+		input_received.emit(1, limited)
+		return
+	if multiplayer.multiplayer_peer == null:
+		return
+	_submit_input.rpc_id(1, limited.x, limited.y)
+
+
+func broadcast_snapshot(snapshot: Dictionary) -> void:
+	if not _is_host or multiplayer.multiplayer_peer == null:
+		return
+	_receive_snapshot.rpc(snapshot)
+
+
+@rpc("any_peer", "unreliable")
+func _submit_input(input_x: float, input_y: float) -> void:
+	if not _is_host:
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	input_received.emit(sender_id, Vector2(input_x, input_y).limit_length(1.0))
+
+
+@rpc("authority", "unreliable")
+func _receive_snapshot(snapshot: Dictionary) -> void:
+	snapshot_received.emit(snapshot)
+
+
+func _connect_multiplayer_signals() -> void:
+	if not multiplayer.peer_connected.is_connected(_on_peer_connected):
+		multiplayer.peer_connected.connect(_on_peer_connected)
+	if not multiplayer.peer_disconnected.is_connected(_on_peer_disconnected):
+		multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	if not multiplayer.connected_to_server.is_connected(_on_connected_to_server):
+		multiplayer.connected_to_server.connect(_on_connected_to_server)
+	if not multiplayer.connection_failed.is_connected(_on_connection_failed):
+		multiplayer.connection_failed.connect(_on_connection_failed)
+	if not multiplayer.server_disconnected.is_connected(_on_server_disconnected):
+		multiplayer.server_disconnected.connect(_on_server_disconnected)
+
+
+func _apply_peer(peer: MultiplayerPeer, host: bool, transport: String, lobby: String) -> void:
+	multiplayer.multiplayer_peer = peer
+	_is_host = host
+	_active_transport = transport
+	_lobby_id = lobby
+	session_started.emit(host, transport, lobby)
+	if host:
+		peer_joined.emit(1)
+
+
+func _on_steam_peer_ready(peer: MultiplayerPeer, lobby: String, host: bool) -> void:
+	_apply_peer(peer, host, "steam", lobby)
+	if host:
+		_emit_status("Hosting Steam lobby %s." % lobby)
+	else:
+		_emit_status("Connected to Steam lobby %s." % lobby)
+
+
+func _on_peer_connected(peer_id: int) -> void:
+	_emit_status("Peer connected: %d" % peer_id)
+	peer_joined.emit(peer_id)
+
+
+func _on_peer_disconnected(peer_id: int) -> void:
+	_emit_status("Peer disconnected: %d" % peer_id)
+	peer_left.emit(peer_id)
+
+
+func _on_connected_to_server() -> void:
+	_emit_status("Connected to host as peer %d." % multiplayer.get_unique_id())
+	session_started.emit(false, _active_transport, _lobby_id)
+
+
+func _on_connection_failed() -> void:
+	_emit_status("Connection failed.")
+	leave_session()
+
+
+func _on_server_disconnected() -> void:
+	_emit_status("Host disconnected.")
+	leave_session()
+
+
+func _emit_status(message: String) -> void:
+	status_changed.emit(message)
