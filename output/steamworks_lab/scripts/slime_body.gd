@@ -12,6 +12,12 @@ extends Node2D
 @export var edge_stiffness: float = 58.0
 @export var edge_damping: float = 8.5
 @export var neighbor_smoothing: float = 34.0
+@export var membrane_follow_stiffness: float = 42.0
+@export var membrane_follow_damping: float = 7.2
+@export var membrane_neighbor_smoothing: float = 18.0
+@export var membrane_inertia: float = 0.82
+@export var movement_push_amount: float = 18.0
+@export var movement_squash_amount: float = 0.14
 @export var area_pressure: float = 42.0
 @export var obstacle_edge_force: float = 1280.0
 @export var edge_contact_distance: float = 24.0
@@ -25,9 +31,12 @@ var obstacle_enabled: bool = false
 var target_position: Vector2 = Vector2.ZERO
 
 var _directions: Array[Vector2] = []
+var _edge_offsets: Array[Vector2] = []
+var _edge_velocities: Array[Vector2] = []
 var _radii: PackedFloat32Array = PackedFloat32Array()
 var _radial_velocities: PackedFloat32Array = PackedFloat32Array()
 var _velocity: Vector2 = Vector2.ZERO
+var _last_global_position: Vector2 = Vector2.ZERO
 var _time: float = 0.0
 var _impact_strength: float = 0.0
 var _position_drive_enabled: bool = true
@@ -39,14 +48,17 @@ var _core_color: Color = Color(0.21, 0.44, 0.54, 0.45)
 func _ready() -> void:
 	_initialize_edge_points()
 	target_position = global_position
+	_last_global_position = global_position
 
 
 func _physics_process(delta: float) -> void:
 	var safe_delta: float = minf(delta, 0.033)
 	_time += safe_delta
+	var core_delta := global_position - _last_global_position
 	if _position_drive_enabled:
-		_update_body_motion(safe_delta)
-	_update_edge_points(safe_delta)
+		core_delta += _update_body_motion(safe_delta)
+	_update_edge_points(safe_delta, core_delta)
+	_last_global_position = global_position
 	_impact_strength = maxf(0.0, _impact_strength - safe_delta * 2.2)
 	queue_redraw()
 
@@ -76,6 +88,8 @@ func warp_to(new_global_position: Vector2) -> void:
 	global_position = new_global_position
 	target_position = new_global_position
 	_velocity = Vector2.ZERO
+	_last_global_position = new_global_position
+	_reset_edge_offsets()
 
 
 func body_velocity() -> Vector2:
@@ -88,7 +102,7 @@ func _draw() -> void:
 
 	var membrane_points := PackedVector2Array()
 	for index in range(point_count):
-		membrane_points.append(_directions[index] * _radii[index])
+		membrane_points.append(_edge_offsets[index])
 
 	var closed_points := PackedVector2Array(membrane_points)
 	closed_points.append(membrane_points[0])
@@ -108,6 +122,8 @@ func _draw() -> void:
 
 func _initialize_edge_points() -> void:
 	_directions.clear()
+	_edge_offsets.clear()
+	_edge_velocities.clear()
 	_radii.resize(point_count)
 	_radial_velocities.resize(point_count)
 
@@ -118,9 +134,12 @@ func _initialize_edge_points() -> void:
 		_directions.append(direction)
 		_radii[index] = base_radius + sin(angle * 3.0) * 2.0
 		_radial_velocities[index] = 0.0
+		_edge_offsets.append(direction * _radii[index])
+		_edge_velocities.append(Vector2.ZERO)
 
 
-func _update_body_motion(delta: float) -> void:
+func _update_body_motion(delta: float) -> Vector2:
+	var previous_position := global_position
 	var to_target := target_position - global_position
 	var desired_velocity := to_target * follow_strength
 	if desired_velocity.length() > max_speed:
@@ -130,6 +149,7 @@ func _update_body_motion(delta: float) -> void:
 	_velocity = _velocity.lerp(desired_velocity, response)
 	global_position += _velocity * delta
 	_resolve_core_obstacle()
+	return global_position - previous_position
 
 
 func _resolve_core_obstacle() -> void:
@@ -162,7 +182,7 @@ func _resolve_core_obstacle() -> void:
 	_impact_strength = maxf(_impact_strength, clampf(penetration / 42.0, 0.0, 1.0))
 
 
-func _update_edge_points(delta: float) -> void:
+func _update_edge_points(delta: float, core_delta: Vector2) -> void:
 	var average_radius := _average_radius()
 	var pressure_force := (base_radius - average_radius) * area_pressure
 	var next_radii := PackedFloat32Array(_radii)
@@ -190,6 +210,66 @@ func _update_edge_points(delta: float) -> void:
 		next_radii[index] = limited_radius
 
 	_radii = next_radii
+	_update_membrane_offsets(delta, core_delta)
+
+
+func _update_membrane_offsets(delta: float, core_delta: Vector2) -> void:
+	if _edge_offsets.size() != point_count or _edge_velocities.size() != point_count:
+		_reset_edge_offsets()
+
+	var drive_velocity := Vector2.ZERO
+	if delta > 0.0001:
+		drive_velocity = core_delta / delta
+	var drive_speed := drive_velocity.length()
+	var drive_direction := Vector2.ZERO
+	if drive_speed > 0.001:
+		drive_direction = drive_velocity / drive_speed
+	var drive_ratio := clampf(drive_speed / maxf(max_speed, 1.0), 0.0, 1.0)
+	var core_shift := core_delta * membrane_inertia
+	var next_offsets: Array[Vector2] = []
+	next_offsets.resize(point_count)
+
+	for index in range(point_count):
+		_edge_offsets[index] -= core_shift
+		var previous_index := posmod(index - 1, point_count)
+		var next_index := (index + 1) % point_count
+		var direction := _directions[index]
+		var alignment := 0.0
+		if drive_direction != Vector2.ZERO:
+			alignment = direction.dot(drive_direction)
+		var side_alignment := 1.0 - absf(alignment)
+		var squash := 1.0 + maxf(alignment, 0.0) * movement_squash_amount * drive_ratio
+		squash -= side_alignment * movement_squash_amount * 0.45 * drive_ratio
+		var target_offset := direction * _radii[index] * squash
+		target_offset += drive_direction * maxf(alignment, 0.0) * movement_push_amount * drive_ratio
+
+		var neighbor_average := (_edge_offsets[previous_index] + _edge_offsets[next_index]) * 0.5
+		var spring_force := (target_offset - _edge_offsets[index]) * membrane_follow_stiffness
+		var smoothing_force := (neighbor_average - _edge_offsets[index]) * membrane_neighbor_smoothing
+		_edge_velocities[index] += (spring_force + smoothing_force) * delta
+		_edge_velocities[index] *= maxf(0.0, 1.0 - membrane_follow_damping * delta)
+		var candidate_offset := _edge_offsets[index] + _edge_velocities[index] * delta
+		next_offsets[index] = _clamped_membrane_offset(candidate_offset, direction)
+
+	_edge_offsets = next_offsets
+
+
+func _reset_edge_offsets() -> void:
+	_edge_offsets.clear()
+	_edge_velocities.clear()
+	for index in range(_directions.size()):
+		_edge_offsets.append(_directions[index] * _radii[index])
+		_edge_velocities.append(Vector2.ZERO)
+
+
+func _clamped_membrane_offset(candidate_offset: Vector2, fallback_direction: Vector2) -> Vector2:
+	var distance := candidate_offset.length()
+	var direction := fallback_direction
+	if distance > 0.001:
+		direction = candidate_offset / distance
+	var minimum_distance := min_radius * 0.78
+	var maximum_distance := max_radius + movement_push_amount
+	return direction * clampf(distance, minimum_distance, maximum_distance)
 
 
 func _obstacle_radial_force(index: int) -> float:
@@ -197,7 +277,7 @@ func _obstacle_radial_force(index: int) -> float:
 		return 0.0
 
 	var direction := _directions[index]
-	var edge_position := global_position + direction * _radii[index]
+	var edge_position := global_position + _edge_offsets[index]
 	var normal := Vector2.ZERO
 	var distance := 0.0
 
