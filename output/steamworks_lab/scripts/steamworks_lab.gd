@@ -4,8 +4,11 @@ const SESSION_SCRIPT := preload("res://scripts/network_session.gd")
 const PLAYER_SCRIPT := preload("res://scripts/slime_player.gd")
 
 const VIEWPORT_SIZE := Vector2(1280.0, 760.0)
-const WORLD_RECT := Rect2(Vector2(260.0, 74.0), Vector2(960.0, 620.0))
+const WORLD_RECT := Rect2(Vector2(160.0, 90.0), Vector2(960.0, 580.0))
 const DEFAULT_PORT: int = 24567
+const SCREEN_START: String = "start"
+const SCREEN_MULTIPLAYER: String = "multiplayer"
+const SCREEN_GAME: String = "game"
 
 const ACTION_MOVE_UP := "move_up"
 const ACTION_MOVE_DOWN := "move_down"
@@ -16,9 +19,15 @@ var _session: Node
 var _players: Dictionary = {}
 var _peer_inputs: Dictionary = {}
 var _log_lines: Array[String] = []
+var _screen: String = SCREEN_START
+var _suppress_session_end_navigation: bool = false
 
 var _ui_root: Control
-var _status_label: Label
+var _start_page: Control
+var _multiplayer_page: Control
+var _game_page: Control
+var _multiplayer_status_label: Label
+var _game_status_label: Label
 var _log_label: Label
 var _address_input: LineEdit
 var _port_input: SpinBox
@@ -32,31 +41,22 @@ func _ready() -> void:
 	_ensure_input_actions()
 	_create_session()
 	_create_ui()
-	_start_offline()
+	_show_start_page()
 
 
 func _physics_process(_delta: float) -> void:
-	var input_vector := _local_input_vector()
-	if bool(_session.call("is_host")):
-		_peer_inputs[1] = input_vector
-		_apply_host_inputs()
-		_session.call("broadcast_snapshot", _build_snapshot())
-	elif String(_session.call("active_transport")) != "offline":
-		_session.call("send_input_to_host", input_vector)
-	else:
-		var offline_player: Node = _ensure_player(1, "Offline Slime")
-		offline_player.call("set_input_vector", input_vector)
-
+	if _screen == SCREEN_GAME:
+		_update_gameplay()
 	_update_status()
 	queue_redraw()
 
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, VIEWPORT_SIZE), Color(0.034, 0.044, 0.047, 1.0), true)
-	draw_rect(WORLD_RECT.grow(18.0), Color(0.0, 0.0, 0.0, 0.20), true)
-	draw_rect(WORLD_RECT, Color(0.054, 0.074, 0.070, 1.0), true)
-	draw_rect(WORLD_RECT, Color(0.40, 0.62, 0.54, 0.42), false, 2.0)
-	_draw_grid()
+	if _screen == SCREEN_GAME:
+		_draw_game_world()
+	else:
+		_draw_menu_background()
 
 
 func _create_session() -> void:
@@ -78,107 +78,240 @@ func _create_ui() -> void:
 	_ui_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_ui_root)
 
-	var panel := PanelContainer.new()
-	panel.name = "Panel"
-	panel.position = Vector2(24.0, 24.0)
-	panel.custom_minimum_size = Vector2(216.0, 710.0)
-	_ui_root.add_child(panel)
+	_create_start_page()
+	_create_multiplayer_page()
+	_create_game_page()
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 14)
-	margin.add_theme_constant_override("margin_top", 14)
-	margin.add_theme_constant_override("margin_right", 14)
-	margin.add_theme_constant_override("margin_bottom", 14)
-	panel.add_child(margin)
 
-	var rows := VBoxContainer.new()
-	rows.add_theme_constant_override("separation", 8)
-	margin.add_child(rows)
+func _create_start_page() -> void:
+	_start_page = _make_page("StartPage")
+	var rows := _make_centered_panel(_start_page, "StartPanel", Vector2(420.0, 300.0))
 
-	var title := Label.new()
-	title.text = "Steamworks Slime Lab"
-	title.add_theme_font_size_override("font_size", 20)
+	var title := _make_title_label("Steamworks Slime Lab")
 	rows.add_child(title)
 
-	_status_label = Label.new()
-	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status_label.text = "Offline"
-	rows.add_child(_status_label)
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0.0, 16.0)
+	rows.add_child(spacer)
 
-	var offline_button := _make_button("Offline")
-	offline_button.pressed.connect(_start_offline)
-	rows.add_child(offline_button)
+	var single_player_button := _make_button("开始单人游戏", Vector2(280.0, 46.0))
+	single_player_button.pressed.connect(_on_start_single_player_pressed)
+	rows.add_child(single_player_button)
+
+	var multiplayer_button := _make_button("开始联机游戏", Vector2(280.0, 46.0))
+	multiplayer_button.pressed.connect(_on_start_multiplayer_pressed)
+	rows.add_child(multiplayer_button)
+
+
+func _create_multiplayer_page() -> void:
+	_multiplayer_page = _make_page("MultiplayerPage")
+	var rows := _make_centered_panel(_multiplayer_page, "MultiplayerPanel", Vector2(900.0, 600.0))
+
+	var title := _make_title_label("Multiplayer")
+	rows.add_child(title)
+
+	_multiplayer_status_label = Label.new()
+	_multiplayer_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rows.add_child(_multiplayer_status_label)
+
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 20)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	rows.add_child(body)
+
+	var controls := VBoxContainer.new()
+	controls.custom_minimum_size = Vector2(320.0, 0.0)
+	controls.add_theme_constant_override("separation", 8)
+	body.add_child(controls)
 
 	var host_local_button := _make_button("Host Local")
 	host_local_button.pressed.connect(_on_host_local_pressed)
-	rows.add_child(host_local_button)
+	controls.add_child(host_local_button)
 
 	_address_input = LineEdit.new()
 	_address_input.text = "127.0.0.1"
 	_address_input.placeholder_text = "Address"
-	rows.add_child(_address_input)
+	controls.add_child(_address_input)
 
 	_port_input = SpinBox.new()
 	_port_input.min_value = 1
 	_port_input.max_value = 65535
 	_port_input.value = DEFAULT_PORT
 	_port_input.step = 1
-	rows.add_child(_port_input)
+	controls.add_child(_port_input)
 
 	var join_local_button := _make_button("Join Local")
 	join_local_button.pressed.connect(_on_join_local_pressed)
-	rows.add_child(join_local_button)
+	controls.add_child(join_local_button)
 
 	var separator_a := HSeparator.new()
-	rows.add_child(separator_a)
+	controls.add_child(separator_a)
 
 	_steam_status_label = Label.new()
 	_steam_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_steam_status_label.text = String(_session.call("steam_status_text"))
-	rows.add_child(_steam_status_label)
+	controls.add_child(_steam_status_label)
 
 	_host_steam_button = _make_button("Host Steam")
 	_host_steam_button.pressed.connect(_on_host_steam_pressed)
-	rows.add_child(_host_steam_button)
+	controls.add_child(_host_steam_button)
 
 	_lobby_input = LineEdit.new()
 	_lobby_input.placeholder_text = "Steam lobby id"
-	rows.add_child(_lobby_input)
+	controls.add_child(_lobby_input)
 
 	_join_steam_button = _make_button("Join Steam by ID")
 	_join_steam_button.pressed.connect(_on_join_steam_pressed)
-	rows.add_child(_join_steam_button)
-
-	var leave_button := _make_button("Leave")
-	leave_button.pressed.connect(_start_offline)
-	rows.add_child(leave_button)
+	controls.add_child(_join_steam_button)
 
 	var separator_b := HSeparator.new()
-	rows.add_child(separator_b)
+	controls.add_child(separator_b)
+
+	var leave_button := _make_button("Leave Session")
+	leave_button.pressed.connect(_on_multiplayer_leave_pressed)
+	controls.add_child(leave_button)
+
+	var back_button := _make_button("Back")
+	back_button.pressed.connect(_on_multiplayer_back_pressed)
+	controls.add_child(back_button)
+
+	var log_column := VBoxContainer.new()
+	log_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	log_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	log_column.add_theme_constant_override("separation", 8)
+	body.add_child(log_column)
+
+	var log_title := Label.new()
+	log_title.text = "Status Log"
+	log_title.add_theme_font_size_override("font_size", 16)
+	log_column.add_child(log_title)
 
 	_log_label = Label.new()
 	_log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_log_label.text = ""
-	_log_label.custom_minimum_size = Vector2(188.0, 220.0)
-	rows.add_child(_log_label)
+	_log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	log_column.add_child(_log_label)
 
 
-func _make_button(label: String) -> Button:
+func _create_game_page() -> void:
+	_game_page = _make_page("GamePage")
+
+	var hud_panel := PanelContainer.new()
+	hud_panel.name = "GameHud"
+	hud_panel.position = Vector2(24.0, 24.0)
+	hud_panel.custom_minimum_size = Vector2(220.0, 132.0)
+	_game_page.add_child(hud_panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_top", 12)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_bottom", 12)
+	hud_panel.add_child(margin)
+
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation", 8)
+	margin.add_child(rows)
+
+	_game_status_label = Label.new()
+	_game_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rows.add_child(_game_status_label)
+
+	var leave_button := _make_button("Leave Game")
+	leave_button.pressed.connect(_on_leave_game_pressed)
+	rows.add_child(leave_button)
+
+
+func _make_page(page_name: String) -> Control:
+	var page := Control.new()
+	page.name = page_name
+	page.set_anchors_preset(Control.PRESET_FULL_RECT)
+	page.visible = false
+	_ui_root.add_child(page)
+	return page
+
+
+func _make_centered_panel(parent: Control, panel_name: String, minimum_size: Vector2) -> VBoxContainer:
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	parent.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.name = panel_name
+	panel.custom_minimum_size = minimum_size
+	center.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	panel.add_child(margin)
+
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation", 10)
+	margin.add_child(rows)
+	return rows
+
+
+func _make_title_label(label_text: String) -> Label:
+	var label := Label.new()
+	label.text = label_text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 28)
+	return label
+
+
+func _make_button(label: String, minimum_size: Vector2 = Vector2(0.0, 38.0)) -> Button:
 	var button := Button.new()
 	button.text = label
-	button.custom_minimum_size = Vector2(0.0, 36.0)
+	button.custom_minimum_size = minimum_size
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return button
 
 
-func _start_offline() -> void:
-	if _session != null:
-		_session.call("leave_session")
+func _show_start_page() -> void:
+	_set_screen(SCREEN_START)
+
+
+func _show_multiplayer_page() -> void:
+	_set_screen(SCREEN_MULTIPLAYER)
+
+
+func _show_game_page() -> void:
+	_set_screen(SCREEN_GAME)
+
+
+func _set_screen(screen_name: String) -> void:
+	_screen = screen_name
+	if _start_page != null:
+		_start_page.visible = screen_name == SCREEN_START
+	if _multiplayer_page != null:
+		_multiplayer_page.visible = screen_name == SCREEN_MULTIPLAYER
+	if _game_page != null:
+		_game_page.visible = screen_name == SCREEN_GAME
+	queue_redraw()
+
+
+func _on_start_single_player_pressed() -> void:
+	_begin_single_player()
+
+
+func _on_start_multiplayer_pressed() -> void:
+	_leave_session_without_navigation()
 	_clear_players()
 	_peer_inputs.clear()
-	var player: Node = _ensure_player(1, "Offline Slime")
+	_show_multiplayer_page()
+	_append_log("Multiplayer setup.")
+
+
+func _begin_single_player() -> void:
+	_leave_session_without_navigation()
+	_clear_players()
+	_peer_inputs.clear()
+	var player: Node = _ensure_player(1, "Slime")
 	player.call("warp_to", WORLD_RECT.get_center())
 	player.call("set_local_or_host_simulated", true)
-	_append_log("Offline mode. Use WASD to move the slime.")
+	_show_game_page()
+	_append_log("Single player started.")
 
 
 func _on_host_local_pressed() -> void:
@@ -205,6 +338,37 @@ func _on_join_steam_pressed() -> void:
 	_session.call("join_steam_lobby", _lobby_input.text)
 
 
+func _on_multiplayer_leave_pressed() -> void:
+	_session.call("leave_session")
+	_clear_players()
+	_peer_inputs.clear()
+	_show_multiplayer_page()
+	_append_log("Multiplayer session left.")
+
+
+func _on_multiplayer_back_pressed() -> void:
+	_leave_session_without_navigation()
+	_clear_players()
+	_peer_inputs.clear()
+	_show_start_page()
+
+
+func _on_leave_game_pressed() -> void:
+	_leave_session_without_navigation()
+	_clear_players()
+	_peer_inputs.clear()
+	_show_start_page()
+	_append_log("Returned to start page.")
+
+
+func _leave_session_without_navigation() -> void:
+	if _session == null:
+		return
+	_suppress_session_end_navigation = true
+	_session.call("leave_session")
+	_suppress_session_end_navigation = false
+
+
 func _on_session_started(host: bool, transport: String, lobby_id: String) -> void:
 	if host:
 		var host_player: Node = _ensure_player(1, "Host")
@@ -212,12 +376,17 @@ func _on_session_started(host: bool, transport: String, lobby_id: String) -> voi
 		host_player.call("set_local_or_host_simulated", true)
 	else:
 		_append_log("Waiting for host snapshot...")
-	if lobby_id != "":
+	if lobby_id != "" and _lobby_input != null:
 		_lobby_input.text = lobby_id
+	_show_game_page()
 	_append_log("Session started: %s %s" % [transport, "host" if host else "client"])
 
 
 func _on_session_ended() -> void:
+	if not _suppress_session_end_navigation and _screen == SCREEN_GAME:
+		_clear_players()
+		_peer_inputs.clear()
+		_show_multiplayer_page()
 	_update_status()
 
 
@@ -262,6 +431,19 @@ func _on_snapshot_received(snapshot: Dictionary) -> void:
 	for peer_id in _players.keys():
 		if not seen.has(peer_id):
 			_remove_player(peer_id)
+
+
+func _update_gameplay() -> void:
+	var input_vector := _local_input_vector()
+	if bool(_session.call("is_host")):
+		_peer_inputs[1] = input_vector
+		_apply_host_inputs()
+		_session.call("broadcast_snapshot", _build_snapshot())
+	elif String(_session.call("active_transport")) != "offline":
+		_session.call("send_input_to_host", input_vector)
+	else:
+		var offline_player: Node = _ensure_player(1, "Slime")
+		offline_player.call("set_input_vector", input_vector)
 
 
 func _apply_host_inputs() -> void:
@@ -337,7 +519,25 @@ func _dict_to_vector(data: Variant) -> Vector2:
 	return Vector2(float(dictionary.get("x", 0.0)), float(dictionary.get("y", 0.0)))
 
 
-func _draw_grid() -> void:
+func _draw_menu_background() -> void:
+	var grid_color := Color(0.33, 0.55, 0.49, 0.08)
+	var step := 48.0
+	for x_index in range(int(VIEWPORT_SIZE.x / step) + 1):
+		var x := float(x_index) * step
+		draw_line(Vector2(x, 0.0), Vector2(x, VIEWPORT_SIZE.y), grid_color, 1.0)
+	for y_index in range(int(VIEWPORT_SIZE.y / step) + 1):
+		var y := float(y_index) * step
+		draw_line(Vector2(0.0, y), Vector2(VIEWPORT_SIZE.x, y), grid_color, 1.0)
+
+
+func _draw_game_world() -> void:
+	draw_rect(WORLD_RECT.grow(18.0), Color(0.0, 0.0, 0.0, 0.20), true)
+	draw_rect(WORLD_RECT, Color(0.054, 0.074, 0.070, 1.0), true)
+	draw_rect(WORLD_RECT, Color(0.40, 0.62, 0.54, 0.42), false, 2.0)
+	_draw_world_grid()
+
+
+func _draw_world_grid() -> void:
 	var grid_color := Color(0.33, 0.55, 0.49, 0.12)
 	var step := 40.0
 	for x_index in range(int(WORLD_RECT.size.x / step) + 1):
@@ -349,14 +549,17 @@ func _draw_grid() -> void:
 
 
 func _update_status() -> void:
-	if _status_label == null:
-		return
-	_status_label.text = "Mode: %s\nPeer: %d\nLobby: %s\nPlayers: %d" % [
+	var lobby_text := String(_session.call("lobby_id"))
+	var status_text := "Mode: %s\nPeer: %d\nLobby: %s\nPlayers: %d" % [
 		String(_session.call("active_transport")),
 		int(_session.call("local_peer_id")),
-		String(_session.call("lobby_id")) if String(_session.call("lobby_id")) != "" else "-",
+		lobby_text if lobby_text != "" else "-",
 		_players.size(),
 	]
+	if _multiplayer_status_label != null:
+		_multiplayer_status_label.text = status_text
+	if _game_status_label != null:
+		_game_status_label.text = status_text
 	if _steam_status_label != null:
 		var steam_available := bool(_session.call("steam_available"))
 		_steam_status_label.text = String(_session.call("steam_status_text"))
@@ -368,7 +571,7 @@ func _update_status() -> void:
 
 func _append_log(message: String) -> void:
 	_log_lines.append(message)
-	while _log_lines.size() > 10:
+	while _log_lines.size() > 14:
 		_log_lines.pop_front()
 	if _log_label != null:
 		_log_label.text = "\n".join(_log_lines)
