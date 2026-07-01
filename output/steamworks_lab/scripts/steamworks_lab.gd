@@ -512,12 +512,13 @@ func _on_shot_requested(peer_id: int, direction: Vector2) -> void:
 		return
 	if not _players.has(peer_id):
 		return
-	var origin := _player_body_center(peer_id)
+	var origin := _player_fire_surface(peer_id, direction)
 	_spawn_bullet(peer_id, origin, direction)
 	_session.call("broadcast_shot", peer_id, origin, direction)
 
 
 func _on_shot_received(peer_id: int, origin: Vector2, direction: Vector2) -> void:
+	_play_fire_surface_feedback(peer_id, direction)
 	_spawn_bullet(peer_id, origin, direction)
 
 
@@ -583,7 +584,7 @@ func _try_fire() -> void:
 	var direction := _local_aim_direction()
 	_fire_cooldown_remaining = FIRE_COOLDOWN
 	if _session == null or String(_session.call("active_transport")) == "offline":
-		_spawn_bullet(1, _player_body_center(1), direction)
+		_spawn_bullet(1, _player_fire_surface(1, direction), direction)
 		return
 	_session.call("send_shot_to_host", direction)
 
@@ -604,6 +605,24 @@ func _player_body_center(peer_id: int) -> Vector2:
 		return WORLD_RECT.get_center()
 	var body_center: Vector2 = player.call("body_center")
 	return body_center
+
+
+func _player_fire_surface(peer_id: int, direction: Vector2) -> Vector2:
+	if not _players.has(peer_id):
+		return WORLD_RECT.get_center()
+	var player := _players[peer_id] as Node
+	if player == null:
+		return WORLD_RECT.get_center()
+	var surface_point: Vector2 = player.call("emit_fire_surface", direction)
+	return surface_point
+
+
+func _play_fire_surface_feedback(peer_id: int, direction: Vector2) -> void:
+	if not _players.has(peer_id):
+		return
+	var player := _players[peer_id] as Node
+	if player != null:
+		player.call("play_fire_surface_feedback", direction)
 
 
 func _spawn_bullet(peer_id: int, origin: Vector2, direction: Vector2) -> void:

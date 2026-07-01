@@ -3,6 +3,9 @@ extends Node2D
 
 const CURVE_CENTRIPETAL_ALPHA: float = 0.5
 const CURVE_MIN_KNOT_SPACING: float = 0.0001
+const FIRE_BUD_DURATION: float = 0.18
+const FIRE_BUD_IMPULSE: float = 120.0
+const FIRE_BUD_PUSH: float = 14.0
 
 @export_range(16, 128, 1) var point_count: int = 64
 @export var base_radius: float = 56.0
@@ -47,6 +50,7 @@ var _position_drive_enabled: bool = true
 var _fill_color: Color = Color(0.42, 0.86, 0.70, 0.48)
 var _edge_color: Color = Color(0.75, 1.0, 0.86, 0.92)
 var _core_color: Color = Color(0.21, 0.44, 0.54, 0.45)
+var _fire_buds: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -64,6 +68,7 @@ func _physics_process(delta: float) -> void:
 	_update_edge_points(safe_delta, core_delta)
 	_last_global_position = global_position
 	_impact_strength = maxf(0.0, _impact_strength - safe_delta * 2.2)
+	_update_fire_buds(safe_delta)
 	queue_redraw()
 
 
@@ -100,6 +105,19 @@ func body_velocity() -> Vector2:
 	return _velocity
 
 
+func emit_surface_bud(global_direction: Vector2) -> Vector2:
+	var local_direction := _global_direction_to_local(global_direction)
+	var surface_offset := _surface_offset_for_direction(local_direction)
+	_push_membrane_for_fire(local_direction)
+	_fire_buds.append({
+		"direction": local_direction,
+		"surface": surface_offset,
+		"time": FIRE_BUD_DURATION,
+	})
+	_impact_strength = maxf(_impact_strength, 0.32)
+	return to_global(surface_offset)
+
+
 func _draw() -> void:
 	if _directions.is_empty():
 		return
@@ -116,11 +134,7 @@ func _draw() -> void:
 	draw_colored_polygon(membrane_points, fill_color)
 	draw_polyline(closed_points, _edge_color, 4.0, true)
 	draw_polyline(closed_points, contact_color, 1.2 + _impact_strength * 2.6, true)
-	draw_circle(Vector2.ZERO, base_radius * 0.38, _core_color)
-	draw_arc(Vector2.ZERO, base_radius * 0.38, 0.0, TAU, 48, Color(_edge_color, 0.36), 1.6, true)
-
-	for index in range(0, _edge_offsets.size(), 8):
-		draw_circle(_edge_offsets[index], 2.0, Color(1.0, 0.94, 0.64, 0.56))
+	_draw_fire_buds()
 
 
 func _initialize_edge_points() -> void:
@@ -273,6 +287,73 @@ func _clamped_membrane_offset(candidate_offset: Vector2, fallback_direction: Vec
 	var minimum_distance := min_radius * 0.78
 	var maximum_distance := max_radius + movement_push_amount
 	return direction * clampf(distance, minimum_distance, maximum_distance)
+
+
+func _global_direction_to_local(global_direction: Vector2) -> Vector2:
+	var direction := global_direction.normalized()
+	if direction.length_squared() <= 0.0001:
+		direction = Vector2.RIGHT
+	var local_direction := to_local(global_position + direction) - to_local(global_position)
+	if local_direction.length_squared() <= 0.0001:
+		return Vector2.RIGHT
+	return local_direction.normalized()
+
+
+func _surface_offset_for_direction(local_direction: Vector2) -> Vector2:
+	if _edge_offsets.is_empty():
+		return local_direction * base_radius
+	var best_projection := -INF
+	for edge_offset in _edge_offsets:
+		best_projection = maxf(best_projection, edge_offset.dot(local_direction))
+	if best_projection <= 0.0:
+		best_projection = base_radius
+	return local_direction * best_projection
+
+
+func _push_membrane_for_fire(local_direction: Vector2) -> void:
+	if _edge_offsets.size() != point_count or _edge_velocities.size() != point_count:
+		_reset_edge_offsets()
+	for index in range(_edge_offsets.size()):
+		var edge_direction := _edge_offsets[index].normalized()
+		if edge_direction.length_squared() <= 0.0001:
+			edge_direction = _directions[index]
+		var alignment := maxf(edge_direction.dot(local_direction), 0.0)
+		if alignment <= 0.35:
+			continue
+		var weight := pow(alignment, 3.0)
+		_edge_offsets[index] = _clamped_membrane_offset(
+			_edge_offsets[index] + local_direction * FIRE_BUD_PUSH * weight,
+			edge_direction
+		)
+		_edge_velocities[index] += local_direction * FIRE_BUD_IMPULSE * weight
+
+
+func _update_fire_buds(delta: float) -> void:
+	if _fire_buds.is_empty():
+		return
+	var next_buds: Array[Dictionary] = []
+	for bud in _fire_buds:
+		var time_remaining := float(bud.get("time", 0.0)) - delta
+		if time_remaining <= 0.0:
+			continue
+		bud["time"] = time_remaining
+		next_buds.append(bud)
+	_fire_buds = next_buds
+
+
+func _draw_fire_buds() -> void:
+	for bud in _fire_buds:
+		var local_direction: Vector2 = bud.get("direction", Vector2.RIGHT)
+		var surface_offset: Vector2 = bud.get("surface", local_direction * base_radius)
+		var time_remaining := float(bud.get("time", 0.0))
+		var life_ratio := clampf(time_remaining / FIRE_BUD_DURATION, 0.0, 1.0)
+		var bulge_ratio := sin((1.0 - life_ratio) * PI)
+		var alpha := 0.52 * life_ratio
+		var base_point := surface_offset - local_direction * (8.0 + 5.0 * bulge_ratio)
+		var tip_point := surface_offset + local_direction * (16.0 + 10.0 * bulge_ratio)
+		draw_line(base_point, tip_point, Color(_fill_color, alpha), 14.0 * life_ratio, true)
+		draw_circle(tip_point, 6.0 + 4.0 * bulge_ratio, Color(_fill_color, alpha))
+		draw_circle(tip_point, 6.0 + 4.0 * bulge_ratio, Color(_edge_color, 0.55 * life_ratio), false, 1.8, true)
 
 
 func _smoothed_membrane_points() -> PackedVector2Array:

@@ -99,6 +99,18 @@ func body_center() -> Vector2:
 	return _body.global_position
 
 
+func emit_fire_surface(direction: Vector2) -> Vector2:
+	if _body == null:
+		return global_position
+	var surface_point: Vector2 = _body.call("emit_surface_bud", direction)
+	return surface_point
+
+
+func play_fire_surface_feedback(direction: Vector2) -> void:
+	if _body != null:
+		_body.call("emit_surface_bud", direction)
+
+
 func bullet_palette() -> Dictionary:
 	return {
 		"fill": _bullet_fill_color,
