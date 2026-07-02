@@ -48,6 +48,8 @@ func _run() -> void:
 	_check(game_page != null and game_page.visible, "game page visible after game transition")
 	var battle_hud := main_scene.get("_battle_hud") as Control
 	var buff_panel := main_scene.get("_buff_panel") as Control
+	var game_status_label := main_scene.get("_game_status_label") as Label
+	_check(game_status_label == null, "game HUD does not show debug session text")
 	_check(battle_hud != null and battle_hud.get_node_or_null("ActiveItemLabel") != null, "battle HUD exposes active item slot label")
 	_check(buff_panel != null and buff_panel.get_node_or_null("Dimmer") != null, "buff panel exposes animated dimmer")
 	_check(InputMap.has_action("active_item"), "active item input action registered")
@@ -146,11 +148,17 @@ func _run() -> void:
 		director.call("_spawn_enemy_at", 0, blocking_obstacle.global_position)
 		var blocking_enemies: Dictionary = director.get("_enemies")
 		var pushed_enemy: Node2D = null
+		var closest_distance := INF
 		for enemy_id in blocking_enemies.keys():
 			var enemy := blocking_enemies[enemy_id] as Node2D
-			if enemy != null and enemy.global_position.distance_to(blocking_obstacle.global_position) < float(blocking_obstacle.get("radius")):
+			if enemy == null:
+				continue
+			var enemy_distance := enemy.global_position.distance_to(blocking_obstacle.global_position)
+			if enemy_distance < closest_distance:
+				closest_distance = enemy_distance
 				pushed_enemy = enemy
-				break
+		if pushed_enemy != null:
+			pushed_enemy.global_position = blocking_obstacle.global_position
 		director.call("_resolve_enemy_obstacle_blocking")
 		if pushed_enemy != null:
 			var enemy_clearance := float(pushed_enemy.get("radius")) + float(blocking_obstacle.get("radius"))

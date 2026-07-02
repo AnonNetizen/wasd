@@ -10,7 +10,8 @@ const HEART_RADIUS: float = 11.0
 const HEART_SPACING: float = 30.0
 const HEART_ORIGIN := Vector2(34.0, 34.0)
 const BOSS_BAR_RECT := Rect2(Vector2(70.0, 14.0), Vector2(400.0, 14.0))
-const ACTIVE_SLOT_RECT := Rect2(Vector2(22.0, 54.0), Vector2(208.0, 34.0))
+const ACTIVE_SLOT_RECT := Rect2(Vector2(24.0, 62.0), Vector2(198.0, 32.0))
+const ACTIVE_KEY_RECT := Rect2(Vector2(31.0, 68.0), Vector2(32.0, 20.0))
 
 var _hp: int = 3
 var _max_hp: int = 3
@@ -108,7 +109,7 @@ func refresh(state: Dictionary) -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2(18.0, 18.0), Vector2(208.0, 74.0)), Color(0.0, 0.0, 0.0, 0.18), true)
+	draw_rect(Rect2(Vector2(18.0, 18.0), Vector2(210.0, 84.0)), Color(0.0, 0.0, 0.0, 0.18), true)
 	for index in range(_max_hp):
 		var center := HEART_ORIGIN + Vector2(float(index) * HEART_SPACING, 0.0)
 		if index < _hp:
@@ -125,9 +126,9 @@ func _draw() -> void:
 		slot_fill = Color(0.080, 0.180, 0.120, 0.94).lerp(Color(0.18, 0.42, 0.20, 0.98), _active_slot_flash)
 		slot_edge = UI_STYLE_SCRIPT.SLIME_COLOR.lerp(UI_STYLE_SCRIPT.AMBER_COLOR, _active_slot_flash * 0.55)
 	_draw_capsule(ACTIVE_SLOT_RECT, slot_fill, slot_edge, 2.0)
-	_draw_capsule(Rect2(ACTIVE_SLOT_RECT.position + Vector2(7.0, 6.0), Vector2(34.0, 22.0)), Color(0.0, 0.0, 0.0, 0.35), UI_STYLE_SCRIPT.AMBER_COLOR, 1.4)
+	_draw_capsule(ACTIVE_KEY_RECT, Color(0.0, 0.0, 0.0, 0.35), UI_STYLE_SCRIPT.AMBER_COLOR, 1.4)
 	var font := get_theme_default_font()
-	_draw_centered_text(font, "Q", ACTIVE_SLOT_RECT.position + Vector2(24.0, 23.0), 15, Color(1.0, 0.88, 0.40, 1.0))
+	_draw_centered_text(font, "Q", ACTIVE_KEY_RECT.get_center() + Vector2(0.0, -1.0), 15, Color(1.0, 0.88, 0.40, 1.0))
 
 	if _boss_visible:
 		draw_rect(BOSS_BAR_RECT.grow(2.0), Color(0.06, 0.05, 0.06, 0.85), true)
@@ -232,8 +233,8 @@ func _create_labels() -> void:
 	_active_item_label = Label.new()
 	_active_item_label.name = "ActiveItemLabel"
 	_active_item_label.text = "空"
-	_active_item_label.position = Vector2(70.0, 60.0)
-	_active_item_label.size = Vector2(150.0, 24.0)
+	_active_item_label.position = Vector2(74.0, 66.0)
+	_active_item_label.size = Vector2(136.0, 24.0)
 	_active_item_label.add_theme_font_size_override("font_size", 15)
 	_active_item_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.MUTED_TEXT_COLOR)
 	add_child(_active_item_label)

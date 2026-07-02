@@ -457,9 +457,9 @@ func _create_game_page() -> void:
 	_game_page = _make_page("GamePage")
 
 	var hud_panel := PanelContainer.new()
-	hud_panel.name = "GameHud"
-	hud_panel.position = Vector2(16.0, 88.0)
-	hud_panel.custom_minimum_size = Vector2(158.0, 0.0)
+	hud_panel.name = "GameControls"
+	hud_panel.position = Vector2(418.0, 56.0)
+	hud_panel.custom_minimum_size = Vector2(98.0, 0.0)
 	hud_panel.self_modulate = Color(1.0, 1.0, 1.0, 0.84)
 	UI_STYLE_SCRIPT.apply_panel(hud_panel, "section")
 	_game_page.add_child(hud_panel)
@@ -475,13 +475,7 @@ func _create_game_page() -> void:
 	rows.add_theme_constant_override("separation", 6)
 	margin.add_child(rows)
 
-	_game_status_label = Label.new()
-	_game_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_game_status_label.add_theme_font_size_override("font_size", 11)
-	_game_status_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.MUTED_TEXT_COLOR)
-	rows.add_child(_game_status_label)
-
-	var leave_button := _make_button("Leave Game", Vector2(0.0, 30.0))
+	var leave_button := _make_button("离开", Vector2(0.0, 30.0))
 	leave_button.add_theme_font_size_override("font_size", 12)
 	leave_button.pressed.connect(_on_leave_game_pressed)
 	rows.add_child(leave_button)
@@ -1421,8 +1415,6 @@ func _update_status() -> void:
 	]
 	if _multiplayer_status_label != null:
 		_multiplayer_status_label.text = status_text
-	if _game_status_label != null:
-		_game_status_label.text = status_text
 	if _steam_status_label != null:
 		var steam_available := bool(_session.call("steam_available"))
 		_steam_status_label.text = String(_session.call("steam_status_text"))
