@@ -7,6 +7,8 @@ signal buff_options_ready(peer_id: int, options: PackedInt32Array)
 const ENEMY_SCRIPT := preload("res://scripts/enemy.gd")
 const ENEMY_BULLET_SCRIPT := preload("res://scripts/enemy_bullet.gd")
 const BURST_EFFECT_SCRIPT := preload("res://scripts/burst_effect.gd")
+const BOSS_SCRIPT := preload("res://scripts/boss.gd")
+const OBSTACLE_SCRIPT := preload("res://scripts/obstacle.gd")
 
 enum Phase { BATTLE, CHOOSING_BUFF, GAME_OVER }
 
@@ -43,6 +45,8 @@ const PLAYER_MIN_FIRE_COOLDOWN: float = 0.06
 const PLAYER_BASE_MOVE_SPEED: float = 340.0
 const ENEMY_SPAWN_MARGIN: float = 40.0
 const ENEMY_DESPAWN_MARGIN: float = 90.0
+const DRIFT_MARGIN: float = 24.0
+const BOSS_SPAWN_RATE_SCALE: float = 2.0
 
 var phase: int = Phase.BATTLE
 var tier: int = 0
@@ -64,6 +68,10 @@ var _next_buff_at: float = BUFF_INTERVAL
 var _pending_buff_peers: Dictionary = {}
 var _peer_buff_options: Dictionary = {}
 var _choice_timeout_remaining: float = 0.0
+var _boss: Node2D
+var _obstacles: Dictionary = {}
+var _obstacle_timer: float = OBSTACLE_INTERVAL_MIN
+var _next_boss_at: float = BOSS_INTERVAL
 
 
 func setup(main: Node2D, session: Node, world_rect: Rect2) -> void:
@@ -86,20 +94,17 @@ func reset_battle() -> void:
 	_pending_buff_peers.clear()
 	_peer_buff_options.clear()
 	_choice_timeout_remaining = 0.0
+	_obstacle_timer = OBSTACLE_INTERVAL_MIN
+	_next_boss_at = BOSS_INTERVAL
 	clear_entities()
 
 
 func clear_entities() -> void:
-	for enemy_id in _enemies.keys():
-		var enemy := _enemies[enemy_id] as Node
-		if is_instance_valid(enemy):
-			enemy.queue_free()
 	_enemies.clear()
-	for bullet in _enemy_bullets:
-		if is_instance_valid(bullet):
-			bullet.queue_free()
 	_enemy_bullets.clear()
 	_player_bullets.clear()
+	_obstacles.clear()
+	_boss = null
 	for child in get_children():
 		if is_instance_valid(child):
 			child.queue_free()
@@ -123,6 +128,8 @@ func _battle_tick(delta: float) -> void:
 	battle_clock += delta
 	_prune_entities()
 	_update_spawning(delta)
+	_update_boss(delta)
+	_update_obstacles(delta)
 	_advance_enemies(delta)
 	_resolve_player_bullet_hits()
 	_resolve_enemy_bullet_hits()
@@ -131,6 +138,69 @@ func _battle_tick(delta: float) -> void:
 	if phase == Phase.BATTLE and battle_clock >= _next_buff_at:
 		_next_buff_at += BUFF_INTERVAL
 		_enter_buff_choice()
+
+
+func _update_boss(delta: float) -> void:
+	if _boss == null and battle_clock >= _next_boss_at:
+		_next_boss_at += BOSS_INTERVAL
+		_spawn_boss()
+	if _boss == null or not is_instance_valid(_boss):
+		return
+	var volleys: Array[Dictionary] = _boss.call("advance", delta, _alive_player_positions())
+	for volley in volleys:
+		if _enemy_bullets.size() >= MAX_ALIVE_ENEMY_BULLETS:
+			break
+		var directions: PackedVector2Array = volley.get("directions", PackedVector2Array())
+		_spawn_enemy_volley(_boss.global_position, directions, float(volley.get("speed", 200.0)))
+
+
+func _spawn_boss() -> void:
+	var boss := BOSS_SCRIPT.new() as Node2D
+	boss.name = "Boss%d" % (boss_kills + 1)
+	add_child(boss)
+	var hover := Vector2(_world_rect.get_center().x, _world_rect.position.y + 80.0)
+	boss.call("configure", boss_kills + 1, tier, hover)
+	_boss = boss
+
+
+func _update_obstacles(delta: float) -> void:
+	_obstacle_timer -= delta
+	if _obstacle_timer <= 0.0:
+		_obstacle_timer = _rng.randf_range(OBSTACLE_INTERVAL_MIN, OBSTACLE_INTERVAL_MAX)
+		if _obstacles.size() < MAX_ALIVE_OBSTACLES:
+			_spawn_obstacle()
+	for obstacle_id in _obstacles.keys():
+		var obstacle := _obstacles.get(obstacle_id) as Node2D
+		if obstacle == null or not is_instance_valid(obstacle):
+			_obstacles.erase(obstacle_id)
+			continue
+		obstacle.call("advance", delta)
+		if obstacle.global_position.y > _world_rect.end.y + ENEMY_DESPAWN_MARGIN:
+			_obstacles.erase(obstacle_id)
+			obstacle.queue_free()
+
+
+func _spawn_obstacle() -> void:
+	var obstacle := OBSTACLE_SCRIPT.new() as Node2D
+	var obstacle_id := _next_entity_id
+	_next_entity_id += 1
+	obstacle.name = "Obstacle%d" % obstacle_id
+	add_child(obstacle)
+	var obstacle_radius := _rng.randf_range(36.0, 64.0)
+	var spawn_x := _rng.randf_range(
+		_world_rect.position.x + obstacle_radius + DRIFT_MARGIN,
+		_world_rect.end.x - obstacle_radius - DRIFT_MARGIN
+	)
+	obstacle.call(
+		"configure",
+		obstacle_id,
+		obstacle_radius,
+		_rng.randf_range(40.0, 70.0),
+		12.0 + 4.0 * float(tier),
+		Vector2(spawn_x, _world_rect.position.y - obstacle_radius - 20.0),
+		_rng.randi()
+	)
+	_obstacles[obstacle_id] = obstacle
 
 
 func _choice_tick(delta: float) -> void:
@@ -235,12 +305,20 @@ func register_player_bullet(bullet: Node) -> void:
 
 
 func battle_state() -> Dictionary:
+	var boss_info: Dictionary = {}
+	if _boss != null and is_instance_valid(_boss):
+		boss_info = {
+			"hp": float(_boss.get("hp")),
+			"max_hp": float(_boss.get("max_hp")),
+			"index": int(_boss.get("boss_index")),
+		}
 	return {
 		"phase": phase,
 		"tier": tier,
 		"time": battle_clock,
 		"boss_kills": boss_kills,
 		"enemy_count": _enemies.size(),
+		"boss": boss_info,
 	}
 
 
@@ -372,14 +450,15 @@ func _is_enemy_out_of_bounds(enemy: Node2D) -> bool:
 
 
 func _update_spawning(delta: float) -> void:
+	var boss_scale := BOSS_SPAWN_RATE_SCALE if _boss != null and is_instance_valid(_boss) else 1.0
 	_spawn_timer -= delta
 	if _spawn_timer <= 0.0:
-		_spawn_timer = BASE_SPAWN_INTERVAL * _tier_spawn_interval_scale()
+		_spawn_timer = BASE_SPAWN_INTERVAL * _tier_spawn_interval_scale() * boss_scale
 		if _enemies.size() < MAX_ALIVE_ENEMIES:
 			_spawn_enemy(_roll_enemy_kind())
 	_wave_timer -= delta
 	if _wave_timer <= 0.0:
-		_wave_timer = WAVE_BURST_INTERVAL
+		_wave_timer = WAVE_BURST_INTERVAL * boss_scale
 		_spawn_dart_wave()
 
 
@@ -525,6 +604,45 @@ func _resolve_player_bullet_hits() -> void:
 			else:
 				bullet.queue_free()
 				break
+		if bullet.is_queued_for_deletion():
+			continue
+		if _boss != null and is_instance_valid(_boss):
+			var boss_radius := float(_boss.get("radius"))
+			if bullet_node.global_position.distance_to(_boss.global_position) <= boss_radius + bullet_radius:
+				_boss.call("take_hit", damage)
+				if bool(_boss.call("is_dead")):
+					_kill_boss()
+				bullet.queue_free()
+				continue
+		for obstacle_id in _obstacles.keys():
+			var obstacle := _obstacles.get(obstacle_id) as Node2D
+			if obstacle == null or not is_instance_valid(obstacle):
+				continue
+			var obstacle_radius := float(obstacle.get("radius"))
+			if bullet_node.global_position.distance_to(obstacle.global_position) > obstacle_radius + bullet_radius:
+				continue
+			obstacle.call("take_hit", damage)
+			if bool(obstacle.call("is_destroyed")):
+				_destroy_obstacle(obstacle_id, obstacle)
+			bullet.queue_free()
+			break
+
+
+func _kill_boss() -> void:
+	if _boss == null or not is_instance_valid(_boss):
+		_boss = null
+		return
+	boss_kills += 1
+	spawn_burst(_boss.global_position, Color(1.0, 0.48, 0.36, 0.95), 26, 260.0)
+	spawn_burst(_boss.global_position, Color(1.0, 0.82, 0.52, 0.9), 14, 150.0)
+	_boss.queue_free()
+	_boss = null
+
+
+func _destroy_obstacle(obstacle_id: int, obstacle: Node2D) -> void:
+	_obstacles.erase(obstacle_id)
+	spawn_burst(obstacle.global_position, Color(0.58, 0.54, 0.48, 0.92), 12, 130.0)
+	obstacle.queue_free()
 
 
 func _kill_enemy(enemy_id: int, enemy: Node2D) -> void:
@@ -571,6 +689,23 @@ func _resolve_contact_hits() -> void:
 			if hit and int(enemy.get("kind")) == ENEMY_SCRIPT.KIND_DART:
 				_kill_enemy(enemy_id, enemy)
 				break
+	if _boss != null and is_instance_valid(_boss):
+		var boss_radius := float(_boss.get("radius"))
+		for player in alive:
+			var player_center: Vector2 = player.call("body_center")
+			var player_radius := float(player.call("hit_radius"))
+			if _boss.global_position.distance_to(player_center) <= boss_radius + player_radius:
+				player.call("apply_damage", 1)
+	for obstacle_id in _obstacles.keys():
+		var obstacle := _obstacles.get(obstacle_id) as Node2D
+		if obstacle == null or not is_instance_valid(obstacle):
+			continue
+		var obstacle_radius := float(obstacle.get("radius"))
+		for player in alive:
+			var player_center: Vector2 = player.call("body_center")
+			var player_radius := float(player.call("hit_radius"))
+			if obstacle.global_position.distance_to(player_center) <= obstacle_radius + player_radius:
+				player.call("apply_damage", 1)
 
 
 func _check_game_over() -> void:

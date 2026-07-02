@@ -92,6 +92,43 @@ func _run() -> void:
 	var player_buffs: Dictionary = buffs.get(1, {})
 	_check(not player_buffs.is_empty(), "buff recorded for player")
 
+	director.set("_next_boss_at", float(director.get("battle_clock")) + 0.4)
+	director.set("_obstacle_timer", 0.2)
+	for index in range(120):
+		main_scene.call("_update_gameplay", 1.0 / 60.0)
+	var boss_info: Dictionary = director.call("battle_state").get("boss", {})
+	_check(not boss_info.is_empty(), "boss spawned on schedule")
+	var obstacles: Dictionary = director.get("_obstacles")
+	_check(obstacles.size() > 0, "obstacle spawned")
+
+	var boss_node := director.get("_boss") as Node2D
+	if boss_node != null:
+		main_scene.call("_spawn_bullet", 1, boss_node.global_position, Vector2.UP, 560.0)
+		var bullets: Array = main_scene.get("_bullets")
+		var kill_bullet := bullets.back() as Node2D
+		kill_bullet.set("_age", 0.2)
+		kill_bullet.global_position = boss_node.global_position
+		kill_bullet.set("damage", 999999)
+		main_scene.call("_update_gameplay", 1.0 / 60.0)
+	_check(int(director.get("boss_kills")) == 1, "boss killed via bullet hit")
+	_check(director.get("_boss") == null, "boss slot cleared after kill")
+
+	var obstacle_ids: Array = (director.get("_obstacles") as Dictionary).keys()
+	if not obstacle_ids.is_empty():
+		var obstacle := (director.get("_obstacles") as Dictionary)[obstacle_ids[0]] as Node2D
+		main_scene.call("_spawn_bullet", 1, obstacle.global_position, Vector2.UP, 560.0)
+		var bullets_after: Array = main_scene.get("_bullets")
+		var crack_bullet := bullets_after.back() as Node2D
+		crack_bullet.set("_age", 0.2)
+		crack_bullet.global_position = obstacle.global_position
+		crack_bullet.set("damage", 999999)
+		var obstacle_count_before: int = (director.get("_obstacles") as Dictionary).size()
+		main_scene.call("_update_gameplay", 1.0 / 60.0)
+		var obstacle_count_after: int = (director.get("_obstacles") as Dictionary).size()
+		_check(obstacle_count_after == obstacle_count_before - 1, "obstacle destroyed by bullet")
+	else:
+		_check(false, "obstacle available for destruction test")
+
 	if _failures == 0:
 		print("[battle-smoke] ALL PASS")
 	else:
