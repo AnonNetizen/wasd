@@ -32,6 +32,11 @@ func _run() -> void:
 		quit(1)
 		return
 
+	var ui_root := main_scene.get("_ui_root") as Control
+	var game_page := main_scene.get("_game_page") as Control
+	_check(ui_root.mouse_filter == Control.MOUSE_FILTER_IGNORE, "ui root does not swallow mouse input")
+	_check(game_page.mouse_filter == Control.MOUSE_FILTER_IGNORE, "game page does not swallow mouse input")
+
 	for index in range(720):
 		main_scene.call("_update_gameplay", 1.0 / 60.0)
 	var state: Dictionary = director.call("battle_state")
@@ -109,6 +114,7 @@ func _run() -> void:
 		kill_bullet.set("_age", 0.2)
 		kill_bullet.global_position = boss_node.global_position
 		kill_bullet.set("damage", 999999)
+		kill_bullet.set("pierce_remaining", 999)
 		main_scene.call("_update_gameplay", 1.0 / 60.0)
 	_check(int(director.get("boss_kills")) == 1, "boss killed via bullet hit")
 	_check(director.get("_boss") == null, "boss slot cleared after kill")
@@ -122,6 +128,7 @@ func _run() -> void:
 		crack_bullet.set("_age", 0.2)
 		crack_bullet.global_position = obstacle.global_position
 		crack_bullet.set("damage", 999999)
+		crack_bullet.set("pierce_remaining", 999)
 		var obstacle_count_before: int = (director.get("_obstacles") as Dictionary).size()
 		main_scene.call("_update_gameplay", 1.0 / 60.0)
 		var obstacle_count_after: int = (director.get("_obstacles") as Dictionary).size()

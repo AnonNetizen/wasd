@@ -273,6 +273,7 @@ func _create_ui() -> void:
 	add_child(ui_layer)
 	_ui_root = Control.new()
 	_ui_root.name = "UiRoot"
+	_ui_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_layer.add_child(_ui_root)
 	_ui_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
@@ -437,16 +438,18 @@ func _create_game_page() -> void:
 func _make_page(page_name: String) -> Control:
 	var page := Control.new()
 	page.name = page_name
-	page.set_anchors_preset(Control.PRESET_FULL_RECT)
+	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	page.visible = false
 	_ui_root.add_child(page)
+	page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	return page
 
 
 func _make_centered_panel(parent: Control, panel_name: String, minimum_size: Vector2) -> VBoxContainer:
 	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(center)
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	var panel := PanelContainer.new()
 	panel.name = panel_name
