@@ -14,7 +14,7 @@ var _countdown_enabled: bool = false
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = false
 	_create_widgets()
@@ -76,14 +76,14 @@ func _create_widgets() -> void:
 	_dimmer = ColorRect.new()
 	_dimmer.name = "Dimmer"
 	_dimmer.color = Color(0.02, 0.03, 0.04, 0.62)
-	_dimmer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_dimmer)
+	_dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	_panel = PanelContainer.new()
 	_panel.name = "BuffPanel"

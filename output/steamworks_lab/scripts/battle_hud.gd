@@ -27,6 +27,7 @@ var _restart_button: Button
 
 
 func _ready() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_create_labels()
 	_create_game_over_panel()
@@ -107,9 +108,9 @@ func _create_labels() -> void:
 func _create_game_over_panel() -> void:
 	var center := CenterContainer.new()
 	center.name = "GameOverCenter"
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	_game_over_panel = PanelContainer.new()
 	_game_over_panel.name = "GameOverPanel"

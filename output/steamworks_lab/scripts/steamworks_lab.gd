@@ -102,7 +102,6 @@ func _start_battle() -> void:
 		_director = BATTLE_DIRECTOR_SCRIPT.new() as Node2D
 		_director.name = "BattleDirector"
 		add_child(_director)
-		move_child(_director, _ui_root.get_index())
 		_director.call("setup", self, _session, WORLD_RECT)
 		_director.connect("phase_changed", Callable(self, "_on_director_phase_changed"))
 		_director.connect("buff_options_ready", Callable(self, "_on_director_buff_options"))
@@ -269,10 +268,13 @@ func _create_session() -> void:
 
 
 func _create_ui() -> void:
+	var ui_layer := CanvasLayer.new()
+	ui_layer.name = "UiLayer"
+	add_child(ui_layer)
 	_ui_root = Control.new()
 	_ui_root.name = "UiRoot"
-	_ui_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(_ui_root)
+	ui_layer.add_child(_ui_root)
+	_ui_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	_create_start_page()
 	_create_multiplayer_page()
@@ -391,26 +393,29 @@ func _create_game_page() -> void:
 
 	var hud_panel := PanelContainer.new()
 	hud_panel.name = "GameHud"
-	hud_panel.position = Vector2(24.0, 24.0)
-	hud_panel.custom_minimum_size = Vector2(220.0, 132.0)
+	hud_panel.position = Vector2(16.0, 56.0)
+	hud_panel.custom_minimum_size = Vector2(150.0, 0.0)
+	hud_panel.self_modulate = Color(1.0, 1.0, 1.0, 0.75)
 	_game_page.add_child(hud_panel)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 12)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_right", 12)
-	margin.add_theme_constant_override("margin_bottom", 12)
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
 	hud_panel.add_child(margin)
 
 	var rows := VBoxContainer.new()
-	rows.add_theme_constant_override("separation", 8)
+	rows.add_theme_constant_override("separation", 6)
 	margin.add_child(rows)
 
 	_game_status_label = Label.new()
 	_game_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_game_status_label.add_theme_font_size_override("font_size", 11)
 	rows.add_child(_game_status_label)
 
-	var leave_button := _make_button("Leave Game")
+	var leave_button := _make_button("Leave Game", Vector2(0.0, 30.0))
+	leave_button.add_theme_font_size_override("font_size", 12)
 	leave_button.pressed.connect(_on_leave_game_pressed)
 	rows.add_child(leave_button)
 
@@ -817,8 +822,6 @@ func _ensure_player(peer_id: int, display_name: String) -> Node:
 	player.name = "SlimePlayer%d" % peer_id
 	player.call("set_player_info", peer_id, display_name, peer_id)
 	add_child(player)
-	if _ui_root != null:
-		move_child(player, _ui_root.get_index())
 	player.call("warp_to", _spawn_position_for_slot(_players.size()))
 	player.call("set_movement_bounds", WORLD_RECT)
 	_players[peer_id] = player
@@ -903,12 +906,11 @@ func _spawn_bullet(peer_id: int, origin: Vector2, direction: Vector2, speed: flo
 	bullet.call("configure", origin, direction, palette["fill"], palette["edge"], speed)
 	bullet.set("owner_peer_id", peer_id)
 	add_child(bullet)
-	if _ui_root != null:
-		move_child(bullet, _ui_root.get_index())
 	_bullets.append(bullet)
-	if _director != null and bool(_director.call("is_authority")):
-		bullet.set("damage", int(_director.call("player_bullet_damage", peer_id)))
-		bullet.set("pierce_remaining", int(_director.call("player_pierce_count", peer_id)))
+	if _director != null:
+		if bool(_director.call("is_authority")):
+			bullet.set("damage", int(_director.call("player_bullet_damage", peer_id)))
+			bullet.set("pierce_remaining", int(_director.call("player_pierce_count", peer_id)))
 		_director.call("register_player_bullet", bullet)
 
 
