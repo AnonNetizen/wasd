@@ -134,6 +134,7 @@ func _reset_battle() -> void:
 		if player == null or not is_instance_valid(player):
 			continue
 		player.call("revive_full")
+		player.call("set_battle_timers_paused", false)
 		player.call("set_move_speed", BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED)
 		player.call("warp_to", _spawn_position_for_slot(slot))
 		slot += 1
@@ -146,6 +147,7 @@ func set_player_bullets_frozen(frozen: bool) -> void:
 
 
 func _on_director_phase_changed(new_phase: int, payload: Dictionary) -> void:
+	_sync_player_battle_timers(new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE)
 	if _buff_panel != null:
 		if new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE:
 			_buff_panel.call("close")
@@ -1068,8 +1070,16 @@ func _ensure_player(peer_id: int, display_name: String) -> Node:
 	add_child(player)
 	player.call("warp_to", _spawn_position_for_slot(_players.size()))
 	player.call("set_movement_bounds", WORLD_RECT)
+	player.call("set_battle_timers_paused", not _battle_active())
 	_players[peer_id] = player
 	return player
+
+
+func _sync_player_battle_timers(timers_running: bool) -> void:
+	for peer_id in _players.keys():
+		var player := _players[peer_id] as Node
+		if player != null and is_instance_valid(player):
+			player.call("set_battle_timers_paused", not timers_running)
 
 
 func _try_fire() -> void:

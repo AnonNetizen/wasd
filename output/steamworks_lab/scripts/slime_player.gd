@@ -28,6 +28,7 @@ var _palette_index: int = 0
 var _expression_time_remaining: float = 0.0
 var _bullet_fill_color: Color = Color(0.82, 1.0, 0.70, 0.96)
 var _bullet_edge_color: Color = Color(0.98, 1.0, 0.84, 0.98)
+var _battle_timers_paused: bool = false
 
 
 func _ready() -> void:
@@ -161,6 +162,10 @@ func set_move_speed(speed: float) -> void:
 		_body.set("max_speed", maxf(speed, 1.0))
 
 
+func set_battle_timers_paused(paused: bool) -> void:
+	_battle_timers_paused = paused
+
+
 func apply_snapshot_extras(new_hp: int, new_alive: bool, new_invuln: float) -> void:
 	if new_hp < hp and _body != null:
 		_body.call("flash_impact", 1.0)
@@ -185,7 +190,8 @@ func _enter_spectator() -> void:
 func _update_invulnerability(delta: float) -> void:
 	if invuln_remaining <= 0.0:
 		return
-	invuln_remaining = maxf(0.0, invuln_remaining - delta)
+	if not _battle_timers_paused:
+		invuln_remaining = maxf(0.0, invuln_remaining - delta)
 	if not alive:
 		return
 	if invuln_remaining > 0.0:

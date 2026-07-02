@@ -108,14 +108,21 @@ func _run() -> void:
 	_check(options.size() == 3, "3 buff options rolled")
 
 	var clock_before := float(director.call("battle_state").get("time", 0.0))
+	player.set("invuln_remaining", 1.0)
+	var invuln_before_choice := float(player.get("invuln_remaining"))
 	for index in range(300):
+		player.call("_process", 1.0 / 60.0)
 		main_scene.call("_update_gameplay", 1.0 / 60.0)
 	var clock_after := float(director.call("battle_state").get("time", 0.0))
 	_check(int(director.get("phase")) == 1, "single player choice has no timeout")
 	_check(is_equal_approx(clock_before, clock_after), "battle clock frozen while choosing")
+	_check(is_equal_approx(invuln_before_choice, float(player.get("invuln_remaining"))), "shield invulnerability frozen while choosing")
 
 	director.call("submit_buff_choice", 1, 0)
 	_check(int(director.get("phase")) == 0, "choice resumes battle")
+	var invuln_before_resume := float(player.get("invuln_remaining"))
+	player.call("_process", 0.25)
+	_check(float(player.get("invuln_remaining")) < invuln_before_resume, "shield invulnerability resumes after choosing")
 	var buffs: Dictionary = director.get("_player_buffs")
 	var player_buffs: Dictionary = buffs.get(1, {})
 	_check(not player_buffs.is_empty(), "buff recorded for player")
