@@ -32,7 +32,7 @@ const BUFF_DEFS: Array[Dictionary] = [
 
 const BUFF_INTERVAL: float = 30.0
 const BUFF_CHOICE_TIMEOUT: float = 20.0
-const BOSS_INTERVAL: float = 300.0
+const BOSS_INTERVAL: float = 120.0
 const BASE_SPAWN_INTERVAL: float = 1.6
 const WAVE_BURST_INTERVAL: float = 12.0
 const OBSTACLE_INTERVAL_MIN: float = 8.0
