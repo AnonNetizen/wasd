@@ -304,6 +304,235 @@ func register_player_bullet(bullet: Node) -> void:
 	_player_bullets.append(bullet)
 
 
+func client_tick(_delta: float) -> void:
+	if is_authority():
+		return
+	var live_bullets: Array[Node] = []
+	for bullet in _player_bullets:
+		if is_instance_valid(bullet) and not bullet.is_queued_for_deletion():
+			live_bullets.append(bullet)
+	_player_bullets = live_bullets
+	for bullet in _player_bullets:
+		if not bool(bullet.call("is_live_for_damage")):
+			continue
+		var bullet_node := bullet as Node2D
+		var bullet_radius := float(bullet.call("hit_radius"))
+		if _visual_bullet_blocked(bullet_node.global_position, bullet_radius):
+			spawn_burst(bullet_node.global_position, Color(0.9, 1.0, 0.8, 0.7), 4, 80.0)
+			bullet.queue_free()
+
+
+func _visual_bullet_blocked(bullet_position: Vector2, bullet_radius: float) -> bool:
+	for enemy_id in _enemies.keys():
+		var enemy := _enemies.get(enemy_id) as Node2D
+		if enemy == null or not is_instance_valid(enemy):
+			continue
+		if bullet_position.distance_to(enemy.global_position) <= float(enemy.get("radius")) + bullet_radius:
+			return true
+	if _boss != null and is_instance_valid(_boss):
+		if bullet_position.distance_to(_boss.global_position) <= float(_boss.get("radius")) + bullet_radius:
+			return true
+	for obstacle_id in _obstacles.keys():
+		var obstacle := _obstacles.get(obstacle_id) as Node2D
+		if obstacle == null or not is_instance_valid(obstacle):
+			continue
+		if bullet_position.distance_to(obstacle.global_position) <= float(obstacle.get("radius")) + bullet_radius:
+			return true
+	return false
+
+
+func battle_snapshot() -> Dictionary:
+	var enemy_rows: Array = []
+	for enemy_id in _enemies.keys():
+		var enemy := _enemies.get(enemy_id) as Node2D
+		if enemy == null or not is_instance_valid(enemy):
+			continue
+		enemy_rows.append([
+			enemy_id,
+			int(enemy.get("kind")),
+			enemy.global_position.x,
+			enemy.global_position.y,
+			float(enemy.get("hp")),
+			float(enemy.get("max_hp")),
+		])
+	var obstacle_rows: Array = []
+	for obstacle_id in _obstacles.keys():
+		var obstacle := _obstacles.get(obstacle_id) as Node2D
+		if obstacle == null or not is_instance_valid(obstacle):
+			continue
+		obstacle_rows.append([
+			obstacle_id,
+			obstacle.global_position.x,
+			obstacle.global_position.y,
+			float(obstacle.get("hp")),
+			float(obstacle.get("max_hp")),
+			float(obstacle.get("radius")),
+		])
+	var boss_data: Dictionary = {}
+	if _boss != null and is_instance_valid(_boss):
+		boss_data = {
+			"x": _boss.global_position.x,
+			"y": _boss.global_position.y,
+			"hp": float(_boss.get("hp")),
+			"max_hp": float(_boss.get("max_hp")),
+			"index": int(_boss.get("boss_index")),
+		}
+	return {
+		"phase": phase,
+		"tier": tier,
+		"time": battle_clock,
+		"boss_kills": boss_kills,
+		"boss": boss_data,
+		"enemies": enemy_rows,
+		"obstacles": obstacle_rows,
+	}
+
+
+func apply_snapshot_battle(snapshot: Dictionary) -> void:
+	tier = int(snapshot.get("tier", tier))
+	battle_clock = float(snapshot.get("time", battle_clock))
+	boss_kills = int(snapshot.get("boss_kills", boss_kills))
+	var new_phase := int(snapshot.get("phase", phase))
+	if new_phase != phase:
+		apply_phase(new_phase, {})
+	_reconcile_enemies(snapshot.get("enemies", []))
+	_reconcile_boss(snapshot.get("boss", {}))
+	_reconcile_obstacles(snapshot.get("obstacles", []))
+
+
+func apply_phase(new_phase: int, payload: Dictionary) -> void:
+	phase = new_phase
+	if not payload.is_empty():
+		tier = int(payload.get("tier", tier))
+		if new_phase == Phase.GAME_OVER:
+			battle_clock = float(payload.get("time", battle_clock))
+			boss_kills = int(payload.get("boss_kills", boss_kills))
+	var frozen := new_phase == Phase.CHOOSING_BUFF
+	set_battle_frozen(frozen)
+	if _main != null:
+		_main.call("set_player_bullets_frozen", frozen)
+	phase_changed.emit(new_phase, payload)
+
+
+func spawn_volley_visual(origin: Vector2, directions: PackedVector2Array, speed: float) -> void:
+	_spawn_enemy_volley(origin, directions, speed)
+
+
+func _reconcile_enemies(rows: Variant) -> void:
+	if not rows is Array:
+		return
+	var seen: Dictionary = {}
+	for row in rows:
+		if not row is Array:
+			continue
+		var row_data: Array = row
+		if row_data.size() < 6:
+			continue
+		var enemy_id := int(row_data[0])
+		seen[enemy_id] = true
+		var target_position := Vector2(float(row_data[2]), float(row_data[3]))
+		var enemy := _enemies.get(enemy_id) as Node2D
+		if enemy == null or not is_instance_valid(enemy):
+			enemy = ENEMY_SCRIPT.new() as Node2D
+			enemy.name = "Enemy%d" % enemy_id
+			add_child(enemy)
+			var kind := int(row_data[1])
+			enemy.call("configure", enemy_id, kind, {
+				"radius": _radius_for_kind(kind),
+				"hp": float(row_data[4]),
+				"max_hp": float(row_data[5]),
+			}, target_position)
+			enemy.call("set_remote_driven", true)
+			_enemies[enemy_id] = enemy
+		enemy.call("set_authoritative_state", target_position, float(row_data[4]), float(row_data[5]))
+	for enemy_id in _enemies.keys():
+		if seen.has(enemy_id):
+			continue
+		var enemy := _enemies.get(enemy_id) as Node2D
+		_enemies.erase(enemy_id)
+		if enemy == null or not is_instance_valid(enemy):
+			continue
+		if enemy.global_position.y < _world_rect.end.y - 30.0 and _world_rect.grow(30.0).has_point(enemy.global_position):
+			spawn_burst(enemy.global_position, Color(1.0, 0.62, 0.34, 0.9), 10, 150.0)
+		enemy.queue_free()
+
+
+func _reconcile_boss(data: Variant) -> void:
+	if not data is Dictionary or (data as Dictionary).is_empty():
+		if _boss != null and is_instance_valid(_boss):
+			spawn_burst(_boss.global_position, Color(1.0, 0.48, 0.36, 0.95), 26, 260.0)
+			_boss.queue_free()
+		_boss = null
+		return
+	var boss_data: Dictionary = data
+	var boss_position := Vector2(float(boss_data.get("x", 0.0)), float(boss_data.get("y", 0.0)))
+	if _boss == null or not is_instance_valid(_boss):
+		_boss = BOSS_SCRIPT.new() as Node2D
+		_boss.name = "Boss%d" % int(boss_data.get("index", 1))
+		add_child(_boss)
+		_boss.call("configure", int(boss_data.get("index", 1)), tier, boss_position)
+		_boss.call("set_remote_driven", true)
+		_boss.global_position = boss_position
+	_boss.call(
+		"set_authoritative_state",
+		boss_position,
+		float(boss_data.get("hp", 1.0)),
+		float(boss_data.get("max_hp", 1.0))
+	)
+
+
+func _reconcile_obstacles(rows: Variant) -> void:
+	if not rows is Array:
+		return
+	var seen: Dictionary = {}
+	for row in rows:
+		if not row is Array:
+			continue
+		var row_data: Array = row
+		if row_data.size() < 6:
+			continue
+		var obstacle_id := int(row_data[0])
+		seen[obstacle_id] = true
+		var target_position := Vector2(float(row_data[1]), float(row_data[2]))
+		var obstacle := _obstacles.get(obstacle_id) as Node2D
+		if obstacle == null or not is_instance_valid(obstacle):
+			obstacle = OBSTACLE_SCRIPT.new() as Node2D
+			obstacle.name = "Obstacle%d" % obstacle_id
+			add_child(obstacle)
+			obstacle.call(
+				"configure",
+				obstacle_id,
+				float(row_data[5]),
+				0.0,
+				float(row_data[3]),
+				target_position,
+				obstacle_id
+			)
+			obstacle.call("set_remote_driven", true)
+			_obstacles[obstacle_id] = obstacle
+		obstacle.call("set_authoritative_state", target_position, float(row_data[3]), float(row_data[4]))
+	for obstacle_id in _obstacles.keys():
+		if seen.has(obstacle_id):
+			continue
+		var obstacle := _obstacles.get(obstacle_id) as Node2D
+		_obstacles.erase(obstacle_id)
+		if obstacle == null or not is_instance_valid(obstacle):
+			continue
+		if obstacle.global_position.y < _world_rect.end.y - 30.0:
+			spawn_burst(obstacle.global_position, Color(0.58, 0.54, 0.48, 0.92), 12, 130.0)
+		obstacle.queue_free()
+
+
+func _radius_for_kind(kind: int) -> float:
+	match kind:
+		ENEMY_SCRIPT.KIND_GUNNER:
+			return 20.0
+		ENEMY_SCRIPT.KIND_STRAFER:
+			return 14.0
+		_:
+			return 16.0
+
+
 func battle_state() -> Dictionary:
 	var boss_info: Dictionary = {}
 	if _boss != null and is_instance_valid(_boss):
@@ -575,6 +804,8 @@ func _spawn_enemy_volley(origin: Vector2, directions: PackedVector2Array, bullet
 		add_child(bullet)
 		bullet.call("configure", origin, direction, bullet_speed, _world_rect)
 		_enemy_bullets.append(bullet)
+	if _session != null and bool(_session.call("is_host")):
+		_session.call("broadcast_enemy_volley", origin, directions, bullet_speed)
 
 
 func _resolve_player_bullet_hits() -> void:

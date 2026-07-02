@@ -11,6 +11,11 @@ signal snapshot_received(snapshot: Dictionary)
 signal expression_received(peer_id: int, expression_id: String)
 signal shot_requested(peer_id: int, direction: Vector2)
 signal shot_received(peer_id: int, origin: Vector2, direction: Vector2, speed: float)
+signal phase_received(phase: int, payload: Dictionary)
+signal buff_options_received(options: PackedInt32Array)
+signal buff_choice_received(peer_id: int, option_index: int)
+signal enemy_volley_received(origin: Vector2, directions: PackedVector2Array, speed: float)
+signal battle_reset_received()
 
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
 const DEFAULT_PORT: int = 24567
@@ -112,9 +117,15 @@ func send_input_to_host(input_vector: Vector2) -> void:
 	if _is_host:
 		input_received.emit(1, limited)
 		return
-	if multiplayer.multiplayer_peer == null:
+	if not _client_connection_ready():
 		return
 	_submit_input.rpc_id(1, limited.x, limited.y)
+
+
+func _client_connection_ready() -> bool:
+	if multiplayer.multiplayer_peer == null:
+		return false
+	return multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
 
 
 func broadcast_snapshot(snapshot: Dictionary) -> void:
@@ -131,7 +142,7 @@ func send_expression_to_host(expression_id: String) -> void:
 		expression_received.emit(1, clean_expression_id)
 		broadcast_expression(1, clean_expression_id)
 		return
-	if multiplayer.multiplayer_peer == null:
+	if not _client_connection_ready():
 		return
 	_submit_expression.rpc_id(1, clean_expression_id)
 
@@ -149,7 +160,7 @@ func send_shot_to_host(direction: Vector2) -> void:
 	if _is_host:
 		shot_requested.emit(1, limited_direction)
 		return
-	if multiplayer.multiplayer_peer == null:
+	if not _client_connection_ready():
 		return
 	_submit_shot.rpc_id(1, limited_direction.x, limited_direction.y)
 
@@ -161,6 +172,44 @@ func broadcast_shot(peer_id: int, origin: Vector2, direction: Vector2, speed: fl
 	if limited_direction.length_squared() <= 0.0001:
 		return
 	_receive_shot.rpc(peer_id, origin.x, origin.y, limited_direction.x, limited_direction.y, speed)
+
+
+func broadcast_phase(phase: int, payload: Dictionary) -> void:
+	if not _is_host or multiplayer.multiplayer_peer == null:
+		return
+	_receive_phase.rpc(phase, payload)
+
+
+func send_buff_options(peer_id: int, options: PackedInt32Array) -> void:
+	if not _is_host or multiplayer.multiplayer_peer == null:
+		return
+	if peer_id == 1:
+		buff_options_received.emit(options)
+		return
+	_receive_buff_options.rpc_id(peer_id, options)
+
+
+func send_buff_choice_to_host(option_index: int) -> void:
+	if _is_host:
+		buff_choice_received.emit(1, option_index)
+		return
+	if not _client_connection_ready():
+		return
+	_submit_buff_choice.rpc_id(1, option_index)
+
+
+func broadcast_enemy_volley(origin: Vector2, directions: PackedVector2Array, speed: float) -> void:
+	if not _is_host or multiplayer.multiplayer_peer == null:
+		return
+	if directions.is_empty():
+		return
+	_receive_enemy_volley.rpc(origin.x, origin.y, directions, speed)
+
+
+func broadcast_battle_reset() -> void:
+	if not _is_host or multiplayer.multiplayer_peer == null:
+		return
+	_receive_battle_reset.rpc()
 
 
 @rpc("any_peer", "unreliable")
@@ -206,6 +255,35 @@ func _receive_expression(peer_id: int, expression_id: String) -> void:
 @rpc("authority", "reliable")
 func _receive_shot(peer_id: int, origin_x: float, origin_y: float, direction_x: float, direction_y: float, speed: float) -> void:
 	shot_received.emit(peer_id, Vector2(origin_x, origin_y), Vector2(direction_x, direction_y).normalized(), speed)
+
+
+@rpc("authority", "reliable")
+func _receive_phase(phase: int, payload: Dictionary) -> void:
+	phase_received.emit(phase, payload)
+
+
+@rpc("authority", "reliable")
+func _receive_buff_options(options: PackedInt32Array) -> void:
+	buff_options_received.emit(options)
+
+
+@rpc("any_peer", "reliable")
+func _submit_buff_choice(option_index: int) -> void:
+	if not _is_host:
+		return
+	if option_index < 0 or option_index > 2:
+		return
+	buff_choice_received.emit(multiplayer.get_remote_sender_id(), option_index)
+
+
+@rpc("authority", "reliable")
+func _receive_enemy_volley(origin_x: float, origin_y: float, directions: PackedVector2Array, speed: float) -> void:
+	enemy_volley_received.emit(Vector2(origin_x, origin_y), directions, speed)
+
+
+@rpc("authority", "reliable")
+func _receive_battle_reset() -> void:
+	battle_reset_received.emit()
 
 
 func _connect_multiplayer_signals() -> void:

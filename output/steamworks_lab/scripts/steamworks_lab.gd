@@ -51,6 +51,7 @@ var _backdrop_stars: Array[Dictionary] = []
 var _director: Node2D
 var _battle_hud: Control
 var _buff_panel: Control
+var _local_buff_options: PackedInt32Array = PackedInt32Array()
 
 var _ui_root: Control
 var _start_page: Control
@@ -137,16 +138,55 @@ func set_player_bullets_frozen(frozen: bool) -> void:
 			bullet.call("set_battle_frozen", frozen)
 
 
-func _on_director_phase_changed(new_phase: int, _payload: Dictionary) -> void:
-	if new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE and _buff_panel != null:
-		_buff_panel.call("close")
+func _on_director_phase_changed(new_phase: int, payload: Dictionary) -> void:
+	if _buff_panel != null:
+		if new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE:
+			_buff_panel.call("close")
+		elif new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.CHOOSING_BUFF and not _buff_panel.visible:
+			_buff_panel.call("show_waiting", "等待其他玩家选择…")
+	if _session != null and bool(_session.call("is_host")):
+		_session.call("broadcast_phase", new_phase, payload)
 
 
 func _on_director_buff_options(peer_id: int, options: PackedInt32Array) -> void:
 	var local_id := int(_session.call("local_peer_id"))
-	if peer_id != local_id:
+	if peer_id == local_id:
+		_local_buff_options = options
+		_open_buff_panel(options)
 		return
+	if bool(_session.call("is_host")):
+		_session.call("send_buff_options", peer_id, options)
+
+
+func _on_phase_received(new_phase: int, payload: Dictionary) -> void:
+	if _director == null or bool(_director.call("is_authority")):
+		return
+	_director.call("apply_phase", new_phase, payload)
+
+
+func _on_buff_options_received(options: PackedInt32Array) -> void:
+	if _director == null or bool(_director.call("is_authority")):
+		return
+	_local_buff_options = options
 	_open_buff_panel(options)
+
+
+func _on_buff_choice_received(peer_id: int, option_index: int) -> void:
+	if _director == null or not bool(_session.call("is_host")):
+		return
+	_director.call("submit_buff_choice", peer_id, option_index)
+
+
+func _on_enemy_volley_received(origin: Vector2, directions: PackedVector2Array, speed: float) -> void:
+	if _director == null or bool(_director.call("is_authority")):
+		return
+	_director.call("spawn_volley_visual", origin, directions, speed)
+
+
+func _on_battle_reset_received() -> void:
+	if _director == null or bool(_director.call("is_authority")):
+		return
+	_reset_battle()
 
 
 func _open_buff_panel(options: PackedInt32Array) -> void:
@@ -169,7 +209,11 @@ func _on_buff_option_chosen(option_index: int) -> void:
 		_director.call("submit_buff_choice", local_id, option_index)
 		if not _battle_active() and _buff_panel != null:
 			_buff_panel.call("show_waiting", "等待其他玩家选择…")
-	elif _buff_panel != null:
+		return
+	if option_index >= 0 and option_index < _local_buff_options.size():
+		_director.call("apply_buff", local_id, _local_buff_options[option_index])
+	_session.call("send_buff_choice_to_host", option_index)
+	if _buff_panel != null:
 		_buff_panel.call("show_waiting", "等待其他玩家选择…")
 
 
@@ -217,6 +261,11 @@ func _create_session() -> void:
 	_session.connect("expression_received", Callable(self, "_on_expression_received"))
 	_session.connect("shot_requested", Callable(self, "_on_shot_requested"))
 	_session.connect("shot_received", Callable(self, "_on_shot_received"))
+	_session.connect("phase_received", Callable(self, "_on_phase_received"))
+	_session.connect("buff_options_received", Callable(self, "_on_buff_options_received"))
+	_session.connect("buff_choice_received", Callable(self, "_on_buff_choice_received"))
+	_session.connect("enemy_volley_received", Callable(self, "_on_enemy_volley_received"))
+	_session.connect("battle_reset_received", Callable(self, "_on_battle_reset_received"))
 
 
 func _create_ui() -> void:
@@ -550,6 +599,8 @@ func _on_restart_requested() -> void:
 	if _director == null or not bool(_director.call("is_authority")):
 		return
 	_reset_battle()
+	if bool(_session.call("is_host")):
+		_session.call("broadcast_battle_reset")
 	_append_log("Battle restarted.")
 
 
@@ -596,6 +647,8 @@ func _on_peer_joined(peer_id: int) -> void:
 func _on_peer_left(peer_id: int) -> void:
 	_remove_player(peer_id)
 	_peer_inputs.erase(peer_id)
+	if _director != null:
+		_director.call("notify_peer_left", peer_id)
 
 
 func _on_input_received(peer_id: int, input_vector: Vector2) -> void:
@@ -622,10 +675,19 @@ func _on_snapshot_received(snapshot: Dictionary) -> void:
 		var player: Node = _ensure_player(peer_id, String(player_data.get("name", "Peer %d" % peer_id)))
 		player.call("set_local_or_host_simulated", false)
 		player.call("set_authoritative_state", _dict_to_vector(player_data.get("position", {})), _dict_to_vector(player_data.get("velocity", {})))
+		player.call(
+			"apply_snapshot_extras",
+			int(player_data.get("hp", 3)),
+			bool(player_data.get("alive", true)),
+			float(player_data.get("inv", 0.0))
+		)
 
 	for peer_id in _players.keys():
 		if not seen.has(peer_id):
 			_remove_player(peer_id)
+
+	if _director != null:
+		_director.call("apply_snapshot_battle", snapshot)
 
 
 func _on_expression_received(peer_id: int, expression_id: String) -> void:
@@ -679,6 +741,8 @@ func _update_gameplay(delta: float) -> void:
 		_session.call("broadcast_snapshot", _build_snapshot())
 	elif String(_session.call("active_transport")) != "offline":
 		_session.call("send_input_to_host", input_vector)
+		if _director != null:
+			_director.call("client_tick", delta)
 	else:
 		var offline_player: Node = _ensure_player(1, "Slime")
 		offline_player.call("set_input_vector", input_vector if _battle_active() else Vector2.ZERO)
@@ -736,11 +800,14 @@ func _build_snapshot() -> Dictionary:
 		if player == null:
 			continue
 		player_states.append(player.call("snapshot_state"))
-	return {
+	var snapshot := {
 		"players": player_states,
 		"transport": String(_session.call("active_transport")),
 		"lobby_id": String(_session.call("lobby_id")),
 	}
+	if _director != null:
+		snapshot.merge(_director.call("battle_snapshot"))
+	return snapshot
 
 
 func _ensure_player(peer_id: int, display_name: String) -> Node:
