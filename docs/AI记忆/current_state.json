@@ -9,6 +9,7 @@
     "E"
   ],
   "last_completed": [
+    "Steamworks Slime Lab 最长存活时间存档：output/steamworks_lab 新增 SteamLabSave 轻量 helper，读写 user://save.cfg 的 records.best_survival_seconds，缺文件 / 读失败 / 非法值默认 0.0；主菜单新增 记录 / Records 入口和街机风格 RecordsPanel，显示暂无记录或 MM:SS 最长存活时间并随 zh_CN / en 切换刷新；director 进入 GAME_OVER 时用 payload time（缺失则 fallback battle_state().time）刷新本地纪录，手动返回主菜单、离开联机会话或重开不计入新纪录；battle_smoke 备份恢复 save.cfg 并覆盖 helper 默认值、弹窗、语言刷新、Game Over 写盘和低时间不覆盖。",
     "Steamworks Slime Lab 简单暂停界面：output/steamworks_lab 新增 pause_menu InputMap action（Esc）和 SteamLabPausePanel；单机 / offline 打开暂停菜单时冻结 director 实体、玩家弹、玩家无敌计时、battle clock 与背景滚动，并禁用移动、开火、Q 主动道具和表情轮；多人联机只打开本地菜单并清零本地输入，host 权威战斗继续推进；暂停面板文本接入 zh_CN / en，本地化切换即时刷新，README 与 battle_smoke 覆盖同步。",
     "Steamworks Slime Lab 语言与全屏设置：output/steamworks_lab 新增 lab_locale / lab_settings 轻量 helper，设置持久化到 user://settings.cfg；默认语言优先 GodotSteam/Steamworks GetCurrentGameLanguage，schinese/tchinese/任意 zh* 映射 zh_CN，其他映射 en；主菜单新增设置页，可切换简体中文 / English 与无边框全屏，headless 下只验证设置路径不切窗口；主菜单、准备房间、HUD 空道具槽、buff / 主动道具名、结算和表情轮标签接入本地化；battle_smoke 备份恢复 settings.cfg 并覆盖语言映射、设置页、语言刷新和全屏写入。",
     "Steamworks Slime Lab UI 正式化：output/steamworks_lab 采用纯代码街机 demo 风格，新增 SteamLabUiStyle 统一 Theme / StyleBox，主菜单与联机准备页重排；页面切换、按钮反馈、HUD HP / 主动槽 / boss 条、buff 面板、结算面板和表情轮加入 Tween 动效；不改网络、战斗或快照协议，battle_smoke 补 UI theme、页面切换、HUD active slot 和 buff dimmer 断言。",

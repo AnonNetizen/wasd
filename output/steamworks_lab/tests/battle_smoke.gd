@@ -4,11 +4,14 @@ extends SceneTree
 #   godot --headless --path output/steamworks_lab --script res://tests/battle_smoke.gd
 
 const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
+const LAB_SAVE_SCRIPT := preload("res://scripts/lab_save.gd")
 const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
 const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 
 const SETTINGS_PATH: String = "user://settings.cfg"
 const SETTINGS_FILE_NAME: String = "settings.cfg"
+const SAVE_PATH: String = "user://save.cfg"
+const SAVE_FILE_NAME: String = "save.cfg"
 
 var _failures: int = 0
 
@@ -27,14 +30,18 @@ func _check(condition: bool, label: String) -> void:
 
 func _run() -> void:
 	var settings_backup := _backup_settings_file()
+	var save_backup := _backup_save_file()
 	_remove_settings_file()
+	_remove_save_file()
 	_check_language_defaults()
+	_check_save_helper_defaults()
 
 	var main_packed := load("res://scenes/main.tscn") as PackedScene
 	var main_scene := main_packed.instantiate()
 	root.add_child(main_scene)
 	await process_frame
 	await _check_settings_ui(main_scene)
+	await _check_records_ui(main_scene)
 
 	main_scene.call("_begin_single_player")
 	await process_frame
@@ -43,6 +50,7 @@ func _run() -> void:
 	_check(director != null, "director created on single player start")
 	if director == null:
 		_restore_settings_file(settings_backup)
+		_restore_save_file(save_backup)
 		quit(1)
 		return
 
@@ -105,8 +113,11 @@ func _run() -> void:
 	_check(player != null, "player 1 exists")
 	if player == null:
 		_restore_settings_file(settings_backup)
+		_restore_save_file(save_backup)
 		quit(1)
 		return
+	var player_name_label := player.get_node_or_null("NameLabel") as Label
+	_check(player_name_label != null and not player_name_label.visible, "single player name label is hidden")
 
 	var pause_panel := main_scene.get("_pause_panel") as Control
 	_check(pause_panel != null, "pause panel exists")
@@ -166,6 +177,29 @@ func _run() -> void:
 	main_scene.call("_update_gameplay", 1.0 / 60.0)
 	var game_over_phase := int(director.get("phase")) == 2
 	_check(game_over_phase, "director enters GAME_OVER after full wipe")
+	var game_over_state: Dictionary = director.call("battle_state")
+	var game_over_seconds := float(game_over_state.get("time", 0.0))
+	var active_save := main_scene.get("_save") as RefCounted
+	var best_seconds := float(active_save.get("best_survival_seconds")) if active_save != null else 0.0
+	_check(best_seconds >= game_over_seconds and best_seconds > 0.0, "game over records best survival time")
+	var save_config := ConfigFile.new()
+	var save_load_error := save_config.load(SAVE_PATH)
+	var saved_seconds := float(save_config.get_value("records", "best_survival_seconds", 0.0)) if save_load_error == OK else 0.0
+	_check(saved_seconds >= game_over_seconds and saved_seconds > 0.0, "best survival is written to save.cfg")
+	if active_save != null:
+		var improved_record := bool(active_save.call("record_survival_time", 125.0))
+		var lowered_record := bool(active_save.call("record_survival_time", 60.0))
+		best_seconds = float(active_save.get("best_survival_seconds"))
+		_check(improved_record and not lowered_record and is_equal_approx(best_seconds, 125.0), "lower survival time does not overwrite record")
+		var records_panel := main_scene.get("_records_panel") as Control
+		main_scene.call("_on_records_pressed")
+		await process_frame
+		_check(records_panel != null and records_panel.visible, "records panel can reopen with saved record")
+		_check(_node_tree_has_text(records_panel, "02:05"), "records panel formats best survival as MM:SS")
+		if records_panel != null:
+			records_panel.call("close")
+			for index in range(12):
+				await process_frame
 
 	main_scene.call("_reset_battle")
 	_check(bool(player.get("alive")), "restart revives player")
@@ -404,6 +438,7 @@ func _run() -> void:
 	ready_scene.queue_free()
 
 	_restore_settings_file(settings_backup)
+	_restore_save_file(save_backup)
 	if _failures == 0:
 		print("[battle-smoke] ALL PASS")
 	else:
@@ -432,6 +467,14 @@ func _check_language_defaults() -> void:
 		LAB_SETTINGS_SCRIPT.default_locale_for_language("japanese") == LAB_LOCALE_SCRIPT.LOCALE_EN,
 		"non-Chinese languages map to en"
 	)
+
+
+func _check_save_helper_defaults() -> void:
+	var save := LAB_SAVE_SCRIPT.new()
+	var loaded := bool(save.call("load_save"))
+	_check(not loaded, "missing save file reports unloaded")
+	_check(is_equal_approx(float(save.get("best_survival_seconds")), 0.0), "missing save defaults best survival to zero")
+	_check(LAB_SAVE_SCRIPT.format_survival_time(127.0) == "02:07", "survival time formats as MM:SS")
 
 
 func _check_settings_ui(main_scene: Node) -> void:
@@ -465,6 +508,47 @@ func _check_settings_ui(main_scene: Node) -> void:
 		await process_frame
 
 
+func _check_records_ui(main_scene: Node) -> void:
+	var start_page := main_scene.get("_start_page") as Control
+	var records_panel := main_scene.get("_records_panel") as Control
+	var active_save := main_scene.get("_save") as RefCounted
+	_check(active_save != null and is_equal_approx(float(active_save.get("best_survival_seconds")), 0.0), "main scene save defaults best survival to zero")
+	_check(records_panel != null, "records panel exists")
+
+	main_scene.call("_show_start_page")
+	await process_frame
+	main_scene.call("_on_language_selected", 1)
+	await process_frame
+	_check(_node_tree_has_text(start_page, "Records"), "English records main button localizes")
+	main_scene.call("_on_records_pressed")
+	await process_frame
+	_check(records_panel != null and records_panel.visible, "records panel opens from main menu")
+	_check(_node_tree_has_text(records_panel, "Records"), "English records title localizes")
+	_check(_node_tree_has_text(records_panel, "Best Survival"), "English records label localizes")
+	_check(_node_tree_has_text(records_panel, "No record yet"), "English no-record text localizes")
+	var english_close_button := _find_button_with_text(records_panel, "Close")
+	_check(english_close_button != null, "English records close button exists")
+	if english_close_button != null:
+		english_close_button.pressed.emit()
+		for index in range(12):
+			await process_frame
+		_check(not records_panel.visible, "records close button closes panel")
+
+	main_scene.call("_on_language_selected", 0)
+	await process_frame
+	_check(_node_tree_has_text(start_page, "记录"), "Chinese records main button localizes")
+	main_scene.call("_on_records_pressed")
+	await process_frame
+	_check(_node_tree_has_text(records_panel, "记录"), "Chinese records title localizes")
+	_check(_node_tree_has_text(records_panel, "最长存活时间"), "Chinese records label localizes")
+	_check(_node_tree_has_text(records_panel, "暂无记录"), "Chinese no-record text localizes")
+	_check(_find_button_with_text(records_panel, "关闭") != null, "Chinese records close button localizes")
+	if records_panel != null:
+		records_panel.call("close")
+		for index in range(12):
+			await process_frame
+
+
 func _node_tree_has_text(root_node: Node, expected_text: String) -> bool:
 	if root_node == null:
 		return false
@@ -480,6 +564,20 @@ func _node_tree_has_text(root_node: Node, expected_text: String) -> bool:
 		if _node_tree_has_text(child, expected_text):
 			return true
 	return false
+
+
+func _find_button_with_text(root_node: Node, expected_text: String) -> Button:
+	if root_node == null:
+		return null
+	if root_node is Button:
+		var button := root_node as Button
+		if button.text == expected_text:
+			return button
+	for child in root_node.get_children():
+		var found_button := _find_button_with_text(child, expected_text)
+		if found_button != null:
+			return found_button
+	return null
 
 
 func _backup_settings_file() -> Dictionary:
@@ -506,3 +604,29 @@ func _remove_settings_file() -> void:
 	var user_dir := DirAccess.open("user://")
 	if user_dir != null:
 		user_dir.remove(SETTINGS_FILE_NAME)
+
+
+func _backup_save_file() -> Dictionary:
+	var backup := {"exists": FileAccess.file_exists(SAVE_PATH), "text": ""}
+	if bool(backup["exists"]):
+		var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+		if file != null:
+			backup["text"] = file.get_as_text()
+	return backup
+
+
+func _restore_save_file(backup: Dictionary) -> void:
+	_remove_save_file()
+	if not bool(backup.get("exists", false)):
+		return
+	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if file != null:
+		file.store_string(String(backup.get("text", "")))
+
+
+func _remove_save_file() -> void:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return
+	var user_dir := DirAccess.open("user://")
+	if user_dir != null:
+		user_dir.remove(SAVE_FILE_NAME)

@@ -54,15 +54,14 @@ func _process(delta: float) -> void:
 
 func set_player_info(new_peer_id: int, new_display_name: String, palette_index: int) -> void:
 	peer_id = new_peer_id
-	display_name = new_display_name
+	display_name = new_display_name.strip_edges()
 	_palette_index = palette_index
 	_apply_player_visuals()
 
 
 func set_locale(locale: String) -> void:
 	_locale = LAB_LOCALE_SCRIPT.normalize_locale(locale)
-	if _name_label != null:
-		_name_label.text = _display_name_text()
+	_refresh_name_label()
 
 
 func set_local_or_host_simulated(enabled: bool) -> void:
@@ -161,8 +160,7 @@ func revive_full() -> void:
 	alive = true
 	invuln_remaining = 0.0
 	modulate = Color.WHITE
-	if _name_label != null:
-		_name_label.text = _display_name_text()
+	_refresh_name_label()
 
 
 func set_move_speed(speed: float) -> void:
@@ -190,8 +188,7 @@ func _enter_spectator() -> void:
 	hp = 0
 	invuln_remaining = 0.0
 	modulate = Color(1.0, 1.0, 1.0, SPECTATOR_ALPHA)
-	if _name_label != null:
-		_name_label.text = _display_name_text()
+	_refresh_name_label()
 	set_input_vector(Vector2.ZERO)
 
 
@@ -255,11 +252,11 @@ func _create_body() -> void:
 func _create_label() -> void:
 	_name_label = Label.new()
 	_name_label.name = "NameLabel"
-	_name_label.text = display_name
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name_label.add_theme_font_size_override("font_size", 15)
 	_name_label.add_theme_color_override("font_color", Color(0.88, 0.98, 0.92, 0.92))
 	add_child(_name_label)
+	_refresh_name_label()
 
 
 func _create_expression_label() -> void:
@@ -277,8 +274,7 @@ func _create_expression_label() -> void:
 
 
 func _apply_player_visuals() -> void:
-	if _name_label != null:
-		_name_label.text = _display_name_text()
+	_refresh_name_label()
 	if _body != null:
 		var palette := _palette_for_index(_palette_index)
 		_body.call("set_palette", palette["fill"], palette["edge"], palette["core"])
@@ -327,6 +323,16 @@ func _palette_for_index(index: int) -> Dictionary:
 
 
 func _display_name_text() -> String:
+	if display_name == "":
+		return ""
 	if alive:
 		return display_name
 	return "%s%s" % [display_name, LAB_LOCALE_SCRIPT.text(_locale, "player_down_suffix")]
+
+
+func _refresh_name_label() -> void:
+	if _name_label == null:
+		return
+	var label_text := _display_name_text()
+	_name_label.text = label_text
+	_name_label.visible = label_text != ""

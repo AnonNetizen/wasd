@@ -8,9 +8,11 @@ const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
 const BATTLE_HUD_SCRIPT := preload("res://scripts/battle_hud.gd")
 const BUFF_PANEL_SCRIPT := preload("res://scripts/buff_panel.gd")
 const PAUSE_PANEL_SCRIPT := preload("res://scripts/pause_panel.gd")
+const RECORDS_PANEL_SCRIPT := preload("res://scripts/records_panel.gd")
 const UI_STYLE_SCRIPT := preload("res://scripts/ui_style.gd")
 const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
 const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
+const LAB_SAVE_SCRIPT := preload("res://scripts/lab_save.gd")
 
 const VIEWPORT_SIZE := Vector2(540.0, 960.0)
 const WORLD_RECT := Rect2(Vector2(20.0, 70.0), Vector2(500.0, 870.0))
@@ -61,6 +63,7 @@ var _battle_hud: Control
 var _buff_panel: Control
 var _pause_panel: Control
 var _settings: RefCounted
+var _save: RefCounted
 var _ui_transition_tween: Tween
 var _ui_motion_tweens: Dictionary = {}
 var _local_buff_options: PackedInt32Array = PackedInt32Array()
@@ -75,6 +78,7 @@ var _start_page: Control
 var _multiplayer_page: Control
 var _settings_page: Control
 var _game_page: Control
+var _records_panel: Control
 var _multiplayer_status_label: Label
 var _log_label: Label
 var _address_input: LineEdit
@@ -96,6 +100,7 @@ func _ready() -> void:
 	_ensure_input_actions()
 	_create_session()
 	_load_lab_settings()
+	_load_lab_save()
 	_create_ui()
 	_show_start_page()
 
@@ -169,6 +174,8 @@ func set_player_bullets_frozen(frozen: bool) -> void:
 
 func _on_director_phase_changed(new_phase: int, payload: Dictionary) -> void:
 	_sync_player_battle_timers(new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE)
+	if new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.GAME_OVER:
+		_record_game_over_survival_time(payload)
 	if _buff_panel != null:
 		if new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE:
 			_buff_panel.call("close")
@@ -337,6 +344,24 @@ func _load_lab_settings() -> void:
 	_settings.call("apply_fullscreen")
 
 
+func _load_lab_save() -> void:
+	_save = LAB_SAVE_SCRIPT.new()
+	_save.call("load_save")
+
+
+func _record_game_over_survival_time(payload: Dictionary) -> void:
+	if _save == null:
+		return
+	var seconds := float(payload.get("time", -1.0))
+	if seconds < 0.0 and _director != null:
+		var state: Dictionary = _director.call("battle_state")
+		seconds = float(state.get("time", 0.0))
+	if seconds <= 0.0:
+		return
+	if bool(_save.call("record_survival_time", seconds)) and _records_panel != null:
+		_records_panel.call("set_best_survival", _best_survival_seconds())
+
+
 func _create_ui() -> void:
 	var ui_layer := CanvasLayer.new()
 	ui_layer.name = "UiLayer"
@@ -352,6 +377,7 @@ func _create_ui() -> void:
 	_create_multiplayer_page()
 	_create_settings_page()
 	_create_game_page()
+	_create_records_panel()
 
 
 func _create_start_page() -> void:
@@ -388,6 +414,11 @@ func _create_start_page() -> void:
 	_register_localized_text(multiplayer_button, "main_multiplayer")
 	multiplayer_button.pressed.connect(_on_start_multiplayer_pressed)
 	button_stack.add_child(multiplayer_button)
+
+	var records_button := _make_button(_t("main_records"), Vector2(320.0, 42.0))
+	_register_localized_text(records_button, "main_records")
+	records_button.pressed.connect(_on_records_pressed)
+	button_stack.add_child(records_button)
 
 	var settings_button := _make_button(_t("main_settings"), Vector2(320.0, 42.0))
 	_register_localized_text(settings_button, "main_settings")
@@ -593,6 +624,14 @@ func _create_game_page() -> void:
 	_game_page.add_child(_pause_panel)
 
 
+func _create_records_panel() -> void:
+	_records_panel = RECORDS_PANEL_SCRIPT.new() as Control
+	_records_panel.name = "RecordsPanel"
+	_records_panel.call("set_locale", _current_locale())
+	_records_panel.call("set_best_survival", _best_survival_seconds())
+	_ui_root.add_child(_records_panel)
+
+
 func _make_page(page_name: String) -> Control:
 	var page := Control.new()
 	page.name = page_name
@@ -771,6 +810,12 @@ func _current_locale() -> String:
 	return String(_settings.get("locale"))
 
 
+func _best_survival_seconds() -> float:
+	if _save == null:
+		return 0.0
+	return float(_save.get("best_survival_seconds"))
+
+
 func _t(key: String, args: Dictionary = {}) -> String:
 	return LAB_LOCALE_SCRIPT.text(_current_locale(), key, args)
 
@@ -831,6 +876,9 @@ func _apply_locale() -> void:
 		_buff_panel.call("set_locale", _current_locale())
 	if _pause_panel != null:
 		_pause_panel.call("set_locale", _current_locale())
+	if _records_panel != null:
+		_records_panel.call("set_locale", _current_locale())
+		_records_panel.call("set_best_survival", _best_survival_seconds())
 	for peer_id in _players.keys():
 		var player := _players[peer_id] as Node
 		if player != null and is_instance_valid(player):
@@ -911,6 +959,8 @@ func _show_game_page() -> void:
 func _set_screen(screen_name: String) -> void:
 	if screen_name != SCREEN_GAME:
 		_close_pause_menu()
+	if screen_name != SCREEN_START and _records_panel != null and bool(_records_panel.call("is_open")):
+		_records_panel.call("close")
 	var previous_page := _page_for_screen(_screen)
 	var next_page := _page_for_screen(screen_name)
 	_screen = screen_name
@@ -1079,6 +1129,12 @@ func _on_settings_pressed() -> void:
 	_show_settings_page(_screen)
 
 
+func _on_records_pressed() -> void:
+	if _records_panel == null:
+		return
+	_records_panel.call("open", _best_survival_seconds())
+
+
 func _on_settings_back_pressed() -> void:
 	_set_screen(_settings_return_screen)
 
@@ -1103,7 +1159,7 @@ func _begin_single_player() -> void:
 	_clear_players()
 	_clear_bullets()
 	_peer_inputs.clear()
-	var player: Node = _ensure_player(1, "Slime")
+	var player: Node = _ensure_player(1, "")
 	player.call("warp_to", _spawn_position_for_slot(0))
 	player.call("set_local_or_host_simulated", true)
 	_start_battle()
@@ -1349,7 +1405,7 @@ func _update_gameplay(delta: float) -> void:
 		if _director != null:
 			_director.call("client_tick", delta)
 	else:
-		var offline_player: Node = _ensure_player(1, "Slime")
+		var offline_player: Node = _ensure_player(1, "")
 		offline_player.call("set_input_vector", input_vector if _battle_active() else Vector2.ZERO)
 		if _director != null:
 			_director.call("host_tick", delta)
