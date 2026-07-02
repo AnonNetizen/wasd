@@ -66,6 +66,8 @@ var _lobby_input: LineEdit
 var _steam_status_label: Label
 var _host_steam_button: Button
 var _join_steam_button: Button
+var _ready_room_label: Label
+var _start_battle_button: Button
 var _expression_wheel: Control
 
 
@@ -188,6 +190,14 @@ func _on_battle_reset_received() -> void:
 	_reset_battle()
 
 
+func _on_battle_launch_received() -> void:
+	if _screen == SCREEN_GAME:
+		return
+	_start_battle()
+	_show_game_page()
+	_append_log("Host started the battle.")
+
+
 func _open_buff_panel(options: PackedInt32Array) -> void:
 	if _buff_panel == null or _director == null:
 		return
@@ -265,6 +275,7 @@ func _create_session() -> void:
 	_session.connect("buff_choice_received", Callable(self, "_on_buff_choice_received"))
 	_session.connect("enemy_volley_received", Callable(self, "_on_enemy_volley_received"))
 	_session.connect("battle_reset_received", Callable(self, "_on_battle_reset_received"))
+	_session.connect("battle_launch_received", Callable(self, "_on_battle_launch_received"))
 
 
 func _create_ui() -> void:
@@ -363,6 +374,17 @@ func _create_multiplayer_page() -> void:
 
 	var separator_b := HSeparator.new()
 	controls.add_child(separator_b)
+
+	_ready_room_label = Label.new()
+	_ready_room_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	controls.add_child(_ready_room_label)
+
+	_start_battle_button = _make_button("Start Battle")
+	_start_battle_button.pressed.connect(_on_ready_start_battle_pressed)
+	controls.add_child(_start_battle_button)
+
+	var separator_c := HSeparator.new()
+	controls.add_child(separator_c)
 
 	var leave_button := _make_button("Leave Session")
 	leave_button.pressed.connect(_on_multiplayer_leave_pressed)
@@ -575,6 +597,18 @@ func _on_join_steam_pressed() -> void:
 	_session.call("join_steam_lobby", _lobby_input.text)
 
 
+func _on_ready_start_battle_pressed() -> void:
+	if _session == null or not bool(_session.call("is_host")):
+		return
+	if _players.size() < 2:
+		_append_log("Need at least 2 players in the ready room.")
+		return
+	_start_battle()
+	_show_game_page()
+	_session.call("broadcast_battle_launch")
+	_append_log("Battle launched from ready room.")
+
+
 func _on_multiplayer_leave_pressed() -> void:
 	_session.call("leave_session")
 	_end_battle()
@@ -625,13 +659,13 @@ func _on_session_started(host: bool, transport: String, lobby_id: String) -> voi
 		var host_player: Node = _ensure_player(1, "Host")
 		host_player.call("warp_to", _spawn_position_for_slot(0))
 		host_player.call("set_local_or_host_simulated", true)
+		_append_log("Ready room created. Wait for players, then start.")
 	else:
-		_append_log("Waiting for host snapshot...")
+		_append_log("Joined ready room. Waiting for host start.")
 	if lobby_id != "" and _lobby_input != null:
 		_lobby_input.text = lobby_id
-	_start_battle()
-	_show_game_page()
-	_append_log("Session started: %s %s" % [transport, "host" if host else "client"])
+	_show_multiplayer_page()
+	_append_log("Session ready: %s %s" % [transport, "host" if host else "client"])
 
 
 func _on_session_ended() -> void:
@@ -650,6 +684,8 @@ func _on_peer_joined(peer_id: int) -> void:
 	var player: Node = _ensure_player(peer_id, "Peer %d" % peer_id)
 	player.call("set_local_or_host_simulated", true)
 	_peer_inputs[peer_id] = Vector2.ZERO
+	if _screen == SCREEN_GAME:
+		_session.call("send_battle_launch", peer_id)
 
 
 func _on_peer_left(peer_id: int) -> void:
@@ -1108,6 +1144,21 @@ func _update_status() -> void:
 			_host_steam_button.disabled = not steam_available
 		if _join_steam_button != null:
 			_join_steam_button.disabled = not steam_available
+	if _ready_room_label != null:
+		var active_transport := String(_session.call("active_transport"))
+		var host_active := bool(_session.call("is_host"))
+		if active_transport == "offline":
+			_ready_room_label.text = "Ready room: no active session."
+		elif host_active:
+			_ready_room_label.text = "Ready room\nPlayers connected: %d\nStart when everyone has joined." % _players.size()
+		else:
+			_ready_room_label.text = "Ready room\nConnected as peer %d\nWaiting for host to start." % int(_session.call("local_peer_id"))
+	if _start_battle_button != null:
+		_start_battle_button.disabled = (
+			not bool(_session.call("is_host"))
+			or String(_session.call("active_transport")) == "offline"
+			or _players.size() < 2
+		)
 
 
 func _append_log(message: String) -> void:

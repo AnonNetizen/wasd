@@ -47,6 +47,7 @@ const ENEMY_SPAWN_MARGIN: float = 40.0
 const ENEMY_DESPAWN_MARGIN: float = 90.0
 const DRIFT_MARGIN: float = 24.0
 const BOSS_SPAWN_RATE_SCALE: float = 2.0
+const OBSTACLE_BLOCK_PADDING: float = 2.0
 
 var phase: int = Phase.BATTLE
 var tier: int = 0
@@ -131,6 +132,7 @@ func _battle_tick(delta: float) -> void:
 	_update_boss(delta)
 	_update_obstacles(delta)
 	_advance_enemies(delta)
+	_resolve_enemy_obstacle_blocking()
 	_resolve_player_bullet_hits()
 	_resolve_enemy_bullet_hits()
 	_resolve_contact_hits()
@@ -796,6 +798,25 @@ func _advance_enemies(delta: float) -> void:
 		_spawn_enemy_volley(enemy.global_position, fire_directions, bullet_speed)
 
 
+func _resolve_enemy_obstacle_blocking() -> void:
+	if _obstacles.is_empty():
+		return
+	for enemy_id in _enemies.keys():
+		var enemy := _enemies.get(enemy_id) as Node2D
+		if enemy == null or not is_instance_valid(enemy):
+			continue
+		for obstacle_id in _obstacles.keys():
+			var obstacle := _obstacles.get(obstacle_id) as Node2D
+			if obstacle == null or not is_instance_valid(obstacle):
+				continue
+			enemy.call(
+				"push_out_of_circle",
+				obstacle.global_position,
+				float(obstacle.get("radius")),
+				OBSTACLE_BLOCK_PADDING
+			)
+
+
 func _spawn_enemy_volley(origin: Vector2, directions: PackedVector2Array, bullet_speed: float) -> void:
 	for direction in directions:
 		var bullet := ENEMY_BULLET_SCRIPT.new() as Node2D
@@ -935,8 +956,15 @@ func _resolve_contact_hits() -> void:
 		for player in alive:
 			var player_center: Vector2 = player.call("body_center")
 			var player_radius := float(player.call("hit_radius"))
-			if obstacle.global_position.distance_to(player_center) <= obstacle_radius + player_radius:
-				player.call("apply_damage", 1)
+			if obstacle.global_position.distance_to(player_center) > obstacle_radius + player_radius:
+				continue
+			player.call("apply_damage", 1)
+			player.call(
+				"push_out_of_circle",
+				obstacle.global_position,
+				obstacle_radius,
+				OBSTACLE_BLOCK_PADDING
+			)
 
 
 func _check_game_over() -> void:

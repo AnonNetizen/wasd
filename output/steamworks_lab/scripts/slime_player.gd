@@ -96,6 +96,16 @@ func warp_to(new_position: Vector2) -> void:
 		_body.call("warp_to", new_position)
 
 
+func push_out_of_circle(circle_center: Vector2, circle_radius: float, padding: float = 0.0) -> bool:
+	if _body == null:
+		return false
+	var pushed := bool(_body.call("push_core_out_of_circle", circle_center, circle_radius, padding))
+	if pushed:
+		_authoritative_position = _body.global_position
+		_authoritative_velocity = _body.call("body_velocity")
+	return pushed
+
+
 func show_expression(expression_text: String, duration: float = 2.2) -> void:
 	if expression_text == "":
 		return

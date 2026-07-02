@@ -4,11 +4,18 @@ extends SceneTree
 #   godot --headless --path output/steamworks_lab --script res://tests/net_host_smoke.gd
 
 const TEST_PORT: int = 24568
-const HOST_LIFETIME_SECONDS: int = 15
+const READY_WAIT_SECONDS: int = 3
+const BATTLE_WAIT_SECONDS: int = 10
 
 
 func _init() -> void:
 	call_deferred("_run")
+
+
+func _wait_seconds(seconds: float) -> void:
+	var frame_count := ceili(seconds * 60.0)
+	for index in range(frame_count):
+		await process_frame
 
 
 func _run() -> void:
@@ -19,13 +26,25 @@ func _run() -> void:
 	var session: Node = main_scene.get("_session")
 	session.call("host_local", TEST_PORT)
 	var max_players := 0
-	for second in range(HOST_LIFETIME_SECONDS):
-		await create_timer(1.0).timeout
-		var players: Dictionary = main_scene.call("player_nodes")
-		max_players = maxi(max_players, players.size())
+	for second in range(READY_WAIT_SECONDS):
+		await _wait_seconds(1.0)
+		var ready_players: Dictionary = main_scene.call("player_nodes")
+		max_players = maxi(max_players, ready_players.size())
 
 	var failures := 0
+	if main_scene.get("_director") == null:
+		print("[net-host-smoke] PASS ready room waits before battle launch")
+	else:
+		print("[net-host-smoke] FAIL battle started before ready launch")
+		failures += 1
+
 	var director: Node = main_scene.get("_director")
+	main_scene.call("_on_ready_start_battle_pressed")
+	for second in range(BATTLE_WAIT_SECONDS):
+		await _wait_seconds(1.0)
+		var battle_players: Dictionary = main_scene.call("player_nodes")
+		max_players = maxi(max_players, battle_players.size())
+	director = main_scene.get("_director")
 	if director == null:
 		print("[net-host-smoke] FAIL director missing")
 		failures += 1

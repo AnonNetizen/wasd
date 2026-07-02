@@ -108,6 +108,35 @@ func warp_to(new_global_position: Vector2) -> void:
 	_reset_edge_offsets()
 
 
+func push_core_out_of_circle(circle_center: Vector2, circle_radius: float, padding: float = 0.0) -> bool:
+	var minimum_distance := circle_radius + core_collision_radius + padding
+	var offset := global_position - circle_center
+	var distance := offset.length()
+	if distance >= minimum_distance:
+		return false
+
+	var normal := Vector2.DOWN
+	if distance > 0.001:
+		normal = offset / distance
+	else:
+		var target_offset := target_position - circle_center
+		if target_offset.length_squared() > 0.0001:
+			normal = target_offset.normalized()
+
+	var penetration := minimum_distance - distance
+	global_position += normal * penetration
+	target_position = global_position
+	_clamp_to_movement_bounds()
+	_last_global_position = global_position
+
+	var velocity_into_obstacle := _velocity.dot(-normal)
+	if velocity_into_obstacle > 0.0:
+		_velocity += normal * velocity_into_obstacle
+
+	_impact_strength = maxf(_impact_strength, clampf(penetration / 42.0, 0.0, 1.0))
+	return true
+
+
 func body_velocity() -> Vector2:
 	return _velocity
 

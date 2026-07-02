@@ -16,6 +16,7 @@ signal buff_options_received(options: PackedInt32Array)
 signal buff_choice_received(peer_id: int, option_index: int)
 signal enemy_volley_received(origin: Vector2, directions: PackedVector2Array, speed: float)
 signal battle_reset_received()
+signal battle_launch_received()
 
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
 const DEFAULT_PORT: int = 24567
@@ -212,6 +213,18 @@ func broadcast_battle_reset() -> void:
 	_receive_battle_reset.rpc()
 
 
+func broadcast_battle_launch() -> void:
+	if not _is_host or multiplayer.multiplayer_peer == null:
+		return
+	_receive_battle_launch.rpc()
+
+
+func send_battle_launch(peer_id: int) -> void:
+	if not _is_host or multiplayer.multiplayer_peer == null:
+		return
+	_receive_battle_launch.rpc_id(peer_id)
+
+
 @rpc("any_peer", "unreliable")
 func _submit_input(input_x: float, input_y: float) -> void:
 	if not _is_host:
@@ -284,6 +297,11 @@ func _receive_enemy_volley(origin_x: float, origin_y: float, directions: PackedV
 @rpc("authority", "reliable")
 func _receive_battle_reset() -> void:
 	battle_reset_received.emit()
+
+
+@rpc("authority", "reliable")
+func _receive_battle_launch() -> void:
+	battle_launch_received.emit()
 
 
 func _connect_multiplayer_signals() -> void:

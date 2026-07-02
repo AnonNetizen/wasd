@@ -106,6 +106,40 @@ func _run() -> void:
 	var obstacles: Dictionary = director.get("_obstacles")
 	_check(obstacles.size() > 0, "obstacle spawned")
 
+	var obstacle_ids_for_block: Array = obstacles.keys()
+	if not obstacle_ids_for_block.is_empty():
+		var blocking_obstacle := obstacles[obstacle_ids_for_block[0]] as Node2D
+		player.call("revive_full")
+		player.set("invuln_remaining", 0.0)
+		player.call("warp_to", blocking_obstacle.global_position)
+		var hp_before_obstacle := int(player.get("hp"))
+		director.call("_resolve_contact_hits")
+		var player_center: Vector2 = player.call("body_center")
+		var player_distance := player_center.distance_to(blocking_obstacle.global_position)
+		var player_clearance := float(player.call("hit_radius")) + float(blocking_obstacle.get("radius"))
+		_check(player_distance >= player_clearance - 0.5, "obstacle blocks player movement")
+		_check(int(player.get("hp")) == hp_before_obstacle - 1, "obstacle contact still damages player")
+
+		director.call("_spawn_enemy_at", 0, blocking_obstacle.global_position)
+		var blocking_enemies: Dictionary = director.get("_enemies")
+		var pushed_enemy: Node2D = null
+		for enemy_id in blocking_enemies.keys():
+			var enemy := blocking_enemies[enemy_id] as Node2D
+			if enemy != null and enemy.global_position.distance_to(blocking_obstacle.global_position) < float(blocking_obstacle.get("radius")):
+				pushed_enemy = enemy
+				break
+		director.call("_resolve_enemy_obstacle_blocking")
+		if pushed_enemy != null:
+			var enemy_clearance := float(pushed_enemy.get("radius")) + float(blocking_obstacle.get("radius"))
+			_check(
+				pushed_enemy.global_position.distance_to(blocking_obstacle.global_position) >= enemy_clearance - 0.5,
+				"obstacle blocks enemy movement"
+			)
+		else:
+			_check(false, "enemy available for obstacle blocking test")
+	else:
+		_check(false, "obstacle available for blocking test")
+
 	var boss_node := director.get("_boss") as Node2D
 	if boss_node != null:
 		main_scene.call("_spawn_bullet", 1, boss_node.global_position, Vector2.UP, 560.0)
@@ -135,6 +169,27 @@ func _run() -> void:
 		_check(obstacle_count_after == obstacle_count_before - 1, "obstacle destroyed by bullet")
 	else:
 		_check(false, "obstacle available for destruction test")
+
+	main_scene.queue_free()
+	await process_frame
+
+	var ready_scene := main_packed.instantiate()
+	root.add_child(ready_scene)
+	await process_frame
+	var ready_session: Node = ready_scene.get("_session")
+	ready_session.call("host_local", 24569)
+	await process_frame
+	_check(ready_scene.get("_director") == null, "multiplayer host waits in ready room")
+	ready_scene.call("_on_ready_start_battle_pressed")
+	_check(ready_scene.get("_director") == null, "ready room blocks solo launch")
+	ready_scene.call("_on_peer_joined", 2)
+	ready_scene.call("_update_status")
+	var start_button := ready_scene.get("_start_battle_button") as Button
+	_check(start_button != null and not start_button.disabled, "ready start enabled with two players")
+	ready_scene.call("_on_ready_start_battle_pressed")
+	_check(ready_scene.get("_director") != null, "ready start launches after peer joins")
+	ready_scene.call("_on_multiplayer_leave_pressed")
+	ready_scene.queue_free()
 
 	if _failures == 0:
 		print("[battle-smoke] ALL PASS")

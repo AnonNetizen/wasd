@@ -67,6 +67,24 @@ func set_authoritative_state(new_position: Vector2, new_hp: float, new_max_hp: f
 	max_hp = maxf(new_max_hp, 1.0)
 
 
+func push_out_of_circle(circle_center: Vector2, circle_radius: float, padding: float = 0.0) -> bool:
+	var minimum_distance := circle_radius + radius + padding
+	var offset := global_position - circle_center
+	var distance := offset.length()
+	if distance >= minimum_distance:
+		return false
+
+	var normal := Vector2.DOWN
+	if distance > 0.001:
+		normal = offset / distance
+	var correction := normal * (minimum_distance - distance)
+	global_position += correction
+	_authoritative_position = global_position
+	if kind == KIND_GUNNER:
+		_hover_anchor_x += correction.x
+	return true
+
+
 func advance(delta: float, targets: Array[Vector2]) -> PackedVector2Array:
 	var fire_directions := PackedVector2Array()
 	var nearest := _nearest_target(targets)
