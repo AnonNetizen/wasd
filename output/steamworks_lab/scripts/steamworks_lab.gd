@@ -63,7 +63,6 @@ var _start_page: Control
 var _multiplayer_page: Control
 var _game_page: Control
 var _multiplayer_status_label: Label
-var _game_status_label: Label
 var _log_label: Label
 var _address_input: LineEdit
 var _port_input: SpinBox
@@ -455,30 +454,6 @@ func _create_multiplayer_page() -> void:
 
 func _create_game_page() -> void:
 	_game_page = _make_page("GamePage")
-
-	var hud_panel := PanelContainer.new()
-	hud_panel.name = "GameControls"
-	hud_panel.position = Vector2(418.0, 56.0)
-	hud_panel.custom_minimum_size = Vector2(98.0, 0.0)
-	hud_panel.self_modulate = Color(1.0, 1.0, 1.0, 0.84)
-	UI_STYLE_SCRIPT.apply_panel(hud_panel, "section")
-	_game_page.add_child(hud_panel)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
-	hud_panel.add_child(margin)
-
-	var rows := VBoxContainer.new()
-	rows.add_theme_constant_override("separation", 6)
-	margin.add_child(rows)
-
-	var leave_button := _make_button("离开", Vector2(0.0, 30.0))
-	leave_button.add_theme_font_size_override("font_size", 12)
-	leave_button.pressed.connect(_on_leave_game_pressed)
-	rows.add_child(leave_button)
 
 	_battle_hud = BATTLE_HUD_SCRIPT.new() as Control
 	_battle_hud.name = "BattleHud"

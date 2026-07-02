@@ -10,8 +10,9 @@ const HEART_RADIUS: float = 11.0
 const HEART_SPACING: float = 30.0
 const HEART_ORIGIN := Vector2(34.0, 34.0)
 const BOSS_BAR_RECT := Rect2(Vector2(70.0, 14.0), Vector2(400.0, 14.0))
-const ACTIVE_SLOT_RECT := Rect2(Vector2(24.0, 62.0), Vector2(198.0, 32.0))
+const ACTIVE_SLOT_RECT := Rect2(Vector2(24.0, 62.0), Vector2(238.0, 32.0))
 const ACTIVE_KEY_RECT := Rect2(Vector2(31.0, 68.0), Vector2(32.0, 20.0))
+const ACTIVE_ICON_RECT := Rect2(Vector2(70.0, 67.0), Vector2(24.0, 22.0))
 
 var _hp: int = 3
 var _max_hp: int = 3
@@ -19,6 +20,7 @@ var _alive: bool = true
 var _active_item_id: int = -1
 var _active_item_name: String = "空"
 var _active_item_held: bool = false
+var _active_item_color: Color = Color(0.58, 0.66, 0.62, 0.82)
 var _boss_hp: float = 0.0
 var _boss_max_hp: float = 0.0
 var _boss_visible: bool = false
@@ -78,6 +80,8 @@ func refresh(state: Dictionary) -> void:
 	_active_item_id = int(active_item.get("id", -1))
 	_active_item_name = String(active_item.get("name", "空"))
 	_active_item_held = bool(active_item.get("held", false))
+	var raw_active_item_color: Variant = active_item.get("color", Color(0.58, 0.66, 0.62, 0.82))
+	_active_item_color = raw_active_item_color if raw_active_item_color is Color else Color(0.58, 0.66, 0.62, 0.82)
 	_active_item_label.text = _active_item_name
 	_active_item_label.add_theme_color_override(
 		"font_color",
@@ -109,7 +113,7 @@ func refresh(state: Dictionary) -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2(18.0, 18.0), Vector2(210.0, 84.0)), Color(0.0, 0.0, 0.0, 0.18), true)
+	draw_rect(Rect2(Vector2(18.0, 18.0), Vector2(250.0, 84.0)), Color(0.0, 0.0, 0.0, 0.18), true)
 	for index in range(_max_hp):
 		var center := HEART_ORIGIN + Vector2(float(index) * HEART_SPACING, 0.0)
 		if index < _hp:
@@ -127,6 +131,7 @@ func _draw() -> void:
 		slot_edge = UI_STYLE_SCRIPT.SLIME_COLOR.lerp(UI_STYLE_SCRIPT.AMBER_COLOR, _active_slot_flash * 0.55)
 	_draw_capsule(ACTIVE_SLOT_RECT, slot_fill, slot_edge, 2.0)
 	_draw_capsule(ACTIVE_KEY_RECT, Color(0.0, 0.0, 0.0, 0.35), UI_STYLE_SCRIPT.AMBER_COLOR, 1.4)
+	_draw_active_item_icon(ACTIVE_ICON_RECT, _active_item_id, _active_item_color if _active_item_held else UI_STYLE_SCRIPT.MUTED_TEXT_COLOR, _active_item_held)
 	var font := get_theme_default_font()
 	_draw_centered_text(font, "Q", ACTIVE_KEY_RECT.get_center() + Vector2(0.0, -1.0), 15, Color(1.0, 0.88, 0.40, 1.0))
 
@@ -150,6 +155,79 @@ func _draw_capsule(rect: Rect2, fill_color: Color, outline_color: Color, outline
 	draw_line(rect.position + Vector2(radius, rect.size.y), rect.position + Vector2(rect.size.x - radius, rect.size.y), outline_color, outline_width)
 	draw_arc(left_center, radius, PI * 0.5, PI * 1.5, 16, outline_color, outline_width, true)
 	draw_arc(right_center, radius, PI * -0.5, PI * 0.5, 16, outline_color, outline_width, true)
+
+
+func _draw_active_item_icon(rect: Rect2, item_id: int, item_color: Color, held: bool) -> void:
+	var center := rect.get_center()
+	var dim_color := Color(0.06, 0.08, 0.08, 0.78)
+	var base_color := item_color if held else UI_STYLE_SCRIPT.MUTED_TEXT_COLOR
+	var edge_color := Color(1.0, 1.0, 0.80, 0.88) if held else Color(0.34, 0.42, 0.38, 0.72)
+	draw_circle(center, rect.size.x * 0.52, dim_color)
+	draw_circle(center, rect.size.x * 0.47, Color(base_color, 0.24 if held else 0.12))
+	draw_circle(center, rect.size.x * 0.52, edge_color, false, 1.4, true)
+	if not held:
+		draw_line(center + Vector2(-5.0, 0.0), center + Vector2(5.0, 0.0), Color(edge_color, 0.70), 1.6, true)
+		return
+
+	match item_id:
+		0:
+			_draw_repair_icon(center, base_color)
+		1:
+			_draw_clear_icon(center, base_color)
+		2:
+			_draw_stasis_icon(center, base_color)
+		3:
+			_draw_overload_icon(center, base_color)
+		4:
+			_draw_shield_icon(center, base_color)
+		_:
+			draw_circle(center, 4.0, base_color)
+
+
+func _draw_repair_icon(center: Vector2, color: Color) -> void:
+	draw_line(center + Vector2(-6.0, 0.0), center + Vector2(6.0, 0.0), color, 3.0, true)
+	draw_line(center + Vector2(0.0, -6.0), center + Vector2(0.0, 6.0), color, 3.0, true)
+
+
+func _draw_clear_icon(center: Vector2, color: Color) -> void:
+	draw_circle(center, 4.0, color)
+	draw_circle(center, 8.0, Color(color, 0.68), false, 1.5, true)
+	for index in range(8):
+		var direction := Vector2.RIGHT.rotated(TAU * float(index) / 8.0)
+		draw_line(center + direction * 5.0, center + direction * 9.0, color, 1.4, true)
+
+
+func _draw_stasis_icon(center: Vector2, color: Color) -> void:
+	for index in range(3):
+		var direction := Vector2.RIGHT.rotated(TAU * float(index) / 3.0)
+		draw_line(center - direction * 7.0, center + direction * 7.0, color, 1.6, true)
+	draw_circle(center, 2.4, Color(0.90, 1.0, 1.0, 0.96))
+
+
+func _draw_overload_icon(center: Vector2, color: Color) -> void:
+	var points := PackedVector2Array([
+		center + Vector2(-1.0, -8.0),
+		center + Vector2(6.0, -2.0),
+		center + Vector2(1.5, -1.0),
+		center + Vector2(3.0, 8.0),
+		center + Vector2(-6.0, 1.0),
+		center + Vector2(-1.5, 0.0),
+	])
+	draw_colored_polygon(points, color)
+
+
+func _draw_shield_icon(center: Vector2, color: Color) -> void:
+	var points := PackedVector2Array([
+		center + Vector2(0.0, -8.0),
+		center + Vector2(7.0, -4.0),
+		center + Vector2(5.0, 5.0),
+		center + Vector2(0.0, 9.0),
+		center + Vector2(-5.0, 5.0),
+		center + Vector2(-7.0, -4.0),
+		center + Vector2(0.0, -8.0),
+	])
+	draw_polyline(points, color, 2.0, true)
+	draw_line(center + Vector2(0.0, -5.0), center + Vector2(0.0, 5.0), Color(color, 0.74), 1.2, true)
 
 
 func _draw_centered_text(font: Font, text: String, center: Vector2, font_size: int, color: Color) -> void:
@@ -233,8 +311,8 @@ func _create_labels() -> void:
 	_active_item_label = Label.new()
 	_active_item_label.name = "ActiveItemLabel"
 	_active_item_label.text = "空"
-	_active_item_label.position = Vector2(74.0, 66.0)
-	_active_item_label.size = Vector2(136.0, 24.0)
+	_active_item_label.position = Vector2(104.0, 66.0)
+	_active_item_label.size = Vector2(146.0, 24.0)
 	_active_item_label.add_theme_font_size_override("font_size", 15)
 	_active_item_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.MUTED_TEXT_COLOR)
 	add_child(_active_item_label)

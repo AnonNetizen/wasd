@@ -395,6 +395,7 @@ func active_item_for_peer(peer_id: int) -> Dictionary:
 		"held": not def.is_empty(),
 		"id": item_id,
 		"name": String(def.get("name", "空")),
+		"color": def.get("color", Color(0.58, 0.66, 0.62, 0.82)),
 	}
 
 

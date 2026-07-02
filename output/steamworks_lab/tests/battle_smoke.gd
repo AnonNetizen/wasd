@@ -213,6 +213,7 @@ func _run() -> void:
 	main_scene.call("_update_gameplay", 1.0 / 60.0)
 	var held_item: Dictionary = director.call("active_item_for_peer", 1)
 	_check(int(held_item.get("id", -1)) == repair_id, "player collects active pickup")
+	_check(held_item.get("color", null) is Color, "active pickup exposes HUD icon color")
 
 	director.call("force_spawn_active_pickup", clear_id, player.call("body_center"))
 	main_scene.call("_update_gameplay", 1.0 / 60.0)
