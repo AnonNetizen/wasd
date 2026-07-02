@@ -6,6 +6,7 @@ const EXPRESSION_WHEEL_SCRIPT := preload("res://scripts/expression_wheel.gd")
 const BULLET_SCRIPT := preload("res://scripts/slime_bullet.gd")
 const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
 const BATTLE_HUD_SCRIPT := preload("res://scripts/battle_hud.gd")
+const BUFF_PANEL_SCRIPT := preload("res://scripts/buff_panel.gd")
 
 const VIEWPORT_SIZE := Vector2(540.0, 960.0)
 const WORLD_RECT := Rect2(Vector2(20.0, 70.0), Vector2(500.0, 870.0))
@@ -49,6 +50,7 @@ var _world_scroll_offset: float = 0.0
 var _backdrop_stars: Array[Dictionary] = []
 var _director: Node2D
 var _battle_hud: Control
+var _buff_panel: Control
 
 var _ui_root: Control
 var _start_page: Control
@@ -101,6 +103,8 @@ func _start_battle() -> void:
 		add_child(_director)
 		move_child(_director, _ui_root.get_index())
 		_director.call("setup", self, _session, WORLD_RECT)
+		_director.connect("phase_changed", Callable(self, "_on_director_phase_changed"))
+		_director.connect("buff_options_ready", Callable(self, "_on_director_buff_options"))
 	_reset_battle()
 
 
@@ -114,6 +118,8 @@ func _reset_battle() -> void:
 		_director.call("reset_battle")
 	_clear_bullets()
 	_fire_cooldown_remaining = 0.0
+	if _buff_panel != null:
+		_buff_panel.call("close")
 	var slot := 0
 	for peer_id in _players.keys():
 		var player := _players[peer_id] as Node
@@ -123,6 +129,48 @@ func _reset_battle() -> void:
 		player.call("set_move_speed", BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED)
 		player.call("warp_to", _spawn_position_for_slot(slot))
 		slot += 1
+
+
+func set_player_bullets_frozen(frozen: bool) -> void:
+	for bullet in _bullets:
+		if is_instance_valid(bullet):
+			bullet.call("set_battle_frozen", frozen)
+
+
+func _on_director_phase_changed(new_phase: int, _payload: Dictionary) -> void:
+	if new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE and _buff_panel != null:
+		_buff_panel.call("close")
+
+
+func _on_director_buff_options(peer_id: int, options: PackedInt32Array) -> void:
+	var local_id := int(_session.call("local_peer_id"))
+	if peer_id != local_id:
+		return
+	_open_buff_panel(options)
+
+
+func _open_buff_panel(options: PackedInt32Array) -> void:
+	if _buff_panel == null or _director == null:
+		return
+	var defs: Array[Dictionary] = []
+	for buff_id in options:
+		defs.append(_director.call("buff_def", buff_id))
+	var timeout := 0.0
+	if String(_session.call("active_transport")) != "offline":
+		timeout = BATTLE_DIRECTOR_SCRIPT.BUFF_CHOICE_TIMEOUT
+	_buff_panel.call("open_with_options", defs, timeout)
+
+
+func _on_buff_option_chosen(option_index: int) -> void:
+	if _director == null:
+		return
+	var local_id := int(_session.call("local_peer_id"))
+	if bool(_director.call("is_authority")):
+		_director.call("submit_buff_choice", local_id, option_index)
+		if not _battle_active() and _buff_panel != null:
+			_buff_panel.call("show_waiting", "等待其他玩家选择…")
+	elif _buff_panel != null:
+		_buff_panel.call("show_waiting", "等待其他玩家选择…")
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -323,6 +371,11 @@ func _create_game_page() -> void:
 	_battle_hud.connect("restart_requested", Callable(self, "_on_restart_requested"))
 	_battle_hud.connect("leave_requested", Callable(self, "_on_leave_game_pressed"))
 	_game_page.add_child(_battle_hud)
+
+	_buff_panel = BUFF_PANEL_SCRIPT.new() as Control
+	_buff_panel.name = "BuffPanel"
+	_buff_panel.connect("option_chosen", Callable(self, "_on_buff_option_chosen"))
+	_game_page.add_child(_buff_panel)
 
 	_create_expression_wheel()
 
@@ -617,7 +670,10 @@ func _update_gameplay(delta: float) -> void:
 	var input_vector := _local_input_vector()
 	if bool(_session.call("is_host")):
 		_peer_inputs[1] = input_vector
-		_apply_host_inputs()
+		if _battle_active():
+			_apply_host_inputs()
+		else:
+			_freeze_player_inputs()
 		if _director != null:
 			_director.call("host_tick", delta)
 		_session.call("broadcast_snapshot", _build_snapshot())
@@ -625,12 +681,19 @@ func _update_gameplay(delta: float) -> void:
 		_session.call("send_input_to_host", input_vector)
 	else:
 		var offline_player: Node = _ensure_player(1, "Slime")
-		offline_player.call("set_input_vector", input_vector)
+		offline_player.call("set_input_vector", input_vector if _battle_active() else Vector2.ZERO)
 		if _director != null:
 			_director.call("host_tick", delta)
 	if _fire_held:
 		_try_fire()
 	_refresh_battle_hud()
+
+
+func _freeze_player_inputs() -> void:
+	for peer_id in _players.keys():
+		var player := _players[peer_id] as Node
+		if player != null and is_instance_valid(player):
+			player.call("set_input_vector", Vector2.ZERO)
 
 
 func _refresh_battle_hud() -> void:
@@ -651,6 +714,10 @@ func _refresh_battle_hud() -> void:
 	if not state.has("boss"):
 		state["boss"] = {}
 	_battle_hud.call("refresh", state)
+	if _buff_panel != null and bool(_buff_panel.call("is_waiting")):
+		var pending := int(_director.call("pending_choice_count"))
+		if pending > 0:
+			_buff_panel.call("update_waiting", "等待其他玩家选择… (%d)" % pending)
 
 
 func _apply_host_inputs() -> void:

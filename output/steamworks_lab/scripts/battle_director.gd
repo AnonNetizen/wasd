@@ -1,6 +1,9 @@
 class_name SteamLabBattleDirector
 extends Node2D
 
+signal phase_changed(phase: int, payload: Dictionary)
+signal buff_options_ready(peer_id: int, options: PackedInt32Array)
+
 const ENEMY_SCRIPT := preload("res://scripts/enemy.gd")
 const ENEMY_BULLET_SCRIPT := preload("res://scripts/enemy_bullet.gd")
 const BURST_EFFECT_SCRIPT := preload("res://scripts/burst_effect.gd")
@@ -58,6 +61,9 @@ var _next_entity_id: int = 1
 var _spawn_timer: float = 1.2
 var _wave_timer: float = WAVE_BURST_INTERVAL
 var _next_buff_at: float = BUFF_INTERVAL
+var _pending_buff_peers: Dictionary = {}
+var _peer_buff_options: Dictionary = {}
+var _choice_timeout_remaining: float = 0.0
 
 
 func setup(main: Node2D, session: Node, world_rect: Rect2) -> void:
@@ -77,6 +83,9 @@ func reset_battle() -> void:
 	_wave_timer = WAVE_BURST_INTERVAL
 	_next_buff_at = BUFF_INTERVAL
 	_player_buffs.clear()
+	_pending_buff_peers.clear()
+	_peer_buff_options.clear()
+	_choice_timeout_remaining = 0.0
 	clear_entities()
 
 
@@ -103,8 +112,14 @@ func is_authority() -> bool:
 
 
 func host_tick(delta: float) -> void:
-	if phase != Phase.BATTLE:
-		return
+	match phase:
+		Phase.BATTLE:
+			_battle_tick(delta)
+		Phase.CHOOSING_BUFF:
+			_choice_tick(delta)
+
+
+func _battle_tick(delta: float) -> void:
 	battle_clock += delta
 	_prune_entities()
 	_update_spawning(delta)
@@ -113,6 +128,106 @@ func host_tick(delta: float) -> void:
 	_resolve_enemy_bullet_hits()
 	_resolve_contact_hits()
 	_check_game_over()
+	if phase == Phase.BATTLE and battle_clock >= _next_buff_at:
+		_next_buff_at += BUFF_INTERVAL
+		_enter_buff_choice()
+
+
+func _choice_tick(delta: float) -> void:
+	if _session == null or String(_session.call("active_transport")) == "offline":
+		return
+	_choice_timeout_remaining -= delta
+	if _choice_timeout_remaining > 0.0:
+		return
+	for peer_id in _pending_buff_peers.keys():
+		var options: PackedInt32Array = _peer_buff_options.get(peer_id, PackedInt32Array())
+		if options.size() > 0:
+			apply_buff(peer_id, options[_rng.randi_range(0, options.size() - 1)])
+		_pending_buff_peers.erase(peer_id)
+	_check_choice_complete()
+
+
+func _enter_buff_choice() -> void:
+	phase = Phase.CHOOSING_BUFF
+	tier += 1
+	_choice_timeout_remaining = BUFF_CHOICE_TIMEOUT
+	_pending_buff_peers.clear()
+	_peer_buff_options.clear()
+	set_battle_frozen(true)
+	if _main != null:
+		_main.call("set_player_bullets_frozen", true)
+	for player in _alive_players():
+		var peer_id := int(player.get("peer_id"))
+		_pending_buff_peers[peer_id] = true
+		_peer_buff_options[peer_id] = _roll_buff_options(peer_id)
+	phase_changed.emit(Phase.CHOOSING_BUFF, {"tier": tier, "timeout": BUFF_CHOICE_TIMEOUT})
+	for peer_id in _peer_buff_options.keys():
+		buff_options_ready.emit(peer_id, _peer_buff_options[peer_id])
+	if _pending_buff_peers.is_empty():
+		_resume_battle()
+
+
+func submit_buff_choice(peer_id: int, option_index: int) -> void:
+	if phase != Phase.CHOOSING_BUFF:
+		return
+	if not _pending_buff_peers.has(peer_id):
+		return
+	var options: PackedInt32Array = _peer_buff_options.get(peer_id, PackedInt32Array())
+	if option_index < 0 or option_index >= options.size():
+		return
+	apply_buff(peer_id, options[option_index])
+	_pending_buff_peers.erase(peer_id)
+	_check_choice_complete()
+
+
+func notify_peer_left(peer_id: int) -> void:
+	_player_buffs.erase(peer_id)
+	if _pending_buff_peers.has(peer_id):
+		_pending_buff_peers.erase(peer_id)
+		_check_choice_complete()
+
+
+func pending_choice_count() -> int:
+	return _pending_buff_peers.size()
+
+
+func peer_buff_options(peer_id: int) -> PackedInt32Array:
+	return _peer_buff_options.get(peer_id, PackedInt32Array())
+
+
+func _roll_buff_options(peer_id: int) -> PackedInt32Array:
+	var candidates: Array[int] = []
+	for def in BUFF_DEFS:
+		var buff_id := int(def.get("id", -1))
+		if buff_id == BUFF_HEAL:
+			var player := _player_node(peer_id)
+			if player != null and int(player.get("hp")) >= 3:
+				continue
+		candidates.append(buff_id)
+	var options := PackedInt32Array()
+	for index in range(3):
+		if candidates.is_empty():
+			break
+		var pick := _rng.randi_range(0, candidates.size() - 1)
+		options.append(candidates[pick])
+		candidates.remove_at(pick)
+	return options
+
+
+func _check_choice_complete() -> void:
+	if phase != Phase.CHOOSING_BUFF:
+		return
+	if _pending_buff_peers.is_empty():
+		_resume_battle()
+
+
+func _resume_battle() -> void:
+	phase = Phase.BATTLE
+	_peer_buff_options.clear()
+	set_battle_frozen(false)
+	if _main != null:
+		_main.call("set_player_bullets_frozen", false)
+	phase_changed.emit(Phase.BATTLE, {"tier": tier})
 
 
 func register_player_bullet(bullet: Node) -> void:
@@ -469,6 +584,11 @@ func _check_game_over() -> void:
 		if player != null and is_instance_valid(player) and bool(player.get("alive")):
 			return
 	phase = Phase.GAME_OVER
+	phase_changed.emit(Phase.GAME_OVER, {
+		"time": battle_clock,
+		"tier": tier,
+		"boss_kills": boss_kills,
+	})
 
 
 func _tier_hp_scale() -> float:

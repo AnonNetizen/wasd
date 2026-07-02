@@ -69,6 +69,29 @@ func _run() -> void:
 	var reset_state: Dictionary = director.call("battle_state")
 	_check(int(reset_state.get("enemy_count", 0)) == 0, "restart clears enemies")
 
+	player.set("invuln_remaining", 9999.0)
+	var safety := 0
+	while int(director.get("phase")) == 0 and safety < 2400:
+		main_scene.call("_update_gameplay", 1.0 / 60.0)
+		safety += 1
+	_check(int(director.get("phase")) == 1, "reaches CHOOSING_BUFF after 30s")
+	_check(int(director.get("tier")) == 1, "tier bumped to 1")
+	var options: PackedInt32Array = director.call("peer_buff_options", 1)
+	_check(options.size() == 3, "3 buff options rolled")
+
+	var clock_before := float(director.call("battle_state").get("time", 0.0))
+	for index in range(300):
+		main_scene.call("_update_gameplay", 1.0 / 60.0)
+	var clock_after := float(director.call("battle_state").get("time", 0.0))
+	_check(int(director.get("phase")) == 1, "single player choice has no timeout")
+	_check(is_equal_approx(clock_before, clock_after), "battle clock frozen while choosing")
+
+	director.call("submit_buff_choice", 1, 0)
+	_check(int(director.get("phase")) == 0, "choice resumes battle")
+	var buffs: Dictionary = director.get("_player_buffs")
+	var player_buffs: Dictionary = buffs.get(1, {})
+	_check(not player_buffs.is_empty(), "buff recorded for player")
+
 	if _failures == 0:
 		print("[battle-smoke] ALL PASS")
 	else:
