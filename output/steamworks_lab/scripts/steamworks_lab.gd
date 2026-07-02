@@ -4,9 +4,12 @@ const SESSION_SCRIPT := preload("res://scripts/network_session.gd")
 const PLAYER_SCRIPT := preload("res://scripts/slime_player.gd")
 const EXPRESSION_WHEEL_SCRIPT := preload("res://scripts/expression_wheel.gd")
 const BULLET_SCRIPT := preload("res://scripts/slime_bullet.gd")
+const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
+const BATTLE_HUD_SCRIPT := preload("res://scripts/battle_hud.gd")
 
-const VIEWPORT_SIZE := Vector2(1280.0, 760.0)
-const WORLD_RECT := Rect2(Vector2(160.0, 90.0), Vector2(960.0, 580.0))
+const VIEWPORT_SIZE := Vector2(540.0, 960.0)
+const WORLD_RECT := Rect2(Vector2(20.0, 70.0), Vector2(500.0, 870.0))
+const WORLD_SCROLL_SPEED: float = 120.0
 const DEFAULT_PORT: int = 24567
 const SCREEN_START: String = "start"
 const SCREEN_MULTIPLAYER: String = "multiplayer"
@@ -42,6 +45,10 @@ var _suppress_session_end_navigation: bool = false
 var _fire_held: bool = false
 var _fire_cooldown_remaining: float = 0.0
 var _fire_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var _world_scroll_offset: float = 0.0
+var _backdrop_stars: Array[Dictionary] = []
+var _director: Node2D
+var _battle_hud: Control
 
 var _ui_root: Control
 var _start_page: Control
@@ -61,6 +68,7 @@ var _expression_wheel: Control
 
 func _ready() -> void:
 	_fire_rng.randomize()
+	_generate_backdrop_stars()
 	_ensure_input_actions()
 	_create_session()
 	_create_ui()
@@ -70,8 +78,51 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if _screen == SCREEN_GAME:
 		_update_gameplay(delta)
+		if _battle_active():
+			_world_scroll_offset += WORLD_SCROLL_SPEED * delta
 	_update_status()
 	queue_redraw()
+
+
+func player_nodes() -> Dictionary:
+	return _players
+
+
+func _battle_active() -> bool:
+	if _director == null:
+		return false
+	return int(_director.get("phase")) == BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE
+
+
+func _start_battle() -> void:
+	if _director == null:
+		_director = BATTLE_DIRECTOR_SCRIPT.new() as Node2D
+		_director.name = "BattleDirector"
+		add_child(_director)
+		move_child(_director, _ui_root.get_index())
+		_director.call("setup", self, _session, WORLD_RECT)
+	_reset_battle()
+
+
+func _end_battle() -> void:
+	if _director != null:
+		_director.call("reset_battle")
+
+
+func _reset_battle() -> void:
+	if _director != null:
+		_director.call("reset_battle")
+	_clear_bullets()
+	_fire_cooldown_remaining = 0.0
+	var slot := 0
+	for peer_id in _players.keys():
+		var player := _players[peer_id] as Node
+		if player == null or not is_instance_valid(player):
+			continue
+		player.call("revive_full")
+		player.call("set_move_speed", BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED)
+		player.call("warp_to", _spawn_position_for_slot(slot))
+		slot += 1
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -153,7 +204,7 @@ func _create_start_page() -> void:
 
 func _create_multiplayer_page() -> void:
 	_multiplayer_page = _make_page("MultiplayerPage")
-	var rows := _make_centered_panel(_multiplayer_page, "MultiplayerPanel", Vector2(900.0, 600.0))
+	var rows := _make_centered_panel(_multiplayer_page, "MultiplayerPanel", Vector2(500.0, 880.0))
 
 	var title := _make_title_label("Multiplayer")
 	rows.add_child(title)
@@ -162,13 +213,12 @@ func _create_multiplayer_page() -> void:
 	_multiplayer_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rows.add_child(_multiplayer_status_label)
 
-	var body := HBoxContainer.new()
-	body.add_theme_constant_override("separation", 20)
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", 14)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	rows.add_child(body)
 
 	var controls := VBoxContainer.new()
-	controls.custom_minimum_size = Vector2(320.0, 0.0)
 	controls.add_theme_constant_override("separation", 8)
 	body.add_child(controls)
 
@@ -266,6 +316,13 @@ func _create_game_page() -> void:
 	var leave_button := _make_button("Leave Game")
 	leave_button.pressed.connect(_on_leave_game_pressed)
 	rows.add_child(leave_button)
+
+	_battle_hud = BATTLE_HUD_SCRIPT.new() as Control
+	_battle_hud.name = "BattleHud"
+	_battle_hud.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_battle_hud.connect("restart_requested", Callable(self, "_on_restart_requested"))
+	_battle_hud.connect("leave_requested", Callable(self, "_on_leave_game_pressed"))
+	_game_page.add_child(_battle_hud)
 
 	_create_expression_wheel()
 
@@ -373,8 +430,9 @@ func _begin_single_player() -> void:
 	_clear_bullets()
 	_peer_inputs.clear()
 	var player: Node = _ensure_player(1, "Slime")
-	player.call("warp_to", WORLD_RECT.get_center())
+	player.call("warp_to", _spawn_position_for_slot(0))
 	player.call("set_local_or_host_simulated", true)
+	_start_battle()
 	_show_game_page()
 	_append_log("Single player started.")
 
@@ -409,6 +467,7 @@ func _on_join_steam_pressed() -> void:
 
 func _on_multiplayer_leave_pressed() -> void:
 	_session.call("leave_session")
+	_end_battle()
 	_clear_players()
 	_clear_bullets()
 	_peer_inputs.clear()
@@ -426,11 +485,19 @@ func _on_multiplayer_back_pressed() -> void:
 
 func _on_leave_game_pressed() -> void:
 	_leave_session_without_navigation()
+	_end_battle()
 	_clear_players()
 	_clear_bullets()
 	_peer_inputs.clear()
 	_show_start_page()
 	_append_log("Returned to start page.")
+
+
+func _on_restart_requested() -> void:
+	if _director == null or not bool(_director.call("is_authority")):
+		return
+	_reset_battle()
+	_append_log("Battle restarted.")
 
 
 func _leave_session_without_navigation() -> void:
@@ -450,12 +517,14 @@ func _on_session_started(host: bool, transport: String, lobby_id: String) -> voi
 		_append_log("Waiting for host snapshot...")
 	if lobby_id != "" and _lobby_input != null:
 		_lobby_input.text = lobby_id
+	_start_battle()
 	_show_game_page()
 	_append_log("Session started: %s %s" % [transport, "host" if host else "client"])
 
 
 func _on_session_ended() -> void:
 	if not _suppress_session_end_navigation and _screen == SCREEN_GAME:
+		_end_battle()
 		_clear_players()
 		_clear_bullets()
 		_peer_inputs.clear()
@@ -513,17 +582,33 @@ func _on_expression_received(peer_id: int, expression_id: String) -> void:
 func _on_shot_requested(peer_id: int, direction: Vector2) -> void:
 	if not bool(_session.call("is_host")):
 		return
-	if not _players.has(peer_id):
-		return
-	var shot_direction := _jitter_fire_direction(direction)
-	var origin := _player_fire_surface(peer_id, shot_direction)
-	_spawn_bullet(peer_id, origin, shot_direction)
-	_session.call("broadcast_shot", peer_id, origin, shot_direction)
+	_fire_player_shots(peer_id, direction, true)
 
 
-func _on_shot_received(peer_id: int, origin: Vector2, direction: Vector2) -> void:
+func _on_shot_received(peer_id: int, origin: Vector2, direction: Vector2, speed: float) -> void:
 	_play_fire_surface_feedback(peer_id, direction)
-	_spawn_bullet(peer_id, origin, direction)
+	_spawn_bullet(peer_id, origin, direction, speed)
+
+
+func _fire_player_shots(peer_id: int, aim_direction: Vector2, broadcast: bool) -> void:
+	if not _players.has(peer_id) or not _battle_active():
+		return
+	var player := _players[peer_id] as Node
+	if player == null or not bool(player.get("alive")):
+		return
+	var bullet_count := 1
+	var bullet_speed: float = BULLET_SCRIPT.DEFAULT_SPEED
+	if _director != null:
+		bullet_count = int(_director.call("player_bullet_count", peer_id))
+		bullet_speed *= float(_director.call("player_bullet_speed_scale", peer_id))
+	var half := float(bullet_count - 1) * 0.5
+	for index in range(bullet_count):
+		var fan_offset := deg_to_rad(8.0) * (float(index) - half)
+		var shot_direction := _jitter_fire_direction(aim_direction.rotated(fan_offset))
+		var origin := _player_fire_surface(peer_id, shot_direction)
+		_spawn_bullet(peer_id, origin, shot_direction, bullet_speed)
+		if broadcast:
+			_session.call("broadcast_shot", peer_id, origin, shot_direction, bullet_speed)
 
 
 func _update_gameplay(delta: float) -> void:
@@ -533,14 +618,39 @@ func _update_gameplay(delta: float) -> void:
 	if bool(_session.call("is_host")):
 		_peer_inputs[1] = input_vector
 		_apply_host_inputs()
+		if _director != null:
+			_director.call("host_tick", delta)
 		_session.call("broadcast_snapshot", _build_snapshot())
 	elif String(_session.call("active_transport")) != "offline":
 		_session.call("send_input_to_host", input_vector)
 	else:
 		var offline_player: Node = _ensure_player(1, "Slime")
 		offline_player.call("set_input_vector", input_vector)
+		if _director != null:
+			_director.call("host_tick", delta)
 	if _fire_held:
 		_try_fire()
+	_refresh_battle_hud()
+
+
+func _refresh_battle_hud() -> void:
+	if _battle_hud == null or _director == null:
+		return
+	var state: Dictionary = _director.call("battle_state")
+	var local_id := int(_session.call("local_peer_id"))
+	var player := _players.get(local_id) as Node
+	if player != null and is_instance_valid(player):
+		state["hp"] = int(player.get("hp"))
+		state["alive"] = bool(player.get("alive"))
+	else:
+		state["hp"] = 0
+		state["alive"] = true
+	state["max_hp"] = PLAYER_SCRIPT.MAX_HP
+	state["authority"] = bool(_director.call("is_authority"))
+	state["game_over"] = int(state.get("phase", 0)) == BATTLE_DIRECTOR_SCRIPT.Phase.GAME_OVER
+	if not state.has("boss"):
+		state["boss"] = {}
+	_battle_hud.call("refresh", state)
 
 
 func _apply_host_inputs() -> void:
@@ -573,7 +683,10 @@ func _ensure_player(peer_id: int, display_name: String) -> Node:
 	player.name = "SlimePlayer%d" % peer_id
 	player.call("set_player_info", peer_id, display_name, peer_id)
 	add_child(player)
+	if _ui_root != null:
+		move_child(player, _ui_root.get_index())
 	player.call("warp_to", _spawn_position_for_slot(_players.size()))
+	player.call("set_movement_bounds", WORLD_RECT)
 	_players[peer_id] = player
 	return player
 
@@ -583,22 +696,33 @@ func _try_fire() -> void:
 		return
 	if _expression_wheel != null and bool(_expression_wheel.call("is_open")):
 		return
-	if not _players.has(1):
+	if not _battle_active():
 		return
-	var direction := _local_aim_direction()
-	_fire_cooldown_remaining = FIRE_COOLDOWN
+	var local_id := int(_session.call("local_peer_id"))
+	if not _players.has(local_id):
+		return
+	var local_player := _players[local_id] as Node
+	if local_player == null or not bool(local_player.get("alive")):
+		return
+	var direction := _local_aim_direction(local_id)
+	_fire_cooldown_remaining = _local_fire_cooldown(local_id)
 	if _session == null or String(_session.call("active_transport")) == "offline":
-		var shot_direction := _jitter_fire_direction(direction)
-		_spawn_bullet(1, _player_fire_surface(1, shot_direction), shot_direction)
+		_fire_player_shots(local_id, direction, false)
 		return
 	_session.call("send_shot_to_host", direction)
 
 
-func _local_aim_direction() -> Vector2:
-	var center := _player_body_center(1)
+func _local_fire_cooldown(peer_id: int) -> float:
+	if _director == null:
+		return FIRE_COOLDOWN
+	return float(_director.call("player_fire_cooldown", peer_id))
+
+
+func _local_aim_direction(peer_id: int) -> Vector2:
+	var center := _player_body_center(peer_id)
 	var direction := get_global_mouse_position() - center
 	if direction.length_squared() <= 0.0001:
-		return Vector2.RIGHT
+		return Vector2.UP
 	return direction.normalized()
 
 
@@ -638,13 +762,20 @@ func _play_fire_surface_feedback(peer_id: int, direction: Vector2) -> void:
 		player.call("play_fire_surface_feedback", direction)
 
 
-func _spawn_bullet(peer_id: int, origin: Vector2, direction: Vector2) -> void:
+func _spawn_bullet(peer_id: int, origin: Vector2, direction: Vector2, speed: float = 560.0) -> void:
 	var bullet := BULLET_SCRIPT.new() as Node2D
 	bullet.name = "SlimeBullet%d" % (_bullets.size() + 1)
 	var palette := _bullet_palette_for_peer(peer_id)
-	bullet.call("configure", origin, direction, palette["fill"], palette["edge"])
+	bullet.call("configure", origin, direction, palette["fill"], palette["edge"], speed)
+	bullet.set("owner_peer_id", peer_id)
 	add_child(bullet)
+	if _ui_root != null:
+		move_child(bullet, _ui_root.get_index())
 	_bullets.append(bullet)
+	if _director != null and bool(_director.call("is_authority")):
+		bullet.set("damage", int(_director.call("player_bullet_damage", peer_id)))
+		bullet.set("pierce_remaining", int(_director.call("player_pierce_count", peer_id)))
+		_director.call("register_player_bullet", bullet)
 
 
 func _bullet_palette_for_peer(peer_id: int) -> Dictionary:
@@ -745,12 +876,15 @@ func _local_input_vector() -> Vector2:
 
 
 func _spawn_position_for_slot(slot_index: int) -> Vector2:
-	var columns := 4
-	var spacing := Vector2(150.0, 130.0)
 	var index: int = maxi(0, slot_index)
-	var column: int = index % columns
-	var row: int = floori(float(index) / float(columns))
-	return WORLD_RECT.position + Vector2(160.0 + float(column) * spacing.x, 140.0 + float(row) * spacing.y)
+	var steps := ceilf(float(index) * 0.5)
+	var side := -1.0 if index % 2 == 1 else 1.0
+	var x: float = clampf(
+		WORLD_RECT.get_center().x + steps * 62.0 * side,
+		WORLD_RECT.position.x + 44.0,
+		WORLD_RECT.end.x - 44.0
+	)
+	return Vector2(x, WORLD_RECT.end.y - 90.0)
 
 
 func _dict_to_vector(data: Variant) -> Vector2:
@@ -774,8 +908,9 @@ func _draw_menu_background() -> void:
 func _draw_game_world() -> void:
 	draw_rect(WORLD_RECT.grow(18.0), Color(0.0, 0.0, 0.0, 0.20), true)
 	draw_rect(WORLD_RECT, Color(0.054, 0.074, 0.070, 1.0), true)
-	draw_rect(WORLD_RECT, Color(0.40, 0.62, 0.54, 0.42), false, 2.0)
 	_draw_world_grid()
+	_draw_backdrop_stars()
+	draw_rect(WORLD_RECT, Color(0.40, 0.62, 0.54, 0.42), false, 2.0)
 
 
 func _draw_world_grid() -> void:
@@ -784,9 +919,35 @@ func _draw_world_grid() -> void:
 	for x_index in range(int(WORLD_RECT.size.x / step) + 1):
 		var x := WORLD_RECT.position.x + float(x_index) * step
 		draw_line(Vector2(x, WORLD_RECT.position.y), Vector2(x, WORLD_RECT.position.y + WORLD_RECT.size.y), grid_color, 1.0)
-	for y_index in range(int(WORLD_RECT.size.y / step) + 1):
-		var y := WORLD_RECT.position.y + float(y_index) * step
+	var scrolled := fmod(_world_scroll_offset, step)
+	for y_index in range(int(WORLD_RECT.size.y / step) + 2):
+		var y := WORLD_RECT.position.y + fposmod(float(y_index) * step + scrolled, WORLD_RECT.size.y + step) - step
+		if y < WORLD_RECT.position.y or y > WORLD_RECT.end.y:
+			continue
 		draw_line(Vector2(WORLD_RECT.position.x, y), Vector2(WORLD_RECT.position.x + WORLD_RECT.size.x, y), grid_color, 1.0)
+
+
+func _draw_backdrop_stars() -> void:
+	for star in _backdrop_stars:
+		var star_data: Dictionary = star
+		var parallax := float(star_data.get("parallax", 0.5))
+		var base := Vector2(float(star_data.get("x", 0.0)), float(star_data.get("y", 0.0)))
+		var y := WORLD_RECT.position.y + fposmod(base.y + _world_scroll_offset * parallax, WORLD_RECT.size.y)
+		var alpha := 0.10 + parallax * 0.22
+		var star_radius := 1.0 + parallax * 1.6
+		draw_circle(Vector2(base.x, y), star_radius, Color(0.72, 0.92, 0.84, alpha))
+
+
+func _generate_backdrop_stars() -> void:
+	_backdrop_stars.clear()
+	var star_rng := RandomNumberGenerator.new()
+	star_rng.seed = 20260702
+	for index in range(56):
+		_backdrop_stars.append({
+			"x": star_rng.randf_range(WORLD_RECT.position.x + 6.0, WORLD_RECT.end.x - 6.0),
+			"y": star_rng.randf_range(0.0, WORLD_RECT.size.y),
+			"parallax": 0.35 if index % 3 == 0 else star_rng.randf_range(0.55, 1.0),
+		})
 
 
 func _update_status() -> void:

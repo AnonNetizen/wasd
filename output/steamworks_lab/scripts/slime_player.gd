@@ -2,14 +2,20 @@ class_name SteamLabSlimePlayer
 extends Node2D
 
 const BODY_SCRIPT := preload("res://scripts/slime_body.gd")
-const FOLLOW_DISTANCE: float = 90.0
+const FOLLOW_DISTANCE: float = 82.0
 const REMOTE_INTERPOLATION: float = 14.0
 const EXPRESSION_LABEL_SIZE := Vector2(190.0, 42.0)
-const EXPRESSION_OFFSET := Vector2(-95.0, -21.0)
-const NAME_OFFSET := Vector2(-54.0, -96.0)
+const EXPRESSION_OFFSET := Vector2(-95.0, -14.0)
+const NAME_OFFSET := Vector2(-54.0, -62.0)
+const MAX_HP: int = 3
+const INVULNERABILITY_DURATION: float = 1.2
+const SPECTATOR_ALPHA: float = 0.28
 
 var peer_id: int = 0
 var display_name: String = "Player"
+var hp: int = MAX_HP
+var alive: bool = true
+var invuln_remaining: float = 0.0
 
 var _body: Node2D
 var _name_label: Label
@@ -37,6 +43,7 @@ func _process(delta: float) -> void:
 		return
 	_name_label.global_position = _body.global_position + NAME_OFFSET
 	_update_expression_label(delta)
+	_update_invulnerability(delta)
 	if not _is_local_or_host_simulated:
 		var response := 1.0 - exp(-REMOTE_INTERPOLATION * delta)
 		_body.global_position = _body.global_position.lerp(_authoritative_position, response)
@@ -55,7 +62,14 @@ func set_local_or_host_simulated(enabled: bool) -> void:
 		_body.call("set_position_drive_enabled", enabled)
 
 
+func set_movement_bounds(bounds: Rect2) -> void:
+	if _body != null:
+		_body.call("set_movement_bounds", bounds)
+
+
 func set_input_vector(input_vector: Vector2) -> void:
+	if not alive:
+		input_vector = Vector2.ZERO
 	_input_vector = input_vector.limit_length(1.0)
 	if _body == null:
 		return
@@ -99,6 +113,78 @@ func body_center() -> Vector2:
 	return _body.global_position
 
 
+func hit_radius() -> float:
+	if _body == null:
+		return 21.0
+	return float(_body.get("core_collision_radius"))
+
+
+func apply_damage(amount: int) -> bool:
+	if not alive or invuln_remaining > 0.0:
+		return false
+	hp = maxi(0, hp - amount)
+	invuln_remaining = INVULNERABILITY_DURATION
+	if _body != null:
+		_body.call("flash_impact", 1.0)
+	if hp <= 0:
+		_enter_spectator()
+	return true
+
+
+func heal(amount: int) -> void:
+	if not alive:
+		return
+	hp = mini(MAX_HP, hp + amount)
+
+
+func revive_full() -> void:
+	hp = MAX_HP
+	alive = true
+	invuln_remaining = 0.0
+	modulate = Color.WHITE
+	if _name_label != null:
+		_name_label.text = display_name
+
+
+func set_move_speed(speed: float) -> void:
+	if _body != null:
+		_body.set("max_speed", maxf(speed, 1.0))
+
+
+func apply_snapshot_extras(new_hp: int, new_alive: bool, new_invuln: float) -> void:
+	if new_hp < hp and _body != null:
+		_body.call("flash_impact", 1.0)
+	hp = new_hp
+	invuln_remaining = new_invuln
+	if alive and not new_alive:
+		_enter_spectator()
+	elif not alive and new_alive:
+		revive_full()
+
+
+func _enter_spectator() -> void:
+	alive = false
+	hp = 0
+	invuln_remaining = 0.0
+	modulate = Color(1.0, 1.0, 1.0, SPECTATOR_ALPHA)
+	if _name_label != null:
+		_name_label.text = "%s (阵亡)" % display_name
+	set_input_vector(Vector2.ZERO)
+
+
+func _update_invulnerability(delta: float) -> void:
+	if invuln_remaining <= 0.0:
+		return
+	invuln_remaining = maxf(0.0, invuln_remaining - delta)
+	if not alive:
+		return
+	if invuln_remaining > 0.0:
+		var flicker := 0.55 + 0.45 * sin(invuln_remaining * 40.0)
+		modulate = Color(1.0, 1.0, 1.0, clampf(flicker, 0.3, 1.0))
+	else:
+		modulate = Color.WHITE
+
+
 func emit_fire_surface(direction: Vector2) -> Vector2:
 	if _body == null:
 		return global_position
@@ -129,6 +215,9 @@ func snapshot_state() -> Dictionary:
 		"name": display_name,
 		"position": {"x": position.x, "y": position.y},
 		"velocity": {"x": velocity.x, "y": velocity.y},
+		"hp": hp,
+		"alive": alive,
+		"inv": invuln_remaining,
 	}
 
 
