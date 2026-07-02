@@ -7,6 +7,7 @@ const BULLET_SCRIPT := preload("res://scripts/slime_bullet.gd")
 const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
 const BATTLE_HUD_SCRIPT := preload("res://scripts/battle_hud.gd")
 const BUFF_PANEL_SCRIPT := preload("res://scripts/buff_panel.gd")
+const UI_STYLE_SCRIPT := preload("res://scripts/ui_style.gd")
 
 const VIEWPORT_SIZE := Vector2(540.0, 960.0)
 const WORLD_RECT := Rect2(Vector2(20.0, 70.0), Vector2(500.0, 870.0))
@@ -48,10 +49,13 @@ var _fire_held: bool = false
 var _fire_cooldown_remaining: float = 0.0
 var _fire_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _world_scroll_offset: float = 0.0
+var _ui_anim_time: float = 0.0
 var _backdrop_stars: Array[Dictionary] = []
 var _director: Node2D
 var _battle_hud: Control
 var _buff_panel: Control
+var _ui_transition_tween: Tween
+var _ui_motion_tweens: Dictionary = {}
 var _local_buff_options: PackedInt32Array = PackedInt32Array()
 
 var _ui_root: Control
@@ -82,6 +86,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_ui_anim_time += delta
 	if _screen == SCREEN_GAME:
 		_update_gameplay(delta)
 		if _battle_active():
@@ -260,7 +265,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, VIEWPORT_SIZE), Color(0.034, 0.044, 0.047, 1.0), true)
+	draw_rect(Rect2(Vector2.ZERO, VIEWPORT_SIZE), UI_STYLE_SCRIPT.BG_COLOR, true)
 	if _screen == SCREEN_GAME:
 		_draw_game_world()
 	else:
@@ -298,6 +303,7 @@ func _create_ui() -> void:
 	_ui_root = Control.new()
 	_ui_root.name = "UiRoot"
 	_ui_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ui_root.theme = UI_STYLE_SCRIPT.build_theme()
 	ui_layer.add_child(_ui_root)
 	_ui_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
@@ -308,119 +314,142 @@ func _create_ui() -> void:
 
 func _create_start_page() -> void:
 	_start_page = _make_page("StartPage")
-	var rows := _make_centered_panel(_start_page, "StartPanel", Vector2(420.0, 300.0))
+	var rows := _make_centered_panel(_start_page, "StartPanel", Vector2(456.0, 440.0), "hero")
+	rows.alignment = BoxContainer.ALIGNMENT_CENTER
+	rows.add_theme_constant_override("separation", 14)
+
+	var kicker := _make_kicker_label("STEAM / LOCAL CO-OP LAB")
+	rows.add_child(kicker)
 
 	var title := _make_title_label("Steamworks Slime Lab")
+	title.add_theme_font_size_override("font_size", 32)
 	rows.add_child(title)
 
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0.0, 16.0)
-	rows.add_child(spacer)
+	var subtitle := _make_body_label("软体史莱姆 · 竖版弹幕 · Host 权威联机验证")
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rows.add_child(subtitle)
 
-	var single_player_button := _make_button("开始单人游戏", Vector2(280.0, 46.0))
+	var button_stack := VBoxContainer.new()
+	button_stack.add_theme_constant_override("separation", 10)
+	button_stack.custom_minimum_size = Vector2(320.0, 0.0)
+	rows.add_child(button_stack)
+
+	var single_player_button := _make_button("开始单人游戏", Vector2(320.0, 52.0), true)
 	single_player_button.pressed.connect(_on_start_single_player_pressed)
-	rows.add_child(single_player_button)
+	button_stack.add_child(single_player_button)
 
-	var multiplayer_button := _make_button("开始联机游戏", Vector2(280.0, 46.0))
+	var multiplayer_button := _make_button("开始联机游戏", Vector2(320.0, 48.0))
 	multiplayer_button.pressed.connect(_on_start_multiplayer_pressed)
-	rows.add_child(multiplayer_button)
+	button_stack.add_child(multiplayer_button)
+
+	var hint := _make_hint_label("WASD / 方向键移动    鼠标射击    Q 主动道具    T 表情轮")
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rows.add_child(hint)
 
 
 func _create_multiplayer_page() -> void:
 	_multiplayer_page = _make_page("MultiplayerPage")
-	var rows := _make_centered_panel(_multiplayer_page, "MultiplayerPanel", Vector2(500.0, 880.0))
+	var rows := _make_centered_panel(_multiplayer_page, "MultiplayerPanel", Vector2(500.0, 888.0), "hero")
+	rows.add_theme_constant_override("separation", 10)
+
+	var kicker := _make_kicker_label("READY ROOM")
+	rows.add_child(kicker)
 
 	var title := _make_title_label("Multiplayer")
+	title.add_theme_font_size_override("font_size", 30)
 	rows.add_child(title)
 
+	var session_section := _make_section_box(rows, "Session")
 	_multiplayer_status_label = Label.new()
 	_multiplayer_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	rows.add_child(_multiplayer_status_label)
+	_multiplayer_status_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.TEXT_COLOR)
+	session_section.add_child(_multiplayer_status_label)
 
 	var body := VBoxContainer.new()
-	body.add_theme_constant_override("separation", 14)
+	body.add_theme_constant_override("separation", 10)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	rows.add_child(body)
 
-	var controls := VBoxContainer.new()
-	controls.add_theme_constant_override("separation", 8)
-	body.add_child(controls)
+	var local_section := _make_section_box(body, "Local")
 
-	var host_local_button := _make_button("Host Local")
+	var host_local_button := _make_button("Host Local", Vector2(0.0, 42.0), true)
 	host_local_button.pressed.connect(_on_host_local_pressed)
-	controls.add_child(host_local_button)
+	local_section.add_child(host_local_button)
+
+	var local_row := HBoxContainer.new()
+	local_row.add_theme_constant_override("separation", 8)
+	local_section.add_child(local_row)
 
 	_address_input = LineEdit.new()
 	_address_input.text = "127.0.0.1"
 	_address_input.placeholder_text = "Address"
-	controls.add_child(_address_input)
+	_address_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UI_STYLE_SCRIPT.apply_input(_address_input)
+	local_row.add_child(_address_input)
 
 	_port_input = SpinBox.new()
 	_port_input.min_value = 1
 	_port_input.max_value = 65535
 	_port_input.value = DEFAULT_PORT
 	_port_input.step = 1
-	controls.add_child(_port_input)
+	_port_input.custom_minimum_size = Vector2(112.0, 0.0)
+	local_row.add_child(_port_input)
 
 	var join_local_button := _make_button("Join Local")
 	join_local_button.pressed.connect(_on_join_local_pressed)
-	controls.add_child(join_local_button)
+	local_section.add_child(join_local_button)
 
-	var separator_a := HSeparator.new()
-	controls.add_child(separator_a)
+	var steam_section := _make_section_box(body, "Steam")
 
 	_steam_status_label = Label.new()
 	_steam_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	controls.add_child(_steam_status_label)
+	_steam_status_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.MUTED_TEXT_COLOR)
+	steam_section.add_child(_steam_status_label)
 
 	_host_steam_button = _make_button("Host Steam")
 	_host_steam_button.pressed.connect(_on_host_steam_pressed)
-	controls.add_child(_host_steam_button)
+	steam_section.add_child(_host_steam_button)
 
 	_lobby_input = LineEdit.new()
 	_lobby_input.placeholder_text = "Steam lobby id"
-	controls.add_child(_lobby_input)
+	UI_STYLE_SCRIPT.apply_input(_lobby_input)
+	steam_section.add_child(_lobby_input)
 
 	_join_steam_button = _make_button("Join Steam by ID")
 	_join_steam_button.pressed.connect(_on_join_steam_pressed)
-	controls.add_child(_join_steam_button)
+	steam_section.add_child(_join_steam_button)
 
-	var separator_b := HSeparator.new()
-	controls.add_child(separator_b)
+	var ready_section := _make_section_box(body, "Ready Room")
 
 	_ready_room_label = Label.new()
 	_ready_room_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	controls.add_child(_ready_room_label)
+	_ready_room_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.TEXT_COLOR)
+	ready_section.add_child(_ready_room_label)
 
-	_start_battle_button = _make_button("Start Battle")
+	_start_battle_button = _make_button("Start Battle", Vector2(0.0, 46.0), true)
 	_start_battle_button.pressed.connect(_on_ready_start_battle_pressed)
-	controls.add_child(_start_battle_button)
+	ready_section.add_child(_start_battle_button)
 
-	var separator_c := HSeparator.new()
-	controls.add_child(separator_c)
+	var session_buttons := HBoxContainer.new()
+	session_buttons.add_theme_constant_override("separation", 8)
+	ready_section.add_child(session_buttons)
 
 	var leave_button := _make_button("Leave Session")
 	leave_button.pressed.connect(_on_multiplayer_leave_pressed)
-	controls.add_child(leave_button)
+	session_buttons.add_child(leave_button)
 
 	var back_button := _make_button("Back")
 	back_button.pressed.connect(_on_multiplayer_back_pressed)
-	controls.add_child(back_button)
+	session_buttons.add_child(back_button)
 
-	var log_column := VBoxContainer.new()
+	var log_column := _make_section_box(body, "Status Log")
 	log_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	log_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	log_column.add_theme_constant_override("separation", 8)
-	body.add_child(log_column)
-
-	var log_title := Label.new()
-	log_title.text = "Status Log"
-	log_title.add_theme_font_size_override("font_size", 16)
-	log_column.add_child(log_title)
 
 	_log_label = Label.new()
 	_log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_log_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.MUTED_TEXT_COLOR)
 	log_column.add_child(_log_label)
 
 
@@ -429,9 +458,10 @@ func _create_game_page() -> void:
 
 	var hud_panel := PanelContainer.new()
 	hud_panel.name = "GameHud"
-	hud_panel.position = Vector2(16.0, 56.0)
-	hud_panel.custom_minimum_size = Vector2(150.0, 0.0)
-	hud_panel.self_modulate = Color(1.0, 1.0, 1.0, 0.75)
+	hud_panel.position = Vector2(16.0, 88.0)
+	hud_panel.custom_minimum_size = Vector2(158.0, 0.0)
+	hud_panel.self_modulate = Color(1.0, 1.0, 1.0, 0.84)
+	UI_STYLE_SCRIPT.apply_panel(hud_panel, "section")
 	_game_page.add_child(hud_panel)
 
 	var margin := MarginContainer.new()
@@ -448,6 +478,7 @@ func _create_game_page() -> void:
 	_game_status_label = Label.new()
 	_game_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_game_status_label.add_theme_font_size_override("font_size", 11)
+	_game_status_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.MUTED_TEXT_COLOR)
 	rows.add_child(_game_status_label)
 
 	var leave_button := _make_button("Leave Game", Vector2(0.0, 30.0))
@@ -480,7 +511,12 @@ func _make_page(page_name: String) -> Control:
 	return page
 
 
-func _make_centered_panel(parent: Control, panel_name: String, minimum_size: Vector2) -> VBoxContainer:
+func _make_centered_panel(
+	parent: Control,
+	panel_name: String,
+	minimum_size: Vector2,
+	variant: String = "panel"
+) -> VBoxContainer:
 	var center := CenterContainer.new()
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(center)
@@ -489,6 +525,7 @@ func _make_centered_panel(parent: Control, panel_name: String, minimum_size: Vec
 	var panel := PanelContainer.new()
 	panel.name = panel_name
 	panel.custom_minimum_size = minimum_size
+	UI_STYLE_SCRIPT.apply_panel(panel, variant)
 	center.add_child(panel)
 
 	var margin := MarginContainer.new()
@@ -504,20 +541,135 @@ func _make_centered_panel(parent: Control, panel_name: String, minimum_size: Vec
 	return rows
 
 
+func _make_section_box(parent: Control, title_text: String) -> VBoxContainer:
+	var panel := PanelContainer.new()
+	panel.name = "%sSection" % title_text.replace(" ", "")
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UI_STYLE_SCRIPT.apply_panel(panel, "section")
+	parent.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	panel.add_child(margin)
+
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation", 8)
+	margin.add_child(rows)
+
+	var title := _make_kicker_label(title_text)
+	title.add_theme_font_size_override("font_size", 12)
+	rows.add_child(title)
+	return rows
+
+
 func _make_title_label(label_text: String) -> Label:
 	var label := Label.new()
 	label.text = label_text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 28)
+	label.add_theme_color_override("font_color", Color(0.93, 1.0, 0.78, 1.0))
+	label.add_theme_constant_override("outline_size", 4)
+	label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.56))
 	return label
 
 
-func _make_button(label: String, minimum_size: Vector2 = Vector2(0.0, 38.0)) -> Button:
+func _make_kicker_label(label_text: String) -> Label:
+	var label := Label.new()
+	label.text = label_text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.AMBER_COLOR)
+	return label
+
+
+func _make_body_label(label_text: String) -> Label:
+	var label := Label.new()
+	label.text = label_text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.TEXT_COLOR)
+	return label
+
+
+func _make_hint_label(label_text: String) -> Label:
+	var label := _make_body_label(label_text)
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.MUTED_TEXT_COLOR)
+	return label
+
+
+func _make_button(label: String, minimum_size: Vector2 = Vector2(0.0, 38.0), primary: bool = false) -> Button:
 	var button := Button.new()
 	button.text = label
 	button.custom_minimum_size = minimum_size
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	UI_STYLE_SCRIPT.apply_button(button, primary)
+	_wire_button_motion(button, primary)
 	return button
+
+
+func _wire_button_motion(button: Button, primary: bool) -> void:
+	button.resized.connect(_refresh_button_pivot.bind(button))
+	button.mouse_entered.connect(_on_ui_button_hovered.bind(button, primary))
+	button.mouse_exited.connect(_on_ui_button_unhovered.bind(button))
+	button.button_down.connect(_on_ui_button_pressed.bind(button))
+	button.button_up.connect(_on_ui_button_released.bind(button, primary))
+
+
+func _refresh_button_pivot(button: Button) -> void:
+	if button == null or not is_instance_valid(button):
+		return
+	button.pivot_offset = button.size * 0.5
+
+
+func _on_ui_button_hovered(button: Button, primary: bool) -> void:
+	if button.disabled:
+		return
+	var target_color := Color(1.04, 1.08, 1.0, 1.0) if primary else Color.WHITE
+	_tween_ui_control(button, Vector2(1.025, 1.025), target_color, 0.12, Tween.TRANS_QUAD, Tween.EASE_OUT)
+
+
+func _on_ui_button_unhovered(button: Button) -> void:
+	_tween_ui_control(button, Vector2.ONE, Color.WHITE, 0.16, Tween.TRANS_QUAD, Tween.EASE_OUT)
+
+
+func _on_ui_button_pressed(button: Button) -> void:
+	if button.disabled:
+		return
+	_tween_ui_control(button, Vector2(0.98, 0.98), Color(0.92, 1.0, 0.88, 1.0), 0.06, Tween.TRANS_QUAD, Tween.EASE_OUT)
+
+
+func _on_ui_button_released(button: Button, primary: bool) -> void:
+	if button.disabled:
+		return
+	var target_scale := Vector2(1.025, 1.025) if button.get_global_rect().has_point(get_global_mouse_position()) else Vector2.ONE
+	var target_color := Color(1.04, 1.08, 1.0, 1.0) if primary and target_scale != Vector2.ONE else Color.WHITE
+	_tween_ui_control(button, target_scale, target_color, 0.18, Tween.TRANS_BACK, Tween.EASE_OUT)
+
+
+func _tween_ui_control(
+	control: Control,
+	target_scale: Vector2,
+	target_modulate: Color,
+	duration: float,
+	trans_type: Tween.TransitionType,
+	ease_type: Tween.EaseType
+) -> void:
+	if control == null or not is_instance_valid(control):
+		return
+	var key := control.get_instance_id()
+	var previous_tween := _ui_motion_tweens.get(key) as Tween
+	if previous_tween != null and previous_tween.is_valid():
+		previous_tween.kill()
+	var tween := create_tween()
+	_ui_motion_tweens[key] = tween
+	tween.set_parallel(true)
+	tween.tween_property(control, "scale", target_scale, duration).set_trans(trans_type).set_ease(ease_type)
+	tween.tween_property(control, "self_modulate", target_modulate, duration).set_trans(trans_type).set_ease(ease_type)
 
 
 func _create_expression_wheel() -> void:
@@ -541,19 +693,77 @@ func _show_game_page() -> void:
 
 
 func _set_screen(screen_name: String) -> void:
+	var previous_page := _page_for_screen(_screen)
+	var next_page := _page_for_screen(screen_name)
 	_screen = screen_name
-	if _start_page != null:
-		_start_page.visible = screen_name == SCREEN_START
-	if _multiplayer_page != null:
-		_multiplayer_page.visible = screen_name == SCREEN_MULTIPLAYER
-	if _game_page != null:
-		_game_page.visible = screen_name == SCREEN_GAME
+	_transition_to_page(previous_page, next_page)
 	if screen_name != SCREEN_GAME and _expression_wheel != null:
 		_expression_wheel.call("close")
 	if screen_name != SCREEN_GAME:
 		_fire_held = false
 		_fire_cooldown_remaining = 0.0
 	queue_redraw()
+
+
+func _page_for_screen(screen_name: String) -> Control:
+	match screen_name:
+		SCREEN_START:
+			return _start_page
+		SCREEN_MULTIPLAYER:
+			return _multiplayer_page
+		SCREEN_GAME:
+			return _game_page
+		_:
+			return null
+
+
+func _transition_to_page(previous_page: Control, next_page: Control) -> void:
+	if next_page == null:
+		return
+	if _ui_transition_tween != null and _ui_transition_tween.is_valid():
+		_ui_transition_tween.kill()
+
+	if previous_page == null or previous_page == next_page or not previous_page.visible:
+		_show_page_immediate(next_page)
+		return
+
+	next_page.visible = true
+	next_page.modulate.a = 0.0
+	next_page.position = Vector2(0.0, 18.0)
+	next_page.scale = Vector2(0.985, 0.985)
+
+	_ui_transition_tween = create_tween()
+	_ui_transition_tween.set_parallel(true)
+	_ui_transition_tween.tween_property(previous_page, "modulate:a", 0.0, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_ui_transition_tween.tween_property(previous_page, "position:y", -14.0, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_ui_transition_tween.tween_property(next_page, "modulate:a", 1.0, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_ui_transition_tween.tween_property(next_page, "position:y", 0.0, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_ui_transition_tween.tween_property(next_page, "scale", Vector2.ONE, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_ui_transition_tween.chain().tween_callback(_finish_page_transition.bind(previous_page, next_page))
+
+
+func _show_page_immediate(next_page: Control) -> void:
+	for page in [_start_page, _multiplayer_page, _game_page]:
+		var control := page as Control
+		if control == null:
+			continue
+		control.visible = control == next_page
+		control.modulate.a = 1.0 if control == next_page else 0.0
+		control.position = Vector2.ZERO
+		control.scale = Vector2.ONE
+
+
+func _finish_page_transition(previous_page: Control, next_page: Control) -> void:
+	if previous_page != null and previous_page != next_page:
+		previous_page.visible = false
+		previous_page.modulate.a = 0.0
+		previous_page.position = Vector2.ZERO
+		previous_page.scale = Vector2.ONE
+	if next_page != null:
+		next_page.visible = true
+		next_page.modulate.a = 1.0
+		next_page.position = Vector2.ZERO
+		next_page.scale = Vector2.ONE
 
 
 func _on_start_single_player_pressed() -> void:
@@ -1127,7 +1337,16 @@ func _dict_to_vector(data: Variant) -> Vector2:
 
 
 func _draw_menu_background() -> void:
-	var grid_color := Color(0.33, 0.55, 0.49, 0.08)
+	for band_index in range(9):
+		var y := float(band_index) * VIEWPORT_SIZE.y / 9.0
+		var alpha := 0.05 + float(band_index % 2) * 0.025
+		draw_rect(Rect2(Vector2(0.0, y), Vector2(VIEWPORT_SIZE.x, VIEWPORT_SIZE.y / 9.0)), Color(0.06, 0.11, 0.09, alpha), true)
+
+	var scan_y := fposmod(_ui_anim_time * 52.0, VIEWPORT_SIZE.y + 120.0) - 60.0
+	draw_rect(Rect2(Vector2(0.0, scan_y), Vector2(VIEWPORT_SIZE.x, 2.0)), Color(0.42, 1.0, 0.66, 0.22), true)
+	draw_rect(Rect2(Vector2(0.0, scan_y + 7.0), Vector2(VIEWPORT_SIZE.x, 1.0)), Color(1.0, 0.72, 0.24, 0.12), true)
+
+	var grid_color := Color(0.33, 0.75, 0.55, 0.10)
 	var step := 48.0
 	for x_index in range(int(VIEWPORT_SIZE.x / step) + 1):
 		var x := float(x_index) * step
@@ -1136,13 +1355,23 @@ func _draw_menu_background() -> void:
 		var y := float(y_index) * step
 		draw_line(Vector2(0.0, y), Vector2(VIEWPORT_SIZE.x, y), grid_color, 1.0)
 
+	var rail_offset := fposmod(_ui_anim_time * 34.0, 160.0)
+	for index in range(-2, 8):
+		var x0 := float(index) * 124.0 - rail_offset
+		draw_line(Vector2(x0, VIEWPORT_SIZE.y), Vector2(x0 + 230.0, 0.0), Color(0.28, 0.85, 0.90, 0.11), 2.0)
+		draw_line(Vector2(VIEWPORT_SIZE.x - x0, VIEWPORT_SIZE.y), Vector2(VIEWPORT_SIZE.x - x0 - 230.0, 0.0), Color(1.0, 0.45, 0.32, 0.08), 2.0)
+
 
 func _draw_game_world() -> void:
-	draw_rect(WORLD_RECT.grow(18.0), Color(0.0, 0.0, 0.0, 0.20), true)
-	draw_rect(WORLD_RECT, Color(0.054, 0.074, 0.070, 1.0), true)
+	draw_rect(WORLD_RECT.grow(18.0), Color(0.0, 0.0, 0.0, 0.28), true)
+	draw_rect(WORLD_RECT.grow(10.0), Color(0.09, 0.16, 0.13, 0.35), true)
+	draw_rect(WORLD_RECT, Color(0.044, 0.066, 0.064, 1.0), true)
 	_draw_world_grid()
 	_draw_backdrop_stars()
-	draw_rect(WORLD_RECT, Color(0.40, 0.62, 0.54, 0.42), false, 2.0)
+	var scan_y := WORLD_RECT.position.y + fposmod(_ui_anim_time * 80.0, WORLD_RECT.size.y)
+	draw_line(Vector2(WORLD_RECT.position.x, scan_y), Vector2(WORLD_RECT.end.x, scan_y), Color(0.42, 1.0, 0.66, 0.13), 1.0)
+	draw_rect(WORLD_RECT.grow(2.0), Color(1.0, 0.72, 0.24, 0.18), false, 1.0)
+	draw_rect(WORLD_RECT, Color(0.40, 0.82, 0.58, 0.62), false, 2.0)
 
 
 func _draw_world_grid() -> void:

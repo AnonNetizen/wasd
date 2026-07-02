@@ -35,9 +35,21 @@ func _run() -> void:
 		return
 
 	var ui_root := main_scene.get("_ui_root") as Control
+	var start_page := main_scene.get("_start_page") as Control
+	var multiplayer_page := main_scene.get("_multiplayer_page") as Control
 	var game_page := main_scene.get("_game_page") as Control
 	_check(ui_root.mouse_filter == Control.MOUSE_FILTER_IGNORE, "ui root does not swallow mouse input")
 	_check(game_page.mouse_filter == Control.MOUSE_FILTER_IGNORE, "game page does not swallow mouse input")
+	_check(ui_root.theme != null, "arcade ui theme is installed")
+	for index in range(20):
+		await process_frame
+	_check(start_page != null and not start_page.visible, "start page hidden after game transition")
+	_check(multiplayer_page != null and not multiplayer_page.visible, "multiplayer page hidden after game transition")
+	_check(game_page != null and game_page.visible, "game page visible after game transition")
+	var battle_hud := main_scene.get("_battle_hud") as Control
+	var buff_panel := main_scene.get("_buff_panel") as Control
+	_check(battle_hud != null and battle_hud.get_node_or_null("ActiveItemLabel") != null, "battle HUD exposes active item slot label")
+	_check(buff_panel != null and buff_panel.get_node_or_null("Dimmer") != null, "buff panel exposes animated dimmer")
 	_check(InputMap.has_action("active_item"), "active item input action registered")
 	var q_bound := false
 	for event in InputMap.action_get_events("active_item"):
@@ -118,6 +130,8 @@ func _run() -> void:
 	var obstacle_ids_for_block: Array = obstacles.keys()
 	if not obstacle_ids_for_block.is_empty():
 		var blocking_obstacle := obstacles[obstacle_ids_for_block[0]] as Node2D
+		blocking_obstacle.global_position = Vector2(270.0, 520.0)
+		blocking_obstacle.set("radius", 48.0)
 		player.call("revive_full")
 		player.set("invuln_remaining", 0.0)
 		player.call("warp_to", blocking_obstacle.global_position)

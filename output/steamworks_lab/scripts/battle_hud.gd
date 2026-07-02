@@ -4,19 +4,29 @@ extends Control
 signal restart_requested()
 signal leave_requested()
 
+const UI_STYLE_SCRIPT := preload("res://scripts/ui_style.gd")
+
 const HEART_RADIUS: float = 11.0
 const HEART_SPACING: float = 30.0
 const HEART_ORIGIN := Vector2(34.0, 34.0)
 const BOSS_BAR_RECT := Rect2(Vector2(70.0, 14.0), Vector2(400.0, 14.0))
+const ACTIVE_SLOT_RECT := Rect2(Vector2(22.0, 54.0), Vector2(208.0, 34.0))
 
 var _hp: int = 3
 var _max_hp: int = 3
 var _alive: bool = true
+var _active_item_id: int = -1
+var _active_item_name: String = "空"
+var _active_item_held: bool = false
 var _boss_hp: float = 0.0
 var _boss_max_hp: float = 0.0
 var _boss_visible: bool = false
 var _is_authority: bool = true
 var _game_over_visible: bool = false
+var _hp_flash: float = 0.0
+var _active_slot_flash: float = 0.0
+var _boss_flash: float = 0.0
+var _hud_tweens: Dictionary = {}
 
 var _time_label: Label
 var _tier_label: Label
@@ -30,11 +40,27 @@ var _restart_button: Button
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	set_process(true)
 	_create_labels()
 	_create_game_over_panel()
 
 
+func _process(delta: float) -> void:
+	if _hp_flash <= 0.0 and _active_slot_flash <= 0.0 and _boss_flash <= 0.0:
+		return
+	_hp_flash = maxf(0.0, _hp_flash - delta * 3.6)
+	_active_slot_flash = maxf(0.0, _active_slot_flash - delta * 3.0)
+	_boss_flash = maxf(0.0, _boss_flash - delta * 4.2)
+	queue_redraw()
+
+
 func refresh(state: Dictionary) -> void:
+	var previous_hp := _hp
+	var previous_active_id := _active_item_id
+	var previous_active_held := _active_item_held
+	var previous_boss_hp := _boss_hp
+	var previous_boss_visible := _boss_visible
+
 	_hp = int(state.get("hp", 0))
 	_max_hp = int(state.get("max_hp", 3))
 	_alive = bool(state.get("alive", true))
@@ -48,19 +74,18 @@ func refresh(state: Dictionary) -> void:
 	_time_label.text = "%02d:%02d" % [total_seconds / 60, total_seconds % 60]
 	_tier_label.text = "Tier %d" % int(state.get("tier", 0))
 	var active_item: Dictionary = state.get("active_item", {})
-	var active_item_name := String(active_item.get("name", "空"))
-	var active_item_held := bool(active_item.get("held", false))
-	_active_item_label.text = "Q %s" % active_item_name
+	_active_item_id = int(active_item.get("id", -1))
+	_active_item_name = String(active_item.get("name", "空"))
+	_active_item_held = bool(active_item.get("held", false))
+	_active_item_label.text = _active_item_name
 	_active_item_label.add_theme_color_override(
 		"font_color",
-		Color(0.94, 1.0, 0.74, 0.96) if active_item_held else Color(0.58, 0.66, 0.62, 0.82)
+		Color(0.96, 1.0, 0.70, 0.98) if _active_item_held else UI_STYLE_SCRIPT.MUTED_TEXT_COLOR
 	)
 	_spectator_label.visible = not _alive and not bool(state.get("game_over", false))
 
 	var game_over := bool(state.get("game_over", false))
 	if game_over != _game_over_visible:
-		_game_over_visible = game_over
-		_game_over_panel.visible = game_over
 		if game_over:
 			_game_over_stats_label.text = "存活时间 %02d:%02d\nTier %d · 击破 Boss %d" % [
 				total_seconds / 60,
@@ -68,50 +93,151 @@ func refresh(state: Dictionary) -> void:
 				int(state.get("tier", 0)),
 				int(state.get("boss_kills", 0)),
 			]
+		_set_game_over_visible(game_over)
 	_restart_button.visible = _is_authority
+
+	if _hp != previous_hp:
+		_hp_flash = 1.0
+		_pulse_control(_time_label, 1.08)
+	if _active_item_id != previous_active_id or _active_item_held != previous_active_held:
+		_active_slot_flash = 1.0
+		_pulse_control(_active_item_label, 1.10)
+	if _boss_visible != previous_boss_visible or (_boss_visible and _boss_hp < previous_boss_hp):
+		_boss_flash = 1.0
 	queue_redraw()
 
 
 func _draw() -> void:
+	draw_rect(Rect2(Vector2(18.0, 18.0), Vector2(208.0, 74.0)), Color(0.0, 0.0, 0.0, 0.18), true)
 	for index in range(_max_hp):
 		var center := HEART_ORIGIN + Vector2(float(index) * HEART_SPACING, 0.0)
 		if index < _hp:
-			draw_circle(center, HEART_RADIUS, Color(0.94, 0.30, 0.34, 0.95))
-			draw_circle(center, HEART_RADIUS * 0.55, Color(1.0, 0.62, 0.60, 0.85))
+			var flash := _hp_flash * 0.20
+			draw_circle(center, HEART_RADIUS + _hp_flash * 1.6, Color(1.0, 0.38 + flash, 0.34, 0.95))
+			draw_circle(center, HEART_RADIUS * 0.55, Color(1.0, 0.70, 0.58, 0.86))
 		else:
-			draw_circle(center, HEART_RADIUS, Color(0.30, 0.30, 0.32, 0.65))
-		draw_circle(center, HEART_RADIUS, Color(1.0, 0.86, 0.84, 0.85), false, 1.6, true)
+			draw_circle(center, HEART_RADIUS, Color(0.16, 0.20, 0.19, 0.72))
+		draw_circle(center, HEART_RADIUS + _hp_flash * 1.6, Color(1.0, 0.86, 0.74, 0.85), false, 1.6, true)
+
+	var slot_fill := Color(0.030, 0.046, 0.046, 0.88)
+	var slot_edge := Color(0.24, 0.48, 0.42, 0.74)
+	if _active_item_held:
+		slot_fill = Color(0.080, 0.180, 0.120, 0.94).lerp(Color(0.18, 0.42, 0.20, 0.98), _active_slot_flash)
+		slot_edge = UI_STYLE_SCRIPT.SLIME_COLOR.lerp(UI_STYLE_SCRIPT.AMBER_COLOR, _active_slot_flash * 0.55)
+	_draw_capsule(ACTIVE_SLOT_RECT, slot_fill, slot_edge, 2.0)
+	_draw_capsule(Rect2(ACTIVE_SLOT_RECT.position + Vector2(7.0, 6.0), Vector2(34.0, 22.0)), Color(0.0, 0.0, 0.0, 0.35), UI_STYLE_SCRIPT.AMBER_COLOR, 1.4)
+	var font := get_theme_default_font()
+	_draw_centered_text(font, "Q", ACTIVE_SLOT_RECT.position + Vector2(24.0, 23.0), 15, Color(1.0, 0.88, 0.40, 1.0))
+
 	if _boss_visible:
 		draw_rect(BOSS_BAR_RECT.grow(2.0), Color(0.06, 0.05, 0.06, 0.85), true)
 		var fill_ratio := clampf(_boss_hp / _boss_max_hp, 0.0, 1.0)
 		var fill_rect := Rect2(BOSS_BAR_RECT.position, Vector2(BOSS_BAR_RECT.size.x * fill_ratio, BOSS_BAR_RECT.size.y))
-		draw_rect(fill_rect, Color(0.86, 0.24, 0.30, 0.95), true)
-		draw_rect(BOSS_BAR_RECT.grow(2.0), Color(1.0, 0.66, 0.54, 0.9), false, 1.6)
+		var fill_color := Color(0.86, 0.24, 0.30, 0.95).lerp(Color(1.0, 0.82, 0.34, 0.98), _boss_flash)
+		draw_rect(fill_rect, fill_color, true)
+		draw_rect(BOSS_BAR_RECT.grow(2.0), Color(1.0, 0.66 + _boss_flash * 0.24, 0.54, 0.9), false, 1.8)
+
+
+func _draw_capsule(rect: Rect2, fill_color: Color, outline_color: Color, outline_width: float) -> void:
+	var radius := rect.size.y * 0.5
+	var left_center := rect.position + Vector2(radius, radius)
+	var right_center := rect.position + Vector2(rect.size.x - radius, radius)
+	draw_rect(Rect2(rect.position + Vector2(radius, 0.0), Vector2(rect.size.x - radius * 2.0, rect.size.y)), fill_color, true)
+	draw_circle(left_center, radius, fill_color)
+	draw_circle(right_center, radius, fill_color)
+	draw_line(rect.position + Vector2(radius, 0.0), rect.position + Vector2(rect.size.x - radius, 0.0), outline_color, outline_width)
+	draw_line(rect.position + Vector2(radius, rect.size.y), rect.position + Vector2(rect.size.x - radius, rect.size.y), outline_color, outline_width)
+	draw_arc(left_center, radius, PI * 0.5, PI * 1.5, 16, outline_color, outline_width, true)
+	draw_arc(right_center, radius, PI * -0.5, PI * 0.5, 16, outline_color, outline_width, true)
+
+
+func _draw_centered_text(font: Font, text: String, center: Vector2, font_size: int, color: Color) -> void:
+	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
+	draw_string(
+		font,
+		center + Vector2(text_size.x * -0.5, text_size.y * 0.35),
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		font_size,
+		color
+	)
+
+
+func _refresh_control_pivot(control: Control) -> void:
+	if control == null or not is_instance_valid(control):
+		return
+	control.pivot_offset = control.size * 0.5
+
+
+func _pulse_control(control: Control, peak_scale: float) -> void:
+	if control == null or not is_instance_valid(control):
+		return
+	_refresh_control_pivot(control)
+	var key := control.get_instance_id()
+	var previous_tween := _hud_tweens.get(key) as Tween
+	if previous_tween != null and previous_tween.is_valid():
+		previous_tween.kill()
+	var tween := create_tween()
+	_hud_tweens[key] = tween
+	tween.tween_property(control, "scale", Vector2(peak_scale, peak_scale), 0.07).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(control, "scale", Vector2.ONE, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _set_game_over_visible(visible_now: bool) -> void:
+	_game_over_visible = visible_now
+	var key := _game_over_panel.get_instance_id()
+	var previous_tween := _hud_tweens.get(key) as Tween
+	if previous_tween != null and previous_tween.is_valid():
+		previous_tween.kill()
+
+	if visible_now:
+		_game_over_panel.visible = true
+		_game_over_panel.modulate.a = 0.0
+		_game_over_panel.scale = Vector2(0.92, 0.92)
+		_refresh_control_pivot(_game_over_panel)
+		var tween := create_tween()
+		_hud_tweens[key] = tween
+		tween.set_parallel(true)
+		tween.tween_property(_game_over_panel, "modulate:a", 1.0, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.tween_property(_game_over_panel, "scale", Vector2.ONE, 0.26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		return
+
+	var tween := create_tween()
+	_hud_tweens[key] = tween
+	tween.set_parallel(true)
+	tween.tween_property(_game_over_panel, "modulate:a", 0.0, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(_game_over_panel, "scale", Vector2(0.96, 0.96), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.chain().tween_callback(func() -> void: _game_over_panel.visible = false)
 
 
 func _create_labels() -> void:
 	_time_label = Label.new()
 	_time_label.name = "TimeLabel"
 	_time_label.position = Vector2(244.0, 22.0)
-	_time_label.add_theme_font_size_override("font_size", 20)
-	_time_label.add_theme_color_override("font_color", Color(0.92, 0.98, 0.94, 0.95))
+	_time_label.add_theme_font_size_override("font_size", 22)
+	_time_label.add_theme_color_override("font_color", Color(0.94, 1.0, 0.88, 0.98))
+	_time_label.add_theme_constant_override("outline_size", 3)
+	_time_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.62))
 	add_child(_time_label)
+	_time_label.resized.connect(_refresh_control_pivot.bind(_time_label))
 
 	_tier_label = Label.new()
 	_tier_label.name = "TierLabel"
 	_tier_label.position = Vector2(444.0, 26.0)
 	_tier_label.add_theme_font_size_override("font_size", 15)
-	_tier_label.add_theme_color_override("font_color", Color(0.86, 0.92, 0.66, 0.92))
+	_tier_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.AMBER_COLOR)
 	add_child(_tier_label)
 
 	_active_item_label = Label.new()
 	_active_item_label.name = "ActiveItemLabel"
-	_active_item_label.text = "Q 空"
-	_active_item_label.position = Vector2(24.0, 56.0)
-	_active_item_label.size = Vector2(210.0, 28.0)
+	_active_item_label.text = "空"
+	_active_item_label.position = Vector2(70.0, 60.0)
+	_active_item_label.size = Vector2(150.0, 24.0)
 	_active_item_label.add_theme_font_size_override("font_size", 15)
-	_active_item_label.add_theme_color_override("font_color", Color(0.58, 0.66, 0.62, 0.82))
+	_active_item_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.MUTED_TEXT_COLOR)
 	add_child(_active_item_label)
+	_active_item_label.resized.connect(_refresh_control_pivot.bind(_active_item_label))
 
 	_spectator_label = Label.new()
 	_spectator_label.name = "SpectatorLabel"
@@ -120,6 +246,8 @@ func _create_labels() -> void:
 	_spectator_label.visible = false
 	_spectator_label.add_theme_font_size_override("font_size", 22)
 	_spectator_label.add_theme_color_override("font_color", Color(0.88, 0.88, 0.92, 0.85))
+	_spectator_label.add_theme_constant_override("outline_size", 4)
+	_spectator_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.64))
 	add_child(_spectator_label)
 
 
@@ -134,7 +262,9 @@ func _create_game_over_panel() -> void:
 	_game_over_panel.name = "GameOverPanel"
 	_game_over_panel.custom_minimum_size = Vector2(340.0, 260.0)
 	_game_over_panel.visible = false
+	UI_STYLE_SCRIPT.apply_panel(_game_over_panel, "danger")
 	center.add_child(_game_over_panel)
+	_game_over_panel.resized.connect(_refresh_control_pivot.bind(_game_over_panel))
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 24)
@@ -162,11 +292,13 @@ func _create_game_over_panel() -> void:
 	_restart_button = Button.new()
 	_restart_button.text = "再来一局"
 	_restart_button.custom_minimum_size = Vector2(0.0, 42.0)
+	UI_STYLE_SCRIPT.apply_button(_restart_button, true)
 	_restart_button.pressed.connect(func() -> void: restart_requested.emit())
 	rows.add_child(_restart_button)
 
 	var leave_button := Button.new()
 	leave_button.text = "离开"
 	leave_button.custom_minimum_size = Vector2(0.0, 38.0)
+	UI_STYLE_SCRIPT.apply_button(leave_button)
 	leave_button.pressed.connect(func() -> void: leave_requested.emit())
 	rows.add_child(leave_button)

@@ -3,6 +3,8 @@ extends Control
 
 signal option_chosen(option_index: int)
 
+const UI_STYLE_SCRIPT := preload("res://scripts/ui_style.gd")
+
 var _dimmer: ColorRect
 var _panel: PanelContainer
 var _title_label: Label
@@ -11,6 +13,7 @@ var _waiting_label: Label
 var _option_buttons: Array[Button] = []
 var _countdown_remaining: float = 0.0
 var _countdown_enabled: bool = false
+var _panel_tween: Tween
 
 
 func _ready() -> void:
@@ -28,9 +31,7 @@ func _process(delta: float) -> void:
 
 
 func open_with_options(options: Array[Dictionary], timeout: float) -> void:
-	visible = true
-	_dimmer.visible = true
-	_panel.visible = true
+	_animate_open()
 	_waiting_label.visible = false
 	_title_label.text = "选择一项强化"
 	_countdown_enabled = timeout > 0.0
@@ -48,9 +49,7 @@ func open_with_options(options: Array[Dictionary], timeout: float) -> void:
 
 
 func show_waiting(text: String) -> void:
-	visible = true
-	_dimmer.visible = true
-	_panel.visible = true
+	_animate_open()
 	_title_label.text = "强化选择"
 	for button in _option_buttons:
 		button.visible = false
@@ -68,8 +67,44 @@ func is_waiting() -> bool:
 
 
 func close() -> void:
-	visible = false
 	_countdown_enabled = false
+	if not visible:
+		return
+	_animate_close()
+
+
+func _animate_open() -> void:
+	if _panel_tween != null and _panel_tween.is_valid():
+		_panel_tween.kill()
+	visible = true
+	_dimmer.visible = true
+	_panel.visible = true
+	_dimmer.color = Color(0.02, 0.03, 0.04, 0.0)
+	_panel.modulate.a = 0.0
+	_panel.scale = Vector2(0.92, 0.92)
+	_panel.pivot_offset = _panel.size * 0.5
+	_panel_tween = create_tween()
+	_panel_tween.set_parallel(true)
+	_panel_tween.tween_property(_dimmer, "color:a", 0.68, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_panel_tween.tween_property(_panel, "modulate:a", 1.0, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_panel_tween.tween_property(_panel, "scale", Vector2.ONE, 0.26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _animate_close() -> void:
+	if _panel_tween != null and _panel_tween.is_valid():
+		_panel_tween.kill()
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_panel_tween = create_tween()
+	_panel_tween.set_parallel(true)
+	_panel_tween.tween_property(_dimmer, "color:a", 0.0, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_panel_tween.tween_property(_panel, "modulate:a", 0.0, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_panel_tween.tween_property(_panel, "scale", Vector2(0.96, 0.96), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_panel_tween.chain().tween_callback(_finish_close)
+
+
+func _finish_close() -> void:
+	visible = false
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _create_widgets() -> void:
@@ -88,7 +123,9 @@ func _create_widgets() -> void:
 	_panel = PanelContainer.new()
 	_panel.name = "BuffPanel"
 	_panel.custom_minimum_size = Vector2(380.0, 420.0)
+	UI_STYLE_SCRIPT.apply_panel(_panel, "hero")
 	center.add_child(_panel)
+	_panel.resized.connect(func() -> void: _panel.pivot_offset = _panel.size * 0.5)
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 22)
@@ -105,7 +142,9 @@ func _create_widgets() -> void:
 	_title_label.text = "选择一项强化"
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_label.add_theme_font_size_override("font_size", 24)
-	_title_label.add_theme_color_override("font_color", Color(0.92, 0.98, 0.80, 0.98))
+	_title_label.add_theme_color_override("font_color", Color(0.95, 1.0, 0.74, 0.98))
+	_title_label.add_theme_constant_override("outline_size", 3)
+	_title_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.52))
 	rows.add_child(_title_label)
 
 	_countdown_label = Label.new()
@@ -119,6 +158,7 @@ func _create_widgets() -> void:
 		var button := Button.new()
 		button.custom_minimum_size = Vector2(0.0, 84.0)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		UI_STYLE_SCRIPT.apply_button(button)
 		button.pressed.connect(_on_option_pressed.bind(index))
 		rows.add_child(button)
 		_option_buttons.append(button)
