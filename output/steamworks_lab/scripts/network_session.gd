@@ -31,16 +31,23 @@ var _lobby_id: String = ""
 
 
 func _ready() -> void:
+	_ensure_transport()
+	_connect_multiplayer_signals()
+
+
+func _ensure_transport() -> void:
+	if _transport != null:
+		return
 	_transport = TRANSPORT_SCRIPT.new() as Node
 	_transport.name = "TransportAdapter"
 	add_child(_transport)
 	_transport.connect("steam_peer_ready", Callable(self, "_on_steam_peer_ready"))
 	_transport.connect("steam_failed", Callable(self, "_emit_status"))
 	_transport.connect("steam_status", Callable(self, "_emit_status"))
-	_connect_multiplayer_signals()
 
 
 func host_local(port: int = DEFAULT_PORT) -> void:
+	_ensure_transport()
 	leave_session()
 	var result: Dictionary = _transport.call("create_local_server", port, MAX_PLAYERS)
 	if not bool(result.get("ok", false)):
@@ -51,6 +58,7 @@ func host_local(port: int = DEFAULT_PORT) -> void:
 
 
 func join_local(address: String = "127.0.0.1", port: int = DEFAULT_PORT) -> void:
+	_ensure_transport()
 	leave_session()
 	var result: Dictionary = _transport.call("create_local_client", address, port)
 	if not bool(result.get("ok", false)):
@@ -61,6 +69,7 @@ func join_local(address: String = "127.0.0.1", port: int = DEFAULT_PORT) -> void
 
 
 func host_steam() -> void:
+	_ensure_transport()
 	leave_session()
 	if not bool(_transport.call("host_steam_lobby", MAX_PLAYERS)):
 		return
@@ -68,6 +77,7 @@ func host_steam() -> void:
 
 
 func join_steam_lobby(lobby_id: String) -> void:
+	_ensure_transport()
 	leave_session()
 	if not bool(_transport.call("join_steam_lobby", lobby_id)):
 		return
@@ -78,7 +88,8 @@ func leave_session() -> void:
 	if multiplayer.multiplayer_peer != null:
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = null
-	_transport.call("leave_steam_lobby")
+	if _transport != null:
+		_transport.call("leave_steam_lobby")
 	_is_host = false
 	_active_transport = "offline"
 	_lobby_id = ""
@@ -104,15 +115,24 @@ func local_peer_id() -> int:
 
 
 func steam_status_text() -> String:
+	_ensure_transport()
 	if _transport == null:
 		return "Steam transport adapter is not ready."
 	return String(_transport.call("steam_diagnostics"))
 
 
 func steam_available() -> bool:
+	_ensure_transport()
 	if _transport == null:
 		return false
 	return bool(_transport.call("steam_available"))
+
+
+func steam_game_language() -> String:
+	_ensure_transport()
+	if _transport == null:
+		return ""
+	return String(_transport.call("steam_game_language"))
 
 
 func send_input_to_host(input_vector: Vector2) -> void:

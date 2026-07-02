@@ -73,6 +73,24 @@ func steam_diagnostics() -> String:
 	return "Steam transport is available."
 
 
+func steam_game_language() -> String:
+	_refresh_steam()
+	if _steam == null:
+		return ""
+	for method_name in [
+		"getCurrentGameLanguage",
+		"get_current_game_language",
+		"getSteamUILanguage",
+		"get_steam_ui_language",
+	]:
+		if not _steam.has_method(method_name):
+			continue
+		var value := String(_steam.call(method_name)).strip_edges()
+		if value != "":
+			return value
+	return ""
+
+
 func host_steam_lobby(max_players: int) -> bool:
 	if not steam_available():
 		steam_failed.emit(steam_diagnostics())

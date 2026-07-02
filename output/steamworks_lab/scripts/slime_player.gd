@@ -2,6 +2,7 @@ class_name SteamLabSlimePlayer
 extends Node2D
 
 const BODY_SCRIPT := preload("res://scripts/slime_body.gd")
+const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 const FOLLOW_DISTANCE: float = 82.0
 const REMOTE_INTERPOLATION: float = 14.0
 const EXPRESSION_LABEL_SIZE := Vector2(190.0, 42.0)
@@ -29,6 +30,7 @@ var _expression_time_remaining: float = 0.0
 var _bullet_fill_color: Color = Color(0.82, 1.0, 0.70, 0.96)
 var _bullet_edge_color: Color = Color(0.98, 1.0, 0.84, 0.98)
 var _battle_timers_paused: bool = false
+var _locale: String = LAB_LOCALE_SCRIPT.LOCALE_ZH_CN
 
 
 func _ready() -> void:
@@ -55,6 +57,12 @@ func set_player_info(new_peer_id: int, new_display_name: String, palette_index: 
 	display_name = new_display_name
 	_palette_index = palette_index
 	_apply_player_visuals()
+
+
+func set_locale(locale: String) -> void:
+	_locale = LAB_LOCALE_SCRIPT.normalize_locale(locale)
+	if _name_label != null:
+		_name_label.text = _display_name_text()
 
 
 func set_local_or_host_simulated(enabled: bool) -> void:
@@ -154,7 +162,7 @@ func revive_full() -> void:
 	invuln_remaining = 0.0
 	modulate = Color.WHITE
 	if _name_label != null:
-		_name_label.text = display_name
+		_name_label.text = _display_name_text()
 
 
 func set_move_speed(speed: float) -> void:
@@ -183,7 +191,7 @@ func _enter_spectator() -> void:
 	invuln_remaining = 0.0
 	modulate = Color(1.0, 1.0, 1.0, SPECTATOR_ALPHA)
 	if _name_label != null:
-		_name_label.text = "%s (阵亡)" % display_name
+		_name_label.text = _display_name_text()
 	set_input_vector(Vector2.ZERO)
 
 
@@ -270,7 +278,7 @@ func _create_expression_label() -> void:
 
 func _apply_player_visuals() -> void:
 	if _name_label != null:
-		_name_label.text = display_name
+		_name_label.text = _display_name_text()
 	if _body != null:
 		var palette := _palette_for_index(_palette_index)
 		_body.call("set_palette", palette["fill"], palette["edge"], palette["core"])
@@ -316,3 +324,9 @@ func _palette_for_index(index: int) -> Dictionary:
 		},
 	]
 	return palettes[posmod(index, palettes.size())]
+
+
+func _display_name_text() -> String:
+	if alive:
+		return display_name
+	return "%s%s" % [display_name, LAB_LOCALE_SCRIPT.text(_locale, "player_down_suffix")]

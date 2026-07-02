@@ -23,13 +23,13 @@ const BUFF_BULLET_SPEED: int = 5
 const BUFF_PIERCE: int = 6
 
 const BUFF_DEFS: Array[Dictionary] = [
-	{"id": BUFF_FIRE_RATE, "name": "射速强化", "desc": "开火冷却 ×0.85"},
-	{"id": BUFF_DAMAGE, "name": "弹头强化", "desc": "子弹伤害 +1"},
-	{"id": BUFF_MULTI_SHOT, "name": "多重散射", "desc": "每次多射出 1 颗子弹"},
-	{"id": BUFF_MOVE_SPEED, "name": "机动强化", "desc": "移动速度 ×1.12"},
-	{"id": BUFF_HEAL, "name": "紧急修复", "desc": "恢复 1 点生命"},
-	{"id": BUFF_BULLET_SPEED, "name": "高速弹道", "desc": "子弹速度 ×1.2"},
-	{"id": BUFF_PIERCE, "name": "穿透弹芯", "desc": "子弹可再穿透 1 个敌人"},
+	{"id": BUFF_FIRE_RATE, "name": "射速强化", "desc": "开火冷却 ×0.85", "name_key": "buff_fire_rate_name", "desc_key": "buff_fire_rate_desc"},
+	{"id": BUFF_DAMAGE, "name": "弹头强化", "desc": "子弹伤害 +1", "name_key": "buff_damage_name", "desc_key": "buff_damage_desc"},
+	{"id": BUFF_MULTI_SHOT, "name": "多重散射", "desc": "每次多射出 1 颗子弹", "name_key": "buff_multi_shot_name", "desc_key": "buff_multi_shot_desc"},
+	{"id": BUFF_MOVE_SPEED, "name": "机动强化", "desc": "移动速度 ×1.12", "name_key": "buff_move_speed_name", "desc_key": "buff_move_speed_desc"},
+	{"id": BUFF_HEAL, "name": "紧急修复", "desc": "恢复 1 点生命", "name_key": "buff_heal_name", "desc_key": "buff_heal_desc"},
+	{"id": BUFF_BULLET_SPEED, "name": "高速弹道", "desc": "子弹速度 ×1.2", "name_key": "buff_bullet_speed_name", "desc_key": "buff_bullet_speed_desc"},
+	{"id": BUFF_PIERCE, "name": "穿透弹芯", "desc": "子弹可再穿透 1 个敌人", "name_key": "buff_pierce_name", "desc_key": "buff_pierce_desc"},
 ]
 
 const ACTIVE_REPAIR_WAVE: int = 0
@@ -39,11 +39,11 @@ const ACTIVE_TEAM_OVERLOAD: int = 3
 const ACTIVE_EMERGENCY_SHIELD: int = 4
 
 const ACTIVE_ITEM_DEFS: Array[Dictionary] = [
-	{"id": ACTIVE_REPAIR_WAVE, "name": "修复波", "color": Color(0.52, 0.95, 0.68, 0.96)},
-	{"id": ACTIVE_CLEAR_PULSE, "name": "清场脉冲", "color": Color(0.92, 0.84, 0.48, 0.96)},
-	{"id": ACTIVE_STASIS_FIELD, "name": "凝滞场", "color": Color(0.42, 0.82, 1.0, 0.96)},
-	{"id": ACTIVE_TEAM_OVERLOAD, "name": "团队过载", "color": Color(1.0, 0.58, 0.28, 0.96)},
-	{"id": ACTIVE_EMERGENCY_SHIELD, "name": "应急护膜", "color": Color(0.66, 0.62, 1.0, 0.96)},
+	{"id": ACTIVE_REPAIR_WAVE, "name": "修复波", "name_key": "active_repair_wave", "color": Color(0.52, 0.95, 0.68, 0.96)},
+	{"id": ACTIVE_CLEAR_PULSE, "name": "清场脉冲", "name_key": "active_clear_pulse", "color": Color(0.92, 0.84, 0.48, 0.96)},
+	{"id": ACTIVE_STASIS_FIELD, "name": "凝滞场", "name_key": "active_stasis_field", "color": Color(0.42, 0.82, 1.0, 0.96)},
+	{"id": ACTIVE_TEAM_OVERLOAD, "name": "团队过载", "name_key": "active_team_overload", "color": Color(1.0, 0.58, 0.28, 0.96)},
+	{"id": ACTIVE_EMERGENCY_SHIELD, "name": "应急护膜", "name_key": "active_emergency_shield", "color": Color(0.66, 0.62, 1.0, 0.96)},
 ]
 
 const BUFF_INTERVAL: float = 30.0
@@ -388,13 +388,14 @@ func register_player_bullet(bullet: Node) -> void:
 
 func active_item_for_peer(peer_id: int) -> Dictionary:
 	if not _player_active_items.has(peer_id):
-		return {"held": false, "id": -1, "name": "空"}
+		return {"held": false, "id": -1, "name": "空", "name_key": "hud_empty_item"}
 	var item_id := int(_player_active_items.get(peer_id, -1))
 	var def := active_item_def(item_id)
 	return {
 		"held": not def.is_empty(),
 		"id": item_id,
 		"name": String(def.get("name", "空")),
+		"name_key": String(def.get("name_key", "hud_empty_item")),
 		"color": def.get("color", Color(0.58, 0.66, 0.62, 0.82)),
 	}
 

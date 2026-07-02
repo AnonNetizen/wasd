@@ -8,6 +8,8 @@ const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
 const BATTLE_HUD_SCRIPT := preload("res://scripts/battle_hud.gd")
 const BUFF_PANEL_SCRIPT := preload("res://scripts/buff_panel.gd")
 const UI_STYLE_SCRIPT := preload("res://scripts/ui_style.gd")
+const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
+const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 
 const VIEWPORT_SIZE := Vector2(540.0, 960.0)
 const WORLD_RECT := Rect2(Vector2(20.0, 70.0), Vector2(500.0, 870.0))
@@ -15,6 +17,7 @@ const WORLD_SCROLL_SPEED: float = 120.0
 const DEFAULT_PORT: int = 24567
 const SCREEN_START: String = "start"
 const SCREEN_MULTIPLAYER: String = "multiplayer"
+const SCREEN_SETTINGS: String = "settings"
 const SCREEN_GAME: String = "game"
 
 const ACTION_MOVE_UP := "move_up"
@@ -28,14 +31,14 @@ const EXPRESSION_DURATION: float = 2.2
 const FIRE_COOLDOWN: float = 0.18
 const FIRE_SPREAD_DEGREES: float = 2.5
 const ACTIVE_EXPRESSIONS: Array[Dictionary] = [
-	{"id": "happy_01", "text": "(^_^)", "label": "开心"},
-	{"id": "wave_01", "text": "ヾ(^▽^*)", "label": "招呼"},
-	{"id": "surprised_01", "text": "(⊙_⊙)", "label": "惊讶"},
-	{"id": "love_01", "text": "(♡ω♡)", "label": "喜欢"},
-	{"id": "angry_01", "text": "(｀へ´)", "label": "生气"},
-	{"id": "panic_01", "text": "(°ロ°)", "label": "慌张"},
-	{"id": "ready_01", "text": "(๑•̀ㅂ•́)و", "label": "准备"},
-	{"id": "sleepy_01", "text": "(-_-) zzz", "label": "困了"},
+	{"id": "happy_01", "text": "(^_^)", "label_key": "emote_happy"},
+	{"id": "wave_01", "text": "ヾ(^▽^*)", "label_key": "emote_wave"},
+	{"id": "surprised_01", "text": "(⊙_⊙)", "label_key": "emote_surprised"},
+	{"id": "love_01", "text": "(♡ω♡)", "label_key": "emote_love"},
+	{"id": "angry_01", "text": "(｀へ´)", "label_key": "emote_angry"},
+	{"id": "panic_01", "text": "(°ロ°)", "label_key": "emote_panic"},
+	{"id": "ready_01", "text": "(๑•̀ㅂ•́)و", "label_key": "emote_ready"},
+	{"id": "sleepy_01", "text": "(-_-) zzz", "label_key": "emote_sleepy"},
 ]
 
 var _session: Node
@@ -54,13 +57,18 @@ var _backdrop_stars: Array[Dictionary] = []
 var _director: Node2D
 var _battle_hud: Control
 var _buff_panel: Control
+var _settings: RefCounted
 var _ui_transition_tween: Tween
 var _ui_motion_tweens: Dictionary = {}
 var _local_buff_options: PackedInt32Array = PackedInt32Array()
+var _localized_text_controls: Array[Control] = []
+var _localized_placeholder_controls: Array[Control] = []
+var _settings_return_screen: String = SCREEN_START
 
 var _ui_root: Control
 var _start_page: Control
 var _multiplayer_page: Control
+var _settings_page: Control
 var _game_page: Control
 var _multiplayer_status_label: Label
 var _log_label: Label
@@ -73,6 +81,8 @@ var _join_steam_button: Button
 var _ready_room_label: Label
 var _start_battle_button: Button
 var _expression_wheel: Control
+var _language_option: OptionButton
+var _fullscreen_check: CheckButton
 
 
 func _ready() -> void:
@@ -80,6 +90,7 @@ func _ready() -> void:
 	_generate_backdrop_stars()
 	_ensure_input_actions()
 	_create_session()
+	_load_lab_settings()
 	_create_ui()
 	_show_start_page()
 
@@ -152,7 +163,7 @@ func _on_director_phase_changed(new_phase: int, payload: Dictionary) -> void:
 		if new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE:
 			_buff_panel.call("close")
 		elif new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.CHOOSING_BUFF and not _buff_panel.visible:
-			_buff_panel.call("show_waiting", "等待其他玩家选择…")
+			_buff_panel.call("show_waiting", _waiting_text())
 	if _session != null and bool(_session.call("is_host")):
 		_session.call("broadcast_phase", new_phase, payload)
 
@@ -208,7 +219,7 @@ func _on_battle_launch_received() -> void:
 		return
 	_start_battle()
 	_show_game_page()
-	_append_log("Host started the battle.")
+	_append_log(_t("log_host_started_battle"))
 
 
 func _open_buff_panel(options: PackedInt32Array) -> void:
@@ -216,7 +227,7 @@ func _open_buff_panel(options: PackedInt32Array) -> void:
 		return
 	var defs: Array[Dictionary] = []
 	for buff_id in options:
-		defs.append(_director.call("buff_def", buff_id))
+		defs.append(_localized_buff_def(_director.call("buff_def", buff_id)))
 	var timeout := 0.0
 	if String(_session.call("active_transport")) != "offline":
 		timeout = BATTLE_DIRECTOR_SCRIPT.BUFF_CHOICE_TIMEOUT
@@ -230,13 +241,13 @@ func _on_buff_option_chosen(option_index: int) -> void:
 	if bool(_director.call("is_authority")):
 		_director.call("submit_buff_choice", local_id, option_index)
 		if not _battle_active() and _buff_panel != null:
-			_buff_panel.call("show_waiting", "等待其他玩家选择…")
+			_buff_panel.call("show_waiting", _waiting_text())
 		return
 	if option_index >= 0 and option_index < _local_buff_options.size():
 		_director.call("apply_buff", local_id, _local_buff_options[option_index])
 	_session.call("send_buff_choice_to_host", option_index)
 	if _buff_panel != null:
-		_buff_panel.call("show_waiting", "等待其他玩家选择…")
+		_buff_panel.call("show_waiting", _waiting_text())
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -297,6 +308,15 @@ func _create_session() -> void:
 	_session.connect("active_item_used_received", Callable(self, "_on_active_item_used_received"))
 
 
+func _load_lab_settings() -> void:
+	_settings = LAB_SETTINGS_SCRIPT.new()
+	var steam_language := ""
+	if _session != null and _session.has_method("steam_game_language"):
+		steam_language = String(_session.call("steam_game_language"))
+	_settings.call("load_settings", steam_language)
+	_settings.call("apply_fullscreen")
+
+
 func _create_ui() -> void:
 	var ui_layer := CanvasLayer.new()
 	ui_layer.name = "UiLayer"
@@ -310,23 +330,27 @@ func _create_ui() -> void:
 
 	_create_start_page()
 	_create_multiplayer_page()
+	_create_settings_page()
 	_create_game_page()
 
 
 func _create_start_page() -> void:
 	_start_page = _make_page("StartPage")
-	var rows := _make_centered_panel(_start_page, "StartPanel", Vector2(456.0, 440.0), "hero")
+	var rows := _make_centered_panel(_start_page, "StartPanel", Vector2(456.0, 500.0), "hero")
 	rows.alignment = BoxContainer.ALIGNMENT_CENTER
 	rows.add_theme_constant_override("separation", 14)
 
-	var kicker := _make_kicker_label("STEAM / LOCAL CO-OP LAB")
+	var kicker := _make_kicker_label(_t("main_kicker"))
+	_register_localized_text(kicker, "main_kicker")
 	rows.add_child(kicker)
 
-	var title := _make_title_label("Steamworks Slime Lab")
+	var title := _make_title_label(_t("app_title"))
+	_register_localized_text(title, "app_title")
 	title.add_theme_font_size_override("font_size", 32)
 	rows.add_child(title)
 
-	var subtitle := _make_body_label("软体史莱姆 · 竖版弹幕 · Host 权威联机验证")
+	var subtitle := _make_body_label(_t("main_subtitle"))
+	_register_localized_text(subtitle, "main_subtitle")
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rows.add_child(subtitle)
 
@@ -335,15 +359,23 @@ func _create_start_page() -> void:
 	button_stack.custom_minimum_size = Vector2(320.0, 0.0)
 	rows.add_child(button_stack)
 
-	var single_player_button := _make_button("开始单人游戏", Vector2(320.0, 52.0), true)
+	var single_player_button := _make_button(_t("main_single"), Vector2(320.0, 52.0), true)
+	_register_localized_text(single_player_button, "main_single")
 	single_player_button.pressed.connect(_on_start_single_player_pressed)
 	button_stack.add_child(single_player_button)
 
-	var multiplayer_button := _make_button("开始联机游戏", Vector2(320.0, 48.0))
+	var multiplayer_button := _make_button(_t("main_multiplayer"), Vector2(320.0, 48.0))
+	_register_localized_text(multiplayer_button, "main_multiplayer")
 	multiplayer_button.pressed.connect(_on_start_multiplayer_pressed)
 	button_stack.add_child(multiplayer_button)
 
-	var hint := _make_hint_label("WASD / 方向键移动    鼠标射击    Q 主动道具    T 表情轮")
+	var settings_button := _make_button(_t("main_settings"), Vector2(320.0, 42.0))
+	_register_localized_text(settings_button, "main_settings")
+	settings_button.pressed.connect(_on_settings_pressed)
+	button_stack.add_child(settings_button)
+
+	var hint := _make_hint_label(_t("main_hint"))
+	_register_localized_text(hint, "main_hint")
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rows.add_child(hint)
 
@@ -353,14 +385,16 @@ func _create_multiplayer_page() -> void:
 	var rows := _make_centered_panel(_multiplayer_page, "MultiplayerPanel", Vector2(500.0, 888.0), "hero")
 	rows.add_theme_constant_override("separation", 10)
 
-	var kicker := _make_kicker_label("READY ROOM")
+	var kicker := _make_kicker_label(_t("ready_room_kicker"))
+	_register_localized_text(kicker, "ready_room_kicker")
 	rows.add_child(kicker)
 
-	var title := _make_title_label("Multiplayer")
+	var title := _make_title_label(_t("multiplayer_title"))
+	_register_localized_text(title, "multiplayer_title")
 	title.add_theme_font_size_override("font_size", 30)
 	rows.add_child(title)
 
-	var session_section := _make_section_box(rows, "Session")
+	var session_section := _make_section_box(rows, "section_session", "Session")
 	_multiplayer_status_label = Label.new()
 	_multiplayer_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_multiplayer_status_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.TEXT_COLOR)
@@ -371,9 +405,10 @@ func _create_multiplayer_page() -> void:
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	rows.add_child(body)
 
-	var local_section := _make_section_box(body, "Local")
+	var local_section := _make_section_box(body, "section_local", "Local")
 
-	var host_local_button := _make_button("Host Local", Vector2(0.0, 42.0), true)
+	var host_local_button := _make_button(_t("host_local"), Vector2(0.0, 42.0), true)
+	_register_localized_text(host_local_button, "host_local")
 	host_local_button.pressed.connect(_on_host_local_pressed)
 	local_section.add_child(host_local_button)
 
@@ -383,7 +418,8 @@ func _create_multiplayer_page() -> void:
 
 	_address_input = LineEdit.new()
 	_address_input.text = "127.0.0.1"
-	_address_input.placeholder_text = "Address"
+	_address_input.placeholder_text = _t("address_placeholder")
+	_register_localized_placeholder(_address_input, "address_placeholder")
 	_address_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UI_STYLE_SCRIPT.apply_input(_address_input)
 	local_row.add_child(_address_input)
@@ -396,38 +432,43 @@ func _create_multiplayer_page() -> void:
 	_port_input.custom_minimum_size = Vector2(112.0, 0.0)
 	local_row.add_child(_port_input)
 
-	var join_local_button := _make_button("Join Local")
+	var join_local_button := _make_button(_t("join_local"))
+	_register_localized_text(join_local_button, "join_local")
 	join_local_button.pressed.connect(_on_join_local_pressed)
 	local_section.add_child(join_local_button)
 
-	var steam_section := _make_section_box(body, "Steam")
+	var steam_section := _make_section_box(body, "section_steam", "Steam")
 
 	_steam_status_label = Label.new()
 	_steam_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_steam_status_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.MUTED_TEXT_COLOR)
 	steam_section.add_child(_steam_status_label)
 
-	_host_steam_button = _make_button("Host Steam")
+	_host_steam_button = _make_button(_t("host_steam"))
+	_register_localized_text(_host_steam_button, "host_steam")
 	_host_steam_button.pressed.connect(_on_host_steam_pressed)
 	steam_section.add_child(_host_steam_button)
 
 	_lobby_input = LineEdit.new()
-	_lobby_input.placeholder_text = "Steam lobby id"
+	_lobby_input.placeholder_text = _t("steam_lobby_id_placeholder")
+	_register_localized_placeholder(_lobby_input, "steam_lobby_id_placeholder")
 	UI_STYLE_SCRIPT.apply_input(_lobby_input)
 	steam_section.add_child(_lobby_input)
 
-	_join_steam_button = _make_button("Join Steam by ID")
+	_join_steam_button = _make_button(_t("join_steam"))
+	_register_localized_text(_join_steam_button, "join_steam")
 	_join_steam_button.pressed.connect(_on_join_steam_pressed)
 	steam_section.add_child(_join_steam_button)
 
-	var ready_section := _make_section_box(body, "Ready Room")
+	var ready_section := _make_section_box(body, "section_ready_room", "ReadyRoom")
 
 	_ready_room_label = Label.new()
 	_ready_room_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_ready_room_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.TEXT_COLOR)
 	ready_section.add_child(_ready_room_label)
 
-	_start_battle_button = _make_button("Start Battle", Vector2(0.0, 46.0), true)
+	_start_battle_button = _make_button(_t("start_battle"), Vector2(0.0, 46.0), true)
+	_register_localized_text(_start_battle_button, "start_battle")
 	_start_battle_button.pressed.connect(_on_ready_start_battle_pressed)
 	ready_section.add_child(_start_battle_button)
 
@@ -435,15 +476,17 @@ func _create_multiplayer_page() -> void:
 	session_buttons.add_theme_constant_override("separation", 8)
 	ready_section.add_child(session_buttons)
 
-	var leave_button := _make_button("Leave Session")
+	var leave_button := _make_button(_t("leave_session"))
+	_register_localized_text(leave_button, "leave_session")
 	leave_button.pressed.connect(_on_multiplayer_leave_pressed)
 	session_buttons.add_child(leave_button)
 
-	var back_button := _make_button("Back")
+	var back_button := _make_button(_t("back"))
+	_register_localized_text(back_button, "back")
 	back_button.pressed.connect(_on_multiplayer_back_pressed)
 	session_buttons.add_child(back_button)
 
-	var log_column := _make_section_box(body, "Status Log")
+	var log_column := _make_section_box(body, "section_status_log", "StatusLog")
 	log_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	log_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
@@ -454,18 +497,69 @@ func _create_multiplayer_page() -> void:
 	log_column.add_child(_log_label)
 
 
+func _create_settings_page() -> void:
+	_settings_page = _make_page("SettingsPage")
+	var rows := _make_centered_panel(_settings_page, "SettingsPanel", Vector2(456.0, 420.0), "hero")
+	rows.alignment = BoxContainer.ALIGNMENT_CENTER
+	rows.add_theme_constant_override("separation", 14)
+
+	var kicker := _make_kicker_label(_t("settings_kicker"))
+	_register_localized_text(kicker, "settings_kicker")
+	rows.add_child(kicker)
+
+	var title := _make_title_label(_t("settings_title"))
+	_register_localized_text(title, "settings_title")
+	title.add_theme_font_size_override("font_size", 30)
+	rows.add_child(title)
+
+	var language_label := _make_kicker_label(_t("settings_language"))
+	_register_localized_text(language_label, "settings_language")
+	language_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	rows.add_child(language_label)
+
+	_language_option = OptionButton.new()
+	_language_option.name = "LanguageOption"
+	_language_option.custom_minimum_size = Vector2(320.0, 42.0)
+	_language_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_language_option.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	UI_STYLE_SCRIPT.apply_button(_language_option)
+	rows.add_child(_language_option)
+
+	_fullscreen_check = CheckButton.new()
+	_fullscreen_check.name = "FullscreenCheck"
+	_fullscreen_check.text = _t("settings_fullscreen")
+	_register_localized_text(_fullscreen_check, "settings_fullscreen")
+	_fullscreen_check.button_pressed = bool(_settings.get("fullscreen"))
+	_fullscreen_check.custom_minimum_size = Vector2(320.0, 40.0)
+	_fullscreen_check.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_fullscreen_check.add_theme_color_override("font_color", UI_STYLE_SCRIPT.TEXT_COLOR)
+	_fullscreen_check.add_theme_color_override("font_pressed_color", UI_STYLE_SCRIPT.AMBER_COLOR)
+	rows.add_child(_fullscreen_check)
+
+	var back_button := _make_button(_t("settings_back"), Vector2(320.0, 44.0), true)
+	_register_localized_text(back_button, "settings_back")
+	back_button.pressed.connect(_on_settings_back_pressed)
+	rows.add_child(back_button)
+
+	_refresh_language_option()
+	_language_option.item_selected.connect(_on_language_selected)
+	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
+
+
 func _create_game_page() -> void:
 	_game_page = _make_page("GamePage")
 
 	_battle_hud = BATTLE_HUD_SCRIPT.new() as Control
 	_battle_hud.name = "BattleHud"
 	_battle_hud.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_battle_hud.call("set_locale", _current_locale())
 	_battle_hud.connect("restart_requested", Callable(self, "_on_restart_requested"))
 	_battle_hud.connect("leave_requested", Callable(self, "_on_leave_game_pressed"))
 	_game_page.add_child(_battle_hud)
 
 	_buff_panel = BUFF_PANEL_SCRIPT.new() as Control
 	_buff_panel.name = "BuffPanel"
+	_buff_panel.call("set_locale", _current_locale())
 	_buff_panel.connect("option_chosen", Callable(self, "_on_buff_option_chosen"))
 	_game_page.add_child(_buff_panel)
 
@@ -512,9 +606,9 @@ func _make_centered_panel(
 	return rows
 
 
-func _make_section_box(parent: Control, title_text: String) -> VBoxContainer:
+func _make_section_box(parent: Control, title_key: String, section_name: String = "") -> VBoxContainer:
 	var panel := PanelContainer.new()
-	panel.name = "%sSection" % title_text.replace(" ", "")
+	panel.name = "%sSection" % (section_name if section_name != "" else title_key)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UI_STYLE_SCRIPT.apply_panel(panel, "section")
 	parent.add_child(panel)
@@ -530,7 +624,8 @@ func _make_section_box(parent: Control, title_text: String) -> VBoxContainer:
 	rows.add_theme_constant_override("separation", 8)
 	margin.add_child(rows)
 
-	var title := _make_kicker_label(title_text)
+	var title := _make_kicker_label(_t(title_key))
+	_register_localized_text(title, title_key)
 	title.add_theme_font_size_override("font_size", 12)
 	rows.add_child(title)
 	return rows
@@ -643,11 +738,127 @@ func _tween_ui_control(
 	tween.tween_property(control, "self_modulate", target_modulate, duration).set_trans(trans_type).set_ease(ease_type)
 
 
+func _current_locale() -> String:
+	if _settings == null:
+		return LAB_LOCALE_SCRIPT.LOCALE_EN
+	return String(_settings.get("locale"))
+
+
+func _t(key: String, args: Dictionary = {}) -> String:
+	return LAB_LOCALE_SCRIPT.text(_current_locale(), key, args)
+
+
+func _register_localized_text(control: Control, key: String) -> void:
+	if control == null:
+		return
+	control.set_meta("lab_locale_key", key)
+	if not _localized_text_controls.has(control):
+		_localized_text_controls.append(control)
+	_apply_localized_text(control)
+
+
+func _register_localized_placeholder(control: Control, key: String) -> void:
+	if control == null:
+		return
+	control.set_meta("lab_placeholder_key", key)
+	if not _localized_placeholder_controls.has(control):
+		_localized_placeholder_controls.append(control)
+	_apply_localized_placeholder(control)
+
+
+func _apply_localized_text(control: Control) -> void:
+	if control == null or not is_instance_valid(control):
+		return
+	var key := String(control.get_meta("lab_locale_key", ""))
+	if key == "":
+		return
+	var value := _t(key)
+	if control is Label:
+		var label := control as Label
+		label.text = value
+	elif control is Button:
+		var button := control as Button
+		button.text = value
+
+
+func _apply_localized_placeholder(control: Control) -> void:
+	if control == null or not is_instance_valid(control):
+		return
+	var key := String(control.get_meta("lab_placeholder_key", ""))
+	if key == "":
+		return
+	if control is LineEdit:
+		var line_edit := control as LineEdit
+		line_edit.placeholder_text = _t(key)
+
+
+func _apply_locale() -> void:
+	for control in _localized_text_controls:
+		_apply_localized_text(control)
+	for control in _localized_placeholder_controls:
+		_apply_localized_placeholder(control)
+	_refresh_language_option()
+	if _battle_hud != null:
+		_battle_hud.call("set_locale", _current_locale())
+	if _buff_panel != null:
+		_buff_panel.call("set_locale", _current_locale())
+	for peer_id in _players.keys():
+		var player := _players[peer_id] as Node
+		if player != null and is_instance_valid(player):
+			player.call("set_locale", _current_locale())
+	if _expression_wheel != null:
+		_expression_wheel.call("set_options", _localized_expressions())
+	_update_status()
+	_refresh_battle_hud()
+
+
+func _refresh_language_option() -> void:
+	if _language_option == null:
+		return
+	var locales: Array[String] = LAB_LOCALE_SCRIPT.supported_locales()
+	var selected_index := 0
+	_language_option.clear()
+	for index in range(locales.size()):
+		var locale := locales[index]
+		_language_option.add_item(LAB_LOCALE_SCRIPT.language_label(locale, _current_locale()), index)
+		if locale == _current_locale():
+			selected_index = index
+	_language_option.select(selected_index)
+	if _fullscreen_check != null:
+		_fullscreen_check.button_pressed = bool(_settings.get("fullscreen"))
+
+
+func _localized_expressions() -> Array[Dictionary]:
+	var localized: Array[Dictionary] = []
+	for expression in ACTIVE_EXPRESSIONS:
+		var row: Dictionary = expression.duplicate(true)
+		row["label"] = _t(String(row.get("label_key", "")))
+		localized.append(row)
+	return localized
+
+
+func _localized_buff_def(definition: Dictionary) -> Dictionary:
+	var localized := definition.duplicate(true)
+	var name_key := String(localized.get("name_key", ""))
+	if name_key != "":
+		localized["name"] = _t(name_key)
+	var desc_key := String(localized.get("desc_key", ""))
+	if desc_key != "":
+		localized["desc"] = _t(desc_key)
+	return localized
+
+
+func _waiting_text(pending_count: int = -1) -> String:
+	if pending_count > 0:
+		return _t("buff_waiting_count", {"count": pending_count})
+	return _t("buff_waiting")
+
+
 func _create_expression_wheel() -> void:
 	_expression_wheel = EXPRESSION_WHEEL_SCRIPT.new() as Control
 	_expression_wheel.name = "ExpressionWheel"
 	_expression_wheel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_expression_wheel.call("set_options", ACTIVE_EXPRESSIONS)
+	_expression_wheel.call("set_options", _localized_expressions())
 	_game_page.add_child(_expression_wheel)
 
 
@@ -657,6 +868,11 @@ func _show_start_page() -> void:
 
 func _show_multiplayer_page() -> void:
 	_set_screen(SCREEN_MULTIPLAYER)
+
+
+func _show_settings_page(return_screen: String = SCREEN_START) -> void:
+	_settings_return_screen = return_screen
+	_set_screen(SCREEN_SETTINGS)
 
 
 func _show_game_page() -> void:
@@ -682,6 +898,8 @@ func _page_for_screen(screen_name: String) -> Control:
 			return _start_page
 		SCREEN_MULTIPLAYER:
 			return _multiplayer_page
+		SCREEN_SETTINGS:
+			return _settings_page
 		SCREEN_GAME:
 			return _game_page
 		_:
@@ -693,10 +911,21 @@ func _transition_to_page(previous_page: Control, next_page: Control) -> void:
 		return
 	if _ui_transition_tween != null and _ui_transition_tween.is_valid():
 		_ui_transition_tween.kill()
+	if DisplayServer.get_name().to_lower() == "headless":
+		_show_page_immediate(next_page)
+		return
 
 	if previous_page == null or previous_page == next_page or not previous_page.visible:
 		_show_page_immediate(next_page)
 		return
+
+	for page in _all_pages():
+		if page == null or page == previous_page or page == next_page:
+			continue
+		page.visible = false
+		page.modulate.a = 0.0
+		page.position = Vector2.ZERO
+		page.scale = Vector2.ONE
 
 	next_page.visible = true
 	next_page.modulate.a = 0.0
@@ -710,12 +939,12 @@ func _transition_to_page(previous_page: Control, next_page: Control) -> void:
 	_ui_transition_tween.tween_property(next_page, "modulate:a", 1.0, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_ui_transition_tween.tween_property(next_page, "position:y", 0.0, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_ui_transition_tween.tween_property(next_page, "scale", Vector2.ONE, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_ui_transition_tween.chain().tween_callback(_finish_page_transition.bind(previous_page, next_page))
+	_ui_transition_tween.finished.connect(_finish_page_transition.bind(previous_page, next_page), CONNECT_ONE_SHOT)
 
 
 func _show_page_immediate(next_page: Control) -> void:
-	for page in [_start_page, _multiplayer_page, _game_page]:
-		var control := page as Control
+	for page in _all_pages():
+		var control := page
 		if control == null:
 			continue
 		control.visible = control == next_page
@@ -725,16 +954,22 @@ func _show_page_immediate(next_page: Control) -> void:
 
 
 func _finish_page_transition(previous_page: Control, next_page: Control) -> void:
-	if previous_page != null and previous_page != next_page:
-		previous_page.visible = false
-		previous_page.modulate.a = 0.0
-		previous_page.position = Vector2.ZERO
-		previous_page.scale = Vector2.ONE
+	for page in _all_pages():
+		if page == null or page == next_page:
+			continue
+		page.visible = false
+		page.modulate.a = 0.0
+		page.position = Vector2.ZERO
+		page.scale = Vector2.ONE
 	if next_page != null:
 		next_page.visible = true
 		next_page.modulate.a = 1.0
 		next_page.position = Vector2.ZERO
 		next_page.scale = Vector2.ONE
+
+
+func _all_pages() -> Array[Control]:
+	return [_start_page, _multiplayer_page, _settings_page, _game_page]
 
 
 func _on_start_single_player_pressed() -> void:
@@ -747,7 +982,30 @@ func _on_start_multiplayer_pressed() -> void:
 	_clear_bullets()
 	_peer_inputs.clear()
 	_show_multiplayer_page()
-	_append_log("Multiplayer setup.")
+	_append_log(_t("log_multiplayer_setup"))
+
+
+func _on_settings_pressed() -> void:
+	_show_settings_page(_screen)
+
+
+func _on_settings_back_pressed() -> void:
+	_set_screen(_settings_return_screen)
+
+
+func _on_language_selected(index: int) -> void:
+	var locales: Array[String] = LAB_LOCALE_SCRIPT.supported_locales()
+	if index < 0 or index >= locales.size():
+		return
+	if _settings.call("set_locale", locales[index]):
+		_settings.call("save_settings")
+	_apply_locale()
+
+
+func _on_fullscreen_toggled(enabled: bool) -> void:
+	if _settings.call("set_fullscreen", enabled):
+		_settings.call("save_settings")
+	_settings.call("apply_fullscreen")
 
 
 func _begin_single_player() -> void:
@@ -760,7 +1018,7 @@ func _begin_single_player() -> void:
 	player.call("set_local_or_host_simulated", true)
 	_start_battle()
 	_show_game_page()
-	_append_log("Single player started.")
+	_append_log(_t("log_single_player_started"))
 
 
 func _on_host_local_pressed() -> void:
@@ -795,12 +1053,12 @@ func _on_ready_start_battle_pressed() -> void:
 	if _session == null or not bool(_session.call("is_host")):
 		return
 	if _players.size() < 2:
-		_append_log("Need at least 2 players in the ready room.")
+		_append_log(_t("log_need_two_players"))
 		return
 	_start_battle()
 	_show_game_page()
 	_session.call("broadcast_battle_launch")
-	_append_log("Battle launched from ready room.")
+	_append_log(_t("log_battle_launch"))
 
 
 func _on_multiplayer_leave_pressed() -> void:
@@ -810,7 +1068,7 @@ func _on_multiplayer_leave_pressed() -> void:
 	_clear_bullets()
 	_peer_inputs.clear()
 	_show_multiplayer_page()
-	_append_log("Multiplayer session left.")
+	_append_log(_t("log_session_left"))
 
 
 func _on_multiplayer_back_pressed() -> void:
@@ -828,7 +1086,7 @@ func _on_leave_game_pressed() -> void:
 	_clear_bullets()
 	_peer_inputs.clear()
 	_show_start_page()
-	_append_log("Returned to start page.")
+	_append_log(_t("log_returned_start"))
 
 
 func _on_restart_requested() -> void:
@@ -837,7 +1095,7 @@ func _on_restart_requested() -> void:
 	_reset_battle()
 	if bool(_session.call("is_host")):
 		_session.call("broadcast_battle_reset")
-	_append_log("Battle restarted.")
+	_append_log(_t("log_battle_restarted"))
 
 
 func _leave_session_without_navigation() -> void:
@@ -853,13 +1111,16 @@ func _on_session_started(host: bool, transport: String, lobby_id: String) -> voi
 		var host_player: Node = _ensure_player(1, "Host")
 		host_player.call("warp_to", _spawn_position_for_slot(0))
 		host_player.call("set_local_or_host_simulated", true)
-		_append_log("Ready room created. Wait for players, then start.")
+		_append_log(_t("log_ready_room_created"))
 	else:
-		_append_log("Joined ready room. Waiting for host start.")
+		_append_log(_t("log_ready_room_joined"))
 	if lobby_id != "" and _lobby_input != null:
 		_lobby_input.text = lobby_id
 	_show_multiplayer_page()
-	_append_log("Session ready: %s %s" % [transport, "host" if host else "client"])
+	_append_log(_t("log_session_ready", {
+		"transport": transport,
+		"role": _t("log_role_host") if host else _t("log_role_client"),
+	}))
 
 
 func _on_session_ended() -> void:
@@ -1032,7 +1293,7 @@ func _refresh_battle_hud() -> void:
 	if _buff_panel != null and bool(_buff_panel.call("is_waiting")):
 		var pending := int(_director.call("pending_choice_count"))
 		if pending > 0:
-			_buff_panel.call("update_waiting", "等待其他玩家选择… (%d)" % pending)
+			_buff_panel.call("update_waiting", _waiting_text(pending))
 
 
 func _apply_host_inputs() -> void:
@@ -1066,6 +1327,7 @@ func _ensure_player(peer_id: int, display_name: String) -> Node:
 		return _players[peer_id]
 	var player := PLAYER_SCRIPT.new() as Node
 	player.name = "SlimePlayer%d" % peer_id
+	player.call("set_locale", _current_locale())
 	player.call("set_player_info", peer_id, display_name, peer_id)
 	add_child(player)
 	player.call("warp_to", _spawn_position_for_slot(_players.size()))
@@ -1130,8 +1392,9 @@ func _use_active_item_authority(peer_id: int) -> void:
 		return
 	var item_id := int(result.get("item_id", -1))
 	var item_info: Dictionary = _director.call("active_item_def", item_id)
-	var item_name := String(item_info.get("name", "主动道具"))
-	_append_log("Peer %d used %s." % [peer_id, item_name])
+	var item_name_key := String(item_info.get("name_key", "active_item_fallback"))
+	var item_name := _t(item_name_key)
+	_append_log(_t("log_active_item_used", {"peer": peer_id, "item": item_name}))
 
 
 func _local_fire_cooldown(peer_id: int) -> float:
@@ -1392,12 +1655,12 @@ func _generate_backdrop_stars() -> void:
 
 func _update_status() -> void:
 	var lobby_text := String(_session.call("lobby_id"))
-	var status_text := "Mode: %s\nPeer: %d\nLobby: %s\nPlayers: %d" % [
-		String(_session.call("active_transport")),
-		int(_session.call("local_peer_id")),
-		lobby_text if lobby_text != "" else "-",
-		_players.size(),
-	]
+	var status_text := _t("status_mode", {
+		"mode": String(_session.call("active_transport")),
+		"peer": int(_session.call("local_peer_id")),
+		"lobby": lobby_text if lobby_text != "" else "-",
+		"players": _players.size(),
+	})
 	if _multiplayer_status_label != null:
 		_multiplayer_status_label.text = status_text
 	if _steam_status_label != null:
@@ -1411,11 +1674,11 @@ func _update_status() -> void:
 		var active_transport := String(_session.call("active_transport"))
 		var host_active := bool(_session.call("is_host"))
 		if active_transport == "offline":
-			_ready_room_label.text = "Ready room: no active session."
+			_ready_room_label.text = _t("ready_room_empty")
 		elif host_active:
-			_ready_room_label.text = "Ready room\nPlayers connected: %d\nStart when everyone has joined." % _players.size()
+			_ready_room_label.text = _t("ready_room_host", {"players": _players.size()})
 		else:
-			_ready_room_label.text = "Ready room\nConnected as peer %d\nWaiting for host to start." % int(_session.call("local_peer_id"))
+			_ready_room_label.text = _t("ready_room_client", {"peer": int(_session.call("local_peer_id"))})
 	if _start_battle_button != null:
 		_start_battle_button.disabled = (
 			not bool(_session.call("is_host"))

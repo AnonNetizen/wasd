@@ -9,6 +9,7 @@
     "E"
   ],
   "last_completed": [
+    "Steamworks Slime Lab 语言与全屏设置：output/steamworks_lab 新增 lab_locale / lab_settings 轻量 helper，设置持久化到 user://settings.cfg；默认语言优先 GodotSteam/Steamworks GetCurrentGameLanguage，schinese/tchinese/任意 zh* 映射 zh_CN，其他映射 en；主菜单新增设置页，可切换简体中文 / English 与无边框全屏，headless 下只验证设置路径不切窗口；主菜单、准备房间、HUD 空道具槽、buff / 主动道具名、结算和表情轮标签接入本地化；battle_smoke 备份恢复 settings.cfg 并覆盖语言映射、设置页、语言刷新和全屏写入。",
     "Steamworks Slime Lab UI 正式化：output/steamworks_lab 采用纯代码街机 demo 风格，新增 SteamLabUiStyle 统一 Theme / StyleBox，主菜单与联机准备页重排；页面切换、按钮反馈、HUD HP / 主动槽 / boss 条、buff 面板、结算面板和表情轮加入 Tween 动效；不改网络、战斗或快照协议，battle_smoke 补 UI theme、页面切换、HUD active slot 和 buff dimmer 断言。",
     "Steamworks Slime Lab 主动道具功能：敌人约 12% 掉落 active_pickup，玩家单槽自动拾取 / 替换并按 Q 使用；5 个道具包含修复波、清场脉冲、凝滞场、团队过载、应急护膜，其中前四个偏团队或全场收益；host 权威结算掉落 / 拾取 / 使用，snapshot 同步掉落物 / 主动槽 / 团队效果，reliable RPC 同步使用请求和触发反馈；battle_smoke 覆盖 Q 绑定、拾取替换、使用消耗、团队治疗、清场、凝滞、过载和快照镜像。",
     "ADR #128 / F13 手工房间制短刷图首片运行时：新增 RoomManager（Node2D，房间 carrier 下 GameplayRunLoop 在 ActiveWorld 创建/驱动）、rooms.json / room_sequences.json、RoomRoot + 四类房间 marker、room_demo_entry / room_demo_arena 两个 .tscn；词表 §15-A door_direction / §15-B door_unlock_rule / §15-C room_clear_condition + 生成常量；DataLoader + validate_data + test_data_loader_schema 房间 schema 校验与 5 个坏样例；run payload v2→v3 + _migrate_run_v2_to_v3；GameplayRunLoop carrier 分支（opt-in debug_enable_room_carrier / 存档 room 块）、_spawn_enemy_at、_update_room、清房计数、房间快照恢复；新增 room-switch-smoke + formal_client_boot 分发 + godot_bridge 命令；默认 open-warzone 不变，四条黄金因 data_fingerprint 变化重录、行为未变。",

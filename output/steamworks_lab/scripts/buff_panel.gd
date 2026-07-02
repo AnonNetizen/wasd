@@ -4,6 +4,7 @@ extends Control
 signal option_chosen(option_index: int)
 
 const UI_STYLE_SCRIPT := preload("res://scripts/ui_style.gd")
+const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 
 var _dimmer: ColorRect
 var _panel: PanelContainer
@@ -14,6 +15,8 @@ var _option_buttons: Array[Button] = []
 var _countdown_remaining: float = 0.0
 var _countdown_enabled: bool = false
 var _panel_tween: Tween
+var _locale: String = LAB_LOCALE_SCRIPT.LOCALE_ZH_CN
+var _current_options: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -27,20 +30,38 @@ func _process(delta: float) -> void:
 	if not visible or not _countdown_enabled:
 		return
 	_countdown_remaining = maxf(0.0, _countdown_remaining - delta)
-	_countdown_label.text = "%d 秒后自动选择" % ceili(_countdown_remaining)
+	_refresh_countdown_label()
+
+
+func set_locale(locale: String) -> void:
+	_locale = LAB_LOCALE_SCRIPT.normalize_locale(locale)
+	if _title_label == null:
+		return
+	if _waiting_label != null and _waiting_label.visible:
+		_title_label.text = _t("buff_title_waiting")
+	elif visible:
+		_title_label.text = _t("buff_title_choose")
+	_refresh_countdown_label()
+	_refresh_option_buttons()
 
 
 func open_with_options(options: Array[Dictionary], timeout: float) -> void:
+	_current_options = options.duplicate(true)
 	_animate_open()
 	_waiting_label.visible = false
-	_title_label.text = "选择一项强化"
+	_title_label.text = _t("buff_title_choose")
 	_countdown_enabled = timeout > 0.0
 	_countdown_label.visible = _countdown_enabled
 	_countdown_remaining = timeout
+	_refresh_countdown_label()
+	_refresh_option_buttons()
+
+
+func _refresh_option_buttons() -> void:
 	for index in range(_option_buttons.size()):
 		var button := _option_buttons[index]
-		if index < options.size():
-			var option: Dictionary = options[index]
+		if index < _current_options.size():
+			var option: Dictionary = _current_options[index]
 			button.text = "%s\n%s" % [String(option.get("name", "?")), String(option.get("desc", ""))]
 			button.visible = true
 			button.disabled = false
@@ -49,8 +70,9 @@ func open_with_options(options: Array[Dictionary], timeout: float) -> void:
 
 
 func show_waiting(text: String) -> void:
+	_current_options.clear()
 	_animate_open()
-	_title_label.text = "强化选择"
+	_title_label.text = _t("buff_title_waiting")
 	for button in _option_buttons:
 		button.visible = false
 	_waiting_label.text = text
@@ -68,6 +90,7 @@ func is_waiting() -> bool:
 
 func close() -> void:
 	_countdown_enabled = false
+	_current_options.clear()
 	if not visible:
 		return
 	_animate_close()
@@ -139,7 +162,7 @@ func _create_widgets() -> void:
 	margin.add_child(rows)
 
 	_title_label = Label.new()
-	_title_label.text = "选择一项强化"
+	_title_label.text = _t("buff_title_choose")
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_label.add_theme_font_size_override("font_size", 24)
 	_title_label.add_theme_color_override("font_color", Color(0.95, 1.0, 0.74, 0.98))
@@ -169,6 +192,16 @@ func _create_widgets() -> void:
 	_waiting_label.add_theme_font_size_override("font_size", 17)
 	_waiting_label.visible = false
 	rows.add_child(_waiting_label)
+
+
+func _refresh_countdown_label() -> void:
+	if _countdown_label == null:
+		return
+	_countdown_label.text = _t("buff_countdown", {"seconds": ceili(_countdown_remaining)})
+
+
+func _t(key: String, args: Dictionary = {}) -> String:
+	return LAB_LOCALE_SCRIPT.text(_locale, key, args)
 
 
 func _on_option_pressed(option_index: int) -> void:

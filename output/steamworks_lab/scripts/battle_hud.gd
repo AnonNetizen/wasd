@@ -5,6 +5,7 @@ signal restart_requested()
 signal leave_requested()
 
 const UI_STYLE_SCRIPT := preload("res://scripts/ui_style.gd")
+const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 
 const HEART_RADIUS: float = 11.0
 const HEART_SPACING: float = 30.0
@@ -30,14 +31,18 @@ var _hp_flash: float = 0.0
 var _active_slot_flash: float = 0.0
 var _boss_flash: float = 0.0
 var _hud_tweens: Dictionary = {}
+var _locale: String = LAB_LOCALE_SCRIPT.LOCALE_ZH_CN
+var _last_state: Dictionary = {}
 
 var _time_label: Label
 var _tier_label: Label
 var _active_item_label: Label
 var _spectator_label: Label
 var _game_over_panel: PanelContainer
+var _game_over_title_label: Label
 var _game_over_stats_label: Label
 var _restart_button: Button
+var _leave_button: Button
 
 
 func _ready() -> void:
@@ -57,7 +62,25 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
+func set_locale(locale: String) -> void:
+	_locale = LAB_LOCALE_SCRIPT.normalize_locale(locale)
+	if _active_item_label != null and _last_state.is_empty():
+		_active_item_label.text = _t("hud_empty_item")
+	if _spectator_label != null:
+		_spectator_label.text = _t("hud_spectator")
+	if _game_over_title_label != null:
+		_game_over_title_label.text = _t("game_over_title")
+	if _restart_button != null:
+		_restart_button.text = _t("restart")
+	if _leave_button != null:
+		_leave_button.text = _t("leave")
+	if not _last_state.is_empty():
+		refresh(_last_state)
+	queue_redraw()
+
+
 func refresh(state: Dictionary) -> void:
+	_last_state = state.duplicate(true)
 	var previous_hp := _hp
 	var previous_active_id := _active_item_id
 	var previous_active_held := _active_item_held
@@ -78,8 +101,14 @@ func refresh(state: Dictionary) -> void:
 	_tier_label.text = "Tier %d" % int(state.get("tier", 0))
 	var active_item: Dictionary = state.get("active_item", {})
 	_active_item_id = int(active_item.get("id", -1))
-	_active_item_name = String(active_item.get("name", "空"))
 	_active_item_held = bool(active_item.get("held", false))
+	var active_name_key := String(active_item.get("name_key", ""))
+	if active_name_key != "":
+		_active_item_name = _t(active_name_key)
+	else:
+		_active_item_name = String(active_item.get("name", _t("hud_empty_item")))
+	if not _active_item_held:
+		_active_item_name = _t("hud_empty_item")
 	var raw_active_item_color: Variant = active_item.get("color", Color(0.58, 0.66, 0.62, 0.82))
 	_active_item_color = raw_active_item_color if raw_active_item_color is Color else Color(0.58, 0.66, 0.62, 0.82)
 	_active_item_label.text = _active_item_name
@@ -92,13 +121,10 @@ func refresh(state: Dictionary) -> void:
 	var game_over := bool(state.get("game_over", false))
 	if game_over != _game_over_visible:
 		if game_over:
-			_game_over_stats_label.text = "存活时间 %02d:%02d\nTier %d · 击破 Boss %d" % [
-				total_seconds / 60,
-				total_seconds % 60,
-				int(state.get("tier", 0)),
-				int(state.get("boss_kills", 0)),
-			]
+			_game_over_stats_label.text = _game_over_stats_text(total_seconds, int(state.get("tier", 0)), int(state.get("boss_kills", 0)))
 		_set_game_over_visible(game_over)
+	elif game_over:
+		_game_over_stats_label.text = _game_over_stats_text(total_seconds, int(state.get("tier", 0)), int(state.get("boss_kills", 0)))
 	_restart_button.visible = _is_authority
 
 	if _hp != previous_hp:
@@ -310,7 +336,7 @@ func _create_labels() -> void:
 
 	_active_item_label = Label.new()
 	_active_item_label.name = "ActiveItemLabel"
-	_active_item_label.text = "空"
+	_active_item_label.text = _t("hud_empty_item")
 	_active_item_label.position = Vector2(104.0, 66.0)
 	_active_item_label.size = Vector2(146.0, 24.0)
 	_active_item_label.add_theme_font_size_override("font_size", 15)
@@ -320,7 +346,7 @@ func _create_labels() -> void:
 
 	_spectator_label = Label.new()
 	_spectator_label.name = "SpectatorLabel"
-	_spectator_label.text = "观战中…"
+	_spectator_label.text = _t("hud_spectator")
 	_spectator_label.position = Vector2(210.0, 120.0)
 	_spectator_label.visible = false
 	_spectator_label.add_theme_font_size_override("font_size", 22)
@@ -356,12 +382,12 @@ func _create_game_over_panel() -> void:
 	rows.add_theme_constant_override("separation", 12)
 	margin.add_child(rows)
 
-	var title := Label.new()
-	title.text = "全员阵亡"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 26)
-	title.add_theme_color_override("font_color", Color(1.0, 0.52, 0.44, 0.98))
-	rows.add_child(title)
+	_game_over_title_label = Label.new()
+	_game_over_title_label.text = _t("game_over_title")
+	_game_over_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_game_over_title_label.add_theme_font_size_override("font_size", 26)
+	_game_over_title_label.add_theme_color_override("font_color", Color(1.0, 0.52, 0.44, 0.98))
+	rows.add_child(_game_over_title_label)
 
 	_game_over_stats_label = Label.new()
 	_game_over_stats_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -369,15 +395,27 @@ func _create_game_over_panel() -> void:
 	rows.add_child(_game_over_stats_label)
 
 	_restart_button = Button.new()
-	_restart_button.text = "再来一局"
+	_restart_button.text = _t("restart")
 	_restart_button.custom_minimum_size = Vector2(0.0, 42.0)
 	UI_STYLE_SCRIPT.apply_button(_restart_button, true)
 	_restart_button.pressed.connect(func() -> void: restart_requested.emit())
 	rows.add_child(_restart_button)
 
-	var leave_button := Button.new()
-	leave_button.text = "离开"
-	leave_button.custom_minimum_size = Vector2(0.0, 38.0)
-	UI_STYLE_SCRIPT.apply_button(leave_button)
-	leave_button.pressed.connect(func() -> void: leave_requested.emit())
-	rows.add_child(leave_button)
+	_leave_button = Button.new()
+	_leave_button.text = _t("leave")
+	_leave_button.custom_minimum_size = Vector2(0.0, 38.0)
+	UI_STYLE_SCRIPT.apply_button(_leave_button)
+	_leave_button.pressed.connect(func() -> void: leave_requested.emit())
+	rows.add_child(_leave_button)
+
+
+func _game_over_stats_text(total_seconds: int, tier: int, bosses: int) -> String:
+	return _t("game_over_stats", {
+		"time": "%02d:%02d" % [total_seconds / 60, total_seconds % 60],
+		"tier": tier,
+		"bosses": bosses,
+	})
+
+
+func _t(key: String, args: Dictionary = {}) -> String:
+	return LAB_LOCALE_SCRIPT.text(_locale, key, args)

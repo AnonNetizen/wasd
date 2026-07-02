@@ -4,6 +4,11 @@ extends SceneTree
 #   godot --headless --path output/steamworks_lab --script res://tests/battle_smoke.gd
 
 const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
+const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
+const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
+
+const SETTINGS_PATH: String = "user://settings.cfg"
+const SETTINGS_FILE_NAME: String = "settings.cfg"
 
 var _failures: int = 0
 
@@ -21,16 +26,23 @@ func _check(condition: bool, label: String) -> void:
 
 
 func _run() -> void:
+	var settings_backup := _backup_settings_file()
+	_remove_settings_file()
+	_check_language_defaults()
+
 	var main_packed := load("res://scenes/main.tscn") as PackedScene
 	var main_scene := main_packed.instantiate()
 	root.add_child(main_scene)
 	await process_frame
+	await _check_settings_ui(main_scene)
+
 	main_scene.call("_begin_single_player")
 	await process_frame
 
 	var director: Node = main_scene.get("_director")
 	_check(director != null, "director created on single player start")
 	if director == null:
+		_restore_settings_file(settings_backup)
 		quit(1)
 		return
 
@@ -51,7 +63,28 @@ func _run() -> void:
 	var game_status_label := main_scene.get("_game_status_label") as Label
 	_check(game_status_label == null, "game HUD does not show debug session text")
 	_check(battle_hud != null and battle_hud.get_node_or_null("ActiveItemLabel") != null, "battle HUD exposes active item slot label")
+	main_scene.call("_on_language_selected", 1)
+	await process_frame
+	main_scene.call("_refresh_battle_hud")
+	await process_frame
+	var active_label := battle_hud.get_node_or_null("ActiveItemLabel") as Label
+	_check(active_label != null and active_label.text == "Empty", "English HUD active slot localizes empty state")
 	_check(buff_panel != null and buff_panel.get_node_or_null("Dimmer") != null, "buff panel exposes animated dimmer")
+	main_scene.call("_open_buff_panel", PackedInt32Array([
+		BATTLE_DIRECTOR_SCRIPT.BUFF_FIRE_RATE,
+		BATTLE_DIRECTOR_SCRIPT.BUFF_DAMAGE,
+		BATTLE_DIRECTOR_SCRIPT.BUFF_MULTI_SHOT,
+	]))
+	await process_frame
+	_check(_node_tree_has_text(buff_panel, "Choose a Boost"), "English buff panel title localizes")
+	_check(_node_tree_has_text(buff_panel, "Fire Rate Boost\nFire cooldown ×0.85"), "English buff option localizes")
+	buff_panel.call("close")
+	for index in range(12):
+		await process_frame
+	main_scene.call("_on_language_selected", 0)
+	main_scene.call("_refresh_battle_hud")
+	await process_frame
+	_check(active_label != null and active_label.text == "空", "Chinese HUD active slot localizes empty state")
 	_check(InputMap.has_action("active_item"), "active item input action registered")
 	var q_bound := false
 	for event in InputMap.action_get_events("active_item"):
@@ -70,6 +103,7 @@ func _run() -> void:
 	var player := players.get(1) as Node
 	_check(player != null, "player 1 exists")
 	if player == null:
+		_restore_settings_file(settings_backup)
 		quit(1)
 		return
 
@@ -314,8 +348,106 @@ func _run() -> void:
 	ready_scene.call("_on_multiplayer_leave_pressed")
 	ready_scene.queue_free()
 
+	_restore_settings_file(settings_backup)
 	if _failures == 0:
 		print("[battle-smoke] ALL PASS")
 	else:
 		print("[battle-smoke] %d FAILURES" % _failures)
 	quit(1 if _failures > 0 else 0)
+
+
+func _check_language_defaults() -> void:
+	_check(
+		LAB_SETTINGS_SCRIPT.default_locale_for_language("schinese") == LAB_LOCALE_SCRIPT.LOCALE_ZH_CN,
+		"Steam schinese maps to zh_CN"
+	)
+	_check(
+		LAB_SETTINGS_SCRIPT.default_locale_for_language("tchinese") == LAB_LOCALE_SCRIPT.LOCALE_ZH_CN,
+		"Steam tchinese maps to zh_CN"
+	)
+	_check(
+		LAB_SETTINGS_SCRIPT.default_locale_for_language("zh_TW") == LAB_LOCALE_SCRIPT.LOCALE_ZH_CN,
+		"system zh_TW maps to zh_CN"
+	)
+	_check(
+		LAB_SETTINGS_SCRIPT.default_locale_for_language("english") == LAB_LOCALE_SCRIPT.LOCALE_EN,
+		"Steam english maps to en"
+	)
+	_check(
+		LAB_SETTINGS_SCRIPT.default_locale_for_language("japanese") == LAB_LOCALE_SCRIPT.LOCALE_EN,
+		"non-Chinese languages map to en"
+	)
+
+
+func _check_settings_ui(main_scene: Node) -> void:
+	var settings_page := main_scene.get("_settings_page") as Control
+	var language_option := main_scene.get("_language_option") as OptionButton
+	var fullscreen_check := main_scene.get("_fullscreen_check") as CheckButton
+	_check(settings_page != null, "settings page exists")
+	_check(language_option != null and language_option.item_count == 2, "settings language has exactly 2 options")
+	_check(fullscreen_check != null and fullscreen_check.visible, "settings fullscreen toggle is visible")
+
+	main_scene.call("_show_settings_page", "start")
+	await process_frame
+	main_scene.call("_on_language_selected", 1)
+	await process_frame
+	_check(_node_tree_has_text(main_scene.get("_start_page") as Node, "Single Player"), "English main menu text refreshes")
+	_check(_node_tree_has_text(settings_page, "Settings"), "English settings page text refreshes")
+	var active_settings: RefCounted = main_scene.get("_settings")
+	_check(active_settings != null and String(active_settings.get("locale")) == LAB_LOCALE_SCRIPT.LOCALE_EN, "English locale stored in lab settings")
+
+	main_scene.call("_on_fullscreen_toggled", true)
+	var config := ConfigFile.new()
+	var load_error := config.load(SETTINGS_PATH)
+	_check(load_error == OK and bool(config.get_value("settings", "fullscreen", false)), "fullscreen toggle writes settings file")
+
+	main_scene.call("_on_language_selected", 0)
+	await process_frame
+	_check(_node_tree_has_text(main_scene.get("_start_page") as Node, "开始单人游戏"), "Chinese main menu text refreshes")
+	_check(_node_tree_has_text(settings_page, "设置"), "Chinese settings page text refreshes")
+	main_scene.call("_on_settings_back_pressed")
+	for index in range(20):
+		await process_frame
+
+
+func _node_tree_has_text(root_node: Node, expected_text: String) -> bool:
+	if root_node == null:
+		return false
+	if root_node is Label:
+		var label := root_node as Label
+		if label.text == expected_text:
+			return true
+	if root_node is Button:
+		var button := root_node as Button
+		if button.text == expected_text:
+			return true
+	for child in root_node.get_children():
+		if _node_tree_has_text(child, expected_text):
+			return true
+	return false
+
+
+func _backup_settings_file() -> Dictionary:
+	var backup := {"exists": FileAccess.file_exists(SETTINGS_PATH), "text": ""}
+	if bool(backup["exists"]):
+		var file := FileAccess.open(SETTINGS_PATH, FileAccess.READ)
+		if file != null:
+			backup["text"] = file.get_as_text()
+	return backup
+
+
+func _restore_settings_file(backup: Dictionary) -> void:
+	_remove_settings_file()
+	if not bool(backup.get("exists", false)):
+		return
+	var file := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
+	if file != null:
+		file.store_string(String(backup.get("text", "")))
+
+
+func _remove_settings_file() -> void:
+	if not FileAccess.file_exists(SETTINGS_PATH):
+		return
+	var user_dir := DirAccess.open("user://")
+	if user_dir != null:
+		user_dir.remove(SETTINGS_FILE_NAME)
