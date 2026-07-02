@@ -17,6 +17,8 @@ signal buff_choice_received(peer_id: int, option_index: int)
 signal enemy_volley_received(origin: Vector2, directions: PackedVector2Array, speed: float)
 signal battle_reset_received()
 signal battle_launch_received()
+signal active_item_requested(peer_id: int)
+signal active_item_used_received(peer_id: int, item_id: int, origin: Vector2)
 
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
 const DEFAULT_PORT: int = 24567
@@ -166,6 +168,15 @@ func send_shot_to_host(direction: Vector2) -> void:
 	_submit_shot.rpc_id(1, limited_direction.x, limited_direction.y)
 
 
+func send_active_item_to_host() -> void:
+	if _is_host:
+		active_item_requested.emit(1)
+		return
+	if not _client_connection_ready():
+		return
+	_submit_active_item_use.rpc_id(1)
+
+
 func broadcast_shot(peer_id: int, origin: Vector2, direction: Vector2, speed: float) -> void:
 	if not _is_host or multiplayer.multiplayer_peer == null:
 		return
@@ -205,6 +216,12 @@ func broadcast_enemy_volley(origin: Vector2, directions: PackedVector2Array, spe
 	if directions.is_empty():
 		return
 	_receive_enemy_volley.rpc(origin.x, origin.y, directions, speed)
+
+
+func broadcast_active_item_used(peer_id: int, item_id: int, origin: Vector2) -> void:
+	if not _is_host or multiplayer.multiplayer_peer == null:
+		return
+	_receive_active_item_used.rpc(peer_id, item_id, origin.x, origin.y)
 
 
 func broadcast_battle_reset() -> void:
@@ -255,6 +272,13 @@ func _submit_shot(direction_x: float, direction_y: float) -> void:
 	shot_requested.emit(multiplayer.get_remote_sender_id(), direction)
 
 
+@rpc("any_peer", "reliable")
+func _submit_active_item_use() -> void:
+	if not _is_host:
+		return
+	active_item_requested.emit(multiplayer.get_remote_sender_id())
+
+
 @rpc("authority", "unreliable")
 func _receive_snapshot(snapshot: Dictionary) -> void:
 	snapshot_received.emit(snapshot)
@@ -292,6 +316,11 @@ func _submit_buff_choice(option_index: int) -> void:
 @rpc("authority", "reliable")
 func _receive_enemy_volley(origin_x: float, origin_y: float, directions: PackedVector2Array, speed: float) -> void:
 	enemy_volley_received.emit(Vector2(origin_x, origin_y), directions, speed)
+
+
+@rpc("authority", "reliable")
+func _receive_active_item_used(peer_id: int, item_id: int, origin_x: float, origin_y: float) -> void:
+	active_item_used_received.emit(peer_id, item_id, Vector2(origin_x, origin_y))
 
 
 @rpc("authority", "reliable")

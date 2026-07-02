@@ -20,6 +20,7 @@ var _game_over_visible: bool = false
 
 var _time_label: Label
 var _tier_label: Label
+var _active_item_label: Label
 var _spectator_label: Label
 var _game_over_panel: PanelContainer
 var _game_over_stats_label: Label
@@ -46,6 +47,14 @@ func refresh(state: Dictionary) -> void:
 	var total_seconds := int(state.get("time", 0.0))
 	_time_label.text = "%02d:%02d" % [total_seconds / 60, total_seconds % 60]
 	_tier_label.text = "Tier %d" % int(state.get("tier", 0))
+	var active_item: Dictionary = state.get("active_item", {})
+	var active_item_name := String(active_item.get("name", "空"))
+	var active_item_held := bool(active_item.get("held", false))
+	_active_item_label.text = "Q %s" % active_item_name
+	_active_item_label.add_theme_color_override(
+		"font_color",
+		Color(0.94, 1.0, 0.74, 0.96) if active_item_held else Color(0.58, 0.66, 0.62, 0.82)
+	)
 	_spectator_label.visible = not _alive and not bool(state.get("game_over", false))
 
 	var game_over := bool(state.get("game_over", false))
@@ -94,6 +103,15 @@ func _create_labels() -> void:
 	_tier_label.add_theme_font_size_override("font_size", 15)
 	_tier_label.add_theme_color_override("font_color", Color(0.86, 0.92, 0.66, 0.92))
 	add_child(_tier_label)
+
+	_active_item_label = Label.new()
+	_active_item_label.name = "ActiveItemLabel"
+	_active_item_label.text = "Q 空"
+	_active_item_label.position = Vector2(24.0, 56.0)
+	_active_item_label.size = Vector2(210.0, 28.0)
+	_active_item_label.add_theme_font_size_override("font_size", 15)
+	_active_item_label.add_theme_color_override("font_color", Color(0.58, 0.66, 0.62, 0.82))
+	add_child(_active_item_label)
 
 	_spectator_label = Label.new()
 	_spectator_label.name = "SpectatorLabel"

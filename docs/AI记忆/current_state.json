@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-28",
+  "updated_at": "2026-07-02",
   "current_phase": "formal_project_f13_handcrafted_rooms",
   "current_status": "ADR #128 / F13 手工房间制短刷图首片运行时已落地并全绿验证：新增 RoomManager（client/scripts/gameplay/room_manager.gd，Node2D，房间 carrier 模式下由 GameplayRunLoop 挂在 ActiveWorld 下并驱动）、rooms.json / room_sequences.json、RoomRoot + 四类房间 marker（client/scripts/gameplay/rooms/，extends Marker2D + @export + to_data()）、两个演示房间 .tscn；门 direction / unlock_rule 和房间 clear_condition 进词表 §15-A/B/C 并生成常量；run payload schema v2→v3 新增 room 块并配 _migrate_run_v2_to_v3；房间 carrier 首片为 opt-in（debug_enable_room_carrier() 或 run 存档含非空 room 块自动启用），默认 mode_standard_survival 仍是 open-warzone（F12 不变），对象池生成 / Combat / 战利品仍走 GameplayRunLoop；新增 room-switch-smoke 覆盖房间加载 / 清房开门 / 切房 / pause-save-continue 恢复；四条黄金回放因 data_fingerprint（新契约 + rooms/room_sequences schema_counts）变化重录、行为 summary 未变。「把房间设为默认可玩模式」留作需重写 F12 smoke + 重录黄金的后续切片。ADR #127 规划口径（线性序列、清房开门、不自研完整编辑器 UI、不用 PCG 作默认房间内容来源）继续有效。F12 开放战区短刷图首片仍是已落地能力：8-12 分钟软目标、WarzoneDirector 阶段、四个兴趣点、可交互缓存箱、可伤害小巢核、run.pending_loot 暂存、矩形撤离区和结果清单；这些规则作为过渡 / 参考保留，但默认后续关卡承载不再继续以开放地图 PCG 为主。ADR #126 的通用远程敌人 action 和 enemy_spitter 仍保留为房间内容可用敌人能力。Gear Mod / dust 仍先进入 run.pending_loot，死亡 / 放弃不带回，成功完成或未来撤离才写入 meta.gear_mods。后续工作以用户最后明确指令为准。",
   "latest_adr": 128,
@@ -9,6 +9,7 @@
     "E"
   ],
   "last_completed": [
+    "Steamworks Slime Lab 主动道具功能：敌人约 12% 掉落 active_pickup，玩家单槽自动拾取 / 替换并按 Q 使用；5 个道具包含修复波、清场脉冲、凝滞场、团队过载、应急护膜，其中前四个偏团队或全场收益；host 权威结算掉落 / 拾取 / 使用，snapshot 同步掉落物 / 主动槽 / 团队效果，reliable RPC 同步使用请求和触发反馈；battle_smoke 覆盖 Q 绑定、拾取替换、使用消耗、团队治疗、清场、凝滞、过载和快照镜像。",
     "ADR #128 / F13 手工房间制短刷图首片运行时：新增 RoomManager（Node2D，房间 carrier 下 GameplayRunLoop 在 ActiveWorld 创建/驱动）、rooms.json / room_sequences.json、RoomRoot + 四类房间 marker、room_demo_entry / room_demo_arena 两个 .tscn；词表 §15-A door_direction / §15-B door_unlock_rule / §15-C room_clear_condition + 生成常量；DataLoader + validate_data + test_data_loader_schema 房间 schema 校验与 5 个坏样例；run payload v2→v3 + _migrate_run_v2_to_v3；GameplayRunLoop carrier 分支（opt-in debug_enable_room_carrier / 存档 room 块）、_spawn_enemy_at、_update_room、清房计数、房间快照恢复；新增 room-switch-smoke + formal_client_boot 分发 + godot_bridge 命令；默认 open-warzone 不变，四条黄金因 data_fingerprint 变化重录、行为未变。",
     "ADR #127 / F13 手工房间制短刷图规划入口：默认短刷图下一阶段转向 Godot `.tscn` + marker 手工房间串联；新增 F13 工作包，GDD / AI 导航 / 正式项目规划 / 测试策略 / 知识库索引 / TODO / 快速开工 / AI 记忆同步；C 待决策关闭，后续首片目标是 rooms.json、room_sequences.json、房间 marker、RoomManager、两房间清房开门 / 切房间、房间校验和保存恢复 smoke。",
     "ADR #126：新增通用远程敌人 action ai_action_ranged_attack、enemy_ai_ranged_spitter profile 和 enemy_spitter 喷棘者；Bullet 支持可配置 source/target team 与 damage_target_groups，Player 暴露 active_player 命中组与 is_alive()/hit_radius()，GameplayRunLoop 注册 enemy_ranged 池并在 5:00 接入远程波次；runtime-smoke 覆盖远程敌弹伤害玩家。",

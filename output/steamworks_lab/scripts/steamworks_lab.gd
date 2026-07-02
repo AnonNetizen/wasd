@@ -22,6 +22,7 @@ const ACTION_MOVE_LEFT := "move_left"
 const ACTION_MOVE_RIGHT := "move_right"
 const ACTION_EXPRESSION_WHEEL := "expression_wheel"
 const ACTION_FIRE := "fire"
+const ACTION_ACTIVE_ITEM := "active_item"
 const EXPRESSION_DURATION: float = 2.2
 const FIRE_COOLDOWN: float = 0.18
 const FIRE_SPREAD_DEGREES: float = 2.5
@@ -107,6 +108,7 @@ func _start_battle() -> void:
 		_director.call("setup", self, _session, WORLD_RECT)
 		_director.connect("phase_changed", Callable(self, "_on_director_phase_changed"))
 		_director.connect("buff_options_ready", Callable(self, "_on_director_buff_options"))
+		_director.connect("active_item_used", Callable(self, "_on_director_active_item_used"))
 	_reset_battle()
 
 
@@ -157,6 +159,11 @@ func _on_director_buff_options(peer_id: int, options: PackedInt32Array) -> void:
 		return
 	if bool(_session.call("is_host")):
 		_session.call("send_buff_options", peer_id, options)
+
+
+func _on_director_active_item_used(peer_id: int, item_id: int, origin: Vector2) -> void:
+	if _session != null and bool(_session.call("is_host")):
+		_session.call("broadcast_active_item_used", peer_id, item_id, origin)
 
 
 func _on_phase_received(new_phase: int, payload: Dictionary) -> void:
@@ -238,6 +245,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_release_expression_wheel()
 		get_viewport().set_input_as_handled()
 		return
+	if event.is_action_pressed(ACTION_ACTIVE_ITEM) and (key_event == null or not key_event.echo):
+		_try_active_item()
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed(ACTION_FIRE):
 		_fire_held = true
 		_try_fire()
@@ -276,6 +287,8 @@ func _create_session() -> void:
 	_session.connect("enemy_volley_received", Callable(self, "_on_enemy_volley_received"))
 	_session.connect("battle_reset_received", Callable(self, "_on_battle_reset_received"))
 	_session.connect("battle_launch_received", Callable(self, "_on_battle_launch_received"))
+	_session.connect("active_item_requested", Callable(self, "_on_active_item_requested"))
+	_session.connect("active_item_used_received", Callable(self, "_on_active_item_used_received"))
 
 
 func _create_ui() -> void:
@@ -749,6 +762,18 @@ func _on_shot_received(peer_id: int, origin: Vector2, direction: Vector2, speed:
 	_spawn_bullet(peer_id, origin, direction, speed)
 
 
+func _on_active_item_requested(peer_id: int) -> void:
+	if not bool(_session.call("is_host")):
+		return
+	_use_active_item_authority(peer_id)
+
+
+func _on_active_item_used_received(peer_id: int, item_id: int, origin: Vector2) -> void:
+	if _director == null or bool(_director.call("is_authority")):
+		return
+	_director.call("play_active_item_feedback", peer_id, item_id, origin)
+
+
 func _fire_player_shots(peer_id: int, aim_direction: Vector2, broadcast: bool) -> void:
 	if not _players.has(peer_id) or not _battle_active():
 		return
@@ -819,6 +844,7 @@ func _refresh_battle_hud() -> void:
 	state["max_hp"] = PLAYER_SCRIPT.MAX_HP
 	state["authority"] = bool(_director.call("is_authority"))
 	state["game_over"] = int(state.get("phase", 0)) == BATTLE_DIRECTOR_SCRIPT.Phase.GAME_OVER
+	state["active_item"] = _director.call("active_item_for_peer", local_id)
 	if not state.has("boss"):
 		state["boss"] = {}
 	_battle_hud.call("refresh", state)
@@ -886,6 +912,37 @@ func _try_fire() -> void:
 		_fire_player_shots(local_id, direction, false)
 		return
 	_session.call("send_shot_to_host", direction)
+
+
+func _try_active_item() -> void:
+	if _screen != SCREEN_GAME:
+		return
+	if _expression_wheel != null and bool(_expression_wheel.call("is_open")):
+		return
+	if not _battle_active():
+		return
+	var local_id := int(_session.call("local_peer_id"))
+	if not _players.has(local_id):
+		return
+	var local_player := _players[local_id] as Node
+	if local_player == null or not bool(local_player.get("alive")):
+		return
+	if _session == null or String(_session.call("active_transport")) == "offline":
+		_use_active_item_authority(local_id)
+		return
+	_session.call("send_active_item_to_host")
+
+
+func _use_active_item_authority(peer_id: int) -> void:
+	if _director == null or not bool(_director.call("is_authority")):
+		return
+	var result: Dictionary = _director.call("use_active_item", peer_id)
+	if result.is_empty():
+		return
+	var item_id := int(result.get("item_id", -1))
+	var item_info: Dictionary = _director.call("active_item_def", item_id)
+	var item_name := String(item_info.get("name", "主动道具"))
+	_append_log("Peer %d used %s." % [peer_id, item_name])
 
 
 func _local_fire_cooldown(peer_id: int) -> float:
@@ -1180,6 +1237,7 @@ func _ensure_input_actions() -> void:
 	_register_key_action(ACTION_MOVE_RIGHT, KEY_D)
 	_register_key_action(ACTION_MOVE_RIGHT, KEY_RIGHT)
 	_register_key_action(ACTION_EXPRESSION_WHEEL, KEY_T)
+	_register_key_action(ACTION_ACTIVE_ITEM, KEY_Q)
 	_register_mouse_action(ACTION_FIRE, MOUSE_BUTTON_LEFT)
 
 

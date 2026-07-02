@@ -3,12 +3,14 @@ extends Node2D
 
 signal phase_changed(phase: int, payload: Dictionary)
 signal buff_options_ready(peer_id: int, options: PackedInt32Array)
+signal active_item_used(peer_id: int, item_id: int, origin: Vector2)
 
 const ENEMY_SCRIPT := preload("res://scripts/enemy.gd")
 const ENEMY_BULLET_SCRIPT := preload("res://scripts/enemy_bullet.gd")
 const BURST_EFFECT_SCRIPT := preload("res://scripts/burst_effect.gd")
 const BOSS_SCRIPT := preload("res://scripts/boss.gd")
 const OBSTACLE_SCRIPT := preload("res://scripts/obstacle.gd")
+const ACTIVE_PICKUP_SCRIPT := preload("res://scripts/active_pickup.gd")
 
 enum Phase { BATTLE, CHOOSING_BUFF, GAME_OVER }
 
@@ -30,6 +32,20 @@ const BUFF_DEFS: Array[Dictionary] = [
 	{"id": BUFF_PIERCE, "name": "穿透弹芯", "desc": "子弹可再穿透 1 个敌人"},
 ]
 
+const ACTIVE_REPAIR_WAVE: int = 0
+const ACTIVE_CLEAR_PULSE: int = 1
+const ACTIVE_STASIS_FIELD: int = 2
+const ACTIVE_TEAM_OVERLOAD: int = 3
+const ACTIVE_EMERGENCY_SHIELD: int = 4
+
+const ACTIVE_ITEM_DEFS: Array[Dictionary] = [
+	{"id": ACTIVE_REPAIR_WAVE, "name": "修复波", "color": Color(0.52, 0.95, 0.68, 0.96)},
+	{"id": ACTIVE_CLEAR_PULSE, "name": "清场脉冲", "color": Color(0.92, 0.84, 0.48, 0.96)},
+	{"id": ACTIVE_STASIS_FIELD, "name": "凝滞场", "color": Color(0.42, 0.82, 1.0, 0.96)},
+	{"id": ACTIVE_TEAM_OVERLOAD, "name": "团队过载", "color": Color(1.0, 0.58, 0.28, 0.96)},
+	{"id": ACTIVE_EMERGENCY_SHIELD, "name": "应急护膜", "color": Color(0.66, 0.62, 1.0, 0.96)},
+]
+
 const BUFF_INTERVAL: float = 30.0
 const BUFF_CHOICE_TIMEOUT: float = 20.0
 const BOSS_INTERVAL: float = 120.0
@@ -40,6 +56,7 @@ const OBSTACLE_INTERVAL_MAX: float = 14.0
 const MAX_ALIVE_ENEMIES: int = 28
 const MAX_ALIVE_ENEMY_BULLETS: int = 160
 const MAX_ALIVE_OBSTACLES: int = 5
+const MAX_ACTIVE_PICKUPS: int = 6
 const PLAYER_BASE_FIRE_COOLDOWN: float = 0.18
 const PLAYER_MIN_FIRE_COOLDOWN: float = 0.06
 const PLAYER_BASE_MOVE_SPEED: float = 340.0
@@ -48,6 +65,16 @@ const ENEMY_DESPAWN_MARGIN: float = 90.0
 const DRIFT_MARGIN: float = 24.0
 const BOSS_SPAWN_RATE_SCALE: float = 2.0
 const OBSTACLE_BLOCK_PADDING: float = 2.0
+const ACTIVE_DROP_CHANCE: float = 0.12
+const ACTIVE_PICKUP_LIFETIME: float = 18.0
+const ACTIVE_PICKUP_COLLECT_PADDING: float = 6.0
+const ACTIVE_CLEAR_DAMAGE: int = 4
+const ACTIVE_STASIS_DURATION: float = 4.5
+const ACTIVE_OVERLOAD_DURATION: float = 8.0
+const ACTIVE_OVERLOAD_FIRE_COOLDOWN_SCALE: float = 0.72
+const ACTIVE_OVERLOAD_DAMAGE_BONUS: int = 1
+const ACTIVE_OVERLOAD_BULLET_SPEED_SCALE: float = 1.35
+const ACTIVE_SHIELD_INVULNERABILITY: float = 2.8
 
 var phase: int = Phase.BATTLE
 var tier: int = 0
@@ -73,6 +100,11 @@ var _boss: Node2D
 var _obstacles: Dictionary = {}
 var _obstacle_timer: float = OBSTACLE_INTERVAL_MIN
 var _next_boss_at: float = BOSS_INTERVAL
+var _active_pickups: Dictionary = {}
+var _player_active_items: Dictionary = {}
+var _stasis_remaining: float = 0.0
+var _overload_remaining: float = 0.0
+var _enemy_bullets_frozen: bool = false
 
 
 func setup(main: Node2D, session: Node, world_rect: Rect2) -> void:
@@ -97,6 +129,10 @@ func reset_battle() -> void:
 	_choice_timeout_remaining = 0.0
 	_obstacle_timer = OBSTACLE_INTERVAL_MIN
 	_next_boss_at = BOSS_INTERVAL
+	_player_active_items.clear()
+	_stasis_remaining = 0.0
+	_overload_remaining = 0.0
+	_enemy_bullets_frozen = false
 	clear_entities()
 
 
@@ -105,6 +141,7 @@ func clear_entities() -> void:
 	_enemy_bullets.clear()
 	_player_bullets.clear()
 	_obstacles.clear()
+	_active_pickups.clear()
 	_boss = null
 	for child in get_children():
 		if is_instance_valid(child):
@@ -127,15 +164,19 @@ func host_tick(delta: float) -> void:
 
 func _battle_tick(delta: float) -> void:
 	battle_clock += delta
+	_update_active_effects(delta)
 	_prune_entities()
-	_update_spawning(delta)
-	_update_boss(delta)
-	_update_obstacles(delta)
-	_advance_enemies(delta)
-	_resolve_enemy_obstacle_blocking()
+	_update_active_pickups(delta)
+	if not _stasis_active():
+		_update_spawning(delta)
+		_update_boss(delta)
+		_update_obstacles(delta)
+		_advance_enemies(delta)
+		_resolve_enemy_obstacle_blocking()
 	_resolve_player_bullet_hits()
 	_resolve_enemy_bullet_hits()
 	_resolve_contact_hits()
+	_resolve_active_pickup_collection()
 	_check_game_over()
 	if phase == Phase.BATTLE and battle_clock >= _next_buff_at:
 		_next_buff_at += BUFF_INTERVAL
@@ -205,6 +246,43 @@ func _spawn_obstacle() -> void:
 	_obstacles[obstacle_id] = obstacle
 
 
+func _update_active_effects(delta: float) -> void:
+	if _stasis_remaining > 0.0:
+		_stasis_remaining = maxf(0.0, _stasis_remaining - delta)
+	if _overload_remaining > 0.0:
+		_overload_remaining = maxf(0.0, _overload_remaining - delta)
+	_set_enemy_bullets_frozen(_stasis_active())
+
+
+func _stasis_active() -> bool:
+	return _stasis_remaining > 0.0
+
+
+func _overload_active() -> bool:
+	return _overload_remaining > 0.0
+
+
+func _set_enemy_bullets_frozen(frozen: bool) -> void:
+	if _enemy_bullets_frozen == frozen:
+		return
+	_enemy_bullets_frozen = frozen
+	for bullet in _enemy_bullets:
+		if is_instance_valid(bullet) and bullet.has_method("set_battle_frozen"):
+			bullet.call("set_battle_frozen", frozen)
+
+
+func _update_active_pickups(delta: float) -> void:
+	for pickup_id in _active_pickups.keys():
+		var pickup := _active_pickups.get(pickup_id) as Node2D
+		if pickup == null or not is_instance_valid(pickup):
+			_active_pickups.erase(pickup_id)
+			continue
+		pickup.call("advance", delta)
+		if bool(pickup.call("is_expired")):
+			_active_pickups.erase(pickup_id)
+			pickup.queue_free()
+
+
 func _choice_tick(delta: float) -> void:
 	if _session == null or String(_session.call("active_transport")) == "offline":
 		return
@@ -254,6 +332,7 @@ func submit_buff_choice(peer_id: int, option_index: int) -> void:
 
 func notify_peer_left(peer_id: int) -> void:
 	_player_buffs.erase(peer_id)
+	_player_active_items.erase(peer_id)
 	if _pending_buff_peers.has(peer_id):
 		_pending_buff_peers.erase(peer_id)
 		_check_choice_complete()
@@ -297,6 +376,7 @@ func _resume_battle() -> void:
 	phase = Phase.BATTLE
 	_peer_buff_options.clear()
 	set_battle_frozen(false)
+	_set_enemy_bullets_frozen(_stasis_active())
 	if _main != null:
 		_main.call("set_player_bullets_frozen", false)
 	phase_changed.emit(Phase.BATTLE, {"tier": tier})
@@ -304,6 +384,63 @@ func _resume_battle() -> void:
 
 func register_player_bullet(bullet: Node) -> void:
 	_player_bullets.append(bullet)
+
+
+func active_item_for_peer(peer_id: int) -> Dictionary:
+	if not _player_active_items.has(peer_id):
+		return {"held": false, "id": -1, "name": "空"}
+	var item_id := int(_player_active_items.get(peer_id, -1))
+	var def := active_item_def(item_id)
+	return {
+		"held": not def.is_empty(),
+		"id": item_id,
+		"name": String(def.get("name", "空")),
+	}
+
+
+func active_item_def(item_id: int) -> Dictionary:
+	for def in ACTIVE_ITEM_DEFS:
+		if int(def.get("id", -1)) == item_id:
+			return def
+	return {}
+
+
+func force_grant_active_item(peer_id: int, item_id: int) -> void:
+	if active_item_def(item_id).is_empty():
+		return
+	_player_active_items[peer_id] = item_id
+
+
+func force_spawn_active_pickup(item_id: int, spawn_position: Vector2) -> int:
+	return _spawn_active_pickup(item_id, spawn_position)
+
+
+func use_active_item(peer_id: int) -> Dictionary:
+	if not is_authority() or phase != Phase.BATTLE:
+		return {}
+	if not _player_active_items.has(peer_id):
+		return {}
+	var item_id := int(_player_active_items.get(peer_id, -1))
+	if active_item_def(item_id).is_empty():
+		_player_active_items.erase(peer_id)
+		return {}
+	var player := _player_node(peer_id)
+	if player == null or not bool(player.get("alive")):
+		return {}
+	var origin: Vector2 = player.call("body_center")
+	_player_active_items.erase(peer_id)
+	_apply_active_item(peer_id, item_id, origin)
+	active_item_used.emit(peer_id, item_id, origin)
+	return {
+		"ok": true,
+		"peer_id": peer_id,
+		"item_id": item_id,
+		"origin": {"x": origin.x, "y": origin.y},
+	}
+
+
+func play_active_item_feedback(_peer_id: int, item_id: int, origin: Vector2) -> void:
+	_spawn_active_item_feedback(item_id, origin)
 
 
 func client_tick(_delta: float) -> void:
@@ -370,6 +507,21 @@ func battle_snapshot() -> Dictionary:
 			float(obstacle.get("max_hp")),
 			float(obstacle.get("radius")),
 		])
+	var active_pickup_rows: Array = []
+	for pickup_id in _active_pickups.keys():
+		var pickup := _active_pickups.get(pickup_id) as Node2D
+		if pickup == null or not is_instance_valid(pickup):
+			continue
+		active_pickup_rows.append([
+			pickup_id,
+			int(pickup.get("item_id")),
+			pickup.global_position.x,
+			pickup.global_position.y,
+			float(pickup.get("life_remaining")),
+		])
+	var active_item_rows: Array = []
+	for peer_id in _player_active_items.keys():
+		active_item_rows.append([peer_id, int(_player_active_items.get(peer_id, -1))])
 	var boss_data: Dictionary = {}
 	if _boss != null and is_instance_valid(_boss):
 		boss_data = {
@@ -387,6 +539,12 @@ func battle_snapshot() -> Dictionary:
 		"boss": boss_data,
 		"enemies": enemy_rows,
 		"obstacles": obstacle_rows,
+		"active_pickups": active_pickup_rows,
+		"active_items": active_item_rows,
+		"active_effects": {
+			"stasis": _stasis_remaining,
+			"overload": _overload_remaining,
+		},
 	}
 
 
@@ -400,6 +558,9 @@ func apply_snapshot_battle(snapshot: Dictionary) -> void:
 	_reconcile_enemies(snapshot.get("enemies", []))
 	_reconcile_boss(snapshot.get("boss", {}))
 	_reconcile_obstacles(snapshot.get("obstacles", []))
+	_reconcile_active_pickups(snapshot.get("active_pickups", []))
+	_apply_active_item_snapshot(snapshot.get("active_items", []))
+	_apply_active_effect_snapshot(snapshot.get("active_effects", {}))
 
 
 func apply_phase(new_phase: int, payload: Dictionary) -> void:
@@ -525,6 +686,81 @@ func _reconcile_obstacles(rows: Variant) -> void:
 		obstacle.queue_free()
 
 
+func _reconcile_active_pickups(rows: Variant) -> void:
+	if not rows is Array:
+		return
+	var seen: Dictionary = {}
+	for row in rows:
+		if not row is Array:
+			continue
+		var row_data: Array = row
+		if row_data.size() < 5:
+			continue
+		var pickup_id := int(row_data[0])
+		var item_id := int(row_data[1])
+		var target_position := Vector2(float(row_data[2]), float(row_data[3]))
+		var life_remaining := float(row_data[4])
+		var def := active_item_def(item_id)
+		if def.is_empty():
+			continue
+		seen[pickup_id] = true
+		var pickup := _active_pickups.get(pickup_id) as Node2D
+		if pickup == null or not is_instance_valid(pickup):
+			pickup = ACTIVE_PICKUP_SCRIPT.new() as Node2D
+			pickup.name = "ActivePickup%d" % pickup_id
+			add_child(pickup)
+			pickup.call(
+				"configure",
+				pickup_id,
+				item_id,
+				String(def.get("name", "")),
+				target_position,
+				life_remaining,
+				def.get("color", Color(0.66, 0.95, 0.78, 0.96))
+			)
+			pickup.call("set_remote_driven", true)
+			_active_pickups[pickup_id] = pickup
+		pickup.call("set_authoritative_state", target_position, life_remaining)
+	for pickup_id in _active_pickups.keys():
+		if seen.has(pickup_id):
+			continue
+		var pickup := _active_pickups.get(pickup_id) as Node2D
+		_active_pickups.erase(pickup_id)
+		if pickup == null or not is_instance_valid(pickup):
+			continue
+		spawn_burst(pickup.global_position, Color(0.66, 0.95, 0.78, 0.72), 7, 90.0)
+		pickup.queue_free()
+
+
+func _apply_active_item_snapshot(rows: Variant) -> void:
+	_player_active_items.clear()
+	if not rows is Array:
+		return
+	for row in rows:
+		if not row is Array:
+			continue
+		var row_data: Array = row
+		if row_data.size() < 2:
+			continue
+		var peer_id := int(row_data[0])
+		var item_id := int(row_data[1])
+		if peer_id <= 0 or active_item_def(item_id).is_empty():
+			continue
+		_player_active_items[peer_id] = item_id
+
+
+func _apply_active_effect_snapshot(data: Variant) -> void:
+	if not data is Dictionary:
+		_stasis_remaining = 0.0
+		_overload_remaining = 0.0
+		_set_enemy_bullets_frozen(false)
+		return
+	var effects: Dictionary = data
+	_stasis_remaining = maxf(float(effects.get("stasis", 0.0)), 0.0)
+	_overload_remaining = maxf(float(effects.get("overload", 0.0)), 0.0)
+	_set_enemy_bullets_frozen(_stasis_active())
+
+
 func _radius_for_kind(kind: int) -> float:
 	match kind:
 		ENEMY_SCRIPT.KIND_GUNNER:
@@ -550,6 +786,11 @@ func battle_state() -> Dictionary:
 		"boss_kills": boss_kills,
 		"enemy_count": _enemies.size(),
 		"boss": boss_info,
+		"active_pickup_count": _active_pickups.size(),
+		"active_effects": {
+			"stasis": _stasis_remaining,
+			"overload": _overload_remaining,
+		},
 	}
 
 
@@ -575,11 +816,14 @@ func apply_buff(peer_id: int, buff_id: int) -> void:
 
 func player_fire_cooldown(peer_id: int) -> float:
 	var scale := pow(0.85, float(_buff_stacks(peer_id, BUFF_FIRE_RATE)))
+	if _overload_active():
+		scale *= ACTIVE_OVERLOAD_FIRE_COOLDOWN_SCALE
 	return maxf(PLAYER_BASE_FIRE_COOLDOWN * scale, PLAYER_MIN_FIRE_COOLDOWN)
 
 
 func player_bullet_damage(peer_id: int) -> int:
-	return 1 + _buff_stacks(peer_id, BUFF_DAMAGE)
+	var bonus := ACTIVE_OVERLOAD_DAMAGE_BONUS if _overload_active() else 0
+	return 1 + _buff_stacks(peer_id, BUFF_DAMAGE) + bonus
 
 
 func player_bullet_count(peer_id: int) -> int:
@@ -591,7 +835,8 @@ func player_move_speed_scale(peer_id: int) -> float:
 
 
 func player_bullet_speed_scale(peer_id: int) -> float:
-	return minf(pow(1.2, float(_buff_stacks(peer_id, BUFF_BULLET_SPEED))), 2.2)
+	var overload_scale := ACTIVE_OVERLOAD_BULLET_SPEED_SCALE if _overload_active() else 1.0
+	return minf(pow(1.2, float(_buff_stacks(peer_id, BUFF_BULLET_SPEED))) * overload_scale, 2.6)
 
 
 func player_pierce_count(peer_id: int) -> int:
@@ -606,10 +851,167 @@ func spawn_burst(origin: Vector2, color: Color, shard_count: int, shard_speed: f
 	burst.call("configure", origin, color, shard_count, shard_speed)
 
 
+func _apply_active_item(peer_id: int, item_id: int, origin: Vector2) -> void:
+	match item_id:
+		ACTIVE_REPAIR_WAVE:
+			for player in _alive_players():
+				player.call("heal", 1)
+		ACTIVE_CLEAR_PULSE:
+			_clear_enemy_bullets()
+			_damage_all_hostiles(ACTIVE_CLEAR_DAMAGE)
+		ACTIVE_STASIS_FIELD:
+			_stasis_remaining = maxf(_stasis_remaining, ACTIVE_STASIS_DURATION)
+			_set_enemy_bullets_frozen(true)
+		ACTIVE_TEAM_OVERLOAD:
+			_overload_remaining = maxf(_overload_remaining, ACTIVE_OVERLOAD_DURATION)
+		ACTIVE_EMERGENCY_SHIELD:
+			var player := _player_node(peer_id)
+			if player != null:
+				player.call("heal", 1)
+				player.set(
+					"invuln_remaining",
+					maxf(float(player.get("invuln_remaining")), ACTIVE_SHIELD_INVULNERABILITY)
+				)
+		_:
+			return
+	_spawn_active_item_feedback(item_id, origin)
+
+
+func _spawn_active_item_feedback(item_id: int, origin: Vector2) -> void:
+	var def := active_item_def(item_id)
+	var burst_color: Color = def.get("color", Color(0.66, 0.95, 0.78, 0.96))
+	var shard_count := 18
+	var shard_speed := 180.0
+	match item_id:
+		ACTIVE_REPAIR_WAVE:
+			shard_count = 18
+			shard_speed = 150.0
+		ACTIVE_CLEAR_PULSE:
+			shard_count = 30
+			shard_speed = 300.0
+		ACTIVE_STASIS_FIELD:
+			shard_count = 20
+			shard_speed = 120.0
+		ACTIVE_TEAM_OVERLOAD:
+			shard_count = 24
+			shard_speed = 220.0
+		ACTIVE_EMERGENCY_SHIELD:
+			shard_count = 16
+			shard_speed = 130.0
+		_:
+			pass
+	spawn_burst(origin, burst_color, shard_count, shard_speed)
+
+
+func _clear_enemy_bullets() -> void:
+	for bullet in _enemy_bullets:
+		if bullet == null or not is_instance_valid(bullet):
+			continue
+		var bullet_node := bullet as Node2D
+		if bullet_node != null:
+			spawn_burst(bullet_node.global_position, Color(1.0, 0.82, 0.52, 0.74), 4, 80.0)
+		bullet.queue_free()
+	_enemy_bullets.clear()
+	_enemy_bullets_frozen = false
+
+
+func _damage_all_hostiles(amount: int) -> void:
+	for enemy_id in _enemies.keys():
+		var enemy := _enemies.get(enemy_id) as Node2D
+		if enemy == null or not is_instance_valid(enemy):
+			continue
+		enemy.call("take_hit", amount)
+		if bool(enemy.call("is_dead")):
+			_kill_enemy(enemy_id, enemy)
+	if _boss != null and is_instance_valid(_boss):
+		_boss.call("take_hit", amount)
+		if bool(_boss.call("is_dead")):
+			_kill_boss()
+	for obstacle_id in _obstacles.keys():
+		var obstacle := _obstacles.get(obstacle_id) as Node2D
+		if obstacle == null or not is_instance_valid(obstacle):
+			continue
+		obstacle.call("take_hit", amount)
+		if bool(obstacle.call("is_destroyed")):
+			_destroy_obstacle(obstacle_id, obstacle)
+
+
+func _maybe_drop_active_item(drop_position: Vector2) -> void:
+	if _active_pickups.size() >= MAX_ACTIVE_PICKUPS:
+		return
+	if _rng.randf() > ACTIVE_DROP_CHANCE:
+		return
+	_spawn_active_pickup(_roll_active_item_id(), drop_position)
+
+
+func _roll_active_item_id() -> int:
+	var pick := _rng.randi_range(0, ACTIVE_ITEM_DEFS.size() - 1)
+	return int(ACTIVE_ITEM_DEFS[pick].get("id", ACTIVE_REPAIR_WAVE))
+
+
+func _spawn_active_pickup(item_id: int, spawn_position: Vector2) -> int:
+	var def := active_item_def(item_id)
+	if def.is_empty():
+		return -1
+	if _active_pickups.size() >= MAX_ACTIVE_PICKUPS:
+		return -1
+	var pickup_id := _next_entity_id
+	_next_entity_id += 1
+	var pickup := ACTIVE_PICKUP_SCRIPT.new() as Node2D
+	pickup.name = "ActivePickup%d" % pickup_id
+	add_child(pickup)
+	var pickup_color: Color = def.get("color", Color(0.66, 0.95, 0.78, 0.96))
+	var clamped_position := Vector2(
+		clampf(spawn_position.x, _world_rect.position.x + 24.0, _world_rect.end.x - 24.0),
+		clampf(spawn_position.y, _world_rect.position.y + 24.0, _world_rect.end.y - 24.0)
+	)
+	pickup.call(
+		"configure",
+		pickup_id,
+		item_id,
+		String(def.get("name", "")),
+		clamped_position,
+		ACTIVE_PICKUP_LIFETIME,
+		pickup_color
+	)
+	_active_pickups[pickup_id] = pickup
+	return pickup_id
+
+
+func _resolve_active_pickup_collection() -> void:
+	if _active_pickups.is_empty():
+		return
+	for pickup_id in _active_pickups.keys():
+		var pickup := _active_pickups.get(pickup_id) as Node2D
+		if pickup == null or not is_instance_valid(pickup):
+			_active_pickups.erase(pickup_id)
+			continue
+		for player in _alive_players():
+			var player_center: Vector2 = player.call("body_center")
+			var player_radius := float(player.call("hit_radius"))
+			if player_center.distance_to(pickup.global_position) > player_radius + float(pickup.get("radius")) + ACTIVE_PICKUP_COLLECT_PADDING:
+				continue
+			_collect_active_pickup(int(player.get("peer_id")), pickup_id, pickup)
+			break
+
+
+func _collect_active_pickup(peer_id: int, pickup_id: int, pickup: Node2D) -> void:
+	var item_id := int(pickup.get("item_id"))
+	if active_item_def(item_id).is_empty():
+		return
+	_player_active_items[peer_id] = item_id
+	_active_pickups.erase(pickup_id)
+	spawn_burst(pickup.global_position, Color(0.70, 1.0, 0.82, 0.82), 8, 110.0)
+	pickup.queue_free()
+
+
 func set_battle_frozen(frozen: bool) -> void:
 	for child in get_children():
 		if is_instance_valid(child) and child.has_method("set_battle_frozen"):
 			child.call("set_battle_frozen", frozen)
+	if not frozen:
+		_enemy_bullets_frozen = false
+		_set_enemy_bullets_frozen(_stasis_active())
 
 
 func _buff_stacks(peer_id: int, buff_id: int) -> int:
@@ -824,6 +1226,8 @@ func _spawn_enemy_volley(origin: Vector2, directions: PackedVector2Array, bullet
 		_next_entity_id += 1
 		add_child(bullet)
 		bullet.call("configure", origin, direction, bullet_speed, _world_rect)
+		if _stasis_active():
+			bullet.call("set_battle_frozen", true)
 		_enemy_bullets.append(bullet)
 	if _session != null and bool(_session.call("is_host")):
 		_session.call("broadcast_enemy_volley", origin, directions, bullet_speed)
@@ -900,6 +1304,7 @@ func _destroy_obstacle(obstacle_id: int, obstacle: Node2D) -> void:
 func _kill_enemy(enemy_id: int, enemy: Node2D) -> void:
 	_enemies.erase(enemy_id)
 	spawn_burst(enemy.global_position, Color(1.0, 0.62, 0.34, 0.9), 10, 150.0)
+	_maybe_drop_active_item(enemy.global_position)
 	enemy.queue_free()
 
 
