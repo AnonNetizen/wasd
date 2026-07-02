@@ -4,8 +4,8 @@ extends Node2D
 const CURVE_CENTRIPETAL_ALPHA: float = 0.5
 const CURVE_MIN_KNOT_SPACING: float = 0.0001
 const FIRE_BUD_DURATION: float = 0.18
-const FIRE_BUD_IMPULSE: float = 120.0
-const FIRE_BUD_PUSH: float = 14.0
+const FIRE_BUD_IMPULSE: float = 68.0
+const FIRE_BUD_PUSH: float = 8.0
 
 @export_range(16, 128, 1) var point_count: int = 64
 @export var base_radius: float = 32.0
@@ -21,7 +21,7 @@ const FIRE_BUD_PUSH: float = 14.0
 @export var membrane_follow_stiffness: float = 42.0
 @export var membrane_follow_damping: float = 7.2
 @export var membrane_neighbor_smoothing: float = 18.0
-@export var membrane_inertia: float = 0.82
+@export var membrane_inertia: float = 0.5
 @export var movement_push_amount: float = 10.0
 @export var movement_squash_amount: float = 0.14
 @export var area_pressure: float = 42.0
