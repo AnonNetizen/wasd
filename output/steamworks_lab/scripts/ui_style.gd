@@ -34,6 +34,27 @@ static func build_theme() -> Theme:
 	theme.set_stylebox("disabled", "Button", button_style(Color(0.08, 0.10, 0.10, 0.64), DISABLED_COLOR))
 	theme.set_stylebox("focus", "Button", focus_style())
 
+	theme.set_color("font_color", "OptionButton", TEXT_COLOR)
+	theme.set_color("font_hover_color", "OptionButton", Color(0.97, 1.0, 0.86, 1.0))
+	theme.set_color("font_pressed_color", "OptionButton", Color(0.04, 0.08, 0.06, 1.0))
+	theme.set_color("font_disabled_color", "OptionButton", Color(0.47, 0.55, 0.51, 0.76))
+	theme.set_font_size("font_size", "OptionButton", 15)
+	theme.set_stylebox("normal", "OptionButton", option_button_style(false))
+	theme.set_stylebox("hover", "OptionButton", option_button_style(true))
+	theme.set_stylebox("pressed", "OptionButton", button_style(Color(0.38, 0.88, 0.86, 0.94), Color(0.90, 1.0, 0.95, 1.0), 2, 0.22))
+	theme.set_stylebox("disabled", "OptionButton", button_style(Color(0.08, 0.10, 0.10, 0.64), DISABLED_COLOR))
+	theme.set_stylebox("focus", "OptionButton", focus_style())
+
+	theme.set_color("font_color", "PopupMenu", TEXT_COLOR)
+	theme.set_color("font_hover_color", "PopupMenu", Color(0.98, 1.0, 0.78, 1.0))
+	theme.set_color("font_disabled_color", "PopupMenu", MUTED_TEXT_COLOR)
+	theme.set_font_size("font_size", "PopupMenu", 15)
+	theme.set_stylebox("panel", "PopupMenu", popup_panel_style())
+	theme.set_stylebox("hover", "PopupMenu", popup_hover_style())
+	theme.set_constant("item_start_padding", "PopupMenu", 14)
+	theme.set_constant("item_end_padding", "PopupMenu", 14)
+	theme.set_constant("v_separation", "PopupMenu", 6)
+
 	theme.set_color("font_color", "LineEdit", TEXT_COLOR)
 	theme.set_color("font_placeholder_color", "LineEdit", MUTED_TEXT_COLOR)
 	theme.set_color("caret_color", "LineEdit", AMBER_COLOR)
@@ -68,6 +89,31 @@ static func apply_button(button: Button, primary: bool = false) -> void:
 		button.add_theme_stylebox_override("normal", button_style(PANEL_COLOR, PANEL_BORDER_COLOR))
 		button.add_theme_stylebox_override("hover", button_style(Color(0.07, 0.14, 0.13, 0.98), CYAN_COLOR, 2, 0.24))
 		button.add_theme_stylebox_override("pressed", button_style(Color(0.38, 0.88, 0.86, 0.94), Color(0.90, 1.0, 0.95, 1.0), 2, 0.22))
+
+
+static func apply_option_button(option_button: OptionButton) -> void:
+	option_button.add_theme_stylebox_override("normal", option_button_style(false))
+	option_button.add_theme_stylebox_override("hover", option_button_style(true))
+	option_button.add_theme_stylebox_override("pressed", button_style(Color(0.38, 0.88, 0.86, 0.94), Color(0.90, 1.0, 0.95, 1.0), 2, 0.22))
+	option_button.add_theme_stylebox_override("focus", focus_style())
+	option_button.add_theme_color_override("font_color", TEXT_COLOR)
+	option_button.add_theme_color_override("font_hover_color", Color(0.97, 1.0, 0.86, 1.0))
+	option_button.add_theme_color_override("font_pressed_color", Color(0.04, 0.08, 0.06, 1.0))
+	apply_popup_menu(option_button.get_popup())
+
+
+static func apply_popup_menu(popup: PopupMenu) -> void:
+	if popup == null:
+		return
+	popup.add_theme_stylebox_override("panel", popup_panel_style())
+	popup.add_theme_stylebox_override("hover", popup_hover_style())
+	popup.add_theme_color_override("font_color", TEXT_COLOR)
+	popup.add_theme_color_override("font_hover_color", Color(0.98, 1.0, 0.78, 1.0))
+	popup.add_theme_color_override("font_disabled_color", MUTED_TEXT_COLOR)
+	popup.add_theme_font_size_override("font_size", 15)
+	popup.add_theme_constant_override("item_start_padding", 14)
+	popup.add_theme_constant_override("item_end_padding", 14)
+	popup.add_theme_constant_override("v_separation", 6)
 
 
 static func apply_input(input: LineEdit) -> void:
@@ -110,6 +156,35 @@ static func button_style(
 	style.content_margin_top = 8.0
 	style.content_margin_right = 16.0
 	style.content_margin_bottom = 8.0
+	return style
+
+
+static func option_button_style(hovered: bool) -> StyleBoxFlat:
+	var style := button_style(
+		Color(0.07, 0.14, 0.13, 0.98) if hovered else PANEL_COLOR,
+		CYAN_COLOR if hovered else PANEL_BORDER_COLOR,
+		2 if hovered else 1,
+		0.24 if hovered else 0.18
+	)
+	style.content_margin_right = 34.0
+	return style
+
+
+static func popup_panel_style() -> StyleBoxFlat:
+	var style := panel_style(Color(0.022, 0.035, 0.036, 0.98), Color(0.32, 0.88, 0.78, 0.84), 8, 2, 0.38)
+	style.content_margin_left = 6.0
+	style.content_margin_top = 8.0
+	style.content_margin_right = 6.0
+	style.content_margin_bottom = 8.0
+	return style
+
+
+static func popup_hover_style() -> StyleBoxFlat:
+	var style := panel_style(Color(0.12, 0.30, 0.20, 0.96), Color(0.88, 1.0, 0.68, 0.92), 6, 1, 0.0)
+	style.content_margin_left = 10.0
+	style.content_margin_top = 5.0
+	style.content_margin_right = 10.0
+	style.content_margin_bottom = 5.0
 	return style
 
 

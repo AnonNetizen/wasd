@@ -92,12 +92,13 @@ func _run() -> void:
 		if key_event != null and key_event.keycode == KEY_Q:
 			q_bound = true
 	_check(q_bound, "active item input action binds Q")
-
-	for index in range(720):
-		main_scene.call("_update_gameplay", 1.0 / 60.0)
-	var state: Dictionary = director.call("battle_state")
-	_check(float(state.get("time", 0.0)) > 11.5, "battle clock advanced (%.1f)" % float(state.get("time", 0.0)))
-	_check(int(state.get("enemy_count", 0)) > 0, "enemies spawned (%d)" % int(state.get("enemy_count", 0)))
+	_check(InputMap.has_action("pause_menu"), "pause menu input action registered")
+	var esc_bound := false
+	for event in InputMap.action_get_events("pause_menu"):
+		var key_event := event as InputEventKey
+		if key_event != null and key_event.keycode == KEY_ESCAPE:
+			esc_bound = true
+	_check(esc_bound, "pause menu input action binds Esc")
 
 	var players: Dictionary = main_scene.call("player_nodes")
 	var player := players.get(1) as Node
@@ -106,6 +107,48 @@ func _run() -> void:
 		_restore_settings_file(settings_backup)
 		quit(1)
 		return
+
+	var pause_panel := main_scene.get("_pause_panel") as Control
+	_check(pause_panel != null, "pause panel exists")
+	var pause_clock_before := float(director.call("battle_state").get("time", 0.0))
+	player.set("invuln_remaining", 1.0)
+	var invuln_before_pause := float(player.get("invuln_remaining"))
+	main_scene.call("_open_pause_menu")
+	await process_frame
+	_check(bool(main_scene.get("_pause_menu_open")), "single player pause opens menu")
+	_check(pause_panel != null and pause_panel.visible, "pause panel is visible")
+	for index in range(60):
+		player.call("_process", 1.0 / 60.0)
+		main_scene.call("_update_gameplay", 1.0 / 60.0)
+	var pause_clock_after := float(director.call("battle_state").get("time", 0.0))
+	_check(is_equal_approx(pause_clock_before, pause_clock_after), "battle clock frozen while paused")
+	_check(is_equal_approx(invuln_before_pause, float(player.get("invuln_remaining"))), "shield invulnerability frozen while paused")
+	main_scene.call("_on_language_selected", 1)
+	await process_frame
+	_check(_node_tree_has_text(pause_panel, "Paused"), "English pause title localizes")
+	_check(_node_tree_has_text(pause_panel, "Resume"), "English pause resume localizes")
+	_check(_node_tree_has_text(pause_panel, "Back to Menu"), "English pause back localizes")
+	main_scene.call("_on_language_selected", 0)
+	await process_frame
+	_check(_node_tree_has_text(pause_panel, "暂停"), "Chinese pause title localizes")
+	var esc_event := InputEventKey.new()
+	esc_event.keycode = KEY_ESCAPE
+	esc_event.pressed = true
+	main_scene.call("_unhandled_input", esc_event)
+	await process_frame
+	_check(not bool(main_scene.get("_pause_menu_open")), "Esc closes pause menu")
+	var invuln_before_pause_resume := float(player.get("invuln_remaining"))
+	main_scene.call("_update_gameplay", 0.25)
+	player.call("_process", 0.25)
+	var pause_clock_resumed := float(director.call("battle_state").get("time", 0.0))
+	_check(pause_clock_resumed > pause_clock_after, "battle clock resumes after pause")
+	_check(float(player.get("invuln_remaining")) < invuln_before_pause_resume, "shield invulnerability resumes after pause")
+
+	for index in range(720):
+		main_scene.call("_update_gameplay", 1.0 / 60.0)
+	var state: Dictionary = director.call("battle_state")
+	_check(float(state.get("time", 0.0)) > 11.5, "battle clock advanced (%.1f)" % float(state.get("time", 0.0)))
+	_check(int(state.get("enemy_count", 0)) > 0, "enemies spawned (%d)" % int(state.get("enemy_count", 0)))
 
 	player.set("invuln_remaining", 0.0)
 	var hp_before := int(player.get("hp"))
@@ -345,6 +388,18 @@ func _run() -> void:
 	_check(start_button != null and not start_button.disabled, "ready start enabled with two players")
 	ready_scene.call("_on_ready_start_battle_pressed")
 	_check(ready_scene.get("_director") != null, "ready start launches after peer joins")
+	var ready_director: Node = ready_scene.get("_director")
+	var multiplayer_pause_panel := ready_scene.get("_pause_panel") as Control
+	ready_scene.call("_open_pause_menu")
+	await process_frame
+	_check(bool(ready_scene.get("_pause_menu_open")), "multiplayer pause opens local menu")
+	_check(multiplayer_pause_panel != null and multiplayer_pause_panel.visible, "multiplayer pause panel is visible")
+	var multiplayer_clock_before := float(ready_director.call("battle_state").get("time", 0.0))
+	for index in range(30):
+		ready_scene.call("_update_gameplay", 1.0 / 60.0)
+	var multiplayer_clock_after := float(ready_director.call("battle_state").get("time", 0.0))
+	_check(multiplayer_clock_after > multiplayer_clock_before, "multiplayer pause does not freeze host clock")
+	ready_scene.call("_close_pause_menu")
 	ready_scene.call("_on_multiplayer_leave_pressed")
 	ready_scene.queue_free()
 

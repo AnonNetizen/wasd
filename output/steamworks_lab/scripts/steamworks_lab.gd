@@ -7,6 +7,7 @@ const BULLET_SCRIPT := preload("res://scripts/slime_bullet.gd")
 const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
 const BATTLE_HUD_SCRIPT := preload("res://scripts/battle_hud.gd")
 const BUFF_PANEL_SCRIPT := preload("res://scripts/buff_panel.gd")
+const PAUSE_PANEL_SCRIPT := preload("res://scripts/pause_panel.gd")
 const UI_STYLE_SCRIPT := preload("res://scripts/ui_style.gd")
 const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
 const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
@@ -27,6 +28,7 @@ const ACTION_MOVE_RIGHT := "move_right"
 const ACTION_EXPRESSION_WHEEL := "expression_wheel"
 const ACTION_FIRE := "fire"
 const ACTION_ACTIVE_ITEM := "active_item"
+const ACTION_PAUSE_MENU := "pause_menu"
 const EXPRESSION_DURATION: float = 2.2
 const FIRE_COOLDOWN: float = 0.18
 const FIRE_SPREAD_DEGREES: float = 2.5
@@ -57,6 +59,7 @@ var _backdrop_stars: Array[Dictionary] = []
 var _director: Node2D
 var _battle_hud: Control
 var _buff_panel: Control
+var _pause_panel: Control
 var _settings: RefCounted
 var _ui_transition_tween: Tween
 var _ui_motion_tweens: Dictionary = {}
@@ -64,6 +67,8 @@ var _local_buff_options: PackedInt32Array = PackedInt32Array()
 var _localized_text_controls: Array[Control] = []
 var _localized_placeholder_controls: Array[Control] = []
 var _settings_return_screen: String = SCREEN_START
+var _pause_menu_open: bool = false
+var _pause_freezes_game: bool = false
 
 var _ui_root: Control
 var _start_page: Control
@@ -98,8 +103,11 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	_ui_anim_time += delta
 	if _screen == SCREEN_GAME:
-		_update_gameplay(delta)
-		if _battle_active():
+		if _pause_blocks_gameplay_tick():
+			_refresh_battle_hud()
+		else:
+			_update_gameplay(delta)
+		if _battle_active() and not _pause_blocks_gameplay_tick():
 			_world_scroll_offset += WORLD_SCROLL_SPEED * delta
 	_update_status()
 	queue_redraw()
@@ -128,11 +136,13 @@ func _start_battle() -> void:
 
 
 func _end_battle() -> void:
+	_close_pause_menu()
 	if _director != null:
 		_director.call("reset_battle")
 
 
 func _reset_battle() -> void:
+	_close_pause_menu()
 	if _director != null:
 		_director.call("reset_battle")
 	_clear_bullets()
@@ -254,6 +264,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _screen != SCREEN_GAME:
 		return
 	var key_event := event as InputEventKey
+	if event.is_action_pressed(ACTION_PAUSE_MENU) and (key_event == null or not key_event.echo):
+		if _pause_menu_open:
+			_close_pause_menu()
+		elif _can_open_pause_menu():
+			_open_pause_menu()
+		get_viewport().set_input_as_handled()
+		return
+	if _pause_menu_open:
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed(ACTION_EXPRESSION_WHEEL) and (key_event == null or not key_event.echo):
 		_open_expression_wheel()
 		get_viewport().set_input_as_handled()
@@ -522,7 +542,7 @@ func _create_settings_page() -> void:
 	_language_option.custom_minimum_size = Vector2(320.0, 42.0)
 	_language_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_language_option.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	UI_STYLE_SCRIPT.apply_button(_language_option)
+	UI_STYLE_SCRIPT.apply_option_button(_language_option)
 	rows.add_child(_language_option)
 
 	_fullscreen_check = CheckButton.new()
@@ -564,6 +584,13 @@ func _create_game_page() -> void:
 	_game_page.add_child(_buff_panel)
 
 	_create_expression_wheel()
+
+	_pause_panel = PAUSE_PANEL_SCRIPT.new() as Control
+	_pause_panel.name = "PausePanel"
+	_pause_panel.call("set_locale", _current_locale())
+	_pause_panel.connect("resume_requested", Callable(self, "_close_pause_menu"))
+	_pause_panel.connect("main_menu_requested", Callable(self, "_on_pause_main_menu_requested"))
+	_game_page.add_child(_pause_panel)
 
 
 func _make_page(page_name: String) -> Control:
@@ -802,6 +829,8 @@ func _apply_locale() -> void:
 		_battle_hud.call("set_locale", _current_locale())
 	if _buff_panel != null:
 		_buff_panel.call("set_locale", _current_locale())
+	if _pause_panel != null:
+		_pause_panel.call("set_locale", _current_locale())
 	for peer_id in _players.keys():
 		var player := _players[peer_id] as Node
 		if player != null and is_instance_valid(player):
@@ -880,6 +909,8 @@ func _show_game_page() -> void:
 
 
 func _set_screen(screen_name: String) -> void:
+	if screen_name != SCREEN_GAME:
+		_close_pause_menu()
 	var previous_page := _page_for_screen(_screen)
 	var next_page := _page_for_screen(screen_name)
 	_screen = screen_name
@@ -970,6 +1001,65 @@ func _finish_page_transition(previous_page: Control, next_page: Control) -> void
 
 func _all_pages() -> Array[Control]:
 	return [_start_page, _multiplayer_page, _settings_page, _game_page]
+
+
+func _can_open_pause_menu() -> bool:
+	if _screen != SCREEN_GAME or _director == null:
+		return false
+	if not _battle_active():
+		return false
+	return true
+
+
+func _open_pause_menu() -> void:
+	if _pause_menu_open or not _can_open_pause_menu():
+		return
+	_pause_menu_open = true
+	_pause_freezes_game = not _multiplayer_session_active()
+	_fire_held = false
+	if _expression_wheel != null and bool(_expression_wheel.call("is_open")):
+		_expression_wheel.call("close")
+	if _pause_freezes_game:
+		_set_battle_pause_frozen(true)
+	if _pause_panel != null:
+		_pause_panel.call("open")
+	_freeze_player_inputs()
+	_refresh_battle_hud()
+
+
+func _close_pause_menu() -> void:
+	if not _pause_menu_open:
+		if _pause_panel != null and bool(_pause_panel.call("is_open")):
+			_pause_panel.call("close")
+		return
+	if _pause_freezes_game:
+		_set_battle_pause_frozen(false)
+	_pause_menu_open = false
+	_pause_freezes_game = false
+	_fire_held = false
+	if _pause_panel != null:
+		_pause_panel.call("close")
+	_refresh_battle_hud()
+
+
+func _pause_blocks_gameplay_tick() -> bool:
+	return _pause_menu_open and _pause_freezes_game
+
+
+func _set_battle_pause_frozen(frozen: bool) -> void:
+	if _director != null:
+		_director.call("set_battle_frozen", frozen)
+	set_player_bullets_frozen(frozen)
+	_sync_player_battle_timers(not frozen)
+
+
+func _multiplayer_session_active() -> bool:
+	return _session != null and String(_session.call("active_transport")) != "offline"
+
+
+func _on_pause_main_menu_requested() -> void:
+	_close_pause_menu()
+	_on_leave_game_pressed()
 
 
 func _on_start_single_player_pressed() -> void:
@@ -1238,6 +1328,10 @@ func _fire_player_shots(peer_id: int, aim_direction: Vector2, broadcast: bool) -
 
 
 func _update_gameplay(delta: float) -> void:
+	if _pause_blocks_gameplay_tick():
+		_freeze_player_inputs()
+		_refresh_battle_hud()
+		return
 	_fire_cooldown_remaining = maxf(0.0, _fire_cooldown_remaining - delta)
 	_prune_bullets()
 	var input_vector := _local_input_vector()
@@ -1347,6 +1441,8 @@ func _sync_player_battle_timers(timers_running: bool) -> void:
 func _try_fire() -> void:
 	if _fire_cooldown_remaining > 0.0 or _screen != SCREEN_GAME:
 		return
+	if _pause_menu_open:
+		return
 	if _expression_wheel != null and bool(_expression_wheel.call("is_open")):
 		return
 	if not _battle_active():
@@ -1367,6 +1463,8 @@ func _try_fire() -> void:
 
 func _try_active_item() -> void:
 	if _screen != SCREEN_GAME:
+		return
+	if _pause_menu_open:
 		return
 	if _expression_wheel != null and bool(_expression_wheel.call("is_open")):
 		return
@@ -1555,6 +1653,8 @@ func _prune_bullets() -> void:
 
 
 func _local_input_vector() -> Vector2:
+	if _pause_menu_open:
+		return Vector2.ZERO
 	var input_vector := Input.get_vector(ACTION_MOVE_LEFT, ACTION_MOVE_RIGHT, ACTION_MOVE_UP, ACTION_MOVE_DOWN)
 	return input_vector.limit_length(1.0)
 
@@ -1707,6 +1807,7 @@ func _ensure_input_actions() -> void:
 	_register_key_action(ACTION_MOVE_RIGHT, KEY_RIGHT)
 	_register_key_action(ACTION_EXPRESSION_WHEEL, KEY_T)
 	_register_key_action(ACTION_ACTIVE_ITEM, KEY_Q)
+	_register_key_action(ACTION_PAUSE_MENU, KEY_ESCAPE)
 	_register_mouse_action(ACTION_FIRE, MOUSE_BUTTON_LEFT)
 
 
