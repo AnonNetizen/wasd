@@ -632,11 +632,15 @@ func _check_customize_ui(main_scene: Node) -> void:
 	var start_page := main_scene.get("_start_page") as Control
 	var customize_page := main_scene.get("_customize_page") as Control
 	var name_input := main_scene.get("_customize_name_input") as LineEdit
+	var preview_area := main_scene.get("_customize_preview_area") as Control
+	var preview_body := main_scene.get("_customize_preview_body") as Node2D
 	var active_settings := main_scene.get("_settings") as RefCounted
 	var slime_buttons: Array = main_scene.get("_slime_swatch_buttons")
 	var bullet_buttons: Array = main_scene.get("_bullet_swatch_buttons")
 	_check(customize_page != null, "customize page exists")
 	_check(name_input != null, "customize nickname input exists")
+	_check(preview_area != null and preview_area.clip_contents, "customize slime preview area exists")
+	_check(preview_body != null, "customize slime preview body exists")
 	_check(slime_buttons.size() == 8, "customize slime palette has 8 swatches")
 	_check(bullet_buttons.size() == 8, "customize bullet palette has 8 swatches")
 
@@ -649,6 +653,7 @@ func _check_customize_ui(main_scene: Node) -> void:
 	await process_frame
 	_check(customize_page != null and customize_page.visible, "customize page opens from main menu")
 	_check(_node_tree_has_text(customize_page, "Customize Appearance"), "English customize title localizes")
+	_check(_node_tree_has_text(customize_page, "Preview"), "English customize preview localizes")
 	_check(name_input != null and name_input.placeholder_text == "Leave blank for default name", "English customize placeholder localizes")
 
 	main_scene.call("_on_customize_name_changed", "Nova")
@@ -662,11 +667,15 @@ func _check_customize_ui(main_scene: Node) -> void:
 	_check(int(config.get_value("settings", "slime_palette_id", -1)) == 4, "customize writes slime palette id")
 	_check(int(config.get_value("settings", "bullet_palette_id", -1)) == 6, "customize writes bullet palette id")
 	_check(active_settings != null and String(active_settings.get("player_name")) == "Nova", "customize stores nickname in settings")
+	var preview_palette: Dictionary = PLAYER_SCRIPT.slime_palette(4)
+	var preview_fill: Color = preview_body.get("_fill_color") if preview_body != null else Color.BLACK
+	_check(preview_fill == preview_palette.get("fill"), "customize preview applies selected slime color")
 
 	main_scene.call("_on_language_selected", 0)
 	await process_frame
 	_check(_node_tree_has_text(start_page, "自定义"), "Chinese customize main button localizes")
 	_check(_node_tree_has_text(customize_page, "自定义外观"), "Chinese customize title localizes")
+	_check(_node_tree_has_text(customize_page, "预览"), "Chinese customize preview localizes")
 	_check(name_input != null and name_input.placeholder_text == "留空则使用默认名称", "Chinese customize placeholder localizes")
 	main_scene.call("_on_customize_back_pressed")
 	for index in range(12):

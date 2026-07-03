@@ -2,6 +2,7 @@ extends Node2D
 
 const SESSION_SCRIPT := preload("res://scripts/network_session.gd")
 const PLAYER_SCRIPT := preload("res://scripts/slime_player.gd")
+const SLIME_BODY_SCRIPT := preload("res://scripts/slime_body.gd")
 const EXPRESSION_WHEEL_SCRIPT := preload("res://scripts/expression_wheel.gd")
 const BULLET_SCRIPT := preload("res://scripts/slime_bullet.gd")
 const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
@@ -113,6 +114,8 @@ var _screen_flash_rect: ColorRect
 var _language_option: OptionButton
 var _fullscreen_check: CheckButton
 var _customize_name_input: LineEdit
+var _customize_preview_area: Control
+var _customize_preview_body: Node2D
 
 
 func _ready() -> void:
@@ -792,9 +795,9 @@ func _create_settings_page() -> void:
 
 func _create_customize_page() -> void:
 	_customize_page = _make_page("CustomizePage")
-	var rows := _make_centered_panel(_customize_page, "CustomizePanel", Vector2(456.0, 660.0), "hero")
+	var rows := _make_centered_panel(_customize_page, "CustomizePanel", Vector2(520.0, 850.0), "hero")
 	rows.alignment = BoxContainer.ALIGNMENT_CENTER
-	rows.add_theme_constant_override("separation", 14)
+	rows.add_theme_constant_override("separation", 12)
 
 	var kicker := _make_kicker_label(_t("customize_kicker"))
 	_register_localized_text(kicker, "customize_kicker")
@@ -804,6 +807,20 @@ func _create_customize_page() -> void:
 	_register_localized_text(title, "customize_title")
 	title.add_theme_font_size_override("font_size", 30)
 	rows.add_child(title)
+
+	var preview_section := _make_section_box(rows, "customize_preview", "CustomizePreview")
+	_customize_preview_area = Control.new()
+	_customize_preview_area.name = "CustomizePreviewArea"
+	_customize_preview_area.clip_contents = true
+	_customize_preview_area.custom_minimum_size = Vector2(360.0, 150.0)
+	_customize_preview_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_section.add_child(_customize_preview_area)
+	_customize_preview_area.resized.connect(_refresh_customize_preview)
+	_customize_preview_body = SLIME_BODY_SCRIPT.new() as Node2D
+	_customize_preview_body.name = "CustomizeSlimePreview"
+	_customize_preview_body.scale = Vector2(1.45, 1.45)
+	_customize_preview_area.add_child(_customize_preview_body)
+	_customize_preview_body.call("set_position_drive_enabled", false)
 
 	var name_section := _make_section_box(rows, "customize_name", "CustomizeName")
 	_customize_name_input = LineEdit.new()
@@ -1229,7 +1246,21 @@ func _refresh_customize_controls() -> void:
 	var bullet_palette_id := PLAYER_SCRIPT.normalized_bullet_palette_id(int(_settings.get("bullet_palette_id")))
 	_refresh_swatch_buttons(_slime_swatch_buttons, PLAYER_SCRIPT.slime_palette_options(), slime_palette_id)
 	_refresh_swatch_buttons(_bullet_swatch_buttons, PLAYER_SCRIPT.bullet_palette_options(), bullet_palette_id)
+	_refresh_customize_preview()
 	_customize_refreshing = false
+
+
+func _refresh_customize_preview() -> void:
+	if _customize_preview_body == null or not is_instance_valid(_customize_preview_body):
+		return
+	if _customize_preview_area != null and is_instance_valid(_customize_preview_area):
+		_customize_preview_body.position = _customize_preview_area.size * 0.5 + Vector2(0.0, 10.0)
+		_customize_preview_body.call("warp_to", _customize_preview_body.global_position)
+	var slime_palette_id := 0
+	if _settings != null:
+		slime_palette_id = int(_settings.get("slime_palette_id"))
+	var palette := PLAYER_SCRIPT.slime_palette(slime_palette_id)
+	_customize_preview_body.call("set_palette", palette["fill"], palette["edge"], palette["core"])
 
 
 func _refresh_swatch_buttons(buttons: Array[Button], palettes: Array[Dictionary], selected_id: int) -> void:
