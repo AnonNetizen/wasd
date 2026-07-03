@@ -559,7 +559,7 @@ func _check_runtime_viewport_defaults(main_scene: Node) -> void:
 	var world_rect: Rect2 = main_scene.call("current_world_rect")
 	_check(design_size == Vector2(540.0, 960.0), "runtime design viewport is 540x960")
 	_check(viewport_size.x >= 540.0 and viewport_size.y >= 960.0, "runtime viewport helper is at least design size")
-	_check(world_rect.size.x > 490.0 and world_rect.size.y > 860.0, "runtime world rect scales for 540x960")
+	_check(_rects_match(world_rect, Rect2(Vector2(20.0, 70.0), Vector2(500.0, 870.0))), "runtime world rect matches fixed 540x960 design")
 
 
 func _check_settings_ui(main_scene: Node) -> void:
@@ -584,6 +584,8 @@ func _check_settings_ui(main_scene: Node) -> void:
 	_check(resolution_option != null and resolution_option.get_item_text(2) == "1080×1920 (4K)", "English 4K resolution label localizes")
 	var active_settings: RefCounted = main_scene.get("_settings")
 	_check(active_settings != null and String(active_settings.get("locale")) == LAB_LOCALE_SCRIPT.LOCALE_EN, "English locale stored in lab settings")
+	var base_design_size: Vector2 = main_scene.call("design_viewport_size")
+	var base_world_rect: Rect2 = main_scene.call("current_world_rect")
 
 	main_scene.call("_on_resolution_selected", 2)
 	await process_frame
@@ -592,8 +594,8 @@ func _check_settings_ui(main_scene: Node) -> void:
 	var selected_world_rect: Rect2 = main_scene.call("current_world_rect")
 	_check(active_settings != null and int(active_settings.get("resolution_preset_id")) == 2, "4K resolution stored in lab settings")
 	_check(selected_size == Vector2i(1080, 1920), "4K resolution maps to 1080x1920")
-	_check(selected_design_size == Vector2(1080.0, 1920.0), "runtime design viewport follows resolution setting")
-	_check(selected_world_rect.size.x > 990.0 and selected_world_rect.size.y > 1700.0, "runtime world rect scales for selected resolution")
+	_check(selected_design_size == base_design_size, "runtime design viewport stays fixed across resolution presets")
+	_check(_rects_match(selected_world_rect, base_world_rect), "runtime world rect stays fixed across resolution presets")
 	var config := ConfigFile.new()
 	var load_error := config.load(SETTINGS_PATH)
 	_check(load_error == OK and int(config.get_value("settings", "resolution_preset_id", -1)) == 2, "resolution option writes settings file")

@@ -1,10 +1,10 @@
 # Steamworks Slime Lab —— 雷电式竖版卷轴射击
 
-独立 Godot 4.7 测试项目（默认 540×960 竖屏，可选 720×1280 / 1080×1920），用来验证 Steamworks / GodotSteam 联机链路 + 一个可联机的雷电式竖版卷轴射击玩法。它不属于正式 `client/`，也不依赖正式项目的 `PlatformServices` / 词表 / autoload 体系。
+独立 Godot 4.7 测试项目（固定 540×960 设计画布，窗口可选 540×960 / 720×1280 / 1080×1920），用来验证 Steamworks / GodotSteam 联机链路 + 一个可联机的雷电式竖版卷轴射击玩法。它不属于正式 `client/`，也不依赖正式项目的 `PlatformServices` / 词表 / autoload 体系。
 
 UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图标资源，统一用 `Theme`、`StyleBoxFlat`、代码绘制和 `Tween` 做深色霓虹面板、按钮反馈、页面切换、HUD 脉冲、屏幕震动、冲击闪光、爆碎冲击环、buff / 结算入退场和表情轮展开动画。
 
-主菜单提供 `设置 / Settings` 页面，可在 `简体中文 / English` 间切换语言，选择 `540×960`（适配 1080p）、`720×1280`（适配 2K）、`1080×1920`（适配 4K）三档窗口分辨率，并切换全屏。全屏使用 Godot stretch 扩展画布，宽屏多出的区域用动态背景填满，不再显示固定画布外黑边。主菜单也提供 `自定义 / Customize` 页面，可设置昵称、史莱姆主体色和玩家子弹色，并提供 `退出游戏 / Quit Game` 按钮；外观只影响表现，不改变血量、碰撞、伤害、速度等玩法数值。设置持久化到 `user://settings.cfg`；已有玩家选择优先，没有保存时优先读取 GodotSteam 暴露的 Steam 当前游戏语言（Steamworks `ISteamApps::GetCurrentGameLanguage()`），取不到 Steam 语言再读系统语言。`schinese` / `tchinese` / 任意 `zh*` 默认进 `zh_CN`，其他语言默认 `en`；headless 测试下不会实际切换窗口模式。
+主菜单提供 `设置 / Settings` 页面，可在 `简体中文 / English` 间切换语言，选择 `540×960`（适配 1080p）、`720×1280`（适配 2K）、`1080×1920`（适配 4K）三档窗口分辨率，并切换全屏。分辨率档位只改变窗口像素尺寸；游戏逻辑、碰撞和 UI 设计坐标始终保持 540×960，由 Godot stretch 负责放大。全屏使用 Godot stretch 扩展画布，宽屏多出的区域用动态背景填满，不再显示固定画布外黑边。主菜单也提供 `自定义 / Customize` 页面，可设置昵称、史莱姆主体色和玩家子弹色，并提供 `退出游戏 / Quit Game` 按钮；外观只影响表现，不改变血量、碰撞、伤害、速度等玩法数值。设置持久化到 `user://settings.cfg`；已有玩家选择优先，没有保存时优先读取 GodotSteam 暴露的 Steam 当前游戏语言（Steamworks `ISteamApps::GetCurrentGameLanguage()`），取不到 Steam 语言再读系统语言。`schinese` / `tchinese` / 任意 `zh*` 默认进 `zh_CN`，其他语言默认 `en`；headless 测试下不会实际切换窗口模式。
 
 主菜单也提供 `记录 / Records` 入口，用 `user://save.cfg` 本地保存当前最长存活时间。当前只记录 `records.best_survival_seconds`，仅在战斗进入 Game Over 时更新；手动返回主菜单、离开联机会话或重开不会刷新纪录。
 

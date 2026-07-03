@@ -15,8 +15,8 @@ const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
 const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 const LAB_SAVE_SCRIPT := preload("res://scripts/lab_save.gd")
 
-const BASE_DESIGN_VIEWPORT_SIZE := Vector2(720.0, 1280.0)
-const BASE_DESIGN_WORLD_RECT := Rect2(Vector2(26.6667, 93.3333), Vector2(666.6667, 1160.0))
+const DESIGN_VIEWPORT_SIZE := Vector2(540.0, 960.0)
+const DESIGN_WORLD_RECT := Rect2(Vector2(20.0, 70.0), Vector2(500.0, 870.0))
 const WORLD_SCROLL_SPEED: float = 120.0
 const DEFAULT_PORT: int = 24567
 const SCREEN_START: String = "start"
@@ -176,18 +176,14 @@ func player_nodes() -> Dictionary:
 
 
 func design_viewport_size() -> Vector2:
-	if _settings == null:
-		return Vector2(LAB_SETTINGS_SCRIPT.DEFAULT_WINDOW_SIZE)
-	var selected_size: Vector2i = _settings.call("selected_window_size")
-	return Vector2(selected_size)
+	return DESIGN_VIEWPORT_SIZE
 
 
 func current_viewport_size() -> Vector2:
 	var viewport_size := get_viewport_rect().size
-	var design_size := design_viewport_size()
 	return Vector2(
-		maxf(viewport_size.x, design_size.x),
-		maxf(viewport_size.y, design_size.y)
+		maxf(viewport_size.x, DESIGN_VIEWPORT_SIZE.x),
+		maxf(viewport_size.y, DESIGN_VIEWPORT_SIZE.y)
 	)
 
 
@@ -211,26 +207,15 @@ func _sync_world_rect() -> void:
 
 
 func _world_rect() -> Rect2:
-	var world_rect := _scaled_design_world_rect()
-	return Rect2(_design_origin() + world_rect.position, world_rect.size)
+	return Rect2(_design_origin() + DESIGN_WORLD_RECT.position, DESIGN_WORLD_RECT.size)
 
 
 func _design_origin() -> Vector2:
 	var viewport_size := current_viewport_size()
-	var design_size := design_viewport_size()
 	return Vector2(
-		maxf(0.0, (viewport_size.x - design_size.x) * 0.5),
-		maxf(0.0, (viewport_size.y - design_size.y) * 0.5)
+		maxf(0.0, (viewport_size.x - DESIGN_VIEWPORT_SIZE.x) * 0.5),
+		maxf(0.0, (viewport_size.y - DESIGN_VIEWPORT_SIZE.y) * 0.5)
 	)
-
-
-func _scaled_design_world_rect() -> Rect2:
-	var design_size := design_viewport_size()
-	var scale := Vector2(
-		design_size.x / BASE_DESIGN_VIEWPORT_SIZE.x,
-		design_size.y / BASE_DESIGN_VIEWPORT_SIZE.y
-	)
-	return Rect2(BASE_DESIGN_WORLD_RECT.position * scale, BASE_DESIGN_WORLD_RECT.size * scale)
 
 
 func _battle_active() -> bool:
@@ -2645,14 +2630,10 @@ func _draw_backdrop_stars(world_rect: Rect2) -> void:
 		var star_data: Dictionary = star
 		var parallax := float(star_data.get("parallax", 0.5))
 		var base := Vector2(float(star_data.get("x", 0.0)), float(star_data.get("y", 0.0)))
-		var scale := Vector2(
-			world_rect.size.x / BASE_DESIGN_WORLD_RECT.size.x,
-			world_rect.size.y / BASE_DESIGN_WORLD_RECT.size.y
-		)
-		var y := world_rect.position.y + fposmod(base.y * scale.y + _world_scroll_offset * parallax, world_rect.size.y)
+		var y := world_rect.position.y + fposmod(base.y + _world_scroll_offset * parallax, world_rect.size.y)
 		var alpha := 0.10 + parallax * 0.22
-		var star_radius := (1.0 + parallax * 1.6) * minf(scale.x, scale.y)
-		draw_circle(Vector2(world_rect.position.x + base.x * scale.x, y), star_radius, Color(0.72, 0.92, 0.84, alpha))
+		var star_radius := 1.0 + parallax * 1.6
+		draw_circle(Vector2(world_rect.position.x + base.x, y), star_radius, Color(0.72, 0.92, 0.84, alpha))
 
 
 func _generate_backdrop_stars() -> void:
@@ -2661,8 +2642,8 @@ func _generate_backdrop_stars() -> void:
 	star_rng.seed = 20260702
 	for index in range(56):
 		_backdrop_stars.append({
-			"x": star_rng.randf_range(6.0, BASE_DESIGN_WORLD_RECT.size.x - 6.0),
-			"y": star_rng.randf_range(0.0, BASE_DESIGN_WORLD_RECT.size.y),
+			"x": star_rng.randf_range(6.0, DESIGN_WORLD_RECT.size.x - 6.0),
+			"y": star_rng.randf_range(0.0, DESIGN_WORLD_RECT.size.y),
 			"parallax": 0.35 if index % 3 == 0 else star_rng.randf_range(0.55, 1.0),
 		})
 
