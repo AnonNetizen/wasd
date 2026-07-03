@@ -34,6 +34,9 @@ const ACTION_PAUSE_MENU := "pause_menu"
 const EXPRESSION_DURATION: float = 2.2
 const FIRE_COOLDOWN: float = 0.18
 const FIRE_SPREAD_DEGREES: float = 2.5
+const SCREEN_SHAKE_MAX_STRENGTH: float = 18.0
+const SCREEN_SHAKE_MIN_DURATION: float = 0.04
+const SCREEN_FLASH_MAX_ALPHA: float = 0.42
 const ACTIVE_EXPRESSIONS: Array[Dictionary] = [
 	{"id": "happy_01", "text": "(^_^)", "label_key": "emote_happy"},
 	{"id": "wave_01", "text": "ヾ(^▽^*)", "label_key": "emote_wave"},
@@ -55,6 +58,7 @@ var _suppress_session_end_navigation: bool = false
 var _fire_held: bool = false
 var _fire_cooldown_remaining: float = 0.0
 var _fire_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var _screen_shake_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _world_scroll_offset: float = 0.0
 var _ui_anim_time: float = 0.0
 var _backdrop_stars: Array[Dictionary] = []
@@ -72,6 +76,15 @@ var _localized_placeholder_controls: Array[Control] = []
 var _settings_return_screen: String = SCREEN_START
 var _pause_menu_open: bool = false
 var _pause_freezes_game: bool = false
+var _base_canvas_transform: Transform2D = Transform2D.IDENTITY
+var _screen_shake_strength: float = 0.0
+var _screen_shake_duration: float = 0.0
+var _screen_shake_remaining: float = 0.0
+var _screen_shake_offset: Vector2 = Vector2.ZERO
+var _screen_flash_color: Color = Color(1.0, 0.35, 0.22, 1.0)
+var _screen_flash_alpha: float = 0.0
+var _screen_flash_duration: float = 0.0
+var _screen_flash_remaining: float = 0.0
 
 var _ui_root: Control
 var _start_page: Control
@@ -90,12 +103,15 @@ var _join_steam_button: Button
 var _ready_room_label: Label
 var _start_battle_button: Button
 var _expression_wheel: Control
+var _screen_flash_rect: ColorRect
 var _language_option: OptionButton
 var _fullscreen_check: CheckButton
 
 
 func _ready() -> void:
 	_fire_rng.randomize()
+	_screen_shake_rng.randomize()
+	_base_canvas_transform = get_viewport().canvas_transform
 	_generate_backdrop_stars()
 	_ensure_input_actions()
 	_create_session()
@@ -107,6 +123,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_ui_anim_time += delta
+	_update_screen_effects(delta)
 	if _screen == SCREEN_GAME:
 		if _pause_blocks_gameplay_tick():
 			_refresh_battle_hud()
@@ -116,6 +133,12 @@ func _physics_process(delta: float) -> void:
 			_world_scroll_offset += WORLD_SCROLL_SPEED * delta
 	_update_status()
 	queue_redraw()
+
+
+func _exit_tree() -> void:
+	var viewport := get_viewport()
+	if viewport != null:
+		viewport.canvas_transform = _base_canvas_transform
 
 
 func player_nodes() -> Dictionary:
@@ -148,6 +171,7 @@ func _end_battle() -> void:
 
 func _reset_battle() -> void:
 	_close_pause_menu()
+	_clear_screen_fx()
 	if _director != null:
 		_director.call("reset_battle")
 	_clear_bullets()
@@ -170,6 +194,109 @@ func set_player_bullets_frozen(frozen: bool) -> void:
 	for bullet in _bullets:
 		if is_instance_valid(bullet):
 			bullet.call("set_battle_frozen", frozen)
+
+
+func request_screen_shake(strength: float, duration: float) -> void:
+	if strength <= 0.0 or duration <= 0.0:
+		return
+	_screen_shake_strength = maxf(
+		_screen_shake_strength,
+		clampf(strength, 0.0, SCREEN_SHAKE_MAX_STRENGTH)
+	)
+	_screen_shake_duration = maxf(_screen_shake_duration, maxf(duration, SCREEN_SHAKE_MIN_DURATION))
+	_screen_shake_remaining = maxf(_screen_shake_remaining, maxf(duration, SCREEN_SHAKE_MIN_DURATION))
+	_sample_screen_shake_offset()
+	_apply_canvas_shake()
+
+
+func request_screen_flash(color: Color, alpha: float, duration: float) -> void:
+	if alpha <= 0.0 or duration <= 0.0:
+		return
+	_screen_flash_color = color
+	_screen_flash_alpha = maxf(_screen_flash_alpha, clampf(alpha, 0.0, SCREEN_FLASH_MAX_ALPHA))
+	_screen_flash_duration = maxf(_screen_flash_duration, duration)
+	_screen_flash_remaining = maxf(_screen_flash_remaining, duration)
+	_apply_screen_flash()
+
+
+func screen_fx_state() -> Dictionary:
+	return {
+		"shake_remaining": _screen_shake_remaining,
+		"shake_strength": _screen_shake_strength,
+		"shake_offset": _screen_shake_offset,
+		"flash_alpha": _screen_flash_alpha,
+		"flash_remaining": _screen_flash_remaining,
+		"flash_visible": _screen_flash_rect != null and _screen_flash_rect.visible,
+	}
+
+
+func _update_screen_effects(delta: float) -> void:
+	if _screen_shake_remaining > 0.0:
+		_screen_shake_remaining = maxf(0.0, _screen_shake_remaining - delta)
+		_sample_screen_shake_offset()
+	else:
+		_screen_shake_strength = 0.0
+		_screen_shake_duration = 0.0
+		_screen_shake_offset = Vector2.ZERO
+	_apply_canvas_shake()
+
+	if _screen_flash_remaining > 0.0:
+		_screen_flash_remaining = maxf(0.0, _screen_flash_remaining - delta)
+	else:
+		_screen_flash_alpha = 0.0
+		_screen_flash_duration = 0.0
+	_apply_screen_flash()
+
+
+func _sample_screen_shake_offset() -> void:
+	if _screen_shake_remaining <= 0.0 or _screen_shake_duration <= 0.0:
+		_screen_shake_offset = Vector2.ZERO
+		return
+	var life_ratio := clampf(_screen_shake_remaining / _screen_shake_duration, 0.0, 1.0)
+	var amplitude := _screen_shake_strength * pow(life_ratio, 1.35)
+	if amplitude <= 0.05:
+		_screen_shake_offset = Vector2.ZERO
+		return
+	var direction := Vector2(
+		_screen_shake_rng.randf_range(-1.0, 1.0),
+		_screen_shake_rng.randf_range(-1.0, 1.0)
+	)
+	if direction.length_squared() <= 0.0001:
+		direction = Vector2.RIGHT
+	_screen_shake_offset = direction.normalized() * amplitude
+
+
+func _apply_canvas_shake() -> void:
+	var viewport := get_viewport()
+	if viewport == null:
+		return
+	var transform := _base_canvas_transform
+	transform.origin += _screen_shake_offset
+	viewport.canvas_transform = transform
+
+
+func _apply_screen_flash() -> void:
+	if _screen_flash_rect == null:
+		return
+	if _screen_flash_remaining <= 0.0 or _screen_flash_duration <= 0.0:
+		_screen_flash_rect.visible = false
+		_screen_flash_rect.color = Color(_screen_flash_color, 0.0)
+		return
+	var life_ratio := clampf(_screen_flash_remaining / _screen_flash_duration, 0.0, 1.0)
+	_screen_flash_rect.visible = true
+	_screen_flash_rect.color = Color(_screen_flash_color, _screen_flash_alpha * life_ratio)
+
+
+func _clear_screen_fx() -> void:
+	_screen_shake_strength = 0.0
+	_screen_shake_duration = 0.0
+	_screen_shake_remaining = 0.0
+	_screen_shake_offset = Vector2.ZERO
+	_screen_flash_alpha = 0.0
+	_screen_flash_duration = 0.0
+	_screen_flash_remaining = 0.0
+	_apply_canvas_shake()
+	_apply_screen_flash()
 
 
 func _on_director_phase_changed(new_phase: int, payload: Dictionary) -> void:
@@ -600,6 +727,14 @@ func _create_settings_page() -> void:
 func _create_game_page() -> void:
 	_game_page = _make_page("GamePage")
 
+	_screen_flash_rect = ColorRect.new()
+	_screen_flash_rect.name = "ImpactFlash"
+	_screen_flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_screen_flash_rect.color = Color(1.0, 1.0, 1.0, 0.0)
+	_screen_flash_rect.visible = false
+	_screen_flash_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_game_page.add_child(_screen_flash_rect)
+
 	_battle_hud = BATTLE_HUD_SCRIPT.new() as Control
 	_battle_hud.name = "BattleHud"
 	_battle_hud.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -970,6 +1105,7 @@ func _set_screen(screen_name: String) -> void:
 	if screen_name != SCREEN_GAME:
 		_fire_held = false
 		_fire_cooldown_remaining = 0.0
+		_clear_screen_fx()
 	queue_redraw()
 
 

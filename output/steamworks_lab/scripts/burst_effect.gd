@@ -6,12 +6,22 @@ const LIFETIME: float = 0.5
 var _shards: Array[Dictionary] = []
 var _age: float = 0.0
 var _color: Color = Color(1.0, 0.7, 0.4, 1.0)
+var _ring_radius: float = 0.0
+var _ring_width: float = 2.0
 
 
-func configure(origin: Vector2, color: Color, shard_count: int, shard_speed: float) -> void:
+func configure(
+	origin: Vector2,
+	color: Color,
+	shard_count: int,
+	shard_speed: float,
+	ring_radius: float = 0.0
+) -> void:
 	global_position = origin
 	_color = color
 	_age = 0.0
+	_ring_radius = ring_radius if ring_radius > 0.0 else maxf(18.0, shard_speed * 0.26)
+	_ring_width = clampf(shard_speed / 90.0, 1.2, 4.6)
 	_shards.clear()
 	var shard_rng := RandomNumberGenerator.new()
 	shard_rng.randomize()
@@ -40,6 +50,11 @@ func _physics_process(delta: float) -> void:
 func _draw() -> void:
 	var life_ratio := clampf(1.0 - _age / LIFETIME, 0.0, 1.0)
 	var travel_ease := 1.0 - pow(life_ratio, 2.2)
+	if _ring_radius > 0.0:
+		var ring_alpha := _color.a * life_ratio * 0.46
+		var ring_color := Color(_color, ring_alpha)
+		var ring_size := lerpf(4.0, _ring_radius, travel_ease)
+		draw_arc(Vector2.ZERO, ring_size, 0.0, TAU, 48, ring_color, _ring_width * life_ratio, true)
 	for shard in _shards:
 		var shard_data: Dictionary = shard
 		var direction: Vector2 = shard_data.get("direction", Vector2.RIGHT)

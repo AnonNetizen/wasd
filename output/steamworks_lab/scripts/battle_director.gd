@@ -75,6 +75,12 @@ const ACTIVE_OVERLOAD_FIRE_COOLDOWN_SCALE: float = 0.72
 const ACTIVE_OVERLOAD_DAMAGE_BONUS: int = 1
 const ACTIVE_OVERLOAD_BULLET_SPEED_SCALE: float = 1.35
 const ACTIVE_SHIELD_INVULNERABILITY: float = 2.8
+const SHAKE_HIT_PLAYER: float = 9.0
+const SHAKE_KILL_ENEMY: float = 1.4
+const SHAKE_DESTROY_OBSTACLE: float = 5.5
+const SHAKE_KILL_BOSS: float = 14.0
+const SHAKE_ACTIVE_ITEM_LIGHT: float = 3.0
+const SHAKE_ACTIVE_ITEM_HEAVY: float = 8.5
 
 var phase: int = Phase.BATTLE
 var tier: int = 0
@@ -204,6 +210,7 @@ func _spawn_boss() -> void:
 	var hover := Vector2(_world_rect.get_center().x, _world_rect.position.y + 80.0)
 	boss.call("configure", boss_kills + 1, tier, hover)
 	_boss = boss
+	_request_impact_feedback(5.0, 0.18, Color(1.0, 0.48, 0.30, 1.0), 0.12, 0.14)
 
 
 func _update_obstacles(delta: float) -> void:
@@ -619,6 +626,7 @@ func _reconcile_enemies(rows: Variant) -> void:
 			continue
 		if enemy.global_position.y < _world_rect.end.y - 30.0 and _world_rect.grow(30.0).has_point(enemy.global_position):
 			spawn_burst(enemy.global_position, Color(1.0, 0.62, 0.34, 0.9), 10, 150.0)
+			_request_screen_shake(SHAKE_KILL_ENEMY, 0.06)
 		enemy.queue_free()
 
 
@@ -626,6 +634,7 @@ func _reconcile_boss(data: Variant) -> void:
 	if not data is Dictionary or (data as Dictionary).is_empty():
 		if _boss != null and is_instance_valid(_boss):
 			spawn_burst(_boss.global_position, Color(1.0, 0.48, 0.36, 0.95), 26, 260.0)
+			_request_impact_feedback(SHAKE_KILL_BOSS, 0.34, Color(1.0, 0.48, 0.28, 1.0), 0.26, 0.24)
 			_boss.queue_free()
 		_boss = null
 		return
@@ -638,6 +647,7 @@ func _reconcile_boss(data: Variant) -> void:
 		_boss.call("configure", int(boss_data.get("index", 1)), tier, boss_position)
 		_boss.call("set_remote_driven", true)
 		_boss.global_position = boss_position
+		_request_impact_feedback(5.0, 0.18, Color(1.0, 0.48, 0.30, 1.0), 0.12, 0.14)
 	_boss.call(
 		"set_authoritative_state",
 		boss_position,
@@ -685,6 +695,7 @@ func _reconcile_obstacles(rows: Variant) -> void:
 			continue
 		if obstacle.global_position.y < _world_rect.end.y - 30.0:
 			spawn_burst(obstacle.global_position, Color(0.58, 0.54, 0.48, 0.92), 12, 130.0)
+			_request_impact_feedback(SHAKE_DESTROY_OBSTACLE, 0.16, Color(0.86, 0.76, 0.58, 1.0), 0.11, 0.12)
 		obstacle.queue_free()
 
 
@@ -853,6 +864,29 @@ func spawn_burst(origin: Vector2, color: Color, shard_count: int, shard_speed: f
 	burst.call("configure", origin, color, shard_count, shard_speed)
 
 
+func _request_screen_shake(strength: float, duration: float) -> void:
+	if _main == null or not _main.has_method("request_screen_shake"):
+		return
+	_main.call("request_screen_shake", strength, duration)
+
+
+func _request_screen_flash(color: Color, alpha: float, duration: float) -> void:
+	if _main == null or not _main.has_method("request_screen_flash"):
+		return
+	_main.call("request_screen_flash", color, alpha, duration)
+
+
+func _request_impact_feedback(
+	strength: float,
+	duration: float,
+	flash_color: Color,
+	flash_alpha: float,
+	flash_duration: float
+) -> void:
+	_request_screen_shake(strength, duration)
+	_request_screen_flash(flash_color, flash_alpha, flash_duration)
+
+
 func _apply_active_item(peer_id: int, item_id: int, origin: Vector2) -> void:
 	match item_id:
 		ACTIVE_REPAIR_WAVE:
@@ -884,25 +918,40 @@ func _spawn_active_item_feedback(item_id: int, origin: Vector2) -> void:
 	var burst_color: Color = def.get("color", Color(0.66, 0.95, 0.78, 0.96))
 	var shard_count := 18
 	var shard_speed := 180.0
+	var shake_strength := SHAKE_ACTIVE_ITEM_LIGHT
+	var shake_duration := 0.16
+	var flash_alpha := 0.14
 	match item_id:
 		ACTIVE_REPAIR_WAVE:
 			shard_count = 18
 			shard_speed = 150.0
+			shake_strength = 2.2
+			flash_alpha = 0.10
 		ACTIVE_CLEAR_PULSE:
 			shard_count = 30
 			shard_speed = 300.0
+			shake_strength = SHAKE_ACTIVE_ITEM_HEAVY
+			shake_duration = 0.24
+			flash_alpha = 0.22
 		ACTIVE_STASIS_FIELD:
 			shard_count = 20
 			shard_speed = 120.0
+			shake_strength = 2.8
+			flash_alpha = 0.12
 		ACTIVE_TEAM_OVERLOAD:
 			shard_count = 24
 			shard_speed = 220.0
+			shake_strength = 4.5
+			flash_alpha = 0.16
 		ACTIVE_EMERGENCY_SHIELD:
 			shard_count = 16
 			shard_speed = 130.0
+			shake_strength = 2.4
+			flash_alpha = 0.12
 		_:
 			pass
 	spawn_burst(origin, burst_color, shard_count, shard_speed)
+	_request_impact_feedback(shake_strength, shake_duration, burst_color, flash_alpha, 0.18)
 
 
 func _clear_enemy_bullets() -> void:
@@ -1254,6 +1303,7 @@ func _resolve_player_bullet_hits() -> void:
 			if not bool(bullet.call("register_pierce_hit", enemy_id)):
 				continue
 			enemy.call("take_hit", damage)
+			spawn_burst(bullet_node.global_position, Color(0.9, 1.0, 0.8, 0.7), 4, 80.0)
 			if bool(enemy.call("is_dead")):
 				_kill_enemy(enemy_id, enemy)
 			var pierce_remaining := int(bullet.get("pierce_remaining"))
@@ -1268,6 +1318,7 @@ func _resolve_player_bullet_hits() -> void:
 			var boss_radius := float(_boss.get("radius"))
 			if bullet_node.global_position.distance_to(_boss.global_position) <= boss_radius + bullet_radius:
 				_boss.call("take_hit", damage)
+				spawn_burst(bullet_node.global_position, Color(1.0, 0.80, 0.58, 0.78), 5, 105.0)
 				if bool(_boss.call("is_dead")):
 					_kill_boss()
 				bullet.queue_free()
@@ -1280,6 +1331,7 @@ func _resolve_player_bullet_hits() -> void:
 			if bullet_node.global_position.distance_to(obstacle.global_position) > obstacle_radius + bullet_radius:
 				continue
 			obstacle.call("take_hit", damage)
+			spawn_burst(bullet_node.global_position, Color(0.86, 0.78, 0.66, 0.70), 4, 76.0)
 			if bool(obstacle.call("is_destroyed")):
 				_destroy_obstacle(obstacle_id, obstacle)
 			bullet.queue_free()
@@ -1293,6 +1345,7 @@ func _kill_boss() -> void:
 	boss_kills += 1
 	spawn_burst(_boss.global_position, Color(1.0, 0.48, 0.36, 0.95), 26, 260.0)
 	spawn_burst(_boss.global_position, Color(1.0, 0.82, 0.52, 0.9), 14, 150.0)
+	_request_impact_feedback(SHAKE_KILL_BOSS, 0.34, Color(1.0, 0.48, 0.28, 1.0), 0.26, 0.24)
 	_boss.queue_free()
 	_boss = null
 
@@ -1300,12 +1353,14 @@ func _kill_boss() -> void:
 func _destroy_obstacle(obstacle_id: int, obstacle: Node2D) -> void:
 	_obstacles.erase(obstacle_id)
 	spawn_burst(obstacle.global_position, Color(0.58, 0.54, 0.48, 0.92), 12, 130.0)
+	_request_impact_feedback(SHAKE_DESTROY_OBSTACLE, 0.16, Color(0.86, 0.76, 0.58, 1.0), 0.11, 0.12)
 	obstacle.queue_free()
 
 
 func _kill_enemy(enemy_id: int, enemy: Node2D) -> void:
 	_enemies.erase(enemy_id)
 	spawn_burst(enemy.global_position, Color(1.0, 0.62, 0.34, 0.9), 10, 150.0)
+	_request_screen_shake(SHAKE_KILL_ENEMY, 0.06)
 	_maybe_drop_active_item(enemy.global_position)
 	enemy.queue_free()
 
@@ -1326,6 +1381,7 @@ func _resolve_enemy_bullet_hits() -> void:
 				continue
 			if bool(player.call("apply_damage", 1)):
 				spawn_burst(bullet_node.global_position, Color(1.0, 0.42, 0.30, 0.9), 6, 110.0)
+				_request_impact_feedback(SHAKE_HIT_PLAYER, 0.22, Color(1.0, 0.18, 0.12, 1.0), 0.24, 0.18)
 				bullet.queue_free()
 				break
 
@@ -1345,6 +1401,8 @@ func _resolve_contact_hits() -> void:
 			if enemy.global_position.distance_to(player_center) > enemy_radius + player_radius:
 				continue
 			var hit := bool(player.call("apply_damage", 1))
+			if hit:
+				_request_impact_feedback(SHAKE_HIT_PLAYER, 0.20, Color(1.0, 0.18, 0.12, 1.0), 0.22, 0.16)
 			if hit and int(enemy.get("kind")) == ENEMY_SCRIPT.KIND_DART:
 				_kill_enemy(enemy_id, enemy)
 				break
@@ -1354,7 +1412,8 @@ func _resolve_contact_hits() -> void:
 			var player_center: Vector2 = player.call("body_center")
 			var player_radius := float(player.call("hit_radius"))
 			if _boss.global_position.distance_to(player_center) <= boss_radius + player_radius:
-				player.call("apply_damage", 1)
+				if bool(player.call("apply_damage", 1)):
+					_request_impact_feedback(SHAKE_HIT_PLAYER, 0.24, Color(1.0, 0.18, 0.12, 1.0), 0.26, 0.18)
 	for obstacle_id in _obstacles.keys():
 		var obstacle := _obstacles.get(obstacle_id) as Node2D
 		if obstacle == null or not is_instance_valid(obstacle):
@@ -1365,7 +1424,8 @@ func _resolve_contact_hits() -> void:
 			var player_radius := float(player.call("hit_radius"))
 			if obstacle.global_position.distance_to(player_center) > obstacle_radius + player_radius:
 				continue
-			player.call("apply_damage", 1)
+			if bool(player.call("apply_damage", 1)):
+				_request_impact_feedback(SHAKE_HIT_PLAYER, 0.20, Color(1.0, 0.30, 0.18, 1.0), 0.22, 0.16)
 			player.call(
 				"push_out_of_circle",
 				obstacle.global_position,

@@ -68,9 +68,23 @@ func _run() -> void:
 	_check(game_page != null and game_page.visible, "game page visible after game transition")
 	var battle_hud := main_scene.get("_battle_hud") as Control
 	var buff_panel := main_scene.get("_buff_panel") as Control
+	var screen_flash_rect := main_scene.get("_screen_flash_rect") as ColorRect
 	var game_status_label := main_scene.get("_game_status_label") as Label
 	_check(game_status_label == null, "game HUD does not show debug session text")
 	_check(battle_hud != null and battle_hud.get_node_or_null("ActiveItemLabel") != null, "battle HUD exposes active item slot label")
+	_check(
+		screen_flash_rect != null and screen_flash_rect.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+		"impact flash overlay does not swallow input"
+	)
+	main_scene.call("request_screen_shake", 6.0, 0.2)
+	main_scene.call("request_screen_flash", Color(1.0, 0.24, 0.12, 1.0), 0.2, 0.15)
+	var fx_state: Dictionary = main_scene.call("screen_fx_state")
+	_check(float(fx_state.get("shake_remaining", 0.0)) > 0.0, "screen shake can be requested")
+	_check(bool(fx_state.get("flash_visible", false)), "impact flash can be requested")
+	main_scene.call("_update_screen_effects", 0.35)
+	fx_state = main_scene.call("screen_fx_state")
+	_check(is_equal_approx(float(fx_state.get("shake_remaining", 1.0)), 0.0), "screen shake fades out")
+	_check(not bool(fx_state.get("flash_visible", true)), "impact flash fades out")
 	main_scene.call("_on_language_selected", 1)
 	await process_frame
 	main_scene.call("_refresh_battle_hud")
@@ -262,6 +276,10 @@ func _run() -> void:
 		var player_clearance := float(player.call("hit_radius")) + float(blocking_obstacle.get("radius"))
 		_check(player_distance >= player_clearance - 0.5, "obstacle blocks player movement")
 		_check(int(player.get("hp")) == hp_before_obstacle - 1, "obstacle contact still damages player")
+		fx_state = main_scene.call("screen_fx_state")
+		_check(float(fx_state.get("shake_remaining", 0.0)) > 0.0, "player damage triggers screen shake")
+		_check(float(fx_state.get("flash_alpha", 0.0)) > 0.0, "player damage triggers impact flash")
+		main_scene.call("_clear_screen_fx")
 
 		director.call("_spawn_enemy_at", 0, blocking_obstacle.global_position)
 		var blocking_enemies: Dictionary = director.get("_enemies")
