@@ -19,7 +19,7 @@ config/features=PackedStringArray("4.7")
 
 window/size/viewport_width=540
 window/size/viewport_height=960
-window/size/resizable=false
+window/size/resizable=true
 
 [rendering]
 
