@@ -9,6 +9,7 @@ const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
 const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 const NETWORK_SESSION_SCRIPT := preload("res://scripts/network_session.gd")
 const PLAYER_SCRIPT := preload("res://scripts/slime_player.gd")
+const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
 
 const SETTINGS_PATH: String = "user://settings.cfg"
 const SETTINGS_FILE_NAME: String = "settings.cfg"
@@ -48,6 +49,7 @@ func _run() -> void:
 	await _check_settings_ui(main_scene)
 	await _check_records_ui(main_scene)
 	await _check_customize_ui(main_scene)
+	await _check_steam_invite_ui(main_scene)
 
 	main_scene.call("_begin_single_player")
 	await process_frame
@@ -720,6 +722,63 @@ func _check_customize_ui(main_scene: Node) -> void:
 		await process_frame
 	preview_bullets = main_scene.get("_customize_preview_bullets")
 	_check(preview_bullets.is_empty(), "customize preview bullets clear when leaving page")
+
+
+func _check_steam_invite_ui(main_scene: Node) -> void:
+	var multiplayer_page := main_scene.get("_multiplayer_page") as Control
+	var invite_button := main_scene.get("_invite_steam_button") as Button
+	var confirm_panel := main_scene.get("_steam_invite_confirm_panel") as Control
+	var active_session := main_scene.get("_session") as Node
+	_check(invite_button != null, "Steam invite friend button exists")
+	_check(confirm_panel != null and not confirm_panel.visible, "Steam invite confirm panel starts hidden")
+	_check(
+		TRANSPORT_SCRIPT.connect_lobby_from_args(PackedStringArray(["+connect_lobby", "123456"])) == "123456",
+		"Steam connect_lobby launch arg parses"
+	)
+	_check(
+		TRANSPORT_SCRIPT.connect_lobby_from_args(PackedStringArray(["+connect_lobby=987654"])) == "987654",
+		"Steam connect_lobby equals launch arg parses"
+	)
+	_check(
+		TRANSPORT_SCRIPT.connect_lobby_from_args(PackedStringArray(["+connect_lobby", "abc"])) == "",
+		"Steam connect_lobby ignores invalid launch arg"
+	)
+
+	main_scene.call("_show_start_page")
+	await process_frame
+	main_scene.call("_on_language_selected", 1)
+	await process_frame
+	main_scene.call("_on_start_multiplayer_pressed")
+	await process_frame
+	_check(multiplayer_page != null and multiplayer_page.visible, "multiplayer page opens for Steam invite checks")
+	_check(invite_button != null and invite_button.text == "Invite Friend", "English Steam invite button localizes")
+	var steam_available := bool(active_session.call("steam_available")) if active_session != null else false
+	_check(invite_button != null and invite_button.disabled == not steam_available, "Steam invite button follows availability")
+
+	main_scene.call("_on_language_selected", 0)
+	await process_frame
+	_check(invite_button != null and invite_button.text == "邀请好友", "Chinese Steam invite button localizes")
+
+	main_scene.call("_begin_single_player")
+	await process_frame
+	main_scene.call("_on_steam_invite_join_requested", "123456")
+	await process_frame
+	_check(String(main_scene.get("_pending_steam_invite_lobby_id")) == "123456", "Steam invite request caches pending lobby")
+	_check(confirm_panel != null and confirm_panel.visible, "Steam invite request opens confirm panel")
+	main_scene.call("_on_steam_invite_confirm_cancel_pressed")
+	await process_frame
+	_check(String(main_scene.get("_pending_steam_invite_lobby_id")) == "", "Steam invite cancel clears pending lobby")
+	_check(confirm_panel != null and not confirm_panel.visible, "Steam invite cancel closes confirm panel")
+	_check(main_scene.get("_director") != null, "Steam invite cancel keeps current game")
+
+	main_scene.call("_on_steam_invite_join_requested", "654321")
+	await process_frame
+	main_scene.call("_on_steam_invite_confirm_accept_pressed")
+	await process_frame
+	_check(String(main_scene.get("_pending_steam_invite_lobby_id")) == "", "Steam invite accept clears pending lobby")
+	_check(confirm_panel != null and not confirm_panel.visible, "Steam invite accept closes confirm panel")
+	main_scene.call("_on_leave_game_pressed")
+	await process_frame
 
 
 func _node_tree_has_text(root_node: Node, expected_text: String) -> bool:

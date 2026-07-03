@@ -110,6 +110,7 @@ var _port_input: SpinBox
 var _lobby_input: LineEdit
 var _steam_status_label: Label
 var _host_steam_button: Button
+var _invite_steam_button: Button
 var _join_steam_button: Button
 var _ready_room_label: Label
 var _start_battle_button: Button
@@ -122,6 +123,14 @@ var _customize_name_input: LineEdit
 var _customize_preview_area: Control
 var _customize_preview_body: Node2D
 var _customize_preview_name_label: Label
+var _steam_invite_confirm_panel: Control
+var _steam_invite_confirm_card: PanelContainer
+var _steam_invite_confirm_title_label: Label
+var _steam_invite_confirm_body_label: Label
+var _steam_invite_confirm_accept_button: Button
+var _steam_invite_confirm_cancel_button: Button
+var _steam_invite_confirm_tween: Tween
+var _pending_steam_invite_lobby_id: String = ""
 
 
 func _ready() -> void:
@@ -540,6 +549,7 @@ func _create_session() -> void:
 	_session.connect("active_item_requested", Callable(self, "_on_active_item_requested"))
 	_session.connect("active_item_used_received", Callable(self, "_on_active_item_used_received"))
 	_session.connect("appearance_received", Callable(self, "_on_appearance_received"))
+	_session.connect("steam_invite_join_requested", Callable(self, "_on_steam_invite_join_requested"))
 
 
 func _load_lab_settings() -> void:
@@ -586,6 +596,7 @@ func _create_ui() -> void:
 	_create_customize_page()
 	_create_game_page()
 	_create_records_panel()
+	_create_steam_invite_confirm_panel()
 
 
 func _create_start_page() -> void:
@@ -717,6 +728,11 @@ func _create_multiplayer_page() -> void:
 	_register_localized_text(_host_steam_button, "host_steam")
 	_host_steam_button.pressed.connect(_on_host_steam_pressed)
 	steam_section.add_child(_host_steam_button)
+
+	_invite_steam_button = _make_button(_t("invite_steam_friend"))
+	_register_localized_text(_invite_steam_button, "invite_steam_friend")
+	_invite_steam_button.pressed.connect(_on_invite_steam_pressed)
+	steam_section.add_child(_invite_steam_button)
 
 	_lobby_input = LineEdit.new()
 	_lobby_input.placeholder_text = _t("steam_lobby_id_placeholder")
@@ -941,6 +957,74 @@ func _create_records_panel() -> void:
 	_records_panel.call("set_locale", _current_locale())
 	_records_panel.call("set_best_survival", _best_survival_seconds())
 	_ui_root.add_child(_records_panel)
+
+
+func _create_steam_invite_confirm_panel() -> void:
+	_steam_invite_confirm_panel = Control.new()
+	_steam_invite_confirm_panel.name = "SteamInviteConfirmPanel"
+	_steam_invite_confirm_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_steam_invite_confirm_panel.visible = false
+	_ui_root.add_child(_steam_invite_confirm_panel)
+	_steam_invite_confirm_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	var dimmer := ColorRect.new()
+	dimmer.name = "Dimmer"
+	dimmer.color = Color(0.01, 0.02, 0.02, 0.58)
+	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
+	_steam_invite_confirm_panel.add_child(dimmer)
+	dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	var center := CenterContainer.new()
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_steam_invite_confirm_panel.add_child(center)
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	_steam_invite_confirm_card = PanelContainer.new()
+	_steam_invite_confirm_card.name = "SteamInviteConfirmCard"
+	_steam_invite_confirm_card.custom_minimum_size = Vector2(390.0, 260.0)
+	UI_STYLE_SCRIPT.apply_panel(_steam_invite_confirm_card, "hero")
+	center.add_child(_steam_invite_confirm_card)
+	_steam_invite_confirm_card.resized.connect(func() -> void:
+		_steam_invite_confirm_card.pivot_offset = _steam_invite_confirm_card.size * 0.5
+	)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_top", 22)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_bottom", 22)
+	_steam_invite_confirm_card.add_child(margin)
+
+	var rows := VBoxContainer.new()
+	rows.alignment = BoxContainer.ALIGNMENT_CENTER
+	rows.add_theme_constant_override("separation", 14)
+	margin.add_child(rows)
+
+	_steam_invite_confirm_title_label = _make_title_label(_t("steam_invite_confirm_title"))
+	_steam_invite_confirm_title_label.name = "SteamInviteConfirmTitle"
+	_register_localized_text(_steam_invite_confirm_title_label, "steam_invite_confirm_title")
+	_steam_invite_confirm_title_label.add_theme_font_size_override("font_size", 26)
+	rows.add_child(_steam_invite_confirm_title_label)
+
+	_steam_invite_confirm_body_label = _make_body_label("")
+	_steam_invite_confirm_body_label.name = "SteamInviteConfirmBody"
+	_steam_invite_confirm_body_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_steam_invite_confirm_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rows.add_child(_steam_invite_confirm_body_label)
+
+	_steam_invite_confirm_accept_button = _make_button(_t("steam_invite_confirm_accept"), Vector2(260.0, 46.0), true)
+	_steam_invite_confirm_accept_button.name = "SteamInviteConfirmAccept"
+	_register_localized_text(_steam_invite_confirm_accept_button, "steam_invite_confirm_accept")
+	_steam_invite_confirm_accept_button.pressed.connect(_on_steam_invite_confirm_accept_pressed)
+	rows.add_child(_steam_invite_confirm_accept_button)
+
+	_steam_invite_confirm_cancel_button = _make_button(_t("steam_invite_confirm_cancel"), Vector2(260.0, 42.0))
+	_steam_invite_confirm_cancel_button.name = "SteamInviteConfirmCancel"
+	_register_localized_text(_steam_invite_confirm_cancel_button, "steam_invite_confirm_cancel")
+	_steam_invite_confirm_cancel_button.pressed.connect(_on_steam_invite_confirm_cancel_pressed)
+	rows.add_child(_steam_invite_confirm_cancel_button)
+
+	_refresh_steam_invite_confirm_text()
 
 
 func _make_page(page_name: String) -> Control:
@@ -1249,6 +1333,7 @@ func _apply_locale() -> void:
 	_refresh_language_option()
 	_refresh_resolution_option()
 	_refresh_customize_controls()
+	_refresh_steam_invite_confirm_text()
 	if _battle_hud != null:
 		_battle_hud.call("set_locale", _current_locale())
 	if _buff_panel != null:
@@ -1562,6 +1647,55 @@ func _finish_page_transition(previous_page: Control, next_page: Control) -> void
 		next_page.scale = Vector2.ONE
 
 
+func _open_steam_invite_confirm() -> void:
+	if _steam_invite_confirm_panel == null:
+		return
+	if _steam_invite_confirm_tween != null and _steam_invite_confirm_tween.is_valid():
+		_steam_invite_confirm_tween.kill()
+	_steam_invite_confirm_panel.visible = true
+	_steam_invite_confirm_panel.modulate.a = 1.0
+	if _steam_invite_confirm_card != null:
+		_steam_invite_confirm_card.modulate.a = 0.0
+		_steam_invite_confirm_card.scale = Vector2(0.92, 0.92)
+		_steam_invite_confirm_card.pivot_offset = _steam_invite_confirm_card.size * 0.5
+	if DisplayServer.get_name().to_lower() == "headless":
+		if _steam_invite_confirm_card != null:
+			_steam_invite_confirm_card.modulate.a = 1.0
+			_steam_invite_confirm_card.scale = Vector2.ONE
+		return
+	_steam_invite_confirm_tween = create_tween()
+	_steam_invite_confirm_tween.set_parallel(true)
+	if _steam_invite_confirm_card != null:
+		_steam_invite_confirm_tween.tween_property(_steam_invite_confirm_card, "modulate:a", 1.0, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		_steam_invite_confirm_tween.tween_property(_steam_invite_confirm_card, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _close_steam_invite_confirm() -> void:
+	if _steam_invite_confirm_panel == null or not _steam_invite_confirm_panel.visible:
+		return
+	if _steam_invite_confirm_tween != null and _steam_invite_confirm_tween.is_valid():
+		_steam_invite_confirm_tween.kill()
+	if DisplayServer.get_name().to_lower() == "headless":
+		_steam_invite_confirm_panel.visible = false
+		return
+	_steam_invite_confirm_tween = create_tween()
+	_steam_invite_confirm_tween.set_parallel(true)
+	if _steam_invite_confirm_card != null:
+		_steam_invite_confirm_tween.tween_property(_steam_invite_confirm_card, "modulate:a", 0.0, 0.10).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		_steam_invite_confirm_tween.tween_property(_steam_invite_confirm_card, "scale", Vector2(0.96, 0.96), 0.10).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_steam_invite_confirm_tween.chain().tween_callback(func() -> void:
+		if _steam_invite_confirm_panel != null:
+			_steam_invite_confirm_panel.visible = false
+	)
+
+
+func _refresh_steam_invite_confirm_text() -> void:
+	if _steam_invite_confirm_body_label == null:
+		return
+	var lobby_text := _pending_steam_invite_lobby_id if _pending_steam_invite_lobby_id != "" else "-"
+	_steam_invite_confirm_body_label.text = _t("steam_invite_confirm_body", {"lobby": lobby_text})
+
+
 func _all_pages() -> Array[Control]:
 	return [_start_page, _multiplayer_page, _settings_page, _customize_page, _game_page]
 
@@ -1817,6 +1951,14 @@ func _on_host_steam_pressed() -> void:
 	_session.call("host_steam")
 
 
+func _on_invite_steam_pressed() -> void:
+	if String(_session.call("active_transport")) != "steam":
+		_clear_players()
+		_clear_bullets()
+		_peer_inputs.clear()
+	_session.call("invite_steam_friend")
+
+
 func _on_join_steam_pressed() -> void:
 	_clear_players()
 	_clear_bullets()
@@ -1879,6 +2021,60 @@ func _leave_session_without_navigation() -> void:
 	_suppress_session_end_navigation = true
 	_session.call("leave_session")
 	_suppress_session_end_navigation = false
+
+
+func _on_steam_invite_join_requested(lobby_id: String) -> void:
+	var clean_lobby_id := lobby_id.strip_edges()
+	if not clean_lobby_id.is_valid_int():
+		_append_log("Steam invite ignored: invalid lobby id.")
+		return
+	if _pending_steam_invite_lobby_id != "":
+		_append_log("Steam invite ignored: another invite is pending.")
+		return
+	if _can_join_steam_invite_immediately():
+		_join_steam_lobby_from_invite(clean_lobby_id)
+		return
+	_pending_steam_invite_lobby_id = clean_lobby_id
+	_refresh_steam_invite_confirm_text()
+	_open_steam_invite_confirm()
+
+
+func _can_join_steam_invite_immediately() -> bool:
+	if _session == null:
+		return false
+	if String(_session.call("active_transport")) != "offline":
+		return false
+	return _screen == SCREEN_START or _screen == SCREEN_MULTIPLAYER
+
+
+func _join_steam_lobby_from_invite(lobby_id: String) -> void:
+	if _session == null:
+		return
+	if not lobby_id.is_valid_int():
+		_append_log("Steam invite ignored: invalid lobby id.")
+		return
+	if not bool(_session.call("steam_available")):
+		_append_log(String(_session.call("steam_status_text")))
+		return
+	_close_pause_menu()
+	_end_battle()
+	_clear_players()
+	_clear_bullets()
+	_peer_inputs.clear()
+	_show_multiplayer_page()
+	_session.call("join_steam_lobby", lobby_id)
+
+
+func _on_steam_invite_confirm_accept_pressed() -> void:
+	var lobby_id := _pending_steam_invite_lobby_id
+	_pending_steam_invite_lobby_id = ""
+	_close_steam_invite_confirm()
+	_join_steam_lobby_from_invite(lobby_id)
+
+
+func _on_steam_invite_confirm_cancel_pressed() -> void:
+	_pending_steam_invite_lobby_id = ""
+	_close_steam_invite_confirm()
 
 
 func _on_session_started(host: bool, transport: String, lobby_id: String) -> void:
@@ -2486,6 +2682,8 @@ func _update_status() -> void:
 		_steam_status_label.text = String(_session.call("steam_status_text"))
 		if _host_steam_button != null:
 			_host_steam_button.disabled = not steam_available
+		if _invite_steam_button != null:
+			_invite_steam_button.disabled = not steam_available
 		if _join_steam_button != null:
 			_join_steam_button.disabled = not steam_available
 	if _ready_room_label != null:

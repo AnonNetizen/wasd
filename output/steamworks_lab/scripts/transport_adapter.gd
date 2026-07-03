@@ -4,6 +4,7 @@ extends Node
 signal steam_peer_ready(peer: MultiplayerPeer, lobby_id: String, host: bool)
 signal steam_failed(message: String)
 signal steam_status(message: String)
+signal steam_lobby_join_requested(lobby_id: String, friend_id: String)
 
 const LOBBY_TYPE_PUBLIC: int = 2
 const RESULT_OK: int = 1
@@ -30,6 +31,8 @@ var _steam_initialized: bool = false
 
 func _ready() -> void:
 	_refresh_steam()
+	_connect_steam_signals()
+	call_deferred("_emit_launch_lobby_request")
 
 
 func _process(_delta: float) -> void:
@@ -91,6 +94,41 @@ func steam_game_language() -> String:
 	return ""
 
 
+static func connect_lobby_from_args(args: PackedStringArray) -> String:
+	for index in range(args.size()):
+		var arg := String(args[index]).strip_edges()
+		if arg == "+connect_lobby" and index + 1 < args.size():
+			var lobby_id := String(args[index + 1]).strip_edges()
+			if lobby_id.is_valid_int():
+				return lobby_id
+		if arg.begins_with("+connect_lobby="):
+			var lobby_id := arg.trim_prefix("+connect_lobby=").strip_edges()
+			if lobby_id.is_valid_int():
+				return lobby_id
+	return ""
+
+
+func open_steam_invite_overlay() -> bool:
+	_refresh_steam()
+	if not steam_available():
+		steam_failed.emit(steam_diagnostics())
+		return false
+	if not _active_lobby_id.is_valid_int():
+		steam_failed.emit("Steam invite requires an active lobby.")
+		return false
+	for method_name in [
+		"activateGameOverlayInviteDialog",
+		"activate_game_overlay_invite_dialog",
+	]:
+		if not _steam.has_method(method_name):
+			continue
+		_steam.call(method_name, int(_active_lobby_id))
+		steam_status.emit("Steam invite overlay opened for lobby %s." % _active_lobby_id)
+		return true
+	steam_failed.emit("Steam overlay invite dialog method is missing.")
+	return false
+
+
 func host_steam_lobby(max_players: int) -> bool:
 	if not steam_available():
 		steam_failed.emit(steam_diagnostics())
@@ -144,6 +182,12 @@ func _connect_steam_signals() -> void:
 	_connect_signal_if_present("lobby_created", Callable(self, "_on_lobby_created"))
 	_connect_signal_if_present("lobby_joined", Callable(self, "_on_lobby_joined"))
 	_connect_signal_if_present("lobby_chat_update", Callable(self, "_on_lobby_chat_update"))
+	for signal_name in [
+		"join_requested",
+		"game_lobby_join_requested",
+		"lobby_join_requested",
+	]:
+		_connect_signal_if_present(signal_name, Callable(self, "_on_lobby_join_requested"))
 
 
 func _connect_signal_if_present(signal_name: StringName, callable: Callable) -> void:
@@ -160,6 +204,14 @@ func _initialize_steam_if_needed() -> void:
 	if _steam.has_method("steamInit"):
 		var result: Variant = _steam.call("steamInit")
 		steam_status.emit("Steam init result: %s" % str(result))
+
+
+func _emit_launch_lobby_request() -> void:
+	var lobby_id := connect_lobby_from_args(OS.get_cmdline_args())
+	if lobby_id == "":
+		return
+	steam_status.emit("Steam launch requested lobby %s." % lobby_id)
+	steam_lobby_join_requested.emit(lobby_id, "")
 
 
 func _on_lobby_created(connect: int, lobby_id: int) -> void:
@@ -185,6 +237,16 @@ func _on_lobby_created(connect: int, lobby_id: int) -> void:
 	_is_steam_host = true
 	_track_current_lobby_members(lobby_id)
 	steam_peer_ready.emit(peer_result["peer"], _active_lobby_id, true)
+
+
+func _on_lobby_join_requested(lobby_id_data: Variant, friend_id_data: Variant = 0) -> void:
+	var lobby_id := String(lobby_id_data).strip_edges()
+	if not lobby_id.is_valid_int() or int(lobby_id) <= 0:
+		steam_failed.emit("Steam invite did not include a valid lobby id.")
+		return
+	var friend_id := String(friend_id_data).strip_edges()
+	steam_status.emit("Steam invite requested lobby %s." % lobby_id)
+	steam_lobby_join_requested.emit(lobby_id, friend_id if friend_id.is_valid_int() else "")
 
 
 func _on_lobby_joined(lobby_id: int, _permissions: int, _locked: bool, response: int) -> void:

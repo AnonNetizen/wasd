@@ -20,6 +20,7 @@ signal battle_launch_received()
 signal active_item_requested(peer_id: int)
 signal active_item_used_received(peer_id: int, item_id: int, origin: Vector2)
 signal appearance_received(peer_id: int, appearance: Dictionary)
+signal steam_invite_join_requested(lobby_id: String)
 
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
 const DEFAULT_PORT: int = 24567
@@ -29,6 +30,7 @@ var _transport: Node
 var _is_host: bool = false
 var _active_transport: String = "offline"
 var _lobby_id: String = ""
+var _invite_after_steam_host: bool = false
 
 
 func _ready() -> void:
@@ -45,6 +47,7 @@ func _ensure_transport() -> void:
 	_transport.connect("steam_peer_ready", Callable(self, "_on_steam_peer_ready"))
 	_transport.connect("steam_failed", Callable(self, "_emit_status"))
 	_transport.connect("steam_status", Callable(self, "_emit_status"))
+	_transport.connect("steam_lobby_join_requested", Callable(self, "_on_steam_lobby_join_requested"))
 
 
 func host_local(port: int = DEFAULT_PORT) -> void:
@@ -73,6 +76,20 @@ func host_steam() -> void:
 	_ensure_transport()
 	leave_session()
 	if not bool(_transport.call("host_steam_lobby", MAX_PLAYERS)):
+		_invite_after_steam_host = false
+		return
+	_active_transport = "steam"
+
+
+func invite_steam_friend() -> void:
+	_ensure_transport()
+	if _active_transport == "steam" and _lobby_id.is_valid_int():
+		_transport.call("open_steam_invite_overlay")
+		return
+	leave_session()
+	_invite_after_steam_host = true
+	if not bool(_transport.call("host_steam_lobby", MAX_PLAYERS)):
+		_invite_after_steam_host = false
 		return
 	_active_transport = "steam"
 
@@ -94,6 +111,7 @@ func leave_session() -> void:
 	_is_host = false
 	_active_transport = "offline"
 	_lobby_id = ""
+	_invite_after_steam_host = false
 	session_ended.emit()
 
 
@@ -398,8 +416,18 @@ func _on_steam_peer_ready(peer: MultiplayerPeer, lobby: String, host: bool) -> v
 	_apply_peer(peer, host, "steam", lobby)
 	if host:
 		_emit_status("Hosting Steam lobby %s." % lobby)
+		if _invite_after_steam_host:
+			_invite_after_steam_host = false
+			_transport.call("open_steam_invite_overlay")
 	else:
 		_emit_status("Connected to Steam lobby %s." % lobby)
+
+
+func _on_steam_lobby_join_requested(lobby_id: String, _friend_id: String) -> void:
+	if not lobby_id.is_valid_int():
+		_emit_status("Steam invite ignored: invalid lobby id.")
+		return
+	steam_invite_join_requested.emit(lobby_id)
 
 
 func _on_peer_connected(peer_id: int) -> void:
