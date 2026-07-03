@@ -120,6 +120,7 @@ var _fullscreen_check: CheckButton
 var _customize_name_input: LineEdit
 var _customize_preview_area: Control
 var _customize_preview_body: Node2D
+var _customize_preview_name_label: Label
 
 
 func _ready() -> void:
@@ -826,6 +827,16 @@ func _create_customize_page() -> void:
 	_customize_preview_body.scale = Vector2(1.45, 1.45)
 	_customize_preview_area.add_child(_customize_preview_body)
 	_customize_preview_body.call("set_position_drive_enabled", false)
+	_customize_preview_name_label = Label.new()
+	_customize_preview_name_label.name = "CustomizePreviewNameLabel"
+	_customize_preview_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_customize_preview_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_customize_preview_name_label.z_index = 8
+	_customize_preview_name_label.add_theme_font_size_override("font_size", 16)
+	_customize_preview_name_label.add_theme_color_override("font_color", Color(0.92, 0.98, 1.0, 1.0))
+	_customize_preview_name_label.add_theme_color_override("font_outline_color", Color(0.03, 0.04, 0.08, 0.92))
+	_customize_preview_name_label.add_theme_constant_override("outline_size", 3)
+	_customize_preview_area.add_child(_customize_preview_name_label)
 
 	var name_section := _make_section_box(rows, "customize_name", "CustomizeName")
 	_customize_name_input = LineEdit.new()
@@ -1256,11 +1267,22 @@ func _refresh_customize_controls() -> void:
 
 
 func _refresh_customize_preview() -> void:
-	if _customize_preview_body == null or not is_instance_valid(_customize_preview_body):
-		return
+	if _customize_preview_name_label != null and is_instance_valid(_customize_preview_name_label):
+		var preview_name := ""
+		if _settings != null:
+			preview_name = String(_settings.get("player_name")).strip_edges()
+		_customize_preview_name_label.text = preview_name
+		_customize_preview_name_label.visible = preview_name != ""
+		if _customize_preview_area != null and is_instance_valid(_customize_preview_area):
+			_customize_preview_name_label.position = Vector2(0.0, 8.0)
+			_customize_preview_name_label.size = Vector2(_customize_preview_area.size.x, 28.0)
 	if _customize_preview_area != null and is_instance_valid(_customize_preview_area):
+		if _customize_preview_body == null or not is_instance_valid(_customize_preview_body):
+			return
 		_customize_preview_body.position = Vector2(_customize_preview_area.size.x * 0.5, _customize_preview_area.size.y - 52.0)
 		_customize_preview_body.call("warp_to", _customize_preview_body.global_position)
+	if _customize_preview_body == null or not is_instance_valid(_customize_preview_body):
+		return
 	var slime_palette_id := 0
 	if _settings != null:
 		slime_palette_id = int(_settings.get("slime_palette_id"))
@@ -1680,6 +1702,7 @@ func _on_customize_name_changed(new_text: String) -> void:
 		return
 	_settings.call("set_player_name", new_text)
 	_settings.call("save_settings")
+	_refresh_customize_preview()
 	_apply_local_appearance(true)
 
 

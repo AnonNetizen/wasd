@@ -634,6 +634,7 @@ func _check_customize_ui(main_scene: Node) -> void:
 	var name_input := main_scene.get("_customize_name_input") as LineEdit
 	var preview_area := main_scene.get("_customize_preview_area") as Control
 	var preview_body := main_scene.get("_customize_preview_body") as Node2D
+	var preview_name_label := main_scene.get("_customize_preview_name_label") as Label
 	var active_settings := main_scene.get("_settings") as RefCounted
 	var slime_buttons: Array = main_scene.get("_slime_swatch_buttons")
 	var bullet_buttons: Array = main_scene.get("_bullet_swatch_buttons")
@@ -641,6 +642,7 @@ func _check_customize_ui(main_scene: Node) -> void:
 	_check(name_input != null, "customize nickname input exists")
 	_check(preview_area != null and preview_area.clip_contents, "customize slime preview area exists")
 	_check(preview_body != null, "customize slime preview body exists")
+	_check(preview_name_label != null, "customize nickname preview label exists")
 	_check(slime_buttons.size() == 8, "customize slime palette has 8 swatches")
 	_check(bullet_buttons.size() == 8, "customize bullet palette has 8 swatches")
 
@@ -667,6 +669,7 @@ func _check_customize_ui(main_scene: Node) -> void:
 	_check(int(config.get_value("settings", "slime_palette_id", -1)) == 4, "customize writes slime palette id")
 	_check(int(config.get_value("settings", "bullet_palette_id", -1)) == 6, "customize writes bullet palette id")
 	_check(active_settings != null and String(active_settings.get("player_name")) == "Nova", "customize stores nickname in settings")
+	_check(preview_name_label != null and preview_name_label.visible and preview_name_label.text == "Nova", "customize preview shows nickname")
 	var preview_palette: Dictionary = PLAYER_SCRIPT.slime_palette(4)
 	var preview_fill: Color = preview_body.get("_fill_color") if preview_body != null else Color.BLACK
 	_check(preview_fill == preview_palette.get("fill"), "customize preview applies selected slime color")
