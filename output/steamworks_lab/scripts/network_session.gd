@@ -23,7 +23,7 @@ signal appearance_received(peer_id: int, appearance: Dictionary)
 
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
 const DEFAULT_PORT: int = 24567
-const MAX_PLAYERS: int = 8
+const MAX_PLAYERS: int = 4
 
 var _transport: Node
 var _is_host: bool = false

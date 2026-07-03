@@ -7,6 +7,7 @@ const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
 const LAB_SAVE_SCRIPT := preload("res://scripts/lab_save.gd")
 const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
 const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
+const NETWORK_SESSION_SCRIPT := preload("res://scripts/network_session.gd")
 const PLAYER_SCRIPT := preload("res://scripts/slime_player.gd")
 
 const SETTINGS_PATH: String = "user://settings.cfg"
@@ -36,6 +37,7 @@ func _run() -> void:
 	_remove_save_file()
 	_check_language_defaults()
 	_check_save_helper_defaults()
+	_check_network_session_defaults()
 	_check_project_window_defaults()
 
 	var main_packed := load("res://scenes/main.tscn") as PackedScene
@@ -536,6 +538,10 @@ func _check_save_helper_defaults() -> void:
 	_check(not loaded, "missing save file reports unloaded")
 	_check(is_equal_approx(float(save.get("best_survival_seconds")), 0.0), "missing save defaults best survival to zero")
 	_check(LAB_SAVE_SCRIPT.format_survival_time(127.0) == "02:07", "survival time formats as MM:SS")
+
+
+func _check_network_session_defaults() -> void:
+	_check(NETWORK_SESSION_SCRIPT.MAX_PLAYERS == 4, "network session caps multiplayer at 4 players")
 
 
 func _check_project_window_defaults() -> void:
