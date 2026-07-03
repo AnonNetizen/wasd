@@ -665,10 +665,19 @@ func _create_multiplayer_page() -> void:
 	_multiplayer_status_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.TEXT_COLOR)
 	session_section.add_child(_multiplayer_status_label)
 
+	var content_scroll := ScrollContainer.new()
+	content_scroll.name = "MultiplayerScroll"
+	content_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	rows.add_child(content_scroll)
+
 	var body := VBoxContainer.new()
+	body.name = "MultiplayerScrollBody"
 	body.add_theme_constant_override("separation", 10)
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	rows.add_child(body)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_scroll.add_child(body)
 
 	var local_section := _make_section_box(body, "section_local", "Local")
 
