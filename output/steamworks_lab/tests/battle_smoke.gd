@@ -670,6 +670,14 @@ func _check_customize_ui(main_scene: Node) -> void:
 	var preview_palette: Dictionary = PLAYER_SCRIPT.slime_palette(4)
 	var preview_fill: Color = preview_body.get("_fill_color") if preview_body != null else Color.BLACK
 	_check(preview_fill == preview_palette.get("fill"), "customize preview applies selected slime color")
+	var preview_bullets: Array = main_scene.get("_customize_preview_bullets")
+	var preview_bullet: Node2D = null
+	if not preview_bullets.is_empty():
+		preview_bullet = preview_bullets[0] as Node2D
+	var bullet_palette: Dictionary = PLAYER_SCRIPT.bullet_palette_option(6)
+	var preview_bullet_fill: Color = preview_bullet.get("_fill_color") if preview_bullet != null else Color.BLACK
+	_check(preview_bullet != null, "customize preview fires a sample bullet")
+	_check(preview_bullet_fill == bullet_palette.get("fill"), "customize preview bullet applies selected bullet color")
 
 	main_scene.call("_on_language_selected", 0)
 	await process_frame
@@ -680,6 +688,8 @@ func _check_customize_ui(main_scene: Node) -> void:
 	main_scene.call("_on_customize_back_pressed")
 	for index in range(12):
 		await process_frame
+	preview_bullets = main_scene.get("_customize_preview_bullets")
+	_check(preview_bullets.is_empty(), "customize preview bullets clear when leaving page")
 
 
 func _node_tree_has_text(root_node: Node, expected_text: String) -> bool:

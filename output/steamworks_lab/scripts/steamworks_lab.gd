@@ -36,6 +36,8 @@ const ACTION_PAUSE_MENU := "pause_menu"
 const EXPRESSION_DURATION: float = 2.2
 const FIRE_COOLDOWN: float = 0.18
 const FIRE_SPREAD_DEGREES: float = 2.5
+const CUSTOMIZE_PREVIEW_FIRE_INTERVAL: float = 0.58
+const CUSTOMIZE_PREVIEW_BULLET_SPEED: float = 320.0
 const SCREEN_SHAKE_MAX_STRENGTH: float = 18.0
 const SCREEN_SHAKE_MIN_DURATION: float = 0.04
 const SCREEN_FLASH_MAX_ALPHA: float = 0.42
@@ -80,6 +82,8 @@ var _peer_appearances: Dictionary = {}
 var _slime_swatch_buttons: Array[Button] = []
 var _bullet_swatch_buttons: Array[Button] = []
 var _customize_refreshing: bool = false
+var _customize_preview_fire_timer: float = 0.0
+var _customize_preview_bullets: Array[Node] = []
 var _pause_menu_open: bool = false
 var _pause_freezes_game: bool = false
 var _base_canvas_transform: Transform2D = Transform2D.IDENTITY
@@ -136,6 +140,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	_ui_anim_time += delta
 	_update_screen_effects(delta)
+	_update_customize_preview(delta)
 	if _screen == SCREEN_GAME:
 		if _pause_blocks_gameplay_tick():
 			_refresh_battle_hud()
@@ -812,7 +817,7 @@ func _create_customize_page() -> void:
 	_customize_preview_area = Control.new()
 	_customize_preview_area.name = "CustomizePreviewArea"
 	_customize_preview_area.clip_contents = true
-	_customize_preview_area.custom_minimum_size = Vector2(360.0, 150.0)
+	_customize_preview_area.custom_minimum_size = Vector2(360.0, 170.0)
 	_customize_preview_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	preview_section.add_child(_customize_preview_area)
 	_customize_preview_area.resized.connect(_refresh_customize_preview)
@@ -1254,13 +1259,70 @@ func _refresh_customize_preview() -> void:
 	if _customize_preview_body == null or not is_instance_valid(_customize_preview_body):
 		return
 	if _customize_preview_area != null and is_instance_valid(_customize_preview_area):
-		_customize_preview_body.position = _customize_preview_area.size * 0.5 + Vector2(0.0, 10.0)
+		_customize_preview_body.position = Vector2(_customize_preview_area.size.x * 0.5, _customize_preview_area.size.y - 52.0)
 		_customize_preview_body.call("warp_to", _customize_preview_body.global_position)
 	var slime_palette_id := 0
 	if _settings != null:
 		slime_palette_id = int(_settings.get("slime_palette_id"))
 	var palette := PLAYER_SCRIPT.slime_palette(slime_palette_id)
 	_customize_preview_body.call("set_palette", palette["fill"], palette["edge"], palette["core"])
+
+
+func _update_customize_preview(delta: float) -> void:
+	if _screen != SCREEN_CUSTOMIZE:
+		return
+	_prune_customize_preview_bullets()
+	_customize_preview_fire_timer -= delta
+	if _customize_preview_fire_timer <= 0.0:
+		_fire_customize_preview_bullet()
+
+
+func _fire_customize_preview_bullet() -> void:
+	if _customize_preview_area == null or not is_instance_valid(_customize_preview_area):
+		return
+	if _customize_preview_body == null or not is_instance_valid(_customize_preview_body):
+		return
+	var bullet_palette_id := 0
+	if _settings != null:
+		bullet_palette_id = int(_settings.get("bullet_palette_id"))
+	var palette := PLAYER_SCRIPT.bullet_palette_option(bullet_palette_id)
+	var origin: Vector2 = _customize_preview_body.call("emit_surface_bud", Vector2.UP)
+	var bullet := BULLET_SCRIPT.new() as Node2D
+	bullet.name = "CustomizePreviewBullet%d" % (_customize_preview_bullets.size() + 1)
+	_customize_preview_area.add_child(bullet)
+	bullet.call(
+		"configure",
+		origin,
+		Vector2.UP,
+		palette["fill"],
+		palette["edge"],
+		CUSTOMIZE_PREVIEW_BULLET_SPEED
+	)
+	_customize_preview_bullets.append(bullet)
+	_customize_preview_fire_timer = CUSTOMIZE_PREVIEW_FIRE_INTERVAL
+
+
+func _prune_customize_preview_bullets() -> void:
+	var live_bullets: Array[Node] = []
+	for bullet in _customize_preview_bullets:
+		if bullet == null or not is_instance_valid(bullet) or bullet.is_queued_for_deletion():
+			continue
+		if _customize_preview_area != null and is_instance_valid(_customize_preview_area):
+			var bullet_node := bullet as Node2D
+			var local_position: Vector2 = bullet_node.global_position - _customize_preview_area.global_position
+			if local_position.y < -32.0:
+				bullet.queue_free()
+				continue
+		live_bullets.append(bullet)
+	_customize_preview_bullets = live_bullets
+
+
+func _clear_customize_preview_bullets() -> void:
+	for bullet in _customize_preview_bullets:
+		if bullet != null and is_instance_valid(bullet):
+			bullet.queue_free()
+	_customize_preview_bullets.clear()
+	_customize_preview_fire_timer = 0.0
 
 
 func _refresh_swatch_buttons(buttons: Array[Button], palettes: Array[Dictionary], selected_id: int) -> void:
@@ -1321,8 +1383,10 @@ func _show_settings_page(return_screen: String = SCREEN_START) -> void:
 
 
 func _show_customize_page() -> void:
-	_refresh_customize_controls()
 	_set_screen(SCREEN_CUSTOMIZE)
+	_refresh_customize_controls()
+	_clear_customize_preview_bullets()
+	_fire_customize_preview_bullet()
 
 
 func _show_game_page() -> void:
@@ -1344,6 +1408,8 @@ func _set_screen(screen_name: String) -> void:
 		_fire_held = false
 		_fire_cooldown_remaining = 0.0
 		_clear_screen_fx()
+	if screen_name != SCREEN_CUSTOMIZE:
+		_clear_customize_preview_bullets()
 	queue_redraw()
 
 
@@ -1628,6 +1694,9 @@ func _on_bullet_palette_selected(palette_id: int) -> void:
 	_settings.call("set_bullet_palette_id", palette_id)
 	_settings.call("save_settings")
 	_refresh_customize_controls()
+	_clear_customize_preview_bullets()
+	if _screen == SCREEN_CUSTOMIZE:
+		_fire_customize_preview_bullet()
 	_apply_local_appearance(true)
 
 
