@@ -754,10 +754,11 @@ func _check_steam_invite_ui(main_scene: Node) -> void:
 	await process_frame
 	_check(multiplayer_page != null and multiplayer_page.visible, "multiplayer page opens for Steam invite checks")
 	var multiplayer_panel := multiplayer_page.get_node_or_null("CenterContainer/MultiplayerPanel") as PanelContainer
-	var multiplayer_scroll := multiplayer_page.get_node_or_null("CenterContainer/MultiplayerPanel/MarginContainer/VBoxContainer/MultiplayerScroll") as ScrollContainer
+	var multiplayer_body := multiplayer_page.get_node_or_null("CenterContainer/MultiplayerPanel/MarginContainer/VBoxContainer/MultiplayerBody") as VBoxContainer
 	_check(multiplayer_panel != null and multiplayer_panel.size.y <= 960.0, "multiplayer ready-room panel fits inside the design viewport height")
-	_check(multiplayer_scroll != null, "multiplayer page uses a scroll container for tall ready-room content")
-	_check(multiplayer_scroll != null and multiplayer_scroll.size.y <= 960.0, "multiplayer scroll area fits inside the design viewport height")
+	_check(multiplayer_body != null, "multiplayer page uses a direct body without scrolling")
+	_check(multiplayer_page.get_node_or_null("CenterContainer/MultiplayerPanel/MarginContainer/VBoxContainer/SessionSection") == null, "multiplayer page omits session info section")
+	_check(multiplayer_page.get_node_or_null("CenterContainer/MultiplayerPanel/MarginContainer/VBoxContainer/MultiplayerBody/StatusLogSection") == null, "multiplayer page omits status log section")
 	_check(invite_button != null and invite_button.text == "Invite Friend", "English Steam invite button localizes")
 	var steam_available := bool(active_session.call("steam_available")) if active_session != null else false
 	_check(invite_button != null and invite_button.disabled == not steam_available, "Steam invite button follows availability")

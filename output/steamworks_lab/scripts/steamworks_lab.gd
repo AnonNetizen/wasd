@@ -103,8 +103,6 @@ var _settings_page: Control
 var _customize_page: Control
 var _game_page: Control
 var _records_panel: Control
-var _multiplayer_status_label: Label
-var _log_label: Label
 var _address_input: LineEdit
 var _port_input: SpinBox
 var _lobby_input: LineEdit
@@ -659,25 +657,12 @@ func _create_multiplayer_page() -> void:
 	title.add_theme_font_size_override("font_size", 30)
 	rows.add_child(title)
 
-	var session_section := _make_section_box(rows, "section_session", "Session")
-	_multiplayer_status_label = Label.new()
-	_multiplayer_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_multiplayer_status_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.TEXT_COLOR)
-	session_section.add_child(_multiplayer_status_label)
-
-	var content_scroll := ScrollContainer.new()
-	content_scroll.name = "MultiplayerScroll"
-	content_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	rows.add_child(content_scroll)
-
 	var body := VBoxContainer.new()
-	body.name = "MultiplayerScrollBody"
+	body.name = "MultiplayerBody"
 	body.add_theme_constant_override("separation", 10)
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content_scroll.add_child(body)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	rows.add_child(body)
 
 	var local_section := _make_section_box(body, "section_local", "Local")
 
@@ -764,17 +749,6 @@ func _create_multiplayer_page() -> void:
 	_register_localized_text(back_button, "back")
 	back_button.pressed.connect(_on_multiplayer_back_pressed)
 	session_buttons.add_child(back_button)
-
-	var log_column := _make_section_box(body, "section_status_log", "StatusLog")
-	log_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	log_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
-
-	_log_label = Label.new()
-	_log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_log_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.MUTED_TEXT_COLOR)
-	log_column.add_child(_log_label)
-
 
 func _create_settings_page() -> void:
 	_settings_page = _make_page("SettingsPage")
@@ -2658,15 +2632,6 @@ func _generate_backdrop_stars() -> void:
 
 
 func _update_status() -> void:
-	var lobby_text := String(_session.call("lobby_id"))
-	var status_text := _t("status_mode", {
-		"mode": String(_session.call("active_transport")),
-		"peer": int(_session.call("local_peer_id")),
-		"lobby": lobby_text if lobby_text != "" else "-",
-		"players": _players.size(),
-	})
-	if _multiplayer_status_label != null:
-		_multiplayer_status_label.text = status_text
 	if _steam_status_label != null:
 		var steam_available := bool(_session.call("steam_available"))
 		_steam_status_label.text = String(_session.call("steam_status_text"))
@@ -2697,8 +2662,6 @@ func _append_log(message: String) -> void:
 	_log_lines.append(message)
 	while _log_lines.size() > 14:
 		_log_lines.pop_front()
-	if _log_label != null:
-		_log_label.text = "\n".join(_log_lines)
 	print("[SteamworksLab] %s" % message)
 
 
