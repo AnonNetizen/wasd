@@ -38,6 +38,7 @@ var _time_label: Label
 var _tier_label: Label
 var _active_item_label: Label
 var _spectator_label: Label
+var _merge_status_label: Label
 var _game_over_panel: PanelContainer
 var _game_over_title_label: Label
 var _game_over_stats_label: Label
@@ -68,6 +69,8 @@ func set_locale(locale: String) -> void:
 		_active_item_label.text = _t("hud_empty_item")
 	if _spectator_label != null:
 		_spectator_label.text = _t("hud_spectator")
+	if _merge_status_label != null and _last_state.is_empty():
+		_merge_status_label.text = ""
 	if _game_over_title_label != null:
 		_game_over_title_label.text = _t("game_over_title")
 	if _restart_button != null:
@@ -117,6 +120,9 @@ func refresh(state: Dictionary) -> void:
 		Color(0.96, 1.0, 0.70, 0.98) if _active_item_held else UI_STYLE_SCRIPT.MUTED_TEXT_COLOR
 	)
 	_spectator_label.visible = not _alive and not bool(state.get("game_over", false))
+	var merge_status := String(state.get("merge_status", ""))
+	_merge_status_label.text = merge_status
+	_merge_status_label.visible = merge_status != "" and not bool(state.get("game_over", false))
 
 	var game_over := bool(state.get("game_over", false))
 	if game_over != _game_over_visible:
@@ -354,6 +360,18 @@ func _create_labels() -> void:
 	_spectator_label.add_theme_constant_override("outline_size", 4)
 	_spectator_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.64))
 	add_child(_spectator_label)
+
+	_merge_status_label = Label.new()
+	_merge_status_label.name = "MergeStatusLabel"
+	_merge_status_label.position = Vector2(24.0, 108.0)
+	_merge_status_label.size = Vector2(492.0, 28.0)
+	_merge_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_merge_status_label.visible = false
+	_merge_status_label.add_theme_font_size_override("font_size", 16)
+	_merge_status_label.add_theme_color_override("font_color", Color(0.88, 1.0, 0.78, 0.96))
+	_merge_status_label.add_theme_constant_override("outline_size", 4)
+	_merge_status_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.66))
+	add_child(_merge_status_label)
 
 
 func _create_game_over_panel() -> void:

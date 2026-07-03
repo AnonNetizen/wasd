@@ -20,6 +20,7 @@ signal battle_launch_received()
 signal active_item_requested(peer_id: int)
 signal active_item_used_received(peer_id: int, item_id: int, origin: Vector2)
 signal appearance_received(peer_id: int, appearance: Dictionary)
+signal merge_intent_received(peer_id: int, active: bool)
 signal steam_invite_join_requested(lobby_id: String)
 
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
@@ -226,6 +227,15 @@ func send_active_item_to_host() -> void:
 	_submit_active_item_use.rpc_id(1)
 
 
+func send_merge_intent_to_host(active: bool) -> void:
+	if _is_host:
+		merge_intent_received.emit(1, active)
+		return
+	if not _client_connection_ready():
+		return
+	_submit_merge_intent.rpc_id(1, active)
+
+
 func broadcast_shot(peer_id: int, origin: Vector2, direction: Vector2, speed: float) -> void:
 	if not _is_host or multiplayer.multiplayer_peer == null:
 		return
@@ -333,6 +343,13 @@ func _submit_active_item_use() -> void:
 	if not _is_host:
 		return
 	active_item_requested.emit(multiplayer.get_remote_sender_id())
+
+
+@rpc("any_peer", "reliable")
+func _submit_merge_intent(active: bool) -> void:
+	if not _is_host:
+		return
+	merge_intent_received.emit(multiplayer.get_remote_sender_id(), active)
 
 
 @rpc("authority", "unreliable")

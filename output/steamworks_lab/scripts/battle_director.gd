@@ -1093,9 +1093,35 @@ func _alive_players() -> Array[Node]:
 		var player := players[peer_id] as Node
 		if player == null or not is_instance_valid(player):
 			continue
+		if _main != null and bool(_main.call("is_peer_merged", int(peer_id))):
+			continue
 		if bool(player.get("alive")):
 			alive.append(player)
 	return alive
+
+
+func _active_merge_hitboxes() -> Array[Dictionary]:
+	var hitboxes: Array[Dictionary] = []
+	if _main == null:
+		return hitboxes
+	var rows: Variant = _main.call("active_merge_hitboxes")
+	if rows is Array:
+		for raw_row in rows:
+			if raw_row is Dictionary:
+				hitboxes.append(raw_row)
+	return hitboxes
+
+
+func _try_damage_merge_targets(targets: Array[Dictionary], hit_position: Vector2, hit_radius: float) -> bool:
+	if _main == null:
+		return false
+	for target in targets:
+		var position: Vector2 = target.get("position", Vector2.ZERO)
+		var radius := float(target.get("radius", 0.0))
+		if hit_position.distance_to(position) > radius + hit_radius:
+			continue
+		return bool(_main.call("apply_merge_damage", int(target.get("id", 0)), 1))
+	return false
 
 
 func _alive_player_positions() -> Array[Vector2]:
@@ -1371,13 +1397,19 @@ func _kill_enemy(enemy_id: int, enemy: Node2D) -> void:
 
 func _resolve_enemy_bullet_hits() -> void:
 	var alive := _alive_players()
-	if alive.is_empty():
+	var merge_targets := _active_merge_hitboxes()
+	if alive.is_empty() and merge_targets.is_empty():
 		return
 	for bullet in _enemy_bullets:
 		if bullet == null or not is_instance_valid(bullet) or bullet.is_queued_for_deletion():
 			continue
 		var bullet_node := bullet as Node2D
 		var bullet_radius := float(bullet.call("hit_radius"))
+		if _try_damage_merge_targets(merge_targets, bullet_node.global_position, bullet_radius):
+			spawn_burst(bullet_node.global_position, Color(1.0, 0.42, 0.30, 0.9), 6, 110.0)
+			_request_impact_feedback(SHAKE_HIT_PLAYER, 0.22, Color(1.0, 0.18, 0.12, 1.0), 0.24, 0.18)
+			bullet.queue_free()
+			continue
 		for player in alive:
 			var player_center: Vector2 = player.call("body_center")
 			var player_radius := float(player.call("hit_radius"))
@@ -1392,13 +1424,19 @@ func _resolve_enemy_bullet_hits() -> void:
 
 func _resolve_contact_hits() -> void:
 	var alive := _alive_players()
-	if alive.is_empty():
+	var merge_targets := _active_merge_hitboxes()
+	if alive.is_empty() and merge_targets.is_empty():
 		return
 	for enemy_id in _enemies.keys():
 		var enemy := _enemies.get(enemy_id) as Node2D
 		if enemy == null or not is_instance_valid(enemy):
 			continue
 		var enemy_radius := float(enemy.get("radius"))
+		if _try_damage_merge_targets(merge_targets, enemy.global_position, enemy_radius):
+			_request_impact_feedback(SHAKE_HIT_PLAYER, 0.20, Color(1.0, 0.18, 0.12, 1.0), 0.22, 0.16)
+			if int(enemy.get("kind")) == ENEMY_SCRIPT.KIND_DART:
+				_kill_enemy(enemy_id, enemy)
+				continue
 		for player in alive:
 			var player_center: Vector2 = player.call("body_center")
 			var player_radius := float(player.call("hit_radius"))
@@ -1412,6 +1450,8 @@ func _resolve_contact_hits() -> void:
 				break
 	if _boss != null and is_instance_valid(_boss):
 		var boss_radius := float(_boss.get("radius"))
+		if _try_damage_merge_targets(merge_targets, _boss.global_position, boss_radius):
+			_request_impact_feedback(SHAKE_HIT_PLAYER, 0.24, Color(1.0, 0.18, 0.12, 1.0), 0.26, 0.18)
 		for player in alive:
 			var player_center: Vector2 = player.call("body_center")
 			var player_radius := float(player.call("hit_radius"))
@@ -1423,6 +1463,8 @@ func _resolve_contact_hits() -> void:
 		if obstacle == null or not is_instance_valid(obstacle):
 			continue
 		var obstacle_radius := float(obstacle.get("radius"))
+		if _try_damage_merge_targets(merge_targets, obstacle.global_position, obstacle_radius):
+			_request_impact_feedback(SHAKE_HIT_PLAYER, 0.20, Color(1.0, 0.30, 0.18, 1.0), 0.22, 0.16)
 		for player in alive:
 			var player_center: Vector2 = player.call("body_center")
 			var player_radius := float(player.call("hit_radius"))

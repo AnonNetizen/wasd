@@ -4,6 +4,7 @@ extends SceneTree
 #   godot --headless --path output/steamworks_lab --script res://tests/battle_smoke.gd
 
 const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
+const ENEMY_BULLET_SCRIPT := preload("res://scripts/enemy_bullet.gd")
 const LAB_SAVE_SCRIPT := preload("res://scripts/lab_save.gd")
 const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
 const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
@@ -129,6 +130,13 @@ func _run() -> void:
 		if key_event != null and key_event.keycode == KEY_ESCAPE:
 			esc_bound = true
 	_check(esc_bound, "pause menu input action binds Esc")
+	_check(InputMap.has_action("merge"), "merge input action registered")
+	var merge_bound := false
+	for event in InputMap.action_get_events("merge"):
+		var key_event := event as InputEventKey
+		if key_event != null and key_event.keycode == KEY_E:
+			merge_bound = true
+	_check(merge_bound, "merge input action binds E")
 
 	var players: Dictionary = main_scene.call("player_nodes")
 	var player := players.get(1) as Node
@@ -488,6 +496,73 @@ func _run() -> void:
 	ready_scene.call("_on_ready_start_battle_pressed")
 	_check(ready_scene.get("_director") != null, "ready start launches after peer joins")
 	var ready_director: Node = ready_scene.get("_director")
+	var ready_world_rect: Rect2 = ready_scene.call("current_world_rect")
+	var ready_players: Dictionary = ready_scene.call("player_nodes")
+	var ready_player_1 := ready_players.get(1) as Node
+	var ready_player_2 := ready_players.get(2) as Node
+	var merge_center := ready_world_rect.get_center()
+	ready_player_1.call("warp_to", merge_center + Vector2(-18.0, 0.0))
+	ready_player_2.call("warp_to", merge_center + Vector2(18.0, 0.0))
+	ready_scene.call("_on_merge_intent_received", 1, true)
+	ready_scene.call("_on_merge_intent_received", 2, true)
+	for index in range(50):
+		ready_scene.call("_update_gameplay", 1.0 / 60.0)
+	var active_merges: Dictionary = ready_scene.get("_active_merges")
+	_check(active_merges.size() == 1, "merge forms after both nearby players hold E")
+	var merge_id := int(active_merges.keys()[0]) if not active_merges.is_empty() else 0
+	var merge_state: Dictionary = active_merges.get(merge_id, {})
+	_check(int(merge_state.get("driver", 0)) == 1 and int(merge_state.get("gunner", 0)) == 2, "merge assigns first holder as driver and teammate as gunner")
+	_check(ready_player_1 != null and not ready_player_1.visible and ready_player_2 != null and not ready_player_2.visible, "merged participants are hidden while merged")
+	var merge_snapshot: Dictionary = ready_scene.call("_build_snapshot")
+	_check((merge_snapshot.get("merges", []) as Array).size() == 1, "snapshot carries active merge state")
+	var merge_mirror_scene := main_packed.instantiate()
+	root.add_child(merge_mirror_scene)
+	await process_frame
+	merge_mirror_scene.call("_ensure_player", 1, "Host")
+	merge_mirror_scene.call("_ensure_player", 2, "Peer 2")
+	merge_mirror_scene.call("_apply_merge_snapshots", merge_snapshot.get("merges", []))
+	var merge_mirror_merges: Dictionary = merge_mirror_scene.get("_active_merges")
+	var merge_mirror_players: Dictionary = merge_mirror_scene.call("player_nodes")
+	var merge_mirror_player_1 := merge_mirror_players.get(1) as Node
+	_check(merge_mirror_merges.size() == 1, "snapshot mirror creates merged slime")
+	_check(merge_mirror_player_1 != null and not merge_mirror_player_1.visible, "snapshot mirror hides merged participant")
+	merge_mirror_scene.queue_free()
+
+	var bullets_before := (ready_scene.get("_bullets") as Array).size()
+	var driver_damage := int(ready_director.call("player_bullet_damage", 1))
+	var driver_pierce := int(ready_director.call("player_pierce_count", 1))
+	ready_scene.call("_fire_player_shots", 1, Vector2.UP, false)
+	var bullets_after_driver: Array = ready_scene.get("_bullets")
+	var driver_bullet := bullets_after_driver[bullets_after_driver.size() - 1] as Node
+	_check(bullets_after_driver.size() == bullets_before + 1, "merge driver fires one main cannon shot")
+	_check(int(driver_bullet.get("damage")) == driver_damage + 1, "merge driver main cannon gains damage")
+	_check(int(driver_bullet.get("pierce_remaining")) == driver_pierce + 1, "merge driver main cannon gains pierce")
+	var gunner_palette: Dictionary = ready_player_2.call("bullet_palette")
+	ready_scene.call("_fire_player_shots", 2, Vector2.RIGHT, false)
+	var bullets_after_gunner: Array = ready_scene.get("_bullets")
+	var gunner_bullet := bullets_after_gunner[bullets_after_gunner.size() - 1] as Node
+	_check(bullets_after_gunner.size() == bullets_after_driver.size() + 2, "merge gunner fires two side cannon shots")
+	_check(gunner_bullet.get("_fill_color") == gunner_palette.get("fill"), "merge gunner side cannon uses gunner bullet color")
+
+	var enemy_bullet := ENEMY_BULLET_SCRIPT.new() as Node2D
+	ready_director.add_child(enemy_bullet)
+	enemy_bullet.call("configure", merge_state.get("position", merge_center), Vector2.DOWN, 1.0, ready_world_rect)
+	(ready_director.get("_enemy_bullets") as Array).append(enemy_bullet)
+	var hp_before_merge_hit := int(ready_player_1.get("hp"))
+	ready_director.call("_resolve_enemy_bullet_hits")
+	active_merges = ready_scene.get("_active_merges")
+	merge_state = active_merges.get(merge_id, {})
+	_check(int(merge_state.get("shield", 0)) == 2, "enemy bullet hit damages merge shield")
+	_check(int(ready_player_1.get("hp")) == hp_before_merge_hit, "enemy bullet hit does not damage merged participant directly")
+	for index in range(30):
+		ready_scene.call("_update_gameplay", 1.0 / 60.0)
+	ready_scene.call("apply_merge_damage", merge_id, 2)
+	active_merges = ready_scene.get("_active_merges")
+	_check(active_merges.is_empty(), "merge breaks when shield reaches zero")
+	_check(ready_player_1.visible and ready_player_2.visible, "participants reappear after merge breaks")
+	var merge_cooldowns: Dictionary = ready_scene.get("_merge_cooldowns")
+	_check(float(merge_cooldowns.get(1, 0.0)) > 19.0 and float(merge_cooldowns.get(2, 0.0)) > 19.0, "merge break starts cooldown for both participants")
+
 	var multiplayer_pause_panel := ready_scene.get("_pause_panel") as Control
 	ready_scene.call("_open_pause_menu")
 	await process_frame
@@ -500,6 +575,7 @@ func _run() -> void:
 	_check(multiplayer_clock_after > multiplayer_clock_before, "multiplayer pause does not freeze host clock")
 	ready_scene.call("_close_pause_menu")
 	ready_scene.call("_on_multiplayer_leave_pressed")
+	_check((ready_scene.get("_active_merges") as Dictionary).is_empty(), "leaving multiplayer clears merge state")
 	ready_scene.queue_free()
 
 	_restore_settings_file(settings_backup)
