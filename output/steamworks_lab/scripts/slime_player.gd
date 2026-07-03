@@ -11,6 +11,58 @@ const NAME_OFFSET := Vector2(-54.0, -62.0)
 const MAX_HP: int = 3
 const INVULNERABILITY_DURATION: float = 1.2
 const SPECTATOR_ALPHA: float = 0.28
+const SLIME_PALETTES: Array[Dictionary] = [
+	{
+		"fill": Color(0.42, 0.86, 0.70, 0.50),
+		"edge": Color(0.76, 1.0, 0.86, 0.94),
+		"core": Color(0.21, 0.44, 0.54, 0.44),
+	},
+	{
+		"fill": Color(0.42, 0.68, 0.95, 0.50),
+		"edge": Color(0.78, 0.92, 1.0, 0.94),
+		"core": Color(0.18, 0.32, 0.62, 0.44),
+	},
+	{
+		"fill": Color(0.90, 0.62, 0.36, 0.50),
+		"edge": Color(1.0, 0.84, 0.58, 0.94),
+		"core": Color(0.56, 0.28, 0.15, 0.44),
+	},
+	{
+		"fill": Color(0.74, 0.52, 0.92, 0.50),
+		"edge": Color(0.92, 0.78, 1.0, 0.94),
+		"core": Color(0.38, 0.20, 0.58, 0.44),
+	},
+	{
+		"fill": Color(0.96, 0.44, 0.58, 0.50),
+		"edge": Color(1.0, 0.70, 0.82, 0.94),
+		"core": Color(0.62, 0.20, 0.34, 0.44),
+	},
+	{
+		"fill": Color(0.94, 0.84, 0.38, 0.50),
+		"edge": Color(1.0, 0.96, 0.62, 0.94),
+		"core": Color(0.58, 0.46, 0.16, 0.44),
+	},
+	{
+		"fill": Color(0.38, 0.92, 0.94, 0.48),
+		"edge": Color(0.68, 1.0, 1.0, 0.94),
+		"core": Color(0.12, 0.48, 0.58, 0.44),
+	},
+	{
+		"fill": Color(0.82, 0.88, 0.96, 0.42),
+		"edge": Color(0.95, 0.98, 1.0, 0.94),
+		"core": Color(0.34, 0.38, 0.50, 0.42),
+	},
+]
+const BULLET_PALETTES: Array[Dictionary] = [
+	{"fill": Color(0.82, 1.0, 0.70, 0.96), "edge": Color(0.98, 1.0, 0.84, 0.98)},
+	{"fill": Color(0.64, 0.90, 1.0, 0.96), "edge": Color(0.86, 0.98, 1.0, 0.98)},
+	{"fill": Color(1.0, 0.74, 0.42, 0.96), "edge": Color(1.0, 0.95, 0.70, 0.98)},
+	{"fill": Color(0.86, 0.66, 1.0, 0.96), "edge": Color(0.98, 0.86, 1.0, 0.98)},
+	{"fill": Color(1.0, 0.56, 0.70, 0.96), "edge": Color(1.0, 0.80, 0.90, 0.98)},
+	{"fill": Color(1.0, 0.95, 0.42, 0.96), "edge": Color(1.0, 1.0, 0.72, 0.98)},
+	{"fill": Color(0.48, 1.0, 0.98, 0.96), "edge": Color(0.78, 1.0, 1.0, 0.98)},
+	{"fill": Color(0.94, 0.98, 1.0, 0.96), "edge": Color(1.0, 1.0, 1.0, 0.98)},
+]
 
 var peer_id: int = 0
 var display_name: String = "Player"
@@ -25,7 +77,8 @@ var _input_vector: Vector2 = Vector2.ZERO
 var _authoritative_position: Vector2 = Vector2.ZERO
 var _authoritative_velocity: Vector2 = Vector2.ZERO
 var _is_local_or_host_simulated: bool = false
-var _palette_index: int = 0
+var _slime_palette_id: int = 0
+var _bullet_palette_id: int = 0
 var _expression_time_remaining: float = 0.0
 var _bullet_fill_color: Color = Color(0.82, 1.0, 0.70, 0.96)
 var _bullet_edge_color: Color = Color(0.98, 1.0, 0.84, 0.98)
@@ -54,8 +107,13 @@ func _process(delta: float) -> void:
 
 func set_player_info(new_peer_id: int, new_display_name: String, palette_index: int) -> void:
 	peer_id = new_peer_id
+	apply_appearance(new_display_name, palette_index, palette_index)
+
+
+func apply_appearance(new_display_name: String, slime_palette_id: int, bullet_palette_id: int) -> void:
 	display_name = new_display_name.strip_edges()
-	_palette_index = palette_index
+	_slime_palette_id = normalized_slime_palette_id(slime_palette_id)
+	_bullet_palette_id = normalized_bullet_palette_id(bullet_palette_id)
 	_apply_player_visuals()
 
 
@@ -225,6 +283,14 @@ func bullet_palette() -> Dictionary:
 	}
 
 
+func appearance_state() -> Dictionary:
+	return {
+		"name": display_name,
+		"slime_palette_id": _slime_palette_id,
+		"bullet_palette_id": _bullet_palette_id,
+	}
+
+
 func snapshot_state() -> Dictionary:
 	var position := global_position
 	var velocity := _authoritative_velocity
@@ -234,6 +300,7 @@ func snapshot_state() -> Dictionary:
 	return {
 		"peer_id": peer_id,
 		"name": display_name,
+		"appearance": appearance_state(),
 		"position": {"x": position.x, "y": position.y},
 		"velocity": {"x": velocity.x, "y": velocity.y},
 		"hp": hp,
@@ -276,11 +343,11 @@ func _create_expression_label() -> void:
 func _apply_player_visuals() -> void:
 	_refresh_name_label()
 	if _body != null:
-		var palette := _palette_for_index(_palette_index)
+		var palette := slime_palette(_slime_palette_id)
 		_body.call("set_palette", palette["fill"], palette["edge"], palette["core"])
-		var edge_color: Color = palette["edge"]
-		_bullet_fill_color = Color(edge_color, 0.96)
-		_bullet_edge_color = Color(1.0, 1.0, 0.86, 0.98)
+	var bullet_colors := bullet_palette_option(_bullet_palette_id)
+	_bullet_fill_color = bullet_colors["fill"]
+	_bullet_edge_color = bullet_colors["edge"]
 
 
 func _update_expression_label(delta: float) -> void:
@@ -296,30 +363,28 @@ func _update_expression_label(delta: float) -> void:
 	_expression_label.modulate = Color(1.0, 1.0, 1.0, fade_alpha)
 
 
-func _palette_for_index(index: int) -> Dictionary:
-	var palettes: Array[Dictionary] = [
-		{
-			"fill": Color(0.42, 0.86, 0.70, 0.50),
-			"edge": Color(0.76, 1.0, 0.86, 0.94),
-			"core": Color(0.21, 0.44, 0.54, 0.44),
-		},
-		{
-			"fill": Color(0.42, 0.68, 0.95, 0.50),
-			"edge": Color(0.78, 0.92, 1.0, 0.94),
-			"core": Color(0.18, 0.32, 0.62, 0.44),
-		},
-		{
-			"fill": Color(0.90, 0.62, 0.36, 0.50),
-			"edge": Color(1.0, 0.84, 0.58, 0.94),
-			"core": Color(0.56, 0.28, 0.15, 0.44),
-		},
-		{
-			"fill": Color(0.74, 0.52, 0.92, 0.50),
-			"edge": Color(0.92, 0.78, 1.0, 0.94),
-			"core": Color(0.38, 0.20, 0.58, 0.44),
-		},
-	]
-	return palettes[posmod(index, palettes.size())]
+static func slime_palette_options() -> Array[Dictionary]:
+	return SLIME_PALETTES.duplicate(true)
+
+
+static func bullet_palette_options() -> Array[Dictionary]:
+	return BULLET_PALETTES.duplicate(true)
+
+
+static func normalized_slime_palette_id(palette_id: int) -> int:
+	return posmod(palette_id, SLIME_PALETTES.size())
+
+
+static func normalized_bullet_palette_id(palette_id: int) -> int:
+	return posmod(palette_id, BULLET_PALETTES.size())
+
+
+static func slime_palette(palette_id: int) -> Dictionary:
+	return SLIME_PALETTES[normalized_slime_palette_id(palette_id)]
+
+
+static func bullet_palette_option(palette_id: int) -> Dictionary:
+	return BULLET_PALETTES[normalized_bullet_palette_id(palette_id)]
 
 
 func _display_name_text() -> String:

@@ -7,6 +7,7 @@ const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
 const LAB_SAVE_SCRIPT := preload("res://scripts/lab_save.gd")
 const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
 const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
+const PLAYER_SCRIPT := preload("res://scripts/slime_player.gd")
 
 const SETTINGS_PATH: String = "user://settings.cfg"
 const SETTINGS_FILE_NAME: String = "settings.cfg"
@@ -42,6 +43,7 @@ func _run() -> void:
 	await process_frame
 	await _check_settings_ui(main_scene)
 	await _check_records_ui(main_scene)
+	await _check_customize_ui(main_scene)
 
 	main_scene.call("_begin_single_player")
 	await process_frame
@@ -131,7 +133,36 @@ func _run() -> void:
 		quit(1)
 		return
 	var player_name_label := player.get_node_or_null("NameLabel") as Label
-	_check(player_name_label != null and not player_name_label.visible, "single player name label is hidden")
+	var appearance: Dictionary = player.call("appearance_state")
+	_check(String(appearance.get("name", "")) == "Nova", "single player applies custom nickname")
+	_check(int(appearance.get("slime_palette_id", -1)) == 4, "single player applies custom slime palette")
+	_check(int(appearance.get("bullet_palette_id", -1)) == 6, "single player applies custom bullet palette")
+	var expected_bullet_palette: Dictionary = PLAYER_SCRIPT.bullet_palette_option(6)
+	var active_bullet_palette: Dictionary = player.call("bullet_palette")
+	_check(active_bullet_palette.get("fill") == expected_bullet_palette.get("fill"), "player bullet fill uses custom bullet palette")
+	_check(active_bullet_palette.get("edge") == expected_bullet_palette.get("edge"), "player bullet edge uses custom bullet palette")
+	_check(player_name_label != null and player_name_label.visible and player_name_label.text == "Nova", "custom nickname label is visible")
+
+	var appearance_snapshot: Dictionary = main_scene.call("_build_snapshot")
+	var snapshot_players: Array = appearance_snapshot.get("players", [])
+	var snapshot_player: Dictionary = snapshot_players[0] if snapshot_players.size() > 0 and snapshot_players[0] is Dictionary else {}
+	var snapshot_appearance: Dictionary = snapshot_player.get("appearance", {})
+	_check(String(snapshot_appearance.get("name", "")) == "Nova", "snapshot carries custom nickname")
+	_check(int(snapshot_appearance.get("slime_palette_id", -1)) == 4, "snapshot carries slime palette id")
+	_check(int(snapshot_appearance.get("bullet_palette_id", -1)) == 6, "snapshot carries bullet palette id")
+	var mirror_scene := main_packed.instantiate()
+	root.add_child(mirror_scene)
+	await process_frame
+	mirror_scene.call("_on_snapshot_received", appearance_snapshot)
+	await process_frame
+	var mirror_players: Dictionary = mirror_scene.call("player_nodes")
+	var mirror_player := mirror_players.get(1) as Node
+	var mirror_appearance: Dictionary = mirror_player.call("appearance_state") if mirror_player != null else {}
+	_check(String(mirror_appearance.get("name", "")) == "Nova", "snapshot mirror applies custom nickname")
+	_check(int(mirror_appearance.get("slime_palette_id", -1)) == 4, "snapshot mirror applies slime palette")
+	_check(int(mirror_appearance.get("bullet_palette_id", -1)) == 6, "snapshot mirror applies bullet palette")
+	mirror_scene.queue_free()
+	await process_frame
 
 	var pause_panel := main_scene.get("_pause_panel") as Control
 	_check(pause_panel != null, "pause panel exists")
@@ -565,6 +596,51 @@ func _check_records_ui(main_scene: Node) -> void:
 		records_panel.call("close")
 		for index in range(12):
 			await process_frame
+
+
+func _check_customize_ui(main_scene: Node) -> void:
+	var start_page := main_scene.get("_start_page") as Control
+	var customize_page := main_scene.get("_customize_page") as Control
+	var name_input := main_scene.get("_customize_name_input") as LineEdit
+	var active_settings := main_scene.get("_settings") as RefCounted
+	var slime_buttons: Array = main_scene.get("_slime_swatch_buttons")
+	var bullet_buttons: Array = main_scene.get("_bullet_swatch_buttons")
+	_check(customize_page != null, "customize page exists")
+	_check(name_input != null, "customize nickname input exists")
+	_check(slime_buttons.size() == 8, "customize slime palette has 8 swatches")
+	_check(bullet_buttons.size() == 8, "customize bullet palette has 8 swatches")
+
+	main_scene.call("_show_start_page")
+	await process_frame
+	main_scene.call("_on_language_selected", 1)
+	await process_frame
+	_check(_node_tree_has_text(start_page, "Customize"), "English customize main button localizes")
+	main_scene.call("_on_customize_pressed")
+	await process_frame
+	_check(customize_page != null and customize_page.visible, "customize page opens from main menu")
+	_check(_node_tree_has_text(customize_page, "Customize Appearance"), "English customize title localizes")
+	_check(name_input != null and name_input.placeholder_text == "Leave blank for default name", "English customize placeholder localizes")
+
+	main_scene.call("_on_customize_name_changed", "Nova")
+	main_scene.call("_on_slime_palette_selected", 4)
+	main_scene.call("_on_bullet_palette_selected", 6)
+	await process_frame
+	var config := ConfigFile.new()
+	var load_error := config.load(SETTINGS_PATH)
+	_check(load_error == OK, "customize writes settings file")
+	_check(String(config.get_value("settings", "player_name", "")) == "Nova", "customize writes nickname")
+	_check(int(config.get_value("settings", "slime_palette_id", -1)) == 4, "customize writes slime palette id")
+	_check(int(config.get_value("settings", "bullet_palette_id", -1)) == 6, "customize writes bullet palette id")
+	_check(active_settings != null and String(active_settings.get("player_name")) == "Nova", "customize stores nickname in settings")
+
+	main_scene.call("_on_language_selected", 0)
+	await process_frame
+	_check(_node_tree_has_text(start_page, "自定义"), "Chinese customize main button localizes")
+	_check(_node_tree_has_text(customize_page, "自定义外观"), "Chinese customize title localizes")
+	_check(name_input != null and name_input.placeholder_text == "留空则使用默认名称", "Chinese customize placeholder localizes")
+	main_scene.call("_on_customize_back_pressed")
+	for index in range(12):
+		await process_frame
 
 
 func _node_tree_has_text(root_node: Node, expected_text: String) -> bool:

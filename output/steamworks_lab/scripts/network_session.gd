@@ -19,6 +19,7 @@ signal battle_reset_received()
 signal battle_launch_received()
 signal active_item_requested(peer_id: int)
 signal active_item_used_received(peer_id: int, item_id: int, origin: Vector2)
+signal appearance_received(peer_id: int, appearance: Dictionary)
 
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
 const DEFAULT_PORT: int = 24567
@@ -145,6 +146,16 @@ func send_input_to_host(input_vector: Vector2) -> void:
 	_submit_input.rpc_id(1, limited.x, limited.y)
 
 
+func send_appearance_to_host(appearance: Dictionary) -> void:
+	var clean_appearance := appearance.duplicate(true)
+	if _is_host:
+		appearance_received.emit(1, clean_appearance)
+		return
+	if not _client_connection_ready():
+		return
+	_submit_appearance.rpc_id(1, clean_appearance)
+
+
 func _client_connection_ready() -> bool:
 	if multiplayer.multiplayer_peer == null:
 		return false
@@ -268,6 +279,13 @@ func _submit_input(input_x: float, input_y: float) -> void:
 		return
 	var sender_id := multiplayer.get_remote_sender_id()
 	input_received.emit(sender_id, Vector2(input_x, input_y).limit_length(1.0))
+
+
+@rpc("any_peer", "reliable")
+func _submit_appearance(appearance: Dictionary) -> void:
+	if not _is_host:
+		return
+	appearance_received.emit(multiplayer.get_remote_sender_id(), appearance)
 
 
 @rpc("any_peer", "reliable")

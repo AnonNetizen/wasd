@@ -21,6 +21,7 @@ const DEFAULT_PORT: int = 24567
 const SCREEN_START: String = "start"
 const SCREEN_MULTIPLAYER: String = "multiplayer"
 const SCREEN_SETTINGS: String = "settings"
+const SCREEN_CUSTOMIZE: String = "customize"
 const SCREEN_GAME: String = "game"
 
 const ACTION_MOVE_UP := "move_up"
@@ -74,6 +75,10 @@ var _local_buff_options: PackedInt32Array = PackedInt32Array()
 var _localized_text_controls: Array[Control] = []
 var _localized_placeholder_controls: Array[Control] = []
 var _settings_return_screen: String = SCREEN_START
+var _peer_appearances: Dictionary = {}
+var _slime_swatch_buttons: Array[Button] = []
+var _bullet_swatch_buttons: Array[Button] = []
+var _customize_refreshing: bool = false
 var _pause_menu_open: bool = false
 var _pause_freezes_game: bool = false
 var _base_canvas_transform: Transform2D = Transform2D.IDENTITY
@@ -90,6 +95,7 @@ var _ui_root: Control
 var _start_page: Control
 var _multiplayer_page: Control
 var _settings_page: Control
+var _customize_page: Control
 var _game_page: Control
 var _records_panel: Control
 var _multiplayer_status_label: Label
@@ -106,6 +112,7 @@ var _expression_wheel: Control
 var _screen_flash_rect: ColorRect
 var _language_option: OptionButton
 var _fullscreen_check: CheckButton
+var _customize_name_input: LineEdit
 
 
 func _ready() -> void:
@@ -131,6 +138,8 @@ func _physics_process(delta: float) -> void:
 			_update_gameplay(delta)
 		if _battle_active() and not _pause_blocks_gameplay_tick():
 			_world_scroll_offset += WORLD_SCROLL_SPEED * delta
+	elif _session != null and bool(_session.call("is_host")) and String(_session.call("active_transport")) != "offline":
+		_session.call("broadcast_snapshot", _build_snapshot())
 	_update_status()
 	queue_redraw()
 
@@ -460,6 +469,7 @@ func _create_session() -> void:
 	_session.connect("battle_launch_received", Callable(self, "_on_battle_launch_received"))
 	_session.connect("active_item_requested", Callable(self, "_on_active_item_requested"))
 	_session.connect("active_item_used_received", Callable(self, "_on_active_item_used_received"))
+	_session.connect("appearance_received", Callable(self, "_on_appearance_received"))
 
 
 func _load_lab_settings() -> void:
@@ -503,13 +513,14 @@ func _create_ui() -> void:
 	_create_start_page()
 	_create_multiplayer_page()
 	_create_settings_page()
+	_create_customize_page()
 	_create_game_page()
 	_create_records_panel()
 
 
 func _create_start_page() -> void:
 	_start_page = _make_page("StartPage")
-	var rows := _make_centered_panel(_start_page, "StartPanel", Vector2(456.0, 500.0), "hero")
+	var rows := _make_centered_panel(_start_page, "StartPanel", Vector2(456.0, 550.0), "hero")
 	rows.alignment = BoxContainer.ALIGNMENT_CENTER
 	rows.add_theme_constant_override("separation", 14)
 
@@ -546,6 +557,11 @@ func _create_start_page() -> void:
 	_register_localized_text(records_button, "main_records")
 	records_button.pressed.connect(_on_records_pressed)
 	button_stack.add_child(records_button)
+
+	var customize_button := _make_button(_t("main_customize"), Vector2(320.0, 42.0))
+	_register_localized_text(customize_button, "main_customize")
+	customize_button.pressed.connect(_on_customize_pressed)
+	button_stack.add_child(customize_button)
 
 	var settings_button := _make_button(_t("main_settings"), Vector2(320.0, 42.0))
 	_register_localized_text(settings_button, "main_settings")
@@ -724,6 +740,52 @@ func _create_settings_page() -> void:
 	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
 
 
+func _create_customize_page() -> void:
+	_customize_page = _make_page("CustomizePage")
+	var rows := _make_centered_panel(_customize_page, "CustomizePanel", Vector2(456.0, 660.0), "hero")
+	rows.alignment = BoxContainer.ALIGNMENT_CENTER
+	rows.add_theme_constant_override("separation", 14)
+
+	var kicker := _make_kicker_label(_t("customize_kicker"))
+	_register_localized_text(kicker, "customize_kicker")
+	rows.add_child(kicker)
+
+	var title := _make_title_label(_t("customize_title"))
+	_register_localized_text(title, "customize_title")
+	title.add_theme_font_size_override("font_size", 30)
+	rows.add_child(title)
+
+	var name_section := _make_section_box(rows, "customize_name", "CustomizeName")
+	_customize_name_input = LineEdit.new()
+	_customize_name_input.name = "CustomizeNameInput"
+	_customize_name_input.text = String(_settings.get("player_name"))
+	_customize_name_input.placeholder_text = _t("customize_name_placeholder")
+	_register_localized_placeholder(_customize_name_input, "customize_name_placeholder")
+	_customize_name_input.max_length = int(LAB_SETTINGS_SCRIPT.MAX_PLAYER_NAME_LENGTH)
+	_customize_name_input.custom_minimum_size = Vector2(320.0, 42.0)
+	_customize_name_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UI_STYLE_SCRIPT.apply_input(_customize_name_input)
+	name_section.add_child(_customize_name_input)
+	_customize_name_input.text_changed.connect(_on_customize_name_changed)
+
+	var slime_section := _make_section_box(rows, "customize_slime_color", "CustomizeSlime")
+	var slime_grid := _make_palette_grid()
+	slime_section.add_child(slime_grid)
+	_slime_swatch_buttons = _populate_palette_grid(slime_grid, PLAYER_SCRIPT.slime_palette_options(), true)
+
+	var bullet_section := _make_section_box(rows, "customize_bullet_color", "CustomizeBullet")
+	var bullet_grid := _make_palette_grid()
+	bullet_section.add_child(bullet_grid)
+	_bullet_swatch_buttons = _populate_palette_grid(bullet_grid, PLAYER_SCRIPT.bullet_palette_options(), false)
+
+	var back_button := _make_button(_t("customize_back"), Vector2(320.0, 44.0), true)
+	_register_localized_text(back_button, "customize_back")
+	back_button.pressed.connect(_on_customize_back_pressed)
+	rows.add_child(back_button)
+
+	_refresh_customize_controls()
+
+
 func _create_game_page() -> void:
 	_game_page = _make_page("GamePage")
 
@@ -879,6 +941,72 @@ func _make_button(label: String, minimum_size: Vector2 = Vector2(0.0, 38.0), pri
 	return button
 
 
+func _make_palette_grid() -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return grid
+
+
+func _populate_palette_grid(grid: GridContainer, palettes: Array[Dictionary], slime_palette: bool) -> Array[Button]:
+	var buttons: Array[Button] = []
+	for index in range(palettes.size()):
+		var palette := palettes[index]
+		var swatch_color: Color = palette["fill"]
+		var button := _make_swatch_button(swatch_color, false)
+		button.name = "%sSwatch%d" % ["Slime" if slime_palette else "Bullet", index]
+		if slime_palette:
+			button.pressed.connect(_on_slime_palette_selected.bind(index))
+		else:
+			button.pressed.connect(_on_bullet_palette_selected.bind(index))
+		grid.add_child(button)
+		buttons.append(button)
+	return buttons
+
+
+func _make_swatch_button(swatch_color: Color, selected: bool) -> Button:
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(74.0, 42.0)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.text = ""
+	button.add_theme_font_size_override("font_size", 20)
+	button.add_theme_color_override("font_color", Color(0.02, 0.05, 0.05, 0.96))
+	_apply_swatch_style(button, swatch_color, selected)
+	_wire_button_motion(button, false)
+	return button
+
+
+func _apply_swatch_style(button: Button, swatch_color: Color, selected: bool) -> void:
+	var normal := _swatch_stylebox(swatch_color, selected, 1.0)
+	var hover := _swatch_stylebox(swatch_color.lightened(0.12), selected, 1.0)
+	var pressed := _swatch_stylebox(swatch_color.darkened(0.10), selected, 1.0)
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_stylebox_override("focus", hover)
+	button.text = "✓" if selected else ""
+
+
+func _swatch_stylebox(swatch_color: Color, selected: bool, alpha: float) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(swatch_color.r, swatch_color.g, swatch_color.b, alpha)
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	style.border_width_left = 3 if selected else 1
+	style.border_width_top = 3 if selected else 1
+	style.border_width_right = 3 if selected else 1
+	style.border_width_bottom = 3 if selected else 1
+	style.border_color = UI_STYLE_SCRIPT.AMBER_COLOR if selected else Color(0.95, 1.0, 0.84, 0.42)
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.28)
+	style.shadow_size = 5
+	return style
+
+
 func _wire_button_motion(button: Button, primary: bool) -> void:
 	button.resized.connect(_refresh_button_pivot.bind(button))
 	button.mouse_entered.connect(_on_ui_button_hovered.bind(button, primary))
@@ -1005,6 +1133,7 @@ func _apply_locale() -> void:
 	for control in _localized_placeholder_controls:
 		_apply_localized_placeholder(control)
 	_refresh_language_option()
+	_refresh_customize_controls()
 	if _battle_hud != null:
 		_battle_hud.call("set_locale", _current_locale())
 	if _buff_panel != null:
@@ -1038,6 +1167,29 @@ func _refresh_language_option() -> void:
 	_language_option.select(selected_index)
 	if _fullscreen_check != null:
 		_fullscreen_check.button_pressed = bool(_settings.get("fullscreen"))
+
+
+func _refresh_customize_controls() -> void:
+	if _settings == null:
+		return
+	_customize_refreshing = true
+	if _customize_name_input != null:
+		_customize_name_input.text = String(_settings.get("player_name"))
+	var slime_palette_id := PLAYER_SCRIPT.normalized_slime_palette_id(int(_settings.get("slime_palette_id")))
+	var bullet_palette_id := PLAYER_SCRIPT.normalized_bullet_palette_id(int(_settings.get("bullet_palette_id")))
+	_refresh_swatch_buttons(_slime_swatch_buttons, PLAYER_SCRIPT.slime_palette_options(), slime_palette_id)
+	_refresh_swatch_buttons(_bullet_swatch_buttons, PLAYER_SCRIPT.bullet_palette_options(), bullet_palette_id)
+	_customize_refreshing = false
+
+
+func _refresh_swatch_buttons(buttons: Array[Button], palettes: Array[Dictionary], selected_id: int) -> void:
+	for index in range(buttons.size()):
+		var button := buttons[index]
+		if button == null or not is_instance_valid(button) or index >= palettes.size():
+			continue
+		var palette := palettes[index]
+		var swatch_color: Color = palette["fill"]
+		_apply_swatch_style(button, swatch_color, index == selected_id)
 
 
 func _localized_expressions() -> Array[Dictionary]:
@@ -1087,6 +1239,11 @@ func _show_settings_page(return_screen: String = SCREEN_START) -> void:
 	_set_screen(SCREEN_SETTINGS)
 
 
+func _show_customize_page() -> void:
+	_refresh_customize_controls()
+	_set_screen(SCREEN_CUSTOMIZE)
+
+
 func _show_game_page() -> void:
 	_set_screen(SCREEN_GAME)
 
@@ -1117,6 +1274,8 @@ func _page_for_screen(screen_name: String) -> Control:
 			return _multiplayer_page
 		SCREEN_SETTINGS:
 			return _settings_page
+		SCREEN_CUSTOMIZE:
+			return _customize_page
 		SCREEN_GAME:
 			return _game_page
 		_:
@@ -1186,7 +1345,7 @@ func _finish_page_transition(previous_page: Control, next_page: Control) -> void
 
 
 func _all_pages() -> Array[Control]:
-	return [_start_page, _multiplayer_page, _settings_page, _game_page]
+	return [_start_page, _multiplayer_page, _settings_page, _customize_page, _game_page]
 
 
 func _can_open_pause_menu() -> bool:
@@ -1243,6 +1402,73 @@ func _multiplayer_session_active() -> bool:
 	return _session != null and String(_session.call("active_transport")) != "offline"
 
 
+func _local_fallback_name() -> String:
+	if not _multiplayer_session_active():
+		return ""
+	if bool(_session.call("is_host")):
+		return "Host"
+	return "Peer %d" % int(_session.call("local_peer_id"))
+
+
+func _local_appearance(fallback_name: String = "") -> Dictionary:
+	if _settings == null:
+		return _sanitize_appearance({}, fallback_name)
+	var appearance: Dictionary = _settings.call("appearance_settings")
+	return _sanitize_appearance(appearance, fallback_name)
+
+
+func _appearance_for_peer(peer_id: int, fallback_name: String = "") -> Dictionary:
+	if _peer_appearances.has(peer_id):
+		return _sanitize_appearance(_peer_appearances[peer_id], fallback_name)
+	if peer_id == int(_session.call("local_peer_id")):
+		return _local_appearance(fallback_name)
+	return _sanitize_appearance({
+		"name": fallback_name,
+		"slime_palette_id": peer_id,
+		"bullet_palette_id": peer_id,
+	}, fallback_name)
+
+
+func _sanitize_appearance(raw_appearance: Variant, fallback_name: String = "") -> Dictionary:
+	var data: Dictionary = {}
+	if raw_appearance is Dictionary:
+		data = raw_appearance
+	var display_name := String(data.get("name", "")).strip_edges()
+	if display_name == "":
+		display_name = fallback_name
+	if display_name.length() > int(LAB_SETTINGS_SCRIPT.MAX_PLAYER_NAME_LENGTH):
+		display_name = display_name.substr(0, int(LAB_SETTINGS_SCRIPT.MAX_PLAYER_NAME_LENGTH))
+	return {
+		"name": display_name,
+		"slime_palette_id": PLAYER_SCRIPT.normalized_slime_palette_id(int(data.get("slime_palette_id", 0))),
+		"bullet_palette_id": PLAYER_SCRIPT.normalized_bullet_palette_id(int(data.get("bullet_palette_id", 0))),
+	}
+
+
+func _apply_appearance_to_player(peer_id: int, appearance: Dictionary, fallback_name: String = "") -> Dictionary:
+	var clean_appearance := _sanitize_appearance(appearance, fallback_name)
+	_peer_appearances[peer_id] = clean_appearance
+	var player := _players.get(peer_id) as Node
+	if player != null and is_instance_valid(player):
+		player.call(
+			"apply_appearance",
+			String(clean_appearance.get("name", "")),
+			int(clean_appearance.get("slime_palette_id", 0)),
+			int(clean_appearance.get("bullet_palette_id", 0))
+		)
+	return clean_appearance
+
+
+func _apply_local_appearance(send_to_host: bool) -> void:
+	if _session == null:
+		return
+	var local_id := int(_session.call("local_peer_id"))
+	var appearance := _local_appearance(_local_fallback_name())
+	_apply_appearance_to_player(local_id, appearance, _local_fallback_name())
+	if send_to_host and _multiplayer_session_active():
+		_session.call("send_appearance_to_host", appearance)
+
+
 func _on_pause_main_menu_requested() -> void:
 	_close_pause_menu()
 	_on_leave_game_pressed()
@@ -1265,6 +1491,10 @@ func _on_settings_pressed() -> void:
 	_show_settings_page(_screen)
 
 
+func _on_customize_pressed() -> void:
+	_show_customize_page()
+
+
 func _on_records_pressed() -> void:
 	if _records_panel == null:
 		return
@@ -1273,6 +1503,10 @@ func _on_records_pressed() -> void:
 
 func _on_settings_back_pressed() -> void:
 	_set_screen(_settings_return_screen)
+
+
+func _on_customize_back_pressed() -> void:
+	_show_start_page()
 
 
 func _on_language_selected(index: int) -> void:
@@ -1290,12 +1524,35 @@ func _on_fullscreen_toggled(enabled: bool) -> void:
 	_settings.call("apply_fullscreen")
 
 
+func _on_customize_name_changed(new_text: String) -> void:
+	if _customize_refreshing:
+		return
+	_settings.call("set_player_name", new_text)
+	_settings.call("save_settings")
+	_apply_local_appearance(true)
+
+
+func _on_slime_palette_selected(palette_id: int) -> void:
+	_settings.call("set_slime_palette_id", palette_id)
+	_settings.call("save_settings")
+	_refresh_customize_controls()
+	_apply_local_appearance(true)
+
+
+func _on_bullet_palette_selected(palette_id: int) -> void:
+	_settings.call("set_bullet_palette_id", palette_id)
+	_settings.call("save_settings")
+	_refresh_customize_controls()
+	_apply_local_appearance(true)
+
+
 func _begin_single_player() -> void:
 	_leave_session_without_navigation()
 	_clear_players()
 	_clear_bullets()
 	_peer_inputs.clear()
 	var player: Node = _ensure_player(1, "")
+	_apply_local_appearance(false)
 	player.call("warp_to", _spawn_position_for_slot(0))
 	player.call("set_local_or_host_simulated", true)
 	_start_battle()
@@ -1391,10 +1648,12 @@ func _leave_session_without_navigation() -> void:
 func _on_session_started(host: bool, transport: String, lobby_id: String) -> void:
 	if host:
 		var host_player: Node = _ensure_player(1, "Host")
+		_apply_local_appearance(true)
 		host_player.call("warp_to", _spawn_position_for_slot(0))
 		host_player.call("set_local_or_host_simulated", true)
 		_append_log(_t("log_ready_room_created"))
 	else:
+		_apply_local_appearance(true)
 		_append_log(_t("log_ready_room_joined"))
 	if lobby_id != "" and _lobby_input != null:
 		_lobby_input.text = lobby_id
@@ -1425,6 +1684,13 @@ func _on_peer_joined(peer_id: int) -> void:
 		_session.call("send_battle_launch", peer_id)
 
 
+func _on_appearance_received(peer_id: int, appearance: Dictionary) -> void:
+	if not bool(_session.call("is_host")):
+		return
+	var fallback_name := "Host" if peer_id == 1 else "Peer %d" % peer_id
+	_apply_appearance_to_player(peer_id, appearance, fallback_name)
+
+
 func _on_peer_left(peer_id: int) -> void:
 	_remove_player(peer_id)
 	_peer_inputs.erase(peer_id)
@@ -1453,7 +1719,13 @@ func _on_snapshot_received(snapshot: Dictionary) -> void:
 		if peer_id <= 0:
 			continue
 		seen[peer_id] = true
-		var player: Node = _ensure_player(peer_id, String(player_data.get("name", "Peer %d" % peer_id)))
+		var fallback_name := String(player_data.get("name", "Peer %d" % peer_id))
+		var player: Node = _ensure_player(peer_id, fallback_name)
+		_apply_appearance_to_player(
+			peer_id,
+			player_data.get("appearance", player_data),
+			fallback_name
+		)
 		player.call("set_local_or_host_simulated", false)
 		player.call("set_authoritative_state", _dict_to_vector(player_data.get("position", {})), _dict_to_vector(player_data.get("velocity", {})))
 		player.call(
@@ -1614,7 +1886,14 @@ func _ensure_player(peer_id: int, display_name: String) -> Node:
 	var player := PLAYER_SCRIPT.new() as Node
 	player.name = "SlimePlayer%d" % peer_id
 	player.call("set_locale", _current_locale())
+	var appearance := _appearance_for_peer(peer_id, display_name)
 	player.call("set_player_info", peer_id, display_name, peer_id)
+	player.call(
+		"apply_appearance",
+		String(appearance.get("name", "")),
+		int(appearance.get("slime_palette_id", 0)),
+		int(appearance.get("bullet_palette_id", 0))
+	)
 	add_child(player)
 	player.call("warp_to", _spawn_position_for_slot(_players.size()))
 	player.call("set_movement_bounds", WORLD_RECT)
@@ -1817,6 +2096,7 @@ func _remove_player(peer_id: int) -> void:
 		return
 	var player := _players[peer_id] as Node
 	_players.erase(peer_id)
+	_peer_appearances.erase(peer_id)
 	if is_instance_valid(player):
 		player.queue_free()
 
@@ -1827,6 +2107,7 @@ func _clear_players() -> void:
 		if is_instance_valid(player):
 			player.queue_free()
 	_players.clear()
+	_peer_appearances.clear()
 
 
 func _clear_bullets() -> void:

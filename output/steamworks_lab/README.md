@@ -4,7 +4,7 @@
 
 UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图标资源，统一用 `Theme`、`StyleBoxFlat`、代码绘制和 `Tween` 做深色霓虹面板、按钮反馈、页面切换、HUD 脉冲、屏幕震动、冲击闪光、爆碎冲击环、buff / 结算入退场和表情轮展开动画。
 
-主菜单提供 `设置 / Settings` 页面，可在 `简体中文 / English` 间切换语言，并切换全屏。设置持久化到 `user://settings.cfg`；已有玩家选择优先，没有保存时优先读取 GodotSteam 暴露的 Steam 当前游戏语言（Steamworks `ISteamApps::GetCurrentGameLanguage()`），取不到 Steam 语言再读系统语言。`schinese` / `tchinese` / 任意 `zh*` 默认进 `zh_CN`，其他语言默认 `en`；headless 测试下不会实际切换窗口模式。
+主菜单提供 `设置 / Settings` 页面，可在 `简体中文 / English` 间切换语言，并切换全屏。主菜单也提供 `自定义 / Customize` 页面，可设置昵称、史莱姆主体色和玩家子弹色；外观只影响表现，不改变血量、碰撞、伤害、速度等玩法数值。设置持久化到 `user://settings.cfg`；已有玩家选择优先，没有保存时优先读取 GodotSteam 暴露的 Steam 当前游戏语言（Steamworks `ISteamApps::GetCurrentGameLanguage()`），取不到 Steam 语言再读系统语言。`schinese` / `tchinese` / 任意 `zh*` 默认进 `zh_CN`，其他语言默认 `en`；headless 测试下不会实际切换窗口模式。
 
 主菜单也提供 `记录 / Records` 入口，用 `user://save.cfg` 本地保存当前最长存活时间。当前只记录 `records.best_survival_seconds`，仅在战斗进入 Game Over 时更新；手动返回主菜单、离开联机会话或重开不会刷新纪录。
 
@@ -12,6 +12,7 @@ UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图
 
 - 每个玩家是一只软体史莱姆，WASD / 方向键移动（限制在战场内），按住鼠标左键朝鼠标方向连续射击，按住 `T` 开表情轮盘，按 `Esc` 打开暂停菜单。
 - 主菜单 `设置 / Settings` 可切换语言和全屏；语言影响主菜单、准备房间、HUD、buff、主动道具名、结算和表情轮标签，Steam 诊断日志仍以英文为主。
+- 主菜单 `自定义 / Customize` 可设置本机昵称、8 个预设史莱姆色和 8 个预设子弹色。单机昵称留空时不显示名字；联机昵称留空时会显示 `Host` / `Peer N`。外观会随 host 快照同步给所有玩家，中途加入也会看到当前外观。
 - 主菜单 `记录 / Records` 会弹出街机风格窗口显示最长存活时间；无记录时显示 `暂无记录 / No record yet`，有记录时统一显示为 `MM:SS`。
 - 单机 / offline 下 `Esc` 会真暂停战斗：敌人、boss、敌弹、玩家弹、无敌计时、战斗时钟和背景滚动都会停住；多人联机下 `Esc` 只打开本地菜单并清零本地输入，host 权威战斗继续运行，不新增网络暂停。
 - 敌人不断从画面上方过来：直冲怪（撞人自爆）、悬停炮手（瞄准弹，高 tier 三扇）、掠射怪（斜穿 + 垂直弹）。炮手 / 掠射怪会远程攻击，敌弹为暖色，玩家弹为冷色；子弹命中会有小火花，敌人 / 障碍 / boss 被击破会有爆碎冲击环与轻重不同的屏幕震动。
@@ -22,7 +23,7 @@ UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图
 - **障碍物**：不定期从上方飘下的岩块，会挡住玩家 / 敌人 / 玩家子弹，可打碎，撞到玩家扣 1 血。
 - **死亡观战**：多人下玩家死亡变半透明观战（不能开火、不再被打），全灭才 Game Over；单机自己死了即结束。结算面板显示存活时间 / tier / boss 击破数，只有 host（或单机）有"再来一局"按钮，重开后全场同步复位。
 
-多人沿用 host 权威：进入联机 session 后先停在准备房间，host 至少等到 2 名玩家后手动开始战斗；敌人 / boss / 障碍物 / 主动道具掉落与使用 / 伤害 / buff / 时停都在 host 结算，位置、HP、掉落物、主动槽和团队效果走 60Hz 快照，开始战斗 / 敌弹齐射 / 开火 / 使用主动道具 / phase / buff / 重开走 reliable RPC。Host 退出 = 全场结束（不支持 host 迁移）。中途加入会收到开始战斗信号并立即从快照对齐当前战况。
+多人沿用 host 权威：进入联机 session 后先停在准备房间，host 至少等到 2 名玩家后手动开始战斗；敌人 / boss / 障碍物 / 主动道具掉落与使用 / 伤害 / buff / 时停都在 host 结算，位置、HP、外观、掉落物、主动槽和团队效果走 60Hz 快照，开始战斗 / 敌弹齐射 / 开火 / 使用主动道具 / phase / buff / 重开走 reliable RPC，client 修改外观时会可靠提交给 host。Host 退出 = 全场结束（不支持 host 迁移）。中途加入会收到开始战斗信号并立即从快照对齐当前战况。
 
 ## 运行
 
@@ -42,14 +43,15 @@ headless 战斗回归（刷怪 / 受击 / 无敌帧 / GameOver / 最长存活时
 
 1. 实例 A：`开始联机游戏` → `Host Local`；实例 B：地址 `127.0.0.1` 端口 `24567` → `Join Local`。
 2. 进入 `设置 / Settings`，切到 English 再切回简体中文，确认主菜单、设置页、HUD 空道具槽、buff 面板、结算和表情轮标签刷新；切换全屏后重启确认 `user://settings.cfg` 生效。打开 `记录 / Records`，确认无记录 / 最长存活时间文本随语言刷新，Game Over 后再次打开会显示 `MM:SS` 纪录。
-3. 两端确认：主菜单 / 准备房间 / 入场切换有淡入和轻微回弹，按钮 hover / press 有反馈；A / B 都停在准备房间，没有敌人和计时；A 看到玩家数达到 2 后点 `Start Battle`，两端才进入战斗。
-4. 两端确认：敌人从顶部同步出现；B 开火能打死敌人（血量在 A 端结算，B 端子弹碰到敌人会视觉消隐）；敌弹两端轨迹一致；障碍物会挡住玩家和敌人；双方血心随受击同步扣减并闪烁。
-5. A / B 分别按 `Esc`：确认联机只出现本地暂停菜单，本地移动 / 开火 / `Q` / 表情轮被禁用，但另一端和 host 战斗计时仍继续；点击 `Resume / 继续` 或再按 `Esc` 关闭。
-6. 手测主动道具：打怪掉落后任一玩家踩到收进 HUD 的 `Q` 胶囊槽并触发脉冲；已有道具时新道具替换；按 `Q` 使用后槽位清空。优先验证修复波 / 清场脉冲 / 凝滞场 / 团队过载在两端都影响全队或全场，而不是只改使用者本地状态。
-7. 撑到 30 秒：两端同时冻结（空中子弹悬停、背景停滚），各自弹三选一；A 先选后显示"等待其他玩家选择… (n)"；B 挂机 20 秒验证超时自动选择并恢复，恢复后敌人明显变强。
-8. 让 B 死亡：B 变半透明观战、不能开火、不再被打；A 继续打；A 也死 → 双端出结算面板，只有 A 有"再来一局"，按下后两端同步复位再来一轮。
-9. B 中途 `Leave Game` 再重新 Join：验证 B 收到开战信号后立即看到当前 tier / 计时 / 在场敌人 / 障碍物 / 主动道具掉落 / 持有槽 / 团队效果；若加入时正值选 buff，显示等待且不阻塞 A。
-10. （可选）手测 boss 两端同步与血条：默认每 2 分钟会生成一个 boss。
+3. 进入 `自定义 / Customize`，A / B 分别设置不同昵称、史莱姆颜色和子弹颜色；确认重启后 `user://settings.cfg` 保留，准备房间、战斗中、死亡观战和重开后双方看到的昵称 / 主体色 / 子弹色一致。
+4. 两端确认：主菜单 / 准备房间 / 入场切换有淡入和轻微回弹，按钮 hover / press 有反馈；A / B 都停在准备房间，没有敌人和计时；A 看到玩家数达到 2 后点 `Start Battle`，两端才进入战斗。
+5. 两端确认：敌人从顶部同步出现；B 开火能打死敌人（血量在 A 端结算，B 端子弹碰到敌人会视觉消隐）；敌弹两端轨迹一致；障碍物会挡住玩家和敌人；双方血心随受击同步扣减并闪烁。
+6. A / B 分别按 `Esc`：确认联机只出现本地暂停菜单，本地移动 / 开火 / `Q` / 表情轮被禁用，但另一端和 host 战斗计时仍继续；点击 `Resume / 继续` 或再按 `Esc` 关闭。
+7. 手测主动道具：打怪掉落后任一玩家踩到收进 HUD 的 `Q` 胶囊槽并触发脉冲；已有道具时新道具替换；按 `Q` 使用后槽位清空。优先验证修复波 / 清场脉冲 / 凝滞场 / 团队过载在两端都影响全队或全场，而不是只改使用者本地状态。
+8. 撑到 30 秒：两端同时冻结（空中子弹悬停、背景停滚），各自弹三选一；A 先选后显示"等待其他玩家选择… (n)"；B 挂机 20 秒验证超时自动选择并恢复，恢复后敌人明显变强。
+9. 让 B 死亡：B 变半透明观战、不能开火、不再被打；A 继续打；A 也死 → 双端出结算面板，只有 A 有"再来一局"，按下后两端同步复位再来一轮。
+10. B 中途 `Leave Game` 再重新 Join：验证 B 收到开战信号后立即看到当前 tier / 计时 / 在场敌人 / 障碍物 / 主动道具掉落 / 持有槽 / 团队效果和所有玩家外观；若加入时正值选 buff，显示等待且不阻塞 A。
+11. （可选）手测 boss 两端同步与血条：默认每 2 分钟会生成一个 boss。
 
 headless 自动化版（host 与 client 需要不同项目目录副本，见下方故障提示）：
 
@@ -77,9 +79,9 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=1
 
 ## 文件结构
 
-- `scripts/steamworks_lab.gd`：主场景、三页街机 UI、页面 / 按钮动效、玩家生成、host 权威同步、射击链路、滚动背景与战斗接线。
+- `scripts/steamworks_lab.gd`：主场景、主菜单 / 联机 / 设置 / 自定义 / 战斗街机 UI、页面 / 按钮动效、玩家生成、host 权威同步、射击链路、滚动背景与战斗接线。
 - `scripts/ui_style.gd`：lab 专用 UI 色板、Theme、Panel / Button / Input 等 StyleBox 工具。
-- `scripts/lab_locale.gd` / `scripts/lab_settings.gd`：lab 轻量本地化字典、Steam / 系统语言映射、`user://settings.cfg` 读写和 headless 安全的全屏应用。
+- `scripts/lab_locale.gd` / `scripts/lab_settings.gd`：lab 轻量本地化字典、Steam / 系统语言映射、`user://settings.cfg` 读写、外观设置和 headless 安全的全屏应用。
 - `scripts/lab_save.gd`：lab 轻量本地存档，只读写 `user://save.cfg` 的 `records.best_survival_seconds`。
 - `scripts/battle_director.gd`：战斗核心。权威端：刷怪波次 / tier 缩放 / boss / 障碍物 / 主动道具调度、圆-圆判伤、buff 状态机与时停；client 端：快照镜像重建、敌弹 volley 视觉、玩家弹视觉消隐。
 - `scripts/enemy.gd` / `scripts/enemy_bullet.gd`：三种敌人（直冲 / 炮手 / 掠射）与暖色敌弹。
@@ -92,7 +94,7 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=1
 - `scripts/records_panel.gd`：主菜单 `记录 / Records` 弹窗，显示本机最长存活时间并随语言切换刷新。
 - `scripts/burst_effect.gd`：通用爆碎特效，包含碎片与扩散冲击环。
 - `scripts/slime_body.gd`：无骨骼软体史莱姆（弹簧膜 + Catmull-Rom 轮廓），带战场移动边界 clamp。
-- `scripts/slime_player.gd`：玩家实体包装，含 3 血 / 无敌帧 / 观战 / 快照扩展。
+- `scripts/slime_player.gd`：玩家实体包装，含外观色板、3 血 / 无敌帧 / 观战 / 快照扩展。
 - `scripts/slime_bullet.gd`：玩家视觉子弹（膜锚定分裂），带伤害 / 穿透 / 速度字段。
 - `scripts/expression_wheel.gd`：按住 `T` 的表情轮盘（径向展开 / 收回与选中扇区反馈）。
 - `scripts/network_session.gd`：统一 host / join / leave / RPC 同步入口（输入 / 快照 / 射击 / 主动道具 / 表情 / phase / buff / volley / 重开）。
