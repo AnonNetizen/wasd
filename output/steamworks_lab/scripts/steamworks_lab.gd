@@ -14,8 +14,8 @@ const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
 const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 const LAB_SAVE_SCRIPT := preload("res://scripts/lab_save.gd")
 
-const VIEWPORT_SIZE := Vector2(540.0, 960.0)
-const WORLD_RECT := Rect2(Vector2(20.0, 70.0), Vector2(500.0, 870.0))
+const DESIGN_VIEWPORT_SIZE := Vector2(720.0, 1280.0)
+const DESIGN_WORLD_RECT := Rect2(Vector2(26.6667, 93.3333), Vector2(666.6667, 1160.0))
 const WORLD_SCROLL_SPEED: float = 120.0
 const DEFAULT_PORT: int = 24567
 const SCREEN_START: String = "start"
@@ -119,12 +119,14 @@ func _ready() -> void:
 	_fire_rng.randomize()
 	_screen_shake_rng.randomize()
 	_base_canvas_transform = get_viewport().canvas_transform
+	get_viewport().size_changed.connect(_on_viewport_size_changed)
 	_generate_backdrop_stars()
 	_ensure_input_actions()
 	_create_session()
 	_load_lab_settings()
 	_load_lab_save()
 	_create_ui()
+	_sync_world_rect()
 	_show_start_page()
 
 
@@ -154,6 +156,49 @@ func player_nodes() -> Dictionary:
 	return _players
 
 
+func design_viewport_size() -> Vector2:
+	return DESIGN_VIEWPORT_SIZE
+
+
+func current_viewport_size() -> Vector2:
+	var viewport_size := get_viewport_rect().size
+	return Vector2(
+		maxf(viewport_size.x, DESIGN_VIEWPORT_SIZE.x),
+		maxf(viewport_size.y, DESIGN_VIEWPORT_SIZE.y)
+	)
+
+
+func current_world_rect() -> Rect2:
+	return _world_rect()
+
+
+func _on_viewport_size_changed() -> void:
+	_sync_world_rect()
+
+
+func _sync_world_rect() -> void:
+	var world_rect := _world_rect()
+	if _director != null:
+		_director.call("set_world_rect", world_rect)
+	for peer_id in _players.keys():
+		var player := _players[peer_id] as Node
+		if player != null and is_instance_valid(player):
+			player.call("set_movement_bounds", world_rect)
+	queue_redraw()
+
+
+func _world_rect() -> Rect2:
+	return Rect2(_design_origin() + DESIGN_WORLD_RECT.position, DESIGN_WORLD_RECT.size)
+
+
+func _design_origin() -> Vector2:
+	var viewport_size := current_viewport_size()
+	return Vector2(
+		maxf(0.0, (viewport_size.x - DESIGN_VIEWPORT_SIZE.x) * 0.5),
+		maxf(0.0, (viewport_size.y - DESIGN_VIEWPORT_SIZE.y) * 0.5)
+	)
+
+
 func _battle_active() -> bool:
 	if _director == null:
 		return false
@@ -165,7 +210,7 @@ func _start_battle() -> void:
 		_director = BATTLE_DIRECTOR_SCRIPT.new() as Node2D
 		_director.name = "BattleDirector"
 		add_child(_director)
-		_director.call("setup", self, _session, WORLD_RECT)
+		_director.call("setup", self, _session, _world_rect())
 		_director.connect("phase_changed", Callable(self, "_on_director_phase_changed"))
 		_director.connect("buff_options_ready", Callable(self, "_on_director_buff_options"))
 		_director.connect("active_item_used", Callable(self, "_on_director_active_item_used"))
@@ -440,7 +485,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, VIEWPORT_SIZE), UI_STYLE_SCRIPT.BG_COLOR, true)
+	draw_rect(Rect2(Vector2.ZERO, current_viewport_size()), UI_STYLE_SCRIPT.BG_COLOR, true)
 	if _screen == SCREEN_GAME:
 		_draw_game_world()
 	else:
@@ -520,7 +565,7 @@ func _create_ui() -> void:
 
 func _create_start_page() -> void:
 	_start_page = _make_page("StartPage")
-	var rows := _make_centered_panel(_start_page, "StartPanel", Vector2(456.0, 550.0), "hero")
+	var rows := _make_centered_panel(_start_page, "StartPanel", Vector2(520.0, 650.0), "hero")
 	rows.alignment = BoxContainer.ALIGNMENT_CENTER
 	rows.add_theme_constant_override("separation", 14)
 
@@ -567,6 +612,11 @@ func _create_start_page() -> void:
 	_register_localized_text(settings_button, "main_settings")
 	settings_button.pressed.connect(_on_settings_pressed)
 	button_stack.add_child(settings_button)
+
+	var exit_button := _make_button(_t("main_exit"), Vector2(320.0, 42.0))
+	_register_localized_text(exit_button, "main_exit")
+	exit_button.pressed.connect(_on_exit_pressed)
+	button_stack.add_child(exit_button)
 
 	var hint := _make_hint_label(_t("main_hint"))
 	_register_localized_text(hint, "main_hint")
@@ -1495,6 +1545,10 @@ func _on_customize_pressed() -> void:
 	_show_customize_page()
 
 
+func _on_exit_pressed() -> void:
+	get_tree().quit()
+
+
 func _on_records_pressed() -> void:
 	if _records_panel == null:
 		return
@@ -1896,7 +1950,7 @@ func _ensure_player(peer_id: int, display_name: String) -> Node:
 	)
 	add_child(player)
 	player.call("warp_to", _spawn_position_for_slot(_players.size()))
-	player.call("set_movement_bounds", WORLD_RECT)
+	player.call("set_movement_bounds", _world_rect())
 	player.call("set_battle_timers_paused", not _battle_active())
 	_players[peer_id] = player
 	return player
@@ -1989,21 +2043,23 @@ func _jitter_fire_direction(direction: Vector2) -> Vector2:
 
 
 func _player_body_center(peer_id: int) -> Vector2:
+	var world_rect := _world_rect()
 	if not _players.has(peer_id):
-		return WORLD_RECT.get_center()
+		return world_rect.get_center()
 	var player := _players[peer_id] as Node
 	if player == null:
-		return WORLD_RECT.get_center()
+		return world_rect.get_center()
 	var body_center: Vector2 = player.call("body_center")
 	return body_center
 
 
 func _player_fire_surface(peer_id: int, direction: Vector2) -> Vector2:
+	var world_rect := _world_rect()
 	if not _players.has(peer_id):
-		return WORLD_RECT.get_center()
+		return world_rect.get_center()
 	var player := _players[peer_id] as Node
 	if player == null:
-		return WORLD_RECT.get_center()
+		return world_rect.get_center()
 	var surface_point: Vector2 = player.call("emit_fire_surface", direction)
 	return surface_point
 
@@ -2050,7 +2106,7 @@ func _bullet_palette_for_peer(peer_id: int) -> Dictionary:
 func _open_expression_wheel() -> void:
 	if _expression_wheel == null:
 		return
-	_expression_wheel.call("open_at", VIEWPORT_SIZE * 0.5)
+	_expression_wheel.call("open_at", current_viewport_size() * 0.5)
 
 
 func _release_expression_wheel() -> void:
@@ -2133,15 +2189,16 @@ func _local_input_vector() -> Vector2:
 
 
 func _spawn_position_for_slot(slot_index: int) -> Vector2:
+	var world_rect := _world_rect()
 	var index: int = maxi(0, slot_index)
 	var steps := ceilf(float(index) * 0.5)
 	var side := -1.0 if index % 2 == 1 else 1.0
 	var x: float = clampf(
-		WORLD_RECT.get_center().x + steps * 62.0 * side,
-		WORLD_RECT.position.x + 44.0,
-		WORLD_RECT.end.x - 44.0
+		world_rect.get_center().x + steps * 82.6667 * side,
+		world_rect.position.x + 58.6667,
+		world_rect.end.x - 58.6667
 	)
-	return Vector2(x, WORLD_RECT.end.y - 90.0)
+	return Vector2(x, world_rect.end.y - 120.0)
 
 
 func _dict_to_vector(data: Variant) -> Vector2:
@@ -2152,66 +2209,68 @@ func _dict_to_vector(data: Variant) -> Vector2:
 
 
 func _draw_menu_background() -> void:
+	var viewport_size := current_viewport_size()
 	for band_index in range(9):
-		var y := float(band_index) * VIEWPORT_SIZE.y / 9.0
+		var y := float(band_index) * viewport_size.y / 9.0
 		var alpha := 0.05 + float(band_index % 2) * 0.025
-		draw_rect(Rect2(Vector2(0.0, y), Vector2(VIEWPORT_SIZE.x, VIEWPORT_SIZE.y / 9.0)), Color(0.06, 0.11, 0.09, alpha), true)
+		draw_rect(Rect2(Vector2(0.0, y), Vector2(viewport_size.x, viewport_size.y / 9.0)), Color(0.06, 0.11, 0.09, alpha), true)
 
-	var scan_y := fposmod(_ui_anim_time * 52.0, VIEWPORT_SIZE.y + 120.0) - 60.0
-	draw_rect(Rect2(Vector2(0.0, scan_y), Vector2(VIEWPORT_SIZE.x, 2.0)), Color(0.42, 1.0, 0.66, 0.22), true)
-	draw_rect(Rect2(Vector2(0.0, scan_y + 7.0), Vector2(VIEWPORT_SIZE.x, 1.0)), Color(1.0, 0.72, 0.24, 0.12), true)
+	var scan_y := fposmod(_ui_anim_time * 52.0, viewport_size.y + 120.0) - 60.0
+	draw_rect(Rect2(Vector2(0.0, scan_y), Vector2(viewport_size.x, 2.0)), Color(0.42, 1.0, 0.66, 0.22), true)
+	draw_rect(Rect2(Vector2(0.0, scan_y + 7.0), Vector2(viewport_size.x, 1.0)), Color(1.0, 0.72, 0.24, 0.12), true)
 
 	var grid_color := Color(0.33, 0.75, 0.55, 0.10)
 	var step := 48.0
-	for x_index in range(int(VIEWPORT_SIZE.x / step) + 1):
+	for x_index in range(int(viewport_size.x / step) + 1):
 		var x := float(x_index) * step
-		draw_line(Vector2(x, 0.0), Vector2(x, VIEWPORT_SIZE.y), grid_color, 1.0)
-	for y_index in range(int(VIEWPORT_SIZE.y / step) + 1):
+		draw_line(Vector2(x, 0.0), Vector2(x, viewport_size.y), grid_color, 1.0)
+	for y_index in range(int(viewport_size.y / step) + 1):
 		var y := float(y_index) * step
-		draw_line(Vector2(0.0, y), Vector2(VIEWPORT_SIZE.x, y), grid_color, 1.0)
+		draw_line(Vector2(0.0, y), Vector2(viewport_size.x, y), grid_color, 1.0)
 
 	var rail_offset := fposmod(_ui_anim_time * 34.0, 160.0)
 	for index in range(-2, 8):
 		var x0 := float(index) * 124.0 - rail_offset
-		draw_line(Vector2(x0, VIEWPORT_SIZE.y), Vector2(x0 + 230.0, 0.0), Color(0.28, 0.85, 0.90, 0.11), 2.0)
-		draw_line(Vector2(VIEWPORT_SIZE.x - x0, VIEWPORT_SIZE.y), Vector2(VIEWPORT_SIZE.x - x0 - 230.0, 0.0), Color(1.0, 0.45, 0.32, 0.08), 2.0)
+		draw_line(Vector2(x0, viewport_size.y), Vector2(x0 + 230.0, 0.0), Color(0.28, 0.85, 0.90, 0.11), 2.0)
+		draw_line(Vector2(viewport_size.x - x0, viewport_size.y), Vector2(viewport_size.x - x0 - 230.0, 0.0), Color(1.0, 0.45, 0.32, 0.08), 2.0)
 
 
 func _draw_game_world() -> void:
-	draw_rect(WORLD_RECT.grow(18.0), Color(0.0, 0.0, 0.0, 0.28), true)
-	draw_rect(WORLD_RECT.grow(10.0), Color(0.09, 0.16, 0.13, 0.35), true)
-	draw_rect(WORLD_RECT, Color(0.044, 0.066, 0.064, 1.0), true)
-	_draw_world_grid()
-	_draw_backdrop_stars()
-	var scan_y := WORLD_RECT.position.y + fposmod(_ui_anim_time * 80.0, WORLD_RECT.size.y)
-	draw_line(Vector2(WORLD_RECT.position.x, scan_y), Vector2(WORLD_RECT.end.x, scan_y), Color(0.42, 1.0, 0.66, 0.13), 1.0)
-	draw_rect(WORLD_RECT.grow(2.0), Color(1.0, 0.72, 0.24, 0.18), false, 1.0)
-	draw_rect(WORLD_RECT, Color(0.40, 0.82, 0.58, 0.62), false, 2.0)
+	var world_rect := _world_rect()
+	draw_rect(world_rect.grow(24.0), Color(0.0, 0.0, 0.0, 0.28), true)
+	draw_rect(world_rect.grow(13.3333), Color(0.09, 0.16, 0.13, 0.35), true)
+	draw_rect(world_rect, Color(0.044, 0.066, 0.064, 1.0), true)
+	_draw_world_grid(world_rect)
+	_draw_backdrop_stars(world_rect)
+	var scan_y := world_rect.position.y + fposmod(_ui_anim_time * 80.0, world_rect.size.y)
+	draw_line(Vector2(world_rect.position.x, scan_y), Vector2(world_rect.end.x, scan_y), Color(0.42, 1.0, 0.66, 0.13), 1.0)
+	draw_rect(world_rect.grow(2.6667), Color(1.0, 0.72, 0.24, 0.18), false, 1.0)
+	draw_rect(world_rect, Color(0.40, 0.82, 0.58, 0.62), false, 2.0)
 
 
-func _draw_world_grid() -> void:
+func _draw_world_grid(world_rect: Rect2) -> void:
 	var grid_color := Color(0.33, 0.55, 0.49, 0.12)
 	var step := 40.0
-	for x_index in range(int(WORLD_RECT.size.x / step) + 1):
-		var x := WORLD_RECT.position.x + float(x_index) * step
-		draw_line(Vector2(x, WORLD_RECT.position.y), Vector2(x, WORLD_RECT.position.y + WORLD_RECT.size.y), grid_color, 1.0)
+	for x_index in range(int(world_rect.size.x / step) + 1):
+		var x := world_rect.position.x + float(x_index) * step
+		draw_line(Vector2(x, world_rect.position.y), Vector2(x, world_rect.position.y + world_rect.size.y), grid_color, 1.0)
 	var scrolled := fmod(_world_scroll_offset, step)
-	for y_index in range(int(WORLD_RECT.size.y / step) + 2):
-		var y := WORLD_RECT.position.y + fposmod(float(y_index) * step + scrolled, WORLD_RECT.size.y + step) - step
-		if y < WORLD_RECT.position.y or y > WORLD_RECT.end.y:
+	for y_index in range(int(world_rect.size.y / step) + 2):
+		var y := world_rect.position.y + fposmod(float(y_index) * step + scrolled, world_rect.size.y + step) - step
+		if y < world_rect.position.y or y > world_rect.end.y:
 			continue
-		draw_line(Vector2(WORLD_RECT.position.x, y), Vector2(WORLD_RECT.position.x + WORLD_RECT.size.x, y), grid_color, 1.0)
+		draw_line(Vector2(world_rect.position.x, y), Vector2(world_rect.position.x + world_rect.size.x, y), grid_color, 1.0)
 
 
-func _draw_backdrop_stars() -> void:
+func _draw_backdrop_stars(world_rect: Rect2) -> void:
 	for star in _backdrop_stars:
 		var star_data: Dictionary = star
 		var parallax := float(star_data.get("parallax", 0.5))
 		var base := Vector2(float(star_data.get("x", 0.0)), float(star_data.get("y", 0.0)))
-		var y := WORLD_RECT.position.y + fposmod(base.y + _world_scroll_offset * parallax, WORLD_RECT.size.y)
+		var y := world_rect.position.y + fposmod(base.y + _world_scroll_offset * parallax, world_rect.size.y)
 		var alpha := 0.10 + parallax * 0.22
 		var star_radius := 1.0 + parallax * 1.6
-		draw_circle(Vector2(base.x, y), star_radius, Color(0.72, 0.92, 0.84, alpha))
+		draw_circle(Vector2(world_rect.position.x + base.x, y), star_radius, Color(0.72, 0.92, 0.84, alpha))
 
 
 func _generate_backdrop_stars() -> void:
@@ -2220,8 +2279,8 @@ func _generate_backdrop_stars() -> void:
 	star_rng.seed = 20260702
 	for index in range(56):
 		_backdrop_stars.append({
-			"x": star_rng.randf_range(WORLD_RECT.position.x + 6.0, WORLD_RECT.end.x - 6.0),
-			"y": star_rng.randf_range(0.0, WORLD_RECT.size.y),
+			"x": star_rng.randf_range(6.0, DESIGN_WORLD_RECT.size.x - 6.0),
+			"y": star_rng.randf_range(0.0, DESIGN_WORLD_RECT.size.y),
 			"parallax": 0.35 if index % 3 == 0 else star_rng.randf_range(0.55, 1.0),
 		})
 

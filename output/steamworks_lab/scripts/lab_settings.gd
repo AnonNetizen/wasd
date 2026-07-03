@@ -5,7 +5,7 @@ const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 
 const CONFIG_PATH: String = "user://settings.cfg"
 const SECTION: String = "settings"
-const DEFAULT_WINDOW_SIZE := Vector2i(540, 960)
+const DEFAULT_WINDOW_SIZE := Vector2i(720, 1280)
 const DEFAULT_WINDOW_MARGIN := Vector2i(48, 48)
 const MAX_PLAYER_NAME_LENGTH: int = 18
 

@@ -120,6 +120,10 @@ func setup(main: Node2D, session: Node, world_rect: Rect2) -> void:
 	_rng.randomize()
 
 
+func set_world_rect(world_rect: Rect2) -> void:
+	_world_rect = world_rect
+
+
 func reset_battle() -> void:
 	phase = Phase.BATTLE
 	tier = 0

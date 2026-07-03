@@ -36,11 +36,13 @@ func _run() -> void:
 	_remove_save_file()
 	_check_language_defaults()
 	_check_save_helper_defaults()
+	_check_project_window_defaults()
 
 	var main_packed := load("res://scenes/main.tscn") as PackedScene
 	var main_scene := main_packed.instantiate()
 	root.add_child(main_scene)
 	await process_frame
+	_check_runtime_viewport_defaults(main_scene)
 	await _check_settings_ui(main_scene)
 	await _check_records_ui(main_scene)
 	await _check_customize_ui(main_scene)
@@ -132,6 +134,12 @@ func _run() -> void:
 		_restore_save_file(save_backup)
 		quit(1)
 		return
+	var runtime_world_rect: Rect2 = main_scene.call("current_world_rect")
+	var director_world_rect: Rect2 = director.get("_world_rect")
+	_check(_rects_match(director_world_rect, runtime_world_rect), "director uses current world rect")
+	var player_body := player.get_node_or_null("SlimeBody") as Node2D
+	var movement_bounds: Rect2 = player_body.get("movement_bounds") if player_body != null else Rect2()
+	_check(_rects_match(movement_bounds, runtime_world_rect), "player movement bounds use current world rect")
 	var player_name_label := player.get_node_or_null("NameLabel") as Label
 	var appearance: Dictionary = player.call("appearance_state")
 	_check(String(appearance.get("name", "")) == "Nova", "single player applies custom nickname")
@@ -373,8 +381,10 @@ func _run() -> void:
 	var stasis_id: int = BATTLE_DIRECTOR_SCRIPT.ACTIVE_STASIS_FIELD
 	var overload_id: int = BATTLE_DIRECTOR_SCRIPT.ACTIVE_TEAM_OVERLOAD
 	var shield_id: int = BATTLE_DIRECTOR_SCRIPT.ACTIVE_EMERGENCY_SHIELD
+	_clear_director_pickups(director)
+	var action_position := runtime_world_rect.get_center() + Vector2(0.0, runtime_world_rect.size.y * 0.28)
 	player.call("revive_full")
-	player.call("warp_to", Vector2(270.0, 820.0))
+	player.call("warp_to", action_position)
 	var pickup_id := int(director.call("force_spawn_active_pickup", repair_id, player.call("body_center")))
 	_check(pickup_id > 0, "active pickup can be force spawned")
 	main_scene.call("_update_gameplay", 1.0 / 60.0)
@@ -389,7 +399,7 @@ func _run() -> void:
 
 	var player_two := main_scene.call("_ensure_player", 2, "Peer 2") as Node
 	player_two.call("set_local_or_host_simulated", true)
-	player_two.call("warp_to", Vector2(330.0, 820.0))
+	player_two.call("warp_to", action_position + Vector2(80.0, 0.0))
 	player.call("revive_full")
 	player_two.call("revive_full")
 	player.set("hp", 2)
@@ -400,20 +410,22 @@ func _run() -> void:
 	held_item = director.call("active_item_for_peer", 1)
 	_check(not bool(held_item.get("held", true)), "active item is consumed after use")
 
-	director.call("_spawn_enemy_at", 0, Vector2(270.0, 230.0))
+	var enemy_test_position := runtime_world_rect.position + Vector2(runtime_world_rect.size.x * 0.5, 160.0)
+	director.call("_spawn_enemy_at", 0, enemy_test_position)
 	var enemies_before_clear: int = (director.get("_enemies") as Dictionary).size()
-	director.call("_spawn_enemy_volley", Vector2(270.0, 260.0), PackedVector2Array([Vector2.DOWN]), 120.0)
+	director.call("_spawn_enemy_volley", enemy_test_position + Vector2(0.0, 30.0), PackedVector2Array([Vector2.DOWN]), 120.0)
 	_check((director.get("_enemy_bullets") as Array).size() > 0, "enemy bullet available before clear pulse")
 	director.call("force_grant_active_item", 1, clear_id)
 	main_scene.call("_try_active_item")
 	_check((director.get("_enemy_bullets") as Array).is_empty(), "clear pulse removes enemy bullets")
 	_check((director.get("_enemies") as Dictionary).size() < enemies_before_clear, "clear pulse damages enemies")
 
-	director.call("_spawn_enemy_at", 0, Vector2(270.0, 240.0))
+	var stasis_test_position := runtime_world_rect.position + Vector2(runtime_world_rect.size.x * 0.5, 180.0)
+	director.call("_spawn_enemy_at", 0, stasis_test_position)
 	var stasis_enemy: Node2D = null
 	for enemy_id in (director.get("_enemies") as Dictionary).keys():
 		var enemy_node := (director.get("_enemies") as Dictionary)[enemy_id] as Node2D
-		if enemy_node != null and enemy_node.global_position.distance_to(Vector2(270.0, 240.0)) < 4.0:
+		if enemy_node != null and enemy_node.global_position.distance_to(stasis_test_position) < 4.0:
 			stasis_enemy = enemy_node
 			break
 	_check(stasis_enemy != null, "enemy available for stasis test")
@@ -434,7 +446,7 @@ func _run() -> void:
 	_check(float(director.call("player_fire_cooldown", 1)) < cooldown_before_overload, "team overload improves fire rate")
 	_check(int(director.call("player_bullet_damage", 1)) == damage_before_overload + 1, "team overload improves damage")
 
-	director.call("force_spawn_active_pickup", shield_id, Vector2(260.0, 500.0))
+	director.call("force_spawn_active_pickup", shield_id, runtime_world_rect.get_center())
 	director.call("force_grant_active_item", 1, shield_id)
 	var active_snapshot: Dictionary = director.call("battle_snapshot")
 	_check((active_snapshot.get("active_pickups", []) as Array).size() > 0, "snapshot carries active pickups")
@@ -442,7 +454,7 @@ func _run() -> void:
 	_check(not (active_snapshot.get("active_effects", {}) as Dictionary).is_empty(), "snapshot carries active effects")
 	var mirror_director := BATTLE_DIRECTOR_SCRIPT.new() as Node2D
 	root.add_child(mirror_director)
-	mirror_director.call("setup", main_scene, main_scene.get("_session"), Rect2(Vector2(20.0, 70.0), Vector2(500.0, 870.0)))
+	mirror_director.call("setup", main_scene, main_scene.get("_session"), runtime_world_rect)
 	mirror_director.call("apply_snapshot_battle", active_snapshot)
 	_check(
 		(mirror_director.get("_active_pickups") as Dictionary).size() == (director.get("_active_pickups") as Dictionary).size(),
@@ -526,6 +538,22 @@ func _check_save_helper_defaults() -> void:
 	_check(LAB_SAVE_SCRIPT.format_survival_time(127.0) == "02:07", "survival time formats as MM:SS")
 
 
+func _check_project_window_defaults() -> void:
+	_check(int(ProjectSettings.get_setting("display/window/size/viewport_width")) == 720, "project viewport width defaults to 720")
+	_check(int(ProjectSettings.get_setting("display/window/size/viewport_height")) == 1280, "project viewport height defaults to 1280")
+	_check(String(ProjectSettings.get_setting("display/window/stretch/mode")) == "canvas_items", "project stretch mode uses canvas_items")
+	_check(String(ProjectSettings.get_setting("display/window/stretch/aspect")) == "expand", "project stretch aspect expands")
+
+
+func _check_runtime_viewport_defaults(main_scene: Node) -> void:
+	var design_size: Vector2 = main_scene.call("design_viewport_size")
+	var viewport_size: Vector2 = main_scene.call("current_viewport_size")
+	var world_rect: Rect2 = main_scene.call("current_world_rect")
+	_check(design_size == Vector2(720.0, 1280.0), "runtime design viewport is 720x1280")
+	_check(viewport_size.x >= 720.0 and viewport_size.y >= 1280.0, "runtime viewport helper is at least design size")
+	_check(world_rect.size.x > 660.0 and world_rect.size.y > 1150.0, "runtime world rect scales up for 720x1280")
+
+
 func _check_settings_ui(main_scene: Node) -> void:
 	var settings_page := main_scene.get("_settings_page") as Control
 	var language_option := main_scene.get("_language_option") as OptionButton
@@ -539,6 +567,7 @@ func _check_settings_ui(main_scene: Node) -> void:
 	main_scene.call("_on_language_selected", 1)
 	await process_frame
 	_check(_node_tree_has_text(main_scene.get("_start_page") as Node, "Single Player"), "English main menu text refreshes")
+	_check(_find_button_with_text(main_scene.get("_start_page") as Node, "Quit Game") != null, "English main exit button localizes")
 	_check(_node_tree_has_text(settings_page, "Settings"), "English settings page text refreshes")
 	var active_settings: RefCounted = main_scene.get("_settings")
 	_check(active_settings != null and String(active_settings.get("locale")) == LAB_LOCALE_SCRIPT.LOCALE_EN, "English locale stored in lab settings")
@@ -551,6 +580,7 @@ func _check_settings_ui(main_scene: Node) -> void:
 	main_scene.call("_on_language_selected", 0)
 	await process_frame
 	_check(_node_tree_has_text(main_scene.get("_start_page") as Node, "开始单人游戏"), "Chinese main menu text refreshes")
+	_check(_find_button_with_text(main_scene.get("_start_page") as Node, "退出游戏") != null, "Chinese main exit button localizes")
 	_check(_node_tree_has_text(settings_page, "设置"), "Chinese settings page text refreshes")
 	main_scene.call("_on_settings_back_pressed")
 	for index in range(20):
@@ -672,6 +702,22 @@ func _find_button_with_text(root_node: Node, expected_text: String) -> Button:
 		if found_button != null:
 			return found_button
 	return null
+
+
+func _rects_match(a: Rect2, b: Rect2) -> bool:
+	return (
+		a.position.distance_to(b.position) < 0.05
+		and a.size.distance_to(b.size) < 0.05
+	)
+
+
+func _clear_director_pickups(director: Node) -> void:
+	var active_pickups: Dictionary = director.get("_active_pickups")
+	for pickup_id in active_pickups.keys():
+		var pickup := active_pickups[pickup_id] as Node
+		if pickup != null and is_instance_valid(pickup):
+			pickup.queue_free()
+	active_pickups.clear()
 
 
 func _backup_settings_file() -> Dictionary:
