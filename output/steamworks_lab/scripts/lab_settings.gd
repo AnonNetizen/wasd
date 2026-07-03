@@ -6,6 +6,7 @@ const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 const CONFIG_PATH: String = "user://settings.cfg"
 const SECTION: String = "settings"
 const DEFAULT_WINDOW_SIZE := Vector2i(540, 960)
+const DEFAULT_WINDOW_MARGIN := Vector2i(48, 48)
 
 var locale: String = LAB_LOCALE_SCRIPT.LOCALE_EN
 var fullscreen: bool = false
@@ -66,7 +67,23 @@ func apply_fullscreen() -> void:
 	if display_name == "headless":
 		return
 	if fullscreen:
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
+		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_RESIZE_DISABLED, false)
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
 		return
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_RESIZE_DISABLED, true)
 	DisplayServer.window_set_size(DEFAULT_WINDOW_SIZE)
+	_center_window()
+
+
+func _center_window() -> void:
+	var screen_id := DisplayServer.window_get_current_screen()
+	var usable_rect := DisplayServer.screen_get_usable_rect(screen_id)
+	var target_position := usable_rect.position + (usable_rect.size - DEFAULT_WINDOW_SIZE) / 2
+	var minimum_position := usable_rect.position + DEFAULT_WINDOW_MARGIN
+	DisplayServer.window_set_position(Vector2i(
+		maxi(target_position.x, minimum_position.x),
+		maxi(target_position.y, minimum_position.y)
+	))

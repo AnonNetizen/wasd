@@ -4,14 +4,14 @@
 
 UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图标资源，统一用 `Theme`、`StyleBoxFlat`、代码绘制和 `Tween` 做深色霓虹面板、按钮反馈、页面切换、HUD 脉冲、屏幕震动、冲击闪光、爆碎冲击环、buff / 结算入退场和表情轮展开动画。
 
-主菜单提供 `设置 / Settings` 页面，可在 `简体中文 / English` 间切换语言，并切换无边框全屏。设置持久化到 `user://settings.cfg`；已有玩家选择优先，没有保存时优先读取 GodotSteam 暴露的 Steam 当前游戏语言（Steamworks `ISteamApps::GetCurrentGameLanguage()`），取不到 Steam 语言再读系统语言。`schinese` / `tchinese` / 任意 `zh*` 默认进 `zh_CN`，其他语言默认 `en`；headless 测试下不会实际切换窗口模式。
+主菜单提供 `设置 / Settings` 页面，可在 `简体中文 / English` 间切换语言，并切换全屏。设置持久化到 `user://settings.cfg`；已有玩家选择优先，没有保存时优先读取 GodotSteam 暴露的 Steam 当前游戏语言（Steamworks `ISteamApps::GetCurrentGameLanguage()`），取不到 Steam 语言再读系统语言。`schinese` / `tchinese` / 任意 `zh*` 默认进 `zh_CN`，其他语言默认 `en`；headless 测试下不会实际切换窗口模式。
 
 主菜单也提供 `记录 / Records` 入口，用 `user://save.cfg` 本地保存当前最长存活时间。当前只记录 `records.best_survival_seconds`，仅在战斗进入 Game Over 时更新；手动返回主菜单、离开联机会话或重开不会刷新纪录。
 
 ## 玩法
 
 - 每个玩家是一只软体史莱姆，WASD / 方向键移动（限制在战场内），按住鼠标左键朝鼠标方向连续射击，按住 `T` 开表情轮盘，按 `Esc` 打开暂停菜单。
-- 主菜单 `设置 / Settings` 可切换语言和无边框全屏；语言影响主菜单、准备房间、HUD、buff、主动道具名、结算和表情轮标签，Steam 诊断日志仍以英文为主。
+- 主菜单 `设置 / Settings` 可切换语言和全屏；语言影响主菜单、准备房间、HUD、buff、主动道具名、结算和表情轮标签，Steam 诊断日志仍以英文为主。
 - 主菜单 `记录 / Records` 会弹出街机风格窗口显示最长存活时间；无记录时显示 `暂无记录 / No record yet`，有记录时统一显示为 `MM:SS`。
 - 单机 / offline 下 `Esc` 会真暂停战斗：敌人、boss、敌弹、玩家弹、无敌计时、战斗时钟和背景滚动都会停住；多人联机下 `Esc` 只打开本地菜单并清零本地输入，host 权威战斗继续运行，不新增网络暂停。
 - 敌人不断从画面上方过来：直冲怪（撞人自爆）、悬停炮手（瞄准弹，高 tier 三扇）、掠射怪（斜穿 + 垂直弹）。炮手 / 掠射怪会远程攻击，敌弹为暖色，玩家弹为冷色；子弹命中会有小火花，敌人 / 障碍 / boss 被击破会有爆碎冲击环与轻重不同的屏幕震动。
