@@ -1,17 +1,17 @@
 # Steamworks Slime Lab —— 雷电式竖版卷轴射击
 
-独立 Godot 4.7 测试项目（720×1280 竖屏），用来验证 Steamworks / GodotSteam 联机链路 + 一个可联机的雷电式竖版卷轴射击玩法。它不属于正式 `client/`，也不依赖正式项目的 `PlatformServices` / 词表 / autoload 体系。
+独立 Godot 4.7 测试项目（默认 540×960 竖屏，可选 720×1280 / 1080×1920），用来验证 Steamworks / GodotSteam 联机链路 + 一个可联机的雷电式竖版卷轴射击玩法。它不属于正式 `client/`，也不依赖正式项目的 `PlatformServices` / 词表 / autoload 体系。
 
 UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图标资源，统一用 `Theme`、`StyleBoxFlat`、代码绘制和 `Tween` 做深色霓虹面板、按钮反馈、页面切换、HUD 脉冲、屏幕震动、冲击闪光、爆碎冲击环、buff / 结算入退场和表情轮展开动画。
 
-主菜单提供 `设置 / Settings` 页面，可在 `简体中文 / English` 间切换语言，并切换全屏。全屏使用 Godot stretch 扩展画布，宽屏多出的区域用动态背景填满，不再显示固定画布外黑边。主菜单也提供 `自定义 / Customize` 页面，可设置昵称、史莱姆主体色和玩家子弹色，并提供 `退出游戏 / Quit Game` 按钮；外观只影响表现，不改变血量、碰撞、伤害、速度等玩法数值。设置持久化到 `user://settings.cfg`；已有玩家选择优先，没有保存时优先读取 GodotSteam 暴露的 Steam 当前游戏语言（Steamworks `ISteamApps::GetCurrentGameLanguage()`），取不到 Steam 语言再读系统语言。`schinese` / `tchinese` / 任意 `zh*` 默认进 `zh_CN`，其他语言默认 `en`；headless 测试下不会实际切换窗口模式。
+主菜单提供 `设置 / Settings` 页面，可在 `简体中文 / English` 间切换语言，选择 `540×960`（适配 1080p）、`720×1280`（适配 2K）、`1080×1920`（适配 4K）三档窗口分辨率，并切换全屏。全屏使用 Godot stretch 扩展画布，宽屏多出的区域用动态背景填满，不再显示固定画布外黑边。主菜单也提供 `自定义 / Customize` 页面，可设置昵称、史莱姆主体色和玩家子弹色，并提供 `退出游戏 / Quit Game` 按钮；外观只影响表现，不改变血量、碰撞、伤害、速度等玩法数值。设置持久化到 `user://settings.cfg`；已有玩家选择优先，没有保存时优先读取 GodotSteam 暴露的 Steam 当前游戏语言（Steamworks `ISteamApps::GetCurrentGameLanguage()`），取不到 Steam 语言再读系统语言。`schinese` / `tchinese` / 任意 `zh*` 默认进 `zh_CN`，其他语言默认 `en`；headless 测试下不会实际切换窗口模式。
 
 主菜单也提供 `记录 / Records` 入口，用 `user://save.cfg` 本地保存当前最长存活时间。当前只记录 `records.best_survival_seconds`，仅在战斗进入 Game Over 时更新；手动返回主菜单、离开联机会话或重开不会刷新纪录。
 
 ## 玩法
 
 - 每个玩家是一只软体史莱姆，WASD / 方向键移动（限制在战场内），按住鼠标左键朝鼠标方向连续射击，按住 `T` 开表情轮盘，按 `Esc` 打开暂停菜单。
-- 主菜单 `设置 / Settings` 可切换语言和全屏；语言影响主菜单、准备房间、HUD、buff、主动道具名、结算和表情轮标签，Steam 诊断日志仍以英文为主；`退出游戏 / Quit Game` 可直接关闭 lab。
+- 主菜单 `设置 / Settings` 可切换语言、窗口分辨率和全屏；语言影响主菜单、准备房间、HUD、buff、主动道具名、结算和表情轮标签，Steam 诊断日志仍以英文为主；`退出游戏 / Quit Game` 可直接关闭 lab。
 - 主菜单 `自定义 / Customize` 可设置本机昵称、8 个预设史莱姆色和 8 个预设子弹色。单机昵称留空时不显示名字；联机昵称留空时会显示 `Host` / `Peer N`。外观会随 host 快照同步给所有玩家，中途加入也会看到当前外观。
 - 主菜单 `记录 / Records` 会弹出街机风格窗口显示最长存活时间；无记录时显示 `暂无记录 / No record yet`，有记录时统一显示为 `MM:SS`。
 - 单机 / offline 下 `Esc` 会真暂停战斗：敌人、boss、敌弹、玩家弹、无敌计时、战斗时钟和背景滚动都会停住；多人联机下 `Esc` 只打开本地菜单并清零本地输入，host 权威战斗继续运行，不新增网络暂停。
@@ -42,7 +42,7 @@ headless 战斗回归（刷怪 / 受击 / 无敌帧 / GameOver / 最长存活时
 ## 本地双开测试清单
 
 1. 实例 A：`开始联机游戏` → `Host Local`；实例 B：地址 `127.0.0.1` 端口 `24567` → `Join Local`。
-2. 进入 `设置 / Settings`，切到 English 再切回简体中文，确认主菜单、设置页、HUD 空道具槽、buff 面板、结算和表情轮标签刷新；切换全屏后重启确认 `user://settings.cfg` 生效。打开 `记录 / Records`，确认无记录 / 最长存活时间文本随语言刷新，Game Over 后再次打开会显示 `MM:SS` 纪录。
+2. 进入 `设置 / Settings`，切到 English 再切回简体中文，确认主菜单、设置页、HUD 空道具槽、buff 面板、结算和表情轮标签刷新；切换三档分辨率与全屏后重启确认 `user://settings.cfg` 生效。打开 `记录 / Records`，确认无记录 / 最长存活时间文本随语言刷新，Game Over 后再次打开会显示 `MM:SS` 纪录。
 3. 进入 `自定义 / Customize`，A / B 分别设置不同昵称、史莱姆颜色和子弹颜色；确认重启后 `user://settings.cfg` 保留，准备房间、战斗中、死亡观战和重开后双方看到的昵称 / 主体色 / 子弹色一致。
 4. 两端确认：主菜单 / 准备房间 / 入场切换有淡入和轻微回弹，按钮 hover / press 有反馈；A / B 都停在准备房间，没有敌人和计时；A 看到玩家数达到 2 后点 `Start Battle`，两端才进入战斗。
 5. 两端确认：敌人从顶部同步出现；B 开火能打死敌人（血量在 A 端结算，B 端子弹碰到敌人会视觉消隐）；敌弹两端轨迹一致；障碍物会挡住玩家和敌人；双方血心随受击同步扣减并闪烁。
@@ -81,7 +81,7 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=1
 
 - `scripts/steamworks_lab.gd`：主场景、主菜单 / 联机 / 设置 / 自定义 / 战斗街机 UI、页面 / 按钮动效、玩家生成、host 权威同步、射击链路、滚动背景与战斗接线。
 - `scripts/ui_style.gd`：lab 专用 UI 色板、Theme、Panel / Button / Input 等 StyleBox 工具。
-- `scripts/lab_locale.gd` / `scripts/lab_settings.gd`：lab 轻量本地化字典、Steam / 系统语言映射、`user://settings.cfg` 读写、外观设置和 headless 安全的全屏应用。
+- `scripts/lab_locale.gd` / `scripts/lab_settings.gd`：lab 轻量本地化字典、Steam / 系统语言映射、`user://settings.cfg` 读写、分辨率 / 外观设置和 headless 安全的全屏应用。
 - `scripts/lab_save.gd`：lab 轻量本地存档，只读写 `user://save.cfg` 的 `records.best_survival_seconds`。
 - `scripts/battle_director.gd`：战斗核心。权威端：刷怪波次 / tier 缩放 / boss / 障碍物 / 主动道具调度、圆-圆判伤、buff 状态机与时停；client 端：快照镜像重建、敌弹 volley 视觉、玩家弹视觉消隐。
 - `scripts/enemy.gd` / `scripts/enemy_bullet.gd`：三种敌人（直冲 / 炮手 / 掠射）与暖色敌弹。

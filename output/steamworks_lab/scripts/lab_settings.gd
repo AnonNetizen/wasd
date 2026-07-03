@@ -5,12 +5,19 @@ const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 
 const CONFIG_PATH: String = "user://settings.cfg"
 const SECTION: String = "settings"
-const DEFAULT_WINDOW_SIZE := Vector2i(720, 1280)
+const RESOLUTION_PRESETS: Array[Dictionary] = [
+	{"id": 0, "size": Vector2i(540, 960), "label_key": "resolution_1080p"},
+	{"id": 1, "size": Vector2i(720, 1280), "label_key": "resolution_2k"},
+	{"id": 2, "size": Vector2i(1080, 1920), "label_key": "resolution_4k"},
+]
+const DEFAULT_RESOLUTION_PRESET_ID: int = 0
+const DEFAULT_WINDOW_SIZE := Vector2i(540, 960)
 const DEFAULT_WINDOW_MARGIN := Vector2i(48, 48)
 const MAX_PLAYER_NAME_LENGTH: int = 18
 
 var locale: String = LAB_LOCALE_SCRIPT.LOCALE_EN
 var fullscreen: bool = false
+var resolution_preset_id: int = DEFAULT_RESOLUTION_PRESET_ID
 var player_name: String = ""
 var slime_palette_id: int = 0
 var bullet_palette_id: int = 0
@@ -26,10 +33,30 @@ static func default_locale_for_environment(steam_language: String = "") -> Strin
 	return default_locale_for_language(OS.get_locale())
 
 
+static func resolution_options() -> Array[Dictionary]:
+	return RESOLUTION_PRESETS.duplicate(true)
+
+
+static func normalized_resolution_preset_id(preset_id: int) -> int:
+	for preset in RESOLUTION_PRESETS:
+		if int(preset.get("id", -1)) == preset_id:
+			return preset_id
+	return DEFAULT_RESOLUTION_PRESET_ID
+
+
+static func window_size_for_resolution(preset_id: int) -> Vector2i:
+	var normalized := normalized_resolution_preset_id(preset_id)
+	for preset in RESOLUTION_PRESETS:
+		if int(preset.get("id", -1)) == normalized:
+			return preset.get("size", DEFAULT_WINDOW_SIZE) as Vector2i
+	return DEFAULT_WINDOW_SIZE
+
+
 func load_settings(steam_language: String = "") -> bool:
 	var detected_locale := default_locale_for_environment(steam_language)
 	locale = detected_locale
 	fullscreen = false
+	resolution_preset_id = DEFAULT_RESOLUTION_PRESET_ID
 	player_name = ""
 	slime_palette_id = 0
 	bullet_palette_id = 0
@@ -44,6 +71,11 @@ func load_settings(steam_language: String = "") -> bool:
 	var saved_locale := String(config.get_value(SECTION, "locale", detected_locale))
 	locale = LAB_LOCALE_SCRIPT.normalize_locale(saved_locale)
 	fullscreen = bool(config.get_value(SECTION, "fullscreen", false))
+	resolution_preset_id = normalized_resolution_preset_id(int(config.get_value(
+		SECTION,
+		"resolution_preset_id",
+		DEFAULT_RESOLUTION_PRESET_ID
+	)))
 	player_name = clean_player_name(String(config.get_value(SECTION, "player_name", "")))
 	slime_palette_id = maxi(0, int(config.get_value(SECTION, "slime_palette_id", 0)))
 	bullet_palette_id = maxi(0, int(config.get_value(SECTION, "bullet_palette_id", 0)))
@@ -54,6 +86,7 @@ func save_settings() -> bool:
 	var config := ConfigFile.new()
 	config.set_value(SECTION, "locale", locale)
 	config.set_value(SECTION, "fullscreen", fullscreen)
+	config.set_value(SECTION, "resolution_preset_id", resolution_preset_id)
 	config.set_value(SECTION, "player_name", player_name)
 	config.set_value(SECTION, "slime_palette_id", slime_palette_id)
 	config.set_value(SECTION, "bullet_palette_id", bullet_palette_id)
@@ -73,6 +106,18 @@ func set_fullscreen(enabled: bool) -> bool:
 		return false
 	fullscreen = enabled
 	return true
+
+
+func set_resolution_preset_id(preset_id: int) -> bool:
+	var normalized := normalized_resolution_preset_id(preset_id)
+	if resolution_preset_id == normalized:
+		return false
+	resolution_preset_id = normalized
+	return true
+
+
+func selected_window_size() -> Vector2i:
+	return window_size_for_resolution(resolution_preset_id)
 
 
 func set_player_name(new_name: String) -> bool:
@@ -120,7 +165,7 @@ func apply_fullscreen() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_RESIZE_DISABLED, true)
-	DisplayServer.window_set_size(DEFAULT_WINDOW_SIZE)
+	DisplayServer.window_set_size(selected_window_size())
 	_center_window()
 
 
@@ -138,7 +183,8 @@ func _apply_fullscreen_fallback_if_needed() -> void:
 func _center_window() -> void:
 	var screen_id := DisplayServer.window_get_current_screen()
 	var usable_rect := DisplayServer.screen_get_usable_rect(screen_id)
-	var target_position := usable_rect.position + (usable_rect.size - DEFAULT_WINDOW_SIZE) / 2
+	var window_size := selected_window_size()
+	var target_position := usable_rect.position + (usable_rect.size - window_size) / 2
 	var minimum_position := usable_rect.position + DEFAULT_WINDOW_MARGIN
 	DisplayServer.window_set_position(Vector2i(
 		maxi(target_position.x, minimum_position.x),

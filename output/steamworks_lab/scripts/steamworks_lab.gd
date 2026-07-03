@@ -15,8 +15,8 @@ const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
 const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 const LAB_SAVE_SCRIPT := preload("res://scripts/lab_save.gd")
 
-const DESIGN_VIEWPORT_SIZE := Vector2(720.0, 1280.0)
-const DESIGN_WORLD_RECT := Rect2(Vector2(26.6667, 93.3333), Vector2(666.6667, 1160.0))
+const BASE_DESIGN_VIEWPORT_SIZE := Vector2(720.0, 1280.0)
+const BASE_DESIGN_WORLD_RECT := Rect2(Vector2(26.6667, 93.3333), Vector2(666.6667, 1160.0))
 const WORLD_SCROLL_SPEED: float = 120.0
 const DEFAULT_PORT: int = 24567
 const SCREEN_START: String = "start"
@@ -116,6 +116,7 @@ var _start_battle_button: Button
 var _expression_wheel: Control
 var _screen_flash_rect: ColorRect
 var _language_option: OptionButton
+var _resolution_option: OptionButton
 var _fullscreen_check: CheckButton
 var _customize_name_input: LineEdit
 var _customize_preview_area: Control
@@ -166,14 +167,18 @@ func player_nodes() -> Dictionary:
 
 
 func design_viewport_size() -> Vector2:
-	return DESIGN_VIEWPORT_SIZE
+	if _settings == null:
+		return Vector2(LAB_SETTINGS_SCRIPT.DEFAULT_WINDOW_SIZE)
+	var selected_size: Vector2i = _settings.call("selected_window_size")
+	return Vector2(selected_size)
 
 
 func current_viewport_size() -> Vector2:
 	var viewport_size := get_viewport_rect().size
+	var design_size := design_viewport_size()
 	return Vector2(
-		maxf(viewport_size.x, DESIGN_VIEWPORT_SIZE.x),
-		maxf(viewport_size.y, DESIGN_VIEWPORT_SIZE.y)
+		maxf(viewport_size.x, design_size.x),
+		maxf(viewport_size.y, design_size.y)
 	)
 
 
@@ -197,15 +202,26 @@ func _sync_world_rect() -> void:
 
 
 func _world_rect() -> Rect2:
-	return Rect2(_design_origin() + DESIGN_WORLD_RECT.position, DESIGN_WORLD_RECT.size)
+	var world_rect := _scaled_design_world_rect()
+	return Rect2(_design_origin() + world_rect.position, world_rect.size)
 
 
 func _design_origin() -> Vector2:
 	var viewport_size := current_viewport_size()
+	var design_size := design_viewport_size()
 	return Vector2(
-		maxf(0.0, (viewport_size.x - DESIGN_VIEWPORT_SIZE.x) * 0.5),
-		maxf(0.0, (viewport_size.y - DESIGN_VIEWPORT_SIZE.y) * 0.5)
+		maxf(0.0, (viewport_size.x - design_size.x) * 0.5),
+		maxf(0.0, (viewport_size.y - design_size.y) * 0.5)
 	)
+
+
+func _scaled_design_world_rect() -> Rect2:
+	var design_size := design_viewport_size()
+	var scale := Vector2(
+		design_size.x / BASE_DESIGN_VIEWPORT_SIZE.x,
+		design_size.y / BASE_DESIGN_VIEWPORT_SIZE.y
+	)
+	return Rect2(BASE_DESIGN_WORLD_RECT.position * scale, BASE_DESIGN_WORLD_RECT.size * scale)
 
 
 func _battle_active() -> bool:
@@ -752,7 +768,7 @@ func _create_multiplayer_page() -> void:
 
 func _create_settings_page() -> void:
 	_settings_page = _make_page("SettingsPage")
-	var rows := _make_centered_panel(_settings_page, "SettingsPanel", Vector2(456.0, 420.0), "hero")
+	var rows := _make_centered_panel(_settings_page, "SettingsPanel", Vector2(456.0, 520.0), "hero")
 	rows.alignment = BoxContainer.ALIGNMENT_CENTER
 	rows.add_theme_constant_override("separation", 14)
 
@@ -778,6 +794,19 @@ func _create_settings_page() -> void:
 	UI_STYLE_SCRIPT.apply_option_button(_language_option)
 	rows.add_child(_language_option)
 
+	var resolution_label := _make_kicker_label(_t("settings_resolution"))
+	_register_localized_text(resolution_label, "settings_resolution")
+	resolution_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	rows.add_child(resolution_label)
+
+	_resolution_option = OptionButton.new()
+	_resolution_option.name = "ResolutionOption"
+	_resolution_option.custom_minimum_size = Vector2(320.0, 42.0)
+	_resolution_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_resolution_option.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	UI_STYLE_SCRIPT.apply_option_button(_resolution_option)
+	rows.add_child(_resolution_option)
+
 	_fullscreen_check = CheckButton.new()
 	_fullscreen_check.name = "FullscreenCheck"
 	_fullscreen_check.text = _t("settings_fullscreen")
@@ -795,7 +824,9 @@ func _create_settings_page() -> void:
 	rows.add_child(back_button)
 
 	_refresh_language_option()
+	_refresh_resolution_option()
 	_language_option.item_selected.connect(_on_language_selected)
+	_resolution_option.item_selected.connect(_on_resolution_selected)
 	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
 
 
@@ -1216,6 +1247,7 @@ func _apply_locale() -> void:
 	for control in _localized_placeholder_controls:
 		_apply_localized_placeholder(control)
 	_refresh_language_option()
+	_refresh_resolution_option()
 	_refresh_customize_controls()
 	if _battle_hud != null:
 		_battle_hud.call("set_locale", _current_locale())
@@ -1250,6 +1282,23 @@ func _refresh_language_option() -> void:
 	_language_option.select(selected_index)
 	if _fullscreen_check != null:
 		_fullscreen_check.button_pressed = bool(_settings.get("fullscreen"))
+
+
+func _refresh_resolution_option() -> void:
+	if _resolution_option == null or _settings == null:
+		return
+	var options: Array[Dictionary] = LAB_SETTINGS_SCRIPT.resolution_options()
+	var selected_id := int(_settings.get("resolution_preset_id"))
+	var selected_index := 0
+	_resolution_option.clear()
+	for index in range(options.size()):
+		var option := options[index]
+		var option_id := int(option.get("id", index))
+		var label_key := String(option.get("label_key", ""))
+		_resolution_option.add_item(_t(label_key), option_id)
+		if option_id == selected_id:
+			selected_index = index
+	_resolution_option.select(selected_index)
 
 
 func _refresh_customize_controls() -> void:
@@ -1695,6 +1744,16 @@ func _on_fullscreen_toggled(enabled: bool) -> void:
 	if _settings.call("set_fullscreen", enabled):
 		_settings.call("save_settings")
 	_settings.call("apply_fullscreen")
+
+
+func _on_resolution_selected(index: int) -> void:
+	if _resolution_option == null or index < 0 or index >= _resolution_option.item_count:
+		return
+	var preset_id := _resolution_option.get_item_id(index)
+	if _settings.call("set_resolution_preset_id", preset_id):
+		_settings.call("save_settings")
+	_settings.call("apply_fullscreen")
+	_sync_world_rect()
 
 
 func _on_customize_name_changed(new_text: String) -> void:
@@ -2390,10 +2449,14 @@ func _draw_backdrop_stars(world_rect: Rect2) -> void:
 		var star_data: Dictionary = star
 		var parallax := float(star_data.get("parallax", 0.5))
 		var base := Vector2(float(star_data.get("x", 0.0)), float(star_data.get("y", 0.0)))
-		var y := world_rect.position.y + fposmod(base.y + _world_scroll_offset * parallax, world_rect.size.y)
+		var scale := Vector2(
+			world_rect.size.x / BASE_DESIGN_WORLD_RECT.size.x,
+			world_rect.size.y / BASE_DESIGN_WORLD_RECT.size.y
+		)
+		var y := world_rect.position.y + fposmod(base.y * scale.y + _world_scroll_offset * parallax, world_rect.size.y)
 		var alpha := 0.10 + parallax * 0.22
-		var star_radius := 1.0 + parallax * 1.6
-		draw_circle(Vector2(world_rect.position.x + base.x, y), star_radius, Color(0.72, 0.92, 0.84, alpha))
+		var star_radius := (1.0 + parallax * 1.6) * minf(scale.x, scale.y)
+		draw_circle(Vector2(world_rect.position.x + base.x * scale.x, y), star_radius, Color(0.72, 0.92, 0.84, alpha))
 
 
 func _generate_backdrop_stars() -> void:
@@ -2402,8 +2465,8 @@ func _generate_backdrop_stars() -> void:
 	star_rng.seed = 20260702
 	for index in range(56):
 		_backdrop_stars.append({
-			"x": star_rng.randf_range(6.0, DESIGN_WORLD_RECT.size.x - 6.0),
-			"y": star_rng.randf_range(0.0, DESIGN_WORLD_RECT.size.y),
+			"x": star_rng.randf_range(6.0, BASE_DESIGN_WORLD_RECT.size.x - 6.0),
+			"y": star_rng.randf_range(0.0, BASE_DESIGN_WORLD_RECT.size.y),
 			"parallax": 0.35 if index % 3 == 0 else star_rng.randf_range(0.55, 1.0),
 		})
 

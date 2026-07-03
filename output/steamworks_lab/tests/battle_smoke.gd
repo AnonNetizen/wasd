@@ -539,8 +539,8 @@ func _check_save_helper_defaults() -> void:
 
 
 func _check_project_window_defaults() -> void:
-	_check(int(ProjectSettings.get_setting("display/window/size/viewport_width")) == 720, "project viewport width defaults to 720")
-	_check(int(ProjectSettings.get_setting("display/window/size/viewport_height")) == 1280, "project viewport height defaults to 1280")
+	_check(int(ProjectSettings.get_setting("display/window/size/viewport_width")) == 540, "project viewport width defaults to 540")
+	_check(int(ProjectSettings.get_setting("display/window/size/viewport_height")) == 960, "project viewport height defaults to 960")
 	_check(String(ProjectSettings.get_setting("display/window/stretch/mode")) == "canvas_items", "project stretch mode uses canvas_items")
 	_check(String(ProjectSettings.get_setting("display/window/stretch/aspect")) == "expand", "project stretch aspect expands")
 
@@ -549,17 +549,19 @@ func _check_runtime_viewport_defaults(main_scene: Node) -> void:
 	var design_size: Vector2 = main_scene.call("design_viewport_size")
 	var viewport_size: Vector2 = main_scene.call("current_viewport_size")
 	var world_rect: Rect2 = main_scene.call("current_world_rect")
-	_check(design_size == Vector2(720.0, 1280.0), "runtime design viewport is 720x1280")
-	_check(viewport_size.x >= 720.0 and viewport_size.y >= 1280.0, "runtime viewport helper is at least design size")
-	_check(world_rect.size.x > 660.0 and world_rect.size.y > 1150.0, "runtime world rect scales up for 720x1280")
+	_check(design_size == Vector2(540.0, 960.0), "runtime design viewport is 540x960")
+	_check(viewport_size.x >= 540.0 and viewport_size.y >= 960.0, "runtime viewport helper is at least design size")
+	_check(world_rect.size.x > 490.0 and world_rect.size.y > 860.0, "runtime world rect scales for 540x960")
 
 
 func _check_settings_ui(main_scene: Node) -> void:
 	var settings_page := main_scene.get("_settings_page") as Control
 	var language_option := main_scene.get("_language_option") as OptionButton
+	var resolution_option := main_scene.get("_resolution_option") as OptionButton
 	var fullscreen_check := main_scene.get("_fullscreen_check") as CheckButton
 	_check(settings_page != null, "settings page exists")
 	_check(language_option != null and language_option.item_count == 2, "settings language has exactly 2 options")
+	_check(resolution_option != null and resolution_option.item_count == 3, "settings resolution has exactly 3 options")
 	_check(fullscreen_check != null and fullscreen_check.visible, "settings fullscreen toggle is visible")
 
 	main_scene.call("_show_settings_page", "start")
@@ -569,12 +571,30 @@ func _check_settings_ui(main_scene: Node) -> void:
 	_check(_node_tree_has_text(main_scene.get("_start_page") as Node, "Single Player"), "English main menu text refreshes")
 	_check(_find_button_with_text(main_scene.get("_start_page") as Node, "Quit Game") != null, "English main exit button localizes")
 	_check(_node_tree_has_text(settings_page, "Settings"), "English settings page text refreshes")
+	_check(resolution_option != null and resolution_option.get_item_text(0) == "540×960 (1080p)", "English 1080p resolution label localizes")
+	_check(resolution_option != null and resolution_option.get_item_text(1) == "720×1280 (2K)", "English 2K resolution label localizes")
+	_check(resolution_option != null and resolution_option.get_item_text(2) == "1080×1920 (4K)", "English 4K resolution label localizes")
 	var active_settings: RefCounted = main_scene.get("_settings")
 	_check(active_settings != null and String(active_settings.get("locale")) == LAB_LOCALE_SCRIPT.LOCALE_EN, "English locale stored in lab settings")
 
-	main_scene.call("_on_fullscreen_toggled", true)
+	main_scene.call("_on_resolution_selected", 2)
+	await process_frame
+	var selected_size: Vector2i = active_settings.call("selected_window_size") if active_settings != null else Vector2i.ZERO
+	var selected_design_size: Vector2 = main_scene.call("design_viewport_size")
+	var selected_world_rect: Rect2 = main_scene.call("current_world_rect")
+	_check(active_settings != null and int(active_settings.get("resolution_preset_id")) == 2, "4K resolution stored in lab settings")
+	_check(selected_size == Vector2i(1080, 1920), "4K resolution maps to 1080x1920")
+	_check(selected_design_size == Vector2(1080.0, 1920.0), "runtime design viewport follows resolution setting")
+	_check(selected_world_rect.size.x > 990.0 and selected_world_rect.size.y > 1700.0, "runtime world rect scales for selected resolution")
 	var config := ConfigFile.new()
 	var load_error := config.load(SETTINGS_PATH)
+	_check(load_error == OK and int(config.get_value("settings", "resolution_preset_id", -1)) == 2, "resolution option writes settings file")
+	main_scene.call("_on_resolution_selected", 0)
+	await process_frame
+
+	main_scene.call("_on_fullscreen_toggled", true)
+	config = ConfigFile.new()
+	load_error = config.load(SETTINGS_PATH)
 	_check(load_error == OK and bool(config.get_value("settings", "fullscreen", false)), "fullscreen toggle writes settings file")
 
 	main_scene.call("_on_language_selected", 0)
@@ -582,6 +602,7 @@ func _check_settings_ui(main_scene: Node) -> void:
 	_check(_node_tree_has_text(main_scene.get("_start_page") as Node, "开始单人游戏"), "Chinese main menu text refreshes")
 	_check(_find_button_with_text(main_scene.get("_start_page") as Node, "退出游戏") != null, "Chinese main exit button localizes")
 	_check(_node_tree_has_text(settings_page, "设置"), "Chinese settings page text refreshes")
+	_check(resolution_option != null and resolution_option.get_item_text(0) == "540×960（适配 1080p）", "Chinese 1080p resolution label localizes")
 	main_scene.call("_on_settings_back_pressed")
 	for index in range(20):
 		await process_frame
