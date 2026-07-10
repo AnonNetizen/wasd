@@ -1,8 +1,8 @@
 extends SceneTree
 
 const ACTION_MOVE_RIGHT: String = "lab_move_right"
+const EXPECTED_MEMBRANE_CONTROL_POINT_COUNT: int = 24
 const EXPECTED_PROJECTILE_POOL_SIZE: int = 24
-const EXPECTED_SLIME_EDGE_LOBE_COUNT: int = 12
 const SCENE_PATH: String = "res://scenes/slime_room_shooter_3d.tscn"
 
 var _failed: bool = false
@@ -36,31 +36,59 @@ func _run_smoke() -> void:
 	_expect(scene.get_node_or_null("World3D/Room/Floor") is MeshInstance3D, "Room floor is missing.")
 	_expect(scene.get_node_or_null("World3D/Actors/Slime3D") is Node3D, "3D slime is missing.")
 	_expect(scene.get_node_or_null("World3D/AimMarker") is MeshInstance3D, "Mouse aim marker is missing.")
-	var slime_skirt := scene.get_node_or_null("World3D/Actors/Slime3D/SlimeVisual/Skirt") as Node3D
-	_expect(slime_skirt != null, "The node-built slime skirt is missing.")
-	if slime_skirt != null:
+	var membrane := scene.get_node_or_null("World3D/Actors/Slime3D/SlimeVisual/SlimeMembrane") as Node3D
+	var edge_rig := scene.get_node_or_null("World3D/Actors/Slime3D/SlimeVisual/SlimeMembrane/EdgeRig") as Node3D
+	var membrane_surface := scene.get_node_or_null("World3D/Actors/Slime3D/SlimeVisual/SlimeMembrane/Surface") as MeshInstance3D
+	var outline_shell := scene.get_node_or_null("World3D/Actors/Slime3D/SlimeVisual/SlimeMembrane/OutlineShell") as MeshInstance3D
+	_expect(membrane != null, "The continuous slime membrane is missing.")
+	_expect(edge_rig != null, "The membrane edge-control rig is missing.")
+	_expect(membrane_surface != null and membrane_surface.mesh is ArrayMesh, "The runtime membrane ArrayMesh is missing.")
+	_expect(outline_shell != null and outline_shell.mesh is ArrayMesh, "The continuous outline shell is missing.")
+	if edge_rig != null:
 		_expect(
-			slime_skirt.get_child_count() == EXPECTED_SLIME_EDGE_LOBE_COUNT,
-			"Slime skirt should contain %d edge lobes, got %d."
-			% [EXPECTED_SLIME_EDGE_LOBE_COUNT, slime_skirt.get_child_count()]
+			edge_rig.get_child_count() == EXPECTED_MEMBRANE_CONTROL_POINT_COUNT,
+			"Slime membrane should contain %d edge controls, got %d."
+			% [EXPECTED_MEMBRANE_CONTROL_POINT_COUNT, edge_rig.get_child_count()]
 		)
+	var runtime_control_point_count: int = scene.call("debug_membrane_control_point_count")
+	_expect(
+		runtime_control_point_count == EXPECTED_MEMBRANE_CONTROL_POINT_COUNT,
+		"Runtime membrane should report %d edge controls, got %d."
+		% [EXPECTED_MEMBRANE_CONTROL_POINT_COUNT, runtime_control_point_count]
+	)
 	var pool_size: int = scene.call("debug_projectile_pool_size")
 	_expect(pool_size == EXPECTED_PROJECTILE_POOL_SIZE, "Projectile pool size should be %d, got %d." % [EXPECTED_PROJECTILE_POOL_SIZE, pool_size])
 
 	var start_position: Vector3 = scene.call("debug_player_position")
+	var idle_deformation: float = scene.call("debug_membrane_deformation")
 	Input.action_press(ACTION_MOVE_RIGHT, 1.0)
 	for _frame in range(12):
 		await physics_frame
 	Input.action_release(ACTION_MOVE_RIGHT)
 	var moved_position: Vector3 = scene.call("debug_player_position")
+	var moving_deformation: float = scene.call("debug_membrane_deformation")
 	_expect(start_position.distance_to(moved_position) > 0.20, "WASD/InputMap movement did not move the slime.")
+	_expect(
+		moving_deformation > idle_deformation + 0.015,
+		"Movement did not visibly deform the spring membrane (idle %.3f, moving %.3f)."
+		% [idle_deformation, moving_deformation]
+	)
 
 	var target_position := Vector3(5.0, 0.0, -4.0)
 	var raw_expected: Vector3 = target_position - moved_position
 	var expected_direction := Vector3(raw_expected.x, 0.0, raw_expected.z).normalized()
+	for _frame in range(45):
+		await physics_frame
+	var settled_deformation: float = scene.call("debug_membrane_deformation")
 	scene.call("debug_fire_at_world", target_position)
 	var fired_direction: Vector3 = scene.call("debug_last_fired_direction")
+	var firing_deformation: float = scene.call("debug_membrane_deformation")
 	_expect(fired_direction.dot(expected_direction) > 0.999, "Projectile direction does not match the requested mouse-world aim direction.")
+	_expect(
+		firing_deformation > settled_deformation + 0.04,
+		"Firing did not create a local membrane bud (settled %.3f, firing %.3f)."
+		% [settled_deformation, firing_deformation]
+	)
 	for _shot in range(EXPECTED_PROJECTILE_POOL_SIZE):
 		scene.call("debug_fire_at_world", target_position)
 	await physics_frame
@@ -75,5 +103,5 @@ func _run_smoke() -> void:
 	if _failed:
 		quit(1)
 		return
-	print("[SlimeRoomShooter3DSmoke] Passed node-built slime, movement, aim, room, and projectile-pool wrap checks.")
+	print("[SlimeRoomShooter3DSmoke] Passed continuous membrane, movement/fire deformation, aim, room, and projectile-pool wrap checks.")
 	quit(0)

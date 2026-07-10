@@ -4,7 +4,8 @@ const INDEX_SCENE_PATH: String = "res://scenes/test_lab_index.tscn"
 const OUTPUT_SCENE_PATH: String = "res://scenes/slime_room_shooter_3d.tscn"
 const PROJECTILE_POOL_SIZE: int = 24
 const SCENE_SCRIPT_PATH: String = "res://scripts/slime_room_shooter_3d.gd"
-const SLIME_EDGE_LOBE_COUNT: int = 12
+const SLIME_CONTROL_POINT_COUNT: int = 24
+const SLIME_MEMBRANE_SCRIPT_PATH: String = "res://scripts/slime_membrane_3d.gd"
 
 
 func _initialize() -> void:
@@ -281,141 +282,146 @@ func _add_slime(world_root: Node3D) -> void:
 	slime_visual.name = "SlimeVisual"
 	slime_root.add_child(slime_visual)
 
-	var seam_material: StandardMaterial3D = _make_material(
-		Color(0.19, 0.70, 0.28),
-		Color(0.07, 0.30, 0.09),
-		0.05,
-		0.50
+	var membrane_material: ShaderMaterial = _make_slime_membrane_material()
+	var outline_material: ShaderMaterial = _make_slime_outline_material()
+	var core_material: StandardMaterial3D = _make_material(
+		Color(0.03, 0.24, 0.08, 1.0),
+		Color(0.02, 0.12, 0.04),
+		0.16,
+		0.34
 	)
-	var slime_material: StandardMaterial3D = _make_material(
-		Color(0.34, 0.88, 0.39),
-		Color(0.08, 0.38, 0.10),
-		0.05,
-		0.50
-	)
-	var dome_material: StandardMaterial3D = _make_material(
-		Color(0.40, 0.94, 0.44),
-		Color(0.10, 0.40, 0.12),
-		0.08,
-		0.45
-	)
-	var eye_material: StandardMaterial3D = _make_material(Color(0.014, 0.038, 0.024), Color.BLACK, 0.0, 0.52)
-	var highlight_material: StandardMaterial3D = _make_material(Color(0.92, 1.0, 0.88), Color(0.45, 1.0, 0.48), 0.32, 0.24)
+	var eye_material: StandardMaterial3D = _make_material(Color(0.94, 1.0, 0.95), Color(0.30, 0.72, 0.34), 0.12, 0.24)
+	var pupil_material: StandardMaterial3D = _make_material(Color(0.014, 0.038, 0.024), Color.BLACK, 0.0, 0.48)
+	var highlight_material: StandardMaterial3D = _make_material(Color(1.0, 1.0, 0.88), Color(0.70, 1.0, 0.42), 0.48, 0.18)
 	var cheek_material: StandardMaterial3D = _make_material(Color(1.0, 0.42, 0.55), Color(0.35, 0.05, 0.08), 0.18, 0.35)
 
-	var seam_core_mesh := SphereMesh.new()
-	seam_core_mesh.radius = 0.68
-	seam_core_mesh.height = 1.36
-	seam_core_mesh.radial_segments = 24
-	seam_core_mesh.rings = 12
+	_add_slime_membrane(slime_visual, membrane_material, outline_material)
+
+	var core_mesh := SphereMesh.new()
+	core_mesh.radius = 0.43
+	core_mesh.height = 0.86
+	core_mesh.radial_segments = 24
+	core_mesh.rings = 12
 	_add_mesh(
 		slime_visual,
-		"SeamCore",
-		seam_core_mesh,
-		seam_material,
-		Vector3(0.0, 0.39, 0.0),
-		Vector3(1.02, 0.60, 1.02)
+		"InnerCore",
+		core_mesh,
+		core_material,
+		Vector3(0.0, 0.46, 0.01),
+		Vector3(1.0, 0.88, 1.0)
 	)
 
-	var dome_mesh := SphereMesh.new()
-	dome_mesh.radius = 0.57
-	dome_mesh.height = 1.14
-	dome_mesh.radial_segments = 24
-	dome_mesh.rings = 12
-	_add_mesh(
-		slime_visual,
-		"UpperDome",
-		dome_mesh,
-		dome_material,
-		Vector3(0.0, 0.67, 0.02),
-		Vector3(1.0, 0.76, 1.0)
-	)
+	_add_slime_face(slime_visual, eye_material, pupil_material, highlight_material, cheek_material)
 
-	_add_slime_edge_lobes(slime_visual, slime_material)
-	_add_slime_face(slime_visual, eye_material, highlight_material, cheek_material)
+	var aim_fin_material: StandardMaterial3D = _make_material(
+		Color(0.96, 1.0, 0.52),
+		Color(0.72, 1.0, 0.20),
+		1.45,
+		0.18
+	)
+	_add_box(
+		slime_root,
+		"AimFin",
+		Vector3(0.14, 0.07, 0.48),
+		Vector3(0.0, 0.42, -0.77),
+		aim_fin_material
+	)
 
 	var muzzle := Marker3D.new()
 	muzzle.name = "Muzzle"
-	muzzle.position = Vector3(0.0, 0.60, -0.92)
+	muzzle.position = Vector3(0.0, 0.70, -0.98)
 	slime_root.add_child(muzzle)
 
 
-func _add_slime_edge_lobes(slime_visual: Node3D, slime_material: StandardMaterial3D) -> void:
-	var skirt := Node3D.new()
-	skirt.name = "Skirt"
-	slime_visual.add_child(skirt)
+func _add_slime_membrane(
+	slime_visual: Node3D,
+	membrane_material: ShaderMaterial,
+	outline_material: ShaderMaterial
+) -> void:
+	var membrane := Node3D.new()
+	membrane.name = "SlimeMembrane"
+	var membrane_script := load(SLIME_MEMBRANE_SCRIPT_PATH) as Script
+	if membrane_script == null:
+		push_error("Failed to load slime membrane script: %s" % SLIME_MEMBRANE_SCRIPT_PATH)
+	else:
+		membrane.set_script(membrane_script)
+	slime_visual.add_child(membrane)
 
-	var lobe_mesh := SphereMesh.new()
-	lobe_mesh.radius = 0.33
-	lobe_mesh.height = 0.66
-	lobe_mesh.radial_segments = 16
-	lobe_mesh.rings = 8
-	for index in range(SLIME_EDGE_LOBE_COUNT):
-		var angle: float = TAU * float(index) / float(SLIME_EDGE_LOBE_COUNT)
-		var size_step: float = float((index * 7) % 5) - 2.0
-		var size_multiplier: float = 1.0 + size_step * 0.027
-		var radius_offset: float = sin(angle * 3.0 + float(index) * 0.41) * 0.035
-		var height_offset: float = cos(angle * 4.0 + float(index) * 0.23) * 0.022
-		var ring_radius: float = 0.62 + radius_offset
-		var lobe_position := Vector3(
-			cos(angle) * ring_radius,
-			0.25 + height_offset,
-			sin(angle) * ring_radius
-		)
-		var lobe_scale := Vector3(
-			0.90 * size_multiplier,
-			0.62 * (1.0 - size_step * 0.012),
-			1.18 * size_multiplier
-		)
-		var lobe: MeshInstance3D = _add_mesh(
-			skirt,
-			"EdgeLobe%02d" % index,
-			lobe_mesh,
-			slime_material,
-			lobe_position,
-			lobe_scale
-		)
-		lobe.rotation.y = -angle
+	var placeholder_mesh := SphereMesh.new()
+	placeholder_mesh.radius = 0.76
+	placeholder_mesh.height = 1.08
+	placeholder_mesh.radial_segments = 24
+	placeholder_mesh.rings = 12
+
+	var surface := MeshInstance3D.new()
+	surface.name = "Surface"
+	surface.mesh = placeholder_mesh
+	surface.material_override = membrane_material
+	membrane.add_child(surface)
+
+	var outline_shell := MeshInstance3D.new()
+	outline_shell.name = "OutlineShell"
+	outline_shell.mesh = placeholder_mesh
+	outline_shell.material_override = outline_material
+	outline_shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	membrane.add_child(outline_shell)
+
+	var edge_rig := Node3D.new()
+	edge_rig.name = "EdgeRig"
+	membrane.add_child(edge_rig)
+	for index in range(SLIME_CONTROL_POINT_COUNT):
+		var ratio: float = float(index) / float(SLIME_CONTROL_POINT_COUNT)
+		var angle: float = ratio * TAU
+		var radius: float = 0.76 + sin(angle * 3.0 + 0.35) * 0.028
+		var edge_point := Marker3D.new()
+		edge_point.name = "EdgePoint%02d" % index
+		edge_point.position = Vector3(cos(angle) * radius, 0.18, sin(angle) * radius)
+		edge_rig.add_child(edge_point)
 
 
 func _add_slime_face(
 	slime_visual: Node3D,
 	eye_material: StandardMaterial3D,
+	pupil_material: StandardMaterial3D,
 	highlight_material: StandardMaterial3D,
 	cheek_material: StandardMaterial3D
 ) -> void:
 	var face_root := Node3D.new()
 	face_root.name = "FaceRig"
+	face_root.position = Vector3(0.0, 0.0, -0.22)
 	slime_visual.add_child(face_root)
 
 	var eye_mesh := SphereMesh.new()
-	eye_mesh.radius = 0.115
-	eye_mesh.height = 0.23
-	eye_mesh.radial_segments = 16
-	eye_mesh.rings = 8
-	_add_mesh(face_root, "LeftEye", eye_mesh, eye_material, Vector3(-0.23, 0.75, -0.56), Vector3(0.84, 1.18, 0.46))
-	_add_mesh(face_root, "RightEye", eye_mesh, eye_material, Vector3(0.23, 0.75, -0.56), Vector3(0.84, 1.18, 0.46))
+	eye_mesh.radius = 0.16
+	eye_mesh.height = 0.32
+	eye_mesh.radial_segments = 20
+	eye_mesh.rings = 10
+	_add_mesh(face_root, "LeftEye", eye_mesh, eye_material, Vector3(-0.25, 0.73, -0.52), Vector3(0.92, 1.08, 0.62))
+	_add_mesh(face_root, "RightEye", eye_mesh, eye_material, Vector3(0.25, 0.73, -0.52), Vector3(0.92, 1.08, 0.62))
+
+	var pupil_mesh := SphereMesh.new()
+	pupil_mesh.radius = 0.075
+	pupil_mesh.height = 0.15
+	pupil_mesh.radial_segments = 16
+	pupil_mesh.rings = 8
+	_add_mesh(face_root, "LeftPupil", pupil_mesh, pupil_material, Vector3(-0.25, 0.73, -0.655), Vector3(0.88, 1.10, 0.50))
+	_add_mesh(face_root, "RightPupil", pupil_mesh, pupil_material, Vector3(0.25, 0.73, -0.655), Vector3(0.88, 1.10, 0.50))
 
 	var highlight_mesh := SphereMesh.new()
-	highlight_mesh.radius = 0.034
-	highlight_mesh.height = 0.068
-	_add_mesh(face_root, "LeftEyeHighlight", highlight_mesh, highlight_material, Vector3(-0.255, 0.795, -0.625))
-	_add_mesh(face_root, "RightEyeHighlight", highlight_mesh, highlight_material, Vector3(0.205, 0.795, -0.625))
+	highlight_mesh.radius = 0.028
+	highlight_mesh.height = 0.056
+	_add_mesh(face_root, "LeftEyeHighlight", highlight_mesh, highlight_material, Vector3(-0.275, 0.765, -0.705))
+	_add_mesh(face_root, "RightEyeHighlight", highlight_mesh, highlight_material, Vector3(0.225, 0.765, -0.705))
 
 	var cheek_mesh := SphereMesh.new()
-	cheek_mesh.radius = 0.072
-	cheek_mesh.height = 0.144
-	_add_mesh(face_root, "LeftCheek", cheek_mesh, cheek_material, Vector3(-0.42, 0.63, -0.54), Vector3(1.12, 0.56, 0.42))
-	_add_mesh(face_root, "RightCheek", cheek_mesh, cheek_material, Vector3(0.42, 0.63, -0.54), Vector3(1.12, 0.56, 0.42))
+	cheek_mesh.radius = 0.085
+	cheek_mesh.height = 0.17
+	_add_mesh(face_root, "LeftCheek", cheek_mesh, cheek_material, Vector3(-0.43, 0.54, -0.57), Vector3(1.15, 0.58, 0.45))
+	_add_mesh(face_root, "RightCheek", cheek_mesh, cheek_material, Vector3(0.43, 0.54, -0.57), Vector3(1.15, 0.58, 0.45))
 
-	var mouth_mesh := SphereMesh.new()
-	mouth_mesh.radius = 0.038
-	mouth_mesh.height = 0.076
-	mouth_mesh.radial_segments = 12
-	mouth_mesh.rings = 6
-	_add_mesh(face_root, "MouthLeft", mouth_mesh, eye_material, Vector3(-0.070, 0.615, -0.585), Vector3(1.05, 0.72, 0.42))
-	_add_mesh(face_root, "MouthCenter", mouth_mesh, eye_material, Vector3(0.0, 0.590, -0.595), Vector3(1.05, 0.72, 0.42))
-	_add_mesh(face_root, "MouthRight", mouth_mesh, eye_material, Vector3(0.070, 0.615, -0.585), Vector3(1.05, 0.72, 0.42))
+	var mouth_mesh := BoxMesh.new()
+	mouth_mesh.size = Vector3(0.22, 0.04, 0.04)
+	_add_mesh(face_root, "Mouth", mouth_mesh, pupil_material, Vector3(0.0, 0.50, -0.665))
 
 
 func _add_target_pod(parent: Node3D, pod_name: String, position: Vector3, accent_color: Color) -> void:
@@ -503,6 +509,58 @@ func _make_material(
 		material.emission_enabled = true
 		material.emission = emission_color
 		material.emission_energy_multiplier = emission_energy
+	return material
+
+
+func _make_slime_membrane_material() -> ShaderMaterial:
+	var shader := Shader.new()
+	shader.code = """
+shader_type spatial;
+render_mode cull_back;
+
+uniform vec4 body_color : source_color = vec4(0.018, 0.21, 0.12, 1.0);
+uniform vec4 inner_color : source_color = vec4(0.004, 0.052, 0.028, 1.0);
+uniform vec4 rim_color : source_color = vec4(0.42, 1.0, 0.46, 1.0);
+
+void fragment() {
+	float fresnel = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 2.15);
+	ALBEDO = mix(inner_color.rgb, body_color.rgb, 0.72 + fresnel * 0.22);
+	ROUGHNESS = 0.34;
+	SPECULAR = 0.48;
+	EMISSION = body_color.rgb * 0.075 + rim_color.rgb * (0.006 + fresnel * 0.06);
+}
+"""
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	material.set_shader_parameter("body_color", Color(0.018, 0.21, 0.12, 1.0))
+	material.set_shader_parameter("inner_color", Color(0.004, 0.052, 0.028, 1.0))
+	material.set_shader_parameter("rim_color", Color(0.42, 1.0, 0.46, 1.0))
+	return material
+
+
+func _make_slime_outline_material() -> ShaderMaterial:
+	var shader := Shader.new()
+	shader.code = """
+shader_type spatial;
+render_mode unshaded, cull_front, depth_draw_opaque;
+
+uniform vec4 outline_color : source_color = vec4(0.72, 1.0, 0.52, 1.0);
+uniform float outline_width = 0.05;
+
+void vertex() {
+	VERTEX += NORMAL * outline_width;
+}
+
+void fragment() {
+	ALBEDO = outline_color.rgb;
+	EMISSION = outline_color.rgb * 0.24;
+}
+"""
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	material.render_priority = -1
+	material.set_shader_parameter("outline_color", Color(0.72, 1.0, 0.52, 1.0))
+	material.set_shader_parameter("outline_width", 0.05)
 	return material
 
 

@@ -23,15 +23,12 @@ const SCREEN_AXIS_SAMPLE_OFFSET: float = 64.0
 @onready var _muzzle: Marker3D = get_node_or_null("World3D/Actors/Slime3D/Muzzle") as Marker3D
 @onready var _projectiles_root: Node3D = get_node_or_null("World3D/Projectiles") as Node3D
 @onready var _shot_count_label: Label = get_node_or_null("Overlay/Panel/Margin/Rows/ShotCount") as Label
+@onready var _slime_membrane: Node3D = get_node_or_null("World3D/Actors/Slime3D/SlimeVisual/SlimeMembrane") as Node3D
 @onready var _slime_root: Node3D = get_node_or_null("World3D/Actors/Slime3D") as Node3D
-@onready var _slime_skirt: Node3D = get_node_or_null("World3D/Actors/Slime3D/SlimeVisual/Skirt") as Node3D
 @onready var _slime_visual: Node3D = get_node_or_null("World3D/Actors/Slime3D/SlimeVisual") as Node3D
 
 var _aim_direction := Vector3.FORWARD
 var _animation_time: float = 0.0
-var _edge_lobe_base_positions: Array[Vector3] = []
-var _edge_lobe_base_scales: Array[Vector3] = []
-var _edge_lobes: Array[MeshInstance3D] = []
 var _fire_cooldown: float = 0.0
 var _last_fired_direction := Vector3.FORWARD
 var _movement_strength: float = 0.0
@@ -45,7 +42,6 @@ var _shot_count: int = 0
 
 func _ready() -> void:
 	_ensure_input_actions()
-	_collect_slime_edge_lobes()
 	_collect_projectile_pool()
 	if _back_button != null:
 		_back_button.pressed.connect(_return_to_index)
@@ -86,6 +82,18 @@ func debug_fire_at_world(world_position: Vector3) -> void:
 
 func debug_last_fired_direction() -> Vector3:
 	return _last_fired_direction
+
+
+func debug_membrane_control_point_count() -> int:
+	if _slime_membrane == null or not _slime_membrane.has_method("control_point_count"):
+		return 0
+	return int(_slime_membrane.call("control_point_count"))
+
+
+func debug_membrane_deformation() -> float:
+	if _slime_membrane == null or not _slime_membrane.has_method("deformation_amount"):
+		return 0.0
+	return float(_slime_membrane.call("deformation_amount"))
 
 
 func debug_player_position() -> Vector3:
@@ -145,21 +153,6 @@ func _collect_projectile_pool() -> void:
 	_projectile_lifetimes.resize(_projectile_nodes.size())
 
 
-func _collect_slime_edge_lobes() -> void:
-	_edge_lobes.clear()
-	_edge_lobe_base_positions.clear()
-	_edge_lobe_base_scales.clear()
-	if _slime_skirt == null:
-		return
-
-	for child in _slime_skirt.get_children():
-		if child is MeshInstance3D:
-			var edge_lobe := child as MeshInstance3D
-			_edge_lobes.append(edge_lobe)
-			_edge_lobe_base_positions.append(edge_lobe.position)
-			_edge_lobe_base_scales.append(edge_lobe.scale)
-
-
 func _deactivate_projectile(index: int) -> void:
 	_projectile_nodes[index].visible = false
 	_projectile_lifetimes[index] = 0.0
@@ -184,7 +177,12 @@ func _fire_projectile() -> void:
 
 	var projectile_index: int = _projectile_cursor
 	var projectile: MeshInstance3D = _projectile_nodes[projectile_index]
-	projectile.global_position = _muzzle.global_position if _muzzle != null else _slime_root.global_position
+	var spawn_position: Vector3 = _muzzle.global_position if _muzzle != null else _slime_root.global_position
+	if _slime_membrane != null and _slime_membrane.has_method("emit_surface_bud"):
+		var membrane_surface: Variant = _slime_membrane.call("emit_surface_bud", _aim_direction)
+		if membrane_surface is Vector3:
+			spawn_position = membrane_surface
+	projectile.global_position = spawn_position
 	projectile.scale = Vector3.ONE
 	projectile.visible = true
 	_projectile_directions[projectile_index] = _aim_direction
@@ -274,18 +272,16 @@ func _update_player(delta: float) -> void:
 	if _slime_root == null:
 		return
 
+	var start_position: Vector3 = _slime_root.position
 	var screen_input := Vector2.ZERO
 	screen_input.y += Input.get_action_strength(ACTION_MOVE_FORWARD)
 	screen_input.y -= Input.get_action_strength(ACTION_MOVE_BACK)
 	screen_input.x -= Input.get_action_strength(ACTION_MOVE_LEFT)
 	screen_input.x += Input.get_action_strength(ACTION_MOVE_RIGHT)
 	_movement_strength = minf(1.0, screen_input.length())
-	if screen_input.length_squared() <= 0.0:
-		return
-
-	var movement_direction: Vector3 = _screen_relative_ground_direction(screen_input.normalized())
-	var movement: Vector3 = movement_direction * MOVE_SPEED * delta
-	_slime_root.position += movement
+	if screen_input.length_squared() > 0.0:
+		var movement_direction: Vector3 = _screen_relative_ground_direction(screen_input.normalized())
+		_slime_root.position += movement_direction * MOVE_SPEED * delta
 	_slime_root.position.x = clampf(
 		_slime_root.position.x,
 		-ROOM_HALF_EXTENTS.x + PLAYER_MARGIN,
@@ -296,6 +292,11 @@ func _update_player(delta: float) -> void:
 		-ROOM_HALF_EXTENTS.y + PLAYER_MARGIN,
 		ROOM_HALF_EXTENTS.y - PLAYER_MARGIN
 	)
+	if _slime_membrane != null and _slime_membrane.has_method("set_drive_velocity"):
+		var actual_velocity: Vector3 = Vector3.ZERO
+		if delta > 0.0001:
+			actual_velocity = (_slime_root.position - start_position) / delta
+		_slime_membrane.call("set_drive_velocity", actual_velocity)
 
 
 func _update_projectiles(delta: float) -> void:
@@ -321,37 +322,6 @@ func _update_shot_count_label() -> void:
 		_shot_count_label.text = "Shots fired: %d" % _shot_count
 
 
-func _update_slime_edge_lobes(animation_speed: float, blend: float) -> void:
-	if _edge_lobes.is_empty():
-		return
-
-	var outward_amplitude: float = lerpf(0.007, 0.034, _movement_strength)
-	var vertical_amplitude: float = lerpf(0.010, 0.046, _movement_strength)
-	var scale_amplitude: float = lerpf(0.018, 0.050, _movement_strength)
-	for index in range(_edge_lobes.size()):
-		var phase: float = (
-			TAU * float(index) / float(_edge_lobes.size())
-			+ sin(float(index) * 2.17) * 0.35
-		)
-		var lobe_wave: float = sin(_animation_time * animation_speed + phase)
-		var base_position: Vector3 = _edge_lobe_base_positions[index]
-		var radial_direction := Vector3(base_position.x, 0.0, base_position.z).normalized()
-		var target_position := (
-			base_position
-			+ radial_direction * lobe_wave * outward_amplitude
-			+ Vector3.UP * lobe_wave * vertical_amplitude
-		)
-		var scale_pulse: float = lobe_wave * scale_amplitude
-		var target_scale: Vector3 = _edge_lobe_base_scales[index] * Vector3(
-			1.0 + scale_pulse,
-			1.0 - scale_pulse * 1.25,
-			1.0 + scale_pulse
-		)
-		var edge_lobe: MeshInstance3D = _edge_lobes[index]
-		edge_lobe.position = edge_lobe.position.lerp(target_position, blend)
-		edge_lobe.scale = edge_lobe.scale.lerp(target_scale, blend)
-
-
 func _update_slime_animation(delta: float) -> void:
 	if _slime_visual == null:
 		return
@@ -366,6 +336,5 @@ func _update_slime_animation(delta: float) -> void:
 	)
 	var blend: float = minf(1.0, delta * 12.0)
 	_slime_visual.scale = _slime_visual.scale.lerp(target_scale, blend)
-	_update_slime_edge_lobes(animation_speed, blend)
 	_recoil = move_toward(_recoil, 0.0, delta * 1.8)
 	_slime_visual.position = Vector3(0.0, absf(wave) * 0.025 * _movement_strength, _recoil)
