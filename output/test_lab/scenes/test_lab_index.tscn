@@ -1,6 +1,6 @@
-[gd_scene format=3 uid="uid://do7tf0sjt17wh"]
+[gd_scene format=3]
 
-[ext_resource type="Script" uid="uid://r3wmkoq8sdbb" path="res://scripts/test_lab_index.gd" id="1_index"]
+[ext_resource type="Script" path="res://scripts/test_lab_index.gd" id="1_index"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 bg_color = Color(0.105, 0.083, 0.091, 0.96)
@@ -84,9 +84,9 @@ color = Color(0.045, 0.04, 0.048, 1)
 layout_mode = 1
 anchors_preset = -1
 anchor_left = 0.28
-anchor_top = 0.14
+anchor_top = 0.07
 anchor_right = 0.72
-anchor_bottom = 0.86
+anchor_bottom = 0.93
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
 [node name="Margin" type="MarginContainer" parent="Panel" unique_id=2030412502]
@@ -102,69 +102,80 @@ theme_override_constants/separation = 14
 
 [node name="Title" type="Label" parent="Panel/Margin/Rows" unique_id=319260180]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.83, 0.64, 1)
 theme_override_font_sizes/font_size = 30
+theme_override_colors/font_color = Color(0.95, 0.83, 0.64, 1)
 text = "WASD Test Lab"
 horizontal_alignment = 1
 
 [node name="Subtitle" type="Label" parent="Panel/Margin/Rows" unique_id=408347684]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.68, 0.6, 0.55, 1)
 theme_override_font_sizes/font_size = 15
+theme_override_colors/font_color = Color(0.68, 0.6, 0.55, 1)
 text = "Small Godot experiments"
 horizontal_alignment = 1
 
-[node name="Orthographic3DButton" type="Button" parent="Panel/Margin/Rows"]
+[node name="Orthographic3DButton" type="Button" parent="Panel/Margin/Rows" unique_id=533896734]
 custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.86, 0.74, 1)
-theme_override_font_sizes/font_size = 18
 theme_override_styles/normal = SubResource("StyleBoxFlat_button_normal")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
 theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
 theme_override_styles/focus = SubResource("StyleBoxFlat_button_focus")
+theme_override_colors/font_color = Color(0.95, 0.86, 0.74, 1)
+theme_override_font_sizes/font_size = 18
 text = "3D Orthographic Camera Test"
+
+[node name="SlimeRoomShooterButton" type="Button" parent="Panel/Margin/Rows" unique_id=1861407790]
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_button_normal")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/focus = SubResource("StyleBoxFlat_button_focus")
+theme_override_colors/font_color = Color(0.95, 0.86, 0.74, 1)
+theme_override_font_sizes/font_size = 18
+text = "3D Slime Room Shooter"
 
 [node name="AiBitmapButton" type="Button" parent="Panel/Margin/Rows" unique_id=652010011]
 custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.86, 0.74, 1)
-theme_override_font_sizes/font_size = 18
 theme_override_styles/normal = SubResource("StyleBoxFlat_button_normal")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
 theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
 theme_override_styles/focus = SubResource("StyleBoxFlat_button_focus")
+theme_override_colors/font_color = Color(0.95, 0.86, 0.74, 1)
+theme_override_font_sizes/font_size = 18
 text = "AI Bitmap Button Test"
 
 [node name="NativeButton" type="Button" parent="Panel/Margin/Rows" unique_id=1157500906]
 custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.86, 0.74, 1)
-theme_override_font_sizes/font_size = 18
 theme_override_styles/normal = SubResource("StyleBoxFlat_button_normal")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
 theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
 theme_override_styles/focus = SubResource("StyleBoxFlat_button_focus")
+theme_override_colors/font_color = Color(0.95, 0.86, 0.74, 1)
+theme_override_font_sizes/font_size = 18
 text = "Native UI Button Scene"
 
 [node name="CompareButton" type="Button" parent="Panel/Margin/Rows" unique_id=303305573]
 custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.86, 0.74, 1)
-theme_override_font_sizes/font_size = 18
 theme_override_styles/normal = SubResource("StyleBoxFlat_button_normal")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
 theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
 theme_override_styles/focus = SubResource("StyleBoxFlat_button_focus")
+theme_override_colors/font_color = Color(0.95, 0.86, 0.74, 1)
+theme_override_font_sizes/font_size = 18
 text = "SVG / Native Button Compare"
 
 [node name="CodeButton" type="Button" parent="Panel/Margin/Rows" unique_id=2146700621]
 custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.86, 0.74, 1)
-theme_override_font_sizes/font_size = 18
 theme_override_styles/normal = SubResource("StyleBoxFlat_button_normal")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
 theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
 theme_override_styles/focus = SubResource("StyleBoxFlat_button_focus")
+theme_override_colors/font_color = Color(0.95, 0.86, 0.74, 1)
+theme_override_font_sizes/font_size = 18
 text = "Code Button Preview"
