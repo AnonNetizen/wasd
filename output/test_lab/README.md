@@ -22,7 +22,7 @@
 ## 当前实验
 
 - `orthographic_3d_test.tscn`：3D 正交美术切片。摄像机使用 45 度 yaw 与 30 度仰角，让 XZ 平面的等距方格在屏幕上接近 2:1 菱形；场景包含可移动玩家胶囊、鼠标瞄准、低矮缓存箱、墙体、柱子、信标、分组网格、外场底板、程序天空、远景背板与局部点光，用于观察真 3D 深度遮挡、灯光和当前 2D 菱形地图方案的差异。场景节点已保存进 `.tscn`，可直接在编辑器里选择和调整；`create_orthographic_3d_test_scene.gd` 只用于重新生成该测试场景。
-- `slime_room_shooter_3d.tscn`：3D 史莱姆房间射击实验。WASD / 方向键控制史莱姆在房间内移动，鼠标射线投射到 XZ 地面决定朝向，按住鼠标左键使用 24 发轻量对象池连续射击；包含史莱姆挤压回弹、后坐力、地面瞄准点、透视相机、房间墙体 / 网格和发光目标柱。`slime_room_shooter_3d_smoke.gd` 覆盖移动、瞄准方向与池化发射，`capture_slime_room_shooter_3d.gd` 生成预览截图；`create_slime_room_shooter_3d_scene.gd` 用于重新生成场景并登记入口。
+- `slime_room_shooter_3d.tscn`：3D 史莱姆房间射击实验。WASD / 方向键控制史莱姆在房间内移动，鼠标射线投射到 XZ 地面决定朝向，按住鼠标左键使用 24 发轻量对象池连续射击；史莱姆轮廓由 12 个独立 `EdgeLobe` 节点围成参差裙边，每个节点以错相节奏独立起伏，再叠加整体挤压回弹和射击后坐力。场景还包含地面瞄准点、透视相机、房间墙体 / 网格和发光目标柱。`slime_room_shooter_3d_smoke.gd` 覆盖移动、瞄准方向与池化发射，`capture_slime_room_shooter_3d.gd` 生成预览截图；`create_slime_room_shooter_3d_scene.gd` 用于重新生成场景并登记入口。
 
 ## 位图 UI 素材注意事项
 

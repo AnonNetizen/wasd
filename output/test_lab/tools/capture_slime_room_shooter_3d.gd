@@ -21,8 +21,8 @@ func _capture() -> void:
 	for _frame in range(10):
 		await process_frame
 
-	scene.call("debug_set_player_position", Vector3(-1.8, 0.0, -1.4))
-	var aim_target := Vector3(5.4, 0.0, 3.4)
+	scene.call("debug_set_player_position", Vector3(-1.2, 0.0, -1.4))
+	var aim_target := Vector3(3.0, 0.0, 4.4)
 	for _shot in range(5):
 		scene.call("debug_fire_at_world", aim_target)
 		for _frame in range(3):
@@ -31,6 +31,9 @@ func _capture() -> void:
 
 	for _frame in range(3):
 		await process_frame
+	RenderingServer.force_draw(true)
+	RenderingServer.force_sync()
+	await process_frame
 	var viewport_texture: ViewportTexture = root.get_texture()
 	var image: Image = viewport_texture.get_image()
 	var absolute_path: String = ProjectSettings.globalize_path(SCREENSHOT_PATH)

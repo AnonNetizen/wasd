@@ -2,6 +2,7 @@ extends SceneTree
 
 const ACTION_MOVE_RIGHT: String = "lab_move_right"
 const EXPECTED_PROJECTILE_POOL_SIZE: int = 24
+const EXPECTED_SLIME_EDGE_LOBE_COUNT: int = 12
 const SCENE_PATH: String = "res://scenes/slime_room_shooter_3d.tscn"
 
 var _failed: bool = false
@@ -35,6 +36,14 @@ func _run_smoke() -> void:
 	_expect(scene.get_node_or_null("World3D/Room/Floor") is MeshInstance3D, "Room floor is missing.")
 	_expect(scene.get_node_or_null("World3D/Actors/Slime3D") is Node3D, "3D slime is missing.")
 	_expect(scene.get_node_or_null("World3D/AimMarker") is MeshInstance3D, "Mouse aim marker is missing.")
+	var slime_skirt := scene.get_node_or_null("World3D/Actors/Slime3D/SlimeVisual/Skirt") as Node3D
+	_expect(slime_skirt != null, "The node-built slime skirt is missing.")
+	if slime_skirt != null:
+		_expect(
+			slime_skirt.get_child_count() == EXPECTED_SLIME_EDGE_LOBE_COUNT,
+			"Slime skirt should contain %d edge lobes, got %d."
+			% [EXPECTED_SLIME_EDGE_LOBE_COUNT, slime_skirt.get_child_count()]
+		)
 	var pool_size: int = scene.call("debug_projectile_pool_size")
 	_expect(pool_size == EXPECTED_PROJECTILE_POOL_SIZE, "Projectile pool size should be %d, got %d." % [EXPECTED_PROJECTILE_POOL_SIZE, pool_size])
 
@@ -66,5 +75,5 @@ func _run_smoke() -> void:
 	if _failed:
 		quit(1)
 		return
-	print("[SlimeRoomShooter3DSmoke] Passed movement, aim, room, and projectile-pool wrap checks.")
+	print("[SlimeRoomShooter3DSmoke] Passed node-built slime, movement, aim, room, and projectile-pool wrap checks.")
 	quit(0)

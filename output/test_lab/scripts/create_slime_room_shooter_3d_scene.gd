@@ -4,6 +4,7 @@ const INDEX_SCENE_PATH: String = "res://scenes/test_lab_index.tscn"
 const OUTPUT_SCENE_PATH: String = "res://scenes/slime_room_shooter_3d.tscn"
 const PROJECTILE_POOL_SIZE: int = 24
 const SCENE_SCRIPT_PATH: String = "res://scripts/slime_room_shooter_3d.gd"
+const SLIME_EDGE_LOBE_COUNT: int = 12
 
 
 func _initialize() -> void:
@@ -280,63 +281,141 @@ func _add_slime(world_root: Node3D) -> void:
 	slime_visual.name = "SlimeVisual"
 	slime_root.add_child(slime_visual)
 
-	var body_material: StandardMaterial3D = _make_material(
-		Color(0.26, 0.84, 0.34),
-		Color(0.08, 0.40, 0.10),
-		0.20,
-		0.24
+	var seam_material: StandardMaterial3D = _make_material(
+		Color(0.19, 0.70, 0.28),
+		Color(0.07, 0.30, 0.09),
+		0.05,
+		0.50
 	)
-	var cap_material: StandardMaterial3D = _make_material(
-		Color(0.45, 1.0, 0.48),
-		Color(0.12, 0.48, 0.14),
-		0.25,
-		0.18
+	var slime_material: StandardMaterial3D = _make_material(
+		Color(0.34, 0.88, 0.39),
+		Color(0.08, 0.38, 0.10),
+		0.05,
+		0.50
 	)
-	var eye_material: StandardMaterial3D = _make_material(Color(0.92, 1.0, 0.94), Color.BLACK, 0.0, 0.25)
-	var pupil_material: StandardMaterial3D = _make_material(Color(0.015, 0.035, 0.026), Color.BLACK, 0.0, 0.48)
+	var dome_material: StandardMaterial3D = _make_material(
+		Color(0.40, 0.94, 0.44),
+		Color(0.10, 0.40, 0.12),
+		0.08,
+		0.45
+	)
+	var eye_material: StandardMaterial3D = _make_material(Color(0.014, 0.038, 0.024), Color.BLACK, 0.0, 0.52)
+	var highlight_material: StandardMaterial3D = _make_material(Color(0.92, 1.0, 0.88), Color(0.45, 1.0, 0.48), 0.32, 0.24)
 	var cheek_material: StandardMaterial3D = _make_material(Color(1.0, 0.42, 0.55), Color(0.35, 0.05, 0.08), 0.18, 0.35)
-	var aim_material: StandardMaterial3D = _make_material(
-		Color(0.96, 1.0, 0.52),
-		Color(0.72, 1.0, 0.20),
-		1.45,
-		0.18
+
+	var seam_core_mesh := SphereMesh.new()
+	seam_core_mesh.radius = 0.68
+	seam_core_mesh.height = 1.36
+	seam_core_mesh.radial_segments = 24
+	seam_core_mesh.rings = 12
+	_add_mesh(
+		slime_visual,
+		"SeamCore",
+		seam_core_mesh,
+		seam_material,
+		Vector3(0.0, 0.39, 0.0),
+		Vector3(1.02, 0.60, 1.02)
 	)
 
-	var body_mesh := SphereMesh.new()
-	body_mesh.radius = 0.78
-	body_mesh.height = 1.56
-	_add_mesh(slime_visual, "Body", body_mesh, body_material, Vector3(0.0, 0.63, 0.0), Vector3(1.0, 0.74, 1.0))
+	var dome_mesh := SphereMesh.new()
+	dome_mesh.radius = 0.57
+	dome_mesh.height = 1.14
+	dome_mesh.radial_segments = 24
+	dome_mesh.rings = 12
+	_add_mesh(
+		slime_visual,
+		"UpperDome",
+		dome_mesh,
+		dome_material,
+		Vector3(0.0, 0.67, 0.02),
+		Vector3(1.0, 0.76, 1.0)
+	)
 
-	var cap_mesh := SphereMesh.new()
-	cap_mesh.radius = 0.56
-	cap_mesh.height = 1.12
-	_add_mesh(slime_visual, "Cap", cap_mesh, cap_material, Vector3(0.0, 0.94, 0.02), Vector3(1.0, 0.68, 1.0))
-
-	var eye_mesh := SphereMesh.new()
-	eye_mesh.radius = 0.16
-	eye_mesh.height = 0.32
-	_add_mesh(slime_visual, "LeftEye", eye_mesh, eye_material, Vector3(-0.25, 0.91, -0.55))
-	_add_mesh(slime_visual, "RightEye", eye_mesh, eye_material, Vector3(0.25, 0.91, -0.55))
-
-	var pupil_mesh := SphereMesh.new()
-	pupil_mesh.radius = 0.075
-	pupil_mesh.height = 0.15
-	_add_mesh(slime_visual, "LeftPupil", pupil_mesh, pupil_material, Vector3(-0.25, 0.91, -0.70))
-	_add_mesh(slime_visual, "RightPupil", pupil_mesh, pupil_material, Vector3(0.25, 0.91, -0.70))
-
-	var cheek_mesh := SphereMesh.new()
-	cheek_mesh.radius = 0.085
-	cheek_mesh.height = 0.17
-	_add_mesh(slime_visual, "LeftCheek", cheek_mesh, cheek_material, Vector3(-0.46, 0.70, -0.62), Vector3(1.15, 0.58, 0.45))
-	_add_mesh(slime_visual, "RightCheek", cheek_mesh, cheek_material, Vector3(0.46, 0.70, -0.62), Vector3(1.15, 0.58, 0.45))
-
-	_add_box(slime_visual, "Mouth", Vector3(0.24, 0.045, 0.045), Vector3(0.0, 0.68, -0.72), pupil_material)
-	_add_box(slime_root, "AimFin", Vector3(0.14, 0.07, 0.48), Vector3(0.0, 0.42, -0.77), aim_material)
+	_add_slime_edge_lobes(slime_visual, slime_material)
+	_add_slime_face(slime_visual, eye_material, highlight_material, cheek_material)
 
 	var muzzle := Marker3D.new()
 	muzzle.name = "Muzzle"
-	muzzle.position = Vector3(0.0, 0.70, -0.98)
+	muzzle.position = Vector3(0.0, 0.60, -0.92)
 	slime_root.add_child(muzzle)
+
+
+func _add_slime_edge_lobes(slime_visual: Node3D, slime_material: StandardMaterial3D) -> void:
+	var skirt := Node3D.new()
+	skirt.name = "Skirt"
+	slime_visual.add_child(skirt)
+
+	var lobe_mesh := SphereMesh.new()
+	lobe_mesh.radius = 0.33
+	lobe_mesh.height = 0.66
+	lobe_mesh.radial_segments = 16
+	lobe_mesh.rings = 8
+	for index in range(SLIME_EDGE_LOBE_COUNT):
+		var angle: float = TAU * float(index) / float(SLIME_EDGE_LOBE_COUNT)
+		var size_step: float = float((index * 7) % 5) - 2.0
+		var size_multiplier: float = 1.0 + size_step * 0.027
+		var radius_offset: float = sin(angle * 3.0 + float(index) * 0.41) * 0.035
+		var height_offset: float = cos(angle * 4.0 + float(index) * 0.23) * 0.022
+		var ring_radius: float = 0.62 + radius_offset
+		var lobe_position := Vector3(
+			cos(angle) * ring_radius,
+			0.25 + height_offset,
+			sin(angle) * ring_radius
+		)
+		var lobe_scale := Vector3(
+			0.90 * size_multiplier,
+			0.62 * (1.0 - size_step * 0.012),
+			1.18 * size_multiplier
+		)
+		var lobe: MeshInstance3D = _add_mesh(
+			skirt,
+			"EdgeLobe%02d" % index,
+			lobe_mesh,
+			slime_material,
+			lobe_position,
+			lobe_scale
+		)
+		lobe.rotation.y = -angle
+
+
+func _add_slime_face(
+	slime_visual: Node3D,
+	eye_material: StandardMaterial3D,
+	highlight_material: StandardMaterial3D,
+	cheek_material: StandardMaterial3D
+) -> void:
+	var face_root := Node3D.new()
+	face_root.name = "FaceRig"
+	slime_visual.add_child(face_root)
+
+	var eye_mesh := SphereMesh.new()
+	eye_mesh.radius = 0.115
+	eye_mesh.height = 0.23
+	eye_mesh.radial_segments = 16
+	eye_mesh.rings = 8
+	_add_mesh(face_root, "LeftEye", eye_mesh, eye_material, Vector3(-0.23, 0.75, -0.56), Vector3(0.84, 1.18, 0.46))
+	_add_mesh(face_root, "RightEye", eye_mesh, eye_material, Vector3(0.23, 0.75, -0.56), Vector3(0.84, 1.18, 0.46))
+
+	var highlight_mesh := SphereMesh.new()
+	highlight_mesh.radius = 0.034
+	highlight_mesh.height = 0.068
+	_add_mesh(face_root, "LeftEyeHighlight", highlight_mesh, highlight_material, Vector3(-0.255, 0.795, -0.625))
+	_add_mesh(face_root, "RightEyeHighlight", highlight_mesh, highlight_material, Vector3(0.205, 0.795, -0.625))
+
+	var cheek_mesh := SphereMesh.new()
+	cheek_mesh.radius = 0.072
+	cheek_mesh.height = 0.144
+	_add_mesh(face_root, "LeftCheek", cheek_mesh, cheek_material, Vector3(-0.42, 0.63, -0.54), Vector3(1.12, 0.56, 0.42))
+	_add_mesh(face_root, "RightCheek", cheek_mesh, cheek_material, Vector3(0.42, 0.63, -0.54), Vector3(1.12, 0.56, 0.42))
+
+	var mouth_mesh := SphereMesh.new()
+	mouth_mesh.radius = 0.038
+	mouth_mesh.height = 0.076
+	mouth_mesh.radial_segments = 12
+	mouth_mesh.rings = 6
+	_add_mesh(face_root, "MouthLeft", mouth_mesh, eye_material, Vector3(-0.070, 0.615, -0.585), Vector3(1.05, 0.72, 0.42))
+	_add_mesh(face_root, "MouthCenter", mouth_mesh, eye_material, Vector3(0.0, 0.590, -0.595), Vector3(1.05, 0.72, 0.42))
+	_add_mesh(face_root, "MouthRight", mouth_mesh, eye_material, Vector3(0.070, 0.615, -0.585), Vector3(1.05, 0.72, 0.42))
 
 
 func _add_target_pod(parent: Node3D, pod_name: String, position: Vector3, accent_color: Color) -> void:
