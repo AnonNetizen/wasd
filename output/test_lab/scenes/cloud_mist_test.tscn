@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/cloud_mist_test.gd" id="1_cm01"]
+
+[node name="CloudMistTest" type="Node2D"]
+script = ExtResource("1_cm01")

@@ -1,19 +1,6 @@
 [remap]
 
-importer="csv_translation"
-type="Translation"
-uid="uid://bf10k4kb12s31"
-
-[deps]
-
-files=["res://data/growth.total.translation", "res://data/growth.candidate.translation", "res://data/growth.bonus.translation", "res://data/growth.bonus.translation"]
-
-source_file="res://data/growth.csv"
-dest_files=["res://data/growth.total.translation", "res://data/growth.candidate.translation", "res://data/growth.bonus.translation", "res://data/growth.bonus.translation"]
+importer="keep"
+type="Resource"
 
 [params]
-
-compress=1
-delimiter=0
-unescape_keys=false
-unescape_translations=true

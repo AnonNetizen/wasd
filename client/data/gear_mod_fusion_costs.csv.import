@@ -1,19 +1,6 @@
 [remap]
 
-importer="csv_translation"
-type="Translation"
-uid="uid://cky7vf66vbbfo"
-
-[deps]
-
-files=["res://data/gear_mod_fusion_costs.rank.translation", "res://data/gear_mod_fusion_costs.resource.translation", "res://data/gear_mod_fusion_costs.cost.translation"]
-
-source_file="res://data/gear_mod_fusion_costs.csv"
-dest_files=["res://data/gear_mod_fusion_costs.rank.translation", "res://data/gear_mod_fusion_costs.resource.translation", "res://data/gear_mod_fusion_costs.cost.translation"]
+importer="keep"
+type="Resource"
 
 [params]
-
-compress=1
-delimiter=0
-unescape_keys=false
-unescape_translations=true
