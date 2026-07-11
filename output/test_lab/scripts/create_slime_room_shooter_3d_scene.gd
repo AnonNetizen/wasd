@@ -722,20 +722,6 @@ func _add_slime(world_root: Node3D) -> void:
 
 	_add_slime_face(slime_visual, eye_material, pupil_material, highlight_material, cheek_material)
 
-	var aim_fin_material: StandardMaterial3D = _make_material(
-		Color(0.96, 1.0, 0.52),
-		Color(0.72, 1.0, 0.20),
-		1.45,
-		0.18
-	)
-	_add_box(
-		slime_root,
-		"AimFin",
-		Vector3(0.14, 0.07, 0.48),
-		Vector3(0.0, 0.42, -0.77),
-		aim_fin_material
-	)
-
 	var muzzle := Marker3D.new()
 	muzzle.name = "Muzzle"
 	muzzle.position = Vector3(0.0, 0.70, -0.98)
@@ -750,45 +736,63 @@ func _add_muzzle_flash(slime_root: Node3D) -> void:
 	flash_root.visible = false
 	slime_root.add_child(flash_root)
 	var outer_material: StandardMaterial3D = _make_material(
-		Color(1.0, 0.38, 0.055),
-		Color(1.0, 0.16, 0.012),
-		5.0,
-		0.22
+		Color(0.56, 0.92, 0.20),
+		Color(0.26, 0.88, 0.08),
+		3.2,
+		0.28
 	)
 	var inner_material: StandardMaterial3D = _make_material(
-		Color(1.0, 0.94, 0.58),
-		Color(1.0, 0.62, 0.12),
-		5.8,
-		0.12
+		Color(1.0, 0.96, 0.60),
+		Color(0.72, 1.0, 0.24),
+		4.0,
+		0.16
 	)
 	var core_mesh := SphereMesh.new()
-	core_mesh.radius = 0.12
-	core_mesh.height = 0.24
+	core_mesh.radius = 0.10
+	core_mesh.height = 0.20
 	core_mesh.radial_segments = 12
 	core_mesh.rings = 6
-	var core: MeshInstance3D = _add_mesh(flash_root, "Core", core_mesh, inner_material, Vector3.ZERO, Vector3(0.92, 0.70, 1.18))
+	var core: MeshInstance3D = _add_mesh(flash_root, "GelCore", core_mesh, inner_material, Vector3.ZERO, Vector3(1.0, 0.82, 1.16))
 	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var ray_a: MeshInstance3D = _add_box(
+	var splash_ring_mesh := TorusMesh.new()
+	splash_ring_mesh.inner_radius = 0.085
+	splash_ring_mesh.outer_radius = 0.135
+	splash_ring_mesh.rings = 6
+	splash_ring_mesh.ring_segments = 18
+	var splash_ring: MeshInstance3D = _add_mesh(
 		flash_root,
-		"RayA",
-		Vector3(0.045, 0.045, 0.38),
-		Vector3(0.0, 0.0, -0.12),
-		outer_material
+		"GelRing",
+		splash_ring_mesh,
+		outer_material,
+		Vector3(0.0, 0.0, -0.035)
 	)
-	ray_a.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var ray_b: MeshInstance3D = _add_box(
-		flash_root,
-		"RayB",
-		Vector3(0.30, 0.042, 0.05),
-		Vector3(0.0, 0.0, -0.08),
-		outer_material
-	)
-	ray_b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	splash_ring.rotation.x = PI * 0.5
+	splash_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var droplet_mesh := SphereMesh.new()
+	droplet_mesh.radius = 0.045
+	droplet_mesh.height = 0.09
+	droplet_mesh.radial_segments = 10
+	droplet_mesh.rings = 5
+	var droplet_positions: Array[Vector3] = [
+		Vector3(-0.13, 0.065, -0.10),
+		Vector3(0.13, 0.035, -0.12),
+		Vector3(0.015, -0.11, -0.14),
+	]
+	for droplet_index in range(droplet_positions.size()):
+		var droplet: MeshInstance3D = _add_mesh(
+			flash_root,
+			"GelDroplet%d" % droplet_index,
+			droplet_mesh,
+			outer_material,
+			droplet_positions[droplet_index],
+			Vector3(0.82, 1.18, 0.72)
+		)
+		droplet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var flash_light := OmniLight3D.new()
 	flash_light.name = "FlashLight"
-	flash_light.light_color = Color(1.0, 0.48, 0.16)
-	flash_light.light_energy = 1.25
-	flash_light.omni_range = 1.55
+	flash_light.light_color = Color(0.68, 1.0, 0.24)
+	flash_light.light_energy = 0.80
+	flash_light.omni_range = 1.25
 	flash_light.shadow_enabled = false
 	flash_root.add_child(flash_light)
 

@@ -45,7 +45,10 @@ func _run_smoke() -> void:
 	if room != null and room.has_method("flame_count"):
 		_expect(int(room.call("flame_count")) == 4, "Dungeon room should animate four layered flames.")
 		_expect(int(room.call("torch_light_count")) == 2, "Dungeon room should animate two torch lights.")
-	_expect(scene.get_node_or_null("World3D/Actors/Slime3D") is Node3D, "3D slime is missing.")
+	var slime_root := scene.get_node_or_null("World3D/Actors/Slime3D") as Node3D
+	var slime_visual := scene.get_node_or_null("World3D/Actors/Slime3D/SlimeVisual") as Node3D
+	_expect(slime_root != null, "3D slime is missing.")
+	_expect(slime_visual != null, "3D slime visual is missing.")
 	var muzzle_flash := scene.get_node_or_null("World3D/Actors/Slime3D/MuzzleFlash") as Node3D
 	_expect(muzzle_flash != null, "Slime muzzle flash is missing.")
 	var aim_marker := scene.get_node_or_null("World3D/AimMarker") as MeshInstance3D
@@ -97,21 +100,70 @@ func _run_smoke() -> void:
 	var target_position := Vector3(5.0, 0.0, -4.0)
 	var raw_expected: Vector3 = target_position - moved_position
 	var expected_direction := Vector3(raw_expected.x, 0.0, raw_expected.z).normalized()
+	scene.call("debug_aim_at_world", target_position)
 	for _frame in range(45):
 		await physics_frame
 	var settled_deformation: float = scene.call("debug_membrane_deformation")
+	var settled_front_extent: float = membrane.call("directional_extent", expected_direction)
+	var settled_rear_extent: float = membrane.call("directional_extent", -expected_direction)
+	var pre_fire_root_position: Vector3 = scene.call("debug_player_position")
 	scene.call("debug_fire_at_world", target_position)
 	var fired_direction: Vector3 = scene.call("debug_last_fired_direction")
 	var firing_deformation: float = scene.call("debug_membrane_deformation")
+	var firing_front_extent: float = membrane.call("directional_extent", expected_direction)
+	var firing_rear_extent: float = membrane.call("directional_extent", -expected_direction)
 	_expect(fired_direction.dot(expected_direction) > 0.999, "Projectile direction does not match the requested mouse-world aim direction.")
 	_expect(muzzle_flash != null and muzzle_flash.visible, "Firing did not reveal the short muzzle flash.")
 	_expect(
-		firing_deformation > settled_deformation + 0.04,
+		firing_deformation > settled_deformation + 0.03,
 		"Firing did not create a local membrane bud (settled %.3f, firing %.3f)."
 		% [settled_deformation, firing_deformation]
 	)
+	_expect(
+		firing_front_extent > settled_front_extent + 0.05,
+		"The membrane front did not extend toward the shot (settled %.3f, firing %.3f)."
+		% [settled_front_extent, firing_front_extent]
+	)
+	_expect(
+		firing_rear_extent < settled_rear_extent - 0.01,
+		"The membrane rear did not compress before its delayed wave (settled %.3f, firing %.3f)."
+		% [settled_rear_extent, firing_rear_extent]
+	)
+	await physics_frame
+	await process_frame
+	var launch_pose: float = scene.call("debug_fire_pose")
+	var launch_position: Vector3 = scene.call("debug_slime_visual_local_position")
+	var launch_scale: Vector3 = scene.call("debug_slime_visual_scale")
+	var post_fire_root_position: Vector3 = scene.call("debug_player_position")
+	var visual_world_offset: Vector3 = Vector3.ZERO
+	var current_visual_forward: Vector3 = Vector3.FORWARD
+	if slime_root != null and slime_visual != null:
+		visual_world_offset = slime_visual.global_position - slime_root.global_position
+		current_visual_forward = -slime_root.global_basis.z.normalized()
+	_expect(launch_pose > 0.25, "Firing did not start the soft-body compression pose.")
+	_expect(launch_scale.y < 1.005, "Firing did not squash the slime body before launch.")
+	_expect(launch_position.z < -0.01, "Firing did not lean the slime visual toward its local forward direction.")
+	_expect(visual_world_offset.dot(current_visual_forward) > 0.01, "The launch lean did not map to the slime's world-space facing direction.")
+	_expect(
+		pre_fire_root_position.distance_to(post_fire_root_position) < 0.001,
+		"Firing moved the gameplay root instead of deforming the visual membrane."
+	)
+	for _frame in range(6):
+		await physics_frame
+		await process_frame
+		scene.call("debug_aim_at_world", target_position)
+	var rear_wave_extent: float = membrane.call("directional_extent", -expected_direction)
+	_expect(
+		rear_wave_extent > firing_rear_extent + 0.008,
+		"The compressed rear edge did not receive the delayed elastic rebound wave."
+	)
 	for _shot in range(EXPECTED_PROJECTILE_POOL_SIZE):
 		scene.call("debug_fire_at_world", target_position)
+	var stacked_fire_pose: float = scene.call("debug_fire_pose")
+	var stacked_deformation: float = scene.call("debug_membrane_deformation")
+	var stacked_edge_speed: float = membrane.call("maximum_edge_speed")
+	_expect(stacked_fire_pose <= 1.001, "Repeated firing exceeded the bounded slime-pressure pose.")
+	_expect(stacked_edge_speed <= 2.401, "Repeated firing exceeded the bounded membrane edge speed.")
 	await physics_frame
 	var active_projectiles: int = scene.call("debug_active_projectile_count")
 	_expect(
@@ -119,10 +171,20 @@ func _run_smoke() -> void:
 		"Projectile cursor wrap should reuse exactly %d active nodes, got %d."
 		% [EXPECTED_PROJECTILE_POOL_SIZE, active_projectiles]
 	)
+	for _frame in range(50):
+		await physics_frame
+		await process_frame
+	var settled_fire_pose: float = scene.call("debug_fire_pose")
+	var post_rebound_deformation: float = scene.call("debug_membrane_deformation")
+	var settled_visual_position: Vector3 = scene.call("debug_slime_visual_local_position")
+	_expect(absf(settled_fire_pose) < 0.08, "The slime launch pose did not settle after its elastic rebound.")
+	_expect(absf(settled_visual_position.z) < 0.005, "The slime visual retained rigid recoil displacement after settling.")
+	_expect(post_rebound_deformation < stacked_deformation, "The membrane deformation did not decay after repeated firing.")
+	_expect(muzzle_flash != null and not muzzle_flash.visible, "The gel launch splash did not fade after firing.")
 
 	Input.action_release(ACTION_MOVE_RIGHT)
 	if _failed:
 		quit(1)
 		return
-	print("[SlimeRoomShooter3DSmoke] Passed dungeon atmosphere, continuous membrane, movement/fire deformation, aim, and projectile-pool checks.")
+	print("[SlimeRoomShooter3DSmoke] Passed dungeon atmosphere, natural slime launch/rebound, aim, and projectile-pool checks.")
 	quit(0)

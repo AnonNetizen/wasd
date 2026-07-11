@@ -26,8 +26,13 @@ const TOP_HEIGHT: float = 1.09
 @export var breath_amount: float = 0.026
 @export var breath_speed: float = 1.7
 @export var surface_noise_amount: float = 0.018
-@export var fire_push_amount: float = 0.17
-@export var fire_impulse: float = 1.35
+@export var fire_push_amount: float = 0.16
+@export var fire_impulse: float = 0.95
+@export var fire_max_edge_speed: float = 2.4
+@export var fire_rear_compression: float = 0.035
+@export var fire_rear_wave_impulse: float = 0.38
+@export var fire_shoulder_compression: float = 0.045
+@export var fire_snap_amount: float = 0.72
 @export var maximum_drive_speed: float = 4.8
 
 var _control_points: Array[Marker3D] = []
@@ -36,6 +41,7 @@ var _drive_velocity: Vector2 = Vector2.ZERO
 var _dynamic_mesh := ArrayMesh.new()
 var _edge_offsets: Array[Vector2] = []
 var _edge_velocities: Array[Vector2] = []
+var _fire_sequence: int = 0
 var _radial_velocities := PackedFloat32Array()
 var _radii := PackedFloat32Array()
 var _time: float = 0.0
@@ -70,6 +76,21 @@ func deformation_amount() -> float:
 		var rest_offset: Vector2 = _directions[index] * base_radius
 		largest_deformation = maxf(largest_deformation, _edge_offsets[index].distance_to(rest_offset))
 	return largest_deformation
+
+
+func maximum_edge_speed() -> float:
+	var maximum_speed: float = 0.0
+	for edge_velocity in _edge_velocities:
+		maximum_speed = maxf(maximum_speed, edge_velocity.length())
+	return maximum_speed
+
+
+func directional_extent(world_direction: Vector3) -> float:
+	var local_direction: Vector2 = _world_direction_to_local_plane(world_direction)
+	var extent: float = 0.0
+	for edge_offset in _edge_offsets:
+		extent = maxf(extent, edge_offset.dot(local_direction))
+	return extent
 
 
 func emit_surface_bud(world_direction: Vector3) -> Vector3:
@@ -159,19 +180,35 @@ func _interpolate_curve_point(
 
 
 func _push_membrane_for_fire(local_direction: Vector2) -> void:
+	var side_sign: float = 1.0 if _fire_sequence % 2 == 0 else -1.0
+	_fire_sequence += 1
+	var tangent := Vector2(-local_direction.y, local_direction.x)
 	for index in range(_edge_offsets.size()):
-		var edge_direction: Vector2 = _edge_offsets[index].normalized()
-		if edge_direction.length_squared() <= 0.0001:
-			edge_direction = _directions[index]
-		var alignment: float = maxf(edge_direction.dot(local_direction), 0.0)
-		if alignment <= 0.25:
-			continue
-		var weight: float = pow(alignment, 4.0)
-		_edge_offsets[index] = _clamped_membrane_offset(
-			_edge_offsets[index] + local_direction * fire_push_amount * weight,
-			edge_direction
+		var rest_direction: Vector2 = _directions[index]
+		var alignment: float = clampf(rest_direction.dot(local_direction), -1.0, 1.0)
+		var front_weight: float = pow(maxf(alignment, 0.0), 4.0)
+		var shoulder_weight: float = pow(maxf(1.0 - absf(alignment), 0.0), 4.0)
+		var rear_weight: float = pow(maxf(-alignment, 0.0), 4.0)
+		var sidedness: float = rest_direction.dot(tangent)
+		var asymmetry: float = 1.0 + side_sign * sidedness * 0.08
+		var rest_offset: Vector2 = rest_direction * _radii[index]
+		var shot_target := (
+			rest_offset
+			+ local_direction * fire_push_amount * front_weight * asymmetry
+			- rest_direction * fire_shoulder_compression * shoulder_weight
+			- rest_direction * fire_rear_compression * rear_weight
 		)
-		_edge_velocities[index] += local_direction * fire_impulse * weight
+		var clamped_target: Vector2 = _clamped_membrane_offset(shot_target, rest_direction)
+		_edge_offsets[index] = _edge_offsets[index].lerp(
+			clamped_target,
+			clampf(fire_snap_amount, 0.0, 1.0)
+		)
+		_edge_velocities[index] += (
+			local_direction * fire_impulse * front_weight * asymmetry
+			- rest_direction * fire_impulse * 0.32 * shoulder_weight
+			+ rest_direction * fire_rear_wave_impulse * rear_weight
+		)
+		_edge_velocities[index] = _edge_velocities[index].limit_length(fire_max_edge_speed)
 
 
 func _rebuild_mesh() -> void:

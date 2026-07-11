@@ -9,6 +9,13 @@ const ACTION_MOVE_RIGHT: String = "lab_move_right"
 const AIM_MARKER_HEIGHT: float = 0.078
 const AIM_PLANE_HEIGHT: float = 0.0
 const FIRE_INTERVAL: float = 0.14
+const FIRE_POSE_DAMPING: float = 11.5
+const FIRE_POSE_IMPULSE: float = 0.62
+const FIRE_POSE_MAX: float = 1.0
+const FIRE_POSE_MIN: float = -0.30
+const FIRE_POSE_STIFFNESS: float = 68.0
+const FIRE_POSE_VELOCITY_IMPULSE: float = 1.15
+const FIRE_POSE_VELOCITY_MAX: float = 2.4
 const MOUSE_AIM_DEADZONE: float = 0.08
 const MOVE_SPEED: float = 4.8
 const PLAYER_MARGIN: float = 0.72
@@ -33,6 +40,8 @@ const SCREEN_AXIS_SAMPLE_OFFSET: float = 64.0
 var _aim_direction := Vector3.FORWARD
 var _animation_time: float = 0.0
 var _fire_cooldown: float = 0.0
+var _fire_pose: float = 0.0
+var _fire_pose_velocity: float = 0.0
 var _last_fired_direction := Vector3.FORWARD
 var _movement_strength: float = 0.0
 var _muzzle_flash_time: float = 0.0
@@ -40,7 +49,6 @@ var _projectile_cursor: int = 0
 var _projectile_directions: Array[Vector3] = []
 var _projectile_lifetimes := PackedFloat32Array()
 var _projectile_nodes: Array[MeshInstance3D] = []
-var _recoil: float = 0.0
 var _shot_count: int = 0
 
 
@@ -54,6 +62,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_animation_time += delta
+	_update_fire_pose(delta)
 	_update_slime_animation(delta)
 	_update_muzzle_flash(delta)
 
@@ -80,6 +89,10 @@ func debug_active_projectile_count() -> int:
 	return active_count
 
 
+func debug_aim_at_world(world_position: Vector3) -> void:
+	_apply_aim_world_position(world_position)
+
+
 func debug_fire_at_world(world_position: Vector3) -> void:
 	_apply_aim_world_position(world_position)
 	_fire_projectile()
@@ -87,6 +100,10 @@ func debug_fire_at_world(world_position: Vector3) -> void:
 
 func debug_last_fired_direction() -> Vector3:
 	return _last_fired_direction
+
+
+func debug_fire_pose() -> float:
+	return _fire_pose
 
 
 func debug_membrane_control_point_count() -> int:
@@ -105,6 +122,18 @@ func debug_player_position() -> Vector3:
 	if _slime_root == null:
 		return Vector3.ZERO
 	return _slime_root.global_position
+
+
+func debug_slime_visual_local_position() -> Vector3:
+	if _slime_visual == null:
+		return Vector3.ZERO
+	return _slime_visual.position
+
+
+func debug_slime_visual_scale() -> Vector3:
+	if _slime_visual == null:
+		return Vector3.ONE
+	return _slime_visual.scale
 
 
 func debug_projectile_pool_size() -> int:
@@ -197,7 +226,7 @@ func _fire_projectile() -> void:
 
 	_last_fired_direction = _aim_direction
 	_fire_cooldown = FIRE_INTERVAL
-	_recoil = 0.16
+	_kick_fire_pose()
 	_muzzle_flash_time = 0.075
 	if _muzzle_flash != null:
 		_muzzle_flash.visible = true
@@ -210,6 +239,14 @@ func _flattened_direction(direction: Vector3, fallback: Vector3) -> Vector3:
 	if flattened.length_squared() <= 0.0001:
 		return fallback.normalized()
 	return flattened.normalized()
+
+
+func _kick_fire_pose() -> void:
+	_fire_pose = minf(FIRE_POSE_MAX, maxf(_fire_pose, 0.0) + FIRE_POSE_IMPULSE)
+	_fire_pose_velocity = minf(
+		FIRE_POSE_VELOCITY_MAX,
+		_fire_pose_velocity + FIRE_POSE_VELOCITY_IMPULSE
+	)
 
 
 func _ground_point_from_screen(screen_point: Vector2) -> Vector3:
@@ -338,7 +375,24 @@ func _update_muzzle_flash(delta: float) -> void:
 	_muzzle_flash.scale = Vector3.ONE * lerpf(0.38, 0.92, flash_ratio)
 	_muzzle_flash.rotation.z = _animation_time * 18.0
 	if _muzzle_flash_light != null:
-		_muzzle_flash_light.light_energy = 1.25 * flash_ratio
+		_muzzle_flash_light.light_energy = 0.80 * flash_ratio
+
+
+func _update_fire_pose(delta: float) -> void:
+	var safe_delta: float = minf(delta, 0.033)
+	var acceleration: float = (
+		-_fire_pose * FIRE_POSE_STIFFNESS
+		- _fire_pose_velocity * FIRE_POSE_DAMPING
+	)
+	_fire_pose_velocity += acceleration * safe_delta
+	_fire_pose = clampf(
+		_fire_pose + _fire_pose_velocity * safe_delta,
+		FIRE_POSE_MIN,
+		FIRE_POSE_MAX
+	)
+	if absf(_fire_pose) < 0.001 and absf(_fire_pose_velocity) < 0.01:
+		_fire_pose = 0.0
+		_fire_pose_velocity = 0.0
 
 
 func _update_shot_count_label() -> void:
@@ -353,12 +407,20 @@ func _update_slime_animation(delta: float) -> void:
 	var animation_speed: float = lerpf(3.0, 9.0, _movement_strength)
 	var wave: float = sin(_animation_time * animation_speed)
 	var squash_amount: float = lerpf(0.025, 0.085, _movement_strength)
-	var target_scale := Vector3(
+	var movement_scale := Vector3(
 		1.0 + wave * squash_amount,
 		1.0 - wave * squash_amount * 0.85,
 		1.0 + wave * squash_amount
 	)
-	var blend: float = minf(1.0, delta * 12.0)
+	var fire_scale := Vector3(
+		1.0 + _fire_pose * 0.055,
+		1.0 - _fire_pose * 0.10,
+		1.0 + _fire_pose * 0.035
+	)
+	var target_scale: Vector3 = movement_scale * fire_scale
+	var blend: float = minf(1.0, delta * 18.0)
 	_slime_visual.scale = _slime_visual.scale.lerp(target_scale, blend)
-	_recoil = move_toward(_recoil, 0.0, delta * 1.8)
-	_slime_visual.position = Vector3(0.0, absf(wave) * 0.025 * _movement_strength, _recoil)
+	var movement_bob: float = absf(wave) * 0.025 * _movement_strength
+	var rebound_lift: float = maxf(-_fire_pose, 0.0) * 0.018
+	var launch_lean: float = -maxf(_fire_pose, 0.0) * 0.035
+	_slime_visual.position = Vector3(0.0, movement_bob + rebound_lift, launch_lean)

@@ -32,6 +32,7 @@ func _capture() -> void:
 		for _frame in range(frames_after_shot):
 			await physics_frame
 			await process_frame
+	scene.call("debug_aim_at_world", aim_target)
 	RenderingServer.force_draw(true)
 	RenderingServer.force_sync()
 	await process_frame
