@@ -23,7 +23,7 @@
 
 | 路径 | 作用 |
 |------|------|
-| `client/project.godot` | Godot 项目配置，`run/main_scene` 指向最小启动场景，默认 viewport 为 1920×1080，窗口拉伸采用 `canvas_items + keep` |
+| `client/project.godot` | Godot 项目配置，`run/main_scene` 指向最小启动场景；当前只适配固定 16:9，默认 viewport 为 1920×1080，窗口拉伸采用 `canvas_items + keep` |
 | `client/scenes/boot/main.tscn` | 正式项目最小启动场景 |
 | `client/scripts/boot/formal_client_boot.gd` | 启动场景脚本，输出启动日志 |
 | `client/scripts/debug/debug_console.gd` | debug/dev_tools 构建才动态加载的调试控制台 |
@@ -101,7 +101,7 @@ UIManager
 ## 数据与契约
 
 - 通过 `DataLoader.validate_project_data()` 间接读取 F3 目标数据和 `client/locale/strings.csv`。
-- `client/project.godot` 的默认 viewport 为 1920×1080；窗口禁止任意拖拽缩放，2D 内容和 UI 通过 `display/window/stretch/mode="canvas_items"` 与 `display/window/stretch/aspect="keep"` 在屏幕比例不匹配时保比例加黑边。后续设置页应只暴露经过验证的分辨率预设列表，不接受任意宽高输入。
+- `client/project.godot` 的默认 viewport 为 1920×1080；当前只设计 / 验收 16:9，窗口禁止任意拖拽缩放，2D 内容和 UI 通过 `display/window/stretch/mode="canvas_items"` 与 `display/window/stretch/aspect="keep"` 在非 16:9 屏幕上等比缩放并补上下或左右黑边。设置页只应暴露经过验证的 16:9 固定分辨率预设，不接受任意宽高输入；16:10、4:3、21:9 等比例留作未来按独立固定预设接入的优化项，当前不做连续响应式适配。
 - 启动日志输出 `data_schema_ok`、`mods`、`player_stats`、`characters`、`weapons`、`enemies`、`hazards`、`map_layouts`、`warzone_directors`、`spawn_waves`、`relics`、`active_items`、`consumables`、`locale_keys`、`growth_levels`、`growth_pools`、`game_modes`、`platform_provider`、`platform_available` 等 smoke 计数 / 状态。
 - 启动脚本本身不包含玩家可见文本；标题、HUD、设置、失败页和装备 Mod 面板文案见 `client/locale/strings.csv`。
 - 标题菜单的“继续游戏”只在 `SaveManager.has_save(slot_0, run)` 为真时可见；“装备 Mod”常驻可见并由 `GearModPanel` 展示 `GearModSystem` 的 profile / mod summaries；旧“局外升级”标题入口已删除。开始新局和重开会删除旧 `run` 存档，并通过 `RNG.set_random_run_seed()` 生成新的主 seed，避免重复继续旧局或每局固定序列。若继续读取失败或坏档被隔离，标题菜单显示 `ui_run_save_unavailable` 提示并隐藏继续按钮。成功继续后，`GameplayRunLoop` 会按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板，不生成新 seed。
