@@ -1,38 +1,56 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "style_id": "abandoned_marble_conservatory",
+  "composition_mode": "exclusive_cell_tiles",
   "projection": "orthographic_top_down",
   "tile_size_px": [128, 128],
+  "style": {
+    "rendering": "bold_outline_flat_cartoon",
+    "outline_px": [3, 5],
+    "value_steps": [2, 3],
+    "texture_policy": "light_controlled",
+    "prohibited": [
+      "photorealism",
+      "pbr",
+      "painterly_micro_detail",
+      "realistic_material_grain",
+      "perspective",
+      "cinematic_lighting",
+      "cross_cell_cast_shadow"
+    ]
+  },
   "palette": {
     "marble_ivory": "#d6d1b9",
-    "marble_vein": "#7f8b8c",
+    "cool_blue_gray": "#7f8b8c",
     "moss_green": "#53613c",
     "deep_foliage": "#263421",
     "weathered_walnut": "#5b351f",
-    "tarnished_brass": "#9b7a3d"
+    "tarnished_brass": "#9b7a3d",
+    "outline": "#171a15"
   },
   "lighting": {
-    "mode": "neutral_diffuse",
+    "mode": "flat_neutral",
     "direction": "none",
-    "shadow_policy": "engine_separate"
+    "shadow_policy": "contained_in_tile_no_cast_shadow"
   },
   "assets": [
     {
       "id": "marble_floor_01",
       "asset_type": "ground_range",
-      "role": "base",
+      "role": "cell_tile",
+      "tile_behavior": "ground",
       "texture_path": "res://assets/ai_tiles/abandoned_marble_conservatory/marble_floor_01.png",
       "size_px": [128, 128],
       "alpha_mode": "opaque",
-      "repeat_mode": "seamless",
+      "visual_occupancy": "full_cell",
+      "repeat_mode": "grid_repeatable",
       "footprint_cells": [1, 1],
       "footprint_shape": "square",
       "anchor_point_px": [64, 64],
       "orientation_read": "none",
-      "sort_layer": 0,
-      "tags": ["floor", "marble", "walkable"],
+      "walkable": true,
+      "tags": ["tile", "floor", "marble", "walkable"],
       "collision": null,
-      "shadow": null,
       "interaction": {
         "interactable": false,
         "lootable": false
@@ -40,37 +58,42 @@
       "generation": {
         "tool": "builtin_imagegen",
         "mode": "generate",
-        "prompt_id": "abandoned_marble_conservatory_marble_floor_v1",
-        "revision": 1,
+        "prompt_id": "abandoned_marble_conservatory_marble_floor_cartoon_v2",
+        "revision": 2,
+        "attempt": 1,
         "source_size_px": [1254, 1254],
-        "postprocess": ["center_crop_square", "lanczos_resize_128"],
-        "prompt": "Use case: stylized-concept. Asset type: seamless tileable 2D game floor texture. One aged marble floor tile for an abandoned marble conservatory in a light dark-fairy-tale game world. Hand-painted stylized 2D game art with exact orthographic top-down framing, neutral diffuse lighting, no perspective, border, frame, grout, cast shadow, focal emblem, text, logo, or watermark. Warm aged ivory marble, cool blue-gray veins, faint desaturated moss-green staining. Horizontally and vertically seamless with naturally continuing opposite edges."
+        "reference_roles": [
+          "external_screenshot_occupancy_structure_only",
+          "previous_asset_subject_theme_only"
+        ],
+        "postprocess": [
+          "center_crop_square",
+          "lanczos_resize_128",
+          "force_rgb_opaque"
+        ],
+        "prompt": "Use case: stylized-concept\nAsset type: seamless full-cell 2D game floor tile source\nInput images: Image 1 is a structural reference only for readable square-cell occupancy; do not copy its characters, UI, symbols, room layout, palette, or specific art. Image 2 is only a subject/theme reference for aged ivory marble.\nPrimary request: create one original square marble floor tile for an abandoned marble conservatory. The tile must read as an entire occupied grid cell, not as a small object inside a cell.\nStyle/medium: clean 2D cartoon game art, bold dark outline, flat color blocks, limited palette, only 2–3 value steps, very light controlled texture.\nComposition/framing: exact orthographic top-down, perfectly square, edge-to-edge opaque artwork. Add a subtle inset grout/bevel line about 3–5% inside the square so the cell boundary remains readable. Opposite edges must repeat cleanly in a 2x2 grid.\nColor palette: aged ivory marble, cool blue-gray simplified veins, faint desaturated moss staining, dark cool-gray outline.\nMaterials/textures: simplified broad marble marks only; no fine realistic veining.\nConstraints: fully opaque square; no transparent pixels; no empty margin; no object floating inside the square; no perspective; no cast shadow; no lighting direction; all shading contained inside the tile; no text; no logo; no watermark.\nAvoid: photorealism, PBR, painterly micro-detail, cinematic light, focal emblem, cracks that terminate abruptly at an edge, external frame, copied elements from Image 1."
       }
     },
     {
       "id": "tree_01",
       "asset_type": "obstacle",
-      "role": "object",
+      "role": "cell_tile",
+      "tile_behavior": "obstacle",
       "texture_path": "res://assets/ai_tiles/abandoned_marble_conservatory/tree_01.png",
       "size_px": [128, 128],
-      "alpha_mode": "transparent",
+      "alpha_mode": "opaque",
+      "visual_occupancy": "full_cell",
       "repeat_mode": "none",
       "footprint_cells": [1, 1],
       "footprint_shape": "square",
       "anchor_point_px": [64, 64],
-      "orientation_read": "radial",
-      "sort_layer": 20,
-      "tags": ["object", "tree", "vegetation", "obstacle"],
+      "orientation_read": "radial_with_south_trunk_cue",
+      "walkable": false,
+      "tags": ["tile", "tree", "vegetation", "obstacle", "non_walkable"],
       "collision": {
-        "shape": "circle",
-        "offset_px": [0, 18],
-        "radius_px": 26
-      },
-      "shadow": {
-        "shape": "ellipse",
-        "size_px": [88, 44],
-        "offset_px": [10, 16],
-        "opacity": 0.28
+        "shape": "rectangle",
+        "offset_px": [0, 0],
+        "size_px": [128, 128]
       },
       "interaction": {
         "interactable": false,
@@ -78,38 +101,43 @@
       },
       "generation": {
         "tool": "builtin_imagegen",
-        "mode": "generate_chromakey",
-        "prompt_id": "abandoned_marble_conservatory_tree_v1",
-        "revision": 1,
+        "mode": "generate",
+        "prompt_id": "abandoned_marble_conservatory_tree_cartoon_v2",
+        "revision": 2,
+        "attempt": 1,
         "source_size_px": [1254, 1254],
-        "postprocess": ["chroma_key_border_ff00ff", "soft_matte", "despill", "alpha_bbox_fit_112", "lanczos_resize_128"],
-        "prompt": "Use case: stylized-concept. Asset type: strict single-cell 2D game object tile sprite. One compact old conservatory tree for a 128x128-equivalent Universal Tile, viewed exact orthographic top-down, with a rounded deep-moss-green canopy and readable twisted trunk base. Hand-painted light dark-fairy-tale abandoned marble conservatory style. Centered with at least ten percent padding and no part leaving the square. Perfectly flat solid #ff00ff background, no background variation, floor, shadow, reflection, extra plants, pot, border, text, logo, watermark, or magenta in the subject."
+        "reference_roles": [
+          "external_screenshot_occupancy_structure_only",
+          "previous_asset_subject_theme_only"
+        ],
+        "postprocess": [
+          "center_crop_square",
+          "lanczos_resize_128",
+          "force_rgb_opaque"
+        ],
+        "prompt": "Use case: stylized-concept\nAsset type: full-cell opaque 2D game obstacle tile\nInput images: Image 1 is a structural reference only for obstacles that completely own one square grid cell; do not copy its characters, UI, symbols, room layout, palette, or specific art. Image 2 is only a subject reference for an old conservatory tree.\nPrimary request: create one original square tree/topiary obstacle tile for an abandoned marble conservatory. It must be a complete solid grid block, not a transparent tree sprite placed inside a floor tile.\nSubject: dense mossy tree canopy deliberately shaped into a square hedge-like block, filling the entire square and touching all four edges. A simplified twisted trunk or branch junction is readable near the lower/southern center, but no floor is visible anywhere.\nStyle/medium: clean 2D cartoon game art, bold dark outline, flat color blocks, limited palette, only 2–3 value steps, very light controlled leaf texture.\nComposition/framing: exact orthographic top-down, perfectly square, edge-to-edge opaque artwork. Strong square silhouette with a 3–5% dark contour/inset boundary so the occupied cell reads instantly.\nColor palette: moss green, deep foliage green, muted olive, small weathered walnut trunk accents, dark green-black outline.\nConstraints: fully opaque square; no transparent pixels; no empty margin; no visible floor; no round isolated crown floating in the cell; no perspective; no cast shadow; no lighting outside the cell; all details contained inside the square; no flowers, pot, fruit, text, logo, or watermark.\nAvoid: photorealism, PBR, painterly micro-detail, individual realistic leaves, cinematic lighting, soft transparent edges, circular sprite silhouette, copied elements from Image 1."
       }
     },
     {
       "id": "wood_cabinet_01",
       "asset_type": "obstacle",
-      "role": "object",
+      "role": "cell_tile",
+      "tile_behavior": "obstacle",
       "texture_path": "res://assets/ai_tiles/abandoned_marble_conservatory/wood_cabinet_01.png",
       "size_px": [128, 128],
-      "alpha_mode": "transparent",
+      "alpha_mode": "opaque",
+      "visual_occupancy": "full_cell",
       "repeat_mode": "none",
       "footprint_cells": [1, 1],
       "footprint_shape": "square",
       "anchor_point_px": [64, 64],
       "orientation_read": "front_faces_south",
-      "sort_layer": 20,
-      "tags": ["object", "wood", "furniture", "container", "obstacle"],
+      "walkable": false,
+      "tags": ["tile", "wood", "furniture", "container", "obstacle", "non_walkable"],
       "collision": {
         "shape": "rectangle",
-        "offset_px": [0, 14],
-        "size_px": [84, 58]
-      },
-      "shadow": {
-        "shape": "ellipse",
-        "size_px": [92, 38],
-        "offset_px": [8, 18],
-        "opacity": 0.24
+        "offset_px": [0, 0],
+        "size_px": [128, 128]
       },
       "interaction": {
         "interactable": true,
@@ -117,12 +145,21 @@
       },
       "generation": {
         "tool": "builtin_imagegen",
-        "mode": "generate_chromakey",
-        "prompt_id": "abandoned_marble_conservatory_wood_cabinet_v1",
-        "revision": 1,
+        "mode": "generate",
+        "prompt_id": "abandoned_marble_conservatory_wood_cabinet_cartoon_v2",
+        "revision": 2,
+        "attempt": 2,
         "source_size_px": [1254, 1254],
-        "postprocess": ["chroma_key_border_ff00ff", "soft_matte", "despill", "alpha_bbox_fit_112", "lanczos_resize_128"],
-        "prompt": "Use case: stylized-concept. Asset type: strict single-cell 2D game object tile sprite. One compact weathered walnut cabinet for a 128x128-equivalent Universal Tile, seen exact orthographic top-down with its front edge facing south, readable door seams, and tarnished brass handles. Hand-painted light dark-fairy-tale abandoned marble conservatory style. Centered with at least ten percent padding and no part leaving the square. Perfectly flat solid #ff00ff background, no background variation, wall, floor, shadow, reflection, extra furniture, border, text, logo, watermark, or magenta in the subject."
+        "reference_roles": [
+          "external_screenshot_occupancy_structure_only",
+          "previous_asset_subject_theme_only"
+        ],
+        "postprocess": [
+          "center_crop_square",
+          "lanczos_resize_128",
+          "force_rgb_opaque"
+        ],
+        "prompt": "Use case: stylized-concept\nAsset type: full-cell opaque 2D cartoon game obstacle tile\nInput images: Image 1 is ONLY a structural reference for a square obstacle owning an entire grid cell. Image 2 is ONLY a subject cue for a wooden cabinet. Do not copy either image's rendering style.\nPrimary request: create one original, extremely simplified square wooden cabinet tile for an abandoned marble conservatory. This is a cartoon board-game-like grid block, not a realistic furniture illustration.\nSubject: a large square walnut storage cabinet filling the complete square and touching all four edges. Use four or fewer large flat wooden panels. On the lower/southern edge, show one bold central door seam and two simple brass handle shapes. No floor or background is visible.\nStyle/medium: crisp flat 2D cartoon, thick near-black outline, large clean color shapes, exactly 2–3 value levels, minimal cel shading. Use the graphic simplicity of a readable mobile game tile, not painted concept art.\nComposition/framing: exact orthographic top-down, perfectly square, edge-to-edge opaque artwork, strong rectangular silhouette, 3–5% dark inset contour.\nColor palette: only dark walnut brown, medium walnut brown, one warm highlight brown, muted brass, near-black outline.\nMaterials/textures: almost no texture; at most a few broad stylized nicks. NO visible wood grain lines, knots, scratches, cracks, noise, brush texture, or micro-detail.\nConstraints: fully opaque; no transparent pixels; no empty margin; no visible floor/wall; no perspective; no cast shadow; all details contained inside the tile; no extra objects; no text; no logo; no watermark.\nAvoid: photorealism, realistic wood, PBR, painterly rendering, complex texture, many highlights, cinematic lighting, freestanding sprite silhouette, copied elements from Image 1."
       }
     }
   ]

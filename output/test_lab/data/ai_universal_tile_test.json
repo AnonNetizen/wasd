@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "style_pack_path": "res://assets/ai_tiles/abandoned_marble_conservatory/style_pack.json",
   "grid_size": [
     6,
@@ -11,7 +11,8 @@
   ],
   "base_seed": 20260711,
   "seed_step": 7919,
-  "base_fill_asset_id": "marble_floor_01",
+  "default_tile_asset_id": "marble_floor_01",
+  "cell_composition": "exclusive",
   "generation_rules": {
     "placement_zone": "perimeter",
     "allow_overlap": false,

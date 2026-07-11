@@ -7,16 +7,15 @@ const GRID_SCRIPT := preload("res://scripts/universal_tile_grid.gd")
 const INDEX_SCENE_PATH: String = "res://scenes/test_lab_index.tscn"
 
 @onready var _back_button: Button = get_node_or_null("Sidebar/Margin/Rows/BackButton") as Button
-@onready var _base_toggle: CheckButton = get_node_or_null("Sidebar/Margin/Rows/LayerToggles/BaseToggle") as CheckButton
+@onready var _cell_tiles_toggle: CheckButton = get_node_or_null("Sidebar/Margin/Rows/LayerToggles/CellTilesToggle") as CheckButton
+@onready var _collision_toggle: CheckButton = get_node_or_null("Sidebar/Margin/Rows/LayerToggles/CollisionToggle") as CheckButton
 @onready var _detail_toggle: CheckButton = get_node_or_null("Sidebar/Margin/Rows/LayerToggles/DetailToggle") as CheckButton
 @onready var _error_label: Label = get_node_or_null("Sidebar/Margin/Rows/ErrorLabel") as Label
 @onready var _grid: GRID_SCRIPT = get_node_or_null("UniversalTileGrid") as GRID_SCRIPT
 @onready var _hover_label: Label = get_node_or_null("Sidebar/Margin/Rows/HoverPanel/Margin/HoverLabel") as Label
 @onready var _metadata_toggle: CheckButton = get_node_or_null("Sidebar/Margin/Rows/LayerToggles/MetadataToggle") as CheckButton
-@onready var _object_toggle: CheckButton = get_node_or_null("Sidebar/Margin/Rows/LayerToggles/ObjectToggle") as CheckButton
 @onready var _regenerate_button: Button = get_node_or_null("Sidebar/Margin/Rows/RegenerateButton") as Button
 @onready var _seed_label: Label = get_node_or_null("Sidebar/Margin/Rows/SeedLabel") as Label
-@onready var _shadow_toggle: CheckButton = get_node_or_null("Sidebar/Margin/Rows/LayerToggles/ShadowToggle") as CheckButton
 @onready var _summary_label: Label = get_node_or_null("Sidebar/Margin/Rows/SummaryLabel") as Label
 
 var _current_seed: int = 0
@@ -81,9 +80,8 @@ func _connect_ui() -> void:
 		_back_button.pressed.connect(_return_to_index)
 	if _regenerate_button != null:
 		_regenerate_button.pressed.connect(_regenerate_next_seed)
-	_connect_layer_toggle(_base_toggle, GRID_SCRIPT.LAYER_BASE)
-	_connect_layer_toggle(_shadow_toggle, GRID_SCRIPT.LAYER_SHADOW)
-	_connect_layer_toggle(_object_toggle, GRID_SCRIPT.LAYER_OBJECT)
+	_connect_layer_toggle(_cell_tiles_toggle, GRID_SCRIPT.LAYER_CELL_TILES)
+	_connect_layer_toggle(_collision_toggle, GRID_SCRIPT.LAYER_COLLISION)
 	_connect_layer_toggle(_detail_toggle, GRID_SCRIPT.LAYER_DETAIL)
 	_connect_layer_toggle(_metadata_toggle, GRID_SCRIPT.LAYER_METADATA)
 
@@ -119,17 +117,18 @@ func _update_generation_labels() -> void:
 	if _grid == null:
 		return
 	var summary: Dictionary = _grid.get_generation_summary()
-	var object_counts: Dictionary = summary.get("object_counts", {})
+	var tile_counts: Dictionary = summary.get("tile_counts", {})
 	if _seed_label != null:
 		_seed_label.text = "Seed  %d" % int(summary.get("seed", 0))
 	if _summary_label != null:
 		_summary_label.text = (
-			"%d marble cells  ·  %d trees  ·  %d cabinets\n"
-			+ "Perimeter only  ·  no overlap  ·  Detail layer empty"
+			"%d marble  ·  %d trees  ·  %d cabinets\n"
+			+ "%d exclusive cells  ·  full-cell obstacle collision"
 		) % [
-			int(summary.get("base_cell_count", 0)),
-			int(object_counts.get("tree_01", 0)),
-			int(object_counts.get("wood_cabinet_01", 0)),
+			int(tile_counts.get("marble_floor_01", 0)),
+			int(tile_counts.get("tree_01", 0)),
+			int(tile_counts.get("wood_cabinet_01", 0)),
+			int(summary.get("cell_count", 0)),
 		]
 
 
@@ -140,14 +139,14 @@ func _update_hover_label(cell: Vector2i) -> void:
 		_hover_label.text = "Hover a cell to inspect its metadata."
 		return
 	var metadata: Dictionary = _grid.get_cell_metadata(cell)
-	var object_metadata: Dictionary = metadata.get("object", {})
+	var tile_metadata: Dictionary = metadata.get("tile", {})
 	var collision: Dictionary = metadata.get("collision", {})
 	var interaction: Dictionary = metadata.get("interaction", {})
-	var object_id := String(object_metadata.get("id", "none"))
+	var tile_id := String(tile_metadata.get("id", "none"))
 	_hover_label.text = (
 		"Cell (%d, %d)\n"
 		+ "Layers: %s\n"
-		+ "Object: %s\n"
+		+ "Tile: %s\n"
 		+ "Tags: %s\n"
 		+ "Footprint: %s\n"
 		+ "Collision: %s\n"
@@ -156,7 +155,7 @@ func _update_hover_label(cell: Vector2i) -> void:
 		cell.x,
 		cell.y,
 		", ".join(PackedStringArray(metadata.get("layers", []))),
-		object_id,
+		tile_id,
 		", ".join(PackedStringArray(metadata.get("tags", []))),
 		str(metadata.get("footprint_cells", [1, 1])),
 		_collision_text(collision),

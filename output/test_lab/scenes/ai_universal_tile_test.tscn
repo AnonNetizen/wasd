@@ -111,7 +111,7 @@ corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 
-[node name="AIUniversalTileTest" type="Control" unique_id=766990857]
+[node name="AIUniversalTileTest" type="Control" unique_id=878497355]
 layout_mode = 3
 anchors_preset = 0
 anchor_right = 1.0
@@ -120,7 +120,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_cbw6v")
 
-[node name="Background" type="ColorRect" parent="." unique_id=2046589388]
+[node name="Background" type="ColorRect" parent="." unique_id=417423684]
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -129,14 +129,14 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0.025, 0.035, 0.034, 1)
 
-[node name="TopGlow" type="ColorRect" parent="." unique_id=216308944]
+[node name="TopGlow" type="ColorRect" parent="." unique_id=950861162]
 layout_mode = 0
 anchor_right = 1.0
 offset_bottom = 126.0
 mouse_filter = 2
 color = Color(0.12, 0.18, 0.14, 0.34)
 
-[node name="WorldFrame" type="PanelContainer" parent="." unique_id=2058818135]
+[node name="WorldFrame" type="PanelContainer" parent="." unique_id=364186255]
 layout_mode = 0
 offset_left = 36.0
 offset_top = 140.0
@@ -145,11 +145,11 @@ offset_bottom = 676.0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_3707x")
 
-[node name="UniversalTileGrid" type="Node2D" parent="." unique_id=1790945590]
+[node name="UniversalTileGrid" type="Node2D" parent="." unique_id=1768021875]
 position = Vector2(48, 152)
 script = ExtResource("2_8knll")
 
-[node name="Title" type="Label" parent="." unique_id=1102682098]
+[node name="Title" type="Label" parent="." unique_id=1359666216]
 layout_mode = 0
 offset_left = 44.0
 offset_top = 24.0
@@ -159,7 +159,7 @@ theme_override_font_sizes/font_size = 28
 theme_override_colors/font_color = Color(0.9, 0.93, 0.79, 1)
 text = "AI UNIVERSAL TILE WORKFLOW"
 
-[node name="Subtitle" type="Label" parent="." unique_id=285716113]
+[node name="Subtitle" type="Label" parent="." unique_id=902267807]
 layout_mode = 0
 offset_left = 46.0
 offset_top = 68.0
@@ -167,9 +167,9 @@ offset_right = 816.0
 offset_bottom = 118.0
 theme_override_font_sizes/font_size = 15
 theme_override_colors/font_color = Color(0.62, 0.72, 0.62, 1)
-text = "Style Pack → runtime PNG → TileMapLayer → deterministic composition"
+text = "Style Pack → runtime PNG → one CellTileLayer → deterministic composition"
 
-[node name="StyleBadge" type="Label" parent="." unique_id=764336958]
+[node name="StyleBadge" type="Label" parent="." unique_id=645481684]
 layout_mode = 0
 offset_left = 590.0
 offset_top = 92.0
@@ -180,7 +180,7 @@ theme_override_colors/font_color = Color(0.73, 0.58, 0.35, 1)
 text = "ABANDONED MARBLE CONSERVATORY"
 horizontal_alignment = 2
 
-[node name="Sidebar" type="PanelContainer" parent="." unique_id=1669808608]
+[node name="Sidebar" type="PanelContainer" parent="." unique_id=751374969]
 layout_mode = 0
 offset_left = 844.0
 offset_top = 24.0
@@ -188,42 +188,42 @@ offset_right = 1244.0
 offset_bottom = 736.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_8migb")
 
-[node name="Margin" type="MarginContainer" parent="Sidebar" unique_id=1098177642]
+[node name="Margin" type="MarginContainer" parent="Sidebar" unique_id=1606769300]
 layout_mode = 2
 theme_override_constants/margin_left = 22
 theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 22
 theme_override_constants/margin_bottom = 20
 
-[node name="Rows" type="VBoxContainer" parent="Sidebar/Margin" unique_id=1853546755]
+[node name="Rows" type="VBoxContainer" parent="Sidebar/Margin" unique_id=1632177677]
 layout_mode = 2
 theme_override_constants/separation = 9
 
-[node name="SidebarTitle" type="Label" parent="Sidebar/Margin/Rows" unique_id=913429474]
+[node name="SidebarTitle" type="Label" parent="Sidebar/Margin/Rows" unique_id=1438634261]
 layout_mode = 2
 theme_override_font_sizes/font_size = 23
 theme_override_colors/font_color = Color(0.91, 0.87, 0.7, 1)
 text = "Generated Tile Scene"
 
-[node name="Description" type="Label" parent="Sidebar/Margin/Rows" unique_id=1110108835]
+[node name="Description" type="Label" parent="Sidebar/Margin/Rows" unique_id=78745516]
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
 theme_override_colors/font_color = Color(0.67, 0.71, 0.64, 1)
-text = "Three atomic assets, one portable Style Pack, no imported-cache dependency."
+text = "Three mutually exclusive full-cell Tiles, one portable Style Pack, no import-cache dependency."
 autowrap_mode = 3
 
-[node name="@HSeparator@2" type="HSeparator" parent="Sidebar/Margin/Rows" unique_id=480184120]
+[node name="@HSeparator@2" type="HSeparator" parent="Sidebar/Margin/Rows" unique_id=1089035955]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="SeedLabel" type="Label" parent="Sidebar/Margin/Rows" unique_id=1723044670]
+[node name="SeedLabel" type="Label" parent="Sidebar/Margin/Rows" unique_id=405338187]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(0.79, 0.86, 0.59, 1)
 text = "Seed  —"
 
-[node name="SummaryLabel" type="Label" parent="Sidebar/Margin/Rows" unique_id=464969965]
+[node name="SummaryLabel" type="Label" parent="Sidebar/Margin/Rows" unique_id=1858423839]
 custom_minimum_size = Vector2(0, 50)
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
@@ -231,43 +231,35 @@ theme_override_colors/font_color = Color(0.68, 0.74, 0.68, 1)
 text = "Waiting for scene generation…"
 autowrap_mode = 3
 
-[node name="LayerTitle" type="Label" parent="Sidebar/Margin/Rows" unique_id=1405464397]
+[node name="LayerTitle" type="Label" parent="Sidebar/Margin/Rows" unique_id=476625999]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 theme_override_colors/font_color = Color(0.74, 0.6, 0.38, 1)
 text = "LAYER VISIBILITY"
 
-[node name="LayerToggles" type="GridContainer" parent="Sidebar/Margin/Rows" unique_id=541098016]
+[node name="LayerToggles" type="GridContainer" parent="Sidebar/Margin/Rows" unique_id=26075908]
 layout_mode = 2
 theme_override_constants/h_separation = 20
 theme_override_constants/v_separation = 4
 columns = 2
 
-[node name="BaseToggle" type="CheckButton" parent="Sidebar/Margin/Rows/LayerToggles" unique_id=2064261913]
+[node name="CellTilesToggle" type="CheckButton" parent="Sidebar/Margin/Rows/LayerToggles" unique_id=342976076]
 custom_minimum_size = Vector2(160, 28)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.81, 0.83, 0.75, 1)
 theme_override_font_sizes/font_size = 13
 button_pressed = true
-text = "Base"
+text = "Cell Tiles"
 
-[node name="ShadowToggle" type="CheckButton" parent="Sidebar/Margin/Rows/LayerToggles" unique_id=126687682]
+[node name="CollisionToggle" type="CheckButton" parent="Sidebar/Margin/Rows/LayerToggles" unique_id=1314359467]
 custom_minimum_size = Vector2(160, 28)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.81, 0.83, 0.75, 1)
 theme_override_font_sizes/font_size = 13
 button_pressed = true
-text = "Shadow"
+text = "Collision"
 
-[node name="ObjectToggle" type="CheckButton" parent="Sidebar/Margin/Rows/LayerToggles" unique_id=1512210044]
-custom_minimum_size = Vector2(160, 28)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.81, 0.83, 0.75, 1)
-theme_override_font_sizes/font_size = 13
-button_pressed = true
-text = "Object"
-
-[node name="DetailToggle" type="CheckButton" parent="Sidebar/Margin/Rows/LayerToggles" unique_id=240511426]
+[node name="DetailToggle" type="CheckButton" parent="Sidebar/Margin/Rows/LayerToggles" unique_id=2120701734]
 custom_minimum_size = Vector2(160, 28)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.81, 0.83, 0.75, 1)
@@ -275,7 +267,7 @@ theme_override_font_sizes/font_size = 13
 button_pressed = true
 text = "Detail (empty)"
 
-[node name="MetadataToggle" type="CheckButton" parent="Sidebar/Margin/Rows/LayerToggles" unique_id=2008859983]
+[node name="MetadataToggle" type="CheckButton" parent="Sidebar/Margin/Rows/LayerToggles" unique_id=2045988451]
 custom_minimum_size = Vector2(160, 28)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.81, 0.83, 0.75, 1)
@@ -283,32 +275,32 @@ theme_override_font_sizes/font_size = 13
 button_pressed = true
 text = "Metadata"
 
-[node name="HoverTitle" type="Label" parent="Sidebar/Margin/Rows" unique_id=560630916]
+[node name="HoverTitle" type="Label" parent="Sidebar/Margin/Rows" unique_id=1415437129]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 theme_override_colors/font_color = Color(0.74, 0.6, 0.38, 1)
 text = "CELL METADATA"
 
-[node name="HoverPanel" type="PanelContainer" parent="Sidebar/Margin/Rows" unique_id=961995231]
+[node name="HoverPanel" type="PanelContainer" parent="Sidebar/Margin/Rows" unique_id=75505279]
 custom_minimum_size = Vector2(0, 164)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_nga7m")
 
-[node name="Margin" type="MarginContainer" parent="Sidebar/Margin/Rows/HoverPanel" unique_id=337293304]
+[node name="Margin" type="MarginContainer" parent="Sidebar/Margin/Rows/HoverPanel" unique_id=1694988719]
 layout_mode = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 10
 
-[node name="HoverLabel" type="Label" parent="Sidebar/Margin/Rows/HoverPanel/Margin" unique_id=1877767448]
+[node name="HoverLabel" type="Label" parent="Sidebar/Margin/Rows/HoverPanel/Margin" unique_id=245971223]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 theme_override_colors/font_color = Color(0.72, 0.78, 0.7, 1)
 text = "Hover a cell to inspect its metadata."
 autowrap_mode = 3
 
-[node name="Instructions" type="Label" parent="Sidebar/Margin/Rows" unique_id=2059782640]
+[node name="Instructions" type="Label" parent="Sidebar/Margin/Rows" unique_id=1365159263]
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
@@ -316,7 +308,7 @@ theme_override_colors/font_color = Color(0.58, 0.64, 0.59, 1)
 text = "R: next deterministic seed  ·  Esc: Test Lab index"
 autowrap_mode = 3
 
-[node name="RegenerateButton" type="Button" parent="Sidebar/Margin/Rows" unique_id=2019834593]
+[node name="RegenerateButton" type="Button" parent="Sidebar/Margin/Rows" unique_id=864268751]
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_p3r8t")
@@ -326,7 +318,7 @@ theme_override_colors/font_color = Color(0.91, 0.9, 0.77, 1)
 theme_override_font_sizes/font_size = 14
 text = "Regenerate · R"
 
-[node name="BackButton" type="Button" parent="Sidebar/Margin/Rows" unique_id=1076332018]
+[node name="BackButton" type="Button" parent="Sidebar/Margin/Rows" unique_id=1025936855]
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_b6jxl")
@@ -336,7 +328,7 @@ theme_override_colors/font_color = Color(0.91, 0.9, 0.77, 1)
 theme_override_font_sizes/font_size = 14
 text = "Back to Test Lab · Esc"
 
-[node name="ErrorLabel" type="Label" parent="Sidebar/Margin/Rows" unique_id=2070840959]
+[node name="ErrorLabel" type="Label" parent="Sidebar/Margin/Rows" unique_id=1751337278]
 visible = false
 layout_mode = 2
 theme_override_font_sizes/font_size = 11

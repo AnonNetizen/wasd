@@ -103,7 +103,7 @@ func _add_header(scene_root: Control) -> void:
 	subtitle.name = "Subtitle"
 	subtitle.position = Vector2(46.0, 68.0)
 	subtitle.size = Vector2(770.0, 50.0)
-	subtitle.text = "Style Pack → runtime PNG → TileMapLayer → deterministic composition"
+	subtitle.text = "Style Pack → runtime PNG → one CellTileLayer → deterministic composition"
 	subtitle.add_theme_font_size_override("font_size", 15)
 	subtitle.add_theme_color_override("font_color", Color(0.62, 0.72, 0.62))
 	scene_root.add_child(subtitle)
@@ -162,7 +162,7 @@ func _add_sidebar_heading(rows: VBoxContainer) -> void:
 	var description := Label.new()
 	description.name = "Description"
 	description.custom_minimum_size.y = 38.0
-	description.text = "Three atomic assets, one portable Style Pack, no imported-cache dependency."
+	description.text = "Three mutually exclusive full-cell Tiles, one portable Style Pack, no import-cache dependency."
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	description.add_theme_font_size_override("font_size", 13)
 	description.add_theme_color_override("font_color", Color(0.67, 0.71, 0.64))
@@ -201,9 +201,8 @@ func _add_layer_controls(rows: VBoxContainer) -> void:
 	toggles.add_theme_constant_override("h_separation", 20)
 	toggles.add_theme_constant_override("v_separation", 4)
 	rows.add_child(toggles)
-	_add_layer_toggle(toggles, "BaseToggle", "Base", true)
-	_add_layer_toggle(toggles, "ShadowToggle", "Shadow", true)
-	_add_layer_toggle(toggles, "ObjectToggle", "Object", true)
+	_add_layer_toggle(toggles, "CellTilesToggle", "Cell Tiles", true)
+	_add_layer_toggle(toggles, "CollisionToggle", "Collision", true)
 	_add_layer_toggle(toggles, "DetailToggle", "Detail (empty)", true)
 	_add_layer_toggle(toggles, "MetadataToggle", "Metadata", true)
 
