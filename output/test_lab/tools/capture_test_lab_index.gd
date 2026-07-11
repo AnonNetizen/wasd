@@ -1,10 +1,12 @@
 extends SceneTree
 
 const SCENE_PATH := "res://scenes/test_lab_index.tscn"
-const SCREENSHOT_PATH := "E:/GameProjects/wasd/wasd/output/test_lab/screenshots/test_lab_index.png"
+const SCREENSHOT_PATH := "res://screenshots/test_lab_index.png"
+
 
 func _initialize() -> void:
 	call_deferred("_capture")
+
 
 func _capture() -> void:
 	var packed_scene := load(SCENE_PATH) as PackedScene
@@ -32,11 +34,12 @@ func _capture() -> void:
 		quit(1)
 		return
 
-	var error := image.save_png(SCREENSHOT_PATH)
+	var absolute_screenshot_path := ProjectSettings.globalize_path(SCREENSHOT_PATH)
+	var error := image.save_png(absolute_screenshot_path)
 	if error != OK:
 		push_error("Failed to save screenshot: %s" % error)
 		quit(error)
 		return
 
-	print("Saved screenshot: %s" % SCREENSHOT_PATH)
+	print("Saved screenshot: %s" % absolute_screenshot_path)
 	quit(0)

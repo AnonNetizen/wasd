@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "style_id": "abandoned_marble_conservatory",
+  "projection": "orthographic_top_down",
+  "tile_size_px": [128, 128],
+  "palette": {
+    "marble_ivory": "#d6d1b9",
+    "marble_vein": "#7f8b8c",
+    "moss_green": "#53613c",
+    "deep_foliage": "#263421",
+    "weathered_walnut": "#5b351f",
+    "tarnished_brass": "#9b7a3d"
+  },
+  "lighting": {
+    "mode": "neutral_diffuse",
+    "direction": "none",
+    "shadow_policy": "engine_separate"
+  },
+  "assets": [
+    {
+      "id": "marble_floor_01",
+      "asset_type": "ground_range",
+      "role": "base",
+      "texture_path": "res://assets/ai_tiles/abandoned_marble_conservatory/marble_floor_01.png",
+      "size_px": [128, 128],
+      "alpha_mode": "opaque",
+      "repeat_mode": "seamless",
+      "footprint_cells": [1, 1],
+      "footprint_shape": "square",
+      "anchor_point_px": [64, 64],
+      "orientation_read": "none",
+      "sort_layer": 0,
+      "tags": ["floor", "marble", "walkable"],
+      "collision": null,
+      "shadow": null,
+      "interaction": {
+        "interactable": false,
+        "lootable": false
+      },
+      "generation": {
+        "tool": "builtin_imagegen",
+        "mode": "generate",
+        "prompt_id": "abandoned_marble_conservatory_marble_floor_v1",
+        "revision": 1,
+        "source_size_px": [1254, 1254],
+        "postprocess": ["center_crop_square", "lanczos_resize_128"],
+        "prompt": "Use case: stylized-concept. Asset type: seamless tileable 2D game floor texture. One aged marble floor tile for an abandoned marble conservatory in a light dark-fairy-tale game world. Hand-painted stylized 2D game art with exact orthographic top-down framing, neutral diffuse lighting, no perspective, border, frame, grout, cast shadow, focal emblem, text, logo, or watermark. Warm aged ivory marble, cool blue-gray veins, faint desaturated moss-green staining. Horizontally and vertically seamless with naturally continuing opposite edges."
+      }
+    },
+    {
+      "id": "tree_01",
+      "asset_type": "obstacle",
+      "role": "object",
+      "texture_path": "res://assets/ai_tiles/abandoned_marble_conservatory/tree_01.png",
+      "size_px": [128, 128],
+      "alpha_mode": "transparent",
+      "repeat_mode": "none",
+      "footprint_cells": [1, 1],
+      "footprint_shape": "square",
+      "anchor_point_px": [64, 64],
+      "orientation_read": "radial",
+      "sort_layer": 20,
+      "tags": ["object", "tree", "vegetation", "obstacle"],
+      "collision": {
+        "shape": "circle",
+        "offset_px": [0, 18],
+        "radius_px": 26
+      },
+      "shadow": {
+        "shape": "ellipse",
+        "size_px": [88, 44],
+        "offset_px": [10, 16],
+        "opacity": 0.28
+      },
+      "interaction": {
+        "interactable": false,
+        "lootable": false
+      },
+      "generation": {
+        "tool": "builtin_imagegen",
+        "mode": "generate_chromakey",
+        "prompt_id": "abandoned_marble_conservatory_tree_v1",
+        "revision": 1,
+        "source_size_px": [1254, 1254],
+        "postprocess": ["chroma_key_border_ff00ff", "soft_matte", "despill", "alpha_bbox_fit_112", "lanczos_resize_128"],
+        "prompt": "Use case: stylized-concept. Asset type: strict single-cell 2D game object tile sprite. One compact old conservatory tree for a 128x128-equivalent Universal Tile, viewed exact orthographic top-down, with a rounded deep-moss-green canopy and readable twisted trunk base. Hand-painted light dark-fairy-tale abandoned marble conservatory style. Centered with at least ten percent padding and no part leaving the square. Perfectly flat solid #ff00ff background, no background variation, floor, shadow, reflection, extra plants, pot, border, text, logo, watermark, or magenta in the subject."
+      }
+    },
+    {
+      "id": "wood_cabinet_01",
+      "asset_type": "obstacle",
+      "role": "object",
+      "texture_path": "res://assets/ai_tiles/abandoned_marble_conservatory/wood_cabinet_01.png",
+      "size_px": [128, 128],
+      "alpha_mode": "transparent",
+      "repeat_mode": "none",
+      "footprint_cells": [1, 1],
+      "footprint_shape": "square",
+      "anchor_point_px": [64, 64],
+      "orientation_read": "front_faces_south",
+      "sort_layer": 20,
+      "tags": ["object", "wood", "furniture", "container", "obstacle"],
+      "collision": {
+        "shape": "rectangle",
+        "offset_px": [0, 14],
+        "size_px": [84, 58]
+      },
+      "shadow": {
+        "shape": "ellipse",
+        "size_px": [92, 38],
+        "offset_px": [8, 18],
+        "opacity": 0.24
+      },
+      "interaction": {
+        "interactable": true,
+        "lootable": true
+      },
+      "generation": {
+        "tool": "builtin_imagegen",
+        "mode": "generate_chromakey",
+        "prompt_id": "abandoned_marble_conservatory_wood_cabinet_v1",
+        "revision": 1,
+        "source_size_px": [1254, 1254],
+        "postprocess": ["chroma_key_border_ff00ff", "soft_matte", "despill", "alpha_bbox_fit_112", "lanczos_resize_128"],
+        "prompt": "Use case: stylized-concept. Asset type: strict single-cell 2D game object tile sprite. One compact weathered walnut cabinet for a 128x128-equivalent Universal Tile, seen exact orthographic top-down with its front edge facing south, readable door seams, and tarnished brass handles. Hand-painted light dark-fairy-tale abandoned marble conservatory style. Centered with at least ten percent padding and no part leaving the square. Perfectly flat solid #ff00ff background, no background variation, wall, floor, shadow, reflection, extra furniture, border, text, logo, watermark, or magenta in the subject."
+      }
+    }
+  ]
+}

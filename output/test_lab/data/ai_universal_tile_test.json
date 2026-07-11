@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "style_pack_path": "res://assets/ai_tiles/abandoned_marble_conservatory/style_pack.json",
+  "grid_size": [
+    6,
+    4
+  ],
+  "tile_size_px": [
+    128,
+    128
+  ],
+  "base_seed": 20260711,
+  "seed_step": 7919,
+  "base_fill_asset_id": "marble_floor_01",
+  "generation_rules": {
+    "placement_zone": "perimeter",
+    "allow_overlap": false,
+    "placements": [
+      {
+        "asset_id": "tree_01",
+        "count": 3
+      },
+      {
+        "asset_id": "wood_cabinet_01",
+        "count": 3
+      }
+    ]
+  }
+}
