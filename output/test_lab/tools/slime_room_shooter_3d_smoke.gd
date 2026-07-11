@@ -32,10 +32,27 @@ func _run_smoke() -> void:
 	await process_frame
 	await physics_frame
 
-	_expect(scene.get_node_or_null("PerspectiveCamera") is Camera3D, "PerspectiveCamera is missing.")
+	var camera := scene.get_node_or_null("PerspectiveCamera") as Camera3D
+	_expect(camera != null, "PerspectiveCamera is missing.")
+	_expect(camera != null and camera.projection == Camera3D.PROJECTION_ORTHOGONAL, "Dungeon camera should use orthogonal projection.")
 	_expect(scene.get_node_or_null("World3D/Room/Floor") is MeshInstance3D, "Room floor is missing.")
+	_expect(scene.get_node_or_null("World3D/Room/StoneTiles") is Node3D, "Dungeon stone tiles are missing.")
+	_expect(scene.get_node_or_null("World3D/Room/DungeonGate") is Node3D, "Dungeon gate is missing.")
+	_expect(scene.get_node_or_null("World3D/Room/LeftBrazier") is Node3D, "Left dungeon brazier is missing.")
+	_expect(scene.get_node_or_null("World3D/Room/RightBrazier") is Node3D, "Right dungeon brazier is missing.")
+	var room := scene.get_node_or_null("World3D/Room") as Node3D
+	_expect(room != null and room.has_method("flame_count"), "Dungeon room FX controller is missing.")
+	if room != null and room.has_method("flame_count"):
+		_expect(int(room.call("flame_count")) == 4, "Dungeon room should animate four layered flames.")
+		_expect(int(room.call("torch_light_count")) == 2, "Dungeon room should animate two torch lights.")
 	_expect(scene.get_node_or_null("World3D/Actors/Slime3D") is Node3D, "3D slime is missing.")
-	_expect(scene.get_node_or_null("World3D/AimMarker") is MeshInstance3D, "Mouse aim marker is missing.")
+	var muzzle_flash := scene.get_node_or_null("World3D/Actors/Slime3D/MuzzleFlash") as Node3D
+	_expect(muzzle_flash != null, "Slime muzzle flash is missing.")
+	var aim_marker := scene.get_node_or_null("World3D/AimMarker") as MeshInstance3D
+	_expect(aim_marker != null and aim_marker.mesh is TorusMesh, "Dungeon mouse aim ring is missing.")
+	_expect(scene.get_node_or_null("AtmosphereOverlay/Vignette") is ColorRect, "Dungeon vignette overlay is missing.")
+	_expect(scene.get_node_or_null("Overlay/AmmoPanel/Margin/Rows/ShotCount") is Label, "Compact ammo HUD is missing.")
+	_expect(scene.get_node_or_null("Overlay/ExitButton") is Button, "Dungeon exit button is missing.")
 	var membrane := scene.get_node_or_null("World3D/Actors/Slime3D/SlimeVisual/SlimeMembrane") as Node3D
 	var edge_rig := scene.get_node_or_null("World3D/Actors/Slime3D/SlimeVisual/SlimeMembrane/EdgeRig") as Node3D
 	var membrane_surface := scene.get_node_or_null("World3D/Actors/Slime3D/SlimeVisual/SlimeMembrane/Surface") as MeshInstance3D
@@ -58,6 +75,9 @@ func _run_smoke() -> void:
 	)
 	var pool_size: int = scene.call("debug_projectile_pool_size")
 	_expect(pool_size == EXPECTED_PROJECTILE_POOL_SIZE, "Projectile pool size should be %d, got %d." % [EXPECTED_PROJECTILE_POOL_SIZE, pool_size])
+	var first_projectile := scene.get_node_or_null("World3D/Projectiles/Projectile00") as MeshInstance3D
+	_expect(first_projectile != null and first_projectile.mesh is BoxMesh, "Dungeon projectile should use an elongated BoxMesh.")
+	_expect(first_projectile != null and first_projectile.get_node_or_null("Core") is MeshInstance3D, "Dungeon projectile glow core is missing.")
 
 	var start_position: Vector3 = scene.call("debug_player_position")
 	var idle_deformation: float = scene.call("debug_membrane_deformation")
@@ -84,6 +104,7 @@ func _run_smoke() -> void:
 	var fired_direction: Vector3 = scene.call("debug_last_fired_direction")
 	var firing_deformation: float = scene.call("debug_membrane_deformation")
 	_expect(fired_direction.dot(expected_direction) > 0.999, "Projectile direction does not match the requested mouse-world aim direction.")
+	_expect(muzzle_flash != null and muzzle_flash.visible, "Firing did not reveal the short muzzle flash.")
 	_expect(
 		firing_deformation > settled_deformation + 0.04,
 		"Firing did not create a local membrane bud (settled %.3f, firing %.3f)."
@@ -103,5 +124,5 @@ func _run_smoke() -> void:
 	if _failed:
 		quit(1)
 		return
-	print("[SlimeRoomShooter3DSmoke] Passed continuous membrane, movement/fire deformation, aim, room, and projectile-pool wrap checks.")
+	print("[SlimeRoomShooter3DSmoke] Passed dungeon atmosphere, continuous membrane, movement/fire deformation, aim, and projectile-pool checks.")
 	quit(0)

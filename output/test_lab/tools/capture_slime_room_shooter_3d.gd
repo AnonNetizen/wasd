@@ -24,16 +24,14 @@ func _capture() -> void:
 		await process_frame
 
 	scene.call("debug_set_player_position", Vector3(-1.2, 0.0, -1.4))
-	var aim_target := Vector3(-1.2, 0.0, 5.2)
+	var aim_target := Vector3(0.8, 0.0, 5.2)
 	Input.action_press(ACTION_MOVE_RIGHT, 1.0)
 	for _shot in range(5):
 		scene.call("debug_fire_at_world", aim_target)
-		for _frame in range(4):
+		var frames_after_shot: int = 1 if _shot == 4 else 4
+		for _frame in range(frames_after_shot):
 			await physics_frame
 			await process_frame
-	for _frame in range(4):
-		await physics_frame
-		await process_frame
 	RenderingServer.force_draw(true)
 	RenderingServer.force_sync()
 	await process_frame

@@ -134,7 +134,7 @@ theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
 theme_override_styles/focus = SubResource("StyleBoxFlat_button_focus")
 theme_override_colors/font_color = Color(0.95, 0.86, 0.74, 1)
 theme_override_font_sizes/font_size = 18
-text = "3D Slime Room Shooter"
+text = "3D Slime Dungeon Shooter"
 
 [node name="AiBitmapButton" type="Button" parent="Panel/Margin/Rows" unique_id=652010011]
 custom_minimum_size = Vector2(0, 58)

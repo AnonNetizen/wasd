@@ -6,6 +6,7 @@ const ACTION_MOVE_BACK: String = "lab_move_back"
 const ACTION_MOVE_FORWARD: String = "lab_move_forward"
 const ACTION_MOVE_LEFT: String = "lab_move_left"
 const ACTION_MOVE_RIGHT: String = "lab_move_right"
+const AIM_MARKER_HEIGHT: float = 0.078
 const AIM_PLANE_HEIGHT: float = 0.0
 const FIRE_INTERVAL: float = 0.14
 const MOUSE_AIM_DEADZONE: float = 0.08
@@ -18,11 +19,13 @@ const ROOM_HALF_EXTENTS := Vector2(8.0, 6.0)
 const SCREEN_AXIS_SAMPLE_OFFSET: float = 64.0
 
 @onready var _aim_marker: MeshInstance3D = get_node_or_null("World3D/AimMarker") as MeshInstance3D
-@onready var _back_button: Button = get_node_or_null("Overlay/Panel/Margin/Rows/BackButton") as Button
+@onready var _back_button: Button = get_node_or_null("Overlay/ExitButton") as Button
 @onready var _camera: Camera3D = get_node_or_null("PerspectiveCamera") as Camera3D
 @onready var _muzzle: Marker3D = get_node_or_null("World3D/Actors/Slime3D/Muzzle") as Marker3D
+@onready var _muzzle_flash: Node3D = get_node_or_null("World3D/Actors/Slime3D/MuzzleFlash") as Node3D
+@onready var _muzzle_flash_light: OmniLight3D = get_node_or_null("World3D/Actors/Slime3D/MuzzleFlash/FlashLight") as OmniLight3D
 @onready var _projectiles_root: Node3D = get_node_or_null("World3D/Projectiles") as Node3D
-@onready var _shot_count_label: Label = get_node_or_null("Overlay/Panel/Margin/Rows/ShotCount") as Label
+@onready var _shot_count_label: Label = get_node_or_null("Overlay/AmmoPanel/Margin/Rows/ShotCount") as Label
 @onready var _slime_membrane: Node3D = get_node_or_null("World3D/Actors/Slime3D/SlimeVisual/SlimeMembrane") as Node3D
 @onready var _slime_root: Node3D = get_node_or_null("World3D/Actors/Slime3D") as Node3D
 @onready var _slime_visual: Node3D = get_node_or_null("World3D/Actors/Slime3D/SlimeVisual") as Node3D
@@ -32,6 +35,7 @@ var _animation_time: float = 0.0
 var _fire_cooldown: float = 0.0
 var _last_fired_direction := Vector3.FORWARD
 var _movement_strength: float = 0.0
+var _muzzle_flash_time: float = 0.0
 var _projectile_cursor: int = 0
 var _projectile_directions: Array[Vector3] = []
 var _projectile_lifetimes := PackedFloat32Array()
@@ -51,6 +55,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_animation_time += delta
 	_update_slime_animation(delta)
+	_update_muzzle_flash(delta)
 
 
 func _physics_process(delta: float) -> void:
@@ -123,7 +128,7 @@ func _apply_aim_world_position(world_position: Vector3) -> void:
 	if _aim_marker != null:
 		_aim_marker.global_position = Vector3(
 			clampf(world_position.x, -ROOM_HALF_EXTENTS.x, ROOM_HALF_EXTENTS.x),
-			0.035,
+			AIM_MARKER_HEIGHT,
 			clampf(world_position.z, -ROOM_HALF_EXTENTS.y, ROOM_HALF_EXTENTS.y)
 		)
 
@@ -183,6 +188,7 @@ func _fire_projectile() -> void:
 		if membrane_surface is Vector3:
 			spawn_position = membrane_surface
 	projectile.global_position = spawn_position
+	projectile.rotation = Vector3(0.0, atan2(_aim_direction.x, _aim_direction.z), 0.0)
 	projectile.scale = Vector3.ONE
 	projectile.visible = true
 	_projectile_directions[projectile_index] = _aim_direction
@@ -192,6 +198,9 @@ func _fire_projectile() -> void:
 	_last_fired_direction = _aim_direction
 	_fire_cooldown = FIRE_INTERVAL
 	_recoil = 0.16
+	_muzzle_flash_time = 0.075
+	if _muzzle_flash != null:
+		_muzzle_flash.visible = true
 	_shot_count += 1
 	_update_shot_count_label()
 
@@ -317,9 +326,24 @@ func _update_projectiles(delta: float) -> void:
 			_deactivate_projectile(index)
 
 
+func _update_muzzle_flash(delta: float) -> void:
+	if _muzzle_flash == null:
+		return
+	_muzzle_flash_time = maxf(0.0, _muzzle_flash_time - delta)
+	if _muzzle_flash_time <= 0.0:
+		_muzzle_flash.visible = false
+		return
+	var flash_ratio: float = _muzzle_flash_time / 0.075
+	_muzzle_flash.visible = true
+	_muzzle_flash.scale = Vector3.ONE * lerpf(0.38, 0.92, flash_ratio)
+	_muzzle_flash.rotation.z = _animation_time * 18.0
+	if _muzzle_flash_light != null:
+		_muzzle_flash_light.light_energy = 1.25 * flash_ratio
+
+
 func _update_shot_count_label() -> void:
 	if _shot_count_label != null:
-		_shot_count_label.text = "Shots fired: %d" % _shot_count
+		_shot_count_label.text = "FIRED  %03d" % _shot_count
 
 
 func _update_slime_animation(delta: float) -> void:
