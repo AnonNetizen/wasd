@@ -179,14 +179,6 @@ func _add_lights(root_node: Node3D) -> void:
 	fill_light.position = Vector3(8.0, 7.0, -6.0)
 	root_node.add_child(fill_light)
 
-	var slime_light := OmniLight3D.new()
-	slime_light.name = "SlimeGlowLight"
-	slime_light.light_color = Color(0.28, 1.0, 0.42)
-	slime_light.light_energy = 0.16
-	slime_light.omni_range = 2.4
-	slime_light.position = Vector3(0.0, 1.2, -1.8)
-	root_node.add_child(slime_light)
-
 
 func _add_mesh(
 	parent: Node,
@@ -666,61 +658,76 @@ func _add_slime(world_root: Node3D) -> void:
 	slime_root.position = Vector3(0.0, 0.0, -1.8)
 	slime_root.rotation.y = PI
 	actors_root.add_child(slime_root)
+
+	var contact_layer := Node3D.new()
+	contact_layer.name = "ContactLayer"
+	slime_root.add_child(contact_layer)
 	var contact_shadow_material: StandardMaterial3D = _make_material(
-		Color(0.008, 0.012, 0.009, 0.56),
+		Color(0.008, 0.012, 0.009, 0.34),
 		Color.BLACK,
 		0.0,
 		1.0
 	)
 	contact_shadow_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	var contact_shadow_mesh := CylinderMesh.new()
-	contact_shadow_mesh.top_radius = 0.72
-	contact_shadow_mesh.bottom_radius = 0.72
-	contact_shadow_mesh.height = 0.014
+	contact_shadow_mesh.top_radius = 0.78
+	contact_shadow_mesh.bottom_radius = 0.78
+	contact_shadow_mesh.height = 0.010
 	var contact_shadow: MeshInstance3D = _add_mesh(
-		slime_root,
+		contact_layer,
 		"ContactShadow",
 		contact_shadow_mesh,
 		contact_shadow_material,
-		Vector3(0.0, 0.070, 0.0),
-		Vector3(1.0, 0.28, 0.70)
+		Vector3(0.0, 0.100, 0.0),
+		Vector3(1.0, 0.18, 0.72)
 	)
 	contact_shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+	var gel_foot_material: StandardMaterial3D = _make_material(
+		Color(0.2078, 0.4392, 0.5412, 0.46),
+		Color.BLACK,
+		0.0,
+		0.52
+	)
+	gel_foot_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var gel_foot_mesh := CylinderMesh.new()
+	gel_foot_mesh.top_radius = 0.72
+	gel_foot_mesh.bottom_radius = 0.80
+	gel_foot_mesh.height = 0.018
+	var gel_foot: MeshInstance3D = _add_mesh(
+		contact_layer,
+		"GelFoot",
+		gel_foot_mesh,
+		gel_foot_material,
+		Vector3(0.0, 0.104, 0.0),
+		Vector3(1.0, 0.30, 0.90)
+	)
+	gel_foot.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	var slime_visual := Node3D.new()
 	slime_visual.name = "SlimeVisual"
 	slime_root.add_child(slime_visual)
 
-	var membrane_material: ShaderMaterial = _make_slime_membrane_material()
+	var surface_material: ShaderMaterial = _make_slime_surface_material()
+	var wet_coat_material: ShaderMaterial = _make_slime_wet_coat_material()
+	var face_paint_material: ShaderMaterial = _make_slime_face_paint_material()
 	var outline_material: ShaderMaterial = _make_slime_outline_material()
-	var core_material: StandardMaterial3D = _make_material(
-		Color(0.03, 0.24, 0.08, 1.0),
-		Color(0.02, 0.12, 0.04),
-		0.16,
-		0.34
-	)
-	var eye_material: StandardMaterial3D = _make_material(Color(0.94, 1.0, 0.95), Color(0.30, 0.72, 0.34), 0.12, 0.24)
-	var pupil_material: StandardMaterial3D = _make_material(Color(0.014, 0.038, 0.024), Color.BLACK, 0.0, 0.48)
-	var highlight_material: StandardMaterial3D = _make_material(Color(1.0, 1.0, 0.88), Color(0.70, 1.0, 0.42), 0.48, 0.18)
-	var cheek_material: StandardMaterial3D = _make_material(Color(1.0, 0.42, 0.55), Color(0.35, 0.05, 0.08), 0.18, 0.35)
-
-	_add_slime_membrane(slime_visual, membrane_material, outline_material)
-
-	var core_mesh := SphereMesh.new()
-	core_mesh.radius = 0.43
-	core_mesh.height = 0.86
-	core_mesh.radial_segments = 24
-	core_mesh.rings = 12
-	_add_mesh(
+	_add_slime_membrane(
 		slime_visual,
-		"InnerCore",
-		core_mesh,
-		core_material,
-		Vector3(0.0, 0.46, 0.01),
-		Vector3(1.0, 0.88, 1.0)
+		surface_material,
+		wet_coat_material,
+		face_paint_material,
+		outline_material
 	)
 
-	_add_slime_face(slime_visual, eye_material, pupil_material, highlight_material, cheek_material)
+	var slime_fill_light := OmniLight3D.new()
+	slime_fill_light.name = "SlimeFillLight"
+	slime_fill_light.light_color = Color(0.7608, 1.0, 0.8588)
+	slime_fill_light.light_energy = 0.08
+	slime_fill_light.omni_range = 1.8
+	slime_fill_light.shadow_enabled = false
+	slime_fill_light.position = Vector3(0.0, 0.72, 0.04)
+	slime_root.add_child(slime_fill_light)
 
 	var muzzle := Marker3D.new()
 	muzzle.name = "Muzzle"
@@ -732,7 +739,7 @@ func _add_slime(world_root: Node3D) -> void:
 func _add_muzzle_flash(slime_root: Node3D) -> void:
 	var flash_root := Node3D.new()
 	flash_root.name = "MuzzleFlash"
-	flash_root.position = Vector3(0.0, 0.70, -1.09)
+	flash_root.position = Vector3(0.0, 0.70, -1.19)
 	flash_root.visible = false
 	slime_root.add_child(flash_root)
 	var outer_material: StandardMaterial3D = _make_material(
@@ -748,15 +755,15 @@ func _add_muzzle_flash(slime_root: Node3D) -> void:
 		0.16
 	)
 	var core_mesh := SphereMesh.new()
-	core_mesh.radius = 0.10
-	core_mesh.height = 0.20
+	core_mesh.radius = 0.085
+	core_mesh.height = 0.17
 	core_mesh.radial_segments = 12
 	core_mesh.rings = 6
 	var core: MeshInstance3D = _add_mesh(flash_root, "GelCore", core_mesh, inner_material, Vector3.ZERO, Vector3(1.0, 0.82, 1.16))
 	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var splash_ring_mesh := TorusMesh.new()
-	splash_ring_mesh.inner_radius = 0.085
-	splash_ring_mesh.outer_radius = 0.135
+	splash_ring_mesh.inner_radius = 0.072
+	splash_ring_mesh.outer_radius = 0.115
 	splash_ring_mesh.rings = 6
 	splash_ring_mesh.ring_segments = 18
 	var splash_ring: MeshInstance3D = _add_mesh(
@@ -769,8 +776,8 @@ func _add_muzzle_flash(slime_root: Node3D) -> void:
 	splash_ring.rotation.x = PI * 0.5
 	splash_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var droplet_mesh := SphereMesh.new()
-	droplet_mesh.radius = 0.045
-	droplet_mesh.height = 0.09
+	droplet_mesh.radius = 0.038
+	droplet_mesh.height = 0.076
 	droplet_mesh.radial_segments = 10
 	droplet_mesh.rings = 5
 	var droplet_positions: Array[Vector3] = [
@@ -799,7 +806,9 @@ func _add_muzzle_flash(slime_root: Node3D) -> void:
 
 func _add_slime_membrane(
 	slime_visual: Node3D,
-	membrane_material: ShaderMaterial,
+	surface_material: ShaderMaterial,
+	wet_coat_material: ShaderMaterial,
+	face_paint_material: ShaderMaterial,
 	outline_material: ShaderMaterial
 ) -> void:
 	var membrane := Node3D.new()
@@ -813,15 +822,29 @@ func _add_slime_membrane(
 
 	var placeholder_mesh := SphereMesh.new()
 	placeholder_mesh.radius = 0.76
-	placeholder_mesh.height = 1.08
+	placeholder_mesh.height = 0.82
 	placeholder_mesh.radial_segments = 24
 	placeholder_mesh.rings = 12
 
 	var surface := MeshInstance3D.new()
 	surface.name = "Surface"
 	surface.mesh = placeholder_mesh
-	surface.material_override = membrane_material
+	surface.material_override = surface_material
 	membrane.add_child(surface)
+
+	var wet_coat := MeshInstance3D.new()
+	wet_coat.name = "WetCoat"
+	wet_coat.mesh = placeholder_mesh
+	wet_coat.material_override = wet_coat_material
+	wet_coat.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	membrane.add_child(wet_coat)
+
+	var face_paint := MeshInstance3D.new()
+	face_paint.name = "FacePaint"
+	face_paint.mesh = placeholder_mesh
+	face_paint.material_override = face_paint_material
+	face_paint.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	membrane.add_child(face_paint)
 
 	var outline_shell := MeshInstance3D.new()
 	outline_shell.name = "OutlineShell"
@@ -836,56 +859,15 @@ func _add_slime_membrane(
 	for index in range(SLIME_CONTROL_POINT_COUNT):
 		var ratio: float = float(index) / float(SLIME_CONTROL_POINT_COUNT)
 		var angle: float = ratio * TAU
-		var radius: float = 0.76 + sin(angle * 3.0 + 0.35) * 0.028
+		var radius: float = (
+			0.76
+			+ sin(angle * 3.0 + 0.35) * 0.036
+			+ sin(angle * 5.0 - 0.60) * 0.012
+		)
 		var edge_point := Marker3D.new()
 		edge_point.name = "EdgePoint%02d" % index
 		edge_point.position = Vector3(cos(angle) * radius, 0.18, sin(angle) * radius)
 		edge_rig.add_child(edge_point)
-
-
-func _add_slime_face(
-	slime_visual: Node3D,
-	eye_material: StandardMaterial3D,
-	pupil_material: StandardMaterial3D,
-	highlight_material: StandardMaterial3D,
-	cheek_material: StandardMaterial3D
-) -> void:
-	var face_root := Node3D.new()
-	face_root.name = "FaceRig"
-	face_root.position = Vector3(0.0, 0.0, -0.22)
-	slime_visual.add_child(face_root)
-
-	var eye_mesh := SphereMesh.new()
-	eye_mesh.radius = 0.16
-	eye_mesh.height = 0.32
-	eye_mesh.radial_segments = 20
-	eye_mesh.rings = 10
-	_add_mesh(face_root, "LeftEye", eye_mesh, eye_material, Vector3(-0.25, 0.73, -0.52), Vector3(0.92, 1.08, 0.62))
-	_add_mesh(face_root, "RightEye", eye_mesh, eye_material, Vector3(0.25, 0.73, -0.52), Vector3(0.92, 1.08, 0.62))
-
-	var pupil_mesh := SphereMesh.new()
-	pupil_mesh.radius = 0.075
-	pupil_mesh.height = 0.15
-	pupil_mesh.radial_segments = 16
-	pupil_mesh.rings = 8
-	_add_mesh(face_root, "LeftPupil", pupil_mesh, pupil_material, Vector3(-0.25, 0.73, -0.655), Vector3(0.88, 1.10, 0.50))
-	_add_mesh(face_root, "RightPupil", pupil_mesh, pupil_material, Vector3(0.25, 0.73, -0.655), Vector3(0.88, 1.10, 0.50))
-
-	var highlight_mesh := SphereMesh.new()
-	highlight_mesh.radius = 0.028
-	highlight_mesh.height = 0.056
-	_add_mesh(face_root, "LeftEyeHighlight", highlight_mesh, highlight_material, Vector3(-0.275, 0.765, -0.705))
-	_add_mesh(face_root, "RightEyeHighlight", highlight_mesh, highlight_material, Vector3(0.225, 0.765, -0.705))
-
-	var cheek_mesh := SphereMesh.new()
-	cheek_mesh.radius = 0.085
-	cheek_mesh.height = 0.17
-	_add_mesh(face_root, "LeftCheek", cheek_mesh, cheek_material, Vector3(-0.43, 0.54, -0.57), Vector3(1.15, 0.58, 0.45))
-	_add_mesh(face_root, "RightCheek", cheek_mesh, cheek_material, Vector3(0.43, 0.54, -0.57), Vector3(1.15, 0.58, 0.45))
-
-	var mouth_mesh := BoxMesh.new()
-	mouth_mesh.size = Vector3(0.22, 0.04, 0.04)
-	_add_mesh(face_root, "Mouth", mouth_mesh, pupil_material, Vector3(0.0, 0.50, -0.665))
 
 
 func _add_atmosphere_overlay(root_node: Node3D) -> void:
@@ -1012,29 +994,197 @@ void fragment() {
 	return material
 
 
-func _make_slime_membrane_material() -> ShaderMaterial:
+func _make_slime_surface_material() -> ShaderMaterial:
 	var shader := Shader.new()
 	shader.code = """
 shader_type spatial;
 render_mode cull_back;
 
-uniform vec4 body_color : source_color = vec4(0.018, 0.21, 0.12, 1.0);
-uniform vec4 inner_color : source_color = vec4(0.004, 0.052, 0.028, 1.0);
-uniform vec4 rim_color : source_color = vec4(0.42, 1.0, 0.46, 1.0);
+uniform vec4 body_color : source_color = vec4(0.4196, 0.8588, 0.7020, 1.0);
+uniform vec4 inner_color : source_color = vec4(0.2078, 0.4392, 0.5412, 1.0);
+uniform vec4 rim_color : source_color = vec4(0.7608, 1.0, 0.8588, 1.0);
+uniform float face_center_u = 0.75;
+uniform vec2 core_offset = vec2(0.0);
+
+varying vec3 local_vertex;
+
+float wrapped_u_delta(float value, float center) {
+	return fract(value - center + 0.5) - 0.5;
+}
+
+void vertex() {
+	local_vertex = VERTEX;
+}
 
 void fragment() {
-	float fresnel = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 2.15);
-	ALBEDO = mix(inner_color.rgb, body_color.rgb, 0.72 + fresnel * 0.22);
-	ROUGHNESS = 0.34;
-	SPECULAR = 0.48;
-	EMISSION = body_color.rgb * 0.075 + rim_color.rgb * (0.006 + fresnel * 0.06);
+	float angular_u = fract(atan(local_vertex.z, local_vertex.x) / 6.28318530718 + 1.0);
+	vec2 safe_core_offset = clamp(core_offset, vec2(-0.038), vec2(0.038));
+	float face_x = wrapped_u_delta(angular_u, face_center_u) * 2.60;
+	vec2 core_plane = vec2(face_x, local_vertex.y - 0.41) - safe_core_offset;
+	float core_gradient = 1.0 - smoothstep(0.22, 0.58, length(core_plane / vec2(1.0, 0.82)));
+	float front_window = 1.0 - smoothstep(0.20, 0.38, abs(wrapped_u_delta(angular_u, face_center_u)));
+	float vertical_light = smoothstep(0.04, 0.82, local_vertex.y);
+	float fresnel = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 2.25);
+	vec3 shaded_body = body_color.rgb * mix(0.76, 1.04, vertical_light);
+	vec3 filled_body = mix(shaded_body, inner_color.rgb, core_gradient * front_window * 0.44);
+	ALBEDO = mix(filled_body, rim_color.rgb, fresnel * 0.10);
+	ROUGHNESS = 0.44;
+	SPECULAR = 0.28;
+	EMISSION = body_color.rgb * 0.006 + rim_color.rgb * fresnel * 0.026;
 }
 """
 	var material := ShaderMaterial.new()
 	material.shader = shader
-	material.set_shader_parameter("body_color", Color(0.018, 0.21, 0.12, 1.0))
-	material.set_shader_parameter("inner_color", Color(0.004, 0.052, 0.028, 1.0))
-	material.set_shader_parameter("rim_color", Color(0.42, 1.0, 0.46, 1.0))
+	material.set_shader_parameter("body_color", Color(0.4196, 0.8588, 0.7020, 1.0))
+	material.set_shader_parameter("inner_color", Color(0.2078, 0.4392, 0.5412, 1.0))
+	material.set_shader_parameter("rim_color", Color(0.7608, 1.0, 0.8588, 1.0))
+	material.set_shader_parameter("face_center_u", 0.75)
+	material.set_shader_parameter("core_offset", Vector2.ZERO)
+	return material
+
+
+func _make_slime_wet_coat_material() -> ShaderMaterial:
+	var shader := Shader.new()
+	shader.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, cull_back, depth_draw_never;
+
+uniform vec4 highlight_color : source_color = vec4(0.7608, 1.0, 0.8588, 1.0);
+uniform float face_center_u = 0.75;
+uniform float coat_offset = 0.008;
+
+varying vec3 local_vertex;
+
+float wrapped_u_delta(float value, float center) {
+	return fract(value - center + 0.5) - 0.5;
+}
+
+void vertex() {
+	local_vertex = VERTEX;
+	VERTEX += NORMAL * coat_offset;
+}
+
+void fragment() {
+	float angular_u = fract(atan(local_vertex.z, local_vertex.x) / 6.28318530718 + 1.0);
+	float face_x = wrapped_u_delta(angular_u, face_center_u) * 2.60;
+	vec2 coat_plane = vec2(face_x + 0.20, local_vertex.y - 0.64);
+	float soft_streak = 1.0 - smoothstep(0.64, 1.0, length(coat_plane / vec2(0.20, 0.15)));
+	float face_window = 1.0 - smoothstep(0.18, 0.34, abs(wrapped_u_delta(angular_u, face_center_u)));
+	float fresnel = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 3.2);
+	float intensity = clamp(soft_streak * 0.18 + fresnel * face_window * 0.035, 0.0, 0.22);
+	ALBEDO = highlight_color.rgb;
+	ALPHA = intensity;
+}
+"""
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	material.render_priority = 0
+	material.set_shader_parameter("highlight_color", Color(0.7608, 1.0, 0.8588, 1.0))
+	material.set_shader_parameter("face_center_u", 0.75)
+	material.set_shader_parameter("coat_offset", 0.008)
+	return material
+
+
+func _make_slime_face_paint_material() -> ShaderMaterial:
+	var shader := Shader.new()
+	shader.code = """
+shader_type spatial;
+render_mode unshaded, blend_mix, cull_back, depth_draw_never;
+
+uniform vec4 eye_color : source_color = vec4(1.0, 0.953, 0.839, 1.0);
+uniform vec4 ink_color : source_color = vec4(0.0314, 0.1216, 0.1020, 1.0);
+uniform vec4 cheek_color : source_color = vec4(0.965, 0.588, 0.610, 1.0);
+uniform float face_center_u = 0.75;
+uniform vec2 look_offset = vec2(0.0);
+uniform float fire_expression = 0.0;
+uniform float paint_offset = 0.012;
+
+varying vec3 local_vertex;
+
+float wrapped_u_delta(float value, float center) {
+	return fract(value - center + 0.5) - 0.5;
+}
+
+float ellipse_mask(vec2 point, vec2 center, vec2 radii, float softness) {
+	float distance_to_edge = length((point - center) / radii);
+	return 1.0 - smoothstep(1.0 - softness, 1.0 + softness, distance_to_edge);
+}
+
+float ring_mask(vec2 point, vec2 center, vec2 radii, float width) {
+	float ring_distance = abs(length((point - center) / radii) - 1.0);
+	return 1.0 - smoothstep(width, width * 1.75, ring_distance);
+}
+
+void vertex() {
+	local_vertex = VERTEX;
+	VERTEX += NORMAL * paint_offset;
+}
+
+void fragment() {
+	float expression = clamp(fire_expression, 0.0, 1.0);
+	float angular_u = fract(atan(local_vertex.z, local_vertex.x) / 6.28318530718 + 1.0);
+	vec2 face_point = vec2(wrapped_u_delta(angular_u, face_center_u) * 2.60, local_vertex.y);
+	vec2 safe_look = look_offset / 0.18;
+	safe_look /= max(1.0, length(safe_look));
+	vec2 pupil_shift = safe_look * vec2(0.024, 0.027);
+	float eye_height = mix(0.145, 0.125, expression);
+	vec2 left_eye_center = vec2(-0.18, 0.55);
+	vec2 right_eye_center = vec2(0.18, 0.55);
+	float left_eye = ellipse_mask(face_point, left_eye_center, vec2(0.13, eye_height), 0.055);
+	float right_eye = ellipse_mask(face_point, right_eye_center, vec2(0.13, eye_height), 0.055);
+	float eyes = max(left_eye, right_eye);
+	float left_pupil = ellipse_mask(
+		face_point,
+		left_eye_center + pupil_shift,
+		vec2(0.050, mix(0.060, 0.051, expression)),
+		0.075
+	);
+	float right_pupil = ellipse_mask(
+		face_point,
+		right_eye_center + pupil_shift,
+		vec2(0.050, mix(0.060, 0.051, expression)),
+		0.075
+	);
+	float pupils = max(left_pupil, right_pupil);
+	float left_glint = ellipse_mask(
+		face_point,
+		left_eye_center + pupil_shift + vec2(-0.018, 0.025),
+		vec2(0.017),
+		0.10
+	);
+	float right_glint = ellipse_mask(
+		face_point,
+		right_eye_center + pupil_shift + vec2(-0.018, 0.025),
+		vec2(0.017),
+		0.10
+	);
+	float glints = max(left_glint, right_glint);
+	float smile = ring_mask(face_point, vec2(0.0, 0.405), vec2(0.105, 0.090), 0.075);
+	smile *= 1.0 - smoothstep(0.382, 0.410, face_point.y);
+	smile *= 1.0 - smoothstep(0.105, 0.125, abs(face_point.x));
+	float open_mouth = ring_mask(face_point, vec2(0.0, 0.335), vec2(0.052, 0.060), 0.12);
+	float mouth = mix(smile, open_mouth, expression);
+	float left_cheek = ellipse_mask(face_point, vec2(-0.34, 0.38), vec2(0.09, 0.042), 0.12);
+	float right_cheek = ellipse_mask(face_point, vec2(0.34, 0.38), vec2(0.09, 0.042), 0.12);
+	float cheeks = max(left_cheek, right_cheek) * 0.15;
+	vec3 paint_color = cheek_color.rgb;
+	paint_color = mix(paint_color, eye_color.rgb, eyes);
+	paint_color = mix(paint_color, ink_color.rgb, max(pupils, mouth));
+	paint_color = mix(paint_color, eye_color.rgb, glints);
+	ALBEDO = paint_color;
+	ALPHA = max(cheeks, max(eyes, mouth));
+}
+"""
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	material.render_priority = 1
+	material.set_shader_parameter("eye_color", Color(1.0, 0.953, 0.839, 1.0))
+	material.set_shader_parameter("ink_color", Color(0.0314, 0.1216, 0.1020, 1.0))
+	material.set_shader_parameter("cheek_color", Color(0.965, 0.588, 0.610, 1.0))
+	material.set_shader_parameter("face_center_u", 0.75)
+	material.set_shader_parameter("look_offset", Vector2.ZERO)
+	material.set_shader_parameter("fire_expression", 0.0)
+	material.set_shader_parameter("paint_offset", 0.012)
 	return material
 
 
@@ -1044,8 +1194,8 @@ func _make_slime_outline_material() -> ShaderMaterial:
 shader_type spatial;
 render_mode unshaded, cull_front, depth_draw_opaque;
 
-uniform vec4 outline_color : source_color = vec4(0.67, 0.94, 0.40, 1.0);
-uniform float outline_width = 0.042;
+uniform vec4 outline_color : source_color = vec4(0.0314, 0.1216, 0.1020, 1.0);
+uniform float outline_width = 0.026;
 
 void vertex() {
 	VERTEX += NORMAL * outline_width;
@@ -1053,14 +1203,13 @@ void vertex() {
 
 void fragment() {
 	ALBEDO = outline_color.rgb;
-	EMISSION = outline_color.rgb * 0.14;
 }
 """
 	var material := ShaderMaterial.new()
 	material.shader = shader
 	material.render_priority = -1
-	material.set_shader_parameter("outline_color", Color(0.67, 0.94, 0.40, 1.0))
-	material.set_shader_parameter("outline_width", 0.042)
+	material.set_shader_parameter("outline_color", Color(0.0314, 0.1216, 0.1020, 1.0))
+	material.set_shader_parameter("outline_width", 0.026)
 	return material
 
 

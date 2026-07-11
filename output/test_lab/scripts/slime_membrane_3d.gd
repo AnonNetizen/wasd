@@ -5,10 +5,14 @@ const CONTROL_POINT_HEIGHT: float = 0.18
 const CURVE_CENTRIPETAL_ALPHA: float = 0.5
 const CURVE_MIN_KNOT_SPACING: float = 0.0001
 const CURVE_SAMPLES_PER_SEGMENT: int = 4
+const CORE_OFFSET_FOLLOW_RATE: float = 7.0
+const CORE_OFFSET_MAX_RATIO: float = 0.05
 const MAX_DELTA: float = 0.033
-const RING_HEIGHTS = [0.07, 0.20, 0.42, 0.66, 0.86, 1.01]
-const RING_RADIUS_FACTORS = [0.84, 1.0, 0.96, 0.79, 0.54, 0.25]
-const TOP_HEIGHT: float = 1.09
+const PUPIL_LOOK_MAX: float = 0.18
+const RING_HEIGHTS: Array[float] = [0.05, 0.14, 0.30, 0.50, 0.68, 0.79]
+const RING_RADIUS_FACTORS: Array[float] = [0.92, 1.03, 0.96, 0.73, 0.42, 0.16]
+const TOP_HEIGHT: float = 0.82
+const VISUAL_LAYER_COUNT: int = 4
 
 @export var base_radius: float = 0.76
 @export var min_radius: float = 0.56
@@ -36,24 +40,35 @@ const TOP_HEIGHT: float = 1.09
 @export var maximum_drive_speed: float = 4.8
 
 var _control_points: Array[Marker3D] = []
+var _core_offset: Vector2 = Vector2.ZERO
 var _directions: Array[Vector2] = []
 var _drive_velocity: Vector2 = Vector2.ZERO
 var _dynamic_mesh := ArrayMesh.new()
 var _edge_offsets: Array[Vector2] = []
 var _edge_velocities: Array[Vector2] = []
+var _face_center_u: float = 0.75
+var _face_local_direction := Vector2(0.0, -1.0)
+var _face_look_offset: Vector2 = Vector2.ZERO
+var _face_world_direction_value: Vector3 = Vector3.FORWARD
+var _fire_expression: float = 0.0
 var _fire_sequence: int = 0
 var _radial_velocities := PackedFloat32Array()
 var _radii := PackedFloat32Array()
+var _rest_radii := PackedFloat32Array()
+var _visual_aim_world_direction: Vector3 = Vector3.FORWARD
 var _time: float = 0.0
 
 @onready var _edge_rig: Node3D = get_node_or_null("EdgeRig") as Node3D
+@onready var _face_paint: MeshInstance3D = get_node_or_null("FacePaint") as MeshInstance3D
 @onready var _outline_shell: MeshInstance3D = get_node_or_null("OutlineShell") as MeshInstance3D
 @onready var _surface: MeshInstance3D = get_node_or_null("Surface") as MeshInstance3D
+@onready var _wet_coat: MeshInstance3D = get_node_or_null("WetCoat") as MeshInstance3D
 
 
 func _ready() -> void:
 	_initialize_control_points()
 	_rebuild_mesh()
+	_apply_visual_shader_parameters()
 
 
 func _physics_process(delta: float) -> void:
@@ -63,6 +78,7 @@ func _physics_process(delta: float) -> void:
 	var safe_delta: float = minf(delta, MAX_DELTA)
 	_time += safe_delta
 	_update_control_points(safe_delta)
+	_update_core_offset(safe_delta)
 	_rebuild_mesh()
 
 
@@ -73,9 +89,13 @@ func control_point_count() -> int:
 func deformation_amount() -> float:
 	var largest_deformation: float = 0.0
 	for index in range(_edge_offsets.size()):
-		var rest_offset: Vector2 = _directions[index] * base_radius
+		var rest_offset: Vector2 = _directions[index] * _rest_radii[index]
 		largest_deformation = maxf(largest_deformation, _edge_offsets[index].distance_to(rest_offset))
 	return largest_deformation
+
+
+func core_offset_amount() -> float:
+	return _core_offset.length()
 
 
 func maximum_edge_speed() -> float:
@@ -101,9 +121,64 @@ func emit_surface_bud(world_direction: Vector3) -> Vector3:
 	return to_global(Vector3(local_direction.x * surface_distance, 0.60, local_direction.y * surface_distance))
 
 
+func face_look_offset() -> Vector2:
+	return _face_look_offset
+
+
+func face_world_direction() -> Vector3:
+	return _face_world_direction_value
+
+
 func set_drive_velocity(world_velocity: Vector3) -> void:
 	var local_velocity: Vector3 = global_basis.orthonormalized().inverse() * world_velocity
 	_drive_velocity = Vector2(local_velocity.x, local_velocity.z)
+
+
+func set_visual_state(
+	camera_world_direction: Vector3,
+	aim_world_direction: Vector3,
+	fire_strength: float
+) -> void:
+	var flat_camera_direction := Vector3(
+		camera_world_direction.x,
+		0.0,
+		camera_world_direction.z
+	)
+	if flat_camera_direction.length_squared() <= 0.0001:
+		flat_camera_direction = _face_world_direction_value
+	_face_world_direction_value = flat_camera_direction.normalized()
+
+	var local_face_direction: Vector2 = _world_direction_to_local_plane(_face_world_direction_value)
+	_face_local_direction = local_face_direction
+	_face_center_u = wrapf(atan2(local_face_direction.y, local_face_direction.x) / TAU, 0.0, 1.0)
+
+	var flat_aim_direction := Vector3(aim_world_direction.x, 0.0, aim_world_direction.z)
+	if flat_aim_direction.length_squared() <= 0.0001:
+		flat_aim_direction = _face_world_direction_value
+	_visual_aim_world_direction = flat_aim_direction.normalized()
+	var camera_right: Vector3 = Vector3.UP.cross(_face_world_direction_value).normalized()
+	var relative_aim := Vector2(
+		-_visual_aim_world_direction.dot(camera_right),
+		-_visual_aim_world_direction.dot(_face_world_direction_value)
+	).limit_length(1.0)
+	_face_look_offset = relative_aim * PUPIL_LOOK_MAX
+	_fire_expression = clampf(fire_strength, 0.0, 1.0)
+	_apply_visual_shader_parameters()
+
+
+func visual_layer_count() -> int:
+	return VISUAL_LAYER_COUNT
+
+
+func visual_layers_share_mesh() -> bool:
+	if _surface == null or _wet_coat == null or _face_paint == null or _outline_shell == null:
+		return false
+	return (
+		_surface.mesh == _dynamic_mesh
+		and _wet_coat.mesh == _dynamic_mesh
+		and _face_paint.mesh == _dynamic_mesh
+		and _outline_shell.mesh == _dynamic_mesh
+	)
 
 
 func _append_triangle(indices: PackedInt32Array, first: int, second: int, third: int) -> void:
@@ -117,6 +192,34 @@ func _average_radius() -> float:
 	for radius in _radii:
 		total += radius
 	return total / float(maxi(1, _radii.size()))
+
+
+func _average_rest_radius() -> float:
+	var total: float = 0.0
+	for radius in _rest_radii:
+		total += radius
+	return total / float(maxi(1, _rest_radii.size()))
+
+
+func _apply_shader_parameter(mesh_instance: MeshInstance3D, parameter: StringName, value: Variant) -> void:
+	if mesh_instance == null or not mesh_instance.material_override is ShaderMaterial:
+		return
+	var shader_material: ShaderMaterial = mesh_instance.material_override as ShaderMaterial
+	shader_material.set_shader_parameter(parameter, value)
+
+
+func _apply_visual_shader_parameters() -> void:
+	var face_tangent := Vector2(-_face_local_direction.y, _face_local_direction.x)
+	var projected_core_offset := Vector2(
+		_core_offset.dot(face_tangent),
+		-_core_offset.dot(_face_local_direction)
+	)
+	_apply_shader_parameter(_surface, &"face_center_u", _face_center_u)
+	_apply_shader_parameter(_surface, &"core_offset", projected_core_offset)
+	_apply_shader_parameter(_wet_coat, &"face_center_u", _face_center_u)
+	_apply_shader_parameter(_face_paint, &"face_center_u", _face_center_u)
+	_apply_shader_parameter(_face_paint, &"look_offset", _face_look_offset)
+	_apply_shader_parameter(_face_paint, &"fire_expression", _fire_expression)
 
 
 func _clamped_membrane_offset(candidate_offset: Vector2, fallback_direction: Vector2) -> Vector2:
@@ -150,14 +253,20 @@ func _initialize_control_points() -> void:
 		return
 
 	_radii.resize(_control_points.size())
+	_rest_radii.resize(_control_points.size())
 	_radial_velocities.resize(_control_points.size())
 	for index in range(_control_points.size()):
 		var ratio: float = float(index) / float(_control_points.size())
 		var angle: float = ratio * TAU
 		var direction := Vector2(cos(angle), sin(angle))
-		var radius: float = base_radius + sin(angle * 3.0 + 0.35) * 0.028
+		var radius: float = (
+			base_radius
+			+ sin(angle * 3.0 + 0.35) * 0.036
+			+ sin(angle * 5.0 - 0.6) * 0.012
+		)
 		_directions.append(direction)
 		_radii[index] = radius
+		_rest_radii[index] = radius
 		_radial_velocities[index] = 0.0
 		_edge_offsets.append(direction * radius)
 		_edge_velocities.append(Vector2.ZERO)
@@ -301,6 +410,10 @@ func _rebuild_mesh() -> void:
 	_dynamic_mesh.clear_surfaces()
 	_dynamic_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	_surface.mesh = _dynamic_mesh
+	if _wet_coat != null:
+		_wet_coat.mesh = _dynamic_mesh
+	if _face_paint != null:
+		_face_paint.mesh = _dynamic_mesh
 	_outline_shell.mesh = _dynamic_mesh
 
 
@@ -353,19 +466,23 @@ func _surface_distance_for_direction(local_direction: Vector2) -> float:
 
 func _update_control_points(delta: float) -> void:
 	var average_radius: float = _average_radius()
-	var pressure_force: float = (base_radius - average_radius) * area_pressure
+	var pressure_force: float = (_average_rest_radius() - average_radius) * area_pressure
 	var next_radii := PackedFloat32Array(_radii)
 	for index in range(_radii.size()):
 		var previous_index: int = posmod(index - 1, _radii.size())
 		var next_index: int = (index + 1) % _radii.size()
-		var neighbor_average: float = (_radii[previous_index] + _radii[next_index]) * 0.5
+		var radial_deformation: float = _radii[index] - _rest_radii[index]
+		var neighbor_average_deformation: float = (
+			(_radii[previous_index] - _rest_radii[previous_index])
+			+ (_radii[next_index] - _rest_radii[next_index])
+		) * 0.5
 		var ratio: float = float(index) / float(_radii.size())
 		var breath: float = sin(_time * breath_speed + ratio * TAU * 2.0) * breath_amount
 		var ripple: float = sin(_time * 2.1 + ratio * TAU * 7.0) * surface_noise_amount
-		var target_radius: float = base_radius + breath + ripple
+		var target_radius: float = _rest_radii[index] + breath + ripple
 		var acceleration: float = (
 			(target_radius - _radii[index]) * edge_stiffness
-			+ (neighbor_average - _radii[index]) * neighbor_smoothing
+			+ (neighbor_average_deformation - radial_deformation) * neighbor_smoothing
 			+ pressure_force
 		)
 		_radial_velocities[index] += acceleration * delta
@@ -413,6 +530,21 @@ func _update_control_points(delta: float) -> void:
 		var edge_offset: Vector2 = _edge_offsets[index]
 		var height_wave: float = sin(_time * 2.4 + float(index) * 0.73) * 0.012
 		_control_points[index].position = Vector3(edge_offset.x, CONTROL_POINT_HEIGHT + height_wave, edge_offset.y)
+
+
+func _update_core_offset(delta: float) -> void:
+	var drive_speed: float = _drive_velocity.length()
+	var drive_ratio: float = clampf(drive_speed / maxf(maximum_drive_speed, 0.001), 0.0, 1.0)
+	var desired_offset := Vector2.ZERO
+	if drive_speed > 0.001:
+		desired_offset -= _drive_velocity.normalized() * drive_ratio
+	var local_aim_direction: Vector2 = _world_direction_to_local_plane(_visual_aim_world_direction)
+	desired_offset -= local_aim_direction * _fire_expression
+	var maximum_offset: float = base_radius * CORE_OFFSET_MAX_RATIO
+	desired_offset = (desired_offset * maximum_offset).limit_length(maximum_offset)
+	var follow_weight: float = 1.0 - exp(-CORE_OFFSET_FOLLOW_RATE * delta)
+	_core_offset = _core_offset.lerp(desired_offset, follow_weight).limit_length(maximum_offset)
+	_apply_visual_shader_parameters()
 
 
 func _world_direction_to_local_plane(world_direction: Vector3) -> Vector2:

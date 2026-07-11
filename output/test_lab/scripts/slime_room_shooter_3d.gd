@@ -28,6 +28,7 @@ const SCREEN_AXIS_SAMPLE_OFFSET: float = 64.0
 @onready var _aim_marker: MeshInstance3D = get_node_or_null("World3D/AimMarker") as MeshInstance3D
 @onready var _back_button: Button = get_node_or_null("Overlay/ExitButton") as Button
 @onready var _camera: Camera3D = get_node_or_null("PerspectiveCamera") as Camera3D
+@onready var _contact_layer: Node3D = get_node_or_null("World3D/Actors/Slime3D/ContactLayer") as Node3D
 @onready var _muzzle: Marker3D = get_node_or_null("World3D/Actors/Slime3D/Muzzle") as Marker3D
 @onready var _muzzle_flash: Node3D = get_node_or_null("World3D/Actors/Slime3D/MuzzleFlash") as Node3D
 @onready var _muzzle_flash_light: OmniLight3D = get_node_or_null("World3D/Actors/Slime3D/MuzzleFlash/FlashLight") as OmniLight3D
@@ -58,11 +59,13 @@ func _ready() -> void:
 	if _back_button != null:
 		_back_button.pressed.connect(_return_to_index)
 	_update_shot_count_label()
+	_update_membrane_visual_state()
 
 
 func _process(delta: float) -> void:
 	_animation_time += delta
 	_update_fire_pose(delta)
+	_update_membrane_visual_state()
 	_update_slime_animation(delta)
 	_update_muzzle_flash(delta)
 
@@ -91,11 +94,13 @@ func debug_active_projectile_count() -> int:
 
 func debug_aim_at_world(world_position: Vector3) -> void:
 	_apply_aim_world_position(world_position)
+	_update_membrane_visual_state()
 
 
 func debug_fire_at_world(world_position: Vector3) -> void:
 	_apply_aim_world_position(world_position)
 	_fire_projectile()
+	_update_membrane_visual_state()
 
 
 func debug_last_fired_direction() -> Vector3:
@@ -134,6 +139,42 @@ func debug_slime_visual_scale() -> Vector3:
 	if _slime_visual == null:
 		return Vector3.ONE
 	return _slime_visual.scale
+
+
+func debug_slime_visual_layer_count() -> int:
+	if _slime_membrane == null or not _slime_membrane.has_method("visual_layer_count"):
+		return 0
+	return int(_slime_membrane.call("visual_layer_count"))
+
+
+func debug_slime_layers_share_mesh() -> bool:
+	if _slime_membrane == null or not _slime_membrane.has_method("visual_layers_share_mesh"):
+		return false
+	return bool(_slime_membrane.call("visual_layers_share_mesh"))
+
+
+func debug_slime_face_world_direction() -> Vector3:
+	if _slime_membrane == null or not _slime_membrane.has_method("face_world_direction"):
+		return Vector3.ZERO
+	var direction: Variant = _slime_membrane.call("face_world_direction")
+	if direction is Vector3:
+		return direction
+	return Vector3.ZERO
+
+
+func debug_slime_face_look_offset() -> Vector2:
+	if _slime_membrane == null or not _slime_membrane.has_method("face_look_offset"):
+		return Vector2.ZERO
+	var look_offset: Variant = _slime_membrane.call("face_look_offset")
+	if look_offset is Vector2:
+		return look_offset
+	return Vector2.ZERO
+
+
+func debug_slime_core_offset_amount() -> float:
+	if _slime_membrane == null or not _slime_membrane.has_method("core_offset_amount"):
+		return 0.0
+	return float(_slime_membrane.call("core_offset_amount"))
 
 
 func debug_projectile_pool_size() -> int:
@@ -378,6 +419,27 @@ func _update_muzzle_flash(delta: float) -> void:
 		_muzzle_flash_light.light_energy = 0.80 * flash_ratio
 
 
+func _update_membrane_visual_state() -> void:
+	if (
+		_slime_membrane == null
+		or _slime_root == null
+		or not _slime_membrane.has_method("set_visual_state")
+	):
+		return
+	var camera_direction := Vector3.BACK
+	if _camera != null:
+		camera_direction = _flattened_direction(
+			_camera.global_position - _slime_root.global_position,
+			Vector3.BACK
+		)
+	_slime_membrane.call(
+		"set_visual_state",
+		camera_direction,
+		_aim_direction,
+		clampf(maxf(_fire_pose, 0.0), 0.0, 1.0)
+	)
+
+
 func _update_fire_pose(delta: float) -> void:
 	var safe_delta: float = minf(delta, 0.033)
 	var acceleration: float = (
@@ -420,6 +482,14 @@ func _update_slime_animation(delta: float) -> void:
 	var target_scale: Vector3 = movement_scale * fire_scale
 	var blend: float = minf(1.0, delta * 18.0)
 	_slime_visual.scale = _slime_visual.scale.lerp(target_scale, blend)
+	if _contact_layer != null:
+		var contact_scale := Vector3(
+			clampf(target_scale.x, 0.92, 1.08),
+			1.0,
+			clampf(target_scale.z, 0.92, 1.08)
+		)
+		_contact_layer.scale = _contact_layer.scale.lerp(contact_scale, blend)
+		_contact_layer.position = Vector3.ZERO
 	var movement_bob: float = absf(wave) * 0.025 * _movement_strength
 	var rebound_lift: float = maxf(-_fire_pose, 0.0) * 0.018
 	var launch_lean: float = -maxf(_fire_pose, 0.0) * 0.035
