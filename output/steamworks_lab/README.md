@@ -39,13 +39,15 @@ py -3 tools\godot_bridge.py --project output\steamworks_lab headless-boot
 headless 战斗回归（刷怪 / 受击 / 无敌帧 / GameOver / 最长存活时间存档 / 重开 / buff 时停 / boss / 障碍物 / 主动道具）：
 
 ```powershell
-& "<godot.exe>" --headless --max-fps 60 --path output\steamworks_lab --script res://tests/battle_smoke.gd -- --disable-steam
+$godot = 'C:\path\to\godot.exe'
+& $godot --headless --max-fps 60 --path output\steamworks_lab --script res://tests/battle_smoke.gd -- --disable-steam
 ```
 
 Steam 配置与离线降级 smoke（不要求安装 GodotSteam）：
 
 ```powershell
-& "<godot.exe>" --headless --path output\steamworks_lab --script res://tests/steam_config_smoke.gd -- --disable-steam
+$godot = 'C:\path\to\godot.exe'
+& $godot --headless --path output\steamworks_lab --script res://tests/steam_config_smoke.gd -- --disable-steam
 ```
 
 ## 本地双开测试清单
@@ -66,9 +68,12 @@ headless 自动化版（host 与 client 需要不同项目目录副本，见下�
 
 ```powershell
 # 终端 1
-& "<godot.exe>" --headless --max-fps 60 --path output\steamworks_lab --script res://tests/net_host_smoke.gd -- --disable-steam
+$godot = 'C:\path\to\godot.exe'
+& $godot --headless --max-fps 60 --path output\steamworks_lab --script res://tests/net_host_smoke.gd -- --disable-steam
 # 终端 2（项目副本目录）
-& "<godot.exe>" --headless --max-fps 60 --path <steamworks_lab 副本> --script res://tests/net_client_smoke.gd -- --disable-steam
+$godot = 'C:\path\to\godot.exe'
+$projectCopy = 'C:\path\to\steamworks_lab-copy'
+& $godot --headless --max-fps 60 --path $projectCopy --script res://tests/net_client_smoke.gd -- --disable-steam
 ```
 
 ## Steam App ID 与测试

@@ -97,6 +97,8 @@ tools/
 
 关联根目录文档：`docs/AI知识库索引.md` 与 `docs/_kb_index.json` 管理知识库元数据，`docs/术语表.md` 管理术语别名，`docs/AI记忆/current_state.json` 管理机器可读当前状态，`docs/AI记忆/项目记忆.md` 作为长期冷存储，`docs/代码文档规范.md` 定义代码变更与对应文档的同步规则，`docs/代码/` 存放长期详细模块文档。
 
+Windows / PowerShell 环境的命令稳定执行入口是当前平台编码规则第 29 节；固定字符串搜索、正则、合法退出码、中文路径与外部可执行文件的可复制模板统一放在 `docs/AI协作/工具适配指南.md` 的「Windows PowerShell 稳定执行」节，其他文档不重复维护完整正文。
+
 ## 触发约定
 
 AI agent 接到任务时优先按以下顺序：

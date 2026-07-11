@@ -20,6 +20,7 @@
 - 外部 AI 库的有用经验必须吸收到三平台项目级 skills 或项目自有 subagent 中；不再保留 vendor submodule、外部 hooks / plugin、整包 skills 或 `.agents/skills` reference 层。外部工具若与本项目规则冲突，以 `AGENTS.md`、平台规则和 ADR 为准；游戏设计冲突以本项目 GDD / ADR 为准。
 - `.opencode/opencode.json` 必须保留 `$schema: https://opencode.ai/config.json`，避免 OpenCode 启动时因配置字段错误失败。
 - 改 `.opencode/` 后需要重启 OpenCode；运行中的 session 不会热重载配置。
+- Windows / PowerShell 环境必须遵守完整规则正文第 29 节：优先 `rg -F`、全部 `rg` 选项放在 `--` 前、路径走 `-LiteralPath`、原生退出码按工具语义归一化后再进入并行 / fail-fast；不得混用 Bash 转义或嵌套其他 shell。
 
 ## 核心红线速记
 

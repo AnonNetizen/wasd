@@ -6,16 +6,16 @@
     {
       "path": "AGENTS.md",
       "type": "entrypoint",
-      "authority": "AI agent startup order, low-token quick-start route, red lines, required reading, language policy, clarification-first rule for unclear requirements, task recovery after context compaction, AI Git commit policy, large-code-change review policy",
+      "authority": "AI agent startup order, low-token quick-start route, red lines, required reading, language policy, clarification-first rule for unclear requirements, task recovery after context compaction, AI Git commit policy, large-code-change review policy, and PowerShell execution policy",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-25",
-      "canonical_for": ["ai_startup", "core_red_lines", "startup_reading_order", "clarification_first_rule", "task_recovery_after_compaction", "ai_git_commit_policy", "low_token_startup"],
-      "must_read_for": ["new_session", "rule_change", "ai_platform_change"],
+      "last_reviewed": "2026-07-11",
+      "canonical_for": ["ai_startup", "core_red_lines", "startup_reading_order", "clarification_first_rule", "task_recovery_after_compaction", "ai_git_commit_policy", "low_token_startup", "powershell_execution"],
+      "must_read_for": ["new_session", "rule_change", "ai_platform_change", "powershell_command"],
       "related_docs": ["CLAUDE.md", "CODEX.md", "OPENCODE.md", "docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json", "docs/AI导航.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/快速开工.md"],
-      "related_code": [".codebuddy/", ".codex/", ".opencode/"],
-      "update_triggers": ["startup flow changes", "core red line changes", "clarification-first rule changes", "task recovery rule changes", "new cross-platform command, agent, skill, or platform entry", "AI Git commit policy changes", "large code review policy changes"],
-      "keywords": ["agent", "startup", "开工", "红线", "AI入口", "Claude", "不过度优化", "需求评估", "风险评估", "没有问题", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "上下文压缩", "任务恢复", "最后明确指令", "Next Steps", "AI Git", "自动commit", "提交策略", "code review", "事实review", "大型代码改动", "skills", "project skills", "快速开工", "低token", "hot path"]
+      "related_code": [".codebuddy/", ".codex/", ".opencode/", ".claude/"],
+      "update_triggers": ["startup flow changes", "core red line changes", "clarification-first rule changes", "task recovery rule changes", "new cross-platform command, agent, skill, or platform entry", "AI Git commit policy changes", "large code review policy changes", "PowerShell execution policy changes"],
+      "keywords": ["agent", "startup", "开工", "红线", "AI入口", "Claude", "不过度优化", "需求评估", "风险评估", "没有问题", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "上下文压缩", "任务恢复", "最后明确指令", "Next Steps", "AI Git", "自动commit", "提交策略", "code review", "事实review", "大型代码改动", "skills", "project skills", "快速开工", "低token", "hot path", "PowerShell", "rg -F", "LASTEXITCODE", "LiteralPath", "退出码", "Windows shell"]
     },
     {
       "path": "CLAUDE.md",
@@ -706,16 +706,16 @@
     {
       "path": "docs/AI协作/工具适配指南.md",
       "type": "workflow",
-      "authority": "Cross-tool AI adapter guidance, clarification-first baseline, and platform entry mapping",
+      "authority": "Cross-tool AI adapter guidance, clarification-first baseline, platform entry mapping, and copyable PowerShell execution templates",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-24",
-      "canonical_for": ["tool_adapter", "platform_mapping", "clarification_first_rule"],
-      "must_read_for": ["ai_platform_change", "new_command", "new_agent", "new_skill"],
+      "last_reviewed": "2026-07-11",
+      "canonical_for": ["tool_adapter", "platform_mapping", "clarification_first_rule", "powershell_execution_templates"],
+      "must_read_for": ["ai_platform_change", "new_command", "new_agent", "new_skill", "powershell_command"],
       "related_docs": ["AGENTS.md", "CODEX.md", "OPENCODE.md", "docs/AI协作/README.md", "docs/AI协作/AI技能资源评估.md", "docs/AI协作/快速开工.md", "docs/AI协作/代码审核流程.md"],
-      "related_code": [".codebuddy/", ".codex/", ".opencode/", ".codebuddy/skills/", ".codex/skills/", ".opencode/skills/"],
-      "update_triggers": ["AI platform config changes", "clarification-first rule changes", "agent mapping changes", "command mapping changes", "skill mapping changes"],
-      "keywords": ["工具适配", "CodeBuddy", "Codex", "OpenCode", "platform", "subagent", "agent mapping", "skills", "需求评估", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "不过度优化", "AI Git", "自动commit", "提交策略", "code review", "事实review", "工具先行review", "project skills"]
+      "related_code": [".codebuddy/", ".codex/", ".opencode/", ".claude/", ".codebuddy/skills/", ".codex/skills/", ".opencode/skills/", ".claude/skills/"],
+      "update_triggers": ["AI platform config changes", "clarification-first rule changes", "agent mapping changes", "command mapping changes", "skill mapping changes", "PowerShell execution template changes"],
+      "keywords": ["工具适配", "CodeBuddy", "Codex", "OpenCode", "platform", "subagent", "agent mapping", "skills", "需求评估", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "不过度优化", "AI Git", "自动commit", "提交策略", "code review", "事实review", "工具先行review", "project skills", "PowerShell", "rg", "LASTEXITCODE", "LiteralPath", "合法退出码", "Windows shell"]
     },
     {
       "path": "docs/AI协作/AI技能资源评估.md",

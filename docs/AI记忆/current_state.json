@@ -3,12 +3,13 @@
   "updated_at": "2026-07-11",
   "current_phase": "formal_project_f13_handcrafted_rooms",
   "current_status": "ADR #128 / F13 手工房间制短刷图首片运行时已落地并全绿验证：新增 RoomManager（client/scripts/gameplay/room_manager.gd，Node2D，房间 carrier 模式下由 GameplayRunLoop 挂在 ActiveWorld 下并驱动）、rooms.json / room_sequences.json、RoomRoot + 四类房间 marker（client/scripts/gameplay/rooms/，extends Marker2D + @export + to_data()）、两个演示房间 .tscn；门 direction / unlock_rule 和房间 clear_condition 进词表 §15-A/B/C 并生成常量；run payload schema v2→v3 新增 room 块并配 _migrate_run_v2_to_v3；房间 carrier 首片为 opt-in（debug_enable_room_carrier() 或 run 存档含非空 room 块自动启用），默认 mode_standard_survival 仍是 open-warzone（F12 不变），对象池生成 / Combat / 战利品仍走 GameplayRunLoop；新增 room-switch-smoke 覆盖房间加载 / 清房开门 / 切房 / pause-save-continue 恢复；四条黄金回放因 data_fingerprint（新契约 + rooms/room_sequences schema_counts）变化重录、行为 summary 未变。「把房间设为默认可玩模式」留作需重写 F12 smoke + 重录黄金的后续切片。ADR #127 规划口径（线性序列、清房开门、不自研完整编辑器 UI、不用 PCG 作默认房间内容来源）继续有效。F12 开放战区短刷图首片仍是已落地能力：8-12 分钟软目标、WarzoneDirector 阶段、四个兴趣点、可交互缓存箱、可伤害小巢核、run.pending_loot 暂存、矩形撤离区和结果清单；这些规则作为过渡 / 参考保留，但默认后续关卡承载不再继续以开放地图 PCG 为主。ADR #126 的通用远程敌人 action 和 enemy_spitter 仍保留为房间内容可用敌人能力。Gear Mod / dust 仍先进入 run.pending_loot，死亡 / 放弃不带回，成功完成或未来撤离才写入 meta.gear_mods。后续工作以用户最后明确指令为准。",
-  "latest_adr": 129,
+  "latest_adr": 130,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #130 / PowerShell 稳定执行规范：用户明确授权修改 AGENTS.md 并选择规则 + 可复制模板、不新增包装器；AGENTS 与 CodeBuddy/Codex/Claude 完整规则新增规则 29，OpenCode 继承同一核心语义，CLAUDE/CODEX/OPENCODE 与快速开工加入入口提醒；固定字符串默认 rg -F、全部 rg 选项置于 -- 前、cmdlet 路径走 -LiteralPath、cmdlet 与原生错误分开处理，合法非零码先归一化再并行；git diff --no-index=1 仅在输入已校验为文件后表示差异，缺失输入不得归一化为成功；工具适配指南提供模板，并修正 pre-commit、Godot 可执行文件和项目副本路径的尖括号命令占位符；不修改全局 PowerShell/Codex 配置、hook、CI 或运行时代码。",
     "ADR #129 / Steamworks Slime Lab 专属 App ID 正式化：output/steamworks_lab 从 Spacewar 480 切换为 App ID 4955670；project.godot 的 steam/app_id 作为运行时 / 发布重启配置，steam_appid.txt 仅供本地开发并由 steam_config_smoke 校验一致；TransportAdapter 解析 steamInit 结果、核对 runtime App ID、Godot export template 可调用 restartAppIfNecessary、严格校验 lobby marker + lab_version、支持 --disable-steam；NetworkSession 捕获早期初始化状态并在异步 Steam 连接失败时恢复 offline；README / ADR / AI导航 / 测试策略 / 知识库同步。该 Lab 仍是独立应用，不代表正式 client/PlatformServices provider 已接入；GodotSteam 二进制、export preset、SteamPipe VDF、Depot 内容与双账号真实 Steam smoke 仍待外部配置。",
     "Steamworks Slime Lab 最长存活时间存档：output/steamworks_lab 新增 SteamLabSave 轻量 helper，读写 user://save.cfg 的 records.best_survival_seconds，缺文件 / 读失败 / 非法值默认 0.0；主菜单新增 记录 / Records 入口和街机风格 RecordsPanel，显示暂无记录或 MM:SS 最长存活时间并随 zh_CN / en 切换刷新；director 进入 GAME_OVER 时用 payload time（缺失则 fallback battle_state().time）刷新本地纪录，手动返回主菜单、离开联机会话或重开不计入新纪录；battle_smoke 备份恢复 save.cfg 并覆盖 helper 默认值、弹窗、语言刷新、Game Over 写盘和低时间不覆盖。",
     "Steamworks Slime Lab 简单暂停界面：output/steamworks_lab 新增 pause_menu InputMap action（Esc）和 SteamLabPausePanel；单机 / offline 打开暂停菜单时冻结 director 实体、玩家弹、玩家无敌计时、battle clock 与背景滚动，并禁用移动、开火、Q 主动道具和表情轮；多人联机只打开本地菜单并清零本地输入，host 权威战斗继续推进；暂停面板文本接入 zh_CN / en，本地化切换即时刷新，README 与 battle_smoke 覆盖同步。",
@@ -110,6 +111,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-11",
+      "command": "PowerShell rg match/no-match/syntax-error exits 0/1/2; git diff --no-index identical/different plus missing-input rejection; Chinese-path Get-Content -LiteralPath; parse all 27 non-draft PowerShell fenced blocks; CodeBuddy/Codex/Claude full-rule SHA-256 plus OpenCode inheritance; current_state/_kb_index/OpenCode JSON and Codex agent TOML parse; docs_health_check; git diff --check excluding draft; pre-commit run --files for 27 task files",
+      "result": "passed for ADR #130 PowerShell stable execution: expected nonzero exits are interpreted and normalized per command, git diff --no-index rejects missing inputs before accepting exit 1 as a difference, all PowerShell examples parse, the three full platform rules have the same hash, OpenCode loads the forwarding rule and shared full rule, JSON/TOML/docs/diff checks pass, and all pre-commit hooks pass; no wrapper, hook, CI, runtime code, global PowerShell/Codex configuration, or Godot behavior was changed."
+    },
     {
       "date": "2026-07-11",
       "command": "json current_state/_kb_index, docs_health_check, diff --check excluding draft, steamworks_lab headless-boot/export-tree, steam_config_smoke --disable-steam, two-process local ENet host/client smoke, battle_smoke current tree + git archive HEAD baseline comparison",

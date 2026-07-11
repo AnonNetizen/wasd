@@ -56,7 +56,7 @@ permission:
 3. 照黄金样例填数据：复制结构、改值、改 key。
 4. 加 locale 条目：至少 zh_CN + en 两列；缺中文补中文，缺英文补英文。
 5. 同步手册：数据字段改动查 `client/data/README.md`，文案 / 语言 / 占位符改动查 `client/locale/README.md`。
-6. 跑 hook 校验：`pre-commit run --files <changed>`（或同等命令）；fail 即按报错改。
+6. 跑 hook 校验：`pre-commit run --files client/data/relics.json`（或同等命令）；fail 即按报错改。
 
 ## Escalate
 

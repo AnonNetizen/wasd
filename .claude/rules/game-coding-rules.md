@@ -295,6 +295,17 @@ alwaysApply: true
 - 仓库级搜索、批量格式化、文档整理、健康检查或自动化脚本建议必须显式排除 `draft/` / `DRAFT/`。
 - 遵守该禁区是默认行为；除非与当前任务直接相关或需要解释异常，不要在最终回复中逐次声明该禁区的遵守情况。
 
+## 29. PowerShell 稳定执行（Windows / PowerShell 环境强制）
+- 本条仅在当前 shell 为 PowerShell 时生效；其他 shell 使用其原生语法，不要在 PowerShell 中嵌套 `cmd` / Bash，也不要把 Bash 转义规则照搬到 PowerShell。
+- 文本搜索默认使用 `rg -F` 固定字符串；确需正则时把 pattern 放进单引号字符串或变量，禁止使用 Bash 风格的 `\"` 转义 PowerShell 引号。`rg` 的全部选项（含 `-g`）必须位于 `--` 前，`--` 后只放 pattern 与路径。
+- PowerShell cmdlet 读取 / 操作路径时使用 `-LiteralPath`；动态参数使用数组或参数传递，禁止 `Invoke-Expression`、字符串拼接后执行或把不可信内容插入命令文本。
+- PowerShell cmdlet 的失败使用 `-ErrorAction Stop` / `try-catch` 处理；原生程序执行后立即读取 `$LASTEXITCODE`，不要用 `$?` 代替原生退出码判断，也不要依赖不同 PowerShell 版本的隐式 native error 行为。
+- 必须按工具文档解释退出码：`rg` 为 `0=有匹配、1=无匹配、>=2=错误`；`git diff --no-index` 只有在两个输入已用 `Get-Item -LiteralPath ... -ErrorAction Stop` 校验为文件后，才按 `0=相同、1=有差异、>=2=错误` 解释，缺失输入等真实错误不得归一化为成功。其他非零码默认失败，除非已核对该工具的官方语义。
+- 可预期返回非零码的命令必须在各自调用内先捕获并归一化，再进入并行、批量或 fail-fast 调度；不得让一条“正常的无匹配 / 有差异”把整组检查误报为脚本失败。
+- 一次 shell 调用只承载一个语义操作；需要多步时使用清晰的逐行语句和显式错误处理，禁止用复杂分隔符链、跨 shell 管道或多层转义压成一行。
+- 仓库跟踪文件优先使用当前平台的结构化 patch / edit 工具修改；PowerShell 主要负责只读检查、运行工具与验证。需要递归移动 / 删除时必须先解析并核对绝对目标路径。
+- 可复制的 `rg`、合法退出码、中文路径和外部可执行文件模板见 `docs/AI协作/工具适配指南.md` 的「Windows PowerShell 稳定执行」节。
+
 ---
 
 ### 自检清单（提交代码前）
@@ -334,6 +345,7 @@ alwaysApply: true
 - [ ] 用户提出需求后，是否已反馈落地前景、性价比、复杂度和主要风险；有重大隐患时是否先说清楚？
 - [ ] 需求、术语、验收标准、授权边界或上下文含义不清时，是否先问了简短澄清问题，而不是自行脑补高风险假设？
 - [ ] 若本轮经历上下文总结 / 压缩 / 恢复，是否已重新对齐用户最后明确指令，且没有把摘要里的 `Next Steps` 当作授权执行？
+- [ ] 当前 shell 若为 PowerShell，是否已遵守规则 29：`rg` 参数顺序 / 引号正确、路径使用 `-LiteralPath`、原生退出码按工具语义处理、预期非零码在并行或 fail-fast 前已归一化，且没有混用 `cmd` / Bash？
 - [ ] 大更改是否已按 AI Git 提交策略自动 commit？细微改动是否已说明不提交原因？
 - [ ] 若是大型代码改动，是否已按 `docs/AI协作/代码审核流程.md` 先看工具输出、再审 diff，并记录发现 / 未发现问题、semantic advisory 处理结果及测试缺口？若是细微改动，是否未触发正式 review？
 - [ ] 自动 commit 前是否检查 `git status --short` / `git diff` / `git log --oneline -10`，且只 stage 本次任务文件？
