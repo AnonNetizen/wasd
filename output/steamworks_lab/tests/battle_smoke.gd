@@ -16,6 +16,7 @@ const SETTINGS_PATH: String = "user://settings.cfg"
 const SETTINGS_FILE_NAME: String = "settings.cfg"
 const SAVE_PATH: String = "user://save.cfg"
 const SAVE_FILE_NAME: String = "save.cfg"
+const EXPECTED_STEAM_APP_ID: int = 4_955_670
 
 var _failures: int = 0
 
@@ -40,6 +41,7 @@ func _run() -> void:
 	_check_language_defaults()
 	_check_save_helper_defaults()
 	_check_network_session_defaults()
+	_check_steam_app_configuration()
 	_check_project_window_defaults()
 
 	var main_packed := load("res://scenes/main.tscn") as PackedScene
@@ -620,6 +622,35 @@ func _check_save_helper_defaults() -> void:
 
 func _check_network_session_defaults() -> void:
 	_check(NETWORK_SESSION_SCRIPT.MAX_PLAYERS == 4, "network session caps multiplayer at 4 players")
+
+
+func _check_steam_app_configuration() -> void:
+	_check(TRANSPORT_SCRIPT.configured_app_id() == EXPECTED_STEAM_APP_ID, "Steam ProjectSettings uses the production App ID")
+	_check(TRANSPORT_SCRIPT.development_app_id() == EXPECTED_STEAM_APP_ID, "steam_appid.txt matches the production App ID")
+	_check(TRANSPORT_SCRIPT.app_id_configuration_is_valid(), "Steam development and runtime App ID sources agree")
+	_check(TRANSPORT_SCRIPT.steam_init_result_succeeded(true), "Steam boolean init success is accepted")
+	_check(not TRANSPORT_SCRIPT.steam_init_result_succeeded(false), "Steam boolean init failure is rejected")
+	_check(TRANSPORT_SCRIPT.steam_init_result_succeeded({"status": 0}), "Steam dictionary init success is accepted")
+	_check(not TRANSPORT_SCRIPT.steam_init_result_succeeded({"status": 1}), "Steam dictionary init failure is rejected")
+	_check(
+		TRANSPORT_SCRIPT.lobby_metadata_is_compatible(
+			TRANSPORT_SCRIPT.LAB_MARKER_VALUE,
+			TRANSPORT_SCRIPT.LAB_VERSION_VALUE
+		),
+		"Steam lobby marker and protocol version are accepted"
+	)
+	_check(
+		not TRANSPORT_SCRIPT.lobby_metadata_is_compatible("wrong_marker", TRANSPORT_SCRIPT.LAB_VERSION_VALUE),
+		"Steam lobby marker mismatch is rejected"
+	)
+	_check(
+		not TRANSPORT_SCRIPT.lobby_metadata_is_compatible(TRANSPORT_SCRIPT.LAB_MARKER_VALUE, "999"),
+		"Steam lobby protocol version mismatch is rejected"
+	)
+	_check(
+		TRANSPORT_SCRIPT.steam_disabled_from_args(PackedStringArray(["--disable-steam"])),
+		"Steam can be disabled explicitly for deterministic offline smoke"
+	)
 
 
 func _check_project_window_defaults() -> void:

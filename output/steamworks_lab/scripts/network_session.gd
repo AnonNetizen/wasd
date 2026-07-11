@@ -32,6 +32,7 @@ var _is_host: bool = false
 var _active_transport: String = "offline"
 var _lobby_id: String = ""
 var _invite_after_steam_host: bool = false
+var _steam_connection_pending: bool = false
 
 
 func _ready() -> void:
@@ -44,11 +45,11 @@ func _ensure_transport() -> void:
 		return
 	_transport = TRANSPORT_SCRIPT.new() as Node
 	_transport.name = "TransportAdapter"
-	add_child(_transport)
 	_transport.connect("steam_peer_ready", Callable(self, "_on_steam_peer_ready"))
-	_transport.connect("steam_failed", Callable(self, "_emit_status"))
+	_transport.connect("steam_failed", Callable(self, "_on_steam_failed"))
 	_transport.connect("steam_status", Callable(self, "_emit_status"))
 	_transport.connect("steam_lobby_join_requested", Callable(self, "_on_steam_lobby_join_requested"))
+	add_child(_transport)
 
 
 func host_local(port: int = DEFAULT_PORT) -> void:
@@ -80,6 +81,7 @@ func host_steam() -> void:
 		_invite_after_steam_host = false
 		return
 	_active_transport = "steam"
+	_steam_connection_pending = true
 
 
 func invite_steam_friend() -> void:
@@ -93,6 +95,7 @@ func invite_steam_friend() -> void:
 		_invite_after_steam_host = false
 		return
 	_active_transport = "steam"
+	_steam_connection_pending = true
 
 
 func join_steam_lobby(lobby_id: String) -> void:
@@ -101,6 +104,7 @@ func join_steam_lobby(lobby_id: String) -> void:
 	if not bool(_transport.call("join_steam_lobby", lobby_id)):
 		return
 	_active_transport = "steam"
+	_steam_connection_pending = true
 
 
 func leave_session() -> void:
@@ -113,6 +117,7 @@ func leave_session() -> void:
 	_active_transport = "offline"
 	_lobby_id = ""
 	_invite_after_steam_host = false
+	_steam_connection_pending = false
 	session_ended.emit()
 
 
@@ -424,6 +429,7 @@ func _apply_peer(peer: MultiplayerPeer, host: bool, transport: String, lobby: St
 	_is_host = host
 	_active_transport = transport
 	_lobby_id = lobby
+	_steam_connection_pending = false
 	session_started.emit(host, transport, lobby)
 	if host:
 		peer_joined.emit(1)
@@ -438,6 +444,16 @@ func _on_steam_peer_ready(peer: MultiplayerPeer, lobby: String, host: bool) -> v
 			_transport.call("open_steam_invite_overlay")
 	else:
 		_emit_status("Connected to Steam lobby %s." % lobby)
+
+
+func _on_steam_failed(message: String) -> void:
+	if _steam_connection_pending:
+		_is_host = false
+		_active_transport = "offline"
+		_lobby_id = ""
+		_invite_after_steam_host = false
+		_steam_connection_pending = false
+	_emit_status(message)
 
 
 func _on_steam_lobby_join_requested(lobby_id: String, _friend_id: String) -> void:

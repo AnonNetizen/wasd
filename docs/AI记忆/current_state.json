@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-07-02",
+  "updated_at": "2026-07-11",
   "current_phase": "formal_project_f13_handcrafted_rooms",
   "current_status": "ADR #128 / F13 手工房间制短刷图首片运行时已落地并全绿验证：新增 RoomManager（client/scripts/gameplay/room_manager.gd，Node2D，房间 carrier 模式下由 GameplayRunLoop 挂在 ActiveWorld 下并驱动）、rooms.json / room_sequences.json、RoomRoot + 四类房间 marker（client/scripts/gameplay/rooms/，extends Marker2D + @export + to_data()）、两个演示房间 .tscn；门 direction / unlock_rule 和房间 clear_condition 进词表 §15-A/B/C 并生成常量；run payload schema v2→v3 新增 room 块并配 _migrate_run_v2_to_v3；房间 carrier 首片为 opt-in（debug_enable_room_carrier() 或 run 存档含非空 room 块自动启用），默认 mode_standard_survival 仍是 open-warzone（F12 不变），对象池生成 / Combat / 战利品仍走 GameplayRunLoop；新增 room-switch-smoke 覆盖房间加载 / 清房开门 / 切房 / pause-save-continue 恢复；四条黄金回放因 data_fingerprint（新契约 + rooms/room_sequences schema_counts）变化重录、行为 summary 未变。「把房间设为默认可玩模式」留作需重写 F12 smoke + 重录黄金的后续切片。ADR #127 规划口径（线性序列、清房开门、不自研完整编辑器 UI、不用 PCG 作默认房间内容来源）继续有效。F12 开放战区短刷图首片仍是已落地能力：8-12 分钟软目标、WarzoneDirector 阶段、四个兴趣点、可交互缓存箱、可伤害小巢核、run.pending_loot 暂存、矩形撤离区和结果清单；这些规则作为过渡 / 参考保留，但默认后续关卡承载不再继续以开放地图 PCG 为主。ADR #126 的通用远程敌人 action 和 enemy_spitter 仍保留为房间内容可用敌人能力。Gear Mod / dust 仍先进入 run.pending_loot，死亡 / 放弃不带回，成功完成或未来撤离才写入 meta.gear_mods。后续工作以用户最后明确指令为准。",
-  "latest_adr": 128,
+  "latest_adr": 129,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #129 / Steamworks Slime Lab 专属 App ID 正式化：output/steamworks_lab 从 Spacewar 480 切换为 App ID 4955670；project.godot 的 steam/app_id 作为运行时 / 发布重启配置，steam_appid.txt 仅供本地开发并由 steam_config_smoke 校验一致；TransportAdapter 解析 steamInit 结果、核对 runtime App ID、Godot export template 可调用 restartAppIfNecessary、严格校验 lobby marker + lab_version、支持 --disable-steam；NetworkSession 捕获早期初始化状态并在异步 Steam 连接失败时恢复 offline；README / ADR / AI导航 / 测试策略 / 知识库同步。该 Lab 仍是独立应用，不代表正式 client/PlatformServices provider 已接入；GodotSteam 二进制、export preset、SteamPipe VDF、Depot 内容与双账号真实 Steam smoke 仍待外部配置。",
     "Steamworks Slime Lab 最长存活时间存档：output/steamworks_lab 新增 SteamLabSave 轻量 helper，读写 user://save.cfg 的 records.best_survival_seconds，缺文件 / 读失败 / 非法值默认 0.0；主菜单新增 记录 / Records 入口和街机风格 RecordsPanel，显示暂无记录或 MM:SS 最长存活时间并随 zh_CN / en 切换刷新；director 进入 GAME_OVER 时用 payload time（缺失则 fallback battle_state().time）刷新本地纪录，手动返回主菜单、离开联机会话或重开不计入新纪录；battle_smoke 备份恢复 save.cfg 并覆盖 helper 默认值、弹窗、语言刷新、Game Over 写盘和低时间不覆盖。",
     "Steamworks Slime Lab 简单暂停界面：output/steamworks_lab 新增 pause_menu InputMap action（Esc）和 SteamLabPausePanel；单机 / offline 打开暂停菜单时冻结 director 实体、玩家弹、玩家无敌计时、battle clock 与背景滚动，并禁用移动、开火、Q 主动道具和表情轮；多人联机只打开本地菜单并清零本地输入，host 权威战斗继续推进；暂停面板文本接入 zh_CN / en，本地化切换即时刷新，README 与 battle_smoke 覆盖同步。",
     "Steamworks Slime Lab 语言与全屏设置：output/steamworks_lab 新增 lab_locale / lab_settings 轻量 helper，设置持久化到 user://settings.cfg；默认语言优先 GodotSteam/Steamworks GetCurrentGameLanguage，schinese/tchinese/任意 zh* 映射 zh_CN，其他映射 en；主菜单新增设置页，可切换简体中文 / English 与无边框全屏，headless 下只验证设置路径不切窗口；主菜单、准备房间、HUD 空道具槽、buff / 主动道具名、结算和表情轮标签接入本地化；battle_smoke 备份恢复 settings.cfg 并覆盖语言映射、设置页、语言刷新和全屏写入。",
@@ -109,6 +110,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-11",
+      "command": "json current_state/_kb_index, docs_health_check, diff --check excluding draft, steamworks_lab headless-boot/export-tree, steam_config_smoke --disable-steam, two-process local ENet host/client smoke, battle_smoke current tree + git archive HEAD baseline comparison",
+      "result": "passed for ADR #129 Steamworks Slime Lab App ID 4955670 source integration: no 480/Spacewar residue remains under output/steamworks_lab; steam_config_smoke verifies ProjectSettings/development App ID agreement, init result parsing, export-template relaunch gating, strict lobby marker/version, explicit offline diagnostics, and pending Steam connection failure fallback; headless boot/export tree and isolated two-process ENet host/client smoke pass. Real GodotSteam/SteamMultiplayerPeer, two-account overlay/lobby/invite/cold-start and Depot contents remain manual/external because binaries/export/SteamPipe config are not tracked. Full battle_smoke still has four pre-existing failures (world rect, two multiplayer panel assertions, merge gunner shot count); an unmodified git archive HEAD baseline reproduces the identical four failures, so they are recorded as baseline debt rather than ADR #129 regressions."
+    },
     {
       "date": "2026-06-28",
       "command": "sync_contracts --check, validate_data, test_data_loader_schema, lint_gdscript_rules, lint_project_rules, lint_semantic_rules, headless-boot, runtime-smoke, save-smoke, room-switch-smoke, f9-demo-smoke, gear-mod-smoke, settings-smoke, four golden replay recaptures",

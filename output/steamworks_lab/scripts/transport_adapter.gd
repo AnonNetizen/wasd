@@ -6,6 +6,10 @@ signal steam_failed(message: String)
 signal steam_status(message: String)
 signal steam_lobby_join_requested(lobby_id: String, friend_id: String)
 
+const STEAM_APP_ID_SETTING: StringName = &"steam/app_id"
+const STEAM_RESTART_THROUGH_CLIENT_SETTING: StringName = &"steam/restart_through_client"
+const DEVELOPMENT_APP_ID_PATH: String = "res://steam_appid.txt"
+const DISABLE_STEAM_ARG: String = "--disable-steam"
 const LOBBY_TYPE_PUBLIC: int = 2
 const RESULT_OK: int = 1
 const CHAT_ROOM_ENTER_RESPONSE_SUCCESS: int = 1
@@ -26,17 +30,92 @@ var _pending_host: bool = false
 var _pending_join: bool = false
 var _active_lobby_id: String = ""
 var _is_steam_host: bool = false
-var _steam_initialized: bool = false
+var _steam_disabled: bool = false
+var _steam_init_attempted: bool = false
+var _steam_init_ok: bool = false
+var _steam_init_detail: String = "not attempted"
+var _runtime_app_id: int = 0
+var _restart_requested: bool = false
+
+
+static func configured_app_id() -> int:
+	return int(ProjectSettings.get_setting(STEAM_APP_ID_SETTING, 0))
+
+
+static func development_app_id() -> int:
+	var file := FileAccess.open(DEVELOPMENT_APP_ID_PATH, FileAccess.READ)
+	if file == null:
+		return 0
+	var value := file.get_as_text().strip_edges()
+	if not value.is_valid_int():
+		return 0
+	return int(value)
+
+
+static func app_id_configuration_is_valid() -> bool:
+	var app_id := configured_app_id()
+	return app_id > 0 and development_app_id() == app_id
+
+
+static func steam_init_result_succeeded(result: Variant) -> bool:
+	match typeof(result):
+		TYPE_BOOL:
+			return bool(result)
+		TYPE_DICTIONARY:
+			var response := result as Dictionary
+			return int(response.get("status", -1)) == 0
+		TYPE_INT:
+			return int(result) == 1
+		_:
+			return false
+
+
+static func steam_disabled_from_args(args: PackedStringArray) -> bool:
+	for arg in args:
+		if String(arg).strip_edges() == DISABLE_STEAM_ARG:
+			return true
+	return false
+
+
+static func should_restart_through_client(
+		is_export_template: bool,
+		restart_enabled: bool,
+		restart_method_available: bool
+) -> bool:
+	return is_export_template and restart_enabled and restart_method_available
+
+
+static func connect_lobby_from_args(args: PackedStringArray) -> String:
+	for index in range(args.size()):
+		var arg := String(args[index]).strip_edges()
+		if arg == "+connect_lobby" and index + 1 < args.size():
+			var lobby_id := String(args[index + 1]).strip_edges()
+			if lobby_id.is_valid_int():
+				return lobby_id
+		if arg.begins_with("+connect_lobby="):
+			var lobby_id := arg.trim_prefix("+connect_lobby=").strip_edges()
+			if lobby_id.is_valid_int():
+				return lobby_id
+	return ""
+
+
+static func lobby_metadata_is_compatible(marker: String, version: String) -> bool:
+	return marker == LAB_MARKER_VALUE and version == LAB_VERSION_VALUE
 
 
 func _ready() -> void:
+	var command_line_args := OS.get_cmdline_args()
+	command_line_args.append_array(OS.get_cmdline_user_args())
+	_steam_disabled = steam_disabled_from_args(command_line_args)
 	_refresh_steam()
+	if _restart_requested:
+		return
 	_connect_steam_signals()
 	call_deferred("_emit_launch_lobby_request")
 
 
 func _process(_delta: float) -> void:
-	if _steam != null and _steam.has_method("run_callbacks"):
+	if _steam_init_ok and _steam != null and _steam.has_method("run_callbacks"):
 		_steam.call("run_callbacks")
 
 
@@ -58,7 +137,12 @@ func create_local_client(address: String, port: int) -> Dictionary:
 
 func steam_available() -> bool:
 	_refresh_steam()
-	if _steam == null or not ClassDB.class_exists("SteamMultiplayerPeer"):
+	if _steam_disabled or _steam == null or not _steam_init_ok:
+		return false
+	if not ClassDB.class_exists("SteamMultiplayerPeer"):
+		return false
+	var app_id := configured_app_id()
+	if _runtime_app_id > 0 and _runtime_app_id != app_id:
 		return false
 	if _steam.has_method("loggedOn") and not bool(_steam.call("loggedOn")):
 		return false
@@ -67,18 +151,27 @@ func steam_available() -> bool:
 
 func steam_diagnostics() -> String:
 	_refresh_steam()
+	if _steam_disabled:
+		return "Steam integration is disabled for this process. Local ENet is still available."
 	if _steam == null:
 		return "GodotSteam singleton is not installed. Local ENet is still available."
+	var app_id := configured_app_id()
+	if app_id <= 0:
+		return "Steam App ID is missing or invalid in ProjectSettings."
+	if not _steam_init_ok:
+		return "Steam initialization failed for app id %d: %s" % [app_id, _steam_init_detail]
 	if not ClassDB.class_exists("SteamMultiplayerPeer"):
 		return "Steam singleton exists, but SteamMultiplayerPeer is missing."
+	if _runtime_app_id > 0 and _runtime_app_id != app_id:
+		return "Steam App ID mismatch: expected %d, runtime reports %d." % [app_id, _runtime_app_id]
 	if _steam.has_method("loggedOn") and not bool(_steam.call("loggedOn")):
 		return "Steam is available, but the user is not logged on."
-	return "Steam transport is available."
+	return "Steam transport is available for app id %d." % app_id
 
 
 func steam_game_language() -> String:
 	_refresh_steam()
-	if _steam == null:
+	if _steam == null or not _steam_init_ok:
 		return ""
 	for method_name in [
 		"getCurrentGameLanguage",
@@ -92,22 +185,6 @@ func steam_game_language() -> String:
 		if value != "":
 			return value
 	return ""
-
-
-static func connect_lobby_from_args(args: PackedStringArray) -> String:
-	for index in range(args.size()):
-		var arg := String(args[index]).strip_edges()
-		if arg == "+connect_lobby" and index + 1 < args.size():
-			var lobby_id := String(args[index + 1]).strip_edges()
-			if lobby_id.is_valid_int():
-				return lobby_id
-		if arg.begins_with("+connect_lobby="):
-			var lobby_id := arg.trim_prefix("+connect_lobby=").strip_edges()
-			if lobby_id.is_valid_int():
-				return lobby_id
-	return ""
-
-
 func open_steam_invite_overlay() -> bool:
 	_refresh_steam()
 	if not steam_available():
@@ -136,7 +213,7 @@ func host_steam_lobby(max_players: int) -> bool:
 	_connect_steam_signals()
 	_pending_host = true
 	_pending_join = false
-	steam_status.emit("Creating Steam lobby with Spacewar app id 480...")
+	steam_status.emit("Creating Steam lobby for app id %d..." % configured_app_id())
 	_steam.call("createLobby", LOBBY_TYPE_PUBLIC, max_players)
 	return true
 
@@ -169,8 +246,17 @@ func leave_steam_lobby() -> void:
 
 
 func _refresh_steam() -> void:
+	if _steam_disabled:
+		_steam = null
+		return
 	if Engine.has_singleton("Steam"):
-		_steam = Engine.get_singleton("Steam")
+		var steam_singleton := Engine.get_singleton("Steam")
+		if steam_singleton != _steam:
+			_steam = steam_singleton
+			_steam_init_attempted = false
+			_steam_init_ok = false
+			_steam_init_detail = "not attempted"
+			_runtime_app_id = 0
 		_initialize_steam_if_needed()
 	else:
 		_steam = null
@@ -198,15 +284,60 @@ func _connect_signal_if_present(signal_name: StringName, callable: Callable) -> 
 
 
 func _initialize_steam_if_needed() -> void:
-	if _steam == null or _steam_initialized:
+	if _steam == null or _steam_init_attempted:
 		return
-	_steam_initialized = true
-	if _steam.has_method("steamInit"):
-		var result: Variant = _steam.call("steamInit")
-		steam_status.emit("Steam init result: %s" % str(result))
+	_steam_init_attempted = true
+	var app_id := configured_app_id()
+	if app_id <= 0:
+		_steam_init_detail = "invalid configured App ID"
+		steam_failed.emit("Steam App ID is missing or invalid in ProjectSettings.")
+		return
+
+	if should_restart_through_client(
+		OS.has_feature("template"),
+		bool(ProjectSettings.get_setting(STEAM_RESTART_THROUGH_CLIENT_SETTING, true)),
+		_steam.has_method("restartAppIfNecessary")
+	):
+		var should_restart := bool(_steam.call("restartAppIfNecessary", app_id))
+		if should_restart:
+			_restart_requested = true
+			_steam_init_detail = "relaunch requested through Steam client"
+			steam_status.emit("Relaunching through Steam for app id %d." % app_id)
+			get_tree().quit()
+			return
+
+	if not _steam.has_method("steamInit"):
+		_steam_init_detail = "steamInit method is missing"
+		steam_failed.emit("GodotSteam is installed, but steamInit is missing.")
+		return
+
+	var result: Variant = _steam.call("steamInit")
+	_steam_init_ok = steam_init_result_succeeded(result)
+	_steam_init_detail = str(result)
+	_runtime_app_id = _read_runtime_app_id()
+	if not _steam_init_ok:
+		steam_failed.emit("Steam initialization failed for app id %d: %s" % [app_id, _steam_init_detail])
+		return
+	if _runtime_app_id > 0 and _runtime_app_id != app_id:
+		_steam_init_ok = false
+		_steam_init_detail = "runtime app id %d does not match" % _runtime_app_id
+		steam_failed.emit("Steam App ID mismatch: expected %d, runtime reports %d." % [app_id, _runtime_app_id])
+		return
+	steam_status.emit("Steam initialized for app id %d: %s" % [app_id, _steam_init_detail])
+
+
+func _read_runtime_app_id() -> int:
+	if _steam == null:
+		return 0
+	for method_name in ["getAppID", "get_app_id"]:
+		if _steam.has_method(method_name):
+			return int(_steam.call(method_name))
+	return 0
 
 
 func _emit_launch_lobby_request() -> void:
+	if _steam_disabled or _restart_requested:
+		return
 	var lobby_id := connect_lobby_from_args(OS.get_cmdline_args())
 	if lobby_id == "":
 		return
@@ -228,8 +359,9 @@ func _on_lobby_created(connect: int, lobby_id: int) -> void:
 
 	var peer_result := _create_steam_host_peer(lobby_id)
 	if not bool(peer_result.get("ok", false)):
-		_pending_host = false
-		steam_failed.emit(String(peer_result.get("message", "Steam host peer creation failed.")))
+		var failure_message := String(peer_result.get("message", "Steam host peer creation failed."))
+		leave_steam_lobby()
+		steam_failed.emit(failure_message)
 		return
 
 	_pending_host = false
@@ -254,22 +386,34 @@ func _on_lobby_joined(lobby_id: int, _permissions: int, _locked: bool, response:
 		return
 	if response != CHAT_ROOM_ENTER_RESPONSE_SUCCESS:
 		_pending_join = false
+		_active_lobby_id = ""
+		_known_steam_ids.clear()
 		steam_failed.emit("Steam lobby join failed with response %d." % response)
 		return
 
 	_active_lobby_id = str(lobby_id)
 	var marker := ""
+	var version := ""
 	if _steam != null and _steam.has_method("getLobbyData"):
 		marker = String(_steam.call("getLobbyData", lobby_id, LAB_MARKER_KEY))
-	if marker != LAB_MARKER_VALUE:
-		steam_status.emit("Joined lobby %s without lab marker; continuing because this is a Spacewar test." % _active_lobby_id)
-	else:
-		steam_status.emit("Joined Steam slime lobby %s." % _active_lobby_id)
+		version = String(_steam.call("getLobbyData", lobby_id, LAB_VERSION_KEY))
+	if not lobby_metadata_is_compatible(marker, version):
+		var failure_message := "Steam lobby protocol mismatch: expected %s/%s, got %s/%s." % [
+			LAB_MARKER_VALUE,
+			LAB_VERSION_VALUE,
+			marker if marker != "" else "<missing>",
+			version if version != "" else "<missing>",
+		]
+		leave_steam_lobby()
+		steam_failed.emit(failure_message)
+		return
+	steam_status.emit("Joined Steam slime lobby %s." % _active_lobby_id)
 
 	var peer_result := _create_steam_client_peer(lobby_id)
 	if not bool(peer_result.get("ok", false)):
-		_pending_join = false
-		steam_failed.emit(String(peer_result.get("message", "Steam client peer creation failed.")))
+		var failure_message := String(peer_result.get("message", "Steam client peer creation failed."))
+		leave_steam_lobby()
+		steam_failed.emit(failure_message)
 		return
 
 	_pending_join = false
@@ -315,7 +459,7 @@ func _set_lobby_metadata(lobby_id: int) -> void:
 	if _steam.has_method("setLobbyData"):
 		_steam.call("setLobbyData", lobby_id, LAB_MARKER_KEY, LAB_MARKER_VALUE)
 		_steam.call("setLobbyData", lobby_id, LAB_VERSION_KEY, LAB_VERSION_VALUE)
-		_steam.call("setLobbyData", lobby_id, "name", "WASD Slime Lab")
+		_steam.call("setLobbyData", lobby_id, "name", "Steamworks Slime Lab")
 	if _steam.has_method("setLobbyJoinable"):
 		_steam.call("setLobbyJoinable", lobby_id, true)
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_at": "2026-06-28",
+  "updated_at": "2026-07-11",
   "description": "Machine-readable AI knowledge base index for the wasd project.",
   "documents": [
     {
@@ -1010,6 +1010,20 @@
       "related_code": ["client/scripts/autoload/platform_services.gd", "client/project.godot", "client/scripts/boot/formal_client_boot.gd", "client/tools/l1_smoke.gd"],
       "update_triggers": ["Steamworks adapter changes", "platform provider changes", "achievement API changes", "rich presence changes", "lobby or platform multiplayer boundary changes"],
       "keywords": ["PlatformServices", "Steam", "Steamworks", "GodotSteam", "achievement", "rich presence", "overlay", "lobby", "multiplayer", "provider adapter", "平台服务", "Steam API"]
+    },
+    {
+      "path": "output/steamworks_lab/README.md",
+      "type": "entrypoint",
+      "authority": "Standalone Steamworks Slime Lab runbook for App ID, GodotSteam transport, lobby protocol, offline fallback, testing, and release boundaries",
+      "status": "active",
+      "owner_scope": "project",
+      "last_reviewed": "2026-07-11",
+      "canonical_for": ["steamworks_lab", "steamworks_lab_app_id", "steamworks_lab_lobby_protocol", "steamworks_lab_release_boundary"],
+      "must_read_for": ["steamworks_lab_change", "steamworks_lab_app_id_change", "steamworks_lab_transport_change", "steamworks_lab_release"],
+      "related_docs": ["docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json"],
+      "related_code": ["output/steamworks_lab/project.godot", "output/steamworks_lab/steam_appid.txt", "output/steamworks_lab/scripts/transport_adapter.gd", "output/steamworks_lab/scripts/network_session.gd", "output/steamworks_lab/tests/steam_config_smoke.gd"],
+      "update_triggers": ["Steam App ID changes", "GodotSteam initialization changes", "Steam lobby metadata changes", "offline fallback changes", "Steam export or depot workflow changes"],
+      "keywords": ["Steamworks Slime Lab", "steamworks_lab", "App ID", "4955670", "GodotSteam", "SteamMultiplayerPeer", "lobby", "overlay", "steam_appid.txt", "Depot", "offline", "ENet", "独立Steam应用"]
     },
     {
       "path": "docs/代码/rng.md",
