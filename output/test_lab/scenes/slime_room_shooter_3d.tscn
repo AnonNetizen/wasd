@@ -1,8 +1,8 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://brrdu87f5n7cu"]
 
-[ext_resource type="Script" path="res://scripts/slime_room_shooter_3d.gd" id="1_j0oli"]
-[ext_resource type="Script" path="res://scripts/dungeon_room_fx_3d.gd" id="2_mc3vc"]
-[ext_resource type="Script" path="res://scripts/slime_membrane_3d.gd" id="3_ltbip"]
+[ext_resource type="Script" uid="uid://wrbq3xsihksm" path="res://scripts/slime_room_shooter_3d.gd" id="1_j0oli"]
+[ext_resource type="Script" uid="uid://c2f8x4m7wakqd" path="res://scripts/dungeon_room_fx_3d.gd" id="2_mc3vc"]
+[ext_resource type="Script" uid="uid://bbrgk3pr3ycrw" path="res://scripts/slime_membrane_3d.gd" id="3_ltbip"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_ii52w"]
 sky_top_color = Color(0.02, 0.014, 0.018, 1)
@@ -2667,17 +2667,17 @@ theme_override_constants/separation = 2
 
 [node name="CellLabel" type="Label" parent="Overlay/RoomPlate/Margin/Rows" unique_id=1834813699]
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
 theme_override_colors/font_color = Color(0.66, 0.56, 0.43, 1)
+theme_override_font_sizes/font_size = 11
 text = "CELL A-03  ·  EMBER VAULT"
 
 [node name="Title" type="Label" parent="Overlay/RoomPlate/Margin/Rows" unique_id=1458141065]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(0.94, 0.87, 0.74, 1)
 theme_override_colors/font_shadow_color = Color(0.02, 0.015, 0.018, 0.92)
 theme_override_constants/shadow_offset_x = 2
 theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 18
 text = "SLIME BALLISTICS"
 
 [node name="ExitButton" type="Button" parent="Overlay" unique_id=300837773]
@@ -2686,12 +2686,12 @@ anchor_left = 0.86
 anchor_top = 0.028
 anchor_right = 0.982
 anchor_bottom = 0.082
-theme_override_styles/normal = SubResource("StyleBoxFlat_qfagf")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_td7ly")
-theme_override_styles/hover = SubResource("StyleBoxFlat_ph34i")
 theme_override_colors/font_color = Color(0.88, 0.78, 0.62, 1)
 theme_override_colors/font_hover_color = Color(1, 0.86, 0.56, 1)
 theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("StyleBoxFlat_qfagf")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_td7ly")
+theme_override_styles/hover = SubResource("StyleBoxFlat_ph34i")
 text = "LEAVE  [ESC]"
 
 [node name="ControlHint" type="PanelContainer" parent="Overlay" unique_id=1964745582]
@@ -2711,8 +2711,8 @@ theme_override_constants/margin_bottom = 7
 
 [node name="Hint" type="Label" parent="Overlay/ControlHint/@MarginContainer@2" unique_id=1688795222]
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
 theme_override_colors/font_color = Color(0.73, 0.66, 0.55, 1)
+theme_override_font_sizes/font_size = 13
 text = "WASD MOVE   ·   MOUSE AIM   ·   HOLD LMB FIRE"
 
 [node name="AmmoPanel" type="PanelContainer" parent="Overlay" unique_id=620833992]
@@ -2736,14 +2736,14 @@ theme_override_constants/separation = 1
 
 [node name="AmmoTitle" type="Label" parent="Overlay/AmmoPanel/Margin/Rows" unique_id=1286454227]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
 theme_override_colors/font_color = Color(0.94, 0.87, 0.74, 1)
+theme_override_font_sizes/font_size = 20
 text = "AMMO   ∞"
 
 [node name="ShotCount" type="Label" parent="Overlay/AmmoPanel/Margin/Rows" unique_id=44701787]
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
 theme_override_colors/font_color = Color(0.93, 0.58, 0.22, 1)
 theme_override_colors/font_outline_color = Color(0.055, 0.026, 0.018, 1)
 theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 16
 text = "FIRED  000"
