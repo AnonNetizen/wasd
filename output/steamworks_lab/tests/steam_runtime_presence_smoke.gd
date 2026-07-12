@@ -1,9 +1,10 @@
 extends SceneTree
 
-# GodotSteam runtime presence smoke. It checks compiled classes without initializing Steam.
+# GodotSteam GDExtension presence smoke. It checks loaded classes without initializing Steam.
 
 const EXPECTED_STEAM_APP_ID: int = 4_955_670
 const EXPECTED_GODOTSTEAM_VERSION: String = "4.20"
+const EXTENSION_PATH: String = "res://addons/godotsteam/godotsteam.gdextension"
 
 var _failures: int = 0
 
@@ -21,8 +22,10 @@ func _check(condition: bool, label: String) -> void:
 
 
 func _run() -> void:
-	_check(Engine.has_singleton("Steam"), "Steam singleton is compiled into the editor")
-	_check(ClassDB.class_exists("SteamMultiplayerPeer"), "SteamMultiplayerPeer class is compiled into the editor")
+	_check(ResourceLoader.exists(EXTENSION_PATH), "GodotSteam GDExtension descriptor is installed")
+	_check(Engine.has_singleton("Steam"), "Steam singleton is loaded from GDExtension")
+	_check(ClassDB.class_exists("SteamPacketPeer"), "SteamPacketPeer is loaded from GDExtension")
+	_check(ClassDB.class_exists("SteamMultiplayerPeer"), "SteamMultiplayerPeer is loaded from GDExtension")
 	if Engine.has_singleton("Steam"):
 		var steam: Object = Engine.get_singleton("Steam")
 		_check(steam.has_method("get_godotsteam_version"), "Steam singleton exposes its GodotSteam version")

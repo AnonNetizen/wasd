@@ -20,7 +20,7 @@ This project keeps two credits records in sync:
 | Name | Usage | License | Notice |
 |------|-------|---------|--------|
 | [Godot Engine](https://godotengine.org/license/) | Game engine and runtime | MIT | Required when distributing Godot with the game; keep the Godot license text in release materials. |
-| [GodotSteam](https://codeberg.org/godotsteam/godotsteam) | Steamworks integration in Steamworks Slime Lab | MIT | Included in the Lab Windows module build; keep its license text in `THIRD_PARTY_NOTICES.txt`. |
+| [GodotSteam](https://codeberg.org/godotsteam/godotsteam) | Steamworks integration in Steamworks Slime Lab | MIT | Included as the official GDExtension in the Lab Windows build; keep its license text in `THIRD_PARTY_NOTICES.txt`. |
 
 ## External Workflow References
 
