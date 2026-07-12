@@ -5,9 +5,13 @@
 # 导出产物
 export.cfg
 export_presets.cfg
+!output/steamworks_lab/export_presets.cfg
 build/
 dist/
 *.translation        # 由 res://locale/*.csv 编译生成
+
+# Steamworks Slime Lab 本地 GodotSteam 工具链（二进制不入库）
+output/steamworks_lab/.toolchain/
 
 # Mono / C#（本项目用 GDScript，留作保险）
 .mono/

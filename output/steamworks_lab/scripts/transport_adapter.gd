@@ -6,7 +6,7 @@ signal steam_failed(message: String)
 signal steam_status(message: String)
 signal steam_lobby_join_requested(lobby_id: String, friend_id: String)
 
-const STEAM_APP_ID_SETTING: StringName = &"steam/app_id"
+const STEAM_APP_ID_SETTING: StringName = &"steam/initialization/app_data/app_id"
 const STEAM_RESTART_THROUGH_CLIENT_SETTING: StringName = &"steam/restart_through_client"
 const DEVELOPMENT_APP_ID_PATH: String = "res://steam_appid.txt"
 const DISABLE_STEAM_ARG: String = "--disable-steam"
@@ -185,6 +185,8 @@ func steam_game_language() -> String:
 		if value != "":
 			return value
 	return ""
+
+
 func open_steam_invite_overlay() -> bool:
 	_refresh_steam()
 	if not steam_available():
@@ -306,12 +308,12 @@ func _initialize_steam_if_needed() -> void:
 			get_tree().quit()
 			return
 
-	if not _steam.has_method("steamInit"):
-		_steam_init_detail = "steamInit method is missing"
-		steam_failed.emit("GodotSteam is installed, but steamInit is missing.")
+	if not _steam.has_method("steamInitEx") and not _steam.has_method("steamInit"):
+		_steam_init_detail = "steamInitEx/steamInit methods are missing"
+		steam_failed.emit("GodotSteam is installed, but steamInitEx and steamInit are missing.")
 		return
 
-	var result: Variant = _steam.call("steamInit")
+	var result: Variant = _call_steam_init(app_id)
 	_steam_init_ok = steam_init_result_succeeded(result)
 	_steam_init_detail = str(result)
 	_runtime_app_id = _read_runtime_app_id()
@@ -324,6 +326,16 @@ func _initialize_steam_if_needed() -> void:
 		steam_failed.emit("Steam App ID mismatch: expected %d, runtime reports %d." % [app_id, _runtime_app_id])
 		return
 	steam_status.emit("Steam initialized for app id %d: %s" % [app_id, _steam_init_detail])
+
+
+func _call_steam_init(app_id: int) -> Variant:
+	if _steam == null:
+		return null
+	if _steam.has_method("steamInitEx"):
+		return _steam.call("steamInitEx", app_id, false)
+	if _steam.has_method("steamInit"):
+		return _steam.call("steamInit", app_id, false)
+	return null
 
 
 func _read_runtime_app_id() -> int:

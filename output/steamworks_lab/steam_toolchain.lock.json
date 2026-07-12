@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "godot_version": "4.7",
+  "godotsteam_version": "4.20",
+  "steamworks_sdk_version": "1.64",
+  "platform": "windows-x86_64",
+  "install_dir": "godotsteam-4.20-g47-win64",
+  "assets": [
+    {
+      "id": "editor",
+      "file_name": "win64-g47-s164-gs420-editor.tar.xz",
+      "url": "https://codeberg.org/godotsteam/godotsteam/releases/download/v4.20/win64-g47-s164-gs420-editor.tar.xz",
+      "sha256": "b5bd13a3c1d6c2087b54607aad43865fa29d070d8992ef114ce17d955413149a",
+      "size": 70006516
+    },
+    {
+      "id": "templates",
+      "file_name": "godotsteam-g47-s164-gs420-templates.tar.xz",
+      "url": "https://github.com/GodotSteam/GodotSteam/releases/download/v4.20/godotsteam-g47-s164-gs420-templates.tar.xz",
+      "sha256": "06216a20f39d64dfe6aa29ce7add91f5eb2f36b38ce13ca0dcac36c869ffa0f1",
+      "size": 306610260
+    }
+  ],
+  "required_files": {
+    "editor": "godotsteam.47.editor.win64.console.exe",
+    "editor_gui": "godotsteam.47.editor.win64.exe",
+    "editor_steam_api": "steam_api64.dll",
+    "template_debug": "win64/godotsteam.47.debug.template.win64.exe",
+    "template_release": "win64/godotsteam.47.template.win64.exe",
+    "template_steam_api": "win64/steam_api64.dll"
+  }
+}

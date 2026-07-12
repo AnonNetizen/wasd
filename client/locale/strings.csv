@@ -162,6 +162,7 @@ ui_credits_section_ai_workflow_references,AI 工作流参考,AI Workflow Referen
 ui_credits_role_project_owner,项目负责人 / 设计方向,Project Lead / Design Direction
 ui_credits_role_ai_assisted_development,AI 辅助开发,AI-assisted Development
 ui_credits_usage_engine_runtime,游戏引擎与运行时,Game engine and runtime
+ui_credits_usage_steam_integration,Steamworks Lab 联机集成,Steamworks Lab integration
 ui_credits_usage_ai_reference,项目级 AI skill / 工作流参考,Project AI skill and workflow reference
 ui_credits_usage_code_style_reference,代码风格参考,Code style reference
 ui_mode_standard_survival_name,标准生存,Standard Survival

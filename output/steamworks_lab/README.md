@@ -4,6 +4,8 @@
 
 独立 Godot 4.7 Steam 应用项目（固定 540×960 设计画布，窗口可选 540×960 / 720×1280 / 1080×1920），使用专属 Steam App ID **`4955670`**，验证 Steamworks / GodotSteam 联机链路并承载一个可联机的雷电式竖版卷轴射击玩法。它是仓库内长期维护的独立应用，仍不属于正式 `client/`，也不依赖正式项目的 `PlatformServices` / 词表 / autoload 体系。
 
+Windows Steam 工具链锁定为 **Godot 4.7 + GodotSteam 4.20 + Steamworks SDK 1.64** 的官方 Win64 module editor / export templates。版本、下载地址和 SHA-256 记录在 `steam_toolchain.lock.json`；二进制只安装到本地 `.toolchain/`，不提交仓库。可复现安装、验证和导出统一走 `tools/steamworks_lab_toolchain.py`。
+
 UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图标资源，统一用 `Theme`、`StyleBoxFlat`、代码绘制和 `Tween` 做深色霓虹面板、按钮反馈、页面切换、HUD 脉冲、屏幕震动、冲击闪光、爆碎冲击环、buff / 结算入退场和表情轮展开动画。
 
 主菜单提供 `设置 / Settings` 页面，可在 `简体中文 / English` 间切换语言，选择 `540×960`（适配 1080p）、`720×1280`（适配 2K）、`1080×1920`（适配 4K）三档窗口分辨率，并切换全屏。分辨率档位只改变窗口像素尺寸；游戏逻辑、碰撞和 UI 设计坐标始终保持 540×960，由 Godot stretch 负责放大。全屏使用 Godot stretch 扩展画布，宽屏多出的区域用动态背景填满，不再显示固定画布外黑边。主菜单也提供 `自定义 / Customize` 页面，可设置昵称、史莱姆主体色和玩家子弹色，并提供 `退出游戏 / Quit Game` 按钮；外观只影响表现，不改变血量、碰撞、伤害、速度等玩法数值。设置持久化到 `user://settings.cfg`；已有玩家选择优先，没有保存时优先读取 GodotSteam 暴露的 Steam 当前游戏语言（Steamworks `ISteamApps::GetCurrentGameLanguage()`），取不到 Steam 语言再读系统语言。`schinese` / `tchinese` / 任意 `zh*` 默认进 `zh_CN`，其他语言默认 `en`；headless 测试下不会实际切换窗口模式。
@@ -29,6 +31,21 @@ UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图
 多人沿用 host 权威：进入联机 session 后先停在准备房间，支持 2-4 名玩家，host 至少等到 2 名玩家后手动开始战斗；敌人 / boss / 障碍物 / 主动道具掉落与使用 / 伤害 / buff / 时停都在 host 结算，位置、HP、外观、掉落物、主动槽和团队效果走 60Hz 快照，开始战斗 / 敌弹齐射 / 开火 / 使用主动道具 / phase / buff / 重开走 reliable RPC，client 修改外观时会可靠提交给 host。Host 退出 = 全场结束（不支持 host 迁移）。中途加入会收到开始战斗信号并立即从快照对齐当前战况。
 
 ## 运行
+
+首次配置 Windows Steam 工具链：
+
+```powershell
+py -3 tools\steamworks_lab_toolchain.py setup
+py -3 tools\steamworks_lab_toolchain.py verify
+```
+
+生成并验证 Windows x64 release：
+
+```powershell
+py -3 tools\steamworks_lab_toolchain.py export-release
+```
+
+产物位于 `output/steamworks_lab/build/windows/`，必须包含 `SteamworksSlimeLab.exe`、`SteamworksSlimeLab.pck`、`steam_api64.dll` 与 `THIRD_PARTY_NOTICES.txt`，且不得包含开发用 `steam_appid.txt`、测试脚本或 `.toolchain/`。
 
 ```powershell
 py -3 tools\godot_bridge.py --project output\steamworks_lab headless-boot
@@ -78,10 +95,10 @@ $projectCopy = 'C:\path\to\steamworks_lab-copy'
 
 ## Steam App ID 与测试
 
-GodotSteam / Steamworks 二进制不提交进仓库。要启用 Steam 路径，运行环境需要同时提供 `Steam` singleton 和 `SteamMultiplayerPeer` 类；这可以来自 GodotSteam 对应分发版本，也可以来自 GodotSteam + Steam Multiplayer Peer 组合，按你实际选择的插件说明安装。
+GodotSteam / Steamworks 二进制不提交进仓库。当前固定使用 GodotSteam 4.20 官方 Godot 4.7 module editor / templates；该组合同时提供 `Steam` singleton 和 `SteamMultiplayerPeer`，不再混用第三方 Peer GDExtension。
 
-1. 安装 GodotSteam / Steam Multiplayer Peer 相关 Godot 4 插件到本项目的 `addons/`，以官方安装说明为准。
-2. 本地编辑器 / 直接运行测试保留项目根的 `steam_appid.txt`，内容必须只有 `4955670`；`project.godot` 的 `steam/app_id` 是运行时与发布重启策略的配置源，`steam_config_smoke.gd` 会检查两者一致。
+1. 在仓库根运行 `py -3 tools/steamworks_lab_toolchain.py setup`，下载并校验锁定的 Win64 editor / templates；再运行 `verify`，确认 Godot 4.7、GodotSteam 4.20、`Steam` singleton 与 `SteamMultiplayerPeer.host_with_lobby/connect_to_lobby/add_peer`。
+2. 本地编辑器 / 直接运行测试保留项目根的 `steam_appid.txt`，内容必须只有 `4955670`；`project.godot` 的 `steam/initialization/app_data/app_id` 是 GodotSteam 4.20 与发布重启策略的配置源。自动初始化与 embedded callbacks 保持关闭，由 `TransportAdapter` 显式调用 `steamInitEx(4955670, false)` 并在 `_process()` 运行 callbacks。
 3. 启动 Steam 客户端并登录。
 4. 运行本项目，点 `开始联机游戏`。若 GodotSteam 可用，Steam 状态会显示可用；否则 Steam 按钮会记录缺失原因，本地 ENet 仍可用。
 5. A 点 `Invite Friend / 邀请好友` 会自动创建 Steam lobby 并打开 Steam 好友邀请 overlay；也可以点 `Host Steam` 后把显示的 lobby id 发给 B，由 B 输入该 id 点 `Join Steam by ID`。
@@ -95,9 +112,9 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=1
 
 ### 发布边界
 
-- 当前仓库已完成专属 App ID、初始化结果校验、运行时 App ID 核对、Steam 客户端重启、Lobby 协议校验和离线退化；尚未纳管 GodotSteam GDExtension / Steam Multiplayer Peer 二进制、Windows export preset 或 SteamPipe app/depot VDF，因此“源码接入完成”不等于“Depot 已可发布”。
+- 当前仓库已完成专属 App ID、初始化结果校验、运行时 App ID 核对、Steam 客户端重启、Lobby 协议校验、离线退化、GodotSteam 4.20 版本锁和 Windows export preset；本机二进制由统一工具安装到 `.toolchain/`。SteamPipe app/depot VDF、后台分支和双账号实机验证仍未纳管，因此“本地 release 可构建”不等于“Depot 已可发布”。
 - `steam_appid.txt` 只用于本地开发。根据 [Steamworks 官方初始化说明](https://partner.steamgames.com/doc/sdk/api)，上传 Steam Depot 时必须从可执行文件目录移除；正式构建通过 Steam App `4955670` 启动，并由 adapter 核对 Steam runtime 报告的 App ID。
-- Depot 必须包含与选定 GodotSteam 版本匹配的 GDExtension、`steam_api64.dll` 和 Steam Multiplayer Peer 原生库；依赖版本固定后再建立可复现 export preset / SteamPipe 清单。
+- 当前 module 发行方式把 GodotSteam 与 `SteamMultiplayerPeer` 编译进 editor / export template；Windows Depot 需要提交导出的 exe、PCK、同版 `steam_api64.dll` 与 `THIRD_PARTY_NOTICES.txt`，不额外提交 GDExtension 或第三方 Peer 原生库。
 - 发布候选必须从 `steam://run/4955670` 启动，手动验证登录、overlay、Lobby 创建 / 加入、好友邀请、`+connect_lobby` 冷启动、断网 / 未登录退化，以及单机 / 本地 ENet 不受影响。
 
 ## 文件结构
@@ -122,14 +139,17 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=1
 - `scripts/expression_wheel.gd`：按住 `T` 的表情轮盘（径向展开 / 收回与选中扇区反馈）。
 - `scripts/network_session.gd`：统一 host / join / leave / RPC 同步入口（输入 / 快照 / 射击 / 主动道具 / 表情 / phase / buff / volley / 重开）。
 - `scripts/transport_adapter.gd`：本地 ENet 与可选 GodotSteam adapter。
+- `steam_toolchain.lock.json` / `export_presets.cfg` / `THIRD_PARTY_NOTICES.txt`：GodotSteam 4.20 / Godot 4.7 / Steamworks 1.64 Win64 依赖锁、Windows Steam release preset 与随包第三方许可声明。
+- `tools/steamworks_lab_toolchain.py`：仓库根统一 setup / verify / export-release 工具；下载缓存、editor、templates 与构建产物均不入库。
 - `tests/battle_smoke.gd`：单机战斗 headless 回归。
 - `tests/steam_config_smoke.gd`：App ID、初始化返回值、Lobby 兼容和显式离线降级 headless 回归。
+- `tests/steam_runtime_presence_smoke.gd`：用锁定 GodotSteam editor 验证版本、singleton 与高层 multiplayer peer 方法存在，不初始化真实 Steam 会话。
 - `tests/net_host_smoke.gd` / `tests/net_client_smoke.gd`：双进程 ENet 联机 headless 回归。
 
 ## 故障提示
 
-- `GodotSteam singleton is not installed`：未安装 GodotSteam，先用本地 ENet 路径验证。
-- `SteamMultiplayerPeer is missing`：当前 Steam 插件组合不含高层 multiplayer peer，换用支持该类的版本或追加对应 GDExtension。
+- `GodotSteam singleton is not installed`：当前进程不是由锁定的 GodotSteam editor/template 启动；先运行 `setup` / `verify`，再用工具链 editor 或 `export-release` 产物验证 Steam 路径。
+- `SteamMultiplayerPeer is missing`：工具链不完整或启动了普通 Godot；重新运行 `setup` / `verify`，不要混入第三方 Peer 插件。
 - `Steam initialization failed for app id 4955670`：检查当前账号是否拥有 App 许可证、默认 package 是否已配置、Steam 客户端是否登录，以及本地 GodotSteam / Steamworks 二进制版本是否匹配。
 - `Steam App ID mismatch`：当前 Steam runtime 不是 App `4955670`；检查 Steam 启动入口、项目配置和本地开发文件是否一致。
 - `Steam is available, but the user is not logged on`：Steam 客户端未登录或未通过正确 App ID 启动。

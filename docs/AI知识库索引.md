@@ -221,6 +221,7 @@
 | #129 | Steamworks Slime Lab 使用专属 App ID `4955670`，收口初始化 / runtime App ID / Lobby 协议校验与失败后的 offline 退化；Lab 仍是独立应用，不代表正式 `client/PlatformServices` provider 已接入 | `output/steamworks_lab/README.md`、`project.godot`、`steam_appid.txt`、`scripts/transport_adapter.gd`、`scripts/network_session.gd`、`tests/steam_config_smoke.gd`、AI导航、测试策略、AI记忆 |
 | #130 | Windows / PowerShell 环境统一稳定执行：字面搜索优先 `rg -F`，`rg` 选项置于 `--` 前，路径走 `-LiteralPath`，cmdlet / 原生错误分开处理，合法非零退出码先归一化再并行；采用规则 + 模板，不新增包装器 | `AGENTS.md`、四平台规则 / 入口、`docs/AI协作/工具适配指南.md`、`docs/AI协作/快速开工.md`、AI导航、AI记忆 |
 | #131 | 正式客户端当前只适配固定 16:9 分辨率；默认逻辑画布 1920×1080，非 16:9 屏幕等比加黑边，不拉伸 / 裁切 / 扩大玩法视野；其他比例作为未来按独立固定预设接入的 P3 优化 | GDD §9.5-A、`client/README.md`、FormalClientBoot / Gameplay Runtime 文档、测试策略、TODO、AI导航、current_state、AI记忆 |
+| #132 | Steamworks Slime Lab Windows 工具链锁定 Godot 4.7 + GodotSteam 4.20 + Steamworks SDK 1.64 官方 module editor / templates；二进制本地安装，仓库跟踪版本锁、SHA-256、setup / verify / export-release 与 Windows preset；SteamPipe / Depot / 双账号验证仍属外部步骤 | `output/steamworks_lab/README.md`、`steam_toolchain.lock.json`、`tools/steamworks_lab_toolchain.py`、测试策略、AI导航、current_state、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

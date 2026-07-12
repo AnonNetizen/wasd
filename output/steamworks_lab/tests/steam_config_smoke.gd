@@ -27,6 +27,18 @@ func _run() -> void:
 	_check(TRANSPORT_SCRIPT.configured_app_id() == EXPECTED_STEAM_APP_ID, "ProjectSettings uses App ID 4955670")
 	_check(TRANSPORT_SCRIPT.development_app_id() == EXPECTED_STEAM_APP_ID, "steam_appid.txt matches App ID 4955670")
 	_check(TRANSPORT_SCRIPT.app_id_configuration_is_valid(), "development and runtime App ID sources agree")
+	_check(
+		int(ProjectSettings.get_setting("steam/initialization/app_data/app_id", 0)) == EXPECTED_STEAM_APP_ID,
+		"GodotSteam canonical App ID setting uses 4955670"
+	)
+	_check(
+		not bool(ProjectSettings.get_setting("steam/initialization/processes/initialize_on_startup", true)),
+		"GodotSteam automatic initialization stays disabled"
+	)
+	_check(
+		not bool(ProjectSettings.get_setting("steam/initialization/processes/embed_callbacks", true)),
+		"GodotSteam embedded callbacks stay disabled"
+	)
 	_check(bool(ProjectSettings.get_setting("steam/restart_through_client", false)), "export builds request Steam relaunch")
 	_check(
 		TRANSPORT_SCRIPT.should_restart_through_client(true, true, true),
@@ -49,6 +61,24 @@ func _run() -> void:
 	_check(not TRANSPORT_SCRIPT.steam_init_result_succeeded(false), "boolean init failure is rejected")
 	_check(TRANSPORT_SCRIPT.steam_init_result_succeeded({"status": 0}), "dictionary init success is accepted")
 	_check(not TRANSPORT_SCRIPT.steam_init_result_succeeded({"status": 1}), "dictionary init failure is rejected")
+
+	var init_ex_adapter := TRANSPORT_SCRIPT.new() as Node
+	var fake_init_ex := FakeSteamInitEx.new()
+	init_ex_adapter.set("_steam", fake_init_ex)
+	var init_ex_result: Variant = init_ex_adapter.call("_call_steam_init", EXPECTED_STEAM_APP_ID)
+	_check(TRANSPORT_SCRIPT.steam_init_result_succeeded(init_ex_result), "steamInitEx result is accepted")
+	_check(fake_init_ex.received_app_id == EXPECTED_STEAM_APP_ID, "steamInitEx receives App ID 4955670")
+	_check(not fake_init_ex.received_embed_callbacks, "steamInitEx keeps embedded callbacks disabled")
+	init_ex_adapter.free()
+
+	var fallback_adapter := TRANSPORT_SCRIPT.new() as Node
+	var fake_fallback := FakeSteamInitFallback.new()
+	fallback_adapter.set("_steam", fake_fallback)
+	var fallback_result: Variant = fallback_adapter.call("_call_steam_init", EXPECTED_STEAM_APP_ID)
+	_check(TRANSPORT_SCRIPT.steam_init_result_succeeded(fallback_result), "steamInit fallback result is accepted")
+	_check(fake_fallback.received_app_id == EXPECTED_STEAM_APP_ID, "steamInit fallback receives App ID 4955670")
+	_check(not fake_fallback.received_embed_callbacks, "steamInit fallback keeps embedded callbacks disabled")
+	fallback_adapter.free()
 
 	_check(
 		TRANSPORT_SCRIPT.lobby_metadata_is_compatible(
@@ -100,3 +130,23 @@ func _run() -> void:
 	else:
 		print("[steam-config-smoke] %d FAILURES" % _failures)
 	quit(1 if _failures > 0 else 0)
+
+
+class FakeSteamInitEx extends RefCounted:
+	var received_app_id: int = 0
+	var received_embed_callbacks: bool = true
+
+	func steamInitEx(app_id: int, embed_callbacks: bool) -> Dictionary:
+		received_app_id = app_id
+		received_embed_callbacks = embed_callbacks
+		return {"status": 0}
+
+
+class FakeSteamInitFallback extends RefCounted:
+	var received_app_id: int = 0
+	var received_embed_callbacks: bool = true
+
+	func steamInit(app_id: int, embed_callbacks: bool) -> bool:
+		received_app_id = app_id
+		received_embed_callbacks = embed_callbacks
+		return true
