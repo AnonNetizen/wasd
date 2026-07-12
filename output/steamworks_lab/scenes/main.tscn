@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://bterbkdia83q7"]
 
-[ext_resource type="Script" path="res://scripts/steamworks_lab.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://bm4wfc70hfjee" path="res://scripts/steamworks_lab.gd" id="1_main"]
 
-[node name="SteamworksLab" type="Node2D"]
+[node name="SteamworksLab" type="Node2D" unique_id=106000158]
 script = ExtResource("1_main")
