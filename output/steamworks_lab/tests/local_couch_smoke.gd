@@ -4,7 +4,11 @@ extends SceneTree
 #   godot --headless --path output/steamworks_lab --script res://tests/local_couch_smoke.gd -- --disable-steam
 
 const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
+const LAB_SAVE_SCRIPT := preload("res://scripts/lab_save.gd")
 const LOCAL_INPUT_ROUTER_SCRIPT := preload("res://scripts/local_input_router.gd")
+
+const RECORD_SAVE_PATH: String = "user://local_couch_smoke_save.cfg"
+const RECORD_SAVE_FILE_NAME: String = "local_couch_smoke_save.cfg"
 
 var _failures: int = 0
 
@@ -107,11 +111,13 @@ func _check_input_router() -> void:
 
 
 func _check_main_scene_integration() -> void:
+	_check(_remove_record_fixture() == OK, "couch record fixture starts clean")
 	var main_packed := load("res://scenes/main.tscn") as PackedScene
 	_check(main_packed != null, "main scene loads for couch integration")
 	if main_packed == null:
 		return
 	var main_scene := main_packed.instantiate() as Node2D
+	main_scene.set("_save_config_path", RECORD_SAVE_PATH)
 	root.add_child(main_scene)
 	await process_frame
 	main_scene.set_physics_process(false)
@@ -142,6 +148,21 @@ func _check_main_scene_integration() -> void:
 	await process_frame
 	_check(bool(router.call("is_locked")), "starting battle locks the couch roster")
 	_check(main_scene.get("_director") != null, "couch battle starts a local authoritative director")
+	main_scene.call("_record_game_over_survival_time", {"time": 88.0})
+	var active_save := main_scene.get("_save") as RefCounted
+	_check(
+		active_save != null
+		and is_zero_approx(float(active_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE))),
+		"couch game over does not change the single-player record"
+	)
+	_check(
+		active_save != null
+		and is_equal_approx(
+			float(active_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER)),
+			88.0
+		),
+		"couch game over updates only the multiplayer record"
+	)
 	router.call("debug_set_connected_devices", _devices([21, 22, 23, 24]))
 	_check(int(main_scene.call("couch_player_count")) == 4, "controller added after battle start cannot add a fifth player")
 	_check(int(router.call("ignored_controller_count")) == 1, "battle router reports the ignored fifth player device")
@@ -160,6 +181,7 @@ func _check_main_scene_integration() -> void:
 
 	main_scene.queue_free()
 	await process_frame
+	_check(_remove_record_fixture() == OK, "couch record fixture cleanup succeeds")
 
 
 func _check_p1_input_map() -> void:
@@ -509,3 +531,12 @@ func _release_keyboard_actions() -> void:
 	]:
 		if InputMap.has_action(action_name):
 			Input.action_release(action_name)
+
+
+func _remove_record_fixture() -> Error:
+	if not FileAccess.file_exists(RECORD_SAVE_PATH):
+		return OK
+	var user_dir := DirAccess.open("user://")
+	if user_dir == null:
+		return DirAccess.get_open_error()
+	return user_dir.remove(RECORD_SAVE_FILE_NAME)

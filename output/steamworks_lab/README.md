@@ -10,7 +10,7 @@ UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图
 
 主菜单提供 `设置 / Settings` 页面，可在 `简体中文 / English` 间切换语言，选择 `540×960`（适配 1080p）、`720×1280`（适配 2K）、`1080×1920`（适配 4K）三档窗口分辨率，并切换全屏。分辨率档位只改变窗口像素尺寸；游戏逻辑、碰撞和 UI 设计坐标始终保持 540×960，由 Godot stretch 负责放大。全屏使用 Godot stretch 扩展画布，宽屏多出的区域用动态背景填满，不再显示固定画布外黑边。主菜单也提供 `自定义 / Customize` 页面，可设置昵称、史莱姆主体色和玩家子弹色，并提供 `退出游戏 / Quit Game` 按钮；外观只影响表现，不改变血量、碰撞、伤害、速度等玩法数值。设置持久化到 `user://settings.cfg`；已有玩家选择优先，没有保存时优先读取 GodotSteam 暴露的 Steam 当前游戏语言（Steamworks `ISteamApps::GetCurrentGameLanguage()`），取不到 Steam 语言再读系统语言。`schinese` / `tchinese` / 任意 `zh*` 默认进 `zh_CN`，其他语言默认 `en`；headless 测试下不会实际切换窗口模式。
 
-主菜单也提供 `记录 / Records` 入口，用 `user://save.cfg` 本地保存当前最长存活时间。当前只记录 `records.best_survival_seconds`，仅在战斗进入 Game Over 时更新；写入会显式 flush / close，只有真正落盘才更新内存纪录，失败会回滚。手动返回主菜单、离开联机会话或重开不会刷新纪录。
+主菜单也提供 `记录 / Records` 入口，用 `user://save.cfg` 分别保存单人和多人最长存活时间。`PlayMode.SINGLE` 只更新单人纪录；本地同屏、Steam Host 和 Steam Client 合并更新多人纪录，各 Steam 设备按 host 权威 Game Over 时间在本地落盘。存档使用 `records.schema_version=2`、`best_single_survival_seconds` 和 `best_multiplayer_survival_seconds`；旧版混合 `best_survival_seconds` 不归入任一分类，首次加载时会清零并重写 v2，高于 v2 的未知版本会被拒绝并保持写保护。写入会显式 flush / close，只有目标分类真正落盘才更新内存纪录，失败只回滚该分类。手动返回主菜单、离开联机会话或重开不会刷新纪录。
 
 ## 玩法
 
@@ -19,7 +19,7 @@ UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图
 - 双人靠近后双方按住合体键可短时间合体成大史莱姆：发起者控制移动和主炮，队友控制副炮；合体有临时护盾、倒计时和冷却，不改变永久外观或存档。
 - 主菜单 `设置 / Settings` 可切换语言、窗口分辨率和全屏；语言影响主菜单、准备房间、HUD、buff、主动道具名、结算和表情轮标签，Steam 状态提示仍以英文为主；`退出游戏 / Quit Game` 可直接关闭 lab。
 - 主菜单 `自定义 / Customize` 可设置本机昵称、8 个预设史莱姆色和 8 个预设子弹色。单机昵称留空时不显示名字；联机昵称留空时会显示 `Host` / `Peer N`。外观会随 host 快照同步给所有玩家，中途加入也会看到当前外观。
-- 主菜单 `记录 / Records` 会弹出街机风格窗口显示最长存活时间；无记录时显示 `暂无记录 / No record yet`，有记录时统一显示为 `MM:SS`。
+- 主菜单 `记录 / Records` 会同时显示 `单人最长存活 / Single Player Best` 与 `多人最长存活 / Multiplayer Best`；两项独立显示 `暂无记录 / No record yet` 或 `MM:SS`。
 - 单机和本地同屏下暂停会冻结整场战斗；Steam 联机下暂停只打开本机菜单并清零本机输入，host 权威战斗继续运行，不新增网络暂停。
 - 敌人不断从画面上方过来：直冲怪（撞人自爆）、悬停炮手（瞄准弹，高 tier 三扇）、掠射怪（斜穿 + 垂直弹）。炮手 / 掠射怪会远程攻击，敌弹为暖色，玩家弹为冷色；子弹命中会有小火花，敌人 / 障碍 / boss 被击破会有爆碎冲击环与轻重不同的屏幕震动。
 - 敌人死亡约 12% 掉主动道具，踩到自动收入单槽，已有道具会替换；按 `Q` 使用。当前 5 个道具：修复波（全队回血）、清场脉冲（清敌弹并伤害敌人 / boss / 障碍）、凝滞场（冻结敌人 / boss / 敌弹 / 障碍）、团队过载（全队短时强化射速 / 伤害 / 弹速）、应急护膜（自己回血 + 短暂无敌）。
@@ -94,7 +94,7 @@ $godot = $env:GODOT_PATH
 ## 本地同屏测试清单
 
 1. 单进程进入 `开始联机游戏` → `本地同屏 / Local Couch Co-op`。确认 P1 键鼠自动出现；至少接入一个手柄后开始按钮才可用，P2–P4 按检测顺序占用最低空槽，第 4 个额外手柄被忽略并提示。
-2. 进入 `设置 / Settings`，切到 English 再切回简体中文，确认主菜单、设置页、HUD 空道具槽、buff 面板、结算和表情轮标签刷新；切换三档分辨率与全屏后重启确认 `user://settings.cfg` 生效。打开 `记录 / Records`，确认无记录 / 最长存活时间文本随语言刷新，Game Over 后再次打开会显示 `MM:SS` 纪录。
+2. 进入 `设置 / Settings`，切到 English 再切回简体中文，确认主菜单、设置页、HUD 空道具槽、buff 面板、结算和表情轮标签刷新；切换三档分辨率与全屏后重启确认 `user://settings.cfg` 生效。打开 `记录 / Records`，确认单人 / 多人两行及各自无记录状态随语言刷新；分别完成单人和本地同屏 Game Over，确认只更新对应行并显示独立 `MM:SS` 纪录。
 3. 进入 `自定义 / Customize` 设置本机昵称和颜色；确认 P1 沿用该外观，P2–P4 显示固定名与互不重复的预设史莱姆 / 子弹色。
 4. 用 1–3 个真实手柄验证左摇杆 / D-pad 移动、右摇杆瞄准与回中保向、RT 连射、X 道具、A 合体、Y 表情、Start 暂停；多人同时移动、瞄准和开火时不能串槽。
 5. 确认同屏 HUD 显示最多四张紧凑玩家卡；生命、死亡、主动道具、按键提示和合体状态分别跟随对应槽位。
@@ -149,7 +149,7 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=2
 - `scripts/local_input_router.gd`：本地同屏设备检测、P1–P4 槽位分配、设备专属 InputMap、输入帧、阵容锁定、溢出提示和断线重绑。
 - `scripts/ui_style.gd`：lab 专用 UI 色板、Theme、Panel / Button / Input 等 StyleBox 工具。
 - `scripts/lab_locale.gd` / `scripts/lab_settings.gd`：lab 轻量本地化字典、Steam / 系统语言映射、`user://settings.cfg` 读写、分辨率 / 外观设置和 headless 安全的全屏应用。
-- `scripts/lab_save.gd`：lab 轻量本地存档，只读写 `user://save.cfg` 的 `records.best_survival_seconds`，显式 flush / close 并在失败时回滚纪录。
+- `scripts/lab_save.gd`：lab 轻量本地存档，按 `RecordCategory.SINGLE / MULTIPLAYER` 读写 `user://save.cfg` 的 v2 双纪录，清空旧混合纪录，显式 flush / close 并在失败时只回滚目标分类。
 - `scripts/battle_director.gd`：战斗核心。权威端：刷怪波次 / tier 缩放 / boss / 障碍物 / 主动道具调度、圆-圆判伤、buff 状态机与时停；client 端：快照镜像重建、敌弹 volley 视觉、玩家弹视觉消隐。
 - `scripts/enemy.gd` / `scripts/enemy_bullet.gd`：三种敌人（直冲 / 炮手 / 掠射）与暖色敌弹。
 - `scripts/boss.gd`：每 2 分钟的 boss（瞄准扇 + 环形弹、enrage）。
@@ -158,7 +158,7 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=2
 - `scripts/battle_hud.gd`：单人 / Steam 展开 HUD，以及本地同屏最多四张紧凑玩家卡。
 - `scripts/buff_panel.gd`：三选一强化面板；同屏支持当前玩家提示、手柄循环选择与确认。
 - `scripts/pause_panel.gd`：暂停面板；本地同屏断线时显示缺失槽位、禁用继续，重绑后转普通暂停。
-- `scripts/records_panel.gd`：主菜单 `记录 / Records` 弹窗，显示本机最长存活时间并随语言切换刷新。
+- `scripts/records_panel.gd`：主菜单 `记录 / Records` 弹窗，同时显示本机单人 / 多人最长存活时间并随语言切换刷新。
 - `scripts/burst_effect.gd`：通用爆碎特效，包含碎片与扩散冲击环。
 - `scripts/slime_body.gd`：无骨骼软体史莱姆（弹簧膜 + Catmull-Rom 轮廓），带战场移动边界 clamp。
 - `scripts/slime_player.gd`：玩家实体包装，含外观色板、3 血 / 无敌帧 / 观战 / 快照扩展。
@@ -168,8 +168,8 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=2
 - `scripts/transport_adapter.gd`：本地 ENet 与可选 GodotSteam adapter。
 - `steam_toolchain.lock.json` / `export_presets.cfg` / `THIRD_PARTY_NOTICES.txt`：GodotSteam 4.20 / Godot 4.7 / Steamworks 1.64 Win64 依赖锁、Windows Steam release preset 与随包第三方许可声明。
 - `tools/steamworks_lab_toolchain.py`：仓库根统一 setup / verify / export-release 工具；插件下载只存在于系统临时目录，GDExtension 与构建产物不入库，editor 直接走 `--godot` / `GODOT_PATH`，标准 Windows templates 走 Godot 用户目录。
-- `tests/battle_smoke.gd`：单机战斗 headless 回归，包含动态 viewport 世界矩形、最长纪录落盘 / 回滚 / 重载和快照 codec roundtrip。
-- `tests/local_couch_smoke.gd`：模拟 1–3 个手柄的单进程同屏输入、战斗、UI、强化与断线重绑回归。
+- `tests/battle_smoke.gd`：单机战斗 headless 回归，包含动态 viewport 世界矩形、单人 / 多人纪录迁移、独立落盘 / 回滚 / 重载、双行 UI 和快照 codec roundtrip。
+- `tests/local_couch_smoke.gd`：模拟 1–3 个手柄的单进程同屏输入、战斗、UI、强化、断线重绑和多人纪录归类回归。
 - `tests/steam_config_smoke.gd`：App ID、初始化返回值、Lobby 兼容和显式离线降级 headless 回归。
 - `tests/steam_runtime_presence_smoke.gd`：用普通 Godot 4.7 验证锁定 GDExtension 已加载、版本正确、singleton 与高层 multiplayer peer 方法存在，不初始化真实 Steam 会话。
 - `tests/net_host_smoke.gd` / `tests/net_client_smoke.gd`：双进程 ENet 联机 headless 回归；host 断言快照 payload 不超过 900 字节，client 验证解压重组后的镜像状态。

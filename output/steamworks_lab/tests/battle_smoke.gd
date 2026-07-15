@@ -8,6 +8,7 @@ const ENEMY_BULLET_SCRIPT := preload("res://scripts/enemy_bullet.gd")
 const LAB_SAVE_SCRIPT := preload("res://scripts/lab_save.gd")
 const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
 const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
+const MAIN_SCRIPT := preload("res://scripts/steamworks_lab.gd")
 const NETWORK_SESSION_SCRIPT := preload("res://scripts/network_session.gd")
 const PLAYER_SCRIPT := preload("res://scripts/slime_player.gd")
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
@@ -254,22 +255,68 @@ func _run() -> void:
 	var game_over_state: Dictionary = director.call("battle_state")
 	var game_over_seconds := float(game_over_state.get("time", 0.0))
 	var active_save := main_scene.get("_save") as RefCounted
-	var best_seconds := float(active_save.get("best_survival_seconds")) if active_save != null else 0.0
-	_check(best_seconds >= game_over_seconds and best_seconds > 0.0, "game over records best survival time")
+	var best_single_seconds := (
+		float(active_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE))
+		if active_save != null
+		else 0.0
+	)
+	var best_multiplayer_seconds := (
+		float(active_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER))
+		if active_save != null
+		else 0.0
+	)
+	_check(
+		(best_single_seconds >= game_over_seconds or is_equal_approx(best_single_seconds, game_over_seconds))
+		and best_single_seconds > 0.0,
+		"single-player game over records the single-player survival time"
+	)
+	_check(is_zero_approx(best_multiplayer_seconds), "single-player game over does not change the multiplayer record")
 	var save_config := ConfigFile.new()
 	var save_load_error := save_config.load(SAVE_PATH)
-	var saved_seconds := float(save_config.get_value("records", "best_survival_seconds", 0.0)) if save_load_error == OK else 0.0
-	_check(saved_seconds >= game_over_seconds and saved_seconds > 0.0, "best survival is written to save.cfg")
+	var saved_single_seconds := (
+		float(save_config.get_value("records", "best_single_survival_seconds", 0.0))
+		if save_load_error == OK
+		else 0.0
+	)
+	var saved_multiplayer_seconds := (
+		float(save_config.get_value("records", "best_multiplayer_survival_seconds", 0.0))
+		if save_load_error == OK
+		else 0.0
+	)
+	_check(
+		(saved_single_seconds >= game_over_seconds or is_equal_approx(saved_single_seconds, game_over_seconds))
+		and saved_single_seconds > 0.0,
+		"single-player record is written to save.cfg (saved %.3f, expected %.3f, load %d)" % [
+			saved_single_seconds,
+			game_over_seconds,
+			save_load_error,
+		]
+	)
+	_check(is_zero_approx(saved_multiplayer_seconds), "single-player save leaves multiplayer record at zero")
 	if active_save != null:
-		var improved_record := bool(active_save.call("record_survival_time", 125.0))
-		var lowered_record := bool(active_save.call("record_survival_time", 60.0))
-		best_seconds = float(active_save.get("best_survival_seconds"))
-		_check(improved_record and not lowered_record and is_equal_approx(best_seconds, 125.0), "lower survival time does not overwrite record")
+		var improved_record := bool(active_save.call(
+			"record_survival_time",
+			LAB_SAVE_SCRIPT.RecordCategory.SINGLE,
+			125.0
+		))
+		var lowered_record := bool(active_save.call(
+			"record_survival_time",
+			LAB_SAVE_SCRIPT.RecordCategory.SINGLE,
+			60.0
+		))
+		best_single_seconds = float(active_save.call(
+			"best_survival_seconds",
+			LAB_SAVE_SCRIPT.RecordCategory.SINGLE
+		))
+		_check(
+			improved_record and not lowered_record and is_equal_approx(best_single_seconds, 125.0),
+			"lower single-player survival time does not overwrite its record"
+		)
 		var records_panel := main_scene.get("_records_panel") as Control
 		main_scene.call("_on_records_pressed")
 		await process_frame
 		_check(records_panel != null and records_panel.visible, "records panel can reopen with saved record")
-		_check(_node_tree_has_text(records_panel, "02:05"), "records panel formats best survival as MM:SS")
+		_check(_node_tree_has_text(records_panel, "02:05"), "records panel formats the single-player record as MM:SS")
 		if records_panel != null:
 			records_panel.call("close")
 			for index in range(12):
@@ -627,25 +674,139 @@ func _check_save_helper_defaults() -> void:
 	var save := LAB_SAVE_SCRIPT.new()
 	var loaded := bool(save.call("load_save"))
 	_check(not loaded, "missing save file reports unloaded")
-	_check(is_equal_approx(float(save.get("best_survival_seconds")), 0.0), "missing save defaults best survival to zero")
+	_check(
+		is_zero_approx(float(save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE))),
+		"missing save defaults the single-player record to zero"
+	)
+	_check(
+		is_zero_approx(float(save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER))),
+		"missing save defaults the multiplayer record to zero"
+	)
 	_check(LAB_SAVE_SCRIPT.format_survival_time(127.0) == "02:07", "survival time formats as MM:SS")
 
 	var failing_save := LAB_SAVE_SCRIPT.new("user://")
-	var failed_record := bool(failing_save.call("record_survival_time", 42.0))
+	var failed_record := bool(failing_save.call(
+		"record_survival_time",
+		LAB_SAVE_SCRIPT.RecordCategory.SINGLE,
+		42.0
+	))
 	_check(not failed_record, "record update reports failure when save path cannot be written")
 	_check(
-		is_equal_approx(float(failing_save.get("best_survival_seconds")), 0.0),
-		"failed record write rolls back the in-memory best"
+		is_zero_approx(float(failing_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE))),
+		"failed record write rolls back the target category"
+	)
+	_check(
+		is_zero_approx(float(failing_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER))),
+		"failed single-player write leaves the multiplayer category unchanged"
 	)
 
 	_check(_remove_user_file(SAVE_ROUNDTRIP_PATH, SAVE_ROUNDTRIP_FILE_NAME) == OK, "roundtrip save fixture starts clean")
 	var roundtrip_save := LAB_SAVE_SCRIPT.new(SAVE_ROUNDTRIP_PATH)
-	_check(bool(roundtrip_save.call("record_survival_time", 73.0)), "record update succeeds after durable write")
+	_check(
+		bool(roundtrip_save.call("record_survival_time", LAB_SAVE_SCRIPT.RecordCategory.SINGLE, 73.0)),
+		"single-player record update succeeds after durable write"
+	)
+	_check(
+		bool(roundtrip_save.call("record_survival_time", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER, 91.0)),
+		"multiplayer record update succeeds independently"
+	)
+	_check(
+		not bool(roundtrip_save.call("record_survival_time", LAB_SAVE_SCRIPT.RecordCategory.SINGLE, 70.0)),
+		"lower single-player time does not overwrite its record"
+	)
+	_check(
+		not bool(roundtrip_save.call("record_survival_time", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER, INF)),
+		"invalid multiplayer time does not overwrite its record"
+	)
+	roundtrip_save.set("_config_path", "user://")
+	_check(
+		not bool(roundtrip_save.call("record_survival_time", LAB_SAVE_SCRIPT.RecordCategory.SINGLE, 80.0)),
+		"failed improved single-player write reports failure"
+	)
+	_check(
+		is_equal_approx(
+			float(roundtrip_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE)),
+			73.0
+		),
+		"failed improved write rolls back only the single-player category"
+	)
+	_check(
+		is_equal_approx(
+			float(roundtrip_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER)),
+			91.0
+		),
+		"single-player rollback preserves the multiplayer category"
+	)
 	var reloaded_save := LAB_SAVE_SCRIPT.new(SAVE_ROUNDTRIP_PATH)
 	_check(bool(reloaded_save.call("load_save")), "saved record reloads from disk")
 	_check(
-		is_equal_approx(float(reloaded_save.get("best_survival_seconds")), 73.0),
-		"reloaded record matches the flushed value"
+		is_equal_approx(
+			float(reloaded_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE)),
+			73.0
+		),
+		"reloaded single-player record matches the flushed value"
+	)
+	_check(
+		is_equal_approx(
+			float(reloaded_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER)),
+			91.0
+		),
+		"reloaded multiplayer record matches the flushed value"
+	)
+	var saved_config := ConfigFile.new()
+	_check(saved_config.load(SAVE_ROUNDTRIP_PATH) == OK, "v2 record config reloads for schema assertions")
+	_check(
+		int(saved_config.get_value("records", "schema_version", 0)) == LAB_SAVE_SCRIPT.SCHEMA_VERSION,
+		"record config writes schema version 2"
+	)
+	_check(
+		not saved_config.has_section_key("records", "best_survival_seconds"),
+		"v2 record config does not write the legacy mixed key"
+	)
+
+	var legacy_config := ConfigFile.new()
+	legacy_config.set_value("records", "best_survival_seconds", 137.0)
+	_check(
+		_write_text_file(SAVE_ROUNDTRIP_PATH, legacy_config.encode_to_text()) == OK,
+		"legacy record fixture writes successfully"
+	)
+	var migrated_save := LAB_SAVE_SCRIPT.new(SAVE_ROUNDTRIP_PATH)
+	_check(bool(migrated_save.call("load_save")), "legacy mixed record migrates to v2")
+	_check(
+		is_zero_approx(float(migrated_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE)))
+		and is_zero_approx(float(migrated_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER))),
+		"legacy mixed record is cleared instead of assigned to either category"
+	)
+	var migrated_config := ConfigFile.new()
+	_check(migrated_config.load(SAVE_ROUNDTRIP_PATH) == OK, "migrated record config reloads")
+	_check(
+		int(migrated_config.get_value("records", "schema_version", 0)) == LAB_SAVE_SCRIPT.SCHEMA_VERSION
+		and not migrated_config.has_section_key("records", "best_survival_seconds"),
+		"legacy migration persists v2 and removes the mixed key"
+	)
+
+	var future_config := ConfigFile.new()
+	future_config.set_value("records", "schema_version", LAB_SAVE_SCRIPT.SCHEMA_VERSION + 1)
+	future_config.set_value("records", "best_single_survival_seconds", 444.0)
+	_check(
+		_write_text_file(SAVE_ROUNDTRIP_PATH, future_config.encode_to_text()) == OK,
+		"future record fixture writes successfully"
+	)
+	var future_save := LAB_SAVE_SCRIPT.new(SAVE_ROUNDTRIP_PATH)
+	_check(not bool(future_save.call("load_save")), "unknown future record schema is rejected")
+	_check(
+		not bool(future_save.call("record_survival_time", LAB_SAVE_SCRIPT.RecordCategory.SINGLE, 555.0)),
+		"rejected future schema blocks later record writes"
+	)
+	var untouched_future_config := ConfigFile.new()
+	_check(
+		untouched_future_config.load(SAVE_ROUNDTRIP_PATH) == OK
+		and int(untouched_future_config.get_value("records", "schema_version", 0)) == LAB_SAVE_SCRIPT.SCHEMA_VERSION + 1
+		and is_equal_approx(
+			float(untouched_future_config.get_value("records", "best_single_survival_seconds", 0.0)),
+			444.0
+		),
+		"rejected future schema is not overwritten"
 	)
 	_check(_remove_user_file(SAVE_ROUNDTRIP_PATH, SAVE_ROUNDTRIP_FILE_NAME) == OK, "roundtrip save fixture cleanup succeeds")
 
@@ -870,8 +1031,34 @@ func _check_records_ui(main_scene: Node) -> void:
 	var start_page := main_scene.get("_start_page") as Control
 	var records_panel := main_scene.get("_records_panel") as Control
 	var active_save := main_scene.get("_save") as RefCounted
-	_check(active_save != null and is_equal_approx(float(active_save.get("best_survival_seconds")), 0.0), "main scene save defaults best survival to zero")
+	_check(
+		active_save != null
+		and is_zero_approx(float(active_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE)))
+		and is_zero_approx(float(active_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER))),
+		"main scene save defaults both survival records to zero"
+	)
 	_check(records_panel != null, "records panel exists")
+	_check(
+		int(main_scene.call("_record_category_for_play_mode", MAIN_SCRIPT.PlayMode.SINGLE))
+		== LAB_SAVE_SCRIPT.RecordCategory.SINGLE,
+		"single-player mode maps to the single-player record"
+	)
+	_check(
+		int(main_scene.call("_record_category_for_play_mode", MAIN_SCRIPT.PlayMode.COUCH))
+		== LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER,
+		"local couch mode maps to the multiplayer record"
+	)
+	_check(
+		int(main_scene.call("_record_category_for_play_mode", MAIN_SCRIPT.PlayMode.STEAM_HOST))
+		== LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER
+		and int(main_scene.call("_record_category_for_play_mode", MAIN_SCRIPT.PlayMode.STEAM_CLIENT))
+		== LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER,
+		"Steam host and client modes map to the multiplayer record"
+	)
+	_check(
+		int(main_scene.call("_record_category_for_play_mode", MAIN_SCRIPT.PlayMode.MENU)) < 0,
+		"menu mode does not map to a record category"
+	)
 
 	main_scene.call("_show_start_page")
 	await process_frame
@@ -882,8 +1069,21 @@ func _check_records_ui(main_scene: Node) -> void:
 	await process_frame
 	_check(records_panel != null and records_panel.visible, "records panel opens from main menu")
 	_check(_node_tree_has_text(records_panel, "Records"), "English records title localizes")
-	_check(_node_tree_has_text(records_panel, "Best Survival"), "English records label localizes")
-	_check(_node_tree_has_text(records_panel, "No record yet"), "English no-record text localizes")
+	_check(_node_tree_has_text(records_panel, "Single Player Best"), "English single-player record label localizes")
+	_check(_node_tree_has_text(records_panel, "Multiplayer Best"), "English multiplayer record label localizes")
+	var single_time_label := records_panel.find_child("SingleSurvivalTime", true, false) as Label
+	var multiplayer_time_label := records_panel.find_child("MultiplayerSurvivalTime", true, false) as Label
+	_check(
+		single_time_label != null and single_time_label.text == "No record yet",
+		"English single-player empty state localizes"
+	)
+	_check(
+		multiplayer_time_label != null and multiplayer_time_label.text == "No record yet",
+		"English multiplayer empty state localizes"
+	)
+	records_panel.call("set_survival_records", 65.0, 142.0)
+	_check(single_time_label != null and single_time_label.text == "01:05", "single-player row formats its own time")
+	_check(multiplayer_time_label != null and multiplayer_time_label.text == "02:22", "multiplayer row formats its own time")
 	var english_close_button := _find_button_with_text(records_panel, "Close")
 	_check(english_close_button != null, "English records close button exists")
 	if english_close_button != null:
@@ -898,8 +1098,10 @@ func _check_records_ui(main_scene: Node) -> void:
 	main_scene.call("_on_records_pressed")
 	await process_frame
 	_check(_node_tree_has_text(records_panel, "记录"), "Chinese records title localizes")
-	_check(_node_tree_has_text(records_panel, "最长存活时间"), "Chinese records label localizes")
-	_check(_node_tree_has_text(records_panel, "暂无记录"), "Chinese no-record text localizes")
+	_check(_node_tree_has_text(records_panel, "单人最长存活"), "Chinese single-player record label localizes")
+	_check(_node_tree_has_text(records_panel, "多人最长存活"), "Chinese multiplayer record label localizes")
+	_check(single_time_label != null and single_time_label.text == "暂无记录", "Chinese single-player empty state localizes")
+	_check(multiplayer_time_label != null and multiplayer_time_label.text == "暂无记录", "Chinese multiplayer empty state localizes")
 	_check(_find_button_with_text(records_panel, "关闭") != null, "Chinese records close button localizes")
 	if records_panel != null:
 		records_panel.call("close")
@@ -1150,6 +1352,17 @@ func _restore_save_file(backup: Dictionary) -> Error:
 
 func _remove_save_file() -> Error:
 	return _remove_user_file(SAVE_PATH, SAVE_FILE_NAME)
+
+
+func _write_text_file(path: String, text: String) -> Error:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return FileAccess.get_open_error()
+	file.store_string(text)
+	file.flush()
+	var write_error := file.get_error()
+	file.close()
+	return write_error
 
 
 func _remove_user_file(path: String, file_name: String) -> Error:

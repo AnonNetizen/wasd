@@ -5,12 +5,15 @@ const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 const LAB_SAVE_SCRIPT := preload("res://scripts/lab_save.gd")
 const UI_STYLE_SCRIPT := preload("res://scripts/ui_style.gd")
 
-var _best_seconds: float = 0.0
+var _single_seconds: float = 0.0
+var _multiplayer_seconds: float = 0.0
 var _dimmer: ColorRect
 var _panel: PanelContainer
 var _title_label: Label
-var _best_label: Label
-var _time_label: Label
+var _single_label: Label
+var _single_time_label: Label
+var _multiplayer_label: Label
+var _multiplayer_time_label: Label
 var _close_button: Button
 var _panel_tween: Tween
 var _locale: String = LAB_LOCALE_SCRIPT.LOCALE_ZH_CN
@@ -28,13 +31,14 @@ func set_locale(locale: String) -> void:
 	_refresh_text()
 
 
-func set_best_survival(seconds: float) -> void:
-	_best_seconds = maxf(0.0, seconds)
+func set_survival_records(single_seconds: float, multiplayer_seconds: float) -> void:
+	_single_seconds = maxf(0.0, single_seconds)
+	_multiplayer_seconds = maxf(0.0, multiplayer_seconds)
 	_refresh_text()
 
 
-func open(seconds: float) -> void:
-	set_best_survival(seconds)
+func open(single_seconds: float, multiplayer_seconds: float) -> void:
+	set_survival_records(single_seconds, multiplayer_seconds)
 	if _panel_tween != null and _panel_tween.is_valid():
 		_panel_tween.kill()
 	visible = true
@@ -90,7 +94,7 @@ func _create_widgets() -> void:
 
 	_panel = PanelContainer.new()
 	_panel.name = "RecordsPanel"
-	_panel.custom_minimum_size = Vector2(358.0, 260.0)
+	_panel.custom_minimum_size = Vector2(378.0, 350.0)
 	UI_STYLE_SCRIPT.apply_panel(_panel, "hero")
 	center.add_child(_panel)
 	_panel.resized.connect(func() -> void: _panel.pivot_offset = _panel.size * 0.5)
@@ -104,7 +108,7 @@ func _create_widgets() -> void:
 
 	var rows := VBoxContainer.new()
 	rows.alignment = BoxContainer.ALIGNMENT_CENTER
-	rows.add_theme_constant_override("separation", 14)
+	rows.add_theme_constant_override("separation", 10)
 	margin.add_child(rows)
 
 	_title_label = Label.new()
@@ -116,21 +120,17 @@ func _create_widgets() -> void:
 	_title_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.52))
 	rows.add_child(_title_label)
 
-	_best_label = Label.new()
-	_best_label.name = "BestSurvivalLabel"
-	_best_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_best_label.add_theme_font_size_override("font_size", 14)
-	_best_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.MUTED_TEXT_COLOR)
-	rows.add_child(_best_label)
+	_single_label = _create_record_label("SingleSurvivalLabel")
+	rows.add_child(_single_label)
 
-	_time_label = Label.new()
-	_time_label.name = "BestSurvivalTime"
-	_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_time_label.add_theme_font_size_override("font_size", 34)
-	_time_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.SLIME_COLOR)
-	_time_label.add_theme_constant_override("outline_size", 4)
-	_time_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.55))
-	rows.add_child(_time_label)
+	_single_time_label = _create_time_label("SingleSurvivalTime")
+	rows.add_child(_single_time_label)
+
+	_multiplayer_label = _create_record_label("MultiplayerSurvivalLabel")
+	rows.add_child(_multiplayer_label)
+
+	_multiplayer_time_label = _create_time_label("MultiplayerSurvivalTime")
+	rows.add_child(_multiplayer_time_label)
 
 	_close_button = Button.new()
 	_close_button.name = "CloseButton"
@@ -142,13 +142,41 @@ func _create_widgets() -> void:
 	_refresh_text()
 
 
+func _create_record_label(node_name: String) -> Label:
+	var label := Label.new()
+	label.name = node_name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.MUTED_TEXT_COLOR)
+	return label
+
+
+func _create_time_label(node_name: String) -> Label:
+	var label := Label.new()
+	label.name = node_name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 30)
+	label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.SLIME_COLOR)
+	label.add_theme_constant_override("outline_size", 4)
+	label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.55))
+	return label
+
+
 func _refresh_text() -> void:
 	if _title_label == null:
 		return
 	_title_label.text = _t("records_title")
-	_best_label.text = _t("records_best_survival")
-	_time_label.text = _t("records_no_record") if _best_seconds <= 0.0 else LAB_SAVE_SCRIPT.format_survival_time(_best_seconds)
+	_single_label.text = _t("records_single_survival")
+	_single_time_label.text = _format_record(_single_seconds)
+	_multiplayer_label.text = _t("records_multiplayer_survival")
+	_multiplayer_time_label.text = _format_record(_multiplayer_seconds)
 	_close_button.text = _t("records_close")
+
+
+func _format_record(seconds: float) -> String:
+	if seconds <= 0.0:
+		return _t("records_no_record")
+	return LAB_SAVE_SCRIPT.format_survival_time(seconds)
 
 
 func _t(key: String, args: Dictionary = {}) -> String:

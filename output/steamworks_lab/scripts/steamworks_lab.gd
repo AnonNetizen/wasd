@@ -98,6 +98,7 @@ var _buff_panel: Control
 var _pause_panel: Control
 var _settings: RefCounted
 var _save: RefCounted
+var _save_config_path: String = LAB_SAVE_SCRIPT.CONFIG_PATH
 var _ui_transition_tween: Tween
 var _ui_motion_tweens: Dictionary = {}
 var _local_buff_options: PackedInt32Array = PackedInt32Array()
@@ -752,12 +753,15 @@ func _load_lab_settings() -> void:
 
 
 func _load_lab_save() -> void:
-	_save = LAB_SAVE_SCRIPT.new()
+	_save = LAB_SAVE_SCRIPT.new(_save_config_path)
 	_save.call("load_save")
 
 
 func _record_game_over_survival_time(payload: Dictionary) -> void:
 	if _save == null:
+		return
+	var category := _record_category_for_play_mode(_play_mode)
+	if category < 0:
 		return
 	var seconds := float(payload.get("time", -1.0))
 	if seconds < 0.0 and _director != null:
@@ -765,8 +769,8 @@ func _record_game_over_survival_time(payload: Dictionary) -> void:
 		seconds = float(state.get("time", 0.0))
 	if seconds <= 0.0:
 		return
-	if bool(_save.call("record_survival_time", seconds)) and _records_panel != null:
-		_records_panel.call("set_best_survival", _best_survival_seconds())
+	if bool(_save.call("record_survival_time", category, seconds)):
+		_refresh_records_panel()
 
 
 func _create_ui() -> void:
@@ -1109,7 +1113,7 @@ func _create_records_panel() -> void:
 	_records_panel = RECORDS_PANEL_SCRIPT.new() as Control
 	_records_panel.name = "RecordsPanel"
 	_records_panel.call("set_locale", _current_locale())
-	_records_panel.call("set_best_survival", _best_survival_seconds())
+	_refresh_records_panel()
 	_ui_root.add_child(_records_panel)
 
 
@@ -1430,10 +1434,30 @@ func _current_locale() -> String:
 	return String(_settings.get("locale"))
 
 
-func _best_survival_seconds() -> float:
+func _best_survival_seconds(category: int) -> float:
 	if _save == null:
 		return 0.0
-	return float(_save.get("best_survival_seconds"))
+	return float(_save.call("best_survival_seconds", category))
+
+
+func _record_category_for_play_mode(play_mode: PlayMode) -> int:
+	match play_mode:
+		PlayMode.SINGLE:
+			return LAB_SAVE_SCRIPT.RecordCategory.SINGLE
+		PlayMode.COUCH, PlayMode.STEAM_HOST, PlayMode.STEAM_CLIENT:
+			return LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER
+		_:
+			return -1
+
+
+func _refresh_records_panel() -> void:
+	if _records_panel == null:
+		return
+	_records_panel.call(
+		"set_survival_records",
+		_best_survival_seconds(LAB_SAVE_SCRIPT.RecordCategory.SINGLE),
+		_best_survival_seconds(LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER)
+	)
 
 
 func _t(key: String, args: Dictionary = {}) -> String:
@@ -1501,7 +1525,7 @@ func _apply_locale() -> void:
 		_pause_panel.call("set_locale", _current_locale())
 	if _records_panel != null:
 		_records_panel.call("set_locale", _current_locale())
-		_records_panel.call("set_best_survival", _best_survival_seconds())
+		_refresh_records_panel()
 	for peer_id in _players.keys():
 		var player := _players[peer_id] as Node
 		if player != null and is_instance_valid(player):
@@ -2024,7 +2048,11 @@ func _on_exit_pressed() -> void:
 func _on_records_pressed() -> void:
 	if _records_panel == null:
 		return
-	_records_panel.call("open", _best_survival_seconds())
+	_records_panel.call(
+		"open",
+		_best_survival_seconds(LAB_SAVE_SCRIPT.RecordCategory.SINGLE),
+		_best_survival_seconds(LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER)
+	)
 
 
 func _on_settings_back_pressed() -> void:
