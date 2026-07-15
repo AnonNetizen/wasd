@@ -14,6 +14,8 @@ var _open_progress: float = 0.0
 var _selection_flash: float = 0.0
 var _closing: bool = false
 var _wheel_tween: Tween
+var _controller_mode: bool = false
+var _controller_context: String = ""
 
 
 func _ready() -> void:
@@ -23,7 +25,7 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	if not _closing:
+	if not _closing and not _controller_mode:
 		_update_selected_index(get_global_mouse_position())
 	_selection_flash = maxf(0.0, _selection_flash - _delta * 3.8)
 	queue_redraw()
@@ -44,7 +46,8 @@ func open_at(screen_position: Vector2) -> void:
 	_closing = false
 	visible = true
 	set_process(true)
-	_update_selected_index(get_global_mouse_position())
+	if not _controller_mode:
+		_update_selected_index(get_global_mouse_position())
 	_wheel_tween = create_tween()
 	_wheel_tween.tween_property(self, "_open_progress", 1.0, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	queue_redraw()
@@ -85,6 +88,31 @@ func selected_index() -> int:
 	return _selected_index
 
 
+func set_controller_mode(enabled: bool) -> void:
+	_controller_mode = enabled
+	if visible and not _closing and not _controller_mode:
+		_update_selected_index(get_global_mouse_position())
+
+
+func set_controller_context(context: String) -> void:
+	_controller_context = context
+	queue_redraw()
+
+
+func controller_context() -> String:
+	return _controller_context
+
+
+func is_controller_mode() -> bool:
+	return _controller_mode
+
+
+func set_selection_direction(direction: Vector2) -> void:
+	if not visible or _closing or direction.length_squared() <= 0.0001:
+		return
+	_update_selected_offset(direction.normalized() * WHEEL_RADIUS)
+
+
 func is_open() -> bool:
 	return visible and not _closing
 
@@ -102,6 +130,17 @@ func _draw() -> void:
 	var label_font_size := 12
 	for index in range(_options.size()):
 		_draw_sector(font, index, expression_font_size, label_font_size, eased_progress)
+	if _controller_context != "":
+		var context_text := _controller_context.substr(0, 30)
+		draw_string(
+			font,
+			_center_position + Vector2(-92.0, 4.0),
+			context_text,
+			HORIZONTAL_ALIGNMENT_CENTER,
+			184.0,
+			10,
+			Color(0.92, 1.0, 0.86, minf(eased_progress, 1.0))
+		)
 
 
 func _draw_sector(font: Font, index: int, expression_font_size: int, label_font_size: int, progress: float) -> void:
@@ -172,11 +211,14 @@ func _draw_centered_string(font: Font, text: String, text_position: Vector2, fon
 
 
 func _update_selected_index(mouse_position: Vector2) -> void:
+	_update_selected_offset(mouse_position - _center_position)
+
+
+func _update_selected_offset(offset: Vector2) -> void:
 	if _options.is_empty():
 		_selected_index = -1
 		return
 
-	var offset := mouse_position - _center_position
 	if offset.length() < INNER_RADIUS:
 		if _selected_index != -1:
 			_selected_index = -1

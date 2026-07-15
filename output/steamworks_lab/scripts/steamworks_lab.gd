@@ -1,6 +1,7 @@
 extends Node2D
 
 const SESSION_SCRIPT := preload("res://scripts/network_session.gd")
+const LOCAL_INPUT_ROUTER_SCRIPT := preload("res://scripts/local_input_router.gd")
 const PLAYER_SCRIPT := preload("res://scripts/slime_player.gd")
 const SLIME_BODY_SCRIPT := preload("res://scripts/slime_body.gd")
 const EXPRESSION_WHEEL_SCRIPT := preload("res://scripts/expression_wheel.gd")
@@ -25,6 +26,14 @@ const SCREEN_MULTIPLAYER: String = "multiplayer"
 const SCREEN_SETTINGS: String = "settings"
 const SCREEN_CUSTOMIZE: String = "customize"
 const SCREEN_GAME: String = "game"
+
+enum PlayMode {
+	MENU,
+	SINGLE,
+	COUCH,
+	STEAM_HOST,
+	STEAM_CLIENT,
+}
 
 const ACTION_MOVE_UP := "move_up"
 const ACTION_MOVE_DOWN := "move_down"
@@ -64,15 +73,20 @@ const ACTIVE_EXPRESSIONS: Array[Dictionary] = [
 ]
 
 var _session: Node
+var _local_input_router: Node
 var _players: Dictionary = {}
 var _peer_inputs: Dictionary = {}
 var _bullets: Array[Node] = []
 var _log_lines: Array[String] = []
 var _screen: String = SCREEN_START
 var _suppress_session_end_navigation: bool = false
-var _fire_held: bool = false
-var _merge_held: bool = false
-var _fire_cooldown_remaining: float = 0.0
+var _play_mode: PlayMode = PlayMode.MENU
+var _fire_held_by_player: Dictionary = {}
+var _merge_held_by_player: Dictionary = {}
+var _fire_cooldown_by_player: Dictionary = {}
+var _aim_direction_by_player: Dictionary = {}
+var _expression_held_by_player: Dictionary = {}
+var _expression_owner_id: int = 0
 var _fire_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _screen_shake_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _world_scroll_offset: float = 0.0
@@ -87,6 +101,11 @@ var _save: RefCounted
 var _ui_transition_tween: Tween
 var _ui_motion_tweens: Dictionary = {}
 var _local_buff_options: PackedInt32Array = PackedInt32Array()
+var _couch_buff_options: Dictionary = {}
+var _couch_buff_queue: Array[int] = []
+var _couch_buff_player_id: int = 0
+var _couch_buff_nav_y: float = 0.0
+var _couch_buff_confirm_held: bool = false
 var _localized_text_controls: Array[Control] = []
 var _localized_placeholder_controls: Array[Control] = []
 var _settings_return_screen: String = SCREEN_START
@@ -105,6 +124,7 @@ var _customize_preview_fire_timer: float = 0.0
 var _customize_preview_bullets: Array[Node] = []
 var _pause_menu_open: bool = false
 var _pause_freezes_game: bool = false
+var _controller_reconnect_blocked: bool = false
 var _base_canvas_transform: Transform2D = Transform2D.IDENTITY
 var _screen_shake_strength: float = 0.0
 var _screen_shake_duration: float = 0.0
@@ -122,8 +142,6 @@ var _settings_page: Control
 var _customize_page: Control
 var _game_page: Control
 var _records_panel: Control
-var _address_input: LineEdit
-var _port_input: SpinBox
 var _lobby_input: LineEdit
 var _steam_status_label: Label
 var _host_steam_button: Button
@@ -158,6 +176,7 @@ func _ready() -> void:
 	_generate_backdrop_stars()
 	_ensure_input_actions()
 	_create_session()
+	_create_local_input_router()
 	_load_lab_settings()
 	_load_lab_save()
 	_create_ui()
@@ -170,6 +189,8 @@ func _physics_process(delta: float) -> void:
 	_update_screen_effects(delta)
 	_update_customize_preview(delta)
 	if _screen == SCREEN_GAME:
+		if _play_mode == PlayMode.COUCH:
+			_poll_couch_pause_input()
 		if _pause_blocks_gameplay_tick():
 			_refresh_battle_hud()
 		else:
@@ -266,7 +287,7 @@ func _reset_battle() -> void:
 		_director.call("reset_battle")
 	_clear_bullets()
 	_clear_merges()
-	_fire_cooldown_remaining = 0.0
+	_clear_local_input_state()
 	if _buff_panel != null:
 		_buff_panel.call("close")
 	var slot := 0
@@ -397,13 +418,29 @@ func _on_director_phase_changed(new_phase: int, payload: Dictionary) -> void:
 	if _buff_panel != null:
 		if new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE:
 			_buff_panel.call("close")
+			_couch_buff_options.clear()
+			_couch_buff_queue.clear()
+			_couch_buff_player_id = 0
 		elif new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.CHOOSING_BUFF and not _buff_panel.visible:
-			_buff_panel.call("show_waiting", _waiting_text())
+			if _play_mode == PlayMode.COUCH:
+				_couch_buff_options.clear()
+				_couch_buff_queue.clear()
+				_couch_buff_player_id = 0
+			else:
+				_buff_panel.call("show_waiting", _waiting_text())
 	if _session != null and bool(_session.call("is_host")):
 		_session.call("broadcast_phase", new_phase, payload)
 
 
 func _on_director_buff_options(peer_id: int, options: PackedInt32Array) -> void:
+	if _play_mode == PlayMode.COUCH:
+		_couch_buff_options[peer_id] = options
+		if not _couch_buff_queue.has(peer_id):
+			_couch_buff_queue.append(peer_id)
+			_couch_buff_queue.sort()
+		if _couch_buff_player_id <= 0:
+			_open_next_couch_buff()
+		return
 	var local_id := int(_session.call("local_peer_id"))
 	if peer_id == local_id:
 		_local_buff_options = options
@@ -457,7 +494,7 @@ func _on_battle_launch_received() -> void:
 	_append_log(_t("log_host_started_battle"))
 
 
-func _open_buff_panel(options: PackedInt32Array) -> void:
+func _open_buff_panel(options: PackedInt32Array, player_label: String = "") -> void:
 	if _buff_panel == null or _director == null:
 		return
 	var defs: Array[Dictionary] = []
@@ -466,11 +503,25 @@ func _open_buff_panel(options: PackedInt32Array) -> void:
 	var timeout := 0.0
 	if String(_session.call("active_transport")) != "offline":
 		timeout = BATTLE_DIRECTOR_SCRIPT.BUFF_CHOICE_TIMEOUT
-	_buff_panel.call("open_with_options", defs, timeout)
+	_buff_panel.call("set_routed_controller_input", _play_mode == PlayMode.COUCH)
+	_buff_panel.call(
+		"set_mouse_selection_enabled",
+		_play_mode != PlayMode.COUCH or _couch_buff_player_id == 1
+	)
+	_buff_panel.call("open_with_options", defs, timeout, player_label)
 
 
 func _on_buff_option_chosen(option_index: int) -> void:
 	if _director == null:
+		return
+	if _play_mode == PlayMode.COUCH:
+		if _couch_buff_player_id <= 0:
+			return
+		var player_id := _couch_buff_player_id
+		_couch_buff_player_id = 0
+		_director.call("submit_buff_choice", player_id, option_index)
+		if int(_director.get("phase")) == BATTLE_DIRECTOR_SCRIPT.Phase.CHOOSING_BUFF:
+			_open_next_couch_buff()
 		return
 	var local_id := int(_session.call("local_peer_id"))
 	if bool(_director.call("is_authority")):
@@ -485,13 +536,34 @@ func _on_buff_option_chosen(option_index: int) -> void:
 		_buff_panel.call("show_waiting", _waiting_text())
 
 
+func _open_next_couch_buff() -> void:
+	while not _couch_buff_queue.is_empty():
+		var player_id: int = int(_couch_buff_queue.pop_front())
+		if not _couch_buff_options.has(player_id):
+			continue
+		var player := _players.get(player_id) as Node
+		if player == null or not bool(player.get("alive")):
+			continue
+		_couch_buff_player_id = player_id
+		_couch_buff_nav_y = 0.0
+		_couch_buff_confirm_held = false
+		var player_label := _display_name_for_peer(player_id)
+		if player_label.strip_edges() == "":
+			player_label = "P%d" % player_id
+		_open_buff_panel(_couch_buff_options[player_id], player_label)
+		return
+	_couch_buff_player_id = 0
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if _screen != SCREEN_GAME:
 		return
+	var player_id := _keyboard_player_id()
 	var key_event := event as InputEventKey
 	if event.is_action_pressed(ACTION_PAUSE_MENU) and (key_event == null or not key_event.echo):
 		if _pause_menu_open:
-			_close_pause_menu()
+			if not _controller_reconnect_blocked:
+				_close_pause_menu()
 		elif _can_open_pause_menu():
 			_open_pause_menu()
 		get_viewport().set_input_as_handled()
@@ -499,33 +571,37 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _pause_menu_open:
 		get_viewport().set_input_as_handled()
 		return
+	if _play_mode == PlayMode.COUCH:
+		# Couch gameplay consumes P1 through the same per-slot frame route as controllers.
+		# Esc remains event-driven above so pause cannot be missed between process frames.
+		return
 	if event.is_action_pressed(ACTION_EXPRESSION_WHEEL) and (key_event == null or not key_event.echo):
-		_open_expression_wheel()
+		_open_expression_wheel(player_id, false)
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_released(ACTION_EXPRESSION_WHEEL):
-		_release_expression_wheel()
+		_release_expression_wheel(player_id)
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed(ACTION_ACTIVE_ITEM) and (key_event == null or not key_event.echo):
-		_try_active_item()
+		_try_active_item(player_id)
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed(ACTION_MERGE) and (key_event == null or not key_event.echo):
-		_set_local_merge_intent(true)
+		_set_local_merge_intent(true, player_id)
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_released(ACTION_MERGE):
-		_set_local_merge_intent(false)
+		_set_local_merge_intent(false, player_id)
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed(ACTION_FIRE):
-		_fire_held = true
-		_try_fire()
+		_fire_held_by_player[player_id] = true
+		_try_fire(player_id)
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_released(ACTION_FIRE):
-		_fire_held = false
+		_fire_held_by_player[player_id] = false
 		get_viewport().set_input_as_handled()
 
 
@@ -562,6 +638,108 @@ func _create_session() -> void:
 	_session.connect("appearance_received", Callable(self, "_on_appearance_received"))
 	_session.connect("merge_intent_received", Callable(self, "_on_merge_intent_received"))
 	_session.connect("steam_invite_join_requested", Callable(self, "_on_steam_invite_join_requested"))
+
+
+func _create_local_input_router() -> void:
+	_local_input_router = LOCAL_INPUT_ROUTER_SCRIPT.new() as Node
+	_local_input_router.name = "LocalInputRouter"
+	add_child(_local_input_router)
+	_local_input_router.connect("roster_changed", Callable(self, "_on_couch_roster_changed"))
+	_local_input_router.connect("controller_missing", Callable(self, "_on_couch_controller_missing"))
+	_local_input_router.connect("controllers_restored", Callable(self, "_on_couch_controllers_restored"))
+	_local_input_router.connect("controller_overflow", Callable(self, "_on_couch_controller_overflow"))
+
+
+func local_input_router() -> Node:
+	return _local_input_router
+
+
+func couch_player_count() -> int:
+	return _players.size() if _play_mode == PlayMode.COUCH else 0
+
+
+func _on_couch_roster_changed(slots: Array[Dictionary]) -> void:
+	if _play_mode != PlayMode.COUCH:
+		return
+	_sync_couch_roster(slots)
+
+
+func _sync_couch_roster(slots: Array[Dictionary]) -> void:
+	var expected: Dictionary = {}
+	for row in slots:
+		var slot_id := int(row.get("slot_id", row.get("slot", 0)))
+		if slot_id < 1 or slot_id > 4:
+			continue
+		expected[slot_id] = true
+		var fallback_name := "" if slot_id == 1 else "P%d" % slot_id
+		var player: Node = _ensure_player(slot_id, fallback_name)
+		player.call("set_local_or_host_simulated", true)
+		_peer_inputs[slot_id] = Vector2.ZERO
+		_peer_merge_intents[slot_id] = false
+		if slot_id == 1:
+			_apply_local_appearance(false)
+		else:
+			_apply_appearance_to_player(slot_id, {
+				"name": fallback_name,
+				"slime_palette_id": slot_id - 1,
+				"bullet_palette_id": slot_id - 1,
+			}, fallback_name)
+	if not bool(_local_input_router.call("is_locked")):
+		for existing_id in _players.keys():
+			var player_id := int(existing_id)
+			if not expected.has(player_id):
+				_remove_player(player_id)
+	_update_status()
+
+
+func _on_couch_controller_missing(_slot_id: int) -> void:
+	if _play_mode != PlayMode.COUCH or _screen != SCREEN_GAME:
+		return
+	_controller_reconnect_blocked = true
+	_open_pause_menu()
+	if _pause_panel != null:
+		_pause_panel.call("open_controller_reconnect", _missing_controller_labels())
+
+
+func _on_couch_controllers_restored() -> void:
+	if not _controller_reconnect_blocked:
+		return
+	_controller_reconnect_blocked = false
+	if _pause_panel != null:
+		_pause_panel.call("mark_controllers_restored")
+
+
+func _missing_controller_labels() -> Array[String]:
+	var labels: Array[String] = []
+	if _local_input_router == null:
+		return labels
+	var missing: Array = _local_input_router.call("missing_slot_ids")
+	for raw_slot_id in missing:
+		labels.append("P%d" % int(raw_slot_id))
+	return labels
+
+
+func _on_couch_controller_overflow(ignored_count: int) -> void:
+	if _play_mode != PlayMode.COUCH:
+		return
+	if ignored_count > 0:
+		var message := _t("log_couch_controller_overflow", {"count": ignored_count})
+		_append_log(message)
+		if _screen == SCREEN_GAME and _battle_hud != null:
+			_battle_hud.call("show_notice", message)
+	_update_status()
+
+
+func _disable_couch_mode() -> void:
+	if _local_input_router != null:
+		_local_input_router.call("disable")
+	_controller_reconnect_blocked = false
+	_couch_buff_options.clear()
+	_couch_buff_queue.clear()
+	_couch_buff_player_id = 0
+	_clear_local_input_state()
+	if _play_mode == PlayMode.COUCH:
+		_play_mode = PlayMode.MENU
 
 
 func _load_lab_settings() -> void:
@@ -674,7 +852,7 @@ func _create_start_page() -> void:
 
 func _create_multiplayer_page() -> void:
 	_multiplayer_page = _make_page("MultiplayerPage")
-	var rows := _make_centered_panel(_multiplayer_page, "MultiplayerPanel", Vector2(500.0, 888.0), "hero")
+	var rows := _make_centered_panel(_multiplayer_page, "MultiplayerPanel", Vector2(500.0, 760.0), "hero")
 	rows.add_theme_constant_override("separation", 10)
 
 	var kicker := _make_kicker_label(_t("ready_room_kicker"))
@@ -697,33 +875,12 @@ func _create_multiplayer_page() -> void:
 
 	var host_local_button := _make_button(_t("host_local"), Vector2(0.0, 42.0), true)
 	_register_localized_text(host_local_button, "host_local")
-	host_local_button.pressed.connect(_on_host_local_pressed)
+	host_local_button.pressed.connect(_on_start_couch_pressed)
 	local_section.add_child(host_local_button)
 
-	var local_row := HBoxContainer.new()
-	local_row.add_theme_constant_override("separation", 8)
-	local_section.add_child(local_row)
-
-	_address_input = LineEdit.new()
-	_address_input.text = "127.0.0.1"
-	_address_input.placeholder_text = _t("address_placeholder")
-	_register_localized_placeholder(_address_input, "address_placeholder")
-	_address_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	UI_STYLE_SCRIPT.apply_input(_address_input)
-	local_row.add_child(_address_input)
-
-	_port_input = SpinBox.new()
-	_port_input.min_value = 1
-	_port_input.max_value = 65535
-	_port_input.value = DEFAULT_PORT
-	_port_input.step = 1
-	_port_input.custom_minimum_size = Vector2(112.0, 0.0)
-	local_row.add_child(_port_input)
-
-	var join_local_button := _make_button(_t("join_local"))
-	_register_localized_text(join_local_button, "join_local")
-	join_local_button.pressed.connect(_on_join_local_pressed)
-	local_section.add_child(join_local_button)
+	var local_hint := _make_hint_label(_t("local_couch_hint"))
+	_register_localized_text(local_hint, "local_couch_hint")
+	local_section.add_child(local_hint)
 
 	var steam_section := _make_section_box(body, "section_steam", "Steam")
 
@@ -972,6 +1129,7 @@ func _create_steam_invite_confirm_panel() -> void:
 	dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	var center := CenterContainer.new()
+	center.name = "CenterContainer"
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_steam_invite_confirm_panel.add_child(center)
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1042,25 +1200,29 @@ func _make_centered_panel(
 ) -> VBoxContainer:
 	var center := CenterContainer.new()
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(center)
+	parent.add_child(center, true)
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	var panel := PanelContainer.new()
 	panel.name = panel_name
 	panel.custom_minimum_size = minimum_size
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	UI_STYLE_SCRIPT.apply_panel(panel, variant)
 	center.add_child(panel)
 
 	var margin := MarginContainer.new()
+	margin.name = "MarginContainer"
 	margin.add_theme_constant_override("margin_left", 24)
 	margin.add_theme_constant_override("margin_top", 24)
 	margin.add_theme_constant_override("margin_right", 24)
 	margin.add_theme_constant_override("margin_bottom", 24)
-	panel.add_child(margin)
+	panel.add_child(margin, true)
 
 	var rows := VBoxContainer.new()
+	rows.name = "VBoxContainer"
 	rows.add_theme_constant_override("separation", 10)
-	margin.add_child(rows)
+	margin.add_child(rows, true)
 	return rows
 
 
@@ -1563,9 +1725,7 @@ func _set_screen(screen_name: String) -> void:
 	if screen_name != SCREEN_GAME and _expression_wheel != null:
 		_expression_wheel.call("close")
 	if screen_name != SCREEN_GAME:
-		_fire_held = false
-		_set_local_merge_intent(false)
-		_fire_cooldown_remaining = 0.0
+		_clear_local_input_state()
 		_clear_screen_fx()
 	if screen_name != SCREEN_CUSTOMIZE:
 		_clear_customize_preview_bullets()
@@ -1716,8 +1876,7 @@ func _open_pause_menu() -> void:
 		return
 	_pause_menu_open = true
 	_pause_freezes_game = not _multiplayer_session_active()
-	_fire_held = false
-	_set_local_merge_intent(false)
+	_release_all_local_actions()
 	if _expression_wheel != null and bool(_expression_wheel.call("is_open")):
 		_expression_wheel.call("close")
 	if _pause_freezes_game:
@@ -1729,6 +1888,8 @@ func _open_pause_menu() -> void:
 
 
 func _close_pause_menu() -> void:
+	if _controller_reconnect_blocked:
+		return
 	if not _pause_menu_open:
 		if _pause_panel != null and bool(_pause_panel.call("is_open")):
 			_pause_panel.call("close")
@@ -1737,8 +1898,7 @@ func _close_pause_menu() -> void:
 		_set_battle_pause_frozen(false)
 	_pause_menu_open = false
 	_pause_freezes_game = false
-	_fire_held = false
-	_set_local_merge_intent(false)
+	_release_all_local_actions()
 	if _pause_panel != null:
 		_pause_panel.call("close")
 	_refresh_battle_hud()
@@ -1756,7 +1916,10 @@ func _set_battle_pause_frozen(frozen: bool) -> void:
 
 
 func _multiplayer_session_active() -> bool:
-	return _session != null and String(_session.call("active_transport")) != "offline"
+	return (
+		_play_mode == PlayMode.STEAM_HOST
+		or _play_mode == PlayMode.STEAM_CLIENT
+	) and _session != null and String(_session.call("active_transport")) != "offline"
 
 
 func _local_fallback_name() -> String:
@@ -1836,6 +1999,8 @@ func _on_start_single_player_pressed() -> void:
 
 
 func _on_start_multiplayer_pressed() -> void:
+	_disable_couch_mode()
+	_play_mode = PlayMode.MENU
 	_leave_session_without_navigation()
 	_clear_players()
 	_clear_bullets()
@@ -1923,6 +2088,8 @@ func _on_bullet_palette_selected(palette_id: int) -> void:
 
 func _begin_single_player() -> void:
 	_leave_session_without_navigation()
+	_disable_couch_mode()
+	_play_mode = PlayMode.SINGLE
 	_clear_players()
 	_clear_bullets()
 	_peer_inputs.clear()
@@ -1935,21 +2102,22 @@ func _begin_single_player() -> void:
 	_append_log(_t("log_single_player_started"))
 
 
-func _on_host_local_pressed() -> void:
+func _on_start_couch_pressed() -> void:
+	_leave_session_without_navigation()
 	_clear_players()
 	_clear_bullets()
 	_peer_inputs.clear()
-	_session.call("host_local", int(_port_input.value))
-
-
-func _on_join_local_pressed() -> void:
-	_clear_players()
-	_clear_bullets()
-	_peer_inputs.clear()
-	_session.call("join_local", _address_input.text, int(_port_input.value))
+	_clear_local_input_state()
+	_play_mode = PlayMode.COUCH
+	_local_input_router.call("enable_lobby")
+	_sync_couch_roster(_local_input_router.call("slots"))
+	_show_multiplayer_page()
+	_append_log(_t("log_couch_ready"))
 
 
 func _on_host_steam_pressed() -> void:
+	_disable_couch_mode()
+	_play_mode = PlayMode.MENU
 	_clear_players()
 	_clear_bullets()
 	_peer_inputs.clear()
@@ -1958,6 +2126,8 @@ func _on_host_steam_pressed() -> void:
 
 func _on_invite_steam_pressed() -> void:
 	if String(_session.call("active_transport")) != "steam":
+		_disable_couch_mode()
+		_play_mode = PlayMode.MENU
 		_clear_players()
 		_clear_bullets()
 		_peer_inputs.clear()
@@ -1965,6 +2135,8 @@ func _on_invite_steam_pressed() -> void:
 
 
 func _on_join_steam_pressed() -> void:
+	_disable_couch_mode()
+	_play_mode = PlayMode.MENU
 	_clear_players()
 	_clear_bullets()
 	_peer_inputs.clear()
@@ -1972,6 +2144,15 @@ func _on_join_steam_pressed() -> void:
 
 
 func _on_ready_start_battle_pressed() -> void:
+	if _play_mode == PlayMode.COUCH:
+		if _players.size() < 2:
+			_append_log(_t("log_need_two_players"))
+			return
+		_local_input_router.call("lock_roster")
+		_start_battle()
+		_show_game_page()
+		_append_log(_t("log_battle_launch"))
+		return
 	if _session == null or not bool(_session.call("is_host")):
 		return
 	if _players.size() < 2:
@@ -1984,6 +2165,8 @@ func _on_ready_start_battle_pressed() -> void:
 
 
 func _on_multiplayer_leave_pressed() -> void:
+	_disable_couch_mode()
+	_play_mode = PlayMode.MENU
 	_session.call("leave_session")
 	_end_battle()
 	_clear_players()
@@ -1994,6 +2177,8 @@ func _on_multiplayer_leave_pressed() -> void:
 
 
 func _on_multiplayer_back_pressed() -> void:
+	_disable_couch_mode()
+	_play_mode = PlayMode.MENU
 	_leave_session_without_navigation()
 	_clear_players()
 	_clear_bullets()
@@ -2002,6 +2187,8 @@ func _on_multiplayer_back_pressed() -> void:
 
 
 func _on_leave_game_pressed() -> void:
+	_disable_couch_mode()
+	_play_mode = PlayMode.MENU
 	_leave_session_without_navigation()
 	_end_battle()
 	_clear_players()
@@ -2061,6 +2248,8 @@ func _join_steam_lobby_from_invite(lobby_id: String) -> void:
 	if not bool(_session.call("steam_available")):
 		_append_log(String(_session.call("steam_status_text")))
 		return
+	_disable_couch_mode()
+	_play_mode = PlayMode.MENU
 	_close_pause_menu()
 	_end_battle()
 	_clear_players()
@@ -2083,6 +2272,7 @@ func _on_steam_invite_confirm_cancel_pressed() -> void:
 
 
 func _on_session_started(host: bool, transport: String, lobby_id: String) -> void:
+	_play_mode = PlayMode.STEAM_HOST if host else PlayMode.STEAM_CLIENT
 	if host:
 		var host_player: Node = _ensure_player(1, "Host")
 		_peer_merge_intents[1] = false
@@ -2103,6 +2293,8 @@ func _on_session_started(host: bool, transport: String, lobby_id: String) -> voi
 
 
 func _on_session_ended() -> void:
+	if _play_mode == PlayMode.STEAM_HOST or _play_mode == PlayMode.STEAM_CLIENT:
+		_play_mode = PlayMode.MENU
 	if not _suppress_session_end_navigation and _screen == SCREEN_GAME:
 		_end_battle()
 		_clear_players()
@@ -2287,10 +2479,20 @@ func _update_gameplay(delta: float) -> void:
 		_freeze_player_inputs()
 		_refresh_battle_hud()
 		return
-	_fire_cooldown_remaining = maxf(0.0, _fire_cooldown_remaining - delta)
+	_update_fire_cooldowns(delta)
 	_prune_bullets()
 	var input_vector := _local_input_vector()
-	if bool(_session.call("is_host")):
+	if _play_mode == PlayMode.COUCH:
+		_update_couch_inputs()
+		if _battle_active():
+			_update_merges_authority(delta)
+			_apply_host_inputs()
+		else:
+			_freeze_player_inputs()
+			_update_merge_cooldowns(delta)
+		if _director != null:
+			_director.call("host_tick", delta)
+	elif bool(_session.call("is_host")):
 		_peer_inputs[1] = input_vector
 		if _battle_active():
 			_update_merges_authority(delta)
@@ -2311,9 +2513,89 @@ func _update_gameplay(delta: float) -> void:
 		offline_player.call("set_input_vector", input_vector if _battle_active() else Vector2.ZERO)
 		if _director != null:
 			_director.call("host_tick", delta)
-	if _fire_held:
-		_try_fire()
+	for raw_player_id in _fire_held_by_player.keys():
+		var player_id := int(raw_player_id)
+		if bool(_fire_held_by_player.get(player_id, false)):
+			_try_fire(player_id)
 	_refresh_battle_hud()
+
+
+func _update_fire_cooldowns(delta: float) -> void:
+	for raw_player_id in _fire_cooldown_by_player.keys():
+		var player_id := int(raw_player_id)
+		_fire_cooldown_by_player[player_id] = maxf(
+			0.0,
+			float(_fire_cooldown_by_player.get(player_id, 0.0)) - delta
+		)
+
+
+func _poll_couch_pause_input() -> void:
+	if _local_input_router == null:
+		return
+	for player_id in _local_input_router.call("active_slot_ids"):
+		if int(player_id) == 1:
+			continue
+		var frame: Dictionary = _local_input_router.call("input_frame", int(player_id))
+		if not bool(frame.get("pause_pressed", false)):
+			continue
+		if _pause_menu_open:
+			if not _controller_reconnect_blocked:
+				_close_pause_menu()
+		elif _can_open_pause_menu():
+			_open_pause_menu()
+		return
+
+
+func _update_couch_inputs() -> void:
+	if _local_input_router == null:
+		return
+	_local_input_router.call("set_keyboard_aim_direction", _aim_direction_for_player(1))
+	for raw_player_id in _local_input_router.call("active_slot_ids"):
+		var player_id := int(raw_player_id)
+		var frame: Dictionary = _local_input_router.call("input_frame", player_id)
+		_peer_inputs[player_id] = frame.get("move", Vector2.ZERO)
+		var aim: Variant = frame.get("aim", Vector2.UP)
+		if aim is Vector2:
+			_aim_direction_by_player[player_id] = aim
+		if _couch_buff_player_id == player_id:
+			_fire_held_by_player[player_id] = false
+			_set_local_merge_intent(false, player_id)
+			_update_couch_expression(player_id, false)
+			continue
+		_fire_held_by_player[player_id] = bool(frame.get("fire_held", false))
+		if bool(frame.get("active_item_pressed", false)):
+			_try_active_item(player_id)
+		_set_local_merge_intent(bool(frame.get("merge_held", false)), player_id)
+		_update_couch_expression(player_id, bool(frame.get("expression_held", false)))
+	if _couch_buff_player_id > 1:
+		_update_couch_buff_controller()
+
+
+func _update_couch_expression(player_id: int, held: bool) -> void:
+	var was_held := bool(_expression_held_by_player.get(player_id, false))
+	_expression_held_by_player[player_id] = held
+	if held and not was_held:
+		_open_expression_wheel(player_id, player_id > 1)
+	elif not held and was_held:
+		_release_expression_wheel(player_id)
+	if player_id > 1 and held and _expression_owner_id == player_id and _expression_wheel != null:
+		var aim: Vector2 = _aim_direction_by_player.get(player_id, Vector2.UP)
+		_expression_wheel.call("set_selection_direction", aim)
+
+
+func _update_couch_buff_controller() -> void:
+	if _local_input_router == null or _buff_panel == null:
+		return
+	var frame: Dictionary = _local_input_router.call("input_frame", _couch_buff_player_id)
+	var move: Vector2 = frame.get("move", Vector2.ZERO)
+	if absf(move.y) >= 0.55 and absf(_couch_buff_nav_y) < 0.55:
+		_buff_panel.call("select_relative", 1 if move.y > 0.0 else -1)
+	_couch_buff_nav_y = move.y
+	var confirm_held := bool(frame.get("merge_held", false))
+	if confirm_held and not _couch_buff_confirm_held:
+		_buff_panel.call("confirm_selected")
+		return
+	_couch_buff_confirm_held = confirm_held
 
 
 func _freeze_player_inputs() -> void:
@@ -2340,6 +2622,8 @@ func _refresh_battle_hud() -> void:
 	state["game_over"] = int(state.get("phase", 0)) == BATTLE_DIRECTOR_SCRIPT.Phase.GAME_OVER
 	state["active_item"] = _director.call("active_item_for_peer", local_id)
 	state["merge_status"] = _local_merge_status_text(local_id)
+	state["couch_mode"] = _play_mode == PlayMode.COUCH
+	state["player_cards"] = _couch_player_cards() if _play_mode == PlayMode.COUCH else []
 	if not state.has("boss"):
 		state["boss"] = {}
 	_battle_hud.call("refresh", state)
@@ -2347,6 +2631,36 @@ func _refresh_battle_hud() -> void:
 		var pending := int(_director.call("pending_choice_count"))
 		if pending > 0:
 			_buff_panel.call("update_waiting", _waiting_text(pending))
+
+
+func _couch_player_cards() -> Array[Dictionary]:
+	var cards: Array[Dictionary] = []
+	var player_ids: Array[int] = []
+	for raw_player_id in _players.keys():
+		player_ids.append(int(raw_player_id))
+	player_ids.sort()
+	var palettes: Array[Dictionary] = PLAYER_SCRIPT.slime_palette_options()
+	for player_id in player_ids:
+		var player := _players.get(player_id) as Node
+		if player == null or not is_instance_valid(player):
+			continue
+		var appearance: Dictionary = player.call("appearance_state")
+		var palette_id := int(appearance.get("slime_palette_id", 0))
+		var color := Color.WHITE
+		if palette_id >= 0 and palette_id < palettes.size():
+			color = palettes[palette_id].get("edge", Color.WHITE)
+		cards.append({
+			"slot": player_id,
+			"name": _display_name_for_peer(player_id),
+			"color": color,
+			"hp": int(player.get("hp")),
+			"max_hp": PLAYER_SCRIPT.MAX_HP,
+			"alive": bool(player.get("alive")),
+			"active_item": _director.call("active_item_for_peer", player_id),
+			"input_hint": "Q" if player_id == 1 else "X",
+			"merge_status": _local_merge_status_text(player_id),
+		})
+	return cards
 
 
 func _apply_host_inputs() -> void:
@@ -2413,11 +2727,17 @@ func apply_merge_damage(merge_id: int, amount: int) -> bool:
 	return true
 
 
-func _set_local_merge_intent(active: bool) -> void:
-	if _merge_held == active:
+func _set_local_merge_intent(active: bool, player_id: int = -1) -> void:
+	var resolved_player_id := _keyboard_player_id() if player_id <= 0 else player_id
+	if bool(_merge_held_by_player.get(resolved_player_id, false)) == active:
 		return
-	_merge_held = active
+	_merge_held_by_player[resolved_player_id] = active
+	if _play_mode == PlayMode.COUCH:
+		_set_merge_intent(resolved_player_id, active)
+		return
 	if _session == null:
+		return
+	if resolved_player_id != int(_session.call("local_peer_id")):
 		return
 	_session.call("send_merge_intent_to_host", active)
 
@@ -2611,7 +2931,7 @@ func _clear_merges() -> void:
 	_merge_intent_order.clear()
 	_merge_hold_progress.clear()
 	_merge_cooldowns.clear()
-	_merge_held = false
+	_merge_held_by_player.clear()
 	_sync_merged_player_visibility()
 
 
@@ -2764,6 +3084,8 @@ func _display_name_for_peer(peer_id: int) -> String:
 	var display_name := String(player.get("display_name")).strip_edges()
 	if display_name != "":
 		return display_name
+	if _play_mode == PlayMode.COUCH:
+		return "P%d" % peer_id
 	return "Host" if peer_id == 1 else "Peer %d" % peer_id
 
 
@@ -2805,8 +3127,10 @@ func _local_merge_status_text(peer_id: int) -> String:
 		return _t("merge_hud_cooldown", {"seconds": int(ceil(cooldown))})
 	if _nearest_merge_ready_peer(peer_id) <= 0:
 		return ""
-	if bool(_peer_merge_intents.get(peer_id, false)) or _merge_held:
+	if bool(_peer_merge_intents.get(peer_id, false)) or bool(_merge_held_by_player.get(peer_id, false)):
 		return _t("merge_hud_waiting")
+	if _play_mode == PlayMode.COUCH and peer_id > 1:
+		return _t("merge_hud_prompt_controller")
 	return _t("merge_hud_prompt")
 
 
@@ -2862,46 +3186,50 @@ func _sync_player_battle_timers(timers_running: bool) -> void:
 			player.call("set_battle_timers_paused", not timers_running)
 
 
-func _try_fire() -> void:
-	if _fire_cooldown_remaining > 0.0 or _screen != SCREEN_GAME:
+func _try_fire(player_id: int = -1) -> void:
+	var resolved_player_id := _keyboard_player_id() if player_id <= 0 else player_id
+	if float(_fire_cooldown_by_player.get(resolved_player_id, 0.0)) > 0.0 or _screen != SCREEN_GAME:
 		return
 	if _pause_menu_open:
 		return
-	if _expression_wheel != null and bool(_expression_wheel.call("is_open")):
+	if _expression_owner_id == resolved_player_id and _expression_wheel != null and bool(_expression_wheel.call("is_open")):
 		return
 	if not _battle_active():
 		return
-	var local_id := int(_session.call("local_peer_id"))
-	if not _players.has(local_id):
+	if not _players.has(resolved_player_id):
 		return
-	var local_player := _players[local_id] as Node
+	var local_player := _players[resolved_player_id] as Node
 	if local_player == null or not bool(local_player.get("alive")):
 		return
-	var direction := _local_aim_direction(local_id)
-	_fire_cooldown_remaining = _local_fire_cooldown(local_id)
-	if _session == null or String(_session.call("active_transport")) == "offline":
-		_fire_player_shots(local_id, direction, false)
+	var direction := _aim_direction_for_player(resolved_player_id)
+	_fire_cooldown_by_player[resolved_player_id] = _local_fire_cooldown(resolved_player_id)
+	if _play_mode == PlayMode.COUCH or _session == null or String(_session.call("active_transport")) == "offline":
+		_fire_player_shots(resolved_player_id, direction, false)
+		return
+	if resolved_player_id != int(_session.call("local_peer_id")):
 		return
 	_session.call("send_shot_to_host", direction)
 
 
-func _try_active_item() -> void:
+func _try_active_item(player_id: int = -1) -> void:
+	var resolved_player_id := _keyboard_player_id() if player_id <= 0 else player_id
 	if _screen != SCREEN_GAME:
 		return
 	if _pause_menu_open:
 		return
-	if _expression_wheel != null and bool(_expression_wheel.call("is_open")):
+	if _expression_owner_id == resolved_player_id and _expression_wheel != null and bool(_expression_wheel.call("is_open")):
 		return
 	if not _battle_active():
 		return
-	var local_id := int(_session.call("local_peer_id"))
-	if not _players.has(local_id):
+	if not _players.has(resolved_player_id):
 		return
-	var local_player := _players[local_id] as Node
+	var local_player := _players[resolved_player_id] as Node
 	if local_player == null or not bool(local_player.get("alive")):
 		return
-	if _session == null or String(_session.call("active_transport")) == "offline":
-		_use_active_item_authority(local_id)
+	if _play_mode == PlayMode.COUCH or _session == null or String(_session.call("active_transport")) == "offline":
+		_use_active_item_authority(resolved_player_id)
+		return
+	if resolved_player_id != int(_session.call("local_peer_id")):
 		return
 	_session.call("send_active_item_to_host")
 
@@ -2925,8 +3253,11 @@ func _local_fire_cooldown(peer_id: int) -> float:
 	return float(_director.call("player_fire_cooldown", peer_id))
 
 
-func _local_aim_direction(peer_id: int) -> Vector2:
-	var center := _player_body_center(peer_id)
+func _aim_direction_for_player(player_id: int) -> Vector2:
+	if _play_mode == PlayMode.COUCH and player_id > 1:
+		var controller_aim: Vector2 = _aim_direction_by_player.get(player_id, Vector2.UP)
+		return controller_aim.normalized() if controller_aim.length_squared() > 0.0001 else Vector2.UP
+	var center := _player_body_center(player_id)
 	var direction := get_global_mouse_position() - center
 	if direction.length_squared() <= 0.0001:
 		return Vector2.UP
@@ -3018,26 +3349,50 @@ func _bullet_palette_for_peer(peer_id: int) -> Dictionary:
 	return palette
 
 
-func _open_expression_wheel() -> void:
+func _open_expression_wheel(player_id: int = -1, controller_mode: bool = false) -> void:
 	if _expression_wheel == null:
 		return
+	var resolved_player_id := _keyboard_player_id() if player_id <= 0 else player_id
+	if _expression_owner_id > 0 and _expression_owner_id != resolved_player_id:
+		return
+	_expression_owner_id = resolved_player_id
+	_expression_wheel.call("set_controller_mode", controller_mode)
+	var player_label := _display_name_for_peer(resolved_player_id)
+	if player_label.strip_edges() == "":
+		player_label = "P%d" % resolved_player_id
+	var device_label := _t("local_device_keyboard_mouse")
+	if controller_mode and _local_input_router != null:
+		device_label = String(_local_input_router.call("device_name_for_slot", resolved_player_id))
+		if device_label.strip_edges() == "":
+			device_label = _t("local_slot_gamepad")
+	_expression_wheel.call("set_controller_context", _t("expression_controller_context", {
+		"player": player_label,
+		"device": device_label,
+	}))
 	_expression_wheel.call("open_at", current_viewport_size() * 0.5)
 
 
-func _release_expression_wheel() -> void:
+func _release_expression_wheel(player_id: int = -1) -> void:
 	if _expression_wheel == null or not bool(_expression_wheel.call("is_open")):
+		return
+	var resolved_player_id := _keyboard_player_id() if player_id <= 0 else player_id
+	if _expression_owner_id != resolved_player_id:
 		return
 	var expression_id := String(_expression_wheel.call("selected_expression_id"))
 	_expression_wheel.call("close")
+	_expression_owner_id = 0
 	if expression_id != "":
-		_send_expression(expression_id)
+		_send_expression(expression_id, resolved_player_id)
 
 
-func _send_expression(expression_id: String) -> void:
+func _send_expression(expression_id: String, player_id: int = -1) -> void:
 	if not _is_expression_id_allowed(expression_id):
 		return
-	if _session == null or String(_session.call("active_transport")) == "offline":
-		_show_player_expression(1, expression_id)
+	var resolved_player_id := _keyboard_player_id() if player_id <= 0 else player_id
+	if _play_mode == PlayMode.COUCH or _session == null or String(_session.call("active_transport")) == "offline":
+		_show_player_expression(resolved_player_id, expression_id)
+		return
+	if resolved_player_id != int(_session.call("local_peer_id")):
 		return
 	_session.call("send_expression_to_host", expression_id)
 
@@ -3095,6 +3450,42 @@ func _prune_bullets() -> void:
 		if is_instance_valid(bullet) and not bullet.is_queued_for_deletion():
 			live_bullets.append(bullet)
 	_bullets = live_bullets
+
+
+func _keyboard_player_id() -> int:
+	if _play_mode == PlayMode.COUCH or _play_mode == PlayMode.SINGLE:
+		return 1
+	if _session == null:
+		return 1
+	return int(_session.call("local_peer_id"))
+
+
+func _release_all_local_actions() -> void:
+	var player_ids: Array[int] = []
+	if _play_mode == PlayMode.COUCH and _local_input_router != null:
+		for raw_player_id in _local_input_router.call("active_slot_ids"):
+			player_ids.append(int(raw_player_id))
+	else:
+		player_ids.append(_keyboard_player_id())
+	for player_id in player_ids:
+		_fire_held_by_player[player_id] = false
+		_set_local_merge_intent(false, player_id)
+		_expression_held_by_player[player_id] = false
+	if _expression_wheel != null and bool(_expression_wheel.call("is_open")):
+		_expression_wheel.call("close")
+	_expression_owner_id = 0
+
+
+func _clear_local_input_state() -> void:
+	_release_all_local_actions()
+	_fire_held_by_player.clear()
+	_merge_held_by_player.clear()
+	_fire_cooldown_by_player.clear()
+	_aim_direction_by_player.clear()
+	_expression_held_by_player.clear()
+	_expression_owner_id = 0
+	_couch_buff_nav_y = 0.0
+	_couch_buff_confirm_held = false
 
 
 func _local_input_vector() -> Vector2:
@@ -3214,18 +3605,48 @@ func _update_status() -> void:
 	if _ready_room_label != null:
 		var active_transport := String(_session.call("active_transport"))
 		var host_active := bool(_session.call("is_host"))
-		if active_transport == "offline":
+		if _play_mode == PlayMode.COUCH:
+			_ready_room_label.text = _t("ready_room_couch", {
+				"players": _players.size(),
+				"devices": _couch_device_summary(),
+			})
+		elif active_transport == "offline":
 			_ready_room_label.text = _t("ready_room_empty")
 		elif host_active:
 			_ready_room_label.text = _t("ready_room_host", {"players": _players.size()})
 		else:
 			_ready_room_label.text = _t("ready_room_client", {"peer": int(_session.call("local_peer_id"))})
 	if _start_battle_button != null:
-		_start_battle_button.disabled = (
-			not bool(_session.call("is_host"))
-			or String(_session.call("active_transport")) == "offline"
-			or _players.size() < 2
-		)
+		if _play_mode == PlayMode.COUCH:
+			_start_battle_button.disabled = _players.size() < 2
+		else:
+			_start_battle_button.disabled = (
+				not bool(_session.call("is_host"))
+				or String(_session.call("active_transport")) == "offline"
+				or _players.size() < 2
+			)
+
+
+func _couch_device_summary() -> String:
+	if _local_input_router == null:
+		return ""
+	var lines: Array[String] = []
+	var slots: Array = _local_input_router.call("slots")
+	for raw_row in slots:
+		if not raw_row is Dictionary:
+			continue
+		var row: Dictionary = raw_row
+		var slot_id := int(row.get("slot_id", row.get("slot", 0)))
+		if slot_id == 1:
+			lines.append(_t("local_slot_keyboard"))
+			continue
+		var device_name := String(row.get("device_name", _t("local_slot_gamepad")))
+		var suffix := " %s" % _t("local_slot_missing") if bool(row.get("missing", false)) else ""
+		lines.append("P%d — %s%s" % [slot_id, device_name, suffix])
+	var ignored_count := int(_local_input_router.call("ignored_controller_count"))
+	if ignored_count > 0:
+		lines.append(_t("local_controller_overflow", {"count": ignored_count}))
+	return "\n".join(lines)
 
 
 func _append_log(message: String) -> void:

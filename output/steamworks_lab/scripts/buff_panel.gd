@@ -17,6 +17,11 @@ var _countdown_enabled: bool = false
 var _panel_tween: Tween
 var _locale: String = LAB_LOCALE_SCRIPT.LOCALE_ZH_CN
 var _current_options: Array[Dictionary] = []
+var _current_player_label: String = ""
+var _selected_index: int = -1
+var _selection_committed: bool = false
+var _routed_controller_input: bool = false
+var _mouse_selection_enabled: bool = true
 
 
 func _ready() -> void:
@@ -40,21 +45,48 @@ func set_locale(locale: String) -> void:
 	if _waiting_label != null and _waiting_label.visible:
 		_title_label.text = _t("buff_title_waiting")
 	elif visible:
-		_title_label.text = _t("buff_title_choose")
+		_refresh_title()
 	_refresh_countdown_label()
 	_refresh_option_buttons()
 
 
-func open_with_options(options: Array[Dictionary], timeout: float) -> void:
+func open_with_options(options: Array[Dictionary], timeout: float, player_label: String = "") -> void:
 	_current_options = options.duplicate(true)
+	_current_player_label = player_label
+	_selected_index = 0 if not _current_options.is_empty() else -1
+	_selection_committed = false
 	_animate_open()
 	_waiting_label.visible = false
-	_title_label.text = _t("buff_title_choose")
+	_refresh_title()
 	_countdown_enabled = timeout > 0.0
 	_countdown_label.visible = _countdown_enabled
 	_countdown_remaining = timeout
 	_refresh_countdown_label()
 	_refresh_option_buttons()
+	_focus_selected_button()
+
+
+func set_routed_controller_input(enabled: bool) -> void:
+	_routed_controller_input = enabled
+	for button in _option_buttons:
+		button.focus_mode = Control.FOCUS_NONE if enabled else Control.FOCUS_ALL
+		if enabled:
+			button.release_focus()
+	_refresh_selection_visual()
+
+
+func uses_routed_controller_input() -> bool:
+	return _routed_controller_input
+
+
+func set_mouse_selection_enabled(enabled: bool) -> void:
+	_mouse_selection_enabled = enabled
+	for button in _option_buttons:
+		button.mouse_filter = Control.MOUSE_FILTER_STOP if enabled else Control.MOUSE_FILTER_IGNORE
+
+
+func mouse_selection_enabled() -> bool:
+	return _mouse_selection_enabled
 
 
 func _refresh_option_buttons() -> void:
@@ -64,13 +96,21 @@ func _refresh_option_buttons() -> void:
 			var option: Dictionary = _current_options[index]
 			button.text = "%s\n%s" % [String(option.get("name", "?")), String(option.get("desc", ""))]
 			button.visible = true
-			button.disabled = false
+			button.disabled = _selection_committed
 		else:
 			button.visible = false
+	if _current_options.is_empty():
+		_selected_index = -1
+	elif _selected_index < 0 or _selected_index >= _current_options.size():
+		_selected_index = 0
+	_refresh_selection_visual()
 
 
 func show_waiting(text: String) -> void:
 	_current_options.clear()
+	_current_player_label = ""
+	_selected_index = -1
+	_selection_committed = false
 	_animate_open()
 	_title_label.text = _t("buff_title_waiting")
 	for button in _option_buttons:
@@ -91,9 +131,37 @@ func is_waiting() -> bool:
 func close() -> void:
 	_countdown_enabled = false
 	_current_options.clear()
+	_current_player_label = ""
+	_selected_index = -1
+	_selection_committed = false
 	if not visible:
 		return
 	_animate_close()
+
+
+func selected_index() -> int:
+	return _selected_index
+
+
+func select_relative(delta: int) -> void:
+	if not visible or _waiting_label.visible or _selection_committed or _current_options.is_empty() or delta == 0:
+		return
+	if _selected_index < 0:
+		_selected_index = 0 if delta > 0 else _current_options.size() - 1
+	else:
+		_selected_index = posmod(_selected_index + delta, _current_options.size())
+	_focus_selected_button()
+
+
+func confirm_selected() -> bool:
+	if (
+		not visible
+		or _waiting_label.visible
+		or _selected_index < 0
+		or _selected_index >= _current_options.size()
+	):
+		return false
+	return _commit_selection(_selected_index)
 
 
 func _animate_open() -> void:
@@ -183,6 +251,7 @@ func _create_widgets() -> void:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UI_STYLE_SCRIPT.apply_button(button)
 		button.pressed.connect(_on_option_pressed.bind(index))
+		button.mouse_entered.connect(_on_option_hovered.bind(index))
 		rows.add_child(button)
 		_option_buttons.append(button)
 
@@ -200,11 +269,55 @@ func _refresh_countdown_label() -> void:
 	_countdown_label.text = _t("buff_countdown", {"seconds": ceili(_countdown_remaining)})
 
 
+func _refresh_title() -> void:
+	if _title_label == null:
+		return
+	var title := _t("buff_title_choose")
+	_title_label.text = title if _current_player_label == "" else "%s · %s" % [_current_player_label, title]
+
+
+func _focus_selected_button() -> void:
+	_refresh_selection_visual()
+	if _routed_controller_input:
+		return
+	if _selected_index < 0 or _selected_index >= _option_buttons.size():
+		return
+	var button := _option_buttons[_selected_index]
+	if button.visible and not button.disabled:
+		button.grab_focus()
+
+
+func _refresh_selection_visual() -> void:
+	for index in range(_option_buttons.size()):
+		var button := _option_buttons[index]
+		button.modulate = (
+			Color(1.0, 0.90, 0.68, 1.0)
+			if _routed_controller_input and index == _selected_index and button.visible
+			else Color.WHITE
+		)
+
+
 func _t(key: String, args: Dictionary = {}) -> String:
 	return LAB_LOCALE_SCRIPT.text(_locale, key, args)
 
 
 func _on_option_pressed(option_index: int) -> void:
+	_selected_index = option_index
+	_commit_selection(option_index)
+
+
+func _on_option_hovered(option_index: int) -> void:
+	if option_index < 0 or option_index >= _current_options.size():
+		return
+	_selected_index = option_index
+	_refresh_selection_visual()
+
+
+func _commit_selection(option_index: int) -> bool:
+	if _selection_committed or option_index < 0 or option_index >= _current_options.size():
+		return false
+	_selection_committed = true
 	for button in _option_buttons:
 		button.disabled = true
 	option_chosen.emit(option_index)
+	return true

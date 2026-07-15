@@ -485,18 +485,21 @@ func _run() -> void:
 	var ready_scene := main_packed.instantiate()
 	root.add_child(ready_scene)
 	await process_frame
-	var ready_session: Node = ready_scene.get("_session")
-	ready_session.call("host_local", 24569)
+	var couch_router: Node = ready_scene.call("local_input_router")
+	var empty_devices: Array[Dictionary] = []
+	couch_router.call("debug_set_connected_devices", empty_devices)
+	ready_scene.call("_on_start_couch_pressed")
 	await process_frame
-	_check(ready_scene.get("_director") == null, "multiplayer host waits in ready room")
+	_check(ready_scene.get("_director") == null, "local couch waits in ready room")
 	ready_scene.call("_on_ready_start_battle_pressed")
-	_check(ready_scene.get("_director") == null, "ready room blocks solo launch")
-	ready_scene.call("_on_peer_joined", 2)
+	_check(ready_scene.get("_director") == null, "local couch blocks launch without a controller")
+	var one_controller: Array[Dictionary] = [{"device_id": 20, "device_name": "Smoke Pad"}]
+	couch_router.call("debug_set_connected_devices", one_controller)
 	ready_scene.call("_update_status")
 	var start_button := ready_scene.get("_start_battle_button") as Button
-	_check(start_button != null and not start_button.disabled, "ready start enabled with two players")
+	_check(start_button != null and not start_button.disabled, "local couch start enabled with P1 and one controller")
 	ready_scene.call("_on_ready_start_battle_pressed")
-	_check(ready_scene.get("_director") != null, "ready start launches after peer joins")
+	_check(ready_scene.get("_director") != null, "local couch starts in one process")
 	var ready_director: Node = ready_scene.get("_director")
 	var ready_world_rect: Rect2 = ready_scene.call("current_world_rect")
 	var ready_players: Dictionary = ready_scene.call("player_nodes")
@@ -505,8 +508,8 @@ func _run() -> void:
 	var merge_center := ready_world_rect.get_center()
 	ready_player_1.call("warp_to", merge_center + Vector2(-18.0, 0.0))
 	ready_player_2.call("warp_to", merge_center + Vector2(18.0, 0.0))
-	ready_scene.call("_on_merge_intent_received", 1, true)
-	ready_scene.call("_on_merge_intent_received", 2, true)
+	ready_scene.call("_set_merge_intent", 1, true)
+	ready_scene.call("_set_merge_intent", 2, true)
 	for index in range(50):
 		ready_scene.call("_update_gameplay", 1.0 / 60.0)
 	var active_merges: Dictionary = ready_scene.get("_active_merges")
@@ -535,6 +538,7 @@ func _run() -> void:
 	var driver_pierce := int(ready_director.call("player_pierce_count", 1))
 	ready_scene.call("_fire_player_shots", 1, Vector2.UP, false)
 	var bullets_after_driver: Array = ready_scene.get("_bullets")
+	var bullets_after_driver_count := bullets_after_driver.size()
 	var driver_bullet := bullets_after_driver[bullets_after_driver.size() - 1] as Node
 	_check(bullets_after_driver.size() == bullets_before + 1, "merge driver fires one main cannon shot")
 	_check(int(driver_bullet.get("damage")) == driver_damage + 1, "merge driver main cannon gains damage")
@@ -543,7 +547,7 @@ func _run() -> void:
 	ready_scene.call("_fire_player_shots", 2, Vector2.RIGHT, false)
 	var bullets_after_gunner: Array = ready_scene.get("_bullets")
 	var gunner_bullet := bullets_after_gunner[bullets_after_gunner.size() - 1] as Node
-	_check(bullets_after_gunner.size() == bullets_after_driver.size() + 2, "merge gunner fires two side cannon shots")
+	_check(bullets_after_gunner.size() == bullets_after_driver_count + 2, "merge gunner fires two side cannon shots")
 	_check(gunner_bullet.get("_fill_color") == gunner_palette.get("fill"), "merge gunner side cannon uses gunner bullet color")
 
 	var enemy_bullet := ENEMY_BULLET_SCRIPT.new() as Node2D
@@ -568,16 +572,16 @@ func _run() -> void:
 	var multiplayer_pause_panel := ready_scene.get("_pause_panel") as Control
 	ready_scene.call("_open_pause_menu")
 	await process_frame
-	_check(bool(ready_scene.get("_pause_menu_open")), "multiplayer pause opens local menu")
-	_check(multiplayer_pause_panel != null and multiplayer_pause_panel.visible, "multiplayer pause panel is visible")
+	_check(bool(ready_scene.get("_pause_menu_open")), "local couch pause opens shared menu")
+	_check(multiplayer_pause_panel != null and multiplayer_pause_panel.visible, "local couch pause panel is visible")
 	var multiplayer_clock_before := float(ready_director.call("battle_state").get("time", 0.0))
 	for index in range(30):
 		ready_scene.call("_update_gameplay", 1.0 / 60.0)
 	var multiplayer_clock_after := float(ready_director.call("battle_state").get("time", 0.0))
-	_check(multiplayer_clock_after > multiplayer_clock_before, "multiplayer pause does not freeze host clock")
+	_check(is_equal_approx(multiplayer_clock_after, multiplayer_clock_before), "local couch pause freezes the authoritative battle")
 	ready_scene.call("_close_pause_menu")
 	ready_scene.call("_on_multiplayer_leave_pressed")
-	_check((ready_scene.get("_active_merges") as Dictionary).is_empty(), "leaving multiplayer clears merge state")
+	_check((ready_scene.get("_active_merges") as Dictionary).is_empty(), "leaving local couch clears merge state")
 	ready_scene.queue_free()
 
 	_restore_settings_file(settings_backup)
@@ -866,6 +870,8 @@ func _check_steam_invite_ui(main_scene: Node) -> void:
 	_check(multiplayer_body != null, "multiplayer page uses a direct body without scrolling")
 	_check(multiplayer_page.get_node_or_null("CenterContainer/MultiplayerPanel/MarginContainer/VBoxContainer/SessionSection") == null, "multiplayer page omits session info section")
 	_check(multiplayer_page.get_node_or_null("CenterContainer/MultiplayerPanel/MarginContainer/VBoxContainer/MultiplayerBody/StatusLogSection") == null, "multiplayer page omits status log section")
+	_check(_node_tree_has_text(multiplayer_page, "Local Couch Co-op"), "multiplayer page exposes local couch co-op")
+	_check(not _node_tree_has_text(multiplayer_page, "Join Local"), "player UI removes local ENet join")
 	_check(invite_button != null and invite_button.text == "Invite Friend", "English Steam invite button localizes")
 	var steam_available := bool(active_session.call("steam_available")) if active_session != null else false
 	_check(invite_button != null and invite_button.disabled == not steam_available, "Steam invite button follows availability")
