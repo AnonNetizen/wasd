@@ -12,6 +12,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -21,15 +22,12 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 LAB_ROOT = ROOT / "output" / "steamworks_lab"
 LOCK_PATH = LAB_ROOT / "steam_toolchain.lock.json"
-TOOLCHAIN_ROOT = LAB_ROOT / ".toolchain"
-DOWNLOAD_ROOT = TOOLCHAIN_ROOT / "downloads"
 EXPORT_PRESET_PATH = LAB_ROOT / "export_presets.cfg"
 PRESENCE_SMOKE_PATH = LAB_ROOT / "tests" / "steam_runtime_presence_smoke.gd"
 EXPORT_ROOT = LAB_ROOT / "build" / "windows"
 EXPORT_EXE = EXPORT_ROOT / "SteamworksSlimeLab.exe"
 THIRD_PARTY_NOTICES_PATH = LAB_ROOT / "THIRD_PARTY_NOTICES.txt"
-STANDARD_GODOT_ROOT = TOOLCHAIN_ROOT / "godot-4.7-standard"
-STANDARD_GODOT_EXE = STANDARD_GODOT_ROOT / "godot.windows.opt.tools.64.exe"
+LEGACY_TOOLCHAIN_ROOT = LAB_ROOT / ".toolchain"
 STANDARD_TEMPLATE_NAMES = [
     "version.txt",
     "windows_debug_x86_64.exe",
@@ -41,11 +39,6 @@ COMMON_GODOT_PATHS = [
     Path(r"E:\SteamLibrary\steamapps\common\Godot Engine\godot.exe"),
     Path(r"C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.exe"),
     Path(r"C:\Program Files\Godot\godot.exe"),
-]
-LEGACY_TOOLCHAIN_PATHS = [
-    TOOLCHAIN_ROOT / "godotsteam-4.20-g47-win64",
-    DOWNLOAD_ROOT / "win64-g47-s164-gs420-editor.tar.xz",
-    DOWNLOAD_ROOT / "godotsteam-g47-s164-gs420-templates.tar.xz",
 ]
 
 
@@ -66,9 +59,9 @@ def main() -> int:
         if args.command == "setup":
             _setup(lock, _resolve_source_godot(args.godot))
         elif args.command == "verify":
-            _verify(lock, _resolve_godot(args.godot), run_presence_smoke=True)
+            _verify(lock, _resolve_source_godot(args.godot), run_presence_smoke=True)
         elif args.command == "export-release":
-            _export_release(lock, _resolve_godot(args.godot))
+            _export_release(lock, _resolve_source_godot(args.godot))
         else:
             raise ToolchainError(f"unsupported command: {args.command}")
     except (OSError, RuntimeError, ValueError, json.JSONDecodeError, zipfile.BadZipFile) as error:
@@ -103,46 +96,32 @@ def _load_lock() -> dict[str, Any]:
 def _setup(lock: dict[str, Any], source_godot: Path) -> None:
     if os.name != "nt":
         raise ToolchainError("Steamworks Slime Lab setup currently supports Windows only")
-    _prepare_standard_godot(source_godot, str(lock["godot_version"]))
-    DOWNLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+    version_output = _validate_normal_godot(source_godot, str(lock["godot_version"]))
+    _cleanup_legacy_toolchain()
     asset = _require_dictionary(lock["assets"][0], "asset")
-    archive = DOWNLOAD_ROOT / _require_string(asset, "file_name")
-    _ensure_download(asset, archive)
-
-    staging_root = TOOLCHAIN_ROOT / ".godotsteam-gdextension.staging"
-    _safe_remove_tree(staging_root, TOOLCHAIN_ROOT)
-    staging_root.mkdir(parents=True)
-    try:
+    with tempfile.TemporaryDirectory(prefix="wasd-steamworks-lab-") as temporary_directory:
+        temporary_root = Path(temporary_directory)
+        archive = temporary_root / _require_string(asset, "file_name")
+        _ensure_download(asset, archive)
+        staging_root = temporary_root / "extracted"
+        staging_root.mkdir()
         _extract_zip(archive, staging_root)
         package_root = staging_root / "addons" / "godotsteam"
         _verify_required_files(lock, package_root)
+        _install_package(lock, package_root)
 
-        install_root = _install_root(lock)
-        _safe_remove_tree(install_root, LAB_ROOT / "addons")
-        install_root.parent.mkdir(parents=True, exist_ok=True)
-        package_root.replace(install_root)
-    finally:
-        _safe_remove_tree(staging_root, TOOLCHAIN_ROOT)
-
-    _cleanup_legacy_module_toolchain()
     print(
         "[steamworks-lab-toolchain] SETUP PASS "
         f"GodotSteam {lock['godotsteam_version']} GDExtension / Steamworks {lock['steamworks_sdk_version']}"
     )
     print(f"[steamworks-lab-toolchain] installed at {_relative(_install_root(lock))}")
-    print(f"[steamworks-lab-toolchain] normal editor at {_relative(STANDARD_GODOT_EXE)}")
+    print(f"[steamworks-lab-toolchain] normal editor {version_output} at {_relative(source_godot)}")
 
 
-def _verify(lock: dict[str, Any], godot: Path, run_presence_smoke: bool) -> None:
+def _verify(lock: dict[str, Any], godot: Path, run_presence_smoke: bool) -> str:
     install_root = _install_root(lock)
     _verify_required_files(lock, install_root)
-    version_result = _run([str(godot), "--version"], cwd=LAB_ROOT)
-    version_output = (version_result.stdout + version_result.stderr).strip()
-    expected_godot = str(lock["godot_version"])
-    if expected_godot not in version_output:
-        raise ToolchainError(f"Godot editor version mismatch: {version_output or '<empty>'}")
-    if "custom_build" in version_output.lower():
-        raise ToolchainError("a GodotSteam module editor was selected; use a normal Godot 4.7 editor")
+    version_output = _validate_normal_godot(godot, str(lock["godot_version"]))
     print(f"[steamworks-lab-toolchain] normal editor {version_output}")
 
     if run_presence_smoke:
@@ -166,10 +145,13 @@ def _verify(lock: dict[str, Any], godot: Path, run_presence_smoke: bool) -> None
             label="GDExtension runtime-presence smoke",
         )
     print("[steamworks-lab-toolchain] VERIFY PASS")
+    return version_output
 
 
 def _export_release(lock: dict[str, Any], godot: Path) -> None:
-    _verify(lock, godot, run_presence_smoke=True)
+    version_output = _verify(lock, godot, run_presence_smoke=True)
+    template_root = _find_standard_template_root(version_output)
+    print(f"[steamworks-lab-toolchain] export templates at {_relative(template_root)}")
     preset_text = _verified_export_preset_text()
     preset_name = _export_preset_name(preset_text)
 
@@ -213,7 +195,7 @@ def _export_release(lock: dict[str, Any], godot: Path) -> None:
     leaked: list[Path] = []
     for path in EXPORT_ROOT.rglob("*"):
         relative_parts = {part.lower() for part in path.relative_to(EXPORT_ROOT).parts}
-        if path.name.lower() == "steam_appid.txt" or "tests" in relative_parts or ".toolchain" in relative_parts:
+        if path.name.lower() == "steam_appid.txt" or "tests" in relative_parts:
             leaked.append(path)
     if leaked:
         raise ToolchainError(f"forbidden release content: {', '.join(_relative(path) for path in leaked)}")
@@ -233,7 +215,6 @@ def _verified_export_preset_text() -> str:
     for excluded_path in [
         "steam_appid.txt",
         "tests/*",
-        ".toolchain/*",
         "addons/godotsteam/editor/*",
         "addons/godotsteam/plugin.cfg",
         "addons/godotsteam/godotsteam_plugin.gd",
@@ -304,25 +285,21 @@ def _verify_required_files(lock: dict[str, Any], install_root: Path) -> None:
         raise ToolchainError(f"GDExtension files are missing: {', '.join(missing)}")
 
 
-def _resolve_godot(argument: str | None) -> Path:
-    if argument:
-        candidate = Path(argument).resolve()
-        _reject_conflicting_steam_editor(candidate)
-        return candidate
-    if STANDARD_GODOT_EXE.is_file():
-        return STANDARD_GODOT_EXE.resolve()
-    candidate = _resolve_source_godot(None)
-    _reject_conflicting_steam_editor(candidate)
-    return candidate
-
-
 def _resolve_source_godot(argument: str | None) -> Path:
-    candidates: list[Path] = []
     if argument:
-        candidates.append(Path(argument))
+        candidate = Path(argument).expanduser()
+        if not candidate.is_file():
+            raise ToolchainError(f"--godot does not point to an executable file: {candidate}")
+        return candidate.resolve()
+
     env_path = os.environ.get("GODOT_PATH")
     if env_path:
-        candidates.append(Path(env_path))
+        candidate = Path(env_path).expanduser()
+        if not candidate.is_file():
+            raise ToolchainError(f"GODOT_PATH does not point to an executable file: {candidate}")
+        return candidate.resolve()
+
+    candidates: list[Path] = []
     for executable_name in ["godot4", "godot"]:
         discovered = shutil.which(executable_name)
         if discovered:
@@ -341,69 +318,63 @@ def _reject_conflicting_steam_editor(godot: Path) -> None:
     if (godot.parent / "steam_api64.dll").is_file():
         raise ToolchainError(
             "the selected Godot directory contains its own steam_api64.dll, which conflicts with GodotSteam; "
-            "run setup first to create a clean copy of the normal editor"
+            "select a clean normal Godot editor such as the one configured by GODOT_PATH"
         )
 
 
-def _prepare_standard_godot(source_godot: Path, expected_version: str) -> None:
-    version_result = _run([str(source_godot), "--version"], cwd=LAB_ROOT)
+def _validate_normal_godot(godot: Path, expected_version: str) -> str:
+    _reject_conflicting_steam_editor(godot)
+    version_result = _run([str(godot), "--version"], cwd=LAB_ROOT)
     version_output = (version_result.stdout + version_result.stderr).strip()
+    if version_result.returncode != 0:
+        raise ToolchainError(
+            f"Godot version check failed with exit code {version_result.returncode}: {version_output or '<empty>'}"
+        )
     if expected_version not in version_output or "custom_build" in version_output.lower():
-        raise ToolchainError(f"setup requires a normal Godot {expected_version} editor: {version_output or '<empty>'}")
+        raise ToolchainError(f"a normal Godot {expected_version} editor is required: {version_output or '<empty>'}")
+    return version_output
 
-    source_executable = _preferred_console_executable(source_godot)
-    source_templates = _find_standard_template_root(source_godot, expected_version)
-    staging_root = TOOLCHAIN_ROOT / ".godot-4.7-standard.staging"
-    _safe_remove_tree(staging_root, TOOLCHAIN_ROOT)
-    staging_root.mkdir(parents=True)
+
+def _find_standard_template_root(version_output: str) -> Path:
+    version_match = re.match(r"^(\d+\.\d+(?:\.\d+)?\.stable)(?:\.|$)", version_output)
+    if version_match is None:
+        raise ToolchainError(f"cannot determine the Godot export template version from: {version_output}")
+    appdata = os.environ.get("APPDATA")
+    if not appdata:
+        raise ToolchainError("APPDATA is not set; cannot locate the standard Godot export templates")
+    template_version = version_match.group(1)
+    template_root = Path(appdata) / "Godot" / "export_templates" / template_version
+    missing = [file_name for file_name in STANDARD_TEMPLATE_NAMES if not (template_root / file_name).is_file()]
+    if missing:
+        raise ToolchainError(
+            f"matching Godot {template_version} Windows x86_64 export templates are missing at {template_root}; "
+            f"install them with the selected editor (missing: {', '.join(missing)})"
+        )
+    return template_root.resolve()
+
+
+def _install_package(lock: dict[str, Any], package_root: Path) -> None:
+    install_root = _install_root(lock)
+    install_root.parent.mkdir(parents=True, exist_ok=True)
+    staging_root = install_root.with_name(f"{install_root.name}.tmp")
+    backup_root = install_root.with_name(f"{install_root.name}.bak")
+    _safe_remove_tree(staging_root, install_root.parent)
+    _safe_remove_tree(backup_root, install_root.parent)
     try:
-        _link_or_copy(source_executable, staging_root / STANDARD_GODOT_EXE.name)
-        (staging_root / "_sc_").write_text("", encoding="utf-8")
-        template_root = staging_root / "editor_data" / "export_templates" / f"{expected_version}.stable"
-        template_root.mkdir(parents=True)
-        for file_name in STANDARD_TEMPLATE_NAMES:
-            source = source_templates / file_name
-            if not source.is_file():
-                raise ToolchainError(f"normal Godot export template is missing: {source}")
-            _link_or_copy(source, template_root / file_name)
-
-        _safe_remove_tree(STANDARD_GODOT_ROOT, TOOLCHAIN_ROOT)
-        staging_root.replace(STANDARD_GODOT_ROOT)
+        shutil.copytree(package_root, staging_root)
+        _verify_required_files(lock, staging_root)
+        if install_root.exists():
+            install_root.replace(backup_root)
+        try:
+            staging_root.replace(install_root)
+        except OSError:
+            if backup_root.exists() and not install_root.exists():
+                backup_root.replace(install_root)
+            raise
     finally:
-        _safe_remove_tree(staging_root, TOOLCHAIN_ROOT)
-
-
-def _preferred_console_executable(source_godot: Path) -> Path:
-    candidates = [
-        source_godot.parent / "godot.windows.opt.tools.64.exe",
-        source_godot.with_name(f"{source_godot.stem}_console{source_godot.suffix}"),
-        source_godot,
-    ]
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate
-    return source_godot
-
-
-def _find_standard_template_root(source_godot: Path, expected_version: str) -> Path:
-    candidates = [
-        source_godot.parent / "editor_data" / "export_templates" / f"{expected_version}.stable",
-        Path(os.environ.get("APPDATA", "")) / "Godot" / "export_templates" / f"{expected_version}.stable",
-    ]
-    for candidate in candidates:
-        if all((candidate / file_name).is_file() for file_name in STANDARD_TEMPLATE_NAMES):
-            return candidate
-    raise ToolchainError(
-        f"normal Godot {expected_version} Windows export templates were not found; install them before setup"
-    )
-
-
-def _link_or_copy(source: Path, destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        os.link(source, destination)
-    except OSError:
-        shutil.copy2(source, destination)
+        _safe_remove_tree(staging_root, install_root.parent)
+        if install_root.exists():
+            _safe_remove_tree(backup_root, install_root.parent)
 
 
 def _install_root(lock: dict[str, Any]) -> Path:
@@ -413,15 +384,11 @@ def _install_root(lock: dict[str, Any]) -> Path:
     return root
 
 
-def _cleanup_legacy_module_toolchain() -> None:
-    for path in LEGACY_TOOLCHAIN_PATHS:
-        if not path.exists():
-            continue
-        if path.is_dir():
-            _safe_remove_tree(path, TOOLCHAIN_ROOT)
-        else:
-            path.unlink()
-        print(f"[steamworks-lab-toolchain] removed legacy module asset {_relative(path)}")
+def _cleanup_legacy_toolchain() -> None:
+    if not LEGACY_TOOLCHAIN_ROOT.exists():
+        return
+    _safe_remove_tree(LEGACY_TOOLCHAIN_ROOT, LAB_ROOT)
+    print(f"[steamworks-lab-toolchain] removed legacy toolchain {_relative(LEGACY_TOOLCHAIN_ROOT)}")
 
 
 def _find_exported_file(file_name: str) -> Path:
@@ -436,8 +403,10 @@ def _safe_remove_tree(path: Path, allowed_parent: Path) -> None:
     parent = allowed_parent.resolve()
     if not resolved.is_relative_to(parent) or resolved == parent:
         raise ToolchainError(f"refusing to remove unexpected path: {resolved}")
-    if resolved.exists():
+    if resolved.is_dir():
         shutil.rmtree(resolved)
+    elif resolved.exists():
+        resolved.unlink()
 
 
 def _safe_clear_export_root() -> None:

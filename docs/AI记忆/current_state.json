@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-07-12",
+  "updated_at": "2026-07-15",
   "current_phase": "formal_project_f13_handcrafted_rooms",
-  "current_status": "ADR #133 / Steamworks Slime Lab 已废止 #132 的 GodotSteam module editor / templates 选型，改用普通 Godot 4.7 + GodotSteam 4.20 官方 GDExtension + Steamworks SDK 1.64；4.20 插件已经注册 SteamMultiplayerPeer，setup 将插件安装到忽略的 addons/godotsteam/，并为 Steam 商店版 Godot 的同名 steam_api64.dll 冲突准备干净普通 editor / 标准 templates。App ID、显式 steamInitEx、Lobby / offline 边界不变；GDExtension runtime-presence、Windows release 导出 / 离线启动已通过。SteamPipe / Depot / overlay / 双账号 P2P 仍是后续外部步骤。正式项目阶段仍是 F13 手工房间制首片已落地、carrier opt-in、默认 open-warzone 不变；后续工作以用户最后明确指令为准。",
-  "latest_adr": 133,
+  "current_status": "ADR #134 / Steamworks Slime Lab 已停止创建或依赖 .toolchain：setup 通过系统临时目录下载 / 校验 / 解压锁定的 GodotSteam 4.20 GDExtension 并安装到忽略的 addons/godotsteam/，verify / export-release 直接使用 --godot / GODOT_PATH 指向的无冲突普通 Godot 4.7；本机 GODOT_PATH=G:\\Godot\\Godot.exe（4.7.1），官方 Windows templates 安装在 Godot 标准用户目录并与 editor 精确匹配。Python 回归、setup、runtime-presence、Windows release 导出 / 离线启动、Steam 配置 smoke 与 Lab headless boot 已通过，.toolchain 和模板下载缓存均不存在。App ID、显式 steamInitEx、Lobby / offline、SteamPipe / Depot / overlay / 双账号 P2P 边界不变；正式项目阶段仍是 F13 手工房间制首片已落地、carrier opt-in、默认 open-warzone 不变；后续工作以用户最后明确指令为准。",
+  "latest_adr": 134,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #134 / Steamworks Slime Lab 直接使用配置 Godot：tools/steamworks_lab_toolchain.py 保持 setup / verify / export-release CLI，不再复制 editor/templates 或保留下载缓存；路径优先级为 --godot > GODOT_PATH > PATH/常见安装，setup 使用系统临时目录和 addons 同盘 staging/backup 安装插件并清理遗留 .toolchain，export-release 校验与 editor 精确匹配的 Godot 用户 templates；新增 9 条 Python 回归（含安装替换失败回滚）。本机 G:\\Godot\\Godot.exe 4.7.1、官方 SHA-512 校验 templates、GodotSteam 4.20 runtime-presence、Windows release / 离线启动、Steam 配置 smoke 与 headless boot 均通过。",
     "ADR #133 / Steamworks Slime Lab GDExtension 迁移：确认 GodotSteam 4.20 的 gdextension 分支已合并并注册 SteamMultiplayerPeer，废止 #132 的 module editor/templates 选型；steam_toolchain.lock.json schema v2 固定官方插件包 URL、SHA-256 与源码 commit，setup 安装忽略的 addons/godotsteam 并清理旧 module 资产，同时隔离 Steam 商店版 Godot 自带 steam_api64.dll 的 Error 127 冲突；普通 Godot 4.7 verify 与 Windows export 输出 exe/PCK/GDExtension DLL/steam_api64.dll/THIRD_PARTY_NOTICES.txt 均通过。",
     "ADR #132 / Steamworks Slime Lab GodotSteam Windows 工具链：新增 steam_toolchain.lock.json 固定 Godot 4.7 / GodotSteam 4.20 / Steamworks 1.64 官方 Win64 editor / templates URL、大小与 SHA-256；tools/steamworks_lab_toolchain.py 提供 setup / verify / export-release，把约 377 MB 二进制装到忽略的 .toolchain/，验证 Steam singleton、GodotSteam 4.20、SteamMultiplayerPeer 所需 API，并输出含 exe / PCK / steam_api64.dll / THIRD_PARTY_NOTICES.txt 且排除 steam_appid/tests/.toolchain 的 release；project.godot 使用 GodotSteam 4.20 canonical App ID 设置，TransportAdapter 优先 steamInitEx(4955670, false)；SteamPipe、Depot 与双账号验证未纳入本轮。",
     "ADR #131 / 正式客户端分辨率与宽高比策略：当前只设计 / 验收固定 16:9 分辨率，默认逻辑画布为 1920×1080；设置只允许经过验证的 16:9 固定预设，不接受任意宽高或自由拖拽形成未验证布局；非 16:9 屏幕通过 canvas_items + keep 等比缩放并补上下或左右黑边，不拉伸、不裁切、不扩大玩法视野；16:10、4:3、21:9 等比例作为 P3 优化，未来也按独立固定预设接入，当前不实现连续响应式适配。本轮只同步规划文档，client/project.godot 与运行时代码未修改，因为现有 1920×1080、resizable=false、canvas_items + keep 和 runtime-smoke 已符合基础口径。",
@@ -95,7 +96,7 @@
     "ADR #88：项目 IP 方向为 Nestbreakers / 破巢者，详细世界观、命名和宣发包装权威为 docs/IP设定.md。"
   ],
   "next_actions": [
-    "如果继续 Steamworks Slime Lab 发布链，先读 output/steamworks_lab/README.md、ADR #129 / #132 / #133 和 docs/测试策略.md；Windows 本地 GDExtension 工具链已锁定并可通过 py -3 tools/steamworks_lab_toolchain.py setup / verify / export-release 复现。下一步是 Steamworks 后台 package / license、SteamPipe app/depot VDF 与测试分支，再用两个拥有 App 4955670 许可证的不同账号 / 设备验证 steam://run/4955670、runtime App ID、overlay、Lobby 创建 / 加入 / 好友邀请、+connect_lobby 冷启动、断网退化和完整战斗同步；不得把本地 ENet 或 runtime-presence smoke 当作真实 Steam P2P 已通过。",
+    "如果继续 Steamworks Slime Lab 发布链，先读 output/steamworks_lab/README.md、ADR #129 / #132 / #133 / #134 和 docs/测试策略.md；Windows 本地 GDExtension 工具链通过 py -3 tools/steamworks_lab_toolchain.py setup / verify / export-release 复现，editor 直接走 --godot / GODOT_PATH，templates 走 Godot 标准用户目录，禁止重新创建 .toolchain。本机 GODOT_PATH=G:\\Godot\\Godot.exe，4.7.1 templates 已安装到 %APPDATA%\\Godot\\export_templates\\4.7.1.stable。下一步是 Steamworks 后台 package / license、SteamPipe app/depot VDF 与测试分支，再用两个拥有 App 4955670 许可证的不同账号 / 设备验证 steam://run/4955670、runtime App ID、overlay、Lobby 创建 / 加入 / 好友邀请、+connect_lobby 冷启动、断网退化和完整战斗同步；不得把本地 ENet 或 runtime-presence smoke 当作真实 Steam P2P 已通过。",
     "如果继续 F13 手工房间制，先读 docs/AI协作/工作包/F13-HandcraftedRooms.md、docs/代码/room_manager.md、docs/代码/gameplay_runtime.md、docs/代码/save_manager.md、client/data/README.md 和 docs/测试策略.md。首片已落地：RoomManager、rooms.json / room_sequences.json、RoomRoot + 四类 marker、两个演示房间、词表 §15-A/B/C、run payload v3、room-switch-smoke。扩内容 = 加房间 .tscn（Godot 场景编辑器摆 marker）+ rooms.json 一条 + room_sequences.json 序列；门解锁 / 清房新策略先登记词表 §15-B/§15-C 再在 RoomManager 实现原语，禁止按 room_id 特判。房间 carrier 当前为 opt-in（debug_enable_room_carrier 或存档 room 块）；若要把房间设为默认可玩模式，需把 mode_standard_survival 切到房间 carrier 并重写 F12 runtime/f9 smoke + 重录四条黄金回放，属较大切片，先与用户确认。改 RoomManager API / 切房 / 清房 / 门或 run payload 房间字段必跑 room-switch-smoke + save-smoke，改房间数据 schema 跑 validate_data + test_data_loader_schema + headless-boot，默认 open-warzone 路径用 runtime-smoke / f9-demo-smoke 守绿。",
     "如果继续 F12 短刷图默认循环，先读 docs/AI协作/工作包/F12-ShortLootRuns.md、docs/代码/gameplay_runtime.md、docs/代码/warzone_director.md、docs/代码/map_manager.md、docs/代码/gear_mod_system.md、client/data/README.md 和 docs/测试策略.md；当前地图格、边界、机关、POI footprint 和撤离区都是矩形俯视格，默认 mode_standard_survival 不声明 growth_pools，运行时不掉 XP、不弹 LevelUpPanel、不进入 LEVEL_UP；8-12 分钟数据节奏、四个 director 兴趣点、资源 / Mod 奖励暂存、run.pending_loot 保存 / 续局恢复、死亡 / 放弃不提交、可伤害兴趣点目标、可见缓存箱 interact 打开、interest_points / extraction run snapshot、小巢核击破后开启矩形撤离区、撤离读条成功后提交暂存战利品、结果面板成功 / 失败清单已落地。",
     "如果继续 F11 装备 Mod / 局外装配，先读 docs/AI协作/工作包/F11-GearModLoadout.md、docs/代码/gear_mod_system.md、GDD §7.2 / §9.16、client/data/README.md 和 docs/测试策略.md；数据 / 契约首片、GearModSystem 运行时首片、标题 Gear Mod 最小 UI、掉落 HUD 暂存提示、旧局外成长运行时删除和旧测试档迁移 / 补偿路径删除已完成，下一步优先扩展更多 Gear Mod 内容；运行时或 UI 变更必跑 gear-mod-smoke，改击杀归因或开局应用追加 runtime-smoke。",
@@ -115,6 +116,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-15",
+      "command": "steamworks_lab_toolchain py_compile + 9 Python regressions; setup / verify / export-release via GODOT_PATH=G:\\Godot\\Godot.exe; official Godot 4.7.1 templates SHA-512 verification and standard-user install; steam_runtime_presence_smoke; steam_config_smoke --disable-steam; Lab headless boot; release content and no-.toolchain/no-download-cache checks",
+      "result": "passed for ADR #134 direct configured-Godot toolchain: setup downloads the locked 27 MB GodotSteam asset only to the system temporary directory, atomically installs addons/godotsteam and leaves no .toolchain; verify loads GodotSteam 4.20, Steam, SteamPacketPeer and SteamMultiplayerPeer host_with_lobby/connect_to_lobby/add_peer through G:\\Godot\\Godot.exe 4.7.1; official 4.7.1 Windows templates match the published SHA-512 and reside at the standard Godot user path; export passes and offline-boots with exe/PCK/libgodotsteam release DLL/steam_api64.dll/THIRD_PARTY_NOTICES.txt while excluding steam_appid/tests. SteamPipe/Depot/overlay/two-account P2P remain manual external checks."
+    },
     {
       "date": "2026-07-12",
       "command": "steamworks_lab_toolchain GDExtension setup / verify / export-release; clean normal Godot 4.7 headless boot; steam_config_smoke --disable-steam; isolated two-process local ENet host/client smoke; py_compile; contract/data/schema/project/semantic lint suites; current_state/lock JSON; docs_health_check; diff --check excluding draft",

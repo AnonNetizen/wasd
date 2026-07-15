@@ -223,6 +223,7 @@
 | #131 | 正式客户端当前只适配固定 16:9 分辨率；默认逻辑画布 1920×1080，非 16:9 屏幕等比加黑边，不拉伸 / 裁切 / 扩大玩法视野；其他比例作为未来按独立固定预设接入的 P3 优化 | GDD §9.5-A、`client/README.md`、FormalClientBoot / Gameplay Runtime 文档、测试策略、TODO、AI导航、current_state、AI记忆 |
 | #132 | Steamworks Slime Lab Windows 工具链锁定 Godot 4.7 + GodotSteam 4.20 + Steamworks SDK 1.64 官方 module editor / templates；二进制本地安装，仓库跟踪版本锁、SHA-256、setup / verify / export-release 与 Windows preset；SteamPipe / Depot / 双账号验证仍属外部步骤 | `output/steamworks_lab/README.md`、`steam_toolchain.lock.json`、`tools/steamworks_lab_toolchain.py`、测试策略、AI导航、current_state、AI记忆 |
 | #133 | Steamworks Slime Lab 废止 #132 的 module 选型，改用 GodotSteam 4.20 官方 GDExtension；4.20 插件已包含 `SteamMultiplayerPeer`，普通 Godot 4.7 + 标准 templates 即可开发 / 导出，setup 负责插件安装和 Steam 商店版 Godot 的同名 DLL 冲突隔离 | `output/steamworks_lab/README.md`、`steam_toolchain.lock.json`、`tools/steamworks_lab_toolchain.py`、测试策略、AI导航、current_state、AI记忆 |
+| #134 | Steamworks Slime Lab 停止创建 `.toolchain/`；setup 在系统临时目录处理锁定插件，editor 直接走 `--godot` / `GODOT_PATH`，export templates 走 Godot 标准用户目录并与 editor 精确匹配 | `output/steamworks_lab/README.md`、`tools/steamworks_lab_toolchain.py`、测试策略、AI导航、current_state、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 
