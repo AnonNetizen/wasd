@@ -10,7 +10,7 @@ UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图
 
 主菜单提供 `设置 / Settings` 页面，可在 `简体中文 / English` 间切换语言，选择 `540×960`（适配 1080p）、`720×1280`（适配 2K）、`1080×1920`（适配 4K）三档窗口分辨率，并切换全屏。分辨率档位只改变窗口像素尺寸；游戏逻辑、碰撞和 UI 设计坐标始终保持 540×960，由 Godot stretch 负责放大。全屏使用 Godot stretch 扩展画布，宽屏多出的区域用动态背景填满，不再显示固定画布外黑边。主菜单也提供 `自定义 / Customize` 页面，可设置昵称、史莱姆主体色和玩家子弹色，并提供 `退出游戏 / Quit Game` 按钮；外观只影响表现，不改变血量、碰撞、伤害、速度等玩法数值。设置持久化到 `user://settings.cfg`；已有玩家选择优先，没有保存时优先读取 GodotSteam 暴露的 Steam 当前游戏语言（Steamworks `ISteamApps::GetCurrentGameLanguage()`），取不到 Steam 语言再读系统语言。`schinese` / `tchinese` / 任意 `zh*` 默认进 `zh_CN`，其他语言默认 `en`；headless 测试下不会实际切换窗口模式。
 
-主菜单也提供 `记录 / Records` 入口，用 `user://save.cfg` 本地保存当前最长存活时间。当前只记录 `records.best_survival_seconds`，仅在战斗进入 Game Over 时更新；手动返回主菜单、离开联机会话或重开不会刷新纪录。
+主菜单也提供 `记录 / Records` 入口，用 `user://save.cfg` 本地保存当前最长存活时间。当前只记录 `records.best_survival_seconds`，仅在战斗进入 Game Over 时更新；写入会显式 flush / close，只有真正落盘才更新内存纪录，失败会回滚。手动返回主菜单、离开联机会话或重开不会刷新纪录。
 
 ## 玩法
 
@@ -31,7 +31,7 @@ UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图
 
 本地同屏是单进程权威战斗，不经过 RPC：P1 自动加入，准备房间至少检测到一个手柄才允许开始；大厅中手柄可自动加入 / 移除，开战后阵容锁定。战斗中手柄断开会冻结全场并保留角色、血量、buff 和道具，任一未占用手柄会接管最低缺失槽位；全部恢复后转为普通暂停菜单，由玩家手动继续。P1 沿用本机昵称和外观，P2–P4 使用固定名与互不重复的预设颜色。
 
-Steam 联机继续保持一台设备一名玩家，不允许同屏玩家混入 Steam Lobby。Steam 路径沿用 host 权威：进入 session 后先停在准备房间，支持 2–4 名玩家；敌人、伤害、buff 和时停由 host 结算，快照与 reliable RPC 格式保持不变。Host 退出即全场结束，不支持 host 迁移；中途加入从快照对齐当前战况。
+Steam 联机继续保持一台设备一名玩家，不允许同屏玩家混入 Steam Lobby。Steam 路径沿用 host 权威：进入 session 后先停在准备房间，支持 2–4 名玩家；敌人、伤害、buff 和时停由 host 结算。应用层快照字段、`snapshot_received(Dictionary)` 和其他 reliable RPC 保持不变；快照 wire 层使用 FastLZ 压缩并拆成最多 900 字节的 unreliable 分片。Host 退出即全场结束，不支持 host 迁移；中途加入从最新完整快照对齐当前战况。
 
 ## 运行
 
@@ -105,7 +105,7 @@ $godot = $env:GODOT_PATH
 
 ## 内部 ENet 协议回归
 
-玩家 UI 不再提供地址、端口、Host Local 或 Join Local。ENet 双进程入口仅保留给网络协议自动回归，用于确认 Steam RPC / 快照改造未被同屏模式破坏；它不是本地游玩的前置条件。
+玩家 UI 不再提供地址、端口、Host Local 或 Join Local。ENet 双进程入口仅保留给网络协议自动回归，用于确认 Steam RPC / 快照改造未被同屏模式破坏；host smoke 同时校验快照 wire 统计的最大 payload 不超过 900 字节。它不是本地游玩的前置条件。
 
 headless 自动化版（host 与 client 需要不同项目目录副本，见下方故障提示）：
 
@@ -132,7 +132,7 @@ GodotSteam / Steamworks 二进制不提交进仓库。当前固定使用 GodotSt
 7. 用两个拥有 App `4955670` 许可证的不同 Steam 账号 / 设备验证完整 Host / Join 战斗同步、各自输入、暂停、道具、强化、死亡观战和重开；同账号双开不能替代真实 P2P smoke，同屏玩家也不能混入该 Lobby。
 8. 需要稳定验证单机、本地同屏或内部 ENet 回归时，在 Godot 参数分隔符 `--` 后追加 `--disable-steam`，Steam 初始化与客户端重启会被显式禁用。
 
-Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=1`，作为应用内协议兼容标识；加入端会拒绝 marker 或版本不匹配的 lobby，避免不同网络协议版本互连。
+Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=2`，作为应用内协议兼容标识；加入端会拒绝 marker 或版本不匹配的 lobby，避免旧版单包快照与新版压缩分片 wire 协议互连。
 
 语言默认值同样优先走 GodotSteam：若 `Steam` singleton 存在，adapter 会尝试读取 `getCurrentGameLanguage`（以及 GodotSteam 等价命名），再映射到 lab 仅支持的 `zh_CN` / `en`。没有 Steam 或读不到时使用系统 locale。
 
@@ -149,7 +149,7 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=1
 - `scripts/local_input_router.gd`：本地同屏设备检测、P1–P4 槽位分配、设备专属 InputMap、输入帧、阵容锁定、溢出提示和断线重绑。
 - `scripts/ui_style.gd`：lab 专用 UI 色板、Theme、Panel / Button / Input 等 StyleBox 工具。
 - `scripts/lab_locale.gd` / `scripts/lab_settings.gd`：lab 轻量本地化字典、Steam / 系统语言映射、`user://settings.cfg` 读写、分辨率 / 外观设置和 headless 安全的全屏应用。
-- `scripts/lab_save.gd`：lab 轻量本地存档，只读写 `user://save.cfg` 的 `records.best_survival_seconds`。
+- `scripts/lab_save.gd`：lab 轻量本地存档，只读写 `user://save.cfg` 的 `records.best_survival_seconds`，显式 flush / close 并在失败时回滚纪录。
 - `scripts/battle_director.gd`：战斗核心。权威端：刷怪波次 / tier 缩放 / boss / 障碍物 / 主动道具调度、圆-圆判伤、buff 状态机与时停；client 端：快照镜像重建、敌弹 volley 视觉、玩家弹视觉消隐。
 - `scripts/enemy.gd` / `scripts/enemy_bullet.gd`：三种敌人（直冲 / 炮手 / 掠射）与暖色敌弹。
 - `scripts/boss.gd`：每 2 分钟的 boss（瞄准扇 + 环形弹、enrage）。
@@ -164,15 +164,15 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=1
 - `scripts/slime_player.gd`：玩家实体包装，含外观色板、3 血 / 无敌帧 / 观战 / 快照扩展。
 - `scripts/slime_bullet.gd`：玩家视觉子弹（膜锚定分裂），带伤害 / 穿透 / 速度字段。
 - `scripts/expression_wheel.gd`：单一表情轮控制权；P1 用鼠标、手柄玩家用右摇杆选择。
-- `scripts/network_session.gd`：统一 host / join / leave / RPC 同步入口（输入 / 快照 / 射击 / 主动道具 / 表情 / phase / buff / volley / 重开）。
+- `scripts/network_session.gd`：统一 host / join / leave / RPC 同步入口；快照 wire 层负责 FastLZ 压缩、900 字节分片、最新完整序列重组、异常元数据拒绝和只读统计。
 - `scripts/transport_adapter.gd`：本地 ENet 与可选 GodotSteam adapter。
 - `steam_toolchain.lock.json` / `export_presets.cfg` / `THIRD_PARTY_NOTICES.txt`：GodotSteam 4.20 / Godot 4.7 / Steamworks 1.64 Win64 依赖锁、Windows Steam release preset 与随包第三方许可声明。
 - `tools/steamworks_lab_toolchain.py`：仓库根统一 setup / verify / export-release 工具；插件下载只存在于系统临时目录，GDExtension 与构建产物不入库，editor 直接走 `--godot` / `GODOT_PATH`，标准 Windows templates 走 Godot 用户目录。
-- `tests/battle_smoke.gd`：单机战斗 headless 回归。
+- `tests/battle_smoke.gd`：单机战斗 headless 回归，包含动态 viewport 世界矩形、最长纪录落盘 / 回滚 / 重载和快照 codec roundtrip。
 - `tests/local_couch_smoke.gd`：模拟 1–3 个手柄的单进程同屏输入、战斗、UI、强化与断线重绑回归。
 - `tests/steam_config_smoke.gd`：App ID、初始化返回值、Lobby 兼容和显式离线降级 headless 回归。
 - `tests/steam_runtime_presence_smoke.gd`：用普通 Godot 4.7 验证锁定 GDExtension 已加载、版本正确、singleton 与高层 multiplayer peer 方法存在，不初始化真实 Steam 会话。
-- `tests/net_host_smoke.gd` / `tests/net_client_smoke.gd`：双进程 ENet 联机 headless 回归。
+- `tests/net_host_smoke.gd` / `tests/net_client_smoke.gd`：双进程 ENet 联机 headless 回归；host 断言快照 payload 不超过 900 字节，client 验证解压重组后的镜像状态。
 
 ## 故障提示
 
@@ -188,4 +188,5 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=1
 - 本地同屏开始按钮不可用：至少需要一个被识别的独立手柄；确认设备可被 Godot 识别、准备房间已列出 P2，并检查是否已有三个手柄占满 P2–P4。
 - 战斗中手柄断开后不能继续：先接入任一未占用手柄补齐所有缺失槽位；面板转为普通暂停后仍需玩家手动按继续，避免重连瞬间自动恢复战斗。
 - 两端冻结后一直不恢复：看是否有玩家停在三选一没选（联机下 20 秒会自动选）；若有人中途掉线，host 会自动剔除其待选状态并恢复。
+- 日志再次出现 `above the MTU`：确认两端都是 `lab_version=2` 代码且没有旧进程残留；内部 ENet host smoke 应输出非空 `snapshot wire chunks` 统计并保证 `max_chunk_size <= 900`。
 - Windows 下两个 **headless** Godot 实例共用同一项目目录时，后启动的实例可能因 `.godot` 缓存锁报 `File not found`：headless 联机回归请给 client 用一份项目目录副本（图形模式双开同一项目不受影响）。

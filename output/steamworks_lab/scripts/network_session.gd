@@ -26,6 +26,10 @@ signal steam_invite_join_requested(lobby_id: String)
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
 const DEFAULT_PORT: int = 24567
 const MAX_PLAYERS: int = 4
+const SNAPSHOT_CHUNK_SIZE: int = 900
+const MAX_SNAPSHOT_RAW_SIZE: int = 1_048_576
+const MAX_SNAPSHOT_CHUNKS: int = 1_200
+const SNAPSHOT_COMPRESSION_MODE: int = FileAccess.COMPRESSION_FASTLZ
 
 var _transport: Node
 var _is_host: bool = false
@@ -33,6 +37,13 @@ var _active_transport: String = "offline"
 var _lobby_id: String = ""
 var _invite_after_steam_host: bool = false
 var _steam_connection_pending: bool = false
+var _snapshot_sequence: int = 0
+var _latest_snapshot_sequence: int = -1
+var _incoming_snapshot_sequence: int = -1
+var _incoming_snapshot_raw_size: int = 0
+var _incoming_snapshot_chunk_count: int = 0
+var _incoming_snapshot_chunks: Array[PackedByteArray] = []
+var _last_snapshot_wire_stats: Dictionary = {}
 
 
 func _ready() -> void:
@@ -118,6 +129,7 @@ func leave_session() -> void:
 	_lobby_id = ""
 	_invite_after_steam_host = false
 	_steam_connection_pending = false
+	_reset_snapshot_wire_state()
 	session_ended.emit()
 
 
@@ -189,7 +201,79 @@ func _client_connection_ready() -> bool:
 func broadcast_snapshot(snapshot: Dictionary) -> void:
 	if not _is_host or multiplayer.multiplayer_peer == null:
 		return
-	_receive_snapshot.rpc(snapshot)
+	var encoded := encode_snapshot_chunks(snapshot)
+	var chunks: Array = encoded.get("chunks", [])
+	if chunks.is_empty():
+		_last_snapshot_wire_stats = {}
+		return
+	_snapshot_sequence += 1
+	var raw_size := int(encoded.get("raw_size", 0))
+	var max_chunk_size := 0
+	for raw_chunk in chunks:
+		var chunk := raw_chunk as PackedByteArray
+		max_chunk_size = maxi(max_chunk_size, chunk.size())
+	_last_snapshot_wire_stats = {
+		"raw_size": raw_size,
+		"compressed_size": int(encoded.get("compressed_size", 0)),
+		"chunk_count": chunks.size(),
+		"max_chunk_size": max_chunk_size,
+	}
+	for chunk_index in range(chunks.size()):
+		_receive_snapshot_chunk.rpc(
+			_snapshot_sequence,
+			raw_size,
+			chunk_index,
+			chunks.size(),
+			chunks[chunk_index] as PackedByteArray
+		)
+
+
+func snapshot_wire_stats() -> Dictionary:
+	return _last_snapshot_wire_stats.duplicate(true)
+
+
+static func encode_snapshot_chunks(snapshot: Dictionary) -> Dictionary:
+	var raw_bytes := var_to_bytes(snapshot)
+	if raw_bytes.is_empty() or raw_bytes.size() > MAX_SNAPSHOT_RAW_SIZE:
+		return {}
+	var compressed_bytes := raw_bytes.compress(SNAPSHOT_COMPRESSION_MODE)
+	if compressed_bytes.is_empty():
+		return {}
+	var chunk_count := ceili(float(compressed_bytes.size()) / float(SNAPSHOT_CHUNK_SIZE))
+	if chunk_count <= 0 or chunk_count > MAX_SNAPSHOT_CHUNKS:
+		return {}
+	var chunks: Array[PackedByteArray] = []
+	for chunk_index in range(chunk_count):
+		var offset := chunk_index * SNAPSHOT_CHUNK_SIZE
+		var end_offset := mini(offset + SNAPSHOT_CHUNK_SIZE, compressed_bytes.size())
+		chunks.append(compressed_bytes.slice(offset, end_offset))
+	return {
+		"raw_size": raw_bytes.size(),
+		"compressed_size": compressed_bytes.size(),
+		"chunks": chunks,
+	}
+
+
+static func decode_snapshot_chunks(chunks: Array, raw_size: int) -> Dictionary:
+	if raw_size <= 0 or raw_size > MAX_SNAPSHOT_RAW_SIZE:
+		return {}
+	if chunks.is_empty() or chunks.size() > MAX_SNAPSHOT_CHUNKS:
+		return {}
+	var compressed_bytes := PackedByteArray()
+	for raw_chunk in chunks:
+		if not raw_chunk is PackedByteArray:
+			return {}
+		var chunk := raw_chunk as PackedByteArray
+		if chunk.is_empty() or chunk.size() > SNAPSHOT_CHUNK_SIZE:
+			return {}
+		compressed_bytes.append_array(chunk)
+	var raw_bytes := compressed_bytes.decompress(raw_size, SNAPSHOT_COMPRESSION_MODE)
+	if raw_bytes.size() != raw_size:
+		return {}
+	var decoded: Variant = bytes_to_var(raw_bytes)
+	if not decoded is Dictionary:
+		return {}
+	return (decoded as Dictionary).duplicate(true)
 
 
 func send_expression_to_host(expression_id: String) -> void:
@@ -358,7 +442,42 @@ func _submit_merge_intent(active: bool) -> void:
 
 
 @rpc("authority", "unreliable")
-func _receive_snapshot(snapshot: Dictionary) -> void:
+func _receive_snapshot_chunk(
+		sequence: int,
+		raw_size: int,
+		chunk_index: int,
+		chunk_count: int,
+		payload: PackedByteArray
+) -> void:
+	if sequence <= _latest_snapshot_sequence:
+		return
+	if raw_size <= 0 or raw_size > MAX_SNAPSHOT_RAW_SIZE:
+		return
+	if chunk_count <= 0 or chunk_count > MAX_SNAPSHOT_CHUNKS:
+		return
+	if chunk_index < 0 or chunk_index >= chunk_count:
+		return
+	if payload.is_empty() or payload.size() > SNAPSHOT_CHUNK_SIZE:
+		return
+
+	if sequence > _incoming_snapshot_sequence:
+		_begin_snapshot_assembly(sequence, raw_size, chunk_count)
+	elif sequence < _incoming_snapshot_sequence:
+		return
+	elif raw_size != _incoming_snapshot_raw_size or chunk_count != _incoming_snapshot_chunk_count:
+		_clear_snapshot_assembly()
+		return
+
+	_incoming_snapshot_chunks[chunk_index] = payload.duplicate()
+	for chunk in _incoming_snapshot_chunks:
+		if chunk.is_empty():
+			return
+	var snapshot := decode_snapshot_chunks(_incoming_snapshot_chunks, _incoming_snapshot_raw_size)
+	if snapshot.is_empty():
+		_clear_snapshot_assembly()
+		return
+	_latest_snapshot_sequence = sequence
+	_clear_snapshot_assembly()
 	snapshot_received.emit(snapshot)
 
 
@@ -425,6 +544,7 @@ func _connect_multiplayer_signals() -> void:
 
 
 func _apply_peer(peer: MultiplayerPeer, host: bool, transport: String, lobby: String) -> void:
+	_reset_snapshot_wire_state()
 	multiplayer.multiplayer_peer = peer
 	_is_host = host
 	_active_transport = transport
@@ -490,3 +610,27 @@ func _on_server_disconnected() -> void:
 
 func _emit_status(message: String) -> void:
 	status_changed.emit(message)
+
+
+func _begin_snapshot_assembly(sequence: int, raw_size: int, chunk_count: int) -> void:
+	_incoming_snapshot_sequence = sequence
+	_incoming_snapshot_raw_size = raw_size
+	_incoming_snapshot_chunk_count = chunk_count
+	_incoming_snapshot_chunks.clear()
+	_incoming_snapshot_chunks.resize(chunk_count)
+	for chunk_index in range(chunk_count):
+		_incoming_snapshot_chunks[chunk_index] = PackedByteArray()
+
+
+func _clear_snapshot_assembly() -> void:
+	_incoming_snapshot_sequence = -1
+	_incoming_snapshot_raw_size = 0
+	_incoming_snapshot_chunk_count = 0
+	_incoming_snapshot_chunks.clear()
+
+
+func _reset_snapshot_wire_state() -> void:
+	_snapshot_sequence = 0
+	_latest_snapshot_sequence = -1
+	_last_snapshot_wire_stats.clear()
+	_clear_snapshot_assembly()

@@ -16,6 +16,8 @@ const SETTINGS_PATH: String = "user://settings.cfg"
 const SETTINGS_FILE_NAME: String = "settings.cfg"
 const SAVE_PATH: String = "user://save.cfg"
 const SAVE_FILE_NAME: String = "save.cfg"
+const SAVE_ROUNDTRIP_PATH: String = "user://battle_smoke_save_roundtrip.cfg"
+const SAVE_ROUNDTRIP_FILE_NAME: String = "battle_smoke_save_roundtrip.cfg"
 const EXPECTED_STEAM_APP_ID: int = 4_955_670
 
 var _failures: int = 0
@@ -36,8 +38,13 @@ func _check(condition: bool, label: String) -> void:
 func _run() -> void:
 	var settings_backup := _backup_settings_file()
 	var save_backup := _backup_save_file()
-	_remove_settings_file()
-	_remove_save_file()
+	_check(bool(settings_backup.get("ok", false)), "settings fixture backup succeeds")
+	_check(bool(save_backup.get("ok", false)), "save fixture backup succeeds")
+	if not bool(settings_backup.get("ok", false)) or not bool(save_backup.get("ok", false)):
+		quit(1)
+		return
+	_check(_remove_settings_file() == OK, "settings fixture removal succeeds")
+	_check(_remove_save_file() == OK, "save fixture removal succeeds")
 	_check_language_defaults()
 	_check_save_helper_defaults()
 	_check_network_session_defaults()
@@ -401,13 +408,13 @@ func _run() -> void:
 	player.call("warp_to", action_position)
 	var pickup_id := int(director.call("force_spawn_active_pickup", repair_id, player.call("body_center")))
 	_check(pickup_id > 0, "active pickup can be force spawned")
-	main_scene.call("_update_gameplay", 1.0 / 60.0)
+	director.call("_resolve_active_pickup_collection")
 	var held_item: Dictionary = director.call("active_item_for_peer", 1)
 	_check(int(held_item.get("id", -1)) == repair_id, "player collects active pickup")
 	_check(held_item.get("color", null) is Color, "active pickup exposes HUD icon color")
 
 	director.call("force_spawn_active_pickup", clear_id, player.call("body_center"))
-	main_scene.call("_update_gameplay", 1.0 / 60.0)
+	director.call("_resolve_active_pickup_collection")
 	held_item = director.call("active_item_for_peer", 1)
 	_check(int(held_item.get("id", -1)) == clear_id, "new active pickup replaces held item")
 
@@ -584,8 +591,8 @@ func _run() -> void:
 	_check((ready_scene.get("_active_merges") as Dictionary).is_empty(), "leaving local couch clears merge state")
 	ready_scene.queue_free()
 
-	_restore_settings_file(settings_backup)
-	_restore_save_file(save_backup)
+	_check(_restore_settings_file(settings_backup) == OK, "settings fixture restore succeeds")
+	_check(_restore_save_file(save_backup) == OK, "save fixture restore succeeds")
 	if _failures == 0:
 		print("[battle-smoke] ALL PASS")
 	else:
@@ -623,15 +630,138 @@ func _check_save_helper_defaults() -> void:
 	_check(is_equal_approx(float(save.get("best_survival_seconds")), 0.0), "missing save defaults best survival to zero")
 	_check(LAB_SAVE_SCRIPT.format_survival_time(127.0) == "02:07", "survival time formats as MM:SS")
 
+	var failing_save := LAB_SAVE_SCRIPT.new("user://")
+	var failed_record := bool(failing_save.call("record_survival_time", 42.0))
+	_check(not failed_record, "record update reports failure when save path cannot be written")
+	_check(
+		is_equal_approx(float(failing_save.get("best_survival_seconds")), 0.0),
+		"failed record write rolls back the in-memory best"
+	)
+
+	_check(_remove_user_file(SAVE_ROUNDTRIP_PATH, SAVE_ROUNDTRIP_FILE_NAME) == OK, "roundtrip save fixture starts clean")
+	var roundtrip_save := LAB_SAVE_SCRIPT.new(SAVE_ROUNDTRIP_PATH)
+	_check(bool(roundtrip_save.call("record_survival_time", 73.0)), "record update succeeds after durable write")
+	var reloaded_save := LAB_SAVE_SCRIPT.new(SAVE_ROUNDTRIP_PATH)
+	_check(bool(reloaded_save.call("load_save")), "saved record reloads from disk")
+	_check(
+		is_equal_approx(float(reloaded_save.get("best_survival_seconds")), 73.0),
+		"reloaded record matches the flushed value"
+	)
+	_check(_remove_user_file(SAVE_ROUNDTRIP_PATH, SAVE_ROUNDTRIP_FILE_NAME) == OK, "roundtrip save fixture cleanup succeeds")
+
 
 func _check_network_session_defaults() -> void:
 	_check(NETWORK_SESSION_SCRIPT.MAX_PLAYERS == 4, "network session caps multiplayer at 4 players")
+	_check(NETWORK_SESSION_SCRIPT.SNAPSHOT_CHUNK_SIZE == 900, "snapshot wire payload cap is 900 bytes")
+	var enemies: Array[Dictionary] = []
+	for enemy_index in range(96):
+		enemies.append({
+			"id": enemy_index,
+			"position": Vector2(float(enemy_index * 7), float(enemy_index * 11)),
+			"hp": 3 + enemy_index % 4,
+			"kind": "snapshot_roundtrip_enemy_%02d" % enemy_index,
+		})
+	var snapshot := {
+		"players": {1: {"position": Vector2(120.0, 240.0), "hp": 3}},
+		"enemies": enemies,
+		"time": 31.25,
+		"transport": "local",
+	}
+	var encoded: Dictionary = NETWORK_SESSION_SCRIPT.encode_snapshot_chunks(snapshot)
+	var chunks: Array = encoded.get("chunks", [])
+	var max_chunk_size := 0
+	for raw_chunk in chunks:
+		var chunk := raw_chunk as PackedByteArray
+		max_chunk_size = maxi(max_chunk_size, chunk.size())
+	_check(not chunks.is_empty(), "snapshot dictionary encodes to compressed wire chunks")
+	_check(chunks.size() > 1, "snapshot codec fixture spans multiple wire chunks")
+	_check(max_chunk_size > 0 and max_chunk_size <= 900, "encoded snapshot chunks stay within the payload cap")
+	var decoded: Dictionary = NETWORK_SESSION_SCRIPT.decode_snapshot_chunks(chunks, int(encoded.get("raw_size", 0)))
+	_check(decoded == snapshot, "compressed snapshot wire codec roundtrips the application dictionary")
+	_check(
+		NETWORK_SESSION_SCRIPT.decode_snapshot_chunks(chunks, NETWORK_SESSION_SCRIPT.MAX_SNAPSHOT_RAW_SIZE + 1).is_empty(),
+		"snapshot decoder rejects oversized metadata"
+	)
+	var non_dictionary_raw := var_to_bytes(["not", "a", "snapshot"])
+	var non_dictionary_compressed := non_dictionary_raw.compress(FileAccess.COMPRESSION_FASTLZ)
+	_check(
+		NETWORK_SESSION_SCRIPT.decode_snapshot_chunks([non_dictionary_compressed], non_dictionary_raw.size()).is_empty(),
+		"snapshot decoder rejects non-dictionary payloads"
+	)
+
+	var assembly_session := NETWORK_SESSION_SCRIPT.new() as Node
+	root.add_child(assembly_session)
+	var received_snapshots: Array[Dictionary] = []
+	assembly_session.connect(
+		"snapshot_received",
+		func(received_snapshot: Dictionary) -> void:
+			received_snapshots.append(received_snapshot)
+	)
+	assembly_session.call(
+		"_receive_snapshot_chunk",
+		7,
+		int(encoded.get("raw_size", 0)),
+		0,
+		chunks.size(),
+		chunks[0]
+	)
+	for chunk_index in range(chunks.size()):
+		assembly_session.call(
+			"_receive_snapshot_chunk",
+			8,
+			int(encoded.get("raw_size", 0)),
+			chunk_index,
+			chunks.size(),
+			chunks[chunk_index]
+		)
+	for chunk_index in range(1, chunks.size()):
+		assembly_session.call(
+			"_receive_snapshot_chunk",
+			7,
+			int(encoded.get("raw_size", 0)),
+			chunk_index,
+			chunks.size(),
+			chunks[chunk_index]
+		)
+	_check(
+		received_snapshots.size() == 1 and received_snapshots[0] == snapshot,
+		"snapshot assembly emits only the latest complete sequence"
+	)
+	assembly_session.call(
+		"_receive_snapshot_chunk",
+		9,
+		int(encoded.get("raw_size", 0)),
+		0,
+		chunks.size(),
+		chunks[0]
+	)
+	assembly_session.call(
+		"_receive_snapshot_chunk",
+		9,
+		int(encoded.get("raw_size", 0)) + 1,
+		1,
+		chunks.size(),
+		chunks[1]
+	)
+	_check((assembly_session.get("_incoming_snapshot_chunks") as Array).is_empty(), "snapshot assembly rejects conflicting metadata")
+	assembly_session.call(
+		"_receive_snapshot_chunk",
+		10,
+		int(encoded.get("raw_size", 0)),
+		0,
+		chunks.size(),
+		chunks[0]
+	)
+	assembly_session.call("leave_session")
+	_check((assembly_session.get("_incoming_snapshot_chunks") as Array).is_empty(), "leaving a session clears partial snapshot chunks")
+	assembly_session.free()
 
 
 func _check_steam_app_configuration() -> void:
 	_check(TRANSPORT_SCRIPT.configured_app_id() == EXPECTED_STEAM_APP_ID, "Steam ProjectSettings uses the production App ID")
 	_check(TRANSPORT_SCRIPT.development_app_id() == EXPECTED_STEAM_APP_ID, "steam_appid.txt matches the production App ID")
 	_check(TRANSPORT_SCRIPT.app_id_configuration_is_valid(), "Steam development and runtime App ID sources agree")
+	_check(TRANSPORT_SCRIPT.LAB_VERSION_VALUE == "2", "Steam lobby advertises snapshot wire protocol version 2")
 	_check(TRANSPORT_SCRIPT.steam_init_result_succeeded(true), "Steam boolean init success is accepted")
 	_check(not TRANSPORT_SCRIPT.steam_init_result_succeeded(false), "Steam boolean init failure is rejected")
 	_check(TRANSPORT_SCRIPT.steam_init_result_succeeded({"status": 0}), "Steam dictionary init success is accepted")
@@ -648,8 +778,8 @@ func _check_steam_app_configuration() -> void:
 		"Steam lobby marker mismatch is rejected"
 	)
 	_check(
-		not TRANSPORT_SCRIPT.lobby_metadata_is_compatible(TRANSPORT_SCRIPT.LAB_MARKER_VALUE, "999"),
-		"Steam lobby protocol version mismatch is rejected"
+		not TRANSPORT_SCRIPT.lobby_metadata_is_compatible(TRANSPORT_SCRIPT.LAB_MARKER_VALUE, "1"),
+		"Steam lobby rejects the legacy snapshot wire protocol version"
 	)
 	_check(
 		TRANSPORT_SCRIPT.steam_disabled_from_args(PackedStringArray(["--disable-steam"])),
@@ -668,9 +798,16 @@ func _check_runtime_viewport_defaults(main_scene: Node) -> void:
 	var design_size: Vector2 = main_scene.call("design_viewport_size")
 	var viewport_size: Vector2 = main_scene.call("current_viewport_size")
 	var world_rect: Rect2 = main_scene.call("current_world_rect")
+	var design_origin := (viewport_size - design_size) * 0.5
+	var expected_world_rect := Rect2(design_origin + Vector2(20.0, 70.0), Vector2(500.0, 870.0))
 	_check(design_size == Vector2(540.0, 960.0), "runtime design viewport is 540x960")
 	_check(viewport_size.x >= 540.0 and viewport_size.y >= 960.0, "runtime viewport helper is at least design size")
-	_check(_rects_match(world_rect, Rect2(Vector2(20.0, 70.0), Vector2(500.0, 870.0))), "runtime world rect matches fixed 540x960 design")
+	_check(_rects_match(world_rect, expected_world_rect), "runtime world rect centers the fixed design inside the expanded viewport")
+	_check(
+		world_rect.position - design_origin == Vector2(20.0, 70.0)
+		and design_origin + design_size - world_rect.end == Vector2(20.0, 20.0),
+		"runtime world rect preserves the 500x870 battle area and design margins"
+	)
 
 
 func _check_settings_ui(main_scene: Node) -> void:
@@ -950,52 +1087,75 @@ func _clear_director_pickups(director: Node) -> void:
 
 
 func _backup_settings_file() -> Dictionary:
-	var backup := {"exists": FileAccess.file_exists(SETTINGS_PATH), "text": ""}
+	var backup := {"exists": FileAccess.file_exists(SETTINGS_PATH), "text": "", "ok": true}
 	if bool(backup["exists"]):
 		var file := FileAccess.open(SETTINGS_PATH, FileAccess.READ)
-		if file != null:
-			backup["text"] = file.get_as_text()
+		if file == null:
+			backup["ok"] = false
+			return backup
+		backup["text"] = file.get_as_text()
+		backup["ok"] = file.get_error() == OK
+		file.close()
 	return backup
 
 
-func _restore_settings_file(backup: Dictionary) -> void:
-	_remove_settings_file()
+func _restore_settings_file(backup: Dictionary) -> Error:
+	var remove_error := _remove_settings_file()
+	if remove_error != OK:
+		return remove_error
 	if not bool(backup.get("exists", false)):
-		return
+		return OK
 	var file := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
-	if file != null:
-		file.store_string(String(backup.get("text", "")))
+	if file == null:
+		return FileAccess.get_open_error()
+	file.store_string(String(backup.get("text", "")))
+	file.flush()
+	var write_error := file.get_error()
+	file.close()
+	return write_error
 
 
-func _remove_settings_file() -> void:
-	if not FileAccess.file_exists(SETTINGS_PATH):
-		return
-	var user_dir := DirAccess.open("user://")
-	if user_dir != null:
-		user_dir.remove(SETTINGS_FILE_NAME)
+func _remove_settings_file() -> Error:
+	return _remove_user_file(SETTINGS_PATH, SETTINGS_FILE_NAME)
 
 
 func _backup_save_file() -> Dictionary:
-	var backup := {"exists": FileAccess.file_exists(SAVE_PATH), "text": ""}
+	var backup := {"exists": FileAccess.file_exists(SAVE_PATH), "text": "", "ok": true}
 	if bool(backup["exists"]):
 		var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
-		if file != null:
-			backup["text"] = file.get_as_text()
+		if file == null:
+			backup["ok"] = false
+			return backup
+		backup["text"] = file.get_as_text()
+		backup["ok"] = file.get_error() == OK
+		file.close()
 	return backup
 
 
-func _restore_save_file(backup: Dictionary) -> void:
-	_remove_save_file()
+func _restore_save_file(backup: Dictionary) -> Error:
+	var remove_error := _remove_save_file()
+	if remove_error != OK:
+		return remove_error
 	if not bool(backup.get("exists", false)):
-		return
+		return OK
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if file != null:
-		file.store_string(String(backup.get("text", "")))
+	if file == null:
+		return FileAccess.get_open_error()
+	file.store_string(String(backup.get("text", "")))
+	file.flush()
+	var write_error := file.get_error()
+	file.close()
+	return write_error
 
 
-func _remove_save_file() -> void:
-	if not FileAccess.file_exists(SAVE_PATH):
-		return
+func _remove_save_file() -> Error:
+	return _remove_user_file(SAVE_PATH, SAVE_FILE_NAME)
+
+
+func _remove_user_file(path: String, file_name: String) -> Error:
+	if not FileAccess.file_exists(path):
+		return OK
 	var user_dir := DirAccess.open("user://")
-	if user_dir != null:
-		user_dir.remove(SAVE_FILE_NAME)
+	if user_dir == null:
+		return DirAccess.get_open_error()
+	return user_dir.remove(file_name)

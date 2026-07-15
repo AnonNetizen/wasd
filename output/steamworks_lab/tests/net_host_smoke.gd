@@ -60,5 +60,17 @@ func _run() -> void:
 	else:
 		print("[net-host-smoke] FAIL expected 2+ players, peak %d" % max_players)
 		failures += 1
+	var wire_stats: Dictionary = session.call("snapshot_wire_stats")
+	var max_chunk_size := int(wire_stats.get("max_chunk_size", 0))
+	if (
+		int(wire_stats.get("raw_size", 0)) > 0
+		and int(wire_stats.get("compressed_size", 0)) > 0
+		and int(wire_stats.get("chunk_count", 0)) > 0
+		and max_chunk_size <= 900
+	):
+		print("[net-host-smoke] PASS snapshot wire chunks stay within 900 bytes (%s)" % str(wire_stats))
+	else:
+		print("[net-host-smoke] FAIL invalid snapshot wire stats: %s" % str(wire_stats))
+		failures += 1
 	print("[net-host-smoke] %s" % ("ALL PASS" if failures == 0 else "%d FAILURES" % failures))
 	quit(1 if failures > 0 else 0)

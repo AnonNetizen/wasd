@@ -6,6 +6,11 @@ const SECTION_RECORDS: String = "records"
 const KEY_BEST_SURVIVAL_SECONDS: String = "best_survival_seconds"
 
 var best_survival_seconds: float = 0.0
+var _config_path: String = CONFIG_PATH
+
+
+func _init(config_path: String = CONFIG_PATH) -> void:
+	_config_path = config_path
 
 
 static func format_survival_time(seconds: float) -> String:
@@ -17,11 +22,11 @@ static func format_survival_time(seconds: float) -> String:
 
 func load_save() -> bool:
 	best_survival_seconds = 0.0
-	if not FileAccess.file_exists(CONFIG_PATH):
+	if not FileAccess.file_exists(_config_path):
 		return false
 
 	var config := ConfigFile.new()
-	var load_error := config.load(CONFIG_PATH)
+	var load_error := config.load(_config_path)
 	if load_error != OK:
 		return false
 
@@ -33,16 +38,26 @@ func load_save() -> bool:
 func save_records() -> bool:
 	var config := ConfigFile.new()
 	config.set_value(SECTION_RECORDS, KEY_BEST_SURVIVAL_SECONDS, best_survival_seconds)
-	return config.save(CONFIG_PATH) == OK
+	var file := FileAccess.open(_config_path, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string(config.encode_to_text())
+	file.flush()
+	var write_error := file.get_error()
+	file.close()
+	return write_error == OK
 
 
 func record_survival_time(seconds: float) -> bool:
 	var sanitized_seconds := _sanitize_seconds(seconds)
 	if sanitized_seconds <= best_survival_seconds:
 		return false
+	var previous_best := best_survival_seconds
 	best_survival_seconds = sanitized_seconds
-	save_records()
-	return true
+	if save_records():
+		return true
+	best_survival_seconds = previous_best
+	return false
 
 
 func _sanitize_seconds(value: Variant) -> float:

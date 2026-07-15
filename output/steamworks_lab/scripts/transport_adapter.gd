@@ -21,7 +21,7 @@ const CHAT_MEMBER_STATE_CHANGE_BANNED: int = 0x0010
 const LAB_MARKER_KEY: String = "wasd_lab"
 const LAB_MARKER_VALUE: String = "steamworks_slime_v1"
 const LAB_VERSION_KEY: String = "lab_version"
-const LAB_VERSION_VALUE: String = "1"
+const LAB_VERSION_VALUE: String = "2"
 
 var _steam: Object
 var _active_steam_peer: MultiplayerPeer
