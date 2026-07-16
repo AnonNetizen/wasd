@@ -1,6 +1,6 @@
 ---
 name: godot-test-diagnostics
-description: Godot test and diagnostics workflow for GUT/GdUnit4, headless failures, scene-script issues, and runtime logs. Use when adding tests, diagnosing Godot errors, or preparing CI test gates.
+description: Godot test and diagnostics workflow for GUT/GdUnit4, headless failures, scene-script issues, runtime logs, and the canonical isolated Steamworks Lab smoke runner. Use when adding tests, diagnosing Godot errors, running Steamworks Lab smoke, or preparing CI test gates.
 license: MIT
 compatibility: agent-skills
 metadata:
@@ -36,6 +36,14 @@ Use this skill when Godot behavior needs evidence from tests, logs, scene loadin
 - Raw commands must include `--headless --path <project>` and should capture the full log.
 - Use project-local XDG data/config/cache paths when CI or sandbox environments cannot write to normal user directories.
 - Do not import external test harness templates into this repo; adapt only the needed command pattern.
+
+## Steamworks Slime Lab
+
+- Use `py -3 tools/steamworks_lab_toolchain.py smoke --suite <suite>` as the only automated Lab smoke entry; do not hand-compose PowerShell loops or ENet host/client processes.
+- Run the smallest affected suite first, inspect fixture and compatibility boundaries, then run `smoke --suite all`; `battle` defaults to five serial runs.
+- Any test that can read or write `user://` must inject dedicated fixture paths before `add_child()` triggers `_ready()`, or run inside the toolchain's isolated user environment. Backing up real player files is not an acceptable fixture strategy.
+- Require exit code `0`, the suite's exact `ALL PASS` marker, and no `SCRIPT ERROR` / `ERROR:` log; ENet also rejects `above the MTU`.
+- On Windows raw fallback, prefer the sibling console executable and never use PowerShell automatic variables such as `$Host` as writable process variables.
 
 ## Test Planning
 

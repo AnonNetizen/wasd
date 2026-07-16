@@ -21,6 +21,11 @@ var resolution_preset_id: int = DEFAULT_RESOLUTION_PRESET_ID
 var player_name: String = ""
 var slime_palette_id: int = 0
 var bullet_palette_id: int = 0
+var _config_path: String = CONFIG_PATH
+
+
+func _init(config_path: String = CONFIG_PATH) -> void:
+	_config_path = config_path
 
 
 static func default_locale_for_language(raw_language: String) -> String:
@@ -60,11 +65,11 @@ func load_settings(steam_language: String = "") -> bool:
 	player_name = ""
 	slime_palette_id = 0
 	bullet_palette_id = 0
-	if not FileAccess.file_exists(CONFIG_PATH):
+	if not FileAccess.file_exists(_config_path):
 		return false
 
 	var config := ConfigFile.new()
-	var error := config.load(CONFIG_PATH)
+	var error := config.load(_config_path)
 	if error != OK:
 		return false
 
@@ -90,7 +95,7 @@ func save_settings() -> bool:
 	config.set_value(SECTION, "player_name", player_name)
 	config.set_value(SECTION, "slime_palette_id", slime_palette_id)
 	config.set_value(SECTION, "bullet_palette_id", bullet_palette_id)
-	return config.save(CONFIG_PATH) == OK
+	return config.save(_config_path) == OK
 
 
 func set_locale(new_locale: String) -> bool:

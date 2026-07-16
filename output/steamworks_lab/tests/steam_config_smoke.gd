@@ -1,7 +1,7 @@
 extends SceneTree
 
 # Steam App ID / 初始化边界 headless smoke：
-#   godot --headless --path output/steamworks_lab --script res://tests/steam_config_smoke.gd -- --disable-steam
+#   py -3 tools/steamworks_lab_toolchain.py smoke --suite steam-config
 
 const NETWORK_SESSION_SCRIPT := preload("res://scripts/network_session.gd")
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")

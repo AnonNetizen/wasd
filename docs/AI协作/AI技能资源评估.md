@@ -35,7 +35,7 @@
 |-------|------|------|
 | `godot-gdscript` | `.codebuddy/skills/godot-gdscript/SKILL.md` / `.codex/skills/godot-gdscript/SKILL.md` / `.opencode/skills/godot-gdscript/SKILL.md` | Godot 4.7 + typed GDScript 实现；强化数据驱动、autoload、InputMap 和正式 client 边界 |
 | `godot-scene-validation` | `.codebuddy/skills/godot-scene-validation/SKILL.md` / `.codex/skills/godot-scene-validation/SKILL.md` / `.opencode/skills/godot-scene-validation/SKILL.md` | 使用 `tools/godot_bridge.py` 与数据校验做场景树 / headless / 引擎版本验证；已吸收 headless Godot CLI 安全规则 |
-| `godot-test-diagnostics` | `.codebuddy/skills/godot-test-diagnostics/SKILL.md` / `.codex/skills/godot-test-diagnostics/SKILL.md` / `.opencode/skills/godot-test-diagnostics/SKILL.md` | Godot 测试与诊断流程；覆盖 GUT/GdUnit4 规划、headless 失败、场景 / 脚本错误、日志归因和未来 CI 测试门禁 |
+| `godot-test-diagnostics` | `.codebuddy/skills/godot-test-diagnostics/SKILL.md` / `.codex/skills/godot-test-diagnostics/SKILL.md` / `.opencode/skills/godot-test-diagnostics/SKILL.md` | Godot 测试与诊断流程；覆盖 GUT/GdUnit4 规划、headless 失败、场景 / 脚本错误、日志归因、Steamworks Lab 隔离 runner / 精确成功协议与未来 CI 测试门禁 |
 | `playtest-review` | `.codebuddy/skills/playtest-review/SKILL.md` / `.codex/skills/playtest-review/SKILL.md` / `.opencode/skills/playtest-review/SKILL.md` | 完整项目试玩复盘、手感与配置调参评估、里程碑 readiness 和后续任务分级 |
 | `project-doc-sync` | `.codebuddy/skills/project-doc-sync/SKILL.md` / `.codex/skills/project-doc-sync/SKILL.md` / `.opencode/skills/project-doc-sync/SKILL.md` | 规则、ADR、AI 记忆、知识库索引和长期文档同步流程 |
 | `safe-git-commit` | `.codebuddy/skills/safe-git-commit/SKILL.md` / `.codex/skills/safe-git-commit/SKILL.md` / `.opencode/skills/safe-git-commit/SKILL.md` | 执行 ADR #52 的安全提交流程，避免误 stage 用户脏改或 `DRAFT/` |

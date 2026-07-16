@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,6 +15,9 @@ import steamworks_lab_toolchain as toolchain
 
 
 class SteamworksLabToolchainTests(unittest.TestCase):
+    def test_repository_keeps_development_steam_appid(self) -> None:
+        self.assertEqual(toolchain._verify_development_app_id().decode("utf-8-sig").strip(), "4955670")
+
     def test_explicit_godot_path_takes_priority_over_environment(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -179,6 +183,164 @@ class SteamworksLabToolchainTests(unittest.TestCase):
             preset_path.write_text(preset_text, encoding="utf-8")
             with mock.patch.object(toolchain, "EXPORT_PRESET_PATH", preset_path):
                 self.assertEqual(toolchain._verified_export_preset_text(), preset_text)
+
+    def test_windows_smoke_prefers_console_sibling(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            editor = root / "Godot.exe"
+            console = root / "Godot_console.exe"
+            editor.touch()
+            console.touch()
+            with mock.patch.object(toolchain.os, "name", "nt"):
+                self.assertEqual(toolchain._godot_cli_executable(editor), console.resolve())
+
+    def test_isolated_smoke_environment_redirects_every_user_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory) / "isolated"
+            environment = toolchain._isolated_smoke_environment(root)
+            for key in [
+                "APPDATA",
+                "LOCALAPPDATA",
+                "HOME",
+                "XDG_DATA_HOME",
+                "XDG_CONFIG_HOME",
+                "XDG_CACHE_HOME",
+            ]:
+                isolated_path = Path(environment[key])
+                self.assertTrue(isolated_path.is_dir())
+                self.assertTrue(isolated_path.is_relative_to(root))
+
+    def test_smoke_result_requires_exact_success_marker(self) -> None:
+        result = subprocess.CompletedProcess(["godot"], 0, "[suite] PASS close enough\n", "")
+        with self.assertRaisesRegex(toolchain.ToolchainError, "missing exact success marker"):
+            toolchain._validate_smoke_result("fixture", result, "[suite] ALL PASS")
+
+    def test_smoke_result_rejects_nonzero_and_script_error(self) -> None:
+        result = subprocess.CompletedProcess(
+            ["godot"],
+            1,
+            "[suite] ALL PASS\nSCRIPT ERROR: fixture failed\n",
+            "",
+        )
+        with self.assertRaisesRegex(toolchain.ToolchainError, "exit code 1"):
+            toolchain._validate_smoke_result("fixture", result, "[suite] ALL PASS")
+
+    def test_enet_smoke_result_rejects_mtu_warning(self) -> None:
+        result = subprocess.CompletedProcess(
+            ["godot"],
+            0,
+            "[net-host-smoke] ALL PASS\npacket above the MTU\n",
+            "",
+        )
+        with self.assertRaisesRegex(toolchain.ToolchainError, "above the MTU"):
+            toolchain._validate_smoke_result(
+                "ENet host",
+                result,
+                "[net-host-smoke] ALL PASS",
+                forbidden_markers=["above the MTU"],
+            )
+
+    def test_lightweight_client_copy_excludes_addons_build_and_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            lab_root = root / "source"
+            destination = root / "client"
+            lab_root.mkdir()
+            (lab_root / "project.godot").write_text("[application]\n", encoding="utf-8")
+            for directory_name in ["scenes", "scripts", "tests", "addons", "build", ".godot"]:
+                directory = lab_root / directory_name
+                directory.mkdir()
+                (directory / "fixture.txt").write_text(directory_name, encoding="utf-8")
+            with mock.patch.object(toolchain, "LAB_ROOT", lab_root):
+                toolchain._copy_lightweight_lab_project(destination)
+            for included in ["project.godot", "scenes", "scripts", "tests"]:
+                self.assertTrue((destination / included).exists())
+            for excluded in ["addons", "build", ".godot"]:
+                self.assertFalse((destination / excluded).exists())
+
+    def test_protected_file_snapshot_detects_source_or_player_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            app_id = root / "steam_appid.txt"
+            user_root = root / "user"
+            user_root.mkdir()
+            save_path = user_root / "save.cfg"
+            app_id.write_text("4955670\n", encoding="utf-8")
+            save_path.write_text("before", encoding="utf-8")
+            with (
+                mock.patch.object(toolchain, "STEAM_APP_ID_PATH", app_id),
+                mock.patch.object(toolchain, "_default_godot_user_root", return_value=user_root),
+            ):
+                snapshot = toolchain._snapshot_protected_files()
+                save_path.write_text("after", encoding="utf-8")
+                with self.assertRaisesRegex(toolchain.ToolchainError, "protected player/source files"):
+                    toolchain._assert_protected_files_unchanged(snapshot)
+
+    def test_missing_development_app_id_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            missing = Path(temporary_directory) / "steam_appid.txt"
+            with mock.patch.object(toolchain, "STEAM_APP_ID_PATH", missing):
+                with self.assertRaisesRegex(toolchain.ToolchainError, "steam_appid.txt is missing"):
+                    toolchain._verify_development_app_id()
+
+    def test_net_smoke_command_propagates_dynamic_port(self) -> None:
+        command = toolchain._net_smoke_command(
+            Path("godot_console.exe"),
+            Path("client-project"),
+            "res://tests/net_client_smoke.gd",
+            31_337,
+        )
+        self.assertEqual(command[-2:], ["--net-smoke-port", "31337"])
+
+    def test_timeout_path_terminates_running_process(self) -> None:
+        class FakeProcess:
+            def __init__(self) -> None:
+                self.returncode: int | None = None
+                self.terminated = False
+                self.killed = False
+
+            def poll(self) -> int | None:
+                return self.returncode
+
+            def terminate(self) -> None:
+                self.terminated = True
+                self.returncode = -15
+
+            def kill(self) -> None:
+                self.killed = True
+                self.returncode = -9
+
+            def wait(self, timeout: float | None = None) -> int:
+                del timeout
+                return int(self.returncode or 0)
+
+        process = FakeProcess()
+        with mock.patch.object(toolchain.time, "monotonic", side_effect=[0.0, 2.0, 2.0]):
+            self.assertFalse(toolchain._wait_for_processes([process], 1.0))  # type: ignore[list-item]
+        toolchain._terminate_processes([process])  # type: ignore[list-item]
+        self.assertTrue(process.terminated)
+
+    def test_single_process_timeout_reports_partial_output(self) -> None:
+        timeout = subprocess.TimeoutExpired(
+            ["godot", "--headless"],
+            toolchain.SMOKE_TIMEOUT_SECONDS,
+            output=b"partial stdout\n",
+            stderr=b"partial stderr\n",
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            with (
+                mock.patch.object(toolchain, "_run", side_effect=timeout),
+                mock.patch.object(toolchain, "_print_failed_smoke_output") as print_output,
+            ):
+                with self.assertRaisesRegex(toolchain.ToolchainError, "timed out"):
+                    toolchain._run_smoke_command(
+                        ["godot", "--headless"],
+                        Path(temporary_directory),
+                        "fixture",
+                        "[fixture] ALL PASS",
+                        Path(temporary_directory) / "isolated",
+                    )
+        print_output.assert_called_once_with("fixture", "partial stdout\npartial stderr")
 
 
 if __name__ == "__main__":

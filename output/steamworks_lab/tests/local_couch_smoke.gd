@@ -1,12 +1,14 @@
 extends SceneTree
 
 # Single-process couch co-op headless smoke:
-#   godot --headless --path output/steamworks_lab --script res://tests/local_couch_smoke.gd -- --disable-steam
+#   py -3 tools/steamworks_lab_toolchain.py smoke --suite local-couch
 
 const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
 const LAB_SAVE_SCRIPT := preload("res://scripts/lab_save.gd")
 const LOCAL_INPUT_ROUTER_SCRIPT := preload("res://scripts/local_input_router.gd")
 
+const SETTINGS_PATH: String = "user://local_couch_smoke_settings.cfg"
+const SETTINGS_FILE_NAME: String = "local_couch_smoke_settings.cfg"
 const RECORD_SAVE_PATH: String = "user://local_couch_smoke_save.cfg"
 const RECORD_SAVE_FILE_NAME: String = "local_couch_smoke_save.cfg"
 
@@ -29,7 +31,10 @@ func _run() -> void:
 	await _check_input_router()
 	await _check_main_scene_integration()
 	_release_keyboard_actions()
-	print("[local-couch-smoke] failures=%d" % _failures)
+	if _failures == 0:
+		print("[local-couch-smoke] ALL PASS")
+	else:
+		print("[local-couch-smoke] %d FAILURES" % _failures)
 	quit(0 if _failures == 0 else 1)
 
 
@@ -111,16 +116,28 @@ func _check_input_router() -> void:
 
 
 func _check_main_scene_integration() -> void:
+	_check(_remove_settings_fixture() == OK, "couch settings fixture starts clean")
 	_check(_remove_record_fixture() == OK, "couch record fixture starts clean")
 	var main_packed := load("res://scenes/main.tscn") as PackedScene
 	_check(main_packed != null, "main scene loads for couch integration")
 	if main_packed == null:
 		return
 	var main_scene := main_packed.instantiate() as Node2D
+	main_scene.set("_settings_config_path", SETTINGS_PATH)
 	main_scene.set("_save_config_path", RECORD_SAVE_PATH)
 	root.add_child(main_scene)
 	await process_frame
 	main_scene.set_physics_process(false)
+	var active_settings := main_scene.get("_settings") as RefCounted
+	var active_save := main_scene.get("_save") as RefCounted
+	_check(
+		active_settings != null and String(active_settings.get("_config_path")) == SETTINGS_PATH,
+		"couch smoke loads settings from the pre-ready fixture"
+	)
+	_check(
+		active_save != null and String(active_save.get("_config_path")) == RECORD_SAVE_PATH,
+		"couch smoke loads records from the pre-ready fixture"
+	)
 
 	_check_p1_input_map()
 	var router := main_scene.call("local_input_router") as Node
@@ -149,7 +166,6 @@ func _check_main_scene_integration() -> void:
 	_check(bool(router.call("is_locked")), "starting battle locks the couch roster")
 	_check(main_scene.get("_director") != null, "couch battle starts a local authoritative director")
 	main_scene.call("_record_game_over_survival_time", {"time": 88.0})
-	var active_save := main_scene.get("_save") as RefCounted
 	_check(
 		active_save != null
 		and is_zero_approx(float(active_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE))),
@@ -181,6 +197,7 @@ func _check_main_scene_integration() -> void:
 
 	main_scene.queue_free()
 	await process_frame
+	_check(_remove_settings_fixture() == OK, "couch settings fixture cleanup succeeds")
 	_check(_remove_record_fixture() == OK, "couch record fixture cleanup succeeds")
 
 
@@ -534,9 +551,17 @@ func _release_keyboard_actions() -> void:
 
 
 func _remove_record_fixture() -> Error:
-	if not FileAccess.file_exists(RECORD_SAVE_PATH):
+	return _remove_user_fixture(RECORD_SAVE_PATH, RECORD_SAVE_FILE_NAME)
+
+
+func _remove_settings_fixture() -> Error:
+	return _remove_user_fixture(SETTINGS_PATH, SETTINGS_FILE_NAME)
+
+
+func _remove_user_fixture(path: String, file_name: String) -> Error:
+	if not FileAccess.file_exists(path):
 		return OK
 	var user_dir := DirAccess.open("user://")
 	if user_dir == null:
 		return DirAccess.get_open_error()
-	return user_dir.remove(RECORD_SAVE_FILE_NAME)
+	return user_dir.remove(file_name)

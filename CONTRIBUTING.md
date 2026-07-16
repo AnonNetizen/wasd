@@ -146,6 +146,7 @@ python tools/lint_project_rules.py
 python tools/test_project_rules_lint.py
 python tools/lint_semantic_rules.py
 python tools/test_semantic_rules_lint.py
+python tools/test_steamworks_lab_toolchain.py
 python tools/docs_health_check.py
 ```
 

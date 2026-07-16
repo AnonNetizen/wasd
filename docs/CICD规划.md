@@ -3,7 +3,7 @@
 > 本文档汇总本项目的 CI/CD 路线图与候选项，按「阶段 + 优先级」排列，作为后续逐步落地的清单。
 > 配套：`README.md`、`CONTRIBUTING.md`、当前平台编码规则入口、`词表与契约.md`、`决策记录.md`。
 >
-> 当前状态：已启用 Stage 1 基础 workflow：`.github/workflows/docs-check.yml`；本地 `.pre-commit-config.yaml` 已复用同一批 Stage 1 脚本并追加 staged whitespace fix/check。它跑契约生成同步检查、数据 / locale 校验、DataLoader schema 回归测试、第一档 GDScript 项目 lint、第二档项目规则 lint、第三档语义 advisory lint、文档健康检查和 whitespace diff；暂不启用 Godot、GUT、黄金回放、平衡 sim、commitlint 或复杂矩阵。
+> 当前状态：已启用 Stage 1 基础 workflow：`.github/workflows/docs-check.yml`；本地 `.pre-commit-config.yaml` 已复用同一批 Stage 1 脚本，并追加 Steamworks Lab toolchain 单元回归与 staged whitespace fix/check。它跑契约生成同步检查、数据 / locale 校验、DataLoader schema 回归测试、第一档 GDScript 项目 lint、第二档项目规则 lint、第三档语义 advisory lint、文档健康检查和 whitespace diff；本地还守 console 解析、隔离环境、成功协议、超时、动态端口、临时副本与源码 App ID。暂不在 CI 启用 Godot、GUT、黄金回放、平衡 sim、commitlint 或复杂矩阵。
 >
 > **测试相关**：本文件只列 CI 工作流的"何时跑、跑什么"。完整测试金字塔、必测清单、里程碑要求、性能预算、手动回归 checklist 见 `docs/测试策略.md`（测试唯一权威）。
 >
@@ -23,7 +23,7 @@
 | **元规则 19/20/24**：新规则/决策/设计/代码契约变更必须同步到对应文档 | CI 可把"同步检查"自动化 |
 | **刷宝构筑平衡敏感** | 数值、掉落权重、词条和效果原语改动需"黄金回放"回归（见 4.M）；中后期跑批量 sim（见 4.N） |
 
-> **本地实时验证回路**：与 CI 配套，在本地通过 pre-commit hook 提供秒级反馈，详见 `docs/AI协作/实时验证回路.md`。本规划阶段 1 的脚本（`sync_contracts.py` / `validate_data.py` / `test_data_loader_schema.py` / `lint_gdscript_rules.py` / `lint_project_rules.py` / `lint_semantic_rules.py` / `docs_health_check.py`）应同时被 hook 与 CI 复用。
+> **本地实时验证回路**：与 CI 配套，在本地通过 pre-commit hook 提供秒级反馈，详见 `docs/AI协作/实时验证回路.md`。本规划阶段 1 的脚本（`sync_contracts.py` / `validate_data.py` / `test_data_loader_schema.py` / `lint_gdscript_rules.py` / `lint_project_rules.py` / `lint_semantic_rules.py` / `docs_health_check.py`）应同时被 hook 与 CI 复用；`test_steamworks_lab_toolchain.py` 当前作为不启动 Godot 的本地专用附加门禁。
 > **代码审核流程**：详见 `docs/AI协作/代码审核流程.md`。Reviewer 先看 pre-commit / lint / test / docs 输出，再审当前 diff；第三档 semantic advisory warning 必须人工归类为 fix / accept / defer。
 
 ---
@@ -85,7 +85,7 @@
 ### 1.E 本地 pre-commit hook ⭐⭐⭐
 **配置（已落地）**：`.pre-commit-config.yaml`
 
-- 本地安装 `pre-commit` 后，commit 前跑 Stage 1 本地门禁：contract sync、data validate、DataLoader schema 回归、三档 lint、lint 回归、docs health、staged whitespace fix/check。
+- 本地安装 `pre-commit` 后，commit 前跑 Stage 1 本地门禁：contract sync、data validate、DataLoader schema 回归、三档 lint、lint 回归、Steamworks Lab toolchain 单元回归、docs health、staged whitespace fix/check。
 - 第三档 `lint_semantic_rules.py` 仍默认非阻塞；其 regression test 是硬门禁。
 - 没装 pre-commit 时，按 `docs/AI协作/实时验证回路.md` 的等价命令手动运行。
 

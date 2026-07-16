@@ -1,7 +1,7 @@
 extends SceneTree
 
 # 单机战斗循环 headless smoke：
-#   godot --headless --path output/steamworks_lab --script res://tests/battle_smoke.gd
+#   py -3 tools/steamworks_lab_toolchain.py smoke --suite battle
 
 const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
 const ENEMY_BULLET_SCRIPT := preload("res://scripts/enemy_bullet.gd")
@@ -13,12 +13,14 @@ const NETWORK_SESSION_SCRIPT := preload("res://scripts/network_session.gd")
 const PLAYER_SCRIPT := preload("res://scripts/slime_player.gd")
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
 
-const SETTINGS_PATH: String = "user://settings.cfg"
-const SETTINGS_FILE_NAME: String = "settings.cfg"
-const SAVE_PATH: String = "user://save.cfg"
-const SAVE_FILE_NAME: String = "save.cfg"
+const SETTINGS_PATH: String = "user://battle_smoke_settings.cfg"
+const SETTINGS_FILE_NAME: String = "battle_smoke_settings.cfg"
+const SAVE_PATH: String = "user://battle_smoke_save.cfg"
+const SAVE_FILE_NAME: String = "battle_smoke_save.cfg"
 const SAVE_ROUNDTRIP_PATH: String = "user://battle_smoke_save_roundtrip.cfg"
 const SAVE_ROUNDTRIP_FILE_NAME: String = "battle_smoke_save_roundtrip.cfg"
+const STEAM_CLIENT_SAVE_PATH: String = "user://battle_smoke_steam_client_save.cfg"
+const STEAM_CLIENT_SAVE_FILE_NAME: String = "battle_smoke_steam_client_save.cfg"
 const EXPECTED_STEAM_APP_ID: int = 4_955_670
 
 var _failures: int = 0
@@ -37,15 +39,12 @@ func _check(condition: bool, label: String) -> void:
 
 
 func _run() -> void:
-	var settings_backup := _backup_settings_file()
-	var save_backup := _backup_save_file()
-	_check(bool(settings_backup.get("ok", false)), "settings fixture backup succeeds")
-	_check(bool(save_backup.get("ok", false)), "save fixture backup succeeds")
-	if not bool(settings_backup.get("ok", false)) or not bool(save_backup.get("ok", false)):
-		quit(1)
-		return
 	_check(_remove_settings_file() == OK, "settings fixture removal succeeds")
 	_check(_remove_save_file() == OK, "save fixture removal succeeds")
+	_check(
+		_remove_user_file(STEAM_CLIENT_SAVE_PATH, STEAM_CLIENT_SAVE_FILE_NAME) == OK,
+		"Steam client record fixture removal succeeds"
+	)
 	_check_language_defaults()
 	_check_save_helper_defaults()
 	_check_network_session_defaults()
@@ -54,11 +53,14 @@ func _run() -> void:
 
 	var main_packed := load("res://scenes/main.tscn") as PackedScene
 	var main_scene := main_packed.instantiate()
+	_configure_test_paths(main_scene)
 	root.add_child(main_scene)
 	await process_frame
+	_check_active_fixture_paths(main_scene, SAVE_PATH)
 	_check_runtime_viewport_defaults(main_scene)
 	await _check_settings_ui(main_scene)
 	await _check_records_ui(main_scene)
+	await _check_steam_client_record_chain(main_packed)
 	await _check_customize_ui(main_scene)
 	await _check_steam_invite_ui(main_scene)
 
@@ -68,8 +70,8 @@ func _run() -> void:
 	var director: Node = main_scene.get("_director")
 	_check(director != null, "director created on single player start")
 	if director == null:
-		_restore_settings_file(settings_backup)
-		_restore_save_file(save_backup)
+		_remove_settings_file()
+		_remove_save_file()
 		quit(1)
 		return
 
@@ -152,8 +154,8 @@ func _run() -> void:
 	var player := players.get(1) as Node
 	_check(player != null, "player 1 exists")
 	if player == null:
-		_restore_settings_file(settings_backup)
-		_restore_save_file(save_backup)
+		_remove_settings_file()
+		_remove_save_file()
 		quit(1)
 		return
 	var runtime_world_rect: Rect2 = main_scene.call("current_world_rect")
@@ -181,6 +183,7 @@ func _run() -> void:
 	_check(int(snapshot_appearance.get("slime_palette_id", -1)) == 4, "snapshot carries slime palette id")
 	_check(int(snapshot_appearance.get("bullet_palette_id", -1)) == 6, "snapshot carries bullet palette id")
 	var mirror_scene := main_packed.instantiate()
+	_configure_test_paths(mirror_scene)
 	root.add_child(mirror_scene)
 	await process_frame
 	mirror_scene.call("_on_snapshot_received", appearance_snapshot)
@@ -370,9 +373,16 @@ func _run() -> void:
 
 	var obstacle_ids_for_block: Array = obstacles.keys()
 	if not obstacle_ids_for_block.is_empty():
-		var blocking_obstacle := obstacles[obstacle_ids_for_block[0]] as Node2D
+		var blocking_obstacle_id: int = int(obstacle_ids_for_block[0])
+		var blocking_obstacle := obstacles[blocking_obstacle_id] as Node2D
 		blocking_obstacle.global_position = Vector2(270.0, 520.0)
 		blocking_obstacle.set("radius", 48.0)
+		var all_obstacles: Dictionary = obstacles.duplicate()
+		var all_enemies: Dictionary = (director.get("_enemies") as Dictionary).duplicate()
+		var active_boss := director.get("_boss") as Node2D
+		director.set("_obstacles", {blocking_obstacle_id: blocking_obstacle})
+		director.set("_enemies", {})
+		director.set("_boss", null)
 		player.call("revive_full")
 		player.set("invuln_remaining", 0.0)
 		player.call("warp_to", blocking_obstacle.global_position)
@@ -387,6 +397,8 @@ func _run() -> void:
 		_check(float(fx_state.get("shake_remaining", 0.0)) > 0.0, "player damage triggers screen shake")
 		_check(float(fx_state.get("flash_alpha", 0.0)) > 0.0, "player damage triggers impact flash")
 		main_scene.call("_clear_screen_fx")
+		director.set("_enemies", all_enemies)
+		director.set("_boss", active_boss)
 
 		director.call("_spawn_enemy_at", 0, blocking_obstacle.global_position)
 		var blocking_enemies: Dictionary = director.get("_enemies")
@@ -411,6 +423,7 @@ func _run() -> void:
 			)
 		else:
 			_check(false, "enemy available for obstacle blocking test")
+		director.set("_obstacles", all_obstacles)
 	else:
 		_check(false, "obstacle available for blocking test")
 
@@ -537,6 +550,7 @@ func _run() -> void:
 	await process_frame
 
 	var ready_scene := main_packed.instantiate()
+	_configure_test_paths(ready_scene)
 	root.add_child(ready_scene)
 	await process_frame
 	var couch_router: Node = ready_scene.call("local_input_router")
@@ -575,6 +589,7 @@ func _run() -> void:
 	var merge_snapshot: Dictionary = ready_scene.call("_build_snapshot")
 	_check((merge_snapshot.get("merges", []) as Array).size() == 1, "snapshot carries active merge state")
 	var merge_mirror_scene := main_packed.instantiate()
+	_configure_test_paths(merge_mirror_scene)
 	root.add_child(merge_mirror_scene)
 	await process_frame
 	merge_mirror_scene.call("_ensure_player", 1, "Host")
@@ -638,8 +653,12 @@ func _run() -> void:
 	_check((ready_scene.get("_active_merges") as Dictionary).is_empty(), "leaving local couch clears merge state")
 	ready_scene.queue_free()
 
-	_check(_restore_settings_file(settings_backup) == OK, "settings fixture restore succeeds")
-	_check(_restore_save_file(save_backup) == OK, "save fixture restore succeeds")
+	_check(_remove_settings_file() == OK, "settings fixture cleanup succeeds")
+	_check(_remove_save_file() == OK, "save fixture cleanup succeeds")
+	_check(
+		_remove_user_file(STEAM_CLIENT_SAVE_PATH, STEAM_CLIENT_SAVE_FILE_NAME) == OK,
+		"Steam client record fixture cleanup succeeds"
+	)
 	if _failures == 0:
 		print("[battle-smoke] ALL PASS")
 	else:
@@ -671,7 +690,7 @@ func _check_language_defaults() -> void:
 
 
 func _check_save_helper_defaults() -> void:
-	var save := LAB_SAVE_SCRIPT.new()
+	var save := LAB_SAVE_SCRIPT.new(SAVE_PATH)
 	var loaded := bool(save.call("load_save"))
 	_check(not loaded, "missing save file reports unloaded")
 	_check(
@@ -792,6 +811,7 @@ func _check_save_helper_defaults() -> void:
 		_write_text_file(SAVE_ROUNDTRIP_PATH, future_config.encode_to_text()) == OK,
 		"future record fixture writes successfully"
 	)
+	var future_text_before := _read_text_file(SAVE_ROUNDTRIP_PATH)
 	var future_save := LAB_SAVE_SCRIPT.new(SAVE_ROUNDTRIP_PATH)
 	_check(not bool(future_save.call("load_save")), "unknown future record schema is rejected")
 	_check(
@@ -807,6 +827,10 @@ func _check_save_helper_defaults() -> void:
 			444.0
 		),
 		"rejected future schema is not overwritten"
+	)
+	_check(
+		_read_text_file(SAVE_ROUNDTRIP_PATH) == future_text_before,
+		"rejected future schema remains byte-for-byte unchanged"
 	)
 	_check(_remove_user_file(SAVE_ROUNDTRIP_PATH, SAVE_ROUNDTRIP_FILE_NAME) == OK, "roundtrip save fixture cleanup succeeds")
 
@@ -1109,6 +1133,66 @@ func _check_records_ui(main_scene: Node) -> void:
 			await process_frame
 
 
+func _check_steam_client_record_chain(main_packed: PackedScene) -> void:
+	_check(
+		_remove_user_file(STEAM_CLIENT_SAVE_PATH, STEAM_CLIENT_SAVE_FILE_NAME) == OK,
+		"Steam client record fixture starts clean"
+	)
+	var client_scene := main_packed.instantiate() as Node2D
+	_configure_test_paths(client_scene, STEAM_CLIENT_SAVE_PATH)
+	root.add_child(client_scene)
+	await process_frame
+	client_scene.set_physics_process(false)
+	_check_active_fixture_paths(client_scene, STEAM_CLIENT_SAVE_PATH)
+
+	var client_session := client_scene.get("_session") as Node
+	client_session.set("_is_host", false)
+	client_session.set("_active_transport", "steam")
+	client_scene.set("_play_mode", MAIN_SCRIPT.PlayMode.STEAM_CLIENT)
+	client_scene.call("_start_battle")
+	var client_director := client_scene.get("_director") as Node
+	_check(
+		client_director != null and not bool(client_director.call("is_authority")),
+		"Steam client record fixture runs a non-authority battle director"
+	)
+	client_scene.call(
+		"_on_phase_received",
+		BATTLE_DIRECTOR_SCRIPT.Phase.GAME_OVER,
+		{"time": 47.0, "tier": 3, "boss_kills": 2}
+	)
+	await process_frame
+
+	var client_save := client_scene.get("_save") as RefCounted
+	_check(
+		client_save != null
+		and is_zero_approx(float(client_save.call(
+			"best_survival_seconds",
+			LAB_SAVE_SCRIPT.RecordCategory.SINGLE
+		)))
+		and is_equal_approx(float(client_save.call(
+			"best_survival_seconds",
+			LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER
+		)), 47.0),
+		"Steam client authority payload records only the multiplayer survival time"
+	)
+	var client_config := ConfigFile.new()
+	_check(
+		client_config.load(STEAM_CLIENT_SAVE_PATH) == OK
+		and is_equal_approx(float(client_config.get_value(
+			"records",
+			"best_multiplayer_survival_seconds",
+			0.0
+		)), 47.0),
+		"Steam client phase chain flushes the authoritative Game Over time"
+	)
+	client_scene.queue_free()
+	await process_frame
+	_check(
+		_remove_user_file(STEAM_CLIENT_SAVE_PATH, STEAM_CLIENT_SAVE_FILE_NAME) == OK,
+		"Steam client record fixture cleanup succeeds"
+	)
+
+
 func _check_customize_ui(main_scene: Node) -> void:
 	var start_page := main_scene.get("_start_page") as Control
 	var customize_page := main_scene.get("_customize_page") as Control
@@ -1288,66 +1372,26 @@ func _clear_director_pickups(director: Node) -> void:
 	active_pickups.clear()
 
 
-func _backup_settings_file() -> Dictionary:
-	var backup := {"exists": FileAccess.file_exists(SETTINGS_PATH), "text": "", "ok": true}
-	if bool(backup["exists"]):
-		var file := FileAccess.open(SETTINGS_PATH, FileAccess.READ)
-		if file == null:
-			backup["ok"] = false
-			return backup
-		backup["text"] = file.get_as_text()
-		backup["ok"] = file.get_error() == OK
-		file.close()
-	return backup
+func _configure_test_paths(main_scene: Node, save_path: String = SAVE_PATH) -> void:
+	main_scene.set("_settings_config_path", SETTINGS_PATH)
+	main_scene.set("_save_config_path", save_path)
 
 
-func _restore_settings_file(backup: Dictionary) -> Error:
-	var remove_error := _remove_settings_file()
-	if remove_error != OK:
-		return remove_error
-	if not bool(backup.get("exists", false)):
-		return OK
-	var file := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
-	if file == null:
-		return FileAccess.get_open_error()
-	file.store_string(String(backup.get("text", "")))
-	file.flush()
-	var write_error := file.get_error()
-	file.close()
-	return write_error
+func _check_active_fixture_paths(main_scene: Node, expected_save_path: String) -> void:
+	var active_settings := main_scene.get("_settings") as RefCounted
+	var active_save := main_scene.get("_save") as RefCounted
+	_check(
+		active_settings != null and String(active_settings.get("_config_path")) == SETTINGS_PATH,
+		"main scene loads settings from the pre-ready smoke fixture"
+	)
+	_check(
+		active_save != null and String(active_save.get("_config_path")) == expected_save_path,
+		"main scene loads records from the pre-ready smoke fixture"
+	)
 
 
 func _remove_settings_file() -> Error:
 	return _remove_user_file(SETTINGS_PATH, SETTINGS_FILE_NAME)
-
-
-func _backup_save_file() -> Dictionary:
-	var backup := {"exists": FileAccess.file_exists(SAVE_PATH), "text": "", "ok": true}
-	if bool(backup["exists"]):
-		var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
-		if file == null:
-			backup["ok"] = false
-			return backup
-		backup["text"] = file.get_as_text()
-		backup["ok"] = file.get_error() == OK
-		file.close()
-	return backup
-
-
-func _restore_save_file(backup: Dictionary) -> Error:
-	var remove_error := _remove_save_file()
-	if remove_error != OK:
-		return remove_error
-	if not bool(backup.get("exists", false)):
-		return OK
-	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if file == null:
-		return FileAccess.get_open_error()
-	file.store_string(String(backup.get("text", "")))
-	file.flush()
-	var write_error := file.get_error()
-	file.close()
-	return write_error
 
 
 func _remove_save_file() -> Error:
@@ -1363,6 +1407,15 @@ func _write_text_file(path: String, text: String) -> Error:
 	var write_error := file.get_error()
 	file.close()
 	return write_error
+
+
+func _read_text_file(path: String) -> String:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return ""
+	var text := file.get_as_text()
+	file.close()
+	return text
 
 
 func _remove_user_file(path: String, file_name: String) -> Error:

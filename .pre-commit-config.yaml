@@ -57,6 +57,13 @@ repos:
         pass_filenames: false
         always_run: true
 
+      - id: test-steamworks-lab-toolchain
+        name: Run Steamworks Lab toolchain regression tests
+        entry: python tools/test_steamworks_lab_toolchain.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: docs-health-check
         name: Run docs health check
         entry: python tools/docs_health_check.py

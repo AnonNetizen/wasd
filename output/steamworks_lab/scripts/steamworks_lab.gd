@@ -98,6 +98,7 @@ var _buff_panel: Control
 var _pause_panel: Control
 var _settings: RefCounted
 var _save: RefCounted
+var _settings_config_path: String = LAB_SETTINGS_SCRIPT.CONFIG_PATH
 var _save_config_path: String = LAB_SAVE_SCRIPT.CONFIG_PATH
 var _ui_transition_tween: Tween
 var _ui_motion_tweens: Dictionary = {}
@@ -744,7 +745,7 @@ func _disable_couch_mode() -> void:
 
 
 func _load_lab_settings() -> void:
-	_settings = LAB_SETTINGS_SCRIPT.new()
+	_settings = LAB_SETTINGS_SCRIPT.new(_settings_config_path)
 	var steam_language := ""
 	if _session != null and _session.has_method("steam_game_language"):
 		steam_language = String(_session.call("steam_game_language"))

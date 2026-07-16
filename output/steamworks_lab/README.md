@@ -1,6 +1,6 @@
 # Steamworks Slime Lab —— 雷电式竖版卷轴射击
 
-> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是独立 Steamworks Slime Lab 的运行、Steam App ID、联机测试与发布边界权威；改 App ID、GodotSteam adapter、Lobby 协议、导出方式或手动 smoke 时，必须同步本项目配置 / 测试、`docs/AI导航.md`、`docs/测试策略.md`、ADR 与 AI 记忆。
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是独立 Steamworks Slime Lab 的运行、Steam App ID、联机测试与发布边界权威；改 App ID、GodotSteam adapter、Lobby 协议、导出方式或自动 smoke 时，必须同步本项目配置 / 测试、`docs/AI导航.md`、`docs/测试策略.md`、ADR 与 AI 记忆。
 
 独立 Godot 4.7 Steam 应用项目（固定 540×960 设计画布，窗口可选 540×960 / 720×1280 / 1080×1920），使用专属 Steam App ID **`4955670`**，验证 Steamworks / GodotSteam 联机链路并承载一个可联机的雷电式竖版卷轴射击玩法。它是仓库内长期维护的独立应用，仍不属于正式 `client/`，也不依赖正式项目的 `PlatformServices` / 词表 / autoload 体系。
 
@@ -65,31 +65,27 @@ py -3 tools\steamworks_lab_toolchain.py export-release
 ```
 
 ```powershell
-py -3 tools\godot_bridge.py --project output\steamworks_lab headless-boot
+py -3 tools\steamworks_lab_toolchain.py smoke --suite boot
 ```
 
 也可以用 Godot 4.7 打开 `output/steamworks_lab/project.godot`。默认主场景是 `res://scenes/main.tscn`。
 
-headless 战斗回归（刷怪 / 受击 / 无敌帧 / GameOver / 最长存活时间存档 / 重开 / buff 时停 / boss / 障碍物 / 主动道具）：
+完整 headless 回归统一使用仓库权威 runner；默认按 boot → Steam 配置 → 本地同屏 → battle 五轮 → ENet 顺序 fail-fast：
 
 ```powershell
-$godot = $env:GODOT_PATH
-& $godot --headless --max-fps 60 --path output\steamworks_lab --script res://tests/battle_smoke.gd -- --disable-steam
+py -3 tools\steamworks_lab_toolchain.py smoke --suite all
 ```
 
-Steam 配置与离线降级 smoke（不要求安装 GodotSteam）：
+修改期间先跑直接触及的目标 suite；battle 可显式覆盖轮数：
 
 ```powershell
-$godot = $env:GODOT_PATH
-& $godot --headless --path output\steamworks_lab --script res://tests/steam_config_smoke.gd -- --disable-steam
+py -3 tools\steamworks_lab_toolchain.py smoke --suite steam-config
+py -3 tools\steamworks_lab_toolchain.py smoke --suite local-couch
+py -3 tools\steamworks_lab_toolchain.py smoke --suite battle --battle-runs 1
+py -3 tools\steamworks_lab_toolchain.py smoke --suite enet
 ```
 
-本地同屏输入 / 战斗 smoke（模拟手柄，不要求真实设备）：
-
-```powershell
-$godot = $env:GODOT_PATH
-& $godot --headless --path output\steamworks_lab --script res://tests/local_couch_smoke.gd -- --disable-steam
-```
+runner 自动解析 Godot 4.7，Windows 优先同目录 console 可执行文件；每个进程使用独立临时 `APPDATA` / `LOCALAPPDATA` / `HOME` / XDG 环境。GDScript smoke 必须同时满足退出码 `0`、精确 `ALL PASS` 标志且日志无 `SCRIPT ERROR` / `ERROR:`；ENet 还拒绝 MTU 警告。运行前后会逐字节保护玩家真实 `user://settings.cfg`、`user://save.cfg` 与源码 `steam_appid.txt`，测试不得备份、删除或迁移这些文件。
 
 ## 本地同屏测试清单
 
@@ -107,24 +103,20 @@ $godot = $env:GODOT_PATH
 
 玩家 UI 不再提供地址、端口、Host Local 或 Join Local。ENet 双进程入口仅保留给网络协议自动回归，用于确认 Steam RPC / 快照改造未被同屏模式破坏；host smoke 同时校验快照 wire 统计的最大 payload 不超过 900 字节。它不是本地游玩的前置条件。
 
-headless 自动化版（host 与 client 需要不同项目目录副本，见下方故障提示）：
+headless 自动化只通过权威 runner 启动：
 
 ```powershell
-# 终端 1
-$godot = $env:GODOT_PATH
-& $godot --headless --max-fps 60 --path output\steamworks_lab --script res://tests/net_host_smoke.gd -- --disable-steam
-# 终端 2（项目副本目录）
-$godot = $env:GODOT_PATH
-$projectCopy = 'C:\path\to\steamworks_lab-copy'
-& $godot --headless --max-fps 60 --path $projectCopy --script res://tests/net_client_smoke.gd -- --disable-steam
+py -3 tools\steamworks_lab_toolchain.py smoke --suite enet
 ```
+
+runner 使用动态空闲端口，等待 host 输出精确 `READY` 后再启动 client，并为 client 创建不含 `addons`、`build`、`.godot` 的轻量临时项目副本；超时、终止、日志清理和失败摘录均由 runner 统一负责，不再维护手写双进程 PowerShell 命令。
 
 ## Steam App ID 与测试
 
 GodotSteam / Steamworks 二进制不提交进仓库。当前固定使用 GodotSteam 4.20 官方 GDExtension；4.20 已把 `SteamMultiplayerPeer` 合并进主仓库的 `gdextension` 分支，因此普通 Godot 4.7 加插件即可同时提供 `Steam` singleton、`SteamPacketPeer` 与 `SteamMultiplayerPeer`，不再依赖退役的独立 Peer 仓库或 GodotSteam module editor/templates。
 
 1. 在仓库根运行 `py -3 tools/steamworks_lab_toolchain.py setup`，在系统临时目录下载并校验锁定的 Win64 GDExtension、安装到忽略的 `addons/godotsteam/`，并清理旧 `.toolchain`；工具直接使用 `--godot` / `GODOT_PATH` 指向的无 DLL 冲突普通 Godot 4.7，不复制 editor 或 templates。再运行 `verify`，确认插件实际加载、GodotSteam 4.20、`Steam` singleton 与 `SteamMultiplayerPeer.host_with_lobby/connect_to_lobby/add_peer`。
-2. 本地编辑器 / 直接运行测试保留项目根的 `steam_appid.txt`，内容必须只有 `4955670`；`project.godot` 的 `steam/initialization/app_data/app_id` 是 GodotSteam 4.20 与发布重启策略的配置源。插件自动初始化与 embedded callbacks 保持关闭，由 `TransportAdapter` 显式调用 `steamInitEx(4955670, false)` 并在 `_process()` 运行 callbacks。
+2. 本地编辑器 / 自动测试永久保留项目根的 `steam_appid.txt`，内容必须只有 `4955670`；pre-commit 和权威 runner 都会拒绝缺失、内容错误或测试期间被修改。只有发布导出包排除该文件。`project.godot` 的 `steam/initialization/app_data/app_id` 是 GodotSteam 4.20 与发布重启策略的配置源。插件自动初始化与 embedded callbacks 保持关闭，由 `TransportAdapter` 显式调用 `steamInitEx(4955670, false)` 并在 `_process()` 运行 callbacks。
 3. 启动 Steam 客户端并登录。
 4. 运行本项目，点 `开始联机游戏`。若 GodotSteam 可用，Steam 状态会显示可用；否则 Steam 按钮会记录缺失原因，本地同屏仍可用。
 5. A 点 `Invite Friend / 邀请好友` 会自动创建 Steam lobby 并打开 Steam 好友邀请 overlay；也可以点 `Host Steam` 后把显示的 lobby id 发给 B，由 B 输入该 id 点 `Join Steam by ID`。
@@ -167,7 +159,7 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=2
 - `scripts/network_session.gd`：统一 host / join / leave / RPC 同步入口；快照 wire 层负责 FastLZ 压缩、900 字节分片、最新完整序列重组、异常元数据拒绝和只读统计。
 - `scripts/transport_adapter.gd`：本地 ENet 与可选 GodotSteam adapter。
 - `steam_toolchain.lock.json` / `export_presets.cfg` / `THIRD_PARTY_NOTICES.txt`：GodotSteam 4.20 / Godot 4.7 / Steamworks 1.64 Win64 依赖锁、Windows Steam release preset 与随包第三方许可声明。
-- `tools/steamworks_lab_toolchain.py`：仓库根统一 setup / verify / export-release 工具；插件下载只存在于系统临时目录，GDExtension 与构建产物不入库，editor 直接走 `--godot` / `GODOT_PATH`，标准 Windows templates 走 Godot 用户目录。
+- `tools/steamworks_lab_toolchain.py`：仓库根统一 setup / verify / export-release / smoke 工具；smoke 负责 Godot 解析、独立 `user://` 环境、精确成功协议、动态 ENet 端口、轻量 client 副本、超时终止和受保护文件校验。
 - `tests/battle_smoke.gd`：单机战斗 headless 回归，包含动态 viewport 世界矩形、单人 / 多人纪录迁移、独立落盘 / 回滚 / 重载、双行 UI 和快照 codec roundtrip。
 - `tests/local_couch_smoke.gd`：模拟 1–3 个手柄的单进程同屏输入、战斗、UI、强化、断线重绑和多人纪录归类回归。
 - `tests/steam_config_smoke.gd`：App ID、初始化返回值、Lobby 兼容和显式离线降级 headless 回归。
@@ -189,4 +181,4 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=2
 - 战斗中手柄断开后不能继续：先接入任一未占用手柄补齐所有缺失槽位；面板转为普通暂停后仍需玩家手动按继续，避免重连瞬间自动恢复战斗。
 - 两端冻结后一直不恢复：看是否有玩家停在三选一没选（联机下 20 秒会自动选）；若有人中途掉线，host 会自动剔除其待选状态并恢复。
 - 日志再次出现 `above the MTU`：确认两端都是 `lab_version=2` 代码且没有旧进程残留；内部 ENet host smoke 应输出非空 `snapshot wire chunks` 统计并保证 `max_chunk_size <= 900`。
-- Windows 下两个 **headless** Godot 实例共用同一项目目录时，后启动的实例可能因 `.godot` 缓存锁报 `File not found`：headless 联机回归请给 client 用一份项目目录副本（图形模式双开同一项目不受影响）。
+- Windows 下 ENet smoke 报项目缓存锁或端口占用：不要自行双开 headless Godot；运行 `py -3 tools\steamworks_lab_toolchain.py smoke --suite enet`，runner 会创建轻量 client 副本并分配动态 UDP 端口。

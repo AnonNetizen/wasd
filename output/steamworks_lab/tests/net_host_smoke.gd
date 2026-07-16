@@ -1,11 +1,14 @@
 extends SceneTree
 
 # 联机 host 端 headless smoke（与 net_client_smoke.gd 配对使用）：
-#   godot --headless --path output/steamworks_lab --script res://tests/net_host_smoke.gd
+#   py -3 tools/steamworks_lab_toolchain.py smoke --suite enet
 
 const TEST_PORT: int = 24568
-const READY_WAIT_SECONDS: int = 3
+const CLIENT_JOIN_TIMEOUT_SECONDS: float = 15.0
+const READY_ROOM_OBSERVE_SECONDS: float = 2.0
 const BATTLE_WAIT_SECONDS: int = 10
+const SETTINGS_PATH: String = "user://net_host_smoke_settings.cfg"
+const SAVE_PATH: String = "user://net_host_smoke_save.cfg"
 
 
 func _init() -> void:
@@ -21,15 +24,29 @@ func _wait_seconds(seconds: float) -> void:
 func _run() -> void:
 	var main_packed := load("res://scenes/main.tscn") as PackedScene
 	var main_scene := main_packed.instantiate()
+	main_scene.set("_settings_config_path", SETTINGS_PATH)
+	main_scene.set("_save_config_path", SAVE_PATH)
 	root.add_child(main_scene)
 	await process_frame
 	var session: Node = main_scene.get("_session")
-	session.call("host_local", TEST_PORT)
+	var test_port := _test_port()
+	session.call("host_local", test_port)
+	if not bool(session.call("is_host")) or String(session.call("active_transport")) != "local":
+		print("[net-host-smoke] FAIL could not listen on port %d" % test_port)
+		print("[net-host-smoke] 1 FAILURES")
+		quit(1)
+		return
+	print("[net-host-smoke] READY port=%d" % test_port)
 	var max_players := 0
-	for second in range(READY_WAIT_SECONDS):
-		await _wait_seconds(1.0)
+	var join_checks := ceili(CLIENT_JOIN_TIMEOUT_SECONDS * 10.0)
+	for _check_index in range(join_checks):
+		await _wait_seconds(0.1)
 		var ready_players: Dictionary = main_scene.call("player_nodes")
 		max_players = maxi(max_players, ready_players.size())
+		if max_players >= 2:
+			break
+	if max_players >= 2:
+		await _wait_seconds(READY_ROOM_OBSERVE_SECONDS)
 
 	var failures := 0
 	if main_scene.get("_director") == null:
@@ -74,3 +91,16 @@ func _run() -> void:
 		failures += 1
 	print("[net-host-smoke] %s" % ("ALL PASS" if failures == 0 else "%d FAILURES" % failures))
 	quit(1 if failures > 0 else 0)
+
+
+func _test_port() -> int:
+	var args := OS.get_cmdline_user_args()
+	for index in range(args.size() - 1):
+		if args[index] != "--net-smoke-port":
+			continue
+		var raw_port := String(args[index + 1])
+		if raw_port.is_valid_int():
+			var parsed_port := int(raw_port)
+			if parsed_port >= 1024 and parsed_port <= 65_535:
+				return parsed_port
+	return TEST_PORT

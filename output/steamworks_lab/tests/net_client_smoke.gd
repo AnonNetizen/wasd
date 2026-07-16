@@ -1,12 +1,14 @@
 extends SceneTree
 
 # 联机 client 端 headless smoke（先启动 net_host_smoke.gd）：
-#   godot --headless --path output/steamworks_lab --script res://tests/net_client_smoke.gd
+#   py -3 tools/steamworks_lab_toolchain.py smoke --suite enet
 
 const TEST_PORT: int = 24568
 const JOIN_DELAY_SECONDS: float = 0.5
 const READY_CHECK_SECONDS: float = 1.0
-const SYNC_WAIT_SECONDS: float = 9.5
+const SYNC_WAIT_SECONDS: float = 8.0
+const SETTINGS_PATH: String = "user://net_client_smoke_settings.cfg"
+const SAVE_PATH: String = "user://net_client_smoke_save.cfg"
 
 
 func _init() -> void:
@@ -22,11 +24,13 @@ func _wait_seconds(seconds: float) -> void:
 func _run() -> void:
 	var main_packed := load("res://scenes/main.tscn") as PackedScene
 	var main_scene := main_packed.instantiate()
+	main_scene.set("_settings_config_path", SETTINGS_PATH)
+	main_scene.set("_save_config_path", SAVE_PATH)
 	root.add_child(main_scene)
 	await process_frame
 	await _wait_seconds(JOIN_DELAY_SECONDS)
 	var session: Node = main_scene.get("_session")
-	session.call("join_local", "127.0.0.1", TEST_PORT)
+	session.call("join_local", "127.0.0.1", _test_port())
 	await _wait_seconds(READY_CHECK_SECONDS)
 
 	var failures := 0
@@ -76,3 +80,16 @@ func _run() -> void:
 			failures += 1
 	print("[net-client-smoke] %s" % ("ALL PASS" if failures == 0 else "%d FAILURES" % failures))
 	quit(1 if failures > 0 else 0)
+
+
+func _test_port() -> int:
+	var args := OS.get_cmdline_user_args()
+	for index in range(args.size() - 1):
+		if args[index] != "--net-smoke-port":
+			continue
+		var raw_port := String(args[index + 1])
+		if raw_port.is_valid_int():
+			var parsed_port := int(raw_port)
+			if parsed_port >= 1024 and parsed_port <= 65_535:
+				return parsed_port
+	return TEST_PORT
