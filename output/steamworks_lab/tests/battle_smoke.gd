@@ -64,6 +64,8 @@ func _run() -> void:
 	await _check_steam_client_record_chain(main_packed)
 	await _check_customize_ui(main_scene)
 	await _check_steam_invite_ui(main_scene)
+	await _check_ai_movement_context(main_packed)
+	await _check_ai_movement_decisions()
 	await _check_single_ai_ultimate(main_packed)
 
 	main_scene.call("_begin_single_player")
@@ -1487,13 +1489,13 @@ func _check_single_ai_ultimate(main_packed: PackedScene) -> void:
 	)
 
 	var leader_position: Vector2 = player.call("body_center")
-	var expected_follow_position := leader_position + AI_TEAMMATE_SCRIPT.FOLLOW_OFFSET
 	teammate.call("warp_to", world_rect.position + Vector2(30.0, 30.0))
 	var ai_bullets_before := _count_bullets_owned_by(main_scene, MAIN_SCRIPT.SINGLE_AI_PEER_ID)
 	main_scene.call("_update_gameplay", 0.01)
 	_check(
-		(teammate.call("body_center") as Vector2).distance_to(expected_follow_position) < 1.0,
-		"AI safely catches up to its follow offset beyond the teleport threshold"
+		(teammate.call("body_center") as Vector2).distance_to(leader_position)
+		<= AI_TEAMMATE_SCRIPT.RECALL_RADIUS + 1.0,
+		"AI safely resets near P1 after exceeding the 220-pixel catch-up radius"
 	)
 	var ai_bullets_after := _count_bullets_owned_by(main_scene, MAIN_SCRIPT.SINGLE_AI_PEER_ID)
 	var ai_bullet := _last_bullet_owned_by(main_scene, MAIN_SCRIPT.SINGLE_AI_PEER_ID)
@@ -1522,20 +1524,22 @@ func _check_single_ai_ultimate(main_packed: PackedScene) -> void:
 	main_scene.call("_open_pause_menu")
 	main_scene.call("_update_gameplay", 1.0)
 	_check(
-		is_equal_approx(float(teammate.call("remaining_seconds")), remaining_before_pause),
-		"pause freezes the AI ultimate lifetime"
+		is_equal_approx(float(teammate.call("remaining_seconds")), remaining_before_pause)
+		and (teammate.get("_input_vector") as Vector2) == Vector2.ZERO,
+		"pause freezes the AI ultimate lifetime and movement input"
 	)
 	main_scene.call("_close_pause_menu")
 	director.set("phase", BATTLE_DIRECTOR_SCRIPT.Phase.CHOOSING_BUFF)
 	var remaining_before_choice := float(teammate.call("remaining_seconds"))
 	main_scene.call("_update_gameplay", 1.0)
 	_check(
-		is_equal_approx(float(teammate.call("remaining_seconds")), remaining_before_choice),
-		"buff selection freezes the AI ultimate lifetime"
+		is_equal_approx(float(teammate.call("remaining_seconds")), remaining_before_choice)
+		and (teammate.get("_input_vector") as Vector2) == Vector2.ZERO,
+		"buff selection freezes the AI ultimate lifetime and movement input"
 	)
 	director.set("phase", BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE)
 
-	teammate.call("warp_to", player.call("body_center") + Vector2(24.0, 0.0))
+	teammate.call("warp_to", player.call("body_center") + Vector2(0.0, -160.0))
 	main_scene.call("_set_local_merge_intent", true, 1)
 	var merge_intents: Dictionary = main_scene.get("_peer_merge_intents")
 	_check(
@@ -1543,11 +1547,29 @@ func _check_single_ai_ultimate(main_packed: PackedScene) -> void:
 		and bool(merge_intents.get(MAIN_SCRIPT.SINGLE_AI_PEER_ID, false)),
 		"P1 merge intent automatically receives AI consent"
 	)
+	main_scene.call("_update_gameplay", 0.10)
+	var recall_state: Dictionary = teammate.call("movement_decision_state")
+	_check(
+		int(recall_state.get("movement_mode", -1)) == AI_TEAMMATE_SCRIPT.MovementMode.RECALL,
+		"holding E while separated sends the AI into recall mode"
+	)
+	main_scene.call("_update_merges_authority", MAIN_SCRIPT.MERGE_HOLD_DURATION * 0.5)
+	_check(
+		(main_scene.get("_merge_hold_progress") as Dictionary).is_empty()
+		and (main_scene.get("_active_merges") as Dictionary).is_empty(),
+		"merge hold time does not accumulate before the AI enters the 92-pixel radius"
+	)
+	teammate.call("warp_to", player.call("body_center") + Vector2(80.0, 0.0))
 	_check(
 		bool(main_scene.call("_can_merge_pair", 1, MAIN_SCRIPT.SINGLE_AI_PEER_ID)),
-		"P1 and AI are within the authoritative merge distance"
+		"recalled AI becomes merge-eligible inside the authoritative 92-pixel radius"
 	)
-	main_scene.call("_update_merges_authority", MAIN_SCRIPT.MERGE_HOLD_DURATION + 0.01)
+	main_scene.call("_update_merges_authority", MAIN_SCRIPT.MERGE_HOLD_DURATION * 0.5)
+	_check(
+		(main_scene.get("_active_merges") as Dictionary).is_empty(),
+		"arriving in range still requires the full 0.8-second merge hold"
+	)
+	main_scene.call("_update_merges_authority", MAIN_SCRIPT.MERGE_HOLD_DURATION * 0.5 + 0.01)
 	var active_merges: Dictionary = main_scene.get("_active_merges")
 	var merge_id := int(active_merges.keys()[0]) if not active_merges.is_empty() else 0
 	var merge: Dictionary = active_merges.get(merge_id, {})
@@ -1637,6 +1659,483 @@ func _check_single_ai_ultimate(main_packed: PackedScene) -> void:
 	)
 
 	main_scene.queue_free()
+	await process_frame
+
+
+func _check_ai_movement_context(main_packed: PackedScene) -> void:
+	var main_scene := main_packed.instantiate() as Node2D
+	_configure_test_paths(main_scene)
+	root.add_child(main_scene)
+	await process_frame
+	main_scene.set_physics_process(false)
+	main_scene.call("_begin_single_player")
+	await process_frame
+
+	var director := main_scene.get("_director") as Node2D
+	_check(director != null, "AI movement context fixture starts an authoritative battle")
+	if director == null:
+		main_scene.queue_free()
+		await process_frame
+		return
+
+	var world_rect: Rect2 = main_scene.call("current_world_rect")
+	var origin := world_rect.get_center()
+	director.call("clear_entities")
+	await process_frame
+	director.call(
+		"_spawn_enemy_volley",
+		origin + Vector2(0.0, -120.0),
+		PackedVector2Array([Vector2(0.6, 0.8)]),
+		320.0
+	)
+	director.call(
+		"_spawn_enemy_volley",
+		origin + Vector2(0.0, -300.0),
+		PackedVector2Array([Vector2.DOWN]),
+		180.0
+	)
+	director.call(
+		"_spawn_enemy_volley",
+		origin + Vector2(80.0, -80.0),
+		PackedVector2Array([Vector2.DOWN]),
+		240.0
+	)
+	var spawned_bullets: Array = director.get("_enemy_bullets")
+	var moving_bullet := spawned_bullets[0] as Node2D if spawned_bullets.size() > 0 else null
+	var expired_bullet := spawned_bullets[2] as Node2D if spawned_bullets.size() > 2 else null
+	if expired_bullet != null:
+		expired_bullet.set("_age", ENEMY_BULLET_SCRIPT.LIFETIME)
+	_check(
+		moving_bullet != null
+		and (moving_bullet.call("motion_velocity") as Vector2).distance_to(Vector2(192.0, 256.0)) < 0.01,
+		"enemy bullet exposes its configured motion velocity"
+	)
+	var context: Dictionary = director.call("ai_movement_context", origin, 180.0)
+	var bullet_rows: Array = context.get("bullets", [])
+	var queried_velocity: Vector2 = (
+		(bullet_rows[0] as Dictionary).get("velocity", Vector2.ZERO)
+		if bullet_rows.size() == 1 and bullet_rows[0] is Dictionary
+		else Vector2.ZERO
+	)
+	_check(
+		bullet_rows.size() == 1 and queried_velocity.distance_to(Vector2(192.0, 256.0)) < 0.01,
+		"AI threat query keeps live bullets inside its radius with exact velocity"
+	)
+	director.call("_set_enemy_bullets_frozen", true)
+	context = director.call("ai_movement_context", origin, 180.0)
+	bullet_rows = context.get("bullets", [])
+	queried_velocity = (
+		(bullet_rows[0] as Dictionary).get("velocity", Vector2.ONE)
+		if bullet_rows.size() == 1 and bullet_rows[0] is Dictionary
+		else Vector2.ONE
+	)
+	_check(
+		bullet_rows.size() == 1 and queried_velocity == Vector2.ZERO,
+		"AI threat query reports frozen bullets as stationary"
+	)
+	director.call("_set_enemy_bullets_frozen", false)
+
+	director.call("clear_entities")
+	await process_frame
+	director.call("_spawn_enemy_at", 0, origin + Vector2(60.0, 0.0))
+	director.call("_spawn_enemy_at", 0, origin + Vector2(0.0, -340.0))
+	director.call("_spawn_boss")
+	var boss := director.get("_boss") as Node2D
+	if boss != null:
+		boss.global_position = origin + Vector2(0.0, -90.0)
+	director.call("_spawn_obstacle")
+	var obstacles: Dictionary = director.get("_obstacles")
+	var obstacle_id := int(obstacles.keys().back()) if not obstacles.is_empty() else 0
+	var obstacle := obstacles.get(obstacle_id) as Node2D
+	if obstacle != null:
+		obstacle.global_position = origin + Vector2(-90.0, 0.0)
+	context = director.call("ai_movement_context", origin, 180.0)
+	var blocker_rows: Array = context.get("blockers", [])
+	var blocker_kinds: Dictionary = {}
+	for raw_row in blocker_rows:
+		if raw_row is Dictionary:
+			var row := raw_row as Dictionary
+			var kind := int(row.get("kind", -1))
+			blocker_kinds[kind] = int(blocker_kinds.get(kind, 0)) + 1
+	_check(
+		blocker_rows.size() == 3
+		and int(blocker_kinds.get(BATTLE_DIRECTOR_SCRIPT.AiBlockerKind.ENEMY, 0)) == 1
+		and int(blocker_kinds.get(BATTLE_DIRECTOR_SCRIPT.AiBlockerKind.BOSS, 0)) == 1
+		and int(blocker_kinds.get(BATTLE_DIRECTOR_SCRIPT.AiBlockerKind.OBSTACLE, 0)) == 1,
+		"AI movement context includes nearby enemy, Boss, and rock but filters distant blockers"
+	)
+
+	main_scene.queue_free()
+	await process_frame
+
+
+func _check_ai_movement_decisions() -> void:
+	var teammate := AI_TEAMMATE_SCRIPT.new() as Node2D
+	root.add_child(teammate)
+	await process_frame
+	teammate.call("set_local_or_host_simulated", true)
+	var world_rect := Rect2(0.0, 0.0, 540.0, 960.0)
+	teammate.call("set_movement_bounds", world_rect)
+	teammate.call("configure_movement_speeds", BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED)
+
+	var ai_origin := Vector2(270.0, 500.0)
+	var leader_position := Vector2(270.0, 640.0)
+	var target_position := Vector2(270.0, 160.0)
+	var empty_context := {"bullets": [], "blockers": []}
+	var frontal_context := {
+		"bullets": [{
+			"position": ai_origin + Vector2(0.0, -120.0),
+			"velocity": Vector2(0.0, 320.0),
+			"radius": ENEMY_BULLET_SCRIPT.HIT_RADIUS,
+		}],
+		"blockers": [],
+	}
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", ai_origin)
+	var stationary_risk: Dictionary = teammate.call(
+		"_projected_bullet_score",
+		ai_origin,
+		Vector2.ZERO,
+		frontal_context
+	)
+	teammate.call(
+		"advance_ai",
+		0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		frontal_context,
+		world_rect,
+		false,
+		false
+	)
+	var decision: Dictionary = teammate.call("movement_decision_state")
+	var dodge_direction: Vector2 = decision.get("desired_move", Vector2.ZERO)
+	_check(
+		int(decision.get("movement_mode", -1)) == AI_TEAMMATE_SCRIPT.MovementMode.DODGE
+		and absf(dodge_direction.x) > 0.5,
+		"frontal incoming fire triggers a lateral dodge"
+	)
+	_check(
+		float(decision.get("min_projected_clearance", -INF))
+		> float(stationary_risk.get("min_clearance", INF)) + 1.0,
+		"chosen dodge improves projected bullet clearance over standing still"
+	)
+	var locked_direction := dodge_direction
+	var lock_before := float(decision.get("dodge_lock_remaining", 0.0))
+	teammate.call(
+		"advance_ai",
+		0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		frontal_context,
+		world_rect,
+		false,
+		false
+	)
+	decision = teammate.call("movement_decision_state")
+	_check(
+		(decision.get("desired_move", Vector2.ZERO) as Vector2).distance_to(locked_direction) < 0.001
+		and float(decision.get("dodge_lock_remaining", 0.0)) > 0.0
+		and float(decision.get("dodge_lock_remaining", 0.0)) < lock_before,
+		"dodge direction stays locked briefly instead of oscillating every decision tick"
+	)
+
+	var miss_context := {
+		"bullets": [{
+			"position": ai_origin + Vector2(100.0, -120.0),
+			"velocity": Vector2(0.0, 320.0),
+			"radius": ENEMY_BULLET_SCRIPT.HIT_RADIUS,
+		}],
+		"blockers": [],
+	}
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", ai_origin)
+	teammate.call(
+		"advance_ai",
+		0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		miss_context,
+		world_rect,
+		false,
+		false
+	)
+	decision = teammate.call("movement_decision_state")
+	_check(
+		int(decision.get("movement_mode", -1)) == AI_TEAMMATE_SCRIPT.MovementMode.TACTICAL,
+		"nearby bullet whose trajectory cannot collide does not trigger a dodge"
+	)
+
+	var multi_bullet_context := {
+		"bullets": [
+			{
+				"position": ai_origin + Vector2(0.0, -120.0),
+				"velocity": Vector2(0.0, 320.0),
+				"radius": ENEMY_BULLET_SCRIPT.HIT_RADIUS,
+			},
+			{
+				"position": ai_origin + Vector2(120.0, 0.0),
+				"velocity": Vector2(-320.0, 0.0),
+				"radius": ENEMY_BULLET_SCRIPT.HIT_RADIUS,
+			},
+		],
+		"blockers": [],
+	}
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", ai_origin)
+	stationary_risk = teammate.call(
+		"_projected_bullet_score",
+		ai_origin,
+		Vector2.ZERO,
+		multi_bullet_context
+	)
+	teammate.call(
+		"advance_ai",
+		0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		multi_bullet_context,
+		world_rect,
+		false,
+		false
+	)
+	decision = teammate.call("movement_decision_state")
+	_check(
+		int(decision.get("movement_mode", -1)) == AI_TEAMMATE_SCRIPT.MovementMode.DODGE
+		and float(decision.get("min_projected_clearance", -INF))
+		> float(stationary_risk.get("min_clearance", INF)) + 1.0,
+		"dodge candidate scoring improves clearance against multiple simultaneous bullets"
+	)
+	var saturated_bullets: Array[Dictionary] = []
+	for _index in range(BATTLE_DIRECTOR_SCRIPT.MAX_ALIVE_ENEMY_BULLETS):
+		saturated_bullets.append({
+			"position": ai_origin + Vector2(0.0, -120.0),
+			"velocity": Vector2(0.0, 320.0),
+			"radius": ENEMY_BULLET_SCRIPT.HIT_RADIUS,
+		})
+	var saturated_context := {"bullets": saturated_bullets, "blockers": []}
+	var legal_score := float((teammate.call(
+		"_projected_bullet_score",
+		ai_origin,
+		Vector2.ZERO,
+		saturated_context
+	) as Dictionary).get("score", 0.0))
+	var outside_score := float(teammate.call(
+		"_static_position_score",
+		Vector2(world_rect.position.x - 1.0, ai_origin.y),
+		leader_position,
+		empty_context,
+		world_rect
+	))
+	var hard_blocker_score := float(teammate.call(
+		"_static_position_score",
+		ai_origin,
+		leader_position,
+		{
+			"bullets": [],
+			"blockers": [{"position": ai_origin, "radius": 36.0}],
+		},
+		world_rect
+	))
+	_check(
+		outside_score < legal_score and hard_blocker_score < legal_score,
+		"world and blocker hard constraints dominate even the maximum bullet-risk score"
+	)
+
+	for blocker_kind in [
+		BATTLE_DIRECTOR_SCRIPT.AiBlockerKind.ENEMY,
+		BATTLE_DIRECTOR_SCRIPT.AiBlockerKind.BOSS,
+		BATTLE_DIRECTOR_SCRIPT.AiBlockerKind.OBSTACLE,
+	]:
+		teammate.call("begin", 10.0)
+		teammate.call("warp_to", ai_origin)
+		var blocker_context := {
+			"bullets": [],
+			"blockers": [{
+				"position": leader_position + Vector2(
+					AI_TEAMMATE_SCRIPT.TACTICAL_FLANK_OFFSET,
+					AI_TEAMMATE_SCRIPT.TACTICAL_BACK_OFFSET
+				),
+				"radius": 36.0,
+				"kind": blocker_kind,
+			}],
+		}
+		teammate.call(
+			"advance_ai",
+			0.09,
+			leader_position,
+			Vector2.ZERO,
+			target_position,
+			blocker_context,
+			world_rect,
+			false,
+			false
+		)
+		decision = teammate.call("movement_decision_state")
+		var anchor: Vector2 = decision.get("tactical_anchor", Vector2.ZERO)
+		_check(
+			anchor.x < leader_position.x,
+			"tactical flank switches away from blocker kind %d" % blocker_kind
+		)
+
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", ai_origin)
+	teammate.call(
+		"advance_ai",
+		0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		empty_context,
+		world_rect,
+		false,
+		false
+	)
+	decision = teammate.call("movement_decision_state")
+	var tactical_anchor: Vector2 = decision.get("tactical_anchor", Vector2.ZERO)
+	_check(
+		absf(absf(tactical_anchor.x - leader_position.x) - AI_TEAMMATE_SCRIPT.TACTICAL_FLANK_OFFSET) < 0.1
+		and absf((tactical_anchor.y - leader_position.y) - AI_TEAMMATE_SCRIPT.TACTICAL_BACK_OFFSET) < 0.1,
+		"tactical movement uses the configured rear-flank anchor"
+	)
+
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", leader_position + Vector2(AI_TEAMMATE_SCRIPT.MAX_ROAM_DISTANCE - 1.0, 0.0))
+	teammate.call(
+		"advance_ai",
+		0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		empty_context,
+		world_rect,
+		false,
+		false
+	)
+	decision = teammate.call("movement_decision_state")
+	_check(
+		(decision.get("desired_move", Vector2.ZERO) as Vector2).dot(Vector2.RIGHT) < 0.0,
+		"AI at the 210-pixel roam limit chooses movement back toward formation"
+	)
+
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", leader_position + Vector2(AI_TEAMMATE_SCRIPT.CATCH_UP_DISTANCE + 1.0, 0.0))
+	teammate.call(
+		"advance_ai",
+		0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		empty_context,
+		world_rect,
+		false,
+		false
+	)
+	_check(
+		(teammate.call("body_center") as Vector2).distance_to(leader_position)
+		<= AI_TEAMMATE_SCRIPT.RECALL_RADIUS + 1.0,
+		"AI beyond the 220-pixel catch-up radius safely resets near the leader"
+	)
+
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", Vector2(world_rect.position.x + 30.0, ai_origin.y))
+	teammate.call(
+		"advance_ai",
+		0.09,
+		Vector2(70.0, leader_position.y),
+		Vector2.ZERO,
+		Vector2(70.0, target_position.y),
+		empty_context,
+		world_rect,
+		false,
+		false
+	)
+	decision = teammate.call("movement_decision_state")
+	_check(
+		(decision.get("tactical_anchor", Vector2.ZERO) as Vector2).x
+		>= world_rect.position.x + AI_TEAMMATE_SCRIPT.WORLD_MARGIN
+		and (decision.get("desired_move", Vector2.ZERO) as Vector2).x >= 0.0,
+		"tactical candidate avoids steering through the world boundary"
+	)
+
+	var recall_blocker_position := leader_position + Vector2.DOWN * AI_TEAMMATE_SCRIPT.RECALL_RADIUS
+	var recall_context := {
+		"bullets": [],
+		"blockers": [{
+			"position": recall_blocker_position,
+			"radius": 40.0,
+			"kind": BATTLE_DIRECTOR_SCRIPT.AiBlockerKind.OBSTACLE,
+		}],
+	}
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", leader_position + Vector2(0.0, -180.0))
+	teammate.call(
+		"advance_ai",
+		0.10,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		recall_context,
+		world_rect,
+		false,
+		true
+	)
+	decision = teammate.call("movement_decision_state")
+	_check(
+		int(decision.get("movement_mode", -1)) == AI_TEAMMATE_SCRIPT.MovementMode.RECALL
+		and is_equal_approx(float(decision.get("recall_elapsed", 0.0)), 0.10)
+		and not bool(decision.get("recall_warped", true)),
+		"far merge request starts recall without teleporting immediately"
+	)
+	teammate.call(
+		"advance_ai",
+		AI_TEAMMATE_SCRIPT.RECALL_FALLBACK_TIME - 0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		recall_context,
+		world_rect,
+		false,
+		true
+	)
+	decision = teammate.call("movement_decision_state")
+	var recalled_position: Vector2 = teammate.call("body_center")
+	_check(
+		bool(decision.get("recall_warped", false))
+		and recalled_position.distance_to(leader_position) <= AI_TEAMMATE_SCRIPT.RECALL_RADIUS + 1.0
+		and recalled_position.distance_to(recall_blocker_position) - 40.0
+		>= AI_TEAMMATE_SCRIPT.BODY_CLEARANCE,
+		"recall blocked for 0.85 seconds safely resets to an unblocked merge position"
+	)
+
+	var remaining_before_merge := float(teammate.call("remaining_seconds"))
+	teammate.call(
+		"advance_ai",
+		0.25,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		empty_context,
+		world_rect,
+		true,
+		false
+	)
+	decision = teammate.call("movement_decision_state")
+	_check(
+		int(decision.get("movement_mode", -1)) == AI_TEAMMATE_SCRIPT.MovementMode.MERGED
+		and (decision.get("desired_move", Vector2.ONE) as Vector2) == Vector2.ZERO
+		and is_equal_approx(
+			float(teammate.call("remaining_seconds")),
+			remaining_before_merge - 0.25
+		),
+		"merged AI freezes autonomous movement while its existing lifetime continues"
+	)
+
+	teammate.queue_free()
 	await process_frame
 
 

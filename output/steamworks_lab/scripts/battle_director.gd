@@ -14,6 +14,7 @@ const OBSTACLE_SCRIPT := preload("res://scripts/obstacle.gd")
 const ACTIVE_PICKUP_SCRIPT := preload("res://scripts/active_pickup.gd")
 
 enum Phase { BATTLE, CHOOSING_BUFF, GAME_OVER }
+enum AiBlockerKind { ENEMY, BOSS, OBSTACLE }
 
 const BUFF_FIRE_RATE: int = 0
 const BUFF_DAMAGE: int = 1
@@ -828,6 +829,98 @@ func nearest_hostile_position(origin: Vector2) -> Vector2:
 		if boss_distance < nearest_distance:
 			nearest_position = _boss.global_position
 	return nearest_position
+
+
+func ai_movement_context(origin: Vector2, radius: float = 280.0) -> Dictionary:
+	var query_radius := maxf(radius, 0.0)
+	var bullets: Array[Dictionary] = []
+	var blockers: Array[Dictionary] = []
+	for bullet in _enemy_bullets:
+		if (
+			bullet == null
+			or not is_instance_valid(bullet)
+			or bullet.is_queued_for_deletion()
+			or bool(bullet.call("is_expired"))
+		):
+			continue
+		var bullet_position: Vector2 = bullet.global_position
+		if origin.distance_to(bullet_position) > query_radius:
+			continue
+		bullets.append({
+			"position": bullet_position,
+			"velocity": (
+				Vector2.ZERO
+				if _enemy_bullets_frozen
+				else bullet.call("motion_velocity") as Vector2
+			),
+			"radius": float(bullet.call("hit_radius")),
+		})
+	for enemy_id in _enemies.keys():
+		var enemy := _enemies.get(enemy_id) as Node2D
+		if (
+			enemy == null
+			or not is_instance_valid(enemy)
+			or enemy.is_queued_for_deletion()
+			or bool(enemy.call("is_dead"))
+		):
+			continue
+		_append_ai_blocker(
+			blockers,
+			origin,
+			query_radius,
+			enemy.global_position,
+			float(enemy.get("radius")),
+			AiBlockerKind.ENEMY
+		)
+	if (
+		_boss != null
+		and is_instance_valid(_boss)
+		and not _boss.is_queued_for_deletion()
+		and not bool(_boss.call("is_dead"))
+	):
+		_append_ai_blocker(
+			blockers,
+			origin,
+			query_radius,
+			_boss.global_position,
+			float(_boss.get("radius")),
+			AiBlockerKind.BOSS
+		)
+	for obstacle_id in _obstacles.keys():
+		var obstacle := _obstacles.get(obstacle_id) as Node2D
+		if (
+			obstacle == null
+			or not is_instance_valid(obstacle)
+			or obstacle.is_queued_for_deletion()
+			or bool(obstacle.call("is_destroyed"))
+		):
+			continue
+		_append_ai_blocker(
+			blockers,
+			origin,
+			query_radius,
+			obstacle.global_position,
+			float(obstacle.get("radius")),
+			AiBlockerKind.OBSTACLE
+		)
+	return {"bullets": bullets, "blockers": blockers}
+
+
+func _append_ai_blocker(
+	rows: Array[Dictionary],
+	origin: Vector2,
+	query_radius: float,
+	position: Vector2,
+	blocker_radius: float,
+	kind: int
+) -> void:
+	if origin.distance_to(position) > query_radius + blocker_radius:
+		return
+	rows.append({
+		"position": position,
+		"radius": maxf(blocker_radius, 0.0),
+		"kind": kind,
+	})
 
 
 func buff_def(buff_id: int) -> Dictionary:

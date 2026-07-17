@@ -52,6 +52,7 @@ var _ultimate_ready: bool = false
 var _ultimate_active: bool = false
 var _ultimate_remaining: float = 0.0
 var _ultimate_merge_available: bool = false
+var _ultimate_recalling: bool = false
 
 var _time_label: Label
 var _tier_label: Label
@@ -197,6 +198,7 @@ func refresh(state: Dictionary) -> void:
 	_ultimate_active = bool(ultimate.get("active", false))
 	_ultimate_remaining = maxf(float(ultimate.get("remaining", 0.0)), 0.0)
 	_ultimate_merge_available = bool(ultimate.get("merge_available", false))
+	_ultimate_recalling = bool(ultimate.get("recalling", false))
 	_ultimate_label.text = _ultimate_status_text()
 	_ultimate_label.visible = _ultimate_visible
 	var ultimate_text_color := Color(0.68, 0.94, 0.98, 0.98)
@@ -325,6 +327,8 @@ func _ultimate_status_text() -> String:
 		return ""
 	if _ultimate_active:
 		var active_text := _t("hud_ultimate_active", {"seconds": "%.1f" % _ultimate_remaining})
+		if _ultimate_recalling:
+			return "%s\n%s" % [active_text, _t("hud_ultimate_returning")]
 		if _ultimate_merge_available:
 			return "%s\n%s" % [active_text, _t("hud_ultimate_merge")]
 		return active_text

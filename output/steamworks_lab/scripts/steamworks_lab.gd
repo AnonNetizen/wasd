@@ -65,7 +65,6 @@ const SINGLE_ULTIMATE_HIT_CHARGE: int = 1
 const SINGLE_ULTIMATE_ENEMY_KILL_CHARGE: int = 5
 const SINGLE_ULTIMATE_BOSS_KILL_CHARGE: int = 20
 const SINGLE_AI_DURATION: float = 10.0
-const SINGLE_AI_MOVE_SPEED_SCALE: float = 1.18
 const SCREEN_SHAKE_MAX_STRENGTH: float = 18.0
 const SCREEN_SHAKE_MIN_DURATION: float = 0.04
 const SCREEN_FLASH_MAX_ALPHA: float = 0.42
@@ -2784,12 +2783,19 @@ func single_ultimate_state() -> Dictionary:
 	var active := _single_ai_active()
 	var remaining := 0.0
 	var merge_available := false
+	var movement_mode := -1
+	var recalling := false
 	if active:
 		remaining = float(_single_ai_teammate.call("remaining_seconds"))
+		movement_mode = int(_single_ai_teammate.call("movement_mode"))
 		merge_available = (
 			not _single_ai_requires_merge_release
 			and bool(_single_ai_teammate.call("can_merge"))
 			and not is_peer_merged(SINGLE_AI_PEER_ID)
+		)
+		recalling = (
+			movement_mode == AI_TEAMMATE_SCRIPT.MovementMode.RECALL
+			and _player_body_center(1).distance_to(_player_body_center(SINGLE_AI_PEER_ID)) > MERGE_DISTANCE
 		)
 	return {
 		"visible": _play_mode == PlayMode.SINGLE,
@@ -2799,6 +2805,8 @@ func single_ultimate_state() -> Dictionary:
 		"active": active,
 		"remaining": remaining,
 		"merge_available": merge_available,
+		"movement_mode": movement_mode,
+		"recalling": recalling,
 	}
 
 
@@ -2833,14 +2841,11 @@ func _try_summon_single_ai() -> bool:
 	add_child(teammate)
 	teammate.call("set_local_or_host_simulated", true)
 	teammate.call("set_movement_bounds", _world_rect())
-	teammate.call(
-		"set_move_speed",
-		BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED * SINGLE_AI_MOVE_SPEED_SCALE
-	)
+	teammate.call("configure_movement_speeds", BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED)
 	teammate.call("begin", SINGLE_AI_DURATION)
 	teammate.call(
 		"warp_to",
-		_clamp_player_position(player.call("body_center") + AI_TEAMMATE_SCRIPT.FOLLOW_OFFSET)
+		_clamp_player_position(player.call("body_center") + Vector2.DOWN * AI_TEAMMATE_SCRIPT.RECALL_RADIUS)
 	)
 	_single_ai_teammate = teammate
 	_single_ultimate_charge = 0
@@ -2861,17 +2866,40 @@ func _update_single_ai(delta: float) -> void:
 		return
 	var teammate := _single_ai_teammate
 	var leader_position := _player_body_center(1)
-	var follow_position := _clamp_player_position(leader_position + AI_TEAMMATE_SCRIPT.FOLLOW_OFFSET)
+	var leader_velocity := Vector2.ZERO
+	var leader := _players.get(1) as Node
+	if leader != null and is_instance_valid(leader):
+		var leader_state: Dictionary = leader.call("snapshot_state")
+		var velocity_data: Variant = leader_state.get("velocity", {})
+		if velocity_data is Dictionary:
+			leader_velocity = Vector2(
+				float(velocity_data.get("x", 0.0)),
+				float(velocity_data.get("y", 0.0))
+			)
 	var teammate_position := _player_body_center(SINGLE_AI_PEER_ID)
 	var target_position: Vector2 = _director.call("nearest_hostile_position", teammate_position)
 	var merged := is_peer_merged(SINGLE_AI_PEER_ID)
+	var movement_context: Dictionary = _director.call(
+		"ai_movement_context",
+		teammate_position,
+		AI_TEAMMATE_SCRIPT.THREAT_QUERY_RADIUS
+	)
+	var recall_requested := (
+		not merged
+		and bool(_peer_merge_intents.get(1, false))
+		and bool(_peer_merge_intents.get(SINGLE_AI_PEER_ID, false))
+		and bool(teammate.call("can_merge"))
+	)
 	var result: Dictionary = teammate.call(
 		"advance_ai",
 		delta,
 		leader_position,
-		follow_position,
+		leader_velocity,
 		target_position,
-		merged
+		movement_context,
+		_world_rect(),
+		merged,
+		recall_requested
 	)
 	if bool(result.get("expired", false)):
 		_dismiss_single_ai(true)
