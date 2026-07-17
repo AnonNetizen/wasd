@@ -23,6 +23,7 @@ const RECALL_FALLBACK_TIME: float = 0.85
 const NORMAL_SPEED_SCALE: float = 1.18
 const DODGE_SPEED_SCALE: float = 1.45
 const RECALL_SPEED_SCALE: float = 1.75
+const RECALL_POSITION_RESPONSE: float = 4.2
 const CANDIDATE_TRAVEL_TIME: float = 0.28
 const BODY_CLEARANCE: float = 33.0
 const WORLD_MARGIN: float = 29.0
@@ -109,8 +110,10 @@ func advance_ai(
 		_recall_elapsed = 0.0
 		_recall_last_distance = INF
 	elif recall_requested:
-		_update_recall(step, leader_position, movement_context, world_rect)
+		_update_recall(step, leader_position, leader_velocity, movement_context, world_rect)
 	else:
+		if _movement_mode == MovementMode.RECALL:
+			_decision_remaining = 0.0
 		_recall_elapsed = 0.0
 		_recall_last_distance = body_center().distance_to(leader_position)
 		_update_tactical(leader_position, target_position, movement_context, world_rect)
@@ -218,6 +221,7 @@ func _update_tactical(
 func _update_recall(
 	delta: float,
 	leader_position: Vector2,
+	leader_velocity: Vector2,
 	movement_context: Dictionary,
 	world_rect: Rect2
 ) -> void:
@@ -250,12 +254,20 @@ func _update_recall(
 		_smoothed_move = Vector2.ZERO
 		set_input_vector(Vector2.ZERO)
 		return
-	if _decision_remaining <= 0.0:
-		_decision_remaining = DECISION_INTERVAL
-		var recall_target := _clamp_to_world(
-			leader_position + _recall_direction * RECALL_RADIUS,
-			world_rect
+	var recall_target := _clamp_to_world(
+		leader_position + _recall_direction * RECALL_RADIUS,
+		world_rect
+	)
+	if leader_distance <= MERGE_DISTANCE:
+		var recall_speed := _base_move_speed * RECALL_SPEED_SCALE
+		var desired_velocity := (
+			leader_velocity
+			+ (recall_target - body_center()) * RECALL_POSITION_RESPONSE
 		)
+		_desired_move = (desired_velocity / recall_speed).limit_length(1.0)
+		_decision_remaining = 0.0
+	elif _decision_remaining <= 0.0:
+		_decision_remaining = DECISION_INTERVAL
 		_desired_move = _choose_recall_direction(
 			leader_position,
 			recall_target,
@@ -382,7 +394,10 @@ func _best_direction(
 		if candidate_index > 0:
 			var angle := TAU * float(candidate_index - 1) / 8.0
 			direction = Vector2(cos(angle), sin(angle))
-		var endpoint := body_center() + direction * speed * CANDIDATE_TRAVEL_TIME
+		var travel_distance := speed * CANDIDATE_TRAVEL_TIME
+		if recalling:
+			travel_distance = minf(travel_distance, body_center().distance_to(anchor))
+		var endpoint := body_center() + direction * travel_distance
 		var score := _static_position_score(endpoint, leader_position, movement_context, world_rect)
 		var route_clearance := _blocker_path_clearance(
 			body_center(),
@@ -643,6 +658,7 @@ func _apply_mode_speed() -> void:
 		MovementMode.MERGED:
 			scale = NORMAL_SPEED_SCALE
 	set_move_speed(_base_move_speed * scale)
+	set_input_drive_scale(scale)
 
 
 func _apply_smoothed_input(delta: float) -> void:

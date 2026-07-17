@@ -66,6 +66,7 @@ func _run() -> void:
 	await _check_steam_invite_ui(main_scene)
 	await _check_ai_movement_context(main_packed)
 	await _check_ai_movement_decisions()
+	await _check_single_ai_merge_recall(main_packed)
 	await _check_single_ai_ultimate(main_packed)
 
 	main_scene.call("_begin_single_player")
@@ -1329,6 +1330,150 @@ func _check_steam_invite_ui(main_scene: Node) -> void:
 	await process_frame
 
 
+func _check_single_ai_merge_recall(main_packed: PackedScene) -> void:
+	var main_scene := main_packed.instantiate() as Node2D
+	_configure_test_paths(main_scene)
+	root.add_child(main_scene)
+	await process_frame
+	main_scene.set_physics_process(false)
+	main_scene.call("_begin_single_player")
+	await process_frame
+
+	var players: Dictionary = main_scene.call("player_nodes")
+	var player := players.get(1) as Node2D
+	var battle_hud := main_scene.get("_battle_hud") as Control
+	var ultimate_label := battle_hud.get_node_or_null("UltimateLabel") as Label if battle_hud != null else null
+	_check(player != null and battle_hud != null, "real E merge fixture starts with P1 and the battle HUD")
+	if player == null or battle_hud == null:
+		main_scene.queue_free()
+		await process_frame
+		return
+
+	main_scene.set("_single_ultimate_charge", MAIN_SCRIPT.SINGLE_ULTIMATE_MAX_CHARGE)
+	main_scene.call("_unhandled_input", _merge_key_event(true))
+	var teammate := main_scene.call("single_ai_teammate_node") as Node2D
+	var ultimate: Dictionary = main_scene.call("single_ultimate_state")
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		teammate != null
+		and bool(ultimate.get("requires_release", false))
+		and not bool(ultimate.get("merge_input_held", true)),
+		"real E summon press exposes the release-before-merge gate"
+	)
+	_check(
+		ultimate_label != null and ultimate_label.text.contains("松开 E，再按住合体"),
+		"Chinese HUD explains the release-before-merge gate"
+	)
+	battle_hud.call("set_locale", LAB_LOCALE_SCRIPT.LOCALE_EN)
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		ultimate_label != null and ultimate_label.text.contains("Release E, then hold again"),
+		"English HUD explains the release-before-merge gate"
+	)
+	battle_hud.call("set_locale", LAB_LOCALE_SCRIPT.LOCALE_ZH_CN)
+
+	main_scene.call("_unhandled_input", _merge_key_event(false))
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(
+		not bool(ultimate.get("requires_release", true))
+		and bool(ultimate.get("merge_available", false)),
+		"real E release unlocks the AI merge input"
+	)
+
+	var world_rect: Rect2 = main_scene.call("current_world_rect")
+	var player_start := Vector2(world_rect.get_center().x, world_rect.position.y + 300.0)
+	var teammate_start := player_start - Vector2.DOWN * (AI_TEAMMATE_SCRIPT.MAX_ROAM_DISTANCE + 4.0)
+	player.call("warp_to", player_start)
+	teammate.call("warp_to", teammate_start)
+	main_scene.call("_unhandled_input", _merge_key_event(true))
+	main_scene.call("_update_gameplay", 1.0 / 60.0)
+	ultimate = main_scene.call("single_ultimate_state")
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		bool(ultimate.get("merge_input_held", false))
+		and bool(ultimate.get("recalling", false))
+		and is_equal_approx(float(ultimate.get("merge_hold_elapsed", -1.0)), 0.0),
+		"holding E outside 92 pixels starts recall without merge progress"
+	)
+	_check(
+		ultimate_label != null and ultimate_label.text.contains("AI 正在归队"),
+		"HUD reports that the AI is returning"
+	)
+	battle_hud.call("set_locale", LAB_LOCALE_SCRIPT.LOCALE_EN)
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		ultimate_label != null and ultimate_label.text.contains("AI Returning"),
+		"English HUD reports that the AI is returning"
+	)
+	battle_hud.call("set_locale", LAB_LOCALE_SCRIPT.LOCALE_ZH_CN)
+
+	main_scene.call("_unhandled_input", _merge_key_event(false))
+	main_scene.call("_update_gameplay", 1.0 / 60.0)
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(
+		not bool(ultimate.get("merge_input_held", true))
+		and is_equal_approx(float(ultimate.get("merge_hold_elapsed", -1.0)), 0.0)
+		and int(ultimate.get("movement_mode", -1)) != AI_TEAMMATE_SCRIPT.MovementMode.RECALL,
+		"releasing E cancels recall and clears merge progress"
+	)
+
+	player.call("warp_to", player_start)
+	teammate.call("warp_to", teammate_start)
+	main_scene.call("_unhandled_input", _merge_key_event(true))
+	var player_body := player.get_node_or_null("SlimeBody") as Node2D
+	var teammate_body := teammate.get_node_or_null("SlimeBody") as Node2D
+	var elapsed := 0.0
+	var saw_sync_progress := false
+	var sync_hud_visible := false
+	var step := 1.0 / 60.0
+	for _index in range(ceili(2.0 / step)):
+		main_scene.call("_update_gameplay", step)
+		ultimate = main_scene.call("single_ultimate_state")
+		var hold_elapsed := float(ultimate.get("merge_hold_elapsed", 0.0))
+		if hold_elapsed > 0.0 and hold_elapsed < MAIN_SCRIPT.MERGE_HOLD_DURATION:
+			saw_sync_progress = true
+			main_scene.call("_refresh_battle_hud")
+			var chinese_sync_visible := ultimate_label != null and ultimate_label.text.contains("合体同步")
+			battle_hud.call("set_locale", LAB_LOCALE_SCRIPT.LOCALE_EN)
+			main_scene.call("_refresh_battle_hud")
+			var english_sync_visible := ultimate_label != null and ultimate_label.text.contains("Merge Sync")
+			battle_hud.call("set_locale", LAB_LOCALE_SCRIPT.LOCALE_ZH_CN)
+			sync_hud_visible = chinese_sync_visible and english_sync_visible
+		if not (main_scene.get("_active_merges") as Dictionary).is_empty():
+			break
+		player.call("set_input_vector", Vector2.DOWN)
+		player_body.call("_physics_process", step)
+		teammate_body.call("_physics_process", step)
+		elapsed += step
+
+	var active_merges: Dictionary = main_scene.get("_active_merges")
+	var merge: Dictionary = active_merges.values()[0] if not active_merges.is_empty() else {}
+	_check(
+		active_merges.size() == 1
+		and int(merge.get("driver", 0)) == 1
+		and int(merge.get("gunner", 0)) == MAIN_SCRIPT.SINGLE_AI_PEER_ID
+		and elapsed <= 2.0,
+		"moving P1 can hold E while the AI really catches up and merges within two seconds"
+	)
+	_check(saw_sync_progress and sync_hud_visible, "Chinese and English HUD show real 0.8-second merge sync progress")
+	var merge_position_before: Vector2 = merge.get("position", Vector2.ZERO)
+	Input.action_press(MAIN_SCRIPT.ACTION_MOVE_RIGHT)
+	main_scene.call("_update_gameplay", 0.1)
+	Input.action_release(MAIN_SCRIPT.ACTION_MOVE_RIGHT)
+	active_merges = main_scene.get("_active_merges")
+	merge = active_merges.values()[0] if not active_merges.is_empty() else {}
+	_check(
+		active_merges.size() == 1
+		and (merge.get("position", merge_position_before) as Vector2).x > merge_position_before.x
+		and (player.get("_input_vector") as Vector2) == Vector2.ZERO,
+		"single-player offline loop keeps P1 driving the merged slime and freezes the hidden body"
+	)
+
+	main_scene.call("_unhandled_input", _merge_key_event(false))
+	main_scene.queue_free()
+	await process_frame
+
+
 func _check_single_ai_ultimate(main_packed: PackedScene) -> void:
 	var main_scene := main_packed.instantiate() as Node2D
 	_configure_test_paths(main_scene)
@@ -1777,6 +1922,31 @@ func _check_ai_movement_decisions() -> void:
 	var world_rect := Rect2(0.0, 0.0, 540.0, 960.0)
 	teammate.call("set_movement_bounds", world_rect)
 	teammate.call("configure_movement_speeds", BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED)
+	var tactical_speed := _settled_ai_body_speed(
+		teammate,
+		AI_TEAMMATE_SCRIPT.MovementMode.TACTICAL,
+		world_rect
+	)
+	var dodge_speed := _settled_ai_body_speed(
+		teammate,
+		AI_TEAMMATE_SCRIPT.MovementMode.DODGE,
+		world_rect
+	)
+	var recall_speed := _settled_ai_body_speed(
+		teammate,
+		AI_TEAMMATE_SCRIPT.MovementMode.RECALL,
+		world_rect
+	)
+	_check(
+		absf(tactical_speed - BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED * AI_TEAMMATE_SCRIPT.NORMAL_SPEED_SCALE) < 10.0
+		and absf(dodge_speed - BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED * AI_TEAMMATE_SCRIPT.DODGE_SPEED_SCALE) < 10.0
+		and absf(recall_speed - BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED * AI_TEAMMATE_SCRIPT.RECALL_SPEED_SCALE) < 10.0
+		and tactical_speed < dodge_speed
+		and dodge_speed < recall_speed,
+		"AI tactical, dodge, and recall multipliers change real soft-body speed"
+	)
+	teammate.call("begin", 10.0)
+	teammate.call("configure_movement_speeds", BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED)
 
 	var ai_origin := Vector2(270.0, 500.0)
 	var leader_position := Vector2(270.0, 640.0)
@@ -2137,6 +2307,23 @@ func _check_ai_movement_decisions() -> void:
 
 	teammate.queue_free()
 	await process_frame
+
+
+func _settled_ai_body_speed(teammate: Node2D, mode: int, world_rect: Rect2) -> float:
+	teammate.call("_enter_mode", mode)
+	teammate.call("warp_to", Vector2(world_rect.position.x + 50.0, world_rect.get_center().y))
+	var body := teammate.get_node_or_null("SlimeBody") as Node2D
+	for _index in range(36):
+		teammate.call("set_input_vector", Vector2.RIGHT)
+		body.call("_physics_process", 1.0 / 60.0)
+	return (body.call("body_velocity") as Vector2).length()
+
+
+func _merge_key_event(pressed: bool) -> InputEventKey:
+	var event := InputEventKey.new()
+	event.keycode = KEY_E
+	event.pressed = pressed
+	return event
 
 
 func _spawn_live_test_bullet(main_scene: Node, peer_id: int, position: Vector2, damage: int) -> Node2D:

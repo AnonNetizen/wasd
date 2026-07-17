@@ -2586,8 +2586,13 @@ func _update_gameplay(delta: float) -> void:
 			_director.call("client_tick", delta)
 	else:
 		var offline_player: Node = _ensure_player(1, "")
-		_update_merge_cooldowns(delta)
-		offline_player.call("set_input_vector", input_vector if _battle_active() else Vector2.ZERO)
+		_peer_inputs[1] = input_vector
+		if _battle_active():
+			_update_merges_authority(delta)
+			_apply_host_inputs()
+		else:
+			_update_merge_cooldowns(delta)
+			offline_player.call("set_input_vector", Vector2.ZERO)
 		if _director != null:
 			_director.call("host_tick", delta)
 	if _play_mode == PlayMode.SINGLE and _battle_active():
@@ -2785,9 +2790,22 @@ func single_ultimate_state() -> Dictionary:
 	var merge_available := false
 	var movement_mode := -1
 	var recalling := false
+	var requires_release := false
+	var merge_input_held := false
+	var merge_hold_elapsed := 0.0
 	if active:
 		remaining = float(_single_ai_teammate.call("remaining_seconds"))
 		movement_mode = int(_single_ai_teammate.call("movement_mode"))
+		requires_release = _single_ai_requires_merge_release
+		merge_input_held = (
+			bool(_peer_merge_intents.get(1, false))
+			and bool(_peer_merge_intents.get(SINGLE_AI_PEER_ID, false))
+		)
+		merge_hold_elapsed = clampf(
+			float(_merge_hold_progress.get(_merge_pair_key(1, SINGLE_AI_PEER_ID), 0.0)),
+			0.0,
+			MERGE_HOLD_DURATION
+		)
 		merge_available = (
 			not _single_ai_requires_merge_release
 			and bool(_single_ai_teammate.call("can_merge"))
@@ -2807,6 +2825,10 @@ func single_ultimate_state() -> Dictionary:
 		"merge_available": merge_available,
 		"movement_mode": movement_mode,
 		"recalling": recalling,
+		"requires_release": requires_release,
+		"merge_input_held": merge_input_held,
+		"merge_hold_elapsed": merge_hold_elapsed,
+		"merge_hold_duration": MERGE_HOLD_DURATION,
 	}
 
 

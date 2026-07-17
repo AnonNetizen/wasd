@@ -74,6 +74,7 @@ var _body: Node2D
 var _name_label: Label
 var _expression_label: Label
 var _input_vector: Vector2 = Vector2.ZERO
+var _input_drive_scale: float = 1.0
 var _authoritative_position: Vector2 = Vector2.ZERO
 var _authoritative_velocity: Vector2 = Vector2.ZERO
 var _is_local_or_host_simulated: bool = false
@@ -142,7 +143,14 @@ func set_input_vector(input_vector: Vector2) -> void:
 	if _input_vector.length_squared() <= 0.0001:
 		_body.call("set_follow_target", _body.global_position)
 		return
-	_body.call("set_follow_target", _body.global_position + _input_vector.normalized() * FOLLOW_DISTANCE)
+	_body.call(
+		"set_follow_target",
+		_body.global_position + _input_vector.normalized() * FOLLOW_DISTANCE * _input_drive_scale
+	)
+
+
+func set_input_drive_scale(scale: float) -> void:
+	_input_drive_scale = maxf(scale, 0.0)
 
 
 func set_authoritative_state(new_position: Vector2, new_velocity: Vector2) -> void:

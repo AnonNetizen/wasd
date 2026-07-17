@@ -53,6 +53,10 @@ var _ultimate_active: bool = false
 var _ultimate_remaining: float = 0.0
 var _ultimate_merge_available: bool = false
 var _ultimate_recalling: bool = false
+var _ultimate_requires_release: bool = false
+var _ultimate_merge_input_held: bool = false
+var _ultimate_merge_hold_elapsed: float = 0.0
+var _ultimate_merge_hold_duration: float = 0.8
 
 var _time_label: Label
 var _tier_label: Label
@@ -199,6 +203,10 @@ func refresh(state: Dictionary) -> void:
 	_ultimate_remaining = maxf(float(ultimate.get("remaining", 0.0)), 0.0)
 	_ultimate_merge_available = bool(ultimate.get("merge_available", false))
 	_ultimate_recalling = bool(ultimate.get("recalling", false))
+	_ultimate_requires_release = bool(ultimate.get("requires_release", false))
+	_ultimate_merge_input_held = bool(ultimate.get("merge_input_held", false))
+	_ultimate_merge_hold_elapsed = maxf(float(ultimate.get("merge_hold_elapsed", 0.0)), 0.0)
+	_ultimate_merge_hold_duration = maxf(float(ultimate.get("merge_hold_duration", 0.8)), 0.01)
 	_ultimate_label.text = _ultimate_status_text()
 	_ultimate_label.visible = _ultimate_visible
 	var ultimate_text_color := Color(0.68, 0.94, 0.98, 0.98)
@@ -327,8 +335,15 @@ func _ultimate_status_text() -> String:
 		return ""
 	if _ultimate_active:
 		var active_text := _t("hud_ultimate_active", {"seconds": "%.1f" % _ultimate_remaining})
+		if _ultimate_requires_release:
+			return "%s\n%s" % [active_text, _t("hud_ultimate_release")]
 		if _ultimate_recalling:
 			return "%s\n%s" % [active_text, _t("hud_ultimate_returning")]
+		if _ultimate_merge_input_held and _ultimate_merge_hold_elapsed > 0.0:
+			return "%s\n%s" % [active_text, _t("hud_ultimate_syncing", {
+				"elapsed": "%.1f" % _ultimate_merge_hold_elapsed,
+				"duration": "%.1f" % _ultimate_merge_hold_duration,
+			})]
 		if _ultimate_merge_available:
 			return "%s\n%s" % [active_text, _t("hud_ultimate_merge")]
 		return active_text
