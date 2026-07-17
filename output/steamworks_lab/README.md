@@ -14,8 +14,9 @@ UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图
 
 ## 玩法
 
-- 每个玩家是一只软体史莱姆。本地同屏时 P1 固定使用键盘与鼠标：WASD / 方向键移动、鼠标瞄准、左键开火、`Q` 主动道具、`E` 合体、`T` 表情轮、`Esc` 暂停；检测到的独立手柄按顺序自动成为 P2–P4，最多 4 人。
+- 每个玩家是一只软体史莱姆。P1 固定使用键盘与鼠标：WASD / 方向键移动、鼠标瞄准、左键开火、`Q` 主动道具、`E` 单人大招或多人合体、`T` 表情轮、`Esc` 暂停；本地同屏检测到的独立手柄按顺序自动成为 P2–P4，最多 4 人。
 - 手柄统一为左摇杆 / D-pad 移动、右摇杆瞄准、RT 按住开火、X 主动道具、A 合体、Y 表情轮、Start 暂停；右摇杆使用 0.25 deadzone，回中后保留最后有效方向。
+- 单人模式下，P1 子弹命中敌人 / Boss 获得 1 点大招能量，普通敌人击杀额外获得 5 点、Boss 击杀额外获得 20 点；充满 100 点后按 `E` 召唤 AI 队友。AI 队友在 10 秒有效战斗时间内跟随 P1、瞄准最近敌人并每 0.30 秒自动开火；召唤后必须先松开再按住 `E` 才会发起合体，AI 自动同意。每次召唤最多合体一次，暂停与强化选择会冻结持续时间；大招不进入存档，新局、重开、返回菜单和 Game Over 会清零。
 - 双人靠近后双方按住合体键可短时间合体成大史莱姆：发起者控制移动和主炮，队友控制副炮；合体有临时护盾、倒计时和冷却，不改变永久外观或存档。
 - 主菜单 `设置 / Settings` 可切换语言、窗口分辨率和全屏；语言影响主菜单、准备房间、HUD、buff、主动道具名、结算和表情轮标签，Steam 状态提示仍以英文为主；`退出游戏 / Quit Game` 可直接关闭 lab。
 - 主菜单 `自定义 / Customize` 可设置本机昵称、8 个预设史莱姆色和 8 个预设子弹色。单机昵称留空时不显示名字；联机昵称留空时会显示 `Host` / `Peer N`。外观会随 host 快照同步给所有玩家，中途加入也会看到当前外观。
@@ -31,7 +32,7 @@ UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图
 
 本地同屏是单进程权威战斗，不经过 RPC：P1 自动加入，准备房间至少检测到一个手柄才允许开始；大厅中手柄可自动加入 / 移除，开战后阵容锁定。战斗中手柄断开会冻结全场并保留角色、血量、buff 和道具，任一未占用手柄会接管最低缺失槽位；全部恢复后转为普通暂停菜单，由玩家手动继续。P1 沿用本机昵称和外观，P2–P4 使用固定名与互不重复的预设颜色。
 
-Steam 联机继续保持一台设备一名玩家，不允许同屏玩家混入 Steam Lobby。Steam 路径沿用 host 权威：进入 session 后先停在准备房间，支持 2–4 名玩家；敌人、伤害、buff 和时停由 host 结算。应用层快照字段、`snapshot_received(Dictionary)` 和其他 reliable RPC 保持不变；快照 wire 层使用 FastLZ 压缩并拆成最多 900 字节的 unreliable 分片。Host 退出即全场结束，不支持 host 迁移；中途加入从最新完整快照对齐当前战况。
+Steam 联机继续保持一台设备一名玩家，不允许同屏玩家混入 Steam Lobby，也不启用单人 AI 大招。Steam 路径沿用 host 权威：进入 session 后先停在准备房间，支持 2–4 名玩家；敌人、伤害、buff 和时停由 host 结算。应用层快照字段、`snapshot_received(Dictionary)` 和其他 reliable RPC 保持不变；快照 wire 层使用 FastLZ 压缩并拆成最多 900 字节的 unreliable 分片。Host 退出即全场结束，不支持 host 迁移；中途加入从最新完整快照对齐当前战况。单人大招不修改 Steam wire、Lobby `lab_version=2`、双分类纪录或 `user://save.cfg`。
 
 ## 运行
 
@@ -86,6 +87,14 @@ py -3 tools\steamworks_lab_toolchain.py smoke --suite enet
 ```
 
 runner 自动解析 Godot 4.7，Windows 优先同目录 console 可执行文件；每个进程使用独立临时 `APPDATA` / `LOCALAPPDATA` / `HOME` / XDG 环境。GDScript smoke 必须同时满足退出码 `0`、精确 `ALL PASS` 标志且日志无 `SCRIPT ERROR` / `ERROR:`；ENet 还拒绝 MTU 警告。运行前后会逐字节保护玩家真实 `user://settings.cfg`、`user://save.cfg` 与源码 `steam_appid.txt`，测试不得备份、删除或迁移这些文件。
+
+## 单人 AI 大招手动测试清单
+
+1. 开始单人游戏，确认展开 HUD 显示 `AI 援军 0 / 100`，而本地同屏与 Steam Host / Client HUD 不显示该条；切换简体中文 / English，检查充能、召唤、倒计时与合体提示完整显示。
+2. 分别用普通命中、普通击杀和 Boss 击杀验证 `+1`、合计 `+6`、合计 `+21`；障碍物、主动道具、接触伤害和 AI 子弹不充能，能量封顶 100 且不溢出。
+3. 未满时按 `E` 不召唤；满能量后按 `E`，确认能量清零、AI 出现在 P1 后方并自动跟随、瞄准最近敌人和每 0.30 秒开火。AI 不受伤、不拾取道具、不吸引敌火，也不加入强化选择、玩家卡、纪录或网络快照。
+4. 召唤后保持 `E` 不应误合体；松开再按住 `E`，确认 AI 自动同意、P1 控制移动与主炮、AI 控制副炮。护盾提前破裂后 AI 继续助战但不能再次合体；接近 10 秒时合体，确认到期立即拆分且不会延长持续时间。
+5. 暂停或进入 30 秒强化选择，确认 AI 倒计时冻结；恢复战斗后继续计时并在累计 10 秒时离场。重开、新局、Game Over 与返回主菜单均清零大招，现有单人 / 多人存活纪录仍只按原分类写入。
 
 ## 本地同屏测试清单
 
@@ -146,8 +155,9 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=2
 - `scripts/enemy.gd` / `scripts/enemy_bullet.gd`：三种敌人（直冲 / 炮手 / 掠射）与暖色敌弹。
 - `scripts/boss.gd`：每 2 分钟的 boss（瞄准扇 + 环形弹、enrage）。
 - `scripts/obstacle.gd`：可打碎的下落岩块（seed 形状 + 按损伤显示裂纹）。
+- `scripts/ai_teammate.gd`：单人满能量召唤的临时 AI 队友，负责跟随、最近敌人瞄准、固定节奏开火与自动同意合体，不加入真人玩家集合或网络快照。
 - `scripts/active_pickup.gd`：可拾取主动道具，host 生成并通过快照镜像到 client。
-- `scripts/battle_hud.gd`：单人 / Steam 展开 HUD，以及本地同屏最多四张紧凑玩家卡。
+- `scripts/battle_hud.gd`：单人 / Steam 展开 HUD、仅单人可见的 AI 大招充能 / 召唤 / 倒计时提示，以及本地同屏最多四张紧凑玩家卡。
 - `scripts/buff_panel.gd`：三选一强化面板；同屏支持当前玩家提示、手柄循环选择与确认。
 - `scripts/pause_panel.gd`：暂停面板；本地同屏断线时显示缺失槽位、禁用继续，重绑后转普通暂停。
 - `scripts/records_panel.gd`：主菜单 `记录 / Records` 弹窗，同时显示本机单人 / 多人最长存活时间并随语言切换刷新。

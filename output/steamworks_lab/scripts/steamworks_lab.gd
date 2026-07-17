@@ -3,6 +3,7 @@ extends Node2D
 const SESSION_SCRIPT := preload("res://scripts/network_session.gd")
 const LOCAL_INPUT_ROUTER_SCRIPT := preload("res://scripts/local_input_router.gd")
 const PLAYER_SCRIPT := preload("res://scripts/slime_player.gd")
+const AI_TEAMMATE_SCRIPT := preload("res://scripts/ai_teammate.gd")
 const SLIME_BODY_SCRIPT := preload("res://scripts/slime_body.gd")
 const EXPRESSION_WHEEL_SCRIPT := preload("res://scripts/expression_wheel.gd")
 const BULLET_SCRIPT := preload("res://scripts/slime_bullet.gd")
@@ -58,6 +59,13 @@ const MERGE_MOVE_SPEED_SCALE: float = 0.85
 const MERGE_SPLIT_OFFSET: float = 24.0
 const MERGE_SPLIT_INVULNERABILITY: float = 0.8
 const MERGE_HIT_INVULNERABILITY: float = 0.45
+const SINGLE_AI_PEER_ID: int = 1001
+const SINGLE_ULTIMATE_MAX_CHARGE: int = 100
+const SINGLE_ULTIMATE_HIT_CHARGE: int = 1
+const SINGLE_ULTIMATE_ENEMY_KILL_CHARGE: int = 5
+const SINGLE_ULTIMATE_BOSS_KILL_CHARGE: int = 20
+const SINGLE_AI_DURATION: float = 10.0
+const SINGLE_AI_MOVE_SPEED_SCALE: float = 1.18
 const SCREEN_SHAKE_MAX_STRENGTH: float = 18.0
 const SCREEN_SHAKE_MIN_DURATION: float = 0.04
 const SCREEN_FLASH_MAX_ALPHA: float = 0.42
@@ -119,6 +127,9 @@ var _active_merges: Dictionary = {}
 var _merge_cooldowns: Dictionary = {}
 var _next_merge_id: int = 1
 var _merge_press_sequence: int = 1
+var _single_ultimate_charge: int = 0
+var _single_ai_teammate: Node
+var _single_ai_requires_merge_release: bool = false
 var _slime_swatch_buttons: Array[Button] = []
 var _bullet_swatch_buttons: Array[Button] = []
 var _customize_refreshing: bool = false
@@ -243,6 +254,8 @@ func _sync_world_rect() -> void:
 		var player := _players[peer_id] as Node
 		if player != null and is_instance_valid(player):
 			player.call("set_movement_bounds", world_rect)
+	if _single_ai_active():
+		_single_ai_teammate.call("set_movement_bounds", world_rect)
 	queue_redraw()
 
 
@@ -273,6 +286,7 @@ func _start_battle() -> void:
 		_director.connect("phase_changed", Callable(self, "_on_director_phase_changed"))
 		_director.connect("buff_options_ready", Callable(self, "_on_director_buff_options"))
 		_director.connect("active_item_used", Callable(self, "_on_director_active_item_used"))
+		_director.connect("player_enemy_hit", Callable(self, "_on_player_enemy_hit"))
 	_reset_battle()
 
 
@@ -285,6 +299,7 @@ func _end_battle() -> void:
 func _reset_battle() -> void:
 	_close_pause_menu()
 	_clear_screen_fx()
+	_reset_single_ultimate()
 	if _director != null:
 		_director.call("reset_battle")
 	_clear_bullets()
@@ -416,6 +431,7 @@ func _clear_screen_fx() -> void:
 func _on_director_phase_changed(new_phase: int, payload: Dictionary) -> void:
 	_sync_player_battle_timers(new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE)
 	if new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.GAME_OVER:
+		_reset_single_ultimate()
 		_record_game_over_survival_time(payload)
 	if _buff_panel != null:
 		if new_phase == BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE:
@@ -455,6 +471,22 @@ func _on_director_buff_options(peer_id: int, options: PackedInt32Array) -> void:
 func _on_director_active_item_used(peer_id: int, item_id: int, origin: Vector2) -> void:
 	if _session != null and bool(_session.call("is_host")):
 		_session.call("broadcast_active_item_used", peer_id, item_id, origin)
+
+
+func _on_player_enemy_hit(peer_id: int, defeated: bool, is_boss: bool) -> void:
+	if _play_mode != PlayMode.SINGLE or peer_id != 1 or _single_ai_active():
+		return
+	var gained_charge := SINGLE_ULTIMATE_HIT_CHARGE
+	if defeated:
+		gained_charge += (
+			SINGLE_ULTIMATE_BOSS_KILL_CHARGE
+			if is_boss
+			else SINGLE_ULTIMATE_ENEMY_KILL_CHARGE
+		)
+	_single_ultimate_charge = mini(
+		SINGLE_ULTIMATE_MAX_CHARGE,
+		_single_ultimate_charge + gained_charge
+	)
 
 
 func _on_phase_received(new_phase: int, payload: Dictionary) -> void:
@@ -590,6 +622,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed(ACTION_MERGE) and (key_event == null or not key_event.echo):
+		if _try_summon_single_ai():
+			get_viewport().set_input_as_handled()
+			return
 		_set_local_merge_intent(true, player_id)
 		get_viewport().set_input_as_handled()
 		return
@@ -1531,6 +1566,15 @@ func _apply_locale() -> void:
 		var player := _players[peer_id] as Node
 		if player != null and is_instance_valid(player):
 			player.call("set_locale", _current_locale())
+	if _single_ai_active():
+		var ai_appearance: Dictionary = _single_ai_teammate.call("appearance_state")
+		_single_ai_teammate.call("set_locale", _current_locale())
+		_single_ai_teammate.call(
+			"apply_appearance",
+			_t("ai_ally_name"),
+			int(ai_appearance.get("slime_palette_id", 0)),
+			int(ai_appearance.get("bullet_palette_id", 0))
+		)
 	for merge_id in _active_merges.keys():
 		var merge: Dictionary = _active_merges[merge_id]
 		var node := merge.get("node") as Node
@@ -2479,13 +2523,18 @@ func _fire_merge_shots(peer_id: int, aim_direction: Vector2, broadcast: bool) ->
 	if direction.length_squared() <= 0.0001:
 		direction = Vector2.UP
 	var bullet_speed: float = BULLET_SCRIPT.DEFAULT_SPEED
+	var stat_peer_id := 1 if _is_single_ai_peer(peer_id) else peer_id
 	if _director != null:
-		bullet_speed *= float(_director.call("player_bullet_speed_scale", peer_id))
+		bullet_speed *= float(_director.call("player_bullet_speed_scale", stat_peer_id))
 	var base_damage := 1
 	var base_pierce := 0
 	if _director != null:
-		base_damage = int(_director.call("player_bullet_damage", peer_id))
-		base_pierce = int(_director.call("player_pierce_count", peer_id))
+		base_damage = int(_director.call("player_bullet_damage", stat_peer_id))
+		base_pierce = (
+			0
+			if _is_single_ai_peer(peer_id)
+			else int(_director.call("player_pierce_count", peer_id))
+		)
 	if int(merge.get("driver", 0)) == peer_id:
 		var origin: Vector2 = node.call("fire_surface", direction)
 		var shot_direction := _jitter_fire_direction(direction)
@@ -2542,6 +2591,8 @@ func _update_gameplay(delta: float) -> void:
 		offline_player.call("set_input_vector", input_vector if _battle_active() else Vector2.ZERO)
 		if _director != null:
 			_director.call("host_tick", delta)
+	if _play_mode == PlayMode.SINGLE and _battle_active():
+		_update_single_ai(delta)
 	for raw_player_id in _fire_held_by_player.keys():
 		var player_id := int(raw_player_id)
 		if bool(_fire_held_by_player.get(player_id, false)):
@@ -2632,6 +2683,8 @@ func _freeze_player_inputs() -> void:
 		var player := _players[peer_id] as Node
 		if player != null and is_instance_valid(player):
 			player.call("set_input_vector", Vector2.ZERO)
+	if _single_ai_active():
+		_single_ai_teammate.call("set_input_vector", Vector2.ZERO)
 
 
 func _refresh_battle_hud() -> void:
@@ -2651,6 +2704,7 @@ func _refresh_battle_hud() -> void:
 	state["game_over"] = int(state.get("phase", 0)) == BATTLE_DIRECTOR_SCRIPT.Phase.GAME_OVER
 	state["active_item"] = _director.call("active_item_for_peer", local_id)
 	state["merge_status"] = _local_merge_status_text(local_id)
+	state["ultimate"] = single_ultimate_state()
 	state["couch_mode"] = _play_mode == PlayMode.COUCH
 	state["player_cards"] = _couch_player_cards() if _play_mode == PlayMode.COUCH else []
 	if not state.has("boss"):
@@ -2726,6 +2780,167 @@ func is_peer_merged(peer_id: int) -> bool:
 	return not _active_merge_for_peer(peer_id).is_empty()
 
 
+func single_ultimate_state() -> Dictionary:
+	var active := _single_ai_active()
+	var remaining := 0.0
+	var merge_available := false
+	if active:
+		remaining = float(_single_ai_teammate.call("remaining_seconds"))
+		merge_available = (
+			not _single_ai_requires_merge_release
+			and bool(_single_ai_teammate.call("can_merge"))
+			and not is_peer_merged(SINGLE_AI_PEER_ID)
+		)
+	return {
+		"visible": _play_mode == PlayMode.SINGLE,
+		"charge": _single_ultimate_charge,
+		"max_charge": SINGLE_ULTIMATE_MAX_CHARGE,
+		"ready": not active and _single_ultimate_charge >= SINGLE_ULTIMATE_MAX_CHARGE,
+		"active": active,
+		"remaining": remaining,
+		"merge_available": merge_available,
+	}
+
+
+func single_ai_teammate_node() -> Node:
+	return _single_ai_teammate if _single_ai_active() else null
+
+
+func _try_summon_single_ai() -> bool:
+	if (
+		_play_mode != PlayMode.SINGLE
+		or not _battle_active()
+		or _single_ai_active()
+		or _single_ultimate_charge < SINGLE_ULTIMATE_MAX_CHARGE
+	):
+		return false
+	var player := _players.get(1) as Node
+	if player == null or not is_instance_valid(player) or not bool(player.get("alive")):
+		return false
+
+	var player_appearance: Dictionary = player.call("appearance_state")
+	var slime_palette_id := PLAYER_SCRIPT.normalized_slime_palette_id(
+		int(player_appearance.get("slime_palette_id", 0)) + 3
+	)
+	var bullet_palette_id := PLAYER_SCRIPT.normalized_bullet_palette_id(
+		int(player_appearance.get("bullet_palette_id", 0)) + 3
+	)
+	var teammate := AI_TEAMMATE_SCRIPT.new() as Node
+	teammate.name = "SingleAiTeammate"
+	teammate.call("set_locale", _current_locale())
+	teammate.call("set_player_info", SINGLE_AI_PEER_ID, _t("ai_ally_name"), slime_palette_id)
+	teammate.call("apply_appearance", _t("ai_ally_name"), slime_palette_id, bullet_palette_id)
+	add_child(teammate)
+	teammate.call("set_local_or_host_simulated", true)
+	teammate.call("set_movement_bounds", _world_rect())
+	teammate.call(
+		"set_move_speed",
+		BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED * SINGLE_AI_MOVE_SPEED_SCALE
+	)
+	teammate.call("begin", SINGLE_AI_DURATION)
+	teammate.call(
+		"warp_to",
+		_clamp_player_position(player.call("body_center") + AI_TEAMMATE_SCRIPT.FOLLOW_OFFSET)
+	)
+	_single_ai_teammate = teammate
+	_single_ultimate_charge = 0
+	_single_ai_requires_merge_release = true
+	_set_merge_intent(1, false)
+	_set_merge_intent(SINGLE_AI_PEER_ID, false)
+	_merge_cooldowns.erase(1)
+	_merge_cooldowns.erase(SINGLE_AI_PEER_ID)
+	_append_log(_t("log_ai_ally_summoned"))
+	if _battle_hud != null:
+		_battle_hud.call("show_notice", _t("log_ai_ally_summoned"), 1.6)
+	request_screen_flash(Color(0.36, 0.92, 1.0, 1.0), 0.16, 0.18)
+	return true
+
+
+func _update_single_ai(delta: float) -> void:
+	if not _single_ai_active() or _director == null:
+		return
+	var teammate := _single_ai_teammate
+	var leader_position := _player_body_center(1)
+	var follow_position := _clamp_player_position(leader_position + AI_TEAMMATE_SCRIPT.FOLLOW_OFFSET)
+	var teammate_position := _player_body_center(SINGLE_AI_PEER_ID)
+	var target_position: Vector2 = _director.call("nearest_hostile_position", teammate_position)
+	var merged := is_peer_merged(SINGLE_AI_PEER_ID)
+	var result: Dictionary = teammate.call(
+		"advance_ai",
+		delta,
+		leader_position,
+		follow_position,
+		target_position,
+		merged
+	)
+	if bool(result.get("expired", false)):
+		_dismiss_single_ai(true)
+		return
+	if not bool(result.get("fire_ready", false)):
+		return
+	var aim_direction: Vector2 = result.get("aim_direction", Vector2.UP)
+	if merged:
+		_fire_merge_shots(SINGLE_AI_PEER_ID, aim_direction, false)
+	else:
+		_fire_single_ai_shot(aim_direction)
+
+
+func _fire_single_ai_shot(aim_direction: Vector2) -> void:
+	if not _single_ai_active() or _director == null:
+		return
+	var teammate := _single_ai_teammate
+	var direction := aim_direction.normalized()
+	if direction.length_squared() <= 0.0001:
+		direction = Vector2.UP
+	var origin: Vector2 = teammate.call("emit_fire_surface", direction)
+	var bullet_speed := (
+		BULLET_SCRIPT.DEFAULT_SPEED
+		* float(_director.call("player_bullet_speed_scale", 1))
+	)
+	var damage := int(_director.call("player_bullet_damage", 1))
+	_spawn_bullet(SINGLE_AI_PEER_ID, origin, direction, bullet_speed, damage, 0)
+
+
+func _dismiss_single_ai(show_feedback: bool) -> void:
+	if not _single_ai_active():
+		_single_ai_teammate = null
+		_single_ai_requires_merge_release = false
+		return
+	_end_merges_for_peer(SINGLE_AI_PEER_ID, false)
+	_set_merge_intent(1, false)
+	_set_merge_intent(SINGLE_AI_PEER_ID, false)
+	_merge_cooldowns.erase(1)
+	_merge_cooldowns.erase(SINGLE_AI_PEER_ID)
+	var teammate := _single_ai_teammate
+	_single_ai_teammate = null
+	_single_ai_requires_merge_release = false
+	if teammate != null and is_instance_valid(teammate):
+		teammate.queue_free()
+	if show_feedback:
+		_append_log(_t("log_ai_ally_departed"))
+		if _battle_hud != null:
+			_battle_hud.call("show_notice", _t("log_ai_ally_departed"), 1.4)
+
+
+func _reset_single_ultimate() -> void:
+	_dismiss_single_ai(false)
+	_single_ultimate_charge = 0
+
+
+func _single_ai_active() -> bool:
+	return _single_ai_teammate != null and is_instance_valid(_single_ai_teammate)
+
+
+func _is_single_ai_peer(peer_id: int) -> bool:
+	return peer_id == SINGLE_AI_PEER_ID and _single_ai_active()
+
+
+func _merge_participant_node(peer_id: int) -> Node:
+	if _is_single_ai_peer(peer_id):
+		return _single_ai_teammate
+	return _players.get(peer_id) as Node
+
+
 func active_merge_hitboxes() -> Array[Dictionary]:
 	var hitboxes: Array[Dictionary] = []
 	for merge_id in _active_merges.keys():
@@ -2758,9 +2973,26 @@ func apply_merge_damage(merge_id: int, amount: int) -> bool:
 
 func _set_local_merge_intent(active: bool, player_id: int = -1) -> void:
 	var resolved_player_id := _keyboard_player_id() if player_id <= 0 else player_id
+	if (
+		_play_mode == PlayMode.SINGLE
+		and resolved_player_id == 1
+		and _single_ai_active()
+		and _single_ai_requires_merge_release
+	):
+		if not active:
+			_single_ai_requires_merge_release = false
+		_merge_held_by_player[resolved_player_id] = false
+		_set_merge_intent(resolved_player_id, false)
+		_set_merge_intent(SINGLE_AI_PEER_ID, false)
+		return
 	if bool(_merge_held_by_player.get(resolved_player_id, false)) == active:
 		return
 	_merge_held_by_player[resolved_player_id] = active
+	if _play_mode == PlayMode.SINGLE and resolved_player_id == 1 and _single_ai_active():
+		var can_ai_merge := bool(_single_ai_teammate.call("can_merge"))
+		_set_merge_intent(resolved_player_id, active and can_ai_merge)
+		_set_merge_intent(SINGLE_AI_PEER_ID, active and can_ai_merge)
+		return
 	if _play_mode == PlayMode.COUCH:
 		_set_merge_intent(resolved_player_id, active)
 		return
@@ -2823,6 +3055,8 @@ func _update_active_merges(delta: float) -> void:
 func _update_merge_hold_progress(delta: float) -> void:
 	var valid_pairs: Dictionary = {}
 	var peer_ids := _players.keys()
+	if _single_ai_active() and bool(_single_ai_teammate.call("can_merge")):
+		peer_ids.append(SINGLE_AI_PEER_ID)
 	peer_ids.sort()
 	for left_index in range(peer_ids.size()):
 		var left := int(peer_ids[left_index])
@@ -2854,10 +3088,17 @@ func _can_merge_pair(left: int, right: int) -> bool:
 		return false
 	if is_peer_merged(left) or is_peer_merged(right):
 		return false
-	if float(_merge_cooldowns.get(left, 0.0)) > 0.0 or float(_merge_cooldowns.get(right, 0.0)) > 0.0:
+	var has_single_ai := _is_single_ai_peer(left) or _is_single_ai_peer(right)
+	if (
+		not has_single_ai
+		and (
+			float(_merge_cooldowns.get(left, 0.0)) > 0.0
+			or float(_merge_cooldowns.get(right, 0.0)) > 0.0
+		)
+	):
 		return false
-	var left_player := _players.get(left) as Node
-	var right_player := _players.get(right) as Node
+	var left_player := _merge_participant_node(left)
+	var right_player := _merge_participant_node(right)
 	if left_player == null or right_player == null:
 		return false
 	if not bool(left_player.get("alive")) or not bool(right_player.get("alive")):
@@ -2870,8 +3111,8 @@ func _can_merge_pair(left: int, right: int) -> bool:
 func _start_merge(driver: int, gunner: int) -> void:
 	if not _can_merge_pair(driver, gunner):
 		return
-	var driver_player := _players.get(driver) as Node
-	var gunner_player := _players.get(gunner) as Node
+	var driver_player := _merge_participant_node(driver)
+	var gunner_player := _merge_participant_node(gunner)
 	if driver_player == null or gunner_player == null:
 		return
 	var driver_position: Vector2 = driver_player.call("body_center")
@@ -2880,6 +3121,13 @@ func _start_merge(driver: int, gunner: int) -> void:
 	var colors: Dictionary = _merge_visual_colors(driver, gunner)
 	var merge_id: int = _next_merge_id
 	_next_merge_id += 1
+	var merge_duration := MERGE_DURATION
+	if _is_single_ai_peer(driver) or _is_single_ai_peer(gunner):
+		merge_duration = minf(
+			merge_duration,
+			float(_single_ai_teammate.call("remaining_seconds"))
+		)
+		_single_ai_teammate.call("mark_merge_consumed")
 	var merge := {
 		"id": merge_id,
 		"driver": driver,
@@ -2887,7 +3135,7 @@ func _start_merge(driver: int, gunner: int) -> void:
 		"driver_name": _display_name_for_peer(driver),
 		"gunner_name": _display_name_for_peer(gunner),
 		"position": _clamp_merge_position(position),
-		"remaining": MERGE_DURATION,
+		"remaining": merge_duration,
 		"shield": MERGE_SHIELD,
 		"max_shield": MERGE_SHIELD,
 		"invuln": 0.0,
@@ -2922,15 +3170,16 @@ func _end_merge(merge_id: int, apply_cooldown: bool) -> void:
 	var driver := int(merge.get("driver", 0))
 	var gunner := int(merge.get("gunner", 0))
 	var split_direction := Vector2.RIGHT
-	var driver_player := _players.get(driver) as Node
-	var gunner_player := _players.get(gunner) as Node
+	var driver_player := _merge_participant_node(driver)
+	var gunner_player := _merge_participant_node(gunner)
 	if driver_player != null and gunner_player != null:
 		var between: Vector2 = gunner_player.call("body_center") - driver_player.call("body_center")
 		if between.length_squared() > 0.0001:
 			split_direction = between.normalized()
 	_place_split_player(driver, position - split_direction * MERGE_SPLIT_OFFSET)
 	_place_split_player(gunner, position + split_direction * MERGE_SPLIT_OFFSET)
-	if apply_cooldown:
+	var has_single_ai := _is_single_ai_peer(driver) or _is_single_ai_peer(gunner)
+	if apply_cooldown and not has_single_ai:
 		_merge_cooldowns[driver] = MERGE_COOLDOWN
 		_merge_cooldowns[gunner] = MERGE_COOLDOWN
 	var node := merge.get("node") as Node
@@ -2941,7 +3190,7 @@ func _end_merge(merge_id: int, apply_cooldown: bool) -> void:
 
 
 func _place_split_player(peer_id: int, position: Vector2) -> void:
-	var player := _players.get(peer_id) as Node
+	var player := _merge_participant_node(peer_id)
 	if player == null or not is_instance_valid(player):
 		return
 	player.visible = true
@@ -3051,6 +3300,8 @@ func _sync_merged_player_visibility() -> void:
 		var player := _players[peer_id] as Node
 		if player != null and is_instance_valid(player):
 			player.visible = not is_peer_merged(int(peer_id))
+	if _single_ai_active():
+		_single_ai_teammate.visible = not is_peer_merged(SINGLE_AI_PEER_ID)
 
 
 func _clear_merge_hold_for_peer(peer_id: int) -> void:
@@ -3099,7 +3350,7 @@ func _merge_visual_colors(driver: int, gunner: int) -> Dictionary:
 
 
 func _slime_palette_for_peer(peer_id: int) -> Dictionary:
-	var player := _players.get(peer_id) as Node
+	var player := _merge_participant_node(peer_id)
 	if player == null:
 		return PLAYER_SCRIPT.slime_palette(peer_id)
 	var appearance: Dictionary = player.call("appearance_state")
@@ -3107,7 +3358,7 @@ func _slime_palette_for_peer(peer_id: int) -> Dictionary:
 
 
 func _display_name_for_peer(peer_id: int) -> String:
-	var player := _players.get(peer_id) as Node
+	var player := _merge_participant_node(peer_id)
 	if player == null:
 		return "Peer %d" % peer_id
 	var display_name := String(player.get("display_name")).strip_edges()
@@ -3151,6 +3402,13 @@ func _local_merge_status_text(peer_id: int) -> String:
 		if int(merge.get("driver", 0)) == peer_id:
 			return _t("merge_hud_driver", {"shield": shield, "time": seconds})
 		return _t("merge_hud_gunner", {"shield": shield, "time": seconds})
+	if (
+		_play_mode == PlayMode.SINGLE
+		and peer_id == 1
+		and _single_ai_active()
+		and _single_ai_requires_merge_release
+	):
+		return ""
 	var cooldown := float(_merge_cooldowns.get(peer_id, 0.0))
 	if cooldown > 0.0:
 		return _t("merge_hud_cooldown", {"seconds": int(ceil(cooldown))})
@@ -3164,17 +3422,20 @@ func _local_merge_status_text(peer_id: int) -> String:
 
 
 func _nearest_merge_ready_peer(peer_id: int) -> int:
-	var player := _players.get(peer_id) as Node
+	var player := _merge_participant_node(peer_id)
 	if player == null or not bool(player.get("alive")) or is_peer_merged(peer_id):
 		return 0
 	var player_position: Vector2 = player.call("body_center")
 	var best_peer := 0
 	var best_distance := MERGE_DISTANCE
-	for other_id in _players.keys():
+	var participant_ids := _players.keys()
+	if _single_ai_active() and bool(_single_ai_teammate.call("can_merge")):
+		participant_ids.append(SINGLE_AI_PEER_ID)
+	for other_id in participant_ids:
 		var other_peer := int(other_id)
 		if other_peer == peer_id or is_peer_merged(other_peer):
 			continue
-		var other := _players.get(other_peer) as Node
+		var other := _merge_participant_node(other_peer)
 		if other == null or not bool(other.get("alive")):
 			continue
 		if float(_merge_cooldowns.get(other_peer, 0.0)) > 0.0:
@@ -3213,6 +3474,8 @@ func _sync_player_battle_timers(timers_running: bool) -> void:
 		var player := _players[peer_id] as Node
 		if player != null and is_instance_valid(player):
 			player.call("set_battle_timers_paused", not timers_running)
+	if _single_ai_active():
+		_single_ai_teammate.call("set_battle_timers_paused", not timers_running)
 
 
 func _try_fire(player_id: int = -1) -> void:
@@ -3306,9 +3569,7 @@ func _player_body_center(peer_id: int) -> Vector2:
 	var merge := _active_merge_for_peer(peer_id)
 	if not merge.is_empty():
 		return merge.get("position", world_rect.get_center())
-	if not _players.has(peer_id):
-		return world_rect.get_center()
-	var player := _players[peer_id] as Node
+	var player := _merge_participant_node(peer_id)
 	if player == null:
 		return world_rect.get_center()
 	var body_center: Vector2 = player.call("body_center")
@@ -3317,9 +3578,7 @@ func _player_body_center(peer_id: int) -> Vector2:
 
 func _player_fire_surface(peer_id: int, direction: Vector2) -> Vector2:
 	var world_rect := _world_rect()
-	if not _players.has(peer_id):
-		return world_rect.get_center()
-	var player := _players[peer_id] as Node
+	var player := _merge_participant_node(peer_id)
 	if player == null:
 		return world_rect.get_center()
 	var surface_point: Vector2 = player.call("emit_fire_surface", direction)
@@ -3363,12 +3622,7 @@ func _spawn_bullet(
 
 
 func _bullet_palette_for_peer(peer_id: int) -> Dictionary:
-	if not _players.has(peer_id):
-		return {
-			"fill": Color(0.82, 1.0, 0.70, 0.96),
-			"edge": Color(0.98, 1.0, 0.84, 0.98),
-		}
-	var player := _players[peer_id] as Node
+	var player := _merge_participant_node(peer_id)
 	if player == null:
 		return {
 			"fill": Color(0.82, 1.0, 0.70, 0.96),
@@ -3457,6 +3711,7 @@ func _remove_player(peer_id: int) -> void:
 
 
 func _clear_players() -> void:
+	_reset_single_ultimate()
 	_clear_merges()
 	for peer_id in _players.keys():
 		var player := _players[peer_id] as Node

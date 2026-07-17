@@ -183,6 +183,17 @@ func _check_main_scene_integration() -> void:
 	_check(int(main_scene.call("couch_player_count")) == 4, "controller added after battle start cannot add a fifth player")
 	_check(int(router.call("ignored_controller_count")) == 1, "battle router reports the ignored fifth player device")
 	var battle_hud := main_scene.get("_battle_hud") as Control
+	var ultimate: Dictionary = main_scene.call("single_ultimate_state")
+	var ultimate_label := battle_hud.get_node_or_null("UltimateLabel") as Label if battle_hud != null else null
+	main_scene.call("_on_player_enemy_hit", 1, true, true)
+	_check(
+		not bool(ultimate.get("visible", true))
+		and int((main_scene.call("single_ultimate_state") as Dictionary).get("charge", -1)) == 0
+		and main_scene.call("single_ai_teammate_node") == null
+		and not bool(main_scene.call("_try_summon_single_ai")),
+		"couch mode hides, cannot charge, and cannot summon the single-player ultimate"
+	)
+	_check(ultimate_label != null and not ultimate_label.visible, "couch HUD keeps the single-player ultimate row hidden")
 	_check(
 		battle_hud != null and String(battle_hud.call("notice_text")).contains("已忽略"),
 		"battle HUD visibly tells players that the extra controller was ignored"
@@ -392,6 +403,7 @@ func _check_buff_sequence_and_hud(main_scene: Node2D, router: Node) -> void:
 
 func _check_merge(main_scene: Node2D, router: Node) -> void:
 	var players: Dictionary = main_scene.call("player_nodes")
+	var player_one := players.get(1) as Node
 	var player_two := players.get(2) as Node
 	var player_three := players.get(3) as Node
 	var merge_position: Vector2 = main_scene.call("current_world_rect").get_center()
@@ -410,6 +422,24 @@ func _check_merge(main_scene: Node2D, router: Node) -> void:
 	main_scene.call("_end_merges_for_peer", 2, false)
 	router.call("debug_set_input_frame", 2, {})
 	router.call("debug_set_input_frame", 3, {})
+	main_scene.call("_update_couch_inputs")
+
+	player_one.call("warp_to", merge_position)
+	player_two.call("warp_to", merge_position + Vector2(20.0, 0.0))
+	_check(String(main_scene.call("_local_merge_status_text", 1)).contains("E"), "couch P1 keeps the keyboard E merge prompt")
+	router.call("debug_set_input_frame", 1, {"merge_held": true})
+	router.call("debug_set_input_frame", 2, {"merge_held": true})
+	main_scene.call("_update_couch_inputs")
+	main_scene.call("_update_merges_authority", 0.81)
+	_check(
+		bool(main_scene.call("is_peer_merged", 1))
+		and bool(main_scene.call("is_peer_merged", 2))
+		and main_scene.call("single_ai_teammate_node") == null,
+		"couch P1 E and P2 A still merge two real players without spawning AI"
+	)
+	main_scene.call("_end_merges_for_peer", 1, false)
+	router.call("debug_set_input_frame", 1, {})
+	router.call("debug_set_input_frame", 2, {})
 	main_scene.call("_update_couch_inputs")
 
 

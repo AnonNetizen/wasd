@@ -14,6 +14,8 @@ const BOSS_BAR_RECT := Rect2(Vector2(70.0, 14.0), Vector2(400.0, 14.0))
 const ACTIVE_SLOT_RECT := Rect2(Vector2(24.0, 62.0), Vector2(238.0, 32.0))
 const ACTIVE_KEY_RECT := Rect2(Vector2(31.0, 68.0), Vector2(32.0, 20.0))
 const ACTIVE_ICON_RECT := Rect2(Vector2(70.0, 67.0), Vector2(24.0, 22.0))
+const ULTIMATE_PANEL_RECT := Rect2(Vector2(24.0, 104.0), Vector2(238.0, 58.0))
+const ULTIMATE_PROGRESS_RECT := Rect2(Vector2(34.0, 147.0), Vector2(218.0, 8.0))
 const COUCH_CARD_MARGIN: float = 18.0
 const COUCH_CARD_GAP: float = 8.0
 const COUCH_CARD_TOP: float = 54.0
@@ -36,18 +38,27 @@ var _game_over_visible: bool = false
 var _hp_flash: float = 0.0
 var _active_slot_flash: float = 0.0
 var _boss_flash: float = 0.0
+var _ultimate_flash: float = 0.0
 var _hud_tweens: Dictionary = {}
 var _locale: String = LAB_LOCALE_SCRIPT.LOCALE_ZH_CN
 var _last_state: Dictionary = {}
 var _couch_mode: bool = false
 var _player_cards: Array[Dictionary] = []
 var _notice_remaining: float = 0.0
+var _ultimate_visible: bool = false
+var _ultimate_charge: float = 0.0
+var _ultimate_max_charge: float = 100.0
+var _ultimate_ready: bool = false
+var _ultimate_active: bool = false
+var _ultimate_remaining: float = 0.0
+var _ultimate_merge_available: bool = false
 
 var _time_label: Label
 var _tier_label: Label
 var _active_item_label: Label
 var _spectator_label: Label
 var _merge_status_label: Label
+var _ultimate_label: Label
 var _notice_label: Label
 var _game_over_panel: PanelContainer
 var _game_over_title_label: Label
@@ -70,11 +81,18 @@ func _process(delta: float) -> void:
 		_notice_label.modulate.a = clampf(_notice_remaining, 0.0, 1.0)
 		if _notice_remaining <= 0.0:
 			_notice_label.visible = false
-	if _hp_flash <= 0.0 and _active_slot_flash <= 0.0 and _boss_flash <= 0.0 and _notice_remaining <= 0.0:
+	if (
+		_hp_flash <= 0.0
+		and _active_slot_flash <= 0.0
+		and _boss_flash <= 0.0
+		and _ultimate_flash <= 0.0
+		and _notice_remaining <= 0.0
+	):
 		return
 	_hp_flash = maxf(0.0, _hp_flash - delta * 3.6)
 	_active_slot_flash = maxf(0.0, _active_slot_flash - delta * 3.0)
 	_boss_flash = maxf(0.0, _boss_flash - delta * 4.2)
+	_ultimate_flash = maxf(0.0, _ultimate_flash - delta * 2.4)
 	queue_redraw()
 
 
@@ -97,6 +115,8 @@ func set_locale(locale: String) -> void:
 		_spectator_label.text = _t("hud_spectator")
 	if _merge_status_label != null and _last_state.is_empty():
 		_merge_status_label.text = ""
+	if _ultimate_label != null and _last_state.is_empty():
+		_ultimate_label.text = ""
 	if _game_over_title_label != null:
 		_game_over_title_label.text = _t("game_over_title")
 	if _restart_button != null:
@@ -124,6 +144,8 @@ func refresh(state: Dictionary) -> void:
 	var previous_active_held := _active_item_held
 	var previous_boss_hp := _boss_hp
 	var previous_boss_visible := _boss_visible
+	var previous_ultimate_ready := _ultimate_ready
+	var previous_ultimate_active := _ultimate_active
 
 	_hp = int(state.get("hp", 0))
 	_max_hp = int(state.get("max_hp", 3))
@@ -164,6 +186,27 @@ func refresh(state: Dictionary) -> void:
 		and not bool(state.get("game_over", false))
 	)
 
+	var raw_ultimate: Variant = state.get("ultimate", {})
+	var ultimate: Dictionary = {}
+	if raw_ultimate is Dictionary:
+		ultimate = raw_ultimate as Dictionary
+	_ultimate_visible = not _couch_mode and bool(ultimate.get("visible", false))
+	_ultimate_max_charge = maxf(float(ultimate.get("max_charge", 100.0)), 1.0)
+	_ultimate_charge = clampf(float(ultimate.get("charge", 0.0)), 0.0, _ultimate_max_charge)
+	_ultimate_ready = bool(ultimate.get("ready", false))
+	_ultimate_active = bool(ultimate.get("active", false))
+	_ultimate_remaining = maxf(float(ultimate.get("remaining", 0.0)), 0.0)
+	_ultimate_merge_available = bool(ultimate.get("merge_available", false))
+	_ultimate_label.text = _ultimate_status_text()
+	_ultimate_label.visible = _ultimate_visible
+	var ultimate_text_color := Color(0.68, 0.94, 0.98, 0.98)
+	if _ultimate_active:
+		ultimate_text_color = Color(0.72, 1.0, 0.76, 0.98)
+	elif _ultimate_ready:
+		ultimate_text_color = Color(1.0, 0.88, 0.42, 1.0)
+	_ultimate_label.add_theme_color_override("font_color", ultimate_text_color)
+	_merge_status_label.position.y = 170.0 if _ultimate_visible else 108.0
+
 	var game_over := bool(state.get("game_over", false))
 	if game_over != _game_over_visible:
 		if game_over:
@@ -181,6 +224,15 @@ func refresh(state: Dictionary) -> void:
 		_pulse_control(_active_item_label, 1.10)
 	if _boss_visible != previous_boss_visible or (_boss_visible and _boss_hp < previous_boss_hp):
 		_boss_flash = 1.0
+	if (
+		_ultimate_visible
+		and (
+			(_ultimate_ready and not previous_ultimate_ready)
+			or (_ultimate_active and not previous_ultimate_active)
+		)
+	):
+		_ultimate_flash = 1.0
+		_pulse_control(_ultimate_label, 1.08)
 	queue_redraw()
 
 
@@ -212,7 +264,8 @@ func _draw() -> void:
 
 
 func _draw_expanded_player_hud() -> void:
-	draw_rect(Rect2(Vector2(18.0, 18.0), Vector2(250.0, 84.0)), Color(0.0, 0.0, 0.0, 0.18), true)
+	var hud_height := 152.0 if _ultimate_visible else 84.0
+	draw_rect(Rect2(Vector2(18.0, 18.0), Vector2(250.0, hud_height)), Color(0.0, 0.0, 0.0, 0.18), true)
 	for index in range(_max_hp):
 		var center := HEART_ORIGIN + Vector2(float(index) * HEART_SPACING, 0.0)
 		if index < _hp:
@@ -238,6 +291,49 @@ func _draw_expanded_player_hud() -> void:
 	)
 	var font := get_theme_default_font()
 	_draw_centered_text(font, "Q", ACTIVE_KEY_RECT.get_center() + Vector2(0.0, -1.0), 15, Color(1.0, 0.88, 0.40, 1.0))
+	if _ultimate_visible:
+		_draw_ultimate_panel()
+
+
+func _draw_ultimate_panel() -> void:
+	var fill_color := Color(0.030, 0.060, 0.072, 0.94)
+	var edge_color := Color(0.28, 0.72, 0.78, 0.84)
+	var progress_color := Color(0.28, 0.84, 0.90, 0.96)
+	if _ultimate_active:
+		fill_color = Color(0.055, 0.16, 0.10, 0.96)
+		edge_color = UI_STYLE_SCRIPT.SLIME_COLOR.lerp(Color.WHITE, _ultimate_flash * 0.18)
+		progress_color = Color(0.46, 1.0, 0.60, 0.98)
+	elif _ultimate_ready:
+		fill_color = Color(0.16, 0.12, 0.035, 0.96)
+		edge_color = UI_STYLE_SCRIPT.AMBER_COLOR.lerp(Color.WHITE, _ultimate_flash * 0.26)
+		progress_color = UI_STYLE_SCRIPT.AMBER_COLOR.lerp(Color(1.0, 0.94, 0.58, 1.0), _ultimate_flash * 0.45)
+
+	draw_rect(ULTIMATE_PANEL_RECT, fill_color, true)
+	draw_rect(ULTIMATE_PANEL_RECT, edge_color, false, 1.8)
+	draw_rect(ULTIMATE_PROGRESS_RECT, Color(0.02, 0.04, 0.045, 0.94), true)
+	var progress_ratio := 1.0 if _ultimate_active else clampf(_ultimate_charge / _ultimate_max_charge, 0.0, 1.0)
+	var progress_rect := Rect2(
+		ULTIMATE_PROGRESS_RECT.position,
+		Vector2(ULTIMATE_PROGRESS_RECT.size.x * progress_ratio, ULTIMATE_PROGRESS_RECT.size.y)
+	)
+	draw_rect(progress_rect, progress_color, true)
+	draw_rect(ULTIMATE_PROGRESS_RECT, Color(edge_color, 0.82), false, 1.0)
+
+
+func _ultimate_status_text() -> String:
+	if not _ultimate_visible:
+		return ""
+	if _ultimate_active:
+		var active_text := _t("hud_ultimate_active", {"seconds": "%.1f" % _ultimate_remaining})
+		if _ultimate_merge_available:
+			return "%s\n%s" % [active_text, _t("hud_ultimate_merge")]
+		return active_text
+	if _ultimate_ready:
+		return _t("hud_ultimate_ready")
+	return _t("hud_ultimate_charge", {
+		"charge": int(roundf(_ultimate_charge)),
+		"max": int(roundf(_ultimate_max_charge)),
+	})
 
 
 func _draw_player_cards() -> void:
@@ -540,6 +636,20 @@ func _create_labels() -> void:
 	_active_item_label.add_theme_color_override("font_color", UI_STYLE_SCRIPT.MUTED_TEXT_COLOR)
 	add_child(_active_item_label)
 	_active_item_label.resized.connect(_refresh_control_pivot.bind(_active_item_label))
+
+	_ultimate_label = Label.new()
+	_ultimate_label.name = "UltimateLabel"
+	_ultimate_label.position = Vector2(34.0, 108.0)
+	_ultimate_label.size = Vector2(218.0, 36.0)
+	_ultimate_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_ultimate_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_ultimate_label.visible = false
+	_ultimate_label.add_theme_font_size_override("font_size", 13)
+	_ultimate_label.add_theme_color_override("font_color", Color(0.68, 0.94, 0.98, 0.98))
+	_ultimate_label.add_theme_constant_override("outline_size", 2)
+	_ultimate_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.72))
+	add_child(_ultimate_label)
+	_ultimate_label.resized.connect(_refresh_control_pivot.bind(_ultimate_label))
 
 	_spectator_label = Label.new()
 	_spectator_label.name = "SpectatorLabel"

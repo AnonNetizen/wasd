@@ -4,6 +4,7 @@ extends Node2D
 signal phase_changed(phase: int, payload: Dictionary)
 signal buff_options_ready(peer_id: int, options: PackedInt32Array)
 signal active_item_used(peer_id: int, item_id: int, origin: Vector2)
+signal player_enemy_hit(peer_id: int, defeated: bool, is_boss: bool)
 
 const ENEMY_SCRIPT := preload("res://scripts/enemy.gd")
 const ENEMY_BULLET_SCRIPT := preload("res://scripts/enemy_bullet.gd")
@@ -811,6 +812,24 @@ func battle_state() -> Dictionary:
 	}
 
 
+func nearest_hostile_position(origin: Vector2) -> Vector2:
+	var nearest_position := Vector2.INF
+	var nearest_distance := INF
+	for enemy_id in _enemies.keys():
+		var enemy := _enemies.get(enemy_id) as Node2D
+		if enemy == null or not is_instance_valid(enemy) or bool(enemy.call("is_dead")):
+			continue
+		var distance := origin.distance_squared_to(enemy.global_position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_position = enemy.global_position
+	if _boss != null and is_instance_valid(_boss) and not bool(_boss.call("is_dead")):
+		var boss_distance := origin.distance_squared_to(_boss.global_position)
+		if boss_distance < nearest_distance:
+			nearest_position = _boss.global_position
+	return nearest_position
+
+
 func buff_def(buff_id: int) -> Dictionary:
 	for def in BUFF_DEFS:
 		if int(def.get("id", -1)) == buff_id:
@@ -1323,6 +1342,7 @@ func _resolve_player_bullet_hits() -> void:
 		var bullet_node := bullet as Node2D
 		var bullet_radius := float(bullet.call("hit_radius"))
 		var damage := int(bullet.get("damage"))
+		var owner_peer_id := int(bullet.get("owner_peer_id"))
 		for enemy_id in _enemies.keys():
 			var enemy := _enemies.get(enemy_id) as Node2D
 			if enemy == null or not is_instance_valid(enemy):
@@ -1334,7 +1354,9 @@ func _resolve_player_bullet_hits() -> void:
 				continue
 			enemy.call("take_hit", damage)
 			spawn_burst(bullet_node.global_position, Color(0.9, 1.0, 0.8, 0.7), 4, 80.0)
-			if bool(enemy.call("is_dead")):
+			var enemy_defeated := bool(enemy.call("is_dead"))
+			player_enemy_hit.emit(owner_peer_id, enemy_defeated, false)
+			if enemy_defeated:
 				_kill_enemy(enemy_id, enemy)
 			var pierce_remaining := int(bullet.get("pierce_remaining"))
 			if pierce_remaining > 0:
@@ -1349,7 +1371,9 @@ func _resolve_player_bullet_hits() -> void:
 			if bullet_node.global_position.distance_to(_boss.global_position) <= boss_radius + bullet_radius:
 				_boss.call("take_hit", damage)
 				spawn_burst(bullet_node.global_position, Color(1.0, 0.80, 0.58, 0.78), 5, 105.0)
-				if bool(_boss.call("is_dead")):
+				var boss_defeated := bool(_boss.call("is_dead"))
+				player_enemy_hit.emit(owner_peer_id, boss_defeated, true)
+				if boss_defeated:
 					_kill_boss()
 				bullet.queue_free()
 				continue

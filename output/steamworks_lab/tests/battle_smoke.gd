@@ -4,6 +4,7 @@ extends SceneTree
 #   py -3 tools/steamworks_lab_toolchain.py smoke --suite battle
 
 const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
+const AI_TEAMMATE_SCRIPT := preload("res://scripts/ai_teammate.gd")
 const ENEMY_BULLET_SCRIPT := preload("res://scripts/enemy_bullet.gd")
 const LAB_SAVE_SCRIPT := preload("res://scripts/lab_save.gd")
 const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
@@ -63,6 +64,7 @@ func _run() -> void:
 	await _check_steam_client_record_chain(main_packed)
 	await _check_customize_ui(main_scene)
 	await _check_steam_invite_ui(main_scene)
+	await _check_single_ai_ultimate(main_packed)
 
 	main_scene.call("_begin_single_player")
 	await process_frame
@@ -1323,6 +1325,352 @@ func _check_steam_invite_ui(main_scene: Node) -> void:
 	_check(confirm_panel != null and not confirm_panel.visible, "Steam invite accept closes confirm panel")
 	main_scene.call("_on_leave_game_pressed")
 	await process_frame
+
+
+func _check_single_ai_ultimate(main_packed: PackedScene) -> void:
+	var main_scene := main_packed.instantiate() as Node2D
+	_configure_test_paths(main_scene)
+	root.add_child(main_scene)
+	await process_frame
+	main_scene.set_physics_process(false)
+	main_scene.call("_begin_single_player")
+	await process_frame
+
+	var director := main_scene.get("_director") as Node
+	var players: Dictionary = main_scene.call("player_nodes")
+	var player := players.get(1) as Node
+	var battle_hud := main_scene.get("_battle_hud") as Control
+	var ultimate_label := battle_hud.get_node_or_null("UltimateLabel") as Label if battle_hud != null else null
+	_check(director != null and player != null, "single AI ultimate fixture starts an authoritative battle")
+	if director == null or player == null:
+		main_scene.queue_free()
+		await process_frame
+		return
+
+	var ultimate: Dictionary = main_scene.call("single_ultimate_state")
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		bool(ultimate.get("visible", false))
+		and int(ultimate.get("charge", -1)) == 0
+		and not bool(ultimate.get("active", true)),
+		"single-player ultimate starts visible, empty, and inactive"
+	)
+	_check(ultimate_label != null and ultimate_label.visible, "single-player HUD exposes the ultimate row")
+
+	# Resolve real authority-side bullet collisions so charge attribution cannot drift
+	# away from BattleDirector's player_enemy_hit signal.
+	var world_rect: Rect2 = main_scene.call("current_world_rect")
+	var hit_position: Vector2 = world_rect.get_center() + Vector2(0.0, -180.0)
+	director.call("_spawn_enemy_at", 0, hit_position)
+	var enemies: Dictionary = director.get("_enemies")
+	var enemy_id := int(enemies.keys().back())
+	var enemy := enemies.get(enemy_id) as Node2D
+	enemy.set("hp", 5.0)
+	_spawn_live_test_bullet(main_scene, 1, hit_position, 1)
+	director.call("_resolve_player_bullet_hits")
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(int(ultimate.get("charge", -1)) == 1, "real P1 enemy hit adds one ultimate charge")
+
+	enemy.set("hp", 1.0)
+	_spawn_live_test_bullet(main_scene, 1, hit_position, 1)
+	director.call("_resolve_player_bullet_hits")
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(int(ultimate.get("charge", -1)) == 7, "real normal enemy kill adds hit plus five kill charge")
+
+	director.call("_spawn_boss")
+	var boss := director.get("_boss") as Node2D
+	if boss != null:
+		boss.set("hp", 1.0)
+		_spawn_live_test_bullet(main_scene, 1, boss.global_position, 1)
+		director.call("_resolve_player_bullet_hits")
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(boss != null and int(ultimate.get("charge", -1)) == 28, "real Boss kill adds hit plus twenty kill charge")
+
+	director.call("_spawn_obstacle")
+	var obstacles: Dictionary = director.get("_obstacles")
+	var obstacle_id := int(obstacles.keys().back())
+	var obstacle := obstacles.get(obstacle_id) as Node2D
+	var charge_before_obstacle := int(ultimate.get("charge", -1))
+	obstacle.set("hp", 1.0)
+	_spawn_live_test_bullet(main_scene, 1, obstacle.global_position, 1)
+	director.call("_resolve_player_bullet_hits")
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(int(ultimate.get("charge", -1)) == charge_before_obstacle, "obstacle damage does not charge the ultimate")
+
+	main_scene.call("_on_player_enemy_hit", 2, true, true)
+	_check(
+		int((main_scene.call("single_ultimate_state") as Dictionary).get("charge", -1)) == charge_before_obstacle,
+		"non-P1 damage cannot charge the single-player ultimate"
+	)
+	main_scene.set("_play_mode", MAIN_SCRIPT.PlayMode.COUCH)
+	main_scene.call("_on_player_enemy_hit", 1, true, true)
+	_check(
+		int((main_scene.call("single_ultimate_state") as Dictionary).get("charge", -1)) == charge_before_obstacle
+		and not bool(main_scene.call("_try_summon_single_ai")),
+		"non-single modes neither charge nor summon the AI ultimate"
+	)
+	main_scene.set("_play_mode", MAIN_SCRIPT.PlayMode.SINGLE)
+
+	main_scene.set("_single_ultimate_charge", MAIN_SCRIPT.SINGLE_ULTIMATE_MAX_CHARGE - 1)
+	_check(not bool(main_scene.call("_try_summon_single_ai")), "ultimate cannot summon below full charge")
+	main_scene.call("_on_player_enemy_hit", 1, true, true)
+	main_scene.call("_on_player_enemy_hit", 1, true, true)
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(
+		int(ultimate.get("charge", -1)) == MAIN_SCRIPT.SINGLE_ULTIMATE_MAX_CHARGE
+		and bool(ultimate.get("ready", false)),
+		"ultimate charge caps at one hundred and enters ready state"
+	)
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		ultimate_label != null and ultimate_label.text == "E 召唤 AI 队友",
+		"Chinese HUD shows the ready ultimate prompt"
+	)
+
+	_check(bool(main_scene.call("_try_summon_single_ai")), "full ultimate summons the AI teammate")
+	_check(not bool(main_scene.call("_try_summon_single_ai")), "active AI blocks duplicate summons")
+	var teammate := main_scene.call("single_ai_teammate_node") as Node
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(
+		teammate != null
+		and bool(ultimate.get("active", false))
+		and int(ultimate.get("charge", -1)) == 0
+		and float(ultimate.get("remaining", 0.0)) <= MAIN_SCRIPT.SINGLE_AI_DURATION,
+		"summon consumes the meter and starts the ten-second AI timer"
+	)
+	players = main_scene.call("player_nodes")
+	_check(
+		players.size() == 1 and not players.has(MAIN_SCRIPT.SINGLE_AI_PEER_ID),
+		"AI teammate stays outside the real player roster"
+	)
+	var snapshot: Dictionary = main_scene.call("_build_snapshot")
+	_check(
+		not _snapshot_has_player(snapshot, MAIN_SCRIPT.SINGLE_AI_PEER_ID),
+		"AI teammate is excluded from network snapshot player rows"
+	)
+	var enemy_targets: Array = director.call("_alive_player_positions")
+	_check(
+		enemy_targets.size() == 1
+		and (enemy_targets[0] as Vector2).distance_to(player.call("body_center")) < 0.1,
+		"enemy targeting contains P1 but excludes the AI teammate"
+	)
+	_check((director.get("_player_buffs") as Dictionary).get(MAIN_SCRIPT.SINGLE_AI_PEER_ID, {}).is_empty(), "AI teammate has no independent buff build")
+	main_scene.call("_on_player_enemy_hit", 1, true, true)
+	_check(
+		int((main_scene.call("single_ultimate_state") as Dictionary).get("charge", -1)) == 0,
+		"ultimate charge is locked while the AI teammate is active"
+	)
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(not bool(ultimate.get("merge_available", true)), "summon press cannot immediately roll into a merge")
+	_check(
+		not bool((main_scene.get("_peer_merge_intents") as Dictionary).get(1, false))
+		and not bool((main_scene.get("_peer_merge_intents") as Dictionary).get(MAIN_SCRIPT.SINGLE_AI_PEER_ID, false)),
+		"AI merge intents remain clear until P1 releases E"
+	)
+	main_scene.call("_set_local_merge_intent", false, 1)
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(bool(ultimate.get("merge_available", false)), "releasing E unlocks the AI merge prompt")
+
+	# Give P1 every projectile modifier: the AI should inherit only damage and speed.
+	director.call("apply_buff", 1, BATTLE_DIRECTOR_SCRIPT.BUFF_DAMAGE)
+	director.call("apply_buff", 1, BATTLE_DIRECTOR_SCRIPT.BUFF_BULLET_SPEED)
+	director.call("apply_buff", 1, BATTLE_DIRECTOR_SCRIPT.BUFF_MULTI_SHOT)
+	director.call("apply_buff", 1, BATTLE_DIRECTOR_SCRIPT.BUFF_PIERCE)
+	var ai_position: Vector2 = teammate.call("body_center")
+	var near_position := ai_position + Vector2(0.0, -140.0)
+	var far_position := ai_position + Vector2(180.0, -220.0)
+	director.call("_spawn_enemy_at", 0, far_position)
+	director.call("_spawn_enemy_at", 0, near_position)
+	_check(
+		(director.call("nearest_hostile_position", ai_position) as Vector2).distance_to(near_position) < 0.1,
+		"AI target query chooses the nearest living hostile"
+	)
+
+	var leader_position: Vector2 = player.call("body_center")
+	var expected_follow_position := leader_position + AI_TEAMMATE_SCRIPT.FOLLOW_OFFSET
+	teammate.call("warp_to", world_rect.position + Vector2(30.0, 30.0))
+	var ai_bullets_before := _count_bullets_owned_by(main_scene, MAIN_SCRIPT.SINGLE_AI_PEER_ID)
+	main_scene.call("_update_gameplay", 0.01)
+	_check(
+		(teammate.call("body_center") as Vector2).distance_to(expected_follow_position) < 1.0,
+		"AI safely catches up to its follow offset beyond the teleport threshold"
+	)
+	var ai_bullets_after := _count_bullets_owned_by(main_scene, MAIN_SCRIPT.SINGLE_AI_PEER_ID)
+	var ai_bullet := _last_bullet_owned_by(main_scene, MAIN_SCRIPT.SINGLE_AI_PEER_ID)
+	var expected_ai_damage := int(director.call("player_bullet_damage", 1))
+	var expected_ai_speed := 560.0 * float(director.call("player_bullet_speed_scale", 1))
+	_check(ai_bullets_after == ai_bullets_before + 1, "AI fires exactly one shot when its fixed cooldown is ready")
+	_check(
+		ai_bullet != null
+		and int(ai_bullet.get("damage")) == expected_ai_damage
+		and is_equal_approx(float(ai_bullet.get("_speed")), expected_ai_speed),
+		"AI projectile inherits P1 damage and bullet speed"
+	)
+	_check(ai_bullet != null and int(ai_bullet.get("pierce_remaining")) == 0, "AI projectile does not inherit P1 pierce")
+	main_scene.call("_update_gameplay", AI_TEAMMATE_SCRIPT.FIRE_INTERVAL - 0.02)
+	_check(
+		_count_bullets_owned_by(main_scene, MAIN_SCRIPT.SINGLE_AI_PEER_ID) == ai_bullets_after,
+		"AI cannot fire again before its fixed 0.30-second interval"
+	)
+	main_scene.call("_update_gameplay", 0.03)
+	_check(
+		_count_bullets_owned_by(main_scene, MAIN_SCRIPT.SINGLE_AI_PEER_ID) == ai_bullets_after + 1,
+		"AI fires again after its fixed interval elapses"
+	)
+
+	var remaining_before_pause := float(teammate.call("remaining_seconds"))
+	main_scene.call("_open_pause_menu")
+	main_scene.call("_update_gameplay", 1.0)
+	_check(
+		is_equal_approx(float(teammate.call("remaining_seconds")), remaining_before_pause),
+		"pause freezes the AI ultimate lifetime"
+	)
+	main_scene.call("_close_pause_menu")
+	director.set("phase", BATTLE_DIRECTOR_SCRIPT.Phase.CHOOSING_BUFF)
+	var remaining_before_choice := float(teammate.call("remaining_seconds"))
+	main_scene.call("_update_gameplay", 1.0)
+	_check(
+		is_equal_approx(float(teammate.call("remaining_seconds")), remaining_before_choice),
+		"buff selection freezes the AI ultimate lifetime"
+	)
+	director.set("phase", BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE)
+
+	teammate.call("warp_to", player.call("body_center") + Vector2(24.0, 0.0))
+	main_scene.call("_set_local_merge_intent", true, 1)
+	var merge_intents: Dictionary = main_scene.get("_peer_merge_intents")
+	_check(
+		bool(merge_intents.get(1, false))
+		and bool(merge_intents.get(MAIN_SCRIPT.SINGLE_AI_PEER_ID, false)),
+		"P1 merge intent automatically receives AI consent"
+	)
+	_check(
+		bool(main_scene.call("_can_merge_pair", 1, MAIN_SCRIPT.SINGLE_AI_PEER_ID)),
+		"P1 and AI are within the authoritative merge distance"
+	)
+	main_scene.call("_update_merges_authority", MAIN_SCRIPT.MERGE_HOLD_DURATION + 0.01)
+	var active_merges: Dictionary = main_scene.get("_active_merges")
+	var merge_id := int(active_merges.keys()[0]) if not active_merges.is_empty() else 0
+	var merge: Dictionary = active_merges.get(merge_id, {})
+	_check(
+		active_merges.size() == 1
+		and int(merge.get("driver", 0)) == 1
+		and int(merge.get("gunner", 0)) == MAIN_SCRIPT.SINGLE_AI_PEER_ID,
+		"AI merge assigns P1 as driver and AI as automatic gunner"
+	)
+	_check(not bool(teammate.call("can_merge")), "one AI summon consumes its only merge")
+	_check(
+		merge_id > 0 and bool(main_scene.call("apply_merge_damage", merge_id, MAIN_SCRIPT.MERGE_SHIELD)),
+		"AI merge shield accepts authoritative damage"
+	)
+	_check(
+		(main_scene.get("_active_merges") as Dictionary).is_empty()
+		and main_scene.call("single_ai_teammate_node") != null
+		and not (main_scene.get("_merge_cooldowns") as Dictionary).has(1),
+		"shield break keeps the AI assisting without multiplayer cooldown"
+	)
+	main_scene.call("_set_local_merge_intent", false, 1)
+	main_scene.call("_set_local_merge_intent", true, 1)
+	main_scene.call("_update_merges_authority", MAIN_SCRIPT.MERGE_HOLD_DURATION + 0.01)
+	_check((main_scene.get("_active_merges") as Dictionary).is_empty(), "consumed AI cannot merge a second time in the same summon")
+
+	# A second summon verifies that expiry, not merge duration, owns the hard ten-second lifetime.
+	main_scene.call("_dismiss_single_ai", false)
+	main_scene.set("_single_ultimate_charge", MAIN_SCRIPT.SINGLE_ULTIMATE_MAX_CHARGE)
+	_check(bool(main_scene.call("_try_summon_single_ai")), "ultimate can be earned and summoned again after the prior AI leaves")
+	teammate = main_scene.call("single_ai_teammate_node") as Node
+	main_scene.call("_set_local_merge_intent", false, 1)
+	teammate.call("warp_to", player.call("body_center") + Vector2(24.0, 0.0))
+	teammate.set("remaining", 2.0)
+	main_scene.call("_set_local_merge_intent", true, 1)
+	main_scene.call("_update_merges_authority", MAIN_SCRIPT.MERGE_HOLD_DURATION + 0.01)
+	active_merges = main_scene.get("_active_merges")
+	merge_id = int(active_merges.keys()[0]) if not active_merges.is_empty() else 0
+	merge = active_merges.get(merge_id, {})
+	_check(
+		merge_id > 0 and float(merge.get("remaining", 99.0)) <= 2.0,
+		"late AI merge cannot outlive the summon time remaining when it begins"
+	)
+	teammate.set("remaining", 0.05)
+	main_scene.call("_update_gameplay", 0.10)
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(
+		not bool(ultimate.get("active", true))
+		and main_scene.call("single_ai_teammate_node") == null
+		and (main_scene.get("_active_merges") as Dictionary).is_empty()
+		and player.visible,
+		"AI expiry force-splits an active merge and removes the teammate"
+	)
+
+	main_scene.set("_single_ultimate_charge", 43)
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		ultimate_label != null and ultimate_label.text == "AI 援军 43 / 100",
+		"Chinese HUD displays independent ultimate charge progress"
+	)
+	main_scene.set("_single_ultimate_charge", MAIN_SCRIPT.SINGLE_ULTIMATE_MAX_CHARGE)
+	main_scene.call("_try_summon_single_ai")
+	main_scene.call("_set_local_merge_intent", false, 1)
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		ultimate_label != null
+		and ultimate_label.text.contains("AI 队友 · 剩余")
+		and ultimate_label.text.contains("按住 E 合体"),
+		"Chinese HUD displays active lifetime and merge prompt"
+	)
+	main_scene.call("_on_language_selected", 1)
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		ultimate_label != null
+		and ultimate_label.text.contains("AI Ally ·")
+		and ultimate_label.text.contains("Hold E to Merge")
+		and ultimate_label.autowrap_mode != TextServer.AUTOWRAP_OFF
+		and ultimate_label.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING,
+		"English HUD shows the full active AI message without trimming"
+	)
+	main_scene.call("_on_language_selected", 0)
+	main_scene.call("_reset_battle")
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(
+		int(ultimate.get("charge", -1)) == 0
+		and not bool(ultimate.get("active", true)),
+		"battle restart clears ultimate charge and any summoned AI"
+	)
+
+	main_scene.queue_free()
+	await process_frame
+
+
+func _spawn_live_test_bullet(main_scene: Node, peer_id: int, position: Vector2, damage: int) -> Node2D:
+	main_scene.call("_spawn_bullet", peer_id, position, Vector2.UP, 560.0, damage, 0)
+	var bullets: Array = main_scene.get("_bullets")
+	var bullet := bullets.back() as Node2D
+	bullet.set("_age", 0.2)
+	bullet.global_position = position
+	return bullet
+
+
+func _snapshot_has_player(snapshot: Dictionary, peer_id: int) -> bool:
+	for raw_player in snapshot.get("players", []):
+		if raw_player is Dictionary and int((raw_player as Dictionary).get("peer_id", 0)) == peer_id:
+			return true
+	return false
+
+
+func _count_bullets_owned_by(main_scene: Node, peer_id: int) -> int:
+	var count := 0
+	for bullet in main_scene.get("_bullets") as Array:
+		if bullet != null and is_instance_valid(bullet) and int(bullet.get("owner_peer_id")) == peer_id:
+			count += 1
+	return count
+
+
+func _last_bullet_owned_by(main_scene: Node, peer_id: int) -> Node:
+	var bullets: Array = main_scene.get("_bullets")
+	for index in range(bullets.size() - 1, -1, -1):
+		var bullet := bullets[index] as Node
+		if bullet != null and is_instance_valid(bullet) and int(bullet.get("owner_peer_id")) == peer_id:
+			return bullet
+	return null
 
 
 func _node_tree_has_text(root_node: Node, expected_text: String) -> bool:

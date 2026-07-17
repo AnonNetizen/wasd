@@ -1014,16 +1014,16 @@
     {
       "path": "output/steamworks_lab/README.md",
       "type": "entrypoint",
-      "authority": "Standalone Steamworks Slime Lab runbook for App ID, GodotSteam transport, lobby protocol, offline fallback, testing, and release boundaries",
+      "authority": "Standalone Steamworks Slime Lab runbook for single-player AI ultimate, local couch co-op, records, App ID, GodotSteam transport, lobby protocol, isolated testing, and release boundaries",
       "status": "active",
       "owner_scope": "project",
-      "last_reviewed": "2026-07-11",
-      "canonical_for": ["steamworks_lab", "steamworks_lab_app_id", "steamworks_lab_lobby_protocol", "steamworks_lab_release_boundary"],
-      "must_read_for": ["steamworks_lab_change", "steamworks_lab_app_id_change", "steamworks_lab_transport_change", "steamworks_lab_release"],
+      "last_reviewed": "2026-07-17",
+      "canonical_for": ["steamworks_lab", "steamworks_lab_single_ai_ultimate", "steamworks_lab_app_id", "steamworks_lab_lobby_protocol", "steamworks_lab_release_boundary"],
+      "must_read_for": ["steamworks_lab_change", "steamworks_lab_single_ai_ultimate_change", "steamworks_lab_app_id_change", "steamworks_lab_transport_change", "steamworks_lab_release"],
       "related_docs": ["docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json"],
-      "related_code": ["output/steamworks_lab/project.godot", "output/steamworks_lab/steam_appid.txt", "output/steamworks_lab/scripts/transport_adapter.gd", "output/steamworks_lab/scripts/network_session.gd", "output/steamworks_lab/tests/steam_config_smoke.gd"],
-      "update_triggers": ["Steam App ID changes", "GodotSteam initialization changes", "Steam lobby metadata changes", "offline fallback changes", "Steam export or depot workflow changes"],
-      "keywords": ["Steamworks Slime Lab", "steamworks_lab", "App ID", "4955670", "GodotSteam", "SteamMultiplayerPeer", "lobby", "overlay", "steam_appid.txt", "Depot", "offline", "ENet", "独立Steam应用"]
+      "related_code": ["output/steamworks_lab/project.godot", "output/steamworks_lab/steam_appid.txt", "output/steamworks_lab/scripts/ai_teammate.gd", "output/steamworks_lab/scripts/battle_director.gd", "output/steamworks_lab/scripts/battle_hud.gd", "output/steamworks_lab/scripts/steamworks_lab.gd", "output/steamworks_lab/scripts/transport_adapter.gd", "output/steamworks_lab/scripts/network_session.gd", "output/steamworks_lab/tests/battle_smoke.gd", "output/steamworks_lab/tests/local_couch_smoke.gd", "output/steamworks_lab/tests/steam_config_smoke.gd"],
+      "update_triggers": ["single-player AI ultimate changes", "Steam App ID changes", "GodotSteam initialization changes", "Steam lobby metadata changes", "offline fallback changes", "Steam export or depot workflow changes"],
+      "keywords": ["Steamworks Slime Lab", "steamworks_lab", "单人AI大招", "AI队友", "AI companion", "ultimate", "PlayMode.SINGLE", "本地同屏", "App ID", "4955670", "GodotSteam", "SteamMultiplayerPeer", "lobby", "overlay", "steam_appid.txt", "Depot", "offline", "ENet", "独立Steam应用"]
     },
     {
       "path": "docs/代码/rng.md",

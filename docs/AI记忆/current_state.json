@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-07-16",
+  "updated_at": "2026-07-17",
   "current_phase": "formal_project_f13_handcrafted_rooms",
-  "current_status": "ADR #138 / Steamworks Slime Lab 自动 smoke 已统一为仓库 Python runner：每个进程隔离 user://，GDScript 必须同时满足退出码 0、精确 ALL PASS 且无致命日志；all 固定按 boot、Steam 配置、同屏、battle 五轮、动态端口 ENet fail-fast。runner 保护玩家真实 settings.cfg / save.cfg 与源码 steam_appid.txt=4955670，测试 fixture 在 _ready() 前注入，禁止备份真实玩家文件或临时手写多进程命令；四平台 godot-test-diagnostics、测试策略、AI 导航和 pre-commit 已固化入口。正式项目阶段仍是 F13 手工房间制首片已落地、carrier opt-in、默认 open-warzone 不变；后续工作以用户最后明确指令为准。",
-  "latest_adr": 138,
+  "current_status": "ADR #139 / Steamworks Slime Lab 单人 AI 队友大招已完成：仅 PlayMode.SINGLE 下，P1 子弹命中 / 普通击杀 / Boss 击杀按 +1 / +6 / +21 累积至 100，按 E 召唤持续 10 秒、不可受伤、不吸引火力且自动跟随 / 射击的 AI；玩家须松开再按住 E 发起合体，AI 自动同意，合体计入持续时间且一次召唤最多合体一次。AI 不进入真人 roster、强化、纪录、玩家卡或快照；同屏 / Steam、wire、存档与正式 client 不变。目标 battle 单轮、local-couch 及权威 smoke --suite all 均通过，其中 battle 连续 5 轮、动态端口 ENet 与 900 字节 MTU 门禁全绿，真实玩家文件和源码 steam_appid.txt 保持不变。正式项目阶段仍是 F13 手工房间制首片已落地、carrier opt-in、默认 open-warzone 不变；后续工作以用户最后明确指令为准。",
+  "latest_adr": 139,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #139 / Steamworks Slime Lab 单人 AI 队友大招：已实现 100 点命中 / 击杀充能、E 召唤、10 秒有效战斗时间、自动跟随 / 最近目标 / 固定节奏射击、释放后再按住 E 的自动同意单次合体、单人 HUD 与中英文反馈；battle_smoke 和 local_couch_smoke 覆盖充能来源、继承边界、冻结 / 到期、合体生命周期及多人隔离，权威 smoke --suite all 含 battle 5/5 与 ENet 已通过。",
     "ADR #138 / Steamworks Lab smoke 永久防复发：tools/steamworks_lab_toolchain.py 新增 smoke --suite all|boot|steam-config|local-couch|battle|enet，统一 Godot 4.7 / Windows console 解析、每进程隔离环境、精确成功协议、battle 默认五轮、动态 UDP 端口、host READY、轻量 client 副本和超时清理；SteamLabSettings / 主场景支持 pre-ready fixture 注入，battle / couch / ENet smoke 不再触碰真实 user://；Python 回归与 pre-commit 固定未来 schema 写保护、Steam Client 权威 Game Over 纪录链路和源码 steam_appid.txt 永久保留要求。",
     "ADR #137 / Steamworks Slime Lab 单人 / 多人最长存活纪录拆分：SteamLabSave 新增 RecordCategory，save.cfg records schema v2 分别保存 best_single_survival_seconds / best_multiplayer_survival_seconds，旧 best_survival_seconds 清空并重写；PlayMode.SINGLE 写单人，同屏与 Steam Host / Client 写多人，未知模式忽略；RecordsPanel 同时显示中英文双行并独立格式化。battle_smoke 覆盖迁移、未来版本拒绝、独立写盘 / 回滚 / 重载、模式映射与双行 UI，local_couch_smoke 覆盖同屏只更新多人纪录。",
     "ADR #136 / Steamworks Slime Lab 残存 smoke 与快照 wire 修复：battle_smoke 按实际 viewport 计算居中设计原点并验证 500×870 世界区与边距；SteamLabSave 显式写盘、flush、close，只有真实落盘才更新纪录且失败回滚；NetworkSession 保持 snapshot_received(Dictionary) 与应用快照字段不变，底层 FastLZ 压缩后按最多 900 字节 unreliable 分片，使用 64 位递增序号、1 MiB 上限、最新完整序列重组和异常元数据 / 解压 / 类型拒绝，离会清缓存并提供只读 wire 统计；Lobby lab_version 从 1 升为 2。",
