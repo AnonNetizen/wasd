@@ -69,6 +69,9 @@ py -3 tools/godot_bridge.py --project output/test_lab headless-boot
 # 带窗口捕获最终预览
 & $godot --path output/test_lab --script res://tools/capture_ai_universal_tile_test.gd
 
+# 调试：反转障碍绘制顺序，融合正确时应与正常截图哈希一致
+& $godot --path output/test_lab --script res://tools/capture_ai_universal_tile_test.gd -- --reverse-obstacle-order
+
 # manifest / scene config 语法
 py -3 -m json.tool output/test_lab/assets/ai_tiles/abandoned_marble_conservatory/style_pack.json
 py -3 -m json.tool output/test_lab/data/ai_universal_tile_test.json
@@ -83,7 +86,7 @@ if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
 $embedded
 ```
 
-三张源 PNG 保持原样；`universal_tile_grid.gd` 只负责 24 个逻辑 cell、确定性错落排序与材质参数，两类视觉已拆到 `shaders/universal_tile_obstacle_frame.gdshader` 和 `shaders/universal_tile_floor.gdshader`。障碍 Shader 在 `vertex()` 中向外扩展 11px，并把 UV 重映射回中央完整 128×128 原图；外侧依次绘制约 3px 右下接触阴影、6px 深色厚基座、2.5px 同色相中间层和 1.25px 方向性受光唇边。两档静态程序化噪声提供 0.8px / 0.35px 的局部厚薄和缺口，基座仅以最大 0.6px、5.2 秒周期做克制呼吸；9 秒局部受光会被噪声切断，不形成完整旋转光圈。地板继续使用接缝底衬、2px 对称出血和 3.5px 源图内采样消除黑缝，原先发白的独立框线改为 2.5px 低对比内边与 1px 柔和受光层；动画以格子世界坐标形成 5.6 秒连续斜向呼吸场，宽度变化不超过 0.35px。视觉外框约 150×150，但节点中心、逻辑格、鼠标坐标与碰撞仍保持完整 128×128。截图工具支持 `--capture-time=<秒>` 冻结两类 Shader 的任意动画时间，默认相位保持确定性，并关闭 collision / metadata 调试覆盖层。
+三张源 PNG 保持原样；`universal_tile_grid.gd` 只负责 24 个逻辑 cell、确定性错落排序与材质参数，两类视觉已拆到 `shaders/universal_tile_obstacle_frame.gdshader` 和 `shaders/universal_tile_floor.gdshader`。障碍 Shader 在 `vertex()` 中向外扩展 11px，并把 UV 重映射回中央完整 128×128 原图；外侧依次绘制约 3px 右下接触阴影、6px 深色厚基座、2.5px 同色相中间层和 1.25px 方向性受光唇边。相邻障碍会收到左 / 右 / 上 / 下邻接遮罩：外框以半开像素所有权裁止于逻辑边界，11px 端帽渐变为双方色层的对称混色，图片内侧各贡献约 2px、合计约 4px 的共享手绘接缝。接缝使用同一 canonical pair key、相位与世界坐标噪声，静态起伏不超过 0.35px、呼吸不超过 0.2px，因此翻转障碍绘制顺序也会生成完全一致的像素。非相邻外框继续保留最大 0.6px / 5.2 秒材质呼吸和被噪声切断的 9 秒局部受光。地板继续使用接缝底衬、2px 对称出血、3.5px 源图内采样、2.5px 低对比内边与 1px 柔和受光层，并以格子世界坐标形成 5.6 秒连续斜向呼吸场。视觉外框约 150×150，但节点数、节点中心、逻辑格、鼠标坐标与完整 128×128 碰撞保持不变。截图工具支持 `--capture-time=<秒>` 冻结动画，也支持 `--reverse-obstacle-order` 验证融合与绘制顺序无关；默认相位保持确定性，并关闭 collision / metadata 调试覆盖层。
 
 ## 位图 UI 素材注意事项
 

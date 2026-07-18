@@ -288,6 +288,9 @@ func _validate_shader_resources() -> void:
 	if obstacle_shader != null:
 		_check(obstacle_shader.code.find("void vertex()") >= 0, "Obstacle shader expands its drawing quad in vertex().")
 		_check(obstacle_shader.code.find("highlight_breakup") >= 0, "Obstacle highlight is broken by procedural noise.")
+		_check(obstacle_shader.code.find("neighbor_mask") >= 0, "Obstacle shader receives four-way neighbor ownership.")
+		_check(obstacle_shader.code.find("shared_seam_width") >= 0, "Obstacle shader builds a shared hand-painted seam.")
+		_check(obstacle_shader.code.find("pixel_ownership") >= 0, "Obstacle shader removes draw-order-dependent antialias overlap.")
 	var grid_file := FileAccess.open(GRID_SCRIPT_PATH, FileAccess.READ)
 	_check(grid_file != null, "UniversalTileGrid script is readable for shader separation checks.")
 	if grid_file != null:
@@ -316,6 +319,7 @@ func _validate_runtime(scene_config: Dictionary) -> void:
 		return
 
 	_validate_determinism(grid, scene_config)
+	_validate_obstacle_fusion_across_seeds(grid, scene_config)
 	var summary: Dictionary = grid.get_generation_summary()
 	var tile_counts: Dictionary = summary.get("tile_counts", {})
 	_check(int(summary.get("cell_count", 0)) == 24, "Runtime reports exactly 24 cells.")
@@ -362,6 +366,143 @@ func _validate_determinism(grid: GRID_SCRIPT, scene_config: Dictionary) -> void:
 	_check(first_signature != next_signature, "Next deterministic seed produces a different public layout signature.")
 	_check(first_assignments != next_assignments, "Next deterministic seed changes the actual cell assignments.")
 	grid.regenerate(base_seed)
+
+
+func _validate_obstacle_fusion_across_seeds(
+	grid: GRID_SCRIPT,
+	scene_config: Dictionary
+) -> void:
+	var base_seed := int(scene_config.get("base_seed", 0))
+	var seed_step := int(scene_config.get("seed_step", 0))
+	grid.regenerate(base_seed)
+	var base_orientations := _fusion_orientation_counts(grid)
+	_check(base_orientations.x > 0, "Default composition contains a horizontal obstacle fusion pair.")
+	_validate_current_obstacle_fusion(grid, "default horizontal layout")
+
+	var normal_stack := _compose_visual_stack_signature(grid)
+	grid.debug_set_obstacle_draw_order_reversed(true)
+	var reversed_stack := _compose_visual_stack_signature(grid)
+	_check(normal_stack != reversed_stack, "Debug order reversal changes obstacle draw ranks.")
+	var reversed_visual: Dictionary = grid.get_generation_summary().get("visual_style", {})
+	_check(bool(reversed_visual.get("obstacle_draw_order_reversed", false)), "Runtime summary exposes reversed obstacle order.")
+	grid.debug_set_obstacle_draw_order_reversed(false)
+	_check(_compose_visual_stack_signature(grid) == normal_stack, "Debug order reversal restores the deterministic obstacle order.")
+
+	var vertical_seed: int = -1
+	for seed_index in range(64):
+		var candidate_seed := base_seed + seed_step * seed_index
+		grid.regenerate(candidate_seed)
+		if _fusion_orientation_counts(grid).y > 0:
+			vertical_seed = candidate_seed
+			break
+	_check(vertical_seed >= 0, "Deterministic seed window contains a vertical obstacle fusion pair.")
+	if vertical_seed >= 0:
+		_validate_current_obstacle_fusion(grid, "vertical layout seed %d" % vertical_seed)
+	grid.regenerate(base_seed)
+
+
+func _fusion_orientation_counts(grid: GRID_SCRIPT) -> Vector2i:
+	var obstacle_cells: Dictionary = {}
+	for y in range(EXPECTED_GRID_SIZE.y):
+		for x in range(EXPECTED_GRID_SIZE.x):
+			var cell := Vector2i(x, y)
+			var metadata: Dictionary = grid.get_cell_metadata(cell)
+			var tile_value: Variant = metadata.get("tile", {})
+			if not tile_value is Dictionary:
+				continue
+			var asset_id := String((tile_value as Dictionary).get("id", ""))
+			if asset_id != "marble_floor_01":
+				obstacle_cells[cell] = true
+	var horizontal_count: int = 0
+	var vertical_count: int = 0
+	for cell_value: Variant in obstacle_cells:
+		if not cell_value is Vector2i:
+			continue
+		var cell: Vector2i = cell_value
+		if obstacle_cells.has(cell + Vector2i.RIGHT):
+			horizontal_count += 1
+		if obstacle_cells.has(cell + Vector2i.DOWN):
+			vertical_count += 1
+	return Vector2i(horizontal_count, vertical_count)
+
+
+func _validate_current_obstacle_fusion(grid: GRID_SCRIPT, layout_label: String) -> void:
+	var tile_visual_layer := grid.get_node_or_null("TileVisualLayer") as Node2D
+	_check(tile_visual_layer != null, "%s exposes TileVisualLayer for fusion checks." % layout_label)
+	if tile_visual_layer == null:
+		return
+	var sprites_by_cell: Dictionary = {}
+	for child: Node in tile_visual_layer.get_children():
+		if String(child.get_meta("visual_role", "")) != "obstacle":
+			continue
+		var cell_value: Variant = child.get_meta("cell", Vector2i(-1, -1))
+		if cell_value is Vector2i:
+			sprites_by_cell[cell_value] = child
+	var opposite_indices: Array[int] = [1, 0, 3, 2]
+	var directions: Array[Vector2i] = [
+		Vector2i.LEFT,
+		Vector2i.RIGHT,
+		Vector2i.UP,
+		Vector2i.DOWN,
+	]
+	var unique_pair_keys: Dictionary = {}
+	for cell_value: Variant in sprites_by_cell:
+		var cell: Vector2i = cell_value
+		var sprite := sprites_by_cell[cell] as Sprite2D
+		_check(sprite != null, "%s obstacle cell %s is a Sprite2D." % [layout_label, cell])
+		if sprite == null:
+			continue
+		var material := sprite.material as ShaderMaterial
+		_check(material != null, "%s obstacle cell %s has a fusion material." % [layout_label, cell])
+		if material == null:
+			continue
+		var neighbor_mask: Vector4 = sprite.get_meta("fusion_neighbor_mask", Vector4.ZERO)
+		_check(material.get_shader_parameter("neighbor_mask") == neighbor_mask, "%s obstacle cell %s keeps shader and metadata neighbor masks aligned." % [layout_label, cell])
+		var pair_keys_value: Variant = sprite.get_meta("fusion_pair_keys", [])
+		var shared_bases_value: Variant = sprite.get_meta("fusion_shared_base_colors", [])
+		var shared_lips_value: Variant = sprite.get_meta("fusion_shared_lip_colors", [])
+		_check(pair_keys_value is Array and (pair_keys_value as Array).size() == 4, "%s obstacle cell %s records four pair keys." % [layout_label, cell])
+		_check(shared_bases_value is Array and (shared_bases_value as Array).size() == 4, "%s obstacle cell %s records four shared base colors." % [layout_label, cell])
+		_check(shared_lips_value is Array and (shared_lips_value as Array).size() == 4, "%s obstacle cell %s records four shared lip colors." % [layout_label, cell])
+		if not pair_keys_value is Array or not shared_bases_value is Array or not shared_lips_value is Array:
+			continue
+		var pair_keys: Array = pair_keys_value
+		var shared_bases: Array = shared_bases_value
+		var shared_lips: Array = shared_lips_value
+		var pair_phases: Vector4 = sprite.get_meta("fusion_pair_phases", Vector4.ZERO)
+		for side_index in range(directions.size()):
+			var neighbor_cell := cell + directions[side_index]
+			var has_neighbor := sprites_by_cell.has(neighbor_cell)
+			_check(
+				(_vector4_component(neighbor_mask, side_index) > 0.5) == has_neighbor,
+				"%s obstacle cell %s side %d matches actual adjacency."
+				% [layout_label, cell, side_index]
+			)
+			if not has_neighbor:
+				continue
+			var neighbor_sprite := sprites_by_cell[neighbor_cell] as Sprite2D
+			if neighbor_sprite == null:
+				continue
+			var opposite_index := opposite_indices[side_index]
+			var neighbor_keys: Array = neighbor_sprite.get_meta("fusion_pair_keys", [])
+			var neighbor_phases: Vector4 = neighbor_sprite.get_meta("fusion_pair_phases", Vector4.ZERO)
+			var neighbor_bases: Array = neighbor_sprite.get_meta("fusion_shared_base_colors", [])
+			var neighbor_lips: Array = neighbor_sprite.get_meta("fusion_shared_lip_colors", [])
+			var pair_key := String(pair_keys[side_index])
+			_check(not pair_key.is_empty(), "%s adjacent cells %s and %s expose a pair key." % [layout_label, cell, neighbor_cell])
+			_check(neighbor_keys.size() == 4 and String(neighbor_keys[opposite_index]) == pair_key, "%s adjacent cells %s and %s share one canonical pair key." % [layout_label, cell, neighbor_cell])
+			_check(is_equal_approx(_vector4_component(pair_phases, side_index), _vector4_component(neighbor_phases, opposite_index)), "%s adjacent cells %s and %s share one animation phase." % [layout_label, cell, neighbor_cell])
+			_check(neighbor_bases.size() == 4 and _colors_equal(shared_bases[side_index], neighbor_bases[opposite_index]), "%s adjacent cells %s and %s share the same base blend." % [layout_label, cell, neighbor_cell])
+			_check(neighbor_lips.size() == 4 and _colors_equal(shared_lips[side_index], neighbor_lips[opposite_index]), "%s adjacent cells %s and %s share the same lip blend." % [layout_label, cell, neighbor_cell])
+			var first_content: Color = sprite.get_meta("content_main_color", Color.WHITE)
+			var second_content: Color = neighbor_sprite.get_meta("content_main_color", Color.WHITE)
+			var shared_base: Color = shared_bases[side_index]
+			var shared_lip: Color = shared_lips[side_index]
+			_check(shared_base.v < minf(first_content.v, second_content.v), "%s shared seam remains darker than both adjacent contents." % layout_label)
+			_check(shared_lip.v < minf(first_content.v, second_content.v), "%s shared seam lip remains darker than both adjacent contents." % layout_label)
+			unique_pair_keys[pair_key] = true
+	var visual: Dictionary = grid.get_generation_summary().get("visual_style", {})
+	_check(int(visual.get("fusion_pair_count", -1)) == unique_pair_keys.size(), "%s reports every fusion pair exactly once." % layout_label)
 
 
 func _compose_assignment_signature(grid: GRID_SCRIPT) -> String:
@@ -486,6 +627,14 @@ func _validate_visual_style(summary: Dictionary) -> void:
 	_check(is_equal_approx(float(visual.get("obstacle_highlight_period_seconds", 0.0)), 9.0), "Obstacle local highlight travels over about nine seconds.")
 	_check(String(visual.get("obstacle_highlight_mode", "")) == "localized_broken_arc", "Obstacle highlight is localized instead of forming a complete ring.")
 	_check(String(visual.get("obstacle_shape_motion", "")) == "static_noise", "Obstacle silhouette roughness remains spatially stable.")
+	_check(String(visual.get("fusion_mode", "")) == "symmetric_shared_seam", "Adjacent obstacles use symmetric shared seams.")
+	_check(is_equal_approx(float(visual.get("fusion_half_width_px", 0.0)), 2.0), "Each obstacle contributes a two-pixel half seam.")
+	_check(is_equal_approx(float(visual.get("fusion_lip_width_px", 0.0)), 0.65), "Shared seams use a narrow inner lip.")
+	_check(is_equal_approx(float(visual.get("fusion_roughness_px", 0.0)), 0.35), "Shared seam roughness stays below half a pixel.")
+	_check(is_equal_approx(float(visual.get("fusion_breath_width_px", 0.0)), 0.2), "Shared seam breathing stays within 0.2 px.")
+	_check(is_equal_approx(float(visual.get("fusion_cap_blend_px", 0.0)), 11.0), "Outer frame caps blend across the full expansion margin.")
+	_check(int(visual.get("fusion_pair_count", 0)) > 0, "Default composition contains at least one fused obstacle pair.")
+	_check(not bool(visual.get("obstacle_draw_order_reversed", true)), "Default obstacle draw order is not reversed.")
 	_check(bool(visual.get("floor_edge_breathing", false)), "Floor edge breathing is enabled.")
 	_check(is_equal_approx(float(visual.get("floor_edge_width_px", 0.0)), 2.5), "Floor replaces the bright five-pixel frame with a restrained edge.")
 	_check(is_equal_approx(float(visual.get("floor_lip_width_px", 0.0)), 1.0), "Floor exposes a narrow inner light lip.")
@@ -565,6 +714,12 @@ func _validate_visual_cells(tile_visual_layer: Node2D, grid: GRID_SCRIPT) -> voi
 		_check(is_equal_approx(float(material.get_shader_parameter("breath_width_px")), 0.6), "%s obstacle thickness breath stays below one pixel." % sprite.name)
 		_check(is_equal_approx(float(material.get_shader_parameter("breath_period_seconds")), 5.2), "%s obstacle uses the material breath period." % sprite.name)
 		_check(is_equal_approx(float(material.get_shader_parameter("highlight_period_seconds")), 9.0), "%s obstacle uses the slow local highlight period." % sprite.name)
+		_check(material.get_shader_parameter("cell_origin_px") == Vector2(cell * EXPECTED_TILE_SIZE), "%s obstacle fusion noise uses its absolute cell origin." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("fusion_half_width_px")), 2.0), "%s contributes a two-pixel half seam." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("fusion_lip_width_px")), 0.65), "%s uses the shared seam lip width." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("fusion_roughness_px")), 0.35), "%s keeps seam roughness restrained." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("fusion_breath_width_px")), 0.2), "%s keeps seam breathing below a quarter pixel." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("fusion_cap_blend_px")), 11.0), "%s blends adjacent frame caps across the expansion margin." % sprite.name)
 		var content_color: Color = sprite.get_meta("content_main_color", Color.WHITE)
 		var shadow_color: Color = sprite.get_meta("frame_shadow_color", Color.WHITE)
 		var base_color: Color = sprite.get_meta("frame_base_color", Color.WHITE)
@@ -893,6 +1048,33 @@ func _is_perimeter_cell(cell: Vector2i) -> bool:
 		or cell.y == 0
 		or cell.x == EXPECTED_GRID_SIZE.x - 1
 		or cell.y == EXPECTED_GRID_SIZE.y - 1
+	)
+
+
+func _vector4_component(value: Vector4, index: int) -> float:
+	match index:
+		0:
+			return value.x
+		1:
+			return value.y
+		2:
+			return value.z
+		3:
+			return value.w
+		_:
+			return 0.0
+
+
+func _colors_equal(first_value: Variant, second_value: Variant) -> bool:
+	if not first_value is Color or not second_value is Color:
+		return false
+	var first: Color = first_value
+	var second: Color = second_value
+	return (
+		is_equal_approx(first.r, second.r)
+		and is_equal_approx(first.g, second.g)
+		and is_equal_approx(first.b, second.b)
+		and is_equal_approx(first.a, second.a)
 	)
 
 

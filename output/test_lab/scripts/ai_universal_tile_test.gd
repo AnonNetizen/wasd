@@ -131,7 +131,7 @@ func _update_generation_labels() -> void:
 	if _summary_label != null:
 		_summary_label.text = (
 			"%d marble  ·  %d trees  ·  %d cabinets\n"
-			+ "%d balanced-overlap cells  ·  layered hand-painted bases  ·  continuous floor breath"
+			+ "%d balanced-overlap cells  ·  symmetric fused seams  ·  continuous floor breath"
 		) % [
 			int(tile_counts.get("marble_floor_01", 0)),
 			int(tile_counts.get("tree_01", 0)),

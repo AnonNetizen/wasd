@@ -9,10 +9,14 @@ const SCENE_PATH: String = "res://scenes/ai_universal_tile_test.tscn"
 const SCREENSHOT_PATH: String = "res://screenshots/ai_universal_tile_test.png"
 
 var _capture_time: float = -1.0
+var _reverse_obstacle_order: bool = false
 
 
 func _initialize() -> void:
 	for argument: String in OS.get_cmdline_user_args():
+		if argument == "--reverse-obstacle-order":
+			_reverse_obstacle_order = true
+			continue
 		if not argument.begins_with("--capture-time="):
 			continue
 		var value := argument.trim_prefix("--capture-time=")
@@ -45,6 +49,7 @@ func _capture() -> void:
 		grid.debug_prepare_capture(_capture_time)
 	else:
 		grid.debug_prepare_capture()
+	grid.debug_set_obstacle_draw_order_reversed(_reverse_obstacle_order)
 
 	var summary: Dictionary = grid.get_generation_summary()
 	var grid_size := _array_to_vector2i(summary.get("grid_size", []))
@@ -90,7 +95,14 @@ func _capture() -> void:
 		return
 
 	var capture_label := "default" if _capture_time < 0.0 else "%.3f" % _capture_time
-	print("Saved screenshot: %s (capture_time=%s)" % [screenshot_path, capture_label])
+	print(
+		"Saved screenshot: %s (capture_time=%s, obstacle_order=%s)"
+		% [
+			screenshot_path,
+			capture_label,
+			"reversed" if _reverse_obstacle_order else "normal",
+		]
+	)
 	quit(0)
 
 

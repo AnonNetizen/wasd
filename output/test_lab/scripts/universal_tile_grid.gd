@@ -20,6 +20,11 @@ const OBSTACLE_BASE_WIDTH_PX: float = 6.0
 const OBSTACLE_BREATH_PERIOD_SECONDS: float = 5.2
 const OBSTACLE_BREATH_WIDTH_PX: float = 0.6
 const OBSTACLE_CORNER_RADIUS_PX: float = 11.0
+const OBSTACLE_FUSION_BREATH_WIDTH_PX: float = 0.2
+const OBSTACLE_FUSION_CAP_BLEND_PX: float = 11.0
+const OBSTACLE_FUSION_HALF_WIDTH_PX: float = 2.0
+const OBSTACLE_FUSION_LIP_WIDTH_PX: float = 0.65
+const OBSTACLE_FUSION_ROUGHNESS_PX: float = 0.35
 const OBSTACLE_FRAME_MARGIN_PX: float = 11.0
 const OBSTACLE_HIGHLIGHT_PERIOD_SECONDS: float = 9.0
 const OBSTACLE_LIP_WIDTH_PX: float = 1.25
@@ -29,6 +34,13 @@ const OBSTACLE_ROUGHNESS_DETAIL_PX: float = 0.35
 const OBSTACLE_SHADOW_OFFSET_PX: Vector2 = Vector2(1.25, 1.75)
 const OBSTACLE_SHADOW_SOFTNESS_PX: float = 3.0
 const OBSTACLE_SHADER: Shader = preload("res://shaders/universal_tile_obstacle_frame.gdshader")
+const OBSTACLE_NEIGHBOR_DIRECTIONS: Array[Vector2i] = [
+	Vector2i.LEFT,
+	Vector2i.RIGHT,
+	Vector2i.UP,
+	Vector2i.DOWN,
+]
+const OBSTACLE_NEIGHBOR_SIDE_NAMES: Array[String] = ["left", "right", "top", "bottom"]
 const SUPPORTED_SCENE_SCHEMA_VERSION: int = 2
 const SUPPORTED_STYLE_PACK_SCHEMA_VERSION: int = 2
 const VISUAL_CAPTURE_TIME: float = 1.75
@@ -58,6 +70,7 @@ var _layer_visibility: Dictionary = {
 var _layout_signature: String = ""
 var _metadata: Node2D
 var _obstacle_asset_ids: Dictionary = {}
+var _obstacle_draw_order_reversed: bool = false
 var _obstacle_placements: Array[Dictionary] = []
 var _placement_rules: Array[Dictionary] = []
 var _seam_fill_layer: Node2D
@@ -208,6 +221,14 @@ func get_generation_summary() -> Dictionary:
 			"obstacle_highlight_period_seconds": OBSTACLE_HIGHLIGHT_PERIOD_SECONDS,
 			"obstacle_highlight_mode": "localized_broken_arc",
 			"obstacle_shape_motion": "static_noise",
+			"fusion_mode": "symmetric_shared_seam",
+			"fusion_half_width_px": OBSTACLE_FUSION_HALF_WIDTH_PX,
+			"fusion_lip_width_px": OBSTACLE_FUSION_LIP_WIDTH_PX,
+			"fusion_roughness_px": OBSTACLE_FUSION_ROUGHNESS_PX,
+			"fusion_breath_width_px": OBSTACLE_FUSION_BREATH_WIDTH_PX,
+			"fusion_cap_blend_px": OBSTACLE_FUSION_CAP_BLEND_PX,
+			"fusion_pair_count": _count_obstacle_fusion_pairs(),
+			"obstacle_draw_order_reversed": _obstacle_draw_order_reversed,
 			"floor_edge_breathing": true,
 			"floor_edge_width_px": FLOOR_EDGE_WIDTH_PX,
 			"floor_lip_width_px": FLOOR_LIP_WIDTH_PX,
@@ -264,6 +285,30 @@ func debug_prepare_capture(animation_time: float = VISUAL_CAPTURE_TIME) -> void:
 	for material: ShaderMaterial in _tile_visual_materials:
 		material.set_shader_parameter("freeze_animation", true)
 		material.set_shader_parameter("frozen_time", animation_time)
+
+
+func debug_set_obstacle_draw_order_reversed(reversed: bool) -> void:
+	if _tile_visual_layer == null or reversed == _obstacle_draw_order_reversed:
+		return
+	var obstacle_children: Array[Node] = []
+	var first_obstacle_index: int = -1
+	for child_index in range(_tile_visual_layer.get_child_count()):
+		var child := _tile_visual_layer.get_child(child_index)
+		if String(child.get_meta("visual_stack_group", "")) != "obstacle":
+			continue
+		if first_obstacle_index < 0:
+			first_obstacle_index = child_index
+		obstacle_children.append(child)
+	if obstacle_children.size() < 2 or first_obstacle_index < 0:
+		return
+	obstacle_children.reverse()
+	for obstacle_index in range(obstacle_children.size()):
+		_tile_visual_layer.move_child(
+			obstacle_children[obstacle_index],
+			first_obstacle_index + obstacle_index
+		)
+	_obstacle_draw_order_reversed = reversed
+	_refresh_visual_stack_ranks()
 
 
 func _reset_configuration() -> void:
@@ -413,6 +458,7 @@ func _clear_runtime_state() -> void:
 	_clear_children(_seam_fill_layer)
 	_clear_children(_tile_visual_layer)
 	_tile_visual_materials.clear()
+	_obstacle_draw_order_reversed = false
 	_clear_children(_collision_bodies)
 	_clear_children(_collision_overlay)
 	_clear_children(_detail)
@@ -563,13 +609,15 @@ func _configure_obstacle_material(
 	asset_id: String,
 	content_color: Color
 ) -> Dictionary:
-	var shadow_color := _content_tone(content_color, 0.42, 0.14, 1.12, 0.03, 0.34)
-	shadow_color.a = 0.28
-	var base_color := _content_tone(content_color, 0.71, 0.08, 1.08, 0.10, 0.52)
-	var mid_color := _content_tone(content_color, 0.79, 0.06, 1.04, 0.12, 0.56)
-	var lip_color := _content_tone(content_color, 0.86, 0.04, 1.00, 0.14, 0.60)
+	var palette := _obstacle_frame_palette(content_color)
+	var fusion_data := _obstacle_fusion_data(cell, palette)
+	var shadow_color: Color = palette["shadow"]
+	var base_color: Color = palette["base"]
+	var mid_color: Color = palette["mid"]
+	var lip_color: Color = palette["lip"]
 	material.shader = OBSTACLE_SHADER
 	material.set_shader_parameter("tile_size_px", Vector2(_tile_size))
+	material.set_shader_parameter("cell_origin_px", Vector2(cell * _tile_size))
 	material.set_shader_parameter("frame_margin_px", OBSTACLE_FRAME_MARGIN_PX)
 	material.set_shader_parameter("content_corner_radius_px", OBSTACLE_CORNER_RADIUS_PX)
 	material.set_shader_parameter("base_width_px", OBSTACLE_BASE_WIDTH_PX)
@@ -582,11 +630,27 @@ func _configure_obstacle_material(
 	material.set_shader_parameter("breath_width_px", OBSTACLE_BREATH_WIDTH_PX)
 	material.set_shader_parameter("breath_period_seconds", OBSTACLE_BREATH_PERIOD_SECONDS)
 	material.set_shader_parameter("highlight_period_seconds", OBSTACLE_HIGHLIGHT_PERIOD_SECONDS)
+	material.set_shader_parameter("neighbor_mask", fusion_data["neighbor_mask"])
+	material.set_shader_parameter("fusion_pair_phase", fusion_data["pair_phases"])
+	material.set_shader_parameter("fusion_half_width_px", OBSTACLE_FUSION_HALF_WIDTH_PX)
+	material.set_shader_parameter("fusion_lip_width_px", OBSTACLE_FUSION_LIP_WIDTH_PX)
+	material.set_shader_parameter("fusion_roughness_px", OBSTACLE_FUSION_ROUGHNESS_PX)
+	material.set_shader_parameter("fusion_breath_width_px", OBSTACLE_FUSION_BREATH_WIDTH_PX)
+	material.set_shader_parameter("fusion_cap_blend_px", OBSTACLE_FUSION_CAP_BLEND_PX)
 	material.set_shader_parameter("phase", _visual_phase(cell, asset_id))
 	material.set_shader_parameter("shadow_color", shadow_color)
 	material.set_shader_parameter("base_color", base_color)
 	material.set_shader_parameter("mid_color", mid_color)
 	material.set_shader_parameter("lip_color", lip_color)
+	var shared_palettes: Array[Dictionary] = fusion_data["shared_palettes"]
+	for side_index in range(OBSTACLE_NEIGHBOR_SIDE_NAMES.size()):
+		var side_name := OBSTACLE_NEIGHBOR_SIDE_NAMES[side_index]
+		var shared_palette: Dictionary = shared_palettes[side_index]
+		for layer_name: String in ["shadow", "base", "mid", "lip"]:
+			material.set_shader_parameter(
+				"fusion_%s_%s" % [layer_name, side_name],
+				shared_palette[layer_name]
+			)
 	return {
 		"frame_shadow_color": shadow_color,
 		"frame_base_color": base_color,
@@ -597,7 +661,142 @@ func _configure_obstacle_material(
 		"frame_mid_width_px": OBSTACLE_MID_WIDTH_PX,
 		"frame_lip_width_px": OBSTACLE_LIP_WIDTH_PX,
 		"frame_breath_width_px": OBSTACLE_BREATH_WIDTH_PX,
+		"fusion_neighbor_mask": fusion_data["neighbor_mask"],
+		"fusion_pair_keys": fusion_data["pair_keys"],
+		"fusion_pair_phases": fusion_data["pair_phases"],
+		"fusion_shared_base_colors": fusion_data["shared_base_colors"],
+		"fusion_shared_lip_colors": fusion_data["shared_lip_colors"],
 	}
+
+
+func _obstacle_frame_palette(content_color: Color) -> Dictionary:
+	var shadow_color := _content_tone(content_color, 0.42, 0.14, 1.12, 0.03, 0.34)
+	shadow_color.a = 0.28
+	return {
+		"shadow": shadow_color,
+		"base": _content_tone(content_color, 0.71, 0.08, 1.08, 0.10, 0.52),
+		"mid": _content_tone(content_color, 0.79, 0.06, 1.04, 0.12, 0.56),
+		"lip": _content_tone(content_color, 0.86, 0.04, 1.00, 0.14, 0.60),
+	}
+
+
+func _obstacle_fusion_data(cell: Vector2i, local_palette: Dictionary) -> Dictionary:
+	var neighbor_values: Array[float] = [0.0, 0.0, 0.0, 0.0]
+	var pair_phase_values: Array[float] = [0.0, 0.0, 0.0, 0.0]
+	var pair_keys: Array[String] = ["", "", "", ""]
+	var shared_palettes: Array[Dictionary] = []
+	var shared_base_colors: Array[Color] = []
+	var shared_lip_colors: Array[Color] = []
+	for side_index in range(OBSTACLE_NEIGHBOR_DIRECTIONS.size()):
+		var neighbor_cell := cell + OBSTACLE_NEIGHBOR_DIRECTIONS[side_index]
+		var shared_palette := local_palette.duplicate(true)
+		if _is_obstacle_cell(neighbor_cell):
+			var neighbor_asset_id := String(_cell_assignments.get(neighbor_cell, ""))
+			var neighbor_content_color: Color = _asset_main_colors.get(
+				neighbor_asset_id,
+				Color(0.5, 0.5, 0.5, 1.0)
+			)
+			var neighbor_palette := _obstacle_frame_palette(neighbor_content_color)
+			shared_palette = _average_frame_palettes(local_palette, neighbor_palette)
+			neighbor_values[side_index] = 1.0
+			pair_phase_values[side_index] = _fusion_pair_phase(cell, neighbor_cell)
+			pair_keys[side_index] = _fusion_pair_key(cell, neighbor_cell)
+		shared_palettes.append(shared_palette)
+		shared_base_colors.append(shared_palette["base"])
+		shared_lip_colors.append(shared_palette["lip"])
+	return {
+		"neighbor_mask": Vector4(
+			neighbor_values[0],
+			neighbor_values[1],
+			neighbor_values[2],
+			neighbor_values[3]
+		),
+		"pair_phases": Vector4(
+			pair_phase_values[0],
+			pair_phase_values[1],
+			pair_phase_values[2],
+			pair_phase_values[3]
+		),
+		"pair_keys": pair_keys,
+		"shared_palettes": shared_palettes,
+		"shared_base_colors": shared_base_colors,
+		"shared_lip_colors": shared_lip_colors,
+	}
+
+
+func _average_frame_palettes(first: Dictionary, second: Dictionary) -> Dictionary:
+	return {
+		"shadow": _average_frame_color(first["shadow"], second["shadow"]),
+		"base": _average_frame_color(first["base"], second["base"]),
+		"mid": _average_frame_color(first["mid"], second["mid"]),
+		"lip": _average_frame_color(first["lip"], second["lip"]),
+	}
+
+
+func _average_frame_color(first: Color, second: Color) -> Color:
+	var mixed := Color(
+		(first.r + second.r) * 0.5,
+		(first.g + second.g) * 0.5,
+		(first.b + second.b) * 0.5,
+		(first.a + second.a) * 0.5
+	)
+	return Color.from_hsv(
+		mixed.h,
+		mixed.s,
+		minf(mixed.v, minf(first.v, second.v)),
+		mixed.a
+	)
+
+
+func _fusion_pair_key(first_cell: Vector2i, second_cell: Vector2i) -> String:
+	var first := first_cell
+	var second := second_cell
+	if second.y < first.y or (second.y == first.y and second.x < first.x):
+		first = second_cell
+		second = first_cell
+	return "%d,%d|%d,%d" % [first.x, first.y, second.x, second.y]
+
+
+func _fusion_pair_phase(first_cell: Vector2i, second_cell: Vector2i) -> float:
+	var first := first_cell
+	var second := second_cell
+	if second.y < first.y or (second.y == first.y and second.x < first.x):
+		first = second_cell
+		second = first_cell
+	var stable_value := (
+		(first.x + 1) * 1_973
+		+ (first.y + 1) * 9_277
+		+ (second.x + 1) * 2_663
+		+ (second.y + 1) * 3_181
+	) % 10_000
+	return float(stable_value) / 10_000.0 * TAU
+
+
+func _count_obstacle_fusion_pairs() -> int:
+	var pair_count: int = 0
+	for cell_value: Variant in _cell_assignments:
+		if not cell_value is Vector2i:
+			continue
+		var cell: Vector2i = cell_value
+		if not _is_obstacle_cell(cell):
+			continue
+		if _is_obstacle_cell(cell + Vector2i.RIGHT):
+			pair_count += 1
+		if _is_obstacle_cell(cell + Vector2i.DOWN):
+			pair_count += 1
+	return pair_count
+
+
+func _is_obstacle_cell(cell: Vector2i) -> bool:
+	if not _is_in_bounds(cell):
+		return false
+	var asset_id := String(_cell_assignments.get(cell, ""))
+	return _obstacle_asset_ids.has(asset_id)
+
+
+func _refresh_visual_stack_ranks() -> void:
+	for child_index in range(_tile_visual_layer.get_child_count()):
+		_tile_visual_layer.get_child(child_index).set_meta("visual_stack_rank", child_index)
 
 
 func _build_seam_fill() -> void:
