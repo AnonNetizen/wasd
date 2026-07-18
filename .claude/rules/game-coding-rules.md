@@ -9,14 +9,14 @@ alwaysApply: true
 > 若某项需求与本规则冲突，应先提示用户，不要擅自破坏规则。
 
 ## 1. 引擎与语言
-- 一律使用 **Godot 4.7 + GDScript**，不引入其他引擎/语言（除非用户明确要求）。
+- 一律使用 **Godot 4.7.1 stable + GDScript**，不引入其他引擎/语言（除非用户明确要求）。
 - 优先使用 Godot 内建机制：`Node2D` / `Area2D` / `Camera2D` / `TileMap`、`signal`、`Resource`、autoload 单例。
 
 ## 2. 目录结构（固定约定）
 仓库根主要目录：
 
 - `docs/`：项目文档（设计文档、AI 导航、词表契约、决策记录、AI 记忆等）
-- `client/`：**Godot 4.7 项目根**（即 Godot 中的 `res://`）
+- `client/`：**Godot 4.7.1 项目根**（即 Godot 中的 `res://`）
 - `server/`：服务器端预留（当前为单机项目，暂占位）
 - `draft/` / `DRAFT/`：用户人工草稿禁区，AI 默认不得读取、搜索、修改、整理、格式化或引用
 - `.codebuddy/skills/*/SKILL.md`、`.codex/skills/*/SKILL.md`、`.opencode/skills/*/SKILL.md` 与 `.claude/skills/*/SKILL.md`：四平台同步的项目级 skills；用于按需加载可复用流程，不得放宽项目核心规则；新增或调整时同步 `docs/AI协作/AI技能资源评估.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md` 与工具适配指南。

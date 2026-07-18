@@ -38,7 +38,7 @@
 
 ## Neon Geometry Combat 验证
 
-以下命令均从仓库根目录运行；先把 PowerShell 变量 `$godot` 设置为 Godot Bridge 使用的同一 Godot 4.7 可执行文件。
+以下命令均从仓库根目录运行；先把 PowerShell 变量 `$godot` 设置为 Godot Bridge 使用的同一 Godot 4.7.1 stable 可执行文件。
 
 ```powershell
 # Test Lab 默认入口与实验场景启动
@@ -54,7 +54,7 @@ py -3 tools/godot_bridge.py --project output/test_lab headless-boot
 
 ## AI Universal Tile Scene 验证
 
-以下命令均从仓库根目录运行；先把 PowerShell 变量 `$godot` 设置为本机 Godot 4.7 可执行文件路径。
+以下命令均从仓库根目录运行；先把 PowerShell 变量 `$godot` 设置为本机 Godot 4.7.1 stable 可执行文件路径。
 
 ```powershell
 # Test Lab 默认入口 headless boot

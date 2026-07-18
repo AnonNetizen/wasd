@@ -230,6 +230,7 @@
 | #138 | Steamworks Lab 自动回归统一由 Python runner 编排；每进程隔离 `user://`，用精确成功协议、动态 ENet 端口、超时清理和源码 App ID 门禁防止跨对话复发 | `tools/steamworks_lab_toolchain.py`、`tools/test_steamworks_lab_toolchain.py`、Lab settings / main / smoke tests、pre-commit、四平台 `godot-test-diagnostics`、README、测试策略、工具适配、AI导航、current_state、AI记忆 |
 | #139 | Steamworks Slime Lab 仅在单人模式增加战斗充能的 10 秒 AI 队友大招；AI 自动跟随 / 射击并同意一次合体，不进入真人 roster、纪录或网络快照，多人 / wire / 存档 / 正式 `client` 不变 | `output/steamworks_lab/README.md`、`scripts/ai_teammate.gd`、`scripts/battle_director.gd`、`scripts/steamworks_lab.gd`、HUD / locale、`tests/battle_smoke.gd`、`tests/local_couch_smoke.gd`、测试策略、AI导航、current_state、AI记忆 |
 | #140 | Steamworks Slime Lab 单人 AI 改为确定性自主游击 / 预判闪避；避开敌弹、普通敌人、Boss 与障碍物，使用 210 px 常规硬限 / 超过 220 px 复位，并在合体输入后高速归队至 92 px、停靠 0.8 秒再合体；不可受伤 / 不吸引火力及网络 / 存档 / 正式 `client` 边界不变；目标 battle、local-couch 与权威 all-suite 已通过 | `output/steamworks_lab/README.md`、`scripts/ai_teammate.gd`、`scripts/battle_director.gd`、`scripts/steamworks_lab.gd`、敌人 / Boss / 障碍物脚本、`tests/battle_smoke.gd`、`tests/local_couch_smoke.gd`、测试策略、AI导航、current_state、AI记忆 |
+| #141 | 项目当前开发、验证和推荐编辑器基线精确到 Godot 4.7.1 stable；`project.godot` 的 4.7 特性标识、官方 4.7 文档路径与 Steam 工具的 4.7 minor 系列兼容检查保持不变，不修改代码或数据 schema | README、client / Test Lab / Steamworks Lab README、GDD v1.19、三平台完整规则、五份 `godot-gdscript` skill、AI导航、CI 规划、FormalClientBoot 文档、current_state、AI记忆 |
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

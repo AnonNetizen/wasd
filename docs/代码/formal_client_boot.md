@@ -109,7 +109,7 @@ UIManager
 
 ## 依赖
 
-- 上游依赖：Godot 4.7 项目加载机制、已注册的 F2 autoload。
+- 上游依赖：Godot 4.7.1 项目加载机制、已注册的 F2 autoload。
 - 下游调用方：`TitleMenu`、`GearModPanel` 和 `SettingsPanel` 场景由本启动脚本通过 `UIManager` 挂载，`GameplayRunLoop` 场景由本启动脚本创建和清理。
 - 禁止依赖：不得引用 MVP 场景或脚本；不得用启动脚本临时拼长期 gameplay / UI 层级；不得提前绕过未来 F2 autoload 边界。
 

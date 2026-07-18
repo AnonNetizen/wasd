@@ -2,9 +2,9 @@
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是独立 Steamworks Slime Lab 的运行、Steam App ID、联机测试与发布边界权威；改 App ID、GodotSteam adapter、Lobby 协议、导出方式或自动 smoke 时，必须同步本项目配置 / 测试、`docs/AI导航.md`、`docs/测试策略.md`、ADR 与 AI 记忆。
 
-独立 Godot 4.7 Steam 应用项目（固定 540×960 设计画布，窗口可选 540×960 / 720×1280 / 1080×1920），使用专属 Steam App ID **`4955670`**，验证 Steamworks / GodotSteam 联机链路并承载一个可联机的雷电式竖版卷轴射击玩法。它是仓库内长期维护的独立应用，仍不属于正式 `client/`，也不依赖正式项目的 `PlatformServices` / 词表 / autoload 体系。
+独立 Godot 4.7.1 stable Steam 应用项目（固定 540×960 设计画布，窗口可选 540×960 / 720×1280 / 1080×1920），使用专属 Steam App ID **`4955670`**，验证 Steamworks / GodotSteam 联机链路并承载一个可联机的雷电式竖版卷轴射击玩法。它是仓库内长期维护的独立应用，仍不属于正式 `client/`，也不依赖正式项目的 `PlatformServices` / 词表 / autoload 体系。
 
-Windows Steam 集成锁定为 **普通 Godot 4.7 + 官方 GodotSteam 4.20 GDExtension + Steamworks SDK 1.64**。版本、插件下载地址和 SHA-256 记录在 `steam_toolchain.lock.json`；插件安装到忽略的 `addons/godotsteam/`，工具直接使用 `--godot` 或 `GODOT_PATH` 指向的普通编辑器，并在系统临时目录下载 / 校验 / 解压插件，不复制编辑器、export templates 或保留下载缓存。标准 Windows templates 按所选编辑器模式从 Godot 标准用户目录或 self-contained `editor_data/` 读取。可复现安装、验证和导出统一走 `tools/steamworks_lab_toolchain.py`。
+Windows Steam 当前开发与发布验证标准为 **普通 Godot 4.7.1 stable + 官方 GodotSteam 4.20 GDExtension + Steamworks SDK 1.64**。`steam_toolchain.lock.json` 的 `godot_version` 仍保留为 `4.7`，作为同一 minor 系列的补丁兼容检查，不把工具行为收紧为只接受 4.7.1；插件版本、下载地址和 SHA-256 仍由该锁文件记录。插件安装到忽略的 `addons/godotsteam/`，工具直接使用 `--godot` 或 `GODOT_PATH` 指向的普通编辑器，并在系统临时目录下载 / 校验 / 解压插件，不复制编辑器、export templates 或保留下载缓存。标准 Windows templates 按所选编辑器模式从 Godot 标准用户目录或 self-contained `editor_data/` 读取。可复现安装、验证和导出统一走 `tools/steamworks_lab_toolchain.py`。
 
 UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图标资源，统一用 `Theme`、`StyleBoxFlat`、代码绘制和 `Tween` 做深色霓虹面板、按钮反馈、页面切换、HUD 脉冲、屏幕震动、冲击闪光、爆碎冲击环、buff / 结算入退场和表情轮展开动画。
 
@@ -43,7 +43,7 @@ py -3 tools\steamworks_lab_toolchain.py setup
 py -3 tools\steamworks_lab_toolchain.py verify
 ```
 
-`setup` 需要本机已有普通 Godot 4.7；可在子命令前用 `--godot <path>`，或通过环境变量 `GODOT_PATH` 指定。工具按 `--godot` → `GODOT_PATH` → PATH / 常见安装位置解析编辑器；显式路径无效时立即失败，不静默退回其他版本。Steam 商店版 Godot 目录若自带同名 `steam_api64.dll` 会与 GodotSteam 插件冲突，工具会拒绝该目录并要求改用不含冲突 DLL 的普通编辑器。用图形编辑器开发时直接启动配置的编辑器：
+`setup` 推荐本机使用项目标准的普通 Godot 4.7.1 stable；可在子命令前用 `--godot <path>`，或通过环境变量 `GODOT_PATH` 指定。工具按 `--godot` → `GODOT_PATH` → PATH / 常见安装位置解析编辑器，版本锁仍接受 4.7 系列；显式路径无效时立即失败，不静默退回其他编辑器。Steam 商店版 Godot 目录若自带同名 `steam_api64.dll` 会与 GodotSteam 插件冲突，工具会拒绝该目录并要求改用不含冲突 DLL 的普通编辑器。用图形编辑器开发时直接启动配置的编辑器：
 
 ```powershell
 & $env:GODOT_PATH --path 'output\steamworks_lab' --editor
@@ -69,7 +69,7 @@ py -3 tools\steamworks_lab_toolchain.py export-release
 py -3 tools\steamworks_lab_toolchain.py smoke --suite boot
 ```
 
-也可以用 Godot 4.7 打开 `output/steamworks_lab/project.godot`。默认主场景是 `res://scenes/main.tscn`。
+也可以用 Godot 4.7.1 stable 打开 `output/steamworks_lab/project.godot`。默认主场景是 `res://scenes/main.tscn`。
 
 完整 headless 回归统一使用仓库权威 runner；默认按 boot → Steam 配置 → 本地同屏 → battle 五轮 → ENet 顺序 fail-fast：
 
@@ -86,7 +86,7 @@ py -3 tools\steamworks_lab_toolchain.py smoke --suite battle --battle-runs 1
 py -3 tools\steamworks_lab_toolchain.py smoke --suite enet
 ```
 
-runner 自动解析 Godot 4.7，Windows 优先同目录 console 可执行文件；每个进程使用独立临时 `APPDATA` / `LOCALAPPDATA` / `HOME` / XDG 环境。GDScript smoke 必须同时满足退出码 `0`、精确 `ALL PASS` 标志且日志无 `SCRIPT ERROR` / `ERROR:`；ENet 还拒绝 MTU 警告。运行前后会逐字节保护玩家真实 `user://settings.cfg`、`user://save.cfg` 与源码 `steam_appid.txt`，测试不得备份、删除或迁移这些文件。
+runner 自动解析 Godot 4.7 系列，当前项目标准编辑器为 4.7.1 stable；Windows 优先同目录 console 可执行文件。每个进程使用独立临时 `APPDATA` / `LOCALAPPDATA` / `HOME` / XDG 环境。GDScript smoke 必须同时满足退出码 `0`、精确 `ALL PASS` 标志且日志无 `SCRIPT ERROR` / `ERROR:`；ENet 还拒绝 MTU 警告。运行前后会逐字节保护玩家真实 `user://settings.cfg`、`user://save.cfg` 与源码 `steam_appid.txt`，测试不得备份、删除或迁移这些文件。
 
 ## 单人 AI 大招 / 自主游击手动测试清单
 
@@ -124,9 +124,9 @@ runner 使用动态空闲端口，等待 host 输出精确 `READY` 后再启动 
 
 ## Steam App ID 与测试
 
-GodotSteam / Steamworks 二进制不提交进仓库。当前固定使用 GodotSteam 4.20 官方 GDExtension；4.20 已把 `SteamMultiplayerPeer` 合并进主仓库的 `gdextension` 分支，因此普通 Godot 4.7 加插件即可同时提供 `Steam` singleton、`SteamPacketPeer` 与 `SteamMultiplayerPeer`，不再依赖退役的独立 Peer 仓库或 GodotSteam module editor/templates。
+GodotSteam / Steamworks 二进制不提交进仓库。当前固定使用 GodotSteam 4.20 官方 GDExtension；4.20 已把 `SteamMultiplayerPeer` 合并进主仓库的 `gdextension` 分支，因此项目标准的普通 Godot 4.7.1 加插件即可同时提供 `Steam` singleton、`SteamPacketPeer` 与 `SteamMultiplayerPeer`，不再依赖退役的独立 Peer 仓库或 GodotSteam module editor/templates。
 
-1. 在仓库根运行 `py -3 tools/steamworks_lab_toolchain.py setup`，在系统临时目录下载并校验锁定的 Win64 GDExtension、安装到忽略的 `addons/godotsteam/`，并清理旧 `.toolchain`；工具直接使用 `--godot` / `GODOT_PATH` 指向的无 DLL 冲突普通 Godot 4.7，不复制 editor 或 templates。再运行 `verify`，确认插件实际加载、GodotSteam 4.20、`Steam` singleton 与 `SteamMultiplayerPeer.host_with_lobby/connect_to_lobby/add_peer`。
+1. 在仓库根运行 `py -3 tools/steamworks_lab_toolchain.py setup`，在系统临时目录下载并校验锁定的 Win64 GDExtension、安装到忽略的 `addons/godotsteam/`，并清理旧 `.toolchain`；工具直接使用 `--godot` / `GODOT_PATH` 指向的无 DLL 冲突普通 Godot，项目当前标准为 4.7.1 stable，工具兼容检查仍保持 4.7 系列，不复制 editor 或 templates。再运行 `verify`，确认插件实际加载、GodotSteam 4.20、`Steam` singleton 与 `SteamMultiplayerPeer.host_with_lobby/connect_to_lobby/add_peer`。
 2. 本地编辑器 / 自动测试永久保留项目根的 `steam_appid.txt`，内容必须只有 `4955670`；pre-commit 和权威 runner 都会拒绝缺失、内容错误或测试期间被修改。只有发布导出包排除该文件。`project.godot` 的 `steam/initialization/app_data/app_id` 是 GodotSteam 4.20 与发布重启策略的配置源。插件自动初始化与 embedded callbacks 保持关闭，由 `TransportAdapter` 显式调用 `steamInitEx(4955670, false)` 并在 `_process()` 运行 callbacks。
 3. 启动 Steam 客户端并登录。
 4. 运行本项目，点 `开始联机游戏`。若 GodotSteam 可用，Steam 状态会显示可用；否则 Steam 按钮会记录缺失原因，本地同屏仍可用。
@@ -170,17 +170,17 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=2
 - `scripts/expression_wheel.gd`：单一表情轮控制权；P1 用鼠标、手柄玩家用右摇杆选择。
 - `scripts/network_session.gd`：统一 host / join / leave / RPC 同步入口；快照 wire 层负责 FastLZ 压缩、900 字节分片、最新完整序列重组、异常元数据拒绝和只读统计。
 - `scripts/transport_adapter.gd`：本地 ENet 与可选 GodotSteam adapter。
-- `steam_toolchain.lock.json` / `export_presets.cfg` / `THIRD_PARTY_NOTICES.txt`：GodotSteam 4.20 / Godot 4.7 / Steamworks 1.64 Win64 依赖锁、Windows Steam release preset 与随包第三方许可声明。
+- `steam_toolchain.lock.json` / `export_presets.cfg` / `THIRD_PARTY_NOTICES.txt`：GodotSteam 4.20 / Godot 4.7 系列兼容（当前标准 4.7.1）/ Steamworks 1.64 Win64 依赖锁、Windows Steam release preset 与随包第三方许可声明。
 - `tools/steamworks_lab_toolchain.py`：仓库根统一 setup / verify / export-release / smoke 工具；smoke 负责 Godot 解析、独立 `user://` 环境、精确成功协议、动态 ENet 端口、轻量 client 副本、超时终止和受保护文件校验。
 - `tests/battle_smoke.gd`：单机战斗 headless 回归，包含动态 viewport 世界矩形、单人 / 多人纪录迁移、独立落盘 / 回滚 / 重载、双行 UI、快照 codec roundtrip，以及真实 E 按下 / 释放、移动 P1、真实软体物理归队与单人离线合体闭环。
 - `tests/local_couch_smoke.gd`：模拟 1–3 个手柄的单进程同屏输入、战斗、UI、强化、断线重绑和多人纪录归类回归。
 - `tests/steam_config_smoke.gd`：App ID、初始化返回值、Lobby 兼容和显式离线降级 headless 回归。
-- `tests/steam_runtime_presence_smoke.gd`：用普通 Godot 4.7 验证锁定 GDExtension 已加载、版本正确、singleton 与高层 multiplayer peer 方法存在，不初始化真实 Steam 会话。
+- `tests/steam_runtime_presence_smoke.gd`：用项目标准的普通 Godot 4.7.1 验证锁定 GDExtension 已加载、版本正确、singleton 与高层 multiplayer peer 方法存在，不初始化真实 Steam 会话。
 - `tests/net_host_smoke.gd` / `tests/net_client_smoke.gd`：双进程 ENet 联机 headless 回归；host 断言快照 payload 不超过 900 字节，client 验证解压重组后的镜像状态。
 
 ## 故障提示
 
-- `GodotSteam singleton is not installed`：插件未安装或当前 Godot 没有加载 `addons/godotsteam/godotsteam.gdextension`；先运行 `setup` / `verify`，并确认当前 `GODOT_PATH` 指向普通 Godot 4.7。
+- `GodotSteam singleton is not installed`：插件未安装或当前 Godot 没有加载 `addons/godotsteam/godotsteam.gdextension`；先运行 `setup` / `verify`，并确认当前 `GODOT_PATH` 指向项目标准的普通 Godot 4.7.1。
 - `Can't open dynamic library ... Error 127`：编辑器目录存在另一份 `steam_api64.dll`，常见于 Steam 商店版 Godot；不要直接从该安装目录运行 Lab，改用 `--godot` / `GODOT_PATH` 指向的不含冲突 DLL 普通编辑器。
 - `matching Godot ... export templates are missing`：通过所选编辑器的 `Manage Export Templates` 安装完全匹配版本的官方 Windows x86_64 templates；普通安装检查 `%APPDATA%\Godot\export_templates\<版本>.stable`，self-contained 安装检查编辑器旁的 `editor_data\export_templates\<版本>.stable`。
 - `SteamMultiplayerPeer is missing`：GDExtension 未加载、版本不匹配或插件安装不完整；重新运行 `setup` / `verify`，不要再安装退役独立仓库或第三方 Peer。

@@ -15,7 +15,7 @@
 
 | 特点 | 对 CI/CD 的影响 |
 |------|----------------|
-| **Godot 4.7 + GDScript**，正式 `client/` 已落地 | 可分阶段开：Stage 1 先守文档 / 数据 / lint；Godot headless、回放与平衡矩阵后续逐步接入 CI |
+| **Godot 4.7.1 stable + GDScript**，正式 `client/` 已落地 | 可分阶段开：Stage 1 先守文档 / 数据 / lint；Godot headless、回放与平衡矩阵后续逐步接入 CI |
 | **数据驱动**（`res://data/*.json`）+ 强契约（`词表与契约.md`） | CI 重点在「契约不漂移、数据不失效」 |
 | **文档密集**（GDD / AI导航 / ADR / 修改建议） | 重点防文档脱节、链接死链、版本号不同步 |
 | **代码-文档同源**（`docs/代码文档规范.md` + `docs/代码/`） | 代码落地后要检查长期模块是否有对应文档 |

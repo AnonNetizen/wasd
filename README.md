@@ -1,7 +1,7 @@
 # wasd —— 俯视角射击刷宝生存
 
 > 一款偏《星际战甲》与《暗黑》内核的俯视角射击刷宝生存游戏，玩法按 2D 平面移动 / 碰撞 / 刷怪；`Camera2D` 保持屏幕水平、等比缩放和玩家居中，不再用 `Camera3D` 正交渲染层或低模 3D 视觉模拟斜俯视。保留局内随机奖励、构筑选择和生存压力，但不再沿用旧类型定位。
-> **当前状态：正式项目已推进到 F12 短刷图循环阶段。** 完整项目 `client/` 已迁移为 Godot 4.7 项目；F1-F9 当前验收基线已完成，F10 战区导演、F11 装备 Mod 和 F12 暂存战利品 / 小巢核后撤离首片已落地。
+> **当前状态：正式项目已推进到 F12 短刷图循环阶段。** 完整项目 `client/` 当前使用 Godot 4.7.1 stable；F1-F9 当前验收基线已完成，F10 战区导演、F11 装备 Mod 和 F12 暂存战利品 / 小巢核后撤离首片已落地。
 >
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。README 是仓库入口摘要；改项目状态、运行方式、目录结构或 AI 开工入口时，必须同步 `CONTRIBUTING.md`、`AGENTS.md`、`docs/AI导航.md`、`docs/AI记忆/项目记忆.md`、`docs/AI记忆/current_state.json`。
 
@@ -24,7 +24,7 @@
 俯视角 2D 表现，WASD / 手柄左摇杆在 2D 平面移动，鼠标 / 方向键 / 手柄右摇杆或 D-pad 控制射击方向，按住 `fire` action 持续开火、松开停火；在开放有限大地图中反复刷装备、词条、遗物、技能资源和局外成长，用掉落追求与构筑迭代驱动长期复刷，在敌群与机关中推进破巢行动。
 
 ## 技术栈
-- **引擎**：Godot 4.7
+- **引擎**：Godot 4.7.1 stable
 - **语言**：GDScript（强制类型化）
 - **平台**：PC（键盘 + 手柄）
 
@@ -72,7 +72,7 @@ wasd/
 ├── docs/             # 1. 项目文档（设计文档、代码文档规范、AI 导航、词表契约、决策记录、AI 记忆 ...）
 │   ├── AI协作/       #    AI 快速开工、任务模板、上下文预算、工具适配
 │   └── AI记忆/       #    跨会话/跨机器的 AI 协作记忆
-├── client/           # 2. 正式客户端（Godot 4.7 项目根，含 project.godot 与 res:// ...）
+├── client/           # 2. 正式客户端（Godot 4.7.1 项目根，含 project.godot 与 res:// ...）
 ├── server/           # 3. 服务器端（当前单机项目暂为占位，详见决策记录）
 ├── draft/ 或 DRAFT/  # 人工草稿；AI 禁止读取/搜索/修改/整理/引用，除非用户明确授权
 ├── CREDITS.md        # 代码库级致谢 / 第三方来源清单；游戏内数据见 client/data/credits.json
@@ -110,7 +110,7 @@ client/
 ## 如何运行 / 调试
 当前正式项目已有最小标题、F4/F5 运行时和 headless 验证命令。
 
-- 用 Godot 4.7 打开 `client/project.godot`。
+- 用 Godot 4.7.1 stable 打开 `client/project.godot`。
 - 命令行启动：`godot --path client`。
 - Headless 验证：`python tools/godot_bridge.py headless-boot`（若系统无 Python，可用 Codex 桌面内置 Python 路径执行）。
 - Gameplay runtime smoke：`python tools/godot_bridge.py --project client runtime-smoke`。
@@ -132,5 +132,5 @@ client/
 第三方来源、外部库和工作人员记录见 [CREDITS.md](CREDITS.md)；游戏内 Credits UI 数据源见 [client/data/credits.json](client/data/credits.json)。
 
 ## 版本
-- 设计文档：**v1.10**（2026-06）
-- 代码：正式项目推进到 F9 内容扩展 / Demo 打磨准备阶段，当前工程基线为 Godot 4.7。
+- 设计文档：**v1.19**（2026-07）
+- 代码：正式项目推进到 F9 内容扩展 / Demo 打磨准备阶段，当前工程基线为 Godot 4.7.1 stable。

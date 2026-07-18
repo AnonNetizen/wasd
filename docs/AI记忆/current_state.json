@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-07-18",
   "current_phase": "formal_project_f13_handcrafted_rooms",
-  "current_status": "Steamworks Slime Lab 配置 Godot 的跨机器模板定位已修复：export-release 对带 `_sc_` 的 self-contained editor 读取相邻 editor_data/export_templates，对普通 editor 读取 APPDATA/Godot/export_templates，两者都按 editor 输出精确匹配版本且不跨模式回退；长期文档已移除具体盘符硬编码。配置的普通 Godot 4.7 official 已通过 23 条 Python 工具回归、verify、权威 smoke --suite all 和 Windows release 导出 / 离线启动；无新增 ADR，属于 ADR #134 的可移植性修正。ADR #140 的 AI 合体归队、网络、存档与正式 client 边界不变；正式项目阶段仍是 F13 手工房间制首片已落地、carrier opt-in、默认 open-warzone 不变，后续工作以用户最后明确指令为准。",
-  "latest_adr": 140,
+  "current_status": "ADR #141 已将项目当前开发、验证和推荐编辑器补丁基线精确到 Godot 4.7.1 stable，并同步 README、正式客户端、Test Lab、Steamworks Lab、GDD v1.19、AI 导航、CI / 启动模块文档、三份完整规则与五份 godot-gdscript skill；`project.godot` 的 `config/features=\"4.7\"`、官方 `/en/4.7/` 文档、Steam lock 的 `godot_version: \"4.7\"` 与工具 4.7 系列兼容检查保持不变，未修改运行时代码、工具代码或项目配置。ADR #140 的 AI 合体归队、网络、存档与正式 client 边界不变；正式项目阶段仍是 F13 手工房间制首片已落地、carrier opt-in、默认 open-warzone 不变，后续工作以用户最后明确指令为准。",
+  "latest_adr": 141,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #141 / Godot 4.7.1 项目说明同步：当前开发、验证和推荐编辑器基线已精确为 Godot 4.7.1 stable；README、正式客户端、Test Lab、Steamworks Lab、GDD v1.19、AI 导航、CI / 启动模块文档、CodeBuddy / Codex / Claude 完整规则及 .agents / 四平台 godot-gdscript skill 已同步。Godot 项目特性标识、官方 4.7 文档路径、Steam 4.7 系列兼容锁与工具行为保持不变，未修改 .gd、.py、project.godot、测试或数据 schema。",
     "Steamworks Slime Lab Godot 模板定位跨机器修复：steamworks_lab_toolchain.py 的 export-release 根据所选 editor 同目录 `_sc_` 标记，在 self-contained editor_data 与普通 APPDATA 用户目录之间选择唯一正确位置，并继续按版本输出精确匹配 Windows x86_64 templates；Python 回归覆盖普通目录、self-contained 目录、禁止跨模式回退与精确缺失报错。README、ADR #134、AI 导航、测试策略、项目记忆、current_state 和会话日志已移除具体机器盘符，统一使用 --godot / GODOT_PATH。",
     "Steamworks Slime Lab AI 合体归队修复：新增 SteamLabSlimePlayer.set_input_drive_scale()，让 AI 的 TACTICAL / DODGE / RECALL 速度倍率真实作用于软体移动；归队候选截断预测行程并在 92 px 内结合 P1 速度稳定跟随，松开 E 立即取消；单人离线主循环补齐权威合体 tick 与合体后 P1 driver 输入。single_ultimate_state / HUD 暴露释放门槛、按住状态和 0.8 秒进度；battle_smoke 使用真实 E 事件、移动 P1 与真实 SlimeBody 物理完成无瞬移闭环。目标 battle 1/1、local-couch 与权威 all-suite 全绿，最大快照分片 635 <= 900，受保护文件未改变。",
     "ADR #140 / Steamworks Slime Lab 单人 AI 自主游击与预判闪避：已把 ADR #139 的贴身跟随改为确定性危险评估与游击移动，覆盖敌弹轨迹预判、普通敌人、Boss 和障碍物避让；常规距 P1 使用 210 px 硬限、超过 220 px 复位，玩家按 E 后高速归队至 92 px 并停靠 0.8 秒再自动同意合体。AI 不可受伤 / 不吸引火力、网络 / 存档 / 正式 client 边界不变；目标 battle 1/1、local-couch 与权威 smoke --suite all 均通过，all 含 battle 5/5 和动态端口 ENet，最新最大分片 670 <= 900，受保护玩家文件及源码 steam_appid.txt 未改变。",
@@ -126,8 +127,13 @@
   "last_verified": [
     {
       "date": "2026-07-18",
+      "command": "configured Godot --version; client / Test Lab / Steamworks Lab headless-boot; Steamworks Lab toolchain verify; current_state JSON; ADR max and GDD / project-memory version consistency; three full-rule and five godot-gdscript skill SHA-256 sync; Godot 4.7 residue review; docs_health_check; git diff --check; targeted pre-commit",
+      "result": "passed for ADR #141 documentation-only baseline sync: the configured editor reports 4.7.1.stable.official.a13da4feb; all three projects boot headless and Steamworks Lab verify loads GodotSteam 4.20 plus SteamMultiplayerPeer; latest_adr=141 matches the ADR maximum, GDD and project memory both report v1.19, all synchronized copies have matching hashes, and remaining Godot 4.7 references are limited to official 4.7 documentation, minor-series compatibility semantics or historical records. No runtime code, tool code, project.godot, lock file, tests or data schema changed."
+    },
+    {
+      "date": "2026-07-18",
       "command": "py_compile; py -3 tools/test_steamworks_lab_toolchain.py; configured-Godot self-contained template lookup; py -3 tools/steamworks_lab_toolchain.py verify; smoke --suite all; export-release; JSON / docs health / lint / pre-commit / diff checks; factual code review",
-      "result": "passed for ADR #134 portability fix: 23 Python regressions cover normal APPDATA templates, self-contained editor_data templates, no cross-mode fallback and exact missing-path diagnostics; the configured ordinary Godot 4.7 official loads GodotSteam 4.20 and SteamMultiplayerPeer, all smoke covers boot, Steam config, local couch, battle and dynamic-port ENet, and Windows release exports then offline-boots with required content. Documentation no longer stores a machine-specific Godot drive path."
+      "result": "passed for ADR #134 portability fix: 23 Python regressions cover normal APPDATA templates, self-contained editor_data templates, no cross-mode fallback and exact missing-path diagnostics; the configured ordinary Godot 4.7.1 official loads GodotSteam 4.20 and SteamMultiplayerPeer, all smoke covers boot, Steam config, local couch, battle and dynamic-port ENet, and Windows release exports then offline-boots with required content. Documentation no longer stores a machine-specific Godot drive path."
     },
     {
       "date": "2026-07-17",

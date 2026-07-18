@@ -1,6 +1,6 @@
 ---
 name: godot-gdscript
-description: Godot 4.7 GDScript implementation guidance for this project. Use when editing Godot scenes, scripts, autoloads, gameplay systems, or typed GDScript.
+description: Godot 4.7.1 GDScript implementation guidance for this project. Use when editing Godot scenes, scripts, autoloads, gameplay systems, or typed GDScript.
 license: MIT
 compatibility: agent-skills
 metadata:
@@ -18,7 +18,7 @@ Use this skill only for Godot/GDScript implementation or review work in `client/
 
 ## Project Rules To Preserve
 
-- Use Godot 4.7 and typed GDScript.
+- Use Godot 4.7.1 stable and typed GDScript.
 - Tunables belong in `client/data/` CSV / JSON, not magic numbers in scripts.
 - Player-visible text uses locale keys and `tr()`, not hardcoded text.
 - Inputs use InputMap actions, not physical key or joystick constants.
