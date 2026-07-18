@@ -13,6 +13,9 @@ const LAYER_CELL_TILES: String = "cell_tiles"
 const LAYER_COLLISION: String = "collision"
 const LAYER_DETAIL: String = "detail"
 const LAYER_METADATA: String = "metadata"
+const FLOOR_SHADER_PATH: String = "res://shaders/universal_tile_floor.gdshader"
+const GRID_SCRIPT_PATH: String = "res://scripts/universal_tile_grid.gd"
+const OBSTACLE_SHADER_PATH: String = "res://shaders/universal_tile_obstacle_frame.gdshader"
 const SCENE_PATH: String = "res://scenes/ai_universal_tile_test.tscn"
 const SUPPORTED_SCHEMA_VERSION: int = 2
 
@@ -41,6 +44,7 @@ func _run_smoke() -> void:
 	_validate_style_pack(style_pack)
 	_validate_asset_images(style_pack)
 	_validate_scene_file_shape()
+	_validate_shader_resources()
 	await _validate_runtime(scene_config)
 	_finish()
 
@@ -273,6 +277,25 @@ func _validate_scene_file_shape() -> void:
 	_check(scene_text.find("PackedByteArray") < 0, "Scene does not embed PackedByteArray texture data.")
 
 
+func _validate_shader_resources() -> void:
+	for shader_path: String in [FLOOR_SHADER_PATH, OBSTACLE_SHADER_PATH]:
+		_check(FileAccess.file_exists(shader_path), "%s exists as an external shader resource." % shader_path)
+		var shader := load(shader_path) as Shader
+		_check(shader != null, "%s loads as a Shader." % shader_path)
+		if shader != null:
+			_check(shader.code.find("shader_type canvas_item") >= 0, "%s declares a CanvasItem shader." % shader_path)
+	var obstacle_shader := load(OBSTACLE_SHADER_PATH) as Shader
+	if obstacle_shader != null:
+		_check(obstacle_shader.code.find("void vertex()") >= 0, "Obstacle shader expands its drawing quad in vertex().")
+		_check(obstacle_shader.code.find("highlight_breakup") >= 0, "Obstacle highlight is broken by procedural noise.")
+	var grid_file := FileAccess.open(GRID_SCRIPT_PATH, FileAccess.READ)
+	_check(grid_file != null, "UniversalTileGrid script is readable for shader separation checks.")
+	if grid_file != null:
+		var grid_text := grid_file.get_as_text()
+		_check(grid_text.find("TILE_VISUAL_SHADER_CODE") < 0, "UniversalTileGrid no longer embeds the legacy shader constant.")
+		_check(grid_text.find("shader_type canvas_item") < 0, "UniversalTileGrid contains no inline CanvasItem shader source.")
+
+
 func _validate_runtime(scene_config: Dictionary) -> void:
 	var packed_scene := load(SCENE_PATH) as PackedScene
 	_check(packed_scene != null, "Generated scene loads as PackedScene.")
@@ -435,7 +458,7 @@ func _validate_visual_style(summary: Dictionary) -> void:
 		return
 	var visual: Dictionary = visual_value
 	_check(int(visual.get("rounded_cell_count", 0)) == 24, "All 24 cells use rounded code rendering.")
-	_check(int(visual.get("obstacle_border_count", 0)) == 6, "All six obstacles receive content-colored borders.")
+	_check(int(visual.get("obstacle_border_count", 0)) == 6, "All six obstacles receive layered card bases.")
 	_check(int(visual.get("seam_fill_count", 0)) == 1, "One continuous underlay closes inter-cell seams.")
 	_check(bool(visual.get("continuous_seam_underlay", false)), "Continuous seam protection is enabled.")
 	_check(bool(visual.get("floor_full_cell_seam_fill", false)), "Floor cells keep opaque color coverage across rounded intersections.")
@@ -443,20 +466,40 @@ func _validate_visual_style(summary: Dictionary) -> void:
 	_check(float(visual.get("floor_source_crop_px", 0.0)) >= 3.0, "Floor sampling crops out the source image's painted dark frame.")
 	_check(String(visual.get("visual_stack_mode", "")) == "deterministic_balanced", "Visual stacking uses deterministic balanced order.")
 	_check(int(visual.get("visual_stack_seed", 0)) > 0, "Visual stacking exposes a fixed positive seed.")
-	_check(bool(visual.get("obstacle_border_motion", false)), "Obstacle borders expose animated edge flow.")
-	_check(is_equal_approx(float(visual.get("obstacle_breath_width_amplitude", 0.0)), 0.12), "Obstacle rim breathes by twelve percent around its base width.")
-	_check(float(visual.get("obstacle_breath_speed", 0.0)) > 1.2, "Obstacle breathing completes a readable cycle in about five seconds.")
+	_check(String(visual.get("material_style", "")) == "layered_handpainted", "Visual style reports the layered hand-painted material.")
+	var shader_resources_value: Variant = visual.get("shader_resources", [])
+	_check(shader_resources_value is Array, "Visual style exposes its external shader resources.")
+	if shader_resources_value is Array:
+		var shader_resources: Array = shader_resources_value
+		_check(shader_resources.has(FLOOR_SHADER_PATH), "Visual style references the floor shader resource.")
+		_check(shader_resources.has(OBSTACLE_SHADER_PATH), "Visual style references the obstacle shader resource.")
+	_check(is_equal_approx(float(visual.get("obstacle_frame_margin_px", 0.0)), 11.0), "Obstacle frame expands eleven pixels outside its content.")
+	_check(_array_to_vector2i(visual.get("obstacle_visual_size_px", [])) == Vector2i(150, 150), "Obstacle visual bounds are approximately 150 × 150 px.")
+	_check(is_equal_approx(float(visual.get("obstacle_shadow_softness_px", 0.0)), 3.0), "Obstacle frame exposes a three-pixel contact shadow.")
+	_check(is_equal_approx(float(visual.get("obstacle_base_width_px", 0.0)), 6.0), "Obstacle frame exposes a six-pixel deep base.")
+	_check(is_equal_approx(float(visual.get("obstacle_mid_width_px", 0.0)), 2.5), "Obstacle frame exposes a two-and-a-half-pixel middle band.")
+	_check(is_equal_approx(float(visual.get("obstacle_lip_width_px", 0.0)), 1.25), "Obstacle frame exposes a narrow directional lip.")
+	_check(is_equal_approx(float(visual.get("obstacle_roughness_broad_px", 0.0)), 0.8), "Obstacle frame exposes broad static hand-painted roughness.")
+	_check(is_equal_approx(float(visual.get("obstacle_roughness_detail_px", 0.0)), 0.35), "Obstacle frame exposes fine static hand-painted roughness.")
+	_check(is_equal_approx(float(visual.get("obstacle_breath_width_px", 0.0)), 0.6), "Obstacle thickness breath stays below one pixel.")
+	_check(is_equal_approx(float(visual.get("obstacle_breath_period_seconds", 0.0)), 5.2), "Obstacle material breathes over about 5.2 seconds.")
+	_check(is_equal_approx(float(visual.get("obstacle_highlight_period_seconds", 0.0)), 9.0), "Obstacle local highlight travels over about nine seconds.")
+	_check(String(visual.get("obstacle_highlight_mode", "")) == "localized_broken_arc", "Obstacle highlight is localized instead of forming a complete ring.")
+	_check(String(visual.get("obstacle_shape_motion", "")) == "static_noise", "Obstacle silhouette roughness remains spatially stable.")
 	_check(bool(visual.get("floor_edge_breathing", false)), "Floor edge breathing is enabled.")
-	_check(is_equal_approx(float(visual.get("floor_breath_width_amplitude", 0.0)), 0.08), "Floor edge breathes by eight percent around its base width.")
-	_check(float(visual.get("floor_breath_speed", 0.0)) > 1.0, "Floor breathing completes a readable cycle in about five and a half seconds.")
+	_check(is_equal_approx(float(visual.get("floor_edge_width_px", 0.0)), 2.5), "Floor replaces the bright five-pixel frame with a restrained edge.")
+	_check(is_equal_approx(float(visual.get("floor_lip_width_px", 0.0)), 1.0), "Floor exposes a narrow inner light lip.")
+	_check(is_equal_approx(float(visual.get("floor_breath_width_px", 0.0)), 0.35), "Floor edge width varies by no more than 0.35 px.")
+	_check(is_equal_approx(float(visual.get("floor_breath_period_seconds", 0.0)), 5.6), "Floor material breathes over about 5.6 seconds.")
+	_check(String(visual.get("floor_wave_space", "")) == "continuous_world", "Floor breathing propagates continuously in world space.")
+	_check(is_equal_approx(float(visual.get("floor_wave_spatial_frequency", 0.0)), 0.012), "Floor wave exposes a restrained spatial frequency.")
 	_check(float(visual.get("floor_corner_radius_px", 0.0)) > 0.0, "Floor cells have a positive corner radius.")
 	_check(
 		float(visual.get("obstacle_corner_radius_px", 0.0))
 		> float(visual.get("floor_corner_radius_px", 0.0)),
 		"Obstacle cells use the stronger rounded silhouette."
 	)
-	_check(float(visual.get("obstacle_border_width_px", 0.0)) >= 6.0, "Obstacle border width is visually legible.")
-	_check(String(visual.get("render_source", "")) == "runtime_shader", "Rounded styling is produced by runtime code.")
+	_check(String(visual.get("render_source", "")) == "external_shader_resources", "Rounded styling is loaded from external shader resources.")
 
 
 func _validate_visual_cells(tile_visual_layer: Node2D, grid: GRID_SCRIPT) -> void:
@@ -470,60 +513,73 @@ func _validate_visual_cells(tile_visual_layer: Node2D, grid: GRID_SCRIPT) -> voi
 		if sprite == null:
 			continue
 		var material := sprite.material as ShaderMaterial
-		_check(material != null and material.shader != null, "%s uses the rounded-cell shader." % sprite.name)
-		if material == null:
+		_check(material != null and material.shader != null, "%s uses an external tile shader." % sprite.name)
+		if material == null or material.shader == null:
 			continue
 		var visual_role := String(sprite.get_meta("visual_role", ""))
-		var border_width := float(sprite.get_meta("border_width_px", -1.0))
 		var corner_radius := float(sprite.get_meta("corner_radius_px", 0.0))
 		var cell_value: Variant = sprite.get_meta("cell", Vector2i(-1, -1))
 		var cell: Vector2i = cell_value if cell_value is Vector2i else Vector2i(-1, -1)
 		_check(corner_radius > 0.0, "%s has rounded corners." % sprite.name)
-		_check(sprite.scale.x > 1.0 and sprite.scale.y > 1.0, "%s overlaps shared seams." % sprite.name)
-		_check(is_equal_approx(sprite.scale.x, sprite.scale.y), "%s uses centered symmetric bleed." % sprite.name)
 		_check(sprite.position == Vector2((cell.x + 0.5) * 128.0, (cell.y + 0.5) * 128.0), "%s keeps its logical cell center." % sprite.name)
-		_check(float(sprite.get_meta("visual_bleed_px", 0.0)) >= 1.0, "%s records its seam bleed." % sprite.name)
-		_check(float(material.get_shader_parameter("wobble_strength_px")) > 0.0, "%s uses a non-straight contour." % sprite.name)
+		_check(sprite.get_meta("content_size_px", Vector2.ZERO) == Vector2(128.0, 128.0), "%s preserves a 128 × 128 content region." % sprite.name)
 		if visual_role == "floor":
 			floor_count += 1
-			_check(is_zero_approx(border_width), "%s floor cell has no obstacle border." % sprite.name)
+			_check(String(material.shader.resource_path) == FLOOR_SHADER_PATH, "%s loads the dedicated floor shader." % sprite.name)
+			_check(String(sprite.get_meta("shader_resource_path", "")) == FLOOR_SHADER_PATH, "%s records the floor shader path." % sprite.name)
+			_check(sprite.scale.x > 1.0 and sprite.scale.y > 1.0, "%s floor overlaps shared seams." % sprite.name)
+			_check(is_equal_approx(sprite.scale.x, sprite.scale.y), "%s floor uses centered symmetric bleed." % sprite.name)
+			_check(float(sprite.get_meta("visual_bleed_px", 0.0)) >= 1.0, "%s floor records its seam bleed." % sprite.name)
+			_check(is_zero_approx(float(sprite.get_meta("visual_margin_px", -1.0))), "%s floor has no obstacle frame margin." % sprite.name)
 			_check(bool(sprite.get_meta("floor_edge_breathing", false)), "%s floor cell breathes at its edge." % sprite.name)
-			_check(float(material.get_shader_parameter("floor_edge_width_px")) > 0.0, "%s floor edge band is present." % sprite.name)
 			_check(float(sprite.get_meta("source_crop_px", 0.0)) >= 3.0, "%s floor removes its authored dark frame in code." % sprite.name)
 			_check(float(material.get_shader_parameter("source_crop_px")) >= 3.0, "%s floor shader samples inside the source frame." % sprite.name)
-			_check(not bool(sprite.get_meta("border_motion", true)), "%s floor does not receive obstacle edge flow." % sprite.name)
-			_check(is_zero_approx(float(material.get_shader_parameter("border_motion_strength"))), "%s floor border flow stays disabled." % sprite.name)
-			var floor_amplitude := float(material.get_shader_parameter("floor_breath_amplitude"))
-			var floor_width := float(material.get_shader_parameter("floor_edge_width_px"))
-			_check(is_equal_approx(floor_amplitude, 0.08), "%s floor uses the selected breath strength." % sprite.name)
-			_check(floor_width * (1.0 + floor_amplitude) > floor_width * (1.0 - floor_amplitude), "%s floor breathing changes its actual edge width." % sprite.name)
+			_check(is_equal_approx(float(material.get_shader_parameter("edge_width_px")), 2.5), "%s floor uses the restrained edge width." % sprite.name)
+			_check(is_equal_approx(float(material.get_shader_parameter("lip_width_px")), 1.0), "%s floor uses the narrow inner lip." % sprite.name)
+			_check(is_equal_approx(float(material.get_shader_parameter("breath_width_px")), 0.35), "%s floor width breath stays subpixel." % sprite.name)
+			_check(is_equal_approx(float(material.get_shader_parameter("breath_period_seconds")), 5.6), "%s floor uses the continuous material breath period." % sprite.name)
+			_check(material.get_shader_parameter("cell_origin_px") == Vector2(cell * EXPECTED_TILE_SIZE), "%s floor wave uses its absolute cell origin." % sprite.name)
+			_check(is_equal_approx(float(material.get_shader_parameter("wave_spatial_frequency")), 0.012), "%s floor wave uses the selected world-space frequency." % sprite.name)
+			var content_color: Color = sprite.get_meta("content_main_color", Color.WHITE)
+			var floor_edge_color: Color = material.get_shader_parameter("edge_color")
+			var floor_lip_color: Color = material.get_shader_parameter("lip_color")
+			_check(floor_edge_color.v < floor_lip_color.v, "%s floor edge stays darker than its light lip." % sprite.name)
+			_check(floor_lip_color.v < content_color.v, "%s floor light lip remains below the sampled floor content." % sprite.name)
 			continue
 		obstacle_count += 1
-		_check(border_width > 0.0, "%s obstacle has a dark border." % sprite.name)
-		_check(is_zero_approx(float(material.get_shader_parameter("source_crop_px"))), "%s obstacle keeps its full source art beneath the colored rim." % sprite.name)
+		_check(String(material.shader.resource_path) == OBSTACLE_SHADER_PATH, "%s loads the dedicated obstacle shader." % sprite.name)
+		_check(String(sprite.get_meta("shader_resource_path", "")) == OBSTACLE_SHADER_PATH, "%s records the obstacle shader path." % sprite.name)
+		_check(sprite.scale == Vector2.ONE, "%s obstacle keeps its 128 × 128 source art at authored scale." % sprite.name)
+		_check(is_equal_approx(float(sprite.get_meta("visual_margin_px", 0.0)), 11.0), "%s obstacle records the external frame margin." % sprite.name)
+		_check(sprite.get_meta("visual_size_px", Vector2.ZERO) == Vector2(150.0, 150.0), "%s obstacle records approximately 150 × 150 visual bounds." % sprite.name)
+		_check(is_zero_approx(float(sprite.get_meta("visual_bleed_px", -1.0))), "%s obstacle uses shader expansion instead of scaling the image." % sprite.name)
 		_check(not bool(sprite.get_meta("floor_edge_breathing", true)), "%s obstacle does not reuse the floor pulse." % sprite.name)
+		_check(bool(sprite.get_meta("localized_highlight", false)), "%s obstacle uses a localized broken highlight." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("frame_margin_px")), 11.0), "%s obstacle shader expands eleven pixels." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("base_width_px")), 6.0), "%s obstacle uses the six-pixel deep base." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("mid_width_px")), 2.5), "%s obstacle uses the middle material band." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("lip_width_px")), 1.25), "%s obstacle uses the narrow directional lip." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("shadow_softness_px")), 3.0), "%s obstacle uses the contact shadow softness." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("roughness_broad_px")), 0.8), "%s obstacle uses broad static edge roughness." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("roughness_detail_px")), 0.35), "%s obstacle uses fine static edge roughness." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("breath_width_px")), 0.6), "%s obstacle thickness breath stays below one pixel." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("breath_period_seconds")), 5.2), "%s obstacle uses the material breath period." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("highlight_period_seconds")), 9.0), "%s obstacle uses the slow local highlight period." % sprite.name)
 		var content_color: Color = sprite.get_meta("content_main_color", Color.WHITE)
-		var border_color: Color = sprite.get_meta("border_color", Color.WHITE)
-		var highlight_color: Color = sprite.get_meta("border_highlight_color", Color.WHITE)
-		_check(_color_value(border_color) < _color_value(content_color), "%s border is darker than its content color." % sprite.name)
-		_check(_color_value(border_color) >= 0.20, "%s border remains chromatic instead of collapsing to black." % sprite.name)
-		_check(border_color.v <= content_color.v * 0.76, "%s border stays at most seventy-six percent as bright as its content." % sprite.name)
-		_check(content_color.v - border_color.v >= 0.075, "%s border keeps a visible value gap from its content." % sprite.name)
-		_check(_dominant_channel(border_color) == _dominant_channel(content_color), "%s border keeps the content's dominant color channel." % sprite.name)
-		_check(_hue_distance(border_color.h, content_color.h) <= 0.02, "%s border stays in the content hue family." % sprite.name)
-		_check(_dominant_channel(highlight_color) == _dominant_channel(content_color), "%s moving highlight keeps the content hue family." % sprite.name)
-		_check(_color_value(highlight_color) > _color_value(border_color), "%s moving edge highlight is brighter than the base rim." % sprite.name)
-		_check(highlight_color.v <= content_color.v * 0.90, "%s breathing peak remains darker than its content." % sprite.name)
-		_check(content_color.v - highlight_color.v >= 0.035, "%s breathing peak preserves a visible content separation." % sprite.name)
-		_check(_hue_distance(highlight_color.h, content_color.h) <= 0.02, "%s breathing peak stays in the content hue family." % sprite.name)
-		_check(bool(sprite.get_meta("border_motion", false)), "%s obstacle enables border motion." % sprite.name)
-		_check(float(material.get_shader_parameter("border_motion_strength")) > 0.0, "%s obstacle uses traveling edge light." % sprite.name)
-		_check(float(material.get_shader_parameter("wobble_motion_px")) > 0.0, "%s obstacle contour flexes subtly over time." % sprite.name)
-		var border_amplitude := float(material.get_shader_parameter("border_breath_amplitude"))
-		_check(is_equal_approx(border_amplitude, 0.12), "%s obstacle uses the selected breath strength." % sprite.name)
-		_check(border_width * (1.0 + border_amplitude) > border_width * (1.0 - border_amplitude), "%s obstacle breathing changes its actual rim width." % sprite.name)
+		var shadow_color: Color = sprite.get_meta("frame_shadow_color", Color.WHITE)
+		var base_color: Color = sprite.get_meta("frame_base_color", Color.WHITE)
+		var mid_color: Color = sprite.get_meta("frame_mid_color", Color.WHITE)
+		var lip_color: Color = sprite.get_meta("frame_lip_color", Color.WHITE)
+		_check(shadow_color.v < base_color.v, "%s shadow is darker than the deep base." % sprite.name)
+		_check(base_color.v < mid_color.v and mid_color.v < lip_color.v, "%s frame bands increase in controlled value order." % sprite.name)
+		_check(lip_color.v < content_color.v, "%s directional lip remains below the sampled content." % sprite.name)
+		var base_ratio := base_color.v / maxf(content_color.v, 0.001)
+		_check(base_ratio >= 0.68 and base_ratio <= 0.74, "%s deep base stays between 68%% and 74%% of content value." % sprite.name)
+		_check(lip_color.v <= content_color.v * 0.86 + 0.001, "%s brightest lip stays at or below 86%% of content value." % sprite.name)
+		for frame_color: Color in [shadow_color, base_color, mid_color, lip_color]:
+			_check(_hue_distance(frame_color.h, content_color.h) <= 0.02, "%s frame layers remain in the content hue family." % sprite.name)
 	_check(floor_count == 18, "Visual skin contains 18 breathing floor cells.")
-	_check(obstacle_count == 6, "Visual skin contains six irregularly bordered obstacles.")
+	_check(obstacle_count == 6, "Visual skin contains six externally framed obstacles.")
 	_validate_visual_stack_direction(tile_visual_layer)
 
 	grid.debug_prepare_capture()
