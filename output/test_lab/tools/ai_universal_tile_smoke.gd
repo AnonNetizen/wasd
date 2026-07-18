@@ -353,12 +353,26 @@ func _compose_assignment_signature(grid: GRID_SCRIPT) -> String:
 
 func _validate_runtime_layers(grid: GRID_SCRIPT) -> void:
 	var cell_tile_layer := grid.get_node_or_null("CellTileLayer") as TileMapLayer
+	var seam_fill_layer := grid.get_node_or_null("SeamFillLayer") as Node2D
 	var tile_visual_layer := grid.get_node_or_null("TileVisualLayer") as Node2D
 	var collision_bodies := grid.get_node_or_null("CollisionBodies") as Node2D
 	var collision_overlay := grid.get_node_or_null("CollisionOverlay") as Node2D
 	var detail_layer := grid.get_node_or_null("DetailLayer") as Node2D
 	var metadata_layer := grid.get_node_or_null("MetadataOverlay") as Node2D
 	_check(cell_tile_layer != null, "CellTileLayer exists.")
+	_check(seam_fill_layer != null, "SeamFillLayer exists.")
+	_check(
+		seam_fill_layer != null and seam_fill_layer.get_child_count() == 1,
+		"SeamFillLayer keeps exactly one continuous backing after repeated regeneration."
+	)
+	if seam_fill_layer != null and seam_fill_layer.get_child_count() == 1:
+		var backing := seam_fill_layer.get_child(0) as Polygon2D
+		_check(backing != null, "Continuous seam backing is a single Polygon2D.")
+		if backing != null:
+			_check(
+				String(backing.get_meta("visual_role", "")) == "continuous_seam_underlay",
+				"Seam backing is explicitly marked as visual underlay rather than a logical Tile."
+			)
 	_check(tile_visual_layer != null, "TileVisualLayer exists.")
 	_check(
 		tile_visual_layer != null and tile_visual_layer.get_child_count() == 24,
@@ -407,6 +421,12 @@ func _validate_visual_style(summary: Dictionary) -> void:
 	var visual: Dictionary = visual_value
 	_check(int(visual.get("rounded_cell_count", 0)) == 24, "All 24 cells use rounded code rendering.")
 	_check(int(visual.get("obstacle_border_count", 0)) == 6, "All six obstacles receive content-colored borders.")
+	_check(int(visual.get("seam_fill_count", 0)) == 1, "One continuous underlay closes inter-cell seams.")
+	_check(bool(visual.get("continuous_seam_underlay", false)), "Continuous seam protection is enabled.")
+	_check(bool(visual.get("floor_full_cell_seam_fill", false)), "Floor cells keep opaque color coverage across rounded intersections.")
+	_check(float(visual.get("cell_visual_bleed_px", 0.0)) >= 1.0, "Cells bleed over shared edges by at least one pixel.")
+	_check(float(visual.get("floor_source_crop_px", 0.0)) >= 3.0, "Floor sampling crops out the source image's painted dark frame.")
+	_check(bool(visual.get("obstacle_border_motion", false)), "Obstacle borders expose animated edge flow.")
 	_check(bool(visual.get("floor_edge_breathing", false)), "Floor edge breathing is enabled.")
 	_check(float(visual.get("floor_corner_radius_px", 0.0)) > 0.0, "Floor cells have a positive corner radius.")
 	_check(
@@ -436,20 +456,34 @@ func _validate_visual_cells(tile_visual_layer: Node2D, grid: GRID_SCRIPT) -> voi
 		var border_width := float(sprite.get_meta("border_width_px", -1.0))
 		var corner_radius := float(sprite.get_meta("corner_radius_px", 0.0))
 		_check(corner_radius > 0.0, "%s has rounded corners." % sprite.name)
+		_check(sprite.scale.x > 1.0 and sprite.scale.y > 1.0, "%s overlaps shared seams." % sprite.name)
+		_check(float(sprite.get_meta("visual_bleed_px", 0.0)) >= 1.0, "%s records its seam bleed." % sprite.name)
 		_check(float(material.get_shader_parameter("wobble_strength_px")) > 0.0, "%s uses a non-straight contour." % sprite.name)
 		if visual_role == "floor":
 			floor_count += 1
 			_check(is_zero_approx(border_width), "%s floor cell has no obstacle border." % sprite.name)
 			_check(bool(sprite.get_meta("floor_edge_breathing", false)), "%s floor cell breathes at its edge." % sprite.name)
 			_check(float(material.get_shader_parameter("floor_edge_width_px")) > 0.0, "%s floor edge band is present." % sprite.name)
+			_check(float(sprite.get_meta("source_crop_px", 0.0)) >= 3.0, "%s floor removes its authored dark frame in code." % sprite.name)
+			_check(float(material.get_shader_parameter("source_crop_px")) >= 3.0, "%s floor shader samples inside the source frame." % sprite.name)
+			_check(not bool(sprite.get_meta("border_motion", true)), "%s floor does not receive obstacle edge flow." % sprite.name)
+			_check(is_zero_approx(float(material.get_shader_parameter("border_motion_strength"))), "%s floor border flow stays disabled." % sprite.name)
 			continue
 		obstacle_count += 1
 		_check(border_width > 0.0, "%s obstacle has a dark border." % sprite.name)
+		_check(is_zero_approx(float(material.get_shader_parameter("source_crop_px"))), "%s obstacle keeps its full source art beneath the colored rim." % sprite.name)
 		_check(not bool(sprite.get_meta("floor_edge_breathing", true)), "%s obstacle does not reuse the floor pulse." % sprite.name)
 		var content_color: Color = sprite.get_meta("content_main_color", Color.WHITE)
 		var border_color: Color = sprite.get_meta("border_color", Color.WHITE)
+		var highlight_color: Color = sprite.get_meta("border_highlight_color", Color.WHITE)
 		_check(_color_value(border_color) < _color_value(content_color), "%s border is darker than its content color." % sprite.name)
+		_check(_color_value(border_color) >= 0.20, "%s border remains chromatic instead of collapsing to black." % sprite.name)
 		_check(_dominant_channel(border_color) == _dominant_channel(content_color), "%s border keeps the content's dominant color channel." % sprite.name)
+		_check(_dominant_channel(highlight_color) == _dominant_channel(content_color), "%s moving highlight keeps the content hue family." % sprite.name)
+		_check(_color_value(highlight_color) > _color_value(border_color), "%s moving edge highlight is brighter than the base rim." % sprite.name)
+		_check(bool(sprite.get_meta("border_motion", false)), "%s obstacle enables border motion." % sprite.name)
+		_check(float(material.get_shader_parameter("border_motion_strength")) > 0.0, "%s obstacle uses traveling edge light." % sprite.name)
+		_check(float(material.get_shader_parameter("wobble_motion_px")) > 0.0, "%s obstacle contour flexes subtly over time." % sprite.name)
 	_check(floor_count == 18, "Visual skin contains 18 breathing floor cells.")
 	_check(obstacle_count == 6, "Visual skin contains six irregularly bordered obstacles.")
 
@@ -566,7 +600,11 @@ func _validate_runtime_collisions(collision_bodies: Node2D) -> void:
 
 func _validate_layer_visibility(grid: GRID_SCRIPT) -> void:
 	var layer_nodes: Dictionary = {
-		LAYER_CELL_TILES: [grid.get_node_or_null("CellTileLayer"), grid.get_node_or_null("TileVisualLayer")],
+		LAYER_CELL_TILES: [
+			grid.get_node_or_null("CellTileLayer"),
+			grid.get_node_or_null("SeamFillLayer"),
+			grid.get_node_or_null("TileVisualLayer"),
+		],
 		LAYER_COLLISION: [grid.get_node_or_null("CollisionOverlay")],
 		LAYER_DETAIL: [grid.get_node_or_null("DetailLayer")],
 		LAYER_METADATA: [grid.get_node_or_null("MetadataOverlay")],

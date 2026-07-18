@@ -7,8 +7,10 @@ const LAYER_CELL_TILES: String = "cell_tiles"
 const LAYER_COLLISION: String = "collision"
 const LAYER_DETAIL: String = "detail"
 const LAYER_METADATA: String = "metadata"
+const CELL_VISUAL_BLEED_PX: float = 2.0
 const FLOOR_CORNER_RADIUS_PX: float = 8.0
 const FLOOR_EDGE_WIDTH_PX: float = 5.0
+const FLOOR_SOURCE_CROP_PX: float = 3.5
 const OBSTACLE_BORDER_WIDTH_PX: float = 7.0
 const OBSTACLE_CORNER_RADIUS_PX: float = 11.0
 const SUPPORTED_SCENE_SCHEMA_VERSION: int = 2
@@ -22,11 +24,14 @@ uniform vec2 tile_size_px = vec2(128.0, 128.0);
 uniform float corner_radius_px = 10.0;
 uniform float border_width_px = 0.0;
 uniform float floor_edge_width_px = 0.0;
+uniform float source_crop_px = 0.0;
 uniform float wobble_strength_px = 0.0;
+uniform float wobble_motion_px = 0.0;
+uniform float border_motion_strength = 0.0;
 uniform float phase = 0.0;
 uniform vec4 border_color : source_color = vec4(0.08, 0.09, 0.07, 1.0);
+uniform vec4 border_highlight_color : source_color = vec4(0.24, 0.30, 0.18, 1.0);
 uniform vec4 floor_edge_color : source_color = vec4(0.82, 0.84, 0.72, 1.0);
-uniform vec4 backdrop_color : source_color = vec4(0.45, 0.46, 0.40, 1.0);
 uniform bool freeze_animation = false;
 uniform float frozen_time = 0.0;
 
@@ -43,24 +48,40 @@ float organic_wobble(vec2 uv) {
 }
 
 void fragment() {
-	vec4 source = texture(TEXTURE, UV);
+	vec2 crop_uv = vec2(source_crop_px) / tile_size_px;
+	vec2 source_uv = mix(crop_uv, vec2(1.0) - crop_uv, UV);
+	vec4 source = texture(TEXTURE, source_uv);
 	vec2 pixel_position = (UV - vec2(0.5)) * tile_size_px;
 	float animation_time = freeze_animation ? frozen_time : TIME;
-	float wobble = organic_wobble(UV);
+	float contour_motion = sin(
+		(UV.x - UV.y) * 22.0 + animation_time * 0.72 + phase
+	) * wobble_motion_px;
+	float wobble = organic_wobble(UV) + contour_motion;
 	float radius = max(corner_radius_px + wobble * 0.18, 1.0);
-	vec2 half_extent = tile_size_px * 0.5 - vec2(1.5);
+	vec2 half_extent = tile_size_px * 0.5 - vec2(0.25);
 	float distance_to_edge = signed_rounded_box(pixel_position, half_extent, radius) + wobble;
 	float antialias_width = max(fwidth(distance_to_edge), 0.75);
 	float shape_alpha = 1.0 - smoothstep(-antialias_width, antialias_width, distance_to_edge);
 
-	vec3 shaped_color = mix(backdrop_color.rgb, source.rgb, shape_alpha);
+	float floor_mode = step(0.01, floor_edge_width_px);
+	vec3 rounded_floor_color = mix(floor_edge_color.rgb, source.rgb, shape_alpha);
+	vec3 shaped_color = mix(source.rgb, rounded_floor_color, floor_mode);
 	float border_inner = 1.0 - smoothstep(
 		-antialias_width,
 		antialias_width,
 		distance_to_edge + border_width_px
 	);
 	float border_mask = shape_alpha * (1.0 - border_inner) * step(0.01, border_width_px);
-	shaped_color = mix(shaped_color, border_color.rgb, border_mask * 0.92);
+	float perimeter_angle = atan(pixel_position.y, pixel_position.x);
+	float border_flow = 0.5 + 0.5 * sin(
+		perimeter_angle * 3.0 - animation_time * 1.35 + phase
+	);
+	float border_pulse = 0.5 + 0.5 * sin(animation_time * 0.82 + phase * 0.37);
+	float border_light = border_motion_strength * (
+		0.08 + border_flow * 0.24 + border_pulse * 0.10
+	);
+	vec3 animated_border = mix(border_color.rgb, border_highlight_color.rgb, border_light);
+	shaped_color = mix(shaped_color, animated_border, border_mask * 0.88);
 
 	float floor_inner = 1.0 - smoothstep(
 		-antialias_width,
@@ -72,7 +93,8 @@ void fragment() {
 	float floor_edge_mix = floor_band * (0.06 + breathing * 0.18);
 	shaped_color = mix(shaped_color, floor_edge_color.rgb, floor_edge_mix);
 
-	COLOR = vec4(shaped_color, 1.0);
+	float output_alpha = mix(shape_alpha, 1.0, floor_mode);
+	COLOR = vec4(shaped_color, output_alpha);
 }
 """
 
@@ -102,6 +124,7 @@ var _metadata: Node2D
 var _obstacle_asset_ids: Dictionary = {}
 var _obstacle_placements: Array[Dictionary] = []
 var _placement_rules: Array[Dictionary] = []
+var _seam_fill_layer: Node2D
 var _source_ids_by_asset: Dictionary = {}
 var _tile_visual_layer: Node2D
 var _tile_visual_materials: Array[ShaderMaterial] = []
@@ -222,6 +245,12 @@ func get_generation_summary() -> Dictionary:
 		"visual_style": {
 			"rounded_cell_count": _tile_visual_layer.get_child_count() if _tile_visual_layer != null else 0,
 			"obstacle_border_count": _obstacle_placements.size(),
+			"seam_fill_count": _seam_fill_layer.get_child_count() if _seam_fill_layer != null else 0,
+			"cell_visual_bleed_px": CELL_VISUAL_BLEED_PX,
+			"floor_source_crop_px": FLOOR_SOURCE_CROP_PX,
+			"continuous_seam_underlay": true,
+			"floor_full_cell_seam_fill": true,
+			"obstacle_border_motion": true,
 			"floor_edge_breathing": true,
 			"floor_corner_radius_px": FLOOR_CORNER_RADIUS_PX,
 			"obstacle_corner_radius_px": OBSTACLE_CORNER_RADIUS_PX,
@@ -372,6 +401,7 @@ func _ensure_layers() -> void:
 	_cell_tile_layer.z_index = 0
 	_cell_tile_layer.self_modulate = Color(1.0, 1.0, 1.0, 0.0)
 
+	_seam_fill_layer = _ensure_node2d("SeamFillLayer", -1)
 	_tile_visual_layer = _ensure_node2d("TileVisualLayer", 0)
 	_collision_bodies = _ensure_node2d("CollisionBodies", 1)
 	_collision_overlay = _ensure_node2d("CollisionOverlay", 10)
@@ -418,6 +448,7 @@ func _clear_runtime_state() -> void:
 	_cell_metadata.clear()
 	_obstacle_placements.clear()
 	_cell_tile_layer.clear()
+	_clear_children(_seam_fill_layer)
 	_clear_children(_tile_visual_layer)
 	_tile_visual_materials.clear()
 	_clear_children(_collision_bodies)
@@ -454,6 +485,7 @@ func _assign_obstacle_tiles(seed: int) -> void:
 
 
 func _render_cell_tiles() -> void:
+	_build_seam_fill()
 	for y in range(_grid_size.y):
 		for x in range(_grid_size.x):
 			var cell := Vector2i(x, y)
@@ -476,6 +508,7 @@ func _add_tile_visual(cell: Vector2i, asset_id: String) -> void:
 		Color(0.5, 0.5, 0.5, 1.0)
 	)
 	var border_color := _deep_content_color(content_color)
+	var border_highlight_color := _content_edge_highlight(content_color)
 	var material := ShaderMaterial.new()
 	material.shader = _tile_visual_shader_instance()
 	material.set_shader_parameter("tile_size_px", Vector2(_tile_size))
@@ -485,31 +518,66 @@ func _add_tile_visual(cell: Vector2i, asset_id: String) -> void:
 	)
 	material.set_shader_parameter("border_width_px", 0.0 if is_floor else OBSTACLE_BORDER_WIDTH_PX)
 	material.set_shader_parameter("floor_edge_width_px", FLOOR_EDGE_WIDTH_PX if is_floor else 0.0)
+	material.set_shader_parameter("source_crop_px", FLOOR_SOURCE_CROP_PX if is_floor else 0.0)
 	material.set_shader_parameter("wobble_strength_px", 0.55 if is_floor else 1.65)
+	material.set_shader_parameter("wobble_motion_px", 0.0 if is_floor else 0.32)
+	material.set_shader_parameter("border_motion_strength", 0.0 if is_floor else 1.0)
 	material.set_shader_parameter("phase", _visual_phase(cell, asset_id))
 	material.set_shader_parameter("border_color", border_color)
+	material.set_shader_parameter("border_highlight_color", border_highlight_color)
 	material.set_shader_parameter("floor_edge_color", _floor_edge_color(floor_color))
-	material.set_shader_parameter("backdrop_color", _floor_backdrop_color(floor_color))
 
 	var sprite := Sprite2D.new()
 	sprite.name = "TileVisual_%02d_%02d" % [cell.x, cell.y]
 	sprite.position = _cell_center(cell)
 	sprite.texture = texture
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	sprite.scale = Vector2(
+		1.0 + CELL_VISUAL_BLEED_PX / float(_tile_size.x),
+		1.0 + CELL_VISUAL_BLEED_PX / float(_tile_size.y)
+	)
 	sprite.material = material
 	sprite.set_meta("asset_id", asset_id)
 	sprite.set_meta("cell", cell)
 	sprite.set_meta("visual_role", "floor" if is_floor else "obstacle")
 	sprite.set_meta("content_main_color", content_color)
 	sprite.set_meta("border_color", border_color)
+	sprite.set_meta("border_highlight_color", border_highlight_color)
 	sprite.set_meta(
 		"corner_radius_px",
 		FLOOR_CORNER_RADIUS_PX if is_floor else OBSTACLE_CORNER_RADIUS_PX
 	)
 	sprite.set_meta("border_width_px", 0.0 if is_floor else OBSTACLE_BORDER_WIDTH_PX)
+	sprite.set_meta("border_motion", not is_floor)
+	sprite.set_meta("visual_bleed_px", CELL_VISUAL_BLEED_PX)
+	sprite.set_meta("source_crop_px", FLOOR_SOURCE_CROP_PX if is_floor else 0.0)
 	sprite.set_meta("floor_edge_breathing", is_floor)
 	_tile_visual_layer.add_child(sprite)
 	_tile_visual_materials.append(material)
+
+
+func _build_seam_fill() -> void:
+	var floor_color: Color = _asset_main_colors.get(
+		_default_tile_asset_id,
+		Color(0.5, 0.5, 0.5, 1.0)
+	)
+	var extent := Vector2(
+		float(_grid_size.x * _tile_size.x),
+		float(_grid_size.y * _tile_size.y)
+	)
+	var margin := CELL_VISUAL_BLEED_PX
+	var backing := Polygon2D.new()
+	backing.name = "ContinuousSeamBacking"
+	backing.polygon = PackedVector2Array([
+		Vector2(-margin, -margin),
+		Vector2(extent.x + margin, -margin),
+		Vector2(extent.x + margin, extent.y + margin),
+		Vector2(-margin, extent.y + margin),
+	])
+	backing.color = _floor_backdrop_color(floor_color)
+	backing.set_meta("visual_role", "continuous_seam_underlay")
+	backing.set_meta("coverage_px", extent)
+	_seam_fill_layer.add_child(backing)
 
 
 func _build_cell_metadata(cell: Vector2i, asset_id: String) -> Dictionary:
@@ -750,10 +818,19 @@ func _sample_main_color(texture: Texture2D) -> Color:
 
 
 func _deep_content_color(content_color: Color) -> Color:
-	return Color(
-		clampf(content_color.r * 0.34, 0.025, 0.42),
-		clampf(content_color.g * 0.34, 0.025, 0.42),
-		clampf(content_color.b * 0.34, 0.025, 0.42),
+	return Color.from_hsv(
+		content_color.h,
+		clampf(maxf(content_color.s * 1.12, 0.42), 0.0, 0.92),
+		clampf(content_color.v * 0.68 + 0.07, 0.22, 0.52),
+		1.0
+	)
+
+
+func _content_edge_highlight(content_color: Color) -> Color:
+	return Color.from_hsv(
+		content_color.h,
+		clampf(maxf(content_color.s, 0.36), 0.0, 0.86),
+		clampf(content_color.v * 0.90 + 0.12, 0.34, 0.68),
 		1.0
 	)
 
@@ -769,9 +846,9 @@ func _floor_edge_color(floor_color: Color) -> Color:
 
 func _floor_backdrop_color(floor_color: Color) -> Color:
 	return Color(
-		clampf(floor_color.r * 0.76, 0.0, 1.0),
-		clampf(floor_color.g * 0.78, 0.0, 1.0),
-		clampf(floor_color.b * 0.80, 0.0, 1.0),
+		clampf(floor_color.r * 0.94 + 0.015, 0.0, 1.0),
+		clampf(floor_color.g * 0.95 + 0.018, 0.0, 1.0),
+		clampf(floor_color.b * 0.96 + 0.020, 0.0, 1.0),
 		1.0
 	)
 
@@ -784,6 +861,8 @@ func _visual_phase(cell: Vector2i, asset_id: String) -> float:
 func _apply_layer_visibility() -> void:
 	if _cell_tile_layer != null:
 		_cell_tile_layer.visible = bool(_layer_visibility[LAYER_CELL_TILES])
+	if _seam_fill_layer != null:
+		_seam_fill_layer.visible = bool(_layer_visibility[LAYER_CELL_TILES])
 	if _tile_visual_layer != null:
 		_tile_visual_layer.visible = bool(_layer_visibility[LAYER_CELL_TILES])
 	if _collision_overlay != null:
