@@ -17,6 +17,12 @@ const EXTRA_TEST_SCENES := [
 		"featured": true,
 	},
 	{
+		"button_name": "NeonGeometryCombatButton",
+		"label": "Neon Geometry Combat Test",
+		"scene_path": "res://scenes/neon_geometry_combat_test.tscn",
+		"featured": true,
+	},
+	{
 		"button_name": "MyceliumGrowthButton",
 		"label": "Mycelium Growth Test",
 		"scene_path": "res://scenes/mycelium_growth_test.tscn",

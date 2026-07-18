@@ -25,6 +25,7 @@
 
 ## 当前实验
 
+- `neon_geometry_combat_test.tscn`：原创暗空霓虹几何战斗美术实验，借鉴高对比矢量弹幕、轮廓分型与构筑可视化原则，但不复刻任何参考作品的具体飞船、UI、图标或特效。玩家「裂锥体」使用琥珀实心长楔与紫色稳定器，断环猎体使用品红缺口环和短程楔弹，三轴炮体使用青色不对称旋臂和慢速红色断环弹；WASD / 方向键移动、鼠标瞄准、按住左键射击，`R` 重置，`Esc` 返回索引。场地中央的折射棱芯会把单发裂针切换成 `-10° / 0° / +10°` 三向弹幕，同时展开玩家侧模块。玩家、两类怪物、48 + 48 发弹池和 64 个 VFX 槽均由 typed GDScript 与 `CanvasItem` draw API 构建，包含预警、枪口反馈、拖尾、命中、碎裂死亡、自动重生和确定性截图状态；不依赖位图、HDR Bloom、嵌入式 `Image` 或 `PackedByteArray`。该实验只验证纯暗空霓虹方向的动态读图、弹幕分型与构筑反馈，不修改正式 `client/` 的美术或战斗系统。
 - `ai_universal_tile_test.tscn`：AI 驱动通用 Tile 场景工作流的独立 PoC，场景配置采用实验 schema v2，美术方向为正俯视、原创粗轮廓平涂卡通。`assets/ai_tiles/abandoned_marble_conservatory/` 只保留最终的 128×128 `marble_floor_01.png`、`tree_01.png`、`wood_cabinet_01.png` 与 `style_pack.json`；三类素材均为全不透明、完整覆盖单格且彼此互斥的 Tile，不再把透明树 / 木柜叠在地板 Base 上。`data/ai_universal_tile_test.json` 以固定 seed 在 6×4 网格中生成 18 格大理石地板、3 格树和 3 格木柜，每格只允许一种 Tile；树与木柜使用与单格边界一致的整格碰撞。运行时提供四个可独立显隐的图层开关，鼠标悬停显示格坐标、tile id、tags、碰撞和交互标志，`R` 使用下一确定性 seed 重新生成，`Esc` 返回索引。PNG 通过 `Image.load()` 创建运行时纹理，不把 `.godot/imported` 当首次预览依赖，也不把 `ImageTexture` / `PackedByteArray` 写入 `.tscn`。三类素材分别由内置 `imagegen` 生成，木柜因首图木纹偏写实做了一次定向重生；全程未切换到 CLI 或需要 API key 的 fallback。`style_pack.json` 保存每张最终素材的精确提示词、生成方式和修订记录。该实验只验证“Style Pack → 三类全格原子 Tile → schema v2 场景 manifest → Godot 确定性互斥组合”的最小闭环，不代表正式 `client/` 已集成，也未覆盖透明对象叠层、多格 footprint、地形过渡 / autotile、批量变体生产、完整编辑器或运行时 AI。
 - `mycelium_growth_test.tscn`：2D 虫苔 / 菌毯地表效果实验，参考《星际争霸2》虫族 creep 风格。`MyceliumPatch` 用固定 seed 在铺满房间的矩形画布上生成多个 creep 源（菌瘤），`mycelium_substrate.gdshader` 在 `vertex()` 里从局部顶点自算 UV，把各源圆盘距离场用 smooth-union 软并集融合成连续菌毯，再叠 FBM 肉质凹凸、深色凹坑、脊状血管、湿润高光，并用多频噪声扰动边界算出明亮品红、带手指状凸起的推进边缘；源半径随 growth 错峰由 0 长到 max，模拟从结节向外扩散融合。`mycelium_strand.gdshader` 画少量根暗尖亮的边缘须 runner，发光瘤状结节由脚本在源中心叠加绘制。鼠标位置作为局部活化焦点，左键加速生长，`Space` 在生长 / 枯萎目标间切换，`R` 重新生成一组菌毯，`Esc` 返回实验索引。实验不保存 PNG、`ImageTexture` 或嵌入式纹理到 `.tscn`。
 - `orthographic_3d_test.tscn`：3D 正交美术切片。摄像机使用 45 度 yaw 与 30 度仰角，让 XZ 平面的等距方格在屏幕上接近 2:1 菱形；场景包含可移动玩家胶囊、鼠标瞄准、低矮缓存箱、墙体、柱子、信标、分组网格、外场底板、程序天空、远景背板与局部点光，用于观察真 3D 深度遮挡、灯光和当前 2D 菱形地图方案的差异。场景节点已保存进 `.tscn`，可直接在编辑器里选择和调整；`create_orthographic_3d_test_scene.gd` 只用于重新生成该测试场景。
@@ -34,6 +35,22 @@
 - `ink_test.tscn`：中国水墨画风「水墨角色」实验。`InkField`（`ink_field.gd`）持一个铺满屏幕、挂 `ink_wash.gdshader` 的 `ColorRect`，把一组抽象墨团角色（1 玩家 + N 敌人）作为 `ink_chars` 数组传入 shader。shader 用 `smin` 软并集距离场把各角色圆盘融成连续墨场，fbm 域扭曲做毛笔不规则轮廓与渗墨；把覆盖度（墨 vs 纸）与墨色明度（焦墨↔淡墨）分离，叠浓淡斑驳、积墨湿边、双向拉伸飞白枯笔，并合成到米白宣纸（纤维纹 + 四角压暗）底。玩家居中、半径大、慢速 lissajous 游移并带一条拖尾笔锋；敌人较小、环绕、各自漂移 / 缓慢绕行。经典黑墨、非交互自动循环，`Esc` 返回索引。纯过程化 canvas_item shader，无 SubViewport / 反馈缓冲。
 - `cloud_mist_test.tscn`：升腾「云雾团」粒子实验。**用粒子系统实现**（区别于其他纯 shader 实验）。`CloudMist`（`cloud_mist.gd`）用两层 `CPUParticles2D`（核心烟柱 + 外缘稀薄烟絮）从底部中心向上发射，配升腾初速 + 浮力 gravity + spread + 旋转 + `scale_amount_curve` 扩张 + `color_ramp` 先显后淡出，做出翻卷上升、越升越淡的白烟羽。每个粒子贴一张**运行时程序生成**的烟团贴图（径向羽化 × `FastNoiseLite` fbm 不规则 + 球面假光照给体积，顶亮底灰），`ImageTexture` 不写入 `.tscn`。harness 用运行时生成的 `GradientTexture2D` 铺亮色渐变天空底；`preprocess` 预热保证截图即见成形烟柱。经典白烟、非交互自动循环，`Esc` 返回索引。选 CPUParticles2D 是因 gl_compatibility 下带窗口截图更稳定。
 - `advanced_cell_test.tscn`：骨骼蒙皮「复杂细胞」实验，**用节点系统让动画易控制**（在 soft_body_cell 基础上升级）。`AdvancedCell`（`advanced_cell.gd`）代码构建 `Skeleton2D` + 一圈径向 `Bone2D` 作为可动画的骨骼控制结构，`AnimationPlayer` 关键帧（代码生成 `Animation` + `AnimationLibrary`）驱动各骨的径向位置；膜 `Polygon2D` 每帧由骨骼半径用角向高斯加权平滑重建（蒙皮跟随骨骼形变），核 / 细胞器漂移脉动在 `_process` 常开。4 套动画 `idle`（循环呼吸）/ `pseudopod`（伪足伸缩）/ `divide`（收腰双叶 + 双核分列的有丝分裂）/ `engulf`（两片膜包拢吞噬橙色食物粒）由按键触发（`1`~`4`，`Space` 顺次），动作 `animation_finished` 后自动回 idle，`Esc` 返回索引。场景里放一颗圆形「石块」障碍物：膜每帧重建后用**射线-圆近交点**把朝向障碍物的膜半径截断在障碍物近表面，使膜贴壁凹陷（而非越过障碍物把它包进膜内），接触弧叠一条压力高亮线；**左键可拖动细胞撞向障碍物**实时看挤压形变。按 `B` 可开关骨架调试显示（中心枢纽 + 各骨辐条 / 关节 / 序号），直观看到骨骼如何驱动膜形变；封面截图取分裂态并显示骨架。工程上膜采用"每帧由骨骼变换重建"而非引擎 Polygon2D 蒙皮权重，规避 gl_compatibility 代码蒙皮难调试，节点系统可控性不变。
+
+## Neon Geometry Combat 验证
+
+以下命令均从仓库根目录运行；先把 PowerShell 变量 `$godot` 设置为 Godot Bridge 使用的同一 Godot 4.7 可执行文件。
+
+```powershell
+# Test Lab 默认入口与实验场景启动
+py -3 tools/godot_bridge.py --project output/test_lab headless-boot
+& $godot --headless --path output/test_lab --quit-after 2 res://scenes/neon_geometry_combat_test.tscn
+
+# 角色、敌人、三类弹体、构筑切换、死亡重生与池容量 smoke
+& $godot --headless --path output/test_lab --script res://tools/neon_geometry_combat_smoke.gd
+
+# 捕获折射棱芯已激活、双方交火中的确定性预览
+& $godot --path output/test_lab --script res://tools/capture_neon_geometry_combat_test.gd
+```
 
 ## AI Universal Tile Scene 验证
 
