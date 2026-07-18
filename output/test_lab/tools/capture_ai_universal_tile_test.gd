@@ -8,8 +8,18 @@ const LAYER_METADATA: String = "metadata"
 const SCENE_PATH: String = "res://scenes/ai_universal_tile_test.tscn"
 const SCREENSHOT_PATH: String = "res://screenshots/ai_universal_tile_test.png"
 
+var _capture_time: float = -1.0
+
 
 func _initialize() -> void:
+	for argument: String in OS.get_cmdline_user_args():
+		if not argument.begins_with("--capture-time="):
+			continue
+		var value := argument.trim_prefix("--capture-time=")
+		if not value.is_valid_float():
+			_fail("Invalid --capture-time value: %s" % value)
+			return
+		_capture_time = value.to_float()
 	call_deferred("_capture")
 
 
@@ -31,7 +41,10 @@ func _capture() -> void:
 		return
 	if not _prepare_layer_controls(scene, grid):
 		return
-	grid.debug_prepare_capture()
+	if _capture_time >= 0.0:
+		grid.debug_prepare_capture(_capture_time)
+	else:
+		grid.debug_prepare_capture()
 
 	var summary: Dictionary = grid.get_generation_summary()
 	var grid_size := _array_to_vector2i(summary.get("grid_size", []))
@@ -44,7 +57,10 @@ func _capture() -> void:
 		_fail("Runtime summary does not expose a valid tile_size_px.")
 		return
 
-	grid.set_metadata_hovered_cell(target_cell)
+	if scene.has_method("debug_set_hovered_cell"):
+		scene.call("debug_set_hovered_cell", target_cell)
+	else:
+		grid.set_metadata_hovered_cell(target_cell)
 	var target_center := Vector2(
 		(float(target_cell.x) + 0.5) * float(tile_size.x),
 		(float(target_cell.y) + 0.5) * float(tile_size.y)
@@ -73,7 +89,8 @@ func _capture() -> void:
 		_fail("Failed to save screenshot: %s" % error_string(save_error), save_error)
 		return
 
-	print("Saved screenshot: %s" % screenshot_path)
+	var capture_label := "default" if _capture_time < 0.0 else "%.3f" % _capture_time
+	print("Saved screenshot: %s (capture_time=%s)" % [screenshot_path, capture_label])
 	quit(0)
 
 

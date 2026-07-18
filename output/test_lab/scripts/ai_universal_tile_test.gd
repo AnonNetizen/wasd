@@ -65,6 +65,14 @@ func _process(_delta: float) -> void:
 	_update_hover_label(cell)
 
 
+func debug_set_hovered_cell(cell: Vector2i) -> void:
+	if _grid == null:
+		return
+	_hovered_cell = cell
+	_grid.set_metadata_hovered_cell(cell)
+	_update_hover_label(cell)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(ACTION_BACK):
 		_return_to_index()
@@ -123,7 +131,7 @@ func _update_generation_labels() -> void:
 	if _summary_label != null:
 		_summary_label.text = (
 			"%d marble  ·  %d trees  ·  %d cabinets\n"
-			+ "%d seamless rounded cells  ·  chromatic moving rims  ·  breathing floor edges"
+			+ "%d balanced-overlap cells  ·  darker breathing rims  ·  breathing floor edges"
 		) % [
 			int(tile_counts.get("marble_floor_01", 0)),
 			int(tile_counts.get("tree_01", 0)),

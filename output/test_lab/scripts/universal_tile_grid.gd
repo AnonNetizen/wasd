@@ -9,13 +9,18 @@ const LAYER_DETAIL: String = "detail"
 const LAYER_METADATA: String = "metadata"
 const CELL_VISUAL_BLEED_PX: float = 2.0
 const FLOOR_CORNER_RADIUS_PX: float = 8.0
+const FLOOR_BREATH_SPEED: float = 1.14
+const FLOOR_BREATH_WIDTH_AMPLITUDE: float = 0.08
 const FLOOR_EDGE_WIDTH_PX: float = 5.0
 const FLOOR_SOURCE_CROP_PX: float = 3.5
+const OBSTACLE_BREATH_SPEED: float = 1.32
+const OBSTACLE_BREATH_WIDTH_AMPLITUDE: float = 0.12
 const OBSTACLE_BORDER_WIDTH_PX: float = 7.0
 const OBSTACLE_CORNER_RADIUS_PX: float = 11.0
 const SUPPORTED_SCENE_SCHEMA_VERSION: int = 2
 const SUPPORTED_STYLE_PACK_SCHEMA_VERSION: int = 2
 const VISUAL_CAPTURE_TIME: float = 1.75
+const VISUAL_STACK_SEED: int = 41_923
 const TILE_VISUAL_SHADER_CODE: String = """
 shader_type canvas_item;
 render_mode unshaded;
@@ -28,6 +33,10 @@ uniform float source_crop_px = 0.0;
 uniform float wobble_strength_px = 0.0;
 uniform float wobble_motion_px = 0.0;
 uniform float border_motion_strength = 0.0;
+uniform float border_breath_amplitude = 0.0;
+uniform float border_breath_speed = 1.0;
+uniform float floor_breath_amplitude = 0.0;
+uniform float floor_breath_speed = 1.0;
 uniform float phase = 0.0;
 uniform vec4 border_color : source_color = vec4(0.08, 0.09, 0.07, 1.0);
 uniform vec4 border_highlight_color : source_color = vec4(0.24, 0.30, 0.18, 1.0);
@@ -66,31 +75,43 @@ void fragment() {
 	float floor_mode = step(0.01, floor_edge_width_px);
 	vec3 rounded_floor_color = mix(floor_edge_color.rgb, source.rgb, shape_alpha);
 	vec3 shaped_color = mix(source.rgb, rounded_floor_color, floor_mode);
+	float border_breath = 0.5 + 0.5 * sin(
+		animation_time * border_breath_speed + phase
+	);
+	float border_width_scale = 1.0 + (
+		border_breath * 2.0 - 1.0
+	) * border_breath_amplitude;
+	float animated_border_width = border_width_px * border_width_scale;
 	float border_inner = 1.0 - smoothstep(
 		-antialias_width,
 		antialias_width,
-		distance_to_edge + border_width_px
+		distance_to_edge + animated_border_width
 	);
 	float border_mask = shape_alpha * (1.0 - border_inner) * step(0.01, border_width_px);
 	float perimeter_angle = atan(pixel_position.y, pixel_position.x);
 	float border_flow = 0.5 + 0.5 * sin(
 		perimeter_angle * 3.0 - animation_time * 1.35 + phase
 	);
-	float border_pulse = 0.5 + 0.5 * sin(animation_time * 0.82 + phase * 0.37);
 	float border_light = border_motion_strength * (
-		0.08 + border_flow * 0.24 + border_pulse * 0.10
+		0.14 + border_breath * 0.48 + border_flow * 0.10
 	);
 	vec3 animated_border = mix(border_color.rgb, border_highlight_color.rgb, border_light);
 	shaped_color = mix(shaped_color, animated_border, border_mask * 0.88);
 
+	float floor_breath = 0.5 + 0.5 * sin(
+		animation_time * floor_breath_speed + phase
+	);
+	float floor_width_scale = 1.0 + (
+		floor_breath * 2.0 - 1.0
+	) * floor_breath_amplitude;
+	float animated_floor_width = floor_edge_width_px * floor_width_scale;
 	float floor_inner = 1.0 - smoothstep(
 		-antialias_width,
 		antialias_width,
-		distance_to_edge + floor_edge_width_px
+		distance_to_edge + animated_floor_width
 	);
 	float floor_band = shape_alpha * (1.0 - floor_inner) * step(0.01, floor_edge_width_px);
-	float breathing = 0.5 + 0.5 * sin(animation_time * 1.55 + phase);
-	float floor_edge_mix = floor_band * (0.06 + breathing * 0.18);
+	float floor_edge_mix = floor_band * (0.10 + floor_breath * 0.30);
 	shaped_color = mix(shaped_color, floor_edge_color.rgb, floor_edge_mix);
 
 	float output_alpha = mix(shape_alpha, 1.0, floor_mode);
@@ -250,8 +271,14 @@ func get_generation_summary() -> Dictionary:
 			"floor_source_crop_px": FLOOR_SOURCE_CROP_PX,
 			"continuous_seam_underlay": true,
 			"floor_full_cell_seam_fill": true,
+			"visual_stack_mode": "deterministic_balanced",
+			"visual_stack_seed": VISUAL_STACK_SEED,
 			"obstacle_border_motion": true,
+			"obstacle_breath_width_amplitude": OBSTACLE_BREATH_WIDTH_AMPLITUDE,
+			"obstacle_breath_speed": OBSTACLE_BREATH_SPEED,
 			"floor_edge_breathing": true,
+			"floor_breath_width_amplitude": FLOOR_BREATH_WIDTH_AMPLITUDE,
+			"floor_breath_speed": FLOOR_BREATH_SPEED,
 			"floor_corner_radius_px": FLOOR_CORNER_RADIUS_PX,
 			"obstacle_corner_radius_px": OBSTACLE_CORNER_RADIUS_PX,
 			"obstacle_border_width_px": OBSTACLE_BORDER_WIDTH_PX,
@@ -298,10 +325,10 @@ func set_metadata_hovered_cell(cell: Vector2i) -> void:
 		_hover_highlight.position = Vector2(cell * _tile_size)
 
 
-func debug_prepare_capture() -> void:
+func debug_prepare_capture(animation_time: float = VISUAL_CAPTURE_TIME) -> void:
 	for material: ShaderMaterial in _tile_visual_materials:
 		material.set_shader_parameter("freeze_animation", true)
-		material.set_shader_parameter("frozen_time", VISUAL_CAPTURE_TIME)
+		material.set_shader_parameter("frozen_time", animation_time)
 
 
 func _reset_configuration() -> void:
@@ -486,17 +513,32 @@ func _assign_obstacle_tiles(seed: int) -> void:
 
 func _render_cell_tiles() -> void:
 	_build_seam_fill()
+	var floor_cells: Array[Vector2i] = []
+	var obstacle_cells: Array[Vector2i] = []
 	for y in range(_grid_size.y):
 		for x in range(_grid_size.x):
 			var cell := Vector2i(x, y)
 			var asset_id := String(_cell_assignments.get(cell, ""))
 			var source_id := int(_source_ids_by_asset.get(asset_id, -1))
 			_cell_tile_layer.set_cell(cell, source_id, Vector2i.ZERO)
-			_add_tile_visual(cell, asset_id)
 			_cell_metadata[cell] = _build_cell_metadata(cell, asset_id)
+			if _obstacle_asset_ids.has(asset_id):
+				obstacle_cells.append(cell)
+			else:
+				floor_cells.append(cell)
+
+	_deterministic_shuffle(floor_cells, VISUAL_STACK_SEED)
+	_deterministic_shuffle(obstacle_cells, VISUAL_STACK_SEED + 1_009)
+	var stack_rank: int = 0
+	for cell: Vector2i in floor_cells:
+		_add_tile_visual(cell, String(_cell_assignments.get(cell, "")), stack_rank)
+		stack_rank += 1
+	for cell: Vector2i in obstacle_cells:
+		_add_tile_visual(cell, String(_cell_assignments.get(cell, "")), stack_rank)
+		stack_rank += 1
 
 
-func _add_tile_visual(cell: Vector2i, asset_id: String) -> void:
+func _add_tile_visual(cell: Vector2i, asset_id: String, stack_rank: int) -> void:
 	var texture_value: Variant = _asset_textures.get(asset_id)
 	if not texture_value is Texture2D:
 		return
@@ -522,6 +564,16 @@ func _add_tile_visual(cell: Vector2i, asset_id: String) -> void:
 	material.set_shader_parameter("wobble_strength_px", 0.55 if is_floor else 1.65)
 	material.set_shader_parameter("wobble_motion_px", 0.0 if is_floor else 0.32)
 	material.set_shader_parameter("border_motion_strength", 0.0 if is_floor else 1.0)
+	material.set_shader_parameter(
+		"border_breath_amplitude",
+		0.0 if is_floor else OBSTACLE_BREATH_WIDTH_AMPLITUDE
+	)
+	material.set_shader_parameter("border_breath_speed", OBSTACLE_BREATH_SPEED)
+	material.set_shader_parameter(
+		"floor_breath_amplitude",
+		FLOOR_BREATH_WIDTH_AMPLITUDE if is_floor else 0.0
+	)
+	material.set_shader_parameter("floor_breath_speed", FLOOR_BREATH_SPEED)
 	material.set_shader_parameter("phase", _visual_phase(cell, asset_id))
 	material.set_shader_parameter("border_color", border_color)
 	material.set_shader_parameter("border_highlight_color", border_highlight_color)
@@ -540,6 +592,8 @@ func _add_tile_visual(cell: Vector2i, asset_id: String) -> void:
 	sprite.set_meta("asset_id", asset_id)
 	sprite.set_meta("cell", cell)
 	sprite.set_meta("visual_role", "floor" if is_floor else "obstacle")
+	sprite.set_meta("visual_stack_rank", stack_rank)
+	sprite.set_meta("visual_stack_group", "floor" if is_floor else "obstacle")
 	sprite.set_meta("content_main_color", content_color)
 	sprite.set_meta("border_color", border_color)
 	sprite.set_meta("border_highlight_color", border_highlight_color)
@@ -800,17 +854,27 @@ func _sample_main_color(texture: Texture2D) -> Color:
 	var image := texture.get_image()
 	if image == null or image.is_empty():
 		return Color(0.5, 0.5, 0.5, 1.0)
+	var samples: Array[Color] = []
+	var value_sum: float = 0.0
+	for y in range(4, image.get_height(), 8):
+		for x in range(4, image.get_width(), 8):
+			var sample := image.get_pixel(x, y)
+			samples.append(sample)
+			value_sum += sample.v
+	if samples.is_empty():
+		return Color(0.5, 0.5, 0.5, 1.0)
+	var value_cutoff := value_sum / float(samples.size())
 	var red_sum: float = 0.0
 	var green_sum: float = 0.0
 	var blue_sum: float = 0.0
 	var sample_count: int = 0
-	for y in range(4, image.get_height(), 8):
-		for x in range(4, image.get_width(), 8):
-			var sample := image.get_pixel(x, y)
-			red_sum += sample.r
-			green_sum += sample.g
-			blue_sum += sample.b
-			sample_count += 1
+	for sample: Color in samples:
+		if sample.v < value_cutoff:
+			continue
+		red_sum += sample.r
+		green_sum += sample.g
+		blue_sum += sample.b
+		sample_count += 1
 	if sample_count == 0:
 		return Color(0.5, 0.5, 0.5, 1.0)
 	var divisor := float(sample_count)
@@ -818,19 +882,24 @@ func _sample_main_color(texture: Texture2D) -> Color:
 
 
 func _deep_content_color(content_color: Color) -> Color:
+	var target_value := maxf(content_color.v * 0.73, 0.08)
+	target_value = minf(target_value, maxf(content_color.v - 0.08, 0.04))
 	return Color.from_hsv(
 		content_color.h,
-		clampf(maxf(content_color.s * 1.12, 0.42), 0.0, 0.92),
-		clampf(content_color.v * 0.68 + 0.07, 0.22, 0.52),
+		clampf(maxf(content_color.s * 1.08, 0.38), 0.0, 0.92),
+		clampf(target_value, 0.04, 0.52),
 		1.0
 	)
 
 
 func _content_edge_highlight(content_color: Color) -> Color:
+	var border_color := _deep_content_color(content_color)
+	var maximum_value := minf(content_color.v * 0.88, content_color.v - 0.04)
+	var target_value := minf(border_color.v + 0.08, maximum_value)
 	return Color.from_hsv(
 		content_color.h,
-		clampf(maxf(content_color.s, 0.36), 0.0, 0.86),
-		clampf(content_color.v * 0.90 + 0.12, 0.34, 0.68),
+		clampf(maxf(content_color.s * 1.02, 0.34), 0.0, 0.88),
+		clampf(maxf(target_value, border_color.v + 0.02), 0.06, 0.56),
 		1.0
 	)
 

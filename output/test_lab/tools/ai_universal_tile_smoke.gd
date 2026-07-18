@@ -323,9 +323,11 @@ func _validate_determinism(grid: GRID_SCRIPT, scene_config: Dictionary) -> void:
 	grid.regenerate(base_seed)
 	var first_signature := grid.get_layout_signature()
 	var first_assignments := _compose_assignment_signature(grid)
+	var first_visual_stack := _compose_visual_stack_signature(grid)
 	grid.regenerate(base_seed)
 	var repeated_signature := grid.get_layout_signature()
 	var repeated_assignments := _compose_assignment_signature(grid)
+	var repeated_visual_stack := _compose_visual_stack_signature(grid)
 	grid.regenerate(next_seed)
 	var next_signature := grid.get_layout_signature()
 	var next_assignments := _compose_assignment_signature(grid)
@@ -333,6 +335,7 @@ func _validate_determinism(grid: GRID_SCRIPT, scene_config: Dictionary) -> void:
 	_check(first_signature.find("seed=") < 0, "Layout signature describes layout rather than echoing the seed.")
 	_check(first_signature == repeated_signature, "Same seed produces the same layout signature.")
 	_check(first_assignments == repeated_assignments, "Same seed produces identical cell assignments.")
+	_check(first_visual_stack == repeated_visual_stack, "Same seed produces identical visual stacking order.")
 	_check(first_signature != next_signature, "Next deterministic seed produces a different public layout signature.")
 	_check(first_assignments != next_assignments, "Next deterministic seed changes the actual cell assignments.")
 	grid.regenerate(base_seed)
@@ -349,6 +352,18 @@ func _compose_assignment_signature(grid: GRID_SCRIPT) -> String:
 				asset_id = String((tile_value as Dictionary).get("id", ""))
 			assignments.append("%d,%d:%s" % [x, y, asset_id])
 	return ";".join(assignments)
+
+
+func _compose_visual_stack_signature(grid: GRID_SCRIPT) -> String:
+	var tile_visual_layer := grid.get_node_or_null("TileVisualLayer") as Node2D
+	if tile_visual_layer == null:
+		return ""
+	var stack_entries := PackedStringArray()
+	for child: Node in tile_visual_layer.get_children():
+		var cell_value: Variant = child.get_meta("cell", Vector2i(-1, -1))
+		var cell: Vector2i = cell_value if cell_value is Vector2i else Vector2i(-1, -1)
+		stack_entries.append("%d,%d:%d" % [cell.x, cell.y, int(child.get_meta("visual_stack_rank", -1))])
+	return ";".join(stack_entries)
 
 
 func _validate_runtime_layers(grid: GRID_SCRIPT) -> void:
@@ -426,8 +441,14 @@ func _validate_visual_style(summary: Dictionary) -> void:
 	_check(bool(visual.get("floor_full_cell_seam_fill", false)), "Floor cells keep opaque color coverage across rounded intersections.")
 	_check(float(visual.get("cell_visual_bleed_px", 0.0)) >= 1.0, "Cells bleed over shared edges by at least one pixel.")
 	_check(float(visual.get("floor_source_crop_px", 0.0)) >= 3.0, "Floor sampling crops out the source image's painted dark frame.")
+	_check(String(visual.get("visual_stack_mode", "")) == "deterministic_balanced", "Visual stacking uses deterministic balanced order.")
+	_check(int(visual.get("visual_stack_seed", 0)) > 0, "Visual stacking exposes a fixed positive seed.")
 	_check(bool(visual.get("obstacle_border_motion", false)), "Obstacle borders expose animated edge flow.")
+	_check(is_equal_approx(float(visual.get("obstacle_breath_width_amplitude", 0.0)), 0.12), "Obstacle rim breathes by twelve percent around its base width.")
+	_check(float(visual.get("obstacle_breath_speed", 0.0)) > 1.2, "Obstacle breathing completes a readable cycle in about five seconds.")
 	_check(bool(visual.get("floor_edge_breathing", false)), "Floor edge breathing is enabled.")
+	_check(is_equal_approx(float(visual.get("floor_breath_width_amplitude", 0.0)), 0.08), "Floor edge breathes by eight percent around its base width.")
+	_check(float(visual.get("floor_breath_speed", 0.0)) > 1.0, "Floor breathing completes a readable cycle in about five and a half seconds.")
 	_check(float(visual.get("floor_corner_radius_px", 0.0)) > 0.0, "Floor cells have a positive corner radius.")
 	_check(
 		float(visual.get("obstacle_corner_radius_px", 0.0))
@@ -455,8 +476,12 @@ func _validate_visual_cells(tile_visual_layer: Node2D, grid: GRID_SCRIPT) -> voi
 		var visual_role := String(sprite.get_meta("visual_role", ""))
 		var border_width := float(sprite.get_meta("border_width_px", -1.0))
 		var corner_radius := float(sprite.get_meta("corner_radius_px", 0.0))
+		var cell_value: Variant = sprite.get_meta("cell", Vector2i(-1, -1))
+		var cell: Vector2i = cell_value if cell_value is Vector2i else Vector2i(-1, -1)
 		_check(corner_radius > 0.0, "%s has rounded corners." % sprite.name)
 		_check(sprite.scale.x > 1.0 and sprite.scale.y > 1.0, "%s overlaps shared seams." % sprite.name)
+		_check(is_equal_approx(sprite.scale.x, sprite.scale.y), "%s uses centered symmetric bleed." % sprite.name)
+		_check(sprite.position == Vector2((cell.x + 0.5) * 128.0, (cell.y + 0.5) * 128.0), "%s keeps its logical cell center." % sprite.name)
 		_check(float(sprite.get_meta("visual_bleed_px", 0.0)) >= 1.0, "%s records its seam bleed." % sprite.name)
 		_check(float(material.get_shader_parameter("wobble_strength_px")) > 0.0, "%s uses a non-straight contour." % sprite.name)
 		if visual_role == "floor":
@@ -468,6 +493,10 @@ func _validate_visual_cells(tile_visual_layer: Node2D, grid: GRID_SCRIPT) -> voi
 			_check(float(material.get_shader_parameter("source_crop_px")) >= 3.0, "%s floor shader samples inside the source frame." % sprite.name)
 			_check(not bool(sprite.get_meta("border_motion", true)), "%s floor does not receive obstacle edge flow." % sprite.name)
 			_check(is_zero_approx(float(material.get_shader_parameter("border_motion_strength"))), "%s floor border flow stays disabled." % sprite.name)
+			var floor_amplitude := float(material.get_shader_parameter("floor_breath_amplitude"))
+			var floor_width := float(material.get_shader_parameter("floor_edge_width_px"))
+			_check(is_equal_approx(floor_amplitude, 0.08), "%s floor uses the selected breath strength." % sprite.name)
+			_check(floor_width * (1.0 + floor_amplitude) > floor_width * (1.0 - floor_amplitude), "%s floor breathing changes its actual edge width." % sprite.name)
 			continue
 		obstacle_count += 1
 		_check(border_width > 0.0, "%s obstacle has a dark border." % sprite.name)
@@ -478,14 +507,24 @@ func _validate_visual_cells(tile_visual_layer: Node2D, grid: GRID_SCRIPT) -> voi
 		var highlight_color: Color = sprite.get_meta("border_highlight_color", Color.WHITE)
 		_check(_color_value(border_color) < _color_value(content_color), "%s border is darker than its content color." % sprite.name)
 		_check(_color_value(border_color) >= 0.20, "%s border remains chromatic instead of collapsing to black." % sprite.name)
+		_check(border_color.v <= content_color.v * 0.76, "%s border stays at most seventy-six percent as bright as its content." % sprite.name)
+		_check(content_color.v - border_color.v >= 0.075, "%s border keeps a visible value gap from its content." % sprite.name)
 		_check(_dominant_channel(border_color) == _dominant_channel(content_color), "%s border keeps the content's dominant color channel." % sprite.name)
+		_check(_hue_distance(border_color.h, content_color.h) <= 0.02, "%s border stays in the content hue family." % sprite.name)
 		_check(_dominant_channel(highlight_color) == _dominant_channel(content_color), "%s moving highlight keeps the content hue family." % sprite.name)
 		_check(_color_value(highlight_color) > _color_value(border_color), "%s moving edge highlight is brighter than the base rim." % sprite.name)
+		_check(highlight_color.v <= content_color.v * 0.90, "%s breathing peak remains darker than its content." % sprite.name)
+		_check(content_color.v - highlight_color.v >= 0.035, "%s breathing peak preserves a visible content separation." % sprite.name)
+		_check(_hue_distance(highlight_color.h, content_color.h) <= 0.02, "%s breathing peak stays in the content hue family." % sprite.name)
 		_check(bool(sprite.get_meta("border_motion", false)), "%s obstacle enables border motion." % sprite.name)
 		_check(float(material.get_shader_parameter("border_motion_strength")) > 0.0, "%s obstacle uses traveling edge light." % sprite.name)
 		_check(float(material.get_shader_parameter("wobble_motion_px")) > 0.0, "%s obstacle contour flexes subtly over time." % sprite.name)
+		var border_amplitude := float(material.get_shader_parameter("border_breath_amplitude"))
+		_check(is_equal_approx(border_amplitude, 0.12), "%s obstacle uses the selected breath strength." % sprite.name)
+		_check(border_width * (1.0 + border_amplitude) > border_width * (1.0 - border_amplitude), "%s obstacle breathing changes its actual rim width." % sprite.name)
 	_check(floor_count == 18, "Visual skin contains 18 breathing floor cells.")
 	_check(obstacle_count == 6, "Visual skin contains six irregularly bordered obstacles.")
+	_validate_visual_stack_direction(tile_visual_layer)
 
 	grid.debug_prepare_capture()
 	for child: Node in tile_visual_layer.get_children():
@@ -497,6 +536,62 @@ func _validate_visual_cells(tile_visual_layer: Node2D, grid: GRID_SCRIPT) -> voi
 			continue
 		_check(bool(material.get_shader_parameter("freeze_animation")), "%s can freeze its breathing phase for capture." % sprite.name)
 		_check(is_equal_approx(float(material.get_shader_parameter("frozen_time")), 1.75), "%s uses the deterministic capture phase." % sprite.name)
+
+	grid.debug_prepare_capture(4.25)
+	for child: Node in tile_visual_layer.get_children():
+		var sprite := child as Sprite2D
+		var material: ShaderMaterial = sprite.material as ShaderMaterial if sprite != null else null
+		if material != null:
+			_check(is_equal_approx(float(material.get_shader_parameter("frozen_time")), 4.25), "%s accepts a custom breathing capture time." % sprite.name)
+
+
+func _validate_visual_stack_direction(tile_visual_layer: Node2D) -> void:
+	var rank_by_cell: Dictionary = {}
+	var role_by_cell: Dictionary = {}
+	var floor_max_rank: int = -1
+	var obstacle_min_rank: int = 1_000_000
+	var follows_row_major: bool = true
+	for child_index in range(tile_visual_layer.get_child_count()):
+		var child := tile_visual_layer.get_child(child_index)
+		var cell_value: Variant = child.get_meta("cell", Vector2i(-1, -1))
+		var cell: Vector2i = cell_value if cell_value is Vector2i else Vector2i(-1, -1)
+		var rank := int(child.get_meta("visual_stack_rank", -1))
+		var role := String(child.get_meta("visual_stack_group", ""))
+		rank_by_cell[cell] = rank
+		role_by_cell[cell] = role
+		_check(rank == child_index, "%s records its actual deterministic draw rank." % child.name)
+		if role == "floor":
+			floor_max_rank = maxi(floor_max_rank, rank)
+		elif role == "obstacle":
+			obstacle_min_rank = mini(obstacle_min_rank, rank)
+		var row_major_cell := Vector2i(child_index % EXPECTED_GRID_SIZE.x, child_index / EXPECTED_GRID_SIZE.x)
+		follows_row_major = follows_row_major and cell == row_major_cell
+
+	_check(not follows_row_major, "Visual cells no longer follow fixed left-to-right, top-to-bottom draw order.")
+	_check(obstacle_min_rank > floor_max_rank, "Every obstacle is drawn above every floor cell.")
+	var right_over_left: int = 0
+	var left_over_right: int = 0
+	var bottom_over_top: int = 0
+	var top_over_bottom: int = 0
+	for y in range(EXPECTED_GRID_SIZE.y):
+		for x in range(EXPECTED_GRID_SIZE.x):
+			var cell := Vector2i(x, y)
+			if String(role_by_cell.get(cell, "")) != "floor":
+				continue
+			var right := cell + Vector2i.RIGHT
+			if right.x < EXPECTED_GRID_SIZE.x and String(role_by_cell.get(right, "")) == "floor":
+				if int(rank_by_cell[cell]) < int(rank_by_cell[right]):
+					right_over_left += 1
+				else:
+					left_over_right += 1
+			var bottom := cell + Vector2i.DOWN
+			if bottom.y < EXPECTED_GRID_SIZE.y and String(role_by_cell.get(bottom, "")) == "floor":
+				if int(rank_by_cell[cell]) < int(rank_by_cell[bottom]):
+					bottom_over_top += 1
+				else:
+					top_over_bottom += 1
+	_check(right_over_left > 0 and left_over_right > 0, "Horizontal floor overlaps occur in both directions.")
+	_check(bottom_over_top > 0 and top_over_bottom > 0, "Vertical floor overlaps occur in both directions.")
 
 
 func _validate_runtime_metadata(grid: GRID_SCRIPT) -> void:
@@ -642,7 +737,13 @@ func _dominant_channel(color: Color) -> int:
 	return 2
 
 
+func _hue_distance(first: float, second: float) -> float:
+	var direct_distance := absf(first - second)
+	return minf(direct_distance, 1.0 - direct_distance)
+
+
 func _validate_scene_ui(scene: Node) -> void:
+	_check(scene.has_method("debug_set_hovered_cell"), "Scene exposes deterministic hover preparation for capture.")
 	var toggle_root := "Sidebar/Margin/Rows/LayerToggles/"
 	for toggle_name: String in ["CellTilesToggle", "CollisionToggle", "DetailToggle", "MetadataToggle"]:
 		_check(
