@@ -68,7 +68,7 @@ func tick_timers(delta: float) -> void:
 		hit_flash_remaining = maxf(hit_flash_remaining - delta, 0.0)
 		attack_cooldown = maxf(attack_cooldown - delta, 0.0)
 		warning_remaining = maxf(warning_remaining - delta, 0.0)
-		recoil_strength *= pow(0.002, delta)
+		recoil_strength *= pow(0.025, delta)
 		spawn_flash_remaining = maxf(spawn_flash_remaining - delta, 0.0)
 	else:
 		respawn_remaining = maxf(respawn_remaining - delta, 0.0)

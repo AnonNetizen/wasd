@@ -42,6 +42,8 @@ const VFX_SHARD := 0
 const VFX_PULSE := 1
 const VFX_SPARK := 2
 const VFX_GLYPH := 3
+const VFX_LENS := 4
+const VFX_BURST := 5
 
 const ACTION_LEFT := "lab_neon_move_left"
 const ACTION_RIGHT := "lab_neon_move_right"
@@ -59,13 +61,19 @@ const COLOR_BORDER := Color("6b45a5")
 const COLOR_NEBULA_VIOLET := Color("32145f")
 const COLOR_NEBULA_CYAN := Color("083745")
 const COLOR_PLAYER := Color("f4b94f")
+const COLOR_PLAYER_SHELL := Color("85501f")
+const COLOR_PLAYER_MID := Color("d18a31")
 const COLOR_PLAYER_CORE := Color("ffe58a")
 const COLOR_PLAYER_HOT := Color("fff8d6")
 const COLOR_PLAYER_ACCENT := Color("9d6cff")
 const COLOR_HUNTER := Color("ff3d7f")
+const COLOR_HUNTER_SHELL := Color("701433")
+const COLOR_HUNTER_MID := Color("b52557")
 const COLOR_HUNTER_CORE := Color("ff8bb1")
 const COLOR_HUNTER_DARK := Color("31051d")
 const COLOR_GUNNER := Color("4de1ff")
+const COLOR_GUNNER_SHELL := Color("0b5869")
+const COLOR_GUNNER_MID := Color("168ca3")
 const COLOR_GUNNER_CORE := Color("b5f5ff")
 const COLOR_GUNNER_DARK := Color("052a35")
 const COLOR_ENEMY_PROJECTILE := Color("ff405f")
@@ -95,6 +103,7 @@ var _screen_kick_remaining: float = 0.0
 var _screen_kick_strength: float = 0.0
 var _screen_flash_strength: float = 0.0
 var _upgrade_wave_remaining: float = 0.0
+var _hit_stop_remaining: float = 0.0
 
 
 func _ready() -> void:
@@ -113,6 +122,7 @@ func _exit_tree() -> void:
 
 func _process(delta: float) -> void:
 	var safe_delta := CAPTURE_DELTA if _capture_mode else minf(delta, 0.05)
+	var simulation_delta := 0.0 if _hit_stop_remaining > 0.0 else safe_delta
 	_elapsed += safe_delta
 	if Input.is_action_just_pressed(ACTION_BACK) and not _capture_mode:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -121,14 +131,15 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed(ACTION_RESET) and not _capture_mode:
 		debug_reset_scene()
 
-	_update_actor_timers(safe_delta)
-	_update_player(safe_delta)
-	_update_enemies(safe_delta)
-	_update_projectiles(safe_delta)
+	if simulation_delta > 0.0:
+		_update_actor_timers(simulation_delta)
+		_update_player(simulation_delta)
+		_update_enemies(simulation_delta)
+		_update_projectiles(simulation_delta)
+		_update_pickup()
+		_update_player_trail()
 	_update_vfx(safe_delta)
 	_update_screen_feedback(safe_delta)
-	_update_pickup()
-	_update_player_trail()
 	queue_redraw()
 
 
@@ -143,6 +154,7 @@ func debug_reset_scene() -> void:
 	_screen_kick_strength = 0.0
 	_screen_flash_strength = 0.0
 	_upgrade_wave_remaining = 0.0
+	_hit_stop_remaining = 0.0
 	_player.reset_actor()
 	_ring_hunter.reset_actor()
 	_tri_axis.reset_actor()
@@ -186,26 +198,35 @@ func debug_prepare_capture() -> void:
 	_screen_kick_strength = 0.0
 	_screen_flash_strength = 0.0
 	_upgrade_wave_remaining = 0.0
-	_player.position = Vector2(582.0, 568.0)
-	_capture_cursor_position = Vector2(714.0, 176.0)
+	_player.position = Vector2(560.0, 532.0)
+	_capture_cursor_position = Vector2(716.0, 190.0)
 	_player.aim_toward(_capture_cursor_position)
-	_ring_hunter.position = Vector2(330.0, 248.0)
+	_player_trail.clear()
+	for trail_index in range(10):
+		_player_trail.append(_player.position + Vector2(-5.0, 5.5) * float(trail_index))
+	_ring_hunter.position = Vector2(318.0, 244.0)
 	_ring_hunter.aim_toward(_player.position)
-	_tri_axis.position = Vector2(956.0, 230.0)
+	_tri_axis.position = Vector2(956.0, 238.0)
 	_tri_axis.aim_toward(_player.position)
 	var capture_shot_direction := _player.position.direction_to(_capture_cursor_position)
 	_spawn_player_volley(_player.position + capture_shot_direction * 24.0, capture_shot_direction)
 	_spawn_player_volley(_player.position + capture_shot_direction * 116.0, capture_shot_direction)
+	var impact_direction := _player.position.direction_to(_tri_axis.position)
+	_spawn_projectile(
+		_player_projectiles,
+		NeonGeometryProjectile.ProjectileKind.PLAYER_BOLT,
+		NeonGeometryProjectile.Team.PLAYER,
+		_tri_axis.position - impact_direction * 152.0,
+		impact_direction * PLAYER_PROJECTILE_SPEED,
+		PLAYER_PROJECTILE_LIFETIME
+	)
 	_fire_ring_hunter()
 	_fire_tri_axis()
-	_ring_hunter.warning_remaining = RING_HUNTER_WARNING + 0.62
+	_ring_hunter.warning_remaining = RING_HUNTER_WARNING + 0.052
 	_ring_hunter.attack_pending = true
 	_tri_axis.warning_remaining = 0.0
 	_tri_axis.attack_pending = false
-	_screen_flash_strength = 0.12
-	var impact_position := _tri_axis.position - _tri_axis.aim_direction * 18.0
-	_spawn_pulse(impact_position, COLOR_PLAYER, 0.82, 38.0)
-	_spawn_vfx(VFX_SPARK, impact_position, _tri_axis.aim_direction.orthogonal() * 30.0, 0.72, COLOR_PLAYER_HOT, 18.0)
+	_screen_flash_strength = 0.08
 	_spawn_vfx(VFX_GLYPH, _player.position, Vector2.ZERO, 1.05, COLOR_UPGRADE, 22.0)
 	queue_redraw()
 
@@ -226,6 +247,7 @@ func debug_apply_hit(target_index: int) -> void:
 		return
 	var defeated := actor.apply_damage(1)
 	_spawn_hit(actor.position, _actor_color(actor), -actor.aim_direction)
+	_trigger_hit_stop(0.045 if actor == _player else 0.032)
 	actor.recoil_strength = maxf(actor.recoil_strength, 0.58)
 	_screen_flash_strength = maxf(_screen_flash_strength, 0.26)
 	_add_screen_kick(0.14, 2.5)
@@ -275,6 +297,7 @@ func debug_state() -> Dictionary:
 		"screen_kick_remaining": _screen_kick_remaining,
 		"screen_flash_strength": _screen_flash_strength,
 		"upgrade_wave_remaining": _upgrade_wave_remaining,
+		"hit_stop_remaining": _hit_stop_remaining,
 	}
 
 
@@ -282,6 +305,7 @@ func _draw() -> void:
 	_draw_background()
 	var world_offset := _world_draw_offset()
 	draw_set_transform(world_offset)
+	_draw_local_light_fields()
 	_draw_aim_tether()
 	_draw_player_trail()
 	_draw_upgrade_pickup()
@@ -483,6 +507,7 @@ func _update_vfx(delta: float) -> void:
 
 
 func _update_screen_feedback(delta: float) -> void:
+	_hit_stop_remaining = maxf(_hit_stop_remaining - delta, 0.0)
 	_screen_kick_remaining = maxf(_screen_kick_remaining - delta, 0.0)
 	if _screen_kick_remaining <= 0.0:
 		_screen_kick_strength = 0.0
@@ -499,6 +524,8 @@ func _update_pickup() -> void:
 
 func _update_player_trail() -> void:
 	if not _player.alive:
+		return
+	if _capture_mode:
 		return
 	_player_trail.push_front(_player.position)
 	while _player_trail.size() > 10:
@@ -543,6 +570,7 @@ func _fire_ring_hunter() -> void:
 	_add_screen_kick(0.13, 1.7)
 	_spawn_pulse(_ring_hunter.position, COLOR_HUNTER, 0.34, 38.0)
 	_spawn_vfx(VFX_SPARK, _ring_hunter.position + base_direction * 28.0, base_direction * 85.0, 0.18, COLOR_ENEMY_HOT, 11.0)
+	_spawn_vfx(VFX_BURST, _ring_hunter.position + base_direction * 34.0, base_direction * 48.0, 0.2, COLOR_ENEMY_HOT, 24.0)
 
 
 func _fire_tri_axis() -> void:
@@ -563,6 +591,8 @@ func _fire_tri_axis() -> void:
 	_add_screen_kick(0.18, 2.3)
 	_spawn_pulse(_tri_axis.position, COLOR_ENEMY_PROJECTILE, 0.5, 50.0)
 	_spawn_vfx(VFX_GLYPH, _tri_axis.position, base_direction * 30.0, 0.38, COLOR_ENEMY_PROJECTILE, 17.0)
+	_spawn_vfx(VFX_LENS, _tri_axis.position, Vector2.ZERO, 0.58, COLOR_GUNNER, 58.0)
+	_spawn_vfx(VFX_BURST, _tri_axis.position + base_direction * 38.0, base_direction * 62.0, 0.25, COLOR_ENEMY_HOT, 29.0)
 
 
 func _spawn_projectile(
@@ -601,6 +631,7 @@ func _resolve_player_projectile_hits() -> void:
 			projectile.deactivate()
 			var defeated := enemy.apply_damage(1)
 			_spawn_hit(projectile.position, COLOR_PLAYER, projectile.velocity.normalized())
+			_trigger_hit_stop(0.035)
 			enemy.recoil_strength = maxf(enemy.recoil_strength, 0.42)
 			_screen_flash_strength = maxf(_screen_flash_strength, 0.18)
 			_add_screen_kick(0.12, 2.0)
@@ -623,6 +654,7 @@ func _resolve_enemy_projectile_hits() -> void:
 			continue
 		projectile.deactivate()
 		_spawn_hit(projectile.position, COLOR_ENEMY_PROJECTILE, projectile.velocity.normalized())
+		_trigger_hit_stop(0.055)
 		_player.recoil_strength = maxf(_player.recoil_strength, 0.65)
 		_screen_flash_strength = maxf(_screen_flash_strength, 0.36)
 		_add_screen_kick(0.18, 3.2)
@@ -637,13 +669,40 @@ func _defeat_actor(actor: NeonGeometryActor) -> void:
 	_spawn_shards(actor_position, color, shard_count, actor.aim_direction)
 	_spawn_pulse(actor_position, color, 0.72, actor.hit_radius * 3.9)
 	_spawn_pulse(actor_position, Color.WHITE, 0.28, actor.hit_radius * 2.1)
+	_spawn_vfx(VFX_LENS, actor_position, Vector2.ZERO, 0.54, color, actor.hit_radius * 3.5)
+	_spawn_vfx(VFX_BURST, actor_position, actor.aim_direction * 24.0, 0.32, Color.WHITE, actor.hit_radius * 1.35)
+	_spawn_actor_breakup(actor, color)
 	for index in range(4):
 		var direction := Vector2.from_angle(float(index) * TAU / 4.0 + actor.aim_direction.angle())
 		_spawn_vfx(VFX_GLYPH, actor_position, direction * 74.0, 0.58, color, actor.hit_radius * 0.55)
 	_screen_flash_strength = maxf(_screen_flash_strength, 0.48 if actor == _player else 0.28)
 	_add_screen_kick(0.28, 6.0 if actor == _player else 4.5)
+	_trigger_hit_stop(0.075 if actor == _player else 0.052)
 	var delay := PLAYER_RESPAWN_DELAY if actor == _player else ENEMY_RESPAWN_DELAY
 	actor.defeat(delay)
+
+
+func _spawn_actor_breakup(actor: NeonGeometryActor, color: Color) -> void:
+	match actor.kind:
+		NeonGeometryActor.ActorKind.PLAYER:
+			for side in [-1.0, 1.0]:
+				var fork_direction := actor.aim_direction.rotated(float(side) * 0.34)
+				_spawn_vfx(VFX_SHARD, actor.position + fork_direction * 18.0, fork_direction * 176.0, 0.46, COLOR_PLAYER, 11.0)
+				var module_direction := actor.aim_direction.orthogonal() * float(side)
+				_spawn_vfx(VFX_BURST, actor.position + module_direction * 24.0, module_direction * 72.0, 0.32, COLOR_PLAYER_ACCENT, 16.0)
+		NeonGeometryActor.ActorKind.RING_HUNTER:
+			for segment_index in range(6):
+				var radial := Vector2.from_angle(actor.aim_direction.angle() + 0.82 + float(segment_index) * TAU / 6.0)
+				var tangent := radial.orthogonal()
+				_spawn_vfx(VFX_SHARD, actor.position + radial * 30.0, tangent * (118.0 + float(segment_index % 2) * 28.0), 0.5, COLOR_HUNTER, 10.0)
+			_spawn_vfx(VFX_BURST, actor.position, -actor.aim_direction * 38.0, 0.38, COLOR_HUNTER_CORE, 21.0)
+		NeonGeometryActor.ActorKind.TRI_AXIS_GUNNER:
+			for arm_index in range(3):
+				var arm_direction := actor.aim_direction.rotated(float(arm_index) * TAU / 3.0)
+				_spawn_vfx(VFX_SHARD, actor.position + arm_direction * 30.0, arm_direction * 152.0, 0.54, COLOR_GUNNER, 13.0)
+				_spawn_vfx(VFX_BURST, actor.position + arm_direction * 18.0, arm_direction * 58.0, 0.34, COLOR_GUNNER_CORE, 17.0)
+		_:
+			return
 
 
 func _spawn_muzzle(position: Vector2, direction: Vector2) -> void:
@@ -651,6 +710,7 @@ func _spawn_muzzle(position: Vector2, direction: Vector2) -> void:
 		var tangent := direction.orthogonal() * float(sign_value)
 		_spawn_vfx(VFX_SHARD, position, direction * 92.0 + tangent * 74.0, 0.12, COLOR_PLAYER_CORE, 7.0)
 	_spawn_vfx(VFX_SPARK, position, direction * 118.0, 0.11, COLOR_PLAYER_HOT, 13.0)
+	_spawn_vfx(VFX_BURST, position, direction * 54.0, 0.18, COLOR_PLAYER_HOT, 21.0 if _upgrade_active else 16.0)
 	_spawn_pulse(position, COLOR_PLAYER_ACCENT, 0.16, 17.0)
 
 
@@ -658,6 +718,12 @@ func _spawn_hit(position: Vector2, color: Color, direction: Vector2) -> void:
 	_spawn_pulse(position, color, 0.3, 31.0)
 	_spawn_shards(position, color, 6, direction)
 	_spawn_vfx(VFX_SPARK, position, direction * 66.0, 0.2, Color.WHITE, 15.0)
+	_spawn_vfx(VFX_BURST, position, direction * 42.0, 0.24, Color.WHITE, 22.0)
+	_spawn_vfx(VFX_LENS, position, Vector2.ZERO, 0.38, color, 44.0)
+
+
+func _trigger_hit_stop(duration: float) -> void:
+	_hit_stop_remaining = maxf(_hit_stop_remaining, duration)
 
 
 func _spawn_shards(position: Vector2, color: Color, count: int, bias: Vector2) -> void:
@@ -823,6 +889,33 @@ func _draw_arena_frame() -> void:
 		draw_line(top, top + Vector2(0.0, tick), Color(COLOR_GUNNER.r, COLOR_GUNNER.g, COLOR_GUNNER.b, 0.35), 1.0)
 
 
+func _draw_local_light_fields() -> void:
+	if _player.alive:
+		_draw_soft_light(_player.position, 118.0, COLOR_PLAYER, 0.12)
+		_draw_soft_light(_player.position - _player.aim_direction * 18.0, 68.0, COLOR_PLAYER_ACCENT, 0.075)
+	if _ring_hunter.alive:
+		_draw_soft_light(_ring_hunter.position, 96.0, COLOR_HUNTER, 0.085)
+	if _tri_axis.alive:
+		_draw_soft_light(_tri_axis.position, 110.0, COLOR_GUNNER, 0.08)
+	for projectile: NeonGeometryProjectile in _player_projectiles:
+		if projectile.active:
+			_draw_soft_light(projectile.position, 28.0, COLOR_PLAYER, 0.055)
+	for projectile: NeonGeometryProjectile in _enemy_projectiles:
+		if projectile.active:
+			_draw_soft_light(projectile.position, 23.0, COLOR_ENEMY_PROJECTILE, 0.04)
+
+
+func _draw_soft_light(center: Vector2, radius: float, color: Color, strength: float) -> void:
+	for band_index in range(7, 0, -1):
+		var ratio := float(band_index) / 7.0
+		var falloff := pow(1.0 - ratio * 0.82, 2.0)
+		draw_circle(
+			center,
+			radius * ratio,
+			Color(color.r, color.g, color.b, strength * falloff * 0.22)
+		)
+
+
 func _draw_aim_tether() -> void:
 	if not _player.alive:
 		return
@@ -979,9 +1072,10 @@ func _draw_respawn_preview(actor: NeonGeometryActor) -> void:
 
 func _draw_player_actor(actor: NeonGeometryActor) -> void:
 	var angle := actor.aim_direction.angle()
+	var visual_scale := 1.17
 	var pulse := 1.0 + sin(_elapsed * 3.4) * 0.028
 	var visual_position := actor.position - actor.aim_direction * actor.recoil_strength * 7.0
-	var tail_position := visual_position - actor.aim_direction * 27.0
+	var tail_position := visual_position - actor.aim_direction * 27.0 * visual_scale
 	var exhaust_length := 17.0 + sin(_elapsed * 18.0) * 3.0 + actor.velocity.length() * 0.025
 	_draw_glow_line(tail_position, tail_position - actor.aim_direction * exhaust_length, COLOR_PLAYER_ACCENT, 3.0)
 	draw_line(tail_position, tail_position - actor.aim_direction * exhaust_length * 0.62, COLOR_PLAYER_HOT, 1.2, true)
@@ -998,27 +1092,36 @@ func _draw_player_actor(actor: NeonGeometryActor) -> void:
 		Vector2(15.0, 5.5),
 		Vector2(15.0, -5.5),
 	])
-	body = _transform_points(body, visual_position, angle, pulse)
+	body = _transform_points(body, visual_position, angle, pulse * visual_scale)
 	var shell_shadow := _scaled_polygon(body, visual_position, 1.13)
 	draw_colored_polygon(shell_shadow, Color(COLOR_BACKGROUND_DEEP.r, COLOR_BACKGROUND_DEEP.g, COLOR_BACKGROUND_DEEP.b, 0.96))
-	_draw_glow_polygon(body, COLOR_PLAYER)
+	draw_colored_polygon(_scaled_polygon(body, visual_position, 1.055), Color(COLOR_PLAYER.r, COLOR_PLAYER.g, COLOR_PLAYER.b, 0.07))
+	draw_colored_polygon(body, COLOR_PLAYER_SHELL)
+	_draw_glow_polyline(_close_polygon(body), COLOR_PLAYER, 2.0)
 	var upper_facet := _transform_points(PackedVector2Array([
 		Vector2(31.0, -4.0), Vector2(7.0, -13.0), Vector2(-15.0, -14.0), Vector2(-2.0, -3.0),
-	]), visual_position, angle, 1.0)
+	]), visual_position, angle, visual_scale)
 	var lower_facet := _transform_points(PackedVector2Array([
 		Vector2(31.0, 4.0), Vector2(7.0, 13.0), Vector2(-15.0, 14.0), Vector2(-2.0, 3.0),
-	]), visual_position, angle, 1.0)
-	draw_colored_polygon(upper_facet, Color(COLOR_PLAYER_HOT.r, COLOR_PLAYER_HOT.g, COLOR_PLAYER_HOT.b, 0.28))
-	draw_colored_polygon(lower_facet, Color(COLOR_PLAYER_ACCENT.r, COLOR_PLAYER_ACCENT.g, COLOR_PLAYER_ACCENT.b, 0.23))
-	var split_start := visual_position + actor.aim_direction * 11.0
-	var split_end := visual_position + actor.aim_direction * 40.0
-	draw_line(split_start, split_end, COLOR_BACKGROUND_DEEP, 5.5, true)
+	]), visual_position, angle, visual_scale)
+	draw_colored_polygon(upper_facet, Color(COLOR_PLAYER_MID.r, COLOR_PLAYER_MID.g, COLOR_PLAYER_MID.b, 0.92))
+	draw_colored_polygon(lower_facet, Color(COLOR_PLAYER_ACCENT.r, COLOR_PLAYER_ACCENT.g, COLOR_PLAYER_ACCENT.b, 0.28))
+	var upper_rim_start := visual_position + (Vector2(-16.0, -14.0) * visual_scale).rotated(angle)
+	var upper_rim_end := visual_position + (Vector2(30.0, -4.0) * visual_scale).rotated(angle)
+	draw_line(upper_rim_start, upper_rim_end, Color(COLOR_PLAYER_HOT.r, COLOR_PLAYER_HOT.g, COLOR_PLAYER_HOT.b, 0.76), 1.4, true)
+	var lower_rim_start := visual_position + (Vector2(-14.0, 14.0) * visual_scale).rotated(angle)
+	var lower_rim_end := visual_position + (Vector2(26.0, 4.0) * visual_scale).rotated(angle)
+	draw_line(lower_rim_start, lower_rim_end, Color(COLOR_PLAYER_ACCENT.r, COLOR_PLAYER_ACCENT.g, COLOR_PLAYER_ACCENT.b, 0.55), 1.2, true)
+	var split_start := visual_position + actor.aim_direction * 11.0 * visual_scale
+	var split_end := visual_position + actor.aim_direction * 40.0 * visual_scale
+	draw_line(split_start, split_end, COLOR_BACKGROUND_DEEP, 5.5 * visual_scale, true)
 	for side in [-1.0, 1.0]:
 		var split_offset := actor.aim_direction.orthogonal() * float(side) * 3.2
 		draw_line(split_start + split_offset, split_end + split_offset * 0.45, Color(COLOR_PLAYER_HOT.r, COLOR_PLAYER_HOT.g, COLOR_PLAYER_HOT.b, 0.72), 1.1, true)
-	var core := _regular_polygon(visual_position - actor.aim_direction * 4.0, 11.0, 5, angle)
-	_draw_glow_polygon(core, COLOR_PLAYER_CORE)
-	draw_colored_polygon(_regular_polygon(visual_position - actor.aim_direction * 4.0, 5.0, 5, -angle), COLOR_PLAYER_HOT)
+	var core_position := visual_position - actor.aim_direction * 4.0 * visual_scale
+	var core := _regular_polygon(core_position, 11.0 * visual_scale, 5, angle)
+	_draw_material_polygon(core, COLOR_PLAYER_CORE, angle - PI * 0.55, 1.0)
+	_draw_energy_core(core_position, 5.6 * visual_scale, COLOR_PLAYER_CORE, _elapsed * 3.4)
 	var module_offset := 34.0 if _upgrade_active else 21.0
 	for side in [-1.0, 1.0]:
 		var local_module := PackedVector2Array([
@@ -1026,25 +1129,31 @@ func _draw_player_actor(actor: NeonGeometryActor) -> void:
 			Vector2(-17.0, float(side) * (module_offset + 7.0)),
 			Vector2(-12.0, float(side) * (module_offset - 7.0)),
 		])
-		var module_points := _transform_points(local_module, visual_position, angle, 1.0)
-		_draw_glow_polygon(module_points, COLOR_PLAYER_ACCENT)
-		var module_anchor := visual_position + Vector2(-5.0, float(side) * (module_offset - 1.0)).rotated(angle)
+		var module_points := _transform_points(local_module, visual_position, angle, visual_scale)
+		_draw_material_polygon(module_points, COLOR_PLAYER_ACCENT, angle - PI * 0.45, 0.78)
+		var module_anchor := visual_position + (Vector2(-5.0, float(side) * (module_offset - 1.0)) * visual_scale).rotated(angle)
 		_draw_glow_line(visual_position - actor.aim_direction * 5.0, module_anchor, COLOR_PLAYER_ACCENT, 1.4)
 		if _upgrade_active:
-			draw_circle(module_anchor, 4.0, COLOR_UPGRADE)
-			draw_circle(module_anchor, 1.6, COLOR_PLAYER_HOT)
+			_draw_energy_core(module_anchor, 4.6, COLOR_UPGRADE, _elapsed * 5.1 + float(side))
 	if _upgrade_active:
 		for side in [-1.0, 1.0]:
 			var muzzle_angle := angle + deg_to_rad(10.0) * float(side)
-			var muzzle_start := visual_position + Vector2.from_angle(muzzle_angle) * 27.0
-			var muzzle_end := visual_position + Vector2.from_angle(muzzle_angle) * 42.0
+			var muzzle_start := visual_position + Vector2.from_angle(muzzle_angle) * 27.0 * visual_scale
+			var muzzle_end := visual_position + Vector2.from_angle(muzzle_angle) * 42.0 * visual_scale
 			draw_line(muzzle_start, muzzle_end, Color(COLOR_UPGRADE.r, COLOR_UPGRADE.g, COLOR_UPGRADE.b, 0.62), 1.4, true)
-		draw_arc(visual_position, 45.0, angle - 0.72, angle + 0.72, 28, Color(COLOR_UPGRADE.r, COLOR_UPGRADE.g, COLOR_UPGRADE.b, 0.19), 1.4, true)
+		draw_arc(visual_position, 45.0 * visual_scale, angle - 0.72, angle + 0.72, 28, Color(COLOR_UPGRADE.r, COLOR_UPGRADE.g, COLOR_UPGRADE.b, 0.19), 1.4, true)
+	if actor.recoil_strength > 0.045:
+		var flare_strength := clampf(actor.recoil_strength, 0.0, 1.0)
+		_draw_weapon_flare(visual_position + actor.aim_direction * 43.0 * visual_scale, actor.aim_direction, COLOR_PLAYER_CORE, flare_strength, 25.0 * visual_scale)
+		if _upgrade_active:
+			for side in [-1.0, 1.0]:
+				var side_direction := actor.aim_direction.rotated(deg_to_rad(10.0) * float(side))
+				_draw_weapon_flare(visual_position + side_direction * 40.0 * visual_scale, side_direction, COLOR_UPGRADE, flare_strength * 0.8, 17.0 * visual_scale)
 	if actor.invulnerability_remaining > 0.0:
 		var alpha := 0.25 + 0.25 * sin(_elapsed * 18.0)
 		draw_arc(
 			visual_position,
-			48.0,
+			48.0 * visual_scale,
 			0.0,
 			TAU,
 			48,
@@ -1054,7 +1163,7 @@ func _draw_player_actor(actor: NeonGeometryActor) -> void:
 		)
 	if actor.spawn_flash_remaining > 0.0:
 		var spawn_ratio := actor.spawn_flash_remaining / 0.7
-		draw_arc(visual_position, lerpf(62.0, 34.0, spawn_ratio), -angle, TAU - angle, 48, Color(COLOR_PLAYER_HOT.r, COLOR_PLAYER_HOT.g, COLOR_PLAYER_HOT.b, spawn_ratio * 0.65), 2.0, true)
+		draw_arc(visual_position, lerpf(62.0, 34.0, spawn_ratio) * visual_scale, -angle, TAU - angle, 48, Color(COLOR_PLAYER_HOT.r, COLOR_PLAYER_HOT.g, COLOR_PLAYER_HOT.b, spawn_ratio * 0.65), 2.0, true)
 	_draw_hit_flash(actor)
 
 
@@ -1069,10 +1178,19 @@ func _draw_ring_hunter(actor: NeonGeometryActor) -> void:
 		var segment_start := facing + deg_to_rad(48.0) + float(segment_index) * deg_to_rad(50.0)
 		var segment_length := deg_to_rad(31.0 + float(segment_index % 2) * 5.0)
 		var segment_radius := 34.0 + sin(_elapsed * 2.1 + float(segment_index)) * 1.6
-		_draw_glow_arc(visual_position, segment_radius, segment_start, segment_start + segment_length, COLOR_HUNTER, 4.0)
+		_draw_arc_plate(
+			visual_position,
+			segment_radius - 5.0,
+			segment_radius + 5.0,
+			segment_start,
+			segment_start + segment_length,
+			COLOR_HUNTER_SHELL,
+			COLOR_HUNTER,
+			segment_index % 2 == 0
+		)
 	for segment_index in range(5):
 		var inner_start := inner_rotation + float(segment_index) * TAU / 5.0
-		draw_arc(visual_position, 20.0, inner_start, inner_start + 0.48, 8, Color(COLOR_HUNTER_CORE.r, COLOR_HUNTER_CORE.g, COLOR_HUNTER_CORE.b, 0.56), 2.0, true)
+		_draw_glow_arc(visual_position, 20.0, inner_start, inner_start + 0.48, Color(COLOR_HUNTER_CORE.r, COLOR_HUNTER_CORE.g, COLOR_HUNTER_CORE.b, 0.68), 2.2)
 	for side in [-1.0, 1.0]:
 		var jaw_angle := facing + float(side) * deg_to_rad(39.0)
 		var jaw_base := visual_position + Vector2.from_angle(jaw_angle) * 25.0
@@ -1081,14 +1199,18 @@ func _draw_ring_hunter(actor: NeonGeometryActor) -> void:
 	var mouth_start := visual_position + actor.aim_direction * 11.0
 	var mouth_end := visual_position + actor.aim_direction * 39.0
 	_draw_glow_line(mouth_start, mouth_end, COLOR_HUNTER_CORE, 3.0)
+	if actor.recoil_strength > 0.045:
+		_draw_weapon_flare(mouth_end, actor.aim_direction, COLOR_ENEMY_HOT, clampf(actor.recoil_strength, 0.0, 1.0), 28.0)
+	draw_circle(visual_position, 14.0, Color(COLOR_HUNTER.r, COLOR_HUNTER.g, COLOR_HUNTER.b, 0.07))
 	draw_circle(visual_position, 12.0, COLOR_HUNTER_DARK)
-	draw_arc(visual_position, 11.0, 0.0, TAU, 28, COLOR_HUNTER_CORE, 2.5, true)
+	draw_arc(visual_position, 11.0, 0.0, TAU, 28, COLOR_HUNTER_MID, 3.5, true)
+	draw_arc(visual_position, 11.0, facing - 1.1, facing + 0.25, 18, COLOR_HUNTER_CORE, 1.4, true)
 	var eye_position := visual_position + actor.aim_direction * 3.0
-	draw_circle(eye_position, 5.5, COLOR_HUNTER_CORE)
+	_draw_energy_core(eye_position, 5.8, COLOR_HUNTER_CORE, _elapsed * 4.2)
 	draw_circle(eye_position + actor.aim_direction * 1.5, 2.4, COLOR_BACKGROUND_DEEP)
 	if actor.warning_remaining > 0.0:
 		var ratio := clampf(1.0 - actor.warning_remaining / RING_HUNTER_WARNING, 0.0, 1.0)
-		_draw_warning_fan(visual_position, facing, ratio, 92.0, deg_to_rad(31.0))
+		_draw_warning_fan(visual_position, facing, ratio, 168.0, deg_to_rad(31.0))
 	_draw_hit_flash(actor)
 
 
@@ -1110,24 +1232,35 @@ func _draw_tri_axis(actor: NeonGeometryActor) -> void:
 			arm_end - arm_side * 0.45,
 			visual_position - arm_side,
 		])
-		draw_colored_polygon(arm_plate, COLOR_GUNNER_DARK)
-		_draw_glow_polyline(_close_polygon(arm_plate), COLOR_GUNNER, 2.2 if arm_index == 0 else 1.7)
+		_draw_material_polygon(
+			arm_plate,
+			COLOR_GUNNER_MID if arm_index == 0 else COLOR_GUNNER_SHELL,
+			arm_angle - PI * 0.42,
+			1.0 if arm_index == 0 else 0.7
+		)
+		var rail_start := visual_position + Vector2.from_angle(arm_angle) * 8.0
+		var rail_end := arm_end - Vector2.from_angle(arm_angle) * 5.0
+		draw_line(rail_start, rail_end, Color(COLOR_GUNNER_CORE.r, COLOR_GUNNER_CORE.g, COLOR_GUNNER_CORE.b, 0.46 if arm_index == 0 else 0.2), 1.0, true)
 		var triangle := PackedVector2Array([
 			Vector2(12.0, 0.0),
 			Vector2(-7.0, -7.0),
 			Vector2(-7.0, 7.0),
 		])
 		var arm_color := COLOR_ENEMY_PROJECTILE if actor.warning_remaining > 0.0 and arm_index == 0 else COLOR_GUNNER
-		_draw_glow_polygon(_transform_points(triangle, arm_end, arm_angle, 1.0), arm_color)
+		_draw_material_polygon(_transform_points(triangle, arm_end, arm_angle, 1.0), arm_color, arm_angle - 0.7, 0.9)
 	for satellite_index in range(3):
 		var satellite_angle := orbit_rotation + float(satellite_index) * TAU / 3.0
 		var satellite_position := visual_position + Vector2.from_angle(satellite_angle) * 48.0
 		draw_colored_polygon(_regular_polygon(satellite_position, 4.0, 3, satellite_angle), Color(COLOR_GUNNER.r, COLOR_GUNNER.g, COLOR_GUNNER.b, 0.58))
+	if actor.recoil_strength > 0.045:
+		var main_muzzle := visual_position + actor.aim_direction * 54.0
+		_draw_weapon_flare(main_muzzle, actor.aim_direction, COLOR_ENEMY_HOT, clampf(actor.recoil_strength, 0.0, 1.0), 32.0)
 	var core := _regular_polygon(visual_position, 16.0, 6, -orbit_rotation * 0.55)
 	draw_colored_polygon(_scaled_polygon(core, visual_position, 1.18), COLOR_BACKGROUND_DEEP)
-	_draw_glow_polyline(_close_polygon(core), COLOR_GUNNER_CORE, 3.0)
+	_draw_material_polygon(core, COLOR_GUNNER_MID, facing - PI * 0.52, 0.92)
 	draw_circle(visual_position, 8.0, COLOR_GUNNER_DARK)
-	draw_circle(visual_position + actor.aim_direction * 2.0, 4.0, COLOR_BACKGROUND_DEEP)
+	_draw_energy_core(visual_position, 5.4, COLOR_GUNNER_CORE, _elapsed * 2.7)
+	draw_circle(visual_position + actor.aim_direction * 2.0, 3.2, COLOR_BACKGROUND_DEEP)
 	if actor.warning_remaining > 0.0:
 		var ratio := clampf(1.0 - actor.warning_remaining / TRI_AXIS_WARNING, 0.0, 1.0)
 		var line_end := visual_position + actor.aim_direction * lerpf(76.0, 172.0, ratio)
@@ -1160,16 +1293,43 @@ func _draw_hit_flash(actor: NeonGeometryActor) -> void:
 
 
 func _draw_warning_fan(origin: Vector2, angle: float, ratio: float, radius: float, half_angle: float) -> void:
-	var color := Color(COLOR_ENEMY_PROJECTILE.r, COLOR_ENEMY_PROJECTILE.g, COLOR_ENEMY_PROJECTILE.b, 0.24 + ratio * 0.62)
+	var warning_pulse := 0.82 + sin(_elapsed * 18.0) * 0.18
+	var color := Color(COLOR_ENEMY_PROJECTILE.r, COLOR_ENEMY_PROJECTILE.g, COLOR_ENEMY_PROJECTILE.b, (0.38 + ratio * 0.56) * warning_pulse)
 	var left_end := origin + Vector2.from_angle(angle - half_angle) * radius
 	var right_end := origin + Vector2.from_angle(angle + half_angle) * radius
-	draw_colored_polygon(PackedVector2Array([origin, left_end, right_end]), Color(COLOR_ENEMY_PROJECTILE.r, COLOR_ENEMY_PROJECTILE.g, COLOR_ENEMY_PROJECTILE.b, 0.025 + ratio * 0.045))
-	draw_arc(origin, radius, angle - half_angle, angle + half_angle, 24, Color(COLOR_BACKGROUND_DEEP.r, COLOR_BACKGROUND_DEEP.g, COLOR_BACKGROUND_DEEP.b, 0.9), 6.0, true)
-	draw_arc(origin, radius, angle - half_angle, angle + half_angle, 24, color, 2.6, true)
-	draw_line(origin, left_end, color, 1.5, true)
-	draw_line(origin, right_end, color, 1.5, true)
+	draw_colored_polygon(
+		_sector_polygon(origin, radius, angle - half_angle, angle + half_angle, 28),
+		Color(COLOR_ENEMY_PROJECTILE.r, COLOR_ENEMY_PROJECTILE.g, COLOR_ENEMY_PROJECTILE.b, 0.06 + ratio * 0.075)
+	)
+	draw_colored_polygon(
+		_sector_polygon(origin, radius * (0.38 + ratio * 0.42), angle - half_angle, angle + half_angle, 24),
+		Color(COLOR_HUNTER.r, COLOR_HUNTER.g, COLOR_HUNTER.b, 0.06 + ratio * 0.08)
+	)
+	draw_arc(origin, radius, angle - half_angle, angle + half_angle, 28, Color(COLOR_BACKGROUND_DEEP.r, COLOR_BACKGROUND_DEEP.g, COLOR_BACKGROUND_DEEP.b, 0.94), 8.0, true)
+	draw_arc(origin, radius, angle - half_angle, angle + half_angle, 28, color, 3.2 + ratio * 1.8, true)
+	draw_line(origin, left_end, Color(COLOR_BACKGROUND_DEEP.r, COLOR_BACKGROUND_DEEP.g, COLOR_BACKGROUND_DEEP.b, 0.9), 5.0, true)
+	draw_line(origin, right_end, Color(COLOR_BACKGROUND_DEEP.r, COLOR_BACKGROUND_DEEP.g, COLOR_BACKGROUND_DEEP.b, 0.9), 5.0, true)
+	draw_line(origin, left_end, color, 1.7, true)
+	draw_line(origin, right_end, color, 1.7, true)
+	for tick_index in range(7):
+		var tick_ratio := float(tick_index + 1) / 8.0
+		if tick_ratio > ratio + 0.16:
+			continue
+		var tick_angle := lerpf(angle - half_angle, angle + half_angle, tick_ratio)
+		var tick_direction := Vector2.from_angle(tick_angle)
+		draw_line(origin + tick_direction * (radius - 13.0), origin + tick_direction * radius, Color(COLOR_ENEMY_HOT.r, COLOR_ENEMY_HOT.g, COLOR_ENEMY_HOT.b, 0.45 + ratio * 0.45), 2.0, true)
 	var sweep_angle := lerpf(angle - half_angle, angle + half_angle, ratio)
-	draw_line(origin + Vector2.from_angle(sweep_angle) * radius * 0.68, origin + Vector2.from_angle(sweep_angle) * radius, COLOR_ENEMY_HOT, 2.0, true)
+	draw_line(origin + Vector2.from_angle(sweep_angle) * radius * 0.56, origin + Vector2.from_angle(sweep_angle) * radius, COLOR_ENEMY_HOT, 3.0, true)
+	var projection_direction := Vector2.from_angle(angle)
+	for segment_index in range(3):
+		var segment_start := radius + 18.0 + float(segment_index) * 28.0
+		draw_line(
+			origin + projection_direction * segment_start,
+			origin + projection_direction * (segment_start + 15.0),
+			Color(COLOR_ENEMY_PROJECTILE.r, COLOR_ENEMY_PROJECTILE.g, COLOR_ENEMY_PROJECTILE.b, 0.22 - float(segment_index) * 0.05),
+			1.5,
+			true
+		)
 
 
 func _draw_projectile_pool(pool: Array[NeonGeometryProjectile]) -> void:
@@ -1200,7 +1360,14 @@ func _draw_player_projectile(projectile: NeonGeometryProjectile) -> void:
 		Vector2(1.0, 4.5),
 	])
 	var points := _transform_points(diamond, projectile.position, angle, 1.0)
-	_draw_glow_polygon(points, COLOR_PLAYER_CORE)
+	_draw_material_polygon(points, COLOR_PLAYER_MID, angle - PI * 0.5, 1.0)
+	draw_line(
+		projectile.position - direction * 8.0,
+		projectile.position + direction * 11.0,
+		Color(COLOR_PLAYER_HOT.r, COLOR_PLAYER_HOT.g, COLOR_PLAYER_HOT.b, 0.95 * fade),
+		1.6,
+		true
+	)
 	var tail_end := projectile.position - direction * 27.0
 	_draw_glow_line(projectile.position, tail_end, COLOR_PLAYER_ACCENT, 2.4)
 	draw_line(projectile.position + direction * 10.0, tail_end + direction * 12.0, Color(COLOR_PLAYER_HOT.r, COLOR_PLAYER_HOT.g, COLOR_PLAYER_HOT.b, fade), 1.2, true)
@@ -1213,7 +1380,13 @@ func _draw_enemy_wedge(projectile: NeonGeometryProjectile) -> void:
 	var angle := projectile.facing_angle()
 	for echo_index in range(2, 0, -1):
 		var echo_position := projectile.position - direction * float(echo_index) * 8.0
-		draw_line(echo_position, echo_position - direction * 8.0, Color(COLOR_ENEMY_PROJECTILE.r, COLOR_ENEMY_PROJECTILE.g, COLOR_ENEMY_PROJECTILE.b, 0.08 * float(3 - echo_index)), 3.0, true)
+		draw_line(
+			echo_position,
+			echo_position - direction * (5.0 + float(2 - echo_index) * 3.0),
+			Color(COLOR_ENEMY_PROJECTILE.r, COLOR_ENEMY_PROJECTILE.g, COLOR_ENEMY_PROJECTILE.b, 0.045 * float(3 - echo_index)),
+			2.0 + float(2 - echo_index) * 0.6,
+			true
+		)
 	var wedge := PackedVector2Array([
 		Vector2(13.0, 0.0),
 		Vector2(-9.0, -8.0),
@@ -1222,7 +1395,7 @@ func _draw_enemy_wedge(projectile: NeonGeometryProjectile) -> void:
 	])
 	var points := _transform_points(wedge, projectile.position, angle, 1.0)
 	draw_colored_polygon(_scaled_polygon(points, projectile.position, 1.18), Color(COLOR_BACKGROUND_DEEP.r, COLOR_BACKGROUND_DEEP.g, COLOR_BACKGROUND_DEEP.b, 0.9))
-	_draw_glow_polygon(points, COLOR_ENEMY_PROJECTILE)
+	_draw_material_polygon(points, COLOR_HUNTER_MID, angle - PI * 0.4, 0.9)
 	var notch := _transform_points(PackedVector2Array([
 		Vector2(-9.0, -3.0), Vector2(-2.0, 0.0), Vector2(-9.0, 3.0),
 	]), projectile.position, angle, 1.0)
@@ -1235,10 +1408,21 @@ func _draw_enemy_ring(projectile: NeonGeometryProjectile) -> void:
 	var direction := projectile.velocity.normalized()
 	for echo_index in range(2, 0, -1):
 		var echo_position := projectile.position - direction * float(echo_index) * 9.0
-		draw_arc(echo_position, 12.0, facing + 0.58, facing + TAU - 0.58, 24, Color(COLOR_ENEMY_PROJECTILE.r, COLOR_ENEMY_PROJECTILE.g, COLOR_ENEMY_PROJECTILE.b, 0.065 * float(3 - echo_index)), 2.0, true)
-	_draw_glow_arc(projectile.position, 13.0, facing + 0.52, facing + TAU - 0.52, COLOR_ENEMY_PROJECTILE, 2.6)
+		var echo_radius := 12.0 - float(echo_index) * 2.2
+		draw_arc(
+			echo_position,
+			echo_radius,
+			facing + 0.58,
+			facing + TAU - 0.58,
+			20,
+			Color(COLOR_ENEMY_PROJECTILE.r, COLOR_ENEMY_PROJECTILE.g, COLOR_ENEMY_PROJECTILE.b, 0.038 * float(3 - echo_index)),
+			1.5,
+			true
+		)
+	_draw_glow_arc(projectile.position, 13.0, facing + 0.52, facing + TAU - 0.52, COLOR_ENEMY_PROJECTILE, 3.4)
 	draw_arc(projectile.position, 8.5, facing + 0.82, facing + TAU - 0.82, 24, Color(COLOR_ENEMY_HOT.r, COLOR_ENEMY_HOT.g, COLOR_ENEMY_HOT.b, 0.72), 1.5, true)
-	draw_circle(projectile.position, 2.4, COLOR_ENEMY_HOT)
+	draw_circle(projectile.position, 4.2, COLOR_HUNTER_DARK)
+	_draw_energy_core(projectile.position, 2.8, COLOR_ENEMY_HOT, _elapsed * 6.0 + float(projectile.spawn_serial))
 
 
 func _draw_vfx(foreground: bool) -> void:
@@ -1246,7 +1430,7 @@ func _draw_vfx(foreground: bool) -> void:
 		if not bool(slot["active"]):
 			continue
 		var kind := int(slot["kind"])
-		var is_foreground := kind == VFX_SHARD or kind == VFX_SPARK
+		var is_foreground := kind == VFX_SHARD or kind == VFX_SPARK or kind == VFX_BURST
 		if is_foreground != foreground:
 			continue
 		var lifetime: float = float(slot["lifetime"])
@@ -1287,6 +1471,41 @@ func _draw_vfx(foreground: bool) -> void:
 				_draw_glow_polyline(_close_polygon(glyph), Color(color.r, color.g, color.b, ratio * 0.72), 1.6)
 				for index in range(0, glyph.size(), 2):
 					draw_line(position, glyph[index], Color(color.r, color.g, color.b, ratio * 0.18), 1.0, true)
+			VFX_LENS:
+				var lens_progress := 1.0 - ratio
+				var lens_radius := size * (0.22 + lens_progress * 0.78)
+				for ring_index in range(3):
+					var ring_radius := lens_radius * (1.0 - float(ring_index) * 0.16)
+					var ring_offset := Vector2(float(ring_index - 1) * 2.0 * lens_progress, 0.0)
+					var ring_alpha := ratio * (0.34 - float(ring_index) * 0.065)
+					var ring_color := color if ring_index == 1 else (COLOR_PLAYER_ACCENT if ring_index == 0 else COLOR_GUNNER)
+					draw_arc(
+						position + ring_offset,
+						ring_radius,
+						float(ring_index) * 0.62 + lens_progress,
+						float(ring_index) * 0.62 + lens_progress + PI * 1.45,
+						42,
+						Color(ring_color.r, ring_color.g, ring_color.b, ring_alpha),
+						2.6 - float(ring_index) * 0.45,
+						true
+					)
+				draw_circle(position, size * 0.11 * ratio, Color(color.r, color.g, color.b, ratio * 0.12))
+			VFX_BURST:
+				var burst_direction := direction
+				var tangent := burst_direction.orthogonal()
+				var burst_length := size * (0.58 + ratio * 0.82)
+				var burst_width := size * (0.14 + ratio * 0.28)
+				var star := PackedVector2Array([
+					position + burst_direction * burst_length,
+					position + tangent * burst_width,
+					position - burst_direction * burst_length * 0.5,
+					position - tangent * burst_width,
+				])
+				draw_colored_polygon(_scaled_polygon(star, position, 1.75), Color(color.r, color.g, color.b, ratio * 0.055))
+				draw_colored_polygon(star, Color(color.r, color.g, color.b, ratio * 0.72))
+				draw_line(position - burst_direction * burst_length, position + burst_direction * burst_length, Color(1.0, 1.0, 1.0, ratio * 0.9), 2.0, true)
+				draw_line(position - tangent * burst_width * 1.6, position + tangent * burst_width * 1.6, Color(color.r, color.g, color.b, ratio * 0.62), 1.4, true)
+				draw_circle(position, size * 0.16 * ratio, Color(1.0, 1.0, 1.0, ratio))
 			_:
 				continue
 
@@ -1295,15 +1514,22 @@ func _draw_crosshair() -> void:
 	var position := _capture_cursor_position if _capture_mode else get_global_mouse_position()
 	var pulse := 1.0 + sin(_elapsed * 4.0) * 0.1
 	var rotation := _elapsed * 0.62
-	draw_arc(position, 19.0 * pulse, rotation, rotation + PI * 0.44, 14, Color(COLOR_PLAYER_ACCENT.r, COLOR_PLAYER_ACCENT.g, COLOR_PLAYER_ACCENT.b, 0.48), 1.4, true)
-	draw_arc(position, 19.0 * pulse, rotation + PI, rotation + PI * 1.44, 14, Color(COLOR_PLAYER_ACCENT.r, COLOR_PLAYER_ACCENT.g, COLOR_PLAYER_ACCENT.b, 0.48), 1.4, true)
+	draw_arc(position, 21.0 * pulse, rotation, rotation + PI * 0.34, 12, Color(COLOR_PLAYER_ACCENT.r, COLOR_PLAYER_ACCENT.g, COLOR_PLAYER_ACCENT.b, 0.42), 1.2, true)
+	draw_arc(position, 21.0 * pulse, rotation + PI, rotation + PI * 1.34, 12, Color(COLOR_PLAYER_ACCENT.r, COLOR_PLAYER_ACCENT.g, COLOR_PLAYER_ACCENT.b, 0.42), 1.2, true)
 	for arm_index in range(4):
 		var direction := Vector2.from_angle(float(arm_index) * PI * 0.5)
 		draw_line(
-			position + direction * 7.0 * pulse,
-			position + direction * 14.0 * pulse,
+			position + direction * 11.0 * pulse,
+			position + direction * 18.0 * pulse,
 			Color(COLOR_PLAYER_ACCENT.r, COLOR_PLAYER_ACCENT.g, COLOR_PLAYER_ACCENT.b, 0.8),
-			2.0,
+			1.5,
+			true
+		)
+		draw_line(
+			position + direction * 26.0,
+			position + direction * 32.0,
+			Color(COLOR_PLAYER.r, COLOR_PLAYER.g, COLOR_PLAYER.b, 0.48),
+			1.0,
 			true
 		)
 	if _upgrade_active:
@@ -1311,10 +1537,18 @@ func _draw_crosshair() -> void:
 		for angle_offset in [-10.0, 0.0, 10.0]:
 			var direction := Vector2.from_angle(aim_angle + deg_to_rad(float(angle_offset)))
 			var marker_position := position + direction * 27.0
-			var marker := _regular_polygon(marker_position, 3.6, 4, aim_angle + PI * 0.25)
-			draw_colored_polygon(marker, Color(COLOR_UPGRADE.r, COLOR_UPGRADE.g, COLOR_UPGRADE.b, 0.78))
-	draw_circle(position, 4.0, Color(COLOR_BACKGROUND_DEEP.r, COLOR_BACKGROUND_DEEP.g, COLOR_BACKGROUND_DEEP.b, 0.9))
-	draw_circle(position, 2.3, COLOR_PLAYER_CORE)
+			var marker_tangent := direction.orthogonal()
+			draw_line(
+				marker_position - marker_tangent * 3.2,
+				marker_position + marker_tangent * 3.2,
+				Color(COLOR_UPGRADE.r, COLOR_UPGRADE.g, COLOR_UPGRADE.b, 0.82),
+				1.6,
+				true
+			)
+	var center_diamond := _regular_polygon(position, 5.2, 4, PI * 0.25)
+	draw_colored_polygon(center_diamond, Color(COLOR_BACKGROUND_DEEP.r, COLOR_BACKGROUND_DEEP.g, COLOR_BACKGROUND_DEEP.b, 0.88))
+	draw_polyline(_close_polygon(center_diamond), COLOR_PLAYER_CORE, 1.2, true)
+	draw_circle(position, 1.3, COLOR_PLAYER_HOT)
 
 
 func _draw_hud() -> void:
@@ -1363,6 +1597,128 @@ func _draw_hud_panel(rect: Rect2, accent: Color) -> void:
 	draw_line(rect.position + Vector2(12.0, rect.size.y - 2.0), rect.position + Vector2(rect.size.x * 0.42, rect.size.y - 2.0), Color(accent.r, accent.g, accent.b, 0.74), 2.0, true)
 
 
+func _draw_weapon_flare(
+	position: Vector2,
+	direction: Vector2,
+	color: Color,
+	strength: float,
+	size: float
+) -> void:
+	var safe_direction := direction.normalized()
+	if safe_direction.is_zero_approx():
+		safe_direction = Vector2.RIGHT
+	var tangent := safe_direction.orthogonal()
+	var flare_points := PackedVector2Array([
+		position + safe_direction * size * strength,
+		position + tangent * size * 0.28 * strength,
+		position - safe_direction * size * 0.45 * strength,
+		position - tangent * size * 0.28 * strength,
+	])
+	draw_colored_polygon(_scaled_polygon(flare_points, position, 1.8), Color(color.r, color.g, color.b, strength * 0.055))
+	draw_colored_polygon(flare_points, Color(color.r, color.g, color.b, strength * 0.66))
+	draw_line(position - safe_direction * size * 0.6, position + safe_direction * size, Color(1.0, 1.0, 1.0, strength * 0.92), 1.7, true)
+	draw_line(position - tangent * size * 0.38, position + tangent * size * 0.38, Color(color.r, color.g, color.b, strength * 0.72), 1.2, true)
+	draw_circle(position, size * 0.12 * strength, Color(1.0, 1.0, 1.0, strength))
+
+
+func _draw_material_polygon(
+	points: PackedVector2Array,
+	color: Color,
+	light_angle: float,
+	energy: float
+) -> void:
+	if points.size() < 3:
+		return
+	var center := Vector2.ZERO
+	for point: Vector2 in points:
+		center += point
+	center /= float(points.size())
+	var alpha := color.a
+	draw_colored_polygon(
+		_scaled_polygon(points, center, 1.16),
+		Color(COLOR_BACKGROUND_DEEP.r, COLOR_BACKGROUND_DEEP.g, COLOR_BACKGROUND_DEEP.b, 0.94 * alpha)
+	)
+	for glow_scale in [1.5, 1.27, 1.1]:
+		var glow_alpha := 0.018 if glow_scale > 1.4 else (0.045 if glow_scale > 1.2 else 0.09)
+		draw_colored_polygon(
+			_scaled_polygon(points, center, float(glow_scale)),
+			Color(color.r, color.g, color.b, glow_alpha * alpha * energy)
+		)
+	var light_direction := Vector2.from_angle(light_angle)
+	for index in range(points.size()):
+		var next_index := (index + 1) % points.size()
+		var edge_midpoint := (points[index] + points[next_index]) * 0.5
+		var facet_direction := center.direction_to(edge_midpoint)
+		var light_value := clampf((facet_direction.dot(light_direction) + 1.0) * 0.5, 0.0, 1.0)
+		var shade_amount := lerpf(0.62, 0.18, light_value)
+		var facet_color := color.darkened(shade_amount)
+		facet_color.a = alpha
+		draw_colored_polygon(
+			PackedVector2Array([center, points[index], points[next_index]]),
+			facet_color
+		)
+	var rim_color := Color(color.r, color.g, color.b, 0.78 * alpha)
+	draw_polyline(_close_polygon(points), rim_color, 1.25 + energy * 0.55, true)
+	var best_edge := 0
+	var best_light := -2.0
+	for index in range(points.size()):
+		var next_index := (index + 1) % points.size()
+		var edge_midpoint := (points[index] + points[next_index]) * 0.5
+		var edge_light := center.direction_to(edge_midpoint).dot(light_direction)
+		if edge_light > best_light:
+			best_light = edge_light
+			best_edge = index
+	var hot_end := (best_edge + 1) % points.size()
+	draw_line(
+		points[best_edge].lerp(points[hot_end], 0.12),
+		points[best_edge].lerp(points[hot_end], 0.82),
+		Color(1.0, 1.0, 1.0, 0.72 * alpha * energy),
+		1.15,
+		true
+	)
+
+
+func _draw_arc_plate(
+	center: Vector2,
+	inner_radius: float,
+	outer_radius: float,
+	start_angle: float,
+	end_angle: float,
+	shell_color: Color,
+	rim_color: Color,
+	hot_outer_edge: bool
+) -> void:
+	var points := PackedVector2Array()
+	var segment_count := 8
+	for index in range(segment_count + 1):
+		var ratio := float(index) / float(segment_count)
+		points.append(center + Vector2.from_angle(lerpf(start_angle, end_angle, ratio)) * outer_radius)
+	for index in range(segment_count, -1, -1):
+		var ratio := float(index) / float(segment_count)
+		points.append(center + Vector2.from_angle(lerpf(start_angle, end_angle, ratio)) * inner_radius)
+	draw_colored_polygon(points, Color(COLOR_BACKGROUND_DEEP.r, COLOR_BACKGROUND_DEEP.g, COLOR_BACKGROUND_DEEP.b, 0.96))
+	var inset_points := _scaled_polygon(points, center, 0.975)
+	draw_colored_polygon(inset_points, shell_color)
+	draw_arc(center, outer_radius, start_angle, end_angle, 12, Color(rim_color.r, rim_color.g, rim_color.b, 0.22), 8.0, true)
+	draw_arc(center, outer_radius, start_angle, end_angle, 12, rim_color, 1.8 if hot_outer_edge else 1.2, true)
+	draw_arc(center, inner_radius, start_angle, end_angle, 12, Color(rim_color.r, rim_color.g, rim_color.b, 0.38), 1.0, true)
+	var cap_color := Color(rim_color.r, rim_color.g, rim_color.b, 0.5)
+	draw_line(center + Vector2.from_angle(start_angle) * inner_radius, center + Vector2.from_angle(start_angle) * outer_radius, cap_color, 1.0, true)
+	draw_line(center + Vector2.from_angle(end_angle) * inner_radius, center + Vector2.from_angle(end_angle) * outer_radius, cap_color, 1.0, true)
+
+
+func _draw_energy_core(center: Vector2, radius: float, color: Color, phase: float) -> void:
+	var pulse := 0.88 + sin(phase) * 0.12
+	for scale_value in [3.0, 2.2, 1.55]:
+		var alpha := 0.018 if scale_value > 2.5 else (0.045 if scale_value > 2.0 else 0.11)
+		draw_circle(center, radius * float(scale_value) * pulse, Color(color.r, color.g, color.b, alpha))
+	draw_circle(center, radius * 1.18, Color(COLOR_BACKGROUND_DEEP.r, COLOR_BACKGROUND_DEEP.g, COLOR_BACKGROUND_DEEP.b, 0.92))
+	draw_circle(center, radius * pulse, Color(color.r * 0.74, color.g * 0.74, color.b * 0.74, 1.0))
+	draw_circle(center - Vector2(radius * 0.18, radius * 0.22), radius * 0.48, Color(1.0, 1.0, 1.0, 0.92))
+	draw_line(center - Vector2(radius * 1.65, 0.0), center + Vector2(radius * 1.65, 0.0), Color(color.r, color.g, color.b, 0.28), 1.0, true)
+	draw_line(center - Vector2(0.0, radius * 1.65), center + Vector2(0.0, radius * 1.65), Color(color.r, color.g, color.b, 0.22), 1.0, true)
+
+
 func _draw_glow_polygon(points: PackedVector2Array, color: Color) -> void:
 	var center := Vector2.ZERO
 	for point: Vector2 in points:
@@ -1378,8 +1734,10 @@ func _draw_glow_polygon(points: PackedVector2Array, color: Color) -> void:
 		for point: Vector2 in points:
 			glow_points.append(center + (point - center) * scale_value)
 		draw_colored_polygon(glow_points, Color(color.r, color.g, color.b, glow_alphas[glow_index] * alpha))
-	draw_colored_polygon(points, Color(color.r, color.g, color.b, 0.9 * alpha))
-	draw_polyline(_close_polygon(points), Color(1.0, 1.0, 1.0, 0.28 * alpha), 1.0, true)
+	var surface := color.darkened(0.36)
+	surface.a = 0.92 * alpha
+	draw_colored_polygon(points, surface)
+	draw_polyline(_close_polygon(points), Color(color.r, color.g, color.b, 0.82 * alpha), 1.35, true)
 
 
 func _draw_glow_polyline(points: PackedVector2Array, color: Color, width: float) -> void:
@@ -1417,6 +1775,20 @@ func _regular_polygon(center: Vector2, radius: float, sides: int, rotation_offse
 	var points := PackedVector2Array()
 	for index in range(sides):
 		points.append(center + Vector2.from_angle(rotation_offset + float(index) * TAU / float(sides)) * radius)
+	return points
+
+
+func _sector_polygon(
+	center: Vector2,
+	radius: float,
+	start_angle: float,
+	end_angle: float,
+	segments: int
+) -> PackedVector2Array:
+	var points := PackedVector2Array([center])
+	for index in range(segments + 1):
+		var ratio := float(index) / float(maxi(segments, 1))
+		points.append(center + Vector2.from_angle(lerpf(start_angle, end_angle, ratio)) * radius)
 	return points
 
 
