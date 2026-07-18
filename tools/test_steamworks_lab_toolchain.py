@@ -151,22 +151,70 @@ class SteamworksLabToolchainTests(unittest.TestCase):
 
     def test_template_lookup_uses_exact_editor_version_in_user_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            appdata = Path(temporary_directory)
+            root = Path(temporary_directory)
+            godot = root / "Godot.exe"
+            godot.touch()
+            appdata = root / "appdata"
             template_root = appdata / "Godot" / "export_templates" / "4.7.1.stable"
             template_root.mkdir(parents=True)
             for file_name in toolchain.STANDARD_TEMPLATE_NAMES:
                 (template_root / file_name).touch()
             with mock.patch.dict(os.environ, {"APPDATA": str(appdata)}):
-                resolved = toolchain._find_standard_template_root("4.7.1.stable.official.a13da4feb")
+                resolved = toolchain._find_standard_template_root(
+                    godot,
+                    "4.7.1.stable.official.a13da4feb",
+                )
             self.assertEqual(resolved, template_root.resolve())
+
+    def test_template_lookup_uses_self_contained_editor_data(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            godot = root / "Godot_console.exe"
+            godot.touch()
+            (root / "_sc_").touch()
+            template_root = root / "editor_data" / "export_templates" / "4.7.stable"
+            template_root.mkdir(parents=True)
+            for file_name in toolchain.STANDARD_TEMPLATE_NAMES:
+                (template_root / file_name).touch()
+            with mock.patch.dict(os.environ, {}, clear=True):
+                resolved = toolchain._find_standard_template_root(
+                    godot,
+                    "4.7.stable.official.5b4e0cb0f",
+                )
+            self.assertEqual(resolved, template_root.resolve())
+
+    def test_self_contained_template_lookup_does_not_fall_back_to_appdata(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            godot = root / "Godot.exe"
+            godot.touch()
+            (root / "_sc_").touch()
+            expected = root / "editor_data" / "export_templates" / "4.7.stable"
+            appdata = root / "appdata"
+            fallback = appdata / "Godot" / "export_templates" / "4.7.stable"
+            fallback.mkdir(parents=True)
+            for file_name in toolchain.STANDARD_TEMPLATE_NAMES:
+                (fallback / file_name).touch()
+            with mock.patch.dict(os.environ, {"APPDATA": str(appdata)}):
+                with self.assertRaisesRegex(toolchain.ToolchainError, str(expected).replace("\\", "\\\\")):
+                    toolchain._find_standard_template_root(
+                        godot,
+                        "4.7.stable.official.5b4e0cb0f",
+                    )
 
     def test_template_lookup_reports_exact_missing_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            appdata = Path(temporary_directory)
+            root = Path(temporary_directory)
+            godot = root / "Godot.exe"
+            godot.touch()
+            appdata = root / "appdata"
             expected = appdata / "Godot" / "export_templates" / "4.7.1.stable"
             with mock.patch.dict(os.environ, {"APPDATA": str(appdata)}):
                 with self.assertRaisesRegex(toolchain.ToolchainError, str(expected).replace("\\", "\\\\")):
-                    toolchain._find_standard_template_root("4.7.1.stable.official.a13da4feb")
+                    toolchain._find_standard_template_root(
+                        godot,
+                        "4.7.1.stable.official.a13da4feb",
+                    )
 
     def test_export_preset_no_longer_requires_toolchain_exclusion(self) -> None:
         preset_text = "\n".join(

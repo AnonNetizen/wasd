@@ -563,7 +563,7 @@ def _print_failed_smoke_output(label: str, output: str) -> None:
 
 def _export_release(lock: dict[str, Any], godot: Path) -> None:
     version_output = _verify(lock, godot, run_presence_smoke=True)
-    template_root = _find_standard_template_root(version_output)
+    template_root = _find_standard_template_root(godot, version_output)
     print(f"[steamworks-lab-toolchain] export templates at {_relative(template_root)}")
     preset_text = _verified_export_preset_text()
     preset_name = _export_preset_name(preset_text)
@@ -749,20 +749,26 @@ def _validate_normal_godot(godot: Path, expected_version: str) -> str:
     return version_output
 
 
-def _find_standard_template_root(version_output: str) -> Path:
+def _find_standard_template_root(godot: Path, version_output: str) -> Path:
     version_match = re.match(r"^(\d+\.\d+(?:\.\d+)?\.stable)(?:\.|$)", version_output)
     if version_match is None:
         raise ToolchainError(f"cannot determine the Godot export template version from: {version_output}")
-    appdata = os.environ.get("APPDATA")
-    if not appdata:
-        raise ToolchainError("APPDATA is not set; cannot locate the standard Godot export templates")
     template_version = version_match.group(1)
-    template_root = Path(appdata) / "Godot" / "export_templates" / template_version
+    editor_root = godot.resolve().parent
+    if (editor_root / "_sc_").is_file():
+        template_root = editor_root / "editor_data" / "export_templates" / template_version
+        location_description = "selected self-contained editor"
+    else:
+        appdata = os.environ.get("APPDATA")
+        if not appdata:
+            raise ToolchainError("APPDATA is not set; cannot locate the standard Godot export templates")
+        template_root = Path(appdata) / "Godot" / "export_templates" / template_version
+        location_description = "selected standard editor"
     missing = [file_name for file_name in STANDARD_TEMPLATE_NAMES if not (template_root / file_name).is_file()]
     if missing:
         raise ToolchainError(
             f"matching Godot {template_version} Windows x86_64 export templates are missing at {template_root}; "
-            f"install them with the selected editor (missing: {', '.join(missing)})"
+            f"install them with the {location_description} (missing: {', '.join(missing)})"
         )
     return template_root.resolve()
 

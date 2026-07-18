@@ -4,7 +4,7 @@
 
 独立 Godot 4.7 Steam 应用项目（固定 540×960 设计画布，窗口可选 540×960 / 720×1280 / 1080×1920），使用专属 Steam App ID **`4955670`**，验证 Steamworks / GodotSteam 联机链路并承载一个可联机的雷电式竖版卷轴射击玩法。它是仓库内长期维护的独立应用，仍不属于正式 `client/`，也不依赖正式项目的 `PlatformServices` / 词表 / autoload 体系。
 
-Windows Steam 集成锁定为 **普通 Godot 4.7 + 官方 GodotSteam 4.20 GDExtension + Steamworks SDK 1.64**。版本、插件下载地址和 SHA-256 记录在 `steam_toolchain.lock.json`；插件安装到忽略的 `addons/godotsteam/`，工具直接使用 `--godot` 或 `GODOT_PATH` 指向的普通编辑器，并在系统临时目录下载 / 校验 / 解压插件，不复制编辑器、export templates 或保留下载缓存。标准 Windows templates 使用 Godot 用户目录。可复现安装、验证和导出统一走 `tools/steamworks_lab_toolchain.py`。
+Windows Steam 集成锁定为 **普通 Godot 4.7 + 官方 GodotSteam 4.20 GDExtension + Steamworks SDK 1.64**。版本、插件下载地址和 SHA-256 记录在 `steam_toolchain.lock.json`；插件安装到忽略的 `addons/godotsteam/`，工具直接使用 `--godot` 或 `GODOT_PATH` 指向的普通编辑器，并在系统临时目录下载 / 校验 / 解压插件，不复制编辑器、export templates 或保留下载缓存。标准 Windows templates 按所选编辑器模式从 Godot 标准用户目录或 self-contained `editor_data/` 读取。可复现安装、验证和导出统一走 `tools/steamworks_lab_toolchain.py`。
 
 UI 走 lab 内置的正式街机 demo 风格：不引入外部字体 / PNG / 图标资源，统一用 `Theme`、`StyleBoxFlat`、代码绘制和 `Tween` 做深色霓虹面板、按钮反馈、页面切换、HUD 脉冲、屏幕震动、冲击闪光、爆碎冲击环、buff / 结算入退场和表情轮展开动画。
 
@@ -43,13 +43,13 @@ py -3 tools\steamworks_lab_toolchain.py setup
 py -3 tools\steamworks_lab_toolchain.py verify
 ```
 
-`setup` 需要本机已有普通 Godot 4.7；可在子命令前用 `--godot <path>`，或通过环境变量 `GODOT_PATH` 指定。工具按 `--godot` → `GODOT_PATH` → PATH / 常见安装位置解析编辑器；显式路径无效时立即失败，不静默退回其他版本。本机使用 `G:\Godot\Godot.exe`。Steam 商店版 Godot 目录若自带同名 `steam_api64.dll` 会与 GodotSteam 插件冲突，工具会拒绝该目录并要求改用不含冲突 DLL 的普通编辑器。用图形编辑器开发时直接启动配置的编辑器：
+`setup` 需要本机已有普通 Godot 4.7；可在子命令前用 `--godot <path>`，或通过环境变量 `GODOT_PATH` 指定。工具按 `--godot` → `GODOT_PATH` → PATH / 常见安装位置解析编辑器；显式路径无效时立即失败，不静默退回其他版本。Steam 商店版 Godot 目录若自带同名 `steam_api64.dll` 会与 GodotSteam 插件冲突，工具会拒绝该目录并要求改用不含冲突 DLL 的普通编辑器。用图形编辑器开发时直接启动配置的编辑器：
 
 ```powershell
 & $env:GODOT_PATH --path 'output\steamworks_lab' --editor
 ```
 
-`setup` / `verify` 不要求 export templates。`export-release` 使用所选编辑器的精确版本定位 Godot 标准用户目录；本机 Godot 4.7.1 需要 `%APPDATA%\Godot\export_templates\4.7.1.stable` 下的官方 Windows x86_64 templates，可通过编辑器的 `Manage Export Templates` 安装。工具只校验，不下载或复制 templates。
+`setup` / `verify` 不要求 export templates。`export-release` 使用所选编辑器的精确版本定位 templates：普通安装读取 `%APPDATA%\Godot\export_templates\<版本>.stable`，带 `_sc_` 标记的 self-contained 安装读取编辑器旁的 `editor_data\export_templates\<版本>.stable`。两种模式都要求完全匹配版本的官方 Windows x86_64 templates，可通过所选编辑器的 `Manage Export Templates` 安装；工具只校验，不下载或复制 templates，也不会跨模式回退到另一目录。
 
 生成并验证 Windows x64 release：
 
@@ -141,7 +141,7 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=2
 
 ### 发布边界
 
-- 当前仓库已完成专属 App ID、初始化结果校验、运行时 App ID 核对、Steam 客户端重启、Lobby 协议校验、离线退化、GodotSteam 4.20 GDExtension 版本锁和 Windows export preset；统一工具把插件安装到忽略目录，editor 直接使用 `GODOT_PATH`，templates 使用 Godot 标准用户目录。SteamPipe app/depot VDF、后台分支和双账号实机验证仍未纳管，因此“本地 release 可构建”不等于“Depot 已可发布”。
+- 当前仓库已完成专属 App ID、初始化结果校验、运行时 App ID 核对、Steam 客户端重启、Lobby 协议校验、离线退化、GodotSteam 4.20 GDExtension 版本锁和 Windows export preset；统一工具把插件安装到忽略目录，editor 直接使用 `GODOT_PATH`，templates 使用所选 Godot 的标准用户目录或 self-contained `editor_data/`。SteamPipe app/depot VDF、后台分支和双账号实机验证仍未纳管，因此“本地 release 可构建”不等于“Depot 已可发布”。
 - `steam_appid.txt` 只用于本地开发。根据 [Steamworks 官方初始化说明](https://partner.steamgames.com/doc/sdk/api)，上传 Steam Depot 时必须从可执行文件目录移除；正式构建通过 Steam App `4955670` 启动，并由 adapter 核对 Steam runtime 报告的 App ID。
 - 当前 GDExtension 发行方式使用普通 Godot editor / export templates；Windows Depot 需要提交导出的 exe、PCK、`libgodotsteam.windows.template_release.x86_64.dll`、同版 `steam_api64.dll` 与 `THIRD_PARTY_NOTICES.txt`。插件包已经包含官方 `SteamMultiplayerPeer`，不再额外提交 module template 或第三方 Peer 原生库。
 - 发布候选必须从 `steam://run/4955670` 启动，手动验证登录、overlay、Lobby 创建 / 加入、好友邀请、`+connect_lobby` 冷启动、断网 / 未登录退化，以及单机 / 本地同屏不受影响。
@@ -181,8 +181,8 @@ Steam lobby metadata 会写入 `wasd_lab=steamworks_slime_v1` 和 `lab_version=2
 ## 故障提示
 
 - `GodotSteam singleton is not installed`：插件未安装或当前 Godot 没有加载 `addons/godotsteam/godotsteam.gdextension`；先运行 `setup` / `verify`，并确认当前 `GODOT_PATH` 指向普通 Godot 4.7。
-- `Can't open dynamic library ... Error 127`：编辑器目录存在另一份 `steam_api64.dll`，常见于 Steam 商店版 Godot；不要直接从该安装目录运行 Lab，改用不含冲突 DLL 的普通编辑器，例如本机 `G:\Godot\Godot.exe`。
-- `matching Godot ... export templates are missing`：通过所选编辑器的 `Manage Export Templates` 安装完全匹配版本的官方 Windows x86_64 templates；本机目标目录为 `%APPDATA%\Godot\export_templates\4.7.1.stable`。
+- `Can't open dynamic library ... Error 127`：编辑器目录存在另一份 `steam_api64.dll`，常见于 Steam 商店版 Godot；不要直接从该安装目录运行 Lab，改用 `--godot` / `GODOT_PATH` 指向的不含冲突 DLL 普通编辑器。
+- `matching Godot ... export templates are missing`：通过所选编辑器的 `Manage Export Templates` 安装完全匹配版本的官方 Windows x86_64 templates；普通安装检查 `%APPDATA%\Godot\export_templates\<版本>.stable`，self-contained 安装检查编辑器旁的 `editor_data\export_templates\<版本>.stable`。
 - `SteamMultiplayerPeer is missing`：GDExtension 未加载、版本不匹配或插件安装不完整；重新运行 `setup` / `verify`，不要再安装退役独立仓库或第三方 Peer。
 - 正式 exe 双击后立即消失：`restartAppIfNecessary(4955670)` 已请求 Steam 重启，但本机尚未通过 Depot 安装该 App；离线预览追加 `-- --disable-steam`，真实 Steam 路径等测试分支安装后从 Steam 库启动。
 - `Steam initialization failed for app id 4955670`：检查当前账号是否拥有 App 许可证、默认 package 是否已配置、Steam 客户端是否登录，以及本地 GodotSteam / Steamworks 二进制版本是否匹配。
