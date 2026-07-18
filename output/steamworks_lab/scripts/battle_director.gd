@@ -4,6 +4,7 @@ extends Node2D
 signal phase_changed(phase: int, payload: Dictionary)
 signal buff_options_ready(peer_id: int, options: PackedInt32Array)
 signal active_item_used(peer_id: int, item_id: int, origin: Vector2)
+signal player_enemy_hit(peer_id: int, defeated: bool, is_boss: bool)
 
 const ENEMY_SCRIPT := preload("res://scripts/enemy.gd")
 const ENEMY_BULLET_SCRIPT := preload("res://scripts/enemy_bullet.gd")
@@ -13,6 +14,7 @@ const OBSTACLE_SCRIPT := preload("res://scripts/obstacle.gd")
 const ACTIVE_PICKUP_SCRIPT := preload("res://scripts/active_pickup.gd")
 
 enum Phase { BATTLE, CHOOSING_BUFF, GAME_OVER }
+enum AiBlockerKind { ENEMY, BOSS, OBSTACLE }
 
 const BUFF_FIRE_RATE: int = 0
 const BUFF_DAMAGE: int = 1
@@ -811,6 +813,116 @@ func battle_state() -> Dictionary:
 	}
 
 
+func nearest_hostile_position(origin: Vector2) -> Vector2:
+	var nearest_position := Vector2.INF
+	var nearest_distance := INF
+	for enemy_id in _enemies.keys():
+		var enemy := _enemies.get(enemy_id) as Node2D
+		if enemy == null or not is_instance_valid(enemy) or bool(enemy.call("is_dead")):
+			continue
+		var distance := origin.distance_squared_to(enemy.global_position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_position = enemy.global_position
+	if _boss != null and is_instance_valid(_boss) and not bool(_boss.call("is_dead")):
+		var boss_distance := origin.distance_squared_to(_boss.global_position)
+		if boss_distance < nearest_distance:
+			nearest_position = _boss.global_position
+	return nearest_position
+
+
+func ai_movement_context(origin: Vector2, radius: float = 280.0) -> Dictionary:
+	var query_radius := maxf(radius, 0.0)
+	var bullets: Array[Dictionary] = []
+	var blockers: Array[Dictionary] = []
+	for bullet in _enemy_bullets:
+		if (
+			bullet == null
+			or not is_instance_valid(bullet)
+			or bullet.is_queued_for_deletion()
+			or bool(bullet.call("is_expired"))
+		):
+			continue
+		var bullet_position: Vector2 = bullet.global_position
+		if origin.distance_to(bullet_position) > query_radius:
+			continue
+		bullets.append({
+			"position": bullet_position,
+			"velocity": (
+				Vector2.ZERO
+				if _enemy_bullets_frozen
+				else bullet.call("motion_velocity") as Vector2
+			),
+			"radius": float(bullet.call("hit_radius")),
+		})
+	for enemy_id in _enemies.keys():
+		var enemy := _enemies.get(enemy_id) as Node2D
+		if (
+			enemy == null
+			or not is_instance_valid(enemy)
+			or enemy.is_queued_for_deletion()
+			or bool(enemy.call("is_dead"))
+		):
+			continue
+		_append_ai_blocker(
+			blockers,
+			origin,
+			query_radius,
+			enemy.global_position,
+			float(enemy.get("radius")),
+			AiBlockerKind.ENEMY
+		)
+	if (
+		_boss != null
+		and is_instance_valid(_boss)
+		and not _boss.is_queued_for_deletion()
+		and not bool(_boss.call("is_dead"))
+	):
+		_append_ai_blocker(
+			blockers,
+			origin,
+			query_radius,
+			_boss.global_position,
+			float(_boss.get("radius")),
+			AiBlockerKind.BOSS
+		)
+	for obstacle_id in _obstacles.keys():
+		var obstacle := _obstacles.get(obstacle_id) as Node2D
+		if (
+			obstacle == null
+			or not is_instance_valid(obstacle)
+			or obstacle.is_queued_for_deletion()
+			or bool(obstacle.call("is_destroyed"))
+		):
+			continue
+		_append_ai_blocker(
+			blockers,
+			origin,
+			query_radius,
+			obstacle.global_position,
+			float(obstacle.get("radius")),
+			AiBlockerKind.OBSTACLE
+		)
+	return {"bullets": bullets, "blockers": blockers}
+
+
+func _append_ai_blocker(
+	rows: Array[Dictionary],
+	origin: Vector2,
+	query_radius: float,
+	position: Vector2,
+	blocker_radius: float,
+	kind: int
+) -> void:
+	if origin.distance_to(position) > query_radius + blocker_radius:
+		return
+	rows.append({
+		"position": position,
+		"radius": maxf(blocker_radius, 0.0),
+		"kind": kind,
+	})
+
+
 func buff_def(buff_id: int) -> Dictionary:
 	for def in BUFF_DEFS:
 		if int(def.get("id", -1)) == buff_id:
@@ -1323,6 +1435,7 @@ func _resolve_player_bullet_hits() -> void:
 		var bullet_node := bullet as Node2D
 		var bullet_radius := float(bullet.call("hit_radius"))
 		var damage := int(bullet.get("damage"))
+		var owner_peer_id := int(bullet.get("owner_peer_id"))
 		for enemy_id in _enemies.keys():
 			var enemy := _enemies.get(enemy_id) as Node2D
 			if enemy == null or not is_instance_valid(enemy):
@@ -1334,7 +1447,9 @@ func _resolve_player_bullet_hits() -> void:
 				continue
 			enemy.call("take_hit", damage)
 			spawn_burst(bullet_node.global_position, Color(0.9, 1.0, 0.8, 0.7), 4, 80.0)
-			if bool(enemy.call("is_dead")):
+			var enemy_defeated := bool(enemy.call("is_dead"))
+			player_enemy_hit.emit(owner_peer_id, enemy_defeated, false)
+			if enemy_defeated:
 				_kill_enemy(enemy_id, enemy)
 			var pierce_remaining := int(bullet.get("pierce_remaining"))
 			if pierce_remaining > 0:
@@ -1349,7 +1464,9 @@ func _resolve_player_bullet_hits() -> void:
 			if bullet_node.global_position.distance_to(_boss.global_position) <= boss_radius + bullet_radius:
 				_boss.call("take_hit", damage)
 				spawn_burst(bullet_node.global_position, Color(1.0, 0.80, 0.58, 0.78), 5, 105.0)
-				if bool(_boss.call("is_dead")):
+				var boss_defeated := bool(_boss.call("is_dead"))
+				player_enemy_hit.emit(owner_peer_id, boss_defeated, true)
+				if boss_defeated:
 					_kill_boss()
 				bullet.queue_free()
 				continue

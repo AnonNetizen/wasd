@@ -30,6 +30,10 @@ func hit_radius() -> float:
 	return HIT_RADIUS
 
 
+func motion_velocity() -> Vector2:
+	return _direction * _speed
+
+
 func is_expired() -> bool:
 	if _age >= LIFETIME:
 		return true

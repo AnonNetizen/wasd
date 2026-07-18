@@ -10,10 +10,13 @@ const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 var _dimmer: ColorRect
 var _panel: PanelContainer
 var _title_label: Label
+var _controller_notice_label: Label
 var _resume_button: Button
 var _main_menu_button: Button
 var _panel_tween: Tween
 var _locale: String = LAB_LOCALE_SCRIPT.LOCALE_ZH_CN
+var _reconnect_blocked: bool = false
+var _missing_controller_labels: Array[String] = []
 
 
 func _ready() -> void:
@@ -30,9 +33,49 @@ func set_locale(locale: String) -> void:
 	_title_label.text = _t("pause_title")
 	_resume_button.text = _t("pause_resume")
 	_main_menu_button.text = _t("pause_back_to_menu")
+	if _reconnect_blocked:
+		_refresh_controller_notice()
 
 
 func open() -> void:
+	_reconnect_blocked = false
+	_missing_controller_labels.clear()
+	_controller_notice_label.text = ""
+	_controller_notice_label.visible = false
+	_resume_button.disabled = false
+	_animate_open()
+
+
+func open_controller_reconnect(missing_labels: Array[String]) -> void:
+	_reconnect_blocked = true
+	_missing_controller_labels = missing_labels.duplicate()
+	_refresh_controller_notice()
+	_resume_button.disabled = true
+	_animate_open()
+
+
+func mark_controllers_restored() -> void:
+	_reconnect_blocked = false
+	_missing_controller_labels.clear()
+	_controller_notice_label.text = ""
+	_controller_notice_label.visible = false
+	_resume_button.disabled = false
+	if visible:
+		_resume_button.grab_focus()
+
+
+func is_reconnect_blocked() -> bool:
+	return _reconnect_blocked
+
+
+func _refresh_controller_notice() -> void:
+	_controller_notice_label.text = _t("pause_controller_missing", {
+		"players": ", ".join(_missing_controller_labels),
+	})
+	_controller_notice_label.visible = not _missing_controller_labels.is_empty()
+
+
+func _animate_open() -> void:
 	if _panel_tween != null and _panel_tween.is_valid():
 		_panel_tween.kill()
 	visible = true
@@ -111,6 +154,15 @@ func _create_widgets() -> void:
 	_title_label.add_theme_constant_override("outline_size", 3)
 	_title_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.52))
 	rows.add_child(_title_label)
+
+	_controller_notice_label = Label.new()
+	_controller_notice_label.name = "ControllerNoticeLabel"
+	_controller_notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_controller_notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_controller_notice_label.add_theme_font_size_override("font_size", 16)
+	_controller_notice_label.add_theme_color_override("font_color", Color(1.0, 0.66, 0.48, 0.96))
+	_controller_notice_label.visible = false
+	rows.add_child(_controller_notice_label)
 
 	_resume_button = Button.new()
 	_resume_button.name = "ResumeButton"

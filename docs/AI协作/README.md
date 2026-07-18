@@ -61,7 +61,9 @@ tools/
 ├── lint_semantic_rules.py # 第三档非阻塞语义 advisory lint：特殊 id 分支、autoload 绕过、类型 / Doc / contract 常量风险
 ├── test_semantic_rules_lint.py # 语义 advisory lint 坏样例回归测试
 ├── docs_health_check.py   # 文档知识库健康检查
-└── godot_bridge.py        # 正式 client 场景树导出 / headless boot / runtime / Settings / Meta / Save / F8 runner / input playback / input smoke / golden capture 轻量 Bridge
+├── godot_bridge.py        # 正式 client 场景树导出 / headless boot / runtime / Settings / Meta / Save / F8 runner / input playback / input smoke / golden capture 轻量 Bridge
+├── steamworks_lab_toolchain.py # Steamworks Lab setup / verify / export / 隔离 smoke 权威 runner
+└── test_steamworks_lab_toolchain.py # runner、成功协议、超时、隔离、动态端口与 App ID 保护回归
 
 .codebuddy/agents/        # 项目级 subagents（codebuddy 平台；.codex/.opencode 下同名同步）
 ├── balancer.md              # 平衡测试 / 回放回归 / 数值建议
@@ -110,9 +112,9 @@ AI agent 接到任务时优先按以下顺序：
 5. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。
 6. **不是高频任务**？读 `上下文预算.md`，先按 S/M/L/XL 判断复杂度，再按任务类型决定读取范围，避免小任务过载、大任务欠规划。
 7. **任务复杂或专业**？L / XL 任务参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
-8. **是不是已有项目级 skill**？CodeBuddy / Codex / OpenCode 均有同名项目级 skill（`.codebuddy/skills/` / `.codex/skills/` / `.opencode/skills/`）：Godot 实现 / 场景验证 / Godot 测试诊断 / 试玩复盘 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选与协作面审计 / MCP 评估；外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进这些项目 skill，不再通过 reference 跳转。
+8. **是不是已有项目级 skill**？CodeBuddy / Codex / OpenCode 均有同名项目级 skill（`.codebuddy/skills/` / `.codex/skills/` / `.opencode/skills/`）：Godot 实现 / 场景验证 / Godot 测试诊断 / 试玩复盘 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选与协作面审计 / MCP 评估；其中 `godot-test-diagnostics` 固化了 Steamworks Lab 隔离 runner 与精确成功协议。外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进这些项目 skill，不再通过 reference 跳转。
 9. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
-10. **改了词表 / 数据 / 文案 / GDScript**？跑 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_gdscript_rules.py`、`python tools/lint_project_rules.py` 与非阻塞 `python tools/lint_semantic_rules.py`；改 F4 运行时追加 `python tools/godot_bridge.py --project client runtime-smoke`；改 Settings 持久化 / 回退 / 设置面板追加 `python tools/godot_bridge.py --project client settings-smoke`，改标题 / 暂停设置入口再追加 `runtime-smoke`；改 F11 Gear Mod 实现追加对应 `gear-mod-smoke` 或等价 L1 / runtime smoke；改 SaveManager / run 存档 / 续局 schema 追加 `python tools/godot_bridge.py --project client save-smoke`；改 F8 测试 / 回放 / 采样入口追加 `l1-smoke`、`replay-smoke`、`replay-runner`、`replay-runner --rerun-runtime-summary`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_level_up_choice`、四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`、`perf-probe`；改 DataLoader、项目规则 lint 或语义 lint schema 时追加对应 `test_*.py` 回归。
+10. **改了词表 / 数据 / 文案 / GDScript**？跑 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_gdscript_rules.py`、`python tools/lint_project_rules.py` 与非阻塞 `python tools/lint_semantic_rules.py`；改 F4 运行时追加 `python tools/godot_bridge.py --project client runtime-smoke`；改 Settings 持久化 / 回退 / 设置面板追加 `python tools/godot_bridge.py --project client settings-smoke`，改标题 / 暂停设置入口再追加 `runtime-smoke`；改 F11 Gear Mod 实现追加对应 `gear-mod-smoke` 或等价 L1 / runtime smoke；改 SaveManager / run 存档 / 续局 schema 追加 `python tools/godot_bridge.py --project client save-smoke`；改 F8 测试 / 回放 / 采样入口追加 `l1-smoke`、`replay-smoke`、`replay-runner`、`replay-runner --rerun-runtime-summary`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_level_up_choice`、四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`、`perf-probe`；改 DataLoader、项目规则 lint 或语义 lint schema 时追加对应 `test_*.py` 回归。改 Steamworks Lab 时先跑 `py -3 tools\steamworks_lab_toolchain.py smoke --suite <目标>`，完成前跑 `--suite all`，禁止手写 Godot / ENet 编排或碰真实 `user://` 文件。
 11. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规；大型代码改动提交前按 `代码审核流程.md` 追加一次工具先行的事实型 code review，小改动不触发正式 review。
 
 ## 维护

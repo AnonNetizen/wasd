@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_at": "2026-07-11",
+  "updated_at": "2026-07-17",
   "description": "Machine-readable AI knowledge base index for the wasd project.",
   "documents": [
     {
@@ -191,13 +191,13 @@
       "authority": "Architecture decision records and accepted constraints",
       "status": "active",
       "owner_scope": "architecture",
-      "last_reviewed": "2026-06-24",
+      "last_reviewed": "2026-07-17",
       "canonical_for": ["adr", "accepted_decisions", "constraints"],
       "must_read_for": ["decision_change", "rule_change", "design_reversal"],
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #98", "ADR #103", "ADR #104", "ADR #105", "ADR #107", "ADR #108", "ADR #109", "ADR #110", "ADR #112", "ADR #113", "ADR #114", "ADR #115", "ADR #116", "ADR #117", "ADR #118", "ADR #120", "ADR #122", "ADR #123", "ADR #124", "ADR #125", "ADR #127", "手工房间", "房间制", "RoomManager", "rooms.json", "room_sequences.json", "WarzoneDirector", "战区导演", "director hazards", "source=director", "random run seed", "普通新局 seed", "set_random_run_seed", "short loot runs", "短刷图", "撤离", "extraction", "8-12分钟", "默认无升级三选一", "Gear Mod", "装备 Mod", "Warframe mod", "MetaProgression legacy", "no old save migration", "no purchased_upgrades compensation", "internal test saves reset", "no hidden DDA", "不读玩家状态", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化矩形地图格", "rectangular map grid", "quantized rectangular grid", "grid.cell_width", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "矩形机关", "rectangular hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP决策", "破巢者", "Nestbreakers", "详细数值面板", "show_stats_panel", "Tab", "subagent", "subagent 默认主动调度", "自动调度", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup"]
+      "keywords": ["ADR", "decision", "决策", "约束", "ADR #98", "ADR #103", "ADR #104", "ADR #105", "ADR #107", "ADR #108", "ADR #109", "ADR #110", "ADR #112", "ADR #113", "ADR #114", "ADR #115", "ADR #116", "ADR #117", "ADR #118", "ADR #120", "ADR #122", "ADR #123", "ADR #124", "ADR #125", "ADR #127", "ADR #140", "手工房间", "房间制", "RoomManager", "rooms.json", "room_sequences.json", "WarzoneDirector", "战区导演", "director hazards", "source=director", "random run seed", "普通新局 seed", "set_random_run_seed", "short loot runs", "短刷图", "撤离", "extraction", "8-12分钟", "默认无升级三选一", "Gear Mod", "装备 Mod", "Warframe mod", "MetaProgression legacy", "no old save migration", "no purchased_upgrades compensation", "internal test saves reset", "no hidden DDA", "不读玩家状态", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化矩形地图格", "rectangular map grid", "quantized rectangular grid", "grid.cell_width", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "矩形机关", "rectangular hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP决策", "破巢者", "Nestbreakers", "详细数值面板", "show_stats_panel", "Tab", "subagent", "subagent 默认主动调度", "自动调度", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup", "确定性自主游击", "预判闪避", "210px", "220px复位", "92px归队", "0.8秒停靠"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -247,13 +247,13 @@
       "authority": "Testing pyramid, coverage, replay, performance, manual regression requirements",
       "status": "active",
       "owner_scope": "test",
-      "last_reviewed": "2026-06-26",
+      "last_reviewed": "2026-07-17",
       "canonical_for": ["testing_strategy", "coverage_targets", "manual_regression"],
       "must_read_for": ["test_change", "behavior_change", "replay_change"],
       "related_docs": ["docs/CICD规划.md", "docs/AI导航.md", "docs/代码文档规范.md"],
       "related_code": ["client/", "tools/", "client/tools/rng_audit.gd", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py"],
       "update_triggers": ["new testing requirement", "coverage target change", "new golden replay policy", "RNG correlation audit changes"],
-      "keywords": ["test", "测试", "GUT", "replay", "coverage", "手动回归", "MetaProgressionSystem", "局外成长", "SaveManager", "续局存档", "L0", "validate_data", "test_data_loader_schema", "DataLoader schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "rng-audit", "cross-stream correlation", "RNG correlation"]
+      "keywords": ["test", "测试", "GUT", "replay", "coverage", "手动回归", "MetaProgressionSystem", "局外成长", "SaveManager", "续局存档", "L0", "validate_data", "test_data_loader_schema", "DataLoader schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "rng-audit", "cross-stream correlation", "RNG correlation", "Steamworks Lab", "battle_smoke", "单人AI大招", "自主游击", "预判闪避", "归队合体"]
     },
     {
       "path": "docs/代码文档规范.md",
@@ -289,13 +289,13 @@
       "authority": "Project map, extension points, dependency graph, red lines including clarification-first AI workflow",
       "status": "active",
       "owner_scope": "architecture",
-      "last_reviewed": "2026-06-24",
+      "last_reviewed": "2026-07-17",
       "canonical_for": ["project_map", "extension_points", "dependency_graph", "clarification_first_rule"],
       "must_read_for": ["new_task", "extension_change", "dependency_change"],
       "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/局内刷取参考研究.md", "docs/AI辅助开发机会清单.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/gear_mod_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/AI协作/工作包/F13-HandcraftedRooms.md"],
       "related_code": ["client/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
-      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "IP美术风格", "art direction", "阵营色", "功能色", "兴趣点色彩", "量化矩形地图格", "rectangular map grid", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "SkillSystem", "StatusEffectComponent", "skill_effect_apply_status", "status_stack_rules", "silence", "沉默", "MapManager", "HazardSystem", "矩形机关", "rectangular hazard", "map_layouts.json", "FEA-12", "有限地图", "PCG", "人工摆点", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review"]
+      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "IP美术风格", "art direction", "阵营色", "功能色", "兴趣点色彩", "量化矩形地图格", "rectangular map grid", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "SkillSystem", "StatusEffectComponent", "skill_effect_apply_status", "status_stack_rules", "silence", "沉默", "MapManager", "HazardSystem", "矩形机关", "rectangular hazard", "map_layouts.json", "FEA-12", "有限地图", "PCG", "人工摆点", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review", "Steamworks Slime Lab", "ADR #140", "确定性自主游击", "预判闪避"]
     },
     {
       "path": "docs/AI记忆/项目记忆.md",
@@ -303,13 +303,13 @@
       "authority": "Long-term cross-session memory index and stable project facts; cold storage for background details",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-24",
+      "last_reviewed": "2026-07-17",
       "canonical_for": ["project_memory", "long_term_memory_index", "session_continuity", "clarification_first_rule"],
       "must_read_for": ["new_session", "memory_update", "important_change"],
       "related_docs": ["docs/AI记忆/README.md", "docs/AI记忆/current_state.json", "docs/TODO.md", "docs/AI记忆/会话日志/", "docs/决策记录.md", "docs/AI导航.md", "docs/AI协作/快速开工.md"],
       "related_code": [],
       "update_triggers": ["new ADR", "important milestone", "memory structure change", "long-term fact change"],
-      "keywords": ["memory", "项目记忆", "long-term memory", "跨会话", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "上下文压缩", "任务恢复", "cold storage", "冷存储", "按需读取"]
+      "keywords": ["memory", "项目记忆", "long-term memory", "跨会话", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "上下文压缩", "任务恢复", "cold storage", "冷存储", "按需读取", "ADR #140", "Steamworks Lab AI", "自主游击", "预判闪避"]
     },
     {
       "path": "docs/AI记忆/current_state.json",
@@ -317,7 +317,7 @@
       "authority": "Machine-readable current phase, latest ADR, open decisions, candidate next actions, and recent hot-path verification",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-25",
+      "last_reviewed": "2026-07-17",
       "canonical_for": ["current_state", "candidate_next_actions", "latest_verification", "clarification_first_rule"],
       "must_read_for": ["new_session", "memory_update", "task_resume"],
       "related_docs": ["docs/AI记忆/项目记忆.md", "docs/AI记忆/README.md", "docs/TODO.md", "docs/功能建议池.md", "docs/AI辅助开发机会清单.md", "docs/决策记录.md", "docs/修改建议.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/AI协作/工作包/F13-HandcraftedRooms.md"],
@@ -1014,16 +1014,16 @@
     {
       "path": "output/steamworks_lab/README.md",
       "type": "entrypoint",
-      "authority": "Standalone Steamworks Slime Lab runbook for App ID, GodotSteam transport, lobby protocol, offline fallback, testing, and release boundaries",
+      "authority": "Standalone Steamworks Slime Lab runbook for the single-player AI ultimate and deterministic autonomous-dodge behavior, local couch co-op, records, App ID, GodotSteam transport, lobby protocol, isolated testing, and release boundaries",
       "status": "active",
       "owner_scope": "project",
-      "last_reviewed": "2026-07-11",
-      "canonical_for": ["steamworks_lab", "steamworks_lab_app_id", "steamworks_lab_lobby_protocol", "steamworks_lab_release_boundary"],
-      "must_read_for": ["steamworks_lab_change", "steamworks_lab_app_id_change", "steamworks_lab_transport_change", "steamworks_lab_release"],
+      "last_reviewed": "2026-07-17",
+      "canonical_for": ["steamworks_lab", "steamworks_lab_single_ai_ultimate", "steamworks_lab_ai_autonomous_dodge", "steamworks_lab_app_id", "steamworks_lab_lobby_protocol", "steamworks_lab_release_boundary"],
+      "must_read_for": ["steamworks_lab_change", "steamworks_lab_single_ai_ultimate_change", "steamworks_lab_ai_autonomous_dodge_change", "steamworks_lab_app_id_change", "steamworks_lab_transport_change", "steamworks_lab_release"],
       "related_docs": ["docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json"],
-      "related_code": ["output/steamworks_lab/project.godot", "output/steamworks_lab/steam_appid.txt", "output/steamworks_lab/scripts/transport_adapter.gd", "output/steamworks_lab/scripts/network_session.gd", "output/steamworks_lab/tests/steam_config_smoke.gd"],
-      "update_triggers": ["Steam App ID changes", "GodotSteam initialization changes", "Steam lobby metadata changes", "offline fallback changes", "Steam export or depot workflow changes"],
-      "keywords": ["Steamworks Slime Lab", "steamworks_lab", "App ID", "4955670", "GodotSteam", "SteamMultiplayerPeer", "lobby", "overlay", "steam_appid.txt", "Depot", "offline", "ENet", "独立Steam应用"]
+      "related_code": ["output/steamworks_lab/project.godot", "output/steamworks_lab/steam_appid.txt", "output/steamworks_lab/scripts/ai_teammate.gd", "output/steamworks_lab/scripts/battle_director.gd", "output/steamworks_lab/scripts/battle_hud.gd", "output/steamworks_lab/scripts/steamworks_lab.gd", "output/steamworks_lab/scripts/enemy.gd", "output/steamworks_lab/scripts/boss.gd", "output/steamworks_lab/scripts/obstacle.gd", "output/steamworks_lab/scripts/transport_adapter.gd", "output/steamworks_lab/scripts/network_session.gd", "output/steamworks_lab/tests/battle_smoke.gd", "output/steamworks_lab/tests/local_couch_smoke.gd", "output/steamworks_lab/tests/steam_config_smoke.gd"],
+      "update_triggers": ["single-player AI ultimate changes", "single-player AI autonomous dodge or merge recall changes", "Steam App ID changes", "GodotSteam initialization changes", "Steam lobby metadata changes", "offline fallback changes", "Steam export or depot workflow changes"],
+      "keywords": ["Steamworks Slime Lab", "steamworks_lab", "ADR #140", "单人AI大招", "AI队友", "AI companion", "ultimate", "PlayMode.SINGLE", "确定性自主游击", "预判闪避", "敌弹轨迹", "敌人避让", "Boss避让", "障碍物避让", "210px硬限", "220px复位", "92px归队", "0.8秒停靠", "merge recall", "本地同屏", "App ID", "4955670", "GodotSteam", "SteamMultiplayerPeer", "lobby", "overlay", "steam_appid.txt", "Depot", "offline", "ENet", "独立Steam应用"]
     },
     {
       "path": "docs/代码/rng.md",

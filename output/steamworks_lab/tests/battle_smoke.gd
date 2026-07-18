@@ -1,21 +1,27 @@
 extends SceneTree
 
 # 单机战斗循环 headless smoke：
-#   godot --headless --path output/steamworks_lab --script res://tests/battle_smoke.gd
+#   py -3 tools/steamworks_lab_toolchain.py smoke --suite battle
 
 const BATTLE_DIRECTOR_SCRIPT := preload("res://scripts/battle_director.gd")
+const AI_TEAMMATE_SCRIPT := preload("res://scripts/ai_teammate.gd")
 const ENEMY_BULLET_SCRIPT := preload("res://scripts/enemy_bullet.gd")
 const LAB_SAVE_SCRIPT := preload("res://scripts/lab_save.gd")
 const LAB_SETTINGS_SCRIPT := preload("res://scripts/lab_settings.gd")
 const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
+const MAIN_SCRIPT := preload("res://scripts/steamworks_lab.gd")
 const NETWORK_SESSION_SCRIPT := preload("res://scripts/network_session.gd")
 const PLAYER_SCRIPT := preload("res://scripts/slime_player.gd")
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
 
-const SETTINGS_PATH: String = "user://settings.cfg"
-const SETTINGS_FILE_NAME: String = "settings.cfg"
-const SAVE_PATH: String = "user://save.cfg"
-const SAVE_FILE_NAME: String = "save.cfg"
+const SETTINGS_PATH: String = "user://battle_smoke_settings.cfg"
+const SETTINGS_FILE_NAME: String = "battle_smoke_settings.cfg"
+const SAVE_PATH: String = "user://battle_smoke_save.cfg"
+const SAVE_FILE_NAME: String = "battle_smoke_save.cfg"
+const SAVE_ROUNDTRIP_PATH: String = "user://battle_smoke_save_roundtrip.cfg"
+const SAVE_ROUNDTRIP_FILE_NAME: String = "battle_smoke_save_roundtrip.cfg"
+const STEAM_CLIENT_SAVE_PATH: String = "user://battle_smoke_steam_client_save.cfg"
+const STEAM_CLIENT_SAVE_FILE_NAME: String = "battle_smoke_steam_client_save.cfg"
 const EXPECTED_STEAM_APP_ID: int = 4_955_670
 
 var _failures: int = 0
@@ -34,10 +40,12 @@ func _check(condition: bool, label: String) -> void:
 
 
 func _run() -> void:
-	var settings_backup := _backup_settings_file()
-	var save_backup := _backup_save_file()
-	_remove_settings_file()
-	_remove_save_file()
+	_check(_remove_settings_file() == OK, "settings fixture removal succeeds")
+	_check(_remove_save_file() == OK, "save fixture removal succeeds")
+	_check(
+		_remove_user_file(STEAM_CLIENT_SAVE_PATH, STEAM_CLIENT_SAVE_FILE_NAME) == OK,
+		"Steam client record fixture removal succeeds"
+	)
 	_check_language_defaults()
 	_check_save_helper_defaults()
 	_check_network_session_defaults()
@@ -46,13 +54,20 @@ func _run() -> void:
 
 	var main_packed := load("res://scenes/main.tscn") as PackedScene
 	var main_scene := main_packed.instantiate()
+	_configure_test_paths(main_scene)
 	root.add_child(main_scene)
 	await process_frame
+	_check_active_fixture_paths(main_scene, SAVE_PATH)
 	_check_runtime_viewport_defaults(main_scene)
 	await _check_settings_ui(main_scene)
 	await _check_records_ui(main_scene)
+	await _check_steam_client_record_chain(main_packed)
 	await _check_customize_ui(main_scene)
 	await _check_steam_invite_ui(main_scene)
+	await _check_ai_movement_context(main_packed)
+	await _check_ai_movement_decisions()
+	await _check_single_ai_merge_recall(main_packed)
+	await _check_single_ai_ultimate(main_packed)
 
 	main_scene.call("_begin_single_player")
 	await process_frame
@@ -60,8 +75,8 @@ func _run() -> void:
 	var director: Node = main_scene.get("_director")
 	_check(director != null, "director created on single player start")
 	if director == null:
-		_restore_settings_file(settings_backup)
-		_restore_save_file(save_backup)
+		_remove_settings_file()
+		_remove_save_file()
 		quit(1)
 		return
 
@@ -144,8 +159,8 @@ func _run() -> void:
 	var player := players.get(1) as Node
 	_check(player != null, "player 1 exists")
 	if player == null:
-		_restore_settings_file(settings_backup)
-		_restore_save_file(save_backup)
+		_remove_settings_file()
+		_remove_save_file()
 		quit(1)
 		return
 	var runtime_world_rect: Rect2 = main_scene.call("current_world_rect")
@@ -173,6 +188,7 @@ func _run() -> void:
 	_check(int(snapshot_appearance.get("slime_palette_id", -1)) == 4, "snapshot carries slime palette id")
 	_check(int(snapshot_appearance.get("bullet_palette_id", -1)) == 6, "snapshot carries bullet palette id")
 	var mirror_scene := main_packed.instantiate()
+	_configure_test_paths(mirror_scene)
 	root.add_child(mirror_scene)
 	await process_frame
 	mirror_scene.call("_on_snapshot_received", appearance_snapshot)
@@ -247,22 +263,68 @@ func _run() -> void:
 	var game_over_state: Dictionary = director.call("battle_state")
 	var game_over_seconds := float(game_over_state.get("time", 0.0))
 	var active_save := main_scene.get("_save") as RefCounted
-	var best_seconds := float(active_save.get("best_survival_seconds")) if active_save != null else 0.0
-	_check(best_seconds >= game_over_seconds and best_seconds > 0.0, "game over records best survival time")
+	var best_single_seconds := (
+		float(active_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE))
+		if active_save != null
+		else 0.0
+	)
+	var best_multiplayer_seconds := (
+		float(active_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER))
+		if active_save != null
+		else 0.0
+	)
+	_check(
+		(best_single_seconds >= game_over_seconds or is_equal_approx(best_single_seconds, game_over_seconds))
+		and best_single_seconds > 0.0,
+		"single-player game over records the single-player survival time"
+	)
+	_check(is_zero_approx(best_multiplayer_seconds), "single-player game over does not change the multiplayer record")
 	var save_config := ConfigFile.new()
 	var save_load_error := save_config.load(SAVE_PATH)
-	var saved_seconds := float(save_config.get_value("records", "best_survival_seconds", 0.0)) if save_load_error == OK else 0.0
-	_check(saved_seconds >= game_over_seconds and saved_seconds > 0.0, "best survival is written to save.cfg")
+	var saved_single_seconds := (
+		float(save_config.get_value("records", "best_single_survival_seconds", 0.0))
+		if save_load_error == OK
+		else 0.0
+	)
+	var saved_multiplayer_seconds := (
+		float(save_config.get_value("records", "best_multiplayer_survival_seconds", 0.0))
+		if save_load_error == OK
+		else 0.0
+	)
+	_check(
+		(saved_single_seconds >= game_over_seconds or is_equal_approx(saved_single_seconds, game_over_seconds))
+		and saved_single_seconds > 0.0,
+		"single-player record is written to save.cfg (saved %.3f, expected %.3f, load %d)" % [
+			saved_single_seconds,
+			game_over_seconds,
+			save_load_error,
+		]
+	)
+	_check(is_zero_approx(saved_multiplayer_seconds), "single-player save leaves multiplayer record at zero")
 	if active_save != null:
-		var improved_record := bool(active_save.call("record_survival_time", 125.0))
-		var lowered_record := bool(active_save.call("record_survival_time", 60.0))
-		best_seconds = float(active_save.get("best_survival_seconds"))
-		_check(improved_record and not lowered_record and is_equal_approx(best_seconds, 125.0), "lower survival time does not overwrite record")
+		var improved_record := bool(active_save.call(
+			"record_survival_time",
+			LAB_SAVE_SCRIPT.RecordCategory.SINGLE,
+			125.0
+		))
+		var lowered_record := bool(active_save.call(
+			"record_survival_time",
+			LAB_SAVE_SCRIPT.RecordCategory.SINGLE,
+			60.0
+		))
+		best_single_seconds = float(active_save.call(
+			"best_survival_seconds",
+			LAB_SAVE_SCRIPT.RecordCategory.SINGLE
+		))
+		_check(
+			improved_record and not lowered_record and is_equal_approx(best_single_seconds, 125.0),
+			"lower single-player survival time does not overwrite its record"
+		)
 		var records_panel := main_scene.get("_records_panel") as Control
 		main_scene.call("_on_records_pressed")
 		await process_frame
 		_check(records_panel != null and records_panel.visible, "records panel can reopen with saved record")
-		_check(_node_tree_has_text(records_panel, "02:05"), "records panel formats best survival as MM:SS")
+		_check(_node_tree_has_text(records_panel, "02:05"), "records panel formats the single-player record as MM:SS")
 		if records_panel != null:
 			records_panel.call("close")
 			for index in range(12):
@@ -316,9 +378,16 @@ func _run() -> void:
 
 	var obstacle_ids_for_block: Array = obstacles.keys()
 	if not obstacle_ids_for_block.is_empty():
-		var blocking_obstacle := obstacles[obstacle_ids_for_block[0]] as Node2D
+		var blocking_obstacle_id: int = int(obstacle_ids_for_block[0])
+		var blocking_obstacle := obstacles[blocking_obstacle_id] as Node2D
 		blocking_obstacle.global_position = Vector2(270.0, 520.0)
 		blocking_obstacle.set("radius", 48.0)
+		var all_obstacles: Dictionary = obstacles.duplicate()
+		var all_enemies: Dictionary = (director.get("_enemies") as Dictionary).duplicate()
+		var active_boss := director.get("_boss") as Node2D
+		director.set("_obstacles", {blocking_obstacle_id: blocking_obstacle})
+		director.set("_enemies", {})
+		director.set("_boss", null)
 		player.call("revive_full")
 		player.set("invuln_remaining", 0.0)
 		player.call("warp_to", blocking_obstacle.global_position)
@@ -333,6 +402,8 @@ func _run() -> void:
 		_check(float(fx_state.get("shake_remaining", 0.0)) > 0.0, "player damage triggers screen shake")
 		_check(float(fx_state.get("flash_alpha", 0.0)) > 0.0, "player damage triggers impact flash")
 		main_scene.call("_clear_screen_fx")
+		director.set("_enemies", all_enemies)
+		director.set("_boss", active_boss)
 
 		director.call("_spawn_enemy_at", 0, blocking_obstacle.global_position)
 		var blocking_enemies: Dictionary = director.get("_enemies")
@@ -357,6 +428,7 @@ func _run() -> void:
 			)
 		else:
 			_check(false, "enemy available for obstacle blocking test")
+		director.set("_obstacles", all_obstacles)
 	else:
 		_check(false, "obstacle available for blocking test")
 
@@ -401,13 +473,13 @@ func _run() -> void:
 	player.call("warp_to", action_position)
 	var pickup_id := int(director.call("force_spawn_active_pickup", repair_id, player.call("body_center")))
 	_check(pickup_id > 0, "active pickup can be force spawned")
-	main_scene.call("_update_gameplay", 1.0 / 60.0)
+	director.call("_resolve_active_pickup_collection")
 	var held_item: Dictionary = director.call("active_item_for_peer", 1)
 	_check(int(held_item.get("id", -1)) == repair_id, "player collects active pickup")
 	_check(held_item.get("color", null) is Color, "active pickup exposes HUD icon color")
 
 	director.call("force_spawn_active_pickup", clear_id, player.call("body_center"))
-	main_scene.call("_update_gameplay", 1.0 / 60.0)
+	director.call("_resolve_active_pickup_collection")
 	held_item = director.call("active_item_for_peer", 1)
 	_check(int(held_item.get("id", -1)) == clear_id, "new active pickup replaces held item")
 
@@ -483,20 +555,24 @@ func _run() -> void:
 	await process_frame
 
 	var ready_scene := main_packed.instantiate()
+	_configure_test_paths(ready_scene)
 	root.add_child(ready_scene)
 	await process_frame
-	var ready_session: Node = ready_scene.get("_session")
-	ready_session.call("host_local", 24569)
+	var couch_router: Node = ready_scene.call("local_input_router")
+	var empty_devices: Array[Dictionary] = []
+	couch_router.call("debug_set_connected_devices", empty_devices)
+	ready_scene.call("_on_start_couch_pressed")
 	await process_frame
-	_check(ready_scene.get("_director") == null, "multiplayer host waits in ready room")
+	_check(ready_scene.get("_director") == null, "local couch waits in ready room")
 	ready_scene.call("_on_ready_start_battle_pressed")
-	_check(ready_scene.get("_director") == null, "ready room blocks solo launch")
-	ready_scene.call("_on_peer_joined", 2)
+	_check(ready_scene.get("_director") == null, "local couch blocks launch without a controller")
+	var one_controller: Array[Dictionary] = [{"device_id": 20, "device_name": "Smoke Pad"}]
+	couch_router.call("debug_set_connected_devices", one_controller)
 	ready_scene.call("_update_status")
 	var start_button := ready_scene.get("_start_battle_button") as Button
-	_check(start_button != null and not start_button.disabled, "ready start enabled with two players")
+	_check(start_button != null and not start_button.disabled, "local couch start enabled with P1 and one controller")
 	ready_scene.call("_on_ready_start_battle_pressed")
-	_check(ready_scene.get("_director") != null, "ready start launches after peer joins")
+	_check(ready_scene.get("_director") != null, "local couch starts in one process")
 	var ready_director: Node = ready_scene.get("_director")
 	var ready_world_rect: Rect2 = ready_scene.call("current_world_rect")
 	var ready_players: Dictionary = ready_scene.call("player_nodes")
@@ -505,8 +581,8 @@ func _run() -> void:
 	var merge_center := ready_world_rect.get_center()
 	ready_player_1.call("warp_to", merge_center + Vector2(-18.0, 0.0))
 	ready_player_2.call("warp_to", merge_center + Vector2(18.0, 0.0))
-	ready_scene.call("_on_merge_intent_received", 1, true)
-	ready_scene.call("_on_merge_intent_received", 2, true)
+	ready_scene.call("_set_merge_intent", 1, true)
+	ready_scene.call("_set_merge_intent", 2, true)
 	for index in range(50):
 		ready_scene.call("_update_gameplay", 1.0 / 60.0)
 	var active_merges: Dictionary = ready_scene.get("_active_merges")
@@ -518,6 +594,7 @@ func _run() -> void:
 	var merge_snapshot: Dictionary = ready_scene.call("_build_snapshot")
 	_check((merge_snapshot.get("merges", []) as Array).size() == 1, "snapshot carries active merge state")
 	var merge_mirror_scene := main_packed.instantiate()
+	_configure_test_paths(merge_mirror_scene)
 	root.add_child(merge_mirror_scene)
 	await process_frame
 	merge_mirror_scene.call("_ensure_player", 1, "Host")
@@ -535,6 +612,7 @@ func _run() -> void:
 	var driver_pierce := int(ready_director.call("player_pierce_count", 1))
 	ready_scene.call("_fire_player_shots", 1, Vector2.UP, false)
 	var bullets_after_driver: Array = ready_scene.get("_bullets")
+	var bullets_after_driver_count := bullets_after_driver.size()
 	var driver_bullet := bullets_after_driver[bullets_after_driver.size() - 1] as Node
 	_check(bullets_after_driver.size() == bullets_before + 1, "merge driver fires one main cannon shot")
 	_check(int(driver_bullet.get("damage")) == driver_damage + 1, "merge driver main cannon gains damage")
@@ -543,7 +621,7 @@ func _run() -> void:
 	ready_scene.call("_fire_player_shots", 2, Vector2.RIGHT, false)
 	var bullets_after_gunner: Array = ready_scene.get("_bullets")
 	var gunner_bullet := bullets_after_gunner[bullets_after_gunner.size() - 1] as Node
-	_check(bullets_after_gunner.size() == bullets_after_driver.size() + 2, "merge gunner fires two side cannon shots")
+	_check(bullets_after_gunner.size() == bullets_after_driver_count + 2, "merge gunner fires two side cannon shots")
 	_check(gunner_bullet.get("_fill_color") == gunner_palette.get("fill"), "merge gunner side cannon uses gunner bullet color")
 
 	var enemy_bullet := ENEMY_BULLET_SCRIPT.new() as Node2D
@@ -568,20 +646,24 @@ func _run() -> void:
 	var multiplayer_pause_panel := ready_scene.get("_pause_panel") as Control
 	ready_scene.call("_open_pause_menu")
 	await process_frame
-	_check(bool(ready_scene.get("_pause_menu_open")), "multiplayer pause opens local menu")
-	_check(multiplayer_pause_panel != null and multiplayer_pause_panel.visible, "multiplayer pause panel is visible")
+	_check(bool(ready_scene.get("_pause_menu_open")), "local couch pause opens shared menu")
+	_check(multiplayer_pause_panel != null and multiplayer_pause_panel.visible, "local couch pause panel is visible")
 	var multiplayer_clock_before := float(ready_director.call("battle_state").get("time", 0.0))
 	for index in range(30):
 		ready_scene.call("_update_gameplay", 1.0 / 60.0)
 	var multiplayer_clock_after := float(ready_director.call("battle_state").get("time", 0.0))
-	_check(multiplayer_clock_after > multiplayer_clock_before, "multiplayer pause does not freeze host clock")
+	_check(is_equal_approx(multiplayer_clock_after, multiplayer_clock_before), "local couch pause freezes the authoritative battle")
 	ready_scene.call("_close_pause_menu")
 	ready_scene.call("_on_multiplayer_leave_pressed")
-	_check((ready_scene.get("_active_merges") as Dictionary).is_empty(), "leaving multiplayer clears merge state")
+	_check((ready_scene.get("_active_merges") as Dictionary).is_empty(), "leaving local couch clears merge state")
 	ready_scene.queue_free()
 
-	_restore_settings_file(settings_backup)
-	_restore_save_file(save_backup)
+	_check(_remove_settings_file() == OK, "settings fixture cleanup succeeds")
+	_check(_remove_save_file() == OK, "save fixture cleanup succeeds")
+	_check(
+		_remove_user_file(STEAM_CLIENT_SAVE_PATH, STEAM_CLIENT_SAVE_FILE_NAME) == OK,
+		"Steam client record fixture cleanup succeeds"
+	)
 	if _failures == 0:
 		print("[battle-smoke] ALL PASS")
 	else:
@@ -613,21 +695,263 @@ func _check_language_defaults() -> void:
 
 
 func _check_save_helper_defaults() -> void:
-	var save := LAB_SAVE_SCRIPT.new()
+	var save := LAB_SAVE_SCRIPT.new(SAVE_PATH)
 	var loaded := bool(save.call("load_save"))
 	_check(not loaded, "missing save file reports unloaded")
-	_check(is_equal_approx(float(save.get("best_survival_seconds")), 0.0), "missing save defaults best survival to zero")
+	_check(
+		is_zero_approx(float(save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE))),
+		"missing save defaults the single-player record to zero"
+	)
+	_check(
+		is_zero_approx(float(save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER))),
+		"missing save defaults the multiplayer record to zero"
+	)
 	_check(LAB_SAVE_SCRIPT.format_survival_time(127.0) == "02:07", "survival time formats as MM:SS")
+
+	var failing_save := LAB_SAVE_SCRIPT.new("user://")
+	var failed_record := bool(failing_save.call(
+		"record_survival_time",
+		LAB_SAVE_SCRIPT.RecordCategory.SINGLE,
+		42.0
+	))
+	_check(not failed_record, "record update reports failure when save path cannot be written")
+	_check(
+		is_zero_approx(float(failing_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE))),
+		"failed record write rolls back the target category"
+	)
+	_check(
+		is_zero_approx(float(failing_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER))),
+		"failed single-player write leaves the multiplayer category unchanged"
+	)
+
+	_check(_remove_user_file(SAVE_ROUNDTRIP_PATH, SAVE_ROUNDTRIP_FILE_NAME) == OK, "roundtrip save fixture starts clean")
+	var roundtrip_save := LAB_SAVE_SCRIPT.new(SAVE_ROUNDTRIP_PATH)
+	_check(
+		bool(roundtrip_save.call("record_survival_time", LAB_SAVE_SCRIPT.RecordCategory.SINGLE, 73.0)),
+		"single-player record update succeeds after durable write"
+	)
+	_check(
+		bool(roundtrip_save.call("record_survival_time", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER, 91.0)),
+		"multiplayer record update succeeds independently"
+	)
+	_check(
+		not bool(roundtrip_save.call("record_survival_time", LAB_SAVE_SCRIPT.RecordCategory.SINGLE, 70.0)),
+		"lower single-player time does not overwrite its record"
+	)
+	_check(
+		not bool(roundtrip_save.call("record_survival_time", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER, INF)),
+		"invalid multiplayer time does not overwrite its record"
+	)
+	roundtrip_save.set("_config_path", "user://")
+	_check(
+		not bool(roundtrip_save.call("record_survival_time", LAB_SAVE_SCRIPT.RecordCategory.SINGLE, 80.0)),
+		"failed improved single-player write reports failure"
+	)
+	_check(
+		is_equal_approx(
+			float(roundtrip_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE)),
+			73.0
+		),
+		"failed improved write rolls back only the single-player category"
+	)
+	_check(
+		is_equal_approx(
+			float(roundtrip_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER)),
+			91.0
+		),
+		"single-player rollback preserves the multiplayer category"
+	)
+	var reloaded_save := LAB_SAVE_SCRIPT.new(SAVE_ROUNDTRIP_PATH)
+	_check(bool(reloaded_save.call("load_save")), "saved record reloads from disk")
+	_check(
+		is_equal_approx(
+			float(reloaded_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE)),
+			73.0
+		),
+		"reloaded single-player record matches the flushed value"
+	)
+	_check(
+		is_equal_approx(
+			float(reloaded_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER)),
+			91.0
+		),
+		"reloaded multiplayer record matches the flushed value"
+	)
+	var saved_config := ConfigFile.new()
+	_check(saved_config.load(SAVE_ROUNDTRIP_PATH) == OK, "v2 record config reloads for schema assertions")
+	_check(
+		int(saved_config.get_value("records", "schema_version", 0)) == LAB_SAVE_SCRIPT.SCHEMA_VERSION,
+		"record config writes schema version 2"
+	)
+	_check(
+		not saved_config.has_section_key("records", "best_survival_seconds"),
+		"v2 record config does not write the legacy mixed key"
+	)
+
+	var legacy_config := ConfigFile.new()
+	legacy_config.set_value("records", "best_survival_seconds", 137.0)
+	_check(
+		_write_text_file(SAVE_ROUNDTRIP_PATH, legacy_config.encode_to_text()) == OK,
+		"legacy record fixture writes successfully"
+	)
+	var migrated_save := LAB_SAVE_SCRIPT.new(SAVE_ROUNDTRIP_PATH)
+	_check(bool(migrated_save.call("load_save")), "legacy mixed record migrates to v2")
+	_check(
+		is_zero_approx(float(migrated_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE)))
+		and is_zero_approx(float(migrated_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER))),
+		"legacy mixed record is cleared instead of assigned to either category"
+	)
+	var migrated_config := ConfigFile.new()
+	_check(migrated_config.load(SAVE_ROUNDTRIP_PATH) == OK, "migrated record config reloads")
+	_check(
+		int(migrated_config.get_value("records", "schema_version", 0)) == LAB_SAVE_SCRIPT.SCHEMA_VERSION
+		and not migrated_config.has_section_key("records", "best_survival_seconds"),
+		"legacy migration persists v2 and removes the mixed key"
+	)
+
+	var future_config := ConfigFile.new()
+	future_config.set_value("records", "schema_version", LAB_SAVE_SCRIPT.SCHEMA_VERSION + 1)
+	future_config.set_value("records", "best_single_survival_seconds", 444.0)
+	_check(
+		_write_text_file(SAVE_ROUNDTRIP_PATH, future_config.encode_to_text()) == OK,
+		"future record fixture writes successfully"
+	)
+	var future_text_before := _read_text_file(SAVE_ROUNDTRIP_PATH)
+	var future_save := LAB_SAVE_SCRIPT.new(SAVE_ROUNDTRIP_PATH)
+	_check(not bool(future_save.call("load_save")), "unknown future record schema is rejected")
+	_check(
+		not bool(future_save.call("record_survival_time", LAB_SAVE_SCRIPT.RecordCategory.SINGLE, 555.0)),
+		"rejected future schema blocks later record writes"
+	)
+	var untouched_future_config := ConfigFile.new()
+	_check(
+		untouched_future_config.load(SAVE_ROUNDTRIP_PATH) == OK
+		and int(untouched_future_config.get_value("records", "schema_version", 0)) == LAB_SAVE_SCRIPT.SCHEMA_VERSION + 1
+		and is_equal_approx(
+			float(untouched_future_config.get_value("records", "best_single_survival_seconds", 0.0)),
+			444.0
+		),
+		"rejected future schema is not overwritten"
+	)
+	_check(
+		_read_text_file(SAVE_ROUNDTRIP_PATH) == future_text_before,
+		"rejected future schema remains byte-for-byte unchanged"
+	)
+	_check(_remove_user_file(SAVE_ROUNDTRIP_PATH, SAVE_ROUNDTRIP_FILE_NAME) == OK, "roundtrip save fixture cleanup succeeds")
 
 
 func _check_network_session_defaults() -> void:
 	_check(NETWORK_SESSION_SCRIPT.MAX_PLAYERS == 4, "network session caps multiplayer at 4 players")
+	_check(NETWORK_SESSION_SCRIPT.SNAPSHOT_CHUNK_SIZE == 900, "snapshot wire payload cap is 900 bytes")
+	var enemies: Array[Dictionary] = []
+	for enemy_index in range(96):
+		enemies.append({
+			"id": enemy_index,
+			"position": Vector2(float(enemy_index * 7), float(enemy_index * 11)),
+			"hp": 3 + enemy_index % 4,
+			"kind": "snapshot_roundtrip_enemy_%02d" % enemy_index,
+		})
+	var snapshot := {
+		"players": {1: {"position": Vector2(120.0, 240.0), "hp": 3}},
+		"enemies": enemies,
+		"time": 31.25,
+		"transport": "local",
+	}
+	var encoded: Dictionary = NETWORK_SESSION_SCRIPT.encode_snapshot_chunks(snapshot)
+	var chunks: Array = encoded.get("chunks", [])
+	var max_chunk_size := 0
+	for raw_chunk in chunks:
+		var chunk := raw_chunk as PackedByteArray
+		max_chunk_size = maxi(max_chunk_size, chunk.size())
+	_check(not chunks.is_empty(), "snapshot dictionary encodes to compressed wire chunks")
+	_check(chunks.size() > 1, "snapshot codec fixture spans multiple wire chunks")
+	_check(max_chunk_size > 0 and max_chunk_size <= 900, "encoded snapshot chunks stay within the payload cap")
+	var decoded: Dictionary = NETWORK_SESSION_SCRIPT.decode_snapshot_chunks(chunks, int(encoded.get("raw_size", 0)))
+	_check(decoded == snapshot, "compressed snapshot wire codec roundtrips the application dictionary")
+	_check(
+		NETWORK_SESSION_SCRIPT.decode_snapshot_chunks(chunks, NETWORK_SESSION_SCRIPT.MAX_SNAPSHOT_RAW_SIZE + 1).is_empty(),
+		"snapshot decoder rejects oversized metadata"
+	)
+	var non_dictionary_raw := var_to_bytes(["not", "a", "snapshot"])
+	var non_dictionary_compressed := non_dictionary_raw.compress(FileAccess.COMPRESSION_FASTLZ)
+	_check(
+		NETWORK_SESSION_SCRIPT.decode_snapshot_chunks([non_dictionary_compressed], non_dictionary_raw.size()).is_empty(),
+		"snapshot decoder rejects non-dictionary payloads"
+	)
+
+	var assembly_session := NETWORK_SESSION_SCRIPT.new() as Node
+	root.add_child(assembly_session)
+	var received_snapshots: Array[Dictionary] = []
+	assembly_session.connect(
+		"snapshot_received",
+		func(received_snapshot: Dictionary) -> void:
+			received_snapshots.append(received_snapshot)
+	)
+	assembly_session.call(
+		"_receive_snapshot_chunk",
+		7,
+		int(encoded.get("raw_size", 0)),
+		0,
+		chunks.size(),
+		chunks[0]
+	)
+	for chunk_index in range(chunks.size()):
+		assembly_session.call(
+			"_receive_snapshot_chunk",
+			8,
+			int(encoded.get("raw_size", 0)),
+			chunk_index,
+			chunks.size(),
+			chunks[chunk_index]
+		)
+	for chunk_index in range(1, chunks.size()):
+		assembly_session.call(
+			"_receive_snapshot_chunk",
+			7,
+			int(encoded.get("raw_size", 0)),
+			chunk_index,
+			chunks.size(),
+			chunks[chunk_index]
+		)
+	_check(
+		received_snapshots.size() == 1 and received_snapshots[0] == snapshot,
+		"snapshot assembly emits only the latest complete sequence"
+	)
+	assembly_session.call(
+		"_receive_snapshot_chunk",
+		9,
+		int(encoded.get("raw_size", 0)),
+		0,
+		chunks.size(),
+		chunks[0]
+	)
+	assembly_session.call(
+		"_receive_snapshot_chunk",
+		9,
+		int(encoded.get("raw_size", 0)) + 1,
+		1,
+		chunks.size(),
+		chunks[1]
+	)
+	_check((assembly_session.get("_incoming_snapshot_chunks") as Array).is_empty(), "snapshot assembly rejects conflicting metadata")
+	assembly_session.call(
+		"_receive_snapshot_chunk",
+		10,
+		int(encoded.get("raw_size", 0)),
+		0,
+		chunks.size(),
+		chunks[0]
+	)
+	assembly_session.call("leave_session")
+	_check((assembly_session.get("_incoming_snapshot_chunks") as Array).is_empty(), "leaving a session clears partial snapshot chunks")
+	assembly_session.free()
 
 
 func _check_steam_app_configuration() -> void:
 	_check(TRANSPORT_SCRIPT.configured_app_id() == EXPECTED_STEAM_APP_ID, "Steam ProjectSettings uses the production App ID")
 	_check(TRANSPORT_SCRIPT.development_app_id() == EXPECTED_STEAM_APP_ID, "steam_appid.txt matches the production App ID")
 	_check(TRANSPORT_SCRIPT.app_id_configuration_is_valid(), "Steam development and runtime App ID sources agree")
+	_check(TRANSPORT_SCRIPT.LAB_VERSION_VALUE == "2", "Steam lobby advertises snapshot wire protocol version 2")
 	_check(TRANSPORT_SCRIPT.steam_init_result_succeeded(true), "Steam boolean init success is accepted")
 	_check(not TRANSPORT_SCRIPT.steam_init_result_succeeded(false), "Steam boolean init failure is rejected")
 	_check(TRANSPORT_SCRIPT.steam_init_result_succeeded({"status": 0}), "Steam dictionary init success is accepted")
@@ -644,8 +968,8 @@ func _check_steam_app_configuration() -> void:
 		"Steam lobby marker mismatch is rejected"
 	)
 	_check(
-		not TRANSPORT_SCRIPT.lobby_metadata_is_compatible(TRANSPORT_SCRIPT.LAB_MARKER_VALUE, "999"),
-		"Steam lobby protocol version mismatch is rejected"
+		not TRANSPORT_SCRIPT.lobby_metadata_is_compatible(TRANSPORT_SCRIPT.LAB_MARKER_VALUE, "1"),
+		"Steam lobby rejects the legacy snapshot wire protocol version"
 	)
 	_check(
 		TRANSPORT_SCRIPT.steam_disabled_from_args(PackedStringArray(["--disable-steam"])),
@@ -664,9 +988,16 @@ func _check_runtime_viewport_defaults(main_scene: Node) -> void:
 	var design_size: Vector2 = main_scene.call("design_viewport_size")
 	var viewport_size: Vector2 = main_scene.call("current_viewport_size")
 	var world_rect: Rect2 = main_scene.call("current_world_rect")
+	var design_origin := (viewport_size - design_size) * 0.5
+	var expected_world_rect := Rect2(design_origin + Vector2(20.0, 70.0), Vector2(500.0, 870.0))
 	_check(design_size == Vector2(540.0, 960.0), "runtime design viewport is 540x960")
 	_check(viewport_size.x >= 540.0 and viewport_size.y >= 960.0, "runtime viewport helper is at least design size")
-	_check(_rects_match(world_rect, Rect2(Vector2(20.0, 70.0), Vector2(500.0, 870.0))), "runtime world rect matches fixed 540x960 design")
+	_check(_rects_match(world_rect, expected_world_rect), "runtime world rect centers the fixed design inside the expanded viewport")
+	_check(
+		world_rect.position - design_origin == Vector2(20.0, 70.0)
+		and design_origin + design_size - world_rect.end == Vector2(20.0, 20.0),
+		"runtime world rect preserves the 500x870 battle area and design margins"
+	)
 
 
 func _check_settings_ui(main_scene: Node) -> void:
@@ -729,8 +1060,34 @@ func _check_records_ui(main_scene: Node) -> void:
 	var start_page := main_scene.get("_start_page") as Control
 	var records_panel := main_scene.get("_records_panel") as Control
 	var active_save := main_scene.get("_save") as RefCounted
-	_check(active_save != null and is_equal_approx(float(active_save.get("best_survival_seconds")), 0.0), "main scene save defaults best survival to zero")
+	_check(
+		active_save != null
+		and is_zero_approx(float(active_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.SINGLE)))
+		and is_zero_approx(float(active_save.call("best_survival_seconds", LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER))),
+		"main scene save defaults both survival records to zero"
+	)
 	_check(records_panel != null, "records panel exists")
+	_check(
+		int(main_scene.call("_record_category_for_play_mode", MAIN_SCRIPT.PlayMode.SINGLE))
+		== LAB_SAVE_SCRIPT.RecordCategory.SINGLE,
+		"single-player mode maps to the single-player record"
+	)
+	_check(
+		int(main_scene.call("_record_category_for_play_mode", MAIN_SCRIPT.PlayMode.COUCH))
+		== LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER,
+		"local couch mode maps to the multiplayer record"
+	)
+	_check(
+		int(main_scene.call("_record_category_for_play_mode", MAIN_SCRIPT.PlayMode.STEAM_HOST))
+		== LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER
+		and int(main_scene.call("_record_category_for_play_mode", MAIN_SCRIPT.PlayMode.STEAM_CLIENT))
+		== LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER,
+		"Steam host and client modes map to the multiplayer record"
+	)
+	_check(
+		int(main_scene.call("_record_category_for_play_mode", MAIN_SCRIPT.PlayMode.MENU)) < 0,
+		"menu mode does not map to a record category"
+	)
 
 	main_scene.call("_show_start_page")
 	await process_frame
@@ -741,8 +1098,21 @@ func _check_records_ui(main_scene: Node) -> void:
 	await process_frame
 	_check(records_panel != null and records_panel.visible, "records panel opens from main menu")
 	_check(_node_tree_has_text(records_panel, "Records"), "English records title localizes")
-	_check(_node_tree_has_text(records_panel, "Best Survival"), "English records label localizes")
-	_check(_node_tree_has_text(records_panel, "No record yet"), "English no-record text localizes")
+	_check(_node_tree_has_text(records_panel, "Single Player Best"), "English single-player record label localizes")
+	_check(_node_tree_has_text(records_panel, "Multiplayer Best"), "English multiplayer record label localizes")
+	var single_time_label := records_panel.find_child("SingleSurvivalTime", true, false) as Label
+	var multiplayer_time_label := records_panel.find_child("MultiplayerSurvivalTime", true, false) as Label
+	_check(
+		single_time_label != null and single_time_label.text == "No record yet",
+		"English single-player empty state localizes"
+	)
+	_check(
+		multiplayer_time_label != null and multiplayer_time_label.text == "No record yet",
+		"English multiplayer empty state localizes"
+	)
+	records_panel.call("set_survival_records", 65.0, 142.0)
+	_check(single_time_label != null and single_time_label.text == "01:05", "single-player row formats its own time")
+	_check(multiplayer_time_label != null and multiplayer_time_label.text == "02:22", "multiplayer row formats its own time")
 	var english_close_button := _find_button_with_text(records_panel, "Close")
 	_check(english_close_button != null, "English records close button exists")
 	if english_close_button != null:
@@ -757,13 +1127,75 @@ func _check_records_ui(main_scene: Node) -> void:
 	main_scene.call("_on_records_pressed")
 	await process_frame
 	_check(_node_tree_has_text(records_panel, "记录"), "Chinese records title localizes")
-	_check(_node_tree_has_text(records_panel, "最长存活时间"), "Chinese records label localizes")
-	_check(_node_tree_has_text(records_panel, "暂无记录"), "Chinese no-record text localizes")
+	_check(_node_tree_has_text(records_panel, "单人最长存活"), "Chinese single-player record label localizes")
+	_check(_node_tree_has_text(records_panel, "多人最长存活"), "Chinese multiplayer record label localizes")
+	_check(single_time_label != null and single_time_label.text == "暂无记录", "Chinese single-player empty state localizes")
+	_check(multiplayer_time_label != null and multiplayer_time_label.text == "暂无记录", "Chinese multiplayer empty state localizes")
 	_check(_find_button_with_text(records_panel, "关闭") != null, "Chinese records close button localizes")
 	if records_panel != null:
 		records_panel.call("close")
 		for index in range(12):
 			await process_frame
+
+
+func _check_steam_client_record_chain(main_packed: PackedScene) -> void:
+	_check(
+		_remove_user_file(STEAM_CLIENT_SAVE_PATH, STEAM_CLIENT_SAVE_FILE_NAME) == OK,
+		"Steam client record fixture starts clean"
+	)
+	var client_scene := main_packed.instantiate() as Node2D
+	_configure_test_paths(client_scene, STEAM_CLIENT_SAVE_PATH)
+	root.add_child(client_scene)
+	await process_frame
+	client_scene.set_physics_process(false)
+	_check_active_fixture_paths(client_scene, STEAM_CLIENT_SAVE_PATH)
+
+	var client_session := client_scene.get("_session") as Node
+	client_session.set("_is_host", false)
+	client_session.set("_active_transport", "steam")
+	client_scene.set("_play_mode", MAIN_SCRIPT.PlayMode.STEAM_CLIENT)
+	client_scene.call("_start_battle")
+	var client_director := client_scene.get("_director") as Node
+	_check(
+		client_director != null and not bool(client_director.call("is_authority")),
+		"Steam client record fixture runs a non-authority battle director"
+	)
+	client_scene.call(
+		"_on_phase_received",
+		BATTLE_DIRECTOR_SCRIPT.Phase.GAME_OVER,
+		{"time": 47.0, "tier": 3, "boss_kills": 2}
+	)
+	await process_frame
+
+	var client_save := client_scene.get("_save") as RefCounted
+	_check(
+		client_save != null
+		and is_zero_approx(float(client_save.call(
+			"best_survival_seconds",
+			LAB_SAVE_SCRIPT.RecordCategory.SINGLE
+		)))
+		and is_equal_approx(float(client_save.call(
+			"best_survival_seconds",
+			LAB_SAVE_SCRIPT.RecordCategory.MULTIPLAYER
+		)), 47.0),
+		"Steam client authority payload records only the multiplayer survival time"
+	)
+	var client_config := ConfigFile.new()
+	_check(
+		client_config.load(STEAM_CLIENT_SAVE_PATH) == OK
+		and is_equal_approx(float(client_config.get_value(
+			"records",
+			"best_multiplayer_survival_seconds",
+			0.0
+		)), 47.0),
+		"Steam client phase chain flushes the authoritative Game Over time"
+	)
+	client_scene.queue_free()
+	await process_frame
+	_check(
+		_remove_user_file(STEAM_CLIENT_SAVE_PATH, STEAM_CLIENT_SAVE_FILE_NAME) == OK,
+		"Steam client record fixture cleanup succeeds"
+	)
 
 
 func _check_customize_ui(main_scene: Node) -> void:
@@ -866,6 +1298,8 @@ func _check_steam_invite_ui(main_scene: Node) -> void:
 	_check(multiplayer_body != null, "multiplayer page uses a direct body without scrolling")
 	_check(multiplayer_page.get_node_or_null("CenterContainer/MultiplayerPanel/MarginContainer/VBoxContainer/SessionSection") == null, "multiplayer page omits session info section")
 	_check(multiplayer_page.get_node_or_null("CenterContainer/MultiplayerPanel/MarginContainer/VBoxContainer/MultiplayerBody/StatusLogSection") == null, "multiplayer page omits status log section")
+	_check(_node_tree_has_text(multiplayer_page, "Local Couch Co-op"), "multiplayer page exposes local couch co-op")
+	_check(not _node_tree_has_text(multiplayer_page, "Join Local"), "player UI removes local ENet join")
 	_check(invite_button != null and invite_button.text == "Invite Friend", "English Steam invite button localizes")
 	var steam_available := bool(active_session.call("steam_available")) if active_session != null else false
 	_check(invite_button != null and invite_button.disabled == not steam_available, "Steam invite button follows availability")
@@ -894,6 +1328,1035 @@ func _check_steam_invite_ui(main_scene: Node) -> void:
 	_check(confirm_panel != null and not confirm_panel.visible, "Steam invite accept closes confirm panel")
 	main_scene.call("_on_leave_game_pressed")
 	await process_frame
+
+
+func _check_single_ai_merge_recall(main_packed: PackedScene) -> void:
+	var main_scene := main_packed.instantiate() as Node2D
+	_configure_test_paths(main_scene)
+	root.add_child(main_scene)
+	await process_frame
+	main_scene.set_physics_process(false)
+	main_scene.call("_begin_single_player")
+	await process_frame
+
+	var players: Dictionary = main_scene.call("player_nodes")
+	var player := players.get(1) as Node2D
+	var battle_hud := main_scene.get("_battle_hud") as Control
+	var ultimate_label := battle_hud.get_node_or_null("UltimateLabel") as Label if battle_hud != null else null
+	_check(player != null and battle_hud != null, "real E merge fixture starts with P1 and the battle HUD")
+	if player == null or battle_hud == null:
+		main_scene.queue_free()
+		await process_frame
+		return
+
+	main_scene.set("_single_ultimate_charge", MAIN_SCRIPT.SINGLE_ULTIMATE_MAX_CHARGE)
+	main_scene.call("_unhandled_input", _merge_key_event(true))
+	var teammate := main_scene.call("single_ai_teammate_node") as Node2D
+	var ultimate: Dictionary = main_scene.call("single_ultimate_state")
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		teammate != null
+		and bool(ultimate.get("requires_release", false))
+		and not bool(ultimate.get("merge_input_held", true)),
+		"real E summon press exposes the release-before-merge gate"
+	)
+	_check(
+		ultimate_label != null and ultimate_label.text.contains("松开 E，再按住合体"),
+		"Chinese HUD explains the release-before-merge gate"
+	)
+	battle_hud.call("set_locale", LAB_LOCALE_SCRIPT.LOCALE_EN)
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		ultimate_label != null and ultimate_label.text.contains("Release E, then hold again"),
+		"English HUD explains the release-before-merge gate"
+	)
+	battle_hud.call("set_locale", LAB_LOCALE_SCRIPT.LOCALE_ZH_CN)
+
+	main_scene.call("_unhandled_input", _merge_key_event(false))
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(
+		not bool(ultimate.get("requires_release", true))
+		and bool(ultimate.get("merge_available", false)),
+		"real E release unlocks the AI merge input"
+	)
+
+	var world_rect: Rect2 = main_scene.call("current_world_rect")
+	var player_start := Vector2(world_rect.get_center().x, world_rect.position.y + 300.0)
+	var teammate_start := player_start - Vector2.DOWN * (AI_TEAMMATE_SCRIPT.MAX_ROAM_DISTANCE + 4.0)
+	player.call("warp_to", player_start)
+	teammate.call("warp_to", teammate_start)
+	main_scene.call("_unhandled_input", _merge_key_event(true))
+	main_scene.call("_update_gameplay", 1.0 / 60.0)
+	ultimate = main_scene.call("single_ultimate_state")
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		bool(ultimate.get("merge_input_held", false))
+		and bool(ultimate.get("recalling", false))
+		and is_equal_approx(float(ultimate.get("merge_hold_elapsed", -1.0)), 0.0),
+		"holding E outside 92 pixels starts recall without merge progress"
+	)
+	_check(
+		ultimate_label != null and ultimate_label.text.contains("AI 正在归队"),
+		"HUD reports that the AI is returning"
+	)
+	battle_hud.call("set_locale", LAB_LOCALE_SCRIPT.LOCALE_EN)
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		ultimate_label != null and ultimate_label.text.contains("AI Returning"),
+		"English HUD reports that the AI is returning"
+	)
+	battle_hud.call("set_locale", LAB_LOCALE_SCRIPT.LOCALE_ZH_CN)
+
+	main_scene.call("_unhandled_input", _merge_key_event(false))
+	main_scene.call("_update_gameplay", 1.0 / 60.0)
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(
+		not bool(ultimate.get("merge_input_held", true))
+		and is_equal_approx(float(ultimate.get("merge_hold_elapsed", -1.0)), 0.0)
+		and int(ultimate.get("movement_mode", -1)) != AI_TEAMMATE_SCRIPT.MovementMode.RECALL,
+		"releasing E cancels recall and clears merge progress"
+	)
+
+	player.call("warp_to", player_start)
+	teammate.call("warp_to", teammate_start)
+	main_scene.call("_unhandled_input", _merge_key_event(true))
+	var player_body := player.get_node_or_null("SlimeBody") as Node2D
+	var teammate_body := teammate.get_node_or_null("SlimeBody") as Node2D
+	var elapsed := 0.0
+	var saw_sync_progress := false
+	var sync_hud_visible := false
+	var step := 1.0 / 60.0
+	for _index in range(ceili(2.0 / step)):
+		main_scene.call("_update_gameplay", step)
+		ultimate = main_scene.call("single_ultimate_state")
+		var hold_elapsed := float(ultimate.get("merge_hold_elapsed", 0.0))
+		if hold_elapsed > 0.0 and hold_elapsed < MAIN_SCRIPT.MERGE_HOLD_DURATION:
+			saw_sync_progress = true
+			main_scene.call("_refresh_battle_hud")
+			var chinese_sync_visible := ultimate_label != null and ultimate_label.text.contains("合体同步")
+			battle_hud.call("set_locale", LAB_LOCALE_SCRIPT.LOCALE_EN)
+			main_scene.call("_refresh_battle_hud")
+			var english_sync_visible := ultimate_label != null and ultimate_label.text.contains("Merge Sync")
+			battle_hud.call("set_locale", LAB_LOCALE_SCRIPT.LOCALE_ZH_CN)
+			sync_hud_visible = chinese_sync_visible and english_sync_visible
+		if not (main_scene.get("_active_merges") as Dictionary).is_empty():
+			break
+		player.call("set_input_vector", Vector2.DOWN)
+		player_body.call("_physics_process", step)
+		teammate_body.call("_physics_process", step)
+		elapsed += step
+
+	var active_merges: Dictionary = main_scene.get("_active_merges")
+	var merge: Dictionary = active_merges.values()[0] if not active_merges.is_empty() else {}
+	_check(
+		active_merges.size() == 1
+		and int(merge.get("driver", 0)) == 1
+		and int(merge.get("gunner", 0)) == MAIN_SCRIPT.SINGLE_AI_PEER_ID
+		and elapsed <= 2.0,
+		"moving P1 can hold E while the AI really catches up and merges within two seconds"
+	)
+	_check(saw_sync_progress and sync_hud_visible, "Chinese and English HUD show real 0.8-second merge sync progress")
+	var merge_position_before: Vector2 = merge.get("position", Vector2.ZERO)
+	Input.action_press(MAIN_SCRIPT.ACTION_MOVE_RIGHT)
+	main_scene.call("_update_gameplay", 0.1)
+	Input.action_release(MAIN_SCRIPT.ACTION_MOVE_RIGHT)
+	active_merges = main_scene.get("_active_merges")
+	merge = active_merges.values()[0] if not active_merges.is_empty() else {}
+	_check(
+		active_merges.size() == 1
+		and (merge.get("position", merge_position_before) as Vector2).x > merge_position_before.x
+		and (player.get("_input_vector") as Vector2) == Vector2.ZERO,
+		"single-player offline loop keeps P1 driving the merged slime and freezes the hidden body"
+	)
+
+	main_scene.call("_unhandled_input", _merge_key_event(false))
+	main_scene.queue_free()
+	await process_frame
+
+
+func _check_single_ai_ultimate(main_packed: PackedScene) -> void:
+	var main_scene := main_packed.instantiate() as Node2D
+	_configure_test_paths(main_scene)
+	root.add_child(main_scene)
+	await process_frame
+	main_scene.set_physics_process(false)
+	main_scene.call("_begin_single_player")
+	await process_frame
+
+	var director := main_scene.get("_director") as Node
+	var players: Dictionary = main_scene.call("player_nodes")
+	var player := players.get(1) as Node
+	var battle_hud := main_scene.get("_battle_hud") as Control
+	var ultimate_label := battle_hud.get_node_or_null("UltimateLabel") as Label if battle_hud != null else null
+	_check(director != null and player != null, "single AI ultimate fixture starts an authoritative battle")
+	if director == null or player == null:
+		main_scene.queue_free()
+		await process_frame
+		return
+
+	var ultimate: Dictionary = main_scene.call("single_ultimate_state")
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		bool(ultimate.get("visible", false))
+		and int(ultimate.get("charge", -1)) == 0
+		and not bool(ultimate.get("active", true)),
+		"single-player ultimate starts visible, empty, and inactive"
+	)
+	_check(ultimate_label != null and ultimate_label.visible, "single-player HUD exposes the ultimate row")
+
+	# Resolve real authority-side bullet collisions so charge attribution cannot drift
+	# away from BattleDirector's player_enemy_hit signal.
+	var world_rect: Rect2 = main_scene.call("current_world_rect")
+	var hit_position: Vector2 = world_rect.get_center() + Vector2(0.0, -180.0)
+	director.call("_spawn_enemy_at", 0, hit_position)
+	var enemies: Dictionary = director.get("_enemies")
+	var enemy_id := int(enemies.keys().back())
+	var enemy := enemies.get(enemy_id) as Node2D
+	enemy.set("hp", 5.0)
+	_spawn_live_test_bullet(main_scene, 1, hit_position, 1)
+	director.call("_resolve_player_bullet_hits")
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(int(ultimate.get("charge", -1)) == 1, "real P1 enemy hit adds one ultimate charge")
+
+	enemy.set("hp", 1.0)
+	_spawn_live_test_bullet(main_scene, 1, hit_position, 1)
+	director.call("_resolve_player_bullet_hits")
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(int(ultimate.get("charge", -1)) == 7, "real normal enemy kill adds hit plus five kill charge")
+
+	director.call("_spawn_boss")
+	var boss := director.get("_boss") as Node2D
+	if boss != null:
+		boss.set("hp", 1.0)
+		_spawn_live_test_bullet(main_scene, 1, boss.global_position, 1)
+		director.call("_resolve_player_bullet_hits")
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(boss != null and int(ultimate.get("charge", -1)) == 28, "real Boss kill adds hit plus twenty kill charge")
+
+	director.call("_spawn_obstacle")
+	var obstacles: Dictionary = director.get("_obstacles")
+	var obstacle_id := int(obstacles.keys().back())
+	var obstacle := obstacles.get(obstacle_id) as Node2D
+	var charge_before_obstacle := int(ultimate.get("charge", -1))
+	obstacle.set("hp", 1.0)
+	_spawn_live_test_bullet(main_scene, 1, obstacle.global_position, 1)
+	director.call("_resolve_player_bullet_hits")
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(int(ultimate.get("charge", -1)) == charge_before_obstacle, "obstacle damage does not charge the ultimate")
+
+	main_scene.call("_on_player_enemy_hit", 2, true, true)
+	_check(
+		int((main_scene.call("single_ultimate_state") as Dictionary).get("charge", -1)) == charge_before_obstacle,
+		"non-P1 damage cannot charge the single-player ultimate"
+	)
+	main_scene.set("_play_mode", MAIN_SCRIPT.PlayMode.COUCH)
+	main_scene.call("_on_player_enemy_hit", 1, true, true)
+	_check(
+		int((main_scene.call("single_ultimate_state") as Dictionary).get("charge", -1)) == charge_before_obstacle
+		and not bool(main_scene.call("_try_summon_single_ai")),
+		"non-single modes neither charge nor summon the AI ultimate"
+	)
+	main_scene.set("_play_mode", MAIN_SCRIPT.PlayMode.SINGLE)
+
+	main_scene.set("_single_ultimate_charge", MAIN_SCRIPT.SINGLE_ULTIMATE_MAX_CHARGE - 1)
+	_check(not bool(main_scene.call("_try_summon_single_ai")), "ultimate cannot summon below full charge")
+	main_scene.call("_on_player_enemy_hit", 1, true, true)
+	main_scene.call("_on_player_enemy_hit", 1, true, true)
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(
+		int(ultimate.get("charge", -1)) == MAIN_SCRIPT.SINGLE_ULTIMATE_MAX_CHARGE
+		and bool(ultimate.get("ready", false)),
+		"ultimate charge caps at one hundred and enters ready state"
+	)
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		ultimate_label != null and ultimate_label.text == "E 召唤 AI 队友",
+		"Chinese HUD shows the ready ultimate prompt"
+	)
+
+	_check(bool(main_scene.call("_try_summon_single_ai")), "full ultimate summons the AI teammate")
+	_check(not bool(main_scene.call("_try_summon_single_ai")), "active AI blocks duplicate summons")
+	var teammate := main_scene.call("single_ai_teammate_node") as Node
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(
+		teammate != null
+		and bool(ultimate.get("active", false))
+		and int(ultimate.get("charge", -1)) == 0
+		and float(ultimate.get("remaining", 0.0)) <= MAIN_SCRIPT.SINGLE_AI_DURATION,
+		"summon consumes the meter and starts the ten-second AI timer"
+	)
+	players = main_scene.call("player_nodes")
+	_check(
+		players.size() == 1 and not players.has(MAIN_SCRIPT.SINGLE_AI_PEER_ID),
+		"AI teammate stays outside the real player roster"
+	)
+	var snapshot: Dictionary = main_scene.call("_build_snapshot")
+	_check(
+		not _snapshot_has_player(snapshot, MAIN_SCRIPT.SINGLE_AI_PEER_ID),
+		"AI teammate is excluded from network snapshot player rows"
+	)
+	var enemy_targets: Array = director.call("_alive_player_positions")
+	_check(
+		enemy_targets.size() == 1
+		and (enemy_targets[0] as Vector2).distance_to(player.call("body_center")) < 0.1,
+		"enemy targeting contains P1 but excludes the AI teammate"
+	)
+	_check((director.get("_player_buffs") as Dictionary).get(MAIN_SCRIPT.SINGLE_AI_PEER_ID, {}).is_empty(), "AI teammate has no independent buff build")
+	main_scene.call("_on_player_enemy_hit", 1, true, true)
+	_check(
+		int((main_scene.call("single_ultimate_state") as Dictionary).get("charge", -1)) == 0,
+		"ultimate charge is locked while the AI teammate is active"
+	)
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(not bool(ultimate.get("merge_available", true)), "summon press cannot immediately roll into a merge")
+	_check(
+		not bool((main_scene.get("_peer_merge_intents") as Dictionary).get(1, false))
+		and not bool((main_scene.get("_peer_merge_intents") as Dictionary).get(MAIN_SCRIPT.SINGLE_AI_PEER_ID, false)),
+		"AI merge intents remain clear until P1 releases E"
+	)
+	main_scene.call("_set_local_merge_intent", false, 1)
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(bool(ultimate.get("merge_available", false)), "releasing E unlocks the AI merge prompt")
+
+	# Give P1 every projectile modifier: the AI should inherit only damage and speed.
+	director.call("apply_buff", 1, BATTLE_DIRECTOR_SCRIPT.BUFF_DAMAGE)
+	director.call("apply_buff", 1, BATTLE_DIRECTOR_SCRIPT.BUFF_BULLET_SPEED)
+	director.call("apply_buff", 1, BATTLE_DIRECTOR_SCRIPT.BUFF_MULTI_SHOT)
+	director.call("apply_buff", 1, BATTLE_DIRECTOR_SCRIPT.BUFF_PIERCE)
+	var ai_position: Vector2 = teammate.call("body_center")
+	var near_position := ai_position + Vector2(0.0, -140.0)
+	var far_position := ai_position + Vector2(180.0, -220.0)
+	director.call("_spawn_enemy_at", 0, far_position)
+	director.call("_spawn_enemy_at", 0, near_position)
+	_check(
+		(director.call("nearest_hostile_position", ai_position) as Vector2).distance_to(near_position) < 0.1,
+		"AI target query chooses the nearest living hostile"
+	)
+
+	var leader_position: Vector2 = player.call("body_center")
+	teammate.call("warp_to", world_rect.position + Vector2(30.0, 30.0))
+	var ai_bullets_before := _count_bullets_owned_by(main_scene, MAIN_SCRIPT.SINGLE_AI_PEER_ID)
+	main_scene.call("_update_gameplay", 0.01)
+	_check(
+		(teammate.call("body_center") as Vector2).distance_to(leader_position)
+		<= AI_TEAMMATE_SCRIPT.RECALL_RADIUS + 1.0,
+		"AI safely resets near P1 after exceeding the 220-pixel catch-up radius"
+	)
+	var ai_bullets_after := _count_bullets_owned_by(main_scene, MAIN_SCRIPT.SINGLE_AI_PEER_ID)
+	var ai_bullet := _last_bullet_owned_by(main_scene, MAIN_SCRIPT.SINGLE_AI_PEER_ID)
+	var expected_ai_damage := int(director.call("player_bullet_damage", 1))
+	var expected_ai_speed := 560.0 * float(director.call("player_bullet_speed_scale", 1))
+	_check(ai_bullets_after == ai_bullets_before + 1, "AI fires exactly one shot when its fixed cooldown is ready")
+	_check(
+		ai_bullet != null
+		and int(ai_bullet.get("damage")) == expected_ai_damage
+		and is_equal_approx(float(ai_bullet.get("_speed")), expected_ai_speed),
+		"AI projectile inherits P1 damage and bullet speed"
+	)
+	_check(ai_bullet != null and int(ai_bullet.get("pierce_remaining")) == 0, "AI projectile does not inherit P1 pierce")
+	main_scene.call("_update_gameplay", AI_TEAMMATE_SCRIPT.FIRE_INTERVAL - 0.02)
+	_check(
+		_count_bullets_owned_by(main_scene, MAIN_SCRIPT.SINGLE_AI_PEER_ID) == ai_bullets_after,
+		"AI cannot fire again before its fixed 0.30-second interval"
+	)
+	main_scene.call("_update_gameplay", 0.03)
+	_check(
+		_count_bullets_owned_by(main_scene, MAIN_SCRIPT.SINGLE_AI_PEER_ID) == ai_bullets_after + 1,
+		"AI fires again after its fixed interval elapses"
+	)
+
+	var remaining_before_pause := float(teammate.call("remaining_seconds"))
+	main_scene.call("_open_pause_menu")
+	main_scene.call("_update_gameplay", 1.0)
+	_check(
+		is_equal_approx(float(teammate.call("remaining_seconds")), remaining_before_pause)
+		and (teammate.get("_input_vector") as Vector2) == Vector2.ZERO,
+		"pause freezes the AI ultimate lifetime and movement input"
+	)
+	main_scene.call("_close_pause_menu")
+	director.set("phase", BATTLE_DIRECTOR_SCRIPT.Phase.CHOOSING_BUFF)
+	var remaining_before_choice := float(teammate.call("remaining_seconds"))
+	main_scene.call("_update_gameplay", 1.0)
+	_check(
+		is_equal_approx(float(teammate.call("remaining_seconds")), remaining_before_choice)
+		and (teammate.get("_input_vector") as Vector2) == Vector2.ZERO,
+		"buff selection freezes the AI ultimate lifetime and movement input"
+	)
+	director.set("phase", BATTLE_DIRECTOR_SCRIPT.Phase.BATTLE)
+
+	teammate.call("warp_to", player.call("body_center") + Vector2(0.0, -160.0))
+	main_scene.call("_set_local_merge_intent", true, 1)
+	var merge_intents: Dictionary = main_scene.get("_peer_merge_intents")
+	_check(
+		bool(merge_intents.get(1, false))
+		and bool(merge_intents.get(MAIN_SCRIPT.SINGLE_AI_PEER_ID, false)),
+		"P1 merge intent automatically receives AI consent"
+	)
+	main_scene.call("_update_gameplay", 0.10)
+	var recall_state: Dictionary = teammate.call("movement_decision_state")
+	_check(
+		int(recall_state.get("movement_mode", -1)) == AI_TEAMMATE_SCRIPT.MovementMode.RECALL,
+		"holding E while separated sends the AI into recall mode"
+	)
+	main_scene.call("_update_merges_authority", MAIN_SCRIPT.MERGE_HOLD_DURATION * 0.5)
+	_check(
+		(main_scene.get("_merge_hold_progress") as Dictionary).is_empty()
+		and (main_scene.get("_active_merges") as Dictionary).is_empty(),
+		"merge hold time does not accumulate before the AI enters the 92-pixel radius"
+	)
+	teammate.call("warp_to", player.call("body_center") + Vector2(80.0, 0.0))
+	_check(
+		bool(main_scene.call("_can_merge_pair", 1, MAIN_SCRIPT.SINGLE_AI_PEER_ID)),
+		"recalled AI becomes merge-eligible inside the authoritative 92-pixel radius"
+	)
+	main_scene.call("_update_merges_authority", MAIN_SCRIPT.MERGE_HOLD_DURATION * 0.5)
+	_check(
+		(main_scene.get("_active_merges") as Dictionary).is_empty(),
+		"arriving in range still requires the full 0.8-second merge hold"
+	)
+	main_scene.call("_update_merges_authority", MAIN_SCRIPT.MERGE_HOLD_DURATION * 0.5 + 0.01)
+	var active_merges: Dictionary = main_scene.get("_active_merges")
+	var merge_id := int(active_merges.keys()[0]) if not active_merges.is_empty() else 0
+	var merge: Dictionary = active_merges.get(merge_id, {})
+	_check(
+		active_merges.size() == 1
+		and int(merge.get("driver", 0)) == 1
+		and int(merge.get("gunner", 0)) == MAIN_SCRIPT.SINGLE_AI_PEER_ID,
+		"AI merge assigns P1 as driver and AI as automatic gunner"
+	)
+	_check(not bool(teammate.call("can_merge")), "one AI summon consumes its only merge")
+	_check(
+		merge_id > 0 and bool(main_scene.call("apply_merge_damage", merge_id, MAIN_SCRIPT.MERGE_SHIELD)),
+		"AI merge shield accepts authoritative damage"
+	)
+	_check(
+		(main_scene.get("_active_merges") as Dictionary).is_empty()
+		and main_scene.call("single_ai_teammate_node") != null
+		and not (main_scene.get("_merge_cooldowns") as Dictionary).has(1),
+		"shield break keeps the AI assisting without multiplayer cooldown"
+	)
+	main_scene.call("_set_local_merge_intent", false, 1)
+	main_scene.call("_set_local_merge_intent", true, 1)
+	main_scene.call("_update_merges_authority", MAIN_SCRIPT.MERGE_HOLD_DURATION + 0.01)
+	_check((main_scene.get("_active_merges") as Dictionary).is_empty(), "consumed AI cannot merge a second time in the same summon")
+
+	# A second summon verifies that expiry, not merge duration, owns the hard ten-second lifetime.
+	main_scene.call("_dismiss_single_ai", false)
+	main_scene.set("_single_ultimate_charge", MAIN_SCRIPT.SINGLE_ULTIMATE_MAX_CHARGE)
+	_check(bool(main_scene.call("_try_summon_single_ai")), "ultimate can be earned and summoned again after the prior AI leaves")
+	teammate = main_scene.call("single_ai_teammate_node") as Node
+	main_scene.call("_set_local_merge_intent", false, 1)
+	teammate.call("warp_to", player.call("body_center") + Vector2(24.0, 0.0))
+	teammate.set("remaining", 2.0)
+	main_scene.call("_set_local_merge_intent", true, 1)
+	main_scene.call("_update_merges_authority", MAIN_SCRIPT.MERGE_HOLD_DURATION + 0.01)
+	active_merges = main_scene.get("_active_merges")
+	merge_id = int(active_merges.keys()[0]) if not active_merges.is_empty() else 0
+	merge = active_merges.get(merge_id, {})
+	_check(
+		merge_id > 0 and float(merge.get("remaining", 99.0)) <= 2.0,
+		"late AI merge cannot outlive the summon time remaining when it begins"
+	)
+	teammate.set("remaining", 0.05)
+	main_scene.call("_update_gameplay", 0.10)
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(
+		not bool(ultimate.get("active", true))
+		and main_scene.call("single_ai_teammate_node") == null
+		and (main_scene.get("_active_merges") as Dictionary).is_empty()
+		and player.visible,
+		"AI expiry force-splits an active merge and removes the teammate"
+	)
+
+	main_scene.set("_single_ultimate_charge", 43)
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		ultimate_label != null and ultimate_label.text == "AI 援军 43 / 100",
+		"Chinese HUD displays independent ultimate charge progress"
+	)
+	main_scene.set("_single_ultimate_charge", MAIN_SCRIPT.SINGLE_ULTIMATE_MAX_CHARGE)
+	main_scene.call("_try_summon_single_ai")
+	main_scene.call("_set_local_merge_intent", false, 1)
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		ultimate_label != null
+		and ultimate_label.text.contains("AI 队友 · 剩余")
+		and ultimate_label.text.contains("按住 E 合体"),
+		"Chinese HUD displays active lifetime and merge prompt"
+	)
+	main_scene.call("_on_language_selected", 1)
+	main_scene.call("_refresh_battle_hud")
+	_check(
+		ultimate_label != null
+		and ultimate_label.text.contains("AI Ally ·")
+		and ultimate_label.text.contains("Hold E to Merge")
+		and ultimate_label.autowrap_mode != TextServer.AUTOWRAP_OFF
+		and ultimate_label.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING,
+		"English HUD shows the full active AI message without trimming"
+	)
+	main_scene.call("_on_language_selected", 0)
+	main_scene.call("_reset_battle")
+	ultimate = main_scene.call("single_ultimate_state")
+	_check(
+		int(ultimate.get("charge", -1)) == 0
+		and not bool(ultimate.get("active", true)),
+		"battle restart clears ultimate charge and any summoned AI"
+	)
+
+	main_scene.queue_free()
+	await process_frame
+
+
+func _check_ai_movement_context(main_packed: PackedScene) -> void:
+	var main_scene := main_packed.instantiate() as Node2D
+	_configure_test_paths(main_scene)
+	root.add_child(main_scene)
+	await process_frame
+	main_scene.set_physics_process(false)
+	main_scene.call("_begin_single_player")
+	await process_frame
+
+	var director := main_scene.get("_director") as Node2D
+	_check(director != null, "AI movement context fixture starts an authoritative battle")
+	if director == null:
+		main_scene.queue_free()
+		await process_frame
+		return
+
+	var world_rect: Rect2 = main_scene.call("current_world_rect")
+	var origin := world_rect.get_center()
+	director.call("clear_entities")
+	await process_frame
+	director.call(
+		"_spawn_enemy_volley",
+		origin + Vector2(0.0, -120.0),
+		PackedVector2Array([Vector2(0.6, 0.8)]),
+		320.0
+	)
+	director.call(
+		"_spawn_enemy_volley",
+		origin + Vector2(0.0, -300.0),
+		PackedVector2Array([Vector2.DOWN]),
+		180.0
+	)
+	director.call(
+		"_spawn_enemy_volley",
+		origin + Vector2(80.0, -80.0),
+		PackedVector2Array([Vector2.DOWN]),
+		240.0
+	)
+	var spawned_bullets: Array = director.get("_enemy_bullets")
+	var moving_bullet := spawned_bullets[0] as Node2D if spawned_bullets.size() > 0 else null
+	var expired_bullet := spawned_bullets[2] as Node2D if spawned_bullets.size() > 2 else null
+	if expired_bullet != null:
+		expired_bullet.set("_age", ENEMY_BULLET_SCRIPT.LIFETIME)
+	_check(
+		moving_bullet != null
+		and (moving_bullet.call("motion_velocity") as Vector2).distance_to(Vector2(192.0, 256.0)) < 0.01,
+		"enemy bullet exposes its configured motion velocity"
+	)
+	var context: Dictionary = director.call("ai_movement_context", origin, 180.0)
+	var bullet_rows: Array = context.get("bullets", [])
+	var queried_velocity: Vector2 = (
+		(bullet_rows[0] as Dictionary).get("velocity", Vector2.ZERO)
+		if bullet_rows.size() == 1 and bullet_rows[0] is Dictionary
+		else Vector2.ZERO
+	)
+	_check(
+		bullet_rows.size() == 1 and queried_velocity.distance_to(Vector2(192.0, 256.0)) < 0.01,
+		"AI threat query keeps live bullets inside its radius with exact velocity"
+	)
+	director.call("_set_enemy_bullets_frozen", true)
+	context = director.call("ai_movement_context", origin, 180.0)
+	bullet_rows = context.get("bullets", [])
+	queried_velocity = (
+		(bullet_rows[0] as Dictionary).get("velocity", Vector2.ONE)
+		if bullet_rows.size() == 1 and bullet_rows[0] is Dictionary
+		else Vector2.ONE
+	)
+	_check(
+		bullet_rows.size() == 1 and queried_velocity == Vector2.ZERO,
+		"AI threat query reports frozen bullets as stationary"
+	)
+	director.call("_set_enemy_bullets_frozen", false)
+
+	director.call("clear_entities")
+	await process_frame
+	director.call("_spawn_enemy_at", 0, origin + Vector2(60.0, 0.0))
+	director.call("_spawn_enemy_at", 0, origin + Vector2(0.0, -340.0))
+	director.call("_spawn_boss")
+	var boss := director.get("_boss") as Node2D
+	if boss != null:
+		boss.global_position = origin + Vector2(0.0, -90.0)
+	director.call("_spawn_obstacle")
+	var obstacles: Dictionary = director.get("_obstacles")
+	var obstacle_id := int(obstacles.keys().back()) if not obstacles.is_empty() else 0
+	var obstacle := obstacles.get(obstacle_id) as Node2D
+	if obstacle != null:
+		obstacle.global_position = origin + Vector2(-90.0, 0.0)
+	context = director.call("ai_movement_context", origin, 180.0)
+	var blocker_rows: Array = context.get("blockers", [])
+	var blocker_kinds: Dictionary = {}
+	for raw_row in blocker_rows:
+		if raw_row is Dictionary:
+			var row := raw_row as Dictionary
+			var kind := int(row.get("kind", -1))
+			blocker_kinds[kind] = int(blocker_kinds.get(kind, 0)) + 1
+	_check(
+		blocker_rows.size() == 3
+		and int(blocker_kinds.get(BATTLE_DIRECTOR_SCRIPT.AiBlockerKind.ENEMY, 0)) == 1
+		and int(blocker_kinds.get(BATTLE_DIRECTOR_SCRIPT.AiBlockerKind.BOSS, 0)) == 1
+		and int(blocker_kinds.get(BATTLE_DIRECTOR_SCRIPT.AiBlockerKind.OBSTACLE, 0)) == 1,
+		"AI movement context includes nearby enemy, Boss, and rock but filters distant blockers"
+	)
+
+	main_scene.queue_free()
+	await process_frame
+
+
+func _check_ai_movement_decisions() -> void:
+	var teammate := AI_TEAMMATE_SCRIPT.new() as Node2D
+	root.add_child(teammate)
+	await process_frame
+	teammate.call("set_local_or_host_simulated", true)
+	var world_rect := Rect2(0.0, 0.0, 540.0, 960.0)
+	teammate.call("set_movement_bounds", world_rect)
+	teammate.call("configure_movement_speeds", BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED)
+	var tactical_speed := _settled_ai_body_speed(
+		teammate,
+		AI_TEAMMATE_SCRIPT.MovementMode.TACTICAL,
+		world_rect
+	)
+	var dodge_speed := _settled_ai_body_speed(
+		teammate,
+		AI_TEAMMATE_SCRIPT.MovementMode.DODGE,
+		world_rect
+	)
+	var recall_speed := _settled_ai_body_speed(
+		teammate,
+		AI_TEAMMATE_SCRIPT.MovementMode.RECALL,
+		world_rect
+	)
+	_check(
+		absf(tactical_speed - BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED * AI_TEAMMATE_SCRIPT.NORMAL_SPEED_SCALE) < 10.0
+		and absf(dodge_speed - BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED * AI_TEAMMATE_SCRIPT.DODGE_SPEED_SCALE) < 10.0
+		and absf(recall_speed - BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED * AI_TEAMMATE_SCRIPT.RECALL_SPEED_SCALE) < 10.0
+		and tactical_speed < dodge_speed
+		and dodge_speed < recall_speed,
+		"AI tactical, dodge, and recall multipliers change real soft-body speed"
+	)
+	teammate.call("begin", 10.0)
+	teammate.call("configure_movement_speeds", BATTLE_DIRECTOR_SCRIPT.PLAYER_BASE_MOVE_SPEED)
+
+	var ai_origin := Vector2(270.0, 500.0)
+	var leader_position := Vector2(270.0, 640.0)
+	var target_position := Vector2(270.0, 160.0)
+	var empty_context := {"bullets": [], "blockers": []}
+	var frontal_context := {
+		"bullets": [{
+			"position": ai_origin + Vector2(0.0, -120.0),
+			"velocity": Vector2(0.0, 320.0),
+			"radius": ENEMY_BULLET_SCRIPT.HIT_RADIUS,
+		}],
+		"blockers": [],
+	}
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", ai_origin)
+	var stationary_risk: Dictionary = teammate.call(
+		"_projected_bullet_score",
+		ai_origin,
+		Vector2.ZERO,
+		frontal_context
+	)
+	teammate.call(
+		"advance_ai",
+		0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		frontal_context,
+		world_rect,
+		false,
+		false
+	)
+	var decision: Dictionary = teammate.call("movement_decision_state")
+	var dodge_direction: Vector2 = decision.get("desired_move", Vector2.ZERO)
+	_check(
+		int(decision.get("movement_mode", -1)) == AI_TEAMMATE_SCRIPT.MovementMode.DODGE
+		and absf(dodge_direction.x) > 0.5,
+		"frontal incoming fire triggers a lateral dodge"
+	)
+	_check(
+		float(decision.get("min_projected_clearance", -INF))
+		> float(stationary_risk.get("min_clearance", INF)) + 1.0,
+		"chosen dodge improves projected bullet clearance over standing still"
+	)
+	var locked_direction := dodge_direction
+	var lock_before := float(decision.get("dodge_lock_remaining", 0.0))
+	teammate.call(
+		"advance_ai",
+		0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		frontal_context,
+		world_rect,
+		false,
+		false
+	)
+	decision = teammate.call("movement_decision_state")
+	_check(
+		(decision.get("desired_move", Vector2.ZERO) as Vector2).distance_to(locked_direction) < 0.001
+		and float(decision.get("dodge_lock_remaining", 0.0)) > 0.0
+		and float(decision.get("dodge_lock_remaining", 0.0)) < lock_before,
+		"dodge direction stays locked briefly instead of oscillating every decision tick"
+	)
+
+	var miss_context := {
+		"bullets": [{
+			"position": ai_origin + Vector2(100.0, -120.0),
+			"velocity": Vector2(0.0, 320.0),
+			"radius": ENEMY_BULLET_SCRIPT.HIT_RADIUS,
+		}],
+		"blockers": [],
+	}
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", ai_origin)
+	teammate.call(
+		"advance_ai",
+		0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		miss_context,
+		world_rect,
+		false,
+		false
+	)
+	decision = teammate.call("movement_decision_state")
+	_check(
+		int(decision.get("movement_mode", -1)) == AI_TEAMMATE_SCRIPT.MovementMode.TACTICAL,
+		"nearby bullet whose trajectory cannot collide does not trigger a dodge"
+	)
+
+	var multi_bullet_context := {
+		"bullets": [
+			{
+				"position": ai_origin + Vector2(0.0, -120.0),
+				"velocity": Vector2(0.0, 320.0),
+				"radius": ENEMY_BULLET_SCRIPT.HIT_RADIUS,
+			},
+			{
+				"position": ai_origin + Vector2(120.0, 0.0),
+				"velocity": Vector2(-320.0, 0.0),
+				"radius": ENEMY_BULLET_SCRIPT.HIT_RADIUS,
+			},
+		],
+		"blockers": [],
+	}
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", ai_origin)
+	stationary_risk = teammate.call(
+		"_projected_bullet_score",
+		ai_origin,
+		Vector2.ZERO,
+		multi_bullet_context
+	)
+	teammate.call(
+		"advance_ai",
+		0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		multi_bullet_context,
+		world_rect,
+		false,
+		false
+	)
+	decision = teammate.call("movement_decision_state")
+	_check(
+		int(decision.get("movement_mode", -1)) == AI_TEAMMATE_SCRIPT.MovementMode.DODGE
+		and float(decision.get("min_projected_clearance", -INF))
+		> float(stationary_risk.get("min_clearance", INF)) + 1.0,
+		"dodge candidate scoring improves clearance against multiple simultaneous bullets"
+	)
+	var saturated_bullets: Array[Dictionary] = []
+	for _index in range(BATTLE_DIRECTOR_SCRIPT.MAX_ALIVE_ENEMY_BULLETS):
+		saturated_bullets.append({
+			"position": ai_origin + Vector2(0.0, -120.0),
+			"velocity": Vector2(0.0, 320.0),
+			"radius": ENEMY_BULLET_SCRIPT.HIT_RADIUS,
+		})
+	var saturated_context := {"bullets": saturated_bullets, "blockers": []}
+	var legal_score := float((teammate.call(
+		"_projected_bullet_score",
+		ai_origin,
+		Vector2.ZERO,
+		saturated_context
+	) as Dictionary).get("score", 0.0))
+	var outside_score := float(teammate.call(
+		"_static_position_score",
+		Vector2(world_rect.position.x - 1.0, ai_origin.y),
+		leader_position,
+		empty_context,
+		world_rect
+	))
+	var hard_blocker_score := float(teammate.call(
+		"_static_position_score",
+		ai_origin,
+		leader_position,
+		{
+			"bullets": [],
+			"blockers": [{"position": ai_origin, "radius": 36.0}],
+		},
+		world_rect
+	))
+	_check(
+		outside_score < legal_score and hard_blocker_score < legal_score,
+		"world and blocker hard constraints dominate even the maximum bullet-risk score"
+	)
+
+	for blocker_kind in [
+		BATTLE_DIRECTOR_SCRIPT.AiBlockerKind.ENEMY,
+		BATTLE_DIRECTOR_SCRIPT.AiBlockerKind.BOSS,
+		BATTLE_DIRECTOR_SCRIPT.AiBlockerKind.OBSTACLE,
+	]:
+		teammate.call("begin", 10.0)
+		teammate.call("warp_to", ai_origin)
+		var blocker_context := {
+			"bullets": [],
+			"blockers": [{
+				"position": leader_position + Vector2(
+					AI_TEAMMATE_SCRIPT.TACTICAL_FLANK_OFFSET,
+					AI_TEAMMATE_SCRIPT.TACTICAL_BACK_OFFSET
+				),
+				"radius": 36.0,
+				"kind": blocker_kind,
+			}],
+		}
+		teammate.call(
+			"advance_ai",
+			0.09,
+			leader_position,
+			Vector2.ZERO,
+			target_position,
+			blocker_context,
+			world_rect,
+			false,
+			false
+		)
+		decision = teammate.call("movement_decision_state")
+		var anchor: Vector2 = decision.get("tactical_anchor", Vector2.ZERO)
+		_check(
+			anchor.x < leader_position.x,
+			"tactical flank switches away from blocker kind %d" % blocker_kind
+		)
+
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", ai_origin)
+	teammate.call(
+		"advance_ai",
+		0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		empty_context,
+		world_rect,
+		false,
+		false
+	)
+	decision = teammate.call("movement_decision_state")
+	var tactical_anchor: Vector2 = decision.get("tactical_anchor", Vector2.ZERO)
+	_check(
+		absf(absf(tactical_anchor.x - leader_position.x) - AI_TEAMMATE_SCRIPT.TACTICAL_FLANK_OFFSET) < 0.1
+		and absf((tactical_anchor.y - leader_position.y) - AI_TEAMMATE_SCRIPT.TACTICAL_BACK_OFFSET) < 0.1,
+		"tactical movement uses the configured rear-flank anchor"
+	)
+
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", leader_position + Vector2(AI_TEAMMATE_SCRIPT.MAX_ROAM_DISTANCE - 1.0, 0.0))
+	teammate.call(
+		"advance_ai",
+		0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		empty_context,
+		world_rect,
+		false,
+		false
+	)
+	decision = teammate.call("movement_decision_state")
+	_check(
+		(decision.get("desired_move", Vector2.ZERO) as Vector2).dot(Vector2.RIGHT) < 0.0,
+		"AI at the 210-pixel roam limit chooses movement back toward formation"
+	)
+
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", leader_position + Vector2(AI_TEAMMATE_SCRIPT.CATCH_UP_DISTANCE + 1.0, 0.0))
+	teammate.call(
+		"advance_ai",
+		0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		empty_context,
+		world_rect,
+		false,
+		false
+	)
+	_check(
+		(teammate.call("body_center") as Vector2).distance_to(leader_position)
+		<= AI_TEAMMATE_SCRIPT.RECALL_RADIUS + 1.0,
+		"AI beyond the 220-pixel catch-up radius safely resets near the leader"
+	)
+
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", Vector2(world_rect.position.x + 30.0, ai_origin.y))
+	teammate.call(
+		"advance_ai",
+		0.09,
+		Vector2(70.0, leader_position.y),
+		Vector2.ZERO,
+		Vector2(70.0, target_position.y),
+		empty_context,
+		world_rect,
+		false,
+		false
+	)
+	decision = teammate.call("movement_decision_state")
+	_check(
+		(decision.get("tactical_anchor", Vector2.ZERO) as Vector2).x
+		>= world_rect.position.x + AI_TEAMMATE_SCRIPT.WORLD_MARGIN
+		and (decision.get("desired_move", Vector2.ZERO) as Vector2).x >= 0.0,
+		"tactical candidate avoids steering through the world boundary"
+	)
+
+	var recall_blocker_position := leader_position + Vector2.DOWN * AI_TEAMMATE_SCRIPT.RECALL_RADIUS
+	var recall_context := {
+		"bullets": [],
+		"blockers": [{
+			"position": recall_blocker_position,
+			"radius": 40.0,
+			"kind": BATTLE_DIRECTOR_SCRIPT.AiBlockerKind.OBSTACLE,
+		}],
+	}
+	teammate.call("begin", 10.0)
+	teammate.call("warp_to", leader_position + Vector2(0.0, -180.0))
+	teammate.call(
+		"advance_ai",
+		0.10,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		recall_context,
+		world_rect,
+		false,
+		true
+	)
+	decision = teammate.call("movement_decision_state")
+	_check(
+		int(decision.get("movement_mode", -1)) == AI_TEAMMATE_SCRIPT.MovementMode.RECALL
+		and is_equal_approx(float(decision.get("recall_elapsed", 0.0)), 0.10)
+		and not bool(decision.get("recall_warped", true)),
+		"far merge request starts recall without teleporting immediately"
+	)
+	teammate.call(
+		"advance_ai",
+		AI_TEAMMATE_SCRIPT.RECALL_FALLBACK_TIME - 0.09,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		recall_context,
+		world_rect,
+		false,
+		true
+	)
+	decision = teammate.call("movement_decision_state")
+	var recalled_position: Vector2 = teammate.call("body_center")
+	_check(
+		bool(decision.get("recall_warped", false))
+		and recalled_position.distance_to(leader_position) <= AI_TEAMMATE_SCRIPT.RECALL_RADIUS + 1.0
+		and recalled_position.distance_to(recall_blocker_position) - 40.0
+		>= AI_TEAMMATE_SCRIPT.BODY_CLEARANCE,
+		"recall blocked for 0.85 seconds safely resets to an unblocked merge position"
+	)
+
+	var remaining_before_merge := float(teammate.call("remaining_seconds"))
+	teammate.call(
+		"advance_ai",
+		0.25,
+		leader_position,
+		Vector2.ZERO,
+		target_position,
+		empty_context,
+		world_rect,
+		true,
+		false
+	)
+	decision = teammate.call("movement_decision_state")
+	_check(
+		int(decision.get("movement_mode", -1)) == AI_TEAMMATE_SCRIPT.MovementMode.MERGED
+		and (decision.get("desired_move", Vector2.ONE) as Vector2) == Vector2.ZERO
+		and is_equal_approx(
+			float(teammate.call("remaining_seconds")),
+			remaining_before_merge - 0.25
+		),
+		"merged AI freezes autonomous movement while its existing lifetime continues"
+	)
+
+	teammate.queue_free()
+	await process_frame
+
+
+func _settled_ai_body_speed(teammate: Node2D, mode: int, world_rect: Rect2) -> float:
+	teammate.call("_enter_mode", mode)
+	teammate.call("warp_to", Vector2(world_rect.position.x + 50.0, world_rect.get_center().y))
+	var body := teammate.get_node_or_null("SlimeBody") as Node2D
+	for _index in range(36):
+		teammate.call("set_input_vector", Vector2.RIGHT)
+		body.call("_physics_process", 1.0 / 60.0)
+	return (body.call("body_velocity") as Vector2).length()
+
+
+func _merge_key_event(pressed: bool) -> InputEventKey:
+	var event := InputEventKey.new()
+	event.keycode = KEY_E
+	event.pressed = pressed
+	return event
+
+
+func _spawn_live_test_bullet(main_scene: Node, peer_id: int, position: Vector2, damage: int) -> Node2D:
+	main_scene.call("_spawn_bullet", peer_id, position, Vector2.UP, 560.0, damage, 0)
+	var bullets: Array = main_scene.get("_bullets")
+	var bullet := bullets.back() as Node2D
+	bullet.set("_age", 0.2)
+	bullet.global_position = position
+	return bullet
+
+
+func _snapshot_has_player(snapshot: Dictionary, peer_id: int) -> bool:
+	for raw_player in snapshot.get("players", []):
+		if raw_player is Dictionary and int((raw_player as Dictionary).get("peer_id", 0)) == peer_id:
+			return true
+	return false
+
+
+func _count_bullets_owned_by(main_scene: Node, peer_id: int) -> int:
+	var count := 0
+	for bullet in main_scene.get("_bullets") as Array:
+		if bullet != null and is_instance_valid(bullet) and int(bullet.get("owner_peer_id")) == peer_id:
+			count += 1
+	return count
+
+
+func _last_bullet_owned_by(main_scene: Node, peer_id: int) -> Node:
+	var bullets: Array = main_scene.get("_bullets")
+	for index in range(bullets.size() - 1, -1, -1):
+		var bullet := bullets[index] as Node
+		if bullet != null and is_instance_valid(bullet) and int(bullet.get("owner_peer_id")) == peer_id:
+			return bullet
+	return null
 
 
 func _node_tree_has_text(root_node: Node, expected_text: String) -> bool:
@@ -943,53 +2406,56 @@ func _clear_director_pickups(director: Node) -> void:
 	active_pickups.clear()
 
 
-func _backup_settings_file() -> Dictionary:
-	var backup := {"exists": FileAccess.file_exists(SETTINGS_PATH), "text": ""}
-	if bool(backup["exists"]):
-		var file := FileAccess.open(SETTINGS_PATH, FileAccess.READ)
-		if file != null:
-			backup["text"] = file.get_as_text()
-	return backup
+func _configure_test_paths(main_scene: Node, save_path: String = SAVE_PATH) -> void:
+	main_scene.set("_settings_config_path", SETTINGS_PATH)
+	main_scene.set("_save_config_path", save_path)
 
 
-func _restore_settings_file(backup: Dictionary) -> void:
-	_remove_settings_file()
-	if not bool(backup.get("exists", false)):
-		return
-	var file := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
-	if file != null:
-		file.store_string(String(backup.get("text", "")))
+func _check_active_fixture_paths(main_scene: Node, expected_save_path: String) -> void:
+	var active_settings := main_scene.get("_settings") as RefCounted
+	var active_save := main_scene.get("_save") as RefCounted
+	_check(
+		active_settings != null and String(active_settings.get("_config_path")) == SETTINGS_PATH,
+		"main scene loads settings from the pre-ready smoke fixture"
+	)
+	_check(
+		active_save != null and String(active_save.get("_config_path")) == expected_save_path,
+		"main scene loads records from the pre-ready smoke fixture"
+	)
 
 
-func _remove_settings_file() -> void:
-	if not FileAccess.file_exists(SETTINGS_PATH):
-		return
+func _remove_settings_file() -> Error:
+	return _remove_user_file(SETTINGS_PATH, SETTINGS_FILE_NAME)
+
+
+func _remove_save_file() -> Error:
+	return _remove_user_file(SAVE_PATH, SAVE_FILE_NAME)
+
+
+func _write_text_file(path: String, text: String) -> Error:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return FileAccess.get_open_error()
+	file.store_string(text)
+	file.flush()
+	var write_error := file.get_error()
+	file.close()
+	return write_error
+
+
+func _read_text_file(path: String) -> String:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return ""
+	var text := file.get_as_text()
+	file.close()
+	return text
+
+
+func _remove_user_file(path: String, file_name: String) -> Error:
+	if not FileAccess.file_exists(path):
+		return OK
 	var user_dir := DirAccess.open("user://")
-	if user_dir != null:
-		user_dir.remove(SETTINGS_FILE_NAME)
-
-
-func _backup_save_file() -> Dictionary:
-	var backup := {"exists": FileAccess.file_exists(SAVE_PATH), "text": ""}
-	if bool(backup["exists"]):
-		var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
-		if file != null:
-			backup["text"] = file.get_as_text()
-	return backup
-
-
-func _restore_save_file(backup: Dictionary) -> void:
-	_remove_save_file()
-	if not bool(backup.get("exists", false)):
-		return
-	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if file != null:
-		file.store_string(String(backup.get("text", "")))
-
-
-func _remove_save_file() -> void:
-	if not FileAccess.file_exists(SAVE_PATH):
-		return
-	var user_dir := DirAccess.open("user://")
-	if user_dir != null:
-		user_dir.remove(SAVE_FILE_NAME)
+	if user_dir == null:
+		return DirAccess.get_open_error()
+	return user_dir.remove(file_name)

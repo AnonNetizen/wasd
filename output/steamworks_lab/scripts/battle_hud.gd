@@ -14,6 +14,14 @@ const BOSS_BAR_RECT := Rect2(Vector2(70.0, 14.0), Vector2(400.0, 14.0))
 const ACTIVE_SLOT_RECT := Rect2(Vector2(24.0, 62.0), Vector2(238.0, 32.0))
 const ACTIVE_KEY_RECT := Rect2(Vector2(31.0, 68.0), Vector2(32.0, 20.0))
 const ACTIVE_ICON_RECT := Rect2(Vector2(70.0, 67.0), Vector2(24.0, 22.0))
+const ULTIMATE_PANEL_RECT := Rect2(Vector2(24.0, 104.0), Vector2(238.0, 58.0))
+const ULTIMATE_PROGRESS_RECT := Rect2(Vector2(34.0, 147.0), Vector2(218.0, 8.0))
+const COUCH_CARD_MARGIN: float = 18.0
+const COUCH_CARD_GAP: float = 8.0
+const COUCH_CARD_TOP: float = 54.0
+const COUCH_CARD_HEIGHT: float = 72.0
+const COUCH_CARD_MIN_WIDTH: float = 170.0
+const COUCH_CARD_MAX_WIDTH: float = 226.0
 
 var _hp: int = 3
 var _max_hp: int = 3
@@ -30,15 +38,33 @@ var _game_over_visible: bool = false
 var _hp_flash: float = 0.0
 var _active_slot_flash: float = 0.0
 var _boss_flash: float = 0.0
+var _ultimate_flash: float = 0.0
 var _hud_tweens: Dictionary = {}
 var _locale: String = LAB_LOCALE_SCRIPT.LOCALE_ZH_CN
 var _last_state: Dictionary = {}
+var _couch_mode: bool = false
+var _player_cards: Array[Dictionary] = []
+var _notice_remaining: float = 0.0
+var _ultimate_visible: bool = false
+var _ultimate_charge: float = 0.0
+var _ultimate_max_charge: float = 100.0
+var _ultimate_ready: bool = false
+var _ultimate_active: bool = false
+var _ultimate_remaining: float = 0.0
+var _ultimate_merge_available: bool = false
+var _ultimate_recalling: bool = false
+var _ultimate_requires_release: bool = false
+var _ultimate_merge_input_held: bool = false
+var _ultimate_merge_hold_elapsed: float = 0.0
+var _ultimate_merge_hold_duration: float = 0.8
 
 var _time_label: Label
 var _tier_label: Label
 var _active_item_label: Label
 var _spectator_label: Label
 var _merge_status_label: Label
+var _ultimate_label: Label
+var _notice_label: Label
 var _game_over_panel: PanelContainer
 var _game_over_title_label: Label
 var _game_over_stats_label: Label
@@ -55,12 +81,35 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if _hp_flash <= 0.0 and _active_slot_flash <= 0.0 and _boss_flash <= 0.0:
+	if _notice_remaining > 0.0:
+		_notice_remaining = maxf(0.0, _notice_remaining - delta)
+		_notice_label.modulate.a = clampf(_notice_remaining, 0.0, 1.0)
+		if _notice_remaining <= 0.0:
+			_notice_label.visible = false
+	if (
+		_hp_flash <= 0.0
+		and _active_slot_flash <= 0.0
+		and _boss_flash <= 0.0
+		and _ultimate_flash <= 0.0
+		and _notice_remaining <= 0.0
+	):
 		return
 	_hp_flash = maxf(0.0, _hp_flash - delta * 3.6)
 	_active_slot_flash = maxf(0.0, _active_slot_flash - delta * 3.0)
 	_boss_flash = maxf(0.0, _boss_flash - delta * 4.2)
+	_ultimate_flash = maxf(0.0, _ultimate_flash - delta * 2.4)
 	queue_redraw()
+
+
+func show_notice(text: String, duration: float = 3.0) -> void:
+	_notice_label.text = text
+	_notice_label.visible = text != ""
+	_notice_label.modulate.a = 1.0
+	_notice_remaining = maxf(0.0, duration)
+
+
+func notice_text() -> String:
+	return _notice_label.text if _notice_label != null and _notice_label.visible else ""
 
 
 func set_locale(locale: String) -> void:
@@ -71,6 +120,8 @@ func set_locale(locale: String) -> void:
 		_spectator_label.text = _t("hud_spectator")
 	if _merge_status_label != null and _last_state.is_empty():
 		_merge_status_label.text = ""
+	if _ultimate_label != null and _last_state.is_empty():
+		_ultimate_label.text = ""
 	if _game_over_title_label != null:
 		_game_over_title_label.text = _t("game_over_title")
 	if _restart_button != null:
@@ -84,11 +135,22 @@ func set_locale(locale: String) -> void:
 
 func refresh(state: Dictionary) -> void:
 	_last_state = state.duplicate(true)
+	_couch_mode = bool(state.get("couch_mode", false))
+	_player_cards.clear()
+	var raw_player_cards: Variant = state.get("player_cards", [])
+	if raw_player_cards is Array:
+		for raw_card: Variant in raw_player_cards:
+			if raw_card is Dictionary:
+				_player_cards.append((raw_card as Dictionary).duplicate(true))
+			if _player_cards.size() >= 4:
+				break
 	var previous_hp := _hp
 	var previous_active_id := _active_item_id
 	var previous_active_held := _active_item_held
 	var previous_boss_hp := _boss_hp
 	var previous_boss_visible := _boss_visible
+	var previous_ultimate_ready := _ultimate_ready
+	var previous_ultimate_active := _ultimate_active
 
 	_hp = int(state.get("hp", 0))
 	_max_hp = int(state.get("max_hp", 3))
@@ -119,10 +181,41 @@ func refresh(state: Dictionary) -> void:
 		"font_color",
 		Color(0.96, 1.0, 0.70, 0.98) if _active_item_held else UI_STYLE_SCRIPT.MUTED_TEXT_COLOR
 	)
-	_spectator_label.visible = not _alive and not bool(state.get("game_over", false))
+	_active_item_label.visible = not _couch_mode
+	_spectator_label.visible = not _couch_mode and not _alive and not bool(state.get("game_over", false))
 	var merge_status := String(state.get("merge_status", ""))
 	_merge_status_label.text = merge_status
-	_merge_status_label.visible = merge_status != "" and not bool(state.get("game_over", false))
+	_merge_status_label.visible = (
+		not _couch_mode
+		and merge_status != ""
+		and not bool(state.get("game_over", false))
+	)
+
+	var raw_ultimate: Variant = state.get("ultimate", {})
+	var ultimate: Dictionary = {}
+	if raw_ultimate is Dictionary:
+		ultimate = raw_ultimate as Dictionary
+	_ultimate_visible = not _couch_mode and bool(ultimate.get("visible", false))
+	_ultimate_max_charge = maxf(float(ultimate.get("max_charge", 100.0)), 1.0)
+	_ultimate_charge = clampf(float(ultimate.get("charge", 0.0)), 0.0, _ultimate_max_charge)
+	_ultimate_ready = bool(ultimate.get("ready", false))
+	_ultimate_active = bool(ultimate.get("active", false))
+	_ultimate_remaining = maxf(float(ultimate.get("remaining", 0.0)), 0.0)
+	_ultimate_merge_available = bool(ultimate.get("merge_available", false))
+	_ultimate_recalling = bool(ultimate.get("recalling", false))
+	_ultimate_requires_release = bool(ultimate.get("requires_release", false))
+	_ultimate_merge_input_held = bool(ultimate.get("merge_input_held", false))
+	_ultimate_merge_hold_elapsed = maxf(float(ultimate.get("merge_hold_elapsed", 0.0)), 0.0)
+	_ultimate_merge_hold_duration = maxf(float(ultimate.get("merge_hold_duration", 0.8)), 0.01)
+	_ultimate_label.text = _ultimate_status_text()
+	_ultimate_label.visible = _ultimate_visible
+	var ultimate_text_color := Color(0.68, 0.94, 0.98, 0.98)
+	if _ultimate_active:
+		ultimate_text_color = Color(0.72, 1.0, 0.76, 0.98)
+	elif _ultimate_ready:
+		ultimate_text_color = Color(1.0, 0.88, 0.42, 1.0)
+	_ultimate_label.add_theme_color_override("font_color", ultimate_text_color)
+	_merge_status_label.position.y = 170.0 if _ultimate_visible else 108.0
 
 	var game_over := bool(state.get("game_over", false))
 	if game_over != _game_over_visible:
@@ -141,11 +234,48 @@ func refresh(state: Dictionary) -> void:
 		_pulse_control(_active_item_label, 1.10)
 	if _boss_visible != previous_boss_visible or (_boss_visible and _boss_hp < previous_boss_hp):
 		_boss_flash = 1.0
+	if (
+		_ultimate_visible
+		and (
+			(_ultimate_ready and not previous_ultimate_ready)
+			or (_ultimate_active and not previous_ultimate_active)
+		)
+	):
+		_ultimate_flash = 1.0
+		_pulse_control(_ultimate_label, 1.08)
 	queue_redraw()
 
 
+func player_card_count() -> int:
+	return _player_cards.size() if _couch_mode else 0
+
+
+func player_cards_state() -> Array[Dictionary]:
+	return _player_cards.duplicate(true)
+
+
+func is_couch_mode() -> bool:
+	return _couch_mode
+
+
 func _draw() -> void:
-	draw_rect(Rect2(Vector2(18.0, 18.0), Vector2(250.0, 84.0)), Color(0.0, 0.0, 0.0, 0.18), true)
+	if _couch_mode:
+		_draw_player_cards()
+	else:
+		_draw_expanded_player_hud()
+
+	if _boss_visible:
+		draw_rect(BOSS_BAR_RECT.grow(2.0), Color(0.06, 0.05, 0.06, 0.85), true)
+		var fill_ratio := clampf(_boss_hp / _boss_max_hp, 0.0, 1.0)
+		var fill_rect := Rect2(BOSS_BAR_RECT.position, Vector2(BOSS_BAR_RECT.size.x * fill_ratio, BOSS_BAR_RECT.size.y))
+		var fill_color := Color(0.86, 0.24, 0.30, 0.95).lerp(Color(1.0, 0.82, 0.34, 0.98), _boss_flash)
+		draw_rect(fill_rect, fill_color, true)
+		draw_rect(BOSS_BAR_RECT.grow(2.0), Color(1.0, 0.66 + _boss_flash * 0.24, 0.54, 0.9), false, 1.8)
+
+
+func _draw_expanded_player_hud() -> void:
+	var hud_height := 152.0 if _ultimate_visible else 84.0
+	draw_rect(Rect2(Vector2(18.0, 18.0), Vector2(250.0, hud_height)), Color(0.0, 0.0, 0.0, 0.18), true)
 	for index in range(_max_hp):
 		var center := HEART_ORIGIN + Vector2(float(index) * HEART_SPACING, 0.0)
 		if index < _hp:
@@ -163,17 +293,193 @@ func _draw() -> void:
 		slot_edge = UI_STYLE_SCRIPT.SLIME_COLOR.lerp(UI_STYLE_SCRIPT.AMBER_COLOR, _active_slot_flash * 0.55)
 	_draw_capsule(ACTIVE_SLOT_RECT, slot_fill, slot_edge, 2.0)
 	_draw_capsule(ACTIVE_KEY_RECT, Color(0.0, 0.0, 0.0, 0.35), UI_STYLE_SCRIPT.AMBER_COLOR, 1.4)
-	_draw_active_item_icon(ACTIVE_ICON_RECT, _active_item_id, _active_item_color if _active_item_held else UI_STYLE_SCRIPT.MUTED_TEXT_COLOR, _active_item_held)
+	_draw_active_item_icon(
+		ACTIVE_ICON_RECT,
+		_active_item_id,
+		_active_item_color if _active_item_held else UI_STYLE_SCRIPT.MUTED_TEXT_COLOR,
+		_active_item_held
+	)
 	var font := get_theme_default_font()
 	_draw_centered_text(font, "Q", ACTIVE_KEY_RECT.get_center() + Vector2(0.0, -1.0), 15, Color(1.0, 0.88, 0.40, 1.0))
+	if _ultimate_visible:
+		_draw_ultimate_panel()
 
-	if _boss_visible:
-		draw_rect(BOSS_BAR_RECT.grow(2.0), Color(0.06, 0.05, 0.06, 0.85), true)
-		var fill_ratio := clampf(_boss_hp / _boss_max_hp, 0.0, 1.0)
-		var fill_rect := Rect2(BOSS_BAR_RECT.position, Vector2(BOSS_BAR_RECT.size.x * fill_ratio, BOSS_BAR_RECT.size.y))
-		var fill_color := Color(0.86, 0.24, 0.30, 0.95).lerp(Color(1.0, 0.82, 0.34, 0.98), _boss_flash)
-		draw_rect(fill_rect, fill_color, true)
-		draw_rect(BOSS_BAR_RECT.grow(2.0), Color(1.0, 0.66 + _boss_flash * 0.24, 0.54, 0.9), false, 1.8)
+
+func _draw_ultimate_panel() -> void:
+	var fill_color := Color(0.030, 0.060, 0.072, 0.94)
+	var edge_color := Color(0.28, 0.72, 0.78, 0.84)
+	var progress_color := Color(0.28, 0.84, 0.90, 0.96)
+	if _ultimate_active:
+		fill_color = Color(0.055, 0.16, 0.10, 0.96)
+		edge_color = UI_STYLE_SCRIPT.SLIME_COLOR.lerp(Color.WHITE, _ultimate_flash * 0.18)
+		progress_color = Color(0.46, 1.0, 0.60, 0.98)
+	elif _ultimate_ready:
+		fill_color = Color(0.16, 0.12, 0.035, 0.96)
+		edge_color = UI_STYLE_SCRIPT.AMBER_COLOR.lerp(Color.WHITE, _ultimate_flash * 0.26)
+		progress_color = UI_STYLE_SCRIPT.AMBER_COLOR.lerp(Color(1.0, 0.94, 0.58, 1.0), _ultimate_flash * 0.45)
+
+	draw_rect(ULTIMATE_PANEL_RECT, fill_color, true)
+	draw_rect(ULTIMATE_PANEL_RECT, edge_color, false, 1.8)
+	draw_rect(ULTIMATE_PROGRESS_RECT, Color(0.02, 0.04, 0.045, 0.94), true)
+	var progress_ratio := 1.0 if _ultimate_active else clampf(_ultimate_charge / _ultimate_max_charge, 0.0, 1.0)
+	var progress_rect := Rect2(
+		ULTIMATE_PROGRESS_RECT.position,
+		Vector2(ULTIMATE_PROGRESS_RECT.size.x * progress_ratio, ULTIMATE_PROGRESS_RECT.size.y)
+	)
+	draw_rect(progress_rect, progress_color, true)
+	draw_rect(ULTIMATE_PROGRESS_RECT, Color(edge_color, 0.82), false, 1.0)
+
+
+func _ultimate_status_text() -> String:
+	if not _ultimate_visible:
+		return ""
+	if _ultimate_active:
+		var active_text := _t("hud_ultimate_active", {"seconds": "%.1f" % _ultimate_remaining})
+		if _ultimate_requires_release:
+			return "%s\n%s" % [active_text, _t("hud_ultimate_release")]
+		if _ultimate_recalling:
+			return "%s\n%s" % [active_text, _t("hud_ultimate_returning")]
+		if _ultimate_merge_input_held and _ultimate_merge_hold_elapsed > 0.0:
+			return "%s\n%s" % [active_text, _t("hud_ultimate_syncing", {
+				"elapsed": "%.1f" % _ultimate_merge_hold_elapsed,
+				"duration": "%.1f" % _ultimate_merge_hold_duration,
+			})]
+		if _ultimate_merge_available:
+			return "%s\n%s" % [active_text, _t("hud_ultimate_merge")]
+		return active_text
+	if _ultimate_ready:
+		return _t("hud_ultimate_ready")
+	return _t("hud_ultimate_charge", {
+		"charge": int(roundf(_ultimate_charge)),
+		"max": int(roundf(_ultimate_max_charge)),
+	})
+
+
+func _draw_player_cards() -> void:
+	if _player_cards.is_empty():
+		return
+	var card_count := _player_cards.size()
+	var available_width := maxf(size.x - COUCH_CARD_MARGIN * 2.0, COUCH_CARD_MIN_WIDTH)
+	var column_count := card_count
+	if available_width < float(card_count) * COUCH_CARD_MIN_WIDTH + float(card_count - 1) * COUCH_CARD_GAP:
+		column_count = mini(2, card_count)
+	var card_width := clampf(
+		(available_width - float(column_count - 1) * COUCH_CARD_GAP) / float(column_count),
+		COUCH_CARD_MIN_WIDTH,
+		COUCH_CARD_MAX_WIDTH
+	)
+	for index in range(card_count):
+		var column := index % column_count
+		var row := index / column_count
+		var card_rect := Rect2(
+			Vector2(
+				COUCH_CARD_MARGIN + float(column) * (card_width + COUCH_CARD_GAP),
+				COUCH_CARD_TOP + float(row) * (COUCH_CARD_HEIGHT + COUCH_CARD_GAP)
+			),
+			Vector2(card_width, COUCH_CARD_HEIGHT)
+		)
+		_draw_player_card(card_rect, _player_cards[index])
+
+
+func _draw_player_card(rect: Rect2, card: Dictionary) -> void:
+	var alive := bool(card.get("alive", true))
+	var raw_color: Variant = card.get("color", UI_STYLE_SCRIPT.SLIME_COLOR)
+	var player_color: Color = raw_color if raw_color is Color else UI_STYLE_SCRIPT.SLIME_COLOR
+	var fill_color := Color(0.025, 0.045, 0.042, 0.92) if alive else Color(0.025, 0.032, 0.032, 0.86)
+	var edge_color := Color(player_color, 0.94 if alive else 0.38)
+	draw_rect(rect, fill_color, true)
+	draw_rect(rect, edge_color, false, 2.0)
+	draw_rect(Rect2(rect.position, Vector2(5.0, rect.size.y)), edge_color, true)
+
+	var font := get_theme_default_font()
+	var slot_value: Variant = card.get("slot", "")
+	var slot_text := "P%d" % int(slot_value) if slot_value is int else str(slot_value)
+	var player_name := String(card.get("name", slot_text))
+	var title_text := player_name if slot_text == "" or slot_text == player_name else "%s  %s" % [slot_text, player_name]
+	var text_color := Color(0.94, 1.0, 0.90, 0.98) if alive else UI_STYLE_SCRIPT.MUTED_TEXT_COLOR
+	draw_string(
+		font,
+		rect.position + Vector2(13.0, 20.0),
+		title_text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		rect.size.x - 80.0,
+		14,
+		text_color
+	)
+	var input_hint := String(card.get("input_hint", ""))
+	draw_string(
+		font,
+		rect.position + Vector2(rect.size.x - 68.0, 19.0),
+		input_hint,
+		HORIZONTAL_ALIGNMENT_RIGHT,
+		58.0,
+		11,
+		Color(text_color, 0.72)
+	)
+
+	var hp := maxi(0, int(card.get("hp", 0)))
+	var max_hp := maxi(1, int(card.get("max_hp", 1)))
+	var hp_ratio := clampf(float(hp) / float(max_hp), 0.0, 1.0)
+	var hp_rect := Rect2(rect.position + Vector2(13.0, 28.0), Vector2(rect.size.x - 26.0, 7.0))
+	draw_rect(hp_rect, Color(0.08, 0.11, 0.10, 0.96), true)
+	draw_rect(Rect2(hp_rect.position, Vector2(hp_rect.size.x * hp_ratio, hp_rect.size.y)), Color(player_color, 0.88 if alive else 0.35), true)
+	draw_rect(hp_rect, Color(0.84, 1.0, 0.82, 0.46), false, 1.0)
+	draw_string(
+		font,
+		rect.position + Vector2(13.0, 50.0),
+		"%d/%d" % [hp, max_hp],
+		HORIZONTAL_ALIGNMENT_LEFT,
+		42.0,
+		12,
+		text_color
+	)
+
+	var active_item := _card_active_item(card)
+	var active_held := bool(active_item.get("held", not active_item.is_empty()))
+	var active_item_id := int(active_item.get("id", -1))
+	var raw_item_color: Variant = active_item.get("color", player_color)
+	var item_color: Color = raw_item_color if raw_item_color is Color else player_color
+	var item_rect := Rect2(rect.position + Vector2(57.0, 42.0), Vector2(18.0, 18.0))
+	_draw_active_item_icon(item_rect, active_item_id, item_color, active_held)
+	var item_name := _card_active_item_name(active_item)
+	draw_string(
+		font,
+		rect.position + Vector2(80.0, 56.0),
+		item_name,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		maxf(44.0, rect.size.x - 90.0),
+		11,
+		Color(text_color, 0.82)
+	)
+	var merge_status := String(card.get("merge_status", ""))
+	if merge_status != "":
+		draw_string(
+			font,
+			rect.position + Vector2(13.0, 69.0),
+			merge_status,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			rect.size.x - 26.0,
+			10,
+			Color(0.88, 1.0, 0.78, 0.88)
+		)
+
+
+func _card_active_item(card: Dictionary) -> Dictionary:
+	var raw_active_item: Variant = card.get("active_item", {})
+	if raw_active_item is Dictionary:
+		return raw_active_item
+	if raw_active_item is String and String(raw_active_item) != "":
+		return {"name": String(raw_active_item), "held": true}
+	return {}
+
+
+func _card_active_item_name(active_item: Dictionary) -> String:
+	if active_item.is_empty() or not bool(active_item.get("held", true)):
+		return _t("hud_empty_item")
+	var name_key := String(active_item.get("name_key", ""))
+	if name_key != "":
+		return _t(name_key)
+	return String(active_item.get("name", _t("hud_empty_item")))
 
 
 func _draw_capsule(rect: Rect2, fill_color: Color, outline_color: Color, outline_width: float) -> void:
@@ -350,6 +656,20 @@ func _create_labels() -> void:
 	add_child(_active_item_label)
 	_active_item_label.resized.connect(_refresh_control_pivot.bind(_active_item_label))
 
+	_ultimate_label = Label.new()
+	_ultimate_label.name = "UltimateLabel"
+	_ultimate_label.position = Vector2(34.0, 108.0)
+	_ultimate_label.size = Vector2(218.0, 36.0)
+	_ultimate_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_ultimate_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_ultimate_label.visible = false
+	_ultimate_label.add_theme_font_size_override("font_size", 13)
+	_ultimate_label.add_theme_color_override("font_color", Color(0.68, 0.94, 0.98, 0.98))
+	_ultimate_label.add_theme_constant_override("outline_size", 2)
+	_ultimate_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.72))
+	add_child(_ultimate_label)
+	_ultimate_label.resized.connect(_refresh_control_pivot.bind(_ultimate_label))
+
 	_spectator_label = Label.new()
 	_spectator_label.name = "SpectatorLabel"
 	_spectator_label.text = _t("hud_spectator")
@@ -372,6 +692,20 @@ func _create_labels() -> void:
 	_merge_status_label.add_theme_constant_override("outline_size", 4)
 	_merge_status_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.66))
 	add_child(_merge_status_label)
+
+	_notice_label = Label.new()
+	_notice_label.name = "NoticeLabel"
+	_notice_label.position = Vector2(34.0, 810.0)
+	_notice_label.size = Vector2(472.0, 72.0)
+	_notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_notice_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_notice_label.visible = false
+	_notice_label.add_theme_font_size_override("font_size", 15)
+	_notice_label.add_theme_color_override("font_color", Color(1.0, 0.78, 0.46, 0.98))
+	_notice_label.add_theme_constant_override("outline_size", 4)
+	_notice_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.76))
+	add_child(_notice_label)
 
 
 func _create_game_over_panel() -> void:
