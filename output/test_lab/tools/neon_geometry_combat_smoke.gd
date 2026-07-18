@@ -38,6 +38,9 @@ func _run_smoke() -> void:
 	_check(int(initial_state.get("player_pool_size", 0)) == 48, "Player projectile pool is fixed at 48.")
 	_check(int(initial_state.get("enemy_pool_size", 0)) == 48, "Enemy projectile pool is fixed at 48.")
 	_check(int(initial_state.get("vfx_pool_size", 0)) == 64, "VFX pool is fixed at 64.")
+	_check(int(initial_state.get("player_trail_capacity", 0)) == 14, "Player movement trail capacity is fixed at 14 samples.")
+	_check(int(initial_state.get("projectile_trail_capacity", 0)) == 10, "Projectile trail capacity is fixed at 10 samples.")
+	_check(int(initial_state.get("max_projectile_trail_samples", -1)) == 0, "Reset projectiles start with empty trail histories.")
 	var initial_player_position: Vector2 = initial_state.get("player_position", Vector2.ZERO) as Vector2
 	var initial_enemy_positions: Array = initial_state.get("enemy_positions", []) as Array
 	var initial_motion_phases: Array = initial_state.get("actor_motion_phases", []) as Array
@@ -65,19 +68,43 @@ func _run_smoke() -> void:
 	_check(int(upgraded_state.get("current_volley_size", 0)) == 3, "Upgrade changes the player volley to three projectiles.")
 	_check(float(upgraded_state.get("upgrade_wave_remaining", 0.0)) > 0.0, "Upgrade starts the refraction deployment wave.")
 
+	scene.call("debug_prepare_capture_phase", 0)
+	for _index in range(4):
+		await process_frame
+	var charge_state := _state(scene)
+	_check(int(charge_state.get("capture_phase", -1)) == 0, "Charge capture exposes the requested phase.")
+	_check(int(charge_state.get("player_projectile_count", 0)) >= 6, "Charge capture contains two depth-separated tri-volley patterns.")
+	_check(int(charge_state.get("enemy_wedge_count", -1)) == 0, "Charge capture stays clear of already-fired wedge projectiles.")
+	_check(int(charge_state.get("enemy_ring_count", -1)) == 0, "Charge capture stays clear of already-fired ring projectiles.")
+	_check(int(charge_state.get("max_projectile_trail_samples", 0)) == 10, "Charge capture primes bounded projectile histories.")
+
 	scene.call("debug_prepare_capture")
 	for _index in range(4):
 		await process_frame
 	var capture_state := _state(scene)
-	_check(int(capture_state.get("player_projectile_count", 0)) >= 6, "Capture state contains two depth-separated tri-volley patterns.")
-	_check(int(capture_state.get("enemy_wedge_count", 0)) >= 3, "Capture state contains hunter wedge projectiles.")
-	_check(int(capture_state.get("enemy_ring_count", 0)) >= 5, "Capture state contains tri-axis ring projectiles.")
+	_check(int(capture_state.get("capture_phase", -1)) == 1, "Default capture delegates to the contact phase.")
+	_check(int(capture_state.get("player_projectile_count", 0)) >= 9, "Contact capture retains three depth-separated tri-volley patterns after the impact bolt resolves.")
+	_check(int(capture_state.get("enemy_wedge_count", 0)) >= 3, "Contact capture contains hunter wedge projectiles.")
+	_check(int(capture_state.get("enemy_ring_count", 0)) >= 5, "Contact capture contains tri-axis ring projectiles.")
 	_check(bool(capture_state.get("projectile_teams_valid", false)), "All three projectile kinds stay in their correct team pools.")
 	_check(int(capture_state.get("active_vfx_count", 0)) > 0, "Capture state contains active geometric VFX.")
 	_check(int(capture_state.get("active_vfx_kind_count", 0)) >= 5, "Capture state exercises at least five layered VFX families.")
+	_check(int(capture_state.get("player_trail_sample_count", 0)) == 14, "Contact capture preserves the fixed player ribbon history.")
+	_check(int(capture_state.get("max_projectile_trail_samples", 0)) <= 10, "Contact projectile histories stay within capacity.")
 	_check(int(capture_state.get("player_pool_size", 0)) == 48, "Player pool capacity stays fixed during capture setup.")
 	_check(int(capture_state.get("enemy_pool_size", 0)) == 48, "Enemy pool capacity stays fixed during capture setup.")
 	_check(scene.get_child_count() == initial_child_count, "Capture setup does not grow the scene tree.")
+
+	scene.call("debug_prepare_capture_phase", 2)
+	for _index in range(4):
+		await process_frame
+	var aftermath_state := _state(scene)
+	_check(int(aftermath_state.get("capture_phase", -1)) == 2, "Aftermath capture exposes the requested phase.")
+	_check(int(aftermath_state.get("enemy_wedge_count", 0)) >= 3, "Aftermath capture advances hunter wedge projectiles.")
+	_check(int(aftermath_state.get("enemy_ring_count", 0)) >= 5, "Aftermath capture advances tri-axis ring projectiles.")
+	_check(int(aftermath_state.get("active_vfx_count", 0)) > 0, "Aftermath capture retains decaying impact effects.")
+	_check(int(aftermath_state.get("max_projectile_trail_samples", 0)) <= 10, "Aftermath projectile histories stay within capacity.")
+	_check(scene.get_child_count() == initial_child_count, "All capture phases preserve the fixed scene-tree size.")
 
 	scene.call("debug_reset_scene")
 	scene.call("debug_activate_upgrade")
@@ -107,6 +134,8 @@ func _run_smoke() -> void:
 	_check(int(reset_state.get("enemy_wedge_count", -1)) == 0, "Reset clears wedge projectiles.")
 	_check(int(reset_state.get("enemy_ring_count", -1)) == 0, "Reset clears ring projectiles.")
 	_check(int(reset_state.get("active_vfx_count", -1)) == 0, "Reset clears VFX slots.")
+	_check(int(reset_state.get("max_projectile_trail_samples", -1)) == 0, "Reset clears bounded projectile histories.")
+	_check(int(reset_state.get("player_trail_sample_count", 0)) == 14, "Reset restores the fixed player trail buffer.")
 	_check(is_zero_approx(float(reset_state.get("screen_kick_remaining", -1.0))), "Reset clears world-layer impact feedback.")
 	_check(is_zero_approx(float(reset_state.get("upgrade_wave_remaining", -1.0))), "Reset clears the refraction deployment wave.")
 	_check(is_zero_approx(float(reset_state.get("hit_stop_remaining", -1.0))), "Reset clears simulation hit-stop.")
@@ -145,6 +174,7 @@ func _check_debug_api(scene: Node) -> void:
 		"debug_reset_scene",
 		"debug_activate_upgrade",
 		"debug_prepare_capture",
+		"debug_prepare_capture_phase",
 		"debug_apply_hit",
 		"debug_force_defeat",
 		"debug_state",
