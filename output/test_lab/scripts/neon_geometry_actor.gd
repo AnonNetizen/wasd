@@ -26,6 +26,8 @@ var warning_remaining: float = 0.0
 var attack_pending: bool = false
 var motion_phase: float = 0.0
 var spawn_motion_phase: float = 0.0
+var recoil_strength: float = 0.0
+var spawn_flash_remaining: float = 0.0
 
 
 func configure(
@@ -56,6 +58,8 @@ func reset_actor(invulnerability_seconds: float = 0.0) -> void:
 	warning_remaining = 0.0
 	attack_pending = false
 	motion_phase = spawn_motion_phase
+	recoil_strength = 0.0
+	spawn_flash_remaining = 0.0
 
 
 func tick_timers(delta: float) -> void:
@@ -64,6 +68,8 @@ func tick_timers(delta: float) -> void:
 		hit_flash_remaining = maxf(hit_flash_remaining - delta, 0.0)
 		attack_cooldown = maxf(attack_cooldown - delta, 0.0)
 		warning_remaining = maxf(warning_remaining - delta, 0.0)
+		recoil_strength *= pow(0.002, delta)
+		spawn_flash_remaining = maxf(spawn_flash_remaining - delta, 0.0)
 	else:
 		respawn_remaining = maxf(respawn_remaining - delta, 0.0)
 
@@ -85,6 +91,8 @@ func defeat(respawn_delay: float) -> void:
 	hit_flash_remaining = 0.0
 	warning_remaining = 0.0
 	attack_pending = false
+	recoil_strength = 0.0
+	spawn_flash_remaining = 0.0
 
 
 func aim_toward(target_position: Vector2) -> void:

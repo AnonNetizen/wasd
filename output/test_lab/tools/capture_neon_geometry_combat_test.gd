@@ -28,7 +28,7 @@ func _capture() -> void:
 		return
 	scene.call("debug_prepare_capture")
 
-	for _index in range(48):
+	for _index in range(22):
 		await process_frame
 
 	var viewport_texture := root.get_texture()
