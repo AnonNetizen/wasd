@@ -31,6 +31,7 @@ func _capture() -> void:
 		return
 	if not _prepare_layer_controls(scene, grid):
 		return
+	grid.debug_prepare_capture()
 
 	var summary: Dictionary = grid.get_generation_summary()
 	var grid_size := _array_to_vector2i(summary.get("grid_size", []))
@@ -77,20 +78,22 @@ func _capture() -> void:
 
 
 func _prepare_layer_controls(scene: Node, grid: GRID_SCRIPT) -> bool:
-	var layer_toggles: Dictionary = {
-		LAYER_CELL_TILES: "CellTilesToggle",
-		LAYER_COLLISION: "CollisionToggle",
-		LAYER_DETAIL: "DetailToggle",
-		LAYER_METADATA: "MetadataToggle",
+	var layer_states: Dictionary = {
+		LAYER_CELL_TILES: {"toggle": "CellTilesToggle", "visible": true},
+		LAYER_COLLISION: {"toggle": "CollisionToggle", "visible": false},
+		LAYER_DETAIL: {"toggle": "DetailToggle", "visible": false},
+		LAYER_METADATA: {"toggle": "MetadataToggle", "visible": false},
 	}
-	for layer_id: String in layer_toggles:
-		var toggle_path := "Sidebar/Margin/Rows/LayerToggles/%s" % String(layer_toggles[layer_id])
+	for layer_id: String in layer_states:
+		var state: Dictionary = layer_states[layer_id]
+		var toggle_path := "Sidebar/Margin/Rows/LayerToggles/%s" % String(state["toggle"])
 		var toggle := scene.get_node_or_null(toggle_path) as CheckButton
 		if toggle == null:
 			_fail("Screenshot scene is missing layer toggle: %s" % toggle_path)
 			return false
-		toggle.set_pressed_no_signal(true)
-		grid.set_layer_visible(layer_id, true)
+		var visible := bool(state["visible"])
+		toggle.set_pressed_no_signal(visible)
+		grid.set_layer_visible(layer_id, visible)
 	return true
 
 

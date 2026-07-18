@@ -308,6 +308,7 @@ func _validate_runtime(scene_config: Dictionary) -> void:
 	_check(bool(summary.get("perimeter_only", false)), "Runtime keeps all six obstacles on perimeter cells.")
 	_check(bool(summary.get("overlap_free", false)), "Runtime keeps all six obstacle placements non-overlapping.")
 	_check(int(summary.get("detail_count", -1)) == 0, "Detail layer is intentionally empty.")
+	_validate_visual_style(summary)
 
 	_validate_runtime_layers(grid)
 	_validate_runtime_metadata(grid)
@@ -352,11 +353,17 @@ func _compose_assignment_signature(grid: GRID_SCRIPT) -> String:
 
 func _validate_runtime_layers(grid: GRID_SCRIPT) -> void:
 	var cell_tile_layer := grid.get_node_or_null("CellTileLayer") as TileMapLayer
+	var tile_visual_layer := grid.get_node_or_null("TileVisualLayer") as Node2D
 	var collision_bodies := grid.get_node_or_null("CollisionBodies") as Node2D
 	var collision_overlay := grid.get_node_or_null("CollisionOverlay") as Node2D
 	var detail_layer := grid.get_node_or_null("DetailLayer") as Node2D
 	var metadata_layer := grid.get_node_or_null("MetadataOverlay") as Node2D
 	_check(cell_tile_layer != null, "CellTileLayer exists.")
+	_check(tile_visual_layer != null, "TileVisualLayer exists.")
+	_check(
+		tile_visual_layer != null and tile_visual_layer.get_child_count() == 24,
+		"TileVisualLayer contains exactly 24 code-shaped cells."
+	)
 	_check(collision_bodies != null, "CollisionBodies exists.")
 	_check(
 		collision_overlay != null and collision_overlay.get_child_count() == 6,
@@ -388,6 +395,74 @@ func _validate_runtime_layers(grid: GRID_SCRIPT) -> void:
 	_check(unique_cells.size() == 24, "All 24 TileMap cells have unique coordinates.")
 	_check(used_source_ids.size() == 3, "The grid uses one atlas source for each of the three tile images.")
 	_check(atlas_sources_valid, "Every used cell resolves through a TileSetAtlasSource.")
+	_check(cell_tile_layer.self_modulate.a <= 0.001, "Logical TileMap rendering is hidden behind the code-shaped skin.")
+	_validate_visual_cells(tile_visual_layer, grid)
+
+
+func _validate_visual_style(summary: Dictionary) -> void:
+	var visual_value: Variant = summary.get("visual_style", {})
+	_check(visual_value is Dictionary, "Runtime summary exposes visual_style.")
+	if not visual_value is Dictionary:
+		return
+	var visual: Dictionary = visual_value
+	_check(int(visual.get("rounded_cell_count", 0)) == 24, "All 24 cells use rounded code rendering.")
+	_check(int(visual.get("obstacle_border_count", 0)) == 6, "All six obstacles receive content-colored borders.")
+	_check(bool(visual.get("floor_edge_breathing", false)), "Floor edge breathing is enabled.")
+	_check(float(visual.get("floor_corner_radius_px", 0.0)) > 0.0, "Floor cells have a positive corner radius.")
+	_check(
+		float(visual.get("obstacle_corner_radius_px", 0.0))
+		> float(visual.get("floor_corner_radius_px", 0.0)),
+		"Obstacle cells use the stronger rounded silhouette."
+	)
+	_check(float(visual.get("obstacle_border_width_px", 0.0)) >= 6.0, "Obstacle border width is visually legible.")
+	_check(String(visual.get("render_source", "")) == "runtime_shader", "Rounded styling is produced by runtime code.")
+
+
+func _validate_visual_cells(tile_visual_layer: Node2D, grid: GRID_SCRIPT) -> void:
+	if tile_visual_layer == null:
+		return
+	var floor_count: int = 0
+	var obstacle_count: int = 0
+	for child: Node in tile_visual_layer.get_children():
+		var sprite := child as Sprite2D
+		_check(sprite != null, "Every code-shaped cell is a Sprite2D.")
+		if sprite == null:
+			continue
+		var material := sprite.material as ShaderMaterial
+		_check(material != null and material.shader != null, "%s uses the rounded-cell shader." % sprite.name)
+		if material == null:
+			continue
+		var visual_role := String(sprite.get_meta("visual_role", ""))
+		var border_width := float(sprite.get_meta("border_width_px", -1.0))
+		var corner_radius := float(sprite.get_meta("corner_radius_px", 0.0))
+		_check(corner_radius > 0.0, "%s has rounded corners." % sprite.name)
+		_check(float(material.get_shader_parameter("wobble_strength_px")) > 0.0, "%s uses a non-straight contour." % sprite.name)
+		if visual_role == "floor":
+			floor_count += 1
+			_check(is_zero_approx(border_width), "%s floor cell has no obstacle border." % sprite.name)
+			_check(bool(sprite.get_meta("floor_edge_breathing", false)), "%s floor cell breathes at its edge." % sprite.name)
+			_check(float(material.get_shader_parameter("floor_edge_width_px")) > 0.0, "%s floor edge band is present." % sprite.name)
+			continue
+		obstacle_count += 1
+		_check(border_width > 0.0, "%s obstacle has a dark border." % sprite.name)
+		_check(not bool(sprite.get_meta("floor_edge_breathing", true)), "%s obstacle does not reuse the floor pulse." % sprite.name)
+		var content_color: Color = sprite.get_meta("content_main_color", Color.WHITE)
+		var border_color: Color = sprite.get_meta("border_color", Color.WHITE)
+		_check(_color_value(border_color) < _color_value(content_color), "%s border is darker than its content color." % sprite.name)
+		_check(_dominant_channel(border_color) == _dominant_channel(content_color), "%s border keeps the content's dominant color channel." % sprite.name)
+	_check(floor_count == 18, "Visual skin contains 18 breathing floor cells.")
+	_check(obstacle_count == 6, "Visual skin contains six irregularly bordered obstacles.")
+
+	grid.debug_prepare_capture()
+	for child: Node in tile_visual_layer.get_children():
+		var sprite := child as Sprite2D
+		var material: ShaderMaterial = null
+		if sprite != null:
+			material = sprite.material as ShaderMaterial
+		if material == null:
+			continue
+		_check(bool(material.get_shader_parameter("freeze_animation")), "%s can freeze its breathing phase for capture." % sprite.name)
+		_check(is_equal_approx(float(material.get_shader_parameter("frozen_time")), 1.75), "%s uses the deterministic capture phase." % sprite.name)
 
 
 func _validate_runtime_metadata(grid: GRID_SCRIPT) -> void:
@@ -491,7 +566,7 @@ func _validate_runtime_collisions(collision_bodies: Node2D) -> void:
 
 func _validate_layer_visibility(grid: GRID_SCRIPT) -> void:
 	var layer_nodes: Dictionary = {
-		LAYER_CELL_TILES: [grid.get_node_or_null("CellTileLayer")],
+		LAYER_CELL_TILES: [grid.get_node_or_null("CellTileLayer"), grid.get_node_or_null("TileVisualLayer")],
 		LAYER_COLLISION: [grid.get_node_or_null("CollisionOverlay")],
 		LAYER_DETAIL: [grid.get_node_or_null("DetailLayer")],
 		LAYER_METADATA: [grid.get_node_or_null("MetadataOverlay")],
@@ -499,16 +574,34 @@ func _validate_layer_visibility(grid: GRID_SCRIPT) -> void:
 	var collision_bodies := grid.get_node_or_null("CollisionBodies") as Node2D
 	for layer_id: String in layer_nodes:
 		var nodes: Array = layer_nodes[layer_id]
-		var layer := nodes[0] as CanvasItem
-		_check(layer != null, "%s visibility layer exists." % layer_id)
-		if layer == null:
+		var layers: Array[CanvasItem] = []
+		for node_value: Variant in nodes:
+			var candidate := node_value as CanvasItem
+			_check(candidate != null, "%s visibility layer exists." % layer_id)
+			if candidate != null:
+				layers.append(candidate)
+		if layers.is_empty():
 			continue
 		grid.set_layer_visible(layer_id, false)
-		_check(not layer.visible, "%s layer can be hidden independently." % layer_id)
+		for layer: CanvasItem in layers:
+			_check(not layer.visible, "%s layer can be hidden independently." % layer_id)
 		if layer_id == LAYER_COLLISION and collision_bodies != null:
 			_check(collision_bodies.visible, "Collision visibility only hides the overlay, not physics bodies.")
 		grid.set_layer_visible(layer_id, true)
-		_check(layer.visible, "%s layer can be shown independently." % layer_id)
+		for layer: CanvasItem in layers:
+			_check(layer.visible, "%s layer can be shown independently." % layer_id)
+
+
+func _color_value(color: Color) -> float:
+	return maxf(color.r, maxf(color.g, color.b))
+
+
+func _dominant_channel(color: Color) -> int:
+	if color.r >= color.g and color.r >= color.b:
+		return 0
+	if color.g >= color.r and color.g >= color.b:
+		return 1
+	return 2
 
 
 func _validate_scene_ui(scene: Node) -> void:

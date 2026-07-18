@@ -63,7 +63,7 @@ py -3 tools/godot_bridge.py --project output/test_lab headless-boot
 # 显式加载实验场景
 & $godot --headless --path output/test_lab --quit-after 2 res://scenes/ai_universal_tile_test.tscn
 
-# 数据、素材、确定性布局、metadata、碰撞与图层 smoke
+# 数据、素材、确定性布局、metadata、碰撞、圆角代码皮肤与图层 smoke
 & $godot --headless --path output/test_lab --script res://tools/ai_universal_tile_smoke.gd
 
 # 带窗口捕获最终预览
@@ -82,6 +82,8 @@ $embedded = rg -n -F -- 'sub_resource type="Image"' output/test_lab/scenes/ai_un
 if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
 $embedded
 ```
+
+三张源 PNG 保持原样；`universal_tile_grid.gd` 在运行时为 24 个逻辑 cell 叠加统一代码皮肤：全部 tile 使用轻微圆角，非地板 tile 使用从自身图像主色自动推导的深色不规则内边，地板使用低强度周期亮边。碰撞继续保持完整 128×128 矩形，不随视觉圆角收缩。截图工具会冻结呼吸相位并关闭 collision / metadata 调试覆盖层，保证预览可重复且不让直线调试框干扰美术判断。
 
 ## 位图 UI 素材注意事项
 
