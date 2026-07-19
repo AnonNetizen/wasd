@@ -12,6 +12,7 @@ const LAB_LOCALE_SCRIPT := preload("res://scripts/lab_locale.gd")
 const MAIN_SCRIPT := preload("res://scripts/steamworks_lab.gd")
 const NETWORK_SESSION_SCRIPT := preload("res://scripts/network_session.gd")
 const PLAYER_SCRIPT := preload("res://scripts/slime_player.gd")
+const SLIME_BODY_SCRIPT := preload("res://scripts/slime_body.gd")
 const TRANSPORT_SCRIPT := preload("res://scripts/transport_adapter.gd")
 
 const SETTINGS_PATH: String = "user://battle_smoke_settings.cfg"
@@ -51,6 +52,7 @@ func _run() -> void:
 	_check_network_session_defaults()
 	_check_steam_app_configuration()
 	_check_project_window_defaults()
+	await _check_slime_roundness()
 
 	var main_packed := load("res://scenes/main.tscn") as PackedScene
 	var main_scene := main_packed.instantiate()
@@ -1196,6 +1198,89 @@ func _check_steam_client_record_chain(main_packed: PackedScene) -> void:
 		_remove_user_file(STEAM_CLIENT_SAVE_PATH, STEAM_CLIENT_SAVE_FILE_NAME) == OK,
 		"Steam client record fixture cleanup succeeds"
 	)
+
+
+func _check_slime_roundness() -> void:
+	var body := SLIME_BODY_SCRIPT.new() as Node2D
+	root.add_child(body)
+	body.call("set_position_drive_enabled", false)
+	await create_timer(0.15).timeout
+
+	var idle_ratio := _slime_radius_ratio(body)
+	_check(idle_ratio <= 1.02, "idle slime silhouette stays nearly round")
+
+	body.call("emit_surface_bud", Vector2.UP)
+	var fire_peak_ratio := _slime_radius_ratio(body)
+	for _sample_index in range(7):
+		await create_timer(0.02).timeout
+		fire_peak_ratio = maxf(fire_peak_ratio, _slime_radius_ratio(body))
+	_check(fire_peak_ratio <= 1.20, "slime firing pulse stays shallow")
+
+	await create_timer(0.21).timeout
+	var recovered_ratio := _slime_radius_ratio(body)
+	_check(recovered_ratio <= 1.05, "slime firing pulse recovers to a round silhouette")
+
+	body.call("set_position_drive_enabled", true)
+	var movement_peak_turn_angle := 0.0
+	for _sample_index in range(18):
+		body.call("set_follow_target", body.global_position + Vector2.RIGHT * 82.0)
+		await create_timer(0.02).timeout
+		movement_peak_turn_angle = maxf(movement_peak_turn_angle, _slime_max_turn_angle(body))
+	_check(
+		movement_peak_turn_angle <= 0.12,
+		"moving slime silhouette has no sharp corners (%.4f rad)" % movement_peak_turn_angle
+	)
+
+	var reversal_peak_turn_angle := 0.0
+	for _sample_index in range(12):
+		body.call("set_follow_target", body.global_position + Vector2.LEFT * 82.0)
+		await create_timer(0.02).timeout
+		reversal_peak_turn_angle = maxf(reversal_peak_turn_angle, _slime_max_turn_angle(body))
+	_check(
+		reversal_peak_turn_angle <= 0.12,
+		"turning slime silhouette has no sharp corners (%.4f rad)" % reversal_peak_turn_angle
+	)
+
+	body.call("set_position_drive_enabled", false)
+	await create_timer(0.8).timeout
+	var stopped_ratio := _slime_radius_ratio(body)
+	_check(
+		stopped_ratio <= 1.05,
+		"slime silhouette returns to round after movement stops (%.4f ratio)" % stopped_ratio
+	)
+	body.queue_free()
+	await process_frame
+
+
+func _slime_radius_ratio(body: Node2D) -> float:
+	var edge_offsets: Array = body.get("_edge_offsets")
+	if edge_offsets.is_empty():
+		return INF
+	var minimum_radius := INF
+	var maximum_radius := 0.0
+	for offset_value in edge_offsets:
+		var offset: Vector2 = offset_value
+		var radius := offset.length()
+		minimum_radius = minf(minimum_radius, radius)
+		maximum_radius = maxf(maximum_radius, radius)
+	return maximum_radius / maxf(minimum_radius, 0.001)
+
+
+func _slime_max_turn_angle(body: Node2D) -> float:
+	var points: PackedVector2Array = body.call("_smoothed_membrane_points")
+	if points.size() < 3:
+		return INF
+	var maximum_turn_angle := 0.0
+	for index in range(points.size()):
+		var previous_point := points[posmod(index - 1, points.size())]
+		var current_point := points[index]
+		var next_point := points[(index + 1) % points.size()]
+		var incoming := current_point - previous_point
+		var outgoing := next_point - current_point
+		if incoming.length_squared() <= 0.0001 or outgoing.length_squared() <= 0.0001:
+			continue
+		maximum_turn_angle = maxf(maximum_turn_angle, absf(incoming.angle_to(outgoing)))
+	return maximum_turn_angle
 
 
 func _check_customize_ui(main_scene: Node) -> void:

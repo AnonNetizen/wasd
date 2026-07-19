@@ -3,9 +3,10 @@ extends Node2D
 
 const CURVE_CENTRIPETAL_ALPHA: float = 0.5
 const CURVE_MIN_KNOT_SPACING: float = 0.0001
-const FIRE_BUD_DURATION: float = 0.18
-const FIRE_BUD_IMPULSE: float = 68.0
-const FIRE_BUD_PUSH: float = 8.0
+const RENDER_SMOOTHING_PASSES: int = 2
+const FIRE_BUD_DURATION: float = 0.14
+const FIRE_BUD_IMPULSE: float = 30.0
+const FIRE_BUD_PUSH: float = 3.0
 
 @export_range(16, 128, 1) var point_count: int = 64
 @export var base_radius: float = 32.0
@@ -22,15 +23,15 @@ const FIRE_BUD_PUSH: float = 8.0
 @export var membrane_follow_damping: float = 7.2
 @export var membrane_neighbor_smoothing: float = 18.0
 @export var membrane_inertia: float = 0.5
-@export var movement_push_amount: float = 10.0
+@export var movement_push_amount: float = 4.0
 @export var movement_squash_amount: float = 0.14
 @export var area_pressure: float = 42.0
 @export var obstacle_edge_force: float = 1280.0
 @export var edge_contact_distance: float = 14.0
 @export var membrane_obstacle_clearance: float = 2.0
-@export var breath_amount: float = 2.0
+@export var breath_amount: float = 1.0
 @export var breath_speed: float = 1.6
-@export var surface_noise_amount: float = 1.5
+@export var surface_noise_amount: float = 0.0
 @export_range(1, 10, 1) var curve_samples_per_segment: int = 5
 
 var obstacle_rect: Rect2 = Rect2()
@@ -189,7 +190,8 @@ func _initialize_edge_points() -> void:
 		var angle := ratio * TAU
 		var direction := Vector2(cos(angle), sin(angle))
 		_directions.append(direction)
-		_radii[index] = base_radius + sin(angle * 3.0) * 2.0
+		# Keep the idle silhouette round; gameplay forces provide the soft deformation.
+		_radii[index] = base_radius
 		_radial_velocities[index] = 0.0
 		_edge_offsets.append(direction * _radii[index])
 		_edge_velocities.append(Vector2.ZERO)
@@ -261,7 +263,7 @@ func _update_edge_points(delta: float, core_delta: Vector2) -> void:
 		var next_index := (index + 1) % point_count
 		var neighbor_average := (_radii[previous_index] + _radii[next_index]) * 0.5
 		var ratio := float(index) / float(point_count)
-		var breath := sin(_time * breath_speed + ratio * TAU * 2.0) * breath_amount
+		var breath := sin(_time * breath_speed) * breath_amount
 		var ripple := sin(_time * 2.1 + ratio * TAU * 7.0) * surface_noise_amount
 		var target_radius := base_radius + breath + ripple
 		var spring_force := (target_radius - _radii[index]) * edge_stiffness
@@ -293,6 +295,7 @@ func _update_membrane_offsets(delta: float, core_delta: Vector2) -> void:
 	var drive_direction := Vector2.ZERO
 	if drive_speed > 0.001:
 		drive_direction = drive_velocity / drive_speed
+	var drive_side_direction := drive_direction.orthogonal()
 	var drive_ratio := clampf(drive_speed / maxf(max_speed, 1.0), 0.0, 1.0)
 	var core_shift := core_delta * membrane_inertia
 	var next_offsets: Array[Vector2] = []
@@ -303,14 +306,17 @@ func _update_membrane_offsets(delta: float, core_delta: Vector2) -> void:
 		var previous_index := posmod(index - 1, point_count)
 		var next_index := (index + 1) % point_count
 		var direction := _directions[index]
-		var alignment := 0.0
+		var target_offset := direction * _radii[index]
 		if drive_direction != Vector2.ZERO:
-			alignment = direction.dot(drive_direction)
-		var side_alignment := 1.0 - absf(alignment)
-		var squash := 1.0 + maxf(alignment, 0.0) * movement_squash_amount * drive_ratio
-		squash -= side_alignment * movement_squash_amount * 0.45 * drive_ratio
-		var target_offset := direction * _radii[index] * squash
-		target_offset += drive_direction * maxf(alignment, 0.0) * movement_push_amount * drive_ratio
+			var forward_alignment := direction.dot(drive_direction)
+			var side_alignment := direction.dot(drive_side_direction)
+			var longitudinal_scale := 1.0 + movement_squash_amount * drive_ratio
+			var lateral_scale := 1.0 - movement_squash_amount * 0.45 * drive_ratio
+			var longitudinal_radius := _radii[index] * longitudinal_scale
+			longitudinal_radius += movement_push_amount * drive_ratio
+			var lateral_radius := _radii[index] * lateral_scale
+			target_offset = drive_direction * forward_alignment * longitudinal_radius
+			target_offset += drive_side_direction * side_alignment * lateral_radius
 
 		var neighbor_average := (_edge_offsets[previous_index] + _edge_offsets[next_index]) * 0.5
 		var spring_force := (target_offset - _edge_offsets[index]) * membrane_follow_stiffness
@@ -370,9 +376,9 @@ func _push_membrane_for_fire(local_direction: Vector2) -> void:
 		if edge_direction.length_squared() <= 0.0001:
 			edge_direction = _directions[index]
 		var alignment := maxf(edge_direction.dot(local_direction), 0.0)
-		if alignment <= 0.35:
+		if alignment <= 0.0:
 			continue
-		var weight := pow(alignment, 3.0)
+		var weight := pow(alignment, 2.0)
 		_edge_offsets[index] = _clamped_membrane_offset(
 			_edge_offsets[index] + local_direction * FIRE_BUD_PUSH * weight,
 			edge_direction
@@ -400,30 +406,33 @@ func _draw_fire_buds() -> void:
 		var time_remaining := float(bud.get("time", 0.0))
 		var life_ratio := clampf(time_remaining / FIRE_BUD_DURATION, 0.0, 1.0)
 		var bulge_ratio := sin((1.0 - life_ratio) * PI)
-		var alpha := 0.52 * life_ratio
-		var base_point := surface_offset - local_direction * (5.0 + 3.0 * bulge_ratio)
-		var tip_point := surface_offset + local_direction * (10.0 + 6.0 * bulge_ratio)
-		draw_line(base_point, tip_point, Color(_fill_color, alpha), 8.0 * life_ratio, true)
-		draw_circle(tip_point, 3.5 + 2.5 * bulge_ratio, Color(_fill_color, alpha))
-		draw_circle(tip_point, 3.5 + 2.5 * bulge_ratio, Color(_edge_color, 0.55 * life_ratio), false, 1.4, true)
+		var alpha := 0.42 * life_ratio
+		var pulse_extent := 3.0 + bulge_ratio
+		var base_point := surface_offset - local_direction * pulse_extent
+		var tip_point := surface_offset + local_direction * pulse_extent
+		var tip_radius := 1.5 + 0.5 * bulge_ratio
+		draw_line(base_point, tip_point, Color(_fill_color, alpha), 4.5 * life_ratio, true)
+		draw_circle(tip_point, tip_radius, Color(_fill_color, alpha))
+		draw_circle(tip_point, tip_radius, Color(_edge_color, 0.46 * life_ratio), false, 1.0, true)
 
 
 func _smoothed_membrane_points() -> PackedVector2Array:
 	var smoothed_points := PackedVector2Array()
-	if _edge_offsets.size() < 4:
-		for edge_offset in _edge_offsets:
+	var control_points := _render_control_points()
+	if control_points.size() < 4:
+		for edge_offset in control_points:
 			smoothed_points.append(edge_offset)
 		return smoothed_points
 
 	var samples_per_segment: int = maxi(1, curve_samples_per_segment)
-	for index in range(_edge_offsets.size()):
-		var previous_index := posmod(index - 1, _edge_offsets.size())
-		var next_index := (index + 1) % _edge_offsets.size()
-		var next_next_index := (index + 2) % _edge_offsets.size()
-		var previous_point := _edge_offsets[previous_index]
-		var current_point := _edge_offsets[index]
-		var next_point := _edge_offsets[next_index]
-		var next_next_point := _edge_offsets[next_next_index]
+	for index in range(control_points.size()):
+		var previous_index := posmod(index - 1, control_points.size())
+		var next_index := (index + 1) % control_points.size()
+		var next_next_index := (index + 2) % control_points.size()
+		var previous_point := control_points[previous_index]
+		var current_point := control_points[index]
+		var next_point := control_points[next_index]
+		var next_next_point := control_points[next_next_index]
 
 		for sample_index in range(samples_per_segment):
 			var segment_ratio := float(sample_index) / float(samples_per_segment)
@@ -438,6 +447,20 @@ func _smoothed_membrane_points() -> PackedVector2Array:
 			)
 
 	return smoothed_points
+
+
+func _render_control_points() -> Array[Vector2]:
+	var control_points: Array[Vector2] = _edge_offsets.duplicate()
+	for _pass_index in range(RENDER_SMOOTHING_PASSES):
+		var next_points: Array[Vector2] = []
+		next_points.resize(control_points.size())
+		for index in range(control_points.size()):
+			var previous_point := control_points[posmod(index - 1, control_points.size())]
+			var current_point := control_points[index]
+			var next_point := control_points[(index + 1) % control_points.size()]
+			next_points[index] = current_point * 0.5 + (previous_point + next_point) * 0.25
+		control_points = next_points
+	return control_points
 
 
 func _sample_centripetal_catmull_rom(
