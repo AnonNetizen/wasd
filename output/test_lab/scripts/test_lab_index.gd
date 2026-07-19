@@ -11,6 +11,12 @@ const STATIC_TEST_SCENES := {
 
 const EXTRA_TEST_SCENES := [
 	{
+		"button_name": "ShaderLabButton",
+		"label": "Shader Background Lab",
+		"scene_path": "res://scenes/shader_lab.tscn",
+		"featured": true,
+	},
+	{
 		"button_name": "AiUniversalTileButton",
 		"label": "AI Universal Tile Scene",
 		"scene_path": "res://scenes/ai_universal_tile_test.tscn",
