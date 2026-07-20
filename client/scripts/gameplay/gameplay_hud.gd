@@ -4,6 +4,7 @@ class_name GameplayHud
 extends CanvasLayer
 
 
+const MODULE_MINIMAP_SCRIPT := preload("res://scripts/gameplay/module_minimap.gd")
 const UPGRADE_FEEDBACK_DURATION: float = 1.35
 const UPGRADE_FEEDBACK_FADE_RATIO: float = 0.36
 const UPGRADE_FEEDBACK_TEXT_COLOR: Color = Color(1.0, 0.82, 0.28)
@@ -36,6 +37,7 @@ var _kills_label: Label = null
 var _xp_label: Label = null
 var _time_label: Label = null
 var _message_label: Label = null
+var _module_minimap: Control = null
 var _stats_grid: GridContainer = null
 var _stats_label_labels: Dictionary = {}
 var _stats_panel: PanelContainer = null
@@ -81,6 +83,7 @@ func _ready() -> void:
 	_build_stats_panel_rows()
 	_upgrade_feedback_label.hide()
 	_configure_upgrade_feedback_style()
+	_create_module_minimap()
 	if not Localization.locale_changed.is_connected(_on_locale_changed):
 		Localization.locale_changed.connect(_on_locale_changed)
 	_refresh_static_labels()
@@ -143,6 +146,12 @@ func show_gear_mod_resource_feedback(resource_key: String, amount: int) -> void:
 
 func show_extraction_feedback() -> void:
 	_show_feedback("ui_extraction_available", "")
+
+
+func set_module_world_state(state: Dictionary) -> void:
+	if _module_minimap == null or not is_instance_valid(_module_minimap):
+		return
+	_module_minimap.call("configure", state)
 
 
 func show_interaction_prompt(binding: String) -> void:
@@ -268,6 +277,17 @@ func _configure_upgrade_feedback_style() -> void:
 	_upgrade_feedback_label.add_theme_constant_override("shadow_offset_x", 2)
 	_upgrade_feedback_label.add_theme_constant_override("shadow_offset_y", 2)
 	_upgrade_feedback_label.modulate = Color.WHITE
+
+
+func _create_module_minimap() -> void:
+	var root: Control = get_node_or_null("Root") as Control
+	if root == null:
+		return
+	_module_minimap = MODULE_MINIMAP_SCRIPT.new() as Control
+	_module_minimap.name = "ModuleMinimap"
+	_module_minimap.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_module_minimap.position = Vector2(-166.0, 24.0)
+	root.add_child(_module_minimap)
 
 
 func _build_stats_panel_rows() -> void:

@@ -31,8 +31,9 @@ GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
 GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
 MAP_LAYOUTS_JSON = ROOT / "client" / "data" / "map_layouts.json"
 WARZONE_DIRECTORS_JSON = ROOT / "client" / "data" / "warzone_directors.json"
-ROOMS_JSON = ROOT / "client" / "data" / "rooms.json"
-ROOM_SEQUENCES_JSON = ROOT / "client" / "data" / "room_sequences.json"
+MODULE_WORLDS_JSON = ROOT / "client" / "data" / "module_worlds.json"
+MODULE_TEMPLATES_JSON = ROOT / "client" / "data" / "module_templates.json"
+MODULES_DIR = ROOT / "client" / "data" / "modules"
 GEAR_MODS_JSON = ROOT / "client" / "data" / "gear_mods.json"
 GEAR_MOD_DROP_TABLES_CSV = ROOT / "client" / "data" / "gear_mod_drop_tables.csv"
 GEAR_MOD_FUSION_COSTS_CSV = ROOT / "client" / "data" / "gear_mod_fusion_costs.csv"
@@ -105,9 +106,7 @@ def main() -> int:
     _validate_map_layouts(ctx, hazard_ids, game_mode_ids)
     _validate_spawn_waves_csv(ctx, enemy_ids, hazard_ids, game_mode_ids)
     _validate_warzone_directors(ctx, game_mode_ids, _collect_spawn_wave_ids_by_mode(ctx), hazard_ids, _collect_map_layout_ids(ctx), gear_mod_ids)
-    _validate_rooms(ctx, game_mode_ids)
-    room_ids = _collect_room_ids(ctx)
-    _validate_room_sequences(ctx, room_ids, game_mode_ids)
+    _validate_module_world_data(ctx, enemy_ids, set(hazard_ids))
 
     if ctx.errors:
         for error in ctx.errors:
@@ -2080,109 +2079,668 @@ def _collect_growth_pool_ids(ctx: ValidationContext) -> set[str]:
     return {item.get("id") for item in pools if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
-def _validate_rooms(ctx: ValidationContext, game_mode_ids: set[str]) -> None:
-    path = ROOMS_JSON
-    data = _load_json(path, ctx)
-    if not isinstance(data, dict):
-        return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
-    rooms = _require_list(ctx, path, "rooms", data.get("rooms"))
-    if not rooms:
-        ctx.error(path, "rooms", "must be a non-empty array")
-    seen_rooms: set[str] = set()
-    for room_index, room in enumerate(rooms):
-        room_field = f"rooms[{room_index}]"
-        if not isinstance(room, dict):
-            ctx.error(path, room_field, "must be an object")
-            continue
-        room_id = _require_non_empty_string(ctx, path, f"{room_field}.id", room.get("id"))
-        if room_id:
-            if room_id in seen_rooms:
-                ctx.error(path, f"{room_field}.id", f"duplicate room id {room_id}")
-            seen_rooms.add(room_id)
-        _validate_room_scene_path(ctx, path, f"{room_field}.scene_path", room.get("scene_path"))
-        _require_registered(ctx, path, f"{room_field}.clear_condition", room.get("clear_condition"), "room_clear_conditions")
-        _validate_room_tags(ctx, path, f"{room_field}.tags", room.get("tags", []))
-        _validate_room_allowed_modes(ctx, path, f"{room_field}.allowed_modes", room.get("allowed_modes"), game_mode_ids)
-
-
-def _validate_room_scene_path(ctx: ValidationContext, path: Path, field: str, value: Any) -> None:
-    scene_path = _require_non_empty_string(ctx, path, field, value)
-    if scene_path is None:
-        return
-    if not scene_path.startswith("res://") or not scene_path.endswith(".tscn"):
-        ctx.error(path, field, f"must be a res:// path to a .tscn scene: {scene_path}")
-        return
-    relative = scene_path[len("res://"):]
-    scene_file = ROOT / "client" / Path(relative)
-    if not scene_file.exists():
-        ctx.error(path, field, f"room scene file is missing: {scene_path}")
-
-
-def _validate_room_tags(ctx: ValidationContext, path: Path, field: str, value: Any) -> None:
+def _validate_content_tags(ctx: ValidationContext, path: Path, field: str, value: Any) -> None:
     tags = _require_list(ctx, path, field, value)
     for tag_index, tag in enumerate(tags):
         _require_registered(ctx, path, f"{field}[{tag_index}]", tag, "content_tags")
 
 
-def _validate_room_allowed_modes(ctx: ValidationContext, path: Path, field: str, value: Any, game_mode_ids: set[str]) -> None:
-    modes = _require_list(ctx, path, field, value)
-    if not modes:
-        ctx.error(path, field, "must be a non-empty array")
-    for mode_index, mode in enumerate(modes):
-        mode_id = _require_registered(ctx, path, f"{field}[{mode_index}]", mode, "game_modes")
-        if mode_id and mode_id not in game_mode_ids:
-            ctx.error(path, f"{field}[{mode_index}]", f"mode is not defined in game_modes.json: {mode_id}")
-
-
-def _collect_room_ids(ctx: ValidationContext) -> set[str]:
-    data = _load_json(ROOMS_JSON, ctx)
-    if not isinstance(data, dict):
-        return set()
-    rooms = data.get("rooms")
-    if not isinstance(rooms, list):
-        return set()
-    return {item.get("id") for item in rooms if isinstance(item, dict) and isinstance(item.get("id"), str)}
-
-
-def _validate_room_sequences(ctx: ValidationContext, room_ids: set[str], game_mode_ids: set[str]) -> None:
-    path = ROOM_SEQUENCES_JSON
+def _validate_module_world_data(ctx: ValidationContext, enemy_ids: set[str], hazard_ids: set[str]) -> None:
+    templates = _validate_module_templates(ctx, enemy_ids, hazard_ids)
+    path = MODULE_WORLDS_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
-    sequences = _require_list(ctx, path, "sequences", data.get("sequences"))
-    if not sequences:
-        ctx.error(path, "sequences", "must be a non-empty array")
-    seen_sequences: set[str] = set()
-    for sequence_index, sequence in enumerate(sequences):
-        sequence_field = f"sequences[{sequence_index}]"
-        if not isinstance(sequence, dict):
-            ctx.error(path, sequence_field, "must be an object")
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+    worlds = _require_list(ctx, path, "worlds", data.get("worlds"))
+    if not worlds:
+        ctx.error(path, "worlds", "must be a non-empty array")
+    seen_worlds: set[str] = set()
+    for world_index, world in enumerate(worlds):
+        field = f"worlds[{world_index}]"
+        if not isinstance(world, dict):
+            ctx.error(path, field, "must be an object")
             continue
-        sequence_id = _require_non_empty_string(ctx, path, f"{sequence_field}.id", sequence.get("id"))
-        if sequence_id:
-            if sequence_id in seen_sequences:
-                ctx.error(path, f"{sequence_field}.id", f"duplicate sequence id {sequence_id}")
-            seen_sequences.add(sequence_id)
-        mode_id = _require_registered(ctx, path, f"{sequence_field}.mode_id", sequence.get("mode_id"), "game_modes")
-        if mode_id and mode_id not in game_mode_ids:
-            ctx.error(path, f"{sequence_field}.mode_id", f"mode is not defined in game_modes.json: {mode_id}")
-        room_id_list = _require_list(ctx, path, f"{sequence_field}.room_ids", sequence.get("room_ids"))
-        if not room_id_list:
-            ctx.error(path, f"{sequence_field}.room_ids", "must be a non-empty array")
-        listed_rooms: set[str] = set()
-        for room_ref_index, room_ref in enumerate(room_id_list):
-            room_ref_field = f"{sequence_field}.room_ids[{room_ref_index}]"
-            room_ref_id = _require_non_empty_string(ctx, path, room_ref_field, room_ref)
-            if room_ref_id is None:
+        world_id = _require_non_empty_string(ctx, path, f"{field}.id", world.get("id"))
+        if world_id:
+            if world_id in seen_worlds:
+                ctx.error(path, f"{field}.id", f"duplicate world id {world_id}")
+            seen_worlds.add(world_id)
+        columns = _require_exact_int(ctx, path, f"{field}.columns", world.get("columns"), 9)
+        rows = _require_exact_int(ctx, path, f"{field}.rows", world.get("rows"), 9)
+        _require_exact_int(ctx, path, f"{field}.module_columns", world.get("module_columns"), 11)
+        _require_exact_int(ctx, path, f"{field}.module_rows", world.get("module_rows"), 11)
+        _require_number(ctx, path, f"{field}.cell_size", world.get("cell_size"), minimum=0.0, exclusive_minimum=True)
+        _require_exact_int(ctx, path, f"{field}.active_radius", world.get("active_radius"), 1)
+        seal_outer_edges = _require_bool(ctx, path, f"{field}.seal_outer_edges", world.get("seal_outer_edges"))
+        if seal_outer_edges is False:
+            ctx.error(path, f"{field}.seal_outer_edges", "must be true")
+        if columns != 9 or rows != 9:
+            continue
+
+        anchors: dict[str, tuple[int, int] | None] = {}
+        for anchor_name in ("start_slot", "objective_slot", "extraction_slot"):
+            anchors[anchor_name] = _validate_module_cell(
+                ctx, path, f"{field}.{anchor_name}", world.get(anchor_name), 9, 9
+            )
+        route_budget = _validate_module_route_budget(ctx, path, f"{field}.route_budget", world.get("route_budget"))
+
+        fixed_slots = _require_list(ctx, path, f"{field}.fixed_slots", world.get("fixed_slots"))
+        fixed_assignment = _validate_module_assignment_entries(
+            ctx, path, f"{field}.fixed_slots", fixed_slots, templates, exact_81=False, allow_technical_sealed=False
+        )
+        _validate_module_fixed_anchor_roles(
+            ctx, path, f"{field}.fixed_slots", fixed_assignment, templates, anchors
+        )
+
+        template_pool = _require_list(ctx, path, f"{field}.template_pool", world.get("template_pool"))
+        seen_pool: set[str] = set()
+        for pool_index, value in enumerate(template_pool):
+            pool_field = f"{field}.template_pool[{pool_index}]"
+            template_id = _require_non_empty_string(ctx, path, pool_field, value)
+            if template_id is None:
                 continue
-            listed_rooms.add(room_ref_id)
-            if room_ref_id not in room_ids:
-                ctx.error(path, room_ref_field, f"room is not defined in rooms.json: {room_ref_id}")
-        final_room_id = _require_non_empty_string(ctx, path, f"{sequence_field}.final_room_id", sequence.get("final_room_id"))
-        if final_room_id is not None and final_room_id not in listed_rooms:
-            ctx.error(path, f"{sequence_field}.final_room_id", f"final_room_id is not listed in room_ids: {final_room_id}")
+            if template_id in seen_pool:
+                ctx.error(path, pool_field, f"duplicate template id {template_id}")
+            seen_pool.add(template_id)
+            template = templates.get(template_id)
+            if template is None:
+                ctx.error(path, pool_field, f"template is not defined in module_templates.json: {template_id}")
+            elif template["review_status"] != "module_review_approved":
+                ctx.error(path, pool_field, f"formal template pool requires approved template: {template_id}")
+            elif template["role"] == "module_role_sealed":
+                ctx.error(path, pool_field, "formal template pool cannot contain sealed templates")
+
+        for assignment_name, technical in (("fallback_assignment", False), ("technical_slice_assignment", True)):
+            entries = _require_list(ctx, path, f"{field}.{assignment_name}", world.get(assignment_name))
+            assignment = _validate_module_assignment_entries(
+                ctx,
+                path,
+                f"{field}.{assignment_name}",
+                entries,
+                templates,
+                exact_81=True,
+                allow_technical_sealed=technical,
+            )
+            _validate_module_assignment_world(
+                ctx,
+                path,
+                f"{field}.{assignment_name}",
+                assignment,
+                templates,
+                anchors,
+                route_budget if not technical else {},
+                technical,
+            )
+
+
+def _validate_module_templates(
+    ctx: ValidationContext, enemy_ids: set[str], hazard_ids: set[str]
+) -> dict[str, dict[str, Any]]:
+    path = MODULE_TEMPLATES_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return {}
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+    entries = _require_list(ctx, path, "templates", data.get("templates"))
+    if not entries:
+        ctx.error(path, "templates", "must be a non-empty array")
+    templates: dict[str, dict[str, Any]] = {}
+    seen_paths: set[Path] = set()
+    for index, entry in enumerate(entries):
+        field = f"templates[{index}]"
+        if not isinstance(entry, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        template_id = _require_non_empty_string(ctx, path, f"{field}.id", entry.get("id"))
+        role = _require_registered(ctx, path, f"{field}.role", entry.get("role"), "module_roles")
+        source = _require_non_empty_string(ctx, path, f"{field}.source", entry.get("source"))
+        if source is not None and source != "ai":
+            ctx.error(path, f"{field}.source", "must be ai")
+        review_status = _require_registered(
+            ctx, path, f"{field}.review_status", entry.get("review_status"), "module_review_statuses"
+        )
+        _validate_content_tags(ctx, path, f"{field}.tags", entry.get("tags", []))
+        rotations = _require_list(ctx, path, f"{field}.allowed_rotations", entry.get("allowed_rotations"))
+        allowed_rotations: set[int] = set()
+        if not rotations:
+            ctx.error(path, f"{field}.allowed_rotations", "must be a non-empty array")
+        for rotation_index, rotation in enumerate(rotations):
+            rotation_field = f"{field}.allowed_rotations[{rotation_index}]"
+            if not isinstance(rotation, int) or isinstance(rotation, bool) or rotation not in (0, 90, 180, 270):
+                ctx.error(path, rotation_field, "rotation must be one of 0, 90, 180, 270")
+                continue
+            if rotation in allowed_rotations:
+                ctx.error(path, rotation_field, f"duplicate rotation {rotation}")
+            allowed_rotations.add(rotation)
+
+        module_path = _resolve_module_template_path(ctx, path, f"{field}.path", entry.get("path"))
+        module_data: dict[str, Any] | None = None
+        if module_path is not None:
+            if module_path in seen_paths:
+                ctx.error(path, f"{field}.path", f"duplicate module path {_rel(module_path)}")
+            seen_paths.add(module_path)
+            loaded = _load_json(module_path, ctx)
+            if isinstance(loaded, dict):
+                module_data = loaded
+                _validate_module_file(ctx, module_path, loaded, template_id, role, enemy_ids, hazard_ids)
+        if template_id:
+            if template_id in templates:
+                ctx.error(path, f"{field}.id", f"duplicate template id {template_id}")
+            templates[template_id] = {
+                "role": role,
+                "review_status": review_status,
+                "allowed_rotations": allowed_rotations,
+                "data": module_data,
+            }
+    return templates
+
+
+def _resolve_module_template_path(ctx: ValidationContext, registry_path: Path, field: str, value: Any) -> Path | None:
+    resource_path = _require_non_empty_string(ctx, registry_path, field, value)
+    if resource_path is None:
+        return None
+    if not resource_path.startswith("res://data/modules/") or not resource_path.endswith(".json"):
+        ctx.error(registry_path, field, "must be a res://data/modules/*.json path")
+        return None
+    resolved = (ROOT / "client" / resource_path.removeprefix("res://")).resolve()
+    try:
+        resolved.relative_to(MODULES_DIR.resolve())
+    except ValueError:
+        ctx.error(registry_path, field, "module path must stay inside client/data/modules")
+        return None
+    if not resolved.is_file():
+        ctx.error(registry_path, field, f"module file is missing: {resource_path}")
+        return None
+    return resolved
+
+
+def _validate_module_file(
+    ctx: ValidationContext,
+    path: Path,
+    data: dict[str, Any],
+    expected_id: str | None,
+    role: str | None,
+    enemy_ids: set[str],
+    hazard_ids: set[str],
+) -> None:
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+    module_id = _require_non_empty_string(ctx, path, "id", data.get("id"))
+    if module_id and expected_id and module_id != expected_id:
+        ctx.error(path, "id", f"must match registry template id {expected_id}")
+    _require_exact_int(ctx, path, "columns", data.get("columns"), 11)
+    _require_exact_int(ctx, path, "rows", data.get("rows"), 11)
+    terrain_rows = _require_list(ctx, path, "terrain_rows", data.get("terrain_rows"))
+    if len(terrain_rows) != 11:
+        ctx.error(path, "terrain_rows", "must contain exactly 11 rows")
+    for y, row in enumerate(terrain_rows):
+        row_field = f"terrain_rows[{y}]"
+        cells = _require_list(ctx, path, row_field, row)
+        if len(cells) != 11:
+            ctx.error(path, row_field, "must contain exactly 11 terrain tokens")
+        for x, token in enumerate(cells):
+            _require_registered(ctx, path, f"{row_field}[{x}]", token, "module_cell_tokens")
+
+    edge_sockets = data.get("edge_sockets")
+    if not isinstance(edge_sockets, dict):
+        ctx.error(path, "edge_sockets", "must be an object")
+    else:
+        required_edges = set(ctx.contracts.get("module_edge_directions", []))
+        if set(edge_sockets) != required_edges:
+            ctx.error(path, "edge_sockets", "must define exactly edge_north, edge_south, edge_east, edge_west")
+        for edge in sorted(required_edges):
+            sockets = _require_list(ctx, path, f"edge_sockets.{edge}", edge_sockets.get(edge))
+            seen_sockets: set[int] = set()
+            for socket_index, socket in enumerate(sockets):
+                socket_field = f"edge_sockets.{edge}[{socket_index}]"
+                value = _require_int(ctx, path, socket_field, socket, minimum=0)
+                if value is not None and value > 10:
+                    ctx.error(path, socket_field, "must be <= 10")
+                if value is not None and value in seen_sockets:
+                    ctx.error(path, socket_field, f"duplicate socket index {value}")
+                if value is not None:
+                    seen_sockets.add(value)
+
+    placements = _require_list(ctx, path, "placements", data.get("placements"))
+    placement_counts: dict[str, int] = {}
+    enemy_count = 0
+    footprint_by_type: list[tuple[str, set[tuple[int, int]]]] = []
+    start_cell: tuple[int, int] | None = None
+    danger_cells: set[tuple[int, int]] = set()
+    for index, placement in enumerate(placements):
+        field = f"placements[{index}]"
+        if not isinstance(placement, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        placement_type = _require_registered(
+            ctx, path, f"{field}.type", placement.get("type"), "module_placement_types"
+        )
+        cell = _validate_module_cell(ctx, path, f"{field}.cell", placement.get("cell"), 11, 11)
+        footprint = _validate_module_footprint(ctx, path, f"{field}.footprint", placement.get("footprint"), cell)
+        if placement_type:
+            placement_counts[placement_type] = placement_counts.get(placement_type, 0) + 1
+            footprint_by_type.append((placement_type, footprint))
+        if placement_type == "module_place_player_start":
+            start_cell = cell
+        elif placement_type == "module_place_enemy_spawn":
+            enemy_id = _require_non_empty_string(ctx, path, f"{field}.enemy_id", placement.get("enemy_id"))
+            if enemy_id and enemy_id not in enemy_ids:
+                ctx.error(path, f"{field}.enemy_id", f"enemy is not defined in enemies.csv: {enemy_id}")
+            count = _require_int(ctx, path, f"{field}.count", placement.get("count"), minimum=1)
+            if count is not None:
+                enemy_count += count
+            danger_cells.update(footprint)
+        elif placement_type == "module_place_hazard":
+            hazard_id = _require_non_empty_string(ctx, path, f"{field}.hazard_id", placement.get("hazard_id"))
+            if hazard_id and hazard_id not in hazard_ids:
+                ctx.error(path, f"{field}.hazard_id", f"hazard is not defined in hazards.csv: {hazard_id}")
+            danger_cells.update(footprint)
+        elif placement_type == "module_place_reward_cache":
+            rewards = _require_list(ctx, path, f"{field}.resource_rewards", placement.get("resource_rewards"))
+            if not rewards:
+                ctx.error(path, f"{field}.resource_rewards", "must be a non-empty array")
+            for reward_index, reward in enumerate(rewards):
+                reward_field = f"{field}.resource_rewards[{reward_index}]"
+                if not isinstance(reward, dict):
+                    ctx.error(path, reward_field, "must be an object")
+                    continue
+                _require_registered(ctx, path, f"{reward_field}.id", reward.get("id"), "gear_mod_resources")
+                _require_int(ctx, path, f"{reward_field}.amount", reward.get("amount"), minimum=1)
+            _require_number(ctx, path, f"{field}.claim_radius", placement.get("claim_radius"), minimum=0.0, exclusive_minimum=True)
+        elif placement_type == "module_place_objective":
+            _require_number(ctx, path, f"{field}.target_hp", placement.get("target_hp"), minimum=0.0, exclusive_minimum=True)
+            _require_number(ctx, path, f"{field}.target_hit_radius", placement.get("target_hit_radius"), minimum=0.0, exclusive_minimum=True)
+        elif placement_type == "module_place_extraction":
+            _require_number(ctx, path, f"{field}.radius", placement.get("radius"), minimum=0.0, exclusive_minimum=True)
+            _require_number(ctx, path, f"{field}.hold_time", placement.get("hold_time"), minimum=0.0, exclusive_minimum=True)
+
+    protected_types = {
+        "module_place_player_start",
+        "module_place_reward_cache",
+        "module_place_objective",
+        "module_place_extraction",
+    }
+    danger_types = {"module_place_enemy_spawn", "module_place_hazard"}
+    for left_index, (left_type, left_cells) in enumerate(footprint_by_type):
+        for right_type, right_cells in footprint_by_type[left_index + 1:]:
+            if ((left_type in danger_types and right_type in protected_types) or
+                    (right_type in danger_types and left_type in protected_types)) and left_cells & right_cells:
+                ctx.error(path, "placements", "danger placement overlaps player start, objective, extraction, or reward")
+
+    _validate_module_role_budget(ctx, path, role, placement_counts, enemy_count)
+    if role == "module_role_start" and start_cell is not None:
+        if any(max(abs(cell[0] - start_cell[0]), abs(cell[1] - start_cell[1])) <= 2 for cell in danger_cells):
+            ctx.error(path, "placements", "player start must have a 2-cell danger-free safe radius")
+
+
+def _validate_module_footprint(
+    ctx: ValidationContext, path: Path, field: str, value: Any, cell: tuple[int, int] | None
+) -> set[tuple[int, int]]:
+    if cell is None:
+        return set()
+    width = 1
+    height = 1
+    if value is not None:
+        if not isinstance(value, dict):
+            ctx.error(path, field, "must be an object")
+            return {cell}
+        parsed_width = _require_int(ctx, path, f"{field}.width", value.get("width"), minimum=1)
+        parsed_height = _require_int(ctx, path, f"{field}.height", value.get("height"), minimum=1)
+        if parsed_width is not None:
+            width = parsed_width
+        if parsed_height is not None:
+            height = parsed_height
+    cells = {(cell[0] + x, cell[1] + y) for y in range(height) for x in range(width)}
+    if any(x < 0 or x >= 11 or y < 0 or y >= 11 for x, y in cells):
+        ctx.error(path, field, "footprint must stay inside the 11x11 module")
+    return cells
+
+
+def _validate_module_role_budget(
+    ctx: ValidationContext, path: Path, role: str | None, counts: dict[str, int], enemy_count: int
+) -> None:
+    hazards = counts.get("module_place_hazard", 0)
+    rewards = counts.get("module_place_reward_cache", 0)
+    if role == "module_role_start":
+        if enemy_count != 0 or hazards != 0:
+            ctx.error(path, "placements", "start module cannot contain enemies or hazards")
+        if counts.get("module_place_player_start", 0) != 1:
+            ctx.error(path, "placements", "start module requires exactly one player_start")
+    elif role == "module_role_connector":
+        _validate_budget_range(ctx, path, enemy_count, 0, 4, "connector enemy count")
+        _validate_budget_range(ctx, path, hazards, 0, 1, "connector hazard count")
+    elif role == "module_role_combat":
+        _validate_budget_range(ctx, path, enemy_count, 6, 12, "combat enemy count")
+        _validate_budget_range(ctx, path, hazards, 0, 2, "combat hazard count")
+    elif role == "module_role_resource":
+        _validate_budget_range(ctx, path, enemy_count, 2, 6, "resource guard count")
+        if rewards != 1:
+            ctx.error(path, "placements", "resource module requires exactly one reward_cache")
+    elif role == "module_role_hazard":
+        _validate_budget_range(ctx, path, enemy_count, 2, 6, "hazard module enemy count")
+        _validate_budget_range(ctx, path, hazards, 2, 4, "hazard module hazard count")
+    elif role == "module_role_objective" and counts.get("module_place_objective", 0) != 1:
+        ctx.error(path, "placements", "objective module requires exactly one objective")
+    elif role == "module_role_extraction" and counts.get("module_place_extraction", 0) != 1:
+        ctx.error(path, "placements", "extraction module requires exactly one extraction")
+    elif role == "module_role_sealed" and (enemy_count or hazards or any(counts.values())):
+        ctx.error(path, "placements", "sealed module cannot contain placements")
+
+
+def _validate_budget_range(ctx: ValidationContext, path: Path, value: int, minimum: int, maximum: int, label: str) -> None:
+    if value < minimum or value > maximum:
+        ctx.error(path, "placements", f"{label} must be between {minimum} and {maximum}; got {value}")
+
+
+def _validate_module_route_budget(ctx: ValidationContext, path: Path, field: str, value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        ctx.error(path, field, "must be an object")
+        return {}
+    result: dict[str, Any] = {}
+    for segment in ("start_to_objective", "objective_to_extraction"):
+        segment_value = value.get(segment)
+        segment_field = f"{field}.{segment}"
+        if not isinstance(segment_value, dict):
+            ctx.error(path, segment_field, "must be an object")
+            continue
+        minimum = _require_int(ctx, path, f"{segment_field}.min_crossings", segment_value.get("min_crossings"), minimum=0)
+        maximum = _require_int(ctx, path, f"{segment_field}.max_crossings", segment_value.get("max_crossings"), minimum=0)
+        if minimum is not None and maximum is not None and minimum > maximum:
+            ctx.error(path, segment_field, "min_crossings must be <= max_crossings")
+        result[segment] = (minimum, maximum)
+    main_route = value.get("main_route_modules")
+    if not isinstance(main_route, dict):
+        ctx.error(path, f"{field}.main_route_modules", "must be an object")
+    else:
+        minimum = _require_int(ctx, path, f"{field}.main_route_modules.min", main_route.get("min"), minimum=1)
+        maximum = _require_int(ctx, path, f"{field}.main_route_modules.max", main_route.get("max"), minimum=1)
+        if minimum is not None and maximum is not None and minimum > maximum:
+            ctx.error(path, f"{field}.main_route_modules", "min must be <= max")
+        result["main_route_modules"] = (minimum, maximum)
+    optional = value.get("optional_exploration_modules")
+    if not isinstance(optional, dict):
+        ctx.error(path, f"{field}.optional_exploration_modules", "must be an object")
+    else:
+        result["optional_exploration_modules"] = _require_int(
+            ctx, path, f"{field}.optional_exploration_modules.max", optional.get("max"), minimum=0, maximum=14
+        )
+    return result
+
+
+def _validate_module_assignment_entries(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    entries: list[Any],
+    templates: dict[str, dict[str, Any]],
+    *,
+    exact_81: bool,
+    allow_technical_sealed: bool,
+) -> dict[tuple[int, int], tuple[str, int]]:
+    if exact_81 and len(entries) != 81:
+        ctx.error(path, field, "must contain exactly 81 slot assignments")
+    assignment: dict[tuple[int, int], tuple[str, int]] = {}
+    for index, entry in enumerate(entries):
+        item_field = f"{field}[{index}]"
+        if not isinstance(entry, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        slot = _validate_module_cell(ctx, path, f"{item_field}.slot", entry.get("slot"), 9, 9)
+        template_id = _require_non_empty_string(ctx, path, f"{item_field}.template_id", entry.get("template_id"))
+        rotation = entry.get("rotation")
+        if not isinstance(rotation, int) or isinstance(rotation, bool) or rotation not in (0, 90, 180, 270):
+            ctx.error(path, f"{item_field}.rotation", "rotation must be one of 0, 90, 180, 270")
+            rotation_value = 0
+        else:
+            rotation_value = rotation
+        template = templates.get(template_id or "")
+        if template_id and template is None:
+            ctx.error(path, f"{item_field}.template_id", f"template is not defined in module_templates.json: {template_id}")
+        elif template is not None:
+            if rotation_value not in template["allowed_rotations"]:
+                ctx.error(path, f"{item_field}.rotation", f"rotation is not allowed by template {template_id}: {rotation_value}")
+            approved = template["review_status"] == "module_review_approved"
+            sealed = template["role"] == "module_role_sealed"
+            technical_exception = allow_technical_sealed and sealed and slot is not None and not (3 <= slot[0] <= 5 and 3 <= slot[1] <= 5)
+            if not approved and not technical_exception:
+                ctx.error(path, f"{item_field}.template_id", f"assignment requires approved template: {template_id}")
+            if exact_81 and not allow_technical_sealed and sealed:
+                ctx.error(path, f"{item_field}.template_id", "fallback assignment cannot contain sealed templates")
+            if exact_81 and allow_technical_sealed and slot is not None:
+                inside_slice = 3 <= slot[0] <= 5 and 3 <= slot[1] <= 5
+                if inside_slice and sealed:
+                    ctx.error(path, f"{item_field}.template_id", "technical slice center 3x3 cannot be sealed")
+                elif not inside_slice and not sealed:
+                    ctx.error(path, f"{item_field}.template_id", "technical slice outer 72 slots must be sealed")
+        if slot is not None:
+            if slot in assignment:
+                ctx.error(path, f"{item_field}.slot", f"duplicate slot {slot[0]},{slot[1]}")
+            elif template_id:
+                assignment[slot] = (template_id, rotation_value)
+    if exact_81:
+        expected = {(x, y) for y in range(9) for x in range(9)}
+        missing = sorted(expected - set(assignment))
+        if missing:
+            ctx.error(path, field, f"assignment is missing slots: {missing[:4]}")
+    return assignment
+
+
+def _validate_module_fixed_anchor_roles(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    assignment: dict[tuple[int, int], tuple[str, int]],
+    templates: dict[str, dict[str, Any]],
+    anchors: dict[str, tuple[int, int] | None],
+) -> None:
+    for anchor_name, expected_role in (
+        ("start_slot", "module_role_start"),
+        ("objective_slot", "module_role_objective"),
+        ("extraction_slot", "module_role_extraction"),
+    ):
+        role_slots = [
+            role_slot
+            for role_slot, (template_id, _rotation) in assignment.items()
+            if templates.get(template_id, {}).get("role") == expected_role
+        ]
+        if len(role_slots) != 1:
+            ctx.error(path, field, f"must contain exactly one {expected_role}")
+        slot = anchors.get(anchor_name)
+        if slot is None:
+            continue
+        if slot not in assignment:
+            ctx.error(path, field, f"must assign configured {anchor_name}")
+            continue
+        template = templates.get(assignment[slot][0])
+        if template is not None and template["role"] != expected_role:
+            ctx.error(path, field, f"{anchor_name} must use role {expected_role}")
+
+
+def _validate_module_assignment_world(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    assignment: dict[tuple[int, int], tuple[str, int]],
+    templates: dict[str, dict[str, Any]],
+    anchors: dict[str, tuple[int, int] | None],
+    route_budget: dict[str, Any],
+    technical: bool,
+) -> None:
+    if len(assignment) != 81:
+        return
+    effective_anchors = dict(anchors)
+    if technical:
+        for anchor_name, role in (
+            ("start_slot", "module_role_start"),
+            ("objective_slot", "module_role_objective"),
+            ("extraction_slot", "module_role_extraction"),
+        ):
+            role_slots = [
+                slot for slot, (template_id, _rotation) in assignment.items()
+                if templates.get(template_id, {}).get("role") == role
+            ]
+            if len(role_slots) != 1:
+                ctx.error(path, field, f"technical slice requires exactly one {role}")
+            else:
+                effective_anchors[anchor_name] = role_slots[0]
+    for anchor_name, expected_role in (
+        ("start_slot", "module_role_start"),
+        ("objective_slot", "module_role_objective"),
+        ("extraction_slot", "module_role_extraction"),
+    ):
+        slot = effective_anchors.get(anchor_name)
+        if slot is None or slot not in assignment:
+            continue
+        template = templates.get(assignment[slot][0])
+        if template is not None and template["role"] != expected_role:
+            ctx.error(path, field, f"{anchor_name} must use role {expected_role}")
+
+    graph: dict[tuple[int, int], set[tuple[int, int]]] = {slot: set() for slot in assignment}
+    for y in range(9):
+        for x in range(9):
+            slot = (x, y)
+            for neighbor, edge, opposite in (((x + 1, y), "edge_east", "edge_west"), ((x, y + 1), "edge_south", "edge_north")):
+                if neighbor not in assignment:
+                    continue
+                left_role = templates.get(assignment[slot][0], {}).get("role")
+                right_role = templates.get(assignment[neighbor][0], {}).get("role")
+                if left_role == "module_role_sealed" or right_role == "module_role_sealed":
+                    continue
+                left_sockets = _effective_module_sockets(assignment[slot], templates, edge)
+                right_sockets = _effective_module_sockets(assignment[neighbor], templates, opposite)
+                if left_sockets != right_sockets:
+                    ctx.error(path, field, f"socket mismatch between slot {slot} {edge} and {neighbor} {opposite}")
+                    continue
+                if left_sockets:
+                    graph[slot].add(neighbor)
+                    graph[neighbor].add(slot)
+
+    non_sealed = {
+        slot for slot, (template_id, _rotation) in assignment.items()
+        if templates.get(template_id, {}).get("role") != "module_role_sealed"
+    }
+    start = effective_anchors.get("start_slot")
+    if start not in non_sealed:
+        return
+    reachable = _module_graph_distances(graph, start)
+    missing = non_sealed - set(reachable)
+    if missing:
+        ctx.error(path, field, f"all non-sealed slots must be reachable from start; unreachable: {sorted(missing)[:4]}")
+    objective = effective_anchors.get("objective_slot")
+    extraction = effective_anchors.get("extraction_slot")
+    if objective not in reachable:
+        ctx.error(path, field, "critical route start -> objective is unreachable")
+        return
+    objective_distances = _module_graph_distances(graph, objective)
+    if extraction not in objective_distances:
+        ctx.error(path, field, "critical route objective -> extraction is unreachable")
+        return
+    if technical:
+        return
+    start_distance = reachable[objective]
+    extraction_distance = objective_distances[extraction]
+    _validate_route_distance(ctx, path, field, "start_to_objective", start_distance, route_budget.get("start_to_objective"))
+    _validate_route_distance(ctx, path, field, "objective_to_extraction", extraction_distance, route_budget.get("objective_to_extraction"))
+    main_range = route_budget.get("main_route_modules")
+    if isinstance(main_range, tuple) and None not in main_range:
+        module_count = start_distance + extraction_distance + 1
+        if module_count < main_range[0] or module_count > main_range[1]:
+            ctx.error(path, field, f"main route module count {module_count} is outside {main_range[0]}..{main_range[1]}")
+
+
+def _effective_module_sockets(
+    assignment: tuple[str, int], templates: dict[str, dict[str, Any]], requested_edge: str
+) -> set[int]:
+    template = templates.get(assignment[0])
+    if template is None or not isinstance(template.get("data"), dict):
+        return set()
+    sockets = template["data"].get("edge_sockets")
+    if not isinstance(sockets, dict):
+        return set()
+    rotation = assignment[1]
+    result: set[int] = set()
+    for source_edge in ("edge_north", "edge_south", "edge_east", "edge_west"):
+        values = sockets.get(source_edge)
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0 or value > 10:
+                continue
+            edge, index = _rotate_module_socket(source_edge, value, rotation)
+            if edge == requested_edge:
+                result.add(index)
+    return result
+
+
+def _rotate_module_socket(edge: str, index: int, rotation: int) -> tuple[str, int]:
+    if edge == "edge_north":
+        point = (index, 0)
+    elif edge == "edge_south":
+        point = (index, 10)
+    elif edge == "edge_east":
+        point = (10, index)
+    else:
+        point = (0, index)
+    x, y = point
+    for _ in range((rotation // 90) % 4):
+        x, y = 10 - y, x
+    if y == 0:
+        return "edge_north", x
+    if y == 10:
+        return "edge_south", x
+    if x == 10:
+        return "edge_east", y
+    return "edge_west", y
+
+
+def _module_graph_distances(
+    graph: dict[tuple[int, int], set[tuple[int, int]]], start: tuple[int, int]
+) -> dict[tuple[int, int], int]:
+    distances = {start: 0}
+    queue = [start]
+    for slot in queue:
+        for neighbor in graph.get(slot, set()):
+            if neighbor not in distances:
+                distances[neighbor] = distances[slot] + 1
+                queue.append(neighbor)
+    return distances
+
+
+def _validate_route_distance(
+    ctx: ValidationContext, path: Path, field: str, label: str, distance: int, budget: Any
+) -> None:
+    if not isinstance(budget, tuple) or None in budget:
+        return
+    if distance < budget[0] or distance > budget[1]:
+        ctx.error(path, field, f"{label} crossings {distance} is outside {budget[0]}..{budget[1]}")
+
+
+def _validate_module_cell(
+    ctx: ValidationContext, path: Path, field: str, value: Any, columns: int, rows: int
+) -> tuple[int, int] | None:
+    if not isinstance(value, dict):
+        ctx.error(path, field, "must be an object with integer x/y")
+        return None
+    x = _require_int(ctx, path, f"{field}.x", value.get("x"), minimum=0)
+    y = _require_int(ctx, path, f"{field}.y", value.get("y"), minimum=0)
+    if x is None or y is None:
+        return None
+    if x >= columns:
+        ctx.error(path, f"{field}.x", f"must be < {columns}")
+    if y >= rows:
+        ctx.error(path, f"{field}.y", f"must be < {rows}")
+    if x >= columns or y >= rows:
+        return None
+    return x, y
+
+
+def _require_exact_int(
+    ctx: ValidationContext, path: Path, field: str, value: Any, expected: int
+) -> int | None:
+    parsed = _require_int(ctx, path, field, value)
+    if parsed is not None and parsed != expected:
+        ctx.error(path, field, f"must equal {expected}")
+    return parsed
 
 
 def _collect_game_mode_ids(ctx: ValidationContext) -> set[str]:
@@ -2277,12 +2835,22 @@ def _require_list(ctx: ValidationContext, path: Path, field: str, value: Any) ->
     return value
 
 
-def _require_int(ctx: ValidationContext, path: Path, field: str, value: Any, *, minimum: int | None = None) -> int | None:
+def _require_int(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    value: Any,
+    *,
+    minimum: int | None = None,
+    maximum: int | None = None,
+) -> int | None:
     if not isinstance(value, int) or isinstance(value, bool):
         ctx.error(path, field, "must be int")
         return None
     if minimum is not None and value < minimum:
         ctx.error(path, field, f"must be >= {minimum}")
+    if maximum is not None and value > maximum:
+        ctx.error(path, field, f"must be <= {maximum}")
     return value
 
 

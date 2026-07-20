@@ -77,6 +77,8 @@ UIManager
 | F5 存档 smoke | `--save-smoke` 启动时只挂载 `SaveManagerSmoke`，验证 run 存档 roundtrip、备份回退、坏档隔离和迁移链 | `client/tools/save_manager_smoke.gd` |
 | F7 设置 smoke | `--settings-smoke` 启动时只挂载 `SettingsSmoke`，验证设置缺文件默认值、有效配置 roundtrip、非法值拒绝、坏值 / 坏文件回退以及 `Localization` 跟随语言设置 | `client/tools/settings_smoke.gd` |
 | F11 装备 Mod smoke | `--gear-mod-smoke` 启动时只挂载 `GearModSmoke`，验证 Gear Mod profile、授予、装备、容量、升级、分解和掉落 | `client/tools/gear_mod_smoke.gd` |
+| F13 模块世界 smoke | `--module-world-smoke` 启动默认模块载体，验证 81 槽 assignment/hash、不同 seed、坐标、最多 9 chunk、跨模块状态、迷雾、目标后撤离、run v4 恢复与坏 map hash 拒绝 | `client/tools/module_world_smoke.gd` |
+| F13 首帧可玩 probe | `--startup-probe` 在正式主场景 `_ready()` 首行输出 `BOOT_BEGIN`，启动默认模块载体，进入 `PLAYING` 且找到 `GameplayRunLoop` 后输出 `PLAYABLE` 并退出；Bridge 以两 marker 间单调时钟执行 2 秒硬门槛，进程冷启动另作诊断 | `client/tools/startup_probe.gd`、`tools/godot_bridge.py startup-probe` |
 | F8 / F9 L1 smoke | `--l1-smoke` 启动时只挂载 `L1Smoke`，验证 `RNG`、`GameClock`、`GameState`、`SaveManager`、`Combat`、`ModLoader` 和 `PlatformServices` 的最小基础设施行为 | `client/tools/l1_smoke.gd` |
 | F8 Replay smoke | `--replay-smoke` 启动时只挂载 `ReplaySmoke`，验证 Replay 最小录制、`.replay` 保存 / 读取、摘要对比和 data fingerprint | `client/tools/replay_smoke.gd` |
 | F8 Replay runner | `--replay-runner` 启动时只挂载 `ReplayRunner`，读取 `.replay` 并比较 envelope summary 或外部 expectation JSON；未传文件时生成临时 smoke replay 自测 runner；带 `--rerun-runtime-summary` 时会按 replay seed 启动 `GameplayRunLoop`、按 tick/frame 播放 `input_events` 与工具层 `runtime_events` 并比较 `run_summary`，未传文件时生成临时输入播放 smoke replay | `client/tools/replay_runner.gd` |
@@ -86,6 +88,7 @@ UIManager
 | F9 Demo smoke | `--f9-demo-smoke` 启动时挂载真实 `GameplayRunLoop`，验证 FEA-12 机关存在、造成玩家伤害和 run 保存 roundtrip | `client/tools/f9_demo_smoke.gd` |
 | DebugTools smoke | `--debug-tools-smoke` 启动时挂载 `GameplayRunLoop` 与 `DebugToolsSmoke`；debug 模式验证 `DebugConsole` / `GMCommandRegistry`、help/stats/spawn/xp/hp/damage/heal/dust/kill/clear 命令，`--force-release-debug-tools-off` 模拟 release 时确认没有调试节点或 debug action | `client/tools/debug_tools_smoke.gd` |
 | 重开 / 回标题 | `GameplayRunLoop` 发出重开或回标题信号后，由启动脚本清理运行时和 gameplay 对象池，再重新挂载 run 或标题菜单 | `restart_requested` / `quit_to_title_requested` |
+| 模块存档拒绝 | run v4 的 assignment 与 map hash 不一致时，runtime 发出 `restore_failed`；启动层只删除该 run、回标题并显示不可用提示，`meta` 不受影响 | `restore_failed` / `SaveManager.delete(..., save_kind_run)` |
 
 ## 公共 API
 
@@ -102,7 +105,7 @@ UIManager
 
 - 通过 `DataLoader.validate_project_data()` 间接读取 F3 目标数据和 `client/locale/strings.csv`。
 - `client/project.godot` 的默认 viewport 为 1920×1080；当前只设计 / 验收 16:9，窗口禁止任意拖拽缩放，2D 内容和 UI 通过 `display/window/stretch/mode="canvas_items"` 与 `display/window/stretch/aspect="keep"` 在非 16:9 屏幕上等比缩放并补上下或左右黑边。设置页只应暴露经过验证的 16:9 固定分辨率预设，不接受任意宽高输入；16:10、4:3、21:9 等比例留作未来按独立固定预设接入的优化项，当前不做连续响应式适配。
-- 启动日志输出 `data_schema_ok`、`mods`、`player_stats`、`characters`、`weapons`、`enemies`、`hazards`、`map_layouts`、`warzone_directors`、`spawn_waves`、`relics`、`active_items`、`consumables`、`locale_keys`、`growth_levels`、`growth_pools`、`game_modes`、`platform_provider`、`platform_available` 等 smoke 计数 / 状态。
+- 启动日志输出 `data_schema_ok`、`mods`、`player_stats`、`characters`、`weapons`、`enemies`、`hazards`、`map_layouts`、`module_worlds`、`module_templates`、`warzone_directors`、`spawn_waves`、`relics`、`active_items`、`consumables`、`locale_keys`、`growth_levels`、`growth_pools`、`game_modes`、`platform_provider`、`platform_available` 等 smoke 计数 / 状态。
 - 启动脚本本身不包含玩家可见文本；标题、HUD、设置、失败页和装备 Mod 面板文案见 `client/locale/strings.csv`。
 - 标题菜单的“继续游戏”只在 `SaveManager.has_save(slot_0, run)` 为真时可见；“装备 Mod”常驻可见并由 `GearModPanel` 展示 `GearModSystem` 的 profile / mod summaries；旧“局外升级”标题入口已删除。开始新局和重开会删除旧 `run` 存档，并通过 `RNG.set_random_run_seed()` 生成新的主 seed，避免重复继续旧局或每局固定序列。若继续读取失败或坏档被隔离，标题菜单显示 `ui_run_save_unavailable` 提示并隐藏继续按钮。成功继续后，`GameplayRunLoop` 会按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板，不生成新 seed。
 - DebugTools 只在 `OS.is_debug_build()` 或 `OS.has_feature("dev_tools")` 为真时动态加载；release 构建不应启用 `dev_tools`，也不应包含 `res://scripts/debug/*` 调试资源。
@@ -170,7 +173,7 @@ UIManager
 
 ## 迁移 / 兼容
 
-不影响存档或数据 schema。普通开始 / 重开只改变新局入口的主 seed 生成方式；继续游戏仍恢复 run payload 内的 RNG snapshot，回放 / smoke / golden 工具仍保留固定 seed 路径。F8 新增 `--capture-golden-replay`、`--golden-scenario`、full-death 工具层 `runtime_events` 与 `--rerun-runtime-summary` 只在 headless 工具参数下生效，不改变正常启动路径。DebugTools 只在 debug/dev_tools 构建或 `--debug-tools-smoke` 工具路径下验证，正式 release 路径由 runtime guard 与导出 preset 资源排除共同约束。
+普通开始 / 重开生成新主 seed，并默认进入 F13 完整模块世界；继续游戏恢复 run v4 的 RNG 与 `module_world` 快照。旧 v3 run 会显示不兼容提示、删除 run 后要求新开，`meta` 不受影响。`--module-world-technical-slice` 是中心 3×3（外圈 72 槽封锁）的 opt-in 启动入口，自动回归入口为 `python tools/godot_bridge.py --project client module-world-technical-slice-smoke`；`--open-warzone` 只保留对照回归，默认 `module-world-smoke`、replay / golden 工具保持固定 seed。DebugTools 只在 debug/dev_tools 构建或 smoke 路径下验证，正式 release 路径由 runtime guard 与导出 preset 资源排除共同约束。
 
 ## 相关文档
 

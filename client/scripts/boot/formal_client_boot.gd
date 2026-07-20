@@ -13,6 +13,7 @@ const GEAR_MOD_PANEL_SCENE := preload("res://scenes/ui/gear_mod_panel.tscn")
 const GEAR_MOD_SMOKE_RUNNER := preload("res://tools/gear_mod_smoke.gd")
 const GOLDEN_REPLAY_CAPTURE_RUNNER := preload("res://tools/golden_replay_capture.gd")
 const L1_SMOKE_RUNNER := preload("res://tools/l1_smoke.gd")
+const MODULE_WORLD_SMOKE_RUNNER := preload("res://tools/module_world_smoke.gd")
 const RUNTIME_SMOKE_RUNNER := preload("res://tools/runtime_smoke.gd")
 const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
 const PERF_PROBE_RUNNER := preload("res://tools/perf_probe.gd")
@@ -21,14 +22,15 @@ const REPLAY_INPUT_SMOKE_RUNNER := preload("res://tools/replay_input_smoke.gd")
 const REPLAY_RUNNER := preload("res://tools/replay_runner.gd")
 const REPLAY_SMOKE_RUNNER := preload("res://tools/replay_smoke.gd")
 const RNG_AUDIT_RUNNER := preload("res://tools/rng_audit.gd")
-const ROOM_SWITCH_SMOKE_RUNNER := preload("res://tools/room_switch_smoke.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SAVE_SMOKE_RUNNER := preload("res://tools/save_manager_smoke.gd")
 const SETTINGS_SMOKE_RUNNER := preload("res://tools/settings_smoke.gd")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
+const STARTUP_PROBE_RUNNER := preload("res://tools/startup_probe.gd")
 
 var _run_loop: Node = null
-var _room_carrier_launch: bool = false
+var _open_warzone_launch: bool = false
+var _module_world_technical_slice_launch: bool = false
 var _debug_console: CanvasLayer = null
 var _gear_mod_panel: CanvasLayer = null
 var _settings_panel: CanvasLayer = null
@@ -36,6 +38,9 @@ var _title_menu: CanvasLayer = null
 
 
 func _ready() -> void:
+	if _is_startup_probe_enabled():
+		print("[StartupProbe] BOOT_BEGIN")
+	_module_world_technical_slice_launch = _is_module_world_technical_slice_launch_enabled()
 	var data_schema_ok: bool = DataLoader.validate_project_data()
 	var schema_counts: Dictionary = DataLoader.schema_counts()
 	var contract_count: int = DataLoader.contracts().size()
@@ -46,7 +51,7 @@ func _ready() -> void:
 	var save_kind_count: int = SaveManager.registered_save_kinds().size()
 	var audio_prefix_count: int = AudioManager.registered_audio_prefixes().size()
 	var state_name: StringName = GameState.current()
-	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d data_schema_ok=%s mods=%d player_stats=%d weapons=%d enemies=%d hazards=%d spawn_waves=%d relics=%d active_items=%d consumables=%d skills=%d credits=%d credit_sections=%d characters=%d locale_keys=%d growth_levels=%d growth_pools=%d game_modes=%d map_layouts=%d warzone_directors=%d settings=%d analytics_events=%d analytics_enabled=%s replay_enabled=%s replay_recording=%s platform_provider=%s platform_available=%s pool_ids=%d active_pools=%d save_kinds=%d save_slots=%d audio_prefixes=%d audio_streams=%d audio_buses_ready=%s locale=%s ui_stack=%d state=%s seed=%d" % [
+	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d data_schema_ok=%s mods=%d player_stats=%d weapons=%d enemies=%d hazards=%d spawn_waves=%d relics=%d active_items=%d consumables=%d skills=%d credits=%d credit_sections=%d characters=%d locale_keys=%d growth_levels=%d growth_pools=%d game_modes=%d map_layouts=%d warzone_directors=%d module_worlds=%d module_templates=%d settings=%d analytics_events=%d analytics_enabled=%s replay_enabled=%s replay_recording=%s platform_provider=%s platform_available=%s pool_ids=%d active_pools=%d save_kinds=%d save_slots=%d audio_prefixes=%d audio_streams=%d audio_buses_ready=%s locale=%s ui_stack=%d state=%s seed=%d" % [
 		BOOT_LOG_PREFIX,
 		contract_count,
 		stream_count,
@@ -70,6 +75,8 @@ func _ready() -> void:
 		int(schema_counts.get("game_modes", 0)),
 		int(schema_counts.get("map_layouts", 0)),
 		int(schema_counts.get("warzone_directors", 0)),
+		int(schema_counts.get("module_worlds", 0)),
+		int(schema_counts.get("module_templates", 0)),
 		settings_count,
 		analytics_event_count,
 		str(Analytics.is_enabled()),
@@ -120,6 +127,12 @@ func _ready() -> void:
 		var perf_probe_runner: Node = PERF_PROBE_RUNNER.new()
 		perf_probe_runner.name = "PerfProbe"
 		add_child(perf_probe_runner)
+	elif _is_startup_probe_enabled():
+		if data_schema_ok:
+			_start_gameplay_run()
+		var startup_probe_runner: Node = STARTUP_PROBE_RUNNER.new()
+		startup_probe_runner.name = "StartupProbe"
+		add_child(startup_probe_runner)
 	elif _is_debug_tools_smoke_enabled():
 		if data_schema_ok:
 			_start_gameplay_run()
@@ -128,19 +141,21 @@ func _ready() -> void:
 		add_child(debug_tools_smoke_runner)
 	elif _is_f9_demo_smoke_enabled():
 		if data_schema_ok:
-			_start_gameplay_run()
+			_open_warzone_launch = true
+			_start_gameplay_run({}, true)
 		var f9_demo_smoke_runner: Node = F9_DEMO_SMOKE_RUNNER.new()
 		f9_demo_smoke_runner.name = "F9DemoSmoke"
 		add_child(f9_demo_smoke_runner)
-	elif _is_room_switch_smoke_enabled():
-		if data_schema_ok:
-			_start_gameplay_run({}, true)
-		var room_switch_smoke_runner: Node = ROOM_SWITCH_SMOKE_RUNNER.new()
-		room_switch_smoke_runner.name = "RoomSwitchSmoke"
-		add_child(room_switch_smoke_runner)
-	elif _is_runtime_smoke_enabled():
+	elif _is_module_world_smoke_enabled():
 		if data_schema_ok:
 			_start_gameplay_run()
+		var module_world_smoke_runner: Node = MODULE_WORLD_SMOKE_RUNNER.new()
+		module_world_smoke_runner.name = "ModuleWorldSmoke"
+		add_child(module_world_smoke_runner)
+	elif _is_runtime_smoke_enabled():
+		if data_schema_ok:
+			_open_warzone_launch = true
+			_start_gameplay_run({}, true)
 		var smoke_runner: Node = RUNTIME_SMOKE_RUNNER.new()
 		smoke_runner.name = "RuntimeSmoke"
 		add_child(smoke_runner)
@@ -156,8 +171,13 @@ func _ready() -> void:
 		var settings_smoke_runner: Node = SETTINGS_SMOKE_RUNNER.new()
 		settings_smoke_runner.name = "SettingsSmoke"
 		add_child(settings_smoke_runner)
-	elif _is_room_carrier_launch_enabled():
-		_room_carrier_launch = true
+	elif _module_world_technical_slice_launch:
+		if data_schema_ok:
+			_start_gameplay_run()
+		else:
+			_show_title_menu()
+	elif _is_open_warzone_launch_enabled():
+		_open_warzone_launch = true
 		if data_schema_ok:
 			_start_gameplay_run({}, true)
 		else:
@@ -180,14 +200,18 @@ func _is_runtime_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--runtime-smoke") or OS.get_cmdline_user_args().has("--f4-smoke")
 
 
-func _is_room_switch_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--room-switch-smoke")
+func _is_module_world_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--module-world-smoke")
 
 
-## Debug-only windowed launch: start a playable F13 room-carrier run instead of the default
-## open-warzone run. Opt-in via the --room-carrier user arg; does not change the default flow.
-func _is_room_carrier_launch_enabled() -> bool:
-	return OS.get_cmdline_user_args().has("--room-carrier")
+func _is_module_world_technical_slice_launch_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--module-world-technical-slice")
+
+
+## Debug-only regression launch for the former open-warzone carrier. The seamless module
+## world is the standard path; this flag keeps F12 comparisons available without PCG overlap.
+func _is_open_warzone_launch_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--open-warzone")
 
 
 func _is_l1_smoke_enabled() -> bool:
@@ -216,6 +240,10 @@ func _is_golden_replay_capture_enabled() -> bool:
 
 func _is_perf_probe_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--perf-probe")
+
+
+func _is_startup_probe_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--startup-probe")
 
 
 func _is_debug_tools_smoke_enabled() -> bool:
@@ -254,24 +282,28 @@ func _show_title_menu(notice_key: String = "") -> void:
 	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
 
 
-func _start_gameplay_run(restore_snapshot: Dictionary = {}, room_carrier: bool = false) -> void:
+func _start_gameplay_run(restore_snapshot: Dictionary = {}, open_warzone: bool = false) -> void:
 	UIManager.clear()
 	GameState.change_state(GameState.LOADING, {"source": "formal_client_boot"})
 	_clear_gameplay_runtime()
 
 	_run_loop = GAMEPLAY_RUN_LOOP_SCENE.instantiate()
-	if room_carrier and _run_loop.has_method("debug_enable_room_carrier"):
-		_run_loop.call("debug_enable_room_carrier")
+	if _module_world_technical_slice_launch and _run_loop.has_method("debug_enable_module_world_technical_slice"):
+		_run_loop.call("debug_enable_module_world_technical_slice")
+	if open_warzone and _run_loop.has_method("debug_enable_open_warzone"):
+		_run_loop.call("debug_enable_open_warzone")
 	if not restore_snapshot.is_empty() and _run_loop.has_method("configure_restore_snapshot"):
 		_run_loop.call("configure_restore_snapshot", restore_snapshot)
 	_run_loop.connect("restart_requested", Callable(self, "_on_run_restart_requested"))
 	_run_loop.connect("quit_to_title_requested", Callable(self, "_on_run_quit_to_title_requested"))
+	if _run_loop.has_signal("restore_failed"):
+		_run_loop.connect("restore_failed", Callable(self, "_on_run_restore_failed"), CONNECT_ONE_SHOT)
 	add_child(_run_loop)
 
 
 func _start_new_gameplay_run() -> void:
 	RNG.set_random_run_seed()
-	_start_gameplay_run({}, _room_carrier_launch)
+	_start_gameplay_run({}, _open_warzone_launch)
 
 
 func _clear_gameplay_runtime() -> void:
@@ -298,13 +330,20 @@ func _on_title_start_requested() -> void:
 func _on_title_continue_requested() -> void:
 	var envelope: Dictionary = SaveManager.load_envelope(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	var payload: Dictionary = envelope.get("payload", {}) as Dictionary
-	if payload.is_empty():
-		var load_error: String = SaveManager.last_error()
+	if payload.is_empty() or bool(payload.get("legacy_run_incompatible", false)):
+		var notice_key: String = _run_save_unavailable_notice_key(payload)
+		var load_error: String = "legacy run schema is incompatible" if bool(payload.get("legacy_run_incompatible", false)) else SaveManager.last_error()
 		SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 		push_warning("[FormalClientBoot] run save unavailable: %s" % load_error)
-		call_deferred("_show_title_menu", "ui_run_save_unavailable")
+		call_deferred("_show_title_menu", notice_key)
 		return
-	call_deferred("_start_gameplay_run", payload)
+	call_deferred("_start_gameplay_run", payload, _open_warzone_launch)
+
+
+func _run_save_unavailable_notice_key(payload: Dictionary) -> String:
+	if bool(payload.get("legacy_run_incompatible", false)):
+		return "ui_run_save_legacy_incompatible"
+	return "ui_run_save_unavailable"
 
 
 func _on_title_gear_mod_requested() -> void:
@@ -350,6 +389,11 @@ func _on_run_restart_requested() -> void:
 
 func _on_run_quit_to_title_requested() -> void:
 	call_deferred("_show_title_menu")
+
+
+func _on_run_restore_failed() -> void:
+	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+	call_deferred("_show_title_menu", "ui_run_save_unavailable")
 
 
 func _install_debug_console() -> void:

@@ -1,0 +1,323 @@
+extends Node
+## F13 headless smoke for deterministic composition, seamless streaming, fog,
+## objective-to-extraction flow and run-v4 restore.
+
+const MODULE_WORLD_MANAGER_SCRIPT := preload("res://scripts/gameplay/module_world_manager.gd")
+const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
+const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
+
+const BOOT_FRAMES: int = 4
+const SMOKE_SLOT: String = "slot_module_world_smoke"
+
+var _failures: Array[String] = []
+
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	call_deferred("_run")
+
+
+func _run() -> void:
+	var run_loop: Node = await _wait_for_playing_run_loop()
+	_expect(run_loop != null, "module-world run should reach PLAYING")
+	if run_loop == null:
+		_finish()
+		return
+	_expect(bool(run_loop.call("debug_module_world_enabled")), "module world should be the standard carrier")
+
+	var summary: Dictionary = run_loop.call("debug_summary")
+	var world_summary: Dictionary = summary.get("module_world", {}) as Dictionary
+	_expect(int(world_summary.get("assignment_count", 0)) == 81, "world should assign exactly 81 slots")
+	_expect(int(world_summary.get("active_count", 0)) <= 9, "streaming should activate at most nine chunks")
+	_expect(String(world_summary.get("map_hash", "")).length() == 64, "world should expose a sha256 map hash")
+	_expect(_coord_matches(world_summary.get("current_module", {}), Vector2i(4, 4)), "fresh run should start in center module")
+
+	print("[ModuleWorldSmoke] stage=composition")
+	_expect_deterministic_composition()
+	print("[ModuleWorldSmoke] stage=streaming")
+	await _expect_seamless_streaming(run_loop)
+	print("[ModuleWorldSmoke] stage=objective_restore")
+	await _expect_objective_extraction_and_restore(run_loop)
+	print("[ModuleWorldSmoke] stage=finish")
+	SaveManager.delete(SMOKE_SLOT, SAVE_KINDS.RUN)
+	_finish()
+
+
+func _expect_deterministic_composition() -> void:
+	var data: Dictionary = _load_world_data()
+	var manager_a: Node2D = MODULE_WORLD_MANAGER_SCRIPT.new() as Node2D
+	var manager_b: Node2D = MODULE_WORLD_MANAGER_SCRIPT.new() as Node2D
+	var manager_c: Node2D = MODULE_WORLD_MANAGER_SCRIPT.new() as Node2D
+	var manager_d: Node2D = MODULE_WORLD_MANAGER_SCRIPT.new() as Node2D
+	var manager_content: Node2D = MODULE_WORLD_MANAGER_SCRIPT.new() as Node2D
+	var manager_technical: Node2D = MODULE_WORLD_MANAGER_SCRIPT.new() as Node2D
+	add_child(manager_a)
+	add_child(manager_b)
+	add_child(manager_c)
+	add_child(manager_d)
+	add_child(manager_content)
+	add_child(manager_technical)
+	_expect(bool(manager_a.call("configure", data["world"], data["registry"], data["templates"], 13013)), "seed A world should configure")
+	_expect(bool(manager_b.call("configure", data["world"], data["registry"], data["templates"], 13013)), "same-seed world should configure")
+	_expect(bool(manager_c.call("configure", data["world"], data["registry"], data["templates"], 13014)), "different-seed world should configure")
+	_expect(bool(manager_d.call("configure", data["world"], data["registry"], data["templates"], 13015)), "third-seed world should configure")
+	_expect(String(manager_a.call("map_hash")) == String(manager_b.call("map_hash")), "same seed should reproduce assignment/hash")
+	_expect(manager_a.call("assignment") == manager_b.call("assignment"), "same seed should reproduce all 81 assignments")
+	_expect(manager_a.call("assignment") != manager_c.call("assignment"), "different seed should change ordinary module assignments")
+	_expect(manager_c.call("assignment") != manager_d.call("assignment"), "three-seed audit should produce distinct ordinary assignments")
+	_expect(String(manager_a.call("map_hash")) != String(manager_c.call("map_hash")), "different seed should change ordinary module assignment")
+	var changed_templates: Dictionary = (data["templates"] as Dictionary).duplicate(true)
+	var changed_objective: Dictionary = (changed_templates["module_objective_core"] as Dictionary).duplicate(true)
+	var changed_placements: Array = (changed_objective.get("placements", []) as Array).duplicate(true)
+	var changed_target: Dictionary = (changed_placements[0] as Dictionary).duplicate(true)
+	changed_target["target_hp"] = float(changed_target.get("target_hp", 0.0)) + 1.0
+	changed_placements[0] = changed_target
+	changed_objective["placements"] = changed_placements
+	changed_templates["module_objective_core"] = changed_objective
+	_expect(bool(manager_content.call("configure", data["world"], data["registry"], changed_templates, 13013)), "content-revision world should configure")
+	_expect(manager_content.call("assignment") == manager_a.call("assignment"), "content revision should preserve the same seeded assignment")
+	_expect(String(manager_content.call("map_hash")) != String(manager_a.call("map_hash")), "module content revision should invalidate map hash")
+	_expect(bool(manager_technical.call("configure", data["world"], data["registry"], data["templates"], 13013)), "technical-slice manager should configure")
+	_expect(bool(manager_technical.call("build_technical_slice_assignment")), "technical-slice opt-in should build its checked-in assignment")
+	var sealed_count: int = 0
+	for raw_entry: Variant in (manager_technical.call("assignment") as Dictionary).values():
+		if not raw_entry is Dictionary:
+			continue
+		var template_id: String = String((raw_entry as Dictionary).get("template_id", ""))
+		var registry_entry: Dictionary = (data["registry"] as Dictionary).get(template_id, {}) as Dictionary
+		if String(registry_entry.get("role", "")) == MODULE_ROLES.MODULE_ROLE_SEALED:
+			sealed_count += 1
+	_expect(sealed_count == 72, "technical slice should seal exactly the outer 72 slots")
+	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_START) == Vector2i(4, 4), "technical slice should retain the center start")
+	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_OBJECTIVE) == Vector2i(3, 4), "technical slice should expose its in-slice objective anchor")
+	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_EXTRACTION) == Vector2i(3, 3), "technical slice should expose its in-slice extraction anchor")
+	var tampered_snapshot: Dictionary = manager_a.call("snapshot")
+	tampered_snapshot["map_hash"] = "0".repeat(64)
+	_expect(not bool(manager_a.call("restore_state", tampered_snapshot)), "restore should reject a mismatched module map hash")
+	var center_world: Vector2 = manager_a.call("global_cell_to_world", Vector2i(49, 49))
+	_expect(center_world.is_equal_approx(Vector2.ZERO), "global center cell should map to world origin")
+	_expect(manager_a.call("world_to_global_cell", Vector2.ZERO) == Vector2i(49, 49), "world origin should map to global center cell")
+	manager_a.queue_free()
+	manager_b.queue_free()
+	manager_c.queue_free()
+	manager_d.queue_free()
+	manager_content.queue_free()
+	manager_technical.queue_free()
+
+
+func _expect_seamless_streaming(run_loop: Node) -> void:
+	var before: Dictionary = run_loop.call("debug_summary")
+	var before_hash: String = String((before.get("module_world", {}) as Dictionary).get("map_hash", ""))
+	# Start inside the center module's east doorway and cross the shared seam using
+	# normal CharacterBody2D movement so a bad collision merge cannot hide behind a teleport.
+	run_loop.call("debug_set_player_position", Vector2(800.0, 0.0))
+	Input.action_press(ACTIONS.MOVE_RIGHT)
+	for _physics_tick: int in range(90):
+		await get_tree().physics_frame
+		var player: Node = _find_node_by_name(get_tree().root, "Player")
+		if player is Node2D and (player as Node2D).global_position.x > 900.0:
+			break
+	Input.action_release(ACTIONS.MOVE_RIGHT)
+	await _wait_frames(BOOT_FRAMES)
+	var crossed: Dictionary = run_loop.call("debug_summary")
+	var crossed_world: Dictionary = crossed.get("module_world", {}) as Dictionary
+	_expect(_coord_matches(crossed_world.get("current_module", {}), Vector2i(5, 4)), "crossing the shared edge should enter the adjacent module without scene switch")
+	var crossed_player: Node = _find_node_by_name(get_tree().root, "Player")
+	_expect(crossed_player is Node2D and (crossed_player as Node2D).global_position.x > 900.0, "player physics body should pass through the shared module doorway")
+	_expect(int(crossed_world.get("active_count", 0)) <= 9, "edge crossing should keep at most nine active chunks")
+	_expect(int(crossed_world.get("visited_count", 0)) >= 2, "entering an adjacent module should reveal fog state")
+	_expect(String(crossed_world.get("map_hash", "")) == before_hash, "streaming should not mutate map hash")
+	var first_visit_enemy_count: int = _active_module_entity_count("active_enemies", "5,4")
+	var bullet_position := Vector2(1120.0, 700.0)
+	var pickup_position := Vector2(1280.0, 700.0)
+	run_loop.call("_restore_bullet_snapshots", [{
+		"position": _vector_to_dict(bullet_position),
+		"damage": 0.0,
+		"damage_type": "",
+		"damage_target_groups": [],
+		"hit_radius": 0.0,
+		"remaining_life": 90.0,
+		"max_range": 99999.0,
+		"pierce_remaining": 0,
+		"source_team": "",
+		"target_team": "",
+		"travelled": 0.0,
+		"velocity": _vector_to_dict(Vector2.ZERO),
+	}])
+	run_loop.call("_restore_pickup_snapshots", [{
+		"position": _vector_to_dict(pickup_position),
+		"amount": 7,
+		"pickup_speed": 0.0,
+	}])
+	await _wait_frames(BOOT_FRAMES)
+	_expect(_has_active_entity_at("active_bullets", bullet_position), "test projectile should be active in the adjacent module")
+	_expect(_has_active_entity_at("active_pickups", pickup_position), "test pickup should be active in the adjacent module")
+	# Move far enough that slot 5,4 leaves the active 3x3 neighborhood.
+	run_loop.call("debug_set_player_position", Vector2(-1760.0, 0.0))
+	await _wait_frames(BOOT_FRAMES)
+	_expect(not _has_active_entity_at("active_bullets", bullet_position), "deactivated module should release its projectile")
+	_expect(not _has_active_entity_at("active_pickups", pickup_position), "deactivated module should release its pickup")
+	var manager: Node = _find_node_by_name(get_tree().root, "ModuleWorldManager")
+	var stored_state: Dictionary = manager.call("slot_state", Vector2i(5, 4)) if manager != null else {}
+	_expect((stored_state.get("bullet_snapshots", []) as Array).size() == 1, "deactivated slot should retain one projectile snapshot")
+	_expect((stored_state.get("pickup_snapshots", []) as Array).size() == 1, "deactivated slot should retain one pickup snapshot")
+	run_loop.call("debug_set_player_position", Vector2(960.0, 0.0))
+	await _wait_frames(BOOT_FRAMES)
+	_expect(_active_module_entity_count("active_enemies", "5,4") == first_visit_enemy_count, "leave/return should restore slot state without duplicate enemies")
+	_expect(_has_active_entity_at("active_bullets", bullet_position), "returning should restore the slot projectile")
+	_expect(_has_active_entity_at("active_pickups", pickup_position), "returning should restore the slot pickup")
+
+
+func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
+	var technical_slice: bool = OS.get_cmdline_user_args().has("--module-world-technical-slice")
+	# Full world objective is (0,4); technical-slice objective is (3,4).
+	var objective_coord := Vector2i(3, 4) if technical_slice else Vector2i(0, 4)
+	var objective_position := Vector2(-1760.0, 0.0) if technical_slice else Vector2(-7040.0, 0.0)
+	run_loop.call("debug_set_player_position", objective_position)
+	await _wait_frames(BOOT_FRAMES * 2)
+	var objective_id: String = "module_%d_%d_objective_5_5" % [objective_coord.x, objective_coord.y]
+	var damage_result: Dictionary = run_loop.call("debug_damage_interest_point_target", objective_id, 99999.0)
+	_expect(bool(damage_result.get("ok", false)), "module objective should use the existing damage primitive")
+	await _wait_frames(BOOT_FRAMES)
+	var objective_summary: Dictionary = run_loop.call("debug_summary")
+	_expect(bool((objective_summary.get("extraction", {}) as Dictionary).get("active", false)), "destroying objective should activate the separate extraction module")
+
+	# Save while the completed objective module is still active. Restore must not recreate
+	# its destroyed target with default HP before applying the interest-point snapshot.
+	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
+	_expect(int(snapshot.get("schema_version", 0)) == 4, "module run snapshot should use schema v4")
+	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v4 should save")
+	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, SAVE_KINDS.RUN)
+	_expect(not loaded.is_empty(), "module run v4 should load")
+	if loaded.is_empty():
+		return
+	var saved_hash: String = String((snapshot.get("module_world", {}) as Dictionary).get("map_hash", ""))
+	var parent_boot: Node = get_parent()
+	parent_boot.call("_start_gameplay_run", loaded)
+	var restored: Node = await _wait_for_playing_run_loop()
+	_expect(restored != null, "saved module world should restore into a playable run")
+	if restored == null:
+		return
+	var restored_summary: Dictionary = restored.call("debug_summary")
+	var restored_world: Dictionary = restored_summary.get("module_world", {}) as Dictionary
+	_expect(String(restored_world.get("map_hash", "")) == saved_hash, "restore should validate and preserve map hash")
+	_expect(int(restored_world.get("visited_count", 0)) >= 2, "restore should preserve module fog/visited state")
+	_expect(bool((restored_summary.get("extraction", {}) as Dictionary).get("active", false)), "restore should preserve objective-to-extraction state")
+	_expect(
+		_find_node_by_name(get_tree().root, "InterestPointTarget_%s" % objective_id) == null,
+		"restore should not recreate an already-destroyed objective target"
+	)
+
+	# Full world extraction is (0,0); technical-slice extraction is (3,3).
+	var extraction_coord := Vector2i(3, 3) if technical_slice else Vector2i(0, 0)
+	var extraction_position := Vector2(-1760.0, -1760.0) if technical_slice else Vector2(-7040.0, -7040.0)
+	restored.call("debug_set_player_position", extraction_position)
+	await _wait_frames(BOOT_FRAMES)
+	var extraction_world: Dictionary = (restored.call("debug_summary") as Dictionary).get("module_world", {}) as Dictionary
+	_expect(_coord_matches(extraction_world.get("current_module", {}), extraction_coord), "player should stream into the extraction slot")
+	_expect(int(extraction_world.get("active_count", 0)) <= 9, "corner streaming should stay inside the chunk budget")
+
+	# A content/hash mismatch must stop before player and entity snapshots are
+	# applied. FormalClientBoot consumes the false result via restore_failed and
+	# returns to title; this direct assertion protects the run-loop fail-closed edge.
+	var rejected_snapshot: Dictionary = restored.call("create_run_snapshot")
+	var rejected_module_world: Dictionary = (rejected_snapshot.get("module_world", {}) as Dictionary).duplicate(true)
+	rejected_module_world["map_hash"] = "f".repeat(64)
+	rejected_snapshot["module_world"] = rejected_module_world
+	var player: Node = _find_node_by_name(get_tree().root, "Player")
+	var player_position_before: Vector2 = (player as Node2D).global_position if player is Node2D else Vector2.ZERO
+	var rejected_player: Dictionary = (rejected_snapshot.get("player", {}) as Dictionary).duplicate(true)
+	rejected_player["position"] = _vector_to_dict(Vector2(12345.0, 12345.0))
+	rejected_snapshot["player"] = rejected_player
+	_expect(not bool(restored.call("_restore_run_snapshot", rejected_snapshot)), "run-loop restore should reject mismatched module content/hash")
+	_expect(player is Node2D and (player as Node2D).global_position.is_equal_approx(player_position_before), "rejected module restore must not apply the old player snapshot")
+
+
+func _load_world_data() -> Dictionary:
+	var worlds_payload: Dictionary = DataLoader.load_json(DataLoader.MODULE_WORLDS_PATH) as Dictionary
+	var registry_payload: Dictionary = DataLoader.load_json(DataLoader.MODULE_TEMPLATES_PATH) as Dictionary
+	var world: Dictionary = (worlds_payload.get("worlds", []) as Array)[0] as Dictionary
+	var registry: Dictionary = {}
+	var templates: Dictionary = {}
+	for raw_entry: Variant in registry_payload.get("templates", []):
+		var entry: Dictionary = raw_entry as Dictionary
+		var template_id: String = String(entry.get("id", ""))
+		registry[template_id] = entry.duplicate(true)
+		templates[template_id] = DataLoader.load_json(String(entry.get("path", "")))
+	return {"world": world, "registry": registry, "templates": templates}
+
+
+func _active_count(group_name: String) -> int:
+	var count: int = 0
+	for node: Node in get_tree().get_nodes_in_group(group_name):
+		if node is Node2D and is_instance_valid(node):
+			count += 1
+	return count
+
+
+func _active_module_entity_count(group_name: String, slot_key: String) -> int:
+	var count: int = 0
+	for node: Node in get_tree().get_nodes_in_group(group_name):
+		if node is Node2D and is_instance_valid(node) and String(node.get_meta("module_slot", "")) == slot_key:
+			count += 1
+	return count
+
+
+func _has_active_entity_at(group_name: String, expected_position: Vector2) -> bool:
+	for node: Node in get_tree().get_nodes_in_group(group_name):
+		if node is Node2D and is_instance_valid(node) and (node as Node2D).global_position.is_equal_approx(expected_position):
+			return true
+	return false
+
+
+func _vector_to_dict(value: Vector2) -> Dictionary:
+	return {"x": value.x, "y": value.y}
+
+
+func _coord_matches(raw_value: Variant, expected: Vector2i) -> bool:
+	if not raw_value is Dictionary:
+		return false
+	var value: Dictionary = raw_value as Dictionary
+	return int(value.get("x", -1)) == expected.x and int(value.get("y", -1)) == expected.y
+
+
+func _wait_for_playing_run_loop() -> Node:
+	for _frame: int in range(BOOT_FRAMES * 12):
+		await get_tree().process_frame
+		if GameState.is_state(GameState.PLAYING):
+			var run_loop: Node = _find_node_by_name(get_tree().root, "GameplayRunLoop")
+			if run_loop != null:
+				return run_loop
+	return _find_node_by_name(get_tree().root, "GameplayRunLoop")
+
+
+func _wait_frames(frame_count: int) -> void:
+	for _frame: int in range(frame_count):
+		await get_tree().process_frame
+
+
+func _find_node_by_name(root: Node, target_name: String) -> Node:
+	if root.name == target_name:
+		return root
+	for child: Node in root.get_children():
+		var result: Node = _find_node_by_name(child, target_name)
+		if result != null:
+			return result
+	return null
+
+
+func _expect(condition: bool, message: String) -> void:
+	if condition:
+		return
+	_failures.append(message)
+	push_error("[ModuleWorldSmoke] %s" % message)
+
+
+func _finish() -> void:
+	if _failures.is_empty():
+		print("[ModuleWorldSmoke] PASS")
+		get_tree().quit(0)
+		return
+	print("[ModuleWorldSmoke] FAIL count=%d" % _failures.size())
+	get_tree().quit(1)

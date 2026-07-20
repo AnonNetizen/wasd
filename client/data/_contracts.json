@@ -244,19 +244,37 @@
       "run",
       "replay_index"
     ],
-    "door_directions": [
-      "dir_north",
-      "dir_south",
-      "dir_east",
-      "dir_west"
+    "module_roles": [
+      "module_role_start",
+      "module_role_connector",
+      "module_role_combat",
+      "module_role_resource",
+      "module_role_hazard",
+      "module_role_objective",
+      "module_role_extraction",
+      "module_role_sealed"
     ],
-    "door_unlock_rules": [
-      "unlock_on_clear",
-      "unlock_open"
+    "module_cell_tokens": [
+      "module_cell_floor",
+      "module_cell_blocked"
     ],
-    "room_clear_conditions": [
-      "room_clear_all_enemies",
-      "room_clear_none"
+    "module_placement_types": [
+      "module_place_player_start",
+      "module_place_enemy_spawn",
+      "module_place_hazard",
+      "module_place_reward_cache",
+      "module_place_objective",
+      "module_place_extraction"
+    ],
+    "module_edge_directions": [
+      "edge_north",
+      "edge_south",
+      "edge_east",
+      "edge_west"
+    ],
+    "module_review_statuses": [
+      "module_review_candidate",
+      "module_review_approved"
     ],
     "locale_prefixes": [
       "ui_",

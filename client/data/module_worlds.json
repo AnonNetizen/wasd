@@ -1,0 +1,1384 @@
+{
+  "schema_version": 1,
+  "worlds": [
+    {
+      "id": "module_world_9x9",
+      "columns": 9,
+      "rows": 9,
+      "module_columns": 11,
+      "module_rows": 11,
+      "cell_size": 160,
+      "active_radius": 1,
+      "seal_outer_edges": true,
+      "start_slot": {
+        "x": 4,
+        "y": 4
+      },
+      "objective_slot": {
+        "x": 0,
+        "y": 4
+      },
+      "extraction_slot": {
+        "x": 0,
+        "y": 0
+      },
+      "route_budget": {
+        "start_to_objective": {
+          "min_crossings": 4,
+          "max_crossings": 4
+        },
+        "objective_to_extraction": {
+          "min_crossings": 4,
+          "max_crossings": 4
+        },
+        "main_route_modules": {
+          "min": 8,
+          "max": 12
+        },
+        "optional_exploration_modules": {
+          "max": 14
+        }
+      },
+      "fixed_slots": [
+        {
+          "slot": {
+            "x": 4,
+            "y": 4
+          },
+          "template_id": "module_start_cross",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 4
+          },
+          "template_id": "module_objective_core",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 0
+          },
+          "template_id": "module_extraction_pad",
+          "rotation": 0
+        }
+      ],
+      "template_pool": [
+        "module_connector_cross",
+        "module_connector_courtyard",
+        "module_connector_pillars",
+        "module_connector_ring",
+        "module_combat_arena",
+        "module_combat_quadrants",
+        "module_combat_corridors",
+        "module_combat_fort",
+        "module_resource_cache",
+        "module_resource_crossroads",
+        "module_hazard_spikes",
+        "module_hazard_pulse"
+      ],
+      "fallback_assignment": [
+        {
+          "slot": {
+            "x": 0,
+            "y": 0
+          },
+          "template_id": "module_extraction_pad",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 0
+          },
+          "template_id": "module_connector_courtyard",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 0
+          },
+          "template_id": "module_connector_pillars",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 0
+          },
+          "template_id": "module_connector_ring",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 0
+          },
+          "template_id": "module_combat_arena",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 0
+          },
+          "template_id": "module_combat_quadrants",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 0
+          },
+          "template_id": "module_combat_corridors",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 0
+          },
+          "template_id": "module_combat_fort",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 0
+          },
+          "template_id": "module_resource_cache",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 1
+          },
+          "template_id": "module_connector_ring",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 1
+          },
+          "template_id": "module_combat_arena",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 1
+          },
+          "template_id": "module_combat_quadrants",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 1
+          },
+          "template_id": "module_combat_corridors",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 1
+          },
+          "template_id": "module_combat_fort",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 1
+          },
+          "template_id": "module_resource_cache",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 1
+          },
+          "template_id": "module_resource_crossroads",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 1
+          },
+          "template_id": "module_hazard_spikes",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 1
+          },
+          "template_id": "module_hazard_pulse",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 2
+          },
+          "template_id": "module_combat_corridors",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 2
+          },
+          "template_id": "module_combat_fort",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 2
+          },
+          "template_id": "module_resource_cache",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 2
+          },
+          "template_id": "module_resource_crossroads",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 2
+          },
+          "template_id": "module_hazard_spikes",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 2
+          },
+          "template_id": "module_hazard_pulse",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 2
+          },
+          "template_id": "module_connector_cross",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 2
+          },
+          "template_id": "module_connector_courtyard",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 2
+          },
+          "template_id": "module_connector_pillars",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 3
+          },
+          "template_id": "module_resource_crossroads",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 3
+          },
+          "template_id": "module_hazard_spikes",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 3
+          },
+          "template_id": "module_hazard_pulse",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 3
+          },
+          "template_id": "module_connector_cross",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 3
+          },
+          "template_id": "module_connector_courtyard",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 3
+          },
+          "template_id": "module_connector_pillars",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 3
+          },
+          "template_id": "module_connector_ring",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 3
+          },
+          "template_id": "module_combat_arena",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 3
+          },
+          "template_id": "module_combat_quadrants",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 4
+          },
+          "template_id": "module_objective_core",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 4
+          },
+          "template_id": "module_connector_courtyard",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 4
+          },
+          "template_id": "module_connector_pillars",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 4
+          },
+          "template_id": "module_connector_ring",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 4
+          },
+          "template_id": "module_start_cross",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 4
+          },
+          "template_id": "module_combat_quadrants",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 4
+          },
+          "template_id": "module_combat_corridors",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 4
+          },
+          "template_id": "module_combat_fort",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 4
+          },
+          "template_id": "module_resource_cache",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 5
+          },
+          "template_id": "module_connector_ring",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 5
+          },
+          "template_id": "module_combat_arena",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 5
+          },
+          "template_id": "module_combat_quadrants",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 5
+          },
+          "template_id": "module_combat_corridors",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 5
+          },
+          "template_id": "module_combat_fort",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 5
+          },
+          "template_id": "module_resource_cache",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 5
+          },
+          "template_id": "module_resource_crossroads",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 5
+          },
+          "template_id": "module_hazard_spikes",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 5
+          },
+          "template_id": "module_hazard_pulse",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 6
+          },
+          "template_id": "module_combat_corridors",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 6
+          },
+          "template_id": "module_combat_fort",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 6
+          },
+          "template_id": "module_resource_cache",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 6
+          },
+          "template_id": "module_resource_crossroads",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 6
+          },
+          "template_id": "module_hazard_spikes",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 6
+          },
+          "template_id": "module_hazard_pulse",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 6
+          },
+          "template_id": "module_connector_cross",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 6
+          },
+          "template_id": "module_connector_courtyard",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 6
+          },
+          "template_id": "module_connector_pillars",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 7
+          },
+          "template_id": "module_resource_crossroads",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 7
+          },
+          "template_id": "module_hazard_spikes",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 7
+          },
+          "template_id": "module_hazard_pulse",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 7
+          },
+          "template_id": "module_connector_cross",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 7
+          },
+          "template_id": "module_connector_courtyard",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 7
+          },
+          "template_id": "module_connector_pillars",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 7
+          },
+          "template_id": "module_connector_ring",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 7
+          },
+          "template_id": "module_combat_arena",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 7
+          },
+          "template_id": "module_combat_quadrants",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 8
+          },
+          "template_id": "module_connector_cross",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 8
+          },
+          "template_id": "module_connector_courtyard",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 8
+          },
+          "template_id": "module_connector_pillars",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 8
+          },
+          "template_id": "module_connector_ring",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 8
+          },
+          "template_id": "module_combat_arena",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 8
+          },
+          "template_id": "module_combat_quadrants",
+          "rotation": 270
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 8
+          },
+          "template_id": "module_combat_corridors",
+          "rotation": 180
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 8
+          },
+          "template_id": "module_combat_fort",
+          "rotation": 90
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 8
+          },
+          "template_id": "module_resource_cache",
+          "rotation": 0
+        }
+      ],
+      "technical_slice_assignment": [
+        {
+          "slot": {
+            "x": 0,
+            "y": 0
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 0
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 0
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 0
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 0
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 0
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 0
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 0
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 0
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 1
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 1
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 1
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 1
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 1
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 1
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 1
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 1
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 1
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 2
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 2
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 2
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 2
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 2
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 2
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 2
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 2
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 2
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 3
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 3
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 3
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 3
+          },
+          "template_id": "module_extraction_pad",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 3
+          },
+          "template_id": "module_connector_cross",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 3
+          },
+          "template_id": "module_combat_arena",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 3
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 3
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 3
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 4
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 4
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 4
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 4
+          },
+          "template_id": "module_objective_core",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 4
+          },
+          "template_id": "module_start_cross",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 4
+          },
+          "template_id": "module_connector_courtyard",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 4
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 4
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 4
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 5
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 5
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 5
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 5
+          },
+          "template_id": "module_resource_cache",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 5
+          },
+          "template_id": "module_hazard_spikes",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 5
+          },
+          "template_id": "module_combat_quadrants",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 5
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 5
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 5
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 6
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 6
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 6
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 6
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 6
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 6
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 6
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 6
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 6
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 7
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 7
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 7
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 7
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 7
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 7
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 7
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 7
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 7
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 0,
+            "y": 8
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 1,
+            "y": 8
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 2,
+            "y": 8
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 3,
+            "y": 8
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 4,
+            "y": 8
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 5,
+            "y": 8
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 6,
+            "y": 8
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 7,
+            "y": 8
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        },
+        {
+          "slot": {
+            "x": 8,
+            "y": 8
+          },
+          "template_id": "module_sealed",
+          "rotation": 0
+        }
+      ]
+    }
+  ]
+}

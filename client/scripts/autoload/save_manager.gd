@@ -15,10 +15,10 @@ const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 const SAVE_ROOT: String = "user://saves"
 const BROKEN_DIR_NAME: String = ".broken"
 const DEFAULT_SLOT: String = "slot_0"
-const GAME_VERSION: String = "v1.5"
+const GAME_VERSION: String = "v1.6"
 const CURRENT_KIND_VERSIONS: Dictionary = {
 	SAVE_KINDS.META: 1,
-	SAVE_KINDS.RUN: 3,
+	SAVE_KINDS.RUN: 4,
 	SAVE_KINDS.REPLAY_INDEX: 1,
 }
 
@@ -29,6 +29,7 @@ var _last_error: String = ""
 func _ready() -> void:
 	register_migration(SAVE_KINDS.RUN, 1, 2, Callable(self, "_migrate_run_v1_to_v2"))
 	register_migration(SAVE_KINDS.RUN, 2, 3, Callable(self, "_migrate_run_v2_to_v3"))
+	register_migration(SAVE_KINDS.RUN, 3, 4, Callable(self, "_migrate_run_v3_to_v4"))
 
 
 func registered_save_kinds() -> Array[String]:
@@ -331,6 +332,17 @@ func _migrate_run_v2_to_v3(payload: Dictionary) -> Dictionary:
 	var result: Dictionary = payload.duplicate(true)
 	if not result.has("room") or not result.get("room", {}) is Dictionary:
 		result["room"] = {}
+	return result
+
+
+func _migrate_run_v3_to_v4(payload: Dictionary) -> Dictionary:
+	# The seamless module world cannot safely restore room/open-warzone entity topology.
+	# Keep the envelope readable so boot can show an explicit incompatibility notice and
+	# delete only the run payload; meta progression is stored under a separate save kind.
+	var result: Dictionary = payload.duplicate(true)
+	result["schema_version"] = 4
+	result["legacy_run_incompatible"] = true
+	result["module_world"] = {}
 	return result
 
 

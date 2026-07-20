@@ -4,6 +4,11 @@ class_name DataLoaderAutoload
 extends Node
 
 
+const MODULE_EDGE_DIRECTIONS := preload("res://scripts/contracts/module_edge_directions.gd")
+const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placement_types.gd")
+const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
+const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
+
 signal data_reloaded()
 
 const CONTRACTS_PATH: String = "res://data/_contracts.json"
@@ -26,8 +31,8 @@ const GROWTH_POOLS_PATH: String = "res://data/growth_pools.json"
 const GAME_MODES_PATH: String = "res://data/game_modes.json"
 const MAP_LAYOUTS_PATH: String = "res://data/map_layouts.json"
 const WARZONE_DIRECTORS_PATH: String = "res://data/warzone_directors.json"
-const ROOMS_PATH: String = "res://data/rooms.json"
-const ROOM_SEQUENCES_PATH: String = "res://data/room_sequences.json"
+const MODULE_WORLDS_PATH: String = "res://data/module_worlds.json"
+const MODULE_TEMPLATES_PATH: String = "res://data/module_templates.json"
 const GEAR_MODS_PATH: String = "res://data/gear_mods.json"
 const GEAR_MOD_DROP_TABLES_PATH: String = "res://data/gear_mod_drop_tables.csv"
 const GEAR_MOD_FUSION_COSTS_PATH: String = "res://data/gear_mod_fusion_costs.csv"
@@ -157,9 +162,7 @@ func validate_project_data() -> bool:
 	is_valid = _validate_map_layouts_json(hazard_ids, game_mode_ids) and is_valid
 	is_valid = _validate_spawn_waves_csv(enemy_ids, hazard_ids, game_mode_ids) and is_valid
 	is_valid = _validate_warzone_directors_json(game_mode_ids, _collect_spawn_wave_ids_by_mode(), hazard_ids, _collect_map_layout_ids(), gear_mod_ids) and is_valid
-	is_valid = _validate_rooms_json(game_mode_ids) and is_valid
-	var room_ids: Dictionary = _collect_room_ids()
-	is_valid = _validate_room_sequences_json(room_ids, game_mode_ids) and is_valid
+	is_valid = _validate_module_world_data(enemy_ids, hazard_ids) and is_valid
 
 	return is_valid
 
@@ -2395,52 +2398,7 @@ func _collect_growth_pool_ids() -> Dictionary:
 	return ids
 
 
-func _validate_rooms_json(game_mode_ids: Dictionary) -> bool:
-	var data: Variant = load_json(ROOMS_PATH)
-	if not data is Dictionary:
-		return _schema_fail(ROOMS_PATH, "root", "Dictionary")
-	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_int(ROOMS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
-	var rooms: Array = _require_array(ROOMS_PATH, "rooms", payload.get("rooms"))
-	if rooms.is_empty():
-		is_valid = _schema_fail(ROOMS_PATH, "rooms", "non-empty Array") and is_valid
-	var seen_rooms: Dictionary = {}
-	_last_schema_counts["rooms"] = rooms.size()
-	for room_index: int in range(rooms.size()):
-		var room_field: String = "rooms[%d]" % room_index
-		var room_variant: Variant = rooms[room_index]
-		if not room_variant is Dictionary:
-			is_valid = _schema_fail(ROOMS_PATH, room_field, "Dictionary") and is_valid
-			continue
-		var room_dict: Dictionary = room_variant as Dictionary
-		var room_id: String = String(room_dict.get("id", ""))
-		is_valid = _require_non_empty_string(ROOMS_PATH, "%s.id" % room_field, room_dict.get("id")) and is_valid
-		if not room_id.is_empty():
-			if seen_rooms.has(room_id):
-				is_valid = _schema_fail(ROOMS_PATH, "%s.id" % room_field, "unique room id") and is_valid
-			seen_rooms[room_id] = true
-		is_valid = _validate_room_scene_path(ROOMS_PATH, "%s.scene_path" % room_field, room_dict.get("scene_path")) and is_valid
-		var clear_condition: String = _require_registered(ROOMS_PATH, "%s.clear_condition" % room_field, room_dict.get("clear_condition"), "room_clear_conditions")
-		if clear_condition.is_empty():
-			is_valid = false
-		is_valid = _validate_room_tags(ROOMS_PATH, "%s.tags" % room_field, room_dict.get("tags", [])) and is_valid
-		is_valid = _validate_room_allowed_modes(ROOMS_PATH, "%s.allowed_modes" % room_field, room_dict.get("allowed_modes"), game_mode_ids) and is_valid
-	return is_valid
-
-
-func _validate_room_scene_path(resource_path: String, field: String, value: Variant) -> bool:
-	if not value is String or String(value).is_empty():
-		return _schema_fail(resource_path, field, "non-empty string")
-	var scene_path: String = String(value)
-	if not scene_path.begins_with("res://") or not scene_path.ends_with(".tscn"):
-		return _schema_fail(resource_path, field, "res:// path to a .tscn scene")
-	if not ResourceLoader.exists(scene_path):
-		return _schema_fail(resource_path, field, "existing room scene file")
-	return true
-
-
-func _validate_room_tags(resource_path: String, field: String, value: Variant) -> bool:
+func _validate_content_tags(resource_path: String, field: String, value: Variant) -> bool:
 	var tags: Array = _require_array(resource_path, field, value)
 	var is_valid: bool = true
 	for tag_index: int in range(tags.size()):
@@ -2450,81 +2408,641 @@ func _validate_room_tags(resource_path: String, field: String, value: Variant) -
 	return is_valid
 
 
-func _validate_room_allowed_modes(resource_path: String, field: String, value: Variant, game_mode_ids: Dictionary) -> bool:
-	var modes: Array = _require_array(resource_path, field, value)
-	var is_valid: bool = true
-	if modes.is_empty():
-		is_valid = _schema_fail(resource_path, field, "non-empty Array") and is_valid
-	for mode_index: int in range(modes.size()):
-		var mode_field: String = "%s[%d]" % [field, mode_index]
-		var mode_id: String = _require_registered(resource_path, mode_field, modes[mode_index], "game_modes")
-		if not mode_id.is_empty() and not game_mode_ids.has(mode_id):
-			is_valid = _schema_fail(resource_path, mode_field, "mode defined in game_modes.json") and is_valid
-		elif mode_id.is_empty():
-			is_valid = false
-	return is_valid
-
-
-func _validate_room_sequences_json(room_ids: Dictionary, game_mode_ids: Dictionary) -> bool:
-	var data: Variant = load_json(ROOM_SEQUENCES_PATH)
+func _validate_module_world_data(enemy_ids: Dictionary, hazard_ids: Dictionary) -> bool:
+	var template_result: Dictionary = _validate_module_templates_json(enemy_ids, hazard_ids)
+	var templates: Dictionary = template_result.get("templates", {}) as Dictionary
+	var is_valid: bool = bool(template_result.get("is_valid", false))
+	var data: Variant = load_json(MODULE_WORLDS_PATH)
 	if not data is Dictionary:
-		return _schema_fail(ROOM_SEQUENCES_PATH, "root", "Dictionary")
+		return _schema_fail(MODULE_WORLDS_PATH, "root", "Dictionary") and is_valid
 	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	is_valid = _require_int(ROOM_SEQUENCES_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
-	var sequences: Array = _require_array(ROOM_SEQUENCES_PATH, "sequences", payload.get("sequences"))
-	if sequences.is_empty():
-		is_valid = _schema_fail(ROOM_SEQUENCES_PATH, "sequences", "non-empty Array") and is_valid
-	var seen_sequences: Dictionary = {}
-	_last_schema_counts["room_sequences"] = sequences.size()
-	for sequence_index: int in range(sequences.size()):
-		var sequence_field: String = "sequences[%d]" % sequence_index
-		var sequence_variant: Variant = sequences[sequence_index]
-		if not sequence_variant is Dictionary:
-			is_valid = _schema_fail(ROOM_SEQUENCES_PATH, sequence_field, "Dictionary") and is_valid
+	is_valid = _require_exact_int(MODULE_WORLDS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var worlds: Array = _require_array(MODULE_WORLDS_PATH, "worlds", payload.get("worlds"))
+	if worlds.is_empty():
+		is_valid = _schema_fail(MODULE_WORLDS_PATH, "worlds", "non-empty Array") and is_valid
+	_last_schema_counts["module_worlds"] = worlds.size()
+	var seen_worlds: Dictionary = {}
+	for world_index: int in range(worlds.size()):
+		var field: String = "worlds[%d]" % world_index
+		var world_value: Variant = worlds[world_index]
+		if not world_value is Dictionary:
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "Dictionary") and is_valid
 			continue
-		var sequence_dict: Dictionary = sequence_variant as Dictionary
-		var sequence_id: String = String(sequence_dict.get("id", ""))
-		is_valid = _require_non_empty_string(ROOM_SEQUENCES_PATH, "%s.id" % sequence_field, sequence_dict.get("id")) and is_valid
-		if not sequence_id.is_empty():
-			if seen_sequences.has(sequence_id):
-				is_valid = _schema_fail(ROOM_SEQUENCES_PATH, "%s.id" % sequence_field, "unique sequence id") and is_valid
-			seen_sequences[sequence_id] = true
-		var mode_id: String = _require_registered(ROOM_SEQUENCES_PATH, "%s.mode_id" % sequence_field, sequence_dict.get("mode_id"), "game_modes")
-		if not mode_id.is_empty() and not game_mode_ids.has(mode_id):
-			is_valid = _schema_fail(ROOM_SEQUENCES_PATH, "%s.mode_id" % sequence_field, "mode defined in game_modes.json") and is_valid
-		var listed_rooms: Dictionary = {}
-		var room_id_list: Array = _require_array(ROOM_SEQUENCES_PATH, "%s.room_ids" % sequence_field, sequence_dict.get("room_ids"))
-		if room_id_list.is_empty():
-			is_valid = _schema_fail(ROOM_SEQUENCES_PATH, "%s.room_ids" % sequence_field, "non-empty Array") and is_valid
-		for room_ref_index: int in range(room_id_list.size()):
-			var room_ref_field: String = "%s.room_ids[%d]" % [sequence_field, room_ref_index]
-			if not _require_non_empty_string(ROOM_SEQUENCES_PATH, room_ref_field, room_id_list[room_ref_index]):
+		var world: Dictionary = world_value as Dictionary
+		var world_id: String = String(world.get("id", ""))
+		is_valid = _require_non_empty_string(MODULE_WORLDS_PATH, "%s.id" % field, world.get("id")) and is_valid
+		if not world_id.is_empty():
+			if seen_worlds.has(world_id):
+				is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.id" % field, "unique module world id") and is_valid
+			seen_worlds[world_id] = true
+		for dimension: String in ["columns", "rows"]:
+			is_valid = _require_exact_int(MODULE_WORLDS_PATH, "%s.%s" % [field, dimension], world.get(dimension), 9) and is_valid
+		for module_dimension: String in ["module_columns", "module_rows"]:
+			is_valid = _require_exact_int(MODULE_WORLDS_PATH, "%s.%s" % [field, module_dimension], world.get(module_dimension), 11) and is_valid
+		is_valid = _require_number(MODULE_WORLDS_PATH, "%s.cell_size" % field, world.get("cell_size"), 0.0, null, true) and is_valid
+		is_valid = _require_exact_int(MODULE_WORLDS_PATH, "%s.active_radius" % field, world.get("active_radius"), 1) and is_valid
+		is_valid = _require_bool(MODULE_WORLDS_PATH, "%s.seal_outer_edges" % field, world.get("seal_outer_edges")) and is_valid
+		if world.get("seal_outer_edges") is bool and not bool(world.get("seal_outer_edges")):
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.seal_outer_edges" % field, "true") and is_valid
+
+		var anchors: Dictionary = {}
+		for anchor_name: String in ["start_slot", "objective_slot", "extraction_slot"]:
+			var anchor: Variant = _validate_module_cell(MODULE_WORLDS_PATH, "%s.%s" % [field, anchor_name], world.get(anchor_name), 9, 9)
+			if anchor == null:
 				is_valid = false
+			else:
+				anchors[anchor_name] = anchor
+		var route_result: Dictionary = _validate_module_route_budget("%s.route_budget" % field, world.get("route_budget"))
+		is_valid = bool(route_result.get("is_valid", false)) and is_valid
+
+		var fixed_slots: Array = _require_array(MODULE_WORLDS_PATH, "%s.fixed_slots" % field, world.get("fixed_slots"))
+		var fixed_result: Dictionary = _validate_module_assignment_entries("%s.fixed_slots" % field, fixed_slots, templates, false, false)
+		is_valid = bool(fixed_result.get("is_valid", false)) and is_valid
+		is_valid = _validate_module_fixed_anchor_roles(
+			"%s.fixed_slots" % field,
+			fixed_result.get("assignment", {}) as Dictionary,
+			templates,
+			anchors
+		) and is_valid
+
+		var template_pool: Array = _require_array(MODULE_WORLDS_PATH, "%s.template_pool" % field, world.get("template_pool"))
+		var seen_pool: Dictionary = {}
+		for pool_index: int in range(template_pool.size()):
+			var pool_field: String = "%s.template_pool[%d]" % [field, pool_index]
+			var template_id: String = String(template_pool[pool_index])
+			is_valid = _require_non_empty_string(MODULE_WORLDS_PATH, pool_field, template_pool[pool_index]) and is_valid
+			if seen_pool.has(template_id):
+				is_valid = _schema_fail(MODULE_WORLDS_PATH, pool_field, "unique template id") and is_valid
+			seen_pool[template_id] = true
+			if not templates.has(template_id):
+				is_valid = _schema_fail(MODULE_WORLDS_PATH, pool_field, "template defined in module_templates.json") and is_valid
 				continue
-			var room_ref_id: String = String(room_id_list[room_ref_index])
-			listed_rooms[room_ref_id] = true
-			if not room_ids.has(room_ref_id):
-				is_valid = _schema_fail(ROOM_SEQUENCES_PATH, room_ref_field, "room defined in rooms.json") and is_valid
-		var final_room_id: String = String(sequence_dict.get("final_room_id", ""))
-		is_valid = _require_non_empty_string(ROOM_SEQUENCES_PATH, "%s.final_room_id" % sequence_field, sequence_dict.get("final_room_id")) and is_valid
-		if not final_room_id.is_empty() and not listed_rooms.has(final_room_id):
-			is_valid = _schema_fail(ROOM_SEQUENCES_PATH, "%s.final_room_id" % sequence_field, "final_room_id listed in room_ids") and is_valid
+			var template: Dictionary = templates[template_id] as Dictionary
+			if String(template.get("review_status", "")) != MODULE_REVIEW_STATUSES.MODULE_REVIEW_APPROVED:
+				is_valid = _schema_fail(MODULE_WORLDS_PATH, pool_field, "approved template") and is_valid
+			if String(template.get("role", "")) == MODULE_ROLES.MODULE_ROLE_SEALED:
+				is_valid = _schema_fail(MODULE_WORLDS_PATH, pool_field, "non-sealed template") and is_valid
+
+		for assignment_name: String in ["fallback_assignment", "technical_slice_assignment"]:
+			var technical: bool = assignment_name == "technical_slice_assignment"
+			var assignment_values: Array = _require_array(MODULE_WORLDS_PATH, "%s.%s" % [field, assignment_name], world.get(assignment_name))
+			var assignment_result: Dictionary = _validate_module_assignment_entries("%s.%s" % [field, assignment_name], assignment_values, templates, true, technical)
+			is_valid = bool(assignment_result.get("is_valid", false)) and is_valid
+			var assignment: Dictionary = assignment_result.get("assignment", {}) as Dictionary
+			var world_result: Dictionary = _validate_module_assignment_world("%s.%s" % [field, assignment_name], assignment, templates, anchors, route_result, technical)
+			is_valid = bool(world_result.get("is_valid", false)) and is_valid
 	return is_valid
 
 
-func _collect_room_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(ROOMS_PATH)
+func _validate_module_templates_json(enemy_ids: Dictionary, hazard_ids: Dictionary) -> Dictionary:
+	var is_valid: bool = true
+	var templates: Dictionary = {}
+	var data: Variant = load_json(MODULE_TEMPLATES_PATH)
 	if not data is Dictionary:
-		return ids
-	var rooms: Variant = (data as Dictionary).get("rooms")
-	if not rooms is Array:
-		return ids
-	for room: Variant in rooms:
-		if room is Dictionary and (room as Dictionary).get("id") is String:
-			ids[String((room as Dictionary).get("id"))] = true
-	return ids
+		return {"is_valid": _schema_fail(MODULE_TEMPLATES_PATH, "root", "Dictionary"), "templates": templates}
+	var payload: Dictionary = data as Dictionary
+	is_valid = _require_exact_int(MODULE_TEMPLATES_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var entries: Array = _require_array(MODULE_TEMPLATES_PATH, "templates", payload.get("templates"))
+	if entries.is_empty():
+		is_valid = _schema_fail(MODULE_TEMPLATES_PATH, "templates", "non-empty Array") and is_valid
+	_last_schema_counts["module_templates"] = entries.size()
+	var seen_paths: Dictionary = {}
+	for index: int in range(entries.size()):
+		var field: String = "templates[%d]" % index
+		var entry_value: Variant = entries[index]
+		if not entry_value is Dictionary:
+			is_valid = _schema_fail(MODULE_TEMPLATES_PATH, field, "Dictionary") and is_valid
+			continue
+		var entry: Dictionary = entry_value as Dictionary
+		var template_id: String = String(entry.get("id", ""))
+		is_valid = _require_non_empty_string(MODULE_TEMPLATES_PATH, "%s.id" % field, entry.get("id")) and is_valid
+		if templates.has(template_id):
+			is_valid = _schema_fail(MODULE_TEMPLATES_PATH, "%s.id" % field, "unique template id") and is_valid
+		var role: String = _require_registered(MODULE_TEMPLATES_PATH, "%s.role" % field, entry.get("role"), "module_roles")
+		if role.is_empty():
+			is_valid = false
+		is_valid = _require_non_empty_string(MODULE_TEMPLATES_PATH, "%s.source" % field, entry.get("source")) and is_valid
+		if String(entry.get("source", "")) != "ai":
+			is_valid = _schema_fail(MODULE_TEMPLATES_PATH, "%s.source" % field, "ai") and is_valid
+		var review_status: String = _require_registered(MODULE_TEMPLATES_PATH, "%s.review_status" % field, entry.get("review_status"), "module_review_statuses")
+		if review_status.is_empty():
+			is_valid = false
+		is_valid = _validate_content_tags(MODULE_TEMPLATES_PATH, "%s.tags" % field, entry.get("tags", [])) and is_valid
+		var allowed_values: Array = _require_array(MODULE_TEMPLATES_PATH, "%s.allowed_rotations" % field, entry.get("allowed_rotations"))
+		var allowed_rotations: Dictionary = {}
+		if allowed_values.is_empty():
+			is_valid = _schema_fail(MODULE_TEMPLATES_PATH, "%s.allowed_rotations" % field, "non-empty Array") and is_valid
+		for rotation_index: int in range(allowed_values.size()):
+			var rotation_value: Variant = allowed_values[rotation_index]
+			var rotation_field: String = "%s.allowed_rotations[%d]" % [field, rotation_index]
+			if not _is_int_like(rotation_value) or not [0, 90, 180, 270].has(int(rotation_value)):
+				is_valid = _schema_fail(MODULE_TEMPLATES_PATH, rotation_field, "one of 0, 90, 180, 270") and is_valid
+				continue
+			var rotation: int = int(rotation_value)
+			if allowed_rotations.has(rotation):
+				is_valid = _schema_fail(MODULE_TEMPLATES_PATH, rotation_field, "unique rotation") and is_valid
+			allowed_rotations[rotation] = true
+		var module_path: String = String(entry.get("path", ""))
+		is_valid = _require_non_empty_string(MODULE_TEMPLATES_PATH, "%s.path" % field, entry.get("path")) and is_valid
+		if not module_path.begins_with("res://data/modules/") or not module_path.ends_with(".json") or module_path.contains(".."):
+			is_valid = _schema_fail(MODULE_TEMPLATES_PATH, "%s.path" % field, "res://data/modules/*.json path") and is_valid
+		elif not FileAccess.file_exists(module_path):
+			is_valid = _schema_fail(MODULE_TEMPLATES_PATH, "%s.path" % field, "existing module JSON file") and is_valid
+		elif seen_paths.has(module_path):
+			is_valid = _schema_fail(MODULE_TEMPLATES_PATH, "%s.path" % field, "unique module path") and is_valid
+		else:
+			seen_paths[module_path] = true
+			var module_data: Variant = load_json(module_path)
+			if module_data is Dictionary:
+				is_valid = _validate_module_file(module_path, module_data as Dictionary, template_id, role, enemy_ids, hazard_ids) and is_valid
+			else:
+				is_valid = _schema_fail(module_path, "root", "Dictionary") and is_valid
+		if not template_id.is_empty():
+			var loaded_module: Variant = load_json(module_path) if FileAccess.file_exists(module_path) else {}
+			templates[template_id] = {
+				"role": role,
+				"review_status": review_status,
+				"allowed_rotations": allowed_rotations,
+				"data": loaded_module if loaded_module is Dictionary else {},
+			}
+	_last_schema_counts["module_files"] = seen_paths.size()
+	return {"is_valid": is_valid, "templates": templates}
+
+
+func _validate_module_file(resource_path: String, data: Dictionary, expected_id: String, role: String, enemy_ids: Dictionary, hazard_ids: Dictionary) -> bool:
+	var is_valid: bool = true
+	is_valid = _require_exact_int(resource_path, "schema_version", data.get("schema_version"), 1) and is_valid
+	is_valid = _require_non_empty_string(resource_path, "id", data.get("id")) and is_valid
+	if String(data.get("id", "")) != expected_id:
+		is_valid = _schema_fail(resource_path, "id", "id matching module template registry") and is_valid
+	is_valid = _require_exact_int(resource_path, "columns", data.get("columns"), 11) and is_valid
+	is_valid = _require_exact_int(resource_path, "rows", data.get("rows"), 11) and is_valid
+	var terrain_rows: Array = _require_array(resource_path, "terrain_rows", data.get("terrain_rows"))
+	if terrain_rows.size() != 11:
+		is_valid = _schema_fail(resource_path, "terrain_rows", "exactly 11 rows") and is_valid
+	for y: int in range(terrain_rows.size()):
+		var row: Array = _require_array(resource_path, "terrain_rows[%d]" % y, terrain_rows[y])
+		if row.size() != 11:
+			is_valid = _schema_fail(resource_path, "terrain_rows[%d]" % y, "exactly 11 terrain tokens") and is_valid
+		for x: int in range(row.size()):
+			if _require_registered(resource_path, "terrain_rows[%d][%d]" % [y, x], row[x], "module_cell_tokens").is_empty():
+				is_valid = false
+	var edge_sockets: Variant = data.get("edge_sockets")
+	if not edge_sockets is Dictionary:
+		is_valid = _schema_fail(resource_path, "edge_sockets", "Dictionary") and is_valid
+	else:
+		var socket_dict: Dictionary = edge_sockets as Dictionary
+		var edge_values: Array = contract_values("module_edge_directions")
+		if socket_dict.size() != edge_values.size():
+			is_valid = _schema_fail(resource_path, "edge_sockets", "exactly four registered edges") and is_valid
+		for edge_value: Variant in edge_values:
+			var edge: String = String(edge_value)
+			var sockets: Array = _require_array(resource_path, "edge_sockets.%s" % edge, socket_dict.get(edge))
+			var seen: Dictionary = {}
+			for socket_index: int in range(sockets.size()):
+				var socket: Variant = sockets[socket_index]
+				if not _is_int_like(socket) or int(socket) < 0 or int(socket) > 10 or seen.has(int(socket)):
+					is_valid = _schema_fail(resource_path, "edge_sockets.%s[%d]" % [edge, socket_index], "unique integer 0..10") and is_valid
+				elif _is_int_like(socket):
+					seen[int(socket)] = true
+	var placement_result: Dictionary = _validate_module_placements(resource_path, data.get("placements"), role, enemy_ids, hazard_ids)
+	return bool(placement_result.get("is_valid", false)) and is_valid
+
+
+func _validate_module_placements(resource_path: String, value: Variant, role: String, enemy_ids: Dictionary, hazard_ids: Dictionary) -> Dictionary:
+	var placements: Array = _require_array(resource_path, "placements", value)
+	var is_valid: bool = value is Array
+	var counts: Dictionary = {}
+	var enemy_count: int = 0
+	var occupied: Array[Dictionary] = []
+	var danger_cells: Dictionary = {}
+	var start_cell: Variant = null
+	for index: int in range(placements.size()):
+		var field: String = "placements[%d]" % index
+		var placement_value: Variant = placements[index]
+		if not placement_value is Dictionary:
+			is_valid = _schema_fail(resource_path, field, "Dictionary") and is_valid
+			continue
+		var placement: Dictionary = placement_value as Dictionary
+		var placement_type: String = _require_registered(resource_path, "%s.type" % field, placement.get("type"), "module_placement_types")
+		if placement_type.is_empty():
+			is_valid = false
+		var cell: Variant = _validate_module_cell(resource_path, "%s.cell" % field, placement.get("cell"), 11, 11)
+		if cell == null:
+			is_valid = false
+			continue
+		var cells: Dictionary = _validate_module_footprint(resource_path, "%s.footprint" % field, placement.get("footprint"), cell as Vector2i)
+		if cells.has("invalid"):
+			is_valid = false
+			cells.erase("invalid")
+		counts[placement_type] = int(counts.get(placement_type, 0)) + 1
+		occupied.append({"type": placement_type, "cells": cells})
+		match placement_type:
+			MODULE_PLACEMENT_TYPES.MODULE_PLACE_PLAYER_START:
+				start_cell = cell
+			MODULE_PLACEMENT_TYPES.MODULE_PLACE_ENEMY_SPAWN:
+				var enemy_id: String = String(placement.get("enemy_id", ""))
+				is_valid = _require_non_empty_string(resource_path, "%s.enemy_id" % field, placement.get("enemy_id")) and is_valid
+				if not enemy_ids.has(enemy_id):
+					is_valid = _schema_fail(resource_path, "%s.enemy_id" % field, "enemy defined in enemies.csv") and is_valid
+				is_valid = _require_int(resource_path, "%s.count" % field, placement.get("count"), 1) and is_valid
+				if _is_int_like(placement.get("count")):
+					enemy_count += int(placement.get("count"))
+				for danger: Variant in cells.keys():
+					danger_cells[danger] = true
+			MODULE_PLACEMENT_TYPES.MODULE_PLACE_HAZARD:
+				var hazard_id: String = String(placement.get("hazard_id", ""))
+				is_valid = _require_non_empty_string(resource_path, "%s.hazard_id" % field, placement.get("hazard_id")) and is_valid
+				if not hazard_ids.has(hazard_id):
+					is_valid = _schema_fail(resource_path, "%s.hazard_id" % field, "hazard defined in hazards.csv") and is_valid
+				for danger: Variant in cells.keys():
+					danger_cells[danger] = true
+			MODULE_PLACEMENT_TYPES.MODULE_PLACE_REWARD_CACHE:
+				var rewards: Array = _require_array(resource_path, "%s.resource_rewards" % field, placement.get("resource_rewards"))
+				if rewards.is_empty():
+					is_valid = _schema_fail(resource_path, "%s.resource_rewards" % field, "non-empty Array") and is_valid
+				for reward_index: int in range(rewards.size()):
+					if not rewards[reward_index] is Dictionary:
+						is_valid = _schema_fail(resource_path, "%s.resource_rewards[%d]" % [field, reward_index], "Dictionary") and is_valid
+						continue
+					var reward: Dictionary = rewards[reward_index] as Dictionary
+					if _require_registered(resource_path, "%s.resource_rewards[%d].id" % [field, reward_index], reward.get("id"), "gear_mod_resources").is_empty():
+						is_valid = false
+					is_valid = _require_int(resource_path, "%s.resource_rewards[%d].amount" % [field, reward_index], reward.get("amount"), 1) and is_valid
+				is_valid = _require_number(resource_path, "%s.claim_radius" % field, placement.get("claim_radius"), 0.0, null, true) and is_valid
+			MODULE_PLACEMENT_TYPES.MODULE_PLACE_OBJECTIVE:
+				is_valid = _require_number(resource_path, "%s.target_hp" % field, placement.get("target_hp"), 0.0, null, true) and is_valid
+				is_valid = _require_number(resource_path, "%s.target_hit_radius" % field, placement.get("target_hit_radius"), 0.0, null, true) and is_valid
+			MODULE_PLACEMENT_TYPES.MODULE_PLACE_EXTRACTION:
+				is_valid = _require_number(resource_path, "%s.radius" % field, placement.get("radius"), 0.0, null, true) and is_valid
+				is_valid = _require_number(resource_path, "%s.hold_time" % field, placement.get("hold_time"), 0.0, null, true) and is_valid
+			_:
+				pass
+	var danger_types: Array[String] = [MODULE_PLACEMENT_TYPES.MODULE_PLACE_ENEMY_SPAWN, MODULE_PLACEMENT_TYPES.MODULE_PLACE_HAZARD]
+	var protected_types: Array[String] = [MODULE_PLACEMENT_TYPES.MODULE_PLACE_PLAYER_START, MODULE_PLACEMENT_TYPES.MODULE_PLACE_REWARD_CACHE, MODULE_PLACEMENT_TYPES.MODULE_PLACE_OBJECTIVE, MODULE_PLACEMENT_TYPES.MODULE_PLACE_EXTRACTION]
+	for left_index: int in range(occupied.size()):
+		var left: Dictionary = occupied[left_index]
+		for right_index: int in range(left_index + 1, occupied.size()):
+			var right: Dictionary = occupied[right_index]
+			var conflicting: bool = (danger_types.has(String(left.get("type"))) and protected_types.has(String(right.get("type")))) or (danger_types.has(String(right.get("type"))) and protected_types.has(String(left.get("type"))))
+			if conflicting and _dictionaries_share_key(left.get("cells", {}) as Dictionary, right.get("cells", {}) as Dictionary):
+				is_valid = _schema_fail(resource_path, "placements", "no danger overlap with player start, objective, extraction, or reward") and is_valid
+	is_valid = _validate_module_role_budget(resource_path, role, counts, enemy_count) and is_valid
+	if role == MODULE_ROLES.MODULE_ROLE_START and start_cell is Vector2i:
+		for danger: Variant in danger_cells.keys():
+			var danger_cell: Vector2i = danger as Vector2i
+			if maxi(absi(danger_cell.x - (start_cell as Vector2i).x), absi(danger_cell.y - (start_cell as Vector2i).y)) <= 2:
+				is_valid = _schema_fail(resource_path, "placements", "2-cell danger-free player start radius") and is_valid
+	return {"is_valid": is_valid}
+
+
+func _validate_module_footprint(resource_path: String, field: String, value: Variant, cell: Vector2i) -> Dictionary:
+	var width: int = 1
+	var height: int = 1
+	var cells: Dictionary = {}
+	if value != null:
+		if not value is Dictionary:
+			_schema_fail(resource_path, field, "Dictionary")
+			cells["invalid"] = true
+		else:
+			var footprint: Dictionary = value as Dictionary
+			if not _require_int(resource_path, "%s.width" % field, footprint.get("width"), 1):
+				cells["invalid"] = true
+			if not _require_int(resource_path, "%s.height" % field, footprint.get("height"), 1):
+				cells["invalid"] = true
+			if _is_int_like(footprint.get("width")):
+				width = int(footprint.get("width"))
+			if _is_int_like(footprint.get("height")):
+				height = int(footprint.get("height"))
+	for y: int in range(height):
+		for x: int in range(width):
+			var occupied_cell := Vector2i(cell.x + x, cell.y + y)
+			if occupied_cell.x < 0 or occupied_cell.x >= 11 or occupied_cell.y < 0 or occupied_cell.y >= 11:
+				_schema_fail(resource_path, field, "footprint inside 11x11 module")
+				cells["invalid"] = true
+			else:
+				cells[occupied_cell] = true
+	return cells
+
+
+func _validate_module_role_budget(resource_path: String, role: String, counts: Dictionary, enemy_count: int) -> bool:
+	var hazards: int = int(counts.get(MODULE_PLACEMENT_TYPES.MODULE_PLACE_HAZARD, 0))
+	var rewards: int = int(counts.get(MODULE_PLACEMENT_TYPES.MODULE_PLACE_REWARD_CACHE, 0))
+	match role:
+		MODULE_ROLES.MODULE_ROLE_START:
+			if enemy_count != 0 or hazards != 0 or int(counts.get(MODULE_PLACEMENT_TYPES.MODULE_PLACE_PLAYER_START, 0)) != 1:
+				return _schema_fail(resource_path, "placements", "one player start and no enemies or hazards")
+		MODULE_ROLES.MODULE_ROLE_CONNECTOR:
+			if enemy_count > 4 or hazards > 1:
+				return _schema_fail(resource_path, "placements", "connector budget")
+		MODULE_ROLES.MODULE_ROLE_COMBAT:
+			if enemy_count < 6 or enemy_count > 12 or hazards > 2:
+				return _schema_fail(resource_path, "placements", "combat budget")
+		MODULE_ROLES.MODULE_ROLE_RESOURCE:
+			if enemy_count < 2 or enemy_count > 6 or rewards != 1:
+				return _schema_fail(resource_path, "placements", "resource budget")
+		MODULE_ROLES.MODULE_ROLE_HAZARD:
+			if enemy_count < 2 or enemy_count > 6 or hazards < 2 or hazards > 4:
+				return _schema_fail(resource_path, "placements", "hazard budget")
+		MODULE_ROLES.MODULE_ROLE_OBJECTIVE:
+			if int(counts.get(MODULE_PLACEMENT_TYPES.MODULE_PLACE_OBJECTIVE, 0)) != 1:
+				return _schema_fail(resource_path, "placements", "exactly one objective")
+		MODULE_ROLES.MODULE_ROLE_EXTRACTION:
+			if int(counts.get(MODULE_PLACEMENT_TYPES.MODULE_PLACE_EXTRACTION, 0)) != 1:
+				return _schema_fail(resource_path, "placements", "exactly one extraction")
+		MODULE_ROLES.MODULE_ROLE_SEALED:
+			if not counts.is_empty():
+				return _schema_fail(resource_path, "placements", "no placements in sealed module")
+		_:
+			pass
+	return true
+
+
+func _validate_module_route_budget(field: String, value: Variant) -> Dictionary:
+	var result: Dictionary = {"is_valid": true}
+	if not value is Dictionary:
+		result["is_valid"] = _schema_fail(MODULE_WORLDS_PATH, field, "Dictionary")
+		return result
+	var budget: Dictionary = value as Dictionary
+	for segment: String in ["start_to_objective", "objective_to_extraction"]:
+		var segment_value: Variant = budget.get(segment)
+		if not segment_value is Dictionary:
+			result["is_valid"] = _schema_fail(MODULE_WORLDS_PATH, "%s.%s" % [field, segment], "Dictionary") and bool(result["is_valid"])
+			continue
+		var segment_dict: Dictionary = segment_value as Dictionary
+		var minimum: Variant = segment_dict.get("min_crossings")
+		var maximum: Variant = segment_dict.get("max_crossings")
+		result["is_valid"] = _require_int(MODULE_WORLDS_PATH, "%s.%s.min_crossings" % [field, segment], minimum, 0) and bool(result["is_valid"])
+		result["is_valid"] = _require_int(MODULE_WORLDS_PATH, "%s.%s.max_crossings" % [field, segment], maximum, 0) and bool(result["is_valid"])
+		if _is_int_like(minimum) and _is_int_like(maximum) and int(minimum) > int(maximum):
+			result["is_valid"] = _schema_fail(MODULE_WORLDS_PATH, "%s.%s" % [field, segment], "min_crossings <= max_crossings") and bool(result["is_valid"])
+		result[segment] = Vector2i(int(minimum) if _is_int_like(minimum) else -1, int(maximum) if _is_int_like(maximum) else -1)
+	var main_value: Variant = budget.get("main_route_modules")
+	if not main_value is Dictionary:
+		result["is_valid"] = _schema_fail(MODULE_WORLDS_PATH, "%s.main_route_modules" % field, "Dictionary") and bool(result["is_valid"])
+	else:
+		var main: Dictionary = main_value as Dictionary
+		result["is_valid"] = _require_int(MODULE_WORLDS_PATH, "%s.main_route_modules.min" % field, main.get("min"), 1) and bool(result["is_valid"])
+		result["is_valid"] = _require_int(MODULE_WORLDS_PATH, "%s.main_route_modules.max" % field, main.get("max"), 1) and bool(result["is_valid"])
+		if _is_int_like(main.get("min")) and _is_int_like(main.get("max")):
+			result["main_route_modules"] = Vector2i(int(main.get("min")), int(main.get("max")))
+			if int(main.get("min")) > int(main.get("max")):
+				result["is_valid"] = _schema_fail(MODULE_WORLDS_PATH, "%s.main_route_modules" % field, "min <= max") and bool(result["is_valid"])
+	var optional: Variant = budget.get("optional_exploration_modules")
+	if not optional is Dictionary:
+		result["is_valid"] = _schema_fail(MODULE_WORLDS_PATH, "%s.optional_exploration_modules" % field, "Dictionary") and bool(result["is_valid"])
+	else:
+		result["is_valid"] = _require_int(MODULE_WORLDS_PATH, "%s.optional_exploration_modules.max" % field, (optional as Dictionary).get("max"), 0, 14) and bool(result["is_valid"])
+	return result
+
+
+func _validate_module_assignment_entries(field: String, entries: Array, templates: Dictionary, exact_81: bool, technical: bool) -> Dictionary:
+	var is_valid: bool = true
+	var assignment: Dictionary = {}
+	if exact_81 and entries.size() != 81:
+		is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "exactly 81 slot assignments") and is_valid
+	for index: int in range(entries.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		if not entries[index] is Dictionary:
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, item_field, "Dictionary") and is_valid
+			continue
+		var entry: Dictionary = entries[index] as Dictionary
+		var slot: Variant = _validate_module_cell(MODULE_WORLDS_PATH, "%s.slot" % item_field, entry.get("slot"), 9, 9)
+		if slot == null:
+			is_valid = false
+			continue
+		var template_id: String = String(entry.get("template_id", ""))
+		is_valid = _require_non_empty_string(MODULE_WORLDS_PATH, "%s.template_id" % item_field, entry.get("template_id")) and is_valid
+		var rotation: int = int(entry.get("rotation", -1)) if _is_int_like(entry.get("rotation")) else -1
+		if not [0, 90, 180, 270].has(rotation):
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.rotation" % item_field, "one of 0, 90, 180, 270") and is_valid
+		if assignment.has(slot):
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.slot" % item_field, "unique slot") and is_valid
+		else:
+			assignment[slot] = {"template_id": template_id, "rotation": rotation}
+		if not templates.has(template_id):
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.template_id" % item_field, "template defined in module_templates.json") and is_valid
+			continue
+		var template: Dictionary = templates[template_id] as Dictionary
+		var allowed: Dictionary = template.get("allowed_rotations", {}) as Dictionary
+		if not allowed.has(rotation):
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.rotation" % item_field, "rotation allowed by template") and is_valid
+		var role: String = String(template.get("role", ""))
+		var approved: bool = String(template.get("review_status", "")) == MODULE_REVIEW_STATUSES.MODULE_REVIEW_APPROVED
+		var inside_slice: bool = (slot as Vector2i).x >= 3 and (slot as Vector2i).x <= 5 and (slot as Vector2i).y >= 3 and (slot as Vector2i).y <= 5
+		var technical_exception: bool = technical and role == MODULE_ROLES.MODULE_ROLE_SEALED and not inside_slice
+		if not approved and not technical_exception:
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.template_id" % item_field, "approved template") and is_valid
+		if exact_81 and not technical and role == MODULE_ROLES.MODULE_ROLE_SEALED:
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.template_id" % item_field, "non-sealed fallback template") and is_valid
+		if exact_81 and technical and ((inside_slice and role == MODULE_ROLES.MODULE_ROLE_SEALED) or (not inside_slice and role != MODULE_ROLES.MODULE_ROLE_SEALED)):
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, "%s.template_id" % item_field, "open center 3x3 and sealed outer 72 slots") and is_valid
+	if exact_81 and assignment.size() != 81:
+		is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "all 81 unique slots") and is_valid
+	return {"is_valid": is_valid, "assignment": assignment}
+
+
+func _validate_module_fixed_anchor_roles(field: String, assignment: Dictionary, templates: Dictionary, anchors: Dictionary) -> bool:
+	var is_valid: bool = true
+	for anchor_role: Array in [
+		["start_slot", MODULE_ROLES.MODULE_ROLE_START],
+		["objective_slot", MODULE_ROLES.MODULE_ROLE_OBJECTIVE],
+		["extraction_slot", MODULE_ROLES.MODULE_ROLE_EXTRACTION],
+	]:
+		var anchor_name: String = String(anchor_role[0])
+		var role_count: int = 0
+		for assigned_value: Variant in assignment.values():
+			var assigned_entry: Dictionary = assigned_value as Dictionary
+			var assigned_template_id: String = String(assigned_entry.get("template_id", ""))
+			if templates.has(assigned_template_id) and String((templates[assigned_template_id] as Dictionary).get("role", "")) == String(anchor_role[1]):
+				role_count += 1
+		if role_count != 1:
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "exactly one %s" % String(anchor_role[1])) and is_valid
+		if not anchors.has(anchor_name):
+			continue
+		var anchor: Vector2i = anchors[anchor_name] as Vector2i
+		if not assignment.has(anchor):
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "assignment for configured %s" % anchor_name) and is_valid
+			continue
+		var assigned: Dictionary = assignment[anchor] as Dictionary
+		var template_id: String = String(assigned.get("template_id", ""))
+		if templates.has(template_id) and String((templates[template_id] as Dictionary).get("role", "")) != String(anchor_role[1]):
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "%s uses %s" % [anchor_name, String(anchor_role[1])]) and is_valid
+	return is_valid
+
+
+func _validate_module_assignment_world(field: String, assignment: Dictionary, templates: Dictionary, anchors: Dictionary, route_budget: Dictionary, technical: bool) -> Dictionary:
+	var is_valid: bool = true
+	if assignment.size() != 81:
+		return {"is_valid": false}
+	var effective_anchors: Dictionary = anchors.duplicate()
+	if technical:
+		for anchor_role: Array in [["start_slot", MODULE_ROLES.MODULE_ROLE_START], ["objective_slot", MODULE_ROLES.MODULE_ROLE_OBJECTIVE], ["extraction_slot", MODULE_ROLES.MODULE_ROLE_EXTRACTION]]:
+			var role_slots: Array[Vector2i] = []
+			for slot_value: Variant in assignment.keys():
+				var assigned: Dictionary = assignment[slot_value] as Dictionary
+				if templates.has(String(assigned.get("template_id"))) and String((templates[String(assigned.get("template_id"))] as Dictionary).get("role")) == String(anchor_role[1]):
+					role_slots.append(slot_value as Vector2i)
+			if role_slots.size() != 1:
+				is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "exactly one %s in technical slice" % String(anchor_role[1])) and is_valid
+			else:
+				effective_anchors[String(anchor_role[0])] = role_slots[0]
+	for anchor_role: Array in [["start_slot", MODULE_ROLES.MODULE_ROLE_START], ["objective_slot", MODULE_ROLES.MODULE_ROLE_OBJECTIVE], ["extraction_slot", MODULE_ROLES.MODULE_ROLE_EXTRACTION]]:
+		if not effective_anchors.has(String(anchor_role[0])):
+			continue
+		var anchor: Vector2i = effective_anchors[String(anchor_role[0])] as Vector2i
+		var assigned: Dictionary = assignment[anchor] as Dictionary
+		if templates.has(String(assigned.get("template_id"))) and String((templates[String(assigned.get("template_id"))] as Dictionary).get("role")) != String(anchor_role[1]):
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "%s uses %s" % [String(anchor_role[0]), String(anchor_role[1])]) and is_valid
+	var graph: Dictionary = {}
+	for slot_value: Variant in assignment.keys():
+		graph[slot_value] = []
+	for y: int in range(9):
+		for x: int in range(9):
+			var slot := Vector2i(x, y)
+			for neighbor_info: Array in [[Vector2i(x + 1, y), MODULE_EDGE_DIRECTIONS.EDGE_EAST, MODULE_EDGE_DIRECTIONS.EDGE_WEST], [Vector2i(x, y + 1), MODULE_EDGE_DIRECTIONS.EDGE_SOUTH, MODULE_EDGE_DIRECTIONS.EDGE_NORTH]]:
+				var neighbor: Vector2i = neighbor_info[0] as Vector2i
+				if not assignment.has(neighbor):
+					continue
+				var left_role: String = _assignment_role(assignment[slot] as Dictionary, templates)
+				var right_role: String = _assignment_role(assignment[neighbor] as Dictionary, templates)
+				if left_role == MODULE_ROLES.MODULE_ROLE_SEALED or right_role == MODULE_ROLES.MODULE_ROLE_SEALED:
+					continue
+				var left_sockets: Dictionary = _effective_module_sockets(assignment[slot] as Dictionary, templates, String(neighbor_info[1]))
+				var right_sockets: Dictionary = _effective_module_sockets(assignment[neighbor] as Dictionary, templates, String(neighbor_info[2]))
+				if left_sockets != right_sockets:
+					is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "matching adjacent sockets") and is_valid
+				elif not left_sockets.is_empty():
+					(graph[slot] as Array).append(neighbor)
+					(graph[neighbor] as Array).append(slot)
+	var start: Variant = effective_anchors.get("start_slot")
+	var objective: Variant = effective_anchors.get("objective_slot")
+	var extraction: Variant = effective_anchors.get("extraction_slot")
+	if not start is Vector2i or not objective is Vector2i or not extraction is Vector2i:
+		return {"is_valid": false}
+	var start_distances: Dictionary = _module_graph_distances(graph, start as Vector2i)
+	for slot_value: Variant in assignment.keys():
+		if _assignment_role(assignment[slot_value] as Dictionary, templates) != MODULE_ROLES.MODULE_ROLE_SEALED and not start_distances.has(slot_value):
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "all non-sealed slots reachable from start") and is_valid
+			break
+	if not start_distances.has(objective):
+		is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "reachable start -> objective") and is_valid
+		return {"is_valid": is_valid}
+	var objective_distances: Dictionary = _module_graph_distances(graph, objective as Vector2i)
+	if not objective_distances.has(extraction):
+		is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "reachable objective -> extraction") and is_valid
+		return {"is_valid": is_valid}
+	if not technical:
+		is_valid = _validate_module_route_distance(field, "start_to_objective", int(start_distances[objective]), route_budget.get("start_to_objective")) and is_valid
+		is_valid = _validate_module_route_distance(field, "objective_to_extraction", int(objective_distances[extraction]), route_budget.get("objective_to_extraction")) and is_valid
+		if route_budget.get("main_route_modules") is Vector2i:
+			var main_range: Vector2i = route_budget.get("main_route_modules") as Vector2i
+			var main_count: int = int(start_distances[objective]) + int(objective_distances[extraction]) + 1
+			if main_count < main_range.x or main_count > main_range.y:
+				is_valid = _schema_fail(MODULE_WORLDS_PATH, field, "main route module count inside budget") and is_valid
+	return {"is_valid": is_valid}
+
+
+func _validate_module_route_distance(field: String, label: String, distance: int, budget: Variant) -> bool:
+	if not budget is Vector2i:
+		return false
+	var range_value: Vector2i = budget as Vector2i
+	if distance < range_value.x or distance > range_value.y:
+		return _schema_fail(MODULE_WORLDS_PATH, field, "%s crossings inside budget" % label)
+	return true
+
+
+func _assignment_role(assigned: Dictionary, templates: Dictionary) -> String:
+	var template_id: String = String(assigned.get("template_id", ""))
+	if not templates.has(template_id):
+		return ""
+	return String((templates[template_id] as Dictionary).get("role", ""))
+
+
+func _effective_module_sockets(assigned: Dictionary, templates: Dictionary, requested_edge: String) -> Dictionary:
+	var result: Dictionary = {}
+	var template_id: String = String(assigned.get("template_id", ""))
+	if not templates.has(template_id):
+		return result
+	var module_data: Variant = (templates[template_id] as Dictionary).get("data")
+	if not module_data is Dictionary or not (module_data as Dictionary).get("edge_sockets") is Dictionary:
+		return result
+	var sockets: Dictionary = (module_data as Dictionary).get("edge_sockets") as Dictionary
+	var rotation: int = int(assigned.get("rotation", 0))
+	for source_edge: String in MODULE_EDGE_DIRECTIONS.VALUES:
+		if not sockets.get(source_edge) is Array:
+			continue
+		for socket: Variant in sockets.get(source_edge) as Array:
+			if not _is_int_like(socket) or int(socket) < 0 or int(socket) > 10:
+				continue
+			var rotated: Array = _rotate_module_socket(source_edge, int(socket), rotation)
+			if String(rotated[0]) == requested_edge:
+				result[int(rotated[1])] = true
+	return result
+
+
+func _rotate_module_socket(edge: String, index: int, rotation: int) -> Array:
+	var point := Vector2i(0, index)
+	match edge:
+		MODULE_EDGE_DIRECTIONS.EDGE_NORTH: point = Vector2i(index, 0)
+		MODULE_EDGE_DIRECTIONS.EDGE_SOUTH: point = Vector2i(index, 10)
+		MODULE_EDGE_DIRECTIONS.EDGE_EAST: point = Vector2i(10, index)
+		_: point = Vector2i(0, index)
+	for _step: int in range(int(posmod(rotation, 360) / 90)):
+		point = Vector2i(10 - point.y, point.x)
+	if point.y == 0:
+		return [MODULE_EDGE_DIRECTIONS.EDGE_NORTH, point.x]
+	if point.y == 10:
+		return [MODULE_EDGE_DIRECTIONS.EDGE_SOUTH, point.x]
+	if point.x == 10:
+		return [MODULE_EDGE_DIRECTIONS.EDGE_EAST, point.y]
+	return [MODULE_EDGE_DIRECTIONS.EDGE_WEST, point.y]
+
+
+func _module_graph_distances(graph: Dictionary, start: Vector2i) -> Dictionary:
+	var distances: Dictionary = {start: 0}
+	var queue: Array[Vector2i] = [start]
+	var cursor: int = 0
+	while cursor < queue.size():
+		var slot: Vector2i = queue[cursor]
+		cursor += 1
+		for neighbor: Variant in graph.get(slot, []) as Array:
+			if not distances.has(neighbor):
+				distances[neighbor] = int(distances[slot]) + 1
+				queue.append(neighbor as Vector2i)
+	return distances
+
+
+func _validate_module_cell(resource_path: String, field: String, value: Variant, columns: int, rows: int) -> Variant:
+	if not value is Dictionary:
+		_schema_fail(resource_path, field, "Dictionary with x/y")
+		return null
+	var cell: Dictionary = value as Dictionary
+	if not _require_int(resource_path, "%s.x" % field, cell.get("x"), 0):
+		return null
+	if not _require_int(resource_path, "%s.y" % field, cell.get("y"), 0):
+		return null
+	var x: int = int(cell.get("x"))
+	var y: int = int(cell.get("y"))
+	if x >= columns or y >= rows:
+		_schema_fail(resource_path, field, "cell inside %dx%d bounds" % [columns, rows])
+		return null
+	return Vector2i(x, y)
+
+
+func _require_exact_int(resource_path: String, field: String, value: Variant, expected: int) -> bool:
+	if not _require_int(resource_path, field, value):
+		return false
+	if int(value) != expected:
+		return _schema_fail(resource_path, field, "int equal to %d" % expected)
+	return true
+
+
+func _dictionaries_share_key(left: Dictionary, right: Dictionary) -> bool:
+	for key: Variant in left.keys():
+		if right.has(key):
+			return true
+	return false
 
 
 func _collect_game_mode_ids() -> Dictionary:
@@ -2666,11 +3184,13 @@ func _require_bool(resource_path: String, field: String, value: Variant) -> bool
 	return true
 
 
-func _require_int(resource_path: String, field: String, value: Variant, minimum: Variant = null) -> bool:
+func _require_int(resource_path: String, field: String, value: Variant, minimum: Variant = null, maximum: Variant = null) -> bool:
 	if not _is_int_like(value):
 		return _schema_fail(resource_path, field, "int")
 	if minimum != null and _variant_to_int(value) < int(minimum):
 		return _schema_fail(resource_path, field, "int >= %d" % int(minimum))
+	if maximum != null and _variant_to_int(value) > int(maximum):
+		return _schema_fail(resource_path, field, "int <= %d" % int(maximum))
 	return true
 
 

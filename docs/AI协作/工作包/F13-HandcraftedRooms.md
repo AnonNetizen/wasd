@@ -3,6 +3,8 @@
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。
 > 本文档是手工房间制短刷图与房间编辑工作流的阶段工作包；改默认关卡承载形态、房间数据 schema、门 / 清房 / 切房流程、房间校验或验收命令时，必须同步 GDD、ADR、`docs/AI导航.md`、`docs/代码/gameplay_runtime.md`、测试策略、知识库索引与 AI 记忆。
 
+> **已被取代（ADR #142，2026-07-20）**：默认关卡方向已改为 `F13-ModularGridWorld.md` 的 9×9 模块连续大地图。本文件只保留 ADR #127/#128 的历史首片记录；旧 RoomManager、线性数据、marker、演示场景、启动参数和 smoke 已删除，不再作为后续实现入口。`docs/代码/room_manager.md` 只保留退役说明。
+
 > **状态（2026-06-28，ADR #128）**：首片已实现并通过验证。RoomManager、`rooms.json` / `room_sequences.json`、RoomRoot + 四类 marker、两个演示房间 `.tscn`、门 / 清房契约（词表 §15-A / §15-B / §15-C）、run payload v3 + 迁移、`room-switch-smoke` 全部完成。房间 carrier 为首片 **opt-in**（测试用 `debug_enable_room_carrier()` 或 run 存档含非空 `room` 块），默认标准模式仍是 F12 开放有限战区；「把房间设为默认可玩模式」留作后续切片。详见下方「首片落地状态」与 `docs/代码/room_manager.md`。
 
 ## 1. 目标

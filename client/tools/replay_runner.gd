@@ -271,6 +271,8 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 
 func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String, frame_samples: Array[Dictionary]) -> Dictionary:
 	var snapshot: Dictionary = _run_snapshot(run_loop)
+	var module_map_hash: String = String(_dictionary_or_empty(snapshot.get("module_world", {})).get("map_hash", ""))
+	_expect(module_map_hash.length() == 64, "ReplayRunner runtime rerun requires a module world map hash")
 	var summary: Dictionary = {
 		"schema_version": 1,
 		"scenario": scenario,
@@ -284,6 +286,7 @@ func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String, fra
 		"kills": int(snapshot.get("kills", 0)),
 		"player_moved_right": _player_position_x(snapshot) > 0.0,
 		"player_aim_direction": _dictionary_or_empty(_dictionary_or_empty(snapshot.get("player", {})).get("aim_direction", {})),
+		"module_map_hash": module_map_hash,
 		"active_pickups": _array_size(snapshot.get("pickups", [])),
 	}
 	if _uses_exact_runtime_counts(scenario):
@@ -326,6 +329,7 @@ func _frame_sample(run_loop: Node, frame_number: int, scenario: String) -> Dicti
 		"player_life": _player_life(snapshot),
 		"player_moved_right": _player_position_x(snapshot) > 0.0,
 		"player_aim_direction": _dictionary_or_empty(_dictionary_or_empty(snapshot.get("player", {})).get("aim_direction", {})),
+		"module_map_hash": String(_dictionary_or_empty(snapshot.get("module_world", {})).get("map_hash", "")),
 		"weapon_cooldown_ready": _weapon_cooldown_remaining(snapshot) <= 0.0,
 		"active_pickups": _array_size(snapshot.get("pickups", [])),
 		"pickups_present": _array_size(snapshot.get("pickups", [])) > 0,

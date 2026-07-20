@@ -1,8 +1,8 @@
 {
 	"created_at": "golden:golden_full_death",
-	"data_fingerprint": "80aafd52ad73ccd6bac8edbeb06548480406a5078337b5d8ddf94cbb862b7e59",
+	"data_fingerprint": "b9bcbbd90922c63939191422f5e442c757b4221a7d7d7417705b66e38840588d",
 	"file_schema_version": 1,
-	"game_version": "v1.5",
+	"game_version": "v1.6",
 	"recording": {
 		"context": {
 			"capture_frames": 180,
@@ -31,12 +31,17 @@
 					"bullets_present": false,
 					"enemies_present": true,
 					"enemy_types": [
-						"enemy_chaser"
+						"enemy_bulwark",
+						"enemy_chaser",
+						"enemy_spitter",
+						"enemy_stalker",
+						"enemy_swarm"
 					],
 					"frame": 30,
 					"game_over_panel_visible": false,
 					"kills": 0,
 					"level": 1,
+					"module_map_hash": "63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083",
 					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
@@ -54,12 +59,17 @@
 					"bullets_present": false,
 					"enemies_present": true,
 					"enemy_types": [
-						"enemy_chaser"
+						"enemy_bulwark",
+						"enemy_chaser",
+						"enemy_spitter",
+						"enemy_stalker",
+						"enemy_swarm"
 					],
 					"frame": 60,
 					"game_over_panel_visible": false,
 					"kills": 0,
 					"level": 1,
+					"module_map_hash": "63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083",
 					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
@@ -77,12 +87,17 @@
 					"bullets_present": false,
 					"enemies_present": true,
 					"enemy_types": [
-						"enemy_chaser"
+						"enemy_bulwark",
+						"enemy_chaser",
+						"enemy_spitter",
+						"enemy_stalker",
+						"enemy_swarm"
 					],
 					"frame": 90,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"module_map_hash": "63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083",
 					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
@@ -100,12 +115,17 @@
 					"bullets_present": false,
 					"enemies_present": true,
 					"enemy_types": [
-						"enemy_chaser"
+						"enemy_bulwark",
+						"enemy_chaser",
+						"enemy_spitter",
+						"enemy_stalker",
+						"enemy_swarm"
 					],
 					"frame": 120,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"module_map_hash": "63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083",
 					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
@@ -123,12 +143,17 @@
 					"bullets_present": false,
 					"enemies_present": true,
 					"enemy_types": [
-						"enemy_chaser"
+						"enemy_bulwark",
+						"enemy_chaser",
+						"enemy_spitter",
+						"enemy_stalker",
+						"enemy_swarm"
 					],
 					"frame": 150,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"module_map_hash": "63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083",
 					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
@@ -146,12 +171,17 @@
 					"bullets_present": false,
 					"enemies_present": true,
 					"enemy_types": [
-						"enemy_chaser"
+						"enemy_bulwark",
+						"enemy_chaser",
+						"enemy_spitter",
+						"enemy_stalker",
+						"enemy_swarm"
 					],
 					"frame": 180,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"module_map_hash": "63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083",
 					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
@@ -169,6 +199,7 @@
 			"kills": 0,
 			"level": 1,
 			"meta_save_exists": true,
+			"module_map_hash": "63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083",
 			"player_aim_direction": {
 				"x": 1.0,
 				"y": 0.0
@@ -194,7 +225,7 @@
 		"started_tick": 0,
 		"started_time": 0.0
 	},
-	"recording_hash": "ea9f7bad99aa97db5fc2c1deb3de49ddae99dd839103c48ac8ba04320c5fc67a",
+	"recording_hash": "f47c01d51cab94ba8be82acc743ab1945795bd901e5df96938484eab23faba47",
 	"summary": {
 		"decision_events": 0,
 		"dropped_decision_events": 0,
@@ -216,12 +247,17 @@
 					"bullets_present": false,
 					"enemies_present": true,
 					"enemy_types": [
-						"enemy_chaser"
+						"enemy_bulwark",
+						"enemy_chaser",
+						"enemy_spitter",
+						"enemy_stalker",
+						"enemy_swarm"
 					],
 					"frame": 30,
 					"game_over_panel_visible": false,
 					"kills": 0,
 					"level": 1,
+					"module_map_hash": "63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083",
 					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
@@ -239,12 +275,17 @@
 					"bullets_present": false,
 					"enemies_present": true,
 					"enemy_types": [
-						"enemy_chaser"
+						"enemy_bulwark",
+						"enemy_chaser",
+						"enemy_spitter",
+						"enemy_stalker",
+						"enemy_swarm"
 					],
 					"frame": 60,
 					"game_over_panel_visible": false,
 					"kills": 0,
 					"level": 1,
+					"module_map_hash": "63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083",
 					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
@@ -262,12 +303,17 @@
 					"bullets_present": false,
 					"enemies_present": true,
 					"enemy_types": [
-						"enemy_chaser"
+						"enemy_bulwark",
+						"enemy_chaser",
+						"enemy_spitter",
+						"enemy_stalker",
+						"enemy_swarm"
 					],
 					"frame": 90,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"module_map_hash": "63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083",
 					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
@@ -285,12 +331,17 @@
 					"bullets_present": false,
 					"enemies_present": true,
 					"enemy_types": [
-						"enemy_chaser"
+						"enemy_bulwark",
+						"enemy_chaser",
+						"enemy_spitter",
+						"enemy_stalker",
+						"enemy_swarm"
 					],
 					"frame": 120,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"module_map_hash": "63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083",
 					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
@@ -308,12 +359,17 @@
 					"bullets_present": false,
 					"enemies_present": true,
 					"enemy_types": [
-						"enemy_chaser"
+						"enemy_bulwark",
+						"enemy_chaser",
+						"enemy_spitter",
+						"enemy_stalker",
+						"enemy_swarm"
 					],
 					"frame": 150,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"module_map_hash": "63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083",
 					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
@@ -331,12 +387,17 @@
 					"bullets_present": false,
 					"enemies_present": true,
 					"enemy_types": [
-						"enemy_chaser"
+						"enemy_bulwark",
+						"enemy_chaser",
+						"enemy_spitter",
+						"enemy_stalker",
+						"enemy_swarm"
 					],
 					"frame": 180,
 					"game_over_panel_visible": true,
 					"kills": 0,
 					"level": 1,
+					"module_map_hash": "63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083",
 					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
@@ -354,6 +415,7 @@
 			"kills": 0,
 			"level": 1,
 			"meta_save_exists": true,
+			"module_map_hash": "63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083",
 			"player_aim_direction": {
 				"x": 1.0,
 				"y": 0.0

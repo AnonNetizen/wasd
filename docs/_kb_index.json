@@ -174,16 +174,16 @@
     {
       "path": "docs/游戏设计文档.md",
       "type": "authority",
-      "authority": "Gameplay, systems, long-term design, GDD v1.17; Gear Mod loadout progression, top-down 2D presentation with uniform Camera2D scale, handcrafted room sequence planning, quantized rectangular map grid, rectangular spawn safe zone, rectangular hazard tiles, and top-down asset readability rules",
+      "authority": "Gameplay, systems, long-term design, GDD v1.20; Gear Mod loadout progression, top-down 2D presentation, 9x9 modular grid world, quantized rectangular map grid, and top-down asset readability rules",
       "status": "active",
       "owner_scope": "design",
-      "last_reviewed": "2026-06-24",
+      "last_reviewed": "2026-07-20",
       "canonical_for": ["game_design", "system_design", "gameplay_behavior"],
       "must_read_for": ["gameplay_change", "system_design_change", "new_content_type"],
       "related_docs": ["docs/IP设定.md", "docs/IP美术风格.md", "docs/决策记录.md", "docs/AI导航.md", "docs/词表与契约.md", "docs/测试策略.md"],
       "related_code": ["client/"],
       "update_triggers": ["gameplay behavior change", "system design change", "new infrastructure decision"],
-      "keywords": ["GDD", "design", "玩法", "系统", "俯视角", "top-down", "俯视角射击刷宝生存", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "hold_mouse", "skill_overdrive_rounds", "Overdrive Rounds", "过载弹流", "Camera2D", "等比相机", "Player3DVisual removed", "Camera3D removed", "ADR #124", "ADR #125", "ADR #127", "手工房间", "房间制", "handcrafted rooms", "room sequence", "RoomManager", "rooms.json", "room_sequences.json", "关卡编辑器", "量化矩形地图格", "rectangular map grid", "quantized rectangular grid", "grid.cell_width", "grid.cell_height", "safe_radius", "出生安全区", "spawn safe zone", "资产落地", "top-down asset readability", "asset brief", "footprint", "anchor point", "orientation_read", "IP美术风格", "阵营色", "功能色", "骨白", "蜡黄", "毒蓝", "玩家子弹", "敌方远程攻击", "矩形机关", "rectangular hazard", "radius_tiles", "固定斜俯视", "2.5D", "历史视角口径", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "短刷图", "short loot runs", "8-12分钟", "默认无升级三选一", "长期养成", "装备 Mod", "Gear Mod", "Warframe mod", "hero mod loadout", "weapon mod loadout", "IP", "世界观", "破巢者", "Nestbreakers", "敌巢", "巢核", "界门", "首都星域", "跨宇宙", "多英雄", "手柄", "autoload", "经验", "升级", "luck", "level-up", "局外成长", "meta progression", "SaveManager", "run save", "续局", "random run seed", "普通新局 seed", "set_random_run_seed", "数值配置", "本地化", "文案", "StatusEffect", "StatusEffectComponent", "状态效果", "silence", "沉默"]
+      "keywords": ["GDD", "design", "玩法", "系统", "俯视角", "top-down", "ADR #142", "模块大地图", "9x9 modules", "11x11 cells", "ModuleWorldManager", "module_worlds.json", "module_templates.json", "run v4", "module fog", "streaming chunks", "AI editor-time JSON", "approved templates", "量化矩形地图格", "rectangular map grid", "footprint", "short loot runs", "8-12分钟", "默认无升级三选一", "Gear Mod", "SaveManager", "续局", "RNG.world", "数值配置", "本地化", "StatusEffect"]
     },
     {
       "path": "docs/决策记录.md",
@@ -191,13 +191,13 @@
       "authority": "Architecture decision records and accepted constraints",
       "status": "active",
       "owner_scope": "architecture",
-      "last_reviewed": "2026-07-17",
+      "last_reviewed": "2026-07-20",
       "canonical_for": ["adr", "accepted_decisions", "constraints"],
       "must_read_for": ["decision_change", "rule_change", "design_reversal"],
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #98", "ADR #103", "ADR #104", "ADR #105", "ADR #107", "ADR #108", "ADR #109", "ADR #110", "ADR #112", "ADR #113", "ADR #114", "ADR #115", "ADR #116", "ADR #117", "ADR #118", "ADR #120", "ADR #122", "ADR #123", "ADR #124", "ADR #125", "ADR #127", "ADR #140", "手工房间", "房间制", "RoomManager", "rooms.json", "room_sequences.json", "WarzoneDirector", "战区导演", "director hazards", "source=director", "random run seed", "普通新局 seed", "set_random_run_seed", "short loot runs", "短刷图", "撤离", "extraction", "8-12分钟", "默认无升级三选一", "Gear Mod", "装备 Mod", "Warframe mod", "MetaProgression legacy", "no old save migration", "no purchased_upgrades compensation", "internal test saves reset", "no hidden DDA", "不读玩家状态", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "量化矩形地图格", "rectangular map grid", "quantized rectangular grid", "grid.cell_width", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "矩形机关", "rectangular hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "IP决策", "破巢者", "Nestbreakers", "详细数值面板", "show_stats_panel", "Tab", "subagent", "subagent 默认主动调度", "自动调度", "game-designer", "marketing-strategist", "需求评估", "不过度优化", "上下文压缩", "任务恢复", "最后明确指令", "契约同步", "数据校验", "Godot Bridge", "Godot style guide", "GDScript style", "AI Git", "自动commit", "提交策略", "code review", "事实review", "project skills", "vendor reference cleanup", "确定性自主游击", "预判闪避", "210px", "220px复位", "92px归队", "0.8秒停靠"]
+      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #127", "ADR #128", "ADR #140", "ADR #141", "ADR #142", "模块大地图", "ModuleWorldManager", "run v4", "RoomManager superseded", "WarzoneDirector", "short loot runs", "撤离", "Gear Mod", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "AI Git", "code review", "事实review"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -608,16 +608,30 @@
     {
       "path": "docs/AI协作/工作包/F13-HandcraftedRooms.md",
       "type": "workflow",
-      "authority": "F13 handcrafted room sequence scope, room marker editing workflow, clear-room door progression, room data planning, and acceptance commands",
+      "authority": "Historical ADR #127/#128 handcrafted room first-slice record; superseded by ADR #142",
+      "status": "superseded",
+      "owner_scope": "ai-workflow",
+      "last_reviewed": "2026-07-20",
+      "canonical_for": ["adr_127_128_historical_record"],
+      "must_read_for": ["historical_handcrafted_room_decision"],
+      "related_docs": ["docs/AI协作/工作包/F13-ModularGridWorld.md", "docs/决策记录.md", "docs/代码/room_manager.md"],
+      "related_code": [],
+      "update_triggers": ["historical correction only"],
+      "keywords": ["F13", "HandcraftedRooms", "superseded", "ADR #127", "ADR #128", "RoomManager retired"]
+    },
+    {
+      "path": "docs/AI协作/工作包/F13-ModularGridWorld.md",
+      "type": "workflow",
+      "authority": "F13 9x9 modular grid world scope, AI JSON review gate, streaming runtime, run v4, and acceptance commands",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-28",
-      "canonical_for": ["f13_handcrafted_rooms_work_package", "handcrafted_room_sequence_scope", "room_marker_editor_workflow"],
-      "must_read_for": ["f13_handcrafted_rooms", "room_manager_change", "room_marker_change", "room_sequence_change", "level_editor_planning"],
-      "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/正式项目工作规划.md", "docs/代码文档规范.md", "docs/代码/gameplay_runtime.md", "docs/代码/map_manager.md", "docs/代码/save_manager.md", "client/data/README.md", "docs/AI记忆/current_state.json", "docs/AI协作/工作包/F12-ShortLootRuns.md"],
-      "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/map_manager.gd", "client/tools/runtime_smoke.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "tools/godot_bridge.py"],
-      "update_triggers": ["F13 scope changes", "room data schema changes", "room marker workflow changes", "room clear condition changes", "door progression changes", "room save or replay behavior changes", "acceptance command changes"],
-      "keywords": ["F13", "HandcraftedRooms", "handcrafted rooms", "手工房间", "房间制", "关卡编辑器", "Godot marker", "room marker", "RoomManager", "rooms.json", "room_sequences.json", "RoomDoorMarker", "RoomEnemySpawnMarker", "RoomHazardMarker", "RoomPlayerStartMarker", "清房开门", "door unlock", "linear room sequence", "Enter the Gungeon", "挺进地牢", "pending_loot", "save-smoke", "runtime-smoke"]
+      "last_reviewed": "2026-07-20",
+      "canonical_for": ["f13_modular_grid_world", "module_content_workflow", "module_world_acceptance"],
+      "must_read_for": ["module_world_change", "module_json_authoring", "run_v4_change", "module_streaming_change"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/代码/module_world_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/save_manager.md", "client/data/README.md", "docs/词表与契约.md"],
+      "related_code": ["client/scripts/gameplay/module_world_manager.gd", "client/scripts/gameplay/module_chunk.gd", "client/scripts/gameplay/module_minimap.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/module_worlds.json", "client/data/module_templates.json", "client/data/modules/", "client/tools/module_world_smoke.gd", "tools/validate_data.py"],
+      "update_triggers": ["module world geometry changes", "module schema changes", "approval gate changes", "streaming behavior changes", "run v4 changes", "acceptance commands change"],
+      "keywords": ["F13", "ModularGridWorld", "9x9", "11x11", "ModuleWorldManager", "ModuleChunk", "module fog", "approved", "candidate", "run v4", "module-world-smoke"]
     },
     {
       "path": "docs/AI协作/上下文预算.md",
@@ -944,16 +958,30 @@
     {
       "path": "docs/代码/room_manager.md",
       "type": "module_doc",
-      "authority": "RoomManager gameplay module contract for the F13 handcrafted room carrier: load room sequence, instantiate room scenes, read markers, lock/open doors, clear detection, room switching, and room run-payload snapshot/restore",
+      "authority": "Historical retirement notice for ADR #127/#128 RoomManager",
+      "status": "superseded",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-07-20",
+      "canonical_for": ["room_manager_retirement_history"],
+      "must_read_for": ["adr_127_128_history"],
+      "related_docs": ["docs/AI协作/工作包/F13-HandcraftedRooms.md", "docs/AI协作/工作包/F13-ModularGridWorld.md", "docs/代码/module_world_manager.md", "docs/决策记录.md"],
+      "related_code": [],
+      "update_triggers": ["historical correction only"],
+      "keywords": ["RoomManager", "retired", "superseded", "ADR #142"]
+    },
+    {
+      "path": "docs/代码/module_world_manager.md",
+      "type": "module_doc",
+      "authority": "ModuleWorldManager contract for seeded assignment, coordinate conversion, pooled 3x3 streaming, fog, map hash, slot state, and run v4 restore",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-28",
-      "canonical_for": ["room_manager_module", "room_manager_api", "rooms_room_sequences_schema", "handcrafted_room_carrier", "room_door_clear_contracts"],
-      "must_read_for": ["room_manager_change", "rooms_json_change", "room_sequences_change", "room_marker_change", "room_carrier_change", "room_run_payload_change"],
-      "related_docs": ["docs/AI协作/工作包/F13-HandcraftedRooms.md", "docs/代码/gameplay_runtime.md", "docs/代码/map_manager.md", "docs/代码/save_manager.md", "docs/代码/data_loader.md", "client/data/README.md", "docs/词表与契约.md", "docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/gameplay/room_manager.gd", "client/scripts/gameplay/rooms/room_root.gd", "client/scripts/gameplay/rooms/room_player_start_marker.gd", "client/scripts/gameplay/rooms/room_door_marker.gd", "client/scripts/gameplay/rooms/room_enemy_spawn_marker.gd", "client/scripts/gameplay/rooms/room_hazard_marker.gd", "client/scenes/gameplay/rooms/room_demo_entry.tscn", "client/scenes/gameplay/rooms/room_demo_arena.tscn", "client/data/rooms.json", "client/data/room_sequences.json", "client/scripts/gameplay/gameplay_run_loop.gd", "client/tools/room_switch_smoke.gd"],
-      "update_triggers": ["RoomManager API changes", "rooms.json / room_sequences.json schema changes", "room marker field changes", "door/clear contract changes", "room carrier flow changes", "room run-payload schema changes"],
-      "keywords": ["RoomManager", "手工房间", "handcrafted rooms", "room carrier", "room_sequences", "rooms.json", "RoomDoorMarker", "RoomEnemySpawnMarker", "RoomHazardMarker", "RoomPlayerStartMarker", "RoomRoot", "door_direction", "door_unlock_rule", "room_clear_condition", "room-switch-smoke", "F13", "debug_enable_room_carrier"]
+      "last_reviewed": "2026-07-20",
+      "canonical_for": ["module_world_manager", "module_chunk", "module_world_runtime", "module_world_snapshot"],
+      "must_read_for": ["module_world_change", "module_chunk_change", "module_world_data_change", "module_run_snapshot_change"],
+      "related_docs": ["docs/AI协作/工作包/F13-ModularGridWorld.md", "docs/代码/gameplay_runtime.md", "docs/代码/map_manager.md", "docs/代码/save_manager.md", "docs/代码/data_loader.md", "client/data/README.md", "docs/词表与契约.md", "docs/测试策略.md"],
+      "related_code": ["client/scripts/gameplay/module_world_manager.gd", "client/scripts/gameplay/module_chunk.gd", "client/scripts/gameplay/module_minimap.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/module_worlds.json", "client/data/module_templates.json", "client/data/modules/", "client/tools/module_world_smoke.gd"],
+      "update_triggers": ["assignment changes", "coordinate API changes", "streaming behavior changes", "fog or map hash changes", "module snapshot changes"],
+      "keywords": ["ModuleWorldManager", "ModuleChunk", "9x9", "11x11", "99x99", "RNG.world", "map hash", "fog", "slot state", "run v4", "module-world-smoke"]
     },
     {
       "path": "docs/代码/debug_tools.md",

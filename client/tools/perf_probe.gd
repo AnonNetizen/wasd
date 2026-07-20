@@ -3,13 +3,15 @@ extends Node
 
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 
-const BASELINE_ID: String = "f8_perf_probe_standard_180f"
+const BASELINE_ID: String = "f13_module_world_standard_180f"
 const SAMPLE_FRAMES: int = 180
 const WARMUP_FRAMES: int = 30
 const TARGET_FRAME_MS: float = 20.0
 const WARNING_FRAME_MS: float = 33.0
-const WARNING_BULLET_PEAK: int = 800
-const WARNING_ENEMY_PEAK: int = 300
+const MAX_BULLET_PEAK: int = 500
+const MAX_ENEMY_PEAK: int = 200
+const MAX_MEMORY_BYTES: int = 512 * 1024 * 1024
+const STREAM_CROSSING_SAMPLE_FRAME: int = 60
 
 var _delta_samples: Array[float] = []
 var _entity_peak_counts: Dictionary = {
@@ -22,6 +24,7 @@ var _failures: Array[String] = []
 var _pool_peak_active: Dictionary = {}
 var _run_loop: Node = null
 var _sampling_enabled: bool = false
+var _stream_crossing_triggered: bool = false
 
 
 func _ready() -> void:
@@ -36,6 +39,10 @@ func _process(delta: float) -> void:
 		return
 	if _delta_samples.size() >= SAMPLE_FRAMES:
 		return
+	if not _stream_crossing_triggered and _delta_samples.size() == STREAM_CROSSING_SAMPLE_FRAME:
+		_stream_crossing_triggered = true
+		if _run_loop != null and _run_loop.has_method("debug_set_player_position"):
+			_run_loop.call("debug_set_player_position", Vector2(960.0, 0.0))
 	_delta_samples.append(delta)
 	if _run_loop != null:
 		_sample_runtime_metrics()
@@ -83,9 +90,13 @@ func _run() -> void:
 		"peak_counts": _entity_peak_counts.duplicate(true),
 		"pool_peak_active": _pool_peak_active.duplicate(true),
 		"pool_stats": _pool_stats(),
+		"static_memory_bytes": int(Performance.get_monitor(Performance.MEMORY_STATIC)),
+		"stream_crossing_tested": _stream_crossing_triggered,
+		"module_world": _module_world_summary(),
 		"state": String(GameState.current()),
 	}
 	report["budget_status"] = _budget_status(report)
+	_expect(String((report["budget_status"] as Dictionary).get("status", "fail")) == "pass", "module-world performance budget should pass")
 	_finish(report)
 
 
@@ -99,6 +110,7 @@ func _reset_samples() -> void:
 	}
 	for pool_id: String in _pool_ids():
 		_pool_peak_active[pool_id] = 0
+	_stream_crossing_triggered = false
 
 
 func _frame_time_report() -> Dictionary:
@@ -168,6 +180,13 @@ func _pool_stats() -> Dictionary:
 	return result
 
 
+func _module_world_summary() -> Dictionary:
+	if _run_loop != null and _run_loop.has_method("debug_summary"):
+		var summary: Dictionary = _run_loop.call("debug_summary") as Dictionary
+		return (summary.get("module_world", {}) as Dictionary).duplicate(true)
+	return {}
+
+
 func _pool_ids() -> Array[String]:
 	return [
 		POOL_IDS.BULLET_BASIC,
@@ -182,20 +201,27 @@ func _budget_status(report: Dictionary) -> Dictionary:
 	var frame_time_ms: Dictionary = report.get("frame_time_ms", {}) as Dictionary
 	var peak_counts: Dictionary = report.get("peak_counts", {}) as Dictionary
 	var warnings: Array[String] = []
-	if float(frame_time_ms.get("p99", 0.0)) > WARNING_FRAME_MS:
+	if float(frame_time_ms.get("p99", 0.0)) > TARGET_FRAME_MS:
 		warnings.append("frame_time_p99")
-	if int(peak_counts.get("active_bullets", 0)) > WARNING_BULLET_PEAK:
+	if float(frame_time_ms.get("max", 0.0)) >= WARNING_FRAME_MS:
+		warnings.append("frame_time_crossing_spike")
+	if int(peak_counts.get("active_bullets", 0)) > MAX_BULLET_PEAK:
 		warnings.append("bullet_peak")
-	if int(peak_counts.get("active_enemies", 0)) > WARNING_ENEMY_PEAK:
+	if int(peak_counts.get("active_enemies", 0)) > MAX_ENEMY_PEAK:
 		warnings.append("enemy_peak")
+	if int(report.get("static_memory_bytes", 0)) > MAX_MEMORY_BYTES:
+		warnings.append("static_memory")
+	if not bool(report.get("stream_crossing_tested", false)):
+		warnings.append("stream_crossing_missing")
 	return {
-		"status": "warn" if not warnings.is_empty() else "pass",
+		"status": "fail" if not warnings.is_empty() else "pass",
 		"warnings": warnings,
 		"targets": {
 			"frame_time_p99_ms": TARGET_FRAME_MS,
-			"frame_time_warning_ms": WARNING_FRAME_MS,
-			"bullet_peak_warning": WARNING_BULLET_PEAK,
-			"enemy_peak_warning": WARNING_ENEMY_PEAK,
+			"stream_crossing_max_frame_ms": WARNING_FRAME_MS,
+			"bullet_peak_max": MAX_BULLET_PEAK,
+			"enemy_peak_max": MAX_ENEMY_PEAK,
+			"static_memory_max_bytes": MAX_MEMORY_BYTES,
 		},
 	}
 

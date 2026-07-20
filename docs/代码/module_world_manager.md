@@ -1,0 +1,58 @@
+# ModuleWorldManager 模块文档
+
+> **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
+> 本文档是 F13 模块世界运行时、坐标、流式状态与 run v4 边界的权威模块契约。
+
+## 1. 职责
+
+`ModuleWorldManager` 是 F13 默认 9×9 无缝模块世界的局内协调点，由 `GameplayRunLoop` 在 `ActiveWorld` 下创建，不是 autoload。它负责：
+
+- 按 run seed 和 `RNG.world` 从已批准模板池组合 81 个世界槽位，失败时回退到已校验安全布局。
+- 保持模块坐标 `0..8`、局部格 `0..10`、全局格 `0..98` 与世界坐标转换一致；`(49,49)` 映射世界原点。
+- 计算稳定 map hash：hash 同时覆盖世界配置、seed、81 槽 assignment / rotation 与本局实际引用的完整模块 JSON，因此地形、通道、摆放、格尺寸或锚点变化都会让旧 run fail closed。保存模块级迷雾 / 访问状态与按世界槽位隔离的动态状态。
+- 只激活玩家当前模块周围最多 3×3 个 `ModuleChunk`，九个 chunk 预分配后循环复用。
+
+`GameplayRunLoop` 仍负责敌人 / 机关 / 奖励 / 目标 / 撤离 primitive 的实体生成、`Combat`、`PoolManager` 和 run v4 快照。`ModuleWorldManager` 不直接生成玩法实体。
+
+## 2. 数据边界
+
+- 世界配置：`client/data/module_worlds.json`
+- 模块注册表：`client/data/module_templates.json`
+- 模块内容：`client/data/modules/*.json`
+- 人工 / AI 模板：`client/templates/module_template.json`
+- 权威设计：`docs/AI协作/工作包/F13-ModularGridWorld.md`、GDD §5.1、ADR #142
+
+运行时只读 JSON，不连接 LLM。新 AI 模块默认是 `module_review_candidate`；只有人工改为 `module_review_approved` 后才能进入默认池。
+
+## 3. 公共 API
+
+| API | 用途 |
+|-----|------|
+| `configure(world_def, registry_by_id, templates_by_id, run_seed)` | 设置世界并生成默认 assignment |
+| `build_assignment()` / `build_fallback_assignment()` / `build_technical_slice_assignment()` | seed 组图、安全布局、中心 3×3 技术首片 |
+| `tick(player_position)` | 更新当前模块、迷雾和 chunk 流式变更 |
+| `world_to_global_cell()` / `global_cell_to_world()` | 世界坐标与 99×99 全局格转换 |
+| `global_cell_to_module_and_local()` / `module_local_to_global_cell()` | 全局格与模块 + 局部格转换 |
+| `placements_at(module_coord)` | 返回已旋转、含 `world_position` 的内容摆放 |
+| `set_slot_state()` / `slot_state()` | 保存按世界槽位隔离的动态状态 |
+| `snapshot()` / `restore_state()` | run v4 assignment、内容敏感 map hash、迷雾和槽位状态 roundtrip；hash / assignment 不一致时返回失败，不继续恢复旧实体 |
+| `debug_summary()` | 输出几何、assignment/hash、访问数和活跃 chunk 数 |
+
+## 4. ModuleChunk
+
+`ModuleChunk` 只用 `_draw()` 批量绘制地形，并用一个 `StaticBody2D` + 一个合并 `ConcavePolygonShape2D` 表达封锁格边界。禁止为 121 个格逐格创建 Node，也禁止同时实例化 81 个 chunk。
+
+## 5. 验证
+
+```powershell
+python tools/sync_contracts.py --check
+python tools/validate_data.py
+python tools/test_data_loader_schema.py
+python tools/godot_bridge.py --project client headless-boot
+python tools/godot_bridge.py --project client module-world-smoke
+python tools/godot_bridge.py --project client module-world-technical-slice-smoke
+python tools/godot_bridge.py --project client save-smoke
+python tools/godot_bridge.py --project client perf-probe
+```
+
+`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、不同 seed 普通槽变化、中心坐标、物理移动无缝跨边界、最多 9 个 chunk、离开 / 返回不重复刷怪、子弹 / 掉落流式恢复、迷雾、目标后撤离、run v4 恢复和 hash mismatch fail closed。`module-world-technical-slice-smoke` 通过正式 opt-in 入口追加中心 3×3 / 外圈 72 槽封锁的完整流程回归。

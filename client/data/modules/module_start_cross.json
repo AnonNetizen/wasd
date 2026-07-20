@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "id": "module_start_cross",
+  "columns": 11,
+  "rows": 11,
+  "terrain_rows": [
+    [
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked"
+    ],
+    [
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_floor",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked",
+      "module_cell_blocked"
+    ]
+  ],
+  "edge_sockets": {
+    "edge_north": [
+      5
+    ],
+    "edge_south": [
+      5
+    ],
+    "edge_east": [
+      5
+    ],
+    "edge_west": [
+      5
+    ]
+  },
+  "placements": [
+    {
+      "type": "module_place_player_start",
+      "cell": {
+        "x": 5,
+        "y": 5
+      }
+    }
+  ]
+}

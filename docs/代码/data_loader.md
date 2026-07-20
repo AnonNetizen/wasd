@@ -8,7 +8,7 @@
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
 - 通过 `ModLoader` 合并 `user://mods/<mod_id>/` 下声明式数据 patch，为本地玩家 mod 提供统一入口。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
-- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`growth.csv`、`growth_pools.json` 与 `strings.csv`。
+- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、`hazards.csv`、`map_layouts.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`growth.csv`、`growth_pools.json` 与 `strings.csv`。
 - 提供 fail-fast 错误输出，错误信息包含文件、字段路径和期望值。
 - 不负责业务解释、数值平衡、热重载 UI、升级奖励应用或游戏模式运行时；这些由后续业务模块接入。
 
@@ -40,6 +40,7 @@
 | `client/data/hazards.csv` | 机关基础数值、对象池、伤害类型和模式引用边界 |
 | `client/data/map_layouts.json` | 有限地图、玩家出生点、PCG 机关规则和人工摆点边界 |
 | `client/data/warzone_directors.json` | 敌巢战区导演、固定阶段、巢变异主题、生态 encounter、兴趣点和阶段启用 wave 边界 |
+| `client/data/module_worlds.json` / `module_templates.json` / `modules/*.json` | F13 9×9 世界几何、固定锚点、approved 模板池、路线预算、11×11 地形与内容摆放；校验跨模块通道、边界、可达性和内容预算 |
 | `client/data/spawn_waves.csv` | 刷怪波次、模式引用、敌人 / 机关引用、时间窗和强度数值边界 |
 | `client/data/relics.json` | 被动遗物 modifier / behavior 数据边界 |
 | `client/data/active_items.json` | 主动道具充能 / 使用效果数据边界 |
@@ -105,6 +106,7 @@
   - `map_layouts.json`：layout id、模式引用、有限地图矩形 bounds、玩家出生点、安全半径、刷怪边距、PCG 机关规则和人工机关摆点；`mode_id` 必须存在于 `game_modes.json`，所有机关 id 必须存在于 `hazards.csv`，bounds 必须分别整除 `grid.cell_width/cell_height`。
   - `spawn_waves.csv`：波次 id、模式 id、波次序号、时间窗、敌人引用、敌人权重、刷怪间隔、同时存活上限、预算，以及可选机关引用 / 权重。
   - `warzone_directors.json`：director id、模式引用、固定 mutation、阶段时间窗、阶段启用 wave、生态 encounter 和兴趣点；`mode_id` 必须存在于 `game_modes.json`，`wave_ids` 必须引用同模式 `spawn_waves.csv`，同模式所有 wave 必须至少被一个 phase 引用，encounter enemy tags 必须来自 `content_tags`，兴趣点的 `hazard_ids` 必须非空且机关 / 地图引用必须存在。
+  - 模块世界：世界必须恰好 9×9、模块必须恰好 11×11；模块 / 局部 / 全局坐标、footprint、引用、审核状态、边缘通道、外圈封闭、关键路线、危险格重叠和角色内容预算都 fail-fast。默认池只接受 `approved` 模板；`candidate` 只能供人工审核。
   - `relics.json`：遗物 id、名称 / 描述 key、默认解锁、`tag_relic`、数值 modifiers、行为 behaviors，以及至少一个 modifier 或 behavior。
   - `active_items.json`：主动道具 id、名称 / 描述 key、默认解锁、`tag_active_item`、冷却充能、初始 / 最大充能和使用效果原语。
   - `consumables.json`：消耗品 id、名称 / 描述 key、默认解锁、`tag_consumable`、最大堆叠、初始数量、单次拾取数量和使用效果原语。
@@ -114,7 +116,7 @@
   - `game_modes.json`：模式 id、名称 / 描述 key、默认解锁、participants / teams、角色池、武器池、技能池、敌人池、机关池、遗物池、主动道具池、消耗品池、成长池、content tag blocklist 与玩家基础属性轻量覆盖；角色池 id 必须存在于 `characters.json`，武器池 id 必须存在于 `weapons.json`，技能池 id 必须存在于 `skills.json`，敌人池 id 必须存在于 `enemies.csv`，机关池 id 必须存在于 `hazards.csv`，遗物池 id 必须存在于 `relics.json`，主动道具池 id 必须存在于 `active_items.json`，消耗品池 id 必须存在于 `consumables.json`。
   - `strings.csv`：key 前缀、`zh_CN` / `en` 必填、唯一 key。
 - 导出版中 `client/data/*.csv` 必须作为原始 CSV 随包分发，DataLoader 依赖 `FileAccess` 读取原文件；`client/locale/strings.csv` 继续由 Godot 作为 `csv_translation` 导入，导出版缺少原始 `strings.csv` 时不枚举 optimized translation 全量 key，只在数据引用 locale key 时用当前翻译资源按需校验。
-- 当前校验 `characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json` 与 `game_modes.json` 的数据边界；技能运行时首片由 `docs/代码/skill_system.md` 解释，状态效果生命周期见 `docs/代码/status_effect_component.md`，有限地图 / PCG 解释见 `docs/代码/map_manager.md`，机关运行时解释见 `docs/代码/hazard_system.md`，敌人 AI 的业务解释见 `docs/代码/enemy_ai.md`，战区导演解释见 `docs/代码/warzone_director.md`，装备 Mod 运行时解释见 `docs/代码/gear_mod_system.md`。其余尚不实现角色选择 UI、完整起始携带发放、遗物拾取 / 应用、主动道具栏 / 冷却 / 使用效果、消耗品拾取 / 背包 / 使用 / 数量扣减 / 效果执行、Credits UI、模式选择 UI、匹配、联网、成长抽取、输入 profile 切换或完整模式运行时。
+- 当前也校验模块世界 / 注册表 / 独立模块 JSON；运行时解释见 `docs/代码/module_world_manager.md`。技能、状态、地图、机关、EnemyAI、战区导演和 Gear Mod 仍分别以各自模块文档为权威。
 
 ## 依赖
 
@@ -138,6 +140,7 @@
 | 加 CSV 表读取 | `data_loader.gd` | `client/data/README.md` | `load_csv()` smoke / 数据校验 |
 | 改敌人 AI profile schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/enemy_ai.md` | `validate_data` + schema test + `runtime-smoke` |
 | 改地图 layout schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/map_manager.md` | `validate_data` + schema test + `runtime-smoke` |
+| 改模块世界 / 模板 schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/module_world_manager.md`、F13 工作包 | `sync_contracts --check` + `validate_data` + schema test + `module-world-smoke` + `save-smoke` |
 | 改战区导演 schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/warzone_director.md`、F10 工作包 | `validate_data` + schema test + `runtime-smoke` + `f9-demo-smoke` |
 | 改契约来源 | `tools/sync_contracts.py`、`_contracts.json` | `docs/词表与契约.md` | `tools/sync_contracts.py --check` |
 | 改 mod 数据合并 | `mod_loader.gd`、`data_loader.gd` | `docs/代码/mod_loader.md`、本文档、GDD | `l1-smoke`、headless boot |

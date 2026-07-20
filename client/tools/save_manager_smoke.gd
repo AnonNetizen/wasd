@@ -6,6 +6,7 @@ const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const BOOT_FRAMES: int = 3
 const SMOKE_SLOT: String = "slot_save_smoke"
 const RUN_KIND: String = SAVE_KINDS.RUN
+const META_KIND: String = SAVE_KINDS.META
 
 var _corrupted_count: int = 0
 var _failures: Array[String] = []
@@ -74,6 +75,11 @@ func _expect_backup_fallback_and_broken_isolation() -> void:
 
 func _expect_migration_chain() -> void:
 	_cleanup_smoke_files()
+	var meta_payload: Dictionary = {
+		"gear_mods": {"owned": {"gear_mod_bulwark": 2}},
+		"marker": "must_survive_legacy_run_reset",
+	}
+	_expect(SaveManager.save(SMOKE_SLOT, META_KIND, meta_payload), "meta save should exist before run migration")
 
 	var old_payload: Dictionary = _run_payload("migration", 6)
 	_expect(SaveManager.save(SMOKE_SLOT, RUN_KIND, old_payload), "old-version run save should write")
@@ -98,13 +104,26 @@ func _expect_migration_chain() -> void:
 	_expect(migrated_payload.get("map", null) is Dictionary, "run v1->v2 migration should normalize missing map snapshot")
 	_expect(migrated_payload.get("hazards", null) is Array, "run v1->v2 migration should normalize missing hazard snapshots")
 	_expect(migrated_payload.get("room", null) is Dictionary, "run v2->v3 migration should normalize missing room snapshot")
+	_expect(bool(migrated_payload.get("legacy_run_incompatible", false)), "run v3->v4 migration should explicitly mark legacy run reset")
+	_expect(migrated_payload.get("module_world", null) is Dictionary, "run v3->v4 migration should add an empty module-world snapshot")
+	var parent_boot: Node = get_parent()
+	_expect(
+		String(parent_boot.call("_run_save_unavailable_notice_key", migrated_payload)) == "ui_run_save_legacy_incompatible",
+		"legacy run should select the explicit incompatibility notice"
+	)
+	_expect(
+		String(parent_boot.call("_run_save_unavailable_notice_key", {})) == "ui_run_save_unavailable",
+		"missing/corrupted run should keep the corruption notice"
+	)
+	_expect(_payloads_match(SaveManager.load(SMOKE_SLOT, META_KIND), meta_payload), "run migration/reset path must leave meta payload unchanged")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 1, 2]), "run migration should emit save_migrated for run 1->2")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 2, 3]), "run migration should emit save_migrated for run 2->3")
+	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 3, 4]), "run migration should emit save_migrated for run 3->4")
 
 
 func _run_payload(marker: String, level: int) -> Dictionary:
 	return {
-		"schema_version": 2,
+		"schema_version": 4,
 		"mode": "mode_standard_survival",
 		"character": "character_default",
 		"level": level,
@@ -144,6 +163,14 @@ func _run_payload(marker: String, level: int) -> Dictionary:
 				"y": 0.0,
 			},
 			"hazard_placements": [],
+		},
+		"module_world": {
+			"world_id": "module_world_9x9",
+			"seed": 4242,
+			"assignments": [],
+			"map_hash": "smoke_hash",
+			"visited_slots": [],
+			"slot_states": {},
 		},
 		"player": {
 			"position": [float(level), float(level + 1)],
@@ -207,6 +234,7 @@ func _on_save_corrupted(slot: String, kind: String, _path: String, _error: Strin
 
 func _cleanup_smoke_files() -> void:
 	SaveManager.delete(SMOKE_SLOT, RUN_KIND)
+	SaveManager.delete(SMOKE_SLOT, META_KIND)
 	_remove_if_exists(_save_path())
 	_remove_if_exists(_backup_path())
 	_remove_if_exists(_tmp_path())

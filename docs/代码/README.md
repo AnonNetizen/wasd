@@ -37,6 +37,7 @@
 | StatusEffectComponent | `docs/代码/status_effect_component.md` | `client/scripts/combat/status_effect.gd`、`client/scripts/combat/status_effect_component.gd`、`client/scripts/gameplay/skill_system.gd` | 状态效果 ability tag 生命周期首片已建立 |
 | Enemy AI | `docs/代码/enemy_ai.md` | `client/scripts/gameplay/enemy.gd`、`client/data/enemy_ai_profiles.json` | 数据驱动生态 AI 首片已建立 |
 | MapManager | `docs/代码/map_manager.md` | `client/scripts/gameplay/map_manager.gd`、`client/data/map_layouts.json`、`client/scripts/gameplay/gameplay_run_loop.gd` | 有限地图 + 可调 PCG 首片已建立 |
+| ModuleWorldManager | `docs/代码/module_world_manager.md` | `client/scripts/gameplay/module_world_manager.gd`、`client/scripts/gameplay/module_chunk.gd`、`client/data/module_worlds.json`、`client/data/module_templates.json`、`client/data/modules/*.json` | F13 9×9 模块大地图、3×3 流式邻域与 run v4 已建立 |
 | HazardSystem | `docs/代码/hazard_system.md` | `client/scripts/gameplay/hazard.gd`、`client/scenes/gameplay/hazard.tscn`、`client/data/hazards.csv` | 机关运行时 + FEA-12 测试机关已建立 |
 | WarzoneDirector | `docs/代码/warzone_director.md` | `client/scripts/gameplay/warzone_director.gd`、`client/data/warzone_directors.json`、`client/scripts/gameplay/gameplay_run_loop.gd` | F10 敌巢战区导演首片已建立 |
 | DebugTools | `docs/代码/debug_tools.md` | `client/scripts/debug/*.gd`、`client/tools/debug_tools_smoke.gd` | debug/dev_tools 专用控制台与 GM 指令首片已建立 |

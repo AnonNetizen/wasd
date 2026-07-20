@@ -25,8 +25,8 @@
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
 | 改地图边界 / 矩形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是轴对齐矩形，必须分别整除 `grid.cell_width` / `grid.cell_height`；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法矩形格锚点 |
 | 改敌巢战区导演 / 阶段主题 / 兴趣点组合 | `warzone_directors.json` | 只按固定时间阶段启用 wave，不读取玩家状态、不做隐藏动态难度；匹配当前 layout 的兴趣点会生成初始 `source="director"` 机关；wave / 机关 / 地图引用必须存在 |
-| 加 / 改手工房间（敌人 / 门 / 陷阱摆位） | 房间 `.tscn` + marker | 用 Godot 场景编辑器摆 `RoomPlayerStartMarker` / `RoomDoorMarker` / `RoomEnemySpawnMarker` / `RoomHazardMarker`，房间根用 `RoomRoot` 声明矩形 bounds / grid；新房间登记进 `rooms.json` |
-| 改房间串联顺序（F13 手工房间） | `room_sequences.json` | 线性顺序前进，`final_room_id` 为终点房间，绑定 `mode_id`；房间内容仍在 `.tscn` marker 里 |
+| 加 / 改模块模板 | `modules/<id>.json` + `module_templates.json` | 模块固定 11×11 格；AI 默认产出 `candidate`，通过校验后仍需人工改为 `approved` 才能进入正式池 |
+| 改 9×9 世界骨架 / 路线预算 | `module_worlds.json` | 同一世界统一格尺寸；固定起点 / 目标 / 撤离锚点，其余槽位按 `RNG.world` + run seed 组合 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
 | 改技能消耗 / 冷却 / 目标 / 伤害 | `skills.json` | 技能不绑定英雄；角色或道具只引用 skill id，资源消耗用 `skill_resources` 声明 |
@@ -56,8 +56,9 @@
 | `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、占格尺寸、持续时间 |
 | `map_layouts.json` | 已建立 | 有限地图配置：矩形地图边界、矩形格尺寸、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
 | `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、生态 encounter、兴趣点 / 机关组合和阶段启用 wave |
-| `rooms.json` | 已建立 | 手工房间注册表（F13）：房间 id、场景路径、tags、清房条件、可用模式；房间内容在 `.tscn` marker |
-| `room_sequences.json` | 已建立 | 手工房间线性序列（F13）：序列 id、绑定模式、房间顺序、终点房间 |
+| `module_worlds.json` | 已建立 | F13 模块世界：9×9 槽位、11×11 格、统一格尺寸、固定锚点、模板池、安全布局和技术首片 |
+| `module_templates.json` | 已建立 | 模块注册表：角色、JSON 路径、AI 来源、审核状态和可用旋转 |
+| `modules/*.json` | 已建立 | 每个模块的 11 行地形令牌、四边通道与敌人 / 机关 / 奖励 / 目标 / 撤离摆放表 |
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
 | `growth_pools.json` | 已建立 | 升级选项池、权重、等级条件和候选奖励边界 |
@@ -144,7 +145,7 @@ user://mods/my_first_mod/
 | 数据形态 | 优先格式 | 示例 |
 |----------|----------|------|
 | 一行一个条目、列固定、经常人工排序 / 筛选 / 批量调参 | CSV | `enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`growth.csv` |
-| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`map_layouts.json`、`warzone_directors.json`、`rooms.json`、`room_sequences.json`、`enemy_ai_profiles.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`gear_mods.json`、`growth_pools.json` |
+| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`map_layouts.json`、`warzone_directors.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`enemy_ai_profiles.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`gear_mods.json`、`growth_pools.json` |
 | 玩家可见文案 | CSV | `client/locale/strings.csv` |
 | 致谢 / 第三方来源清单 | JSON | `credits.json`，需同时同步根目录 `CREDITS.md` |
 | 自动生成契约 | JSON | `_contracts.json`，禁止手改 |
@@ -706,61 +707,53 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 
 `warzone_directors.json` 是 F10/F12 敌巢战区导演数据源。运行时使用 `phases[].wave_ids` 给 `GameplayRunLoop` 的 Spawner 做阶段 gating；刷怪本身仍由 `spawn_waves.csv` 的时间窗、间隔、预算和同时存活上限决定。F12 标准局按 0-1 分钟投放、1-4 分钟第一收益点、4-7 分钟路线压力、7-9 分钟小巢核、9 分钟后软加压组织；`phase_overtime_collapse` 只表达继续贪局时的高压段，不是硬性强制结束。匹配当前 `map_layout_id` 的 `interest_points[]` 会交给 `MapManager`；有 `target_hp` 的兴趣点先生成独立的格心 target anchor，再把 `hazard_ids[]` 机关放到目标附近并避开该 footprint；无目标兴趣点仍为每个 `hazard_ids[]` 用既有 PCG / 锚点 / 边界规则生成一个初始 `source="director"` placement，并把兴趣点奖励元数据透传给 `GameplayRunLoop`。无 `target_hp` 且无 `requires_interaction` 的兴趣点在玩家进入 `claim_radius` 且达到 `claim_start_time` 后领取；有 `requires_interaction=true` 的兴趣点会生成可见缓存箱，玩家进入半径后按 `interact` action 打开；有 `target_hp` 的兴趣点会生成可伤害目标，目标生成后即可被子弹 / Combat 伤害摧毁，摧毁后按通用 `resource_rewards[]` / `gear_mod_rewards[]` 放入 `run.pending_loot` 暂存；`completes_run=true` 的小巢核领取后只开启撤离区，玩家进入贴合地图矩形格的撤离矩形并完成 `extraction_hold_time` 读条后，才提交暂存战利品、删除当前 `run` 存档并显示完成结果面板。领取状态、目标状态、撤离状态和暂存战利品保存到 run payload，旧存档缺失时按未领取 / 未开启撤离 / 无暂存处理。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态；后续若增加随机 mutation、玩家可见主题或更复杂奖励语义，必须先同步 `docs/代码/warzone_director.md`、GDD、ADR、DataLoader schema 和对应 smoke / replay 策略。
 
-## `rooms.json`
+## `module_worlds.json` / `module_templates.json` / `modules/*.json`
 
-F13 手工房间制短刷图的房间注册表。每个房间的玩家入口、门、敌人生成点和陷阱由 `scene_path` 指向的 Godot `.tscn` + marker 表达；本文件只登记房间元数据，不写房间内坐标。黄金样例第一条 `room_demo_entry` 为结构参照。
+F13 的正式默认地图是 9×9 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` 定义世界几何、键槽、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`modules/*.json` 只表达地形和合法 primitive 摆放，不执行脚本。
 
-```json
-{
-  "schema_version": 1,
-  "rooms": [
-    {
-      "id": "room_demo_entry",
-      "scene_path": "res://scenes/gameplay/rooms/room_demo_entry.tscn",
-      "tags": [],
-      "clear_condition": "room_clear_all_enemies",
-      "allowed_modes": ["mode_standard_survival"]
-    }
-  ]
-}
-```
+每个模块 JSON 必须包含恰好 11 行、每行 11 个 `module_cell_tokens`，并声明四边 socket 格位。相邻模块旋转后的 socket 必须完全匹配，外圈不得越界开口。只允许 0/90/180/270° 旋转，不允许镜像。
 
-| 字段 | 类型 | 约束 | 含义 |
-|------|------|------|------|
-| `schema_version` | int | `>= 1` | 数据版本 |
-| `rooms[].id` | string | 文件内唯一，非空 | 房间 id（数据键，开放集合，不进词表）；`room_sequences.json` 与 marker 引用 |
-| `rooms[].scene_path` | string | `res://` 开头、`.tscn` 结尾、文件存在 | 房间场景路径；`RoomManager` 运行时 `load()` 读取 marker |
-| `rooms[].tags` | array | 每项为词表 §12.3 content_tag | 房间标签（可空），留作主题 / 池筛选 |
-| `rooms[].clear_condition` | string | 词表 §15-C room_clear_condition | 清房条件：`room_clear_all_enemies` 清空全部敌人，`room_clear_none` 进入即完成 |
-| `rooms[].allowed_modes` | array | 非空；每项词表 §12-A game mode 且存在于 `game_modes.json` | 房间可用的游戏模式 |
+AI 产出新模块时必须先登记为 `candidate`。通过 schema、占位、通道、全局可达性、安全区和内容预算校验后，仍需人工将注册表状态改为 `approved`。默认模板池只能引用 `approved`；模板复用时，运行状态按世界槽位保存，不按模板 id 共享。可视化人工编辑器不在首版范围；未来工具必须继续读写同一 JSON schema。
 
-房间内 marker 的 `enemy_id` / `hazard_id` 引用 `enemies.csv` / `hazards.csv`，门 `direction` / `unlock_rule` 走词表 §15-A / §15-B 契约常量；这些在 `.tscn` 里设置，由 `RoomManager` 运行时读取并 fail-fast 校验，不在本 JSON 校验。
+`module_worlds.json` 字段：
 
-## `room_sequences.json`
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `worlds[].id` | string | 唯一、非空 | 世界 id；run v4 保存此值 |
+| `worlds[].columns` / `worlds[].rows` | int | 首版固定 `9` | 模块槽位宽高 |
+| `worlds[].module_columns` / `worlds[].module_rows` | int | 首版固定 `11` | 单模块局部格宽高 |
+| `worlds[].cell_size` | int | `> 0`，默认 `160` | 同一世界统一的方格边长，单位 px |
+| `worlds[].active_radius` | int | 首版固定 `1` | 当前模块向四周激活的半径；最多 3×3 chunk |
+| `worlds[].seal_outer_edges` | bool | 首版必须 `true` | 外圈有效通道不得朝地图外开放 |
+| `worlds[].start_slot.x` / `worlds[].start_slot.y` | int | `0..8`，固定 `(4,4)` | 起点模块槽位 |
+| `worlds[].objective_slot.x` / `worlds[].objective_slot.y` | int | `0..8` | 目标模块固定槽位 |
+| `worlds[].extraction_slot.x` / `worlds[].extraction_slot.y` | int | `0..8` | 撤离模块固定槽位 |
+| `worlds[].route_budget.start_to_objective.min_crossings` / `worlds[].route_budget.start_to_objective.max_crossings` | int | `4..6` | 起点到目标的模块跨越预算 |
+| `worlds[].route_budget.objective_to_extraction.min_crossings` / `worlds[].route_budget.objective_to_extraction.max_crossings` | int | `3..5` | 目标到撤离的模块跨越预算 |
+| `worlds[].route_budget.main_route_modules.min` / `worlds[].route_budget.main_route_modules.max` | int | `8..12` | 主路线模块数预算 |
+| `worlds[].route_budget.optional_exploration_modules.max` | int | 首版 `<= 14` | 可选探索模块预算上限 |
+| `worlds[].fixed_slots[].slot.x` / `worlds[].fixed_slots[].slot.y` | int | `0..8`、不得重复 | 固定关键槽位坐标 |
+| `worlds[].fixed_slots[].template_id` | string | 注册表中存在且 approved；必须在三个配置锚点各放恰好 1 个 start / objective / extraction 角色 | 固定关键模板引用，防止 seeded 世界缺少目标或撤离 |
+| `worlds[].fixed_slots[].rotation` | int | `0/90/180/270` | 固定模板旋转，不允许镜像 |
+| `worlds[].template_pool` | array[string] | 非空，只能引用 `approved` | 普通槽位随机模板池 |
+| `worlds[].fallback_assignment[].slot.x` / `worlds[].fallback_assignment[].slot.y` | int | 完整覆盖 `0..8` | 固定安全布局槽位 |
+| `worlds[].fallback_assignment[].template_id` | string | 注册表中存在且 approved | 固定安全布局模板 |
+| `worlds[].fallback_assignment[].rotation` | int | `0/90/180/270` | 固定安全布局旋转 |
+| `worlds[].technical_slice_assignment[].slot.x` / `worlds[].technical_slice_assignment[].slot.y` | int | 完整覆盖 `0..8` | 中心 3×3 首片与封锁槽位坐标 |
+| `worlds[].technical_slice_assignment[].template_id` | string | 注册表中存在 | 首片内部模板或 candidate 封锁模板 |
+| `worlds[].technical_slice_assignment[].rotation` | int | `0/90/180/270` | 首片模板旋转 |
 
-F13 手工房间的线性串联序列。首片只支持线性顺序前进；分支图、钥匙门、随机房间池留作后续。黄金样例第一条 `sequence_demo_linear` 为结构参照。
+`module_templates.json` 字段：
 
-```json
-{
-  "schema_version": 1,
-  "sequences": [
-    {
-      "id": "sequence_demo_linear",
-      "mode_id": "mode_standard_survival",
-      "room_ids": ["room_demo_entry", "room_demo_arena"],
-      "final_room_id": "room_demo_arena"
-    }
-  ]
-}
-```
-
-| 字段 | 类型 | 约束 | 含义 |
-|------|------|------|------|
-| `schema_version` | int | `>= 1` | 数据版本 |
-| `sequences[].id` | string | 文件内唯一，非空 | 序列 id（数据键，开放集合，不进词表） |
-| `sequences[].mode_id` | string | 词表 §12-A game mode 且存在于 `game_modes.json` | 序列绑定的游戏模式 |
-| `sequences[].room_ids` | array | 非空；每项必须存在于 `rooms.json` | 房间顺序；首片按此顺序线性前进 |
-| `sequences[].final_room_id` | string | 必须列在本序列 `room_ids` 内 | 终点房间；清房后触碰出口完成本局 |
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `templates[].id` | string | 唯一、非空 | 模板 id；世界 assignment 引用此值 |
+| `templates[].path` | string | `res://data/modules/*.json` 且文件存在 | 独立模块 JSON 路径 |
+| `templates[].role` | string | `module_roles` | 起点 / 连接 / 战斗 / 资源 / 机关 / 目标 / 撤离 / 封锁角色 |
+| `templates[].tags` | array[string] | 可为空 | 编辑期筛选标签，不直接产生玩法分支 |
+| `templates[].source` | string | 首版 `ai` | 内容来源审计字段；AI 只在编辑期产出 JSON |
+| `templates[].review_status` | string | `module_review_statuses` | `candidate` 不得进入默认池，人工批准后为 `approved` |
+| `templates[].allowed_rotations` | array[int] | `0/90/180/270` 的非空子集 | 允许旋转集合；不支持镜像 |
 
 ## `characters.json`
 

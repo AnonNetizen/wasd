@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "templates": [
+    {
+      "id": "module_start_cross",
+      "path": "res://data/modules/module_start_cross.json",
+      "role": "module_role_start",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_connector_cross",
+      "path": "res://data/modules/module_connector_cross.json",
+      "role": "module_role_connector",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_connector_courtyard",
+      "path": "res://data/modules/module_connector_courtyard.json",
+      "role": "module_role_connector",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_connector_pillars",
+      "path": "res://data/modules/module_connector_pillars.json",
+      "role": "module_role_connector",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_connector_ring",
+      "path": "res://data/modules/module_connector_ring.json",
+      "role": "module_role_connector",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_combat_arena",
+      "path": "res://data/modules/module_combat_arena.json",
+      "role": "module_role_combat",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_combat_quadrants",
+      "path": "res://data/modules/module_combat_quadrants.json",
+      "role": "module_role_combat",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_combat_corridors",
+      "path": "res://data/modules/module_combat_corridors.json",
+      "role": "module_role_combat",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_combat_fort",
+      "path": "res://data/modules/module_combat_fort.json",
+      "role": "module_role_combat",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_resource_cache",
+      "path": "res://data/modules/module_resource_cache.json",
+      "role": "module_role_resource",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_resource_crossroads",
+      "path": "res://data/modules/module_resource_crossroads.json",
+      "role": "module_role_resource",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_hazard_spikes",
+      "path": "res://data/modules/module_hazard_spikes.json",
+      "role": "module_role_hazard",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_hazard_pulse",
+      "path": "res://data/modules/module_hazard_pulse.json",
+      "role": "module_role_hazard",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_objective_core",
+      "path": "res://data/modules/module_objective_core.json",
+      "role": "module_role_objective",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_extraction_pad",
+      "path": "res://data/modules/module_extraction_pad.json",
+      "role": "module_role_extraction",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_approved",
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "module_sealed",
+      "path": "res://data/modules/module_sealed.json",
+      "role": "module_role_sealed",
+      "tags": [],
+      "source": "ai",
+      "review_status": "module_review_candidate",
+      "allowed_rotations": [
+        0
+      ]
+    }
+  ]
+}

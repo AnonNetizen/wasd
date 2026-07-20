@@ -9,7 +9,10 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
+from queue import Empty, Queue
+from threading import Thread
 from typing import Any
 
 
@@ -61,6 +64,7 @@ def main() -> int:
         help="Golden replay scenario to capture. Defaults to golden_basic_run.",
     )
     subparsers.add_parser("perf-probe", help="Run the F8 lightweight perf probe in headless Godot.")
+    subparsers.add_parser("startup-probe", help="Measure the first formal-project frame to a playable F13 module-world run (<=2 seconds).")
     subparsers.add_parser("debug-tools-smoke", help="Run the debug console / GM command smoke in headless Godot.")
     subparsers.add_parser(
         "debug-tools-release-smoke",
@@ -69,7 +73,11 @@ def main() -> int:
     subparsers.add_parser("f9-demo-smoke", help="Run the F9 demo content slice smoke in headless Godot.")
     subparsers.add_parser("runtime-smoke", help="Run the formal gameplay runtime smoke in headless Godot.")
     subparsers.add_parser("f4-smoke", help="Compatibility alias for runtime-smoke.")
-    subparsers.add_parser("room-switch-smoke", help="Run the F13 handcrafted room switch smoke in headless Godot.")
+    subparsers.add_parser("module-world-smoke", help="Run the F13 seamless module-world smoke in headless Godot.")
+    subparsers.add_parser(
+        "module-world-technical-slice-smoke",
+        help="Run the F13 center-3x3 technical-slice smoke in headless Godot.",
+    )
     subparsers.add_parser("gear-mod-smoke", help="Run the F11 Gear Mod loadout smoke in headless Godot.")
     subparsers.add_parser("save-smoke", help="Run the SaveManager run-save reliability smoke in headless Godot.")
     subparsers.add_parser("settings-smoke", help="Run the F7 Settings persistence smoke in headless Godot.")
@@ -88,6 +96,8 @@ def main() -> int:
         return 1
     if args.command == "godot-version":
         return _run_command([str(godot), "--version"], cwd=ROOT)
+    if args.command == "startup-probe":
+        return _run_startup_probe(godot, project)
     if args.command == "headless-boot":
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
@@ -226,18 +236,18 @@ def main() -> int:
             [str(godot), "--headless", "--path", str(project), "--", smoke_flag],
             cwd=project,
         )
-    if args.command == "room-switch-smoke":
+    if args.command in {"module-world-smoke", "module-world-technical-slice-smoke"}:
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
             return 1
-        smoke_script = project / "tools" / "room_switch_smoke.gd"
+        smoke_script = project / "tools" / "module_world_smoke.gd"
         if not smoke_script.exists():
-            print(f"[godot-bridge] missing room switch smoke script: {_rel(smoke_script)}")
+            print(f"[godot-bridge] missing module world smoke script: {_rel(smoke_script)}")
             return 1
-        return _run_command(
-            [str(godot), "--headless", "--path", str(project), "--", "--room-switch-smoke"],
-            cwd=project,
-        )
+        flags = ["--module-world-smoke"]
+        if args.command == "module-world-technical-slice-smoke":
+            flags.append("--module-world-technical-slice")
+        return _run_command([str(godot), "--headless", "--path", str(project), "--", *flags], cwd=project)
     if args.command == "save-smoke":
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
@@ -366,6 +376,76 @@ def _main_scene(project: Path) -> str | None:
 def _run_python_tool(script_name: str) -> int:
     command = [sys.executable, str(ROOT / "tools" / script_name)]
     return _run_command(command, cwd=ROOT)
+
+
+def _run_startup_probe(godot: Path, project: Path) -> int:
+    if not (project / "project.godot").exists():
+        print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+        return 1
+    budget_seconds = 2.0
+    started = time.perf_counter()
+    process = subprocess.Popen(
+        [str(godot), "--headless", "--path", str(project), "--", "--startup-probe"],
+        cwd=project,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    output_queue: Queue[str | None] = Queue()
+
+    def _collect_output() -> None:
+        if process.stdout is not None:
+            for line in process.stdout:
+                output_queue.put(line)
+        output_queue.put(None)
+
+    reader = Thread(target=_collect_output, daemon=True)
+    reader.start()
+    output_lines: list[str] = []
+    boot_begin_elapsed_seconds: float | None = None
+    marker_elapsed_seconds: float | None = None
+    deadline = started + 30.0
+    reached_eof = False
+    while not reached_eof and time.perf_counter() < deadline:
+        try:
+            line = output_queue.get(timeout=0.1)
+        except Empty:
+            continue
+        if line is None:
+            reached_eof = True
+            break
+        output_lines.append(line)
+        if boot_begin_elapsed_seconds is None and "[StartupProbe] BOOT_BEGIN" in line:
+            boot_begin_elapsed_seconds = time.perf_counter() - started
+        if marker_elapsed_seconds is None and "[StartupProbe] PLAYABLE" in line:
+            marker_elapsed_seconds = time.perf_counter() - started
+    if not reached_eof:
+        process.kill()
+    return_code = process.wait(timeout=5.0)
+    reader.join(timeout=1.0)
+    while not output_queue.empty():
+        line = output_queue.get_nowait()
+        if line is not None:
+            output_lines.append(line)
+    if output_lines:
+        print("".join(output_lines), end="")
+    marker_found = boot_begin_elapsed_seconds is not None and marker_elapsed_seconds is not None
+    elapsed_seconds = (
+        marker_elapsed_seconds - boot_begin_elapsed_seconds
+        if boot_begin_elapsed_seconds is not None and marker_elapsed_seconds is not None
+        else time.perf_counter() - started
+    )
+    status = "pass" if return_code == 0 and marker_found and elapsed_seconds <= budget_seconds else "fail"
+    print(json.dumps({
+        "budget_seconds": budget_seconds,
+        "elapsed_seconds": round(elapsed_seconds, 6),
+        "process_to_boot_begin_seconds": round(boot_begin_elapsed_seconds, 6) if boot_begin_elapsed_seconds is not None else None,
+        "marker_found": marker_found,
+        "status": status,
+    }, ensure_ascii=False, sort_keys=True))
+    return 0 if status == "pass" else 1
 
 
 def _run_command(command: list[str], *, cwd: Path) -> int:

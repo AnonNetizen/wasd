@@ -26,6 +26,91 @@ def main() -> int:
     cases: list[tuple[str, RepoMutator | None, list[str]]] = [
         ("golden data passes", None, []),
         (
+            "module world must be 9x9",
+            _mutate_json("client/data/module_worlds.json", _set_module_world_columns(8)),
+            ["client/data/module_worlds.json:worlds[0].columns", "must equal 9"],
+        ),
+        (
+            "module world cell size is configurable",
+            _mutate_json("client/data/module_worlds.json", _set_module_world_cell_size(192.0)),
+            [],
+        ),
+        (
+            "module world cell size must be positive",
+            _mutate_json("client/data/module_worlds.json", _set_module_world_cell_size(0.0)),
+            ["client/data/module_worlds.json:worlds[0].cell_size", "must be > 0.0"],
+        ),
+        (
+            "fixed slots must cover configured anchors",
+            _mutate_json("client/data/module_worlds.json", _remove_fixed_objective_slot),
+            ["client/data/module_worlds.json:worlds[0].fixed_slots", "must assign configured objective_slot"],
+        ),
+        (
+            "fixed anchor must use its required role",
+            _mutate_json("client/data/module_worlds.json", _replace_fixed_objective_with_connector),
+            ["client/data/module_worlds.json:worlds[0].fixed_slots", "objective_slot must use role module_role_objective"],
+        ),
+        (
+            "fixed slots require unique critical roles",
+            _mutate_json("client/data/module_worlds.json", _add_duplicate_fixed_start_role),
+            ["client/data/module_worlds.json:worlds[0].fixed_slots", "must contain exactly one module_role_start"],
+        ),
+        (
+            "optional exploration budget is capped",
+            _mutate_json("client/data/module_worlds.json", _set_optional_exploration_max(15)),
+            ["client/data/module_worlds.json:worlds[0].route_budget.optional_exploration_modules.max", "must be <= 14"],
+        ),
+        (
+            "module terrain must be 11x11",
+            _mutate_json("client/data/modules/module_start_cross.json", _remove_module_terrain_row),
+            ["client/data/modules/module_start_cross.json:terrain_rows", "must contain exactly 11 rows"],
+        ),
+        (
+            "candidate template cannot enter formal pool",
+            _mutate_json("client/data/module_templates.json", _make_first_pool_template_candidate),
+            ["client/data/module_worlds.json:worlds[0].template_pool[0]", "formal template pool requires approved template"],
+        ),
+        (
+            "fallback assignment must contain 81 slots",
+            _mutate_json("client/data/module_worlds.json", _remove_fallback_assignment),
+            ["client/data/module_worlds.json:worlds[0].fallback_assignment", "must contain exactly 81 slot assignments"],
+        ),
+        (
+            "fallback assignment slots must be unique",
+            _mutate_json("client/data/module_worlds.json", _duplicate_fallback_slot),
+            ["client/data/module_worlds.json:worlds[0].fallback_assignment[1].slot", "duplicate slot 0,0"],
+        ),
+        (
+            "module sockets must match across assignments",
+            _mutate_json("client/data/modules/module_connector_cross.json", _close_module_east_socket),
+            ["client/data/module_worlds.json:worlds[0].fallback_assignment", "socket mismatch between slot"],
+        ),
+        (
+            "module terrain token must be registered",
+            _mutate_json("client/data/modules/module_start_cross.json", _set_unknown_module_token),
+            ["client/data/modules/module_start_cross.json:terrain_rows[0][0]", "unknown id module_cell_unknown; expected one of module_cell_tokens"],
+        ),
+        (
+            "module placement type must be registered",
+            _mutate_json("client/data/modules/module_start_cross.json", _set_unknown_module_placement),
+            ["client/data/modules/module_start_cross.json:placements[0].type", "unknown id module_place_unknown; expected one of module_placement_types"],
+        ),
+        (
+            "module placement cell must stay in bounds",
+            _mutate_json("client/data/modules/module_start_cross.json", _set_module_placement_out_of_bounds),
+            ["client/data/modules/module_start_cross.json:placements[0].cell.x", "must be < 11"],
+        ),
+        (
+            "module role content budget must be enforced",
+            _mutate_json("client/data/modules/module_combat_arena.json", _exceed_combat_enemy_budget),
+            ["client/data/modules/module_combat_arena.json:placements", "combat enemy count must be between 6 and 12"],
+        ),
+        (
+            "critical module route must be reachable",
+            _mutate_json("client/data/modules/module_objective_core.json", _close_all_module_sockets),
+            ["client/data/module_worlds.json:worlds[0].fallback_assignment", "critical route start -> objective is unreachable"],
+        ),
+        (
             "unknown character id fails",
             _mutate_json("client/data/characters.json", _set_character_id("character_unregistered")),
             [
@@ -434,46 +519,6 @@ def main() -> int:
             ],
         ),
         (
-            "room clear condition must be registered",
-            _mutate_json("client/data/rooms.json", _set_room_clear_condition("clear_unknown")),
-            [
-                "client/data/rooms.json:rooms[0].clear_condition",
-                "unknown id clear_unknown; expected one of room_clear_conditions",
-            ],
-        ),
-        (
-            "room scene path must point to an existing scene",
-            _mutate_json("client/data/rooms.json", _set_room_scene_path("res://scenes/gameplay/rooms/room_missing.tscn")),
-            [
-                "client/data/rooms.json:rooms[0].scene_path",
-                "room scene file is missing: res://scenes/gameplay/rooms/room_missing.tscn",
-            ],
-        ),
-        (
-            "room allowed mode must be a registered mode",
-            _mutate_json("client/data/rooms.json", _set_room_allowed_mode("mode_missing")),
-            [
-                "client/data/rooms.json:rooms[0].allowed_modes[0]",
-                "unknown id mode_missing; expected one of game_modes",
-            ],
-        ),
-        (
-            "room sequence room reference must exist",
-            _mutate_json("client/data/room_sequences.json", _set_room_sequence_room("room_missing")),
-            [
-                "client/data/room_sequences.json:sequences[0].room_ids[0]",
-                "room is not defined in rooms.json: room_missing",
-            ],
-        ),
-        (
-            "room sequence final room must be listed in room_ids",
-            _mutate_json("client/data/room_sequences.json", _set_room_sequence_final_room("room_unlisted")),
-            [
-                "client/data/room_sequences.json:sequences[0].final_room_id",
-                "final_room_id is not listed in room_ids: room_unlisted",
-            ],
-        ),
-        (
             "relic must include relic tag",
             _mutate_json("client/data/relics.json", _set_relic_tags([])),
             [
@@ -727,7 +772,6 @@ def _run_case(name: str, mutator: RepoMutator | None, expected_fragments: list[s
 def _copy_test_repo(temp_root: Path) -> None:
     _copy_tree(ROOT / "client" / "data", temp_root / "client" / "data")
     _copy_tree(ROOT / "client" / "locale", temp_root / "client" / "locale")
-    _copy_tree(ROOT / "client" / "scenes" / "gameplay" / "rooms", temp_root / "client" / "scenes" / "gameplay" / "rooms")
     _copy_python_tools(temp_root / "tools")
     _copy_file(ROOT / "docs" / "词表与契约.md", temp_root / "docs" / "词表与契约.md")
 
@@ -870,41 +914,6 @@ def _set_warzone_completion_extraction_radius(value: int) -> JsonMutator:
 def _set_warzone_completion_extraction_hold_time(value: int) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["directors"][0]["interest_points"][3]["extraction_hold_time"] = value
-
-    return mutate
-
-
-def _set_room_clear_condition(value: str) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["rooms"][0]["clear_condition"] = value
-
-    return mutate
-
-
-def _set_room_scene_path(value: str) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["rooms"][0]["scene_path"] = value
-
-    return mutate
-
-
-def _set_room_allowed_mode(value: str) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["rooms"][0]["allowed_modes"][0] = value
-
-    return mutate
-
-
-def _set_room_sequence_room(value: str) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["sequences"][0]["room_ids"][0] = value
-
-    return mutate
-
-
-def _set_room_sequence_final_room(value: str) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["sequences"][0]["final_room_id"] = value
 
     return mutate
 
@@ -1350,6 +1359,99 @@ def _set_credit_section_title_key(value: str) -> JsonMutator:
 
 def _clear_first_external_credit_license(payload: dict[str, Any]) -> None:
     payload["sections"][0]["entries"][1]["license"] = ""
+
+
+def _set_module_world_columns(value: int) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["worlds"][0]["columns"] = value
+
+    return mutate
+
+
+def _set_module_world_cell_size(value: float) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["worlds"][0]["cell_size"] = value
+
+    return mutate
+
+
+def _remove_fixed_objective_slot(payload: dict[str, Any]) -> None:
+    world = payload["worlds"][0]
+    objective_slot = world["objective_slot"]
+    world["fixed_slots"] = [
+        entry for entry in world["fixed_slots"] if entry["slot"] != objective_slot
+    ]
+
+
+def _replace_fixed_objective_with_connector(payload: dict[str, Any]) -> None:
+    world = payload["worlds"][0]
+    objective_slot = world["objective_slot"]
+    for entry in world["fixed_slots"]:
+        if entry["slot"] == objective_slot:
+            entry["template_id"] = "module_connector_cross"
+            entry["rotation"] = 0
+            return
+
+
+def _add_duplicate_fixed_start_role(payload: dict[str, Any]) -> None:
+    payload["worlds"][0]["fixed_slots"].append(
+        {"slot": {"x": 1, "y": 1}, "template_id": "module_start_cross", "rotation": 0}
+    )
+
+
+def _set_optional_exploration_max(value: int) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["worlds"][0]["route_budget"]["optional_exploration_modules"]["max"] = value
+
+    return mutate
+
+
+def _remove_module_terrain_row(payload: dict[str, Any]) -> None:
+    payload["terrain_rows"].pop()
+
+
+def _make_first_pool_template_candidate(payload: dict[str, Any]) -> None:
+    for template in payload["templates"]:
+        if template["id"] == "module_connector_cross":
+            template["review_status"] = "module_review_candidate"
+            return
+
+
+def _remove_fallback_assignment(payload: dict[str, Any]) -> None:
+    payload["worlds"][0]["fallback_assignment"].pop()
+
+
+def _duplicate_fallback_slot(payload: dict[str, Any]) -> None:
+    assignment = payload["worlds"][0]["fallback_assignment"]
+    assignment[1]["slot"] = dict(assignment[0]["slot"])
+
+
+def _close_module_east_socket(payload: dict[str, Any]) -> None:
+    payload["edge_sockets"]["edge_east"] = []
+
+
+def _set_unknown_module_token(payload: dict[str, Any]) -> None:
+    payload["terrain_rows"][0][0] = "module_cell_unknown"
+
+
+def _set_unknown_module_placement(payload: dict[str, Any]) -> None:
+    payload["placements"][0]["type"] = "module_place_unknown"
+
+
+def _set_module_placement_out_of_bounds(payload: dict[str, Any]) -> None:
+    payload["placements"][0]["cell"]["x"] = 11
+
+
+def _exceed_combat_enemy_budget(payload: dict[str, Any]) -> None:
+    for placement in payload["placements"]:
+        if placement["type"] == "module_place_enemy_spawn":
+            placement["count"] = 13
+            return
+
+
+def _close_all_module_sockets(payload: dict[str, Any]) -> None:
+    for direction in payload["edge_sockets"]:
+        payload["edge_sockets"][direction] = []
 
 
 def _format_failure(name: str, output: str, reason: str) -> str:
