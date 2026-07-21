@@ -35,7 +35,6 @@ var _ai_profile_id: String = ""
 var _charge_cooldown_remaining: float = 0.0
 var _charge_direction: Vector2 = Vector2.ZERO
 var _collision_shape: CollisionShape2D = null
-var _contact_cooldowns: Dictionary = {}
 var _contact_damage: float = 0.0
 var _contact_damage_type: String = ""
 var _current_action: String = ""
@@ -60,7 +59,6 @@ var _player_target: Node2D = null
 var _ranged_cooldown_remaining: float = 0.0
 var _separation_radius: float = 0.0
 var _status_effect_component: Node = null
-var _tags: Array[String] = []
 var _visual_color: Color = Color(1.0, 0.38, 0.32)
 
 
@@ -99,7 +97,6 @@ func configure(enemy_data: Dictionary, target: Node2D) -> void:
 	_focus_target = target
 	_home_position = global_position
 	_enemy_id = String(enemy_data.get("id", ""))
-	_tags = _string_array(enemy_data.get("tags", []))
 	_ai_profile_id = String(enemy_data.get("ai_profile_id", ""))
 	_ai_profile = _dictionary_or_empty(enemy_data.get("ai_profile", {}))
 	_actions = _typed_action_array(_ai_profile.get("actions", []))
@@ -114,7 +111,6 @@ func configure(enemy_data: Dictionary, target: Node2D) -> void:
 	_action_timer = 0.0
 	_charge_cooldown_remaining = 0.0
 	_charge_direction = Vector2.ZERO
-	_contact_cooldowns.clear()
 	_ranged_cooldown_remaining = _movement_value("ranged_initial_cooldown")
 	_last_damage_source_team = ""
 	_last_scores.clear()
@@ -147,10 +143,6 @@ func separation_radius() -> float:
 
 func visual_color() -> Color:
 	return _visual_color
-
-
-func content_tags() -> Array[String]:
-	return _tags.duplicate()
 
 
 func ai_debug_summary() -> Dictionary:
@@ -236,6 +228,13 @@ func receive_damage(info: RefCounted) -> Dictionary:
 			"defeated": true,
 			"reason": "defeated",
 		}
+	if String(info.get("source_team")) == TEAM_ENEMY:
+		return {
+			"applied": false,
+			"amount": 0.0,
+			"defeated": false,
+			"reason": "friendly_fire_blocked",
+		}
 
 	_last_damage_source_team = String(info.get("source_team"))
 	var amount: float = float(info.get("amount"))
@@ -284,9 +283,13 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_home_position = _clamp_to_movement_bounds(_home_position)
 	_apply_movement_bounds()
 	_life_points = clampf(float(snapshot_data.get("life_points", _max_life)), 0.0, _max_life)
-	_current_action = String(snapshot_data.get("current_action", ""))
-	_action_state = String(snapshot_data.get("action_state", ""))
-	_action_timer = maxf(float(snapshot_data.get("action_timer", 0.0)), 0.0)
+	_current_action = _validated_restored_action(String(snapshot_data.get("current_action", "")))
+	if _current_action.is_empty():
+		_action_state = ""
+		_action_timer = 0.0
+	else:
+		_action_state = String(snapshot_data.get("action_state", ""))
+		_action_timer = maxf(float(snapshot_data.get("action_timer", 0.0)), 0.0)
 	_charge_cooldown_remaining = maxf(float(snapshot_data.get("charge_cooldown_remaining", 0.0)), 0.0)
 	_charge_direction = _dict_to_vector(snapshot_data.get("charge_direction", {}), Vector2.ZERO)
 	_ranged_cooldown_remaining = maxf(float(snapshot_data.get("ranged_cooldown_remaining", 0.0)), 0.0)
@@ -295,6 +298,15 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	if _life_points <= 0.0:
 		remove_from_group("active_enemies")
 	queue_redraw()
+
+
+func _validated_restored_action(action_id: String) -> String:
+	if action_id.is_empty():
+		return ""
+	for action: Dictionary in _actions:
+		if String(action.get("id", "")) == action_id:
+			return action_id
+	return ""
 
 
 func _pool_reset() -> void:
@@ -306,7 +318,6 @@ func _pool_reset() -> void:
 	_ai_profile_id = ""
 	_charge_cooldown_remaining = 0.0
 	_charge_direction = Vector2.ZERO
-	_contact_cooldowns.clear()
 	_ranged_cooldown_remaining = 0.0
 	_contact_damage = 0.0
 	_contact_damage_type = ""
@@ -329,7 +340,6 @@ func _pool_reset() -> void:
 	_clear_status_effects_for_reuse()
 	_player_target = null
 	_separation_radius = 0.0
-	_tags.clear()
 	_visual_color = Color(1.0, 0.38, 0.32)
 	visible = true
 	_set_collision_enabled(false)
@@ -388,18 +398,10 @@ func _choose_action() -> void:
 
 func _sense_context() -> Dictionary:
 	var player_candidate: Dictionary = _player_candidate()
-	var target_candidate: Dictionary = player_candidate.duplicate()
-	var hunt_candidate: Dictionary = _tagged_candidate(_targeting_array("hunt_tags"))
-	if float(hunt_candidate.get("score", 0.0)) > float(target_candidate.get("score", 0.0)) + SCORE_EPSILON:
-		target_candidate = hunt_candidate
-	var threat_candidate: Dictionary = _tagged_candidate(_targeting_array("flee_tags"))
 	return {
-		"target": target_candidate.get("target"),
-		"target_score": float(target_candidate.get("score", 0.0)),
-		"target_distance": float(target_candidate.get("distance", 0.0)),
-		"threat": threat_candidate.get("target"),
-		"threat_score": float(threat_candidate.get("score", 0.0)),
-		"threat_distance": float(threat_candidate.get("distance", 0.0)),
+		"target": player_candidate.get("target"),
+		"target_score": float(player_candidate.get("score", 0.0)),
+		"target_distance": float(player_candidate.get("distance", 0.0)),
 	}
 
 
@@ -417,49 +419,9 @@ func _player_candidate() -> Dictionary:
 	}
 
 
-func _tagged_candidate(entries: Array[Dictionary]) -> Dictionary:
-	var best: Dictionary = _empty_candidate()
-	if entries.is_empty():
-		return best
-	for raw_enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
-		if raw_enemy == self or not raw_enemy is Node2D or not raw_enemy.has_method("is_alive"):
-			continue
-		if not bool(raw_enemy.call("is_alive")):
-			continue
-		var enemy: Node2D = raw_enemy as Node2D
-		var weight: float = _matching_tag_weight(raw_enemy, entries)
-		if weight <= 0.0:
-			continue
-		var distance: float = global_position.distance_to(enemy.global_position)
-		if distance > _sense_radius():
-			continue
-		var score: float = weight * _proximity_score(distance, _sense_radius())
-		if score > float(best.get("score", 0.0)) + SCORE_EPSILON:
-			best = {
-				"target": enemy,
-				"score": score,
-				"distance": distance,
-			}
-	return best
-
-
-func _matching_tag_weight(candidate: Node, entries: Array[Dictionary]) -> float:
-	if not candidate.has_method("content_tags"):
-		return 0.0
-	var candidate_tags: Array[String] = candidate.call("content_tags")
-	var result: float = 0.0
-	for entry: Dictionary in entries:
-		var tag: String = String(entry.get("tag", ""))
-		if candidate_tags.has(tag):
-			result = maxf(result, float(entry.get("weight", 0.0)))
-	return result
-
-
 func _action_candidate(action: Dictionary, context: Dictionary) -> Dictionary:
 	var action_id: String = String(action.get("id", ""))
 	var base_score: float = float(action.get("base_score", 0.0))
-	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_FLEE_THREAT:
-		return _flee_candidate(base_score, context)
 	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET:
 		return _charge_candidate(base_score, context)
 	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK:
@@ -471,18 +433,6 @@ func _action_candidate(action: Dictionary, context: Dictionary) -> Dictionary:
 	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET:
 		return _candidate(base_score + float(context.get("target_score", 0.0)), context.get("target"))
 	return _candidate(0.0, null)
-
-
-func _flee_candidate(base_score: float, context: Dictionary) -> Dictionary:
-	var threat: Node2D = context.get("threat") as Node2D
-	if threat == null or not is_instance_valid(threat):
-		return _candidate(0.0, null)
-	var distance: float = float(context.get("threat_distance", global_position.distance_to(threat.global_position)))
-	var flee_distance: float = _movement_value("flee_distance")
-	if flee_distance > 0.0 and distance > flee_distance:
-		return _candidate(0.0, null)
-	var distance_score: float = _proximity_score(distance, flee_distance if flee_distance > 0.0 else _sense_radius())
-	return _candidate(base_score + float(context.get("threat_score", 0.0)) + distance_score, threat)
 
 
 func _charge_candidate(base_score: float, context: Dictionary) -> Dictionary:
@@ -546,9 +496,6 @@ func _empty_candidate() -> Dictionary:
 
 
 func _apply_current_action(delta: float) -> void:
-	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_FLEE_THREAT:
-		_move_in_direction(_flee_direction(), _action_speed_scale(_current_action), delta)
-		return
 	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_ORBIT_TARGET:
 		_move_in_direction(_orbit_direction(), _action_speed_scale(_current_action), delta)
 		return
@@ -667,12 +614,6 @@ func _target_direction() -> Vector2:
 	return _focus_target.global_position - global_position
 
 
-func _flee_direction() -> Vector2:
-	if _focus_target == null or not is_instance_valid(_focus_target):
-		return Vector2.ZERO
-	return global_position - _focus_target.global_position
-
-
 func _orbit_direction() -> Vector2:
 	if _focus_target == null or not is_instance_valid(_focus_target):
 		return Vector2.ZERO
@@ -691,13 +632,6 @@ func _orbit_direction() -> Vector2:
 func _update_ai_timers(delta: float) -> void:
 	_charge_cooldown_remaining = maxf(_charge_cooldown_remaining - delta, 0.0)
 	_ranged_cooldown_remaining = maxf(_ranged_cooldown_remaining - delta, 0.0)
-	var cooldown_keys: Array = _contact_cooldowns.keys()
-	for key: Variant in cooldown_keys:
-		var remaining: float = maxf(float(_contact_cooldowns[key]) - delta, 0.0)
-		if remaining <= 0.0:
-			_contact_cooldowns.erase(key)
-		else:
-			_contact_cooldowns[key] = remaining
 
 
 func _is_charge_state_active() -> bool:
@@ -774,23 +708,13 @@ func _check_contact() -> void:
 	var distance: float = global_position.distance_to(contact_target.global_position)
 	if distance > _contact_distance(contact_target):
 		return
-	if contact_target != _player_target and _is_contact_on_cooldown(contact_target):
-		return
-
-	var target_team: String = TEAM_PLAYER if contact_target == _player_target else TEAM_ENEMY
-	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(_contact_damage, _contact_damage_type, self, contact_target, TEAM_ENEMY, target_team)
-	var result: Dictionary = Combat.apply_damage(contact_target, info)
-	if contact_target != _player_target and bool(result.get("applied", false)):
-		_contact_cooldowns[contact_target.get_instance_id()] = _contact_interval()
+	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(_contact_damage, _contact_damage_type, self, contact_target, TEAM_ENEMY, TEAM_PLAYER)
+	Combat.apply_damage(contact_target, info)
 
 
 func _contact_target() -> Node2D:
-	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_FLEE_THREAT:
-		return null
 	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME and _focus_target == null:
 		return null
-	if _focus_target != null and is_instance_valid(_focus_target):
-		return _focus_target
 	if _player_target != null and is_instance_valid(_player_target):
 		return _player_target
 	return null
@@ -801,11 +725,6 @@ func _contact_distance(target: Node2D) -> float:
 	if target.has_method("separation_radius"):
 		distance = maxf(distance, _separation_radius + float(target.call("separation_radius")))
 	return distance
-
-
-func _is_contact_on_cooldown(target: Node2D) -> bool:
-	var instance_id: int = target.get_instance_id()
-	return _contact_cooldowns.has(instance_id) and float(_contact_cooldowns[instance_id]) > 0.0
 
 
 func _apply_center_separation() -> void:
@@ -868,15 +787,6 @@ func _movement() -> Dictionary:
 	return _dictionary_or_empty(_ai_profile.get("movement", {}))
 
 
-func _targeting_array(key: String) -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	var raw_entries: Array = _array_or_empty(_targeting().get(key, []))
-	for entry: Variant in raw_entries:
-		if entry is Dictionary:
-			result.append((entry as Dictionary).duplicate(true))
-	return result
-
-
 func _movement_value(key: String) -> float:
 	return float(_movement().get(key, 0.0))
 
@@ -905,10 +815,6 @@ func _decision_interval() -> float:
 	return maxf(float(_ai_profile.get("decision_interval", 0.12)), 0.01)
 
 
-func _contact_interval() -> float:
-	return maxf(float(_ai_profile.get("contact_interval", 0.45)), 0.0)
-
-
 func _action_speed_scale(action_id: String) -> float:
 	for action: Dictionary in _actions:
 		if String(action.get("id", "")) == action_id:
@@ -935,22 +841,6 @@ func _typed_action_array(raw_value: Variant) -> Array[Dictionary]:
 	for raw_action: Variant in _array_or_empty(raw_value):
 		if raw_action is Dictionary:
 			result.append((raw_action as Dictionary).duplicate(true))
-	return result
-
-
-func _string_array(raw_value: Variant) -> Array[String]:
-	var result: Array[String] = []
-	if raw_value is Array:
-		for item: Variant in raw_value as Array:
-			var text: String = String(item)
-			if not text.is_empty():
-				result.append(text)
-		return result
-	if raw_value is String:
-		for raw_item: String in String(raw_value).split("|", false):
-			var text: String = raw_item.strip_edges()
-			if not text.is_empty():
-				result.append(text)
 	return result
 
 

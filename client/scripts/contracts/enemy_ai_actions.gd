@@ -3,7 +3,6 @@ class_name EnemyAiActions
 
 const VALUES: Array[String] = [
 	"ai_action_approach_target",
-	"ai_action_flee_threat",
 	"ai_action_orbit_target",
 	"ai_action_charge_target",
 	"ai_action_guard_home",
@@ -11,7 +10,6 @@ const VALUES: Array[String] = [
 ]
 
 const AI_ACTION_APPROACH_TARGET: String = "ai_action_approach_target"
-const AI_ACTION_FLEE_THREAT: String = "ai_action_flee_threat"
 const AI_ACTION_ORBIT_TARGET: String = "ai_action_orbit_target"
 const AI_ACTION_CHARGE_TARGET: String = "ai_action_charge_target"
 const AI_ACTION_GUARD_HOME: String = "ai_action_guard_home"

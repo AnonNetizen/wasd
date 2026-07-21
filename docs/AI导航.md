@@ -125,7 +125,7 @@
 
 | 我想… | 怎么做（数据驱动，尽量不改逻辑） |
 |-------|-------------------------------|
-| **加一个敌人** | 在 `client/data/enemies.csv` 加一行基础数值、中心间距、生态 tags、`ai_profile_id` 与 `enemy_*_name` 文案；优先复用 `client/data/enemy_ai_profiles.json` 现有 profile；远程怪可复用 `ai_action_ranged_attack` 与 `movement.ranged_*` 字段；全新行为先加 / 调 profile 和词表 §12-B action，最后才改 `enemy.gd` |
+| **加一个敌人** | 在 `client/data/enemies.csv` 加一行基础数值、中心间距、通用 `tag_enemy`、`ai_profile_id` 与 `enemy_*_name` 文案；优先复用 `client/data/enemy_ai_profiles.json` 现有对玩家 profile；远程怪可复用 `ai_action_ranged_attack` 与 `movement.ranged_*` 字段；全新行为先加 / 调 profile 和词表 §12-B action，最后才改 `enemy.gd`。敌人不得把其他敌人设为战斗目标或造成敌方伤害，中心分离只负责防重叠 |
 | **加一个角色** | 在 `client/data/characters.json` 加一条：基础属性 / tags / capabilities / 控制配置 / `starting_loadout`；角色 id 先登记词表 §12.1，文案用 `character_*` key；起始武器 / 主动道具 / 消耗品必须存在于对应数据文件；新 capability 先登记词表 §12 再实现 |
 | **加 / 改武器** | 在 `client/data/weapons.json` 加一条：武器基础属性、子弹池、伤害类型、命中半径和音频 id；文案用 `weapon_*` key；`pool_id` / `damage_type` / `audio_id` 前缀必须来自词表，不实现 WeaponSystem 运行时 |
 | **加 / 改技能** | 在 `client/data/skills.json` 加技能定义：`ability_tags`、`activation`、`costs`、`targeting`、`effects`、冷却和 `skill_*` 文案；角色只在 `characters.json.starting_loadout.skill_ids` 引用技能并声明 `skill_resources`，模式池走 `game_modes.resource_pools.skills`；新资源、目标类型、效果原语或 ability tag 先登记词表 §12-C~12-G，状态效果 / 叠加规则先登记 §9-A~§9-B，再扩展 `docs/代码/skill_system.md` / `docs/代码/status_effect_component.md` |
@@ -136,7 +136,7 @@
 | **改模块角色 / 地形 / 摆放 / 边缘 / 审核状态** | 先改 `docs/词表与契约.md` §15，运行 `python tools/sync_contracts.py` 生成对应 `module_*` 常量，再由 DataLoader、ModuleWorldManager 和 JSON 引用；禁止在运行时代码裸写白名单 id |
 | **改 AI 模块生产流程** | AI 只在编辑期生成 JSON candidate，不接运行时模型 / 网络生成 / 自动批准；首版人工通过 JSON 审核和修改，不做可视化编辑器。未来工具仍必须读写同一 schema，并保留人工 `approved` 门禁 |
 | **加 / 改刷怪波次** | 在 `client/data/spawn_waves.csv` 加一行：模式 id、时间窗、敌人 id / 权重、刷怪间隔、同时存活上限、预算和可选机关权重；敌人 / 机关 / 模式引用必须存在，不实现 Spawner 运行时 |
-| **加 / 改战区导演** | 查 `docs/代码/warzone_director.md` 和 F10 工作包；在 `client/data/warzone_directors.json` 改固定 phase、巢变异主题、生态 encounter、兴趣点和阶段启用 wave；运行时只按 `GameClock` 时间 gating `spawn_waves.csv`，匹配当前 layout 的兴趣点会通过 `MapManager` 生成 `source="director"` 初始机关；禁止读取玩家状态、隐藏动态调难或运行时接 LLM；改完跑 `validate_data`、`test_data_loader_schema`、`runtime-smoke` 和 `f9-demo-smoke` |
+| **加 / 改战区导演** | 查 `docs/代码/warzone_director.md` 和 F10 工作包；在 `client/data/warzone_directors.json` 改固定 phase、巢变异主题、兴趣点和阶段启用 wave；运行时只按 `GameClock` 时间 gating `spawn_waves.csv`，匹配当前 layout 的兴趣点会通过 `MapManager` 生成 `source="director"` 初始机关；禁止恢复已删除的导演敌人组合元数据、读取玩家状态、隐藏动态调难或运行时接 LLM；改完跑 `validate_data`、`test_data_loader_schema`、`runtime-smoke` 和 `f9-demo-smoke` |
 | **加一个遗物/道具** | 在 `client/data/relics.json` 加一条，用 `modifiers` + `behaviors` 描述；文案用 `relic_*` key；**只用 `docs/词表与契约.md` 已登记的 effect / event / stat / tag**，新原语先登记再实现，不实现遗物运行时 |
 | **加 / 改主动道具** | 在 `client/data/active_items.json` 加一条：`charge` 声明冷却 / 充能，`use_effects` 引用已登记 effect，文案用 `item_*` key；模式引用走 `game_modes.resource_pools.active_items`，不实现主动道具栏 / 冷却 / 使用效果运行时 |
 | **加 / 改消耗品** | 在 `client/data/consumables.json` 加一条：`stack` 声明最大堆叠 / 初始数量 / 单次拾取数量，`use_effects` 引用已登记 effect，文案用 `item_*` key；模式引用走 `game_modes.resource_pools.consumables`，不实现拾取物 / 背包 / 使用输入 / 数量扣减 / 效果运行时 |
@@ -208,7 +208,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前正式客户端以 F13 模块世界作为 `mode_standard_survival` 默认关卡 carrier：`module_worlds.json` 固定 9×9 / 11×11 几何与关键锚点，`module_templates.json` 实施 AI candidate / 人工 approved 门禁，15 个正式模板与封锁模板位于 `client/data/modules/`。`ModuleWorldManager` 按 run seed 组合 81 槽、校验覆盖世界配置与已引用模块 JSON 的内容敏感 map hash、管理模块迷雾和最多 3×3 活跃 chunk；`GameplayRunLoop` 按槽位生成 / 回收 / 恢复敌人、机关、子弹和掉落，并把目标连接到独立撤离点。`--module-world-technical-slice` 保留中心 3×3 / 外圈 72 槽封锁的 opt-in 首片入口，普通启动已切完整 9×9。run schema / SaveManager run kind 已升至 v4，旧 v3 run 显示专用不兼容提示、只重置 run 而 `meta` 不变。F12 开放战区、WarzoneDirector 与旧兴趣点 smoke 通过 `--open-warzone` 保留为非默认回归路径；旧 RoomManager、线性序列、演示房间、marker、启动参数与 `room-switch-smoke` 已删除。当前常规验收入口是 contracts/data/schema、`module-world-smoke`、`module-world-technical-slice-smoke`、`save-smoke`、`runtime-smoke`、headless 与四条黄金回放；ADR #143 后性能 probe 仅由用户当次明确触发。
+当前正式客户端以 F13 模块世界作为 `mode_standard_survival` 默认关卡 carrier：`module_worlds.json` 固定 9×9 / 11×11 几何与关键锚点，`module_templates.json` 实施 AI candidate / 人工 approved 门禁，15 个正式模板与封锁模板位于 `client/data/modules/`。`ModuleWorldManager` 按 run seed 组合 81 槽、校验覆盖世界配置与已引用模块 JSON 的内容敏感 map hash、管理模块迷雾和最多 3×3 活跃 chunk；`GameplayRunLoop` 按槽位生成 / 回收 / 恢复敌人、机关、子弹和掉落，并把目标连接到独立撤离点。EnemyAI 只选择玩家并保留追击、快速近战、冲锋、守家和远程 profile；敌方友伤被拒绝，中心分离只防重叠。`--module-world-technical-slice` 保留中心 3×3 / 外圈 72 槽封锁的 opt-in 首片入口，普通启动已切完整 9×9。run schema / SaveManager run kind 已升至 v4，旧 v3 run 显示专用不兼容提示、只重置 run 而 `meta` 不变。F12 开放战区、WarzoneDirector 与旧兴趣点 smoke 通过 `--open-warzone` 保留为非默认回归路径；旧 RoomManager、线性序列、演示房间、marker、启动参数与 `room-switch-smoke` 已删除。当前常规验收入口是 contracts/data/schema、`module-world-smoke`、`module-world-technical-slice-smoke`、`save-smoke`、`runtime-smoke`、headless 与四条黄金回放；ADR #143 后性能测试仅由用户当次明确触发。
 
 > 普通开始新局 / 重开会生成新的 `RNG` run seed；继续游戏恢复 run snapshot；回放、smoke、golden 和调试复现仍应显式固定 seed 或走工具启动路径。
 

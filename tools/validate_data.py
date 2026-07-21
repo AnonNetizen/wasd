@@ -358,7 +358,7 @@ def _validate_enemy_ai_profiles(ctx: ValidationContext) -> None:
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=2, maximum=2)
     profiles = _require_list(ctx, path, "profiles", data.get("profiles"))
     if not profiles:
         ctx.error(path, "profiles", "must be a non-empty array")
@@ -373,9 +373,9 @@ def _validate_enemy_ai_profiles(ctx: ValidationContext) -> None:
             if profile_id in seen:
                 ctx.error(path, f"{field}.id", f"duplicate profile id {profile_id}")
             seen.add(profile_id)
+        _reject_removed_field(ctx, path, field, profile, "contact_interval", schema_version=2)
         _require_number(ctx, path, f"{field}.sense_radius", profile.get("sense_radius"), minimum=0, exclusive_minimum=True)
         _require_number(ctx, path, f"{field}.decision_interval", profile.get("decision_interval"), minimum=0, exclusive_minimum=True)
-        _require_number(ctx, path, f"{field}.contact_interval", profile.get("contact_interval"), minimum=0)
         _validate_enemy_ai_targeting(ctx, path, f"{field}.targeting", profile.get("targeting"))
         _validate_enemy_ai_movement(ctx, path, f"{field}.movement", profile.get("movement"))
         _validate_enemy_ai_actions(ctx, path, f"{field}.actions", profile.get("actions"))
@@ -385,35 +385,19 @@ def _validate_enemy_ai_targeting(ctx: ValidationContext, path: Path, field: str,
     if not isinstance(data, dict):
         ctx.error(path, field, "must be an object")
         return
+    _reject_removed_field(ctx, path, field, data, "hunt_tags", schema_version=2)
+    _reject_removed_field(ctx, path, field, data, "flee_tags", schema_version=2)
     _require_number(ctx, path, f"{field}.player_weight", data.get("player_weight"), minimum=0)
-    _validate_enemy_ai_tag_weights(ctx, path, f"{field}.hunt_tags", data.get("hunt_tags"))
-    _validate_enemy_ai_tag_weights(ctx, path, f"{field}.flee_tags", data.get("flee_tags"))
     _require_number(ctx, path, f"{field}.territory_radius", data.get("territory_radius"), minimum=0)
     _require_number(ctx, path, f"{field}.territory_weight", data.get("territory_weight"), minimum=0)
-
-
-def _validate_enemy_ai_tag_weights(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
-    entries = _require_list(ctx, path, field, data)
-    seen: set[str] = set()
-    for index, entry in enumerate(entries):
-        item_field = f"{field}[{index}]"
-        if not isinstance(entry, dict):
-            ctx.error(path, item_field, "must be an object")
-            continue
-        tag = _require_registered(ctx, path, f"{item_field}.tag", entry.get("tag"), "content_tags")
-        if tag:
-            if tag in seen:
-                ctx.error(path, f"{item_field}.tag", f"duplicate tag {tag}")
-            seen.add(tag)
-        _require_number(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
 
 
 def _validate_enemy_ai_movement(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
     if not isinstance(data, dict):
         ctx.error(path, field, "must be an object")
         return
+    _reject_removed_field(ctx, path, field, data, "flee_distance", schema_version=2)
     _require_number(ctx, path, f"{field}.orbit_radius", data.get("orbit_radius"), minimum=0)
-    _require_number(ctx, path, f"{field}.flee_distance", data.get("flee_distance"), minimum=0, exclusive_minimum=True)
     _require_number(ctx, path, f"{field}.charge_range", data.get("charge_range"), minimum=0)
     _require_number(ctx, path, f"{field}.charge_windup", data.get("charge_windup"), minimum=0)
     _require_number(ctx, path, f"{field}.charge_duration", data.get("charge_duration"), minimum=0)
@@ -1269,7 +1253,7 @@ def _validate_warzone_directors(
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=2, maximum=2)
     directors = _require_list(ctx, path, "directors", data.get("directors"))
     if not directors:
         ctx.error(path, "directors", "must be a non-empty array")
@@ -1295,11 +1279,10 @@ def _validate_warzone_directors(
         _require_non_empty_string(ctx, path, f"{director_field}.mutation_id", director.get("mutation_id"))
         if "description" in director:
             _require_non_empty_string(ctx, path, f"{director_field}.description", director.get("description"))
-
-        encounter_ids = _validate_warzone_encounters(ctx, path, f"{director_field}.encounters", director.get("encounters"))
+        _reject_removed_field(ctx, path, director_field, director, "encounters", schema_version=2)
         _validate_warzone_interest_points(ctx, path, f"{director_field}.interest_points", director.get("interest_points"), hazard_ids, map_layout_ids, gear_mod_ids)
         mode_wave_ids = wave_ids_by_mode.get(mode_id or "", set())
-        referenced_waves = _validate_warzone_phases(ctx, path, director_field, director.get("phases"), mode_id or "", mode_wave_ids, encounter_ids)
+        referenced_waves = _validate_warzone_phases(ctx, path, director_field, director.get("phases"), mode_id or "", mode_wave_ids)
         for wave_id in mode_wave_ids:
             if wave_id not in referenced_waves:
                 ctx.error(path, f"{director_field}.phases", f"must reference wave {wave_id} at least once")
@@ -1312,7 +1295,6 @@ def _validate_warzone_phases(
     data: Any,
     mode_id: str,
     mode_wave_ids: set[str],
-    encounter_ids: set[str],
 ) -> set[str]:
     phases = _require_list(ctx, path, f"{director_field}.phases", data)
     if not phases:
@@ -1355,44 +1337,8 @@ def _validate_warzone_phases(
             if wave_id not in mode_wave_ids:
                 ctx.error(path, wave_field, f"wave is not defined in spawn_waves.csv for mode {mode_id}: {wave_id}")
             referenced_waves.add(wave_id)
-
-        phase_encounters = _require_list(ctx, path, f"{phase_field}.encounter_ids", phase.get("encounter_ids"))
-        if not phase_encounters:
-            ctx.error(path, f"{phase_field}.encounter_ids", "must be a non-empty array")
-        seen_encounter_ids: set[str] = set()
-        for encounter_index, encounter in enumerate(phase_encounters):
-            encounter_field = f"{phase_field}.encounter_ids[{encounter_index}]"
-            encounter_id = _require_non_empty_string(ctx, path, encounter_field, encounter)
-            if not encounter_id:
-                continue
-            if encounter_id in seen_encounter_ids:
-                ctx.error(path, encounter_field, f"duplicate encounter id {encounter_id}")
-            seen_encounter_ids.add(encounter_id)
-            if encounter_id not in encounter_ids:
-                ctx.error(path, encounter_field, f"encounter is not defined in encounters: {encounter_id}")
+        _reject_removed_field(ctx, path, phase_field, phase, "encounter_ids", schema_version=2)
     return referenced_waves
-
-
-def _validate_warzone_encounters(ctx: ValidationContext, path: Path, field: str, data: Any) -> set[str]:
-    encounters = _require_list(ctx, path, field, data)
-    if not encounters:
-        ctx.error(path, field, "must be a non-empty array")
-    seen: set[str] = set()
-    for index, encounter in enumerate(encounters):
-        item_field = f"{field}[{index}]"
-        if not isinstance(encounter, dict):
-            ctx.error(path, item_field, "must be an object")
-            continue
-        encounter_id = _require_non_empty_string(ctx, path, f"{item_field}.id", encounter.get("id"))
-        if encounter_id:
-            if encounter_id in seen:
-                ctx.error(path, f"{item_field}.id", f"duplicate encounter id {encounter_id}")
-            seen.add(encounter_id)
-        _require_non_empty_string(ctx, path, f"{item_field}.kind", encounter.get("kind"))
-        _validate_registered_string_list(ctx, path, f"{item_field}.enemy_tags", encounter.get("enemy_tags"), "content_tags", allow_empty=False)
-        if "notes" in encounter:
-            _require_non_empty_string(ctx, path, f"{item_field}.notes", encounter.get("notes"))
-    return seen
 
 
 def _validate_warzone_interest_points(
@@ -2843,6 +2789,19 @@ def _require_list(ctx: ValidationContext, path: Path, field: str, value: Any) ->
         ctx.error(path, field, "must be an array")
         return []
     return value
+
+
+def _reject_removed_field(
+    ctx: ValidationContext,
+    path: Path,
+    parent_field: str,
+    payload: dict[str, Any],
+    key: str,
+    *,
+    schema_version: int,
+) -> None:
+    if key in payload:
+        ctx.error(path, f"{parent_field}.{key}", f"field was removed in schema v{schema_version}")
 
 
 def _require_int(

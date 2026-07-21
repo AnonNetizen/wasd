@@ -505,7 +505,7 @@ func _validate_enemy_ai_profiles_json() -> bool:
 
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_int(ENEMY_AI_PROFILES_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	is_valid = _require_int(ENEMY_AI_PROFILES_PATH, "schema_version", payload.get("schema_version"), 2, 2) and is_valid
 	var profiles: Array = _require_array(ENEMY_AI_PROFILES_PATH, "profiles", payload.get("profiles"))
 	if profiles.is_empty():
 		is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, "profiles", "non-empty Array") and is_valid
@@ -524,9 +524,9 @@ func _validate_enemy_ai_profiles_json() -> bool:
 			if seen.has(profile_id):
 				is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, "%s.id" % field, "unique profile id") and is_valid
 			seen[profile_id] = true
+		is_valid = _reject_removed_field(ENEMY_AI_PROFILES_PATH, field, profile_dict, "contact_interval", 2) and is_valid
 		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.sense_radius" % field, profile_dict.get("sense_radius"), 0.0, null, true) and is_valid
 		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.decision_interval" % field, profile_dict.get("decision_interval"), 0.0, null, true) and is_valid
-		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.contact_interval" % field, profile_dict.get("contact_interval"), 0.0) and is_valid
 		is_valid = _validate_enemy_ai_targeting("%s.targeting" % field, profile_dict.get("targeting")) and is_valid
 		is_valid = _validate_enemy_ai_movement("%s.movement" % field, profile_dict.get("movement")) and is_valid
 		is_valid = _validate_enemy_ai_actions("%s.actions" % field, profile_dict.get("actions")) and is_valid
@@ -538,31 +538,11 @@ func _validate_enemy_ai_targeting(field: String, data: Variant) -> bool:
 		return _schema_fail(ENEMY_AI_PROFILES_PATH, field, "Dictionary")
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
+	is_valid = _reject_removed_field(ENEMY_AI_PROFILES_PATH, field, payload, "hunt_tags", 2) and is_valid
+	is_valid = _reject_removed_field(ENEMY_AI_PROFILES_PATH, field, payload, "flee_tags", 2) and is_valid
 	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.player_weight" % field, payload.get("player_weight"), 0.0) and is_valid
-	is_valid = _validate_enemy_ai_tag_weights("%s.hunt_tags" % field, payload.get("hunt_tags")) and is_valid
-	is_valid = _validate_enemy_ai_tag_weights("%s.flee_tags" % field, payload.get("flee_tags")) and is_valid
 	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.territory_radius" % field, payload.get("territory_radius"), 0.0) and is_valid
 	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.territory_weight" % field, payload.get("territory_weight"), 0.0) and is_valid
-	return is_valid
-
-
-func _validate_enemy_ai_tag_weights(field: String, data: Variant) -> bool:
-	var entries: Array = _require_array(ENEMY_AI_PROFILES_PATH, field, data)
-	var is_valid: bool = true
-	var seen: Dictionary = {}
-	for index: int in range(entries.size()):
-		var item_field: String = "%s[%d]" % [field, index]
-		var entry: Variant = entries[index]
-		if not entry is Dictionary:
-			is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, item_field, "Dictionary") and is_valid
-			continue
-		var entry_dict: Dictionary = entry as Dictionary
-		var tag: String = _require_registered(ENEMY_AI_PROFILES_PATH, "%s.tag" % item_field, entry_dict.get("tag"), "content_tags")
-		if not tag.is_empty():
-			if seen.has(tag):
-				is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, "%s.tag" % item_field, "unique tag") and is_valid
-			seen[tag] = true
-		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0.0) and is_valid
 	return is_valid
 
 
@@ -571,8 +551,8 @@ func _validate_enemy_ai_movement(field: String, data: Variant) -> bool:
 		return _schema_fail(ENEMY_AI_PROFILES_PATH, field, "Dictionary")
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
+	is_valid = _reject_removed_field(ENEMY_AI_PROFILES_PATH, field, payload, "flee_distance", 2) and is_valid
 	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.orbit_radius" % field, payload.get("orbit_radius"), 0.0) and is_valid
-	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.flee_distance" % field, payload.get("flee_distance"), 0.0, null, true) and is_valid
 	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_range" % field, payload.get("charge_range"), 0.0) and is_valid
 	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_windup" % field, payload.get("charge_windup"), 0.0) and is_valid
 	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_duration" % field, payload.get("charge_duration"), 0.0) and is_valid
@@ -1435,7 +1415,7 @@ func _validate_warzone_directors_json(game_mode_ids: Dictionary, wave_ids_by_mod
 		return _schema_fail(WARZONE_DIRECTORS_PATH, "root", "Dictionary")
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_int(WARZONE_DIRECTORS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	is_valid = _require_int(WARZONE_DIRECTORS_PATH, "schema_version", payload.get("schema_version"), 2, 2) and is_valid
 	var directors: Array = _require_array(WARZONE_DIRECTORS_PATH, "directors", payload.get("directors"))
 	if directors.is_empty():
 		is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "directors", "non-empty Array") and is_valid
@@ -1465,16 +1445,13 @@ func _validate_warzone_directors_json(game_mode_ids: Dictionary, wave_ids_by_mod
 		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.mutation_id" % director_field, director_dict.get("mutation_id")) and is_valid
 		if director_dict.has("description"):
 			is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.description" % director_field, director_dict.get("description")) and is_valid
-
-		var encounter_result: Dictionary = _validate_warzone_encounters("%s.encounters" % director_field, director_dict.get("encounters"))
-		var encounter_ids: Dictionary = encounter_result.get("ids", {}) as Dictionary
-		is_valid = bool(encounter_result.get("is_valid", false)) and is_valid
+		is_valid = _reject_removed_field(WARZONE_DIRECTORS_PATH, director_field, director_dict, "encounters", 2) and is_valid
 		is_valid = _validate_warzone_interest_points("%s.interest_points" % director_field, director_dict.get("interest_points"), hazard_ids, map_layout_ids, gear_mod_ids) and is_valid
 
 		var mode_wave_ids: Dictionary = {}
 		if wave_ids_by_mode.get(mode_id, {}) is Dictionary:
 			mode_wave_ids = wave_ids_by_mode.get(mode_id, {}) as Dictionary
-		var phase_result: Dictionary = _validate_warzone_phases(director_field, director_dict.get("phases"), mode_id, mode_wave_ids, encounter_ids)
+		var phase_result: Dictionary = _validate_warzone_phases(director_field, director_dict.get("phases"), mode_id, mode_wave_ids)
 		var referenced_waves: Dictionary = phase_result.get("referenced_waves", {}) as Dictionary
 		is_valid = bool(phase_result.get("is_valid", false)) and is_valid
 		for wave_key: Variant in mode_wave_ids.keys():
@@ -1484,7 +1461,7 @@ func _validate_warzone_directors_json(game_mode_ids: Dictionary, wave_ids_by_mod
 	return is_valid
 
 
-func _validate_warzone_phases(director_field: String, data: Variant, mode_id: String, mode_wave_ids: Dictionary, encounter_ids: Dictionary) -> Dictionary:
+func _validate_warzone_phases(director_field: String, data: Variant, mode_id: String, mode_wave_ids: Dictionary) -> Dictionary:
 	var phases: Array = _require_array(WARZONE_DIRECTORS_PATH, "%s.phases" % director_field, data)
 	var is_valid: bool = true
 	if phases.is_empty():
@@ -1518,8 +1495,7 @@ func _validate_warzone_phases(director_field: String, data: Variant, mode_id: St
 		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.pressure_tag" % phase_field, phase_dict.get("pressure_tag")) and is_valid
 		var wave_ids: Array = _require_array(WARZONE_DIRECTORS_PATH, "%s.wave_ids" % phase_field, phase_dict.get("wave_ids"))
 		is_valid = _validate_warzone_phase_wave_ids("%s.wave_ids" % phase_field, wave_ids, mode_id, mode_wave_ids, referenced_waves) and is_valid
-		var phase_encounters: Array = _require_array(WARZONE_DIRECTORS_PATH, "%s.encounter_ids" % phase_field, phase_dict.get("encounter_ids"))
-		is_valid = _validate_warzone_phase_encounter_ids("%s.encounter_ids" % phase_field, phase_encounters, encounter_ids) and is_valid
+		is_valid = _reject_removed_field(WARZONE_DIRECTORS_PATH, phase_field, phase_dict, "encounter_ids", 2) and is_valid
 	return {
 		"is_valid": is_valid,
 		"referenced_waves": referenced_waves,
@@ -1545,55 +1521,6 @@ func _validate_warzone_phase_wave_ids(field: String, wave_ids: Array, mode_id: S
 			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, item_field, "wave defined in spawn_waves.csv for mode %s" % mode_id) and is_valid
 		referenced_waves[wave_id] = true
 	return is_valid
-
-
-func _validate_warzone_phase_encounter_ids(field: String, phase_encounters: Array, encounter_ids: Dictionary) -> bool:
-	var is_valid: bool = true
-	if phase_encounters.is_empty():
-		is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, field, "non-empty Array") and is_valid
-	var seen: Dictionary = {}
-	for index: int in range(phase_encounters.size()):
-		var item_field: String = "%s[%d]" % [field, index]
-		var raw_encounter_id: Variant = phase_encounters[index]
-		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, item_field, raw_encounter_id) and is_valid
-		var encounter_id: String = String(raw_encounter_id)
-		if encounter_id.is_empty():
-			continue
-		if seen.has(encounter_id):
-			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, item_field, "unique encounter id") and is_valid
-		seen[encounter_id] = true
-		if not encounter_ids.has(encounter_id):
-			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, item_field, "encounter defined in encounters") and is_valid
-	return is_valid
-
-
-func _validate_warzone_encounters(field: String, data: Variant) -> Dictionary:
-	var encounters: Array = _require_array(WARZONE_DIRECTORS_PATH, field, data)
-	var is_valid: bool = true
-	if encounters.is_empty():
-		is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, field, "non-empty Array") and is_valid
-	var seen: Dictionary = {}
-	for index: int in range(encounters.size()):
-		var item_field: String = "%s[%d]" % [field, index]
-		var encounter: Variant = encounters[index]
-		if not encounter is Dictionary:
-			is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, item_field, "Dictionary") and is_valid
-			continue
-		var encounter_dict: Dictionary = encounter as Dictionary
-		var encounter_id: String = String(encounter_dict.get("id", ""))
-		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.id" % item_field, encounter_dict.get("id")) and is_valid
-		if not encounter_id.is_empty():
-			if seen.has(encounter_id):
-				is_valid = _schema_fail(WARZONE_DIRECTORS_PATH, "%s.id" % item_field, "unique encounter id") and is_valid
-			seen[encounter_id] = true
-		is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.kind" % item_field, encounter_dict.get("kind")) and is_valid
-		is_valid = _validate_registered_string_array(WARZONE_DIRECTORS_PATH, "%s.enemy_tags" % item_field, encounter_dict.get("enemy_tags"), "content_tags", false) and is_valid
-		if encounter_dict.has("notes"):
-			is_valid = _require_non_empty_string(WARZONE_DIRECTORS_PATH, "%s.notes" % item_field, encounter_dict.get("notes")) and is_valid
-	return {
-		"ids": seen,
-		"is_valid": is_valid,
-	}
 
 
 func _validate_warzone_interest_points(field: String, data: Variant, hazard_ids: Dictionary, map_layout_ids: Dictionary, gear_mod_ids: Dictionary) -> bool:
@@ -3186,6 +3113,12 @@ func _require_array(resource_path: String, field: String, value: Variant) -> Arr
 		_schema_fail(resource_path, field, "Array")
 		return []
 	return value as Array
+
+
+func _reject_removed_field(resource_path: String, parent_field: String, payload: Dictionary, key: String, schema_version: int) -> bool:
+	if not payload.has(key):
+		return true
+	return _schema_fail(resource_path, "%s.%s" % [parent_field, key], "field removed in schema v%d" % schema_version)
 
 
 func _require_non_empty_string(resource_path: String, field: String, value: Variant) -> bool:

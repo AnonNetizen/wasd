@@ -10,7 +10,7 @@
 - 判断某个 `spawn_waves.csv` wave 是否在当前阶段被允许。
 - 按当前 `map_layout_id` 输出可用于初始地图机关生成和 F12 奖励领取的兴趣点。
 - F12 标准模式用 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟阶段组织短刷图节奏；9 分钟后是软加压，不是硬性结束。
-- 输出 debug summary，供 smoke、DebugTools 或后续平衡诊断查看当前 director / mutation / phase / encounter / interest point。
+- 输出 debug summary，供 smoke、DebugTools 或后续平衡诊断查看当前 director / mutation / phase / wave / interest point。
 - 保持首片确定性：不随机、不读玩家状态；奖励领取状态由 `GameplayRunLoop` 保存，不由导演保存运行时状态。
 
 ## 非职责
@@ -25,7 +25,7 @@
 | 路径 | 作用 |
 |------|------|
 | `client/scripts/gameplay/warzone_director.gd` | `WarzoneDirector` 实现，`RefCounted` 数据解释器 |
-| `client/data/warzone_directors.json` | 导演、mutation、phase、encounter、interest point 数据 |
+| `client/data/warzone_directors.json` | schema v2 导演、mutation、phase、wave gating、interest point 数据 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 创建导演、把 `debug_summary()` 暴露给运行时摘要、在 `_update_spawner()` 调用 `is_wave_enabled()`、把当前 layout 的兴趣点传给 `MapManager` |
 | `client/scripts/autoload/data_loader.gd` | Godot 侧 schema 校验 |
 | `tools/validate_data.py` | Python 侧数据校验 |
@@ -35,14 +35,13 @@
 
 ## 数据契约
 
-`warzone_directors.json` 是复杂 JSON：
+`warzone_directors.json` 是 schema v2 复杂 JSON：
 
+- `schema_version` 必须为 `2`；旧顶层 encounter 数组和 phase encounter 引用必须被 Godot / Python schema 拒绝，不能静默忽略。
 - `directors[].mode_id` 必须存在于 `game_modes.json`。
 - 每个模式首片只允许一个 director。
 - `phases[]` 必须非空、按时间升序、不重叠，且 `end_time > start_time`。
 - `phases[].wave_ids[]` 必须引用同模式 `spawn_waves.csv` 中的 wave；同模式所有 wave 必须至少被一个 phase 引用。
-- `phases[].encounter_ids[]` 必须引用同 director 的 `encounters[]`。
-- `encounters[].enemy_tags[]` 必须来自 `content_tags`。
 - `interest_points[].hazard_ids[]` 必须是非空数组，且每项存在于 `hazards.csv`。
 - `interest_points[].map_layout_id` 必须存在于 `map_layouts.json`。
 - `interest_points[].min_distance_from_player` / `min_spacing` 为可选摆放约束，由 `MapManager` 解释；首片用它们把精英巢点、Mod 缓存、资源缓存和小巢核分散到战区中。
@@ -62,13 +61,13 @@
 | `is_wave_enabled(wave_id, elapsed)` | `String`, `float` | `bool` | 未配置时返回 `true`；已配置时只看当前 phase 的 `wave_ids` |
 | `current_phase(elapsed)` | `float` | `Dictionary` | phase 起点包含、终点除最后阶段外不包含；最后阶段终点包含 |
 | `interest_points_for_layout(layout_id)` | `String` | `Array[Dictionary]` | 返回 `map_layout_id` 为空或匹配当前 layout 的兴趣点深拷贝 |
-| `debug_summary(elapsed)` | `float` | `Dictionary` | 返回 director、mutation、phase、pressure、wave、encounter、interest point 摘要 |
+| `debug_summary(elapsed)` | `float` | `Dictionary` | 返回 director、mutation、phase、pressure、wave 和 interest point 摘要；不返回旧 encounter 元数据 |
 
 ## 运行流程
 
 1. `GameplayRunLoop._start_run()` 先读取 mode、敌人、地图、成长和 `spawn_waves.csv`。
 2. `GameplayRunLoop` 读取 `DataLoader.WARZONE_DIRECTORS_PATH`，选择当前 mode 的 director。
-3. `WarzoneDirector.configure()` 缓存 phases / encounters / interest_points。
+3. `WarzoneDirector.configure()` 缓存 phases / interest_points。
 4. 开局生成地图机关时，`GameplayRunLoop` 用 `interest_points_for_layout(layout_id)` 取当前地图兴趣点，并传给 `MapManager.generate_hazard_placements()`。
 5. `MapManager` 为每个兴趣点的 `hazard_ids[]` 走通用 PCG 规则生成 `source="director"` placement，并透传 `claim_radius`、奖励数组、交互标记、可伤害目标数值、`completes_run` 和撤离数值等兴趣点元数据。
 6. `GameplayRunLoop` 从 placement 重建兴趣点状态；无目标且不要求交互的兴趣点每帧只按 `GameClock.now()`、玩家位置和 `claim_radius` 判断能否领取；要求交互的兴趣点生成可见 `InterestPointCache`，玩家在半径内按 `interact` 领取；有目标的兴趣点生成可伤害 `InterestPointTarget`，目标被摧毁后领取；小巢核领取后开启撤离区，撤离完成才提交暂存战利品，不读取玩家表现数据。
@@ -85,7 +84,7 @@
 
 - 随机 mutation：必须先决定 RNG stream、保存 / 恢复策略和 replay 影响；首片不做。
 - 地图兴趣点生成：已接入 `MapManager` 的数据化生成接口；F12 首片已有 `poi_elite_nest`、`poi_mod_cache`、`poi_resource_cache`、`poi_minor_nest_core` 四个调试语义点位，并通过通用 `resource_rewards[]` / `gear_mod_rewards[]` 表达 dust / Mod 奖励，通过 `requires_interaction` 表达缓存箱交互领取，通过 `target_hp` / `target_hit_radius` 表达可伤害巢点 / 巢核目标，通过 `extraction_radius` / `extraction_hold_time` 表达小巢核后的撤离区。后续扩展 kind / 奖励语义仍不能按 `poi_id` 或 `hazard_id` 写特殊分支。
-- 生态 encounter：优先基于 enemy tags / AI profile / wave 组合，不按敌人 id 写逻辑。
+- 敌人组合由 `spawn_waves.csv` 或 F13 模块 JSON 负责；导演不再维护额外敌人组合元数据。
 - 玩家可见主题：新增 name / desc 前先补 `client/locale/strings.csv`，数据只存 locale key。
 
 ## 常见改动入口
@@ -93,7 +92,7 @@
 | 你想改什么 | 主要文件 | 验证 |
 |------------|----------|------|
 | 调阶段时间 / wave 组合 | `client/data/warzone_directors.json` | `validate_data`、`test_data_loader_schema`、`runtime-smoke`、`f9-demo-smoke` |
-| 新增 encounter / interest point | `warzone_directors.json`、必要时 `map_layouts.json` / `hazards.csv` | `validate_data` + `test_data_loader_schema`；兴趣点影响地图时追加 runtime / F9 smoke |
+| 新增 interest point | `warzone_directors.json`、必要时 `map_layouts.json` / `hazards.csv` | `validate_data` + `test_data_loader_schema`；兴趣点影响地图时追加 runtime / F9 smoke |
 | 调兴趣点奖励 / 交互 / 目标 / 小巢核撤离完成 | `warzone_directors.json`、`gameplay_run_loop.gd`、`interest_point_cache.gd`、`interest_point_target.gd`、`gear_mod_system.gd` | `validate_data` + `test_data_loader_schema` + `runtime-smoke` + `gear-mod-smoke` + `save-smoke` |
 | 改 schema | `data_loader.gd`、`validate_data.py`、`test_data_loader_schema.py`、本文档、数据手册 | schema test + docs health |
 | 让导演影响地图 | `warzone_director.gd`、`map_manager.gd`、`gameplay_run_loop.gd` | runtime-smoke、f9-demo-smoke、save-smoke，评估 golden；性能 probe 仅由用户明确触发 |
@@ -109,4 +108,4 @@
 
 ## 迁移 / 兼容
 
-导演当前由静态数据和 `GameClock.now()` 推导，本身不保存状态。F12 奖励领取状态保存于 run payload 的可选 `interest_points` 字段，撤离开启 / 读条状态保存于可选 `extraction` 字段；旧 payload 缺失这些字段时按未领取 / 未开启撤离处理，旧 `map.hazard_placements` 缺少奖励或撤离元数据时只恢复机关，不补发奖励也不开启撤离。后续若加入随机 mutation、阶段内部计数器或玩家可见选择，必须保存 director state 并同步 `GameplayRunLoop.create_run_snapshot()` / `configure_restore_snapshot()`。
+导演当前由静态数据和 `GameClock.now()` 推导，本身不保存状态。schema v2 删除的旧导演敌人组合元数据不进入 run payload，因此不需要提升 run schema。F12 奖励领取状态保存于 run payload 的可选 `interest_points` 字段，撤离开启 / 读条状态保存于可选 `extraction` 字段；旧 payload 缺失这些字段时按未领取 / 未开启撤离处理，旧 `map.hazard_placements` 缺少奖励或撤离元数据时只恢复机关，不补发奖励也不开启撤离。后续若加入随机 mutation、阶段内部计数器或玩家可见选择，必须保存 director state 并同步 `GameplayRunLoop.create_run_snapshot()` / `configure_restore_snapshot()`。

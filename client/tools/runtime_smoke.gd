@@ -164,7 +164,7 @@ func _run() -> void:
 	await _expect_player_enemy_separation(run_loop, player)
 	await _expect_enemy_movement_bounds(run_loop, player)
 	await _expect_swarm_enemy_spawn(run_loop, player)
-	await _expect_enemy_ecology_ai(run_loop, player)
+	await _expect_enemy_player_targeting(run_loop, player)
 	await _expect_ranged_enemy_projectile_damage(run_loop, player)
 	await _expect_overdrive_rounds_skill(run_loop, player)
 	await _expect_pickup_orb_draw_order(run_loop, player)
@@ -882,28 +882,19 @@ func _expect_enemy_movement_bounds(run_loop: Node, _player: Node2D) -> void:
 	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
 		return
 
-	var prey: Node2D = _spawn_smoke_enemy(run_loop, "enemy_swarm", "smoke_bounds_prey")
-	var predator: Node2D = _spawn_smoke_enemy(run_loop, "enemy_stalker", "smoke_bounds_predator")
-	_expect(prey != null, "movement bounds smoke should spawn prey enemy")
-	_expect(predator != null, "movement bounds smoke should spawn predator enemy")
-	if prey == null or predator == null:
-		if prey != null:
-			PoolManager.release(prey)
-		if predator != null:
-			PoolManager.release(predator)
+	var enemy: Node2D = _spawn_smoke_enemy(run_loop, "enemy_swarm", "smoke_bounds_enemy")
+	_expect(enemy != null, "movement bounds smoke should spawn an enemy")
+	if enemy == null:
 		return
 
 	var edge_y: float = clampf(0.0, bounds.position.y + 160.0, bounds.end.y - 160.0)
-	prey.global_position = Vector2(bounds.end.x - 2.0, edge_y)
-	predator.global_position = prey.global_position - Vector2(80.0, 0.0)
-	predator.set_physics_process(false)
+	enemy.set_physics_process(false)
+	enemy.global_position = Vector2(bounds.end.x - 2.0, edge_y)
+	enemy.call("_move_in_direction", Vector2.RIGHT, 1.0, 2.0)
+	_expect(_position_inside_map_boundary(run_loop, enemy.global_position), "enemy movement should stay inside rectangular map bounds")
+	_expect(enemy.global_position.x <= bounds.end.x + 0.01, "enemy movement should clamp at the map right edge")
 
-	for _index: int in range(16):
-		await get_tree().physics_frame
-	_expect(_position_inside_map_boundary(run_loop, prey.global_position), "enemy flee movement should stay inside rectangular map bounds")
-	_expect(prey.global_position.x <= bounds.end.x + 0.01, "enemy movement should clamp at the map right edge")
-
-	var snapshot: Dictionary = prey.call("snapshot")
+	var snapshot: Dictionary = enemy.call("snapshot")
 	snapshot["position"] = {
 		"x": bounds.end.x + 240.0,
 		"y": bounds.end.y + 240.0,
@@ -912,12 +903,10 @@ func _expect_enemy_movement_bounds(run_loop: Node, _player: Node2D) -> void:
 		"x": bounds.end.x + 240.0,
 		"y": bounds.end.y + 240.0,
 	}
-	prey.call("restore_snapshot", snapshot)
-	_expect(_position_inside_map_boundary(run_loop, prey.global_position), "enemy restore should clamp position inside rectangular map bounds")
+	enemy.call("restore_snapshot", snapshot)
+	_expect(_position_inside_map_boundary(run_loop, enemy.global_position), "enemy restore should clamp position inside rectangular map bounds")
 
-	predator.set_physics_process(true)
-	PoolManager.release(prey)
-	PoolManager.release(predator)
+	PoolManager.release(enemy)
 
 
 func _expect_swarm_enemy_spawn(run_loop: Node, _player: Node2D) -> void:
@@ -941,41 +930,90 @@ func _expect_swarm_enemy_spawn(run_loop: Node, _player: Node2D) -> void:
 		)
 
 
-func _expect_enemy_ecology_ai(run_loop: Node, player: Node2D) -> void:
-	var prey: Node2D = _spawn_smoke_enemy(run_loop, "enemy_swarm", "smoke_ecology_prey")
-	var predator: Node2D = _spawn_smoke_enemy(run_loop, "enemy_stalker", "smoke_ecology_predator")
-	_expect(prey != null, "ecology smoke should spawn prey enemy")
-	_expect(predator != null, "ecology smoke should spawn predator enemy")
-	if prey == null or predator == null:
-		if prey != null:
-			PoolManager.release(prey)
-		if predator != null:
-			PoolManager.release(predator)
+func _expect_enemy_player_targeting(run_loop: Node, player: Node2D) -> void:
+	_disable_enemy_physics()
+	var chaser: Node2D = _spawn_smoke_enemy(run_loop, "enemy_chaser", "smoke_player_target_chaser")
+	var swarm: Node2D = _spawn_smoke_enemy(run_loop, "enemy_swarm", "smoke_player_target_swarm")
+	var stalker: Node2D = _spawn_smoke_enemy(run_loop, "enemy_stalker", "smoke_player_target_stalker")
+	var bulwark: Node2D = _spawn_smoke_enemy(run_loop, "enemy_bulwark", "smoke_player_target_bulwark")
+	var enemies: Array[Node2D] = [chaser, swarm, stalker, bulwark]
+	for enemy: Node2D in enemies:
+		_expect(enemy != null, "player-targeting smoke should spawn every melee archetype")
+	if enemies.any(func(enemy: Node2D) -> bool: return enemy == null):
+		for enemy: Node2D in enemies:
+			if enemy != null:
+				PoolManager.release(enemy)
 		return
 
 	var bounds: Rect2 = _map_bounds(run_loop)
-	var ecology_origin: Vector2 = Vector2(
-		clampf(player.global_position.x + 620.0, bounds.position.x + 180.0, bounds.end.x - 300.0),
-		clampf(player.global_position.y + 320.0, bounds.position.y + 180.0, bounds.end.y - 180.0)
+	var test_origin: Vector2 = Vector2(
+		clampf(player.global_position.x + 220.0, bounds.position.x + 360.0, bounds.end.x - 360.0),
+		clampf(player.global_position.y, bounds.position.y + 260.0, bounds.end.y - 260.0)
 	)
-	prey.global_position = ecology_origin
-	predator.global_position = ecology_origin + Vector2(110.0, 0.0)
-	for _index: int in range(10):
+	player.global_position = test_origin
+	chaser.global_position = test_origin + Vector2(220.0, -120.0)
+	swarm.global_position = test_origin + Vector2(220.0, 0.0)
+	stalker.global_position = swarm.global_position
+	bulwark.global_position = test_origin + Vector2(220.0, 120.0)
+	for enemy: Node2D in enemies:
+		enemy.set_physics_process(true)
+	for _index: int in range(8):
 		await get_tree().physics_frame
 
-	var prey_summary: Dictionary = prey.call("ai_debug_summary")
-	var predator_summary: Dictionary = predator.call("ai_debug_summary")
-	_expect(String(prey_summary.get("profile_id", "")) == "enemy_ai_prey_swarm", "prey enemy should use prey AI profile")
-	_expect(String(predator_summary.get("profile_id", "")) == "enemy_ai_predator_stalker", "predator enemy should use predator AI profile")
-	_expect(String(prey_summary.get("action", "")) == ENEMY_AI_ACTIONS.AI_ACTION_FLEE_THREAT, "prey enemy should flee nearby predator")
-	var predator_action: String = String(predator_summary.get("action", ""))
+	var chaser_summary: Dictionary = chaser.call("ai_debug_summary")
+	var swarm_summary: Dictionary = swarm.call("ai_debug_summary")
+	var stalker_summary: Dictionary = stalker.call("ai_debug_summary")
+	var bulwark_summary: Dictionary = bulwark.call("ai_debug_summary")
+	_expect(swarm.global_position.distance_to(stalker.global_position) >= 4.0, "different enemy types should keep non-damaging center separation")
+	var expected_focus: String = String(player.name)
+	for summary: Dictionary in [chaser_summary, swarm_summary, stalker_summary]:
+		_expect(String(summary.get("focus_target", "")) == expected_focus, "attacking melee archetypes should target only the player")
+	var bulwark_focus: String = String(bulwark_summary.get("focus_target", ""))
+	_expect(bulwark_focus.is_empty() or bulwark_focus == expected_focus, "home guard should target only the player or its home position")
+	_expect(String(chaser_summary.get("profile_id", "")) == "enemy_ai_chase_contact", "chaser should keep its chase profile")
+	_expect(String(swarm_summary.get("profile_id", "")) == "enemy_ai_fast_chase", "swarm should use the fast player-chase profile")
+	_expect(String(stalker_summary.get("profile_id", "")) == "enemy_ai_charge_stalker", "stalker should use the player-charge profile")
+	_expect(String(bulwark_summary.get("profile_id", "")) == "enemy_ai_home_guard", "bulwark should use the home-guard profile")
+	_expect(String(chaser_summary.get("action", "")) == ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET, "chaser should approach the player")
+	_expect(String(swarm_summary.get("action", "")) == ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET, "swarm should approach the player")
 	_expect(
-		predator_action == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
-		or predator_action == ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET,
-		"predator enemy should hunt nearby prey"
+		[ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET, ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET].has(String(stalker_summary.get("action", ""))),
+		"stalker should charge or approach the player"
 	)
-	PoolManager.release(prey)
-	PoolManager.release(predator)
+	_expect(
+		[ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET, ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET, ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME].has(String(bulwark_summary.get("action", ""))),
+		"bulwark should guard home or pressure the player"
+	)
+
+	var life_before: float = float((swarm.call("snapshot") as Dictionary).get("life_points", 0.0))
+	var friendly_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		999.0,
+		DAMAGE_TYPES.PHYSICAL,
+		stalker,
+		swarm,
+		String(stalker.call("combat_team_id")),
+		String(swarm.call("combat_team_id"))
+	)
+	var friendly_result: Dictionary = Combat.apply_damage(swarm, friendly_info)
+	var life_after: float = float((swarm.call("snapshot") as Dictionary).get("life_points", 0.0))
+	_expect(not bool(friendly_result.get("applied", true)), "enemy friendly fire should be rejected")
+	_expect(String(friendly_result.get("reason", "")) == "friendly_fire_blocked", "enemy friendly fire should report its rejection reason")
+	_expect(is_equal_approx(life_after, life_before), "enemy friendly fire should not change life")
+
+	var legacy_snapshot: Dictionary = swarm.call("snapshot")
+	legacy_snapshot["current_action"] = "ai_action_flee_threat"
+	legacy_snapshot["action_state"] = "charge_release"
+	legacy_snapshot["action_timer"] = 1.0
+	swarm.call("restore_snapshot", legacy_snapshot)
+	_expect(String((swarm.call("ai_debug_summary") as Dictionary).get("action", "")) == "", "removed legacy action should be cleared during restore")
+	await get_tree().physics_frame
+	_expect(
+		String((swarm.call("ai_debug_summary") as Dictionary).get("action", "")) == ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET,
+		"restored legacy snapshot should choose a current player action on the next decision tick"
+	)
+
+	for enemy: Node2D in enemies:
+		PoolManager.release(enemy)
 
 
 func _expect_ranged_enemy_projectile_damage(run_loop: Node, player: Node2D) -> void:
@@ -993,6 +1031,8 @@ func _expect_ranged_enemy_projectile_damage(run_loop: Node, player: Node2D) -> v
 	player.global_position = test_position
 	spitter.global_position = test_position + Vector2(320.0, 0.0)
 	spitter.set_physics_process(true)
+	await get_tree().physics_frame
+	_expect(String((spitter.call("ai_debug_summary") as Dictionary).get("focus_target", "")) == String(player.name), "ranged enemy should target only the player")
 	if player.has_method("debug_clear_invulnerability"):
 		player.call("debug_clear_invulnerability")
 	var life_before: float = float(player.call("current_life"))
@@ -1042,7 +1082,7 @@ func _spawn_smoke_enemy(run_loop: Node, enemy_id: String, wave_key: String) -> N
 	var spawned: bool = bool(run_loop.call("_spawn_enemy", {
 		"enemy_id": enemy_id,
 	}, wave_key))
-	_expect(spawned, "%s should spawn for ecology smoke" % enemy_id)
+	_expect(spawned, "%s should spawn for enemy AI smoke" % enemy_id)
 	if not spawned:
 		return null
 	for raw_enemy: Node in get_tree().get_nodes_in_group("active_enemies"):

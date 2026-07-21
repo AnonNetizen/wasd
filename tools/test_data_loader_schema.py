@@ -268,11 +268,59 @@ def main() -> int:
             ],
         ),
         (
-            "enemy AI tag must be registered",
-            _mutate_json("client/data/enemy_ai_profiles.json", _set_enemy_ai_flee_tag("tag_missing")),
+            "removed enemy ecology action must stay rejected",
+            _mutate_json("client/data/enemy_ai_profiles.json", _set_enemy_ai_action("ai_action_flee_threat")),
             [
-                "client/data/enemy_ai_profiles.json:profiles[1].targeting.flee_tags[0].tag",
-                "unknown id tag_missing; expected one of content_tags",
+                "client/data/enemy_ai_profiles.json:profiles[0].actions[0].id",
+                "unknown id ai_action_flee_threat; expected one of enemy_ai_actions",
+            ],
+        ),
+        (
+            "removed enemy ecology tag must stay rejected",
+            _mutate_csv("client/data/enemies.csv", _set_enemy_tags("tag_enemy|tag_enemy_prey")),
+            [
+                "client/data/enemies.csv:line 2.tags[1]",
+                "unknown id tag_enemy_prey; expected one of content_tags",
+            ],
+        ),
+        (
+            "enemy AI schema v2 is required",
+            _mutate_json("client/data/enemy_ai_profiles.json", _set_schema_version(1)),
+            [
+                "client/data/enemy_ai_profiles.json:schema_version",
+                "must be >= 2",
+            ],
+        ),
+        (
+            "enemy AI contact interval was removed",
+            _mutate_json("client/data/enemy_ai_profiles.json", _add_enemy_ai_legacy_contact_interval),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].contact_interval",
+                "field was removed in schema v2",
+            ],
+        ),
+        (
+            "enemy AI hunt tags were removed",
+            _mutate_json("client/data/enemy_ai_profiles.json", _add_enemy_ai_legacy_hunt_tags),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].targeting.hunt_tags",
+                "field was removed in schema v2",
+            ],
+        ),
+        (
+            "enemy AI flee tags were removed",
+            _mutate_json("client/data/enemy_ai_profiles.json", _add_enemy_ai_legacy_flee_tags),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].targeting.flee_tags",
+                "field was removed in schema v2",
+            ],
+        ),
+        (
+            "enemy AI flee distance was removed",
+            _mutate_json("client/data/enemy_ai_profiles.json", _add_enemy_ai_legacy_flee_distance),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].movement.flee_distance",
+                "field was removed in schema v2",
             ],
         ),
         (
@@ -457,6 +505,30 @@ def main() -> int:
             [
                 "client/data/warzone_directors.json:directors[0].phases[0].wave_ids[0]",
                 "wave is not defined in spawn_waves.csv for mode mode_standard_survival: wave_missing",
+            ],
+        ),
+        (
+            "warzone director schema v2 is required",
+            _mutate_json("client/data/warzone_directors.json", _set_schema_version(1)),
+            [
+                "client/data/warzone_directors.json:schema_version",
+                "must be >= 2",
+            ],
+        ),
+        (
+            "warzone encounters were removed",
+            _mutate_json("client/data/warzone_directors.json", _add_warzone_legacy_encounters),
+            [
+                "client/data/warzone_directors.json:directors[0].encounters",
+                "field was removed in schema v2",
+            ],
+        ),
+        (
+            "warzone phase encounter ids were removed",
+            _mutate_json("client/data/warzone_directors.json", _add_warzone_legacy_phase_encounter_ids),
+            [
+                "client/data/warzone_directors.json:directors[0].phases[0].encounter_ids",
+                "field was removed in schema v2",
             ],
         ),
         (
@@ -874,6 +946,20 @@ def _set_warzone_phase_wave(value: str) -> JsonMutator:
     return mutate
 
 
+def _add_warzone_legacy_encounters(payload: dict[str, Any]) -> None:
+    payload["directors"][0]["encounters"] = [
+        {
+            "id": "encounter_legacy",
+            "kind": "enemy_ecology",
+            "enemy_tags": ["tag_enemy"],
+        }
+    ]
+
+
+def _add_warzone_legacy_phase_encounter_ids(payload: dict[str, Any]) -> None:
+    payload["directors"][0]["phases"][0]["encounter_ids"] = ["encounter_legacy"]
+
+
 def _set_warzone_interest_point_hazards(value: list[str]) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["directors"][0]["interest_points"][0]["hazard_ids"] = value
@@ -1007,11 +1093,27 @@ def _set_enemy_ai_action(value: str) -> JsonMutator:
     return mutate
 
 
-def _set_enemy_ai_flee_tag(value: str) -> JsonMutator:
+def _set_schema_version(value: int) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["profiles"][1]["targeting"]["flee_tags"][0]["tag"] = value
+        payload["schema_version"] = value
 
     return mutate
+
+
+def _add_enemy_ai_legacy_contact_interval(payload: dict[str, Any]) -> None:
+    payload["profiles"][0]["contact_interval"] = 0.45
+
+
+def _add_enemy_ai_legacy_hunt_tags(payload: dict[str, Any]) -> None:
+    payload["profiles"][0]["targeting"]["hunt_tags"] = [{"tag": "tag_enemy", "weight": 1.0}]
+
+
+def _add_enemy_ai_legacy_flee_tags(payload: dict[str, Any]) -> None:
+    payload["profiles"][0]["targeting"]["flee_tags"] = [{"tag": "tag_enemy", "weight": 1.0}]
+
+
+def _add_enemy_ai_legacy_flee_distance(payload: dict[str, Any]) -> None:
+    payload["profiles"][0]["movement"]["flee_distance"] = 260.0
 
 
 def _set_enemy_ai_profile(value: str) -> CsvMutator:

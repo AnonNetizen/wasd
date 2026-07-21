@@ -9,7 +9,6 @@ var _director_id: String = ""
 var _mode_id: String = ""
 var _mutation_id: String = ""
 var _phases: Array[Dictionary] = []
-var _encounters: Dictionary = {}
 var _interest_points: Array[Dictionary] = []
 
 
@@ -19,7 +18,6 @@ func configure(target_mode: String, data: Dictionary, _waves: Array[Dictionary])
 	_mode_id = target_mode
 	_mutation_id = ""
 	_phases.clear()
-	_encounters.clear()
 	_interest_points.clear()
 	if data.is_empty():
 		return
@@ -31,15 +29,6 @@ func configure(target_mode: String, data: Dictionary, _waves: Array[Dictionary])
 	for raw_phase: Variant in raw_phases:
 		if raw_phase is Dictionary:
 			_phases.append((raw_phase as Dictionary).duplicate(true))
-
-	var raw_encounters: Array = data.get("encounters", []) if data.get("encounters", []) is Array else []
-	for raw_encounter: Variant in raw_encounters:
-		if not raw_encounter is Dictionary:
-			continue
-		var encounter: Dictionary = (raw_encounter as Dictionary).duplicate(true)
-		var encounter_id: String = String(encounter.get("id", ""))
-		if not encounter_id.is_empty():
-			_encounters[encounter_id] = encounter
 
 	var raw_points: Array = data.get("interest_points", []) if data.get("interest_points", []) is Array else []
 	for raw_point: Variant in raw_points:
@@ -100,7 +89,6 @@ func debug_summary(elapsed: float) -> Dictionary:
 		"phase_id": String(phase.get("id", "")),
 		"pressure_tag": String(phase.get("pressure_tag", "")),
 		"wave_ids": _string_array(phase.get("wave_ids", [])),
-		"encounter_ids": _string_array(phase.get("encounter_ids", [])),
 		"interest_point_ids": _interest_point_ids(),
 	}
 

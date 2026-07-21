@@ -197,7 +197,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #127", "ADR #128", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "模块大地图", "ModuleWorldManager", "run v4", "RoomManager superseded", "WarzoneDirector", "short loot runs", "撤离", "Gear Mod", "性能测试按需", "user-triggered performance test", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "AI Git", "code review", "事实review"]
+      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #127", "ADR #128", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #144", "模块大地图", "ModuleWorldManager", "run v4", "RoomManager superseded", "WarzoneDirector", "EnemyAI player targeting", "敌方友伤护栏", "short loot runs", "撤离", "Gear Mod", "性能测试按需", "user-triggered performance test", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "AI Git", "code review", "事实review"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -569,13 +569,13 @@
       "authority": "F10 warzone director task scope, reading budget, red lines, data schema, director interest point map placement, and acceptance commands",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-25",
+      "last_reviewed": "2026-07-21",
       "canonical_for": ["f10_warzone_director_work_package", "warzone_director_scope", "director_interest_point_map_placement", "no_hidden_dda_rule"],
       "must_read_for": ["f10_warzone_director", "warzone_director_change", "director_phase_change", "nest_mutation_change", "director_interest_point_change"],
-      "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/gameplay_runtime.md", "docs/代码/data_loader.md", "docs/代码/map_manager.md", "docs/代码/enemy_ai.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md", "client/data/README.md", "docs/AI记忆/current_state.json", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/gameplay_runtime.md", "docs/代码/data_loader.md", "docs/代码/map_manager.md", "docs/代码/enemy_ai.md", "docs/代码/warzone_director.md", "client/data/README.md", "docs/AI记忆/current_state.json", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": ["client/data/warzone_directors.json", "client/data/spawn_waves.csv", "client/data/map_layouts.json", "client/data/enemies.csv", "client/data/enemy_ai_profiles.json", "client/scripts/gameplay/warzone_director.gd", "client/scripts/gameplay/map_manager.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd"],
       "update_triggers": ["F10 scope changes", "warzone director schema changes", "phase gating behavior changes", "director interest point map placement changes", "player-state-reading boundary changes", "hidden DDA policy changes", "acceptance command changes"],
-      "keywords": ["F10", "WarzoneDirector", "战区导演", "敌巢战区", "巢变异", "nest mutation", "phase", "阶段", "encounter", "兴趣点", "POI", "source=director", "director hazards", "MapManager", "no hidden DDA", "不读玩家状态", "player state", "runtime LLM", "wave gating", "warzone_directors.json"]
+      "keywords": ["F10", "WarzoneDirector", "战区导演", "敌巢战区", "巢变异", "nest mutation", "phase", "阶段", "兴趣点", "POI", "source=director", "director hazards", "MapManager", "schema v2", "no hidden DDA", "不读玩家状态", "player state", "runtime LLM", "wave gating", "warzone_directors.json"]
     },
     {
       "path": "docs/AI协作/工作包/F11-GearModLoadout.md",
@@ -902,16 +902,16 @@
     {
       "path": "docs/代码/enemy_ai.md",
       "type": "module_doc",
-      "authority": "EnemyAI runtime contract for data-driven ecological profiles, Utility action scoring, FSM charge execution, steering movement, monster-vs-monster contact damage, Enemy status host behavior, and run snapshot fields",
+      "authority": "EnemyAI runtime contract for player-targeted data profiles, Utility action scoring, FSM charge execution, steering movement, enemy friendly-fire rejection, non-damaging separation, Enemy status host behavior, and run snapshot fields",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-23",
-      "canonical_for": ["enemy_ai", "enemy_ecology", "enemy_ai_profiles", "monster_ecology"],
-      "must_read_for": ["enemy_ai_change", "enemy_ecology_change", "enemy_ai_profile_schema_change", "new_enemy_behavior"],
+      "last_reviewed": "2026-07-21",
+      "canonical_for": ["enemy_ai", "enemy_ai_profiles", "enemy_player_targeting", "enemy_friendly_fire_guard"],
+      "must_read_for": ["enemy_ai_change", "enemy_ai_profile_schema_change", "new_enemy_behavior", "enemy_targeting_change"],
       "related_docs": ["docs/代码/gameplay_runtime.md", "docs/代码/combat.md", "docs/代码/data_loader.md", "client/data/README.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/gameplay/enemy.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/enemy_ai_profiles.json", "client/data/enemies.csv", "client/data/spawn_waves.csv", "client/tools/l1_smoke.gd", "client/tools/runtime_smoke.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
-      "update_triggers": ["EnemyAI runtime behavior changes", "enemy status host changes", "enemy_ai_profiles.json schema changes", "enemy AI action contract changes", "enemy content tag ecology changes", "monster-vs-monster damage attribution changes", "enemy run snapshot changes"],
-      "keywords": ["EnemyAI", "Enemy", "StatusEffectComponent", "entity status", "owned_tag_counts", "enemy_ai_profiles.json", "ai_profile_id", "enemy_ai_actions", "Utility AI", "FSM", "Steering", "Rain World", "雨世界", "怪物生态", "猎物", "掠食者", "领地", "tag_enemy_prey", "tag_enemy_predator", "tag_enemy_territorial", "runtime-smoke"]
+      "update_triggers": ["EnemyAI runtime behavior changes", "enemy status host changes", "enemy_ai_profiles.json schema changes", "enemy AI action contract changes", "enemy player targeting changes", "enemy friendly-fire guard changes", "enemy run snapshot changes"],
+      "keywords": ["EnemyAI", "Enemy", "StatusEffectComponent", "entity status", "owned_tag_counts", "enemy_ai_profiles.json", "ai_profile_id", "enemy_ai_actions", "Utility AI", "FSM", "Steering", "玩家唯一目标", "enemy friendly fire", "中心分离", "runtime-smoke"]
     },
     {
       "path": "docs/代码/map_manager.md",
@@ -944,16 +944,16 @@
     {
       "path": "docs/代码/warzone_director.md",
       "type": "module_doc",
-      "authority": "WarzoneDirector gameplay module contract for fixed phase warzone pacing, mutation, encounter, interest-point map placement, and no-player-state director boundary",
+      "authority": "WarzoneDirector gameplay module contract for fixed phase warzone pacing, mutation, wave gating, interest-point map placement, and no-player-state director boundary",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-25",
+      "last_reviewed": "2026-07-21",
       "canonical_for": ["warzone_director_module", "warzone_director_api", "warzone_directors_schema_runtime_boundary", "director_interest_point_map_placement", "no_hidden_dda_runtime_boundary"],
       "must_read_for": ["warzone_director_change", "warzone_directors_json_change", "phase_gating_change", "director_interest_point_change", "warzone_debug_summary_change"],
       "related_docs": ["docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/代码/gameplay_runtime.md", "docs/代码/map_manager.md", "docs/代码/data_loader.md", "client/data/README.md", "docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/gameplay/warzone_director.gd", "client/data/warzone_directors.json", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/map_manager.gd", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd"],
       "update_triggers": ["warzone director API changes", "warzone_directors.json schema changes", "wave gating behavior changes", "director interest point placement changes", "debug summary changes", "player-state-reading boundary changes"],
-      "keywords": ["WarzoneDirector", "warzone director", "战区导演", "敌巢战区", "巢变异", "nest mutation", "phase", "阶段", "encounter", "兴趣点", "POI", "source=director", "director hazards", "interest_points_for_layout", "extraction_radius", "extraction_hold_time", "撤离", "extraction", "wave gating", "spawn_waves", "warzone_directors.json", "no hidden DDA", "不读玩家状态", "runtime LLM"]
+      "keywords": ["WarzoneDirector", "warzone director", "战区导演", "敌巢战区", "巢变异", "nest mutation", "phase", "阶段", "schema v2", "兴趣点", "POI", "source=director", "director hazards", "interest_points_for_layout", "extraction_radius", "extraction_hold_time", "撤离", "extraction", "wave gating", "spawn_waves", "warzone_directors.json", "no hidden DDA", "不读玩家状态", "runtime LLM"]
     },
     {
       "path": "docs/代码/room_manager.md",
@@ -1220,6 +1220,20 @@
       "related_code": ["client/scripts/autoload/ui_manager.gd", "client/scripts/autoload/game_state.gd"],
       "update_triggers": ["UIManager API changes", "UI metadata changes", "pause linkage changes", "UI stack behavior changes", "UI localization sizing rule change"],
       "keywords": ["UIManager", "autoload", "UI stack", "push", "pop", "pauses_game", "CanvasLayer", "English UI sizing", "英文长度基准", "按钮宽度"]
+    },
+    {
+      "path": "docs/reports/2026-07-21-replay-regression.md",
+      "type": "test_report",
+      "authority": "ADR #144 delivery-time evidence for the four recaptured checked-in golden replays and runtime-summary regression results",
+      "status": "active",
+      "owner_scope": "test-reports",
+      "last_reviewed": "2026-07-21",
+      "canonical_for": ["adr_144_replay_regression_evidence"],
+      "must_read_for": ["adr_144_replay_audit"],
+      "related_docs": ["docs/测试策略.md", "docs/决策记录.md", "docs/代码/enemy_ai.md", "docs/AI记忆/current_state.json", "docs/AI记忆/会话日志/2026-07-21.md"],
+      "related_code": ["client/tests/replays/golden_basic_run.replay", "client/tests/replays/golden_pause_resume.replay", "client/tests/replays/golden_full_death.replay", "client/tests/replays/golden_level_up_choice.replay", "client/tools/golden_replay_capture.gd", "client/tools/replay_runner.gd"],
+      "update_triggers": ["same-day golden replay recapture", "ADR #144 replay conclusion changes", "golden data fingerprint changes"],
+      "keywords": ["ADR #144", "golden replay", "replay regression", "data fingerprint", "runtime summary", "四条黄金回放", "EnemyAI"]
     }
   ]
 }

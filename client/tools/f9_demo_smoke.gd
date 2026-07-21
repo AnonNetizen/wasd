@@ -165,16 +165,13 @@ func _warzone_director_core_phase_active(run_loop: Node) -> bool:
 		return false
 	var director: Dictionary = raw_director as Dictionary
 	var raw_wave_ids: Variant = director.get("wave_ids", [])
-	var raw_encounter_ids: Variant = director.get("encounter_ids", [])
-	if not raw_wave_ids is Array or not raw_encounter_ids is Array:
+	if not raw_wave_ids is Array:
 		return false
 	var wave_ids: Array = raw_wave_ids as Array
-	var encounter_ids: Array = raw_encounter_ids as Array
 	return (
 		bool(director.get("configured", false))
 		and String(director.get("phase_id", "")) == "phase_minor_nest_core"
 		and wave_ids.has(BULWARK_WAVE_ID)
-		and encounter_ids.has("encounter_territorial_pressure")
 	)
 
 

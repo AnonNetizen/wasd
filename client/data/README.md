@@ -21,7 +21,7 @@
 | 改角色基础属性 / 标签 / 能力 / 起始携带 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；起始携带填 `starting_loadout`，引用必须存在于对应数据文件 |
 | 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
 | 改敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | 敌人标签、对象池 id、AI profile id、伤害类型必须来自词表或数据注册表 |
-| 改敌人生态 AI / 怪物互相克制 | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；生态关系通过 content tag 权重表达 |
+| 改敌人对玩家 AI | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；敌人的感知与战斗目标固定为玩家 |
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
 | 改地图边界 / 矩形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是轴对齐矩形，必须分别整除 `grid.cell_width` / `grid.cell_height`；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法矩形格锚点 |
 | 改敌巢战区导演 / 阶段主题 / 兴趣点组合 | `warzone_directors.json` | 只按固定时间阶段启用 wave，不读取玩家状态、不做隐藏动态难度；匹配当前 layout 的兴趣点会生成初始 `source="director"` 机关；wave / 机关 / 地图引用必须存在 |
@@ -51,11 +51,11 @@
 | `active_items.json` | 已建立 | 主动道具：充能方式、冷却、效果原语与参数 |
 | `skills.json` | 已建立 | 可复用技能：冷却、资源消耗、目标选择和技能效果原语 |
 | `consumables.json` | 已建立 | 消耗品：堆叠数量、拾取数量、效果原语与参数 |
-| `enemy_ai_profiles.json` | 已建立 | 敌人生态 AI profile：感知、目标权重、动作列表、冲锋 / 领地等复杂行为参数 |
+| `enemy_ai_profiles.json` | 已建立 | 敌人对玩家 AI profile：感知、动作列表、冲锋 / 守家 / 远程等行为参数 |
 | `enemies.csv` | 已建立 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励、占位色等 |
 | `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、占格尺寸、持续时间 |
 | `map_layouts.json` | 已建立 | 有限地图配置：矩形地图边界、矩形格尺寸、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
-| `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、生态 encounter、兴趣点 / 机关组合和阶段启用 wave |
+| `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、兴趣点 / 机关组合和阶段启用 wave |
 | `module_worlds.json` | 已建立 | F13 模块世界：9×9 槽位、11×11 格、统一格尺寸、固定锚点、模板池、安全布局和技术首片 |
 | `module_templates.json` | 已建立 | 模块注册表：角色、JSON 路径、AI 来源、审核状态和可用旋转 |
 | `modules/*.json` | 已建立 | 每个模块的 11 行地形令牌、四边通道与敌人 / 机关 / 奖励 / 目标 / 撤离摆放表 |
@@ -404,7 +404,7 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,
 | `name_key` | string | `enemy_*_name` | 敌人名称译文 key |
 | `tags` | string | `|` 分隔的词表 §12.3 content tag，必须含 `tag_enemy` | 内容标签；可被模式 blocklist、刷怪规则或后续内容系统筛选 |
 | `pool_id` | string | 词表 §8 pool id | 运行时使用的敌人对象池；当前只校验 id，不实例化场景 |
-| `ai_profile_id` | string | 必须存在于 `enemy_ai_profiles.json` | 运行时使用的生态 AI profile；决定感知、目标选择和动作集合 |
+| `ai_profile_id` | string | 必须存在于 `enemy_ai_profiles.json` | 运行时使用的对玩家 AI profile；决定动作集合与行为参数 |
 | `max_hp` | int | `>= 1` | 敌人最大生命 |
 | `move_speed` | number | `> 0`，px/s | 敌人基础移动速度 |
 | `contact_damage` | int | `>= 0` | 接触伤害；当前按 600.0 玩家初始生命尺度调参，运行时必须经 `Combat.apply_damage` 结算 |
@@ -414,7 +414,7 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,
 | `separation_radius` | number | `>= 0`，px | 敌人中心排斥半径；小于 `hit_radius` 时允许视觉重叠但避免中心完全重合 |
 | `visual_color` | string | HTML 色值，如 `#ff6152` | 开发期几何占位图颜色；只表达外观，不承载行为分支 |
 
-`enemies.csv` 只声明敌人基础数值、内容 tag 和 AI profile 引用边界；具体感知、动作评分、怪物互相狩猎 / 逃跑由 `enemy_ai_profiles.json` 与 `EnemyAI` 运行时解释。游戏模式可通过 `resource_pools.enemies` 声明可用敌人池；实际波次选择、生成位置、对象池预热和伤害结算由 `Spawner`、`PoolManager`、`Combat` 与 `EnemyAI` 系统负责。
+`enemies.csv` 只声明敌人基础数值、通用内容 tag 和 AI profile 引用边界；具体对玩家感知、动作评分和执行由 `enemy_ai_profiles.json` 与 `EnemyAI` 运行时解释。敌人不得把其他敌人设为战斗目标，`team_enemy` 来源的伤害由 `Enemy.receive_damage()` 拒绝；中心分离只用于防重叠。游戏模式可通过 `resource_pools.enemies` 声明可用敌人池；实际波次选择、生成位置、对象池预热和伤害结算由 `Spawner`、`PoolManager`、`Combat` 与 `EnemyAI` 系统负责。
 
 ## `enemy_ai_profiles.json`
 
@@ -422,23 +422,19 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "profiles": [
     {
-      "id": "enemy_ai_predator_stalker",
+      "id": "enemy_ai_charge_stalker",
       "sense_radius": 820.0,
       "decision_interval": 0.12,
-      "contact_interval": 0.55,
       "targeting": {
         "player_weight": 0.55,
-        "hunt_tags": [{ "tag": "tag_enemy_prey", "weight": 1.65 }],
-        "flee_tags": [],
         "territory_radius": 0.0,
         "territory_weight": 0.0
       },
       "movement": {
         "orbit_radius": 190.0,
-        "flee_distance": 260.0,
         "charge_range": 320.0,
         "charge_windup": 0.34,
         "charge_duration": 0.42,
@@ -458,20 +454,14 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `schema_version` | int | 必须为 `2` | 数据结构版本；旧种间交互字段会被双端 schema 明确拒绝 |
 | `profiles[].id` | string | 文件内唯一，非空 | AI profile id；由 `enemies.csv.ai_profile_id` 引用 |
-| `profiles[].sense_radius` | number | `> 0`，px | 感知玩家和其他敌人的最大距离 |
+| `profiles[].sense_radius` | number | `> 0`，px | 感知玩家的最大距离 |
 | `profiles[].decision_interval` | number | `> 0`，秒 | 重新计算 Utility 分数的间隔 |
-| `profiles[].contact_interval` | number | `>= 0`，秒 | 同一敌人目标之间接触伤害冷却；玩家无敌仍由玩家侧裁决 |
-| `targeting.player_weight` | number | `>= 0` | 玩家作为目标的权重；为 0 时不会主动追玩家 |
-| `targeting.hunt_tags[]` | array[object] | 可为空 | 会被主动狩猎的敌人 content tag 列表 |
-| `targeting.hunt_tags[].tag` | string | 词表 §12.3 content tag | 目标敌人必须带有该 tag |
-| `targeting.hunt_tags[].weight` | number | `>= 0` | 该 tag 对目标评分的权重 |
-| `targeting.flee_tags[]` | array[object] | 可为空 | 需要逃离的敌人 content tag 列表 |
+| `targeting.player_weight` | number | `>= 0` | 玩家目标的评分权重；玩家是唯一战斗候选 |
 | `targeting.territory_radius` | number | `>= 0`，px | 离出生点超过该距离时，守家动作会加分 |
 | `targeting.territory_weight` | number | `>= 0` | 超出领地半径后的回家倾向权重 |
 | `movement.orbit_radius` | number | `>= 0`，px | 环绕目标的期望半径 |
-| `movement.flee_distance` | number | `>= 0`，px | 逃跑行为的目标距离预留；当前首片主要用于语义保留 |
 | `movement.charge_range` | number | `>= 0`，px | 进入冲锋评分的最大距离；0 表示不冲锋 |
 | `movement.charge_windup` / `charge_duration` / `charge_cooldown` | number | `>= 0`，秒 | 冲锋蓄力、释放和冷却时间 |
 | `movement.charge_speed_scale` | number | `>= 0` | 冲锋释放阶段速度倍率 |
@@ -495,14 +485,13 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,
 
 | action id | 行为 |
 |-----------|------|
-| `ai_action_approach_target` | 接近当前最高分目标，通常是玩家或猎物 |
-| `ai_action_flee_threat` | 远离当前最高分威胁 |
+| `ai_action_approach_target` | 接近玩家 |
 | `ai_action_orbit_target` | 在目标附近绕行，预留给远程 / 试探型敌人 |
 | `ai_action_charge_target` | 近距离进入蓄力和冲锋释放 FSM |
 | `ai_action_guard_home` | 离出生点太远时返回领地 |
 | `ai_action_ranged_attack` | 保持距离并发射池化投射物；投射参数来自 `movement.ranged_*` 字段 |
 
-调参建议：先改 `base_score` 和 tag `weight`，再改速度 / 半径；远程敌人先调 `ranged_cooldown`、`ranged_projectile_speed` 和 `ranged_keep_distance`，避免命中过密或玩家无法贴近。大幅改变生态关系后需要跑 `runtime-smoke` 和 golden replay；`perf-probe` 仅在用户明确要求性能测试时运行。新增 action 必须先登记 `docs/词表与契约.md` §12-B，再同步生成常量、schema、`docs/代码/enemy_ai.md` 和测试。
+调参建议：先改 `base_score`，再改速度 / 半径；远程敌人先调 `ranged_cooldown`、`ranged_projectile_speed` 和 `ranged_keep_distance`，避免命中过密或玩家无法贴近。大幅改变稳定行为后需要跑 `runtime-smoke` 和 golden replay；性能测试仅在用户明确要求时运行。新增 action 必须先登记 `docs/词表与契约.md` §12-B，再同步生成常量、schema、`docs/代码/enemy_ai.md` 和测试。schema v2 不接受旧的接触间隔、猎食 / 逃跑目标数组或逃跑距离字段。
 
 ## `hazards.csv`
 
@@ -567,7 +556,7 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "directors": [
     {
       "id": "director_standard_warzone",
@@ -580,48 +569,35 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
           "start_time": 0.0,
           "end_time": 60.0,
           "pressure_tag": "warmup",
-          "wave_ids": ["wave_standard_early_chasers"],
-          "encounter_ids": ["encounter_chaser_screen"]
+          "wave_ids": ["wave_standard_early_chasers"]
         },
         {
           "id": "phase_first_reward_node",
           "start_time": 60.0,
           "end_time": 240.0,
           "pressure_tag": "pressure",
-          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix"],
-          "encounter_ids": ["encounter_prey_swarm"]
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix"]
         },
         {
           "id": "phase_route_pressure",
           "start_time": 240.0,
           "end_time": 420.0,
-          "pressure_tag": "ecology",
-          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers"],
-          "encounter_ids": ["encounter_predator_prey"]
+          "pressure_tag": "route_pressure",
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers"]
         },
         {
           "id": "phase_minor_nest_core",
           "start_time": 420.0,
           "end_time": 540.0,
           "pressure_tag": "core",
-          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers", "wave_standard_mid_bulwarks"],
-          "encounter_ids": ["encounter_territorial_pressure", "encounter_predator_prey"]
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers", "wave_standard_mid_bulwarks"]
         },
         {
           "id": "phase_overtime_collapse",
           "start_time": 540.0,
           "end_time": 9999.0,
           "pressure_tag": "overtime",
-          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers", "wave_standard_mid_bulwarks"],
-          "encounter_ids": ["encounter_territorial_pressure", "encounter_predator_prey"]
-        }
-      ],
-      "encounters": [
-        {
-          "id": "encounter_chaser_screen",
-          "kind": "enemy_ecology",
-          "enemy_tags": ["tag_enemy"],
-          "notes": "Baseline chaser screen for opening readability."
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers", "wave_standard_mid_bulwarks"]
         }
       ],
       "interest_points": [
@@ -664,7 +640,7 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `schema_version` | int | 必须为 `2` | 数据结构版本；旧导演敌人组合元数据会被双端 schema 明确拒绝 |
 | `directors[]` | array[object] | 非空 | 战区导演列表；首片每个模式只允许一个导演 |
 | `directors[].id` | string | 文件内唯一，非空 | 导演 id；只用于调试、验证和后续工具 |
 | `directors[].mode_id` | string | 必须存在于 `game_modes.json`，且来自词表 §12-A | 该导演绑定的游戏模式 |
@@ -676,12 +652,6 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 | `phases[].end_time` | number | `> start_time`，秒 | 阶段结束时间；除最后阶段终点包含外，其余阶段终点不包含 |
 | `phases[].pressure_tag` | string | 非空 | 调试 / 平衡用节奏标签，不玩家可见 |
 | `phases[].wave_ids[]` | array[string] | 非空；必须引用同模式 `spawn_waves.csv` | 当前阶段允许的刷怪 wave；同模式所有 wave 必须至少被一个阶段引用 |
-| `phases[].encounter_ids[]` | array[string] | 非空；必须引用同 director 的 `encounters[].id` | 当前阶段的生态 / 遭遇组合标签 |
-| `directors[].encounters[]` | array[object] | 非空 | 战区生态组合声明 |
-| `encounters[].id` | string | 同 director 内唯一，非空 | encounter id |
-| `encounters[].kind` | string | 非空 | encounter 类型；首片为 `enemy_ecology` |
-| `encounters[].enemy_tags[]` | array[string] | 非空；必须来自 `content_tags` | 用敌人 tag 表达生态组合，避免按敌人 id 写逻辑 |
-| `encounters[].notes` | string | 可选，非空 | 开发者说明；不玩家可见 |
 | `directors[].interest_points[]` | array[object] | 非空 | 战区兴趣点 / 机关组合声明；匹配当前 layout 时进入初始地图机关生成 |
 | `interest_points[].id` | string | 同 director 内唯一，非空 | 兴趣点 id |
 | `interest_points[].kind` | string | 非空 | 兴趣点类型；F12 首片为 `elite_nest` / `mod_cache` / `resource_cache` / `minor_nest_core` 等调试语义 |

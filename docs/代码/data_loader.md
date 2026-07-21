@@ -32,14 +32,14 @@
 | `client/data/characters.json` | 角色基础属性、标签、能力、控制配置和起始携带引用边界 |
 | `client/data/weapons.json` | 武器与子弹基础数值、对象池、伤害类型和音频 id 边界 |
 | `client/data/skills.json` | 项目版轻量 GAS 技能、ability tag、激活条件、资源消耗、目标类型、效果原语和冷却边界 |
-| `client/data/enemy_ai_profiles.json` | 敌人生态 AI profile、感知、目标权重和动作列表边界 |
-| `client/data/enemies.csv` | 敌人基础数值、生态 tag、AI profile 引用、对象池、伤害类型和模式引用边界 |
+| `client/data/enemy_ai_profiles.json` | schema v2 敌人对玩家 AI profile、感知、动作参数和动作列表边界 |
+| `client/data/enemies.csv` | 敌人基础数值、通用 tag、AI profile 引用、对象池、伤害类型和模式引用边界 |
 | `client/data/gear_mods.json` | 装备 Mod 定义、槽位、稀有度、rank、drain、修正器和分解返还边界 |
 | `client/data/gear_mod_drop_tables.csv` | 装备 Mod 掉落来源、概率和敌人等级条件边界 |
 | `client/data/gear_mod_fusion_costs.csv` | 装备 Mod 按稀有度 / rank 的升级资源成本边界 |
 | `client/data/hazards.csv` | 机关基础数值、对象池、伤害类型和模式引用边界 |
 | `client/data/map_layouts.json` | 有限地图、玩家出生点、PCG 机关规则和人工摆点边界 |
-| `client/data/warzone_directors.json` | 敌巢战区导演、固定阶段、巢变异主题、生态 encounter、兴趣点和阶段启用 wave 边界 |
+| `client/data/warzone_directors.json` | schema v2 敌巢战区导演、固定阶段、巢变异主题、兴趣点和阶段启用 wave 边界 |
 | `client/data/module_worlds.json` / `module_templates.json` / `modules/*.json` | F13 9×9 世界几何、固定锚点、approved 模板池、路线预算、11×11 地形与内容摆放；校验跨模块通道、边界、可达性和内容预算 |
 | `client/data/spawn_waves.csv` | 刷怪波次、模式引用、敌人 / 机关引用、时间窗和强度数值边界 |
 | `client/data/relics.json` | 被动遗物 modifier / behavior 数据边界 |
@@ -97,15 +97,15 @@
   - `characters.json`：角色 id、名称 / 描述 key、默认解锁、tags、capabilities、控制配置、起始携带引用和角色基础属性；起始武器、主动道具和消耗品引用必须存在于对应数据文件。
   - `weapons.json`：武器 id、名称 / 描述 key、默认解锁、开火模式、开火音频 id、武器基础属性、子弹对象池、伤害类型和弹体数值。
   - `skills.json`：技能 id、名称 / 描述 key、`tag_skill`、ability tags、activation required / blocked / granted tags、冷却、资源消耗、目标类型和效果原语；技能 id、资源、targeting、effect 和 ability tag 必须来自词表 §12-C~12-G，`skill_effect_damage` 的伤害类型交给 `Combat` 词表校验，`skill_effect_apply_status` 的 status / stack_rule / granted ability tags 必须来自词表 §9-A / §9-B / §12-G；当状态效果同时声明正 `magnitude` 与正 `tick_interval` 时，还必须声明已登记 `damage_type`。
-  - `enemy_ai_profiles.json`：profile id、感知半径、决策间隔、接触冷却、玩家 / 生态 tag 目标权重、领地参数、动作参数和 action id；action 必须来自词表 §12-B，生态 tag 必须来自 content tags。
-  - `enemies.csv`：敌人 id、名称 key、`tag_enemy`、生态 tags、对象池 id、AI profile 引用、生命、移速、接触伤害、接触伤害类型、经验奖励和命中半径；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
+  - `enemy_ai_profiles.json`：schema v2 profile id、玩家感知半径、决策间隔、玩家权重、守家参数、动作参数和 action id；action 必须来自词表 §12-B，旧种间猎食 / 逃跑字段会被明确拒绝。
+  - `enemies.csv`：敌人 id、名称 key、`tag_enemy`、对象池 id、AI profile 引用、生命、移速、接触伤害、接触伤害类型、经验奖励和命中半径；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`，正式敌人不登记种间关系 tag。
   - `gear_mods.json`：装备 Mod id、名称 / 描述 key、英雄 / 武器 slot、稀有度、最大 rank、drain、按 rank 计算的 stat modifier、装配规则和分解返还资源；id、slot、rarity、resource、stack rule 均来自词表 §13-A~§13-E。
   - `gear_mod_drop_tables.csv`：装备 Mod 掉落来源敌人、Mod id、掉落概率和敌人等级区间；敌人必须存在于 `enemies.csv`，Mod 必须存在于 `gear_mods.json`，概率必须是 `0.0..1.0`。
   - `gear_mod_fusion_costs.csv`：装备 Mod 升到目标 rank 的资源成本；rarity 与 resource 必须来自词表，且覆盖 `gear_mods.json` 中每个已使用 rarity 的 `1..max_rank`。
   - `hazards.csv`：机关 id、名称 key、`tag_hazard`、对象池 id、伤害、伤害类型、触发间隔、范围和持续时间。
   - `map_layouts.json`：layout id、模式引用、有限地图矩形 bounds、玩家出生点、安全半径、刷怪边距、PCG 机关规则和人工机关摆点；`mode_id` 必须存在于 `game_modes.json`，所有机关 id 必须存在于 `hazards.csv`，bounds 必须分别整除 `grid.cell_width/cell_height`。
   - `spawn_waves.csv`：波次 id、模式 id、波次序号、时间窗、敌人引用、敌人权重、刷怪间隔、同时存活上限、预算，以及可选机关引用 / 权重。
-  - `warzone_directors.json`：director id、模式引用、固定 mutation、阶段时间窗、阶段启用 wave、生态 encounter 和兴趣点；`mode_id` 必须存在于 `game_modes.json`，`wave_ids` 必须引用同模式 `spawn_waves.csv`，同模式所有 wave 必须至少被一个 phase 引用，encounter enemy tags 必须来自 `content_tags`，兴趣点的 `hazard_ids` 必须非空且机关 / 地图引用必须存在。
+  - `warzone_directors.json`：schema v2 director id、模式引用、固定 mutation、阶段时间窗、阶段启用 wave 和兴趣点；`mode_id` 必须存在于 `game_modes.json`，`wave_ids` 必须引用同模式 `spawn_waves.csv`，同模式所有 wave 必须至少被一个 phase 引用，兴趣点的 `hazard_ids` 必须非空且机关 / 地图引用必须存在；旧导演敌人组合字段会被明确拒绝。
   - 模块世界：世界必须恰好 9×9、模块必须恰好 11×11；模块 / 局部 / 全局坐标、footprint、引用、审核状态、边缘通道、外圈封闭、关键路线、危险格重叠、敌人出生 footprint 全部位于 `module_cell_floor` 和角色内容预算都 fail-fast。默认池只接受 `approved` 模板；`candidate` 只能供人工审核。
   - `relics.json`：遗物 id、名称 / 描述 key、默认解锁、`tag_relic`、数值 modifiers、行为 behaviors，以及至少一个 modifier 或 behavior。
   - `active_items.json`：主动道具 id、名称 / 描述 key、默认解锁、`tag_active_item`、冷却充能、初始 / 最大充能和使用效果原语。

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "directors": [
     {
       "id": "director_standard_warzone",
@@ -12,29 +12,26 @@
           "start_time": 0.0,
           "end_time": 60.0,
           "pressure_tag": "warmup",
-          "wave_ids": ["wave_standard_early_chasers"],
-          "encounter_ids": ["encounter_chaser_screen"]
+          "wave_ids": ["wave_standard_early_chasers"]
         },
         {
           "id": "phase_first_reward_node",
           "start_time": 60.0,
           "end_time": 240.0,
           "pressure_tag": "pressure",
-          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix"],
-          "encounter_ids": ["encounter_prey_swarm"]
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix"]
         },
         {
           "id": "phase_route_pressure",
           "start_time": 240.0,
           "end_time": 420.0,
-          "pressure_tag": "ecology",
+          "pressure_tag": "route_pressure",
           "wave_ids": [
             "wave_standard_early_chasers",
             "wave_standard_swarm_mix",
             "wave_standard_stalkers",
             "wave_standard_ranged_spitters"
-          ],
-          "encounter_ids": ["encounter_predator_prey"]
+          ]
         },
         {
           "id": "phase_minor_nest_core",
@@ -47,8 +44,7 @@
             "wave_standard_stalkers",
             "wave_standard_ranged_spitters",
             "wave_standard_mid_bulwarks"
-          ],
-          "encounter_ids": ["encounter_territorial_pressure", "encounter_predator_prey"]
+          ]
         },
         {
           "id": "phase_overtime_collapse",
@@ -61,34 +57,7 @@
             "wave_standard_stalkers",
             "wave_standard_ranged_spitters",
             "wave_standard_mid_bulwarks"
-          ],
-          "encounter_ids": ["encounter_territorial_pressure", "encounter_predator_prey"]
-        }
-      ],
-      "encounters": [
-        {
-          "id": "encounter_chaser_screen",
-          "kind": "enemy_ecology",
-          "enemy_tags": ["tag_enemy"],
-          "notes": "Baseline chaser screen for opening readability."
-        },
-        {
-          "id": "encounter_prey_swarm",
-          "kind": "enemy_ecology",
-          "enemy_tags": ["tag_enemy_prey"],
-          "notes": "Prey swarm enters before predator pressure."
-        },
-        {
-          "id": "encounter_predator_prey",
-          "kind": "enemy_ecology",
-          "enemy_tags": ["tag_enemy_prey", "tag_enemy_predator"],
-          "notes": "Predator and prey tags overlap to make the nest feel inhabited."
-        },
-        {
-          "id": "encounter_territorial_pressure",
-          "kind": "enemy_ecology",
-          "enemy_tags": ["tag_enemy_territorial"],
-          "notes": "Territorial pressure introduces the mid-run bulwark spike."
+          ]
         }
       ],
       "interest_points": [
