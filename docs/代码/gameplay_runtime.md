@@ -93,13 +93,14 @@ FormalClientBoot
     │   ├── ModuleWorldManager (Node2D; default carrier coordinator)
     │   │   └── ModuleChunk × 0..9 (pooled active neighborhood only)
     │   ├── Player (CharacterBody2D)
+    │   │   ├── CollisionShape2D (CircleShape2D; blocked module-cell collision)
     │   │   ├── CenteredCamera (Camera2D; level screen with uniform scale)
     │   │   └── WeaponSystem (Node)
     │   ├── hazard_spike_* (pooled Hazard scene, active only)
     │   ├── InterestPointTarget_* (low-frequency POI target, active only)
     │   ├── InterestPointCache_* (low-frequency POI cache, active only)
     │   ├── bullet_basic_* (pooled Bullet scene, active only)
-    │   └── enemy_* (pooled Enemy scenes, active only)
+    │   └── enemy_* (pooled CharacterBody2D Enemy scenes, active only)
     └── GameplayHud (CanvasLayer)
 UIManager
     └── UIRoot
@@ -228,7 +229,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 敌人中心间距：从 `enemies.csv.separation_radius` 读取；当前默认 9px，低于 `hit_radius` 以允许视觉重叠。
 - 玩家中心排斥：从合并后的玩家 `base_stats.player_separation_radius` 读取；当前默认 10px。敌人与玩家的最小中心距离为两者分离半径之和，碰到时只推开敌人，不改变玩家移动手感；接触伤害距离会取敌人 `hit_radius` 与双方分离半径之和的较大值，避免推开后反而打不到玩家。
 - 俯视资产规则：地面范围类资产（机关、AOE、房间边界、地面符号）默认使用矩形 / 方形俯视格或清晰俯视轮廓；机关和规则型地面 footprint 尺寸应表达为格子整数倍。角色、敌人、拾取物、子弹、障碍物和特效不强制矩形，但必须有清晰俯视轮廓、方向标记、功能色和真实判定形状。AI 生成正式资源或占位替换时先写清 footprint、anchor、orientation_read、sort layer 和真实判定形状。
-- 玩家占位表现：默认由 `Player._draw()` 绘制蓝色 2D 圆点、白色朝向线和箭头，朝向标记按完整 `aim_direction` 旋转；受伤反馈为 0.16 秒红闪，不承载行为差异。正式玩家场景不再挂 `Player3DVisual`，不再用 `SubViewport + Camera3D` 正交渲染低模胶囊。
+- 玩家占位表现：默认由 `Player._draw()` 绘制蓝色 2D 圆点、白色朝向线和箭头，朝向标记按完整 `aim_direction` 旋转；受伤反馈为 0.16 秒红闪，不承载行为差异。`Player` 场景同时保留与 12 px 占位圆点一致的 `CircleShape2D`，使 `move_and_slide()` 能与模块封锁格的 `StaticBody2D` 边界碰撞；不能只画角色而省略物理 shape。正式玩家场景不再挂 `Player3DVisual`，不再用 `SubViewport + Camera3D` 正交渲染低模胶囊。
 - 敌人占位表现：从 `enemies.csv.visual_color` 读取 HTML 色值作为填充色，运行时统一绘制几何三角、暗色轮廓和眼睛描边；命中反馈为 0.16 秒暖白闪，死亡反馈为 0.18 秒橙色放大淡出，只用于开发期占位可读性，不承载行为分支。
 - 机关占位表现：通用 `Hazard` 绘制矩形危险地块；`hazards.csv.radius_tiles` 表示占用地图矩形格的整数倍，`MapManager.grid_cell_size()` 同时驱动背景网格、机关绘制和触发判定。
 - 战区导演：`warzone_directors.json` 声明当前模式的固定 phase、mutation、encounter 和兴趣点；`GameplayRunLoop` 用它 gating wave，并把当前 layout 的兴趣点交给 `MapManager` 生成初始 `source="director"` 机关；不能让它读取玩家血量、DPS、受伤次数、输入节奏或其它玩家状态。F12 当前四个兴趣点通过通用 `resource_rewards[]` / `gear_mod_rewards[]`、`requires_interaction`、`target_hp` / `target_hit_radius` 和 `completes_run` 接线，不按 `poi_id` 特判；`requires_interaction` 缓存箱和 `target_hp` 目标都必须走 MapManager 的独立 POI anchor，不能复用陷阱位置；缓存箱是贴地 POI 视觉，层级应在地图背景之上、机关 / 敌人 / 玩家模型之下；后续守卫或核心实体仍应复用 reward / objective 数据而不是新增 id 分支。

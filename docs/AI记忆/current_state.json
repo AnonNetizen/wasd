@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-07-21",
   "current_phase": "formal_project_f13_modular_grid_world",
-  "current_status": "ADR #142 已把标准模式从线性手工房间方向改为 9×9 模块连续大地图：每模块 11×11 格，单格默认 160 px 且世界级可配置，共 99×99 格；15 个 approved AI 模块与一个 candidate 封锁模块通过注册表和 schema 管理，运行时按 seed 组合并只激活玩家周围最多 3×3 模块。ModuleWorldManager / ModuleChunk / 模块迷雾、目标后撤离、敌人 / 机关 / 子弹 / 掉落槽位状态与内容敏感地图 hash 已接入，run 升 v4；旧 v3 run 显示专用不兼容提示并只重置 run，meta 不受影响。普通启动使用完整 9×9，--module-world-technical-slice 保留中心 3×3 / 外圈 72 槽封锁的 opt-in 首片。RoomManager、线性序列、演示房间、旧参数和 room-switch-smoke 已删除；open-warzone 仅保留为非默认回归路径。ADR #143 后性能测试只由用户当次明确触发，startup-probe / perf-probe 不属于日常回归、提交前、默认 CI 或 AI 交付义务。后续工作以用户最后明确指令为准。",
+  "current_status": "ADR #142 已把标准模式从线性手工房间方向改为 9×9 模块连续大地图：每模块 11×11 格，单格默认 160 px 且世界级可配置，共 99×99 格；15 个 approved AI 模块与一个 candidate 封锁模块通过注册表和 schema 管理，运行时按 seed 组合并只激活玩家周围最多 3×3 模块。ModuleWorldManager / ModuleChunk / 模块迷雾、目标后撤离、敌人 / 机关 / 子弹 / 掉落槽位状态与内容敏感地图 hash 已接入，run 升 v4；玩家与敌人均受封锁格物理边界约束，模块敌人只允许在 floor 格生成或恢复。旧 v3 run 显示专用不兼容提示并只重置 run，meta 不受影响。普通启动使用完整 9×9，--module-world-technical-slice 保留中心 3×3 / 外圈 72 槽封锁的 opt-in 首片。RoomManager、线性序列、演示房间、旧参数和 room-switch-smoke 已删除；open-warzone 仅保留为非默认回归路径。ADR #143 后性能测试只由用户当次明确触发，startup-probe / perf-probe 不属于日常回归、提交前、默认 CI 或 AI 交付义务。后续工作以用户最后明确指令为准。",
   "latest_adr": 143,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "F13 模块封锁格实体修复：Player / Enemy 使用 CharacterBody2D 碰撞模块封锁边界，敌人普通移动、冲锋和分离位移统一走碰撞移动；模块模板校验、运行时生成和 run v4 快照恢复三层拒绝封锁格敌人，只允许完整 footprint 落在 module_cell_floor。",
     "ADR #143 / 性能测试按需触发：startup-probe、perf-probe、Profiler 和同类采样不再是日常修改、提交前、常规回归、默认 CI 或 AI 交付的必跑项；现有 probe 保留，只有用户在当前任务中明确要求性能测试时才运行并按既有预算判断。",
     "ADR #142 / F13 九宫模块大地图：标准模式默认使用 9×9 模块、每模块 11×11 格的无缝世界；新增世界配置、模块注册表、15 个 approved AI 模块和 candidate 封锁模块、五组生成契约、DataLoader/Python 双校验、ModuleWorldManager/ModuleChunk/9×9 迷雾、3×3 流式邻域、目标后撤离、敌人 / 机关 / 子弹 / 掉落槽位状态、内容敏感地图 hash、run v4 与旧 v3 专用不兼容重置；中心 3×3 技术首片保留 opt-in 启动与自动 smoke，旧 RoomManager 线性房间链路已删除，open-warzone 仅作显式回归。",
     "ADR #141 / Godot 4.7.1 项目说明同步：当前开发、验证和推荐编辑器基线已精确为 Godot 4.7.1 stable；README、正式客户端、Test Lab、Steamworks Lab、GDD v1.19、AI 导航、CI / 启动模块文档、CodeBuddy / Codex / Claude 完整规则及 .agents / 四平台 godot-gdscript skill 已同步。Godot 项目特性标识、官方 4.7 文档路径、Steam 4.7 系列兼容锁与工具行为保持不变，未修改 .gd、.py、project.godot、测试或数据 schema。",
@@ -123,11 +124,16 @@
     "如果继续机关内容，优先改 client/data/hazards.csv、game_modes.resource_pools.hazards 和 map_layouts.json；普通矩形范围机关复用通用 Hazard，hazards.csv.radius_tiles 是占用地图矩形格的正整数，新增行为先设计 primitive。",
     "如果继续技能 / 轻量 GAS，优先改 client/data/skills.json、characters.json.skill_resources / starting_loadout.skill_ids 和 game_modes.resource_pools.skills；当前默认主键是 skill_overdrive_rounds，通过 skill_effect_weapon_modifiers 临时强化主武器；新资源、目标类型、效果或 ability tag 先登记 docs/词表与契约.md §12-C~12-G。",
     "如果继续状态效果，先看 docs/代码/status_effect_component.md；新状态登记 docs/词表与契约.md §9-A，新叠加规则登记 §9-B；DoT 状态通过 skill_effect_apply_status 提供 damage_type / magnitude / tick_interval，或后续 on-hit primitive 注入目标实体的 StatusEffectComponent。",
-    "如果继续怪物生态，优先改 client/data/enemy_ai_profiles.json 与 enemies.csv.tags / ai_profile_id；敌人普通移动、冲锋、中心分离和快照恢复必须保留有限地图矩形边界 clamp，再跑 validate_data、runtime-smoke 和必要的 golden replay。",
+    "如果继续怪物生态，优先改 client/data/enemy_ai_profiles.json 与 enemies.csv.tags / ai_profile_id；敌人普通移动、冲锋、中心分离必须统一走 CharacterBody2D 碰撞并保留有限地图矩形边界 clamp，模块生成 / 恢复只能落在 floor，再跑 validate_data、module-world-smoke、runtime-smoke 和必要的 golden replay。",
     "正式客户端当前只支持固定 16:9 分辨率预设，非 16:9 屏幕加黑边；不要在近期任务中自行推进 16:10、4:3、21:9 或连续响应式适配。未来用户明确点名后，再为目标比例建立独立固定预设，并补 UI、瞄准、截图和玩法视野验收。",
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-21",
+      "command": "sync_contracts --check; validate_data; test_data_loader_schema; py_compile; lint_gdscript_rules/semantic_rules; docs_health_check; export-tree; headless-boot; module-world-smoke; runtime-smoke; save-smoke; l1-smoke; git diff --check",
+      "result": "passed for F13 blocked-terrain entity fixes: Enemy is a pooled CharacterBody2D whose ordinary, charge and separation movement collide with ModuleChunk static boundaries; module template validation, runtime spawn and run-v4 snapshot restore reject blocked cells; module-world-smoke covers known floor/blocked queries, player and enemy wall collision, blocked spawn and blocked snapshot restore. Runtime/save negative-save diagnostics and module hash mismatch diagnostics are expected test cases. Semantic lint exited 0 with 40 reviewed advisories. No performance probe was run per user policy."
+    },
     {
       "date": "2026-07-21",
       "command": "JSON current_state/_kb_index; docs_health_check; git diff --check; performance-policy reference audit",

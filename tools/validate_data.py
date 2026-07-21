@@ -2329,6 +2329,8 @@ def _validate_module_file(
             count = _require_int(ctx, path, f"{field}.count", placement.get("count"), minimum=1)
             if count is not None:
                 enemy_count += count
+            if any(not _module_cell_is_floor(terrain_rows, footprint_cell) for footprint_cell in footprint):
+                ctx.error(path, f"{field}.cell", "enemy spawn footprint must use module_cell_floor terrain")
             danger_cells.update(footprint)
         elif placement_type == "module_place_hazard":
             hazard_id = _require_non_empty_string(ctx, path, f"{field}.hazard_id", placement.get("hazard_id"))
@@ -2371,6 +2373,14 @@ def _validate_module_file(
     if role == "module_role_start" and start_cell is not None:
         if any(max(abs(cell[0] - start_cell[0]), abs(cell[1] - start_cell[1])) <= 2 for cell in danger_cells):
             ctx.error(path, "placements", "player start must have a 2-cell danger-free safe radius")
+
+
+def _module_cell_is_floor(terrain_rows: list[Any], cell: tuple[int, int]) -> bool:
+    x, y = cell
+    if y < 0 or y >= len(terrain_rows) or not isinstance(terrain_rows[y], list):
+        return False
+    row = terrain_rows[y]
+    return 0 <= x < len(row) and row[x] == "module_cell_floor"
 
 
 def _validate_module_footprint(

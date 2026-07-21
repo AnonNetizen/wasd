@@ -861,6 +861,8 @@ func _spawn_module_placements(module_coord: Vector2i, placements: Array[Dictiona
 func _spawn_enemy_at(enemy_id: String, spawn_position: Vector2, spawn_key: String, module_slot: String = "") -> bool:
 	if not _enemy_rows.has(enemy_id):
 		return false
+	if not module_slot.is_empty() and not _is_module_world_position_walkable(spawn_position):
+		return false
 	var enemy_data: Dictionary = _enemy_rows[enemy_id]
 	var pool_id: String = String(enemy_data.get("pool_id", ""))
 	var raw_node: Node = PoolManager.acquire(pool_id)
@@ -2068,6 +2070,10 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 		var enemy_id: String = String(snapshot_data.get("enemy_id", ""))
 		if not _enemy_rows.has(enemy_id):
 			continue
+		var module_slot: String = String(snapshot_data.get("module_slot", ""))
+		var restored_position: Vector2 = _dict_to_vector(snapshot_data.get("position", {}), Vector2.ZERO)
+		if not module_slot.is_empty() and not _is_module_world_position_walkable(restored_position):
+			continue
 		var enemy_data: Dictionary = _enemy_rows[enemy_id]
 		var pool_id: String = String(enemy_data.get("pool_id", ""))
 		var raw_node: Node = PoolManager.acquire(pool_id)
@@ -2076,9 +2082,9 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 
 		var enemy: Node2D = raw_node as Node2D
 		_reparent_to_active_world(enemy)
+		enemy.global_position = restored_position
 		var wave_key: String = String(snapshot_data.get("wave_key", ""))
 		enemy.set_meta("wave_key", wave_key)
-		var module_slot: String = String(snapshot_data.get("module_slot", ""))
 		if module_slot.is_empty():
 			if enemy.has_meta("module_slot"):
 				enemy.remove_meta("module_slot")
@@ -2089,6 +2095,15 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 		if enemy.has_method("restore_snapshot"):
 			enemy.call("restore_snapshot", snapshot_data)
 		_connect_enemy_defeated(enemy, wave_key)
+
+
+func _is_module_world_position_walkable(world_position: Vector2) -> bool:
+	return (
+		_module_world_enabled
+		and _module_world_manager != null
+		and _module_world_manager.has_method("is_world_position_walkable")
+		and bool(_module_world_manager.call("is_world_position_walkable", world_position))
+	)
 
 
 func _restore_bullet_snapshots(bullet_snapshots: Array) -> void:

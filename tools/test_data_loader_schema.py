@@ -101,6 +101,11 @@ def main() -> int:
             ["client/data/modules/module_start_cross.json:placements[0].cell.x", "must be < 11"],
         ),
         (
+            "module enemy spawn must use floor terrain",
+            _mutate_json("client/data/modules/module_combat_arena.json", _set_module_enemy_spawn_on_blocked_cell),
+            ["client/data/modules/module_combat_arena.json:placements[", "enemy spawn footprint must use module_cell_floor terrain"],
+        ),
+        (
             "module role content budget must be enforced",
             _mutate_json("client/data/modules/module_combat_arena.json", _exceed_combat_enemy_budget),
             ["client/data/modules/module_combat_arena.json:placements", "combat enemy count must be between 6 and 12"],
@@ -1440,6 +1445,13 @@ def _set_unknown_module_placement(payload: dict[str, Any]) -> None:
 
 def _set_module_placement_out_of_bounds(payload: dict[str, Any]) -> None:
     payload["placements"][0]["cell"]["x"] = 11
+
+
+def _set_module_enemy_spawn_on_blocked_cell(payload: dict[str, Any]) -> None:
+    for placement in payload["placements"]:
+        if placement["type"] == "module_place_enemy_spawn":
+            placement["cell"] = {"x": 0, "y": 0}
+            return
 
 
 def _exceed_combat_enemy_budget(payload: dict[str, Any]) -> None:

@@ -25,6 +25,19 @@ func _run() -> void:
 		_finish()
 		return
 	_expect(bool(run_loop.call("debug_module_world_enabled")), "module world should be the standard carrier")
+	var player_node: Node = _find_node_by_name(get_tree().root, "Player")
+	var module_world_node: Node = _find_node_by_name(get_tree().root, "ModuleWorldManager")
+	var player_collision: CollisionShape2D = player_node.get_node_or_null("CollisionShape2D") as CollisionShape2D if player_node != null else null
+	_expect(
+		player_node is Node2D
+		and module_world_node is Node2D
+		and (module_world_node as Node2D).z_index < (player_node as Node2D).z_index,
+		"module terrain should render below the player"
+	)
+	_expect(
+		player_collision != null and player_collision.shape is CircleShape2D,
+		"player should expose a physical collision shape for blocked module cells"
+	)
 
 	var summary: Dictionary = run_loop.call("debug_summary")
 	var world_summary: Dictionary = summary.get("module_world", {}) as Dictionary
@@ -109,6 +122,60 @@ func _expect_deterministic_composition() -> void:
 func _expect_seamless_streaming(run_loop: Node) -> void:
 	var before: Dictionary = run_loop.call("debug_summary")
 	var before_hash: String = String((before.get("module_world", {}) as Dictionary).get("map_hash", ""))
+	var manager: Node = _find_node_by_name(get_tree().root, "ModuleWorldManager")
+	_expect(manager != null, "module world manager should remain available during streaming")
+	if manager != null:
+		_expect(bool(manager.call("is_world_position_walkable", Vector2(-160.0, -160.0))), "known center floor cell should be walkable")
+		_expect(not bool(manager.call("is_world_position_walkable", Vector2(-320.0, -160.0))), "known center blocked cell should not be walkable")
+		for active_enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+			if active_enemy is Node2D and not String(active_enemy.get_meta("module_slot", "")).is_empty():
+				_expect(
+					bool(manager.call("is_world_position_walkable", (active_enemy as Node2D).global_position)),
+					"module enemy placement should spawn on floor terrain"
+				)
+	var blocked_spawned: bool = bool(run_loop.call(
+		"_spawn_enemy_at",
+		"enemy_chaser",
+		Vector2(-320.0, -160.0),
+		"module_blocked_spawn_test",
+		"4,4"
+	))
+	_expect(not blocked_spawned, "runtime should reject an enemy spawn on blocked module terrain")
+	run_loop.call("_restore_enemy_snapshots", [{
+		"enemy_id": "enemy_chaser",
+		"module_slot": "4,4",
+		"position": _vector_to_dict(Vector2(-320.0, -160.0)),
+		"wave_key": "module_blocked_restore_test",
+	}])
+	_expect(
+		_find_active_enemy_by_wave_key("module_blocked_restore_test") == null,
+		"runtime should reject an enemy snapshot restored on blocked module terrain"
+	)
+	# The center start module has a floor cell at (-160, -160) and a blocked cell
+	# directly to its left. Real CharacterBody2D movement must stop at that wall.
+	run_loop.call("debug_set_player_position", Vector2(-160.0, -160.0))
+	await get_tree().physics_frame
+	Input.action_press(ACTIONS.MOVE_LEFT)
+	for _physics_tick: int in range(45):
+		await get_tree().physics_frame
+	Input.action_release(ACTIONS.MOVE_LEFT)
+	var wall_test_player: Node = _find_node_by_name(get_tree().root, "Player")
+	_expect(
+		wall_test_player is Node2D and (wall_test_player as Node2D).global_position.x > -240.0,
+		"player physics body should not enter a blocked module cell"
+	)
+	var debug_spawn: Dictionary = run_loop.call("debug_spawn_enemy", "enemy_chaser", 1)
+	_expect(bool(debug_spawn.get("ok", false)), "enemy wall test should spawn a chaser")
+	var wall_test_enemy: Node2D = _find_active_enemy_by_wave_key("debug_enemy_chaser")
+	_expect(wall_test_enemy != null, "enemy wall test should find its spawned chaser")
+	if wall_test_enemy != null:
+		run_loop.call("debug_set_player_position", Vector2(-320.0, -160.0))
+		wall_test_enemy.global_position = Vector2(-160.0, -160.0)
+		await get_tree().physics_frame
+		for _physics_tick: int in range(120):
+			await get_tree().physics_frame
+		_expect(wall_test_enemy.global_position.x > -240.0, "enemy physics body should not enter a blocked module cell")
+		PoolManager.release(wall_test_enemy)
 	# Start inside the center module's east doorway and cross the shared seam using
 	# normal CharacterBody2D movement so a bad collision merge cannot hide behind a teleport.
 	run_loop.call("debug_set_player_position", Vector2(800.0, 0.0))
@@ -158,7 +225,6 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	await _wait_frames(BOOT_FRAMES)
 	_expect(not _has_active_entity_at("active_bullets", bullet_position), "deactivated module should release its projectile")
 	_expect(not _has_active_entity_at("active_pickups", pickup_position), "deactivated module should release its pickup")
-	var manager: Node = _find_node_by_name(get_tree().root, "ModuleWorldManager")
 	var stored_state: Dictionary = manager.call("slot_state", Vector2i(5, 4)) if manager != null else {}
 	_expect((stored_state.get("bullet_snapshots", []) as Array).size() == 1, "deactivated slot should retain one projectile snapshot")
 	_expect((stored_state.get("pickup_snapshots", []) as Array).size() == 1, "deactivated slot should retain one pickup snapshot")
@@ -269,6 +335,13 @@ func _has_active_entity_at(group_name: String, expected_position: Vector2) -> bo
 		if node is Node2D and is_instance_valid(node) and (node as Node2D).global_position.is_equal_approx(expected_position):
 			return true
 	return false
+
+
+func _find_active_enemy_by_wave_key(wave_key: String) -> Node2D:
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if enemy is Node2D and String(enemy.get_meta("wave_key", "")) == wave_key:
+			return enemy as Node2D
+	return null
 
 
 func _vector_to_dict(value: Vector2) -> Dictionary:

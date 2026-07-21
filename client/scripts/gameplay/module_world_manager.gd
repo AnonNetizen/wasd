@@ -23,6 +23,7 @@ const ROTATION_STEP: int = 90
 const ROTATION_FULL: int = 360
 const ASSIGNMENT_SEED_MODULUS: int = 2_147_483_647
 const INVALID_COORD: Vector2i = Vector2i(-1, -1)
+const MODULE_TERRAIN_Z_INDEX: int = -90
 
 var _world_def: Dictionary = {}
 var _registry_by_id: Dictionary = {}
@@ -40,6 +41,10 @@ var _slot_states: Dictionary = {}
 var _active_chunks: Dictionary = {}
 var _chunk_pool: Array[ModuleChunkRuntime] = []
 var _configured: bool = false
+
+
+func _init() -> void:
+	z_index = MODULE_TERRAIN_Z_INDEX
 
 
 func configure(
@@ -144,6 +149,11 @@ func global_cell_to_world(global_cell: Vector2i) -> Vector2:
 		float(global_cell.x - WORLD_CENTER_GLOBAL_CELL.x) * _cell_size,
 		float(global_cell.y - WORLD_CENTER_GLOBAL_CELL.y) * _cell_size
 	)
+
+
+func is_world_position_walkable(world_position: Vector2) -> bool:
+	var global_cell: Vector2i = world_to_global_cell(world_position)
+	return _is_global_cell_valid(global_cell) and _terrain_at_global_cell(global_cell) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR
 
 
 func global_cell_to_module_and_local(global_cell: Vector2i) -> Dictionary:

@@ -33,6 +33,7 @@
 | `tick(player_position)` | 更新当前模块、迷雾和 chunk 流式变更 |
 | `world_to_global_cell()` / `global_cell_to_world()` | 世界坐标与 99×99 全局格转换 |
 | `global_cell_to_module_and_local()` / `module_local_to_global_cell()` | 全局格与模块 + 局部格转换 |
+| `is_world_position_walkable()` | 判断世界位置是否落在有效 `module_cell_floor`；模块敌人生成 / 恢复门禁复用此入口 |
 | `placements_at(module_coord)` | 返回已旋转、含 `world_position` 的内容摆放 |
 | `set_slot_state()` / `slot_state()` | 保存按世界槽位隔离的动态状态 |
 | `snapshot()` / `restore_state()` | run v4 assignment、内容敏感 map hash、迷雾和槽位状态 roundtrip；hash / assignment 不一致时返回失败，不继续恢复旧实体 |
@@ -40,7 +41,7 @@
 
 ## 4. ModuleChunk
 
-`ModuleChunk` 只用 `_draw()` 批量绘制地形，并用一个 `StaticBody2D` + 一个合并 `ConcavePolygonShape2D` 表达封锁格边界。禁止为 121 个格逐格创建 Node，也禁止同时实例化 81 个 chunk。
+`ModuleChunk` 只用 `_draw()` 批量绘制地形，并用一个 `StaticBody2D` + 一个合并 `ConcavePolygonShape2D` 表达封锁格边界；玩家和敌人都必须保留 `CollisionShape2D`，否则 `CharacterBody2D` 不会与这些边界发生碰撞。敌人的碰撞层不与玩家或其他敌人物理互顶，只用 mask 命中模块地形；原有中心分离继续负责实体间距。`ModuleWorldManager` 使用显式 `z_index=-90`，使模块地形位于 `WorldBackground(-100)` / `MapManager(-95)` 之上，同时稳定处于玩家、敌人、机关和目标实体之下；不能依赖动态节点的场景树加入顺序决定遮挡关系。禁止为 121 个格逐格创建 Node，也禁止同时实例化 81 个 chunk。
 
 ## 5. 验证
 
@@ -56,4 +57,4 @@ python tools/godot_bridge.py --project client save-smoke
 
 性能测试不属于本模块的默认验证义务；只有用户当次明确要求时，才追加 `python tools/godot_bridge.py --project client startup-probe` 或 `perf-probe`。
 
-`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、不同 seed 普通槽变化、中心坐标、物理移动无缝跨边界、最多 9 个 chunk、离开 / 返回不重复刷怪、子弹 / 掉落流式恢复、迷雾、目标后撤离、run v4 恢复和 hash mismatch fail closed。`module-world-technical-slice-smoke` 通过正式 opt-in 入口追加中心 3×3 / 外圈 72 槽封锁的完整流程回归。
+`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、不同 seed 普通槽变化、中心坐标、模块地形低于玩家的显式绘制层、玩家 / 敌人物理体不能进入封锁格、敌人封锁格出生拒绝、门洞无缝跨边界、最多 9 个 chunk、离开 / 返回不重复刷怪、子弹 / 掉落流式恢复、迷雾、目标后撤离、run v4 恢复和 hash mismatch fail closed。`module-world-technical-slice-smoke` 通过正式 opt-in 入口追加中心 3×3 / 外圈 72 槽封锁的完整流程回归。

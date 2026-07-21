@@ -9,6 +9,7 @@
 - 支持敌人感知玩家、其他敌人和出生点 / 领地，不再只写死“朝玩家直线前进”。
 - 用 Utility AI 做动作选择，用小型 FSM 执行有阶段的动作（当前是冲锋蓄力 / 释放），用 Steering 负责移动方向。
 - 敌人普通移动、冲锋、中心分离和续局恢复位置都受 `MapManager` 的矩形逻辑边界约束，避免 AI 或分离逻辑把敌人中心推出有限地图。
+- 模块世界中 `Enemy` 使用 `CharacterBody2D` + 按 `hit_radius` 配置的圆形碰撞，只与模块封锁地形层发生物理碰撞；模板生成与 run 恢复都拒绝把敌人放进 `module_cell_blocked`。
 - 所有伤害仍走 `Combat.apply_damage()`；敌人打死敌人不会计入玩家击杀，也不会掉经验。
 - Enemy 同时是实体状态宿主：持续状态走 `StatusEffectComponent` 和 owned ability tags，不把沉默、减速、DoT 等状态硬写进 AI profile / action。
 - 保持对象池、保存续局和回放可控：节点来自 `PoolManager`，可恢复 AI 状态和实体状态只保存 JSON 友好字段，不保存节点引用。
@@ -44,8 +45,8 @@
 | 配置 | `Enemy.configure(enemy_data, player)` 记录基础数值、内容 tags、profile、动作列表和出生点，并清空对象池复用残留的状态效果 / owned ability tags；`GameplayRunLoop` 随后注入地图移动边界 | 节点加入 `active_enemies` 组供其他敌人感知 |
 | 感知 | 决策 tick 内扫描玩家与 `active_enemies`，按 `player_weight`、`hunt_tags`、`flee_tags` 和距离计算候选目标 / 威胁 | 只看带 `content_tags()` 且 `is_alive()` 的敌人 |
 | 选择 | 每个 action 由 `_action_candidate()` 得分；最高分成为 `_current_action` 和 `_focus_target` | 当前 action 包括接近、逃离、环绕、冲锋、守家 |
-| 执行 | 无阶段动作直接 Steering 移动；冲锋进入 `charge_windup` / `charge_release` FSM | 冲锋结束后进入 cooldown，避免连续锁死 |
-| 边界 | 普通移动、冲锋移动、中心分离和快照恢复后统一 clamp 到有限地图矩形边界 | `Enemy.set_movement_bounds()` |
+| 执行 | 无阶段动作通过 `CharacterBody2D.move_and_collide()` + 剩余位移滑动执行 Steering；冲锋进入 `charge_windup` / `charge_release` FSM | 封锁格阻挡普通移动、中心分离和冲锋；冲锋结束后进入 cooldown，避免连续锁死 |
+| 边界 | 普通移动、冲锋移动、中心分离和快照恢复后统一 clamp 到有限地图矩形边界；模块敌人生成 / 恢复位置还必须通过 `ModuleWorldManager.is_world_position_walkable()` | `Enemy.set_movement_bounds()`、`ModuleWorldManager.is_world_position_walkable()` |
 | 接触 | 根据当前 action 选择可接触目标；逃跑和无目标守家不造成接触伤害 | 玩家 / 敌人都通过 `Combat.apply_damage()` |
 | 状态 | `skill_effect_apply_status` 或未来 on-hit primitive 可向 Enemy 施加 `StatusEffect`；组件在 `PLAYING` 下按 `GameClock` 过期，释放授予的 ability tags，并让 burn 等 DoT tick 走 `Combat` | 状态生命周期与 AI profile 分离 |
 | 死亡 | `Enemy.receive_damage()` 记录最后伤害来源队伍；`GameplayRunLoop._on_enemy_defeated()` 只把玩家击杀计入 kills / XP | 怪物生态可以互相击杀但不刷玩家收益 |
@@ -134,6 +135,7 @@
 | 敌人不动 | profile 是否有 `actions[]`；`move_speed` 是否大于 0；`GameState` 是否为 `PLAYING` |
 | 敌人只追玩家 | `enemies.csv.tags` 是否含生态 tag；profile 的 `hunt_tags` / `flee_tags` 是否有权重；目标是否在 `sense_radius` 内 |
 | 敌人跑到地图外 | `GameplayRunLoop` 是否在生成和恢复敌人后调用 `Enemy.set_movement_bounds()`；普通移动 / 冲锋 / 中心分离后是否仍执行 clamp；`runtime-smoke` 是否通过移动边界断言 |
+| 敌人穿过封锁格或出生在封锁格 | `Enemy` 根节点是否仍为 `CharacterBody2D` 且 `CollisionShape2D` 启用；模块敌人 placement footprint 是否全为 `module_cell_floor`；`module-world-smoke` 是否同时通过墙体阻挡和封锁格出生拒绝断言 |
 | 掠食者不冲锋 | `charge_range`、`charge_cooldown_remaining`、当前目标距离和 action base_score |
 | 怪物互咬太快 | 提高 `contact_interval` 或降低 `contact_damage` / 速度 |
 | 怪物互杀给玩家经验 | `was_defeated_by_player()` 与 `_on_enemy_defeated()` 是否仍按最后伤害来源判定 |
@@ -144,13 +146,13 @@
 ## 测试义务
 
 - 改 profile / enemies 数据：跑 `python tools/validate_data.py`、`python tools/test_data_loader_schema.py`、`python tools/sync_contracts.py --check`。
-- 改 `enemy.gd`：跑 `python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client runtime-smoke`；移动边界相关必须覆盖敌人靠近地图边缘、逃跑 / 冲锋和快照恢复 clamp。
+- 改 `enemy.gd`：跑 `python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client runtime-smoke`；移动边界相关必须覆盖敌人靠近地图边缘、逃跑 / 冲锋和快照恢复 clamp，模块碰撞相关追加 `module-world-smoke` 的墙体阻挡与封锁格出生拒绝。
 - 改 AI 决策、怪物死亡归因、刷怪数据或影响稳定帧样本：重录并回放四条 checked-in golden replay；`perf-probe` 只在用户明确要求性能测试时用于观察敌人峰值和帧时间。
 - 改实体状态宿主、owned ability tag 或 run 快照字段：追加 `l1-smoke` 与 `save-smoke`，并检查旧 run payload 的迁移 / fallback。
 
 ## 迁移 / 兼容
 
-现有 `Enemy` 场景仍是单一 `Node2D` 占位形状；行为差异来自数据而不是新场景。旧敌人数据现在必须补 `ai_profile_id`，否则 DataLoader fail-fast。旧 run 存档如果缺少新增 AI 快照字段，会按当前位置、空动作和默认 cooldown 恢复；如果缺少 `status_effects` / `owned_tag_counts`，按无状态敌人恢复，保持可加载但不保证回放逐帧一致。
+现有 `Enemy` 场景仍是单一数据驱动占位场景，但根节点已是 `CharacterBody2D` 并带圆形物理 shape；行为差异继续来自数据而不是新场景。旧敌人数据现在必须补 `ai_profile_id`，否则 DataLoader fail-fast。旧 run 存档如果缺少新增 AI 快照字段，会按当前位置、空动作和默认 cooldown 恢复；模块敌人的旧快照若位于封锁格则不再恢复。如果缺少 `status_effects` / `owned_tag_counts`，按无状态敌人恢复，保持可加载但不保证回放逐帧一致。
 
 ## 相关文档
 

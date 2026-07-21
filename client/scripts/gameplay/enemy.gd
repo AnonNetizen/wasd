@@ -1,7 +1,7 @@
 # Doc: docs/代码/enemy_ai.md
 # Authority: docs/游戏设计文档.md §5.3, docs/词表与契约.md §12-B
 class_name Enemy
-extends Node2D
+extends CharacterBody2D
 
 
 signal defeated(enemy: Node, exp_reward: int)
@@ -34,6 +34,7 @@ var _ai_profile: Dictionary = {}
 var _ai_profile_id: String = ""
 var _charge_cooldown_remaining: float = 0.0
 var _charge_direction: Vector2 = Vector2.ZERO
+var _collision_shape: CollisionShape2D = null
 var _contact_cooldowns: Dictionary = {}
 var _contact_damage: float = 0.0
 var _contact_damage_type: String = ""
@@ -91,6 +92,7 @@ func _physics_process(delta: float) -> void:
 
 
 func configure(enemy_data: Dictionary, target: Node2D) -> void:
+	velocity = Vector2.ZERO
 	_defeat_feedback_remaining = 0.0
 	_clear_status_effects_for_reuse()
 	_player_target = target
@@ -125,6 +127,7 @@ func configure(enemy_data: Dictionary, target: Node2D) -> void:
 	_exp_reward = int(enemy_data.get("exp_reward", 0))
 	_hit_radius = float(enemy_data.get("hit_radius", 0.0))
 	_separation_radius = float(enemy_data.get("separation_radius", 0.0))
+	_configure_collision_shape()
 	_visual_color = _parse_visual_color(String(enemy_data.get("visual_color", "#ff6152")))
 	if _player_target != null and is_instance_valid(_player_target):
 		_update_facing(_player_target.global_position - global_position)
@@ -295,6 +298,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 
 
 func _pool_reset() -> void:
+	velocity = Vector2.ZERO
 	_actions.clear()
 	_action_state = ""
 	_action_timer = 0.0
@@ -328,15 +332,18 @@ func _pool_reset() -> void:
 	_tags.clear()
 	_visual_color = Color(1.0, 0.38, 0.32)
 	visible = true
+	_set_collision_enabled(false)
 
 
 func _pool_release() -> void:
+	velocity = Vector2.ZERO
 	remove_from_group("active_enemies")
 	_defeat_feedback_remaining = 0.0
 	_clear_status_effects_for_reuse()
 	clear_movement_bounds()
 	_focus_target = null
 	_player_target = null
+	_set_collision_enabled(false)
 
 
 func _draw() -> void:
@@ -650,7 +657,7 @@ func _move_in_direction(direction: Vector2, speed_scale: float, delta: float) ->
 		return
 	var normalized: Vector2 = direction.normalized()
 	_update_facing(normalized)
-	global_position += normalized * _move_speed * maxf(speed_scale, 0.0) * delta
+	_move_with_collision(normalized * _move_speed * maxf(speed_scale, 0.0) * delta)
 	_apply_movement_bounds()
 
 
@@ -809,7 +816,7 @@ func _apply_center_separation() -> void:
 	offset += _target_separation_offset()
 
 	if offset.length_squared() > 0.0:
-		global_position += offset
+		_move_with_collision(offset)
 		_apply_movement_bounds()
 
 
@@ -986,6 +993,43 @@ func _clamp_to_movement_bounds(world_position: Vector2) -> Vector2:
 		clampf(world_position.x, _movement_bounds.position.x, _movement_bounds.end.x),
 		clampf(world_position.y, _movement_bounds.position.y, _movement_bounds.end.y)
 	)
+
+
+func _move_with_collision(motion: Vector2) -> void:
+	if motion.length_squared() <= 0.0:
+		return
+	var collision: KinematicCollision2D = move_and_collide(motion)
+	if collision == null:
+		return
+	var slide_motion: Vector2 = collision.get_remainder().slide(collision.get_normal())
+	if slide_motion.length_squared() > 0.0:
+		move_and_collide(slide_motion)
+
+
+func _configure_collision_shape() -> void:
+	var collision_shape: CollisionShape2D = _collision_shape_node()
+	if collision_shape == null:
+		push_error("[Enemy] missing CollisionShape2D scene node")
+		return
+	var circle_shape: CircleShape2D = collision_shape.shape as CircleShape2D
+	if circle_shape == null:
+		circle_shape = CircleShape2D.new()
+		collision_shape.shape = circle_shape
+	circle_shape.radius = maxf(_hit_radius, 1.0)
+	collision_shape.disabled = false
+
+
+func _set_collision_enabled(enabled: bool) -> void:
+	var collision_shape: CollisionShape2D = _collision_shape_node()
+	if collision_shape != null:
+		collision_shape.disabled = not enabled
+
+
+func _collision_shape_node() -> CollisionShape2D:
+	if _collision_shape == null or not is_instance_valid(_collision_shape):
+		_collision_shape = get_node_or_null("CollisionShape2D") as CollisionShape2D
+	return _collision_shape
+
 
 func _ensure_status_effect_component() -> void:
 	if _status_effect_component != null and is_instance_valid(_status_effect_component):

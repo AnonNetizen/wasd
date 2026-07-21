@@ -4,6 +4,7 @@ class_name DataLoaderAutoload
 extends Node
 
 
+const MODULE_CELL_TOKENS := preload("res://scripts/contracts/module_cell_tokens.gd")
 const MODULE_EDGE_DIRECTIONS := preload("res://scripts/contracts/module_edge_directions.gd")
 const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placement_types.gd")
 const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
@@ -2605,11 +2606,11 @@ func _validate_module_file(resource_path: String, data: Dictionary, expected_id:
 					is_valid = _schema_fail(resource_path, "edge_sockets.%s[%d]" % [edge, socket_index], "unique integer 0..10") and is_valid
 				elif _is_int_like(socket):
 					seen[int(socket)] = true
-	var placement_result: Dictionary = _validate_module_placements(resource_path, data.get("placements"), role, enemy_ids, hazard_ids)
+	var placement_result: Dictionary = _validate_module_placements(resource_path, data.get("placements"), terrain_rows, role, enemy_ids, hazard_ids)
 	return bool(placement_result.get("is_valid", false)) and is_valid
 
 
-func _validate_module_placements(resource_path: String, value: Variant, role: String, enemy_ids: Dictionary, hazard_ids: Dictionary) -> Dictionary:
+func _validate_module_placements(resource_path: String, value: Variant, terrain_rows: Array, role: String, enemy_ids: Dictionary, hazard_ids: Dictionary) -> Dictionary:
 	var placements: Array = _require_array(resource_path, "placements", value)
 	var is_valid: bool = value is Array
 	var counts: Dictionary = {}
@@ -2648,6 +2649,8 @@ func _validate_module_placements(resource_path: String, value: Variant, role: St
 				is_valid = _require_int(resource_path, "%s.count" % field, placement.get("count"), 1) and is_valid
 				if _is_int_like(placement.get("count")):
 					enemy_count += int(placement.get("count"))
+				if not _module_cells_are_floor(terrain_rows, cells):
+					is_valid = _schema_fail(resource_path, "%s.cell" % field, "enemy spawn footprint on module_cell_floor terrain") and is_valid
 				for danger: Variant in cells.keys():
 					danger_cells[danger] = true
 			MODULE_PLACEMENT_TYPES.MODULE_PLACE_HAZARD:
@@ -2694,6 +2697,19 @@ func _validate_module_placements(resource_path: String, value: Variant, role: St
 			if maxi(absi(danger_cell.x - (start_cell as Vector2i).x), absi(danger_cell.y - (start_cell as Vector2i).y)) <= 2:
 				is_valid = _schema_fail(resource_path, "placements", "2-cell danger-free player start radius") and is_valid
 	return {"is_valid": is_valid}
+
+
+func _module_cells_are_floor(terrain_rows: Array, cells: Dictionary) -> bool:
+	for raw_cell: Variant in cells.keys():
+		if not raw_cell is Vector2i:
+			return false
+		var cell: Vector2i = raw_cell as Vector2i
+		if cell.y < 0 or cell.y >= terrain_rows.size() or not terrain_rows[cell.y] is Array:
+			return false
+		var row: Array = terrain_rows[cell.y] as Array
+		if cell.x < 0 or cell.x >= row.size() or String(row[cell.x]) != MODULE_CELL_TOKENS.MODULE_CELL_FLOOR:
+			return false
+	return true
 
 
 func _validate_module_footprint(resource_path: String, field: String, value: Variant, cell: Vector2i) -> Dictionary:
