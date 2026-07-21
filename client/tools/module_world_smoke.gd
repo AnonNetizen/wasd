@@ -3,6 +3,7 @@ extends Node
 ## objective-to-extraction flow and run-v4 restore.
 
 const MODULE_WORLD_MANAGER_SCRIPT := preload("res://scripts/gameplay/module_world_manager.gd")
+const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
@@ -105,6 +106,7 @@ func _expect_deterministic_composition() -> void:
 	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_START) == Vector2i(4, 4), "technical slice should retain the center start")
 	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_OBJECTIVE) == Vector2i(3, 4), "technical slice should expose its in-slice objective anchor")
 	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_EXTRACTION) == Vector2i(3, 3), "technical slice should expose its in-slice extraction anchor")
+	_expect_navigation_queries(manager_a, manager_b, manager_technical)
 	var tampered_snapshot: Dictionary = manager_a.call("snapshot")
 	tampered_snapshot["map_hash"] = "0".repeat(64)
 	_expect(not bool(manager_a.call("restore_state", tampered_snapshot)), "restore should reject a mismatched module map hash")
@@ -117,6 +119,77 @@ func _expect_deterministic_composition() -> void:
 	manager_d.queue_free()
 	manager_content.queue_free()
 	manager_technical.queue_free()
+
+
+func _expect_navigation_queries(manager_a: Node2D, manager_b: Node2D, manager_technical: Node2D) -> void:
+	var target_position := Vector2(0.0, -800.0)
+	var from_position := Vector2(-800.0, 0.0)
+	manager_a.call("tick", target_position)
+	manager_b.call("tick", target_position)
+	var query_a: Dictionary = manager_a.call("navigation_query_to_active_target", from_position)
+	var query_b: Dictionary = manager_b.call("navigation_query_to_active_target", from_position)
+	_expect(bool(query_a.get("reachable", false)), "shared flow field should route between reachable start-module arms")
+	_expect(query_a == query_b, "same terrain and active target should produce an identical deterministic flow query")
+	_expect(
+		float(query_a.get("distance", 0.0)) > from_position.distance_to(target_position),
+		"route distance should exceed straight-line distance when blocked cells force a detour"
+	)
+	_expect(
+		not bool(manager_a.call("has_terrain_line_of_sight", from_position, target_position)),
+		"supercover terrain sight should reject a diagonal crossing blocked cells"
+	)
+	_expect(
+		(query_a.get("next_position", Vector2.ZERO) as Vector2).is_equal_approx(Vector2(-640.0, 0.0)),
+		"flow field should choose the legal corridor instead of moving straight through blocked terrain"
+	)
+	var local_query: Dictionary = manager_a.call("navigation_query", from_position, target_position)
+	_expect(bool(local_query.get("reachable", false)), "local AStar query should reuse the same reachable static terrain mask")
+	_expect(
+		float(local_query.get("distance", 0.0)) > from_position.distance_to(target_position),
+		"local AStar query should report route distance rather than straight-line distance"
+	)
+	var before_summary: Dictionary = manager_a.call("debug_summary")
+	var before_navigation: Dictionary = before_summary.get("navigation", {}) as Dictionary
+	manager_a.call("tick", target_position + Vector2(10.0, 0.0))
+	var after_summary: Dictionary = manager_a.call("debug_summary")
+	var after_navigation: Dictionary = after_summary.get("navigation", {}) as Dictionary
+	_expect(
+		int(before_navigation.get("flow_rebuild_count", -1)) == int(after_navigation.get("flow_rebuild_count", -2)),
+		"moving the exact player target inside one global cell should not rebuild the shared flow field"
+	)
+	var exact_target_query: Dictionary = manager_a.call("navigation_query_to_active_target", from_position)
+	_expect(
+		(exact_target_query.get("target_position", Vector2.ZERO) as Vector2).is_equal_approx(target_position + Vector2(10.0, 0.0)),
+		"active navigation query should retain the player's exact position inside the target cell"
+	)
+	_expect(
+		not bool(manager_a.call("navigation_query", from_position, Vector2(-320.0, -160.0)).get("reachable", true)),
+		"blocked targets should be unreachable"
+	)
+	_expect(
+		not bool(manager_a.call("navigation_query", from_position, Vector2(-99_999.0, 0.0)).get("reachable", true)),
+		"out-of-bounds targets should be unreachable"
+	)
+	_expect(
+		not bool(manager_technical.call(
+			"navigation_query",
+			Vector2.ZERO,
+			manager_technical.call("global_cell_to_world", Vector2i(0, 0))
+		).get("reachable", true)),
+		"technical-slice navigation should not enter its sealed outer modules"
+	)
+
+	var corner_mask := PackedByteArray([1, 0, 0, 1])
+	var corner_field: RefCounted = MODULE_NAVIGATION_FIELD_SCRIPT.new()
+	_expect(
+		bool(corner_field.call("configure", corner_mask, 2, 2, 160.0, Vector2.ZERO, Vector2i.ZERO)),
+		"isolated corner navigation field should configure"
+	)
+	corner_field.call("set_active_target", Vector2(160.0, 160.0))
+	_expect(
+		not bool(corner_field.call("query_to_active_target", Vector2.ZERO).get("reachable", true)),
+		"eight-way navigation should reject diagonal corner cutting when both orthogonal cells are blocked"
+	)
 
 
 func _expect_seamless_streaming(run_loop: Node) -> void:
@@ -176,6 +249,30 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 			await get_tree().physics_frame
 		_expect(wall_test_enemy.global_position.x > -240.0, "enemy physics body should not enter a blocked module cell")
 		PoolManager.release(wall_test_enemy)
+	var detour_spawned: bool = bool(run_loop.call(
+		"_spawn_enemy_at",
+		"enemy_chaser",
+		Vector2(-160.0, -160.0),
+		"module_navigation_detour_test",
+		"4,4"
+	))
+	_expect(detour_spawned, "module navigation detour test should spawn a chaser on floor terrain")
+	var detour_enemy: Node2D = _find_active_enemy_by_wave_key("module_navigation_detour_test")
+	if detour_enemy != null:
+		run_loop.call("debug_set_player_position", Vector2(-320.0, 0.0))
+		# Pooled enemies may have just reset their decision accumulator; wait past
+		# the configured decision interval in physics time before asserting state.
+		for _physics_tick: int in range(12):
+			await get_tree().physics_frame
+		var navigation_summary: Dictionary = detour_enemy.call("ai_debug_summary")
+		_expect(String(navigation_summary.get("perception_state", "")) == "path_aware", "nearby player across a blocked corner should be sensed by route distance")
+		_expect(String(navigation_summary.get("navigation_mode", "")) == "flow_field", "blocked module pursuit should use the shared flow field")
+		var detour_start: Vector2 = detour_enemy.global_position
+		for _physics_tick: int in range(35):
+			await get_tree().physics_frame
+		_expect(detour_enemy.global_position.y > detour_start.y, "enemy should enter the legal south corridor instead of pushing diagonally through the blocked corner")
+		_expect(bool(manager.call("is_world_position_walkable", detour_enemy.global_position)), "flow-guided enemy should remain on walkable module terrain")
+		PoolManager.release(detour_enemy)
 	# Start inside the center module's east doorway and cross the shared seam using
 	# normal CharacterBody2D movement so a bad collision merge cannot hide behind a teleport.
 	run_loop.call("debug_set_player_position", Vector2(800.0, 0.0))

@@ -8,7 +8,7 @@
 ---
 
 ## 1. 项目是什么
-俯视角射击刷宝生存游戏（灵感：手动按住开火的俯视射击身份 + 《星际战甲》与《暗黑》的刷装备 / 刷词条长期追求 + 9×9 无缝模块短刷图 + 《以撒的结合》的道具 / 机关 / 构筑组合）。玩法判定与显示以 2D 矩形格平面为准；F13 默认世界由 81 个 11×11 JSON 模块按 seed 组合，AI 只在编辑期生产 candidate，人工批准后入池。
+俯视角射击刷宝生存游戏（灵感：手动按住开火的俯视射击身份 + 《星际战甲》与《暗黑》的刷装备 / 刷词条长期追求 + 9×9 无缝模块短刷图 + 《以撒的结合》的道具 / 机关 / 构筑组合）。玩法判定与显示以 2D 矩形格平面为准；F13 默认世界由 81 个 11×11 JSON 模块按 seed 组合，AI 只在编辑期生产 candidate，人工批准后入池；F14 的 EnemyAI 在完整 99×99 静态地形上使用共享流场与视线 / 路径 / 记忆混合感知。
 - 引擎：**Godot 4.7.1 stable + GDScript**
 - IP 方向：**《破巢者》**（英文暂定 `Nestbreakers`）——未知原因导致其他宇宙与本宇宙的通道突然打开，银河系星际文明被打散，首都星域仍能组织反击；多英雄主动突入敌方“巢”，在怪潮中夺取遗物、升级构筑并尝试打穿巢核、切断通道或削弱敌方源头；“巢”泛指敌方核心据点 / 生产源头 / 通道锚点 / 意志中枢，不限定为虫巢。
 - 核心理念：**数据驱动 + 扩展优先 + 模式友好资源复用 + 未来多人友好边界 + 框架级基础设施（本地化 / 设置 / 数据埋点）+ AI 易扩展**
@@ -66,7 +66,7 @@
 | `client/scenes/boot/main.tscn` | F1 最小启动场景，详见 `docs/代码/formal_client_boot.md` |
 | `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `GearModSystem` / `AudioManager` / `Localization` / `UIManager` |
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口、`DamageInfo`、`StatusEffect` 与 `StatusEffectComponent` |
-| `client/scripts/gameplay/` | Gameplay 主循环、玩家 / 武器 / 技能 / 敌人 / 机关 / HUD，以及 F13 `module_world_manager` / `module_chunk` / `module_minimap`；模块世界 API 见 `docs/代码/module_world_manager.md`，旧 `RoomManager` 与 marker 已删除 |
+| `client/scripts/gameplay/` | Gameplay 主循环、玩家 / 武器 / 技能 / 敌人 / 机关 / HUD，F13 `module_world_manager` / `module_chunk` / `module_minimap`，以及 F14 `module_navigation_field`；世界 / 导航 API 见 `docs/代码/module_world_manager.md`，Enemy 感知见 `docs/代码/enemy_ai.md` |
 | `client/scripts/ui/` | 阶段性 UI：`title_menu` / `pause_menu` / `game_over_panel` / `gear_mod_panel` |
 | `client/scripts/debug/` | debug/dev_tools 专用 `DebugConsole` 与 `GMCommandRegistry`；正式 release 不应加载或导出 |
 | `client/tools/` | Godot 项目内 headless smoke 脚本；当前含 gameplay runtime、GearMod、SaveManager、Settings、Replay、RNG 和 DebugTools smoke，并保留仅由用户明确触发的性能 probe |
@@ -101,7 +101,7 @@
 | `docs/AI协作/README.md` | AI 协作工程目录索引 |
 | `docs/AI协作/快速开工.md` | **AI 日常开工热路径**，降低默认上下文开销 |
 | `docs/AI协作/任务模板/` | 高频任务的标准 prompt + 文件操作清单 |
-| `docs/AI协作/工作包/` | 当前默认关卡工作包是 `F13-ModularGridWorld.md`；`F13-HandcraftedRooms.md` 仅作 superseded 历史。F12 开放战区、F11 Gear Mod 及更早阶段继续按同目录对应工作包路由 |
+| `docs/AI协作/工作包/` | F13 默认关卡工作包是 `F13-ModularGridWorld.md`；当前后续 EnemyAI 里程碑读 `F14-EnemyNavigationAndPerception.md`。`F13-HandcraftedRooms.md` 仅作 superseded 历史 |
 | `docs/AI协作/上下文预算.md` | 不同复杂度 / 任务类型该读哪些文件 |
 | `docs/AI协作/角色分工.md` | 设计/实现/评审/平衡 四角色协作 |
 | `docs/AI协作/引擎集成.md` | Godot MCP / Bridge 接入指南 |
@@ -126,6 +126,7 @@
 | 我想… | 怎么做（数据驱动，尽量不改逻辑） |
 |-------|-------------------------------|
 | **加一个敌人** | 在 `client/data/enemies.csv` 加一行基础数值、中心间距、通用 `tag_enemy`、`ai_profile_id` 与 `enemy_*_name` 文案；优先复用 `client/data/enemy_ai_profiles.json` 现有对玩家 profile；远程怪可复用 `ai_action_ranged_attack` 与 `movement.ranged_*` 字段；全新行为先加 / 调 profile 和词表 §12-B action，最后才改 `enemy.gd`。敌人不得把其他敌人设为战斗目标或造成敌方伤害，中心分离只负责防重叠 |
+| **改敌人寻路 / 感知** | 先读 `F14-EnemyNavigationAndPerception.md`、`docs/代码/enemy_ai.md`、`docs/代码/module_world_manager.md` 与 ADR #145；profile 感知参数改 `enemy_ai_profiles.json.perception`，静态路径 / 视线改 `module_navigation_field.gd`，门面改 `module_world_manager.gd`，行为消费改 `enemy.gd`。导航 / 感知派生状态不进 run，开放战区保留无 provider 直线兜底 |
 | **加一个角色** | 在 `client/data/characters.json` 加一条：基础属性 / tags / capabilities / 控制配置 / `starting_loadout`；角色 id 先登记词表 §12.1，文案用 `character_*` key；起始武器 / 主动道具 / 消耗品必须存在于对应数据文件；新 capability 先登记词表 §12 再实现 |
 | **加 / 改武器** | 在 `client/data/weapons.json` 加一条：武器基础属性、子弹池、伤害类型、命中半径和音频 id；文案用 `weapon_*` key；`pool_id` / `damage_type` / `audio_id` 前缀必须来自词表，不实现 WeaponSystem 运行时 |
 | **加 / 改技能** | 在 `client/data/skills.json` 加技能定义：`ability_tags`、`activation`、`costs`、`targeting`、`effects`、冷却和 `skill_*` 文案；角色只在 `characters.json.starting_loadout.skill_ids` 引用技能并声明 `skill_resources`，模式池走 `game_modes.resource_pools.skills`；新资源、目标类型、效果原语或 ability tag 先登记词表 §12-C~12-G，状态效果 / 叠加规则先登记 §9-A~§9-B，再扩展 `docs/代码/skill_system.md` / `docs/代码/status_effect_component.md` |
@@ -155,7 +156,7 @@
 | **改 IP / 世界观 / 英雄包装 / 宣传语** | 先看 `docs/IP设定.md`；涉及视觉风格、色板、阵营色、兴趣点颜色或资产 brief 时追加 `docs/IP美术风格.md`；若改变玩法承诺或系统边界，再同步 GDD / ADR / 术语表 / AI导航 / AI记忆 |
 | **选择下一项新功能** | 先看 `docs/功能建议池.md`、`docs/局内刷取参考研究.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md` 与 `docs/AI记忆/current_state.json`；用户明确点名功能后，再建立 / 更新工作包、GDD / ADR / 模块文档并实现，不从建议文档自行挑选推进 |
 | **评估小服务器在线玩法** | 先看 `docs/小服务器玩法备忘.md`、GDD §6.7 / §9.21 / §9.22、`docs/代码/platform_services.md` 与 `docs/代码/replay.md`；短期优先异步玩法和离线可降级，实时多人 / PvP / 强竞技排行榜默认暂缓 |
-| **启动 / 推进正式项目** | 当前优先读 `F13-ModularGridWorld.md`、GDD §5.1、`docs/代码/module_world_manager.md`、`client/data/README.md` 和 `docs/测试策略.md`；模块数据变更跑 contracts/data/schema/module-world smoke，流式 / 存档变更追加 save/runtime 与黄金回放评估；性能 probe 仅在用户当次明确要求时运行 |
+| **启动 / 推进正式项目** | F13 模块世界已完成；当前 F14 入口为 `F14-EnemyNavigationAndPerception.md`、GDD §5.3、EnemyAI / ModuleWorldManager 文档、数据手册与测试策略。导航 / 感知变更跑 contracts/data/schema/module-world/runtime/save 与黄金回放；性能 probe 仅在用户当次明确要求时运行 |
 | **维护正式客户端启动骨架 / 默认分辨率** | 看 `client/README.md`、`docs/代码/formal_client_boot.md`、`docs/代码/gameplay_runtime.md` 与 GDD §9.5-A；当前只设计 / 验收固定 16:9 分辨率，默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，`canvas_items + keep` 在非 16:9 屏幕上等比缩放并加黑边；其他宽高比是 P3 优化，未来也必须按独立固定预设接入，不做连续响应式适配 |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
 | **校验数据 / 文案** | 跑 `python tools/validate_data.py` 与 `python tools/lint_project_rules.py`；改 DataLoader schema 时追加 `python tools/test_data_loader_schema.py`，改项目规则 lint 时追加 `python tools/test_project_rules_lint.py` |
@@ -196,7 +197,7 @@
 ## 5. 核心系统模块
 
 ### 5.1 模块清单
-**业务模块**：`InputController` / `Player` / `WeaponSystem` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager`（F13 9×9 无缝模块世界，详见 `docs/代码/module_world_manager.md`）/ `WarzoneDirector`（仅 F12 非默认开放战区）/ `HazardSystem` / `ItemSystem` / `GrowthSystem` / `GearModSystem` / `ModifierEngine` / `MapManager` / `Camera2D` / `DataLoader` / `PauseMenu` / `Combat` / `StatusEffectComponent`。
+**业务模块**：`InputController` / `Player` / `WeaponSystem` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager`（F13 世界门面）/ `ModuleNavigationField`（F14 共享静态导航）/ `WarzoneDirector`（仅 F12 非默认开放战区）/ `HazardSystem` / `ItemSystem` / `GrowthSystem` / `GearModSystem` / `ModifierEngine` / `MapManager` / `Camera2D` / `DataLoader` / `PauseMenu` / `Combat` / `StatusEffectComponent`。
 
 **Autoload 单例（横向基础设施 + 协调中枢）**：
 - 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
@@ -208,7 +209,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前正式客户端以 F13 模块世界作为 `mode_standard_survival` 默认关卡 carrier：`module_worlds.json` 固定 9×9 / 11×11 几何与关键锚点，`module_templates.json` 实施 AI candidate / 人工 approved 门禁，15 个正式模板与封锁模板位于 `client/data/modules/`。`ModuleWorldManager` 按 run seed 组合 81 槽、校验覆盖世界配置与已引用模块 JSON 的内容敏感 map hash、管理模块迷雾和最多 3×3 活跃 chunk；`GameplayRunLoop` 按槽位生成 / 回收 / 恢复敌人、机关、子弹和掉落，并把目标连接到独立撤离点。EnemyAI 只选择玩家并保留追击、快速近战、冲锋、守家和远程 profile；敌方友伤被拒绝，中心分离只防重叠。`--module-world-technical-slice` 保留中心 3×3 / 外圈 72 槽封锁的 opt-in 首片入口，普通启动已切完整 9×9。run schema / SaveManager run kind 已升至 v4，旧 v3 run 显示专用不兼容提示、只重置 run 而 `meta` 不变。F12 开放战区、WarzoneDirector 与旧兴趣点 smoke 通过 `--open-warzone` 保留为非默认回归路径；旧 RoomManager、线性序列、演示房间、marker、启动参数与 `room-switch-smoke` 已删除。当前常规验收入口是 contracts/data/schema、`module-world-smoke`、`module-world-technical-slice-smoke`、`save-smoke`、`runtime-smoke`、headless 与四条黄金回放；ADR #143 后性能测试仅由用户当次明确触发。
+当前正式客户端以 F13 模块世界作为 `mode_standard_survival` 默认关卡 carrier：`ModuleWorldManager` 按 run seed 组合 81 槽、管理内容敏感 map hash、模块迷雾和最多 3×3 活跃 chunk；F14 的 `ModuleNavigationField` 从完整 assignment 构建静态 99×99 mask，玩家跨格时更新确定性共享流场，并为 Enemy 提供路径距离、地形视线、敌人半径走廊和局部 AStar 查询。EnemyAI schema v3 按视线、路径和 1.5 秒最后已知位置感知，畅通直追、受阻绕行；冲锋 / 远程受墙体门禁，玩家唯一目标、敌方友伤拒绝与中心分离边界不变。`--module-world-technical-slice` 保留中心 3×3 / 外圈 72 槽封锁入口，F12 开放战区通过 `--open-warzone` 保留并使用无导航 provider 的直线兜底。run 保持 v4，导航 / 感知缓存不保存。常规验收入口是 contracts/data/schema、`module-world-smoke`、`module-world-technical-slice-smoke`、`save-smoke`、`runtime-smoke`、headless 与四条黄金回放；ADR #143 后性能测试仅由用户当次明确触发。
 
 > 普通开始新局 / 重开会生成新的 `RNG` run seed；继续游戏恢复 run snapshot；回放、smoke、golden 和调试复现仍应显式固定 seed 或走工具启动路径。
 
@@ -255,6 +256,7 @@ flowchart LR
 
   Spawner[Spawner]
   ModuleWorld[ModuleWorldManager]
+  ModuleNav[ModuleNavigationField]
   Director[WarzoneDirector]
   Enemy[Enemy / EnemyAI]
   Hazard[HazardSystem]
@@ -295,6 +297,8 @@ flowchart LR
   Combat -.- SE
   GS -. 默认模块世界创建/驱动 .-> ModuleWorld
   ModuleWorld --> Map
+  ModuleWorld --> ModuleNav
+  ModuleNav -. 共享流场/视线/AStar .-> Enemy
   ModuleWorld -. JSON placement（经 RunLoop 对象池/Combat） .-> Spawner & Hazard
   ModuleWorld -. assignment/hash/fog/slot snapshot .- Save
   Director --> Spawner
@@ -325,7 +329,7 @@ flowchart LR
 
 > 改某个模块前先在图中追踪上下游箭头，避免遗漏影响。新增系统模块时**同步更新此图**（规则 14）。
 > 三类节点：**基础设施**（蓝） / **协调中枢**（红） / **资源管理**（绿）。
-> `ModuleWorldManager` 不是 autoload：由 `GameplayRunLoop` 在 `ActiveWorld` 下创建并驱动，依赖 `DataLoader` 的世界 / 注册表 / 模块 JSON 与生成契约常量。它只组图、转坐标、管迷雾、复用最多 9 个 `ModuleChunk` 和保存按槽位状态；对象池生成、击杀归因、目标 / 撤离和战利品仍由 `GameplayRunLoop` 负责。
+> `ModuleWorldManager` 不是 autoload：由 `GameplayRunLoop` 在 `ActiveWorld` 下创建并驱动，依赖世界 / 注册表 / 模块 JSON。它组图、转坐标、管迷雾、复用最多 9 个 `ModuleChunk`、保存槽位状态，并持有不创建 Node 的 `ModuleNavigationField`；Enemy 只经 Manager 门面查询导航。对象池生成、击杀归因、目标 / 撤离和战利品仍由 `GameplayRunLoop` 负责。
 
 ## 6. 红线（最易踩坑）
 - ❌ 硬编码可调数值、玩家可见文本、键盘按键 / 手柄按钮 / 手柄轴、约定字符串；❌ 新增数值 / 文案字段却不更新 `client/data/README.md` / `client/locale/README.md`

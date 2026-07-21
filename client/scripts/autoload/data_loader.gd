@@ -505,7 +505,7 @@ func _validate_enemy_ai_profiles_json() -> bool:
 
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_int(ENEMY_AI_PROFILES_PATH, "schema_version", payload.get("schema_version"), 2, 2) and is_valid
+	is_valid = _require_int(ENEMY_AI_PROFILES_PATH, "schema_version", payload.get("schema_version"), 3, 3) and is_valid
 	var profiles: Array = _require_array(ENEMY_AI_PROFILES_PATH, "profiles", payload.get("profiles"))
 	if profiles.is_empty():
 		is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, "profiles", "non-empty Array") and is_valid
@@ -525,11 +525,35 @@ func _validate_enemy_ai_profiles_json() -> bool:
 				is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, "%s.id" % field, "unique profile id") and is_valid
 			seen[profile_id] = true
 		is_valid = _reject_removed_field(ENEMY_AI_PROFILES_PATH, field, profile_dict, "contact_interval", 2) and is_valid
-		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.sense_radius" % field, profile_dict.get("sense_radius"), 0.0, null, true) and is_valid
+		is_valid = _reject_removed_field(ENEMY_AI_PROFILES_PATH, field, profile_dict, "sense_radius", 3) and is_valid
+		is_valid = _validate_enemy_ai_perception("%s.perception" % field, profile_dict.get("perception")) and is_valid
 		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.decision_interval" % field, profile_dict.get("decision_interval"), 0.0, null, true) and is_valid
 		is_valid = _validate_enemy_ai_targeting("%s.targeting" % field, profile_dict.get("targeting")) and is_valid
 		is_valid = _validate_enemy_ai_movement("%s.movement" % field, profile_dict.get("movement")) and is_valid
 		is_valid = _validate_enemy_ai_actions("%s.actions" % field, profile_dict.get("actions")) and is_valid
+	return is_valid
+
+
+func _validate_enemy_ai_perception(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(ENEMY_AI_PROFILES_PATH, field, "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.sight_radius" % field, payload.get("sight_radius"), 0.0, null, true) and is_valid
+	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.path_awareness_radius" % field, payload.get("path_awareness_radius"), 0.0) and is_valid
+	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.memory_duration" % field, payload.get("memory_duration"), 0.0) and is_valid
+	var sight_radius: Variant = payload.get("sight_radius")
+	var path_awareness_radius: Variant = payload.get("path_awareness_radius")
+	if (
+		(sight_radius is int or sight_radius is float)
+		and (path_awareness_radius is int or path_awareness_radius is float)
+		and float(path_awareness_radius) > float(sight_radius)
+	):
+		is_valid = _schema_fail(
+			ENEMY_AI_PROFILES_PATH,
+			"%s.path_awareness_radius" % field,
+			"number <= sight_radius"
+		) and is_valid
 	return is_valid
 
 

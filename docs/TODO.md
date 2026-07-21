@@ -18,6 +18,7 @@
 ## 1. 当前优先级（P0）
 
 - [x] F13 默认关卡改为 9×9 无缝模块世界：11×11 模块 JSON、AI candidate/approved 门禁、seed 组图 / 安全布局、`ModuleWorldManager`、3×3 流式激活、迷雾、目标—撤离、run v4 与 `module-world-smoke` 已建立；旧 RoomManager / 线性序列 / 演示房间已删除。
+- [x] F14 敌人共享流场与混合感知：完整 99×99 静态导航 mask、确定性八方向流场、守家 / 记忆 AStar waypoint、视线 / 路径 / 1.5 秒记忆分层、冲锋走廊与远程视线门禁、profile schema v3 和专项 smoke 已建立；F13 保持完成状态。
 - [ ] 补齐 CI / pre-commit 阶段 1 后续项：commitlint、增量 watch。（本地 `.pre-commit-config.yaml` 已落地）
 
 ## 2. 下一批任务（P1）

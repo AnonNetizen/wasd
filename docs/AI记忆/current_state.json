@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
   "updated_at": "2026-07-21",
-  "current_phase": "formal_project_f13_modular_grid_world",
-  "current_status": "ADR #142 已把标准模式改为 9×9 模块连续大地图，ModuleWorldManager / ModuleChunk / 模块迷雾、目标后撤离、按槽位动态状态、内容敏感地图 hash 和 run v4 已接入；玩家与敌人均受封锁格物理边界约束，模块敌人只允许在 floor 格生成或恢复。普通启动使用完整 9×9，--module-world-technical-slice 保留中心 3×3 首片，open-warzone 仅保留为非默认回归路径。ADR #144 已删除敌人种间交互生态：EnemyAI 只把玩家作为战斗目标，拒绝 team_enemy 伤害，保留五类对玩家 profile 与无伤害中心分离；enemy_ai_profiles.json / warzone_directors.json 升 schema v2，run 保持 v4，旧快照非法动作恢复时清空重选。ADR #143 后性能测试只由用户当次明确触发。后续工作以用户最后明确指令为准。",
-  "latest_adr": 144,
+  "current_phase": "formal_project_f14_enemy_navigation_perception",
+  "current_status": "F13 模块大地图保持已完成并提供完整 99×99 静态地形。ADR #145 的 F14 已接入 ModuleNavigationField：玩家跨格时重算确定性八方向共享流场，守家 / 最后已知位置在决策 tick 查询 AStar waypoint；EnemyAI 使用 schema v3 的地形视线、路径距离和 1.5 秒记忆混合感知，畅通直追、受阻绕行，冲锋要求清晰走廊，远程开火要求当前地形视线。导航 / 感知缓存不写 run，run 保持 v4；open-warzone 无导航 provider 时保留直线兜底。ADR #144 的玩家唯一战斗目标、team_enemy 伤害拒绝和无伤害中心分离保持不变。ADR #143 后性能测试只由用户当次明确触发。后续工作以用户最后明确指令为准。",
+  "latest_adr": 145,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #145 / F14 敌人共享流场寻路与混合感知：新增完整 99×99 静态 ModuleNavigationField、确定性八方向 Dijkstra、局部 AStarGrid2D、supercover 地形视线与敌人半径走廊；ModuleWorldManager 暴露导航门面，Enemy 在模块模式畅通直追、受阻绕路，并按视线 / 路径 / 1.5 秒最后已知位置感知。冲锋 / 远程墙体门禁、profile schema v3、双端负例与 module-world / runtime smoke 已接入；run 保持 v4，F13 保持完成，ADR #144 护栏不变。",
     "ADR #144 / 删除敌人种间交互生态：EnemyAI 感知和战斗目标固定为玩家，team_enemy 来源伤害返回未应用，中心分离只防重叠；五个对玩家 profile 已完成重命名与 schema v2 数据迁移，旧逃跑动作快照会清空并重新决策。WarzoneDirector schema v2 删除旧敌人组合元数据；词表、生成契约、双端 schema、runtime / F9 smoke、GDD、ADR、数据手册、模块文档、测试策略、AI 导航、知识库和三层记忆已同步，run schema 保持 v4。",
     "F13 模块封锁格实体修复：Player / Enemy 使用 CharacterBody2D 碰撞模块封锁边界，敌人普通移动、冲锋和分离位移统一走碰撞移动；模块模板校验、运行时生成和 run v4 快照恢复三层拒绝封锁格敌人，只允许完整 footprint 落在 module_cell_floor。",
     "ADR #143 / 性能测试按需触发：startup-probe、perf-probe、Profiler 和同类采样不再是日常修改、提交前、常规回归、默认 CI 或 AI 交付的必跑项；现有 probe 保留，只有用户在当前任务中明确要求性能测试时才运行并按既有预算判断。",
@@ -125,11 +126,16 @@
     "如果继续机关内容，优先改 client/data/hazards.csv、game_modes.resource_pools.hazards 和 map_layouts.json；普通矩形范围机关复用通用 Hazard，hazards.csv.radius_tiles 是占用地图矩形格的正整数，新增行为先设计 primitive。",
     "如果继续技能 / 轻量 GAS，优先改 client/data/skills.json、characters.json.skill_resources / starting_loadout.skill_ids 和 game_modes.resource_pools.skills；当前默认主键是 skill_overdrive_rounds，通过 skill_effect_weapon_modifiers 临时强化主武器；新资源、目标类型、效果或 ability tag 先登记 docs/词表与契约.md §12-C~12-G。",
     "如果继续状态效果，先看 docs/代码/status_effect_component.md；新状态登记 docs/词表与契约.md §9-A，新叠加规则登记 §9-B；DoT 状态通过 skill_effect_apply_status 提供 damage_type / magnitude / tick_interval，或后续 on-hit primitive 注入目标实体的 StatusEffectComponent。",
-    "如果继续 EnemyAI，对玩家行为优先改 client/data/enemy_ai_profiles.json 与 enemies.csv.ai_profile_id；玩家必须保持为唯一战斗目标，team_enemy 伤害必须继续拒绝，中心分离只负责防重叠。敌人普通移动、冲锋、中心分离必须统一走 CharacterBody2D 碰撞并保留有限地图矩形边界 clamp，模块生成 / 恢复只能落在 floor，再跑 validate_data、module-world-smoke、runtime-smoke 和必要的 golden replay。不得从 AI 机会清单或旧 ADR 自动恢复种间交互生态。",
+    "如果继续 F14 EnemyAI 导航 / 感知，先读 docs/AI协作/工作包/F14-EnemyNavigationAndPerception.md、docs/代码/enemy_ai.md、docs/代码/module_world_manager.md、GDD §5.3、ADR #145 和数据手册。感知数值只改 enemy_ai_profiles.json.perception；完整静态路径 / 视线改 module_navigation_field.gd；Manager 只暴露门面；Enemy 只消费查询。保持玩家唯一战斗目标、team_enemy 伤害拒绝、中心分离、run v4 派生状态不保存和 open-warzone 无 provider 直线兜底。改后跑 contracts/data/schema、module-world、runtime、save 和必要的 golden replay；不得恢复种间生态，也不得自动运行性能 probe。",
     "正式客户端当前只支持固定 16:9 分辨率预设，非 16:9 屏幕加黑边；不要在近期任务中自行推进 16:10、4:3、21:9 或连续响应式适配。未来用户明确点名后，再为目标比例建立独立固定预设，并补 UI、瞄准、截图和玩法视野验收。",
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-21",
+      "command": "sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lint plus lint self-tests; JSON current_state/_kb_index; docs_health_check; git diff --check; headless-boot; module-world-smoke; module-world-technical-slice-smoke; runtime-smoke; f9-demo-smoke; l1-smoke; save-smoke; four golden replay recaptures and replay-runner --rerun-runtime-summary",
+      "result": "passed for ADR #145 / F14 shared flow-field navigation and hybrid perception: deterministic 8-way Dijkstra, no diagonal corner cutting, AStar waypoint queries, terrain LOS/corridor gates, path-aware detours, 1.5-second last-known-position memory, guard return, charge/ranged wall rejection and schema v3 negative cases are covered. Both full 9x9 and center-3x3 technical-slice module flows pass; the smoke uses physics-frame waiting across the Enemy decision interval. All four goldens pass with the existing contract/schema-count fingerprint 5a65b531e81e104b12532662f353a5d768307272b373690aab07d30f9911ca9b. Expected map-hash and broken-save negative diagnostics occurred. Semantic lint exited 0 with 40 reviewed advisories. No performance test was run per user policy."
+    },
     {
       "date": "2026-07-21",
       "command": "sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lint plus lint self-tests; docs_health_check; headless-boot; module-world-smoke; module-world-technical-slice-smoke; runtime-smoke; f9-demo-smoke; l1-smoke; save-smoke; four golden replay recaptures and replay-runner --rerun-runtime-summary",

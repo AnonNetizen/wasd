@@ -141,7 +141,7 @@ UIManager
 | 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人；F10 起先通过 `WarzoneDirector.is_wave_enabled()` 判断当前 phase 是否允许该 wave，当前有追猎者、疾行者、潜猎者、喷棘者和壁垒五种数据化敌人 | `GameClock.now()`、`RNG.spawn`、`WarzoneDirector.is_wave_enabled()` |
 | 机关触发 | `Hazard` 在 `PLAYING` 下按 `GameClock.delta_scaled()` 消耗冷却；玩家进入矩形范围后构造 `DamageInfo` 并交给 `Combat`，当前 FEA-12 用于验证 PCG / 手工摆点和伤害链路 | `Hazard.configure()`、`Combat.apply_damage()` |
 | 受击 / 击杀反馈 | `Combat.damage_applied` 成功应用伤害后生成池化 `hit_spark` 与 `damage_number`；玩家受伤时 2D 俯视占位短暂红闪，敌人命中时短暂暖白闪，敌人死亡后立即离开活敌组并橙色放大淡出后归池；玩家进入数据化受伤无敌窗口 | `_draw()` / `queue_redraw()` / `PoolManager.acquire()` |
-| 敌人行为 | 敌人从 `enemy_ai_profiles.json` 读取感知、目标权重和动作列表；运行时可接近玩家、逃离威胁、狩猎其他敌人、守出生点、冲锋或保持距离发射投射物，移动 / 分离 / 快照恢复后仍被有限地图矩形边界 clamp。敌人与玩家 / 敌人接触伤害、远程投射物伤害都走 `Combat`；怪物互杀不会计入玩家击杀或经验掉落 | `Enemy.defeated`、`docs/代码/enemy_ai.md` |
+| 敌人行为 | 敌人从 schema v3 `enemy_ai_profiles.json` 读取视线 / 路径 / 记忆感知、玩家权重和动作列表；模块模式注入 `ModuleWorldManager`，畅通时直追、受阻时沿共享流场绕行，守家 / 最后已知位置使用决策 tick AStar waypoint。玩家是唯一战斗目标，冲锋要求清晰走廊，远程开火要求当前地形视线；敌方友伤被拒绝，中心分离只防重叠 | `Enemy.defeated`、`docs/代码/enemy_ai.md` |
 | 经验掉落 | ADR #120 后默认标准模式没有成长候选池，玩家归因击杀不生成经验球；未来模式若在 `game_modes.json.resource_pools.growth_pools` 声明升级池，则敌人死亡按 `exp_reward` 生成池化经验球，进入 `pickup_range` 后吸附并发放经验 | `PoolManager.acquire(PICKUP_ORB)` |
 | 升级选择 | 只在当前模式加载到 `growth_pools` 候选池时启用。累计经验达到 `growth.csv` 阈值后进入 `GameState.LEVEL_UP`，玩法时间冻结；候选按权重和 `RNG.ui_choice` 抽取，入选后按 id 稳定排序以保证选择索引可回放；升级面板可在暂停态响应鼠标选择，也可按 `pause` action 把暂停菜单叠到升级面板上；选择后通过 `Replay.record_decision(level_up, ...)` 记录等级、候选数量、候选 id、选择 id 和 luck 快照，再应用 `stat_modifier`、显示获得反馈并回到 `PLAYING`。`golden_level_up_choice` 是测试 harness 显式调用 `debug_enable_level_up_growth()` 的能力回归，不代表默认标准模式启用升级。 | `LevelUpPanel.choice_selected`、`LevelUpPanel.pause_requested` |
 | 主动暂停 | `pause` action 在 `PLAYING` 中打开 `PauseMenu`，在 `LEVEL_UP` 中由升级面板请求把 `PauseMenu` 叠在升级面板上；菜单通过 `UIManager` 请求 `GameState.PAUSED`，玩法时间、敌人、子弹和刷怪冻结，菜单仍响应鼠标、`ui_back` 和再次 `pause` action；暂停菜单可打开 `SettingsPanel`，关闭后仍回到同一个暂停菜单；关闭升级态上方的暂停菜单后必须回到 `LEVEL_UP` | `UIManager.push()`、`GameState.PAUSED` |
@@ -178,7 +178,8 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `SkillSystem.snapshot()` / `restore_snapshot(snapshot_data)` | run 快照 | Dictionary / `void` | 保存冷却、资源、owned ability tag 计数和状态效果，不保存节点引用 |
 | `Bullet.configure(stats, projectile, direction, source)` | 武器属性、弹体数据、方向、来源 | `void` | 节点必须来自 `PoolManager`；当前可命中 `active_enemies` 与 `active_interest_point_targets`，伤害统一走 `Combat.apply_damage()` |
 | `Enemy.configure(enemy_data, target)` | 敌人 CSV 行 + AI profile、目标玩家 | `void` | 节点必须来自 `PoolManager` |
-| `Enemy.ai_debug_summary()` / `was_defeated_by_player()` | 无 | `Dictionary` / `bool` | 供 smoke / 调试和玩家击杀归因使用；敌人不公开种间感知 tag API |
+| `Enemy.configure(enemy_data, player, navigation_provider = null)` | 合并敌人数据、玩家、可选模块导航门面 | `void` | 模块世界注入 Manager；开放战区无门面时保留直线兜底 |
+| `Enemy.ai_debug_summary()` / `was_defeated_by_player()` | 无 | `Dictionary` / `bool` | debug 包含感知状态、路径距离、最后已知位置与导航模式；敌人不公开种间感知 tag API |
 | `Enemy.separation_radius()` / `visual_color()` / `is_defeat_feedback_active()` | 无 | `float` / `Color` / `bool` | 只读诊断值；用于中心排斥、占位色、死亡反馈和 smoke 确认 |
 | `Enemy.apply_status_effect(status_effect)` / `active_statuses()` | `StatusEffect` 兼容对象 / 无 | Dictionary / `Array[String]` | 敌人状态走 `StatusEffectComponent`；`configure()`、`_pool_release()` 和 `_pool_reset()` 清空状态，避免对象池泄漏 |
 | `Enemy.combat_team_id()` | 无 | String | 返回敌人队伍 id，供状态 DoT 等延迟伤害保存 source / target team 归因 |
@@ -225,7 +226,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 技能资源：从 `characters[].skill_resources` 读取，当前默认资源为 `mana`；后续怒气、能量等资源应新增资源 id 和角色资源池，不在 SkillSystem 写死。
 - 子弹池：从 `weapons[].projectile.pool_id` 读取；当前样例为已登记 `bullet_basic`。子弹占位绘制为黄色圆点加暗色轮廓，不承载行为差异。
 - 敌人池：从 `enemies.csv.pool_id` 读取；当前注册已登记 `enemy_chaser`、`enemy_ranged` 与 `enemy_swarm`，不同敌人可复用同一 `Enemy` 场景和对象池。
-- 敌人 AI profile：从 `enemies.csv.ai_profile_id` 引用 `enemy_ai_profiles.json`；profile 负责玩家感知半径、动作评分、守家、冲锋和远程投射参数。玩家是唯一战斗目标，敌方伤害来源会被拒绝；中心分离只负责防重叠。详细规则见 `docs/代码/enemy_ai.md`。
+- 敌人 AI profile：从 `enemies.csv.ai_profile_id` 引用 schema v3 `enemy_ai_profiles.json`；`perception` 分别配置视觉半径、隔墙路径感知半径和记忆时间，profile 继续负责动作评分、守家、冲锋和远程投射参数。模块模式的共享导航 / 地形视线来自 `ModuleWorldManager`，派生缓存不进 run v4。玩家是唯一战斗目标，敌方伤害来源会被拒绝；中心分离只负责防重叠。详细规则见 `docs/代码/enemy_ai.md`。
 - 敌人中心间距：从 `enemies.csv.separation_radius` 读取；当前默认 9px，低于 `hit_radius` 以允许视觉重叠。
 - 玩家中心排斥：从合并后的玩家 `base_stats.player_separation_radius` 读取；当前默认 10px。敌人与玩家的最小中心距离为两者分离半径之和，碰到时只推开敌人，不改变玩家移动手感；接触伤害距离会取敌人 `hit_radius` 与双方分离半径之和的较大值，避免推开后反而打不到玩家。
 - 俯视资产规则：地面范围类资产（机关、AOE、房间边界、地面符号）默认使用矩形 / 方形俯视格或清晰俯视轮廓；机关和规则型地面 footprint 尺寸应表达为格子整数倍。角色、敌人、拾取物、子弹、障碍物和特效不强制矩形，但必须有清晰俯视轮廓、方向标记、功能色和真实判定形状。AI 生成正式资源或占位替换时先写清 footprint、anchor、orientation_read、sort layer 和真实判定形状。

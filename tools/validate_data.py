@@ -358,7 +358,7 @@ def _validate_enemy_ai_profiles(ctx: ValidationContext) -> None:
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=2, maximum=2)
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=3, maximum=3)
     profiles = _require_list(ctx, path, "profiles", data.get("profiles"))
     if not profiles:
         ctx.error(path, "profiles", "must be a non-empty array")
@@ -374,11 +374,27 @@ def _validate_enemy_ai_profiles(ctx: ValidationContext) -> None:
                 ctx.error(path, f"{field}.id", f"duplicate profile id {profile_id}")
             seen.add(profile_id)
         _reject_removed_field(ctx, path, field, profile, "contact_interval", schema_version=2)
-        _require_number(ctx, path, f"{field}.sense_radius", profile.get("sense_radius"), minimum=0, exclusive_minimum=True)
+        _reject_removed_field(ctx, path, field, profile, "sense_radius", schema_version=3)
+        _validate_enemy_ai_perception(ctx, path, f"{field}.perception", profile.get("perception"))
         _require_number(ctx, path, f"{field}.decision_interval", profile.get("decision_interval"), minimum=0, exclusive_minimum=True)
         _validate_enemy_ai_targeting(ctx, path, f"{field}.targeting", profile.get("targeting"))
         _validate_enemy_ai_movement(ctx, path, f"{field}.movement", profile.get("movement"))
         _validate_enemy_ai_actions(ctx, path, f"{field}.actions", profile.get("actions"))
+
+
+def _validate_enemy_ai_perception(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    sight_radius = _require_number(
+        ctx, path, f"{field}.sight_radius", data.get("sight_radius"), minimum=0, exclusive_minimum=True
+    )
+    path_awareness_radius = _require_number(
+        ctx, path, f"{field}.path_awareness_radius", data.get("path_awareness_radius"), minimum=0
+    )
+    _require_number(ctx, path, f"{field}.memory_duration", data.get("memory_duration"), minimum=0)
+    if sight_radius is not None and path_awareness_radius is not None and path_awareness_radius > sight_radius:
+        ctx.error(path, f"{field}.path_awareness_radius", "must be <= sight_radius")
 
 
 def _validate_enemy_ai_targeting(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:

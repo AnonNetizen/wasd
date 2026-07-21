@@ -21,6 +21,25 @@ const DEFEAT_FEEDBACK_COLOR: Color = Color(1.0, 0.62, 0.22)
 const EYE_OUTLINE_SCALE: float = 1.65
 const HIT_FLASH_DURATION: float = 0.16
 const HIT_FLASH_COLOR: Color = Color(1.0, 0.96, 0.74)
+const NAVIGATION_MODE_DIRECT: String = "direct"
+const NAVIGATION_MODE_FLOW_FIELD: String = "flow_field"
+const NAVIGATION_MODE_LOCAL_ASTAR: String = "local_astar"
+const NAVIGATION_MODE_NONE: String = "none"
+const NAVIGATION_NEIGHBOR_OFFSETS: Array[Vector2i] = [
+	Vector2i.UP,
+	Vector2i.RIGHT,
+	Vector2i.DOWN,
+	Vector2i.LEFT,
+	Vector2i(1, -1),
+	Vector2i(1, 1),
+	Vector2i(-1, 1),
+	Vector2i(-1, -1),
+]
+const PATH_TANGENT_SCORE_WEIGHT: float = 0.2
+const PERCEPTION_MEMORY: String = "memory"
+const PERCEPTION_PATH_AWARE: String = "path_aware"
+const PERCEPTION_UNAWARE: String = "unaware"
+const PERCEPTION_VISIBLE: String = "visible"
 const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
 const PLACEHOLDER_OUTLINE_SCALE: float = 1.14
 const SCORE_EPSILON: float = 0.001
@@ -47,17 +66,29 @@ var _focus_target: Node2D = null
 var _hit_flash_remaining: float = 0.0
 var _hit_radius: float = 0.0
 var _home_position: Vector2 = Vector2.ZERO
+var _has_last_known_position: bool = false
+var _has_movement_target: bool = false
 var _last_damage_source_team: String = ""
+var _last_known_position: Vector2 = Vector2.ZERO
 var _last_scores: Dictionary = {}
 var _life_points: float = 1.0
 var _max_life: float = 1.0
 var _has_movement_bounds: bool = false
 var _movement_bounds: Rect2 = Rect2()
 var _move_speed: float = 0.0
+var _movement_target_position: Vector2 = Vector2.ZERO
+var _navigation_mode: String = NAVIGATION_MODE_NONE
+var _navigation_provider: Node = null
 var _owned_tag_counts: Dictionary = {}
+var _path_distance: float = INF
+var _perception_state: String = PERCEPTION_UNAWARE
 var _player_target: Node2D = null
 var _ranged_cooldown_remaining: float = 0.0
 var _separation_radius: float = 0.0
+var _terrain_line_of_sight: bool = false
+var _memory_remaining: float = 0.0
+var _cached_navigation_waypoint: Vector2 = Vector2.ZERO
+var _has_cached_navigation_waypoint: bool = false
 var _status_effect_component: Node = null
 var _visual_color: Color = Color(1.0, 0.38, 0.32)
 
@@ -89,12 +120,13 @@ func _physics_process(delta: float) -> void:
 	_check_contact()
 
 
-func configure(enemy_data: Dictionary, target: Node2D) -> void:
+func configure(enemy_data: Dictionary, target: Node2D, navigation_provider: Node = null) -> void:
 	velocity = Vector2.ZERO
 	_defeat_feedback_remaining = 0.0
 	_clear_status_effects_for_reuse()
 	_player_target = target
 	_focus_target = target
+	_navigation_provider = navigation_provider
 	_home_position = global_position
 	_enemy_id = String(enemy_data.get("id", ""))
 	_ai_profile_id = String(enemy_data.get("ai_profile_id", ""))
@@ -113,6 +145,17 @@ func configure(enemy_data: Dictionary, target: Node2D) -> void:
 	_charge_direction = Vector2.ZERO
 	_ranged_cooldown_remaining = _movement_value("ranged_initial_cooldown")
 	_last_damage_source_team = ""
+	_has_last_known_position = false
+	_last_known_position = Vector2.ZERO
+	_memory_remaining = 0.0
+	_perception_state = PERCEPTION_UNAWARE
+	_path_distance = INF
+	_terrain_line_of_sight = false
+	_navigation_mode = NAVIGATION_MODE_NONE
+	_has_movement_target = false
+	_movement_target_position = Vector2.ZERO
+	_has_cached_navigation_waypoint = false
+	_cached_navigation_waypoint = Vector2.ZERO
 	_last_scores.clear()
 	_decision_remaining = 0.0
 	_max_life = float(enemy_data.get("max_hp", 1))
@@ -151,6 +194,11 @@ func ai_debug_summary() -> Dictionary:
 		"action": _current_action,
 		"action_state": _action_state,
 		"focus_target": _focus_target.name if _focus_target != null and is_instance_valid(_focus_target) else "",
+		"perception_state": _perception_state,
+		"path_distance": _path_distance,
+		"last_known_position": _vector_to_dict(_last_known_position) if _has_last_known_position else {},
+		"memory_remaining": _memory_remaining,
+		"navigation_mode": _navigation_mode,
 		"scores": _last_scores.duplicate(true),
 	}
 
@@ -328,18 +376,30 @@ func _pool_reset() -> void:
 	_exp_reward = 0
 	_facing_sign = 1.0
 	_focus_target = null
+	_has_last_known_position = false
+	_has_movement_target = false
 	_hit_flash_remaining = 0.0
 	_hit_radius = 0.0
 	_home_position = Vector2.ZERO
+	_last_known_position = Vector2.ZERO
 	_last_damage_source_team = ""
 	_last_scores.clear()
 	_life_points = 1.0
 	_max_life = 1.0
 	clear_movement_bounds()
 	_move_speed = 0.0
+	_movement_target_position = Vector2.ZERO
+	_navigation_mode = NAVIGATION_MODE_NONE
+	_navigation_provider = null
+	_path_distance = INF
+	_perception_state = PERCEPTION_UNAWARE
 	_clear_status_effects_for_reuse()
 	_player_target = null
 	_separation_radius = 0.0
+	_terrain_line_of_sight = false
+	_memory_remaining = 0.0
+	_cached_navigation_waypoint = Vector2.ZERO
+	_has_cached_navigation_waypoint = false
 	_visual_color = Color(1.0, 0.38, 0.32)
 	visible = true
 	_set_collision_enabled(false)
@@ -352,7 +412,16 @@ func _pool_release() -> void:
 	_clear_status_effects_for_reuse()
 	clear_movement_bounds()
 	_focus_target = null
+	_has_last_known_position = false
+	_has_movement_target = false
+	_memory_remaining = 0.0
+	_navigation_mode = NAVIGATION_MODE_NONE
+	_navigation_provider = null
+	_path_distance = INF
+	_perception_state = PERCEPTION_UNAWARE
 	_player_target = null
+	_terrain_line_of_sight = false
+	_has_cached_navigation_waypoint = false
 	_set_collision_enabled(false)
 
 
@@ -380,6 +449,8 @@ func _choose_action() -> void:
 	var context: Dictionary = _sense_context()
 	var best_action: String = ""
 	var best_target: Node2D = null
+	var best_target_position: Vector2 = Vector2.ZERO
+	var best_has_target_position: bool = false
 	var best_score: float = -1.0
 	_last_scores.clear()
 	for action: Dictionary in _actions:
@@ -390,10 +461,15 @@ func _choose_action() -> void:
 		if score > best_score + SCORE_EPSILON:
 			best_action = action_id
 			best_target = candidate.get("target") as Node2D
+			best_target_position = candidate.get("target_position", Vector2.ZERO) as Vector2
+			best_has_target_position = bool(candidate.get("has_target_position", false))
 			best_score = score
 	_current_action = best_action
 	_focus_target = best_target
+	_movement_target_position = best_target_position
+	_has_movement_target = best_has_target_position
 	_decision_remaining = _decision_interval()
+	_refresh_cached_navigation_waypoint()
 
 
 func _sense_context() -> Dictionary:
@@ -401,22 +477,98 @@ func _sense_context() -> Dictionary:
 	return {
 		"target": player_candidate.get("target"),
 		"target_score": float(player_candidate.get("score", 0.0)),
-		"target_distance": float(player_candidate.get("distance", 0.0)),
+		"target_distance": float(player_candidate.get("direct_distance", 0.0)),
+		"path_distance": float(player_candidate.get("path_distance", INF)),
+		"target_position": player_candidate.get("target_position", Vector2.ZERO),
+		"has_target_position": bool(player_candidate.get("has_target_position", false)),
+		"currently_perceived": bool(player_candidate.get("currently_perceived", false)),
+		"has_line_of_sight": bool(player_candidate.get("has_line_of_sight", false)),
 	}
 
 
 func _player_candidate() -> Dictionary:
 	if _player_target == null or not is_instance_valid(_player_target):
+		_set_unaware_perception()
 		return _empty_candidate()
-	var distance: float = global_position.distance_to(_player_target.global_position)
+	var player_position: Vector2 = _player_target.global_position
+	var direct_distance: float = global_position.distance_to(player_position)
 	var weight: float = _player_weight()
-	if weight <= 0.0 or distance > _sense_radius():
+	if weight <= 0.0:
+		_set_unaware_perception()
 		return _empty_candidate()
+	var route_query: Dictionary = _active_navigation_query()
+	var route_reachable: bool = bool(route_query.get("reachable", false))
+	_path_distance = float(route_query.get("distance", INF)) if route_reachable else INF
+	_terrain_line_of_sight = _has_terrain_line_of_sight(global_position, player_position)
+	if _terrain_line_of_sight and direct_distance <= _sight_radius():
+		return _current_player_candidate(
+			PERCEPTION_VISIBLE,
+			player_position,
+			direct_distance,
+			_path_distance,
+			weight,
+			_sight_radius(),
+			true
+		)
+	if route_reachable and _path_distance <= _path_awareness_radius():
+		return _current_player_candidate(
+			PERCEPTION_PATH_AWARE,
+			player_position,
+			direct_distance,
+			_path_distance,
+			weight,
+			_path_awareness_radius(),
+			false
+		)
+	if _has_last_known_position and _memory_remaining > 0.0:
+		_perception_state = PERCEPTION_MEMORY
+		var memory_distance: float = global_position.distance_to(_last_known_position)
+		return {
+			"target": null,
+			"score": weight * _proximity_score(memory_distance, _sight_radius()),
+			"direct_distance": memory_distance,
+			"path_distance": INF,
+			"target_position": _last_known_position,
+			"has_target_position": true,
+			"currently_perceived": false,
+			"has_line_of_sight": false,
+		}
+	_set_unaware_perception()
+	return _empty_candidate()
+
+
+func _current_player_candidate(
+	state: String,
+	player_position: Vector2,
+	direct_distance: float,
+	path_distance: float,
+	weight: float,
+	score_radius: float,
+	has_line_of_sight: bool
+) -> Dictionary:
+	_perception_state = state
+	_last_known_position = player_position
+	_has_last_known_position = true
+	_memory_remaining = _memory_duration()
+	var score_distance: float = direct_distance if has_line_of_sight else path_distance
 	return {
 		"target": _player_target,
-		"score": weight * _proximity_score(distance, _sense_radius()),
-		"distance": distance,
+		"score": weight * _proximity_score(score_distance, score_radius),
+		"direct_distance": direct_distance,
+		"path_distance": path_distance,
+		"target_position": player_position,
+		"has_target_position": true,
+		"currently_perceived": true,
+		"has_line_of_sight": has_line_of_sight,
 	}
+
+
+func _set_unaware_perception() -> void:
+	_perception_state = PERCEPTION_UNAWARE
+	_path_distance = INF
+	_terrain_line_of_sight = false
+	_memory_remaining = 0.0
+	_has_last_known_position = false
 
 
 func _action_candidate(action: Dictionary, context: Dictionary) -> Dictionary:
@@ -429,14 +581,21 @@ func _action_candidate(action: Dictionary, context: Dictionary) -> Dictionary:
 	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_ORBIT_TARGET:
 		return _orbit_candidate(base_score, context)
 	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME:
-		return _guard_candidate(base_score)
+		return _guard_candidate(base_score, context)
 	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET:
-		return _candidate(base_score + float(context.get("target_score", 0.0)), context.get("target"))
+		return _candidate(
+			base_score + float(context.get("target_score", 0.0)),
+			context.get("target"),
+			context.get("target_position", Vector2.ZERO) as Vector2,
+			bool(context.get("has_target_position", false))
+		)
 	return _candidate(0.0, null)
 
 
 func _charge_candidate(base_score: float, context: Dictionary) -> Dictionary:
 	if _charge_cooldown_remaining > 0.0:
+		return _candidate(0.0, null)
+	if not bool(context.get("currently_perceived", false)):
 		return _candidate(0.0, null)
 	var target: Node2D = context.get("target") as Node2D
 	if target == null or not is_instance_valid(target):
@@ -445,11 +604,15 @@ func _charge_candidate(base_score: float, context: Dictionary) -> Dictionary:
 	var charge_range: float = _movement_value("charge_range")
 	if charge_range <= 0.0 or distance > charge_range:
 		return _candidate(0.0, null)
+	if not _has_clear_corridor(global_position, target.global_position, _hit_radius):
+		return _candidate(0.0, null)
 	var range_score: float = _proximity_score(distance, charge_range)
-	return _candidate(base_score + float(context.get("target_score", 0.0)) + range_score, target)
+	return _candidate(base_score + float(context.get("target_score", 0.0)) + range_score, target, target.global_position, true)
 
 
 func _ranged_attack_candidate(base_score: float, context: Dictionary) -> Dictionary:
+	if not bool(context.get("currently_perceived", false)) or not bool(context.get("has_line_of_sight", false)):
+		return _candidate(0.0, null)
 	var target: Node2D = context.get("target") as Node2D
 	if target == null or not is_instance_valid(target):
 		return _candidate(0.0, null)
@@ -458,32 +621,43 @@ func _ranged_attack_candidate(base_score: float, context: Dictionary) -> Diction
 	if attack_range <= 0.0 or distance > attack_range:
 		return _candidate(0.0, null)
 	var range_score: float = _proximity_score(distance, attack_range)
-	return _candidate(base_score + float(context.get("target_score", 0.0)) + range_score, target)
+	return _candidate(base_score + float(context.get("target_score", 0.0)) + range_score, target, target.global_position, true)
 
 
 func _orbit_candidate(base_score: float, context: Dictionary) -> Dictionary:
+	if not bool(context.get("currently_perceived", false)):
+		return _candidate(0.0, null)
 	var target: Node2D = context.get("target") as Node2D
 	if target == null or not is_instance_valid(target):
 		return _candidate(0.0, null)
 	var distance: float = float(context.get("target_distance", global_position.distance_to(target.global_position)))
 	var orbit_radius: float = maxf(_movement_value("orbit_radius"), 1.0)
 	var radius_score: float = 1.0 - clampf(absf(distance - orbit_radius) / orbit_radius, 0.0, 1.0)
-	return _candidate(base_score + float(context.get("target_score", 0.0)) + radius_score, target)
+	return _candidate(base_score + float(context.get("target_score", 0.0)) + radius_score, target, target.global_position, true)
 
 
-func _guard_candidate(base_score: float) -> Dictionary:
+func _guard_candidate(base_score: float, context: Dictionary) -> Dictionary:
 	var territory_radius: float = _territory_radius()
 	var distance: float = global_position.distance_to(_home_position)
+	if not bool(context.get("has_target_position", false)) and territory_radius > 0.0 and distance > 1.0:
+		return _candidate(base_score + _territory_weight() + 1.0, null, _home_position, true)
 	if territory_radius <= 0.0 or distance <= territory_radius:
-		return _candidate(base_score, null)
+		return _candidate(base_score, null, _home_position, true)
 	var over_distance: float = (distance - territory_radius) / territory_radius
-	return _candidate(base_score + over_distance * _territory_weight(), null)
+	return _candidate(base_score + over_distance * _territory_weight(), null, _home_position, true)
 
 
-func _candidate(score: float, raw_target: Variant) -> Dictionary:
+func _candidate(
+	score: float,
+	raw_target: Variant,
+	target_position: Vector2 = Vector2.ZERO,
+	has_target_position: bool = false
+) -> Dictionary:
 	return {
 		"score": maxf(score, 0.0),
 		"target": raw_target if raw_target is Node2D else null,
+		"target_position": target_position,
+		"has_target_position": has_target_position,
 	}
 
 
@@ -491,13 +665,18 @@ func _empty_candidate() -> Dictionary:
 	return {
 		"target": null,
 		"score": 0.0,
-		"distance": 0.0,
+		"direct_distance": 0.0,
+		"path_distance": INF,
+		"target_position": Vector2.ZERO,
+		"has_target_position": false,
+		"currently_perceived": false,
+		"has_line_of_sight": false,
 	}
 
 
 func _apply_current_action(delta: float) -> void:
 	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_ORBIT_TARGET:
-		_move_in_direction(_orbit_direction(), _action_speed_scale(_current_action), delta)
+		_move_in_direction(_path_band_direction(_movement_value("orbit_radius")), _action_speed_scale(_current_action), delta)
 		return
 	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET:
 		_start_charge()
@@ -506,9 +685,9 @@ func _apply_current_action(delta: float) -> void:
 		_apply_ranged_attack(delta)
 		return
 	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME:
-		_move_in_direction(_home_position - global_position, _action_speed_scale(_current_action), delta)
+		_move_in_direction(_direction_to_cached_target(_home_position), _action_speed_scale(_current_action), delta)
 		return
-	_move_in_direction(_target_direction(), _action_speed_scale(_current_action), delta)
+	_move_in_direction(_movement_target_direction(), _action_speed_scale(_current_action), delta)
 
 
 func _apply_ranged_attack(delta: float) -> void:
@@ -520,13 +699,19 @@ func _apply_ranged_attack(delta: float) -> void:
 	var distance: float = target_direction.length()
 	var keep_distance: float = _movement_value("ranged_keep_distance")
 	var attack_range: float = _movement_value("ranged_attack_range")
-	if keep_distance > 0.0 and distance < keep_distance:
-		_move_in_direction(-target_direction, _action_speed_scale(_current_action), delta)
-	elif attack_range > 0.0 and distance > attack_range * 0.82:
-		_move_in_direction(target_direction, _action_speed_scale(_current_action), delta)
+	var route_query: Dictionary = _active_navigation_query()
+	var route_distance: float = float(route_query.get("distance", distance)) if bool(route_query.get("reachable", false)) else distance
+	if keep_distance > 0.0 and route_distance < keep_distance:
+		_move_in_direction(_path_band_direction(keep_distance), _action_speed_scale(_current_action), delta)
+	elif attack_range > 0.0 and route_distance > attack_range * 0.82:
+		_move_in_direction(_movement_direction_to(_focus_target.global_position, true), _action_speed_scale(_current_action), delta)
 	else:
-		_move_in_direction(_orbit_direction(), _action_speed_scale(_current_action), delta)
-	if distance <= attack_range and _ranged_cooldown_remaining <= 0.0:
+		_move_in_direction(_path_band_direction(maxf(keep_distance, 1.0)), _action_speed_scale(_current_action), delta)
+	if (
+		distance <= attack_range
+		and _ranged_cooldown_remaining <= 0.0
+		and _has_terrain_line_of_sight(global_position, _focus_target.global_position)
+	):
 		_fire_ranged_projectile(target_direction)
 
 
@@ -608,10 +793,14 @@ func _move_in_direction(direction: Vector2, speed_scale: float, delta: float) ->
 	_apply_movement_bounds()
 
 
-func _target_direction() -> Vector2:
-	if _focus_target == null or not is_instance_valid(_focus_target):
+func _movement_target_direction() -> Vector2:
+	if not _has_movement_target:
 		return Vector2.ZERO
-	return _focus_target.global_position - global_position
+	if _perception_state == PERCEPTION_MEMORY:
+		return _direction_to_cached_target(_movement_target_position)
+	if _focus_target != null and is_instance_valid(_focus_target):
+		return _movement_direction_to(_focus_target.global_position, true)
+	return _direction_to_cached_target(_movement_target_position)
 
 
 func _orbit_direction() -> Vector2:
@@ -629,9 +818,105 @@ func _orbit_direction() -> Vector2:
 	return radial + tangent * 0.85
 
 
+func _movement_direction_to(target_position: Vector2, use_active_field: bool) -> Vector2:
+	var direct_direction: Vector2 = target_position - global_position
+	if _navigation_provider == null or not is_instance_valid(_navigation_provider):
+		_navigation_mode = NAVIGATION_MODE_DIRECT
+		return direct_direction
+	if _has_clear_corridor(global_position, target_position, _hit_radius):
+		_navigation_mode = NAVIGATION_MODE_DIRECT
+		return direct_direction
+	var query: Dictionary = (
+		_active_navigation_query()
+		if use_active_field
+		else _navigation_query(global_position, target_position)
+	)
+	if not bool(query.get("reachable", false)):
+		_navigation_mode = NAVIGATION_MODE_NONE
+		return Vector2.ZERO
+	_navigation_mode = NAVIGATION_MODE_FLOW_FIELD if use_active_field else NAVIGATION_MODE_LOCAL_ASTAR
+	return (query.get("next_position", global_position) as Vector2) - global_position
+
+
+func _direction_to_cached_target(target_position: Vector2) -> Vector2:
+	var direct_direction: Vector2 = target_position - global_position
+	if _navigation_provider == null or not is_instance_valid(_navigation_provider):
+		_navigation_mode = NAVIGATION_MODE_DIRECT
+		return direct_direction
+	if _has_clear_corridor(global_position, target_position, _hit_radius):
+		_navigation_mode = NAVIGATION_MODE_DIRECT
+		return direct_direction
+	if not _has_cached_navigation_waypoint:
+		_navigation_mode = NAVIGATION_MODE_NONE
+		return Vector2.ZERO
+	_navigation_mode = NAVIGATION_MODE_LOCAL_ASTAR
+	return _cached_navigation_waypoint - global_position
+
+
+func _path_band_direction(desired_distance: float) -> Vector2:
+	if _focus_target == null or not is_instance_valid(_focus_target):
+		return Vector2.ZERO
+	if _navigation_provider == null or not is_instance_valid(_navigation_provider):
+		_navigation_mode = NAVIGATION_MODE_DIRECT
+		return _orbit_direction()
+	if not (
+		_navigation_provider.has_method("world_to_global_cell")
+		and _navigation_provider.has_method("global_cell_to_world")
+	):
+		return _movement_direction_to(_focus_target.global_position, true)
+	var current_cell: Vector2i = _navigation_provider.call("world_to_global_cell", global_position) as Vector2i
+	var from_target: Vector2 = global_position - _focus_target.global_position
+	if from_target.length_squared() <= 0.0:
+		from_target = Vector2.RIGHT
+	var tangent: Vector2 = Vector2(-from_target.y, from_target.x).normalized() * _orbit_sign()
+	var best_direction: Vector2 = Vector2.ZERO
+	var best_score: float = -INF
+	var safe_desired_distance: float = maxf(desired_distance, 1.0)
+	for offset: Vector2i in NAVIGATION_NEIGHBOR_OFFSETS:
+		var candidate_cell: Vector2i = current_cell + offset
+		var candidate_position: Vector2 = _navigation_provider.call("global_cell_to_world", candidate_cell) as Vector2
+		if not _has_clear_corridor(global_position, candidate_position, _hit_radius):
+			continue
+		var query: Dictionary = _navigation_provider.call("navigation_query_to_active_target", candidate_position) as Dictionary
+		if not bool(query.get("reachable", false)):
+			continue
+		var route_distance: float = float(query.get("distance", INF))
+		var direction: Vector2 = (candidate_position - global_position).normalized()
+		var distance_score: float = -absf(route_distance - safe_desired_distance) / safe_desired_distance
+		var tangent_score: float = direction.dot(tangent) * PATH_TANGENT_SCORE_WEIGHT
+		var score: float = distance_score + tangent_score
+		if score > best_score + SCORE_EPSILON:
+			best_score = score
+			best_direction = candidate_position - global_position
+	if best_direction.length_squared() <= 0.0:
+		return _movement_direction_to(_focus_target.global_position, true)
+	_navigation_mode = NAVIGATION_MODE_FLOW_FIELD
+	return best_direction
+
+
+func _refresh_cached_navigation_waypoint() -> void:
+	_has_cached_navigation_waypoint = false
+	_cached_navigation_waypoint = Vector2.ZERO
+	if _navigation_provider == null or not is_instance_valid(_navigation_provider):
+		return
+	var target_position: Vector2 = Vector2.ZERO
+	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME:
+		target_position = _home_position
+	elif _perception_state == PERCEPTION_MEMORY and _has_movement_target:
+		target_position = _movement_target_position
+	else:
+		return
+	var query: Dictionary = _navigation_query(global_position, target_position)
+	if not bool(query.get("reachable", false)):
+		return
+	_cached_navigation_waypoint = query.get("next_position", Vector2.ZERO) as Vector2
+	_has_cached_navigation_waypoint = true
+
+
 func _update_ai_timers(delta: float) -> void:
 	_charge_cooldown_remaining = maxf(_charge_cooldown_remaining - delta, 0.0)
 	_ranged_cooldown_remaining = maxf(_ranged_cooldown_remaining - delta, 0.0)
+	_memory_remaining = maxf(_memory_remaining - delta, 0.0)
 
 
 func _is_charge_state_active() -> bool:
@@ -713,8 +998,6 @@ func _check_contact() -> void:
 
 
 func _contact_target() -> Node2D:
-	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME and _focus_target == null:
-		return null
 	if _player_target != null and is_instance_valid(_player_target):
 		return _player_target
 	return null
@@ -787,6 +1070,10 @@ func _movement() -> Dictionary:
 	return _dictionary_or_empty(_ai_profile.get("movement", {}))
 
 
+func _perception() -> Dictionary:
+	return _dictionary_or_empty(_ai_profile.get("perception", {}))
+
+
 func _movement_value(key: String) -> float:
 	return float(_movement().get(key, 0.0))
 
@@ -807,12 +1094,72 @@ func _territory_weight() -> float:
 	return float(_targeting().get("territory_weight", 0.0))
 
 
-func _sense_radius() -> float:
-	return maxf(float(_ai_profile.get("sense_radius", 640.0)), 1.0)
+func _sight_radius() -> float:
+	return maxf(float(_perception().get("sight_radius", 640.0)), 1.0)
+
+
+func _path_awareness_radius() -> float:
+	return maxf(float(_perception().get("path_awareness_radius", 0.0)), 0.0)
+
+
+func _memory_duration() -> float:
+	return maxf(float(_perception().get("memory_duration", 0.0)), 0.0)
 
 
 func _decision_interval() -> float:
 	return maxf(float(_ai_profile.get("decision_interval", 0.12)), 0.01)
+
+
+func _active_navigation_query() -> Dictionary:
+	if (
+		_navigation_provider != null
+		and is_instance_valid(_navigation_provider)
+		and _navigation_provider.has_method("navigation_query_to_active_target")
+	):
+		return _navigation_provider.call("navigation_query_to_active_target", global_position) as Dictionary
+	if _player_target == null or not is_instance_valid(_player_target):
+		return {"reachable": false, "distance": INF}
+	return {
+		"reachable": true,
+		"distance": global_position.distance_to(_player_target.global_position),
+		"next_position": _player_target.global_position,
+		"target_position": _player_target.global_position,
+	}
+
+
+func _navigation_query(from_position: Vector2, target_position: Vector2) -> Dictionary:
+	if (
+		_navigation_provider != null
+		and is_instance_valid(_navigation_provider)
+		and _navigation_provider.has_method("navigation_query")
+	):
+		return _navigation_provider.call("navigation_query", from_position, target_position) as Dictionary
+	return {
+		"reachable": true,
+		"distance": from_position.distance_to(target_position),
+		"next_position": target_position,
+		"target_position": target_position,
+	}
+
+
+func _has_terrain_line_of_sight(from_position: Vector2, target_position: Vector2) -> bool:
+	if (
+		_navigation_provider != null
+		and is_instance_valid(_navigation_provider)
+		and _navigation_provider.has_method("has_terrain_line_of_sight")
+	):
+		return bool(_navigation_provider.call("has_terrain_line_of_sight", from_position, target_position))
+	return true
+
+
+func _has_clear_corridor(from_position: Vector2, target_position: Vector2, clearance: float) -> bool:
+	if (
+		_navigation_provider != null
+		and is_instance_valid(_navigation_provider)
+		and _navigation_provider.has_method("has_clear_corridor")
+	):
+		return bool(_navigation_provider.call("has_clear_corridor", from_position, target_position, clearance))
+	return true
 
 
 func _action_speed_scale(action_id: String) -> float:

@@ -675,7 +675,7 @@ func _spawn_enemy(wave: Dictionary, wave_key: String) -> bool:
 	enemy.set_meta("wave_key", wave_key)
 	if enemy.has_meta("module_slot"):
 		enemy.remove_meta("module_slot")
-	enemy.call("configure", enemy_data, _player)
+	enemy.call("configure", enemy_data, _player, _enemy_navigation_provider())
 	_apply_enemy_movement_bounds(enemy)
 	_connect_enemy_defeated(enemy, wave_key)
 	return true
@@ -877,7 +877,7 @@ func _spawn_enemy_at(enemy_id: String, spawn_position: Vector2, spawn_key: Strin
 			enemy.remove_meta("module_slot")
 	else:
 		enemy.set_meta("module_slot", module_slot)
-	enemy.call("configure", enemy_data, _player)
+	enemy.call("configure", enemy_data, _player, _enemy_navigation_provider())
 	_apply_enemy_movement_bounds(enemy)
 	_connect_enemy_defeated(enemy, spawn_key)
 	return true
@@ -2090,7 +2090,7 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 				enemy.remove_meta("module_slot")
 		else:
 			enemy.set_meta("module_slot", module_slot)
-		enemy.call("configure", enemy_data, _player)
+		enemy.call("configure", enemy_data, _player, _enemy_navigation_provider())
 		_apply_enemy_movement_bounds(enemy)
 		if enemy.has_method("restore_snapshot"):
 			enemy.call("restore_snapshot", snapshot_data)
@@ -2104,6 +2104,12 @@ func _is_module_world_position_walkable(world_position: Vector2) -> bool:
 		and _module_world_manager.has_method("is_world_position_walkable")
 		and bool(_module_world_manager.call("is_world_position_walkable", world_position))
 	)
+
+
+func _enemy_navigation_provider() -> Node:
+	if _module_world_enabled and _module_world_manager != null:
+		return _module_world_manager
+	return null
 
 
 func _restore_bullet_snapshots(bullet_snapshots: Array) -> void:

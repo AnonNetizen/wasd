@@ -10,6 +10,7 @@ const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_s
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const RNG_STREAMS := preload("res://scripts/contracts/rng_streams.gd")
 const ModuleChunkRuntime := preload("res://scripts/gameplay/module_chunk.gd")
+const ModuleNavigationFieldRuntime := preload("res://scripts/gameplay/module_navigation_field.gd")
 
 const WORLD_COLUMNS: int = 9
 const WORLD_ROWS: int = 9
@@ -34,6 +35,7 @@ var _world_origin: Vector2 = Vector2.ZERO
 var _active_radius: int = 1
 var _assignment: Dictionary = {}
 var _map_hash: String = ""
+var _navigation_field: ModuleNavigationFieldRuntime = ModuleNavigationFieldRuntime.new()
 var _current_module_coord: Vector2i = INVALID_COORD
 var _revealed: Dictionary = {}
 var _visited: Dictionary = {}
@@ -100,6 +102,7 @@ func build_technical_slice_assignment() -> bool:
 
 
 func tick(player_position: Vector2) -> Dictionary:
+	_navigation_field.set_active_target(player_position)
 	var global_cell: Vector2i = world_to_global_cell(player_position)
 	var module_and_local: Dictionary = global_cell_to_module_and_local(global_cell)
 	var next_coord: Vector2i = module_and_local.get("module_coord", INVALID_COORD) as Vector2i
@@ -154,6 +157,22 @@ func global_cell_to_world(global_cell: Vector2i) -> Vector2:
 func is_world_position_walkable(world_position: Vector2) -> bool:
 	var global_cell: Vector2i = world_to_global_cell(world_position)
 	return _is_global_cell_valid(global_cell) and _terrain_at_global_cell(global_cell) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR
+
+
+func navigation_query_to_active_target(from_world_position: Vector2) -> Dictionary:
+	return _navigation_field.query_to_active_target(from_world_position)
+
+
+func navigation_query(from_world_position: Vector2, target_world_position: Vector2) -> Dictionary:
+	return _navigation_field.query(from_world_position, target_world_position)
+
+
+func has_terrain_line_of_sight(from_world_position: Vector2, target_world_position: Vector2) -> bool:
+	return _navigation_field.has_terrain_line_of_sight(from_world_position, target_world_position)
+
+
+func has_clear_corridor(from_world_position: Vector2, target_world_position: Vector2, clearance: float) -> bool:
+	return _navigation_field.has_clear_corridor(from_world_position, target_world_position, clearance)
 
 
 func global_cell_to_module_and_local(global_cell: Vector2i) -> Dictionary:
@@ -305,6 +324,7 @@ func restore_state(state: Dictionary) -> bool:
 
 	_deactivate_all_chunks()
 	_map_hash = restored_hash
+	_rebuild_navigation_field()
 	_revealed = _set_from_coord_array(state.get("revealed", []))
 	_visited = _set_from_coord_array(state.get("visited", []))
 	_slot_states = _validated_slot_states(state.get("slot_states", {}))
@@ -337,6 +357,7 @@ func debug_summary() -> Dictionary:
 		"visited_slots": _coords_to_dict_array(visited_module_coords()),
 		"active_slots": _coords_to_dict_array(active_module_coords()),
 		"chunk_pool_size": _chunk_pool.size(),
+		"navigation": _navigation_field.debug_summary(),
 	}
 
 
@@ -460,7 +481,31 @@ func _finalize_assignment() -> bool:
 	if not _assignment_is_valid():
 		return false
 	_map_hash = _compute_map_hash()
+	_rebuild_navigation_field()
 	return true
+
+
+func _rebuild_navigation_field() -> void:
+	var walkable := PackedByteArray()
+	walkable.resize(WORLD_CELL_COLUMNS * WORLD_CELL_ROWS)
+	for row_index: int in range(WORLD_CELL_ROWS):
+		for column_index: int in range(WORLD_CELL_COLUMNS):
+			var global_cell := Vector2i(column_index, row_index)
+			var cell_index: int = row_index * WORLD_CELL_COLUMNS + column_index
+			walkable[cell_index] = (
+				1
+				if _terrain_at_global_cell(global_cell) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR
+				else 0
+			)
+	if not _navigation_field.configure(
+		walkable,
+		WORLD_CELL_COLUMNS,
+		WORLD_CELL_ROWS,
+		_cell_size,
+		_world_origin,
+		WORLD_CENTER_GLOBAL_CELL
+	):
+		push_error("[ModuleWorldManager] navigation field could not be built from assignment")
 
 
 func _assignment_is_valid() -> bool:
@@ -687,6 +732,7 @@ func _deactivate_all_chunks() -> Array[Dictionary]:
 
 func _reset_world_state() -> void:
 	_deactivate_all_chunks()
+	_navigation_field.clear()
 	_assignment.clear()
 	_map_hash = ""
 	_current_module_coord = INVALID_COORD

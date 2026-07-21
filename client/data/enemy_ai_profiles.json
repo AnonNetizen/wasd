@@ -1,9 +1,13 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "profiles": [
     {
       "id": "enemy_ai_chase_contact",
-      "sense_radius": 760.0,
+      "perception": {
+        "sight_radius": 760.0,
+        "path_awareness_radius": 500.0,
+        "memory_duration": 1.5
+      },
       "decision_interval": 0.12,
       "targeting": {
         "player_weight": 1.0,
@@ -28,7 +32,11 @@
     },
     {
       "id": "enemy_ai_fast_chase",
-      "sense_radius": 680.0,
+      "perception": {
+        "sight_radius": 680.0,
+        "path_awareness_radius": 440.0,
+        "memory_duration": 1.5
+      },
       "decision_interval": 0.14,
       "targeting": {
         "player_weight": 0.7,
@@ -53,7 +61,11 @@
     },
     {
       "id": "enemy_ai_charge_stalker",
-      "sense_radius": 820.0,
+      "perception": {
+        "sight_radius": 820.0,
+        "path_awareness_radius": 530.0,
+        "memory_duration": 1.5
+      },
       "decision_interval": 0.12,
       "targeting": {
         "player_weight": 0.55,
@@ -83,7 +95,11 @@
     },
     {
       "id": "enemy_ai_home_guard",
-      "sense_radius": 760.0,
+      "perception": {
+        "sight_radius": 760.0,
+        "path_awareness_radius": 500.0,
+        "memory_duration": 1.5
+      },
       "decision_interval": 0.16,
       "targeting": {
         "player_weight": 0.7,
@@ -118,7 +134,11 @@
     },
     {
       "id": "enemy_ai_ranged_spitter",
-      "sense_radius": 860.0,
+      "perception": {
+        "sight_radius": 860.0,
+        "path_awareness_radius": 560.0,
+        "memory_duration": 1.5
+      },
       "decision_interval": 0.12,
       "targeting": {
         "player_weight": 1.0,

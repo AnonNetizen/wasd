@@ -422,11 +422,15 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "profiles": [
     {
       "id": "enemy_ai_charge_stalker",
-      "sense_radius": 820.0,
+      "perception": {
+        "sight_radius": 820.0,
+        "path_awareness_radius": 530.0,
+        "memory_duration": 1.5
+      },
       "decision_interval": 0.12,
       "targeting": {
         "player_weight": 0.55,
@@ -454,9 +458,11 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `2` | 数据结构版本；旧种间交互字段会被双端 schema 明确拒绝 |
+| `schema_version` | int | 必须为 `3` | 数据结构版本；旧 `sense_radius` 与种间交互字段会被双端 schema 明确拒绝 |
 | `profiles[].id` | string | 文件内唯一，非空 | AI profile id；由 `enemies.csv.ai_profile_id` 引用 |
-| `profiles[].sense_radius` | number | `> 0`，px | 感知玩家的最大距离 |
+| `profiles[].perception.sight_radius` | number | `> 0`，px | 地形视线畅通时的玩家视觉感知半径；首版为 360° 视野 |
+| `profiles[].perception.path_awareness_radius` | number | `>= 0` 且不大于 `sight_radius`，px | 隔墙但路径可达时，按共享流场路径距离感知玩家的半径 |
+| `profiles[].perception.memory_duration` | number | `>= 0`，秒 | 失去当前感知后，只追踪最后已知位置的持续时间 |
 | `profiles[].decision_interval` | number | `> 0`，秒 | 重新计算 Utility 分数的间隔 |
 | `targeting.player_weight` | number | `>= 0` | 玩家目标的评分权重；玩家是唯一战斗候选 |
 | `targeting.territory_radius` | number | `>= 0`，px | 离出生点超过该距离时，守家动作会加分 |

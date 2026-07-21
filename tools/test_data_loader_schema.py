@@ -284,11 +284,51 @@ def main() -> int:
             ],
         ),
         (
-            "enemy AI schema v2 is required",
-            _mutate_json("client/data/enemy_ai_profiles.json", _set_schema_version(1)),
+            "enemy AI schema v3 is required",
+            _mutate_json("client/data/enemy_ai_profiles.json", _set_schema_version(2)),
             [
                 "client/data/enemy_ai_profiles.json:schema_version",
-                "must be >= 2",
+                "must be >= 3",
+            ],
+        ),
+        (
+            "enemy AI sense radius was removed",
+            _mutate_json("client/data/enemy_ai_profiles.json", _add_enemy_ai_legacy_sense_radius),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].sense_radius",
+                "field was removed in schema v3",
+            ],
+        ),
+        (
+            "enemy AI perception is required",
+            _mutate_json("client/data/enemy_ai_profiles.json", _remove_enemy_ai_perception),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].perception",
+                "must be an object",
+            ],
+        ),
+        (
+            "enemy AI sight radius must be positive",
+            _mutate_json("client/data/enemy_ai_profiles.json", _set_enemy_ai_perception_value("sight_radius", 0.0)),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].perception.sight_radius",
+                "must be > 0",
+            ],
+        ),
+        (
+            "enemy AI path awareness cannot exceed sight",
+            _mutate_json("client/data/enemy_ai_profiles.json", _set_enemy_ai_perception_value("path_awareness_radius", 9999.0)),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].perception.path_awareness_radius",
+                "must be <= sight_radius",
+            ],
+        ),
+        (
+            "enemy AI memory duration cannot be negative",
+            _mutate_json("client/data/enemy_ai_profiles.json", _set_enemy_ai_perception_value("memory_duration", -0.1)),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].perception.memory_duration",
+                "must be >= 0",
             ],
         ),
         (
@@ -1102,6 +1142,21 @@ def _set_schema_version(value: int) -> JsonMutator:
 
 def _add_enemy_ai_legacy_contact_interval(payload: dict[str, Any]) -> None:
     payload["profiles"][0]["contact_interval"] = 0.45
+
+
+def _add_enemy_ai_legacy_sense_radius(payload: dict[str, Any]) -> None:
+    payload["profiles"][0]["sense_radius"] = 760.0
+
+
+def _remove_enemy_ai_perception(payload: dict[str, Any]) -> None:
+    payload["profiles"][0].pop("perception", None)
+
+
+def _set_enemy_ai_perception_value(key: str, value: Any) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["profiles"][0]["perception"][key] = value
+
+    return mutate
 
 
 def _add_enemy_ai_legacy_hunt_tags(payload: dict[str, Any]) -> None:

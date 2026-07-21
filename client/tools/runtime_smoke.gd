@@ -165,6 +165,7 @@ func _run() -> void:
 	await _expect_enemy_movement_bounds(run_loop, player)
 	await _expect_swarm_enemy_spawn(run_loop, player)
 	await _expect_enemy_player_targeting(run_loop, player)
+	await _expect_route_aware_enemy_perception(run_loop, player)
 	await _expect_ranged_enemy_projectile_damage(run_loop, player)
 	await _expect_overdrive_rounds_skill(run_loop, player)
 	await _expect_pickup_orb_draw_order(run_loop, player)
@@ -1014,6 +1015,143 @@ func _expect_enemy_player_targeting(run_loop: Node, player: Node2D) -> void:
 
 	for enemy: Node2D in enemies:
 		PoolManager.release(enemy)
+
+
+func _expect_route_aware_enemy_perception(run_loop: Node, player: Node2D) -> void:
+	_disable_enemy_physics()
+	var probe: Node = NavigationProbe.new()
+	add_child(probe)
+	var enemy_rows: Dictionary = run_loop.get("_enemy_rows") as Dictionary
+	var origin := Vector2(200.0, 0.0)
+	player.global_position = Vector2.ZERO
+
+	var chaser: Node2D = _spawn_smoke_enemy(run_loop, "enemy_chaser", "smoke_navigation_chaser")
+	_expect(chaser != null, "navigation smoke should spawn a chaser")
+	if chaser == null:
+		probe.queue_free()
+		return
+	chaser.global_position = origin
+	probe.set("active_target_position", player.global_position)
+	probe.set("next_position", player.global_position)
+	probe.set("local_next_position", player.global_position)
+	chaser.call("configure", enemy_rows["enemy_chaser"], player, probe)
+	chaser.set_physics_process(true)
+	var direct_start: Vector2 = chaser.global_position
+	await get_tree().physics_frame
+	var direct_summary: Dictionary = chaser.call("ai_debug_summary")
+	_expect(chaser.global_position.x < direct_start.x, "clear terrain should keep smooth direct pursuit")
+	_expect(String(direct_summary.get("perception_state", "")) == "visible", "clear sight inside sight radius should perceive the player")
+	_expect(String(direct_summary.get("navigation_mode", "")) == "direct", "clear pursuit should report direct navigation")
+
+	chaser.set_physics_process(false)
+	chaser.global_position = Vector2(400.0, 0.0)
+	probe.set("line_of_sight", false)
+	probe.set("corridor_clear", false)
+	probe.set("reachable", true)
+	probe.set("path_distance", 480.0)
+	probe.set("next_position", Vector2(400.0, 160.0))
+	chaser.call("configure", enemy_rows["enemy_chaser"], player, probe)
+	chaser.set_physics_process(true)
+	var detour_start: Vector2 = chaser.global_position
+	for _index: int in range(4):
+		await get_tree().physics_frame
+	var detour_summary: Dictionary = chaser.call("ai_debug_summary")
+	_expect(chaser.global_position.y > detour_start.y, "blocked pursuit should follow the legal flow waypoint instead of pushing straight into the wall")
+	_expect(String(detour_summary.get("perception_state", "")) == "path_aware", "nearby player behind terrain should be sensed by path distance")
+	_expect(String(detour_summary.get("navigation_mode", "")) == "flow_field", "blocked pursuit should report shared flow-field navigation")
+
+	chaser.set_physics_process(false)
+	chaser.global_position = Vector2(400.0, 0.0)
+	probe.set("path_distance", 501.0)
+	chaser.call("configure", enemy_rows["enemy_chaser"], player, probe)
+	chaser.set_physics_process(true)
+	await get_tree().physics_frame
+	_expect(
+		String((chaser.call("ai_debug_summary") as Dictionary).get("perception_state", "")) == "unaware",
+		"player beyond path-awareness radius should not be sensed through terrain"
+	)
+
+	chaser.set_physics_process(false)
+	chaser.global_position = origin
+	probe.set("line_of_sight", true)
+	probe.set("corridor_clear", true)
+	probe.set("reachable", true)
+	probe.set("path_distance", 200.0)
+	chaser.call("configure", enemy_rows["enemy_chaser"], player, probe)
+	chaser.set_physics_process(true)
+	await get_tree().physics_frame
+	var remembered_position: Vector2 = player.global_position
+	probe.set("line_of_sight", false)
+	probe.set("corridor_clear", false)
+	probe.set("reachable", false)
+	player.global_position = Vector2(-600.0, 600.0)
+	for _index: int in range(12):
+		await get_tree().physics_frame
+	var memory_summary: Dictionary = chaser.call("ai_debug_summary")
+	var memory_position: Dictionary = memory_summary.get("last_known_position", {}) as Dictionary
+	_expect(String(memory_summary.get("perception_state", "")) == "memory", "lost perception should enter short-term memory")
+	_expect(
+		Vector2(float(memory_position.get("x", INF)), float(memory_position.get("y", INF))).is_equal_approx(remembered_position),
+		"memory pursuit should retain the last known position instead of reading the live player position"
+	)
+	for _index: int in range(100):
+		await get_tree().physics_frame
+	_expect(
+		String((chaser.call("ai_debug_summary") as Dictionary).get("perception_state", "")) == "unaware",
+		"memory pursuit should stop after the configured 1.5 seconds"
+	)
+	PoolManager.release(chaser)
+
+	player.global_position = Vector2.ZERO
+	probe.set("active_target_position", player.global_position)
+	probe.set("line_of_sight", false)
+	probe.set("corridor_clear", false)
+	probe.set("reachable", false)
+	probe.set("local_reachable", true)
+	probe.set("local_next_position", Vector2(520.0, 160.0))
+	var bulwark: Node2D = _spawn_smoke_enemy(run_loop, "enemy_bulwark", "smoke_navigation_bulwark")
+	_expect(bulwark != null, "navigation smoke should spawn a home guard")
+	if bulwark != null:
+		bulwark.global_position = Vector2(200.0, 0.0)
+		bulwark.call("configure", enemy_rows["enemy_bulwark"], player, probe)
+		bulwark.global_position = Vector2(520.0, 0.0)
+		bulwark.set_physics_process(true)
+		for _index: int in range(4):
+			await get_tree().physics_frame
+		var bulwark_summary: Dictionary = bulwark.call("ai_debug_summary")
+		_expect(String(bulwark_summary.get("action", "")) == ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME, "unaware home guard should choose its return-home action")
+		_expect(String(bulwark_summary.get("navigation_mode", "")) == "local_astar", "home guard should use the local AStar waypoint when direct return is blocked")
+		_expect(bulwark.global_position.y > 0.0, "home guard should move along its legal return waypoint")
+		PoolManager.release(bulwark)
+
+	probe.set("reachable", true)
+	probe.set("path_distance", 300.0)
+	probe.set("local_reachable", true)
+	var stalker: Node2D = _spawn_smoke_enemy(run_loop, "enemy_stalker", "smoke_navigation_stalker")
+	_expect(stalker != null, "navigation smoke should spawn a charge stalker")
+	if stalker != null:
+		stalker.global_position = Vector2(300.0, 0.0)
+		stalker.call("configure", enemy_rows["enemy_stalker"], player, probe)
+		stalker.set_physics_process(true)
+		await get_tree().physics_frame
+		_expect(
+			String((stalker.call("ai_debug_summary") as Dictionary).get("action", "")) != ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET,
+			"charge should not start through a blocked corridor"
+		)
+		PoolManager.release(stalker)
+
+	var spitter: Node2D = _spawn_smoke_enemy(run_loop, "enemy_spitter", "smoke_navigation_spitter")
+	_expect(spitter != null, "navigation smoke should spawn a ranged spitter")
+	if spitter != null:
+		spitter.global_position = Vector2(320.0, 0.0)
+		spitter.call("configure", enemy_rows["enemy_spitter"], player, probe)
+		spitter.set_physics_process(true)
+		var bullets_before: int = _pool_stat(POOL_IDS.BULLET_BASIC, "acquired")
+		for _index: int in range(100):
+			await get_tree().physics_frame
+		_expect(_pool_stat(POOL_IDS.BULLET_BASIC, "acquired") == bullets_before, "ranged enemy should not fire through blocked terrain")
+		PoolManager.release(spitter)
+	probe.queue_free()
 
 
 func _expect_ranged_enemy_projectile_damage(run_loop: Node, player: Node2D) -> void:
@@ -1988,3 +2126,50 @@ func _finish() -> void:
 
 	print("[RuntimeSmoke] failed; failures=%d" % _failures.size())
 	get_tree().quit(1)
+
+
+class NavigationProbe:
+	extends Node
+
+	var active_target_position: Vector2 = Vector2.ZERO
+	var corridor_clear: bool = true
+	var line_of_sight: bool = true
+	var local_next_position: Vector2 = Vector2.ZERO
+	var local_reachable: bool = true
+	var next_position: Vector2 = Vector2.ZERO
+	var path_distance: float = 0.0
+	var reachable: bool = true
+
+
+	func navigation_query_to_active_target(_from_position: Vector2) -> Dictionary:
+		return {
+			"reachable": reachable,
+			"distance": path_distance if reachable else INF,
+			"next_position": next_position,
+			"target_position": active_target_position,
+		}
+
+
+	func navigation_query(_from_position: Vector2, target_position: Vector2) -> Dictionary:
+		return {
+			"reachable": local_reachable,
+			"distance": path_distance if local_reachable else INF,
+			"next_position": local_next_position,
+			"target_position": target_position,
+		}
+
+
+	func has_terrain_line_of_sight(_from_position: Vector2, _target_position: Vector2) -> bool:
+		return line_of_sight
+
+
+	func has_clear_corridor(_from_position: Vector2, _target_position: Vector2, _clearance: float) -> bool:
+		return corridor_clear
+
+
+	func world_to_global_cell(world_position: Vector2) -> Vector2i:
+		return Vector2i(roundi(world_position.x / 160.0), roundi(world_position.y / 160.0))
+
+
+	func global_cell_to_world(global_cell: Vector2i) -> Vector2:
+		return Vector2(global_cell) * 160.0

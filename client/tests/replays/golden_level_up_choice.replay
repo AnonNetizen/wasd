@@ -24,8 +24,8 @@
 					"luck": 0.0,
 					"selected": "growth_damage_small"
 				},
-				"tick": 29,
-				"time": 0.494951777777777
+				"tick": 30,
+				"time": 0.514243333333333
 			}
 		],
 		"dropped_decision_events": 0,
@@ -254,7 +254,7 @@
 		"started_tick": 0,
 		"started_time": 0.0
 	},
-	"recording_hash": "681b6c2af6556f35816f21e6586fd645c805e5cb07d83c9925b282e6f9307a96",
+	"recording_hash": "b1ea4234671d53e4a4a8d1a3643e5031886863813e4374fb21c708e43a9e3234",
 	"summary": {
 		"decision_events": 1,
 		"dropped_decision_events": 0,
