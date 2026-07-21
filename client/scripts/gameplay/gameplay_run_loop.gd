@@ -56,6 +56,7 @@ const UI_RESTORE_PLAYING: String = "playing"
 const UI_RESTORE_UNDERLYING_STATE: String = "underlying_state"
 const REPLAY_PARTICIPANT_ID: String = "player_0"
 const DEFAULT_DEBUG_GROWTH_POOL: String = "default_level_up"
+const NAVIGATION_FLOW_OBSTACLE_BUFFER_CELLS: int = 2
 
 var _active_world: Node2D = null
 var _current_level: int = 1
@@ -707,18 +708,33 @@ func _configure_module_world(restore_snapshot: Dictionary) -> bool:
 			templates_by_id[template_id] = template_data
 	var module_snapshot: Dictionary = _dictionary_or_empty(restore_snapshot.get("module_world", {}))
 	var world_seed: int = int(module_snapshot.get("run_seed", RNG.run_seed()))
+	var navigation_flow_radius_cells: int = _navigation_flow_radius_cells(_module_world_definition)
 	var configured: bool = bool(_module_world_manager.call(
 		"configure",
 		_module_world_definition,
 		registry_by_id,
 		templates_by_id,
-		world_seed
+		world_seed,
+		navigation_flow_radius_cells
 	))
 	if not configured:
 		return false
 	if _module_world_technical_slice and module_snapshot.is_empty():
 		return bool(_module_world_manager.call("build_technical_slice_assignment"))
 	return true
+
+
+func _navigation_flow_radius_cells(world_definition: Dictionary) -> int:
+	var cell_size: float = maxf(float(world_definition.get("cell_size", 160.0)), 1.0)
+	var maximum_sight_radius: float = 0.0
+	for raw_enemy_data: Variant in _enemy_rows.values():
+		if not raw_enemy_data is Dictionary:
+			continue
+		var enemy_data: Dictionary = raw_enemy_data as Dictionary
+		var ai_profile: Dictionary = _dictionary_or_empty(enemy_data.get("ai_profile", {}))
+		var perception: Dictionary = _dictionary_or_empty(ai_profile.get("perception", {}))
+		maximum_sight_radius = maxf(maximum_sight_radius, float(perception.get("sight_radius", 0.0)))
+	return maxi(ceili(maximum_sight_radius / cell_size) + NAVIGATION_FLOW_OBSTACLE_BUFFER_CELLS, 1)
 
 
 func _ensure_module_world_manager() -> void:

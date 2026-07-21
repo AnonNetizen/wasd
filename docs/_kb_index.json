@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_at": "2026-07-17",
+  "updated_at": "2026-07-21",
   "description": "Machine-readable AI knowledge base index for the wasd project.",
   "documents": [
     {
@@ -174,16 +174,16 @@
     {
       "path": "docs/游戏设计文档.md",
       "type": "authority",
-      "authority": "Gameplay, systems, long-term design, GDD v1.20; Gear Mod loadout progression, top-down 2D presentation, 9x9 modular grid world, quantized rectangular map grid, and top-down asset readability rules",
+      "authority": "Gameplay, systems, long-term design, GDD v1.23; Gear Mod loadout progression, top-down 2D presentation, 9x9 modular grid world, bounded F14 flow field, quantized rectangular map grid, and top-down asset readability rules",
       "status": "active",
       "owner_scope": "design",
-      "last_reviewed": "2026-07-20",
+      "last_reviewed": "2026-07-21",
       "canonical_for": ["game_design", "system_design", "gameplay_behavior"],
       "must_read_for": ["gameplay_change", "system_design_change", "new_content_type"],
       "related_docs": ["docs/IP设定.md", "docs/IP美术风格.md", "docs/决策记录.md", "docs/AI导航.md", "docs/词表与契约.md", "docs/测试策略.md"],
       "related_code": ["client/"],
       "update_triggers": ["gameplay behavior change", "system design change", "new infrastructure decision"],
-      "keywords": ["GDD", "design", "玩法", "系统", "俯视角", "top-down", "ADR #142", "ADR #145", "F14", "模块大地图", "9x9 modules", "11x11 cells", "ModuleWorldManager", "ModuleNavigationField", "shared flow field", "hybrid perception", "module_worlds.json", "module_templates.json", "run v4", "module fog", "streaming chunks", "AI editor-time JSON", "approved templates", "量化矩形地图格", "rectangular map grid", "footprint", "short loot runs", "8-12分钟", "默认无升级三选一", "Gear Mod", "SaveManager", "续局", "RNG.world", "数值配置", "本地化", "StatusEffect"]
+      "keywords": ["GDD", "design", "玩法", "系统", "俯视角", "top-down", "ADR #142", "ADR #145", "ADR #146", "F14", "F14.1", "模块大地图", "9x9 modules", "11x11 cells", "ModuleWorldManager", "ModuleNavigationField", "bounded shared flow field", "289 cells", "hybrid perception", "module_worlds.json", "module_templates.json", "run v4", "module fog", "streaming chunks", "AI editor-time JSON", "approved templates", "量化矩形地图格", "rectangular map grid", "footprint", "short loot runs", "8-12分钟", "默认无升级三选一", "Gear Mod", "SaveManager", "续局", "RNG.world", "数值配置", "本地化", "StatusEffect"]
     },
     {
       "path": "docs/决策记录.md",
@@ -197,7 +197,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #127", "ADR #128", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #144", "ADR #145", "F14", "模块大地图", "ModuleWorldManager", "ModuleNavigationField", "shared flow field", "hybrid perception", "run v4", "RoomManager superseded", "WarzoneDirector", "EnemyAI player targeting", "敌方友伤护栏", "short loot runs", "撤离", "Gear Mod", "性能测试按需", "user-triggered performance test", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "AI Git", "code review", "事实review"]
+      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #127", "ADR #128", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #144", "ADR #145", "ADR #146", "F14", "F14.1", "模块大地图", "ModuleWorldManager", "ModuleNavigationField", "bounded shared flow field", "hybrid perception", "run v4", "RoomManager superseded", "WarzoneDirector", "EnemyAI player targeting", "敌方友伤护栏", "short loot runs", "撤离", "Gear Mod", "性能测试按需", "user-triggered performance test", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "AI Git", "code review", "事实review"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -636,7 +636,7 @@
     {
       "path": "docs/AI协作/工作包/F14-EnemyNavigationAndPerception.md",
       "type": "workflow",
-      "authority": "F14 enemy shared flow-field navigation, hybrid perception, attack terrain gates, and acceptance commands",
+      "authority": "F14 enemy bounded shared flow-field navigation, full-world AStar, hybrid perception, attack terrain gates, and acceptance commands",
       "status": "active",
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-07-21",
@@ -644,8 +644,8 @@
       "must_read_for": ["enemy_navigation_change", "enemy_perception_change", "enemy_ai_profile_schema_change"],
       "related_docs": ["docs/AI协作/工作包/F13-ModularGridWorld.md", "docs/游戏设计文档.md", "docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/代码/enemy_ai.md", "docs/代码/module_world_manager.md", "docs/代码/gameplay_runtime.md", "client/data/README.md"],
       "related_code": ["client/scripts/gameplay/module_navigation_field.gd", "client/scripts/gameplay/module_world_manager.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/enemy_ai_profiles.json", "client/scripts/autoload/data_loader.gd", "client/tools/module_world_smoke.gd", "client/tools/runtime_smoke.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py"],
-      "update_triggers": ["navigation mask changes", "flow-field tie-break changes", "perception schema changes", "memory behavior changes", "charge or ranged terrain gate changes", "F14 acceptance commands change"],
-      "keywords": ["F14", "EnemyNavigationAndPerception", "ModuleNavigationField", "shared flow field", "Dijkstra", "AStarGrid2D", "terrain line of sight", "path awareness", "last known position", "enemy_ai_profiles schema v3", "module-world-smoke", "runtime-smoke"]
+      "update_triggers": ["navigation mask changes", "flow-field radius or tie-break changes", "perception schema changes", "memory behavior changes", "charge or ranged terrain gate changes", "F14 acceptance commands change"],
+      "keywords": ["F14", "F14.1", "EnemyNavigationAndPerception", "ModuleNavigationField", "bounded shared flow field", "radius 8", "289 cells", "Dijkstra", "AStarGrid2D", "terrain line of sight", "path awareness", "last known position", "enemy_ai_profiles schema v3", "module-world-smoke", "runtime-smoke"]
     },
     {
       "path": "docs/AI协作/上下文预算.md",
@@ -986,16 +986,16 @@
     {
       "path": "docs/代码/module_world_manager.md",
       "type": "module_doc",
-      "authority": "ModuleWorldManager contract for seeded assignment, coordinates, pooled 3x3 streaming, fog/hash/slot state, F14 full-world navigation queries, and run v4 restore",
+      "authority": "ModuleWorldManager contract for seeded assignment, coordinates, pooled 3x3 streaming, fog/hash/slot state, F14 bounded active flow and full-world navigation queries, and run v4 restore",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-07-20",
+      "last_reviewed": "2026-07-21",
       "canonical_for": ["module_world_manager", "module_navigation_field", "module_chunk", "module_world_runtime", "module_world_navigation", "module_world_snapshot"],
       "must_read_for": ["module_world_change", "module_navigation_change", "module_chunk_change", "module_world_data_change", "module_run_snapshot_change"],
       "related_docs": ["docs/AI协作/工作包/F13-ModularGridWorld.md", "docs/AI协作/工作包/F14-EnemyNavigationAndPerception.md", "docs/代码/enemy_ai.md", "docs/代码/gameplay_runtime.md", "docs/代码/map_manager.md", "docs/代码/save_manager.md", "docs/代码/data_loader.md", "client/data/README.md", "docs/词表与契约.md", "docs/测试策略.md"],
       "related_code": ["client/scripts/gameplay/module_world_manager.gd", "client/scripts/gameplay/module_navigation_field.gd", "client/scripts/gameplay/module_chunk.gd", "client/scripts/gameplay/module_minimap.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/data/module_worlds.json", "client/data/module_templates.json", "client/data/modules/", "client/tools/module_world_smoke.gd"],
-      "update_triggers": ["assignment changes", "coordinate or navigation API changes", "flow-field or terrain sight changes", "streaming behavior changes", "fog or map hash changes", "module snapshot changes"],
-      "keywords": ["ModuleWorldManager", "ModuleNavigationField", "ModuleChunk", "9x9", "11x11", "99x99", "shared flow field", "Dijkstra", "AStarGrid2D", "terrain line of sight", "RNG.world", "map hash", "fog", "slot state", "run v4", "module-world-smoke"]
+      "update_triggers": ["assignment changes", "coordinate or navigation API changes", "flow-field radius, bound, or terrain sight changes", "streaming behavior changes", "fog or map hash changes", "module snapshot changes"],
+      "keywords": ["ModuleWorldManager", "ModuleNavigationField", "ModuleChunk", "9x9", "11x11", "99x99", "bounded shared flow field", "radius 8", "289 cells", "Dijkstra", "AStarGrid2D", "terrain line of sight", "RNG.world", "map hash", "fog", "slot state", "run v4", "module-world-smoke"]
     },
     {
       "path": "docs/代码/debug_tools.md",

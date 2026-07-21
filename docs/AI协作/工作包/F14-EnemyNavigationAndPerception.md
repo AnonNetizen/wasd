@@ -1,7 +1,7 @@
 # F14 敌人导航与感知工作包
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。
-> 本文档是 ADR #145 的敌人共享流场寻路与混合感知阶段工作包；改静态导航 mask、流场 / AStar 查询、敌人感知 profile、最后已知位置、攻击视线门禁或验收命令时，必须同步 GDD、ADR、AI 导航、EnemyAI / ModuleWorldManager / Gameplay Runtime 文档、测试策略、数据手册、知识库索引与 AI 记忆。
+> 本文档是 ADR #145 / #146 的敌人共享流场寻路、混合感知与局部流场修正工作包；改静态导航 mask、流场 / AStar 查询、敌人感知 profile、最后已知位置、攻击视线门禁或验收命令时，必须同步 GDD、ADR、AI 导航、EnemyAI / ModuleWorldManager / Gameplay Runtime 文档、测试策略、数据手册、知识库索引与 AI 记忆。
 
 ## 1. 目标与依赖
 
@@ -19,8 +19,10 @@
 ## 2. 共享导航
 
 - `ModuleNavigationField` 从完整 assignment 构建 99×99 walkability mask；只有 `module_cell_blocked` 阻挡路径与视线。
-- 玩家跨全局格时，以玩家格为终点运行确定性八方向 Dijkstra；固定邻居顺序和全局格索引处理同成本路线，斜向移动要求两个正交格均可走。
+- 玩家跨全局格时，以玩家格为终点运行确定性八方向 Dijkstra；活动流场只覆盖玩家格周围的 Chebyshev 有界窗口。`GameplayRunLoop` 从已加载 profile 取最大 `sight_radius`，按 `ceil(max_sight_radius / cell_size) + 2` 自动计算半径，当前 `ceil(860 / 160) + 2 = 8`，单次最多访问 17×17 = 289 格。
+- 固定邻居顺序和全局格索引处理同成本路线，斜向移动要求两个正交格均可走；每次只清理上次实际触达索引，Dijkstra 堆使用并行距离 / 格索引数值数组，不为节点创建临时字典。
 - 查询返回可达性、含端点偏移的世界像素路径距离、下一格中心和精确目标位置。玩家在同一格内移动只更新精确位置，不重算距离场。
+- 活动窗口之外的 `navigation_query_to_active_target()` 返回不可达；`navigation_query()` 仍在完整 99×99 mask 上使用 AStar，供守家和最后已知位置长距离查询。
 - 守家与最后已知位置在决策 tick 使用同一 mask 上的 `AStarGrid2D`；直线走廊畅通时直接移动。
 - `ModuleWorldManager` 在组图、技术首片和恢复 assignment 后重建导航数据；导航与感知缓存均为派生状态，不进入 run v4。
 
@@ -43,10 +45,11 @@
 - 不恢复敌人种间猎食、逃跑、目标选择或互伤。
 - run schema 保持 v4；恢复后在下一决策 tick 重新感知。
 - 性能 probe 仅在用户当次明确要求时运行，本工作包验收不自动运行。
+- 活动流场保持同步和确定性；不引入线程、异步路径结果或回放时序差异。
 
 ## 5. 验收
 
 - contracts / data / schema 双端校验明确拒绝 schema v2、`sense_radius`、缺失 / 非法 perception、路径半径大于视觉半径和负记忆时间。
-- `module-world-smoke` 覆盖确定性流场、真实模块绕障、路径距离大于直线、无斜穿墙角、封锁 / 越界不可达和技术首片外圈封闭。
+- `module-world-smoke` 覆盖确定性流场、真实模块绕障、路径距离大于直线、无斜穿墙角、封锁 / 越界不可达和技术首片外圈封闭；追加验证半径 8 / 289 格上限、连续跨 20 格不退化、同格不重建、活动窗口外不可达且同位置全图 AStar 仍可查询。
 - `runtime-smoke` 覆盖直追、流场 waypoint、视线 / 路径感知、1.5 秒记忆、守家回位，以及冲锋 / 远程不穿墙；继续覆盖玩家唯一目标、友伤拒绝和中心分离。
 - 运行 GDScript / project / semantic lint、headless boot、完整模块世界、技术首片、runtime、F9、L1、save 与四条黄金回放；不运行 `startup-probe`、`perf-probe` 或 Profiler。

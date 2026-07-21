@@ -23,11 +23,19 @@ var _astar: AStarGrid2D = AStarGrid2D.new()
 var _cell_size: float = 1.0
 var _columns: int = 0
 var _distances: PackedFloat64Array = PackedFloat64Array()
+var _flow_bounds: Rect2i = Rect2i()
+var _flow_radius_cells: int = 0
 var _flow_rebuild_count: int = 0
+var _heap_distances: Array[float] = []
+var _heap_indices: Array[int] = []
+var _heap_pop_distance: float = INF
+var _heap_pop_index: int = INVALID_INDEX
+var _last_rebuild_visited_count: int = 0
 var _next_indices: PackedInt32Array = PackedInt32Array()
 var _origin: Vector2 = Vector2.ZERO
 var _reachable_count: int = 0
 var _rows: int = 0
+var _touched_indices: PackedInt32Array = PackedInt32Array()
 var _world_center_cell: Vector2i = Vector2i.ZERO
 var _walkable: PackedByteArray = PackedByteArray()
 
@@ -38,21 +46,29 @@ func configure(
 	rows: int,
 	cell_size: float,
 	origin: Vector2,
-	world_center_cell: Vector2i
+	world_center_cell: Vector2i,
+	flow_radius_cells: int
 ) -> bool:
 	clear()
-	if columns <= 0 or rows <= 0 or cell_size <= 0.0 or walkable.size() != columns * rows:
+	if (
+		columns <= 0
+		or rows <= 0
+		or cell_size <= 0.0
+		or flow_radius_cells <= 0
+		or walkable.size() != columns * rows
+	):
 		return false
 	_columns = columns
 	_rows = rows
 	_cell_size = cell_size
 	_origin = origin
 	_world_center_cell = world_center_cell
+	_flow_radius_cells = flow_radius_cells
 	_walkable = walkable.duplicate()
 	_distances.resize(_walkable.size())
 	_next_indices.resize(_walkable.size())
 	_configure_astar()
-	_reset_flow_arrays()
+	_initialize_flow_arrays()
 	return true
 
 
@@ -63,11 +79,19 @@ func clear() -> void:
 	_cell_size = 1.0
 	_columns = 0
 	_distances = PackedFloat64Array()
+	_flow_bounds = Rect2i()
+	_flow_radius_cells = 0
 	_flow_rebuild_count = 0
+	_heap_distances.clear()
+	_heap_indices.clear()
+	_heap_pop_distance = INF
+	_heap_pop_index = INVALID_INDEX
+	_last_rebuild_visited_count = 0
 	_next_indices = PackedInt32Array()
 	_origin = Vector2.ZERO
 	_reachable_count = 0
 	_rows = 0
+	_touched_indices = PackedInt32Array()
 	_world_center_cell = Vector2i.ZERO
 	_walkable = PackedByteArray()
 
@@ -76,8 +100,8 @@ func set_active_target(target_position: Vector2) -> bool:
 	_active_target_position = target_position
 	var target_cell: Vector2i = world_to_cell(target_position)
 	if not is_cell_walkable(target_cell):
+		_clear_active_flow()
 		_active_target_cell = INVALID_CELL
-		_reset_flow_arrays()
 		return false
 	if target_cell != _active_target_cell:
 		_active_target_cell = target_cell
@@ -89,7 +113,7 @@ func query_to_active_target(from_position: Vector2) -> Dictionary:
 	if not is_cell_walkable(_active_target_cell):
 		return _unreachable_query(_active_target_position)
 	var from_cell: Vector2i = world_to_cell(from_position)
-	if not is_cell_walkable(from_cell):
+	if not is_cell_walkable(from_cell) or not _flow_bounds.has_point(from_cell):
 		return _unreachable_query(_active_target_position)
 	if from_cell == _active_target_cell:
 		return {
@@ -200,7 +224,12 @@ func is_cell_walkable(cell: Vector2i) -> bool:
 func debug_summary() -> Dictionary:
 	return {
 		"active_target_cell": _coord_to_dict(_active_target_cell) if _is_cell_valid(_active_target_cell) else {},
+		"flow_radius_cells": _flow_radius_cells,
+		"flow_bounds": _rect_to_dict(_flow_bounds),
+		"flow_bound_cell_count": _flow_bounds.size.x * _flow_bounds.size.y,
+		"flow_cell_capacity": (2 * _flow_radius_cells + 1) * (2 * _flow_radius_cells + 1),
 		"flow_rebuild_count": _flow_rebuild_count,
+		"last_rebuild_visited_count": _last_rebuild_visited_count,
 		"reachable_count": _reachable_count,
 		"walkable_count": _walkable_count(),
 	}
@@ -221,25 +250,26 @@ func _configure_astar() -> void:
 
 
 func _rebuild_flow_field() -> void:
-	_reset_flow_arrays()
+	_clear_active_flow()
 	if not is_cell_walkable(_active_target_cell):
 		return
 	_flow_rebuild_count += 1
+	_flow_bounds = _bounded_flow_rect(_active_target_cell)
 	var target_index: int = _cell_index(_active_target_cell)
 	_distances[target_index] = 0.0
 	_next_indices[target_index] = target_index
-	var heap: Array[Dictionary] = []
-	_heap_push(heap, 0.0, target_index)
-	while not heap.is_empty():
-		var current: Dictionary = _heap_pop(heap)
-		var current_distance: float = float(current.get("distance", INF))
-		var current_index: int = int(current.get("index", INVALID_INDEX))
+	_touched_indices.append(target_index)
+	_heap_push(0.0, target_index)
+	while not _heap_indices.is_empty():
+		_heap_pop()
+		var current_distance: float = _heap_pop_distance
+		var current_index: int = _heap_pop_index
 		if current_index == INVALID_INDEX or current_distance > _distances[current_index] + DISTANCE_EPSILON:
 			continue
 		var current_cell: Vector2i = _index_to_cell(current_index)
 		for offset: Vector2i in NEIGHBOR_OFFSETS:
 			var neighbor_cell: Vector2i = current_cell + offset
-			if not _can_traverse(neighbor_cell, current_cell):
+			if not _flow_bounds.has_point(neighbor_cell) or not _can_traverse(neighbor_cell, current_cell):
 				continue
 			var neighbor_index: int = _cell_index(neighbor_cell)
 			var step_distance: float = _cell_size * (sqrt(2.0) if offset.x != 0 and offset.y != 0 else 1.0)
@@ -251,20 +281,46 @@ func _rebuild_flow_field() -> void:
 			)
 			if not distance_improved and not tie_improved:
 				continue
+			if is_inf(_distances[neighbor_index]):
+				_touched_indices.append(neighbor_index)
 			_distances[neighbor_index] = candidate_distance
 			_next_indices[neighbor_index] = current_index
-			_heap_push(heap, candidate_distance, neighbor_index)
-	_reachable_count = 0
-	for distance: float in _distances:
-		if not is_inf(distance):
-			_reachable_count += 1
+			_heap_push(candidate_distance, neighbor_index)
+	_reachable_count = _touched_indices.size()
+	_last_rebuild_visited_count = _reachable_count
 
 
-func _reset_flow_arrays() -> void:
+func _initialize_flow_arrays() -> void:
 	_reachable_count = 0
 	for index: int in range(_distances.size()):
 		_distances[index] = INF
 		_next_indices[index] = INVALID_INDEX
+
+
+func _clear_active_flow() -> void:
+	for index: int in _touched_indices:
+		_distances[index] = INF
+		_next_indices[index] = INVALID_INDEX
+	_touched_indices.clear()
+	_heap_distances.clear()
+	_heap_indices.clear()
+	_heap_pop_distance = INF
+	_heap_pop_index = INVALID_INDEX
+	_flow_bounds = Rect2i()
+	_reachable_count = 0
+	_last_rebuild_visited_count = 0
+
+
+func _bounded_flow_rect(target_cell: Vector2i) -> Rect2i:
+	var minimum := Vector2i(
+		maxi(0, target_cell.x - _flow_radius_cells),
+		maxi(0, target_cell.y - _flow_radius_cells)
+	)
+	var maximum := Vector2i(
+		mini(_columns - 1, target_cell.x + _flow_radius_cells),
+		mini(_rows - 1, target_cell.y + _flow_radius_cells)
+	)
+	return Rect2i(minimum, maximum - minimum + Vector2i.ONE)
 
 
 func _can_traverse(from_cell: Vector2i, to_cell: Vector2i) -> bool:
@@ -279,51 +335,72 @@ func _can_traverse(from_cell: Vector2i, to_cell: Vector2i) -> bool:
 	)
 
 
-func _heap_push(heap: Array[Dictionary], distance: float, index: int) -> void:
-	heap.append({"distance": distance, "index": index})
-	var child_index: int = heap.size() - 1
+func _heap_push(distance: float, index: int) -> void:
+	_heap_distances.append(distance)
+	_heap_indices.append(index)
+	var child_index: int = _heap_indices.size() - 1
 	while child_index > 0:
 		var parent_index: int = (child_index - 1) / 2
-		if not _heap_entry_less(heap[child_index], heap[parent_index]):
+		if not _heap_entry_less(
+			_heap_distances[child_index],
+			_heap_indices[child_index],
+			_heap_distances[parent_index],
+			_heap_indices[parent_index]
+		):
 			break
-		var swap_entry: Dictionary = heap[parent_index]
-		heap[parent_index] = heap[child_index]
-		heap[child_index] = swap_entry
+		_swap_heap_entries(parent_index, child_index)
 		child_index = parent_index
 
 
-func _heap_pop(heap: Array[Dictionary]) -> Dictionary:
-	var result: Dictionary = heap[0]
-	var last: Dictionary = heap.pop_back()
-	if heap.is_empty():
-		return result
-	heap[0] = last
+func _heap_pop() -> void:
+	_heap_pop_distance = _heap_distances[0]
+	_heap_pop_index = _heap_indices[0]
+	var last_distance: float = _heap_distances.pop_back()
+	var last_index: int = _heap_indices.pop_back()
+	if _heap_indices.is_empty():
+		return
+	_heap_distances[0] = last_distance
+	_heap_indices[0] = last_index
 	var parent_index: int = 0
 	while true:
 		var left_index: int = parent_index * 2 + 1
-		if left_index >= heap.size():
+		if left_index >= _heap_indices.size():
 			break
 		var right_index: int = left_index + 1
 		var smallest_index: int = left_index
-		if right_index < heap.size() and _heap_entry_less(heap[right_index], heap[left_index]):
+		if right_index < _heap_indices.size() and _heap_entry_less(
+			_heap_distances[right_index],
+			_heap_indices[right_index],
+			_heap_distances[left_index],
+			_heap_indices[left_index]
+		):
 			smallest_index = right_index
-		if not _heap_entry_less(heap[smallest_index], heap[parent_index]):
+		if not _heap_entry_less(
+			_heap_distances[smallest_index],
+			_heap_indices[smallest_index],
+			_heap_distances[parent_index],
+			_heap_indices[parent_index]
+		):
 			break
-		var swap_entry: Dictionary = heap[parent_index]
-		heap[parent_index] = heap[smallest_index]
-		heap[smallest_index] = swap_entry
+		_swap_heap_entries(parent_index, smallest_index)
 		parent_index = smallest_index
-	return result
 
 
-func _heap_entry_less(left: Dictionary, right: Dictionary) -> bool:
-	var left_distance: float = float(left.get("distance", INF))
-	var right_distance: float = float(right.get("distance", INF))
+func _heap_entry_less(left_distance: float, left_index: int, right_distance: float, right_index: int) -> bool:
 	if left_distance < right_distance - DISTANCE_EPSILON:
 		return true
 	if left_distance > right_distance + DISTANCE_EPSILON:
 		return false
-	return int(left.get("index", INVALID_INDEX)) < int(right.get("index", INVALID_INDEX))
+	return left_index < right_index
+
+
+func _swap_heap_entries(left_index: int, right_index: int) -> void:
+	var swap_distance: float = _heap_distances[left_index]
+	var swap_cell_index: int = _heap_indices[left_index]
+	_heap_distances[left_index] = _heap_distances[right_index]
+	_heap_indices[left_index] = _heap_indices[right_index]
+	_heap_distances[right_index] = swap_distance
+	_heap_indices[right_index] = swap_cell_index
 
 
 func _segment_intersects_rect(from_position: Vector2, target_position: Vector2, rect: Rect2) -> bool:
@@ -386,3 +463,12 @@ func _unreachable_query(target_position: Vector2) -> Dictionary:
 
 func _coord_to_dict(coord: Vector2i) -> Dictionary:
 	return {"x": coord.x, "y": coord.y}
+
+
+func _rect_to_dict(rect: Rect2i) -> Dictionary:
+	return {
+		"x": rect.position.x,
+		"y": rect.position.y,
+		"width": rect.size.x,
+		"height": rect.size.y,
+	}

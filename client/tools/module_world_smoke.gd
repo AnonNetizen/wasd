@@ -9,6 +9,7 @@ const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
 const BOOT_FRAMES: int = 4
+const NAVIGATION_FLOW_RADIUS_CELLS: int = 8
 const SMOKE_SLOT: String = "slot_module_world_smoke"
 
 var _failures: Array[String] = []
@@ -46,6 +47,11 @@ func _run() -> void:
 	_expect(int(world_summary.get("active_count", 0)) <= 9, "streaming should activate at most nine chunks")
 	_expect(String(world_summary.get("map_hash", "")).length() == 64, "world should expose a sha256 map hash")
 	_expect(_coord_matches(world_summary.get("current_module", {}), Vector2i(4, 4)), "fresh run should start in center module")
+	var runtime_navigation: Dictionary = world_summary.get("navigation", {}) as Dictionary
+	_expect(
+		int(runtime_navigation.get("flow_radius_cells", 0)) == NAVIGATION_FLOW_RADIUS_CELLS,
+		"runtime should derive an eight-cell flow radius from current EnemyAI sight data"
+	)
 
 	print("[ModuleWorldSmoke] stage=composition")
 	_expect_deterministic_composition()
@@ -72,10 +78,10 @@ func _expect_deterministic_composition() -> void:
 	add_child(manager_d)
 	add_child(manager_content)
 	add_child(manager_technical)
-	_expect(bool(manager_a.call("configure", data["world"], data["registry"], data["templates"], 13013)), "seed A world should configure")
-	_expect(bool(manager_b.call("configure", data["world"], data["registry"], data["templates"], 13013)), "same-seed world should configure")
-	_expect(bool(manager_c.call("configure", data["world"], data["registry"], data["templates"], 13014)), "different-seed world should configure")
-	_expect(bool(manager_d.call("configure", data["world"], data["registry"], data["templates"], 13015)), "third-seed world should configure")
+	_expect(bool(manager_a.call("configure", data["world"], data["registry"], data["templates"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "seed A world should configure")
+	_expect(bool(manager_b.call("configure", data["world"], data["registry"], data["templates"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "same-seed world should configure")
+	_expect(bool(manager_c.call("configure", data["world"], data["registry"], data["templates"], 13014, NAVIGATION_FLOW_RADIUS_CELLS)), "different-seed world should configure")
+	_expect(bool(manager_d.call("configure", data["world"], data["registry"], data["templates"], 13015, NAVIGATION_FLOW_RADIUS_CELLS)), "third-seed world should configure")
 	_expect(String(manager_a.call("map_hash")) == String(manager_b.call("map_hash")), "same seed should reproduce assignment/hash")
 	_expect(manager_a.call("assignment") == manager_b.call("assignment"), "same seed should reproduce all 81 assignments")
 	_expect(manager_a.call("assignment") != manager_c.call("assignment"), "different seed should change ordinary module assignments")
@@ -89,10 +95,10 @@ func _expect_deterministic_composition() -> void:
 	changed_placements[0] = changed_target
 	changed_objective["placements"] = changed_placements
 	changed_templates["module_objective_core"] = changed_objective
-	_expect(bool(manager_content.call("configure", data["world"], data["registry"], changed_templates, 13013)), "content-revision world should configure")
+	_expect(bool(manager_content.call("configure", data["world"], data["registry"], changed_templates, 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "content-revision world should configure")
 	_expect(manager_content.call("assignment") == manager_a.call("assignment"), "content revision should preserve the same seeded assignment")
 	_expect(String(manager_content.call("map_hash")) != String(manager_a.call("map_hash")), "module content revision should invalidate map hash")
-	_expect(bool(manager_technical.call("configure", data["world"], data["registry"], data["templates"], 13013)), "technical-slice manager should configure")
+	_expect(bool(manager_technical.call("configure", data["world"], data["registry"], data["templates"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "technical-slice manager should configure")
 	_expect(bool(manager_technical.call("build_technical_slice_assignment")), "technical-slice opt-in should build its checked-in assignment")
 	var sealed_count: int = 0
 	for raw_entry: Variant in (manager_technical.call("assignment") as Dictionary).values():
@@ -128,6 +134,10 @@ func _expect_navigation_queries(manager_a: Node2D, manager_b: Node2D, manager_te
 	manager_b.call("tick", target_position)
 	var query_a: Dictionary = manager_a.call("navigation_query_to_active_target", from_position)
 	var query_b: Dictionary = manager_b.call("navigation_query_to_active_target", from_position)
+	var navigation_summary: Dictionary = (manager_a.call("debug_summary") as Dictionary).get("navigation", {}) as Dictionary
+	_expect(int(navigation_summary.get("flow_radius_cells", 0)) == NAVIGATION_FLOW_RADIUS_CELLS, "active flow radius should derive to eight cells for current perception data")
+	_expect(int(navigation_summary.get("flow_cell_capacity", 0)) == 289, "radius-eight active flow should have a 17 x 17 maximum window")
+	_expect(int(navigation_summary.get("last_rebuild_visited_count", 0)) <= 289, "active flow rebuild should visit at most 289 cells")
 	_expect(bool(query_a.get("reachable", false)), "shared flow field should route between reachable start-module arms")
 	_expect(query_a == query_b, "same terrain and active target should produce an identical deterministic flow query")
 	_expect(
@@ -182,13 +192,47 @@ func _expect_navigation_queries(manager_a: Node2D, manager_b: Node2D, manager_te
 	var corner_mask := PackedByteArray([1, 0, 0, 1])
 	var corner_field: RefCounted = MODULE_NAVIGATION_FIELD_SCRIPT.new()
 	_expect(
-		bool(corner_field.call("configure", corner_mask, 2, 2, 160.0, Vector2.ZERO, Vector2i.ZERO)),
+		bool(corner_field.call("configure", corner_mask, 2, 2, 160.0, Vector2.ZERO, Vector2i.ZERO, 1)),
 		"isolated corner navigation field should configure"
 	)
 	corner_field.call("set_active_target", Vector2(160.0, 160.0))
 	_expect(
 		not bool(corner_field.call("query_to_active_target", Vector2.ZERO).get("reachable", true)),
 		"eight-way navigation should reject diagonal corner cutting when both orthogonal cells are blocked"
+	)
+	_expect_bounded_flow_rebuilds()
+
+
+func _expect_bounded_flow_rebuilds() -> void:
+	var full_mask := PackedByteArray()
+	full_mask.resize(99 * 99)
+	full_mask.fill(1)
+	var field: RefCounted = MODULE_NAVIGATION_FIELD_SCRIPT.new()
+	_expect(
+		bool(field.call("configure", full_mask, 99, 99, 160.0, Vector2.ZERO, Vector2i(49, 49), NAVIGATION_FLOW_RADIUS_CELLS)),
+		"bounded-flow navigation field should configure"
+	)
+	var all_rebuilds_bounded: bool = true
+	for column: int in range(30, 50):
+		field.call("set_active_target", field.call("cell_to_world", Vector2i(column, 49)))
+		var summary: Dictionary = field.call("debug_summary")
+		all_rebuilds_bounded = (
+			all_rebuilds_bounded
+			and int(summary.get("last_rebuild_visited_count", 0)) == 289
+			and int(summary.get("flow_bound_cell_count", 0)) == 289
+		)
+	_expect(all_rebuilds_bounded, "twenty open-grid cell crossings should each remain at the 289-cell bound")
+	var final_summary: Dictionary = field.call("debug_summary")
+	_expect(int(final_summary.get("flow_rebuild_count", 0)) == 20, "twenty target-cell crossings should rebuild exactly twenty local fields")
+	var outside_position: Vector2 = field.call("cell_to_world", Vector2i(58, 49))
+	var target_position: Vector2 = field.call("cell_to_world", Vector2i(49, 49))
+	_expect(
+		not bool(field.call("query_to_active_target", outside_position).get("reachable", true)),
+		"active flow query should be unreachable beyond the local radius"
+	)
+	_expect(
+		bool(field.call("query", outside_position, target_position).get("reachable", false)),
+		"full-world AStar should remain reachable for the same positions"
 	)
 
 

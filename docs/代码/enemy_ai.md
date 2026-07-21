@@ -7,7 +7,7 @@
 
 - 让同一 `Enemy` 场景通过数据 profile 表现追击、快速近战、冲锋、守家、环绕和远程攻击等对玩家行为。
 - 感知与战斗目标固定为玩家；出生点只服务守家与回位，不扫描、猎食、逃离或攻击其他敌人。
-- 通过 Utility 评分选择动作、FSM 执行蓄力 / 冲锋、Steering 处理移动与无伤害中心分离；模块模式消费共享流场、地形视线与局部 AStar waypoint。
+- 通过 Utility 评分选择动作、FSM 执行蓄力 / 冲锋、Steering 处理移动与无伤害中心分离；模块模式消费感知范围内的局部共享流场、全图地形视线与 AStar waypoint。
 - 所有伤害通过 `Combat.apply_damage()`；`Enemy.receive_damage()` 拒绝 `team_enemy` 来源，避免敌方互伤。
 - 保持模块封锁格碰撞、全图边界、对象池、保存续局和回放可控。
 - 持续状态由 `StatusEffectComponent` 承担，不把沉默、减速、DoT 等状态硬写进 AI profile。
@@ -29,7 +29,7 @@
 |------|------|
 | `client/scripts/gameplay/enemy.gd` | profile 解释、目标感知、动作评分 / 执行、伤害、中心分离、快照 |
 | `client/scenes/entities/enemy.tscn` | 单一池化敌人场景；根节点为 `CharacterBody2D` |
-| `client/scripts/gameplay/module_navigation_field.gd` | 99×99 静态 mask、共享 Dijkstra 流场、局部 AStar 与视线 / 走廊查询 |
+| `client/scripts/gameplay/module_navigation_field.gd` | 99×99 静态 mask、半径由最大视觉范围推导的局部共享 Dijkstra 流场、全图 AStar 与视线 / 走廊查询 |
 | `client/data/enemy_ai_profiles.json` | schema v3 对玩家 AI profile |
 | `client/data/enemies.csv` | 基础数值、通用内容 tag、对象池和 profile 引用 |
 | `client/scripts/contracts/enemy_ai_actions.gd` | 由词表生成的 action 常量 |
@@ -52,7 +52,7 @@ Enemy (CharacterBody2D)
 | 阶段 | 发生什么 | 关键点 |
 |------|----------|--------|
 | 配置 | `GameplayRunLoop` 合并敌人基础数据与 profile 后调用 `configure(enemy_data, player, navigation_provider)` | 模块模式注入 `ModuleWorldManager`，开放战区传空并使用直线兜底 |
-| 感知 | 决策 tick 依次判断地形视线 + 直线距离、共享流场路径距离、最后已知位置记忆 | 记忆期间不读取玩家实时位置；不扫描其他敌人 |
+| 感知 | 决策 tick 依次判断地形视线 + 直线距离、局部共享流场路径距离、最后已知位置记忆 | 当前半径 8 覆盖最大视觉 / 路径感知并加两格缓冲；记忆期间不读取玩家实时位置，不扫描其他敌人 |
 | 评分 | profile 的 `actions[]` 对合法动作评分 | 行为差异来自数据，不按 enemy id 分支 |
 | 执行 | 畅通时直追，受阻时读共享流场；守家 / 记忆读决策 tick 缓存的 AStar waypoint；冲锋经 FSM | 冲锋要求清晰走廊，远程开火要求当前地形视线 |
 | 分离 | 收集近邻敌人中心并施加非伤害分离 | 不改变 focus target 或动作评分 |

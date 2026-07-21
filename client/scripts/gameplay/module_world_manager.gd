@@ -33,6 +33,7 @@ var _run_seed: int = 1
 var _cell_size: float = 160.0
 var _world_origin: Vector2 = Vector2.ZERO
 var _active_radius: int = 1
+var _navigation_flow_radius_cells: int = 1
 var _assignment: Dictionary = {}
 var _map_hash: String = ""
 var _navigation_field: ModuleNavigationFieldRuntime = ModuleNavigationFieldRuntime.new()
@@ -53,7 +54,8 @@ func configure(
 	world_def: Dictionary,
 	registry_by_id: Dictionary,
 	templates_by_id: Dictionary,
-	run_seed: int
+	run_seed: int,
+	navigation_flow_radius_cells: int
 ) -> bool:
 	_deactivate_all_chunks()
 	_world_def = world_def.duplicate(true)
@@ -63,9 +65,10 @@ func configure(
 	_cell_size = float(_world_def.get("cell_size", 160.0))
 	_world_origin = _vector_from_variant(_world_def.get("world_origin", {}), Vector2.ZERO)
 	_active_radius = clampi(int(_world_def.get("active_radius", 1)), 0, 1)
-	_configured = _has_supported_geometry() and _cell_size > 0.0
+	_navigation_flow_radius_cells = navigation_flow_radius_cells
+	_configured = _has_supported_geometry() and _cell_size > 0.0 and _navigation_flow_radius_cells > 0
 	if not _configured:
-		push_error("[ModuleWorldManager] world geometry must be 9 x 9 modules of 11 x 11 cells with a positive cell size")
+		push_error("[ModuleWorldManager] world geometry, cell size, and navigation flow radius are invalid")
 		return false
 	_ensure_chunk_pool()
 	return build_assignment()
@@ -503,7 +506,8 @@ func _rebuild_navigation_field() -> void:
 		WORLD_CELL_ROWS,
 		_cell_size,
 		_world_origin,
-		WORLD_CENTER_GLOBAL_CELL
+		WORLD_CENTER_GLOBAL_CELL,
+		_navigation_flow_radius_cells
 	):
 		push_error("[ModuleWorldManager] navigation field could not be built from assignment")
 

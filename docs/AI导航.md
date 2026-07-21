@@ -8,7 +8,7 @@
 ---
 
 ## 1. 项目是什么
-俯视角射击刷宝生存游戏（灵感：手动按住开火的俯视射击身份 + 《星际战甲》与《暗黑》的刷装备 / 刷词条长期追求 + 9×9 无缝模块短刷图 + 《以撒的结合》的道具 / 机关 / 构筑组合）。玩法判定与显示以 2D 矩形格平面为准；F13 默认世界由 81 个 11×11 JSON 模块按 seed 组合，AI 只在编辑期生产 candidate，人工批准后入池；F14 的 EnemyAI 在完整 99×99 静态地形上使用共享流场与视线 / 路径 / 记忆混合感知。
+俯视角射击刷宝生存游戏（灵感：手动按住开火的俯视射击身份 + 《星际战甲》与《暗黑》的刷装备 / 刷词条长期追求 + 9×9 无缝模块短刷图 + 《以撒的结合》的道具 / 机关 / 构筑组合）。玩法判定与显示以 2D 矩形格平面为准；F13 默认世界由 81 个 11×11 JSON 模块按 seed 组合，AI 只在编辑期生产 candidate，人工批准后入池；F14 的 EnemyAI 在完整 99×99 静态地形上使用局部有界共享流场、全图 AStar 与视线 / 路径 / 记忆混合感知。
 - 引擎：**Godot 4.7.1 stable + GDScript**
 - IP 方向：**《破巢者》**（英文暂定 `Nestbreakers`）——未知原因导致其他宇宙与本宇宙的通道突然打开，银河系星际文明被打散，首都星域仍能组织反击；多英雄主动突入敌方“巢”，在怪潮中夺取遗物、升级构筑并尝试打穿巢核、切断通道或削弱敌方源头；“巢”泛指敌方核心据点 / 生产源头 / 通道锚点 / 意志中枢，不限定为虫巢。
 - 核心理念：**数据驱动 + 扩展优先 + 模式友好资源复用 + 未来多人友好边界 + 框架级基础设施（本地化 / 设置 / 数据埋点）+ AI 易扩展**
@@ -126,7 +126,7 @@
 | 我想… | 怎么做（数据驱动，尽量不改逻辑） |
 |-------|-------------------------------|
 | **加一个敌人** | 在 `client/data/enemies.csv` 加一行基础数值、中心间距、通用 `tag_enemy`、`ai_profile_id` 与 `enemy_*_name` 文案；优先复用 `client/data/enemy_ai_profiles.json` 现有对玩家 profile；远程怪可复用 `ai_action_ranged_attack` 与 `movement.ranged_*` 字段；全新行为先加 / 调 profile 和词表 §12-B action，最后才改 `enemy.gd`。敌人不得把其他敌人设为战斗目标或造成敌方伤害，中心分离只负责防重叠 |
-| **改敌人寻路 / 感知** | 先读 `F14-EnemyNavigationAndPerception.md`、`docs/代码/enemy_ai.md`、`docs/代码/module_world_manager.md` 与 ADR #145；profile 感知参数改 `enemy_ai_profiles.json.perception`，静态路径 / 视线改 `module_navigation_field.gd`，门面改 `module_world_manager.gd`，行为消费改 `enemy.gd`。导航 / 感知派生状态不进 run，开放战区保留无 provider 直线兜底 |
+| **改敌人寻路 / 感知** | 先读 `F14-EnemyNavigationAndPerception.md`、`docs/代码/enemy_ai.md`、`docs/代码/module_world_manager.md` 与 ADR #145 / #146；profile 感知参数改 `enemy_ai_profiles.json.perception`，局部活动流场 / 全图静态路径 / 视线改 `module_navigation_field.gd`，半径由最大视觉范围自动推导，门面改 `module_world_manager.gd`，行为消费改 `enemy.gd`。导航 / 感知派生状态不进 run，开放战区保留无 provider 直线兜底 |
 | **加一个角色** | 在 `client/data/characters.json` 加一条：基础属性 / tags / capabilities / 控制配置 / `starting_loadout`；角色 id 先登记词表 §12.1，文案用 `character_*` key；起始武器 / 主动道具 / 消耗品必须存在于对应数据文件；新 capability 先登记词表 §12 再实现 |
 | **加 / 改武器** | 在 `client/data/weapons.json` 加一条：武器基础属性、子弹池、伤害类型、命中半径和音频 id；文案用 `weapon_*` key；`pool_id` / `damage_type` / `audio_id` 前缀必须来自词表，不实现 WeaponSystem 运行时 |
 | **加 / 改技能** | 在 `client/data/skills.json` 加技能定义：`ability_tags`、`activation`、`costs`、`targeting`、`effects`、冷却和 `skill_*` 文案；角色只在 `characters.json.starting_loadout.skill_ids` 引用技能并声明 `skill_resources`，模式池走 `game_modes.resource_pools.skills`；新资源、目标类型、效果原语或 ability tag 先登记词表 §12-C~12-G，状态效果 / 叠加规则先登记 §9-A~§9-B，再扩展 `docs/代码/skill_system.md` / `docs/代码/status_effect_component.md` |
@@ -156,7 +156,7 @@
 | **改 IP / 世界观 / 英雄包装 / 宣传语** | 先看 `docs/IP设定.md`；涉及视觉风格、色板、阵营色、兴趣点颜色或资产 brief 时追加 `docs/IP美术风格.md`；若改变玩法承诺或系统边界，再同步 GDD / ADR / 术语表 / AI导航 / AI记忆 |
 | **选择下一项新功能** | 先看 `docs/功能建议池.md`、`docs/局内刷取参考研究.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md` 与 `docs/AI记忆/current_state.json`；用户明确点名功能后，再建立 / 更新工作包、GDD / ADR / 模块文档并实现，不从建议文档自行挑选推进 |
 | **评估小服务器在线玩法** | 先看 `docs/小服务器玩法备忘.md`、GDD §6.7 / §9.21 / §9.22、`docs/代码/platform_services.md` 与 `docs/代码/replay.md`；短期优先异步玩法和离线可降级，实时多人 / PvP / 强竞技排行榜默认暂缓 |
-| **启动 / 推进正式项目** | F13 模块世界已完成；当前 F14 入口为 `F14-EnemyNavigationAndPerception.md`、GDD §5.3、EnemyAI / ModuleWorldManager 文档、数据手册与测试策略。导航 / 感知变更跑 contracts/data/schema/module-world/runtime/save 与黄金回放；性能 probe 仅在用户当次明确要求时运行 |
+| **启动 / 推进正式项目** | F13 模块世界已完成；当前 F14 入口为 `F14-EnemyNavigationAndPerception.md`、GDD §5.3、EnemyAI / ModuleWorldManager 文档、数据手册与测试策略。F14.1 活动流场当前半径 8、单次最多访问 289 格；导航 / 感知变更跑 contracts/data/schema/module-world/runtime/save 与黄金回放；性能 probe 仅在用户当次明确要求时运行 |
 | **维护正式客户端启动骨架 / 默认分辨率** | 看 `client/README.md`、`docs/代码/formal_client_boot.md`、`docs/代码/gameplay_runtime.md` 与 GDD §9.5-A；当前只设计 / 验收固定 16:9 分辨率，默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，`canvas_items + keep` 在非 16:9 屏幕上等比缩放并加黑边；其他宽高比是 P3 优化，未来也必须按独立固定预设接入，不做连续响应式适配 |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
 | **校验数据 / 文案** | 跑 `python tools/validate_data.py` 与 `python tools/lint_project_rules.py`；改 DataLoader schema 时追加 `python tools/test_data_loader_schema.py`，改项目规则 lint 时追加 `python tools/test_project_rules_lint.py` |
@@ -209,7 +209,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前正式客户端以 F13 模块世界作为 `mode_standard_survival` 默认关卡 carrier：`ModuleWorldManager` 按 run seed 组合 81 槽、管理内容敏感 map hash、模块迷雾和最多 3×3 活跃 chunk；F14 的 `ModuleNavigationField` 从完整 assignment 构建静态 99×99 mask，玩家跨格时更新确定性共享流场，并为 Enemy 提供路径距离、地形视线、敌人半径走廊和局部 AStar 查询。EnemyAI schema v3 按视线、路径和 1.5 秒最后已知位置感知，畅通直追、受阻绕行；冲锋 / 远程受墙体门禁，玩家唯一目标、敌方友伤拒绝与中心分离边界不变。`--module-world-technical-slice` 保留中心 3×3 / 外圈 72 槽封锁入口，F12 开放战区通过 `--open-warzone` 保留并使用无导航 provider 的直线兜底。run 保持 v4，导航 / 感知缓存不保存。常规验收入口是 contracts/data/schema、`module-world-smoke`、`module-world-technical-slice-smoke`、`save-smoke`、`runtime-smoke`、headless 与四条黄金回放；ADR #143 后性能测试仅由用户当次明确触发。
+当前正式客户端以 F13 模块世界作为 `mode_standard_survival` 默认关卡 carrier：`ModuleWorldManager` 按 run seed 组合 81 槽、管理内容敏感 map hash、模块迷雾和最多 3×3 活跃 chunk；F14 的 `ModuleNavigationField` 从完整 assignment 构建静态 99×99 mask，玩家跨格时只在按最大视觉范围推导的半径 8 窗口内更新确定性共享流场，单次最多访问 289 格，并为 Enemy 提供路径距离、全图 AStar、地形视线和敌人半径走廊。EnemyAI schema v3 按视线、路径和 1.5 秒最后已知位置感知，畅通直追、受阻绕行；冲锋 / 远程受墙体门禁，玩家唯一目标、敌方友伤拒绝与中心分离边界不变。`--module-world-technical-slice` 保留中心 3×3 / 外圈 72 槽封锁入口，F12 开放战区通过 `--open-warzone` 保留并使用无导航 provider 的直线兜底。run 保持 v4，导航 / 感知缓存不保存。常规验收入口是 contracts/data/schema、`module-world-smoke`、`module-world-technical-slice-smoke`、`save-smoke`、`runtime-smoke`、headless 与四条黄金回放；ADR #143 后性能测试仅由用户当次明确触发。
 
 > 普通开始新局 / 重开会生成新的 `RNG` run seed；继续游戏恢复 run snapshot；回放、smoke、golden 和调试复现仍应显式固定 seed 或走工具启动路径。
 
