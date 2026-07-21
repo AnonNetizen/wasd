@@ -73,7 +73,7 @@
 | `client/tools/perf_probe.gd` | F8 轻量 perf / 平衡采样入口，输出 schema v2 可比较 JSON：warmup 后帧时间分布、实体峰值、池峰值、等级、击杀和预算状态 |
 | `client/tools/golden_replay_capture.gd` | F8 golden replay capture 工具，固定 seed 启动真实 `GameplayRunLoop` 并采样运行时摘要；支持 basic、pause/resume、full-death 和 level-up choice 场景 |
 | `client/tools/replay_input_smoke.gd` | F8 gameplay 输入录制 smoke，确认移动 / 瞄准 / pause / ui_back 写入 Replay 输入事件 |
-| `tools/godot_bridge.py` | `module-world-smoke` / `module-world-technical-slice-smoke` / `startup-probe` / `runtime-smoke` / `save-smoke` / `settings-smoke` / `gear-mod-smoke` / `debug-tools-smoke` / `debug-tools-release-smoke` / F8 `l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay`、`perf-probe` 命令入口 |
+| `tools/godot_bridge.py` | `module-world-smoke` / `module-world-technical-slice-smoke` / `runtime-smoke` / `save-smoke` / `settings-smoke` / `gear-mod-smoke` / `debug-tools-smoke` / `debug-tools-release-smoke` / F8 `l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay` 命令入口；`startup-probe` / `perf-probe` 保留为用户明确触发的按需入口 |
 | `docs/代码/combat.md` | 伤害统一入口文档 |
 | `docs/代码/map_manager.md` | 有限地图 / PCG / 人工摆点文档 |
 | `docs/代码/module_world_manager.md` | F13 模块大地图 / 流式状态 / 坐标与存档文档 |
@@ -149,7 +149,7 @@ UIManager
 | 运行时语言刷新 | `Localization.locale_changed` 发出后，标题、暂停、设置、HUD、升级、失败页和 Gear Mod 面板用自身缓存的状态或配置数据刷新文本；订阅的 UI 在 `_exit_tree()` 断开 signal，避免离树节点收到后续语言切换 | `Localization.locale_changed`、`refresh_texts()` |
 | 失败 / 撤离 / 重开 | 玩家生命归零后删除 `run` 存档、丢失 `pending_loot`、进入 `GameState.GAME_OVER`、冻结 `GameClock` 并显示唯一失败面板；小巢核击破后仍保持 `PLAYING`，只有玩家站进撤离区完成读条才提交 `pending_loot`、删除 `run` 并显示完成面板。结果面板展示本局击杀、时长，以及成功带回或失败丢失的 dust / Gear Mod 清单；不写旧局外货币 / 账号经验，也不提供旧局外升级购买或跳转入口。玩家可重开或回标题，按 `pause` 仍可快捷重开 | `SaveManager.delete(run)`、`UIManager.push()`、`GameState.change_state()`、`GameplayRunLoop.restart_requested` |
 | DebugTools smoke | `debug-tools-smoke` 启动一局并通过 `DebugConsole` 调用 `GMCommandRegistry`，验证 help/stats/spawn/xp/hp/damage/heal/dust/kill/clear；`debug-tools-release-smoke` 模拟 release guard，确认没有 `DebugConsole` / `GMCommandRegistry` 或 debug action | `client/tools/debug_tools_smoke.gd` / `docs/代码/debug_tools.md` |
-| 自动 smoke / probe | `module-world-smoke` 验证默认 81 槽、流式状态、迷雾、目标撤离和 run v4；`runtime-smoke` / `f9-demo-smoke` 显式使用 open-warzone 回归。Replay runner 重建同 seed 并对照 `module_map_hash`；`perf-probe` 在 180 帧采样内强制跨模块，对 p99、单帧尖峰、内存和实体上限执行硬门禁 | `client/tools/module_world_smoke.gd` / `runtime_smoke.gd` / `save_manager_smoke.gd` / `replay_runner.gd` / `golden_replay_capture.gd` / `perf_probe.gd` |
+| 自动 smoke / 按需 probe | `module-world-smoke` 验证默认 81 槽、流式状态、迷雾、目标撤离和 run v4；`runtime-smoke` / `f9-demo-smoke` 显式使用 open-warzone 回归。Replay runner 重建同 seed 并对照 `module_map_hash`。仅当用户明确要求性能测试时，`perf-probe` 才在 180 帧采样内强制跨模块并检查 p99、单帧尖峰、内存和实体上限 | `client/tools/module_world_smoke.gd` / `runtime_smoke.gd` / `save_manager_smoke.gd` / `replay_runner.gd` / `golden_replay_capture.gd` / `perf_probe.gd` |
 
 ## 公共 API
 
@@ -371,7 +371,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 涉及 GM 指令或 runtime debug API 时，追加 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`；命令影响局内战斗时追加 `runtime-smoke`。
 - 涉及模块世界、模板 JSON、边缘契约、chunk 流式状态、迷雾、地图 hash、run v4 或 v3 重置流程时，追加 `python tools/godot_bridge.py --project client module-world-smoke` 与 `python tools/godot_bridge.py --project client save-smoke`，并跑 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/test_data_loader_schema.py`；详见 `docs/代码/module_world_manager.md`。
 - 数据 / locale 变化还要跑 `python tools/validate_data.py`、`python tools/lint_project_rules.py`。
-- 地图 / 机关数量、对象池生命周期或性能相关变化追加 `python tools/godot_bridge.py --project client perf-probe`；影响稳定运行时摘要时重跑 checked-in golden replay runner。
+- 地图 / 机关数量、对象池生命周期或性能相关变化仍按对应功能 smoke 验证；影响稳定运行时摘要时重跑 checked-in golden replay runner。`startup-probe` / `perf-probe` 只有用户当次明确要求性能测试时才追加。
 - 当前没有 GUT runner，F4 首切片用 L0 + L2 + `runtime-smoke` + 手动 1 分钟跑通作为阶段门槛；后续接入 Godot 测试时补 Player / Combat / Pool / Spawner 的 L1。
 
 ## 迁移 / 兼容

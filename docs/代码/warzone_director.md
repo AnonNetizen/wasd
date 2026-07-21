@@ -96,7 +96,7 @@
 | 新增 encounter / interest point | `warzone_directors.json`、必要时 `map_layouts.json` / `hazards.csv` | `validate_data` + `test_data_loader_schema`；兴趣点影响地图时追加 runtime / F9 smoke |
 | 调兴趣点奖励 / 交互 / 目标 / 小巢核撤离完成 | `warzone_directors.json`、`gameplay_run_loop.gd`、`interest_point_cache.gd`、`interest_point_target.gd`、`gear_mod_system.gd` | `validate_data` + `test_data_loader_schema` + `runtime-smoke` + `gear-mod-smoke` + `save-smoke` |
 | 改 schema | `data_loader.gd`、`validate_data.py`、`test_data_loader_schema.py`、本文档、数据手册 | schema test + docs health |
-| 让导演影响地图 | `warzone_director.gd`、`map_manager.gd`、`gameplay_run_loop.gd` | runtime-smoke、f9-demo-smoke、save-smoke、perf-probe，评估 golden |
+| 让导演影响地图 | `warzone_director.gd`、`map_manager.gd`、`gameplay_run_loop.gd` | runtime-smoke、f9-demo-smoke、save-smoke，评估 golden；性能 probe 仅由用户明确触发 |
 
 ## 测试义务
 
@@ -104,7 +104,7 @@
 - 改 GDScript：`python tools/lint_gdscript_rules.py`、`python tools/godot_bridge.py --project client runtime-smoke`。
 - 改 7 分钟小巢核压力、9 分钟后软加压或 FEA-12 兴趣点：追加 `python tools/godot_bridge.py --project client f9-demo-smoke`。
 - 改兴趣点奖励、`claim_radius`、`requires_interaction`、`completes_run`、撤离数值或结果面板：追加 `python tools/godot_bridge.py --project client runtime-smoke`、`gear-mod-smoke` 与 `save-smoke`。
-- 改兴趣点地图生成接线：追加 `python tools/godot_bridge.py --project client save-smoke`、`python tools/godot_bridge.py --project client perf-probe`，并跑 checked-in golden replay runner 评估行为漂移。
+- 改兴趣点地图生成接线：追加 `python tools/godot_bridge.py --project client save-smoke`，并跑 checked-in golden replay runner 评估行为漂移；`perf-probe` 仅在用户明确要求性能测试时运行。
 - 若引入随机 mutation、run snapshot 字段或 replay summary 变化，必须追加对应 save / replay runner 并更新 ADR。
 
 ## 迁移 / 兼容

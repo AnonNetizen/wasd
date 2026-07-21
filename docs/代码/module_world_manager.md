@@ -52,7 +52,8 @@ python tools/godot_bridge.py --project client headless-boot
 python tools/godot_bridge.py --project client module-world-smoke
 python tools/godot_bridge.py --project client module-world-technical-slice-smoke
 python tools/godot_bridge.py --project client save-smoke
-python tools/godot_bridge.py --project client perf-probe
 ```
+
+性能测试不属于本模块的默认验证义务；只有用户当次明确要求时，才追加 `python tools/godot_bridge.py --project client startup-probe` 或 `perf-probe`。
 
 `module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、不同 seed 普通槽变化、中心坐标、物理移动无缝跨边界、最多 9 个 chunk、离开 / 返回不重复刷怪、子弹 / 掉落流式恢复、迷雾、目标后撤离、run v4 恢复和 hash mismatch fail closed。`module-world-technical-slice-smoke` 通过正式 opt-in 入口追加中心 3×3 / 外圈 72 槽封锁的完整流程回归。

@@ -145,7 +145,7 @@
 
 - 改 profile / enemies 数据：跑 `python tools/validate_data.py`、`python tools/test_data_loader_schema.py`、`python tools/sync_contracts.py --check`。
 - 改 `enemy.gd`：跑 `python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client runtime-smoke`；移动边界相关必须覆盖敌人靠近地图边缘、逃跑 / 冲锋和快照恢复 clamp。
-- 改 AI 决策、怪物死亡归因、刷怪数据或影响稳定帧样本：重录并回放四条 checked-in golden replay，必要时跑 `perf-probe` 看敌人峰值和帧时间。
+- 改 AI 决策、怪物死亡归因、刷怪数据或影响稳定帧样本：重录并回放四条 checked-in golden replay；`perf-probe` 只在用户明确要求性能测试时用于观察敌人峰值和帧时间。
 - 改实体状态宿主、owned ability tag 或 run 快照字段：追加 `l1-smoke` 与 `save-smoke`，并检查旧 run payload 的迁移 / fallback。
 
 ## 迁移 / 兼容

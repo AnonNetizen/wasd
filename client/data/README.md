@@ -379,7 +379,7 @@ JSON 示例：
 | `manual_hazards[].y` | number | 合法矩形格锚点坐标 | 固定机关世界 Y 坐标；奇数 `radius_tiles` 校验为格心，偶数 `radius_tiles` 校验为网格顶点，运行时也会按同一规则吸附并 clamp |
 
 调参建议：
-- 需要改变地图大小或边界节奏时，先改 `bounds`，并保持宽高分别整除 `grid.cell_width/cell_height`，再跑 `runtime-smoke` 和 `perf-probe`。
+- 需要改变地图大小或边界节奏时，先改 `bounds`，并保持宽高分别整除 `grid.cell_width/cell_height`，再跑 `runtime-smoke`；`perf-probe` 仅在用户明确要求性能测试时运行。
 - 改格子尺度时优先成对调整 `grid.cell_width` / `grid.cell_height`，并保持 `bounds` 为格尺寸整数倍；当前默认一格为 `160 x 160` 的矩形 / 方形俯视格。
 - 机关锚点按 `hazards.csv.radius_tiles` 奇偶决定：奇数尺寸中心在格心，偶数尺寸中心在网格顶点，这样机关外边缘才能贴住背景矩形格线。
 - 需要测试特定机关交互时，用 `manual_hazards` 固定位置；需要测试 PCG 稳定性时改 `pcg.hazards[].count` / `min_spacing`。
@@ -502,7 +502,7 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,
 | `ai_action_guard_home` | 离出生点太远时返回领地 |
 | `ai_action_ranged_attack` | 保持距离并发射池化投射物；投射参数来自 `movement.ranged_*` 字段 |
 
-调参建议：先改 `base_score` 和 tag `weight`，再改速度 / 半径；远程敌人先调 `ranged_cooldown`、`ranged_projectile_speed` 和 `ranged_keep_distance`，避免命中过密或玩家无法贴近。大幅改变生态关系后需要跑 `runtime-smoke`、golden replay 和 `perf-probe`。新增 action 必须先登记 `docs/词表与契约.md` §12-B，再同步生成常量、schema、`docs/代码/enemy_ai.md` 和测试。
+调参建议：先改 `base_score` 和 tag `weight`，再改速度 / 半径；远程敌人先调 `ranged_cooldown`、`ranged_projectile_speed` 和 `ranged_keep_distance`，避免命中过密或玩家无法贴近。大幅改变生态关系后需要跑 `runtime-smoke` 和 golden replay；`perf-probe` 仅在用户明确要求性能测试时运行。新增 action 必须先登记 `docs/词表与契约.md` §12-B，再同步生成常量、schema、`docs/代码/enemy_ai.md` 和测试。
 
 ## `hazards.csv`
 

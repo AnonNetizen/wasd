@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-07-20",
+  "updated_at": "2026-07-21",
   "current_phase": "formal_project_f13_modular_grid_world",
-  "current_status": "ADR #142 已把标准模式从线性手工房间方向改为 9×9 模块连续大地图：每模块 11×11 格，单格默认 160 px 且世界级可配置，共 99×99 格；15 个 approved AI 模块与一个 candidate 封锁模块通过注册表和 schema 管理，运行时按 seed 组合并只激活玩家周围最多 3×3 模块。ModuleWorldManager / ModuleChunk / 模块迷雾、目标后撤离、敌人 / 机关 / 子弹 / 掉落槽位状态与内容敏感地图 hash 已接入，run 升 v4；旧 v3 run 显示专用不兼容提示并只重置 run，meta 不受影响。普通启动使用完整 9×9，--module-world-technical-slice 保留中心 3×3 / 外圈 72 槽封锁的 opt-in 首片。RoomManager、线性序列、演示房间、旧参数和 room-switch-smoke 已删除；open-warzone 仅保留为非默认回归路径。后续工作以用户最后明确指令为准。",
-  "latest_adr": 142,
+  "current_status": "ADR #142 已把标准模式从线性手工房间方向改为 9×9 模块连续大地图：每模块 11×11 格，单格默认 160 px 且世界级可配置，共 99×99 格；15 个 approved AI 模块与一个 candidate 封锁模块通过注册表和 schema 管理，运行时按 seed 组合并只激活玩家周围最多 3×3 模块。ModuleWorldManager / ModuleChunk / 模块迷雾、目标后撤离、敌人 / 机关 / 子弹 / 掉落槽位状态与内容敏感地图 hash 已接入，run 升 v4；旧 v3 run 显示专用不兼容提示并只重置 run，meta 不受影响。普通启动使用完整 9×9，--module-world-technical-slice 保留中心 3×3 / 外圈 72 槽封锁的 opt-in 首片。RoomManager、线性序列、演示房间、旧参数和 room-switch-smoke 已删除；open-warzone 仅保留为非默认回归路径。ADR #143 后性能测试只由用户当次明确触发，startup-probe / perf-probe 不属于日常回归、提交前、默认 CI 或 AI 交付义务。后续工作以用户最后明确指令为准。",
+  "latest_adr": 143,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #143 / 性能测试按需触发：startup-probe、perf-probe、Profiler 和同类采样不再是日常修改、提交前、常规回归、默认 CI 或 AI 交付的必跑项；现有 probe 保留，只有用户在当前任务中明确要求性能测试时才运行并按既有预算判断。",
     "ADR #142 / F13 九宫模块大地图：标准模式默认使用 9×9 模块、每模块 11×11 格的无缝世界；新增世界配置、模块注册表、15 个 approved AI 模块和 candidate 封锁模块、五组生成契约、DataLoader/Python 双校验、ModuleWorldManager/ModuleChunk/9×9 迷雾、3×3 流式邻域、目标后撤离、敌人 / 机关 / 子弹 / 掉落槽位状态、内容敏感地图 hash、run v4 与旧 v3 专用不兼容重置；中心 3×3 技术首片保留 opt-in 启动与自动 smoke，旧 RoomManager 线性房间链路已删除，open-warzone 仅作显式回归。",
     "ADR #141 / Godot 4.7.1 项目说明同步：当前开发、验证和推荐编辑器基线已精确为 Godot 4.7.1 stable；README、正式客户端、Test Lab、Steamworks Lab、GDD v1.19、AI 导航、CI / 启动模块文档、CodeBuddy / Codex / Claude 完整规则及 .agents / 四平台 godot-gdscript skill 已同步。Godot 项目特性标识、官方 4.7 文档路径、Steam 4.7 系列兼容锁与工具行为保持不变，未修改 .gd、.py、project.godot、测试或数据 schema。",
     "Steamworks Slime Lab Godot 模板定位跨机器修复：steamworks_lab_toolchain.py 的 export-release 根据所选 editor 同目录 `_sc_` 标记，在 self-contained editor_data 与普通 APPDATA 用户目录之间选择唯一正确位置，并继续按版本输出精确匹配 Windows x86_64 templates；Python 回归覆盖普通目录、self-contained 目录、禁止跨模式回退与精确缺失报错。README、ADR #134、AI 导航、测试策略、项目记忆、current_state 和会话日志已移除具体机器盘符，统一使用 --godot / GODOT_PATH。",
@@ -106,12 +107,13 @@
     "ADR #88：项目 IP 方向为 Nestbreakers / 破巢者，详细世界观、命名和宣发包装权威为 docs/IP设定.md。"
   ],
   "next_actions": [
+    "性能测试遵循 ADR #143：除非用户在当前任务中明确要求，否则不要运行 startup-probe、perf-probe、Godot Profiler 或同类性能采样，也不要把性能测试追加到提交前、常规回归、默认 CI 或交付清单；用户明确要求时再使用仓库现有按需 probe，并按 docs/测试策略.md §4 的预算解释结果。",
     "如果继续 Steamworks Slime Lab，先读 output/steamworks_lab/README.md、ADR #129 / #132~#140 和 docs/测试策略.md；ADR #140 已实现确定性自主游击 / 预判闪避、敌弹 / 敌人 / Boss / 障碍避让、210 px 常规硬限、超过 220 px 复位，以及按 E 后高速归队至 92 px 并停靠 0.8 秒再合体。后续合体归队修复要求三模式倍率同时驱动 max_speed 与输入目标距离，单人离线主循环必须更新权威合体进度；相关 smoke 必须用真实 E InputEvent、移动 P1 与真实 SlimeBody 物理完成闭环，禁止归队后瞬移或直接调用内部合体函数代替。AI 不可受伤 / 不吸引火力及网络 / 存档 / 正式 client 边界不变。自动验证一律先运行 py -3 tools/steamworks_lab_toolchain.py smoke --suite <目标>，交付前运行 --suite all，禁止手写 Godot / PowerShell 双进程命令或触碰真实 user://。测试节点在 _ready() 前注入 fixture；源码 steam_appid.txt 必须永久保留且内容为 4955670，只从 release 排除。改 runner 先跑 tools/test_steamworks_lab_toolchain.py；真实同屏仍用 1–3 个手柄验收，真实 Steam 仍需两个账号 / 设备验证 runtime App ID、overlay、Lobby、邀请、+connect_lobby、断网退化和完整同步，ENet 不能替代。",
     "如果继续 F13 模块大地图，先读 docs/AI协作/工作包/F13-ModularGridWorld.md、docs/代码/module_world_manager.md、docs/代码/gameplay_runtime.md、docs/代码/save_manager.md、client/data/README.md、词表 §15 和 docs/测试策略.md。扩内容时从 client/templates/module_template.json 创建独立 11×11 JSON，新模块默认 candidate；通过 schema、通道、外圈、格占用、可达性、安全区和角色预算校验后仍须人工改 approved 才能入默认池。改 assignment、流式状态、迷雾、map hash 或 run v4 必跑 module-world-smoke + module-world-technical-slice-smoke + save-smoke；改 schema / 契约追加 sync_contracts --check、validate_data、test_data_loader_schema 和 headless-boot；map hash 必须继续覆盖世界配置与本局引用的完整模块 JSON，恢复失败必须 fail closed；open-warzone 仅用 runtime-smoke / f9-demo-smoke 做非默认回归。",
     "如果继续 F12 短刷图默认循环，先读 docs/AI协作/工作包/F12-ShortLootRuns.md、docs/代码/gameplay_runtime.md、docs/代码/warzone_director.md、docs/代码/map_manager.md、docs/代码/gear_mod_system.md、client/data/README.md 和 docs/测试策略.md；当前地图格、边界、机关、POI footprint 和撤离区都是矩形俯视格，默认 mode_standard_survival 不声明 growth_pools，运行时不掉 XP、不弹 LevelUpPanel、不进入 LEVEL_UP；8-12 分钟数据节奏、四个 director 兴趣点、资源 / Mod 奖励暂存、run.pending_loot 保存 / 续局恢复、死亡 / 放弃不提交、可伤害兴趣点目标、可见缓存箱 interact 打开、interest_points / extraction run snapshot、小巢核击破后开启矩形撤离区、撤离读条成功后提交暂存战利品、结果面板成功 / 失败清单已落地。",
     "如果继续 F11 装备 Mod / 局外装配，先读 docs/AI协作/工作包/F11-GearModLoadout.md、docs/代码/gear_mod_system.md、GDD §7.2 / §9.16、client/data/README.md 和 docs/测试策略.md；数据 / 契约首片、GearModSystem 运行时首片、标题 Gear Mod 最小 UI、掉落 HUD 暂存提示、旧局外成长运行时删除和旧测试档迁移 / 补偿路径删除已完成，下一步优先扩展更多 Gear Mod 内容；运行时或 UI 变更必跑 gear-mod-smoke，改击杀归因或开局应用追加 runtime-smoke。",
     "旧 MetaProgressionSystem 运行时 / UI / smoke 已删除；ADR #118 后旧 meta_progression.json、旧 meta 契约和旧测试档迁移 / 补偿路径也已删除，不要继续把旧永久升级轨道作为未来下一局属性来源。",
-    "如果继续 F10 战区导演，当前入口是 docs/AI协作/工作包/F10-WarzoneDirector.md、docs/代码/warzone_director.md、docs/代码/map_manager.md 和 client/data/warzone_directors.json；只能用固定阶段、mode / mutation、encounter、interest point、map / hazard / enemy tag 组合来导演战区，interest_points 已能通过 MapManager 生成 source=director 初始机关；不读取玩家血量、DPS、位置、失误、输入等玩家状态，不做隐藏 DDA，不在运行时接 LLM；改动后至少跑 validate_data、test_data_loader_schema、runtime-smoke 和 f9-demo-smoke，影响地图 placement 时追加 save-smoke、perf-probe 与 golden replay runner 评估。",
+    "如果继续 F10 战区导演，当前入口是 docs/AI协作/工作包/F10-WarzoneDirector.md、docs/代码/warzone_director.md、docs/代码/map_manager.md 和 client/data/warzone_directors.json；只能用固定阶段、mode / mutation、encounter、interest point、map / hazard / enemy tag 组合来导演战区，interest_points 已能通过 MapManager 生成 source=director 初始机关；不读取玩家血量、DPS、位置、失误、输入等玩家状态，不做隐藏 DDA，不在运行时接 LLM；改动后至少跑 validate_data、test_data_loader_schema、runtime-smoke 和 f9-demo-smoke，影响地图 placement 时追加 save-smoke 与 golden replay runner 评估；性能 probe 仅由用户明确触发。",
     "如果继续概念图、资产 brief、宝箱 / 兴趣点或敌巢美术，先看 docs/IP美术风格.md：敌巢 / 虫族占用骨白、蜡黄、干肉粉、深红、黑紫和少量毒蓝，青 / 红 / 白归属虫族与敌巢；玩家和玩家子弹默认不用青 / 红 / 白，敌方远程攻击可用红色；宝箱、遗物祭坛、治疗点、升级站、武器缓存、巢穴终端和危险门按功能色区分。",
     "如果继续美术资产 / 占位替换，先按 GDD §8.2-A 写 asset brief：贴地范围、机关、AOE、地面符号默认使用矩形 / 方形俯视格或清晰贴地轮廓，并与量化矩形地图格对齐；角色、敌人、拾取物、子弹、障碍物和特效不强制矩形，但必须声明 footprint、anchor、orientation_read、sort layer 和真实判定形状；不要把所有资产都做成矩形。",
     "ADR #124 后当前正式视角口径是俯视角 2D：Player / Enemy 仍走 CharacterBody2D 或 Node2D + 2D 碰撞，CenteredCamera 不滚转屏幕、不做非等比缩放，只保持水平居中和等比缩放；正式玩家场景不再挂 Player3DVisual / SubViewport + Camera3D 正交视觉层，不再用低模 3D 或相机变形模拟斜俯视。",
@@ -126,6 +128,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-21",
+      "command": "JSON current_state/_kb_index; docs_health_check; git diff --check; performance-policy reference audit",
+      "result": "passed for ADR #143 documentation-only policy sync: performance probes are excluded from daily changes, pre-commit, routine regression, default CI and AI delivery unless the user explicitly requests performance testing in the current task; existing startup-probe/perf-probe runners and historical results remain available. No Godot, startup or performance test was run."
+    },
     {
       "date": "2026-07-20",
       "command": "sync_contracts --check; validate_data; test_data_loader_schema; lint_gdscript_rules/project_rules/semantic_rules plus lint self-tests; JSON; docs_health_check; diff --check; headless-boot; startup-probe; module-world-smoke; module-world-technical-slice-smoke; runtime-smoke; save-smoke; f9-demo-smoke; perf-probe; four golden replay recaptures and replay-runner --rerun-runtime-summary",

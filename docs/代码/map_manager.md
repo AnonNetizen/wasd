@@ -130,7 +130,7 @@ ADR #142 的模块大地图（详见 `docs/代码/module_world_manager.md`）把
 |------------|----------|----------|----------|
 | 调地图宽高 / 矩形格 / 出生点 | `client/data/map_layouts.json` | `client/data/README.md` | `validate_data` + `runtime-smoke` |
 | 固定 FEA-12 测试点 | `map_layouts.json.manual_hazards` | `client/data/README.md` | `f9-demo-smoke` |
-| 增加 PCG 机关数量 | `map_layouts.json.pcg.hazards` | `client/data/README.md` | `runtime-smoke` + `perf-probe` |
+| 增加 PCG 机关数量 | `map_layouts.json.pcg.hazards` | `client/data/README.md` | `runtime-smoke`；`perf-probe` 仅在用户明确要求时运行 |
 | 增加战区兴趣点机关 / 奖励 | `warzone_directors.json.interest_points` | `client/data/README.md`、WarzoneDirector / Gameplay Runtime 文档 | `validate_data` + `test_data_loader_schema` + `runtime-smoke` + `f9-demo-smoke`；奖励变化追加 `gear-mod-smoke` / `save-smoke` |
 | 改 PCG 约束算法 | `map_manager.gd` | 本文档、测试策略 | `runtime-smoke` + `save-smoke` + golden replay |
 | 改 run 地图快照 | `map_manager.gd`、`gameplay_run_loop.gd`、`save_manager.gd` | 本文档、Gameplay Runtime、SaveManager | `save-smoke` + `runtime-smoke` |
@@ -157,7 +157,7 @@ ADR #142 的模块大地图（详见 `docs/代码/module_world_manager.md`）把
 
 - 改 `map_layouts.json` 或 schema：跑 `python tools/validate_data.py`、`python tools/test_data_loader_schema.py`、`python tools/sync_contracts.py --check`。
 - 改 `map_manager.gd` 或 `gameplay_run_loop.gd` 地图接入：跑 `python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`runtime-smoke`、`save-smoke`；改边界形状或逻辑 clamp 时至少跑 `runtime-smoke`。
-- 改 PCG 摆放、director 兴趣点接入、边界或刷怪位置：追加 `f9-demo-smoke`、`l1-smoke`、`perf-probe`，并重跑四条 checked-in golden replay runner 评估行为漂移。
+- 改 PCG 摆放、director 兴趣点接入、边界或刷怪位置：追加 `f9-demo-smoke`、`l1-smoke`，并重跑四条 checked-in golden replay runner 评估行为漂移；`perf-probe` 仅在用户明确要求性能测试时运行。
 
 ## 迁移 / 兼容
 

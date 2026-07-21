@@ -120,7 +120,7 @@ ActiveWorld
 
 - 改 `hazards.csv` 或 `map_layouts.json`：跑 `python tools/validate_data.py`、`python tools/test_data_loader_schema.py`、`python tools/sync_contracts.py --check`。
 - 改 `hazard.gd` / 机关生成或恢复：跑 `python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`runtime-smoke`、`save-smoke`、`f9-demo-smoke`。
-- 改机关数量、池化生命周期或性能相关行为：追加 `l1-smoke`、`perf-probe`，并重跑 checked-in golden replay runner 评估稳定摘要变化。
+- 改机关数量、池化生命周期或性能相关行为：追加 `l1-smoke`，并重跑 checked-in golden replay runner 评估稳定摘要变化；`perf-probe` 仅在用户明确要求性能测试时运行。
 
 ## 迁移 / 兼容
 

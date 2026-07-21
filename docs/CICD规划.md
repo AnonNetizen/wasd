@@ -5,7 +5,7 @@
 >
 > 当前状态：已启用 Stage 1 基础 workflow：`.github/workflows/docs-check.yml`；本地 `.pre-commit-config.yaml` 已复用同一批 Stage 1 脚本，并追加 Steamworks Lab toolchain 单元回归与 staged whitespace fix/check。它跑契约生成同步检查、数据 / locale 校验、DataLoader schema 回归测试、第一档 GDScript 项目 lint、第二档项目规则 lint、第三档语义 advisory lint、文档健康检查和 whitespace diff；本地还守 console 解析、隔离环境、成功协议、超时、动态端口、临时副本与源码 App ID。暂不在 CI 启用 Godot、GUT、黄金回放、平衡 sim、commitlint 或复杂矩阵。
 >
-> **测试相关**：本文件只列 CI 工作流的"何时跑、跑什么"。完整测试金字塔、必测清单、里程碑要求、性能预算、手动回归 checklist 见 `docs/测试策略.md`（测试唯一权威）。
+> **测试相关**：本文件只列 CI 工作流的"何时跑、跑什么"。完整测试金字塔、必测清单、里程碑要求、性能预算、手动回归 checklist 见 `docs/测试策略.md`（测试唯一权威）。ADR #143 后性能测试只由用户当次明确触发，不进入默认 CI 或 pre-commit。
 >
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 CI/CD 路线图权威；改 workflow / hook / health-check 设计时，常见联动为 `docs/测试策略.md`、`docs/AI协作/实时验证回路.md`、`CONTRIBUTING.md`、规则自检清单、`docs/AI记忆/项目记忆.md`。
 
@@ -200,7 +200,7 @@
 - headless 跑 `tools/sim.gd --runs 1000`
 - 输出 build 强度 / 胜率分布 / 无人选择遗物清单
 - 与 GDD 9.10 配套；MVP 后再启用
-- F8 首片先启用 `python tools/godot_bridge.py --project client perf-probe` 输出轻量 schema v2 JSON 指标（30 帧 warmup 后 180 帧帧时间分布、实体峰值、池峰值和预算状态），作为后续 sim 报表的最小可比较基线。
+- F8 已保留 `python tools/godot_bridge.py --project client perf-probe`，可在用户明确要求性能测试时输出轻量 schema v2 JSON 指标（30 帧 warmup 后 180 帧帧时间分布、实体峰值、池峰值和预算状态）。该命令不进入默认 CI、pre-commit 或常规交付测试；未来若建立性能 workflow，只允许手动触发。
 
 ### 4.O PR 自动加标签 ⭐
 - 用 [labeler](https://github.com/actions/labeler)，按改动路径自动打 label：

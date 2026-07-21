@@ -40,7 +40,7 @@
 
 - `sync_contracts --check`、`validate_data`、`test_data_loader_schema`、GDScript / project / semantic lint 全过。
 - `module-world-smoke` 覆盖同 seed、不同 seed、跨模块、active≤9、迷雾、目标撤离与保存恢复。
-- `headless-boot`、`runtime-smoke`、`save-smoke`、`f9-demo-smoke`、`perf-probe` 与四条黄金回放按默认行为变化更新并通过。
+- `headless-boot`、`runtime-smoke`、`save-smoke`、`f9-demo-smoke` 与四条黄金回放按默认行为变化更新并通过；`perf-probe` 的历史验收结果保留，但 ADR #143 后只在用户明确要求性能测试时运行。
 - 性能沿用项目预算：首帧≤2 秒、p99≤20 ms、跨模块尖峰<33 ms、内存≤512 MB、敌人≤200、子弹≤500。
 
 ## 6. 暂不做

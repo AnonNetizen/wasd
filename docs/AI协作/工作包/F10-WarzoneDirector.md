@@ -129,7 +129,7 @@ python tools/godot_bridge.py --project client runtime-smoke
 python tools/godot_bridge.py --project client f9-demo-smoke
 ```
 
-若只改文档，可按文档维护指南缩小为 `python tools/docs_health_check.py`。若导演开始影响地图生成、run snapshot、随机 mutation、replay summary 或 golden fingerprint，追加对应 smoke / replay runner，并在 ADR 和本工作包写明原因；F10.2 兴趣点接入地图生成至少追加 `headless-boot`、`save-smoke`、`perf-probe` 与 checked-in golden replay runner 评估。
+若只改文档，可按文档维护指南缩小为 `python tools/docs_health_check.py`。若导演开始影响地图生成、run snapshot、随机 mutation、replay summary 或 golden fingerprint，追加对应 smoke / replay runner，并在 ADR 和本工作包写明原因；F10.2 兴趣点接入地图生成至少追加 `headless-boot`、`save-smoke` 与 checked-in golden replay runner 评估。`perf-probe` 仅在用户明确要求性能测试时运行。
 
 ## 红线
 

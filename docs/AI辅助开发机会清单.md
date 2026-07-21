@@ -487,7 +487,7 @@ phase 2:
 
 - 先用简单贪心 AIPlayer，不追求像人。
 - 输出 CSV / JSON / Markdown。
-- 与 `perf-probe` 和 replay runner 形成平衡护栏。
+- 与 replay runner 形成平衡护栏；`perf-probe` 仅在用户明确要求性能测试时运行。
 
 ### AID-24 回放差异可视化
 
