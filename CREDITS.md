@@ -22,6 +22,15 @@ This project keeps two credits records in sync:
 | [Godot Engine](https://godotengine.org/license/) | Game engine and runtime | MIT | Required when distributing Godot with the game; keep the Godot license text in release materials. |
 | [GodotSteam](https://codeberg.org/godotsteam/godotsteam) | Steamworks integration in Steamworks Slime Lab | MIT | Included as the official GDExtension in the Lab Windows build; keep its license text in `THIRD_PARTY_NOTICES.txt`. |
 
+## Development Tools
+
+These editor plugins are vendored under `client/addons/` as project-maintained forks. Their upstream copyright and MIT license files remain part of the source tree; the current credits data conservatively treats them as included in distributable project resources.
+
+| Name | Usage | License | Notice |
+|------|-------|---------|--------|
+| [@icons](https://github.com/Voxybuns/at-icons) | Godot editor icon browser and icon resource library | MIT | Keep `client/addons/at-icons/LICENSE.txt` with redistributed source or resources. |
+| [Script-IDE](https://github.com/Maran23/script-ide) | Godot script editor tabs, outline and quick-open workflow | MIT | Keep `client/addons/script-ide/LICENSE` with redistributed source or resources. |
+
 ## External Workflow References
 
 These resources informed project-owned AI skills or workflows. The external packages are not vendored into the active project and are not redistributed in the game build.

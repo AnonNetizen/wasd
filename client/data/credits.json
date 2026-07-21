@@ -51,6 +51,34 @@
       ]
     },
     {
+      "id": "development_tools",
+      "title_key": "ui_credits_section_development_tools",
+      "entries": [
+        {
+          "kind": "external_tool",
+          "name": "@icons",
+          "role_key": "ui_credits_usage_editor_icons",
+          "url": "https://github.com/Voxybuns/at-icons",
+          "license": "MIT",
+          "copyright": "Copyright (c) 2026-present Valentin Fossati (Voxybuns) & contributors",
+          "included_in_build": true,
+          "requires_notice": true,
+          "review_required": false
+        },
+        {
+          "kind": "external_tool",
+          "name": "Script-IDE",
+          "role_key": "ui_credits_usage_editor_ide",
+          "url": "https://github.com/Maran23/script-ide",
+          "license": "MIT",
+          "copyright": "Copyright (c) 2023 Marius Hanl",
+          "included_in_build": true,
+          "requires_notice": true,
+          "review_required": false
+        }
+      ]
+    },
+    {
       "id": "ai_workflow_references",
       "title_key": "ui_credits_section_ai_workflow_references",
       "entries": [

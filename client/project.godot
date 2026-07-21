@@ -40,6 +40,10 @@ window/size/viewport_height=1080
 window/size/resizable=false
 window/stretch/mode="canvas_items"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/at-icons/plugin.cfg", "res://addons/script-ide/plugin.cfg")
+
 [internationalization]
 
 locale/translations=PackedStringArray("res://locale/strings.zh_CN.translation", "res://locale/strings.en.translation")

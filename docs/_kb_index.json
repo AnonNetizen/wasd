@@ -93,13 +93,13 @@
       "authority": "Repository-facing credits, third-party source acknowledgements, and release notice tracking",
       "status": "active",
       "owner_scope": "project",
-      "last_reviewed": "2026-06-17",
+      "last_reviewed": "2026-07-21",
       "canonical_for": ["credits", "third_party_sources", "external_resources", "license_notices"],
       "must_read_for": ["credits_change", "third_party_resource_change", "release_notice_review"],
-      "related_docs": ["client/data/README.md", "client/locale/README.md", "docs/AI导航.md", "docs/决策记录.md"],
-      "related_code": ["client/data/credits.json", "client/locale/strings.csv", "client/scripts/autoload/data_loader.gd"],
-      "update_triggers": ["new contributor", "new external library", "new external asset", "new AI workflow reference", "license or notice status changes"],
-      "keywords": ["credits", "致谢", "third-party", "第三方", "license", "notice", "Godot", "Godot docs", "GDScript style guide", "external resources", "工作人员"]
+      "related_docs": ["client/addons/README.md", "client/data/README.md", "client/locale/README.md", "docs/AI导航.md", "docs/决策记录.md"],
+      "related_code": ["client/addons/", "client/data/credits.json", "client/locale/strings.csv", "client/scripts/autoload/data_loader.gd"],
+      "update_triggers": ["new contributor", "new external library", "new external asset", "new editor plugin", "new AI workflow reference", "license or notice status changes"],
+      "keywords": ["credits", "致谢", "third-party", "第三方", "license", "notice", "Godot", "Godot docs", "Godot editor plugin", "@icons", "Script-IDE", "GDScript style guide", "external resources", "工作人员"]
     },
     {
       "path": "docs/AI知识库索引.md",
@@ -197,7 +197,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #127", "ADR #128", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #144", "ADR #145", "ADR #146", "F14", "F14.1", "模块大地图", "ModuleWorldManager", "ModuleNavigationField", "bounded shared flow field", "hybrid perception", "run v4", "RoomManager superseded", "WarzoneDirector", "EnemyAI player targeting", "敌方友伤护栏", "short loot runs", "撤离", "Gear Mod", "性能测试按需", "user-triggered performance test", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "AI Git", "code review", "事实review"]
+      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #127", "ADR #128", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #144", "ADR #145", "ADR #146", "ADR #147", "F14", "F14.1", "模块大地图", "ModuleWorldManager", "ModuleNavigationField", "bounded shared flow field", "hybrid perception", "run v4", "RoomManager superseded", "WarzoneDirector", "EnemyAI player targeting", "敌方友伤护栏", "short loot runs", "撤离", "Gear Mod", "Godot editor plugin", "@icons", "Script-IDE", "性能测试按需", "user-triggered performance test", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "AI Git", "code review", "事实review"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -226,6 +226,20 @@
       "related_code": ["client/data/", "tools/validate_data.py", "tools/sync_contracts.py"],
       "update_triggers": ["new data file", "new numeric field", "changed unit or range", "DataLoader schema change"],
       "keywords": ["data", "numeric config", "数值配置", "调参", "DataLoader", "CSV", "JSON", "平表", "player.json", "characters.json", "weapons.json", "skills.json", "skill_effect_apply_status", "status_stack_rules", "relics.json", "credits.json", "game_modes.json", "growth_pools optional", "默认无升级三选一", "短刷图", "gear_mods.json", "gear_mod_drop_tables.csv", "gear_mod_fusion_costs.csv", "装备 Mod", "Gear Mod", "map_layouts.json", "grid.cell_width", "grid.cell_height", "safe_radius", "出生安全区", "spawn safe zone", "growth.csv", "enemies.csv", "hazards.csv", "radius_tiles", "矩形机关", "rectangular hazard", "rectangular map grid", "PCG", "有限地图", "人工摆点", "局外成长", "validate_data"]
+    },
+    {
+      "path": "client/addons/README.md",
+      "type": "tooling_manual",
+      "authority": "Pinned Godot editor plugin versions, source hashes, licenses, local patches, and manual upgrade workflow",
+      "status": "active",
+      "owner_scope": "godot-tooling",
+      "last_reviewed": "2026-07-21",
+      "canonical_for": ["godot_editor_plugins", "vendored_plugin_versions", "editor_plugin_upgrade_workflow"],
+      "must_read_for": ["editor_plugin_install", "editor_plugin_upgrade", "vendored_plugin_patch"],
+      "related_docs": ["client/README.md", "CREDITS.md", "client/data/README.md", "docs/AI导航.md", "docs/决策记录.md"],
+      "related_code": ["client/addons/at-icons/", "client/addons/script-ide/", "client/project.godot"],
+      "update_triggers": ["editor plugin version changes", "plugin source archive changes", "local plugin patch changes", "plugin license changes", "plugin enablement changes"],
+      "keywords": ["Godot editor plugin", "编辑器插件", "addons", "@icons", "Script-IDE", "vendored", "SHA-256", "MIT", "manual update", "维护型 fork", "lint"]
     },
     {
       "path": "client/locale/README.md",

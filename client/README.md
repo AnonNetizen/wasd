@@ -15,11 +15,16 @@
 | `scenes/` | 正式项目场景 |
 | `scripts/` | 正式项目 GDScript |
 | `scripts/debug/` | debug/dev_tools 专用控制台与 GM 命令注册表；正式 release 不应加载或导出 |
+| `addons/` | 固定版本 Godot 编辑器插件；来源、许可、本地补丁与升级流程见 `client/addons/README.md` |
 | `data/` | 数值与复杂配置，说明见 `client/data/README.md` |
 | `locale/` | 本地化表，说明见 `client/locale/README.md` |
 | `assets/` | 美术、音频等资源 |
 | `templates/` | 新内容脚手架模板 |
 | `tools/` | 项目内 Godot headless smoke 脚本 |
+
+## 编辑器插件
+
+正式项目共享启用 `@icons 1.4.0` 与 `Script-IDE 2.2.3`。两者源码固定版本入库，不自动更新；仓库内代码按项目 GDScript 规则维护，同时保留上游 MIT 许可证和版权声明。升级必须按 `client/addons/README.md` 记录发布包哈希、审查上游差异、迁移本地补丁并重新运行完整验证。
 
 ## Autoload
 
