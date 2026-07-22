@@ -143,7 +143,6 @@ func _ready() -> void:
 	add_child(_input_detector)
 	_load_remapping_config()
 	_rebuild_remapper()
-	_apply_legacy_settings_migration()
 	_apply_remapping_config()
 	_formatter = GUIDEInputFormatter.new(32, _prompt_mapping_for_action)
 	_configure_formatter_filter()
@@ -992,56 +991,6 @@ func _quarantine_invalid_bindings() -> void:
 	var error: Error = DirAccess.rename_absolute(source_path, invalid_path)
 	if error != OK:
 		push_warning("[InputService] failed to quarantine invalid input bindings: %d" % int(error))
-
-
-func _apply_legacy_settings_migration() -> void:
-	if not Settings.has_method("take_legacy_input_bindings"):
-		return
-	var legacy: Dictionary = Settings.call("take_legacy_input_bindings") as Dictionary
-	if legacy.is_empty():
-		return
-	for raw_binding_id: Variant in legacy:
-		var binding_id: StringName = StringName(String(raw_binding_id))
-		var item: GUIDERemapper.ConfigItem = _primary_item(binding_id, DEVICE_KEYBOARD_MOUSE)
-		if item == null:
-			continue
-		var keycode: Key = _legacy_keycode(String(legacy[raw_binding_id]))
-		if keycode == KEY_NONE:
-			continue
-		var input: GUIDEInputKey = GUIDEInputKey.new()
-		input.key = keycode
-		_remapper.set_bound_input(item, input)
-	_remapping_config = _remapper.get_mapping_config()
-	_remapping_config.custom_data["schema_version"] = INPUT_BINDINGS_SCHEMA_VERSION
-	_rebuild_remapper()
-	_save_remapping_config()
-
-
-func _legacy_keycode(key_name: String) -> Key:
-	var keycodes: Dictionary = {
-		"W": KEY_W,
-		"A": KEY_A,
-		"S": KEY_S,
-		"D": KEY_D,
-		"Up": KEY_UP,
-		"Down": KEY_DOWN,
-		"Left": KEY_LEFT,
-		"Right": KEY_RIGHT,
-		"Space": KEY_SPACE,
-		"Tab": KEY_TAB,
-		"Escape": KEY_ESCAPE,
-		"Enter": KEY_ENTER,
-		"Q": KEY_Q,
-		"E": KEY_E,
-		"R": KEY_R,
-		"F": KEY_F,
-		"P": KEY_P,
-		"J": KEY_J,
-		"K": KEY_K,
-		"L": KEY_L,
-		"I": KEY_I,
-	}
-	return int(keycodes.get(key_name, KEY_NONE))
 
 
 func _build_abort_inputs() -> Array[GUIDEInput]:

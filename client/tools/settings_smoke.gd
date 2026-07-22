@@ -2,6 +2,7 @@ extends Node
 
 
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
+const INPUT_BINDING_IDS := preload("res://scripts/contracts/input_binding_ids.gd")
 const GAME_OVER_PANEL_SCENE := preload("res://scenes/ui/game_over_panel.tscn")
 const GAMEPLAY_HUD_SCENE := preload("res://scenes/gameplay/gameplay_hud.tscn")
 const LEVEL_UP_PANEL_SCENE := preload("res://scenes/ui/level_up_panel.tscn")
@@ -35,7 +36,7 @@ func _run() -> void:
 	_expect_missing_file_uses_defaults()
 	_expect_roundtrip_and_signal_flow()
 	_expect_invalid_values_are_rejected()
-	_expect_legacy_input_bindings_migrate_to_v2()
+	_expect_v1_ignores_removed_input_keys()
 	_expect_input_bindings_use_independent_resource()
 	_expect_invalid_saved_values_recover_to_defaults()
 	_expect_broken_config_recovers_to_defaults()
@@ -84,32 +85,46 @@ func _expect_invalid_values_are_rejected() -> void:
 	var original_locale: String = String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE))
 	_expect(not Settings.set_value(SETTINGS_KEYS.AUDIO_MASTER, 2.0), "master volume should reject values above 1.0")
 	_expect(not Settings.set_value(SETTINGS_KEYS.GENERAL_LOCALE, "pirate"), "locale should reject unsupported values")
-	_expect(not Settings.set_value(SETTINGS_KEYS.INPUT_PAUSE, "P"), "legacy input keys should be read-only after settings v2")
 	_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), original_master), "invalid master volume should not mutate state")
 	_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == original_locale, "invalid locale should not mutate state")
-	_expect(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE, null) == null, "settings v2 should not retain deprecated input values")
 
 
-func _expect_legacy_input_bindings_migrate_to_v2() -> void:
-	var config := ConfigFile.new()
+func _expect_v1_ignores_removed_input_keys() -> void:
+	_expect(InputService.reset_bindings_to_defaults(), "smoke should create a current GUIDE binding resource")
+	var bindings_before: String = _read_text(InputService.bindings_path())
+	_expect(not bindings_before.is_empty(), "current GUIDE binding resource should be readable")
+
+	var config: ConfigFile = ConfigFile.new()
 	config.set_value("meta", "version", 1)
 	config.set_value("settings", SETTINGS_KEYS.GENERAL_LOCALE, "en")
-	config.set_value("settings", SETTINGS_KEYS.INPUT_PAUSE, "P")
-	config.set_value("settings", SETTINGS_KEYS.INPUT_INTERACT, "F")
+	config.set_value("settings", SETTINGS_KEYS.AUDIO_MASTER, 0.37)
+	config.set_value("settings", String(INPUT_BINDING_IDS.INPUT_PAUSE), "P")
+	config.set_value("settings", String(INPUT_BINDING_IDS.INPUT_INTERACT), "F")
 	_expect(config.save(Settings.settings_path()) == OK, "smoke should write legacy settings v1 fixture")
-	_expect(Settings.load_from_disk(), "valid settings v1 should migrate cleanly")
-	var legacy_bindings: Dictionary = Settings.take_legacy_input_bindings()
-	_expect(String(legacy_bindings.get(SETTINGS_KEYS.INPUT_PAUSE, "")) == "P", "settings v1 should expose legacy pause binding once")
-	_expect(String(legacy_bindings.get(SETTINGS_KEYS.INPUT_INTERACT, "")) == "F", "settings v1 should expose legacy interact binding once")
-	_expect(Settings.take_legacy_input_bindings().is_empty(), "legacy binding migration payload should be one-shot")
-	var migrated := ConfigFile.new()
+	_expect(Settings.load_from_disk(), "settings v1 ordinary preferences should migrate cleanly")
+	_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == "en", "settings v1 should preserve a valid locale")
+	_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), 0.37), "settings v1 should preserve a valid master volume")
+	_expect(
+		not DataLoader.has_contract_value("settings_keys", String(INPUT_BINDING_IDS.INPUT_PAUSE)),
+		"current GUIDE binding IDs should not remain registered Settings keys"
+	)
+	_expect(_read_text(InputService.bindings_path()) == bindings_before, "settings v1 load should not overwrite current GUIDE bindings")
+
+	var migrated: ConfigFile = ConfigFile.new()
 	_expect(migrated.load(Settings.settings_path()) == OK, "migrated settings v2 should be readable")
 	_expect(int(migrated.get_value("meta", "version", 0)) == 2, "settings migration should rewrite config as v2")
-	_expect(not migrated.has_section_key("settings", SETTINGS_KEYS.INPUT_PAUSE), "settings v2 should not persist GUIDE bindings")
-	_expect(not migrated.has_section_key("settings", SETTINGS_KEYS.INPUT_INTERACT), "settings v2 should remove legacy input keys")
+	_expect(not migrated.has_section_key("settings", String(INPUT_BINDING_IDS.INPUT_PAUSE)), "settings v2 should drop ignored legacy pause input")
+	_expect(not migrated.has_section_key("settings", String(INPUT_BINDING_IDS.INPUT_INTERACT)), "settings v2 should drop ignored legacy interact input")
 
 
 func _expect_input_bindings_use_independent_resource() -> void:
+	for path: String in _binding_fixture_paths():
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
+	InputService.call("_load_remapping_config")
+	InputService.call("_rebuild_remapper")
+	InputService.call("_apply_remapping_config")
+	_expect(InputService.binding_text(InputService.BINDING_PAUSE, InputService.DEVICE_KEYBOARD_MOUSE).contains("Escape"), "missing binding resource should use the current GUIDE defaults")
 	_expect(InputService.reset_bindings_to_defaults(), "resetting GUIDE bindings should save the independent resource")
 	_expect(FileAccess.file_exists(InputService.bindings_path()), "input bindings should persist outside settings.cfg")
 	var loaded: Resource = ResourceLoader.load(InputService.bindings_path(), "GUIDERemappingConfig", ResourceLoader.CACHE_MODE_IGNORE)
@@ -117,9 +132,9 @@ func _expect_input_bindings_use_independent_resource() -> void:
 	_expect(remapping_config != null, "input binding resource should load as GUIDERemappingConfig")
 	if remapping_config != null:
 		_expect(int(remapping_config.custom_data.get("schema_version", 0)) == 1, "input binding resource should declare project schema v1")
-	var settings_config := ConfigFile.new()
+	var settings_config: ConfigFile = ConfigFile.new()
 	_expect(settings_config.load(Settings.settings_path()) == OK, "settings.cfg should remain readable after GUIDE binding save")
-	_expect(not settings_config.has_section_key("settings", SETTINGS_KEYS.INPUT_PAUSE), "GUIDE binding save should not write legacy input keys into settings.cfg")
+	_expect(not settings_config.has_section_key("settings", String(INPUT_BINDING_IDS.INPUT_PAUSE)), "GUIDE binding save should not write binding IDs into settings.cfg")
 
 
 func _expect_invalid_saved_values_recover_to_defaults() -> void:
@@ -550,6 +565,13 @@ func _write_text(path: String, content: String) -> void:
 		return
 	file.store_string(content)
 	file.flush()
+
+
+func _read_text(path: String) -> String:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return ""
+	return file.get_as_text()
 
 
 func _expect(condition: bool, message: String) -> void:

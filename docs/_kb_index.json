@@ -952,8 +952,8 @@
       "must_read_for": ["input_system_change", "input_action_change", "input_context_change", "input_rebinding_change", "input_prompt_change", "replay_input_change"],
       "related_docs": ["docs/代码/guide.md", "docs/代码/settings.md", "docs/代码/replay.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/决策记录.md", "docs/测试策略.md", "docs/AI导航.md", "docs/代码/README.md"],
       "related_code": ["client/scripts/autoload/input_service.gd", "client/resources/input/actions/", "client/resources/input/contexts/", "client/scripts/contracts/actions.gd", "client/scripts/autoload/settings.gd", "client/scripts/autoload/replay.gd", "client/scripts/gameplay/player.gd", "client/scripts/ui/settings_panel.gd"],
-      "update_triggers": ["InputService API or signal changes", "canonical action or binding id changes", "input context or priority changes", "binding schema or settings migration changes", "device prompt behavior changes", "Replay intent bridge changes"],
-      "keywords": ["InputService", "input facade", "normalized intent", "move", "aim", "pointer_position", "Vector2", "input.move_stick", "input.aim_stick", "input.fire", "input_bindings.tres", "GUIDERemappingConfig", "settings v2", "replay v2", "gameplay context", "ui context", "debug context", "UI bridge", "ADR #151"]
+      "update_triggers": ["InputService API or signal changes", "canonical action or binding id changes", "input context or priority changes", "binding schema or Settings/Replay compatibility changes", "device prompt behavior changes", "Replay intent bridge changes"],
+      "keywords": ["InputService", "input facade", "normalized intent", "move", "aim", "pointer_position", "Vector2", "input.move_stick", "input.aim_stick", "input.fire", "input_bindings.tres", "GUIDERemappingConfig", "settings v2", "replay v2", "v2 only", "gameplay context", "ui context", "debug context", "UI bridge", "ADR #151", "ADR #152"]
     },
     {
       "path": "docs/代码/skill_system.md",
@@ -1182,16 +1182,16 @@
     {
       "path": "docs/代码/settings.md",
       "type": "module_doc",
-      "authority": "Settings autoload contract for schema v2 preferences, runtime values, change broadcasts, and one-time v1 input migration handoff to InputService",
+      "authority": "Settings autoload contract for schema v2 preferences, runtime values, change broadcasts, v1 ordinary-preference rewrite, and separation from GUIDE binding persistence",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-07-22",
-      "canonical_for": ["settings", "setting_defaults", "runtime_preferences", "settings_schema_v2", "legacy_input_settings_migration"],
-      "must_read_for": ["settings_change", "new_setting", "settings_ui_change", "legacy_input_migration_change"],
+      "canonical_for": ["settings", "setting_defaults", "runtime_preferences", "settings_schema_v2", "removed_input_settings_keys"],
+      "must_read_for": ["settings_change", "new_setting", "settings_ui_change", "settings_compatibility_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/localization.md", "docs/代码/input_service.md", "docs/代码/guide.md"],
       "related_code": ["client/scripts/autoload/settings.gd", "client/scripts/autoload/input_service.gd", "client/scripts/contracts/settings_keys.gd", "client/data/_contracts.json", "client/resources/input/"],
-      "update_triggers": ["Settings API changes", "setting default changes", "setting key changes", "settings persistence changes", "settings.cfg schema or legacy input migration changes"],
-      "keywords": ["Settings", "autoload", "settings v2", "settings_keys", "setting_changed", "general.locale", "deprecated input keys", "input_bindings.tres", "InputService", "GUIDERemappingConfig", "preferences"]
+      "update_triggers": ["Settings API changes", "setting default changes", "setting key changes", "settings persistence changes", "settings.cfg schema or input compatibility changes"],
+      "keywords": ["Settings", "autoload", "settings v2", "settings_keys", "setting_changed", "general.locale", "removed input keys", "v1 ordinary preferences", "input_bindings.tres", "InputService", "GUIDERemappingConfig", "preferences", "ADR #152"]
     },
     {
       "path": "docs/代码/analytics.md",
@@ -1210,16 +1210,16 @@
     {
       "path": "docs/代码/replay.md",
       "type": "module_doc",
-      "authority": "Replay autoload contract for deterministic normalized intent and decision recording, v2 persistence, v1 in-memory migration, summary diff, and InputService playback override",
+      "authority": "Replay autoload contract for deterministic normalized intent and decision recording, v2-only persistence, unsupported-schema rejection, summary diff, and InputService playback override",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-07-22",
-      "canonical_for": ["replay", "deterministic_recording", "input_recording", "replay_schema_v2", "replay_v1_input_migration"],
+      "canonical_for": ["replay", "deterministic_recording", "input_recording", "replay_schema_v2", "replay_v2_only_compatibility"],
       "must_read_for": ["replay_change", "input_recording_change", "input_playback_change", "replay_input_schema_change", "golden_replay_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/input_service.md", "docs/代码/guide.md", "docs/代码/rng.md", "docs/代码/game_clock.md", "docs/代码/game_state.md", "docs/代码/analytics.md"],
       "related_code": ["client/scripts/autoload/replay.gd", "client/scripts/autoload/input_service.gd", "client/scripts/contracts/actions.gd", "client/scripts/contracts/analytics_events.gd", "client/scripts/autoload/rng.gd", "client/scripts/autoload/game_clock.gd", "client/scripts/autoload/game_state.gd", "client/tools/replay_smoke.gd", "client/tools/replay_runner.gd", "client/tools/replay_input_smoke.gd", "client/tools/golden_replay_capture.gd", "client/tests/replays/"],
-      "update_triggers": ["Replay API changes", "replay schema or v1 migration changes", "InputService playback bridge changes", "input recording changes", "decision recording changes", "replay persistence changes"],
-      "keywords": ["Replay", "autoload", "replay v2", "bool intent", "vector2 intent", "participant_id", "InputService", "playback override", "v1 migration", "record_decision", "gameplay.record_replays", "determinism", "golden replay", "input recording", "input playback", "runtime_events", "run_summary", "frame_samples", "level_up decision", "golden_pause_resume", "golden_full_death", "golden_level_up_choice", "debug_enable_level_up_growth", "默认无升级三选一"]
+      "update_triggers": ["Replay API changes", "replay schema or compatibility changes", "InputService playback bridge changes", "input recording changes", "decision recording changes", "replay persistence changes"],
+      "keywords": ["Replay", "autoload", "replay v2", "v2 only", "unsupported schema", "bool intent", "vector2 intent", "participant_id", "InputService", "playback override", "record_decision", "gameplay.record_replays", "determinism", "golden replay", "input recording", "input playback", "runtime_events", "run_summary", "frame_samples", "level_up decision", "golden_pause_resume", "golden_full_death", "golden_level_up_choice", "debug_enable_level_up_growth", "默认无升级三选一", "ADR #152"]
     },
     {
       "path": "docs/代码/localization.md",

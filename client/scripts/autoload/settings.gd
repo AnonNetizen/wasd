@@ -13,49 +13,9 @@ const SETTINGS_PATH: String = "user://settings.cfg"
 const META_SECTION: String = "meta"
 const SETTINGS_SECTION: String = "settings"
 const CONFIG_VERSION: int = 2
-const KEYBOARD_BINDING_OPTIONS: Array[String] = [
-	"W",
-	"A",
-	"S",
-	"D",
-	"Up",
-	"Down",
-	"Left",
-	"Right",
-	"Space",
-	"Tab",
-	"Escape",
-	"Enter",
-	"Q",
-	"E",
-	"R",
-	"F",
-	"P",
-	"J",
-	"K",
-	"L",
-	"I",
-]
-const LEGACY_INPUT_DEFAULTS: Dictionary = {
-	SETTINGS_KEYS.INPUT_MOVE_UP: "W",
-	SETTINGS_KEYS.INPUT_MOVE_DOWN: "S",
-	SETTINGS_KEYS.INPUT_MOVE_LEFT: "A",
-	SETTINGS_KEYS.INPUT_MOVE_RIGHT: "D",
-	SETTINGS_KEYS.INPUT_AIM_UP: "Up",
-	SETTINGS_KEYS.INPUT_AIM_DOWN: "Down",
-	SETTINGS_KEYS.INPUT_AIM_LEFT: "Left",
-	SETTINGS_KEYS.INPUT_AIM_RIGHT: "Right",
-	SETTINGS_KEYS.INPUT_USE_ACTIVE_ITEM: "Space",
-	SETTINGS_KEYS.INPUT_INTERACT: "E",
-	SETTINGS_KEYS.INPUT_SHOW_STATS_PANEL: "Tab",
-	SETTINGS_KEYS.INPUT_PAUSE: "Escape",
-	SETTINGS_KEYS.INPUT_UI_CONFIRM: "Enter",
-	SETTINGS_KEYS.INPUT_UI_BACK: "Escape",
-}
 
 var _values: Dictionary = {}
 var _last_load_recovered: bool = false
-var _legacy_input_bindings: Dictionary = {}
 
 
 func _ready() -> void:
@@ -72,10 +32,6 @@ func get_value(key: String, fallback: Variant = null) -> Variant:
 func set_value(key: String, value: Variant) -> bool:
 	if not _is_registered_key(key):
 		return false
-	if LEGACY_INPUT_DEFAULTS.has(key):
-		push_warning("[Settings] deprecated input binding key is read-only: %s" % key)
-		return false
-
 	var normalized: Variant = _normalize_value(key, value)
 	if normalized == null:
 		push_warning("[Settings] invalid value for %s: %s" % [key, str(value)])
@@ -98,12 +54,6 @@ func values() -> Dictionary:
 	return _values.duplicate(true)
 
 
-func take_legacy_input_bindings() -> Dictionary:
-	var result: Dictionary = _legacy_input_bindings.duplicate(true)
-	_legacy_input_bindings.clear()
-	return result
-
-
 func reset_to_defaults(persist: bool = false) -> void:
 	_values = _default_values()
 	if persist:
@@ -113,7 +63,6 @@ func reset_to_defaults(persist: bool = false) -> void:
 func load_from_disk() -> bool:
 	_values = _default_values()
 	_last_load_recovered = false
-	_legacy_input_bindings.clear()
 
 	var config := ConfigFile.new()
 	var error: Error = config.load(SETTINGS_PATH)
@@ -146,8 +95,6 @@ func load_from_disk() -> bool:
 			continue
 		_values[key] = normalized
 
-	if int(version) == 1:
-		_capture_legacy_input_bindings(config)
 	if _last_load_recovered or int(version) < CONFIG_VERSION:
 		save_to_disk()
 	settings_loaded.emit(_last_load_recovered)
@@ -247,16 +194,3 @@ func _setting_specs() -> Dictionary:
 		SETTINGS_KEYS.GAMEPLAY_RECORD_REPLAYS: {"type": "bool"},
 		SETTINGS_KEYS.PRIVACY_ANALYTICS_ENABLED: {"type": "bool"},
 	}
-
-
-func _capture_legacy_input_bindings(config: ConfigFile) -> void:
-	for key: String in LEGACY_INPUT_DEFAULTS:
-		var binding: String = String(LEGACY_INPUT_DEFAULTS[key])
-		if config.has_section_key(SETTINGS_SECTION, key):
-			var raw_value: Variant = config.get_value(SETTINGS_SECTION, key)
-			if raw_value is String and KEYBOARD_BINDING_OPTIONS.has(String(raw_value)):
-				binding = String(raw_value)
-			else:
-				_last_load_recovered = true
-				push_warning("[Settings] invalid legacy input binding for %s; using default." % key)
-		_legacy_input_bindings[key] = binding

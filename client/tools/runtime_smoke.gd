@@ -59,7 +59,6 @@ func _run() -> void:
 	_expect(InputService.action_resource(ACTIONS.MOVE) != null, "InputService should expose the Vector2 move action")
 	_expect(InputService.action_resource(ACTIONS.AIM) != null, "InputService should expose the Vector2 aim action")
 	_expect(InputService.action_resource(ACTIONS.SHOW_STATS_PANEL) != null, "InputService should expose show_stats_panel")
-	_expect(InputService.action_resource(ACTIONS.MOVE_UP) == null, "legacy direction ids should not remain runtime GUIDE actions")
 
 	var player: Node2D = _find_node_by_name(run_loop, "Player") as Node2D
 	_expect(player != null, "Player should exist")

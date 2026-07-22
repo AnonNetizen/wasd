@@ -229,7 +229,7 @@
 
 > F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射。ADR #124 后当前正式视角改回俯视角 2D；ADR #148 后 `CenteredCamera` 由 Player 子场景内的 Phantom Camera GLUED PCam 驱动，仍保持屏幕水平、玩家居中和等比缩放，不滚转、不平滑、不压缩某个轴。玩家有效受伤可按 `camera_feedback.json` 触发可关闭的位移震屏；鼠标瞄准会把屏幕偏移按当前 canvas transform 换算回世界方向。`Player` 仍是 `CharacterBody2D` 并按 2D 平面移动，正式玩家场景不再挂 `Player3DVisual`，默认 2D 占位按完整 `aim_direction` 绘制朝向标记。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
 
-> ADR #151 后不再由 gameplay 动态创建 InputMap action。GUIDE 0.14.0 维护物理映射，`InputService` 将 `move` / `aim` 统一成 Vector2、锁存短按到物理 tick、跟踪最近设备并管理 gameplay / ui / debug context；Replay v2 记录最终 intent。旧 `move_*` / `aim_*` 只用于 v1 Settings / Replay 内存迁移。
+> ADR #151 / #152 后不再由 gameplay 动态创建 InputMap action。GUIDE 0.14.0 维护物理映射，`InputService` 将 `move` / `aim` 统一成 Vector2、锁存短按到物理 tick、跟踪最近设备并管理 gameplay / ui / debug context；Replay 只记录并读取 v2 最终 intent。旧 `move_*` / `aim_*` action 与 Settings 输入迁移已删除，同名 `input.*` 仅是当前 GUIDE binding id。
 
 ### 5.2 系统依赖图（Mermaid，AI 改动前先看影响范围）
 

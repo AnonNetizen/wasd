@@ -246,6 +246,7 @@
 | #149 | 玩家和敌方子弹默认受地形阻挡；Bullet 以命中半径圆形做首帧重叠与本帧扫掠，命中后由对象池回收。`pierce_count` 只控制伤害目标穿透，`wall_pierce` 以 `0` / `>0` 独立控制全地形阻挡 / 忽略并在发射时快照；旧快照缺字段默认不能穿墙，run 保持 v4 | GDD v1.25 §4、词表、数据手册、Gameplay Runtime / ModuleWorldManager 文档、双端 DataLoader、module-world smoke、AI导航、current_state、AI记忆 |
 | #150 | 正式客户端未来采用 GodotSteam + Talo 且不开发自有通用后端：`PlatformServices → GodotSteam` 负责 Steam 平台能力，规划中的 `OnlineServices → Talo` 负责跨平台身份、排行榜 / 统计、Live Config、事件与轻量社交；当前不安装、不批准具体功能，Talo Cloud / 官方自托管实施前另行决策 | `docs/在线服务规划.md`、GDD v1.26 §6.7 / §9.22 / §9.23、PlatformServices 文档、测试策略、正式工作规划、TODO、AI导航、current_state、AI记忆 |
 | #151 | 正式输入迁移到固定版本 GUIDE 0.14.0 维护型 fork，项目 `InputService` 成为唯一业务边界；`move` / `aim` 使用 Vector2 intent，Settings 升 v2、绑定独立为 GUIDE config，Replay file / recording 升 v2 并兼容读取 v1；业务不得直调 GUIDE / Input / InputMap | GDD v1.27、词表、GUIDE / InputService / Settings / Replay / Gameplay Runtime / UIManager 文档、插件清单与 Credits、测试策略、四平台规则、AI导航、current_state、AI记忆 |
+| #152 | 在公开兼容窗口前关闭旧输入格式兼容：Settings v1 只保留普通偏好并忽略旧 `input.*`，Replay 只接受 v2，八个旧方向 action 删除；同名 GUIDE binding id 保持稳定。本条只取代 #151 的 v1 兼容条款 | GDD v1.28、词表、InputService / Settings / Replay 文档、测试策略、AI导航、current_state、AI记忆 |
 
 F14 交付时的四条黄金回放重录与运行时摘要证据见 [2026-07-21 F14 黄金回放回归报告](reports/2026-07-21-f14-replay-regression.md)。
 

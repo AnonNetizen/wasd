@@ -19,7 +19,6 @@ const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 const REPLAY_SCHEMA_VERSION: int = 2
 const REPLAY_FILE_SCHEMA_VERSION: int = 2
-const LEGACY_REPLAY_SCHEMA_VERSION: int = 1
 const DEFAULT_PARTICIPANT_ID: String = "player_0"
 const REPLAY_ROOT: String = "user://replays"
 const REPLAY_EXTENSION: String = ".replay"
@@ -231,9 +230,8 @@ func load_replay_file(path: String) -> Dictionary:
 		replay_load_failed.emit(path, _last_error)
 		return {}
 
-	var migrated_envelope: Dictionary = _migrate_envelope_to_current(envelope)
-	replay_loaded.emit(path, migrated_envelope.duplicate(true))
-	return migrated_envelope.duplicate(true)
+	replay_loaded.emit(path, envelope.duplicate(true))
+	return envelope.duplicate(true)
 
 
 func replay_root() -> String:
@@ -382,11 +380,14 @@ func _validate_file_envelope(envelope: Dictionary) -> String:
 		return "[Replay] replay recording must be a Dictionary"
 
 	var file_schema_version: int = int(envelope.get("file_schema_version", 0))
-	if file_schema_version < LEGACY_REPLAY_SCHEMA_VERSION or file_schema_version > REPLAY_FILE_SCHEMA_VERSION:
-		return "[Replay] replay file schema is newer than supported: %d > %d" % [file_schema_version, REPLAY_FILE_SCHEMA_VERSION]
+	if file_schema_version != REPLAY_FILE_SCHEMA_VERSION:
+		return "[Replay] unsupported replay file schema: %d; expected %d" % [file_schema_version, REPLAY_FILE_SCHEMA_VERSION]
 
 	var recording: Dictionary = envelope["recording"] as Dictionary
-	if not _is_valid_recording_for_version(recording, file_schema_version):
+	var recording_schema_version: int = int(recording.get("schema_version", 0))
+	if recording_schema_version != REPLAY_SCHEMA_VERSION:
+		return "[Replay] unsupported replay recording schema: %d; expected %d" % [recording_schema_version, REPLAY_SCHEMA_VERSION]
+	if not _is_valid_recording(recording):
 		return "[Replay] replay recording payload is invalid"
 	var expected_hash: String = _payload_hash(recording)
 	if String(envelope.get("recording_hash", "")) != expected_hash:
@@ -409,32 +410,6 @@ func _is_valid_recording(recording: Dictionary) -> bool:
 	return true
 
 
-func _is_valid_recording_for_version(recording: Dictionary, file_schema_version: int) -> bool:
-	if file_schema_version == LEGACY_REPLAY_SCHEMA_VERSION:
-		return _is_valid_v1_recording(recording)
-	return _is_valid_recording(recording)
-
-
-func _is_valid_v1_recording(recording: Dictionary) -> bool:
-	if int(recording.get("schema_version", 0)) != LEGACY_REPLAY_SCHEMA_VERSION:
-		return false
-	if not recording.has("run_seed") or not recording.has("started_tick") or not recording.has("started_time"):
-		return false
-	if not recording.get("input_events", []) is Array or not recording.get("decision_events", []) is Array:
-		return false
-	for raw_event: Variant in recording.get("input_events", []) as Array:
-		if not raw_event is Dictionary:
-			return false
-		var event: Dictionary = raw_event as Dictionary
-		if not event.get("action", "") is String or not event.get("pressed", false) is bool:
-			return false
-		if not _is_registered_action(String(event.get("action", ""))):
-			return false
-		if not event.has("tick") or not event.has("time"):
-			return false
-	return true
-
-
 func _is_valid_v2_input_event(event: Dictionary) -> bool:
 	for field_name: String in ["action", "value_type", "value", "tick", "time", "participant_id"]:
 		if not event.has(field_name):
@@ -453,79 +428,6 @@ func _is_valid_v2_input_event(event: Dictionary) -> bool:
 		return false
 	var components: Array = event["value"] as Array
 	return components.size() == 2 and (components[0] is int or components[0] is float) and (components[1] is int or components[1] is float)
-
-
-func _migrate_envelope_to_current(envelope: Dictionary) -> Dictionary:
-	if int(envelope.get("file_schema_version", 0)) == REPLAY_FILE_SCHEMA_VERSION:
-		return envelope.duplicate(true)
-	var migrated: Dictionary = envelope.duplicate(true)
-	var recording: Dictionary = (migrated.get("recording", {}) as Dictionary).duplicate(true)
-	recording["schema_version"] = REPLAY_SCHEMA_VERSION
-	recording["input_events"] = _migrate_v1_input_events(recording.get("input_events", []) as Array)
-	migrated["file_schema_version"] = REPLAY_FILE_SCHEMA_VERSION
-	migrated["recording"] = recording
-	migrated["recording_hash"] = _payload_hash(recording)
-	migrated["summary"] = recording_summary(recording)
-	return migrated
-
-
-func _migrate_v1_input_events(source_events: Array) -> Array[Dictionary]:
-	var migrated: Array[Dictionary] = []
-	var directional_state: Dictionary = {}
-	var last_vectors: Dictionary = {
-		ACTIONS.MOVE: Vector2.ZERO,
-		ACTIONS.AIM: Vector2.ZERO,
-	}
-	for raw_event: Variant in source_events:
-		var event: Dictionary = raw_event as Dictionary
-		var action_name: String = String(event.get("action", ""))
-		var vector_action: String = _legacy_vector_action(action_name)
-		if vector_action.is_empty():
-			migrated.append(_v2_event_from_v1(event, action_name, bool(event.get("pressed", false))))
-			continue
-		directional_state[action_name] = bool(event.get("pressed", false))
-		var vector_value: Vector2 = _legacy_vector_value(vector_action, directional_state)
-		var previous: Vector2 = last_vectors.get(vector_action, Vector2.ZERO) as Vector2
-		if previous.is_equal_approx(vector_value):
-			continue
-		last_vectors[vector_action] = vector_value
-		migrated.append(_v2_event_from_v1(event, vector_action, vector_value))
-	return migrated
-
-
-func _v2_event_from_v1(source_event: Dictionary, action_name: String, value: Variant) -> Dictionary:
-	var migrated: Dictionary = {
-		"action": action_name,
-		"value_type": "vector2" if value is Vector2 else "bool",
-		"value": [value.x, value.y] if value is Vector2 else bool(value),
-		"tick": int(source_event.get("tick", 0)),
-		"time": float(source_event.get("time", 0.0)),
-		"participant_id": String(source_event.get("participant_id", DEFAULT_PARTICIPANT_ID)),
-	}
-	return migrated
-
-
-func _legacy_vector_action(action_name: String) -> String:
-	if action_name in [ACTIONS.MOVE_UP, ACTIONS.MOVE_DOWN, ACTIONS.MOVE_LEFT, ACTIONS.MOVE_RIGHT]:
-		return ACTIONS.MOVE
-	if action_name in [ACTIONS.AIM_UP, ACTIONS.AIM_DOWN, ACTIONS.AIM_LEFT, ACTIONS.AIM_RIGHT]:
-		return ACTIONS.AIM
-	return ""
-
-
-func _legacy_vector_value(vector_action: String, state: Dictionary) -> Vector2:
-	var value: Vector2 = Vector2.ZERO
-	if vector_action == ACTIONS.MOVE:
-		value = Vector2(
-			float(int(bool(state.get(ACTIONS.MOVE_RIGHT, false))) - int(bool(state.get(ACTIONS.MOVE_LEFT, false)))),
-			float(int(bool(state.get(ACTIONS.MOVE_DOWN, false))) - int(bool(state.get(ACTIONS.MOVE_UP, false))))
-		)
-	else:
-		value = Vector2(
-			float(int(bool(state.get(ACTIONS.AIM_RIGHT, false))) - int(bool(state.get(ACTIONS.AIM_LEFT, false)))),
-			float(int(bool(state.get(ACTIONS.AIM_DOWN, false))) - int(bool(state.get(ACTIONS.AIM_UP, false))))
-		)
-	return value.normalized() if value.length_squared() > 1.0 else value
 
 
 func _ensure_replay_root() -> bool:
