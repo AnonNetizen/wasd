@@ -1,3 +1,5 @@
+# Doc: docs/代码/phantom_camera.md
+# Authority: client/addons/README.md, docs/决策记录.md ADR #148
 @tool
 @icon("res://addons/phantom_camera/icons/phantom_camera_noise_emitter_2d.svg")
 class_name PhantomCameraNoiseEmitter2D

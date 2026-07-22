@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-07-22",
   "current_phase": "formal_project_f14_enemy_navigation_perception",
-  "current_status": "F13 模块大地图与 ADR #145 / #146 的 F14 局部有界共享流场 + 全图 AStar 保持已完成：完整 99×99 mask / 地形视线 / 守家与记忆 AStar 保持全图，活动流场半径 8、最多 289 格；run 保持 v4，ADR #144 玩家唯一战斗目标 / 敌方友伤拒绝 / 无伤害分离不变。ADR #147 的 @icons 1.4.0 与 Script-IDE 2.2.3 继续固定版本共享启用。ADR #148 新增 Phantom Camera 0.11.0.3 维护型 fork：Player 子场景内使用 GLUED PCam 保持严格居中 / 水平 / 等比缩放，玩家有效受伤按 camera_feedback.json 触发可关闭位移震屏，噪声走 RNG.camera_fx；PhantomCameraManager 由项目固定 autoload，Engine.physics_jitter_fix 显式保持 0.5。所有插件都不自动更新、不设 lint 豁免。ADR #143 后性能测试只由用户当次明确触发。后续工作以用户最后明确指令为准。",
+  "current_status": "F13 模块大地图与 ADR #145 / #146 的 F14 局部有界共享流场 + 全图 AStar 保持已完成：完整 99×99 mask / 地形视线 / 守家与记忆 AStar 保持全图，活动流场半径 8、最多 289 格；run 保持 v4，ADR #144 玩家唯一战斗目标 / 敌方友伤拒绝 / 无伤害分离不变。ADR #147 的 @icons 1.4.0 与 Script-IDE 2.2.3 继续固定版本共享启用。ADR #148 的 Phantom Camera 0.11.0.3 维护型 fork 已完成源码知识接入：`docs/代码/phantom_camera.md` 统一说明 Runtime / Resource / Editor / C# 边界、Manager / Host / PCam 生命周期、项目 2D 适配、本地补丁与升级验证，AI 导航 / 知识索引 / 上下文预算和核心入口文档头均已接线。正式 Player 仍使用 GLUED PCam 严格居中 / 水平 / 等比缩放，玩家有效受伤按 camera_feedback.json 触发可关闭位移震屏，噪声走 RNG.camera_fx；PhantomCameraManager 由项目固定 autoload，Engine.physics_jitter_fix 显式保持 0.5。所有插件都不自动更新、不设 lint 豁免。ADR #143 后性能测试只由用户当次明确触发。后续工作以用户最后明确指令为准。",
   "latest_adr": 148,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "Phantom Camera 文档化与 AI 知识接入：新增 docs/代码/phantom_camera.md，完整覆盖 vendored Runtime Core、Resource、Editor Tooling、C# wrapper、Manager / Host / PCam 生命周期、正式 2D 玩家相机适配、本地补丁、升级与排障；同步代码索引、AI 导航依赖图、知识库双索引、上下文预算、插件 / Gameplay Runtime 文档和核心 GDScript 文件头，不改变运行时 API、场景、数据 schema 或相机行为。",
     "ADR #148 / Phantom Camera 正式玩家相机：官方发布包 0.11.0.3 按 SHA-256 固定版本入库，仅保留 addons/phantom_camera 并排除 examples；项目固定 PhantomCameraManager autoload 且禁用插件自动更新 / autoload 改写。Player 子场景使用 GLUED PCam 严格居中，camera_feedback.json 驱动玩家有效受伤震屏，RNG.camera_fx 隔离表现随机，Settings 开关可即时停止并抑制震屏，physics_jitter_fix 保持 0.5。",
     "ADR #147 / 正式客户端 Godot 编辑器插件：官方发布包的 @icons 1.4.0 与 Script-IDE 2.2.3 addon 子目录固定版本入库并在 project.godot 共享启用；MIT 许可、上游署名、版本、SHA-256、本地补丁和手工升级流程已记录。插件作为项目维护型 fork 补齐显式类型、返回类型与段落顺序，不设 lint 豁免，不增加运行时 API 或 autoload。",
     "ADR #146 / F14.1 共享流场逐格卡顿修复：活动目标 Dijkstra 从完整 99×99 收敛为最大视觉范围驱动的局部 Chebyshev 窗口，当前半径 8、单次最多 289 格；每次只清理上次实际触达索引，堆使用并行距离 / 格索引数组。完整静态 mask、地形视线和守家 / 记忆全图 AStar 保持不变；module-world smoke 覆盖运行时半径推导、连续跨 20 格、局部窗口外不可达和全图 AStar 不截断。run v4、EnemyAI schema v3、F13 状态与 ADR #144 护栏不变。",
@@ -134,6 +135,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-22",
+      "command": "docs_health_check; JSON validation for _kb_index/current_state; lint_gdscript_rules; lint_semantic_rules; git diff --check; pre-commit run --all-files with command-scoped Windows TEMP/TMP; godot_bridge --project client headless-boot",
+      "result": "passed for Phantom Camera documentation and AI knowledge integration: the new module authority, code index, AI navigation dependency graph, task routes, machine knowledge metadata, memory and 16 core GDScript Doc/Authority headers are consistent; Godot 4.7.1 editor scan registered all Phantom Camera global classes and formal client boot passed without script or parse errors. Semantic lint retains 40 reviewed advisories in untouched business scripts and adds no addon advisory. The editor retains one pre-existing duplicate spawn_waves translation UID warning; no runtime behavior, public API, scene, data schema, replay baseline, or performance probe changed."
+    },
     {
       "date": "2026-07-22",
       "command": "pre-commit run --all-files with command-scoped canonical Windows TEMP/TMP; fresh-cache headless-boot; configured Godot 4.7.1 headless editor load; headless-boot; l1-smoke; rng-audit; save-smoke; runtime-smoke; settings-smoke; f9-demo-smoke; four golden replay captures and replay-runner --rerun-runtime-summary; upstream package hash and directory-boundary comparison",

@@ -1,3 +1,5 @@
+# Doc: docs/代码/phantom_camera.md
+# Authority: client/addons/README.md, docs/决策记录.md ADR #148
 @tool
 extends Node
 

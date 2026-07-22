@@ -63,7 +63,7 @@
 | `client/locale/`（即 `res://locale/`） | 本地化翻译表（CSV → `.translation`）+ `README.md` 多语言文案手册 |
 | `client/templates/`（即 `res://templates/`） | 新内容脚手架模板（enemy/relic 等） |
 | `client/assets/`（即 `res://assets/`） | 美术 / 音效 |
-| `client/addons/`（即 `res://addons/`） | 固定版本 Godot 插件；当前为 `@icons 1.4.0`、`Script-IDE 2.2.3` 与运行时摄像机框架 `Phantom Camera 0.11.0.3`，来源、许可、本地补丁和手工升级流程见 `client/addons/README.md` |
+| `client/addons/`（即 `res://addons/`） | 固定版本 Godot 插件；当前为 `@icons 1.4.0`、`Script-IDE 2.2.3` 与运行时摄像机框架 `Phantom Camera 0.11.0.3`，来源 / 许可 / 版本 / 升级见 `client/addons/README.md`，Phantom Camera 源码架构与项目接入见 `docs/代码/phantom_camera.md` |
 | `client/scenes/boot/main.tscn` | F1 最小启动场景，详见 `docs/代码/formal_client_boot.md` |
 | `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `GearModSystem` / `AudioManager` / `Localization` / `UIManager`；另由 addon 路径稳定注册 `PhantomCameraManager` |
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口、`DamageInfo`、`StatusEffect` 与 `StatusEffectComponent` |
@@ -134,7 +134,8 @@
 | **加 / 改状态效果** | 先看 `docs/代码/status_effect_component.md`；状态 id 登记 `docs/词表与契约.md` §9-A，叠加规则登记 §9-B，通过 `skill_effect_apply_status` 或未来 on-hit primitive 注入；当前 Player / Enemy / SkillSystem 自身已实现 `apply_status_effect()` 和 owned ability tag 查询，DoT 由状态组件按 `GameClock` tick 并经 `Combat.apply_damage()` 结算；新可受状态影响实体应照此接入；状态存在期间要授予 / 移除 ability tag 时引用 §12-G，不在业务脚本手动计时 |
 | **加 / 改机关** | 在 `client/data/hazards.csv` 加一行：伤害、伤害类型、触发间隔、`radius_tiles` 占格尺寸、持续时间和 `hazard_*_name` 文案；`tag_hazard`、`pool_id`、`damage_type` 必须来自词表；初始摆放改 `client/data/map_layouts.json`，普通矩形范围机关复用 `docs/代码/hazard_system.md` 的通用 `Hazard` 运行时 |
 | **改地图边界 / 矩形格 / PCG / 人工摆点** | 查 `docs/代码/map_manager.md`；地图尺寸、`grid.cell_width/cell_height`、玩家出生点、安全半径、刷怪边距、PCG 机关数量 / 间距和人工固定摆点都改 `client/data/map_layouts.json`；bounds 是轴对齐矩形，必须分别是 `grid.cell_width/cell_height` 的整数倍；玩家出生点必须在格心，出生安全区可见提示必须是贴住矩形格的矩形，机关按 `radius_tiles` 奇偶吸附到合法锚点（奇数格心、偶数网格顶点），可见和逻辑地图边界必须是同一个矩形，刷怪位置仍用 `RNG.spawn`；玩家和敌人中心移动都应保持在矩形边界内；改完跑 `validate_data`、`runtime-smoke`，机关相关追加 `f9-demo-smoke` |
-| **改玩家相机 / 受伤震屏** | 查 GDD §5.2、ADR #148 与 `docs/代码/gameplay_runtime.md`；节点 / 跟随规则改 `gameplay_camera_controller.tscn/.gd`，只调震幅、频率和时间则改 `camera_feedback.json`。保持 Phantom Camera GLUED 严格居中、等比缩放、无滚转，噪声走 `RNG.camera_fx`；改完跑 schema、`settings-smoke`、`runtime-smoke` 和 headless editor 加载 |
+| **改玩家相机 / 受伤震屏** | 先读 GDD §5.2、ADR #148、`docs/代码/phantom_camera.md` 的项目接入段和 `docs/代码/gameplay_runtime.md`；节点 / 跟随规则改 `gameplay_camera_controller.tscn/.gd`，只调震幅、频率和时间则改 `camera_feedback.json`。保持 Phantom Camera GLUED 严格居中、等比缩放、无滚转，噪声走 `RNG.camera_fx`；改完跑 schema、`settings-smoke`、`runtime-smoke`、headless boot 和 headless editor 加载 |
+| **维护 / 升级 Phantom Camera 内部** | 先读 `docs/代码/phantom_camera.md`、`client/addons/README.md`、ADR #148 与目标源码；按 Runtime Core / Resource / Editor / C# wrapper 边界定位，升级只用官方固定版本发布包并逐项重放本地补丁。保持项目固定 Manager autoload、Updater Off、`physics_jitter_fix=0.5`、`RNG.camera_fx` 和 lint 零豁免；完成后跑完整 pre-commit、headless boot、headless editor 与相机回归 |
 | **加 / 改模块内容** | 查 `docs/代码/module_world_manager.md`、`F13-ModularGridWorld.md`、GDD §5.1 和 `client/data/README.md`；新模块从 `client/templates/module_template.json` 复制，写入 11×11 terrain、四边 socket 与已登记 primitive，先在 `module_templates.json` 登记为 `candidate`，通过 schema / 通道 / 占用 / 可达 / 安全区 / 预算校验后仍需人工改为 `approved` 才能入正式池 |
 | **改模块角色 / 地形 / 摆放 / 边缘 / 审核状态** | 先改 `docs/词表与契约.md` §15，运行 `python tools/sync_contracts.py` 生成对应 `module_*` 常量，再由 DataLoader、ModuleWorldManager 和 JSON 引用；禁止在运行时代码裸写白名单 id |
 | **改 AI 模块生产流程** | AI 只在编辑期生成 JSON candidate，不接运行时模型 / 网络生成 / 自动批准；首版人工通过 JSON 审核和修改，不做可视化编辑器。未来工具仍必须读写同一 schema，并保留人工 `approved` 门禁 |
@@ -199,7 +200,7 @@
 ## 5. 核心系统模块
 
 ### 5.1 模块清单
-**业务模块**：`InputController` / `Player` / `WeaponSystem` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager`（F13 世界门面）/ `ModuleNavigationField`（F14 共享静态导航）/ `WarzoneDirector`（仅 F12 非默认开放战区）/ `HazardSystem` / `ItemSystem` / `GrowthSystem` / `GearModSystem` / `ModifierEngine` / `MapManager` / `Camera2D` / `DataLoader` / `PauseMenu` / `Combat` / `StatusEffectComponent`。
+**业务模块**：`InputController` / `Player` / `WeaponSystem` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager`（F13 世界门面）/ `ModuleNavigationField`（F14 共享静态导航）/ `WarzoneDirector`（仅 F12 非默认开放战区）/ `HazardSystem` / `ItemSystem` / `GrowthSystem` / `GearModSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `PhantomCamera2D` / `PhantomCameraHost` / `Camera2D` / `DataLoader` / `PauseMenu` / `Combat` / `StatusEffectComponent`。
 
 **Autoload 单例（横向基础设施 + 协调中枢）**：
 - 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
@@ -207,6 +208,7 @@
 - 三条**协作基础设施**：`Localization` / `Settings` / `Analytics`
 - 两条**确定性基础设施**：`RNG`（种子化随机，子流分流）/ `GameClock`（暂停冻结时间源）
 - 一条**回放基础设施**：`Replay`
+- 一条**vendored 相机协调基础设施**：`PhantomCameraManager`（项目固定 autoload；节点注册、priority / layer 选机与噪声广播）
 - 一条**AI 协作基础设施**：见 `docs/AI协作/`（非 autoload）
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
@@ -267,15 +269,19 @@ flowchart LR
   GearMod[GearModSystem]
 
   Map[MapManager]
+  CamCtl[GameplayCameraController]
+  PCam[PhantomCamera2D]
+  PCHost[PhantomCameraHost]
+  PCamMgr[PhantomCameraManager]
   Cam[Camera2D]
   UI[UI/HUD<br/>PauseMenu/...]
 
   Mod -. 本地 mod 数据 patch .-> Loader
-  Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & GearMod & Spawner & ModuleWorld & Director & Hazard & Map
-  Set --> Player & Weapon & Input & UIM & Aud
+  Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & GearMod & Spawner & ModuleWorld & Director & Hazard & Map & CamCtl
+  Set --> Player & Weapon & Input & UIM & Aud & CamCtl
   Loc --> UIM & Item
   Ana <-- 埋点 --- Player & Enemy & Item & Growth & GearMod & Spawner & GS & Save
-  RNG --> Map & Spawner & Item & Growth & GearMod & Enemy & Combat
+  RNG --> Map & Spawner & Item & Growth & GearMod & Enemy & Combat & PCam
   Clk --> Spawner & Director & Hazard & Weapon & Skill & SE
   Rep -. 录制/重放 .-> Input & RNG & Clk & GS
   Plat -. 成就/状态/overlay/Lobby .-> UI & GearMod & GS
@@ -296,6 +302,7 @@ flowchart LR
   Save -. run 快照 .- Player & Enemy & Skill
   Enemy --> Combat
   Combat --> Player & Enemy
+  Combat -. 玩家有效伤害 .-> CamCtl
   Combat -.- SE
   GS -. 默认模块世界创建/驱动 .-> ModuleWorld
   ModuleWorld --> Map
@@ -307,7 +314,8 @@ flowchart LR
   Map --> Player & Spawner & Hazard
   Spawner --> Enemy
   Enemy -. 掉落经验 .-> Growth
-  Player -.- Cam
+  Player --> CamCtl --> PCam --> PCHost --> Cam
+  PCamMgr -. 注册 / priority / layer / noise .-> PCam & PCHost
   ME -. 修正器叠加 .- Player & Weapon
   Item -. 注册 modifiers/behaviors .- ME
   Growth -. 升级奖励 .- ME
@@ -324,7 +332,7 @@ flowchart LR
   classDef infra fill:#eef,stroke:#88a;
   classDef hub fill:#fee,stroke:#a88;
   classDef res fill:#efe,stroke:#8a8;
-  class Mod,Loc,Set,Ana,RNG,Rep,Clk infra;
+  class Mod,Loc,Set,Ana,RNG,Rep,Clk,PCamMgr infra;
   class GS,UIM,Pool hub;
   class Save,Aud res;
 ```

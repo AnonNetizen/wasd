@@ -2,6 +2,7 @@
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
 > 本文档是正式客户端 gameplay runtime 的聚合模块契约；拆分 Player、WeaponSystem、Enemy、Spawner、HUD 等长期模块或改变公共行为时必须同步本文档、AI 导航、代码索引和相关阶段工作包。
+> 玩家相机的项目适配行为归本文档；Phantom Camera vendored 内部架构、公共 API、编辑器工具和升级补丁归 `docs/代码/phantom_camera.md`。
 
 ## 职责
 
@@ -392,6 +393,7 @@ F5 已开始写 `SaveManager` 的 `run` kind，F11 的 `meta` profile 继续由 
 - `docs/AI协作/工作包/F4-MinPlayableLoop.md`
 - `docs/AI协作/工作包/F13-ModularGridWorld.md`
 - `docs/正式项目工作规划.md` F4
+- `docs/代码/phantom_camera.md`
 - `docs/代码/debug_tools.md`
 - `docs/游戏设计文档.md` §3 / §4 / §5.3 / §9.13 / §9.15.1
 - `docs/代码/combat.md`

@@ -1,3 +1,6 @@
+# Doc: docs/代码/phantom_camera.md
+# Authority: client/addons/README.md, docs/决策记录.md ADR #148
+
 #######################################################################
 # Credit goes to the Dialogue Manager plugin for this script
 # Check it out at: https://github.com/nathanhoad/godot_dialogue_manager

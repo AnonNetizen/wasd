@@ -33,6 +33,7 @@
 | UIManager | `docs/代码/ui_manager.md` | `client/scripts/autoload/ui_manager.gd` | F2 第二片已建立 |
 | Combat | `docs/代码/combat.md` | `client/scripts/combat/combat.gd`、`client/scripts/combat/damage_info.gd` | F4 首切片已建立 |
 | Gameplay Runtime | `docs/代码/gameplay_runtime.md` | `client/scripts/gameplay/*.gd`、`client/scripts/ui/title_menu.gd`、`client/scripts/ui/pause_menu.gd`、`client/scripts/ui/game_over_panel.gd`、`client/scripts/boot/formal_client_boot.gd` | F4 首切片已正式命名收口 |
+| Phantom Camera | `docs/代码/phantom_camera.md` | `client/addons/phantom_camera/`、`client/scripts/gameplay/gameplay_camera_controller.gd`、`client/scenes/gameplay/gameplay_camera_controller.tscn` | ADR #148 固定版本维护型 fork 与正式 2D 玩家相机接入已建立 |
 | SkillSystem | `docs/代码/skill_system.md` | `client/scripts/gameplay/skill_system.gd`、`client/data/skills.json`、`client/scripts/gameplay/gameplay_run_loop.gd` | 可复用主动技能 / 轻量 GAS 首片已建立 |
 | StatusEffectComponent | `docs/代码/status_effect_component.md` | `client/scripts/combat/status_effect.gd`、`client/scripts/combat/status_effect_component.gd`、`client/scripts/gameplay/skill_system.gd` | 状态效果 ability tag 生命周期首片已建立 |
 | Enemy AI | `docs/代码/enemy_ai.md` | `client/scripts/gameplay/enemy.gd`、`client/data/enemy_ai_profiles.json` | 数据驱动对玩家 AI、敌方友伤护栏与中心分离已建立 |

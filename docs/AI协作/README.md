@@ -42,7 +42,7 @@ docs/AI协作/
 │   ├── F12-ShortLootRuns.md
 │   ├── F13-ModularGridWorld.md
 │   └── F13-HandcraftedRooms.md  # superseded 历史
-├── 上下文预算.md         # 不同任务该读哪些文件、读多少
+├── 上下文预算.md         # 不同任务该读哪些文件、读多少；含 Phantom Camera / 玩家相机维护专用路由
 ├── 角色分工.md           # 设计/实现/评审/平衡 四角色协作
 ├── 代码审核流程.md       # 工具先行、LLM 聚焦 diff 的 review SOP
 ├── 引擎集成.md           # Godot/Unity MCP 等接入指南
@@ -111,7 +111,7 @@ AI agent 接到任务时优先按以下顺序：
 3. **是不是该转给 subagent**？项目默认授权支持 subagent 的平台主动调度复杂、专业或可并行任务；只读小任务或直接实现更高效时不必拆分；平台不支持或外层工具策略限制时，把对应 `.md` 当 prompt 模板读。数据条目改动 → `data-author`；契约校验 → `contract-validator`；平衡相关 → `balancer`；玩法评估 → `game-designer`；数值模型 → `numeric-designer`；世界观 → `ip-designer`；文案包装 → `copywriter-packager`；UI 美术 → `ui-art-designer`；游戏美术 → `game-art-designer`；宣发策略 → `marketing-strategist`。
 4. **是不是正式项目阶段任务**？优先读 `工作包/`；当前 F13 默认地图与 AI 编辑期 JSON 模块流程用 `工作包/F13-ModularGridWorld.md`，`F13-HandcraftedRooms.md` 只作 superseded 历史；F12 开放战区是非默认回归路径。其余 F11–F3 仍按对应阶段工作包路由。
 5. **是不是高频任务**？是则直接套 `任务模板/` 对应文件。
-6. **不是高频任务**？读 `上下文预算.md`，先按 S/M/L/XL 判断复杂度，再按任务类型决定读取范围，避免小任务过载、大任务欠规划。
+6. **不是高频任务**？读 `上下文预算.md`，先按 S/M/L/XL 判断复杂度，再按任务类型决定读取范围；维护 Phantom Camera 时优先走其专用路由，不默认扫描整个 addon。
 7. **任务复杂或专业**？L / XL 任务参照 `角色分工.md` 切角色（先设计 → 再实现 → 再评审）。
 8. **是不是已有项目级 skill**？CodeBuddy / Codex / OpenCode 均有同名项目级 skill（`.codebuddy/skills/` / `.codex/skills/` / `.opencode/skills/`）：Godot 实现 / 场景验证 / Godot 测试诊断 / 试玩复盘 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选与协作面审计 / MCP 评估；其中 `godot-test-diagnostics` 固化了 Steamworks Lab 隔离 runner 与精确成功协议。外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进这些项目 skill，不再通过 reference 跳转。
 9. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。

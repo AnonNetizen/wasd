@@ -1,3 +1,5 @@
+# Doc: docs/代码/phantom_camera.md
+# Authority: client/addons/README.md, docs/决策记录.md ADR #148
 @tool
 @icon("res://addons/phantom_camera/icons/phantom_camera_camera_3d_resource.svg")
 class_name Camera3DResource
