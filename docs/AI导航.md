@@ -33,7 +33,8 @@
 | `docs/功能建议池.md` | F9 第一轮 Demo 收口后的可选新功能菜单；不是已采纳路线图，用户点名后才推进 |
 | `docs/局内刷取参考研究.md` | F12 局内刷取、兴趣点、撤离结算、射击构筑可参考的外部游戏研究；不是已采纳路线图 |
 | `docs/AI辅助开发机会清单.md` | 不在运行时接 LLM、只利用 AI 辅助写代码 / 数据 / 工具时的玩法与内容管线机会清单；不是已采纳路线图 |
-| `docs/小服务器玩法备忘.md` | 小服务器条件下的异步在线 / 敌巢进化玩法参考；不是已采纳路线图 |
+| `docs/在线服务规划.md` | ADR #150 后未来 GodotSteam + Talo 供应商分层、托管决策门禁、离线 / 安全 / 升级边界；当前不安装、不批准具体在线功能 |
+| `docs/小服务器玩法备忘.md` | 低成本异步在线 / 敌巢进化玩法参考；供应商路线已定，但具体玩法不是已采纳路线图 |
 | `docs/AI记忆/项目记忆.md` | AI 协作长期索引（长期冷存储；需要背景 / ADR 摘要 / 历史脉络时读） |
 | `docs/AI记忆/current_state.json` | 机器可读当前阶段、下一步、最近验证 |
 | `docs/TODO.md` | 人工可读未来任务清单 |
@@ -91,7 +92,8 @@
 | `docs/功能建议池.md` | F9 第一轮 Demo 收口后的可选新功能建议池；只作为人工选择菜单 |
 | `docs/局内刷取参考研究.md` | F12 局内刷取、射击构筑、兴趣点路线和撤离带回的外部参考研究；只作为设计参考 |
 | `docs/AI辅助开发机会清单.md` | AI 只辅助开发、不进入运行时的玩法机会、内容生产管线、DSL / 编辑器 / 模拟器 / lint 工具候选；只作为人工选择菜单 |
-| `docs/小服务器玩法备忘.md` | 小服务器可承载的异步在线、敌巢进化、死亡残响、星域污染图等玩法参考；只作为人工选择菜单 |
+| `docs/在线服务规划.md` | GodotSteam + Talo 未来正式接入的供应商、职责、托管、离线、安全和阶段门禁权威；不代表插件已安装 |
+| `docs/小服务器玩法备忘.md` | Talo 可承载的异步在线、敌巢进化、死亡残响、星域污染图等玩法参考；具体功能仍只作为人工选择菜单 |
 | `docs/TODO.md` | 未来任务清单（P0 当前优先级 / P1 下一批 / P2 中期 / P3 长期积压） |
 | [`docs/正式项目工作规划.md`](正式项目工作规划.md) | MVP 验证完成后，完整项目 `client/` 的阶段路线、交付物、验证门槛和后续 AI 任务选择依据 |
 | `docs/简单设计思路.md` | 项目原点 |
@@ -156,10 +158,11 @@
 | **写/改代码模块** | 先查 `docs/代码文档规范.md` + 对应 `docs/代码/<module_id>.md` + 目标源码；触碰 `.gd` 时按 Godot 4.7 官方 GDScript style guide 整理本次改动，并跑 `python tools/lint_gdscript_rules.py`；GDD / ADR 只在设计冲突、语义不明或新增决策时补读，不能默认整篇加载 |
 | **查知识库 / 找文档关系 / 任务路由** | 先看 `docs/AI知识库索引.md` 的任务路由表，需要机器可读元数据时看 `docs/_kb_index.json`，搜索同义词先看 `docs/术语表.md` |
 | **续接当前状态 / 下一步** | 先看 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`；上下文压缩后先以用户最后明确指令对齐，`Next Steps` 只作候选参考；需要长期事实 / ADR 摘要 / 历史细节时再看 `docs/AI记忆/项目记忆.md` 和当日会话日志 |
-| **查看 / 维护未来任务** | 看 `docs/TODO.md`；F9 第一轮 Demo 收口后的可选新功能菜单看 `docs/功能建议池.md`；F12 局内刷取、兴趣点、撤离带回和射击构筑参考看 `docs/局内刷取参考研究.md`；AI 只辅助开发的玩法 / 内容管线 / 工具机会看 `docs/AI辅助开发机会清单.md`；小服务器 / 异步在线玩法参考看 `docs/小服务器玩法备忘.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
+| **查看 / 维护未来任务** | 看 `docs/TODO.md`；F9 第一轮 Demo 收口后的可选新功能菜单看 `docs/功能建议池.md`；F12 局内刷取、兴趣点、撤离带回和射击构筑参考看 `docs/局内刷取参考研究.md`；AI 只辅助开发的玩法 / 内容管线 / 工具机会看 `docs/AI辅助开发机会清单.md`；在线供应商与实施门禁看 `docs/在线服务规划.md`，具体异步玩法候选再看 `docs/小服务器玩法备忘.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
 | **改 IP / 世界观 / 英雄包装 / 宣传语** | 先看 `docs/IP设定.md`；涉及视觉风格、色板、阵营色、兴趣点颜色或资产 brief 时追加 `docs/IP美术风格.md`；若改变玩法承诺或系统边界，再同步 GDD / ADR / 术语表 / AI导航 / AI记忆 |
 | **选择下一项新功能** | 先看 `docs/功能建议池.md`、`docs/局内刷取参考研究.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md` 与 `docs/AI记忆/current_state.json`；用户明确点名功能后，再建立 / 更新工作包、GDD / ADR / 模块文档并实现，不从建议文档自行挑选推进 |
-| **评估小服务器在线玩法** | 先看 `docs/小服务器玩法备忘.md`、GDD §6.7 / §9.21 / §9.22、`docs/代码/platform_services.md` 与 `docs/代码/replay.md`；短期优先异步玩法和离线可降级，实时多人 / PvP / 强竞技排行榜默认暂缓 |
+| **评估 / 规划在线服务** | 先看 `docs/在线服务规划.md`、ADR #150、GDD §9.22 / §9.23、`docs/代码/platform_services.md` 与测试策略；供应商路线是 `PlatformServices → GodotSteam`、`OnlineServices → Talo`，不开发自有通用后端。当前不安装；首个功能被用户点名后才重查官方版本、决定 Talo Cloud / 官方自托管并建立工作包 |
+| **评估小服务器在线玩法** | 先看 `docs/小服务器玩法备忘.md`，再看 `docs/在线服务规划.md`、GDD §6.7 / §9.23、`docs/代码/replay.md`；GodotSteam + Talo 路线已采纳，但每日挑战、排行榜、死亡残响等具体玩法仍需用户点名，实时多人 / PvP / 强竞技排行榜默认暂缓 |
 | **启动 / 推进正式项目** | F13 模块世界已完成；当前 F14 入口为 `F14-EnemyNavigationAndPerception.md`、GDD §5.3、EnemyAI / ModuleWorldManager 文档、数据手册与测试策略。F14.1 活动流场当前半径 8、单次最多访问 289 格；导航 / 感知变更跑 contracts/data/schema/module-world/runtime/save 与黄金回放；性能 probe 仅在用户当次明确要求时运行 |
 | **维护正式客户端启动骨架 / 默认分辨率** | 看 `client/README.md`、`docs/代码/formal_client_boot.md`、`docs/代码/gameplay_runtime.md` 与 GDD §9.5-A；当前只设计 / 验收固定 16:9 分辨率，默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，`canvas_items + keep` 在非 16:9 屏幕上等比缩放并加黑边；其他宽高比是 P3 优化，未来也必须按独立固定预设接入，不做连续响应式适配 |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
@@ -181,7 +184,8 @@
 | **加 GM 指令 / 调试工具** | 查 GDD 9.20 与 `docs/代码/debug_tools.md`；调试入口只在 debug/dev_tools 构建启用，action 用 `debug_*` 并登记词表 §7；命令必须通过正式系统 API 或受控 `debug_*` API 改状态；release preset 不启用 `dev_tools` 且排除调试脚本 / GM 命令表；改完跑 `python tools/godot_bridge.py --project client debug-tools-smoke` 和 `debug-tools-release-smoke` |
 | **加暂停/切换游戏状态** | `GameState.change_state(PAUSED)` 等；UI 通过 `UIManager.push(modal_pause_menu)` 自动联动暂停；F5 首片的 `PauseMenu` 已覆盖继续、保存并退出、重开和回标题，也支持从升级面板上方叠出并恢复回 `LEVEL_UP`；不直接读写 `get_tree().paused`（见 GDD 9.12 / 9.14） |
 | **加录制回放/确定性需求** | 走 `Replay`（autoload）；随机走 `RNG.<stream>`、时间走 `GameClock`；普通新局 / 重开用 `RNG.set_random_run_seed()` 生成新主 seed，继续游戏恢复 run snapshot，回放 / smoke / golden 工具显式固定 seed；不读非确定时间源；改 RNG seed 派生 / 子流集合时追加 `python tools/godot_bridge.py --project client rng-audit`（见 GDD 9.9 / 9.18） |
-| **接 Steam API / 平台服务** | 走 `PlatformServices`（autoload）；Steam 成就、统计、富状态 / 状态显示、overlay、Lobby / 邀请和用户身份都先接门面，不让业务直接调用 Steamworks / GodotSteam；其他平台后续走 provider adapter（见 GDD 9.22 / `docs/代码/platform_services.md`） |
+| **接 Steam API / 平台服务** | 先读 `docs/在线服务规划.md`、ADR #150 与 `docs/代码/platform_services.md`；未来固定官方 GodotSteam 版本，只在 `PlatformServices` adapter 内初始化 / 驱动 callback，并承接 Steam 身份票据、成就、Steam-only 统计、富状态、overlay、Lobby / 邀请。当前正式客户端不安装，业务不得直调 Steamworks / GodotSteam |
+| **接 Talo / 在线后端** | 当前只规划、不安装。用户点名首个功能后，先在 `output/test_lab` 验证并决定 Talo Cloud / 官方自托管，再新增 `OnlineServices → Talo` adapter；跨平台排行榜 / 统计、Live Config、事件与轻量社交只走该门面，Analytics 可把它作为 sink，SaveManager 仍是本地存档权威。禁止业务直调 `Talo.*`、双写同一排行榜 / 统计或自研通用后端 |
 | **维护 Steamworks Slime Lab / 单人 AI 大招与自主游击 / 本地同屏 / 纪录 / App ID / Windows 导出** | 先读 `output/steamworks_lab/README.md` 与 ADR #129 / #132 / #133 / #134 / #135 / #136 / #137 / #138 / #139 / #140 / #141；自动回归只使用 `py -3 tools\steamworks_lab_toolchain.py smoke --suite <目标>`，先目标 suite、交付前 `--suite all`，禁止手写 Godot / PowerShell 双进程命令。ADR #139 的 AI 大招仅在 `PlayMode.SINGLE`：P1 子弹命中 / 普通击杀 / Boss 击杀按 `+1 / +6 / +21` 累积至 100，按 `E` 召唤不可受伤、不吸引火力且自动射击的 10 秒 AI。ADR #140 已把 AI 改为确定性自主游击 / 预判闪避：避开敌弹、普通敌人、Boss 和障碍物，常规距 P1 使用 210 px 硬限、超过 220 px 复位；须松开再按住 `E` 发起合体，AI 高速归队到 92 px 内并停靠 0.8 秒后自动同意，持续时间不重置且每次召唤最多一次。目标 battle 1/1、local-couch 与权威 `smoke --suite all` 已通过；all 含 battle 5/5、动态端口 ENet、最大分片仍不超过 900 字节且受保护文件未改变。AI 不进入真人 roster、强化、纪录、玩家卡或快照；同屏 / Steam、wire、存档与正式 `client` 不变。runner 隔离每个 `user://`、验证精确 `ALL PASS` / 致命日志、动态分配 ENet 端口并保护玩家真实设置 / 存档与源码 `steam_appid.txt=4955670`；测试 fixture 必须在 `_ready()` 前注入。源码 App ID 文件永久保留，只从 release 排除。本地同屏由 `local_input_router.gd` 分配 P1 键鼠与 P2–P4 手柄；Steam Lobby 不混入同屏玩家，ENet 只守协议。纪录按单人 / 多人分开，未来 schema 保持写保护，Steam Client 必测权威 Game Over 完整链路。快照应用层仍是 `Dictionary`，wire 层为 FastLZ + 900 字节分片，Lobby `lab_version=2`。Windows 当前开发 / 发布验证标准为普通 Godot 4.7.1 + GodotSteam 4.20 GDExtension + Steamworks 1.64；工具锁继续接受 Godot 4.7 minor 系列，setup / verify / export-release 直接走 `--godot` / `GODOT_PATH`；export-release 按 editor 模式校验标准用户目录或 self-contained `editor_data/` 的精确版本 templates，禁止重建 `.toolchain/`。真实手柄、SteamPipe、Depot 和双账号 Steam smoke 仍需外部验证；不能把 Lab 直连 SDK 当成正式 `client/PlatformServices` 已接入 |
 | **加 / 验证回放测试** | `Replay` 负责 `.replay` envelope 与 `user://replays/` 文件；F8 基线用 `python tools/godot_bridge.py --project client replay-smoke` 验证最小录制、保存 / 读取、摘要和 data fingerprint roundtrip，用 `python tools/godot_bridge.py --project client replay-runner` 读取 `.replay` 并比较 summary / expectation，用 `python tools/godot_bridge.py --project client replay-runner --rerun-runtime-summary` 生成临时输入播放 smoke replay 并播放 `input_events`，用 `python tools/godot_bridge.py --project client replay-input-smoke` 验证 gameplay 输入录制首片；`golden_basic_run.replay` 可用 `capture-golden-replay` 重录，`golden_pause_resume.replay` 可用 `capture-golden-replay --golden-scenario golden_pause_resume` 重录，`golden_full_death.replay` 可用 `capture-golden-replay --golden-scenario golden_full_death` 重录，`golden_level_up_choice.replay` 可用 `capture-golden-replay --golden-scenario golden_level_up_choice` 重录，四者都用 `replay-runner --replay-file ... --rerun-runtime-summary` 重跑真实运行时摘要与 `run_summary.frame_samples` / 场景语义字段 diff。ADR #120 后 `golden_level_up_choice` 由测试 harness 显式启用成长池，默认标准模式仍由 `runtime-smoke` 断言不进入 `LEVEL_UP`。后续遗物协同 golden 仍等对应运行时存在后再补。 |
 | **加平衡测试 / Headless 模拟** | 通过 `AIPlayer` 接口接入；`Spawner` / `MapManager` / `RNG` 都接受外部 seed（见 GDD 9.10）。用户明确要求性能测试时，可用 `python tools/godot_bridge.py --project client perf-probe` 输出 schema v2 可比较基线 JSON，包含 30 帧 warmup 后 180 帧 avg / p95 / p99 / max 帧时间、active / peak entity counts、pool final stats / peak active、等级、击杀、状态和预算状态 |
@@ -206,6 +210,7 @@
 **Autoload 单例（横向基础设施 + 协调中枢）**：
 - 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
 - 一条**平台服务基础设施**：`PlatformServices`（Steam 优先预留成就、统计、富状态 / 状态显示、overlay、Lobby / 联机入口和用户身份；其他平台后续走 provider adapter）
+- 一条**未来在线服务规划**：`OnlineServices` 尚未实现；ADR #150 只锁定未来以 Talo provider 承接跨平台身份、排行榜 / 统计、Live Config、事件和轻量社交，不计入当前 autoload 矩阵
 - 三条**协作基础设施**：`Localization` / `Settings` / `Analytics`
 - 两条**确定性基础设施**：`RNG`（种子化随机，子流分流）/ `GameClock`（暂停冻结时间源）
 - 一条**回放基础设施**：`Replay`
@@ -235,6 +240,7 @@ flowchart LR
     Rep[Replay]
     Clk[GameClock]
     Plat[PlatformServices]
+    Online[OnlineServices<br/>规划中]
   end
 
   subgraph Hub[协调中枢]
@@ -277,6 +283,8 @@ flowchart LR
   PCamMgr[PhantomCameraManager]
   Cam[Camera2D]
   UI[UI/HUD<br/>PauseMenu/...]
+  GodotSteam[GodotSteam<br/>未来官方 adapter]
+  Talo[Talo<br/>未来在线后端]
 
   Mod -. 本地 mod 数据 patch .-> Loader
   Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & GearMod & Spawner & ModuleWorld & Director & Hazard & Map & CamCtl
@@ -287,6 +295,11 @@ flowchart LR
   Clk --> Spawner & Director & Hazard & Weapon & Skill & SE
   Rep -. 录制/重放 .-> Input & RNG & Clk & GS
   Plat -. 成就/状态/overlay/Lobby .-> UI & GearMod & GS
+  Plat -. Steam Web API Ticket .-> Online
+  Plat -. 未来 provider .-> GodotSteam
+  Online -. 未来 provider .-> Talo
+  Ana -. 可选在线 sink .-> Online
+  Save -. 仅受控同步载荷 .-> Online
 
   GS --> UIM
   GS --> Growth
@@ -336,7 +349,7 @@ flowchart LR
   classDef infra fill:#eef,stroke:#88a;
   classDef hub fill:#fee,stroke:#a88;
   classDef res fill:#efe,stroke:#8a8;
-  class Mod,Loc,Set,Ana,RNG,Rep,Clk,PCamMgr infra;
+  class Mod,Loc,Set,Ana,RNG,Rep,Clk,Plat,Online,GodotSteam,Talo,PCamMgr infra;
   class GS,UIM,Pool hub;
   class Save,Aud res;
 ```
@@ -344,6 +357,7 @@ flowchart LR
 > 改某个模块前先在图中追踪上下游箭头，避免遗漏影响。新增系统模块时**同步更新此图**（规则 14）。
 > 三类节点：**基础设施**（蓝） / **协调中枢**（红） / **资源管理**（绿）。
 > `ModuleWorldManager` 不是 autoload：由 `GameplayRunLoop` 在 `ActiveWorld` 下创建并驱动，依赖世界 / 注册表 / 模块 JSON。它组图、转坐标、管迷雾、复用最多 9 个 `ModuleChunk`、保存槽位状态，并持有不创建 Node 的 `ModuleNavigationField`；Enemy 只经 Manager 门面查询导航。对象池生成、击杀归因、目标 / 撤离和战利品仍由 `GameplayRunLoop` 负责。
+> `OnlineServices`、GodotSteam 与 Talo 节点是 ADR #150 的未来规划，不表示当前 autoload、插件或网络依赖已经存在；正式 `client` 当前仍由 `PlatformServices` 的 `none` 后端离线退化。
 
 ## 6. 红线（最易踩坑）
 - ❌ 硬编码可调数值、玩家可见文本、键盘按键 / 手柄按钮 / 手柄轴、约定字符串；❌ 新增数值 / 文案字段却不更新 `client/data/README.md` / `client/locale/README.md`
@@ -364,6 +378,7 @@ flowchart LR
 - ❌ 业务代码 `AudioStreamPlayer.play()`（必须 `AudioManager.play_sfx/music`）
 - ❌ 业务系统直接读取 `user://mods`、执行玩家脚本或让 mod 扩展核心契约（mod 必须走 `ModLoader` + `DataLoader` 声明式数据 patch）
 - ❌ 业务系统直接调用 Steamworks / GodotSteam / 平台 SDK（Steam 成就、状态显示、overlay、Lobby / 邀请和其他平台能力必须走 `PlatformServices`）
+- ❌ 业务系统直接调用 Talo / 在线 HTTP API、同时由客户端和 Talo 双写同一排行榜 / 统计、或绕过 ADR #150 自研通用后端（未来必须走 `OnlineServices`；当前不安装）
 - ❌ 手改 `client/scripts/contracts/*.gd`（自动生成，改 `docs/词表与契约.md` + 跑 `tools/sync_contracts.py`）
 - ❌ 用菱形 / 等距地图格继续模拟斜俯视；当前地图格、边界、机关危险区、兴趣点 footprint 和撤离区默认都是水平 / 垂直矩形俯视格，角色 / 敌人 / 拾取 / 子弹 / 障碍 / 特效靠俯视轮廓、方向标记、功能色和真实判定形状保持读法
 - ❌ 改了数据 / 文案 / 词表却不跑 `tools/validate_data.py`、`tools/lint_project_rules.py` 或 `tools/sync_contracts.py --check`；改 DataLoader schema 却不跑 `tools/test_data_loader_schema.py`

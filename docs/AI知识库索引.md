@@ -63,10 +63,11 @@
 |------|------|----------|----------|
 | 新会话接入 | `AGENTS.md`、`docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、`docs/AI导航.md` 相关段、当前平台规则入口 | 通常不改文件 | 无；若发现文档漂移跑 `python tools/docs_health_check.py` |
 | 续接当前任务 | `docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、当日会话日志；需要长期背景时再读 `项目记忆.md` 相关节 | 通常不改文件 | 无；需要确认状态时跑 `python tools/docs_health_check.py` |
-| 查看 / 维护未来任务 | `docs/TODO.md`、`docs/功能建议池.md`、`docs/局内刷取参考研究.md`、`docs/AI辅助开发机会清单.md`、`docs/小服务器玩法备忘.md`、`docs/AI记忆/current_state.json`、`docs/修改建议.md` | `docs/TODO.md`、必要时 current_state / 会话日志 / 修改建议 / 功能建议池 / 局内刷取参考研究 / AI辅助开发机会清单 / 小服务器玩法备忘 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
+| 查看 / 维护未来任务 | `docs/TODO.md`、`docs/功能建议池.md`、`docs/局内刷取参考研究.md`、`docs/AI辅助开发机会清单.md`、`docs/在线服务规划.md`、`docs/小服务器玩法备忘.md`、`docs/AI记忆/current_state.json`、`docs/修改建议.md` | `docs/TODO.md`、必要时 current_state / 会话日志 / 修改建议 / 功能建议池 / 研究与规划文档 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
 | 改 IP / 世界观 / 英雄包装 / 宣传语 | `docs/IP设定.md`、涉及视觉时追加 `docs/IP美术风格.md`、`docs/游戏设计文档.md` §1.2、`docs/术语表.md` | IP 设定、IP 美术风格、GDD 摘要、术语表、AI导航、必要时 ADR / AI记忆 / locale 文案 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
 | 选择下一项新功能 / 功能菜单 | `docs/功能建议池.md`、`docs/局内刷取参考研究.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md`、`docs/AI记忆/current_state.json`；若用户点名具体系统，再读对应工作包 / 模块文档 / GDD 章节 | 用户点名后再改 TODO / current_state / 工作包 / GDD / ADR / 模块文档；未点名前不实现功能 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool`；进入实现后按目标工作包验收命令运行 |
-| 评估小服务器在线玩法 | `docs/小服务器玩法备忘.md`、GDD §6.7 / §9.21 / §9.22、`docs/代码/platform_services.md`、`docs/代码/replay.md` | 用户点名采纳后再改 GDD / ADR / 功能建议池 / 工作包 / 相关模块文档；未点名前只做评估 | `python tools/docs_health_check.py`；若新增在线服务 schema 或 JSON 索引，同步跑 `python -m json.tool` |
+| 规划 / 接入在线服务 | `docs/在线服务规划.md`、ADR #150、GDD §9.22 / §9.23、`docs/代码/platform_services.md`、`docs/测试策略.md` | 当前只维护供应商与门禁；用户点名首个功能后才建立工作包、决定 Talo Cloud / 官方自托管并实施 GodotSteam / Talo adapter；不开发自有通用后端 | 纯规划跑 docs health + JSON；实施时按在线服务规划和测试策略追加隔离验证、headless、平台 / 在线 smoke |
+| 评估小服务器在线玩法 | `docs/小服务器玩法备忘.md`、`docs/在线服务规划.md`、GDD §6.7 / §9.23、`docs/代码/replay.md` | GodotSteam + Talo 供应商路线已采纳，但具体玩法仍需用户点名；未点名前只做评估，不安装、不实现 | `python tools/docs_health_check.py`；若新增在线服务 schema 或 JSON 索引，同步跑 `python -m json.tool` |
 | 加 / 改美术资产 / 占位表现 | `docs/IP美术风格.md`、GDD §8.2-A、`docs/代码/gameplay_runtime.md`、`docs/AI协作/工作包/F9-ContentDemoPolish.md`、`docs/术语表.md` 的“俯视资产落地规则” | `client/assets/`、目标 gameplay / UI 场景、相关模块文档；新增正式资源 brief 时写清色彩归属、asset_type、footprint、anchor、orientation_read、sort layer、collision / trigger shape | 纯文档 / brief 跑 `python tools/docs_health_check.py`；触碰资源引用或运行时表现时按目标模块跑 smoke / lint；改 JSON 同步跑 `python -m json.tool` |
 | 启动 / 推进正式项目 | 当前 F14 读 `docs/AI协作/工作包/F14-EnemyNavigationAndPerception.md`、EnemyAI / ModuleWorldManager 文档、GDD §5.3、ADR #145 / #146、数据手册与测试策略；F13 模块大地图保持完成，旧 `F13-HandcraftedRooms.md` 只作历史；F12 开放战区仅作非默认回归 | `client/`、模块文档、必要时 TODO / GDD / ADR / 测试策略 | 按 F14 工作包跑 contracts/data/schema、module-world、technical-slice、runtime、save、headless 与 golden；局部流场需验证半径 / 边界 / 访问格数；项目规则变化跑 project lint；文档变化跑 docs health；性能仅用户明确要求时运行 |
 | 维护正式客户端启动骨架 | `client/README.md`、`docs/代码/formal_client_boot.md`、`docs/代码/gameplay_runtime.md`、`docs/正式项目工作规划.md` F1/F4 | `client/project.godot`、`client/scenes/boot/main.tscn`、`client/scripts/boot/formal_client_boot.gd`、AI导航、代码文档索引 | `python tools/godot_bridge.py headless-boot`、`python tools/godot_bridge.py export-tree`、`python tools/docs_health_check.py` |
@@ -242,6 +243,7 @@
 | #147 | 正式客户端固定版本入库并共享启用 `@icons 1.4.0` 与 `Script-IDE 2.2.3`；只保留官方发布包 addon 子目录和 MIT 许可，仓库内作为不设 lint 豁免的维护型 fork，升级必须人工核对 SHA-256、审查差异并迁移本地补丁 | `client/addons/README.md`、`client/project.godot`、`client/README.md`、CREDITS / locale、AI导航、current_state、AI记忆 |
 | #148 | 正式玩家摄像机迁移到 `Phantom Camera 0.11.0.3` 固定版本维护型 fork；Player 子场景内用 GLUED PCam 保持严格居中 / 水平 / 等比缩放，有效玩家伤害按 `camera_feedback.json` 触发可关闭位移震屏，噪声走 `RNG.camera_fx`；项目固定 autoload 并保持 `physics_jitter_fix=0.5` | GDD v1.24 §5.2、`client/addons/README.md`、`docs/代码/phantom_camera.md`、Gameplay Runtime / Settings 文档、数据手册、测试策略、AI导航、current_state、AI记忆 |
 | #149 | 玩家和敌方子弹默认受地形阻挡；Bullet 以命中半径圆形做首帧重叠与本帧扫掠，命中后由对象池回收。`pierce_count` 只控制伤害目标穿透，`wall_pierce` 以 `0` / `>0` 独立控制全地形阻挡 / 忽略并在发射时快照；旧快照缺字段默认不能穿墙，run 保持 v4 | GDD v1.25 §4、词表、数据手册、Gameplay Runtime / ModuleWorldManager 文档、双端 DataLoader、module-world smoke、AI导航、current_state、AI记忆 |
+| #150 | 正式客户端未来采用 GodotSteam + Talo 且不开发自有通用后端：`PlatformServices → GodotSteam` 负责 Steam 平台能力，规划中的 `OnlineServices → Talo` 负责跨平台身份、排行榜 / 统计、Live Config、事件与轻量社交；当前不安装、不批准具体功能，Talo Cloud / 官方自托管实施前另行决策 | `docs/在线服务规划.md`、GDD v1.26 §6.7 / §9.22 / §9.23、PlatformServices 文档、测试策略、正式工作规划、TODO、AI导航、current_state、AI记忆 |
 
 F14 交付时的四条黄金回放重录与运行时摘要证据见 [2026-07-21 F14 黄金回放回归报告](reports/2026-07-21-f14-replay-regression.md)。
 
@@ -254,13 +256,14 @@ F14 交付时的四条黄金回放重录与运行时摘要证据见 [2026-07-21 
 | 正式项目启动模块文档 | `docs/代码/formal_client_boot.md` | 展示 F1 最小启动骨架与 gameplay runtime 挂载的职责边界、场景结构与验证方式 |
 | Gameplay Runtime 模块文档 | `docs/代码/gameplay_runtime.md` / `docs/代码/combat.md` / `docs/代码/skill_system.md` / `docs/代码/status_effect_component.md` / `docs/代码/map_manager.md` / `docs/代码/module_world_manager.md` / `docs/代码/hazard_system.md` / `docs/代码/warzone_director.md` | 展示最小可玩闭环、统一伤害入口、F13 模块世界与 F14 局部有界共享导航 / 全图 AStar / 感知、开放战区回归、对象池实体、HUD 与验证方式 |
 | Phantom Camera 模块文档 | `docs/代码/phantom_camera.md` | 展示 vendored 插件 Runtime / Resource / Editor / C# 边界、Manager / Host / PCam 生命周期、正式 2D 项目接入、本地补丁和升级验证 |
+| 在线服务规划 | `docs/在线服务规划.md` | 展示未来 GodotSteam + Talo 的供应商分层、单一写入权威、托管决策、离线 / 安全边界和触发式实施阶段；不代表当前已安装 |
 | EnemyAI 模块文档 | `docs/代码/enemy_ai.md` | 展示 schema v3 对玩家 profile、视线 / 路径 / 记忆感知、Utility/FSM/Steering、共享流场、攻击墙体门禁、友伤护栏与旧快照兼容 |
 | ADR #144 黄金回放报告 | [2026-07-21 ADR #144 黄金回放回归报告](reports/2026-07-21-replay-regression.md) | 记录四条 golden 的重录数据指纹、逐条真实运行时复跑结果和未运行性能测试的边界 |
 | 正式项目 autoload 模块文档 | `docs/代码/mod_loader.md` / `data_loader.md` / `rng.md` / `game_state.md` / `game_clock.md` / `platform_services.md` / `settings.md` / `analytics.md` / `replay.md` / `pool_manager.md` / `save_manager.md` / `audio_manager.md` / `localization.md` / `ui_manager.md` | 展示基础设施模块的 API、依赖与测试义务 |
 | 功能建议池 | `docs/功能建议池.md` | 展示 F9 第一轮 Demo 收口后可人工点名的新功能菜单；不是已采纳路线图 |
 | 局内刷取参考研究 | `docs/局内刷取参考研究.md` | 展示 F12 局内刷取、兴趣点、撤离结算、射击构筑和 Gear Mod 循环的外部游戏参考；不是已采纳路线图 |
 | AI 辅助开发机会清单 | `docs/AI辅助开发机会清单.md` | 展示不在运行时接 LLM、只利用 AI 辅助写代码 / 数据 / 工具时可参考的玩法、内容管线和开发工具机会；不是已采纳路线图 |
-| 小服务器玩法备忘 | `docs/小服务器玩法备忘.md` | 展示小服务器条件下可参考的异步在线、敌巢进化、死亡残响、星域污染图等玩法；不是已采纳路线图 |
+| 小服务器玩法备忘 | `docs/小服务器玩法备忘.md` | 展示 Talo 可承载的异步在线、敌巢进化、死亡残响、星域污染图等玩法；供应商路线已采纳，但具体玩法不是已采纳路线图 |
 | 规则反例 | 当前平台规则入口的红线与自检清单 | 防止硬编码、裸字符串、绕过 autoload |
 
 ## 7. 维护规则
