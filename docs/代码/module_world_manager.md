@@ -57,7 +57,7 @@
 
 ## 5. ModuleChunk
 
-`ModuleChunk` 只用 `_draw()` 批量绘制地形，并用一个 `StaticBody2D` + 一个合并 `ConcavePolygonShape2D` 表达封锁格边界；玩家和敌人都必须保留 `CollisionShape2D`，否则 `CharacterBody2D` 不会与这些边界发生碰撞。敌人的碰撞层不与玩家或其他敌人物理互顶，只用 mask 命中模块地形；原有中心分离继续负责实体间距。`ModuleWorldManager` 使用显式 `z_index=-90`，使模块地形位于 `WorldBackground(-100)` / `MapManager(-95)` 之上，同时稳定处于玩家、敌人、机关和目标实体之下；不能依赖动态节点的场景树加入顺序决定遮挡关系。禁止为 121 个格逐格创建 Node，也禁止同时实例化 81 个 chunk。
+`ModuleChunk` 只用 `_draw()` 批量绘制地形，并用一个 `StaticBody2D` + 一个合并 `ConcavePolygonShape2D` 表达封锁格边界。该 `TerrainCollision` 显式位于物理层 bit 1、mask 为 0；玩家和敌人都必须保留 `CollisionShape2D`，否则 `CharacterBody2D` 不会与这些边界发生碰撞。敌人的碰撞层不与玩家或其他敌人物理互顶，只用 mask 命中模块地形；原有中心分离继续负责实体间距。`Bullet` 也只查询 bit 1：默认以 `hit_radius` 圆形做首帧重叠和逐帧扫掠，命中后通过 `PoolManager` 回收；`wall_pierce_enabled=true` 时才忽略地形。bit 1 是 ModuleChunk 与 Bullet 的稳定内部契约，不应用玩家、敌人、机关 Area 或伤害目标复用该查询语义。`ModuleWorldManager` 使用显式 `z_index=-90`，使模块地形位于 `WorldBackground(-100)` / `MapManager(-95)` 之上，同时稳定处于玩家、敌人、机关和目标实体之下；不能依赖动态节点的场景树加入顺序决定遮挡关系。禁止为 121 个格逐格创建 Node，也禁止同时实例化 81 个 chunk。
 
 ## 6. 验证
 
@@ -73,4 +73,4 @@ python tools/godot_bridge.py --project client save-smoke
 
 性能测试不属于本模块的默认验证义务；只有用户当次明确要求时，才追加 `python tools/godot_bridge.py --project client startup-probe` 或 `perf-probe`。
 
-`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、不同 seed 普通槽变化、中心坐标、确定性共享流场、半径 8 / 289 格访问上限、连续跨 20 格不退化、活动窗口外查询与全图 AStar 分流、真实模块绕障、路径距离大于直线距离、禁止斜穿墙角、封锁 / 越界目标不可达、技术首片外圈不可进入，以及原有物理墙体、生成门禁、无缝跨边界、最多 9 个 chunk、流式恢复、迷雾、目标撤离、run v4 和 hash mismatch。`module-world-technical-slice-smoke` 通过正式 opt-in 入口追加中心 3×3 / 外圈 72 槽封锁的完整流程回归。
+`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、不同 seed 普通槽变化、中心坐标、确定性共享流场、半径 8 / 289 格访问上限、连续跨 20 格不退化、活动窗口外查询与全图 AStar 分流、真实模块绕障、路径距离大于直线距离、禁止斜穿墙角、封锁 / 越界目标不可达、技术首片外圈不可进入，以及玩家 / 敌人物理墙体、玩家 / 敌方普通子弹阻挡、`wall_pierce > 0` 穿过同一墙体、旧子弹快照缺字段默认阻挡、穿墙快照随槽位卸载 / 返回保持、生成门禁、无缝跨边界、最多 9 个 chunk、流式恢复、迷雾、目标撤离、run v4 和 hash mismatch。`module-world-technical-slice-smoke` 通过正式 opt-in 入口追加中心 3×3 / 外圈 72 槽封锁的完整流程回归。

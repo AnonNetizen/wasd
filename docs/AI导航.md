@@ -130,6 +130,7 @@
 | **改敌人寻路 / 感知** | 先读 `F14-EnemyNavigationAndPerception.md`、`docs/代码/enemy_ai.md`、`docs/代码/module_world_manager.md` 与 ADR #145 / #146；profile 感知参数改 `enemy_ai_profiles.json.perception`，局部活动流场 / 全图静态路径 / 视线改 `module_navigation_field.gd`，半径由最大视觉范围自动推导，门面改 `module_world_manager.gd`，行为消费改 `enemy.gd`。导航 / 感知派生状态不进 run，开放战区保留无 provider 直线兜底 |
 | **加一个角色** | 在 `client/data/characters.json` 加一条：基础属性 / tags / capabilities / 控制配置 / `starting_loadout`；角色 id 先登记词表 §12.1，文案用 `character_*` key；起始武器 / 主动道具 / 消耗品必须存在于对应数据文件；新 capability 先登记词表 §12 再实现 |
 | **加 / 改武器** | 在 `client/data/weapons.json` 加一条：武器基础属性、子弹池、伤害类型、命中半径和音频 id；文案用 `weapon_*` key；`pool_id` / `damage_type` / `audio_id` 前缀必须来自词表，不实现 WeaponSystem 运行时 |
+| **改子弹墙体阻挡 / 穿墙能力** | 先读 GDD §4、ADR #149、`docs/代码/gameplay_runtime.md` 与 `docs/代码/module_world_manager.md`；运行时改 `bullet.gd`，模块墙体层改 `module_chunk.gd`，数值契约改词表 / `weapons.json` / 双端 DataLoader。保持玩家与敌弹默认阻挡、地形 bit 1、圆形首帧重叠 + 本帧扫掠、`PoolManager.release()`、`pierce_count` 与 `wall_pierce` 独立、发射时快照及旧字段默认 false；验证完整 / 技术切片 module-world、runtime/save/L1、headless 和四条黄金回放 |
 | **加 / 改技能** | 在 `client/data/skills.json` 加技能定义：`ability_tags`、`activation`、`costs`、`targeting`、`effects`、冷却和 `skill_*` 文案；角色只在 `characters.json.starting_loadout.skill_ids` 引用技能并声明 `skill_resources`，模式池走 `game_modes.resource_pools.skills`；新资源、目标类型、效果原语或 ability tag 先登记词表 §12-C~12-G，状态效果 / 叠加规则先登记 §9-A~§9-B，再扩展 `docs/代码/skill_system.md` / `docs/代码/status_effect_component.md` |
 | **加 / 改状态效果** | 先看 `docs/代码/status_effect_component.md`；状态 id 登记 `docs/词表与契约.md` §9-A，叠加规则登记 §9-B，通过 `skill_effect_apply_status` 或未来 on-hit primitive 注入；当前 Player / Enemy / SkillSystem 自身已实现 `apply_status_effect()` 和 owned ability tag 查询，DoT 由状态组件按 `GameClock` tick 并经 `Combat.apply_damage()` 结算；新可受状态影响实体应照此接入；状态存在期间要授予 / 移除 ability tag 时引用 §12-G，不在业务脚本手动计时 |
 | **加 / 改机关** | 在 `client/data/hazards.csv` 加一行：伤害、伤害类型、触发间隔、`radius_tiles` 占格尺寸、持续时间和 `hazard_*_name` 文案；`tag_hazard`、`pool_id`、`damage_type` 必须来自词表；初始摆放改 `client/data/map_layouts.json`，普通矩形范围机关复用 `docs/代码/hazard_system.md` 的通用 `Hazard` 运行时 |
@@ -200,7 +201,7 @@
 ## 5. 核心系统模块
 
 ### 5.1 模块清单
-**业务模块**：`InputController` / `Player` / `WeaponSystem` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager`（F13 世界门面）/ `ModuleNavigationField`（F14 共享静态导航）/ `WarzoneDirector`（仅 F12 非默认开放战区）/ `HazardSystem` / `ItemSystem` / `GrowthSystem` / `GearModSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `PhantomCamera2D` / `PhantomCameraHost` / `Camera2D` / `DataLoader` / `PauseMenu` / `Combat` / `StatusEffectComponent`。
+**业务模块**：`InputController` / `Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager`（F13 世界门面）/ `ModuleNavigationField`（F14 共享静态导航）/ `WarzoneDirector`（仅 F12 非默认开放战区）/ `HazardSystem` / `ItemSystem` / `GrowthSystem` / `GearModSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `PhantomCamera2D` / `PhantomCameraHost` / `Camera2D` / `DataLoader` / `PauseMenu` / `Combat` / `StatusEffectComponent`。
 
 **Autoload 单例（横向基础设施 + 协调中枢）**：
 - 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
@@ -256,6 +257,7 @@ flowchart LR
   Input[InputController]
   Player[Player]
   Weapon[WeaponSystem]
+  Bullet[Bullet]
   Skill[SkillSystem]
 
   Spawner[Spawner]
@@ -291,11 +293,11 @@ flowchart LR
   GS --> GearMod
   GS -.- Rep
   UIM --> UI
-  Pool --> Weapon & Spawner & Hazard & Item & Aud
+  Pool --> Weapon & Bullet & Spawner & Hazard & Item & Aud
 
   Input --> Player --> Weapon
   Input --> Skill
-  Weapon --> Combat
+  Weapon --> Bullet --> Combat
   Skill --> Combat
   Skill --> SE
   SE -. 状态宿主 .- Player & Enemy & Skill
@@ -307,9 +309,11 @@ flowchart LR
   GS -. 默认模块世界创建/驱动 .-> ModuleWorld
   ModuleWorld --> Map
   ModuleWorld --> ModuleNav
+  ModuleWorld -. ModuleChunk 地形 bit 1 .-> Bullet
   ModuleNav -. 共享流场/视线/AStar .-> Enemy
   ModuleWorld -. JSON placement（经 RunLoop 对象池/Combat） .-> Spawner & Hazard
   ModuleWorld -. assignment/hash/fog/slot snapshot .- Save
+  Bullet -. wall_pierce 发射快照 .- Save
   Director --> Spawner
   Map --> Player & Spawner & Hazard
   Spawner --> Enemy

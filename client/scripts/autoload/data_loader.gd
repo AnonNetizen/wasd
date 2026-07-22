@@ -49,10 +49,11 @@ const NON_NEGATIVE_STATS: Array[String] = [
 	"luck",
 	"armor",
 	"lifesteal_ratio",
+	"wall_pierce",
 ]
 const POSITIVE_STATS: Array[String] = ["max_hp", "move_speed", "fire_rate", "bullet_speed", "bullet_range", "pickup_orb_speed", "crit_mult"]
 const RATIO_STATS: Array[String] = ["crit_chance", "resist_fire", "resist_poison", "resist_lightning", "lifesteal_ratio"]
-const WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "pierce_count", "crit_chance", "crit_mult"]
+const WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "pierce_count", "wall_pierce", "crit_chance", "crit_mult"]
 const REQUIRED_WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count"]
 
 var _contracts: Dictionary = {}

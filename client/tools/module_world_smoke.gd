@@ -6,7 +6,9 @@ const MODULE_WORLD_MANAGER_SCRIPT := preload("res://scripts/gameplay/module_worl
 const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
+const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
+const STATS := preload("res://scripts/contracts/stats.gd")
 
 const BOOT_FRAMES: int = 4
 const NAVIGATION_FLOW_RADIUS_CELLS: int = 8
@@ -293,6 +295,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 			await get_tree().physics_frame
 		_expect(wall_test_enemy.global_position.x > -240.0, "enemy physics body should not enter a blocked module cell")
 		PoolManager.release(wall_test_enemy)
+	await _expect_bullet_terrain_rules(run_loop)
 	var detour_spawned: bool = bool(run_loop.call(
 		"_spawn_enemy_at",
 		"enemy_chaser",
@@ -350,6 +353,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		"pierce_remaining": 0,
 		"source_team": "",
 		"target_team": "",
+		"wall_pierce_enabled": true,
 		"travelled": 0.0,
 		"velocity": _vector_to_dict(Vector2.ZERO),
 	}])
@@ -368,11 +372,23 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	_expect(not _has_active_entity_at("active_pickups", pickup_position), "deactivated module should release its pickup")
 	var stored_state: Dictionary = manager.call("slot_state", Vector2i(5, 4)) if manager != null else {}
 	_expect((stored_state.get("bullet_snapshots", []) as Array).size() == 1, "deactivated slot should retain one projectile snapshot")
+	var stored_bullets: Array = stored_state.get("bullet_snapshots", []) as Array
+	_expect(
+		stored_bullets.size() == 1 and bool((stored_bullets[0] as Dictionary).get("wall_pierce_enabled", false)),
+		"deactivated slot should preserve the projectile wall-pierce snapshot"
+	)
 	_expect((stored_state.get("pickup_snapshots", []) as Array).size() == 1, "deactivated slot should retain one pickup snapshot")
 	run_loop.call("debug_set_player_position", Vector2(960.0, 0.0))
 	await _wait_frames(BOOT_FRAMES)
 	_expect(_active_module_entity_count("active_enemies", "5,4") == first_visit_enemy_count, "leave/return should restore slot state without duplicate enemies")
 	_expect(_has_active_entity_at("active_bullets", bullet_position), "returning should restore the slot projectile")
+	var restored_bullet: Node2D = _find_active_entity_at("active_bullets", bullet_position)
+	_expect(
+		restored_bullet != null
+		and restored_bullet.has_method("snapshot")
+		and bool((restored_bullet.call("snapshot") as Dictionary).get("wall_pierce_enabled", false)),
+		"returning should restore the projectile wall-pierce snapshot"
+	)
 	_expect(_has_active_entity_at("active_pickups", pickup_position), "returning should restore the slot pickup")
 
 
@@ -455,12 +471,76 @@ func _load_world_data() -> Dictionary:
 	return {"world": world, "registry": registry, "templates": templates}
 
 
-func _active_count(group_name: String) -> int:
-	var count: int = 0
-	for node: Node in get_tree().get_nodes_in_group(group_name):
-		if node is Node2D and is_instance_valid(node):
-			count += 1
-	return count
+func _expect_bullet_terrain_rules(run_loop: Node) -> void:
+	_release_active_bullets()
+	var base_snapshot: Dictionary = {
+		"position": _vector_to_dict(Vector2(-160.0, -160.0)),
+		"damage": 0.0,
+		"damage_type": "",
+		"damage_target_groups": ["module_wall_smoke_targets"],
+		"hit_radius": 8.0,
+		"remaining_life": 5.0,
+		"max_range": 1000.0,
+		"pierce_remaining": 0,
+		"source_team": "team_player",
+		"target_team": "team_enemy",
+		"travelled": 0.0,
+		"velocity": _vector_to_dict(Vector2(-520.0, 0.0)),
+	}
+	# This legacy-shaped snapshot deliberately omits wall_pierce_enabled.
+	run_loop.call("_restore_bullet_snapshots", [base_snapshot])
+	var legacy_player_bullet: Node2D = _first_active_entity("active_bullets")
+	_expect(legacy_player_bullet != null, "legacy player projectile snapshot should restore through the pool")
+	await _wait_physics_frames(20)
+	_expect(
+		legacy_player_bullet != null and not legacy_player_bullet.is_in_group("active_bullets"),
+		"legacy player projectile snapshots should default to terrain blocking"
+	)
+
+	var enemy_snapshot: Dictionary = base_snapshot.duplicate(true)
+	enemy_snapshot["source_team"] = "team_enemy"
+	enemy_snapshot["target_team"] = "team_player"
+	enemy_snapshot["wall_pierce_enabled"] = false
+	run_loop.call("_restore_bullet_snapshots", [enemy_snapshot])
+	var enemy_bullet: Node2D = _first_active_entity("active_bullets")
+	_expect(enemy_bullet != null, "enemy projectile snapshot should restore through the pool")
+	await _wait_physics_frames(20)
+	_expect(
+		enemy_bullet != null and not enemy_bullet.is_in_group("active_bullets"),
+		"enemy projectiles should default to terrain blocking"
+	)
+
+	var raw_wall_pierce_bullet: Node = PoolManager.acquire(POOL_IDS.BULLET_BASIC)
+	var active_world: Node = run_loop.get_node_or_null("ActiveWorld")
+	_expect(
+		raw_wall_pierce_bullet is Node2D and active_world != null,
+		"wall-pierce stat test should acquire a projectile in the active world"
+	)
+	if not raw_wall_pierce_bullet is Node2D or active_world == null:
+		_release_active_bullets()
+		return
+	var configured_wall_pierce_bullet: Node2D = raw_wall_pierce_bullet as Node2D
+	configured_wall_pierce_bullet.reparent(active_world)
+	configured_wall_pierce_bullet.global_position = Vector2(-160.0, -160.0)
+	configured_wall_pierce_bullet.call("configure", {
+		STATS.DAMAGE: 0.0,
+		STATS.BULLET_RANGE: 1000.0,
+		STATS.BULLET_SPEED: 520.0,
+		STATS.PIERCE_COUNT: 0,
+		STATS.WALL_PIERCE: 1.0,
+	}, {
+		"damage_type": "",
+		"damage_target_groups": ["module_wall_smoke_targets"],
+		"hit_radius": 8.0,
+		"lifetime": 5.0,
+	}, Vector2.LEFT, null)
+	await _wait_physics_frames(20)
+	_expect(
+		configured_wall_pierce_bullet.is_in_group("active_bullets")
+		and configured_wall_pierce_bullet.global_position.x < -320.0,
+		"wall-piercing projectiles should cross the same blocked cell"
+	)
+	_release_active_bullets()
 
 
 func _active_module_entity_count(group_name: String, slot_key: String) -> int:
@@ -472,10 +552,27 @@ func _active_module_entity_count(group_name: String, slot_key: String) -> int:
 
 
 func _has_active_entity_at(group_name: String, expected_position: Vector2) -> bool:
+	return _find_active_entity_at(group_name, expected_position) != null
+
+
+func _find_active_entity_at(group_name: String, expected_position: Vector2) -> Node2D:
 	for node: Node in get_tree().get_nodes_in_group(group_name):
 		if node is Node2D and is_instance_valid(node) and (node as Node2D).global_position.is_equal_approx(expected_position):
-			return true
-	return false
+			return node as Node2D
+	return null
+
+
+func _first_active_entity(group_name: String) -> Node2D:
+	for node: Node in get_tree().get_nodes_in_group(group_name):
+		if node is Node2D and is_instance_valid(node):
+			return node as Node2D
+	return null
+
+
+func _release_active_bullets() -> void:
+	for bullet: Node in get_tree().get_nodes_in_group("active_bullets").duplicate():
+		if is_instance_valid(bullet):
+			PoolManager.release(bullet)
 
 
 func _find_active_enemy_by_wave_key(wave_key: String) -> Node2D:
@@ -509,6 +606,11 @@ func _wait_for_playing_run_loop() -> Node:
 func _wait_frames(frame_count: int) -> void:
 	for _frame: int in range(frame_count):
 		await get_tree().process_frame
+
+
+func _wait_physics_frames(frame_count: int) -> void:
+	for _frame: int in range(frame_count):
+		await get_tree().physics_frame
 
 
 func _find_node_by_name(root: Node, target_name: String) -> Node:

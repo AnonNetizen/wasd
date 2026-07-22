@@ -22,6 +22,7 @@
 | 改失败面板 / run 清理 | `client/scripts/gameplay/gameplay_run_loop.gd`、`client/scripts/ui/game_over_panel.gd` |
 | 改玩家移动 / 相机 | `client/scripts/gameplay/player.gd`、`client/scripts/gameplay/gameplay_camera_controller.gd`、`client/data/camera_feedback.json` |
 | 改按住开火 / 子弹生成 | `client/scripts/gameplay/weapon_system.gd`、`bullet.gd` |
+| 改子弹墙体阻挡 / 穿墙能力 | `client/scripts/gameplay/bullet.gd`、`client/scripts/gameplay/module_chunk.gd`、`client/data/weapons.json`、`docs/代码/module_world_manager.md` |
 | 改主动技能释放 / 资源消耗 | `docs/代码/skill_system.md`、`client/scripts/gameplay/skill_system.gd`、`client/data/skills.json` |
 | 改敌人对玩家 AI / 接触伤害 | `docs/代码/enemy_ai.md`、`client/scripts/gameplay/enemy.gd`、`enemy_ai_profiles.json` |
 | 改有限地图 / PCG / 人工摆点 | `docs/代码/map_manager.md`、`client/scripts/gameplay/map_manager.gd`、`client/data/map_layouts.json` |
@@ -56,7 +57,7 @@
 | `client/scripts/gameplay/warzone_director.gd` | F10 敌巢战区导演，解释固定阶段、巢变异主题、兴趣点和阶段启用 wave |
 | `client/scripts/gameplay/weapon_system.gd` | 起始武器按住开火、临时武器修正和子弹池获取 |
 | `client/scripts/gameplay/skill_system.gd` | 起始主动技能释放、技能资源、冷却、目标筛选、效果解释和 run 快照 |
-| `client/scripts/gameplay/bullet.gd` | 子弹飞行、射程 / 生命周期裁剪、敌人和兴趣点目标命中 |
+| `client/scripts/gameplay/bullet.gd` | 子弹飞行、圆形地形重叠 / 扫掠、射程 / 生命周期裁剪、敌人和兴趣点目标命中，以及墙体穿透快照 |
 | `client/scripts/gameplay/enemy.gd` | 数据驱动敌人对玩家 AI、敌方友伤护栏、接触伤害、受伤 / 死亡和 AI 快照 |
 | `client/scripts/gameplay/hazard.gd` | 通用机关节点：矩形范围触发、冷却、占位表现、`Combat` 伤害和快照 |
 | `client/scripts/gameplay/pickup_orb.gd` | 池化经验球：进入玩家拾取范围后吸附并发放经验 |
@@ -142,7 +143,8 @@ UIManager
 | 输入 | `Settings` 在启动 / 加载 / 修改时把键盘主绑定写入 InputMap；运行时只确保同一 action 有手柄轴 / 按钮兜底事件。键鼠默认按鼠标相对视口中心的偏移瞄准，并通过当前 canvas / camera transform 换算成世界方向；方向键 / 手柄右摇杆 / D-pad 在没有鼠标动作时作为兜底。按住 `show_stats_panel` action（默认 Tab）只显示 HUD 详细数值面板，不进入暂停态。`interact` action（默认 E / 手柄 X）用于打开半径内的交互缓存箱。F8 输入录制首片会把移动 / 兜底瞄准 action 状态变化以及 `pause` / `ui_back` / `interact` 离散事件写入 `Replay`，但鼠标向量录制仍待后续输入回放扩展 | `Settings`、`InputMap`、`Input.get_vector()`、`InputEventMouseMotion.position`、`Replay.record_input_action()`、`Replay.record_input_event()` |
 | 移动 / 瞄准 / 相机 | 玩家按数据移速在 2D 平面移动；`GameplayCameraController` 把 `PlayerCamera` 配成 Phantom Camera `GLUED` 严格跟随，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放。鼠标激活后按 canvas transform 换算后的世界方向瞄准；无鼠标动作时用方向键 / 手柄右摇杆 / D-pad 兜底，松开保持上一方向 | `Player.aim_direction`、`GameplayCameraController.configure()` |
 | 按住开火 | WeaponSystem 读取 `fire` action；按住时按 `fire_rate` 从子弹池取节点并配置，松开停火 | `InputMap` / `PoolManager.acquire()` |
-| 子弹命中 | 子弹默认用距离检测命中 `active_enemies` 与 `active_interest_point_targets` 组；远程敌人可通过同一 `Bullet.configure()` 指定 `active_player` 目标组和敌方队伍，伤害统一走 `Combat.apply_damage()`；F12 smoke 会用真实 `Bullet` 验证兴趣点目标在 `claim_start_time` 前也可受伤，并验证远程敌弹可伤害玩家 | `DamageInfo` |
+| 子弹移动 / 地形 | 玩家和敌方子弹移动前先用 `hit_radius` 圆形 `intersect_shape()` 检查初始重叠，再用 `cast_motion()` 扫掠本帧位移；只查询地形层 bit 1。命中后停在安全比例、立即 `PoolManager.release()`，不再检查墙后伤害目标；`wall_pierce > 0` 的发射快照跳过全部地形查询 | `PhysicsShapeQueryParameters2D` / `PhysicsDirectSpaceState2D` |
+| 子弹命中 | 地形通过后，子弹才用距离检测命中 `active_enemies` 与 `active_interest_point_targets` 组；远程敌人可通过同一 `Bullet.configure()` 指定 `active_player` 目标组和敌方队伍，伤害统一走 `Combat.apply_damage()`。`pierce_count` 只表示可额外命中的伤害目标数量，不影响墙体 | `DamageInfo` |
 | 主动技能 / 状态 | SkillSystem 从 `skills.json` 读取起始技能列表；默认 `use_active_item` action 释放第一个技能 `skill_overdrive_rounds`，消耗角色声明的 `mana`，通过 `skill_effect_weapon_modifiers` 临时强化玩家主武器射速与弹速；技能激活使用项目版轻量 GAS 的 ability tag gating，状态效果通过目标实体的 `StatusEffectComponent` 管理，技能冷却、资源回复、状态过期和 DoT tick 都走 `GameClock` | `SkillSystem.cast_primary_skill()`、`SkillSystem.cast_skill(skill_id)`、`WeaponSystem.apply_temporary_modifiers()`、`Combat.apply_damage()`、`Player.apply_status_effect()`、`Enemy.apply_status_effect()` |
 | 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人；F10 起先通过 `WarzoneDirector.is_wave_enabled()` 判断当前 phase 是否允许该 wave，当前有追猎者、疾行者、潜猎者、喷棘者和壁垒五种数据化敌人 | `GameClock.now()`、`RNG.spawn`、`WarzoneDirector.is_wave_enabled()` |
 | 机关触发 | `Hazard` 在 `PLAYING` 下按 `GameClock.delta_scaled()` 消耗冷却；玩家进入矩形范围后构造 `DamageInfo` 并交给 `Combat`，当前 FEA-12 用于验证 PCG / 手工摆点和伤害链路 | `Hazard.configure()`、`Combat.apply_damage()` |
@@ -184,7 +186,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `SkillSystem.cast_primary_skill()` / `cast_skill(skill_id)` | 无 / 技能 id | Dictionary | 失败不消耗资源；伤害效果必须走 `Combat.apply_damage()`；状态效果必须走 `StatusEffectComponent` |
 | `SkillSystem.apply_status_effect(status_effect)` | `StatusEffect` 兼容对象 | Dictionary | 给释放者自身施加沉默等状态；状态授予 / 移除 ability tags 由组件管理 |
 | `SkillSystem.snapshot()` / `restore_snapshot(snapshot_data)` | run 快照 | Dictionary / `void` | 保存冷却、资源、owned ability tag 计数和状态效果，不保存节点引用 |
-| `Bullet.configure(stats, projectile, direction, source)` | 武器属性、弹体数据、方向、来源 | `void` | 节点必须来自 `PoolManager`；当前可命中 `active_enemies` 与 `active_interest_point_targets`，伤害统一走 `Combat.apply_damage()` |
+| `Bullet.configure(stats, projectile, direction, source)` | 武器属性、弹体数据、方向、来源 | `void` | 节点必须来自 `PoolManager`；发射时快照 `wall_pierce > 0`，默认地形阻挡；当前可命中 `active_enemies` 与 `active_interest_point_targets`，伤害统一走 `Combat.apply_damage()` |
 | `Enemy.configure(enemy_data, target)` | 敌人 CSV 行 + AI profile、目标玩家 | `void` | 节点必须来自 `PoolManager` |
 | `Enemy.configure(enemy_data, player, navigation_provider = null)` | 合并敌人数据、玩家、可选模块导航门面 | `void` | 模块世界注入 Manager；开放战区无门面时保留直线兜底 |
 | `Enemy.ai_debug_summary()` / `was_defeated_by_player()` | 无 | `Dictionary` / `bool` | debug 包含感知状态、路径距离、最后已知位置与导航模式；敌人不公开种间感知 tag API |
@@ -232,7 +234,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 武器：从 `characters[].starting_loadout.weapon_id` 读取，不在代码写武器 id 分支。
 - 技能：从 `characters[].starting_loadout.skill_ids` 读取，不绑定英雄 id；默认主技能为列表第一项 `skill_overdrive_rounds`，通过 `skill_effect_weapon_modifiers` 服务射击强化；技能定义在 `skills.json`，模式可用池在 `game_modes.resource_pools.skills`；ability tag / activation 条件来自词表 §12-G，状态效果与叠加规则来自词表 §9-A~§9-B。
 - 技能资源：从 `characters[].skill_resources` 读取，当前默认资源为 `mana`；后续怒气、能量等资源应新增资源 id 和角色资源池，不在 SkillSystem 写死。
-- 子弹池：从 `weapons[].projectile.pool_id` 读取；当前样例为已登记 `bullet_basic`。子弹占位绘制为黄色圆点加暗色轮廓，不承载行为差异。
+- 子弹池：从 `weapons[].projectile.pool_id` 读取；当前样例为已登记 `bullet_basic`。`base_stats.pierce_count` 只表示额外伤害目标数，`base_stats.wall_pierce` 为全地形开关且基础武器显式为 `0.0`。两者都经 ModifierEngine 合并，但 `Bullet.configure()` 在发射时快照结果；Buff 结束不追改飞行中的子弹。子弹占位绘制为黄色圆点加暗色轮廓，不承载行为差异。
 - 敌人池：从 `enemies.csv.pool_id` 读取；当前注册已登记 `enemy_chaser`、`enemy_ranged` 与 `enemy_swarm`，不同敌人可复用同一 `Enemy` 场景和对象池。
 - 敌人 AI profile：从 `enemies.csv.ai_profile_id` 引用 schema v3 `enemy_ai_profiles.json`；`perception` 分别配置视觉半径、隔墙路径感知半径和记忆时间，profile 继续负责动作评分、守家、冲锋和远程投射参数。模块模式的共享导航 / 地形视线来自 `ModuleWorldManager`，派生缓存不进 run v4。玩家是唯一战斗目标，敌方伤害来源会被拒绝；中心分离只负责防重叠。详细规则见 `docs/代码/enemy_ai.md`。
 - 敌人中心间距：从 `enemies.csv.separation_radius` 读取；当前默认 9px，低于 `hit_radius` 以允许视觉重叠。
@@ -249,7 +251,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 等级阈值：从 `growth.csv.total_xp_required` 读取累计总经验阈值；运行时内部保留累计经验判定升级，HUD 显示 `当前累计经验 - 当前等级累计阈值` / `下一级累计阈值 - 当前等级累计阈值`。
 - 升级候选：从当前模式 `resource_pools.growth_pools` 引用的 `growth_pools.json` 池读取；当前 F4 只解释 `kind=stat_modifier` 且应用其 `modifiers`。候选入选使用 `RNG.ui_choice`，显示 / 选择顺序按候选 `id` 稳定排序，避免同一候选集合在不同进程中只因抽取顺序影响 replay 选择索引。选择后 HUD 使用金色文字、暗色阴影和 1.35 秒淡出显示获得反馈。
 - 分辨率与 UI：当前只设计 / 验收固定 16:9，默认 viewport 由 `client/project.godot` 设为 1920×1080；窗口禁止任意拖拽缩放，非 16:9 屏幕通过 `canvas_items + keep` 等比缩放并补黑边，不拉伸、不裁切、不扩大玩法视野；F4 HUD 和升级面板使用 `Control` 锚点 / 容器布局适配经过验证的 16:9 固定预设。其他宽高比留作未来按独立固定预设接入的 P3 优化，不作为当前响应式布局目标。
-- run 续局快照：`RUN_SNAPSHOT_SCHEMA_VERSION` 与 `SaveManager` run envelope 均为 v4。除通用模式、角色、时钟、RNG、玩家、武器、技能、池化实体、`pending_loot` 与 `ui_restore` 外，默认模式必须保存完整 `module_world`：世界 id / seed、81 个 assignment / rotation、内容敏感 map hash、迷雾、目标 / 撤离和逐世界槽位动态状态；同一模板复用到多个槽位时状态互不共享。map hash 覆盖世界配置和本局引用的模块 JSON；恢复时以相同 seed / assignment 重建并校验，失败则整个续局 fail closed，不把旧玩家 / 实体状态载入新地图，再恢复当前 3×3 邻域。旧 v3 run 明确标记 `legacy_run_incompatible`、显示专用“不兼容”提示后只删除 run；`meta` envelope 与 `meta.gear_mods` 不受影响。RNG 大整数 state 继续以字符串保存并在 hash 前 JSON 归一化。
+- run 续局快照：`RUN_SNAPSHOT_SCHEMA_VERSION` 与 `SaveManager` run envelope 均为 v4。除通用模式、角色、时钟、RNG、玩家、武器、技能、池化实体、`pending_loot` 与 `ui_restore` 外，默认模式必须保存完整 `module_world`：世界 id / seed、81 个 assignment / rotation、内容敏感 map hash、迷雾、目标 / 撤离和逐世界槽位动态状态；同一模板复用到多个槽位时状态互不共享。子弹快照保存发射时的 `wall_pierce_enabled`；旧 run 或旧模块槽位快照缺该字段时默认 `false`，因此无需提升 run schema。map hash 覆盖世界配置和本局引用的模块 JSON；恢复时以相同 seed / assignment 重建并校验，失败则整个续局 fail closed，不把旧玩家 / 实体状态载入新地图，再恢复当前 3×3 邻域。旧 v3 run 明确标记 `legacy_run_incompatible`、显示专用“不兼容”提示后只删除 run；`meta` envelope 与 `meta.gear_mods` 不受影响。RNG 大整数 state 继续以字符串保存并在 hash 前 JSON 归一化。
 - 局外成长接入：F11 后 Gear Mod 是唯一当前跨局装配运行时。死亡不再写旧局外货币 / 账号经验，也不再弹旧升级入口；死亡后仍必须删除 `run` 存档，避免继续旧局。新开局属性来源为 `GearModSystem.current_modifiers("hero")` / `current_modifiers("weapon")`：hero modifiers 只应用到 `Player.apply_modifiers()`，weapon modifiers 只应用到 `WeaponSystem.apply_modifiers()`。项目尚未上线，不维护旧局外成长测试档迁移或补偿。
 - 装备 Mod 掉落：玩家归因击败敌人时，`GameplayRunLoop._on_enemy_defeated()` 会在发放击杀 / 经验后调用 `GearModSystem.roll_drop_for_enemy(enemy_id, ..., commit_immediately=false)`，把命中的 Mod 放进 `run.pending_loot`；怪物互杀或非玩家归因击杀不会计入击杀、经验或 Gear Mod 掉落。首片 `enemy_chaser` 掉落率来自 `gear_mod_drop_tables.csv` 的 `0.01`，随机走 `RNG.drop`。掉落结果携带 `name_key`，命中后通过 `GameplayHud.show_gear_mod_drop_feedback()` 显示暂存反馈；击破小巢核或未来撤离成功时才调用 `GearModSystem.grant_mod()` / `grant_resource()` 写入 `meta.gear_mods`。
 - 伤害类型：从 `weapons.json` / `enemies.csv` / `hazards.csv` 读取，交给 `Combat` 校验。
@@ -265,6 +267,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 ## 扩展点
 
 - 加武器：优先改 `weapons.json`，运行时继续解释 `base_stats` 和 `projectile`。
+- 加穿墙 Buff：通过既有 modifier 管线给 `wall_pierce` 增加正值；不要复用 `pierce_count`，也不要把它解释成有限穿墙次数。穿墙只忽略地形，不自动附加穿敌、穿机关、反弹或爆炸。
 - 加技能：优先改 `skills.json`、`characters.json` 的 `starting_loadout.skill_ids` / `skill_resources` 和 `game_modes.json` 的 `resource_pools.skills`；新 ability tag、状态效果、叠加规则、目标类型或效果原语先登记词表，再扩展 SkillSystem / StatusEffectComponent，不按技能 id 写分支。
 - 加状态宿主：可被状态影响的新实体应复用 `StatusEffectComponent`，实现 `apply_status_effect()`、owned ability tag 查询、`combat_team_id()` 和 JSON 友好快照；对象池实体必须在 `configure()` / 回收路径清空状态。
 - 加敌人：优先改 `enemies.csv`、`enemy_ai_profiles.json`、`game_modes.json` 和 `spawn_waves.csv`；行为差异通过对玩家 AI profile 表达，不在 `enemy.gd` 按 id 分支。
@@ -286,6 +289,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 |------------|----------|----------|----------|
 | 调玩家速度 / 生命 / 受伤无敌 / 中心排斥 | `player.json` / `characters.json` | `client/data/README.md` | `python tools/validate_data.py` |
 | 调武器伤害 / 射速 / 弹速 | `weapons.json` | `client/data/README.md` | `validate_data` + headless |
+| 改子弹墙体阻挡 / 穿墙 | `bullet.gd`、`module_chunk.gd`、`weapons.json` | 本文档、ModuleWorldManager 文档、GDD、词表、ADR | contracts + data/schema + `module-world-smoke` + technical slice + runtime/save/L1 + golden replay |
 | 调技能伤害 / 半径 / 资源消耗 / 冷却 | `skills.json`、`characters.json` | `client/data/README.md`、`docs/代码/skill_system.md` | `validate_data` + `l1-smoke` + `runtime-smoke` |
 | 改 Player / Enemy 状态宿主 | `player.gd`、`enemy.gd`、`status_effect_component.gd`、`l1_smoke.gd` | 本文档、状态组件文档、EnemyAI、GDD、测试策略 | `lint_gdscript_rules` + `lint_semantic_rules` + `l1-smoke` + `runtime-smoke` + `save-smoke` |
 | 调敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | `client/data/README.md` | `validate_data` + 手动跑一局 |
@@ -339,6 +343,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 敌人中心完全重叠 | `enemies.csv.separation_radius` 是否为 0；`runtime-smoke` 是否通过中心分离断言 |
 | 敌人中心贴到玩家中心 | `player.json.base_stats.player_separation_radius` 是否为 0；`Enemy` 是否仍调用玩家中心排斥；`runtime-smoke` 是否通过玩家-敌人分离断言 |
 | 子弹打不到 | `hit_radius`、敌人位置、`bullet_range` / `lifetime` 是否合理 |
+| 子弹穿墙或在墙前异常消失 | `ModuleChunk.TerrainCollision` 是否显式位于 bit 1；Bullet 查询 mask / 圆形半径 / 首帧重叠 / `cast_motion()` 是否正常；快照 `wall_pierce_enabled` 是否符合发射时能力；不要把 `pierce_count` 当穿墙开关 |
 | 同一敌人贴住玩家不再造成后续伤害 | 玩家 `damage_invulnerability_duration` 是否过长；`Enemy` 不应保存单只敌人的接触伤害冷却 |
 | 默认模式不掉经验 / 不升级 | ADR #120 后这是预期行为；标准模式没有 `growth_pools` 时不会生成经验球或弹升级面板 |
 | 非默认成长模式不掉经验 / 不升级 | 目标模式是否在 `game_modes.json.resource_pools.growth_pools` 引用升级池；`enemies.csv.exp_reward` 是否大于 0；`pickup_orb` 池是否注册；`growth.csv` 下一级阈值是否达到 |
@@ -380,13 +385,14 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 涉及 `meta.gear_mods` 存档结构、Gear Mod loadout、掉落、升级、分解或下一局 modifier snapshot 时追加 `python tools/godot_bridge.py --project client gear-mod-smoke`；如果改了 F4 死亡接入、敌人击杀归因或失败面板，同时跑 `runtime-smoke`。
 - 涉及 GM 指令或 runtime debug API 时，追加 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`；命令影响局内战斗时追加 `runtime-smoke`。
 - 涉及模块世界、模板 JSON、边缘契约、chunk 流式状态、迷雾、地图 hash、run v4 或 v3 重置流程时，追加 `python tools/godot_bridge.py --project client module-world-smoke` 与 `python tools/godot_bridge.py --project client save-smoke`，并跑 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/test_data_loader_schema.py`；详见 `docs/代码/module_world_manager.md`。
+- 涉及子弹地形阻挡、`wall_pierce` 或子弹能力快照时，必须跑完整与技术切片 `module-world-smoke`、`runtime-smoke`、`save-smoke`、`l1-smoke`、正式 headless boot 和四条黄金回放；契约或武器字段变化追加双端 schema 与契约同步。
 - 数据 / locale 变化还要跑 `python tools/validate_data.py`、`python tools/lint_project_rules.py`。
 - 地图 / 机关数量、对象池生命周期或性能相关变化仍按对应功能 smoke 验证；影响稳定运行时摘要时重跑 checked-in golden replay runner。`startup-probe` / `perf-probe` 只有用户当次明确要求性能测试时才追加。
 - 当前没有 GUT runner，F4 首切片用 L0 + L2 + `runtime-smoke` + 手动 1 分钟跑通作为阶段门槛；后续接入 Godot 测试时补 Player / Combat / Pool / Spawner 的 L1。
 
 ## 迁移 / 兼容
 
-F5 已开始写 `SaveManager` 的 `run` kind，F11 的 `meta` profile 继续由 `GearModSystem` 管理 `gear_mods` 子 payload。F13 模块世界将 gameplay payload 与 run envelope 升为 v4；默认 run 必须带 `module_world` 块并在恢复时校验 map hash。旧 v3 run 不做有损猜测迁移：读取后标记 `legacy_run_incompatible`，启动入口显示提示、删除该 run 并要求新开；`meta` kind 版本、Gear Mod 资产与 loadout 保持不变。死亡仍删除 run 并丢失 `pending_loot`；撤离成功先结算暂存战利品再删除 run。后续扩展模块 primitive、地图事件或局外奖励时，需要分别判断 run / meta schema 是否升级并补迁移与 roundtrip；不得保存对象池内部状态或节点引用。
+F5 已开始写 `SaveManager` 的 `run` kind，F11 的 `meta` profile 继续由 `GearModSystem` 管理 `gear_mods` 子 payload。F13 模块世界将 gameplay payload 与 run envelope 升为 v4；默认 run 必须带 `module_world` 块并在恢复时校验 map hash。ADR #149 为子弹快照增加可选 `wall_pierce_enabled`，旧字段缺失按 `false` 恢复，因此 run 继续保持 v4。旧 v3 run 不做有损猜测迁移：读取后标记 `legacy_run_incompatible`，启动入口显示提示、删除该 run 并要求新开；`meta` kind 版本、Gear Mod 资产与 loadout 保持不变。死亡仍删除 run 并丢失 `pending_loot`；撤离成功先结算暂存战利品再删除 run。后续扩展模块 primitive、地图事件或局外奖励时，需要分别判断 run / meta schema 是否升级并补迁移与 roundtrip；不得保存对象池内部状态或节点引用。
 
 ## 相关文档
 

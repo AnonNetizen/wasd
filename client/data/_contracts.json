@@ -15,6 +15,7 @@
       "bullet_range",
       "bullet_count",
       "pierce_count",
+      "wall_pierce",
       "crit_chance",
       "crit_mult",
       "pickup_range",

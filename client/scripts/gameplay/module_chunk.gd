@@ -12,6 +12,7 @@ const WORLD_CENTER_GLOBAL_CELL: Vector2i = Vector2i(49, 49)
 const FLOOR_COLOR: Color = Color(0.075, 0.09, 0.105, 1.0)
 const BLOCKED_COLOR: Color = Color(0.18, 0.205, 0.235, 1.0)
 const GRID_COLOR: Color = Color(0.25, 0.29, 0.33, 0.28)
+const TERRAIN_COLLISION_LAYER: int = 1 << 0
 
 var _template: Dictionary = {}
 var _module_coord: Vector2i = Vector2i(-1, -1)
@@ -290,6 +291,8 @@ func _ensure_collision_nodes() -> void:
 	if _collision_body == null or not is_instance_valid(_collision_body):
 		_collision_body = StaticBody2D.new()
 		_collision_body.name = "TerrainCollision"
+		_collision_body.collision_layer = TERRAIN_COLLISION_LAYER
+		_collision_body.collision_mask = 0
 		add_child(_collision_body)
 	if _collision_shape == null or not is_instance_valid(_collision_shape):
 		_collision_shape = CollisionShape2D.new()

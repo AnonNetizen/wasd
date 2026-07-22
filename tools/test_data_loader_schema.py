@@ -196,6 +196,14 @@ def main() -> int:
             ],
         ),
         (
+            "invalid weapon wall pierce fails",
+            _mutate_json("client/data/weapons.json", _set_weapon_stat("wall_pierce", -1.0)),
+            [
+                "client/data/weapons.json:weapons[0].base_stats.wall_pierce",
+                "must be >= 0",
+            ],
+        ),
+        (
             "character starting weapon reference must exist",
             _mutate_json("client/data/characters.json", _set_character_starting_weapon("weapon_missing")),
             [
