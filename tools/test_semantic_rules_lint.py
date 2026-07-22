@@ -14,6 +14,8 @@ def main() -> int:
         ("golden semantic lint passes", _test_golden_semantic_lint_passes),
         ("special id branch warns", _test_special_id_branch_warns),
         ("business autoload bypass warns", _test_business_autoload_bypass_warns),
+        ("direct pool and popup bypass warns", _test_direct_pool_and_popup_bypass_warns),
+        ("registered pool factories and local nodes pass", _test_registered_pool_factories_and_local_nodes_pass),
         ("missing type signature warns", _test_missing_type_signature_warns),
         ("missing doc header warns", _test_missing_doc_header_warns),
         ("unknown contract constant warns", _test_unknown_contract_constant_warns),
@@ -99,6 +101,78 @@ def _test_business_autoload_bypass_warns() -> None:
         _with_project_root(root)
         warnings = lint_semantic_rules.run_checks()
         assert any(warning.rule == "autoload-bypass-rng" for warning in warnings), _format(warnings)
+
+
+def _test_direct_pool_and_popup_bypass_warns() -> None:
+    with _temporary_project() as root:
+        _write_contract(root, "CharacterIds", {"VALUES", "CHARACTER_DEFAULT"})
+        _write_script(
+            root,
+            "gameplay/spawner.gd",
+            "\n".join(
+                [
+                    "# Doc: docs/代码/spawner.md",
+                    "extends Node",
+                    "",
+                    "const ENEMY_SCENE: PackedScene = preload(\"res://enemy.tscn\")",
+                    "",
+                    "func spawn_enemy() -> void:",
+                    "\tvar enemy: Node = ENEMY_SCENE.instantiate()",
+                    "\tadd_child(enemy)",
+                    "\tenemy.queue_free()",
+                    "",
+                    "func show_pause_menu(pause_menu: Control) -> void:",
+                    "\tadd_child(pause_menu)",
+                    "",
+                ]
+            ),
+        )
+        _with_project_root(root)
+        warnings = [
+            warning
+            for warning in lint_semantic_rules.run_checks()
+            if warning.rule == "autoload-bypass-pool-ui"
+        ]
+        assert len(warnings) == 4, _format(warnings)
+
+
+def _test_registered_pool_factories_and_local_nodes_pass() -> None:
+    with _temporary_project() as root:
+        _write_contract(root, "CharacterIds", {"VALUES", "CHARACTER_DEFAULT"})
+        _write_script(
+            root,
+            "gameplay/spawner.gd",
+            "\n".join(
+                [
+                    "# Doc: docs/代码/spawner.md",
+                    "extends Node",
+                    "",
+                    "const BULLET_SCENE: PackedScene = preload(\"res://bullet.tscn\")",
+                    "const ENEMY_SCENE: PackedScene = preload(\"res://enemy.tscn\")",
+                    "const INTEREST_POINT_SCENE: PackedScene = preload(\"res://interest_point.tscn\")",
+                    "",
+                    "func configure() -> void:",
+                    "\tPoolManager.register_pool(\"bullet\", Callable(self, \"_create_bullet_node\"), 16)",
+                    "\tPoolManager.register_pool(\"enemy\", _create_enemy_node, 8)",
+                    "\tvar target: Node = INTEREST_POINT_SCENE.instantiate()",
+                    "\tadd_child(target)",
+                    "\ttarget.queue_free()",
+                    "\tvar row: Label = Label.new()",
+                    "\tadd_child(row)",
+                    "\trow.queue_free()",
+                    "",
+                    "func _create_enemy_node() -> Node:",
+                    "\treturn ENEMY_SCENE.instantiate()",
+                    "",
+                    "func _create_bullet_node() -> Node:",
+                    "\treturn BULLET_SCENE.instantiate()",
+                    "",
+                ]
+            ),
+        )
+        _with_project_root(root)
+        warnings = lint_semantic_rules.run_checks()
+        assert not any(warning.rule == "autoload-bypass-pool-ui" for warning in warnings), _format(warnings)
 
 
 def _test_missing_type_signature_warns() -> None:

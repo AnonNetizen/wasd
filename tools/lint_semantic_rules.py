@@ -33,6 +33,37 @@ CONTRACT_PRELOAD_RE = re.compile(
 )
 CONSTANT_RE = re.compile(r"^\s*const\s+([A-Z][A-Z0-9_]*)\b")
 CLASS_NAME_RE = re.compile(r"^\s*class_name\s+([A-Z][A-Za-z0-9_]*)\b")
+POOL_REGISTER_RE = re.compile(
+    r"\bPoolManager\.register_pool\s*\(\s*[^,]+,\s*"
+    r"(?:Callable\s*\(\s*self\s*,\s*[\"'](?P<callable>[A-Za-z_][A-Za-z0-9_]*)[\"']\s*\)"
+    r"|(?P<direct>[A-Za-z_][A-Za-z0-9_]*))",
+    re.DOTALL,
+)
+INSTANTIATE_CALL_RE = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\.instantiate\s*\(")
+QUEUE_FREE_CALL_RE = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\.queue_free\s*\(")
+ADD_CHILD_CALL_RE = re.compile(r"\badd_child\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\b")
+
+HIGH_FREQUENCY_ENTITY_TERMS = (
+    "bullet",
+    "damage_number",
+    "enemy",
+    "hazard",
+    "hit_spark",
+    "particle",
+    "pickup",
+    "projectile",
+)
+POPUP_UI_TERMS = (
+    "dialog",
+    "level_panel",
+    "menu",
+    "modal",
+    "overlay",
+    "pause_panel",
+    "popup",
+    "result_panel",
+    "settings_panel",
+)
 
 
 @dataclass(frozen=True)
@@ -78,11 +109,6 @@ BYPASS_RULES: tuple[BypassRule, ...] = (
         "autoload-bypass-audio",
         re.compile(r"\bAudioStreamPlayer(?:2D|3D)?\.new\s*\(|\.[Pp]lay\s*\("),
         "business scripts should use AudioManager for audio playback",
-    ),
-    BypassRule(
-        "autoload-bypass-pool-ui",
-        re.compile(r"\.instantiate\s*\(|\bqueue_free\s*\(|\badd_child\s*\("),
-        "business scripts should prefer PoolManager for high-frequency entities and UIManager for popups",
     ),
     BypassRule(
         "autoload-bypass-combat",
@@ -166,7 +192,66 @@ def _check_autoload_bypass(path: Path, lines: list[str]) -> list[AdvisoryWarning
         for bypass_rule in BYPASS_RULES:
             if bypass_rule.pattern.search(code):
                 warnings.append(AdvisoryWarning(path, line_number, bypass_rule.rule, bypass_rule.message))
+    warnings.extend(_check_pool_ui_bypass(path, lines))
     return warnings
+
+
+def _check_pool_ui_bypass(path: Path, lines: list[str]) -> list[AdvisoryWarning]:
+    pool_factories = _registered_pool_factories(lines)
+    current_func = ""
+    warnings: list[AdvisoryWarning] = []
+
+    for line_number, line in enumerate(lines, start=1):
+        code = _code_part(line)
+        func_match = FUNC_RE.match(code)
+        if func_match is not None:
+            current_func = func_match.group(1)
+
+        instantiate_match = INSTANTIATE_CALL_RE.search(code)
+        direct_pool_risk = (
+            instantiate_match is not None
+            and current_func not in pool_factories
+            and _identifier_has_term(instantiate_match.group(1), HIGH_FREQUENCY_ENTITY_TERMS)
+        )
+
+        queue_free_match = QUEUE_FREE_CALL_RE.search(code)
+        direct_free_risk = queue_free_match is not None and _identifier_has_term(
+            queue_free_match.group(1), HIGH_FREQUENCY_ENTITY_TERMS
+        )
+
+        add_child_match = ADD_CHILD_CALL_RE.search(code)
+        direct_add_risk = add_child_match is not None and (
+            _identifier_has_term(add_child_match.group(1), HIGH_FREQUENCY_ENTITY_TERMS)
+            or _identifier_has_term(add_child_match.group(1), POPUP_UI_TERMS)
+        )
+
+        if direct_pool_risk or direct_free_risk or direct_add_risk:
+            warnings.append(
+                AdvisoryWarning(
+                    path,
+                    line_number,
+                    "autoload-bypass-pool-ui",
+                    "high-frequency entities should use PoolManager and popup UI should use UIManager",
+                )
+            )
+
+    return warnings
+
+
+def _registered_pool_factories(lines: list[str]) -> set[str]:
+    source = "\n".join(_comment_free_part(line) for line in lines)
+    factories: set[str] = set()
+    for match in POOL_REGISTER_RE.finditer(source):
+        factory = match.group("callable") or match.group("direct")
+        if factory:
+            factories.add(factory)
+    return factories
+
+
+def _identifier_has_term(identifier: str, terms: tuple[str, ...]) -> bool:
+    snake_case = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", identifier).lower().strip("_")
+    padded = f"_{snake_case}_"
+    return any(f"_{term}_" in padded for term in terms)
 
 
 def _check_type_signatures(path: Path, lines: list[str]) -> list[AdvisoryWarning]:
@@ -363,6 +448,31 @@ def _code_part(line: str) -> str:
                 escaped = True
             elif char == quote:
                 result.append(char)
+                quote = ""
+            continue
+
+        if char in {"'", '"'}:
+            quote = char
+            result.append(char)
+        elif char == "#":
+            break
+        else:
+            result.append(char)
+    return "".join(result)
+
+
+def _comment_free_part(line: str) -> str:
+    result: list[str] = []
+    quote = ""
+    escaped = False
+    for char in line:
+        if quote:
+            result.append(char)
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
                 quote = ""
             continue
 

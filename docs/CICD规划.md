@@ -41,7 +41,7 @@
 - 第一档 GDScript 项目 lint：`python tools/lint_gdscript_rules.py`，检查可低误报自动化的 style guide 顺序、危险 `:=`、中文硬编码字符串、裸随机 / 时间 / 暂停 API
 - 第二档项目规则 lint：`python tools/lint_project_rules.py`，检查新增数据字段是否登记到 `client/data/README.md`、locale 是否保留 `zh_CN` / `en` 双语，以及 release preset 是否误带 debug/dev_tools 资源
 - 项目规则 lint 回归：`python tools/test_project_rules_lint.py`，固定新增字段漏文档、locale 缺译文、release preset 带 `dev_tools` 的坏样例
-- 第三档语义 advisory lint：`python tools/lint_semantic_rules.py` 默认非阻塞，提示特殊 id 分支、业务脚本绕过 autoload、缺类型签名、长期脚本缺 `# Doc:` 和未知 contract 常量；`python tools/test_semantic_rules_lint.py` 固定坏样例
+- 第三档语义 advisory lint：`python tools/lint_semantic_rules.py` 默认非阻塞，提示特殊 id 分支、业务脚本绕过 autoload、缺类型签名、长期脚本缺 `# Doc:` 和未知 contract 常量；其中 Pool / UI 检查按高频实体 / 弹窗命名提示直建、释放或挂载风险，并识别已注册的 `PoolManager` factory，`python tools/test_semantic_rules_lint.py` 固定报警与不误报样例
 - AI 知识库健康检查：运行 `python tools/docs_health_check.py`，校验知识库索引、ADR、current_state、链接、AI 修改说明和模块文档索引
 - whitespace diff：对本次提交范围运行 `git diff --check`，排除 `draft/` / `DRAFT/`；本地 staged hook 会先自动修复低风险的 EOF 多空行，再保留其他 whitespace 错误为硬失败
 

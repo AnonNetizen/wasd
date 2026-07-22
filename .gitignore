@@ -8,7 +8,8 @@ export_presets.cfg
 !output/steamworks_lab/export_presets.cfg
 build/
 dist/
-*.translation        # 由 res://locale/*.csv 编译生成
+# 运行时数据 CSV 使用 importer="keep"；不要提交误生成的翻译资源
+client/data/*.translation
 
 # Steamworks Slime Lab 本地 GodotSteam GDExtension（二进制不入库）
 output/steamworks_lab/addons/godotsteam/
