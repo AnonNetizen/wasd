@@ -37,7 +37,7 @@
 
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
-| autoload `_ready()` | 创建并登记 6 个默认子流 | `spawn/drop/combat/ui_choice/world/meta` |
+| autoload `_ready()` | 创建并登记 7 个默认子流 | `spawn/drop/combat/camera_fx/ui_choice/world/meta` |
 | 设置主 seed | 重新派生所有子流 seed | `set_run_seed()` |
 | 生成随机主 seed | 普通新局 / 重开在人工入口生成新的主 seed，再派生所有子流 | `set_random_run_seed()` |
 | 业务取随机 | 通过具名子流调用 | `RNG.spawn.randi()`、`RNG.stream(id)` |
@@ -66,7 +66,7 @@
 ## 数据与契约
 
 - 子流 id 权威来源是 `docs/词表与契约.md` §11。
-- 当前子流：`spawn`、`drop`、`combat`、`ui_choice`、`world`、`meta`。
+- 当前子流：`spawn`、`drop`、`combat`、`camera_fx`、`ui_choice`、`world`、`meta`；`camera_fx` 专用于相机噪声等纯表现随机，不得改变战斗判定。
 - 代码引用应走 `client/scripts/contracts/rng_streams.gd` 生成常量；本 autoload 的初始子流后续应与生成常量保持一致。
 - 子流 seed 派生使用 `STREAM_SEED_DOMAIN + run_seed + stream_id` 组成文本，取 SHA-256 hex digest 后按 16 进制逐位折叠到固定模数 `2_147_483_647`；该规则是 F8 回放确定性与跨子流防相关性基线的一部分，改变时必须跑 `rng-audit`、重跑受影响 golden replay 并追加 ADR。
 - 普通玩家从标题开始新局或局内重开时，由 `FormalClientBoot` 调用 `set_random_run_seed()`；继续游戏必须从 run snapshot 恢复 RNG，不生成新 seed；回放 / smoke / golden 工具必须显式固定 seed 或走不随机化的工具启动路径。
@@ -110,7 +110,7 @@
 
 - 必跑正式项目 headless boot。
 - 改普通新局 / 重开 seed 策略时，追加 `python tools/godot_bridge.py --project client l1-smoke`、`runtime-smoke`、`save-smoke`，并用 checked-in `replay-runner --replay-file ... --rerun-runtime-summary` 抽查工具固定 seed 路径未漂移。
-- 改子流 seed 派生、默认子流集合或 RNG 底层实现时，必跑 `python tools/godot_bridge.py --project client rng-audit`；当前审计采样 10,000 个 run seed、6 个子流、每流前 4 次 `randf()`，最大绝对 Pearson 相关阈值为 0.06。
+- 改子流 seed 派生、默认子流集合或 RNG 底层实现时，必跑 `python tools/godot_bridge.py --project client rng-audit`；当前审计采样 10,000 个 run seed、7 个子流、每流前 4 次 `randf()`，最大绝对 Pearson 相关阈值为 0.06。
 - F2 后续补 GUT：同主 seed 各子流序列稳定、不同子流互不污染、`weighted_pick()` 边界。
 - 改随机行为或子流 seed 派生若影响整局，必须评估并重录受影响黄金回放。
 

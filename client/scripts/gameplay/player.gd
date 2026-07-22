@@ -15,7 +15,6 @@ const DRAW_RADIUS: float = 12.0
 const FACING_MARKER_LENGTH: float = 22.0
 const HIT_FLASH_DURATION: float = 0.16
 const MOUSE_AIM_MIN_DISTANCE_SQUARED: float = 16.0
-const CAMERA_STAGE_ZOOM: Vector2 = Vector2.ONE
 const PLACEHOLDER_FILL_COLOR: Color = Color(0.35, 0.72, 1.0)
 const PLACEHOLDER_HURT_COLOR: Color = Color(1.0, 0.34, 0.30)
 const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
@@ -60,12 +59,6 @@ var _status_effect_component: Node = null
 
 func _ready() -> void:
 	_ensure_status_effect_component()
-
-	var camera: Camera2D = get_node_or_null("CenteredCamera") as Camera2D
-	if camera == null:
-		push_error("[Player] missing CenteredCamera scene node")
-		return
-	_configure_camera(camera)
 	queue_redraw()
 
 
@@ -420,15 +413,6 @@ func _set_aim_direction(raw_direction: Vector2) -> void:
 	aim_direction = next_direction
 	if previous_direction.distance_squared_to(aim_direction) > 0.0001:
 		queue_redraw()
-
-
-func _configure_camera(camera: Camera2D) -> void:
-	camera.enabled = true
-	camera.position_smoothing_enabled = false
-	camera.ignore_rotation = true
-	camera.rotation_degrees = 0.0
-	camera.zoom = CAMERA_STAGE_ZOOM
-	camera.make_current()
 
 
 func _set_mouse_aim_from_viewport_position(viewport_position: Vector2) -> void:

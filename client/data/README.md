@@ -18,6 +18,7 @@
 | 你想做什么 | 改哪里 | 注意 |
 |------------|--------|------|
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
+| 改玩家受伤震屏强度 / 频率 / 时长 | `camera_feedback.json` 的 `player_damage_shake` | 只影响表现；随机走 `RNG.camera_fx`，关闭 `gameplay.screen_shake` 时即时停止 |
 | 改角色基础属性 / 标签 / 能力 / 起始携带 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；起始携带填 `starting_loadout`，引用必须存在于对应数据文件 |
 | 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
 | 改敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | 敌人标签、对象池 id、AI profile id、伤害类型必须来自词表或数据注册表 |
@@ -44,6 +45,7 @@
 | 文件 | 状态 | 作用 |
 |------|------|------|
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
+| `camera_feedback.json` | 已建立 | 摄像机表现反馈；当前含玩家有效受伤的 Phantom Camera 位移震屏参数 |
 | `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 技能 / 消耗品 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
 | `characters.json` | 已建立 | 角色列表：基础属性、tags、capabilities、控制配置、技能资源池和起始携带引用 |
 | `weapons.json` | 已建立 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
@@ -227,6 +229,38 @@ JSON 示例：
 | `base_stats.pickup_range` | float | `px`，`>= 0` | 经验 / 金币自动吸附范围 | 收集更轻松 |
 | `base_stats.pickup_orb_speed` | float | `px/s`，`> 0` | 经验球吸附到玩家的移动速度 | 经验球飞来更快，升级节奏更顺 |
 | `base_stats.luck` | float | `>= 0` | 幸运值 | 掉落、稀有度、升级 4 选 1 概率更高 |
+
+## `camera_feedback.json`
+
+当前结构：
+
+```json
+{
+  "schema_version": 1,
+  "player_damage_shake": {
+    "amplitude": 8.0,
+    "frequency": 20.0,
+    "growth_time": 0.01,
+    "duration": 0.08,
+    "decay_time": 0.12,
+    "positional_multiplier_x": 1.0,
+    "positional_multiplier_y": 1.0
+  }
+}
+```
+
+| 字段路径 | 类型 | 单位 / 范围 | 说明 | 调大后的效果 |
+|----------|------|-------------|------|--------------|
+| `schema_version` | int | 当前必须为 `1` | 数据结构版本 | 只在 schema 变更时调整 |
+| `player_damage_shake.amplitude` | float | px，`>= 0` | 有效玩家伤害的最大位移震幅 | 受击摇动更明显；过高会影响瞬时瞄准可读性 |
+| `player_damage_shake.frequency` | float | Hz，`> 0` | 噪声采样频率 | 抖动更快、更硬 |
+| `player_damage_shake.growth_time` | float | 秒，`> 0` | 从零增长到完整震幅的时间 | 起振更慢、更柔 |
+| `player_damage_shake.duration` | float | 秒，`> 0` | 保持完整震幅的时间 | 强震动持续更久 |
+| `player_damage_shake.decay_time` | float | 秒，`> 0` | 从完整震幅衰减到停止的时间 | 尾音更长 |
+| `player_damage_shake.positional_multiplier_x` | float | `0..1` | 水平位移噪声倍率 | 水平摇动更强 |
+| `player_damage_shake.positional_multiplier_y` | float | `0..1` | 垂直位移噪声倍率 | 垂直摇动更强 |
+
+只有 `Combat.damage_applied` 报告玩家伤害实际应用时才触发本配置；敌人受伤、无敌窗拦截或关闭 `gameplay.screen_shake` 都不触发。噪声 seed 走 `RNG.camera_fx`，是与 spawn / drop / combat 隔离的纯表现子流。
 
 ## 内容数据通用字段
 

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "player_damage_shake": {
+    "amplitude": 8.0,
+    "frequency": 20.0,
+    "growth_time": 0.01,
+    "duration": 0.08,
+    "decay_time": 0.12,
+    "positional_multiplier_x": 1.0,
+    "positional_multiplier_y": 1.0
+  }
+}

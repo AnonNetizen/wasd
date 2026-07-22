@@ -162,6 +162,7 @@
       "spawn",
       "drop",
       "combat",
+      "camera_fx",
       "ui_choice",
       "world",
       "meta"

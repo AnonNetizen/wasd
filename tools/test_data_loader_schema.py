@@ -835,6 +835,22 @@ def main() -> int:
                 "must be a non-empty string",
             ],
         ),
+        (
+            "camera shake amplitude must be non-negative",
+            _mutate_json("client/data/camera_feedback.json", _set_camera_feedback_value("amplitude", -1.0)),
+            [
+                "client/data/camera_feedback.json:player_damage_shake.amplitude",
+                "must be >= 0.0",
+            ],
+        ),
+        (
+            "camera shake duration must be positive",
+            _mutate_json("client/data/camera_feedback.json", _set_camera_feedback_value("duration", 0.0)),
+            [
+                "client/data/camera_feedback.json:player_damage_shake.duration",
+                "must be > 0.0",
+            ],
+        ),
     ]
 
     failures: list[str] = []
@@ -943,6 +959,13 @@ def _mutate_csv(relative_path: str, mutator: CsvMutator) -> RepoMutator:
 def _set_character_id(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["characters"][0]["id"] = value
+
+    return mutate
+
+
+def _set_camera_feedback_value(field: str, value: object) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["player_damage_shake"][field] = value
 
     return mutate
 

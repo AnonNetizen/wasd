@@ -4,6 +4,9 @@ class_name RngAutoload
 extends Node
 
 
+const RNG_STREAMS := preload("res://scripts/contracts/rng_streams.gd")
+
+
 class Stream:
 	extends RefCounted
 
@@ -67,6 +70,7 @@ const STREAM_SEED_MODULUS: int = 2_147_483_647
 var spawn: Stream = Stream.new()
 var drop: Stream = Stream.new()
 var combat: Stream = Stream.new()
+var camera_fx: Stream = Stream.new()
 var ui_choice: Stream = Stream.new()
 var world: Stream = Stream.new()
 var meta: Stream = Stream.new()
@@ -80,6 +84,7 @@ func _ready() -> void:
 		"spawn": spawn,
 		"drop": drop,
 		"combat": combat,
+		RNG_STREAMS.CAMERA_FX: camera_fx,
 		"ui_choice": ui_choice,
 		"world": world,
 		"meta": meta,

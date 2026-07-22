@@ -175,7 +175,7 @@ func _expect_settings_panel_controls() -> void:
 	_expect(vsync_check != null and not vsync_check.visible, "settings panel should hide unsupported vsync setting")
 	_expect(fire_on_release_check != null and not fire_on_release_check.visible, "settings panel should hide unsupported fire-on-release setting")
 	_expect(aim_mode_row != null and not aim_mode_row.visible, "settings panel should hide unsupported aim mode setting")
-	_expect(screen_shake_check != null and not screen_shake_check.visible, "settings panel should hide unsupported screen shake setting")
+	_expect(screen_shake_check != null and screen_shake_check.visible, "settings panel should expose wired screen shake setting")
 	_expect(pause_on_focus_loss_check != null and not pause_on_focus_loss_check.visible, "settings panel should hide unsupported focus-loss pause setting")
 	_expect(record_replays_check != null and record_replays_check.visible, "settings panel should still expose wired replay recording setting")
 	_expect(pause_binding_option != null and pause_binding_option.item_count == Settings.input_binding_options().size(), "settings panel should expose input binding options")
@@ -192,6 +192,15 @@ func _expect_settings_panel_controls() -> void:
 		await get_tree().process_frame
 		_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), 0.35), "master volume slider should write Settings")
 		_expect(master_value_label != null and String(master_value_label.text) == "35%", "master volume slider should refresh percent")
+	if screen_shake_check != null:
+		screen_shake_check.button_pressed = false
+		screen_shake_check.toggled.emit(false)
+		await get_tree().process_frame
+		_expect(not bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE)), "screen shake control should write Settings")
+		screen_shake_check.button_pressed = true
+		screen_shake_check.toggled.emit(true)
+		await get_tree().process_frame
+		_expect(bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE)), "screen shake control should restore the enabled setting")
 	if locale_option != null:
 		locale_option.select(1)
 		locale_option.item_selected.emit(1)

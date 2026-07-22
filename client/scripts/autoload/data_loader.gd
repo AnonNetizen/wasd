@@ -16,6 +16,7 @@ const CONTRACTS_PATH: String = "res://data/_contracts.json"
 const DATA_ROOT: String = "res://data/"
 const LOCALE_STRINGS_PATH: String = "res://locale/strings.csv"
 const PLAYER_DATA_PATH: String = "res://data/player.json"
+const CAMERA_FEEDBACK_PATH: String = "res://data/camera_feedback.json"
 const CHARACTERS_PATH: String = "res://data/characters.json"
 const WEAPONS_PATH: String = "res://data/weapons.json"
 const ENEMIES_PATH: String = "res://data/enemies.csv"
@@ -132,6 +133,7 @@ func validate_project_data() -> bool:
 
 	is_valid = _validate_locale_strings(locale_keys) and is_valid
 	is_valid = _validate_player_json() and is_valid
+	is_valid = _validate_camera_feedback_json() and is_valid
 	is_valid = _validate_weapons_json(locale_keys) and is_valid
 	var weapon_ids: Dictionary = _collect_weapon_ids()
 	is_valid = _validate_enemy_ai_profiles_json() and is_valid
@@ -311,6 +313,30 @@ func _validate_player_json() -> bool:
 	for stat_key: Variant in stats_dict.keys():
 		var stat: String = String(stat_key)
 		is_valid = _validate_stat_value(PLAYER_DATA_PATH, "base_stats.%s" % stat, stat, stats_dict[stat_key]) and is_valid
+	return is_valid
+
+
+func _validate_camera_feedback_json() -> bool:
+	var data: Variant = load_json(CAMERA_FEEDBACK_PATH)
+	if not data is Dictionary:
+		return _schema_fail(CAMERA_FEEDBACK_PATH, "root", "Dictionary")
+
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_int(CAMERA_FEEDBACK_PATH, "schema_version", payload.get("schema_version"), 1, 1) and is_valid
+	var shake_data: Variant = payload.get("player_damage_shake")
+	if not shake_data is Dictionary:
+		return _schema_fail(CAMERA_FEEDBACK_PATH, "player_damage_shake", "Dictionary") and is_valid
+
+	var shake: Dictionary = shake_data as Dictionary
+	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.amplitude", shake.get("amplitude"), 0.0) and is_valid
+	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.frequency", shake.get("frequency"), 0.0, null, true) and is_valid
+	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.growth_time", shake.get("growth_time"), 0.0, null, true) and is_valid
+	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.duration", shake.get("duration"), 0.0, null, true) and is_valid
+	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.decay_time", shake.get("decay_time"), 0.0, null, true) and is_valid
+	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.positional_multiplier_x", shake.get("positional_multiplier_x"), 0.0, 1.0) and is_valid
+	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.positional_multiplier_y", shake.get("positional_multiplier_y"), 0.0, 1.0) and is_valid
+	_last_schema_counts["camera_feedback_profiles"] = 1
 	return is_valid
 
 

@@ -63,9 +63,9 @@
 | `client/locale/`（即 `res://locale/`） | 本地化翻译表（CSV → `.translation`）+ `README.md` 多语言文案手册 |
 | `client/templates/`（即 `res://templates/`） | 新内容脚手架模板（enemy/relic 等） |
 | `client/assets/`（即 `res://assets/`） | 美术 / 音效 |
-| `client/addons/`（即 `res://addons/`） | 固定版本 Godot 编辑器插件；当前为 `@icons 1.4.0` 与 `Script-IDE 2.2.3`，来源、许可、本地补丁和手工升级流程见 `client/addons/README.md` |
+| `client/addons/`（即 `res://addons/`） | 固定版本 Godot 插件；当前为 `@icons 1.4.0`、`Script-IDE 2.2.3` 与运行时摄像机框架 `Phantom Camera 0.11.0.3`，来源、许可、本地补丁和手工升级流程见 `client/addons/README.md` |
 | `client/scenes/boot/main.tscn` | F1 最小启动场景，详见 `docs/代码/formal_client_boot.md` |
-| `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `GearModSystem` / `AudioManager` / `Localization` / `UIManager` |
+| `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `GearModSystem` / `AudioManager` / `Localization` / `UIManager`；另由 addon 路径稳定注册 `PhantomCameraManager` |
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口、`DamageInfo`、`StatusEffect` 与 `StatusEffectComponent` |
 | `client/scripts/gameplay/` | Gameplay 主循环、玩家 / 武器 / 技能 / 敌人 / 机关 / HUD，F13 `module_world_manager` / `module_chunk` / `module_minimap`，以及 F14 `module_navigation_field`；世界 / 导航 API 见 `docs/代码/module_world_manager.md`，Enemy 感知见 `docs/代码/enemy_ai.md` |
 | `client/scripts/ui/` | 阶段性 UI：`title_menu` / `pause_menu` / `game_over_panel` / `gear_mod_panel` |
@@ -134,6 +134,7 @@
 | **加 / 改状态效果** | 先看 `docs/代码/status_effect_component.md`；状态 id 登记 `docs/词表与契约.md` §9-A，叠加规则登记 §9-B，通过 `skill_effect_apply_status` 或未来 on-hit primitive 注入；当前 Player / Enemy / SkillSystem 自身已实现 `apply_status_effect()` 和 owned ability tag 查询，DoT 由状态组件按 `GameClock` tick 并经 `Combat.apply_damage()` 结算；新可受状态影响实体应照此接入；状态存在期间要授予 / 移除 ability tag 时引用 §12-G，不在业务脚本手动计时 |
 | **加 / 改机关** | 在 `client/data/hazards.csv` 加一行：伤害、伤害类型、触发间隔、`radius_tiles` 占格尺寸、持续时间和 `hazard_*_name` 文案；`tag_hazard`、`pool_id`、`damage_type` 必须来自词表；初始摆放改 `client/data/map_layouts.json`，普通矩形范围机关复用 `docs/代码/hazard_system.md` 的通用 `Hazard` 运行时 |
 | **改地图边界 / 矩形格 / PCG / 人工摆点** | 查 `docs/代码/map_manager.md`；地图尺寸、`grid.cell_width/cell_height`、玩家出生点、安全半径、刷怪边距、PCG 机关数量 / 间距和人工固定摆点都改 `client/data/map_layouts.json`；bounds 是轴对齐矩形，必须分别是 `grid.cell_width/cell_height` 的整数倍；玩家出生点必须在格心，出生安全区可见提示必须是贴住矩形格的矩形，机关按 `radius_tiles` 奇偶吸附到合法锚点（奇数格心、偶数网格顶点），可见和逻辑地图边界必须是同一个矩形，刷怪位置仍用 `RNG.spawn`；玩家和敌人中心移动都应保持在矩形边界内；改完跑 `validate_data`、`runtime-smoke`，机关相关追加 `f9-demo-smoke` |
+| **改玩家相机 / 受伤震屏** | 查 GDD §5.2、ADR #148 与 `docs/代码/gameplay_runtime.md`；节点 / 跟随规则改 `gameplay_camera_controller.tscn/.gd`，只调震幅、频率和时间则改 `camera_feedback.json`。保持 Phantom Camera GLUED 严格居中、等比缩放、无滚转，噪声走 `RNG.camera_fx`；改完跑 schema、`settings-smoke`、`runtime-smoke` 和 headless editor 加载 |
 | **加 / 改模块内容** | 查 `docs/代码/module_world_manager.md`、`F13-ModularGridWorld.md`、GDD §5.1 和 `client/data/README.md`；新模块从 `client/templates/module_template.json` 复制，写入 11×11 terrain、四边 socket 与已登记 primitive，先在 `module_templates.json` 登记为 `candidate`，通过 schema / 通道 / 占用 / 可达 / 安全区 / 预算校验后仍需人工改为 `approved` 才能入正式池 |
 | **改模块角色 / 地形 / 摆放 / 边缘 / 审核状态** | 先改 `docs/词表与契约.md` §15，运行 `python tools/sync_contracts.py` 生成对应 `module_*` 常量，再由 DataLoader、ModuleWorldManager 和 JSON 引用；禁止在运行时代码裸写白名单 id |
 | **改 AI 模块生产流程** | AI 只在编辑期生成 JSON candidate，不接运行时模型 / 网络生成 / 自动批准；首版人工通过 JSON 审核和修改，不做可视化编辑器。未来工具仍必须读写同一 schema，并保留人工 `approved` 门禁 |
@@ -216,7 +217,7 @@
 
 > 有限地图可见边界和逻辑边界当前都由 `MapManager.bounds()` / `boundary_points()` / `boundary_half_extents()` 定义为贴住格线的轴对齐矩形；玩家和敌人中心点由 `set_movement_bounds()` 约束。排查敌人越界时先看 `GameplayRunLoop._apply_enemy_movement_bounds()`、`Enemy.set_movement_bounds()` 与 `runtime-smoke` 的敌人边界断言。
 
-> F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射。ADR #124 后当前正式视角改回俯视角 2D：`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放，不滚转整个 2D 画面，也不压缩某个轴；鼠标瞄准会把屏幕偏移按当前 canvas transform 换算回世界方向；`Player` 仍是 `CharacterBody2D` 并按 2D 平面移动，正式玩家场景不再挂 `Player3DVisual`，默认 2D 占位按完整 `aim_direction` 绘制朝向标记。敌人占位表现仍暂时只做左 / 右两种朝向。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
+> F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射。ADR #124 后当前正式视角改回俯视角 2D；ADR #148 后 `CenteredCamera` 由 Player 子场景内的 Phantom Camera GLUED PCam 驱动，仍保持屏幕水平、玩家居中和等比缩放，不滚转、不平滑、不压缩某个轴。玩家有效受伤可按 `camera_feedback.json` 触发可关闭的位移震屏；鼠标瞄准会把屏幕偏移按当前 canvas transform 换算回世界方向。`Player` 仍是 `CharacterBody2D` 并按 2D 平面移动，正式玩家场景不再挂 `Player3DVisual`，默认 2D 占位按完整 `aim_direction` 绘制朝向标记。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
 
 ### 5.2 系统依赖图（Mermaid，AI 改动前先看影响范围）
 

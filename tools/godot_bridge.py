@@ -38,7 +38,10 @@ def main() -> int:
     subparsers.add_parser("export-tree", help="Export .tscn node trees as JSON without launching Godot.")
     subparsers.add_parser("validate-data", help="Run tools/validate_data.py.")
     subparsers.add_parser("godot-version", help="Print the configured Godot version.")
-    subparsers.add_parser("headless-boot", help="Run godot --headless --path <project> --quit.")
+    subparsers.add_parser(
+        "headless-boot",
+        help="Scan the project in a headless editor, then run a headless project boot.",
+    )
     subparsers.add_parser("l1-smoke", help="Run the F8 temporary L1 infrastructure smoke in headless Godot.")
     subparsers.add_parser("replay-smoke", help="Run the F8 replay file roundtrip smoke in headless Godot.")
     subparsers.add_parser("replay-input-smoke", help="Run the F8 replay gameplay input recording smoke in headless Godot.")
@@ -102,7 +105,18 @@ def main() -> int:
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
             return 1
-        return _run_command([str(godot), "--headless", "--path", str(project), "--quit"], cwd=project)
+        editor_result = _run_command(
+            [str(godot), "--headless", "--editor", "--path", str(project), "--quit-after", "300"],
+            cwd=project,
+            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
+        )
+        if editor_result != 0:
+            return editor_result
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--quit"],
+            cwd=project,
+            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
+        )
     if args.command == "l1-smoke":
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
@@ -448,7 +462,7 @@ def _run_startup_probe(godot: Path, project: Path) -> int:
     return 0 if status == "pass" else 1
 
 
-def _run_command(command: list[str], *, cwd: Path) -> int:
+def _run_command(command: list[str], *, cwd: Path, failure_markers: tuple[str, ...] = ()) -> int:
     completed = subprocess.run(
         command,
         cwd=cwd,
@@ -462,6 +476,10 @@ def _run_command(command: list[str], *, cwd: Path) -> int:
         print(completed.stdout, end="")
     if completed.stderr:
         print(completed.stderr, end="", file=sys.stderr)
+    combined_output = completed.stdout + completed.stderr
+    if completed.returncode == 0 and any(marker in combined_output for marker in failure_markers):
+        print("[godot-bridge] command output contained a fatal validation marker.", file=sys.stderr)
+        return 1
     return completed.returncode
 
 

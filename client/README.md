@@ -22,9 +22,9 @@
 | `templates/` | 新内容脚手架模板 |
 | `tools/` | 项目内 Godot headless smoke 脚本 |
 
-## 编辑器插件
+## Godot 插件
 
-正式项目共享启用 `@icons 1.4.0` 与 `Script-IDE 2.2.3`。两者源码固定版本入库，不自动更新；仓库内代码按项目 GDScript 规则维护，同时保留上游 MIT 许可证和版权声明。升级必须按 `client/addons/README.md` 记录发布包哈希、审查上游差异、迁移本地补丁并重新运行完整验证。
+正式项目固定版本启用 `@icons 1.4.0`、`Script-IDE 2.2.3` 与 `Phantom Camera 0.11.0.3`。三者源码入库且不自动更新；仓库内代码按项目 GDScript 规则维护，同时保留上游 MIT 许可证和版权声明。Phantom Camera 是玩法运行时依赖，其 `PhantomCameraManager` 由项目稳定注册为 autoload；升级必须按 `client/addons/README.md` 记录发布包哈希、审查上游差异、迁移本地补丁并重新运行完整验证。
 
 ## Autoload
 
@@ -48,6 +48,7 @@
 | `Localization` | `res://scripts/autoload/localization.gd` | 当前语言、语言切换与翻译入口 |
 | `UIManager` | `res://scripts/autoload/ui_manager.gd` | UI 场景栈与暂停 UI 联动 |
 | `Combat` | `res://scripts/combat/combat.gd` | 统一伤害入口，`DamageInfo` 载荷定义在 `res://scripts/combat/damage_info.gd` |
+| `PhantomCameraManager` | `res://addons/phantom_camera/scripts/managers/phantom_camera_manager.gd` | Phantom Camera host / virtual camera / noise 的运行时信号中枢 |
 
 ## 启动
 

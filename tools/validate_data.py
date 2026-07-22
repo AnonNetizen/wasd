@@ -15,6 +15,7 @@ from sync_contracts import CONTRACTS_JSON, ROOT, extract_contracts
 
 CLIENT_DATA = ROOT / "client" / "data"
 LOCALE_CSV = ROOT / "client" / "locale" / "strings.csv"
+CAMERA_FEEDBACK_JSON = ROOT / "client" / "data" / "camera_feedback.json"
 CHARACTERS_JSON = ROOT / "client" / "data" / "characters.json"
 WEAPONS_JSON = ROOT / "client" / "data" / "weapons.json"
 ENEMIES_CSV = ROOT / "client" / "data" / "enemies.csv"
@@ -75,6 +76,7 @@ def main() -> int:
     _validate_all_json(ctx)
     _validate_locale_csv(ctx)
     _validate_player_json(ctx)
+    _validate_camera_feedback(ctx)
     _validate_weapons(ctx)
     weapon_ids = _collect_weapon_ids(ctx)
     _validate_enemy_ai_profiles(ctx)
@@ -1039,6 +1041,27 @@ def _validate_consumable_use_effects(ctx: ValidationContext, path: Path, field: 
         _require_registered(ctx, path, f"{item_field}.effect", effect.get("effect"), "effects")
         if not isinstance(effect.get("params"), dict):
             ctx.error(path, f"{item_field}.params", "must be an object")
+
+
+def _validate_camera_feedback(ctx: ValidationContext) -> None:
+    path = CAMERA_FEEDBACK_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    if isinstance(schema_version, int) and schema_version != 1:
+        ctx.error(path, "schema_version", "must equal 1")
+    shake = data.get("player_damage_shake")
+    if not isinstance(shake, dict):
+        ctx.error(path, "player_damage_shake", "must be an object")
+        return
+    _require_number(ctx, path, "player_damage_shake.amplitude", shake.get("amplitude"), minimum=0.0)
+    _require_number(ctx, path, "player_damage_shake.frequency", shake.get("frequency"), minimum=0.0, exclusive_minimum=True)
+    _require_number(ctx, path, "player_damage_shake.growth_time", shake.get("growth_time"), minimum=0.0, exclusive_minimum=True)
+    _require_number(ctx, path, "player_damage_shake.duration", shake.get("duration"), minimum=0.0, exclusive_minimum=True)
+    _require_number(ctx, path, "player_damage_shake.decay_time", shake.get("decay_time"), minimum=0.0, exclusive_minimum=True)
+    _require_number(ctx, path, "player_damage_shake.positional_multiplier_x", shake.get("positional_multiplier_x"), minimum=0.0, maximum=1.0)
+    _require_number(ctx, path, "player_damage_shake.positional_multiplier_y", shake.get("positional_multiplier_y"), minimum=0.0, maximum=1.0)
 
 
 def _validate_credits(ctx: ValidationContext) -> None:

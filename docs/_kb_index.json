@@ -174,16 +174,16 @@
     {
       "path": "docs/游戏设计文档.md",
       "type": "authority",
-      "authority": "Gameplay, systems, long-term design, GDD v1.23; Gear Mod loadout progression, top-down 2D presentation, 9x9 modular grid world, bounded F14 flow field, quantized rectangular map grid, and top-down asset readability rules",
+      "authority": "Gameplay, systems, long-term design, GDD v1.24; Gear Mod loadout progression, top-down 2D presentation, Phantom Camera player follow and damage shake, 9x9 modular grid world, bounded F14 flow field, quantized rectangular map grid, and top-down asset readability rules",
       "status": "active",
       "owner_scope": "design",
-      "last_reviewed": "2026-07-21",
+      "last_reviewed": "2026-07-22",
       "canonical_for": ["game_design", "system_design", "gameplay_behavior"],
       "must_read_for": ["gameplay_change", "system_design_change", "new_content_type"],
       "related_docs": ["docs/IP设定.md", "docs/IP美术风格.md", "docs/决策记录.md", "docs/AI导航.md", "docs/词表与契约.md", "docs/测试策略.md"],
       "related_code": ["client/"],
       "update_triggers": ["gameplay behavior change", "system design change", "new infrastructure decision"],
-      "keywords": ["GDD", "design", "玩法", "系统", "俯视角", "top-down", "ADR #142", "ADR #145", "ADR #146", "F14", "F14.1", "模块大地图", "9x9 modules", "11x11 cells", "ModuleWorldManager", "ModuleNavigationField", "bounded shared flow field", "289 cells", "hybrid perception", "module_worlds.json", "module_templates.json", "run v4", "module fog", "streaming chunks", "AI editor-time JSON", "approved templates", "量化矩形地图格", "rectangular map grid", "footprint", "short loot runs", "8-12分钟", "默认无升级三选一", "Gear Mod", "SaveManager", "续局", "RNG.world", "数值配置", "本地化", "StatusEffect"]
+      "keywords": ["GDD", "design", "玩法", "系统", "俯视角", "top-down", "ADR #142", "ADR #145", "ADR #146", "ADR #148", "Phantom Camera", "camera shake", "screen shake", "camera_feedback.json", "RNG.camera_fx", "F14", "F14.1", "模块大地图", "9x9 modules", "11x11 cells", "ModuleWorldManager", "ModuleNavigationField", "bounded shared flow field", "289 cells", "hybrid perception", "module_worlds.json", "module_templates.json", "run v4", "module fog", "streaming chunks", "AI editor-time JSON", "approved templates", "量化矩形地图格", "rectangular map grid", "footprint", "short loot runs", "8-12分钟", "默认无升级三选一", "Gear Mod", "SaveManager", "续局", "RNG.world", "数值配置", "本地化", "StatusEffect"]
     },
     {
       "path": "docs/决策记录.md",

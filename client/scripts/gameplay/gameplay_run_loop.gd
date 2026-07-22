@@ -59,6 +59,7 @@ const DEFAULT_DEBUG_GROWTH_POOL: String = "default_level_up"
 const NAVIGATION_FLOW_OBSTACLE_BUFFER_CELLS: int = 2
 
 var _active_world: Node2D = null
+var _camera_controller: Node2D = null
 var _current_level: int = 1
 var _current_xp: int = 0
 var _enemy_rows: Dictionary = {}
@@ -310,6 +311,12 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	var map_player_start: Vector2 = _map_manager.call("player_start")
 	_player.global_position = map_player_start
 	_apply_player_movement_bounds()
+	_camera_controller = _player.get_node_or_null("GameplayCameraController") as Node2D
+	if _camera_controller == null:
+		push_error("[GameplayRunLoop] missing GameplayCameraController scene node")
+		return
+	var camera_feedback: Dictionary = DataLoader.load_json(DataLoader.CAMERA_FEEDBACK_PATH)
+	_camera_controller.call("configure", _player, camera_feedback)
 	_player.connect("life_changed", Callable(self, "_on_player_life_changed"))
 	_player.connect("died", Callable(self, "_on_player_died"), CONNECT_ONE_SHOT)
 
@@ -1571,6 +1578,8 @@ func _on_combat_damage_applied(target: Node, _info: RefCounted, result: Dictiona
 	var amount: float = float(result.get("amount", 0.0))
 	var defeated: bool = bool(result.get("defeated", false))
 	var player_damage: bool = target == _player
+	if player_damage and _camera_controller != null:
+		_camera_controller.call("play_player_damage_shake")
 	_spawn_hit_spark(target_2d.global_position)
 	_spawn_damage_number(target_2d.global_position + Vector2.UP * 18.0, amount, defeated, player_damage)
 

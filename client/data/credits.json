@@ -75,6 +75,17 @@
           "included_in_build": true,
           "requires_notice": true,
           "review_required": false
+        },
+        {
+          "kind": "external_library",
+          "name": "Phantom Camera",
+          "role_key": "ui_credits_usage_gameplay_camera",
+          "url": "https://github.com/ramokz/phantom-camera",
+          "license": "MIT",
+          "copyright": "Copyright (c) 2022 Marcus Skov",
+          "included_in_build": true,
+          "requires_notice": true,
+          "review_required": false
         }
       ]
     },

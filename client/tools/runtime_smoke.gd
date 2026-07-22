@@ -10,6 +10,7 @@ const GEAR_MOD_RESOURCES := preload("res://scripts/contracts/gear_mod_resources.
 const PLAYER_SCENE := preload("res://scenes/gameplay/player.tscn")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
+const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 const AIM_FRAMES: int = 4
@@ -21,6 +22,7 @@ const PICKUP_FEEDBACK_FRAMES: int = 40
 const SPAWN_FRAMES: int = 10
 
 var _failures: Array[String] = []
+var _original_screen_shake: bool = true
 
 
 func _ready() -> void:
@@ -31,6 +33,8 @@ func _ready() -> void:
 func _run() -> void:
 	RNG.set_run_seed(4242)
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
+	_original_screen_shake = bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true))
+	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true)
 
 	var run_loop: Node = null
 	for _index: int in range(BOOT_FRAMES):
@@ -68,11 +72,25 @@ func _run() -> void:
 	await _expect_stats_panel_hold_to_show(run_loop)
 
 	var camera: Camera2D = _find_node_by_name(player, "CenteredCamera") as Camera2D
+	var camera_controller: Node = _find_node_by_name(player, "GameplayCameraController")
+	var camera_host: Node = _find_node_by_name(player, "PhantomCameraHost")
+	var player_camera: Node2D = _find_node_by_name(player, "PlayerCamera") as Node2D
 	_expect(camera != null and camera.enabled, "CenteredCamera should be enabled")
+	_expect(camera_controller != null, "Player should own the gameplay camera controller")
+	_expect(camera_host != null, "CenteredCamera should own a PhantomCameraHost")
+	_expect(player_camera != null, "gameplay camera controller should own a PlayerCamera PhantomCamera2D")
+	_expect(Engine.has_singleton("PhantomCameraManager"), "PhantomCameraManager should be registered as the stable project autoload")
+	_expect(is_equal_approx(Engine.physics_jitter_fix, 0.5), "formal client should keep the Godot default physics jitter fix")
 	if camera != null:
 		_expect(camera.ignore_rotation, "CenteredCamera should keep the screen horizon level")
 		_expect(absf(camera.rotation_degrees) < 0.01, "CenteredCamera should not roll the viewport")
 		_expect(is_equal_approx(camera.zoom.x, camera.zoom.y), "CenteredCamera should keep uniform zoom so screen-space movement matches 2D math")
+		_expect(get_viewport().get_camera_2d() == camera, "CenteredCamera should be the active viewport camera")
+	if camera_host != null and player_camera != null:
+		_expect(camera_host.call("get_active_pcam") == player_camera, "PhantomCameraHost should select PlayerCamera")
+		_expect(int(player_camera.get("follow_mode")) == 1, "PlayerCamera should use GLUED follow mode")
+		_expect(player_camera.get("follow_target") == player, "PlayerCamera should follow the active Player")
+		_expect(player_camera.get("zoom") == Vector2.ONE, "PlayerCamera should keep the established 1:1 zoom")
 	_expect_camera_preserves_screen_axis_scale(player)
 	_expect(_find_node_by_name(player, "Camera3D") == null, "Player should not rely on an internal Camera3D for the formal top-down view")
 	await _expect_mouse_aim_uses_canvas_transform(player)
@@ -102,6 +120,10 @@ func _run() -> void:
 		await get_tree().physics_frame
 	Input.action_release(ACTIONS.MOVE_RIGHT)
 	_expect(player.global_position.x > start_position.x + 1.0, "WASD movement should move the player")
+	for _index: int in range(2):
+		await get_tree().physics_frame
+	if camera != null:
+		_expect(camera.global_position.distance_to(player.global_position) < 0.5, "Phantom Camera should track player movement without damping")
 
 	var before_aim_position: Vector2 = player.global_position
 	Input.action_press(ACTIONS.AIM_UP)
@@ -180,6 +202,13 @@ func _run() -> void:
 		run_loop = restored_run_loop_value
 	if restored_player_value != null:
 		player = restored_player_value
+	camera = _find_node_by_name(player, "CenteredCamera") as Camera2D
+	camera_controller = _find_node_by_name(player, "GameplayCameraController")
+	camera_host = _find_node_by_name(player, "PhantomCameraHost")
+	player_camera = _find_node_by_name(player, "PlayerCamera") as Node2D
+	_expect(camera != null and camera.enabled, "restored run should reactivate CenteredCamera")
+	_expect(camera_controller != null, "restored run should recreate the gameplay camera controller")
+	_expect(camera_host != null and camera_host.call("get_active_pcam") == player_camera, "restored run should reactivate PlayerCamera")
 
 	Input.action_press(ACTIONS.FIRE)
 	for _index: int in range(SPAWN_FRAMES):
@@ -195,6 +224,8 @@ func _run() -> void:
 	var enemy: Node = _first_enemy_with_name_prefix(POOL_IDS.ENEMY_CHASER)
 	_expect(enemy != null, "at least one chaser enemy should be in active_enemies")
 	var inventory_before_forced_drop: int = _gear_mod_inventory_count()
+	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, false)
+	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true)
 	if enemy != null:
 		if run_loop.has_method("debug_force_next_gear_mod_drop_roll"):
 			run_loop.call("debug_force_next_gear_mod_drop_roll", 0.0)
@@ -209,6 +240,10 @@ func _run() -> void:
 		var enemy_result: Dictionary = Combat.apply_damage(enemy, enemy_info)
 		_expect(bool(enemy_result.get("applied", false)), "Combat should apply enemy damage")
 		_expect(bool(enemy_result.get("defeated", false)), "Combat should defeat the smoke enemy")
+		_expect(
+			camera_controller != null and not bool(camera_controller.call("is_player_damage_shake_emitting")),
+			"enemy damage should not trigger player camera shake"
+		)
 		_expect(enemy.has_method("is_defeat_feedback_active") and bool(enemy.call("is_defeat_feedback_active")), "defeated enemies should show defeat feedback before pooling")
 		_expect(not enemy.is_in_group("active_enemies"), "defeated enemies should leave the live enemy group during feedback")
 		_expect(_pool_stat(POOL_IDS.HIT_SPARK, "acquired") > 0, "enemy damage should acquire hit spark feedback")
@@ -225,10 +260,51 @@ func _run() -> void:
 			"enemy Gear Mod drops should stay in pending loot before extraction"
 		)
 
-	await _wait_player_vulnerability(player)
 	var smoke_player_damage_source: Node = Node.new()
 	smoke_player_damage_source.name = "SmokePlayerDamageSource"
 	run_loop.add_child(smoke_player_damage_source)
+	player.call("debug_heal", float(player.call("max_life")))
+	await _wait_player_vulnerability(player)
+	var feedback_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		1.0,
+		DAMAGE_TYPES.PHYSICAL,
+		smoke_player_damage_source,
+		player,
+		"team_enemy",
+		"team_player"
+	)
+	var feedback_result: Dictionary = Combat.apply_damage(player, feedback_info)
+	_expect(bool(feedback_result.get("applied", false)), "effective player damage should apply before camera feedback checks")
+	_expect(
+		camera_controller != null and bool(camera_controller.call("is_player_damage_shake_emitting")),
+		"effective player damage should trigger camera shake"
+	)
+	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, false)
+	_expect(
+		camera_controller != null and not bool(camera_controller.call("is_player_damage_shake_emitting")),
+		"disabling screen shake should stop an active emission immediately"
+	)
+	if camera != null:
+		_expect(camera.offset == Vector2.ZERO, "disabling screen shake should reset the camera offset")
+	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true)
+	var blocked_feedback_result: Dictionary = Combat.apply_damage(player, feedback_info)
+	_expect(not bool(blocked_feedback_result.get("applied", true)), "invulnerability should block the camera feedback damage fixture")
+	_expect(
+		camera_controller != null and not bool(camera_controller.call("is_player_damage_shake_emitting")),
+		"blocked player damage should not trigger camera shake"
+	)
+
+	await _wait_player_vulnerability(player)
+	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, false)
+	var disabled_feedback_result: Dictionary = Combat.apply_damage(player, feedback_info)
+	_expect(bool(disabled_feedback_result.get("applied", false)), "player damage should still apply while screen shake is disabled")
+	_expect(
+		camera_controller != null and not bool(camera_controller.call("is_player_damage_shake_emitting")),
+		"disabled screen shake should suppress effective player damage feedback"
+	)
+	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true)
+	player.call("debug_heal", float(player.call("max_life")))
+	await _wait_player_vulnerability(player)
 	var player_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 		float(player.call("max_life")),
 		DAMAGE_TYPES.PHYSICAL,
@@ -240,6 +316,10 @@ func _run() -> void:
 	var player_result: Dictionary = Combat.apply_damage(player, player_info)
 	_expect(bool(player_result.get("applied", false)), "Combat should apply player damage")
 	_expect(bool(player_result.get("defeated", false)), "Combat should defeat the player")
+	_expect(
+		camera_controller != null and bool(camera_controller.call("is_player_damage_shake_emitting")),
+		"fatal player damage should still trigger camera shake"
+	)
 	_expect(GameState.is_state(GameState.GAME_OVER), "player death should enter GAME_OVER")
 	var game_over_panel: Node = _find_node_by_name(get_tree().root, "GameOverPanel")
 	_expect(game_over_panel != null, "player death should show game-over panel")
@@ -2114,6 +2194,7 @@ func _finish() -> void:
 	Input.action_release(ACTIONS.MOVE_RIGHT)
 	Input.action_release(ACTIONS.AIM_UP)
 	Input.action_release(ACTIONS.SHOW_STATS_PANEL)
+	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, _original_screen_shake)
 	if _failures.is_empty():
 		print("[RuntimeSmoke] passed; time=%.2f bullets_acquired=%d enemies_acquired=%d state=%s" % [
 			GameClock.now(),

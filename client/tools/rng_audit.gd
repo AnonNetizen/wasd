@@ -5,10 +5,12 @@ const SAMPLE_COUNT: int = 10_000
 const ROLLS_PER_STREAM: int = 4
 const FIRST_RUN_SEED: int = 1
 const MAX_ABS_CORRELATION: float = 0.06
+const RNG_STREAMS := preload("res://scripts/contracts/rng_streams.gd")
 const STREAM_IDS: Array[String] = [
 	"spawn",
 	"drop",
 	"combat",
+	RNG_STREAMS.CAMERA_FX,
 	"ui_choice",
 	"world",
 	"meta",

@@ -8,7 +8,7 @@
 - `Settings` 负责维护正式客户端运行时设置的默认值、读取、修改和变更广播。
 - 设置 key 必须来自 `docs/词表与契约.md`，并通过 `client/scripts/contracts/settings_keys.gd` 与 `DataLoader` 的 `_contracts.json` 校验。
 - F7 首片已接入 `user://settings.cfg` 持久化、类型 / 范围校验、损坏配置回退和 `settings-smoke` 自动验证。
-- F7 第二片已接入正式 `SettingsPanel`，标题菜单和暂停菜单都能打开同一设置面板；面板只通过 `Settings.set_value()` 写入，不直接维护偏好副本。当前玩家面板只显示已接线生效的设置：语言、音量、回放记录开关、匿名分析开关和基础输入绑定；`video.*`、松开瞄准停火、瞄准模式、屏幕震动和失焦暂停等未接线设置 key 暂时保留但不显示。F9 起默认 `gameplay.aim_mode` 为 `mouse`；当前运行时实际采用鼠标相对玩家 / 视口中心方向瞄准，方向键 / 手柄右摇杆 / D-pad 作为兜底输入。F7 运行时语言刷新已覆盖标题、暂停、设置、HUD、升级、结算和局外成长面板。F7 输入重绑定首片已接入键盘主绑定：`Settings` 保存 `input.*` key，并在加载 / 修改 / 重置时把键盘事件写入对应 `InputMap` action；运行时手柄轴 / 按钮事件仍保留在同一 action 上。F7 收尾 polish 已给设置面板补输入绑定反馈、共用键位提示和一键恢复输入默认。
+- F7 第二片已接入正式 `SettingsPanel`，标题菜单和暂停菜单都能打开同一设置面板；面板只通过 `Settings.set_value()` 写入，不直接维护偏好副本。ADR #148 后 `gameplay.screen_shake` 已接线并显示：`GameplayCameraController` 监听 `setting_changed`，关闭时立即停止当前 Phantom Camera noise、归零 Camera2D offset 并抑制后续玩家受伤震屏。其他未接线的 `video.*`、松开瞄准停火、瞄准模式和失焦暂停 key 暂时保留但不显示。F9 起默认 `gameplay.aim_mode` 为 `mouse`；当前运行时实际采用鼠标相对玩家 / 视口中心方向瞄准，方向键 / 手柄右摇杆 / D-pad 作为兜底输入。F7 运行时语言刷新已覆盖标题、暂停、设置、HUD、升级、结算和局外成长面板。F7 输入重绑定首片已接入键盘主绑定：`Settings` 保存 `input.*` key，并在加载 / 修改 / 重置时把键盘事件写入对应 `InputMap` action；运行时手柄轴 / 按钮事件仍保留在同一 action 上。F7 收尾 polish 已给设置面板补输入绑定反馈、共用键位提示和一键恢复输入默认。
 - `Settings` 不负责玩家进度存档；局外成长与局内续局属于 `SaveManager`。
 
 ## 阅读方式
@@ -48,8 +48,8 @@ SettingsPanel (CanvasLayer)
             └── Layout
                 ├── LocaleOption
                 ├── MasterVolumeSlider / MusicVolumeSlider / SfxVolumeSlider
-                ├── RecordReplaysCheck
-                ├── 隐藏占位：FullscreenCheck / VsyncCheck / FireOnReleaseCheck / AimModeOption / ScreenShakeCheck / PauseOnFocusLossCheck
+                ├── ScreenShakeCheck / RecordReplaysCheck
+                ├── 隐藏占位：FullscreenCheck / VsyncCheck / FireOnReleaseCheck / AimModeOption / PauseOnFocusLossCheck
                 ├── InputFeedbackLabel
                 ├── InputBindingsGrid（移动 / 瞄准 / 主动道具 / 交互 / 详细数值面板 / 暂停 / 确认 / 返回）
                 ├── ResetInputBindingsButton
@@ -63,10 +63,10 @@ SettingsPanel (CanvasLayer)
 |------|----------|-------------------|
 | 启动 | `_ready()` 先写入默认值并应用输入绑定，再尝试加载 `user://settings.cfg`；无配置时保留默认值，损坏或不支持版本时回退默认、应用输入绑定并重写干净配置 | `reset_to_defaults(false)` / `load_from_disk()` / `InputMap` |
 | 读取 | 调用方用已登记 key 读取当前值 | `get_value()` |
-| 修改 | key 通过契约、类型和范围校验后写入、广播并保存到磁盘；`input.*` 变更会先替换对应 action 的键盘事件，保留手柄按钮 / 轴事件 | `set_value()` / `setting_changed` / `save_to_disk()` / `InputMap.action_add_event()` |
+| 修改 | key 通过契约、类型和范围校验后写入、广播并保存到磁盘；`input.*` 变更会先替换对应 action 的键盘事件，`gameplay.screen_shake=false` 会让 camera controller 立即停止且清理震屏 | `set_value()` / `setting_changed` / `save_to_disk()` / `InputMap.action_add_event()` |
 | 面板 | `SettingsPanel` 初始化时读取当前值；控件变化后调用 `Settings.set_value()`；语言切换后刷新面板已有 label / option / feedback 文案；输入绑定变更后显示保存或共用提示；离树时断开语言订阅 | `SettingsPanel.refresh()` / `Localization.locale_changed` |
 | 重置 | 恢复全部默认值，或只恢复输入绑定默认值；调用方可选择是否立即持久化 | `reset_to_defaults(persist)` / `reset_input_bindings_to_defaults(persist)` |
-| smoke | 备份现有 `settings.cfg`，验证缺文件默认值、有效设置 roundtrip、非法值拒绝、坏值 / 坏文件回退、设置面板控件、标题 / 暂停入口，以及核心 UI 既有实例语言刷新，然后恢复原文件 | `settings-smoke` |
+| smoke | 备份现有 `settings.cfg`，验证缺文件默认值、有效设置 roundtrip、非法值拒绝、坏值 / 坏文件回退、设置面板控件、可见震屏开关写入、标题 / 暂停入口，以及核心 UI 既有实例语言刷新，然后恢复原文件 | `settings-smoke` |
 
 ## 公共 API
 

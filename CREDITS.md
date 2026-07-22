@@ -24,12 +24,13 @@ This project keeps two credits records in sync:
 
 ## Development Tools
 
-These editor plugins are vendored under `client/addons/` as project-maintained forks. Their upstream copyright and MIT license files remain part of the source tree; the current credits data conservatively treats them as included in distributable project resources.
+These Godot plugins are vendored under `client/addons/` as project-maintained forks. Their upstream copyright and MIT license files remain part of the source tree; the current credits data treats them as included in distributable project resources.
 
 | Name | Usage | License | Notice |
 |------|-------|---------|--------|
 | [@icons](https://github.com/Voxybuns/at-icons) | Godot editor icon browser and icon resource library | MIT | Keep `client/addons/at-icons/LICENSE.txt` with redistributed source or resources. |
 | [Script-IDE](https://github.com/Maran23/script-ide) | Godot script editor tabs, outline and quick-open workflow | MIT | Keep `client/addons/script-ide/LICENSE` with redistributed source or resources. |
+| [Phantom Camera](https://github.com/ramokz/phantom-camera) | Godot runtime camera framework and player-damage screen shake | MIT | Keep `client/addons/phantom_camera/LICENSE` with redistributed source or resources. |
 
 ## External Workflow References
 
