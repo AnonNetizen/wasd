@@ -23,6 +23,8 @@
 | GameClock | `docs/代码/game_clock.md` | `client/scripts/autoload/game_clock.gd` | F2 第一片已建立 |
 | PlatformServices | `docs/代码/platform_services.md` | `client/scripts/autoload/platform_services.gd` | Steam 优先的平台服务接口首片已建立 |
 | Settings | `docs/代码/settings.md` | `client/scripts/autoload/settings.gd` | F2 第二片已建立 |
+| GUIDE | `docs/代码/guide.md` | `client/addons/guide/` | ADR #151 固定 0.14.0 维护型 fork；物理输入 / remapping / prompt 引擎 |
+| InputService | `docs/代码/input_service.md` | `client/scripts/autoload/input_service.gd`、`client/resources/input/` | ADR #151 项目唯一输入业务边界；Vector2 intent、context、绑定与回放适配 |
 | Analytics | `docs/代码/analytics.md` | `client/scripts/autoload/analytics.gd` | F2 第三片已建立 |
 | Replay | `docs/代码/replay.md` | `client/scripts/autoload/replay.gd` | F2 第四片已建立 |
 | PoolManager | `docs/代码/pool_manager.md` | `client/scripts/autoload/pool_manager.gd` | F2 第五片已建立 |

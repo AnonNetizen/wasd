@@ -25,10 +25,13 @@ ui_settings_input_move_up,上移,Move Up
 ui_settings_input_move_down,下移,Move Down
 ui_settings_input_move_left,左移,Move Left
 ui_settings_input_move_right,右移,Move Right
+ui_settings_input_move_stick,移动摇杆,Move Stick
 ui_settings_input_aim_up,向上瞄准,Aim Up
 ui_settings_input_aim_down,向下瞄准,Aim Down
 ui_settings_input_aim_left,向左瞄准,Aim Left
 ui_settings_input_aim_right,向右瞄准,Aim Right
+ui_settings_input_aim_stick,瞄准摇杆,Aim Stick
+ui_settings_input_fire,开火,Fire
 ui_settings_input_use_active_item,主动道具,Active Item
 ui_settings_input_interact,交互,Interact
 ui_settings_input_show_stats_panel,详细数值面板,Details Panel
@@ -36,10 +39,18 @@ ui_settings_input_pause,暂停,Pause
 ui_settings_input_ui_confirm,确认,Confirm
 ui_settings_input_ui_back,返回,Back
 ui_settings_input_restore_defaults,恢复默认输入,Restore Input Defaults
-ui_settings_input_feedback_ready,选择键位以调整键盘主绑定。,Choose a key to adjust the primary keyboard binding.
+ui_settings_input_keyboard,键鼠,K&M
+ui_settings_input_gamepad,手柄,Pad
+ui_settings_input_unbound,未绑定,Unbound
+ui_settings_input_feedback_ready,选择键鼠或手柄绑定开始捕获。,Choose a keyboard/mouse or gamepad binding to start capture.
+ui_settings_input_feedback_capturing,等待输入；按 Esc 或手柄 B / Start 取消。,Waiting for input; press Esc or gamepad B / Start to cancel.
 ui_settings_input_feedback_saved,{action} 已绑定为 {binding}。,{action} bound to {binding}.
 ui_settings_input_feedback_shared,{action} 已绑定为 {binding}，并与 {other} 共用。,{action} bound to {binding}; shared with {other}.
+ui_settings_input_feedback_cancelled,未修改输入绑定。,Input binding unchanged.
 ui_settings_input_feedback_restored,输入绑定已恢复默认。,Input bindings restored to defaults.
+ui_settings_input_conflict_title,输入冲突,Input Conflict
+ui_settings_input_conflict_body,{action} 与 {other} 在当前输入环境中冲突。要替换原绑定吗？,{action} conflicts with {other} in the active input context. Replace the existing binding?
+ui_settings_input_conflict_replace,替换,Replace
 ui_settings_privacy,隐私,Privacy
 ui_settings_analytics_enabled,允许匿名分析,Allow Anonymous Analytics
 ui_title_name,WASD,WASD
@@ -168,6 +179,9 @@ ui_credits_usage_steam_integration,Steamworks Lab 联机集成,Steamworks Lab in
 ui_credits_usage_editor_icons,Godot 编辑器图标浏览与图标资源库,Godot editor icon browser and icon resource library
 ui_credits_usage_editor_ide,Godot 脚本编辑器标签、代码大纲与快速打开工作流,Godot script editor tabs, outline, and quick-open workflow
 ui_credits_usage_gameplay_camera,Godot 运行时摄像机框架与玩家受伤震屏,Godot runtime camera framework and player-damage screen shake
+ui_credits_usage_input_framework,Godot 运行时输入映射、上下文、重绑定与提示渲染,Godot runtime input mapping, contexts, remapping, and prompt rendering
+ui_credits_usage_input_prompts,G.U.I.D.E 随附的键盘与手柄提示图标,Keyboard and controller prompt artwork bundled with G.U.I.D.E
+ui_credits_usage_input_prompt_font,G.U.I.D.E 键盘提示字体,Keyboard prompt font bundled with G.U.I.D.E
 ui_credits_usage_ai_reference,项目级 AI skill / 工作流参考,Project AI skill and workflow reference
 ui_credits_usage_code_style_reference,代码风格参考,Code style reference
 ui_mode_standard_survival_name,标准生存,Standard Survival

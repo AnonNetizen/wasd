@@ -8,6 +8,7 @@
 
 1. 先读 `AGENTS.md`，按其中“快速开工 5 步”继续；日常接手优先读 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`，完整 `docs/AI记忆/项目记忆.md` 按任务需要再读。
 2. 强制编码规则优先读 `.codex/rules/game-coding-rules.md`。
+   - 修改正式输入、重绑定或回放输入时，先读 `docs/代码/input_service.md`；维护 GUIDE 内部时再读 `docs/代码/guide.md`、`client/addons/README.md` 与 ADR #151。
 3. 面向用户的回复默认中文；仅在用户明确要求或引用代码 / API / 日志原文等特殊场景使用其他语言。
 4. 用户问有没有问题 / 风险时，基于事实回答；没发现问题就明确说没有问题，不硬找问题或过度优化。
 5. 用户提出新需求后，先简短反馈落地前景、性价比、复杂度和主要风险；有重大隐患时先说清楚，再决定是否实现。

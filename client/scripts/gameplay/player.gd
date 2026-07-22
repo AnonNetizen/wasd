@@ -20,18 +20,8 @@ const PLACEHOLDER_HURT_COLOR: Color = Color(1.0, 0.34, 0.30)
 const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
 const PLACEHOLDER_OUTLINE_SCALE: float = 1.18
 const ACTIVE_PLAYER_GROUP: String = "active_player"
-const REPLAY_PARTICIPANT_ID: String = "player_0"
+const INPUT_PARTICIPANT_ID: String = "player_0"
 const TEAM_PLAYER: String = "team_player"
-const REPLAY_STATE_ACTIONS: Array[String] = [
-	ACTIONS.MOVE_LEFT,
-	ACTIONS.MOVE_RIGHT,
-	ACTIONS.MOVE_UP,
-	ACTIONS.MOVE_DOWN,
-	ACTIONS.AIM_LEFT,
-	ACTIONS.AIM_RIGHT,
-	ACTIONS.AIM_UP,
-	ACTIONS.AIM_DOWN,
-]
 
 var aim_direction: Vector2 = Vector2.RIGHT
 var _base_stats: Dictionary = {}
@@ -45,13 +35,10 @@ var _movement_bounds: Rect2 = Rect2()
 var _move_speed: float = 0.0
 var _max_life: float = 1.0
 var _life_points: float = 1.0
-var _mouse_aim_active: bool = false
-var _mouse_aim_viewport_offset: Vector2 = Vector2.ZERO
 var _owned_tag_counts: Dictionary = {}
 var _pickup_orb_speed: float = 0.0
 var _pickup_range: float = 0.0
 var _separation_radius: float = 0.0
-var _replay_action_pressed: Dictionary = {}
 var _stat_additions: Dictionary = {}
 var _stat_multipliers: Dictionary = {}
 var _status_effect_component: Node = null
@@ -62,22 +49,7 @@ func _ready() -> void:
 	queue_redraw()
 
 
-func _input(event: InputEvent) -> void:
-	var mouse_motion: InputEventMouseMotion = event as InputEventMouseMotion
-	if mouse_motion != null and GameState.is_state(GameState.PLAYING):
-		_mouse_aim_active = true
-		_set_mouse_aim_from_viewport_position(mouse_motion.position)
-		return
-
-	var mouse_button: InputEventMouseButton = event as InputEventMouseButton
-	if mouse_button != null and GameState.is_state(GameState.PLAYING):
-		_mouse_aim_active = true
-		_set_mouse_aim_from_viewport_position(mouse_button.position)
-
-
 func _physics_process(delta: float) -> void:
-	_record_replay_action_states()
-
 	if not GameState.is_state(GameState.PLAYING):
 		velocity = Vector2.ZERO
 		return
@@ -91,22 +63,13 @@ func _physics_process(delta: float) -> void:
 	_update_hit_flash(scaled_delta)
 	_update_health_regen(scaled_delta)
 
-	var move_input: Vector2 = Input.get_vector(
-		ACTIONS.MOVE_LEFT,
-		ACTIONS.MOVE_RIGHT,
-		ACTIONS.MOVE_UP,
-		ACTIONS.MOVE_DOWN
-	)
-	var aim_input: Vector2 = Input.get_vector(
-		ACTIONS.AIM_LEFT,
-		ACTIONS.AIM_RIGHT,
-		ACTIONS.AIM_UP,
-		ACTIONS.AIM_DOWN
-	)
+	var move_input: Vector2 = InputService.vector(ACTIONS.MOVE, INPUT_PARTICIPANT_ID)
+	var aim_input: Vector2 = InputService.vector(ACTIONS.AIM, INPUT_PARTICIPANT_ID)
 	if aim_input.length_squared() > 0.0:
 		_set_aim_direction(aim_input)
-	elif _mouse_aim_active:
-		_set_mouse_aim_from_viewport_position(get_viewport().get_mouse_position())
+	elif InputService.should_use_pointer_aim():
+		_set_pointer_aim_from_viewport_position(InputService.pointer_viewport_position())
+	InputService.publish_resolved_aim(aim_direction)
 
 	velocity = move_input * _move_speed
 	move_and_slide()
@@ -115,14 +78,11 @@ func _physics_process(delta: float) -> void:
 
 func configure(base_stats: Dictionary) -> void:
 	_base_stats = base_stats.duplicate(true)
-	_replay_action_pressed.clear()
 	_stat_additions.clear()
 	_stat_multipliers.clear()
 	_clear_status_effects_for_reuse()
 	_has_movement_bounds = false
 	_invulnerable_remaining = 0.0
-	_mouse_aim_active = false
-	_mouse_aim_viewport_offset = Vector2.ZERO
 	_rebuild_stats(true)
 	add_to_group(ACTIVE_PLAYER_GROUP)
 
@@ -201,8 +161,6 @@ func stat_value(stat: String) -> float:
 func aim_at_world_position(world_position: Vector2) -> void:
 	var mouse_direction: Vector2 = world_position - global_position
 	if mouse_direction.length_squared() > MOUSE_AIM_MIN_DISTANCE_SQUARED:
-		_mouse_aim_active = false
-		_mouse_aim_viewport_offset = Vector2.ZERO
 		_set_aim_direction(mouse_direction)
 
 
@@ -278,13 +236,10 @@ func snapshot() -> Dictionary:
 
 
 func restore_snapshot(snapshot_data: Dictionary) -> void:
-	_replay_action_pressed.clear()
 	_ensure_status_effect_component()
 	if _status_effect_component != null:
 		_status_effect_component.call("clear", false)
 	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
-	_mouse_aim_active = false
-	_mouse_aim_viewport_offset = Vector2.ZERO
 	_set_aim_direction(_dict_to_vector(snapshot_data.get("aim_direction", {}), aim_direction))
 	_stat_additions = _dictionary_or_empty(snapshot_data.get("stat_additions", {}))
 	_stat_multipliers = _dictionary_or_empty(snapshot_data.get("stat_multipliers", {}))
@@ -363,20 +318,6 @@ func _update_invulnerability(delta: float) -> void:
 	_invulnerable_remaining = maxf(_invulnerable_remaining - delta, 0.0)
 
 
-func _record_replay_action_states() -> void:
-	if not Replay.is_recording():
-		return
-
-	for action_name: String in REPLAY_STATE_ACTIONS:
-		var strength: float = Input.get_action_strength(action_name)
-		var pressed: bool = strength > 0.0
-		var was_pressed: bool = bool(_replay_action_pressed.get(action_name, false))
-		if pressed == was_pressed:
-			continue
-		_replay_action_pressed[action_name] = pressed
-		Replay.record_input_action(action_name, pressed, strength, REPLAY_PARTICIPANT_ID)
-
-
 func _rebuild_stats(reset_life: bool) -> void:
 	var previous_max_life: float = _max_life
 	_move_speed = _stat_value(STATS.MOVE_SPEED, 0.0)
@@ -415,16 +356,10 @@ func _set_aim_direction(raw_direction: Vector2) -> void:
 		queue_redraw()
 
 
-func _set_mouse_aim_from_viewport_position(viewport_position: Vector2) -> void:
-	_mouse_aim_viewport_offset = viewport_position - get_viewport().get_visible_rect().size * 0.5
-	if _mouse_aim_viewport_offset.length_squared() > MOUSE_AIM_MIN_DISTANCE_SQUARED:
-		_set_aim_direction(_viewport_position_to_world_direction(viewport_position))
-
-
-func _viewport_position_to_world_direction(viewport_position: Vector2) -> Vector2:
-	var screen_to_world: Transform2D = get_viewport().get_canvas_transform().affine_inverse()
-	var world_position: Vector2 = screen_to_world * viewport_position
-	return world_position - global_position
+func _set_pointer_aim_from_viewport_position(viewport_position: Vector2) -> void:
+	var viewport_offset: Vector2 = viewport_position - get_viewport().get_visible_rect().size * 0.5
+	if viewport_offset.length_squared() > MOUSE_AIM_MIN_DISTANCE_SQUARED:
+		_set_aim_direction(InputService.pointer_world_position(get_viewport()) - global_position)
 
 
 func _apply_movement_bounds() -> void:

@@ -34,6 +34,7 @@ func _run() -> void:
 	_prepare_scenario()
 	Replay.set_enabled(true)
 	Replay.clear_recording()
+	InputService.set_playback_active(true)
 	RNG.set_run_seed(GOLDEN_REPLAY_SEED)
 	GameClock.reset()
 
@@ -58,6 +59,10 @@ func _run() -> void:
 		return
 	if _scenario == "golden_level_up_choice" and run_loop.has_method("debug_enable_level_up_growth"):
 		run_loop.call("debug_enable_level_up_growth")
+	_expect(
+		Replay.start_recording({"source": "golden_replay_capture", "scenario": _scenario}),
+		"GoldenReplayCapture should start its explicit recording while playback isolation is active"
+	)
 
 	var frame_samples: Array[Dictionary] = []
 	for frame_number: int in range(1, CAPTURE_FRAMES + 1):
@@ -207,17 +212,8 @@ func _apply_scenario_inputs(frame_number: int) -> void:
 		await _apply_input_event(ACTIONS.UI_BACK, false, 0.0)
 
 
-func _apply_input_event(action_name: String, pressed: bool, strength: float) -> void:
-	if pressed:
-		Input.action_press(action_name, strength)
-	else:
-		Input.action_release(action_name)
-
-	var event: InputEventAction = InputEventAction.new()
-	event.action = action_name
-	event.pressed = pressed
-	event.strength = strength
-	get_viewport().push_input(event, true)
+func _apply_input_event(action_name: String, pressed: bool, _strength: float) -> void:
+	InputService.inject_playback_value(StringName(action_name), pressed)
 	await get_tree().process_frame
 
 
@@ -289,8 +285,8 @@ func _choose_level_up_index(index: int) -> void:
 
 
 func _release_scenario_actions() -> void:
-	Input.action_release(ACTIONS.PAUSE)
-	Input.action_release(ACTIONS.UI_BACK)
+	InputService.clear_playback_values()
+	InputService.set_playback_active(false)
 
 
 func _prepare_scenario() -> void:
@@ -339,12 +335,12 @@ func _pause_resume_input_events() -> Array[Dictionary]:
 	]
 
 
-func _input_event(action_name: String, pressed: bool, strength: float, tick: int) -> Dictionary:
+func _input_event(action_name: String, pressed: bool, _strength: float, tick: int) -> Dictionary:
 	return {
 		"action": action_name,
 		"frame": tick,
-		"pressed": pressed,
-		"strength": strength,
+		"value_type": "bool",
+		"value": pressed,
 		"tick": tick,
 		"time": float(tick) / 60.0,
 		"participant_id": "player_0",
@@ -509,6 +505,7 @@ func _expect(condition: bool, message: String) -> void:
 
 
 func _finish(output_path: String) -> void:
+	InputService.set_playback_active(false)
 	if _failures.is_empty():
 		print("[GoldenReplayCapture] passed; output=%s" % output_path)
 		get_tree().quit(0)

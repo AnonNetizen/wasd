@@ -3,6 +3,7 @@
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
 > 本文档是正式客户端 gameplay runtime 的聚合模块契约；拆分 Player、WeaponSystem、Enemy、Spawner、HUD 等长期模块或改变公共行为时必须同步本文档、AI 导航、代码索引和相关阶段工作包。
 > 玩家相机的项目适配行为归本文档；Phantom Camera vendored 内部架构、公共 API、编辑器工具和升级补丁归 `docs/代码/phantom_camera.md`。
+> gameplay 的输入消费行为归本文档；GUIDE 插件内部归 `docs/代码/guide.md`，action / context / 重绑定 / 回放输入边界归 `docs/代码/input_service.md`。
 
 ## 职责
 
@@ -140,9 +141,9 @@ UIManager
 | 战区导演 | `WarzoneDirector` 读取 `warzone_directors.json` 的当前模式导演，用固定时间 phase 组织巢变异主题、兴趣点和启用 wave；F12 标准局按 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟组织短刷图节奏，9 分钟后软加压但不硬切；兴趣点交给 `MapManager` 初始机关生成并透传领取 / 奖励 / 交互 / 可伤害目标 / 撤离元数据；`GameplayRunLoop` 对无目标且不要求交互的兴趣点按 `claim_radius`、`claim_start_time` 和玩家位置把 dust / Mod 放入 `run.pending_loot`；对 `requires_interaction=true` 的兴趣点按 `interest_point_cache_position` 生成可见 `InterestPointCache`，玩家进入半径后按 `interact` 打开并暂存奖励；对有 `target_hp` 的兴趣点按 `interest_point_target_position` 生成立即可被子弹 / `Combat` 伤害的格子化 `InterestPointTarget`，摧毁后暂存奖励；POI 目标 / 缓存 anchor 均由 MapManager 保证贴格并避开 active hazards；小巢核领取后开启贴合地图矩形格的撤离矩形，玩家完成 `extraction_hold_time` 读条后提交暂存战利品并进入结果面板；不读玩家状态、不随机动态调难 | `WarzoneDirector.configure()`、`is_wave_enabled()`、`interest_points_for_layout()`、`GearModSystem.grant_resource()`、`GearModSystem.grant_mod()`、`debug_summary()` |
 | 模块世界 carrier（F13） | 默认开局配置完整 9×9 assignment；固定中心起点、目标和撤离锚点，普通槽位从 approved 模板池按 `RNG.world` / run seed 组合。`tick()` 在跨越模块边界时按世界槽位保存离开邻域的敌人、机关、子弹与掉落，释放池化实体并激活新 3×3 邻域；子弹 / 掉落以卸载时的实际位置归槽，避免跨缝后错误留存。迷雾在进入模块后揭示，完成目标后激活撤离。续局由 `module_world` 块恢复 assignment、rotation、内容敏感 map hash、迷雾、目标 / 撤离和 81 个槽位状态；世界配置或已引用模块 JSON 任一玩法内容变化都会使 hash 不匹配并拒绝继续恢复 | `ModuleWorldManager.build_assignment()`、`tick()`、`snapshot()` / `restore_state()`、`PoolManager.acquire()` |
 | 背景 | 在玩家附近绘制量化矩形地图格和原点十字；网格来自 `map_layouts.json.grid`，与机关尺寸 / 判定共用同一格度量，但不缩放或旋转世界坐标，也不模拟斜俯视透视 | `WorldBackground.configure()` |
-| 输入 | `Settings` 在启动 / 加载 / 修改时把键盘主绑定写入 InputMap；运行时只确保同一 action 有手柄轴 / 按钮兜底事件。键鼠默认按鼠标相对视口中心的偏移瞄准，并通过当前 canvas / camera transform 换算成世界方向；方向键 / 手柄右摇杆 / D-pad 在没有鼠标动作时作为兜底。按住 `show_stats_panel` action（默认 Tab）只显示 HUD 详细数值面板，不进入暂停态。`interact` action（默认 E / 手柄 X）用于打开半径内的交互缓存箱。F8 输入录制首片会把移动 / 兜底瞄准 action 状态变化以及 `pause` / `ui_back` / `interact` 离散事件写入 `Replay`，但鼠标向量录制仍待后续输入回放扩展 | `Settings`、`InputMap`、`Input.get_vector()`、`InputEventMouseMotion.position`、`Replay.record_input_action()`、`Replay.record_input_event()` |
+| 输入 | `InputService` 从 GUIDE 的 gameplay context 产生 `move` / `aim` `Vector2` 与按钮 intent。键鼠瞄准由 pointer viewport position 经当前 canvas / camera transform 得到世界方向；右摇杆、D-pad 或方向键是兜底。`show_stats_panel` 只显示 HUD 叠层，`interact` 打开范围内缓存。Replay v2 记录最终 move / aim 与按钮值，鼠标和手柄使用同一 intent wire | `InputService`、生成 `Actions` 常量、`Replay` v2 |
 | 移动 / 瞄准 / 相机 | 玩家按数据移速在 2D 平面移动；`GameplayCameraController` 把 `PlayerCamera` 配成 Phantom Camera `GLUED` 严格跟随，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放。鼠标激活后按 canvas transform 换算后的世界方向瞄准；无鼠标动作时用方向键 / 手柄右摇杆 / D-pad 兜底，松开保持上一方向 | `Player.aim_direction`、`GameplayCameraController.configure()` |
-| 按住开火 | WeaponSystem 读取 `fire` action；按住时按 `fire_rate` 从子弹池取节点并配置，松开停火 | `InputMap` / `PoolManager.acquire()` |
+| 按住开火 | WeaponSystem 读取 `InputService` 的 `fire` intent；按住时按 `fire_rate` 从子弹池取节点并配置，松开停火 | `InputService` / `PoolManager.acquire()` |
 | 子弹移动 / 地形 | 玩家和敌方子弹移动前先用 `hit_radius` 圆形 `intersect_shape()` 检查初始重叠，再用 `cast_motion()` 扫掠本帧位移；只查询地形层 bit 1。命中后停在安全比例、立即 `PoolManager.release()`，不再检查墙后伤害目标；`wall_pierce > 0` 的发射快照跳过全部地形查询 | `PhysicsShapeQueryParameters2D` / `PhysicsDirectSpaceState2D` |
 | 子弹命中 | 地形通过后，子弹才用距离检测命中 `active_enemies` 与 `active_interest_point_targets` 组；远程敌人可通过同一 `Bullet.configure()` 指定 `active_player` 目标组和敌方队伍，伤害统一走 `Combat.apply_damage()`。`pierce_count` 只表示可额外命中的伤害目标数量，不影响墙体 | `DamageInfo` |
 | 主动技能 / 状态 | SkillSystem 从 `skills.json` 读取起始技能列表；默认 `use_active_item` action 释放第一个技能 `skill_overdrive_rounds`，消耗角色声明的 `mana`，通过 `skill_effect_weapon_modifiers` 临时强化玩家主武器射速与弹速；技能激活使用项目版轻量 GAS 的 ability tag gating，状态效果通过目标实体的 `StatusEffectComponent` 管理，技能冷却、资源回复、状态过期和 DoT tick 都走 `GameClock` | `SkillSystem.cast_primary_skill()`、`SkillSystem.cast_skill(skill_id)`、`WeaponSystem.apply_temporary_modifiers()`、`Combat.apply_damage()`、`Player.apply_status_effect()`、`Enemy.apply_status_effect()` |
@@ -260,9 +261,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 ## 依赖
 
-- 上游依赖：`DataLoader`、`GameState`、`GameClock`、`RNG.spawn`、`RNG.world`、`RNG.ui_choice`、`RNG.camera_fx`、`PoolManager`、`UIManager`、`SaveManager`、`GearModSystem`、`Combat`、`StatusEffectComponent`、`PhantomCameraManager`、`MapManager`、`WarzoneDirector`、`camera_feedback.json`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、`Settings` 写入的 InputMap action、locale。
+- 上游依赖：`DataLoader`、`GameState`、`GameClock`、`RNG.spawn`、`RNG.world`、`RNG.ui_choice`、`RNG.camera_fx`、`InputService`、`PoolManager`、`UIManager`、`SaveManager`、`GearModSystem`、`Combat`、`StatusEffectComponent`、`PhantomCameraManager`、`MapManager`、`WarzoneDirector`、`camera_feedback.json`、`hazards.csv`、`map_layouts.json`、`warzone_directors.json`、locale。
 - 下游调用方：当前无；后续可拆分为正式 Player / WeaponSystem / Spawner / HUD 模块。
-- 禁止依赖：不得复制历史 MVP 代码；不得绕过正式 `.tscn` 场景资源临时拼长期 UI / runtime 节点；不得绕过 `PoolManager` 创建高频实体；不得直接扣生命；不得绕过 InputMap 读物理输入；不得用裸随机或原始时间。
+- 禁止依赖：不得复制历史 MVP 代码；不得绕过正式 `.tscn` 场景资源临时拼长期 UI / runtime 节点；不得绕过 `PoolManager` 创建高频实体；不得直接扣生命；不得绕过 `InputService` 读取 GUIDE / `Input` / `InputMap` 或物理输入；不得用裸随机或原始时间。
 
 ## 扩展点
 
@@ -319,7 +320,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 |------|----------|
 | 启动没有进入 F4 | `DataLoader.validate_project_data()` 是否通过；`FormalClientBoot` 日志 |
 | 场景化后节点找不到 | `.tscn` 中稳定节点名是否与脚本 `get_node_or_null()` 路径一致；按钮是否保留 `PROCESS_MODE_ALWAYS`；scene ext_resource 是否能被 Godot 解析 |
-| 无法移动 | InputMap action 是否存在；`GameplayRunLoop._ensure_input_actions()` 是否执行 |
+| 无法移动 | GUIDE / `InputService` autoload 顺序；gameplay context 是否启用；`move` action 资源和 remapping config 是否有效；播放 override 是否误残留 |
 | 改键后旧键仍生效 | `Settings` 是否替换了对应 action 的 `InputEventKey`；`GameplayRunLoop._ensure_input_actions()` 不应再追加键盘默认事件 |
 | 手柄输入消失 | `Settings` 是否误删了 `InputEventJoypadButton` / `InputEventJoypadMotion`；runtime 手柄兜底是否执行 |
 | 移动感知不明显 | `WorldBackground` 是否挂载；网格是否随玩家附近重绘 |
@@ -359,9 +360,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 下一局 Gear Mod 属性无效 | `GearModSystem.current_modifiers(slot)` 是否输出目标 stat；开局是否在玩家 / 武器 configure 后应用对应 slot modifiers |
 | 失败后无法重开 / 回标题 | 是否处于 `GameState.GAME_OVER`；`GameOverPanel` 是否挂到 `UIManager`；`restart_requested` / `quit_to_title_requested` 是否被 `FormalClientBoot` 连接 |
 | 暂停菜单打不开或不冻结 | `pause` action 是否已注册；`PauseMenu.pauses_game` 是否为 true；`UIManager` 是否切到 `GameState.PAUSED` |
-| 详细数值面板不显示或导致暂停 | `show_stats_panel` action 是否由 `Settings` 写入 InputMap；`GameplayRunLoop._update_stats_panel()` 是否只在 `PLAYING` 下显示 HUD 叠层；不应调用 `UIManager.push()` 或改变 `GameState` |
+| 详细数值面板不显示或导致暂停 | `show_stats_panel` 是否在 gameplay context 有效；`GameplayRunLoop._update_stats_panel()` 是否只在 `PLAYING` 下显示 HUD 叠层；不应调用 `UIManager.push()` 或改变 `GameState` |
 | 暂停菜单打开设置后关不掉 | `SettingsPanel` 是否是栈顶；`SettingsPanel.request_close()` 是否复用关闭按钮路径；`runtime-smoke` 是否通过暂停设置入口断言 |
-| 手柄 / 键盘返回键不生效 | `Settings` 是否把 `input.ui_back` 写入 InputMap；栈顶 UI 是否实现 `request_close()`；不应依赖 `UIManager` 盲目出栈 |
+| 手柄 / 键盘返回键不生效 | `InputService` 的 ui context、安全兜底和 UI bridge 是否有效；栈顶 UI 是否实现 `request_close()`；不应依赖 `UIManager` 盲目出栈 |
 | 手柄导航时新打开 UI 没有焦点 | 最近是否有手柄输入；UI 是否有可聚焦控件；复杂面板是否实现 `grab_default_focus()`；`runtime-smoke` 是否覆盖鼠标无焦点和手柄补焦点 |
 | 保存后标题没有继续游戏 | `SaveManager.has_save(slot_0, run)` 是否为 true；旧存档是否因 hash mismatch 被隔离 |
 | 继续坏档后没有提示 | `TitleMenu` 是否存在 `RunSaveNoticeLabel`；`ui_run_save_unavailable` 是否在 `strings.csv` 与 `.translation` 中；`runtime-smoke` 是否通过坏 run 存档点击继续断言 |

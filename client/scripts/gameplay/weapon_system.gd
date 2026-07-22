@@ -7,8 +7,6 @@ extends Node
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 
-const REPLAY_PARTICIPANT_ID: String = "player_0"
-
 var _player: Node2D = null
 var _active_parent: Node = null
 var _base_stats: Dictionary = {}
@@ -18,11 +16,9 @@ var _stat_multipliers: Dictionary = {}
 var _temporary_modifiers: Array[Dictionary] = []
 var _weapon_data: Dictionary = {}
 var _cooldown_remaining: float = 0.0
-var _replay_fire_pressed: bool = false
 
 
 func _process(delta: float) -> void:
-	_record_replay_fire_action_state()
 	if _player == null or _weapon_data.is_empty():
 		return
 	if not GameState.is_state(GameState.PLAYING):
@@ -54,7 +50,6 @@ func configure(player: Node2D, active_parent: Node, weapon_data: Dictionary) -> 
 	_temporary_modifiers.clear()
 	_rebuild_runtime_stats()
 	_cooldown_remaining = 0.0
-	_replay_fire_pressed = false
 
 
 func apply_modifiers(modifiers: Array) -> void:
@@ -167,23 +162,8 @@ func _update_temporary_modifiers(delta: float) -> void:
 	_rebuild_runtime_stats()
 
 
-func _record_replay_fire_action_state() -> void:
-	if not Replay.is_recording():
-		return
-	if not InputMap.has_action(ACTIONS.FIRE):
-		return
-	var strength: float = Input.get_action_strength(ACTIONS.FIRE)
-	var pressed: bool = strength > 0.0
-	if pressed == _replay_fire_pressed:
-		return
-	_replay_fire_pressed = pressed
-	Replay.record_input_action(ACTIONS.FIRE, pressed, strength, REPLAY_PARTICIPANT_ID)
-
-
 func _is_fire_action_pressed() -> bool:
-	if not InputMap.has_action(ACTIONS.FIRE):
-		return false
-	return Input.is_action_pressed(ACTIONS.FIRE)
+	return InputService.is_pressed(ACTIONS.FIRE)
 
 
 func _accumulate_modifier(raw_modifier: Variant, additions: Dictionary, multipliers: Dictionary) -> void:

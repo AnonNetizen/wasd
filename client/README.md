@@ -7,6 +7,8 @@
 
 当前阶段为 F11 装备 Mod / 局外装配推进中：正式工程当前使用 Godot 4.7.1 stable，F1-F8 当前验收基线已完成，F9 已预留本地数据包式 `ModLoader`、Steam 优先 `PlatformServices`，以及 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`。启动场景在数据校验通过后会显示最小标题界面，开始后进入战斗 runtime；若存在 `SaveManager` 的 `run` 存档，标题菜单会显示“继续游戏”，续局读取失败时会提示本局存档已重置；标题菜单常驻“装备 Mod”和“设置”入口，可配置英雄 / 武器两套 Gear Mod，或打开设置面板修改语言、音量、显示、玩法和隐私开关。当前 runtime 覆盖玩家移动与居中相机、默认起始武器、池化子弹、两种池化敌人、`spawn_waves.csv` 刷怪、`Combat.apply_damage()` 伤害入口、经验 / 升级选择、升级获得反馈、响应式基础 HUD、主动暂停、暂停设置入口、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、失败摘要、`meta.gear_mods` profile roundtrip、标题装备 Mod 面板和 Gear Mod 下一局 hero / weapon modifier snapshot；死亡后只展示本局击杀、时长、重开和回标题，不再写旧局外货币 / 账号经验。`Settings` 已有 `user://settings.cfg` 持久化、正式设置面板和 `settings-smoke` 验证，`SaveManager` 的 `run` kind 已有 version 2 迁移与 `save-smoke` 可靠性验证，`GearModSystem` 已有 `gear-mod-smoke` 装配 / UI 验证；项目尚未上线，不维护旧测试档迁移或旧 `purchased_upgrades` 补偿。DebugTools 已有 `debug-tools-smoke` 与 release guard smoke，Replay / golden replay 继续作为内容扩展的回归护栏；`startup-probe` / `perf-probe` 仅在用户明确要求性能测试时运行。项目当前只设计 / 验收固定 16:9 分辨率，默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，并通过 `canvas_items + keep` 在非 16:9 屏幕上等比缩放、补上下或左右黑边；其他宽高比留作未来按独立固定预设接入的优化项。
 
+ADR #151 后，正式输入由固定版本 GUIDE 解释物理设备，项目业务统一消费 `InputService` 的生成 action 与 `move` / `aim` `Vector2` intent；绑定保存到 `user://input_bindings.tres`，设置配置为 v2，Replay file / recording schema 为 v2 并兼容读取 v1。输入架构和插件维护分别见 `docs/代码/input_service.md` 与 `docs/代码/guide.md`。
+
 ## 目录
 
 | 路径 | 用途 |
@@ -24,7 +26,7 @@
 
 ## Godot 插件
 
-正式项目固定版本启用 `@icons 1.4.0`、`Script-IDE 2.2.3` 与 `Phantom Camera 0.11.0.3`。三者源码入库且不自动更新；仓库内代码按项目 GDScript 规则维护，同时保留上游 MIT 许可证和版权声明。Phantom Camera 是玩法运行时依赖，其 `PhantomCameraManager` 由项目稳定注册为 autoload；升级必须按 `client/addons/README.md` 记录发布包哈希、审查上游差异、迁移本地补丁并重新运行完整验证。
+正式项目固定版本启用 `@icons 1.4.0`、`Script-IDE 2.2.3`、`Phantom Camera 0.11.0.3` 与 `G.U.I.D.E 0.14.0`。全部源码入库且不自动更新；仓库内代码按项目 GDScript 规则维护，同时保留上游许可证和版权声明。Phantom Camera 与 GUIDE 是玩法运行时依赖，对应 manager / autoload 均由项目稳定注册；升级必须按 `client/addons/README.md` 记录发布包哈希、审查上游差异、迁移本地补丁并重新运行完整验证。
 
 ## Autoload
 
@@ -39,6 +41,8 @@
 | `GameClock` | `res://scripts/autoload/game_clock.gd` | 玩法时间、tick 与时间缩放 |
 | `PlatformServices` | `res://scripts/autoload/platform_services.gd` | Steam 优先的平台能力门面；当前空后端安全退化 |
 | `Settings` | `res://scripts/autoload/settings.gd` | 设置默认值、契约校验、类型 / 范围校验、`user://settings.cfg` 持久化与变更广播 |
+| `GUIDE` | `res://addons/guide/guide.gd` | 固定版本物理输入、mapping context、trigger / modifier 和 remapping 引擎；业务不得直接调用 |
+| `InputService` | `res://scripts/autoload/input_service.gd` | 项目 action / intent、context、重绑定持久化、设备提示、回放覆盖和 Godot UI 窄桥 |
 | `Analytics` | `res://scripts/autoload/analytics.gd` | 已登记事件的本地内存缓冲与隐私开关联动 |
 | `Replay` | `res://scripts/autoload/replay.gd` | 输入 / 关键决策的内存态回放录制边界 |
 | `PoolManager` | `res://scripts/autoload/pool_manager.gd` | 高频实体对象池注册、获取、释放、统计与溢出埋点 |

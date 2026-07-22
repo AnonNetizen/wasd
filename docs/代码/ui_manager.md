@@ -48,7 +48,7 @@ UIManager (autoload Node)
 | 出栈 | 移除栈顶节点、广播、排队释放，并按需恢复暂停前状态 | `pop()` / `ui_popped` |
 | 替换 | 弹出栈顶，再压入新场景 | `replace()` / `ui_replaced` |
 | 清空 | 逐个弹出并释放当前栈 | `clear()` / `ui_cleared` |
-| 返回 | `ui_back` 只请求栈顶节点执行 `request_close()`；栈顶不声明该方法时不自动出栈 | `_unhandled_input()` |
+| 返回 | `InputService` 的 `ui_back` 边沿只请求栈顶节点执行 `request_close()`；栈顶不声明该方法时不自动出栈 | InputService action signal / query |
 
 ## 公共 API
 
@@ -61,8 +61,8 @@ UIManager (autoload Node)
 | `stack_size()` | 无 | `int` | 当前栈深度 |
 | `top()` | 无 | 栈顶节点或 `null` | 返回内部节点引用，不要手动移出树 |
 | `stack_snapshot()` | 无 | `Array[Node]` | 返回栈节点数组拷贝 |
-| `navigation_focus_visible()` | 无 | `bool` | 最近输入是否需要显示 UI 导航焦点；手柄输入为 `true`，鼠标 / 键盘 / 触摸输入为 `false` |
-| `event_requests_navigation_focus(event)` | `InputEvent` | `bool` | 供标题菜单等非 UI 栈界面判断输入是否来自手柄导航 |
+| `navigation_focus_visible()` | 无 | `bool` | 从 `InputService` 当前设备族派生；手柄为 `true`，键鼠为 `false` |
+| `event_requests_navigation_focus(event)` | `InputEvent` | `bool` | deprecated 兼容入口；正式标题 / UI 应读取 InputService 设备族，不自行解释物理 event |
 | `grab_focus_for_navigation(control)` | `Control` | `bool` | 仅在 `navigation_focus_visible()` 为 `true` 且控件可聚焦时抓焦点 |
 
 ## Signal / Event
@@ -86,7 +86,7 @@ UI 根节点可用两种方式声明暂停请求：
 
 可聚焦 UI 根节点可选提供 `grab_default_focus()`。如果没有该方法，`UIManager.push()` 会在需要显示导航焦点时延后一帧扫描该 UI 内第一个可见、可聚焦、未禁用的 `Control` 并抓取焦点；如果焦点已经在新 UI 内，则不覆盖。
 
-导航焦点只在最近输入来自手柄时显示：收到 `InputEventJoypadButton` 或有效 `InputEventJoypadMotion` 后，`UIManager` 会允许并补抓当前栈顶 UI 的默认焦点；收到鼠标、键盘或触摸输入后，会释放当前焦点，避免非手柄操作时按钮常驻高亮。标题菜单不是 UI 栈节点，因此通过 `event_requests_navigation_focus()` 与 `grab_focus_for_navigation()` 复用同一策略。
+导航焦点只在 `InputService` 报告最近设备族为手柄时显示；切回键鼠时释放当前焦点，避免按钮常驻高亮。GUIDE 的 `ui_up/down/left/right` 由 `InputService` 窄桥接为 Godot 内置 `ui_*` 事件，让 `Control` 保留原生焦点导航；项目 `ui_confirm` / `ui_back` 语义仍由 `InputService` 裁决，避免同一物理输入被 UIManager 与 Godot Control 双重消费。
 
 这是当前最小契约。后续可扩展 `modal`、`music_duck`、更细的焦点策略、关闭行为等元数据，但新增字段必须写回本文档和对应 UI 模板。
 
@@ -94,7 +94,7 @@ UI 根节点可用两种方式声明暂停请求：
 
 ## 依赖
 
-- 上游依赖：`GameState` 负责状态切换和 `get_tree().paused` 联动。
+- 上游依赖：`GameState` 负责状态切换和 `get_tree().paused` 联动；`InputService` 提供 UI action、context 与最近设备族。
 - 下游调用方：标题菜单、暂停菜单、设置菜单、升级选择、结算面板、局外成长界面。
 - 禁止依赖：业务代码不得直接 `add_child` UI 弹窗；暂停逻辑不得直接读写 `get_tree().paused`。
 
@@ -125,15 +125,15 @@ UI 根节点可用两种方式声明暂停请求：
 | 关闭 UI 后状态错误 | `_state_before_ui_pause` 是否被其他系统提前改写；从升级面板上方关闭暂停菜单时应恢复到 `LEVEL_UP` |
 | 暂停时 UI 不响应 | UI 节点和 `UIRoot` 的 `process_mode` 是否为 `ALWAYS` |
 | 从暂停菜单打开设置后无法继续 | `SettingsPanel` 是否是栈顶；关闭按钮是否弹出设置面板而不是底层 `PauseMenu` |
-| 按返回键没有关闭 UI | 栈顶是否实现 `request_close()`；`ui_back` 是否已由 `Settings` 写入 InputMap |
-| 手柄焦点丢失 | 最近是否收到有效手柄输入；UI 是否有可见且 `focus_mode != FOCUS_NONE` 的控件；复杂界面是否需要实现 `grab_default_focus()` |
+| 按返回键没有关闭 UI | 栈顶是否实现 `request_close()`；InputService 的 UI context / `ui_back` 是否有效 |
+| 手柄焦点丢失 | InputService 最近设备族、UI context 和 UI bridge 是否有效；UI 是否有可见且 `focus_mode != FOCUS_NONE` 的控件；复杂界面是否需要实现 `grab_default_focus()` |
 | 鼠标操作时按钮仍高亮 | 是否绕过 `UIManager.grab_focus_for_navigation()` 直接调用了 `grab_focus()` |
 
 ## 测试义务
 
 - 当前切片必跑 L0 和 L2 headless boot，确认 autoload 和空栈启动无错。
 - 后续引入 GUT 后，需要覆盖 push/pop 栈顺序、`replace()`、`clear()`、暂停请求和恢复状态。
-- 接入暂停菜单或设置面板后，需要执行 L5 暂停 / UI 栈 checklist；当前自动覆盖为 `runtime-smoke` 中的标题 / 暂停设置入口开关、`ui_back` 关闭栈顶、鼠标打开 UI 不自动显示焦点，以及手柄导航后焦点落在面板内部路径。
+- 接入暂停菜单或设置面板后，需要执行 L5 暂停 / UI 栈 checklist；自动覆盖包括标题 / 暂停设置入口、`ui_back` 只关闭栈顶、键鼠不显示常驻焦点、手柄导航焦点、context 隔离和 UI bridge 不双触发。
 
 ## 迁移 / 兼容
 
@@ -145,4 +145,5 @@ UI 根节点可用两种方式声明暂停请求：
 - `docs/代码/game_state.md`
 - `docs/代码/settings.md`
 - `docs/代码/localization.md`
+- `docs/代码/input_service.md`
 - `docs/测试策略.md`

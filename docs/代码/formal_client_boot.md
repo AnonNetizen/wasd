@@ -43,6 +43,7 @@
 | `client/tools/replay_smoke.gd` | `--replay-smoke` 下挂载的 F8 Replay 文件 roundtrip smoke |
 | `client/tools/replay_runner.gd` | `--replay-runner` 下挂载的 F8 Replay summary diff runner，可读取指定 `.replay` 和可选 expectation JSON |
 | `client/tools/replay_input_smoke.gd` | `--replay-input-smoke` 下挂载的 F8 gameplay 输入录制 smoke |
+| `client/tools/input_smoke.gd` | `--input-smoke` 下挂载的 GUIDE / InputService 集成 smoke |
 | `client/tools/golden_replay_capture.gd` | `--capture-golden-replay` 下挂载的 F8 golden capture 工具，固定 seed 生成 `golden_basic_run.replay`、`golden_pause_resume.replay`、`golden_full_death.replay` 或 `golden_level_up_choice.replay` |
 | `client/tools/perf_probe.gd` | `--perf-probe` 下挂载的 F8 轻量性能 / 平衡采样 |
 | `client/tools/debug_tools_smoke.gd` | `--debug-tools-smoke` 下挂载的调试控制台 / GM 指令 smoke，也可配合 `--force-release-debug-tools-off` 模拟 release guard |
@@ -83,6 +84,7 @@ UIManager
 | F8 Replay smoke | `--replay-smoke` 启动时只挂载 `ReplaySmoke`，验证 Replay 最小录制、`.replay` 保存 / 读取、摘要对比和 data fingerprint | `client/tools/replay_smoke.gd` |
 | F8 Replay runner | `--replay-runner` 启动时只挂载 `ReplayRunner`，读取 `.replay` 并比较 envelope summary 或外部 expectation JSON；未传文件时生成临时 smoke replay 自测 runner；带 `--rerun-runtime-summary` 时会按 replay seed 启动 `GameplayRunLoop`、按 tick/frame 播放 `input_events` 与工具层 `runtime_events` 并比较 `run_summary`，未传文件时生成临时输入播放 smoke replay | `client/tools/replay_runner.gd` |
 | F8 Replay input smoke | `--replay-input-smoke` 启动时只挂载 `ReplayInputSmoke`，启动真实 `GameplayRunLoop` 并确认移动 / 瞄准 / pause / ui_back 输入录制到 `Replay.input_events` | `client/tools/replay_input_smoke.gd` |
+| 输入系统 smoke | `--input-smoke` 启动时只挂载 `InputSmoke`，验证 GUIDE 映射、context、设备提示、重绑定捕获和 InputService 物理 tick 边沿 | `client/tools/input_smoke.gd` |
 | F8 golden capture | `--capture-golden-replay` 启动时只挂载 `GoldenReplayCapture`，由工具设置固定 seed、启动 `GameplayRunLoop`、采样 180 帧并写入 `client/tests/replays/golden_basic_run.replay`；可用 `--golden-scenario golden_pause_resume` 生成暂停 / 恢复输入场景，`--golden-scenario golden_full_death` 生成正式 Combat 死亡 / 失败页场景，或 `--golden-scenario golden_level_up_choice` 通过测试 harness 显式启用成长池后生成真实经验球触发的升级选择 decision 场景 | `client/tools/golden_replay_capture.gd` |
 | F8 perf probe | `--perf-probe` 启动时挂载 `GameplayRunLoop` 与 `PerfProbe`，输出平均 / 最大帧时间、池水位、等级、击杀和 GameClock 指标 JSON | `client/tools/perf_probe.gd` |
 | F9 Demo smoke | `--f9-demo-smoke` 启动时挂载真实 `GameplayRunLoop`，验证 FEA-12 机关存在、造成玩家伤害和 run 保存 roundtrip | `client/tools/f9_demo_smoke.gd` |
@@ -133,7 +135,7 @@ UIManager
 | 调整标题设置入口 | `formal_client_boot.gd`、`title_menu.tscn`、`settings_panel.tscn`、对应脚本 | 本文档、`docs/代码/settings.md`、AI导航 | headless boot、`settings-smoke`、`runtime-smoke` |
 | 调整 F7 设置 smoke 挂载 | `formal_client_boot.gd`、`client/tools/settings_smoke.gd` | 本文档、`docs/代码/settings.md`、AI导航 | headless boot、`settings-smoke` |
 | 调整 F11 Gear Mod smoke 挂载 | `formal_client_boot.gd`、`client/tools/gear_mod_smoke.gd` | 本文档、`docs/代码/gear_mod_system.md`、AI导航 | headless boot、`gear-mod-smoke` |
-| 调整 F8 / F9 runner 挂载 | `formal_client_boot.gd`、`client/tools/l1_smoke.gd`、`client/tools/replay_smoke.gd`、`client/tools/replay_runner.gd`、`client/tools/replay_input_smoke.gd`、`client/tools/golden_replay_capture.gd`、`client/tools/perf_probe.gd`、`client/tools/f9_demo_smoke.gd` | 本文档、Replay / 测试策略 / F8 工作包 / Gameplay Runtime | `l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_level_up_choice`、`f9-demo-smoke`；性能 probe 仅在用户明确要求时运行 |
+| 调整输入 / F8 / F9 runner 挂载 | `formal_client_boot.gd`、`client/tools/input_smoke.gd`、`client/tools/l1_smoke.gd`、`client/tools/replay_smoke.gd`、`client/tools/replay_runner.gd`、`client/tools/replay_input_smoke.gd`、`client/tools/golden_replay_capture.gd`、`client/tools/perf_probe.gd`、`client/tools/f9_demo_smoke.gd` | 本文档、InputService / Replay / 测试策略 / F8 工作包 / Gameplay Runtime | `input-smoke`、`l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_level_up_choice`、`f9-demo-smoke`；性能 probe 仅在用户明确要求时运行 |
 | 调整 DebugTools 挂载 | `formal_client_boot.gd`、`client/scripts/debug/*.gd`、`client/tools/debug_tools_smoke.gd` | 本文档、`docs/代码/debug_tools.md`、测试策略、AI导航 | `debug-tools-smoke` + `debug-tools-release-smoke` |
 | 补目录说明 | `client/README.md` | `README.md`、`docs/AI导航.md` | docs health |
 
@@ -164,7 +166,7 @@ UIManager
 - 修改 `--save-smoke` 挂载或 SaveManager 启动诊断时，追加 `python tools/godot_bridge.py --project client save-smoke`。
 - 修改 `--settings-smoke` 挂载或 Settings 持久化启动诊断时，追加 `python tools/godot_bridge.py --project client settings-smoke`。
 - 修改 `--gear-mod-smoke` 挂载或 GearModSystem 启动诊断时，追加 `python tools/godot_bridge.py --project client gear-mod-smoke`。
-- 修改 `--l1-smoke` / `--replay-smoke` / `--replay-runner` / `--replay-input-smoke` / `--capture-golden-replay` / `--f9-demo-smoke` 挂载时，追加对应 `python tools/godot_bridge.py --project client l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_level_up_choice`、`f9-demo-smoke`；改 golden 对照逻辑时还要跑四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`。修改性能 probe 挂载时只做静态 / headless 基础校验，除非用户当次明确要求运行性能测试。
+- 修改 `--input-smoke` / `--l1-smoke` / `--replay-smoke` / `--replay-runner` / `--replay-input-smoke` / `--capture-golden-replay` / `--f9-demo-smoke` 挂载时，追加对应 `python tools/godot_bridge.py --project client input-smoke`、`l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_level_up_choice`、`f9-demo-smoke`；改 golden 对照逻辑时还要跑四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`。修改性能 probe 挂载时只做静态 / headless 基础校验，除非用户当次明确要求运行性能测试。
 - 修改 DebugTools 挂载或 release guard 时，追加 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`。
 - 修改标题装备 Mod 入口或 `GearModPanel` 挂载时，追加 `python tools/godot_bridge.py --project client gear-mod-smoke` 并做一次手动标题菜单点开检查。
 - 修改标题设置入口或 `SettingsPanel` 挂载时，追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`。

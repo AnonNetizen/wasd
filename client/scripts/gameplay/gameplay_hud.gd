@@ -4,6 +4,7 @@ class_name GameplayHud
 extends CanvasLayer
 
 
+const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const MODULE_MINIMAP_SCRIPT := preload("res://scripts/gameplay/module_minimap.gd")
 const UPGRADE_FEEDBACK_DURATION: float = 1.35
 const UPGRADE_FEEDBACK_FADE_RATIO: float = 0.36
@@ -36,7 +37,7 @@ var _level_label: Label = null
 var _kills_label: Label = null
 var _xp_label: Label = null
 var _time_label: Label = null
-var _message_label: Label = null
+var _message_label: RichTextLabel = null
 var _module_minimap: Control = null
 var _stats_grid: GridContainer = null
 var _stats_label_labels: Dictionary = {}
@@ -51,6 +52,7 @@ var _last_upgrade_name_key: String = ""
 var _last_upgrade_resource_key: String = ""
 var _last_upgrade_amount: int = 0
 var _interaction_binding: String = ""
+var _interaction_prompt_generation: int = 0
 var _interaction_prompt_visible: bool = false
 var _current_life: float = 0.0
 var _max_life: float = 0.0
@@ -66,7 +68,7 @@ func _ready() -> void:
 	_time_label = get_node_or_null("Root/Margin/Layout/TimeLabel") as Label
 	_level_label = get_node_or_null("Root/Margin/Layout/LevelLabel") as Label
 	_xp_label = get_node_or_null("Root/Margin/Layout/XpLabel") as Label
-	_message_label = get_node_or_null("Root/MessageLabel") as Label
+	_message_label = get_node_or_null("Root/MessageLabel") as RichTextLabel
 	_stats_panel = get_node_or_null("Root/StatsPanel") as PanelContainer
 	_stats_title_label = get_node_or_null("Root/StatsPanel/Margin/Layout/TitleLabel") as Label
 	_stats_grid = get_node_or_null("Root/StatsPanel/Margin/Layout/StatsGrid") as GridContainer
@@ -86,6 +88,10 @@ func _ready() -> void:
 	_create_module_minimap()
 	if not Localization.locale_changed.is_connected(_on_locale_changed):
 		Localization.locale_changed.connect(_on_locale_changed)
+	if not InputService.bindings_changed.is_connected(_on_input_prompt_changed):
+		InputService.bindings_changed.connect(_on_input_prompt_changed)
+	if not InputService.device_family_changed.is_connected(_on_input_device_family_changed):
+		InputService.device_family_changed.connect(_on_input_device_family_changed)
 	_refresh_static_labels()
 
 
@@ -102,6 +108,10 @@ func _process(delta: float) -> void:
 func _exit_tree() -> void:
 	if Localization.locale_changed.is_connected(_on_locale_changed):
 		Localization.locale_changed.disconnect(_on_locale_changed)
+	if InputService.bindings_changed.is_connected(_on_input_prompt_changed):
+		InputService.bindings_changed.disconnect(_on_input_prompt_changed)
+	if InputService.device_family_changed.is_connected(_on_input_device_family_changed):
+		InputService.device_family_changed.disconnect(_on_input_device_family_changed)
 
 
 func set_life(current_life: float, max_life: float) -> void:
@@ -127,6 +137,7 @@ func set_xp(xp: int, xp_required: int) -> void:
 
 
 func show_game_over() -> void:
+	_interaction_prompt_generation += 1
 	_interaction_prompt_visible = false
 	_interaction_binding = ""
 	_message_label.hide()
@@ -157,17 +168,21 @@ func set_module_world_state(state: Dictionary) -> void:
 func show_interaction_prompt(binding: String) -> void:
 	if _message_label == null:
 		return
+	_interaction_prompt_generation += 1
+	var generation: int = _interaction_prompt_generation
 	_interaction_binding = binding
 	_interaction_prompt_visible = true
 	_message_label.text = tr("ui_interact_open_cache").format({
 		"binding": binding,
 	})
 	_message_label.show()
+	_refresh_interaction_prompt_richtext(generation)
 
 
 func hide_interaction_prompt() -> void:
 	if _message_label == null or not _interaction_prompt_visible:
 		return
+	_interaction_prompt_generation += 1
 	_interaction_prompt_visible = false
 	_interaction_binding = ""
 	_message_label.hide()
@@ -253,6 +268,28 @@ func _refresh_static_labels() -> void:
 	if _upgrade_feedback_label.visible:
 		_refresh_upgrade_feedback()
 	_refresh_stats_panel()
+
+
+func _on_input_prompt_changed() -> void:
+	if _interaction_prompt_visible:
+		show_interaction_prompt(InputService.prompt_text(ACTIONS.INTERACT))
+
+
+func _refresh_interaction_prompt_richtext(generation: int) -> void:
+	var binding_richtext: String = await InputService.prompt_richtext_async(ACTIONS.INTERACT)
+	if (
+		generation != _interaction_prompt_generation
+		or not _interaction_prompt_visible
+		or _message_label == null
+	):
+		return
+	_message_label.text = tr("ui_interact_open_cache").format({
+		"binding": binding_richtext,
+	})
+
+
+func _on_input_device_family_changed(_device_family: StringName) -> void:
+	_on_input_prompt_changed()
 
 
 func _refresh_time_label() -> void:

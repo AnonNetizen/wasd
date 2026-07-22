@@ -13,7 +13,7 @@ const BUTTON_HORIZONTAL_PADDING: float = 48.0
 const PANEL_MAX_WIDTH: float = 720.0
 const PANEL_MIN_WIDTH: float = 520.0
 const PANEL_WIDTH_RATIO: float = 0.42
-const REPLAY_PARTICIPANT_ID: String = "player_0"
+const INPUT_PARTICIPANT_ID: String = "player_0"
 
 var _choices: Array[Dictionary] = []
 var _buttons: Array[Button] = []
@@ -26,13 +26,6 @@ var _title_label: Label = null
 
 
 func _input(event: InputEvent) -> void:
-	Replay.record_input_event(event, [ACTIONS.PAUSE], REPLAY_PARTICIPANT_ID)
-
-	if event.is_action_pressed(ACTIONS.PAUSE) and UIManager.top() == self:
-		get_viewport().set_input_as_handled()
-		pause_requested.emit()
-		return
-
 	var mouse_button: InputEventMouseButton = event as InputEventMouseButton
 	if mouse_button == null or mouse_button.button_index != MOUSE_BUTTON_LEFT:
 		return
@@ -54,6 +47,8 @@ func _input(event: InputEvent) -> void:
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	if not InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.connect(_on_input_action_pressed)
 
 	_root = get_node_or_null("Root") as Control
 	_panel = get_node_or_null("Root/Center/LevelUpPanelFrame") as PanelContainer
@@ -71,6 +66,8 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	if InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.disconnect(_on_input_action_pressed)
 	if Localization.locale_changed.is_connected(_on_locale_changed):
 		Localization.locale_changed.disconnect(_on_locale_changed)
 
@@ -126,6 +123,13 @@ func _refresh_buttons() -> void:
 
 func _on_choice_pressed(index: int) -> void:
 	choose_index(index)
+
+
+func _on_input_action_pressed(action_id: StringName, participant_id: String) -> void:
+	if participant_id != INPUT_PARTICIPANT_ID or action_id != StringName(ACTIONS.PAUSE):
+		return
+	if UIManager.top() == self:
+		pause_requested.emit()
 
 
 func _choice_index_at_position(position: Vector2) -> int:

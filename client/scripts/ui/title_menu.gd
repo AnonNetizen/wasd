@@ -21,13 +21,6 @@ var _subtitle_label: Label = null
 var _title_label: Label = null
 
 
-func _input(event: InputEvent) -> void:
-	if UIManager.stack_size() > 0:
-		return
-	if UIManager.event_requests_navigation_focus(event):
-		UIManager.grab_focus_for_navigation(_start_button)
-
-
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
@@ -66,6 +59,8 @@ func _ready() -> void:
 
 	_quit_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	_quit_button.pressed.connect(_on_quit_pressed)
+	if not UIManager.navigation_focus_visibility_changed.is_connected(_on_navigation_focus_visibility_changed):
+		UIManager.navigation_focus_visibility_changed.connect(_on_navigation_focus_visibility_changed)
 	if not Localization.locale_changed.is_connected(_on_locale_changed):
 		Localization.locale_changed.connect(_on_locale_changed)
 	refresh_texts()
@@ -73,6 +68,8 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	if UIManager.navigation_focus_visibility_changed.is_connected(_on_navigation_focus_visibility_changed):
+		UIManager.navigation_focus_visibility_changed.disconnect(_on_navigation_focus_visibility_changed)
 	if Localization.locale_changed.is_connected(_on_locale_changed):
 		Localization.locale_changed.disconnect(_on_locale_changed)
 
@@ -134,6 +131,11 @@ func _on_settings_pressed() -> void:
 
 func _on_quit_pressed() -> void:
 	quit_requested.emit()
+
+
+func _on_navigation_focus_visibility_changed(visible: bool) -> void:
+	if visible and UIManager.stack_size() == 0:
+		UIManager.grab_focus_for_navigation(_start_button)
 
 
 func _on_locale_changed(_locale: String) -> void:

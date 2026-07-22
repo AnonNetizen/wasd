@@ -1,7 +1,6 @@
 extends Node
 
 
-const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 const GAME_OVER_PANEL_SCENE := preload("res://scenes/ui/game_over_panel.tscn")
 const GAMEPLAY_HUD_SCENE := preload("res://scenes/gameplay/gameplay_hud.tscn")
@@ -17,6 +16,7 @@ const ENGLISH_UI_FIT_TOLERANCE: float = 2.0
 var _failures: Array[String] = []
 var _original_exists: bool = false
 var _original_text: String = ""
+var _original_binding_files: Dictionary = {}
 var _settings_panel_closed_count: int = 0
 
 
@@ -27,6 +27,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	_capture_original_config()
+	_capture_original_binding_files()
 
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame
@@ -34,7 +35,8 @@ func _run() -> void:
 	_expect_missing_file_uses_defaults()
 	_expect_roundtrip_and_signal_flow()
 	_expect_invalid_values_are_rejected()
-	_expect_input_bindings_update_input_map()
+	_expect_legacy_input_bindings_migrate_to_v2()
+	_expect_input_bindings_use_independent_resource()
 	_expect_invalid_saved_values_recover_to_defaults()
 	_expect_broken_config_recovers_to_defaults()
 	await _expect_settings_panel_controls()
@@ -42,6 +44,7 @@ func _run() -> void:
 	await _expect_runtime_locale_refresh()
 
 	_restore_original_config()
+	_restore_original_binding_files()
 	_finish()
 
 
@@ -79,35 +82,44 @@ func _expect_roundtrip_and_signal_flow() -> void:
 func _expect_invalid_values_are_rejected() -> void:
 	var original_master: float = float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER))
 	var original_locale: String = String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE))
-	var original_pause_binding: String = String(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE))
 	_expect(not Settings.set_value(SETTINGS_KEYS.AUDIO_MASTER, 2.0), "master volume should reject values above 1.0")
 	_expect(not Settings.set_value(SETTINGS_KEYS.GENERAL_LOCALE, "pirate"), "locale should reject unsupported values")
-	_expect(not Settings.set_value(SETTINGS_KEYS.INPUT_PAUSE, "NoSuchKey"), "input pause should reject unsupported key names")
+	_expect(not Settings.set_value(SETTINGS_KEYS.INPUT_PAUSE, "P"), "legacy input keys should be read-only after settings v2")
 	_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), original_master), "invalid master volume should not mutate state")
 	_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == original_locale, "invalid locale should not mutate state")
-	_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE)) == original_pause_binding, "invalid input binding should not mutate state")
+	_expect(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE, null) == null, "settings v2 should not retain deprecated input values")
 
 
-func _expect_input_bindings_update_input_map() -> void:
-	Settings.reset_to_defaults(false)
-	_expect(_action_has_key(ACTIONS.PAUSE, KEY_ESCAPE), "default pause binding should apply Escape to InputMap")
-	_expect(Settings.set_value(SETTINGS_KEYS.INPUT_PAUSE, "P"), "pause binding should accept P")
-	_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE)) == "P", "pause binding should store P")
-	_expect(_action_has_key(ACTIONS.PAUSE, KEY_P), "pause binding should apply P to InputMap")
-	_expect(not _action_has_key(ACTIONS.PAUSE, KEY_ESCAPE), "pause rebinding should replace the previous keyboard event")
-	_expect(Settings.set_value(SETTINGS_KEYS.INPUT_PAUSE, "Escape"), "pause binding should restore Escape")
-	_expect(_action_has_key(ACTIONS.SHOW_STATS_PANEL, KEY_TAB), "default stats panel binding should apply Tab to InputMap")
-	_expect(Settings.set_value(SETTINGS_KEYS.INPUT_SHOW_STATS_PANEL, "I"), "stats panel binding should accept I")
-	_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_SHOW_STATS_PANEL)) == "I", "stats panel binding should store I")
-	_expect(_action_has_key(ACTIONS.SHOW_STATS_PANEL, KEY_I), "stats panel binding should apply I to InputMap")
-	_expect(not _action_has_key(ACTIONS.SHOW_STATS_PANEL, KEY_TAB), "stats panel rebinding should replace Tab")
-	_expect(Settings.set_value(SETTINGS_KEYS.INPUT_SHOW_STATS_PANEL, "Tab"), "stats panel binding should restore Tab")
-	_expect(_action_has_key(ACTIONS.INTERACT, KEY_E), "default interact binding should apply E to InputMap")
-	_expect(Settings.set_value(SETTINGS_KEYS.INPUT_INTERACT, "F"), "interact binding should accept F")
-	_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_INTERACT)) == "F", "interact binding should store F")
-	_expect(_action_has_key(ACTIONS.INTERACT, KEY_F), "interact binding should apply F to InputMap")
-	_expect(not _action_has_key(ACTIONS.INTERACT, KEY_E), "interact rebinding should replace E")
-	_expect(Settings.set_value(SETTINGS_KEYS.INPUT_INTERACT, "E"), "interact binding should restore E")
+func _expect_legacy_input_bindings_migrate_to_v2() -> void:
+	var config := ConfigFile.new()
+	config.set_value("meta", "version", 1)
+	config.set_value("settings", SETTINGS_KEYS.GENERAL_LOCALE, "en")
+	config.set_value("settings", SETTINGS_KEYS.INPUT_PAUSE, "P")
+	config.set_value("settings", SETTINGS_KEYS.INPUT_INTERACT, "F")
+	_expect(config.save(Settings.settings_path()) == OK, "smoke should write legacy settings v1 fixture")
+	_expect(Settings.load_from_disk(), "valid settings v1 should migrate cleanly")
+	var legacy_bindings: Dictionary = Settings.take_legacy_input_bindings()
+	_expect(String(legacy_bindings.get(SETTINGS_KEYS.INPUT_PAUSE, "")) == "P", "settings v1 should expose legacy pause binding once")
+	_expect(String(legacy_bindings.get(SETTINGS_KEYS.INPUT_INTERACT, "")) == "F", "settings v1 should expose legacy interact binding once")
+	_expect(Settings.take_legacy_input_bindings().is_empty(), "legacy binding migration payload should be one-shot")
+	var migrated := ConfigFile.new()
+	_expect(migrated.load(Settings.settings_path()) == OK, "migrated settings v2 should be readable")
+	_expect(int(migrated.get_value("meta", "version", 0)) == 2, "settings migration should rewrite config as v2")
+	_expect(not migrated.has_section_key("settings", SETTINGS_KEYS.INPUT_PAUSE), "settings v2 should not persist GUIDE bindings")
+	_expect(not migrated.has_section_key("settings", SETTINGS_KEYS.INPUT_INTERACT), "settings v2 should remove legacy input keys")
+
+
+func _expect_input_bindings_use_independent_resource() -> void:
+	_expect(InputService.reset_bindings_to_defaults(), "resetting GUIDE bindings should save the independent resource")
+	_expect(FileAccess.file_exists(InputService.bindings_path()), "input bindings should persist outside settings.cfg")
+	var loaded: Resource = ResourceLoader.load(InputService.bindings_path(), "GUIDERemappingConfig", ResourceLoader.CACHE_MODE_IGNORE)
+	var remapping_config: GUIDERemappingConfig = loaded as GUIDERemappingConfig
+	_expect(remapping_config != null, "input binding resource should load as GUIDERemappingConfig")
+	if remapping_config != null:
+		_expect(int(remapping_config.custom_data.get("schema_version", 0)) == 1, "input binding resource should declare project schema v1")
+	var settings_config := ConfigFile.new()
+	_expect(settings_config.load(Settings.settings_path()) == OK, "settings.cfg should remain readable after GUIDE binding save")
+	_expect(not settings_config.has_section_key("settings", SETTINGS_KEYS.INPUT_PAUSE), "GUIDE binding save should not write legacy input keys into settings.cfg")
 
 
 func _expect_invalid_saved_values_recover_to_defaults() -> void:
@@ -161,10 +173,7 @@ func _expect_settings_panel_controls() -> void:
 	var pause_on_focus_loss_check: CheckButton = _find_node_by_name(panel, "PauseOnFocusLossCheck") as CheckButton
 	var record_replays_check: CheckButton = _find_node_by_name(panel, "RecordReplaysCheck") as CheckButton
 	var input_feedback_label: Label = _find_node_by_name(panel, "InputFeedbackLabel") as Label
-	var pause_binding_option: OptionButton = _find_node_by_name(panel, "PauseBindingOption") as OptionButton
-	var interact_binding_option: OptionButton = _find_node_by_name(panel, "InteractBindingOption") as OptionButton
-	var stats_binding_option: OptionButton = _find_node_by_name(panel, "ShowStatsPanelBindingOption") as OptionButton
-	var ui_back_binding_option: OptionButton = _find_node_by_name(panel, "UiBackBindingOption") as OptionButton
+	var input_bindings_grid: GridContainer = _find_node_by_name(panel, "InputBindingsGrid") as GridContainer
 	var reset_input_button: Button = _find_node_by_name(panel, "ResetInputBindingsButton") as Button
 	var close_button: Button = _find_node_by_name(panel, "CloseButton") as Button
 
@@ -178,9 +187,8 @@ func _expect_settings_panel_controls() -> void:
 	_expect(screen_shake_check != null and screen_shake_check.visible, "settings panel should expose wired screen shake setting")
 	_expect(pause_on_focus_loss_check != null and not pause_on_focus_loss_check.visible, "settings panel should hide unsupported focus-loss pause setting")
 	_expect(record_replays_check != null and record_replays_check.visible, "settings panel should still expose wired replay recording setting")
-	_expect(pause_binding_option != null and pause_binding_option.item_count == Settings.input_binding_options().size(), "settings panel should expose input binding options")
-	_expect(interact_binding_option != null and interact_binding_option.item_count == Settings.input_binding_options().size(), "settings panel should expose interact binding options")
-	_expect(stats_binding_option != null and stats_binding_option.item_count == Settings.input_binding_options().size(), "settings panel should expose stats panel binding options")
+	_expect(input_bindings_grid != null and input_bindings_grid.get_child_count() == InputService.binding_rows().size(), "settings panel should expose one capture row per project binding")
+	_expect(input_bindings_grid != null and _count_binding_buttons(input_bindings_grid) >= InputService.binding_rows().size(), "settings panel should expose keyboard and gamepad capture buttons")
 	_expect(input_feedback_label != null and String(input_feedback_label.text) == tr("ui_settings_input_feedback_ready"), "settings panel should expose localized input feedback")
 	_expect(reset_input_button != null and String(reset_input_button.text) == tr("ui_settings_input_restore_defaults"), "settings panel should expose reset input defaults button")
 	_expect(master_slider != null and is_equal_approx(float(master_slider.value), 1.0), "settings panel should read master volume default")
@@ -210,56 +218,12 @@ func _expect_settings_panel_controls() -> void:
 		_expect(title_label != null and String(title_label.text) == "Settings", "settings panel should refresh existing labels after locale switch")
 		_expect_english_buttons_fit(panel, "settings panel")
 
-	if pause_binding_option != null:
-		var p_index: int = _option_index(pause_binding_option, "P")
-		_expect(p_index >= 0, "pause binding option should include P")
-		if p_index >= 0:
-			pause_binding_option.select(p_index)
-			pause_binding_option.item_selected.emit(p_index)
-			await get_tree().process_frame
-			_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE)) == "P", "pause binding option should write Settings")
-			_expect(_action_has_key(ACTIONS.PAUSE, KEY_P), "pause binding option should update InputMap")
-			_expect(input_feedback_label != null and String(input_feedback_label.text).contains("Pause bound to P"), "pause binding should show saved feedback")
-	if interact_binding_option != null:
-		var f_index: int = _option_index(interact_binding_option, "F")
-		_expect(f_index >= 0, "interact binding option should include F")
-		if f_index >= 0:
-			interact_binding_option.select(f_index)
-			interact_binding_option.item_selected.emit(f_index)
-			await get_tree().process_frame
-			_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_INTERACT)) == "F", "interact binding option should write Settings")
-			_expect(_action_has_key(ACTIONS.INTERACT, KEY_F), "interact binding option should update InputMap")
-			_expect(input_feedback_label != null and String(input_feedback_label.text).contains("Interact bound to F"), "interact binding should show saved feedback")
-	if stats_binding_option != null:
-		var i_index: int = _option_index(stats_binding_option, "I")
-		_expect(i_index >= 0, "stats panel binding option should include I")
-		if i_index >= 0:
-			stats_binding_option.select(i_index)
-			stats_binding_option.item_selected.emit(i_index)
-			await get_tree().process_frame
-			_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_SHOW_STATS_PANEL)) == "I", "stats panel binding option should write Settings")
-			_expect(_action_has_key(ACTIONS.SHOW_STATS_PANEL, KEY_I), "stats panel binding option should update InputMap")
-			_expect(input_feedback_label != null and String(input_feedback_label.text).contains("Details Panel bound to I"), "stats panel binding should show saved feedback")
-	if ui_back_binding_option != null:
-		var p_index: int = _option_index(ui_back_binding_option, "P")
-		_expect(p_index >= 0, "ui back binding option should include P")
-		if p_index >= 0:
-			ui_back_binding_option.select(p_index)
-			ui_back_binding_option.item_selected.emit(p_index)
-			await get_tree().process_frame
-			_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_UI_BACK)) == "P", "ui back binding option should accept a shared binding")
-			_expect(input_feedback_label != null and String(input_feedback_label.text).contains("shared with Pause"), "shared input binding should show conflict feedback")
 	if reset_input_button != null:
 		reset_input_button.pressed.emit()
 		await get_tree().process_frame
-		_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_PAUSE)) == "Escape", "reset input defaults should restore pause binding")
-		_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_INTERACT)) == "E", "reset input defaults should restore interact binding")
-		_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_SHOW_STATS_PANEL)) == "Tab", "reset input defaults should restore stats panel binding")
-		_expect(String(Settings.get_value(SETTINGS_KEYS.INPUT_UI_BACK)) == "Escape", "reset input defaults should restore ui_back binding")
-		_expect(_action_has_key(ACTIONS.PAUSE, KEY_ESCAPE), "reset input defaults should restore pause InputMap event")
-		_expect(_action_has_key(ACTIONS.INTERACT, KEY_E), "reset input defaults should restore interact InputMap event")
-		_expect(_action_has_key(ACTIONS.SHOW_STATS_PANEL, KEY_TAB), "reset input defaults should restore stats panel InputMap event")
-		_expect(_action_has_key(ACTIONS.UI_BACK, KEY_ESCAPE), "reset input defaults should restore ui_back InputMap event")
+		_expect(FileAccess.file_exists(InputService.bindings_path()), "reset input defaults should persist GUIDE remapping config")
+		_expect(InputService.binding_text(InputService.BINDING_PAUSE, InputService.DEVICE_KEYBOARD_MOUSE).contains("Escape"), "reset input defaults should restore pause fallback")
+		_expect(InputService.binding_text(InputService.BINDING_INTERACT, InputService.DEVICE_KEYBOARD_MOUSE).contains("E"), "reset input defaults should restore interact binding")
 		_expect(input_feedback_label != null and String(input_feedback_label.text) == "Input bindings restored to defaults.", "reset input defaults should show feedback")
 
 	if close_button != null:
@@ -440,21 +404,11 @@ func _find_node_by_name(root: Node, target_name: String) -> Node:
 	return null
 
 
-func _option_index(option: OptionButton, text: String) -> int:
-	for index: int in range(option.item_count):
-		if String(option.get_item_text(index)) == text:
-			return index
-	return -1
-
-
-func _action_has_key(action_id: String, keycode: Key) -> bool:
-	if not InputMap.has_action(action_id):
-		return false
-	for event: InputEvent in InputMap.action_get_events(action_id):
-		var key_event: InputEventKey = event as InputEventKey
-		if key_event != null and key_event.keycode == keycode:
-			return true
-	return false
+func _count_binding_buttons(root: Node) -> int:
+	var count: int = 1 if root is Button else 0
+	for child: Node in root.get_children():
+		count += _count_binding_buttons(child)
+	return count
 
 
 func _expect_english_buttons_fit(root: Node, context: String) -> void:
@@ -548,11 +502,40 @@ func _capture_original_config() -> void:
 	_original_text = file.get_as_text()
 
 
+func _capture_original_binding_files() -> void:
+	_original_binding_files.clear()
+	for path: String in _binding_fixture_paths():
+		var entry: Dictionary = {"exists": FileAccess.file_exists(path), "text": ""}
+		if bool(entry["exists"]):
+			var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+			if file != null:
+				entry["text"] = file.get_as_text()
+		_original_binding_files[path] = entry
+
+
 func _restore_original_config() -> void:
 	if _original_exists:
 		_write_text(Settings.settings_path(), _original_text)
 		return
 	_remove_settings_file()
+
+
+func _restore_original_binding_files() -> void:
+	for path: String in _binding_fixture_paths():
+		var entry: Dictionary = _original_binding_files.get(path, {}) as Dictionary
+		if bool(entry.get("exists", false)):
+			_write_text(path, String(entry.get("text", "")))
+		elif FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
+
+
+func _binding_fixture_paths() -> Array[String]:
+	return [
+		InputService.bindings_path(),
+		"user://input_bindings.tmp.tres",
+		"user://input_bindings.bak.tres",
+		"user://input_bindings.invalid.tres",
+	]
 
 
 func _remove_settings_file() -> void:

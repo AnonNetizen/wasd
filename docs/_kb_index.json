@@ -110,7 +110,7 @@
       "last_reviewed": "2026-07-22",
       "canonical_for": ["knowledge_base", "authority_hierarchy", "task_routes", "adr_tracking_matrix"],
       "must_read_for": ["doc_structure_change", "task_routing", "knowledge_base_change"],
-      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/局内刷取参考研究.md", "docs/AI辅助开发机会清单.md", "docs/在线服务规划.md", "docs/小服务器玩法备忘.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/status_effect_component.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md", "docs/代码/gear_mod_system.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/AI协作/工作包/F13-HandcraftedRooms.md"],
+      "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/局内刷取参考研究.md", "docs/AI辅助开发机会清单.md", "docs/在线服务规划.md", "docs/小服务器玩法备忘.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/guide.md", "docs/代码/input_service.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/status_effect_component.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md", "docs/代码/gear_mod_system.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/AI协作/工作包/F13-HandcraftedRooms.md"],
       "related_code": ["tools/docs_health_check.py"],
       "update_triggers": ["new long-lived document", "document rename", "authority hierarchy change", "task route change"],
       "keywords": ["knowledge base", "知识库", "index", "索引", "权威层级", "任务路由", "FormalClientBoot", "正式项目启动骨架", "F1"]
@@ -197,15 +197,15 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #127", "ADR #128", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #144", "ADR #145", "ADR #146", "ADR #147", "F14", "F14.1", "模块大地图", "ModuleWorldManager", "ModuleNavigationField", "bounded shared flow field", "hybrid perception", "run v4", "RoomManager superseded", "WarzoneDirector", "EnemyAI player targeting", "敌方友伤护栏", "short loot runs", "撤离", "Gear Mod", "Godot editor plugin", "@icons", "Script-IDE", "性能测试按需", "user-triggered performance test", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "AI Git", "code review", "事实review"]
+      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #127", "ADR #128", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #144", "ADR #145", "ADR #146", "ADR #147", "ADR #148", "ADR #149", "ADR #150", "ADR #151", "F14", "F14.1", "模块大地图", "ModuleWorldManager", "ModuleNavigationField", "bounded shared flow field", "hybrid perception", "run v4", "RoomManager superseded", "WarzoneDirector", "EnemyAI player targeting", "敌方友伤护栏", "short loot runs", "撤离", "Gear Mod", "Godot editor plugin", "@icons", "Script-IDE", "Phantom Camera", "G.U.I.D.E", "InputService", "Replay v2", "性能测试按需", "user-triggered performance test", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "AI Git", "code review", "事实review"]
     },
     {
       "path": "docs/词表与契约.md",
       "type": "authority",
-      "authority": "Whitelisted ids, InputMap actions, contract strings, generated constants source",
+      "authority": "Whitelisted ids, InputService/GUIDE actions and binding ids, contract strings, generated constants source",
       "status": "active",
       "owner_scope": "data-contract",
-      "last_reviewed": "2026-06-26",
+      "last_reviewed": "2026-07-22",
       "canonical_for": ["contract_ids", "input_actions", "generated_constants_source"],
       "must_read_for": ["new_id", "data_change", "input_change", "contract_sync"],
       "related_docs": ["docs/游戏设计文档.md", "docs/AI导航.md", "docs/代码文档规范.md", "client/data/README.md", "client/locale/README.md"],
@@ -233,13 +233,13 @@
       "authority": "Pinned Godot editor plugin versions, source hashes, licenses, local patches, and manual upgrade workflow",
       "status": "active",
       "owner_scope": "godot-tooling",
-      "last_reviewed": "2026-07-21",
-      "canonical_for": ["godot_editor_plugins", "vendored_plugin_versions", "editor_plugin_upgrade_workflow"],
-      "must_read_for": ["editor_plugin_install", "editor_plugin_upgrade", "vendored_plugin_patch"],
-      "related_docs": ["client/README.md", "CREDITS.md", "client/data/README.md", "docs/AI导航.md", "docs/决策记录.md"],
-      "related_code": ["client/addons/at-icons/", "client/addons/script-ide/", "client/project.godot"],
-      "update_triggers": ["editor plugin version changes", "plugin source archive changes", "local plugin patch changes", "plugin license changes", "plugin enablement changes"],
-      "keywords": ["Godot editor plugin", "编辑器插件", "addons", "@icons", "Script-IDE", "vendored", "SHA-256", "MIT", "manual update", "维护型 fork", "lint"]
+      "last_reviewed": "2026-07-22",
+      "canonical_for": ["godot_editor_plugins", "vendored_plugin_versions", "editor_plugin_upgrade_workflow", "guide_vendored_version"],
+      "must_read_for": ["editor_plugin_install", "editor_plugin_upgrade", "vendored_plugin_patch", "guide_upgrade"],
+      "related_docs": ["client/README.md", "CREDITS.md", "client/data/README.md", "docs/AI导航.md", "docs/决策记录.md", "docs/代码/guide.md", "docs/代码/input_service.md"],
+      "related_code": ["client/addons/at-icons/", "client/addons/script-ide/", "client/addons/guide/", "client/project.godot"],
+      "update_triggers": ["editor plugin version changes", "plugin source archive changes", "local plugin patch changes", "plugin license changes", "plugin enablement changes", "GUIDE version or package boundary changes"],
+      "keywords": ["Godot editor plugin", "编辑器插件", "addons", "@icons", "Script-IDE", "G.U.I.D.E", "GUIDE 0.14.0", "vendored", "SHA-256", "MIT", "Xelu CC0", "Lato OFL", "manual update", "维护型 fork", "lint"]
     },
     {
       "path": "client/locale/README.md",
@@ -292,7 +292,7 @@
       "last_reviewed": "2026-06-23",
       "canonical_for": ["module_doc_index"],
       "must_read_for": ["code_module_change", "module_doc_lookup"],
-      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/gear_mod_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/phantom_camera.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md"],
+      "related_docs": ["docs/代码文档规范.md", "docs/AI导航.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/guide.md", "docs/代码/input_service.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/gear_mod_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/phantom_camera.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md"],
       "related_code": ["client/"],
       "update_triggers": ["new module document", "module document rename", "module document deletion"],
       "keywords": ["代码", "module", "documentation", "index"]
@@ -306,7 +306,7 @@
       "last_reviewed": "2026-07-22",
       "canonical_for": ["project_map", "extension_points", "dependency_graph", "clarification_first_rule"],
       "must_read_for": ["new_task", "extension_change", "dependency_change"],
-      "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/局内刷取参考研究.md", "docs/AI辅助开发机会清单.md", "docs/在线服务规划.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/gear_mod_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/phantom_camera.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/AI协作/工作包/F13-HandcraftedRooms.md"],
+      "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/局内刷取参考研究.md", "docs/AI辅助开发机会清单.md", "docs/在线服务规划.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/guide.md", "docs/代码/input_service.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/gear_mod_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/phantom_camera.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/AI协作/工作包/F13-HandcraftedRooms.md"],
       "related_code": ["client/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
       "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "IP美术风格", "art direction", "阵营色", "功能色", "兴趣点色彩", "量化矩形地图格", "rectangular map grid", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "SkillSystem", "StatusEffectComponent", "skill_effect_apply_status", "status_stack_rules", "silence", "沉默", "MapManager", "HazardSystem", "矩形机关", "rectangular hazard", "map_layouts.json", "FEA-12", "有限地图", "PCG", "人工摆点", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review", "Steamworks Slime Lab", "ADR #140", "确定性自主游击", "预判闪避"]
@@ -561,7 +561,7 @@
       "related_docs": ["docs/正式项目工作规划.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/settings.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "client/locale/README.md", "docs/词表与契约.md", "docs/AI协作/上下文预算.md", "docs/AI记忆/current_state.json"],
       "related_code": ["client/scripts/autoload/settings.gd", "client/scripts/autoload/localization.gd", "client/scripts/autoload/ui_manager.gd", "client/scenes/ui/", "client/scripts/ui/", "client/locale/strings.csv", "client/tools/", "tools/godot_bridge.py"],
       "update_triggers": ["F7 settings scope changes", "settings persistence acceptance command changes", "runtime localization behavior changes", "UIManager stack behavior changes", "input rebinding scope changes"],
-      "keywords": ["F7", "Settings", "Localization", "UIManager", "设置", "本地化", "语言切换", "UI栈", "settings.cfg", "InputMap", "input rebinding", "焦点", "runtime locale", "English UI sizing", "英文长度基准"]
+      "keywords": ["F7", "Settings", "Localization", "UIManager", "InputService", "GUIDE", "设置", "本地化", "语言切换", "UI栈", "settings.cfg v2", "input_bindings.tres", "input rebinding", "焦点", "runtime locale", "English UI sizing", "英文长度基准"]
     },
     {
       "path": "docs/AI协作/工作包/F8-ReplayTestingBalance.md",
@@ -906,12 +906,12 @@
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-07-22",
-      "canonical_for": ["gameplay_runtime", "f4_min_playable_loop", "formal_runtime_core", "minimal_combat_loop", "run_payload_schema", "gameplay_camera_adapter", "bullet_terrain_collision", "wall_pierce_snapshot"],
-      "must_read_for": ["gameplay_runtime_change", "player_runtime_change", "player_camera_integration_change", "camera_feedback_change", "weapon_system_change", "bullet_collision_change", "wall_pierce_change", "skill_system_change", "map_runtime_change", "hazard_runtime_change", "spawner_change", "hud_change"],
-      "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/phantom_camera.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
-      "related_code": ["client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/gameplay_camera_controller.gd", "client/scenes/gameplay/gameplay_camera_controller.tscn", "client/data/camera_feedback.json", "client/scripts/gameplay/map_manager.gd", "client/scripts/gameplay/module_chunk.gd", "client/scripts/gameplay/hazard.gd", "client/scripts/gameplay/warzone_director.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/scripts/debug/gm_command_registry.gd", "client/data/weapons.json", "client/data/map_layouts.json", "client/data/hazards.csv", "client/data/warzone_directors.json", "client/tools/module_world_smoke.gd", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd", "client/tools/debug_tools_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
-      "update_triggers": ["Gameplay runtime behavior changes", "Player, weapon, bullet, skill, map, or hazard runtime changes", "bullet terrain collision or wall-pierce semantics change", "Player/Enemy status host changes", "Spawner behavior changes", "HUD or restart flow changes", "run payload schema or additive bullet snapshot changes", "runtime debug API changes", "runtime module split or scene-resource migration"],
-      "keywords": ["GameplayRunLoop", "runtime-smoke", "module-world-smoke", "f9-demo-smoke", "debug-tools-smoke", "F4", "F9", "F10", "F12", "MinPlayableLoop", "WarzoneDirector", "战区导演", "warzone_directors.json", "巢变异", "source=director", "director hazards", "hazard_sources", "short loot runs", "短刷图", "撤离", "extraction", "pending_loot", "默认无升级三选一", "growth_pools optional", "level_up_growth_enabled", "debug_enable_level_up_growth", "golden_level_up_choice", "random run seed", "普通新局 seed", "set_random_run_seed", "no hidden DDA", "不读玩家状态", "MapManager", "HazardSystem", "矩形机关", "rectangular hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "map_layouts.json", "hazard_fea_12_pulse", "FEA-12", "有限地图", "PCG", "人工摆点", "Player", "WeaponSystem", "按住开火", "fire action", "hold_mouse", "temporary_modifiers", "SkillSystem", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "StatusEffectComponent", "entity status", "owned_tag_counts", "status_effects", "skills.json", "Bullet", "子弹撞墙", "地形阻挡", "cast_motion", "intersect_shape", "wall_pierce", "wall_pierce_enabled", "pierce_count", "Enemy", "Spawner", "HUD", "详细数值面板", "show_stats_panel", "StatsPanel", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
+      "canonical_for": ["gameplay_runtime", "f4_min_playable_loop", "formal_runtime_core", "minimal_combat_loop", "run_payload_schema", "gameplay_input_consumers", "gameplay_camera_adapter", "bullet_terrain_collision", "wall_pierce_snapshot"],
+      "must_read_for": ["gameplay_runtime_change", "player_runtime_change", "gameplay_input_consumer_change", "player_camera_integration_change", "camera_feedback_change", "weapon_system_change", "bullet_collision_change", "wall_pierce_change", "skill_system_change", "map_runtime_change", "hazard_runtime_change", "spawner_change", "hud_change"],
+      "related_docs": ["docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/正式项目工作规划.md", "docs/代码/combat.md", "docs/代码/input_service.md", "docs/代码/guide.md", "docs/代码/phantom_camera.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/enemy_ai.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md", "docs/代码/formal_client_boot.md", "docs/代码/debug_tools.md", "docs/代码/README.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/autoload/input_service.gd", "client/resources/input/", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/gameplay_camera_controller.gd", "client/scenes/gameplay/gameplay_camera_controller.tscn", "client/data/camera_feedback.json", "client/scripts/gameplay/map_manager.gd", "client/scripts/gameplay/module_chunk.gd", "client/scripts/gameplay/hazard.gd", "client/scripts/gameplay/warzone_director.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/combat/status_effect.gd", "client/scripts/combat/status_effect_component.gd", "client/scripts/gameplay/bullet.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/gameplay/pickup_orb.gd", "client/scripts/gameplay/level_up_panel.gd", "client/scripts/gameplay/gameplay_hud.gd", "client/scripts/ui/title_menu.gd", "client/scripts/ui/pause_menu.gd", "client/scripts/ui/game_over_panel.gd", "client/scripts/debug/gm_command_registry.gd", "client/data/weapons.json", "client/data/map_layouts.json", "client/data/hazards.csv", "client/data/warzone_directors.json", "client/tools/module_world_smoke.gd", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd", "client/tools/debug_tools_smoke.gd", "client/scripts/boot/formal_client_boot.gd"],
+      "update_triggers": ["Gameplay runtime behavior changes", "Player, weapon, skill, menu, or debug input consumption changes", "Player, weapon, bullet, skill, map, or hazard runtime changes", "bullet terrain collision or wall-pierce semantics change", "Player/Enemy status host changes", "Spawner behavior changes", "HUD or restart flow changes", "run payload schema or additive bullet snapshot changes", "runtime debug API changes", "runtime module split or scene-resource migration"],
+      "keywords": ["GameplayRunLoop", "InputService", "normalized input intent", "move Vector2", "aim Vector2", "runtime-smoke", "module-world-smoke", "f9-demo-smoke", "debug-tools-smoke", "F4", "F9", "F10", "F12", "MinPlayableLoop", "WarzoneDirector", "战区导演", "warzone_directors.json", "巢变异", "source=director", "director hazards", "hazard_sources", "short loot runs", "短刷图", "撤离", "extraction", "pending_loot", "默认无升级三选一", "growth_pools optional", "level_up_growth_enabled", "debug_enable_level_up_growth", "golden_level_up_choice", "random run seed", "普通新局 seed", "set_random_run_seed", "no hidden DDA", "不读玩家状态", "MapManager", "HazardSystem", "矩形机关", "rectangular hazard", "资产落地", "asset anchoring", "footprint", "anchor point", "shadow", "Y-sort", "map_layouts.json", "hazard_fea_12_pulse", "FEA-12", "有限地图", "PCG", "人工摆点", "Player", "WeaponSystem", "按住开火", "fire action", "temporary_modifiers", "SkillSystem", "skill_overdrive_rounds", "skill_effect_weapon_modifiers", "StatusEffectComponent", "entity status", "owned_tag_counts", "status_effects", "skills.json", "Bullet", "子弹撞墙", "地形阻挡", "cast_motion", "intersect_shape", "wall_pierce", "wall_pierce_enabled", "pierce_count", "Enemy", "Spawner", "HUD", "详细数值面板", "show_stats_panel", "StatsPanel", "GMCommandRegistry", "最小可玩闭环", "对象池", "headless boot"]
     },
     {
       "path": "docs/代码/phantom_camera.md",
@@ -926,6 +926,34 @@
       "related_code": ["client/addons/phantom_camera/plugin.gd", "client/addons/phantom_camera/scripts/managers/phantom_camera_manager.gd", "client/addons/phantom_camera/scripts/phantom_camera_host/phantom_camera_host.gd", "client/addons/phantom_camera/scripts/phantom_camera/phantom_camera_2d.gd", "client/addons/phantom_camera/scripts/phantom_camera/phantom_camera_3d.gd", "client/addons/phantom_camera/scripts/phantom_camera/phantom_camera_noise_emitter_2d.gd", "client/addons/phantom_camera/scripts/phantom_camera/phantom_camera_noise_emitter_3d.gd", "client/addons/phantom_camera/scripts/phantom_camera/phantom_camera_tween_director.gd", "client/addons/phantom_camera/scripts/resources/", "client/addons/phantom_camera/scripts/panel/", "client/addons/phantom_camera/scripts/phantom_camera_seed_source.gd", "client/scripts/gameplay/gameplay_camera_controller.gd", "client/scenes/gameplay/gameplay_camera_controller.tscn", "client/data/camera_feedback.json", "client/project.godot"],
       "update_triggers": ["Phantom Camera public API or signal changes", "Manager, Host, PCam, Noise, Tween, or Camera3DResource behavior changes", "Phantom Camera editor tooling or updater changes", "vendored Phantom Camera version or local patch changes", "GameplayCameraController integration changes", "player camera feedback data or screen shake behavior changes"],
       "keywords": ["Phantom Camera", "PhantomCameraManager", "PhantomCameraHost", "PhantomCamera2D", "PhantomCamera3D", "PhantomCameraNoise2D", "PhantomCameraNoise3D", "NoiseEmitter", "TweenDirector", "Viewfinder", "Camera2D", "Camera3D", "GLUED", "priority", "host_layers", "noise_emitter_layer", "camera_feedback.json", "GameplayCameraController", "screen shake", "震屏", "RNG.camera_fx", "physics_jitter_fix", "ADR #148", "vendored plugin", "维护型 fork"]
+    },
+    {
+      "path": "docs/代码/guide.md",
+      "type": "module_doc",
+      "authority": "Vendored G.U.I.D.E 0.14.0 architecture, runtime/action/context/remapping/prompt/editor contracts, local patches, licenses, and upgrade boundary",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-07-22",
+      "canonical_for": ["guide_plugin", "guide_runtime", "guide_actions", "guide_contexts", "guide_remapping", "guide_input_prompts", "guide_editor", "guide_local_fork"],
+      "must_read_for": ["guide_internal_change", "guide_upgrade", "guide_remapping_change", "guide_prompt_change", "guide_editor_change"],
+      "related_docs": ["docs/代码/input_service.md", "client/addons/README.md", "docs/决策记录.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/AI导航.md", "docs/代码/README.md"],
+      "related_code": ["client/addons/guide/"],
+      "update_triggers": ["GUIDE public API or signal changes", "GUIDE action/context/remapping/formatter behavior changes", "GUIDE editor tooling changes", "GUIDE version or local patch changes"],
+      "keywords": ["G.U.I.D.E", "GUIDE", "Godot Unified Input Detection Engine", "GUIDEAction", "GUIDEMappingContext", "GUIDERemapper", "GUIDEInputDetector", "GUIDEInputFormatter", "mapping context", "prompt icons", "Xelu", "Lato", "维护型 fork", "ADR #151"]
+    },
+    {
+      "path": "docs/代码/input_service.md",
+      "type": "module_doc",
+      "authority": "Project input facade contract for canonical actions, normalized bool/Vector2 intents, context lifecycle, remapping persistence, device prompts, Replay v2 override, and Godot UI bridge",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-07-22",
+      "canonical_for": ["input_service", "project_input_facade", "normalized_input_intent", "guide_project_adapter", "input_binding_schema", "replay_input_bridge"],
+      "must_read_for": ["input_system_change", "input_action_change", "input_context_change", "input_rebinding_change", "input_prompt_change", "replay_input_change"],
+      "related_docs": ["docs/代码/guide.md", "docs/代码/settings.md", "docs/代码/replay.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/决策记录.md", "docs/测试策略.md", "docs/AI导航.md", "docs/代码/README.md"],
+      "related_code": ["client/scripts/autoload/input_service.gd", "client/resources/input/actions/", "client/resources/input/contexts/", "client/scripts/contracts/actions.gd", "client/scripts/autoload/settings.gd", "client/scripts/autoload/replay.gd", "client/scripts/gameplay/player.gd", "client/scripts/ui/settings_panel.gd"],
+      "update_triggers": ["InputService API or signal changes", "canonical action or binding id changes", "input context or priority changes", "binding schema or settings migration changes", "device prompt behavior changes", "Replay intent bridge changes"],
+      "keywords": ["InputService", "input facade", "normalized intent", "move", "aim", "pointer_position", "Vector2", "input.move_stick", "input.aim_stick", "input.fire", "input_bindings.tres", "GUIDERemappingConfig", "settings v2", "replay v2", "gameplay context", "ui context", "debug context", "UI bridge", "ADR #151"]
     },
     {
       "path": "docs/代码/skill_system.md",
@@ -1050,7 +1078,7 @@
       "must_read_for": ["gm_command_change", "debug_console_change", "release_debug_boundary_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/formal_client_boot.md", "docs/代码/gameplay_runtime.md", "docs/代码/README.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/debug/debug_console.gd", "client/scripts/debug/gm_command_registry.gd", "client/scripts/boot/formal_client_boot.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/autoload/gear_mod_system.gd", "client/tools/debug_tools_smoke.gd", "tools/godot_bridge.py"],
-      "update_triggers": ["DebugConsole API changes", "GM command changes", "debug InputMap action changes", "release export guard changes", "debug smoke behavior changes"],
+      "update_triggers": ["DebugConsole API changes", "GM command changes", "debug InputService context/action changes", "release export guard changes", "debug smoke behavior changes"],
       "keywords": ["DebugConsole", "GMCommandRegistry", "GM", "debug-tools-smoke", "debug-tools-release-smoke", "dev_tools", "debug action", "控制台", "GM指令", "release guard"]
     },
     {
@@ -1154,16 +1182,16 @@
     {
       "path": "docs/代码/settings.md",
       "type": "module_doc",
-      "authority": "Settings autoload contract for registered setting defaults, runtime values, and change broadcasts",
+      "authority": "Settings autoload contract for schema v2 preferences, runtime values, change broadcasts, and one-time v1 input migration handoff to InputService",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-16",
-      "canonical_for": ["settings", "setting_defaults", "runtime_preferences"],
-      "must_read_for": ["settings_change", "new_setting", "settings_ui_change"],
-      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/localization.md"],
-      "related_code": ["client/scripts/autoload/settings.gd", "client/scripts/contracts/settings_keys.gd", "client/data/_contracts.json"],
-      "update_triggers": ["Settings API changes", "setting default changes", "setting key changes", "settings persistence changes"],
-      "keywords": ["Settings", "autoload", "settings_keys", "setting_changed", "general.locale", "input.show_stats_panel", "show_stats_panel", "Tab", "preferences"]
+      "last_reviewed": "2026-07-22",
+      "canonical_for": ["settings", "setting_defaults", "runtime_preferences", "settings_schema_v2", "legacy_input_settings_migration"],
+      "must_read_for": ["settings_change", "new_setting", "settings_ui_change", "legacy_input_migration_change"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/localization.md", "docs/代码/input_service.md", "docs/代码/guide.md"],
+      "related_code": ["client/scripts/autoload/settings.gd", "client/scripts/autoload/input_service.gd", "client/scripts/contracts/settings_keys.gd", "client/data/_contracts.json", "client/resources/input/"],
+      "update_triggers": ["Settings API changes", "setting default changes", "setting key changes", "settings persistence changes", "settings.cfg schema or legacy input migration changes"],
+      "keywords": ["Settings", "autoload", "settings v2", "settings_keys", "setting_changed", "general.locale", "deprecated input keys", "input_bindings.tres", "InputService", "GUIDERemappingConfig", "preferences"]
     },
     {
       "path": "docs/代码/analytics.md",
@@ -1182,16 +1210,16 @@
     {
       "path": "docs/代码/replay.md",
       "type": "module_doc",
-      "authority": "Replay autoload contract for deterministic input and decision recording, replay file persistence, summary diff, and gameplay input recording",
+      "authority": "Replay autoload contract for deterministic normalized intent and decision recording, v2 persistence, v1 in-memory migration, summary diff, and InputService playback override",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-16",
-      "canonical_for": ["replay", "deterministic_recording", "input_recording"],
-      "must_read_for": ["replay_change", "input_recording_change", "input_playback_change", "golden_replay_change"],
-      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/rng.md", "docs/代码/game_clock.md", "docs/代码/game_state.md", "docs/代码/analytics.md"],
-      "related_code": ["client/scripts/autoload/replay.gd", "client/scripts/contracts/actions.gd", "client/scripts/contracts/analytics_events.gd", "client/scripts/autoload/rng.gd", "client/scripts/autoload/game_clock.gd", "client/scripts/autoload/game_state.gd", "client/tools/replay_smoke.gd", "client/tools/replay_runner.gd", "client/tools/replay_input_smoke.gd", "client/tools/golden_replay_capture.gd", "client/tests/replays/"],
-      "update_triggers": ["Replay API changes", "replay schema changes", "input recording changes", "decision recording changes", "replay persistence changes"],
-      "keywords": ["Replay", "autoload", "record_input_action", "record_input_event", "record_decision", "gameplay.record_replays", "determinism", "golden replay", "input recording", "input playback", "runtime_events", "run_summary", "frame_samples", "level_up decision", "golden_pause_resume", "golden_full_death", "golden_level_up_choice", "debug_enable_level_up_growth", "默认无升级三选一"]
+      "last_reviewed": "2026-07-22",
+      "canonical_for": ["replay", "deterministic_recording", "input_recording", "replay_schema_v2", "replay_v1_input_migration"],
+      "must_read_for": ["replay_change", "input_recording_change", "input_playback_change", "replay_input_schema_change", "golden_replay_change"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/input_service.md", "docs/代码/guide.md", "docs/代码/rng.md", "docs/代码/game_clock.md", "docs/代码/game_state.md", "docs/代码/analytics.md"],
+      "related_code": ["client/scripts/autoload/replay.gd", "client/scripts/autoload/input_service.gd", "client/scripts/contracts/actions.gd", "client/scripts/contracts/analytics_events.gd", "client/scripts/autoload/rng.gd", "client/scripts/autoload/game_clock.gd", "client/scripts/autoload/game_state.gd", "client/tools/replay_smoke.gd", "client/tools/replay_runner.gd", "client/tools/replay_input_smoke.gd", "client/tools/golden_replay_capture.gd", "client/tests/replays/"],
+      "update_triggers": ["Replay API changes", "replay schema or v1 migration changes", "InputService playback bridge changes", "input recording changes", "decision recording changes", "replay persistence changes"],
+      "keywords": ["Replay", "autoload", "replay v2", "bool intent", "vector2 intent", "participant_id", "InputService", "playback override", "v1 migration", "record_decision", "gameplay.record_replays", "determinism", "golden replay", "input recording", "input playback", "runtime_events", "run_summary", "frame_samples", "level_up decision", "golden_pause_resume", "golden_full_death", "golden_level_up_choice", "debug_enable_level_up_growth", "默认无升级三选一"]
     },
     {
       "path": "docs/代码/localization.md",
@@ -1266,16 +1294,16 @@
     {
       "path": "docs/代码/ui_manager.md",
       "type": "module_doc",
-      "authority": "UIManager autoload contract for UI scene stack, CanvasLayer root, and pause UI linkage",
+      "authority": "UIManager autoload contract for UI scene stack, CanvasLayer root, pause linkage, and InputService-driven UI context lifecycle",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-06-16",
-      "canonical_for": ["ui_manager", "ui_stack", "pause_ui"],
-      "must_read_for": ["ui_stack_change", "new_ui_modal", "pause_menu_change", "ui_text_or_layout_change"],
-      "related_docs": ["docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/game_state.md", "docs/代码/settings.md", "docs/代码/localization.md"],
-      "related_code": ["client/scripts/autoload/ui_manager.gd", "client/scripts/autoload/game_state.gd"],
-      "update_triggers": ["UIManager API changes", "UI metadata changes", "pause linkage changes", "UI stack behavior changes", "UI localization sizing rule change"],
-      "keywords": ["UIManager", "autoload", "UI stack", "push", "pop", "pauses_game", "CanvasLayer", "English UI sizing", "英文长度基准", "按钮宽度"]
+      "last_reviewed": "2026-07-22",
+      "canonical_for": ["ui_manager", "ui_stack", "pause_ui", "ui_input_context_consumer"],
+      "must_read_for": ["ui_stack_change", "new_ui_modal", "pause_menu_change", "ui_input_bridge_change", "ui_text_or_layout_change"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/game_state.md", "docs/代码/settings.md", "docs/代码/localization.md", "docs/代码/input_service.md"],
+      "related_code": ["client/scripts/autoload/ui_manager.gd", "client/scripts/autoload/input_service.gd", "client/scripts/autoload/game_state.gd"],
+      "update_triggers": ["UIManager API changes", "UI metadata changes", "pause linkage changes", "UI stack or InputService context behavior changes", "Godot UI bridge changes", "UI localization sizing rule change"],
+      "keywords": ["UIManager", "InputService", "autoload", "UI stack", "ui context", "Godot Control bridge", "push", "pop", "pauses_game", "CanvasLayer", "English UI sizing", "英文长度基准", "按钮宽度"]
     },
     {
       "path": "docs/reports/2026-07-21-f14-replay-regression.md",

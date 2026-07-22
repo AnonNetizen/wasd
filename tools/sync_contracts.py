@@ -36,6 +36,7 @@ SECTIONS: tuple[ContractSection, ...] = (
     ContractSection("analytics_events", "## 4. 埋点事件 analytics event", "analytics_events.gd", "AnalyticsEvents"),
     ContractSection("settings_keys", "## 5. 设置 key", "settings_keys.gd", "SettingsKeys"),
     ContractSection("actions", "## 7. 输入动作 action", "actions.gd", "Actions"),
+    ContractSection("input_binding_ids", "### 7.1 重绑定 binding id", "input_binding_ids.gd", "InputBindingIds"),
     ContractSection("pool_ids", "## 8. 对象池 id", "pool_ids.gd", "PoolIds"),
     ContractSection("damage_types", "## 9. 伤害类型 damage_type", "damage_types.gd", "DamageTypes"),
     ContractSection("status_effects", "## 9-A. 状态效果 status_effect", "status_effects.gd", "StatusEffects"),

@@ -1,14 +1,13 @@
 {
 	"created_at": "golden:golden_full_death",
-	"data_fingerprint": "997c50033781a2dffe508879a1f65388e488de73a41fbb6f20061cbb9648a6fe",
-	"file_schema_version": 1,
+	"data_fingerprint": "cdca72da64880013d36ffab2e99846c87096cfe777a75a16b38b62a55fb7c2d3",
+	"file_schema_version": 2,
 	"game_version": "v1.6",
 	"recording": {
 		"context": {
 			"capture_frames": 180,
-			"character": "character_default",
-			"mode": "mode_standard_survival",
-			"scenario": "golden_full_death"
+			"scenario": "golden_full_death",
+			"source": "golden_replay_capture"
 		},
 		"decision_events": [],
 		"dropped_decision_events": 0,
@@ -221,11 +220,11 @@
 				"time": 1.25
 			}
 		],
-		"schema_version": 1,
-		"started_tick": 0,
+		"schema_version": 2,
+		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "f47c01d51cab94ba8be82acc743ab1945795bd901e5df96938484eab23faba47",
+	"recording_hash": "6e674efe06c20fa028b7b82d6f050f5236c53911170248dcf4d4e33986405e60",
 	"summary": {
 		"decision_events": 0,
 		"dropped_decision_events": 0,
@@ -429,8 +428,8 @@
 			"ui_stack": 1,
 			"xp": 0
 		},
-		"schema_version": 1,
-		"started_tick": 0,
+		"schema_version": 2,
+		"started_tick": 7,
 		"started_time": 0.0
 	}
 }

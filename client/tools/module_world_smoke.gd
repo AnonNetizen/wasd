@@ -274,10 +274,12 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	# directly to its left. Real CharacterBody2D movement must stop at that wall.
 	run_loop.call("debug_set_player_position", Vector2(-160.0, -160.0))
 	await get_tree().physics_frame
-	Input.action_press(ACTIONS.MOVE_LEFT)
+	InputService.set_playback_active(true)
+	InputService.inject_playback_value(ACTIONS.MOVE, Vector2.LEFT)
 	for _physics_tick: int in range(45):
 		await get_tree().physics_frame
-	Input.action_release(ACTIONS.MOVE_LEFT)
+	InputService.inject_playback_value(ACTIONS.MOVE, Vector2.ZERO)
+	InputService.set_playback_active(false)
 	var wall_test_player: Node = _find_node_by_name(get_tree().root, "Player")
 	_expect(
 		wall_test_player is Node2D and (wall_test_player as Node2D).global_position.x > -240.0,
@@ -323,13 +325,15 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	# Start inside the center module's east doorway and cross the shared seam using
 	# normal CharacterBody2D movement so a bad collision merge cannot hide behind a teleport.
 	run_loop.call("debug_set_player_position", Vector2(800.0, 0.0))
-	Input.action_press(ACTIONS.MOVE_RIGHT)
+	InputService.set_playback_active(true)
+	InputService.inject_playback_value(ACTIONS.MOVE, Vector2.RIGHT)
 	for _physics_tick: int in range(90):
 		await get_tree().physics_frame
 		var player: Node = _find_node_by_name(get_tree().root, "Player")
 		if player is Node2D and (player as Node2D).global_position.x > 900.0:
 			break
-	Input.action_release(ACTIONS.MOVE_RIGHT)
+	InputService.inject_playback_value(ACTIONS.MOVE, Vector2.ZERO)
+	InputService.set_playback_active(false)
 	await _wait_frames(BOOT_FRAMES)
 	var crossed: Dictionary = run_loop.call("debug_summary")
 	var crossed_world: Dictionary = crossed.get("module_world", {}) as Dictionary

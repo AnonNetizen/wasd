@@ -4,8 +4,8 @@ extends Node
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 
 const EXPECTED_ACTIONS: Array[String] = [
-	ACTIONS.MOVE_RIGHT,
-	ACTIONS.AIM_UP,
+	ACTIONS.MOVE,
+	ACTIONS.AIM,
 	ACTIONS.FIRE,
 	ACTIONS.PAUSE,
 	ACTIONS.UI_BACK,
@@ -45,31 +45,34 @@ func _run() -> void:
 	await get_tree().process_frame
 	_expect(Replay.is_recording(), "ReplayInputSmoke should start recording on PLAYING")
 
-	Input.action_press(ACTIONS.MOVE_RIGHT)
-	await get_tree().physics_frame
-	await get_tree().process_frame
-	Input.action_release(ACTIONS.MOVE_RIGHT)
-	await get_tree().physics_frame
-	await get_tree().process_frame
+	await _inject_key(KEY_D, true)
+	await _inject_key(KEY_D, false)
+	await _inject_key(KEY_UP, true)
+	await _inject_key(KEY_UP, false)
+	await _inject_mouse_motion(Vector2(720.0, 420.0), Vector2(8.0, -3.0))
+	await _inject_mouse_button(MOUSE_BUTTON_LEFT, true)
+	await _inject_mouse_button(MOUSE_BUTTON_LEFT, false)
 
-	Input.action_press(ACTIONS.AIM_UP)
-	await get_tree().physics_frame
-	await get_tree().process_frame
-	Input.action_release(ACTIONS.AIM_UP)
-	await get_tree().physics_frame
-	await get_tree().process_frame
-
-	Input.action_press(ACTIONS.FIRE)
-	await get_tree().physics_frame
-	await get_tree().process_frame
-	Input.action_release(ACTIONS.FIRE)
-	await get_tree().physics_frame
-	await get_tree().process_frame
-
-	await _push_action_once(ACTIONS.PAUSE)
+	await _inject_key(KEY_ESCAPE, true)
+	await _inject_key(KEY_ESCAPE, false)
 	_expect(GameState.is_state(GameState.PAUSED), "ReplayInputSmoke should open PauseMenu after pause action")
-	await _push_action_once(ACTIONS.UI_BACK)
+	await _inject_key(KEY_ESCAPE, true)
+	await _inject_key(KEY_ESCAPE, false)
 	_expect(GameState.is_state(GameState.PLAYING), "ReplayInputSmoke should return to PLAYING after ui_back")
+
+	var events_before_playback: int = (Replay.snapshot().get("input_events", []) as Array).size()
+	InputService.set_playback_active(true)
+	await _inject_key(KEY_W, true)
+	_expect(InputService.vector(ACTIONS.MOVE).is_zero_approx(), "physical input should not contaminate replay playback")
+	_expect(InputService.inject_playback_value(ACTIONS.MOVE, Vector2(-2.0, 0.0)), "playback should accept movement Vector2")
+	_expect(InputService.vector(ACTIONS.MOVE).is_equal_approx(Vector2.LEFT), "playback should normalize movement Vector2")
+	await get_tree().physics_frame
+	await get_tree().process_frame
+	var events_after_playback: int = (Replay.snapshot().get("input_events", []) as Array).size()
+	_expect(events_after_playback == events_before_playback, "playback and physical device state should not be re-recorded")
+	await _inject_key(KEY_W, false)
+	InputService.clear_playback_values()
+	InputService.set_playback_active(false)
 
 	GameState.change_state(GameState.GAME_OVER, {"source": "replay_input_smoke"})
 	var completed: Dictionary = Replay.snapshot()
@@ -77,28 +80,75 @@ func _run() -> void:
 	_expect(input_events.size() >= 6, "ReplayInputSmoke should record multiple gameplay input events")
 	for action_name: String in EXPECTED_ACTIONS:
 		_expect(_has_input_action(input_events, action_name), "ReplayInputSmoke should record %s" % action_name)
+	_expect(_all_events_are_v2(input_events), "ReplayInputSmoke should record only typed v2 input events")
+	_expect(_has_vector_value(input_events, ACTIONS.MOVE, Vector2.RIGHT), "ReplayInputSmoke should record normalized movement intent")
+	_expect(_has_vector_value(input_events, ACTIONS.AIM, Vector2.UP), "ReplayInputSmoke should record normalized final aim intent")
 
 	GameState.change_state(GameState.MAIN_MENU, {"source": "replay_input_smoke"})
+	InputService.set_playback_active(false)
 	_finish(Replay.recording_summary(completed))
 
 
-func _push_action_once(action_id: String) -> void:
-	var press: InputEventAction = InputEventAction.new()
-	press.action = action_id
-	press.pressed = true
-	get_viewport().push_input(press, true)
+func _inject_key(keycode: Key, pressed: bool) -> void:
+	var event: InputEventKey = InputEventKey.new()
+	event.keycode = keycode
+	event.physical_keycode = keycode
+	event.pressed = pressed
+	InputService.debug_inject_input(event)
+	await get_tree().process_frame
+	await get_tree().physics_frame
 	await get_tree().process_frame
 
-	var release: InputEventAction = InputEventAction.new()
-	release.action = action_id
-	release.pressed = false
-	get_viewport().push_input(release, true)
+
+func _inject_mouse_button(button: MouseButton, pressed: bool) -> void:
+	var event: InputEventMouseButton = InputEventMouseButton.new()
+	event.button_index = button
+	event.pressed = pressed
+	InputService.debug_inject_input(event)
+	await get_tree().process_frame
+	await get_tree().physics_frame
+	await get_tree().process_frame
+
+
+func _inject_mouse_motion(position: Vector2, relative: Vector2) -> void:
+	var event: InputEventMouseMotion = InputEventMouseMotion.new()
+	event.position = position
+	event.global_position = position
+	event.relative = relative
+	Input.parse_input_event(event)
+	await get_tree().process_frame
+	await get_tree().physics_frame
 	await get_tree().process_frame
 
 
 func _has_input_action(input_events: Array, action_name: String) -> bool:
 	for input_event: Variant in input_events:
 		if input_event is Dictionary and String((input_event as Dictionary).get("action", "")) == action_name:
+			return true
+	return false
+
+
+func _all_events_are_v2(input_events: Array) -> bool:
+	for raw_event: Variant in input_events:
+		if not raw_event is Dictionary:
+			return false
+		var input_event: Dictionary = raw_event as Dictionary
+		if not input_event.has("value_type") or not input_event.has("value"):
+			return false
+		if input_event.has("pressed") or input_event.has("strength"):
+			return false
+	return true
+
+
+func _has_vector_value(input_events: Array, action_name: String, expected: Vector2) -> bool:
+	for raw_event: Variant in input_events:
+		if not raw_event is Dictionary:
+			continue
+		var input_event: Dictionary = raw_event as Dictionary
+		if String(input_event.get("action", "")) != action_name or String(input_event.get("value_type", "")) != "vector2":
+			continue
+		var components: Array = input_event.get("value", []) as Array
+		if components.size() == 2 and Vector2(float(components[0]), float(components[1])).is_equal_approx(expected):
 			return true
 	return false
 
@@ -132,8 +182,8 @@ func _expect(condition: bool, message: String) -> void:
 
 
 func _finish(summary: Dictionary) -> void:
-	Input.action_release(ACTIONS.MOVE_RIGHT)
-	Input.action_release(ACTIONS.AIM_UP)
+	InputService.clear_playback_values()
+	InputService.set_playback_active(false)
 
 	if _failures.is_empty():
 		print("[ReplayInputSmoke] passed; summary=%s" % JSON.stringify(summary))

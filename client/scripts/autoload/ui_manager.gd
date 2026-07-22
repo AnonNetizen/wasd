@@ -12,9 +12,19 @@ signal navigation_focus_visibility_changed(visible: bool)
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ROOT_NAME: StringName = &"UIRoot"
-const REPLAY_PARTICIPANT_ID: String = "player_0"
+const INPUT_PARTICIPANT_ID: String = "player_0"
+const UI_NAVIGATION_ACTIONS: Array[String] = [
+	ACTIONS.UI_UP,
+	ACTIONS.UI_DOWN,
+	ACTIONS.UI_LEFT,
+	ACTIONS.UI_RIGHT,
+	ACTIONS.UI_CONFIRM,
+]
 
 var _root: CanvasLayer
+var _confirmation_cancelled: Callable = Callable()
+var _confirmation_confirmed: Callable = Callable()
+var _confirmation_dialog: ConfirmationDialog = null
 var _navigation_focus_visible: bool = false
 var _stack: Array[Node] = []
 var _state_before_ui_pause: StringName = &""
@@ -26,10 +36,27 @@ func _ready() -> void:
 	_root.name = ROOT_NAME
 	_root.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_root)
+	_confirmation_dialog = ConfirmationDialog.new()
+	_confirmation_dialog.process_mode = Node.PROCESS_MODE_ALWAYS
+	_confirmation_dialog.confirmed.connect(_on_confirmation_confirmed)
+	_confirmation_dialog.canceled.connect(_on_confirmation_cancelled)
+	_root.add_child(_confirmation_dialog)
+	if not InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.connect(_on_input_action_pressed)
+	if not InputService.device_family_changed.is_connected(_on_input_device_family_changed):
+		InputService.device_family_changed.connect(_on_input_device_family_changed)
+	if not InputService.pointer_activity.is_connected(_on_pointer_activity):
+		InputService.pointer_activity.connect(_on_pointer_activity)
+	_set_navigation_focus_visible(InputService.current_device_family() == InputService.DEVICE_GAMEPAD)
 
 
-func _input(event: InputEvent) -> void:
-	_update_navigation_focus_visibility(event)
+func _exit_tree() -> void:
+	if InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.disconnect(_on_input_action_pressed)
+	if InputService.device_family_changed.is_connected(_on_input_device_family_changed):
+		InputService.device_family_changed.disconnect(_on_input_device_family_changed)
+	if InputService.pointer_activity.is_connected(_on_pointer_activity):
+		InputService.pointer_activity.disconnect(_on_pointer_activity)
 
 
 func push(scene: PackedScene, context: Dictionary = {}) -> Node:
@@ -108,16 +135,40 @@ func stack_snapshot() -> Array[Node]:
 	return snapshot
 
 
+func show_confirmation(
+		title: String,
+		body: String,
+		confirm_text: String,
+		cancel_text: String,
+		confirmed: Callable,
+		cancelled: Callable
+	) -> bool:
+	if _confirmation_dialog == null or _confirmation_dialog.visible:
+		return false
+	_confirmation_confirmed = confirmed
+	_confirmation_cancelled = cancelled
+	_confirmation_dialog.title = title
+	_confirmation_dialog.dialog_text = body
+	_confirmation_dialog.ok_button_text = confirm_text
+	_confirmation_dialog.cancel_button_text = cancel_text
+	_confirmation_dialog.popup_centered()
+	return true
+
+
+func cancel_confirmation() -> bool:
+	if _confirmation_dialog == null or not _confirmation_dialog.visible:
+		return false
+	_confirmation_dialog.hide()
+	_on_confirmation_cancelled()
+	return true
+
+
 func navigation_focus_visible() -> bool:
 	return _navigation_focus_visible
 
 
-func event_requests_navigation_focus(event: InputEvent) -> bool:
-	if event is InputEventJoypadButton:
-		return true
-
-	var joypad_motion: InputEventJoypadMotion = event as InputEventJoypadMotion
-	return joypad_motion != null and absf(joypad_motion.axis_value) >= 0.25
+func event_requests_navigation_focus(_event: InputEvent) -> bool:
+	return InputService.current_device_family() == InputService.DEVICE_GAMEPAD
 
 
 func grab_focus_for_navigation(control: Control) -> bool:
@@ -129,13 +180,15 @@ func grab_focus_for_navigation(control: Control) -> bool:
 	return true
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	Replay.record_input_event(event, [ACTIONS.UI_BACK], REPLAY_PARTICIPANT_ID)
-
-	if not event.is_action_pressed(ACTIONS.UI_BACK):
+func _on_input_action_pressed(action_id: StringName, participant_id: String) -> void:
+	if participant_id != INPUT_PARTICIPANT_ID:
 		return
-	if _request_top_close():
-		get_viewport().set_input_as_handled()
+	if UI_NAVIGATION_ACTIONS.has(String(action_id)):
+		_set_navigation_focus_visible(true, false)
+		_ensure_top_navigation_focus()
+		return
+	if action_id == StringName(ACTIONS.UI_BACK):
+		_request_top_close()
 
 
 func _apply_pause_request(node: Node) -> void:
@@ -177,6 +230,8 @@ func _node_requests_pause(node: Node) -> bool:
 
 
 func _request_top_close() -> bool:
+	if cancel_confirmation():
+		return true
 	var top_node: Node = top()
 	if top_node == null or not is_instance_valid(top_node):
 		return false
@@ -186,30 +241,36 @@ func _request_top_close() -> bool:
 	return true
 
 
-func _update_navigation_focus_visibility(event: InputEvent) -> void:
-	if event_requests_navigation_focus(event):
-		_set_navigation_focus_visible(true)
+func _on_confirmation_confirmed() -> void:
+	var callback: Callable = _confirmation_confirmed
+	_clear_confirmation_callbacks()
+	if callback.is_valid():
+		callback.call()
+
+
+func _on_confirmation_cancelled() -> void:
+	var callback: Callable = _confirmation_cancelled
+	_clear_confirmation_callbacks()
+	if callback.is_valid():
+		callback.call()
+
+
+func _clear_confirmation_callbacks() -> void:
+	_confirmation_confirmed = Callable()
+	_confirmation_cancelled = Callable()
+
+
+func _on_input_device_family_changed(device_family: StringName) -> void:
+	var gamepad_active: bool = device_family == InputService.DEVICE_GAMEPAD
+	_set_navigation_focus_visible(gamepad_active, false)
+	if gamepad_active:
 		call_deferred("_ensure_top_navigation_focus")
-		return
-	if _event_hides_navigation_focus(event):
-		_set_navigation_focus_visible(false, false)
+	else:
 		call_deferred("_release_current_navigation_focus")
 
 
-func _event_hides_navigation_focus(event: InputEvent) -> bool:
-	var mouse_button: InputEventMouseButton = event as InputEventMouseButton
-	if mouse_button != null:
-		return not mouse_button.pressed
-
-	var screen_touch: InputEventScreenTouch = event as InputEventScreenTouch
-	if screen_touch != null:
-		return not screen_touch.pressed
-
-	return (
-		event is InputEventMouseMotion
-		or event is InputEventKey
-		or event is InputEventScreenDrag
-	)
+func _on_pointer_activity() -> void:
+	_set_navigation_focus_visible(false)
 
 
 func _set_navigation_focus_visible(visible: bool, release_now: bool = true) -> void:
@@ -222,6 +283,8 @@ func _set_navigation_focus_visible(visible: bool, release_now: bool = true) -> v
 
 
 func _release_current_navigation_focus() -> void:
+	if _navigation_focus_visible:
+		return
 	var focused: Control = get_viewport().gui_get_focus_owner()
 	if focused == null:
 		return

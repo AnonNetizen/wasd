@@ -67,7 +67,7 @@
 | `gear_mods.json` | JSON | 装备 Mod 定义：英雄 / 武器槽位、稀有度、rank、drain、修正器和分解返还 |
 | `gear_mod_drop_tables.csv` | CSV | 装备 Mod 掉落来源、概率和等级条件 |
 | `gear_mod_fusion_costs.csv` | CSV | 装备 Mod 按稀有度 / rank 的升级资源成本 |
-| `credits.json` | 已建立 | 游戏内致谢数据源：工作人员、开发工具、外部资源、外部库、适用构建目标与许可 / notice 状态；vendored Godot 插件说明见 `client/addons/README.md`，Steamworks Lab 的随包声明见其 `THIRD_PARTY_NOTICES.txt` |
+| `credits.json` | 已建立 | 游戏内致谢数据源：工作人员、开发工具、外部资源、外部库、适用构建目标与许可 / notice 状态；G.U.I.D.E、Xelu prompts 与 Lato 字体分别登记，vendored Godot 插件说明见 `client/addons/README.md`，Steamworks Lab 的随包声明见其 `THIRD_PARTY_NOTICES.txt` |
 | `_contracts.json` | 生成文件 | 由 `docs/词表与契约.md` 生成，禁止手改；`DataLoader` 用它校验 id |
 
 ## 本地 Mod 数据包

@@ -14,7 +14,7 @@ const SKILL_TARGETING := preload("res://scripts/contracts/skill_targeting.gd")
 const STATUS_EFFECT_SCRIPT := preload("res://scripts/combat/status_effect.gd")
 const STATUS_EFFECT_COMPONENT_SCRIPT := preload("res://scripts/combat/status_effect_component.gd")
 
-const REPLAY_PARTICIPANT_ID: String = "player_0"
+const INPUT_PARTICIPANT_ID: String = "player_0"
 const TEAM_ENEMY: String = "team_enemy"
 const TEAM_PLAYER: String = "team_player"
 
@@ -27,6 +27,16 @@ var _skills: Array[Dictionary] = []
 var _status_effect_component: Node = null
 
 
+func _ready() -> void:
+	if not InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.connect(_on_input_action_pressed)
+
+
+func _exit_tree() -> void:
+	if InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.disconnect(_on_input_action_pressed)
+
+
 func _physics_process(delta: float) -> void:
 	if not GameState.is_state(GameState.PLAYING):
 		return
@@ -37,13 +47,12 @@ func _physics_process(delta: float) -> void:
 	_update_resources(scaled_delta)
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	Replay.record_input_event(event, [ACTIONS.USE_ACTIVE_ITEM], REPLAY_PARTICIPANT_ID)
+func _on_input_action_pressed(action_id: StringName, participant_id: String) -> void:
+	if participant_id != INPUT_PARTICIPANT_ID or action_id != StringName(ACTIONS.USE_ACTIVE_ITEM):
+		return
 	if not GameState.is_state(GameState.PLAYING):
 		return
-	if event.is_action_pressed(ACTIONS.USE_ACTIVE_ITEM):
-		get_viewport().set_input_as_handled()
-		cast_primary_skill()
+	cast_primary_skill()
 
 
 func configure(caster: Node2D, active_parent: Node, skills: Array, resources: Array) -> void:

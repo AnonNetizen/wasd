@@ -1,0 +1,52 @@
+[gd_resource type="Resource" script_class="GUIDEMappingContext" format=3]
+
+[ext_resource type="Script" path="res://addons/guide/guide_action_mapping.gd" id="1_2gpvn"]
+[ext_resource type="Resource" path="res://resources/input/actions/debug_toggle_console.tres" id="2_whnc1"]
+[ext_resource type="Script" path="res://addons/guide/guide_input_mapping.gd" id="3_dt8mg"]
+[ext_resource type="Script" path="res://addons/guide/inputs/guide_input_key.gd" id="4_baoxf"]
+[ext_resource type="Script" path="res://addons/guide/modifiers/guide_modifier.gd" id="5_udh4h"]
+[ext_resource type="Script" path="res://addons/guide/triggers/guide_trigger.gd" id="6_80d5j"]
+[ext_resource type="Resource" path="res://resources/input/actions/debug_close_console.tres" id="7_08d4f"]
+[ext_resource type="Script" path="res://addons/guide/guide_mapping_context.gd" id="8_nhyl3"]
+
+[sub_resource type="Resource" id="Resource_qcux0"]
+script = ExtResource("4_baoxf")
+key = 4194332
+
+[sub_resource type="Resource" id="Resource_npkte"]
+script = ExtResource("3_dt8mg")
+override_action_settings = true
+input = SubResource("Resource_qcux0")
+
+[sub_resource type="Resource" id="Resource_yvlfp"]
+script = ExtResource("4_baoxf")
+key = 96
+
+[sub_resource type="Resource" id="Resource_a20sh"]
+script = ExtResource("3_dt8mg")
+override_action_settings = true
+input = SubResource("Resource_yvlfp")
+
+[sub_resource type="Resource" id="Resource_wcr0i"]
+script = ExtResource("1_2gpvn")
+action = ExtResource("2_whnc1")
+input_mappings = Array[ExtResource("3_dt8mg")]([SubResource("Resource_npkte"), SubResource("Resource_a20sh")])
+
+[sub_resource type="Resource" id="Resource_748wm"]
+script = ExtResource("4_baoxf")
+key = 4194305
+
+[sub_resource type="Resource" id="Resource_abji7"]
+script = ExtResource("3_dt8mg")
+override_action_settings = true
+input = SubResource("Resource_748wm")
+
+[sub_resource type="Resource" id="Resource_qjirw"]
+script = ExtResource("1_2gpvn")
+action = ExtResource("7_08d4f")
+input_mappings = Array[ExtResource("3_dt8mg")]([SubResource("Resource_abji7")])
+
+[resource]
+script = ExtResource("8_nhyl3")
+display_name = "debug"
+mappings = Array[ExtResource("1_2gpvn")]([SubResource("Resource_wcr0i"), SubResource("Resource_qjirw")])

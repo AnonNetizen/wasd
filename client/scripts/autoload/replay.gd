@@ -17,8 +17,10 @@ signal replay_load_failed(path: String, error: String)
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
-const REPLAY_SCHEMA_VERSION: int = 1
-const REPLAY_FILE_SCHEMA_VERSION: int = 1
+const REPLAY_SCHEMA_VERSION: int = 2
+const REPLAY_FILE_SCHEMA_VERSION: int = 2
+const LEGACY_REPLAY_SCHEMA_VERSION: int = 1
+const DEFAULT_PARTICIPANT_ID: String = "player_0"
 const REPLAY_ROOT: String = "user://replays"
 const REPLAY_EXTENSION: String = ".replay"
 const MAX_INPUT_EVENTS: int = 4096
@@ -40,6 +42,12 @@ func _ready() -> void:
 		Settings.setting_changed.connect(_on_setting_changed)
 	if not GameState.state_changed.is_connected(_on_game_state_changed):
 		GameState.state_changed.connect(_on_game_state_changed)
+	if not InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.connect(_on_input_action_pressed)
+	if not InputService.action_released.is_connected(_on_input_action_released):
+		InputService.action_released.connect(_on_input_action_released)
+	if not InputService.vector_changed.is_connected(_on_input_vector_changed):
+		InputService.vector_changed.connect(_on_input_vector_changed)
 
 
 func start_recording(context: Dictionary = {}) -> bool:
@@ -86,22 +94,43 @@ func stop_recording(reason: String = "") -> Dictionary:
 	return completed_recording
 
 
-func record_input_action(action_name: String, pressed: bool, strength: float = 1.0, participant_id: String = "") -> bool:
+func record_input_action(action_name: String, pressed: bool, _strength: float = 1.0, participant_id: String = DEFAULT_PARTICIPANT_ID) -> bool:
+	return record_input_value(action_name, pressed, participant_id)
+
+
+func record_input_value(action_name: String, value: Variant, participant_id: String = DEFAULT_PARTICIPANT_ID) -> bool:
 	if not _is_recording:
 		return false
 	if not _is_registered_action(action_name):
 		push_error("[Replay] unknown input action: %s" % action_name)
 		return false
+	var value_type: String = ""
+	var stored_value: Variant = null
+	if value is bool:
+		if action_name in [ACTIONS.MOVE, ACTIONS.AIM, ACTIONS.POINTER_POSITION]:
+			return false
+		value_type = "bool"
+		stored_value = bool(value)
+	elif value is Vector2:
+		if action_name not in [ACTIONS.MOVE, ACTIONS.AIM]:
+			return false
+		value_type = "vector2"
+		var vector_value: Vector2 = value as Vector2
+		if vector_value.length_squared() > 1.0:
+			vector_value = vector_value.normalized()
+		stored_value = [vector_value.x, vector_value.y]
+	else:
+		push_error("[Replay] unsupported input value type for %s" % action_name)
+		return false
 
 	var input_event: Dictionary = {
 		"action": action_name,
-		"pressed": pressed,
-		"strength": clampf(strength, 0.0, 1.0),
+		"value_type": value_type,
+		"value": stored_value,
 		"tick": GameClock.tick(),
 		"time": GameClock.now(),
+		"participant_id": participant_id if not participant_id.is_empty() else DEFAULT_PARTICIPANT_ID,
 	}
-	if not participant_id.is_empty():
-		input_event["participant_id"] = participant_id
 
 	_input_events.append(input_event)
 	while _input_events.size() > MAX_INPUT_EVENTS:
@@ -110,19 +139,6 @@ func record_input_action(action_name: String, pressed: bool, strength: float = 1
 
 	input_recorded.emit(input_event.duplicate(true))
 	return true
-
-
-func record_input_event(event: InputEvent, action_names: Array[String], participant_id: String = "") -> bool:
-	if event == null:
-		return false
-
-	var recorded_any: bool = false
-	for action_name: String in action_names:
-		if event.is_action_pressed(action_name):
-			recorded_any = record_input_action(action_name, true, 1.0, participant_id) or recorded_any
-		elif event.is_action_released(action_name):
-			recorded_any = record_input_action(action_name, false, 0.0, participant_id) or recorded_any
-	return recorded_any
 
 
 func record_decision(event_name: String, payload: Dictionary = {}) -> bool:
@@ -215,8 +231,9 @@ func load_replay_file(path: String) -> Dictionary:
 		replay_load_failed.emit(path, _last_error)
 		return {}
 
-	replay_loaded.emit(path, envelope.duplicate(true))
-	return envelope.duplicate(true)
+	var migrated_envelope: Dictionary = _migrate_envelope_to_current(envelope)
+	replay_loaded.emit(path, migrated_envelope.duplicate(true))
+	return migrated_envelope.duplicate(true)
 
 
 func replay_root() -> String:
@@ -308,11 +325,33 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 
 func _on_game_state_changed(_old_state: StringName, new_state: StringName, context: Dictionary) -> void:
 	if new_state == GameState.PLAYING and not _is_recording:
+		if InputService.playback_active():
+			return
 		start_recording(context)
 		return
 
 	if _is_recording and (new_state == GameState.GAME_OVER or new_state == GameState.RESULT or new_state == GameState.MAIN_MENU):
 		stop_recording(String(new_state))
+
+
+func _on_input_action_pressed(action_id: StringName, participant_id: String) -> void:
+	if InputService.playback_active():
+		return
+	record_input_value(String(action_id), true, participant_id)
+
+
+func _on_input_action_released(action_id: StringName, participant_id: String) -> void:
+	if InputService.playback_active():
+		return
+	record_input_value(String(action_id), false, participant_id)
+
+
+func _on_input_vector_changed(action_id: StringName, value: Vector2, participant_id: String) -> void:
+	if InputService.playback_active():
+		return
+	if action_id != StringName(ACTIONS.MOVE) and action_id != StringName(ACTIONS.AIM):
+		return
+	record_input_value(String(action_id), value, participant_id)
 
 
 func _copy_events(source_events: Array[Dictionary]) -> Array[Dictionary]:
@@ -343,11 +382,11 @@ func _validate_file_envelope(envelope: Dictionary) -> String:
 		return "[Replay] replay recording must be a Dictionary"
 
 	var file_schema_version: int = int(envelope.get("file_schema_version", 0))
-	if file_schema_version > REPLAY_FILE_SCHEMA_VERSION:
+	if file_schema_version < LEGACY_REPLAY_SCHEMA_VERSION or file_schema_version > REPLAY_FILE_SCHEMA_VERSION:
 		return "[Replay] replay file schema is newer than supported: %d > %d" % [file_schema_version, REPLAY_FILE_SCHEMA_VERSION]
 
 	var recording: Dictionary = envelope["recording"] as Dictionary
-	if not _is_valid_recording(recording):
+	if not _is_valid_recording_for_version(recording, file_schema_version):
 		return "[Replay] replay recording payload is invalid"
 	var expected_hash: String = _payload_hash(recording)
 	if String(envelope.get("recording_hash", "")) != expected_hash:
@@ -364,7 +403,129 @@ func _is_valid_recording(recording: Dictionary) -> bool:
 		return false
 	if not recording.get("decision_events", []) is Array:
 		return false
+	for raw_event: Variant in recording.get("input_events", []) as Array:
+		if not raw_event is Dictionary or not _is_valid_v2_input_event(raw_event as Dictionary):
+			return false
 	return true
+
+
+func _is_valid_recording_for_version(recording: Dictionary, file_schema_version: int) -> bool:
+	if file_schema_version == LEGACY_REPLAY_SCHEMA_VERSION:
+		return _is_valid_v1_recording(recording)
+	return _is_valid_recording(recording)
+
+
+func _is_valid_v1_recording(recording: Dictionary) -> bool:
+	if int(recording.get("schema_version", 0)) != LEGACY_REPLAY_SCHEMA_VERSION:
+		return false
+	if not recording.has("run_seed") or not recording.has("started_tick") or not recording.has("started_time"):
+		return false
+	if not recording.get("input_events", []) is Array or not recording.get("decision_events", []) is Array:
+		return false
+	for raw_event: Variant in recording.get("input_events", []) as Array:
+		if not raw_event is Dictionary:
+			return false
+		var event: Dictionary = raw_event as Dictionary
+		if not event.get("action", "") is String or not event.get("pressed", false) is bool:
+			return false
+		if not _is_registered_action(String(event.get("action", ""))):
+			return false
+		if not event.has("tick") or not event.has("time"):
+			return false
+	return true
+
+
+func _is_valid_v2_input_event(event: Dictionary) -> bool:
+	for field_name: String in ["action", "value_type", "value", "tick", "time", "participant_id"]:
+		if not event.has(field_name):
+			return false
+	if not event["action"] is String or not event["participant_id"] is String:
+		return false
+	var action_name: String = String(event["action"])
+	if not _is_registered_action(action_name) or String(event["participant_id"]).is_empty():
+		return false
+	var value_type: String = String(event["value_type"])
+	if value_type == "bool":
+		return event["value"] is bool and action_name not in [ACTIONS.MOVE, ACTIONS.AIM, ACTIONS.POINTER_POSITION]
+	if value_type != "vector2" or not event["value"] is Array:
+		return false
+	if action_name not in [ACTIONS.MOVE, ACTIONS.AIM]:
+		return false
+	var components: Array = event["value"] as Array
+	return components.size() == 2 and (components[0] is int or components[0] is float) and (components[1] is int or components[1] is float)
+
+
+func _migrate_envelope_to_current(envelope: Dictionary) -> Dictionary:
+	if int(envelope.get("file_schema_version", 0)) == REPLAY_FILE_SCHEMA_VERSION:
+		return envelope.duplicate(true)
+	var migrated: Dictionary = envelope.duplicate(true)
+	var recording: Dictionary = (migrated.get("recording", {}) as Dictionary).duplicate(true)
+	recording["schema_version"] = REPLAY_SCHEMA_VERSION
+	recording["input_events"] = _migrate_v1_input_events(recording.get("input_events", []) as Array)
+	migrated["file_schema_version"] = REPLAY_FILE_SCHEMA_VERSION
+	migrated["recording"] = recording
+	migrated["recording_hash"] = _payload_hash(recording)
+	migrated["summary"] = recording_summary(recording)
+	return migrated
+
+
+func _migrate_v1_input_events(source_events: Array) -> Array[Dictionary]:
+	var migrated: Array[Dictionary] = []
+	var directional_state: Dictionary = {}
+	var last_vectors: Dictionary = {
+		ACTIONS.MOVE: Vector2.ZERO,
+		ACTIONS.AIM: Vector2.ZERO,
+	}
+	for raw_event: Variant in source_events:
+		var event: Dictionary = raw_event as Dictionary
+		var action_name: String = String(event.get("action", ""))
+		var vector_action: String = _legacy_vector_action(action_name)
+		if vector_action.is_empty():
+			migrated.append(_v2_event_from_v1(event, action_name, bool(event.get("pressed", false))))
+			continue
+		directional_state[action_name] = bool(event.get("pressed", false))
+		var vector_value: Vector2 = _legacy_vector_value(vector_action, directional_state)
+		var previous: Vector2 = last_vectors.get(vector_action, Vector2.ZERO) as Vector2
+		if previous.is_equal_approx(vector_value):
+			continue
+		last_vectors[vector_action] = vector_value
+		migrated.append(_v2_event_from_v1(event, vector_action, vector_value))
+	return migrated
+
+
+func _v2_event_from_v1(source_event: Dictionary, action_name: String, value: Variant) -> Dictionary:
+	var migrated: Dictionary = {
+		"action": action_name,
+		"value_type": "vector2" if value is Vector2 else "bool",
+		"value": [value.x, value.y] if value is Vector2 else bool(value),
+		"tick": int(source_event.get("tick", 0)),
+		"time": float(source_event.get("time", 0.0)),
+		"participant_id": String(source_event.get("participant_id", DEFAULT_PARTICIPANT_ID)),
+	}
+	return migrated
+
+
+func _legacy_vector_action(action_name: String) -> String:
+	if action_name in [ACTIONS.MOVE_UP, ACTIONS.MOVE_DOWN, ACTIONS.MOVE_LEFT, ACTIONS.MOVE_RIGHT]:
+		return ACTIONS.MOVE
+	if action_name in [ACTIONS.AIM_UP, ACTIONS.AIM_DOWN, ACTIONS.AIM_LEFT, ACTIONS.AIM_RIGHT]:
+		return ACTIONS.AIM
+	return ""
+
+
+func _legacy_vector_value(vector_action: String, state: Dictionary) -> Vector2:
+	var value: Vector2 = Vector2.ZERO
+	if vector_action == ACTIONS.MOVE:
+		value = Vector2(
+			float(int(bool(state.get(ACTIONS.MOVE_RIGHT, false))) - int(bool(state.get(ACTIONS.MOVE_LEFT, false)))),
+			float(int(bool(state.get(ACTIONS.MOVE_DOWN, false))) - int(bool(state.get(ACTIONS.MOVE_UP, false))))
+		)
+	else:
+		value = Vector2(
+			float(int(bool(state.get(ACTIONS.AIM_RIGHT, false))) - int(bool(state.get(ACTIONS.AIM_LEFT, false)))),
+			float(int(bool(state.get(ACTIONS.AIM_DOWN, false))) - int(bool(state.get(ACTIONS.AIM_UP, false))))
+		)
+	return value.normalized() if value.length_squared() > 1.0 else value
 
 
 func _ensure_replay_root() -> bool:

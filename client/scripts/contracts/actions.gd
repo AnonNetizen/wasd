@@ -2,6 +2,20 @@
 class_name Actions
 
 const VALUES: Array[String] = [
+	"move",
+	"aim",
+	"pointer_position",
+	"fire",
+	"use_active_item",
+	"interact",
+	"show_stats_panel",
+	"pause",
+	"ui_up",
+	"ui_down",
+	"ui_left",
+	"ui_right",
+	"ui_confirm",
+	"ui_back",
 	"move_up",
 	"move_down",
 	"move_left",
@@ -10,19 +24,26 @@ const VALUES: Array[String] = [
 	"aim_down",
 	"aim_left",
 	"aim_right",
-	"fire",
-	"use_active_item",
-	"interact",
-	"show_stats_panel",
-	"pause",
-	"ui_confirm",
-	"ui_back",
 	"debug_toggle_console",
 	"debug_submit_command",
 	"debug_close_console",
 	"debug_toggle_replay",
 ]
 
+const MOVE: String = "move"
+const AIM: String = "aim"
+const POINTER_POSITION: String = "pointer_position"
+const FIRE: String = "fire"
+const USE_ACTIVE_ITEM: String = "use_active_item"
+const INTERACT: String = "interact"
+const SHOW_STATS_PANEL: String = "show_stats_panel"
+const PAUSE: String = "pause"
+const UI_UP: String = "ui_up"
+const UI_DOWN: String = "ui_down"
+const UI_LEFT: String = "ui_left"
+const UI_RIGHT: String = "ui_right"
+const UI_CONFIRM: String = "ui_confirm"
+const UI_BACK: String = "ui_back"
 const MOVE_UP: String = "move_up"
 const MOVE_DOWN: String = "move_down"
 const MOVE_LEFT: String = "move_left"
@@ -31,13 +52,6 @@ const AIM_UP: String = "aim_up"
 const AIM_DOWN: String = "aim_down"
 const AIM_LEFT: String = "aim_left"
 const AIM_RIGHT: String = "aim_right"
-const FIRE: String = "fire"
-const USE_ACTIVE_ITEM: String = "use_active_item"
-const INTERACT: String = "interact"
-const SHOW_STATS_PANEL: String = "show_stats_panel"
-const PAUSE: String = "pause"
-const UI_CONFIRM: String = "ui_confirm"
-const UI_BACK: String = "ui_back"
 const DEBUG_TOGGLE_CONSOLE: String = "debug_toggle_console"
 const DEBUG_SUBMIT_COMMAND: String = "debug_submit_command"
 const DEBUG_CLOSE_CONSOLE: String = "debug_close_console"

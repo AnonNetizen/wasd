@@ -86,7 +86,7 @@ theme_override_constants/h_separation = 18
 theme_override_constants/v_separation = 5
 columns = 2
 
-[node name="MessageLabel" type="Label" parent="Root"]
+[node name="MessageLabel" type="RichTextLabel" parent="Root"]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -95,6 +95,8 @@ anchor_bottom = 1.0
 offset_top = 140.0
 grow_horizontal = 2
 grow_vertical = 2
+bbcode_enabled = true
+fit_content = true
 horizontal_alignment = 1
 vertical_alignment = 1
 theme_override_font_sizes/font_size = 24

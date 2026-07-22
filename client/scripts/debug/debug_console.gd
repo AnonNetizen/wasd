@@ -22,6 +22,14 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 100
 	_build_ui()
+	if not InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.connect(_on_input_action_pressed)
+
+
+func _exit_tree() -> void:
+	InputService.set_debug_capture_active(false)
+	if InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.disconnect(_on_input_action_pressed)
 
 
 func setup(boot: Node, enabled_override: bool = true) -> void:
@@ -30,7 +38,6 @@ func setup(boot: Node, enabled_override: bool = true) -> void:
 	if not _enabled:
 		queue_free()
 		return
-	_ensure_debug_actions()
 	_registry = GM_COMMAND_REGISTRY_SCRIPT.new()
 	_registry.name = "GMCommandRegistry"
 	add_child(_registry)
@@ -38,16 +45,14 @@ func setup(boot: Node, enabled_override: bool = true) -> void:
 	_append_log("DebugConsole ready. Type help.")
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _on_input_action_pressed(action_id: StringName, _participant_id: String) -> void:
 	if not _enabled:
 		return
-	if event.is_action_pressed(ACTIONS.DEBUG_TOGGLE_CONSOLE):
+	if action_id == StringName(ACTIONS.DEBUG_TOGGLE_CONSOLE):
 		_set_console_visible(not is_console_visible())
-		get_viewport().set_input_as_handled()
 		return
-	if is_console_visible() and event.is_action_pressed(ACTIONS.DEBUG_CLOSE_CONSOLE):
+	if is_console_visible() and action_id in [StringName(ACTIONS.DEBUG_CLOSE_CONSOLE), StringName(ACTIONS.UI_BACK)]:
 		_set_console_visible(false)
-		get_viewport().set_input_as_handled()
 
 
 func execute_command(command: String) -> Dictionary:
@@ -156,6 +161,7 @@ func _set_console_visible(is_visible: bool) -> void:
 	if _root == null:
 		return
 	_root.visible = is_visible
+	InputService.set_debug_capture_active(is_visible)
 	if is_visible and _input_line != null:
 		_input_line.grab_focus()
 	elif _input_line != null:
@@ -172,19 +178,3 @@ func _append_log(line: String) -> void:
 
 func _debug_tools_allowed() -> bool:
 	return OS.is_debug_build() or OS.has_feature("dev_tools")
-
-
-func _ensure_debug_actions() -> void:
-	_ensure_key_action(ACTIONS.DEBUG_TOGGLE_CONSOLE, KEY_F1)
-	_ensure_key_action(ACTIONS.DEBUG_TOGGLE_CONSOLE, KEY_QUOTELEFT)
-	_ensure_key_action(ACTIONS.DEBUG_SUBMIT_COMMAND, KEY_ENTER)
-	_ensure_key_action(ACTIONS.DEBUG_CLOSE_CONSOLE, KEY_ESCAPE)
-
-
-func _ensure_key_action(action_id: String, keycode: Key) -> void:
-	if not InputMap.has_action(action_id):
-		InputMap.add_action(action_id)
-	var event: InputEventKey = InputEventKey.new()
-	event.keycode = keycode
-	if not InputMap.action_has_event(action_id, event):
-		InputMap.action_add_event(action_id, event)

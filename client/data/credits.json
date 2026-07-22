@@ -86,6 +86,39 @@
           "included_in_build": true,
           "requires_notice": true,
           "review_required": false
+        },
+        {
+          "kind": "external_library",
+          "name": "G.U.I.D.E",
+          "role_key": "ui_credits_usage_input_framework",
+          "url": "https://github.com/godotneers/G.U.I.D.E",
+          "license": "MIT",
+          "copyright": "Copyright (c) 2024-present Jan Thomä",
+          "included_in_build": true,
+          "requires_notice": true,
+          "review_required": false
+        },
+        {
+          "kind": "external_resource",
+          "name": "Xelu's Free Controller & Key Prompts",
+          "role_key": "ui_credits_usage_input_prompts",
+          "url": "https://thoseawesomeguys.com/prompts/",
+          "license": "CC0 1.0 Universal",
+          "copyright": "Nicolae ‘Xelu’ Berbece / Those Awesome Guys",
+          "included_in_build": true,
+          "requires_notice": true,
+          "review_required": false
+        },
+        {
+          "kind": "external_resource",
+          "name": "Lato Black",
+          "role_key": "ui_credits_usage_input_prompt_font",
+          "url": "https://www.latofonts.com/",
+          "license": "SIL Open Font License 1.1",
+          "copyright": "Copyright (c) 2010-2014 by tyPoland Łukasz Dziedzic; Reserved Font Name ‘Lato’",
+          "included_in_build": true,
+          "requires_notice": true,
+          "review_required": false
         }
       ]
     },

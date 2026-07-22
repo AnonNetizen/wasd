@@ -64,15 +64,15 @@
 | `client/locale/`（即 `res://locale/`） | 本地化翻译表（CSV → `.translation`）+ `README.md` 多语言文案手册 |
 | `client/templates/`（即 `res://templates/`） | 新内容脚手架模板（enemy/relic 等） |
 | `client/assets/`（即 `res://assets/`） | 美术 / 音效 |
-| `client/addons/`（即 `res://addons/`） | 固定版本 Godot 插件；当前为 `@icons 1.4.0`、`Script-IDE 2.2.3` 与运行时摄像机框架 `Phantom Camera 0.11.0.3`，来源 / 许可 / 版本 / 升级见 `client/addons/README.md`，Phantom Camera 源码架构与项目接入见 `docs/代码/phantom_camera.md` |
+| `client/addons/`（即 `res://addons/`） | 固定版本 Godot 插件；当前为 `@icons 1.4.0`、`Script-IDE 2.2.3`、运行时摄像机框架 `Phantom Camera 0.11.0.3` 与输入引擎 `G.U.I.D.E 0.14.0`。来源 / 许可 / 版本 / 升级见 `client/addons/README.md`；GUIDE 内部与项目输入边界分别见 `docs/代码/guide.md`、`docs/代码/input_service.md` |
 | `client/scenes/boot/main.tscn` | F1 最小启动场景，详见 `docs/代码/formal_client_boot.md` |
-| `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `GearModSystem` / `AudioManager` / `Localization` / `UIManager`；另由 addon 路径稳定注册 `PhantomCameraManager` |
+| `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `InputService` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `GearModSystem` / `AudioManager` / `Localization` / `UIManager`；另由 addon 路径稳定注册 `GUIDE` 与 `PhantomCameraManager` |
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口、`DamageInfo`、`StatusEffect` 与 `StatusEffectComponent` |
 | `client/scripts/gameplay/` | Gameplay 主循环、玩家 / 武器 / 技能 / 敌人 / 机关 / HUD，F13 `module_world_manager` / `module_chunk` / `module_minimap`，以及 F14 `module_navigation_field`；世界 / 导航 API 见 `docs/代码/module_world_manager.md`，Enemy 感知见 `docs/代码/enemy_ai.md` |
 | `client/scripts/ui/` | 阶段性 UI：`title_menu` / `pause_menu` / `game_over_panel` / `gear_mod_panel` |
 | `client/scripts/debug/` | debug/dev_tools 专用 `DebugConsole` 与 `GMCommandRegistry`；正式 release 不应加载或导出 |
 | `client/tools/` | Godot 项目内 headless smoke 脚本；当前含 gameplay runtime、GearMod、SaveManager、Settings、Replay、RNG 和 DebugTools smoke，并保留仅由用户明确触发的性能 probe |
-| `user://settings.cfg` | 玩家设置存档；游戏进度存档走 `user://saves/<slot>/<kind>.save`（`meta` / `run` / `replay_index`） |
+| `user://settings.cfg` / `user://input_bindings.tres` | 普通设置 schema v2 / GUIDE 输入绑定 schema v1；游戏进度存档仍走 `user://saves/<slot>/<kind>.save`（`meta` / `run` / `replay_index`） |
 
 `docs/` 下：
 
@@ -180,10 +180,11 @@
 | **加面向玩家的文本** | 先读 `client/locale/README.md`，在 `res://locale/strings.csv` 加 key + `zh_CN` / `en` 译文；若用户只给一种语言，AI 自动补齐另一语言首版译文，人工复核后代码 / 数据用 `tr("key")` 或 `name_key`；涉及 UI 按钮、面板或 HUD 时以英文 `en` 长度验收尺寸，跑对应 smoke，当前按钮类英文适配由 `settings-smoke` 覆盖 |
 | **加一个设置项** | 先在 `Settings` 加配置（键/类型/默认/范围）并接入下游 `setting_changed` 即时生效；只有完成生效链路后才在设置面板显示 UI 控件，暂未接线的预留 key 保留为隐藏 / 禁用 |
 | **加一个埋点** | 用 `词表与契约.md` 登记的 `event_name`，调用 `Analytics.track_event(name, params)` |
-| **改输入/按键/手柄** | 走 `Settings` 重绑定与 InputMap action，不硬编码键盘按键、手柄按钮或手柄轴；当前 `Settings` 已负责键盘主绑定，runtime 只补手柄轴 / 按钮兜底；键鼠默认用鼠标相对玩家 / 视口中心方向瞄准，方向键 / 手柄右摇杆 / D-pad 作为兜底；详细数值面板用 `show_stats_panel` action（默认 Tab）按住显示、松开隐藏且不暂停；业务实体消费归一化 intent / action，避免直接依赖本地玩家输入；默认手柄为左摇杆移动、右摇杆 / D-pad 瞄准 |
+| **改输入 / 按键 / 手柄 / 重绑定** | 先读 `docs/代码/input_service.md`、词表 §7、ADR #151、Settings / Replay 文档和目标调用方；action 先登记并生成常量，默认映射改 `client/resources/input/`，业务只消费 `InputService` 的 `move` / `aim` Vector2 或 bool intent。GUIDE 只允许由 InputService 访问，InputMap 只允许在 UI bridge / 插件 / 测试边界；绑定保存为 `user://input_bindings.tres`，改完跑 `input-smoke`、`settings-smoke`、`replay-input-smoke`、runtime 与黄金回放 |
+| **维护 / 升级 GUIDE 内部** | 先读 `docs/代码/guide.md`、`client/addons/README.md`、ADR #151 与目标源码；升级只比较固定版本官方发布包，重放 autoload、类型、context 单调序号、detector 负轴 / 取消清理和源码头补丁。不得启用自动更新、加 lint 豁免或把插件类型泄露给业务；完成后跑三档 lint、input/settings/replay smoke、headless boot、headless editor 和真实手柄验收 |
 | **加 GM 指令 / 调试工具** | 查 GDD 9.20 与 `docs/代码/debug_tools.md`；调试入口只在 debug/dev_tools 构建启用，action 用 `debug_*` 并登记词表 §7；命令必须通过正式系统 API 或受控 `debug_*` API 改状态；release preset 不启用 `dev_tools` 且排除调试脚本 / GM 命令表；改完跑 `python tools/godot_bridge.py --project client debug-tools-smoke` 和 `debug-tools-release-smoke` |
 | **加暂停/切换游戏状态** | `GameState.change_state(PAUSED)` 等；UI 通过 `UIManager.push(modal_pause_menu)` 自动联动暂停；F5 首片的 `PauseMenu` 已覆盖继续、保存并退出、重开和回标题，也支持从升级面板上方叠出并恢复回 `LEVEL_UP`；不直接读写 `get_tree().paused`（见 GDD 9.12 / 9.14） |
-| **加录制回放/确定性需求** | 走 `Replay`（autoload）；随机走 `RNG.<stream>`、时间走 `GameClock`；普通新局 / 重开用 `RNG.set_random_run_seed()` 生成新主 seed，继续游戏恢复 run snapshot，回放 / smoke / golden 工具显式固定 seed；不读非确定时间源；改 RNG seed 派生 / 子流集合时追加 `python tools/godot_bridge.py --project client rng-audit`（见 GDD 9.9 / 9.18） |
+| **加录制回放/确定性需求** | 走 `Replay`（autoload）；输入只由 `InputService` 记录 / 注入 v2 bool 或 Vector2 intent，播放时隔离 GUIDE 物理输入；随机走 `RNG.<stream>`、时间走 `GameClock`。v1 只在加载时迁移，不重写源文件；改输入 wire 追加 input/replay smoke 和四条黄金回放，改 RNG seed 派生 / 子流集合追加 `rng-audit`（见 GDD 9.9 / 9.18） |
 | **接 Steam API / 平台服务** | 先读 `docs/在线服务规划.md`、ADR #150 与 `docs/代码/platform_services.md`；未来固定官方 GodotSteam 版本，只在 `PlatformServices` adapter 内初始化 / 驱动 callback，并承接 Steam 身份票据、成就、Steam-only 统计、富状态、overlay、Lobby / 邀请。当前正式客户端不安装，业务不得直调 Steamworks / GodotSteam |
 | **接 Talo / 在线后端** | 当前只规划、不安装。用户点名首个功能后，先在 `output/test_lab` 验证并决定 Talo Cloud / 官方自托管，再新增 `OnlineServices → Talo` adapter；跨平台排行榜 / 统计、Live Config、事件与轻量社交只走该门面，Analytics 可把它作为 sink，SaveManager 仍是本地存档权威。禁止业务直调 `Talo.*`、双写同一排行榜 / 统计或自研通用后端 |
 | **维护 Steamworks Slime Lab / 单人 AI 大招与自主游击 / 本地同屏 / 纪录 / App ID / Windows 导出** | 先读 `output/steamworks_lab/README.md` 与 ADR #129 / #132 / #133 / #134 / #135 / #136 / #137 / #138 / #139 / #140 / #141；自动回归只使用 `py -3 tools\steamworks_lab_toolchain.py smoke --suite <目标>`，先目标 suite、交付前 `--suite all`，禁止手写 Godot / PowerShell 双进程命令。ADR #139 的 AI 大招仅在 `PlayMode.SINGLE`：P1 子弹命中 / 普通击杀 / Boss 击杀按 `+1 / +6 / +21` 累积至 100，按 `E` 召唤不可受伤、不吸引火力且自动射击的 10 秒 AI。ADR #140 已把 AI 改为确定性自主游击 / 预判闪避：避开敌弹、普通敌人、Boss 和障碍物，常规距 P1 使用 210 px 硬限、超过 220 px 复位；须松开再按住 `E` 发起合体，AI 高速归队到 92 px 内并停靠 0.8 秒后自动同意，持续时间不重置且每次召唤最多一次。目标 battle 1/1、local-couch 与权威 `smoke --suite all` 已通过；all 含 battle 5/5、动态端口 ENet、最大分片仍不超过 900 字节且受保护文件未改变。AI 不进入真人 roster、强化、纪录、玩家卡或快照；同屏 / Steam、wire、存档与正式 `client` 不变。runner 隔离每个 `user://`、验证精确 `ALL PASS` / 致命日志、动态分配 ENet 端口并保护玩家真实设置 / 存档与源码 `steam_appid.txt=4955670`；测试 fixture 必须在 `_ready()` 前注入。源码 App ID 文件永久保留，只从 release 排除。本地同屏由 `local_input_router.gd` 分配 P1 键鼠与 P2–P4 手柄；Steam Lobby 不混入同屏玩家，ENet 只守协议。纪录按单人 / 多人分开，未来 schema 保持写保护，Steam Client 必测权威 Game Over 完整链路。快照应用层仍是 `Dictionary`，wire 层为 FastLZ + 900 字节分片，Lobby `lab_version=2`。Windows 当前开发 / 发布验证标准为普通 Godot 4.7.1 + GodotSteam 4.20 GDExtension + Steamworks 1.64；工具锁继续接受 Godot 4.7 minor 系列，setup / verify / export-release 直接走 `--godot` / `GODOT_PATH`；export-release 按 editor 模式校验标准用户目录或 self-contained `editor_data/` 的精确版本 templates，禁止重建 `.toolchain/`。真实手柄、SteamPipe、Depot 和双账号 Steam smoke 仍需外部验证；不能把 Lab 直连 SDK 当成正式 `client/PlatformServices` 已接入 |
@@ -205,13 +206,14 @@
 ## 5. 核心系统模块
 
 ### 5.1 模块清单
-**业务模块**：`InputController` / `Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager`（F13 世界门面）/ `ModuleNavigationField`（F14 共享静态导航）/ `WarzoneDirector`（仅 F12 非默认开放战区）/ `HazardSystem` / `ItemSystem` / `GrowthSystem` / `GearModSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `PhantomCamera2D` / `PhantomCameraHost` / `Camera2D` / `DataLoader` / `PauseMenu` / `Combat` / `StatusEffectComponent`。
+**业务模块**：`Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager`（F13 世界门面）/ `ModuleNavigationField`（F14 共享静态导航）/ `WarzoneDirector`（仅 F12 非默认开放战区）/ `HazardSystem` / `ItemSystem` / `GrowthSystem` / `GearModSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `PhantomCamera2D` / `PhantomCameraHost` / `Camera2D` / `DataLoader` / `PauseMenu` / `Combat` / `StatusEffectComponent`。
 
 **Autoload 单例（横向基础设施 + 协调中枢）**：
 - 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
 - 一条**平台服务基础设施**：`PlatformServices`（Steam 优先预留成就、统计、富状态 / 状态显示、overlay、Lobby / 联机入口和用户身份；其他平台后续走 provider adapter）
 - 一条**未来在线服务规划**：`OnlineServices` 尚未实现；ADR #150 只锁定未来以 Talo provider 承接跨平台身份、排行榜 / 统计、Live Config、事件和轻量社交，不计入当前 autoload 矩阵
 - 三条**协作基础设施**：`Localization` / `Settings` / `Analytics`
+- 一条**输入基础设施**：vendored `GUIDE` 只解释物理设备与资源图；项目 `InputService` 是生成 action、归一化 intent、context、重绑定、提示和回放覆盖的唯一业务门面
 - 两条**确定性基础设施**：`RNG`（种子化随机，子流分流）/ `GameClock`（暂停冻结时间源）
 - 一条**回放基础设施**：`Replay`
 - 一条**vendored 相机协调基础设施**：`PhantomCameraManager`（项目固定 autoload；节点注册、priority / layer 选机与噪声广播）
@@ -227,6 +229,8 @@
 
 > F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射。ADR #124 后当前正式视角改回俯视角 2D；ADR #148 后 `CenteredCamera` 由 Player 子场景内的 Phantom Camera GLUED PCam 驱动，仍保持屏幕水平、玩家居中和等比缩放，不滚转、不平滑、不压缩某个轴。玩家有效受伤可按 `camera_feedback.json` 触发可关闭的位移震屏；鼠标瞄准会把屏幕偏移按当前 canvas transform 换算回世界方向。`Player` 仍是 `CharacterBody2D` 并按 2D 平面移动，正式玩家场景不再挂 `Player3DVisual`，默认 2D 占位按完整 `aim_direction` 绘制朝向标记。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
 
+> ADR #151 后不再由 gameplay 动态创建 InputMap action。GUIDE 0.14.0 维护物理映射，`InputService` 将 `move` / `aim` 统一成 Vector2、锁存短按到物理 tick、跟踪最近设备并管理 gameplay / ui / debug context；Replay v2 记录最终 intent。旧 `move_*` / `aim_*` 只用于 v1 Settings / Replay 内存迁移。
+
 ### 5.2 系统依赖图（Mermaid，AI 改动前先看影响范围）
 
 ```mermaid
@@ -238,6 +242,8 @@ flowchart LR
     Ana[Analytics]
     RNG[RNG]
     Rep[Replay]
+    Guide[GUIDE]
+    Input[InputService]
     Clk[GameClock]
     Plat[PlatformServices]
     Online[OnlineServices<br/>规划中]
@@ -260,7 +266,6 @@ flowchart LR
   Combat[Combat<br/>伤害结算]
   SE[StatusEffectComponent]
 
-  Input[InputController]
   Player[Player]
   Weapon[WeaponSystem]
   Bullet[Bullet]
@@ -288,12 +293,15 @@ flowchart LR
 
   Mod -. 本地 mod 数据 patch .-> Loader
   Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & GearMod & Spawner & ModuleWorld & Director & Hazard & Map & CamCtl
-  Set --> Player & Weapon & Input & UIM & Aud & CamCtl
+  Set --> Input & UIM & Aud & CamCtl
+  Guide -. 物理 action / context / remapping .-> Input
   Loc --> UIM & Item
   Ana <-- 埋点 --- Player & Enemy & Item & Growth & GearMod & Spawner & GS & Save
   RNG --> Map & Spawner & Item & Growth & GearMod & Enemy & Combat & PCam
   Clk --> Spawner & Director & Hazard & Weapon & Skill & SE
-  Rep -. 录制/重放 .-> Input & RNG & Clk & GS
+  Input -. 录制 v2 intent .-> Rep
+  Rep -. playback override .-> Input
+  Rep -. seed/tick/state .-> RNG & Clk & GS
   Plat -. 成就/状态/overlay/Lobby .-> UI & GearMod & GS
   Plat -. Steam Web API Ticket .-> Online
   Plat -. 未来 provider .-> GodotSteam
@@ -309,7 +317,7 @@ flowchart LR
   Pool --> Weapon & Bullet & Spawner & Hazard & Item & Aud
 
   Input --> Player --> Weapon
-  Input --> Skill
+  Input --> Skill & UIM & UI
   Weapon --> Bullet --> Combat
   Skill --> Combat
   Skill --> SE
@@ -349,7 +357,7 @@ flowchart LR
   classDef infra fill:#eef,stroke:#88a;
   classDef hub fill:#fee,stroke:#a88;
   classDef res fill:#efe,stroke:#8a8;
-  class Mod,Loc,Set,Ana,RNG,Rep,Clk,Plat,Online,GodotSteam,Talo,PCamMgr infra;
+  class Mod,Loc,Set,Ana,RNG,Rep,Clk,Plat,Online,GodotSteam,Talo,Guide,Input,PCamMgr infra;
   class GS,UIM,Pool hub;
   class Save,Aud res;
 ```
@@ -361,6 +369,7 @@ flowchart LR
 
 ## 6. 红线（最易踩坑）
 - ❌ 硬编码可调数值、玩家可见文本、键盘按键 / 手柄按钮 / 手柄轴、约定字符串；❌ 新增数值 / 文案字段却不更新 `client/data/README.md` / `client/locale/README.md`
+- ❌ 业务代码直接访问 GUIDE / `Input` / `InputMap`、按物理设备写分支或自己维护 context / 重绑定；必须走生成 action 与 `InputService`，InputMap 仅限 GUIDE / InputService UI bridge / 测试
 - ❌ 用中文短文本密度决定 UI 尺寸；新增 / 修改玩家可见 UI 文案或布局时必须切到英文 `en` 验收按钮、面板、HUD、升级选择和结算不截断、不溢出、不遮挡
 - ❌ 为每个遗物/道具写独立硬编码分支
 - ❌ 为某个角色 / 技能 / 遗物 / 道具写 `if id == ...` 的一次性破限分支（必须 capability / primitive / strategy 化）

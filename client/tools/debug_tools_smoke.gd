@@ -44,14 +44,17 @@ func _run_debug_smoke() -> void:
 	_expect(bool(boot.call("debug_tools_enabled")), "debug tools should be enabled in debug/dev_tools builds")
 	_expect(console.has_method("execute_command_for_test"), "DebugConsole should expose test command execution")
 	_expect(bool(console.call("has_registry_for_test")), "DebugConsole should own a GMCommandRegistry")
-	_expect(_action_has_key(ACTIONS.DEBUG_TOGGLE_CONSOLE, KEY_F1), "debug_toggle_console should include F1")
-	_expect(_action_has_key(ACTIONS.DEBUG_TOGGLE_CONSOLE, KEY_QUOTELEFT), "debug_toggle_console should include backquote")
-	_expect(_action_has_key(ACTIONS.DEBUG_CLOSE_CONSOLE, KEY_ESCAPE), "debug_close_console should include Escape")
+	_expect(InputService.action_resource(ACTIONS.DEBUG_TOGGLE_CONSOLE) != null, "InputService should expose debug_toggle_console")
+	_expect(InputService.action_resource(ACTIONS.DEBUG_CLOSE_CONSOLE) != null, "InputService should expose debug_close_console")
 
-	console.call("_unhandled_input", _action_event(ACTIONS.DEBUG_TOGGLE_CONSOLE))
-	_expect(bool(console.call("is_console_visible_for_test")), "DebugConsole should open from debug_toggle_console")
-	console.call("_unhandled_input", _action_event(ACTIONS.DEBUG_CLOSE_CONSOLE))
-	_expect(not bool(console.call("is_console_visible_for_test")), "DebugConsole should close from debug_close_console")
+	await _push_key_once(KEY_F1)
+	_expect(bool(console.call("is_console_visible_for_test")), "DebugConsole should open from the GUIDE F1 binding")
+	await _push_key_once(KEY_ESCAPE)
+	_expect(not bool(console.call("is_console_visible_for_test")), "DebugConsole should close from the GUIDE Escape fallback")
+	await _push_key_once(KEY_QUOTELEFT)
+	_expect(bool(console.call("is_console_visible_for_test")), "DebugConsole should open from the GUIDE backquote binding")
+	await _push_key_once(KEY_QUOTELEFT)
+	_expect(not bool(console.call("is_console_visible_for_test")), "DebugConsole should toggle closed from the GUIDE backquote binding")
 
 	var help_result: Dictionary = console.call("execute_command_for_test", "help")
 	_expect(bool(help_result.get("ok", false)), "help command should succeed")
@@ -149,19 +152,22 @@ func _find_node_by_name(root: Node, target_name: String) -> Node:
 	return null
 
 
-func _action_has_key(action_id: String, keycode: Key) -> bool:
-	if not InputMap.has_action(action_id):
-		return false
-	var expected: InputEventKey = InputEventKey.new()
-	expected.keycode = keycode
-	return InputMap.action_has_event(action_id, expected)
-
-
-func _action_event(action_id: String) -> InputEventAction:
-	var event: InputEventAction = InputEventAction.new()
-	event.action = action_id
-	event.pressed = true
-	return event
+func _push_key_once(keycode: Key) -> void:
+	var pressed: InputEventKey = InputEventKey.new()
+	pressed.keycode = keycode
+	pressed.physical_keycode = keycode
+	pressed.pressed = true
+	InputService.debug_inject_input(pressed)
+	await get_tree().process_frame
+	await get_tree().physics_frame
+	var released: InputEventKey = InputEventKey.new()
+	released.keycode = keycode
+	released.physical_keycode = keycode
+	released.pressed = false
+	InputService.debug_inject_input(released)
+	await get_tree().process_frame
+	await get_tree().physics_frame
+	await get_tree().process_frame
 
 
 func _expect(condition: bool, message: String) -> void:

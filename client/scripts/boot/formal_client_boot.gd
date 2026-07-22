@@ -12,6 +12,7 @@ const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loo
 const GEAR_MOD_PANEL_SCENE := preload("res://scenes/ui/gear_mod_panel.tscn")
 const GEAR_MOD_SMOKE_RUNNER := preload("res://tools/gear_mod_smoke.gd")
 const GOLDEN_REPLAY_CAPTURE_RUNNER := preload("res://tools/golden_replay_capture.gd")
+const INPUT_SMOKE_RUNNER := preload("res://tools/input_smoke.gd")
 const L1_SMOKE_RUNNER := preload("res://tools/l1_smoke.gd")
 const MODULE_WORLD_SMOKE_RUNNER := preload("res://tools/module_world_smoke.gd")
 const RUNTIME_SMOKE_RUNNER := preload("res://tools/runtime_smoke.gd")
@@ -113,6 +114,10 @@ func _ready() -> void:
 		var replay_input_smoke_runner: Node = REPLAY_INPUT_SMOKE_RUNNER.new()
 		replay_input_smoke_runner.name = "ReplayInputSmoke"
 		add_child(replay_input_smoke_runner)
+	elif _is_input_smoke_enabled():
+		var input_smoke_runner: Node = INPUT_SMOKE_RUNNER.new()
+		input_smoke_runner.name = "InputSmoke"
+		add_child(input_smoke_runner)
 	elif _is_rng_audit_enabled():
 		var rng_audit_runner: Node = RNG_AUDIT_RUNNER.new()
 		rng_audit_runner.name = "RNGAudit"
@@ -228,6 +233,10 @@ func _is_replay_runner_enabled() -> bool:
 
 func _is_replay_input_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--replay-input-smoke")
+
+
+func _is_input_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--input-smoke")
 
 
 func _is_rng_audit_enabled() -> bool:

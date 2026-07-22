@@ -29,7 +29,6 @@ const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause_menu.tscn")
 const PICKUP_ORB_SCENE := preload("res://scenes/gameplay/pickup_orb.tscn")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
-const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const SKILL_SYSTEM_SCRIPT := preload("res://scripts/gameplay/skill_system.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
@@ -54,7 +53,7 @@ const UI_RESTORE_LEVEL_UP: String = "level_up"
 const UI_RESTORE_PAUSED: String = "paused"
 const UI_RESTORE_PLAYING: String = "playing"
 const UI_RESTORE_UNDERLYING_STATE: String = "underlying_state"
-const REPLAY_PARTICIPANT_ID: String = "player_0"
+const INPUT_PARTICIPANT_ID: String = "player_0"
 const DEFAULT_DEBUG_GROWTH_POOL: String = "default_level_up"
 const NAVIGATION_FLOW_OBSTACLE_BUFFER_CELLS: int = 2
 
@@ -102,11 +101,14 @@ var _weapon_system: Node = null
 
 
 func _ready() -> void:
-	_ensure_input_actions()
+	if not InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.connect(_on_input_action_pressed)
 	_start_run(_pending_restore_snapshot)
 
 
 func _exit_tree() -> void:
+	if InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.disconnect(_on_input_action_pressed)
 	_clear_interest_point_caches()
 	_release_active_world_pool_entities()
 	if Combat.damage_applied.is_connected(_on_combat_damage_applied):
@@ -152,18 +154,17 @@ func _process(delta: float) -> void:
 		_update_spawner()
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	Replay.record_input_event(event, [ACTIONS.PAUSE, ACTIONS.INTERACT], REPLAY_PARTICIPANT_ID)
-
-	if GameState.is_state(GameState.PLAYING) and event.is_action_pressed(ACTIONS.INTERACT):
-		if _try_interact_interest_point():
-			get_viewport().set_input_as_handled()
+func _on_input_action_pressed(action_id: StringName, participant_id: String) -> void:
+	if participant_id != INPUT_PARTICIPANT_ID:
 		return
-	if GameState.is_state(GameState.PLAYING) and event.is_action_pressed(ACTIONS.PAUSE):
-		get_viewport().set_input_as_handled()
-		_show_pause_menu()
-		return
-	if GameState.is_state(GameState.GAME_OVER) and event.is_action_pressed(ACTIONS.PAUSE):
+	if GameState.is_state(GameState.PLAYING):
+		if action_id == StringName(ACTIONS.INTERACT):
+			_try_interact_interest_point()
+			return
+		if action_id == StringName(ACTIONS.PAUSE):
+			_show_pause_menu()
+			return
+	if GameState.is_state(GameState.GAME_OVER) and action_id == StringName(ACTIONS.PAUSE):
 		restart_requested.emit()
 
 
@@ -1231,8 +1232,7 @@ func _is_interest_point_interactable(state: Dictionary) -> bool:
 
 
 func _interaction_binding_label() -> String:
-	var raw_binding: String = String(Settings.get_value(SETTINGS_KEYS.INPUT_INTERACT, "E"))
-	return raw_binding if not raw_binding.is_empty() else "E"
+	return InputService.prompt_text(ACTIONS.INTERACT)
 
 
 func _grant_interest_point_rewards(state: Dictionary) -> Dictionary:
@@ -2473,7 +2473,10 @@ func _refresh_xp_hud() -> void:
 func _update_stats_panel() -> void:
 	if _hud == null or not _hud.has_method("set_stats_panel_visible"):
 		return
-	var should_show: bool = GameState.is_state(GameState.PLAYING) and Input.is_action_pressed(ACTIONS.SHOW_STATS_PANEL)
+	var should_show: bool = (
+		GameState.is_state(GameState.PLAYING)
+		and InputService.is_pressed(ACTIONS.SHOW_STATS_PANEL, INPUT_PARTICIPANT_ID)
+	)
 	_hud.call("set_stats_panel_visible", should_show)
 	if should_show and _hud.has_method("set_detailed_stats"):
 		_hud.call("set_detailed_stats", _stats_panel_snapshot())
@@ -2637,60 +2640,6 @@ func _choice_ids(choices: Array[Dictionary]) -> Array[String]:
 	for choice: Dictionary in choices:
 		result.append(String(choice.get("id", "")))
 	return result
-
-
-func _ensure_input_actions() -> void:
-	_ensure_axis_action(ACTIONS.MOVE_LEFT, JOY_AXIS_LEFT_X, -1.0)
-	_ensure_axis_action(ACTIONS.MOVE_RIGHT, JOY_AXIS_LEFT_X, 1.0)
-	_ensure_axis_action(ACTIONS.MOVE_UP, JOY_AXIS_LEFT_Y, -1.0)
-	_ensure_axis_action(ACTIONS.MOVE_DOWN, JOY_AXIS_LEFT_Y, 1.0)
-	_ensure_axis_action(ACTIONS.AIM_LEFT, JOY_AXIS_RIGHT_X, -1.0)
-	_ensure_axis_action(ACTIONS.AIM_RIGHT, JOY_AXIS_RIGHT_X, 1.0)
-	_ensure_axis_action(ACTIONS.AIM_UP, JOY_AXIS_RIGHT_Y, -1.0)
-	_ensure_axis_action(ACTIONS.AIM_DOWN, JOY_AXIS_RIGHT_Y, 1.0)
-	_ensure_axis_action(ACTIONS.FIRE, JOY_AXIS_TRIGGER_RIGHT, 1.0)
-	_ensure_mouse_button_action(ACTIONS.FIRE, MOUSE_BUTTON_LEFT)
-	_ensure_button_action(ACTIONS.AIM_UP, JOY_BUTTON_DPAD_UP)
-	_ensure_button_action(ACTIONS.AIM_DOWN, JOY_BUTTON_DPAD_DOWN)
-	_ensure_button_action(ACTIONS.AIM_LEFT, JOY_BUTTON_DPAD_LEFT)
-	_ensure_button_action(ACTIONS.AIM_RIGHT, JOY_BUTTON_DPAD_RIGHT)
-	_ensure_button_action(ACTIONS.USE_ACTIVE_ITEM, JOY_BUTTON_A)
-	_ensure_button_action(ACTIONS.INTERACT, JOY_BUTTON_X)
-	_ensure_button_action(ACTIONS.PAUSE, JOY_BUTTON_START)
-	_ensure_button_action(ACTIONS.UI_CONFIRM, JOY_BUTTON_A)
-	_ensure_button_action(ACTIONS.UI_BACK, JOY_BUTTON_B)
-
-
-func _ensure_axis_action(action_id: String, axis: JoyAxis, axis_value: float) -> void:
-	_ensure_action(action_id)
-	var event: InputEventJoypadMotion = InputEventJoypadMotion.new()
-	event.axis = axis
-	event.axis_value = axis_value
-	_add_event_if_missing(action_id, event)
-
-
-func _ensure_mouse_button_action(action_id: String, button: MouseButton) -> void:
-	_ensure_action(action_id)
-	var event: InputEventMouseButton = InputEventMouseButton.new()
-	event.button_index = button
-	_add_event_if_missing(action_id, event)
-
-
-func _ensure_button_action(action_id: String, button: JoyButton) -> void:
-	_ensure_action(action_id)
-	var event: InputEventJoypadButton = InputEventJoypadButton.new()
-	event.button_index = button
-	_add_event_if_missing(action_id, event)
-
-
-func _ensure_action(action_id: String) -> void:
-	if not InputMap.has_action(action_id):
-		InputMap.add_action(action_id)
-
-
-func _add_event_if_missing(action_id: String, event: InputEvent) -> void:
-	if not InputMap.action_has_event(action_id, event):
-		InputMap.action_add_event(action_id, event)
 
 
 func _damage_info(amount: float, target: Node) -> RefCounted:

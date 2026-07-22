@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="GUIDEAction" format=3]
+
+[ext_resource type="Script" path="res://addons/guide/guide_action.gd" id="1_v706i"]
+
+[resource]
+script = ExtResource("1_v706i")
+name = &"pointer_position"
+action_value_type = 2
+display_name = "pointer_position"
+display_category = "input"

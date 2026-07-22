@@ -88,8 +88,8 @@ func _create_smoke_replay() -> Dictionary:
 		await get_tree().process_frame
 
 	_expect(Replay.is_recording(), "ReplayRunner smoke replay should start recording")
-	_expect(Replay.record_input_action(ACTIONS.MOVE_RIGHT, true, 1.0, "player_0"), "ReplayRunner smoke should record action press")
-	_expect(Replay.record_input_action(ACTIONS.MOVE_RIGHT, false, 0.0, "player_0"), "ReplayRunner smoke should record action release")
+	_expect(Replay.record_input_value(ACTIONS.MOVE, Vector2.RIGHT, "player_0"), "ReplayRunner smoke should record Vector2 movement")
+	_expect(Replay.record_input_value(ACTIONS.MOVE, Vector2.ZERO, "player_0"), "ReplayRunner smoke should record movement release")
 	_expect(Replay.record_decision(ANALYTICS_EVENTS.LEVEL_UP, {
 		"level": 2,
 		"choices": ["growth_damage_small", "growth_fire_rate_small", "growth_pickup_range_small"],
@@ -111,7 +111,7 @@ func _create_runtime_input_replay() -> Dictionary:
 	_cleanup_replay_file(INPUT_PLAYBACK_REPLAY_FILE_NAME)
 	var input_events: Array[Dictionary] = _input_playback_events()
 	var recording: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"run_seed": INPUT_PLAYBACK_REPLAY_SEED,
 		"started_tick": 0,
 		"started_time": 0.0,
@@ -143,23 +143,23 @@ func _create_runtime_input_replay() -> Dictionary:
 
 func _input_playback_events() -> Array[Dictionary]:
 	return [
-		_input_event(ACTIONS.MOVE_RIGHT, true, 1.0, 1),
-		_input_event(ACTIONS.MOVE_RIGHT, false, 0.0, 30),
-		_input_event(ACTIONS.AIM_UP, true, 1.0, 35),
-		_input_event(ACTIONS.AIM_UP, false, 0.0, 40),
-		_input_event(ACTIONS.PAUSE, true, 1.0, 45),
-		_input_event(ACTIONS.PAUSE, false, 0.0, 45),
-		_input_event(ACTIONS.UI_BACK, true, 1.0, 45),
-		_input_event(ACTIONS.UI_BACK, false, 0.0, 45),
+		_input_event(ACTIONS.MOVE, "vector2", [1.0, 0.0], 1),
+		_input_event(ACTIONS.MOVE, "vector2", [0.0, 0.0], 30),
+		_input_event(ACTIONS.AIM, "vector2", [0.0, -1.0], 35),
+		_input_event(ACTIONS.AIM, "vector2", [0.0, 0.0], 40),
+		_input_event(ACTIONS.PAUSE, "bool", true, 45),
+		_input_event(ACTIONS.PAUSE, "bool", false, 45),
+		_input_event(ACTIONS.UI_BACK, "bool", true, 45),
+		_input_event(ACTIONS.UI_BACK, "bool", false, 45),
 	]
 
 
-func _input_event(action_name: String, pressed: bool, strength: float, tick: int) -> Dictionary:
+func _input_event(action_name: String, value_type: String, value: Variant, tick: int) -> Dictionary:
 	return {
 		"action": action_name,
 		"frame": tick,
-		"pressed": pressed,
-		"strength": strength,
+		"value_type": value_type,
+		"value": value,
 		"tick": tick,
 		"time": float(tick) / 60.0,
 		"participant_id": "player_0",
@@ -226,10 +226,12 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 	Replay.clear_recording()
 	RNG.set_run_seed(int(recording.get("run_seed", 0)))
 	GameClock.reset()
+	InputService.set_playback_active(true)
 
 	var boot_node: Node = get_parent()
 	if boot_node == null or not boot_node.has_method("_start_gameplay_run"):
 		_expect(false, "ReplayRunner runtime rerun should be hosted by FormalClientBoot")
+		InputService.set_playback_active(false)
 		_restore_runtime_scenario(scenario)
 		return {}
 	boot_node.call("_start_gameplay_run")
@@ -242,11 +244,15 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 			break
 	_expect(run_loop != null, "ReplayRunner runtime rerun should mount GameplayRunLoop")
 	if run_loop == null:
+		InputService.set_playback_active(false)
 		_restore_runtime_scenario(scenario)
 		return {}
 	if scenario == "golden_level_up_choice" and run_loop.has_method("debug_enable_level_up_growth"):
 		run_loop.call("debug_enable_level_up_growth")
-
+		_expect(
+			Replay.start_recording({"source": "replay_runner", "scenario": scenario}),
+			"ReplayRunner level-up comparison should start its explicit decision recording"
+		)
 	var input_events: Array[Dictionary] = _sorted_input_events(recording.get("input_events", []))
 	var runtime_events: Array[Dictionary] = _sorted_runtime_events(recording.get("runtime_events", []))
 	var next_input_index: int = 0
@@ -263,7 +269,8 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 	next_input_index = await _apply_due_input_events(input_events, next_input_index, capture_frames + 1)
 	next_runtime_index = await _apply_due_runtime_events(runtime_events, next_runtime_index, capture_frames + 1, run_loop)
 	var summary: Dictionary = _runtime_summary(run_loop, capture_frames, scenario, frame_samples)
-	_release_input_actions(input_events)
+	_release_input_actions()
+	InputService.set_playback_active(false)
 	GameState.change_state(GameState.MAIN_MENU, {"source": "replay_runner_rerun"})
 	_restore_runtime_scenario(scenario)
 	return summary
@@ -410,7 +417,9 @@ func _sorted_input_events(raw_input_events: Variant) -> Array[Dictionary]:
 		return input_events
 	for raw_input_event: Variant in raw_input_events as Array:
 		if raw_input_event is Dictionary:
-			input_events.append((raw_input_event as Dictionary).duplicate(true))
+			var input_event: Dictionary = (raw_input_event as Dictionary).duplicate(true)
+			input_event["_source_order"] = input_events.size()
+			input_events.append(input_event)
 	input_events.sort_custom(_sort_input_events_by_tick)
 	return input_events
 
@@ -427,7 +436,15 @@ func _sorted_runtime_events(raw_runtime_events: Variant) -> Array[Dictionary]:
 
 
 func _sort_input_events_by_tick(left: Dictionary, right: Dictionary) -> bool:
-	return int(left.get("tick", 0)) < int(right.get("tick", 0))
+	var left_tick: int = int(left.get("tick", 0))
+	var right_tick: int = int(right.get("tick", 0))
+	if left_tick != right_tick:
+		return left_tick < right_tick
+	var left_time: float = float(left.get("time", 0.0))
+	var right_time: float = float(right.get("time", 0.0))
+	if not is_equal_approx(left_time, right_time):
+		return left_time < right_time
+	return int(left.get("_source_order", 0)) < int(right.get("_source_order", 0))
 
 
 func _sort_runtime_events_by_frame(left: Dictionary, right: Dictionary) -> bool:
@@ -538,29 +555,27 @@ func _apply_input_event(input_event: Dictionary) -> void:
 	var action_name: String = String(input_event.get("action", ""))
 	if action_name.is_empty():
 		return
-	var pressed: bool = bool(input_event.get("pressed", false))
-	var strength: float = clampf(float(input_event.get("strength", 1.0 if pressed else 0.0)), 0.0, 1.0)
-	if pressed:
-		Input.action_press(action_name, strength)
-	else:
-		Input.action_release(action_name)
-
-	var event: InputEventAction = InputEventAction.new()
-	event.action = action_name
-	event.pressed = pressed
-	event.strength = strength
-	get_viewport().push_input(event, true)
+	var value_type: String = String(input_event.get("value_type", ""))
+	var value: Variant = input_event.get("value")
+	if value_type == "vector2":
+		var components: Array = value as Array
+		if components.size() != 2:
+			_expect(false, "ReplayRunner Vector2 input should have two components")
+			return
+		value = Vector2(float(components[0]), float(components[1]))
+	elif value_type != "bool":
+		_expect(false, "ReplayRunner input should use bool or vector2 value_type")
+		return
+	var participant_id: String = String(input_event.get("participant_id", "player_0"))
+	_expect(
+		InputService.inject_playback_value(StringName(action_name), value, participant_id),
+		"ReplayRunner should inject %s through InputService playback" % action_name
+	)
 	await get_tree().process_frame
 
 
-func _release_input_actions(input_events: Array[Dictionary]) -> void:
-	var released_actions: Dictionary = {}
-	for input_event: Dictionary in input_events:
-		var action_name: String = String(input_event.get("action", ""))
-		if action_name.is_empty() or released_actions.has(action_name):
-			continue
-		Input.action_release(action_name)
-		released_actions[action_name] = true
+func _release_input_actions() -> void:
+	InputService.clear_playback_values()
 
 
 func _prepare_runtime_scenario(scenario: String) -> void:
@@ -707,7 +722,10 @@ func _expect(condition: bool, message: String) -> void:
 
 func _finish(replay_path: String, summary: Dictionary, cleanup_replay_after_run: bool) -> void:
 	if cleanup_replay_after_run:
-		_cleanup_smoke_file()
+		if _has_argument(ARG_RERUN_RUNTIME_SUMMARY):
+			_cleanup_replay_file(INPUT_PLAYBACK_REPLAY_FILE_NAME)
+		else:
+			_cleanup_smoke_file()
 
 	if _failures.is_empty():
 		print("[ReplayRunner] passed; file=%s summary=%s" % [replay_path, JSON.stringify(summary)])

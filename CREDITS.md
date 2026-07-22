@@ -31,6 +31,9 @@ These Godot plugins are vendored under `client/addons/` as project-maintained fo
 | [@icons](https://github.com/Voxybuns/at-icons) | Godot editor icon browser and icon resource library | MIT | Keep `client/addons/at-icons/LICENSE.txt` with redistributed source or resources. |
 | [Script-IDE](https://github.com/Maran23/script-ide) | Godot script editor tabs, outline and quick-open workflow | MIT | Keep `client/addons/script-ide/LICENSE` with redistributed source or resources. |
 | [Phantom Camera](https://github.com/ramokz/phantom-camera) | Godot runtime camera framework and player-damage screen shake | MIT | Keep `client/addons/phantom_camera/LICENSE` with redistributed source or resources. |
+| [G.U.I.D.E](https://github.com/godotneers/G.U.I.D.E) by Jan Thomä | Godot runtime input mapping, remapping, contexts and prompt rendering | MIT | Keep `client/addons/guide/LICENSE.md` with redistributed source or resources. |
+| [Xelu's Free Controller & Key Prompts](https://thoseawesomeguys.com/prompts/) by Nicolae Berbece | Controller and keyboard prompt artwork bundled with G.U.I.D.E | CC0 1.0 | Preserve provenance in `client/addons/guide/THIRD_PARTY_NOTICES.md`; CC0 does not require attribution. |
+| [Lato](https://www.latofonts.com/) | Keyboard prompt font bundled with G.U.I.D.E | SIL Open Font License 1.1 | Keep `client/addons/guide/THIRD_PARTY_NOTICES.md` with the font and do not use the reserved font name for a modified font. |
 
 ## External Workflow References
 

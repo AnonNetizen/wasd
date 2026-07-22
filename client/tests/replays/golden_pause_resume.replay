@@ -1,14 +1,13 @@
 {
 	"created_at": "golden:golden_pause_resume",
-	"data_fingerprint": "997c50033781a2dffe508879a1f65388e488de73a41fbb6f20061cbb9648a6fe",
-	"file_schema_version": 1,
+	"data_fingerprint": "cdca72da64880013d36ffab2e99846c87096cfe777a75a16b38b62a55fb7c2d3",
+	"file_schema_version": 2,
 	"game_version": "v1.6",
 	"recording": {
 		"context": {
 			"capture_frames": 180,
-			"character": "character_default",
-			"mode": "mode_standard_survival",
-			"scenario": "golden_pause_resume"
+			"scenario": "golden_pause_resume",
+			"source": "golden_replay_capture"
 		},
 		"decision_events": [],
 		"dropped_decision_events": 0,
@@ -20,37 +19,37 @@
 				"action": "pause",
 				"frame": 25,
 				"participant_id": "player_0",
-				"pressed": true,
-				"strength": 1.0,
 				"tick": 25,
-				"time": 0.416666666666667
+				"time": 0.416666666666667,
+				"value": true,
+				"value_type": "bool"
 			},
 			{
 				"action": "pause",
 				"frame": 25,
 				"participant_id": "player_0",
-				"pressed": false,
-				"strength": 0.0,
 				"tick": 25,
-				"time": 0.416666666666667
+				"time": 0.416666666666667,
+				"value": false,
+				"value_type": "bool"
 			},
 			{
 				"action": "ui_back",
 				"frame": 40,
 				"participant_id": "player_0",
-				"pressed": true,
-				"strength": 1.0,
 				"tick": 40,
-				"time": 0.666666666666667
+				"time": 0.666666666666667,
+				"value": true,
+				"value_type": "bool"
 			},
 			{
 				"action": "ui_back",
 				"frame": 40,
 				"participant_id": "player_0",
-				"pressed": false,
-				"strength": 0.0,
 				"tick": 40,
-				"time": 0.666666666666667
+				"time": 0.666666666666667,
+				"value": false,
+				"value_type": "bool"
 			}
 		],
 		"is_recording": false,
@@ -240,11 +239,11 @@
 			"ui_stack": 0,
 			"xp": 0
 		},
-		"schema_version": 1,
-		"started_tick": 0,
+		"schema_version": 2,
+		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "758d0f88374e09c2b77fa6d0fcadae2c9b21fe6c6b9d28195a0ac4fb351840c5",
+	"recording_hash": "03b2aea8c41926d7d5748a3cd5fbf6bed72c0b5c245dc7101a0cc46302ad8d9e",
 	"summary": {
 		"decision_events": 0,
 		"dropped_decision_events": 0,
@@ -438,8 +437,8 @@
 			"ui_stack": 0,
 			"xp": 0
 		},
-		"schema_version": 1,
-		"started_tick": 0,
+		"schema_version": 2,
+		"started_tick": 7,
 		"started_time": 0.0
 	}
 }

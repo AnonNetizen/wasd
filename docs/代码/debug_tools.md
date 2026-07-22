@@ -8,7 +8,7 @@
 - 只在 Godot debug build 或带 `dev_tools` feature 的构建中挂载调试控制台。
 - 提供 GM 命令注册与执行入口，当前覆盖 `help` / `stats` / `spawn` / `xp` / `heal` / `hp` / `damage` / `kill_player` / `kill_enemies` / `clear_enemies` / `dust` / `seed`。
 - GM 命令只能调用正式系统 API 或受控 `debug_*` API，不直接散落修改 gameplay 私有状态、存档文件或 analytics。
-- release 构建默认不会挂载 `DebugConsole` / `GMCommandRegistry`，也不会注册 `debug_*` InputMap action。
+- release 构建默认不会挂载 `DebugConsole` / `GMCommandRegistry`，也不会启用 `InputService` 的 debug context 或 `debug_*` action。
 
 ## 代码位置
 

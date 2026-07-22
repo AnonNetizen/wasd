@@ -11,7 +11,7 @@ signal save_and_quit_requested()
 signal settings_requested()
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
-const REPLAY_PARTICIPANT_ID: String = "player_0"
+const INPUT_PARTICIPANT_ID: String = "player_0"
 
 var pauses_game: bool = true
 
@@ -23,13 +23,6 @@ var _title_label: Label = null
 
 func _input(event: InputEvent) -> void:
 	if UIManager.top() != self:
-		return
-
-	Replay.record_input_event(event, [ACTIONS.PAUSE], REPLAY_PARTICIPANT_ID)
-
-	if event.is_action_pressed(ACTIONS.PAUSE):
-		get_viewport().set_input_as_handled()
-		_activate_button(0)
 		return
 
 	var mouse_button: InputEventMouseButton = event as InputEventMouseButton
@@ -53,6 +46,8 @@ func _input(event: InputEvent) -> void:
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	if not InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.connect(_on_input_action_pressed)
 
 	_title_label = get_node_or_null("Root/Center/PauseMenuPanel/Margin/Layout/TitleLabel") as Label
 	var resume_button: Button = get_node_or_null("Root/Center/PauseMenuPanel/Margin/Layout/ResumeButton") as Button
@@ -77,6 +72,8 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	if InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.disconnect(_on_input_action_pressed)
 	if Localization.locale_changed.is_connected(_on_locale_changed):
 		Localization.locale_changed.disconnect(_on_locale_changed)
 
@@ -142,6 +139,13 @@ func _activate_button(index: int) -> void:
 func _set_button_text(index: int, text_key: String) -> void:
 	if index >= 0 and index < _buttons.size():
 		_buttons[index].text = tr(text_key)
+
+
+func _on_input_action_pressed(action_id: StringName, participant_id: String) -> void:
+	if participant_id != INPUT_PARTICIPANT_ID or action_id != StringName(ACTIONS.PAUSE):
+		return
+	if UIManager.top() == self:
+		_activate_button(0)
 
 
 func _on_locale_changed(_locale: String) -> void:

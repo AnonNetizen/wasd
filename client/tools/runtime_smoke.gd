@@ -56,10 +56,10 @@ func _run() -> void:
 	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_RANGED), "ranged enemy pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_SWARM), "swarm enemy pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.HAZARD_SPIKE), "hazard pool should be registered")
-	_expect(_action_has_key(ACTIONS.MOVE_UP, KEY_W), "move_up should include KEY_W")
-	_expect(not _action_has_key(ACTIONS.MOVE_UP, KEY_UP), "move_up should not include KEY_UP")
-	_expect(_action_has_key(ACTIONS.AIM_UP, KEY_UP), "aim_up should include KEY_UP")
-	_expect(_action_has_key(ACTIONS.SHOW_STATS_PANEL, KEY_TAB), "show_stats_panel should include KEY_TAB")
+	_expect(InputService.action_resource(ACTIONS.MOVE) != null, "InputService should expose the Vector2 move action")
+	_expect(InputService.action_resource(ACTIONS.AIM) != null, "InputService should expose the Vector2 aim action")
+	_expect(InputService.action_resource(ACTIONS.SHOW_STATS_PANEL) != null, "InputService should expose show_stats_panel")
+	_expect(InputService.action_resource(ACTIONS.MOVE_UP) == null, "legacy direction ids should not remain runtime GUIDE actions")
 
 	var player: Node2D = _find_node_by_name(run_loop, "Player") as Node2D
 	_expect(player != null, "Player should exist")
@@ -115,10 +115,12 @@ func _run() -> void:
 	_expect(_map_normalizes_edge_hazards_to_grid(run_loop), "edge hazard normalization should keep positions on rectangular grid anchors")
 
 	var start_position: Vector2 = player.global_position
-	Input.action_press(ACTIONS.MOVE_RIGHT)
+	InputService.set_playback_active(true)
+	InputService.inject_playback_value(ACTIONS.MOVE, Vector2.RIGHT)
 	for _index: int in range(MOVE_FRAMES):
 		await get_tree().physics_frame
-	Input.action_release(ACTIONS.MOVE_RIGHT)
+	InputService.inject_playback_value(ACTIONS.MOVE, Vector2.ZERO)
+	InputService.set_playback_active(false)
 	_expect(player.global_position.x > start_position.x + 1.0, "WASD movement should move the player")
 	for _index: int in range(2):
 		await get_tree().physics_frame
@@ -126,10 +128,12 @@ func _run() -> void:
 		_expect(camera.global_position.distance_to(player.global_position) < 0.5, "Phantom Camera should track player movement without damping")
 
 	var before_aim_position: Vector2 = player.global_position
-	Input.action_press(ACTIONS.AIM_UP)
+	InputService.set_playback_active(true)
+	InputService.inject_playback_value(ACTIONS.AIM, Vector2.UP)
 	for _index: int in range(AIM_FRAMES):
 		await get_tree().physics_frame
-	Input.action_release(ACTIONS.AIM_UP)
+	InputService.inject_playback_value(ACTIONS.AIM, Vector2.ZERO)
+	InputService.set_playback_active(false)
 	_expect(player.get("aim_direction") == Vector2.UP, "arrow aim fallback should point to Vector2.UP")
 	_expect(player.global_position.distance_to(before_aim_position) < 1.0, "arrow aim fallback should not move the player")
 
@@ -210,11 +214,13 @@ func _run() -> void:
 	_expect(camera_controller != null, "restored run should recreate the gameplay camera controller")
 	_expect(camera_host != null and camera_host.call("get_active_pcam") == player_camera, "restored run should reactivate PlayerCamera")
 
-	Input.action_press(ACTIONS.FIRE)
+	InputService.set_playback_active(true)
+	InputService.inject_playback_value(ACTIONS.FIRE, true)
 	for _index: int in range(SPAWN_FRAMES):
 		await get_tree().process_frame
 		await get_tree().physics_frame
-	Input.action_release(ACTIONS.FIRE)
+	InputService.inject_playback_value(ACTIONS.FIRE, false)
+	InputService.set_playback_active(false)
 
 	_expect(_pool_stat(POOL_IDS.BULLET_BASIC, "acquired") > 0, "WeaponSystem should acquire bullets")
 	_expect(PoolManager.active_count(POOL_IDS.ENEMY_CHASER) > 0, "Spawner should spawn active enemies")
@@ -817,14 +823,6 @@ func _find_node_by_name(root_node: Node, target_name: String) -> Node:
 	return null
 
 
-func _action_has_key(action_id: String, keycode: Key) -> bool:
-	for event: InputEvent in InputMap.action_get_events(action_id):
-		var key_event: InputEventKey = event as InputEventKey
-		if key_event != null and key_event.keycode == keycode:
-			return true
-	return false
-
-
 func _expect_camera_preserves_screen_axis_scale(player: Node2D) -> void:
 	var screen_transform: Transform2D = get_viewport().get_canvas_transform()
 	var origin_screen: Vector2 = screen_transform * player.global_position
@@ -844,13 +842,19 @@ func _expect_camera_preserves_screen_axis_scale(player: Node2D) -> void:
 func _expect_mouse_aim_uses_canvas_transform(player: Node2D) -> void:
 	var screen_offset: Vector2 = Vector2(180.0, -90.0)
 	var viewport_position: Vector2 = get_viewport().get_visible_rect().size * 0.5 + screen_offset
-	player.call("_set_mouse_aim_from_viewport_position", viewport_position)
+	var pointer_event: InputEventMouseMotion = InputEventMouseMotion.new()
+	pointer_event.position = viewport_position
+	pointer_event.global_position = viewport_position
+	pointer_event.relative = Vector2.ONE
+	Input.parse_input_event(pointer_event)
+	await get_tree().process_frame
 
 	for _index: int in range(AIM_FRAMES):
 		await get_tree().physics_frame
 
 	var screen_to_world: Transform2D = get_viewport().get_canvas_transform().affine_inverse()
-	var expected_direction: Vector2 = ((screen_to_world * viewport_position) - player.global_position).normalized()
+	var captured_viewport_position: Vector2 = InputService.pointer_viewport_position()
+	var expected_direction: Vector2 = ((screen_to_world * captured_viewport_position) - player.global_position).normalized()
 	var actual_direction: Vector2 = player.get("aim_direction")
 	var aim_distance: float = actual_direction.distance_to(expected_direction)
 	_expect(
@@ -1391,7 +1395,8 @@ func _expect_stats_panel_hold_to_show(run_loop: Node) -> void:
 	_expect(not bool(hud.call("is_stats_panel_visible")), "stats panel should start hidden")
 	var state_before: StringName = GameState.current()
 	var tick_before: int = GameClock.tick()
-	Input.action_press(ACTIONS.SHOW_STATS_PANEL)
+	InputService.set_playback_active(true)
+	InputService.inject_playback_value(ACTIONS.SHOW_STATS_PANEL, true)
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame
 	_expect(bool(hud.call("is_stats_panel_visible")), "holding stats panel action should show the HUD panel")
@@ -1403,7 +1408,8 @@ func _expect_stats_panel_hold_to_show(run_loop: Node) -> void:
 	_expect(title_label != null and String(title_label.text) == tr("ui_stats_panel_title"), "stats panel title should use localized text")
 	_expect(damage_value_label != null and not String(damage_value_label.text).is_empty(), "stats panel should show current damage")
 	_expect(health_regen_value_label != null and String(health_regen_value_label.text).contains("/s"), "stats panel should show current health regen")
-	Input.action_release(ACTIONS.SHOW_STATS_PANEL)
+	InputService.inject_playback_value(ACTIONS.SHOW_STATS_PANEL, false)
+	InputService.set_playback_active(false)
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame
 	_expect(not bool(hud.call("is_stats_panel_visible")), "releasing stats panel action should hide the HUD panel")
@@ -1514,7 +1520,7 @@ func _expect_interest_point_rewards(run_loop: Node, player: Node2D) -> void:
 	_expect(run_loop.has_method("debug_damage_interest_point_target"), "runtime should expose a smoke hook for interest point target damage")
 	if not run_loop.has_method("debug_damage_interest_point_target"):
 		return
-	_expect(_action_has_key(ACTIONS.INTERACT, KEY_E), "interact should include KEY_E")
+	_expect(InputService.action_resource(ACTIONS.INTERACT) != null, "InputService should expose interact")
 
 	var dust_before: int = _gear_mod_resource_balance(GEAR_MOD_RESOURCES.GEAR_MOD_DUST)
 	player.global_position = _interest_point_position(run_loop, "poi_resource_cache")
@@ -1914,16 +1920,12 @@ func _wait_for_node(node_name: String) -> Node:
 
 
 func _push_action_once(action_id: String) -> void:
-	var press: InputEventAction = InputEventAction.new()
-	press.action = action_id
-	press.pressed = true
-	get_viewport().push_input(press, true)
+	InputService.set_playback_active(true)
+	InputService.inject_playback_value(StringName(action_id), true)
 	await get_tree().process_frame
 
-	var release: InputEventAction = InputEventAction.new()
-	release.action = action_id
-	release.pressed = false
-	get_viewport().push_input(release, true)
+	InputService.inject_playback_value(StringName(action_id), false)
+	InputService.set_playback_active(false)
 	await get_tree().process_frame
 
 
@@ -2191,9 +2193,8 @@ func _expect(condition: bool, message: String) -> void:
 
 
 func _finish() -> void:
-	Input.action_release(ACTIONS.MOVE_RIGHT)
-	Input.action_release(ACTIONS.AIM_UP)
-	Input.action_release(ACTIONS.SHOW_STATS_PANEL)
+	InputService.clear_playback_values()
+	InputService.set_playback_active(false)
 	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, _original_screen_shake)
 	if _failures.is_empty():
 		print("[RuntimeSmoke] passed; time=%.2f bullets_acquired=%d enemies_acquired=%d state=%s" % [

@@ -122,7 +122,7 @@
 
 | 现象 | 优先检查 |
 |------|----------|
-| 按主动键无效果 | 是否处于 `GameState.PLAYING`；InputMap 是否有 `use_active_item`；默认角色是否有 `starting_loadout.skill_ids` |
+| 按主动键无效果 | 是否处于 `GameState.PLAYING`；InputService gameplay context 是否有 `use_active_item`；默认角色是否有 `starting_loadout.skill_ids` |
 | 返回 `unknown_skill` | `skills.json` 是否包含该 id；DataLoader 是否通过 schema；词表是否同步生成 |
 | 返回 `insufficient_resource` | 角色 `skill_resources` 是否声明对应资源；当前值是否足够；资源 id 是否来自生成常量 |
 | 返回 `blocked_by_tag` / `missing_required_tag` | `skills.json.activation` 是否引用了正确 ability tag；释放者 `owned_tags()` 是否被 StatusEffect、GM 或调试代码授予了阻断 / 需求 tag |
