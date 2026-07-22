@@ -47,14 +47,10 @@ window/stretch/mode="canvas_items"
 
 enabled=PackedStringArray("res://addons/at-icons/plugin.cfg", "res://addons/guide/plugin.cfg", "res://addons/phantom_camera/plugin.cfg", "res://addons/script-ide/plugin.cfg")
 
-[phantom_camera]
-
-updater/updater_mode=0
-
-[physics]
-
-common/physics_jitter_fix=0.5
-
 [internationalization]
 
 locale/translations=PackedStringArray("res://locale/strings.zh_CN.translation", "res://locale/strings.en.translation")
+
+[phantom_camera]
+
+updater/updater_mode=0
