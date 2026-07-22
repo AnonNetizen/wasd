@@ -13,8 +13,9 @@ static func _instrument(viewport:Viewport) -> void:
 	viewport.gui_focus_changed.connect(tracker._control_focused)
 	viewport.set_meta("_x_guide_instrumented", true)
 
-## Catches unhandled input and forwards it to GUIDE
-func _unhandled_input(event:InputEvent) -> void:
+## Catches input before Control nodes can consume mouse events and forwards it to GUIDE.
+## Mapping contexts decide whether gameplay or UI actions are active.
+func _input(event: InputEvent) -> void:
 	GUIDE.inject_input(event)
 
 ## Some ... creative code ... to catch events from popup windows

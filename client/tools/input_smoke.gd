@@ -12,6 +12,7 @@ var _binding_backup: Dictionary = {}
 var _bridged_actions: Array[StringName] = []
 var _device_changes: Array[StringName] = []
 var _failures: Array[String] = []
+var _guide_mouse_motion_count: int = 0
 var _remap_conflicts: Array[Dictionary] = []
 var _remap_results: Array[Dictionary] = []
 var _virtual_device_id: int = 0
@@ -36,6 +37,7 @@ func _run() -> void:
 	InputService.reset_bindings_to_defaults()
 
 	await _expect_context_isolation_and_vector_input()
+	await _expect_mouse_events_reach_guide_before_gui()
 	await _expect_bool_edges_are_latched()
 	await _expect_focus_and_disconnect_clear_state()
 	await _expect_device_and_prompt_refresh()
@@ -100,6 +102,58 @@ func _expect_context_isolation_and_vector_input() -> void:
 	await _inject_joy_axis(JOY_AXIS_RIGHT_Y, -1.0)
 	_expect(InputService.vector(ACTIONS.AIM).y < -0.9, "right stick negative Y should produce negative aim intent")
 	await _inject_joy_axis(JOY_AXIS_RIGHT_Y, 0.0)
+
+
+func _expect_mouse_events_reach_guide_before_gui() -> void:
+	GameState.change_state(GameState.PLAYING, {"source": "input_smoke_mouse_gui_overlap"})
+	UIManager.clear()
+	await _wait_process_frames(WAIT_FRAMES)
+
+	var mouse_blocker: MouseInputBlocker = MouseInputBlocker.new()
+	mouse_blocker.name = "MouseInputBlocker"
+	mouse_blocker.mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_blocker.position = Vector2.ZERO
+	mouse_blocker.size = get_viewport().get_visible_rect().size
+	add_child(mouse_blocker)
+	await get_tree().process_frame
+
+	var pointer_position: Vector2 = Vector2(704.0, 416.0)
+	var pointer_event: InputEventMouseMotion = InputEventMouseMotion.new()
+	pointer_event.position = pointer_position
+	pointer_event.global_position = pointer_position
+	pointer_event.relative = Vector2(7.0, -4.0)
+	var mouse_motion_count_before: int = _guide_mouse_motion_count
+	Input.parse_input_event(pointer_event)
+	await _wait_process_frames(WAIT_FRAMES)
+	_expect(
+		_guide_mouse_motion_count > mouse_motion_count_before,
+		"viewport mouse motion should reach GUIDE before a full-screen Control consumes it"
+	)
+	_expect(InputService.should_use_pointer_aim(), "viewport mouse motion should select pointer aim")
+
+	var press_event: InputEventMouseButton = InputEventMouseButton.new()
+	press_event.button_index = MOUSE_BUTTON_LEFT
+	press_event.position = pointer_position
+	press_event.global_position = pointer_position
+	press_event.pressed = true
+	Input.parse_input_event(press_event)
+	await get_tree().process_frame
+	await get_tree().physics_frame
+	await get_tree().process_frame
+	_expect(
+		InputService.is_pressed(ACTIONS.FIRE),
+		"left mouse press should reach GUIDE before a full-screen Control consumes it"
+	)
+
+	var release_event := press_event.duplicate() as InputEventMouseButton
+	release_event.pressed = false
+	Input.parse_input_event(release_event)
+	await get_tree().process_frame
+	await get_tree().physics_frame
+	await get_tree().process_frame
+	_expect(not InputService.is_pressed(ACTIONS.FIRE), "left mouse release should clear fire intent")
+	mouse_blocker.queue_free()
+	await get_tree().process_frame
 
 
 func _expect_bool_edges_are_latched() -> void:
@@ -395,6 +449,9 @@ func _wait_for_detection_ready() -> void:
 
 
 func _connect_observers() -> void:
+	GUIDE._input_state.mouse_position_changed.connect(func() -> void:
+		_guide_mouse_motion_count += 1
+	)
 	InputService.action_pressed.connect(func(action_id: StringName, _participant_id: String) -> void:
 		_action_presses.append(action_id)
 	)
@@ -491,3 +548,10 @@ func _finish() -> void:
 		return
 	print("[InputSmoke] failed; failures=%d first=%s" % [_failures.size(), _failures[0]])
 	get_tree().quit(1)
+
+
+class MouseInputBlocker:
+	extends Control
+
+	func _gui_input(_event: InputEvent) -> void:
+		accept_event()

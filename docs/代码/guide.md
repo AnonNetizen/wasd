@@ -90,7 +90,7 @@ GUIDEMappingContext
 ## 4. 运行生命周期
 
 1. Godot 按 `Settings → GUIDE → InputService → Replay` 创建 autoload。GUIDE 设为 `PROCESS_MODE_ALWAYS`，instrument 主 viewport 和后续 Window。
-2. `GUIDEInputTracker` 将事件交给 `GUIDE.inject_input()`；`InputEventAction` 会被忽略，避免回灌 Godot action 再次触发 GUIDE。
+2. `GUIDEInputTracker` 在 `_input()` 阶段、GUI `Control` 消费事件前将物理事件交给 `GUIDE.inject_input()`；`InputEventAction` 会被忽略，避免回灌 Godot action 再次触发 GUIDE。事件仍继续进入 Godot GUI，gameplay / UI 是否生效由 active context 决定。
 3. `GUIDEInputState` 更新键、按钮、轴、鼠标和触摸的影子状态；失焦通知清理按住态。
 4. GUIDE 在物理帧刷新需要物理处理的 modifier，在过程帧合并 active mapping、应用 modifier / trigger、更新 action 值并发 signal。
 5. `InputService` 把 action 值转换为项目 `Vector2` / `bool` intent；短按边沿锁存到下一物理 tick，防止渲染帧高于物理帧时丢输入。
@@ -154,9 +154,10 @@ GUIDEMappingContext
 5. detector 在倒计时和清理阶段也能可靠 abort、释放临时状态、恢复原 context 并回到 idle。
 6. detector 提供窄化的 synthetic-event 注入入口，供项目 headless 输入 smoke 复用真实检测路径。
 7. `GUIDE.release_pressed_inputs()` 为项目 context 切换提供窄化 pressed-state 清理；`GUIDEInputState.focus_lost()` 复用同一路径清理 pending / active 键鼠与手柄按钮 / 轴，避免切换或失焦后残留按住态。
-8. 默认按键文本 provider 在 headless 显示服务器下跳过不受支持的本地化标签 API，回退到物理键码字符串。
-9. 由 Godot 4.7.1 规范化提示素材 `.import` 并补齐缺失 UID；这些导入元数据随固定发布包一起维护。
-10. 核心 runtime / remapping / formatting / editor 入口增加本文档和 ADR #151 的源码头，不改变正式业务 API。
+8. `GUIDEInputTracker` 从 `_input()` 转发事件，保证全屏 HUD 等 `Control` 即使调用 `accept_event()`，鼠标位置与按钮也已进入 GUIDE；禁止退回 `_unhandled_input()`。
+9. 默认按键文本 provider 在 headless 显示服务器下跳过不受支持的本地化标签 API，回退到物理键码字符串。
+10. 由 Godot 4.7.1 规范化提示素材 `.import` 并补齐缺失 UID；这些导入元数据随固定发布包一起维护。
+11. 核心 runtime / remapping / formatting / editor 入口增加本文档和 ADR #151 的源码头，不改变正式业务 API。
 
 除此清单外，不做无关格式化或功能改写。发现必须改变上游公共 API 的问题时，先更新本文档、ADR 和项目适配层测试。
 
@@ -176,6 +177,7 @@ GUIDEMappingContext
 | 加项目 action | 先改词表 / 生成常量，再改 `client/resources/input/` 与 `InputService`；不要先改 GUIDE 类 |
 | 加新物理输入类型 | `inputs/`、对应 formatter renderer / text provider、detector 与 smoke；确认是否要向业务暴露 |
 | context 优先级异常 | `InputService` 当前状态、GUIDE active context 的 priority / serial、捕获是否恢复完整集合 |
+| 菜单可点击，但游戏内鼠标瞄准 / 开火无效 | `GUIDEInputTracker` 是否仍在 `_input()` 而非 `_unhandled_input()` 转发；再检查 gameplay context 是否启用、HUD 是否覆盖 viewport |
 | 快速点击偶尔丢失 | `InputService` 物理 tick 边沿锁存；不要让 gameplay 直接调用 `GUIDEAction.is_triggered()` |
 | 失焦后角色继续移动 | `guide.gd` focus notification、`GUIDEInputState.focus_lost()` 与 `InputService` 清理 |
 | 手柄负方向无法捕获 | 本地 `_try_detect_axis_2d()` 是否仍使用 `abs(event.axis_value)` |

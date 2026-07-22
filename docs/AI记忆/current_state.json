@@ -9,6 +9,7 @@
     "E"
   ],
   "last_completed": [
+    "玩法鼠标输入回归修复：GUIDEInputTracker 从 `_unhandled_input()` 调整为 GUI Control 消费前的 `_input()` 转发，恢复全屏 HUD 下的鼠标位置与左键开火；gameplay / UI 隔离仍由 InputService active context 负责。input-smoke 新增真实 Viewport + accept_event() 回归，旧实现可稳定失败。",
     "ADR #151 / G.U.I.D.E 正式输入迁移：固定入库 G.U.I.D.E 0.14.0 维护型 fork，由 GUIDE 负责物理输入、gameplay/ui/debug context、重绑定与提示；新增 InputService 作为业务、UI、Replay 和未来 AI/网络输入唯一入口，move/aim 升级为 Vector2 intent。绑定使用 GUIDERemappingConfig schema v1 独立原子保存，Settings 升至 v2 并只迁移旧 input.*，Replay 输入升至 v2 bool/vector2 且加载时内存兼容 v1。",
     "ADR #150 / 未来在线服务供应商路线：正式 client 当前不安装 GodotSteam / Talo；未来由 PlatformServices → GodotSteam 承接 Steam 平台能力，规划中的 OnlineServices → Talo 承接跨平台身份、排行榜 / 统计、Live Config、事件和轻量社交，不开发自有通用后端。Talo Cloud / 官方自托管实施首个功能前另行决策；具体在线玩法仍未批准或排期。",
     "ADR #149 / 默认子弹地形阻挡：玩家与敌方 Bullet 在移动前复用 hit_radius 圆形做首帧 intersect_shape 与本帧 cast_motion，只查询模块地形 bit 1；命中移动至安全比例并由 PoolManager 回收。新增非负 wall_pierce stat，与只表示额外伤害目标数的 pierce_count 独立；发射时快照 wall_pierce_enabled，旧快照缺字段默认 false，run 保持 v4。module-world smoke 覆盖双方默认阻挡、正值穿墙和槽位卸载 / 返回兼容。",
@@ -141,6 +142,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-22",
+      "command": "sync_contracts --check; three GDScript/project/semantic lints; JSON validation for _kb_index/current_state; docs_health_check; git diff --check; input-smoke; settings-smoke; replay-input-smoke; replay-smoke; runtime-smoke; headless-boot with editor scan; four checked-in golden replay reruns; pre-commit run --all-files",
+      "result": "passed for gameplay mouse input restoration: GUIDEInputTracker now forwards physical mouse events from _input before fullscreen Control nodes can consume them, while InputService contexts preserve gameplay/UI isolation. The new real Viewport regression covers an accept_event() blocker, pointer-aim source selection, and left-button press/release; it fails on the former _unhandled_input implementation and passes with the fix. Replay intent/schema and golden files were unchanged; no performance probe ran."
+    },
     {
       "date": "2026-07-22",
       "command": "JSON validation for _kb_index/current_state; docs_health_check; legacy-wording consistency search; git diff --check; pre-commit run --all-files with command-scoped canonical Windows TEMP/TMP",
