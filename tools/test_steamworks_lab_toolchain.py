@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -189,14 +190,14 @@ class SteamworksLabToolchainTests(unittest.TestCase):
             godot = root / "Godot.exe"
             godot.touch()
             (root / "_sc_").touch()
-            expected = root / "editor_data" / "export_templates" / "4.7.stable"
+            expected = godot.resolve().parent / "editor_data" / "export_templates" / "4.7.stable"
             appdata = root / "appdata"
             fallback = appdata / "Godot" / "export_templates" / "4.7.stable"
             fallback.mkdir(parents=True)
             for file_name in toolchain.STANDARD_TEMPLATE_NAMES:
                 (fallback / file_name).touch()
             with mock.patch.dict(os.environ, {"APPDATA": str(appdata)}):
-                with self.assertRaisesRegex(toolchain.ToolchainError, str(expected).replace("\\", "\\\\")):
+                with self.assertRaisesRegex(toolchain.ToolchainError, re.escape(str(expected))):
                     toolchain._find_standard_template_root(
                         godot,
                         "4.7.stable.official.5b4e0cb0f",
@@ -210,7 +211,7 @@ class SteamworksLabToolchainTests(unittest.TestCase):
             appdata = root / "appdata"
             expected = appdata / "Godot" / "export_templates" / "4.7.1.stable"
             with mock.patch.dict(os.environ, {"APPDATA": str(appdata)}):
-                with self.assertRaisesRegex(toolchain.ToolchainError, str(expected).replace("\\", "\\\\")):
+                with self.assertRaisesRegex(toolchain.ToolchainError, re.escape(str(expected))):
                     toolchain._find_standard_template_root(
                         godot,
                         "4.7.1.stable.official.a13da4feb",
