@@ -2,6 +2,7 @@ extends SceneTree
 ## Focused JSON -> generated TSCN bake regressions without touching tracked files.
 
 const MODULE_SCENE_BAKER := preload("res://scripts/editor/module_scene_baker.gd")
+const MODULE_CHUNK_SCRIPT := preload("res://scripts/gameplay/module_chunk.gd")
 
 const MODULE_ID: String = "module_start_cross"
 const MODULE_PATH: String = "res://data/modules/module_start_cross.json"
@@ -31,7 +32,8 @@ func _run() -> void:
 	var context: Dictionary = MODULE_SCENE_BAKER._build_context(entry)
 	_expect(bool(context.get("ok", false)), "base module context should validate")
 	if bool(context.get("ok", false)):
-		_test_rotations(context)
+		_test_canonical_scene(context)
+		_test_runtime_rotations(context)
 		_test_visual_transform(context)
 		_test_edge_masks(context)
 		_test_artifact_fingerprint(context)
@@ -45,40 +47,108 @@ func _run() -> void:
 	quit(0 if _failures.is_empty() else 1)
 
 
-func _test_rotations(context: Dictionary) -> void:
-	var expected_cells: Dictionary = {
-		0: Vector2i(5, 5),
-		90: Vector2i(5, 5),
-		180: Vector2i(5, 5),
-		270: Vector2i(5, 5),
+func _test_canonical_scene(context: Dictionary) -> void:
+	var root: GeneratedModuleScene = MODULE_SCENE_BAKER._build_generated_scene(
+		context
+	)
+	_expect(root != null, "canonical scene should build")
+	if root == null:
+		return
+	var ground: TileMapLayer = root.get_node("Ground") as TileMapLayer
+	var collision: CollisionShape2D = root.get_node(
+		"TerrainCollision/MergedBlockedCells"
+	) as CollisionShape2D
+	_expect(
+		root.module_rotation_degrees == 0,
+		"generated metadata must describe the canonical zero-degree scene"
+	)
+	_expect(
+		ground.get_used_cells().size() == 121,
+		"canonical scene must contain all ground cells"
+	)
+	_expect(
+		collision.shape is ConcavePolygonShape2D
+		and not (collision.shape as ConcavePolygonShape2D).get_segments().is_empty(),
+		"canonical scene must contain merged collision"
+	)
+	var placement: Dictionary = root.placement_snapshot[0]
+	_expect(
+		_cell(placement.get("cell", {})) == Vector2i(5, 5),
+		"canonical scene must retain the source placement snapshot"
+	)
+	_expect(
+		MODULE_SCENE_BAKER._obsolete_generated_scene_paths(MODULE_ID).is_empty(),
+		"only the canonical generated scene may remain on disk"
+	)
+	root.free()
+
+
+func _test_runtime_rotations(context: Dictionary) -> void:
+	var canonical: GeneratedModuleScene = MODULE_SCENE_BAKER._build_generated_scene(
+		context
+	)
+	var packed := PackedScene.new()
+	_expect(packed.pack(canonical) == OK, "canonical scene should pack for chunk tests")
+	canonical.free()
+	var expected_positions: Dictionary = {
+		0: Vector2.ZERO,
+		90: Vector2(1600.0, 0.0),
+		180: Vector2(1600.0, 1600.0),
+		270: Vector2(0.0, 1600.0),
+	}
+	var expected_points: Dictionary = {
+		0: Vector2(320.0, 480.0),
+		90: Vector2(1120.0, 320.0),
+		180: Vector2(1280.0, 1120.0),
+		270: Vector2(480.0, 1280.0),
+	}
+	var expected_local_seals: Dictionary = {
+		0: "North",
+		90: "West",
+		180: "South",
+		270: "East",
 	}
 	for rotation: int in [0, 90, 180, 270]:
-		var root: GeneratedModuleScene = MODULE_SCENE_BAKER._build_generated_scene(
-			context,
-			rotation
+		var chunk: ModuleChunk = MODULE_CHUNK_SCRIPT.new() as ModuleChunk
+		var configured: bool = chunk.configure(
+			packed,
+			Vector2i.ZERO,
+			rotation,
+			["edge_north"],
+			160.0,
+			Vector2.ZERO
 		)
-		_expect(root != null, "rotation %d should build" % rotation)
-		if root == null:
+		_expect(configured, "runtime rotation %d should configure" % rotation)
+		if not configured:
+			chunk.free()
 			continue
-		var ground: TileMapLayer = root.get_node("Ground") as TileMapLayer
-		var collision: CollisionShape2D = root.get_node(
-			"TerrainCollision/MergedBlockedCells"
-		) as CollisionShape2D
+		var generated: GeneratedModuleScene = chunk.generated_instance()
 		_expect(
-			ground.get_used_cells().size() == 121,
-			"rotation %d must contain all ground cells" % rotation
+			generated.position.is_equal_approx(expected_positions[rotation]),
+			"runtime rotation %d must apply square-pivot compensation" % rotation
 		)
 		_expect(
-			collision.shape is ConcavePolygonShape2D
-			and not (collision.shape as ConcavePolygonShape2D).get_segments().is_empty(),
-			"rotation %d must contain merged collision" % rotation
+			is_equal_approx(generated.rotation_degrees, float(rotation)),
+			"runtime rotation %d must rotate the mounted root" % rotation
 		)
-		var placement: Dictionary = root.placement_snapshot[0]
 		_expect(
-			_cell(placement.get("cell", {})) == expected_cells[rotation],
-			"rotation %d must bake placement snapshot" % rotation
+			(generated.transform * Vector2(320.0, 480.0)).is_equal_approx(
+				expected_points[rotation]
+			),
+			"runtime rotation %d must map canonical cell centers correctly"
+			% rotation
 		)
-		root.free()
+		for seal_name: String in ["North", "East", "South", "West"]:
+			var edge_root: Node2D = generated.get_node(
+				"EdgeSeals/%s" % seal_name
+			) as Node2D
+			_expect(
+				edge_root.visible
+				== (seal_name == String(expected_local_seals[rotation])),
+				"runtime rotation %d must inverse-map the north world seal"
+				% rotation
+			)
+		chunk.free()
 
 
 func _test_visual_transform(context: Dictionary) -> void:
@@ -98,29 +168,28 @@ func _test_visual_transform(context: Dictionary) -> void:
 		}
 	]
 	var root: GeneratedModuleScene = MODULE_SCENE_BAKER._build_generated_scene(
-		transformed_context,
-		90
+		transformed_context
 	)
 	var decoration_layer: TileMapLayer = root.get_node(
 		"Decoration"
 	) as TileMapLayer
-	var rotated_cell := Vector2i(7, 2)
-	var expected_flags: int = MODULE_SCENE_BAKER._compose_transform_flags(
-		MODULE_SCENE_BAKER._rotation_transform_flags(90),
-		MODULE_SCENE_BAKER._visual_transform_flags(90, true, false)
+	var source_cell := Vector2i(2, 3)
+	var expected_flags: int = MODULE_SCENE_BAKER._visual_transform_flags(
+		90,
+		true,
+		false
 	)
 	_expect(
-		decoration_layer.get_cell_alternative_tile(rotated_cell)
+		decoration_layer.get_cell_alternative_tile(source_cell)
 		== expected_flags,
-		"visual cell transform flags must compose with module rotation"
+		"visual cell transform flags must remain authored in canonical space"
 	)
 	root.free()
 
 
 func _test_edge_masks(context: Dictionary) -> void:
 	var root: GeneratedModuleScene = MODULE_SCENE_BAKER._build_generated_scene(
-		context,
-		0
+		context
 	)
 	var edge_ids: Array[String] = [
 		"edge_north",
@@ -147,8 +216,7 @@ func _test_edge_masks(context: Dictionary) -> void:
 
 func _test_artifact_fingerprint(context: Dictionary) -> void:
 	var expected: GeneratedModuleScene = MODULE_SCENE_BAKER._build_generated_scene(
-		context,
-		0
+		context
 	)
 	_expect(
 		MODULE_SCENE_BAKER._generated_artifact_matches(
@@ -163,6 +231,30 @@ func _test_artifact_fingerprint(context: Dictionary) -> void:
 		expected
 	)
 	_expect(save_error.is_empty(), "temporary generated scene should save")
+	var obsolete_directory: String = "user://module_bake_smoke_obsolete"
+	var obsolete_path: String = "%s/rotation_90.tscn" % obsolete_directory
+	var obsolete_save_error: String = MODULE_SCENE_BAKER._save_generated_scene(
+		obsolete_path,
+		expected
+	)
+	_expect(
+		obsolete_save_error.is_empty(),
+		"temporary obsolete direction scene should save"
+	)
+	_expect(
+		MODULE_SCENE_BAKER._obsolete_generated_scene_paths_in(
+			obsolete_directory
+		) == [obsolete_path],
+		"obsolete direction scene discovery must reject noncanonical artifacts"
+	)
+	if FileAccess.file_exists(obsolete_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(obsolete_path))
+	if DirAccess.dir_exists_absolute(
+		ProjectSettings.globalize_path(obsolete_directory)
+	):
+		DirAccess.remove_absolute(
+			ProjectSettings.globalize_path(obsolete_directory)
+		)
 	var packed: PackedScene = load(temporary_path) as PackedScene
 	var modified: Node = packed.instantiate()
 	var extra := Node2D.new()
@@ -185,7 +277,7 @@ func _test_artifact_fingerprint(context: Dictionary) -> void:
 			"user://module_bake_smoke_missing.tscn",
 			expected
 		),
-		"missing generated rotation must fail the fingerprint check"
+		"missing canonical generated scene must fail the fingerprint check"
 	)
 	expected.free()
 

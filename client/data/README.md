@@ -720,11 +720,11 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 
 ## `module_worlds.json` / `module_templates.json` / `module_tile_catalog.json` / `modules/*.json`
 
-F13 的正式默认地图是 9×9 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` 定义世界几何、键槽、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`modules/*.json` 是布局与表现的唯一制作主源。Godot Module JSON Editor 只读写 JSON，不修改模块场景；baker 单向生成正式运行时 TSCN，生成场景禁止手改。
+F13 的正式默认地图是 9×9 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` 定义世界几何、键槽、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`modules/*.json` 是布局与表现的唯一制作主源。Godot Module JSON Editor 只读写 JSON，不修改模块场景；baker 为每模块单向生成唯一的 `scenes/generated/modules/<id>/rotation_0.tscn`，生成场景禁止手改。allowed rotations 只限制世界 assignment，运行时由 `ModuleChunk` 旋转规范场景根节点，不生成方向副本。
 
 每个模块 JSON 必须包含恰好 11 行、每行 11 个 `module_cell_tokens`；四边 socket 由边缘 floor 自动推导，不在 schema v2 中重复存储。相邻模块旋转后的 socket 必须完全匹配，外圈不得越界开口。模块只允许 0/90/180/270° 世界旋转；单个视觉格允许使用同样的旋转和水平/垂直翻转。`module_place_enemy_spawn` 的 `cell` / `footprint` 必须全部落在 `module_cell_floor` 上；DataLoader 与 Python 校验器都会拒绝封锁格出生点，运行时也会拒绝生成或恢复到封锁格的模块敌人。
 
-AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate`。通过 bake、schema、图块、通道、全局可达性、安全区和内容预算校验后，仍需在 Dock 中显式批准。玩法或注册策略变化会降回 candidate；纯视觉变化保持审核状态但必须重新烘焙。默认模板池只能引用 `approved`；模板复用时，运行状态按世界槽位保存，不按模板 id 共享。完整编辑、命令和发布规则见 `docs/代码/module_authoring_pipeline.md`。
+AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate`。通过 bake、schema、图块、通道、全局可达性、安全区和内容预算校验后，仍需在中央主编辑区中显式批准。玩法或注册策略变化会降回 candidate；纯视觉变化保持审核状态但必须重新烘焙。默认模板池只能引用 `approved`；模板复用时，运行状态按世界槽位保存，不按模板 id 共享。完整编辑、命令和发布规则见 `docs/代码/module_authoring_pipeline.md`。
 
 `modules/*.json` schema v2 字段：
 
@@ -790,7 +790,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `templates[].source` | string | 首版 `ai` | 内容来源审计字段；AI 只在编辑期产出 JSON |
 | `templates[].review_status` | string | `module_review_statuses` | `candidate` 不得进入默认池，人工批准后为 `approved` |
 | `templates[].approved_gameplay_hash` | string | approved 时为 64 位小写 sha256，candidate 时省略 | terrain、派生 socket、placement、role、tags 与 allowed rotations 的批准锚点；纯视觉变化不降级，但仍要求重新 bake |
-| `templates[].allowed_rotations` | array[int] | `0/90/180/270` 的非空子集 | 允许旋转集合；不支持镜像 |
+| `templates[].allowed_rotations` | array[int] | `0/90/180/270` 的非空子集 | assignment 允许的运行时根节点旋转集合；不支持镜像，也不为每个方向生成独立 TSCN |
 
 ## `characters.json`
 

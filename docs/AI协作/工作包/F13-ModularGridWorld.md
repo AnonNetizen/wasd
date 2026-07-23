@@ -19,7 +19,7 @@
 | `client/data/module_templates.json` | 模板注册、角色、tags、路径、AI 来源、审核状态、gameplay approval hash 与允许旋转 |
 | `client/data/modules/*.json` | 单个 11×11 模块的地形、placement 与三层视觉声明；唯一制作主源，socket 由边缘 floor 推导 |
 | `client/data/module_tile_catalog.json` | 稳定 `tile_id` 到共享 Godot TileSet source / atlas / alternative 的映射 |
-| `client/scenes/generated/modules/<id>/rotation_<degrees>.tscn` | 单向生成的 TileMap、合并碰撞、四边封锁与 placement 快照运行时场景；禁止手改 |
+| `client/scenes/generated/modules/<id>/rotation_0.tscn` | 每模块唯一、单向生成的规范朝向 TileMap、合并碰撞、四边封锁与 placement 快照运行时场景；禁止手改，允许方向由 Chunk 在运行时旋转根节点 |
 
 模块正式角色为 start / connector / combat / resource / hazard / objective / extraction；sealed 仅用于未开放技术首片槽位。格子、摆放、边缘和审核状态必须来自词表 §15 生成常量。
 
@@ -27,8 +27,8 @@
 
 - `ModuleWorldManager`：按 seed 组图、fallback、坐标转换、map hash、当前 / 已揭示 / 已访问模块、3×3 活跃邻域、槽位状态与 snapshot / restore。
 - `--module-world-technical-slice`：从第一天的完整 9×9 坐标 / 存档结构启动中心 3×3 技术首片，外圈 72 槽使用可解释封锁模块；普通启动已切到完整 9×9。
-- `ModuleWorldManager` 在运行开始和恢复时预加载 assignment 使用的唯一生成场景，跨边界只替换离开 / 进入边缘的最多三块，不在流式切换时读盘。
-- `ModuleChunk`：九个预置复用槽位各挂载一个缓存的生成 `PackedScene`，只切换预烘焙封边；不得从 JSON 建 TileMap、逐格创建 Node 或在激活时重建碰撞。
+- `ModuleWorldManager` 在运行开始和恢复时按 assignment 的唯一 module id 预加载规范生成场景，跨边界只替换离开 / 进入边缘的最多三块，不在流式切换时读盘。
+- `ModuleChunk`：九个预置复用槽位各挂载一个缓存的规范 `PackedScene`，按 assignment 方向旋转根节点、补偿方形枢轴并反映射预烘焙封边；不得从 JSON 建 TileMap、逐格创建 Node 或在激活时重建碰撞。
 - `MapManager`：一次配置完整 15,840×15,840 世界边界与 160 px 网格；模块世界不调用旧 PCG / WarzoneDirector 摆点。
 - `GameplayRunLoop`：解释模块 placement，继续通过 PoolManager、Combat、兴趣点奖励、pending_loot 与撤离管线生成和结算内容。
 - `GameplayHud`：显示 9×9 模块级迷雾、当前位置、目标与撤离状态。
@@ -42,7 +42,7 @@
 ## 5. 验收
 
 - `sync_contracts --check`、`validate_data`、`test_data_loader_schema`、GDScript / project / semantic lint 全过。
-- `module-bake-check` 从 JSON 与图块目录重建规范场景指纹，保证全部允许旋转的生成 TSCN 完整、最新且未被人工修改；`module-bake-smoke` 覆盖 JSON v2、尺寸、格子、稳定 tile id / 变换、placement、派生 socket、连通、旋转 / 四边封锁、碰撞、过期、玩法降级与纯表现审核边界。
+- `module-bake-check` 从 JSON 与图块目录重建规范场景指纹，保证 16 个模块各自唯一的 `rotation_0.tscn` 完整、最新、未被人工修改且没有遗留方向文件；`module-bake-smoke` 覆盖 JSON v2、尺寸、格子、稳定 tile id / 变换、placement、派生 socket、连通、四向运行时旋转 / 枢轴补偿 / 四边封锁、碰撞、过期、玩法降级与纯表现审核边界。
 - `module-json-editor-smoke` 覆盖 Undo/Redo、dirty、原子保存、外部修改冲突、新建 / 复制、确定性格式，以及无效 candidate 可保存但不能 Bake / Approve。
 - `module-world-smoke` 覆盖同 seed、不同 seed、场景预加载、跨模块最多三块替换、active≤9、inactive placement、导航、迷雾、目标撤离与保存恢复。
 - `headless-boot`、`runtime-smoke`、`save-smoke`、`f9-demo-smoke` 与四条黄金回放按默认行为变化更新并通过；`perf-probe` 的历史验收结果保留，但 ADR #143 后只在用户明确要求性能测试时运行。

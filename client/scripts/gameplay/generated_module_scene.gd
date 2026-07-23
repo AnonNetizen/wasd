@@ -5,7 +5,7 @@ extends Node2D
 
 const MODULE_EDGE_DIRECTIONS := preload("res://scripts/contracts/module_edge_directions.gd")
 
-const BAKER_SCHEMA_VERSION: int = 1
+const BAKER_SCHEMA_VERSION: int = 2
 
 @export var baker_schema_version: int = BAKER_SCHEMA_VERSION
 @export var module_id: String = ""
@@ -14,10 +14,6 @@ const BAKER_SCHEMA_VERSION: int = 1
 @export var visual_hash: String = ""
 @export var bake_hash: String = ""
 @export var placement_snapshot: Array[Dictionary] = []
-
-
-func _ready() -> void:
-	set_masked_edges([])
 
 
 func set_masked_edges(masked_edges: Array) -> void:

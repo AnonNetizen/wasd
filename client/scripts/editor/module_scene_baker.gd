@@ -14,11 +14,10 @@ const CELL_SIZE: int = 160
 const REGISTRY_PATH: String = "res://data/module_templates.json"
 const TILE_CATALOG_PATH: String = "res://data/module_tile_catalog.json"
 const GENERATED_DIRECTORY: String = "res://scenes/generated/modules"
-const BAKER_SCHEMA_VERSION: int = 1
+const BAKER_SCHEMA_VERSION: int = 2
 const TRANSFORM_FLIP_H: int = TileSetAtlasSource.TRANSFORM_FLIP_H
 const TRANSFORM_FLIP_V: int = TileSetAtlasSource.TRANSFORM_FLIP_V
 const TRANSFORM_TRANSPOSE: int = TileSetAtlasSource.TRANSFORM_TRANSPOSE
-const TRANSFORM_MASK: int = TRANSFORM_FLIP_H | TRANSFORM_FLIP_V | TRANSFORM_TRANSPOSE
 
 
 static func validate_module(module_id: String) -> Dictionary:
@@ -116,12 +115,8 @@ static func approve_module(module_id: String) -> Dictionary:
 	return result
 
 
-static func generated_scene_path(module_id: String, rotation_degrees: int) -> String:
-	return "%s/%s/rotation_%d.tscn" % [
-		GENERATED_DIRECTORY,
-		module_id,
-		posmod(rotation_degrees, 360),
-	]
+static func generated_scene_path(module_id: String) -> String:
+	return "%s/%s/rotation_0.tscn" % [GENERATED_DIRECTORY, module_id]
 
 
 static func gameplay_projection(module_data: Dictionary) -> Dictionary:
@@ -194,19 +189,14 @@ static func _bake_entry(
 				% module_id
 			)
 
-	var rotations: Array[int] = context.get("rotations", []) as Array[int]
-	for rotation: int in rotations:
-		var expected_root: GeneratedModuleScene = _build_generated_scene(
-			context,
-			rotation
+	var expected_root: GeneratedModuleScene = _build_generated_scene(context)
+	if expected_root == null:
+		_add_error(
+			result,
+			"Failed to build canonical scene for %s in memory." % module_id
 		)
-		if expected_root == null:
-			_add_error(
-				result,
-				"Failed to build %s rotation %d in memory." % [module_id, rotation]
-			)
-			continue
-		var path: String = generated_scene_path(module_id, rotation)
+	else:
+		var path: String = generated_scene_path(module_id)
 		var matches: bool = _generated_artifact_matches(path, expected_root)
 		if write_files and not matches:
 			var save_error: String = _save_generated_scene(path, expected_root)
@@ -223,13 +213,34 @@ static func _bake_entry(
 			var canonicalize_error: String = _strip_unstable_unique_ids(path)
 			if not canonicalize_error.is_empty():
 				_add_error(result, canonicalize_error)
-		elif not write_files and not matches:
+		elif not matches:
 			_add_error(
 				result,
 				"%s is missing, stale, or was modified outside the baker." % path
 			)
 		expected_root.free()
 		result["checked"] = int(result.get("checked", 0)) + 1
+	for obsolete_path: String in _obsolete_generated_scene_paths(module_id):
+		if write_files:
+			if not bool(result.get("ok", false)):
+				continue
+			var remove_error: Error = DirAccess.remove_absolute(
+				ProjectSettings.globalize_path(obsolete_path)
+			)
+			if remove_error != OK:
+				_add_error(
+					result,
+					"Failed to remove obsolete generated scene %s (error %d)."
+					% [obsolete_path, remove_error]
+				)
+			else:
+				result["changed"] = int(result.get("changed", 0)) + 1
+		else:
+			_add_error(
+				result,
+				"%s is obsolete; only rotation_0.tscn may be generated."
+				% obsolete_path
+			)
 	if write_files and bool(result.get("ok", false)):
 		result["baked"] = 1
 	result["module_id"] = module_id
@@ -601,10 +612,7 @@ static func _validate_visual_transform(
 		)
 
 
-static func _build_generated_scene(
-	context: Dictionary,
-	rotation: int
-) -> GeneratedModuleScene:
+static func _build_generated_scene(context: Dictionary) -> GeneratedModuleScene:
 	var module_data: Dictionary = context.get("module_data", {}) as Dictionary
 	var catalog: Dictionary = context.get("catalog", {}) as Dictionary
 	var tile_set: TileSet = context.get("tile_set") as TileSet
@@ -614,13 +622,12 @@ static func _build_generated_scene(
 	root.name = "GeneratedModule"
 	root.baker_schema_version = BAKER_SCHEMA_VERSION
 	root.module_id = String(context.get("module_id", ""))
-	root.module_rotation_degrees = rotation
+	root.module_rotation_degrees = 0
 	root.gameplay_hash = String(context.get("gameplay_hash", ""))
 	root.visual_hash = String(context.get("visual_hash", ""))
 	root.bake_hash = String(context.get("bake_hash", ""))
-	root.placement_snapshot = _rotated_placements(
-		_array_or_empty(module_data.get("placements", [])),
-		rotation
+	root.placement_snapshot = _canonical_placements(
+		_array_or_empty(module_data.get("placements", []))
 	)
 
 	var ground := TileMapLayer.new()
@@ -641,21 +648,18 @@ static func _build_generated_scene(
 
 	var blocked_cells: Dictionary = _terrain_cells(
 		module_data,
-		MODULE_CELL_TOKENS.MODULE_CELL_BLOCKED,
-		rotation
+		MODULE_CELL_TOKENS.MODULE_CELL_BLOCKED
 	)
 	var floor_cells: Dictionary = _terrain_cells(
 		module_data,
-		MODULE_CELL_TOKENS.MODULE_CELL_FLOOR,
-		rotation
+		MODULE_CELL_TOKENS.MODULE_CELL_FLOOR
 	)
 	_populate_visual_layers(
 		ground,
 		obstacles,
 		decoration,
 		module_data,
-		catalog,
-		rotation
+		catalog
 	)
 	_add_collision_subtree(root, "TerrainCollision", blocked_cells, root, false)
 
@@ -679,7 +683,6 @@ static func _build_generated_scene(
 			obstacle_default_id,
 			catalog,
 			tile_set,
-			rotation,
 			root
 		)
 	return root
@@ -690,8 +693,7 @@ static func _populate_visual_layers(
 	obstacles: TileMapLayer,
 	decoration: TileMapLayer,
 	module_data: Dictionary,
-	catalog: Dictionary,
-	module_rotation: int
+	catalog: Dictionary
 ) -> void:
 	var layers: Dictionary = _dictionary_or_empty(
 		module_data.get("visual_layers", {})
@@ -714,7 +716,7 @@ static func _populate_visual_layers(
 			)
 			_set_catalog_cell(
 				ground,
-				_rotate_cell(source_cell, module_rotation),
+				source_cell,
 				String(
 					ground_entry.get(
 						"tile_id",
@@ -722,7 +724,6 @@ static func _populate_visual_layers(
 					)
 				),
 				ground_entry,
-				module_rotation,
 				catalog
 			)
 			if (
@@ -734,7 +735,7 @@ static func _populate_visual_layers(
 				)
 				_set_catalog_cell(
 					obstacles,
-					_rotate_cell(source_cell, module_rotation),
+					source_cell,
 					String(
 						obstacle_entry.get(
 							"tile_id",
@@ -742,7 +743,6 @@ static func _populate_visual_layers(
 						)
 					),
 					obstacle_entry,
-					module_rotation,
 					catalog
 				)
 	var decoration_data: Dictionary = _dictionary_or_empty(
@@ -755,10 +755,9 @@ static func _populate_visual_layers(
 		var source_cell: Vector2i = _cell_from_value(entry.get("cell", {}))
 		_set_catalog_cell(
 			decoration,
-			_rotate_cell(source_cell, module_rotation),
+			source_cell,
 			String(entry.get("tile_id", "")),
 			entry,
-			module_rotation,
 			catalog
 		)
 
@@ -768,7 +767,6 @@ static func _set_catalog_cell(
 	cell: Vector2i,
 	tile_id: String,
 	transform_entry: Dictionary,
-	module_rotation: int,
 	catalog: Dictionary
 ) -> void:
 	if not catalog.has(tile_id):
@@ -779,15 +777,11 @@ static func _set_catalog_cell(
 		bool(transform_entry.get("flip_h", false)),
 		bool(transform_entry.get("flip_v", false))
 	)
-	var flags: int = _compose_transform_flags(
-		_rotation_transform_flags(module_rotation),
-		local_flags
-	)
 	layer.set_cell(
 		cell,
 		int(tile.get("source_id", -1)),
 		tile.get("atlas_coords", Vector2i(-1, -1)) as Vector2i,
-		int(tile.get("alternative_id", 0)) | flags
+		int(tile.get("alternative_id", 0)) | local_flags
 	)
 
 
@@ -820,7 +814,6 @@ static func _add_edge_seal(
 	tile_id: String,
 	catalog: Dictionary,
 	tile_set: TileSet,
-	module_rotation: int,
 	scene_root: Node
 ) -> void:
 	var names: Dictionary = {
@@ -844,7 +837,6 @@ static func _add_edge_seal(
 			cell_value as Vector2i,
 			tile_id,
 			{},
-			module_rotation,
 			catalog
 		)
 	_add_collision_subtree(edge_root, "SealCollision", cells, scene_root, true)
@@ -876,6 +868,34 @@ static func _save_generated_scene(
 	if not canonicalize_error.is_empty():
 		return canonicalize_error
 	return ""
+
+
+static func _obsolete_generated_scene_paths(module_id: String) -> Array[String]:
+	var directory_path: String = "%s/%s" % [GENERATED_DIRECTORY, module_id]
+	return _obsolete_generated_scene_paths_in(directory_path)
+
+
+static func _obsolete_generated_scene_paths_in(
+	directory_path: String
+) -> Array[String]:
+	var result: Array[String] = []
+	var directory: DirAccess = DirAccess.open(directory_path)
+	if directory == null:
+		return result
+	directory.list_dir_begin()
+	var file_name: String = directory.get_next()
+	while not file_name.is_empty():
+		if (
+			not directory.current_is_dir()
+			and file_name.begins_with("rotation_")
+			and file_name.ends_with(".tscn")
+			and file_name != "rotation_0.tscn"
+		):
+			result.append("%s/%s" % [directory_path, file_name])
+		file_name = directory.get_next()
+	directory.list_dir_end()
+	result.sort()
+	return result
 
 
 static func _strip_unstable_unique_ids(path: String) -> String:
@@ -1015,8 +1035,7 @@ static func _node_projection(node: Node) -> Dictionary:
 
 static func _terrain_cells(
 	module_data: Dictionary,
-	token: String,
-	rotation: int
+	token: String
 ) -> Dictionary:
 	var result: Dictionary = {}
 	var rows: Array = _array_or_empty(module_data.get("terrain_rows", []))
@@ -1026,7 +1045,7 @@ static func _terrain_cells(
 		var row: Array = rows[y] as Array
 		for x: int in range(mini(row.size(), MODULE_SIZE)):
 			if String(row[x]) == token:
-				result[_rotate_cell(Vector2i(x, y), rotation)] = true
+				result[Vector2i(x, y)] = true
 	return result
 
 
@@ -1092,63 +1111,14 @@ static func _collision_for_cells(cells: Dictionary) -> ConcavePolygonShape2D:
 	return shape
 
 
-static func _rotated_placements(
-	placements: Array,
-	rotation: int
-) -> Array[Dictionary]:
+static func _canonical_placements(placements: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	for placement_value: Variant in placements:
+	for placement_value: Variant in _sorted_cell_entries(placements):
 		if not placement_value is Dictionary:
 			continue
-		var placement: Dictionary = _sorted_dictionary(
+		result.append(
 			(placement_value as Dictionary).duplicate(true)
 		)
-		var source_cell: Vector2i = _cell_from_value(placement.get("cell", {}))
-		var width: int = 1
-		var height: int = 1
-		if placement.get("footprint") is Dictionary:
-			var footprint: Dictionary = placement["footprint"] as Dictionary
-			width = maxi(int(footprint.get("width", 1)), 1)
-			height = maxi(int(footprint.get("height", 1)), 1)
-		var rotated_cells: Array[Vector2i] = []
-		for y: int in range(height):
-			for x: int in range(width):
-				rotated_cells.append(
-					_rotate_cell(source_cell + Vector2i(x, y), rotation)
-				)
-		var minimum := Vector2i(MODULE_SIZE, MODULE_SIZE)
-		var maximum := Vector2i(-1, -1)
-		for cell: Vector2i in rotated_cells:
-			minimum.x = mini(minimum.x, cell.x)
-			minimum.y = mini(minimum.y, cell.y)
-			maximum.x = maxi(maximum.x, cell.x)
-			maximum.y = maxi(maximum.y, cell.y)
-		placement["cell"] = _vector2i_projection(minimum)
-		if placement.has("footprint"):
-			placement["footprint"] = {
-				"width": maximum.x - minimum.x + 1,
-				"height": maximum.y - minimum.y + 1,
-			}
-		result.append(_sorted_dictionary(placement))
-	result.sort_custom(
-		func(left: Dictionary, right: Dictionary) -> bool:
-			var left_cell: Vector2i = _cell_from_value(left.get("cell", {}))
-			var right_cell: Vector2i = _cell_from_value(right.get("cell", {}))
-			return (
-				left_cell.y < right_cell.y
-				or (
-					left_cell.y == right_cell.y
-					and (
-						left_cell.x < right_cell.x
-						or (
-							left_cell.x == right_cell.x
-							and String(left.get("type", ""))
-							< String(right.get("type", ""))
-						)
-					)
-				)
-			)
-	)
 	return result
 
 
@@ -1199,55 +1169,6 @@ static func _rotation_transform_flags(rotation: int) -> int:
 			return TRANSFORM_FLIP_V | TRANSFORM_TRANSPOSE
 		_:
 			return 0
-
-
-static func _compose_transform_flags(left_flags: int, right_flags: int) -> int:
-	var expected_x: Vector2i = _apply_transform_flags(
-		left_flags,
-		_apply_transform_flags(right_flags, Vector2i.RIGHT)
-	)
-	var expected_y: Vector2i = _apply_transform_flags(
-		left_flags,
-		_apply_transform_flags(right_flags, Vector2i.DOWN)
-	)
-	for candidate_index: int in range(8):
-		var candidate: int = (
-			(TRANSFORM_FLIP_H if candidate_index & 1 else 0)
-			| (TRANSFORM_FLIP_V if candidate_index & 2 else 0)
-			| (TRANSFORM_TRANSPOSE if candidate_index & 4 else 0)
-		)
-		if (
-			_apply_transform_flags(candidate, Vector2i.RIGHT) == expected_x
-			and _apply_transform_flags(candidate, Vector2i.DOWN) == expected_y
-		):
-			return candidate
-	return 0
-
-
-static func _apply_transform_flags(flags: int, point: Vector2i) -> Vector2i:
-	var result: Vector2i = point
-	if flags & TRANSFORM_TRANSPOSE:
-		result = Vector2i(result.y, result.x)
-	if flags & TRANSFORM_FLIP_H:
-		result.x = -result.x
-	if flags & TRANSFORM_FLIP_V:
-		result.y = -result.y
-	return result
-
-
-static func _rotate_cell(source_cell: Vector2i, rotation: int) -> Vector2i:
-	match posmod(rotation, 360):
-		90:
-			return Vector2i(MODULE_SIZE - 1 - source_cell.y, source_cell.x)
-		180:
-			return Vector2i(
-				MODULE_SIZE - 1 - source_cell.x,
-				MODULE_SIZE - 1 - source_cell.y
-			)
-		270:
-			return Vector2i(source_cell.y, MODULE_SIZE - 1 - source_cell.x)
-		_:
-			return source_cell
 
 
 static func _entries_by_cell(entries: Array) -> Dictionary:

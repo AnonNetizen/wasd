@@ -24,12 +24,12 @@ const ROTATION_FULL: int = 360
 const ASSIGNMENT_SEED_MODULUS: int = 2_147_483_647
 const INVALID_COORD: Vector2i = Vector2i(-1, -1)
 const MODULE_TERRAIN_Z_INDEX: int = -90
-const GENERATED_MODULE_BAKER_SCHEMA_VERSION: int = 1
+const GENERATED_MODULE_BAKER_SCHEMA_VERSION: int = 2
 
 var _world_def: Dictionary = {}
 var _registry_by_id: Dictionary = {}
 var _templates_by_id: Dictionary = {}
-var _generated_scene_paths_by_key: Dictionary = {}
+var _generated_scene_paths_by_id: Dictionary = {}
 var _packed_scene_cache: Dictionary = {}
 var _run_seed: int = 1
 var _cell_size: float = 160.0
@@ -56,7 +56,7 @@ func configure(
 	world_def: Dictionary,
 	registry_by_id: Dictionary,
 	templates_by_id: Dictionary,
-	generated_scene_paths_by_key: Dictionary,
+	generated_scene_paths_by_id: Dictionary,
 	run_seed: int,
 	navigation_flow_radius_cells: int
 ) -> bool:
@@ -64,7 +64,7 @@ func configure(
 	_world_def = world_def.duplicate(true)
 	_registry_by_id = registry_by_id.duplicate(true)
 	_templates_by_id = templates_by_id.duplicate(true)
-	_generated_scene_paths_by_key = generated_scene_paths_by_key.duplicate()
+	_generated_scene_paths_by_id = generated_scene_paths_by_id.duplicate()
 	_packed_scene_cache.clear()
 	_run_seed = run_seed
 	_cell_size = float(_world_def.get("cell_size", 160.0))
@@ -710,7 +710,7 @@ func _refresh_active_modules(center_coord: Vector2i) -> Dictionary:
 			var template_id: String = String(entry.get("template_id", ""))
 			var rotation: int = int(entry.get("rotation", 0))
 			var generated_scene: PackedScene = _packed_scene_cache.get(
-				_generated_scene_key(template_id, rotation)
+				template_id
 			) as PackedScene
 			var chunk_configured: bool = available_chunk.configure(
 				generated_scene,
@@ -901,14 +901,11 @@ func _normalize_rotation(rotation_degrees: int) -> int:
 func _has_valid_generated_scene_paths() -> bool:
 	for template_id_value: Variant in _templates_by_id.keys():
 		var template_id: String = String(template_id_value)
-		var registry_entry: Dictionary = _dictionary_or_empty(_registry_by_id.get(template_id, {}))
-		for rotation_value: Variant in _array_or_empty(registry_entry.get("allowed_rotations", [])):
-			var key: String = _generated_scene_key(template_id, int(rotation_value))
-			var value: Variant = _generated_scene_paths_by_key.get(key)
-			if value is PackedScene:
-				continue
-			if not value is String or not ResourceLoader.exists(String(value), "PackedScene"):
-				return false
+		var value: Variant = _generated_scene_paths_by_id.get(template_id)
+		if value is PackedScene:
+			continue
+		if not value is String or not ResourceLoader.exists(String(value), "PackedScene"):
+			return false
 	return not _templates_by_id.is_empty()
 
 
@@ -916,11 +913,11 @@ func _preload_assignment_scenes() -> bool:
 	_packed_scene_cache.clear()
 	for entry: Dictionary in _assignment_entries():
 		var template_id: String = String(entry.get("template_id", ""))
-		var rotation: int = int(entry.get("rotation", 0))
-		var key: String = _generated_scene_key(template_id, rotation)
-		if _packed_scene_cache.has(key):
+		if _packed_scene_cache.has(template_id):
 			continue
-		var configured_value: Variant = _generated_scene_paths_by_key.get(key)
+		var configured_value: Variant = _generated_scene_paths_by_id.get(
+			template_id
+		)
 		var packed: PackedScene
 		if configured_value is PackedScene:
 			packed = configured_value as PackedScene
@@ -930,14 +927,20 @@ func _preload_assignment_scenes() -> bool:
 				"PackedScene"
 			) as PackedScene
 		if packed == null:
-			push_error("[ModuleWorldManager] failed to preload generated scene %s" % key)
+			push_error(
+				"[ModuleWorldManager] failed to preload generated scene %s"
+				% template_id
+			)
 			_packed_scene_cache.clear()
 			return false
 		var probe: Node = packed.instantiate()
 		if not probe is GeneratedModuleScene:
 			if probe != null:
 				probe.free()
-			push_error("[ModuleWorldManager] %s root is not GeneratedModuleScene" % key)
+			push_error(
+				"[ModuleWorldManager] %s root is not GeneratedModuleScene"
+				% template_id
+			)
 			_packed_scene_cache.clear()
 			return false
 		var generated: GeneratedModuleScene = probe as GeneratedModuleScene
@@ -945,19 +948,17 @@ func _preload_assignment_scenes() -> bool:
 			generated.baker_schema_version
 			== GENERATED_MODULE_BAKER_SCHEMA_VERSION
 			and generated.module_id == template_id
-			and generated.module_rotation_degrees == _normalize_rotation(rotation)
+			and generated.module_rotation_degrees == 0
 		)
 		generated.free()
 		if not metadata_valid:
-			push_error("[ModuleWorldManager] %s metadata is stale" % key)
+			push_error(
+				"[ModuleWorldManager] %s metadata is stale" % template_id
+			)
 			_packed_scene_cache.clear()
 			return false
-		_packed_scene_cache[key] = packed
+		_packed_scene_cache[template_id] = packed
 	return not _packed_scene_cache.is_empty()
-
-
-func _generated_scene_key(template_id: String, rotation: int) -> String:
-	return "%s@%d" % [template_id, _normalize_rotation(rotation)]
 
 
 func _has_supported_geometry() -> bool:

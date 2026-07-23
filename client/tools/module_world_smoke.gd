@@ -117,7 +117,7 @@ func _expect_deterministic_composition() -> void:
 	_expect(
 		int(manager_a_summary.get("preloaded_scene_count", 0))
 		== _unique_assignment_scene_count(manager_a.call("assignment") as Dictionary),
-		"world setup should preload each assigned module/rotation scene exactly once"
+		"world setup should preload each assigned canonical module scene exactly once"
 	)
 	var initial_stream: Dictionary = manager_a.call(
 		"tick",
@@ -530,12 +530,10 @@ func _load_world_data() -> Dictionary:
 		templates[template_id] = _module_gameplay_projection(
 			DataLoader.load_json(String(entry.get("path", ""))) as Dictionary
 		)
-		for rotation_value: Variant in entry.get("allowed_rotations", []) as Array:
-			var rotation: int = int(rotation_value)
-			generated["%s@%d" % [template_id, rotation]] = (
-				"res://scenes/generated/modules/%s/rotation_%d.tscn"
-				% [template_id, rotation]
-			)
+		generated[template_id] = (
+			"res://scenes/generated/modules/%s/rotation_0.tscn"
+			% template_id
+		)
 	return {
 		"world": world,
 		"registry": registry,
@@ -586,13 +584,7 @@ func _unique_assignment_scene_count(assignment: Dictionary) -> int:
 		if not entry_value is Dictionary:
 			continue
 		var entry: Dictionary = entry_value as Dictionary
-		keys[
-			"%s@%d"
-			% [
-				String(entry.get("template_id", "")),
-				int(entry.get("rotation", 0)),
-			]
-		] = true
+		keys[String(entry.get("template_id", ""))] = true
 	return keys.size()
 
 

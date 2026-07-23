@@ -364,7 +364,7 @@ flowchart LR
 
 > 改某个模块前先在图中追踪上下游箭头，避免遗漏影响。新增系统模块时**同步更新此图**（规则 14）。
 > 三类节点：**基础设施**（蓝） / **协调中枢**（红） / **资源管理**（绿）。
-> `ModuleWorldManager` 不是 autoload：由 `GameplayRunLoop` 在 `ActiveWorld` 下创建并驱动，依赖世界 / 注册表 / 模块 JSON 与单向生成 TSCN。它组图、预加载 assignment 唯一场景、转坐标、管迷雾、复用最多 9 个 `ModuleChunk`、保存槽位状态，并持有不创建 Node 的 `ModuleNavigationField`；Enemy 只经 Manager 门面查询导航。对象池生成、击杀归因、目标 / 撤离和战利品仍由 `GameplayRunLoop` 负责。
+> `ModuleWorldManager` 不是 autoload：由 `GameplayRunLoop` 在 `ActiveWorld` 下创建并驱动，依赖世界 / 注册表 / 模块 JSON 与每模块一份的单向生成规范 TSCN。它组图、按 module id 预加载 assignment 唯一场景、转坐标、管迷雾、复用最多 9 个 `ModuleChunk`；Chunk 对规范场景根节点做正交旋转 / 枢轴补偿并反映射封边。Manager 还保存槽位状态，并持有不创建 Node 的 `ModuleNavigationField`；Enemy 只经 Manager 门面查询导航。对象池生成、击杀归因、目标 / 撤离和战利品仍由 `GameplayRunLoop` 负责。
 > `OnlineServices`、GodotSteam 与 Talo 节点是 ADR #150 的未来规划，不表示当前 autoload、插件或网络依赖已经存在；正式 `client` 当前仍由 `PlatformServices` 的 `none` 后端离线退化。
 
 ## 6. 红线（最易踩坑）

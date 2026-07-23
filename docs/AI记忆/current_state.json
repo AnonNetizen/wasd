@@ -2,14 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-07-23",
   "current_phase": "formal_project_f14_enemy_navigation_perception",
-  "current_status": "ADR #154 的模块 JSON 可视化编辑与单向 TSCN 烘焙已完成：16 个 schema v2 JSON 是布局与表现唯一制作主源，Godot `Module JSON` 已迁到与 2D / 3D / Script 同级的中央主编辑区并只编辑 JSON，稳定 tile catalog 隔离 Godot 坐标；baker 严格单向生成 61 个旋转 TSCN，check 从源数据重建规范指纹。运行时为 assignment 预加载唯一 PackedScene，九个 ModuleChunk 只挂载缓存实例并切换预烘焙封边；旧 authoring TSCN、模块专用 TRES、ModuleBakedData / ModuleBakedRotation 和 TSCN→JSON 入口已删除。ADR #153 的 gameplay/UI 场景化继续有效。F13 9×9/11×11/160 px、九 chunk 上限、schema v1 等价 JSON map hash、run v4、F14 导航感知、ADR #149 子弹地形阻挡、GUIDE / InputService v2 等既有契约保持不变。ADR #143 后性能测试只由用户当次明确触发，本任务未运行性能 probe。后续工作以用户最后明确指令为准。",
+  "current_status": "ADR #154 的模块 JSON 可视化编辑与单向 TSCN 烘焙已完成：16 个 schema v2 JSON 是布局与表现唯一制作主源，Godot `Module JSON` 已迁到与 2D / 3D / Script 同级的中央主编辑区并只编辑 JSON，稳定 tile catalog 隔离 Godot 坐标；baker 为每模块严格单向生成一份规范 `rotation_0.tscn`，check 从源数据重建规范指纹并拒绝遗留方向文件。运行时按 module id 为 assignment 预加载唯一 PackedScene，九个 ModuleChunk 只挂载缓存实例，再对根节点做正交旋转、方形枢轴补偿和封边方向反映射；旧 authoring TSCN、模块专用 TRES、45 份方向重复生成物、ModuleBakedData / ModuleBakedRotation 和 TSCN→JSON 入口已删除。ADR #153 的 gameplay/UI 场景化继续有效。F13 9×9/11×11/160 px、九 chunk 上限、schema v1 等价 JSON map hash、run v4、F14 导航感知、ADR #149 子弹地形阻挡、GUIDE / InputService v2 等既有契约保持不变。ADR #143 后性能测试只由用户当次明确触发，本任务未运行性能 probe。后续工作以用户最后明确指令为准。",
   "latest_adr": 154,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
-    "ADR #154 / 模块 JSON 可视化编辑与单向 TSCN 烘焙：modules/*.json 升 schema v2 并成为唯一制作主源，新增稳定 tile catalog 与只编辑 JSON 的 Godot `Module JSON` 中央主编辑区；baker 只接受 JSON，生成 61 个含三层 TileMap、合并碰撞、四边封锁和 placement 快照的旋转 TSCN，check 重建规范指纹。ModuleWorldManager 预加载 assignment 唯一场景，九个 ModuleChunk 挂载缓存实例；旧 authoring TSCN、模块专用 TRES 和全部 TSCN→JSON 路径删除，gameplay projection 保持旧 map hash / run v4 / 导航 / 存档 / 回放摘要。",
+    "ADR #154 / 模块 JSON 可视化编辑与单向 TSCN 烘焙：modules/*.json 升 schema v2 并成为唯一制作主源，新增稳定 tile catalog 与只编辑 JSON 的 Godot `Module JSON` 中央主编辑区；baker 只接受 JSON，每模块生成一份含三层 TileMap、合并碰撞、四边封锁和规范 placement 快照的 `rotation_0.tscn`，check 重建规范指纹并拒绝遗留方向文件。ModuleWorldManager 按 module id 预加载 assignment 唯一场景，九个 ModuleChunk 挂载缓存实例并做正交旋转 / 方形枢轴补偿 / 封边方向反映射；旧 authoring TSCN、模块专用 TRES、45 份方向重复生成物和全部 TSCN→JSON 路径删除，gameplay projection 保持旧 map hash / run v4 / 导航 / 存档 / 回放摘要。",
     "ADR #153 第三阶段 / 玩法与 UI 场景化：Player / Enemy / Bullet / PickupOrb / HitSpark 删除占位 `_draw()` 并改用可编辑 Polygon2D / Line2D；地图范围、机关 footprint、撤离进度、minimap 等动态几何暴露场景样式；HUD stats、升级、Gear Mod 与输入绑定改为五个 PackedScene 行模板；semantic lint 新增 runtime-node-construction 且豁免对象池 factory / 行模板。",
     "ADR #153 第二阶段 / 模块运行时场景切换：ModuleBakedData schema v2 为每个旋转生成 16 种世界封边 obstacle pattern / 合并碰撞；ModuleChunk 删除逐格绘制与激活重算，ModuleWorldManager 预置并复用九个 chunk；GameplayRunLoop、SkillSystem、Player / Enemy StatusEffectComponent 和 HUD minimap 改为场景节点。JSON assignment / 导航 / placement / map hash 与 run v4 不变，批准注册表新增 approved_source_hash 防止缺失 TRES 绕过重新审核。",
     "ADR #153 第一阶段 / 模块编辑与烘焙：新增内部 EditorPlugin、module-bake / module-bake-check / module-bake-smoke、ModuleBakedData 与旋转资源；16 个模块用 Godot API 从旧 JSON 生成 Ground / Obstacles / Decoration / Placements 场景，回烘焙 JSON 与迁移前逐字节一致，相关路径才触发 pre-commit，authoring/plugin 从 release 排除。",
@@ -147,6 +147,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-23",
+      "command": "module-bake; module-bake-check; module-bake-smoke; module-json-editor-smoke; sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lints; export-tree; headless-boot; module-world full/technical smoke; runtime-smoke; save-smoke; l1-smoke; four golden replay-runner runtime reruns with explicit data-fingerprint mismatch allowance; docs_health_check; JSON current_state/_kb_index",
+      "result": "passed for reducing generated module artifacts from 61 direction-specific scenes to 16 canonical rotation_0 scenes. Bake reports 16 modules / 16 scenes and removes 45 obsolete direction files; no-write check verifies all 16 fingerprints and rejects leftovers. Bake smoke passes 112 assertions covering obsolete-direction discovery, four runtime root rotations, 1600 px square-pivot compensation and inverse edge-seal mapping; both module-world modes, runtime, save and L1 pass. All four existing goldens pass without recapture and retain module map hash 63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083. No startup/performance probe or Profiler ran; the unrelated Module JSON Chinese-label and horizontal-scroll working-tree changes remain excluded from this task's commit."
+    },
     {
       "date": "2026-07-23",
       "command": "module-json-editor-smoke; module-bake-check; module-bake-smoke; module-world-smoke; validate_data; test_data_loader_schema; GDScript/project/semantic lints; headless-boot; docs_health_check; JSON current_state/_kb_index; git diff --check",

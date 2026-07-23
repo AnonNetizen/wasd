@@ -707,7 +707,7 @@ func _configure_module_world(restore_snapshot: Dictionary) -> bool:
 	var registry_payload: Dictionary = _dictionary_or_empty(DataLoader.load_json(DataLoader.MODULE_TEMPLATES_PATH))
 	var registry_by_id: Dictionary = {}
 	var templates_by_id: Dictionary = {}
-	var generated_scene_paths_by_key: Dictionary = {}
+	var generated_scene_paths_by_id: Dictionary = {}
 	for entry: Dictionary in _typed_dictionary_array(registry_payload.get("templates", [])):
 		var template_id: String = String(entry.get("id", ""))
 		var template_path: String = String(entry.get("path", ""))
@@ -719,17 +719,10 @@ func _configure_module_world(restore_snapshot: Dictionary) -> bool:
 			templates_by_id[template_id] = _module_gameplay_projection(
 				template_data
 			)
-		for rotation_value: Variant in _array_or_empty(
-			entry.get("allowed_rotations", [])
-		):
-			var rotation: int = posmod(int(rotation_value), 360)
-			var scene_path: String = (
-				"res://scenes/generated/modules/%s/rotation_%d.tscn"
-				% [template_id, rotation]
-			)
-			generated_scene_paths_by_key[
-				"%s@%d" % [template_id, rotation]
-			] = scene_path
+		generated_scene_paths_by_id[template_id] = (
+			"res://scenes/generated/modules/%s/rotation_0.tscn"
+			% template_id
+		)
 	var module_snapshot: Dictionary = _dictionary_or_empty(restore_snapshot.get("module_world", {}))
 	var world_seed: int = int(module_snapshot.get("run_seed", RNG.run_seed()))
 	var navigation_flow_radius_cells: int = _navigation_flow_radius_cells(_module_world_definition)
@@ -738,7 +731,7 @@ func _configure_module_world(restore_snapshot: Dictionary) -> bool:
 		_module_world_definition,
 		registry_by_id,
 		templates_by_id,
-		generated_scene_paths_by_key,
+		generated_scene_paths_by_id,
 		world_seed,
 		navigation_flow_radius_cells
 	))

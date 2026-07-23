@@ -50,7 +50,7 @@
 | `client/scenes/ui/stats_row.tscn` / `level_up_choice_button.tscn` / `gear_mod_row.tscn` / `gear_mod_empty_row.tscn` / `input_binding_row.tscn` | 数据驱动重复 UI 的可编辑行模板；运行时允许实例化模板并填入文本 / signal，不允许逐个 `Label.new()` / `Button.new()` 拼装长期行结构 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 正式运行时编排、输入 action 手柄兜底注册、对象池注册、刷怪和重开 |
 | `client/scripts/gameplay/module_world_manager.gd` | F13 模块世界协调器（非 autoload）：按 run seed 组合 81 个槽位、维护地图 hash / 迷雾 / 动态槽位状态，并只激活玩家周围最多 3×3 chunk。详见 `docs/代码/module_world_manager.md` |
-| `client/scenes/gameplay/module_chunk.tscn` / `client/scripts/gameplay/module_chunk.gd` | 九个预置复用槽位共用的薄场景；激活时挂载缓存的 `scenes/generated/modules/<id>/rotation_<degrees>.tscn` 并切换预烘焙封边，不从 JSON 建 TileMap、逐格建 Node 或重算碰撞 |
+| `client/scenes/gameplay/module_chunk.tscn` / `client/scripts/gameplay/module_chunk.gd` | 九个预置复用槽位共用的薄场景；激活时挂载缓存的 `scenes/generated/modules/<id>/rotation_0.tscn`，对根节点做正交旋转 / 枢轴补偿并切换反映射后的预烘焙封边，不从 JSON 建 TileMap、逐格建 Node 或重算碰撞 |
 | `client/scenes/gameplay/module_world_manager.tscn` | 预置九个 `ModuleChunk` 实例；运行时只切换 3×3 活跃邻域 |
 | `client/scripts/gameplay/module_minimap.gd` | HUD 9×9 模块级迷雾、当前位置、目标与撤离方向标记 |
 | `client/tools/module_world_smoke.gd` | 覆盖 seed assignment/hash、无缝跨模块、最多 9 个活跃 chunk、离开返回不重复生成、迷雾、目标后撤离及 run v4 恢复 |

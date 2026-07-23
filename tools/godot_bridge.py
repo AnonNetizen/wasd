@@ -87,7 +87,7 @@ def main() -> int:
     subparsers.add_parser("settings-smoke", help="Run the F7 Settings persistence smoke in headless Godot.")
     module_bake_parser = subparsers.add_parser(
         "module-bake",
-        help="Bake module JSON into generated rotation TSCN scenes.",
+        help="Bake one canonical generated TSCN scene per module JSON.",
     )
     module_bake_parser.add_argument(
         "--module",
@@ -96,7 +96,7 @@ def main() -> int:
     )
     module_bake_check_parser = subparsers.add_parser(
         "module-bake-check",
-        help="Check generated module TSCN fingerprints without writing files.",
+        help="Check canonical module TSCN fingerprints without writing files.",
     )
     module_bake_check_parser.add_argument(
         "--module",
