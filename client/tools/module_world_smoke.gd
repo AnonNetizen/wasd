@@ -5,6 +5,7 @@ extends Node
 const MODULE_WORLD_MANAGER_SCENE := preload("res://scenes/gameplay/module_world_manager.tscn")
 const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const MODULE_CELL_TOKENS := preload("res://scripts/contracts/module_cell_tokens.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
@@ -54,13 +55,20 @@ func _run() -> void:
 		if not child is ModuleChunk or not (child as ModuleChunk).visible:
 			continue
 		visible_chunk_count += 1
-		var ground: TileMapLayer = child.get_node_or_null("Ground") as TileMapLayer
-		var collision: CollisionShape2D = child.get_node_or_null("TerrainCollision/MergedBlockedCells") as CollisionShape2D
+		var generated: GeneratedModuleScene = (
+			child as ModuleChunk
+		).generated_instance()
+		var ground: TileMapLayer = generated.get_node_or_null(
+			"Ground"
+		) as TileMapLayer
+		var collision: CollisionShape2D = generated.get_node_or_null(
+			"TerrainCollision/MergedBlockedCells"
+		) as CollisionShape2D
 		visible_chunk_has_ground = visible_chunk_has_ground or (ground != null and not ground.get_used_cells().is_empty())
 		visible_chunk_has_collision = visible_chunk_has_collision or (collision != null and collision.shape is ConcavePolygonShape2D and not collision.disabled)
 	_expect(visible_chunk_count == 9, "center streaming should activate the nine scene-authored chunks")
-	_expect(visible_chunk_has_ground, "active chunks should apply baked ground TileMapPattern data")
-	_expect(visible_chunk_has_collision, "active chunks should apply baked merged collision resources")
+	_expect(visible_chunk_has_ground, "active chunks should mount generated ground TileMap data")
+	_expect(visible_chunk_has_collision, "active chunks should mount generated merged collision resources")
 
 	var summary: Dictionary = run_loop.call("debug_summary")
 	var world_summary: Dictionary = summary.get("module_world", {}) as Dictionary
@@ -99,12 +107,35 @@ func _expect_deterministic_composition() -> void:
 	add_child(manager_d)
 	add_child(manager_content)
 	add_child(manager_technical)
-	_expect(bool(manager_a.call("configure", data["world"], data["registry"], data["templates"], data["baked"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "seed A world should configure")
-	_expect(bool(manager_b.call("configure", data["world"], data["registry"], data["templates"], data["baked"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "same-seed world should configure")
-	_expect(bool(manager_c.call("configure", data["world"], data["registry"], data["templates"], data["baked"], 13014, NAVIGATION_FLOW_RADIUS_CELLS)), "different-seed world should configure")
-	_expect(bool(manager_d.call("configure", data["world"], data["registry"], data["templates"], data["baked"], 13015, NAVIGATION_FLOW_RADIUS_CELLS)), "third-seed world should configure")
+	_expect(bool(manager_a.call("configure", data["world"], data["registry"], data["templates"], data["generated"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "seed A world should configure")
+	_expect(bool(manager_b.call("configure", data["world"], data["registry"], data["templates"], data["generated"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "same-seed world should configure")
+	_expect(bool(manager_c.call("configure", data["world"], data["registry"], data["templates"], data["generated"], 13014, NAVIGATION_FLOW_RADIUS_CELLS)), "different-seed world should configure")
+	_expect(bool(manager_d.call("configure", data["world"], data["registry"], data["templates"], data["generated"], 13015, NAVIGATION_FLOW_RADIUS_CELLS)), "third-seed world should configure")
 	_expect(String(manager_a.call("map_hash")) == String(manager_b.call("map_hash")), "same seed should reproduce assignment/hash")
 	_expect(manager_a.call("assignment") == manager_b.call("assignment"), "same seed should reproduce all 81 assignments")
+	var manager_a_summary: Dictionary = manager_a.call("debug_summary")
+	_expect(
+		int(manager_a_summary.get("preloaded_scene_count", 0))
+		== _unique_assignment_scene_count(manager_a.call("assignment") as Dictionary),
+		"world setup should preload each assigned module/rotation scene exactly once"
+	)
+	var initial_stream: Dictionary = manager_a.call(
+		"tick",
+		manager_a.call("global_cell_to_world", Vector2i(49, 49))
+	)
+	_expect(
+		(initial_stream.get("activated", []) as Array).size() == 9,
+		"initial center stream should mount nine generated module scenes"
+	)
+	var edge_stream: Dictionary = manager_a.call(
+		"tick",
+		manager_a.call("global_cell_to_world", Vector2i(60, 49))
+	)
+	_expect(
+		(edge_stream.get("activated", []) as Array).size() <= 3
+		and (edge_stream.get("deactivated", []) as Array).size() <= 3,
+		"one-module crossing should replace at most three edge chunks"
+	)
 	_expect(manager_a.call("assignment") != manager_c.call("assignment"), "different seed should change ordinary module assignments")
 	_expect(manager_c.call("assignment") != manager_d.call("assignment"), "three-seed audit should produce distinct ordinary assignments")
 	_expect(String(manager_a.call("map_hash")) != String(manager_c.call("map_hash")), "different seed should change ordinary module assignment")
@@ -116,10 +147,10 @@ func _expect_deterministic_composition() -> void:
 	changed_placements[0] = changed_target
 	changed_objective["placements"] = changed_placements
 	changed_templates["module_objective_core"] = changed_objective
-	_expect(bool(manager_content.call("configure", data["world"], data["registry"], changed_templates, data["baked"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "content-revision world should configure")
+	_expect(bool(manager_content.call("configure", data["world"], data["registry"], changed_templates, data["generated"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "content-revision world should configure")
 	_expect(manager_content.call("assignment") == manager_a.call("assignment"), "content revision should preserve the same seeded assignment")
 	_expect(String(manager_content.call("map_hash")) != String(manager_a.call("map_hash")), "module content revision should invalidate map hash")
-	_expect(bool(manager_technical.call("configure", data["world"], data["registry"], data["templates"], data["baked"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "technical-slice manager should configure")
+	_expect(bool(manager_technical.call("configure", data["world"], data["registry"], data["templates"], data["generated"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "technical-slice manager should configure")
 	_expect(bool(manager_technical.call("build_technical_slice_assignment")), "technical-slice opt-in should build its checked-in assignment")
 	var sealed_count: int = 0
 	for raw_entry: Variant in (manager_technical.call("assignment") as Dictionary).values():
@@ -448,6 +479,11 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 	var restored_summary: Dictionary = restored.call("debug_summary")
 	var restored_world: Dictionary = restored_summary.get("module_world", {}) as Dictionary
 	_expect(String(restored_world.get("map_hash", "")) == saved_hash, "restore should validate and preserve map hash")
+	if technical_slice:
+		_expect(
+			int(restored_world.get("active_count", 0)) == 9,
+			"technical-slice restore should preload and mount all nine active generated scenes"
+		)
 	_expect(int(restored_world.get("visited_count", 0)) >= 2, "restore should preserve module fog/visited state")
 	_expect(bool((restored_summary.get("extraction", {}) as Dictionary).get("active", false)), "restore should preserve objective-to-extraction state")
 	_expect(
@@ -486,14 +522,78 @@ func _load_world_data() -> Dictionary:
 	var world: Dictionary = (worlds_payload.get("worlds", []) as Array)[0] as Dictionary
 	var registry: Dictionary = {}
 	var templates: Dictionary = {}
-	var baked: Dictionary = {}
+	var generated: Dictionary = {}
 	for raw_entry: Variant in registry_payload.get("templates", []):
 		var entry: Dictionary = raw_entry as Dictionary
 		var template_id: String = String(entry.get("id", ""))
 		registry[template_id] = entry.duplicate(true)
-		templates[template_id] = DataLoader.load_json(String(entry.get("path", "")))
-		baked[template_id] = load("res://resources/modules/%s.tres" % template_id)
-	return {"world": world, "registry": registry, "templates": templates, "baked": baked}
+		templates[template_id] = _module_gameplay_projection(
+			DataLoader.load_json(String(entry.get("path", ""))) as Dictionary
+		)
+		for rotation_value: Variant in entry.get("allowed_rotations", []) as Array:
+			var rotation: int = int(rotation_value)
+			generated["%s@%d" % [template_id, rotation]] = (
+				"res://scenes/generated/modules/%s/rotation_%d.tscn"
+				% [template_id, rotation]
+			)
+	return {
+		"world": world,
+		"registry": registry,
+		"templates": templates,
+		"generated": generated,
+	}
+
+
+func _module_gameplay_projection(module_data: Dictionary) -> Dictionary:
+	var terrain_rows: Array = (
+		module_data.get("terrain_rows", []) as Array
+	).duplicate(true)
+	return {
+		"schema_version": 1.0,
+		"id": String(module_data.get("id", "")),
+		"columns": 11.0,
+		"rows": 11.0,
+		"terrain_rows": terrain_rows,
+		"edge_sockets": _derive_module_edge_sockets(terrain_rows),
+		"placements": (
+			module_data.get("placements", []) as Array
+		).duplicate(true),
+	}
+
+
+func _derive_module_edge_sockets(terrain_rows: Array) -> Dictionary:
+	var result: Dictionary = {
+		"edge_north": [],
+		"edge_south": [],
+		"edge_east": [],
+		"edge_west": [],
+	}
+	for index: int in range(11):
+		if String((terrain_rows[0] as Array)[index]) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR:
+			(result["edge_north"] as Array).append(float(index))
+		if String((terrain_rows[10] as Array)[index]) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR:
+			(result["edge_south"] as Array).append(float(index))
+		if String((terrain_rows[index] as Array)[10]) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR:
+			(result["edge_east"] as Array).append(float(index))
+		if String((terrain_rows[index] as Array)[0]) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR:
+			(result["edge_west"] as Array).append(float(index))
+	return result
+
+
+func _unique_assignment_scene_count(assignment: Dictionary) -> int:
+	var keys: Dictionary = {}
+	for entry_value: Variant in assignment.values():
+		if not entry_value is Dictionary:
+			continue
+		var entry: Dictionary = entry_value as Dictionary
+		keys[
+			"%s@%d"
+			% [
+				String(entry.get("template_id", "")),
+				int(entry.get("rotation", 0)),
+			]
+		] = true
+	return keys.size()
 
 
 func _expect_bullet_terrain_rules(run_loop: Node) -> void:

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "templates": [
     {
       "id": "module_start_cross",
@@ -14,7 +14,7 @@
         180,
         270
       ],
-      "approved_source_hash": "4fd8c5338845bac7e3f3e4440309a85c5fe3efed6d242aa142ca785e3ae26a07:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "1e47134a4814ad3645416365fb4b65ad72a2f424d21b192c13d97f55b7d5b7a6"
     },
     {
       "id": "module_connector_cross",
@@ -29,7 +29,7 @@
         180,
         270
       ],
-      "approved_source_hash": "899c291602e43b58b11942dd983f9c3ba60ea461c7c172503171bdbe9bd7e456:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "748a74cb9ec4c9bed78b0aaf29b22a3bcd092a8afba0fb9add5a694b60a20724"
     },
     {
       "id": "module_connector_courtyard",
@@ -44,7 +44,7 @@
         180,
         270
       ],
-      "approved_source_hash": "113c3ed64d7badce8dd97b074d3ca7f5a473591c2d5b8789cd5f26ef8034d979:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "2d99fef68c23b2b9f3239a54f93d846d05a270975e450f82e40f84ce69dfa404"
     },
     {
       "id": "module_connector_pillars",
@@ -59,7 +59,7 @@
         180,
         270
       ],
-      "approved_source_hash": "71057513e7eea79e15465a4a495c0ecb396267ad0827a0cdad45b4634037f462:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "664973eb2b38333003efb681f22d575b52fb765f9c41f577b5f2fe7a1045bf01"
     },
     {
       "id": "module_connector_ring",
@@ -74,7 +74,7 @@
         180,
         270
       ],
-      "approved_source_hash": "c631558c43adade8f8f79770d07efda25f00ace5d06651b1f22baba54f159dfe:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "067beb7a319c5f0b18677c2b57507e2d8e2da76d0368569e9ec5eb9a8a0124f1"
     },
     {
       "id": "module_combat_arena",
@@ -89,7 +89,7 @@
         180,
         270
       ],
-      "approved_source_hash": "35a09c103b48a268ce46449b7e3a4ec2507223347d6d80d90ad749a2c4b6252b:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "4e1edb5e10558c6837bfcb2afbf778b7c86b4ebea0032d6324d46d6297c60cac"
     },
     {
       "id": "module_combat_quadrants",
@@ -104,7 +104,7 @@
         180,
         270
       ],
-      "approved_source_hash": "a430ea29ccde29064f112fc46b31ddeb07e25e35434e4c850bedcb4737eda786:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "9f82e119a293ad438221a56d2b721fa4e040f145c5daee8fe2111d45eb37759f"
     },
     {
       "id": "module_combat_corridors",
@@ -119,7 +119,7 @@
         180,
         270
       ],
-      "approved_source_hash": "dce72eebc3c63b69afa7b34c5b4989036fb88f4100753114b73b19e90d00789d:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "768f861ce488eed4c1b07fb40db2bc4228b28aa72dbe58887a07d6f438bd2e66"
     },
     {
       "id": "module_combat_fort",
@@ -134,7 +134,7 @@
         180,
         270
       ],
-      "approved_source_hash": "f2b5bc6cf7f9171e3e00898d4da834ac14a9af1c037ddbd0618d07f84177147a:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "0e6f5867ed8c6e07bd97df5fd69268dd4ff559c4ad9b7c07f5087e7edc71777d"
     },
     {
       "id": "module_resource_cache",
@@ -149,7 +149,7 @@
         180,
         270
       ],
-      "approved_source_hash": "f62b2318026fcd366c7c2a8759e50cc97b071026ccc7ea857713c6e3828243bc:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "c51f1d96023987e04559fd2095f97676ecb75ebd3f513f9d33d6b4f2ea58fd1c"
     },
     {
       "id": "module_resource_crossroads",
@@ -164,7 +164,7 @@
         180,
         270
       ],
-      "approved_source_hash": "46227f795c4b9acb43ad312d3f8d560e1e4fdc6497ab2a27c3e627d8241bc986:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "07755f742cd1f5467eed17c34826bf51cb65066bf40cbf0907c5c1147643534d"
     },
     {
       "id": "module_hazard_spikes",
@@ -179,7 +179,7 @@
         180,
         270
       ],
-      "approved_source_hash": "c963651e3e31b80cad14eede3e7eb829930a329b2852427f5e74c76562f6f9ec:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "276f0b64c5fc90d5697ee19e08e52ec14c19e4886b9af5119e806b1ae2fb234e"
     },
     {
       "id": "module_hazard_pulse",
@@ -194,7 +194,7 @@
         180,
         270
       ],
-      "approved_source_hash": "ee694eb08c07ad2cbfe541836c86c81ec2f7def271fd7a390a88f201c7f2f000:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "8730af3008cc382aff0665761591a61727384c2872048f1188fa7013b7ad3e3a"
     },
     {
       "id": "module_objective_core",
@@ -209,7 +209,7 @@
         180,
         270
       ],
-      "approved_source_hash": "fdecc822b92d637b4ef46b37ec68052f6a2c1b74baf1405e8933ff7a173a8a1d:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "5e3425812d822e2c45856b14a42463b3eec3f01b67dc1ea7be2476324a45dedc"
     },
     {
       "id": "module_extraction_pad",
@@ -224,7 +224,7 @@
         180,
         270
       ],
-      "approved_source_hash": "145464a179fe6bfc67c6408ce1407049e94ac4f7f406f20894b93949de45adc9:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
+      "approved_gameplay_hash": "572c5b097ae6389ab4f502ca5b4c8cdfd2b78131db65e5af34c49f630b11feec"
     },
     {
       "id": "module_sealed",

@@ -776,7 +776,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `templates[].tags` | array[string] | 可为空 | 编辑期筛选标签，不直接产生玩法分支 |
 | `templates[].source` | string | 首版 `ai` | 内容来源审计字段；AI 只在编辑期产出 JSON |
 | `templates[].review_status` | string | `module_review_statuses` | `candidate` 不得进入默认池，人工批准后为 `approved` |
-| `templates[].approved_source_hash` | string | approved 时为 `<scene sha256>:<tileset sha256>`，candidate 时省略 | 显式批准时的内容锚点；即使 TRES 丢失，后续场景内容变化仍会在 bake 时自动降级 |
+| `templates[].approved_gameplay_hash` | string | approved 时为 64 位小写 sha256，candidate 时省略 | terrain、派生 socket、placement、role、tags 与 allowed rotations 的批准锚点；纯视觉变化不降级，但仍要求重新 bake |
 | `templates[].allowed_rotations` | array[int] | `0/90/180/270` 的非空子集 | 允许旋转集合；不支持镜像 |
 
 ## `characters.json`

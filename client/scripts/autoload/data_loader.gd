@@ -2427,7 +2427,7 @@ func _validate_module_tile_catalog() -> Dictionary:
 		is_valid = _require_int(MODULE_TILE_CATALOG_PATH, "%s.source_id" % field, tile.get("source_id"), 0) and is_valid
 		if _validate_module_cell(MODULE_TILE_CATALOG_PATH, "%s.atlas_coords" % field, tile.get("atlas_coords"), 1_000_000, 1_000_000) == null:
 			is_valid = false
-		is_valid = _require_int(MODULE_TILE_CATALOG_PATH, "%s.alternative_id" % field, tile.get("alternative_id"), 0) and is_valid
+		is_valid = _require_int(MODULE_TILE_CATALOG_PATH, "%s.alternative_id" % field, tile.get("alternative_id"), 0, 4095) and is_valid
 	var expected_ids: Array = contract_values("module_tile_ids")
 	if catalog.size() != expected_ids.size():
 		is_valid = _schema_fail(MODULE_TILE_CATALOG_PATH, "tiles", "every registered module_tile_id exactly once") and is_valid
@@ -2531,7 +2531,7 @@ func _validate_module_templates_json(enemy_ids: Dictionary, hazard_ids: Dictiona
 	if not data is Dictionary:
 		return {"is_valid": _schema_fail(MODULE_TEMPLATES_PATH, "root", "Dictionary"), "templates": templates}
 	var payload: Dictionary = data as Dictionary
-	is_valid = _require_exact_int(MODULE_TEMPLATES_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	is_valid = _require_exact_int(MODULE_TEMPLATES_PATH, "schema_version", payload.get("schema_version"), 2) and is_valid
 	var entries: Array = _require_array(MODULE_TEMPLATES_PATH, "templates", payload.get("templates"))
 	if entries.is_empty():
 		is_valid = _schema_fail(MODULE_TEMPLATES_PATH, "templates", "non-empty Array") and is_valid
@@ -2557,12 +2557,26 @@ func _validate_module_templates_json(enemy_ids: Dictionary, hazard_ids: Dictiona
 		var review_status: String = _require_registered(MODULE_TEMPLATES_PATH, "%s.review_status" % field, entry.get("review_status"), "module_review_statuses")
 		if review_status.is_empty():
 			is_valid = false
-		var approved_source_hash: String = String(entry.get("approved_source_hash", ""))
+		var approved_gameplay_hash: String = String(entry.get("approved_gameplay_hash", ""))
+		if entry.has("approved_source_hash"):
+			is_valid = _schema_fail(
+				MODULE_TEMPLATES_PATH,
+				"%s.approved_source_hash" % field,
+				"removed field; use approved_gameplay_hash"
+			) and is_valid
 		if review_status == MODULE_REVIEW_STATUSES.MODULE_REVIEW_APPROVED:
-			if not _is_module_source_hash(approved_source_hash):
-				is_valid = _schema_fail(MODULE_TEMPLATES_PATH, "%s.approved_source_hash" % field, "scene:tileset sha256 hashes") and is_valid
-		elif entry.has("approved_source_hash"):
-			is_valid = _schema_fail(MODULE_TEMPLATES_PATH, "%s.approved_source_hash" % field, "omitted unless template is approved") and is_valid
+			if not _is_sha256(approved_gameplay_hash):
+				is_valid = _schema_fail(
+					MODULE_TEMPLATES_PATH,
+					"%s.approved_gameplay_hash" % field,
+					"gameplay approval sha256"
+				) and is_valid
+		elif entry.has("approved_gameplay_hash"):
+			is_valid = _schema_fail(
+				MODULE_TEMPLATES_PATH,
+				"%s.approved_gameplay_hash" % field,
+				"omitted unless template is approved"
+			) and is_valid
 		is_valid = _validate_content_tags(MODULE_TEMPLATES_PATH, "%s.tags" % field, entry.get("tags", [])) and is_valid
 		var allowed_values: Array = _require_array(MODULE_TEMPLATES_PATH, "%s.allowed_rotations" % field, entry.get("allowed_rotations"))
 		var allowed_rotations: Dictionary = {}
@@ -2579,6 +2593,7 @@ func _validate_module_templates_json(enemy_ids: Dictionary, hazard_ids: Dictiona
 				is_valid = _schema_fail(MODULE_TEMPLATES_PATH, rotation_field, "unique rotation") and is_valid
 			allowed_rotations[rotation] = true
 		var module_path: String = String(entry.get("path", ""))
+		var normalized_module_data: Dictionary = {}
 		is_valid = _require_non_empty_string(MODULE_TEMPLATES_PATH, "%s.path" % field, entry.get("path")) and is_valid
 		if not module_path.begins_with("res://data/modules/") or not module_path.ends_with(".json") or module_path.contains(".."):
 			is_valid = _schema_fail(MODULE_TEMPLATES_PATH, "%s.path" % field, "res://data/modules/*.json path") and is_valid
@@ -2599,31 +2614,27 @@ func _validate_module_templates_json(enemy_ids: Dictionary, hazard_ids: Dictiona
 					hazard_ids,
 					module_tile_catalog
 				) and is_valid
+				normalized_module_data = (module_data as Dictionary).duplicate(true)
 			else:
 				is_valid = _schema_fail(module_path, "root", "Dictionary") and is_valid
 		if not template_id.is_empty():
-			var loaded_module: Variant = load_json(module_path) if FileAccess.file_exists(module_path) else {}
 			templates[template_id] = {
 				"role": role,
 				"review_status": review_status,
 				"allowed_rotations": allowed_rotations,
-				"data": loaded_module if loaded_module is Dictionary else {},
+				"data": normalized_module_data,
 			}
 	_last_schema_counts["module_files"] = seen_paths.size()
 	return {"is_valid": is_valid, "templates": templates}
 
 
-func _is_module_source_hash(value: String) -> bool:
-	var parts: PackedStringArray = value.split(":", false)
-	if parts.size() != 2:
+func _is_sha256(value: String) -> bool:
+	if value.length() != 64:
 		return false
-	for part: String in parts:
-		if part.length() != 64:
+	for character_index: int in range(value.length()):
+		var character: String = value.substr(character_index, 1)
+		if not "0123456789abcdef".contains(character):
 			return false
-		for character_index: int in range(part.length()):
-			var character: String = part.substr(character_index, 1)
-			if not "0123456789abcdef".contains(character):
-				return false
 	return true
 
 
@@ -2638,8 +2649,8 @@ func _validate_module_file(
 ) -> bool:
 	var is_valid: bool = true
 	var schema_version: int = int(data.get("schema_version", 0))
-	if not _is_int_like(data.get("schema_version")) or not [1, 2].has(schema_version):
-		is_valid = _schema_fail(resource_path, "schema_version", "1 or 2 during the JSON-authoring migration") and is_valid
+	if not _is_int_like(data.get("schema_version")) or schema_version != 2:
+		is_valid = _schema_fail(resource_path, "schema_version", "2") and is_valid
 	is_valid = _require_non_empty_string(resource_path, "id", data.get("id")) and is_valid
 	if String(data.get("id", "")) != expected_id:
 		is_valid = _schema_fail(resource_path, "id", "id matching module template registry") and is_valid
@@ -2656,26 +2667,7 @@ func _validate_module_file(
 			if _require_registered(resource_path, "terrain_rows[%d][%d]" % [y, x], row[x], "module_cell_tokens").is_empty():
 				is_valid = false
 	var derived_sockets: Dictionary = _derive_module_edge_sockets(terrain_rows)
-	if schema_version == 1:
-		var edge_sockets: Variant = data.get("edge_sockets")
-		if not edge_sockets is Dictionary:
-			is_valid = _schema_fail(resource_path, "edge_sockets", "Dictionary") and is_valid
-		else:
-			var socket_dict: Dictionary = edge_sockets as Dictionary
-			var edge_values: Array = contract_values("module_edge_directions")
-			if socket_dict.size() != edge_values.size():
-				is_valid = _schema_fail(resource_path, "edge_sockets", "exactly four registered edges") and is_valid
-			for edge_value: Variant in edge_values:
-				var edge: String = String(edge_value)
-				var sockets: Array = _require_array(resource_path, "edge_sockets.%s" % edge, socket_dict.get(edge))
-				var seen_sockets: Dictionary = {}
-				for socket_index: int in range(sockets.size()):
-					var socket: Variant = sockets[socket_index]
-					if not _is_int_like(socket) or int(socket) < 0 or int(socket) > 10 or seen_sockets.has(int(socket)):
-						is_valid = _schema_fail(resource_path, "edge_sockets.%s[%d]" % [edge, socket_index], "unique integer 0..10") and is_valid
-					else:
-						seen_sockets[int(socket)] = true
-	elif schema_version == 2:
+	if schema_version == 2:
 		if data.has("edge_sockets"):
 			is_valid = _schema_fail(resource_path, "edge_sockets", "omitted because schema v2 derives sockets") and is_valid
 		is_valid = _validate_module_visual_layers(resource_path, data.get("visual_layers"), module_tile_catalog) and is_valid

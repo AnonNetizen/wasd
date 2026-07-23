@@ -1,27 +1,7 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://scripts/gameplay/module_chunk.gd" id="1_chunk"]
-[ext_resource type="TileSet" path="res://resources/modules/module_placeholder_tileset.tres" id="2_tiles"]
 
 [node name="ModuleChunk" type="Node2D"]
 visible = false
 script = ExtResource("1_chunk")
-
-[node name="Ground" type="TileMapLayer" parent="."]
-position = Vector2(-80, -80)
-tile_set = ExtResource("2_tiles")
-
-[node name="Obstacles" type="TileMapLayer" parent="."]
-position = Vector2(-80, -80)
-tile_set = ExtResource("2_tiles")
-
-[node name="Decoration" type="TileMapLayer" parent="."]
-position = Vector2(-80, -80)
-tile_set = ExtResource("2_tiles")
-
-[node name="TerrainCollision" type="StaticBody2D" parent="."]
-collision_layer = 1
-collision_mask = 0
-
-[node name="MergedBlockedCells" type="CollisionShape2D" parent="TerrainCollision"]
-disabled = true

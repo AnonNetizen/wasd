@@ -85,14 +85,24 @@ def main() -> int:
     subparsers.add_parser("gear-mod-smoke", help="Run the F11 Gear Mod loadout smoke in headless Godot.")
     subparsers.add_parser("save-smoke", help="Run the SaveManager run-save reliability smoke in headless Godot.")
     subparsers.add_parser("settings-smoke", help="Run the F7 Settings persistence smoke in headless Godot.")
-    module_bake_parser = subparsers.add_parser("module-bake", help="Bake editor-authored module scenes into JSON and TRES artifacts.")
-    module_bake_parser.add_argument("--scene", default=None, help="Optional res://scenes/modules/*.tscn path. Defaults to all registered modules.")
-    module_bake_parser.add_argument(
-        "--migrate-json",
-        action="store_true",
-        help="One-time conversion of registered module JSON files into authoring scenes before baking.",
+    module_bake_parser = subparsers.add_parser(
+        "module-bake",
+        help="Bake module JSON into generated rotation TSCN scenes.",
     )
-    subparsers.add_parser("module-bake-check", help="Check module bake artifacts without writing files.")
+    module_bake_parser.add_argument(
+        "--module",
+        default=None,
+        help="Optional registered module id. Defaults to all modules.",
+    )
+    module_bake_check_parser = subparsers.add_parser(
+        "module-bake-check",
+        help="Check generated module TSCN fingerprints without writing files.",
+    )
+    module_bake_check_parser.add_argument(
+        "--module",
+        default=None,
+        help="Optional registered module id. Defaults to all modules.",
+    )
     subparsers.add_parser("module-bake-smoke", help="Run focused module bake validation coverage in headless Godot.")
     subparsers.add_parser(
         "module-json-editor-smoke",
@@ -121,17 +131,9 @@ def main() -> int:
         if not runner_script.exists():
             print(f"[godot-bridge] missing module bake script: {_rel(runner_script)}")
             return 1
-        if args.command == "module-bake" and args.migrate_json:
-            import_result = _run_command(
-                [str(godot), "--headless", "--editor", "--path", str(project), "--quit-after", "300"],
-                cwd=project,
-                failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
-            )
-            if import_result != 0:
-                return import_result
-        user_args = ["--migrate-json"] if args.command == "module-bake" and args.migrate_json else [f"--{args.command}"]
-        if args.command == "module-bake" and args.scene:
-            user_args.extend(["--scene", args.scene])
+        user_args = [f"--{args.command}"]
+        if args.module:
+            user_args.extend(["--module", args.module])
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--script", "res://tools/module_bake_cli.gd", "--", *user_args],
             cwd=project,

@@ -36,7 +36,7 @@ func _run_document_smoke() -> void:
 	_write_json(
 		_registry_path,
 		{
-			"schema_version": 1,
+			"schema_version": 2,
 			"templates": [_registry_entry("module_base", base_path)],
 		}
 	)
@@ -188,7 +188,7 @@ func _registry_entry(requested_id: String, path: String) -> Dictionary:
 		"source": "ai",
 		"review_status": "module_review_approved",
 		"allowed_rotations": [0, 90, 180, 270],
-		"approved_gameplay_hash": "fixture",
+		"approved_gameplay_hash": "fixture".sha256_text(),
 	}
 
 

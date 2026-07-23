@@ -34,6 +34,7 @@ const STATS := preload("res://scripts/contracts/stats.gd")
 const WARZONE_DIRECTOR_SCRIPT := preload("res://scripts/gameplay/warzone_director.gd")
 const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placement_types.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
+const MODULE_CELL_TOKENS := preload("res://scripts/contracts/module_cell_tokens.gd")
 
 const BULLET_POOL_SIZE: int = 192
 const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 160.0)
@@ -706,7 +707,7 @@ func _configure_module_world(restore_snapshot: Dictionary) -> bool:
 	var registry_payload: Dictionary = _dictionary_or_empty(DataLoader.load_json(DataLoader.MODULE_TEMPLATES_PATH))
 	var registry_by_id: Dictionary = {}
 	var templates_by_id: Dictionary = {}
-	var baked_by_id: Dictionary = {}
+	var generated_scene_paths_by_key: Dictionary = {}
 	for entry: Dictionary in _typed_dictionary_array(registry_payload.get("templates", [])):
 		var template_id: String = String(entry.get("id", ""))
 		var template_path: String = String(entry.get("path", ""))
@@ -715,12 +716,20 @@ func _configure_module_world(restore_snapshot: Dictionary) -> bool:
 		registry_by_id[template_id] = entry.duplicate(true)
 		var template_data: Dictionary = _dictionary_or_empty(DataLoader.load_json(template_path))
 		if not template_data.is_empty():
-			templates_by_id[template_id] = template_data
-		var baked_path: String = "res://resources/modules/%s.tres" % template_id
-		if ResourceLoader.exists(baked_path, "ModuleBakedData"):
-			var baked_data: ModuleBakedData = ResourceLoader.load(baked_path, "ModuleBakedData") as ModuleBakedData
-			if baked_data != null:
-				baked_by_id[template_id] = baked_data
+			templates_by_id[template_id] = _module_gameplay_projection(
+				template_data
+			)
+		for rotation_value: Variant in _array_or_empty(
+			entry.get("allowed_rotations", [])
+		):
+			var rotation: int = posmod(int(rotation_value), 360)
+			var scene_path: String = (
+				"res://scenes/generated/modules/%s/rotation_%d.tscn"
+				% [template_id, rotation]
+			)
+			generated_scene_paths_by_key[
+				"%s@%d" % [template_id, rotation]
+			] = scene_path
 	var module_snapshot: Dictionary = _dictionary_or_empty(restore_snapshot.get("module_world", {}))
 	var world_seed: int = int(module_snapshot.get("run_seed", RNG.run_seed()))
 	var navigation_flow_radius_cells: int = _navigation_flow_radius_cells(_module_world_definition)
@@ -729,7 +738,7 @@ func _configure_module_world(restore_snapshot: Dictionary) -> bool:
 		_module_world_definition,
 		registry_by_id,
 		templates_by_id,
-		baked_by_id,
+		generated_scene_paths_by_key,
 		world_seed,
 		navigation_flow_radius_cells
 	))
@@ -738,6 +747,50 @@ func _configure_module_world(restore_snapshot: Dictionary) -> bool:
 	if _module_world_technical_slice and module_snapshot.is_empty():
 		return bool(_module_world_manager.call("build_technical_slice_assignment"))
 	return true
+
+
+func _module_gameplay_projection(module_data: Dictionary) -> Dictionary:
+	var terrain_rows: Array = _array_or_empty(
+		module_data.get("terrain_rows", [])
+	)
+	return {
+		# Godot's JSON parser represented the schema-v1 numeric fields as floats.
+		# Preserve those exact Variant types because the legacy map hash serializes
+		# content types as well as values.
+		"schema_version": 1.0,
+		"id": String(module_data.get("id", "")),
+		"columns": 11.0,
+		"rows": 11.0,
+		"terrain_rows": terrain_rows.duplicate(true),
+		"edge_sockets": _derive_module_edge_sockets(terrain_rows),
+		"placements": _array_or_empty(
+			module_data.get("placements", [])
+		).duplicate(true),
+	}
+
+
+func _derive_module_edge_sockets(terrain_rows: Array) -> Dictionary:
+	var result: Dictionary = {
+		"edge_north": [],
+		"edge_south": [],
+		"edge_east": [],
+		"edge_west": [],
+	}
+	if terrain_rows.size() != 11:
+		return result
+	for row_value: Variant in terrain_rows:
+		if not row_value is Array or (row_value as Array).size() != 11:
+			return result
+	for index: int in range(11):
+		if String((terrain_rows[0] as Array)[index]) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR:
+			(result["edge_north"] as Array).append(float(index))
+		if String((terrain_rows[10] as Array)[index]) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR:
+			(result["edge_south"] as Array).append(float(index))
+		if String((terrain_rows[index] as Array)[10]) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR:
+			(result["edge_east"] as Array).append(float(index))
+		if String((terrain_rows[index] as Array)[0]) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR:
+			(result["edge_west"] as Array).append(float(index))
+	return result
 
 
 func _navigation_flow_radius_cells(world_definition: Dictionary) -> int:

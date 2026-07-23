@@ -71,6 +71,15 @@ def main() -> int:
             [],
         ),
         (
+            "module schema v1 is no longer accepted",
+            _mutate_json("client/data/modules/module_start_cross.json", _downgrade_module_to_v1),
+            [
+                "client/data/modules/module_start_cross.json:schema_version",
+                "must be >= 2",
+                "must be 2",
+            ],
+        ),
+        (
             "module schema v2 must omit derived sockets",
             _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v2_keep_sockets),
             [
@@ -125,14 +134,14 @@ def main() -> int:
             ["client/data/module_worlds.json:worlds[0].template_pool[0]", "formal template pool requires approved template"],
         ),
         (
-            "approved module template requires source hash",
-            _mutate_json("client/data/module_templates.json", _remove_first_approved_source_hash),
-            ["client/data/module_templates.json:templates[0].approved_source_hash", "approved template must store scene:tileset sha256 hashes"],
+            "approved module template requires gameplay approval hash",
+            _mutate_json("client/data/module_templates.json", _remove_first_approved_gameplay_hash),
+            ["client/data/module_templates.json:templates[0].approved_gameplay_hash", "approved template must store a gameplay approval sha256"],
         ),
         (
-            "candidate module template cannot keep approved source hash",
+            "candidate module template cannot keep gameplay approval hash",
             _mutate_json("client/data/module_templates.json", _make_sealed_template_keep_approved_hash),
-            ["client/data/module_templates.json:templates[15].approved_source_hash", "must be omitted unless the template is approved"],
+            ["client/data/module_templates.json:templates[15].approved_gameplay_hash", "must be omitted unless the template is approved"],
         ),
         (
             "fallback assignment must contain 81 slots",
@@ -1690,9 +1699,22 @@ def _upgrade_module_to_v2(payload: dict[str, Any]) -> None:
 
 
 def _upgrade_module_to_v2_keep_sockets(payload: dict[str, Any]) -> None:
-    edge_sockets = payload["edge_sockets"]
     _upgrade_module_to_v2(payload)
-    payload["edge_sockets"] = edge_sockets
+    payload["edge_sockets"] = _derived_sockets(payload["terrain_rows"])
+
+
+def _downgrade_module_to_v1(payload: dict[str, Any]) -> None:
+    payload["schema_version"] = 1
+
+
+def _derived_sockets(terrain_rows: list[list[str]]) -> dict[str, list[int]]:
+    floor = "module_cell_floor"
+    return {
+        "edge_north": [index for index in range(11) if terrain_rows[0][index] == floor],
+        "edge_south": [index for index in range(11) if terrain_rows[10][index] == floor],
+        "edge_east": [index for index in range(11) if terrain_rows[index][10] == floor],
+        "edge_west": [index for index in range(11) if terrain_rows[index][0] == floor],
+    }
 
 
 def _set_v2_unknown_visual_tile(payload: dict[str, Any]) -> None:
@@ -1742,12 +1764,12 @@ def _make_first_pool_template_candidate(payload: dict[str, Any]) -> None:
             return
 
 
-def _remove_first_approved_source_hash(payload: dict[str, Any]) -> None:
-    payload["templates"][0].pop("approved_source_hash", None)
+def _remove_first_approved_gameplay_hash(payload: dict[str, Any]) -> None:
+    payload["templates"][0].pop("approved_gameplay_hash", None)
 
 
 def _make_sealed_template_keep_approved_hash(payload: dict[str, Any]) -> None:
-    payload["templates"][-1]["approved_source_hash"] = "0" * 64 + ":" + "0" * 64
+    payload["templates"][-1]["approved_gameplay_hash"] = "0" * 64
 
 
 def _remove_fallback_assignment(payload: dict[str, Any]) -> None:
@@ -1760,7 +1782,7 @@ def _duplicate_fallback_slot(payload: dict[str, Any]) -> None:
 
 
 def _close_module_east_socket(payload: dict[str, Any]) -> None:
-    payload["edge_sockets"]["edge_east"] = []
+    payload["terrain_rows"][5][10] = "module_cell_blocked"
 
 
 def _set_unknown_module_token(payload: dict[str, Any]) -> None:
@@ -1790,8 +1812,11 @@ def _exceed_combat_enemy_budget(payload: dict[str, Any]) -> None:
 
 
 def _close_all_module_sockets(payload: dict[str, Any]) -> None:
-    for direction in payload["edge_sockets"]:
-        payload["edge_sockets"][direction] = []
+    for index in range(11):
+        payload["terrain_rows"][0][index] = "module_cell_blocked"
+        payload["terrain_rows"][10][index] = "module_cell_blocked"
+        payload["terrain_rows"][index][0] = "module_cell_blocked"
+        payload["terrain_rows"][index][10] = "module_cell_blocked"
 
 
 def _format_failure(name: str, output: str, reason: str) -> str:

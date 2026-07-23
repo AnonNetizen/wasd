@@ -24,11 +24,13 @@ const ROTATION_FULL: int = 360
 const ASSIGNMENT_SEED_MODULUS: int = 2_147_483_647
 const INVALID_COORD: Vector2i = Vector2i(-1, -1)
 const MODULE_TERRAIN_Z_INDEX: int = -90
+const GENERATED_MODULE_BAKER_SCHEMA_VERSION: int = 1
 
 var _world_def: Dictionary = {}
 var _registry_by_id: Dictionary = {}
 var _templates_by_id: Dictionary = {}
-var _baked_by_id: Dictionary = {}
+var _generated_scene_paths_by_key: Dictionary = {}
+var _packed_scene_cache: Dictionary = {}
 var _run_seed: int = 1
 var _cell_size: float = 160.0
 var _world_origin: Vector2 = Vector2.ZERO
@@ -54,7 +56,7 @@ func configure(
 	world_def: Dictionary,
 	registry_by_id: Dictionary,
 	templates_by_id: Dictionary,
-	baked_by_id: Dictionary,
+	generated_scene_paths_by_key: Dictionary,
 	run_seed: int,
 	navigation_flow_radius_cells: int
 ) -> bool:
@@ -62,15 +64,21 @@ func configure(
 	_world_def = world_def.duplicate(true)
 	_registry_by_id = registry_by_id.duplicate(true)
 	_templates_by_id = templates_by_id.duplicate(true)
-	_baked_by_id = baked_by_id.duplicate()
+	_generated_scene_paths_by_key = generated_scene_paths_by_key.duplicate()
+	_packed_scene_cache.clear()
 	_run_seed = run_seed
 	_cell_size = float(_world_def.get("cell_size", 160.0))
 	_world_origin = _vector_from_variant(_world_def.get("world_origin", {}), Vector2.ZERO)
 	_active_radius = clampi(int(_world_def.get("active_radius", 1)), 0, 1)
 	_navigation_flow_radius_cells = navigation_flow_radius_cells
-	_configured = _has_supported_geometry() and _cell_size > 0.0 and _navigation_flow_radius_cells > 0 and _has_valid_baked_resources()
+	_configured = (
+		_has_supported_geometry()
+		and _cell_size > 0.0
+		and _navigation_flow_radius_cells > 0
+		and _has_valid_generated_scene_paths()
+	)
 	if not _configured:
-		push_error("[ModuleWorldManager] world geometry, baked resources, cell size, or navigation flow radius are invalid")
+		push_error("[ModuleWorldManager] world geometry, generated scenes, cell size, or navigation flow radius are invalid")
 		return false
 	if not _ensure_chunk_pool():
 		_configured = false
@@ -312,6 +320,7 @@ func restore_state(state: Dictionary) -> bool:
 		return false
 	var restored_assignment: Dictionary = {}
 	var previous_assignment: Dictionary = _assignment
+	var previous_packed_scene_cache: Dictionary = _packed_scene_cache.duplicate()
 	_assignment = restored_assignment
 	if not _load_explicit_assignment(state.get("assignment", []), true):
 		_assignment = previous_assignment
@@ -321,11 +330,17 @@ func restore_state(state: Dictionary) -> bool:
 		return false
 	var previous_run_seed: int = _run_seed
 	_run_seed = int(state.get("run_seed", _run_seed))
+	if not _preload_assignment_scenes():
+		_assignment = previous_assignment
+		_packed_scene_cache = previous_packed_scene_cache
+		_run_seed = previous_run_seed
+		return false
 	var restored_hash: String = _compute_map_hash()
 	var saved_hash: String = String(state.get("map_hash", ""))
 	if not saved_hash.is_empty() and saved_hash != restored_hash:
 		push_error("[ModuleWorldManager] snapshot map hash does not match assignment")
 		_assignment = previous_assignment
+		_packed_scene_cache = previous_packed_scene_cache
 		_run_seed = previous_run_seed
 		return false
 
@@ -364,6 +379,7 @@ func debug_summary() -> Dictionary:
 		"visited_slots": _coords_to_dict_array(visited_module_coords()),
 		"active_slots": _coords_to_dict_array(active_module_coords()),
 		"chunk_pool_size": _chunk_pool.size(),
+		"preloaded_scene_count": _packed_scene_cache.size(),
 		"navigation": _navigation_field.debug_summary(),
 	}
 
@@ -486,6 +502,8 @@ func _make_assignment_entry(module_coord: Vector2i, template_id: String, rotatio
 
 func _finalize_assignment() -> bool:
 	if not _assignment_is_valid():
+		return false
+	if not _preload_assignment_scenes():
 		return false
 	_map_hash = _compute_map_hash()
 	_rebuild_navigation_field()
@@ -690,11 +708,14 @@ func _refresh_active_modules(center_coord: Vector2i) -> Dictionary:
 				continue
 			var entry: Dictionary = assignment_at(module_coord)
 			var template_id: String = String(entry.get("template_id", ""))
-			var baked_data: ModuleBakedData = _baked_by_id.get(template_id) as ModuleBakedData
+			var rotation: int = int(entry.get("rotation", 0))
+			var generated_scene: PackedScene = _packed_scene_cache.get(
+				_generated_scene_key(template_id, rotation)
+			) as PackedScene
 			var chunk_configured: bool = available_chunk.configure(
-				baked_data,
+				generated_scene,
 				module_coord,
-				int(entry.get("rotation", 0)),
+				rotation,
 				_masked_edges_for_coord(module_coord),
 				_cell_size,
 				_world_origin
@@ -741,6 +762,7 @@ func _deactivate_all_chunks() -> Array[Dictionary]:
 
 func _reset_world_state() -> void:
 	_deactivate_all_chunks()
+	_packed_scene_cache.clear()
 	_navigation_field.clear()
 	_assignment.clear()
 	_map_hash = ""
@@ -876,17 +898,66 @@ func _normalize_rotation(rotation_degrees: int) -> int:
 	return normalized
 
 
-func _has_valid_baked_resources() -> bool:
+func _has_valid_generated_scene_paths() -> bool:
 	for template_id_value: Variant in _templates_by_id.keys():
 		var template_id: String = String(template_id_value)
-		var baked_data: ModuleBakedData = _baked_by_id.get(template_id) as ModuleBakedData
-		if baked_data == null or baked_data.schema_version != 2 or baked_data.module_id != template_id:
-			return false
 		var registry_entry: Dictionary = _dictionary_or_empty(_registry_by_id.get(template_id, {}))
 		for rotation_value: Variant in _array_or_empty(registry_entry.get("allowed_rotations", [])):
-			if baked_data.rotation_data(int(rotation_value)) == null:
+			var key: String = _generated_scene_key(template_id, int(rotation_value))
+			var value: Variant = _generated_scene_paths_by_key.get(key)
+			if value is PackedScene:
+				continue
+			if not value is String or not ResourceLoader.exists(String(value), "PackedScene"):
 				return false
 	return not _templates_by_id.is_empty()
+
+
+func _preload_assignment_scenes() -> bool:
+	_packed_scene_cache.clear()
+	for entry: Dictionary in _assignment_entries():
+		var template_id: String = String(entry.get("template_id", ""))
+		var rotation: int = int(entry.get("rotation", 0))
+		var key: String = _generated_scene_key(template_id, rotation)
+		if _packed_scene_cache.has(key):
+			continue
+		var configured_value: Variant = _generated_scene_paths_by_key.get(key)
+		var packed: PackedScene
+		if configured_value is PackedScene:
+			packed = configured_value as PackedScene
+		elif configured_value is String:
+			packed = ResourceLoader.load(
+				String(configured_value),
+				"PackedScene"
+			) as PackedScene
+		if packed == null:
+			push_error("[ModuleWorldManager] failed to preload generated scene %s" % key)
+			_packed_scene_cache.clear()
+			return false
+		var probe: Node = packed.instantiate()
+		if not probe is GeneratedModuleScene:
+			if probe != null:
+				probe.free()
+			push_error("[ModuleWorldManager] %s root is not GeneratedModuleScene" % key)
+			_packed_scene_cache.clear()
+			return false
+		var generated: GeneratedModuleScene = probe as GeneratedModuleScene
+		var metadata_valid: bool = (
+			generated.baker_schema_version
+			== GENERATED_MODULE_BAKER_SCHEMA_VERSION
+			and generated.module_id == template_id
+			and generated.module_rotation_degrees == _normalize_rotation(rotation)
+		)
+		generated.free()
+		if not metadata_valid:
+			push_error("[ModuleWorldManager] %s metadata is stale" % key)
+			_packed_scene_cache.clear()
+			return false
+		_packed_scene_cache[key] = packed
+	return not _packed_scene_cache.is_empty()
+
+
+func _generated_scene_key(template_id: String, rotation: int) -> String:
+	return "%s@%d" % [template_id, _normalize_rotation(rotation)]
 
 
 func _has_supported_geometry() -> bool:

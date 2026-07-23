@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "module_combat_fort",
   "columns": 11,
   "rows": 11,
@@ -148,20 +148,6 @@
       "module_cell_blocked"
     ]
   ],
-  "edge_sockets": {
-    "edge_north": [
-      5
-    ],
-    "edge_south": [
-      5
-    ],
-    "edge_east": [
-      5
-    ],
-    "edge_west": [
-      5
-    ]
-  },
   "placements": [
     {
       "type": "module_place_enemy_spawn",
@@ -287,5 +273,18 @@
       },
       "hazard_id": "hazard_fea_12_pulse"
     }
-  ]
+  ],
+  "visual_layers": {
+    "ground": {
+      "default_tile_id": "module_tile_ground_default",
+      "overrides": []
+    },
+    "obstacles": {
+      "default_tile_id": "module_tile_obstacle_default",
+      "overrides": []
+    },
+    "decoration": {
+      "cells": []
+    }
+  }
 }

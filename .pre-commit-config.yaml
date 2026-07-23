@@ -20,7 +20,7 @@ repos:
         entry: python tools/godot_bridge.py --project client module-bake-check
         language: system
         pass_filenames: false
-        files: ^(client/(scenes/modules/|data/modules/|resources/modules/|scripts/editor/|addons/module_authoring/|assets/placeholders/module_tiles\.svg|data/module_templates\.json)|tools/godot_bridge\.py)
+        files: ^(client/(scenes/generated/modules/|data/modules/|resources/modules/module_placeholder_tileset\.tres|scripts/editor/module_scene_baker\.gd|scripts/gameplay/generated_module_scene\.gd|addons/module_authoring/|assets/placeholders/module_tiles\.svg|data/module_templates\.json|data/module_tile_catalog\.json)|tools/godot_bridge\.py)
 
       - id: test-data-loader-schema
         name: Run DataLoader schema regression tests

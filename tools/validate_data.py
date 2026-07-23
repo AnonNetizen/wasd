@@ -2102,7 +2102,9 @@ def _validate_module_tile_catalog(ctx: ValidationContext) -> dict[str, str]:
             catalog[tile_id] = layer or ""
         _require_int(ctx, path, f"{field}.source_id", tile.get("source_id"), minimum=0)
         _validate_module_cell(ctx, path, f"{field}.atlas_coords", tile.get("atlas_coords"), 1_000_000, 1_000_000)
-        _require_int(ctx, path, f"{field}.alternative_id", tile.get("alternative_id"), minimum=0)
+        alternative_id = _require_int(ctx, path, f"{field}.alternative_id", tile.get("alternative_id"), minimum=0)
+        if alternative_id is not None and alternative_id >= 4096:
+            ctx.error(path, f"{field}.alternative_id", "must be < 4096 because higher bits are reserved for transforms")
     expected_ids = set(ctx.contracts.get("module_tile_ids", []))
     if set(catalog) != expected_ids:
         ctx.error(path, "tiles", "must define every registered module_tile_id exactly once")
@@ -2213,7 +2215,7 @@ def _validate_module_templates(
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return {}
-    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 2)
     entries = _require_list(ctx, path, "templates", data.get("templates"))
     if not entries:
         ctx.error(path, "templates", "must be a non-empty array")
@@ -2232,12 +2234,14 @@ def _validate_module_templates(
         review_status = _require_registered(
             ctx, path, f"{field}.review_status", entry.get("review_status"), "module_review_statuses"
         )
-        approved_source_hash = entry.get("approved_source_hash")
+        approved_gameplay_hash = entry.get("approved_gameplay_hash")
+        if "approved_source_hash" in entry:
+            ctx.error(path, f"{field}.approved_source_hash", "field was replaced by approved_gameplay_hash in schema v2")
         if review_status == "module_review_approved":
-            if not isinstance(approved_source_hash, str) or re.fullmatch(r"[0-9a-f]{64}:[0-9a-f]{64}", approved_source_hash) is None:
-                ctx.error(path, f"{field}.approved_source_hash", "approved template must store scene:tileset sha256 hashes")
-        elif "approved_source_hash" in entry:
-            ctx.error(path, f"{field}.approved_source_hash", "must be omitted unless the template is approved")
+            if not isinstance(approved_gameplay_hash, str) or re.fullmatch(r"[0-9a-f]{64}", approved_gameplay_hash) is None:
+                ctx.error(path, f"{field}.approved_gameplay_hash", "approved template must store a gameplay approval sha256")
+        elif "approved_gameplay_hash" in entry:
+            ctx.error(path, f"{field}.approved_gameplay_hash", "must be omitted unless the template is approved")
         _validate_content_tags(ctx, path, f"{field}.tags", entry.get("tags", []))
         rotations = _require_list(ctx, path, f"{field}.allowed_rotations", entry.get("allowed_rotations"))
         allowed_rotations: set[int] = set()
@@ -2312,9 +2316,9 @@ def _validate_module_file(
     hazard_ids: set[str],
     module_tile_catalog: dict[str, str],
 ) -> None:
-    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
-    if schema_version not in {1, 2}:
-        ctx.error(path, "schema_version", "must be 1 or 2 during the JSON-authoring migration")
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=2)
+    if schema_version != 2:
+        ctx.error(path, "schema_version", "must be 2")
     module_id = _require_non_empty_string(ctx, path, "id", data.get("id"))
     if module_id and expected_id and module_id != expected_id:
         ctx.error(path, "id", f"must match registry template id {expected_id}")
@@ -2332,13 +2336,7 @@ def _validate_module_file(
             _require_registered(ctx, path, f"{row_field}[{x}]", token, "module_cell_tokens")
 
     derived_sockets = _derive_module_edge_sockets(terrain_rows)
-    if schema_version == 1:
-        edge_sockets = data.get("edge_sockets")
-        if not isinstance(edge_sockets, dict):
-            ctx.error(path, "edge_sockets", "must be an object")
-        elif edge_sockets != derived_sockets:
-            ctx.error(path, "edge_sockets", "must match sockets derived from edge floor cells")
-    elif schema_version == 2:
+    if schema_version == 2:
         if "edge_sockets" in data:
             ctx.error(path, "edge_sockets", "must be omitted in schema v2 because sockets are derived")
         _validate_module_visual_layers(ctx, path, data.get("visual_layers"), module_tile_catalog)
