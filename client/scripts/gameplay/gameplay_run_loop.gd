@@ -30,12 +30,10 @@ const PICKUP_ORB_SCENE := preload("res://scenes/gameplay/pickup_orb.tscn")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
-const SKILL_SYSTEM_SCRIPT := preload("res://scripts/gameplay/skill_system.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 const WARZONE_DIRECTOR_SCRIPT := preload("res://scripts/gameplay/warzone_director.gd")
 const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placement_types.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
-const MODULE_WORLD_MANAGER_SCRIPT := preload("res://scripts/gameplay/module_world_manager.gd")
 
 const BULLET_POOL_SIZE: int = 192
 const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 160.0)
@@ -389,11 +387,10 @@ func _create_pickup_orb_node() -> Node:
 
 
 func _configure_skill_system(character: Dictionary) -> void:
-	if _skill_system != null and is_instance_valid(_skill_system):
-		_skill_system.queue_free()
-	_skill_system = SKILL_SYSTEM_SCRIPT.new()
-	_skill_system.name = "SkillSystem"
-	add_child(_skill_system)
+	_skill_system = get_node_or_null("SkillSystem")
+	if _skill_system == null:
+		push_error("[GameplayRunLoop] missing scene-authored SkillSystem")
+		return
 	var loadout: Dictionary = character.get("starting_loadout", {}) if character.get("starting_loadout", {}) is Dictionary else {}
 	_skill_system.call(
 		"configure",
@@ -697,6 +694,8 @@ func _spawn_map_hazards(placements: Array[Dictionary]) -> void:
 
 func _configure_module_world(restore_snapshot: Dictionary) -> bool:
 	_ensure_module_world_manager()
+	if _module_world_manager == null:
+		return false
 	var worlds_payload: Dictionary = _dictionary_or_empty(DataLoader.load_json(DataLoader.MODULE_WORLDS_PATH))
 	var worlds: Array[Dictionary] = _typed_dictionary_array(worlds_payload.get("worlds", []))
 	if worlds.is_empty():
@@ -705,6 +704,7 @@ func _configure_module_world(restore_snapshot: Dictionary) -> bool:
 	var registry_payload: Dictionary = _dictionary_or_empty(DataLoader.load_json(DataLoader.MODULE_TEMPLATES_PATH))
 	var registry_by_id: Dictionary = {}
 	var templates_by_id: Dictionary = {}
+	var baked_by_id: Dictionary = {}
 	for entry: Dictionary in _typed_dictionary_array(registry_payload.get("templates", [])):
 		var template_id: String = String(entry.get("id", ""))
 		var template_path: String = String(entry.get("path", ""))
@@ -714,6 +714,11 @@ func _configure_module_world(restore_snapshot: Dictionary) -> bool:
 		var template_data: Dictionary = _dictionary_or_empty(DataLoader.load_json(template_path))
 		if not template_data.is_empty():
 			templates_by_id[template_id] = template_data
+		var baked_path: String = "res://resources/modules/%s.tres" % template_id
+		if ResourceLoader.exists(baked_path, "ModuleBakedData"):
+			var baked_data: ModuleBakedData = ResourceLoader.load(baked_path, "ModuleBakedData") as ModuleBakedData
+			if baked_data != null:
+				baked_by_id[template_id] = baked_data
 	var module_snapshot: Dictionary = _dictionary_or_empty(restore_snapshot.get("module_world", {}))
 	var world_seed: int = int(module_snapshot.get("run_seed", RNG.run_seed()))
 	var navigation_flow_radius_cells: int = _navigation_flow_radius_cells(_module_world_definition)
@@ -722,6 +727,7 @@ func _configure_module_world(restore_snapshot: Dictionary) -> bool:
 		_module_world_definition,
 		registry_by_id,
 		templates_by_id,
+		baked_by_id,
 		world_seed,
 		navigation_flow_radius_cells
 	))
@@ -748,9 +754,9 @@ func _navigation_flow_radius_cells(world_definition: Dictionary) -> int:
 func _ensure_module_world_manager() -> void:
 	if _module_world_manager != null and is_instance_valid(_module_world_manager):
 		return
-	_module_world_manager = MODULE_WORLD_MANAGER_SCRIPT.new() as Node2D
-	_module_world_manager.name = "ModuleWorldManager"
-	_active_world.add_child(_module_world_manager)
+	_module_world_manager = _active_world.get_node_or_null("ModuleWorldManager") as Node2D if _active_world != null else null
+	if _module_world_manager == null:
+		push_error("[GameplayRunLoop] missing scene-authored ModuleWorldManager")
 
 
 func _module_world_map_layout() -> Dictionary:

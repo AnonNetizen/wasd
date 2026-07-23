@@ -12,7 +12,6 @@ const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const SKILL_EFFECTS := preload("res://scripts/contracts/skill_effects.gd")
 const SKILL_TARGETING := preload("res://scripts/contracts/skill_targeting.gd")
 const STATUS_EFFECT_SCRIPT := preload("res://scripts/combat/status_effect.gd")
-const STATUS_EFFECT_COMPONENT_SCRIPT := preload("res://scripts/combat/status_effect_component.gd")
 
 const INPUT_PARTICIPANT_ID: String = "player_0"
 const TEAM_ENEMY: String = "team_enemy"
@@ -442,10 +441,12 @@ func _skill_ids() -> Array[String]:
 
 func _ensure_status_effect_component() -> void:
 	if _status_effect_component != null and is_instance_valid(_status_effect_component):
+		_status_effect_component.call("configure_ability_tag_owner", self)
 		return
-	_status_effect_component = STATUS_EFFECT_COMPONENT_SCRIPT.new()
-	_status_effect_component.name = "StatusEffectComponent"
-	add_child(_status_effect_component)
+	_status_effect_component = get_node_or_null("StatusEffectComponent")
+	if _status_effect_component == null:
+		push_error("[SkillSystem] missing scene-authored StatusEffectComponent")
+		return
 	_status_effect_component.call("configure_ability_tag_owner", self)
 
 

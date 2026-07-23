@@ -5,12 +5,12 @@
 
 ## 1. 职责
 
-`ModuleWorldManager` 是 F13 默认 9×9 无缝模块世界的局内协调点，由 `GameplayRunLoop` 在 `ActiveWorld` 下创建，不是 autoload。它负责：
+`ModuleWorldManager` 是 F13 默认 9×9 无缝模块世界的局内协调点，以正式场景预置在 `GameplayRunLoop/ActiveWorld` 下，不是 autoload。它负责：
 
 - 按 run seed 和 `RNG.world` 从已批准模板池组合 81 个世界槽位，失败时回退到已校验安全布局。
 - 保持模块坐标 `0..8`、局部格 `0..10`、全局格 `0..98` 与世界坐标转换一致；`(49,49)` 映射世界原点。
 - 计算稳定 map hash：hash 同时覆盖世界配置、seed、81 槽 assignment / rotation 与本局实际引用的完整模块 JSON，因此地形、通道、摆放、格尺寸或锚点变化都会让旧 run fail closed。保存模块级迷雾 / 访问状态与按世界槽位隔离的动态状态。
-- 只激活玩家当前模块周围最多 3×3 个 `ModuleChunk`，九个 chunk 预分配后循环复用。
+- 只激活玩家当前模块周围最多 3×3 个 `ModuleChunk`；九个 chunk 已预置在 manager 场景内并循环复用，不创建 81 个槽位节点。
 - 从旋转 / 封边后的完整 81 槽地形构建 99×99 walkability mask；玩家跨格时只更新感知范围驱动的局部共享流场，并提供全图 AStar、视线和敌人半径走廊查询。导航不依赖当前激活 chunk。
 
 `GameplayRunLoop` 仍负责敌人 / 机关 / 奖励 / 目标 / 撤离 primitive 的实体生成、`Combat`、`PoolManager` 和 run v4 快照。`ModuleWorldManager` 不直接生成玩法实体。
@@ -19,17 +19,18 @@
 
 - 世界配置：`client/data/module_worlds.json`
 - 模块注册表：`client/data/module_templates.json`
-- 模块内容：`client/data/modules/*.json`
+- 模块玩法内容：`client/data/modules/*.json`
+- 模块视觉 / 碰撞生成物：`client/resources/modules/*.tres`（`ModuleBakedData` schema v2）
 - 人工 / AI 模板：`client/templates/module_template.json`
 - 权威设计：F13 世界见 `F13-ModularGridWorld.md` / ADR #142；F14 导航见 `F14-EnemyNavigationAndPerception.md` / ADR #145 / #146
 
-运行时只读 JSON，不连接 LLM。新 AI 模块默认是 `module_review_candidate`；只有人工改为 `module_review_approved` 后才能进入默认池。
+运行时用 JSON 计算 assignment、导航、placement 和 map hash，并用 TRES 应用 TileMap pattern / 碰撞；视觉资源不进入玩法 hash，也不连接 LLM。新 AI 模块默认是 `module_review_candidate`；只有人工改为 `module_review_approved` 后才能进入默认池。
 
 ## 3. 公共 API
 
 | API | 用途 |
 |-----|------|
-| `configure(world_def, registry_by_id, templates_by_id, run_seed, navigation_flow_radius_cells)` | 设置世界、局部活动流场半径并生成默认 assignment；半径由 `GameplayRunLoop` 从 EnemyAI 最大视觉范围推导 |
+| `configure(world_def, registry_by_id, templates_by_id, baked_by_id, run_seed, navigation_flow_radius_cells)` | 设置世界、JSON/TRES 映射、局部活动流场半径并生成默认 assignment；缺少模块或允许旋转的烘焙资源时拒绝配置 |
 | `build_assignment()` / `build_fallback_assignment()` / `build_technical_slice_assignment()` | seed 组图、安全布局、中心 3×3 技术首片 |
 | `tick(player_position)` | 始终更新精确玩家导航目标；仅跨全局格时重算流场，同时更新当前模块、迷雾和 chunk 流式变更 |
 | `world_to_global_cell()` / `global_cell_to_world()` | 世界坐标与 99×99 全局格转换 |
@@ -57,7 +58,7 @@
 
 ## 5. ModuleChunk
 
-`ModuleChunk` 只用 `_draw()` 批量绘制地形，并用一个 `StaticBody2D` + 一个合并 `ConcavePolygonShape2D` 表达封锁格边界。该 `TerrainCollision` 显式位于物理层 bit 1、mask 为 0；玩家和敌人都必须保留 `CollisionShape2D`，否则 `CharacterBody2D` 不会与这些边界发生碰撞。敌人的碰撞层不与玩家或其他敌人物理互顶，只用 mask 命中模块地形；原有中心分离继续负责实体间距。`Bullet` 也只查询 bit 1：默认以 `hit_radius` 圆形做首帧重叠和逐帧扫掠，命中后通过 `PoolManager` 回收；`wall_pierce_enabled=true` 时才忽略地形。bit 1 是 ModuleChunk 与 Bullet 的稳定内部契约，不应用玩家、敌人、机关 Area 或伤害目标复用该查询语义。`ModuleWorldManager` 使用显式 `z_index=-90`，使模块地形位于 `WorldBackground(-100)` / `MapManager(-95)` 之上，同时稳定处于玩家、敌人、机关和目标实体之下；不能依赖动态节点的场景树加入顺序决定遮挡关系。禁止为 121 个格逐格创建 Node，也禁止同时实例化 81 个 chunk。
+`ModuleChunk` 是正式场景，预置 `Ground` / `Obstacles` / `Decoration` 三个 `TileMapLayer` 以及一个 `StaticBody2D` + `CollisionShape2D`。激活时只选择对应旋转和四边掩码的 `ModuleBakedRotation`，粘贴 pattern 并替换预计算 `ConcavePolygonShape2D`；不再 `_draw()` 地形、不创建碰撞节点、不扫描 121 格重算边界。该 `TerrainCollision` 显式位于物理层 bit 1、mask 为 0；玩家和敌人都必须保留 `CollisionShape2D`，否则 `CharacterBody2D` 不会与这些边界发生碰撞。敌人的碰撞层不与玩家或其他敌人物理互顶，只用 mask 命中模块地形；原有中心分离继续负责实体间距。`Bullet` 也只查询 bit 1：默认以 `hit_radius` 圆形做首帧重叠和逐帧扫掠，命中后通过 `PoolManager` 回收；`wall_pierce_enabled=true` 时才忽略地形。bit 1 是 ModuleChunk 与 Bullet 的稳定内部契约，不应用玩家、敌人、机关 Area 或伤害目标复用该查询语义。`ModuleWorldManager` 使用显式 `z_index=-90`，使模块地形位于 `WorldBackground(-100)` / `MapManager(-95)` 之上，同时稳定处于玩家、敌人、机关和目标实体之下；不能依赖场景树加入顺序决定遮挡关系。禁止为 121 个格逐格创建 Node，也禁止同时实例化 81 个 chunk。
 
 ## 6. 验证
 
@@ -73,4 +74,4 @@ python tools/godot_bridge.py --project client save-smoke
 
 性能测试不属于本模块的默认验证义务；只有用户当次明确要求时，才追加 `python tools/godot_bridge.py --project client startup-probe` 或 `perf-probe`。
 
-`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、不同 seed 普通槽变化、中心坐标、确定性共享流场、半径 8 / 289 格访问上限、连续跨 20 格不退化、活动窗口外查询与全图 AStar 分流、真实模块绕障、路径距离大于直线距离、禁止斜穿墙角、封锁 / 越界目标不可达、技术首片外圈不可进入，以及玩家 / 敌人物理墙体、玩家 / 敌方普通子弹阻挡、`wall_pierce > 0` 穿过同一墙体、旧子弹快照缺字段默认阻挡、穿墙快照随槽位卸载 / 返回保持、生成门禁、无缝跨边界、最多 9 个 chunk、流式恢复、迷雾、目标撤离、run v4 和 hash mismatch。`module-world-technical-slice-smoke` 通过正式 opt-in 入口追加中心 3×3 / 外圈 72 槽封锁的完整流程回归。
+`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、不同 seed 普通槽变化、中心坐标、确定性共享流场、半径 8 / 289 格访问上限、连续跨 20 格不退化、活动窗口外查询与全图 AStar 分流、真实模块绕障、路径距离大于直线距离、禁止斜穿墙角、封锁 / 越界目标不可达、技术首片外圈不可进入，以及正式 manager / 九 chunk 场景、baked TileMap pattern / 合并碰撞应用、玩家 / 敌人物理墙体、玩家 / 敌方普通子弹阻挡、`wall_pierce > 0` 穿过同一墙体、旧子弹快照缺字段默认阻挡、穿墙快照随槽位卸载 / 返回保持、生成门禁、无缝跨边界、最多 9 个 active chunk、流式恢复、迷雾、目标撤离、run v4 和 hash mismatch。`module-world-technical-slice-smoke` 通过正式 opt-in 入口追加中心 3×3 / 外圈 72 槽封锁的完整流程回归。

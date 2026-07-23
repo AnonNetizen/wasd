@@ -1,6 +1,7 @@
-[gd_scene load_steps=3 format=3 uid="uid://dnf72k1yhdgla"]
+[gd_scene load_steps=4 format=3 uid="uid://dnf72k1yhdgla"]
 
 [ext_resource type="Script" uid="uid://74a5uolltqoq" path="res://scripts/gameplay/enemy.gd" id="1_enemy"]
+[ext_resource type="Script" path="res://scripts/combat/status_effect_component.gd" id="2_status"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_enemy"]
 resource_local_to_scene = true
@@ -12,3 +13,6 @@ script = ExtResource("1_enemy")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_enemy")
+
+[node name="StatusEffectComponent" type="Node" parent="."]
+script = ExtResource("2_status")

@@ -2506,6 +2506,12 @@ func _validate_module_templates_json(enemy_ids: Dictionary, hazard_ids: Dictiona
 		var review_status: String = _require_registered(MODULE_TEMPLATES_PATH, "%s.review_status" % field, entry.get("review_status"), "module_review_statuses")
 		if review_status.is_empty():
 			is_valid = false
+		var approved_source_hash: String = String(entry.get("approved_source_hash", ""))
+		if review_status == MODULE_REVIEW_STATUSES.MODULE_REVIEW_APPROVED:
+			if not _is_module_source_hash(approved_source_hash):
+				is_valid = _schema_fail(MODULE_TEMPLATES_PATH, "%s.approved_source_hash" % field, "scene:tileset sha256 hashes") and is_valid
+		elif entry.has("approved_source_hash"):
+			is_valid = _schema_fail(MODULE_TEMPLATES_PATH, "%s.approved_source_hash" % field, "omitted unless template is approved") and is_valid
 		is_valid = _validate_content_tags(MODULE_TEMPLATES_PATH, "%s.tags" % field, entry.get("tags", [])) and is_valid
 		var allowed_values: Array = _require_array(MODULE_TEMPLATES_PATH, "%s.allowed_rotations" % field, entry.get("allowed_rotations"))
 		var allowed_rotations: Dictionary = {}
@@ -2546,6 +2552,20 @@ func _validate_module_templates_json(enemy_ids: Dictionary, hazard_ids: Dictiona
 			}
 	_last_schema_counts["module_files"] = seen_paths.size()
 	return {"is_valid": is_valid, "templates": templates}
+
+
+func _is_module_source_hash(value: String) -> bool:
+	var parts: PackedStringArray = value.split(":", false)
+	if parts.size() != 2:
+		return false
+	for part: String in parts:
+		if part.length() != 64:
+			return false
+		for character_index: int in range(part.length()):
+			var character: String = part.substr(character_index, 1)
+			if not "0123456789abcdef".contains(character):
+				return false
+	return true
 
 
 func _validate_module_file(resource_path: String, data: Dictionary, expected_id: String, role: String, enemy_ids: Dictionary, hazard_ids: Dictionary) -> bool:

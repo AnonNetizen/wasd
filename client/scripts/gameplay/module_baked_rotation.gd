@@ -8,3 +8,13 @@ extends Resource
 @export var obstacle_pattern: TileMapPattern
 @export var decoration_pattern: TileMapPattern
 @export var terrain_collision: ConcavePolygonShape2D
+@export var obstacle_patterns_by_edge_mask: Dictionary = {}
+@export var terrain_collisions_by_edge_mask: Dictionary = {}
+
+
+func obstacle_pattern_for_mask(edge_mask: int) -> TileMapPattern:
+	return obstacle_patterns_by_edge_mask.get(edge_mask, obstacle_pattern) as TileMapPattern
+
+
+func terrain_collision_for_mask(edge_mask: int) -> ConcavePolygonShape2D:
+	return terrain_collisions_by_edge_mask.get(edge_mask, terrain_collision) as ConcavePolygonShape2D

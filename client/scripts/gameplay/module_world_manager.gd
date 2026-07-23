@@ -9,7 +9,6 @@ const MODULE_EDGE_DIRECTIONS := preload("res://scripts/contracts/module_edge_dir
 const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const RNG_STREAMS := preload("res://scripts/contracts/rng_streams.gd")
-const ModuleChunkRuntime := preload("res://scripts/gameplay/module_chunk.gd")
 const ModuleNavigationFieldRuntime := preload("res://scripts/gameplay/module_navigation_field.gd")
 
 const WORLD_COLUMNS: int = 9
@@ -29,6 +28,7 @@ const MODULE_TERRAIN_Z_INDEX: int = -90
 var _world_def: Dictionary = {}
 var _registry_by_id: Dictionary = {}
 var _templates_by_id: Dictionary = {}
+var _baked_by_id: Dictionary = {}
 var _run_seed: int = 1
 var _cell_size: float = 160.0
 var _world_origin: Vector2 = Vector2.ZERO
@@ -42,7 +42,7 @@ var _revealed: Dictionary = {}
 var _visited: Dictionary = {}
 var _slot_states: Dictionary = {}
 var _active_chunks: Dictionary = {}
-var _chunk_pool: Array[ModuleChunkRuntime] = []
+var _chunk_pool: Array[ModuleChunk] = []
 var _configured: bool = false
 
 
@@ -54,6 +54,7 @@ func configure(
 	world_def: Dictionary,
 	registry_by_id: Dictionary,
 	templates_by_id: Dictionary,
+	baked_by_id: Dictionary,
 	run_seed: int,
 	navigation_flow_radius_cells: int
 ) -> bool:
@@ -61,16 +62,19 @@ func configure(
 	_world_def = world_def.duplicate(true)
 	_registry_by_id = registry_by_id.duplicate(true)
 	_templates_by_id = templates_by_id.duplicate(true)
+	_baked_by_id = baked_by_id.duplicate()
 	_run_seed = run_seed
 	_cell_size = float(_world_def.get("cell_size", 160.0))
 	_world_origin = _vector_from_variant(_world_def.get("world_origin", {}), Vector2.ZERO)
 	_active_radius = clampi(int(_world_def.get("active_radius", 1)), 0, 1)
 	_navigation_flow_radius_cells = navigation_flow_radius_cells
-	_configured = _has_supported_geometry() and _cell_size > 0.0 and _navigation_flow_radius_cells > 0
+	_configured = _has_supported_geometry() and _cell_size > 0.0 and _navigation_flow_radius_cells > 0 and _has_valid_baked_resources()
 	if not _configured:
-		push_error("[ModuleWorldManager] world geometry, cell size, and navigation flow radius are invalid")
+		push_error("[ModuleWorldManager] world geometry, baked resources, cell size, or navigation flow radius are invalid")
 		return false
-	_ensure_chunk_pool()
+	if not _ensure_chunk_pool():
+		_configured = false
+		return false
 	return build_assignment()
 
 
@@ -669,7 +673,7 @@ func _refresh_active_modules(center_coord: Vector2i) -> Dictionary:
 	for active_key: String in _active_chunks.keys():
 		if desired_keys.has(active_key):
 			continue
-		var chunk: ModuleChunkRuntime = _active_chunks[active_key] as ModuleChunkRuntime
+		var chunk: ModuleChunk = _active_chunks[active_key] as ModuleChunk
 		deactivated.append(_coord_to_dict(chunk.module_coord()))
 		chunk.clear()
 		_active_chunks.erase(active_key)
@@ -680,19 +684,23 @@ func _refresh_active_modules(center_coord: Vector2i) -> Dictionary:
 			var slot_key: String = _slot_key(module_coord)
 			if not desired_keys.has(slot_key) or _active_chunks.has(slot_key):
 				continue
-			var available_chunk: ModuleChunkRuntime = _available_chunk()
+			var available_chunk: ModuleChunk = _available_chunk()
 			if available_chunk == null:
 				push_error("[ModuleWorldManager] active chunk pool exhausted")
 				continue
 			var entry: Dictionary = assignment_at(module_coord)
-			var template_data: Dictionary = _effective_template_for_coord(module_coord)
-			available_chunk.configure(
-				template_data,
+			var template_id: String = String(entry.get("template_id", ""))
+			var baked_data: ModuleBakedData = _baked_by_id.get(template_id) as ModuleBakedData
+			var chunk_configured: bool = available_chunk.configure(
+				baked_data,
 				module_coord,
 				int(entry.get("rotation", 0)),
+				_masked_edges_for_coord(module_coord),
 				_cell_size,
 				_world_origin
 			)
+			if not chunk_configured:
+				continue
 			_active_chunks[slot_key] = available_chunk
 			activated.append(_coord_to_dict(module_coord))
 	return {
@@ -701,24 +709,21 @@ func _refresh_active_modules(center_coord: Vector2i) -> Dictionary:
 	}
 
 
-func _effective_template_for_coord(module_coord: Vector2i) -> Dictionary:
-	var entry: Dictionary = assignment_at(module_coord)
-	var template_data: Dictionary = _dictionary_or_empty(_templates_by_id.get(String(entry.get("template_id", "")), {}))
-	template_data["masked_edges"] = _masked_edges_for_coord(module_coord)
-	return template_data
+func _ensure_chunk_pool() -> bool:
+	_chunk_pool.clear()
+	for child: Node in get_children():
+		if child is ModuleChunk:
+			_chunk_pool.append(child as ModuleChunk)
+	if _chunk_pool.size() != MAX_ACTIVE_CHUNKS:
+		push_error("[ModuleWorldManager] scene must contain exactly %d ModuleChunk children, got %d" % [MAX_ACTIVE_CHUNKS, _chunk_pool.size()])
+		return false
+	for chunk: ModuleChunk in _chunk_pool:
+		chunk.clear()
+	return true
 
 
-func _ensure_chunk_pool() -> void:
-	while _chunk_pool.size() < MAX_ACTIVE_CHUNKS:
-		var chunk: ModuleChunkRuntime = ModuleChunkRuntime.new()
-		chunk.name = "ModuleChunk%02d" % _chunk_pool.size()
-		chunk.visible = false
-		add_child(chunk)
-		_chunk_pool.append(chunk)
-
-
-func _available_chunk() -> ModuleChunkRuntime:
-	for chunk: ModuleChunkRuntime in _chunk_pool:
+func _available_chunk() -> ModuleChunk:
+	for chunk: ModuleChunk in _chunk_pool:
 		if not _active_chunks.values().has(chunk):
 			return chunk
 	return null
@@ -727,7 +732,7 @@ func _available_chunk() -> ModuleChunkRuntime:
 func _deactivate_all_chunks() -> Array[Dictionary]:
 	var deactivated: Array[Dictionary] = []
 	for active_key: String in _active_chunks.keys():
-		var chunk: ModuleChunkRuntime = _active_chunks[active_key] as ModuleChunkRuntime
+		var chunk: ModuleChunk = _active_chunks[active_key] as ModuleChunk
 		deactivated.append(_coord_to_dict(chunk.module_coord()))
 		chunk.clear()
 	_active_chunks.clear()
@@ -869,6 +874,19 @@ func _normalize_rotation(rotation_degrees: int) -> int:
 	if normalized % ROTATION_STEP != 0:
 		return 0
 	return normalized
+
+
+func _has_valid_baked_resources() -> bool:
+	for template_id_value: Variant in _templates_by_id.keys():
+		var template_id: String = String(template_id_value)
+		var baked_data: ModuleBakedData = _baked_by_id.get(template_id) as ModuleBakedData
+		if baked_data == null or baked_data.schema_version != 2 or baked_data.module_id != template_id:
+			return false
+		var registry_entry: Dictionary = _dictionary_or_empty(_registry_by_id.get(template_id, {}))
+		for rotation_value: Variant in _array_or_empty(registry_entry.get("allowed_rotations", [])):
+			if baked_data.rotation_data(int(rotation_value)) == null:
+				return false
+	return not _templates_by_id.is_empty()
 
 
 func _has_supported_geometry() -> bool:

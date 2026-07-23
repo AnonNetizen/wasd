@@ -59,7 +59,7 @@
 | `map_layouts.json` | 已建立 | 有限地图配置：矩形地图边界、矩形格尺寸、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
 | `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、兴趣点 / 机关组合和阶段启用 wave |
 | `module_worlds.json` | 已建立 | F13 模块世界：9×9 槽位、11×11 格、统一格尺寸、固定锚点、模板池、安全布局和技术首片 |
-| `module_templates.json` | 已建立 | 模块注册表：角色、JSON 路径、AI 来源、审核状态和可用旋转 |
+| `module_templates.json` | 已建立 | 模块注册表：角色、JSON 路径、AI 来源、审核状态、批准时 source hash 和可用旋转 |
 | `modules/*.json` | 生成文件 | 由 `scenes/modules/*.tscn` 烘焙的 11 行地形令牌、推导 socket 与 placement；路径保持稳定，禁止手改 |
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
@@ -719,7 +719,7 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 
 ## `module_worlds.json` / `module_templates.json` / `modules/*.json`
 
-F13 的正式默认地图是 9×9 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` 定义世界几何、键槽、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`scenes/modules/*.tscn` 是布局与表现制作主源，`modules/*.json` 是烘焙生成的玩法语义，不执行脚本且禁止手改。每个模块另生成 `resources/modules/<id>.tres`，包含允许旋转的三层 TileMap pattern、预计算碰撞和 source hash。
+F13 的正式默认地图是 9×9 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` 定义世界几何、键槽、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`scenes/modules/*.tscn` 是布局与表现制作主源，`modules/*.json` 是烘焙生成的玩法语义，不执行脚本且禁止手改。每个模块另生成 `resources/modules/<id>.tres` schema v2，包含允许旋转的三层 TileMap pattern、16 种运行时封边 obstacle / 预计算碰撞和 source hash。
 
 每个模块 JSON 必须包含恰好 11 行、每行 11 个 `module_cell_tokens`，并声明四边 socket 格位。相邻模块旋转后的 socket 必须完全匹配，外圈不得越界开口。只允许 0/90/180/270° 旋转，不允许镜像。`module_place_enemy_spawn` 的 `cell` / `footprint` 必须全部落在 `module_cell_floor` 上；DataLoader 与 Python 校验器都会拒绝封锁格出生点，运行时也会拒绝生成或恢复到封锁格的模块敌人。
 
@@ -763,6 +763,7 @@ AI 产出新模块时必须先创建固定节点结构的 authoring scene 并登
 | `templates[].tags` | array[string] | 可为空 | 编辑期筛选标签，不直接产生玩法分支 |
 | `templates[].source` | string | 首版 `ai` | 内容来源审计字段；AI 只在编辑期产出 JSON |
 | `templates[].review_status` | string | `module_review_statuses` | `candidate` 不得进入默认池，人工批准后为 `approved` |
+| `templates[].approved_source_hash` | string | approved 时为 `<scene sha256>:<tileset sha256>`，candidate 时省略 | 显式批准时的内容锚点；即使 TRES 丢失，后续场景内容变化仍会在 bake 时自动降级 |
 | `templates[].allowed_rotations` | array[int] | `0/90/180/270` 的非空子集 | 允许旋转集合；不支持镜像 |
 
 ## `characters.json`

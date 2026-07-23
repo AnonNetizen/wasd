@@ -10,7 +10,6 @@ signal died()
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
-const STATUS_EFFECT_COMPONENT_SCRIPT := preload("res://scripts/combat/status_effect_component.gd")
 const DRAW_RADIUS: float = 12.0
 const FACING_MARKER_LENGTH: float = 22.0
 const HIT_FLASH_DURATION: float = 0.16
@@ -403,9 +402,8 @@ func _ensure_status_effect_component() -> void:
 		return
 	_status_effect_component = get_node_or_null("StatusEffectComponent")
 	if _status_effect_component == null:
-		_status_effect_component = STATUS_EFFECT_COMPONENT_SCRIPT.new()
-		_status_effect_component.name = "StatusEffectComponent"
-		add_child(_status_effect_component)
+		push_error("[Player] missing scene-authored StatusEffectComponent")
+		return
 	_status_effect_component.call("configure_ability_tag_owner", self)
 
 

@@ -2,7 +2,7 @@ extends Node
 ## F13 headless smoke for deterministic composition, seamless streaming, fog,
 ## objective-to-extraction flow and run-v4 restore.
 
-const MODULE_WORLD_MANAGER_SCRIPT := preload("res://scripts/gameplay/module_world_manager.gd")
+const MODULE_WORLD_MANAGER_SCENE := preload("res://scenes/gameplay/module_world_manager.tscn")
 const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
@@ -42,6 +42,25 @@ func _run() -> void:
 		player_collision != null and player_collision.shape is CircleShape2D,
 		"player should expose a physical collision shape for blocked module cells"
 	)
+	_expect(player_node != null and player_node.get_node_or_null("StatusEffectComponent") != null, "player status component should be scene-authored")
+	var skill_system: Node = run_loop.get_node_or_null("SkillSystem")
+	_expect(skill_system != null and skill_system.get_node_or_null("StatusEffectComponent") != null, "skill system and status component should be scene-authored")
+	var gameplay_hud: Node = run_loop.get_node_or_null("GameplayHud")
+	_expect(gameplay_hud != null and gameplay_hud.get_node_or_null("Root/ModuleMinimap") != null, "HUD minimap should be scene-authored")
+	var visible_chunk_count: int = 0
+	var visible_chunk_has_ground: bool = false
+	var visible_chunk_has_collision: bool = false
+	for child: Node in module_world_node.get_children():
+		if not child is ModuleChunk or not (child as ModuleChunk).visible:
+			continue
+		visible_chunk_count += 1
+		var ground: TileMapLayer = child.get_node_or_null("Ground") as TileMapLayer
+		var collision: CollisionShape2D = child.get_node_or_null("TerrainCollision/MergedBlockedCells") as CollisionShape2D
+		visible_chunk_has_ground = visible_chunk_has_ground or (ground != null and not ground.get_used_cells().is_empty())
+		visible_chunk_has_collision = visible_chunk_has_collision or (collision != null and collision.shape is ConcavePolygonShape2D and not collision.disabled)
+	_expect(visible_chunk_count == 9, "center streaming should activate the nine scene-authored chunks")
+	_expect(visible_chunk_has_ground, "active chunks should apply baked ground TileMapPattern data")
+	_expect(visible_chunk_has_collision, "active chunks should apply baked merged collision resources")
 
 	var summary: Dictionary = run_loop.call("debug_summary")
 	var world_summary: Dictionary = summary.get("module_world", {}) as Dictionary
@@ -68,22 +87,22 @@ func _run() -> void:
 
 func _expect_deterministic_composition() -> void:
 	var data: Dictionary = _load_world_data()
-	var manager_a: Node2D = MODULE_WORLD_MANAGER_SCRIPT.new() as Node2D
-	var manager_b: Node2D = MODULE_WORLD_MANAGER_SCRIPT.new() as Node2D
-	var manager_c: Node2D = MODULE_WORLD_MANAGER_SCRIPT.new() as Node2D
-	var manager_d: Node2D = MODULE_WORLD_MANAGER_SCRIPT.new() as Node2D
-	var manager_content: Node2D = MODULE_WORLD_MANAGER_SCRIPT.new() as Node2D
-	var manager_technical: Node2D = MODULE_WORLD_MANAGER_SCRIPT.new() as Node2D
+	var manager_a: Node2D = MODULE_WORLD_MANAGER_SCENE.instantiate() as Node2D
+	var manager_b: Node2D = MODULE_WORLD_MANAGER_SCENE.instantiate() as Node2D
+	var manager_c: Node2D = MODULE_WORLD_MANAGER_SCENE.instantiate() as Node2D
+	var manager_d: Node2D = MODULE_WORLD_MANAGER_SCENE.instantiate() as Node2D
+	var manager_content: Node2D = MODULE_WORLD_MANAGER_SCENE.instantiate() as Node2D
+	var manager_technical: Node2D = MODULE_WORLD_MANAGER_SCENE.instantiate() as Node2D
 	add_child(manager_a)
 	add_child(manager_b)
 	add_child(manager_c)
 	add_child(manager_d)
 	add_child(manager_content)
 	add_child(manager_technical)
-	_expect(bool(manager_a.call("configure", data["world"], data["registry"], data["templates"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "seed A world should configure")
-	_expect(bool(manager_b.call("configure", data["world"], data["registry"], data["templates"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "same-seed world should configure")
-	_expect(bool(manager_c.call("configure", data["world"], data["registry"], data["templates"], 13014, NAVIGATION_FLOW_RADIUS_CELLS)), "different-seed world should configure")
-	_expect(bool(manager_d.call("configure", data["world"], data["registry"], data["templates"], 13015, NAVIGATION_FLOW_RADIUS_CELLS)), "third-seed world should configure")
+	_expect(bool(manager_a.call("configure", data["world"], data["registry"], data["templates"], data["baked"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "seed A world should configure")
+	_expect(bool(manager_b.call("configure", data["world"], data["registry"], data["templates"], data["baked"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "same-seed world should configure")
+	_expect(bool(manager_c.call("configure", data["world"], data["registry"], data["templates"], data["baked"], 13014, NAVIGATION_FLOW_RADIUS_CELLS)), "different-seed world should configure")
+	_expect(bool(manager_d.call("configure", data["world"], data["registry"], data["templates"], data["baked"], 13015, NAVIGATION_FLOW_RADIUS_CELLS)), "third-seed world should configure")
 	_expect(String(manager_a.call("map_hash")) == String(manager_b.call("map_hash")), "same seed should reproduce assignment/hash")
 	_expect(manager_a.call("assignment") == manager_b.call("assignment"), "same seed should reproduce all 81 assignments")
 	_expect(manager_a.call("assignment") != manager_c.call("assignment"), "different seed should change ordinary module assignments")
@@ -97,10 +116,10 @@ func _expect_deterministic_composition() -> void:
 	changed_placements[0] = changed_target
 	changed_objective["placements"] = changed_placements
 	changed_templates["module_objective_core"] = changed_objective
-	_expect(bool(manager_content.call("configure", data["world"], data["registry"], changed_templates, 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "content-revision world should configure")
+	_expect(bool(manager_content.call("configure", data["world"], data["registry"], changed_templates, data["baked"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "content-revision world should configure")
 	_expect(manager_content.call("assignment") == manager_a.call("assignment"), "content revision should preserve the same seeded assignment")
 	_expect(String(manager_content.call("map_hash")) != String(manager_a.call("map_hash")), "module content revision should invalidate map hash")
-	_expect(bool(manager_technical.call("configure", data["world"], data["registry"], data["templates"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "technical-slice manager should configure")
+	_expect(bool(manager_technical.call("configure", data["world"], data["registry"], data["templates"], data["baked"], 13013, NAVIGATION_FLOW_RADIUS_CELLS)), "technical-slice manager should configure")
 	_expect(bool(manager_technical.call("build_technical_slice_assignment")), "technical-slice opt-in should build its checked-in assignment")
 	var sealed_count: int = 0
 	for raw_entry: Variant in (manager_technical.call("assignment") as Dictionary).values():
@@ -467,12 +486,14 @@ func _load_world_data() -> Dictionary:
 	var world: Dictionary = (worlds_payload.get("worlds", []) as Array)[0] as Dictionary
 	var registry: Dictionary = {}
 	var templates: Dictionary = {}
+	var baked: Dictionary = {}
 	for raw_entry: Variant in registry_payload.get("templates", []):
 		var entry: Dictionary = raw_entry as Dictionary
 		var template_id: String = String(entry.get("id", ""))
 		registry[template_id] = entry.duplicate(true)
 		templates[template_id] = DataLoader.load_json(String(entry.get("path", "")))
-	return {"world": world, "registry": registry, "templates": templates}
+		baked[template_id] = load("res://resources/modules/%s.tres" % template_id)
+	return {"world": world, "registry": registry, "templates": templates, "baked": baked}
 
 
 func _expect_bullet_terrain_rules(run_loop: Node) -> void:

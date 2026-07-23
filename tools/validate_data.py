@@ -2186,6 +2186,12 @@ def _validate_module_templates(
         review_status = _require_registered(
             ctx, path, f"{field}.review_status", entry.get("review_status"), "module_review_statuses"
         )
+        approved_source_hash = entry.get("approved_source_hash")
+        if review_status == "module_review_approved":
+            if not isinstance(approved_source_hash, str) or re.fullmatch(r"[0-9a-f]{64}:[0-9a-f]{64}", approved_source_hash) is None:
+                ctx.error(path, f"{field}.approved_source_hash", "approved template must store scene:tileset sha256 hashes")
+        elif "approved_source_hash" in entry:
+            ctx.error(path, f"{field}.approved_source_hash", "must be omitted unless the template is approved")
         _validate_content_tags(ctx, path, f"{field}.tags", entry.get("tags", []))
         rotations = _require_list(ctx, path, f"{field}.allowed_rotations", entry.get("allowed_rotations"))
         allowed_rotations: set[int] = set()

@@ -13,7 +13,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "4fd8c5338845bac7e3f3e4440309a85c5fe3efed6d242aa142ca785e3ae26a07:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_connector_cross",
@@ -27,7 +28,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "899c291602e43b58b11942dd983f9c3ba60ea461c7c172503171bdbe9bd7e456:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_connector_courtyard",
@@ -41,7 +43,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "113c3ed64d7badce8dd97b074d3ca7f5a473591c2d5b8789cd5f26ef8034d979:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_connector_pillars",
@@ -55,7 +58,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "71057513e7eea79e15465a4a495c0ecb396267ad0827a0cdad45b4634037f462:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_connector_ring",
@@ -69,7 +73,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "c631558c43adade8f8f79770d07efda25f00ace5d06651b1f22baba54f159dfe:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_combat_arena",
@@ -83,7 +88,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "35a09c103b48a268ce46449b7e3a4ec2507223347d6d80d90ad749a2c4b6252b:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_combat_quadrants",
@@ -97,7 +103,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "a430ea29ccde29064f112fc46b31ddeb07e25e35434e4c850bedcb4737eda786:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_combat_corridors",
@@ -111,7 +118,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "dce72eebc3c63b69afa7b34c5b4989036fb88f4100753114b73b19e90d00789d:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_combat_fort",
@@ -125,7 +133,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "f2b5bc6cf7f9171e3e00898d4da834ac14a9af1c037ddbd0618d07f84177147a:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_resource_cache",
@@ -139,7 +148,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "f62b2318026fcd366c7c2a8759e50cc97b071026ccc7ea857713c6e3828243bc:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_resource_crossroads",
@@ -153,7 +163,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "46227f795c4b9acb43ad312d3f8d560e1e4fdc6497ab2a27c3e627d8241bc986:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_hazard_spikes",
@@ -167,7 +178,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "c963651e3e31b80cad14eede3e7eb829930a329b2852427f5e74c76562f6f9ec:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_hazard_pulse",
@@ -181,7 +193,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "ee694eb08c07ad2cbfe541836c86c81ec2f7def271fd7a390a88f201c7f2f000:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_objective_core",
@@ -195,7 +208,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "fdecc822b92d637b4ef46b37ec68052f6a2c1b74baf1405e8933ff7a173a8a1d:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_extraction_pad",
@@ -209,7 +223,8 @@
         90,
         180,
         270
-      ]
+      ],
+      "approved_source_hash": "145464a179fe6bfc67c6408ce1407049e94ac4f7f406f20894b93949de45adc9:daca0e2736952c00f1b14f16bfd55149c447b184f592bfbf5c68a2ff23ad840d"
     },
     {
       "id": "module_sealed",

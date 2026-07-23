@@ -71,6 +71,16 @@ def main() -> int:
             ["client/data/module_worlds.json:worlds[0].template_pool[0]", "formal template pool requires approved template"],
         ),
         (
+            "approved module template requires source hash",
+            _mutate_json("client/data/module_templates.json", _remove_first_approved_source_hash),
+            ["client/data/module_templates.json:templates[0].approved_source_hash", "approved template must store scene:tileset sha256 hashes"],
+        ),
+        (
+            "candidate module template cannot keep approved source hash",
+            _mutate_json("client/data/module_templates.json", _make_sealed_template_keep_approved_hash),
+            ["client/data/module_templates.json:templates[15].approved_source_hash", "must be omitted unless the template is approved"],
+        ),
+        (
             "fallback assignment must contain 81 slots",
             _mutate_json("client/data/module_worlds.json", _remove_fallback_assignment),
             ["client/data/module_worlds.json:worlds[0].fallback_assignment", "must contain exactly 81 slot assignments"],
@@ -1608,6 +1618,14 @@ def _make_first_pool_template_candidate(payload: dict[str, Any]) -> None:
         if template["id"] == "module_connector_cross":
             template["review_status"] = "module_review_candidate"
             return
+
+
+def _remove_first_approved_source_hash(payload: dict[str, Any]) -> None:
+    payload["templates"][0].pop("approved_source_hash", None)
+
+
+def _make_sealed_template_keep_approved_hash(payload: dict[str, Any]) -> None:
+    payload["templates"][-1]["approved_source_hash"] = "0" * 64 + ":" + "0" * 64
 
 
 def _remove_fallback_assignment(payload: dict[str, Any]) -> None:

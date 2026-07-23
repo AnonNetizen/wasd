@@ -23,6 +23,12 @@ const PLACEMENT_MARKER_SCRIPT_PATH: String = "res://scripts/editor/module_placem
 const GROUND_ATLAS_COORDS: Vector2i = Vector2i(0, 0)
 const OBSTACLE_ATLAS_COORDS: Vector2i = Vector2i(1, 0)
 const DECORATION_ATLAS_COORDS: Vector2i = Vector2i(2, 0)
+const BAKED_SCHEMA_VERSION: int = 2
+const EDGE_MASK_NORTH: int = 1 << 0
+const EDGE_MASK_EAST: int = 1 << 1
+const EDGE_MASK_SOUTH: int = 1 << 2
+const EDGE_MASK_WEST: int = 1 << 3
+const EDGE_MASK_VARIANT_COUNT: int = 16
 
 
 static func bake_all(write_files: bool, initial_migration: bool = false) -> Dictionary:
@@ -58,6 +64,7 @@ static func bake_scene(scene_path: String, approve_after_bake: bool = false) -> 
 		return result
 	if approve_after_bake:
 		entry["review_status"] = MODULE_REVIEW_STATUSES.MODULE_REVIEW_APPROVED
+		entry["approved_source_hash"] = String(result.get("source_content_hash", ""))
 		result["registry_changed"] = true
 	if bool(result.get("registry_changed", false)):
 		var registry_error: String = _write_json(REGISTRY_PATH, registry)
@@ -219,7 +226,15 @@ static func _bake_entry(entry: Dictionary, write_files: bool, initial_migration:
 		root.free()
 		return _error_result("%s has no allowed rotations." % module_id)
 	var source_hash: String = _source_content_hash(scene_path)
+	var previous_baked: ModuleBakedData = _load_baked_data(baked_path)
+	var approved_source_hash: String = String(entry.get("approved_source_hash", ""))
+	var source_changed: bool = (
+		not approved_source_hash.is_empty() and approved_source_hash != source_hash
+	) or (
+		approved_source_hash.is_empty() and previous_baked != null and previous_baked.source_content_hash != source_hash
+	)
 	var baked_data := MODULE_BAKED_DATA_SCRIPT.new() as ModuleBakedData
+	baked_data.schema_version = BAKED_SCHEMA_VERSION
 	baked_data.module_id = module_id
 	baked_data.source_scene_path = scene_path
 	baked_data.generated_json_path = generated_json_path
@@ -239,6 +254,11 @@ static func _bake_entry(entry: Dictionary, write_files: bool, initial_migration:
 		baked_rotation.obstacle_pattern = _pattern_for_layer(obstacles, rotation)
 		baked_rotation.decoration_pattern = _pattern_for_layer(decoration, rotation)
 		baked_rotation.terrain_collision = _collision_for_cells(obstacle_cells, rotation)
+		var rotated_obstacle_cells: Dictionary = _rotated_cells(obstacle_cells, rotation)
+		for edge_mask: int in range(EDGE_MASK_VARIANT_COUNT):
+			var masked_cells: Dictionary = _cells_with_edge_mask(rotated_obstacle_cells, edge_mask)
+			baked_rotation.obstacle_patterns_by_edge_mask[edge_mask] = _obstacle_pattern_for_cells(masked_cells)
+			baked_rotation.terrain_collisions_by_edge_mask[edge_mask] = _collision_for_rotated_cells(masked_cells)
 		baked_data.rotations.append(baked_rotation)
 	if not bool(result.get("ok", false)):
 		root.free()
@@ -254,11 +274,14 @@ static func _bake_entry(entry: Dictionary, write_files: bool, initial_migration:
 			_add_error(result, "%s is stale; run module-bake." % generated_json_path)
 		if not baked_matches:
 			_add_error(result, "%s is stale or missing; run module-bake." % baked_path)
-		if not is_approval_current(String(entry.get("review_status", "")), not artifact_changed):
+		if not is_approval_current(String(entry.get("review_status", "")), not source_changed):
 			_add_error(result, "%s changed after approval and must be baked and explicitly approved again." % module_id)
 		root.free()
 		result["checked"] = int(result.get("checked", 0)) + 1
 		return result
+	if String(entry.get("review_status", "")) == MODULE_REVIEW_STATUSES.MODULE_REVIEW_APPROVED and approved_source_hash.is_empty() and not source_changed:
+		entry["approved_source_hash"] = source_hash
+		result["registry_changed"] = true
 
 	if initial_migration and not json_matches:
 		root.free()
@@ -275,11 +298,13 @@ static func _bake_entry(entry: Dictionary, write_files: bool, initial_migration:
 		var save_error: Error = ResourceSaver.save(baked_data, baked_path)
 		if save_error != OK:
 			_add_error(result, "Failed to save %s (error %d)." % [baked_path, save_error])
-		if String(entry.get("review_status", "")) == MODULE_REVIEW_STATUSES.MODULE_REVIEW_APPROVED and not initial_migration:
+		if source_changed and String(entry.get("review_status", "")) == MODULE_REVIEW_STATUSES.MODULE_REVIEW_APPROVED and not initial_migration:
 			entry["review_status"] = MODULE_REVIEW_STATUSES.MODULE_REVIEW_CANDIDATE
+			entry.erase("approved_source_hash")
 			result["registry_changed"] = true
 		result["changed"] = int(result.get("changed", 0)) + 1
 	result["baked"] = int(result.get("baked", 0)) + 1
+	result["source_content_hash"] = source_hash
 	root.free()
 	return result
 
@@ -504,10 +529,40 @@ static func _pattern_for_layer(layer: TileMapLayer, rotation: int) -> TileMapPat
 
 
 static func _collision_for_cells(source_cells: Dictionary, rotation: int) -> ConcavePolygonShape2D:
+	return _collision_for_rotated_cells(_rotated_cells(source_cells, rotation))
+
+
+static func _rotated_cells(source_cells: Dictionary, rotation: int) -> Dictionary:
 	var rotated_cells: Dictionary = {}
 	for source_cell_value: Variant in source_cells.keys():
 		var source_cell: Vector2i = source_cell_value as Vector2i
 		rotated_cells[_rotate_cell(source_cell, rotation)] = true
+	return rotated_cells
+
+
+static func _cells_with_edge_mask(source_cells: Dictionary, edge_mask: int) -> Dictionary:
+	var result: Dictionary = source_cells.duplicate()
+	for index: int in range(MODULE_SIZE):
+		if edge_mask & EDGE_MASK_NORTH:
+			result[Vector2i(index, 0)] = true
+		if edge_mask & EDGE_MASK_EAST:
+			result[Vector2i(MODULE_SIZE - 1, index)] = true
+		if edge_mask & EDGE_MASK_SOUTH:
+			result[Vector2i(index, MODULE_SIZE - 1)] = true
+		if edge_mask & EDGE_MASK_WEST:
+			result[Vector2i(0, index)] = true
+	return result
+
+
+static func _obstacle_pattern_for_cells(cells: Dictionary) -> TileMapPattern:
+	var pattern := TileMapPattern.new()
+	for cell_value: Variant in cells.keys():
+		var cell: Vector2i = cell_value as Vector2i
+		pattern.set_cell(cell, 0, OBSTACLE_ATLAS_COORDS, 0)
+	return pattern
+
+
+static func _collision_for_rotated_cells(rotated_cells: Dictionary) -> ConcavePolygonShape2D:
 	var segments := PackedVector2Array()
 	var half_cell: float = CELL_SIZE * 0.5
 	for cell_value: Variant in rotated_cells.keys():
@@ -530,10 +585,8 @@ static func _collision_for_cells(source_cells: Dictionary, rotation: int) -> Con
 
 
 static func _baked_artifact_matches(path: String, expected: ModuleBakedData) -> bool:
-	if not ResourceLoader.exists(path):
-		return false
-	var actual: ModuleBakedData = ResourceLoader.load(path, "ModuleBakedData", ResourceLoader.CACHE_MODE_IGNORE) as ModuleBakedData
-	if actual == null or actual.module_id != expected.module_id or actual.source_content_hash != expected.source_content_hash:
+	var actual: ModuleBakedData = _load_baked_data(path)
+	if actual == null or actual.schema_version != expected.schema_version or actual.module_id != expected.module_id or actual.source_content_hash != expected.source_content_hash:
 		return false
 	if actual.rotations.size() != expected.rotations.size():
 		return false
@@ -551,7 +604,24 @@ static func _baked_artifact_matches(path: String, expected: ModuleBakedData) -> 
 			return false
 		if actual_rotation.terrain_collision.get_segments() != expected_rotation.terrain_collision.get_segments():
 			return false
+		if actual_rotation.obstacle_patterns_by_edge_mask.size() != EDGE_MASK_VARIANT_COUNT:
+			return false
+		if actual_rotation.terrain_collisions_by_edge_mask.size() != EDGE_MASK_VARIANT_COUNT:
+			return false
+		for edge_mask: int in range(EDGE_MASK_VARIANT_COUNT):
+			if _pattern_signature(actual_rotation.obstacle_pattern_for_mask(edge_mask)) != _pattern_signature(expected_rotation.obstacle_pattern_for_mask(edge_mask)):
+				return false
+			var actual_shape: ConcavePolygonShape2D = actual_rotation.terrain_collision_for_mask(edge_mask)
+			var expected_shape: ConcavePolygonShape2D = expected_rotation.terrain_collision_for_mask(edge_mask)
+			if actual_shape == null or expected_shape == null or actual_shape.get_segments() != expected_shape.get_segments():
+				return false
 	return true
+
+
+static func _load_baked_data(path: String) -> ModuleBakedData:
+	if not ResourceLoader.exists(path):
+		return null
+	return ResourceLoader.load(path, "ModuleBakedData", ResourceLoader.CACHE_MODE_IGNORE) as ModuleBakedData
 
 
 static func is_approval_current(review_status: String, artifacts_match: bool) -> bool:
@@ -640,7 +710,7 @@ static func _write_json(path: String, data: Dictionary) -> String:
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		return "Failed to open generated JSON for writing: %s" % path
-	file.store_string(JSON.stringify(data, "  ", false, true) + "\n")
+	file.store_string(JSON.stringify(_normalized_json_value(data), "  ", false, true) + "\n")
 	return ""
 
 

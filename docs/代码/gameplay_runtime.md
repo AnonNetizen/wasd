@@ -49,7 +49,8 @@
 | `client/scenes/ui/title_menu.tscn` / `gear_mod_panel.tscn` / `pause_menu.tscn` / `settings_panel.tscn` / `game_over_panel.tscn` / `level_up_panel.tscn` | 正式 UI 场景；脚本只绑定稳定节点、连接 signal 和刷新数据 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 正式运行时编排、输入 action 手柄兜底注册、对象池注册、刷怪和重开 |
 | `client/scripts/gameplay/module_world_manager.gd` | F13 模块世界协调器（非 autoload）：按 run seed 组合 81 个槽位、维护地图 hash / 迷雾 / 动态槽位状态，并只激活玩家周围最多 3×3 chunk。详见 `docs/代码/module_world_manager.md` |
-| `client/scripts/gameplay/module_chunk.gd` | 把单个 11×11 模块 JSON 合并为绘制与碰撞块；不为 121 个格逐格创建 Node |
+| `client/scenes/gameplay/module_chunk.tscn` / `client/scripts/gameplay/module_chunk.gd` | 三层 TileMapLayer 与合并碰撞的可复用场景；激活时应用 `ModuleBakedData`，不逐格绘制、建 Node 或重算碰撞 |
+| `client/scenes/gameplay/module_world_manager.tscn` | 预置九个 `ModuleChunk` 实例；运行时只切换 3×3 活跃邻域 |
 | `client/scripts/gameplay/module_minimap.gd` | HUD 9×9 模块级迷雾、当前位置、目标与撤离方向标记 |
 | `client/tools/module_world_smoke.gd` | 覆盖 seed assignment/hash、无缝跨模块、最多 9 个活跃 chunk、离开返回不重复生成、迷雾、目标后撤离及 run v4 恢复 |
 | `client/scripts/gameplay/world_background.gd` | 量化矩形地图格背景；读取 `MapManager.grid_cell_size()`，让背景格、机关绘制和触发判定共享同一份地图度量，不改变世界坐标或相机缩放 |
@@ -57,7 +58,7 @@
 | `client/scripts/gameplay/player.gd` | 玩家移动、鼠标相对玩家 / 视口中心方向瞄准、方向键 / 手柄兜底瞄准、2D 俯视占位按完整 `aim_direction` 绘制朝向标记、相机居中、受伤 / 死亡；提供少量受控 debug 生命 API 给 GM 命令调用 |
 | `client/scripts/gameplay/warzone_director.gd` | F10 敌巢战区导演，解释固定阶段、巢变异主题、兴趣点和阶段启用 wave |
 | `client/scripts/gameplay/weapon_system.gd` | 起始武器按住开火、临时武器修正和子弹池获取 |
-| `client/scripts/gameplay/skill_system.gd` | 起始主动技能释放、技能资源、冷却、目标筛选、效果解释和 run 快照 |
+| `client/scenes/gameplay/skill_system.tscn` / `client/scripts/gameplay/skill_system.gd` | 预置 `StatusEffectComponent` 的技能系统场景；负责主动技能释放、资源、冷却、目标筛选、效果解释和 run 快照 |
 | `client/scripts/gameplay/bullet.gd` | 子弹飞行、圆形地形重叠 / 扫掠、射程 / 生命周期裁剪、敌人和兴趣点目标命中，以及墙体穿透快照 |
 | `client/scripts/gameplay/enemy.gd` | 数据驱动敌人对玩家 AI、敌方友伤护栏、接触伤害、受伤 / 死亡和 AI 快照 |
 | `client/scripts/gameplay/hazard.gd` | 通用机关节点：矩形范围触发、冷却、占位表现、`Combat` 伤害和快照 |
@@ -95,7 +96,7 @@ FormalClientBoot
     │   ├── WorldBackground (Node2D)
     │   ├── MapManager (Node2D)
     │   ├── ModuleWorldManager (Node2D; default carrier coordinator)
-    │   │   └── ModuleChunk × 0..9 (pooled active neighborhood only)
+    │   │   └── ModuleChunk × 9 (scene-authored pool; 0..9 active)
     │   ├── Player (CharacterBody2D)
     │   │   ├── CollisionShape2D (CircleShape2D; blocked module-cell collision)
     │   │   ├── GameplayCameraController (Node2D)
@@ -103,13 +104,17 @@ FormalClientBoot
     │   │   │   │   └── PhantomCameraHost (Node)
     │   │   │   ├── PlayerCamera (PhantomCamera2D; GLUED follow)
     │   │   │   └── PlayerDamageShake (PhantomCameraNoiseEmitter2D)
-    │   │   └── WeaponSystem (Node)
+    │   │   ├── WeaponSystem (Node)
+    │   │   └── StatusEffectComponent (Node)
     │   ├── hazard_spike_* (pooled Hazard scene, active only)
     │   ├── InterestPointTarget_* (low-frequency POI target, active only)
     │   ├── InterestPointCache_* (low-frequency POI cache, active only)
     │   ├── bullet_basic_* (pooled Bullet scene, active only)
     │   └── enemy_* (pooled CharacterBody2D Enemy scenes, active only)
+    ├── SkillSystem (Node)
+    │   └── StatusEffectComponent (Node)
     └── GameplayHud (CanvasLayer)
+        └── Root/ModuleMinimap (Control)
 UIManager
     └── UIRoot
     ├── TitleMenu (normal boot before a run)

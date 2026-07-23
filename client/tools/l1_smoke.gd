@@ -11,7 +11,7 @@ const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SKILL_EFFECTS := preload("res://scripts/contracts/skill_effects.gd")
 const SKILL_IDS := preload("res://scripts/contracts/skill_ids.gd")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
-const SKILL_SYSTEM_SCRIPT := preload("res://scripts/gameplay/skill_system.gd")
+const SKILL_SYSTEM_SCENE := preload("res://scenes/gameplay/skill_system.tscn")
 const SKILL_TARGETING := preload("res://scripts/contracts/skill_targeting.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 const STATUS_EFFECT_SCRIPT := preload("res://scripts/combat/status_effect.gd")
@@ -192,7 +192,7 @@ func _expect_skill_system_aoe_damage() -> void:
 	far_target.global_position = Vector2(260.0, 0.0)
 	far_target.add_to_group("active_enemies")
 	world.add_child(far_target)
-	var skill_system: Node = SKILL_SYSTEM_SCRIPT.new()
+	var skill_system: Node = SKILL_SYSTEM_SCENE.instantiate()
 	skill_system.name = "L1SkillSystem"
 	add_child(skill_system)
 	var skills: Array[Dictionary] = [_l1_damage_skill()]
@@ -277,7 +277,7 @@ func _expect_entity_status_components() -> void:
 	world.add_child(enemy)
 	enemy.call("configure", _l1_enemy_data(), player)
 
-	var skill_system: Node = SKILL_SYSTEM_SCRIPT.new()
+	var skill_system: Node = SKILL_SYSTEM_SCENE.instantiate()
 	skill_system.name = "L1EntityStatusSkillSystem"
 	add_child(skill_system)
 	skill_system.call("configure", player, world, [_l1_enemy_silence_skill()], [])
@@ -331,7 +331,7 @@ func _expect_poison_dot_status() -> void:
 	enemy_data["max_hp"] = 20.0
 	enemy.call("configure", enemy_data, player)
 
-	var skill_system: Node = SKILL_SYSTEM_SCRIPT.new()
+	var skill_system: Node = SKILL_SYSTEM_SCENE.instantiate()
 	skill_system.name = "L1PoisonSkillSystem"
 	add_child(skill_system)
 	skill_system.call("configure", player, world, [_l1_poison_dot_skill()], [_l1_mana_resource()])

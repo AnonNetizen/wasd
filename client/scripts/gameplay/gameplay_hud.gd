@@ -5,7 +5,6 @@ extends CanvasLayer
 
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
-const MODULE_MINIMAP_SCRIPT := preload("res://scripts/gameplay/module_minimap.gd")
 const UPGRADE_FEEDBACK_DURATION: float = 1.35
 const UPGRADE_FEEDBACK_FADE_RATIO: float = 0.36
 const UPGRADE_FEEDBACK_TEXT_COLOR: Color = Color(1.0, 0.82, 0.28)
@@ -85,7 +84,10 @@ func _ready() -> void:
 	_build_stats_panel_rows()
 	_upgrade_feedback_label.hide()
 	_configure_upgrade_feedback_style()
-	_create_module_minimap()
+	_bind_module_minimap()
+	if _module_minimap == null:
+		push_error("[GameplayHud] missing scene-authored ModuleMinimap")
+		return
 	if not Localization.locale_changed.is_connected(_on_locale_changed):
 		Localization.locale_changed.connect(_on_locale_changed)
 	if not InputService.bindings_changed.is_connected(_on_input_prompt_changed):
@@ -316,15 +318,8 @@ func _configure_upgrade_feedback_style() -> void:
 	_upgrade_feedback_label.modulate = Color.WHITE
 
 
-func _create_module_minimap() -> void:
-	var root: Control = get_node_or_null("Root") as Control
-	if root == null:
-		return
-	_module_minimap = MODULE_MINIMAP_SCRIPT.new() as Control
-	_module_minimap.name = "ModuleMinimap"
-	_module_minimap.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_module_minimap.position = Vector2(-166.0, 24.0)
-	root.add_child(_module_minimap)
+func _bind_module_minimap() -> void:
+	_module_minimap = get_node_or_null("Root/ModuleMinimap") as Control
 
 
 func _build_stats_panel_rows() -> void:

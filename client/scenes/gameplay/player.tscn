@@ -1,8 +1,9 @@
-[gd_scene load_steps=5 format=3 uid="uid://bbmnjxejt13jy"]
+[gd_scene load_steps=6 format=3 uid="uid://bbmnjxejt13jy"]
 
 [ext_resource type="Script" uid="uid://di4d0y2bfu325" path="res://scripts/gameplay/player.gd" id="1_player"]
 [ext_resource type="PackedScene" uid="uid://bs6kdf27g1s0a" path="res://scenes/gameplay/weapon_system.tscn" id="2_weapon"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/gameplay_camera_controller.tscn" id="3_camera"]
+[ext_resource type="Script" path="res://scripts/combat/status_effect_component.gd" id="4_status"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 12.0
@@ -17,3 +18,6 @@ shape = SubResource("CircleShape2D_player")
 [node name="GameplayCameraController" parent="." instance=ExtResource("3_camera")]
 
 [node name="WeaponSystem" parent="." unique_id=240850889 instance=ExtResource("2_weapon")]
+
+[node name="StatusEffectComponent" type="Node" parent="."]
+script = ExtResource("4_status")

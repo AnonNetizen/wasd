@@ -11,7 +11,6 @@ const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
-const STATUS_EFFECT_COMPONENT_SCRIPT := preload("res://scripts/combat/status_effect_component.gd")
 
 const ACTION_STATE_CHARGE_RELEASE: String = "charge_release"
 const ACTION_STATE_CHARGE_WINDUP: String = "charge_windup"
@@ -1274,9 +1273,8 @@ func _ensure_status_effect_component() -> void:
 		return
 	_status_effect_component = get_node_or_null("StatusEffectComponent")
 	if _status_effect_component == null:
-		_status_effect_component = STATUS_EFFECT_COMPONENT_SCRIPT.new()
-		_status_effect_component.name = "StatusEffectComponent"
-		add_child(_status_effect_component)
+		push_error("[Enemy] missing scene-authored StatusEffectComponent")
+		return
 	_status_effect_component.call("configure_ability_tag_owner", self)
 
 

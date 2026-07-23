@@ -7,9 +7,9 @@
 
 - 编辑层：`client/scenes/modules/<id>.tscn` 是布局与表现主源。根节点挂 `ModuleAuthoringRoot`，固定包含 `Ground`、`Obstacles`、`Decoration` 三个 `TileMapLayer` 和 `Placements` 容器；marker 挂 `ModulePlacementMarker`。
 - 烘焙层：`ModuleSceneBaker` 从场景提取 terrain、edge socket 和 placement，生成原路径 `client/data/modules/<id>.json` 与 `client/resources/modules/<id>.tres`。JSON/TRES 都是提交入库、禁止手改的生成物。
-- 运行层：JSON 继续负责导航、placement、map hash、回放与 run v4 兼容；`ModuleBakedData` / `ModuleBakedRotation` 只负责每个允许旋转的三层 `TileMapPattern`、预计算 `ConcavePolygonShape2D` 和 source hash，视觉资源不进入玩法 hash。
+- 运行层：JSON 继续负责导航、placement、map hash、回放与 run v4 兼容；`ModuleBakedData` schema v2 为每个允许旋转保存三层 `TileMapPattern`，并为北 / 东 / 南 / 西四条运行时封边预生成 16 种 obstacle pattern 与合并 `ConcavePolygonShape2D`。运行时只按掩码选资源，不重算碰撞；视觉资源不进入玩法 hash。
 
-`module_templates.json` 仍是角色、来源、允许旋转和审核状态的人工策略主源。场景发生变化后，普通 bake 会把已批准条目降为 `module_review_candidate`；只有 `Approve Current` 在成功烘焙后才能重新设为 `module_review_approved`。
+`module_templates.json` 仍是角色、来源、允许旋转和审核状态的人工策略主源；批准时由工具记录 `approved_source_hash` 作为场景 + 共用 TileSet 的内容锚点。场景或共用 TileSet 内容哈希发生变化后，普通 bake 会把已批准条目降为 `module_review_candidate` 并移除批准锚点；即使旧 TRES 缺失也不能绕过。单纯升级 baker / TRES schema 会刷新过期生成物但不会误判为制作内容变化。只有 `Approve Current` 在成功烘焙后才能重新设为 `module_review_approved`。
 
 ## 2. 编辑契约
 
