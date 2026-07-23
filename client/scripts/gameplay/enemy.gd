@@ -41,6 +41,7 @@ const TEAM_ENEMY: String = "team_enemy"
 const TEAM_PLAYER: String = "team_player"
 
 @export_group("Visual Style")
+@export var fill_color: Color = Color(1.0, 0.38, 0.32)
 @export var defeat_feedback_color: Color = Color(1.0, 0.62, 0.22)
 @export var hit_flash_color: Color = Color(1.0, 0.96, 0.74)
 @export_range(0.0, 1.0, 0.01) var outline_alpha: float = 0.88
@@ -89,7 +90,6 @@ var _memory_remaining: float = 0.0
 var _cached_navigation_waypoint: Vector2 = Vector2.ZERO
 var _has_cached_navigation_waypoint: bool = false
 var _status_effect_component: Node = null
-var _visual_color: Color = Color(1.0, 0.38, 0.32)
 var _visual_root: Node2D = null
 var _body_visual: Polygon2D = null
 var _outline_visual: Polygon2D = null
@@ -170,7 +170,6 @@ func configure(enemy_data: Dictionary, target: Node2D, navigation_provider: Node
 	_hit_radius = float(enemy_data.get("hit_radius", 0.0))
 	_separation_radius = float(enemy_data.get("separation_radius", 0.0))
 	_configure_collision_shape()
-	_visual_color = _parse_visual_color(String(enemy_data.get("visual_color", "#ff6152")))
 	if _player_target != null and is_instance_valid(_player_target):
 		_update_facing(_player_target.global_position - global_position)
 	_home_position = _clamp_to_movement_bounds(_home_position)
@@ -188,7 +187,7 @@ func separation_radius() -> float:
 
 
 func visual_color() -> Color:
-	return _visual_color
+	return fill_color
 
 
 func ai_debug_summary() -> Dictionary:
@@ -403,7 +402,6 @@ func _pool_reset() -> void:
 	_memory_remaining = 0.0
 	_cached_navigation_waypoint = Vector2.ZERO
 	_has_cached_navigation_waypoint = false
-	_visual_color = Color(1.0, 0.38, 0.32)
 	visible = true
 	_set_collision_enabled(false)
 	_refresh_visuals()
@@ -945,7 +943,7 @@ func _enemy_color() -> Color:
 		return result
 	if _hit_flash_remaining > 0.0:
 		return hit_flash_color
-	return _visual_color
+	return fill_color
 
 
 func _defeat_scale() -> float:
@@ -1168,12 +1166,6 @@ func _proximity_score(distance: float, radius: float) -> float:
 
 func _orbit_sign() -> float:
 	return 1.0 if int(get_instance_id()) % 2 == 0 else -1.0
-
-
-func _parse_visual_color(color_text: String) -> Color:
-	if Color.html_is_valid(color_text):
-		return Color.html(color_text)
-	return Color(1.0, 0.38, 0.32)
 
 
 func _typed_action_array(raw_value: Variant) -> Array[Dictionary]:

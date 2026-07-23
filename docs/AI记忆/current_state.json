@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-07-23",
   "current_phase": "formal_project_f14_enemy_navigation_perception",
-  "current_status": "ADR #154 的模块 JSON 可视化编辑与单向 TSCN 烘焙已完成：16 个 schema v2 JSON 是布局与表现唯一制作主源，Godot `Module JSON` 已迁到与 2D / 3D / Script 同级的中央主编辑区并只编辑 JSON，稳定 tile catalog 隔离 Godot 坐标；baker 为每模块严格单向生成一份规范 `rotation_0.tscn`，check 从源数据重建规范指纹并拒绝遗留方向文件。运行时按 module id 为 assignment 预加载唯一 PackedScene，九个 ModuleChunk 只挂载缓存实例，再对根节点做正交旋转、方形枢轴补偿和封边方向反映射；旧 authoring TSCN、模块专用 TRES、45 份方向重复生成物、ModuleBakedData / ModuleBakedRotation 和 TSCN→JSON 入口已删除。ADR #153 的 gameplay/UI 场景化继续有效。F13 9×9/11×11/160 px、九 chunk 上限、schema v1 等价 JSON map hash、run v4、F14 导航感知、ADR #149 子弹地形阻挡、GUIDE / InputService v2 等既有契约保持不变。ADR #143 后性能测试只由用户当次明确触发，本任务未运行性能 probe。后续工作以用户最后明确指令为准。",
-  "latest_adr": 154,
+  "current_status": "ADR #155 的角色与敌人专属继承场景已完成：新增 PlayerBase / EnemyBase、当前 1 个角色与 5 个敌人的真实 Godot 继承场景；characters.json 升 schema v2 并绑定 scene_path，enemies.csv 新增 scene_path / pool_prewarm、删除 visual_color。GameplayRunLoop 通过预置 PlayerHost 挂载所选角色，开局缓存唯一 actor PackedScene，并为五种敌人分别注册 enemy_chaser / enemy_swarm / enemy_stalker / enemy_bulwark / enemy_spitter 独立池，预热总数仍为 28；不同内容 id 可复用场景路径，但敌人池不可复用。TSCN 管静态颜色 / 轮廓 / 节点结构，JSON / CSV 继续管玩法数值，configure 不覆盖场景表现。新局默认 character_default，run v4 续局按快照角色恢复，无效绑定 fail closed。地图、EnemyAI、Combat、run v4、存档和模块 map hash 不变；黄金回放仅更新数据指纹与独立池 pool_stats。ADR #143 后性能测试只由用户当次明确触发，本任务未运行性能 probe。后续工作以用户最后明确指令为准。",
+  "latest_adr": 155,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #155 / 角色与敌人专属继承场景：新增 PlayerBase / EnemyBase 和 1 个角色、5 个敌人的真实继承 TSCN；characters.json schema v2 与 enemies.csv 显式绑定 scene_path，敌人预热数据化并删除 visual_color / enemy_ranged。RunLoop 通过 PlayerHost 实例化默认或快照角色，缓存唯一 actor PackedScene，并按五种敌人分别注册独立池；场景路径允许内容复用，敌人池保持一敌一池。TSCN 管静态表现，数据管玩法数值，run v4 / 地图 / EnemyAI / Combat 不变。",
     "ADR #154 / 模块 JSON 可视化编辑与单向 TSCN 烘焙：modules/*.json 升 schema v2 并成为唯一制作主源，新增稳定 tile catalog 与只编辑 JSON 的 Godot `Module JSON` 中央主编辑区；baker 只接受 JSON，每模块生成一份含三层 TileMap、合并碰撞、四边封锁和规范 placement 快照的 `rotation_0.tscn`，check 重建规范指纹并拒绝遗留方向文件。ModuleWorldManager 按 module id 预加载 assignment 唯一场景，九个 ModuleChunk 挂载缓存实例并做正交旋转 / 方形枢轴补偿 / 封边方向反映射；旧 authoring TSCN、模块专用 TRES、45 份方向重复生成物和全部 TSCN→JSON 路径删除，gameplay projection 保持旧 map hash / run v4 / 导航 / 存档 / 回放摘要。",
     "ADR #153 第三阶段 / 玩法与 UI 场景化：Player / Enemy / Bullet / PickupOrb / HitSpark 删除占位 `_draw()` 并改用可编辑 Polygon2D / Line2D；地图范围、机关 footprint、撤离进度、minimap 等动态几何暴露场景样式；HUD stats、升级、Gear Mod 与输入绑定改为五个 PackedScene 行模板；semantic lint 新增 runtime-node-construction 且豁免对象池 factory / 行模板。",
     "ADR #153 第二阶段 / 模块运行时场景切换：ModuleBakedData schema v2 为每个旋转生成 16 种世界封边 obstacle pattern / 合并碰撞；ModuleChunk 删除逐格绘制与激活重算，ModuleWorldManager 预置并复用九个 chunk；GameplayRunLoop、SkillSystem、Player / Enemy StatusEffectComponent 和 HUD minimap 改为场景节点。JSON assignment / 导航 / placement / map hash 与 run v4 不变，批准注册表新增 approved_source_hash 防止缺失 TRES 绕过重新审核。",
@@ -124,6 +125,7 @@
     "ADR #88：项目 IP 方向为 Nestbreakers / 破巢者，详细世界观、命名和宣发包装权威为 docs/IP设定.md。"
   ],
   "next_actions": [
+    "如果继续新增或调整角色 / 敌人，先读 ADR #155、docs/代码/gameplay_runtime.md、pool_manager.md、enemy_ai.md、client/data/README.md 和测试策略。基础树只改 scenes/gameplay/actors/player_base.tscn / enemy_base.tscn，内容场景必须保持真实继承；characters.json / enemies.csv.scene_path 可复用，敌人 pool_id 必须独立且等于敌人 id。静态颜色 / 轮廓 / 子节点留在 TSCN，生命 / 速度 / 伤害 / 半径 / AI / 预热留在数据，Enemy.configure 不覆盖场景表现。改后跑 contracts、data/schema、三档 lint、actor-scene-smoke、runtime/module-world/save/L1、headless 与四条黄金回放；不实现角色选择 UI，入树前选择继续走 GameplayRunLoop.configure_character_id()。",
     "如果用户点名首个在线功能，先读 docs/在线服务规划.md、ADR #150、GDD §9.22 / §9.23、docs/代码/platform_services.md 和 docs/测试策略.md。重新核验 GodotSteam 已迁移后的官方维护来源、Talo 官方版本 / 许可 / 价格与 Godot 兼容性；GodotSteam 先在既有 Steamworks Lab 验证，Talo 先在 output/test_lab 隔离验证，再决定 Talo Cloud 或官方自托管并建立工作包。保持 PlatformServices → GodotSteam、OnlineServices → Talo、Analytics → OnlineServices sink 与 SaveManager 本地权威；不直调 Steam.* / Talo.*、不双写同一排行榜 / 统计、不自研通用后端。当前不要安装插件、创建账号 / Access Key / 在线资源或自行挑选小服务器玩法。",
     "性能测试遵循 ADR #143：除非用户在当前任务中明确要求，否则不要运行 startup-probe、perf-probe、Godot Profiler 或同类性能采样，也不要把性能测试追加到提交前、常规回归、默认 CI 或交付清单；用户明确要求时再使用仓库现有按需 probe，并按 docs/测试策略.md §4 的预算解释结果。",
     "如果继续子弹碰撞或穿墙 Buff，先读 GDD §4、ADR #149、docs/代码/gameplay_runtime.md、docs/代码/module_world_manager.md、client/data/README.md 和词表 §1。玩家 / 敌方子弹默认只查询模块地形 bit 1，以 hit_radius 圆形做初始重叠和逐帧扫掠，命中必须 PoolManager.release；pierce_count 只控制额外伤害目标，wall_pierce > 0 才忽略全部地形且在发射时快照。新增 Buff 走现有 modifier 管线，不做有限穿墙次数、不附带穿敌 / 穿机关 / 反弹 / 爆炸；改动后跑双端 schema、完整 / 技术切片 module-world、runtime/save/L1、headless 与四条黄金回放。",
@@ -147,6 +149,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-23",
+      "command": "sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/strict semantic lints plus lint self-tests; export-tree; headless-boot; actor-scene-smoke; module-world full/technical smoke; runtime-smoke; save-smoke; l1-smoke; four golden replay-runner runtime reruns; docs_health_check; JSON current_state/_kb_index; git diff --check",
+      "result": "passed for ADR #155 actor inherited-scene refactor. Actor smoke verifies PlayerBase/EnemyBase inheritance, required nodes/scripts, all five enemy scene bindings, scene-authored color/geometry preservation, per-enemy pool reuse isolation and failed multi-pool registration rollback. Headless boot, both module-world modes, runtime, save and L1 pass; intentional duplicate-pool, fail-closed map-hash and corrupt-save diagnostics remain. All four goldens pass after only the expected data fingerprint and independent enemy pool_stats baseline changes, with enemy counts/positions/health/AI and module map hash 63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083 unchanged. No startup/performance probe or Profiler ran; unrelated Module JSON editor, placeholder TileSet and lint working-tree changes remain excluded from this task's commit."
+    },
     {
       "date": "2026-07-23",
       "command": "module-bake; module-bake-check; module-bake-smoke; module-json-editor-smoke; sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lints; export-tree; headless-boot; module-world full/technical smoke; runtime-smoke; save-smoke; l1-smoke; four golden replay-runner runtime reruns with explicit data-fingerprint mismatch allowance; docs_health_check; JSON current_state/_kb_index",

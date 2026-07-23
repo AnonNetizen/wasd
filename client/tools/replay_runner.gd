@@ -303,6 +303,9 @@ func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String, fra
 			POOL_IDS.BULLET_BASIC: PoolManager.stats(POOL_IDS.BULLET_BASIC),
 			POOL_IDS.ENEMY_CHASER: PoolManager.stats(POOL_IDS.ENEMY_CHASER),
 			POOL_IDS.ENEMY_SWARM: PoolManager.stats(POOL_IDS.ENEMY_SWARM),
+			POOL_IDS.ENEMY_STALKER: PoolManager.stats(POOL_IDS.ENEMY_STALKER),
+			POOL_IDS.ENEMY_BULWARK: PoolManager.stats(POOL_IDS.ENEMY_BULWARK),
+			POOL_IDS.ENEMY_SPITTER: PoolManager.stats(POOL_IDS.ENEMY_SPITTER),
 			POOL_IDS.PICKUP_ORB: PoolManager.stats(POOL_IDS.PICKUP_ORB),
 		}
 	else:

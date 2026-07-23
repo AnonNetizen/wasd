@@ -1,8 +1,9 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "characters": [
     {
       "id": "character_default",
+      "scene_path": "res://scenes/gameplay/actors/characters/character_default.tscn",
       "name_key": "character_default_name",
       "desc_key": "character_default_desc",
       "default_unlocked": true,

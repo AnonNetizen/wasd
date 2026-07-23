@@ -5,8 +5,10 @@ const VALUES: Array[String] = [
 	"bullet_basic",
 	"bullet_pierce",
 	"enemy_chaser",
-	"enemy_ranged",
 	"enemy_swarm",
+	"enemy_stalker",
+	"enemy_bulwark",
+	"enemy_spitter",
 	"hazard_spike",
 	"damage_number",
 	"hit_spark",
@@ -16,8 +18,10 @@ const VALUES: Array[String] = [
 const BULLET_BASIC: String = "bullet_basic"
 const BULLET_PIERCE: String = "bullet_pierce"
 const ENEMY_CHASER: String = "enemy_chaser"
-const ENEMY_RANGED: String = "enemy_ranged"
 const ENEMY_SWARM: String = "enemy_swarm"
+const ENEMY_STALKER: String = "enemy_stalker"
+const ENEMY_BULWARK: String = "enemy_bulwark"
+const ENEMY_SPITTER: String = "enemy_spitter"
 const HAZARD_SPIKE: String = "hazard_spike"
 const DAMAGE_NUMBER: String = "damage_number"
 const HIT_SPARK: String = "hit_spark"

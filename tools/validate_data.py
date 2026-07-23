@@ -211,7 +211,9 @@ def _validate_characters(ctx: ValidationContext, weapon_ids: set[str], active_it
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=2)
+    if schema_version is not None and schema_version != 2:
+        ctx.error(path, "schema_version", "must equal 2")
     characters = _require_list(ctx, path, "characters", data.get("characters"))
     if not characters:
         ctx.error(path, "characters", "must be a non-empty array")
@@ -226,6 +228,13 @@ def _validate_characters(ctx: ValidationContext, weapon_ids: set[str], active_it
             if character_id in seen:
                 ctx.error(path, f"{field}.id", f"duplicate character id {character_id}")
             seen.add(character_id)
+        _validate_actor_scene_path(
+            ctx,
+            path,
+            f"{field}.scene_path",
+            character.get("scene_path"),
+            "res://scenes/gameplay/actors/characters/",
+        )
         _require_locale_key(ctx, path, f"{field}.name_key", character.get("name_key"))
         _require_locale_key(ctx, path, f"{field}.desc_key", character.get("desc_key"))
         _require_bool(ctx, path, f"{field}.default_unlocked", character.get("default_unlocked"))
@@ -483,6 +492,8 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
         "name_key",
         "tags",
         "pool_id",
+        "scene_path",
+        "pool_prewarm",
         "ai_profile_id",
         "max_hp",
         "move_speed",
@@ -491,9 +502,9 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
         "exp_reward",
         "hit_radius",
         "separation_radius",
-        "visual_color",
     }
-    seen: set[str] = set()
+    seen_enemy_ids: set[str] = set()
+    seen_pool_ids: set[str] = set()
     with path.open(encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         fieldnames = reader.fieldnames or []
@@ -501,20 +512,37 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
         if missing:
             ctx.error(path, "header", f"missing required columns {sorted(missing)}")
             return
+        unexpected = set(fieldnames).difference(required)
+        if unexpected:
+            ctx.error(path, "header", f"unexpected columns {sorted(unexpected)}")
         row_count = 0
         for line_number, row in enumerate(reader, start=2):
             row_count += 1
             field = f"line {line_number}"
             enemy_id = _require_non_empty_string(ctx, path, f"{field}.id", row.get("id"))
             if enemy_id:
-                if enemy_id in seen:
+                if enemy_id in seen_enemy_ids:
                     ctx.error(path, f"{field}.id", f"duplicate enemy id {enemy_id}")
-                seen.add(enemy_id)
+                seen_enemy_ids.add(enemy_id)
             _require_locale_key(ctx, path, f"{field}.name_key", row.get("name_key"))
             tags = _validate_registered_string_list(ctx, path, f"{field}.tags", _parse_pipe_list(row.get("tags")), "content_tags", allow_empty=False)
             if "tag_enemy" not in tags:
                 ctx.error(path, f"{field}.tags", "must include tag_enemy")
-            _require_registered(ctx, path, f"{field}.pool_id", row.get("pool_id"), "pool_ids")
+            pool_id = _require_registered(ctx, path, f"{field}.pool_id", row.get("pool_id"), "pool_ids")
+            if pool_id:
+                if pool_id in seen_pool_ids:
+                    ctx.error(path, f"{field}.pool_id", f"duplicate enemy pool id {pool_id}")
+                seen_pool_ids.add(pool_id)
+                if pool_id != enemy_id:
+                    ctx.error(path, f"{field}.pool_id", "must match the enemy id")
+            _validate_actor_scene_path(
+                ctx,
+                path,
+                f"{field}.scene_path",
+                row.get("scene_path"),
+                "res://scenes/gameplay/actors/enemies/",
+            )
+            _parse_int(ctx, path, f"{field}.pool_prewarm", row.get("pool_prewarm"), minimum=0)
             ai_profile_id = _require_non_empty_string(ctx, path, f"{field}.ai_profile_id", row.get("ai_profile_id"))
             if ai_profile_id and ai_profile_id not in enemy_ai_profile_ids:
                 ctx.error(path, f"{field}.ai_profile_id", f"profile is not defined in enemy_ai_profiles.json: {ai_profile_id}")
@@ -525,7 +553,6 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
             _parse_int(ctx, path, f"{field}.exp_reward", row.get("exp_reward"), minimum=0)
             _parse_float(ctx, path, f"{field}.hit_radius", row.get("hit_radius"), minimum=0, exclusive_minimum=True)
             _parse_float(ctx, path, f"{field}.separation_radius", row.get("separation_radius"), minimum=0)
-            _require_html_color(ctx, path, f"{field}.visual_color", row.get("visual_color"))
         if row_count == 0:
             ctx.error(path, "rows", "must contain at least one enemy")
 
@@ -2962,6 +2989,46 @@ def _require_non_empty_string(ctx: ValidationContext, path: Path, field: str, va
 def _require_bool(ctx: ValidationContext, path: Path, field: str, value: Any) -> bool | None:
     if not isinstance(value, bool):
         ctx.error(path, field, "must be bool")
+        return None
+    return value
+
+
+def _validate_actor_scene_path(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    value: Any,
+    required_prefix: str,
+) -> str | None:
+    if not isinstance(value, str) or not value:
+        ctx.error(path, field, "must be a non-empty actor scene path")
+        return None
+    parts = value.split("/")
+    if (
+        not value.startswith(required_prefix)
+        or not value.endswith(".tscn")
+        or "\\" in value
+        or ".." in parts
+    ):
+        ctx.error(path, field, f"must be a project actor .tscn under {required_prefix}")
+        return None
+    if value in {
+        "res://scenes/gameplay/actors/player_base.tscn",
+        "res://scenes/gameplay/actors/enemy_base.tscn",
+    }:
+        ctx.error(path, field, "must reference a dedicated actor scene, not a base scene")
+        return None
+    scene_file = ROOT / "client" / value.removeprefix("res://")
+    if not scene_file.is_file():
+        ctx.error(path, field, f"actor scene does not exist: {value}")
+        return None
+    try:
+        first_line = scene_file.read_text(encoding="utf-8-sig").splitlines()[0]
+    except (OSError, UnicodeError, IndexError):
+        ctx.error(path, field, f"actor scene is not a readable PackedScene: {value}")
+        return None
+    if not first_line.startswith("[gd_scene "):
+        ctx.error(path, field, f"actor scene is not a PackedScene: {value}")
         return None
     return value
 

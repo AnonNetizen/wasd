@@ -197,6 +197,47 @@ def main() -> int:
             ],
         ),
         (
+            "character schema v2 is required",
+            _mutate_json("client/data/characters.json", _set_schema_version(1)),
+            [
+                "client/data/characters.json:schema_version",
+                "must be >= 2",
+                "must equal 2",
+            ],
+        ),
+        (
+            "character scene path is required",
+            _mutate_json("client/data/characters.json", _remove_character_scene_path),
+            [
+                "client/data/characters.json:characters[0].scene_path",
+                "must be a non-empty actor scene path",
+            ],
+        ),
+        (
+            "character scene must stay in the dedicated actor directory",
+            _mutate_json(
+                "client/data/characters.json",
+                _set_character_scene_path("res://scenes/gameplay/actors/player_base.tscn"),
+            ),
+            [
+                "client/data/characters.json:characters[0].scene_path",
+                "must be a project actor .tscn under res://scenes/gameplay/actors/characters/",
+            ],
+        ),
+        (
+            "character scene must exist",
+            _mutate_json(
+                "client/data/characters.json",
+                _set_character_scene_path(
+                    "res://scenes/gameplay/actors/characters/character_missing.tscn"
+                ),
+            ),
+            [
+                "client/data/characters.json:characters[0].scene_path",
+                "actor scene does not exist",
+            ],
+        ),
+        (
             "missing character locale key fails",
             _mutate_json("client/data/characters.json", _set_character_name_key("character_missing_name")),
             [
@@ -330,6 +371,77 @@ def main() -> int:
             [
                 "client/data/enemies.csv:line 2.tags",
                 "must include tag_enemy",
+            ],
+        ),
+        (
+            "enemy scene path can be shared by multiple content ids",
+            _mutate_csv("client/data/enemies.csv", _reuse_first_enemy_scene),
+            [],
+        ),
+        (
+            "enemy scene path is required",
+            _mutate_csv("client/data/enemies.csv", _set_enemy_scene_path("")),
+            [
+                "client/data/enemies.csv:line 2.scene_path",
+                "must be a non-empty actor scene path",
+            ],
+        ),
+        (
+            "enemy scene must use a TSCN resource",
+            _mutate_csv(
+                "client/data/enemies.csv",
+                _set_enemy_scene_path(
+                    "res://scenes/gameplay/actors/enemies/enemy_chaser.tres"
+                ),
+            ),
+            [
+                "client/data/enemies.csv:line 2.scene_path",
+                "must be a project actor .tscn under res://scenes/gameplay/actors/enemies/",
+            ],
+        ),
+        (
+            "enemy scene must exist",
+            _mutate_csv(
+                "client/data/enemies.csv",
+                _set_enemy_scene_path(
+                    "res://scenes/gameplay/actors/enemies/enemy_missing.tscn"
+                ),
+            ),
+            [
+                "client/data/enemies.csv:line 2.scene_path",
+                "actor scene does not exist",
+            ],
+        ),
+        (
+            "enemy pool ids must be unique",
+            _mutate_csv("client/data/enemies.csv", _duplicate_enemy_pool_id),
+            [
+                "client/data/enemies.csv:line 3.pool_id",
+                "duplicate enemy pool id enemy_chaser",
+            ],
+        ),
+        (
+            "removed enemy_ranged pool id stays rejected",
+            _mutate_csv("client/data/enemies.csv", _set_enemy_pool_id("enemy_ranged")),
+            [
+                "client/data/enemies.csv:line 2.pool_id",
+                "unknown id enemy_ranged; expected one of pool_ids",
+            ],
+        ),
+        (
+            "enemy pool prewarm must be non-negative",
+            _mutate_csv("client/data/enemies.csv", _set_enemy_pool_prewarm("-1")),
+            [
+                "client/data/enemies.csv:line 2.pool_prewarm",
+                "must be >= 0",
+            ],
+        ),
+        (
+            "legacy enemy visual color column stays rejected",
+            _add_enemy_legacy_visual_color_column,
+            [
+                "client/data/enemies.csv:header",
+                "unexpected columns ['visual_color']",
             ],
         ),
         (
@@ -986,6 +1098,10 @@ def _run_case(name: str, mutator: RepoMutator | None, expected_fragments: list[s
 def _copy_test_repo(temp_root: Path) -> None:
     _copy_tree(ROOT / "client" / "data", temp_root / "client" / "data")
     _copy_tree(ROOT / "client" / "locale", temp_root / "client" / "locale")
+    _copy_tree(
+        ROOT / "client" / "scenes" / "gameplay" / "actors",
+        temp_root / "client" / "scenes" / "gameplay" / "actors",
+    )
     _copy_file(
         ROOT / "client" / "resources" / "modules" / "module_placeholder_tileset.tres",
         temp_root / "client" / "resources" / "modules" / "module_placeholder_tileset.tres",
@@ -1058,6 +1174,17 @@ def _set_camera_feedback_value(field: str, value: object) -> JsonMutator:
 def _set_character_name_key(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["characters"][0]["name_key"] = value
+
+    return mutate
+
+
+def _remove_character_scene_path(payload: dict[str, Any]) -> None:
+    payload["characters"][0].pop("scene_path", None)
+
+
+def _set_character_scene_path(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["characters"][0]["scene_path"] = value
 
     return mutate
 
@@ -1284,6 +1411,50 @@ def _set_enemy_ai_profile(value: str) -> CsvMutator:
         rows[0]["ai_profile_id"] = value
 
     return mutate
+
+
+def _set_enemy_scene_path(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["scene_path"] = value
+
+    return mutate
+
+
+def _reuse_first_enemy_scene(rows: list[dict[str, str]]) -> None:
+    rows[1]["scene_path"] = rows[0]["scene_path"]
+
+
+def _duplicate_enemy_pool_id(rows: list[dict[str, str]]) -> None:
+    rows[1]["pool_id"] = rows[0]["pool_id"]
+
+
+def _set_enemy_pool_id(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["pool_id"] = value
+
+    return mutate
+
+
+def _set_enemy_pool_prewarm(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["pool_prewarm"] = value
+
+    return mutate
+
+
+def _add_enemy_legacy_visual_color_column(root: Path) -> None:
+    path = root / "client/data/enemies.csv"
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+        fieldnames = list(reader.fieldnames or [])
+    fieldnames.append("visual_color")
+    for row in rows:
+        row["visual_color"] = "#ff6152"
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def _set_mode_enemy(value: str) -> JsonMutator:

@@ -19,9 +19,9 @@
 |------------|--------|------|
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
 | 改玩家受伤震屏强度 / 频率 / 时长 | `camera_feedback.json` 的 `player_damage_shake` | 只影响表现；随机走 `RNG.camera_fx`，关闭 `gameplay.screen_shake` 时即时停止 |
-| 改角色基础属性 / 标签 / 能力 / 起始携带 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；起始携带填 `starting_loadout`，引用必须存在于对应数据文件 |
+| 改角色基础属性 / 标签 / 能力 / 起始携带 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；`scene_path` 绑定专属继承场景，玩法数值仍留在数据中 |
 | 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
-| 改敌人血量 / 速度 / 接触伤害 / 中心间距 / 占位色 | `enemies.csv` | 敌人标签、对象池 id、AI profile id、伤害类型必须来自词表或数据注册表 |
+| 改敌人血量 / 速度 / 接触伤害 / 中心间距 | `enemies.csv` | 每个敌人使用独立 `pool_id`，`scene_path` 可复用；颜色与静态轮廓在专属 TSCN 中编辑 |
 | 改敌人对玩家 AI | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；敌人的感知与战斗目标固定为玩家 |
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
 | 改地图边界 / 矩形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是轴对齐矩形，必须分别整除 `grid.cell_width` / `grid.cell_height`；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法矩形格锚点 |
@@ -47,14 +47,14 @@
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
 | `camera_feedback.json` | 已建立 | 摄像机表现反馈；当前含玩家有效受伤的 Phantom Camera 位移震屏参数 |
 | `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 技能 / 消耗品 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
-| `characters.json` | 已建立 | 角色列表：基础属性、tags、capabilities、控制配置、技能资源池和起始携带引用 |
+| `characters.json` | 已建立 | 角色列表：专属场景绑定、基础属性、tags、capabilities、控制配置、技能资源池和起始携带引用 |
 | `weapons.json` | 已建立 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
 | `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 已建立 | 主动道具：充能方式、冷却、效果原语与参数 |
 | `skills.json` | 已建立 | 可复用技能：冷却、资源消耗、目标选择和技能效果原语 |
 | `consumables.json` | 已建立 | 消耗品：堆叠数量、拾取数量、效果原语与参数 |
 | `enemy_ai_profiles.json` | 已建立 | 敌人对玩家 AI profile：感知、动作列表、冲锋 / 守家 / 远程等行为参数 |
-| `enemies.csv` | 已建立 | 敌人基础数值平表：生命、移速、接触伤害、经验奖励、占位色等 |
+| `enemies.csv` | 已建立 | 敌人基础数值平表：专属场景、独立对象池、预热数量、生命、移速、接触伤害和经验奖励等 |
 | `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、占格尺寸、持续时间 |
 | `map_layouts.json` | 已建立 | 有限地图配置：矩形地图边界、矩形格尺寸、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
 | `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、兴趣点 / 机关组合和阶段启用 wave |
@@ -427,8 +427,8 @@ JSON 示例：
 当前结构：
 
 ```csv
-id,name_key,tags,pool_id,ai_profile_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius,separation_radius,visual_color
-enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,110.0,1,physical,3,14.0,9.0,#ff6152
+id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius,separation_radius
+enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/actors/enemies/enemy_chaser.tscn,8,enemy_ai_chase_contact,12,110.0,100,physical,3,14.0,9.0
 ```
 
 字段说明：
@@ -438,7 +438,9 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,
 | `id` | string | 文件内唯一，非空 | 敌人 id；模式敌人池和后续刷怪表引用此 id |
 | `name_key` | string | `enemy_*_name` | 敌人名称译文 key |
 | `tags` | string | `|` 分隔的词表 §12.3 content tag，必须含 `tag_enemy` | 内容标签；可被模式 blocklist、刷怪规则或后续内容系统筛选 |
-| `pool_id` | string | 词表 §8 pool id | 运行时使用的敌人对象池；当前只校验 id，不实例化场景 |
+| `pool_id` | string | 词表 §8 pool id，文件内唯一且等于本行 `id` | 每个敌人独立对象池；禁止复用旧 `enemy_ranged` |
+| `scene_path` | string | `res://scenes/gameplay/actors/enemies/*.tscn`，文件存在且为 `PackedScene` | 专属敌人继承场景；不同内容 id 可以引用同一场景，但不能指向 `enemy_base.tscn` |
+| `pool_prewarm` | int | `>= 0` | 本敌人独立池的开局预热数量；当前五种敌人合计仍为 28 |
 | `ai_profile_id` | string | 必须存在于 `enemy_ai_profiles.json` | 运行时使用的对玩家 AI profile；决定动作集合与行为参数 |
 | `max_hp` | int | `>= 1` | 敌人最大生命 |
 | `move_speed` | number | `> 0`，px/s | 敌人基础移动速度 |
@@ -447,9 +449,8 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,enemy_ai_chase_contact,12,
 | `exp_reward` | int | `>= 0` | 击杀后经验奖励；后续掉落 / 经验球系统解释 |
 | `hit_radius` | number | `> 0`，px | 命中 / 接触半径边界，后续碰撞体或占位图可据此生成 |
 | `separation_radius` | number | `>= 0`，px | 敌人中心排斥半径；小于 `hit_radius` 时允许视觉重叠但避免中心完全重合 |
-| `visual_color` | string | HTML 色值，如 `#ff6152` | 开发期几何占位图颜色；只表达外观，不承载行为分支 |
 
-`enemies.csv` 只声明敌人基础数值、通用内容 tag 和 AI profile 引用边界；具体对玩家感知、动作评分和执行由 `enemy_ai_profiles.json` 与 `EnemyAI` 运行时解释。敌人不得把其他敌人设为战斗目标，`team_enemy` 来源的伤害由 `Enemy.receive_damage()` 拒绝；中心分离只用于防重叠。游戏模式可通过 `resource_pools.enemies` 声明可用敌人池；实际波次选择、生成位置、对象池预热和伤害结算由 `Spawner`、`PoolManager`、`Combat` 与 `EnemyAI` 系统负责。
+`enemies.csv` 只声明敌人场景绑定、对象池 / 预热、基础数值、通用内容 tag 和 AI profile 引用边界；静态颜色、轮廓和可编辑子节点由专属继承 TSCN 管理，运行时 `configure()` 不得用 CSV 覆盖。具体对玩家感知、动作评分和执行由 `enemy_ai_profiles.json` 与 `EnemyAI` 运行时解释。敌人不得把其他敌人设为战斗目标，`team_enemy` 来源的伤害由 `Enemy.receive_damage()` 拒绝；中心分离只用于防重叠。游戏模式可通过 `resource_pools.enemies` 声明可用敌人池；实际波次选择、生成位置、对象池生命周期和伤害结算由 `Spawner`、`PoolManager`、`Combat` 与 `EnemyAI` 系统负责。
 
 ## `enemy_ai_profiles.json`
 
@@ -798,10 +799,11 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "characters": [
     {
       "id": "character_default",
+      "scene_path": "res://scenes/gameplay/actors/characters/character_default.tscn",
       "name_key": "character_default_name",
       "desc_key": "character_default_desc",
       "default_unlocked": true,
@@ -843,8 +845,9 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `schema_version` | int | 必须为 `2` | 数据结构版本 |
 | `characters[].id` | string | 词表 §12.1 character id，文件内唯一 | 角色 id；模式池、局外解锁和存档引用此 id |
+| `characters[].scene_path` | string | `res://scenes/gameplay/actors/characters/*.tscn`，文件存在且为 `PackedScene` | 角色专属继承场景；不同角色 id 可复用同一场景，但不能指向 `player_base.tscn` |
 | `characters[].name_key` / `desc_key` | string | `character_*_name` / `character_*_desc` | 角色名称和描述译文 key |
 | `characters[].default_unlocked` | bool | true / false | 新存档中是否默认可用；后续需与跨局解锁 / 装备 Mod 系统的解锁状态保持一致 |
 | `characters[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_character` | 内容标签；破限角色还需含 `tag_limit_break` 并声明 capability |
@@ -863,7 +866,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `characters[].skill_resources[].regen_per_second` | number | `>= 0`，每秒 | `GameClock` 缩放时间下每秒恢复量；0 表示不自动恢复 |
 | `characters[].base_stats` | object | stat 来自词表 §1，非空 | 角色基础属性；数值范围同 `player.json` stat 校验 |
 
-`characters.json` 声明角色数据边界和当前起始技能运行时入口；技能本体仍在 `skills.json`，角色只引用 skill id 和资源池。除 `SkillSystem` 已解释的起始技能外，本文件不实现角色选择 UI、实体生成、输入 profile 切换、主动道具栏、消耗品背包、起始遗物运行时或破限能力执行。新增起始遗物、外观资源或特殊能力字段时，必须先有对应数据注册表 / 词表 / schema，再由业务系统解释。
+`characters.json` 声明角色场景绑定、玩法数据边界和当前起始技能运行时入口；技能本体仍在 `skills.json`，角色只引用 skill id 和资源池。`GameplayRunLoop` 会按新局默认角色或 run v4 快照里的 `character` 预加载并实例化 `scene_path`，未知角色或无效场景 fail closed；本轮不实现角色选择 UI。角色静态外观与节点结构由专属继承 TSCN 管理，基础属性、起始携带、输入 profile 与能力声明仍由数据解释。新增起始遗物或特殊能力字段时，必须先有对应数据注册表 / 词表 / schema，再由业务系统解释。
 
 ## `weapons.json`
 

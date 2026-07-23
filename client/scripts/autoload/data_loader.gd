@@ -351,7 +351,7 @@ func _validate_characters_json(locale_keys: Dictionary, weapon_ids: Dictionary, 
 
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_int(CHARACTERS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	is_valid = _require_int(CHARACTERS_PATH, "schema_version", payload.get("schema_version"), 2, 2) and is_valid
 	var characters: Array = _require_array(CHARACTERS_PATH, "characters", payload.get("characters"))
 	if characters.is_empty():
 		is_valid = _schema_fail(CHARACTERS_PATH, "characters", "non-empty Array") and is_valid
@@ -369,6 +369,12 @@ func _validate_characters_json(locale_keys: Dictionary, weapon_ids: Dictionary, 
 			if seen.has(character_id):
 				is_valid = _schema_fail(CHARACTERS_PATH, "%s.id" % field, "unique character id") and is_valid
 			seen[character_id] = true
+		is_valid = _validate_actor_scene_path(
+			CHARACTERS_PATH,
+			"%s.scene_path" % field,
+			character_dict.get("scene_path"),
+			"res://scenes/gameplay/actors/characters/"
+		) and is_valid
 		is_valid = _require_locale_key(CHARACTERS_PATH, "%s.name_key" % field, character_dict.get("name_key"), locale_keys) and is_valid
 		is_valid = _require_locale_key(CHARACTERS_PATH, "%s.desc_key" % field, character_dict.get("desc_key"), locale_keys) and is_valid
 		is_valid = _require_bool(CHARACTERS_PATH, "%s.default_unlocked" % field, character_dict.get("default_unlocked")) and is_valid
@@ -659,7 +665,8 @@ func _validate_enemy_ai_actions(field: String, data: Variant) -> bool:
 func _validate_enemies_csv(locale_keys: Dictionary, enemy_ai_profile_ids: Dictionary) -> bool:
 	var rows: Array[Dictionary] = load_csv(ENEMIES_PATH)
 	var is_valid: bool = true
-	var seen: Dictionary = {}
+	var seen_enemy_ids: Dictionary = {}
+	var seen_pool_ids: Dictionary = {}
 	if rows.is_empty():
 		is_valid = _schema_fail(ENEMIES_PATH, "rows", "non-empty CSV") and is_valid
 	_last_schema_counts["enemies"] = rows.size()
@@ -669,15 +676,33 @@ func _validate_enemies_csv(locale_keys: Dictionary, enemy_ai_profile_ids: Dictio
 		var enemy_id: String = String(row.get("id", ""))
 		is_valid = _require_non_empty_string(ENEMIES_PATH, "%s.id" % field, row.get("id")) and is_valid
 		if not enemy_id.is_empty():
-			if seen.has(enemy_id):
+			if seen_enemy_ids.has(enemy_id):
 				is_valid = _schema_fail(ENEMIES_PATH, "%s.id" % field, "unique enemy id") and is_valid
-			seen[enemy_id] = true
+			seen_enemy_ids[enemy_id] = true
 		is_valid = _require_locale_key(ENEMIES_PATH, "%s.name_key" % field, row.get("name_key"), locale_keys) and is_valid
 		var tags: Array[String] = _parse_tag_list(row.get("tags"))
 		is_valid = _validate_registered_string_array(ENEMIES_PATH, "%s.tags" % field, tags, "content_tags", false) and is_valid
 		if not tags.has("tag_enemy"):
 			is_valid = _schema_fail(ENEMIES_PATH, "%s.tags" % field, "tag_enemy") and is_valid
-		is_valid = _require_registered(ENEMIES_PATH, "%s.pool_id" % field, row.get("pool_id"), "pool_ids") != "" and is_valid
+		var pool_id: String = _require_registered(
+			ENEMIES_PATH,
+			"%s.pool_id" % field,
+			row.get("pool_id"),
+			"pool_ids"
+		)
+		if not pool_id.is_empty():
+			if seen_pool_ids.has(pool_id):
+				is_valid = _schema_fail(ENEMIES_PATH, "%s.pool_id" % field, "unique enemy pool id") and is_valid
+			seen_pool_ids[pool_id] = true
+			if pool_id != enemy_id:
+				is_valid = _schema_fail(ENEMIES_PATH, "%s.pool_id" % field, "pool id matching enemy id") and is_valid
+		is_valid = _validate_actor_scene_path(
+			ENEMIES_PATH,
+			"%s.scene_path" % field,
+			row.get("scene_path"),
+			"res://scenes/gameplay/actors/enemies/"
+		) and is_valid
+		is_valid = _require_csv_int(ENEMIES_PATH, "%s.pool_prewarm" % field, row.get("pool_prewarm"), 0) and is_valid
 		var ai_profile_id: String = String(row.get("ai_profile_id", ""))
 		is_valid = _require_non_empty_string(ENEMIES_PATH, "%s.ai_profile_id" % field, row.get("ai_profile_id")) and is_valid
 		if not ai_profile_id.is_empty() and not enemy_ai_profile_ids.has(ai_profile_id):
@@ -689,7 +714,8 @@ func _validate_enemies_csv(locale_keys: Dictionary, enemy_ai_profile_ids: Dictio
 		is_valid = _require_csv_int(ENEMIES_PATH, "%s.exp_reward" % field, row.get("exp_reward"), 0) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.hit_radius" % field, row.get("hit_radius"), 0.0, null, true) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.separation_radius" % field, row.get("separation_radius"), 0.0) and is_valid
-		is_valid = _require_html_color(ENEMIES_PATH, "%s.visual_color" % field, row.get("visual_color")) and is_valid
+		if row.has("visual_color"):
+			is_valid = _schema_fail(ENEMIES_PATH, "%s.visual_color" % field, "removed field") and is_valid
 	return is_valid
 
 
@@ -3377,6 +3403,32 @@ func _require_audio_id(resource_path: String, field: String, value: Variant) -> 
 	var audio_id: String = String(value)
 	if not _has_registered_prefix("audio_prefixes", audio_id):
 		return _schema_fail(resource_path, field, "registered audio id prefix")
+	return true
+
+
+func _validate_actor_scene_path(
+	resource_path: String,
+	field: String,
+	value: Variant,
+	required_prefix: String
+) -> bool:
+	if not value is String or String(value).is_empty():
+		return _schema_fail(resource_path, field, "non-empty actor scene path")
+	var scene_path: String = String(value)
+	if (
+		not scene_path.begins_with(required_prefix)
+		or not scene_path.ends_with(".tscn")
+		or scene_path.contains("\\")
+		or scene_path.split("/", false).has("..")
+	):
+		return _schema_fail(resource_path, field, "project actor .tscn path under %s" % required_prefix)
+	if scene_path == "res://scenes/gameplay/actors/player_base.tscn" or scene_path == "res://scenes/gameplay/actors/enemy_base.tscn":
+		return _schema_fail(resource_path, field, "dedicated actor scene, not a base scene")
+	if not ResourceLoader.exists(scene_path, "PackedScene"):
+		return _schema_fail(resource_path, field, "existing PackedScene")
+	var actor_scene: Resource = ResourceLoader.load(scene_path, "PackedScene")
+	if not actor_scene is PackedScene:
+		return _schema_fail(resource_path, field, "PackedScene")
 	return true
 
 

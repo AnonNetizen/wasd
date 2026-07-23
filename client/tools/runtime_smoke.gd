@@ -5,9 +5,9 @@ const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
-const ENEMY_SCENE := preload("res://scenes/gameplay/enemy.tscn")
+const ENEMY_SCENE := preload("res://scenes/gameplay/actors/enemies/enemy_chaser.tscn")
 const GEAR_MOD_RESOURCES := preload("res://scripts/contracts/gear_mod_resources.gd")
-const PLAYER_SCENE := preload("res://scenes/gameplay/player.tscn")
+const PLAYER_SCENE := preload("res://scenes/gameplay/actors/characters/character_default.tscn")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
@@ -52,9 +52,11 @@ func _run() -> void:
 	_expect(String(ProjectSettings.get_setting("display/window/stretch/aspect")) == "keep", "window stretch aspect should preserve ratio with letterboxing")
 	_expect(tr("ui_start") != "ui_start", "registered translations should resolve UI keys")
 	_expect(PoolManager.has_pool(POOL_IDS.BULLET_BASIC), "bullet pool should be registered")
-	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_CHASER), "enemy pool should be registered")
-	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_RANGED), "ranged enemy pool should be registered")
+	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_CHASER), "chaser enemy pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_SWARM), "swarm enemy pool should be registered")
+	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_STALKER), "stalker enemy pool should be registered")
+	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_BULWARK), "bulwark enemy pool should be registered")
+	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_SPITTER), "spitter enemy pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.HAZARD_SPIKE), "hazard pool should be registered")
 	_expect(InputService.action_resource(ACTIONS.MOVE) != null, "InputService should expose the Vector2 move action")
 	_expect(InputService.action_resource(ACTIONS.AIM) != null, "InputService should expose the Vector2 aim action")
@@ -65,6 +67,10 @@ func _run() -> void:
 	if player == null:
 		_finish()
 		return
+	_expect(
+		player.scene_file_path == PLAYER_SCENE.resource_path,
+		"default character should instantiate its data-bound dedicated scene"
+	)
 	_expect(player is CharacterBody2D, "Player should keep 2D CharacterBody2D movement")
 	_expect(_find_node_by_name(player, "Player3DVisual") == null, "Player should use the top-down 2D placeholder instead of a 3D orthographic visual child")
 	_expect(_find_node_by_name(player, "Visual") != null, "Player should use a scene-authored editable visual subtree")
@@ -207,6 +213,10 @@ func _run() -> void:
 		run_loop = restored_run_loop_value
 	if restored_player_value != null:
 		player = restored_player_value
+	_expect(
+		player.scene_file_path == PLAYER_SCENE.resource_path,
+		"restored character id should recreate its data-bound dedicated scene"
+	)
 	camera = _find_node_by_name(player, "CenteredCamera") as Camera2D
 	camera_controller = _find_node_by_name(player, "GameplayCameraController")
 	camera_host = _find_node_by_name(player, "PhantomCameraHost")
@@ -1013,7 +1023,7 @@ func _expect_swarm_enemy_spawn(run_loop: Node, _player: Node2D) -> void:
 			is_equal_approx(color.r, expected_color.r)
 			and is_equal_approx(color.g, expected_color.g)
 			and is_equal_approx(color.b, expected_color.b),
-			"second enemy type should use data-driven visual color"
+			"second enemy type should keep its scene-authored visual color"
 		)
 
 

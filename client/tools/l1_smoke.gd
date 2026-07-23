@@ -4,8 +4,8 @@ extends Node
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
-const ENEMY_SCENE := preload("res://scenes/gameplay/enemy.tscn")
-const PLAYER_SCENE := preload("res://scenes/gameplay/player.tscn")
+const ENEMY_SCENE := preload("res://scenes/gameplay/actors/enemies/enemy_chaser.tscn")
+const PLAYER_SCENE := preload("res://scenes/gameplay/actors/characters/character_default.tscn")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SKILL_EFFECTS := preload("res://scripts/contracts/skill_effects.gd")
@@ -588,7 +588,6 @@ func _l1_enemy_data() -> Dictionary:
 		"exp_reward": 0,
 		"hit_radius": 10.0,
 		"separation_radius": 0.0,
-		"visual_color": "#ff6152",
 	}
 
 

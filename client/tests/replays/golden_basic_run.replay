@@ -1,6 +1,6 @@
 {
 	"created_at": "golden:golden_basic_run",
-	"data_fingerprint": "7f5d9a6a71a0ac4e57fcac342ae2de316c8a7324fa37697f56bafe73700754d2",
+	"data_fingerprint": "6457de400d6057918916437b74bb4ff2989dcc09a129b3f5639fc661489e5573",
 	"file_schema_version": 2,
 	"game_version": "v1.6",
 	"recording": {
@@ -206,20 +206,47 @@
 					"overflows": 0,
 					"released": 0
 				},
+				"enemy_bulwark": {
+					"acquired": 2,
+					"active": 2,
+					"available": 2,
+					"created": 4,
+					"max_size": 96,
+					"overflows": 0,
+					"released": 0
+				},
 				"enemy_chaser": {
-					"acquired": 20,
-					"active": 20,
+					"acquired": 18,
+					"active": 18,
 					"available": 0,
-					"created": 20,
+					"created": 18,
+					"max_size": 96,
+					"overflows": 0,
+					"released": 0
+				},
+				"enemy_spitter": {
+					"acquired": 7,
+					"active": 7,
+					"available": 1,
+					"created": 8,
+					"max_size": 96,
+					"overflows": 0,
+					"released": 0
+				},
+				"enemy_stalker": {
+					"acquired": 6,
+					"active": 6,
+					"available": 0,
+					"created": 6,
 					"max_size": 96,
 					"overflows": 0,
 					"released": 0
 				},
 				"enemy_swarm": {
-					"acquired": 18,
-					"active": 18,
+					"acquired": 12,
+					"active": 12,
 					"available": 0,
-					"created": 18,
+					"created": 12,
 					"max_size": 96,
 					"overflows": 0,
 					"released": 0
@@ -244,7 +271,7 @@
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "2a0184091fac47606bda05b1c5b687f4de024d8b3636468ed33502508f71134a",
+	"recording_hash": "a9434c38b1007f27d992b6069ef6c4305b6b4fcba8ad15f72f1c32bbb8f1b478",
 	"summary": {
 		"decision_events": 0,
 		"dropped_decision_events": 0,
@@ -442,20 +469,47 @@
 					"overflows": 0,
 					"released": 0
 				},
+				"enemy_bulwark": {
+					"acquired": 2,
+					"active": 2,
+					"available": 2,
+					"created": 4,
+					"max_size": 96,
+					"overflows": 0,
+					"released": 0
+				},
 				"enemy_chaser": {
-					"acquired": 20,
-					"active": 20,
+					"acquired": 18,
+					"active": 18,
 					"available": 0,
-					"created": 20,
+					"created": 18,
+					"max_size": 96,
+					"overflows": 0,
+					"released": 0
+				},
+				"enemy_spitter": {
+					"acquired": 7,
+					"active": 7,
+					"available": 1,
+					"created": 8,
+					"max_size": 96,
+					"overflows": 0,
+					"released": 0
+				},
+				"enemy_stalker": {
+					"acquired": 6,
+					"active": 6,
+					"available": 0,
+					"created": 6,
 					"max_size": 96,
 					"overflows": 0,
 					"released": 0
 				},
 				"enemy_swarm": {
-					"acquired": 18,
-					"active": 18,
+					"acquired": 12,
+					"active": 12,
 					"available": 0,
-					"created": 18,
+					"created": 12,
 					"max_size": 96,
 					"overflows": 0,
 					"released": 0

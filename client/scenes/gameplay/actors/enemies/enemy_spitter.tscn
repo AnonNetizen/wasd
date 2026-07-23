@@ -1,0 +1,16 @@
+[gd_scene format=3 uid="uid://cj7a8a6ssosr6"]
+
+[ext_resource type="PackedScene" uid="uid://baayqrp1ujp06" path="res://scenes/gameplay/actors/enemy_base.tscn" id="1_gxptb"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_4ocn3"]
+resource_local_to_scene = true
+radius = 14.0
+
+[node name="Enemy" unique_id=62248898 instance=ExtResource("1_gxptb")]
+fill_color = Color(0.78039217, 0.65882355, 0.29803923, 1)
+
+[node name="CollisionShape2D" parent="." index="0" unique_id=1963841816]
+shape = SubResource("CircleShape2D_4ocn3")
+
+[node name="Body" parent="Visual" parent_id_path=PackedInt32Array(1367850400) index="1" unique_id=901189657]
+color = Color(0.78039217, 0.65882355, 0.29803923, 1)

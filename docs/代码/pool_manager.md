@@ -8,7 +8,7 @@
 - `PoolManager` 负责统一管理高频实体对象池，后续子弹、敌人、伤害数字、命中特效和掉落物都应通过 `acquire()` / `release()` 进入生命周期。
 - 池 id 必须来自 `docs/词表与契约.md` 第 8 节，并通过 `client/scripts/contracts/pool_ids.gd` 与 `DataLoader` 的 `_contracts.json` 校验。
 - 池化节点必须实现 `_pool_reset() -> void`，用于每次获取时重置运行时状态；可选实现 `_pool_release() -> void`，用于释放前清理连接、计时器或外部引用。
-- 当前切片只提供注册、预热、获取、释放、清理、统计和溢出埋点，不预热真实玩法场景，不实现子弹 / 敌人 / 掉落实体。
+- 正式 `GameplayRunLoop` 已用它管理子弹、五种敌人、机关、掉落和反馈实体；敌人池按 `enemies.csv` 动态注册并绑定专属 `PackedScene`。
 
 ## 阅读方式
 
@@ -26,6 +26,8 @@
 | `client/scripts/autoload/pool_manager.gd` | `PoolManager` autoload 脚本 |
 | `client/scripts/contracts/pool_ids.gd` | 自动生成的对象池 id 常量 |
 | `client/scripts/contracts/analytics_events.gd` | 自动生成的埋点事件常量 |
+| `client/data/enemies.csv` | 五种敌人的独立 `pool_id`、专属 `scene_path` 与 `pool_prewarm` |
+| `client/scripts/gameplay/gameplay_run_loop.gd` | 运行开始时缓存唯一 actor 场景并按敌人数据注册 / 预热 / 清理各池 |
 | `client/project.godot` | autoload 注册 |
 
 ## 场景 / 节点结构
@@ -35,6 +37,8 @@
 ```text
 PoolManager (autoload Node)
 ├── bullet_basic_0 (inactive pooled node)
+├── enemy_chaser_0 (inactive dedicated Enemy scene)
+├── enemy_swarm_0 (inactive dedicated Enemy scene)
 ├── hit_spark_0 (inactive pooled node)
 └── ...
 ```
@@ -87,6 +91,8 @@ PoolManager (autoload Node)
 - `client/data/_contracts.json`
 - `client/scripts/contracts/pool_ids.gd`
 
+当前敌人池为 `enemy_chaser`、`enemy_swarm`、`enemy_stalker`、`enemy_bulwark`、`enemy_spitter`。每行 `enemies.csv.pool_id` 必须唯一且等于敌人 id；旧 `enemy_ranged` 已删除。`pool_prewarm` 当前分别为 `8 / 5 / 3 / 4 / 8`，合计仍为 28。不同敌人内容 id 可以共享同一个 `scene_path`，但仍必须使用独立池，避免同一池在复用后出现错误的 `scene_file_path` 或静态外观。
+
 运行时每个池保存以下统计：
 
 | 字段 | 类型 | 说明 |
@@ -102,13 +108,13 @@ PoolManager (autoload Node)
 ## 依赖
 
 - 上游依赖：`DataLoader` 提供 pool id 契约校验；`Analytics` 记录 `pool_overflow` 诊断事件。
-- 下游调用方：后续子弹系统、敌人生成器、掉落物、伤害数字、命中特效和性能调试面板。
+- 下游调用方：正式子弹系统、敌人生成 / 模块 placement / 快照恢复、掉落物、伤害数字、命中特效和性能调试面板。
 - 禁止依赖：高频实体不得直接 `instantiate()` / `queue_free()`；池 id 不得在调用点裸写未登记字符串。
 
 ## 扩展点
 
 - 新实体池：先登记 pool id，再由实体系统调用 `register_pool()`，factory 返回对应场景实例。
-- 预热配置：后续可从实体 / 性能配置读取默认预热数量，但配置源必须数据化。
+- 预热配置：敌人从 `enemies.csv.pool_prewarm` 读取，其他实体继续由对应运行时 / 数据配置决定；不得把敌人预热数量重新硬编码到 RunLoop。
 - 调试面板：读取 `stats()` 展示各池水位、命中率和溢出次数。
 - 生命周期钩子：实体脚本实现 `_pool_reset()` 和 `_pool_release()`，不要让 `PoolManager` 知道具体玩法字段。
 
@@ -119,6 +125,7 @@ PoolManager (autoload Node)
 | 新增 pool id | `docs/词表与契约.md` | 本文档、AI 导航 | `tools/sync_contracts.py --check`、headless boot |
 | 调整对象池 API | `pool_manager.gd` | 本文档、测试策略 | L1 + L2 |
 | 接入子弹池 | 子弹场景 / 脚本、生成系统 | 本文档、对应模块文档 | L1 + L2 + 性能 smoke |
+| 加 / 改敌人专属池 | `enemies.csv`、专属继承场景、`GameplayRunLoop` | 数据手册、Gameplay Runtime、EnemyAI | data/schema + `actor-scene-smoke` + runtime/save/module-world |
 | 改溢出策略 | `pool_manager.gd`、`Analytics` | 本文档、Analytics 文档 | L1 + 埋点检查 |
 
 ## 故障排查
@@ -132,9 +139,9 @@ PoolManager (autoload Node)
 
 ## 测试义务
 
-- 当前切片必跑 L0 契约 / 数据 / 文档检查和 L2 headless boot。
-- 后续引入 GUT 后，`PoolManager` 需要覆盖注册校验、预热上限、获取复用、释放回池、未知 id 拒绝、溢出埋点和 `stats()` 统计。
-- 接入真实子弹 / 敌人后，需要补性能 smoke 和场景树检查，确认高频实体不会持续增长为未释放节点。
+- 必跑 L0 契约 / 数据 / 文档检查和 L2 headless boot。
+- `l1-smoke` 覆盖基础 acquire / release 生命周期；`actor-scene-smoke` 覆盖五个独立敌人池、专属场景生成、同池复用不串场景，以及不同池之间不串类型。
+- 后续引入 GUT 后，继续补齐注册校验、预热上限、未知 id 拒绝、溢出埋点和 `stats()` 精细单测。性能 smoke 仍只在用户明确要求时运行。
 
 ## 迁移 / 兼容
 

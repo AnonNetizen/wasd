@@ -19,7 +19,6 @@ const GEAR_MOD_SLOTS := preload("res://scripts/contracts/gear_mod_slots.gd")
 const HAZARD_SCENE := preload("res://scenes/gameplay/hazard.tscn")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const BULLET_SCENE := preload("res://scenes/gameplay/bullet.tscn")
-const ENEMY_SCENE := preload("res://scenes/gameplay/enemy.tscn")
 const GAME_OVER_PANEL_SCENE := preload("res://scenes/ui/game_over_panel.tscn")
 const HIT_SPARK_SCENE := preload("res://scenes/gameplay/hit_spark.tscn")
 const INTEREST_POINT_CACHE_SCENE := preload("res://scenes/gameplay/interest_point_cache.tscn")
@@ -59,7 +58,9 @@ const NAVIGATION_FLOW_OBSTACLE_BUFFER_CELLS: int = 2
 @export_range(0.5, 12.0, 0.1) var extraction_zone_ring_width: float = 4.0
 
 var _active_world: Node2D = null
+var _actor_scene_cache: Dictionary = {}
 var _camera_controller: Node2D = null
+var _character_id: String = CHARACTER_IDS.CHARACTER_DEFAULT
 var _current_level: int = 1
 var _current_xp: int = 0
 var _enemy_rows: Dictionary = {}
@@ -84,6 +85,7 @@ var _pending_level_up_choices: Array[Dictionary] = []
 var _pending_restore_snapshot: Dictionary = {}
 var _pause_menu: CanvasLayer = null
 var _player: CharacterBody2D = null
+var _player_host: Node2D = null
 var _map_layout: Dictionary = {}
 var _map_manager: Node2D = null
 var _module_extraction_point_id: String = ""
@@ -99,6 +101,8 @@ var _run_completed: bool = false
 var _warzone_director = null
 var _waves: Array[Dictionary] = []
 var _weapon_system: Node = null
+var _requested_character_id: String = CHARACTER_IDS.CHARACTER_DEFAULT
+var _registered_enemy_pool_ids: Array[String] = []
 
 
 func _ready() -> void:
@@ -173,6 +177,11 @@ func configure_restore_snapshot(snapshot_data: Dictionary) -> void:
 	_pending_restore_snapshot = snapshot_data.duplicate(true)
 
 
+## Must be called before the run loop enters the scene tree.
+func configure_character_id(character_id: String) -> void:
+	_requested_character_id = character_id
+
+
 func debug_force_next_gear_mod_drop_roll(roll: float) -> void:
 	_debug_next_gear_mod_drop_forced_roll = roll
 
@@ -207,7 +216,7 @@ func create_run_snapshot() -> Dictionary:
 	return {
 		"schema_version": RUN_SNAPSHOT_SCHEMA_VERSION,
 		"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
-		"character": CHARACTER_IDS.CHARACTER_DEFAULT,
+		"character": _character_id,
 		"level": _current_level,
 		"xp": _current_xp,
 		"kills": _kills,
@@ -232,26 +241,41 @@ func create_run_snapshot() -> Dictionary:
 
 func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	GameClock.reset()
+	var enemy_csv_rows: Array[Dictionary] = DataLoader.load_csv(DataLoader.ENEMIES_PATH)
 	PoolManager.clear_pool(POOL_IDS.BULLET_BASIC)
-	PoolManager.clear_pool(POOL_IDS.ENEMY_CHASER)
-	PoolManager.clear_pool(POOL_IDS.ENEMY_RANGED)
-	PoolManager.clear_pool(POOL_IDS.ENEMY_SWARM)
+	_clear_enemy_pools(enemy_csv_rows)
 	PoolManager.clear_pool(POOL_IDS.HAZARD_SPIKE)
 	PoolManager.clear_pool(POOL_IDS.HIT_SPARK)
 	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
 	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
+	var selected_character_id: String = String(
+		restore_snapshot.get("character", _requested_character_id)
+	).strip_edges()
+	var character: Dictionary = _find_item(
+		_load_array(DataLoader.CHARACTERS_PATH, "characters"),
+		selected_character_id
+	)
+	if character.is_empty():
+		_fail_run_start(
+			"unknown character id: %s" % selected_character_id,
+			not restore_snapshot.is_empty()
+		)
+		return
+	_character_id = selected_character_id
+	_enemy_rows = _load_enemy_rows(_load_enemy_ai_profiles(), enemy_csv_rows)
+	if not _preload_actor_scenes(character):
+		_fail_run_start("actor scene preload failed", not restore_snapshot.is_empty())
+		return
+
 	PoolManager.register_pool(POOL_IDS.BULLET_BASIC, _create_bullet_node, BULLET_POOL_SIZE)
-	PoolManager.register_pool(POOL_IDS.ENEMY_CHASER, _create_enemy_node, ENEMY_POOL_SIZE)
-	PoolManager.register_pool(POOL_IDS.ENEMY_RANGED, _create_enemy_node, ENEMY_POOL_SIZE)
-	PoolManager.register_pool(POOL_IDS.ENEMY_SWARM, _create_enemy_node, ENEMY_POOL_SIZE)
+	if not _register_enemy_pools():
+		_fail_run_start("enemy pool registration failed", not restore_snapshot.is_empty())
+		return
 	PoolManager.register_pool(POOL_IDS.HAZARD_SPIKE, _create_hazard_node, HAZARD_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.HIT_SPARK, _create_hit_spark_node, FEEDBACK_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.DAMAGE_NUMBER, _create_damage_number_node, FEEDBACK_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.PICKUP_ORB, _create_pickup_orb_node, PICKUP_POOL_SIZE)
 	PoolManager.prewarm(POOL_IDS.BULLET_BASIC, 24)
-	PoolManager.prewarm(POOL_IDS.ENEMY_CHASER, 12)
-	PoolManager.prewarm(POOL_IDS.ENEMY_RANGED, 8)
-	PoolManager.prewarm(POOL_IDS.ENEMY_SWARM, 8)
 	PoolManager.prewarm(POOL_IDS.HAZARD_SPIKE, 8)
 	PoolManager.prewarm(POOL_IDS.HIT_SPARK, 16)
 	PoolManager.prewarm(POOL_IDS.DAMAGE_NUMBER, 16)
@@ -269,12 +293,10 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		return
 
 	var mode: Dictionary = _find_item(_load_array(DataLoader.GAME_MODES_PATH, "modes"), GAME_MODES.MODE_STANDARD_SURVIVAL)
-	var character: Dictionary = _find_item(_load_array(DataLoader.CHARACTERS_PATH, "characters"), CHARACTER_IDS.CHARACTER_DEFAULT)
 	var player_stats: Dictionary = _merged_player_stats(character, mode)
 	var loadout: Dictionary = character.get("starting_loadout", {})
 	var weapon: Dictionary = _find_item(_load_array(DataLoader.WEAPONS_PATH, "weapons"), String(loadout.get("weapon_id", "")))
 
-	_enemy_rows = _load_enemy_rows(_load_enemy_ai_profiles())
 	_hazard_rows = _load_hazard_rows()
 	if _module_world_enabled:
 		if not _configure_module_world(restore_snapshot):
@@ -303,9 +325,16 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_reset_extraction()
 	_run_completed = false
 
-	_player = _active_world.get_node_or_null("Player") as CharacterBody2D
+	_player_host = _active_world.get_node_or_null("PlayerHost") as Node2D
+	if _player_host == null:
+		_fail_run_start("missing PlayerHost scene node", not restore_snapshot.is_empty())
+		return
+	_player = _instantiate_character(character)
 	if _player == null:
-		push_error("[GameplayRunLoop] missing Player scene node")
+		_fail_run_start(
+			"character scene root must be CharacterBody2D",
+			not restore_snapshot.is_empty()
+		)
 		return
 	_player.global_position = Vector2.ZERO
 	_player.call("configure", player_stats)
@@ -347,7 +376,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 
 	GameState.change_state(GameState.PLAYING, {
 		"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
-		"character": CHARACTER_IDS.CHARACTER_DEFAULT,
+		"character": _character_id,
 	})
 
 	if not restore_snapshot.is_empty():
@@ -369,8 +398,98 @@ func _create_bullet_node() -> Node:
 	return BULLET_SCENE.instantiate()
 
 
-func _create_enemy_node() -> Node:
-	return ENEMY_SCENE.instantiate()
+func _create_actor_node(scene_path: String) -> Node:
+	var actor_scene: PackedScene = _actor_scene_cache.get(scene_path, null) as PackedScene
+	if actor_scene == null:
+		push_error("[GameplayRunLoop] actor scene was not preloaded: %s" % scene_path)
+		return null
+	return actor_scene.instantiate()
+
+
+func _instantiate_character(character: Dictionary) -> CharacterBody2D:
+	var scene_path: String = String(character.get("scene_path", ""))
+	var raw_node: Node = _create_actor_node(scene_path)
+	if not raw_node is CharacterBody2D:
+		if raw_node != null:
+			raw_node.free()
+		return null
+	var player: CharacterBody2D = raw_node as CharacterBody2D
+	player.name = "Player"
+	_player_host.add_child(player)
+	return player
+
+
+func _preload_actor_scenes(character: Dictionary) -> bool:
+	_actor_scene_cache.clear()
+	if not _cache_actor_scene(String(character.get("scene_path", ""))):
+		return false
+	for raw_enemy_data: Variant in _enemy_rows.values():
+		if not raw_enemy_data is Dictionary:
+			continue
+		var enemy_data: Dictionary = raw_enemy_data as Dictionary
+		if not _cache_actor_scene(String(enemy_data.get("scene_path", ""))):
+			return false
+	return true
+
+
+func _cache_actor_scene(scene_path: String) -> bool:
+	if scene_path.is_empty():
+		push_error("[GameplayRunLoop] actor scene path is empty")
+		return false
+	if _actor_scene_cache.has(scene_path):
+		return true
+	var loaded_resource: Resource = ResourceLoader.load(scene_path, "PackedScene")
+	if not loaded_resource is PackedScene:
+		push_error("[GameplayRunLoop] actor scene is not a PackedScene: %s" % scene_path)
+		return false
+	_actor_scene_cache[scene_path] = loaded_resource
+	return true
+
+
+func _register_enemy_pools() -> bool:
+	_registered_enemy_pool_ids.clear()
+	for raw_enemy_data: Variant in _enemy_rows.values():
+		if not raw_enemy_data is Dictionary:
+			continue
+		var enemy_data: Dictionary = raw_enemy_data as Dictionary
+		var pool_id: String = String(enemy_data.get("pool_id", ""))
+		var scene_path: String = String(enemy_data.get("scene_path", ""))
+		if pool_id.is_empty() or _registered_enemy_pool_ids.has(pool_id):
+			push_error("[GameplayRunLoop] invalid or duplicate enemy pool id: %s" % pool_id)
+			_rollback_registered_enemy_pools()
+			return false
+		var factory: Callable = Callable(self, "_create_actor_node").bind(scene_path)
+		if not PoolManager.register_pool(pool_id, factory, ENEMY_POOL_SIZE):
+			_rollback_registered_enemy_pools()
+			return false
+		_registered_enemy_pool_ids.append(pool_id)
+		PoolManager.prewarm(pool_id, int(enemy_data.get("pool_prewarm", 0)))
+	return true
+
+
+func _rollback_registered_enemy_pools() -> void:
+	for pool_id: String in _registered_enemy_pool_ids:
+		PoolManager.clear_pool(pool_id)
+	_registered_enemy_pool_ids.clear()
+
+
+func _clear_enemy_pools(enemy_csv_rows: Array[Dictionary]) -> void:
+	var pool_ids: Dictionary = {}
+	for pool_id: String in _registered_enemy_pool_ids:
+		pool_ids[pool_id] = true
+	for enemy_row: Dictionary in enemy_csv_rows:
+		var pool_id: String = String(enemy_row.get("pool_id", ""))
+		if not pool_id.is_empty():
+			pool_ids[pool_id] = true
+	for raw_pool_id: Variant in pool_ids.keys():
+		PoolManager.clear_pool(String(raw_pool_id))
+	_registered_enemy_pool_ids.clear()
+
+
+func _fail_run_start(message: String, restoring: bool) -> void:
+	push_error("[GameplayRunLoop] %s" % message)
+	if restoring:
+		restore_failed.emit()
 
 
 func _create_hazard_node() -> Node:
@@ -2368,9 +2487,12 @@ func _load_enemy_ai_profiles() -> Dictionary:
 	return result
 
 
-func _load_enemy_rows(ai_profiles: Dictionary) -> Dictionary:
+func _load_enemy_rows(
+	ai_profiles: Dictionary,
+	enemy_csv_rows: Array[Dictionary]
+) -> Dictionary:
 	var result: Dictionary = {}
-	for row: Dictionary in DataLoader.load_csv(DataLoader.ENEMIES_PATH):
+	for row: Dictionary in enemy_csv_rows:
 		var requested_id: String = String(row.get("id", ""))
 		if requested_id.is_empty():
 			continue
@@ -2379,6 +2501,8 @@ func _load_enemy_rows(ai_profiles: Dictionary) -> Dictionary:
 			"id": requested_id,
 			"tags": _parse_tag_list(row.get("tags")),
 			"pool_id": String(row.get("pool_id", "")),
+			"scene_path": String(row.get("scene_path", "")),
+			"pool_prewarm": String(row.get("pool_prewarm", "0")).to_int(),
 			"ai_profile_id": ai_profile_id,
 			"ai_profile": ai_profiles.get(ai_profile_id, {}),
 			"max_hp": String(row.get("max_hp", "1")).to_int(),
@@ -2388,7 +2512,6 @@ func _load_enemy_rows(ai_profiles: Dictionary) -> Dictionary:
 			"exp_reward": String(row.get("exp_reward", "0")).to_int(),
 			"hit_radius": String(row.get("hit_radius", "1.0")).to_float(),
 			"separation_radius": String(row.get("separation_radius", "0.0")).to_float(),
-			"visual_color": String(row.get("visual_color", "#ff6152")),
 		}
 	return result
 

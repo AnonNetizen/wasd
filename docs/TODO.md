@@ -88,7 +88,7 @@
 - [x] 正式项目 F9.1 小内容首片：新增慢速高血量 `enemy_bulwark`、55 秒后中段刷怪波次、`growth_move_speed_small` / `growth_max_hp_small` 两个三级 `stat_modifier` 升级候选和双语文案；四条 golden replay 仅更新 data fingerprint 并通过 runtime summary rerun，`perf-probe` 仍 pass。
 - [x] 正式项目 F9.2 自动化 Demo 前置探针：新增 `f9-demo-smoke` bridge 命令，headless 快进到 55 秒后确认 `enemy_bulwark` / `wave_standard_mid_bulwarks` 出现，覆盖 run snapshot / SaveManager roundtrip、三级成长候选加载和死亡结算记忆余烬链路；人工手感试玩仍待执行。
 - [x] 正式项目 F9.2 手动 Demo 试玩 / 手感复核：用户试玩 F9.1 内容后反馈没有问题，因此未改 `enemy_bulwark` / 波次 / 三级成长候选数值。
-- [x] 正式项目 F9.3 首个表现占位切片：所有敌人占位三角统一增加暗色轮廓和眼睛描边，提升混战中轮廓可读性；仍使用 `enemies.csv.visual_color` 填充色且不按敌人 id 分支。
+- [x] 正式项目 F9.3 首个表现占位切片（历史）：所有敌人占位三角统一增加暗色轮廓和眼睛描边；ADR #155 后 `visual_color` 已从 CSV 删除，当前颜色与归一化轮廓由敌人专属继承 TSCN 管理。
 - [x] 正式项目 F9.3 Demo 音频 cue 计划：`docs/代码/audio_manager.md` 已记录 `sfx_player_shoot`、玩家受伤、敌人命中 / 死亡、拾取、UI 点击 / 升级和 run / boss BGM 的占位 id 计划及接入顺序；具体 cue id 不写入前缀契约表，后续播放必须走 `AudioManager`。
 - [x] 正式项目 F9.3 无音频资源视觉反馈切片：在暂无临时音频资源时，先给子弹和经验球补统一暗色轮廓，使敌人 / 子弹 / 拾取三类核心实体的占位读法一致。
 - [x] 正式项目 F9.3 反馈颜色与时长一致性切片：玩家补暗色轮廓并改为 0.16 秒红色受伤闪，敌人命中为 0.16 秒暖白闪、死亡为 0.18 秒橙色放大淡出，升级 HUD 获得提示改为金色文字、暗色阴影和 1.35 秒淡出。

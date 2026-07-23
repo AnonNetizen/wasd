@@ -108,6 +108,10 @@ def main() -> int:
         "module-json-editor-smoke",
         help="Run isolated Module JSON document editing regressions in headless Godot.",
     )
+    subparsers.add_parser(
+        "actor-scene-smoke",
+        help="Validate inherited character/enemy scenes and dedicated enemy pools.",
+    )
 
     args = parser.parse_args()
     project = Path(args.project).resolve()
@@ -160,6 +164,22 @@ def main() -> int:
                 str(project),
                 "--script",
                 "res://addons/module_authoring/module_json_document_self_test.gd",
+            ],
+            cwd=project,
+            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
+        )
+    if args.command == "actor-scene-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        return _run_command(
+            [
+                str(godot),
+                "--headless",
+                "--path",
+                str(project),
+                "--",
+                "--actor-scene-smoke",
             ],
             cwd=project,
             failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),

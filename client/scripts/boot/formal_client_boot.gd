@@ -5,6 +5,8 @@ extends Node
 
 
 const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
+const ACTOR_SCENE_SMOKE_RUNNER := preload("res://tools/actor_scene_smoke.gd")
+const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const DEBUG_CONSOLE_SCRIPT_PATH: String = "res://scripts/debug/debug_console.gd"
 const DEBUG_TOOLS_SMOKE_RUNNER := preload("res://tools/debug_tools_smoke.gd")
 const F9_DEMO_SMOKE_RUNNER := preload("res://tools/f9_demo_smoke.gd")
@@ -98,7 +100,11 @@ func _ready() -> void:
 		RNG.run_seed(),
 	])
 
-	if _is_l1_smoke_enabled():
+	if _is_actor_scene_smoke_enabled():
+		var actor_scene_smoke_runner: Node = ACTOR_SCENE_SMOKE_RUNNER.new()
+		actor_scene_smoke_runner.name = "ActorSceneSmoke"
+		add_child(actor_scene_smoke_runner)
+	elif _is_l1_smoke_enabled():
 		var l1_smoke_runner: Node = L1_SMOKE_RUNNER.new()
 		l1_smoke_runner.name = "L1Smoke"
 		add_child(l1_smoke_runner)
@@ -205,6 +211,10 @@ func _is_runtime_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--runtime-smoke") or OS.get_cmdline_user_args().has("--f4-smoke")
 
 
+func _is_actor_scene_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--actor-scene-smoke")
+
+
 func _is_module_world_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--module-world-smoke")
 
@@ -297,6 +307,11 @@ func _start_gameplay_run(restore_snapshot: Dictionary = {}, open_warzone: bool =
 	_clear_gameplay_runtime()
 
 	_run_loop = GAMEPLAY_RUN_LOOP_SCENE.instantiate()
+	var character_id: String = String(
+		restore_snapshot.get("character", CHARACTER_IDS.CHARACTER_DEFAULT)
+	)
+	if _run_loop.has_method("configure_character_id"):
+		_run_loop.call("configure_character_id", character_id)
 	if _module_world_technical_slice_launch and _run_loop.has_method("debug_enable_module_world_technical_slice"):
 		_run_loop.call("debug_enable_module_world_technical_slice")
 	if open_warzone and _run_loop.has_method("debug_enable_open_warzone"):
@@ -323,8 +338,10 @@ func _clear_gameplay_runtime() -> void:
 		_run_loop.queue_free()
 	_run_loop = null
 	PoolManager.clear_pool(POOL_IDS.BULLET_BASIC)
-	PoolManager.clear_pool(POOL_IDS.ENEMY_CHASER)
-	PoolManager.clear_pool(POOL_IDS.ENEMY_SWARM)
+	for enemy_row: Dictionary in DataLoader.load_csv(DataLoader.ENEMIES_PATH):
+		var pool_id: String = String(enemy_row.get("pool_id", ""))
+		if not pool_id.is_empty():
+			PoolManager.clear_pool(pool_id)
 	PoolManager.clear_pool(POOL_IDS.HAZARD_SPIKE)
 	PoolManager.clear_pool(POOL_IDS.HIT_SPARK)
 	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
