@@ -6,6 +6,8 @@ extends CanvasLayer
 
 signal closed_requested()
 
+const GEAR_MOD_EMPTY_ROW_SCENE: PackedScene = preload("res://scenes/ui/gear_mod_empty_row.tscn")
+const GEAR_MOD_ROW_SCENE: PackedScene = preload("res://scenes/ui/gear_mod_row.tscn")
 const GEAR_MOD_RESOURCES := preload("res://scripts/contracts/gear_mod_resources.gd")
 const GEAR_MOD_SLOTS := preload("res://scripts/contracts/gear_mod_slots.gd")
 
@@ -151,17 +153,18 @@ func _refresh_mod_list() -> void:
 		if String(summary.get("slot", "")) != _active_slot:
 			continue
 		_summaries.append(summary)
-		_mod_list.add_child(_make_mod_row(summary))
+		var row: Control = _make_mod_row(summary)
+		if row != null:
+			_mod_list.add_child(row)
 
 	if _summaries.is_empty():
 		_selected_instance_id = ""
-		var empty_label: Label = Label.new()
+		var empty_label: Label = GEAR_MOD_EMPTY_ROW_SCENE.instantiate() as Label
+		if empty_label == null:
+			push_error("[GearModPanel] failed to instantiate empty row template")
+			return
 		empty_label.name = "GearModEmptyLabel"
-		empty_label.process_mode = Node.PROCESS_MODE_ALWAYS
 		empty_label.text = tr("ui_gear_mod_empty")
-		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		empty_label.custom_minimum_size = Vector2(0.0, ROW_MIN_HEIGHT)
 		_mod_list.add_child(empty_label)
 		return
 
@@ -171,12 +174,12 @@ func _refresh_mod_list() -> void:
 
 func _make_mod_row(summary: Dictionary) -> Control:
 	var instance_id: String = String(summary.get("instance_id", ""))
-	var row: Button = Button.new()
+	var row: Button = GEAR_MOD_ROW_SCENE.instantiate() as Button
+	if row == null:
+		push_error("[GearModPanel] failed to instantiate mod row template")
+		return null
 	row.name = "GearModRow_%s" % instance_id
-	row.process_mode = Node.PROCESS_MODE_ALWAYS
-	row.mouse_filter = Control.MOUSE_FILTER_STOP
 	row.custom_minimum_size = Vector2(0.0, ROW_MIN_HEIGHT)
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.text = _row_text(summary)
 	row.tooltip_text = tr(String(summary.get("desc_key", "")))
 	row.add_theme_stylebox_override("normal", _make_row_stylebox(summary))

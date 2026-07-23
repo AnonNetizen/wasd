@@ -4,9 +4,6 @@ class_name MapManager
 extends Node2D
 
 
-const BOUNDS_COLOR: Color = Color(0.48, 0.62, 0.70, 0.62)
-const BOUNDS_FILL_COLOR: Color = Color(0.08, 0.10, 0.11, 0.12)
-const BOUNDS_WIDTH: float = 4.0
 const DEFAULT_BOUNDS_SIZE: Vector2 = Vector2(4000.0, 2400.0)
 const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 160.0)
 const DIRECTOR_SOURCE: String = "director"
@@ -15,10 +12,15 @@ const MANUAL_SOURCE: String = "manual"
 const PCG_SOURCE: String = "pcg"
 const PLACEMENT_BLOCKER_RADIUS_KEY: String = "spacing_radius"
 const PLACEMENT_ATTEMPTS_PER_HAZARD: int = 32
-const SAFE_ZONE_FILL_COLOR: Color = Color(0.24, 0.72, 0.56, 0.10)
-const SAFE_ZONE_RING_COLOR: Color = Color(0.40, 0.78, 0.66, 0.38)
-const SAFE_ZONE_WIDTH: float = 2.0
 const SPAWN_EDGE_PADDING: float = 16.0
+
+@export_group("Visual Style")
+@export var bounds_color: Color = Color(0.48, 0.62, 0.70, 0.62)
+@export var bounds_fill_color: Color = Color(0.08, 0.10, 0.11, 0.12)
+@export_range(0.5, 12.0, 0.1) var bounds_width: float = 4.0
+@export var safe_zone_fill_color: Color = Color(0.24, 0.72, 0.56, 0.10)
+@export var safe_zone_ring_color: Color = Color(0.40, 0.78, 0.66, 0.38)
+@export_range(0.5, 12.0, 0.1) var safe_zone_width: float = 2.0
 
 var _bounds: Rect2 = Rect2(-DEFAULT_BOUNDS_SIZE * 0.5, DEFAULT_BOUNDS_SIZE)
 var _enemy_spawn_margin: float = 128.0
@@ -163,12 +165,12 @@ func debug_summary() -> Dictionary:
 
 func _draw() -> void:
 	var points: PackedVector2Array = _boundary_points()
-	draw_colored_polygon(points, BOUNDS_FILL_COLOR)
-	_draw_polygon_outline(points, BOUNDS_COLOR, BOUNDS_WIDTH)
+	draw_colored_polygon(points, bounds_fill_color)
+	_draw_polygon_outline(points, bounds_color, bounds_width)
 	if _safe_radius > 0.0:
 		var safe_points: PackedVector2Array = _safe_zone_points()
-		draw_colored_polygon(safe_points, SAFE_ZONE_FILL_COLOR)
-		_draw_polygon_outline(safe_points, SAFE_ZONE_RING_COLOR, SAFE_ZONE_WIDTH)
+		draw_colored_polygon(safe_points, safe_zone_fill_color)
+		_draw_polygon_outline(safe_points, safe_zone_ring_color, safe_zone_width)
 
 
 func _parse_bounds(raw_value: Variant) -> Rect2:

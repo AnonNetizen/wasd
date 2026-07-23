@@ -11,16 +11,15 @@ const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 const DRAW_RADIUS: float = 12.0
-const FACING_MARKER_LENGTH: float = 22.0
 const HIT_FLASH_DURATION: float = 0.16
 const MOUSE_AIM_MIN_DISTANCE_SQUARED: float = 16.0
-const PLACEHOLDER_FILL_COLOR: Color = Color(0.35, 0.72, 1.0)
-const PLACEHOLDER_HURT_COLOR: Color = Color(1.0, 0.34, 0.30)
-const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
-const PLACEHOLDER_OUTLINE_SCALE: float = 1.18
 const ACTIVE_PLAYER_GROUP: String = "active_player"
 const INPUT_PARTICIPANT_ID: String = "player_0"
 const TEAM_PLAYER: String = "team_player"
+
+@export_group("Visual Style")
+@export var fill_color: Color = Color(0.35, 0.72, 1.0)
+@export var hurt_flash_color: Color = Color(1.0, 0.34, 0.30)
 
 var aim_direction: Vector2 = Vector2.RIGHT
 var _base_stats: Dictionary = {}
@@ -41,11 +40,13 @@ var _separation_radius: float = 0.0
 var _stat_additions: Dictionary = {}
 var _stat_multipliers: Dictionary = {}
 var _status_effect_component: Node = null
+var _body_visual: Polygon2D = null
+var _direction_visual: Node2D = null
 
 
 func _ready() -> void:
 	_ensure_status_effect_component()
-	queue_redraw()
+	_refresh_visuals()
 
 
 func _physics_process(delta: float) -> void:
@@ -102,7 +103,7 @@ func debug_heal(amount: float) -> Dictionary:
 	var previous_life: float = _life_points
 	_life_points = minf(_life_points + maxf(amount, 0.0), _max_life)
 	life_changed.emit(_life_points, _max_life)
-	queue_redraw()
+	_refresh_visuals()
 	return {
 		"life": _life_points,
 		"max_life": _max_life,
@@ -115,7 +116,7 @@ func debug_set_life(life_points: float) -> Dictionary:
 	var was_alive: bool = _life_points > 0.0
 	_life_points = clampf(life_points, 0.0, _max_life)
 	life_changed.emit(_life_points, _max_life)
-	queue_redraw()
+	_refresh_visuals()
 	if was_alive and _life_points <= 0.0:
 		died.emit()
 	return {
@@ -248,7 +249,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_restore_status_snapshot(snapshot_data)
 	_apply_movement_bounds()
 	life_changed.emit(_life_points, _max_life)
-	queue_redraw()
+	_refresh_visuals()
 
 
 func receive_damage(info: RefCounted) -> Dictionary:
@@ -277,27 +278,9 @@ func receive_damage(info: RefCounted) -> Dictionary:
 	}
 
 
-func _draw() -> void:
-	var body_color: Color = PLACEHOLDER_HURT_COLOR if _hit_flash_remaining > 0.0 else PLACEHOLDER_FILL_COLOR
-	var facing_direction: Vector2 = aim_direction.normalized()
-	var marker_tip: Vector2 = facing_direction * FACING_MARKER_LENGTH
-	var marker_tail: Vector2 = marker_tip - facing_direction * 8.0
-	var marker_side: Vector2 = facing_direction.orthogonal() * 5.0
-	var eye_offset: Vector2 = facing_direction * DRAW_RADIUS * 0.38 + marker_side * 0.25
-	draw_circle(Vector2.ZERO, DRAW_RADIUS * PLACEHOLDER_OUTLINE_SCALE, PLACEHOLDER_OUTLINE_COLOR)
-	draw_circle(Vector2.ZERO, DRAW_RADIUS, body_color)
-	draw_circle(eye_offset, 2.0, Color.WHITE)
-	draw_line(Vector2.ZERO, marker_tip, Color.WHITE, 3.0)
-	draw_colored_polygon(PackedVector2Array([
-		marker_tip,
-		marker_tail + marker_side,
-		marker_tail - marker_side,
-	]), Color.WHITE)
-
-
 func _start_hit_flash() -> void:
 	_hit_flash_remaining = HIT_FLASH_DURATION
-	queue_redraw()
+	_refresh_visuals()
 
 
 func _start_invulnerability() -> void:
@@ -308,7 +291,7 @@ func _update_hit_flash(delta: float) -> void:
 	if _hit_flash_remaining <= 0.0:
 		return
 	_hit_flash_remaining = maxf(_hit_flash_remaining - delta, 0.0)
-	queue_redraw()
+	_refresh_visuals()
 
 
 func _update_invulnerability(delta: float) -> void:
@@ -352,7 +335,18 @@ func _set_aim_direction(raw_direction: Vector2) -> void:
 	var previous_direction: Vector2 = aim_direction
 	aim_direction = next_direction
 	if previous_direction.distance_squared_to(aim_direction) > 0.0001:
-		queue_redraw()
+		_refresh_visuals()
+
+
+func _refresh_visuals() -> void:
+	if _body_visual == null:
+		_body_visual = get_node_or_null("Visual/Body") as Polygon2D
+	if _direction_visual == null:
+		_direction_visual = get_node_or_null("Visual/Direction") as Node2D
+	if _body_visual != null:
+		_body_visual.color = hurt_flash_color if _hit_flash_remaining > 0.0 else fill_color
+	if _direction_visual != null:
+		_direction_visual.rotation = aim_direction.angle()
 
 
 func _set_pointer_aim_from_viewport_position(viewport_position: Vector2) -> void:

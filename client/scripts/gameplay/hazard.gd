@@ -6,17 +6,19 @@ extends Node2D
 
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 
-const ACTIVE_FILL_COLOR: Color = Color(1.0, 0.42, 0.24, 0.34)
-const ACTIVE_RING_COLOR: Color = Color(1.0, 0.72, 0.32, 0.88)
-const IDLE_FILL_COLOR: Color = Color(0.34, 0.58, 0.78, 0.16)
-const IDLE_RING_COLOR: Color = Color(0.65, 0.84, 0.94, 0.78)
-const CENTER_RECT_SCALE: float = 0.16
 const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 160.0)
-const INNER_RECT_SCALE: float = 0.58
-const INNER_RING_WIDTH: float = 1.5
-const RING_WIDTH: float = 3.0
 const TEAM_ENEMY: String = "team_enemy"
 const TEAM_PLAYER: String = "team_player"
+
+@export_group("Visual Style")
+@export var active_fill_color: Color = Color(1.0, 0.42, 0.24, 0.34)
+@export var active_ring_color: Color = Color(1.0, 0.72, 0.32, 0.88)
+@export var idle_fill_color: Color = Color(0.34, 0.58, 0.78, 0.16)
+@export var idle_ring_color: Color = Color(0.65, 0.84, 0.94, 0.78)
+@export_range(0.5, 8.0, 0.1) var ring_width: float = 3.0
+@export_range(0.5, 8.0, 0.1) var inner_ring_width: float = 1.5
+@export_range(0.1, 0.95, 0.01) var inner_rect_scale: float = 0.58
+@export_range(0.05, 0.5, 0.01) var center_rect_scale: float = 0.16
 
 var _active_remaining: float = 0.0
 var _cooldown_remaining: float = 0.0
@@ -102,14 +104,14 @@ func _pool_release() -> void:
 
 func _draw() -> void:
 	var half_extents: Vector2 = _half_extents()
-	var fill_color: Color = ACTIVE_FILL_COLOR if _active_remaining > 0.0 else IDLE_FILL_COLOR
-	var ring_color: Color = ACTIVE_RING_COLOR if _active_remaining > 0.0 else IDLE_RING_COLOR
+	var fill_color: Color = active_fill_color if _active_remaining > 0.0 else idle_fill_color
+	var ring_color: Color = active_ring_color if _active_remaining > 0.0 else idle_ring_color
 	var outer_points: PackedVector2Array = _rect_points(half_extents)
-	var inner_points: PackedVector2Array = _rect_points(half_extents * INNER_RECT_SCALE)
-	var center_points: PackedVector2Array = _rect_points(half_extents * CENTER_RECT_SCALE)
+	var inner_points: PackedVector2Array = _rect_points(half_extents * inner_rect_scale)
+	var center_points: PackedVector2Array = _rect_points(half_extents * center_rect_scale)
 	draw_colored_polygon(outer_points, fill_color)
-	_draw_outline(outer_points, ring_color, RING_WIDTH)
-	_draw_outline(inner_points, ring_color, INNER_RING_WIDTH)
+	_draw_outline(outer_points, ring_color, ring_width)
+	_draw_outline(inner_points, ring_color, inner_ring_width)
 	draw_colored_polygon(center_points, ring_color)
 
 

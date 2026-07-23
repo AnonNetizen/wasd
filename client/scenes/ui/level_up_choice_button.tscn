@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[node name="LevelUpChoiceButton" type="Button"]
+custom_minimum_size = Vector2(520, 56)
+process_mode = 3
+mouse_filter = 0
+size_flags_horizontal = 3
+text_overrun_behavior = 3

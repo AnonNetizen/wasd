@@ -5,11 +5,10 @@ extends Node2D
 
 
 const DURATION: float = 0.16
-const LINE_COLOR: Color = Color(1.0, 0.88, 0.34, 0.95)
-const OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.78)
 const RAY_COUNT: int = 6
 
 var _remaining: float = 0.0
+var _visual: Node2D = null
 
 
 func _process(delta: float) -> void:
@@ -19,14 +18,14 @@ func _process(delta: float) -> void:
 	if _remaining <= 0.0:
 		PoolManager.release(self)
 		return
-	queue_redraw()
+	_refresh_visuals()
 
 
 func configure(spawn_position: Vector2) -> void:
 	global_position = spawn_position
 	_remaining = DURATION
 	visible = true
-	queue_redraw()
+	_refresh_visuals()
 
 
 func _pool_reset() -> void:
@@ -34,29 +33,47 @@ func _pool_reset() -> void:
 	rotation = 0.0
 	scale = Vector2.ONE
 	visible = true
-	queue_redraw()
+	_refresh_visuals()
 
 
 func _pool_release() -> void:
 	_remaining = 0.0
 	visible = false
+	if _visual != null:
+		_visual.hide()
 
 
-func _draw() -> void:
+func _refresh_visuals() -> void:
+	if _visual == null:
+		_visual = get_node_or_null("Visual") as Node2D
+	if _visual == null:
+		return
+	_visual.visible = _remaining > 0.0
 	if _remaining <= 0.0:
 		return
 	var elapsed_ratio: float = 1.0 - (_remaining / DURATION)
 	var alpha: float = 1.0 - elapsed_ratio
 	var inner_radius: float = lerpf(2.0, 5.0, elapsed_ratio)
 	var outer_radius: float = lerpf(7.0, 16.0, elapsed_ratio)
-	var line_color: Color = LINE_COLOR
-	line_color.a *= alpha
-	var outline_color: Color = OUTLINE_COLOR
-	outline_color.a *= alpha
+	_visual.modulate = Color(1.0, 1.0, 1.0, alpha)
 	for index: int in range(RAY_COUNT):
-		var direction: Vector2 = Vector2.RIGHT.rotated(TAU * float(index) / float(RAY_COUNT))
-		var start: Vector2 = direction * inner_radius
-		var end: Vector2 = direction * outer_radius
-		draw_line(start, end, outline_color, 4.0)
-		draw_line(start, end, line_color, 2.0)
-	draw_arc(Vector2.ZERO, inner_radius + 2.0, 0.0, TAU, 18, line_color, 1.5)
+		var ray: Node2D = _visual.get_node_or_null("Rays/Ray%02d" % index) as Node2D
+		if ray == null:
+			continue
+		var ray_points := PackedVector2Array([Vector2(inner_radius, 0.0), Vector2(outer_radius, 0.0)])
+		var outline: Line2D = ray.get_node_or_null("Outline") as Line2D
+		var fill: Line2D = ray.get_node_or_null("Fill") as Line2D
+		if outline != null:
+			outline.points = ray_points
+		if fill != null:
+			fill.points = ray_points
+	var ring: Line2D = _visual.get_node_or_null("Ring") as Line2D
+	if ring != null:
+		ring.points = _circle_points(inner_radius + 2.0, 18)
+
+
+func _circle_points(radius: float, point_count: int) -> PackedVector2Array:
+	var result := PackedVector2Array()
+	for index: int in range(point_count):
+		result.append(Vector2.RIGHT.rotated(TAU * float(index) / float(point_count)) * radius)
+	return result

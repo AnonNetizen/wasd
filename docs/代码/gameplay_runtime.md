@@ -41,12 +41,13 @@
 |------|------|
 | `client/scripts/boot/formal_client_boot.gd` | 数据校验通过后挂载 gameplay runtime |
 | `client/scenes/gameplay/gameplay_run_loop.tscn` | 正式 gameplay runtime 场景；包含 `ActiveWorld`、`WorldBackground`、`Player` 和 `GameplayHud` |
-| `client/scenes/gameplay/player.tscn` | 正式玩家场景；包含 `GameplayCameraController` 与 `WeaponSystem`，不挂 3D 正交视觉层 |
+| `client/scenes/gameplay/player.tscn` | 正式玩家场景；包含 `GameplayCameraController`、`WeaponSystem`、`StatusEffectComponent` 与由 `Polygon2D` / `Line2D` 组成的可编辑占位视觉，不挂 3D 正交视觉层 |
 | `client/scenes/gameplay/gameplay_camera_controller.tscn` / `client/scripts/gameplay/gameplay_camera_controller.gd` | 稳定摄像机场景与类型化门面；管理 `Camera2D` + Phantom Camera host / player PCam / 受伤 noise emitter，读 `camera_feedback.json` 并响应 `gameplay.screen_shake` |
-| `client/scenes/gameplay/bullet.tscn` / `enemy.tscn` / `pickup_orb.tscn` / `hit_spark.tscn` / `damage_number.tscn` / `hazard.tscn` | 对象池实体场景；由 `PoolManager` 工厂实例化并复用 |
+| `client/scenes/gameplay/bullet.tscn` / `enemy.tscn` / `pickup_orb.tscn` / `hit_spark.tscn` / `damage_number.tscn` / `hazard.tscn` | 对象池实体场景；由 `PoolManager` 工厂实例化并复用。玩家、敌人、子弹、掉落与命中特效的静态占位表现由可编辑 `Polygon2D` / `Line2D` 子节点承载，不再走实体 `_draw()` |
 | `client/scenes/gameplay/interest_point_target.tscn` / `client/scripts/gameplay/interest_point_target.gd` | F12 低频兴趣点目标：精英巢点和小巢核可伤害占位；视觉 footprint 对齐地图矩形格，摧毁后通过 signal 触发通用兴趣点奖励 |
 | `client/scenes/gameplay/interest_point_cache.tscn` / `client/scripts/gameplay/interest_point_cache.gd` | F12 低频缓存箱：资源缓存 / Mod 缓存可见交互占位；矩形 footprint 对齐地图矩形格，主体是低矮俯视箱体，功能色只作为小嵌片，渲染在地图背景之上、机关 / 敌人 / 玩家之下，打开后保留已开启状态 |
 | `client/scenes/ui/title_menu.tscn` / `gear_mod_panel.tscn` / `pause_menu.tscn` / `settings_panel.tscn` / `game_over_panel.tscn` / `level_up_panel.tscn` | 正式 UI 场景；脚本只绑定稳定节点、连接 signal 和刷新数据 |
+| `client/scenes/ui/stats_row.tscn` / `level_up_choice_button.tscn` / `gear_mod_row.tscn` / `gear_mod_empty_row.tscn` / `input_binding_row.tscn` | 数据驱动重复 UI 的可编辑行模板；运行时允许实例化模板并填入文本 / signal，不允许逐个 `Label.new()` / `Button.new()` 拼装长期行结构 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 正式运行时编排、输入 action 手柄兜底注册、对象池注册、刷怪和重开 |
 | `client/scripts/gameplay/module_world_manager.gd` | F13 模块世界协调器（非 autoload）：按 run seed 组合 81 个槽位、维护地图 hash / 迷雾 / 动态槽位状态，并只激活玩家周围最多 3×3 chunk。详见 `docs/代码/module_world_manager.md` |
 | `client/scenes/gameplay/module_chunk.tscn` / `client/scripts/gameplay/module_chunk.gd` | 三层 TileMapLayer 与合并碰撞的可复用场景；激活时应用 `ModuleBakedData`，不逐格绘制、建 Node 或重算碰撞 |
@@ -55,7 +56,7 @@
 | `client/tools/module_world_smoke.gd` | 覆盖 seed assignment/hash、无缝跨模块、最多 9 个活跃 chunk、离开返回不重复生成、迷雾、目标后撤离及 run v4 恢复 |
 | `client/scripts/gameplay/world_background.gd` | 量化矩形地图格背景；读取 `MapManager.grid_cell_size()`，让背景格、机关绘制和触发判定共享同一份地图度量，不改变世界坐标或相机缩放 |
 | `client/scripts/gameplay/map_manager.gd` | 有限地图边界、PCG 机关摆放、人工摆点、刷怪位置 clamp 和地图快照 |
-| `client/scripts/gameplay/player.gd` | 玩家移动、鼠标相对玩家 / 视口中心方向瞄准、方向键 / 手柄兜底瞄准、2D 俯视占位按完整 `aim_direction` 绘制朝向标记、相机居中、受伤 / 死亡；提供少量受控 debug 生命 API 给 GM 命令调用 |
+| `client/scripts/gameplay/player.gd` | 玩家移动、鼠标相对玩家 / 视口中心方向瞄准、方向键 / 手柄兜底瞄准、驱动场景内 2D 俯视视觉的朝向 / 受击状态、相机居中、受伤 / 死亡；提供少量受控 debug 生命 API 给 GM 命令调用 |
 | `client/scripts/gameplay/warzone_director.gd` | F10 敌巢战区导演，解释固定阶段、巢变异主题、兴趣点和阶段启用 wave |
 | `client/scripts/gameplay/weapon_system.gd` | 起始武器按住开火、临时武器修正和子弹池获取 |
 | `client/scenes/gameplay/skill_system.tscn` / `client/scripts/gameplay/skill_system.gd` | 预置 `StatusEffectComponent` 的技能系统场景；负责主动技能释放、资源、冷却、目标筛选、效果解释和 run 快照 |
@@ -87,7 +88,7 @@
 
 ## 场景 / 节点结构
 
-Gameplay runtime 的稳定节点结构已迁入正式 `.tscn` 场景资源。脚本职责是读取数据、绑定场景节点、连接 signal 和刷新运行时状态；不再在业务脚本中临时拼出长期 UI / runtime 层级。允许动态生成的范围限于对象池工厂实例化场景、升级候选按钮、装备 Mod 列表这类数据驱动重复项。
+Gameplay runtime 的稳定节点结构已迁入正式 `.tscn` 场景资源。脚本职责是读取数据、绑定场景节点、连接 signal 和刷新运行时状态；不再在业务脚本中临时拼出长期 UI / runtime 层级。允许动态生成的范围限于对象池工厂实例化场景、`UIManager` 弹窗，以及统计、升级候选、装备 Mod、输入绑定这类数据列表实例化可编辑行模板。地图范围、机关 footprint、撤离进度和 minimap 等运行时几何仍可使用专用 `_draw()`，但其颜色、线宽、间距和标记尺寸必须通过场景导出属性人工调整。
 
 ```text
 FormalClientBoot

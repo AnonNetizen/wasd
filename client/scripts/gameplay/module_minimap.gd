@@ -5,15 +5,22 @@ extends Control
 
 
 const GRID_SIZE: int = 9
-const CELL_SIZE: float = 13.0
-const CELL_GAP: float = 2.0
-const PADDING: float = 10.0
-const UNKNOWN_COLOR: Color = Color(0.08, 0.10, 0.13, 0.88)
-const REVEALED_COLOR: Color = Color(0.30, 0.36, 0.42, 0.94)
-const CURRENT_COLOR: Color = Color(0.35, 0.86, 0.72, 1.0)
-const OBJECTIVE_COLOR: Color = Color(1.0, 0.72, 0.20, 1.0)
-const EXTRACTION_COLOR: Color = Color(0.35, 0.92, 0.70, 1.0)
-const BORDER_COLOR: Color = Color(0.68, 0.74, 0.82, 0.62)
+
+@export_group("Layout")
+@export_range(4.0, 32.0, 1.0) var cell_size: float = 13.0
+@export_range(0.0, 12.0, 0.5) var cell_gap: float = 2.0
+@export_range(0.0, 32.0, 1.0) var padding: float = 10.0
+@export_group("Visual Style")
+@export var panel_color: Color = Color(0.025, 0.035, 0.05, 0.82)
+@export var border_color: Color = Color(0.68, 0.74, 0.82, 0.62)
+@export var unknown_color: Color = Color(0.08, 0.10, 0.13, 0.88)
+@export var revealed_color: Color = Color(0.30, 0.36, 0.42, 0.94)
+@export var current_color: Color = Color(0.35, 0.86, 0.72, 1.0)
+@export var objective_color: Color = Color(1.0, 0.72, 0.20, 1.0)
+@export var extraction_color: Color = Color(0.35, 0.92, 0.70, 1.0)
+@export_range(0.5, 6.0, 0.1) var border_width: float = 1.0
+@export_range(1.0, 8.0, 0.1) var objective_marker_radius: float = 3.0
+@export_range(1.0, 8.0, 0.1) var extraction_marker_radius: float = 3.2
 
 var _visited: Dictionary = {}
 var _current: Vector2i = Vector2i(-1, -1)
@@ -24,8 +31,8 @@ var _extraction_active: bool = false
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(
-		PADDING * 2.0 + GRID_SIZE * CELL_SIZE + (GRID_SIZE - 1) * CELL_GAP,
-		PADDING * 2.0 + GRID_SIZE * CELL_SIZE + (GRID_SIZE - 1) * CELL_GAP
+		padding * 2.0 + GRID_SIZE * cell_size + (GRID_SIZE - 1) * cell_gap,
+		padding * 2.0 + GRID_SIZE * cell_size + (GRID_SIZE - 1) * cell_gap
 	)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	queue_redraw()
@@ -46,23 +53,23 @@ func configure(state: Dictionary) -> void:
 
 func _draw() -> void:
 	var panel_rect := Rect2(Vector2.ZERO, size)
-	draw_rect(panel_rect, Color(0.025, 0.035, 0.05, 0.82), true)
-	draw_rect(panel_rect, BORDER_COLOR, false, 1.0)
+	draw_rect(panel_rect, panel_color, true)
+	draw_rect(panel_rect, border_color, false, border_width)
 	for y: int in range(GRID_SIZE):
 		for x: int in range(GRID_SIZE):
 			var slot := Vector2i(x, y)
 			var cell_rect := Rect2(
-				Vector2(PADDING + x * (CELL_SIZE + CELL_GAP), PADDING + y * (CELL_SIZE + CELL_GAP)),
-				Vector2(CELL_SIZE, CELL_SIZE)
+				Vector2(padding + x * (cell_size + cell_gap), padding + y * (cell_size + cell_gap)),
+				Vector2(cell_size, cell_size)
 			)
-			var color: Color = REVEALED_COLOR if _visited.has(_slot_key(slot)) else UNKNOWN_COLOR
+			var color: Color = revealed_color if _visited.has(_slot_key(slot)) else unknown_color
 			if slot == _current:
-				color = CURRENT_COLOR
+				color = current_color
 			draw_rect(cell_rect, color, true)
 			if slot == _objective and not _extraction_active:
-				draw_circle(cell_rect.get_center(), 3.0, OBJECTIVE_COLOR)
+				draw_circle(cell_rect.get_center(), objective_marker_radius, objective_color)
 			if _extraction_active and slot == _extraction:
-				draw_circle(cell_rect.get_center(), 3.2, EXTRACTION_COLOR)
+				draw_circle(cell_rect.get_center(), extraction_marker_radius, extraction_color)
 
 
 func _slot_from_variant(value: Variant) -> Vector2i:

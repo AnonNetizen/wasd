@@ -8,6 +8,7 @@ signal choice_selected(choice: Dictionary)
 signal pause_requested()
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const LEVEL_UP_CHOICE_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/level_up_choice_button.tscn")
 const BUTTON_HEIGHT: float = 56.0
 const BUTTON_HORIZONTAL_PADDING: float = 48.0
 const PANEL_MAX_WIDTH: float = 720.0
@@ -110,11 +111,11 @@ func _refresh_buttons() -> void:
 
 	for index: int in range(_choices.size()):
 		var choice: Dictionary = _choices[index]
-		var button: Button = Button.new()
-		button.process_mode = Node.PROCESS_MODE_ALWAYS
-		button.mouse_filter = Control.MOUSE_FILTER_STOP
+		var button: Button = LEVEL_UP_CHOICE_BUTTON_SCENE.instantiate() as Button
+		if button == null:
+			push_error("[LevelUpPanel] failed to instantiate choice button template")
+			continue
 		button.custom_minimum_size = Vector2(_button_width(), BUTTON_HEIGHT)
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.text = "%s\n%s" % [tr(String(choice.get("name_key", ""))), tr(String(choice.get("desc_key", "")))]
 		button.pressed.connect(Callable(self, "_on_choice_pressed").bind(index))
 		_buttons.append(button)

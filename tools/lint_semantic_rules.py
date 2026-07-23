@@ -42,6 +42,12 @@ POOL_REGISTER_RE = re.compile(
 INSTANTIATE_CALL_RE = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\.instantiate\s*\(")
 QUEUE_FREE_CALL_RE = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\.queue_free\s*\(")
 ADD_CHILD_CALL_RE = re.compile(r"\badd_child\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\b")
+NODE_NEW_ASSIGN_RE = re.compile(
+    r"^\s*(?:var\s+)?([A-Za-z_][A-Za-z0-9_]*)"
+    r"(?:\s*:\s*([A-Z][A-Za-z0-9_]*))?\s*(?::=|=)\s*([A-Z][A-Za-z0-9_]*)\.new\s*\("
+)
+NODE_TYPED_VAR_RE = re.compile(r"^\s*var\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Z][A-Za-z0-9_]*)")
+INLINE_NODE_NEW_ADD_RE = re.compile(r"\badd_child\s*\(\s*([A-Z][A-Za-z0-9_]*)\.new\s*\(")
 
 HIGH_FREQUENCY_ENTITY_TERMS = (
     "bullet",
@@ -64,6 +70,32 @@ POPUP_UI_TERMS = (
     "result_panel",
     "settings_panel",
 )
+NODE_CLASS_NAMES = {
+    "AnimationPlayer",
+    "Area2D",
+    "Button",
+    "CanvasLayer",
+    "CheckButton",
+    "CollisionShape2D",
+    "ColorRect",
+    "Control",
+    "GridContainer",
+    "HBoxContainer",
+    "Label",
+    "Line2D",
+    "MarginContainer",
+    "Marker2D",
+    "Node",
+    "Node2D",
+    "OptionButton",
+    "PanelContainer",
+    "Polygon2D",
+    "RichTextLabel",
+    "Sprite2D",
+    "StaticBody2D",
+    "Timer",
+    "VBoxContainer",
+}
 
 
 @dataclass(frozen=True)
@@ -198,7 +230,14 @@ def _check_autoload_bypass(path: Path, lines: list[str]) -> list[AdvisoryWarning
 
 def _check_pool_ui_bypass(path: Path, lines: list[str]) -> list[AdvisoryWarning]:
     pool_factories = _registered_pool_factories(lines)
+    node_typed_vars = {
+        match.group(1)
+        for line in lines
+        if (match := NODE_TYPED_VAR_RE.match(_code_part(line))) is not None
+        and _is_node_class_name(match.group(2))
+    }
     current_func = ""
+    runtime_node_vars: set[str] = set()
     warnings: list[AdvisoryWarning] = []
 
     for line_number, line in enumerate(lines, start=1):
@@ -206,6 +245,28 @@ def _check_pool_ui_bypass(path: Path, lines: list[str]) -> list[AdvisoryWarning]
         func_match = FUNC_RE.match(code)
         if func_match is not None:
             current_func = func_match.group(1)
+            runtime_node_vars.clear()
+
+        node_new_match = NODE_NEW_ASSIGN_RE.search(code)
+        if node_new_match is not None:
+            variable_name, declared_type, constructed_type = node_new_match.groups()
+            if variable_name in node_typed_vars or _is_node_class_name(declared_type or constructed_type):
+                runtime_node_vars.add(variable_name)
+
+        inline_node_new_match = INLINE_NODE_NEW_ADD_RE.search(code)
+        if (
+            inline_node_new_match is not None
+            and current_func not in pool_factories
+            and _is_node_class_name(inline_node_new_match.group(1))
+        ):
+            warnings.append(
+                AdvisoryWarning(
+                    path,
+                    line_number,
+                    "runtime-node-construction",
+                    "long-lived gameplay/UI nodes should be authored in scenes or instantiated from editable row templates",
+                )
+            )
 
         instantiate_match = INSTANTIATE_CALL_RE.search(code)
         direct_pool_risk = (
@@ -220,6 +281,19 @@ def _check_pool_ui_bypass(path: Path, lines: list[str]) -> list[AdvisoryWarning]
         )
 
         add_child_match = ADD_CHILD_CALL_RE.search(code)
+        if (
+            add_child_match is not None
+            and add_child_match.group(1) in runtime_node_vars
+            and current_func not in pool_factories
+        ):
+            warnings.append(
+                AdvisoryWarning(
+                    path,
+                    line_number,
+                    "runtime-node-construction",
+                    "long-lived gameplay/UI nodes should be authored in scenes or instantiated from editable row templates",
+                )
+            )
         direct_add_risk = add_child_match is not None and (
             _identifier_has_term(add_child_match.group(1), HIGH_FREQUENCY_ENTITY_TERMS)
             or _identifier_has_term(add_child_match.group(1), POPUP_UI_TERMS)
@@ -252,6 +326,10 @@ def _identifier_has_term(identifier: str, terms: tuple[str, ...]) -> bool:
     snake_case = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", identifier).lower().strip("_")
     padded = f"_{snake_case}_"
     return any(f"_{term}_" in padded for term in terms)
+
+
+def _is_node_class_name(class_name: str) -> bool:
+    return class_name in NODE_CLASS_NAMES or class_name.endswith("Container")
 
 
 def _check_type_signatures(path: Path, lines: list[str]) -> list[AdvisoryWarning]:

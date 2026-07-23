@@ -5,6 +5,7 @@ extends CanvasLayer
 
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const STATS_ROW_SCENE: PackedScene = preload("res://scenes/ui/stats_row.tscn")
 const UPGRADE_FEEDBACK_DURATION: float = 1.35
 const UPGRADE_FEEDBACK_FADE_RATIO: float = 0.36
 const UPGRADE_FEEDBACK_TEXT_COLOR: Color = Color(1.0, 0.82, 0.28)
@@ -329,20 +330,21 @@ func _build_stats_panel_rows() -> void:
 		child.queue_free()
 	for row: Dictionary in STATS_PANEL_ROWS:
 		var row_key: String = String(row["key"])
-		var label: Label = Label.new()
+		var row_node: HBoxContainer = STATS_ROW_SCENE.instantiate() as HBoxContainer
+		if row_node == null:
+			push_error("[GameplayHud] failed to instantiate stats row template")
+			continue
+		row_node.name = "%sRow" % row_key.to_pascal_case()
+		var label: Label = row_node.get_node_or_null("NameLabel") as Label
+		var value_label: Label = row_node.get_node_or_null("ValueLabel") as Label
+		if label == null or value_label == null:
+			row_node.queue_free()
+			push_error("[GameplayHud] stats row template is missing labels")
+			continue
 		label.name = "%sLabel" % row_key.to_pascal_case()
-		label.custom_minimum_size = Vector2(180.0, 0.0)
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		label.theme_type_variation = "Label"
-		_stats_grid.add_child(label)
-		_stats_label_labels[row_key] = label
-
-		var value_label: Label = Label.new()
 		value_label.name = "%sValueLabel" % row_key.to_pascal_case()
-		value_label.custom_minimum_size = Vector2(150.0, 0.0)
-		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_stats_grid.add_child(value_label)
+		_stats_grid.add_child(row_node)
+		_stats_label_labels[row_key] = label
 		_stats_value_labels[row_key] = value_label
 	_refresh_stats_panel()
 

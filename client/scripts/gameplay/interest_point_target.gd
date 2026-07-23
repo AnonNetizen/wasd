@@ -8,16 +8,21 @@ signal destroyed(point_id: String)
 
 const ACTIVE_GROUP: String = "active_interest_point_targets"
 const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 160.0)
-const HIT_FLASH_COLOR: Color = Color(1.0, 0.92, 0.58)
-const INNER_RECT_SCALE: float = 0.58
-const KIND_COLORS: Dictionary = {
-	"elite_nest": Color(0.84, 0.24, 0.28),
-	"mod_cache": Color(0.34, 0.62, 1.0),
-	"minor_nest_core": Color(0.86, 0.18, 0.46),
-}
-const OUTLINE_COLOR: Color = Color(0.06, 0.045, 0.04, 0.9)
-const OUTLINE_WIDTH: float = 3.0
-const TARGET_FILL_COLOR: Color = Color(0.82, 0.78, 0.62)
+
+@export_group("Visual Style")
+@export var hit_flash_color: Color = Color(1.0, 0.92, 0.58)
+@export var elite_nest_color: Color = Color(0.84, 0.24, 0.28)
+@export var mod_cache_color: Color = Color(0.34, 0.62, 1.0)
+@export var minor_nest_core_color: Color = Color(0.86, 0.18, 0.46)
+@export var target_fill_color: Color = Color(0.82, 0.78, 0.62)
+@export var destroyed_color: Color = Color(0.2, 0.18, 0.17, 0.55)
+@export var outline_color: Color = Color(0.06, 0.045, 0.04, 0.9)
+@export var life_bar_color: Color = Color(0.92, 0.78, 0.42)
+@export_range(0.5, 8.0, 0.1) var outline_width: float = 3.0
+@export_range(1.0, 12.0, 0.5) var life_bar_height: float = 4.0
+@export_range(0.1, 0.95, 0.01) var inner_rect_scale: float = 0.58
+@export_range(0.5, 2.0, 0.05) var life_bar_width_scale: float = 1.55
+@export_range(0.0, 32.0, 1.0) var life_bar_offset: float = 10.0
 
 var _destroyed: bool = false
 var _grid_cell_size: Vector2 = DEFAULT_GRID_CELL_SIZE
@@ -109,24 +114,32 @@ func _draw() -> void:
 	var half_extents: Vector2 = _footprint_half_extents()
 	var fill: Color = _fill_color()
 	var outer_points: PackedVector2Array = _rect_points(half_extents)
-	var inner_points: PackedVector2Array = _rect_points(half_extents * INNER_RECT_SCALE)
+	var inner_points: PackedVector2Array = _rect_points(half_extents * inner_rect_scale)
 	draw_colored_polygon(outer_points, fill)
-	_draw_outline(outer_points, OUTLINE_COLOR, OUTLINE_WIDTH)
+	_draw_outline(outer_points, outline_color, outline_width)
 	draw_colored_polygon(inner_points, fill.lightened(0.26))
 	if _max_life > 0.0 and not _destroyed:
 		var ratio: float = clampf(_life_points / _max_life, 0.0, 1.0)
-		var bar_width: float = half_extents.x * 1.55
-		var bar_y: float = -half_extents.y - 10.0
-		draw_rect(Rect2(Vector2(-bar_width * 0.5, bar_y), Vector2(bar_width, 4.0)), OUTLINE_COLOR)
-		draw_rect(Rect2(Vector2(-bar_width * 0.5, bar_y), Vector2(bar_width * ratio, 4.0)), Color(0.92, 0.78, 0.42))
+		var bar_width: float = half_extents.x * life_bar_width_scale
+		var bar_y: float = -half_extents.y - life_bar_offset
+		draw_rect(Rect2(Vector2(-bar_width * 0.5, bar_y), Vector2(bar_width, life_bar_height)), outline_color)
+		draw_rect(Rect2(Vector2(-bar_width * 0.5, bar_y), Vector2(bar_width * ratio, life_bar_height)), life_bar_color)
 
 
 func _fill_color() -> Color:
 	if _destroyed:
-		return Color(0.2, 0.18, 0.17, 0.55)
+		return destroyed_color
 	if _hit_flash_remaining > 0.0:
-		return HIT_FLASH_COLOR
-	return KIND_COLORS.get(_kind, TARGET_FILL_COLOR) as Color
+		return hit_flash_color
+	match _kind:
+		"elite_nest":
+			return elite_nest_color
+		"mod_cache":
+			return mod_cache_color
+		"minor_nest_core":
+			return minor_nest_core_color
+		_:
+			return target_fill_color
 
 
 func _footprint_half_extents() -> Vector2:

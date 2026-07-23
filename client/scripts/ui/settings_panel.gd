@@ -7,6 +7,7 @@ extends CanvasLayer
 
 signal closed_requested()
 
+const INPUT_BINDING_ROW_SCENE: PackedScene = preload("res://scenes/ui/input_binding_row.tscn")
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 
 const LOCALE_OPTIONS: Array[String] = ["zh_CN", "en"]
@@ -168,27 +169,29 @@ func _rebuild_input_binding_grid() -> void:
 	_input_bindings_grid.columns = 4
 	for row: Dictionary in InputService.binding_rows():
 		var binding_id: StringName = StringName(row.get("id", &""))
-		var box: VBoxContainer = VBoxContainer.new()
-		box.custom_minimum_size = Vector2(190.0, 92.0)
-		var label: Label = Label.new()
-		box.add_child(label)
+		var box: VBoxContainer = INPUT_BINDING_ROW_SCENE.instantiate() as VBoxContainer
+		if box == null:
+			push_error("[SettingsPanel] failed to instantiate input binding row template")
+			continue
+		box.name = "%sBindingRow" % String(binding_id).to_pascal_case()
+		var label: Label = box.get_node_or_null("BindingLabel") as Label
+		var keyboard_button: Button = box.get_node_or_null("Buttons/KeyboardMouseButton") as Button
+		var gamepad_button: Button = box.get_node_or_null("Buttons/GamepadButton") as Button
+		if label == null or keyboard_button == null or gamepad_button == null:
+			box.queue_free()
+			push_error("[SettingsPanel] input binding row template is incomplete")
+			continue
 		_input_binding_labels[binding_id] = label
-		var buttons: VBoxContainer = VBoxContainer.new()
-		box.add_child(buttons)
-		if bool(row.get("keyboard_available", false)):
-			_add_binding_button(buttons, binding_id, InputService.DEVICE_KEYBOARD_MOUSE)
-		if bool(row.get("gamepad_available", false)):
-			_add_binding_button(buttons, binding_id, InputService.DEVICE_GAMEPAD)
+		_configure_binding_button(keyboard_button, binding_id, InputService.DEVICE_KEYBOARD_MOUSE, bool(row.get("keyboard_available", false)))
+		_configure_binding_button(gamepad_button, binding_id, InputService.DEVICE_GAMEPAD, bool(row.get("gamepad_available", false)))
 		_input_bindings_grid.add_child(box)
 
 
-func _add_binding_button(parent: VBoxContainer, binding_id: StringName, device_group: StringName) -> void:
-	var button: Button = Button.new()
-	button.custom_minimum_size = Vector2(190.0, 32.0)
-	button.clip_text = true
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+func _configure_binding_button(button: Button, binding_id: StringName, device_group: StringName, available: bool) -> void:
+	button.visible = available
+	if not available:
+		return
 	button.pressed.connect(_on_binding_button_pressed.bind(binding_id, device_group))
-	parent.add_child(button)
 	_input_binding_buttons[_binding_button_key(binding_id, device_group)] = button
 
 

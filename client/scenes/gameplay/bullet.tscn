@@ -4,3 +4,15 @@
 
 [node name="Bullet" type="Node2D"]
 script = ExtResource("1_bullet")
+
+[node name="Visual" type="Node2D" parent="."]
+scale = Vector2(3, 3)
+
+[node name="Outline" type="Polygon2D" parent="Visual"]
+scale = Vector2(1.45, 1.45)
+color = Color(0.07, 0.06, 0.05, 0.88)
+polygon = PackedVector2Array(1, 0, 0.924, 0.383, 0.707, 0.707, 0.383, 0.924, 0, 1, -0.383, 0.924, -0.707, 0.707, -0.924, 0.383, -1, 0, -0.924, -0.383, -0.707, -0.707, -0.383, -0.924, 0, -1, 0.383, -0.924, 0.707, -0.707, 0.924, -0.383)
+
+[node name="Body" type="Polygon2D" parent="Visual"]
+color = Color(1, 0.92, 0.35, 1)
+polygon = PackedVector2Array(1, 0, 0.924, 0.383, 0.707, 0.707, 0.383, 0.924, 0, 1, -0.383, 0.924, -0.707, 0.707, -0.924, 0.383, -1, 0, -0.924, -0.383, -0.707, -0.707, -0.383, -0.924, 0, -1, 0.383, -0.924, 0.707, -0.707, 0.924, -0.383)

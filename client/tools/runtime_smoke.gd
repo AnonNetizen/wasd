@@ -67,6 +67,8 @@ func _run() -> void:
 		return
 	_expect(player is CharacterBody2D, "Player should keep 2D CharacterBody2D movement")
 	_expect(_find_node_by_name(player, "Player3DVisual") == null, "Player should use the top-down 2D placeholder instead of a 3D orthographic visual child")
+	_expect(_find_node_by_name(player, "Visual") != null, "Player should use a scene-authored editable visual subtree")
+	_expect(_find_node_by_name(player, "FacingLine") is Line2D, "Player aim marker should be a scene-authored Line2D")
 
 	await _expect_stats_panel_hold_to_show(run_loop)
 
@@ -672,6 +674,7 @@ func _expect_bullet_hits_interest_point_target(run_loop: Node, player: Node2D) -
 	if not raw_bullet is Node2D or not raw_bullet.has_method("configure"):
 		return
 	var bullet: Node2D = raw_bullet as Node2D
+	_expect(_find_node_by_name(bullet, "Visual") != null, "pooled bullets should keep their scene-authored visual subtree")
 	bullet.global_position = target.global_position
 	var old_parent: Node = bullet.get_parent()
 	if old_parent != null:
@@ -1441,6 +1444,7 @@ func _expect_pickup_orb_draw_order(run_loop: Node, player: Node2D) -> void:
 			break
 	_expect(pickup_orb != null, "pickup orb should be active for draw-order smoke")
 	_expect(pickup_orb != null and pickup_orb.z_index < enemy.z_index, "pickup orbs should draw below enemies")
+	_expect(pickup_orb != null and _find_node_by_name(pickup_orb, "AttractRing") is Line2D, "pickup orbs should use scene-authored editable visual nodes")
 	if pickup_orb != null:
 		PoolManager.release(pickup_orb)
 	enemy.remove_from_group("active_enemies")

@@ -17,6 +17,8 @@ def main() -> int:
         ("editor tooling bypass passes", _test_editor_tooling_bypass_passes),
         ("direct pool and popup bypass warns", _test_direct_pool_and_popup_bypass_warns),
         ("registered pool factories and local nodes pass", _test_registered_pool_factories_and_local_nodes_pass),
+        ("runtime node construction warns", _test_runtime_node_construction_warns),
+        ("row template instantiation passes", _test_row_template_instantiation_passes),
         ("missing type signature warns", _test_missing_type_signature_warns),
         ("missing doc header warns", _test_missing_doc_header_warns),
         ("unknown contract constant warns", _test_unknown_contract_constant_warns),
@@ -198,6 +200,63 @@ def _test_registered_pool_factories_and_local_nodes_pass() -> None:
         _with_project_root(root)
         warnings = lint_semantic_rules.run_checks()
         assert not any(warning.rule == "autoload-bypass-pool-ui" for warning in warnings), _format(warnings)
+
+
+def _test_runtime_node_construction_warns() -> None:
+    with _temporary_project() as root:
+        _write_contract(root, "CharacterIds", {"VALUES", "CHARACTER_DEFAULT"})
+        _write_script(
+            root,
+            "gameplay/runtime_ui.gd",
+            "\n".join(
+                [
+                    "# Doc: docs/代码/runtime_ui.md",
+                    "extends Node",
+                    "",
+                    'const PANEL_SCRIPT: Script = preload("res://panel.gd")',
+                    "var _panel: Control",
+                    "",
+                    "func build_panel() -> void:",
+                    "\tvar label: Label = Label.new()",
+                    "\tadd_child(label)",
+                    "\t_panel = PANEL_SCRIPT.new()",
+                    "\tadd_child(_panel)",
+                    "",
+                ]
+            ),
+        )
+        _with_project_root(root)
+        warnings = lint_semantic_rules.run_checks()
+        runtime_warnings = [warning for warning in warnings if warning.rule == "runtime-node-construction"]
+        assert len(runtime_warnings) == 2, _format(warnings)
+
+
+def _test_row_template_instantiation_passes() -> None:
+    with _temporary_project() as root:
+        _write_contract(root, "CharacterIds", {"VALUES", "CHARACTER_DEFAULT"})
+        _write_script(
+            root,
+            "ui/data_list.gd",
+            "\n".join(
+                [
+                    "# Doc: docs/代码/data_list.md",
+                    "extends Control",
+                    "",
+                    'const ROW_SCENE: PackedScene = preload("res://row.tscn")',
+                    "",
+                    "func rebuild() -> void:",
+                    "\tvar row: Control = ROW_SCENE.instantiate() as Control",
+                    "\tadd_child(row)",
+                    "",
+                ]
+            ),
+        )
+        _with_project_root(root)
+        warnings = lint_semantic_rules.run_checks()
+        assert not any(
+            warning.rule in {"runtime-node-construction", "autoload-bypass-pool-ui"}
+            for warning in warnings
+        ), _format(warnings)
 
 
 def _test_missing_type_signature_warns() -> None:

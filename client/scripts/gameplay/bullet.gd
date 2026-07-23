@@ -7,9 +7,6 @@ extends Node2D
 const STATS := preload("res://scripts/contracts/stats.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 
-const PLACEHOLDER_FILL_COLOR: Color = Color(1.0, 0.92, 0.35)
-const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
-const PLACEHOLDER_OUTLINE_SCALE: float = 1.45
 const DAMAGE_TARGET_GROUPS: Array[String] = ["active_enemies", "active_interest_point_targets"]
 const MIN_TERRAIN_QUERY_RADIUS: float = 0.001
 const TERRAIN_COLLISION_LAYER: int = 1 << 0
@@ -33,6 +30,7 @@ var _terrain_initial_overlap_pending: bool = false
 var _travelled: float = 0.0
 var _velocity: Vector2 = Vector2.ZERO
 var _wall_pierce_enabled: bool = false
+var _visual: Node2D = null
 
 
 func _physics_process(delta: float) -> void:
@@ -79,7 +77,7 @@ func configure(stats: Dictionary, projectile: Dictionary, direction: Vector2, so
 	_travelled = 0.0
 	_velocity = direction.normalized() * float(stats.get(STATS.BULLET_SPEED, 0.0))
 	add_to_group("active_bullets")
-	queue_redraw()
+	_refresh_visuals()
 
 
 func snapshot() -> Dictionary:
@@ -120,7 +118,7 @@ func restore_snapshot(snapshot_data: Dictionary, source: Node) -> void:
 	_travelled = float(snapshot_data.get("travelled", 0.0))
 	_velocity = _dict_to_vector(snapshot_data.get("velocity", {}), Vector2.ZERO)
 	add_to_group("active_bullets")
-	queue_redraw()
+	_refresh_visuals()
 
 
 func _pool_reset() -> void:
@@ -140,18 +138,13 @@ func _pool_reset() -> void:
 	_velocity = Vector2.ZERO
 	_wall_pierce_enabled = false
 	visible = true
+	_refresh_visuals()
 
 
 func _pool_release() -> void:
 	remove_from_group("active_bullets")
 	_source = null
 	_terrain_initial_overlap_pending = false
-
-
-func _draw() -> void:
-	var radius: float = maxf(_hit_radius, 3.0)
-	draw_circle(Vector2.ZERO, radius * PLACEHOLDER_OUTLINE_SCALE, PLACEHOLDER_OUTLINE_COLOR)
-	draw_circle(Vector2.ZERO, radius, PLACEHOLDER_FILL_COLOR)
 
 
 func _prepare_terrain_query() -> void:
@@ -182,6 +175,14 @@ func _terrain_safe_fraction(step: Vector2) -> float:
 	if motion_result.size() < 2:
 		return 1.0
 	return clampf(motion_result[0], 0.0, 1.0)
+
+
+func _refresh_visuals() -> void:
+	if _visual == null:
+		_visual = get_node_or_null("Visual") as Node2D
+	if _visual != null:
+		var radius: float = maxf(_hit_radius, 3.0)
+		_visual.scale = Vector2(radius, radius)
 
 
 func _check_damage_target_hits() -> void:

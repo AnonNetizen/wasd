@@ -1,0 +1,25 @@
+[gd_scene format=3]
+
+[node name="InputBindingRow" type="VBoxContainer"]
+custom_minimum_size = Vector2(190, 92)
+theme_override_constants/separation = 4
+
+[node name="BindingLabel" type="Label" parent="."]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Buttons" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="KeyboardMouseButton" type="Button" parent="Buttons"]
+custom_minimum_size = Vector2(190, 32)
+layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="GamepadButton" type="Button" parent="Buttons"]
+custom_minimum_size = Vector2(190, 32)
+layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true

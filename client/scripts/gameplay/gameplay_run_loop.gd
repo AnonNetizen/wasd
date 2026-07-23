@@ -38,10 +38,6 @@ const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const BULLET_POOL_SIZE: int = 192
 const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 160.0)
 const ENEMY_POOL_SIZE: int = 96
-const EXTRACTION_ZONE_FILL_COLOR: Color = Color(0.18, 0.82, 0.68, 0.16)
-const EXTRACTION_ZONE_PROGRESS_COLOR: Color = Color(0.38, 0.96, 0.78, 0.35)
-const EXTRACTION_ZONE_RING_COLOR: Color = Color(0.38, 0.96, 0.78, 0.92)
-const EXTRACTION_ZONE_RING_WIDTH: float = 4.0
 const FEEDBACK_POOL_SIZE: int = 128
 const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
@@ -54,6 +50,12 @@ const UI_RESTORE_UNDERLYING_STATE: String = "underlying_state"
 const INPUT_PARTICIPANT_ID: String = "player_0"
 const DEFAULT_DEBUG_GROWTH_POOL: String = "default_level_up"
 const NAVIGATION_FLOW_OBSTACLE_BUFFER_CELLS: int = 2
+
+@export_group("Extraction Visual Style")
+@export var extraction_zone_fill_color: Color = Color(0.18, 0.82, 0.68, 0.16)
+@export var extraction_zone_progress_color: Color = Color(0.38, 0.96, 0.78, 0.35)
+@export var extraction_zone_ring_color: Color = Color(0.38, 0.96, 0.78, 0.92)
+@export_range(0.5, 12.0, 0.1) var extraction_zone_ring_width: float = 4.0
 
 var _active_world: Node2D = null
 var _camera_controller: Node2D = null
@@ -123,15 +125,15 @@ func _draw() -> void:
 		_extraction_position + Vector2(half_extents.x, half_extents.y),
 		_extraction_position + Vector2(-half_extents.x, half_extents.y),
 	])
-	draw_colored_polygon(zone_points, EXTRACTION_ZONE_FILL_COLOR)
-	_draw_polygon_outline(zone_points, EXTRACTION_ZONE_RING_COLOR, EXTRACTION_ZONE_RING_WIDTH)
+	draw_colored_polygon(zone_points, extraction_zone_fill_color)
+	_draw_polygon_outline(zone_points, extraction_zone_ring_color, extraction_zone_ring_width)
 	var progress_ratio: float = clampf(_extraction_progress / maxf(_extraction_hold_time, 0.001), 0.0, 1.0)
 	if progress_ratio > 0.0:
 		var progress_half_extents: Vector2 = half_extents * progress_ratio
 		if progress_half_extents.x >= 0.5 and progress_half_extents.y >= 0.5:
 			draw_rect(
 				Rect2(_extraction_position - progress_half_extents, progress_half_extents * 2.0),
-				EXTRACTION_ZONE_PROGRESS_COLOR,
+				extraction_zone_progress_color,
 				true
 			)
 

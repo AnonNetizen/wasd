@@ -16,10 +16,7 @@ const ACTION_STATE_CHARGE_RELEASE: String = "charge_release"
 const ACTION_STATE_CHARGE_WINDUP: String = "charge_windup"
 const ACTIVE_PLAYER_GROUP: String = "active_player"
 const DEFEAT_FEEDBACK_DURATION: float = 0.18
-const DEFEAT_FEEDBACK_COLOR: Color = Color(1.0, 0.62, 0.22)
-const EYE_OUTLINE_SCALE: float = 1.65
 const HIT_FLASH_DURATION: float = 0.16
-const HIT_FLASH_COLOR: Color = Color(1.0, 0.96, 0.74)
 const NAVIGATION_MODE_DIRECT: String = "direct"
 const NAVIGATION_MODE_FLOW_FIELD: String = "flow_field"
 const NAVIGATION_MODE_LOCAL_ASTAR: String = "local_astar"
@@ -39,11 +36,14 @@ const PERCEPTION_MEMORY: String = "memory"
 const PERCEPTION_PATH_AWARE: String = "path_aware"
 const PERCEPTION_UNAWARE: String = "unaware"
 const PERCEPTION_VISIBLE: String = "visible"
-const PLACEHOLDER_OUTLINE_COLOR: Color = Color(0.07, 0.06, 0.05, 0.88)
-const PLACEHOLDER_OUTLINE_SCALE: float = 1.14
 const SCORE_EPSILON: float = 0.001
 const TEAM_ENEMY: String = "team_enemy"
 const TEAM_PLAYER: String = "team_player"
+
+@export_group("Visual Style")
+@export var defeat_feedback_color: Color = Color(1.0, 0.62, 0.22)
+@export var hit_flash_color: Color = Color(1.0, 0.96, 0.74)
+@export_range(0.0, 1.0, 0.01) var outline_alpha: float = 0.88
 
 var _actions: Array[Dictionary] = []
 var _action_state: String = ""
@@ -90,6 +90,10 @@ var _cached_navigation_waypoint: Vector2 = Vector2.ZERO
 var _has_cached_navigation_waypoint: bool = false
 var _status_effect_component: Node = null
 var _visual_color: Color = Color(1.0, 0.38, 0.32)
+var _visual_root: Node2D = null
+var _body_visual: Polygon2D = null
+var _outline_visual: Polygon2D = null
+var _eye_outline_visual: Polygon2D = null
 
 
 func _physics_process(delta: float) -> void:
@@ -172,7 +176,7 @@ func configure(enemy_data: Dictionary, target: Node2D, navigation_provider: Node
 	_home_position = _clamp_to_movement_bounds(_home_position)
 	_apply_movement_bounds()
 	add_to_group("active_enemies")
-	queue_redraw()
+	_refresh_visuals()
 
 
 func hit_radius() -> float:
@@ -292,7 +296,7 @@ func receive_damage(info: RefCounted) -> Dictionary:
 		remove_from_group("active_enemies")
 		_defeat_feedback_remaining = DEFEAT_FEEDBACK_DURATION
 		defeated.emit(self, _exp_reward)
-		queue_redraw()
+		_refresh_visuals()
 	else:
 		_start_hit_flash()
 	return {
@@ -344,7 +348,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_restore_status_snapshot(snapshot_data)
 	if _life_points <= 0.0:
 		remove_from_group("active_enemies")
-	queue_redraw()
+	_refresh_visuals()
 
 
 func _validated_restored_action(action_id: String) -> String:
@@ -402,6 +406,7 @@ func _pool_reset() -> void:
 	_visual_color = Color(1.0, 0.38, 0.32)
 	visible = true
 	_set_collision_enabled(false)
+	_refresh_visuals()
 
 
 func _pool_release() -> void:
@@ -422,26 +427,6 @@ func _pool_release() -> void:
 	_terrain_line_of_sight = false
 	_has_cached_navigation_waypoint = false
 	_set_collision_enabled(false)
-
-
-func _draw() -> void:
-	var radius: float = maxf(_hit_radius, 8.0)
-	var color: Color = _enemy_color()
-	var visual_radius: float = radius * _defeat_scale()
-	var nose: Vector2 = Vector2(visual_radius * _facing_sign, 0.0)
-	var tail_x: float = -visual_radius * 0.75 * _facing_sign
-	var points: PackedVector2Array = PackedVector2Array([
-		nose,
-		Vector2(tail_x, -visual_radius * 0.85),
-		Vector2(tail_x, visual_radius * 0.85),
-	])
-	var outline_color: Color = _outline_color(color)
-	draw_colored_polygon(_scaled_points(points, PLACEHOLDER_OUTLINE_SCALE), outline_color)
-	draw_colored_polygon(points, color)
-	var eye_radius: float = maxf(2.0, visual_radius * 0.12)
-	var eye_position: Vector2 = Vector2(visual_radius * 0.35 * _facing_sign, -visual_radius * 0.2)
-	draw_circle(eye_position, eye_radius * EYE_OUTLINE_SCALE, outline_color)
-	draw_circle(eye_position, eye_radius, Color.WHITE)
 
 
 func _choose_action() -> void:
@@ -924,14 +909,14 @@ func _is_charge_state_active() -> bool:
 
 func _start_hit_flash() -> void:
 	_hit_flash_remaining = HIT_FLASH_DURATION
-	queue_redraw()
+	_refresh_visuals()
 
 
 func _update_hit_flash(delta: float) -> void:
 	if _hit_flash_remaining <= 0.0:
 		return
 	_hit_flash_remaining = maxf(_hit_flash_remaining - delta, 0.0)
-	queue_redraw()
+	_refresh_visuals()
 
 
 func _update_defeat_feedback(delta: float) -> void:
@@ -939,7 +924,7 @@ func _update_defeat_feedback(delta: float) -> void:
 	if _defeat_feedback_remaining <= 0.0:
 		PoolManager.release(self)
 		return
-	queue_redraw()
+	_refresh_visuals()
 
 
 func _update_facing(direction: Vector2) -> void:
@@ -949,31 +934,18 @@ func _update_facing(direction: Vector2) -> void:
 	elif direction.x < -0.01:
 		_facing_sign = -1.0
 	if not is_equal_approx(previous_sign, _facing_sign):
-		queue_redraw()
+		_refresh_visuals()
 
 
 func _enemy_color() -> Color:
 	if _defeat_feedback_remaining > 0.0:
 		var remaining_ratio: float = _defeat_feedback_remaining / DEFEAT_FEEDBACK_DURATION
-		var result: Color = DEFEAT_FEEDBACK_COLOR
+		var result: Color = defeat_feedback_color
 		result.a = remaining_ratio
 		return result
 	if _hit_flash_remaining > 0.0:
-		return HIT_FLASH_COLOR
+		return hit_flash_color
 	return _visual_color
-
-
-func _outline_color(fill_color: Color) -> Color:
-	var result: Color = PLACEHOLDER_OUTLINE_COLOR
-	result.a *= fill_color.a
-	return result
-
-
-func _scaled_points(points: PackedVector2Array, scale: float) -> PackedVector2Array:
-	var result: PackedVector2Array = PackedVector2Array()
-	for point: Vector2 in points:
-		result.append(point * scale)
-	return result
 
 
 func _defeat_scale() -> float:
@@ -981,6 +953,28 @@ func _defeat_scale() -> float:
 		return 1.0
 	var elapsed_ratio: float = 1.0 - (_defeat_feedback_remaining / DEFEAT_FEEDBACK_DURATION)
 	return lerpf(1.0, 1.35, elapsed_ratio)
+
+
+func _refresh_visuals() -> void:
+	if _visual_root == null:
+		_visual_root = get_node_or_null("Visual") as Node2D
+		_body_visual = get_node_or_null("Visual/Body") as Polygon2D
+		_outline_visual = get_node_or_null("Visual/Outline") as Polygon2D
+		_eye_outline_visual = get_node_or_null("Visual/EyeOutline") as Polygon2D
+	if _visual_root == null or _body_visual == null:
+		return
+	var radius: float = maxf(_hit_radius, 8.0) * _defeat_scale()
+	_visual_root.scale = Vector2(radius * _facing_sign, radius)
+	var color: Color = _enemy_color()
+	_body_visual.color = color
+	if _outline_visual != null:
+		var outline_color: Color = _outline_visual.color
+		outline_color.a = outline_alpha * color.a
+		_outline_visual.color = outline_color
+	if _eye_outline_visual != null:
+		var eye_outline_color: Color = _eye_outline_visual.color
+		eye_outline_color.a = outline_alpha * color.a
+		_eye_outline_visual.color = eye_outline_color
 
 
 func _check_contact() -> void:

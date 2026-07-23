@@ -5,20 +5,24 @@ extends Node2D
 
 
 const ACTIVE_GROUP: String = "active_interest_point_caches"
-const ACCENT_SCALE: float = 0.18
-const BODY_SCALE: Vector2 = Vector2(0.58, 0.58)
-const BODY_TOP_COLOR: Color = Color(0.68, 0.58, 0.42)
 const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 160.0)
-const FOOTPRINT_FILL_COLOR: Color = Color(0.10, 0.09, 0.075, 0.18)
-const FOOTPRINT_RING_COLOR: Color = Color(0.34, 0.29, 0.20, 0.44)
-const LID_LIFT_SCALE: float = 0.24
-const OUTLINE_COLOR: Color = Color(0.06, 0.045, 0.04, 0.9)
-const OUTLINE_WIDTH: float = 3.0
-const SHADOW_COLOR: Color = Color(0.02, 0.018, 0.015, 0.34)
-const KIND_COLORS: Dictionary = {
-	"mod_cache": Color(0.26, 0.56, 0.92),
-	"resource_cache": Color(0.92, 0.66, 0.24),
-}
+
+@export_group("Visual Style")
+@export var body_top_color: Color = Color(0.68, 0.58, 0.42)
+@export var footprint_fill_color: Color = Color(0.10, 0.09, 0.075, 0.18)
+@export var footprint_ring_color: Color = Color(0.34, 0.29, 0.20, 0.44)
+@export var outline_color: Color = Color(0.06, 0.045, 0.04, 0.9)
+@export var shadow_color: Color = Color(0.02, 0.018, 0.015, 0.34)
+@export var mod_cache_color: Color = Color(0.26, 0.56, 0.92)
+@export var resource_cache_color: Color = Color(0.92, 0.66, 0.24)
+@export var fallback_accent_color: Color = Color(0.76, 0.58, 0.32)
+@export_range(0.5, 8.0, 0.1) var outline_width: float = 3.0
+@export_range(0.5, 8.0, 0.1) var footprint_ring_width: float = 2.0
+@export_range(0.5, 8.0, 0.1) var opened_outline_width: float = 2.0
+@export_range(0.5, 8.0, 0.1) var accent_outline_width: float = 1.5
+@export var body_scale: Vector2 = Vector2(0.58, 0.58)
+@export_range(0.05, 0.5, 0.01) var accent_scale: float = 0.18
+@export_range(0.05, 0.5, 0.01) var lid_lift_scale: float = 0.24
 
 var _grid_cell_size: Vector2 = DEFAULT_GRID_CELL_SIZE
 var _kind: String = ""
@@ -53,9 +57,9 @@ func _draw() -> void:
 	var half_extents: Vector2 = _footprint_half_extents()
 	var footprint: PackedVector2Array = _rect_points(half_extents)
 	var shadow_points: PackedVector2Array = _rect_points(Vector2(half_extents.x * 0.62, half_extents.y * 0.62))
-	draw_colored_polygon(shadow_points, SHADOW_COLOR)
-	draw_colored_polygon(footprint, FOOTPRINT_FILL_COLOR)
-	_draw_outline(footprint, FOOTPRINT_RING_COLOR, 2.0)
+	draw_colored_polygon(shadow_points, shadow_color)
+	draw_colored_polygon(footprint, footprint_fill_color)
+	_draw_outline(footprint, footprint_ring_color, footprint_ring_width)
 	if _opened:
 		_draw_opened_cache(half_extents)
 	else:
@@ -76,32 +80,42 @@ func _rect_points(half_extents: Vector2) -> PackedVector2Array:
 
 
 func _draw_closed_cache(half_extents: Vector2) -> void:
-	var body_extents: Vector2 = Vector2(half_extents.x * BODY_SCALE.x, half_extents.y * BODY_SCALE.y)
+	var body_extents: Vector2 = Vector2(half_extents.x * body_scale.x, half_extents.y * body_scale.y)
 	var body: PackedVector2Array = _rect_points_from_center(Vector2.ZERO, body_extents)
-	draw_colored_polygon(body, BODY_TOP_COLOR)
-	_draw_outline(body, OUTLINE_COLOR, OUTLINE_WIDTH)
+	draw_colored_polygon(body, body_top_color)
+	_draw_outline(body, outline_color, outline_width)
 	_draw_cache_accent(Vector2.ZERO, body_extents)
 
 
 func _draw_opened_cache(half_extents: Vector2) -> void:
-	var body_extents: Vector2 = Vector2(half_extents.x * BODY_SCALE.x, half_extents.y * BODY_SCALE.y)
-	var lid_offset: Vector2 = Vector2(0.0, -half_extents.y * LID_LIFT_SCALE)
+	var body_extents: Vector2 = Vector2(half_extents.x * body_scale.x, half_extents.y * body_scale.y)
+	var lid_offset: Vector2 = Vector2(0.0, -half_extents.y * lid_lift_scale)
 	var base: PackedVector2Array = _rect_points_from_center(Vector2.ZERO, body_extents)
-	draw_colored_polygon(base, BODY_TOP_COLOR.darkened(0.25))
-	_draw_outline(base, OUTLINE_COLOR, 2.0)
+	draw_colored_polygon(base, body_top_color.darkened(0.25))
+	_draw_outline(base, outline_color, opened_outline_width)
 	var lid_points: PackedVector2Array = _rect_points_from_center(lid_offset, body_extents * Vector2(0.96, 0.28))
-	draw_colored_polygon(lid_points, BODY_TOP_COLOR.darkened(0.18))
-	_draw_outline(lid_points, OUTLINE_COLOR, 2.0)
+	draw_colored_polygon(lid_points, body_top_color.darkened(0.18))
+	_draw_outline(lid_points, outline_color, opened_outline_width)
 
 
 func _draw_cache_accent(top_center: Vector2, body_extents: Vector2) -> void:
-	var accent_color: Color = KIND_COLORS.get(_kind, Color(0.76, 0.58, 0.32)) as Color
+	var accent_color: Color = _accent_color()
 	var accent_points: PackedVector2Array = _rect_points_from_center(
 		top_center,
-		Vector2(body_extents.x * ACCENT_SCALE, body_extents.y * ACCENT_SCALE * 1.4)
+		Vector2(body_extents.x * accent_scale, body_extents.y * accent_scale * 1.4)
 	)
 	draw_colored_polygon(accent_points, accent_color)
-	_draw_outline(accent_points, OUTLINE_COLOR, 1.5)
+	_draw_outline(accent_points, outline_color, accent_outline_width)
+
+
+func _accent_color() -> Color:
+	match _kind:
+		"mod_cache":
+			return mod_cache_color
+		"resource_cache":
+			return resource_cache_color
+		_:
+			return fallback_accent_color
 
 
 func _rect_points_from_center(center: Vector2, half_extents: Vector2) -> PackedVector2Array:

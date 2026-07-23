@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[node name="StatsRow" type="HBoxContainer"]
+custom_minimum_size = Vector2(348, 0)
+theme_override_constants/separation = 18
+
+[node name="NameLabel" type="Label" parent="."]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 2
+
+[node name="ValueLabel" type="Label" parent="."]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 2
+autowrap_mode = 2
