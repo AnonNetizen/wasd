@@ -85,6 +85,15 @@ def main() -> int:
     subparsers.add_parser("gear-mod-smoke", help="Run the F11 Gear Mod loadout smoke in headless Godot.")
     subparsers.add_parser("save-smoke", help="Run the SaveManager run-save reliability smoke in headless Godot.")
     subparsers.add_parser("settings-smoke", help="Run the F7 Settings persistence smoke in headless Godot.")
+    module_bake_parser = subparsers.add_parser("module-bake", help="Bake editor-authored module scenes into JSON and TRES artifacts.")
+    module_bake_parser.add_argument("--scene", default=None, help="Optional res://scenes/modules/*.tscn path. Defaults to all registered modules.")
+    module_bake_parser.add_argument(
+        "--migrate-json",
+        action="store_true",
+        help="One-time conversion of registered module JSON files into authoring scenes before baking.",
+    )
+    subparsers.add_parser("module-bake-check", help="Check module bake artifacts without writing files.")
+    subparsers.add_parser("module-bake-smoke", help="Run focused module bake validation coverage in headless Godot.")
 
     args = parser.parse_args()
     project = Path(args.project).resolve()
@@ -100,6 +109,39 @@ def main() -> int:
         return 1
     if args.command == "godot-version":
         return _run_command([str(godot), "--version"], cwd=ROOT)
+    if args.command in {"module-bake", "module-bake-check"}:
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        runner_script = project / "tools" / "module_bake_cli.gd"
+        if not runner_script.exists():
+            print(f"[godot-bridge] missing module bake script: {_rel(runner_script)}")
+            return 1
+        if args.command == "module-bake" and args.migrate_json:
+            import_result = _run_command(
+                [str(godot), "--headless", "--editor", "--path", str(project), "--quit-after", "300"],
+                cwd=project,
+                failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
+            )
+            if import_result != 0:
+                return import_result
+        user_args = ["--migrate-json"] if args.command == "module-bake" and args.migrate_json else [f"--{args.command}"]
+        if args.command == "module-bake" and args.scene:
+            user_args.extend(["--scene", args.scene])
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--script", "res://tools/module_bake_cli.gd", "--", *user_args],
+            cwd=project,
+            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
+        )
+    if args.command == "module-bake-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--script", "res://tools/module_bake_smoke.gd"],
+            cwd=project,
+            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
+        )
     if args.command == "startup-probe":
         return _run_startup_probe(godot, project)
     if args.command == "headless-boot":

@@ -240,6 +240,7 @@
 | #143 | 性能测试只由用户当次明确触发；`startup-probe`、`perf-probe` 和 Profiler 不进入日常修改、提交前、常规回归、默认 CI 或 AI 交付义务，现有 probe 作为按需工具保留 | 测试策略、CICD 规划、AI 导航、相关工作包 / 模块文档、current_state、项目记忆 |
 | #144 | 删除敌人种间交互生态；EnemyAI 只选择玩家，拒绝敌方友伤，保留五类对玩家 profile 与无伤害中心分离；敌人 AI / 战区导演数据升 schema v2，删除旧关系与导演敌人组合元数据，run 保持 v4 并清空旧快照非法动作 | GDD §5.3、EnemyAI / WarzoneDirector / Gameplay Runtime / DataLoader 文档、F10 工作包、数据手册、词表、测试策略、AI导航、current_state、AI记忆 |
 | #145 | F14 敌人导航与感知采用完整 99×99 静态 mask 上的确定性共享流场 + 混合感知；畅通直追、受阻绕行，感知依次使用地形视线、路径距离和 1.5 秒最后已知位置；守家 / 记忆使用 AStar waypoint，冲锋 / 远程受墙体门禁；profile 升 schema v3，run 保持 v4，F13 保持完成 | F14 工作包、GDD §5.3、EnemyAI / ModuleWorldManager / Gameplay Runtime 文档、数据手册、测试策略、AI导航、current_state、AI记忆 |
+| #153 | 模块制作从 JSON 主源改为 Godot `.tscn` 三层 TileMap + marker 主源，经确定性 bake 生成同路径 JSON 与旋转 TRES；注册表保持审核策略主源，approved 内容变化自动降 candidate 并需显式批准；运行时 9×9/11×11/160 px、九 chunk、JSON map hash、run v4 与回放契约不变 | Module Authoring Pipeline / ModuleWorldManager 文档、F13 工作包、GDD、数据手册、测试策略、AI导航、current_state、AI记忆 |
 | #146 | F14 活动目标流场从完整 99×99 Dijkstra 修正为最大视觉范围驱动的局部有界重建；当前半径 8、最多 289 格，只清理上次触达索引并使用并行数值堆；完整 mask、视线和守家 / 记忆 AStar 保持全图，run v4 与 profile schema v3 不变 | F14 工作包、GDD v1.24 §5.3、EnemyAI / ModuleWorldManager / Gameplay Runtime 文档、测试策略、AI导航、current_state、AI记忆 |
 | #147 | 正式客户端固定版本入库并共享启用 `@icons 1.4.0` 与 `Script-IDE 2.2.3`；只保留官方发布包 addon 子目录和 MIT 许可，仓库内作为不设 lint 豁免的维护型 fork，升级必须人工核对 SHA-256、审查差异并迁移本地补丁 | `client/addons/README.md`、`client/project.godot`、`client/README.md`、CREDITS / locale、AI导航、current_state、AI记忆 |
 | #148 | 正式玩家摄像机迁移到 `Phantom Camera 0.11.0.3` 固定版本维护型 fork；Player 子场景内用 GLUED PCam 保持严格居中 / 水平 / 等比缩放，有效玩家伤害按 `camera_feedback.json` 触发可关闭位移震屏，噪声走 `RNG.camera_fx`；项目固定 autoload 并保持 `physics_jitter_fix=0.5` | GDD v1.24 §5.2、`client/addons/README.md`、`docs/代码/phantom_camera.md`、Gameplay Runtime / Settings 文档、数据手册、测试策略、AI导航、current_state、AI记忆 |
@@ -257,7 +258,7 @@ F14 交付时的四条黄金回放重录与运行时摘要证据见 [2026-07-21 
 | 类型 | 路径 | 用途 |
 |------|------|------|
 | 正式项目启动模块文档 | `docs/代码/formal_client_boot.md` | 展示 F1 最小启动骨架与 gameplay runtime 挂载的职责边界、场景结构与验证方式 |
-| Gameplay Runtime 模块文档 | `docs/代码/gameplay_runtime.md` / `docs/代码/combat.md` / `docs/代码/skill_system.md` / `docs/代码/status_effect_component.md` / `docs/代码/map_manager.md` / `docs/代码/module_world_manager.md` / `docs/代码/hazard_system.md` / `docs/代码/warzone_director.md` | 展示最小可玩闭环、统一伤害入口、F13 模块世界与 F14 局部有界共享导航 / 全图 AStar / 感知、开放战区回归、对象池实体、HUD 与验证方式 |
+| Gameplay Runtime 模块文档 | `docs/代码/gameplay_runtime.md` / `docs/代码/combat.md` / `docs/代码/skill_system.md` / `docs/代码/status_effect_component.md` / `docs/代码/map_manager.md` / `docs/代码/module_world_manager.md` / `docs/代码/module_authoring_pipeline.md` / `docs/代码/hazard_system.md` / `docs/代码/warzone_director.md` | 展示最小可玩闭环、统一伤害入口、F13 模块编辑/烘焙/运行边界与 F14 导航感知、开放战区回归、对象池实体、HUD 与验证方式 |
 | Phantom Camera 模块文档 | `docs/代码/phantom_camera.md` | 展示 vendored 插件 Runtime / Resource / Editor / C# 边界、Manager / Host / PCam 生命周期、正式 2D 项目接入、本地补丁和升级验证 |
 | GUIDE / InputService 模块文档 | `docs/代码/guide.md` / `docs/代码/input_service.md` | 展示 vendored 输入引擎内部、维护补丁与升级，以及项目 action / context / intent / 重绑定 / 提示 / 回放唯一业务边界 |
 | 在线服务规划 | `docs/在线服务规划.md` | 展示未来 GodotSteam + Talo 的供应商分层、单一写入权威、托管决策、离线 / 安全边界和触发式实施阶段；不代表当前已安装 |

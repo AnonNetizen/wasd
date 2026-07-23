@@ -26,7 +26,7 @@
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
 | 改地图边界 / 矩形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是轴对齐矩形，必须分别整除 `grid.cell_width` / `grid.cell_height`；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法矩形格锚点 |
 | 改敌巢战区导演 / 阶段主题 / 兴趣点组合 | `warzone_directors.json` | 只按固定时间阶段启用 wave，不读取玩家状态、不做隐藏动态难度；匹配当前 layout 的兴趣点会生成初始 `source="director"` 机关；wave / 机关 / 地图引用必须存在 |
-| 加 / 改模块模板 | `modules/<id>.json` + `module_templates.json` | 模块固定 11×11 格；AI 默认产出 `candidate`，通过校验后仍需人工改为 `approved` 才能进入正式池 |
+| 加 / 改模块模板 | Godot 中编辑 `scenes/modules/<id>.tscn`，再运行 `module-bake` | 模块固定 11×11 格；`modules/*.json` / `resources/modules/*.tres` 是禁止手改的生成物，场景变化会降为 `candidate`，必须显式批准后才回默认池 |
 | 改 9×9 世界骨架 / 路线预算 | `module_worlds.json` | 同一世界统一格尺寸；固定起点 / 目标 / 撤离锚点，其余槽位按 `RNG.world` + run seed 组合 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
@@ -60,7 +60,7 @@
 | `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、兴趣点 / 机关组合和阶段启用 wave |
 | `module_worlds.json` | 已建立 | F13 模块世界：9×9 槽位、11×11 格、统一格尺寸、固定锚点、模板池、安全布局和技术首片 |
 | `module_templates.json` | 已建立 | 模块注册表：角色、JSON 路径、AI 来源、审核状态和可用旋转 |
-| `modules/*.json` | 已建立 | 每个模块的 11 行地形令牌、四边通道与敌人 / 机关 / 奖励 / 目标 / 撤离摆放表 |
+| `modules/*.json` | 生成文件 | 由 `scenes/modules/*.tscn` 烘焙的 11 行地形令牌、推导 socket 与 placement；路径保持稳定，禁止手改 |
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
 | `growth_pools.json` | 已建立 | 升级选项池、权重、等级条件和候选奖励边界 |
@@ -719,11 +719,11 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 
 ## `module_worlds.json` / `module_templates.json` / `modules/*.json`
 
-F13 的正式默认地图是 9×9 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` 定义世界几何、键槽、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`modules/*.json` 只表达地形和合法 primitive 摆放，不执行脚本。
+F13 的正式默认地图是 9×9 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` 定义世界几何、键槽、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`scenes/modules/*.tscn` 是布局与表现制作主源，`modules/*.json` 是烘焙生成的玩法语义，不执行脚本且禁止手改。每个模块另生成 `resources/modules/<id>.tres`，包含允许旋转的三层 TileMap pattern、预计算碰撞和 source hash。
 
 每个模块 JSON 必须包含恰好 11 行、每行 11 个 `module_cell_tokens`，并声明四边 socket 格位。相邻模块旋转后的 socket 必须完全匹配，外圈不得越界开口。只允许 0/90/180/270° 旋转，不允许镜像。`module_place_enemy_spawn` 的 `cell` / `footprint` 必须全部落在 `module_cell_floor` 上；DataLoader 与 Python 校验器都会拒绝封锁格出生点，运行时也会拒绝生成或恢复到封锁格的模块敌人。
 
-AI 产出新模块时必须先登记为 `candidate`。通过 schema、占位、通道、全局可达性、安全区和内容预算校验后，仍需人工将注册表状态改为 `approved`。默认模板池只能引用 `approved`；模板复用时，运行状态按世界槽位保存，不按模板 id 共享。可视化人工编辑器不在首版范围；未来工具必须继续读写同一 JSON schema。
+AI 产出新模块时必须先创建固定节点结构的 authoring scene 并登记为 `candidate`。通过 bake、schema、占位、通道、全局可达性、安全区和内容预算校验后，仍需在 Godot 的 `Modules/Approve Current` 显式批准。任何已批准场景内容变化在普通 bake 时自动降回 candidate。默认模板池只能引用 `approved`；模板复用时，运行状态按世界槽位保存，不按模板 id 共享。完整场景结构、命令和发布排除规则见 `docs/代码/module_authoring_pipeline.md`。
 
 `module_worlds.json` 字段：
 

@@ -14,6 +14,7 @@ def main() -> int:
         ("golden semantic lint passes", _test_golden_semantic_lint_passes),
         ("special id branch warns", _test_special_id_branch_warns),
         ("business autoload bypass warns", _test_business_autoload_bypass_warns),
+        ("editor tooling bypass passes", _test_editor_tooling_bypass_passes),
         ("direct pool and popup bypass warns", _test_direct_pool_and_popup_bypass_warns),
         ("registered pool factories and local nodes pass", _test_registered_pool_factories_and_local_nodes_pass),
         ("missing type signature warns", _test_missing_type_signature_warns),
@@ -101,6 +102,30 @@ def _test_business_autoload_bypass_warns() -> None:
         _with_project_root(root)
         warnings = lint_semantic_rules.run_checks()
         assert any(warning.rule == "autoload-bypass-rng" for warning in warnings), _format(warnings)
+
+
+def _test_editor_tooling_bypass_passes() -> None:
+    with _temporary_project() as root:
+        _write_contract(root, "CharacterIds", {"VALUES", "CHARACTER_DEFAULT"})
+        _write_script(
+            root,
+            "editor/baker.gd",
+            "\n".join(
+                [
+                    "# Doc: docs/代码/module_authoring_pipeline.md",
+                    "@tool",
+                    "extends RefCounted",
+                    "",
+                    "func write_generated_file(path: String) -> void:",
+                    "\tvar file: FileAccess = FileAccess.open(path, FileAccess.WRITE)",
+                    "\tfile.store_string(\"generated\")",
+                    "",
+                ]
+            ),
+        )
+        _with_project_root(root)
+        warnings = lint_semantic_rules.run_checks()
+        assert not any(warning.rule == "autoload-bypass-save-data" for warning in warnings), _format(warnings)
 
 
 def _test_direct_pool_and_popup_bypass_warns() -> None:

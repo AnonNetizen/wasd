@@ -1068,6 +1068,20 @@
       "keywords": ["ModuleWorldManager", "ModuleNavigationField", "ModuleChunk", "TerrainCollision", "terrain bit 1", "子弹撞墙", "wall_pierce", "9x9", "11x11", "99x99", "bounded shared flow field", "radius 8", "289 cells", "Dijkstra", "AStarGrid2D", "terrain line of sight", "RNG.world", "map hash", "fog", "slot state", "run v4", "module-world-smoke"]
     },
     {
+      "path": "docs/代码/module_authoring_pipeline.md",
+      "type": "module_doc",
+      "authority": "ADR #153 module scene authoring, deterministic JSON/TRES bake, approval gate, CLI, and release exclusion contract",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-07-23",
+      "canonical_for": ["module_authoring", "module_bake", "module_baked_data", "module_approval_gate", "module_release_boundary"],
+      "must_read_for": ["module_scene_change", "module_bake_change", "module_template_authoring", "module_approval_change"],
+      "related_docs": ["docs/AI协作/工作包/F13-ModularGridWorld.md", "docs/代码/module_world_manager.md", "client/data/README.md", "docs/测试策略.md", "docs/决策记录.md", "docs/AI导航.md"],
+      "related_code": ["client/scenes/modules/", "client/scripts/editor/", "client/addons/module_authoring/", "client/resources/modules/", "client/tools/module_bake_cli.gd", "client/tools/module_bake_smoke.gd", "tools/godot_bridge.py"],
+      "update_triggers": ["authoring scene structure changes", "bake artifact changes", "approval gate changes", "module bake CLI changes", "release exclusion changes"],
+      "keywords": ["ModuleSceneBaker", "ModuleBakedData", "TileMapLayer", "TileMapPattern", "Bake Current", "Bake All", "Approve Current", "module-bake", "module-bake-check", "authoring scene", "candidate"]
+    },
+    {
       "path": "docs/代码/debug_tools.md",
       "type": "module_doc",
       "authority": "DebugConsole and GMCommandRegistry contract for debug/dev_tools-only commands and release guard boundaries",

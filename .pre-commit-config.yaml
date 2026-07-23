@@ -15,6 +15,13 @@ repos:
         pass_filenames: false
         always_run: true
 
+      - id: module-bake-check
+        name: Check generated module bake artifacts
+        entry: python tools/godot_bridge.py --project client module-bake-check
+        language: system
+        pass_filenames: false
+        files: ^(client/(scenes/modules/|data/modules/|resources/modules/|scripts/editor/|addons/module_authoring/|assets/placeholders/module_tiles\.svg|data/module_templates\.json)|tools/godot_bridge\.py)
+
       - id: test-data-loader-schema
         name: Run DataLoader schema regression tests
         entry: python tools/test_data_loader_schema.py
