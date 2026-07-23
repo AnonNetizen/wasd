@@ -33,6 +33,13 @@ DIRECT_RANDOM_ALLOWED = {
 DIRECT_PAUSE_ALLOWED = {
     "client/scripts/autoload/game_state.gd",
 }
+# Internal editor-only tooling is excluded from release and intentionally uses
+# Chinese labels. Keep this path allowlist narrow so runtime/player UI remains
+# subject to the locale-key rule.
+HARDCODED_CHINESE_ALLOWED = {
+    "client/addons/module_authoring/module_authoring_main_screen.gd",
+    "client/addons/module_authoring/module_json_document_self_test.gd",
+}
 
 
 @dataclass(frozen=True)
@@ -145,7 +152,7 @@ def _check_ambiguous_inference(path: Path, lines: list[str]) -> list[LintError]:
 
 
 def _check_hardcoded_chinese_strings(path: Path, lines: list[str]) -> list[LintError]:
-    if _is_relative_to(path, CONTRACTS_DIR):
+    if _is_relative_to(path, CONTRACTS_DIR) or _rel(path) in HARDCODED_CHINESE_ALLOWED:
         return []
 
     errors: list[LintError] = []

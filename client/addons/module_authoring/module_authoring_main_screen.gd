@@ -8,9 +8,12 @@ const MODULE_JSON_DOCUMENT := preload("res://scripts/editor/module_json_document
 const MODULE_JSON_CANVAS := preload("res://scripts/editor/module_json_canvas.gd")
 const MODULE_CELL_TOKENS := preload("res://scripts/contracts/module_cell_tokens.gd")
 const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placement_types.gd")
+const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
 
 const LAYER_OPTIONS: Array[String] = ["ground", "obstacles", "decoration", "placements"]
+const LAYER_LABELS: Array[String] = ["地面", "障碍", "装饰", "放置点"]
 const TOOL_OPTIONS: Array[String] = ["select", "terrain", "tile", "placement", "erase"]
+const TOOL_LABELS: Array[String] = ["选择", "编辑地形", "绘制图块", "添加放置", "擦除"]
 const ROTATION_OPTIONS: Array[int] = [0, 90, 180, 270]
 const TOOL_PANEL_WIDTH: float = 260.0
 const DETAILS_PANEL_WIDTH: float = 320.0
@@ -68,7 +71,7 @@ func _ready() -> void:
 	_document.document_saved.connect(_on_document_saved)
 	var initialize_result: Dictionary = _document.initialize()
 	if not bool(initialize_result.get("ok", false)):
-		_report_result("Initialize", initialize_result)
+		_report_result("初始化", initialize_result)
 		_set_controls_enabled(false)
 		return
 	_refresh_module_list()
@@ -88,7 +91,7 @@ func _build_ui() -> void:
 	add_child(header)
 
 	var title := Label.new()
-	title.text = "Module JSON Editor"
+	title.text = "模块 JSON 编辑器"
 	title.add_theme_font_size_override("font_size", 18)
 	header.add_child(title)
 
@@ -99,28 +102,28 @@ func _build_ui() -> void:
 	_module_combo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_module_combo.item_selected.connect(_on_module_selected)
 	module_row.add_child(_module_combo)
-	_new_button = _make_button("New", _on_new_pressed)
+	_new_button = _make_button("新建", _on_new_pressed)
 	module_row.add_child(_new_button)
-	_copy_button = _make_button("Copy", _on_copy_pressed)
+	_copy_button = _make_button("复制", _on_copy_pressed)
 	module_row.add_child(_copy_button)
 
 	var action_row := HBoxContainer.new()
 	action_row.name = "ActionToolbar"
 	header.add_child(action_row)
-	_save_button = _make_button("Save", _on_save_pressed)
+	_save_button = _make_button("保存", _on_save_pressed)
 	action_row.add_child(_save_button)
-	_reload_button = _make_button("Reload", _on_reload_pressed)
+	_reload_button = _make_button("重新加载", _on_reload_pressed)
 	action_row.add_child(_reload_button)
-	_undo_button = _make_button("Undo", _on_undo_pressed)
+	_undo_button = _make_button("撤销", _on_undo_pressed)
 	action_row.add_child(_undo_button)
-	_redo_button = _make_button("Redo", _on_redo_pressed)
+	_redo_button = _make_button("重做", _on_redo_pressed)
 	action_row.add_child(_redo_button)
 	action_row.add_child(VSeparator.new())
-	_validate_button = _make_button("Validate", _on_validate_pressed)
+	_validate_button = _make_button("校验", _on_validate_pressed)
 	action_row.add_child(_validate_button)
-	_bake_button = _make_button("Bake", _on_bake_pressed)
+	_bake_button = _make_button("烘焙", _on_bake_pressed)
 	action_row.add_child(_bake_button)
-	_approve_button = _make_button("Approve", _on_approve_pressed)
+	_approve_button = _make_button("批准", _on_approve_pressed)
 	action_row.add_child(_approve_button)
 
 	add_child(HSeparator.new())
@@ -136,6 +139,7 @@ func _build_ui() -> void:
 	workspace_split.add_child(tool_panel)
 	var tool_scroll := ScrollContainer.new()
 	tool_scroll.name = "ToolScroll"
+	tool_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	tool_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tool_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tool_panel.add_child(tool_scroll)
@@ -144,34 +148,46 @@ func _build_ui() -> void:
 	tool_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tool_scroll.add_child(tool_content)
 	var tools_title := Label.new()
-	tools_title.text = "Tools"
+	tools_title.text = "工具"
 	tools_title.add_theme_font_size_override("font_size", 16)
 	tool_content.add_child(tools_title)
 	var editing_grid := GridContainer.new()
 	editing_grid.columns = 2
 	editing_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tool_content.add_child(editing_grid)
-	_add_labeled_option(editing_grid, "Layer", LAYER_OPTIONS, "_layer_combo")
-	_add_labeled_option(editing_grid, "Tool", TOOL_OPTIONS, "_tool_combo")
 	_add_labeled_option(
 		editing_grid,
-		"Terrain",
+		"图层",
+		LAYER_LABELS,
+		"_layer_combo",
+		LAYER_OPTIONS
+	)
+	_add_labeled_option(
+		editing_grid,
+		"工具",
+		TOOL_LABELS,
+		"_tool_combo",
+		TOOL_OPTIONS
+	)
+	_add_labeled_option(
+		editing_grid,
+		"地形",
 		[
 			MODULE_CELL_TOKENS.MODULE_CELL_FLOOR,
 			MODULE_CELL_TOKENS.MODULE_CELL_BLOCKED,
 		],
 		"_terrain_combo"
 	)
-	_add_labeled_option(editing_grid, "Tile", [], "_tile_combo")
+	_add_labeled_option(editing_grid, "图块", [], "_tile_combo")
 	_add_labeled_option(
 		editing_grid,
-		"Placement",
+		"放置",
 		_array_to_strings(MODULE_PLACEMENT_TYPES.VALUES),
 		"_placement_combo"
 	)
 	_add_labeled_option(
 		editing_grid,
-		"Preview",
+		"预览",
 		["0°", "90°", "180°", "270°"],
 		"_preview_rotation_combo",
 		ROTATION_OPTIONS
@@ -202,14 +218,17 @@ func _build_ui() -> void:
 	details.add_child(_build_cell_properties())
 	details.add_child(_build_module_properties())
 	details.add_child(_build_validation_panel())
+	details.set_tab_title(0, "单元格")
+	details.set_tab_title(1, "模块")
+	details.set_tab_title(2, "校验")
 
 	_status_label = Label.new()
-	_status_label.text = "Ready"
+	_status_label.text = "就绪"
 	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(_status_label)
 
 	_id_dialog = ConfirmationDialog.new()
-	_id_dialog.title = "Module id"
+	_id_dialog.title = "模块 ID"
 	_id_dialog.confirmed.connect(_on_id_dialog_confirmed)
 	_id_edit = LineEdit.new()
 	_id_edit.placeholder_text = "module_example"
@@ -218,8 +237,8 @@ func _build_ui() -> void:
 	add_child(_id_dialog)
 
 	_discard_dialog = ConfirmationDialog.new()
-	_discard_dialog.title = "Discard unsaved changes?"
-	_discard_dialog.dialog_text = "The current module has unsaved changes."
+	_discard_dialog.title = "放弃未保存的修改？"
+	_discard_dialog.dialog_text = "当前模块包含未保存的修改。"
 	_discard_dialog.confirmed.connect(_on_discard_confirmed)
 	add_child(_discard_dialog)
 
@@ -229,39 +248,39 @@ func _build_cell_properties() -> Control:
 	root.name = "CellProperties"
 	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_selected_cell_label = Label.new()
-	_selected_cell_label.text = "Selected: none"
+	_selected_cell_label.text = "已选：无"
 	root.add_child(_selected_cell_label)
 	var tile_grid := GridContainer.new()
 	tile_grid.columns = 2
 	root.add_child(tile_grid)
-	tile_grid.add_child(_make_label("Tile id"))
+	tile_grid.add_child(_make_label("图块 ID"))
 	_tile_id_edit = LineEdit.new()
 	_tile_id_edit.placeholder_text = "module_tile_..."
 	tile_grid.add_child(_tile_id_edit)
-	tile_grid.add_child(_make_label("Tile rotation"))
+	tile_grid.add_child(_make_label("图块旋转"))
 	_tile_rotation_combo = _make_option(
 		["0°", "90°", "180°", "270°"],
 		ROTATION_OPTIONS
 	)
 	tile_grid.add_child(_tile_rotation_combo)
-	tile_grid.add_child(_make_label("Transform"))
+	tile_grid.add_child(_make_label("变换"))
 	var transform_row := HBoxContainer.new()
 	_flip_h_check = CheckBox.new()
-	_flip_h_check.text = "Flip H"
+	_flip_h_check.text = "水平翻转"
 	transform_row.add_child(_flip_h_check)
 	_flip_v_check = CheckBox.new()
-	_flip_v_check.text = "Flip V"
+	_flip_v_check.text = "垂直翻转"
 	transform_row.add_child(_flip_v_check)
 	tile_grid.add_child(transform_row)
-	var apply_visual := _make_button("Apply visual to selected cell", _on_apply_visual_pressed)
+	var apply_visual := _make_button("应用外观到选中格", _on_apply_visual_pressed)
 	root.add_child(apply_visual)
-	root.add_child(_make_label("Placement payload (JSON object)"))
+	root.add_child(_make_label("放置参数（JSON 对象）"))
 	_payload_edit = TextEdit.new()
 	_payload_edit.custom_minimum_size = Vector2(0.0, 82.0)
 	_payload_edit.placeholder_text = "{}"
 	root.add_child(_payload_edit)
 	var apply_placement := _make_button(
-		"Apply placement to selected cell",
+		"应用放置到选中格",
 		_on_apply_placement_pressed
 	)
 	root.add_child(apply_placement)
@@ -275,17 +294,17 @@ func _build_module_properties() -> Control:
 	var grid := GridContainer.new()
 	grid.columns = 2
 	root.add_child(grid)
-	grid.add_child(_make_label("Role"))
+	grid.add_child(_make_label("模块角色"))
 	_role_edit = LineEdit.new()
 	grid.add_child(_role_edit)
-	grid.add_child(_make_label("Tags"))
+	grid.add_child(_make_label("标签"))
 	_tags_edit = LineEdit.new()
-	_tags_edit.placeholder_text = "comma,separated"
+	_tags_edit.placeholder_text = "使用英文逗号分隔"
 	grid.add_child(_tags_edit)
-	grid.add_child(_make_label("Source"))
+	grid.add_child(_make_label("来源"))
 	_source_edit = LineEdit.new()
 	grid.add_child(_source_edit)
-	grid.add_child(_make_label("Rotations"))
+	grid.add_child(_make_label("允许旋转"))
 	var rotation_row := HBoxContainer.new()
 	for rotation: int in ROTATION_OPTIONS:
 		var check := CheckBox.new()
@@ -293,7 +312,7 @@ func _build_module_properties() -> Control:
 		rotation_row.add_child(check)
 		_rotation_checks[rotation] = check
 	grid.add_child(rotation_row)
-	root.add_child(_make_button("Apply metadata", _on_apply_metadata_pressed))
+	root.add_child(_make_button("应用元数据", _on_apply_metadata_pressed))
 	_socket_label = Label.new()
 	_socket_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_socket_label)
@@ -314,6 +333,7 @@ func _build_validation_panel() -> Control:
 func _wrap_scroll_tab(tab_name: String, content: Control) -> ScrollContainer:
 	var scroll := ScrollContainer.new()
 	scroll.name = tab_name
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.add_child(content)
@@ -325,7 +345,7 @@ func _add_labeled_option(
 	label_text: String,
 	values: Array[String],
 	field_name: String,
-	metadata_values: Array[int] = []
+	metadata_values: Array = []
 ) -> void:
 	parent.add_child(_make_label(label_text))
 	var option := OptionButton.new()
@@ -394,7 +414,7 @@ func _refresh_from_document() -> void:
 	_status_label.text = "%s%s — %s" % [
 		_document.module_id,
 		dirty_suffix,
-		String(_document.registry_entry.get("review_status", "unknown")),
+		_review_status_label(String(_document.registry_entry.get("review_status", ""))),
 	]
 
 
@@ -422,7 +442,7 @@ func _refresh_metadata_fields() -> void:
 
 func _refresh_socket_text() -> void:
 	var sockets: Dictionary = _document.derived_edge_sockets()
-	_socket_label.text = "Derived sockets: N %s  E %s  S %s  W %s" % [
+	_socket_label.text = "派生接口：北 %s  东 %s  南 %s  西 %s" % [
 		str(sockets.get("edge_north", [])),
 		str(sockets.get("edge_east", [])),
 		str(sockets.get("edge_south", [])),
@@ -433,9 +453,9 @@ func _refresh_socket_text() -> void:
 func _refresh_selected_cell() -> void:
 	var cell: Vector2i = _canvas.selected_cell
 	if cell.x < 0:
-		_selected_cell_label.text = "Selected: none"
+		_selected_cell_label.text = "已选：无"
 		return
-	_selected_cell_label.text = "Selected: (%d, %d)" % [cell.x, cell.y]
+	_selected_cell_label.text = "已选：(%d, %d)" % [cell.x, cell.y]
 	var layer_name: String = _selected_option_string(_layer_combo)
 	if layer_name == "placements":
 		var placement: Dictionary = _document.placement_at(cell)
@@ -488,7 +508,7 @@ func _set_controls_enabled(enabled: bool) -> void:
 func _open_module(requested_id: String) -> void:
 	var result: Dictionary = _document.open_module(requested_id)
 	if not bool(result.get("ok", false)):
-		_report_result("Open", result)
+		_report_result("打开", result)
 		return
 	_last_persisted_module_id = requested_id
 	_refresh_module_list()
@@ -546,7 +566,7 @@ func _request_id_operation(operation: String) -> void:
 		return
 	_pending_operation = operation
 	_id_edit.text = ""
-	_id_dialog.title = "New module id" if operation == "new" else "Copy module as"
+	_id_dialog.title = "新模块 ID" if operation == "new" else "复制模块为"
 	_id_dialog.popup_centered()
 	_id_edit.grab_focus()
 
@@ -559,7 +579,7 @@ func _on_id_dialog_confirmed() -> void:
 	else:
 		result = _document.create_copy(requested_id)
 	if not bool(result.get("ok", false)):
-		_report_result("Create", result)
+		_report_result("创建", result)
 		return
 	_refresh_module_list()
 	_refresh_from_document()
@@ -587,14 +607,14 @@ func _discard_local_changes() -> bool:
 		return _document.module_id == _last_persisted_module_id
 	var reload_result: Dictionary = _document.reload_current()
 	if not bool(reload_result.get("ok", false)):
-		_report_result("Reload", reload_result)
+		_report_result("重新加载", reload_result)
 		return false
 	return true
 
 
 func _on_save_pressed() -> void:
 	var result: Dictionary = _document.save_current()
-	_report_result("Save", result)
+	_report_result("保存", result)
 
 
 func _on_reload_pressed() -> void:
@@ -607,7 +627,7 @@ func _on_reload_pressed() -> void:
 
 func _reload_document() -> void:
 	var result: Dictionary = _document.reload_current()
-	_report_result("Reload", result)
+	_report_result("重新加载", result)
 
 
 func _on_undo_pressed() -> void:
@@ -621,34 +641,34 @@ func _on_redo_pressed() -> void:
 func _on_validate_pressed() -> void:
 	var structure_result: Dictionary = _document.validate_structure()
 	if not bool(structure_result.get("ok", false)):
-		_report_result("Validate", structure_result)
+		_report_result("校验", structure_result)
 		return
 	if _document.dirty or _document.is_new_document:
 		_report_result(
-			"Validate",
-			_error_result("Save the JSON before running full semantic validation.")
+			"校验",
+			_error_result("请先保存 JSON，再执行完整语义校验。")
 		)
 		return
 	_report_result(
-		"Validate",
+		"校验",
 		_call_baker("validate_module", [_document.module_id])
 	)
 
 
 func _on_bake_pressed() -> void:
-	if not _ensure_saved_for_action("Bake"):
+	if not _ensure_saved_for_action("烘焙"):
 		return
 	var result: Dictionary = _call_baker("bake_module", [_document.module_id, true])
-	_report_result("Bake", result)
+	_report_result("烘焙", result)
 	if bool(result.get("ok", false)) and editor_interface != null:
 		editor_interface.get_resource_filesystem().scan()
 
 
 func _on_approve_pressed() -> void:
-	if not _ensure_saved_for_action("Approve"):
+	if not _ensure_saved_for_action("批准"):
 		return
 	var result: Dictionary = _call_baker("approve_module", [_document.module_id])
-	_report_result("Approve", result)
+	_report_result("批准", result)
 	if bool(result.get("ok", false)):
 		_reload_document()
 		if editor_interface != null:
@@ -659,7 +679,7 @@ func _ensure_saved_for_action(action_name: String) -> bool:
 	if _document.dirty or _document.is_new_document:
 		_report_result(
 			action_name,
-			_error_result("Save the JSON before %s." % action_name.to_lower())
+			_error_result("请先保存 JSON，再执行%s。" % action_name)
 		)
 		return false
 	return true
@@ -744,7 +764,7 @@ func _on_apply_placement_pressed() -> void:
 func _apply_placement(cell: Vector2i) -> void:
 	var payload_result: Dictionary = _parse_payload()
 	if not bool(payload_result.get("ok", false)):
-		_report_result("Placement", payload_result)
+		_report_result("放置", payload_result)
 		return
 	_document.set_placement(
 		cell,
@@ -759,7 +779,7 @@ func _parse_payload() -> Dictionary:
 		text_value = "{}"
 	var parsed: Variant = JSON.parse_string(text_value)
 	if not parsed is Dictionary:
-		return _error_result("Placement payload must be a JSON object.")
+		return _error_result("放置参数必须是 JSON 对象。")
 	var result := _success_result()
 	result["data"] = parsed as Dictionary
 	return result
@@ -793,11 +813,11 @@ func _call_baker(method_name: String, arguments: Array) -> Dictionary:
 	var callable := Callable(MODULE_SCENE_BAKER, method_name)
 	if not callable.is_valid():
 		return _error_result(
-			"ModuleSceneBaker.%s is unavailable. Update the JSON-first baker interface." % method_name
+			"ModuleSceneBaker.%s 不可用，请更新 JSON 优先的烘焙接口。" % method_name
 		)
 	var value: Variant = callable.callv(arguments)
 	if not value is Dictionary:
-		return _error_result("ModuleSceneBaker.%s returned an invalid result." % method_name)
+		return _error_result("ModuleSceneBaker.%s 返回了无效结果。" % method_name)
 	return value as Dictionary
 
 
@@ -806,14 +826,14 @@ func _report_result(action_name: String, result: Dictionary) -> void:
 	var errors: PackedStringArray = _result_errors(result)
 	_error_text.clear()
 	if ok:
-		_error_text.append_text("[color=7ee39a]%s succeeded.[/color]\n" % action_name)
+		_error_text.append_text("[color=7ee39a]%s成功。[/color]\n" % action_name)
 		_canvas.set_error_cells({})
 	else:
-		_error_text.append_text("[color=ff6b74]%s failed.[/color]\n" % action_name)
+		_error_text.append_text("[color=ff6b74]%s失败。[/color]\n" % action_name)
 		for message: String in errors:
 			_error_text.append_text("• %s\n" % message)
 	_canvas.set_error_cells(_result_error_cells(result))
-	_status_label.text = "%s %s" % [action_name, "complete" if ok else "failed"]
+	_status_label.text = "%s%s" % [action_name, "完成" if ok else "失败"]
 	if not ok:
 		for message: String in errors:
 			printerr("[module-authoring] %s" % message)
@@ -883,6 +903,16 @@ func _selected_option_string(option: OptionButton) -> String:
 	if option == null or option.item_count == 0 or option.selected < 0:
 		return ""
 	return String(option.get_item_metadata(option.selected))
+
+
+func _review_status_label(review_status: String) -> String:
+	match review_status:
+		MODULE_REVIEW_STATUSES.MODULE_REVIEW_CANDIDATE:
+			return "候选"
+		MODULE_REVIEW_STATUSES.MODULE_REVIEW_APPROVED:
+			return "已批准"
+		_:
+			return "未知状态" if review_status.is_empty() else review_status
 
 
 func _success_result() -> Dictionary:

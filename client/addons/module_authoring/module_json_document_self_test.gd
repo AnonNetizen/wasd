@@ -164,14 +164,51 @@ func _run_main_screen_smoke() -> void:
 	)
 	var workspace: Node = main_screen.find_child("WorkspaceSplit", true, false)
 	var tool_panel: Control = main_screen.find_child("ToolPanel", true, false) as Control
+	var tool_scroll: ScrollContainer = (
+		main_screen.find_child("ToolScroll", true, false) as ScrollContainer
+	)
 	var editor_split: Node = main_screen.find_child("EditorSplit", true, false)
 	var canvas: Control = main_screen.find_child("Canvas", true, false) as Control
 	var details: Control = main_screen.find_child("Details", true, false) as Control
+	var cell_tab: ScrollContainer = main_screen.find_child("Cell", true, false) as ScrollContainer
+	var module_tab: ScrollContainer = (
+		main_screen.find_child("Module", true, false) as ScrollContainer
+	)
+	var save_button: Button = main_screen.get("_save_button") as Button
+	var layer_combo: OptionButton = main_screen.get("_layer_combo") as OptionButton
+	var tool_combo: OptionButton = main_screen.get("_tool_combo") as OptionButton
 	_expect(workspace is HSplitContainer, "main screen should contain the workspace split")
 	_expect(tool_panel is PanelContainer, "main screen should contain the left tool panel")
+	_expect(tool_scroll != null, "main screen should contain the tool scroller")
 	_expect(editor_split is HSplitContainer, "main screen should contain the editor split")
 	_expect(canvas is ModuleJsonCanvas, "main screen should contain the JSON canvas")
 	_expect(details is TabContainer, "main screen should contain the details tabs")
+	_expect(cell_tab != null, "main screen should contain the Cell property scroller")
+	_expect(module_tab != null, "main screen should contain the Module property scroller")
+	_expect(save_button != null and save_button.text == "保存", "toolbar should use Chinese labels")
+	if details is TabContainer:
+		var details_tabs := details as TabContainer
+		_expect(details_tabs.get_tab_title(0) == "单元格", "Cell tab should use a Chinese title")
+		_expect(details_tabs.get_tab_title(1) == "模块", "Module tab should use a Chinese title")
+		_expect(details_tabs.get_tab_title(2) == "校验", "Validation tab should use a Chinese title")
+	if layer_combo != null:
+		_expect(layer_combo.get_item_text(0) == "地面", "layer label should be Chinese")
+		_expect(
+			String(layer_combo.get_item_metadata(0)) == "ground",
+			"localized layer label must preserve the ground metadata"
+		)
+	if tool_combo != null:
+		_expect(tool_combo.get_item_text(4) == "擦除", "tool label should be Chinese")
+		_expect(
+			String(tool_combo.get_item_metadata(4)) == "erase",
+			"localized tool label must preserve the erase metadata"
+		)
+	for scroller: ScrollContainer in [tool_scroll, cell_tab, module_tab]:
+		if scroller != null:
+			_expect(
+				scroller.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED,
+				"%s should disable horizontal scrolling" % scroller.name
+			)
 	if tool_panel != null:
 		_expect(
 			tool_panel.custom_minimum_size.y == 0.0,
