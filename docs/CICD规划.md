@@ -3,7 +3,7 @@
 > 本文档汇总本项目的 CI/CD 路线图与候选项，按「阶段 + 优先级」排列，作为后续逐步落地的清单。
 > 配套：`README.md`、`CONTRIBUTING.md`、当前平台编码规则入口、`词表与契约.md`、`决策记录.md`。
 >
-> 当前状态：已启用 Stage 1 基础 workflow：`.github/workflows/docs-check.yml`；本地 `.pre-commit-config.yaml` 已复用同一批 Stage 1 脚本，并追加 Steamworks Lab toolchain 单元回归与 staged whitespace fix/check。它跑契约生成同步检查、数据 / locale 校验、DataLoader schema 回归测试、第一档 GDScript 项目 lint、第二档项目规则 lint、第三档语义 advisory lint、文档健康检查和 whitespace diff；本地还守 console 解析、隔离环境、成功协议、超时、动态端口、临时副本与源码 App ID。暂不在 CI 启用 Godot、GUT、黄金回放、平衡 sim、commitlint 或复杂矩阵。
+> 当前状态：已启用 Stage 1 基础 workflow：`.github/workflows/docs-check.yml`；本地 `.pre-commit-config.yaml` 已复用同一批 Stage 1 脚本，并追加 Steamworks Lab toolchain 单元回归、模块相关路径条件式只读 `module-bake-check` 与 staged whitespace fix/check。它跑契约生成同步检查、数据 / locale 校验、DataLoader schema 回归测试、第一档 GDScript 项目 lint、第二档项目规则 lint、第三档语义 advisory lint、文档健康检查和 whitespace diff；本地还守 Steamworks Lab console / 隔离 / App ID，以及模块 JSON v2、tile catalog、审核 hash 和生成 TSCN 规范指纹。常规 CI 暂不启用 Godot、GUT、黄金回放、平衡 sim、commitlint 或复杂矩阵。
 >
 > **测试相关**：本文件只列 CI 工作流的"何时跑、跑什么"。完整测试金字塔、必测清单、里程碑要求、性能预算、手动回归 checklist 见 `docs/测试策略.md`（测试唯一权威）。ADR #143 后性能测试只由用户当次明确触发，不进入默认 CI 或 pre-commit。
 >
@@ -85,7 +85,7 @@
 ### 1.E 本地 pre-commit hook ⭐⭐⭐
 **配置（已落地）**：`.pre-commit-config.yaml`
 
-- 本地安装 `pre-commit` 后，commit 前跑 Stage 1 本地门禁：contract sync、data validate、DataLoader schema 回归、三档 lint、lint 回归、Steamworks Lab toolchain 单元回归、docs health、staged whitespace fix/check。
+- 本地安装 `pre-commit` 后，commit 前跑 Stage 1 本地门禁：contract sync、data validate、DataLoader schema 回归、三档 lint、lint 回归、Steamworks Lab toolchain 单元回归、docs health、staged whitespace fix/check；模块 JSON / Dock / catalog / baker / 共享 TileSet / 生成场景变化时额外条件式运行无写入 `module-bake-check`，普通提交不启动 Godot。
 - 第三档 `lint_semantic_rules.py` 仍默认非阻塞；其 regression test 是硬门禁。
 - 没装 pre-commit 时，按 `docs/AI协作/实时验证回路.md` 的等价命令手动运行。
 

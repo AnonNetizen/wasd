@@ -1,39 +1,57 @@
 # Module Authoring Pipeline 模块文档
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是 ADR #153 的模块编辑主源、烘焙产物、审核门禁与发布边界权威；修改模块场景结构、烘焙规则、生成路径、审核状态或 CLI 时必须同步 F13 工作包、数据手册、测试策略、AI 导航与 ModuleWorldManager 文档。
+> 本文档是 ADR #154 的模块 JSON 制作主源、单向 TSCN 烘焙、审核门禁与发布边界权威；修改 JSON schema、Dock、图块目录、生成场景结构、审核状态或 CLI 时必须同步 F13 工作包、数据手册、测试策略、AI 导航与 ModuleWorldManager 文档。
 
-## 1. 三层职责
+## 1. 单向职责
 
-- 编辑层：`client/scenes/modules/<id>.tscn` 是布局与表现主源。根节点挂 `ModuleAuthoringRoot`，固定包含 `Ground`、`Obstacles`、`Decoration` 三个 `TileMapLayer` 和 `Placements` 容器；marker 挂 `ModulePlacementMarker`。
-- 烘焙层：`ModuleSceneBaker` 从场景提取 terrain、edge socket 和 placement，生成原路径 `client/data/modules/<id>.json` 与 `client/resources/modules/<id>.tres`。JSON/TRES 都是提交入库、禁止手改的生成物。
-- 运行层：JSON 继续负责导航、placement、map hash、回放与 run v4 兼容；`ModuleBakedData` schema v2 为每个允许旋转保存三层 `TileMapPattern`，并为北 / 东 / 南 / 西四条运行时封边预生成 16 种 obstacle pattern 与合并 `ConcavePolygonShape2D`。运行时只按掩码选资源，不重算碰撞；视觉资源不进入玩法 hash。
+- 制作层：`client/data/modules/<id>.json` schema v2 是布局与表现的唯一制作主源；`module_templates.json` 独立管理 role、tags、source、allowed rotations、review status 与 gameplay approval hash；`module_tile_catalog.json` 把稳定、AI 可读的 `tile_id` 映射到共享 Godot TileSet。
+- 编辑层：内部 `Module JSON Editor` Dock 只读取、校验和原子保存 JSON，不打开、不修改、不反向解析模块 TSCN。人工和 AI 可以编辑同一份可审查、可合并的数据。
+- 烘焙层：`ModuleSceneBaker` 严格执行 `JSON → client/scenes/generated/modules/<id>/rotation_<degrees>.tscn`。生成场景提交入库、禁止手改；`module-bake-check` 从 JSON 和图块目录在内存重建规范指纹，不信任 TSCN 自报 hash。
+- 运行层：JSON 继续负责 assignment、导航、inactive-slot placement 查询、map hash、回放与 run v4 兼容；运行开始时预加载本次 assignment 用到的唯一生成场景，九个 `ModuleChunk` 只挂载缓存的 `PackedScene` 实例。
 
-`module_templates.json` 仍是角色、来源、允许旋转和审核状态的人工策略主源；批准时由工具记录 `approved_source_hash` 作为场景 + 共用 TileSet 的内容锚点。场景或共用 TileSet 内容哈希发生变化后，普通 bake 会把已批准条目降为 `module_review_candidate` 并移除批准锚点；即使旧 TRES 缺失也不能绕过。单纯升级 baker / TRES schema 会刷新过期生成物但不会误判为制作内容变化。只有 `Approve Current` 在成功烘焙后才能重新设为 `module_review_approved`。
+不存在 TSCN→JSON 入口。`--scene`、`--migrate-json`、scene inspection、模块专用 `ModuleBakedData` TRES 和运行时 pattern 应用都已删除。
 
-## 2. 编辑契约
+## 2. JSON 与审核契约
 
-- 模块固定 11×11 格、每格 160 px；局部 `(0,0)` 格心就是场景原点，TileMapLayer 自身偏移 `(-80,-80)`。
-- `Ground` 必须覆盖 121 格且使用占位 TileSet 的 ground tile；`Obstacles` 的格表示 blocked；`Decoration` 不改变玩法地形。
-- marker 位置必须吸附到 `cell * 160` 且不得越界或落墙。`placement_type` 来自生成契约，`payload` 只存 type-specific 字段，不重复保存 `cell`。
-- 四边 socket 由边缘 floor 格自动推导；不得在场景或 JSON 另维护一份。全部 floor 格必须四方向连通；全 blocked 的 sealed 模块允许没有 socket。
-- 第一阶段占位 TileSet 位于 `client/resources/modules/module_placeholder_tileset.tres`，以后替换美术时保持 source id / atlas 坐标契约或同步迁移器。
+- 模块固定 11×11 格、每格 160 px；`terrain_rows` 必须恰好 11 行，每行 11 个合法 cell token。
+- `visual_layers` 固定包含 `ground`、`obstacles`、`decoration`。Ground / Obstacles 使用默认 `tile_id` 加稀疏按格覆盖；Decoration 使用稀疏格列表。视觉格支持稳定 `tile_id`、0/90/180/270° 旋转与水平/垂直翻转。
+- placement 坐标和 footprint 必须为整数格、在界内并完全落在 floor；四边 socket 由边缘 floor 自动推导，JSON 不重复存储。
+- 图块目录只暴露稳定 id；Godot source id、atlas 坐标和 alternative id 是目录的实现细节。首阶段共享 TileSet 位于 `client/resources/modules/module_placeholder_tileset.tres`。
+- Save 只要求结构合法，因此语义未完成的 candidate 可以保存；Validate、Bake 和 Approve 必须通过完整语义校验。
+- `approved_gameplay_hash` 只覆盖 terrain、派生 socket、placement、role、tags 与 allowed rotations。上述内容变化会把 approved 降为 candidate；纯表现变化保持 approved，但完整 bake hash 会变化，过期生成场景仍会令 check、提交和发布失败。
+- map hash 使用与 schema v1 等价的 gameplay projection；`visual_layers`、图块目录和生成场景均不进入玩法 hash。
 
-## 3. 工具入口
+## 3. Dock 工作流
 
-Godot 编辑器 `Tools` 菜单提供 `Modules/Bake Current`、`Modules/Bake All`、`Modules/Approve Current`。插件仅在编辑器启用，不注册 autoload。
+Godot 编辑器启用 `client/addons/module_authoring/plugin.cfg` 后会出现 `Module JSON Editor` Dock。它提供模块列表、11×11 画布、层与工具切换、属性面板、socket / footprint / 错误覆盖层、四向预览，以及新建和复制；首版不提供重命名、删除或自动合并。
+
+Dock 使用本地 Undo/Redo、dirty 标记与显式 Save。保存采用确定性格式和原子替换，并比较打开时的磁盘 hash；若 AI 或其他工具已在外部修改 JSON，Dock 禁止静默覆盖，用户必须 Reload 或明确放弃本地修改。Save 不自动 Bake。
+
+Dock 操作：
+
+- `Save`：保存结构合法 JSON。
+- `Validate`：执行完整模块、图块、placement、连通和注册策略校验。
+- `Bake`：成功 Validate 后生成当前模块允许旋转的 TSCN。
+- `Approve`：成功 Validate 与 Bake 后写入 gameplay approval hash 并设为 approved。
+
+## 4. CLI 与生成场景
 
 ```powershell
 python tools/godot_bridge.py --project client module-bake
-python tools/godot_bridge.py --project client module-bake --scene res://scenes/modules/module_start_cross.tscn
+python tools/godot_bridge.py --project client module-bake --module module_start_cross
 python tools/godot_bridge.py --project client module-bake-check
+python tools/godot_bridge.py --project client module-bake-check --module module_start_cross
 python tools/godot_bridge.py --project client module-bake-smoke
+python tools/godot_bridge.py --project client module-json-editor-smoke
 ```
 
-`module-bake --migrate-json` 是一次性迁移入口：先用 Godot API 从注册表的旧 JSON 创建完整场景，再要求回烘焙结果与旧 JSON 语义一致；不一致时拒绝覆盖。日常不得重复把 JSON 反向覆盖到人工场景。
+每个允许旋转生成一个场景。场景含预填充的 Ground、Obstacles、Decoration，合并后的基础地形碰撞，四个可独立启停的边缘封锁视觉 / 碰撞子树，以及 module id、rotation、gameplay hash、visual hash、baker schema 和旋转后 placement 快照。运行时只挂载场景并切换边缘封锁，不创建 TileMap、不合并碰撞。
 
-## 4. 校验与发布
+`module-bake-check` 是无写入门禁：检查 JSON v2、图块引用、允许旋转、审核状态、缺失 / 过期生成物和场景规范指纹；人工改动生成 TSCN 即使保留原 metadata 也会失败。
 
-烘焙检查拒绝非 11×11、缺格、越界 / 未吸附 marker、未知 tile / placement id、placement 落墙、floor / socket 不连通、缺旋转资源、source hash 过期和 approved 内容未重新批准。相关路径触发条件式 pre-commit `module-bake-check`；普通无关提交不会启动 Godot。
+## 5. 发布边界
 
-release export 排除 `scenes/modules/`、`addons/module_authoring/`、`scripts/editor/` 和 bake runner；生成 JSON、TileSet 与 `resources/modules/*.tres` 正常打包。运行时不依赖 editor plugin 或 authoring script。
+相关 JSON、注册表、图块目录、共享 TileSet、baker、Dock 或生成场景变化时，pre-commit 条件式运行 `module-bake-check`；普通无关提交不启动 Godot。
+
+release export 包含模块 JSON、图块目录、共享 TileSet 和 `scenes/generated/modules/`，排除 `addons/module_authoring/`、`scripts/editor/` 与 bake runner。运行时不依赖 editor plugin、authoring script 或 JSON→场景构建代码。
