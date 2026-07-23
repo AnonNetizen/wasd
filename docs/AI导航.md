@@ -8,7 +8,7 @@
 ---
 
 ## 1. 项目是什么
-俯视角射击刷宝生存游戏（灵感：手动按住开火的俯视射击身份 + 《星际战甲》与《暗黑》的刷装备 / 刷词条长期追求 + 9×9 无缝模块短刷图 + 《以撒的结合》的道具 / 机关 / 构筑组合）。玩法判定与显示以 2D 矩形格平面为准；F13 默认世界由 81 个 11×11 模块按 seed 组合，JSON schema v2 是模块制作主源，Godot Dock 可视化编辑 JSON，baker 单向生成运行时 TSCN，AI candidate 经人工批准后入池；F14 的 EnemyAI 在完整 99×99 静态地形上使用局部有界共享流场、全图 AStar 与视线 / 路径 / 记忆混合感知。
+俯视角射击刷宝生存游戏（灵感：手动按住开火的俯视射击身份 + 《星际战甲》与《暗黑》的刷装备 / 刷词条长期追求 + 9×9 无缝模块短刷图 + 《以撒的结合》的道具 / 机关 / 构筑组合）。玩法判定与显示以 2D 矩形格平面为准；F13 默认世界由 81 个 11×11 模块按 seed 组合，JSON schema v2 是模块制作主源，Godot `Module JSON` 中央主编辑区可视化编辑 JSON，baker 单向生成运行时 TSCN，AI candidate 经人工批准后入池；F14 的 EnemyAI 在完整 99×99 静态地形上使用局部有界共享流场、全图 AStar 与视线 / 路径 / 记忆混合感知。
 - 引擎：**Godot 4.7.1 stable + GDScript**
 - IP 方向：**《破巢者》**（英文暂定 `Nestbreakers`）——未知原因导致其他宇宙与本宇宙的通道突然打开，银河系星际文明被打散，首都星域仍能组织反击；多英雄主动突入敌方“巢”，在怪潮中夺取遗物、升级构筑并尝试打穿巢核、切断通道或削弱敌方源头；“巢”泛指敌方核心据点 / 生产源头 / 通道锚点 / 意志中枢，不限定为虫巢。
 - 核心理念：**数据驱动 + 扩展优先 + 模式友好资源复用 + 未来多人友好边界 + 框架级基础设施（本地化 / 设置 / 数据埋点）+ AI 易扩展**
@@ -139,9 +139,9 @@
 | **改地图边界 / 矩形格 / PCG / 人工摆点** | 查 `docs/代码/map_manager.md`；地图尺寸、`grid.cell_width/cell_height`、玩家出生点、安全半径、刷怪边距、PCG 机关数量 / 间距和人工固定摆点都改 `client/data/map_layouts.json`；bounds 是轴对齐矩形，必须分别是 `grid.cell_width/cell_height` 的整数倍；玩家出生点必须在格心，出生安全区可见提示必须是贴住矩形格的矩形，机关按 `radius_tiles` 奇偶吸附到合法锚点（奇数格心、偶数网格顶点），可见和逻辑地图边界必须是同一个矩形，刷怪位置仍用 `RNG.spawn`；玩家和敌人中心移动都应保持在矩形边界内；改完跑 `validate_data`、`runtime-smoke`，机关相关追加 `f9-demo-smoke` |
 | **改玩家相机 / 受伤震屏** | 先读 GDD §5.2、ADR #148、`docs/代码/phantom_camera.md` 的项目接入段和 `docs/代码/gameplay_runtime.md`；节点 / 跟随规则改 `gameplay_camera_controller.tscn/.gd`，只调震幅、频率和时间则改 `camera_feedback.json`。保持 Phantom Camera GLUED 严格居中、等比缩放、无滚转，噪声走 `RNG.camera_fx`；改完跑 schema、`settings-smoke`、`runtime-smoke`、headless boot 和 headless editor 加载 |
 | **维护 / 升级 Phantom Camera 内部** | 先读 `docs/代码/phantom_camera.md`、`client/addons/README.md`、ADR #148 与目标源码；按 Runtime Core / Resource / Editor / C# wrapper 边界定位，升级只用官方固定版本发布包并逐项重放本地补丁。保持项目固定 Manager autoload、Updater Off、`physics_jitter_fix=0.5`、`RNG.camera_fx` 和 lint 零豁免；完成后跑完整 pre-commit、headless boot、headless editor 与相机回归 |
-| **加 / 改模块内容** | 查 `docs/代码/module_authoring_pipeline.md`、`module_world_manager.md`、F13 工作包和数据手册；在 Godot `Module JSON Editor` Dock 可视化编辑 `client/data/modules/<id>.json`，显式 Save / Validate / Bake / Approve；也可由 AI 直接改 JSON 后运行 `module-bake`。禁止手改 `client/scenes/generated/modules/`，不存在 TSCN→JSON |
+| **加 / 改模块内容** | 查 `docs/代码/module_authoring_pipeline.md`、`module_world_manager.md`、F13 工作包和数据手册；在 Godot 与 `2D / 3D / Script` 同级的 `Module JSON` 中央主编辑区可视化编辑 `client/data/modules/<id>.json`，显式 Save / Validate / Bake / Approve；也可由 AI 直接改 JSON 后运行 `module-bake`。禁止手改 `client/scenes/generated/modules/`，不存在 TSCN→JSON |
 | **改模块角色 / 地形 / 摆放 / 边缘 / 审核状态** | 先改 `docs/词表与契约.md` §15，运行 `python tools/sync_contracts.py` 生成对应 `module_*` 常量，再由 DataLoader、ModuleWorldManager 和 JSON 引用；禁止在运行时代码裸写白名单 id |
-| **改 AI 模块生产流程** | AI 只在编辑期生成 JSON candidate，不接运行时模型 / 网络生成 / 自动批准；人工使用 Godot Dock 编辑同一 JSON schema。工具必须保持 JSON→生成 TSCN 单向、磁盘 hash 冲突门禁和人工 `approved` 门禁，不得增加 TSCN 反向导入 |
+| **改 AI 模块生产流程** | AI 只在编辑期生成 JSON candidate，不接运行时模型 / 网络生成 / 自动批准；人工使用 Godot `Module JSON` 中央主编辑区编辑同一 JSON schema。工具必须保持 JSON→生成 TSCN 单向、磁盘 hash 冲突门禁和人工 `approved` 门禁，不得增加 TSCN 反向导入 |
 | **加 / 改刷怪波次** | 在 `client/data/spawn_waves.csv` 加一行：模式 id、时间窗、敌人 id / 权重、刷怪间隔、同时存活上限、预算和可选机关权重；敌人 / 机关 / 模式引用必须存在，不实现 Spawner 运行时 |
 | **加 / 改战区导演** | 查 `docs/代码/warzone_director.md` 和 F10 工作包；在 `client/data/warzone_directors.json` 改固定 phase、巢变异主题、兴趣点和阶段启用 wave；运行时只按 `GameClock` 时间 gating `spawn_waves.csv`，匹配当前 layout 的兴趣点会通过 `MapManager` 生成 `source="director"` 初始机关；禁止恢复已删除的导演敌人组合元数据、读取玩家状态、隐藏动态调难或运行时接 LLM；改完跑 `validate_data`、`test_data_loader_schema`、`runtime-smoke` 和 `f9-demo-smoke` |
 | **加一个遗物/道具** | 在 `client/data/relics.json` 加一条，用 `modifiers` + `behaviors` 描述；文案用 `relic_*` key；**只用 `docs/词表与契约.md` 已登记的 effect / event / stat / tag**，新原语先登记再实现，不实现遗物运行时 |

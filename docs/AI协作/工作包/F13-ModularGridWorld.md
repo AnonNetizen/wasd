@@ -9,7 +9,7 @@
 - 模块边界无缝；模块只承担制作、组合、流式、存档与预算职责，不做进门切场景。
 - 出生、核心目标和撤离属于固定骨架；普通槽位按 `RNG.world` 与 run seed 从 approved AI JSON 模板池组合。
 - 单局完成核心后撤离，通常经过 8–12 个模块，可选探索最多约 14 个模块；不要求全图清理。
-- 不接运行时 LLM；模块 JSON schema v2 是人工与 AI 协作的唯一布局 / 表现主源，Godot Dock 可视化编辑 JSON，确定性 baker 单向生成运行时 TSCN；candidate 通过自动校验和显式人工批准后入池。
+- 不接运行时 LLM；模块 JSON schema v2 是人工与 AI 协作的唯一布局 / 表现主源，Godot `Module JSON` 中央主编辑区可视化编辑 JSON，确定性 baker 单向生成运行时 TSCN；candidate 通过自动校验和显式人工批准后入池。
 
 ## 2. 数据结构
 

@@ -1,7 +1,7 @@
 # Doc: docs/代码/module_authoring_pipeline.md
 @tool
 extends VBoxContainer
-## JSON-first module editor. It never reads or mutates the edited scene tree.
+## JSON-first module main screen. It never reads or mutates the edited scene tree.
 
 const MODULE_SCENE_BAKER := preload("res://scripts/editor/module_scene_baker.gd")
 const MODULE_JSON_DOCUMENT := preload("res://scripts/editor/module_json_document.gd")
@@ -12,6 +12,8 @@ const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placemen
 const LAYER_OPTIONS: Array[String] = ["ground", "obstacles", "decoration", "placements"]
 const TOOL_OPTIONS: Array[String] = ["select", "terrain", "tile", "placement", "erase"]
 const ROTATION_OPTIONS: Array[int] = [0, 90, 180, 270]
+const TOOL_PANEL_WIDTH: float = 260.0
+const DETAILS_PANEL_WIDTH: float = 320.0
 
 var editor_interface: EditorInterface
 
@@ -56,8 +58,8 @@ var _combo_change_guard: bool = false
 
 
 func _ready() -> void:
-	name = "Module JSON"
-	custom_minimum_size = Vector2(420.0, 600.0)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_build_ui()
 	_document = MODULE_JSON_DOCUMENT.new() as ModuleJsonDocument
@@ -81,13 +83,18 @@ func _exit_tree() -> void:
 
 
 func _build_ui() -> void:
+	var header := VBoxContainer.new()
+	header.name = "Header"
+	add_child(header)
+
 	var title := Label.new()
 	title.text = "Module JSON Editor"
 	title.add_theme_font_size_override("font_size", 18)
-	add_child(title)
+	header.add_child(title)
 
 	var module_row := HBoxContainer.new()
-	add_child(module_row)
+	module_row.name = "ModuleToolbar"
+	header.add_child(module_row)
 	_module_combo = OptionButton.new()
 	_module_combo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_module_combo.item_selected.connect(_on_module_selected)
@@ -97,19 +104,18 @@ func _build_ui() -> void:
 	_copy_button = _make_button("Copy", _on_copy_pressed)
 	module_row.add_child(_copy_button)
 
-	var file_row := HBoxContainer.new()
-	add_child(file_row)
-	_save_button = _make_button("Save", _on_save_pressed)
-	file_row.add_child(_save_button)
-	_reload_button = _make_button("Reload", _on_reload_pressed)
-	file_row.add_child(_reload_button)
-	_undo_button = _make_button("Undo", _on_undo_pressed)
-	file_row.add_child(_undo_button)
-	_redo_button = _make_button("Redo", _on_redo_pressed)
-	file_row.add_child(_redo_button)
-
 	var action_row := HBoxContainer.new()
-	add_child(action_row)
+	action_row.name = "ActionToolbar"
+	header.add_child(action_row)
+	_save_button = _make_button("Save", _on_save_pressed)
+	action_row.add_child(_save_button)
+	_reload_button = _make_button("Reload", _on_reload_pressed)
+	action_row.add_child(_reload_button)
+	_undo_button = _make_button("Undo", _on_undo_pressed)
+	action_row.add_child(_undo_button)
+	_redo_button = _make_button("Redo", _on_redo_pressed)
+	action_row.add_child(_redo_button)
+	action_row.add_child(VSeparator.new())
 	_validate_button = _make_button("Validate", _on_validate_pressed)
 	action_row.add_child(_validate_button)
 	_bake_button = _make_button("Bake", _on_bake_pressed)
@@ -118,9 +124,33 @@ func _build_ui() -> void:
 	action_row.add_child(_approve_button)
 
 	add_child(HSeparator.new())
+	var workspace_split := HSplitContainer.new()
+	workspace_split.name = "WorkspaceSplit"
+	workspace_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	workspace_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_child(workspace_split)
+
+	var tool_panel := PanelContainer.new()
+	tool_panel.name = "ToolPanel"
+	tool_panel.custom_minimum_size = Vector2(TOOL_PANEL_WIDTH, 0.0)
+	workspace_split.add_child(tool_panel)
+	var tool_scroll := ScrollContainer.new()
+	tool_scroll.name = "ToolScroll"
+	tool_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tool_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tool_panel.add_child(tool_scroll)
+	var tool_content := VBoxContainer.new()
+	tool_content.name = "ToolContent"
+	tool_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tool_scroll.add_child(tool_content)
+	var tools_title := Label.new()
+	tools_title.text = "Tools"
+	tools_title.add_theme_font_size_override("font_size", 16)
+	tool_content.add_child(tools_title)
 	var editing_grid := GridContainer.new()
 	editing_grid.columns = 2
-	add_child(editing_grid)
+	editing_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tool_content.add_child(editing_grid)
 	_add_labeled_option(editing_grid, "Layer", LAYER_OPTIONS, "_layer_combo")
 	_add_labeled_option(editing_grid, "Tool", TOOL_OPTIONS, "_tool_combo")
 	_add_labeled_option(
@@ -149,18 +179,26 @@ func _build_ui() -> void:
 	_layer_combo.item_selected.connect(_on_layer_changed)
 	_preview_rotation_combo.item_selected.connect(_on_preview_rotation_changed)
 
+	var editor_split := HSplitContainer.new()
+	editor_split.name = "EditorSplit"
+	editor_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	editor_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	workspace_split.add_child(editor_split)
+
 	_canvas = MODULE_JSON_CANVAS.new() as ModuleJsonCanvas
+	_canvas.name = "Canvas"
 	_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_canvas.cell_primary_requested.connect(_on_canvas_primary)
 	_canvas.cell_secondary_requested.connect(_on_canvas_secondary)
 	_canvas.selected_cell_changed.connect(_on_selected_cell_changed)
-	add_child(_canvas)
+	editor_split.add_child(_canvas)
 
 	var details := TabContainer.new()
-	details.custom_minimum_size = Vector2(0.0, 250.0)
+	details.name = "Details"
+	details.custom_minimum_size = Vector2(DETAILS_PANEL_WIDTH, 0.0)
 	details.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(details)
+	editor_split.add_child(details)
 	details.add_child(_build_cell_properties())
 	details.add_child(_build_module_properties())
 	details.add_child(_build_validation_panel())
@@ -188,7 +226,8 @@ func _build_ui() -> void:
 
 func _build_cell_properties() -> Control:
 	var root := VBoxContainer.new()
-	root.name = "Cell"
+	root.name = "CellProperties"
+	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_selected_cell_label = Label.new()
 	_selected_cell_label.text = "Selected: none"
 	root.add_child(_selected_cell_label)
@@ -226,12 +265,13 @@ func _build_cell_properties() -> Control:
 		_on_apply_placement_pressed
 	)
 	root.add_child(apply_placement)
-	return root
+	return _wrap_scroll_tab("Cell", root)
 
 
 func _build_module_properties() -> Control:
 	var root := VBoxContainer.new()
-	root.name = "Module"
+	root.name = "ModuleProperties"
+	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var grid := GridContainer.new()
 	grid.columns = 2
 	root.add_child(grid)
@@ -257,7 +297,7 @@ func _build_module_properties() -> Control:
 	_socket_label = Label.new()
 	_socket_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_socket_label)
-	return root
+	return _wrap_scroll_tab("Module", root)
 
 
 func _build_validation_panel() -> Control:
@@ -267,9 +307,17 @@ func _build_validation_panel() -> Control:
 	_error_text.fit_content = false
 	_error_text.scroll_active = true
 	_error_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_error_text.custom_minimum_size = Vector2(0.0, 180.0)
 	root.add_child(_error_text)
 	return root
+
+
+func _wrap_scroll_tab(tab_name: String, content: Control) -> ScrollContainer:
+	var scroll := ScrollContainer.new()
+	scroll.name = tab_name
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.add_child(content)
+	return scroll
 
 
 func _add_labeled_option(

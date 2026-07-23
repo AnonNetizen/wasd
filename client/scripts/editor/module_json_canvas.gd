@@ -22,6 +22,7 @@ const FOOTPRINT_COLOR := Color(0.25, 0.82, 0.48, 0.26)
 const SOCKET_COLOR := Color(0.28, 0.84, 1.0, 1.0)
 const ERROR_COLOR := Color(1.0, 0.18, 0.25, 0.8)
 const SELECTION_COLOR := Color(1.0, 0.94, 0.54, 1.0)
+const MIN_CANVAS_WIDTH: float = 220.0
 
 var active_layer: String = "ground"
 var preview_rotation: int = 0
@@ -32,7 +33,7 @@ var _module_data: Dictionary = {}
 
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(440.0, 440.0)
+	custom_minimum_size = Vector2(MIN_CANVAS_WIDTH, 0.0)
 	mouse_default_cursor_shape = Control.CURSOR_CROSS
 	focus_mode = Control.FOCUS_ALL
 	queue_redraw()
@@ -62,6 +63,8 @@ func set_error_cells(value: Dictionary) -> void:
 
 func _draw() -> void:
 	var canvas_rect: Rect2 = _canvas_rect()
+	if canvas_rect.size.x <= 0.0:
+		return
 	var cell_size: float = canvas_rect.size.x / float(MODULE_SIZE)
 	draw_rect(canvas_rect, BLOCKED_COLOR)
 	for source_y: int in range(MODULE_SIZE):
@@ -220,7 +223,7 @@ func _canvas_rect() -> Rect2:
 
 func _cell_from_position(position: Vector2) -> Vector2i:
 	var canvas_rect: Rect2 = _canvas_rect()
-	if not canvas_rect.has_point(position):
+	if canvas_rect.size.x <= 0.0 or not canvas_rect.has_point(position):
 		return Vector2i(-1, -1)
 	var cell_size: float = canvas_rect.size.x / float(MODULE_SIZE)
 	var view_cell := Vector2i(

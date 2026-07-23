@@ -26,7 +26,7 @@
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
 | 改地图边界 / 矩形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是轴对齐矩形，必须分别整除 `grid.cell_width` / `grid.cell_height`；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法矩形格锚点 |
 | 改敌巢战区导演 / 阶段主题 / 兴趣点组合 | `warzone_directors.json` | 只按固定时间阶段启用 wave，不读取玩家状态、不做隐藏动态难度；匹配当前 layout 的兴趣点会生成初始 `source="director"` 机关；wave / 机关 / 地图引用必须存在 |
-| 加 / 改模块模板 | 在 Godot 的 Module JSON Editor Dock 中编辑 `modules/<id>.json`，再显式 Validate / Bake | 模块固定 11×11 格；JSON 是人工与 AI 协作主源，生成 TSCN 禁止手改，玩法变化会降为 `candidate` |
+| 加 / 改模块模板 | 在 Godot 的 `Module JSON` 中央主编辑区编辑 `modules/<id>.json`，再显式 Validate / Bake | 模块固定 11×11 格；JSON 是人工与 AI 协作主源，生成 TSCN 禁止手改，玩法变化会降为 `candidate` |
 | 改 9×9 世界骨架 / 路线预算 | `module_worlds.json` | 同一世界统一格尺寸；固定起点 / 目标 / 撤离锚点，其余槽位按 `RNG.world` + run seed 组合 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |

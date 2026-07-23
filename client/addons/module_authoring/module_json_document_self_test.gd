@@ -1,8 +1,11 @@
 @tool
 extends SceneTree
-## Headless smoke for the editor-only JSON document model. Writes only to user://.
+## Headless smoke for the JSON document model and main-screen layout. Writes only to user://.
 
 const MODULE_JSON_DOCUMENT := preload("res://scripts/editor/module_json_document.gd")
+const MODULE_AUTHORING_MAIN_SCREEN := preload(
+	"res://addons/module_authoring/module_authoring_main_screen.gd"
+)
 
 var _failures := PackedStringArray()
 var _root_path: String
@@ -20,6 +23,7 @@ func _init() -> void:
 	_expect(mkdir_error == OK, "temporary user:// directory should be created")
 	if mkdir_error == OK:
 		_run_document_smoke()
+		_run_main_screen_smoke()
 	_cleanup()
 	if _failures.is_empty():
 		print("[module-json-editor-smoke] PASS")
@@ -149,6 +153,50 @@ func _run_document_smoke() -> void:
 	new_document.dispose()
 	copy_document.dispose()
 	registry_conflict_document.dispose()
+
+
+func _run_main_screen_smoke() -> void:
+	var main_screen := MODULE_AUTHORING_MAIN_SCREEN.new() as Control
+	main_screen.call("_build_ui")
+	_expect(
+		main_screen.custom_minimum_size.y == 0.0,
+		"main screen root should not force a minimum height"
+	)
+	var workspace: Node = main_screen.find_child("WorkspaceSplit", true, false)
+	var tool_panel: Control = main_screen.find_child("ToolPanel", true, false) as Control
+	var editor_split: Node = main_screen.find_child("EditorSplit", true, false)
+	var canvas: Control = main_screen.find_child("Canvas", true, false) as Control
+	var details: Control = main_screen.find_child("Details", true, false) as Control
+	_expect(workspace is HSplitContainer, "main screen should contain the workspace split")
+	_expect(tool_panel is PanelContainer, "main screen should contain the left tool panel")
+	_expect(editor_split is HSplitContainer, "main screen should contain the editor split")
+	_expect(canvas is ModuleJsonCanvas, "main screen should contain the JSON canvas")
+	_expect(details is TabContainer, "main screen should contain the details tabs")
+	if tool_panel != null:
+		_expect(
+			tool_panel.custom_minimum_size.y == 0.0,
+			"tool panel should allow the main editor area to shrink vertically"
+		)
+	if canvas != null:
+		canvas.call("_ready")
+		_expect(
+			canvas.custom_minimum_size.y == 0.0,
+			"JSON canvas should allow the main editor area to shrink vertically"
+		)
+	if details != null:
+		_expect(
+			details.custom_minimum_size.y == 0.0,
+			"details panel should allow the main editor area to shrink vertically"
+		)
+	var canvas_instance_id: int = canvas.get_instance_id() if canvas != null else 0
+	main_screen.visible = false
+	main_screen.visible = true
+	var visible_canvas: Control = main_screen.find_child("Canvas", true, false) as Control
+	_expect(
+		visible_canvas != null and visible_canvas.get_instance_id() == canvas_instance_id,
+		"hiding and showing the main screen should preserve its editor state"
+	)
+	main_screen.free()
 
 
 func _module_data(requested_id: String) -> Dictionary:

@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_at": "2026-07-22",
+  "updated_at": "2026-07-23",
   "description": "Machine-readable AI knowledge base index for the wasd project.",
   "documents": [
     {
@@ -1070,7 +1070,7 @@
     {
       "path": "docs/代码/module_authoring_pipeline.md",
       "type": "module_doc",
-      "authority": "ADR #154 module JSON v2 authoring, visual editor Dock, one-way generated TSCN bake, approval gate, CLI, and release exclusion contract",
+      "authority": "ADR #154 module JSON v2 authoring, visual editor main screen, one-way generated TSCN bake, approval gate, CLI, and release exclusion contract",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-07-23",
@@ -1078,8 +1078,8 @@
       "must_read_for": ["module_json_schema_change", "module_json_editor_change", "module_tile_catalog_change", "module_bake_change", "generated_module_scene_change", "module_template_authoring", "module_approval_change"],
       "related_docs": ["docs/AI协作/工作包/F13-ModularGridWorld.md", "docs/代码/module_world_manager.md", "client/data/README.md", "docs/测试策略.md", "docs/决策记录.md", "docs/AI导航.md"],
       "related_code": ["client/data/modules/", "client/data/module_templates.json", "client/data/module_tile_catalog.json", "client/scripts/editor/", "client/addons/module_authoring/", "client/addons/module_authoring/module_json_document_self_test.gd", "client/scenes/generated/modules/", "client/resources/modules/module_placeholder_tileset.tres", "client/tools/module_bake_cli.gd", "client/tools/module_bake_smoke.gd", "tools/godot_bridge.py"],
-      "update_triggers": ["module JSON schema changes", "Dock workflow changes", "tile catalog changes", "generated scene structure changes", "approval gate changes", "module bake CLI changes", "release exclusion changes"],
-      "keywords": ["ModuleSceneBaker", "Module JSON Editor", "visual_layers", "tile_id", "TileMapLayer", "generated TSCN", "Save", "Validate", "Bake", "Approve", "module-bake", "module-bake-check", "module-json-editor-smoke", "candidate", "approved_gameplay_hash", "no TSCN to JSON"]
+      "update_triggers": ["module JSON schema changes", "main screen workflow changes", "tile catalog changes", "generated scene structure changes", "approval gate changes", "module bake CLI changes", "release exclusion changes"],
+      "keywords": ["ModuleSceneBaker", "Module JSON Editor", "main screen", "visual_layers", "tile_id", "TileMapLayer", "generated TSCN", "Save", "Validate", "Bake", "Approve", "module-bake", "module-bake-check", "module-json-editor-smoke", "candidate", "approved_gameplay_hash", "no TSCN to JSON"]
     },
     {
       "path": "docs/代码/debug_tools.md",
