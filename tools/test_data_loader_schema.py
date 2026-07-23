@@ -66,6 +66,60 @@ def main() -> int:
             ["client/data/modules/module_start_cross.json:terrain_rows", "must contain exactly 11 rows"],
         ),
         (
+            "module schema v2 derives sockets and accepts visual layers",
+            _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v2),
+            [],
+        ),
+        (
+            "module schema v2 must omit derived sockets",
+            _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v2_keep_sockets),
+            [
+                "client/data/modules/module_start_cross.json:edge_sockets",
+                "must be omitted in schema v2 because sockets are derived",
+            ],
+        ),
+        (
+            "module visual tile id must be registered",
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v2_unknown_visual_tile),
+            [
+                "client/data/modules/module_start_cross.json:visual_layers.ground.overrides[0].tile_id",
+                "unknown id module_tile_unknown; expected one of module_tile_ids",
+            ],
+        ),
+        (
+            "module visual tile must belong to its layer",
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v2_wrong_layer_tile),
+            [
+                "client/data/modules/module_start_cross.json:visual_layers.ground.default_tile_id",
+                "tile must belong to the ground layer",
+            ],
+        ),
+        (
+            "module visual transform rotation must be orthogonal",
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v2_invalid_visual_rotation),
+            [
+                "client/data/modules/module_start_cross.json:visual_layers.decoration.cells[0].rotation",
+                "must be 0, 90, 180, or 270",
+            ],
+        ),
+        (
+            "module decoration layer must remain sparse",
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v2_decoration_default_tile),
+            [
+                "client/data/modules/module_start_cross.json:visual_layers.decoration",
+                "must define exactly cells",
+            ],
+        ),
+        (
+            "module tile catalog id must be stable and registered",
+            _mutate_json("client/data/module_tile_catalog.json", _set_unknown_module_tile_catalog_id),
+            [
+                "client/data/module_tile_catalog.json:tiles[0].id",
+                "unknown id module_tile_unknown; expected one of module_tile_ids",
+                "must define every registered module_tile_id exactly once",
+            ],
+        ),
+        (
             "candidate template cannot enter formal pool",
             _mutate_json("client/data/module_templates.json", _make_first_pool_template_candidate),
             ["client/data/module_worlds.json:worlds[0].template_pool[0]", "formal template pool requires approved template"],
@@ -923,6 +977,10 @@ def _run_case(name: str, mutator: RepoMutator | None, expected_fragments: list[s
 def _copy_test_repo(temp_root: Path) -> None:
     _copy_tree(ROOT / "client" / "data", temp_root / "client" / "data")
     _copy_tree(ROOT / "client" / "locale", temp_root / "client" / "locale")
+    _copy_file(
+        ROOT / "client" / "resources" / "modules" / "module_placeholder_tileset.tres",
+        temp_root / "client" / "resources" / "modules" / "module_placeholder_tileset.tres",
+    )
     _copy_python_tools(temp_root / "tools")
     _copy_file(ROOT / "docs" / "词表与契约.md", temp_root / "docs" / "词表与契约.md")
 
@@ -1611,6 +1669,70 @@ def _set_optional_exploration_max(value: int) -> JsonMutator:
 
 def _remove_module_terrain_row(payload: dict[str, Any]) -> None:
     payload["terrain_rows"].pop()
+
+
+def _upgrade_module_to_v2(payload: dict[str, Any]) -> None:
+    payload["schema_version"] = 2
+    payload.pop("edge_sockets", None)
+    payload["visual_layers"] = {
+        "ground": {
+            "default_tile_id": "module_tile_ground_default",
+            "overrides": [],
+        },
+        "obstacles": {
+            "default_tile_id": "module_tile_obstacle_default",
+            "overrides": [],
+        },
+        "decoration": {
+            "cells": [],
+        },
+    }
+
+
+def _upgrade_module_to_v2_keep_sockets(payload: dict[str, Any]) -> None:
+    edge_sockets = payload["edge_sockets"]
+    _upgrade_module_to_v2(payload)
+    payload["edge_sockets"] = edge_sockets
+
+
+def _set_v2_unknown_visual_tile(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v2(payload)
+    payload["visual_layers"]["ground"]["overrides"] = [
+        {
+            "cell": {"x": 0, "y": 0},
+            "tile_id": "module_tile_unknown",
+            "rotation": 0,
+            "flip_h": False,
+            "flip_v": False,
+        }
+    ]
+
+
+def _set_v2_wrong_layer_tile(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v2(payload)
+    payload["visual_layers"]["ground"]["default_tile_id"] = "module_tile_decoration_default"
+
+
+def _set_v2_invalid_visual_rotation(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v2(payload)
+    payload["visual_layers"]["decoration"]["cells"] = [
+        {
+            "cell": {"x": 5, "y": 5},
+            "tile_id": "module_tile_decoration_default",
+            "rotation": 45,
+            "flip_h": True,
+            "flip_v": False,
+        }
+    ]
+
+
+def _set_v2_decoration_default_tile(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v2(payload)
+    payload["visual_layers"]["decoration"]["default_tile_id"] = "module_tile_decoration_default"
+
+
+def _set_unknown_module_tile_catalog_id(payload: dict[str, Any]) -> None:
+    payload["tiles"][0]["id"] = "module_tile_unknown"
 
 
 def _make_first_pool_template_candidate(payload: dict[str, Any]) -> None:

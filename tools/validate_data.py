@@ -34,6 +34,7 @@ MAP_LAYOUTS_JSON = ROOT / "client" / "data" / "map_layouts.json"
 WARZONE_DIRECTORS_JSON = ROOT / "client" / "data" / "warzone_directors.json"
 MODULE_WORLDS_JSON = ROOT / "client" / "data" / "module_worlds.json"
 MODULE_TEMPLATES_JSON = ROOT / "client" / "data" / "module_templates.json"
+MODULE_TILE_CATALOG_JSON = ROOT / "client" / "data" / "module_tile_catalog.json"
 MODULES_DIR = ROOT / "client" / "data" / "modules"
 GEAR_MODS_JSON = ROOT / "client" / "data" / "gear_mods.json"
 GEAR_MOD_DROP_TABLES_CSV = ROOT / "client" / "data" / "gear_mod_drop_tables.csv"
@@ -109,7 +110,8 @@ def main() -> int:
     _validate_map_layouts(ctx, hazard_ids, game_mode_ids)
     _validate_spawn_waves_csv(ctx, enemy_ids, hazard_ids, game_mode_ids)
     _validate_warzone_directors(ctx, game_mode_ids, _collect_spawn_wave_ids_by_mode(ctx), hazard_ids, _collect_map_layout_ids(ctx), gear_mod_ids)
-    _validate_module_world_data(ctx, enemy_ids, set(hazard_ids))
+    module_tile_catalog = _validate_module_tile_catalog(ctx)
+    _validate_module_world_data(ctx, enemy_ids, set(hazard_ids), module_tile_catalog)
 
     if ctx.errors:
         for error in ctx.errors:
@@ -2071,8 +2073,49 @@ def _validate_content_tags(ctx: ValidationContext, path: Path, field: str, value
         _require_registered(ctx, path, f"{field}[{tag_index}]", tag, "content_tags")
 
 
-def _validate_module_world_data(ctx: ValidationContext, enemy_ids: set[str], hazard_ids: set[str]) -> None:
-    templates = _validate_module_templates(ctx, enemy_ids, hazard_ids)
+def _validate_module_tile_catalog(ctx: ValidationContext) -> dict[str, str]:
+    path = MODULE_TILE_CATALOG_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return {}
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+    tile_set_path = _require_non_empty_string(ctx, path, "tile_set_path", data.get("tile_set_path"))
+    if tile_set_path is not None:
+        if not tile_set_path.startswith("res://resources/modules/") or not tile_set_path.endswith(".tres"):
+            ctx.error(path, "tile_set_path", "must be a res://resources/modules/*.tres path")
+        elif not (ROOT / "client" / tile_set_path.removeprefix("res://")).is_file():
+            ctx.error(path, "tile_set_path", "referenced TileSet must exist")
+    tiles = _require_list(ctx, path, "tiles", data.get("tiles"))
+    catalog: dict[str, str] = {}
+    for index, tile in enumerate(tiles):
+        field = f"tiles[{index}]"
+        if not isinstance(tile, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        tile_id = _require_registered(ctx, path, f"{field}.id", tile.get("id"), "module_tile_ids")
+        layer = _require_non_empty_string(ctx, path, f"{field}.layer", tile.get("layer"))
+        if layer not in {"ground", "obstacles", "decoration"}:
+            ctx.error(path, f"{field}.layer", "must be ground, obstacles, or decoration")
+        if tile_id:
+            if tile_id in catalog:
+                ctx.error(path, f"{field}.id", f"duplicate tile id {tile_id}")
+            catalog[tile_id] = layer or ""
+        _require_int(ctx, path, f"{field}.source_id", tile.get("source_id"), minimum=0)
+        _validate_module_cell(ctx, path, f"{field}.atlas_coords", tile.get("atlas_coords"), 1_000_000, 1_000_000)
+        _require_int(ctx, path, f"{field}.alternative_id", tile.get("alternative_id"), minimum=0)
+    expected_ids = set(ctx.contracts.get("module_tile_ids", []))
+    if set(catalog) != expected_ids:
+        ctx.error(path, "tiles", "must define every registered module_tile_id exactly once")
+    return catalog
+
+
+def _validate_module_world_data(
+    ctx: ValidationContext,
+    enemy_ids: set[str],
+    hazard_ids: set[str],
+    module_tile_catalog: dict[str, str],
+) -> None:
+    templates = _validate_module_templates(ctx, enemy_ids, hazard_ids, module_tile_catalog)
     path = MODULE_WORLDS_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
@@ -2161,7 +2204,10 @@ def _validate_module_world_data(ctx: ValidationContext, enemy_ids: set[str], haz
 
 
 def _validate_module_templates(
-    ctx: ValidationContext, enemy_ids: set[str], hazard_ids: set[str]
+    ctx: ValidationContext,
+    enemy_ids: set[str],
+    hazard_ids: set[str],
+    module_tile_catalog: dict[str, str],
 ) -> dict[str, dict[str, Any]]:
     path = MODULE_TEMPLATES_JSON
     data = _load_json(path, ctx)
@@ -2215,7 +2261,16 @@ def _validate_module_templates(
             loaded = _load_json(module_path, ctx)
             if isinstance(loaded, dict):
                 module_data = loaded
-                _validate_module_file(ctx, module_path, loaded, template_id, role, enemy_ids, hazard_ids)
+                _validate_module_file(
+                    ctx,
+                    module_path,
+                    loaded,
+                    template_id,
+                    role,
+                    enemy_ids,
+                    hazard_ids,
+                    module_tile_catalog,
+                )
         if template_id:
             if template_id in templates:
                 ctx.error(path, f"{field}.id", f"duplicate template id {template_id}")
@@ -2255,8 +2310,11 @@ def _validate_module_file(
     role: str | None,
     enemy_ids: set[str],
     hazard_ids: set[str],
+    module_tile_catalog: dict[str, str],
 ) -> None:
-    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    if schema_version not in {1, 2}:
+        ctx.error(path, "schema_version", "must be 1 or 2 during the JSON-authoring migration")
     module_id = _require_non_empty_string(ctx, path, "id", data.get("id"))
     if module_id and expected_id and module_id != expected_id:
         ctx.error(path, "id", f"must match registry template id {expected_id}")
@@ -2273,25 +2331,18 @@ def _validate_module_file(
         for x, token in enumerate(cells):
             _require_registered(ctx, path, f"{row_field}[{x}]", token, "module_cell_tokens")
 
-    edge_sockets = data.get("edge_sockets")
-    if not isinstance(edge_sockets, dict):
-        ctx.error(path, "edge_sockets", "must be an object")
-    else:
-        required_edges = set(ctx.contracts.get("module_edge_directions", []))
-        if set(edge_sockets) != required_edges:
-            ctx.error(path, "edge_sockets", "must define exactly edge_north, edge_south, edge_east, edge_west")
-        for edge in sorted(required_edges):
-            sockets = _require_list(ctx, path, f"edge_sockets.{edge}", edge_sockets.get(edge))
-            seen_sockets: set[int] = set()
-            for socket_index, socket in enumerate(sockets):
-                socket_field = f"edge_sockets.{edge}[{socket_index}]"
-                value = _require_int(ctx, path, socket_field, socket, minimum=0)
-                if value is not None and value > 10:
-                    ctx.error(path, socket_field, "must be <= 10")
-                if value is not None and value in seen_sockets:
-                    ctx.error(path, socket_field, f"duplicate socket index {value}")
-                if value is not None:
-                    seen_sockets.add(value)
+    derived_sockets = _derive_module_edge_sockets(terrain_rows)
+    if schema_version == 1:
+        edge_sockets = data.get("edge_sockets")
+        if not isinstance(edge_sockets, dict):
+            ctx.error(path, "edge_sockets", "must be an object")
+        elif edge_sockets != derived_sockets:
+            ctx.error(path, "edge_sockets", "must match sockets derived from edge floor cells")
+    elif schema_version == 2:
+        if "edge_sockets" in data:
+            ctx.error(path, "edge_sockets", "must be omitted in schema v2 because sockets are derived")
+        _validate_module_visual_layers(ctx, path, data.get("visual_layers"), module_tile_catalog)
+        data["edge_sockets"] = derived_sockets
 
     placements = _require_list(ctx, path, "placements", data.get("placements"))
     placement_counts: dict[str, int] = {}
@@ -2365,6 +2416,118 @@ def _validate_module_file(
     if role == "module_role_start" and start_cell is not None:
         if any(max(abs(cell[0] - start_cell[0]), abs(cell[1] - start_cell[1])) <= 2 for cell in danger_cells):
             ctx.error(path, "placements", "player start must have a 2-cell danger-free safe radius")
+
+
+def _derive_module_edge_sockets(terrain_rows: list[Any]) -> dict[str, list[int]]:
+    floor = "module_cell_floor"
+    if len(terrain_rows) != 11 or any(not isinstance(row, list) or len(row) != 11 for row in terrain_rows):
+        return {"edge_north": [], "edge_south": [], "edge_east": [], "edge_west": []}
+    return {
+        "edge_north": [index for index in range(11) if terrain_rows[0][index] == floor],
+        "edge_south": [index for index in range(11) if terrain_rows[10][index] == floor],
+        "edge_east": [index for index in range(11) if terrain_rows[index][10] == floor],
+        "edge_west": [index for index in range(11) if terrain_rows[index][0] == floor],
+    }
+
+
+def _validate_module_visual_layers(
+    ctx: ValidationContext,
+    path: Path,
+    value: Any,
+    module_tile_catalog: dict[str, str],
+) -> None:
+    if not isinstance(value, dict):
+        ctx.error(path, "visual_layers", "must be an object")
+        return
+    if set(value) != {"ground", "obstacles", "decoration"}:
+        ctx.error(path, "visual_layers", "must define exactly ground, obstacles, and decoration")
+    for layer in ("ground", "obstacles"):
+        layer_value = value.get(layer)
+        field = f"visual_layers.{layer}"
+        if not isinstance(layer_value, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        if set(layer_value) != {"default_tile_id", "overrides"}:
+            ctx.error(path, field, "must define exactly default_tile_id and overrides")
+        _validate_module_tile_reference(
+            ctx,
+            path,
+            f"{field}.default_tile_id",
+            layer_value.get("default_tile_id"),
+            layer,
+            module_tile_catalog,
+        )
+        overrides = _require_list(ctx, path, f"{field}.overrides", layer_value.get("overrides"))
+        _validate_module_visual_cells(ctx, path, f"{field}.overrides", overrides, layer, module_tile_catalog)
+    decoration = value.get("decoration")
+    if not isinstance(decoration, dict):
+        ctx.error(path, "visual_layers.decoration", "must be an object")
+        return
+    if set(decoration) != {"cells"}:
+        ctx.error(path, "visual_layers.decoration", "must define exactly cells")
+    cells = _require_list(ctx, path, "visual_layers.decoration.cells", decoration.get("cells"))
+    _validate_module_visual_cells(
+        ctx,
+        path,
+        "visual_layers.decoration.cells",
+        cells,
+        "decoration",
+        module_tile_catalog,
+    )
+
+
+def _validate_module_visual_cells(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    cells: list[Any],
+    layer: str,
+    module_tile_catalog: dict[str, str],
+) -> None:
+    seen: set[tuple[int, int]] = set()
+    previous_sort_key = (-1, -1)
+    for index, item in enumerate(cells):
+        item_field = f"{field}[{index}]"
+        if not isinstance(item, dict):
+            ctx.error(path, item_field, "must be an object")
+            continue
+        if set(item) != {"cell", "tile_id", "rotation", "flip_h", "flip_v"}:
+            ctx.error(path, item_field, "must define exactly cell, tile_id, rotation, flip_h, and flip_v")
+        cell = _validate_module_cell(ctx, path, f"{item_field}.cell", item.get("cell"), 11, 11)
+        if cell is not None:
+            if cell in seen:
+                ctx.error(path, f"{item_field}.cell", "must be unique within the visual layer")
+            seen.add(cell)
+            sort_key = (cell[1], cell[0])
+            if sort_key < previous_sort_key:
+                ctx.error(path, field, "cells must be sorted by y then x")
+            previous_sort_key = sort_key
+        _validate_module_tile_reference(
+            ctx,
+            path,
+            f"{item_field}.tile_id",
+            item.get("tile_id"),
+            layer,
+            module_tile_catalog,
+        )
+        rotation = _require_int(ctx, path, f"{item_field}.rotation", item.get("rotation", 0), minimum=0)
+        if rotation not in {0, 90, 180, 270}:
+            ctx.error(path, f"{item_field}.rotation", "must be 0, 90, 180, or 270")
+        _require_bool(ctx, path, f"{item_field}.flip_h", item.get("flip_h", False))
+        _require_bool(ctx, path, f"{item_field}.flip_v", item.get("flip_v", False))
+
+
+def _validate_module_tile_reference(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    value: Any,
+    expected_layer: str,
+    module_tile_catalog: dict[str, str],
+) -> None:
+    tile_id = _require_registered(ctx, path, field, value, "module_tile_ids")
+    if tile_id and module_tile_catalog.get(tile_id) != expected_layer:
+        ctx.error(path, field, f"tile must belong to the {expected_layer} layer")
 
 
 def _module_cell_is_floor(terrain_rows: list[Any], cell: tuple[int, int]) -> bool:

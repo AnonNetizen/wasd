@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "tile_set_path": "res://resources/modules/module_placeholder_tileset.tres",
+  "tiles": [
+    {
+      "id": "module_tile_ground_default",
+      "layer": "ground",
+      "source_id": 0,
+      "atlas_coords": {
+        "x": 0,
+        "y": 0
+      },
+      "alternative_id": 0
+    },
+    {
+      "id": "module_tile_obstacle_default",
+      "layer": "obstacles",
+      "source_id": 0,
+      "atlas_coords": {
+        "x": 1,
+        "y": 0
+      },
+      "alternative_id": 0
+    },
+    {
+      "id": "module_tile_decoration_default",
+      "layer": "decoration",
+      "source_id": 0,
+      "atlas_coords": {
+        "x": 2,
+        "y": 0
+      },
+      "alternative_id": 0
+    }
+  ]
+}

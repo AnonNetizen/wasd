@@ -278,6 +278,11 @@
       "module_review_candidate",
       "module_review_approved"
     ],
+    "module_tile_ids": [
+      "module_tile_ground_default",
+      "module_tile_obstacle_default",
+      "module_tile_decoration_default"
+    ],
     "locale_prefixes": [
       "ui_",
       "ui_gear_mod_",

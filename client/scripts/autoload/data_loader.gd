@@ -35,6 +35,7 @@ const MAP_LAYOUTS_PATH: String = "res://data/map_layouts.json"
 const WARZONE_DIRECTORS_PATH: String = "res://data/warzone_directors.json"
 const MODULE_WORLDS_PATH: String = "res://data/module_worlds.json"
 const MODULE_TEMPLATES_PATH: String = "res://data/module_templates.json"
+const MODULE_TILE_CATALOG_PATH: String = "res://data/module_tile_catalog.json"
 const GEAR_MODS_PATH: String = "res://data/gear_mods.json"
 const GEAR_MOD_DROP_TABLES_PATH: String = "res://data/gear_mod_drop_tables.csv"
 const GEAR_MOD_FUSION_COSTS_PATH: String = "res://data/gear_mod_fusion_costs.csv"
@@ -166,7 +167,9 @@ func validate_project_data() -> bool:
 	is_valid = _validate_map_layouts_json(hazard_ids, game_mode_ids) and is_valid
 	is_valid = _validate_spawn_waves_csv(enemy_ids, hazard_ids, game_mode_ids) and is_valid
 	is_valid = _validate_warzone_directors_json(game_mode_ids, _collect_spawn_wave_ids_by_mode(), hazard_ids, _collect_map_layout_ids(), gear_mod_ids) and is_valid
-	is_valid = _validate_module_world_data(enemy_ids, hazard_ids) and is_valid
+	var module_tile_catalog: Dictionary = _validate_module_tile_catalog()
+	is_valid = not module_tile_catalog.is_empty() and is_valid
+	is_valid = _validate_module_world_data(enemy_ids, hazard_ids, module_tile_catalog) and is_valid
 
 	return is_valid
 
@@ -2387,8 +2390,56 @@ func _validate_content_tags(resource_path: String, field: String, value: Variant
 	return is_valid
 
 
-func _validate_module_world_data(enemy_ids: Dictionary, hazard_ids: Dictionary) -> bool:
-	var template_result: Dictionary = _validate_module_templates_json(enemy_ids, hazard_ids)
+func _validate_module_tile_catalog() -> Dictionary:
+	var catalog: Dictionary = {}
+	var data: Variant = load_json(MODULE_TILE_CATALOG_PATH)
+	if not data is Dictionary:
+		_schema_fail(MODULE_TILE_CATALOG_PATH, "root", "Dictionary")
+		return catalog
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = _require_exact_int(MODULE_TILE_CATALOG_PATH, "schema_version", payload.get("schema_version"), 1)
+	var tile_set_path: String = String(payload.get("tile_set_path", ""))
+	is_valid = _require_non_empty_string(MODULE_TILE_CATALOG_PATH, "tile_set_path", payload.get("tile_set_path")) and is_valid
+	if not tile_set_path.begins_with("res://resources/modules/") or not tile_set_path.ends_with(".tres") or not ResourceLoader.exists(tile_set_path):
+		is_valid = _schema_fail(MODULE_TILE_CATALOG_PATH, "tile_set_path", "existing res://resources/modules/*.tres TileSet") and is_valid
+	var tiles: Array = _require_array(MODULE_TILE_CATALOG_PATH, "tiles", payload.get("tiles"))
+	for index: int in range(tiles.size()):
+		var field: String = "tiles[%d]" % index
+		if not tiles[index] is Dictionary:
+			is_valid = _schema_fail(MODULE_TILE_CATALOG_PATH, field, "Dictionary") and is_valid
+			continue
+		var tile: Dictionary = tiles[index] as Dictionary
+		var tile_id: String = _require_registered(MODULE_TILE_CATALOG_PATH, "%s.id" % field, tile.get("id"), "module_tile_ids")
+		var layer: String = String(tile.get("layer", ""))
+		is_valid = _require_non_empty_string(MODULE_TILE_CATALOG_PATH, "%s.layer" % field, tile.get("layer")) and is_valid
+		if not ["ground", "obstacles", "decoration"].has(layer):
+			is_valid = _schema_fail(MODULE_TILE_CATALOG_PATH, "%s.layer" % field, "ground, obstacles, or decoration") and is_valid
+		if not tile_id.is_empty():
+			if catalog.has(tile_id):
+				is_valid = _schema_fail(MODULE_TILE_CATALOG_PATH, "%s.id" % field, "unique tile id") and is_valid
+			catalog[tile_id] = {
+				"layer": layer,
+				"source_id": int(tile.get("source_id", -1)),
+				"atlas_coords": tile.get("atlas_coords", {}),
+				"alternative_id": int(tile.get("alternative_id", -1)),
+				"tile_set_path": tile_set_path,
+			}
+		is_valid = _require_int(MODULE_TILE_CATALOG_PATH, "%s.source_id" % field, tile.get("source_id"), 0) and is_valid
+		if _validate_module_cell(MODULE_TILE_CATALOG_PATH, "%s.atlas_coords" % field, tile.get("atlas_coords"), 1_000_000, 1_000_000) == null:
+			is_valid = false
+		is_valid = _require_int(MODULE_TILE_CATALOG_PATH, "%s.alternative_id" % field, tile.get("alternative_id"), 0) and is_valid
+	var expected_ids: Array = contract_values("module_tile_ids")
+	if catalog.size() != expected_ids.size():
+		is_valid = _schema_fail(MODULE_TILE_CATALOG_PATH, "tiles", "every registered module_tile_id exactly once") and is_valid
+	for raw_tile_id: Variant in expected_ids:
+		if not catalog.has(String(raw_tile_id)):
+			is_valid = _schema_fail(MODULE_TILE_CATALOG_PATH, "tiles", "every registered module_tile_id exactly once") and is_valid
+	_last_schema_counts["module_tiles"] = catalog.size()
+	return catalog if is_valid else {}
+
+
+func _validate_module_world_data(enemy_ids: Dictionary, hazard_ids: Dictionary, module_tile_catalog: Dictionary) -> bool:
+	var template_result: Dictionary = _validate_module_templates_json(enemy_ids, hazard_ids, module_tile_catalog)
 	var templates: Dictionary = template_result.get("templates", {}) as Dictionary
 	var is_valid: bool = bool(template_result.get("is_valid", false))
 	var data: Variant = load_json(MODULE_WORLDS_PATH)
@@ -2473,7 +2524,7 @@ func _validate_module_world_data(enemy_ids: Dictionary, hazard_ids: Dictionary) 
 	return is_valid
 
 
-func _validate_module_templates_json(enemy_ids: Dictionary, hazard_ids: Dictionary) -> Dictionary:
+func _validate_module_templates_json(enemy_ids: Dictionary, hazard_ids: Dictionary, module_tile_catalog: Dictionary) -> Dictionary:
 	var is_valid: bool = true
 	var templates: Dictionary = {}
 	var data: Variant = load_json(MODULE_TEMPLATES_PATH)
@@ -2539,7 +2590,15 @@ func _validate_module_templates_json(enemy_ids: Dictionary, hazard_ids: Dictiona
 			seen_paths[module_path] = true
 			var module_data: Variant = load_json(module_path)
 			if module_data is Dictionary:
-				is_valid = _validate_module_file(module_path, module_data as Dictionary, template_id, role, enemy_ids, hazard_ids) and is_valid
+				is_valid = _validate_module_file(
+					module_path,
+					module_data as Dictionary,
+					template_id,
+					role,
+					enemy_ids,
+					hazard_ids,
+					module_tile_catalog
+				) and is_valid
 			else:
 				is_valid = _schema_fail(module_path, "root", "Dictionary") and is_valid
 		if not template_id.is_empty():
@@ -2568,9 +2627,19 @@ func _is_module_source_hash(value: String) -> bool:
 	return true
 
 
-func _validate_module_file(resource_path: String, data: Dictionary, expected_id: String, role: String, enemy_ids: Dictionary, hazard_ids: Dictionary) -> bool:
+func _validate_module_file(
+	resource_path: String,
+	data: Dictionary,
+	expected_id: String,
+	role: String,
+	enemy_ids: Dictionary,
+	hazard_ids: Dictionary,
+	module_tile_catalog: Dictionary
+) -> bool:
 	var is_valid: bool = true
-	is_valid = _require_exact_int(resource_path, "schema_version", data.get("schema_version"), 1) and is_valid
+	var schema_version: int = int(data.get("schema_version", 0))
+	if not _is_int_like(data.get("schema_version")) or not [1, 2].has(schema_version):
+		is_valid = _schema_fail(resource_path, "schema_version", "1 or 2 during the JSON-authoring migration") and is_valid
 	is_valid = _require_non_empty_string(resource_path, "id", data.get("id")) and is_valid
 	if String(data.get("id", "")) != expected_id:
 		is_valid = _schema_fail(resource_path, "id", "id matching module template registry") and is_valid
@@ -2586,26 +2655,184 @@ func _validate_module_file(resource_path: String, data: Dictionary, expected_id:
 		for x: int in range(row.size()):
 			if _require_registered(resource_path, "terrain_rows[%d][%d]" % [y, x], row[x], "module_cell_tokens").is_empty():
 				is_valid = false
-	var edge_sockets: Variant = data.get("edge_sockets")
-	if not edge_sockets is Dictionary:
-		is_valid = _schema_fail(resource_path, "edge_sockets", "Dictionary") and is_valid
-	else:
-		var socket_dict: Dictionary = edge_sockets as Dictionary
-		var edge_values: Array = contract_values("module_edge_directions")
-		if socket_dict.size() != edge_values.size():
-			is_valid = _schema_fail(resource_path, "edge_sockets", "exactly four registered edges") and is_valid
-		for edge_value: Variant in edge_values:
-			var edge: String = String(edge_value)
-			var sockets: Array = _require_array(resource_path, "edge_sockets.%s" % edge, socket_dict.get(edge))
-			var seen: Dictionary = {}
-			for socket_index: int in range(sockets.size()):
-				var socket: Variant = sockets[socket_index]
-				if not _is_int_like(socket) or int(socket) < 0 or int(socket) > 10 or seen.has(int(socket)):
-					is_valid = _schema_fail(resource_path, "edge_sockets.%s[%d]" % [edge, socket_index], "unique integer 0..10") and is_valid
-				elif _is_int_like(socket):
-					seen[int(socket)] = true
+	var derived_sockets: Dictionary = _derive_module_edge_sockets(terrain_rows)
+	if schema_version == 1:
+		var edge_sockets: Variant = data.get("edge_sockets")
+		if not edge_sockets is Dictionary:
+			is_valid = _schema_fail(resource_path, "edge_sockets", "Dictionary") and is_valid
+		else:
+			var socket_dict: Dictionary = edge_sockets as Dictionary
+			var edge_values: Array = contract_values("module_edge_directions")
+			if socket_dict.size() != edge_values.size():
+				is_valid = _schema_fail(resource_path, "edge_sockets", "exactly four registered edges") and is_valid
+			for edge_value: Variant in edge_values:
+				var edge: String = String(edge_value)
+				var sockets: Array = _require_array(resource_path, "edge_sockets.%s" % edge, socket_dict.get(edge))
+				var seen_sockets: Dictionary = {}
+				for socket_index: int in range(sockets.size()):
+					var socket: Variant = sockets[socket_index]
+					if not _is_int_like(socket) or int(socket) < 0 or int(socket) > 10 or seen_sockets.has(int(socket)):
+						is_valid = _schema_fail(resource_path, "edge_sockets.%s[%d]" % [edge, socket_index], "unique integer 0..10") and is_valid
+					else:
+						seen_sockets[int(socket)] = true
+	elif schema_version == 2:
+		if data.has("edge_sockets"):
+			is_valid = _schema_fail(resource_path, "edge_sockets", "omitted because schema v2 derives sockets") and is_valid
+		is_valid = _validate_module_visual_layers(resource_path, data.get("visual_layers"), module_tile_catalog) and is_valid
+		data["edge_sockets"] = derived_sockets
 	var placement_result: Dictionary = _validate_module_placements(resource_path, data.get("placements"), terrain_rows, role, enemy_ids, hazard_ids)
 	return bool(placement_result.get("is_valid", false)) and is_valid
+
+
+func _derive_module_edge_sockets(terrain_rows: Array) -> Dictionary:
+	var result: Dictionary = {
+		MODULE_EDGE_DIRECTIONS.EDGE_NORTH: [],
+		MODULE_EDGE_DIRECTIONS.EDGE_SOUTH: [],
+		MODULE_EDGE_DIRECTIONS.EDGE_EAST: [],
+		MODULE_EDGE_DIRECTIONS.EDGE_WEST: [],
+	}
+	if terrain_rows.size() != 11:
+		return result
+	for row: Variant in terrain_rows:
+		if not row is Array or (row as Array).size() != 11:
+			return result
+	for index: int in range(11):
+		if String((terrain_rows[0] as Array)[index]) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR:
+			(result[MODULE_EDGE_DIRECTIONS.EDGE_NORTH] as Array).append(index)
+		if String((terrain_rows[10] as Array)[index]) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR:
+			(result[MODULE_EDGE_DIRECTIONS.EDGE_SOUTH] as Array).append(index)
+		if String((terrain_rows[index] as Array)[10]) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR:
+			(result[MODULE_EDGE_DIRECTIONS.EDGE_EAST] as Array).append(index)
+		if String((terrain_rows[index] as Array)[0]) == MODULE_CELL_TOKENS.MODULE_CELL_FLOOR:
+			(result[MODULE_EDGE_DIRECTIONS.EDGE_WEST] as Array).append(index)
+	return result
+
+
+func _validate_module_visual_layers(resource_path: String, value: Variant, module_tile_catalog: Dictionary) -> bool:
+	if not value is Dictionary:
+		return _schema_fail(resource_path, "visual_layers", "Dictionary")
+	var visual_layers: Dictionary = value as Dictionary
+	var is_valid: bool = visual_layers.size() == 3
+	for required_layer: String in ["ground", "obstacles", "decoration"]:
+		if not visual_layers.has(required_layer):
+			is_valid = _schema_fail(resource_path, "visual_layers", "ground, obstacles, and decoration") and is_valid
+	for layer: String in ["ground", "obstacles"]:
+		var layer_value: Variant = visual_layers.get(layer)
+		var field: String = "visual_layers.%s" % layer
+		if not layer_value is Dictionary:
+			is_valid = _schema_fail(resource_path, field, "Dictionary") and is_valid
+			continue
+		var layer_data: Dictionary = layer_value as Dictionary
+		if (
+			layer_data.size() != 2
+			or not layer_data.has("default_tile_id")
+			or not layer_data.has("overrides")
+		):
+			is_valid = _schema_fail(resource_path, field, "exactly default_tile_id and overrides") and is_valid
+		is_valid = _validate_module_tile_reference(
+			resource_path,
+			"%s.default_tile_id" % field,
+			layer_data.get("default_tile_id"),
+			layer,
+			module_tile_catalog
+		) and is_valid
+		var overrides: Array = _require_array(resource_path, "%s.overrides" % field, layer_data.get("overrides"))
+		is_valid = _validate_module_visual_cells(resource_path, "%s.overrides" % field, overrides, layer, module_tile_catalog) and is_valid
+	var decoration_value: Variant = visual_layers.get("decoration")
+	if not decoration_value is Dictionary:
+		return _schema_fail(resource_path, "visual_layers.decoration", "Dictionary") and is_valid
+	var decoration_data: Dictionary = decoration_value as Dictionary
+	if decoration_data.size() != 1 or not decoration_data.has("cells"):
+		is_valid = _schema_fail(resource_path, "visual_layers.decoration", "exactly cells") and is_valid
+	var decoration_cells: Array = _require_array(
+		resource_path,
+		"visual_layers.decoration.cells",
+		decoration_data.get("cells")
+	)
+	return _validate_module_visual_cells(
+		resource_path,
+		"visual_layers.decoration.cells",
+		decoration_cells,
+		"decoration",
+		module_tile_catalog
+	) and is_valid
+
+
+func _validate_module_visual_cells(
+	resource_path: String,
+	field: String,
+	cells: Array,
+	layer: String,
+	module_tile_catalog: Dictionary
+) -> bool:
+	var is_valid: bool = true
+	var seen: Dictionary = {}
+	var previous_sort_key: int = -1
+	for index: int in range(cells.size()):
+		var item_field: String = "%s[%d]" % [field, index]
+		if not cells[index] is Dictionary:
+			is_valid = _schema_fail(resource_path, item_field, "Dictionary") and is_valid
+			continue
+		var item: Dictionary = cells[index] as Dictionary
+		if (
+			item.size() != 5
+			or not item.has("cell")
+			or not item.has("tile_id")
+			or not item.has("rotation")
+			or not item.has("flip_h")
+			or not item.has("flip_v")
+		):
+			is_valid = _schema_fail(
+				resource_path,
+				item_field,
+				"exactly cell, tile_id, rotation, flip_h, and flip_v"
+			) and is_valid
+		var cell_value: Variant = _validate_module_cell(resource_path, "%s.cell" % item_field, item.get("cell"), 11, 11)
+		if cell_value is Vector2i:
+			var cell: Vector2i = cell_value as Vector2i
+			var cell_key: String = "%d,%d" % [cell.x, cell.y]
+			var sort_key: int = cell.y * 11 + cell.x
+			if seen.has(cell_key):
+				is_valid = _schema_fail(resource_path, "%s.cell" % item_field, "unique cell in visual layer") and is_valid
+			if sort_key < previous_sort_key:
+				is_valid = _schema_fail(resource_path, field, "cells sorted by y then x") and is_valid
+			seen[cell_key] = true
+			previous_sort_key = sort_key
+		else:
+			is_valid = false
+		is_valid = _validate_module_tile_reference(
+			resource_path,
+			"%s.tile_id" % item_field,
+			item.get("tile_id"),
+			layer,
+			module_tile_catalog
+		) and is_valid
+		var rotation_value: Variant = item.get("rotation", 0)
+		if not _is_int_like(rotation_value) or not [0, 90, 180, 270].has(int(rotation_value)):
+			is_valid = _schema_fail(resource_path, "%s.rotation" % item_field, "0, 90, 180, or 270") and is_valid
+		is_valid = _require_bool(resource_path, "%s.flip_h" % item_field, item.get("flip_h", false)) and is_valid
+		is_valid = _require_bool(resource_path, "%s.flip_v" % item_field, item.get("flip_v", false)) and is_valid
+	return is_valid
+
+
+func _validate_module_tile_reference(
+	resource_path: String,
+	field: String,
+	value: Variant,
+	expected_layer: String,
+	module_tile_catalog: Dictionary
+) -> bool:
+	var tile_id: String = _require_registered(resource_path, field, value, "module_tile_ids")
+	if tile_id.is_empty():
+		return false
+	if not module_tile_catalog.has(tile_id):
+		return _schema_fail(resource_path, field, "tile id defined in module_tile_catalog.json")
+	var catalog_entry: Dictionary = module_tile_catalog[tile_id] as Dictionary
+	return String(catalog_entry.get("layer", "")) == expected_layer or _schema_fail(
+		resource_path,
+		field,
+		"tile assigned to the %s layer" % expected_layer
+	)
 
 
 func _validate_module_placements(resource_path: String, value: Variant, terrain_rows: Array, role: String, enemy_ids: Dictionary, hazard_ids: Dictionary) -> Dictionary:

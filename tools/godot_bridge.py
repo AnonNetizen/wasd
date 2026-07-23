@@ -94,6 +94,10 @@ def main() -> int:
     )
     subparsers.add_parser("module-bake-check", help="Check module bake artifacts without writing files.")
     subparsers.add_parser("module-bake-smoke", help="Run focused module bake validation coverage in headless Godot.")
+    subparsers.add_parser(
+        "module-json-editor-smoke",
+        help="Run isolated Module JSON document editing regressions in headless Godot.",
+    )
 
     args = parser.parse_args()
     project = Path(args.project).resolve()
@@ -139,6 +143,22 @@ def main() -> int:
             return 1
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--script", "res://tools/module_bake_smoke.gd"],
+            cwd=project,
+            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
+        )
+    if args.command == "module-json-editor-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        return _run_command(
+            [
+                str(godot),
+                "--headless",
+                "--path",
+                str(project),
+                "--script",
+                "res://addons/module_authoring/module_json_document_self_test.gd",
+            ],
             cwd=project,
             failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
         )

@@ -26,7 +26,7 @@
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
 | 改地图边界 / 矩形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是轴对齐矩形，必须分别整除 `grid.cell_width` / `grid.cell_height`；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法矩形格锚点 |
 | 改敌巢战区导演 / 阶段主题 / 兴趣点组合 | `warzone_directors.json` | 只按固定时间阶段启用 wave，不读取玩家状态、不做隐藏动态难度；匹配当前 layout 的兴趣点会生成初始 `source="director"` 机关；wave / 机关 / 地图引用必须存在 |
-| 加 / 改模块模板 | Godot 中编辑 `scenes/modules/<id>.tscn`，再运行 `module-bake` | 模块固定 11×11 格；`modules/*.json` / `resources/modules/*.tres` 是禁止手改的生成物，场景变化会降为 `candidate`，必须显式批准后才回默认池 |
+| 加 / 改模块模板 | 在 Godot 的 Module JSON Editor Dock 中编辑 `modules/<id>.json`，再显式 Validate / Bake | 模块固定 11×11 格；JSON 是人工与 AI 协作主源，生成 TSCN 禁止手改，玩法变化会降为 `candidate` |
 | 改 9×9 世界骨架 / 路线预算 | `module_worlds.json` | 同一世界统一格尺寸；固定起点 / 目标 / 撤离锚点，其余槽位按 `RNG.world` + run seed 组合 |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
@@ -60,7 +60,8 @@
 | `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、兴趣点 / 机关组合和阶段启用 wave |
 | `module_worlds.json` | 已建立 | F13 模块世界：9×9 槽位、11×11 格、统一格尺寸、固定锚点、模板池、安全布局和技术首片 |
 | `module_templates.json` | 已建立 | 模块注册表：角色、JSON 路径、AI 来源、审核状态、批准时 source hash 和可用旋转 |
-| `modules/*.json` | 生成文件 | 由 `scenes/modules/*.tscn` 烘焙的 11 行地形令牌、推导 socket 与 placement；路径保持稳定，禁止手改 |
+| `module_tile_catalog.json` | 已建立 | 稳定 `module_tile_id` 到 Godot TileSet source / atlas / alternative 的编辑期映射 |
+| `modules/*.json` | 制作主源 | 11×11 地形、placement 与三层视觉声明；由人工、AI 和 Module JSON Editor 协作维护 |
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
 | `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
 | `growth_pools.json` | 已建立 | 升级选项池、权重、等级条件和候选奖励边界 |
@@ -717,13 +718,25 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 
 `warzone_directors.json` 是 F10/F12 敌巢战区导演数据源。运行时使用 `phases[].wave_ids` 给 `GameplayRunLoop` 的 Spawner 做阶段 gating；刷怪本身仍由 `spawn_waves.csv` 的时间窗、间隔、预算和同时存活上限决定。F12 标准局按 0-1 分钟投放、1-4 分钟第一收益点、4-7 分钟路线压力、7-9 分钟小巢核、9 分钟后软加压组织；`phase_overtime_collapse` 只表达继续贪局时的高压段，不是硬性强制结束。匹配当前 `map_layout_id` 的 `interest_points[]` 会交给 `MapManager`；有 `target_hp` 的兴趣点先生成独立的格心 target anchor，再把 `hazard_ids[]` 机关放到目标附近并避开该 footprint；无目标兴趣点仍为每个 `hazard_ids[]` 用既有 PCG / 锚点 / 边界规则生成一个初始 `source="director"` placement，并把兴趣点奖励元数据透传给 `GameplayRunLoop`。无 `target_hp` 且无 `requires_interaction` 的兴趣点在玩家进入 `claim_radius` 且达到 `claim_start_time` 后领取；有 `requires_interaction=true` 的兴趣点会生成可见缓存箱，玩家进入半径后按 `interact` action 打开；有 `target_hp` 的兴趣点会生成可伤害目标，目标生成后即可被子弹 / Combat 伤害摧毁，摧毁后按通用 `resource_rewards[]` / `gear_mod_rewards[]` 放入 `run.pending_loot` 暂存；`completes_run=true` 的小巢核领取后只开启撤离区，玩家进入贴合地图矩形格的撤离矩形并完成 `extraction_hold_time` 读条后，才提交暂存战利品、删除当前 `run` 存档并显示完成结果面板。领取状态、目标状态、撤离状态和暂存战利品保存到 run payload，旧存档缺失时按未领取 / 未开启撤离 / 无暂存处理。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态；后续若增加随机 mutation、玩家可见主题或更复杂奖励语义，必须先同步 `docs/代码/warzone_director.md`、GDD、ADR、DataLoader schema 和对应 smoke / replay 策略。
 
-## `module_worlds.json` / `module_templates.json` / `modules/*.json`
+## `module_worlds.json` / `module_templates.json` / `module_tile_catalog.json` / `modules/*.json`
 
-F13 的正式默认地图是 9×9 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` 定义世界几何、键槽、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`scenes/modules/*.tscn` 是布局与表现制作主源，`modules/*.json` 是烘焙生成的玩法语义，不执行脚本且禁止手改。每个模块另生成 `resources/modules/<id>.tres` schema v2，包含允许旋转的三层 TileMap pattern、16 种运行时封边 obstacle / 预计算碰撞和 source hash。
+F13 的正式默认地图是 9×9 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` 定义世界几何、键槽、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`modules/*.json` 是布局与表现的唯一制作主源。Godot Module JSON Editor 只读写 JSON，不修改模块场景；baker 单向生成正式运行时 TSCN，生成场景禁止手改。
 
-每个模块 JSON 必须包含恰好 11 行、每行 11 个 `module_cell_tokens`，并声明四边 socket 格位。相邻模块旋转后的 socket 必须完全匹配，外圈不得越界开口。只允许 0/90/180/270° 旋转，不允许镜像。`module_place_enemy_spawn` 的 `cell` / `footprint` 必须全部落在 `module_cell_floor` 上；DataLoader 与 Python 校验器都会拒绝封锁格出生点，运行时也会拒绝生成或恢复到封锁格的模块敌人。
+每个模块 JSON 必须包含恰好 11 行、每行 11 个 `module_cell_tokens`；四边 socket 由边缘 floor 自动推导，不在 schema v2 中重复存储。相邻模块旋转后的 socket 必须完全匹配，外圈不得越界开口。模块只允许 0/90/180/270° 世界旋转；单个视觉格允许使用同样的旋转和水平/垂直翻转。`module_place_enemy_spawn` 的 `cell` / `footprint` 必须全部落在 `module_cell_floor` 上；DataLoader 与 Python 校验器都会拒绝封锁格出生点，运行时也会拒绝生成或恢复到封锁格的模块敌人。
 
-AI 产出新模块时必须先创建固定节点结构的 authoring scene 并登记为 `candidate`。通过 bake、schema、占位、通道、全局可达性、安全区和内容预算校验后，仍需在 Godot 的 `Modules/Approve Current` 显式批准。任何已批准场景内容变化在普通 bake 时自动降回 candidate。默认模板池只能引用 `approved`；模板复用时，运行状态按世界槽位保存，不按模板 id 共享。完整场景结构、命令和发布排除规则见 `docs/代码/module_authoring_pipeline.md`。
+AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate`。通过 bake、schema、图块、通道、全局可达性、安全区和内容预算校验后，仍需在 Dock 中显式批准。玩法或注册策略变化会降回 candidate；纯视觉变化保持审核状态但必须重新烘焙。默认模板池只能引用 `approved`；模板复用时，运行状态按世界槽位保存，不按模板 id 共享。完整编辑、命令和发布规则见 `docs/代码/module_authoring_pipeline.md`。
+
+`module_tile_catalog.json` 字段：
+
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `schema_version` | int | 必须为 `1` | 图块目录 schema |
+| `tile_set_path` | string | 已存在的 `res://resources/modules/*.tres` | baker 与 Dock 共用的 TileSet |
+| `tiles[].id` | string | 词表 §15-F，唯一且覆盖全部 module tile id | 模块 JSON 使用的稳定图块 id |
+| `tiles[].layer` | string | `ground` / `obstacles` / `decoration` | 图块允许出现的视觉层 |
+| `tiles[].source_id` | int | `>= 0` | Godot TileSet source id，仅目录维护 |
+| `tiles[].atlas_coords.x` / `tiles[].atlas_coords.y` | int | `>= 0` | TileSet atlas 坐标，仅目录维护 |
+| `tiles[].alternative_id` | int | `>= 0` | Godot alternative tile id |
 
 `module_worlds.json` 字段：
 

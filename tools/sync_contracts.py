@@ -64,6 +64,7 @@ SECTIONS: tuple[ContractSection, ...] = (
     ContractSection("module_placement_types", "## 15-C. 模块摆放原语 module_placement_type", "module_placement_types.gd", "ModulePlacementTypes"),
     ContractSection("module_edge_directions", "## 15-D. 模块边缘方向 module_edge_direction", "module_edge_directions.gd", "ModuleEdgeDirections"),
     ContractSection("module_review_statuses", "## 15-E. 模块审核状态 module_review_status", "module_review_statuses.gd", "ModuleReviewStatuses"),
+    ContractSection("module_tile_ids", "## 15-F. 模块图块 module_tile_id", "module_tile_ids.gd", "ModuleTileIds"),
 )
 
 LOCALE_PREFIXES_HEADING = "## 6. 本地化 key 命名规范"
