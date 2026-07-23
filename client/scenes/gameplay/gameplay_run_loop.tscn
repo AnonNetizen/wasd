@@ -1,9 +1,10 @@
-[gd_scene load_steps=7 format=3 uid="uid://bbq5dg0u4p14r"]
+[gd_scene load_steps=8 format=3 uid="uid://bbq5dg0u4p14r"]
 
 [ext_resource type="Script" uid="uid://wqmkjoq4cjb6" path="res://scripts/gameplay/gameplay_run_loop.gd" id="1_run_loop"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/world_background.tscn" id="2_background"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/gameplay_hud.tscn" id="4_hud"]
 [ext_resource type="Script" path="res://scripts/gameplay/map_manager.gd" id="5_map_manager"]
+[ext_resource type="PackedScene" path="res://scenes/gameplay/gameplay_camera_controller.tscn" id="5_nf4hx"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/module_world_manager.tscn" id="6_module_world"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/skill_system.tscn" id="7_skill_system"]
 
@@ -21,6 +22,8 @@ script = ExtResource("5_map_manager")
 [node name="PlayerHost" type="Node2D" parent="ActiveWorld"]
 
 [node name="ModuleWorldManager" parent="ActiveWorld" instance=ExtResource("6_module_world")]
+
+[node name="GameplayCameraController" parent="ActiveWorld" instance=ExtResource("5_nf4hx")]
 
 [node name="GameplayHud" parent="." instance=ExtResource("4_hud")]
 

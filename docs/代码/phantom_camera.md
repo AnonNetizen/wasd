@@ -2,7 +2,7 @@
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
 > 本文档是 vendored Phantom Camera 源码架构、运行时契约、本项目接入边界和维护入口的权威；改插件公共 API、signal、节点约束、本地补丁、项目适配链路或测试义务时必须同步本文档。
-> 插件版本、发布包 SHA-256、许可与手工升级清单以 `client/addons/README.md` 为权威；玩家相机行为以 `docs/代码/gameplay_runtime.md`、GDD §5.2 与 ADR #148 为权威。
+> 插件版本、发布包 SHA-256、许可与手工升级清单以 `client/addons/README.md` 为权威；玩家相机行为以 `docs/代码/gameplay_runtime.md`、GDD §5.2 与 ADR #148 / #156 为权威。
 
 ## 职责与边界
 
@@ -122,20 +122,24 @@ SceneRoot (Node3D)
 ### 本项目正式 2D 接入
 
 ```text
-Player (CharacterBody2D)
-└── GameplayCameraController (Node2D)
-    ├── CenteredCamera (Camera2D)
-    │   └── PhantomCameraHost
-    ├── PlayerCamera (PhantomCamera2D)
-    └── PlayerDamageShake (PhantomCameraNoiseEmitter2D)
-        └── PhantomCameraNoise2D resource
+GameplayRunLoop (Node2D)
+└── ActiveWorld (Node2D)
+    ├── PlayerHost (Node2D)
+    │   └── Player (character-specific CharacterBody2D)
+    └── GameplayCameraController (Node2D)
+        ├── CenteredCamera (Camera2D)
+        │   └── PhantomCameraHost
+        ├── PlayerCamera (PhantomCamera2D)
+        └── PlayerDamageShake (PhantomCameraNoiseEmitter2D)
+            └── PhantomCameraNoise2D resource
 ```
 
 项目固定约束：
 
 - `PlayerCamera` 使用 `FollowMode.GLUED`、priority `10`、host/noise layer `1` 和 `Vector2.ONE` zoom。
 - 禁用 Camera smoothing、PCam damping、lookahead、auto zoom、目标旋转跟随、rotation damping、load tween 和有效时长 Tween；真实 Camera 保持 `ignore_rotation=true`、`rotation=0`。
-- `GameplayCameraController.configure()` 绑定 Player 后立即 `teleport_position()`，并从 `camera_feedback.json.player_damage_shake` 写入 Noise 与 Emitter。
+- `GameplayCameraController` 是 `ActiveWorld` 的对局级长期节点，不是 Player 子节点；角色专属场景不得携带第二份 Rig。
+- `GameplayRunLoop` 每次实例化默认角色或恢复快照角色后调用 `GameplayCameraController.configure()`，重新绑定 Player 并立即 `teleport_position()`；控制器同时从 `camera_feedback.json.player_damage_shake` 写入 Noise 与 Emitter。
 - `GameplayRunLoop` 只在 `Combat.damage_applied` 确认玩家实际受伤后调用 `play_player_damage_shake()`；敌人受伤和玩家无敌拦截不触发。
 - `gameplay.screen_shake=false` 会立即 `stop(false)`、归零 `Camera2D.offset` 并抑制后续震屏。
 - 鼠标瞄准使用当前 canvas transform 反算世界方向；禁止用震屏偏移直接修改玩家的世界瞄准向量。
@@ -207,7 +211,7 @@ Player (CharacterBody2D)
 - 插件自身 Resource 没有项目 JSON schema；本项目可调震屏参数只来自 `client/data/camera_feedback.json`，字段说明与校验归 `client/data/README.md` 和 DataLoader 双端 schema 管理。
 - 玩家设置键来自生成常量 `SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE`；插件源码不得裸写项目 setting id。
 - 运行时随机必须走 `RNG.camera_fx`。该子流只影响表现，不得改变 `spawn`、`drop`、`combat`、`world` 等确定性序列。
-- 相机与震屏当前不写入 run snapshot；恢复局内状态后由场景和控制器重新绑定。不要保存 Noise 的瞬时 phase，除非未来新增明确回放 / 存档决策。
+- 相机与震屏当前不写入 run snapshot；恢复局内状态后由 RunLoop 将场景预置 Rig 重新绑定到新建 Player。不要保存 Noise 的瞬时 phase，除非未来新增明确回放 / 存档决策。
 - 插件 updater 设置固定为 `phantom_camera/updater/updater_mode=0`，不会发出版本查询；升级只能走人工审查。
 
 ## 编辑器工具与 C# 边界

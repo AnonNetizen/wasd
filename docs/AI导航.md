@@ -193,7 +193,7 @@
 | **修 Steamworks Lab AI 归队 / 合体** | `SteamLabSlimePlayer.set_input_drive_scale()` 必须与 AI 模式 `max_speed` 同步，保证 `TACTICAL / DODGE / RECALL` 的 `1.18× / 1.45× / 1.75×` 是真实软体速度；归队进入 92 px 后要跟随移动中的 P1，单人离线 `_update_gameplay()` 必须驱动权威 0.8 秒合体进度，并在合体后继续把 P1 输入路由给 driver。回归须走真实 E 按下 / 释放、移动 P1 和真实 `SlimeBody` 物理，禁止在归队后瞬移 AI 或直接调用内部合体函数代替主循环。最新目标 battle 1/1、local-couch 与权威 all-suite 已通过，all 含 battle 5/5、动态端口 ENet 和 635 字节最大快照分片；玩法仍以 ADR #140 为准，不新增 wire / 存档边界。 |
 | **加 UI 弹窗** | `UIManager.push(scene)`；场景根节点 `@export modal/pauses_game/music_duck` 元数据；不 `add_child` UI（见 GDD 9.14）；按钮、标题和说明布局以英文 `en` 文案长度验收，不按中文短文本定窄宽 |
 | **加新敌人/子弹/特效**（高频实体） | `PoolManager.acquire(pool_id)` / `release(node)`；新池 id 在词表 §8 登记；实现 `_pool_reset()`（见 GDD 9.13） |
-| **改角色 / 敌人基础或专属场景** | 查 ADR #155、`docs/代码/gameplay_runtime.md`、`pool_manager.md` 与 `enemy_ai.md`；基础树只改 `actors/player_base.tscn` / `enemy_base.tscn`，内容场景必须保持真实继承。静态颜色 / 轮廓留在场景，玩法数值留在 JSON / CSV；数据 `scene_path` 允许复用，敌人 `pool_id` 不允许复用。必跑 data/schema、`actor-scene-smoke`、runtime、save、module-world、headless 与黄金回放 |
+| **改角色 / 敌人基础或专属场景** | 查 ADR #155 / #156、`docs/代码/gameplay_runtime.md`、`pool_manager.md` 与 `enemy_ai.md`；基础树只改 `actors/player_base.tscn` / `enemy_base.tscn`，内容场景必须保持真实继承。静态颜色 / 轮廓留在场景，玩法数值留在 JSON / CSV；数据 `scene_path` 允许复用，敌人 `pool_id` 不允许复用，角色场景不得携带对局级相机 Rig。必跑 data/schema、`actor-scene-smoke`、runtime、save、module-world、headless 与黄金回放 |
 | **加伤害逻辑** | 走 `Combat.apply_damage(target, DamageInfo)`；`damage_type` 在词表 §9；保留 source / target / team / friendly_fire 模式规则边界；不 `target.hp -= n`（见 GDD 9.15.1） |
 | **加持续效果（DoT/控制/debuff）** | 用 `StatusEffect` Resource + 目标实体的 `StatusEffectComponent.apply()`；id 在词表 §9-A；明确 `stack_rule`；DoT 用 `damage_type`、`magnitude`、`tick_interval`，tick 伤害仍走 `Combat.apply_damage()`（见 GDD 9.15.2） |
 | **加存档/读档** | 走 `SaveManager.save/load`；必须支持 `meta` 局外成长和 `run` 暂停退出续局；schema 必带 `version` / `kind` / `slot` / `created_at` / `updated_at` / `game_version` / `data_hash`；写入用 `*.tmp` 原子替换、保留 `.bak`、坏档进 `.broken/`，payload 写入前会 JSON 归一化再算 hash；F5+ 已把 run payload 接到暂停保存 / 标题继续，`ui_restore` 可恢复普通游玩、暂停菜单、升级选择面板和升级面板上方暂停菜单叠层，run payload 当前包含地图 / 机关 / 玩家 / 敌人 / 子弹 / 掉落 / RNG / GameClock，坏档续局失败会回标题提示重置，并新增 `save-smoke` 覆盖 run roundtrip、`.bak` 回退、双坏档隔离、高精度浮点 hash 与 v1 -> v2 迁移；扩展字段时同步 `docs/代码/gameplay_runtime.md` 与 `docs/代码/save_manager.md`；save kind 先登记词表 §14；与 `Settings` 职责分开（见 GDD 9.16） |
@@ -222,13 +222,13 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前正式客户端以 F13 模块世界作为 `mode_standard_survival` 默认关卡 carrier：`ModuleWorldManager` 按 run seed 组合 81 槽、管理 schema v1 等价 gameplay map hash、模块迷雾和最多 3×3 活跃 chunk；运行开始 / 恢复时预加载 assignment 使用的唯一生成 TSCN，九个 `ModuleChunk` 只挂载缓存场景，视觉 JSON 和图块目录不进入 map hash。角色 / 敌人采用 ADR #155 的数据绑定继承场景：`PlayerHost` 挂载所选角色专属场景，五种敌人按唯一 `scene_path` 预加载并各自注册独立池，TSCN 管静态表现、数据管玩法数值。F14 的 `ModuleNavigationField` 从完整 assignment 构建静态 99×99 mask，玩家跨格时只在按最大视觉范围推导的半径 8 窗口内更新确定性共享流场，单次最多访问 289 格，并为 Enemy 提供路径距离、全图 AStar、地形视线和敌人半径走廊。EnemyAI schema v3 按视线、路径和 1.5 秒最后已知位置感知，畅通直追、受阻绕行；冲锋 / 远程受墙体门禁，玩家唯一目标、敌方友伤拒绝与中心分离边界不变。`--module-world-technical-slice` 保留中心 3×3 / 外圈 72 槽封锁入口，F12 开放战区通过 `--open-warzone` 保留并使用无导航 provider 的直线兜底。run 保持 v4，导航 / 感知缓存不保存。常规验收入口是 contracts/data/schema、`actor-scene-smoke`、`module-bake-check`、`module-json-editor-smoke`、`module-world-smoke`、`module-world-technical-slice-smoke`、`save-smoke`、`runtime-smoke`、headless 与四条黄金回放；ADR #143 后性能测试仅由用户当次明确触发。
+当前正式客户端以 F13 模块世界作为 `mode_standard_survival` 默认关卡 carrier：`ModuleWorldManager` 按 run seed 组合 81 槽、管理 schema v1 等价 gameplay map hash、模块迷雾和最多 3×3 活跃 chunk；运行开始 / 恢复时预加载 assignment 使用的唯一生成 TSCN，九个 `ModuleChunk` 只挂载缓存场景，视觉 JSON 和图块目录不进入 map hash。角色 / 敌人采用 ADR #155 的数据绑定继承场景：`PlayerHost` 挂载所选角色专属场景，五种敌人按唯一 `scene_path` 预加载并各自注册独立池，TSCN 管静态表现、数据管玩法数值。ADR #156 后唯一 `GameplayCameraController` 固定预置在 `ActiveWorld`，与 `PlayerHost` 并列，并在新局 / 续局角色实例化后绑定当前 Player；角色场景不再拥有相机。F14 的 `ModuleNavigationField` 从完整 assignment 构建静态 99×99 mask，玩家跨格时只在按最大视觉范围推导的半径 8 窗口内更新确定性共享流场，单次最多访问 289 格，并为 Enemy 提供路径距离、全图 AStar、地形视线和敌人半径走廊。EnemyAI schema v3 按视线、路径和 1.5 秒最后已知位置感知，畅通直追、受阻绕行；冲锋 / 远程受墙体门禁，玩家唯一目标、敌方友伤拒绝与中心分离边界不变。`--module-world-technical-slice` 保留中心 3×3 / 外圈 72 槽封锁入口，F12 开放战区通过 `--open-warzone` 保留并使用无导航 provider 的直线兜底。run 保持 v4，导航 / 感知缓存不保存。常规验收入口是 contracts/data/schema、`actor-scene-smoke`、`module-bake-check`、`module-json-editor-smoke`、`module-world-smoke`、`module-world-technical-slice-smoke`、`save-smoke`、`runtime-smoke`、headless 与四条黄金回放；ADR #143 后性能测试仅由用户当次明确触发。
 
 > 普通开始新局 / 重开会生成新的 `RNG` run seed；继续游戏恢复 run snapshot；回放、smoke、golden 和调试复现仍应显式固定 seed 或走工具启动路径。
 
 > 有限地图可见边界和逻辑边界当前都由 `MapManager.bounds()` / `boundary_points()` / `boundary_half_extents()` 定义为贴住格线的轴对齐矩形；玩家和敌人中心点由 `set_movement_bounds()` 约束。排查敌人越界时先看 `GameplayRunLoop._apply_enemy_movement_bounds()`、`Enemy.set_movement_bounds()` 与 `runtime-smoke` 的敌人边界断言。
 
-> F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射。ADR #124 后当前正式视角改回俯视角 2D；ADR #148 后 `CenteredCamera` 由 Player 子场景内的 Phantom Camera GLUED PCam 驱动，仍保持屏幕水平、玩家居中和等比缩放，不滚转、不平滑、不压缩某个轴。玩家有效受伤可按 `camera_feedback.json` 触发可关闭的位移震屏；鼠标瞄准会把屏幕偏移按当前 canvas transform 换算回世界方向。`Player` 仍是 `CharacterBody2D` 并按 2D 平面移动，正式玩家场景不再挂 `Player3DVisual`，默认 2D 占位按完整 `aim_direction` 绘制朝向标记。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
+> F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射。ADR #124 后当前正式视角改回俯视角 2D；ADR #148 的 Phantom Camera GLUED PCam 继续保持屏幕水平、玩家居中和等比缩放，不滚转、不平滑、不压缩某个轴。ADR #156 后 Rig 固定在 `GameplayRunLoop/ActiveWorld`，通过 `follow_target` 逻辑绑定当前 Player，不再属于 Player 子场景。玩家有效受伤可按 `camera_feedback.json` 触发可关闭的位移震屏；鼠标瞄准会把屏幕偏移按当前 canvas transform 换算回世界方向。`Player` 仍是 `CharacterBody2D` 并按 2D 平面移动，正式玩家场景不再挂 `Player3DVisual`，默认 2D 占位按完整 `aim_direction` 绘制朝向标记。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
 
 > ADR #151 / #152 后不再由 gameplay 动态创建 InputMap action。GUIDE 0.14.0 维护物理映射，`InputService` 将 `move` / `aim` 统一成 Vector2、锁存短按到物理 tick、跟踪最近设备并管理 gameplay / ui / debug context；Replay 只记录并读取 v2 最终 intent。旧 `move_*` / `aim_*` action 与 Settings 输入迁移已删除，同名 `input.*` 仅是当前 GUIDE binding id。
 
@@ -268,6 +268,7 @@ flowchart LR
   SE[StatusEffectComponent]
 
   Player[Player]
+  RunLoop[GameplayRunLoop]
   Weapon[WeaponSystem]
   Bullet[Bullet]
   Skill[SkillSystem]
@@ -340,7 +341,8 @@ flowchart LR
   Map --> Player & Spawner & Hazard
   Spawner --> Enemy
   Enemy -. 掉落经验 .-> Growth
-  Player --> CamCtl --> PCam --> PCHost --> Cam
+  RunLoop --> CamCtl --> PCam --> PCHost --> Cam
+  Player -. follow target .-> PCam
   PCamMgr -. 注册 / priority / layer / noise .-> PCam & PCHost
   ME -. 修正器叠加 .- Player & Weapon
   Item -. 注册 modifiers/behaviors .- ME

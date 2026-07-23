@@ -78,12 +78,22 @@ func _run() -> void:
 
 	await _expect_stats_panel_hold_to_show(run_loop)
 
-	var camera: Camera2D = _find_node_by_name(player, "CenteredCamera") as Camera2D
-	var camera_controller: Node = _find_node_by_name(player, "GameplayCameraController")
-	var camera_host: Node = _find_node_by_name(player, "PhantomCameraHost")
-	var player_camera: Node2D = _find_node_by_name(player, "PlayerCamera") as Node2D
+	var active_world: Node = run_loop.get_node_or_null("ActiveWorld")
+	var camera_controller: Node = run_loop.get_node_or_null(
+		"ActiveWorld/GameplayCameraController"
+	)
+	var camera: Camera2D = _find_node_by_name(camera_controller, "CenteredCamera") as Camera2D
+	var camera_host: Node = _find_node_by_name(camera_controller, "PhantomCameraHost")
+	var player_camera: Node2D = _find_node_by_name(camera_controller, "PlayerCamera") as Node2D
 	_expect(camera != null and camera.enabled, "CenteredCamera should be enabled")
-	_expect(camera_controller != null, "Player should own the gameplay camera controller")
+	_expect(
+		camera_controller != null and camera_controller.get_parent() == active_world,
+		"ActiveWorld should own the gameplay camera controller"
+	)
+	_expect(
+		player.get_node_or_null("GameplayCameraController") == null,
+		"Player should not own the run-level gameplay camera controller"
+	)
 	_expect(camera_host != null, "CenteredCamera should own a PhantomCameraHost")
 	_expect(player_camera != null, "gameplay camera controller should own a PlayerCamera PhantomCamera2D")
 	_expect(Engine.has_singleton("PhantomCameraManager"), "PhantomCameraManager should be registered as the stable project autoload")
@@ -217,13 +227,25 @@ func _run() -> void:
 		player.scene_file_path == PLAYER_SCENE.resource_path,
 		"restored character id should recreate its data-bound dedicated scene"
 	)
-	camera = _find_node_by_name(player, "CenteredCamera") as Camera2D
-	camera_controller = _find_node_by_name(player, "GameplayCameraController")
-	camera_host = _find_node_by_name(player, "PhantomCameraHost")
-	player_camera = _find_node_by_name(player, "PlayerCamera") as Node2D
+	active_world = run_loop.get_node_or_null("ActiveWorld")
+	camera_controller = run_loop.get_node_or_null("ActiveWorld/GameplayCameraController")
+	camera = _find_node_by_name(camera_controller, "CenteredCamera") as Camera2D
+	camera_host = _find_node_by_name(camera_controller, "PhantomCameraHost")
+	player_camera = _find_node_by_name(camera_controller, "PlayerCamera") as Node2D
 	_expect(camera != null and camera.enabled, "restored run should reactivate CenteredCamera")
-	_expect(camera_controller != null, "restored run should recreate the gameplay camera controller")
+	_expect(
+		camera_controller != null and camera_controller.get_parent() == active_world,
+		"restored run should keep the gameplay camera controller under ActiveWorld"
+	)
+	_expect(
+		player.get_node_or_null("GameplayCameraController") == null,
+		"restored Player should not own the run-level gameplay camera controller"
+	)
 	_expect(camera_host != null and camera_host.call("get_active_pcam") == player_camera, "restored run should reactivate PlayerCamera")
+	_expect(
+		player_camera != null and player_camera.get("follow_target") == player,
+		"restored PlayerCamera should follow the recreated Player instance"
+	)
 
 	InputService.set_playback_active(true)
 	InputService.inject_playback_value(ACTIONS.FIRE, true)

@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-07-23",
   "current_phase": "formal_project_f14_enemy_navigation_perception",
-  "current_status": "ADR #155 的角色与敌人专属继承场景已完成：新增 PlayerBase / EnemyBase、当前 1 个角色与 5 个敌人的真实 Godot 继承场景；characters.json 升 schema v2 并绑定 scene_path，enemies.csv 新增 scene_path / pool_prewarm、删除 visual_color。GameplayRunLoop 通过预置 PlayerHost 挂载所选角色，开局缓存唯一 actor PackedScene，并为五种敌人分别注册 enemy_chaser / enemy_swarm / enemy_stalker / enemy_bulwark / enemy_spitter 独立池，预热总数仍为 28；不同内容 id 可复用场景路径，但敌人池不可复用。TSCN 管静态颜色 / 轮廓 / 节点结构，JSON / CSV 继续管玩法数值，configure 不覆盖场景表现。新局默认 character_default，run v4 续局按快照角色恢复，无效绑定 fail closed。地图、EnemyAI、Combat、run v4、存档和模块 map hash 不变；黄金回放仅更新数据指纹与独立池 pool_stats。ADR #143 后性能测试只由用户当次明确触发，本任务未运行性能 probe。后续工作以用户最后明确指令为准。",
-  "latest_adr": 155,
+  "current_status": "ADR #156 的摄像机 Rig 与 Player 场景解耦已完成：GameplayCameraController 从 PlayerBase 移到 GameplayRunLoop/ActiveWorld，与 PlayerHost 并列并作为每局唯一长期 Rig。角色基础 / 专属继承场景只保留角色自身结构；GameplayRunLoop 在默认角色创建或 run v4 快照角色恢复后，把 Phantom Camera 的 PlayerCamera.follow_target 重新绑定到当前 Player。缺失、类型错误或缺少 configure 入口会阻止启动，续局走既有 restore_failed。严格居中、屏幕水平、等比缩放、priority/layer、teleport_position、camera_feedback.json 震屏、Settings 与 RNG.camera_fx 保持不变；数据 schema、地图、EnemyAI、Combat、run v4、存档和 map hash 不变。ADR #143 后性能测试只由用户当次明确触发，本任务未运行性能 probe。后续工作以用户最后明确指令为准。",
+  "latest_adr": 156,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #156 / 摄像机 Rig 与 Player 场景解耦：GameplayCameraController 从 PlayerBase 移到 GameplayRunLoop/ActiveWorld，与 PlayerHost 并列且每局唯一；角色场景不再携带相机。RunLoop 在默认 / 快照角色创建后重新绑定 GLUED PlayerCamera.follow_target，缺失或错误 Rig fail closed；严格居中、震屏、插件、数据和 run v4 契约不变。",
     "ADR #155 / 角色与敌人专属继承场景：新增 PlayerBase / EnemyBase 和 1 个角色、5 个敌人的真实继承 TSCN；characters.json schema v2 与 enemies.csv 显式绑定 scene_path，敌人预热数据化并删除 visual_color / enemy_ranged。RunLoop 通过 PlayerHost 实例化默认或快照角色，缓存唯一 actor PackedScene，并按五种敌人分别注册独立池；场景路径允许内容复用，敌人池保持一敌一池。TSCN 管静态表现，数据管玩法数值，run v4 / 地图 / EnemyAI / Combat 不变。",
     "ADR #154 / 模块 JSON 可视化编辑与单向 TSCN 烘焙：modules/*.json 升 schema v2 并成为唯一制作主源，新增稳定 tile catalog 与只编辑 JSON 的 Godot `Module JSON` 中央主编辑区；baker 只接受 JSON，每模块生成一份含三层 TileMap、合并碰撞、四边封锁和规范 placement 快照的 `rotation_0.tscn`，check 重建规范指纹并拒绝遗留方向文件。ModuleWorldManager 按 module id 预加载 assignment 唯一场景，九个 ModuleChunk 挂载缓存实例并做正交旋转 / 方形枢轴补偿 / 封边方向反映射；旧 authoring TSCN、模块专用 TRES、45 份方向重复生成物和全部 TSCN→JSON 路径删除，gameplay projection 保持旧 map hash / run v4 / 导航 / 存档 / 回放摘要。",
     "ADR #153 第三阶段 / 玩法与 UI 场景化：Player / Enemy / Bullet / PickupOrb / HitSpark 删除占位 `_draw()` 并改用可编辑 Polygon2D / Line2D；地图范围、机关 footprint、撤离进度、minimap 等动态几何暴露场景样式；HUD stats、升级、Gear Mod 与输入绑定改为五个 PackedScene 行模板；semantic lint 新增 runtime-node-construction 且豁免对象池 factory / 行模板。",
@@ -21,7 +22,7 @@
     "ADR #149 / 默认子弹地形阻挡：玩家与敌方 Bullet 在移动前复用 hit_radius 圆形做首帧 intersect_shape 与本帧 cast_motion，只查询模块地形 bit 1；命中移动至安全比例并由 PoolManager 回收。新增非负 wall_pierce stat，与只表示额外伤害目标数的 pierce_count 独立；发射时快照 wall_pierce_enabled，旧快照缺字段默认 false，run 保持 v4。module-world smoke 覆盖双方默认阻挡、正值穿墙和槽位卸载 / 返回兼容。",
     "Stage 1 lint / Godot 资源告警清理：移除 enemies / Gear Mod 表 / growth / hazards / spawn_waves 等运行时 CSV 曾被翻译 importer 误生成的 37 个 client/data translation 资源，保留正式 CSV 与 keep importer，并修正忽略规则防止复发；semantic lint 的 Pool / UI 检查从所有 instantiate / queue_free / add_child 收窄为高频实体 / 弹窗命名风险，并识别 PoolManager 注册 factory，正反回归、strict lint、完整 pre-commit 与 Godot 4.7.1 headless boot 均通过。",
     "Phantom Camera 文档化与 AI 知识接入：新增 docs/代码/phantom_camera.md，完整覆盖 vendored Runtime Core、Resource、Editor Tooling、C# wrapper、Manager / Host / PCam 生命周期、正式 2D 玩家相机适配、本地补丁、升级与排障；同步代码索引、AI 导航依赖图、知识库双索引、上下文预算、插件 / Gameplay Runtime 文档和核心 GDScript 文件头，不改变运行时 API、场景、数据 schema 或相机行为。",
-    "ADR #148 / Phantom Camera 正式玩家相机：官方发布包 0.11.0.3 按 SHA-256 固定版本入库，仅保留 addons/phantom_camera 并排除 examples；项目固定 PhantomCameraManager autoload 且禁用插件自动更新 / autoload 改写。Player 子场景使用 GLUED PCam 严格居中，camera_feedback.json 驱动玩家有效受伤震屏，RNG.camera_fx 隔离表现随机，Settings 开关可即时停止并抑制震屏，physics_jitter_fix 保持 0.5。",
+    "ADR #148 / Phantom Camera 正式玩家相机：官方发布包 0.11.0.3 按 SHA-256 固定版本入库，仅保留 addons/phantom_camera 并排除 examples；项目固定 PhantomCameraManager autoload 且禁用插件自动更新 / autoload 改写。GLUED PCam 严格居中，camera_feedback.json 驱动玩家有效受伤震屏，RNG.camera_fx 隔离表现随机，Settings 开关可即时停止并抑制震屏，physics_jitter_fix 保持 0.5；原 Player 子场景归属已由 ADR #156 取代。",
     "ADR #147 / 正式客户端 Godot 编辑器插件：官方发布包的 @icons 1.4.0 与 Script-IDE 2.2.3 addon 子目录固定版本入库并在 project.godot 共享启用；MIT 许可、上游署名、版本、SHA-256、本地补丁和手工升级流程已记录。插件作为项目维护型 fork 补齐显式类型、返回类型与段落顺序，不设 lint 豁免，不增加运行时 API 或 autoload。",
     "ADR #146 / F14.1 共享流场逐格卡顿修复：活动目标 Dijkstra 从完整 99×99 收敛为最大视觉范围驱动的局部 Chebyshev 窗口，当前半径 8、单次最多 289 格；每次只清理上次实际触达索引，堆使用并行距离 / 格索引数组。完整静态 mask、地形视线和守家 / 记忆全图 AStar 保持不变；module-world smoke 覆盖运行时半径推导、连续跨 20 格、局部窗口外不可达和全图 AStar 不截断。run v4、EnemyAI schema v3、F13 状态与 ADR #144 护栏不变。",
     "ADR #145 / F14 敌人共享流场寻路与混合感知：新增完整 99×99 静态 ModuleNavigationField、确定性八方向 Dijkstra、局部 AStarGrid2D、supercover 地形视线与敌人半径走廊；ModuleWorldManager 暴露导航门面，Enemy 在模块模式畅通直追、受阻绕路，并按视线 / 路径 / 1.5 秒最后已知位置感知。冲锋 / 远程墙体门禁、profile schema v3、双端负例与 module-world / runtime smoke 已接入；run 保持 v4，F13 保持完成，ADR #144 护栏不变。",
@@ -149,6 +150,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-23",
+      "command": "sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/strict semantic lints plus lint self-tests; actor-scene-smoke; settings-smoke; export-tree; headless editor/boot; runtime-smoke; module-world full/technical smoke; save-smoke; l1-smoke; four golden replay-runner runtime reruns; docs_health_check; JSON current_state/_kb_index; git diff --check",
+      "result": "passed for ADR #156 camera-rig ownership refactor. Actor smoke verifies PlayerBase and dedicated character scenes carry no camera, GameplayRunLoop owns exactly one complete ActiveWorld camera rig, and a missing rig emits restore_failed before actor or pool setup. Runtime smoke verifies the rig is not a Player descendant, Host activates PlayerCamera, follow_target points to the current Player, and save/continue retargets the recreated Player while strict centering, uniform scale, canvas aim and shake behavior remain intact. Both module-world modes, settings, save, L1, headless and all four goldens pass; module map hash remains 63f49b0cee98050b07f0feb68722894713a784a4b7238242506d077add0a1083 with unchanged gameplay summaries. No startup/performance probe or Profiler ran; unrelated Module JSON editor, placeholder TileSet, translation and lint working-tree changes remain excluded."
+    },
     {
       "date": "2026-07-23",
       "command": "sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/strict semantic lints plus lint self-tests; export-tree; headless-boot; actor-scene-smoke; module-world full/technical smoke; runtime-smoke; save-smoke; l1-smoke; four golden replay-runner runtime reruns; docs_health_check; JSON current_state/_kb_index; git diff --check",

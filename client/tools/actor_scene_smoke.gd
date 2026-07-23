@@ -9,6 +9,7 @@ const PLAYER_BASE_PATH: String = "res://scenes/gameplay/actors/player_base.tscn"
 const PLAYER_SCRIPT := preload("res://scripts/gameplay/player.gd")
 
 var _failures: Array[String] = []
+var _restore_failure_observed: bool = false
 
 
 func _ready() -> void:
@@ -48,6 +49,8 @@ func _run() -> void:
 	)
 	_validate_enemy_pools(enemies)
 	_validate_enemy_pool_registration_rollback(enemies)
+	_validate_run_loop_camera_rig()
+	_validate_missing_run_loop_camera_fails_restore()
 
 	if _failures.is_empty():
 		print("[actor-scene-smoke] PASS")
@@ -84,11 +87,77 @@ func _validate_actor_scene(
 	_expect(actor.get_node_or_null("Visual") is Node2D, "%s should have a Visual subtree" % actor_id)
 	_expect(actor.scene_file_path == scene_path, "%s instance should retain its dedicated scene path" % actor_id)
 	if is_player:
-		_expect(actor.get_node_or_null("GameplayCameraController") != null, "%s should have GameplayCameraController" % actor_id)
+		_expect(
+			actor.get_node_or_null("GameplayCameraController") == null,
+			"%s should not own the run-level GameplayCameraController" % actor_id
+		)
 		_expect(actor.get_node_or_null("WeaponSystem") != null, "%s should have WeaponSystem" % actor_id)
 	else:
 		_expect(actor.get_node_or_null("StatusEffectComponent") != null, "%s should have StatusEffectComponent" % actor_id)
 	actor.free()
+
+
+func _validate_run_loop_camera_rig() -> void:
+	var run_loop: Node = GAMEPLAY_RUN_LOOP_SCENE.instantiate()
+	var active_world: Node = run_loop.get_node_or_null("ActiveWorld")
+	var camera_controller: Node = run_loop.get_node_or_null(
+		"ActiveWorld/GameplayCameraController"
+	)
+	_expect(active_world != null, "GameplayRunLoop should own ActiveWorld")
+	_expect(
+		camera_controller is Node2D,
+		"ActiveWorld should own one GameplayCameraController rig"
+	)
+	_expect(
+		camera_controller != null and camera_controller.get_parent() == active_world,
+		"GameplayCameraController should be a direct ActiveWorld child"
+	)
+	_expect(
+		run_loop.find_children("GameplayCameraController", "", true, false).size() == 1,
+		"GameplayRunLoop should contain exactly one GameplayCameraController"
+	)
+	if camera_controller != null:
+		_expect(
+			camera_controller.get_node_or_null("CenteredCamera") is Camera2D,
+			"camera rig should retain CenteredCamera"
+		)
+		_expect(
+			camera_controller.get_node_or_null("CenteredCamera/PhantomCameraHost") != null,
+			"camera rig should retain PhantomCameraHost"
+		)
+		_expect(
+			camera_controller.get_node_or_null("PlayerCamera") is Node2D,
+			"camera rig should retain PlayerCamera"
+		)
+		_expect(
+			camera_controller.get_node_or_null("PlayerDamageShake") != null,
+			"camera rig should retain PlayerDamageShake"
+		)
+	run_loop.free()
+
+
+func _validate_missing_run_loop_camera_fails_restore() -> void:
+	var run_loop: Node = GAMEPLAY_RUN_LOOP_SCENE.instantiate()
+	var camera_controller: Node = run_loop.get_node_or_null(
+		"ActiveWorld/GameplayCameraController"
+	)
+	if camera_controller != null:
+		camera_controller.free()
+	_restore_failure_observed = false
+	run_loop.connect("restore_failed", _on_restore_failure_observed)
+	run_loop.call("configure_restore_snapshot", {
+		"character": CHARACTER_IDS.CHARACTER_DEFAULT,
+	})
+	get_tree().root.add_child(run_loop)
+	_expect(
+		_restore_failure_observed,
+		"missing run-level camera rig should fail closed during restore"
+	)
+	run_loop.free()
+
+
+func _on_restore_failure_observed() -> void:
+	_restore_failure_observed = true
 
 
 func _validate_enemy_configuration(enemy_row: Dictionary) -> void:

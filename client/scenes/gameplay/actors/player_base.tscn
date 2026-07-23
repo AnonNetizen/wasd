@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://cukcjv22i1erd"]
 
 [ext_resource type="Script" uid="uid://di4d0y2bfu325" path="res://scripts/gameplay/player.gd" id="1_juycr"]
-[ext_resource type="PackedScene" path="res://scenes/gameplay/gameplay_camera_controller.tscn" id="2_ckjaf"]
 [ext_resource type="PackedScene" uid="uid://bs6kdf27g1s0a" path="res://scenes/gameplay/weapon_system.tscn" id="3_nby7g"]
 [ext_resource type="Script" uid="uid://b8t5v1sfogtt1" path="res://scripts/combat/status_effect_component.gd" id="4_4016b"]
 
@@ -38,8 +37,6 @@ polygon = PackedVector2Array(22, 0, 14, 5, 14, -5)
 [node name="Eye" type="Polygon2D" parent="Visual/Direction" unique_id=789089852]
 position = Vector2(4.56, 1.25)
 polygon = PackedVector2Array(2, 0, 1.414, 1.414, 0, 2, -1.414, 1.414, -2, 0, -1.414, -1.414, 0, -2, 1.414, -1.414)
-
-[node name="GameplayCameraController" parent="." unique_id=1426821311 instance=ExtResource("2_ckjaf")]
 
 [node name="WeaponSystem" parent="." unique_id=240850889 instance=ExtResource("3_nby7g")]
 

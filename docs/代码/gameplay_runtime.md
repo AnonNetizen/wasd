@@ -102,13 +102,13 @@ FormalClientBoot
     │   ├── PlayerHost (Node2D)
     │   │   └── Player (character-specific inherited CharacterBody2D)
     │   │       ├── CollisionShape2D (CircleShape2D; blocked module-cell collision)
-    │   │       ├── GameplayCameraController (Node2D)
-    │   │       │   ├── CenteredCamera (Camera2D; current, level, uniform scale)
-    │   │       │   │   └── PhantomCameraHost (Node)
-    │   │       │   ├── PlayerCamera (PhantomCamera2D; GLUED follow)
-    │   │       │   └── PlayerDamageShake (PhantomCameraNoiseEmitter2D)
     │   │       ├── WeaponSystem (Node)
     │   │       └── StatusEffectComponent (Node)
+    │   ├── GameplayCameraController (Node2D; run-level rig)
+    │   │   ├── CenteredCamera (Camera2D; current, level, uniform scale)
+    │   │   │   └── PhantomCameraHost (Node)
+    │   │   ├── PlayerCamera (PhantomCamera2D; GLUED follow current Player)
+    │   │   └── PlayerDamageShake (PhantomCameraNoiseEmitter2D)
     │   ├── hazard_spike_* (pooled Hazard scene, active only)
     │   ├── InterestPointTarget_* (low-frequency POI target, active only)
     │   ├── InterestPointCache_* (low-frequency POI cache, active only)
@@ -150,7 +150,7 @@ UIManager
 | 模块世界 carrier（F13） | 默认开局配置完整 9×9 assignment；固定中心起点、目标和撤离锚点，普通槽位从 approved 模板池按 `RNG.world` / run seed 组合。`tick()` 在跨越模块边界时按世界槽位保存离开邻域的敌人、机关、子弹与掉落，释放池化实体并激活新 3×3 邻域；子弹 / 掉落以卸载时的实际位置归槽，避免跨缝后错误留存。迷雾在进入模块后揭示，完成目标后激活撤离。续局由 `module_world` 块恢复 assignment、rotation、内容敏感 map hash、迷雾、目标 / 撤离和 81 个槽位状态；世界配置或已引用模块 JSON 任一玩法内容变化都会使 hash 不匹配并拒绝继续恢复 | `ModuleWorldManager.build_assignment()`、`tick()`、`snapshot()` / `restore_state()`、`PoolManager.acquire()` |
 | 背景 | 在玩家附近绘制量化矩形地图格和原点十字；网格来自 `map_layouts.json.grid`，与机关尺寸 / 判定共用同一格度量，但不缩放或旋转世界坐标，也不模拟斜俯视透视 | `WorldBackground.configure()` |
 | 输入 | `InputService` 从 GUIDE 的 gameplay context 产生 `move` / `aim` `Vector2` 与按钮 intent。键鼠瞄准由 pointer viewport position 经当前 canvas / camera transform 得到世界方向；右摇杆、D-pad 或方向键是兜底。`show_stats_panel` 只显示 HUD 叠层，`interact` 打开范围内缓存。Replay v2 记录最终 move / aim 与按钮值，鼠标和手柄使用同一 intent wire | `InputService`、生成 `Actions` 常量、`Replay` v2 |
-| 移动 / 瞄准 / 相机 | 玩家按数据移速在 2D 平面移动；`GameplayCameraController` 把 `PlayerCamera` 配成 Phantom Camera `GLUED` 严格跟随，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放。鼠标激活后按 canvas transform 换算后的世界方向瞄准；无鼠标动作时用方向键 / 手柄右摇杆 / D-pad 兜底，松开保持上一方向 | `Player.aim_direction`、`GameplayCameraController.configure()` |
+| 移动 / 瞄准 / 相机 | 玩家按数据移速在 2D 平面移动；RunLoop 在角色实例化 / 恢复后，把 `ActiveWorld` 预置 Rig 的 `PlayerCamera` 配成 Phantom Camera `GLUED` 严格跟随当前 Player，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放。鼠标激活后按 canvas transform 换算后的世界方向瞄准；无鼠标动作时用方向键 / 手柄右摇杆 / D-pad 兜底，松开保持上一方向 | `Player.aim_direction`、`GameplayCameraController.configure()` |
 | 按住开火 | WeaponSystem 读取 `InputService` 的 `fire` intent；按住时按 `fire_rate` 从子弹池取节点并配置，松开停火 | `InputService` / `PoolManager.acquire()` |
 | 子弹移动 / 地形 | 玩家和敌方子弹移动前先用 `hit_radius` 圆形 `intersect_shape()` 检查初始重叠，再用 `cast_motion()` 扫掠本帧位移；只查询地形层 bit 1。命中后停在安全比例、立即 `PoolManager.release()`，不再检查墙后伤害目标；`wall_pierce > 0` 的发射快照跳过全部地形查询 | `PhysicsShapeQueryParameters2D` / `PhysicsDirectSpaceState2D` |
 | 子弹命中 | 地形通过后，子弹才用距离检测命中 `active_enemies` 与 `active_interest_point_targets` 组；远程敌人可通过同一 `Bullet.configure()` 指定 `active_player` 目标组和敌方队伍，伤害统一走 `Combat.apply_damage()`。`pierce_count` 只表示可额外命中的伤害目标数量，不影响墙体 | `DamageInfo` |
@@ -255,7 +255,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 机关占位表现：通用 `Hazard` 绘制矩形危险地块；`hazards.csv.radius_tiles` 表示占用地图矩形格的整数倍，`MapManager.grid_cell_size()` 同时驱动背景网格、机关绘制和触发判定。
 - 战区导演：`warzone_directors.json` 声明当前模式的固定 phase、mutation 和兴趣点；`GameplayRunLoop` 用它 gating wave，并把当前 layout 的兴趣点交给 `MapManager` 生成初始 `source="director"` 机关；不能让它读取玩家血量、DPS、受伤次数、输入节奏或其它玩家状态。F12 当前四个兴趣点通过通用 `resource_rewards[]` / `gear_mod_rewards[]`、`requires_interaction`、`target_hp` / `target_hit_radius` 和 `completes_run` 接线，不按 `poi_id` 特判；`requires_interaction` 缓存箱和 `target_hp` 目标都必须走 MapManager 的独立 POI anchor，不能复用陷阱位置；缓存箱是贴地 POI 视觉，层级应在地图背景之上、机关 / 敌人 / 玩家模型之下；后续守卫或核心实体仍应复用 reward / objective 数据而不是新增 id 分支。
 - 玩家生命尺度：默认角色 `max_hp` 为 600.0，采用浮点血量尺度而非旧心数尺度；`health_regen` 在 `PLAYING` 状态下按 `GameClock.delta_scaled()` 自动恢复生命且不超过上限，当前默认 1.5 HP/s。
-- 玩家俯视表现：`Player` 是 `CharacterBody2D`，移动、碰撞、受击、显示占位和 run 快照都维持 2D；`GameplayCameraController` 仍作为 Player 子场景，由 Phantom Camera GLUED PCam 驱动 `CenteredCamera`。当前固定 `ignore_rotation=true`、无 smoothing / damping / lookahead / dead zone / auto zoom / load tween，并保持 `Vector2.ONE` 等比缩放；鼠标瞄准通过 canvas transform 反投影回世界方向。
+- 玩家俯视表现：`Player` 是 `CharacterBody2D`，移动、碰撞、受击、显示占位和 run 快照都维持 2D；`GameplayCameraController` 是 `GameplayRunLoop/ActiveWorld` 中与 `PlayerHost` 并列的唯一对局级 Rig，RunLoop 在角色创建或恢复后重新绑定 GLUED PCam。当前固定 `ignore_rotation=true`、无 smoothing / damping / lookahead / dead zone / auto zoom / load tween，并保持 `Vector2.ONE` 等比缩放；鼠标瞄准通过 canvas transform 反投影回世界方向。
 - 受伤无敌：从合并后的玩家 `base_stats.damage_invulnerability_duration` 读取；当前默认 `player.json` 为 0.7 秒，和受伤红闪时长分离。
 - 经验球：使用词表 §8 `pickup_orb` 对象池；`player.json.base_stats.pickup_range` 控制吸附范围，`pickup_orb_speed` 控制吸附速度。经验球占位绘制为绿色圆点加暗色轮廓，吸附时显示短弧线，收集时放大淡出。
 - 等级阈值：从 `growth.csv.total_xp_required` 读取累计总经验阈值；运行时内部保留累计经验判定升级，HUD 显示 `当前累计经验 - 当前等级累计阈值` / `下一级累计阈值 - 当前等级累计阈值`。
@@ -321,7 +321,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 改旧局外升级删除边界 | `client/scenes/ui/title_menu.tscn`、`client/scripts/ui/title_menu.gd`、`client/scripts/boot/formal_client_boot.gd`、`client/project.godot` | 本文档、FormalClientBoot / GearModSystem / SaveManager 文档 | `headless-boot` + `runtime-smoke` + `gear-mod-smoke` |
 | 改 GM 指令影响运行时 | `client/scripts/debug/gm_command_registry.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、目标系统脚本 | 本文档、DebugTools 文档、测试策略 | `debug-tools-smoke` + `debug-tools-release-smoke`，必要时追加 `runtime-smoke` / `gear-mod-smoke` |
 | 改运行时行为 | `client/scripts/gameplay/*.gd` | 本文档、必要时 GDD / ADR | L0 + L2 + `runtime-smoke`，必要时补 L1 |
-| 改鼠标 / 手柄瞄准手感或俯视相机 / 地图显示参数 | `client/scripts/gameplay/player.gd`、`world_background.gd`、`weapon_system.gd`、`client/tools/runtime_smoke.gd` | 本文档、GDD、词表、测试策略 | `lint_gdscript_rules` + `lint_semantic_rules` + `runtime-smoke` + `replay-input-smoke` |
+| 改鼠标 / 手柄瞄准手感或俯视相机 / 地图显示参数 | `client/scripts/gameplay/player.gd`、`gameplay_run_loop.gd/.tscn`、`gameplay_camera_controller.gd/.tscn`、`world_background.gd`、`weapon_system.gd`、`client/tools/runtime_smoke.gd` | 本文档、Phantom Camera 文档、GDD、ADR、测试策略 | `lint_gdscript_rules` + `lint_semantic_rules` + `actor-scene-smoke` + `settings-smoke` + `runtime-smoke` |
 
 ## 故障排查
 

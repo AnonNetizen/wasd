@@ -241,6 +241,17 @@ func create_run_snapshot() -> Dictionary:
 
 func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	GameClock.reset()
+	_active_world = get_node_or_null("ActiveWorld") as Node2D
+	if _active_world == null:
+		_fail_run_start("missing ActiveWorld scene node", not restore_snapshot.is_empty())
+		return
+	_camera_controller = _active_world.get_node_or_null("GameplayCameraController") as Node2D
+	if _camera_controller == null or not _camera_controller.has_method("configure"):
+		_fail_run_start(
+			"missing or invalid GameplayCameraController scene node",
+			not restore_snapshot.is_empty()
+		)
+		return
 	var enemy_csv_rows: Array[Dictionary] = DataLoader.load_csv(DataLoader.ENEMIES_PATH)
 	PoolManager.clear_pool(POOL_IDS.BULLET_BASIC)
 	_clear_enemy_pools(enemy_csv_rows)
@@ -283,10 +294,6 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	if not Combat.damage_applied.is_connected(_on_combat_damage_applied):
 		Combat.damage_applied.connect(_on_combat_damage_applied)
 
-	_active_world = get_node_or_null("ActiveWorld") as Node2D
-	if _active_world == null:
-		push_error("[GameplayRunLoop] missing ActiveWorld scene node")
-		return
 	_map_manager = _active_world.get_node_or_null("MapManager") as Node2D
 	if _map_manager == null:
 		push_error("[GameplayRunLoop] missing MapManager scene node")
@@ -342,10 +349,6 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	var map_player_start: Vector2 = _map_manager.call("player_start")
 	_player.global_position = map_player_start
 	_apply_player_movement_bounds()
-	_camera_controller = _player.get_node_or_null("GameplayCameraController") as Node2D
-	if _camera_controller == null:
-		push_error("[GameplayRunLoop] missing GameplayCameraController scene node")
-		return
 	var camera_feedback: Dictionary = DataLoader.load_json(DataLoader.CAMERA_FEEDBACK_PATH)
 	_camera_controller.call("configure", _player, camera_feedback)
 	_player.connect("life_changed", Callable(self, "_on_player_life_changed"))
