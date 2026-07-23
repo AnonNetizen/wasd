@@ -16,6 +16,8 @@ const GEAR_MOD_SMOKE_RUNNER := preload("res://tools/gear_mod_smoke.gd")
 const GOLDEN_REPLAY_CAPTURE_RUNNER := preload("res://tools/golden_replay_capture.gd")
 const INPUT_SMOKE_RUNNER := preload("res://tools/input_smoke.gd")
 const L1_SMOKE_RUNNER := preload("res://tools/l1_smoke.gd")
+const LOADING_SCREEN_SCENE := preload("res://scenes/ui/loading_screen.tscn")
+const LOADING_SMOKE_RUNNER := preload("res://tools/loading_smoke.gd")
 const MODULE_WORLD_SMOKE_RUNNER := preload("res://tools/module_world_smoke.gd")
 const RUNTIME_SMOKE_RUNNER := preload("res://tools/runtime_smoke.gd")
 const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
@@ -31,6 +33,11 @@ const SETTINGS_SMOKE_RUNNER := preload("res://tools/settings_smoke.gd")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 const STARTUP_PROBE_RUNNER := preload("res://tools/startup_probe.gd")
 
+enum PlayerLoadMode {
+	NEW_RUN,
+	CONTINUE_RUN,
+}
+
 var _run_loop: Node = null
 var _open_warzone_launch: bool = false
 var _module_world_technical_slice_launch: bool = false
@@ -38,6 +45,8 @@ var _debug_console: CanvasLayer = null
 var _gear_mod_panel: CanvasLayer = null
 var _settings_panel: CanvasLayer = null
 var _title_menu: CanvasLayer = null
+var _loading_screen: CanvasLayer = null
+var _player_load_in_progress: bool = false
 
 
 func _ready() -> void:
@@ -124,6 +133,12 @@ func _ready() -> void:
 		var input_smoke_runner: Node = INPUT_SMOKE_RUNNER.new()
 		input_smoke_runner.name = "InputSmoke"
 		add_child(input_smoke_runner)
+	elif _is_loading_smoke_enabled():
+		if data_schema_ok:
+			_show_title_menu()
+		var loading_smoke_runner: Node = LOADING_SMOKE_RUNNER.new()
+		loading_smoke_runner.name = "LoadingSmoke"
+		add_child(loading_smoke_runner)
 	elif _is_rng_audit_enabled():
 		var rng_audit_runner: Node = RNG_AUDIT_RUNNER.new()
 		rng_audit_runner.name = "RNGAudit"
@@ -249,6 +264,10 @@ func _is_input_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--input-smoke")
 
 
+func _is_loading_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--loading-smoke")
+
+
 func _is_rng_audit_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--rng-audit")
 
@@ -286,6 +305,8 @@ func _is_settings_smoke_enabled() -> bool:
 
 
 func _show_title_menu(notice_key: String = "") -> void:
+	_player_load_in_progress = false
+	_loading_screen = null
 	_clear_gameplay_runtime()
 	GameState.change_state(GameState.MAIN_MENU, {"source": "formal_client_boot"})
 	UIManager.clear()
@@ -304,6 +325,14 @@ func _show_title_menu(notice_key: String = "") -> void:
 func _start_gameplay_run(restore_snapshot: Dictionary = {}, open_warzone: bool = false) -> void:
 	UIManager.clear()
 	GameState.change_state(GameState.LOADING, {"source": "formal_client_boot"})
+	_mount_gameplay_run(restore_snapshot, open_warzone, false)
+
+
+func _mount_gameplay_run(
+	restore_snapshot: Dictionary,
+	open_warzone: bool,
+	player_loading_mode: bool
+) -> void:
 	_clear_gameplay_runtime()
 
 	_run_loop = GAMEPLAY_RUN_LOOP_SCENE.instantiate()
@@ -318,16 +347,131 @@ func _start_gameplay_run(restore_snapshot: Dictionary = {}, open_warzone: bool =
 		_run_loop.call("debug_enable_open_warzone")
 	if not restore_snapshot.is_empty() and _run_loop.has_method("configure_restore_snapshot"):
 		_run_loop.call("configure_restore_snapshot", restore_snapshot)
+	if player_loading_mode and _run_loop.has_method("configure_player_loading_mode"):
+		_run_loop.call("configure_player_loading_mode", true)
 	_run_loop.connect("restart_requested", Callable(self, "_on_run_restart_requested"))
 	_run_loop.connect("quit_to_title_requested", Callable(self, "_on_run_quit_to_title_requested"))
-	if _run_loop.has_signal("restore_failed"):
+	if player_loading_mode:
+		_run_loop.connect(
+			"run_prepared",
+			Callable(self, "_on_player_run_prepared"),
+			CONNECT_ONE_SHOT
+		)
+		_run_loop.connect(
+			"run_prepare_failed",
+			Callable(self, "_on_player_run_prepare_failed"),
+			CONNECT_ONE_SHOT
+		)
+	elif _run_loop.has_signal("restore_failed"):
 		_run_loop.connect("restore_failed", Callable(self, "_on_run_restore_failed"), CONNECT_ONE_SHOT)
 	add_child(_run_loop)
 
 
-func _start_new_gameplay_run() -> void:
-	RNG.set_random_run_seed()
-	_start_gameplay_run({}, _open_warzone_launch)
+func _begin_player_gameplay_load(
+	load_mode: PlayerLoadMode,
+	open_warzone: bool = false
+) -> void:
+	if _player_load_in_progress:
+		return
+	_player_load_in_progress = true
+	GameState.change_state(GameState.LOADING, {"source": "formal_client_boot"})
+	UIManager.clear()
+	_loading_screen = UIManager.push(
+		LOADING_SCREEN_SCENE,
+		{"source": "formal_client_boot"}
+	) as CanvasLayer
+	if _loading_screen == null:
+		_player_load_in_progress = false
+		call_deferred("_show_title_menu", "ui_loading_failed")
+		return
+	call_deferred("_perform_player_gameplay_load", load_mode, open_warzone)
+
+
+func _perform_player_gameplay_load(
+	load_mode: PlayerLoadMode,
+	open_warzone: bool
+) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(self) or not _player_load_in_progress:
+		return
+
+	var restore_snapshot: Dictionary = {}
+	match load_mode:
+		PlayerLoadMode.NEW_RUN:
+			SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+			RNG.set_random_run_seed()
+		PlayerLoadMode.CONTINUE_RUN:
+			var envelope: Dictionary = SaveManager.load_envelope(
+				SaveManager.DEFAULT_SLOT,
+				SAVE_KINDS.RUN
+			)
+			restore_snapshot = envelope.get("payload", {}) as Dictionary
+			if (
+				restore_snapshot.is_empty()
+				or bool(restore_snapshot.get("legacy_run_incompatible", false))
+			):
+				var notice_key: String = _run_save_unavailable_notice_key(
+					restore_snapshot
+				)
+				var load_error: String = (
+					"legacy run schema is incompatible"
+					if bool(restore_snapshot.get("legacy_run_incompatible", false))
+					else SaveManager.last_error()
+				)
+				SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+				push_warning(
+					"[FormalClientBoot] run save unavailable: %s" % load_error
+				)
+				_abort_player_gameplay_load(notice_key)
+				return
+		_:
+			_abort_player_gameplay_load("ui_loading_failed")
+			return
+
+	_mount_gameplay_run(restore_snapshot, open_warzone, true)
+
+
+func _on_player_run_prepared() -> void:
+	if not _player_load_in_progress or _run_loop == null:
+		return
+	if UIManager.top() == _loading_screen:
+		UIManager.pop()
+	elif _loading_screen != null and is_instance_valid(_loading_screen):
+		push_error("[FormalClientBoot] loading screen is not the top UI")
+		_abort_player_gameplay_load("ui_loading_failed")
+		return
+	_loading_screen = null
+	_player_load_in_progress = false
+	if (
+		not _run_loop.has_method("activate_prepared_run")
+		or not bool(_run_loop.call("activate_prepared_run"))
+	):
+		_abort_player_gameplay_load("ui_loading_failed")
+
+
+func _on_player_run_prepare_failed(reason: String, restoring: bool) -> void:
+	push_warning("[FormalClientBoot] gameplay preparation failed: %s" % reason)
+	var save_unavailable: bool = restoring and _is_restore_snapshot_unavailable(reason)
+	if save_unavailable:
+		SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
+	call_deferred(
+		"_abort_player_gameplay_load",
+		"ui_run_save_unavailable" if save_unavailable else "ui_loading_failed"
+	)
+
+
+func _is_restore_snapshot_unavailable(reason: String) -> bool:
+	return (
+		reason.begins_with("unknown character id:")
+		or reason == "run snapshot restore failed"
+	)
+
+
+func _abort_player_gameplay_load(notice_key: String) -> void:
+	_player_load_in_progress = false
+	_loading_screen = null
+	_clear_gameplay_runtime()
+	call_deferred("_show_title_menu", notice_key)
 
 
 func _clear_gameplay_runtime() -> void:
@@ -349,21 +493,17 @@ func _clear_gameplay_runtime() -> void:
 
 
 func _on_title_start_requested() -> void:
-	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
-	call_deferred("_start_new_gameplay_run")
+	_begin_player_gameplay_load(
+		PlayerLoadMode.NEW_RUN,
+		_open_warzone_launch
+	)
 
 
 func _on_title_continue_requested() -> void:
-	var envelope: Dictionary = SaveManager.load_envelope(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
-	var payload: Dictionary = envelope.get("payload", {}) as Dictionary
-	if payload.is_empty() or bool(payload.get("legacy_run_incompatible", false)):
-		var notice_key: String = _run_save_unavailable_notice_key(payload)
-		var load_error: String = "legacy run schema is incompatible" if bool(payload.get("legacy_run_incompatible", false)) else SaveManager.last_error()
-		SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
-		push_warning("[FormalClientBoot] run save unavailable: %s" % load_error)
-		call_deferred("_show_title_menu", notice_key)
-		return
-	call_deferred("_start_gameplay_run", payload, _open_warzone_launch)
+	_begin_player_gameplay_load(
+		PlayerLoadMode.CONTINUE_RUN,
+		_open_warzone_launch
+	)
 
 
 func _run_save_unavailable_notice_key(payload: Dictionary) -> String:
@@ -409,8 +549,10 @@ func _on_settings_panel_closed() -> void:
 
 
 func _on_run_restart_requested() -> void:
-	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
-	call_deferred("_start_new_gameplay_run")
+	_begin_player_gameplay_load(
+		PlayerLoadMode.NEW_RUN,
+		_open_warzone_launch
+	)
 
 
 func _on_run_quit_to_title_requested() -> void:

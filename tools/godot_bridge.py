@@ -77,6 +77,7 @@ def main() -> int:
     subparsers.add_parser("f9-demo-smoke", help="Run the F9 demo content slice smoke in headless Godot.")
     subparsers.add_parser("runtime-smoke", help="Run the formal gameplay runtime smoke in headless Godot.")
     subparsers.add_parser("f4-smoke", help="Compatibility alias for runtime-smoke.")
+    subparsers.add_parser("loading-smoke", help="Run start, continue, restart, and loading UI coverage.")
     subparsers.add_parser("module-world-smoke", help="Run the F13 seamless module-world smoke in headless Godot.")
     subparsers.add_parser(
         "module-world-technical-slice-smoke",
@@ -345,6 +346,18 @@ def main() -> int:
         smoke_flag = "--runtime-smoke" if args.command == "runtime-smoke" else "--f4-smoke"
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--", smoke_flag],
+            cwd=project,
+        )
+    if args.command == "loading-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        smoke_script = project / "tools" / "loading_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing loading smoke script: {_rel(smoke_script)}")
+            return 1
+        return _run_command(
+            [str(godot), "--headless", "--path", str(project), "--", "--loading-smoke"],
             cwd=project,
         )
     if args.command in {"module-world-smoke", "module-world-technical-slice-smoke"}:

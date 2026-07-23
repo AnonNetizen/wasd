@@ -6,7 +6,7 @@
 ## 职责
 
 - 提供玩法时间 `now()`、物理 tick `tick()` 和缩放 delta `delta_scaled()`。
-- 订阅 `GameState`，在暂停、升级选择和游戏结束等冻结状态返回 0 delta。
+- 订阅 `GameState`，在玩家加载、暂停、升级选择和游戏结束等冻结状态返回 0 delta。
 - 提供 `wall_now()` 给非玩法诊断 / UI / Analytics 使用。
 - F5 起提供 `snapshot()` / `restore_snapshot()`，供局内暂停保存退出后恢复玩法时间、物理 tick 与 time scale。
 - 不负责修改 `Engine.time_scale`，也不负责驱动具体业务系统。
@@ -38,6 +38,7 @@
 | autoload `_ready()` | 订阅 `GameState.state_changed` | `_on_game_state_changed()` |
 | `_process(delta)` | 非冻结时累计玩法时间 | `delta_scaled()` |
 | `_physics_process(delta)` | 非冻结时推进 tick | `tick()` |
+| 新局重置 | 清零 elapsed / tick / time scale，并按当前 `GameState` 重算冻结状态 | `reset()` |
 | 时间缩放改变 | 更新内部倍率并广播 | `time_scale_changed` |
 | 续局恢复 | 从 run 快照恢复 elapsed / tick / time_scale，并按当前 `GameState` 重算冻结状态 | `restore_snapshot()` |
 
@@ -51,7 +52,7 @@
 | `wall_now()` | 无 | `float` | 真实系统时间，不参与玩法判定 |
 | `time_scale()` | 无 | `float` | 当前倍率 |
 | `set_time_scale(value)` | `float` | `void` | 小于 0 时钳为 0 |
-| `reset()` | 无 | `void` | 测试 / 新局重置 |
+| `reset()` | 无 | `void` | 测试 / 新局重置；按当前状态保留冻结语义 |
 | `snapshot()` | 无 | `Dictionary` | 返回 `elapsed`、`tick`、`time_scale` |
 | `restore_snapshot(snapshot_data)` | `Dictionary` | `void` | 恢复时间字段并重新广播 `time_scale_changed` |
 
@@ -63,7 +64,7 @@
 
 ## 数据与契约
 
-无外部数据文件。冻结状态来自 `GameState.PAUSED`、`GameState.LEVEL_UP` 与 `GameState.GAME_OVER`。
+无外部数据文件。冻结状态来自 `GameState.LOADING`、`GameState.PAUSED`、`GameState.LEVEL_UP` 与 `GameState.GAME_OVER`。
 
 ## 依赖
 
@@ -91,12 +92,13 @@
 | 现象 | 优先检查 |
 |------|----------|
 | 暂停时仍推进玩法时间 | `GameState` 是否切到冻结状态 |
-| tick 不增长 | 当前是否处于 `PAUSED` / `LEVEL_UP` / `GAME_OVER` |
+| tick 不增长 | 当前是否处于 `LOADING` / `PAUSED` / `LEVEL_UP` / `GAME_OVER` |
 | 回放时间不稳定 | 业务是否绕过 `GameClock` 读取 `Time` |
 
 ## 测试义务
 
 - 必跑正式项目 headless boot。
+- `loading-smoke` 覆盖真实玩家入口在 `LOADING` 分帧准备时 elapsed / tick 均不推进。
 - F2 后续补 GUT：暂停冻结、time scale、`reset()`、tick 推进。
 - 回放落地后纳入黄金回放确定性检查。
 

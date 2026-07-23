@@ -5,7 +5,7 @@
 
 `client/` 是完整项目的 Godot 4.7.1 stable 项目根，即 Godot 内的 `res://`。
 
-当前阶段为 F11 装备 Mod / 局外装配推进中：正式工程当前使用 Godot 4.7.1 stable，F1-F8 当前验收基线已完成，F9 已预留本地数据包式 `ModLoader`、Steam 优先 `PlatformServices`，以及 debug/dev_tools 专用 `DebugConsole` / `GMCommandRegistry`。启动场景在数据校验通过后会显示最小标题界面，开始后进入战斗 runtime；若存在 `SaveManager` 的 `run` 存档，标题菜单会显示“继续游戏”，续局读取失败时会提示本局存档已重置；标题菜单常驻“装备 Mod”和“设置”入口，可配置英雄 / 武器两套 Gear Mod，或打开设置面板修改语言、音量、显示、玩法和隐私开关。当前 runtime 覆盖玩家移动与居中相机、默认起始武器、池化子弹、两种池化敌人、`spawn_waves.csv` 刷怪、`Combat.apply_damage()` 伤害入口、经验 / 升级选择、升级获得反馈、响应式基础 HUD、主动暂停、暂停设置入口、暂停保存退出、标题继续游戏、暂停 / 升级 UI 恢复点、失败摘要、`meta.gear_mods` profile roundtrip、标题装备 Mod 面板和 Gear Mod 下一局 hero / weapon modifier snapshot；死亡后只展示本局击杀、时长、重开和回标题，不再写旧局外货币 / 账号经验。`Settings` 已有 `user://settings.cfg` 持久化、正式设置面板和 `settings-smoke` 验证，`SaveManager` 的 `run` kind 已有 version 2 迁移与 `save-smoke` 可靠性验证，`GearModSystem` 已有 `gear-mod-smoke` 装配 / UI 验证；项目尚未上线，不维护旧测试档迁移或旧 `purchased_upgrades` 补偿。DebugTools 已有 `debug-tools-smoke` 与 release guard smoke，Replay / golden replay 继续作为内容扩展的回归护栏；`startup-probe` / `perf-probe` 仅在用户明确要求性能测试时运行。项目当前只设计 / 验收固定 16:9 分辨率，默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，并通过 `canvas_items + keep` 在非 16:9 屏幕上等比缩放、补上下或左右黑边；其他宽高比留作未来按独立固定预设接入的优化项。
+当前阶段为 F14 敌人导航与感知收口后：正式工程当前使用 Godot 4.7.1 stable，启动场景在数据校验通过后显示标题界面；开始、继续和重开会统一进入 `GameState.LOADING`，显示全屏暗色加载遮罩与旋转图形，完成资源准备后才激活战斗 runtime。若存在 `SaveManager` 的 `run` 存档，标题菜单会显示“继续游戏”，续局读取失败时会提示本局存档已重置；标题菜单常驻“装备 Mod”和“设置”入口。当前 runtime 覆盖 F13 9×9 模块世界、五种独立池敌人、玩家对局级相机、射击、机关、短局目标 / 撤离、暂停保存续局、Gear Mod 与回放护栏。`loading-smoke`、`runtime-smoke`、`save-smoke` 等覆盖正式入口；`startup-probe` / `perf-probe` 仅在用户明确要求性能测试时运行。项目当前只设计 / 验收固定 16:9 分辨率，默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，并通过 `canvas_items + keep` 在非 16:9 屏幕上等比缩放、补上下或左右黑边；其他宽高比留作未来按独立固定预设接入的优化项。
 
 ADR #151 / #152 后，正式输入由固定版本 GUIDE 解释物理设备，项目业务统一消费 `InputService` 的生成 action 与 `move` / `aim` `Vector2` intent；绑定保存到 `user://input_bindings.tres`，设置配置为 v2，Replay file / recording 仅支持 schema v2。输入架构和插件维护分别见 `docs/代码/input_service.md` 与 `docs/代码/guide.md`。
 
@@ -74,6 +74,12 @@ F4 最小运行时 smoke：
 python tools/godot_bridge.py --project client runtime-smoke
 ```
 
+正式开始 / 继续 / 重开加载 smoke：
+
+```powershell
+python tools/godot_bridge.py --project client loading-smoke
+```
+
 F11 装备 Mod smoke：
 
 ```powershell
@@ -103,6 +109,6 @@ python tools/godot_bridge.py --project client debug-tools-release-smoke
 
 ## 当前启动场景
 
-`res://scenes/boot/main.tscn` 挂载 `res://scripts/boot/formal_client_boot.gd`。启动脚本会先执行正式数据 schema smoke 并输出日志；若校验通过，会显示最小标题界面；开始新局会挂载 `res://scripts/gameplay/gameplay_run_loop.gd`，继续游戏会先从 `SaveManager` 读取 `run` payload 再挂载同一 runtime，并按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板；读取失败或坏档被隔离时会回到标题菜单并显示本局存档重置提示；装备 Mod 会通过 `UIManager` 把 `GearModPanel` 叠在标题菜单上，设置入口会把 `SettingsPanel` 叠在标题菜单或暂停菜单上。死亡后 gameplay runtime 会清理旧 `run` 并显示失败摘要，不再写旧局外结算。debug/dev_tools 构建中，启动脚本会动态加载 `res://scripts/debug/debug_console.gd`，用 F1 或反引号打开 GM 控制台；正式 release 构建不应启用 `dev_tools`，也不应导出 `res://scripts/debug/*`。
+`res://scenes/boot/main.tscn` 挂载 `res://scripts/boot/formal_client_boot.gd`。启动脚本会先执行正式数据 schema smoke 并输出日志；若校验通过，会显示标题界面。点击开始、继续或重开后，启动层先进入 `LOADING` 并通过 `UIManager` 显示 `LoadingScreen`；至少渲染一帧后，再读取 run 或挂载 `GameplayRunLoop`。runtime 使用 Godot `ResourceLoader` 线程接口读取本局 actor / 模块 `PackedScene`，对象池预热、初始模块挂载和续局实体恢复在主线程分批完成；准备成功时先移除加载界面，再进入 `PLAYING` 并恢复 `ui_restore`。读取失败沿用本局存档重置提示，准备失败会清理半成品和对象池并回标题。装备 Mod 与设置面板仍通过 `UIManager` 叠加。debug/dev_tools 构建中，启动脚本会动态加载 `res://scripts/debug/debug_console.gd`；正式 release 不应启用 `dev_tools`，也不应导出 `res://scripts/debug/*`。
 
-Gameplay runtime 的稳定结构已迁入 `client/scenes/gameplay/*.tscn` 与 `client/scenes/ui/*.tscn`，文档见 `docs/代码/gameplay_runtime.md`、`docs/代码/gear_mod_system.md` 与 `docs/代码/debug_tools.md`。它不迁移 MVP 临时代码；当前实现 `run` 暂停保存续局、暂停 / 升级 UI 恢复点、坏档提示、v1 -> v2 迁移、失败摘要、标题装备 Mod 配置、`meta.gear_mods` 存档验证和调试专用 GM 指令入口。完整局外包装、更多内容切片、更多 replay 场景和平衡 sim 属于后续工作。
+Gameplay runtime 与加载流程文档见 `docs/代码/gameplay_runtime.md`、`docs/代码/gameplay_loading.md`、`docs/代码/gear_mod_system.md` 与 `docs/代码/debug_tools.md`。玩家加载不显示阶段、百分比或取消按钮，也不人为延长；应用冷启动和进入标题菜单前的耗时暂不在此流程内处理。

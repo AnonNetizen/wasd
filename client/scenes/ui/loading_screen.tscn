@@ -1,0 +1,77 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/loading_screen.gd" id="1_rqdcv"]
+
+[sub_resource type="Animation" id="Animation_q4fso"]
+loop_mode = 1
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Root/Center/Layout/Spinner/Arc:rotation")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 1),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [0.0, 6.283185307179586]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_5fj0j"]
+_data = {
+&"spin": SubResource("Animation_q4fso")
+}
+
+[node name="LoadingScreen" type="CanvasLayer" unique_id=1648976142]
+process_mode = 3
+layer = 100
+script = ExtResource("1_rqdcv")
+
+[node name="Root" type="Control" parent="." unique_id=1139243345]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Backdrop" type="ColorRect" parent="Root" unique_id=972919337]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.04, 0.05, 0.07, 1)
+
+[node name="Center" type="CenterContainer" parent="Root" unique_id=2141017249]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Layout" type="VBoxContainer" parent="Root/Center" unique_id=144867726]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 18
+alignment = 1
+
+[node name="Spinner" type="Control" parent="Root/Center/Layout" unique_id=2145501266]
+custom_minimum_size = Vector2(72, 72)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+
+[node name="Arc" type="Line2D" parent="Root/Center/Layout/Spinner" unique_id=834855436]
+position = Vector2(36, 36)
+points = PackedVector2Array(1.4695276e-15, -24, 6.8234553, -23.009573, 13.083733, -20.120037, 18.264137, -15.569884, 21.937101, -9.734661, 23.799473, -3.0959811, 23.69754, 3.7982264, 21.63972, 10.378946, 17.795853, 16.103031, 12.483192, 20.498047, 6.1402264, 23.20124, -0.70952696, 23.98951, -7.5007195, 22.79779, -13.672836, 19.724442, -18.716455, 15.023125, -22.215303, 9.081865, -23.880598, 2.3910294, -23.574894, -4.4971514)
+width = 6.0
+default_color = Color(0.88, 0.9, 0.94, 1)
+begin_cap_mode = 2
+end_cap_mode = 2
+antialiased = true
+
+[node name="LoadingLabel" type="Label" parent="Root/Center/Layout" unique_id=1000089711]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+
+[node name="SpinnerAnimation" type="AnimationPlayer" parent="." unique_id=2095336884]
+process_mode = 3
+libraries/ = SubResource("AnimationLibrary_5fj0j")

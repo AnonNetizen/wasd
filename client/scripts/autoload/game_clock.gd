@@ -1,5 +1,5 @@
 # Doc: docs/代码/game_clock.md
-# Authority: docs/游戏设计文档.md §9.18.2, docs/决策记录.md ADR #27
+# Authority: docs/游戏设计文档.md §9.12 / §9.18.2, docs/决策记录.md ADR #27 / #157
 class_name GameClockAutoload
 extends Node
 
@@ -59,7 +59,7 @@ func reset() -> void:
 	_elapsed = 0.0
 	_tick = 0
 	_time_scale = 1.0
-	_frozen = false
+	_frozen = GameState != null and _state_freezes_clock(GameState.current())
 	time_scale_changed.emit(_time_scale)
 
 
@@ -84,4 +84,9 @@ func _on_game_state_changed(_old_state: StringName, new_state: StringName, _cont
 
 
 func _state_freezes_clock(state: StringName) -> bool:
-	return state == GameState.PAUSED or state == GameState.LEVEL_UP or state == GameState.GAME_OVER
+	return (
+		state == GameState.LOADING
+		or state == GameState.PAUSED
+		or state == GameState.LEVEL_UP
+		or state == GameState.GAME_OVER
+	)

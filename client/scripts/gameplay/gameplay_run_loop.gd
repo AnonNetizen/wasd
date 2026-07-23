@@ -7,6 +7,8 @@ extends Node2D
 signal quit_to_title_requested()
 signal restart_requested()
 signal restore_failed()
+signal run_prepared()
+signal run_prepare_failed(reason: String, restoring: bool)
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
@@ -49,6 +51,7 @@ const UI_RESTORE_PLAYING: String = "playing"
 const UI_RESTORE_UNDERLYING_STATE: String = "underlying_state"
 const INPUT_PARTICIPANT_ID: String = "player_0"
 const DEFAULT_DEBUG_GROWTH_POOL: String = "default_level_up"
+const LOADING_BATCH_SIZE: int = 8
 const NAVIGATION_FLOW_OBSTACLE_BUFFER_CELLS: int = 2
 
 @export_group("Extraction Visual Style")
@@ -103,6 +106,11 @@ var _waves: Array[Dictionary] = []
 var _weapon_system: Node = null
 var _requested_character_id: String = CHARACTER_IDS.CHARACTER_DEFAULT
 var _registered_enemy_pool_ids: Array[String] = []
+var _player_loading_mode: bool = false
+var _run_activated: bool = false
+var _run_prepared: bool = false
+var _run_start_failed: bool = false
+var _pending_ui_restore: Dictionary = {}
 
 
 func _ready() -> void:
@@ -180,6 +188,26 @@ func configure_restore_snapshot(snapshot_data: Dictionary) -> void:
 ## Must be called before the run loop enters the scene tree.
 func configure_character_id(character_id: String) -> void:
 	_requested_character_id = character_id
+
+
+## Enables the user-facing cooperative loading path. Headless and replay tools keep
+## the synchronous path unless their harness explicitly opts in.
+func configure_player_loading_mode(enabled: bool) -> void:
+	_player_loading_mode = enabled
+
+
+func activate_prepared_run() -> bool:
+	if not _run_prepared or _run_activated or _run_start_failed:
+		return false
+	_run_activated = true
+	GameState.change_state(GameState.PLAYING, {
+		"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
+		"character": _character_id,
+	})
+	if not _pending_ui_restore.is_empty():
+		_restore_ui_state(_pending_ui_restore)
+	_pending_ui_restore.clear()
+	return true
 
 
 func debug_force_next_gear_mod_drop_roll(roll: float) -> void:
@@ -274,23 +302,34 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		return
 	_character_id = selected_character_id
 	_enemy_rows = _load_enemy_rows(_load_enemy_ai_profiles(), enemy_csv_rows)
-	if not _preload_actor_scenes(character):
+	var actor_scenes_ready: bool = false
+	if _player_loading_mode:
+		actor_scenes_ready = await _preload_actor_scenes_threaded(character)
+	else:
+		actor_scenes_ready = _preload_actor_scenes(character)
+	if not actor_scenes_ready:
 		_fail_run_start("actor scene preload failed", not restore_snapshot.is_empty())
 		return
 
 	PoolManager.register_pool(POOL_IDS.BULLET_BASIC, _create_bullet_node, BULLET_POOL_SIZE)
-	if not _register_enemy_pools():
+	var enemy_pools_ready: bool = false
+	if _player_loading_mode:
+		enemy_pools_ready = await _register_enemy_pools_staged()
+	else:
+		enemy_pools_ready = _register_enemy_pools()
+	if not enemy_pools_ready:
 		_fail_run_start("enemy pool registration failed", not restore_snapshot.is_empty())
 		return
 	PoolManager.register_pool(POOL_IDS.HAZARD_SPIKE, _create_hazard_node, HAZARD_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.HIT_SPARK, _create_hit_spark_node, FEEDBACK_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.DAMAGE_NUMBER, _create_damage_number_node, FEEDBACK_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.PICKUP_ORB, _create_pickup_orb_node, PICKUP_POOL_SIZE)
-	PoolManager.prewarm(POOL_IDS.BULLET_BASIC, 24)
-	PoolManager.prewarm(POOL_IDS.HAZARD_SPIKE, 8)
-	PoolManager.prewarm(POOL_IDS.HIT_SPARK, 16)
-	PoolManager.prewarm(POOL_IDS.DAMAGE_NUMBER, 16)
-	PoolManager.prewarm(POOL_IDS.PICKUP_ORB, 16)
+	if _player_loading_mode:
+		if not await _prewarm_standard_pools_staged():
+			_fail_run_start("pool prewarm interrupted", not restore_snapshot.is_empty())
+			return
+	else:
+		_prewarm_standard_pools()
 	if not Combat.damage_applied.is_connected(_on_combat_damage_applied):
 		Combat.damage_applied.connect(_on_combat_damage_applied)
 
@@ -306,8 +345,14 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 
 	_hazard_rows = _load_hazard_rows()
 	if _module_world_enabled:
-		if not _configure_module_world(restore_snapshot):
+		var module_world_ready: bool = false
+		if _player_loading_mode:
+			module_world_ready = await _configure_module_world(restore_snapshot, true)
+		else:
+			module_world_ready = await _configure_module_world(restore_snapshot)
+		if not module_world_ready:
 			push_error("[GameplayRunLoop] failed to configure module world")
+			_fail_run_start("module world configuration failed", not restore_snapshot.is_empty())
 			return
 		_map_layout = _module_world_map_layout()
 	else:
@@ -377,24 +422,40 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_hud.call("set_level", _current_level)
 	_refresh_xp_hud()
 
-	GameState.change_state(GameState.PLAYING, {
-		"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
-		"character": _character_id,
-	})
-
 	if not restore_snapshot.is_empty():
-		if not _restore_run_snapshot(restore_snapshot):
-			restore_failed.emit()
+		var restore_succeeded: bool = false
+		if _player_loading_mode:
+			restore_succeeded = await _restore_run_snapshot(restore_snapshot, true)
+		else:
+			restore_succeeded = await _restore_run_snapshot(restore_snapshot)
+		if not restore_succeeded:
+			_fail_run_start("run snapshot restore failed", true)
 			return
-		_restore_ui_state(restore_snapshot.get("ui_restore", {}))
+		_pending_ui_restore = _dictionary_or_empty(
+			restore_snapshot.get("ui_restore", {})
+		).duplicate(true)
 	elif _module_world_enabled:
-		_start_module_world_fresh()
+		if _player_loading_mode:
+			if not await _start_module_world_fresh_staged():
+				_fail_run_start("module world activation interrupted", false)
+				return
+		else:
+			_start_module_world_fresh()
 	else:
 		var hazard_placements: Array[Dictionary] = _generate_map_hazard_placements()
 		_configure_interest_points(hazard_placements)
 		_spawn_map_hazards(hazard_placements)
 		_spawn_interest_point_caches()
 		_spawn_interest_point_targets()
+		if _player_loading_mode and not await _yield_loading_frame():
+			_fail_run_start("open warzone activation interrupted", false)
+			return
+
+	_run_prepared = true
+	if _player_loading_mode:
+		run_prepared.emit()
+	else:
+		activate_prepared_run()
 
 
 func _create_bullet_node() -> Node:
@@ -435,6 +496,22 @@ func _preload_actor_scenes(character: Dictionary) -> bool:
 	return true
 
 
+func _preload_actor_scenes_threaded(character: Dictionary) -> bool:
+	var scene_paths: Array[String] = [String(character.get("scene_path", ""))]
+	for raw_enemy_data: Variant in _enemy_rows.values():
+		if not raw_enemy_data is Dictionary:
+			continue
+		var enemy_data: Dictionary = raw_enemy_data as Dictionary
+		scene_paths.append(String(enemy_data.get("scene_path", "")))
+	var load_result: Dictionary = await _load_packed_scenes_threaded(scene_paths)
+	if not bool(load_result.get("ok", false)):
+		return false
+	_actor_scene_cache = _dictionary_or_empty(
+		load_result.get("resources", {})
+	).duplicate()
+	return true
+
+
 func _cache_actor_scene(scene_path: String) -> bool:
 	if scene_path.is_empty():
 		push_error("[GameplayRunLoop] actor scene path is empty")
@@ -449,24 +526,146 @@ func _cache_actor_scene(scene_path: String) -> bool:
 	return true
 
 
+func _load_packed_scenes_threaded(scene_paths: Array[String]) -> Dictionary:
+	var unique_paths: Array[String] = []
+	for raw_path: String in scene_paths:
+		var scene_path: String = raw_path.strip_edges()
+		if scene_path.is_empty():
+			push_error("[GameplayRunLoop] threaded scene path is empty")
+			return {"ok": false, "resources": {}}
+		if not unique_paths.has(scene_path):
+			unique_paths.append(scene_path)
+
+	var resources: Dictionary = {}
+	var requested_paths: Array[String] = []
+	for scene_path: String in unique_paths:
+		if ResourceLoader.has_cached(scene_path):
+			var cached_resource: Resource = ResourceLoader.load(scene_path, "PackedScene")
+			if not cached_resource is PackedScene:
+				push_error("[GameplayRunLoop] cached resource is not a PackedScene: %s" % scene_path)
+				return {"ok": false, "resources": {}}
+			resources[scene_path] = cached_resource
+			continue
+		var request_error: Error = ResourceLoader.load_threaded_request(
+			scene_path,
+			"PackedScene",
+			false
+		)
+		if request_error != OK and request_error != ERR_BUSY:
+			push_error(
+				"[GameplayRunLoop] threaded scene request failed for %s: %s"
+				% [scene_path, error_string(request_error)]
+			)
+			return {"ok": false, "resources": {}}
+		requested_paths.append(scene_path)
+
+	while not requested_paths.is_empty():
+		for path_index: int in range(requested_paths.size() - 1, -1, -1):
+			var scene_path: String = requested_paths[path_index]
+			var load_status: int = ResourceLoader.load_threaded_get_status(scene_path)
+			if load_status == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+				continue
+			if load_status != ResourceLoader.THREAD_LOAD_LOADED:
+				push_error("[GameplayRunLoop] threaded scene load failed: %s" % scene_path)
+				return {"ok": false, "resources": {}}
+			var loaded_resource: Resource = ResourceLoader.load_threaded_get(scene_path)
+			if not loaded_resource is PackedScene:
+				push_error("[GameplayRunLoop] threaded resource is not a PackedScene: %s" % scene_path)
+				return {"ok": false, "resources": {}}
+			resources[scene_path] = loaded_resource
+			requested_paths.remove_at(path_index)
+		if not requested_paths.is_empty() and not await _yield_loading_frame():
+			return {"ok": false, "resources": {}}
+
+	return {"ok": true, "resources": resources}
+
+
 func _register_enemy_pools() -> bool:
 	_registered_enemy_pool_ids.clear()
 	for raw_enemy_data: Variant in _enemy_rows.values():
 		if not raw_enemy_data is Dictionary:
 			continue
 		var enemy_data: Dictionary = raw_enemy_data as Dictionary
-		var pool_id: String = String(enemy_data.get("pool_id", ""))
-		var scene_path: String = String(enemy_data.get("scene_path", ""))
-		if pool_id.is_empty() or _registered_enemy_pool_ids.has(pool_id):
-			push_error("[GameplayRunLoop] invalid or duplicate enemy pool id: %s" % pool_id)
+		if not _register_enemy_pool(enemy_data):
 			_rollback_registered_enemy_pools()
 			return false
-		var factory: Callable = Callable(self, "_create_actor_node").bind(scene_path)
-		if not PoolManager.register_pool(pool_id, factory, ENEMY_POOL_SIZE):
+		PoolManager.prewarm(
+			String(enemy_data.get("pool_id", "")),
+			int(enemy_data.get("pool_prewarm", 0))
+		)
+	return true
+
+
+func _register_enemy_pools_staged() -> bool:
+	_registered_enemy_pool_ids.clear()
+	for raw_enemy_data: Variant in _enemy_rows.values():
+		if not raw_enemy_data is Dictionary:
+			continue
+		var enemy_data: Dictionary = raw_enemy_data as Dictionary
+		if not _register_enemy_pool(enemy_data):
 			_rollback_registered_enemy_pools()
 			return false
-		_registered_enemy_pool_ids.append(pool_id)
-		PoolManager.prewarm(pool_id, int(enemy_data.get("pool_prewarm", 0)))
+		if not await _prewarm_pool_staged(
+			String(enemy_data.get("pool_id", "")),
+			int(enemy_data.get("pool_prewarm", 0))
+		):
+			_rollback_registered_enemy_pools()
+			return false
+	return true
+
+
+func _register_enemy_pool(enemy_data: Dictionary) -> bool:
+	var pool_id: String = String(enemy_data.get("pool_id", ""))
+	var scene_path: String = String(enemy_data.get("scene_path", ""))
+	if pool_id.is_empty() or _registered_enemy_pool_ids.has(pool_id):
+		push_error("[GameplayRunLoop] invalid or duplicate enemy pool id: %s" % pool_id)
+		return false
+	var factory: Callable = Callable(self, "_create_actor_node").bind(scene_path)
+	if not PoolManager.register_pool(pool_id, factory, ENEMY_POOL_SIZE):
+		return false
+	_registered_enemy_pool_ids.append(pool_id)
+	return true
+
+
+func _prewarm_standard_pools() -> void:
+	PoolManager.prewarm(POOL_IDS.BULLET_BASIC, 24)
+	PoolManager.prewarm(POOL_IDS.HAZARD_SPIKE, 8)
+	PoolManager.prewarm(POOL_IDS.HIT_SPARK, 16)
+	PoolManager.prewarm(POOL_IDS.DAMAGE_NUMBER, 16)
+	PoolManager.prewarm(POOL_IDS.PICKUP_ORB, 16)
+
+
+func _prewarm_standard_pools_staged() -> bool:
+	var requests: Array[Dictionary] = [
+		{"pool_id": POOL_IDS.BULLET_BASIC, "count": 24},
+		{"pool_id": POOL_IDS.HAZARD_SPIKE, "count": 8},
+		{"pool_id": POOL_IDS.HIT_SPARK, "count": 16},
+		{"pool_id": POOL_IDS.DAMAGE_NUMBER, "count": 16},
+		{"pool_id": POOL_IDS.PICKUP_ORB, "count": 16},
+	]
+	for request: Dictionary in requests:
+		if not await _prewarm_pool_staged(
+			String(request.get("pool_id", "")),
+			int(request.get("count", 0))
+		):
+			return false
+	return true
+
+
+func _prewarm_pool_staged(pool_id: String, count: int) -> bool:
+	var remaining: int = maxi(count, 0)
+	while remaining > 0:
+		var batch_size: int = mini(remaining, LOADING_BATCH_SIZE)
+		var created_count: int = PoolManager.prewarm(pool_id, batch_size)
+		if created_count != batch_size:
+			push_error(
+				"[GameplayRunLoop] staged pool prewarm failed for %s: %d/%d"
+				% [pool_id, created_count, batch_size]
+			)
+			return false
+		remaining -= created_count
+		if not await _yield_loading_frame():
+			return false
 	return true
 
 
@@ -490,9 +689,24 @@ func _clear_enemy_pools(enemy_csv_rows: Array[Dictionary]) -> void:
 
 
 func _fail_run_start(message: String, restoring: bool) -> void:
+	if _run_start_failed:
+		return
+	_run_start_failed = true
 	push_error("[GameplayRunLoop] %s" % message)
+	if _player_loading_mode:
+		run_prepare_failed.emit(message, restoring)
 	if restoring:
 		restore_failed.emit()
+
+
+func _yield_loading_frame() -> bool:
+	if not _player_loading_mode:
+		return true
+	var tree: SceneTree = get_tree()
+	if tree == null:
+		return false
+	await tree.process_frame
+	return is_instance_valid(self) and is_inside_tree()
 
 
 func _create_hazard_node() -> Node:
@@ -817,7 +1031,10 @@ func _spawn_map_hazards(placements: Array[Dictionary]) -> void:
 		_spawn_hazard(placement)
 
 
-func _configure_module_world(restore_snapshot: Dictionary) -> bool:
+func _configure_module_world(
+	restore_snapshot: Dictionary,
+	threaded_loading: bool = false
+) -> bool:
 	_ensure_module_world_manager()
 	if _module_world_manager == null:
 		return false
@@ -845,6 +1062,25 @@ func _configure_module_world(restore_snapshot: Dictionary) -> bool:
 			"res://scenes/generated/modules/%s/rotation_0.tscn"
 			% template_id
 		)
+	if threaded_loading:
+		var generated_scene_paths: Array[String] = []
+		for raw_scene_path: Variant in generated_scene_paths_by_id.values():
+			generated_scene_paths.append(String(raw_scene_path))
+		var load_result: Dictionary = await _load_packed_scenes_threaded(
+			generated_scene_paths
+		)
+		if not bool(load_result.get("ok", false)):
+			return false
+		var loaded_scenes: Dictionary = _dictionary_or_empty(
+			load_result.get("resources", {})
+		)
+		for template_id: String in generated_scene_paths_by_id.keys():
+			var generated_scene_path: String = String(
+				generated_scene_paths_by_id[template_id]
+			)
+			generated_scene_paths_by_id[template_id] = loaded_scenes.get(
+				generated_scene_path
+			)
 	var module_snapshot: Dictionary = _dictionary_or_empty(restore_snapshot.get("module_world", {}))
 	var world_seed: int = int(module_snapshot.get("run_seed", RNG.run_seed()))
 	var navigation_flow_radius_cells: int = _navigation_flow_radius_cells(_module_world_definition)
@@ -959,6 +1195,20 @@ func _start_module_world_fresh() -> void:
 	_refresh_module_world_hud()
 
 
+func _start_module_world_fresh_staged() -> bool:
+	if _module_world_manager == null or _player == null:
+		return false
+	_register_all_module_interest_points()
+	var stream_change: Dictionary = _module_world_manager.call(
+		"tick",
+		_player.global_position
+	)
+	if not await _handle_module_stream_change_staged(stream_change):
+		return false
+	_refresh_module_world_hud()
+	return true
+
+
 func _update_module_world() -> void:
 	if _module_world_manager == null or _player == null:
 		return
@@ -972,6 +1222,16 @@ func _handle_module_stream_change(stream_change: Dictionary) -> void:
 		_deactivate_module_slot(_dict_to_vector2i(raw_coord))
 	for raw_coord: Variant in _array_or_empty(stream_change.get("activated", [])):
 		_activate_module_slot(_dict_to_vector2i(raw_coord), true)
+
+
+func _handle_module_stream_change_staged(stream_change: Dictionary) -> bool:
+	for raw_coord: Variant in _array_or_empty(stream_change.get("deactivated", [])):
+		_deactivate_module_slot(_dict_to_vector2i(raw_coord))
+	for raw_coord: Variant in _array_or_empty(stream_change.get("activated", [])):
+		_activate_module_slot(_dict_to_vector2i(raw_coord), true)
+		if not await _yield_loading_frame():
+			return false
+	return true
 
 
 func _activate_module_slot(module_coord: Vector2i, restore_stored_entities: bool) -> void:
@@ -2019,7 +2279,10 @@ func _is_active_world_entity(node: Node) -> bool:
 	return node == _active_world or _active_world.is_ancestor_of(node)
 
 
-func _restore_run_snapshot(snapshot_data: Dictionary) -> bool:
+func _restore_run_snapshot(
+	snapshot_data: Dictionary,
+	staged_loading: bool = false
+) -> bool:
 	var module_snapshot: Dictionary = _dictionary_or_empty(snapshot_data.get("module_world", {}))
 	if _module_world_enabled and _module_world_manager != null:
 		if module_snapshot.is_empty() or not bool(_module_world_manager.call("restore_state", module_snapshot)):
@@ -2029,6 +2292,8 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> bool:
 		var active_coords: Array[Vector2i] = _module_world_manager.call("active_module_coords")
 		for module_coord: Vector2i in active_coords:
 			_activate_module_slot(module_coord, false)
+			if staged_loading and not await _yield_loading_frame():
+				return false
 
 	_current_level = maxi(int(snapshot_data.get("level", 1)), 1)
 	_current_xp = maxi(int(snapshot_data.get("xp", 0)), 0)
@@ -2055,6 +2320,12 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> bool:
 	if hazard_snapshots.is_empty() and not _module_world_enabled and _map_manager != null and _map_manager.has_method("generate_hazard_placements"):
 		var hazard_placements: Array[Dictionary] = _generate_map_hazard_placements()
 		_spawn_map_hazards(hazard_placements)
+	elif staged_loading:
+		if not await _restore_snapshots_staged(
+			hazard_snapshots,
+			Callable(self, "_restore_hazard_snapshots")
+		):
+			return false
 	else:
 		_restore_hazard_snapshots(hazard_snapshots)
 	if not _module_world_enabled and _map_manager != null and _map_manager.has_method("hazard_placements"):
@@ -2069,9 +2340,31 @@ func _restore_run_snapshot(snapshot_data: Dictionary) -> bool:
 	else:
 		_spawn_interest_point_caches()
 		_spawn_interest_point_targets()
-	_restore_enemy_snapshots(_array_or_empty(snapshot_data.get("enemies", [])))
-	_restore_bullet_snapshots(_array_or_empty(snapshot_data.get("bullets", [])))
-	_restore_pickup_snapshots(_array_or_empty(snapshot_data.get("pickups", [])))
+	if staged_loading and not await _yield_loading_frame():
+		return false
+	var enemy_snapshots: Array = _array_or_empty(snapshot_data.get("enemies", []))
+	var bullet_snapshots: Array = _array_or_empty(snapshot_data.get("bullets", []))
+	var pickup_snapshots: Array = _array_or_empty(snapshot_data.get("pickups", []))
+	if staged_loading:
+		if not await _restore_snapshots_staged(
+			enemy_snapshots,
+			Callable(self, "_restore_enemy_snapshots")
+		):
+			return false
+		if not await _restore_snapshots_staged(
+			bullet_snapshots,
+			Callable(self, "_restore_bullet_snapshots")
+		):
+			return false
+		if not await _restore_snapshots_staged(
+			pickup_snapshots,
+			Callable(self, "_restore_pickup_snapshots")
+		):
+			return false
+	else:
+		_restore_enemy_snapshots(enemy_snapshots)
+		_restore_bullet_snapshots(bullet_snapshots)
+		_restore_pickup_snapshots(pickup_snapshots)
 
 	var clock_snapshot: Variant = snapshot_data.get("game_clock", {})
 	if clock_snapshot is Dictionary:
@@ -2261,6 +2554,26 @@ func _restore_hazard_snapshots(hazard_snapshots: Array) -> void:
 		var hazard: Node2D = _spawn_hazard(placement)
 		if hazard != null and hazard.has_method("restore_snapshot"):
 			hazard.call("restore_snapshot", restored_snapshot)
+
+
+func _restore_snapshots_staged(
+	snapshots: Array,
+	restore_batch: Callable
+) -> bool:
+	var batch: Array = []
+	for raw_snapshot: Variant in snapshots:
+		batch.append(raw_snapshot)
+		if batch.size() < LOADING_BATCH_SIZE:
+			continue
+		restore_batch.call(batch)
+		batch.clear()
+		if not await _yield_loading_frame():
+			return false
+	if not batch.is_empty():
+		restore_batch.call(batch)
+		if not await _yield_loading_frame():
+			return false
+	return true
 
 
 func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:

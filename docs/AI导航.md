@@ -69,7 +69,7 @@
 | `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `InputService` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `GearModSystem` / `AudioManager` / `Localization` / `UIManager`；另由 addon 路径稳定注册 `GUIDE` 与 `PhantomCameraManager` |
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口、`DamageInfo`、`StatusEffect` 与 `StatusEffectComponent` |
 | `client/scripts/gameplay/` | Gameplay 主循环、玩家 / 武器 / 技能 / 敌人 / 机关 / HUD，F13 `module_world_manager` / `module_chunk` / `module_minimap`，以及 F14 `module_navigation_field`；世界 / 导航 API 见 `docs/代码/module_world_manager.md`，Enemy 感知见 `docs/代码/enemy_ai.md` |
-| `client/scripts/ui/` | 阶段性 UI：`title_menu` / `pause_menu` / `game_over_panel` / `gear_mod_panel` |
+| `client/scripts/ui/` | 阶段性 UI：`title_menu` / `loading_screen` / `pause_menu` / `game_over_panel` / `gear_mod_panel` |
 | `client/scripts/debug/` | debug/dev_tools 专用 `DebugConsole` 与 `GMCommandRegistry`；正式 release 不应加载或导出 |
 | `client/tools/` | Godot 项目内 headless smoke 脚本；当前含 gameplay runtime、actor 继承场景 / 独立敌人池、GearMod、SaveManager、Settings、Replay、RNG 和 DebugTools smoke，并保留仅由用户明确触发的性能 probe |
 | `user://settings.cfg` / `user://input_bindings.tres` | 普通设置 schema v2 / GUIDE 输入绑定 schema v1；游戏进度存档仍走 `user://saves/<slot>/<kind>.save`（`meta` / `run` / `replay_index`） |
@@ -165,6 +165,7 @@
 | **评估小服务器在线玩法** | 先看 `docs/小服务器玩法备忘.md`，再看 `docs/在线服务规划.md`、GDD §6.7 / §9.23、`docs/代码/replay.md`；GodotSteam + Talo 路线已采纳，但每日挑战、排行榜、死亡残响等具体玩法仍需用户点名，实时多人 / PvP / 强竞技排行榜默认暂缓 |
 | **启动 / 推进正式项目** | F13 模块世界已完成；当前 F14 入口为 `F14-EnemyNavigationAndPerception.md`、GDD §5.3、EnemyAI / ModuleWorldManager 文档、数据手册与测试策略。F14.1 活动流场当前半径 8、单次最多访问 289 格；导航 / 感知变更跑 contracts/data/schema/module-world/runtime/save 与黄金回放；性能 probe 仅在用户当次明确要求时运行 |
 | **维护正式客户端启动骨架 / 默认分辨率** | 看 `client/README.md`、`docs/代码/formal_client_boot.md`、`docs/代码/gameplay_runtime.md` 与 GDD §9.5-A；当前只设计 / 验收固定 16:9 分辨率，默认 viewport 为 1920×1080，窗口不允许任意拖拽缩放，`canvas_items + keep` 在非 16:9 屏幕上等比缩放并加黑边；其他宽高比是 P3 优化，未来也必须按独立固定预设接入，不做连续响应式适配 |
+| **改开始 / 继续 / 重开加载流程** | 先读 ADR #157、`docs/代码/gameplay_loading.md`、FormalClientBoot / Gameplay Runtime / GameState / UIManager 文档和测试策略；玩家入口统一显示 `LoadingScreen` 并保持 `LOADING`，用 Godot `ResourceLoader` 线程读取 `PackedScene`，主线程分帧构建，加载界面移除后才激活。不得创建自管 `Thread`、阶段 / 百分比 / 取消按钮或最低展示时长；改完必跑 `loading-smoke` 及文档规定的完整回归 |
 | **改词表 / 生成常量** | 改 `docs/词表与契约.md` 后跑 `python tools/sync_contracts.py` 和 `python tools/sync_contracts.py --check`，生成 `_contracts.json` 与 `client/scripts/contracts/*.gd` |
 | **校验数据 / 文案** | 跑 `python tools/validate_data.py` 与 `python tools/lint_project_rules.py`；改 DataLoader schema 时追加 `python tools/test_data_loader_schema.py`，改项目规则 lint 时追加 `python tools/test_project_rules_lint.py` |
 | **校验 GDScript 项目规则** | 跑 `python tools/lint_gdscript_rules.py`；当前第一档覆盖代码段顺序、危险 `:=`、中文硬编码字符串、裸随机 / 时间 / 暂停 API |
@@ -207,7 +208,7 @@
 ## 5. 核心系统模块
 
 ### 5.1 模块清单
-**业务模块**：`Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager`（F13 世界门面）/ `ModuleNavigationField`（F14 共享静态导航）/ `WarzoneDirector`（仅 F12 非默认开放战区）/ `HazardSystem` / `ItemSystem` / `GrowthSystem` / `GearModSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `PhantomCamera2D` / `PhantomCameraHost` / `Camera2D` / `DataLoader` / `PauseMenu` / `Combat` / `StatusEffectComponent`。
+**业务模块**：`FormalClientBoot` / `LoadingScreen` / `GameplayRunLoop` / `Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager`（F13 世界门面）/ `ModuleNavigationField`（F14 共享静态导航）/ `WarzoneDirector`（仅 F12 非默认开放战区）/ `HazardSystem` / `ItemSystem` / `GrowthSystem` / `GearModSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `PhantomCamera2D` / `PhantomCameraHost` / `Camera2D` / `DataLoader` / `PauseMenu` / `Combat` / `StatusEffectComponent`。
 
 **Autoload 单例（横向基础设施 + 协调中枢）**：
 - 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
@@ -215,7 +216,7 @@
 - 一条**未来在线服务规划**：`OnlineServices` 尚未实现；ADR #150 只锁定未来以 Talo provider 承接跨平台身份、排行榜 / 统计、Live Config、事件和轻量社交，不计入当前 autoload 矩阵
 - 三条**协作基础设施**：`Localization` / `Settings` / `Analytics`
 - 一条**输入基础设施**：vendored `GUIDE` 只解释物理设备与资源图；项目 `InputService` 是生成 action、归一化 intent、context、重绑定、提示和回放覆盖的唯一业务门面
-- 两条**确定性基础设施**：`RNG`（种子化随机，子流分流）/ `GameClock`（暂停冻结时间源）
+- 两条**确定性基础设施**：`RNG`（种子化随机，子流分流）/ `GameClock`（玩家加载、暂停与结算状态冻结的时间源）
 - 一条**回放基础设施**：`Replay`
 - 一条**vendored 相机协调基础设施**：`PhantomCameraManager`（项目固定 autoload；节点注册、priority / layer 选机与噪声广播）
 - 一条**AI 协作基础设施**：见 `docs/AI协作/`（非 autoload）
@@ -225,6 +226,8 @@
 当前正式客户端以 F13 模块世界作为 `mode_standard_survival` 默认关卡 carrier：`ModuleWorldManager` 按 run seed 组合 81 槽、管理 schema v1 等价 gameplay map hash、模块迷雾和最多 3×3 活跃 chunk；运行开始 / 恢复时预加载 assignment 使用的唯一生成 TSCN，九个 `ModuleChunk` 只挂载缓存场景，视觉 JSON 和图块目录不进入 map hash。角色 / 敌人采用 ADR #155 的数据绑定继承场景：`PlayerHost` 挂载所选角色专属场景，五种敌人按唯一 `scene_path` 预加载并各自注册独立池，TSCN 管静态表现、数据管玩法数值。ADR #156 后唯一 `GameplayCameraController` 固定预置在 `ActiveWorld`，与 `PlayerHost` 并列，并在新局 / 续局角色实例化后绑定当前 Player；角色场景不再拥有相机。F14 的 `ModuleNavigationField` 从完整 assignment 构建静态 99×99 mask，玩家跨格时只在按最大视觉范围推导的半径 8 窗口内更新确定性共享流场，单次最多访问 289 格，并为 Enemy 提供路径距离、全图 AStar、地形视线和敌人半径走廊。EnemyAI schema v3 按视线、路径和 1.5 秒最后已知位置感知，畅通直追、受阻绕行；冲锋 / 远程受墙体门禁，玩家唯一目标、敌方友伤拒绝与中心分离边界不变。`--module-world-technical-slice` 保留中心 3×3 / 外圈 72 槽封锁入口，F12 开放战区通过 `--open-warzone` 保留并使用无导航 provider 的直线兜底。run 保持 v4，导航 / 感知缓存不保存。常规验收入口是 contracts/data/schema、`actor-scene-smoke`、`module-bake-check`、`module-json-editor-smoke`、`module-world-smoke`、`module-world-technical-slice-smoke`、`save-smoke`、`runtime-smoke`、headless 与四条黄金回放；ADR #143 后性能测试仅由用户当次明确触发。
 
 > 普通开始新局 / 重开会生成新的 `RNG` run seed；继续游戏恢复 run snapshot；回放、smoke、golden 和调试复现仍应显式固定 seed 或走工具启动路径。
+
+> ADR #157 后开始、继续和重开都先由 `FormalClientBoot` 进入 `LOADING` 并通过 `UIManager` 显示唯一 `LoadingScreen`；RunLoop 在玩家加载模式下用 `ResourceLoader` 线程读取 actor / 模块 `PackedScene`，对象池预热、初始模块挂载与续局恢复在主线程分批让帧。`run_prepared` 后先移除遮罩再激活；失败清理半成品并回标题。应用冷启动、阶段 / 百分比、取消和人为最低时长不在当前范围。
 
 > 有限地图可见边界和逻辑边界当前都由 `MapManager.bounds()` / `boundary_points()` / `boundary_half_extents()` 定义为贴住格线的轴对齐矩形；玩家和敌人中心点由 `set_movement_bounds()` 约束。排查敌人越界时先看 `GameplayRunLoop._apply_enemy_movement_bounds()`、`Enemy.set_movement_bounds()` 与 `runtime-smoke` 的敌人边界断言。
 
@@ -263,6 +266,9 @@ flowchart LR
 
   Data[(client/data/<br/>CSV / JSON)]
   Loader[DataLoader]
+  ResLoader[ResourceLoader]
+  Boot[FormalClientBoot]
+  Loading[LoadingScreen]
   ME[ModifierEngine]
   Combat[Combat<br/>伤害结算]
   SE[StatusEffectComponent]
@@ -298,6 +304,7 @@ flowchart LR
   Set --> Input & UIM & Aud & CamCtl
   Guide -. 物理 action / context / remapping .-> Input
   Loc --> UIM & Item
+  Loc --> Loading
   Ana <-- 埋点 --- Player & Enemy & Item & Growth & GearMod & Spawner & GS & Save
   RNG --> Map & Spawner & Item & Growth & GearMod & Enemy & Combat & PCam
   Clk --> Spawner & Director & Hazard & Weapon & Skill & SE
@@ -316,6 +323,7 @@ flowchart LR
   GS --> GearMod
   GS -.- Rep
   UIM --> UI
+  UIM --> Loading
   Pool --> Weapon & Bullet & Spawner & Hazard & Item & Aud
 
   Input --> Player --> Weapon
@@ -356,6 +364,11 @@ flowchart LR
   Save -. run skill snapshot .- Skill
   Save -. meta kind .- GearMod
   Aud -. play_sfx/music .- Combat & UI & Item
+  Boot --> UIM
+  Boot --> RunLoop
+  Save -. continue envelope .-> Boot
+  ResLoader -. threaded PackedScene .-> RunLoop
+  RunLoop -. run_prepared / run_prepare_failed .-> Boot
 
   classDef infra fill:#eef,stroke:#88a;
   classDef hub fill:#fee,stroke:#a88;

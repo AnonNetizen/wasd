@@ -56,6 +56,8 @@ ui_settings_analytics_enabled,允许匿名分析,Allow Anonymous Analytics
 ui_title_name,WASD,WASD
 ui_title_subtitle,最小生存测试,Minimal Survival Test
 ui_start,开始,Start
+ui_loading,正在加载…,Loading…
+ui_loading_failed,加载失败，请重试。,Loading failed. Please try again.
 ui_continue_run,继续游戏,Continue Run
 ui_run_save_unavailable,续局存档已损坏，已重置本局。,The saved run was corrupted and has been reset.
 ui_run_save_legacy_incompatible,旧版本续局与模块大地图不兼容，已仅重置本局；局外进度不受影响。,The legacy run is incompatible with the module world and has been reset; meta progression is unchanged.

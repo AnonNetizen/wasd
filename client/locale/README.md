@@ -139,6 +139,7 @@ label.text = tr("ui_damage") + str(value)
 2. UI 代码使用 `tr("ui_restart")`。
 3. 如果该 UI 支持运行时切语言，确认 `NOTIFICATION_TRANSLATION_CHANGED` 后会刷新。
 4. 切到英文 `en` 检查按钮 / 面板不会截断、溢出或遮挡；必要时先调整 UI 尺寸或换行。
+5. 加载界面使用通用 `ui_loading` / `ui_loading_failed`；只显示中性的“正在加载…” / “Loading…”，不要把资源阶段、百分比、技术错误或取消操作写给玩家。
 
 ### 加一段 HUD 文案
 

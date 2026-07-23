@@ -35,6 +35,7 @@
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
 | autoload `_ready()` | 进入默认 `MAIN_MENU` 并同步暂停状态 | `state_entered` |
+| 玩家加载 | 开始 / 继续 / 重开准备期间进入 `LOADING`；SceneTree 不暂停，但 gameplay 不接受输入、不推进 `GameClock`，加载完成并移除遮罩后才进入 `PLAYING` | `FormalClientBoot`、`GameplayRunLoop.run_prepared` |
 | 请求切换 | 校验目标状态是否已登记 | `can_change_to()` |
 | 切换成功 | 依次发退出、同步暂停、切换、进入 | `state_exited`、`state_changed`、`state_entered` |
 | 切换失败 | 输出错误并保持原状态 | `push_error` |
@@ -60,6 +61,7 @@
 ## 数据与契约
 
 - 当前状态常量来自 GDD §9.12。
+- `LOADING` 是正式玩家加载请求的准备态，不是 `PLAYING` 的别名；它覆盖开始、继续和重开，但不覆盖当前应用冷启动。
 - 暂无外部数据文件。
 - 后续若状态 id 进入词表，需要同步 `docs/词表与契约.md` 与生成常量。
 
@@ -90,12 +92,14 @@
 | 业务暂停不一致 | 是否绕过 `GameState.change_state()` 直接改 `get_tree().paused` |
 | 状态切换无效 | 目标状态是否在 `STATES` 中 |
 | 订阅方顺序异常 | 是否依赖了未声明的 signal 顺序 |
+| 加载期间 gameplay 已运行 | `FormalClientBoot` 是否先进入 `LOADING`；RunLoop 是否只在 `activate_prepared_run()` 中切到 `PLAYING` |
 
 ## 测试义务
 
 - 必跑正式项目 headless boot。
 - F2 后续补 GUT：非法状态拒绝、signal 顺序、`PAUSED` / `LEVEL_UP` 与 SceneTree paused 联动。
 - UI 或存档接入后补集成测试。
+- 玩家加载状态变化必须跑 `python tools/godot_bridge.py --project client loading-smoke`。
 
 ## 迁移 / 兼容
 
@@ -106,3 +110,4 @@
 - `docs/游戏设计文档.md` §9.12
 - `docs/测试策略.md`
 - `docs/AI导航.md`
+- `docs/代码/gameplay_loading.md`

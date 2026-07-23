@@ -33,6 +33,7 @@
 | AudioManager | `docs/代码/audio_manager.md` | `client/scripts/autoload/audio_manager.gd` | F2 第七片已建立 |
 | Localization | `docs/代码/localization.md` | `client/scripts/autoload/localization.gd` | F2 第二片已建立 |
 | UIManager | `docs/代码/ui_manager.md` | `client/scripts/autoload/ui_manager.gd` | F2 第二片已建立 |
+| Gameplay Loading | `docs/代码/gameplay_loading.md` | `client/scenes/ui/loading_screen.tscn`、`client/scripts/ui/loading_screen.gd`、`client/scripts/boot/formal_client_boot.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、`client/tools/loading_smoke.gd` | ADR #157 开始 / 继续 / 重开统一加载流程已建立 |
 | Combat | `docs/代码/combat.md` | `client/scripts/combat/combat.gd`、`client/scripts/combat/damage_info.gd` | F4 首切片已建立 |
 | Gameplay Runtime | `docs/代码/gameplay_runtime.md` | `client/scripts/gameplay/*.gd`、`client/scripts/ui/title_menu.gd`、`client/scripts/ui/pause_menu.gd`、`client/scripts/ui/game_over_panel.gd`、`client/scripts/boot/formal_client_boot.gd` | F4 首切片已正式命名收口 |
 | Phantom Camera | `docs/代码/phantom_camera.md` | `client/addons/phantom_camera/`、`client/scripts/gameplay/gameplay_camera_controller.gd`、`client/scenes/gameplay/gameplay_camera_controller.tscn` | ADR #148 固定版本维护型 fork 与正式 2D 玩家相机接入已建立 |
