@@ -16,6 +16,7 @@ def main() -> int:
         ("undocumented data field fails", _test_undocumented_data_field_fails),
         ("missing locale translation fails", _test_missing_locale_translation_fails),
         ("release preset dev tools fail", _test_release_preset_dev_tools_fail),
+        ("release preset missing debug excludes fails", _test_release_preset_missing_debug_excludes_fails),
     ]
 
     for name, test in tests:
@@ -75,6 +76,30 @@ def _test_release_preset_dev_tools_fail() -> None:
         assert any(error.rule == "release-debug-assets" for error in errors), [error.format() for error in errors]
 
 
+def _test_release_preset_missing_debug_excludes_fails() -> None:
+    with _temporary_project() as root:
+        _write_minimal_project(root)
+        (root / "client" / "export_presets.cfg").write_text(
+            "\n".join(
+                [
+                    "[preset.0]",
+                    'name="Windows"',
+                    'export_path="build/windows/wasd.exe"',
+                    'custom_features=""',
+                    'exclude_filter="scripts/editor/*"',
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        _with_project_root(root)
+        errors = lint_project_rules._check_release_presets()
+        assert any(
+            "test-arena resources" in error.message
+            for error in errors
+        ), [error.format() for error in errors]
+
+
 def _write_minimal_project(root: Path, *, item: dict[str, str] | None = None, locale_en: str = "Play") -> None:
     data_dir = root / "client" / "data"
     locale_dir = root / "client" / "locale"
@@ -99,6 +124,23 @@ def _write_minimal_project(root: Path, *, item: dict[str, str] | None = None, lo
         encoding="utf-8",
     )
     (locale_dir / "strings.csv").write_text(f"keys,zh_CN,en\nui_play,开始,{locale_en}\n", encoding="utf-8")
+    (root / "client" / "export_presets.cfg").write_text(
+        "\n".join(
+            [
+                "[preset.0]",
+                'name="Windows"',
+                'export_path="build/windows/wasd.exe"',
+                'custom_features=""',
+                (
+                    'exclude_filter="scenes/debug/*,scripts/debug/*,'
+                    'tools/debug_test_arena_smoke.gd,'
+                    'tools/debug_tools_smoke.gd"'
+                ),
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
 
 
 class _temporary_project:

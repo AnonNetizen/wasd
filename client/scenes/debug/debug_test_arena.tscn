@@ -1,0 +1,125 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/gameplay/gameplay_run_loop.tscn" id="1_base"]
+[ext_resource type="Script" path="res://scripts/debug/debug_test_arena_controller.gd" id="2_controller"]
+
+[node name="DebugTestArena" instance=ExtResource("1_base")]
+
+[node name="ArenaVisuals" type="Node2D" parent="ActiveWorld" index="1"]
+z_index = -90
+
+[node name="IslandGround" type="Polygon2D" parent="ActiveWorld/ArenaVisuals"]
+polygon = PackedVector2Array(-1600, -880, 1600, -880, 1600, 880, -1600, 880)
+color = Color(0.075, 0.105, 0.115, 1)
+
+[node name="CentralZone" type="Polygon2D" parent="ActiveWorld/ArenaVisuals"]
+polygon = PackedVector2Array(-400, -360, 400, -360, 400, 360, -400, 360)
+color = Color(0.12, 0.34, 0.34, 0.44)
+
+[node name="StationaryZone" type="Polygon2D" parent="ActiveWorld/ArenaVisuals"]
+polygon = PackedVector2Array(-1480, -700, -480, -700, -480, 700, -1480, 700)
+color = Color(0.42, 0.30, 0.12, 0.34)
+
+[node name="AiZone" type="Polygon2D" parent="ActiveWorld/ArenaVisuals"]
+polygon = PackedVector2Array(480, -700, 1480, -700, 1480, 700, 480, 700)
+color = Color(0.34, 0.12, 0.16, 0.34)
+
+[node name="CentralBoundary" type="Line2D" parent="ActiveWorld/ArenaVisuals"]
+points = PackedVector2Array(-400, -360, 400, -360, 400, 360, -400, 360, -400, -360)
+width = 5.0
+default_color = Color(0.3, 0.9, 0.84, 0.78)
+
+[node name="StationaryBoundary" type="Line2D" parent="ActiveWorld/ArenaVisuals"]
+points = PackedVector2Array(-1480, -700, -480, -700, -480, 700, -1480, 700, -1480, -700)
+width = 5.0
+default_color = Color(0.94, 0.68, 0.24, 0.72)
+
+[node name="AiBoundary" type="Line2D" parent="ActiveWorld/ArenaVisuals"]
+points = PackedVector2Array(480, -700, 1480, -700, 1480, 700, 480, 700, 480, -700)
+width = 5.0
+default_color = Color(0.94, 0.32, 0.38, 0.72)
+
+[node name="CentralLabel" type="Label" parent="ActiveWorld/ArenaVisuals"]
+offset_left = -180.0
+offset_top = -320.0
+offset_right = 180.0
+offset_bottom = -275.0
+theme_override_font_sizes/font_size = 26
+horizontal_alignment = 1
+
+[node name="StationaryLabel" type="Label" parent="ActiveWorld/ArenaVisuals"]
+offset_left = -1240.0
+offset_top = -650.0
+offset_right = -720.0
+offset_bottom = -605.0
+theme_override_font_sizes/font_size = 26
+horizontal_alignment = 1
+
+[node name="AiLabel" type="Label" parent="ActiveWorld/ArenaVisuals"]
+offset_left = 720.0
+offset_top = -650.0
+offset_right = 1240.0
+offset_bottom = -605.0
+theme_override_font_sizes/font_size = 26
+horizontal_alignment = 1
+
+[node name="DebugTestArenaController" type="Node" parent="." index="5"]
+script = ExtResource("2_controller")
+
+[node name="StatsHud" type="CanvasLayer" parent="DebugTestArenaController"]
+layer = 25
+
+[node name="Root" type="Control" parent="DebugTestArenaController/StatsHud"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Margin" type="MarginContainer" parent="DebugTestArenaController/StatsHud/Root"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -390.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = 250.0
+grow_horizontal = 0
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="Panel" type="PanelContainer" parent="DebugTestArenaController/StatsHud/Root/Margin"]
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="DebugTestArenaController/StatsHud/Root/Margin/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 14
+
+[node name="Layout" type="VBoxContainer" parent="DebugTestArenaController/StatsHud/Root/Margin/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="LastHitLabel" type="Label" parent="DebugTestArenaController/StatsHud/Root/Margin/Panel/Margin/Layout"]
+layout_mode = 2
+
+[node name="HitCountLabel" type="Label" parent="DebugTestArenaController/StatsHud/Root/Margin/Panel/Margin/Layout"]
+layout_mode = 2
+
+[node name="TotalDamageLabel" type="Label" parent="DebugTestArenaController/StatsHud/Root/Margin/Panel/Margin/Layout"]
+layout_mode = 2
+
+[node name="RollingDpsLabel" type="Label" parent="DebugTestArenaController/StatsHud/Root/Margin/Panel/Margin/Layout"]
+layout_mode = 2
+
+[node name="ActiveTargetLabel" type="Label" parent="DebugTestArenaController/StatsHud/Root/Margin/Panel/Margin/Layout"]
+layout_mode = 2
+
+[editable path="ActiveWorld"]

@@ -96,6 +96,12 @@ func active_temporary_modifiers() -> Array[Dictionary]:
 	return result
 
 
+func debug_refresh() -> void:
+	_cooldown_remaining = 0.0
+	_temporary_modifiers.clear()
+	_rebuild_runtime_stats()
+
+
 func snapshot() -> Dictionary:
 	return {
 		"cooldown_remaining": _cooldown_remaining,

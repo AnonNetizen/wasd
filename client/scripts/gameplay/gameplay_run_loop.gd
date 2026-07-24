@@ -9,6 +9,12 @@ signal restart_requested()
 signal restore_failed()
 signal run_prepared()
 signal run_prepare_failed(reason: String, restoring: bool)
+signal debug_test_arena_setup_requested()
+
+enum RunPurpose {
+	STANDARD,
+	DEBUG_TEST_ARENA,
+}
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
@@ -62,6 +68,8 @@ const PRESENTATION_PLAYER_DEFAULT: String = "presentation_player_default"
 const PRESENTATION_SKILL_DEFAULT: String = "presentation_skill_default"
 const PRESENTATION_SKILL_OVERDRIVE: String = "presentation_skill_overdrive"
 const PRESENTATION_STATUS_DEFAULT: String = "presentation_status_default"
+const DEBUG_TEST_ARENA_AI: String = "ai"
+const DEBUG_TEST_ARENA_STATIONARY: String = "stationary"
 
 @export_group("Extraction Visual Style")
 @export var extraction_zone_fill_color: Color = Color(0.18, 0.82, 0.68, 0.16)
@@ -110,7 +118,10 @@ var _settings_panel: CanvasLayer = null
 var _skill_system: Node = null
 var _spawn_states: Dictionary = {}
 var _debug_next_gear_mod_drop_forced_roll: float = -1.0
+var _debug_test_arena_config: Dictionary = {}
+var _debug_test_arena_controller: Node = null
 var _run_completed: bool = false
+var _run_purpose: RunPurpose = RunPurpose.STANDARD
 var _warzone_director = null
 var _waves: Array[Dictionary] = []
 var _weapon_system: Node = null
@@ -168,6 +179,8 @@ func _process(delta: float) -> void:
 	_update_stats_panel()
 	if not GameState.is_state(GameState.PLAYING):
 		return
+	if _is_debug_test_arena():
+		return
 	if _module_world_enabled:
 		_update_module_world()
 	_update_interest_points()
@@ -183,6 +196,14 @@ func _process(delta: float) -> void:
 func _on_input_action_pressed(action_id: StringName, participant_id: String) -> void:
 	if participant_id != INPUT_PARTICIPANT_ID:
 		return
+	if _is_debug_test_arena():
+		if (
+			GameState.is_state(GameState.PLAYING)
+			and action_id == StringName(ACTIONS.PAUSE)
+			and _debug_test_arena_controller != null
+		):
+			_debug_test_arena_controller.call("open_panel")
+		return
 	if GameState.is_state(GameState.PLAYING):
 		if action_id == StringName(ACTIONS.INTERACT):
 			_try_interact_interest_point()
@@ -196,6 +217,18 @@ func _on_input_action_pressed(action_id: StringName, participant_id: String) -> 
 
 func configure_restore_snapshot(snapshot_data: Dictionary) -> void:
 	_pending_restore_snapshot = snapshot_data.duplicate(true)
+
+
+## Must be called before the run loop enters the scene tree.
+func configure_debug_test_arena(config: Dictionary) -> void:
+	if is_inside_tree():
+		push_error(
+			"[GameplayRunLoop] debug test arena must be configured before entering tree"
+		)
+		return
+	_run_purpose = RunPurpose.DEBUG_TEST_ARENA
+	_debug_test_arena_config = config.duplicate(true)
+	_module_world_enabled = false
 
 
 ## Must be called before the run loop enters the scene tree.
@@ -216,7 +249,18 @@ func activate_prepared_run() -> bool:
 	GameState.change_state(GameState.PLAYING, {
 		"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
 		"character": _character_id,
+		"run_purpose": (
+			"debug_test_arena"
+			if _is_debug_test_arena()
+			else "standard"
+		),
 	})
+	if (
+		_is_debug_test_arena()
+		and _debug_test_arena_controller != null
+		and _debug_test_arena_controller.has_method("activate")
+	):
+		_debug_test_arena_controller.call("activate")
 	if not _pending_ui_restore.is_empty():
 		_restore_ui_state(_pending_ui_restore)
 	_pending_ui_restore.clear()
@@ -254,6 +298,8 @@ func debug_enable_level_up_growth(pool_id: String = DEFAULT_DEBUG_GROWTH_POOL) -
 
 
 func create_run_snapshot() -> Dictionary:
+	if _is_debug_test_arena():
+		return {}
 	return {
 		"schema_version": RUN_SNAPSHOT_SCHEMA_VERSION,
 		"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
@@ -286,6 +332,19 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	if _active_world == null:
 		_fail_run_start("missing ActiveWorld scene node", not restore_snapshot.is_empty())
 		return
+	if _is_debug_test_arena():
+		_debug_test_arena_controller = get_node_or_null(
+			"DebugTestArenaController"
+		)
+		if (
+			_debug_test_arena_controller == null
+			or not _debug_test_arena_controller.has_method("map_layout")
+		):
+			_fail_run_start(
+				"missing DebugTestArenaController scene node",
+				false
+			)
+			return
 	_vfx_host = _active_world.get_node_or_null("VfxHost") as VfxHost
 	_gameplay_feedback = get_node_or_null("GameplayFeedbackController") as GameplayFeedbackController
 	if _vfx_host == null or _gameplay_feedback == null:
@@ -310,8 +369,19 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
 	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
 	PoolManager.clear_pool(POOL_IDS.VFX_WEAPON_MUZZLE_FLASH)
+	var configured_character_id: String = String(
+		_debug_test_arena_config.get(
+			"character_id",
+			_requested_character_id
+		)
+	)
 	var selected_character_id: String = String(
-		restore_snapshot.get("character", _requested_character_id)
+		restore_snapshot.get(
+			"character",
+			configured_character_id
+			if _is_debug_test_arena()
+			else _requested_character_id
+		)
 	).strip_edges()
 	var character: Dictionary = _find_item(
 		_load_array(DataLoader.CHARACTERS_PATH, "characters"),
@@ -366,11 +436,38 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 
 	var mode: Dictionary = _find_item(_load_array(DataLoader.GAME_MODES_PATH, "modes"), GAME_MODES.MODE_STANDARD_SURVIVAL)
 	var player_stats: Dictionary = _merged_player_stats(character, mode)
-	var loadout: Dictionary = character.get("starting_loadout", {})
-	var weapon: Dictionary = _find_item(_load_array(DataLoader.WEAPONS_PATH, "weapons"), String(loadout.get("weapon_id", "")))
+	var raw_loadout: Variant = character.get("starting_loadout", {})
+	var loadout: Dictionary = (
+		(raw_loadout as Dictionary).duplicate(true)
+		if raw_loadout is Dictionary
+		else {}
+	)
+	if _is_debug_test_arena():
+		loadout["weapon_id"] = String(
+			_debug_test_arena_config.get(
+				"weapon_id",
+				loadout.get("weapon_id", "")
+			)
+		)
+		loadout["skill_ids"] = [
+			String(
+				_debug_test_arena_config.get(
+					"primary_skill_id",
+					""
+				)
+			),
+		]
+	var weapon: Dictionary = _find_item(
+		_load_array(DataLoader.WEAPONS_PATH, "weapons"),
+		String(loadout.get("weapon_id", ""))
+	)
 
 	_hazard_rows = _load_hazard_rows()
-	if _module_world_enabled:
+	if _is_debug_test_arena():
+		_map_layout = _debug_test_arena_controller.call(
+			"map_layout"
+		) as Dictionary
+	elif _module_world_enabled:
 		var module_world_ready: bool = false
 		if _player_loading_mode:
 			module_world_ready = await _configure_module_world(restore_snapshot, true)
@@ -383,10 +480,15 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		_map_layout = _module_world_map_layout()
 	else:
 		_map_layout = _load_map_layout(GAME_MODES.MODE_STANDARD_SURVIVAL)
-	_growth_curve = _load_growth_curve()
-	_growth_entries = _load_growth_entries(mode)
-	_waves = _load_waves(GAME_MODES.MODE_STANDARD_SURVIVAL)
-	if _module_world_enabled:
+	if _is_debug_test_arena():
+		_growth_curve.clear()
+		_growth_entries.clear()
+		_waves.clear()
+	else:
+		_growth_curve = _load_growth_curve()
+		_growth_entries = _load_growth_entries(mode)
+		_waves = _load_waves(GAME_MODES.MODE_STANDARD_SURVIVAL)
+	if _module_world_enabled or _is_debug_test_arena():
 		_warzone_director = null
 	else:
 		_warzone_director = WARZONE_DIRECTOR_SCRIPT.new()
@@ -446,7 +548,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		return
 	_weapon_system.call("configure", _player, _active_world, weapon)
 	_connect_weapon_feedback()
-	_configure_skill_system(character)
+	_configure_skill_system(character, loadout)
 	_apply_loadout_modifiers()
 
 	_hud = get_node_or_null("GameplayHud") as CanvasLayer
@@ -457,6 +559,16 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_hud.call("set_kills", _kills)
 	_hud.call("set_level", _current_level)
 	_refresh_xp_hud()
+	if _is_debug_test_arena():
+		_hud.visible = false
+		_debug_test_arena_controller.call(
+			"configure",
+			self,
+			_player,
+			_skill_system,
+			_weapon_system,
+			_enemy_rows_array()
+		)
 
 	if not restore_snapshot.is_empty():
 		var restore_succeeded: bool = false
@@ -470,6 +582,8 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		_pending_ui_restore = _dictionary_or_empty(
 			restore_snapshot.get("ui_restore", {})
 		).duplicate(true)
+	elif _is_debug_test_arena():
+		pass
 	elif _module_world_enabled:
 		if _player_loading_mode:
 			if not await _start_module_world_fresh_staged():
@@ -763,12 +877,24 @@ func _create_pickup_orb_node() -> Node:
 	return PICKUP_ORB_SCENE.instantiate()
 
 
-func _configure_skill_system(character: Dictionary) -> void:
+func _configure_skill_system(
+	character: Dictionary,
+	loadout_override: Dictionary = {}
+) -> void:
 	_skill_system = get_node_or_null("SkillSystem")
 	if _skill_system == null:
 		push_error("[GameplayRunLoop] missing scene-authored SkillSystem")
 		return
-	var loadout: Dictionary = character.get("starting_loadout", {}) if character.get("starting_loadout", {}) is Dictionary else {}
+	var raw_loadout: Variant = character.get("starting_loadout", {})
+	var loadout: Dictionary = (
+		loadout_override.duplicate(true)
+		if not loadout_override.is_empty()
+		else (
+			(raw_loadout as Dictionary).duplicate(true)
+			if raw_loadout is Dictionary
+			else {}
+		)
+	)
 	_skill_system.call(
 		"configure",
 		_player,
@@ -961,6 +1087,279 @@ func debug_cast_primary_skill() -> Dictionary:
 	if _skill_system == null or not _skill_system.has_method("cast_primary_skill"):
 		return _debug_result(false, "skill_system_unavailable")
 	return _skill_system.call("cast_primary_skill") as Dictionary
+
+
+func debug_test_arena_spawn_at(
+	enemy_id: String,
+	target_kind: String,
+	spawn_position: Vector2,
+	stationary_max_hp: float
+) -> Dictionary:
+	if not _is_debug_test_arena():
+		return _debug_result(false, "not_debug_test_arena")
+	if not _enemy_rows.has(enemy_id):
+		return _debug_result(false, "unknown_enemy")
+	if not target_kind in [
+		DEBUG_TEST_ARENA_AI,
+		DEBUG_TEST_ARENA_STATIONARY,
+	]:
+		return _debug_result(false, "unknown_target_kind")
+	var enemy_data: Dictionary = (
+		_enemy_rows[enemy_id] as Dictionary
+	).duplicate(true)
+	var pool_id: String = String(enemy_data.get("pool_id", ""))
+	var raw_node: Node = PoolManager.acquire(pool_id)
+	if not raw_node is Node2D or not raw_node.has_method("configure"):
+		return _debug_result(false, "pool_unavailable")
+	var enemy: Node2D = raw_node as Node2D
+	enemy.global_position = spawn_position
+	_reparent_to_active_world(enemy)
+	enemy.set_meta("wave_key", "debug_test_arena_%s" % target_kind)
+	if enemy.has_meta("module_slot"):
+		enemy.remove_meta("module_slot")
+	enemy.call("configure", enemy_data, _player, null)
+	enemy.set_meta("debug_test_arena_kind", target_kind)
+	if (
+		target_kind == DEBUG_TEST_ARENA_STATIONARY
+		and enemy.has_method("debug_configure_training_target")
+	):
+		enemy.call(
+			"debug_configure_training_target",
+			stationary_max_hp,
+			spawn_position
+		)
+	_apply_enemy_movement_bounds(enemy)
+	_connect_enemy_defeated(
+		enemy,
+		"debug_test_arena_%s" % target_kind
+	)
+	return {
+		"ok": true,
+		"reason": "",
+		"enemy": enemy,
+	}
+
+
+func debug_test_arena_clear_targets(
+	target_kind: String = ""
+) -> Dictionary:
+	if not _is_debug_test_arena():
+		return _debug_result(false, "not_debug_test_arena")
+	var cleared: int = 0
+	for child: Node in _active_world.get_children():
+		if not child.has_meta("debug_test_arena_kind"):
+			continue
+		if (
+			not target_kind.is_empty()
+			and String(child.get_meta("debug_test_arena_kind"))
+			!= target_kind
+		):
+			continue
+		if _vfx_host != null:
+			_vfx_host.cancel_owner(child)
+		if PoolManager.release(child):
+			cleared += 1
+	return {
+		"ok": true,
+		"count": cleared,
+	}
+
+
+func debug_test_arena_kill_ai() -> Dictionary:
+	if not _is_debug_test_arena():
+		return _debug_result(false, "not_debug_test_arena")
+	var killed: int = 0
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if (
+			not _is_active_world_entity(enemy)
+			or not enemy.has_meta("debug_test_arena_kind")
+			or String(enemy.get_meta("debug_test_arena_kind"))
+			!= DEBUG_TEST_ARENA_AI
+		):
+			continue
+		var result: Dictionary = Combat.apply_damage(
+			enemy,
+			_debug_test_arena_damage_info(9999999.0, enemy)
+		)
+		if bool(result.get("applied", false)):
+			killed += 1
+	return {
+		"ok": true,
+		"count": killed,
+	}
+
+
+func debug_test_arena_reset_stationary_targets() -> Dictionary:
+	if not _is_debug_test_arena():
+		return _debug_result(false, "not_debug_test_arena")
+	var reset_count: int = 0
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if (
+			not _is_active_world_entity(enemy)
+			or not enemy.has_meta("debug_test_arena_kind")
+			or String(enemy.get_meta("debug_test_arena_kind"))
+			!= DEBUG_TEST_ARENA_STATIONARY
+		):
+			continue
+		if enemy.has_method("debug_reset_training_target"):
+			enemy.call("debug_reset_training_target")
+			reset_count += 1
+	return {
+		"ok": true,
+		"count": reset_count,
+	}
+
+
+func debug_test_arena_damage_first_target(
+	target_kind: String,
+	amount: float
+) -> Dictionary:
+	if not _is_debug_test_arena():
+		return _debug_result(false, "not_debug_test_arena")
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if (
+			not _is_active_world_entity(enemy)
+			or not enemy.has_meta("debug_test_arena_kind")
+			or String(enemy.get_meta("debug_test_arena_kind"))
+			!= target_kind
+		):
+			continue
+		var result: Dictionary = Combat.apply_damage(
+			enemy,
+			_debug_test_arena_damage_info(
+				maxf(amount, 0.0),
+				enemy
+			)
+		)
+		var response: Dictionary = result.duplicate(true)
+		response["ok"] = bool(result.get("applied", false))
+		response["target"] = enemy
+		return response
+	return _debug_result(false, "target_unavailable")
+
+
+func debug_test_arena_clear_projectiles() -> Dictionary:
+	if not _is_debug_test_arena():
+		return _debug_result(false, "not_debug_test_arena")
+	var cleared: int = 0
+	for bullet: Node in get_tree().get_nodes_in_group("active_bullets"):
+		if _is_active_world_entity(bullet) and PoolManager.release(bullet):
+			cleared += 1
+	return {
+		"ok": true,
+		"count": cleared,
+	}
+
+
+func debug_test_arena_reset_player() -> Dictionary:
+	if not _is_debug_test_arena() or _player == null:
+		return _debug_result(false, "player_unavailable")
+	if _player.has_method("debug_reset_transient_state"):
+		_player.call("debug_reset_transient_state", Vector2.ZERO)
+	if _skill_system != null and _skill_system.has_method("debug_refresh"):
+		_skill_system.call("debug_refresh")
+	if _weapon_system != null and _weapon_system.has_method("debug_refresh"):
+		_weapon_system.call("debug_refresh")
+	var died_callback: Callable = Callable(self, "_on_player_died")
+	if not _player.is_connected("died", died_callback):
+		_player.connect(
+			"died",
+			died_callback,
+			CONNECT_ONE_SHOT
+		)
+	return {
+		"ok": true,
+		"life": float(_player.call("current_life")),
+		"max_life": float(_player.call("max_life")),
+	}
+
+
+func debug_test_arena_request_setup() -> void:
+	if _is_debug_test_arena():
+		debug_test_arena_setup_requested.emit()
+
+
+func debug_test_arena_request_title() -> void:
+	if _is_debug_test_arena():
+		quit_to_title_requested.emit()
+
+
+func debug_test_arena_open_panel() -> void:
+	if (
+		_is_debug_test_arena()
+		and _debug_test_arena_controller != null
+	):
+		_debug_test_arena_controller.call("open_panel")
+
+
+func debug_test_arena_close_panel() -> void:
+	if (
+		_is_debug_test_arena()
+		and _debug_test_arena_controller != null
+	):
+		_debug_test_arena_controller.call("close_panel")
+
+
+func debug_test_arena_set_god_mode(enabled: bool) -> void:
+	if _debug_test_arena_controller != null:
+		_debug_test_arena_controller.call("set_god_mode", enabled)
+
+
+func debug_test_arena_set_free_skills(enabled: bool) -> void:
+	if _debug_test_arena_controller != null:
+		_debug_test_arena_controller.call("set_free_skills", enabled)
+
+
+func debug_test_arena_refresh_skills() -> void:
+	if _debug_test_arena_controller != null:
+		_debug_test_arena_controller.call("refresh_skills")
+
+
+func debug_test_arena_teleport_to_spawn() -> void:
+	if _debug_test_arena_controller != null:
+		_debug_test_arena_controller.call("teleport_to_spawn")
+
+
+func debug_test_arena_reset_damage_stats() -> void:
+	if _debug_test_arena_controller != null:
+		_debug_test_arena_controller.call("reset_damage_stats")
+
+
+func debug_test_arena_summary() -> Dictionary:
+	return {
+		"active": _is_debug_test_arena(),
+		"config": _debug_test_arena_config.duplicate(true),
+		"player_position": (
+			_vector_to_dict(_player.global_position)
+			if _player != null
+			else {}
+		),
+		"player_life": (
+			float(_player.call("current_life"))
+			if _player != null
+			else 0.0
+		),
+		"player_max_life": (
+			float(_player.call("max_life"))
+			if _player != null
+			else 0.0
+		),
+		"weapon_damage": (
+			float(_weapon_system.call("stat_value", STATS.DAMAGE))
+			if _weapon_system != null
+			else 0.0
+		),
+		"skills": (
+			_skill_system.call("debug_summary")
+			if _skill_system != null
+			else {}
+		),
+		"controller": (
+			_debug_test_arena_controller.call("debug_summary")
+			if _debug_test_arena_controller != null
+			else {}
+		),
+	}
 
 
 func debug_claim_interest_point(point_id: String) -> Dictionary:
@@ -1960,6 +2359,17 @@ func _on_enemy_defeated(_enemy: Node, _exp_reward: int, wave_key: String) -> voi
 	var defeated_by_player: bool = true
 	if _enemy != null and _enemy.has_method("was_defeated_by_player"):
 		defeated_by_player = bool(_enemy.call("was_defeated_by_player"))
+	if _is_debug_test_arena():
+		if defeated_by_player:
+			_kills += 1
+		if _spawn_states.has(wave_key):
+			var arena_state: Dictionary = _spawn_states[wave_key]
+			arena_state["alive"] = maxi(
+				int(arena_state.get("alive", 0)) - 1,
+				0
+			)
+			_spawn_states[wave_key] = arena_state
+		return
 	if defeated_by_player:
 		_kills += 1
 		if _hud != null:
@@ -2328,6 +2738,9 @@ func _on_hazard_activated(context: Dictionary) -> void:
 
 
 func _on_player_died() -> void:
+	if _is_debug_test_arena():
+		call_deferred("_reset_debug_test_arena_after_player_death")
+		return
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	GameState.change_state(GameState.GAME_OVER, {
 		"kills": _kills,
@@ -2400,8 +2813,29 @@ func _roll_gear_mod_drop(enemy: Node) -> void:
 
 
 func _apply_loadout_modifiers() -> void:
-	var hero_modifiers: Array[Dictionary] = GearModSystem.current_modifiers(GEAR_MOD_SLOTS.HERO)
-	var weapon_modifiers: Array[Dictionary] = GearModSystem.current_modifiers(GEAR_MOD_SLOTS.WEAPON)
+	var hero_modifiers: Array[Dictionary] = []
+	var weapon_modifiers: Array[Dictionary] = []
+	if _is_debug_test_arena():
+		var preview: Dictionary = GearModSystem.resolve_preview_loadout(
+			_array_or_empty(_debug_test_arena_config.get("gear_mods", [])),
+			int(_debug_test_arena_config.get("capacity", 8))
+		)
+		var all_modifiers: Dictionary = _dictionary_or_empty(
+			preview.get("modifiers", {})
+		)
+		hero_modifiers = _typed_dictionary_array(
+			all_modifiers.get(GEAR_MOD_SLOTS.HERO, [])
+		)
+		weapon_modifiers = _typed_dictionary_array(
+			all_modifiers.get(GEAR_MOD_SLOTS.WEAPON, [])
+		)
+	else:
+		hero_modifiers = GearModSystem.current_modifiers(
+			GEAR_MOD_SLOTS.HERO
+		)
+		weapon_modifiers = GearModSystem.current_modifiers(
+			GEAR_MOD_SLOTS.WEAPON
+		)
 	if _player != null and _player.has_method("apply_modifiers"):
 		_player.call("apply_modifiers", hero_modifiers)
 	if _weapon_system != null and _weapon_system.has_method("apply_modifiers"):
@@ -2409,6 +2843,10 @@ func _apply_loadout_modifiers() -> void:
 
 
 func _show_pause_menu() -> void:
+	if _is_debug_test_arena():
+		if _debug_test_arena_controller != null:
+			_debug_test_arena_controller.call("open_panel")
+		return
 	_pause_menu = UIManager.push(PAUSE_MENU_SCENE, {"source": "pause"}) as CanvasLayer
 	if _pause_menu == null:
 		return
@@ -3440,12 +3878,50 @@ func _damage_info(amount: float, target: Node) -> RefCounted:
 	)
 
 
+func _debug_test_arena_damage_info(
+	amount: float,
+	target: Node
+) -> RefCounted:
+	return DAMAGE_INFO_SCRIPT.new().setup(
+		amount,
+		DAMAGE_TYPES.PHYSICAL,
+		_player,
+		target,
+		"team_player",
+		"team_enemy",
+		PackedStringArray(["debug_test_arena"])
+	)
+
+
 func _active_enemy_count() -> int:
 	var result: int = 0
 	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
 		if _is_active_world_entity(enemy):
 			result += 1
 	return result
+
+
+func _reset_debug_test_arena_after_player_death() -> void:
+	if (
+		not _is_debug_test_arena()
+		or _debug_test_arena_controller == null
+	):
+		return
+	_debug_test_arena_controller.call("reset_after_player_death")
+
+
+func _enemy_rows_array() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var enemy_ids: Array[String] = _sorted_dictionary_keys(_enemy_rows)
+	for enemy_id: String in enemy_ids:
+		var raw_row: Variant = _enemy_rows.get(enemy_id, {})
+		if raw_row is Dictionary:
+			rows.append((raw_row as Dictionary).duplicate(true))
+	return rows
+
+
+func _is_debug_test_arena() -> bool:
+	return _run_purpose == RunPurpose.DEBUG_TEST_ARENA
 
 
 func _debug_result(ok: bool, reason: String) -> Dictionary:

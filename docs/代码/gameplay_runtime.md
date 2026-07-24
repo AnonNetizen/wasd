@@ -36,6 +36,7 @@
 | 改 HUD 文案 / 详细数值面板 | `client/scripts/gameplay/gameplay_hud.gd`、`client/scenes/gameplay/gameplay_hud.tscn`、`client/locale/strings.csv` |
 | 改稳定节点结构 / UI 层级 | `client/scenes/gameplay/*.tscn`、`client/scenes/ui/*.tscn` |
 | 改 GM 指令影响局内状态 | `docs/代码/debug_tools.md`、`client/scripts/debug/gm_command_registry.gd`、`client/scripts/gameplay/gameplay_run_loop.gd` |
+| 改开发者测试岛 | `docs/代码/debug_test_arena.md`、`client/scenes/debug/`、`client/scripts/debug/debug_test_arena_*.gd`、`client/scripts/gameplay/gameplay_run_loop.gd` |
 
 ## 代码位置
 
@@ -54,6 +55,7 @@
 | `client/scenes/ui/title_menu.tscn` / `gear_mod_panel.tscn` / `pause_menu.tscn` / `settings_panel.tscn` / `game_over_panel.tscn` / `level_up_panel.tscn` | 正式 UI 场景；脚本只绑定稳定节点、连接 signal 和刷新数据 |
 | `client/scenes/ui/stats_row.tscn` / `level_up_choice_button.tscn` / `gear_mod_row.tscn` / `gear_mod_empty_row.tscn` / `input_binding_row.tscn` | 数据驱动重复 UI 的可编辑行模板；运行时允许实例化模板并填入文本 / signal，不允许逐个 `Label.new()` / `Button.new()` 拼装长期行结构 |
 | `client/scripts/gameplay/gameplay_run_loop.gd` | 正式运行时编排、输入 action 手柄兜底注册、对象池注册、刷怪和重开 |
+| `client/scenes/debug/debug_test_arena.tscn` / `client/scripts/debug/debug_test_arena_controller.gd` | ADR #159 debug/dev_tools 内部 RunLoop 用途：复用正式战斗系统的场景化训练岛、控制器与只读伤害统计 |
 | `client/scripts/gameplay/module_world_manager.gd` | F13 模块世界协调器（非 autoload）：按 run seed 组合 81 个槽位、维护地图 hash / 迷雾 / 动态槽位状态，并只激活玩家周围最多 3×3 chunk。详见 `docs/代码/module_world_manager.md` |
 | `client/scenes/gameplay/module_chunk.tscn` / `client/scripts/gameplay/module_chunk.gd` | 九个预置复用槽位共用的薄场景；激活时挂载缓存的 `scenes/generated/modules/<id>/rotation_0.tscn`，对根节点做正交旋转 / 枢轴补偿并切换反映射后的预烘焙封边，不从 JSON 建 TileMap、逐格建 Node 或重算碰撞 |
 | `client/scenes/gameplay/module_world_manager.tscn` | 预置九个 `ModuleChunk` 实例；运行时只切换 3×3 活跃邻域 |
@@ -80,12 +82,13 @@
 | `client/scripts/ui/game_over_panel.gd` | 失败 / 完成结果面板：本局摘要、暂存战利品带回或丢失提示、重开 / 回标题；语言切换时用缓存状态重画 |
 | `client/tools/runtime_smoke.gd` | gameplay runtime headless smoke，覆盖启动、输入、池化、伤害、失败状态和真实死亡结算 |
 | `client/tools/debug_tools_smoke.gd` | DebugTools headless smoke，覆盖 GM 命令调用 runtime debug API 和 release guard |
+| `client/tools/debug_test_arena_smoke.gd` | 开发者测试岛隔离 smoke，覆盖配装、固定靶 / AI、作弊、死亡复位、DPS、存档与 Replay / Analytics 边界 |
 | `client/tools/gear_mod_smoke.gd` | F11 Gear Mod smoke，覆盖 profile、授予、装备、容量、升级、分解、掉落、HUD 暂存提示和 Gear Mod 面板按钮流 |
 | `client/tools/save_manager_smoke.gd` | F5 SaveManager run 存档可靠性 smoke，覆盖 roundtrip、备份回退、坏档隔离和迁移 |
 | `client/tools/perf_probe.gd` | F8 轻量 perf / 平衡采样入口，输出 schema v2 可比较 JSON：warmup 后帧时间分布、实体峰值、池峰值、等级、击杀和预算状态 |
 | `client/tools/golden_replay_capture.gd` | F8 golden replay capture 工具，固定 seed 启动真实 `GameplayRunLoop` 并采样运行时摘要；支持 basic、pause/resume、full-death 和 level-up choice 场景 |
 | `client/tools/replay_input_smoke.gd` | F8 gameplay 输入录制 smoke，确认移动 / 瞄准 / pause / ui_back 写入 Replay 输入事件 |
-| `tools/godot_bridge.py` | `module-world-smoke` / `module-world-technical-slice-smoke` / `runtime-smoke` / `save-smoke` / `settings-smoke` / `gear-mod-smoke` / `debug-tools-smoke` / `debug-tools-release-smoke` / F8 `l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay` 命令入口；`startup-probe` / `perf-probe` 保留为用户明确触发的按需入口 |
+| `tools/godot_bridge.py` | `module-world-smoke` / `module-world-technical-slice-smoke` / `runtime-smoke` / `save-smoke` / `settings-smoke` / `gear-mod-smoke` / `debug-tools-smoke` / `debug-test-arena-smoke` / `debug-tools-release-smoke` / F8 `l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay` 命令入口；`startup-probe` / `perf-probe` 保留为用户明确触发的按需入口 |
 | `docs/代码/combat.md` | 伤害统一入口文档 |
 | `docs/代码/map_manager.md` | 有限地图 / PCG / 人工摆点文档 |
 | `docs/代码/module_world_manager.md` | F13 模块大地图 / 流式状态 / 坐标与存档文档 |
@@ -144,11 +147,14 @@ UIManager
 - carrier 只决定地图载体与内容入口；对象池生成、`Combat`、击杀归因和战利品提交仍由 `GameplayRunLoop` 负责，`ModuleWorldManager` 不直接绕过统一 autoload。
 - 线性房间 carrier 已由 ADR #142 取代并删除；旧 run v3 会明确重置，不尝试迁移其房间进度。
 
+ADR #159 另有一个非 carrier、非 game mode 的内部运行用途 `DEBUG_TEST_ARENA`。它只允许节点入树前配置，使用测试岛场景提供的矩形边界和出生点，关闭 module-world / open-warzone、Spawner、WarzoneDirector、兴趣点、撤离、成长、奖励、普通 Game Over 与 run snapshot；Player、Weapon、Skill、Enemy、Combat、Pool、VFX 和 Gear Mod modifier 仍走正式实现。详细边界见 `docs/代码/debug_test_arena.md`。
+
 ## 运行流程
 
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
 | 启动 | `FormalClientBoot` 跑数据 schema smoke，正常启动显示 `TitleMenu`；标题菜单可打开 `GearModPanel` 配置英雄 / 武器 Mod，也可打开 `SettingsPanel` 修改设置；旧局外升级入口和面板已删除；`--runtime-smoke` 模式跳过标题并直接创建 `GameplayRunLoop` | `DataLoader.validate_project_data()`、`UIManager.push()` |
+| 开发者测试岛 | debug/dev_tools 标题入口先选配装，或 CLI 使用上次配置；RunLoop 入树前切内部用途，应用纯 Gear Mod preview modifiers，关闭正式世界 / 成长 / 结算并默认打开暂停控制面板。死亡只复位场地与玩家；返回配装 / 标题由 FormalClientBoot 重建或清理 | `configure_debug_test_arena()`、`debug_test_arena_*()`、`debug_test_arena_setup_requested` |
 | 开局准备 / 激活 | 普通标题开始 / 局内重开由 `FormalClientBoot` 先显示 `LoadingScreen`、等待一帧并调用 `RNG.set_random_run_seed()`，再实例化 `gameplay_run_loop.tscn`。玩家加载模式用 `ResourceLoader` 线程读取 actor / 模块场景，主线程分批注册 / 预热对象池、挂载初始模块或恢复实体；完成时只发出 `run_prepared`，由启动层移除加载界面后调用 `activate_prepared_run()` 进入 `PLAYING`。工具 / replay 路径可显式固定 seed 后同步准备并立即激活 | `configure_player_loading_mode()`、`load_threaded_request()`、`run_prepared`、`activate_prepared_run()` |
 | 地图 / 模块 | 默认按 `module_worlds.json` 配置 99×99 格矩形世界；中心模块 `(4,4)` / 全局格 `(49,49)` 对齐世界原点。`GameplayRunLoop` 从已加载 EnemyAI profile 的最大视觉范围推导局部流场半径（当前 8 格）并传给 `ModuleWorldManager`；Manager 生成 assignment/hash、构建 3×3 活跃邻域并驱动模块内容。玩家和敌人仍复用 `MapManager` 的矩形 bounds、格吸附和 clamp。仅 `--open-warzone` 回归路径解释旧 PCG / director 摆点 | `ModuleWorldManager.configure()`、`build_assignment()`、`tick()`、`MapManager.configure()`、`PoolManager.acquire()`、`Combat.apply_damage()` |
 | 战区导演 | `WarzoneDirector` 读取 `warzone_directors.json` 的当前模式导演，用固定时间 phase 组织巢变异主题、兴趣点和启用 wave；F12 标准局按 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟组织短刷图节奏，9 分钟后软加压但不硬切；兴趣点交给 `MapManager` 初始机关生成并透传领取 / 奖励 / 交互 / 可伤害目标 / 撤离元数据；`GameplayRunLoop` 对无目标且不要求交互的兴趣点按 `claim_radius`、`claim_start_time` 和玩家位置把 dust / Mod 放入 `run.pending_loot`；对 `requires_interaction=true` 的兴趣点按 `interest_point_cache_position` 生成可见 `InterestPointCache`，玩家进入半径后按 `interact` 打开并暂存奖励；对有 `target_hp` 的兴趣点按 `interest_point_target_position` 生成立即可被子弹 / `Combat` 伤害的格子化 `InterestPointTarget`，摧毁后暂存奖励；POI 目标 / 缓存 anchor 均由 MapManager 保证贴格并避开 active hazards；小巢核领取后开启贴合地图矩形格的撤离矩形，玩家完成 `extraction_hold_time` 读条后提交暂存战利品并进入结果面板；不读玩家状态、不随机动态调难 | `WarzoneDirector.configure()`、`is_wave_enabled()`、`interest_points_for_layout()`、`GearModSystem.grant_resource()`、`GearModSystem.grant_mod()`、`debug_summary()` |
@@ -391,6 +397,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 继续游戏后状态效果丢失 | 玩家 / 敌人 / 技能快照是否包含 `status_effects` 与 `owned_tag_counts`；恢复已有 tag 计数时是否避免状态组件重复授予 tags |
 | 池化敌人带着上一只怪的状态 | `Enemy.configure()`、`_pool_release()`、`_pool_reset()` 是否调用状态清理；L1 是否覆盖 configure 复用后旧状态被清空 |
 | GM 命令没有生效 | 当前是否为 debug/dev_tools 构建；`DebugConsole` 是否存在；命令是否通过 `GameplayRunLoop.debug_*` / `GearModSystem.debug_*` 受控 API，而不是直接改节点 |
+| 测试岛进入普通模块世界 / 结算 | `configure_debug_test_arena()` 是否在入树前调用；`RunPurpose` 分支是否在准备、process、死亡、击杀和 snapshot 路径完整 guard |
+| 测试岛污染正式存档 | 测试用途是否误调用 SaveManager / GearMod profile API；跑 `debug-test-arena-smoke` 的 meta/run 哨兵断言 |
+| 固定靶移动或对象池串状态 | `Enemy.configure()` 后是否调用训练靶配置；`_pool_reset()` / `_pool_release()` 是否清掉测试 metadata 与 AI 开关 |
 
 ## 测试义务
 
@@ -408,6 +417,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 涉及标题 / 暂停设置入口、设置面板关闭、`ui_back` 返回或运行时语言刷新时，追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 涉及 `meta.gear_mods` 存档结构、Gear Mod loadout、掉落、升级、分解或下一局 modifier snapshot 时追加 `python tools/godot_bridge.py --project client gear-mod-smoke`；如果改了 F4 死亡接入、敌人击杀归因或失败面板，同时跑 `runtime-smoke`。
 - 涉及 GM 指令或 runtime debug API 时，追加 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`；命令影响局内战斗时追加 `runtime-smoke`。
+- 涉及 `DEBUG_TEST_ARENA`、训练靶、作弊、伤害统计、测试岛死亡或存档 / 服务隔离时，必跑 `debug-test-arena-smoke` 与 `debug-tools-release-smoke`；正式 Player / Weapon / Skill / Enemy / Combat / Pool 适配变化追加 runtime、save、Gear Mod、L1、actor、完整 / 技术切片 module-world 和四条黄金回放。不得自动运行性能 probe。
 - 涉及模块世界、模板 JSON、边缘契约、chunk 流式状态、迷雾、地图 hash、run v4 或 v3 重置流程时，追加 `python tools/godot_bridge.py --project client module-world-smoke` 与 `python tools/godot_bridge.py --project client save-smoke`，并跑 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/test_data_loader_schema.py`；详见 `docs/代码/module_world_manager.md`。
 - 涉及子弹地形阻挡、`wall_pierce` 或子弹能力快照时，必须跑完整与技术切片 `module-world-smoke`、`runtime-smoke`、`save-smoke`、`l1-smoke`、正式 headless boot 和四条黄金回放；契约或武器字段变化追加双端 schema 与契约同步。
 - 数据 / locale 变化还要跑 `python tools/validate_data.py`、`python tools/lint_project_rules.py`。
@@ -426,6 +436,7 @@ F5 已开始写 `SaveManager` 的 `run` kind，F11 的 `meta` profile 继续由 
 - `docs/代码/phantom_camera.md`
 - `docs/代码/gameplay_loading.md`
 - `docs/代码/debug_tools.md`
+- `docs/代码/debug_test_arena.md`
 - `docs/游戏设计文档.md` §3 / §4 / §5.3 / §9.13 / §9.15.1
 - `docs/代码/combat.md`
 - `docs/代码/map_manager.md`

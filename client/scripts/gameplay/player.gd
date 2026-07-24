@@ -23,6 +23,7 @@ const TEAM_PLAYER: String = "team_player"
 var aim_direction: Vector2 = Vector2.RIGHT
 var _base_stats: Dictionary = {}
 var _damage_invulnerability_duration: float = 0.0
+var _debug_invulnerable: bool = false
 var _has_movement_bounds: bool = false
 var _health_regen: float = 0.0
 var _invulnerable_remaining: float = 0.0
@@ -83,6 +84,7 @@ func configure(base_stats: Dictionary) -> void:
 		_presentation.reset_presentation()
 	_has_movement_bounds = false
 	_invulnerable_remaining = 0.0
+	_debug_invulnerable = false
 	_rebuild_stats(true)
 	add_to_group(ACTIVE_PLAYER_GROUP)
 
@@ -128,6 +130,31 @@ func debug_set_life(life_points: float) -> Dictionary:
 
 func debug_clear_invulnerability() -> void:
 	_invulnerable_remaining = 0.0
+
+
+func debug_set_invulnerable(enabled: bool) -> void:
+	_debug_invulnerable = enabled
+	if enabled:
+		_invulnerable_remaining = 0.0
+
+
+func debug_is_invulnerable() -> bool:
+	return _debug_invulnerable
+
+
+func debug_reset_transient_state(world_position: Vector2) -> void:
+	global_position = world_position
+	velocity = Vector2.ZERO
+	_debug_invulnerable = false
+	_invulnerable_remaining = 0.0
+	_clear_status_effects_for_reuse()
+	_life_points = _max_life
+	_apply_movement_bounds()
+	_ensure_presentation()
+	if _presentation != null:
+		_presentation.reset_presentation()
+	life_changed.emit(_life_points, _max_life)
+	_refresh_visuals()
 
 
 func invulnerability_remaining() -> float:
@@ -253,6 +280,13 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 
 
 func receive_damage(info: RefCounted) -> Dictionary:
+	if _debug_invulnerable:
+		return {
+			"applied": false,
+			"amount": 0.0,
+			"defeated": false,
+			"reason": "debug_invulnerable",
+		}
 	if _invulnerable_remaining > 0.0:
 		return {
 			"applied": false,

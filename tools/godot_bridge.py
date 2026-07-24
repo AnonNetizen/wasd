@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from queue import Empty, Queue
@@ -70,6 +71,10 @@ def main() -> int:
     subparsers.add_parser("perf-probe", help="Run the F8 lightweight perf probe in headless Godot.")
     subparsers.add_parser("startup-probe", help="Measure the first formal-project frame to a playable F13 module-world run (<=2 seconds).")
     subparsers.add_parser("debug-tools-smoke", help="Run the debug console / GM command smoke in headless Godot.")
+    subparsers.add_parser(
+        "debug-test-arena-smoke",
+        help="Run the Developer Test Arena smoke in an isolated user directory.",
+    )
     subparsers.add_parser(
         "debug-tools-release-smoke",
         help="Run the debug console release-mode guard smoke in headless Godot.",
@@ -342,9 +347,30 @@ def main() -> int:
         user_args = ["--debug-tools-smoke"]
         if args.command == "debug-tools-release-smoke":
             user_args.append("--force-release-debug-tools-off")
-        return _run_command(
+            user_args.append("--debug-test-arena")
+            exclusion_result = _verify_release_debug_resource_exclusion(
+                godot,
+                project,
+            )
+            if exclusion_result != 0:
+                return exclusion_result
+        return _run_isolated_command(
             [str(godot), "--headless", "--path", str(project), "--", *user_args],
             cwd=project,
+        )
+    if args.command == "debug-test-arena-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        smoke_script = project / "tools" / "debug_test_arena_smoke.gd"
+        if not smoke_script.exists():
+            print(
+                f"[godot-bridge] missing Debug Test Arena smoke script: {_rel(smoke_script)}"
+            )
+            return 1
+        return _run_debug_test_arena_smoke(
+            godot,
+            project,
         )
     if args.command == "f9-demo-smoke":
         if not (project / "project.godot").exists():
@@ -627,25 +653,222 @@ def _run_startup_probe(godot: Path, project: Path) -> int:
     return 0 if status == "pass" else 1
 
 
-def _run_command(command: list[str], *, cwd: Path, failure_markers: tuple[str, ...] = ()) -> int:
+def _run_command(
+    command: list[str],
+    *,
+    cwd: Path,
+    failure_markers: tuple[str, ...] = (),
+    success_markers: tuple[str, ...] = (),
+    env: dict[str, str] | None = None,
+    print_output: bool = True,
+) -> int:
     completed = subprocess.run(
         command,
         cwd=cwd,
+        env=env,
         text=True,
         encoding="utf-8",
         errors="replace",
         capture_output=True,
         check=False,
     )
-    if completed.stdout:
+    if completed.stdout and print_output:
         print(completed.stdout, end="")
-    if completed.stderr:
+    if completed.stderr and print_output:
         print(completed.stderr, end="", file=sys.stderr)
     combined_output = completed.stdout + completed.stderr
     if completed.returncode == 0 and any(marker in combined_output for marker in failure_markers):
+        if not print_output:
+            if completed.stdout:
+                print(completed.stdout, end="")
+            if completed.stderr:
+                print(completed.stderr, end="", file=sys.stderr)
         print("[godot-bridge] command output contained a fatal validation marker.", file=sys.stderr)
         return 1
+    if completed.returncode == 0 and any(
+        marker not in combined_output for marker in success_markers
+    ):
+        if not print_output:
+            if completed.stdout:
+                print(completed.stdout, end="")
+            if completed.stderr:
+                print(completed.stderr, end="", file=sys.stderr)
+        print(
+            "[godot-bridge] command output missed a required success marker.",
+            file=sys.stderr,
+        )
+        return 1
+    if completed.returncode != 0 and not print_output:
+        if completed.stdout:
+            print(completed.stdout, end="")
+        if completed.stderr:
+            print(completed.stderr, end="", file=sys.stderr)
     return completed.returncode
+
+
+def _run_isolated_command(
+    command: list[str],
+    *,
+    cwd: Path,
+    failure_markers: tuple[str, ...] = (),
+    success_markers: tuple[str, ...] = (),
+) -> int:
+    with tempfile.TemporaryDirectory(prefix="wasd-godot-user-") as directory:
+        root = Path(directory)
+        isolated_env = _isolated_user_environment(root)
+        return _run_command(
+            command,
+            cwd=cwd,
+            failure_markers=failure_markers,
+            success_markers=success_markers,
+            env=isolated_env,
+        )
+
+
+def _run_debug_test_arena_smoke(
+    godot: Path,
+    project: Path,
+) -> int:
+    with tempfile.TemporaryDirectory(
+        prefix="wasd-debug-test-arena-"
+    ) as directory:
+        isolated_env = _isolated_user_environment(Path(directory))
+        smoke_result = _run_command(
+            [
+                str(godot),
+                "--headless",
+                "--path",
+                str(project),
+                "--",
+                "--debug-test-arena-smoke",
+            ],
+            cwd=project,
+            env=isolated_env,
+            failure_markers=(
+                "SCRIPT ERROR:",
+                "Parse Error:",
+                "Failed to load script",
+                "ERROR:",
+            ),
+            success_markers=("DEBUG TEST ARENA ALL PASS",),
+        )
+        if smoke_result != 0:
+            return smoke_result
+        return _run_command(
+            [
+                str(godot),
+                "--headless",
+                "--path",
+                str(project),
+                "--quit-after",
+                "120",
+                "--",
+                "--debug-test-arena",
+            ],
+            cwd=project,
+            env=isolated_env,
+            failure_markers=(
+                "SCRIPT ERROR:",
+                "Parse Error:",
+                "Failed to load script",
+                "ERROR:",
+                "debug test arena launch rejected",
+            ),
+            success_markers=(
+                "[FormalClientBoot] debug test arena launch; "
+                "source=cli seed=159159",
+            ),
+        )
+
+
+def _isolated_user_environment(root: Path) -> dict[str, str]:
+    appdata = root / "AppData" / "Roaming"
+    local_appdata = root / "AppData" / "Local"
+    xdg_data = root / "xdg-data"
+    xdg_config = root / "xdg-config"
+    xdg_cache = root / "xdg-cache"
+    for path in (
+        appdata,
+        local_appdata,
+        xdg_data,
+        xdg_config,
+        xdg_cache,
+    ):
+        path.mkdir(parents=True, exist_ok=True)
+    isolated_env = os.environ.copy()
+    isolated_env.update(
+        {
+            "APPDATA": str(appdata),
+            "LOCALAPPDATA": str(local_appdata),
+            "XDG_DATA_HOME": str(xdg_data),
+            "XDG_CONFIG_HOME": str(xdg_config),
+            "XDG_CACHE_HOME": str(xdg_cache),
+            "USERPROFILE": str(root),
+        }
+    )
+    return isolated_env
+
+
+def _verify_release_debug_resource_exclusion(
+    godot: Path,
+    project: Path,
+) -> int:
+    checker = ROOT / "tools" / "release_debug_resource_check.gd"
+    if not checker.exists():
+        print(
+            "[godot-bridge] missing release resource checker: "
+            f"{_rel(checker)}",
+            file=sys.stderr,
+        )
+        return 1
+    with tempfile.TemporaryDirectory(
+        prefix="wasd-release-debug-check-"
+    ) as directory:
+        check_root = Path(directory)
+        pack_path = check_root / "wasd-release.pck"
+        export_result = _run_command(
+            [
+                str(godot),
+                "--headless",
+                "--path",
+                str(project),
+                "--export-pack",
+                "Windows Desktop",
+                str(pack_path),
+            ],
+            cwd=project,
+            failure_markers=(
+                "SCRIPT ERROR:",
+                "Parse Error:",
+                "Failed to export",
+            ),
+            print_output=False,
+        )
+        if export_result != 0:
+            return export_result
+        if not pack_path.is_file():
+            print(
+                "[godot-bridge] release export did not create a PCK.",
+                file=sys.stderr,
+            )
+            return 1
+        return _run_command(
+            [
+                str(godot),
+                "--headless",
+                "--main-pack",
+                str(pack_path),
+                "--script",
+                str(checker),
+            ],
+            cwd=check_root,
+            failure_markers=(
+                "SCRIPT ERROR:",
+                "Parse Error:",
+                "exported debug resource:",
+            ),
+            success_markers=("RELEASE DEBUG RESOURCE CHECK PASS",),
+        )
 
 
 def _resolve_godot(argument: str | None) -> Path | None:

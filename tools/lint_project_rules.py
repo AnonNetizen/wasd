@@ -21,6 +21,12 @@ EXPORT_PRESETS = ROOT / "client" / "export_presets.cfg"
 IGNORE_DATA_FILES = {"_contracts.json"}
 IGNORED_FIELD_LEAVES = {"schema_version"}
 DEBUG_RESOURCE_RE = re.compile(r"(?:^|[/_\\-])(?:debug|dev_tools|gm_|debug_console)(?:[/_\\.-]|$)", re.IGNORECASE)
+REQUIRED_RELEASE_DEBUG_EXCLUDES = {
+    "scenes/debug/*",
+    "scripts/debug/*",
+    "tools/debug_test_arena_smoke.gd",
+    "tools/debug_tools_smoke.gd",
+}
 
 
 @dataclass(frozen=True)
@@ -140,44 +146,82 @@ def _check_release_presets() -> list[LintError]:
         return []
 
     errors: list[LintError] = []
+    presets: dict[str, dict[str, tuple[str, int]]] = {}
     current_section = ""
-    current_preset_is_debug = False
+    preset_section_re = re.compile(r"preset\.\d+")
 
-    for line_number, raw_line in enumerate(EXPORT_PRESETS.read_text(encoding="utf-8").splitlines(), start=1):
+    for line_number, raw_line in enumerate(
+        EXPORT_PRESETS.read_text(encoding="utf-8").splitlines(),
+        start=1,
+    ):
         line = raw_line.strip()
         if not line or line.startswith(";"):
             continue
         if line.startswith("[") and line.endswith("]"):
             current_section = line[1:-1]
-            current_preset_is_debug = False
             continue
-        if "=" not in line or not current_section.startswith("preset."):
+        if (
+            "=" not in line
+            or preset_section_re.fullmatch(current_section) is None
+        ):
             continue
 
         key, raw_value = line.split("=", 1)
         key = key.strip()
         value = _unquote(raw_value.strip())
-        preset_label = f"{current_section}:{key}"
-        if key in {"name", "export_path"} and _value_mentions_debug(value):
-            current_preset_is_debug = True
-        release_like = not current_preset_is_debug
+        presets.setdefault(current_section, {})[key] = (value, line_number)
 
-        if key == "custom_features" and release_like and _contains_debug_feature(value):
+    for section, values in presets.items():
+        name = values.get("name", ("", 0))[0]
+        export_path = values.get("export_path", ("", 0))[0]
+        if _value_mentions_debug(name) or _value_mentions_debug(export_path):
+            continue
+
+        custom_features, features_line = values.get(
+            "custom_features",
+            ("", 0),
+        )
+        if _contains_debug_feature(custom_features):
             errors.append(
                 LintError(
                     EXPORT_PRESETS,
-                    f"line {line_number}",
+                    f"line {features_line}",
                     "release-debug-assets",
-                    f"release preset custom_features must not include debug/dev_tools: {value}",
+                    "release preset custom_features must not include "
+                    f"debug/dev_tools: {custom_features}",
                 )
             )
-        if key in {"include_filter", "export_files", "resources"} and release_like and DEBUG_RESOURCE_RE.search(value):
+        for key in ("include_filter", "export_files", "resources"):
+            value, line_number = values.get(key, ("", 0))
+            if value and DEBUG_RESOURCE_RE.search(value):
+                errors.append(
+                    LintError(
+                        EXPORT_PRESETS,
+                        f"line {line_number}",
+                        "release-debug-assets",
+                        "release preset must not include debug/dev_tools "
+                        f"resources in {section}:{key}",
+                    )
+                )
+
+        exclude_filter, exclude_line = values.get(
+            "exclude_filter",
+            ("", 0),
+        )
+        excluded = {
+            item.strip().replace("\\", "/").removeprefix("res://")
+            for item in exclude_filter.split(",")
+            if item.strip()
+        }
+        missing = sorted(REQUIRED_RELEASE_DEBUG_EXCLUDES - excluded)
+        if missing:
             errors.append(
                 LintError(
                     EXPORT_PRESETS,
-                    f"line {line_number}",
+                    f"line {exclude_line}" if exclude_line > 0 else section,
                     "release-debug-assets",
-                    f"release preset must not include debug/dev_tools resources in {preset_label}",
+                    "release preset must explicitly exclude test-arena "
+                    f"resources: {', '.join(missing)}",
                 )
             )
 

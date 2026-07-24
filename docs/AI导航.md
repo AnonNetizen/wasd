@@ -70,8 +70,8 @@
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口、`DamageInfo`、`StatusEffect` 与 `StatusEffectComponent` |
 | `client/scripts/gameplay/` | Gameplay 主循环、玩家 / 武器 / 技能 / 敌人 / 机关 / HUD，以及 `presentation/` 的 VfxHost / Feedback / ActorPresentation |
 | `client/scripts/ui/` | 正式 UI 与 `effects/` 共享动效组件；UI 栈 / UI Effects 分别见对应模块文档 |
-| `client/scripts/debug/` | debug/dev_tools 专用 `DebugConsole` 与 `GMCommandRegistry`；正式 release 不应加载或导出 |
-| `client/tools/` | Godot 项目内 headless smoke / baker；ADR #158 新增 VFX resource baker、`vfx-smoke`、`ui-manager-smoke`，并保留仅由用户明确触发的性能 probe |
+| `client/scripts/debug/` / `client/scenes/debug/` | debug/dev_tools 专用 `DebugConsole`、`GMCommandRegistry` 与 ADR #159 开发者测试岛 / 配装 / 控制面板；正式 release 不应加载或导出 |
+| `client/tools/` | Godot 项目内 headless smoke / baker；ADR #158 新增 VFX resource baker、`vfx-smoke`、`ui-manager-smoke`，ADR #159 新增隔离的 `debug_test_arena_smoke.gd`，并保留仅由用户明确触发的性能 probe |
 | `user://settings.cfg` / `user://input_bindings.tres` | 普通设置 schema v2 / GUIDE 输入绑定 schema v1；游戏进度存档仍走 `user://saves/<slot>/<kind>.save`（`meta` / `run` / `replay_index`） |
 
 `docs/` 下：
@@ -174,7 +174,7 @@
 | **校验语义风险** | 跑 `python tools/lint_semantic_rules.py`；当前第三档默认非阻塞，提示特殊 id 分支、业务脚本绕过 autoload、正式 gameplay/UI 的长期 Node/Control `.new()` 挂树、缺类型签名、长期脚本缺 `# Doc:` 与未知 contract 常量；已注册对象池 factory 与行模板实例化不报 `runtime-node-construction`；改语义 lint 时追加 `python tools/test_semantic_rules_lint.py` |
 | **本地提交前验证** | 已提供 `.pre-commit-config.yaml`；安装后跑 `pre-commit run --all-files` 或提交时自动跑 Stage 1 hook；未安装时按 `docs/AI协作/实时验证回路.md` 的等价命令 |
 | **运行 Windows / PowerShell 命令** | 先读当前平台编码规则第 29 节与 `docs/AI协作/工具适配指南.md` 的「Windows PowerShell 稳定执行」；固定字符串优先 `rg -F`，全部 `rg` 选项放在 `--` 前，cmdlet 路径走 `-LiteralPath`，原生程序立即检查 `$LASTEXITCODE`，合法非零码先归一化再进入并行或 fail-fast；`git diff --no-index=1` 仅在输入已校验为文件后表示差异；不混用 Bash 转义、`cmd` 或 `Invoke-Expression` |
-| **查 Godot 场景树 / headless 启动** | 跑 `python tools/godot_bridge.py export-tree`、`python tools/godot_bridge.py headless-boot`、gameplay runtime 专用 `python tools/godot_bridge.py --project client runtime-smoke`、F9 Demo / 机关专用 `python tools/godot_bridge.py --project client f9-demo-smoke`、F7 设置 / 设置面板专用 `python tools/godot_bridge.py --project client settings-smoke`、F11 装备 Mod 专用 `python tools/godot_bridge.py --project client gear-mod-smoke`、SaveManager 专用 `python tools/godot_bridge.py --project client save-smoke`、DebugTools 专用 `python tools/godot_bridge.py --project client debug-tools-smoke` / `debug-tools-release-smoke`，以及 F8 `l1-smoke` / `replay-smoke` / `replay-runner` / `replay-runner --rerun-runtime-summary` / `replay-input-smoke` / `capture-golden-replay` / `rng-audit`；默认项目为正式 `client/`。`startup-probe` / `perf-probe` 只在用户当次明确要求性能测试时运行 |
+| **查 Godot 场景树 / headless 启动** | 跑 `python tools/godot_bridge.py export-tree`、`python tools/godot_bridge.py headless-boot`、gameplay runtime 专用 `python tools/godot_bridge.py --project client runtime-smoke`、F9 Demo / 机关专用 `python tools/godot_bridge.py --project client f9-demo-smoke`、F7 设置 / 设置面板专用 `python tools/godot_bridge.py --project client settings-smoke`、F11 装备 Mod 专用 `python tools/godot_bridge.py --project client gear-mod-smoke`、SaveManager 专用 `python tools/godot_bridge.py --project client save-smoke`、DebugTools 专用 `python tools/godot_bridge.py --project client debug-tools-smoke` / `debug-test-arena-smoke` / `debug-tools-release-smoke`，以及 F8 `l1-smoke` / `replay-smoke` / `replay-runner` / `replay-runner --rerun-runtime-summary` / `replay-input-smoke` / `capture-golden-replay` / `rng-audit`；默认项目为正式 `client/`。`startup-probe` / `perf-probe` 只在用户当次明确要求性能测试时运行 |
 | **用项目级 AI skill** | CodeBuddy / Codex / OpenCode / Claude 分别读取 `.codebuddy/skills/<name>/SKILL.md`、`.codex/skills/<name>/SKILL.md`、`.opencode/skills/<name>/SKILL.md`、`.claude/skills/<name>/SKILL.md`；当前覆盖 Godot 实现、场景验证、Godot 测试诊断、试玩复盘、文档同步、安全提交、事实 review、AI 资源筛选与协作面审计、MCP 评估；外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进项目 skill，不再保留 vendor 来源或 reference 跳转；资源筛选与安装清单见 `docs/AI协作/AI技能资源评估.md` |
 | **加一种子弹效果原语** | 先在 `词表与契约.md` 登记 `effect` id → 在效果原语层实现方法/Node → 数据中引用 |
 | **改数值（血/伤害/刷怪/掉落）** | 先读 `client/data/README.md`，只改 `res://data/` 对应 CSV / JSON，**绝不改代码常量**；平表数值优先 CSV，复杂配置优先 JSON；新增 / 改字段必须同步数值手册 |
@@ -185,6 +185,7 @@
 | **改输入 / 按键 / 手柄 / 重绑定** | 先读 `docs/代码/input_service.md`、词表 §7、ADR #151、Settings / Replay 文档和目标调用方；action 先登记并生成常量，默认映射改 `client/resources/input/`，业务只消费 `InputService` 的 `move` / `aim` Vector2 或 bool intent。GUIDE 只允许由 InputService 访问，InputMap 只允许在 UI bridge / 插件 / 测试边界；绑定保存为 `user://input_bindings.tres`，改完跑 `input-smoke`、`settings-smoke`、`replay-input-smoke`、runtime 与黄金回放 |
 | **维护 / 升级 GUIDE 内部** | 先读 `docs/代码/guide.md`、`client/addons/README.md`、ADR #151 与目标源码；升级只比较固定版本官方发布包，重放 autoload、类型、context 单调序号、detector 负轴 / 取消清理和源码头补丁。不得启用自动更新、加 lint 豁免或把插件类型泄露给业务；完成后跑三档 lint、input/settings/replay smoke、headless boot、headless editor 和真实手柄验收 |
 | **加 GM 指令 / 调试工具** | 查 GDD 9.20 与 `docs/代码/debug_tools.md`；调试入口只在 debug/dev_tools 构建启用，action 用 `debug_*` 并登记词表 §7；命令必须通过正式系统 API 或受控 `debug_*` API 改状态；release preset 不启用 `dev_tools` 且排除调试脚本 / GM 命令表；改完跑 `python tools/godot_bridge.py --project client debug-tools-smoke` 和 `debug-tools-release-smoke` |
+| **改开发者测试岛** | 先读 ADR #159、`docs/代码/debug_test_arena.md`、DebugTools / Gameplay Runtime / FormalClientBoot / GearModSystem 文档与测试策略；它是 debug/dev_tools 内部 RunLoop 用途，不是正式 game mode。配置只写 `user://debug_test_arena.cfg`，正式 run/meta、Replay/Analytics 与 release 资源必须隔离；改完必跑 `debug-test-arena-smoke`、release smoke 和模块文档规定的完整回归，不自动跑性能 probe |
 | **加暂停/切换游戏状态** | `GameState.change_state(PAUSED)` 等；UI 通过 `UIManager.push(modal_pause_menu)` 自动联动暂停；F5 首片的 `PauseMenu` 已覆盖继续、保存并退出、重开和回标题，也支持从升级面板上方叠出并恢复回 `LEVEL_UP`；不直接读写 `get_tree().paused`（见 GDD 9.12 / 9.14） |
 | **加录制回放/确定性需求** | 走 `Replay`（autoload）；输入只由 `InputService` 记录 / 注入 v2 bool 或 Vector2 intent，播放时隔离 GUIDE 物理输入；随机走 `RNG.<stream>`、时间走 `GameClock`。v1 只在加载时迁移，不重写源文件；改输入 wire 追加 input/replay smoke 和四条黄金回放，改 RNG seed 派生 / 子流集合追加 `rng-audit`（见 GDD 9.9 / 9.18） |
 | **接 Steam API / 平台服务** | 先读 `docs/在线服务规划.md`、ADR #150 与 `docs/代码/platform_services.md`；未来固定官方 GodotSteam 版本，只在 `PlatformServices` adapter 内初始化 / 驱动 callback，并承接 Steam 身份票据、成就、Steam-only 统计、富状态、overlay、Lobby / 邀请。当前正式客户端不安装，业务不得直调 Steamworks / GodotSteam |
@@ -209,7 +210,7 @@
 ## 5. 核心系统模块
 
 ### 5.1 模块清单
-**业务模块**：`FormalClientBoot` / `LoadingScreen` / `GameplayRunLoop` / `Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager` / `ModuleNavigationField` / `WarzoneDirector` / `HazardSystem` / `ItemSystem` / `GrowthSystem` / `GearModSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `VfxHost` / `GameplayFeedbackController` / `ActorPresentationController` / `PauseMenu` / `Combat` / `StatusEffectComponent`。
+**业务模块**：`FormalClientBoot` / `LoadingScreen` / `GameplayRunLoop` / `DeveloperTestArena(debug/dev_tools)` / `Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager` / `ModuleNavigationField` / `WarzoneDirector` / `HazardSystem` / `ItemSystem` / `GrowthSystem` / `GearModSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `VfxHost` / `GameplayFeedbackController` / `ActorPresentationController` / `PauseMenu` / `Combat` / `StatusEffectComponent`。
 
 **Autoload 单例（横向基础设施 + 协调中枢）**：
 - 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
@@ -232,6 +233,8 @@
 > ADR #157 后开始、继续和重开都先由 `FormalClientBoot` 进入 `LOADING` 并通过 `UIManager` 显示唯一 `LoadingScreen`；RunLoop 在玩家加载模式下用 `ResourceLoader` 线程读取 actor / 模块 `PackedScene`，对象池预热、初始模块挂载与续局恢复在主线程分批让帧。`run_prepared` 后先移除遮罩再激活；失败清理半成品并回标题。应用冷启动、阶段 / 百分比、取消和人为最低时长不在当前范围。
 
 > ADR #158 后 `VisualEffects` 解析数据，RunLoop 内 `VfxHost` / `GameplayFeedbackController` 执行 cue；Player / Enemy 基类固定 Presentation 和六个挂点。`UIManager` 使用四态异步生命周期并自动装共享 UI effects；Loading 正常路径等待 `ui_removed`。VFX Library 是 editor-only，release 排除；性能检查仍只由用户明确触发。
+
+> ADR #159 后 debug/dev_tools 构建可进入“开发者测试岛”：入场前从正式内容数据选角色、武器、主技能与 Gear Mod/rank，运行时复用真实战斗 / 池 / VFX，提供固定靶、正常 AI、作弊与 DPS。它不进入正式模式或存档，Replay / Analytics 仅在岛内关闭并在退出恢复；release 标题 / CLI guard 与资源排除由 smoke + project lint 守门。
 
 > 有限地图可见边界和逻辑边界当前都由 `MapManager.bounds()` / `boundary_points()` / `boundary_half_extents()` 定义为贴住格线的轴对齐矩形；玩家和敌人中心点由 `set_movement_bounds()` 约束。排查敌人越界时先看 `GameplayRunLoop._apply_enemy_movement_bounds()`、`Enemy.set_movement_bounds()` 与 `runtime-smoke` 的敌人边界断言。
 

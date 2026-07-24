@@ -48,6 +48,7 @@
 | HazardSystem | `docs/代码/hazard_system.md` | `client/scripts/gameplay/hazard.gd`、`client/scenes/gameplay/hazard.tscn`、`client/data/hazards.csv` | 机关运行时 + FEA-12 测试机关已建立 |
 | WarzoneDirector | `docs/代码/warzone_director.md` | `client/scripts/gameplay/warzone_director.gd`、`client/data/warzone_directors.json`、`client/scripts/gameplay/gameplay_run_loop.gd` | F10 敌巢战区导演首片已建立 |
 | DebugTools | `docs/代码/debug_tools.md` | `client/scripts/debug/*.gd`、`client/tools/debug_tools_smoke.gd` | debug/dev_tools 专用控制台与 GM 指令首片已建立 |
+| Developer Test Arena | `docs/代码/debug_test_arena.md` | `client/scenes/debug/`、`client/scripts/debug/debug_test_arena_*.gd`、`client/tools/debug_test_arena_smoke.gd` | ADR #159 正式项目内 debug/dev_tools 测试岛、配装、训练靶、控制面板、伤害统计与 release / 存档隔离已建立 |
 | 其余核心系统 | 待创建 | `client/scripts/` | F4+ 后续补齐 |
 
 > 约定：模块文档命名使用 lower_snake_case，例如 `rng.md`、`game_state.md`、`weapon_system.md`、`data_loader.md`。文档质量以 `docs/代码文档规范.md` 的“详细模块文档质量标准”为准。

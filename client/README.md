@@ -105,10 +105,16 @@ python tools/godot_bridge.py --project client debug-tools-smoke
 python tools/godot_bridge.py --project client debug-tools-release-smoke
 ```
 
+开发者测试岛 smoke：
+
+```powershell
+python tools/godot_bridge.py --project client debug-test-arena-smoke
+```
+
 若本机没有系统 Python，可使用 Codex 桌面内置 Python 路径运行同一命令。
 
 ## 当前启动场景
 
-`res://scenes/boot/main.tscn` 挂载 `res://scripts/boot/formal_client_boot.gd`。启动脚本会先执行正式数据 schema smoke 并输出日志；若校验通过，会显示标题界面。点击开始、继续或重开后，启动层先进入 `LOADING` 并通过 `UIManager` 显示 `LoadingScreen`；至少渲染一帧后，再读取 run 或挂载 `GameplayRunLoop`。runtime 使用 Godot `ResourceLoader` 线程接口读取本局 actor / 模块 `PackedScene`，对象池预热、初始模块挂载和续局实体恢复在主线程分批完成；准备成功时先移除加载界面，再进入 `PLAYING` 并恢复 `ui_restore`。读取失败沿用本局存档重置提示，准备失败会清理半成品和对象池并回标题。装备 Mod 与设置面板仍通过 `UIManager` 叠加。debug/dev_tools 构建中，启动脚本会动态加载 `res://scripts/debug/debug_console.gd`；正式 release 不应启用 `dev_tools`，也不应导出 `res://scripts/debug/*`。
+`res://scenes/boot/main.tscn` 挂载 `res://scripts/boot/formal_client_boot.gd`。启动脚本会先执行正式数据 schema smoke 并输出日志；若校验通过，会显示标题界面。点击开始、继续或重开后，启动层先进入 `LOADING` 并通过 `UIManager` 显示 `LoadingScreen`；至少渲染一帧后，再读取 run 或挂载 `GameplayRunLoop`。runtime 使用 Godot `ResourceLoader` 线程接口读取本局 actor / 模块 `PackedScene`，对象池预热、初始模块挂载和续局实体恢复在主线程分批完成；准备成功时先移除加载界面，再进入 `PLAYING` 并恢复 `ui_restore`。读取失败沿用本局存档重置提示，准备失败会清理半成品和对象池并回标题。装备 Mod 与设置面板仍通过 `UIManager` 叠加。debug/dev_tools 构建中，启动脚本会动态加载 DebugTools 与“开发者测试岛”；后者也可通过 `--debug-test-arena` 使用上次独立配置直接启动。正式 release 不应启用 `dev_tools`，也不应导出 `res://scenes/debug/*`、`res://scripts/debug/*` 或相关 smoke 工具。
 
-Gameplay runtime 与加载流程文档见 `docs/代码/gameplay_runtime.md`、`docs/代码/gameplay_loading.md`、`docs/代码/gear_mod_system.md` 与 `docs/代码/debug_tools.md`。玩家加载不显示阶段、百分比或取消按钮，也不人为延长；应用冷启动和进入标题菜单前的耗时暂不在此流程内处理。
+Gameplay runtime 与加载流程文档见 `docs/代码/gameplay_runtime.md`、`docs/代码/gameplay_loading.md`、`docs/代码/gear_mod_system.md`、`docs/代码/debug_tools.md` 与 `docs/代码/debug_test_arena.md`。玩家加载不显示阶段、百分比或取消按钮，也不人为延长；应用冷启动和进入标题菜单前的耗时暂不在此流程内处理。

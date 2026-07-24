@@ -39,8 +39,8 @@
 - 数据 / locale 校验：`python tools/validate_data.py`，覆盖 JSON 语法、`client/data/*.json` / `client/data/*.csv` 与 `strings.csv`
 - DataLoader schema 回归：`python tools/test_data_loader_schema.py`，用临时数据副本断言黄金数据通过、未登记 id / 缺 locale / 类型范围错 / 跨文件引用错会 fail-fast
 - 第一档 GDScript 项目 lint：`python tools/lint_gdscript_rules.py`，检查可低误报自动化的 style guide 顺序、危险 `:=`、中文硬编码字符串、裸随机 / 时间 / 暂停 API
-- 第二档项目规则 lint：`python tools/lint_project_rules.py`，检查新增数据字段是否登记到 `client/data/README.md`、locale 是否保留 `zh_CN` / `en` 双语，以及 release preset 是否误带 debug/dev_tools 资源
-- 项目规则 lint 回归：`python tools/test_project_rules_lint.py`，固定新增字段漏文档、locale 缺译文、release preset 带 `dev_tools` 的坏样例
+- 第二档项目规则 lint：`python tools/lint_project_rules.py`，检查新增数据字段是否登记到 `client/data/README.md`、locale 是否保留 `zh_CN` / `en` 双语，以及 release preset 是否误带 debug/dev_tools 资源；ADR #159 后还强制要求排除测试岛场景、脚本和 smoke
+- 项目规则 lint 回归：`python tools/test_project_rules_lint.py`，固定新增字段漏文档、locale 缺译文、release preset 带 `dev_tools` 或缺少测试岛排除 pattern 的坏样例
 - 第三档语义 advisory lint：`python tools/lint_semantic_rules.py` 默认非阻塞，提示特殊 id 分支、业务脚本绕过 autoload、缺类型签名、长期脚本缺 `# Doc:` 和未知 contract 常量；其中 Pool / UI 检查按高频实体 / 弹窗命名提示直建、释放或挂载风险，并识别已注册的 `PoolManager` factory，`python tools/test_semantic_rules_lint.py` 固定报警与不误报样例
 - AI 知识库健康检查：运行 `python tools/docs_health_check.py`，校验知识库索引、ADR、current_state、链接、AI 修改说明和模块文档索引
 - whitespace diff：对本次提交范围运行 `git diff --check`，排除 `draft/` / `DRAFT/`；本地 staged hook 会先自动修复低风险的 EOF 多空行，再保留其他 whitespace 错误为硬失败
@@ -95,7 +95,7 @@
 
 ### 2.E GDScript Lint + Format ⭐⭐⭐
 - 当前 Stage 1 已先启用 `tools/lint_gdscript_rules.py` 作为低误报项目红线 lint，并启用 `tools/lint_project_rules.py` 覆盖数据 / locale / release 边界，另以非阻塞 `tools/lint_semantic_rules.py` 提示较高误报风险的语义问题；本阶段继续补齐更完整的第三方格式化与静态分析。
-- DebugTools 已有本地 headless 验证：`python tools/godot_bridge.py --project client debug-tools-smoke` 覆盖 debug/dev_tools 控制台和 GM 命令，`python tools/godot_bridge.py --project client debug-tools-release-smoke` 覆盖 release guard；Godot headless CI 接入时应纳入 release 边界检查。
+- DebugTools 已有本地 headless 验证：`python tools/godot_bridge.py --project client debug-tools-smoke` 覆盖 debug/dev_tools 控制台和 GM 命令，`python tools/godot_bridge.py --project client debug-test-arena-smoke` 覆盖隔离的开发者测试岛，`python tools/godot_bridge.py --project client debug-tools-release-smoke` 覆盖 release guard、测试岛 CLI 拒绝、标题隐藏，并临时导出 release PCK 后挂载检查调试目录 / smoke 不存在；Godot headless CI 接入时应纳入 release 边界检查。
 - 使用 [gdtoolkit](https://github.com/Scony/godot-gdscript-toolkit)：
   - `gdlint`：静态检查（命名、未使用变量、复杂度）
   - `gdformat --check`：格式化检查
@@ -192,7 +192,7 @@
 - 数值/原语改动后**强制更新或确认**黄金样例
 - 与 GDD 9.9 的"黄金回放"配套
 - F8 已启用显式本地命令 `python tools/godot_bridge.py --project client replay-smoke`，验证 `.replay` 文件 envelope / hash / data fingerprint / 摘要 roundtrip；并启用 `python tools/godot_bridge.py --project client replay-runner`，先对照 `.replay` 内嵌 summary 或外部 expectation JSON。已入库 golden 为 `client/tests/replays/golden_basic_run.replay`、`client/tests/replays/golden_pause_resume.replay`、`client/tests/replays/golden_full_death.replay` 和 `client/tests/replays/golden_level_up_choice.replay`，可用对应 `replay-runner --replay-file ... --rerun-runtime-summary` 重跑真实 `GameplayRunLoop` 运行时摘要、扩展稳定帧样本与场景语义字段。ADR #120 后 `golden_level_up_choice` 由测试 harness 显式启用成长池，默认标准模式仍应由 runtime smoke 断言不进入 `LEVEL_UP`。`python tools/godot_bridge.py --project client replay-input-smoke` 已覆盖 gameplay 输入录制首片；`python tools/godot_bridge.py --project client replay-runner --rerun-runtime-summary` 已覆盖 runner 输入播放、full-death runtime event 播放、level-up choice runtime event 播放与稳定帧样本 diff；`python tools/godot_bridge.py --project client rng-audit` 已覆盖 RNG 子流 seed mixer 跨流相关性审计，后续适合纳入 CI 的确定性门禁；更多黄金回放 CI 仍待后续接入。
-- DebugTools 已启用显式本地命令 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`，后续发布型 CI 应至少保留 release guard 检查，防止调试脚本 / GM 命令表进入正式导出。
+- DebugTools 已启用显式本地命令 `python tools/godot_bridge.py --project client debug-tools-smoke`、`python tools/godot_bridge.py --project client debug-test-arena-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`；后续发布型 CI 应至少保留 release guard 与 project rules 检查，防止控制台、测试岛场景 / 脚本 / smoke 或 GM 命令表进入正式导出。
 
 ### 4.N 平衡 Sim 报表（按需）⭐
 **workflow（拟建）**：`.github/workflows/balance-sim.yml`（手动触发）

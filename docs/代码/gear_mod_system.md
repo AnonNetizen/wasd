@@ -13,6 +13,7 @@
 - 校验容量、槽位、唯一装备规则和资源消耗。
 - 在新局开始时输出英雄 / 武器 modifiers，交给现有 `ModifierEngine` / `Player` / `WeaponSystem` 管线应用。
 - 通过 `SaveManager` 的 `meta` kind 保存跨局装备 Mod 状态。
+- 为 ADR #159 的开发者测试岛提供纯内存预览解析：不读取背包 / 货币或存档，仍复用正式 slot、`unique_by_id`、rank、drain 与容量规则。
 
 ## 2. 非职责
 
@@ -108,6 +109,7 @@
 | `roll_drop_for_enemy(enemy_id, enemy_level := 1, slot := "slot_0", forced_roll := -1.0, commit_immediately := true)` | `Dictionary` | 解释掉落表并用 `RNG.drop` 判定；默认立即授予以兼容调试 / 面板 smoke，F12 标准局传 `false` 只返回掉落信息并交给 `run.pending_loot`；`forced_roll` 仅供 smoke / 调试稳定覆盖 |
 | `current_modifiers(loadout_slot, slot := "slot_0")` | `Array[Dictionary]` | 输出 hero 或 weapon modifiers |
 | `current_all_modifiers(slot := "slot_0")` | `Dictionary` | 同时输出两套 loadout modifier |
+| `resolve_preview_loadout(selections, capacity := 8)` | `Dictionary` | 纯内存校验 `{mod_id, rank}` 列表并输出合法 selected、hero / weapon modifiers、used_drain 和 diagnostics；不调用 SaveManager |
 | `debug_grant_resource(resource_id, amount, slot := "slot_0")` / `debug_set_loadout_capacity(loadout_slot, capacity, slot := "slot_0")` | `Dictionary` | 仅供 smoke / dev_tools 调试，仍走 `SaveManager` |
 
 ## 7. UI 行为
@@ -143,8 +145,9 @@
 - 分解：已装备拒绝，未装备返还资源。
 - UI：`gear-mod-smoke` 实例化 `GearModPanel`，验证标题、资源、Mod 行、详情效果、装备、升级、卸下、分解和反馈文案解析。
 - 新局应用：hero / weapon modifiers 只在新局配置时应用，run 续局使用快照。
+- 开发者预览：`debug-test-arena-smoke` 证明不需要 meta inventory 也能解析合法 Mod/rank，并验证 rank 对 drain / modifier 生效、正式 meta/run 哨兵不变。
 
-当前专用命令为 `python tools/godot_bridge.py --project client gear-mod-smoke`。改 `GameplayRunLoop` 开局应用、死亡面板或旧入口移除断言时，追加 `runtime-smoke`；改存档兼容时追加 `save-smoke`。
+当前正式专用命令为 `python tools/godot_bridge.py --project client gear-mod-smoke`。改纯预览接口或测试岛 modifier 应用时追加 `debug-test-arena-smoke`；改 `GameplayRunLoop` 开局应用、死亡面板或旧入口移除断言时，追加 `runtime-smoke`；改存档兼容时追加 `save-smoke`。
 
 ## 10. 退役说明
 

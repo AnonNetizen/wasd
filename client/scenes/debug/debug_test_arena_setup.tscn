@@ -1,0 +1,146 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/debug/debug_test_arena_setup.gd" id="1_setup"]
+
+[node name="DebugTestArenaSetup" type="CanvasLayer"]
+script = ExtResource("1_setup")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Backdrop" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.025, 0.035, 0.05, 0.98)
+
+[node name="Center" type="CenterContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Root/Center"]
+custom_minimum_size = Vector2(860, 940)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 30
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 30
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Root/Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 32
+
+[node name="Selectors" type="GridContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+columns = 2
+theme_override_constants/h_separation = 18
+theme_override_constants/v_separation = 10
+
+[node name="SeedLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Selectors"]
+layout_mode = 2
+
+[node name="SeedSpin" type="SpinBox" parent="Root/Center/Panel/Margin/Layout/Selectors"]
+layout_mode = 2
+min_value = 1.0
+max_value = 2147483647.0
+step = 1.0
+value = 424242.0
+allow_greater = false
+allow_lesser = false
+
+[node name="CharacterLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Selectors"]
+layout_mode = 2
+
+[node name="CharacterOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/Selectors"]
+layout_mode = 2
+
+[node name="WeaponLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Selectors"]
+layout_mode = 2
+
+[node name="WeaponOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/Selectors"]
+layout_mode = 2
+
+[node name="SkillLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Selectors"]
+layout_mode = 2
+
+[node name="SkillOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/Selectors"]
+layout_mode = 2
+
+[node name="ModSection" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ModsLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/ModSection"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="CapacityLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/ModSection"]
+layout_mode = 2
+
+[node name="ModScroll" type="ScrollContainer" parent="Root/Center/Panel/Margin/Layout/ModSection"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+
+[node name="ModList" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/ModSection/ModScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="UnavailableSection" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="UnavailableLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/UnavailableSection"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="RelicsLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/UnavailableSection"]
+layout_mode = 2
+autowrap_mode = 3
+modulate = Color(0.65, 0.67, 0.72, 1)
+
+[node name="ActiveItemsLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/UnavailableSection"]
+layout_mode = 2
+autowrap_mode = 3
+modulate = Color(0.65, 0.67, 0.72, 1)
+
+[node name="ConsumablesLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/UnavailableSection"]
+layout_mode = 2
+autowrap_mode = 3
+modulate = Color(0.65, 0.67, 0.72, 1)
+
+[node name="FeedbackLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="Buttons" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="CloseButton" type="Button" parent="Root/Center/Panel/Margin/Layout/Buttons"]
+custom_minimum_size = Vector2(220, 54)
+layout_mode = 2
+
+[node name="StartButton" type="Button" parent="Root/Center/Panel/Margin/Layout/Buttons"]
+custom_minimum_size = Vector2(260, 54)
+layout_mode = 2

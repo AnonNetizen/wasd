@@ -299,6 +299,110 @@ func current_all_modifiers(slot: String = SaveManager.DEFAULT_SLOT) -> Dictionar
 	return result
 
 
+## Resolves an in-memory developer loadout without reading or writing SaveManager.
+## Invalid entries are omitted and described in diagnostics; accepted entries still
+## obey slot, rank, unique_by_id, drain, and capacity rules.
+func resolve_preview_loadout(
+	selections: Array,
+	capacity: int = DEFAULT_CAPACITY
+) -> Dictionary:
+	var resolved_capacity: int = maxi(capacity, 0)
+	var selected: Array[Dictionary] = []
+	var diagnostics: Array[Dictionary] = []
+	var used_drain_by_slot: Dictionary = {}
+	var seen_unique_ids: Dictionary = {}
+	var modifiers: Dictionary = {}
+	for loadout_slot: String in GEAR_MOD_SLOTS.VALUES:
+		used_drain_by_slot[loadout_slot] = 0
+		modifiers[loadout_slot] = []
+
+	for raw_selection: Variant in selections:
+		if not raw_selection is Dictionary:
+			diagnostics.append({"reason": "invalid_selection"})
+			continue
+		var selection: Dictionary = raw_selection as Dictionary
+		var mod_id: String = String(selection.get("mod_id", "")).strip_edges()
+		var definition: Dictionary = _mod_definition(mod_id)
+		if definition.is_empty():
+			diagnostics.append({
+				"mod_id": mod_id,
+				"reason": "unknown_mod",
+			})
+			continue
+		var loadout_slot: String = String(definition.get("slot", ""))
+		if not GEAR_MOD_SLOTS.VALUES.has(loadout_slot):
+			diagnostics.append({
+				"mod_id": mod_id,
+				"reason": "unknown_loadout_slot",
+			})
+			continue
+		var stack_rule: String = String(definition.get("stack_rule", ""))
+		if (
+			stack_rule == GEAR_MOD_STACK_RULES.UNIQUE_BY_ID
+			and seen_unique_ids.has(mod_id)
+		):
+			diagnostics.append({
+				"mod_id": mod_id,
+				"reason": "duplicate_unique_mod",
+			})
+			continue
+		var max_rank: int = maxi(int(definition.get("max_rank", 0)), 0)
+		var requested_rank: int = int(selection.get("rank", 0))
+		var rank: int = clampi(requested_rank, 0, max_rank)
+		if rank != requested_rank:
+			diagnostics.append({
+				"mod_id": mod_id,
+				"reason": "rank_clamped",
+				"requested_rank": requested_rank,
+				"rank": rank,
+			})
+		var drain: int = _mod_drain(definition, rank)
+		var projected_drain: int = int(
+			used_drain_by_slot.get(loadout_slot, 0)
+		) + drain
+		if projected_drain > resolved_capacity:
+			diagnostics.append({
+				"mod_id": mod_id,
+				"reason": "capacity_exceeded",
+				"loadout_slot": loadout_slot,
+				"used_drain": int(used_drain_by_slot.get(loadout_slot, 0)),
+				"requested_drain": drain,
+				"capacity": resolved_capacity,
+			})
+			continue
+
+		var resolved_selection: Dictionary = {
+			"mod_id": mod_id,
+			"rank": rank,
+			"slot": loadout_slot,
+			"drain": drain,
+			"name_key": String(definition.get("name_key", "")),
+			"desc_key": String(definition.get("desc_key", "")),
+		}
+		selected.append(resolved_selection)
+		used_drain_by_slot[loadout_slot] = projected_drain
+		if stack_rule == GEAR_MOD_STACK_RULES.UNIQUE_BY_ID:
+			seen_unique_ids[mod_id] = true
+		var preview_item: Dictionary = {
+			"mod_id": mod_id,
+			"rank": rank,
+		}
+		var slot_modifiers: Array = modifiers[loadout_slot] as Array
+		slot_modifiers.append_array(
+			_modifiers_for_item(preview_item, definition, loadout_slot)
+		)
+		modifiers[loadout_slot] = slot_modifiers
+
+	return {
+		"ok": true,
+		"capacity": resolved_capacity,
+		"selected": selected,
+		"used_drain": used_drain_by_slot,
+		"modifiers": modifiers,
+		"diagnostics": diagnostics,
+	}
+
+
 func debug_grant_resource(resource_id: String, amount: int, slot: String = SaveManager.DEFAULT_SLOT) -> Dictionary:
 	return grant_resource(resource_id, amount, slot)
 

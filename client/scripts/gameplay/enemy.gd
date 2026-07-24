@@ -56,6 +56,7 @@ var _contact_damage: float = 0.0
 var _contact_damage_type: String = ""
 var _current_action: String = ""
 var _decision_remaining: float = 0.0
+var _debug_ai_enabled: bool = true
 var _enemy_id: String = ""
 var _exp_reward: int = 0
 var _facing_sign: float = 1.0
@@ -99,6 +100,9 @@ func _physics_process(delta: float) -> void:
 		return
 	if scaled_delta <= 0.0:
 		return
+	if not _debug_ai_enabled:
+		velocity = Vector2.ZERO
+		return
 
 	_update_ai_timers(scaled_delta)
 
@@ -140,6 +144,7 @@ func configure(enemy_data: Dictionary, target: Node2D, navigation_provider: Node
 	_current_action = ""
 	_action_state = ""
 	_action_timer = 0.0
+	_debug_ai_enabled = true
 	_charge_cooldown_remaining = 0.0
 	_charge_direction = Vector2.ZERO
 	_ranged_cooldown_remaining = _movement_value("ranged_initial_cooldown")
@@ -205,6 +210,14 @@ func is_alive() -> bool:
 	return _life_points > 0.0 and not is_defeat_feedback_active()
 
 
+func current_life() -> float:
+	return _life_points
+
+
+func max_life() -> float:
+	return _max_life
+
+
 func enemy_id() -> String:
 	return _enemy_id
 
@@ -219,6 +232,42 @@ func was_defeated_by_player() -> bool:
 
 func combat_team_id() -> String:
 	return TEAM_ENEMY
+
+
+func debug_configure_training_target(max_life: float, home_position: Vector2) -> void:
+	_debug_ai_enabled = false
+	_max_life = maxf(max_life, 1.0)
+	_life_points = _max_life
+	_contact_damage = 0.0
+	_home_position = home_position
+	global_position = home_position
+	velocity = Vector2.ZERO
+	set_meta("debug_test_arena_home", home_position)
+	_clear_status_effects_for_reuse()
+	_refresh_visuals()
+
+
+func debug_reset_training_target() -> void:
+	if _debug_ai_enabled:
+		return
+	var home_position: Variant = get_meta(
+		"debug_test_arena_home",
+		_home_position
+	)
+	if home_position is Vector2:
+		global_position = home_position as Vector2
+	velocity = Vector2.ZERO
+	_life_points = _max_life
+	_last_damage_source_team = ""
+	_clear_status_effects_for_reuse()
+	_ensure_presentation()
+	if _presentation != null:
+		_presentation.reset_presentation()
+	_refresh_visuals()
+
+
+func debug_ai_enabled() -> bool:
+	return _debug_ai_enabled
 
 
 func add_owned_tag(tag_id: String) -> bool:
@@ -372,6 +421,7 @@ func _pool_reset() -> void:
 	_contact_damage_type = ""
 	_current_action = ""
 	_decision_remaining = 0.0
+	_debug_ai_enabled = true
 	_enemy_id = ""
 	_exp_reward = 0
 	_facing_sign = 1.0
@@ -401,6 +451,10 @@ func _pool_reset() -> void:
 	_has_cached_navigation_waypoint = false
 	visible = true
 	_set_collision_enabled(false)
+	if has_meta("debug_test_arena_kind"):
+		remove_meta("debug_test_arena_kind")
+	if has_meta("debug_test_arena_home"):
+		remove_meta("debug_test_arena_home")
 	_ensure_presentation()
 	if _presentation != null:
 		_presentation.reset_presentation()
@@ -424,6 +478,10 @@ func _pool_release() -> void:
 	_terrain_line_of_sight = false
 	_has_cached_navigation_waypoint = false
 	_set_collision_enabled(false)
+	if has_meta("debug_test_arena_kind"):
+		remove_meta("debug_test_arena_kind")
+	if has_meta("debug_test_arena_home"):
+		remove_meta("debug_test_arena_home")
 	_ensure_presentation()
 	if _presentation != null:
 		_presentation.reset_presentation()

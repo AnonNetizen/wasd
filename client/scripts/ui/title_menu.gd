@@ -6,11 +6,13 @@ extends CanvasLayer
 
 signal quit_requested()
 signal continue_requested()
+signal debug_test_arena_requested()
 signal gear_mod_requested()
 signal settings_requested()
 signal start_requested()
 
 var _continue_button: Button = null
+var _debug_test_arena_button: Button = null
 var _gear_mod_button: Button = null
 var _notice_key: String = ""
 var _notice_label: Label = null
@@ -32,6 +34,9 @@ func _ready() -> void:
 	_notice_label = get_node_or_null("Root/Center/Panel/Margin/Layout/RunSaveNoticeLabel") as Label
 	_continue_button = get_node_or_null("Root/Center/Panel/Margin/Layout/ContinueRunButton") as Button
 	_gear_mod_button = get_node_or_null("Root/Center/Panel/Margin/Layout/GearModButton") as Button
+	_debug_test_arena_button = get_node_or_null(
+		"Root/Center/Panel/Margin/Layout/DebugTestArenaButton"
+	) as Button
 
 	if _title_label == null or _subtitle_label == null or _start_button == null or _quit_button == null:
 		push_error("[TitleMenu] missing required scene nodes")
@@ -39,7 +44,11 @@ func _ready() -> void:
 	if _notice_label == null or _continue_button == null:
 		push_error("[TitleMenu] missing required scene nodes")
 		return
-	if _gear_mod_button == null or _settings_button == null:
+	if (
+		_gear_mod_button == null
+		or _settings_button == null
+		or _debug_test_arena_button == null
+	):
 		push_error("[TitleMenu] missing required scene nodes")
 		return
 
@@ -53,6 +62,13 @@ func _ready() -> void:
 
 	_gear_mod_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	_gear_mod_button.pressed.connect(_on_gear_mod_pressed)
+
+	_debug_test_arena_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	_debug_test_arena_button.visible = false
+	_debug_test_arena_button.disabled = true
+	_debug_test_arena_button.pressed.connect(
+		_on_debug_test_arena_pressed
+	)
 
 	_settings_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	_settings_button.pressed.connect(_on_settings_pressed)
@@ -74,7 +90,11 @@ func _exit_tree() -> void:
 		Localization.locale_changed.disconnect(_on_locale_changed)
 
 
-func configure(can_continue: bool, notice_key: String = "") -> void:
+func configure(
+	can_continue: bool,
+	notice_key: String = "",
+	debug_test_arena_enabled: bool = false
+) -> void:
 	_notice_key = notice_key
 	if _continue_button == null:
 		return
@@ -87,6 +107,8 @@ func configure(can_continue: bool, notice_key: String = "") -> void:
 		_notice_label.text = tr(_notice_key)
 	else:
 		_notice_label.text = ""
+	_debug_test_arena_button.visible = debug_test_arena_enabled
+	_debug_test_arena_button.disabled = not debug_test_arena_enabled
 
 
 func refresh_texts() -> void:
@@ -102,6 +124,10 @@ func refresh_texts() -> void:
 		_settings_button.text = tr("ui_settings")
 	if _gear_mod_button != null:
 		_gear_mod_button.text = tr("ui_gear_mod_title_entry")
+	if _debug_test_arena_button != null:
+		_debug_test_arena_button.text = tr(
+			"ui_debug_test_arena_title_entry"
+		)
 	if _quit_button != null:
 		_quit_button.text = tr("ui_quit")
 	if _notice_label != null and _notice_label.visible and not _notice_key.is_empty():
@@ -123,6 +149,10 @@ func _on_continue_pressed() -> void:
 
 func _on_gear_mod_pressed() -> void:
 	gear_mod_requested.emit()
+
+
+func _on_debug_test_arena_pressed() -> void:
+	debug_test_arena_requested.emit()
 
 
 func _on_settings_pressed() -> void:

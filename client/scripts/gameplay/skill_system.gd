@@ -21,6 +21,7 @@ const TEAM_PLAYER: String = "team_player"
 var _active_parent: Node = null
 var _caster: Node2D = null
 var _cooldowns: Dictionary = {}
+var _debug_free_casts: bool = false
 var _owned_tag_counts: Dictionary = {}
 var _resources: Dictionary = {}
 var _skills: Array[Dictionary] = []
@@ -60,6 +61,7 @@ func configure(caster: Node2D, active_parent: Node, skills: Array, resources: Ar
 	_active_parent = active_parent
 	_skills = []
 	_cooldowns.clear()
+	_debug_free_casts = false
 	_ensure_status_effect_component()
 	if _status_effect_component != null:
 		_status_effect_component.call("clear", false)
@@ -83,7 +85,7 @@ func cast_skill(skill_id: String) -> Dictionary:
 		return _failed_cast(skill_id, "unknown_skill")
 	if _caster == null or not is_instance_valid(_caster):
 		return _failed_cast(skill_id, "caster_unavailable")
-	if cooldown_remaining(skill_id) > 0.0:
+	if not _debug_free_casts and cooldown_remaining(skill_id) > 0.0:
 		return _failed_cast(skill_id, "cooldown")
 	var tag_check: Dictionary = _activation_tag_check(skill)
 	if not bool(tag_check.get("ok", false)):
@@ -91,19 +93,24 @@ func cast_skill(skill_id: String) -> Dictionary:
 			"tag": String(tag_check.get("tag", "")),
 			"owned_tags": owned_tags(),
 		})
-	if not _can_pay_costs(skill):
+	if not _debug_free_casts and not _can_pay_costs(skill):
 		return _failed_cast(skill_id, "insufficient_resource")
 
 	var targets: Array[Node] = _targets_for_skill(skill)
 	if targets.is_empty():
 		return _failed_cast(skill_id, "no_targets")
 
-	_pay_costs(skill)
+	if not _debug_free_casts:
+		_pay_costs(skill)
 	var transient_tags: Array[String] = _activation_tags(skill, "granted_tags")
 	_add_transient_tags(transient_tags)
 	var applied_targets: int = _apply_effects(skill, targets)
 	_remove_transient_tags(transient_tags)
-	_cooldowns[skill_id] = maxf(float(skill.get("cooldown", 0.0)), 0.0)
+	_cooldowns[skill_id] = (
+		0.0
+		if _debug_free_casts
+		else maxf(float(skill.get("cooldown", 0.0)), 0.0)
+	)
 	var result: Dictionary = {
 		"ok": applied_targets > 0,
 		"reason": "applied" if applied_targets > 0 else "no_effect",
@@ -144,6 +151,25 @@ func resource_amount(resource_id: String) -> float:
 
 func resource_snapshot() -> Dictionary:
 	return _resources.duplicate(true)
+
+
+func debug_set_free_casts(enabled: bool) -> void:
+	_debug_free_casts = enabled
+	if enabled:
+		debug_refresh()
+
+
+func debug_free_casts_enabled() -> bool:
+	return _debug_free_casts
+
+
+func debug_refresh() -> void:
+	for skill_id: Variant in _cooldowns.keys():
+		_cooldowns[skill_id] = 0.0
+	for resource_id: Variant in _resources.keys():
+		var resource: Dictionary = _resources[resource_id] as Dictionary
+		resource["current"] = float(resource.get("max", 0.0))
+		_resources[resource_id] = resource
 
 
 func add_owned_tag(tag_id: String) -> bool:
@@ -229,6 +255,7 @@ func debug_summary() -> Dictionary:
 		"skill_ids": _skill_ids(),
 		"resources": resource_snapshot(),
 		"cooldowns": _cooldowns.duplicate(true),
+		"debug_free_casts": _debug_free_casts,
 		"owned_tags": owned_tags(),
 		"owned_tag_counts": _owned_tag_counts.duplicate(true),
 		"status_effects": _status_effect_snapshot(),

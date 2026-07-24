@@ -215,3 +215,62 @@ item_pocket_bomb_desc,引发一次小范围爆炸,Trigger a small explosion
 skill_overdrive_rounds_name,过载弹流,Overdrive Rounds
 skill_overdrive_rounds_desc,消耗能量，短时间提高射速和弹速,Spend energy to briefly increase fire rate and bullet speed
 skill_resource_mana_name,魔法,Mana
+ui_debug_test_arena_title_entry,开发者测试岛,Developer Test Arena
+ui_debug_test_arena_setup_title,开发者测试岛配装,Developer Test Arena Loadout
+ui_debug_test_arena_seed,种子,Seed
+ui_debug_test_arena_character,角色,Character
+ui_debug_test_arena_weapon,武器,Weapon
+ui_debug_test_arena_primary_skill,主技能,Primary Skill
+ui_debug_test_arena_gear_mods,装备 Mod 与 Rank,Gear Mods and Ranks
+ui_debug_test_arena_rank,Rank,Rank
+ui_debug_test_arena_capacity,英雄容量 %d/%d · 武器容量 %d/%d,Hero Capacity %d/%d · Weapon Capacity %d/%d
+ui_debug_test_arena_unavailable_title,仅数据内容（不可用）,Data-only Content (Unavailable)
+ui_debug_test_arena_relics,遗物,Relics
+ui_debug_test_arena_active_items,主动道具,Active Items
+ui_debug_test_arena_consumables,消耗品,Consumables
+ui_debug_test_arena_runtime_unavailable,运行时尚未接入,Runtime not implemented
+ui_debug_test_arena_loadout_ready,配装合法，可进入测试岛,Loadout valid and ready
+ui_debug_test_arena_loadout_invalid,配装违反容量或唯一规则,Loadout violates capacity or uniqueness rules
+ui_debug_test_arena_config_save_failed,开发配置保存失败,Failed to save developer configuration
+ui_debug_test_arena_enter,进入测试岛,Enter Test Arena
+ui_debug_test_arena_back,返回标题,Back to Title
+ui_debug_test_arena_panel_title,开发者测试岛控制台,Developer Test Arena Controls
+ui_debug_test_arena_enemy,敌人类型,Enemy Type
+ui_debug_test_arena_target_type,目标类型,Target Type
+ui_debug_test_arena_count,数量（1–50）,Count (1–50)
+ui_debug_test_arena_stationary_target,固定靶,Stationary Target
+ui_debug_test_arena_normal_ai,正常 AI,Normal AI
+ui_debug_test_arena_spawn,生成目标,Spawn Targets
+ui_debug_test_arena_clear_targets,清除固定靶,Clear Targets
+ui_debug_test_arena_clear_ai,清除 AI,Clear AI
+ui_debug_test_arena_clear_all,全部清除,Clear All
+ui_debug_test_arena_kill_ai,击杀 AI,Kill AI
+ui_debug_test_arena_reset_targets,复位固定靶,Reset Targets
+ui_debug_test_arena_heal,治疗玩家,Heal Player
+ui_debug_test_arena_god_mode,无敌,God Mode
+ui_debug_test_arena_free_skills,免费技能,Free Skills
+ui_debug_test_arena_refresh,刷新技能与冷却,Refresh Skills and Cooldowns
+ui_debug_test_arena_teleport,传送回出生点,Teleport to Spawn
+ui_debug_test_arena_reset_arena,重置整个场地,Reset Arena
+ui_debug_test_arena_reset_stats,清零伤害统计,Reset Damage Stats
+ui_debug_test_arena_return_setup,返回配装,Return to Loadout
+ui_debug_test_arena_return_title,返回标题,Return to Title
+ui_debug_test_arena_close_panel,关闭并开始战斗,Close and Fight
+ui_debug_test_arena_panel_ready,所有作弊默认关闭；关闭面板后开始战斗,All cheats start off; close the panel to fight
+ui_debug_test_arena_spawn_result,已生成 %d 个目标,Spawned %d targets
+ui_debug_test_arena_clear_result,已清除 %d 个目标,Cleared %d targets
+ui_debug_test_arena_kill_result,已击杀 %d 个 AI,Killed %d AI targets
+ui_debug_test_arena_reset_target_result,已复位 %d 个固定靶,Reset %d stationary targets
+ui_debug_test_arena_healed,玩家生命已恢复,Player health restored
+ui_debug_test_arena_refreshed,技能资源、冷却与弹体已刷新,Skill resources cooldowns and projectiles refreshed
+ui_debug_test_arena_teleported,已传送回中央出生区,Teleported to the central spawn zone
+ui_debug_test_arena_reset_done,测试岛已重置；作弊已关闭,Arena reset; cheats disabled
+ui_debug_test_arena_stats_reset,伤害统计已清零,Damage stats reset
+ui_debug_test_arena_stats_last_hit,最近一击：%s,Last Hit: %s
+ui_debug_test_arena_stats_hit_count,命中次数：%d,Hits: %d
+ui_debug_test_arena_stats_total,累计伤害：%s,Total Damage: %s
+ui_debug_test_arena_stats_dps,5 秒 DPS：%s,5s DPS: %s
+ui_debug_test_arena_stats_targets,活动目标：%d,Active Targets: %d
+ui_debug_test_arena_zone_central,中央出生 / 重置区,Central Spawn / Reset
+ui_debug_test_arena_zone_stationary,固定靶训练区,Stationary Target Zone
+ui_debug_test_arena_zone_ai,AI 实战区,AI Combat Zone
