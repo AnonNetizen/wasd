@@ -57,6 +57,9 @@ func _expect_missing_file_uses_defaults() -> void:
 	_expect(not Settings.last_load_recovered(), "missing settings file should not be marked as recovered")
 	_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == "zh_CN", "default locale should be zh_CN")
 	_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), 1.0), "default master volume should be 1.0")
+	_expect(String(Settings.get_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY)) == "high", "default VFX quality should be high")
+	_expect(not bool(Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION)), "reduced motion should default off")
+	_expect(bool(Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES)), "screen flashes should default on")
 
 
 func _expect_roundtrip_and_signal_flow() -> void:
@@ -67,6 +70,7 @@ func _expect_roundtrip_and_signal_flow() -> void:
 
 	_expect(Settings.set_value(SETTINGS_KEYS.AUDIO_MASTER, 0.42), "master volume should accept a valid float")
 	_expect(Settings.set_value(SETTINGS_KEYS.GENERAL_LOCALE, "en"), "locale should accept en")
+	_expect(Settings.set_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY, "medium"), "VFX quality should accept a registered option")
 	_expect(FileAccess.file_exists(Settings.settings_path()), "settings.cfg should be created after valid changes")
 	_expect(changed_keys.has(SETTINGS_KEYS.AUDIO_MASTER), "master volume change should emit setting_changed")
 	_expect(changed_keys.has(SETTINGS_KEYS.GENERAL_LOCALE), "locale change should emit setting_changed")
@@ -78,6 +82,7 @@ func _expect_roundtrip_and_signal_flow() -> void:
 	_expect(loaded_cleanly, "saved valid settings should load cleanly")
 	_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), 0.42), "master volume should roundtrip from disk")
 	_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == "en", "locale should roundtrip from disk")
+	_expect(String(Settings.get_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY)) == "medium", "VFX quality should roundtrip from disk")
 
 
 func _expect_invalid_values_are_rejected() -> void:
@@ -85,6 +90,7 @@ func _expect_invalid_values_are_rejected() -> void:
 	var original_locale: String = String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE))
 	_expect(not Settings.set_value(SETTINGS_KEYS.AUDIO_MASTER, 2.0), "master volume should reject values above 1.0")
 	_expect(not Settings.set_value(SETTINGS_KEYS.GENERAL_LOCALE, "pirate"), "locale should reject unsupported values")
+	_expect(not Settings.set_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY, "ultra"), "VFX quality should reject unsupported values")
 	_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), original_master), "invalid master volume should not mutate state")
 	_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == original_locale, "invalid locale should not mutate state")
 
@@ -182,6 +188,10 @@ func _expect_settings_panel_controls() -> void:
 	var video_section_label: Label = _find_node_by_name(panel, "VideoSectionLabel") as Label
 	var fullscreen_check: CheckButton = _find_node_by_name(panel, "FullscreenCheck") as CheckButton
 	var vsync_check: CheckButton = _find_node_by_name(panel, "VsyncCheck") as CheckButton
+	var vfx_quality_option: OptionButton = _find_node_by_name(panel, "VfxQualityOption") as OptionButton
+	var accessibility_section_label: Label = _find_node_by_name(panel, "AccessibilitySectionLabel") as Label
+	var reduced_motion_check: CheckButton = _find_node_by_name(panel, "ReducedMotionCheck") as CheckButton
+	var screen_flashes_check: CheckButton = _find_node_by_name(panel, "ScreenFlashesCheck") as CheckButton
 	var fire_on_release_check: CheckButton = _find_node_by_name(panel, "FireOnReleaseCheck") as CheckButton
 	var aim_mode_row: HBoxContainer = _find_node_by_name(panel, "AimModeRow") as HBoxContainer
 	var screen_shake_check: CheckButton = _find_node_by_name(panel, "ScreenShakeCheck") as CheckButton
@@ -194,9 +204,13 @@ func _expect_settings_panel_controls() -> void:
 
 	_expect(title_label != null and String(title_label.text) == tr("ui_settings_title"), "settings panel should show localized title")
 	_expect(locale_option != null and locale_option.item_count == 2, "settings panel should expose two locale options")
-	_expect(video_section_label != null and not video_section_label.visible, "settings panel should hide unsupported video settings")
+	_expect(video_section_label != null and video_section_label.visible, "settings panel should expose wired VFX video settings")
 	_expect(fullscreen_check != null and not fullscreen_check.visible, "settings panel should hide unsupported fullscreen setting")
 	_expect(vsync_check != null and not vsync_check.visible, "settings panel should hide unsupported vsync setting")
+	_expect(vfx_quality_option != null and vfx_quality_option.visible and vfx_quality_option.item_count == 3, "settings panel should expose three VFX quality options")
+	_expect(accessibility_section_label != null and accessibility_section_label.visible, "settings panel should expose accessibility settings")
+	_expect(reduced_motion_check != null and reduced_motion_check.visible, "settings panel should expose reduced motion")
+	_expect(screen_flashes_check != null and screen_flashes_check.visible, "settings panel should expose screen flashes")
 	_expect(fire_on_release_check != null and not fire_on_release_check.visible, "settings panel should hide unsupported fire-on-release setting")
 	_expect(aim_mode_row != null and not aim_mode_row.visible, "settings panel should hide unsupported aim mode setting")
 	_expect(screen_shake_check != null and screen_shake_check.visible, "settings panel should expose wired screen shake setting")
@@ -224,6 +238,21 @@ func _expect_settings_panel_controls() -> void:
 		screen_shake_check.toggled.emit(true)
 		await get_tree().process_frame
 		_expect(bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE)), "screen shake control should restore the enabled setting")
+	if vfx_quality_option != null:
+		vfx_quality_option.select(0)
+		vfx_quality_option.item_selected.emit(0)
+		await get_tree().process_frame
+		_expect(String(Settings.get_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY)) == "low", "VFX quality control should write Settings")
+	if reduced_motion_check != null:
+		reduced_motion_check.button_pressed = true
+		reduced_motion_check.toggled.emit(true)
+		await get_tree().process_frame
+		_expect(bool(Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION)), "reduced motion control should write Settings")
+	if screen_flashes_check != null:
+		screen_flashes_check.button_pressed = false
+		screen_flashes_check.toggled.emit(false)
+		await get_tree().process_frame
+		_expect(not bool(Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES)), "screen flashes control should write Settings")
 	if locale_option != null:
 		locale_option.select(1)
 		locale_option.item_selected.emit(1)

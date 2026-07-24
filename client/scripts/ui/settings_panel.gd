@@ -12,6 +12,7 @@ const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 
 const LOCALE_OPTIONS: Array[String] = ["zh_CN", "en"]
 const AIM_MODE_OPTIONS: Array[String] = ["mouse", "4dir", "auto"]
+const VFX_QUALITY_OPTIONS: Array[String] = ["low", "medium", "high"]
 
 var _aim_mode_option: OptionButton = null
 var _active_remap_device_group: StringName = &""
@@ -33,11 +34,14 @@ var _music_value_label: Label = null
 var _pause_on_focus_loss_check: CheckButton = null
 var _pressed_close: bool = false
 var _record_replays_check: CheckButton = null
+var _reduced_motion_check: CheckButton = null
 var _refreshing: bool = false
 var _reset_input_bindings_button: Button = null
+var _screen_flashes_check: CheckButton = null
 var _screen_shake_check: CheckButton = null
 var _sfx_slider: HSlider = null
 var _sfx_value_label: Label = null
+var _vfx_quality_option: OptionButton = null
 var _vsync_check: CheckButton = null
 
 
@@ -125,6 +129,9 @@ func _bind_nodes() -> void:
 	_sfx_value_label = get_node_or_null("Root/Center/Panel/Margin/Layout/SfxVolumeRow/SfxVolumeValueLabel") as Label
 	_fullscreen_check = get_node_or_null("Root/Center/Panel/Margin/Layout/FullscreenCheck") as CheckButton
 	_vsync_check = get_node_or_null("Root/Center/Panel/Margin/Layout/VsyncCheck") as CheckButton
+	_vfx_quality_option = get_node_or_null("Root/Center/Panel/Margin/Layout/VfxQualityRow/VfxQualityOption") as OptionButton
+	_reduced_motion_check = get_node_or_null("Root/Center/Panel/Margin/Layout/ReducedMotionCheck") as CheckButton
+	_screen_flashes_check = get_node_or_null("Root/Center/Panel/Margin/Layout/ScreenFlashesCheck") as CheckButton
 	_fire_on_release_check = get_node_or_null("Root/Center/Panel/Margin/Layout/FireOnReleaseCheck") as CheckButton
 	_aim_mode_option = get_node_or_null("Root/Center/Panel/Margin/Layout/AimModeRow/AimModeOption") as OptionButton
 	_screen_shake_check = get_node_or_null("Root/Center/Panel/Margin/Layout/ScreenShakeCheck") as CheckButton
@@ -148,6 +155,9 @@ func _missing_required_nodes() -> bool:
 		or _sfx_value_label == null
 		or _fullscreen_check == null
 		or _vsync_check == null
+		or _vfx_quality_option == null
+		or _reduced_motion_check == null
+		or _screen_flashes_check == null
 		or _fire_on_release_check == null
 		or _aim_mode_option == null
 		or _screen_shake_check == null
@@ -205,6 +215,9 @@ func _connect_controls() -> void:
 	_sfx_slider.value_changed.connect(_on_sfx_volume_changed)
 	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
 	_vsync_check.toggled.connect(_on_vsync_toggled)
+	_vfx_quality_option.item_selected.connect(_on_vfx_quality_selected)
+	_reduced_motion_check.toggled.connect(_on_reduced_motion_toggled)
+	_screen_flashes_check.toggled.connect(_on_screen_flashes_toggled)
 	_fire_on_release_check.toggled.connect(_on_fire_on_release_toggled)
 	_aim_mode_option.item_selected.connect(_on_aim_mode_selected)
 	_screen_shake_check.toggled.connect(_on_screen_shake_toggled)
@@ -226,6 +239,8 @@ func _refresh_texts() -> void:
 	_set_label_text("Root/Center/Panel/Margin/Layout/TitleLabel", "ui_settings_title")
 	_set_label_text("Root/Center/Panel/Margin/Layout/AudioSectionLabel", "ui_settings_audio")
 	_set_label_text("Root/Center/Panel/Margin/Layout/VideoSectionLabel", "ui_settings_video")
+	_set_label_text("Root/Center/Panel/Margin/Layout/VfxQualityRow/VfxQualityLabel", "ui_settings_vfx_quality")
+	_set_label_text("Root/Center/Panel/Margin/Layout/AccessibilitySectionLabel", "ui_settings_accessibility")
 	_set_label_text("Root/Center/Panel/Margin/Layout/GameplaySectionLabel", "ui_settings_gameplay")
 	_set_label_text("Root/Center/Panel/Margin/Layout/InputSectionLabel", "ui_settings_input")
 	_set_label_text("Root/Center/Panel/Margin/Layout/PrivacySectionLabel", "ui_settings_privacy")
@@ -236,6 +251,8 @@ func _refresh_texts() -> void:
 	_set_label_text("Root/Center/Panel/Margin/Layout/AimModeRow/AimModeLabel", "ui_settings_aim_mode")
 	_fullscreen_check.text = tr("ui_settings_fullscreen")
 	_vsync_check.text = tr("ui_settings_vsync")
+	_reduced_motion_check.text = tr("ui_settings_reduced_motion")
+	_screen_flashes_check.text = tr("ui_settings_screen_flashes")
 	_fire_on_release_check.text = tr("ui_settings_fire_on_release")
 	_screen_shake_check.text = tr("ui_settings_screen_shake")
 	_pause_on_focus_loss_check.text = tr("ui_settings_pause_on_focus_loss")
@@ -249,6 +266,11 @@ func _refresh_texts() -> void:
 		tr("ui_settings_aim_mode_mouse"),
 		tr("ui_settings_aim_mode_4dir"),
 		tr("ui_settings_aim_mode_auto"),
+	])
+	_replace_options(_vfx_quality_option, [
+		tr("ui_settings_vfx_quality_low"),
+		tr("ui_settings_vfx_quality_medium"),
+		tr("ui_settings_vfx_quality_high"),
 	])
 	for row: Dictionary in InputService.binding_rows():
 		var binding_id: StringName = StringName(row.get("id", &""))
@@ -264,6 +286,17 @@ func _refresh_values() -> void:
 	_set_slider_value(_sfx_slider, _sfx_value_label, float(Settings.get_value(SETTINGS_KEYS.AUDIO_SFX, 0.9)))
 	_fullscreen_check.button_pressed = bool(Settings.get_value(SETTINGS_KEYS.VIDEO_FULLSCREEN, false))
 	_vsync_check.button_pressed = bool(Settings.get_value(SETTINGS_KEYS.VIDEO_VSYNC, true))
+	_select_option_value(
+		_vfx_quality_option,
+		VFX_QUALITY_OPTIONS,
+		String(Settings.get_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY, "high"))
+	)
+	_reduced_motion_check.button_pressed = bool(
+		Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION, false)
+	)
+	_screen_flashes_check.button_pressed = bool(
+		Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES, true)
+	)
 	_fire_on_release_check.button_pressed = bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_FIRE_ON_RELEASE, false))
 	_select_option_value(_aim_mode_option, AIM_MODE_OPTIONS, String(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_AIM_MODE, "mouse")))
 	_screen_shake_check.button_pressed = bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true))
@@ -349,6 +382,19 @@ func _on_fullscreen_toggled(enabled: bool) -> void:
 
 func _on_vsync_toggled(enabled: bool) -> void:
 	_set_setting(SETTINGS_KEYS.VIDEO_VSYNC, enabled)
+
+
+func _on_vfx_quality_selected(index: int) -> void:
+	if index >= 0 and index < VFX_QUALITY_OPTIONS.size():
+		_set_setting(SETTINGS_KEYS.VIDEO_VFX_QUALITY, VFX_QUALITY_OPTIONS[index])
+
+
+func _on_reduced_motion_toggled(enabled: bool) -> void:
+	_set_setting(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION, enabled)
+
+
+func _on_screen_flashes_toggled(enabled: bool) -> void:
+	_set_setting(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES, enabled)
 
 
 func _on_fire_on_release_toggled(enabled: bool) -> void:
@@ -475,7 +521,7 @@ func _on_close_pressed() -> void:
 	_closing = true
 	closed_requested.emit()
 	if UIManager.top() == self:
-		UIManager.pop()
+		UIManager.pop_expected(self)
 
 
 func _button_contains_position(button: Button, position: Vector2) -> bool:

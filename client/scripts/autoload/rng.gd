@@ -71,6 +71,7 @@ var spawn: Stream = Stream.new()
 var drop: Stream = Stream.new()
 var combat: Stream = Stream.new()
 var camera_fx: Stream = Stream.new()
+var vfx: Stream = Stream.new()
 var ui_choice: Stream = Stream.new()
 var world: Stream = Stream.new()
 var meta: Stream = Stream.new()
@@ -85,6 +86,7 @@ func _ready() -> void:
 		"drop": drop,
 		"combat": combat,
 		RNG_STREAMS.CAMERA_FX: camera_fx,
+		RNG_STREAMS.VFX: vfx,
 		"ui_choice": ui_choice,
 		"world": world,
 		"meta": meta,

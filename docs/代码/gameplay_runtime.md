@@ -65,11 +65,12 @@
 | `client/scripts/gameplay/warzone_director.gd` | F10 敌巢战区导演，解释固定阶段、巢变异主题、兴趣点和阶段启用 wave |
 | `client/scripts/gameplay/weapon_system.gd` | 起始武器按住开火、临时武器修正和子弹池获取 |
 | `client/scenes/gameplay/skill_system.tscn` / `client/scripts/gameplay/skill_system.gd` | 预置 `StatusEffectComponent` 的技能系统场景；负责主动技能释放、资源、冷却、目标筛选、效果解释和 run 快照 |
-| `client/scripts/gameplay/bullet.gd` | 子弹飞行、圆形地形重叠 / 扫掠、射程 / 生命周期裁剪、敌人和兴趣点目标命中，以及墙体穿透快照 |
+| `client/scripts/gameplay/bullet.gd` | 子弹飞行、圆形地形重叠 / 扫掠、射程 / 生命周期裁剪、敌人和兴趣点目标命中、墙体穿透快照，以及池化时严格清空的共享 Shader RibbonTrail |
 | `client/scripts/gameplay/enemy.gd` | 数据驱动敌人对玩家 AI、敌方友伤护栏、接触伤害、受伤 / 死亡和 AI 快照 |
 | `client/scripts/gameplay/hazard.gd` | 通用机关节点：矩形范围触发、冷却、占位表现、`Combat` 伤害和快照 |
 | `client/scripts/gameplay/pickup_orb.gd` | 池化经验球：进入玩家拾取范围后吸附并发放经验 |
 | `client/scripts/gameplay/hit_spark.gd` / `damage_number.gd` | 池化命中反馈：Combat 成功造成伤害时生成短命火花和飘字；不进入 run 快照 |
+| `client/scripts/gameplay/presentation/` | `ActorPresentationController`、`VfxHost` 与 `GameplayFeedbackController`；完整契约见 `docs/代码/visual_effects.md` |
 | `client/scripts/gameplay/level_up_panel.gd` | 响应式升级三选一面板；通过 `UIManager.push()` 挂载；语言切换时用缓存候选重建按钮 |
 | `client/scripts/gameplay/gameplay_hud.gd` | 响应式最小 HUD：生命、击杀、时间、等级、经验、升级 / Gear Mod / 撤离点反馈；语言切换时用当前 HUD 状态重画 |
 | `client/scripts/ui/title_menu.gd` | 最小标题界面：开始 / 继续 / 装备 Mod / 设置 / 退出 |
@@ -156,12 +157,12 @@ UIManager
 | 输入 | `InputService` 从 GUIDE 的 gameplay context 产生 `move` / `aim` `Vector2` 与按钮 intent。键鼠瞄准由 pointer viewport position 经当前 canvas / camera transform 得到世界方向；右摇杆、D-pad 或方向键是兜底。`show_stats_panel` 只显示 HUD 叠层，`interact` 打开范围内缓存。Replay v2 记录最终 move / aim 与按钮值，鼠标和手柄使用同一 intent wire | `InputService`、生成 `Actions` 常量、`Replay` v2 |
 | 移动 / 瞄准 / 相机 | 玩家按数据移速在 2D 平面移动；RunLoop 在角色实例化 / 恢复后，把 `ActiveWorld` 预置 Rig 的 `PlayerCamera` 配成 Phantom Camera `GLUED` 严格跟随当前 Player，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放。鼠标激活后按 canvas transform 换算后的世界方向瞄准；无鼠标动作时用方向键 / 手柄右摇杆 / D-pad 兜底，松开保持上一方向 | `Player.aim_direction`、`GameplayCameraController.configure()` |
 | 按住开火 | WeaponSystem 读取 `InputService` 的 `fire` intent；按住时按 `fire_rate` 从子弹池取节点并配置，松开停火 | `InputService` / `PoolManager.acquire()` |
-| 子弹移动 / 地形 | 玩家和敌方子弹移动前先用 `hit_radius` 圆形 `intersect_shape()` 检查初始重叠，再用 `cast_motion()` 扫掠本帧位移；只查询地形层 bit 1。命中后停在安全比例、立即 `PoolManager.release()`，不再检查墙后伤害目标；`wall_pierce > 0` 的发射快照跳过全部地形查询 | `PhysicsShapeQueryParameters2D` / `PhysicsDirectSpaceState2D` |
+| 子弹移动 / 地形 | 玩家和敌方子弹移动前先用 `hit_radius` 圆形 `intersect_shape()` 检查初始重叠，再用 `cast_motion()` 扫掠本帧位移；只查询地形层 bit 1。命中后停在安全比例、立即 `PoolManager.release()`，不再检查墙后伤害目标；`wall_pierce > 0` 的发射快照跳过全部地形查询。场景内 `RibbonTrail` 使用有界世界坐标历史，acquire / release 都清空 | `PhysicsShapeQueryParameters2D` / `PhysicsDirectSpaceState2D` / `VfxRibbonTrail` |
 | 子弹命中 | 地形通过后，子弹才用距离检测命中 `active_enemies` 与 `active_interest_point_targets` 组；远程敌人可通过同一 `Bullet.configure()` 指定 `active_player` 目标组和敌方队伍，伤害统一走 `Combat.apply_damage()`。`pierce_count` 只表示可额外命中的伤害目标数量，不影响墙体 | `DamageInfo` |
-| 主动技能 / 状态 | SkillSystem 从 `skills.json` 读取起始技能列表；默认 `use_active_item` action 释放第一个技能 `skill_overdrive_rounds`，消耗角色声明的 `mana`，通过 `skill_effect_weapon_modifiers` 临时强化玩家主武器射速与弹速；技能激活使用项目版轻量 GAS 的 ability tag gating，状态效果通过目标实体的 `StatusEffectComponent` 管理，技能冷却、资源回复、状态过期和 DoT tick 都走 `GameClock` | `SkillSystem.cast_primary_skill()`、`SkillSystem.cast_skill(skill_id)`、`WeaponSystem.apply_temporary_modifiers()`、`Combat.apply_damage()`、`Player.apply_status_effect()`、`Enemy.apply_status_effect()` |
+| 主动技能 / 状态 | SkillSystem 从 `skills.json` 读取起始技能列表；默认 `use_active_item` action 释放第一个技能 `skill_overdrive_rounds`，消耗角色声明的 `mana`，通过 `skill_effect_weapon_modifiers` 临时强化玩家主武器射速与弹速；技能成功 / 失败、临时强化 started/refreshed/expired/restored 和状态 applied/restored/expired 同时发出表现 cue。玩法冷却、资源、状态 tick 仍只走 `GameClock` | `SkillSystem.cast_*()`、`WeaponSystem.apply_temporary_modifiers()`、`active_temporary_modifiers()`、`StatusEffectComponent` signals |
 | 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人；F10 起先通过 `WarzoneDirector.is_wave_enabled()` 判断当前 phase 是否允许该 wave，当前有追猎者、疾行者、潜猎者、喷棘者和壁垒五种数据化敌人 | `GameClock.now()`、`RNG.spawn`、`WarzoneDirector.is_wave_enabled()` |
 | 机关触发 | `Hazard` 在 `PLAYING` 下按 `GameClock.delta_scaled()` 消耗冷却；玩家进入矩形范围后构造 `DamageInfo` 并交给 `Combat`，当前 FEA-12 用于验证 PCG / 手工摆点和伤害链路 | `Hazard.configure()`、`Combat.apply_damage()` |
-| 受击 / 击杀反馈 | `Combat.damage_applied` 成功应用伤害后生成池化 `hit_spark` 与 `damage_number`；玩家有效受伤另按 `camera_feedback.json` 触发 Phantom Camera 位移震屏，随机走 `RNG.camera_fx`，无敌拦截和敌人受伤不触发；`gameplay.screen_shake=false` 会立即停止并抑制震屏。玩家占位短暂红闪，敌人命中时短暂暖白闪，死亡后橙色淡出并归池 | `GameplayCameraController.play_player_damage_shake()`、`PoolManager.acquire()` |
+| 受击 / 击杀反馈 | `Combat.damage_applied` 成功应用伤害后由 profile cue 生成池化火花 / 飘字；玩家有效受伤才触发屏幕叠层与 `camera_feedback.json` 震屏，无敌拦截和敌人受伤不震。角色闪色 / 敌人退场由 `ActorPresentationController + AnimationPlayer` 驱动；击杀、掉落和移出 active group 即时，0.18 秒后回池 | `GameplayFeedbackController.play()`、`GameplayCameraController.play_feedback()` |
 | 敌人行为 | 敌人从 schema v3 `enemy_ai_profiles.json` 读取视线 / 路径 / 记忆感知、玩家权重和动作列表；模块模式注入 `ModuleWorldManager`，畅通时直追、受阻时沿局部共享流场绕行，守家 / 最后已知位置使用决策 tick 的全图 AStar waypoint。玩家是唯一战斗目标，冲锋要求清晰走廊，远程开火要求当前地形视线；敌方友伤被拒绝，中心分离只防重叠 | `Enemy.defeated`、`docs/代码/enemy_ai.md` |
 | 经验掉落 | ADR #120 后默认标准模式没有成长候选池，玩家归因击杀不生成经验球；未来模式若在 `game_modes.json.resource_pools.growth_pools` 声明升级池，则敌人死亡按 `exp_reward` 生成池化经验球，进入 `pickup_range` 后吸附并发放经验 | `PoolManager.acquire(PICKUP_ORB)` |
 | 升级选择 | 只在当前模式加载到 `growth_pools` 候选池时启用。累计经验达到 `growth.csv` 阈值后进入 `GameState.LEVEL_UP`，玩法时间冻结；候选按权重和 `RNG.ui_choice` 抽取，入选后按 id 稳定排序以保证选择索引可回放；升级面板可在暂停态响应鼠标选择，也可按 `pause` action 把暂停菜单叠到升级面板上；选择后通过 `Replay.record_decision(level_up, ...)` 记录等级、候选数量、候选 id、选择 id 和 luck 快照，再应用 `stat_modifier`、显示获得反馈并回到 `PLAYING`。`golden_level_up_choice` 是测试 harness 显式调用 `debug_enable_level_up_growth()` 的能力回归，不代表默认标准模式启用升级。 | `LevelUpPanel.choice_selected`、`LevelUpPanel.pause_requested` |
@@ -195,6 +196,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `WeaponSystem.configure(player, active_parent, weapon_data)` | 玩家、活跃父节点、武器数据 | `void` | 武器数据来自 `weapons.json` |
 | `WeaponSystem.apply_modifiers(modifiers)` | `growth_pools.json` 的 modifiers | `void` | 按 `(基础 + 加法) * 乘法` 更新武器运行时属性 |
 | `WeaponSystem.stat_value(stat)` | stat id | `float` | smoke / 调试读取当前武器数值 |
+| `WeaponSystem.active_temporary_modifiers()` | 无 | `Array[Dictionary]` | 当前权威临时强化生命周期快照，续局后用于表现重建 |
 | `SkillSystem.configure(caster, active_parent, skills, resources)` | 施法者、活跃父节点、技能定义、资源定义 | `void` | 技能数据来自 `skills.json`，资源来自角色 `skill_resources`；详见 `docs/代码/skill_system.md` |
 | `SkillSystem.cast_primary_skill()` / `cast_skill(skill_id)` | 无 / 技能 id | Dictionary | 失败不消耗资源；伤害效果必须走 `Combat.apply_damage()`；状态效果必须走 `StatusEffectComponent` |
 | `SkillSystem.apply_status_effect(status_effect)` | `StatusEffect` 兼容对象 | Dictionary | 给释放者自身施加沉默等状态；状态授予 / 移除 ability tags 由组件管理 |
@@ -251,7 +253,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 武器：从 `characters[].starting_loadout.weapon_id` 读取，不在代码写武器 id 分支。
 - 技能：从 `characters[].starting_loadout.skill_ids` 读取，不绑定英雄 id；默认主技能为列表第一项 `skill_overdrive_rounds`，通过 `skill_effect_weapon_modifiers` 服务射击强化；技能定义在 `skills.json`，模式可用池在 `game_modes.resource_pools.skills`；ability tag / activation 条件来自词表 §12-G，状态效果与叠加规则来自词表 §9-A~§9-B。
 - 技能资源：从 `characters[].skill_resources` 读取，当前默认资源为 `mana`；后续怒气、能量等资源应新增资源 id 和角色资源池，不在 SkillSystem 写死。
-- 子弹池：从 `weapons[].projectile.pool_id` 读取；当前样例为已登记 `bullet_basic`。`base_stats.pierce_count` 只表示额外伤害目标数，`base_stats.wall_pierce` 为全地形开关且基础武器显式为 `0.0`。两者都经 ModifierEngine 合并，但 `Bullet.configure()` 在发射时快照结果；Buff 结束不追改飞行中的子弹。子弹占位绘制为黄色圆点加暗色轮廓，不承载行为差异。
+- 子弹池：从 `weapons[].projectile.pool_id` 读取；当前样例为已登记 `bullet_basic`。`base_stats.pierce_count` 只表示额外伤害目标数，`base_stats.wall_pierce` 为全地形开关且基础武器显式为 `0.0`。两者都经 ModifierEngine 合并，但 `Bullet.configure()` 在发射时快照结果；Buff 结束不追改飞行中的子弹。子弹场景使用黄色圆点、暗色轮廓与共享 Shader RibbonTrail；尾迹只表达飞行方向，不承载伤害或行为差异。
 - Actor 场景缓存：运行开始时按唯一 `scene_path` 一次性加载角色与本局五种敌人的 `PackedScene`。正式玩家入口使用 `ResourceLoader.load_threaded_request()` / `load_threaded_get()`，工具入口同步加载；两条路径得到同一缓存。多个内容 id 可复用同一场景路径，但角色场景不得指向 `player_base.tscn`，敌人场景不得指向 `enemy_base.tscn` 或正式 actor 目录之外。
 - 敌人池：从 `enemies.csv.pool_id` / `pool_prewarm` 读取；当前五种敌人分别使用 `enemy_chaser`、`enemy_swarm`、`enemy_stalker`、`enemy_bulwark`、`enemy_spitter` 独立对象池，预热为 `8 / 5 / 3 / 4 / 8`。factory 绑定该行 `scene_path`，生成、模块 placement 与快照恢复必须取得相同专属场景，池复用不得跨敌人类型。
 - 敌人 AI profile：从 `enemies.csv.ai_profile_id` 引用 schema v3 `enemy_ai_profiles.json`；`perception` 分别配置视觉半径、隔墙路径感知半径和记忆时间，profile 继续负责动作评分、守家、冲锋和远程投射参数。模块模式的共享导航 / 地形视线来自 `ModuleWorldManager`，派生缓存不进 run v4。玩家是唯一战斗目标，敌方伤害来源会被拒绝；中心分离只负责防重叠。详细规则见 `docs/代码/enemy_ai.md`。
@@ -259,7 +261,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 玩家中心排斥：从合并后的玩家 `base_stats.player_separation_radius` 读取；当前默认 10px。敌人与玩家的最小中心距离为两者分离半径之和，碰到时只推开敌人，不改变玩家移动手感；接触伤害距离会取敌人 `hit_radius` 与双方分离半径之和的较大值，避免推开后反而打不到玩家。
 - 俯视资产规则：地面范围类资产（机关、AOE、房间边界、地面符号）默认使用矩形 / 方形俯视格或清晰俯视轮廓；机关和规则型地面 footprint 尺寸应表达为格子整数倍。角色、敌人、拾取物、子弹、障碍物和特效不强制矩形，但必须有清晰俯视轮廓、方向标记、功能色和真实判定形状。AI 生成正式资源或占位替换时先写清 footprint、anchor、orientation_read、sort layer 和真实判定形状。
 - 玩家占位表现：由 `player_base.tscn` 和角色专属继承场景中的 `Polygon2D` / `Line2D` 保存蓝色轮廓、朝向标记和可编辑静态结构；脚本只驱动完整 `aim_direction`、受伤红闪和运行时状态。基础场景保留与 12 px 轮廓一致的 `CircleShape2D`，使 `move_and_slide()` 能与模块封锁格的 `StaticBody2D` 边界碰撞；不能只画角色而省略物理 shape。正式玩家场景不再挂 `Player3DVisual`，不再用 `SubViewport + Camera3D` 正交渲染低模胶囊。
-- 敌人占位表现：`enemy_base.tscn` 提供共享组件，每个 `enemies/enemy_*.tscn` 继承它并覆盖导出的 `fill_color`、`Polygon2D` 轮廓和可编辑静态子节点；`Enemy.configure()` 只应用 `hit_radius`、生命、速度、伤害和 AI 等玩法数据，不覆盖场景颜色 / 归一化几何。命中与死亡反馈仍由脚本驱动，不承载行为分支。
+- 敌人占位表现：`enemy_base.tscn` 提供共享组件，每个 `enemies/enemy_*.tscn` 继承它并覆盖导出的 `fill_color`、`Polygon2D` 轮廓和可编辑静态子节点；`Enemy.configure()` 只应用 `hit_radius`、生命、速度、伤害、AI 和表现 profile，不覆盖场景颜色 / 归一化几何。命中 / 退场时间轴由 `ActorPresentationController`，语义组合由 `GameplayFeedbackController` 驱动；实体 0.18 秒回池，world-space 残影可独立完成余韵，不承载行为分支。
 - 机关占位表现：通用 `Hazard` 绘制矩形危险地块；`hazards.csv.radius_tiles` 表示占用地图矩形格的整数倍，`MapManager.grid_cell_size()` 同时驱动背景网格、机关绘制和触发判定。
 - 战区导演：`warzone_directors.json` 声明当前模式的固定 phase、mutation 和兴趣点；`GameplayRunLoop` 用它 gating wave，并把当前 layout 的兴趣点交给 `MapManager` 生成初始 `source="director"` 机关；不能让它读取玩家血量、DPS、受伤次数、输入节奏或其它玩家状态。F12 当前四个兴趣点通过通用 `resource_rewards[]` / `gear_mod_rewards[]`、`requires_interaction`、`target_hp` / `target_hit_radius` 和 `completes_run` 接线，不按 `poi_id` 特判；`requires_interaction` 缓存箱和 `target_hp` 目标都必须走 MapManager 的独立 POI anchor，不能复用陷阱位置；缓存箱是贴地 POI 视觉，层级应在地图背景之上、机关 / 敌人 / 玩家模型之下；后续守卫或核心实体仍应复用 reward / objective 数据而不是新增 id 分支。
 - 玩家生命尺度：默认角色 `max_hp` 为 600.0，采用浮点血量尺度而非旧心数尺度；`health_regen` 在 `PLAYING` 状态下按 `GameClock.delta_scaled()` 自动恢复生命且不超过上限，当前默认 1.5 HP/s。
@@ -395,6 +397,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - Gameplay runtime 代码改动必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`。
 - Gameplay runtime / UI 场景结构改动还必须跑 `python tools/godot_bridge.py --project client runtime-smoke`，涉及标题 Gear Mod 面板时追加 `gear-mod-smoke`。
 - 涉及启动、输入、WeaponSystem、SkillSystem、子弹、敌人、EnemyAI、Spawner、经验球、升级选择、Combat 或失败状态时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
+- 改角色挂点、表现 cue、命中 / 退场、VfxHost 或回池边界时追加 `vfx-smoke` 与 `actor-scene-smoke`；回放 summary 和 gameplay RNG 不得因纯表现变化而改变。
 - 涉及有限地图、`map_layouts.json`、PCG 摆放、WarzoneDirector 兴趣点接入、手工机关摆点、HazardSystem 或 `hazards.csv` 时追加 `python tools/godot_bridge.py --project client runtime-smoke`、`python tools/godot_bridge.py --project client f9-demo-smoke`；涉及兴趣点奖励、`GearModSystem` 资源 / Mod 发放或完成面板时追加 `gear-mod-smoke` 与 `save-smoke`；涉及 run 快照恢复时追加 `save-smoke`。
 - 涉及技能目标、资源、冷却、效果解释或 run 技能快照时追加 `python tools/godot_bridge.py --project client l1-smoke`；改 run 快照恢复还要追加 `save-smoke`。
 - 涉及 Player / Enemy 状态宿主、owned ability tag 或实体状态快照时追加 `python tools/godot_bridge.py --project client l1-smoke`、`python tools/godot_bridge.py --project client runtime-smoke` 与 `python tools/godot_bridge.py --project client save-smoke`；对象池状态清理变化还要检查复用路径。

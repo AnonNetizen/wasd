@@ -1,0 +1,153 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/vfx/vfx_instance.gd" id="1_xoi36"]
+[ext_resource type="Script" path="res://scripts/vfx/modules/ring_geometry.gd" id="2_xddbe"]
+[ext_resource type="Shader" path="res://shaders/vfx/energy_glow.gdshader" id="3_sg5lr"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_mjram"]
+shader = ExtResource("3_sg5lr")
+shader_parameter/glow_color = Color(1, 0.76, 0.24, 1)
+shader_parameter/intensity = 1.35
+
+[sub_resource type="Animation" id="Animation_efraf"]
+length = 0.01
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(1, 1)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath(".:modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("CoreRing:rotation")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [0.0]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("HotEdge:rotation")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [0.0]
+}
+
+[sub_resource type="Animation" id="Animation_u2oek"]
+length = 0.34
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.34),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [Vector2(0.68, 0.68), Vector2(1.42, 1.42)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath(".:modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.0612, 0.34),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 0), Color(1, 1, 1, 1), Color(1, 1, 1, 0)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("CoreRing:rotation")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.34),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [0.0, 0.7853981633974483]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("HotEdge:rotation")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 0.34),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [0.0, -1.5707963267948966]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_ml0eh"]
+_data = {
+&"RESET": SubResource("Animation_efraf"),
+&"play": SubResource("Animation_u2oek")
+}
+
+[node name="VfxComposite" type="Node2D" unique_id=257662691]
+script = ExtResource("1_xoi36")
+
+[node name="CoreRing" type="Node2D" parent="." unique_id=763874780]
+script = ExtResource("2_xddbe")
+radius = 18.0
+width = 4.0
+tick_length = 7.0
+ring_color = Color(1, 0.76, 0.24, 1)
+
+[node name="HotEdge" type="Node2D" parent="." unique_id=851255933]
+material = SubResource("ShaderMaterial_mjram")
+script = ExtResource("2_xddbe")
+radius = 23.0
+width = 1.5
+tick_count = 4
+tick_length = 4.0
+ring_color = Color(1, 0.98, 0.88, 0.9)
+
+[node name="AccentParticles" type="CPUParticles2D" parent="." unique_id=1193337675]
+amount = 12
+lifetime = 0.34
+one_shot = true
+explosiveness = 1.0
+direction = Vector2(0, -1)
+spread = 180.0
+gravity = Vector2(0, 0)
+initial_velocity_min = 28.0
+initial_velocity_max = 52.0
+scale_amount_max = 2.0
+color = Color(1, 0.76, 0.24, 1)
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=1838615980]
+libraries/ = SubResource("AnimationLibrary_ml0eh")

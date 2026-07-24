@@ -139,7 +139,11 @@ BYPASS_RULES: tuple[BypassRule, ...] = (
     ),
     BypassRule(
         "autoload-bypass-audio",
-        re.compile(r"\bAudioStreamPlayer(?:2D|3D)?\.new\s*\(|\.[Pp]lay\s*\("),
+        re.compile(
+            r"\bAudioStreamPlayer(?:2D|3D)?\.new\s*\("
+            r"|\b(?:audio|music|sfx|voice)[A-Za-z0-9_]*\.[Pp]lay\s*\(",
+            re.IGNORECASE,
+        ),
         "business scripts should use AudioManager for audio playback",
     ),
     BypassRule(

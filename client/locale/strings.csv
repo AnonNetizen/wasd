@@ -11,6 +11,13 @@ ui_settings_sfx_volume,音效音量,SFX Volume
 ui_settings_video,显示,Video
 ui_settings_fullscreen,全屏,Fullscreen
 ui_settings_vsync,垂直同步,VSync
+ui_settings_vfx_quality,特效质量,VFX Quality
+ui_settings_vfx_quality_low,低,Low
+ui_settings_vfx_quality_medium,中,Medium
+ui_settings_vfx_quality_high,高,High
+ui_settings_accessibility,无障碍,Accessibility
+ui_settings_reduced_motion,减少动态效果,Reduce Motion
+ui_settings_screen_flashes,屏幕闪烁,Screen Flashes
 ui_settings_gameplay,玩法,Gameplay
 ui_settings_fire_on_release,旧自动开火兼容项,Legacy Auto-Fire Option
 ui_settings_aim_mode,瞄准模式,Aim Mode

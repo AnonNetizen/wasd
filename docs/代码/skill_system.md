@@ -72,6 +72,7 @@
 | 名称 | 参数 | 触发时机 |
 |------|------|----------|
 | `skill_cast` | `skill_id: String`、`result: Dictionary` | `cast_skill()` 完成一次有效效果解释后触发 |
+| `skill_failed` | `skill_id: String`、`result: Dictionary` | 未知技能、状态 / tag / 资源 / 冷却 / 目标等任一释放失败路径；供表现层做失败反馈，不改变失败原因 |
 
 ## 数据与契约
 

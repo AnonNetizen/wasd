@@ -1,11 +1,65 @@
-[gd_scene format=3 uid="uid://baayqrp1ujp06"]
+[gd_scene load_steps=9 format=3 uid="uid://baayqrp1ujp06"]
 
 [ext_resource type="Script" uid="uid://74a5uolltqoq" path="res://scripts/gameplay/enemy.gd" id="1_icmfh"]
+[ext_resource type="Script" path="res://scripts/gameplay/presentation/actor_presentation_controller.gd" id="2_presentation"]
 [ext_resource type="Script" uid="uid://b8t5v1sfogtt1" path="res://scripts/combat/status_effect_component.gd" id="2_xi12d"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_enemy"]
 resource_local_to_scene = true
 radius = 14.0
+
+[sub_resource type="Animation" id="Animation_enemy_reset"]
+resource_name = "RESET"
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:hit_progress")
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [-1.0]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath(".:defeat_progress")
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [-1.0]
+}
+
+[sub_resource type="Animation" id="Animation_enemy_hit"]
+resource_name = "hit"
+length = 0.16
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:hit_progress")
+tracks/0/interp = 1
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.16),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [0.0, 1.0]
+}
+
+[sub_resource type="Animation" id="Animation_enemy_defeat"]
+resource_name = "defeat"
+length = 0.18
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:defeat_progress")
+tracks/0/interp = 1
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.18),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [0.0, 1.0]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_enemy"]
+_data = {
+&"RESET": SubResource("Animation_enemy_reset"),
+&"defeat": SubResource("Animation_enemy_defeat"),
+&"hit": SubResource("Animation_enemy_hit")
+}
 
 [node name="Enemy" type="CharacterBody2D" unique_id=62248898]
 collision_layer = 0
@@ -34,6 +88,32 @@ polygon = PackedVector2Array(0.25, 0, 0.177, 0.177, 0, 0.25, -0.177, 0.177, -0.2
 [node name="Eye" type="Polygon2D" parent="Visual" unique_id=254470897]
 position = Vector2(0.35, -0.2)
 polygon = PackedVector2Array(0.152, 0, 0.107, 0.107, 0, 0.152, -0.107, 0.107, -0.152, 0, -0.107, -0.107, 0, -0.152, 0.107, -0.107)
+
+[node name="Presentation" type="Node" parent="."]
+script = ExtResource("2_presentation")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Presentation"]
+callback_mode_process = 2
+libraries = {
+&"": SubResource("AnimationLibrary_enemy")
+}
+
+[node name="VfxAnchors" type="Node2D" parent="."]
+
+[node name="Center" type="Marker2D" parent="VfxAnchors"]
+
+[node name="Ground" type="Marker2D" parent="VfxAnchors"]
+position = Vector2(0, 14)
+
+[node name="Overhead" type="Marker2D" parent="VfxAnchors"]
+position = Vector2(0, -20)
+
+[node name="Status" type="Marker2D" parent="VfxAnchors"]
+
+[node name="Forward" type="Node2D" parent="VfxAnchors"]
+
+[node name="Muzzle" type="Marker2D" parent="VfxAnchors/Forward"]
+position = Vector2(18, 0)
 
 [node name="StatusEffectComponent" type="Node" parent="." unique_id=1819897251]
 script = ExtResource("2_xi12d")

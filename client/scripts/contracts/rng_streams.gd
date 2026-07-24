@@ -6,6 +6,7 @@ const VALUES: Array[String] = [
 	"drop",
 	"combat",
 	"camera_fx",
+	"vfx",
 	"ui_choice",
 	"world",
 	"meta",
@@ -15,6 +16,7 @@ const SPAWN: String = "spawn"
 const DROP: String = "drop"
 const COMBAT: String = "combat"
 const CAMERA_FX: String = "camera_fx"
+const VFX: String = "vfx"
 const UI_CHOICE: String = "ui_choice"
 const WORLD: String = "world"
 const META: String = "meta"

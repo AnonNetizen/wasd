@@ -15,8 +15,6 @@ const STATS := preload("res://scripts/contracts/stats.gd")
 const ACTION_STATE_CHARGE_RELEASE: String = "charge_release"
 const ACTION_STATE_CHARGE_WINDUP: String = "charge_windup"
 const ACTIVE_PLAYER_GROUP: String = "active_player"
-const DEFEAT_FEEDBACK_DURATION: float = 0.18
-const HIT_FLASH_DURATION: float = 0.16
 const NAVIGATION_MODE_DIRECT: String = "direct"
 const NAVIGATION_MODE_FLOW_FIELD: String = "flow_field"
 const NAVIGATION_MODE_LOCAL_ASTAR: String = "local_astar"
@@ -58,12 +56,10 @@ var _contact_damage: float = 0.0
 var _contact_damage_type: String = ""
 var _current_action: String = ""
 var _decision_remaining: float = 0.0
-var _defeat_feedback_remaining: float = 0.0
 var _enemy_id: String = ""
 var _exp_reward: int = 0
 var _facing_sign: float = 1.0
 var _focus_target: Node2D = null
-var _hit_flash_remaining: float = 0.0
 var _hit_radius: float = 0.0
 var _home_position: Vector2 = Vector2.ZERO
 var _has_last_known_position: bool = false
@@ -90,16 +86,12 @@ var _memory_remaining: float = 0.0
 var _cached_navigation_waypoint: Vector2 = Vector2.ZERO
 var _has_cached_navigation_waypoint: bool = false
 var _status_effect_component: Node = null
-var _visual_root: Node2D = null
-var _body_visual: Polygon2D = null
-var _outline_visual: Polygon2D = null
-var _eye_outline_visual: Polygon2D = null
+var _presentation: ActorPresentationController = null
 
 
 func _physics_process(delta: float) -> void:
 	var scaled_delta: float = GameClock.delta_scaled(delta)
-	if _defeat_feedback_remaining > 0.0:
-		_update_defeat_feedback(scaled_delta)
+	if is_defeat_feedback_active():
 		return
 	if _player_target == null or not is_instance_valid(_player_target):
 		return
@@ -108,7 +100,6 @@ func _physics_process(delta: float) -> void:
 	if scaled_delta <= 0.0:
 		return
 
-	_update_hit_flash(scaled_delta)
 	_update_ai_timers(scaled_delta)
 
 	if _is_charge_state_active():
@@ -125,8 +116,13 @@ func _physics_process(delta: float) -> void:
 
 func configure(enemy_data: Dictionary, target: Node2D, navigation_provider: Node = null) -> void:
 	velocity = Vector2.ZERO
-	_defeat_feedback_remaining = 0.0
 	_clear_status_effects_for_reuse()
+	_ensure_presentation()
+	if _presentation != null:
+		_presentation.configure_profile_id(
+			String(enemy_data.get("presentation_profile_id", ""))
+		)
+		_presentation.reset_presentation()
 	_player_target = target
 	_focus_target = target
 	_navigation_provider = navigation_provider
@@ -206,7 +202,7 @@ func ai_debug_summary() -> Dictionary:
 
 
 func is_alive() -> bool:
-	return _life_points > 0.0 and _defeat_feedback_remaining <= 0.0
+	return _life_points > 0.0 and not is_defeat_feedback_active()
 
 
 func enemy_id() -> String:
@@ -214,7 +210,7 @@ func enemy_id() -> String:
 
 
 func is_defeat_feedback_active() -> bool:
-	return _defeat_feedback_remaining > 0.0
+	return _presentation != null and _presentation.is_defeat_active()
 
 
 func was_defeated_by_player() -> bool:
@@ -293,9 +289,12 @@ func receive_damage(info: RefCounted) -> Dictionary:
 	var is_defeated: bool = _life_points <= 0.0
 	if is_defeated:
 		remove_from_group("active_enemies")
-		_defeat_feedback_remaining = DEFEAT_FEEDBACK_DURATION
 		defeated.emit(self, _exp_reward)
-		_refresh_visuals()
+		_ensure_presentation()
+		if _presentation != null:
+			_presentation.play_defeat()
+		else:
+			PoolManager.release(self)
 	else:
 		_start_hit_flash()
 	return {
@@ -373,14 +372,12 @@ func _pool_reset() -> void:
 	_contact_damage_type = ""
 	_current_action = ""
 	_decision_remaining = 0.0
-	_defeat_feedback_remaining = 0.0
 	_enemy_id = ""
 	_exp_reward = 0
 	_facing_sign = 1.0
 	_focus_target = null
 	_has_last_known_position = false
 	_has_movement_target = false
-	_hit_flash_remaining = 0.0
 	_hit_radius = 0.0
 	_home_position = Vector2.ZERO
 	_last_known_position = Vector2.ZERO
@@ -404,13 +401,15 @@ func _pool_reset() -> void:
 	_has_cached_navigation_waypoint = false
 	visible = true
 	_set_collision_enabled(false)
+	_ensure_presentation()
+	if _presentation != null:
+		_presentation.reset_presentation()
 	_refresh_visuals()
 
 
 func _pool_release() -> void:
 	velocity = Vector2.ZERO
 	remove_from_group("active_enemies")
-	_defeat_feedback_remaining = 0.0
 	_clear_status_effects_for_reuse()
 	clear_movement_bounds()
 	_focus_target = null
@@ -425,6 +424,9 @@ func _pool_release() -> void:
 	_terrain_line_of_sight = false
 	_has_cached_navigation_waypoint = false
 	_set_collision_enabled(false)
+	_ensure_presentation()
+	if _presentation != null:
+		_presentation.reset_presentation()
 
 
 func _choose_action() -> void:
@@ -906,23 +908,9 @@ func _is_charge_state_active() -> bool:
 
 
 func _start_hit_flash() -> void:
-	_hit_flash_remaining = HIT_FLASH_DURATION
-	_refresh_visuals()
-
-
-func _update_hit_flash(delta: float) -> void:
-	if _hit_flash_remaining <= 0.0:
-		return
-	_hit_flash_remaining = maxf(_hit_flash_remaining - delta, 0.0)
-	_refresh_visuals()
-
-
-func _update_defeat_feedback(delta: float) -> void:
-	_defeat_feedback_remaining = maxf(_defeat_feedback_remaining - delta, 0.0)
-	if _defeat_feedback_remaining <= 0.0:
-		PoolManager.release(self)
-		return
-	_refresh_visuals()
+	_ensure_presentation()
+	if _presentation != null:
+		_presentation.play_hit()
 
 
 func _update_facing(direction: Vector2) -> void:
@@ -935,44 +923,34 @@ func _update_facing(direction: Vector2) -> void:
 		_refresh_visuals()
 
 
-func _enemy_color() -> Color:
-	if _defeat_feedback_remaining > 0.0:
-		var remaining_ratio: float = _defeat_feedback_remaining / DEFEAT_FEEDBACK_DURATION
-		var result: Color = defeat_feedback_color
-		result.a = remaining_ratio
-		return result
-	if _hit_flash_remaining > 0.0:
-		return hit_flash_color
-	return fill_color
-
-
-func _defeat_scale() -> float:
-	if _defeat_feedback_remaining <= 0.0:
-		return 1.0
-	var elapsed_ratio: float = 1.0 - (_defeat_feedback_remaining / DEFEAT_FEEDBACK_DURATION)
-	return lerpf(1.0, 1.35, elapsed_ratio)
-
-
 func _refresh_visuals() -> void:
-	if _visual_root == null:
-		_visual_root = get_node_or_null("Visual") as Node2D
-		_body_visual = get_node_or_null("Visual/Body") as Polygon2D
-		_outline_visual = get_node_or_null("Visual/Outline") as Polygon2D
-		_eye_outline_visual = get_node_or_null("Visual/EyeOutline") as Polygon2D
-	if _visual_root == null or _body_visual == null:
+	_ensure_presentation()
+	if _presentation == null:
 		return
-	var radius: float = maxf(_hit_radius, 8.0) * _defeat_scale()
-	_visual_root.scale = Vector2(radius * _facing_sign, radius)
-	var color: Color = _enemy_color()
-	_body_visual.color = color
-	if _outline_visual != null:
-		var outline_color: Color = _outline_visual.color
-		outline_color.a = outline_alpha * color.a
-		_outline_visual.color = outline_color
-	if _eye_outline_visual != null:
-		var eye_outline_color: Color = _eye_outline_visual.color
-		eye_outline_color.a = outline_alpha * color.a
-		_eye_outline_visual.color = eye_outline_color
+	var radius: float = maxf(_hit_radius, 8.0)
+	_presentation.configure_visual(
+		fill_color,
+		hit_flash_color,
+		defeat_feedback_color,
+		outline_alpha,
+		Vector2(radius * _facing_sign, radius)
+	)
+
+
+func _ensure_presentation() -> void:
+	if _presentation != null and is_instance_valid(_presentation):
+		return
+	_presentation = get_node_or_null("Presentation") as ActorPresentationController
+	if _presentation == null:
+		push_error("[Enemy] missing scene-authored Presentation")
+		return
+	if not _presentation.defeat_finished.is_connected(_on_defeat_presentation_finished):
+		_presentation.defeat_finished.connect(_on_defeat_presentation_finished)
+
+
+func _on_defeat_presentation_finished() -> void:
+	if is_inside_tree() and is_defeat_feedback_active():
+		PoolManager.release(self)
 
 
 func _check_contact() -> void:

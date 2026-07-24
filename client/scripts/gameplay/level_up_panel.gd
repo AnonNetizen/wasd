@@ -120,9 +120,20 @@ func _refresh_buttons() -> void:
 		button.pressed.connect(Callable(self, "_on_choice_pressed").bind(index))
 		_buttons.append(button)
 		_button_box.add_child(button)
+	var feedback: UIButtonFeedback = get_node_or_null(
+		"UIEffects/ButtonFeedback"
+	) as UIButtonFeedback
+	if feedback != null:
+		feedback.call_deferred("refresh_bindings")
 
 
 func _on_choice_pressed(index: int) -> void:
+	if index >= 0 and index < _buttons.size():
+		var feedback: UISelectionFeedback = get_node_or_null(
+			"UIEffects/SelectionFeedback"
+		) as UISelectionFeedback
+		if feedback != null:
+			feedback.play_selection(_buttons[index])
 	choose_index(index)
 
 

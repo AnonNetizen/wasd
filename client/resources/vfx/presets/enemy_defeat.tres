@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="VfxTargetAnimationPreset" format=3]
+
+[ext_resource type="Script" path="res://scripts/vfx/vfx_target_animation_preset.gd" id="1_mi8xa"]
+
+[resource]
+script = ExtResource("1_mi8xa")
+animation_name = &"defeat"
+target_path = NodePath("Visual")
+duration = 0.18
+tint = Color(1, 0.42, 0.12, 1)
+end_scale = Vector2(1.35, 1.35)
+end_alpha = 0.0
+restore_target_state = false

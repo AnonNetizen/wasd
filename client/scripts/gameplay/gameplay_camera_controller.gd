@@ -66,6 +66,17 @@ func play_player_damage_shake() -> void:
 	_player_damage_shake.emit()
 
 
+func play_feedback(feedback_id: String) -> void:
+	match feedback_id:
+		PLAYER_DAMAGE_SHAKE_PROFILE:
+			play_player_damage_shake()
+		_:
+			push_warning(
+				"[GameplayCameraController] unknown camera feedback: %s"
+				% feedback_id
+			)
+
+
 func is_player_damage_shake_emitting() -> bool:
 	return _player_damage_shake.is_emitting()
 

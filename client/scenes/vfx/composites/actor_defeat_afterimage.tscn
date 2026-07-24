@@ -1,0 +1,84 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/vfx/vfx_actor_afterimage.gd" id="1_qsi8e"]
+[ext_resource type="Shader" path="res://shaders/vfx/energy_glow.gdshader" id="2_1bgbo"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_7c7tg"]
+shader = ExtResource("2_1bgbo")
+shader_parameter/glow_color = Color(1, 0.22, 0.08, 1)
+shader_parameter/intensity = 1.1
+
+[sub_resource type="Animation" id="Animation_1y3rj"]
+length = 0.01
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(1, 1)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath(".:modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+
+[sub_resource type="Animation" id="Animation_n8exy"]
+length = 0.45
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.45),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [Vector2(1, 1), Vector2(1.18, 1.18)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath(".:modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.1, 0.45),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 0.78), Color(1, 0.62, 0.42, 0.58), Color(0.62, 0.16, 0.08, 0)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_exix2"]
+_data = {
+&"RESET": SubResource("Animation_1y3rj"),
+&"play": SubResource("Animation_n8exy")
+}
+
+[node name="ActorDefeatAfterimage" type="Node2D" unique_id=2048152874]
+script = ExtResource("1_qsi8e")
+
+[node name="Visual" type="Node2D" parent="." unique_id=1628448235]
+
+[node name="Outline" type="Polygon2D" parent="Visual" unique_id=462032605]
+color = Color(0.12, 0.04, 0.03, 0.72)
+
+[node name="Body" type="Polygon2D" parent="Visual" unique_id=2075413938]
+material = SubResource("ShaderMaterial_7c7tg")
+color = Color(1, 0.32, 0.12, 0.72)
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=1601729178]
+libraries/ = SubResource("AnimationLibrary_exix2")

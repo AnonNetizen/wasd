@@ -1,0 +1,70 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/effects/ui_panel_transition.gd" id="1_transition"]
+[ext_resource type="Script" path="res://scripts/ui/effects/ui_button_feedback.gd" id="2_button"]
+[ext_resource type="Script" path="res://scripts/ui/effects/ui_selection_feedback.gd" id="3_selection"]
+[ext_resource type="Script" path="res://scripts/ui/effects/ui_focus_indicator.gd" id="4_focus"]
+[ext_resource type="Script" path="res://scripts/ui/effects/ui_toast.gd" id="5_toast"]
+[ext_resource type="Script" path="res://scripts/ui/effects/ui_value_feedback.gd" id="6_value"]
+[ext_resource type="Script" path="res://scripts/ui/effects/ui_screen_accent.gd" id="7_accent"]
+[ext_resource type="Script" path="res://scripts/ui/effects/ui_effect_sequence.gd" id="8_sequence"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_focus"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.78, 0.25, 0.92)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[node name="UIEffectBundle" type="Node"]
+process_mode = 3
+
+[node name="PanelTransition" type="Node" parent="."]
+process_mode = 3
+script = ExtResource("1_transition")
+
+[node name="ButtonFeedback" type="Node" parent="."]
+process_mode = 3
+script = ExtResource("2_button")
+
+[node name="SelectionFeedback" type="Node" parent="."]
+process_mode = 3
+script = ExtResource("3_selection")
+
+[node name="FocusIndicator" type="Panel" parent="."]
+process_mode = 3
+visible = false
+z_index = 500
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_focus")
+script = ExtResource("4_focus")
+
+[node name="Toast" type="Node" parent="."]
+process_mode = 3
+script = ExtResource("5_toast")
+
+[node name="ValueFeedback" type="Node" parent="."]
+process_mode = 3
+script = ExtResource("6_value")
+
+[node name="ScreenAccent" type="ColorRect" parent="."]
+process_mode = 3
+z_index = 400
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+script = ExtResource("7_accent")
+
+[node name="EffectSequence" type="Node" parent="."]
+process_mode = 3
+script = ExtResource("8_sequence")

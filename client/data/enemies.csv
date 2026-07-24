@@ -1,6 +1,6 @@
-id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius,separation_radius
-enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/actors/enemies/enemy_chaser.tscn,8,enemy_ai_chase_contact,12,110.0,100,physical,3,14.0,9.0
-enemy_swarm,enemy_swarm_name,tag_enemy,enemy_swarm,res://scenes/gameplay/actors/enemies/enemy_swarm.tscn,5,enemy_ai_fast_chase,6,155.0,100,physical,2,10.0,6.0
-enemy_stalker,enemy_stalker_name,tag_enemy,enemy_stalker,res://scenes/gameplay/actors/enemies/enemy_stalker.tscn,3,enemy_ai_charge_stalker,16,125.0,200,physical,5,13.0,8.0
-enemy_bulwark,enemy_bulwark_name,tag_enemy,enemy_bulwark,res://scenes/gameplay/actors/enemies/enemy_bulwark.tscn,4,enemy_ai_home_guard,28,72.0,200,physical,6,18.0,12.0
-enemy_spitter,enemy_spitter_name,tag_enemy,enemy_spitter,res://scenes/gameplay/actors/enemies/enemy_spitter.tscn,8,enemy_ai_ranged_spitter,10,88.0,60,physical,4,12.0,8.0
+id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,presentation_profile_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius,separation_radius
+enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/actors/enemies/enemy_chaser.tscn,8,enemy_ai_chase_contact,presentation_enemy_default,12,110.0,100,physical,3,14.0,9.0
+enemy_swarm,enemy_swarm_name,tag_enemy,enemy_swarm,res://scenes/gameplay/actors/enemies/enemy_swarm.tscn,5,enemy_ai_fast_chase,presentation_enemy_default,6,155.0,100,physical,2,10.0,6.0
+enemy_stalker,enemy_stalker_name,tag_enemy,enemy_stalker,res://scenes/gameplay/actors/enemies/enemy_stalker.tscn,3,enemy_ai_charge_stalker,presentation_enemy_default,16,125.0,200,physical,5,13.0,8.0
+enemy_bulwark,enemy_bulwark_name,tag_enemy,enemy_bulwark,res://scenes/gameplay/actors/enemies/enemy_bulwark.tscn,4,enemy_ai_home_guard,presentation_enemy_default,28,72.0,200,physical,6,18.0,12.0
+enemy_spitter,enemy_spitter_name,tag_enemy,enemy_spitter,res://scenes/gameplay/actors/enemies/enemy_spitter.tscn,8,enemy_ai_ranged_spitter,presentation_enemy_default,10,88.0,60,physical,4,12.0,8.0

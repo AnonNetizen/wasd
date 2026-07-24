@@ -32,6 +32,8 @@
 | `client/data/characters.json` | schema v2 角色专属场景、基础属性、标签、能力、控制配置和起始携带引用边界 |
 | `client/data/weapons.json` | 武器与子弹基础数值、对象池、伤害类型和音频 id 边界 |
 | `client/data/skills.json` | 项目版轻量 GAS 技能、ability tag、激活条件、资源消耗、目标类型、效果原语和冷却边界 |
+| `client/data/visual_effects.json` | 视觉效果 catalog、资源、空间、生命周期、对象池与表现策略 |
+| `client/data/presentation_profiles.json` | 表现 profile 继承、cue、效果 / 音频 / 相机 / 屏幕绑定 |
 | `client/data/enemy_ai_profiles.json` | schema v2 敌人对玩家 AI profile、感知、动作参数和动作列表边界 |
 | `client/data/enemies.csv` | 敌人专属场景、独立对象池 / 预热、基础数值、通用 tag、AI profile、伤害类型和模式引用边界 |
 | `client/data/gear_mods.json` | 装备 Mod 定义、槽位、稀有度、rank、drain、修正器和分解返还边界 |
@@ -94,15 +96,17 @@
 - 玩家 mod 不得修改 `_contracts.json` 或生成常量；可在 manifest 中声明 `character_ids`、`game_modes`、`content_tags`、`locale_prefixes` 等少量运行时扩展 id，且必须以 `mod_<mod_id>_` 开头。
 - 当前 F3 schema 覆盖：
   - `player.json`：`schema_version`、`base_stats`，stat id 必须来自词表，数值范围按 stat 类型校验；`max_hp` 是正数浮点血量，`health_regen` 是非负 HP/s。
-  - `characters.json`：schema v2 角色 id、专属 `scene_path`、名称 / 描述 key、默认解锁、tags、capabilities、控制配置、起始携带引用和角色基础属性；场景必须是正式 `actors/characters/*.tscn` 下存在的 `PackedScene`，不得指向基础场景或越界。不同角色 id 可以复用同一路径；起始武器、主动道具和消耗品引用必须存在于对应数据文件。
-  - `weapons.json`：武器 id、名称 / 描述 key、默认解锁、开火模式、开火音频 id、武器基础属性、子弹对象池、伤害类型和弹体数值。
-  - `skills.json`：技能 id、名称 / 描述 key、`tag_skill`、ability tags、activation required / blocked / granted tags、冷却、资源消耗、目标类型和效果原语；技能 id、资源、targeting、effect 和 ability tag 必须来自词表 §12-C~12-G，`skill_effect_damage` 的伤害类型交给 `Combat` 词表校验，`skill_effect_apply_status` 的 status / stack_rule / granted ability tags 必须来自词表 §9-A / §9-B / §12-G；当状态效果同时声明正 `magnitude` 与正 `tick_interval` 时，还必须声明已登记 `damage_type`。
+  - `characters.json`：schema v2 角色 id、专属 `scene_path`、表现 profile、名称 / 描述 key、默认解锁、tags、capabilities、控制配置、起始携带引用和角色基础属性；场景必须是正式 `actors/characters/*.tscn` 下存在的 `PackedScene`，不得指向基础场景或越界。不同角色 id 可以复用同一路径；起始武器、主动道具和消耗品引用必须存在于对应数据文件。
+  - `weapons.json`：武器 id、表现 profile、名称 / 描述 key、默认解锁、开火模式、开火音频 id、武器基础属性、子弹对象池、伤害类型和弹体数值。
+  - `skills.json`：技能 id、表现 profile、名称 / 描述 key、`tag_skill`、ability tags、activation required / blocked / granted tags、冷却、资源消耗、目标类型和效果原语；技能 id、资源、targeting、effect 和 ability tag 必须来自词表 §12-C~12-G，`skill_effect_damage` 的伤害类型交给 `Combat` 词表校验，`skill_effect_apply_status` 的 status / stack_rule / granted ability tags 必须来自词表 §9-A / §9-B / §12-G；当状态效果同时声明正 `magnitude` 与正 `tick_interval` 时，还必须声明已登记 `damage_type`。
+  - `visual_effects.json`：唯一 effect id、固定枚举、合法正式资源、质量 / reduced-motion variant、预览参数和对象池引用；高频条目必须声明已登记 pool id，catalog 不得指向 editor-only、`output/test_lab` 或裸程序几何。
+  - `presentation_profiles.json`：唯一 profile id、父继承无环、cue / anchor 枚举、效果引用与可选音频 / 相机 / 屏幕绑定；首版 `hit_stop_profile_id` 必须为空。
   - `enemy_ai_profiles.json`：schema v3 profile id、视线 / 路径 / 记忆感知、决策间隔、玩家权重、守家参数、动作参数和 action id；action 必须来自词表 §12-B，旧单一 `sense_radius` 与种间猎食 / 逃跑字段会被明确拒绝。
-  - `enemies.csv`：敌人 id、名称 key、`tag_enemy`、独立对象池 id、专属 `scene_path`、`pool_prewarm`、AI profile 引用、生命、移速、接触伤害、接触伤害类型、经验奖励和命中半径；`pool_id` 必须唯一且等于敌人 id，旧 `enemy_ranged` 与 `visual_color` 列明确拒绝。场景必须位于正式 `actors/enemies/*.tscn`、存在且为 `PackedScene`，可跨内容 id 复用但不得指向基础场景；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
+  - `enemies.csv`：敌人 id、名称 key、`tag_enemy`、独立对象池 id、专属 `scene_path`、表现 profile、`pool_prewarm`、AI profile 引用、生命、移速、接触伤害、接触伤害类型、经验奖励和命中半径；`pool_id` 必须唯一且等于敌人 id，旧 `enemy_ranged` 与 `visual_color` 列明确拒绝。场景必须位于正式 `actors/enemies/*.tscn`、存在且为 `PackedScene`，可跨内容 id 复用但不得指向基础场景；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
   - `gear_mods.json`：装备 Mod id、名称 / 描述 key、英雄 / 武器 slot、稀有度、最大 rank、drain、按 rank 计算的 stat modifier、装配规则和分解返还资源；id、slot、rarity、resource、stack rule 均来自词表 §13-A~§13-E。
   - `gear_mod_drop_tables.csv`：装备 Mod 掉落来源敌人、Mod id、掉落概率和敌人等级区间；敌人必须存在于 `enemies.csv`，Mod 必须存在于 `gear_mods.json`，概率必须是 `0.0..1.0`。
   - `gear_mod_fusion_costs.csv`：装备 Mod 升到目标 rank 的资源成本；rarity 与 resource 必须来自词表，且覆盖 `gear_mods.json` 中每个已使用 rarity 的 `1..max_rank`。
-  - `hazards.csv`：机关 id、名称 key、`tag_hazard`、对象池 id、伤害、伤害类型、触发间隔、范围和持续时间。
+  - `hazards.csv`：机关 id、名称 key、`tag_hazard`、对象池 id、表现 profile、伤害、伤害类型、触发间隔、范围和持续时间。
   - `map_layouts.json`：layout id、模式引用、有限地图矩形 bounds、玩家出生点、安全半径、刷怪边距、PCG 机关规则和人工机关摆点；`mode_id` 必须存在于 `game_modes.json`，所有机关 id 必须存在于 `hazards.csv`，bounds 必须分别整除 `grid.cell_width/cell_height`。
   - `spawn_waves.csv`：波次 id、模式 id、波次序号、时间窗、敌人引用、敌人权重、刷怪间隔、同时存活上限、预算，以及可选机关引用 / 权重。
   - `warzone_directors.json`：schema v2 director id、模式引用、固定 mutation、阶段时间窗、阶段启用 wave 和兴趣点；`mode_id` 必须存在于 `game_modes.json`，`wave_ids` 必须引用同模式 `spawn_waves.csv`，同模式所有 wave 必须至少被一个 phase 引用，兴趣点的 `hazard_ids` 必须非空且机关 / 地图引用必须存在；旧导演敌人组合字段会被明确拒绝。
@@ -136,6 +140,7 @@
 | 你想改什么 | 主要文件 | 同步文档 | 验证方式 |
 |------------|----------|----------|----------|
 | 加 JSON 数据 schema | `data_loader.gd` + `tools/validate_data.py` | `client/data/README.md`、对应模块文档 | `tools/validate_data.py`、headless boot |
+| 改视觉效果 / profile schema | `data_loader.gd`、`validate_data.py`、catalog / profiles | `visual_effects.md`、数据手册、词表 | `sync_contracts --check` + `validate_data` + `vfx-smoke` |
 | 改技能 schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/skill_system.md`、必要时 `docs/代码/status_effect_component.md` | `validate_data` + schema test + `l1-smoke` / `runtime-smoke` |
 | 加 CSV 表读取 | `data_loader.gd` | `client/data/README.md` | `load_csv()` smoke / 数据校验 |
 | 改敌人 AI profile schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/enemy_ai.md` | `validate_data` + schema test + `runtime-smoke` |

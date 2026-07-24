@@ -4,6 +4,12 @@ class_name WeaponSystem
 extends Node
 
 
+signal temporary_modifier_started(snapshot: Dictionary)
+signal temporary_modifier_refreshed(snapshot: Dictionary)
+signal temporary_modifier_expired(snapshot: Dictionary)
+signal temporary_modifiers_restored(active: Array[Dictionary])
+signal weapon_fired(context: Dictionary)
+
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 
@@ -63,15 +69,31 @@ func apply_temporary_modifiers(modifiers: Array, duration: float) -> void:
 	var remaining: float = maxf(duration, 0.0)
 	if modifier_list.is_empty() or remaining <= 0.0:
 		return
-	_temporary_modifiers.append({
+	var is_refresh: bool = _has_matching_temporary_modifier(
+		_temporary_modifiers,
+		modifier_list
+	)
+	var added_entry: Dictionary = {
 		"remaining": remaining,
 		"modifiers": modifier_list,
-	})
+	}
+	_temporary_modifiers.append(added_entry)
 	_rebuild_runtime_stats()
+	if is_refresh:
+		temporary_modifier_refreshed.emit(added_entry.duplicate(true))
+	else:
+		temporary_modifier_started.emit(added_entry.duplicate(true))
 
 
 func stat_value(stat: String) -> float:
 	return float(_runtime_stats.get(stat, 0.0))
+
+
+func active_temporary_modifiers() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for entry: Dictionary in _temporary_modifiers:
+		result.append(entry.duplicate(true))
+	return result
 
 
 func snapshot() -> Dictionary:
@@ -89,6 +111,7 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_temporary_modifiers = _typed_dictionary_array(snapshot_data.get("temporary_modifiers", []))
 	_rebuild_runtime_stats()
 	_cooldown_remaining = maxf(float(snapshot_data.get("cooldown_remaining", 0.0)), 0.0)
+	temporary_modifiers_restored.emit(active_temporary_modifiers())
 
 
 func _fire_once() -> void:
@@ -96,6 +119,15 @@ func _fire_once() -> void:
 	var bullet_count: int = int(_runtime_stats.get(STATS.BULLET_COUNT, 1))
 	for _index: int in range(maxi(bullet_count, 1)):
 		_spawn_bullet(_runtime_stats, projectile)
+	weapon_fired.emit({
+		"owner": _player,
+		"world_position": _player.global_position if _player != null else Vector2.ZERO,
+		"direction": _player.get("aim_direction") if _player != null else Vector2.RIGHT,
+		"bullet_count": maxi(bullet_count, 1),
+		"presentation_profile_id": String(
+			_weapon_data.get("presentation_profile_id", "")
+		),
+	})
 
 
 func _spawn_bullet(stats: Dictionary, projectile: Dictionary) -> void:
@@ -148,9 +180,11 @@ func _update_temporary_modifiers(delta: float) -> void:
 	if _temporary_modifiers.is_empty():
 		return
 	var active_modifiers: Array[Dictionary] = []
+	var expired_modifiers: Array[Dictionary] = []
 	for entry: Dictionary in _temporary_modifiers:
 		var remaining: float = maxf(float(entry.get("remaining", 0.0)) - delta, 0.0)
 		if remaining <= 0.0:
+			expired_modifiers.append(entry.duplicate(true))
 			continue
 		var updated_entry: Dictionary = entry.duplicate(true)
 		updated_entry["remaining"] = remaining
@@ -160,6 +194,38 @@ func _update_temporary_modifiers(delta: float) -> void:
 		return
 	_temporary_modifiers = active_modifiers
 	_rebuild_runtime_stats()
+	var emitted_modifier_groups: Array = []
+	for expired: Dictionary in expired_modifiers:
+		var expired_group: Array[Dictionary] = _typed_dictionary_array(
+			expired.get("modifiers", [])
+		)
+		if (
+			_has_matching_temporary_modifier(active_modifiers, expired_group)
+			or _contains_modifier_group(emitted_modifier_groups, expired_group)
+		):
+			continue
+		emitted_modifier_groups.append(expired_group)
+		temporary_modifier_expired.emit(expired)
+
+
+func _has_matching_temporary_modifier(
+		entries: Array[Dictionary],
+		modifiers: Array[Dictionary]
+	) -> bool:
+	for entry: Dictionary in entries:
+		if _typed_dictionary_array(entry.get("modifiers", [])) == modifiers:
+			return true
+	return false
+
+
+func _contains_modifier_group(
+		groups: Array,
+		modifiers: Array[Dictionary]
+	) -> bool:
+	for raw_group: Variant in groups:
+		if _typed_dictionary_array(raw_group) == modifiers:
+			return true
+	return false
 
 
 func _is_fire_action_pressed() -> bool:

@@ -14,6 +14,7 @@ def main() -> int:
         ("golden semantic lint passes", _test_golden_semantic_lint_passes),
         ("special id branch warns", _test_special_id_branch_warns),
         ("business autoload bypass warns", _test_business_autoload_bypass_warns),
+        ("direct audio playback warns but animation playback passes", _test_audio_playback_rule_is_scoped),
         ("editor tooling bypass passes", _test_editor_tooling_bypass_passes),
         ("direct pool and popup bypass warns", _test_direct_pool_and_popup_bypass_warns),
         ("registered pool factories and local nodes pass", _test_registered_pool_factories_and_local_nodes_pass),
@@ -104,6 +105,34 @@ def _test_business_autoload_bypass_warns() -> None:
         _with_project_root(root)
         warnings = lint_semantic_rules.run_checks()
         assert any(warning.rule == "autoload-bypass-rng" for warning in warnings), _format(warnings)
+
+
+def _test_audio_playback_rule_is_scoped() -> None:
+    with _temporary_project() as root:
+        _write_contract(root, "CharacterIds", {"VALUES", "CHARACTER_DEFAULT"})
+        _write_script(
+            root,
+            "gameplay/presentation.gd",
+            "\n".join(
+                [
+                    "# Doc: docs/代码/presentation.md",
+                    "extends Node",
+                    "",
+                    "func play_feedback(audio_player: AudioStreamPlayer, animation_player: AnimationPlayer) -> void:",
+                    "\taudio_player.play()",
+                    '\tanimation_player.play(&"hit")',
+                    "",
+                ]
+            ),
+        )
+        _with_project_root(root)
+        warnings = [
+            warning
+            for warning in lint_semantic_rules.run_checks()
+            if warning.rule == "autoload-bypass-audio"
+        ]
+        assert len(warnings) == 1, _format(warnings)
+        assert warnings[0].line_number == 5, _format(warnings)
 
 
 def _test_editor_tooling_bypass_passes() -> None:

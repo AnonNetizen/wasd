@@ -58,6 +58,7 @@ func _run() -> void:
 	_expect(GameState.is_state(GameState.PAUSED), "ReplayInputSmoke should open PauseMenu after pause action")
 	await _inject_key(KEY_ESCAPE, true)
 	await _inject_key(KEY_ESCAPE, false)
+	await _wait_for_game_state(GameState.PLAYING)
 	_expect(GameState.is_state(GameState.PLAYING), "ReplayInputSmoke should return to PLAYING after ui_back")
 
 	var events_before_playback: int = (Replay.snapshot().get("input_events", []) as Array).size()
@@ -160,6 +161,13 @@ func _wait_for_node(node_name: String) -> Node:
 		if node != null:
 			return node
 	return null
+
+
+func _wait_for_game_state(expected_state: StringName) -> void:
+	for _index: int in range(120):
+		if GameState.is_state(expected_state):
+			return
+		await get_tree().process_frame
 
 
 func _find_node_by_name(root_node: Node, target_name: String) -> Node:

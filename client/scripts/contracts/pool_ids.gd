@@ -13,6 +13,7 @@ const VALUES: Array[String] = [
 	"damage_number",
 	"hit_spark",
 	"pickup_orb",
+	"vfx_weapon_muzzle_flash",
 ]
 
 const BULLET_BASIC: String = "bullet_basic"
@@ -26,3 +27,4 @@ const HAZARD_SPIKE: String = "hazard_spike"
 const DAMAGE_NUMBER: String = "damage_number"
 const HIT_SPARK: String = "hit_spark"
 const PICKUP_ORB: String = "pickup_orb"
+const VFX_WEAPON_MUZZLE_FLASH: String = "vfx_weapon_muzzle_flash"

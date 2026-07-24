@@ -17,6 +17,8 @@ const DATA_ROOT: String = "res://data/"
 const LOCALE_STRINGS_PATH: String = "res://locale/strings.csv"
 const PLAYER_DATA_PATH: String = "res://data/player.json"
 const CAMERA_FEEDBACK_PATH: String = "res://data/camera_feedback.json"
+const VISUAL_EFFECTS_PATH: String = "res://data/visual_effects.json"
+const PRESENTATION_PROFILES_PATH: String = "res://data/presentation_profiles.json"
 const CHARACTERS_PATH: String = "res://data/characters.json"
 const WEAPONS_PATH: String = "res://data/weapons.json"
 const ENEMIES_PATH: String = "res://data/enemies.csv"
@@ -136,6 +138,13 @@ func validate_project_data() -> bool:
 	is_valid = _validate_locale_strings(locale_keys) and is_valid
 	is_valid = _validate_player_json() and is_valid
 	is_valid = _validate_camera_feedback_json() and is_valid
+	is_valid = _validate_visual_effects_json() and is_valid
+	var visual_effect_ids: Dictionary = _collect_visual_effect_ids()
+	is_valid = _validate_presentation_profiles_json(visual_effect_ids) and is_valid
+	var presentation_profile_ids: Dictionary = _collect_presentation_profile_ids()
+	is_valid = _validate_presentation_profile_references(
+		presentation_profile_ids
+	) and is_valid
 	is_valid = _validate_weapons_json(locale_keys) and is_valid
 	var weapon_ids: Dictionary = _collect_weapon_ids()
 	is_valid = _validate_enemy_ai_profiles_json() and is_valid
@@ -341,6 +350,615 @@ func _validate_camera_feedback_json() -> bool:
 	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.positional_multiplier_x", shake.get("positional_multiplier_x"), 0.0, 1.0) and is_valid
 	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.positional_multiplier_y", shake.get("positional_multiplier_y"), 0.0, 1.0) and is_valid
 	_last_schema_counts["camera_feedback_profiles"] = 1
+	return is_valid
+
+
+func _validate_visual_effects_json() -> bool:
+	var data: Variant = load_json(VISUAL_EFFECTS_PATH)
+	if not data is Dictionary:
+		return _schema_fail(VISUAL_EFFECTS_PATH, "root", "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_exact_int(
+		VISUAL_EFFECTS_PATH,
+		"schema_version",
+		payload.get("schema_version"),
+		1
+	) and is_valid
+	var effects: Array = _require_array(
+		VISUAL_EFFECTS_PATH,
+		"effects",
+		payload.get("effects")
+	)
+	if effects.is_empty():
+		is_valid = _schema_fail(
+			VISUAL_EFFECTS_PATH,
+			"effects",
+			"non-empty Array"
+		) and is_valid
+	var seen: Dictionary = {}
+	var effect_entries: Dictionary = {}
+	_last_schema_counts["visual_effects"] = effects.size()
+	for index: int in range(effects.size()):
+		var field: String = "effects[%d]" % index
+		var raw_effect: Variant = effects[index]
+		if not raw_effect is Dictionary:
+			is_valid = _schema_fail(
+				VISUAL_EFFECTS_PATH,
+				field,
+				"Dictionary"
+			) and is_valid
+			continue
+		var effect_data: Dictionary = raw_effect as Dictionary
+		var effect_id: String = String(effect_data.get("id", "")).strip_edges()
+		is_valid = _require_non_empty_string(
+			VISUAL_EFFECTS_PATH,
+			"%s.id" % field,
+			effect_data.get("id")
+		) and is_valid
+		if not effect_id.is_empty():
+			if seen.has(effect_id):
+				is_valid = _schema_fail(
+					VISUAL_EFFECTS_PATH,
+					"%s.id" % field,
+					"unique effect id"
+				) and is_valid
+			seen[effect_id] = true
+			effect_entries[effect_id] = effect_data
+		is_valid = _require_non_empty_string(
+			VISUAL_EFFECTS_PATH,
+			"%s.editor_name" % field,
+			effect_data.get("editor_name")
+		) and is_valid
+		var domain: String = _require_registered(
+			VISUAL_EFFECTS_PATH,
+			"%s.domain" % field,
+			effect_data.get("domain"),
+			"vfx_domains"
+		)
+		var kind: String = _require_registered(
+			VISUAL_EFFECTS_PATH,
+			"%s.kind" % field,
+			effect_data.get("kind"),
+			"vfx_kinds"
+		)
+		is_valid = not domain.is_empty() and is_valid
+		is_valid = not kind.is_empty() and is_valid
+		is_valid = _require_registered(
+			VISUAL_EFFECTS_PATH,
+			"%s.space" % field,
+			effect_data.get("space"),
+			"vfx_spaces"
+		) != "" and is_valid
+		is_valid = _require_registered(
+			VISUAL_EFFECTS_PATH,
+			"%s.lifecycle" % field,
+			effect_data.get("lifecycle"),
+			"vfx_lifecycles"
+		) != "" and is_valid
+		is_valid = _require_number(
+			VISUAL_EFFECTS_PATH,
+			"%s.duration" % field,
+			effect_data.get("duration"),
+			0.0
+		) and is_valid
+		is_valid = _require_bool(
+			VISUAL_EFFECTS_PATH,
+			"%s.high_frequency" % field,
+			effect_data.get("high_frequency")
+		) and is_valid
+		is_valid = _validate_vfx_resource_path(
+			"%s.resource_path" % field,
+			effect_data.get("resource_path"),
+			kind
+		) and is_valid
+		var pool_id: String = String(effect_data.get("pool_id", ""))
+		if bool(effect_data.get("high_frequency", false)) and pool_id.is_empty():
+			is_valid = _schema_fail(
+				VISUAL_EFFECTS_PATH,
+				"%s.pool_id" % field,
+				"registered pool id for high-frequency effect"
+			) and is_valid
+		if not pool_id.is_empty():
+			is_valid = _require_registered(
+				VISUAL_EFFECTS_PATH,
+				"%s.pool_id" % field,
+				pool_id,
+				"pool_ids"
+			) != "" and is_valid
+			is_valid = _require_int(
+				VISUAL_EFFECTS_PATH,
+				"%s.prewarm" % field,
+				effect_data.get("prewarm", 0),
+				0
+			) and is_valid
+		var quality_variants: Variant = effect_data.get("quality_variants", {})
+		if not quality_variants is Dictionary:
+			is_valid = _schema_fail(
+				VISUAL_EFFECTS_PATH,
+				"%s.quality_variants" % field,
+				"Dictionary"
+			) and is_valid
+		else:
+			for raw_quality: Variant in (quality_variants as Dictionary).keys():
+				is_valid = _require_registered(
+					VISUAL_EFFECTS_PATH,
+					"%s.quality_variants.%s" % [field, String(raw_quality)],
+					String(raw_quality),
+					"vfx_qualities"
+				) != "" and is_valid
+				is_valid = _require_non_empty_string(
+					VISUAL_EFFECTS_PATH,
+					"%s.quality_variants.%s" % [field, String(raw_quality)],
+					(quality_variants as Dictionary)[raw_quality]
+				) and is_valid
+		var reduced_motion: Variant = effect_data.get("reduced_motion")
+		if not reduced_motion is Dictionary:
+			is_valid = _schema_fail(
+				VISUAL_EFFECTS_PATH,
+				"%s.reduced_motion" % field,
+				"Dictionary"
+			) and is_valid
+		else:
+			var reduced_mode: String = _require_registered(
+				VISUAL_EFFECTS_PATH,
+				"%s.reduced_motion.mode" % field,
+				(reduced_motion as Dictionary).get("mode"),
+				"vfx_motion_policies"
+			)
+			is_valid = not reduced_mode.is_empty() and is_valid
+			if reduced_mode == "variant":
+				is_valid = _require_non_empty_string(
+					VISUAL_EFFECTS_PATH,
+					"%s.reduced_motion.effect_id" % field,
+					(reduced_motion as Dictionary).get("effect_id")
+				) and is_valid
+			if (reduced_motion as Dictionary).has("runtime_adaptive"):
+				is_valid = _require_bool(
+					VISUAL_EFFECTS_PATH,
+					"%s.reduced_motion.runtime_adaptive" % field,
+					(reduced_motion as Dictionary).get("runtime_adaptive")
+				) and is_valid
+		var tags: Array = _require_array(
+			VISUAL_EFFECTS_PATH,
+			"%s.tags" % field,
+			effect_data.get("tags")
+		)
+		for tag_index: int in range(tags.size()):
+			is_valid = _require_non_empty_string(
+				VISUAL_EFFECTS_PATH,
+				"%s.tags[%d]" % [field, tag_index],
+				tags[tag_index]
+			) and is_valid
+		if not effect_data.get("preview") is Dictionary:
+			is_valid = _schema_fail(
+				VISUAL_EFFECTS_PATH,
+				"%s.preview" % field,
+				"Dictionary"
+			) and is_valid
+
+	for raw_effect_id: Variant in effect_entries.keys():
+		var effect_id: String = String(raw_effect_id)
+		var effect_data: Dictionary = effect_entries[raw_effect_id] as Dictionary
+		var variants: Dictionary = effect_data.get("quality_variants", {}) as Dictionary
+		for raw_variant_id: Variant in variants.values():
+			var variant_id: String = String(raw_variant_id)
+			if not seen.has(variant_id):
+				is_valid = _schema_fail(
+					VISUAL_EFFECTS_PATH,
+					"%s.quality_variants" % effect_id,
+					"effect id defined in same catalog"
+				) and is_valid
+		var reduced: Dictionary = effect_data.get("reduced_motion", {}) as Dictionary
+		if String(reduced.get("mode", "")) == "variant":
+			var reduced_id: String = String(reduced.get("effect_id", ""))
+			if not seen.has(reduced_id) or reduced_id == effect_id:
+				is_valid = _schema_fail(
+					VISUAL_EFFECTS_PATH,
+					"%s.reduced_motion.effect_id" % effect_id,
+					"different effect id defined in same catalog"
+				) and is_valid
+	return is_valid
+
+
+func _validate_presentation_profiles_json(effect_ids: Dictionary) -> bool:
+	var data: Variant = load_json(PRESENTATION_PROFILES_PATH)
+	if not data is Dictionary:
+		return _schema_fail(PRESENTATION_PROFILES_PATH, "root", "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_exact_int(
+		PRESENTATION_PROFILES_PATH,
+		"schema_version",
+		payload.get("schema_version"),
+		1
+	) and is_valid
+	var profiles: Array = _require_array(
+		PRESENTATION_PROFILES_PATH,
+		"profiles",
+		payload.get("profiles")
+	)
+	if profiles.is_empty():
+		is_valid = _schema_fail(
+			PRESENTATION_PROFILES_PATH,
+			"profiles",
+			"non-empty Array"
+		) and is_valid
+	var profile_entries: Dictionary = {}
+	_last_schema_counts["presentation_profiles"] = profiles.size()
+	for index: int in range(profiles.size()):
+		var field: String = "profiles[%d]" % index
+		var raw_profile: Variant = profiles[index]
+		if not raw_profile is Dictionary:
+			is_valid = _schema_fail(
+				PRESENTATION_PROFILES_PATH,
+				field,
+				"Dictionary"
+			) and is_valid
+			continue
+		var profile_data: Dictionary = raw_profile as Dictionary
+		var profile_id: String = String(profile_data.get("id", "")).strip_edges()
+		is_valid = _require_non_empty_string(
+			PRESENTATION_PROFILES_PATH,
+			"%s.id" % field,
+			profile_data.get("id")
+		) and is_valid
+		if not profile_id.is_empty():
+			if profile_entries.has(profile_id):
+				is_valid = _schema_fail(
+					PRESENTATION_PROFILES_PATH,
+					"%s.id" % field,
+					"unique profile id"
+				) and is_valid
+			profile_entries[profile_id] = profile_data
+		var bindings: Variant = profile_data.get("bindings")
+		if not bindings is Dictionary:
+			is_valid = _schema_fail(
+				PRESENTATION_PROFILES_PATH,
+				"%s.bindings" % field,
+				"Dictionary"
+			) and is_valid
+			continue
+		for raw_cue: Variant in (bindings as Dictionary).keys():
+			var cue: String = String(raw_cue)
+			is_valid = _require_registered(
+				PRESENTATION_PROFILES_PATH,
+				"%s.bindings.%s" % [field, cue],
+				cue,
+				"vfx_cues"
+			) != "" and is_valid
+			var raw_binding: Variant = (bindings as Dictionary)[raw_cue]
+			if not raw_binding is Dictionary:
+				is_valid = _schema_fail(
+					PRESENTATION_PROFILES_PATH,
+					"%s.bindings.%s" % [field, cue],
+					"Dictionary"
+				) and is_valid
+				continue
+			is_valid = _validate_presentation_binding(
+				"%s.bindings.%s" % [field, cue],
+				raw_binding as Dictionary,
+				effect_ids
+			) and is_valid
+
+	for raw_profile_id: Variant in profile_entries.keys():
+		var profile_id: String = String(raw_profile_id)
+		var parent_id: String = String(
+			(profile_entries[raw_profile_id] as Dictionary).get(
+				"parent_profile_id",
+				""
+			)
+		)
+		if not parent_id.is_empty() and not profile_entries.has(parent_id):
+			is_valid = _schema_fail(
+				PRESENTATION_PROFILES_PATH,
+				"%s.parent_profile_id" % profile_id,
+				"profile id defined in same file"
+			) and is_valid
+		if _presentation_profile_has_cycle(
+			profile_id,
+			profile_entries,
+			{},
+			{}
+		):
+			is_valid = _schema_fail(
+				PRESENTATION_PROFILES_PATH,
+				"%s.parent_profile_id" % profile_id,
+				"acyclic profile inheritance"
+			) and is_valid
+	return is_valid
+
+
+func _validate_presentation_binding(
+		field: String,
+		binding: Dictionary,
+		effect_ids: Dictionary
+	) -> bool:
+	var is_valid: bool = true
+	var effects: Array = _require_array(
+		PRESENTATION_PROFILES_PATH,
+		"%s.effects" % field,
+		binding.get("effects")
+	)
+	for index: int in range(effects.size()):
+		var effect_field: String = "%s.effects[%d]" % [field, index]
+		var raw_effect: Variant = effects[index]
+		if not raw_effect is Dictionary:
+			is_valid = _schema_fail(
+				PRESENTATION_PROFILES_PATH,
+				effect_field,
+				"Dictionary"
+			) and is_valid
+			continue
+		var effect_binding: Dictionary = raw_effect as Dictionary
+		var effect_id: String = String(effect_binding.get("effect_id", ""))
+		is_valid = _require_non_empty_string(
+			PRESENTATION_PROFILES_PATH,
+			"%s.effect_id" % effect_field,
+			effect_binding.get("effect_id")
+		) and is_valid
+		if not effect_id.is_empty() and not effect_ids.has(effect_id):
+			is_valid = _schema_fail(
+				PRESENTATION_PROFILES_PATH,
+				"%s.effect_id" % effect_field,
+				"effect id defined in visual_effects.json"
+			) and is_valid
+		is_valid = _require_registered(
+			PRESENTATION_PROFILES_PATH,
+			"%s.anchor" % effect_field,
+			effect_binding.get("anchor"),
+			"vfx_anchors"
+		) != "" and is_valid
+		if effect_binding.has("params") and not effect_binding["params"] is Dictionary:
+			is_valid = _schema_fail(
+				PRESENTATION_PROFILES_PATH,
+				"%s.params" % effect_field,
+				"Dictionary"
+			) and is_valid
+	for key: String in [
+		"audio_id",
+		"camera_feedback_id",
+		"screen_effect_id",
+		"hit_stop_profile_id",
+	]:
+		is_valid = _require_non_empty_or_empty_string(
+			PRESENTATION_PROFILES_PATH,
+			"%s.%s" % [field, key],
+			binding.get(key, "")
+		) and is_valid
+	var screen_effect_id: String = String(binding.get("screen_effect_id", ""))
+	if not screen_effect_id.is_empty() and not effect_ids.has(screen_effect_id):
+		is_valid = _schema_fail(
+			PRESENTATION_PROFILES_PATH,
+			"%s.screen_effect_id" % field,
+			"effect id defined in visual_effects.json"
+		) and is_valid
+	var audio_id: String = String(binding.get("audio_id", ""))
+	if not audio_id.is_empty():
+		is_valid = _require_audio_id(
+			PRESENTATION_PROFILES_PATH,
+			"%s.audio_id" % field,
+			audio_id
+		) and is_valid
+	if not String(binding.get("hit_stop_profile_id", "")).is_empty():
+		is_valid = _schema_fail(
+			PRESENTATION_PROFILES_PATH,
+			"%s.hit_stop_profile_id" % field,
+			"empty in schema v1"
+		) and is_valid
+	return is_valid
+
+
+func _validate_vfx_resource_path(
+		field: String,
+		value: Variant,
+		kind: String
+	) -> bool:
+	if not value is String or String(value).is_empty():
+		return _schema_fail(VISUAL_EFFECTS_PATH, field, "non-empty resource path")
+	var resource_path: String = String(value)
+	if (
+		not resource_path.begins_with("res://")
+		or resource_path.contains("\\")
+		or resource_path.contains("/../")
+		or resource_path.begins_with("res://addons/")
+		or resource_path.begins_with("res://scripts/editor/")
+		or resource_path.contains("output/test_lab")
+		or resource_path.contains("/modules/geometry/")
+	):
+		return _schema_fail(
+			VISUAL_EFFECTS_PATH,
+			field,
+			"runtime resource path outside editor/test/raw geometry modules"
+		)
+	if kind == "target_animation":
+		if not ResourceLoader.exists(resource_path):
+			return _schema_fail(VISUAL_EFFECTS_PATH, field, "existing Resource")
+		return true
+	if not ResourceLoader.exists(resource_path, "PackedScene"):
+		return _schema_fail(VISUAL_EFFECTS_PATH, field, "existing PackedScene")
+	return true
+
+
+func _presentation_profile_has_cycle(
+		profile_id: String,
+		profiles: Dictionary,
+		visiting: Dictionary,
+		visited: Dictionary
+	) -> bool:
+	if visited.has(profile_id):
+		return false
+	if visiting.has(profile_id):
+		return true
+	if not profiles.has(profile_id):
+		return false
+	var next_visiting: Dictionary = visiting.duplicate()
+	next_visiting[profile_id] = true
+	var parent_id: String = String(
+		(profiles[profile_id] as Dictionary).get("parent_profile_id", "")
+	)
+	if (
+		not parent_id.is_empty()
+		and _presentation_profile_has_cycle(
+			parent_id,
+			profiles,
+			next_visiting,
+			visited
+		)
+	):
+		return true
+	visited[profile_id] = true
+	return false
+
+
+func _collect_visual_effect_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(VISUAL_EFFECTS_PATH)
+	if not data is Dictionary:
+		return ids
+	var effects: Variant = (data as Dictionary).get("effects")
+	if not effects is Array:
+		return ids
+	for raw_effect: Variant in effects:
+		if not raw_effect is Dictionary:
+			continue
+		var effect_id: String = String((raw_effect as Dictionary).get("id", ""))
+		if not effect_id.is_empty():
+			ids[effect_id] = true
+	return ids
+
+
+func _collect_presentation_profile_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(PRESENTATION_PROFILES_PATH)
+	if not data is Dictionary:
+		return ids
+	var profiles: Variant = (data as Dictionary).get("profiles")
+	if not profiles is Array:
+		return ids
+	for raw_profile: Variant in profiles:
+		if not raw_profile is Dictionary:
+			continue
+		var profile_id: String = String(
+			(raw_profile as Dictionary).get("id", "")
+		)
+		if not profile_id.is_empty():
+			ids[profile_id] = true
+	return ids
+
+
+func _validate_presentation_profile_references(
+		profile_ids: Dictionary
+	) -> bool:
+	var is_valid: bool = true
+	is_valid = _validate_json_profile_references(
+		CHARACTERS_PATH,
+		"characters",
+		profile_ids,
+		true
+	) and is_valid
+	is_valid = _validate_json_profile_references(
+		WEAPONS_PATH,
+		"weapons",
+		profile_ids,
+		true
+	) and is_valid
+	is_valid = _validate_json_profile_references(
+		SKILLS_PATH,
+		"skills",
+		profile_ids,
+		true
+	) and is_valid
+	for request: Dictionary in [
+		{"path": RELICS_PATH, "root": "relics"},
+		{"path": ACTIVE_ITEMS_PATH, "root": "active_items"},
+		{"path": CONSUMABLES_PATH, "root": "consumables"},
+	]:
+		is_valid = _validate_json_profile_references(
+			String(request["path"]),
+			String(request["root"]),
+			profile_ids,
+			false
+		) and is_valid
+	is_valid = _validate_csv_profile_references(
+		ENEMIES_PATH,
+		profile_ids,
+		true
+	) and is_valid
+	is_valid = _validate_csv_profile_references(
+		HAZARDS_PATH,
+		profile_ids,
+		true
+	) and is_valid
+	return is_valid
+
+
+func _validate_json_profile_references(
+		resource_path: String,
+		root_key: String,
+		profile_ids: Dictionary,
+		required: bool
+	) -> bool:
+	var data: Variant = load_json(resource_path)
+	if not data is Dictionary:
+		return false
+	var rows: Variant = (data as Dictionary).get(root_key)
+	if not rows is Array:
+		return false
+	var is_valid: bool = true
+	for index: int in range((rows as Array).size()):
+		var raw_row: Variant = (rows as Array)[index]
+		if not raw_row is Dictionary:
+			continue
+		var row: Dictionary = raw_row as Dictionary
+		var field: String = "%s[%d].presentation_profile_id" % [
+			root_key,
+			index,
+		]
+		var profile_id: String = String(row.get("presentation_profile_id", ""))
+		if profile_id.is_empty():
+			if required:
+				is_valid = _schema_fail(
+					resource_path,
+					field,
+					"presentation profile id"
+				) and is_valid
+			continue
+		if not profile_ids.has(profile_id):
+			is_valid = _schema_fail(
+				resource_path,
+				field,
+				"profile id defined in presentation_profiles.json"
+			) and is_valid
+	return is_valid
+
+
+func _validate_csv_profile_references(
+		resource_path: String,
+		profile_ids: Dictionary,
+		required: bool
+	) -> bool:
+	var rows: Array[Dictionary] = load_csv(resource_path)
+	var is_valid: bool = true
+	for index: int in range(rows.size()):
+		var profile_id: String = String(
+			rows[index].get("presentation_profile_id", "")
+		)
+		var field: String = "row[%d].presentation_profile_id" % index
+		if profile_id.is_empty():
+			if required:
+				is_valid = _schema_fail(
+					resource_path,
+					field,
+					"presentation profile id"
+				) and is_valid
+			continue
+		if not profile_ids.has(profile_id):
+			is_valid = _schema_fail(
+				resource_path,
+				field,
+				"profile id defined in presentation_profiles.json"
+			) and is_valid
 	return is_valid
 
 
@@ -3466,6 +4084,16 @@ func _reject_removed_field(resource_path: String, parent_field: String, payload:
 func _require_non_empty_string(resource_path: String, field: String, value: Variant) -> bool:
 	if not value is String or String(value).is_empty():
 		return _schema_fail(resource_path, field, "non-empty string")
+	return true
+
+
+func _require_non_empty_or_empty_string(
+		resource_path: String,
+		field: String,
+		value: Variant
+	) -> bool:
+	if not value is String:
+		return _schema_fail(resource_path, field, "string")
 	return true
 
 

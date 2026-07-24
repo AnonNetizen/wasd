@@ -86,6 +86,12 @@ def main() -> int:
     subparsers.add_parser("gear-mod-smoke", help="Run the F11 Gear Mod loadout smoke in headless Godot.")
     subparsers.add_parser("save-smoke", help="Run the SaveManager run-save reliability smoke in headless Godot.")
     subparsers.add_parser("settings-smoke", help="Run the F7 Settings persistence smoke in headless Godot.")
+    subparsers.add_parser("ui-manager-smoke", help="Run the async UIManager lifecycle smoke in headless Godot.")
+    subparsers.add_parser("vfx-smoke", help="Run the visual-effects runtime and pooling smoke in headless Godot.")
+    subparsers.add_parser(
+        "vfx-bake",
+        help="Regenerate built-in VFX presets, composites, and scene-authored trail components.",
+    )
     module_bake_parser = subparsers.add_parser(
         "module-bake",
         help="Bake one canonical generated TSCN scene per module JSON.",
@@ -128,6 +134,23 @@ def main() -> int:
         return 1
     if args.command == "godot-version":
         return _run_command([str(godot), "--version"], cwd=ROOT)
+    if args.command == "vfx-bake":
+        runner_script = project / "tools" / "vfx_resource_baker.gd"
+        if not runner_script.exists():
+            print(f"[godot-bridge] missing VFX resource baker: {_rel(runner_script)}")
+            return 1
+        return _run_command(
+            [
+                str(godot),
+                "--headless",
+                "--path",
+                str(project),
+                "--script",
+                "res://tools/vfx_resource_baker.gd",
+            ],
+            cwd=project,
+            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
+        )
     if args.command in {"module-bake", "module-bake-check"}:
         if not (project / "project.godot").exists():
             print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
@@ -406,6 +429,38 @@ def main() -> int:
             return 1
         return _run_command(
             [str(godot), "--headless", "--path", str(project), "--", "--settings-smoke"],
+            cwd=project,
+        )
+    if args.command == "ui-manager-smoke":
+        smoke_script = project / "tools" / "ui_manager_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing UIManager smoke script: {_rel(smoke_script)}")
+            return 1
+        return _run_command(
+            [
+                str(godot),
+                "--headless",
+                "--path",
+                str(project),
+                "--",
+                "--ui-manager-smoke",
+            ],
+            cwd=project,
+        )
+    if args.command == "vfx-smoke":
+        smoke_script = project / "tools" / "vfx_smoke.gd"
+        if not smoke_script.exists():
+            print(f"[godot-bridge] missing VFX smoke script: {_rel(smoke_script)}")
+            return 1
+        return _run_command(
+            [
+                str(godot),
+                "--headless",
+                "--path",
+                str(project),
+                "--",
+                "--vfx-smoke",
+            ],
             cwd=project,
         )
     print(f"[godot-bridge] unknown command: {args.command}")

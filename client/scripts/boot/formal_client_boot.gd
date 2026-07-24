@@ -21,6 +21,8 @@ const LOADING_SMOKE_RUNNER := preload("res://tools/loading_smoke.gd")
 const MODULE_WORLD_SMOKE_RUNNER := preload("res://tools/module_world_smoke.gd")
 const RUNTIME_SMOKE_RUNNER := preload("res://tools/runtime_smoke.gd")
 const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
+const UI_MANAGER_SMOKE_RUNNER := preload("res://tools/ui_manager_smoke.gd")
+const VFX_SMOKE_RUNNER := preload("res://tools/vfx_smoke.gd")
 const PERF_PROBE_RUNNER := preload("res://tools/perf_probe.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const REPLAY_INPUT_SMOKE_RUNNER := preload("res://tools/replay_input_smoke.gd")
@@ -197,6 +199,14 @@ func _ready() -> void:
 		var settings_smoke_runner: Node = SETTINGS_SMOKE_RUNNER.new()
 		settings_smoke_runner.name = "SettingsSmoke"
 		add_child(settings_smoke_runner)
+	elif _is_ui_manager_smoke_enabled():
+		var ui_manager_smoke_runner: Node = UI_MANAGER_SMOKE_RUNNER.new()
+		ui_manager_smoke_runner.name = "UIManagerSmoke"
+		add_child(ui_manager_smoke_runner)
+	elif _is_vfx_smoke_enabled():
+		var vfx_smoke_runner: Node = VFX_SMOKE_RUNNER.new()
+		vfx_smoke_runner.name = "VfxSmoke"
+		add_child(vfx_smoke_runner)
 	elif _module_world_technical_slice_launch:
 		if data_schema_ok:
 			_start_gameplay_run()
@@ -304,12 +314,20 @@ func _is_settings_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--settings-smoke")
 
 
+func _is_ui_manager_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--ui-manager-smoke")
+
+
+func _is_vfx_smoke_enabled() -> bool:
+	return OS.get_cmdline_user_args().has("--vfx-smoke")
+
+
 func _show_title_menu(notice_key: String = "") -> void:
 	_player_load_in_progress = false
 	_loading_screen = null
 	_clear_gameplay_runtime()
 	GameState.change_state(GameState.MAIN_MENU, {"source": "formal_client_boot"})
-	UIManager.clear()
+	UIManager.clear(true)
 
 	_title_menu = UIManager.push(TITLE_MENU_SCENE, {"source": "formal_client_boot"}) as CanvasLayer
 	if _title_menu == null:
@@ -323,7 +341,7 @@ func _show_title_menu(notice_key: String = "") -> void:
 
 
 func _start_gameplay_run(restore_snapshot: Dictionary = {}, open_warzone: bool = false) -> void:
-	UIManager.clear()
+	UIManager.clear(true)
 	GameState.change_state(GameState.LOADING, {"source": "formal_client_boot"})
 	_mount_gameplay_run(restore_snapshot, open_warzone, false)
 
@@ -375,7 +393,7 @@ func _begin_player_gameplay_load(
 		return
 	_player_load_in_progress = true
 	GameState.change_state(GameState.LOADING, {"source": "formal_client_boot"})
-	UIManager.clear()
+	UIManager.clear(true)
 	_loading_screen = UIManager.push(
 		LOADING_SCREEN_SCENE,
 		{"source": "formal_client_boot"}
@@ -434,12 +452,21 @@ func _perform_player_gameplay_load(
 func _on_player_run_prepared() -> void:
 	if not _player_load_in_progress or _run_loop == null:
 		return
+	var loading_screen: CanvasLayer = _loading_screen
 	if UIManager.top() == _loading_screen:
-		UIManager.pop()
+		UIManager.pop_expected(_loading_screen)
 	elif _loading_screen != null and is_instance_valid(_loading_screen):
 		push_error("[FormalClientBoot] loading screen is not the top UI")
 		_abort_player_gameplay_load("ui_loading_failed")
 		return
+	while (
+		loading_screen != null
+		and is_instance_valid(loading_screen)
+		and UIManager.ui_state(loading_screen) != UIManager.UIState.REMOVED
+	):
+		var removed_node: Node = await UIManager.ui_removed
+		if removed_node == loading_screen:
+			break
 	_loading_screen = null
 	_player_load_in_progress = false
 	if (
@@ -490,6 +517,7 @@ func _clear_gameplay_runtime() -> void:
 	PoolManager.clear_pool(POOL_IDS.HIT_SPARK)
 	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
 	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
+	PoolManager.clear_pool(POOL_IDS.VFX_WEAPON_MUZZLE_FLASH)
 
 
 func _on_title_start_requested() -> void:

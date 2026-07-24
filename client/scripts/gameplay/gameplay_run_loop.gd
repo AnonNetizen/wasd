@@ -32,6 +32,7 @@ const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
+const VFX_CUES := preload("res://scripts/contracts/vfx_cues.gd")
 const WARZONE_DIRECTOR_SCRIPT := preload("res://scripts/gameplay/warzone_director.gd")
 const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placement_types.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
@@ -53,6 +54,14 @@ const INPUT_PARTICIPANT_ID: String = "player_0"
 const DEFAULT_DEBUG_GROWTH_POOL: String = "default_level_up"
 const LOADING_BATCH_SIZE: int = 8
 const NAVIGATION_FLOW_OBSTACLE_BUFFER_CELLS: int = 2
+const PRESENTATION_ENEMY_DEFAULT: String = "presentation_enemy_default"
+const PRESENTATION_GAMEPLAY_DEFAULT: String = "presentation_gameplay_default"
+const PRESENTATION_HAZARD_DEFAULT: String = "presentation_hazard_default"
+const PRESENTATION_PICKUP_DEFAULT: String = "presentation_pickup_default"
+const PRESENTATION_PLAYER_DEFAULT: String = "presentation_player_default"
+const PRESENTATION_SKILL_DEFAULT: String = "presentation_skill_default"
+const PRESENTATION_SKILL_OVERDRIVE: String = "presentation_skill_overdrive"
+const PRESENTATION_STATUS_DEFAULT: String = "presentation_status_default"
 
 @export_group("Extraction Visual Style")
 @export var extraction_zone_fill_color: Color = Color(0.18, 0.82, 0.68, 0.16)
@@ -75,6 +84,7 @@ var _extraction_radius: float = 0.0
 var _extraction_source_point_id: String = ""
 var _growth_curve: Array[Dictionary] = []
 var _growth_entries: Array[Dictionary] = []
+var _gameplay_feedback: GameplayFeedbackController = null
 var _game_over_panel: CanvasLayer = null
 var _hazard_rows: Dictionary = {}
 var _hud: CanvasLayer = null
@@ -104,6 +114,7 @@ var _run_completed: bool = false
 var _warzone_director = null
 var _waves: Array[Dictionary] = []
 var _weapon_system: Node = null
+var _vfx_host: VfxHost = null
 var _requested_character_id: String = CHARACTER_IDS.CHARACTER_DEFAULT
 var _registered_enemy_pool_ids: Array[String] = []
 var _player_loading_mode: bool = false
@@ -124,6 +135,8 @@ func _exit_tree() -> void:
 		InputService.action_pressed.disconnect(_on_input_action_pressed)
 	_clear_interest_point_caches()
 	_release_active_world_pool_entities()
+	if _vfx_host != null:
+		_vfx_host.cancel_all()
 	if Combat.damage_applied.is_connected(_on_combat_damage_applied):
 		Combat.damage_applied.disconnect(_on_combat_damage_applied)
 
@@ -273,6 +286,15 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	if _active_world == null:
 		_fail_run_start("missing ActiveWorld scene node", not restore_snapshot.is_empty())
 		return
+	_vfx_host = _active_world.get_node_or_null("VfxHost") as VfxHost
+	_gameplay_feedback = get_node_or_null("GameplayFeedbackController") as GameplayFeedbackController
+	if _vfx_host == null or _gameplay_feedback == null:
+		_fail_run_start(
+			"missing VfxHost or GameplayFeedbackController scene node",
+			not restore_snapshot.is_empty()
+		)
+		return
+	_gameplay_feedback.configure_host(_vfx_host)
 	_camera_controller = _active_world.get_node_or_null("GameplayCameraController") as Node2D
 	if _camera_controller == null or not _camera_controller.has_method("configure"):
 		_fail_run_start(
@@ -287,6 +309,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	PoolManager.clear_pool(POOL_IDS.HIT_SPARK)
 	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
 	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
+	PoolManager.clear_pool(POOL_IDS.VFX_WEAPON_MUZZLE_FLASH)
 	var selected_character_id: String = String(
 		restore_snapshot.get("character", _requested_character_id)
 	).strip_edges()
@@ -324,6 +347,9 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	PoolManager.register_pool(POOL_IDS.HIT_SPARK, _create_hit_spark_node, FEEDBACK_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.DAMAGE_NUMBER, _create_damage_number_node, FEEDBACK_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.PICKUP_ORB, _create_pickup_orb_node, PICKUP_POOL_SIZE)
+	if not _vfx_host.register_declared_pools():
+		_fail_run_start("VFX pool registration failed", not restore_snapshot.is_empty())
+		return
 	if _player_loading_mode:
 		if not await _prewarm_standard_pools_staged():
 			_fail_run_start("pool prewarm interrupted", not restore_snapshot.is_empty())
@@ -390,6 +416,10 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		return
 	_player.global_position = Vector2.ZERO
 	_player.call("configure", player_stats)
+	_configure_actor_presentation_profile(
+		_player,
+		String(character.get("presentation_profile_id", ""))
+	)
 	_map_manager.call("configure", _map_layout, _hazard_rows)
 	var map_player_start: Vector2 = _map_manager.call("player_start")
 	_player.global_position = map_player_start
@@ -398,6 +428,11 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_camera_controller.call("configure", _player, camera_feedback)
 	_player.connect("life_changed", Callable(self, "_on_player_life_changed"))
 	_player.connect("died", Callable(self, "_on_player_died"), CONNECT_ONE_SHOT)
+	_connect_status_feedback(_player)
+	_play_feedback(_actor_profile_id(_player, PRESENTATION_PLAYER_DEFAULT), VFX_CUES.SPAWN, {
+		"owner": _player,
+		"world_position": _player.global_position,
+	})
 
 	var background: Node2D = _active_world.get_node_or_null("WorldBackground") as Node2D
 	if background == null:
@@ -410,6 +445,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		push_error("[GameplayRunLoop] missing WeaponSystem scene node")
 		return
 	_weapon_system.call("configure", _player, _active_world, weapon)
+	_connect_weapon_feedback()
 	_configure_skill_system(character)
 	_apply_loadout_modifiers()
 
@@ -630,19 +666,21 @@ func _register_enemy_pool(enemy_data: Dictionary) -> bool:
 func _prewarm_standard_pools() -> void:
 	PoolManager.prewarm(POOL_IDS.BULLET_BASIC, 24)
 	PoolManager.prewarm(POOL_IDS.HAZARD_SPIKE, 8)
-	PoolManager.prewarm(POOL_IDS.HIT_SPARK, 16)
-	PoolManager.prewarm(POOL_IDS.DAMAGE_NUMBER, 16)
 	PoolManager.prewarm(POOL_IDS.PICKUP_ORB, 16)
+	for request: Dictionary in _vfx_host.declared_pool_requests():
+		PoolManager.prewarm(
+			String(request.get("pool_id", "")),
+			int(request.get("count", 0))
+		)
 
 
 func _prewarm_standard_pools_staged() -> bool:
 	var requests: Array[Dictionary] = [
 		{"pool_id": POOL_IDS.BULLET_BASIC, "count": 24},
 		{"pool_id": POOL_IDS.HAZARD_SPIKE, "count": 8},
-		{"pool_id": POOL_IDS.HIT_SPARK, "count": 16},
-		{"pool_id": POOL_IDS.DAMAGE_NUMBER, "count": 16},
 		{"pool_id": POOL_IDS.PICKUP_ORB, "count": 16},
 	]
+	requests.append_array(_vfx_host.declared_pool_requests())
 	for request: Dictionary in requests:
 		if not await _prewarm_pool_staged(
 			String(request.get("pool_id", "")),
@@ -738,6 +776,13 @@ func _configure_skill_system(character: Dictionary) -> void:
 		_load_skill_definitions(loadout),
 		_typed_dictionary_array(character.get("skill_resources", []))
 	)
+	var cast_callback: Callable = Callable(self, "_on_skill_cast")
+	if not _skill_system.is_connected("skill_cast", cast_callback):
+		_skill_system.connect("skill_cast", cast_callback)
+	var failed_callback: Callable = Callable(self, "_on_skill_failed")
+	if not _skill_system.is_connected("skill_failed", failed_callback):
+		_skill_system.connect("skill_failed", failed_callback)
+	_connect_status_feedback(_skill_system)
 
 
 func current_level() -> int:
@@ -1824,6 +1869,20 @@ func _spawn_hazard(placement: Dictionary) -> Node2D:
 	else:
 		hazard.set_meta("module_slot", module_slot)
 	hazard.call("configure", hazard_data, _player, _map_grid_cell_size())
+	var activated_callback: Callable = Callable(self, "_on_hazard_activated")
+	if not hazard.is_connected("activated", activated_callback):
+		hazard.connect("activated", activated_callback)
+	_play_feedback(_profile_or_fallback(
+		String(hazard_data.get("presentation_profile_id", "")),
+		PRESENTATION_HAZARD_DEFAULT
+	), VFX_CUES.HAZARD_TELEGRAPH, {
+		"owner": hazard,
+		"world_position": hazard.global_position,
+		"footprint": Rect2(
+			hazard.global_position - _map_grid_cell_size() * 0.5 * float(int(hazard_data.get("radius_tiles", 1))),
+			_map_grid_cell_size() * float(int(hazard_data.get("radius_tiles", 1)))
+		),
+	})
 	return hazard
 
 
@@ -1889,11 +1948,15 @@ func _release_pool_entities_under(root_node: Node) -> void:
 		_release_pool_entities_under(child)
 	for group_name: String in ACTIVE_POOL_GROUPS:
 		if root_node.is_in_group(group_name):
+			if _vfx_host != null:
+				_vfx_host.cancel_owner(root_node)
 			PoolManager.release(root_node)
 			return
 
 
 func _on_enemy_defeated(_enemy: Node, _exp_reward: int, wave_key: String) -> void:
+	if _vfx_host != null and _enemy != null:
+		_vfx_host.cancel_owner(_enemy)
 	var defeated_by_player: bool = true
 	if _enemy != null and _enemy.has_method("was_defeated_by_player"):
 		defeated_by_player = bool(_enemy.call("was_defeated_by_player"))
@@ -1920,12 +1983,50 @@ func _spawn_pickup_orb(spawn_position: Vector2, amount: int) -> void:
 	pickup_orb.global_position = spawn_position
 	_reparent_to_active_world(pickup_orb)
 	pickup_orb.call("configure", amount, _player, float(_player.call("pickup_orb_speed")))
-	var collected_callback: Callable = Callable(self, "_on_pickup_orb_collected")
+	_play_feedback(PRESENTATION_PICKUP_DEFAULT, VFX_CUES.PICKUP_SPAWN, {
+		"owner": pickup_orb,
+		"world_position": spawn_position,
+	})
+	_connect_pickup_orb_feedback(pickup_orb)
+
+
+func _connect_pickup_orb_feedback(pickup_orb: Node2D) -> void:
+	var attraction_callback: Callable = Callable(
+		self,
+		"_on_pickup_orb_attraction_started"
+	).bind(pickup_orb)
+	if not pickup_orb.is_connected("attraction_started", attraction_callback):
+		pickup_orb.connect(
+			"attraction_started",
+			attraction_callback,
+			CONNECT_ONE_SHOT
+		)
+	var collected_callback: Callable = Callable(self, "_on_pickup_orb_collected").bind(pickup_orb)
 	if not pickup_orb.is_connected("collected", collected_callback):
 		pickup_orb.connect("collected", collected_callback, CONNECT_ONE_SHOT)
 
 
-func _on_pickup_orb_collected(amount: int) -> void:
+func _on_pickup_orb_attraction_started(pickup_orb: Node2D) -> void:
+	if pickup_orb == null or not is_instance_valid(pickup_orb):
+		return
+	_play_feedback(PRESENTATION_PICKUP_DEFAULT, VFX_CUES.PICKUP_ATTRACT, {
+		"owner": pickup_orb,
+		"world_position": pickup_orb.global_position,
+	})
+
+
+func _on_pickup_orb_collected(amount: int, pickup_orb: Node2D = null) -> void:
+	var collect_position: Vector2 = (
+		pickup_orb.global_position
+		if pickup_orb != null and is_instance_valid(pickup_orb)
+		else (_player.global_position if _player != null else Vector2.ZERO)
+	)
+	_play_feedback(PRESENTATION_PICKUP_DEFAULT, VFX_CUES.PICKUP_COLLECT, {
+		"owner": _player,
+		"world_position": collect_position,
+		"follow_owner": false,
+		"amount": amount,
+	})
 	_current_xp += amount
 	_refresh_xp_hud()
 	if GameState.is_state(GameState.PLAYING) and _can_level_up():
@@ -2014,28 +2115,216 @@ func _on_combat_damage_applied(target: Node, _info: RefCounted, result: Dictiona
 	var amount: float = float(result.get("amount", 0.0))
 	var defeated: bool = bool(result.get("defeated", false))
 	var player_damage: bool = target == _player
-	if player_damage and _camera_controller != null:
-		_camera_controller.call("play_player_damage_shake")
-	_spawn_hit_spark(target_2d.global_position)
-	_spawn_damage_number(target_2d.global_position + Vector2.UP * 18.0, amount, defeated, player_damage)
+	var enemy_damage: bool = target.has_method("enemy_id")
+	var fallback_profile: String = PRESENTATION_GAMEPLAY_DEFAULT
+	if player_damage:
+		fallback_profile = PRESENTATION_PLAYER_DEFAULT
+	elif enemy_damage:
+		fallback_profile = PRESENTATION_ENEMY_DEFAULT
+	var profile_id: String = _actor_profile_id(
+		target_2d,
+		fallback_profile
+	)
+	var context: Dictionary = {
+		"owner": target_2d,
+		"target": target_2d,
+		"world_position": target_2d.global_position,
+		"amount": amount,
+		"defeated": defeated,
+		"player_damage": player_damage,
+		"camera_controller": _camera_controller,
+	}
+	_play_feedback(profile_id, VFX_CUES.HIT, context)
+	if defeated and enemy_damage:
+		_play_feedback(profile_id, VFX_CUES.DEFEAT, context)
+	elif player_damage or enemy_damage:
+		_play_feedback(profile_id, VFX_CUES.HURT, context)
 
 
-func _spawn_hit_spark(spawn_position: Vector2) -> void:
-	var raw_node: Node = PoolManager.acquire(POOL_IDS.HIT_SPARK)
-	if not raw_node is Node2D or not raw_node.has_method("configure"):
+func _play_feedback(profile_id: String, cue: String, context: Dictionary = {}) -> void:
+	if _gameplay_feedback == null or not is_instance_valid(_gameplay_feedback):
 		return
-	var hit_spark: Node2D = raw_node as Node2D
-	_reparent_to_active_world(hit_spark)
-	hit_spark.call("configure", spawn_position)
+	_gameplay_feedback.play(profile_id, cue, context)
 
 
-func _spawn_damage_number(spawn_position: Vector2, amount: float, defeated: bool, player_damage: bool) -> void:
-	var raw_node: Node = PoolManager.acquire(POOL_IDS.DAMAGE_NUMBER)
-	if not raw_node is Node2D or not raw_node.has_method("configure"):
+func _actor_profile_id(actor: Node, fallback: String) -> String:
+	if actor == null:
+		return fallback
+	var presentation: Node = actor.get_node_or_null("Presentation")
+	if presentation != null and presentation.has_method("resolved_profile_id"):
+		return String(presentation.call("resolved_profile_id", fallback))
+	return fallback
+
+
+func _configure_actor_presentation_profile(actor: Node, profile_id: String) -> void:
+	if actor == null:
 		return
-	var damage_number: Node2D = raw_node as Node2D
-	_reparent_to_active_world(damage_number)
-	damage_number.call("configure", spawn_position, amount, defeated, player_damage)
+	var presentation: Node = actor.get_node_or_null("Presentation")
+	if presentation != null and presentation.has_method("configure_profile_id"):
+		presentation.call("configure_profile_id", profile_id)
+
+
+func _profile_or_fallback(profile_id: String, fallback: String) -> String:
+	var normalized: String = profile_id.strip_edges()
+	return fallback if normalized.is_empty() else normalized
+
+
+func _connect_weapon_feedback() -> void:
+	if _weapon_system == null:
+		return
+	var fired_callback: Callable = Callable(self, "_on_weapon_fired")
+	if not _weapon_system.is_connected("weapon_fired", fired_callback):
+		_weapon_system.connect("weapon_fired", fired_callback)
+	var started_callback: Callable = Callable(self, "_on_temporary_modifier_started")
+	if not _weapon_system.is_connected("temporary_modifier_started", started_callback):
+		_weapon_system.connect("temporary_modifier_started", started_callback)
+	var refreshed_callback: Callable = Callable(
+		self,
+		"_on_temporary_modifier_refreshed"
+	)
+	if not _weapon_system.is_connected(
+		"temporary_modifier_refreshed",
+		refreshed_callback
+	):
+		_weapon_system.connect("temporary_modifier_refreshed", refreshed_callback)
+	var expired_callback: Callable = Callable(self, "_on_temporary_modifier_expired")
+	if not _weapon_system.is_connected("temporary_modifier_expired", expired_callback):
+		_weapon_system.connect("temporary_modifier_expired", expired_callback)
+	var restored_callback: Callable = Callable(self, "_on_temporary_modifiers_restored")
+	if not _weapon_system.is_connected("temporary_modifiers_restored", restored_callback):
+		_weapon_system.connect("temporary_modifiers_restored", restored_callback)
+
+
+func _connect_status_feedback(owner: Node) -> void:
+	if owner == null:
+		return
+	var status_component: Node = owner.get_node_or_null("StatusEffectComponent")
+	if status_component == null:
+		return
+	var applied_callback: Callable = Callable(self, "_on_status_effect_applied").bind(owner)
+	if not status_component.is_connected("effect_applied", applied_callback):
+		status_component.connect("effect_applied", applied_callback)
+	var expired_callback: Callable = Callable(self, "_on_status_effect_expired").bind(owner)
+	if not status_component.is_connected("effect_expired", expired_callback):
+		status_component.connect("effect_expired", expired_callback)
+	var restored_callback: Callable = Callable(self, "_on_status_effect_restored").bind(owner)
+	if not status_component.is_connected("effect_restored", restored_callback):
+		status_component.connect("effect_restored", restored_callback)
+
+
+func _on_skill_cast(_skill_id: String, result: Dictionary) -> void:
+	_play_feedback(_profile_or_fallback(
+		String(result.get("presentation_profile_id", "")),
+		PRESENTATION_SKILL_DEFAULT
+	), VFX_CUES.SKILL_CAST, {
+		"owner": _player,
+		"world_position": _player.global_position if _player != null else Vector2.ZERO,
+		"result": result,
+	})
+
+
+func _on_skill_failed(_skill_id: String, result: Dictionary) -> void:
+	_play_feedback(_profile_or_fallback(
+		String(result.get("presentation_profile_id", "")),
+		PRESENTATION_SKILL_DEFAULT
+	), VFX_CUES.SKILL_FAILED, {
+		"owner": _player,
+		"world_position": _player.global_position if _player != null else Vector2.ZERO,
+		"result": result,
+	})
+
+
+func _on_weapon_fired(context: Dictionary) -> void:
+	_play_feedback(_profile_or_fallback(
+		String(context.get("presentation_profile_id", "")),
+		"presentation_weapon_default"
+	), VFX_CUES.WEAPON_FIRE, context)
+
+
+func _on_temporary_modifier_started(snapshot_data: Dictionary) -> void:
+	_play_feedback(PRESENTATION_SKILL_OVERDRIVE, VFX_CUES.MODIFIER_STARTED, {
+		"owner": _player,
+		"world_position": _player.global_position if _player != null else Vector2.ZERO,
+		"modifier": snapshot_data,
+	})
+
+
+func _on_temporary_modifier_refreshed(snapshot_data: Dictionary) -> void:
+	_play_feedback(PRESENTATION_SKILL_OVERDRIVE, VFX_CUES.MODIFIER_REFRESHED, {
+		"owner": _player,
+		"world_position": _player.global_position if _player != null else Vector2.ZERO,
+		"modifier": snapshot_data,
+	})
+
+
+func _on_temporary_modifier_expired(snapshot_data: Dictionary) -> void:
+	_play_feedback(PRESENTATION_SKILL_OVERDRIVE, VFX_CUES.MODIFIER_EXPIRED, {
+		"owner": _player,
+		"world_position": _player.global_position if _player != null else Vector2.ZERO,
+		"modifier": snapshot_data,
+	})
+
+
+func _on_temporary_modifiers_restored(active: Array[Dictionary]) -> void:
+	for snapshot_data: Dictionary in active:
+		_play_feedback(PRESENTATION_SKILL_OVERDRIVE, VFX_CUES.MODIFIER_REFRESHED, {
+			"owner": _player,
+			"world_position": _player.global_position if _player != null else Vector2.ZERO,
+			"modifier": snapshot_data,
+		})
+
+
+func _on_status_effect_applied(
+	status_id: String,
+	snapshot_data: Dictionary,
+	status_owner: Node
+) -> void:
+	var presentation_owner: Node = status_owner if status_owner is Node2D else _player
+	_play_feedback(PRESENTATION_STATUS_DEFAULT, VFX_CUES.STATUS_APPLIED, {
+		"owner": presentation_owner,
+		"world_position": (
+			(presentation_owner as Node2D).global_position
+			if presentation_owner is Node2D
+			else Vector2.ZERO
+		),
+		"status_id": status_id,
+		"status": snapshot_data,
+	})
+
+
+func _on_status_effect_expired(
+	status_id: String,
+	snapshot_data: Dictionary,
+	status_owner: Node
+) -> void:
+	var presentation_owner: Node = status_owner if status_owner is Node2D else _player
+	_play_feedback(PRESENTATION_STATUS_DEFAULT, VFX_CUES.STATUS_EXPIRED, {
+		"owner": presentation_owner,
+		"world_position": (
+			(presentation_owner as Node2D).global_position
+			if presentation_owner is Node2D
+			else Vector2.ZERO
+		),
+		"status_id": status_id,
+		"status": snapshot_data,
+	})
+
+
+func _on_status_effect_restored(
+	status_id: String,
+	snapshot_data: Dictionary,
+	status_owner: Node
+) -> void:
+	var restored_snapshot: Dictionary = snapshot_data.duplicate(true)
+	restored_snapshot["restored"] = true
+	_on_status_effect_applied(status_id, restored_snapshot, status_owner)
+
+
+func _on_hazard_activated(context: Dictionary) -> void:
+	_play_feedback(_profile_or_fallback(
+		String(context.get("presentation_profile_id", "")),
+		PRESENTATION_HAZARD_DEFAULT
+	), VFX_CUES.HAZARD_ACTIVATED, context)
 
 
 func _on_player_died() -> void:
@@ -2606,9 +2895,9 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 			enemy.set_meta("module_slot", module_slot)
 		enemy.call("configure", enemy_data, _player, _enemy_navigation_provider())
 		_apply_enemy_movement_bounds(enemy)
+		_connect_enemy_defeated(enemy, wave_key)
 		if enemy.has_method("restore_snapshot"):
 			enemy.call("restore_snapshot", snapshot_data)
-		_connect_enemy_defeated(enemy, wave_key)
 
 
 func _is_module_world_position_walkable(world_position: Vector2) -> bool:
@@ -2650,9 +2939,7 @@ func _restore_pickup_snapshots(pickup_snapshots: Array) -> void:
 		var pickup_orb: Node2D = raw_node as Node2D
 		_reparent_to_active_world(pickup_orb)
 		pickup_orb.call("restore_snapshot", raw_snapshot as Dictionary, _player)
-		var collected_callback: Callable = Callable(self, "_on_pickup_orb_collected")
-		if not pickup_orb.is_connected("collected", collected_callback):
-			pickup_orb.connect("collected", collected_callback, CONNECT_ONE_SHOT)
+		_connect_pickup_orb_feedback(pickup_orb)
 
 
 func _apply_enemy_movement_bounds(enemy: Node2D) -> void:
@@ -2680,6 +2967,12 @@ func _connect_enemy_defeated(enemy: Node, wave_key: String) -> void:
 		if existing_callback.get_object() == self and existing_callback.get_method() == "_on_enemy_defeated":
 			enemy.disconnect("defeated", existing_callback)
 	enemy.connect("defeated", callback, CONNECT_ONE_SHOT)
+	_connect_status_feedback(enemy)
+	if enemy is Node2D:
+		_play_feedback(_actor_profile_id(enemy, PRESENTATION_ENEMY_DEFAULT), VFX_CUES.SPAWN, {
+			"owner": enemy,
+			"world_position": (enemy as Node2D).global_position,
+		})
 
 
 func _dictionary_or_empty(raw_value: Variant) -> Dictionary:

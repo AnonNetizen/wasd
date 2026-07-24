@@ -19,6 +19,7 @@
 |------------|--------|------|
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
 | 改玩家受伤震屏强度 / 频率 / 时长 | `camera_feedback.json` 的 `player_damage_shake` | 只影响表现；随机走 `RNG.camera_fx`，关闭 `gameplay.screen_shake` 时即时停止 |
+| 选择 / 调整视觉效果 | `visual_effects.json`、`presentation_profiles.json` | 内容数据只引用 `presentation_profile_id`；在 Godot 的 `VFX Library` 预览和绑定，不手抄字符串 |
 | 改角色基础属性 / 标签 / 能力 / 起始携带 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；`scene_path` 绑定专属继承场景，玩法数值仍留在数据中 |
 | 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
 | 改敌人血量 / 速度 / 接触伤害 / 中心间距 | `enemies.csv` | 每个敌人使用独立 `pool_id`，`scene_path` 可复用；颜色与静态轮廓在专属 TSCN 中编辑 |
@@ -69,7 +70,52 @@
 | `gear_mod_drop_tables.csv` | CSV | 装备 Mod 掉落来源、概率和等级条件 |
 | `gear_mod_fusion_costs.csv` | CSV | 装备 Mod 按稀有度 / rank 的升级资源成本 |
 | `credits.json` | 已建立 | 游戏内致谢数据源：工作人员、开发工具、外部资源、外部库、适用构建目标与许可 / notice 状态；G.U.I.D.E、Xelu prompts 与 Lato 字体分别登记，vendored Godot 插件说明见 `client/addons/README.md`，Steamworks Lab 的随包声明见其 `THIRD_PARTY_NOTICES.txt` |
+| `visual_effects.json` | 已建立 | 视觉效果 catalog：资源、领域、技术标签、空间、生命周期、对象池、质量与 reduced-motion |
+| `presentation_profiles.json` | 已建立 | 表现 profile 继承与 cue → 视觉 / 音频 / 相机 / 屏幕绑定 |
 | `_contracts.json` | 生成文件 | 由 `docs/词表与契约.md` 生成，禁止手改；`DataLoader` 用它校验 id |
+
+## 视觉效果与表现 Profile
+
+正式内容通过 `presentation_profile_id` 选择表现：当前角色、武器、技能、敌人和机关均必填；未来遗物、主动道具和消耗品可选。profile id 是数据主键，不要求新增代码常量；固定 `cue/domain/kind/space/lifecycle/anchor/quality` 必须来自 `docs/词表与契约.md` §16。
+
+`visual_effects.json.effects[]` 字段：
+
+| 字段 | 类型 / 规则 | 说明 |
+|------|-------------|------|
+| `id` / `editor_name` | 唯一非空 string | 稳定 id 与编辑器名称 |
+| `domain` / `kind` | 词表枚举 | 使用领域与 spawned scene / target animation / screen overlay |
+| `resource_path` | 正式 `res://` 资源 | 禁止 addon、`output/test_lab` 和裸程序几何 |
+| `space` / `lifecycle` | 词表枚举 | 挂载空间与 one-shot / loop / state |
+| `duration` | 非负秒 | 播放 / 预览时长 |
+| `pool_id` / `prewarm` / `max_size` | 可选 | 高频效果必须提供已登记 pool id；预热 / 上限为非负 / 正整数 |
+| `high_frequency` | bool | 不能把枪口、命中等高频效果误标低频来绕过池校验 |
+| `quality_variants` | object | `low/medium/high -> effect_id`；空对象复用自身 |
+| `reduced_motion` | object | Reduced-motion 策略 |
+| `reduced_motion.mode` | string | `same` / `variant` / `suppress_optional`；最后一种在 Reduced motion 下跳过可选效果，但不能隐藏 `gameplay_boundary` |
+| `reduced_motion.effect_id` | string | `mode=variant` 时必填且必须引用合法 effect id |
+| `reduced_motion.runtime_adaptive` | 可选 bool | 同一资源在运行时自行切换为静态状态或不超过 100 ms 的淡出 |
+| `tags` | string array | 技术、读法与可选装饰标签；`screen_flash` 受设置控制 |
+| `preview` | object | 编辑器预览参数 |
+| `preview.background` | string | 预览背景 id |
+| `preview.checkpoint` | string | `charge` / `contact` / `aftermath` |
+| `preview.scale` | number | 预览默认比例，必须为正数 |
+
+`presentation_profiles.json.profiles[]` 字段：
+
+| 字段 | 类型 / 规则 | 说明 |
+|------|-------------|------|
+| `id` | 唯一非空 string | 稳定 profile id |
+| `parent_profile_id` | 可空 profile id | 按 cue 继承，禁止环 |
+| `bindings` | cue → object | cue 来自词表；子级同 cue 完整覆盖父级 |
+| `effects` | effect binding array | 每项含 `effect_id`、`anchor`，可选表现 `params` |
+| `effects[].effect_id` / `effects[].anchor` | string | effect id 与词表 anchor |
+| `effects[].params` | object | 仅覆盖表现参数，不改变玩法 |
+| `effects[].params.tint` | HTML color string | 可选运行时色调覆盖 |
+| `effects[].params.scale` | number 或 Vector2 | 可选实例缩放覆盖；只影响表现 |
+| `audio_id` / `camera_feedback_id` / `screen_effect_id` | 可空 string | 跨系统反馈引用 |
+| `hit_stop_profile_id` | 首版必须空 | 只预留接口，不驱动 `GameClock` |
+
+效果数据、内容 profile 引用与资源存在性由 `DataLoader` 和 `tools/validate_data.py` 双重校验；运行时契约与新增向导见 `docs/代码/visual_effects.md`。
 
 ## 本地 Mod 数据包
 

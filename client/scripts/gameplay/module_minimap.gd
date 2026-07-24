@@ -28,6 +28,10 @@ var _objective: Vector2i = Vector2i(-1, -1)
 var _extraction: Vector2i = Vector2i(-1, -1)
 var _extraction_active: bool = false
 
+@onready var _selection_feedback: UISelectionFeedback = get_node_or_null(
+	"SelectionFeedback"
+) as UISelectionFeedback
+
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(
@@ -39,6 +43,7 @@ func _ready() -> void:
 
 
 func configure(state: Dictionary) -> void:
+	var previous_current: Vector2i = _current
 	_visited.clear()
 	for raw_slot: Variant in state.get("visited_slots", []):
 		var slot: Vector2i = _slot_from_variant(raw_slot)
@@ -49,6 +54,12 @@ func configure(state: Dictionary) -> void:
 	_extraction = _slot_from_variant(state.get("extraction_slot", {}))
 	_extraction_active = bool(state.get("extraction_active", false))
 	queue_redraw()
+	if (
+		_selection_feedback != null
+		and _is_valid_slot(previous_current)
+		and _current != previous_current
+	):
+		_selection_feedback.play_selection(self)
 
 
 func _draw() -> void:

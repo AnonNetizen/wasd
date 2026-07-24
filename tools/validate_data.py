@@ -16,6 +16,8 @@ from sync_contracts import CONTRACTS_JSON, ROOT, extract_contracts
 CLIENT_DATA = ROOT / "client" / "data"
 LOCALE_CSV = ROOT / "client" / "locale" / "strings.csv"
 CAMERA_FEEDBACK_JSON = ROOT / "client" / "data" / "camera_feedback.json"
+VISUAL_EFFECTS_JSON = ROOT / "client" / "data" / "visual_effects.json"
+PRESENTATION_PROFILES_JSON = ROOT / "client" / "data" / "presentation_profiles.json"
 CHARACTERS_JSON = ROOT / "client" / "data" / "characters.json"
 WEAPONS_JSON = ROOT / "client" / "data" / "weapons.json"
 ENEMIES_CSV = ROOT / "client" / "data" / "enemies.csv"
@@ -79,6 +81,9 @@ def main() -> int:
     _validate_locale_csv(ctx)
     _validate_player_json(ctx)
     _validate_camera_feedback(ctx)
+    effect_ids = _validate_visual_effects(ctx)
+    profile_ids = _validate_presentation_profiles(ctx, effect_ids)
+    _validate_presentation_profile_references(ctx, profile_ids)
     _validate_weapons(ctx)
     weapon_ids = _collect_weapon_ids(ctx)
     _validate_enemy_ai_profiles(ctx)
@@ -204,6 +209,285 @@ def _validate_player_json(ctx: ValidationContext) -> None:
         return
     for stat, value in base_stats.items():
         _validate_stat_value(ctx, path, f"base_stats.{stat}", stat, value)
+
+
+def _validate_visual_effects(ctx: ValidationContext) -> set[str]:
+    path = VISUAL_EFFECTS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return set()
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    if schema_version != 1:
+        ctx.error(path, "schema_version", "must equal 1")
+    effects = _require_list(ctx, path, "effects", data.get("effects"))
+    if not effects:
+        ctx.error(path, "effects", "must be a non-empty array")
+
+    effect_ids: set[str] = set()
+    entries: dict[str, dict[str, Any]] = {}
+    for index, effect in enumerate(effects):
+        field = f"effects[{index}]"
+        if not isinstance(effect, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        effect_id = _require_non_empty_string(ctx, path, f"{field}.id", effect.get("id"))
+        if effect_id:
+            if effect_id in effect_ids:
+                ctx.error(path, f"{field}.id", f"duplicate effect id {effect_id}")
+            effect_ids.add(effect_id)
+            entries[effect_id] = effect
+        _require_non_empty_string(ctx, path, f"{field}.editor_name", effect.get("editor_name"))
+        _require_registered(ctx, path, f"{field}.domain", effect.get("domain"), "vfx_domains")
+        kind = _require_registered(ctx, path, f"{field}.kind", effect.get("kind"), "vfx_kinds")
+        _require_registered(ctx, path, f"{field}.space", effect.get("space"), "vfx_spaces")
+        _require_registered(ctx, path, f"{field}.lifecycle", effect.get("lifecycle"), "vfx_lifecycles")
+        _require_number(ctx, path, f"{field}.duration", effect.get("duration"), minimum=0)
+        high_frequency = _require_bool(ctx, path, f"{field}.high_frequency", effect.get("high_frequency"))
+
+        resource_path = _require_non_empty_string(
+            ctx, path, f"{field}.resource_path", effect.get("resource_path")
+        )
+        if resource_path:
+            _validate_vfx_resource_path(ctx, path, f"{field}.resource_path", resource_path, kind or "")
+
+        pool_id = effect.get("pool_id", "")
+        if high_frequency is True and not pool_id:
+            ctx.error(path, f"{field}.pool_id", "is required for high-frequency effects")
+        if pool_id:
+            _require_registered(ctx, path, f"{field}.pool_id", pool_id, "pool_ids")
+            _require_int(ctx, path, f"{field}.prewarm", effect.get("prewarm", 0), minimum=0)
+        quality_variants = effect.get("quality_variants")
+        if not isinstance(quality_variants, dict):
+            ctx.error(path, f"{field}.quality_variants", "must be an object")
+        else:
+            for quality, variant_id in quality_variants.items():
+                _require_registered(ctx, path, f"{field}.quality_variants.{quality}", quality, "vfx_qualities")
+                _require_non_empty_string(
+                    ctx, path, f"{field}.quality_variants.{quality}", variant_id
+                )
+        reduced_motion = effect.get("reduced_motion")
+        if not isinstance(reduced_motion, dict):
+            ctx.error(path, f"{field}.reduced_motion", "must be an object")
+        else:
+            mode = _require_registered(
+                ctx,
+                path,
+                f"{field}.reduced_motion.mode",
+                reduced_motion.get("mode"),
+                "vfx_motion_policies",
+            )
+            if mode == "variant":
+                _require_non_empty_string(
+                    ctx,
+                    path,
+                    f"{field}.reduced_motion.effect_id",
+                    reduced_motion.get("effect_id"),
+                )
+            if "runtime_adaptive" in reduced_motion:
+                _require_bool(
+                    ctx,
+                    path,
+                    f"{field}.reduced_motion.runtime_adaptive",
+                    reduced_motion.get("runtime_adaptive"),
+                )
+        tags = _require_list(ctx, path, f"{field}.tags", effect.get("tags"))
+        for tag_index, tag in enumerate(tags):
+            _require_non_empty_string(ctx, path, f"{field}.tags[{tag_index}]", tag)
+        if not isinstance(effect.get("preview"), dict):
+            ctx.error(path, f"{field}.preview", "must be an object")
+
+    for effect_id, effect in entries.items():
+        quality_variants = effect.get("quality_variants", {})
+        if isinstance(quality_variants, dict):
+            for quality, variant_id in quality_variants.items():
+                if variant_id not in effect_ids:
+                    ctx.error(
+                        path,
+                        f"{effect_id}.quality_variants.{quality}",
+                        f"unknown effect id {variant_id}",
+                    )
+        reduced_motion = effect.get("reduced_motion", {})
+        if isinstance(reduced_motion, dict) and reduced_motion.get("mode") == "variant":
+            variant_id = reduced_motion.get("effect_id")
+            if variant_id == effect_id or variant_id not in effect_ids:
+                ctx.error(
+                    path,
+                    f"{effect_id}.reduced_motion.effect_id",
+                    "must reference a different effect in the same catalog",
+                )
+    return effect_ids
+
+
+def _validate_vfx_resource_path(
+    ctx: ValidationContext,
+    data_path: Path,
+    field: str,
+    resource_path: str,
+    kind: str,
+) -> None:
+    if (
+        not resource_path.startswith("res://")
+        or "\\" in resource_path
+        or "/../" in resource_path
+        or resource_path.startswith("res://addons/")
+        or resource_path.startswith("res://scripts/editor/")
+        or "output/test_lab" in resource_path
+        or "/modules/geometry/" in resource_path
+    ):
+        ctx.error(data_path, field, "must be a runtime path outside editor/test/raw geometry modules")
+        return
+    local_path = ROOT / "client" / resource_path.removeprefix("res://")
+    if not local_path.is_file():
+        ctx.error(data_path, field, f"resource does not exist: {resource_path}")
+        return
+    if kind == "target_animation" and local_path.suffix not in {".tres", ".res"}:
+        ctx.error(data_path, field, "target_animation must reference .tres or .res")
+    if kind != "target_animation" and local_path.suffix != ".tscn":
+        ctx.error(data_path, field, "spawned and screen effects must reference .tscn")
+
+
+def _validate_presentation_profiles(
+    ctx: ValidationContext, effect_ids: set[str]
+) -> set[str]:
+    path = PRESENTATION_PROFILES_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return set()
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    if schema_version != 1:
+        ctx.error(path, "schema_version", "must equal 1")
+    profiles = _require_list(ctx, path, "profiles", data.get("profiles"))
+    if not profiles:
+        ctx.error(path, "profiles", "must be a non-empty array")
+
+    profile_ids: set[str] = set()
+    parents: dict[str, str] = {}
+    for index, profile in enumerate(profiles):
+        field = f"profiles[{index}]"
+        if not isinstance(profile, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        profile_id = _require_non_empty_string(ctx, path, f"{field}.id", profile.get("id"))
+        if profile_id:
+            if profile_id in profile_ids:
+                ctx.error(path, f"{field}.id", f"duplicate profile id {profile_id}")
+            profile_ids.add(profile_id)
+            parents[profile_id] = profile.get("parent_profile_id", "")
+        bindings = profile.get("bindings")
+        if not isinstance(bindings, dict):
+            ctx.error(path, f"{field}.bindings", "must be an object")
+            continue
+        for cue, binding in bindings.items():
+            _require_registered(ctx, path, f"{field}.bindings.{cue}", cue, "vfx_cues")
+            if not isinstance(binding, dict):
+                ctx.error(path, f"{field}.bindings.{cue}", "must be an object")
+                continue
+            _validate_presentation_binding(
+                ctx, path, f"{field}.bindings.{cue}", binding, effect_ids
+            )
+
+    for profile_id, parent_id in parents.items():
+        if parent_id and parent_id not in profile_ids:
+            ctx.error(
+                path,
+                f"{profile_id}.parent_profile_id",
+                f"unknown parent profile {parent_id}",
+            )
+        visiting: set[str] = set()
+        cursor = profile_id
+        while cursor:
+            if cursor in visiting:
+                ctx.error(
+                    path,
+                    f"{profile_id}.parent_profile_id",
+                    "profile inheritance must be acyclic",
+                )
+                break
+            visiting.add(cursor)
+            cursor = parents.get(cursor, "")
+    return profile_ids
+
+
+def _validate_presentation_binding(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    binding: dict[str, Any],
+    effect_ids: set[str],
+) -> None:
+    effects = _require_list(ctx, path, f"{field}.effects", binding.get("effects"))
+    for index, effect in enumerate(effects):
+        effect_field = f"{field}.effects[{index}]"
+        if not isinstance(effect, dict):
+            ctx.error(path, effect_field, "must be an object")
+            continue
+        effect_id = _require_non_empty_string(
+            ctx, path, f"{effect_field}.effect_id", effect.get("effect_id")
+        )
+        if effect_id and effect_id not in effect_ids:
+            ctx.error(path, f"{effect_field}.effect_id", f"unknown effect id {effect_id}")
+        _require_registered(
+            ctx, path, f"{effect_field}.anchor", effect.get("anchor"), "vfx_anchors"
+        )
+        if "params" in effect and not isinstance(effect["params"], dict):
+            ctx.error(path, f"{effect_field}.params", "must be an object")
+    for key in (
+        "audio_id",
+        "camera_feedback_id",
+        "screen_effect_id",
+        "hit_stop_profile_id",
+    ):
+        if not isinstance(binding.get(key, ""), str):
+            ctx.error(path, f"{field}.{key}", "must be a string")
+    audio_id = binding.get("audio_id", "")
+    if audio_id:
+        _require_audio_id(ctx, path, f"{field}.audio_id", audio_id)
+    screen_effect_id = binding.get("screen_effect_id", "")
+    if screen_effect_id and screen_effect_id not in effect_ids:
+        ctx.error(path, f"{field}.screen_effect_id", "must reference a catalog effect")
+    if binding.get("hit_stop_profile_id"):
+        ctx.error(path, f"{field}.hit_stop_profile_id", "must be empty in schema v1")
+
+
+def _validate_presentation_profile_references(
+    ctx: ValidationContext, profile_ids: set[str]
+) -> None:
+    required_json = (
+        (CHARACTERS_JSON, "characters"),
+        (WEAPONS_JSON, "weapons"),
+        (SKILLS_JSON, "skills"),
+    )
+    optional_json = (
+        (RELICS_JSON, "relics"),
+        (ACTIVE_ITEMS_JSON, "active_items"),
+        (CONSUMABLES_JSON, "consumables"),
+    )
+    for path, root_key in required_json + optional_json:
+        data = _load_json(path, ctx)
+        if not isinstance(data, dict):
+            continue
+        rows = data.get(root_key)
+        if not isinstance(rows, list):
+            continue
+        required = (path, root_key) in required_json
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict):
+                continue
+            field = f"{root_key}[{index}].presentation_profile_id"
+            profile_id = row.get("presentation_profile_id", "")
+            if required and not profile_id:
+                ctx.error(path, field, "is required")
+            elif profile_id and profile_id not in profile_ids:
+                ctx.error(path, field, f"unknown presentation profile {profile_id}")
+
+    for path in (ENEMIES_CSV, HAZARDS_CSV):
+        for index, row in enumerate(_load_csv_rows(path, ctx)):
+            field = f"row[{index}].presentation_profile_id"
+            profile_id = row.get("presentation_profile_id", "")
+            if not profile_id:
+                ctx.error(path, field, "is required")
+            elif profile_id not in profile_ids:
+                ctx.error(path, field, f"unknown presentation profile {profile_id}")
 
 
 def _validate_characters(ctx: ValidationContext, weapon_ids: set[str], active_item_ids: set[str], consumable_ids: set[str], skill_ids: set[str]) -> None:
@@ -495,6 +779,7 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
         "scene_path",
         "pool_prewarm",
         "ai_profile_id",
+        "presentation_profile_id",
         "max_hp",
         "move_speed",
         "contact_damage",
@@ -568,6 +853,7 @@ def _validate_hazards_csv(ctx: ValidationContext) -> None:
         "name_key",
         "tags",
         "pool_id",
+        "presentation_profile_id",
         "damage",
         "damage_type",
         "trigger_interval",
@@ -3188,6 +3474,18 @@ def _load_json(path: Path, ctx: ValidationContext) -> Any:
     except json.JSONDecodeError as exc:
         ctx.error(path, "$", f"invalid JSON: {exc}")
         return None
+
+
+def _load_csv_rows(path: Path, ctx: ValidationContext) -> list[dict[str, str]]:
+    if not path.exists():
+        ctx.error(path, "$", "missing CSV file")
+        return []
+    try:
+        with path.open(encoding="utf-8-sig", newline="") as handle:
+            return list(csv.DictReader(handle))
+    except OSError as exc:
+        ctx.error(path, "$", f"failed to read CSV: {exc}")
+        return []
 
 
 def _nested(data: dict[str, Any], section: str, field: str) -> Any:

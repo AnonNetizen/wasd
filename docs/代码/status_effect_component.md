@@ -72,6 +72,7 @@
 |------|------|----------|
 | `effect_applied` | `status_id: String`、`snapshot: Dictionary` | 一次状态施加或叠加合并后 |
 | `effect_expired` | `status_id: String`、`snapshot: Dictionary` | 状态剩余时间归零并完成清理后 |
+| `effect_restored` | `status_id: String`、`snapshot: Dictionary` | run 快照恢复出一条活动状态后；表现层据此重建持续读法 |
 
 ## 数据与契约
 

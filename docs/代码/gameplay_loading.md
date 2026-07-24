@@ -10,7 +10,7 @@
 - 使用 Godot `ResourceLoader` 线程接口读取本局角色、敌人和模块 `PackedScene`；不创建或管理自定义 `Thread`。
 - 把对象池预热、初始模块挂载和续局实体恢复留在主线程，并分批让出帧，保证旋转动画持续响应。
 - 保证同时最多有一个玩家加载请求、一个 `LoadingScreen` 和一个 `GameplayRunLoop`。
-- 准备成功后先移除加载界面，再激活 gameplay；失败时清理半成品 runtime / gameplay 对象池并回到标题菜单。
+- 准备成功后以 `pop_expected()` 启动加载界面退出，并等待对应 `ui_removed` 后再激活 gameplay；失败 / 回标题硬切使用 `clear(true)` 清理半成品与 UI。
 - 不负责应用冷启动、进入标题菜单前的数据校验耗时、百分比、阶段信息、取消操作或最低展示时长。
 
 ## 阅读方式
@@ -65,7 +65,7 @@ FormalClientBoot
 | Runtime 准备 | 入树前启用玩家加载模式；线程读取本局 actor / 模块 `PackedScene`，主线程分批预热池、挂载模块和恢复实体 | `configure_player_loading_mode(true)`、`ResourceLoader.load_threaded_request()` |
 | 准备成功 | `GameplayRunLoop` 发出 `run_prepared`，启动层先弹出 `LoadingScreen`，再调用激活入口 | `run_prepared`、`activate_prepared_run()` |
 | 激活 | 切换到 `PLAYING`，恢复 GameClock 与保存的暂停 / 升级 UI 状态；准备期间 gameplay 输入和时间均不推进 | `GameState.change_state(PLAYING)` |
-| 准备失败 | 发出 `run_prepare_failed`；启动层清理半成品 runtime、gameplay 对象池和加载 UI，回标题并显示通用失败提示；续局失败时删除不可恢复的 run | `run_prepare_failed`、`PoolManager.clear_all()` |
+| 准备失败 | 发出 `run_prepare_failed`；启动层清理半成品 runtime、gameplay 对象池并 immediate clear UI，回标题显示提示；续局失败时删除不可恢复的 run | `run_prepare_failed`、`UIManager.clear(true)` |
 
 同步工具路径不启用玩家加载模式：headless、replay、golden 与既有 smoke 仍在 `_ready()` 中完成同步准备并立即激活，保持确定性时序。
 

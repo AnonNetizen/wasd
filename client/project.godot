@@ -23,6 +23,7 @@ GameState="*res://scripts/autoload/game_state.gd"
 GameClock="*res://scripts/autoload/game_clock.gd"
 PlatformServices="*res://scripts/autoload/platform_services.gd"
 Settings="*res://scripts/autoload/settings.gd"
+VisualEffects="*res://scripts/autoload/visual_effects.gd"
 GUIDE="*res://addons/guide/guide.gd"
 InputService="*res://scripts/autoload/input_service.gd"
 Analytics="*res://scripts/autoload/analytics.gd"
@@ -45,7 +46,7 @@ window/stretch/mode="canvas_items"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/at-icons/plugin.cfg", "res://addons/guide/plugin.cfg", "res://addons/module_authoring/plugin.cfg", "res://addons/phantom_camera/plugin.cfg", "res://addons/script-ide/plugin.cfg")
+enabled=PackedStringArray("res://addons/at-icons/plugin.cfg", "res://addons/guide/plugin.cfg", "res://addons/module_authoring/plugin.cfg", "res://addons/phantom_camera/plugin.cfg", "res://addons/script-ide/plugin.cfg", "res://addons/vfx_library/plugin.cfg")
 
 [internationalization]
 

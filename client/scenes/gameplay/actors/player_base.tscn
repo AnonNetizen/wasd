@@ -1,11 +1,51 @@
-[gd_scene format=3 uid="uid://cukcjv22i1erd"]
+[gd_scene load_steps=9 format=3 uid="uid://cukcjv22i1erd"]
 
 [ext_resource type="Script" uid="uid://di4d0y2bfu325" path="res://scripts/gameplay/player.gd" id="1_juycr"]
+[ext_resource type="Script" path="res://scripts/gameplay/presentation/actor_presentation_controller.gd" id="2_presentation"]
 [ext_resource type="PackedScene" uid="uid://bs6kdf27g1s0a" path="res://scenes/gameplay/weapon_system.tscn" id="3_nby7g"]
 [ext_resource type="Script" uid="uid://b8t5v1sfogtt1" path="res://scripts/combat/status_effect_component.gd" id="4_4016b"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 12.0
+
+[sub_resource type="Animation" id="Animation_player_reset"]
+resource_name = "RESET"
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:hit_progress")
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [-1.0]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath(".:defeat_progress")
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [-1.0]
+}
+
+[sub_resource type="Animation" id="Animation_player_hit"]
+resource_name = "hit"
+length = 0.16
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:hit_progress")
+tracks/0/interp = 1
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.16),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [0.0, 1.0]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_player"]
+_data = {
+&"RESET": SubResource("Animation_player_reset"),
+&"hit": SubResource("Animation_player_hit")
+}
 
 [node name="Player" type="CharacterBody2D" unique_id=41174268]
 collision_layer = 0
@@ -37,6 +77,32 @@ polygon = PackedVector2Array(22, 0, 14, 5, 14, -5)
 [node name="Eye" type="Polygon2D" parent="Visual/Direction" unique_id=789089852]
 position = Vector2(4.56, 1.25)
 polygon = PackedVector2Array(2, 0, 1.414, 1.414, 0, 2, -1.414, 1.414, -2, 0, -1.414, -1.414, 0, -2, 1.414, -1.414)
+
+[node name="Presentation" type="Node" parent="."]
+script = ExtResource("2_presentation")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Presentation"]
+callback_mode_process = 2
+libraries = {
+&"": SubResource("AnimationLibrary_player")
+}
+
+[node name="VfxAnchors" type="Node2D" parent="."]
+
+[node name="Center" type="Marker2D" parent="VfxAnchors"]
+
+[node name="Ground" type="Marker2D" parent="VfxAnchors"]
+position = Vector2(0, 12)
+
+[node name="Overhead" type="Marker2D" parent="VfxAnchors"]
+position = Vector2(0, -20)
+
+[node name="Status" type="Marker2D" parent="VfxAnchors"]
+
+[node name="Forward" type="Node2D" parent="VfxAnchors"]
+
+[node name="Muzzle" type="Marker2D" parent="VfxAnchors/Forward"]
+position = Vector2(22, 0)
 
 [node name="WeaponSystem" parent="." unique_id=240850889 instance=ExtResource("3_nby7g")]
 

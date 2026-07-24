@@ -31,6 +31,7 @@ var _travelled: float = 0.0
 var _velocity: Vector2 = Vector2.ZERO
 var _wall_pierce_enabled: bool = false
 var _visual: Node2D = null
+var _trail: Line2D = null
 
 
 func _physics_process(delta: float) -> void:
@@ -78,6 +79,9 @@ func configure(stats: Dictionary, projectile: Dictionary, direction: Vector2, so
 	_velocity = direction.normalized() * float(stats.get(STATS.BULLET_SPEED, 0.0))
 	add_to_group("active_bullets")
 	_refresh_visuals()
+	_resolve_trail()
+	if _trail != null:
+		_trail.call("configure", self)
 
 
 func snapshot() -> Dictionary:
@@ -119,6 +123,9 @@ func restore_snapshot(snapshot_data: Dictionary, source: Node) -> void:
 	_velocity = _dict_to_vector(snapshot_data.get("velocity", {}), Vector2.ZERO)
 	add_to_group("active_bullets")
 	_refresh_visuals()
+	_resolve_trail()
+	if _trail != null:
+		_trail.call("configure", self)
 
 
 func _pool_reset() -> void:
@@ -138,6 +145,9 @@ func _pool_reset() -> void:
 	_velocity = Vector2.ZERO
 	_wall_pierce_enabled = false
 	visible = true
+	_resolve_trail()
+	if _trail != null:
+		_trail.call("reset_trail")
 	_refresh_visuals()
 
 
@@ -145,6 +155,9 @@ func _pool_release() -> void:
 	remove_from_group("active_bullets")
 	_source = null
 	_terrain_initial_overlap_pending = false
+	_resolve_trail()
+	if _trail != null:
+		_trail.call("reset_trail")
 
 
 func _prepare_terrain_query() -> void:
@@ -183,6 +196,11 @@ func _refresh_visuals() -> void:
 	if _visual != null:
 		var radius: float = maxf(_hit_radius, 3.0)
 		_visual.scale = Vector2(radius, radius)
+
+
+func _resolve_trail() -> void:
+	if _trail == null:
+		_trail = get_node_or_null("RibbonTrail") as Line2D
 
 
 func _check_damage_target_hits() -> void:

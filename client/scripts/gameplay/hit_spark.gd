@@ -4,6 +4,8 @@ class_name HitSpark
 extends Node2D
 
 
+signal finished()
+
 const DURATION: float = 0.16
 const RAY_COUNT: int = 6
 
@@ -16,7 +18,9 @@ func _process(delta: float) -> void:
 		return
 	_remaining = maxf(_remaining - GameClock.delta_scaled(delta), 0.0)
 	if _remaining <= 0.0:
-		PoolManager.release(self)
+		finished.emit()
+		if visible:
+			PoolManager.release(self)
 		return
 	_refresh_visuals()
 
@@ -26,6 +30,15 @@ func configure(spawn_position: Vector2) -> void:
 	_remaining = DURATION
 	visible = true
 	_refresh_visuals()
+
+
+func configure_vfx(request: VfxPlayRequest) -> void:
+	var spawn_position: Vector2 = request.world_position if request.use_world_position else global_position
+	configure(spawn_position)
+
+
+func cancel(_immediate: bool = false) -> void:
+	_remaining = 0.0
 
 
 func _pool_reset() -> void:

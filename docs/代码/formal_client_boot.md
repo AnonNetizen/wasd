@@ -81,7 +81,7 @@ UIManager
 | 标题装备 Mod | 标题菜单发出 `gear_mod_requested` 后，启动脚本把 `GearModPanel` 推入 UI 栈；关闭时弹出该面板并保留标题菜单 | `UIManager.push()` / `UIManager.pop()` |
 | 标题设置 | 标题菜单发出 `settings_requested` 后，启动脚本把 `SettingsPanel` 推入 UI 栈；关闭时只弹出设置面板并保留标题菜单 | `UIManager.push()` / `UIManager.pop()` |
 | 玩家加载入口 | 开始 / 继续 / 重开立即清理旧 UI、进入 `GameState.LOADING` 并压入唯一 `LoadingScreen`；至少渲染一帧后才读取存档或挂载 runtime。重复请求被忽略 | `_begin_player_gameplay_load()`、`UIManager.push()`、`GameState.LOADING` |
-| Gameplay runtime 准备 / 激活 | 开始 / 重开先生成新的 `RNG` run seed；继续游戏在加载界面出现后读取 `run` payload。玩家入口为 RunLoop 启用分帧准备模式，收到 `run_prepared` 后先移除加载界面再调用 `activate_prepared_run()`；失败则清理半成品和对象池并回标题。`--runtime-smoke` 等工具路径继续同步挂载，保持固定 seed / 可复现 | `RNG.set_random_run_seed()`、`SaveManager.load_envelope()`、`run_prepared`、`run_prepare_failed`、`GameState.PLAYING` |
+| Gameplay runtime 准备 / 激活 | 开始 / 重开先生成新的 `RNG` run seed；继续游戏在加载界面出现后读取 `run` payload。收到 `run_prepared` 后 `pop_expected(LoadingScreen)` 并等待 `ui_removed`，再调用 `activate_prepared_run()`；失败使用 immediate clear 清理半成品和对象池并回标题 | `run_prepared`、`run_prepare_failed`、`UIManager.ui_removed`、`GameState.PLAYING` |
 | F5 存档 smoke | `--save-smoke` 启动时只挂载 `SaveManagerSmoke`，验证 run 存档 roundtrip、备份回退、坏档隔离和迁移链 | `client/tools/save_manager_smoke.gd` |
 | F7 设置 smoke | `--settings-smoke` 启动时只挂载 `SettingsSmoke`，验证设置缺文件默认值、有效配置 roundtrip、非法值拒绝、坏值 / 坏文件回退以及 `Localization` 跟随语言设置 | `client/tools/settings_smoke.gd` |
 | F11 装备 Mod smoke | `--gear-mod-smoke` 启动时只挂载 `GearModSmoke`，验证 Gear Mod profile、授予、装备、容量、升级、分解和掉落 | `client/tools/gear_mod_smoke.gd` |

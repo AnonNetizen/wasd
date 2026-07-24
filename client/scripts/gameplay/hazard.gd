@@ -4,6 +4,8 @@ class_name Hazard
 extends Node2D
 
 
+signal activated(context: Dictionary)
+
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 
 const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 160.0)
@@ -28,6 +30,7 @@ var _duration: float = 0.0
 var _grid_cell_size: Vector2 = DEFAULT_GRID_CELL_SIZE
 var _hazard_id: String = ""
 var _radius_tiles: int = 1
+var _presentation_profile_id: String = ""
 var _target: Node2D = null
 var _trigger_interval: float = 1.0
 
@@ -54,6 +57,9 @@ func configure(hazard_data: Dictionary, target: Node2D, grid_cell_size: Vector2 
 	_damage_type = String(hazard_data.get("damage_type", ""))
 	_trigger_interval = maxf(float(hazard_data.get("trigger_interval", 1.0)), 0.01)
 	_radius_tiles = maxi(int(hazard_data.get("radius_tiles", 1)), 1)
+	_presentation_profile_id = String(
+		hazard_data.get("presentation_profile_id", "")
+	)
 	_grid_cell_size = Vector2(maxf(grid_cell_size.x, 1.0), maxf(grid_cell_size.y, 1.0))
 	_duration = maxf(float(hazard_data.get("duration", 0.0)), 0.0)
 	_target = target
@@ -92,6 +98,7 @@ func _pool_reset() -> void:
 	_grid_cell_size = DEFAULT_GRID_CELL_SIZE
 	_hazard_id = ""
 	_radius_tiles = 1
+	_presentation_profile_id = ""
 	_target = null
 	_trigger_interval = 1.0
 	visible = true
@@ -118,6 +125,13 @@ func _draw() -> void:
 func _trigger() -> void:
 	_cooldown_remaining = _trigger_interval
 	_active_remaining = _duration
+	activated.emit({
+		"owner": self,
+		"world_position": global_position,
+		"footprint": Rect2(global_position - _half_extents(), _half_extents() * 2.0),
+		"hazard_id": _hazard_id,
+		"presentation_profile_id": _presentation_profile_id,
+	})
 	if _target == null or not is_instance_valid(_target):
 		return
 	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(

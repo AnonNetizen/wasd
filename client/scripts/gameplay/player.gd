@@ -11,7 +11,6 @@ const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 const DRAW_RADIUS: float = 12.0
-const HIT_FLASH_DURATION: float = 0.16
 const MOUSE_AIM_MIN_DISTANCE_SQUARED: float = 16.0
 const ACTIVE_PLAYER_GROUP: String = "active_player"
 const INPUT_PARTICIPANT_ID: String = "player_0"
@@ -24,7 +23,6 @@ const TEAM_PLAYER: String = "team_player"
 var aim_direction: Vector2 = Vector2.RIGHT
 var _base_stats: Dictionary = {}
 var _damage_invulnerability_duration: float = 0.0
-var _hit_flash_remaining: float = 0.0
 var _has_movement_bounds: bool = false
 var _health_regen: float = 0.0
 var _invulnerable_remaining: float = 0.0
@@ -40,12 +38,12 @@ var _separation_radius: float = 0.0
 var _stat_additions: Dictionary = {}
 var _stat_multipliers: Dictionary = {}
 var _status_effect_component: Node = null
-var _body_visual: Polygon2D = null
-var _direction_visual: Node2D = null
+var _presentation: ActorPresentationController = null
 
 
 func _ready() -> void:
 	_ensure_status_effect_component()
+	_ensure_presentation()
 	_refresh_visuals()
 
 
@@ -60,7 +58,6 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_update_invulnerability(scaled_delta)
-	_update_hit_flash(scaled_delta)
 	_update_health_regen(scaled_delta)
 
 	var move_input: Vector2 = InputService.vector(ACTIONS.MOVE, INPUT_PARTICIPANT_ID)
@@ -81,6 +78,9 @@ func configure(base_stats: Dictionary) -> void:
 	_stat_additions.clear()
 	_stat_multipliers.clear()
 	_clear_status_effects_for_reuse()
+	_ensure_presentation()
+	if _presentation != null:
+		_presentation.reset_presentation()
 	_has_movement_bounds = false
 	_invulnerable_remaining = 0.0
 	_rebuild_stats(true)
@@ -279,19 +279,13 @@ func receive_damage(info: RefCounted) -> Dictionary:
 
 
 func _start_hit_flash() -> void:
-	_hit_flash_remaining = HIT_FLASH_DURATION
-	_refresh_visuals()
+	_ensure_presentation()
+	if _presentation != null:
+		_presentation.play_hit()
 
 
 func _start_invulnerability() -> void:
 	_invulnerable_remaining = _damage_invulnerability_duration
-
-
-func _update_hit_flash(delta: float) -> void:
-	if _hit_flash_remaining <= 0.0:
-		return
-	_hit_flash_remaining = maxf(_hit_flash_remaining - delta, 0.0)
-	_refresh_visuals()
 
 
 func _update_invulnerability(delta: float) -> void:
@@ -339,14 +333,25 @@ func _set_aim_direction(raw_direction: Vector2) -> void:
 
 
 func _refresh_visuals() -> void:
-	if _body_visual == null:
-		_body_visual = get_node_or_null("Visual/Body") as Polygon2D
-	if _direction_visual == null:
-		_direction_visual = get_node_or_null("Visual/Direction") as Node2D
-	if _body_visual != null:
-		_body_visual.color = hurt_flash_color if _hit_flash_remaining > 0.0 else fill_color
-	if _direction_visual != null:
-		_direction_visual.rotation = aim_direction.angle()
+	_ensure_presentation()
+	if _presentation == null:
+		return
+	_presentation.configure_visual(
+		fill_color,
+		hurt_flash_color,
+		hurt_flash_color,
+		1.0,
+		Vector2.ONE
+	)
+	_presentation.set_direction(aim_direction)
+
+
+func _ensure_presentation() -> void:
+	if _presentation != null and is_instance_valid(_presentation):
+		return
+	_presentation = get_node_or_null("Presentation") as ActorPresentationController
+	if _presentation == null:
+		push_error("[Player] missing scene-authored Presentation")
 
 
 func _set_pointer_aim_from_viewport_position(viewport_position: Vector2) -> void:

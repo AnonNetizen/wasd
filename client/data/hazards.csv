@@ -1,3 +1,3 @@
-id,name_key,tags,pool_id,damage,damage_type,trigger_interval,radius_tiles,duration
-hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,100,physical,1.0,1,0.35
-hazard_fea_12_pulse,hazard_fea_12_pulse_name,tag_hazard,hazard_spike,100,physical,0.75,2,0.2
+id,name_key,tags,pool_id,presentation_profile_id,damage,damage_type,trigger_interval,radius_tiles,duration
+hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,presentation_hazard_default,100,physical,1.0,1,0.35
+hazard_fea_12_pulse,hazard_fea_12_pulse_name,tag_hazard,hazard_spike,presentation_hazard_default,100,physical,0.75,2,0.2

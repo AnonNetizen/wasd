@@ -93,6 +93,8 @@ PoolManager (autoload Node)
 
 当前敌人池为 `enemy_chaser`、`enemy_swarm`、`enemy_stalker`、`enemy_bulwark`、`enemy_spitter`。每行 `enemies.csv.pool_id` 必须唯一且等于敌人 id；旧 `enemy_ranged` 已删除。`pool_prewarm` 当前分别为 `8 / 5 / 3 / 4 / 8`，合计仍为 28。不同敌人内容 id 可以共享同一个 `scene_path`，但仍必须使用独立池，避免同一池在复用后出现错误的 `scene_file_path` 或静态外观。
 
+视觉效果目录保留 `hit_spark`、`damage_number`，并登记 `vfx_weapon_muzzle_flash`。`visual_effects.json.high_frequency=true` 的效果必须提供已登记 `pool_id`；普通低频效果不需要预登记池。VFX 回池除了通用变换 / 可见性，还必须清理 Tween、AnimationPlayer 游标、材质实例参数、粒子 emitting / restart 和轨迹历史。
+
 运行时每个池保存以下统计：
 
 | 字段 | 类型 | 说明 |
@@ -114,6 +116,7 @@ PoolManager (autoload Node)
 ## 扩展点
 
 - 新实体池：先登记 pool id，再由实体系统调用 `register_pool()`，factory 返回对应场景实例。
+- 新高频 VFX：先登记 pool id，再在 catalog 声明 `high_frequency/pool_id/prewarm`；由 `VfxHost` 延迟注册和预热。
 - 预热配置：敌人从 `enemies.csv.pool_prewarm` 读取，其他实体继续由对应运行时 / 数据配置决定；不得把敌人预热数量重新硬编码到 RunLoop。
 - 调试面板：读取 `stats()` 展示各池水位、命中率和溢出次数。
 - 生命周期钩子：实体脚本实现 `_pool_reset()` 和 `_pool_release()`，不要让 `PoolManager` 知道具体玩法字段。
@@ -126,6 +129,7 @@ PoolManager (autoload Node)
 | 调整对象池 API | `pool_manager.gd` | 本文档、测试策略 | L1 + L2 |
 | 接入子弹池 | 子弹场景 / 脚本、生成系统 | 本文档、对应模块文档 | L1 + L2 + 性能 smoke |
 | 加 / 改敌人专属池 | `enemies.csv`、专属继承场景、`GameplayRunLoop` | 数据手册、Gameplay Runtime、EnemyAI | data/schema + `actor-scene-smoke` + runtime/save/module-world |
+| 加高频视觉效果池 | 词表、`visual_effects.json`、效果场景 | Visual Effects 文档、数据手册 | contracts/data + `vfx-smoke` |
 | 改溢出策略 | `pool_manager.gd`、`Analytics` | 本文档、Analytics 文档 | L1 + 埋点检查 |
 
 ## 故障排查
@@ -140,7 +144,7 @@ PoolManager (autoload Node)
 ## 测试义务
 
 - 必跑 L0 契约 / 数据 / 文档检查和 L2 headless boot。
-- `l1-smoke` 覆盖基础 acquire / release 生命周期；`actor-scene-smoke` 覆盖五个独立敌人池、专属场景生成、同池复用不串场景，以及不同池之间不串类型。
+- `l1-smoke` 覆盖基础 acquire / release 生命周期；`actor-scene-smoke` 覆盖五个独立敌人池；`vfx-smoke` 覆盖 VfxHost 延迟注册、预热、取消回池和可复用状态。
 - 后续引入 GUT 后，继续补齐注册校验、预热上限、未知 id 拒绝、溢出埋点和 `stats()` 精细单测。性能 smoke 仍只在用户明确要求时运行。
 
 ## 迁移 / 兼容

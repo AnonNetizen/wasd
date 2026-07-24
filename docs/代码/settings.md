@@ -9,6 +9,7 @@
 - 设置 key 必须来自 `docs/词表与契约.md`，并通过 `client/scripts/contracts/settings_keys.gd` 与 `DataLoader` 的 `_contracts.json` 校验。
 - F7 首片已接入 `user://settings.cfg` 持久化、类型 / 范围校验、损坏配置回退和 `settings-smoke` 自动验证。
 - F7 第二片已接入正式 `SettingsPanel`，标题菜单和暂停菜单都能打开同一设置面板；普通偏好只通过 `Settings.set_value()` 写入，不直接维护副本。ADR #148 后 `gameplay.screen_shake` 已接线并显示：`GameplayCameraController` 监听 `setting_changed`，关闭时立即停止当前 Phantom Camera noise、归零 Camera2D offset 并抑制后续玩家受伤震屏。其他未接线的 `video.*`、松开瞄准停火、瞄准模式和失焦暂停 key 暂时保留但不显示。F9 起默认 `gameplay.aim_mode` 为 `mouse`；ADR #151 / #152 后物理输入与重绑定由 `InputService` / GUIDE 独立负责，Settings 只维护普通设置 schema v2，旧 `input.*` 不再登记或迁移。当前绑定权威是 `user://input_bindings.tres`，不再写入 InputMap。F7 运行时语言刷新继续覆盖标题、暂停、设置、HUD、升级、结算和局外成长面板。
+- ADR #158 后 `video.vfx_quality`、`accessibility.reduced_motion`、`accessibility.screen_flashes` 已在可滚动设置面板显示并即时驱动视觉 / UI 动效策略；reduced motion 与 `gameplay.screen_shake` 保持独立。
 - `Settings` 不负责玩家进度存档；局外成长与局内续局属于 `SaveManager`。
 
 ## 阅读方式
@@ -48,9 +49,11 @@ SettingsPanel (CanvasLayer)
 └── Root
     └── Center
         └── Panel
-            └── Layout
+            └── ScrollContainer
+                └── Layout
                 ├── LocaleOption
                 ├── MasterVolumeSlider / MusicVolumeSlider / SfxVolumeSlider
+                ├── VfxQualityOption / ReducedMotionCheck / ScreenFlashesCheck
                 ├── ScreenShakeCheck / RecordReplaysCheck
                 ├── 隐藏占位：FullscreenCheck / VsyncCheck / FireOnReleaseCheck / AimModeOption / PauseOnFocusLossCheck
                 ├── InputFeedbackLabel
@@ -102,6 +105,7 @@ SettingsPanel (CanvasLayer)
 | `general.locale` | string：`zh_CN` / `en` | `zh_CN` | 首选语言 |
 | `video.fullscreen` | bool | `false` | 已登记，当前未接线生效；设置面板暂不显示 |
 | `video.vsync` | bool | `true` | 已登记，当前未接线生效；设置面板暂不显示 |
+| `video.vfx_quality` | string：`low` / `medium` / `high` | `high` | 视觉效果质量策略；低质量不能隐藏玩法读法 |
 | `audio.master` | float：0~1 | `1.0` | 主音量 |
 | `audio.music` | float：0~1 | `0.8` | 音乐音量 |
 | `audio.sfx` | float：0~1 | `0.9` | 音效音量 |
@@ -110,6 +114,8 @@ SettingsPanel (CanvasLayer)
 | `gameplay.screen_shake` | bool | `true` | 已接线且在设置面板显示；关闭会即时停止并抑制 Phantom Camera 受伤震屏 |
 | `gameplay.pause_on_focus_loss` | bool | `true` | 已登记，当前未接线生效；设置面板暂不显示 |
 | `gameplay.record_replays` | bool | `true` | 自动回放录制开关 |
+| `accessibility.reduced_motion` | bool | `false` | 禁用位移、弹性、stagger、视差、循环焦点并缩短淡入淡出 |
+| `accessibility.screen_flashes` | bool | `true` | 是否允许带 `screen_flash` 标签的屏幕叠层 |
 | `privacy.analytics_enabled` | bool | `true` | 数据收集开关 |
 
 新增 key 必须先改 `docs/词表与契约.md`，再运行 `tools/sync_contracts.py` 生成常量和 `_contracts.json`。
@@ -155,6 +161,7 @@ audio.master=1.0
 | 新增设置 key | `docs/词表与契约.md`、`settings.gd` | 本文档、任务模板 | `tools/sync_contracts.py --check`、`tools/validate_data.py` |
 | 改默认语言 | `settings.gd` | 本文档、`client/locale/README.md` | headless boot |
 | 接入设置菜单 | `settings_panel.tscn`、`settings_panel.gd`、入口菜单脚本 | UI 模块文档 | `settings-smoke` + `runtime-smoke` |
+| 改视觉 / 无障碍策略 | `settings.gd`、设置面板、`visual_effects.gd`、UI effects | Visual Effects / UI Effects 文档 | `settings-smoke` + `vfx-smoke` + `runtime-smoke` |
 | 改持久化 / 回退 | `settings.gd`、`settings_smoke.gd` | 本文档、FormalClientBoot 文档 | `settings-smoke` + headless boot |
 | 改运行时语言刷新 | 目标 UI 脚本、`settings_smoke.gd` | 本文档、Localization / Gameplay Runtime 文档 | `settings-smoke` + `runtime-smoke` |
 | 改输入绑定 | `docs/词表与契约.md`、GUIDE action/context 资源、`input_service.gd`、`settings_panel.*` | 本文档、InputService / GUIDE / Gameplay Runtime 文档 | `input-smoke` + `settings-smoke` + `runtime-smoke` + `sync_contracts.py --check` |
@@ -179,6 +186,7 @@ audio.master=1.0
 - 修改 `Settings` 必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client settings-smoke`。
 - 改设置 key、默认值、范围或持久化 schema 时，追加 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_project_rules.py`。
 - 改 `SettingsPanel`、标题 / 暂停设置入口或本地化刷新时，追加 `python tools/godot_bridge.py --project client runtime-smoke`，确认标题和暂停叠层关闭后 UI 栈恢复。
+- 改 VFX 质量、reduced motion 或闪屏策略时，追加 `vfx-smoke`；三项设置的默认值、roundtrip、非法质量和控件写回由 `settings-smoke` 覆盖。
 - 后续引入 GUT 后，`Settings` 需要覆盖默认值、变更广播、未知 key 拒绝、持久化加载和越界拒绝。
 - 输入重绑定变化需要执行 L5 设置 / 输入 checklist；自动 smoke 覆盖键鼠 / 手柄捕获、冲突替换 / 取消、恢复默认、重启 roundtrip、v1 普通偏好保留 / 旧输入忽略和坏配置回退。
 

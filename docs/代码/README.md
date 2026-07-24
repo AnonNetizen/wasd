@@ -33,6 +33,8 @@
 | AudioManager | `docs/代码/audio_manager.md` | `client/scripts/autoload/audio_manager.gd` | F2 第七片已建立 |
 | Localization | `docs/代码/localization.md` | `client/scripts/autoload/localization.gd` | F2 第二片已建立 |
 | UIManager | `docs/代码/ui_manager.md` | `client/scripts/autoload/ui_manager.gd` | F2 第二片已建立 |
+| UI Effects | `docs/代码/ui_effects.md` | `client/scripts/ui/effects/`、`client/scenes/ui/effects/` | ADR #158 共享 UI 动效与 reduced-motion 约束已建立 |
+| Visual Effects | `docs/代码/visual_effects.md` | `client/scripts/autoload/visual_effects.gd`、`client/scripts/vfx/`、`client/scripts/gameplay/presentation/`、`client/addons/vfx_library/` | ADR #158 数据目录、运行时 Host、全量接线与编辑器库已建立 |
 | Gameplay Loading | `docs/代码/gameplay_loading.md` | `client/scenes/ui/loading_screen.tscn`、`client/scripts/ui/loading_screen.gd`、`client/scripts/boot/formal_client_boot.gd`、`client/scripts/gameplay/gameplay_run_loop.gd`、`client/tools/loading_smoke.gd` | ADR #157 开始 / 继续 / 重开统一加载流程已建立 |
 | Combat | `docs/代码/combat.md` | `client/scripts/combat/combat.gd`、`client/scripts/combat/damage_info.gd` | F4 首切片已建立 |
 | Gameplay Runtime | `docs/代码/gameplay_runtime.md` | `client/scripts/gameplay/*.gd`、`client/scripts/ui/title_menu.gd`、`client/scripts/ui/pause_menu.gd`、`client/scripts/ui/game_over_panel.gd`、`client/scripts/boot/formal_client_boot.gd` | F4 首切片已正式命名收口 |

@@ -137,6 +137,7 @@ func _default_values() -> Dictionary:
 		SETTINGS_KEYS.GENERAL_LOCALE: "zh_CN",
 		SETTINGS_KEYS.VIDEO_FULLSCREEN: false,
 		SETTINGS_KEYS.VIDEO_VSYNC: true,
+		SETTINGS_KEYS.VIDEO_VFX_QUALITY: "high",
 		SETTINGS_KEYS.AUDIO_MASTER: 1.0,
 		SETTINGS_KEYS.AUDIO_MUSIC: 0.8,
 		SETTINGS_KEYS.AUDIO_SFX: 0.9,
@@ -145,6 +146,8 @@ func _default_values() -> Dictionary:
 		SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE: true,
 		SETTINGS_KEYS.GAMEPLAY_PAUSE_ON_FOCUS_LOSS: true,
 		SETTINGS_KEYS.GAMEPLAY_RECORD_REPLAYS: true,
+		SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION: false,
+		SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES: true,
 		SETTINGS_KEYS.PRIVACY_ANALYTICS_ENABLED: true,
 	}
 
@@ -184,6 +187,10 @@ func _setting_specs() -> Dictionary:
 		SETTINGS_KEYS.GENERAL_LOCALE: {"type": "string", "options": ["zh_CN", "en"]},
 		SETTINGS_KEYS.VIDEO_FULLSCREEN: {"type": "bool"},
 		SETTINGS_KEYS.VIDEO_VSYNC: {"type": "bool"},
+		SETTINGS_KEYS.VIDEO_VFX_QUALITY: {
+			"type": "string",
+			"options": ["low", "medium", "high"],
+		},
 		SETTINGS_KEYS.AUDIO_MASTER: {"type": "float", "min": 0.0, "max": 1.0},
 		SETTINGS_KEYS.AUDIO_MUSIC: {"type": "float", "min": 0.0, "max": 1.0},
 		SETTINGS_KEYS.AUDIO_SFX: {"type": "float", "min": 0.0, "max": 1.0},
@@ -192,5 +199,7 @@ func _setting_specs() -> Dictionary:
 		SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE: {"type": "bool"},
 		SETTINGS_KEYS.GAMEPLAY_PAUSE_ON_FOCUS_LOSS: {"type": "bool"},
 		SETTINGS_KEYS.GAMEPLAY_RECORD_REPLAYS: {"type": "bool"},
+		SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION: {"type": "bool"},
+		SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES: {"type": "bool"},
 		SETTINGS_KEYS.PRIVACY_ANALYTICS_ENABLED: {"type": "bool"},
 	}

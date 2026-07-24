@@ -1,18 +1,36 @@
-[gd_scene load_steps=2 format=3 uid="uid://be4qsdxi0corh"]
+[gd_scene format=3]
 
-[ext_resource type="Script" uid="uid://dmwvtsp6jre2u" path="res://scripts/gameplay/bullet.gd" id="1_bullet"]
+[ext_resource type="Script" path="res://scripts/gameplay/bullet.gd" id="1_bullet"]
+[ext_resource type="Shader" path="res://shaders/vfx/energy_glow.gdshader" id="2_pofs6"]
+[ext_resource type="Script" path="res://scripts/vfx/vfx_ribbon_trail.gd" id="3_qbi7y"]
 
-[node name="Bullet" type="Node2D"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ydwvu"]
+shader = ExtResource("2_pofs6")
+shader_parameter/glow_color = Color(1, 0.55, 0.12, 1)
+shader_parameter/intensity = 1.0
+
+[sub_resource type="Gradient" id="Gradient_n6kk2"]
+colors = PackedColorArray(1, 0.35, 0.08, 0, 1, 0.96, 0.52, 0.82)
+
+[node name="Bullet" type="Node2D" unique_id=270652351]
 script = ExtResource("1_bullet")
 
-[node name="Visual" type="Node2D" parent="."]
+[node name="Visual" type="Node2D" parent="." unique_id=1276455646]
 scale = Vector2(3, 3)
 
-[node name="Outline" type="Polygon2D" parent="Visual"]
+[node name="Outline" type="Polygon2D" parent="Visual" unique_id=1618737517]
 scale = Vector2(1.45, 1.45)
 color = Color(0.07, 0.06, 0.05, 0.88)
 polygon = PackedVector2Array(1, 0, 0.924, 0.383, 0.707, 0.707, 0.383, 0.924, 0, 1, -0.383, 0.924, -0.707, 0.707, -0.924, 0.383, -1, 0, -0.924, -0.383, -0.707, -0.707, -0.383, -0.924, 0, -1, 0.383, -0.924, 0.707, -0.707, 0.924, -0.383)
 
-[node name="Body" type="Polygon2D" parent="Visual"]
+[node name="Body" type="Polygon2D" parent="Visual" unique_id=183809071]
 color = Color(1, 0.92, 0.35, 1)
 polygon = PackedVector2Array(1, 0, 0.924, 0.383, 0.707, 0.707, 0.383, 0.924, 0, 1, -0.383, 0.924, -0.707, 0.707, -0.924, 0.383, -1, 0, -0.924, -0.383, -0.707, -0.707, -0.383, -0.924, 0, -1, 0.383, -0.924, 0.707, -0.707, 0.924, -0.383)
+
+[node name="RibbonTrail" type="Line2D" parent="." unique_id=1039623175]
+z_index = -1
+material = SubResource("ShaderMaterial_ydwvu")
+width = 5.0
+default_color = Color(1, 0.76, 0.22, 0.72)
+gradient = SubResource("Gradient_n6kk2")
+script = ExtResource("3_qbi7y")

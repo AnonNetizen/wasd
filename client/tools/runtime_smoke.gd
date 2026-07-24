@@ -15,6 +15,7 @@ const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 const AIM_FRAMES: int = 4
 const BOOT_FRAMES: int = 8
+const UI_TRANSITION_FRAMES: int = 120
 const INVULNERABILITY_FRAMES: int = 50
 const LEVEL_UP_FRAMES: int = 24
 const MOVE_FRAMES: int = 8
@@ -219,10 +220,16 @@ func _run() -> void:
 	var restored_run: Dictionary = await _expect_pause_save_resume(run_loop, player)
 	var restored_run_loop_value: Node = restored_run.get("run_loop", run_loop) as Node
 	var restored_player_value: Node2D = restored_run.get("player", player) as Node2D
-	if restored_run_loop_value != null:
-		run_loop = restored_run_loop_value
-	if restored_player_value != null:
-		player = restored_player_value
+	if (
+		restored_run_loop_value == null
+		or not is_instance_valid(restored_run_loop_value)
+		or restored_player_value == null
+		or not is_instance_valid(restored_player_value)
+	):
+		_finish()
+		return
+	run_loop = restored_run_loop_value
+	player = restored_player_value
 	_expect(
 		player.scene_file_path == PLAYER_SCENE.resource_path,
 		"restored character id should recreate its data-bound dedicated scene"
@@ -707,6 +714,10 @@ func _expect_bullet_hits_interest_point_target(run_loop: Node, player: Node2D) -
 		return
 	var bullet: Node2D = raw_bullet as Node2D
 	_expect(_find_node_by_name(bullet, "Visual") != null, "pooled bullets should keep their scene-authored visual subtree")
+	_expect(
+		_find_node_by_name(bullet, "RibbonTrail") != null,
+		"pooled bullets should keep their reusable shader ribbon trail"
+	)
 	bullet.global_position = target.global_position
 	var old_parent: Node = bullet.get_parent()
 	if old_parent != null:
@@ -1444,8 +1455,10 @@ func _expect_stats_panel_hold_to_show(run_loop: Node) -> void:
 	_expect(health_regen_value_label != null and String(health_regen_value_label.text).contains("/s"), "stats panel should show current health regen")
 	InputService.inject_playback_value(ACTIONS.SHOW_STATS_PANEL, false)
 	InputService.set_playback_active(false)
-	for _index: int in range(BOOT_FRAMES):
+	for _index: int in range(UI_TRANSITION_FRAMES):
 		await get_tree().process_frame
+		if not bool(hud.call("is_stats_panel_visible")):
+			break
 	_expect(not bool(hud.call("is_stats_panel_visible")), "releasing stats panel action should hide the HUD panel")
 
 
@@ -1849,6 +1862,7 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	_expect(restored_mods.size() >= 1, "continue should restore pending Gear Mod loot")
 	var resume_button: Button = _find_node_by_name(restored_pause_menu, "ResumeButton") as Button
 	_expect(resume_button != null, "restored pause menu should expose resume")
+	await _wait_for_ui_active(restored_pause_menu)
 	await _push_action_once(ACTIONS.UI_BACK)
 	var resumed_run_loop: Node = await _wait_for_playing_run_loop()
 	_expect(resumed_run_loop == restored_run_loop, "ui_back on restored pause menu should keep the same run loop")
@@ -1912,8 +1926,9 @@ func _verify_title_settings_entry(title_menu: Node) -> void:
 	_expect(not _focus_is_inside(settings_panel), "title SettingsPanel should not receive focus after pointer push")
 	var close_button: Button = _find_node_by_name(settings_panel, "CloseButton") as Button
 	_expect(close_button != null, "SettingsPanel should expose close button")
+	await _wait_for_ui_active(settings_panel)
 	await _push_action_once(ACTIONS.UI_BACK)
-	for _index: int in range(BOOT_FRAMES):
+	for _index: int in range(UI_TRANSITION_FRAMES):
 		await get_tree().process_frame
 		if _find_node_by_name(get_tree().root, "SettingsPanel") == null:
 			break
@@ -1935,8 +1950,9 @@ func _verify_pause_settings_entry(pause_menu: Node) -> void:
 	_expect(not _focus_is_inside(settings_panel), "pause SettingsPanel should not receive focus after pointer push")
 	var close_button: Button = _find_node_by_name(settings_panel, "CloseButton") as Button
 	_expect(close_button != null, "pause SettingsPanel should expose close button")
+	await _wait_for_ui_active(settings_panel)
 	await _push_action_once(ACTIONS.UI_BACK)
-	for _index: int in range(BOOT_FRAMES):
+	for _index: int in range(UI_TRANSITION_FRAMES):
 		await get_tree().process_frame
 		if _find_node_by_name(get_tree().root, "SettingsPanel") == null:
 			break
@@ -1952,6 +1968,17 @@ func _wait_for_node(node_name: String) -> Node:
 		if node != null:
 			return node
 	return null
+
+
+func _wait_for_ui_active(node: Node) -> void:
+	for _index: int in range(UI_TRANSITION_FRAMES):
+		if (
+			node == null
+			or not is_instance_valid(node)
+			or UIManager.ui_state(node) == UIManager.UIState.ACTIVE
+		):
+			return
+		await get_tree().process_frame
 
 
 func _push_action_once(action_id: String) -> void:
@@ -2176,11 +2203,23 @@ func _wait_for_playing_run_loop() -> Node:
 
 
 func _wait_for_state_run_loop(expected_state: StringName) -> Node:
-	for _index: int in range(BOOT_FRAMES * 4):
+	for _index: int in range(UI_TRANSITION_FRAMES):
 		await get_tree().process_frame
 		var run_loop: Node = _find_node_by_name(get_tree().root, "GameplayRunLoop")
 		if run_loop != null and GameState.is_state(expected_state):
 			return run_loop
+	var current_run_loop: Node = _find_node_by_name(get_tree().root, "GameplayRunLoop")
+	var current_top: Node = UIManager.top()
+	push_error(
+		"[RuntimeSmoke] state wait timed out; expected=%s current=%s run_loop=%s ui_top=%s ui_state=%s"
+		% [
+			String(expected_state),
+			String(GameState.current()),
+			"present" if current_run_loop != null else "missing",
+			current_top.name if current_top != null else "<none>",
+			str(UIManager.ui_state(current_top)) if current_top != null else "<none>",
+		]
+	)
 	return null
 
 
@@ -2206,9 +2245,14 @@ func _defeat_player_for_game_over(run_loop: Node, player: Node2D) -> void:
 
 
 func _wait_for_title_menu() -> void:
-	for _index: int in range(BOOT_FRAMES * 4):
+	for _index: int in range(UI_TRANSITION_FRAMES):
 		await get_tree().process_frame
-		if GameState.is_state(GameState.MAIN_MENU) and _find_node_by_name(get_tree().root, "TitleMenu") != null:
+		var title_menu: Node = _find_node_by_name(get_tree().root, "TitleMenu")
+		if (
+			GameState.is_state(GameState.MAIN_MENU)
+			and title_menu != null
+			and UIManager.ui_state(title_menu) == UIManager.UIState.ACTIVE
+		):
 			return
 	_expect(false, "title menu should appear after quit-to-title")
 

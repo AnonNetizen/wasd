@@ -5,6 +5,7 @@ extends Node
 
 
 signal skill_cast(skill_id: String, result: Dictionary)
+signal skill_failed(skill_id: String, result: Dictionary)
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
@@ -72,30 +73,30 @@ func configure(caster: Node2D, active_parent: Node, skills: Array, resources: Ar
 
 func cast_primary_skill() -> Dictionary:
 	if _skills.is_empty():
-		return _result(false, "no_skill")
+		return _failed_cast("", "no_skill")
 	return cast_skill(String(_skills[0].get("id", "")))
 
 
 func cast_skill(skill_id: String) -> Dictionary:
 	var skill: Dictionary = _skill_by_id(skill_id)
 	if skill.is_empty():
-		return _result(false, "unknown_skill")
+		return _failed_cast(skill_id, "unknown_skill")
 	if _caster == null or not is_instance_valid(_caster):
-		return _result(false, "caster_unavailable")
+		return _failed_cast(skill_id, "caster_unavailable")
 	if cooldown_remaining(skill_id) > 0.0:
-		return _result(false, "cooldown")
+		return _failed_cast(skill_id, "cooldown")
 	var tag_check: Dictionary = _activation_tag_check(skill)
 	if not bool(tag_check.get("ok", false)):
-		return _result(false, String(tag_check.get("reason", "tag_blocked")), {
+		return _failed_cast(skill_id, String(tag_check.get("reason", "tag_blocked")), {
 			"tag": String(tag_check.get("tag", "")),
 			"owned_tags": owned_tags(),
 		})
 	if not _can_pay_costs(skill):
-		return _result(false, "insufficient_resource")
+		return _failed_cast(skill_id, "insufficient_resource")
 
 	var targets: Array[Node] = _targets_for_skill(skill)
 	if targets.is_empty():
-		return _result(false, "no_targets")
+		return _failed_cast(skill_id, "no_targets")
 
 	_pay_costs(skill)
 	var transient_tags: Array[String] = _activation_tags(skill, "granted_tags")
@@ -113,8 +114,22 @@ func cast_skill(skill_id: String) -> Dictionary:
 		"resources": resource_snapshot(),
 		"cooldown": cooldown_remaining(skill_id),
 		"owned_tags": owned_tags(),
+		"presentation_profile_id": String(
+			skill.get("presentation_profile_id", "")
+		),
 	}
 	skill_cast.emit(skill_id, result.duplicate(true))
+	return result
+
+
+func _failed_cast(skill_id: String, reason: String, extra: Dictionary = {}) -> Dictionary:
+	var result: Dictionary = _result(false, reason, extra)
+	result["skill_id"] = skill_id
+	var skill: Dictionary = _skill_by_id(skill_id)
+	result["presentation_profile_id"] = String(
+		skill.get("presentation_profile_id", "")
+	)
+	skill_failed.emit(skill_id, result.duplicate(true))
 	return result
 
 

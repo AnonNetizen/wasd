@@ -72,6 +72,7 @@
       "general.locale",
       "video.fullscreen",
       "video.vsync",
+      "video.vfx_quality",
       "audio.master",
       "audio.music",
       "audio.sfx",
@@ -80,6 +81,8 @@
       "gameplay.screen_shake",
       "gameplay.pause_on_focus_loss",
       "gameplay.record_replays",
+      "accessibility.reduced_motion",
+      "accessibility.screen_flashes",
       "privacy.analytics_enabled"
     ],
     "actions": [
@@ -132,7 +135,8 @@
       "hazard_spike",
       "damage_number",
       "hit_spark",
-      "pickup_orb"
+      "pickup_orb",
+      "vfx_weapon_muzzle_flash"
     ],
     "damage_types": [
       "physical",
@@ -170,6 +174,7 @@
       "drop",
       "combat",
       "camera_fx",
+      "vfx",
       "ui_choice",
       "world",
       "meta"
@@ -284,6 +289,78 @@
       "module_tile_ground_default",
       "module_tile_obstacle_default",
       "module_tile_decoration_default"
+    ],
+    "vfx_domains": [
+      "ui",
+      "actor",
+      "combat",
+      "skill",
+      "status",
+      "pickup",
+      "environment",
+      "screen"
+    ],
+    "vfx_kinds": [
+      "spawned_scene",
+      "target_animation",
+      "screen_overlay"
+    ],
+    "vfx_spaces": [
+      "attached",
+      "world",
+      "ground",
+      "screen",
+      "ui"
+    ],
+    "vfx_lifecycles": [
+      "one_shot",
+      "loop",
+      "state"
+    ],
+    "vfx_cues": [
+      "spawn",
+      "hurt",
+      "hit",
+      "defeat",
+      "skill_cast",
+      "skill_failed",
+      "status_applied",
+      "status_expired",
+      "weapon_fire",
+      "modifier_started",
+      "modifier_refreshed",
+      "modifier_expired",
+      "pickup_spawn",
+      "pickup_attract",
+      "pickup_collect",
+      "hazard_telegraph",
+      "hazard_activated",
+      "ui_enter",
+      "ui_exit",
+      "ui_focus",
+      "ui_press",
+      "ui_success",
+      "ui_failure",
+      "ui_value_increase",
+      "ui_value_decrease"
+    ],
+    "vfx_anchors": [
+      "center",
+      "ground",
+      "overhead",
+      "status",
+      "forward",
+      "muzzle"
+    ],
+    "vfx_qualities": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "vfx_motion_policies": [
+      "same",
+      "variant",
+      "suppress_optional"
     ],
     "locale_prefixes": [
       "ui_",

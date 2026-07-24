@@ -1,0 +1,255 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "presentation_gameplay_default",
+      "parent_profile_id": "",
+      "bindings": {
+        "hit": {
+          "effects": [
+            {"effect_id": "combat_hit_default", "anchor": "center"},
+            {"effect_id": "combat_damage_number_default", "anchor": "overhead"}
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        }
+      }
+    },
+    {
+      "id": "presentation_player_default",
+      "parent_profile_id": "presentation_gameplay_default",
+      "bindings": {
+        "hurt": {
+          "effects": [
+            {"effect_id": "actor_player_hurt_flash", "anchor": "center"}
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "player_damage_shake",
+          "screen_effect_id": "screen_player_damage_flash",
+          "hit_stop_profile_id": ""
+        }
+      }
+    },
+    {
+      "id": "presentation_enemy_default",
+      "parent_profile_id": "presentation_gameplay_default",
+      "bindings": {
+        "hurt": {
+          "effects": [
+            {"effect_id": "actor_enemy_hit_flash", "anchor": "center"}
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        },
+        "defeat": {
+          "effects": [
+            {"effect_id": "actor_enemy_defeat", "anchor": "center"},
+            {"effect_id": "actor_enemy_defeat_afterimage", "anchor": "center"}
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        }
+      }
+    },
+    {
+      "id": "presentation_skill_default",
+      "parent_profile_id": "",
+      "bindings": {
+        "skill_cast": {
+          "effects": [
+            {"effect_id": "skill_cast_default", "anchor": "center"}
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        },
+        "skill_failed": {
+          "effects": [
+            {
+              "effect_id": "skill_cast_default",
+              "anchor": "center",
+              "params": {"tint": "#7c8796ff", "scale": 0.6}
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        }
+      }
+    },
+    {
+      "id": "presentation_skill_overdrive",
+      "parent_profile_id": "presentation_skill_default",
+      "bindings": {
+        "skill_cast": {
+          "effects": [
+            {
+              "effect_id": "skill_overdrive_cast",
+              "anchor": "forward",
+              "params": {"tint": "#ffd35cff", "scale": 1.15}
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        },
+        "modifier_started": {
+          "effects": [
+            {"effect_id": "skill_overdrive_cast", "anchor": "forward"}
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        },
+        "modifier_refreshed": {
+          "effects": [
+            {
+              "effect_id": "skill_overdrive_cast",
+              "anchor": "forward",
+              "params": {"scale": 0.85}
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        },
+        "modifier_expired": {
+          "effects": [
+            {
+              "effect_id": "skill_overdrive_cast",
+              "anchor": "forward",
+              "params": {"tint": "#8a7a68ff", "scale": 0.7}
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        }
+      }
+    },
+    {
+      "id": "presentation_weapon_default",
+      "parent_profile_id": "",
+      "bindings": {
+        "weapon_fire": {
+          "effects": [
+            {
+              "effect_id": "weapon_muzzle_flash_default",
+              "anchor": "muzzle",
+              "params": {"scale": 0.35}
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        }
+      }
+    },
+    {
+      "id": "presentation_status_default",
+      "parent_profile_id": "",
+      "bindings": {
+        "status_applied": {
+          "effects": [
+            {"effect_id": "status_apply_default", "anchor": "status"}
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        },
+        "status_expired": {
+          "effects": [
+            {
+              "effect_id": "status_apply_default",
+              "anchor": "status",
+              "params": {"tint": "#8fa0b8ff", "scale": 0.7}
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        }
+      }
+    },
+    {
+      "id": "presentation_pickup_default",
+      "parent_profile_id": "",
+      "bindings": {
+        "pickup_collect": {
+          "effects": [
+            {"effect_id": "pickup_collect_default", "anchor": "center"}
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        },
+        "pickup_spawn": {
+          "effects": [
+            {
+              "effect_id": "pickup_collect_default",
+              "anchor": "center",
+              "params": {"scale": 0.55}
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        },
+        "pickup_attract": {
+          "effects": [
+            {
+              "effect_id": "pickup_collect_default",
+              "anchor": "center",
+              "params": {"tint": "#a6ffccff", "scale": 0.45}
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        }
+      }
+    },
+    {
+      "id": "presentation_hazard_default",
+      "parent_profile_id": "",
+      "bindings": {
+        "hazard_telegraph": {
+          "effects": [
+            {"effect_id": "environment_hazard_telegraph", "anchor": "ground"}
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        },
+        "hazard_activated": {
+          "effects": [
+            {"effect_id": "environment_hazard_activated", "anchor": "ground"}
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        }
+      }
+    }
+  ]
+}

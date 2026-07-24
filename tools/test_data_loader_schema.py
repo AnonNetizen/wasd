@@ -26,6 +26,47 @@ def main() -> int:
     cases: list[tuple[str, RepoMutator | None, list[str]]] = [
         ("golden data passes", None, []),
         (
+            "visual effect ids must be unique",
+            _mutate_json("client/data/visual_effects.json", _duplicate_visual_effect_id),
+            [
+                "client/data/visual_effects.json:effects[1].id",
+                "duplicate effect id",
+            ],
+        ),
+        (
+            "high-frequency visual effects require pools",
+            _mutate_json(
+                "client/data/visual_effects.json",
+                _remove_high_frequency_visual_effect_pool,
+            ),
+            [
+                "client/data/visual_effects.json:effects[0].pool_id",
+                "required for high-frequency effects",
+            ],
+        ),
+        (
+            "runtime-adaptive reduced motion must be bool",
+            _mutate_json(
+                "client/data/visual_effects.json",
+                _invalidate_runtime_adaptive_reduced_motion,
+            ),
+            [
+                "client/data/visual_effects.json:effects[1].reduced_motion.runtime_adaptive",
+                "bool",
+            ],
+        ),
+        (
+            "presentation profile inheritance must be acyclic",
+            _mutate_json(
+                "client/data/presentation_profiles.json",
+                _create_presentation_profile_cycle,
+            ),
+            [
+                "client/data/presentation_profiles.json:presentation_gameplay_default.parent_profile_id",
+                "profile inheritance must be acyclic",
+            ],
+        ),
+        (
             "module world must be 9x9",
             _mutate_json("client/data/module_worlds.json", _set_module_world_columns(8)),
             ["client/data/module_worlds.json:worlds[0].columns", "must equal 9"],
@@ -1103,6 +1144,22 @@ def _copy_test_repo(temp_root: Path) -> None:
         temp_root / "client" / "scenes" / "gameplay" / "actors",
     )
     _copy_file(
+        ROOT / "client" / "scenes" / "gameplay" / "hit_spark.tscn",
+        temp_root / "client" / "scenes" / "gameplay" / "hit_spark.tscn",
+    )
+    _copy_file(
+        ROOT / "client" / "scenes" / "gameplay" / "damage_number.tscn",
+        temp_root / "client" / "scenes" / "gameplay" / "damage_number.tscn",
+    )
+    _copy_tree(
+        ROOT / "client" / "scenes" / "vfx",
+        temp_root / "client" / "scenes" / "vfx",
+    )
+    _copy_tree(
+        ROOT / "client" / "resources" / "vfx",
+        temp_root / "client" / "resources" / "vfx",
+    )
+    _copy_file(
         ROOT / "client" / "resources" / "modules" / "module_placeholder_tileset.tres",
         temp_root / "client" / "resources" / "modules" / "module_placeholder_tileset.tres",
     )
@@ -1822,6 +1879,22 @@ def _remove_fixed_objective_slot(payload: dict[str, Any]) -> None:
     world["fixed_slots"] = [
         entry for entry in world["fixed_slots"] if entry["slot"] != objective_slot
     ]
+
+
+def _duplicate_visual_effect_id(payload: dict[str, Any]) -> None:
+    payload["effects"][1]["id"] = payload["effects"][0]["id"]
+
+
+def _remove_high_frequency_visual_effect_pool(payload: dict[str, Any]) -> None:
+    payload["effects"][0].pop("pool_id", None)
+
+
+def _invalidate_runtime_adaptive_reduced_motion(payload: dict[str, Any]) -> None:
+    payload["effects"][1]["reduced_motion"]["runtime_adaptive"] = "yes"
+
+
+def _create_presentation_profile_cycle(payload: dict[str, Any]) -> None:
+    payload["profiles"][0]["parent_profile_id"] = "presentation_player_default"
 
 
 def _replace_fixed_objective_with_connector(payload: dict[str, Any]) -> None:

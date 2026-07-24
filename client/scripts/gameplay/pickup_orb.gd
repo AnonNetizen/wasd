@@ -5,6 +5,7 @@ extends Node2D
 
 
 signal collected(amount: int)
+signal attraction_started()
 
 const DRAW_RADIUS: float = 5.0
 const COLLECT_DISTANCE: float = 8.0
@@ -61,7 +62,10 @@ func _physics_process(delta: float) -> void:
 	if distance > pickup_range:
 		_attract_blend = 0.0
 		return
+	var was_attracting: bool = _attract_blend > 0.0
 	_attract_blend = 1.0
+	if not was_attracting:
+		attraction_started.emit()
 	if distance <= COLLECT_DISTANCE:
 		_start_collect_feedback()
 		return

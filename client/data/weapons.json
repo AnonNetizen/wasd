@@ -8,6 +8,7 @@
       "default_unlocked": true,
       "fire_mode": "hold_mouse",
       "fire_audio_id": "sfx_player_shoot",
+      "presentation_profile_id": "presentation_weapon_default",
       "base_stats": {
         "damage": 3.5,
         "fire_rate": 2.5,

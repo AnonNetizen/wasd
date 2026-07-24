@@ -6,6 +6,7 @@ extends Node
 
 signal effect_applied(status_id: String, snapshot: Dictionary)
 signal effect_expired(status_id: String, snapshot: Dictionary)
+signal effect_restored(status_id: String, snapshot: Dictionary)
 
 const STATUS_EFFECT_SCRIPT := preload("res://scripts/combat/status_effect.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
@@ -116,6 +117,10 @@ func restore_snapshot(snapshot_data: Dictionary, grant_existing_tags: bool = tru
 		if effect_key.is_empty():
 			effect_key = _effect_key_for(effect)
 		_set_effect(effect_key, effect, grant_existing_tags)
+		effect_restored.emit(
+			String(effect.get("status_id")),
+			effect.call("snapshot") as Dictionary
+		)
 
 
 func _tick_effects(delta: float) -> void:

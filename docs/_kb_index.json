@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_at": "2026-07-23",
+  "updated_at": "2026-07-24",
   "description": "Machine-readable AI knowledge base index for the wasd project.",
   "documents": [
     {
@@ -1322,16 +1322,44 @@
     {
       "path": "docs/代码/ui_manager.md",
       "type": "module_doc",
-      "authority": "UIManager autoload contract for UI scene stack, CanvasLayer root, pause linkage, and InputService-driven UI context lifecycle",
+      "authority": "UIManager autoload contract for asynchronous ENTERING/ACTIVE/EXITING/REMOVED UI scene stack, CanvasLayer root, pause linkage, focus restoration, deduplicated navigation, and InputService-driven UI context lifecycle",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-07-23",
-      "canonical_for": ["ui_manager", "ui_stack", "pause_ui", "loading_screen_stack", "ui_input_context_consumer"],
-      "must_read_for": ["ui_stack_change", "new_ui_modal", "pause_menu_change", "loading_screen_change", "ui_input_bridge_change", "ui_text_or_layout_change"],
-      "related_docs": ["docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/game_state.md", "docs/代码/gameplay_loading.md", "docs/代码/settings.md", "docs/代码/localization.md", "docs/代码/input_service.md"],
-      "related_code": ["client/scripts/autoload/ui_manager.gd", "client/scripts/autoload/input_service.gd", "client/scripts/autoload/game_state.gd", "client/scenes/ui/loading_screen.tscn", "client/scripts/ui/loading_screen.gd"],
-      "update_triggers": ["UIManager API changes", "UI metadata changes", "pause linkage changes", "UI stack or InputService context behavior changes", "Godot UI bridge changes", "UI localization sizing rule change"],
-      "keywords": ["UIManager", "InputService", "autoload", "UI stack", "LoadingScreen", "loading-smoke", "ui context", "Godot Control bridge", "push", "pop", "pauses_game", "CanvasLayer", "English UI sizing", "英文长度基准", "按钮宽度", "ADR #157"]
+      "last_reviewed": "2026-07-24",
+      "canonical_for": ["ui_manager", "ui_stack", "ui_transition_state", "pause_ui", "loading_screen_stack", "ui_input_context_consumer", "ui_focus_restore"],
+      "must_read_for": ["ui_stack_change", "new_ui_modal", "pause_menu_change", "loading_screen_change", "ui_input_bridge_change", "ui_text_or_layout_change", "ui_transition_change"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/game_state.md", "docs/代码/gameplay_loading.md", "docs/代码/settings.md", "docs/代码/localization.md", "docs/代码/input_service.md", "docs/代码/ui_effects.md", "docs/代码/visual_effects.md"],
+      "related_code": ["client/scripts/autoload/ui_manager.gd", "client/scripts/autoload/input_service.gd", "client/scripts/autoload/game_state.gd", "client/scenes/ui/", "client/scripts/ui/effects/", "client/tools/ui_manager_smoke.gd"],
+      "update_triggers": ["UIManager API changes", "UI transition state changes", "UI metadata changes", "pause linkage changes", "focus restore changes", "UI stack or InputService context behavior changes", "Godot UI bridge changes", "UI localization sizing rule change"],
+      "keywords": ["UIManager", "InputService", "autoload", "UI stack", "ENTERING", "ACTIVE", "EXITING", "REMOVED", "pop_expected", "ui_removed", "focus restore", "ConfirmationModal", "LoadingScreen", "loading-smoke", "ui-manager-smoke", "ui context", "Godot Control bridge", "push", "pop", "replace", "pauses_game", "CanvasLayer", "English UI sizing", "英文长度基准", "按钮宽度", "ADR #157", "ADR #158"]
+    },
+    {
+      "path": "docs/代码/visual_effects.md",
+      "type": "module_doc",
+      "authority": "VisualEffects catalog/profile resolution, VfxHost lifecycle and pooling, GameplayFeedbackController routing, actor anchors and presentation controllers, quality and reduced-motion policy, curated composition boundary, and VFX Library editor workflow",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-07-24",
+      "canonical_for": ["visual_effects", "presentation_profiles", "vfx_host", "gameplay_feedback", "actor_presentation", "vfx_library_editor", "vfx_quality_policy", "reduced_motion_vfx"],
+      "must_read_for": ["new_visual_effect", "visual_effect_change", "presentation_profile_change", "actor_anchor_change", "gameplay_feedback_change", "vfx_editor_change", "vfx_pool_change"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/ui_effects.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/pool_manager.md", "docs/代码/data_loader.md", "docs/代码/settings.md", "docs/AI导航.md"],
+      "related_code": ["client/data/visual_effects.json", "client/data/presentation_profiles.json", "client/scripts/autoload/visual_effects.gd", "client/scripts/vfx/", "client/scripts/gameplay/presentation/", "client/scenes/vfx/", "client/resources/vfx/", "client/shaders/vfx/", "client/addons/vfx_library/", "client/tools/vfx_smoke.gd"],
+      "update_triggers": ["VFX catalog or profile schema changes", "VfxHost or feedback API changes", "presentation anchor or actor animation changes", "VFX pooling changes", "quality or reduced-motion policy changes", "VFX editor workflow changes", "new VFX primitive or composition template"],
+      "keywords": ["VisualEffects", "VFX", "视觉效果", "visual_effects.json", "presentation_profiles.json", "VfxHost", "GameplayFeedbackController", "ActorPresentationController", "VFX Library", "AnimationPlayer", "AnimationTree", "Tween", "Curve", "SpriteFrames", "GPUParticles2D", "CPUParticles2D", "CanvasItem Shader", "ShaderMaterial", "程序几何", "reduced motion", "vfx quality", "ADR #158"]
+    },
+    {
+      "path": "docs/代码/ui_effects.md",
+      "type": "module_doc",
+      "authority": "Reusable UI effect components, MotionRoot animation boundary, default transition timing, HUD-local playback, reduced-motion behavior, and UIEffectPlayer integration with UIManager lifecycle",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-07-24",
+      "canonical_for": ["ui_effects", "ui_transition_components", "motion_root", "ui_reduced_motion", "hud_local_effects"],
+      "must_read_for": ["ui_effect_change", "ui_transition_change", "new_ui_screen", "hud_feedback_change", "reduced_motion_ui_change"],
+      "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/ui_manager.md", "docs/代码/visual_effects.md", "docs/代码/settings.md", "docs/AI导航.md"],
+      "related_code": ["client/scripts/ui/effects/", "client/scenes/ui/effects/", "client/scripts/autoload/ui_manager.gd", "client/tools/ui_manager_smoke.gd"],
+      "update_triggers": ["UI effect component API changes", "MotionRoot boundary changes", "UI transition timing changes", "HUD local feedback changes", "reduced-motion UI policy changes"],
+      "keywords": ["UIEffectPlayer", "UIPanelTransition", "UIButtonFeedback", "UISelectionFeedback", "UIFocusIndicator", "UIToast", "UIValueFeedback", "UIScreenAccent", "UIEffectSequence", "MotionRoot", "reduced motion", "UI transition", "ADR #158"]
     },
     {
       "path": "docs/reports/2026-07-21-f14-replay-regression.md",

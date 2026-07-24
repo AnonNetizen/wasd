@@ -64,14 +64,14 @@
 | `client/locale/`（即 `res://locale/`） | 本地化翻译表（CSV → `.translation`）+ `README.md` 多语言文案手册 |
 | `client/templates/`（即 `res://templates/`） | 新内容脚手架模板（enemy/relic 等） |
 | `client/assets/`（即 `res://assets/`） | 美术 / 音效 |
-| `client/addons/`（即 `res://addons/`） | 固定版本 Godot 插件；当前为 `@icons 1.4.0`、`Script-IDE 2.2.3`、运行时摄像机框架 `Phantom Camera 0.11.0.3` 与输入引擎 `G.U.I.D.E 0.14.0`。来源 / 许可 / 版本 / 升级见 `client/addons/README.md`；GUIDE 内部与项目输入边界分别见 `docs/代码/guide.md`、`docs/代码/input_service.md` |
+| `client/addons/`（即 `res://addons/`） | 固定版本插件及 editor-only 工具；除既有插件外，ADR #158 新增项目自有 `VFX Library`，release preset 排除，契约见 `docs/代码/visual_effects.md` |
 | `client/scenes/boot/main.tscn` | F1 最小启动场景，详见 `docs/代码/formal_client_boot.md` |
-| `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `InputService` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `GearModSystem` / `AudioManager` / `Localization` / `UIManager`；另由 addon 路径稳定注册 `GUIDE` 与 `PhantomCameraManager` |
+| `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `VisualEffects` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `InputService` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `GearModSystem` / `AudioManager` / `Localization` / `UIManager`；另由 addon 路径稳定注册 `GUIDE` 与 `PhantomCameraManager` |
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口、`DamageInfo`、`StatusEffect` 与 `StatusEffectComponent` |
-| `client/scripts/gameplay/` | Gameplay 主循环、玩家 / 武器 / 技能 / 敌人 / 机关 / HUD，F13 `module_world_manager` / `module_chunk` / `module_minimap`，以及 F14 `module_navigation_field`；世界 / 导航 API 见 `docs/代码/module_world_manager.md`，Enemy 感知见 `docs/代码/enemy_ai.md` |
-| `client/scripts/ui/` | 阶段性 UI：`title_menu` / `loading_screen` / `pause_menu` / `game_over_panel` / `gear_mod_panel` |
+| `client/scripts/gameplay/` | Gameplay 主循环、玩家 / 武器 / 技能 / 敌人 / 机关 / HUD，以及 `presentation/` 的 VfxHost / Feedback / ActorPresentation |
+| `client/scripts/ui/` | 正式 UI 与 `effects/` 共享动效组件；UI 栈 / UI Effects 分别见对应模块文档 |
 | `client/scripts/debug/` | debug/dev_tools 专用 `DebugConsole` 与 `GMCommandRegistry`；正式 release 不应加载或导出 |
-| `client/tools/` | Godot 项目内 headless smoke 脚本；当前含 gameplay runtime、actor 继承场景 / 独立敌人池、GearMod、SaveManager、Settings、Replay、RNG 和 DebugTools smoke，并保留仅由用户明确触发的性能 probe |
+| `client/tools/` | Godot 项目内 headless smoke / baker；ADR #158 新增 VFX resource baker、`vfx-smoke`、`ui-manager-smoke`，并保留仅由用户明确触发的性能 probe |
 | `user://settings.cfg` / `user://input_bindings.tres` | 普通设置 schema v2 / GUIDE 输入绑定 schema v1；游戏进度存档仍走 `user://saves/<slot>/<kind>.save`（`meta` / `run` / `replay_index`） |
 
 `docs/` 下：
@@ -134,6 +134,7 @@
 | **加 / 改武器** | 在 `client/data/weapons.json` 加一条：武器基础属性、子弹池、伤害类型、命中半径和音频 id；文案用 `weapon_*` key；`pool_id` / `damage_type` / `audio_id` 前缀必须来自词表，不实现 WeaponSystem 运行时 |
 | **改子弹墙体阻挡 / 穿墙能力** | 先读 GDD §4、ADR #149、`docs/代码/gameplay_runtime.md` 与 `docs/代码/module_world_manager.md`；运行时改 `bullet.gd`，模块墙体层改 `module_chunk.gd`，数值契约改词表 / `weapons.json` / 双端 DataLoader。保持玩家与敌弹默认阻挡、地形 bit 1、圆形首帧重叠 + 本帧扫掠、`PoolManager.release()`、`pierce_count` 与 `wall_pierce` 独立、发射时快照及旧字段默认 false；验证完整 / 技术切片 module-world、runtime/save/L1、headless 和四条黄金回放 |
 | **加 / 改技能** | 在 `client/data/skills.json` 加技能定义：`ability_tags`、`activation`、`costs`、`targeting`、`effects`、冷却和 `skill_*` 文案；角色只在 `characters.json.starting_loadout.skill_ids` 引用技能并声明 `skill_resources`，模式池走 `game_modes.resource_pools.skills`；新资源、目标类型、效果原语或 ability tag 先登记词表 §12-C~12-G，状态效果 / 叠加规则先登记 §9-A~§9-B，再扩展 `docs/代码/skill_system.md` / `docs/代码/status_effect_component.md` |
+| **加 / 选择视觉效果** | 先读 `docs/代码/visual_effects.md`；优先在 Godot `VFX Library` 用向导创建组合场景、自动登记 catalog，并在 Inspector / 内容绑定页选择 effect 或 profile。内容数据只写 `presentation_profile_id`；固定 cue / anchor / domain / space / lifecycle / quality 先登记词表 §16。程序几何只能使用精选复合模板，不得生成任意 `_draw()` 或引用 addon / `output/test_lab` |
 | **加 / 改状态效果** | 先看 `docs/代码/status_effect_component.md`；状态 id 登记 `docs/词表与契约.md` §9-A，叠加规则登记 §9-B，通过 `skill_effect_apply_status` 或未来 on-hit primitive 注入；当前 Player / Enemy / SkillSystem 自身已实现 `apply_status_effect()` 和 owned ability tag 查询，DoT 由状态组件按 `GameClock` tick 并经 `Combat.apply_damage()` 结算；新可受状态影响实体应照此接入；状态存在期间要授予 / 移除 ability tag 时引用 §12-G，不在业务脚本手动计时 |
 | **加 / 改机关** | 在 `client/data/hazards.csv` 加一行：伤害、伤害类型、触发间隔、`radius_tiles` 占格尺寸、持续时间和 `hazard_*_name` 文案；`tag_hazard`、`pool_id`、`damage_type` 必须来自词表；初始摆放改 `client/data/map_layouts.json`，普通矩形范围机关复用 `docs/代码/hazard_system.md` 的通用 `Hazard` 运行时 |
 | **改地图边界 / 矩形格 / PCG / 人工摆点** | 查 `docs/代码/map_manager.md`；地图尺寸、`grid.cell_width/cell_height`、玩家出生点、安全半径、刷怪边距、PCG 机关数量 / 间距和人工固定摆点都改 `client/data/map_layouts.json`；bounds 是轴对齐矩形，必须分别是 `grid.cell_width/cell_height` 的整数倍；玩家出生点必须在格心，出生安全区可见提示必须是贴住矩形格的矩形，机关按 `radius_tiles` 奇偶吸附到合法锚点（奇数格心、偶数网格顶点），可见和逻辑地图边界必须是同一个矩形，刷怪位置仍用 `RNG.spawn`；玩家和敌人中心移动都应保持在矩形边界内；改完跑 `validate_data`、`runtime-smoke`，机关相关追加 `f9-demo-smoke` |
@@ -153,7 +154,7 @@
 | **改装备 Mod / 局外装配** | 查 GDD §7.2、`docs/AI协作/工作包/F11-GearModLoadout.md` 与 `docs/代码/gear_mod_system.md`；数据 / 契约、运行时首片和最小 UI 已建立：`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、一张提高武器 `damage` 的测试武器 Mod、`enemy_chaser` 玩家击杀 1% 掉落、升级消耗 `gear_mod_dust`、分解返还资源、英雄 / 武器两套 loadout、capacity / drain、开局 modifier snapshot、标题 `GearModPanel`、HUD 暂存提示和 `gear-mod-smoke` 面板按钮流；后续优先补更多 Mod 内容。新增 Mod id / slot / rarity / resource / stack rule 前先登记词表契约，并同步 `client/data/README.md`、locale、DataLoader schema、SaveManager / Gameplay Runtime 文档和 smoke |
 | **维护旧局外成长历史** | 旧 `MetaProgressionSystem` 运行时和 UI 已按 ADR #117 删除；项目尚未上线，ADR #118 后旧测试档迁移、`meta_progression.json`、旧 meta 契约常量和旧 `purchased_upgrades` 补偿路径也已删除。需要查历史时看 F6 工作包与 ADR 记录；不要恢复旧永久升级树作为当前成长方向 |
 | **改致谢 / 第三方来源** | 同步根目录 `CREDITS.md` 与 `client/data/credits.json`；Godot 编辑器插件同时维护 `client/addons/README.md` 的版本、哈希、本地补丁和升级流程；新增分组标题、角色或用途标签时补 `client/locale/strings.csv` 的 `ui_credits_*` key；发行前复核许可证和 notice |
-| **加 / 改美术资产 / 占位表现** | 先看 `docs/IP美术风格.md`、GDD §8.2-A、`docs/代码/gameplay_runtime.md` 的占位表现规则和当前 F9 工作包。敌巢 / 虫族使用骨白、蜡黄、干肉粉、深红、黑紫和少量毒蓝；青、红、白归属虫族 / 敌巢，玩家和玩家子弹默认避开青、红、白，敌方远程攻击可用红色，宝箱与地图兴趣点按功能色区分。贴地范围（机关、AOE、地面符号、房间边界）优先用矩形 / 方形或与矩形地图格对齐；角色、敌人、拾取物、子弹、障碍物和特效不强制矩形，asset brief 必须说明色彩归属、`footprint_shape`、`anchor_point`、`orientation_read`、`sort_layer`、`collision_or_trigger_shape` |
+| **加 / 改美术资产 / 占位表现** | 先看 `docs/IP美术风格.md`、GDD §8.2-A / §9.24、`docs/代码/visual_effects.md`。静态色彩 / 锚点 / 朝向继续遵守 IP 规则；动态效果通过 VFX Library / profile 接入，程序几何必须与 Shader、动画或粒子形成精选模板 |
 | **加破限角色/道具** | 先判断是否能用 `capabilities` + `modifiers` + `behaviors` 表达；表达不了则新增可复用 primitive / strategy 并登记词表 §12，禁止按 id 写特殊分支 |
 | **写/改代码模块** | 先查 `docs/代码文档规范.md` + 对应 `docs/代码/<module_id>.md` + 目标源码；触碰 `.gd` 时按 Godot 4.7 官方 GDScript style guide 整理本次改动，并跑 `python tools/lint_gdscript_rules.py`；GDD / ADR 只在设计冲突、语义不明或新增决策时补读，不能默认整篇加载 |
 | **查知识库 / 找文档关系 / 任务路由** | 先看 `docs/AI知识库索引.md` 的任务路由表，需要机器可读元数据时看 `docs/_kb_index.json`，搜索同义词先看 `docs/术语表.md` |
@@ -208,13 +209,14 @@
 ## 5. 核心系统模块
 
 ### 5.1 模块清单
-**业务模块**：`FormalClientBoot` / `LoadingScreen` / `GameplayRunLoop` / `Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager`（F13 世界门面）/ `ModuleNavigationField`（F14 共享静态导航）/ `WarzoneDirector`（仅 F12 非默认开放战区）/ `HazardSystem` / `ItemSystem` / `GrowthSystem` / `GearModSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `PhantomCamera2D` / `PhantomCameraHost` / `Camera2D` / `DataLoader` / `PauseMenu` / `Combat` / `StatusEffectComponent`。
+**业务模块**：`FormalClientBoot` / `LoadingScreen` / `GameplayRunLoop` / `Player` / `WeaponSystem` / `Bullet` / `SkillSystem` / `Enemy(EnemyAI)` / `Spawner` / `ModuleWorldManager` / `ModuleNavigationField` / `WarzoneDirector` / `HazardSystem` / `ItemSystem` / `GrowthSystem` / `GearModSystem` / `ModifierEngine` / `MapManager` / `GameplayCameraController` / `VfxHost` / `GameplayFeedbackController` / `ActorPresentationController` / `PauseMenu` / `Combat` / `StatusEffectComponent`。
 
 **Autoload 单例（横向基础设施 + 协调中枢）**：
 - 一条**本地 mod 基础设施**：`ModLoader`（扫描 `user://mods/<mod_id>/mod.json`，给 `DataLoader` 提供声明式数据 patch 与允许的动态契约扩展；创意工坊未来只作为分发层）
 - 一条**平台服务基础设施**：`PlatformServices`（Steam 优先预留成就、统计、富状态 / 状态显示、overlay、Lobby / 联机入口和用户身份；其他平台后续走 provider adapter）
 - 一条**未来在线服务规划**：`OnlineServices` 尚未实现；ADR #150 只锁定未来以 Talo provider 承接跨平台身份、排行榜 / 统计、Live Config、事件和轻量社交，不计入当前 autoload 矩阵
 - 三条**协作基础设施**：`Localization` / `Settings` / `Analytics`
+- 一条**表现注册基础设施**：`VisualEffects`（catalog/profile、质量与 reduced-motion 解析；不持有当前世界）
 - 一条**输入基础设施**：vendored `GUIDE` 只解释物理设备与资源图；项目 `InputService` 是生成 action、归一化 intent、context、重绑定、提示和回放覆盖的唯一业务门面
 - 两条**确定性基础设施**：`RNG`（种子化随机，子流分流）/ `GameClock`（玩家加载、暂停与结算状态冻结的时间源）
 - 一条**回放基础设施**：`Replay`
@@ -228,6 +230,8 @@
 > 普通开始新局 / 重开会生成新的 `RNG` run seed；继续游戏恢复 run snapshot；回放、smoke、golden 和调试复现仍应显式固定 seed 或走工具启动路径。
 
 > ADR #157 后开始、继续和重开都先由 `FormalClientBoot` 进入 `LOADING` 并通过 `UIManager` 显示唯一 `LoadingScreen`；RunLoop 在玩家加载模式下用 `ResourceLoader` 线程读取 actor / 模块 `PackedScene`，对象池预热、初始模块挂载与续局恢复在主线程分批让帧。`run_prepared` 后先移除遮罩再激活；失败清理半成品并回标题。应用冷启动、阶段 / 百分比、取消和人为最低时长不在当前范围。
+
+> ADR #158 后 `VisualEffects` 解析数据，RunLoop 内 `VfxHost` / `GameplayFeedbackController` 执行 cue；Player / Enemy 基类固定 Presentation 和六个挂点。`UIManager` 使用四态异步生命周期并自动装共享 UI effects；Loading 正常路径等待 `ui_removed`。VFX Library 是 editor-only，release 排除；性能检查仍只由用户明确触发。
 
 > 有限地图可见边界和逻辑边界当前都由 `MapManager.bounds()` / `boundary_points()` / `boundary_half_extents()` 定义为贴住格线的轴对齐矩形；玩家和敌人中心点由 `set_movement_bounds()` 约束。排查敌人越界时先看 `GameplayRunLoop._apply_enemy_movement_bounds()`、`Enemy.set_movement_bounds()` 与 `runtime-smoke` 的敌人边界断言。
 
@@ -244,6 +248,7 @@ flowchart LR
     Loc[Localization]
     Set[Settings]
     Ana[Analytics]
+    VfxReg[VisualEffects]
     RNG[RNG]
     Rep[Replay]
     Guide[GUIDE]
@@ -272,6 +277,8 @@ flowchart LR
   ME[ModifierEngine]
   Combat[Combat<br/>伤害结算]
   SE[StatusEffectComponent]
+  VfxHost[VfxHost]
+  Feedback[GameplayFeedbackController]
 
   Player[Player]
   RunLoop[GameplayRunLoop]
@@ -300,13 +307,13 @@ flowchart LR
   Talo[Talo<br/>未来在线后端]
 
   Mod -. 本地 mod 数据 patch .-> Loader
-  Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & GearMod & Spawner & ModuleWorld & Director & Hazard & Map & CamCtl
-  Set --> Input & UIM & Aud & CamCtl
+  Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & GearMod & Spawner & ModuleWorld & Director & Hazard & Map & CamCtl & VfxReg
+  Set --> Input & UIM & Aud & CamCtl & VfxReg
   Guide -. 物理 action / context / remapping .-> Input
   Loc --> UIM & Item
   Loc --> Loading
   Ana <-- 埋点 --- Player & Enemy & Item & Growth & GearMod & Spawner & GS & Save
-  RNG --> Map & Spawner & Item & Growth & GearMod & Enemy & Combat & PCam
+  RNG --> Map & Spawner & Item & Growth & GearMod & Enemy & Combat & PCam & VfxHost
   Clk --> Spawner & Director & Hazard & Weapon & Skill & SE
   Input -. 录制 v2 intent .-> Rep
   Rep -. playback override .-> Input
@@ -324,7 +331,7 @@ flowchart LR
   GS -.- Rep
   UIM --> UI
   UIM --> Loading
-  Pool --> Weapon & Bullet & Spawner & Hazard & Item & Aud
+  Pool --> Weapon & Bullet & Spawner & Hazard & Item & Aud & VfxHost
 
   Input --> Player --> Weapon
   Input --> Skill & UIM & UI
@@ -335,6 +342,9 @@ flowchart LR
   Save -. run 快照 .- Player & Enemy & Skill
   Enemy --> Combat
   Combat --> Player & Enemy
+  Combat -. semantic cue .-> Feedback --> VfxHost
+  VfxReg --> Feedback & VfxHost
+  VfxHost -. attached/world/ground/screen .-> Player & Enemy & UI
   Combat -. 玩家有效伤害 .-> CamCtl
   Combat -.- SE
   GS -. 默认模块世界创建/驱动 .-> ModuleWorld

@@ -65,6 +65,14 @@ SECTIONS: tuple[ContractSection, ...] = (
     ContractSection("module_edge_directions", "## 15-D. 模块边缘方向 module_edge_direction", "module_edge_directions.gd", "ModuleEdgeDirections"),
     ContractSection("module_review_statuses", "## 15-E. 模块审核状态 module_review_status", "module_review_statuses.gd", "ModuleReviewStatuses"),
     ContractSection("module_tile_ids", "## 15-F. 模块图块 module_tile_id", "module_tile_ids.gd", "ModuleTileIds"),
+    ContractSection("vfx_domains", "## 16-A. 视觉效果领域 vfx_domain", "vfx_domains.gd", "VfxDomains"),
+    ContractSection("vfx_kinds", "## 16-B. 视觉效果执行种类 vfx_kind", "vfx_kinds.gd", "VfxKinds"),
+    ContractSection("vfx_spaces", "## 16-C. 视觉效果空间 vfx_space", "vfx_spaces.gd", "VfxSpaces"),
+    ContractSection("vfx_lifecycles", "## 16-D. 视觉效果生命周期 vfx_lifecycle", "vfx_lifecycles.gd", "VfxLifecycles"),
+    ContractSection("vfx_cues", "## 16-E. 视觉表现 cue vfx_cue", "vfx_cues.gd", "VfxCues"),
+    ContractSection("vfx_anchors", "## 16-F. 视觉效果挂点 vfx_anchor", "vfx_anchors.gd", "VfxAnchors"),
+    ContractSection("vfx_qualities", "## 16-G. 视觉效果质量 vfx_quality", "vfx_qualities.gd", "VfxQualities"),
+    ContractSection("vfx_motion_policies", "## 16-H. 减少动态策略 vfx_motion_policy", "vfx_motion_policies.gd", "VfxMotionPolicies"),
 )
 
 LOCALE_PREFIXES_HEADING = "## 6. 本地化 key 命名规范"

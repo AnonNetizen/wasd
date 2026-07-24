@@ -6,6 +6,7 @@ extends CanvasLayer
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const STATS_ROW_SCENE: PackedScene = preload("res://scenes/ui/stats_row.tscn")
+const UI_EFFECT_BUNDLE_SCENE: PackedScene = preload("res://scenes/ui/effects/ui_effect_bundle.tscn")
 const UPGRADE_FEEDBACK_DURATION: float = 1.35
 const UPGRADE_FEEDBACK_FADE_RATIO: float = 0.36
 const UPGRADE_FEEDBACK_TEXT_COLOR: Color = Color(1.0, 0.82, 0.28)
@@ -45,6 +46,10 @@ var _stats_panel: PanelContainer = null
 var _stats_title_label: Label = null
 var _stats_values: Dictionary = {}
 var _stats_value_labels: Dictionary = {}
+var _stats_panel_requested_visible: bool = false
+var _selection_feedback: UISelectionFeedback = null
+var _stats_transition: UIPanelTransition = null
+var _ui_effect_bundle: Node = null
 var _upgrade_feedback_label: Label = null
 var _upgrade_feedback_remaining: float = 0.0
 var _last_upgrade_feedback_key: String = "ui_upgrade_applied"
@@ -60,6 +65,7 @@ var _kills: int = 0
 var _level: int = 1
 var _xp: int = 0
 var _xp_required: int = 0
+var _value_feedback: UIValueFeedback = null
 
 
 func _ready() -> void:
@@ -85,6 +91,7 @@ func _ready() -> void:
 	_build_stats_panel_rows()
 	_upgrade_feedback_label.hide()
 	_configure_upgrade_feedback_style()
+	_bind_ui_effects()
 	_bind_module_minimap()
 	if _module_minimap == null:
 		push_error("[GameplayHud] missing scene-authored ModuleMinimap")
@@ -118,25 +125,38 @@ func _exit_tree() -> void:
 
 
 func set_life(current_life: float, max_life: float) -> void:
+	var previous_life: float = _current_life
+	var changed: bool = not is_equal_approx(_current_life, current_life)
 	_current_life = current_life
 	_max_life = max_life
 	_life_label.text = "%s: %d/%d" % [tr("ui_hud_life"), int(ceilf(_current_life)), int(ceilf(_max_life))]
+	if changed and _value_feedback != null:
+		_value_feedback.play_value(_life_label, current_life >= previous_life)
 
 
 func set_kills(kills: int) -> void:
+	var changed: bool = _kills != kills
 	_kills = kills
 	_kills_label.text = "%s: %d" % [tr("ui_hud_kills"), _kills]
+	if changed and _value_feedback != null:
+		_value_feedback.play_value(_kills_label)
 
 
 func set_level(level: int) -> void:
+	var changed: bool = _level != level
 	_level = level
 	_level_label.text = "%s: %d" % [tr("ui_hud_level"), _level]
+	if changed and _value_feedback != null:
+		_value_feedback.play_value(_level_label)
 
 
 func set_xp(xp: int, xp_required: int) -> void:
+	var changed: bool = _xp != xp
 	_xp = xp
 	_xp_required = xp_required
 	_xp_label.text = "%s: %d/%d" % [tr("ui_hud_xp"), _xp, _xp_required]
+	if changed and _value_feedback != null:
+		_value_feedback.play_value(_xp_label)
 
 
 func show_game_over() -> void:
@@ -179,6 +199,8 @@ func show_interaction_prompt(binding: String) -> void:
 		"binding": binding,
 	})
 	_message_label.show()
+	if _selection_feedback != null:
+		_selection_feedback.play_selection(_message_label)
 	_refresh_interaction_prompt_richtext(generation)
 
 
@@ -232,6 +254,8 @@ func _start_feedback() -> void:
 	_upgrade_feedback_remaining = UPGRADE_FEEDBACK_DURATION
 	_update_upgrade_feedback_visual()
 	_upgrade_feedback_label.show()
+	if _value_feedback != null:
+		_value_feedback.play_value(_upgrade_feedback_label)
 
 
 func is_upgrade_feedback_visible() -> bool:
@@ -245,9 +269,21 @@ func is_game_over_message_visible() -> bool:
 func set_stats_panel_visible(is_visible: bool) -> void:
 	if _stats_panel == null:
 		return
-	_stats_panel.visible = is_visible
+	if _stats_panel_requested_visible == is_visible:
+		if is_visible:
+			_refresh_stats_panel()
+		return
+	_stats_panel_requested_visible = is_visible
 	if is_visible:
+		_stats_panel.show()
 		_refresh_stats_panel()
+		if _stats_transition != null:
+			_stats_transition.play_enter()
+		return
+	if _stats_transition != null and _stats_panel.visible:
+		_stats_transition.play_exit(_finish_stats_panel_hide)
+	else:
+		_stats_panel.hide()
 
 
 func set_detailed_stats(stats: Dictionary) -> void:
@@ -257,7 +293,11 @@ func set_detailed_stats(stats: Dictionary) -> void:
 
 
 func is_stats_panel_visible() -> bool:
-	return _stats_panel != null and _stats_panel.visible
+	return (
+		_stats_panel != null
+		and _stats_panel_requested_visible
+		and _stats_panel.visible
+	)
 
 
 func _refresh_static_labels() -> void:
@@ -317,6 +357,41 @@ func _configure_upgrade_feedback_style() -> void:
 	_upgrade_feedback_label.add_theme_constant_override("shadow_offset_x", 2)
 	_upgrade_feedback_label.add_theme_constant_override("shadow_offset_y", 2)
 	_upgrade_feedback_label.modulate = Color.WHITE
+
+
+func _bind_ui_effects() -> void:
+	_ui_effect_bundle = UI_EFFECT_BUNDLE_SCENE.instantiate()
+	if _ui_effect_bundle == null:
+		push_error("[GameplayHud] failed to instantiate UI effect bundle")
+		return
+	_ui_effect_bundle.name = &"UIEffects"
+	add_child(_ui_effect_bundle)
+	_stats_transition = _ui_effect_bundle.get_node_or_null(
+		"PanelTransition"
+	) as UIPanelTransition
+	if _stats_transition != null:
+		_stats_transition.configure(_stats_panel)
+	_value_feedback = _ui_effect_bundle.get_node_or_null(
+		"ValueFeedback"
+	) as UIValueFeedback
+	_selection_feedback = _ui_effect_bundle.get_node_or_null(
+		"SelectionFeedback"
+	) as UISelectionFeedback
+	var button_feedback: UIButtonFeedback = _ui_effect_bundle.get_node_or_null(
+		"ButtonFeedback"
+	) as UIButtonFeedback
+	if button_feedback != null:
+		button_feedback.bind(self)
+	var focus_indicator: UIFocusIndicator = _ui_effect_bundle.get_node_or_null(
+		"FocusIndicator"
+	) as UIFocusIndicator
+	if focus_indicator != null:
+		focus_indicator.bind(self)
+
+
+func _finish_stats_panel_hide() -> void:
+	if not _stats_panel_requested_visible and _stats_panel != null:
+		_stats_panel.hide()
 
 
 func _bind_module_minimap() -> void:

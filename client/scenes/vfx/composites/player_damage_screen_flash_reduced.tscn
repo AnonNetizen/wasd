@@ -1,0 +1,47 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/vfx/screen_vfx_instance.gd" id="1_gp83t"]
+
+[sub_resource type="Animation" id="Animation_ty8ik"]
+length = 0.01
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:color")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Color(1, 0.12, 0.08, 0)]
+}
+
+[sub_resource type="Animation" id="Animation_gjkhn"]
+length = 0.08
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:color")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.02, 0.08),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Color(1, 0.12, 0.08, 0), Color(1, 0.12, 0.08, 0.08), Color(1, 0.12, 0.08, 0)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_bqqqv"]
+_data = {
+&"RESET": SubResource("Animation_ty8ik"),
+&"play": SubResource("Animation_gjkhn")
+}
+
+[node name="ScreenFlash" type="ColorRect" unique_id=1241459735]
+mouse_filter = 2
+color = Color(1, 0.12, 0.08, 0)
+script = ExtResource("1_gp83t")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=1003363748]
+libraries/ = SubResource("AnimationLibrary_bqqqv")

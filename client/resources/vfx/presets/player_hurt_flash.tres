@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="VfxTargetAnimationPreset" format=3]
+
+[ext_resource type="Script" path="res://scripts/vfx/vfx_target_animation_preset.gd" id="1_1nbii"]
+
+[resource]
+script = ExtResource("1_1nbii")
+tint = Color(1, 0.22, 0.18, 1)

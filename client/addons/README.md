@@ -3,7 +3,7 @@
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。
 > 本文档记录正式 `client/` 项目内固定版本 Godot 插件的来源、许可、本地补丁与升级流程；变更插件版本或维护策略时同步 `client/README.md`、`CREDITS.md`、`docs/决策记录.md` 与 AI 记忆。
 
-外部插件作为项目共享开发依赖直接入库并在 `project.godot` 中启用。插件不会自动更新；仓库内版本属于项目维护型 fork，修改时遵守项目 GDScript lint 与验证规则，同时保留上游版权与许可证。项目自有的 `module_authoring` 也是编辑器插件，但不是第三方依赖，不注册 autoload，release 导出排除；其契约见 `docs/代码/module_authoring_pipeline.md`。
+外部插件作为项目共享开发依赖直接入库并在 `project.godot` 中启用。插件不会自动更新；仓库内版本属于项目维护型 fork，修改时遵守项目 GDScript lint 与验证规则，同时保留上游版权与许可证。项目自有的 `module_authoring` 与 `vfx_library` 也是编辑器插件，但不是第三方依赖，不注册 autoload，release 导出排除；契约分别见 `docs/代码/module_authoring_pipeline.md`、`docs/代码/visual_effects.md`。
 
 Phantom Camera 的源码架构、公共契约、本项目 2D 接入和故障排查见 `docs/代码/phantom_camera.md`；GUIDE 的插件内部架构与项目输入边界分别见 `docs/代码/guide.md`、`docs/代码/input_service.md`。本文件继续作为所有插件版本、发布包哈希、许可和升级清单的权威。
 

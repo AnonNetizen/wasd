@@ -166,10 +166,12 @@ func _refresh_mod_list() -> void:
 		empty_label.name = "GearModEmptyLabel"
 		empty_label.text = tr("ui_gear_mod_empty")
 		_mod_list.add_child(empty_label)
+		_refresh_button_effect_bindings()
 		return
 
 	if _find_summary(_selected_instance_id).is_empty():
 		_selected_instance_id = String(_summaries[0].get("instance_id", ""))
+	_refresh_button_effect_bindings()
 
 
 func _make_mod_row(summary: Dictionary) -> Control:
@@ -323,6 +325,14 @@ func _connect_button(button: Button, target: Callable) -> void:
 	button.pressed.connect(target)
 
 
+func _refresh_button_effect_bindings() -> void:
+	var feedback: UIButtonFeedback = get_node_or_null(
+		"UIEffects/ButtonFeedback"
+	) as UIButtonFeedback
+	if feedback != null:
+		feedback.call_deferred("refresh_bindings")
+
+
 func _on_hero_tab_pressed() -> void:
 	_active_slot = GEAR_MOD_SLOTS.HERO
 	_selected_instance_id = ""
@@ -338,6 +348,14 @@ func _on_weapon_tab_pressed() -> void:
 func _on_mod_row_pressed(instance_id: String) -> void:
 	_selected_instance_id = instance_id
 	refresh()
+	var selected_row: CanvasItem = _mod_list.get_node_or_null(
+		"GearModRow_%s" % instance_id
+	) as CanvasItem
+	var feedback: UISelectionFeedback = get_node_or_null(
+		"UIEffects/SelectionFeedback"
+	) as UISelectionFeedback
+	if feedback != null:
+		feedback.play_selection(selected_row)
 
 
 func _on_equip_pressed() -> void:
