@@ -186,6 +186,8 @@ var _preview_reduced_motion := false
 
 
 func _ready() -> void:
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_store = VFX_CATALOG_STORE.new() as RefCounted
 	_template_factory = VFX_TEMPLATE_FACTORY.new() as RefCounted
@@ -222,15 +224,18 @@ func open_picker(kind: String, current_id: String, callback: Callable) -> void:
 
 func _build_ui() -> void:
 	var root := VBoxContainer.new()
+	add_child(root)
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(_build_toolbar())
 
 	var split := HSplitContainer.new()
+	split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(split)
 	split.add_child(_build_browser())
 	split.add_child(_build_preview_panel())
-	add_child(root)
 
 	_build_create_dialog()
 	_build_picker_dialog()
@@ -255,6 +260,7 @@ func _build_toolbar() -> Control:
 func _build_browser() -> Control:
 	var panel := VBoxContainer.new()
 	panel.custom_minimum_size = Vector2(330.0, 0.0)
+	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var title := Label.new()
 	title.text = "效果目录"
 	title.add_theme_font_size_override("font_size", 18)
@@ -304,8 +310,22 @@ func _build_preview_panel() -> Control:
 	var panel := VBoxContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	var workspace_split := VSplitContainer.new()
+	workspace_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	workspace_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	panel.add_child(workspace_split)
+
+	var preview_section := VBoxContainer.new()
+	preview_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_section.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	preview_section.size_flags_stretch_ratio = 3.0
+	workspace_split.add_child(preview_section)
+
 	_preview_stage = VFX_PREVIEW_STAGE.new() as SubViewportContainer
-	panel.add_child(_preview_stage)
+	_preview_stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_preview_stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	preview_section.add_child(_preview_stage)
 
 	var playback_row := HBoxContainer.new()
 	playback_row.add_child(_make_button("重播", _on_replay_pressed))
@@ -328,7 +348,7 @@ func _build_preview_panel() -> Control:
 		count_option.set_item_metadata(count_option.item_count - 1, instance_count)
 	count_option.item_selected.connect(_on_instance_count_changed.bind(count_option))
 	playback_row.add_child(count_option)
-	panel.add_child(playback_row)
+	preview_section.add_child(playback_row)
 
 	var policy_row := HBoxContainer.new()
 	policy_row.add_child(_make_label("背景"))
@@ -369,7 +389,7 @@ func _build_preview_panel() -> Control:
 	reduced_check.text = "减少动态效果"
 	reduced_check.toggled.connect(_on_reduced_motion_toggled)
 	policy_row.add_child(reduced_check)
-	panel.add_child(policy_row)
+	preview_section.add_child(policy_row)
 
 	var timeline_row := HBoxContainer.new()
 	timeline_row.add_child(_make_button("蓄力（CHARGE）", _on_phase_pressed.bind("charge")))
@@ -382,10 +402,13 @@ func _build_preview_panel() -> Control:
 	_timeline.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_timeline.value_changed.connect(_on_timeline_changed)
 	timeline_row.add_child(_timeline)
-	panel.add_child(timeline_row)
+	preview_section.add_child(timeline_row)
 
 	var lower_split := HSplitContainer.new()
-	lower_split.custom_minimum_size = Vector2(0.0, 150.0)
+	lower_split.custom_minimum_size = Vector2(0.0, 170.0)
+	lower_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lower_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	lower_split.size_flags_stretch_ratio = 1.0
 	_details = RichTextLabel.new()
 	_details.fit_content = false
 	_details.scroll_active = true
@@ -396,7 +419,7 @@ func _build_preview_panel() -> Control:
 	_results.scroll_active = true
 	_results.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lower_split.add_child(_results)
-	panel.add_child(lower_split)
+	workspace_split.add_child(lower_split)
 	return panel
 
 

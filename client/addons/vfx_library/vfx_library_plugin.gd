@@ -22,6 +22,9 @@ func _enter_tree() -> void:
 	_main_screen.set("editor_interface", get_editor_interface())
 	_main_screen.set("undo_redo", get_undo_redo())
 	EditorInterface.get_editor_main_screen().add_child(_main_screen)
+	_main_screen.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_main_screen.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_main_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	_inspector_plugin = VFX_LIBRARY_INSPECTOR_PLUGIN.new() as EditorInspectorPlugin
 	_inspector_plugin.set("open_picker", Callable(_main_screen, "open_picker"))
