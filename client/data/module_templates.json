@@ -2,240 +2,240 @@
   "schema_version": 2,
   "templates": [
     {
+      "allowed_rotations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "approved_gameplay_hash": "1e47134a4814ad3645416365fb4b65ad72a2f424d21b192c13d97f55b7d5b7a6",
       "id": "module_start_cross",
       "path": "res://data/modules/module_start_cross.json",
-      "role": "module_role_start",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
+      "role": "module_role_start",
+      "source": "ai",
+      "tags": []
+    },
+    {
       "allowed_rotations": [
         0,
         90,
         180,
         270
       ],
-      "approved_gameplay_hash": "1e47134a4814ad3645416365fb4b65ad72a2f424d21b192c13d97f55b7d5b7a6"
-    },
-    {
+      "approved_gameplay_hash": "748a74cb9ec4c9bed78b0aaf29b22a3bcd092a8afba0fb9add5a694b60a20724",
       "id": "module_connector_cross",
       "path": "res://data/modules/module_connector_cross.json",
-      "role": "module_role_connector",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
+      "role": "module_role_connector",
+      "source": "ai",
+      "tags": []
+    },
+    {
       "allowed_rotations": [
         0,
         90,
         180,
         270
       ],
-      "approved_gameplay_hash": "748a74cb9ec4c9bed78b0aaf29b22a3bcd092a8afba0fb9add5a694b60a20724"
-    },
-    {
+      "approved_gameplay_hash": "2d99fef68c23b2b9f3239a54f93d846d05a270975e450f82e40f84ce69dfa404",
       "id": "module_connector_courtyard",
       "path": "res://data/modules/module_connector_courtyard.json",
-      "role": "module_role_connector",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
+      "role": "module_role_connector",
+      "source": "ai",
+      "tags": []
+    },
+    {
       "allowed_rotations": [
         0,
         90,
         180,
         270
       ],
-      "approved_gameplay_hash": "2d99fef68c23b2b9f3239a54f93d846d05a270975e450f82e40f84ce69dfa404"
-    },
-    {
+      "approved_gameplay_hash": "664973eb2b38333003efb681f22d575b52fb765f9c41f577b5f2fe7a1045bf01",
       "id": "module_connector_pillars",
       "path": "res://data/modules/module_connector_pillars.json",
-      "role": "module_role_connector",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
+      "role": "module_role_connector",
+      "source": "ai",
+      "tags": []
+    },
+    {
       "allowed_rotations": [
         0,
         90,
         180,
         270
       ],
-      "approved_gameplay_hash": "664973eb2b38333003efb681f22d575b52fb765f9c41f577b5f2fe7a1045bf01"
-    },
-    {
+      "approved_gameplay_hash": "067beb7a319c5f0b18677c2b57507e2d8e2da76d0368569e9ec5eb9a8a0124f1",
       "id": "module_connector_ring",
       "path": "res://data/modules/module_connector_ring.json",
-      "role": "module_role_connector",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
+      "role": "module_role_connector",
+      "source": "ai",
+      "tags": []
+    },
+    {
       "allowed_rotations": [
         0,
         90,
         180,
         270
       ],
-      "approved_gameplay_hash": "067beb7a319c5f0b18677c2b57507e2d8e2da76d0368569e9ec5eb9a8a0124f1"
-    },
-    {
+      "approved_gameplay_hash": "4e1edb5e10558c6837bfcb2afbf778b7c86b4ebea0032d6324d46d6297c60cac",
       "id": "module_combat_arena",
       "path": "res://data/modules/module_combat_arena.json",
-      "role": "module_role_combat",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
+      "role": "module_role_combat",
+      "source": "ai",
+      "tags": []
+    },
+    {
       "allowed_rotations": [
         0,
         90,
         180,
         270
       ],
-      "approved_gameplay_hash": "4e1edb5e10558c6837bfcb2afbf778b7c86b4ebea0032d6324d46d6297c60cac"
-    },
-    {
+      "approved_gameplay_hash": "9f82e119a293ad438221a56d2b721fa4e040f145c5daee8fe2111d45eb37759f",
       "id": "module_combat_quadrants",
       "path": "res://data/modules/module_combat_quadrants.json",
-      "role": "module_role_combat",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
+      "role": "module_role_combat",
+      "source": "ai",
+      "tags": []
+    },
+    {
       "allowed_rotations": [
         0,
         90,
         180,
         270
       ],
-      "approved_gameplay_hash": "9f82e119a293ad438221a56d2b721fa4e040f145c5daee8fe2111d45eb37759f"
-    },
-    {
+      "approved_gameplay_hash": "768f861ce488eed4c1b07fb40db2bc4228b28aa72dbe58887a07d6f438bd2e66",
       "id": "module_combat_corridors",
       "path": "res://data/modules/module_combat_corridors.json",
-      "role": "module_role_combat",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
+      "role": "module_role_combat",
+      "source": "ai",
+      "tags": []
+    },
+    {
       "allowed_rotations": [
         0,
         90,
         180,
         270
       ],
-      "approved_gameplay_hash": "768f861ce488eed4c1b07fb40db2bc4228b28aa72dbe58887a07d6f438bd2e66"
-    },
-    {
+      "approved_gameplay_hash": "0e6f5867ed8c6e07bd97df5fd69268dd4ff559c4ad9b7c07f5087e7edc71777d",
       "id": "module_combat_fort",
       "path": "res://data/modules/module_combat_fort.json",
-      "role": "module_role_combat",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
+      "role": "module_role_combat",
+      "source": "ai",
+      "tags": []
+    },
+    {
       "allowed_rotations": [
         0,
         90,
         180,
         270
       ],
-      "approved_gameplay_hash": "0e6f5867ed8c6e07bd97df5fd69268dd4ff559c4ad9b7c07f5087e7edc71777d"
-    },
-    {
+      "approved_gameplay_hash": "c51f1d96023987e04559fd2095f97676ecb75ebd3f513f9d33d6b4f2ea58fd1c",
       "id": "module_resource_cache",
       "path": "res://data/modules/module_resource_cache.json",
-      "role": "module_role_resource",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
+      "role": "module_role_resource",
+      "source": "ai",
+      "tags": []
+    },
+    {
       "allowed_rotations": [
         0,
         90,
         180,
         270
       ],
-      "approved_gameplay_hash": "c51f1d96023987e04559fd2095f97676ecb75ebd3f513f9d33d6b4f2ea58fd1c"
-    },
-    {
+      "approved_gameplay_hash": "07755f742cd1f5467eed17c34826bf51cb65066bf40cbf0907c5c1147643534d",
       "id": "module_resource_crossroads",
       "path": "res://data/modules/module_resource_crossroads.json",
-      "role": "module_role_resource",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
+      "role": "module_role_resource",
+      "source": "ai",
+      "tags": []
+    },
+    {
       "allowed_rotations": [
         0,
         90,
         180,
         270
       ],
-      "approved_gameplay_hash": "07755f742cd1f5467eed17c34826bf51cb65066bf40cbf0907c5c1147643534d"
-    },
-    {
+      "approved_gameplay_hash": "276f0b64c5fc90d5697ee19e08e52ec14c19e4886b9af5119e806b1ae2fb234e",
       "id": "module_hazard_spikes",
       "path": "res://data/modules/module_hazard_spikes.json",
-      "role": "module_role_hazard",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
+      "role": "module_role_hazard",
+      "source": "ai",
+      "tags": []
+    },
+    {
       "allowed_rotations": [
         0,
         90,
         180,
         270
       ],
-      "approved_gameplay_hash": "276f0b64c5fc90d5697ee19e08e52ec14c19e4886b9af5119e806b1ae2fb234e"
-    },
-    {
+      "approved_gameplay_hash": "8730af3008cc382aff0665761591a61727384c2872048f1188fa7013b7ad3e3a",
       "id": "module_hazard_pulse",
       "path": "res://data/modules/module_hazard_pulse.json",
-      "role": "module_role_hazard",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
+      "role": "module_role_hazard",
+      "source": "ai",
+      "tags": []
+    },
+    {
       "allowed_rotations": [
         0,
         90,
         180,
         270
       ],
-      "approved_gameplay_hash": "8730af3008cc382aff0665761591a61727384c2872048f1188fa7013b7ad3e3a"
-    },
-    {
+      "approved_gameplay_hash": "5e3425812d822e2c45856b14a42463b3eec3f01b67dc1ea7be2476324a45dedc",
       "id": "module_objective_core",
       "path": "res://data/modules/module_objective_core.json",
-      "role": "module_role_objective",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
+      "role": "module_role_objective",
+      "source": "ai",
+      "tags": []
+    },
+    {
       "allowed_rotations": [
         0,
         90,
         180,
         270
       ],
-      "approved_gameplay_hash": "5e3425812d822e2c45856b14a42463b3eec3f01b67dc1ea7be2476324a45dedc"
-    },
-    {
+      "approved_gameplay_hash": "572c5b097ae6389ab4f502ca5b4c8cdfd2b78131db65e5af34c49f630b11feec",
       "id": "module_extraction_pad",
       "path": "res://data/modules/module_extraction_pad.json",
-      "role": "module_role_extraction",
-      "tags": [],
-      "source": "ai",
       "review_status": "module_review_approved",
-      "allowed_rotations": [
-        0,
-        90,
-        180,
-        270
-      ],
-      "approved_gameplay_hash": "572c5b097ae6389ab4f502ca5b4c8cdfd2b78131db65e5af34c49f630b11feec"
+      "role": "module_role_extraction",
+      "source": "ai",
+      "tags": []
     },
     {
-      "id": "module_sealed",
-      "path": "res://data/modules/module_sealed.json",
-      "role": "module_role_sealed",
-      "tags": [],
-      "source": "ai",
-      "review_status": "module_review_candidate",
       "allowed_rotations": [
         0
-      ]
+      ],
+      "id": "module_sealed",
+      "path": "res://data/modules/module_sealed.json",
+      "review_status": "module_review_candidate",
+      "role": "module_role_sealed",
+      "source": "ai",
+      "tags": []
     }
   ]
 }
