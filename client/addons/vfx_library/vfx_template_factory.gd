@@ -22,15 +22,15 @@ const DEFAULT_DURATION := 0.36
 
 func create_scene(effect_id: String, template_name: String) -> Dictionary:
 	if not TEMPLATE_NAMES.has(template_name):
-		return _error("Unknown VFX template: %s" % template_name)
+		return _error("未知 VFX 模板：%s" % template_name)
 	var target_path := "%s/%s.tscn" % [TARGET_DIRECTORY, effect_id]
 	if ResourceLoader.exists(target_path) or FileAccess.file_exists(target_path):
-		return _error("Target scene already exists: %s" % target_path)
+		return _error("目标场景已存在：%s" % target_path)
 	var directory_error: Error = DirAccess.make_dir_recursive_absolute(
 		ProjectSettings.globalize_path(TARGET_DIRECTORY)
 	)
 	if directory_error != OK:
-		return _error("Cannot create VFX directory: %s" % error_string(directory_error))
+		return _error("无法创建 VFX 目录：%s" % error_string(directory_error))
 	var root: Node = _make_root(template_name)
 	root.name = _pascal_case(effect_id)
 	_attach_runtime_script_if_available(root)
@@ -40,11 +40,11 @@ func create_scene(effect_id: String, template_name: String) -> Dictionary:
 	var pack_error: Error = packed_scene.pack(root)
 	if pack_error != OK:
 		root.free()
-		return _error("Cannot pack VFX template: %s" % error_string(pack_error))
+		return _error("无法打包 VFX 模板：%s" % error_string(pack_error))
 	var save_error: Error = ResourceSaver.save(packed_scene, target_path)
 	root.free()
 	if save_error != OK:
-		return _error("Cannot save VFX template: %s" % error_string(save_error))
+		return _error("无法保存 VFX 模板：%s" % error_string(save_error))
 	return {
 		"ok": true,
 		"errors": PackedStringArray(),
@@ -55,22 +55,22 @@ func create_scene(effect_id: String, template_name: String) -> Dictionary:
 
 func duplicate_scene(source_path: String, new_id: String) -> Dictionary:
 	if not ResourceLoader.exists(source_path, "PackedScene"):
-		return _error("Source effect scene does not exist: %s" % source_path)
+		return _error("源效果场景不存在：%s" % source_path)
 	var target_path := "%s/%s.tscn" % [TARGET_DIRECTORY, new_id]
 	if ResourceLoader.exists(target_path) or FileAccess.file_exists(target_path):
-		return _error("Target scene already exists: %s" % target_path)
+		return _error("目标场景已存在：%s" % target_path)
 	var directory_error: Error = DirAccess.make_dir_recursive_absolute(
 		ProjectSettings.globalize_path(TARGET_DIRECTORY)
 	)
 	if directory_error != OK:
-		return _error("Cannot create VFX directory: %s" % error_string(directory_error))
+		return _error("无法创建 VFX 目录：%s" % error_string(directory_error))
 	var source_resource: Resource = load(source_path)
 	if not source_resource is PackedScene:
-		return _error("Source effect is not a PackedScene: %s" % source_path)
+		return _error("源效果不是 PackedScene：%s" % source_path)
 	var duplicate_resource: Resource = source_resource.duplicate(true)
 	var save_error: Error = ResourceSaver.save(duplicate_resource, target_path)
 	if save_error != OK:
-		return _error("Cannot save VFX variant: %s" % error_string(save_error))
+		return _error("无法保存 VFX 变体：%s" % error_string(save_error))
 	return {
 		"ok": true,
 		"errors": PackedStringArray(),

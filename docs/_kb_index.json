@@ -1350,7 +1350,7 @@
     {
       "path": "docs/代码/visual_effects.md",
       "type": "module_doc",
-      "authority": "VisualEffects catalog/profile resolution, VfxHost lifecycle and pooling, GameplayFeedbackController routing, actor anchors and presentation controllers, quality and reduced-motion policy, curated composition boundary, and VFX Library editor workflow",
+      "authority": "VisualEffects catalog/profile resolution, VfxHost lifecycle and pooling, GameplayFeedbackController routing, actor anchors and presentation controllers, quality and reduced-motion policy, curated composition boundary, and VFX 效果库 editor workflow",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-07-24",
@@ -1359,7 +1359,7 @@
       "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/ui_effects.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/pool_manager.md", "docs/代码/data_loader.md", "docs/代码/settings.md", "docs/AI导航.md"],
       "related_code": ["client/data/visual_effects.json", "client/data/presentation_profiles.json", "client/scripts/autoload/visual_effects.gd", "client/scripts/vfx/", "client/scripts/gameplay/presentation/", "client/scenes/vfx/", "client/resources/vfx/", "client/shaders/vfx/", "client/addons/vfx_library/", "client/tools/vfx_smoke.gd"],
       "update_triggers": ["VFX catalog or profile schema changes", "VfxHost or feedback API changes", "presentation anchor or actor animation changes", "VFX pooling changes", "quality or reduced-motion policy changes", "VFX editor workflow changes", "new VFX primitive or composition template"],
-      "keywords": ["VisualEffects", "VFX", "视觉效果", "visual_effects.json", "presentation_profiles.json", "VfxHost", "GameplayFeedbackController", "ActorPresentationController", "VFX Library", "AnimationPlayer", "AnimationTree", "Tween", "Curve", "SpriteFrames", "GPUParticles2D", "CPUParticles2D", "CanvasItem Shader", "ShaderMaterial", "程序几何", "reduced motion", "vfx quality", "ADR #158"]
+      "keywords": ["VisualEffects", "VFX", "视觉效果", "VFX 效果库", "visual_effects.json", "presentation_profiles.json", "VfxHost", "GameplayFeedbackController", "ActorPresentationController", "VFX Library", "AnimationPlayer", "AnimationTree", "Tween", "Curve", "SpriteFrames", "GPUParticles2D", "CPUParticles2D", "CanvasItem Shader", "ShaderMaterial", "程序几何", "reduced motion", "vfx quality", "ADR #158"]
     },
     {
       "path": "docs/代码/ui_effects.md",

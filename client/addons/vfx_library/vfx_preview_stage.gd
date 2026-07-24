@@ -105,12 +105,12 @@ func preview(entry: Dictionary) -> Dictionary:
 	_entry = entry.duplicate(true)
 	var resource_path: String = String(entry.get("resource_path", ""))
 	if resource_path.is_empty() or not ResourceLoader.exists(resource_path):
-		return _error("Cannot preview resource: %s" % resource_path)
+		return _error("无法预览资源：%s" % resource_path)
 	var resource: Resource = load(resource_path)
 	if String(entry.get("kind", "")) == "target_animation":
 		return _preview_target_animation(resource, entry)
 	if not resource is PackedScene:
-		return _error("Preview resource is not a PackedScene: %s" % resource_path)
+		return _error("预览资源不是 PackedScene：%s" % resource_path)
 	var packed_scene: PackedScene = resource as PackedScene
 	for index: int in range(_instance_count):
 		var instance: Node = packed_scene.instantiate()
@@ -126,7 +126,7 @@ func preview(entry: Dictionary) -> Dictionary:
 
 func replay() -> Dictionary:
 	if _entry.is_empty():
-		return _error("Select an effect first.")
+		return _error("请先选择一个效果。")
 	return preview(_entry)
 
 
@@ -176,7 +176,7 @@ func set_background(background_id: String) -> void:
 
 func set_preview_target(target_id: String) -> Dictionary:
 	if not PREVIEW_TARGETS.has(target_id):
-		return _error("Unknown preview target: %s" % target_id)
+		return _error("未知预览目标：%s" % target_id)
 	_target_id = target_id
 	_rebuild_target()
 	if _entry.is_empty():
@@ -219,7 +219,7 @@ func _uses_ui_space(entry: Dictionary, instance: Node) -> bool:
 
 func _preview_target_animation(resource: Resource, entry: Dictionary) -> Dictionary:
 	if resource == null:
-		return _error("Target animation resource failed to load.")
+		return _error("目标动画资源加载失败。")
 	if not is_instance_valid(_target_instance):
 		_rebuild_target()
 	var target_path: NodePath = resource.get("target_path") as NodePath
@@ -227,7 +227,7 @@ func _preview_target_animation(resource: Resource, entry: Dictionary) -> Diction
 	if target == null:
 		target = _find_canvas_item(_target_instance)
 	if target == null:
-		return _error("Preview target has no compatible CanvasItem.")
+		return _error("预览目标没有兼容的 CanvasItem。")
 	var duration: float = maxf(float(resource.get("duration")), 0.001)
 	var tint_value: Variant = resource.get("tint")
 	var tint: Color = tint_value as Color if tint_value is Color else Color.WHITE

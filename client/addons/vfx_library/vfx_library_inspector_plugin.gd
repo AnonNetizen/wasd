@@ -26,10 +26,10 @@ func _parse_begin(object: Object) -> void:
 	var row := HBoxContainer.new()
 	var current_label := Label.new()
 	current_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	current_label.text = "Current: %s" % String(object.get(id_property))
+	current_label.text = "当前：%s" % String(object.get(id_property))
 	row.add_child(current_label)
 	var choose_button := Button.new()
-	choose_button.text = "Choose from VFX Library..."
+	choose_button.text = "从 VFX 效果库选择…"
 	choose_button.pressed.connect(
 		_on_choose_pressed.bind(object, kind, id_property, current_label)
 	)
@@ -44,7 +44,7 @@ func _on_choose_pressed(
 	current_label: Label
 ) -> void:
 	if not open_picker.is_valid():
-		push_error("[vfx-library] Picker is unavailable.")
+		push_error("[vfx-library] 效果选择器不可用。")
 		return
 	var current_id: String = String(object.get(id_property))
 	open_picker.call(
@@ -66,7 +66,7 @@ func _apply_reference_id(
 	if previous_id == selected_id:
 		return
 	if undo_redo != null:
-		undo_redo.create_action("Select VFX Reference")
+		undo_redo.create_action("选择 VFX 引用")
 		undo_redo.add_do_property(object, id_property, selected_id)
 		undo_redo.add_undo_property(object, id_property, previous_id)
 		undo_redo.commit_action()
@@ -75,7 +75,7 @@ func _apply_reference_id(
 	if object is Resource:
 		(object as Resource).emit_changed()
 	if is_instance_valid(current_label):
-		current_label.text = "Current: %s" % selected_id
+		current_label.text = "当前：%s" % selected_id
 
 
 func _reference_kind(object: Object) -> String:

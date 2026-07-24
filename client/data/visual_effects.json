@@ -3,7 +3,7 @@
   "effects": [
     {
       "id": "combat_hit_default",
-      "editor_name": "Combat Hit Default",
+      "editor_name": "默认命中火花",
       "domain": "combat",
       "kind": "spawned_scene",
       "resource_path": "res://scenes/gameplay/hit_spark.tscn",
@@ -20,7 +20,7 @@
     },
     {
       "id": "combat_damage_number_default",
-      "editor_name": "Combat Damage Number",
+      "editor_name": "默认伤害飘字",
       "domain": "combat",
       "kind": "spawned_scene",
       "resource_path": "res://scenes/gameplay/damage_number.tscn",
@@ -37,7 +37,7 @@
     },
     {
       "id": "actor_player_hurt_flash",
-      "editor_name": "Player Hurt Flash",
+      "editor_name": "玩家受伤闪色",
       "domain": "actor",
       "kind": "target_animation",
       "resource_path": "res://resources/vfx/presets/player_hurt_flash.tres",
@@ -52,7 +52,7 @@
     },
     {
       "id": "actor_enemy_hit_flash",
-      "editor_name": "Enemy Hit Flash",
+      "editor_name": "敌人受击闪色",
       "domain": "actor",
       "kind": "target_animation",
       "resource_path": "res://resources/vfx/presets/enemy_hit_flash.tres",
@@ -67,7 +67,7 @@
     },
     {
       "id": "actor_enemy_defeat",
-      "editor_name": "Enemy Defeat",
+      "editor_name": "敌人退场",
       "domain": "actor",
       "kind": "target_animation",
       "resource_path": "res://resources/vfx/presets/enemy_defeat.tres",
@@ -82,7 +82,7 @@
     },
     {
       "id": "actor_enemy_defeat_afterimage",
-      "editor_name": "Enemy Defeat Afterimage",
+      "editor_name": "敌人退场残影",
       "domain": "actor",
       "kind": "spawned_scene",
       "resource_path": "res://scenes/vfx/composites/actor_defeat_afterimage.tscn",
@@ -97,7 +97,7 @@
     },
     {
       "id": "skill_cast_default",
-      "editor_name": "Skill Cast Pulse",
+      "editor_name": "技能释放脉冲",
       "domain": "skill",
       "kind": "spawned_scene",
       "resource_path": "res://scenes/vfx/composites/skill_cast_pulse.tscn",
@@ -112,7 +112,7 @@
     },
     {
       "id": "skill_overdrive_cast",
-      "editor_name": "Overdrive Cast",
+      "editor_name": "过载弹流释放",
       "domain": "skill",
       "kind": "spawned_scene",
       "resource_path": "res://scenes/vfx/composites/skill_cast_pulse.tscn",
@@ -127,7 +127,7 @@
     },
     {
       "id": "weapon_muzzle_flash_default",
-      "editor_name": "Weapon Muzzle Flash",
+      "editor_name": "武器枪口闪光",
       "domain": "combat",
       "kind": "spawned_scene",
       "resource_path": "res://scenes/vfx/composites/skill_cast_pulse.tscn",
@@ -144,7 +144,7 @@
     },
     {
       "id": "status_apply_default",
-      "editor_name": "Status Apply Pulse",
+      "editor_name": "状态施加脉冲",
       "domain": "status",
       "kind": "spawned_scene",
       "resource_path": "res://scenes/vfx/composites/skill_cast_pulse.tscn",
@@ -159,7 +159,7 @@
     },
     {
       "id": "pickup_collect_default",
-      "editor_name": "Pickup Collect Pulse",
+      "editor_name": "拾取收集脉冲",
       "domain": "pickup",
       "kind": "spawned_scene",
       "resource_path": "res://scenes/vfx/composites/skill_cast_pulse.tscn",
@@ -174,7 +174,7 @@
     },
     {
       "id": "environment_hazard_telegraph",
-      "editor_name": "Hazard Telegraph",
+      "editor_name": "机关预警",
       "domain": "environment",
       "kind": "spawned_scene",
       "resource_path": "res://scenes/vfx/composites/ground_telegraph.tscn",
@@ -189,7 +189,7 @@
     },
     {
       "id": "environment_hazard_activated",
-      "editor_name": "Hazard Activated",
+      "editor_name": "机关激活",
       "domain": "environment",
       "kind": "spawned_scene",
       "resource_path": "res://scenes/vfx/composites/skill_cast_pulse.tscn",
@@ -204,7 +204,7 @@
     },
     {
       "id": "screen_player_damage_flash",
-      "editor_name": "Player Damage Screen Flash",
+      "editor_name": "玩家受伤屏幕闪光",
       "domain": "screen",
       "kind": "screen_overlay",
       "resource_path": "res://scenes/vfx/composites/player_damage_screen_flash.tscn",
@@ -219,7 +219,7 @@
     },
     {
       "id": "screen_player_damage_flash_reduced",
-      "editor_name": "Player Damage Screen Flash Reduced",
+      "editor_name": "玩家受伤屏幕闪光（减少动态）",
       "domain": "screen",
       "kind": "screen_overlay",
       "resource_path": "res://scenes/vfx/composites/player_damage_screen_flash_reduced.tscn",

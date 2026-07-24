@@ -19,7 +19,7 @@
 |------------|--------|------|
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
 | 改玩家受伤震屏强度 / 频率 / 时长 | `camera_feedback.json` 的 `player_damage_shake` | 只影响表现；随机走 `RNG.camera_fx`，关闭 `gameplay.screen_shake` 时即时停止 |
-| 选择 / 调整视觉效果 | `visual_effects.json`、`presentation_profiles.json` | 内容数据只引用 `presentation_profile_id`；在 Godot 的 `VFX Library` 预览和绑定，不手抄字符串 |
+| 选择 / 调整视觉效果 | `visual_effects.json`、`presentation_profiles.json` | 内容数据只引用 `presentation_profile_id`；在 Godot 的“VFX 效果库”中预览和绑定，不手抄字符串 |
 | 改角色基础属性 / 标签 / 能力 / 起始携带 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；`scene_path` 绑定专属继承场景，玩法数值仍留在数据中 |
 | 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
 | 改敌人血量 / 速度 / 接触伤害 / 中心间距 | `enemies.csv` | 每个敌人使用独立 `pool_id`，`scene_path` 可复用；颜色与静态轮廓在专属 TSCN 中编辑 |
@@ -82,7 +82,7 @@
 
 | 字段 | 类型 / 规则 | 说明 |
 |------|-------------|------|
-| `id` / `editor_name` | 唯一非空 string | 稳定 id 与编辑器名称 |
+| `id` / `editor_name` | `id` 唯一；两者均为非空 string | `id` 是英文稳定主键；`editor_name` 是面向编辑器使用者的中文显示名，不参与引用与数据指纹语义 |
 | `domain` / `kind` | 词表枚举 | 使用领域与 spawned scene / target animation / screen overlay |
 | `resource_path` | 正式 `res://` 资源 | 禁止 addon、`output/test_lab` 和裸程序几何 |
 | `space` / `lifecycle` | 词表枚举 | 挂载空间与 one-shot / loop / state |
@@ -105,6 +105,7 @@
 | 字段 | 类型 / 规则 | 说明 |
 |------|-------------|------|
 | `id` | 唯一非空 string | 稳定 profile id |
+| `editor_name` | 可选非空 string | 中文编辑器显示名；缺省时回退显示稳定 `id`，不参与引用 |
 | `parent_profile_id` | 可空 profile id | 按 cue 继承，禁止环 |
 | `bindings` | cue → object | cue 来自词表；子级同 cue 完整覆盖父级 |
 | `effects` | effect binding array | 每项含 `effect_id`、`anchor`，可选表现 `params` |

@@ -9,7 +9,7 @@ const VFX_LIBRARY_MAIN_SCREEN := preload(
 const VFX_LIBRARY_INSPECTOR_PLUGIN := preload(
 	"res://addons/vfx_library/vfx_library_inspector_plugin.gd"
 )
-const MAIN_SCREEN_NAME := "VFX Library"
+const MAIN_SCREEN_NAME := "VFX 效果库"
 
 var _main_screen: Control
 var _inspector_plugin: EditorInspectorPlugin

@@ -3,6 +3,7 @@
   "profiles": [
     {
       "id": "presentation_gameplay_default",
+      "editor_name": "默认玩法表现",
       "parent_profile_id": "",
       "bindings": {
         "hit": {
@@ -19,6 +20,7 @@
     },
     {
       "id": "presentation_player_default",
+      "editor_name": "默认玩家表现",
       "parent_profile_id": "presentation_gameplay_default",
       "bindings": {
         "hurt": {
@@ -34,6 +36,7 @@
     },
     {
       "id": "presentation_enemy_default",
+      "editor_name": "默认敌人表现",
       "parent_profile_id": "presentation_gameplay_default",
       "bindings": {
         "hurt": {
@@ -59,6 +62,7 @@
     },
     {
       "id": "presentation_skill_default",
+      "editor_name": "默认技能表现",
       "parent_profile_id": "",
       "bindings": {
         "skill_cast": {
@@ -87,6 +91,7 @@
     },
     {
       "id": "presentation_skill_overdrive",
+      "editor_name": "过载弹流技能表现",
       "parent_profile_id": "presentation_skill_default",
       "bindings": {
         "skill_cast": {
@@ -141,6 +146,7 @@
     },
     {
       "id": "presentation_weapon_default",
+      "editor_name": "默认武器表现",
       "parent_profile_id": "",
       "bindings": {
         "weapon_fire": {
@@ -160,6 +166,7 @@
     },
     {
       "id": "presentation_status_default",
+      "editor_name": "默认状态表现",
       "parent_profile_id": "",
       "bindings": {
         "status_applied": {
@@ -188,6 +195,7 @@
     },
     {
       "id": "presentation_pickup_default",
+      "editor_name": "默认拾取表现",
       "parent_profile_id": "",
       "bindings": {
         "pickup_collect": {
@@ -229,6 +237,7 @@
     },
     {
       "id": "presentation_hazard_default",
+      "editor_name": "默认机关表现",
       "parent_profile_id": "",
       "bindings": {
         "hazard_telegraph": {

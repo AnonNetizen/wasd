@@ -6,6 +6,7 @@ extends Control
 const VFX_CATALOG_STORE := preload("res://addons/vfx_library/vfx_catalog_store.gd")
 const VFX_PREVIEW_STAGE := preload("res://addons/vfx_library/vfx_preview_stage.gd")
 const VFX_TEMPLATE_FACTORY := preload("res://addons/vfx_library/vfx_template_factory.gd")
+const MAIN_SCREEN_NAME := "VFX 效果库"
 const EFFECT_DOMAINS := [
 	"ui",
 	"actor",
@@ -48,6 +49,102 @@ const TEMPLATE_NAMES := [
 ]
 const EFFECT_PROPERTY_NAMES := ["effect_id", "vfx_effect_id"]
 const PROFILE_PROPERTY_NAMES := ["profile_id", "presentation_profile_id"]
+const MODE_LABELS := {
+	"effect": "效果",
+	"profile": "表现 Profile",
+}
+const DOMAIN_LABELS := {
+	"": "全部",
+	"ui": "UI",
+	"actor": "角色",
+	"combat": "战斗",
+	"skill": "技能",
+	"status": "状态",
+	"pickup": "拾取",
+	"environment": "环境",
+	"screen": "屏幕",
+}
+const TECHNIQUE_LABELS := {
+	"": "全部",
+	"animation_player": "AnimationPlayer",
+	"animation_tree": "AnimationTree",
+	"tween": "Tween",
+	"curve": "Curve",
+	"flipbook": "序列帧（Flipbook）",
+	"gpu_particles": "GPU 粒子",
+	"cpu_particles": "CPU 粒子",
+	"shader": "Shader",
+	"geometry": "程序几何",
+	"cross_system": "跨系统反馈",
+}
+const SPACE_LABELS := {
+	"": "全部",
+	"attached": "附着",
+	"world": "世界",
+	"ground": "地面",
+	"screen": "屏幕",
+	"ui": "UI",
+}
+const LIFECYCLE_LABELS := {
+	"": "全部",
+	"one_shot": "单次",
+	"loop": "循环",
+	"state": "状态",
+}
+const KIND_LABELS := {
+	"spawned_scene": "生成场景",
+	"target_animation": "目标动画",
+	"screen_overlay": "屏幕叠层",
+}
+const QUALITY_LABELS := {
+	"low": "低",
+	"medium": "中",
+	"high": "高",
+}
+const BACKGROUND_LABELS := {
+	"dark": "深色",
+	"mid": "战斗",
+	"light": "浅色",
+}
+const TARGET_LABELS := {
+	"dummy": "测试假人",
+	"player": "玩家",
+	"enemy_chaser": "追猎者",
+	"enemy_swarm": "疾行者",
+	"enemy_stalker": "潜猎者",
+	"enemy_bulwark": "壁垒者",
+	"enemy_spitter": "喷棘者",
+	"ui_container": "UI 容器",
+}
+const TEMPLATE_LABELS := {
+	"OneShot": "单次效果（OneShot）",
+	"AttachedLoop": "附着循环（AttachedLoop）",
+	"GroundTelegraph": "地面预警（GroundTelegraph）",
+	"UITransition": "UI 过渡（UITransition）",
+	"ScreenOverlay": "屏幕叠层（ScreenOverlay）",
+	"GeometryComposite": "几何复合（GeometryComposite）",
+	"Particle": "粒子（Particle）",
+	"Flipbook": "序列帧（Flipbook）",
+	"Shader": "Shader",
+	"AnimationTreeStateful": "AnimationTree 状态效果",
+}
+const TAG_LABELS := {
+	"animation_player": "AnimationPlayer",
+	"animation_tree": "AnimationTree",
+	"curve": "Curve",
+	"flipbook": "序列帧",
+	"gpu_particles": "GPU 粒子",
+	"cpu_particles": "CPU 粒子",
+	"shader": "Shader",
+	"geometry": "程序几何",
+	"cross_system": "跨系统反馈",
+	"ui_text": "UI 文本",
+	"target_tint": "目标着色",
+	"target_scale": "目标缩放",
+	"detached_afterimage": "脱离实体残影",
+	"gameplay_boundary": "玩法边界",
+	"screen_flash": "屏幕闪光",
+}
 
 var editor_interface: EditorInterface
 var undo_redo: EditorUndoRedoManager
@@ -72,6 +169,7 @@ var _timeline: HSlider
 
 var _create_dialog: ConfirmationDialog
 var _create_id_edit: LineEdit
+var _create_name_edit: LineEdit
 var _create_template_option: OptionButton
 var _create_domain_option: OptionButton
 var _create_space_option: OptionButton
@@ -103,13 +201,13 @@ func refresh_library() -> void:
 	_refresh_entry_list()
 	if bool(result.get("ok", false)):
 		_report_info(
-			"Loaded %d effects and %d presentation profiles." % [
+			"已加载 %d 个效果和 %d 个表现 Profile。" % [
 				int(result.get("effects", 0)),
 				int(result.get("profiles", 0)),
 			]
 		)
 	else:
-		_report_result("Reload", result)
+		_report_result("重新加载", result)
 
 
 func open_picker(kind: String, current_id: String, callback: Callable) -> void:
@@ -118,7 +216,7 @@ func open_picker(kind: String, current_id: String, callback: Callable) -> void:
 	_picker_search.text = ""
 	_refresh_picker_items(current_id)
 	if editor_interface != null:
-		editor_interface.set_main_screen_editor("VFX Library")
+		editor_interface.set_main_screen_editor(MAIN_SCREEN_NAME)
 	call_deferred("_show_picker")
 
 
@@ -140,16 +238,16 @@ func _build_ui() -> void:
 
 func _build_toolbar() -> Control:
 	var toolbar := HBoxContainer.new()
-	toolbar.add_child(_make_button("Reload", refresh_library))
-	toolbar.add_child(_make_button("Validate", _on_validate_pressed))
+	toolbar.add_child(_make_button("重新加载", refresh_library))
+	toolbar.add_child(_make_button("校验", _on_validate_pressed))
 	toolbar.add_child(VSeparator.new())
-	toolbar.add_child(_make_button("New Effect…", _on_new_pressed))
-	_variant_button = _make_button("Create Variant…", _on_variant_pressed)
+	toolbar.add_child(_make_button("新建效果…", _on_new_pressed))
+	_variant_button = _make_button("创建变体…", _on_variant_pressed)
 	toolbar.add_child(_variant_button)
 	toolbar.add_child(VSeparator.new())
-	_copy_button = _make_button("Copy ID", _on_copy_id_pressed)
+	_copy_button = _make_button("复制 ID", _on_copy_id_pressed)
 	toolbar.add_child(_copy_button)
-	_apply_button = _make_button("Apply to Selected", _on_apply_to_selected_pressed)
+	_apply_button = _make_button("应用到当前选中项", _on_apply_to_selected_pressed)
 	toolbar.add_child(_apply_button)
 	return toolbar
 
@@ -158,34 +256,37 @@ func _build_browser() -> Control:
 	var panel := VBoxContainer.new()
 	panel.custom_minimum_size = Vector2(330.0, 0.0)
 	var title := Label.new()
-	title.text = "Catalog"
+	title.text = "效果目录"
 	title.add_theme_font_size_override("font_size", 18)
 	panel.add_child(title)
 
-	_mode_option = _make_option(["Effects", "Profiles"], ["effect", "profile"])
+	_mode_option = _make_option(
+		_labels_for(["effect", "profile"], MODE_LABELS),
+		["effect", "profile"]
+	)
 	_mode_option.item_selected.connect(_on_filter_changed)
 	panel.add_child(_mode_option)
 	_search_edit = LineEdit.new()
-	_search_edit.placeholder_text = "Search ID, name, or tag"
+	_search_edit.placeholder_text = "搜索 ID、名称或标签"
 	_search_edit.text_changed.connect(_on_search_changed)
 	panel.add_child(_search_edit)
 
 	var filters := GridContainer.new()
 	filters.columns = 2
-	filters.add_child(_make_label("Domain"))
-	_domain_option = _make_option(["All"], [""])
+	filters.add_child(_make_label("领域"))
+	_domain_option = _make_option(["全部"], [""])
 	_domain_option.item_selected.connect(_on_filter_changed)
 	filters.add_child(_domain_option)
-	filters.add_child(_make_label("Technique"))
-	_technique_option = _make_option(["All"], [""])
+	filters.add_child(_make_label("技术"))
+	_technique_option = _make_option(["全部"], [""])
 	_technique_option.item_selected.connect(_on_filter_changed)
 	filters.add_child(_technique_option)
-	filters.add_child(_make_label("Space"))
-	_space_option = _make_option(["All"], [""])
+	filters.add_child(_make_label("空间"))
+	_space_option = _make_option(["全部"], [""])
 	_space_option.item_selected.connect(_on_filter_changed)
 	filters.add_child(_space_option)
-	filters.add_child(_make_label("Lifecycle"))
-	_lifecycle_option = _make_option(["All"], [""])
+	filters.add_child(_make_label("生命周期"))
+	_lifecycle_option = _make_option(["全部"], [""])
 	_lifecycle_option.item_selected.connect(_on_filter_changed)
 	filters.add_child(_lifecycle_option)
 	panel.add_child(filters)
@@ -207,20 +308,20 @@ func _build_preview_panel() -> Control:
 	panel.add_child(_preview_stage)
 
 	var playback_row := HBoxContainer.new()
-	playback_row.add_child(_make_button("Replay", _on_replay_pressed))
-	_pause_button = _make_button("Pause", _on_pause_pressed)
+	playback_row.add_child(_make_button("重播", _on_replay_pressed))
+	_pause_button = _make_button("暂停", _on_pause_pressed)
 	playback_row.add_child(_pause_button)
-	playback_row.add_child(_make_label("Speed"))
+	playback_row.add_child(_make_label("速度"))
 	var speed_option := _make_numeric_option(SPEED_OPTIONS, "×")
 	speed_option.select(2)
 	speed_option.item_selected.connect(_on_speed_changed.bind(speed_option))
 	playback_row.add_child(speed_option)
-	playback_row.add_child(_make_label("Scale"))
+	playback_row.add_child(_make_label("缩放"))
 	var scale_option := _make_numeric_option(PREVIEW_SCALES, "×")
 	scale_option.select(2)
 	scale_option.item_selected.connect(_on_scale_changed.bind(scale_option))
 	playback_row.add_child(scale_option)
-	playback_row.add_child(_make_label("Instances"))
+	playback_row.add_child(_make_label("实例数"))
 	var count_option := OptionButton.new()
 	for instance_count: int in INSTANCE_COUNTS:
 		count_option.add_item(str(instance_count))
@@ -230,58 +331,50 @@ func _build_preview_panel() -> Control:
 	panel.add_child(playback_row)
 
 	var policy_row := HBoxContainer.new()
-	policy_row.add_child(_make_label("Background"))
+	policy_row.add_child(_make_label("背景"))
 	var background_option := _make_option(
-		["Dark", "Combat", "Light"],
+		_labels_for(["dark", "mid", "light"], BACKGROUND_LABELS),
 		["dark", "mid", "light"]
 	)
 	background_option.item_selected.connect(
 		_on_background_changed.bind(background_option)
 	)
 	policy_row.add_child(background_option)
-	policy_row.add_child(_make_label("Target"))
+	policy_row.add_child(_make_label("预览目标"))
+	var target_ids: Array[String] = [
+		"dummy",
+		"player",
+		"enemy_chaser",
+		"enemy_swarm",
+		"enemy_stalker",
+		"enemy_bulwark",
+		"enemy_spitter",
+		"ui_container",
+	]
 	var target_option := _make_option(
-		[
-			"Dummy",
-			"Player",
-			"Chaser",
-			"Swarm",
-			"Stalker",
-			"Bulwark",
-			"Spitter",
-			"UI Container",
-		],
-		[
-			"dummy",
-			"player",
-			"enemy_chaser",
-			"enemy_swarm",
-			"enemy_stalker",
-			"enemy_bulwark",
-			"enemy_spitter",
-			"ui_container",
-		]
+		_labels_for(target_ids, TARGET_LABELS),
+		target_ids
 	)
 	target_option.item_selected.connect(_on_target_changed.bind(target_option))
 	policy_row.add_child(target_option)
-	policy_row.add_child(_make_label("Quality"))
+	policy_row.add_child(_make_label("质量"))
 	var quality_option := _make_option(
-		["Low", "Medium", "High"],
+		_labels_for(QUALITY_OPTIONS, QUALITY_LABELS),
 		QUALITY_OPTIONS
 	)
 	quality_option.select(2)
 	quality_option.item_selected.connect(_on_quality_changed.bind(quality_option))
 	policy_row.add_child(quality_option)
 	var reduced_check := CheckBox.new()
-	reduced_check.text = "Reduced Motion"
+	reduced_check.text = "减少动态效果"
 	reduced_check.toggled.connect(_on_reduced_motion_toggled)
 	policy_row.add_child(reduced_check)
 	panel.add_child(policy_row)
 
 	var timeline_row := HBoxContainer.new()
-	timeline_row.add_child(_make_button("CHARGE", _on_phase_pressed.bind("charge")))
-	timeline_row.add_child(_make_button("CONTACT", _on_phase_pressed.bind("contact")))
-	timeline_row.add_child(_make_button("AFTERMATH", _on_phase_pressed.bind("aftermath")))
+	timeline_row.add_child(_make_button("蓄力（CHARGE）", _on_phase_pressed.bind("charge")))
+	timeline_row.add_child(_make_button("接触（CONTACT）", _on_phase_pressed.bind("contact")))
+	timeline_row.add_child(_make_button("余波（AFTERMATH）", _on_phase_pressed.bind("aftermath")))
 	_timeline = HSlider.new()
 	_timeline.min_value = 0.0
 	_timeline.max_value = 1.0
@@ -309,36 +402,53 @@ func _build_preview_panel() -> Control:
 
 func _build_create_dialog() -> void:
 	_create_dialog = ConfirmationDialog.new()
-	_create_dialog.title = "New VFX Effect"
-	_create_dialog.min_size = Vector2i(520, 330)
+	_create_dialog.title = "新建 VFX 效果"
+	_create_dialog.ok_button_text = "创建"
+	_create_dialog.get_cancel_button().text = "取消"
+	_create_dialog.min_size = Vector2i(520, 380)
 	_create_dialog.confirmed.connect(_on_create_confirmed)
 	var form := GridContainer.new()
 	form.columns = 2
-	form.add_child(_make_label("Stable ID"))
+	form.custom_minimum_size = Vector2(560.0, 300.0)
+	form.add_child(_make_label("稳定 ID"))
 	_create_id_edit = LineEdit.new()
 	_create_id_edit.placeholder_text = "combat_my_effect"
 	form.add_child(_create_id_edit)
-	form.add_child(_make_label("Template"))
+	form.add_child(_make_label("中文名称"))
+	_create_name_edit = LineEdit.new()
+	_create_name_edit.placeholder_text = "例如：默认命中火花"
+	form.add_child(_create_name_edit)
+	form.add_child(_make_label("模板"))
 	_create_template_option = _make_option(
-		TEMPLATE_NAMES,
+		_labels_for(TEMPLATE_NAMES, TEMPLATE_LABELS),
 		TEMPLATE_NAMES
 	)
 	form.add_child(_create_template_option)
-	form.add_child(_make_label("Domain"))
-	_create_domain_option = _make_option(EFFECT_DOMAINS, EFFECT_DOMAINS)
+	form.add_child(_make_label("领域"))
+	_create_domain_option = _make_option(
+		_labels_for(EFFECT_DOMAINS, DOMAIN_LABELS),
+		EFFECT_DOMAINS
+	)
 	form.add_child(_create_domain_option)
-	form.add_child(_make_label("Space"))
-	_create_space_option = _make_option(EFFECT_SPACES, EFFECT_SPACES)
+	form.add_child(_make_label("空间"))
+	_create_space_option = _make_option(
+		_labels_for(EFFECT_SPACES, SPACE_LABELS),
+		EFFECT_SPACES
+	)
 	form.add_child(_create_space_option)
-	form.add_child(_make_label("Lifecycle"))
-	_create_lifecycle_option = _make_option(EFFECT_LIFECYCLES, EFFECT_LIFECYCLES)
+	form.add_child(_make_label("生命周期"))
+	_create_lifecycle_option = _make_option(
+		_labels_for(EFFECT_LIFECYCLES, LIFECYCLE_LABELS),
+		EFFECT_LIFECYCLES
+	)
 	form.add_child(_create_lifecycle_option)
 	var note := Label.new()
 	note.text = (
-		"The wizard generates formal PackedScenes, built-in Godot nodes, and catalog "
-		+ "entries only. It never creates arbitrary _draw() code or editor-only dependencies."
+		"向导只生成正式 PackedScene、Godot 内置节点和效果目录条目；"
+		+ "不会创建任意 _draw() 代码或 editor-only 依赖。"
 	)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size = Vector2(420.0, 0.0)
 	form.add_child(_make_label(""))
 	form.add_child(note)
 	_create_dialog.add_child(form)
@@ -347,12 +457,14 @@ func _build_create_dialog() -> void:
 
 func _build_picker_dialog() -> void:
 	_picker_dialog = ConfirmationDialog.new()
-	_picker_dialog.title = "Choose from VFX Library"
+	_picker_dialog.title = "从 VFX 效果库选择"
+	_picker_dialog.ok_button_text = "选择"
+	_picker_dialog.get_cancel_button().text = "取消"
 	_picker_dialog.min_size = Vector2i(560, 520)
 	_picker_dialog.confirmed.connect(_on_picker_confirmed)
 	var content := VBoxContainer.new()
 	_picker_search = LineEdit.new()
-	_picker_search.placeholder_text = "Search ID or name"
+	_picker_search.placeholder_text = "搜索 ID 或名称"
 	_picker_search.text_changed.connect(_on_picker_search_changed)
 	content.add_child(_picker_search)
 	_picker_list = ItemList.new()
@@ -368,17 +480,29 @@ func _refresh_filters() -> void:
 	var selected_technique: String = _selected_option_string(_technique_option)
 	var selected_space: String = _selected_option_string(_space_option)
 	var selected_lifecycle: String = _selected_option_string(_lifecycle_option)
-	_replace_option_items(_domain_option, ["All"] + EFFECT_DOMAINS, [""] + EFFECT_DOMAINS)
+	var domain_values: Array = [""] + EFFECT_DOMAINS
+	_replace_option_items(
+		_domain_option,
+		_labels_for(domain_values, DOMAIN_LABELS),
+		domain_values
+	)
+	var technique_values: Array = [""] + TECHNIQUE_FILTERS
 	_replace_option_items(
 		_technique_option,
-		["All"] + TECHNIQUE_FILTERS,
-		[""] + TECHNIQUE_FILTERS
+		_labels_for(technique_values, TECHNIQUE_LABELS),
+		technique_values
 	)
-	_replace_option_items(_space_option, ["All"] + EFFECT_SPACES, [""] + EFFECT_SPACES)
+	var space_values: Array = [""] + EFFECT_SPACES
+	_replace_option_items(
+		_space_option,
+		_labels_for(space_values, SPACE_LABELS),
+		space_values
+	)
+	var lifecycle_values: Array = [""] + EFFECT_LIFECYCLES
 	_replace_option_items(
 		_lifecycle_option,
-		["All"] + EFFECT_LIFECYCLES,
-		[""] + EFFECT_LIFECYCLES
+		_labels_for(lifecycle_values, LIFECYCLE_LABELS),
+		lifecycle_values
 	)
 	_select_option_by_metadata(_domain_option, selected_domain)
 	_select_option_by_metadata(_technique_option, selected_technique)
@@ -403,7 +527,7 @@ func _refresh_entry_list(preferred_id: String = "") -> void:
 	for entry: Dictionary in filtered:
 		var entry_id: String = String(entry.get("id", ""))
 		var editor_name: String = String(entry.get("editor_name", entry_id))
-		var label := "%s  —  %s" % [entry_id, editor_name]
+		var label := "%s  —  %s" % [editor_name, entry_id]
 		_entry_list.add_item(label)
 		var item_index: int = _entry_list.item_count - 1
 		_entry_list.set_item_metadata(item_index, {"kind": mode, "id": entry_id})
@@ -497,7 +621,7 @@ func _preview_effect(base_entry: Dictionary) -> void:
 		if mode == "suppress_optional":
 			_preview_stage.call("clear_preview")
 			_report_info(
-				"Reduced-motion preview suppresses optional effect %s." % base_entry.get("id", "")
+				"减少动态效果预览已隐藏可选效果 %s。" % base_entry.get("id", "")
 			)
 			return
 		if mode == "variant":
@@ -527,21 +651,44 @@ func _show_details(entry: Dictionary, kind: String) -> void:
 		return
 	_details.append_text("%s\n\n" % String(entry.get("id", "")))
 	if kind == "effect":
+		var domain: String = String(entry.get("domain", ""))
+		var effect_kind: String = String(entry.get("kind", ""))
+		var space: String = String(entry.get("space", ""))
+		var lifecycle: String = String(entry.get("lifecycle", ""))
 		_details.append_text(
-			"Domain: %s\nKind: %s\nSpace: %s\nLifecycle: %s\nDuration: %.3fs\n" % [
-				entry.get("domain", ""),
-				entry.get("kind", ""),
-				entry.get("space", ""),
-				entry.get("lifecycle", ""),
+			(
+				"领域：%s（%s）\n类型：%s（%s）\n空间：%s（%s）\n"
+				+ "生命周期：%s（%s）\n时长：%.3f 秒\n"
+			) % [
+				_display_label(domain, DOMAIN_LABELS),
+				domain,
+				_display_label(effect_kind, KIND_LABELS),
+				effect_kind,
+				_display_label(space, SPACE_LABELS),
+				space,
+				_display_label(lifecycle, LIFECYCLE_LABELS),
+				lifecycle,
 				float(entry.get("duration", 0.0)),
 			]
 		)
-		_details.append_text("Tags: %s\n" % ", ".join(_string_array(entry.get("tags", []))))
-		_details.append_text("Resource: %s\n" % entry.get("resource_path", ""))
-	else:
 		_details.append_text(
-			"Parent: %s\nBindings: %d\n" % [
-				entry.get("parent", entry.get("parent_id", "—")),
+			"标签：%s\n" % "、".join(
+				_display_labels(_string_array(entry.get("tags", [])), TAG_LABELS)
+			)
+		)
+		_details.append_text("资源：%s\n" % entry.get("resource_path", ""))
+	else:
+		var parent_profile_id: String = String(
+			entry.get(
+				"parent_profile_id",
+				entry.get("parent", entry.get("parent_id", ""))
+			)
+		)
+		if parent_profile_id.is_empty():
+			parent_profile_id = "—"
+		_details.append_text(
+			"父 Profile：%s\n绑定数：%d\n" % [
+				parent_profile_id,
 				_profile_binding_count(entry),
 			]
 		)
@@ -550,18 +697,20 @@ func _show_details(entry: Dictionary, kind: String) -> void:
 
 func _on_validate_pressed() -> void:
 	var result: Dictionary = _store.call("validate_all") as Dictionary
-	_report_result("Validate", result)
+	_report_result("校验", result)
 
 
 func _on_new_pressed() -> void:
 	_create_mode = "new"
-	_create_dialog.title = "New VFX Effect"
+	_create_dialog.title = "新建 VFX 效果"
+	_create_dialog.ok_button_text = "创建"
 	_create_id_edit.text = ""
+	_create_name_edit.text = ""
 	_create_template_option.disabled = false
 	_create_domain_option.disabled = false
 	_create_space_option.disabled = false
 	_create_lifecycle_option.disabled = false
-	_create_dialog.popup_centered()
+	_create_dialog.popup_centered(Vector2i(620, 430))
 	_create_id_edit.grab_focus()
 
 
@@ -570,24 +719,31 @@ func _on_variant_pressed() -> void:
 	if source_id.is_empty() or _selected_option_string(_mode_option) != "effect":
 		return
 	_create_mode = "variant"
-	_create_dialog.title = "Create VFX Variant"
+	_create_dialog.title = "创建 VFX 变体"
+	_create_dialog.ok_button_text = "创建变体"
 	_create_id_edit.text = "%s_variant" % source_id
+	var source: Dictionary = _store.call("effect_by_id", source_id) as Dictionary
+	_create_name_edit.text = "%s变体" % String(source.get("editor_name", source_id))
 	_create_template_option.disabled = true
 	_create_domain_option.disabled = true
 	_create_space_option.disabled = true
 	_create_lifecycle_option.disabled = true
-	_create_dialog.popup_centered()
+	_create_dialog.popup_centered(Vector2i(620, 430))
 	_create_id_edit.select_all()
 	_create_id_edit.grab_focus()
 
 
 func _on_create_confirmed() -> void:
 	var effect_id: String = _create_id_edit.text.strip_edges()
+	var editor_name: String = _create_name_edit.text.strip_edges()
 	if not _valid_id(effect_id):
-		_report_error("Create failed: ID must match ^[a-z][a-z0-9_]*$.")
+		_report_error("创建失败：ID 必须匹配 ^[a-z][a-z0-9_]*$。")
+		return
+	if editor_name.is_empty():
+		_report_error("创建失败：中文名称不能为空。")
 		return
 	if not (_store.call("effect_by_id", effect_id) as Dictionary).is_empty():
-		_report_error("Create failed: effect ID already exists: %s" % effect_id)
+		_report_error("创建失败：效果 ID 已存在：%s" % effect_id)
 		return
 	var scene_result: Dictionary
 	var entry: Dictionary
@@ -597,7 +753,7 @@ func _on_create_confirmed() -> void:
 			_selected_entry_id()
 		) as Dictionary
 		if source.is_empty():
-			_report_error("Create failed: source effect no longer exists.")
+			_report_error("创建失败：源效果已不存在。")
 			return
 		scene_result = _template_factory.call(
 			"duplicate_scene",
@@ -611,6 +767,7 @@ func _on_create_confirmed() -> void:
 				effect_id,
 				String(scene_result.get("resource_path", ""))
 			) as Dictionary
+			entry["editor_name"] = editor_name
 	else:
 		var template_name: String = _selected_option_string(_create_template_option)
 		scene_result = _template_factory.call(
@@ -619,9 +776,9 @@ func _on_create_confirmed() -> void:
 			template_name
 		) as Dictionary
 		if bool(scene_result.get("ok", false)):
-			entry = _new_effect_entry(effect_id, template_name, scene_result)
+			entry = _new_effect_entry(effect_id, editor_name, template_name, scene_result)
 	if not bool(scene_result.get("ok", false)):
-		_report_result("Create Scene", scene_result)
+		_report_result("创建场景", scene_result)
 		return
 	var append_result: Dictionary = _store.call("append_effect", entry) as Dictionary
 	if not bool(append_result.get("ok", false)):
@@ -629,17 +786,18 @@ func _on_create_confirmed() -> void:
 			"remove_new_scene",
 			String(scene_result.get("resource_path", ""))
 		)
-		_report_result("Register Catalog Entry", append_result)
+		_report_result("登记效果目录条目", append_result)
 		return
 	if editor_interface != null:
 		editor_interface.get_resource_filesystem().scan()
 	refresh_library()
 	_refresh_entry_list(effect_id)
-	_report_info("Created and registered effect: %s" % effect_id)
+	_report_info("已创建并登记效果：%s" % effect_id)
 
 
 func _new_effect_entry(
 	effect_id: String,
+	editor_name: String,
 	template_name: String,
 	scene_result: Dictionary
 ) -> Dictionary:
@@ -650,7 +808,7 @@ func _new_effect_entry(
 	var tags: Array[String] = _template_tags(template_name)
 	return {
 		"id": effect_id,
-		"editor_name": effect_id,
+		"editor_name": editor_name,
 		"domain": domain,
 		"kind": kind,
 		"resource_path": String(scene_result.get("resource_path", "")),
@@ -692,7 +850,7 @@ func _on_copy_id_pressed() -> void:
 	if entry_id.is_empty():
 		return
 	DisplayServer.clipboard_set(entry_id)
-	_report_info("Copied ID: %s" % entry_id)
+	_report_info("已复制 ID：%s" % entry_id)
 
 
 func _on_apply_to_selected_pressed() -> void:
@@ -701,7 +859,7 @@ func _on_apply_to_selected_pressed() -> void:
 		return
 	var edited_object: Object = editor_interface.get_inspector().get_edited_object()
 	if edited_object == null:
-		_report_error("Apply failed: the Inspector has no edited object.")
+		_report_error("应用失败：Inspector 当前没有正在编辑的对象。")
 		return
 	var mode: String = _selected_option_string(_mode_option)
 	var property_names: Array = (
@@ -709,11 +867,13 @@ func _on_apply_to_selected_pressed() -> void:
 	)
 	var property_name: String = _first_property(edited_object, property_names)
 	if property_name.is_empty():
-		_report_error("Apply failed: selected object has no writable %s ID property." % mode)
+		_report_error(
+			"应用失败：选中对象没有可写的 %s ID 属性。" % _display_label(mode, MODE_LABELS)
+		)
 		return
 	var previous_value: Variant = edited_object.get(property_name)
 	if undo_redo != null:
-		undo_redo.create_action("Apply VFX Library Reference")
+		undo_redo.create_action("应用 VFX 效果库引用")
 		undo_redo.add_do_property(edited_object, property_name, entry_id)
 		undo_redo.add_undo_property(edited_object, property_name, previous_value)
 		undo_redo.commit_action()
@@ -721,7 +881,7 @@ func _on_apply_to_selected_pressed() -> void:
 		edited_object.set(property_name, entry_id)
 	if edited_object is Resource:
 		(edited_object as Resource).emit_changed()
-	_report_info("Applied %s to the Inspector selection." % entry_id)
+	_report_info("已将 %s 应用到 Inspector 选中项。" % entry_id)
 
 
 func _on_replay_pressed() -> void:
@@ -729,8 +889,8 @@ func _on_replay_pressed() -> void:
 
 
 func _on_pause_pressed() -> void:
-	var paused: bool = _pause_button.text == "Pause"
-	_pause_button.text = "Resume" if paused else "Pause"
+	var paused: bool = _pause_button.text == "暂停"
+	_pause_button.text = "继续" if paused else "暂停"
 	_preview_stage.call("set_paused", paused)
 
 
@@ -835,7 +995,7 @@ func _refresh_picker_items(preferred_id: String = "") -> void:
 			var haystack := ("%s %s" % [entry_id, editor_name]).to_lower()
 			if not haystack.contains(search_text):
 				continue
-		_picker_list.add_item("%s  —  %s" % [entry_id, editor_name])
+		_picker_list.add_item("%s  —  %s" % [editor_name, entry_id])
 		var index: int = _picker_list.item_count - 1
 		_picker_list.set_item_metadata(index, entry_id)
 		if entry_id == preferred_id:
@@ -884,13 +1044,13 @@ func _clear_selection_view() -> void:
 
 func _report_preview(result: Dictionary) -> void:
 	if not bool(result.get("ok", false)):
-		_report_result("Preview", result)
+		_report_result("预览", result)
 
 
 func _report_result(action: String, result: Dictionary) -> void:
 	_results.clear()
 	var ok: bool = bool(result.get("ok", false))
-	_results.append_text("%s %s.\n" % [action, "succeeded" if ok else "failed"])
+	_results.append_text("%s%s。\n" % [action, "成功" if ok else "失败"])
 	for error_message: String in _messages(result, "errors"):
 		_results.append_text("• %s\n" % error_message)
 	for warning_message: String in _messages(result, "warnings"):
@@ -914,15 +1074,15 @@ func _report_error(message: String) -> void:
 
 func _entry_tooltip(entry: Dictionary, kind: String) -> String:
 	if kind == "profile":
-		return "%s\n%d cue bindings" % [
+		return "%s\n%d 个 cue 绑定" % [
 			entry.get("id", ""),
 			_profile_binding_count(entry),
 		]
 	return "%s\n%s · %s · %s\n%s" % [
 		entry.get("id", ""),
-		entry.get("domain", ""),
-		entry.get("space", ""),
-		entry.get("lifecycle", ""),
+		_display_label(String(entry.get("domain", "")), DOMAIN_LABELS),
+		_display_label(String(entry.get("space", "")), SPACE_LABELS),
+		_display_label(String(entry.get("lifecycle", "")), LIFECYCLE_LABELS),
 		entry.get("resource_path", ""),
 	]
 
@@ -979,6 +1139,24 @@ func _string_array(value: Variant) -> Array[String]:
 		return result
 	for item: Variant in value as Array:
 		result.append(String(item))
+	return result
+
+
+func _display_label(value: String, labels: Dictionary) -> String:
+	return String(labels.get(value, value))
+
+
+func _labels_for(values: Array, labels: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for value: Variant in values:
+		result.append(_display_label(String(value), labels))
+	return result
+
+
+func _display_labels(values: Array[String], labels: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for value: String in values:
+		result.append(_display_label(value, labels))
 	return result
 
 

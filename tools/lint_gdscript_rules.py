@@ -39,6 +39,12 @@ DIRECT_PAUSE_ALLOWED = {
 HARDCODED_CHINESE_ALLOWED = {
     "client/addons/module_authoring/module_authoring_main_screen.gd",
     "client/addons/module_authoring/module_json_document_self_test.gd",
+    "client/addons/vfx_library/vfx_catalog_store.gd",
+    "client/addons/vfx_library/vfx_library_inspector_plugin.gd",
+    "client/addons/vfx_library/vfx_library_main_screen.gd",
+    "client/addons/vfx_library/vfx_library_plugin.gd",
+    "client/addons/vfx_library/vfx_preview_stage.gd",
+    "client/addons/vfx_library/vfx_template_factory.gd",
 }
 
 
