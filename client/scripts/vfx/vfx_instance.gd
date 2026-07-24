@@ -1,4 +1,5 @@
 # Doc: docs/代码/visual_effects.md
+@tool
 class_name VfxInstance
 extends Node2D
 ## Base lifecycle for reusable spawned VFX scenes.

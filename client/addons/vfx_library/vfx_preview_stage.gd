@@ -101,20 +101,21 @@ func clear_preview() -> void:
 
 
 func preview(entry: Dictionary) -> Dictionary:
+	var preview_entry: Dictionary = entry.duplicate(true)
 	clear_preview()
-	_entry = entry.duplicate(true)
-	var resource_path: String = String(entry.get("resource_path", ""))
+	_entry = preview_entry
+	var resource_path: String = String(preview_entry.get("resource_path", ""))
 	if resource_path.is_empty() or not ResourceLoader.exists(resource_path):
 		return _error("无法预览资源：%s" % resource_path)
 	var resource: Resource = load(resource_path)
-	if String(entry.get("kind", "")) == "target_animation":
-		return _preview_target_animation(resource, entry)
+	if String(preview_entry.get("kind", "")) == "target_animation":
+		return _preview_target_animation(resource, preview_entry)
 	if not resource is PackedScene:
 		return _error("预览资源不是 PackedScene：%s" % resource_path)
 	var packed_scene: PackedScene = resource as PackedScene
 	for index: int in range(_instance_count):
 		var instance: Node = packed_scene.instantiate()
-		var parent: Node = _ui_root if _uses_ui_space(entry, instance) else _world_root
+		var parent: Node = _ui_root if _uses_ui_space(preview_entry, instance) else _world_root
 		parent.add_child(instance)
 		_instances.append(instance)
 		_place_instance(instance, index, _instance_count)
@@ -188,7 +189,7 @@ func seek_ratio(ratio: float) -> void:
 	var clamped_ratio := clampf(ratio, 0.0, 1.0)
 	var duration: float = maxf(float(_entry.get("duration", 1.0)), 0.001)
 	for instance: Node in _instances:
-		if instance.has_method("seek_preview_ratio"):
+		if _can_call_preview_method(instance, &"seek_preview_ratio"):
 			instance.call("seek_preview_ratio", clamped_ratio)
 			continue
 		for player: AnimationPlayer in _animation_players(instance):
@@ -197,7 +198,7 @@ func seek_ratio(ratio: float) -> void:
 
 func seek_phase(phase: String) -> void:
 	for instance: Node in _instances:
-		if instance.has_method("seek_preview_phase"):
+		if _can_call_preview_method(instance, &"seek_preview_phase"):
 			instance.call("seek_preview_phase", phase)
 	var phase_ratio := 0.5
 	match phase:
@@ -359,7 +360,7 @@ func _apply_policy(instance: Node) -> void:
 	instance.set_meta("vfx_preview", true)
 	instance.set_meta("vfx_quality", _quality)
 	instance.set_meta("vfx_reduced_motion", _reduced_motion)
-	if instance.has_method("configure_preview"):
+	if _can_call_preview_method(instance, &"configure_preview"):
 		instance.call(
 			"configure_preview",
 			{
@@ -372,15 +373,42 @@ func _apply_policy(instance: Node) -> void:
 
 
 func _start_instance(instance: Node) -> void:
-	if instance.has_method("play_preview"):
+	if _can_call_preview_method(instance, &"play_preview"):
 		instance.call("play_preview")
-	elif instance.has_method("play"):
+	elif _can_call_preview_method(instance, &"play"):
 		instance.call("play")
 	else:
-		for player: AnimationPlayer in _animation_players(instance):
-			var animation_name: StringName = _default_animation(player)
-			if not animation_name.is_empty():
-				player.play(animation_name)
+		_play_animation_fallback(instance)
+		_set_particles_emitting(instance, true)
+
+
+func _can_call_preview_method(instance: Node, method_name: StringName) -> bool:
+	if not instance.has_method(method_name):
+		return false
+	var script: Script = instance.get_script() as Script
+	return script == null or script.is_tool()
+
+
+func _play_animation_fallback(instance: Node) -> void:
+	for player: AnimationPlayer in _animation_players(instance):
+		var animation_name: StringName = _default_animation(player)
+		if not animation_name.is_empty():
+			player.play(animation_name)
+
+
+func _set_particles_emitting(node: Node, emitting: bool) -> void:
+	if node is GPUParticles2D:
+		var gpu_particles := node as GPUParticles2D
+		gpu_particles.emitting = emitting
+		if emitting:
+			gpu_particles.restart()
+	elif node is CPUParticles2D:
+		var cpu_particles := node as CPUParticles2D
+		cpu_particles.emitting = emitting
+		if emitting:
+			cpu_particles.restart()
+	for child: Node in node.get_children():
+		_set_particles_emitting(child, emitting)
 
 
 func _apply_paused_state() -> void:

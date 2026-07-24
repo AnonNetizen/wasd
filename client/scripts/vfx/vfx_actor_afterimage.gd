@@ -1,4 +1,5 @@
 # Doc: docs/代码/visual_effects.md
+@tool
 class_name VfxActorAfterimage
 extends "res://scripts/vfx/vfx_instance.gd"
 ## Detached actor silhouette sampled at play time, then faded independently of actor pooling.

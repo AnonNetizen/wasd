@@ -1,4 +1,5 @@
 # Doc: docs/代码/visual_effects.md
+@tool
 class_name ScreenVfxInstance
 extends ColorRect
 ## Screen-space one-shot lifecycle driven by an AnimationPlayer.
