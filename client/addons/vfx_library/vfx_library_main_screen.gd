@@ -908,7 +908,11 @@ func _on_apply_to_selected_pressed() -> void:
 
 
 func _on_replay_pressed() -> void:
-	_report_preview(_preview_stage.call("replay") as Dictionary)
+	var selected_items: PackedInt32Array = _entry_list.get_selected_items()
+	if selected_items.is_empty():
+		_report_info("请先从效果目录选择一个条目。")
+		return
+	_on_entry_selected(selected_items[0])
 
 
 func _on_pause_pressed() -> void:
@@ -1066,8 +1070,11 @@ func _clear_selection_view() -> void:
 
 
 func _report_preview(result: Dictionary) -> void:
-	if not bool(result.get("ok", false)):
-		_report_result("预览", result)
+	if bool(result.get("ok", false)):
+		_results.clear()
+		_results.append_text("预览已就绪。")
+		return
+	_report_result("预览", result)
 
 
 func _report_result(action: String, result: Dictionary) -> void:
