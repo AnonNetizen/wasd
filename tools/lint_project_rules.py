@@ -17,10 +17,19 @@ CLIENT_DATA = ROOT / "client" / "data"
 DATA_README = CLIENT_DATA / "README.md"
 LOCALE_CSV = ROOT / "client" / "locale" / "strings.csv"
 EXPORT_PRESETS = ROOT / "client" / "export_presets.cfg"
+FORMAL_CLIENT_BOOT = (
+    ROOT / "client" / "scripts" / "boot" / "formal_client_boot.gd"
+)
+TITLE_MENU_SCRIPT = ROOT / "client" / "scripts" / "ui" / "title_menu.gd"
+TITLE_MENU_SCENE = ROOT / "client" / "scenes" / "ui" / "title_menu.tscn"
 
 IGNORE_DATA_FILES = {"_contracts.json"}
 IGNORED_FIELD_LEAVES = {"schema_version"}
 DEBUG_RESOURCE_RE = re.compile(r"(?:^|[/_\\-])(?:debug|dev_tools|gm_|debug_console)(?:[/_\\.-]|$)", re.IGNORECASE)
+DEBUG_TEST_ARENA_RE = re.compile(
+    r"debug[_-]?test[_-]?arena",
+    re.IGNORECASE,
+)
 REQUIRED_RELEASE_DEBUG_EXCLUDES = {
     "scenes/debug/*",
     "scripts/debug/*",
@@ -47,6 +56,7 @@ def main() -> int:
     errors.extend(_check_data_fields_documented())
     errors.extend(_check_locale_bilingual())
     errors.extend(_check_release_presets())
+    errors.extend(_check_debug_test_arena_standalone())
 
     if errors:
         for error in sorted(errors, key=lambda item: (_rel(item.path), item.field, item.rule)):
@@ -225,6 +235,33 @@ def _check_release_presets() -> list[LintError]:
                 )
             )
 
+    return errors
+
+
+def _check_debug_test_arena_standalone() -> list[LintError]:
+    errors: list[LintError] = []
+    for path in (
+        FORMAL_CLIENT_BOOT,
+        TITLE_MENU_SCRIPT,
+        TITLE_MENU_SCENE,
+    ):
+        if not path.exists():
+            continue
+        for line_number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(),
+            start=1,
+        ):
+            if DEBUG_TEST_ARENA_RE.search(line) is None:
+                continue
+            errors.append(
+                LintError(
+                    path,
+                    f"line {line_number}",
+                    "standalone-debug-test-arena",
+                    "formal boot and title UI must not reference the "
+                    "standalone Developer Test Arena",
+                )
+            )
     return errors
 
 

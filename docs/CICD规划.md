@@ -95,7 +95,7 @@
 
 ### 2.E GDScript Lint + Format ⭐⭐⭐
 - 当前 Stage 1 已先启用 `tools/lint_gdscript_rules.py` 作为低误报项目红线 lint，并启用 `tools/lint_project_rules.py` 覆盖数据 / locale / release 边界，另以非阻塞 `tools/lint_semantic_rules.py` 提示较高误报风险的语义问题；本阶段继续补齐更完整的第三方格式化与静态分析。
-- DebugTools 已有本地 headless 验证：`python tools/godot_bridge.py --project client debug-tools-smoke` 覆盖 debug/dev_tools 控制台和 GM 命令，`python tools/godot_bridge.py --project client debug-test-arena-smoke` 覆盖隔离的开发者测试岛，`python tools/godot_bridge.py --project client debug-tools-release-smoke` 覆盖 release guard、测试岛 CLI 拒绝、标题隐藏，并临时导出 release PCK 后挂载检查调试目录 / smoke 不存在；Godot headless CI 接入时应纳入 release 边界检查。
+- DebugTools 已有本地 headless 验证：`python tools/godot_bridge.py --project client debug-tools-smoke` 覆盖 debug/dev_tools 控制台和 GM 命令，`python tools/godot_bridge.py --project client debug-test-arena-smoke` 直接启动并覆盖隔离的独立开发者测试岛，`python tools/godot_bridge.py --project client debug-tools-release-smoke` 覆盖 release guard，并临时导出 release PCK 后挂载检查调试目录 / smoke 不存在；项目 lint 另行强制正式 boot / title 对测试岛零引用。Godot headless CI 接入时应纳入这些边界检查。
 - 使用 [gdtoolkit](https://github.com/Scony/godot-gdscript-toolkit)：
   - `gdlint`：静态检查（命名、未使用变量、复杂度）
   - `gdformat --check`：格式化检查

@@ -70,8 +70,8 @@
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口、`DamageInfo`、`StatusEffect` 与 `StatusEffectComponent` |
 | `client/scripts/gameplay/` | Gameplay 主循环、玩家 / 武器 / 技能 / 敌人 / 机关 / HUD，以及 `presentation/` 的 VfxHost / Feedback / ActorPresentation |
 | `client/scripts/ui/` | 正式 UI 与 `effects/` 共享动效组件；UI 栈 / UI Effects 分别见对应模块文档 |
-| `client/scripts/debug/` / `client/scenes/debug/` | debug/dev_tools 专用 `DebugConsole`、`GMCommandRegistry` 与 ADR #159 开发者测试岛 / 配装 / 控制面板；正式 release 不应加载或导出 |
-| `client/tools/` | Godot 项目内 headless smoke / baker；ADR #158 新增 VFX resource baker、`vfx-smoke`、`ui-manager-smoke`，ADR #159 新增隔离的 `debug_test_arena_smoke.gd`，并保留仅由用户明确触发的性能 probe |
+| `client/scripts/debug/` / `client/scenes/debug/` | debug/dev_tools 专用 `DebugConsole`、`GMCommandRegistry` 与 ADR #159 / #160 独立开发者测试岛 / 配装 / 控制面板；正式 release 不应加载或导出 |
+| `client/tools/` | Godot 项目内 headless smoke / baker；ADR #158 新增 VFX resource baker、`vfx-smoke`、`ui-manager-smoke`，ADR #159 / #160 维护直启独立 scene 的 `debug_test_arena_smoke.gd`，并保留仅由用户明确触发的性能 probe |
 | `user://settings.cfg` / `user://input_bindings.tres` | 普通设置 schema v2 / GUIDE 输入绑定 schema v1；游戏进度存档仍走 `user://saves/<slot>/<kind>.save`（`meta` / `run` / `replay_index`） |
 
 `docs/` 下：
@@ -185,7 +185,7 @@
 | **改输入 / 按键 / 手柄 / 重绑定** | 先读 `docs/代码/input_service.md`、词表 §7、ADR #151、Settings / Replay 文档和目标调用方；action 先登记并生成常量，默认映射改 `client/resources/input/`，业务只消费 `InputService` 的 `move` / `aim` Vector2 或 bool intent。GUIDE 只允许由 InputService 访问，InputMap 只允许在 UI bridge / 插件 / 测试边界；绑定保存为 `user://input_bindings.tres`，改完跑 `input-smoke`、`settings-smoke`、`replay-input-smoke`、runtime 与黄金回放 |
 | **维护 / 升级 GUIDE 内部** | 先读 `docs/代码/guide.md`、`client/addons/README.md`、ADR #151 与目标源码；升级只比较固定版本官方发布包，重放 autoload、类型、context 单调序号、detector 负轴 / 取消清理和源码头补丁。不得启用自动更新、加 lint 豁免或把插件类型泄露给业务；完成后跑三档 lint、input/settings/replay smoke、headless boot、headless editor 和真实手柄验收 |
 | **加 GM 指令 / 调试工具** | 查 GDD 9.20 与 `docs/代码/debug_tools.md`；调试入口只在 debug/dev_tools 构建启用，action 用 `debug_*` 并登记词表 §7；命令必须通过正式系统 API 或受控 `debug_*` API 改状态；release preset 不启用 `dev_tools` 且排除调试脚本 / GM 命令表；改完跑 `python tools/godot_bridge.py --project client debug-tools-smoke` 和 `debug-tools-release-smoke` |
-| **改开发者测试岛** | 先读 ADR #159、`docs/代码/debug_test_arena.md`、DebugTools / Gameplay Runtime / FormalClientBoot / GearModSystem 文档与测试策略；它是 debug/dev_tools 内部 RunLoop 用途，不是正式 game mode。配置只写 `user://debug_test_arena.cfg`，正式 run/meta、Replay/Analytics 与 release 资源必须隔离；改完必跑 `debug-test-arena-smoke`、release smoke 和模块文档规定的完整回归，不自动跑性能 probe |
+| **改开发者测试岛** | 先读 ADR #159 / #160、`docs/代码/debug_test_arena.md`、DebugTools / Gameplay Runtime / FormalClientBoot / GearModSystem 文档与测试策略；它是直接运行的独立 debug scene，内部复用 RunLoop 用途，不是正式 game mode，标题 / boot / 正式 CLI 必须零耦合。配置只写 `user://debug_test_arena.cfg`，正式 run/meta、Replay/Analytics 与 release 资源必须隔离；改完必跑 `debug-test-arena-smoke`、release smoke 和模块文档规定的完整回归，不自动跑性能 probe |
 | **加暂停/切换游戏状态** | `GameState.change_state(PAUSED)` 等；UI 通过 `UIManager.push(modal_pause_menu)` 自动联动暂停；F5 首片的 `PauseMenu` 已覆盖继续、保存并退出、重开和回标题，也支持从升级面板上方叠出并恢复回 `LEVEL_UP`；不直接读写 `get_tree().paused`（见 GDD 9.12 / 9.14） |
 | **加录制回放/确定性需求** | 走 `Replay`（autoload）；输入只由 `InputService` 记录 / 注入 v2 bool 或 Vector2 intent，播放时隔离 GUIDE 物理输入；随机走 `RNG.<stream>`、时间走 `GameClock`。v1 只在加载时迁移，不重写源文件；改输入 wire 追加 input/replay smoke 和四条黄金回放，改 RNG seed 派生 / 子流集合追加 `rng-audit`（见 GDD 9.9 / 9.18） |
 | **接 Steam API / 平台服务** | 先读 `docs/在线服务规划.md`、ADR #150 与 `docs/代码/platform_services.md`；未来固定官方 GodotSteam 版本，只在 `PlatformServices` adapter 内初始化 / 驱动 callback，并承接 Steam 身份票据、成就、Steam-only 统计、富状态、overlay、Lobby / 邀请。当前正式客户端不安装，业务不得直调 Steamworks / GodotSteam |
@@ -234,7 +234,7 @@
 
 > ADR #158 后 `VisualEffects` 解析数据，RunLoop 内 `VfxHost` / `GameplayFeedbackController` 执行 cue；Player / Enemy 基类固定 Presentation 和六个挂点。`UIManager` 使用四态异步生命周期并自动装共享 UI effects；Loading 正常路径等待 `ui_removed`。VFX Library 是 editor-only，release 排除；性能检查仍只由用户明确触发。
 
-> ADR #159 后 debug/dev_tools 构建可进入“开发者测试岛”：入场前从正式内容数据选角色、武器、主技能与 Gear Mod/rank，运行时复用真实战斗 / 池 / VFX，提供固定靶、正常 AI、作弊与 DPS。它不进入正式模式或存档，Replay / Analytics 仅在岛内关闭并在退出恢复；release 标题 / CLI guard 与资源排除由 smoke + project lint 守门。
+> ADR #159 / #160 后“开发者测试岛”只能直接运行独立 `debug_test_arena.tscn`，启动先从正式内容数据选角色、武器、主技能与 Gear Mod/rank，再由 host 创建内部 RunLoop；运行时复用真实战斗 / 池 / VFX，提供固定靶、正常 AI、作弊与 DPS。它不进入正式标题、boot、CLI、模式或存档，Replay / Analytics 仅在独立场景生命周期关闭并在退出恢复；正式入口零耦合与 release 资源排除由 smoke + project lint 守门。
 
 > 有限地图可见边界和逻辑边界当前都由 `MapManager.bounds()` / `boundary_points()` / `boundary_half_extents()` 定义为贴住格线的轴对齐矩形；玩家和敌人中心点由 `set_movement_bounds()` 约束。排查敌人越界时先看 `GameplayRunLoop._apply_enemy_movement_bounds()`、`Enemy.set_movement_bounds()` 与 `runtime-smoke` 的敌人边界断言。
 

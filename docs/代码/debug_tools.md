@@ -9,7 +9,7 @@
 - 提供 GM 命令注册与执行入口，当前覆盖 `help` / `stats` / `spawn` / `xp` / `heal` / `hp` / `damage` / `kill_player` / `kill_enemies` / `clear_enemies` / `dust` / `seed`。
 - GM 命令只能调用正式系统 API 或受控 `debug_*` API，不直接散落修改 gameplay 私有状态、存档文件或 analytics。
 - release 构建默认不会挂载 `DebugConsole` / `GMCommandRegistry`，也不会启用 `InputService` 的 debug context 或 `debug_*` action。
-- ADR #159 的“开发者测试岛”与控制台共享 debug/dev_tools 构建边界，但拥有独立模块文档、场景、配置和 smoke；它不是 GM 命令集合，也不是正式 game mode。
+- ADR #159 / #160 的“开发者测试岛”与控制台共享 debug/dev_tools 构建边界，但只通过独立 scene 运行，拥有独立模块文档、配置和 smoke；它不挂标题 / FormalClientBoot，不是 GM 命令集合或正式 game mode。
 
 ## 代码位置
 
@@ -58,7 +58,7 @@
 - 正式导出不得启用 `dev_tools` feature。
 - 正式导出 preset 必须排除 `res://scenes/debug/*`、`res://scripts/debug/*`、`res://tools/debug_test_arena_smoke.gd` 和 `res://tools/debug_tools_smoke.gd` 等开发资源。
 - 业务脚本不得直接 preload 调试脚本；当前只有 `FormalClientBoot` 保存字符串路径并在 guard 通过后动态加载。
-- `debug-tools-release-smoke` 同时传入测试岛 CLI 标志，确认 release 模拟仍启动普通 RunLoop、隐藏标题入口且不创建测试岛控制器；project rules lint 另外强制检查三类导出排除 pattern。
+- `debug-tools-release-smoke` 确认 release 模拟不创建控制台或 debug action，并导出实际 PCK 检查调试目录 / smoke 不存在；project rules lint 另外强制检查测试岛 release 排除 pattern 与正式 boot / title 零耦合。
 
 ## 测试义务
 

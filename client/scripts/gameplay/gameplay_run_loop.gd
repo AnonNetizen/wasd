@@ -9,6 +9,7 @@ signal restart_requested()
 signal restore_failed()
 signal run_prepared()
 signal run_prepare_failed(reason: String, restoring: bool)
+signal debug_test_arena_exit_requested()
 signal debug_test_arena_setup_requested()
 
 enum RunPurpose {
@@ -1279,9 +1280,9 @@ func debug_test_arena_request_setup() -> void:
 		debug_test_arena_setup_requested.emit()
 
 
-func debug_test_arena_request_title() -> void:
+func debug_test_arena_request_exit() -> void:
 	if _is_debug_test_arena():
-		quit_to_title_requested.emit()
+		debug_test_arena_exit_requested.emit()
 
 
 func debug_test_arena_open_panel() -> void:

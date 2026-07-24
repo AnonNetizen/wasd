@@ -77,13 +77,6 @@ custom_minimum_size = Vector2(260, 54)
 layout_mode = 2
 size_flags_horizontal = 4
 
-[node name="DebugTestArenaButton" type="Button" parent="Root/Center/Panel/Margin/Layout"]
-visible = false
-custom_minimum_size = Vector2(260, 54)
-layout_mode = 2
-size_flags_horizontal = 4
-disabled = true
-
 [node name="SettingsButton" type="Button" parent="Root/Center/Panel/Margin/Layout"]
 custom_minimum_size = Vector2(260, 54)
 layout_mode = 2

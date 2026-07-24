@@ -1,5 +1,5 @@
 # Doc: docs/代码/debug_test_arena.md
-# Authority: docs/测试策略.md §2.2 / §5.10, docs/决策记录.md ADR #159
+# Authority: docs/测试策略.md §2.2 / §5.10, docs/决策记录.md ADR #159 / #160
 extends Node
 
 
@@ -8,10 +8,6 @@ const CONFIG_SCRIPT := preload(
 )
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
-const SETUP_SCENE := preload(
-	"res://scenes/debug/debug_test_arena_setup.tscn"
-)
-const TITLE_SCENE := preload("res://scenes/ui/title_menu.tscn")
 
 const SENTINEL_META: Dictionary = {
 	"debug_test_arena_sentinel": "meta",
@@ -28,18 +24,42 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	var boot: Node = get_parent()
+	var host: Node = get_parent()
 	_check(
-		boot != null
-		and boot.has_method("debug_start_test_arena_for_smoke"),
-		"formal boot exposes test-arena smoke start"
+		host != null
+		and host.has_method("debug_start_test_arena_for_smoke")
+		and host.has_method("debug_active_setup")
+		and host.has_method("debug_service_state_before"),
+		"standalone host exposes smoke lifecycle"
 	)
 	if not _failures.is_empty():
 		_finish()
 		return
 
-	var replay_enabled_before: bool = Replay.is_enabled()
-	var analytics_enabled_before: bool = Analytics.is_enabled()
+	var service_state_before: Dictionary = host.call(
+		"debug_service_state_before"
+	) as Dictionary
+	var replay_enabled_before: bool = bool(
+		service_state_before.get("replay_enabled", false)
+	)
+	var analytics_enabled_before: bool = bool(
+		service_state_before.get("analytics_enabled", false)
+	)
+	var initial_setup: CanvasLayer = host.call(
+		"debug_active_setup"
+	) as CanvasLayer
+	_check(
+		initial_setup != null and UIManager.top() == initial_setup,
+		"standalone scene opens loadout first"
+	)
+	_check(
+		get_tree().root.find_child("TitleMenu", true, false) == null,
+		"standalone scene does not mount the formal title"
+	)
+	_check(
+		not Replay.is_enabled() and not Analytics.is_enabled(),
+		"standalone host suspends Replay and Analytics"
+	)
 	_check(
 		SaveManager.save(
 			SaveManager.DEFAULT_SLOT,
@@ -142,12 +162,11 @@ func _run() -> void:
 		"Gear Mod preview clamps rank and enforces unique_by_id"
 	)
 
-	await _verify_title_entry()
-	await _verify_setup_panel(config)
+	_verify_setup_panel(initial_setup, config)
 
 	_check(
 		bool(
-			boot.call(
+			host.call(
 				"debug_start_test_arena_for_smoke",
 				config
 			)
@@ -156,7 +175,7 @@ func _run() -> void:
 	)
 	var arena_ready: bool = await _wait_until(
 		func() -> bool:
-			var loop: Node = boot.call("debug_active_run_loop") as Node
+			var loop: Node = host.call("debug_active_run_loop") as Node
 			return (
 				loop != null
 				and loop.has_method("debug_test_arena_summary")
@@ -175,7 +194,7 @@ func _run() -> void:
 		_finish()
 		return
 
-	var run_loop: Node = boot.call("debug_active_run_loop") as Node
+	var run_loop: Node = host.call("debug_active_run_loop") as Node
 	_check(not Replay.is_enabled(), "Replay disabled inside arena")
 	_check(not Analytics.is_enabled(), "Analytics disabled inside arena")
 	var summary: Dictionary = run_loop.call(
@@ -522,37 +541,93 @@ func _run() -> void:
 		"player death clears temporary cheat state"
 	)
 
-	run_loop.call("debug_test_arena_request_title")
+	var first_run_instance_id: int = run_loop.get_instance_id()
+	run_loop.call("debug_test_arena_request_setup")
 	_check(
 		await _wait_until(
 			func() -> bool:
-				return boot.call("debug_active_run_loop") == null,
+				return (
+					host.call("debug_active_run_loop") == null
+					and host.call("debug_active_setup") != null
+				),
 			120
 		),
-		"return to title clears arena"
+		"return to loadout clears the current arena"
 	)
 	await get_tree().process_frame
-	var returned_title: CanvasLayer = UIManager.top() as CanvasLayer
-	var continue_button: Button = (
-		returned_title.get_node_or_null(
-			"Root/Center/Panel/Margin/Layout/ContinueRunButton"
-		) as Button
-		if returned_title != null
-		else null
+	var returned_setup: CanvasLayer = host.call(
+		"debug_active_setup"
+	) as CanvasLayer
+	_check(
+		returned_setup != null and UIManager.top() == returned_setup,
+		"return to loadout opens the standalone setup"
 	)
 	_check(
-		continue_button != null
-		and continue_button.visible
-		and not continue_button.disabled,
-		"return to title preserves continue availability"
+		not Replay.is_enabled() and not Analytics.is_enabled(),
+		"services remain suspended while changing loadout"
+	)
+	_check(
+		bool(
+			host.call(
+				"debug_start_test_arena_for_smoke",
+				config
+			)
+		),
+		"loadout can rebuild the arena"
+	)
+	_check(
+		await _wait_until(
+			func() -> bool:
+				var rebuilt: Node = host.call(
+					"debug_active_run_loop"
+				) as Node
+				return (
+					rebuilt != null
+					and rebuilt.get_instance_id()
+					!= first_run_instance_id
+					and bool(
+						(
+							rebuilt.call(
+								"debug_test_arena_summary"
+							) as Dictionary
+						).get("active", false)
+					)
+				),
+			180
+		),
+		"return to loadout creates a fresh runtime"
+	)
+	var rebuilt_run_loop: Node = host.call(
+		"debug_active_run_loop"
+	) as Node
+	if rebuilt_run_loop == null:
+		_finish()
+		return
+	rebuilt_run_loop.call("debug_test_arena_request_exit")
+	_check(
+		await _wait_until(
+			func() -> bool:
+				return (
+					host.call("debug_active_run_loop") == null
+					and bool(
+						host.call("debug_exit_is_completed")
+					)
+				),
+			120
+		),
+		"exit test clears the standalone runtime"
+	)
+	_check(
+		UIManager.top() == null,
+		"standalone exit clears the UI stack"
 	)
 	_check(
 		Replay.is_enabled() == replay_enabled_before,
-		"Replay state restores after exit"
+		"Replay state restores after standalone exit"
 	)
 	_check(
 		Analytics.is_enabled() == analytics_enabled_before,
-		"Analytics state restores after exit"
+		"Analytics state restores after standalone exit"
 	)
 	_check(
 		SaveManager.load(
@@ -571,29 +646,13 @@ func _run() -> void:
 	_finish()
 
 
-func _verify_title_entry() -> void:
-	var title: CanvasLayer = TITLE_SCENE.instantiate() as CanvasLayer
-	add_child(title)
-	title.call("configure", false, "", true)
-	var button: Button = title.get_node_or_null(
-		"Root/Center/Panel/Margin/Layout/DebugTestArenaButton"
-	) as Button
-	_check(
-		button != null and button.visible and not button.disabled,
-		"debug title entry is visible"
-	)
-	title.call("configure", false, "", false)
-	_check(
-		button != null and not button.visible and button.disabled,
-		"release title entry is hidden"
-	)
-	title.queue_free()
-	await get_tree().process_frame
-
-
-func _verify_setup_panel(config: Dictionary) -> void:
-	var setup: CanvasLayer = SETUP_SCENE.instantiate() as CanvasLayer
-	add_child(setup)
+func _verify_setup_panel(
+	setup: CanvasLayer,
+	config: Dictionary
+) -> void:
+	_check(setup != null, "standalone setup is available")
+	if setup == null:
+		return
 	setup.call("configure", config)
 	var summary: Dictionary = setup.call("debug_summary") as Dictionary
 	_check(
@@ -608,8 +667,6 @@ func _verify_setup_panel(config: Dictionary) -> void:
 		and bool(summary.get("consumables_disabled", false)),
 		"data-only content remains visibly disabled"
 	)
-	setup.queue_free()
-	await get_tree().process_frame
 
 
 func _target_by_kind(target_kind: String) -> Node2D:

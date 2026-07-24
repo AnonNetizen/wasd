@@ -215,7 +215,6 @@ item_pocket_bomb_desc,引发一次小范围爆炸,Trigger a small explosion
 skill_overdrive_rounds_name,过载弹流,Overdrive Rounds
 skill_overdrive_rounds_desc,消耗能量，短时间提高射速和弹速,Spend energy to briefly increase fire rate and bullet speed
 skill_resource_mana_name,魔法,Mana
-ui_debug_test_arena_title_entry,开发者测试岛,Developer Test Arena
 ui_debug_test_arena_setup_title,开发者测试岛配装,Developer Test Arena Loadout
 ui_debug_test_arena_seed,种子,Seed
 ui_debug_test_arena_character,角色,Character
@@ -233,7 +232,7 @@ ui_debug_test_arena_loadout_ready,配装合法，可进入测试岛,Loadout vali
 ui_debug_test_arena_loadout_invalid,配装违反容量或唯一规则,Loadout violates capacity or uniqueness rules
 ui_debug_test_arena_config_save_failed,开发配置保存失败,Failed to save developer configuration
 ui_debug_test_arena_enter,进入测试岛,Enter Test Arena
-ui_debug_test_arena_back,返回标题,Back to Title
+ui_debug_test_arena_exit,退出测试,Exit Test
 ui_debug_test_arena_panel_title,开发者测试岛控制台,Developer Test Arena Controls
 ui_debug_test_arena_enemy,敌人类型,Enemy Type
 ui_debug_test_arena_target_type,目标类型,Target Type
@@ -254,7 +253,6 @@ ui_debug_test_arena_teleport,传送回出生点,Teleport to Spawn
 ui_debug_test_arena_reset_arena,重置整个场地,Reset Arena
 ui_debug_test_arena_reset_stats,清零伤害统计,Reset Damage Stats
 ui_debug_test_arena_return_setup,返回配装,Return to Loadout
-ui_debug_test_arena_return_title,返回标题,Return to Title
 ui_debug_test_arena_close_panel,关闭并开始战斗,Close and Fight
 ui_debug_test_arena_panel_ready,所有作弊默认关闭；关闭面板后开始战斗,All cheats start off; close the panel to fight
 ui_debug_test_arena_spawn_result,已生成 %d 个目标,Spawned %d targets

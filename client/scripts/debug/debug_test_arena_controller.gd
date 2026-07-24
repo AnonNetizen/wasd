@@ -1,5 +1,5 @@
 # Doc: docs/代码/debug_test_arena.md
-# Authority: docs/决策记录.md ADR #159
+# Authority: docs/决策记录.md ADR #159 / #160
 class_name DebugTestArenaController
 extends Node
 
@@ -283,9 +283,9 @@ func request_return_to_setup() -> void:
 		_run_loop.call("debug_test_arena_request_setup")
 
 
-func request_return_to_title() -> void:
+func request_exit() -> void:
 	if _run_loop != null:
-		_run_loop.call("debug_test_arena_request_title")
+		_run_loop.call("debug_test_arena_request_exit")
 
 
 func damage_stats() -> Dictionary:

@@ -7,8 +7,9 @@
 
 - 负责提供完整项目 `client/` 的最小 Godot 启动入口。
 - 负责让 F1 阶段可以通过 headless 启动验证。
-- F2/F3 期间作为正式客户端 smoke 场景，负责触发 autoload 和数据 schema 启动检查；F4 起在数据校验通过后显示最小标题界面，并在玩家开始游戏、继续 run 存档、重开、打开装备 Mod 面板、打开设置面板或 smoke 模式下编排对应流程。ADR #159 后还在 debug/dev_tools 构建中编排开发者测试岛的配装、CLI、服务隔离与回收；release 不显示或加载该入口。ADR #117 后旧局外升级标题入口和 `meta-smoke` 已删除。
+- F2/F3 期间作为正式客户端 smoke 场景，负责触发 autoload 和数据 schema 启动检查；F4 起在数据校验通过后显示最小标题界面，并在玩家开始游戏、继续 run 存档、重开、打开装备 Mod 面板、打开设置面板或 smoke 模式下编排对应流程。ADR #117 后旧局外升级标题入口和 `meta-smoke` 已删除。
 - ADR #157 后负责正式玩家入口的统一加载编排、重入保护、成功激活和失败回退；不负责 `GameplayRunLoop` 内部资源准备细节，也不处理应用冷启动。
+- ADR #160 后不负责开发者测试岛的入口、CLI、配装、服务隔离或 runtime 生命周期；测试岛只能直接运行独立 debug scene。
 - 不负责长期主菜单视觉包装、输入重绑定 UI 或业务数据解释。
 
 ## 阅读方式
@@ -20,7 +21,6 @@
 | 推进下一阶段 autoload | `docs/正式项目工作规划.md` F2 |
 | 调试 F4 启动 | `docs/代码/gameplay_runtime.md` |
 | 调试开始 / 继续 / 重开加载 | `docs/代码/gameplay_loading.md` |
-| 调试开发者测试岛入口 | `docs/代码/debug_test_arena.md` |
 
 ## 代码位置
 
@@ -30,7 +30,6 @@
 | `client/scenes/boot/main.tscn` | 正式项目最小启动场景 |
 | `client/scripts/boot/formal_client_boot.gd` | 启动场景脚本，输出启动日志 |
 | `client/scripts/debug/debug_console.gd` | debug/dev_tools 构建才动态加载的调试控制台 |
-| `client/scenes/debug/debug_test_arena*.tscn` / `client/scripts/debug/debug_test_arena_*.gd` | debug/dev_tools 构建才动态加载的测试岛、配装、控制面板和独立配置 |
 | `client/scenes/gameplay/gameplay_run_loop.tscn` | F4+ 正式 gameplay runtime 场景，由启动脚本实例化 |
 | `client/scenes/ui/title_menu.tscn` | 正常启动后的正式标题菜单场景 |
 | `client/scenes/ui/loading_screen.tscn` | 开始 / 继续 / 重开期间的统一全屏加载界面 |
@@ -54,7 +53,6 @@
 | `client/tools/golden_replay_capture.gd` | `--capture-golden-replay` 下挂载的 F8 golden capture 工具，固定 seed 生成 `golden_basic_run.replay`、`golden_pause_resume.replay`、`golden_full_death.replay` 或 `golden_level_up_choice.replay` |
 | `client/tools/perf_probe.gd` | `--perf-probe` 下挂载的 F8 轻量性能 / 平衡采样 |
 | `client/tools/debug_tools_smoke.gd` | `--debug-tools-smoke` 下挂载的调试控制台 / GM 指令 smoke，也可配合 `--force-release-debug-tools-off` 模拟 release guard |
-| `client/tools/debug_test_arena_smoke.gd` | `--debug-test-arena-smoke` 下挂载的隔离测试岛 smoke |
 | `client/README.md` | 正式客户端运行说明 |
 
 ## 场景 / 节点结构
@@ -104,8 +102,6 @@ FormalClientBoot
 | F9 Demo smoke | `--f9-demo-smoke` 启动时挂载真实 `GameplayRunLoop`，验证 FEA-12 机关存在、造成玩家伤害和 run 保存 roundtrip | `client/tools/f9_demo_smoke.gd` |
 | 玩家加载 smoke | `--loading-smoke` 走真实标题按钮与重开信号，验证加载界面 / `LOADING`、跨帧旋转、输入阻断、重复请求、唯一 RunLoop、续局、重开与准备失败回退 | `client/tools/loading_smoke.gd` |
 | DebugTools smoke | `--debug-tools-smoke` 启动时挂载 `GameplayRunLoop` 与 `DebugToolsSmoke`；debug 模式验证 `DebugConsole` / `GMCommandRegistry`、help/stats/spawn/xp/hp/damage/heal/dust/kill/clear 命令，`--force-release-debug-tools-off` 模拟 release 时确认没有调试节点或 debug action | `client/tools/debug_tools_smoke.gd` |
-| 开发者测试岛 | 标题入口先打开配装；`--debug-test-arena` 读取独立上次配置直接启动。启动层动态加载场景，在入树前配置 RunLoop 内部用途，临时关闭 Replay / Analytics；返回配装 / 标题或清理 runtime 时恢复进入前状态 | `DebugTestArenaConfig`、`configure_debug_test_arena()` |
-| 测试岛 smoke | `--debug-test-arena-smoke` 只在 debug guard 下显示标题并动态挂载 runner；Bridge 隔离用户目录，验证配置、配装、战斗、暂停、死亡、服务恢复和正式存档哨兵 | `client/tools/debug_test_arena_smoke.gd` |
 | 重开 / 回标题 | `GameplayRunLoop` 发出重开或回标题信号后，由启动脚本清理运行时和 gameplay 对象池，再重新挂载 run 或标题菜单 | `restart_requested` / `quit_to_title_requested` |
 | 模块存档拒绝 | run v4 的 assignment 与 map hash 不一致时，runtime 发出 `restore_failed`；启动层只删除该 run、回标题并显示不可用提示，`meta` 不受影响 | `restore_failed` / `SaveManager.delete(..., save_kind_run)` |
 
@@ -115,7 +111,6 @@ FormalClientBoot
 |-----|------|
 | `debug_tools_enabled()` | 供 smoke / 调试工具读取当前 debug/dev_tools guard 结果 |
 | `debug_active_run_loop()` | 供 `GMCommandRegistry` 定位当前活跃 `GameplayRunLoop` |
-| `debug_start_test_arena_for_smoke(config)` | 只允许专用 smoke 通过正式启动编排创建测试岛 |
 
 ## Signal / Event
 
@@ -129,7 +124,7 @@ FormalClientBoot
 - 启动脚本不硬编码玩家可见文本；标题、加载、HUD、设置、失败页和装备 Mod 面板文案见 `client/locale/strings.csv`。加载界面只显示 `ui_loading`，通用准备失败回标题显示 `ui_loading_failed`。
 - 标题菜单的“继续游戏”只在 `SaveManager.has_save(slot_0, run)` 为真时可见；“装备 Mod”常驻可见并由 `GearModPanel` 展示 `GearModSystem` 的 profile / mod summaries；旧“局外升级”标题入口已删除。开始新局和重开会删除旧 `run` 存档，并通过 `RNG.set_random_run_seed()` 生成新的主 seed，避免重复继续旧局或每局固定序列。继续游戏先显示加载界面，再读取和校验 run；若读取失败或坏档被隔离，标题菜单显示既有 `ui_run_save_unavailable` 提示并隐藏继续按钮。成功继续后，`GameplayRunLoop` 在加载界面移除后按 payload 的 `ui_restore` 回到普通游玩、暂停菜单或升级选择面板，不生成新 seed。
 - DebugTools 只在 `OS.is_debug_build()` 或 `OS.has_feature("dev_tools")` 为真时动态加载；release 构建不应启用 `dev_tools`，也不应包含 `res://scripts/debug/*` 调试资源。
-- 测试岛同样只在 guard 通过后动态加载；唯一持久文件是 `user://debug_test_arena.cfg`，启动层不得借测试用途读写 / 删除正式 run/meta。Replay / Analytics 进入时关闭、退出时按进入前状态恢复。
+- 正式 boot 与标题菜单不得包含开发者测试岛节点、路径、signal 或 `--debug-test-arena` 参数处理；该零耦合边界由项目 lint 守门。
 
 ## 依赖
 
@@ -157,7 +152,6 @@ FormalClientBoot
 | 调整 F11 Gear Mod smoke 挂载 | `formal_client_boot.gd`、`client/tools/gear_mod_smoke.gd` | 本文档、`docs/代码/gear_mod_system.md`、AI导航 | headless boot、`gear-mod-smoke` |
 | 调整输入 / F8 / F9 runner 挂载 | `formal_client_boot.gd`、`client/tools/input_smoke.gd`、`client/tools/l1_smoke.gd`、`client/tools/replay_smoke.gd`、`client/tools/replay_runner.gd`、`client/tools/replay_input_smoke.gd`、`client/tools/golden_replay_capture.gd`、`client/tools/perf_probe.gd`、`client/tools/f9_demo_smoke.gd` | 本文档、InputService / Replay / 测试策略 / F8 工作包 / Gameplay Runtime | `input-smoke`、`l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_level_up_choice`、`f9-demo-smoke`；性能 probe 仅在用户明确要求时运行 |
 | 调整 DebugTools 挂载 | `formal_client_boot.gd`、`client/scripts/debug/*.gd`、`client/tools/debug_tools_smoke.gd` | 本文档、`docs/代码/debug_tools.md`、测试策略、AI导航 | `debug-tools-smoke` + `debug-tools-release-smoke` |
-| 调整开发者测试岛入口 / 服务隔离 | `formal_client_boot.gd`、`title_menu.*`、`client/scenes/debug/`、`client/scripts/debug/` | 本文档、`docs/代码/debug_test_arena.md`、Gameplay Runtime、测试策略、AI导航 | `debug-test-arena-smoke` + `debug-tools-release-smoke` + save / loading / settings |
 | 补目录说明 | `client/README.md` | `README.md`、`docs/AI导航.md` | docs health |
 
 ## 故障排查
@@ -182,8 +176,7 @@ FormalClientBoot
 | 重复点击出现两个 RunLoop | `_player_load_in_progress` 是否在请求开始时置位，并只在成功 / 失败收口时清除 |
 | 准备失败后仍留加载界面或实体 | `_abort_player_gameplay_load()` 是否清理 UI、半成品 RunLoop 和 gameplay 对象池 |
 | 正式导出出现 GM 控制台 | release preset 是否启用 `dev_tools`；`FormalClientBoot._debug_tools_enabled()` 是否被绕过；导出资源是否包含 `res://scripts/debug/*` |
-| release 出现测试岛或 CLI 可启动 | 标题 `configure()` guard、`--debug-test-arena` 拒绝路径、release preset 三类 debug 排除和 project rules lint |
-| 离开测试岛后 Replay / Analytics 仍关闭 | `_clear_gameplay_runtime()` 是否恢复 `_debug_services_suspended` 保存的进入前状态 |
+| 正式启动意外引用测试岛 | `lint_project_rules.py` 的 `standalone-debug-test-arena` 门禁；正式 boot / title 必须零引用 |
 
 ## 测试义务
 
@@ -195,7 +188,7 @@ FormalClientBoot
 - 修改 `--gear-mod-smoke` 挂载或 GearModSystem 启动诊断时，追加 `python tools/godot_bridge.py --project client gear-mod-smoke`。
 - 修改 `--input-smoke` / `--l1-smoke` / `--replay-smoke` / `--replay-runner` / `--replay-input-smoke` / `--capture-golden-replay` / `--f9-demo-smoke` 挂载时，追加对应 `python tools/godot_bridge.py --project client input-smoke`、`l1-smoke`、`replay-smoke`、`replay-runner`、`replay-input-smoke`、`capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_level_up_choice`、`f9-demo-smoke`；改 golden 对照逻辑时还要跑四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`。修改性能 probe 挂载时只做静态 / headless 基础校验，除非用户当次明确要求运行性能测试。
 - 修改 DebugTools 挂载或 release guard 时，追加 `python tools/godot_bridge.py --project client debug-tools-smoke` 与 `python tools/godot_bridge.py --project client debug-tools-release-smoke`。
-- 修改开发者测试岛挂载、CLI、配置或服务隔离时，追加 `python tools/godot_bridge.py --project client debug-test-arena-smoke`、`debug-tools-release-smoke`、`save-smoke`、`loading-smoke` 与 `settings-smoke`；正式战斗适配按测试岛模块文档追加完整回归。
+- 若项目 lint 报正式入口引用测试岛，应删除该耦合并按 `docs/代码/debug_test_arena.md` 从独立 scene 验证；不要在本模块增加测试岛挂载或 CLI。
 - 修改标题装备 Mod 入口或 `GearModPanel` 挂载时，追加 `python tools/godot_bridge.py --project client gear-mod-smoke` 并做一次手动标题菜单点开检查。
 - 修改标题设置入口或 `SettingsPanel` 挂载时，追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 修改长期文档或索引后跑 `tools/docs_health_check.py`。

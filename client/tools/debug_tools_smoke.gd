@@ -119,31 +119,7 @@ func _run_release_sim_smoke() -> void:
 		_expect(not bool(boot.call("debug_tools_enabled")), "debug tools should be disabled by release simulation")
 	_expect(_find_node_by_name(get_tree().root, "DebugConsole") == null, "release simulation should not mount DebugConsole")
 	_expect(_find_node_by_name(get_tree().root, "GMCommandRegistry") == null, "release simulation should not mount GMCommandRegistry")
-	_expect(
-		_find_node_by_name(
-			get_tree().root,
-			"DebugTestArenaController"
-		) == null,
-		"release simulation should reject debug test arena CLI"
-	)
 	_expect(not InputMap.has_action(ACTIONS.DEBUG_TOGGLE_CONSOLE), "release simulation should not add debug_toggle_console")
-	var title_scene: PackedScene = load(
-		"res://scenes/ui/title_menu.tscn"
-	) as PackedScene
-	var title: CanvasLayer = title_scene.instantiate() as CanvasLayer
-	add_child(title)
-	await get_tree().process_frame
-	title.call("configure", false, "", false)
-	var arena_button: Button = title.get_node_or_null(
-		"Root/Center/Panel/Margin/Layout/DebugTestArenaButton"
-	) as Button
-	_expect(
-		arena_button != null
-		and not arena_button.visible
-		and arena_button.disabled,
-		"release title should hide debug test arena entry"
-	)
-	title.queue_free()
 
 
 func _player_life(run_loop: Node) -> float:

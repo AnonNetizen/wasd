@@ -347,7 +347,6 @@ def main() -> int:
         user_args = ["--debug-tools-smoke"]
         if args.command == "debug-tools-release-smoke":
             user_args.append("--force-release-debug-tools-off")
-            user_args.append("--debug-test-arena")
             exclusion_result = _verify_release_debug_resource_exclusion(
                 godot,
                 project,
@@ -739,6 +738,7 @@ def _run_debug_test_arena_smoke(
                 "--headless",
                 "--path",
                 str(project),
+                "res://scenes/debug/debug_test_arena.tscn",
                 "--",
                 "--debug-test-arena-smoke",
             ],
@@ -752,33 +752,7 @@ def _run_debug_test_arena_smoke(
             ),
             success_markers=("DEBUG TEST ARENA ALL PASS",),
         )
-        if smoke_result != 0:
-            return smoke_result
-        return _run_command(
-            [
-                str(godot),
-                "--headless",
-                "--path",
-                str(project),
-                "--quit-after",
-                "120",
-                "--",
-                "--debug-test-arena",
-            ],
-            cwd=project,
-            env=isolated_env,
-            failure_markers=(
-                "SCRIPT ERROR:",
-                "Parse Error:",
-                "Failed to load script",
-                "ERROR:",
-                "debug test arena launch rejected",
-            ),
-            success_markers=(
-                "[FormalClientBoot] debug test arena launch; "
-                "source=cli seed=159159",
-            ),
-        )
+        return smoke_result
 
 
 def _isolated_user_environment(root: Path) -> dict[str, str]:

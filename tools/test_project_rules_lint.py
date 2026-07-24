@@ -17,6 +17,7 @@ def main() -> int:
         ("missing locale translation fails", _test_missing_locale_translation_fails),
         ("release preset dev tools fail", _test_release_preset_dev_tools_fail),
         ("release preset missing debug excludes fails", _test_release_preset_missing_debug_excludes_fails),
+        ("formal arena coupling fails", _test_formal_arena_coupling_fails),
     ]
 
     for name, test in tests:
@@ -100,11 +101,39 @@ def _test_release_preset_missing_debug_excludes_fails() -> None:
         ), [error.format() for error in errors]
 
 
+def _test_formal_arena_coupling_fails() -> None:
+    with _temporary_project() as root:
+        _write_minimal_project(root)
+        boot = (
+            root
+            / "client"
+            / "scripts"
+            / "boot"
+            / "formal_client_boot.gd"
+        )
+        boot.write_text(
+            'const DEBUG_TEST_ARENA_SCENE = "res://debug.tscn"\n',
+            encoding="utf-8",
+        )
+        _with_project_root(root)
+        errors = lint_project_rules._check_debug_test_arena_standalone()
+        assert any(
+            error.rule == "standalone-debug-test-arena"
+            for error in errors
+        ), [error.format() for error in errors]
+
+
 def _write_minimal_project(root: Path, *, item: dict[str, str] | None = None, locale_en: str = "Play") -> None:
     data_dir = root / "client" / "data"
     locale_dir = root / "client" / "locale"
+    boot_dir = root / "client" / "scripts" / "boot"
+    title_script_dir = root / "client" / "scripts" / "ui"
+    title_scene_dir = root / "client" / "scenes" / "ui"
     data_dir.mkdir(parents=True)
     locale_dir.mkdir(parents=True)
+    boot_dir.mkdir(parents=True)
+    title_script_dir.mkdir(parents=True)
+    title_scene_dir.mkdir(parents=True)
 
     (data_dir / "README.md").write_text(
         "\n".join(
@@ -141,6 +170,18 @@ def _write_minimal_project(root: Path, *, item: dict[str, str] | None = None, lo
         ),
         encoding="utf-8",
     )
+    (boot_dir / "formal_client_boot.gd").write_text(
+        "extends Node\n",
+        encoding="utf-8",
+    )
+    (title_script_dir / "title_menu.gd").write_text(
+        "extends CanvasLayer\n",
+        encoding="utf-8",
+    )
+    (title_scene_dir / "title_menu.tscn").write_text(
+        "[gd_scene format=3]\n",
+        encoding="utf-8",
+    )
 
 
 class _temporary_project:
@@ -158,6 +199,15 @@ def _with_project_root(root: Path) -> None:
     lint_project_rules.DATA_README = lint_project_rules.CLIENT_DATA / "README.md"
     lint_project_rules.LOCALE_CSV = root / "client" / "locale" / "strings.csv"
     lint_project_rules.EXPORT_PRESETS = root / "client" / "export_presets.cfg"
+    lint_project_rules.FORMAL_CLIENT_BOOT = (
+        root / "client" / "scripts" / "boot" / "formal_client_boot.gd"
+    )
+    lint_project_rules.TITLE_MENU_SCRIPT = (
+        root / "client" / "scripts" / "ui" / "title_menu.gd"
+    )
+    lint_project_rules.TITLE_MENU_SCENE = (
+        root / "client" / "scenes" / "ui" / "title_menu.tscn"
+    )
 
 
 if __name__ == "__main__":

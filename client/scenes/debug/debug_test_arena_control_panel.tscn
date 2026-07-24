@@ -156,7 +156,7 @@ theme_override_constants/separation = 12
 custom_minimum_size = Vector2(220, 50)
 layout_mode = 2
 
-[node name="TitleButton" type="Button" parent="Root/Center/Panel/Margin/Layout/BottomButtons"]
+[node name="ExitButton" type="Button" parent="Root/Center/Panel/Margin/Layout/BottomButtons"]
 custom_minimum_size = Vector2(220, 50)
 layout_mode = 2
 

@@ -1,5 +1,5 @@
 # Doc: docs/代码/debug_test_arena.md
-# Authority: docs/决策记录.md ADR #159
+# Authority: docs/决策记录.md ADR #159 / #160
 class_name DebugTestArenaControlPanel
 extends CanvasLayer
 
@@ -112,7 +112,7 @@ func refresh_texts() -> void:
 	_set_button_text("ResetArenaButton", "ui_debug_test_arena_reset_arena")
 	_set_button_text("ResetStatsButton", "ui_debug_test_arena_reset_stats")
 	_set_bottom_button_text("SetupButton", "ui_debug_test_arena_return_setup")
-	_set_bottom_button_text("TitleButton", "ui_debug_test_arena_return_title")
+	_set_bottom_button_text("ExitButton", "ui_debug_test_arena_exit")
 	_set_bottom_button_text("CloseButton", "ui_debug_test_arena_close_panel")
 	if _god_mode_check != null:
 		_god_mode_check.text = tr("ui_debug_test_arena_god_mode")
@@ -153,7 +153,7 @@ func _connect_buttons() -> void:
 	_connect_button("ResetArenaButton", _on_reset_arena_pressed)
 	_connect_button("ResetStatsButton", _on_reset_stats_pressed)
 	_connect_bottom_button("SetupButton", _on_setup_pressed)
-	_connect_bottom_button("TitleButton", _on_title_pressed)
+	_connect_bottom_button("ExitButton", _on_exit_pressed)
 	_connect_bottom_button("CloseButton", request_close)
 
 
@@ -272,8 +272,8 @@ func _on_setup_pressed() -> void:
 	_controller.call("request_return_to_setup")
 
 
-func _on_title_pressed() -> void:
-	_controller.call("request_return_to_title")
+func _on_exit_pressed() -> void:
+	_controller.call("request_exit")
 
 
 func _show_count_result(key: String, result: Dictionary) -> void:

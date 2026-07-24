@@ -8,10 +8,6 @@ const BOOT_LOG_PREFIX: String = "[FormalClientBoot]"
 const ACTOR_SCENE_SMOKE_RUNNER := preload("res://tools/actor_scene_smoke.gd")
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const DEBUG_CONSOLE_SCRIPT_PATH: String = "res://scripts/debug/debug_console.gd"
-const DEBUG_TEST_ARENA_CONFIG_SCRIPT_PATH: String = "res://scripts/debug/debug_test_arena_config.gd"
-const DEBUG_TEST_ARENA_SCENE_PATH: String = "res://scenes/debug/debug_test_arena.tscn"
-const DEBUG_TEST_ARENA_SETUP_SCENE_PATH: String = "res://scenes/debug/debug_test_arena_setup.tscn"
-const DEBUG_TEST_ARENA_SMOKE_SCRIPT_PATH: String = "res://tools/debug_test_arena_smoke.gd"
 const DEBUG_TOOLS_SMOKE_SCRIPT_PATH: String = "res://tools/debug_tools_smoke.gd"
 const F9_DEMO_SMOKE_RUNNER := preload("res://tools/f9_demo_smoke.gd")
 const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loop.tscn")
@@ -48,10 +44,6 @@ var _run_loop: Node = null
 var _open_warzone_launch: bool = false
 var _module_world_technical_slice_launch: bool = false
 var _debug_console: CanvasLayer = null
-var _debug_test_arena_setup: CanvasLayer = null
-var _debug_services_suspended: bool = false
-var _debug_analytics_enabled_before: bool = false
-var _debug_replay_enabled_before: bool = false
 var _gear_mod_panel: CanvasLayer = null
 var _settings_panel: CanvasLayer = null
 var _title_menu: CanvasLayer = null
@@ -169,13 +161,6 @@ func _ready() -> void:
 		var startup_probe_runner: Node = STARTUP_PROBE_RUNNER.new()
 		startup_probe_runner.name = "StartupProbe"
 		add_child(startup_probe_runner)
-	elif _is_debug_test_arena_smoke_enabled():
-		if data_schema_ok and _debug_tools_enabled():
-			_show_title_menu()
-		_install_dynamic_runner(
-			DEBUG_TEST_ARENA_SMOKE_SCRIPT_PATH,
-			"DebugTestArenaSmoke"
-		)
 	elif _is_debug_tools_smoke_enabled():
 		if data_schema_ok:
 			_start_gameplay_run()
@@ -234,14 +219,6 @@ func _ready() -> void:
 			_start_gameplay_run({}, true)
 		else:
 			_show_title_menu()
-	elif _is_debug_test_arena_launch_requested():
-		if data_schema_ok and _debug_tools_enabled():
-			_start_debug_test_arena()
-		else:
-			push_warning(
-				"[FormalClientBoot] debug test arena launch rejected"
-			)
-			_show_title_menu()
 	elif data_schema_ok:
 		_show_title_menu()
 
@@ -254,18 +231,6 @@ func debug_tools_enabled() -> bool:
 
 func debug_active_run_loop() -> Node:
 	return _run_loop if _run_loop != null and is_instance_valid(_run_loop) else null
-
-
-func debug_start_test_arena_for_smoke(
-	config: Dictionary
-) -> bool:
-	if (
-		not _is_debug_test_arena_smoke_enabled()
-		or not _debug_tools_enabled()
-	):
-		return false
-	_start_debug_test_arena(config)
-	return true
 
 
 func _is_runtime_smoke_enabled() -> bool:
@@ -334,16 +299,6 @@ func _is_debug_tools_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--debug-tools-smoke")
 
 
-func _is_debug_test_arena_smoke_enabled() -> bool:
-	return OS.get_cmdline_user_args().has(
-		"--debug-test-arena-smoke"
-	)
-
-
-func _is_debug_test_arena_launch_requested() -> bool:
-	return OS.get_cmdline_user_args().has("--debug-test-arena")
-
-
 func _is_f9_demo_smoke_enabled() -> bool:
 	return OS.get_cmdline_user_args().has("--f9-demo-smoke")
 
@@ -378,22 +333,10 @@ func _show_title_menu(notice_key: String = "") -> void:
 	_title_menu = UIManager.push(TITLE_MENU_SCENE, {"source": "formal_client_boot"}) as CanvasLayer
 	if _title_menu == null:
 		return
-	_title_menu.call(
-		"configure",
-		SaveManager.has_save(
-			SaveManager.DEFAULT_SLOT,
-			SAVE_KINDS.RUN
-		),
-		notice_key,
-		_debug_tools_enabled()
-	)
+	_title_menu.call("configure", SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), notice_key)
 	_title_menu.connect("start_requested", Callable(self, "_on_title_start_requested"), CONNECT_ONE_SHOT)
 	_title_menu.connect("continue_requested", Callable(self, "_on_title_continue_requested"), CONNECT_ONE_SHOT)
 	_title_menu.connect("gear_mod_requested", Callable(self, "_on_title_gear_mod_requested"))
-	_title_menu.connect(
-		"debug_test_arena_requested",
-		Callable(self, "_on_title_debug_test_arena_requested")
-	)
 	_title_menu.connect("settings_requested", Callable(self, "_on_title_settings_requested"))
 	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
 
@@ -404,88 +347,16 @@ func _start_gameplay_run(restore_snapshot: Dictionary = {}, open_warzone: bool =
 	_mount_gameplay_run(restore_snapshot, open_warzone, false)
 
 
-func _start_debug_test_arena(config: Dictionary = {}) -> void:
-	if not _debug_tools_enabled():
-		push_warning(
-			"[FormalClientBoot] debug test arena is unavailable"
-		)
-		_show_title_menu()
-		return
-	var config_script: GDScript = load(
-		DEBUG_TEST_ARENA_CONFIG_SCRIPT_PATH
-	) as GDScript
-	if config_script == null:
-		push_error(
-			"[FormalClientBoot] missing debug test arena config script"
-		)
-		_show_title_menu()
-		return
-	var config_manager: RefCounted = config_script.new() as RefCounted
-	var normalized: Dictionary = (
-		config_manager.call("load_config") as Dictionary
-		if config.is_empty()
-		else config_manager.call(
-			"normalize_config",
-			config
-		) as Dictionary
-	)
-	var run_seed: int = maxi(int(normalized.get("seed", 1)), 1)
-	print(
-		"%s debug test arena launch; source=%s seed=%d"
-		% [
-			BOOT_LOG_PREFIX,
-			(
-				"cli"
-				if _is_debug_test_arena_launch_requested()
-				else "runtime"
-			),
-			run_seed,
-		]
-	)
-	RNG.set_run_seed(run_seed)
-	UIManager.clear(true)
-	GameState.change_state(
-		GameState.LOADING,
-		{"source": "debug_test_arena"}
-	)
-	_mount_gameplay_run({}, false, false, normalized)
-
-
 func _mount_gameplay_run(
 	restore_snapshot: Dictionary,
 	open_warzone: bool,
-	player_loading_mode: bool,
-	debug_test_arena_config: Dictionary = {}
+	player_loading_mode: bool
 ) -> void:
 	_clear_gameplay_runtime()
 
-	if debug_test_arena_config.is_empty():
-		_run_loop = GAMEPLAY_RUN_LOOP_SCENE.instantiate()
-	else:
-		var debug_scene: PackedScene = load(
-			DEBUG_TEST_ARENA_SCENE_PATH
-		) as PackedScene
-		if debug_scene == null:
-			push_error(
-				"[FormalClientBoot] missing debug test arena scene"
-			)
-			_show_title_menu()
-			return
-		_suspend_debug_services()
-		_run_loop = debug_scene.instantiate()
-		if _run_loop.has_method("configure_debug_test_arena"):
-			_run_loop.call(
-				"configure_debug_test_arena",
-				debug_test_arena_config
-			)
+	_run_loop = GAMEPLAY_RUN_LOOP_SCENE.instantiate()
 	var character_id: String = String(
-		restore_snapshot.get(
-			"character",
-			debug_test_arena_config.get(
-				"character_id",
-				CHARACTER_IDS.CHARACTER_DEFAULT
-			)
-		)
+		restore_snapshot.get("character", CHARACTER_IDS.CHARACTER_DEFAULT)
 	)
 	if _run_loop.has_method("configure_character_id"):
 		_run_loop.call("configure_character_id", character_id)
@@ -499,14 +370,6 @@ func _mount_gameplay_run(
 		_run_loop.call("configure_player_loading_mode", true)
 	_run_loop.connect("restart_requested", Callable(self, "_on_run_restart_requested"))
 	_run_loop.connect("quit_to_title_requested", Callable(self, "_on_run_quit_to_title_requested"))
-	if _run_loop.has_signal("debug_test_arena_setup_requested"):
-		_run_loop.connect(
-			"debug_test_arena_setup_requested",
-			Callable(
-				self,
-				"_on_run_debug_test_arena_setup_requested"
-			)
-		)
 	if player_loading_mode:
 		_run_loop.connect(
 			"run_prepared",
@@ -656,7 +519,6 @@ func _clear_gameplay_runtime() -> void:
 	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
 	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
 	PoolManager.clear_pool(POOL_IDS.VFX_WEAPON_MUZZLE_FLASH)
-	_restore_debug_services()
 
 
 func _on_title_start_requested() -> void:
@@ -686,58 +548,6 @@ func _on_title_gear_mod_requested() -> void:
 	if _gear_mod_panel == null:
 		return
 	_gear_mod_panel.connect("closed_requested", Callable(self, "_on_gear_mod_closed"), CONNECT_ONE_SHOT)
-
-
-func _on_title_debug_test_arena_requested() -> void:
-	_show_debug_test_arena_setup()
-
-
-func _show_debug_test_arena_setup() -> void:
-	if not _debug_tools_enabled():
-		_show_title_menu()
-		return
-	_clear_gameplay_runtime()
-	GameState.change_state(
-		GameState.MAIN_MENU,
-		{"source": "debug_test_arena_setup"}
-	)
-	UIManager.clear(true)
-	var setup_scene: PackedScene = load(
-		DEBUG_TEST_ARENA_SETUP_SCENE_PATH
-	) as PackedScene
-	if setup_scene == null:
-		push_error(
-			"[FormalClientBoot] missing debug test arena setup scene"
-		)
-		_show_title_menu()
-		return
-	_debug_test_arena_setup = UIManager.push(
-		setup_scene,
-		{"source": "formal_client_boot"}
-	) as CanvasLayer
-	if _debug_test_arena_setup == null:
-		_show_title_menu()
-		return
-	_debug_test_arena_setup.connect(
-		"start_requested",
-		Callable(self, "_on_debug_test_arena_start_requested"),
-		CONNECT_ONE_SHOT
-	)
-	_debug_test_arena_setup.connect(
-		"closed_requested",
-		Callable(self, "_on_debug_test_arena_setup_closed"),
-		CONNECT_ONE_SHOT
-	)
-
-
-func _on_debug_test_arena_start_requested(config: Dictionary) -> void:
-	_debug_test_arena_setup = null
-	_start_debug_test_arena(config)
-
-
-func _on_debug_test_arena_setup_closed() -> void:
-	_debug_test_arena_setup = null
-	_show_title_menu()
 
 
 func _on_title_quit_requested() -> void:
@@ -778,31 +588,9 @@ func _on_run_quit_to_title_requested() -> void:
 	call_deferred("_show_title_menu")
 
 
-func _on_run_debug_test_arena_setup_requested() -> void:
-	call_deferred("_show_debug_test_arena_setup")
-
-
 func _on_run_restore_failed() -> void:
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	call_deferred("_show_title_menu", "ui_run_save_unavailable")
-
-
-func _suspend_debug_services() -> void:
-	if _debug_services_suspended:
-		return
-	_debug_replay_enabled_before = Replay.is_enabled()
-	_debug_analytics_enabled_before = Analytics.is_enabled()
-	Replay.set_enabled(false)
-	Analytics.set_enabled(false)
-	_debug_services_suspended = true
-
-
-func _restore_debug_services() -> void:
-	if not _debug_services_suspended:
-		return
-	Replay.set_enabled(_debug_replay_enabled_before)
-	Analytics.set_enabled(_debug_analytics_enabled_before)
-	_debug_services_suspended = false
 
 
 func _install_dynamic_runner(

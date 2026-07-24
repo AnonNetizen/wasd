@@ -1,5 +1,5 @@
 # Doc: docs/代码/debug_test_arena.md
-# Authority: docs/决策记录.md ADR #159
+# Authority: docs/决策记录.md ADR #159 / #160
 class_name DebugTestArenaSetup
 extends CanvasLayer
 
@@ -187,7 +187,7 @@ func refresh_texts() -> void:
 	if _start_button != null:
 		_start_button.text = tr("ui_debug_test_arena_enter")
 	if close_button != null:
-		close_button.text = tr("ui_debug_test_arena_back")
+		close_button.text = tr("ui_debug_test_arena_exit")
 	_refresh_option_texts(
 		_character_option,
 		_typed_dictionary_array(_content.get("characters", []))

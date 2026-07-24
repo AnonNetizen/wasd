@@ -1112,16 +1112,16 @@
     {
       "path": "docs/代码/debug_test_arena.md",
       "type": "module_doc",
-      "authority": "Developer Test Arena contract for debug/dev_tools loadout setup, real combat-system reuse, stationary targets, AI targets, control panel, damage statistics, death reset, persistence isolation, service restoration, and release exclusion",
+      "authority": "Developer Test Arena contract for standalone debug-scene launch, loadout setup, real combat-system reuse, stationary targets, AI targets, control panel, damage statistics, death reset, persistence isolation, service restoration, formal-entry decoupling, and release exclusion",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-07-24",
-      "canonical_for": ["debug_test_arena", "developer_test_arena", "training_target", "debug_loadout_preview", "debug_damage_stats", "test_arena_release_boundary"],
-      "must_read_for": ["debug_test_arena_change", "training_target_change", "debug_loadout_change", "test_arena_release_boundary_change", "test_arena_save_isolation_change"],
+      "canonical_for": ["debug_test_arena", "developer_test_arena", "standalone_debug_scene", "training_target", "debug_loadout_preview", "debug_damage_stats", "test_arena_release_boundary"],
+      "must_read_for": ["debug_test_arena_change", "standalone_debug_scene_change", "training_target_change", "debug_loadout_change", "test_arena_release_boundary_change", "test_arena_save_isolation_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/CICD规划.md", "docs/代码/README.md", "docs/代码/debug_tools.md", "docs/代码/formal_client_boot.md", "docs/代码/gameplay_runtime.md", "docs/代码/gear_mod_system.md", "client/locale/README.md", "docs/AI导航.md"],
-      "related_code": ["client/scenes/debug/", "client/scripts/debug/", "client/scripts/boot/formal_client_boot.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/autoload/gear_mod_system.gd", "client/tools/debug_test_arena_smoke.gd", "client/export_presets.cfg", "tools/godot_bridge.py", "tools/release_debug_resource_check.gd", "tools/lint_project_rules.py"],
-      "update_triggers": ["Developer Test Arena behavior changes", "debug loadout config schema changes", "stationary target or AI zone changes", "damage statistic changes", "test arena death reset changes", "run/meta or Replay/Analytics isolation changes", "release exclusion changes"],
-      "keywords": ["Developer Test Arena", "开发者测试岛", "training island", "stationary target", "固定靶", "debug-test-arena-smoke", "debug_test_arena.cfg", "Gear Mod preview", "rolling DPS", "release exclusion", "ADR #159"]
+      "related_code": ["client/scenes/debug/debug_test_arena.tscn", "client/scenes/debug/debug_test_arena_run.tscn", "client/scripts/debug/debug_test_arena_host.gd", "client/scripts/debug/", "client/scripts/boot/formal_client_boot.gd", "client/scripts/ui/title_menu.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/player.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/skill_system.gd", "client/scripts/gameplay/enemy.gd", "client/scripts/autoload/gear_mod_system.gd", "client/tools/debug_test_arena_smoke.gd", "client/export_presets.cfg", "tools/godot_bridge.py", "tools/release_debug_resource_check.gd", "tools/lint_project_rules.py"],
+      "update_triggers": ["Developer Test Arena host or runtime behavior changes", "formal boot or title coupling changes", "debug loadout config schema changes", "stationary target or AI zone changes", "damage statistic changes", "test arena death reset changes", "run/meta or Replay/Analytics isolation changes", "release exclusion changes"],
+      "keywords": ["Developer Test Arena", "开发者测试岛", "standalone debug scene", "training island", "stationary target", "固定靶", "debug-test-arena-smoke", "debug_test_arena.cfg", "Gear Mod preview", "rolling DPS", "release exclusion", "ADR #159", "ADR #160"]
     },
     {
       "path": "docs/代码/data_loader.md",
