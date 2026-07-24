@@ -14,6 +14,9 @@ const CELL_SIZE: int = 160
 const REGISTRY_PATH: String = "res://data/module_templates.json"
 const TILE_CATALOG_PATH: String = "res://data/module_tile_catalog.json"
 const GENERATED_DIRECTORY: String = "res://scenes/generated/modules"
+const PROJECT_DATA_VALIDATION_SCRIPT: String = (
+	"res://addons/module_authoring/project_data_validation_cli.gd"
+)
 const BAKER_SCHEMA_VERSION: int = 2
 const TRANSFORM_FLIP_H: int = TileSetAtlasSource.TRANSFORM_FLIP_H
 const TRANSFORM_FLIP_V: int = TileSetAtlasSource.TRANSFORM_FLIP_V
@@ -24,8 +27,9 @@ static func validate_module(module_id: String) -> Dictionary:
 	var registry_result: Dictionary = _load_registry()
 	if not bool(registry_result.get("ok", false)):
 		return registry_result
-	if not _validate_project_data():
-		return _error_result("Project data validation failed; see DataLoader errors above.")
+	var data_validation: Dictionary = _validate_project_data()
+	if not bool(data_validation.get("ok", false)):
+		return data_validation
 	var registry: Dictionary = registry_result.get("data", {}) as Dictionary
 	var entry: Dictionary = _registry_entry_for_id(registry, module_id)
 	if entry.is_empty():
@@ -46,8 +50,9 @@ static func bake_all(write_files: bool = true) -> Dictionary:
 	var registry_result: Dictionary = _load_registry()
 	if not bool(registry_result.get("ok", false)):
 		return registry_result
-	if not _validate_project_data():
-		return _error_result("Project data validation failed; see DataLoader errors above.")
+	var data_validation: Dictionary = _validate_project_data()
+	if not bool(data_validation.get("ok", false)):
+		return data_validation
 	var registry: Dictionary = registry_result.get("data", {}) as Dictionary
 	var result := _new_result()
 	for entry_value: Variant in registry.get("templates", []) as Array:
@@ -70,8 +75,9 @@ static func bake_module(module_id: String, write_files: bool = true) -> Dictiona
 	var registry_result: Dictionary = _load_registry()
 	if not bool(registry_result.get("ok", false)):
 		return registry_result
-	if not _validate_project_data():
-		return _error_result("Project data validation failed; see DataLoader errors above.")
+	var data_validation: Dictionary = _validate_project_data()
+	if not bool(data_validation.get("ok", false)):
+		return data_validation
 	var registry: Dictionary = registry_result.get("data", {}) as Dictionary
 	var entry: Dictionary = _registry_entry_for_id(registry, module_id)
 	if entry.is_empty():
@@ -88,8 +94,9 @@ static func approve_module(module_id: String) -> Dictionary:
 	var registry_result: Dictionary = _load_registry()
 	if not bool(registry_result.get("ok", false)):
 		return registry_result
-	if not _validate_project_data():
-		return _error_result("Project data validation failed; see DataLoader errors above.")
+	var data_validation: Dictionary = _validate_project_data()
+	if not bool(data_validation.get("ok", false)):
+		return data_validation
 	var registry: Dictionary = registry_result.get("data", {}) as Dictionary
 	var entry: Dictionary = _registry_entry_for_id(registry, module_id)
 	if entry.is_empty():
@@ -1231,12 +1238,60 @@ static func _referenced_catalog_projection(
 	}
 
 
-static func _validate_project_data() -> bool:
+static func _validate_project_data() -> Dictionary:
 	var tree: SceneTree = Engine.get_main_loop() as SceneTree
-	if tree == null:
-		return false
-	var loader: Node = tree.root.get_node_or_null("DataLoader")
-	return loader != null and bool(loader.call("validate_project_data"))
+	if tree != null:
+		var loader: Node = tree.root.get_node_or_null("DataLoader")
+		if loader != null:
+			if not loader.has_method("validate_project_data"):
+				return _error_result(
+					"DataLoader 未提供 validate_project_data()，无法校验项目数据。"
+				)
+			if bool(loader.call("validate_project_data")):
+				return _new_result()
+			return _error_result(
+				"项目数据校验失败；请查看上方 DataLoader 错误。"
+			)
+	return _validate_project_data_with_headless_process()
+
+
+static func _validate_project_data_with_headless_process() -> Dictionary:
+	if not FileAccess.file_exists(PROJECT_DATA_VALIDATION_SCRIPT):
+		return _error_result(
+			"缺少编辑器项目数据校验入口：%s"
+			% PROJECT_DATA_VALIDATION_SCRIPT
+		)
+	var executable_path: String = OS.get_executable_path()
+	if executable_path.is_empty():
+		return _error_result("无法确定当前 Godot 编辑器可执行文件。")
+	var output: Array = []
+	var exit_code: int = OS.execute(
+		executable_path,
+		PackedStringArray(
+			[
+				"--headless",
+				"--path",
+				ProjectSettings.globalize_path("res://"),
+				"--script",
+				PROJECT_DATA_VALIDATION_SCRIPT,
+			]
+		),
+		output,
+		true,
+		false
+	)
+	if exit_code == 0:
+		return _new_result()
+	var result := _error_result(
+		"项目数据校验失败；headless DataLoader 校验退出码为 %d。"
+		% exit_code
+	)
+	var output_text: String = "\n".join(
+		PackedStringArray(output)
+	).strip_edges()
+	if not output_text.is_empty():
+		_add_error(result, output_text)
+	return result
 
 
 static func _load_registry() -> Dictionary:

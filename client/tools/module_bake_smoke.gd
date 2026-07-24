@@ -32,6 +32,7 @@ func _run() -> void:
 	var context: Dictionary = MODULE_SCENE_BAKER._build_context(entry)
 	_expect(bool(context.get("ok", false)), "base module context should validate")
 	if bool(context.get("ok", false)):
+		_test_editor_data_validation_bridge()
 		_test_canonical_scene(context)
 		_test_runtime_rotations(context)
 		_test_visual_transform(context)
@@ -45,6 +46,23 @@ func _run() -> void:
 		% [str(_failures.is_empty()).to_lower(), _assertions]
 	)
 	quit(0 if _failures.is_empty() else 1)
+
+
+func _test_editor_data_validation_bridge() -> void:
+	var loader: Node = root.get_node_or_null("DataLoader")
+	_expect(
+		loader != null,
+		"module bake smoke requires the DataLoader autoload"
+	)
+	if loader == null:
+		return
+	root.remove_child(loader)
+	var result: Dictionary = MODULE_SCENE_BAKER.validate_module(MODULE_ID)
+	root.add_child(loader)
+	_expect(
+		bool(result.get("ok", false)),
+		"missing in-process DataLoader should fall back to headless validation"
+	)
 
 
 func _test_canonical_scene(context: Dictionary) -> void:

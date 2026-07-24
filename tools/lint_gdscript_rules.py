@@ -45,6 +45,7 @@ HARDCODED_CHINESE_ALLOWED = {
     "client/addons/vfx_library/vfx_library_plugin.gd",
     "client/addons/vfx_library/vfx_preview_stage.gd",
     "client/addons/vfx_library/vfx_template_factory.gd",
+    "client/scripts/editor/module_scene_baker.gd",
 }
 
 
