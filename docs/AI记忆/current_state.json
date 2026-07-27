@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-07-27",
   "current_phase": "hero_composition_elements",
-  "current_status": "ADR #162 已把技能 / 被动玩家描述中的可调数值迁移为配置命名占位符：SkillDescriptionFormatter 从 skills.json / hero_passives.json 读取并格式化，SkillSystem 与描述共用 SkillValueResolver 的强度、范围、效率和持续时间缩放；英雄组合选择界面显示四槽完整描述，未知 token 由数据校验拒绝。四平台规则已明确禁止在 *_desc 中重复写死可能调整的数值。ADR #161 的主 / 子英雄、四技能、七元素、防御层、Meta v2、Run v5 与 Replay v3 基线保持不变。本任务按 ADR #143 不运行性能 probe。后续工作以用户最后明确指令为准。",
-  "latest_adr": 162,
+  "current_status": "ADR #163 已把静域屏障明确为敌方投射物跨圆周拦截：外→内、内→外命中屏障，内→内和不穿圆的外→外放行；敌弹首帧从射手开火位置扫掠，枪口偏移不能越界，玩家弹继续穿透。ADR #162 的配置驱动描述与 ADR #161 的主 / 子英雄、四技能、七元素、防御层、Meta v2、Run v5、Replay v3 基线保持不变。本任务按 ADR #143 不运行性能 probe。后续工作以用户最后明确指令为准。",
+  "latest_adr": 163,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #163 / 静域屏障跨边界拦截：ProjectileBarrier 以线段与圆周交点判定敌弹外→内、内→外，内→内和不穿圆的外→外放行；Bullet 首帧保存射手开火位置，避免枪口生成点跨过屏障。L1 覆盖四种边界关系、盾内敌人命中盾内玩家及双向枪口越界。",
     "ADR #162 / 配置驱动玩家描述：新增 SkillValueResolver 作为 SkillSystem 与描述格式化共用的能力缩放单一实现，SkillDescriptionFormatter 以通用 token 从 skills.json / hero_passives.json 生成中英文技能 / 被动数值；英雄组合卡显示完整四槽描述，当前冷静 / 愤怒描述不再硬编码消耗、范围、生命、幅度、持续时间、层数或被动减免。validate_data 与 DataLoader schema 回归拒绝配置无法提供的 token，四平台规则、GDD、词表、Locale / SkillSystem 文档和测试义务同步。",
     "ADR #161 / 主／子英雄组合与七元素战斗系统：characters schema v3 提供冷静 / 愤怒两名英雄与纯数据组合解析，主英雄独占场景、属性、被动和技能 1/2，子英雄仅提供强调色和技能 3/4；正式流程增加组合选择，四槽独立冷却并共享能量。Combat 改用七元素 element_id，玩家具备超量护盾→普通护盾→抗性 / 护甲→生命的防御层、护盾门、冲刺、能量球、静域屏障和通用状态修饰器。Meta / Run / Replay 分别升级到 v2 / v5 / v3，开发者测试岛、HUD、输入、存档与四条黄金回放同步更新；本期不实现局内换人、同英雄开局和第三基础元素内容。",
     "ADR #160 / 开发者测试岛 standalone scene：debug_test_arena.tscn 作为 host 默认先开配装，入树前配置并创建内部 debug_test_arena_run.tscn；返回配装清理对象池并重建，退出恢复 Replay/Analytics。正式标题、FormalClientBoot 和正式 CLI 零耦合，project lint 新增门禁，release 目录 / smoke 排除保持不变。",
@@ -160,6 +161,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-27",
+      "command": "targeted pre-commit; GDScript/project/semantic lints; JSON current_state; docs_health_check; git diff --check; Godot 4.7.1 headless-boot; l1-smoke; runtime-smoke; save-smoke; module-world-smoke",
+      "result": "passed for ADR #163 projectile-barrier boundary interception. L1 covers inside-to-inside fire using the formal enemy projectile target groups, inside-to-outside and outside-to-inside muzzle-offset crossings, non-crossing outside fire, full-circle traversal, player projectile pass-through, and pending first-sweep snapshot restore. Runtime, save and module-world smoke pass with their expected injected corrupt-save/map-hash diagnostics; headless boot and targeted pre-commit pass, semantic advisory has no warnings. Checked-in golden reruns were not counted: the existing uncommitted format-only characters.json change alters the raw data fingerprint, and an isolated clean worktree lacked Godot global class-cache import state; no replay was recaptured. No startup/performance probe or Profiler ran."
+    },
     {
       "date": "2026-07-27",
       "command": "sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lints; Python compile; JSON current_state/_kb_index; docs_health_check; git diff --check; Godot 4.7.1 headless editor/boot; l1-smoke; loading-smoke; runtime-smoke",

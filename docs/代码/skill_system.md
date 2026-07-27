@@ -49,6 +49,7 @@
 | `debug_set_free_casts()` / `debug_refresh()` / `debug_summary()` | Developer Test Arena 与 smoke 使用，不得成为正式玩法依赖 |
 | `SkillValueResolver.scaled_*()` | 纯数据缩放 API；新增缩放规则时先改此处，`SkillSystem` 与描述自动共享 |
 | `SkillDescriptionFormatter.format_skill()` / `format_passive()` | 接受译文模板与数据定义并返回完整描述；不负责 `tr()` 或语言选择 |
+| `ProjectileBarrier.projectile_boundary_hit_fraction()` | 返回敌方投射物线段第一次跨越圆周边界的比例；同在圆内或同在圆外且不穿圆时返回 `-1` |
 
 ## 能力属性与能量
 
@@ -71,7 +72,7 @@
 ## 屏障契约
 
 - `skill_effect_deploy_barrier` 取得 `projectile_barrier` 池对象；无自然持续时间，死亡、重施或世界清理时回池。
-- 敌方投射物在目标／墙体结算前做线段扫掠，命中屏障后扣屏障生命并销毁；玩家投射物完全忽略屏障。
+- 敌方投射物只在跨越屏障圆周时命中：外→内与内→外均扣屏障生命并销毁，内→内可正常命中盾内目标，外→外且不穿圆时不受影响。首个物理帧从射手开火位置而不是枪口位置开始扫掠，避免枪口偏移越过边界；玩家投射物完全忽略屏障。
 - 不阻挡角色、接触伤害、环境伤害或范围伤害。快照保存位置、剩余／最大生命、半径和所属槽位。
 
 ## 数据与契约
@@ -92,13 +93,13 @@
 | 描述显示 `{effect_...}` | `desc_key` token 是否对应实际 effect / modifier 参数，是否通过 `validate_data.py` |
 | 描述数值与实际效果不一致 | 是否绕过 `SkillValueResolver` 另写了一套缩放；新增规则必须由运行时与描述共用 |
 | 重施叠出多个 buff | 修饰器 source key 是否包含槽位，目标系统是否按来源覆盖 |
-| 屏障不拦敌弹 | 屏障是否在 `active_deployables`，子弹是否为 `team_enemy` 且执行扫掠 |
+| 屏障跨界规则错误 | 屏障是否在 `active_deployables`，子弹是否为 `team_enemy`，首帧是否保留射手开火位置，圆内／圆外端点与线段求交是否一致 |
 | 续局丢失技能／屏障 | Run v5 是否保存组合和 `skills` 快照；恢复是否先解析组合再恢复槽位 |
 
 ## 测试义务
 
 - 数据／契约：`sync_contracts.py --check`、`validate_data.py`、`test_data_loader_schema.py`、`lint_project_rules.py`；描述 token 必须覆盖无法解析的负例。
-- 运行时：`lint_gdscript_rules.py`、`l1-smoke`、`runtime-smoke`、`loading-smoke`、`headless-boot`；L1 覆盖能力缩放后的格式化值，Loading 覆盖组合卡不泄漏未解析 token。
+- 运行时：`lint_gdscript_rules.py`、`l1-smoke`、`runtime-smoke`、`loading-smoke`、`headless-boot`；L1 覆盖能力缩放后的格式化值，以及屏障内→内放行、内→外／外→内／外→外穿圆拦截、外→外同侧放行和枪口越界，Loading 覆盖组合卡不泄漏未解析 token。
 - 输入／回放：`input-smoke`、`replay-input-smoke`、`replay-smoke` 与四条 Replay v3 黄金回放。
 - 存档／世界重建：`save-smoke`、`module-world-smoke`；调试入口变更追加 `debug-test-arena-smoke` 和 release smoke。
 

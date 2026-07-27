@@ -67,7 +67,7 @@
 | `client/scripts/gameplay/warzone_director.gd` | F10 敌巢战区导演，解释固定阶段、巢变异主题、兴趣点和阶段启用 wave |
 | `client/scripts/gameplay/weapon_system.gd` | 起始武器按住开火、临时武器修正和子弹池获取 |
 | `client/scenes/gameplay/skill_system.tscn` / `client/scripts/gameplay/skill_system.gd` | 预置 `StatusEffectComponent` 的四槽技能系统；负责槽位快照、共享能量、能力四维缩放、通用效果 / 状态 / 修饰器、屏障和 Run v5 恢复 |
-| `client/scripts/gameplay/bullet.gd` | 子弹飞行、圆形地形重叠 / 扫掠、射程 / 生命周期裁剪、敌人和兴趣点目标命中、墙体穿透快照，以及池化时严格清空的共享 Shader RibbonTrail |
+| `client/scripts/gameplay/bullet.gd` | 子弹飞行、圆形地形重叠 / 扫掠、射程 / 生命周期裁剪、敌人和兴趣点目标命中、敌弹跨屏障圆周判定、墙体穿透与首帧开火位置快照，以及池化时严格清空的共享 Shader RibbonTrail |
 | `client/scripts/gameplay/enemy.gd` | 数据驱动敌人对玩家 AI、敌方友伤护栏、接触伤害、受伤 / 死亡和 AI 快照 |
 | `client/scripts/gameplay/hazard.gd` | 通用机关节点：矩形范围触发、冷却、占位表现、`Combat` 伤害和快照 |
 | `client/scripts/gameplay/pickup_orb.gd` | 池化经验球：进入玩家拾取范围后吸附并发放经验 |
@@ -164,7 +164,7 @@ ADR #159 另有一个非 carrier、非 game mode 的内部运行用途 `DEBUG_TE
 | 移动 / 瞄准 / 相机 | 玩家按数据移速在 2D 平面移动；RunLoop 在角色实例化 / 恢复后，把 `ActiveWorld` 预置 Rig 的 `PlayerCamera` 配成 Phantom Camera `GLUED` 严格跟随当前 Player，`CenteredCamera` 保持屏幕水平、玩家居中和等比缩放。鼠标激活后按 canvas transform 换算后的世界方向瞄准；无鼠标动作时用方向键 / 手柄右摇杆 / D-pad 兜底，松开保持上一方向 | `Player.aim_direction`、`GameplayCameraController.configure()` |
 | 按住开火 | WeaponSystem 读取 `InputService` 的 `fire` intent；按住时按 `fire_rate` 从子弹池取节点并配置，松开停火 | `InputService` / `PoolManager.acquire()` |
 | 子弹移动 / 地形 | 玩家和敌方子弹移动前先用 `hit_radius` 圆形 `intersect_shape()` 检查初始重叠，再用 `cast_motion()` 扫掠本帧位移；只查询地形层 bit 1。命中后停在安全比例、立即 `PoolManager.release()`，不再检查墙后伤害目标；`wall_pierce > 0` 的发射快照跳过全部地形查询。场景内 `RibbonTrail` 使用有界世界坐标历史，acquire / release 都清空 | `PhysicsShapeQueryParameters2D` / `PhysicsDirectSpaceState2D` / `VfxRibbonTrail` |
-| 子弹命中 | 地形通过后，子弹才用距离检测命中 `active_enemies` 与 `active_interest_point_targets` 组；远程敌人可通过同一 `Bullet.configure()` 指定 `active_player` 目标组和敌方队伍，伤害统一走 `Combat.apply_damage()`。`pierce_count` 只表示可额外命中的伤害目标数量，不影响墙体 | `DamageInfo` |
+| 子弹命中 | 地形通过后，子弹才用距离检测命中 `active_enemies` 与 `active_interest_point_targets` 组；远程敌人可通过同一 `Bullet.configure()` 指定 `active_player` 目标组和敌方队伍。敌弹只在外→内或内→外跨越圆形屏障时先被屏障吸收，内→内与不穿圆的外→外允许；首帧从射手位置扫到弹体位置，枪口偏移不能跳过边界。伤害统一走 `Combat.apply_damage()`，`pierce_count` 只表示可额外命中的伤害目标数量，不影响墙体或屏障 | `DamageInfo` / `ProjectileBarrier.projectile_boundary_hit_fraction()` |
 | 英雄 / 技能 / 状态 | RunLoop 用 `HeroCompositionResolver` 解析主／子英雄：主英雄提供属性、被动、场景和技能 1/2，子英雄只提供强调色与技能 3/4。SkillSystem 按固定槽位释放、共享能量并解释通用屏障 / 状态 / 修饰器原语；所有冷却、状态、护盾恢复和超盾衰减只走 `GameClock` | `configure_hero_composition()`、`SkillSystem.cast_slot()`、`StatusEffectComponent` |
 | 刷怪 | Spawner 读取 `spawn_waves.csv` 的时间窗、间隔、上限和预算，在视野外围刷敌人；F10 起先通过 `WarzoneDirector.is_wave_enabled()` 判断当前 phase 是否允许该 wave，当前有追猎者、疾行者、潜猎者、喷棘者和壁垒五种数据化敌人 | `GameClock.now()`、`RNG.spawn`、`WarzoneDirector.is_wave_enabled()` |
 | 机关触发 | `Hazard` 在 `PLAYING` 下按 `GameClock.delta_scaled()` 消耗冷却；玩家进入矩形范围后构造 `DamageInfo` 并交给 `Combat`，当前 FEA-12 用于验证 PCG / 手工摆点和伤害链路 | `Hazard.configure()`、`Combat.apply_damage()` |
@@ -207,7 +207,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `SkillSystem.cast_primary_skill()` / `cast_skill(skill_id)` | 无 / 技能 id | Dictionary | 失败不消耗资源；伤害效果必须走 `Combat.apply_damage()`；状态效果必须走 `StatusEffectComponent` |
 | `SkillSystem.apply_status_effect(status_effect)` | `StatusEffect` 兼容对象 | Dictionary | 给释放者自身施加沉默等状态；状态授予 / 移除 ability tags 由组件管理 |
 | `SkillSystem.snapshot()` / `restore_snapshot(snapshot_data)` | run 快照 | Dictionary / `void` | 保存冷却、资源、owned ability tag 计数和状态效果，不保存节点引用 |
-| `Bullet.configure(stats, projectile, direction, source)` | 武器属性、弹体数据、方向、来源 | `void` | 节点必须来自 `PoolManager`；发射时快照 `wall_pierce > 0`，默认地形阻挡；当前可命中 `active_enemies` 与 `active_interest_point_targets`，伤害统一走 `Combat.apply_damage()` |
+| `Bullet.configure(stats, projectile, direction, source)` | 武器属性、弹体数据、方向、来源 | `void` | 节点必须来自 `PoolManager`；发射时快照 `wall_pierce > 0`，敌弹额外快照首帧屏障扫掠起点；默认地形阻挡，当前可命中 `active_enemies` 与 `active_interest_point_targets`，伤害统一走 `Combat.apply_damage()` |
 | `Enemy.configure(enemy_data, target)` | 敌人 CSV 行 + AI profile、目标玩家 | `void` | 节点必须来自 `PoolManager` |
 | `Enemy.configure(enemy_data, player, navigation_provider = null)` | 合并敌人数据、玩家、可选模块导航门面 | `void` | 模块世界注入 Manager；开放战区无门面时保留直线兜底 |
 | `Enemy.ai_debug_summary()` / `was_defeated_by_player()` | 无 | `Dictionary` / `bool` | debug 包含感知状态、路径距离、最后已知位置与导航模式；敌人不公开种间感知 tag API |

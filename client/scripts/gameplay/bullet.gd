@@ -19,6 +19,8 @@ var _element_id: String = ""
 var _damage_target_groups: Array[String] = []
 var _hit_targets: Dictionary = {}
 var _hit_radius: float = 0.0
+var _initial_deployable_sweep_pending: bool = false
+var _initial_deployable_sweep_start: Vector2 = Vector2.ZERO
 var _remaining_life: float = 0.0
 var _max_range: float = 0.0
 var _pierce_remaining: int = 0
@@ -50,8 +52,12 @@ func _physics_process(delta: float) -> void:
 	position += safe_step
 	_travelled += safe_step.length()
 	_remaining_life -= scaled_delta
+	var deployable_step_start: Vector2 = step_start
+	if _initial_deployable_sweep_pending:
+		deployable_step_start = _initial_deployable_sweep_start
+		_initial_deployable_sweep_pending = false
 	if _check_enemy_projectile_deployable_hit(
-		step_start,
+		deployable_step_start,
 		global_position
 	):
 		return
@@ -80,6 +86,12 @@ func configure(stats: Dictionary, projectile: Dictionary, direction: Vector2, so
 	_source = source
 	_source_team = String(projectile.get("source_team", TEAM_PLAYER))
 	_target_team = String(projectile.get("target_team", TEAM_ENEMY))
+	_initial_deployable_sweep_start = (
+		(source as Node2D).global_position
+		if source is Node2D
+		else global_position
+	)
+	_initial_deployable_sweep_pending = _source_team == TEAM_ENEMY
 	_wall_pierce_enabled = float(stats.get(STATS.WALL_PIERCE, 0.0)) > 0.0
 	_prepare_terrain_query()
 	_travelled = 0.0
@@ -98,6 +110,12 @@ func snapshot() -> Dictionary:
 		"element_id": _element_id,
 		"damage_target_groups": _damage_target_groups.duplicate(),
 		"hit_radius": _hit_radius,
+		"initial_deployable_sweep_pending": (
+			_initial_deployable_sweep_pending
+		),
+		"initial_deployable_sweep_start": _vector_to_dict(
+			_initial_deployable_sweep_start
+		),
 		"remaining_life": _remaining_life,
 		"max_range": _max_range,
 		"pierce_remaining": _pierce_remaining,
@@ -124,6 +142,16 @@ func restore_snapshot(snapshot_data: Dictionary, source: Node) -> void:
 	_source = source
 	_source_team = String(snapshot_data.get("source_team", TEAM_PLAYER))
 	_target_team = String(snapshot_data.get("target_team", TEAM_ENEMY))
+	_initial_deployable_sweep_pending = bool(
+		snapshot_data.get(
+			"initial_deployable_sweep_pending",
+			false
+		)
+	)
+	_initial_deployable_sweep_start = _dict_to_vector(
+		snapshot_data.get("initial_deployable_sweep_start", {}),
+		global_position
+	)
 	_wall_pierce_enabled = bool(snapshot_data.get("wall_pierce_enabled", false))
 	_prepare_terrain_query()
 	_travelled = float(snapshot_data.get("travelled", 0.0))
@@ -141,6 +169,8 @@ func _pool_reset() -> void:
 	_damage_target_groups.clear()
 	_hit_targets.clear()
 	_hit_radius = 0.0
+	_initial_deployable_sweep_pending = false
+	_initial_deployable_sweep_start = Vector2.ZERO
 	_remaining_life = 0.0
 	_max_range = 0.0
 	_pierce_remaining = 0
@@ -161,6 +191,7 @@ func _pool_reset() -> void:
 func _pool_release() -> void:
 	remove_from_group("active_bullets")
 	_source = null
+	_initial_deployable_sweep_pending = false
 	_terrain_initial_overlap_pending = false
 	_resolve_trail()
 	if _trail != null:
@@ -237,20 +268,20 @@ func _check_enemy_projectile_deployable_hit(
 			not raw_target is Node2D
 			or not raw_target.has_method("receive_projectile_damage")
 			or not raw_target.has_method("is_alive")
-			or not raw_target.has_method("hit_radius")
+			or not raw_target.has_method(
+				"projectile_boundary_hit_fraction"
+			)
 			or not bool(raw_target.call("is_alive"))
 		):
 			continue
 		var target: Node2D = raw_target as Node2D
-		var target_radius: float = (
-			_hit_radius
-			+ float(raw_target.call("hit_radius"))
-		)
-		var fraction: float = _segment_hit_fraction(
-			target.global_position,
-			step_start,
-			step_end,
-			target_radius
+		var fraction: float = float(
+			raw_target.call(
+				"projectile_boundary_hit_fraction",
+				step_start,
+				step_end,
+				_hit_radius
+			)
 		)
 		if fraction < 0.0 or fraction >= closest_fraction:
 			continue
@@ -277,10 +308,7 @@ func _try_hit_damage_target(
 	step_start: Vector2,
 	step_end: Vector2
 ) -> bool:
-	if (
-		_source_team != TEAM_ENEMY
-		and raw_target.is_in_group(ACTIVE_DEPLOYABLE_GROUP)
-	):
+	if raw_target.is_in_group(ACTIVE_DEPLOYABLE_GROUP):
 		return false
 	if not raw_target is Node2D or not raw_target.has_method("is_alive") or not raw_target.has_method("hit_radius"):
 		return false
@@ -318,25 +346,6 @@ func _try_hit_damage_target(
 		return true
 	_pierce_remaining -= 1
 	return false
-
-
-func _segment_hit_fraction(
-	point: Vector2,
-	start: Vector2,
-	end: Vector2,
-	radius: float
-) -> float:
-	var segment: Vector2 = end - start
-	var length_squared: float = segment.length_squared()
-	if length_squared <= 0.0:
-		return 0.0 if start.distance_to(point) <= radius else -1.0
-	var fraction: float = clampf(
-		(point - start).dot(segment) / length_squared,
-		0.0,
-		1.0
-	)
-	var closest_point: Vector2 = start + segment * fraction
-	return fraction if closest_point.distance_to(point) <= radius else -1.0
 
 
 func _closest_point_on_segment(

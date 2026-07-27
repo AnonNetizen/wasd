@@ -1139,11 +1139,184 @@ func _expect_barrier_and_energy_orb() -> void:
 		"barrier should ignore player projectile damage"
 	)
 
+	var barrier_position: Vector2 = (barrier as Node2D).global_position
+	_expect(
+		float(
+			barrier.call(
+				"projectile_boundary_hit_fraction",
+				barrier_position + Vector2(-80.0, 0.0),
+				barrier_position + Vector2(80.0, 0.0),
+				0.0
+			)
+		) < 0.0,
+		"enemy projectiles should remain unblocked while staying inside a barrier"
+	)
+	_expect(
+		float(
+			barrier.call(
+				"projectile_boundary_hit_fraction",
+				barrier_position + Vector2(-220.0, 220.0),
+				barrier_position + Vector2(220.0, 220.0),
+				0.0
+			)
+		) < 0.0,
+		"enemy projectiles should remain unblocked while staying outside a barrier"
+	)
+	_expect(
+		float(
+			barrier.call(
+				"projectile_boundary_hit_fraction",
+				barrier_position + Vector2(-220.0, 0.0),
+				barrier_position + Vector2(-80.0, 0.0),
+				0.0
+			)
+		) >= 0.0,
+		"enemy projectiles should be blocked when entering a barrier"
+	)
+	_expect(
+		float(
+			barrier.call(
+				"projectile_boundary_hit_fraction",
+				barrier_position + Vector2(80.0, 0.0),
+				barrier_position + Vector2(220.0, 0.0),
+				0.0
+			)
+		) >= 0.0,
+		"enemy projectiles should be blocked when leaving a barrier"
+	)
+	_expect(
+		float(
+			barrier.call(
+				"projectile_boundary_hit_fraction",
+				barrier_position + Vector2(-220.0, 0.0),
+				barrier_position + Vector2(220.0, 0.0),
+				0.0
+			)
+		) >= 0.0,
+		"enemy projectiles should be blocked when crossing an entire barrier"
+	)
+
+	var inside_source: Node2D = Node2D.new()
+	world.add_child(inside_source)
+	inside_source.global_position = Vector2(-100.0, 0.0)
+	var player_shield_before_inside_hit: float = float(
+		player.call("current_shield")
+	)
+	var inside_bullet: Node2D = PoolManager.acquire(
+		POOL_IDS.BULLET_BASIC
+	) as Node2D
+	_reparent_l1_node(inside_bullet, world)
+	inside_bullet.global_position = Vector2(-80.0, 0.0)
+	inside_bullet.call(
+		"configure",
+		_l1_bullet_stats(),
+		_l1_projectile_data(
+			TEAM_ENEMY,
+			TEAM_PLAYER,
+			[
+				"active_projectile_blockers",
+				"active_player",
+			]
+		),
+		Vector2.RIGHT,
+		inside_source
+	)
+	await _wait_physics_frames(12)
+	_expect(
+		float(player.call("current_shield"))
+		< player_shield_before_inside_hit,
+		"an enemy inside a barrier should be able to shoot a target inside it"
+	)
+	_expect(
+		is_equal_approx(
+			float(barrier.call("current_health")),
+			barrier_max_health
+		),
+		"inside-to-inside enemy fire should not damage the barrier"
+	)
+
+	inside_source.global_position = Vector2(150.0, 0.0)
+	var inside_exit_bullet: Node2D = PoolManager.acquire(
+		POOL_IDS.BULLET_BASIC
+	) as Node2D
+	_reparent_l1_node(inside_exit_bullet, world)
+	inside_exit_bullet.global_position = Vector2(170.0, 0.0)
+	inside_exit_bullet.call(
+		"configure",
+		_l1_bullet_stats(),
+		_l1_projectile_data(
+			TEAM_ENEMY,
+			TEAM_PLAYER,
+			["missing_l1_targets"]
+		),
+		Vector2.RIGHT,
+		inside_source
+	)
+	var inside_exit_snapshot: Dictionary = inside_exit_bullet.call(
+		"snapshot"
+	)
+	_expect(
+		bool(
+			inside_exit_snapshot.get(
+				"initial_deployable_sweep_pending",
+				false
+			)
+		),
+		"enemy projectile snapshot should retain its initial barrier sweep"
+	)
+	var inside_exit_sweep_start: Dictionary = inside_exit_snapshot.get(
+		"initial_deployable_sweep_start",
+		{}
+	) as Dictionary
+	_expect(
+		is_equal_approx(
+			float(inside_exit_sweep_start.get("x", 0.0)),
+			inside_source.global_position.x
+		),
+		"enemy projectile snapshot should retain the shooter firing position"
+	)
+	PoolManager.release(inside_exit_bullet)
+	inside_exit_bullet = PoolManager.acquire(
+		POOL_IDS.BULLET_BASIC
+	) as Node2D
+	_reparent_l1_node(inside_exit_bullet, world)
+	inside_exit_bullet.call(
+		"restore_snapshot",
+		inside_exit_snapshot,
+		inside_source
+	)
+	await _wait_physics_frames(2)
+	_expect(
+		float(barrier.call("current_health"))
+		< barrier_max_health,
+		"an inside enemy muzzle should not skip the barrier when firing outside"
+	)
+	_expect(
+		PoolManager.active_count(POOL_IDS.BULLET_BASIC) == 0,
+		"an inside-to-outside enemy projectile should release at the barrier"
+	)
+
+	skill_system.call("debug_refresh")
+	skill_system.call(
+		"cast_slot",
+		SKILL_SLOTS.SKILL_3
+	)
+	barriers = get_tree().get_nodes_in_group("active_deployables")
+	_expect(
+		barriers.size() == 1,
+		"barrier recast should replace the boundary test deployment"
+	)
+	if not barriers.is_empty():
+		barrier = barriers[0]
+
+	var outside_source: Node2D = Node2D.new()
+	world.add_child(outside_source)
+	outside_source.global_position = Vector2(-170.0, 0.0)
 	var enemy_bullet: Node2D = PoolManager.acquire(
 		POOL_IDS.BULLET_BASIC
 	) as Node2D
 	_reparent_l1_node(enemy_bullet, world)
-	enemy_bullet.global_position = Vector2(-220.0, 0.0)
+	enemy_bullet.global_position = Vector2(-150.0, 0.0)
 	enemy_bullet.call(
 		"configure",
 		_l1_bullet_stats(),
@@ -1153,13 +1326,13 @@ func _expect_barrier_and_energy_orb() -> void:
 			["active_player"]
 		),
 		Vector2.RIGHT,
-		player
+		outside_source
 	)
-	await _wait_physics_frames(12)
+	await _wait_physics_frames(2)
 	_expect(
 		float(barrier.call("current_health"))
 		< barrier_max_health,
-		"enemy projectile sweep should hit a barrier before normal targets"
+		"an outside enemy muzzle should not skip the barrier when firing inside"
 	)
 	_expect(
 		PoolManager.active_count(POOL_IDS.BULLET_BASIC) == 0,

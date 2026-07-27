@@ -9,6 +9,7 @@ signal defeated(barrier: Node)
 
 const ACTIVE_BARRIER_GROUP: String = "active_projectile_blockers"
 const ACTIVE_DEPLOYABLE_GROUP: String = "active_deployables"
+const BOUNDARY_EPSILON: float = 0.000001
 const TEAM_ENEMY: String = "team_enemy"
 
 @export_group("Visual Style")
@@ -87,6 +88,71 @@ func is_alive() -> bool:
 
 func hit_radius() -> float:
 	return _radius
+
+
+func projectile_boundary_hit_fraction(
+	step_start: Vector2,
+	step_end: Vector2,
+	projectile_radius: float
+) -> float:
+	var collision_radius: float = (
+		_radius
+		+ maxf(projectile_radius, 0.0)
+	)
+	if collision_radius <= 0.0:
+		return -1.0
+
+	var segment: Vector2 = step_end - step_start
+	var segment_length_squared: float = segment.length_squared()
+	if segment_length_squared <= BOUNDARY_EPSILON:
+		return -1.0
+
+	var radius_squared: float = collision_radius * collision_radius
+	var start_offset: Vector2 = step_start - global_position
+	var end_offset: Vector2 = step_end - global_position
+	var starts_inside: bool = (
+		start_offset.length_squared()
+		< radius_squared
+	)
+	var ends_inside: bool = end_offset.length_squared() < radius_squared
+	if starts_inside and ends_inside:
+		return -1.0
+
+	var linear_term: float = 2.0 * start_offset.dot(segment)
+	var constant_term: float = (
+		start_offset.length_squared()
+		- radius_squared
+	)
+	var discriminant: float = (
+		linear_term * linear_term
+		- 4.0 * segment_length_squared * constant_term
+	)
+	if discriminant < 0.0:
+		return -1.0
+
+	var denominator: float = 2.0 * segment_length_squared
+	var root_offset: float = sqrt(maxf(discriminant, 0.0))
+	var entry_fraction: float = (
+		(-linear_term - root_offset)
+		/ denominator
+	)
+	var exit_fraction: float = (
+		(-linear_term + root_offset)
+		/ denominator
+	)
+	if starts_inside:
+		return (
+			exit_fraction
+			if _is_segment_fraction(exit_fraction)
+			else -1.0
+		)
+	if _is_segment_fraction(entry_fraction):
+		return entry_fraction
+	return (
+		exit_fraction
+		if _is_segment_fraction(exit_fraction)
+		else -1.0
+	)
 
 
 func current_health() -> float:
@@ -198,6 +264,10 @@ func _damage_result(
 		"defeated": was_defeated,
 		"reason": reason,
 	}
+
+
+func _is_segment_fraction(value: float) -> bool:
+	return value >= 0.0 and value <= 1.0
 
 
 func _vector_to_dict(value: Vector2) -> Dictionary:
