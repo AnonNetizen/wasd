@@ -1,99 +1,99 @@
 {
   "schema_version": 3,
   "characters": [
-    {
-      "id": "character_primary_a",
-      "scene_path": "res://scenes/gameplay/actors/characters/character_default.tscn",
-      "name_key": "character_primary_a_name",
-      "desc_key": "character_primary_a_desc",
-      "default_unlocked": true,
-      "tags": ["tag_character"],
-      "capabilities": [],
-      "control_profile": "default_mouse_shooter",
-      "presentation_profile_id": "presentation_player_default",
-      "palette": {
-        "primary": "#7E63D8",
-        "secondary": "#3D315E",
-        "accent": "#A995FF"
-      },
-      "element_id": "element_primary_a",
-      "passive_id": "passive_primary_a_guard",
-      "hero_skill_ids": [
-        "skill_deploy_projectile_barrier",
+	{
+	  "id": "character_primary_a",
+	  "scene_path": "res://scenes/gameplay/actors/characters/character_default.tscn",
+	  "name_key": "character_primary_a_name",
+	  "desc_key": "character_primary_a_desc",
+	  "default_unlocked": true,
+	  "tags": ["tag_character"],
+	  "capabilities": [],
+	  "control_profile": "default_mouse_shooter",
+	  "presentation_profile_id": "presentation_player_default",
+	  "palette": {
+		"primary": "#7E63D8",
+		"secondary": "#3D315E",
+		"accent": "#A995FF"
+	  },
+	  "element_id": "element_primary_a",
+	  "passive_id": "passive_primary_a_guard",
+	  "hero_skill_ids": [
+		"skill_deploy_projectile_barrier",
         "skill_aoe_slow"
-      ],
-      "starting_loadout": {
-        "weapon_id": "weapon_basic_blaster",
-        "active_item_id": "active_item_blink_burst",
-        "consumable_ids": ["consumable_pocket_bomb"]
-      },
-      "skill_resources": [
-        {
-          "id": "energy",
-          "max_stat": "max_energy",
-          "start_ratio": 1.0,
-          "regen_per_second": 0.0
-        }
-      ],
-      "base_stats": {
-        "max_hp": 500.0,
-        "max_shield": 250.0,
-        "max_energy": 140.0,
-        "health_regen": 0.0,
-        "move_speed": 230.0,
-        "armor": 60.0,
-        "ability_strength": 1.0,
-        "ability_range": 1.0,
-        "ability_efficiency": 1.0,
-        "ability_duration": 1.0
-      }
-    },
-    {
-      "id": "character_primary_b",
-      "scene_path": "res://scenes/gameplay/actors/characters/character_default.tscn",
-      "name_key": "character_primary_b_name",
-      "desc_key": "character_primary_b_desc",
-      "default_unlocked": true,
-      "tags": ["tag_character"],
-      "capabilities": [],
-      "control_profile": "default_mouse_shooter",
-      "presentation_profile_id": "presentation_player_default",
-      "palette": {
-        "primary": "#F2A23A",
-        "secondary": "#6A3F1F",
-        "accent": "#FFD07A"
-      },
-      "element_id": "element_primary_b",
-      "passive_id": "passive_primary_b_guard",
-      "hero_skill_ids": [
-        "skill_self_fire_move_haste",
+	  ],
+	  "starting_loadout": {
+		"weapon_id": "weapon_basic_blaster",
+		"active_item_id": "active_item_blink_burst",
+		"consumable_ids": ["consumable_pocket_bomb"]
+	  },
+	  "skill_resources": [
+		{
+		  "id": "energy",
+		  "max_stat": "max_energy",
+		  "start_ratio": 1.0,
+		  "regen_per_second": 0.0
+		}
+	  ],
+	  "base_stats": {
+		"max_hp": 500.0,
+		"max_shield": 250.0,
+		"max_energy": 140.0,
+		"health_regen": 0.0,
+		"move_speed": 230.0,
+		"armor": 60.0,
+		"ability_strength": 1.0,
+		"ability_range": 1.0,
+		"ability_efficiency": 1.0,
+		"ability_duration": 1.0
+	  }
+	},
+	{
+	  "id": "character_primary_b",
+	  "scene_path": "res://scenes/gameplay/actors/characters/character_default.tscn",
+	  "name_key": "character_primary_b_name",
+	  "desc_key": "character_primary_b_desc",
+	  "default_unlocked": true,
+	  "tags": ["tag_character"],
+	  "capabilities": [],
+	  "control_profile": "default_mouse_shooter",
+	  "presentation_profile_id": "presentation_player_default",
+	  "palette": {
+		"primary": "#F2A23A",
+		"secondary": "#6A3F1F",
+		"accent": "#FFD07A"
+	  },
+	  "element_id": "element_primary_b",
+	  "passive_id": "passive_primary_b_guard",
+	  "hero_skill_ids": [
+		"skill_self_fire_move_haste",
         "skill_enemy_haste_vulnerability"
-      ],
-      "starting_loadout": {
-        "weapon_id": "weapon_basic_blaster",
-        "active_item_id": "active_item_blink_burst",
-        "consumable_ids": ["consumable_pocket_bomb"]
-      },
-      "skill_resources": [
-        {
-          "id": "energy",
-          "max_stat": "max_energy",
-          "start_ratio": 1.0,
-          "regen_per_second": 0.0
-        }
-      ],
-      "base_stats": {
-        "max_hp": 600.0,
-        "max_shield": 100.0,
-        "max_energy": 100.0,
-        "health_regen": 0.0,
-        "move_speed": 250.0,
-        "armor": 120.0,
-        "ability_strength": 1.0,
-        "ability_range": 1.0,
-        "ability_efficiency": 1.0,
-        "ability_duration": 1.0
-      }
-    }
+	  ],
+	  "starting_loadout": {
+		"weapon_id": "weapon_basic_blaster",
+		"active_item_id": "active_item_blink_burst",
+		"consumable_ids": ["consumable_pocket_bomb"]
+	  },
+	  "skill_resources": [
+		{
+		  "id": "energy",
+		  "max_stat": "max_energy",
+		  "start_ratio": 1.0,
+		  "regen_per_second": 0.0
+		}
+	  ],
+	  "base_stats": {
+		"max_hp": 600.0,
+		"max_shield": 100.0,
+		"max_energy": 100.0,
+		"health_regen": 0.0,
+		"move_speed": 250.0,
+		"armor": 120.0,
+		"ability_strength": 1.0,
+		"ability_range": 1.0,
+		"ability_efficiency": 1.0,
+		"ability_duration": 1.0
+	  }
+	}
   ]
 }
