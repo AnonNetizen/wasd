@@ -2,13 +2,14 @@
   "schema_version": 1,
   "updated_at": "2026-07-27",
   "current_phase": "hero_composition_elements",
-  "current_status": "ADR #161 已把正式角色与战斗基线升级为主英雄 + 子英雄组合、固定四技能槽、共享能量与基础冲刺。冷静 / 愤怒两名英雄完成开局组合选择；主英雄提供场景、属性、被动与技能 1/2，子英雄只提供强调色与技能 3/4，局外禁止重复组合，局内换人只保留解析规则。七元素 element_id、纯 A/B 主英雄抗性、护盾 / 超量护盾 / 护盾门 / 护甲、状态修饰器、静域屏障、能量球、四技能、HUD、Meta v2、Run v5、Replay v3、开发者测试岛与四条黄金回放均已接通。旧 Run v4 和旧 Replay 明确拒绝；既有 Gear Mod 迁移保留。本任务按 ADR #143 未运行性能 probe。后续工作以用户最后明确指令为准。",
-  "latest_adr": 161,
+  "current_status": "ADR #162 已把技能 / 被动玩家描述中的可调数值迁移为配置命名占位符：SkillDescriptionFormatter 从 skills.json / hero_passives.json 读取并格式化，SkillSystem 与描述共用 SkillValueResolver 的强度、范围、效率和持续时间缩放；英雄组合选择界面显示四槽完整描述，未知 token 由数据校验拒绝。四平台规则已明确禁止在 *_desc 中重复写死可能调整的数值。ADR #161 的主 / 子英雄、四技能、七元素、防御层、Meta v2、Run v5 与 Replay v3 基线保持不变。本任务按 ADR #143 不运行性能 probe。后续工作以用户最后明确指令为准。",
+  "latest_adr": 162,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #162 / 配置驱动玩家描述：新增 SkillValueResolver 作为 SkillSystem 与描述格式化共用的能力缩放单一实现，SkillDescriptionFormatter 以通用 token 从 skills.json / hero_passives.json 生成中英文技能 / 被动数值；英雄组合卡显示完整四槽描述，当前冷静 / 愤怒描述不再硬编码消耗、范围、生命、幅度、持续时间、层数或被动减免。validate_data 与 DataLoader schema 回归拒绝配置无法提供的 token，四平台规则、GDD、词表、Locale / SkillSystem 文档和测试义务同步。",
     "ADR #161 / 主／子英雄组合与七元素战斗系统：characters schema v3 提供冷静 / 愤怒两名英雄与纯数据组合解析，主英雄独占场景、属性、被动和技能 1/2，子英雄仅提供强调色和技能 3/4；正式流程增加组合选择，四槽独立冷却并共享能量。Combat 改用七元素 element_id，玩家具备超量护盾→普通护盾→抗性 / 护甲→生命的防御层、护盾门、冲刺、能量球、静域屏障和通用状态修饰器。Meta / Run / Replay 分别升级到 v2 / v5 / v3，开发者测试岛、HUD、输入、存档与四条黄金回放同步更新；本期不实现局内换人、同英雄开局和第三基础元素内容。",
     "ADR #160 / 开发者测试岛 standalone scene：debug_test_arena.tscn 作为 host 默认先开配装，入树前配置并创建内部 debug_test_arena_run.tscn；返回配装清理对象池并重建，退出恢复 Replay/Analytics。正式标题、FormalClientBoot 和正式 CLI 零耦合，project lint 新增门禁，release 目录 / smoke 排除保持不变。",
     "ADR #159 / 正式项目开发者测试岛：新增 debug/dev_tools 内部 GameplayRunLoop 用途、场景化三区、入场前角色 / 武器 / 主技能 / Gear Mod 配装、独立 cfg v1、固定靶 / 正常 AI、UIManager 暂停控制、作弊、死亡复位和 5 秒 DPS；复用真实战斗 / 对象池 / VFX，不进入正式 mode/save/reward/replay/analytics。release 标题 / CLI guard 和资源排除已接 project lint，专用隔离 smoke 输出 DEBUG TEST ARENA ALL PASS。",
@@ -159,6 +160,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-27",
+      "command": "sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lints; Python compile; JSON current_state/_kb_index; docs_health_check; git diff --check; Godot 4.7.1 headless editor/boot; l1-smoke; loading-smoke; runtime-smoke",
+      "result": "passed for ADR #162 config-backed skill/passive descriptions. Data/schema checks validate current named tokens and reject unknown skill/passive placeholders; L1 derives expected display values from the configured costs/effects/passive params under non-default strength/range/efficiency/duration; Loading smoke verifies Chinese and English main/sub cards contain resolved descriptions with no raw braces and remain inside the 1920x1080 viewport; runtime smoke confirms the shared SkillValueResolver did not regress casting behavior. Factual review found and fixed the English autowrap card width/6802px panel-height regression and removed balance-value coupling from smoke assertions; no remaining P0/P1/P2 defect was found. Expected injected invalid-composition/bad-save diagnostics and existing headless shutdown RID/resource leak lines remain. No startup/performance probe or Profiler ran."
+    },
     {
       "date": "2026-07-27",
       "command": "sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lints plus project/semantic lint self-tests; Python compile; JSON current_state/_kb_index/contracts/golden replays; docs_health_check; git diff --check; export-tree; headless editor/boot; input/loading/runtime/save/replay/replay-input/L1/actor/F9/Gear Mod/settings/UI/VFX/debug tools/standalone debug arena/release-isolation smoke; module-world full/technical smoke; four Replay v3 golden replay-runner runtime-summary reruns with explicit locale data-fingerprint mismatch allowance",

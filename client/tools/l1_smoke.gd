@@ -9,6 +9,9 @@ const ELEMENT_RESOLVER_SCRIPT := preload("res://scripts/data/element_resolver.gd
 const HERO_COMPOSITION_RESOLVER_SCRIPT := preload(
 	"res://scripts/data/hero_composition_resolver.gd"
 )
+const SKILL_DESCRIPTION_FORMATTER := preload(
+	"res://scripts/data/skill_description_formatter.gd"
+)
 const BULLET_SCENE := preload("res://scenes/gameplay/bullet.tscn")
 const ENERGY_ORB_SCENE := preload("res://scenes/gameplay/energy_orb.tscn")
 const ENEMY_SCENE := preload("res://scenes/gameplay/actors/enemies/enemy_chaser.tscn")
@@ -87,6 +90,7 @@ func _run() -> void:
 	_expect_game_state_rejects_unknown()
 	_expect_save_manager_roundtrip()
 	_expect_hero_composition_resolution()
+	_expect_config_backed_skill_descriptions()
 	_expect_combat_damage_path()
 	await _expect_player_defense_layers()
 	await _expect_dash_runtime()
@@ -280,6 +284,186 @@ func _expect_hero_composition_resolution() -> void:
 			1.5
 		),
 		"future duplicate slots should receive 1.5x cost and cooldown"
+	)
+
+
+func _expect_config_backed_skill_descriptions() -> void:
+	var ability_stats: Dictionary = {
+		STATS.ABILITY_STRENGTH: 2.0,
+		STATS.ABILITY_RANGE: 1.5,
+		STATS.ABILITY_EFFICIENCY: 1.5,
+		STATS.ABILITY_DURATION: 2.0,
+	}
+	var barrier: Dictionary = _l1_skill_definition(
+		SKILL_IDS.SKILL_DEPLOY_PROJECTILE_BARRIER
+	)
+	var barrier_values: Dictionary = (
+		SKILL_DESCRIPTION_FORMATTER.skill_values(
+			barrier,
+			ability_stats
+		)
+	)
+	var barrier_cost: Dictionary = (
+		(barrier.get("costs", []) as Array)[0] as Dictionary
+	)
+	var barrier_effect: Dictionary = (
+		(barrier.get("effects", []) as Array)[0] as Dictionary
+	)
+	var barrier_params: Dictionary = (
+		barrier_effect.get("params", {}) as Dictionary
+	)
+	_expect(
+		is_equal_approx(
+			float(barrier_values.get("cost_energy", 0.0)),
+			float(barrier_cost.get("amount", 0.0)) * 0.5
+		)
+		and is_equal_approx(
+			float(barrier_values.get("effect_1_radius", 0.0)),
+			float(barrier_params.get("radius", 0.0)) * 1.5
+		)
+		and is_equal_approx(
+			float(barrier_values.get("effect_1_hp", 0.0)),
+			float(barrier_params.get("hp", 0.0)) * 2.0
+		),
+		"skill descriptions should resolve cost, range, and strength from config"
+	)
+	var barrier_text: String = SKILL_DESCRIPTION_FORMATTER.format_skill(
+		"{cost_energy}|{effect_1_radius}|{effect_1_hp}",
+		barrier,
+		ability_stats
+	)
+	_expect(
+		not barrier_text.contains("{"),
+		"skill description formatting should replace every supported token"
+	)
+	var slow: Dictionary = _l1_skill_definition(SKILL_IDS.SKILL_AOE_SLOW)
+	var slow_values: Dictionary = SKILL_DESCRIPTION_FORMATTER.skill_values(
+		slow,
+		ability_stats
+	)
+	var slow_targeting: Dictionary = slow.get("targeting", {}) as Dictionary
+	var slow_effect: Dictionary = (
+		(slow.get("effects", []) as Array)[0] as Dictionary
+	)
+	var slow_params: Dictionary = slow_effect.get("params", {}) as Dictionary
+	var expected_slow_magnitude: float = minf(
+		float(slow_params.get("magnitude", 0.0)) * 2.0,
+		float(slow_params.get("magnitude_cap", 0.0))
+	)
+	_expect(
+		is_equal_approx(
+			float(slow_values.get("target_radius", 0.0)),
+			float(slow_targeting.get("radius", 0.0)) * 1.5
+		)
+		and is_equal_approx(
+			float(
+				slow_values.get(
+					"effect_1_magnitude_percent",
+					0.0
+				)
+			),
+			expected_slow_magnitude * 100.0
+		)
+		and is_equal_approx(
+			float(slow_values.get("effect_1_duration", 0.0)),
+			float(slow_params.get("duration", 0.0)) * 2.0
+		),
+		"skill descriptions should apply duration and capped strength scaling"
+	)
+	var haste: Dictionary = _l1_skill_definition(
+		SKILL_IDS.SKILL_SELF_FIRE_MOVE_HASTE
+	)
+	var haste_values: Dictionary = (
+		SKILL_DESCRIPTION_FORMATTER.skill_values(
+			haste,
+			ability_stats
+		)
+	)
+	var haste_effect: Dictionary = (
+		(haste.get("effects", []) as Array)[0] as Dictionary
+	)
+	var haste_params: Dictionary = haste_effect.get("params", {}) as Dictionary
+	var haste_modifiers: Array = haste_params.get("modifiers", []) as Array
+	_expect(
+		is_equal_approx(
+			float(
+				haste_values.get(
+					"effect_1_modifier_1_value_bonus_percent",
+					0.0
+				)
+			),
+			(
+				float(
+					(haste_modifiers[0] as Dictionary).get(
+						"value",
+						1.0
+					)
+				)
+				- 1.0
+			) * 200.0
+		)
+		and is_equal_approx(
+			float(
+				haste_values.get(
+					"effect_1_modifier_2_value_bonus_percent",
+					0.0
+				)
+			),
+			(
+				float(
+					(haste_modifiers[1] as Dictionary).get(
+						"value",
+						1.0
+					)
+				)
+				- 1.0
+			) * 200.0
+		),
+		"skill descriptions should resolve scaled modifier bonuses"
+	)
+	var haste_text: String = (
+		SKILL_DESCRIPTION_FORMATTER.format_skill(
+			(
+				"{effect_1_modifier_1_value_bonus_percent}|"
+				+ "{effect_1_modifier_2_value_bonus_percent}|"
+				+ "{effect_1_duration}"
+			),
+			haste,
+			ability_stats
+		)
+	)
+	_expect(
+		not haste_text.contains("{"),
+		"scaled modifier description tokens should all resolve"
+	)
+	var passives_payload: Variant = DataLoader.load_json(
+		DataLoader.HERO_PASSIVES_PATH
+	)
+	var passive: Dictionary = {}
+	if passives_payload is Dictionary:
+		var raw_passives: Variant = (
+			(passives_payload as Dictionary).get("passives", [])
+		)
+		if raw_passives is Array and not (raw_passives as Array).is_empty():
+			var raw_passive: Variant = (raw_passives as Array)[0]
+			if raw_passive is Dictionary:
+				passive = (raw_passive as Dictionary).duplicate(true)
+	var passive_text: String = (
+		SKILL_DESCRIPTION_FORMATTER.format_passive(
+			"{param_multiplier_reduction_percent}",
+			passive
+		)
+	)
+	var passive_params: Dictionary = passive.get("params", {}) as Dictionary
+	_expect(
+		is_equal_approx(
+			float(passive_text),
+			(
+				1.0
+				- float(passive_params.get("multiplier", 1.0))
+			) * 100.0
+		),
+		"passive descriptions should resolve configured reduction values"
 	)
 
 

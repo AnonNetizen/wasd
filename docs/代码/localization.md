@@ -8,6 +8,7 @@
 - `Localization` 负责维护当前语言、响应 `Settings.general.locale` 变化，并提供统一的 `tr_key()` 翻译入口和 `locale_changed` 刷新信号。
 - 当前首批语言固定为 `zh_CN` 与 `en`，符合 ADR #64 和 `client/locale/README.md`。
 - 玩家可见文本仍必须通过 Godot `tr("key")` 或本模块 `tr_key(key)` 获取；本文档不新增玩家文案。
+- 技能 / 被动描述先通过 `tr()` 取得完整句子模板，再由 `SkillDescriptionFormatter` 注入配置数值；格式化器不属于 `Localization` autoload，也不自行选择语言。
 - 当前 `strings.csv` 已导入为 Godot `.translation` 资源；F7 已让标题、暂停、设置、HUD、升级和失败页接入运行时刷新链路，F11 已让装备 Mod 面板接入刷新链路。
 
 ## 阅读方式
@@ -24,6 +25,8 @@
 | 路径 | 作用 |
 |------|------|
 | `client/scripts/autoload/localization.gd` | `Localization` autoload 脚本 |
+| `client/scripts/data/skill_description_formatter.gd` | 技能 / 被动描述的配置命名占位符格式化 |
+| `client/scripts/data/skill_value_resolver.gd` | 运行时和描述共用的能力属性缩放 |
 | `client/locale/strings.csv` | 人工维护的双语文案源 |
 | `client/locale/README.md` | 本地化配置手册 |
 | `client/project.godot` | autoload 注册 |
@@ -74,13 +77,14 @@
 
 - 增加语言：先形成 ADR 或明确决策，再扩展 `SUPPORTED_LOCALES`、`strings.csv` 表头、Godot 导入配置和设置菜单。
 - 增加运行时刷新：UI 节点应监听 `locale_changed` 或 Godot 翻译通知刷新已有 label/button/option；如果订阅 `locale_changed`，必须在 `_exit_tree()` 断开，避免离树节点收到后续语言切换。
-- 增加格式化：动态数值应保留 `{value}` / `{count}` 等命名占位符，不在代码中拼句子。
+- 增加格式化：动态数值应保留命名占位符，不在代码中拼句子。可能参与平衡调整的数值必须从配置注入；技能 / 被动使用 `SkillDescriptionFormatter` 的通用 token，禁止按内容 id 添加格式化特判。
 
 ## 常见改动入口
 
 | 你想改什么 | 主要文件 | 同步文档 | 验证方式 |
 |------------|----------|----------|----------|
 | 新增文案 key | `client/locale/strings.csv` | `client/locale/README.md` | `tools/validate_data.py` |
+| 修改技能 / 被动描述数值 | `skills.json` / `hero_passives.json` | 数据手册、技能模块文档 | `validate_data.py` + schema 回归 + `l1-smoke` + `loading-smoke` |
 | 新增语言 | `strings.csv`、`localization.gd`、Godot 导入配置 | ADR、词表、本文档 | 数据校验 + 手动切换 |
 | 设置菜单语言切换 | UI 场景、`Settings.set_value()` | Settings / UI 文档 | `settings-smoke` + `runtime-smoke` |
 | 翻译缺失兜底 | `tr_key()` | 本文档 | L1 |
@@ -91,13 +95,14 @@
 |------|----------|
 | 切换语言报错 | 语言是否在 `SUPPORTED_LOCALES` |
 | 翻译显示 key | `strings.csv` 是否有 key，Godot 是否导入翻译资源 |
+| 描述残留 `{...}` | token 是否对应数据字段，`zh_CN` / `en` 是否一致，是否通过 `validate_data.py` |
 | 设置语言后未切换 | `Settings.setting_changed` 是否发出 `general.locale` |
 | 切换语言后旧 UI 仍显示旧文本 | 目标 UI 是否订阅 `Localization.locale_changed` 并在回调中重画已有状态；节点离树后是否断开 signal |
 
 ## 测试义务
 
 - 修改本模块必跑 L0 和 L2 headless boot，确认 autoload 可启动。
-- 修改运行时 UI 语言刷新时追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`；`settings-smoke` 当前覆盖 SettingsPanel、TitleMenu、PauseMenu、GameplayHud、LevelUpPanel 和 GameOverPanel 的既有实例刷新。修改 Gear Mod 面板语言刷新时追加 `python tools/godot_bridge.py --project client gear-mod-smoke`。
+- 修改运行时 UI 语言刷新时追加 `python tools/godot_bridge.py --project client settings-smoke` 与 `python tools/godot_bridge.py --project client runtime-smoke`；`settings-smoke` 当前覆盖 SettingsPanel、TitleMenu、PauseMenu、GameplayHud、LevelUpPanel 和 GameOverPanel 的既有实例刷新。修改 Gear Mod 面板语言刷新时追加 `python tools/godot_bridge.py --project client gear-mod-smoke`。修改配置描述格式化时追加 `test_data_loader_schema.py`、`l1-smoke` 与 `loading-smoke`。
 - 后续引入 GUT 后，需要覆盖缺 key 行为、语言切换、`Settings` 联动和 UI 刷新。
 - 手动回归仍建议切换 `zh_CN -> en` 检查核心 UI 文案即时刷新。
 

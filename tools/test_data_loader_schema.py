@@ -983,6 +983,30 @@ def main() -> int:
             ],
         ),
         (
+            "skill description placeholders must resolve from config",
+            _mutate_locale_description_placeholder(
+                "skill_deploy_projectile_barrier_desc",
+                "{effect_1_missing}",
+            ),
+            [
+                "client/data/skills.json:skills[0].desc_key",
+                "unsupported config description placeholders",
+                "{effect_1_missing}",
+            ],
+        ),
+        (
+            "passive description placeholders must resolve from config",
+            _mutate_locale_description_placeholder(
+                "passive_primary_a_guard_desc",
+                "{param_missing}",
+            ),
+            [
+                "client/data/hero_passives.json:passives[0].desc_key",
+                "unsupported config description placeholders",
+                "{param_missing}",
+            ],
+        ),
+        (
             "skill ability tag must be registered",
             _mutate_json("client/data/skills.json", _set_skill_ability_tag("ability_tag_missing")),
             [
@@ -1251,6 +1275,28 @@ def _mutate_csv(relative_path: str, mutator: CsvMutator) -> RepoMutator:
             writer = csv.DictWriter(handle, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)
+
+    return mutate_repo
+
+
+def _mutate_locale_description_placeholder(
+    key: str,
+    placeholder: str,
+) -> RepoMutator:
+    def mutate_repo(root: Path) -> None:
+        path = root / "client/locale/strings.csv"
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
+        for index, line in enumerate(lines):
+            if not line.startswith(f"{key},"):
+                continue
+            lines[index] = f"{key},{placeholder},{placeholder}"
+            path.write_text(
+                "\n".join(lines) + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            return
+        raise AssertionError(f"missing locale key {key}")
 
     return mutate_repo
 

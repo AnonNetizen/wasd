@@ -44,6 +44,68 @@ func _run() -> void:
 		_count_nodes_by_name(get_tree().root, "HeroCompositionPanel") == 1,
 		"duplicate start should keep one composition panel"
 	)
+	var main_detail: Label = (
+		composition_panel.get_node_or_null(
+			"Root/Center/Panel/Margin/Layout/Cards/MainCard/Margin/Layout/DetailLabel"
+		) as Label
+		if composition_panel != null
+		else null
+	)
+	var sub_detail: Label = (
+		composition_panel.get_node_or_null(
+			"Root/Center/Panel/Margin/Layout/Cards/SubCard/Margin/Layout/DetailLabel"
+		) as Label
+		if composition_panel != null
+		else null
+	)
+	_expect(
+		main_detail != null
+		and not main_detail.text.contains("{")
+		and main_detail.text.contains(
+			tr("skill_deploy_projectile_barrier_name")
+		),
+		"main hero card should show resolved config-backed descriptions"
+	)
+	_expect(
+		sub_detail != null
+		and not sub_detail.text.contains("{")
+		and sub_detail.text.contains(
+			tr("skill_enemy_haste_vulnerability_name")
+		),
+		"sub hero card should resolve skills 3/4 using main hero stats"
+	)
+	var original_composition_locale: String = Localization.current_locale()
+	Localization.set_locale("en")
+	await get_tree().process_frame
+	_expect(
+		main_detail != null
+		and sub_detail != null
+		and not main_detail.text.contains("{")
+		and not sub_detail.text.contains("{")
+		and main_detail.text.contains(
+			tr("skill_deploy_projectile_barrier_name")
+		)
+		and sub_detail.text.contains(
+			tr("skill_enemy_haste_vulnerability_name")
+		),
+		"English hero cards should refresh with resolved config descriptions"
+	)
+	var composition_card: Control = (
+		composition_panel.get_node_or_null("Root/Center/Panel") as Control
+		if composition_panel != null
+		else null
+	)
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	_expect(
+		composition_card != null
+		and composition_card.size.x <= viewport_size.x
+		and composition_card.size.y <= viewport_size.y,
+		"English hero composition cards should stay inside the viewport; card=%s viewport=%s" % [
+			composition_card.size if composition_card != null else Vector2.ZERO,
+			viewport_size,
+		]
+	)
+	Localization.set_locale(original_composition_locale)
 	var confirm_button: Button = (
 		composition_panel.get_node_or_null(
 			"Root/Center/Panel/Margin/Layout/Actions/ConfirmButton"

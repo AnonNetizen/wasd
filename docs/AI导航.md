@@ -60,6 +60,7 @@
 |------|------|
 | `client/scenes/`（即 `res://scenes/`） | 场景 `.tscn`（Player / Bullet / Enemy / Item / Hazard 等） |
 | `client/scripts/`（即 `res://scripts/`） | 脚本 `.gd`，按系统单一职责拆分 |
+| `client/scripts/data/` | 不创建 Node 的纯数据解析器；英雄组合、元素组合、技能缩放与配置描述格式化在此共享，禁止按内容 id 特判 |
 | `client/data/`（即 `res://data/`） | 可调数值配置（平表 CSV + 复杂 JSON）+ `README.md` 人工调参手册 |
 | `client/locale/`（即 `res://locale/`） | 本地化翻译表（CSV → `.translation`）+ `README.md` 多语言文案手册 |
 | `client/templates/`（即 `res://templates/`） | 新内容脚手架模板（enemy/relic 等） |
@@ -397,7 +398,7 @@ flowchart LR
 > `OnlineServices`、GodotSteam 与 Talo 节点是 ADR #150 的未来规划，不表示当前 autoload、插件或网络依赖已经存在；正式 `client` 当前仍由 `PlatformServices` 的 `none` 后端离线退化。
 
 ## 6. 红线（最易踩坑）
-- ❌ 硬编码可调数值、玩家可见文本、键盘按键 / 手柄按钮 / 手柄轴、约定字符串；❌ 新增数值 / 文案字段却不更新 `client/data/README.md` / `client/locale/README.md`
+- ❌ 硬编码可调数值、玩家可见文本、键盘按键 / 手柄按钮 / 手柄轴、约定字符串；❌ 在技能 / 被动 / 道具等 `*_desc` 译文中重复写死可能调整的数值（必须用配置命名占位符与统一格式化器）；❌ 新增数值 / 文案字段却不更新 `client/data/README.md` / `client/locale/README.md`
 - ❌ 业务代码直接访问 GUIDE / `Input` / `InputMap`、按物理设备写分支或自己维护 context / 重绑定；必须走生成 action 与 `InputService`，InputMap 仅限 GUIDE / InputService UI bridge / 测试
 - ❌ 用中文短文本密度决定 UI 尺寸；新增 / 修改玩家可见 UI 文案或布局时必须切到英文 `en` 验收按钮、面板、HUD、升级选择和结算不截断、不溢出、不遮挡
 - ❌ 为每个遗物/道具写独立硬编码分支

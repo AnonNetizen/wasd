@@ -242,9 +242,9 @@ element_composite_ab_name,复合元素 AB,Composite AB
 element_composite_bc_name,复合元素 BC,Composite BC
 element_composite_ca_name,复合元素 CA,Composite CA
 passive_primary_a_guard_name,静心守御,Calm Guard
-passive_primary_a_guard_desc,受到纯主元素 A 伤害时，最终承伤降至 60%,"Final damage taken from pure Primary A hits is reduced to 60%."
+passive_primary_a_guard_desc,受到纯主元素 A 伤害时，最终承伤降低 {param_multiplier_reduction_percent}%,"Final damage taken from pure Primary A hits is reduced by {param_multiplier_reduction_percent}%."
 passive_primary_b_guard_name,怒意守御,Fury Guard
-passive_primary_b_guard_desc,受到纯主元素 B 伤害时，最终承伤降至 60%,"Final damage taken from pure Primary B hits is reduced to 60%."
+passive_primary_b_guard_desc,受到纯主元素 B 伤害时，最终承伤降低 {param_multiplier_reduction_percent}%,"Final damage taken from pure Primary B hits is reduced by {param_multiplier_reduction_percent}%."
 weapon_basic_blaster_name,基础脉冲枪,Basic Blaster
 weapon_basic_blaster_desc,可靠的鼠标瞄准步枪，按住开火并发射中性子弹,A reliable mouse-aimed rifle that fires neutral rounds while held
 enemy_chaser_name,追猎者,Chaser
@@ -264,13 +264,13 @@ skill_overdrive_rounds_name,过载弹流,Overdrive Rounds
 skill_overdrive_rounds_desc,消耗能量，短时间提高射速和弹速,Spend energy to briefly increase fire rate and bullet speed
 skill_resource_mana_name,魔法,Mana
 skill_deploy_projectile_barrier_name,静域屏障,Quietude Barrier
-skill_deploy_projectile_barrier_desc,消耗 40 能量部署半径 160、生命 360 的屏障；同时只能存在一个，重施会替换旧屏障,"Spend 40 Energy to deploy a 160-radius barrier with 360 HP. Only one may exist; recasting replaces it."
+skill_deploy_projectile_barrier_desc,消耗 {cost_energy} 能量部署半径 {effect_1_radius}、生命 {effect_1_hp} 的屏障；同时只能存在一个，重施会替换旧屏障,"Spend {cost_energy} Energy to deploy a {effect_1_radius}-radius barrier with {effect_1_hp} HP. Only one may exist; recasting replaces it."
 skill_aoe_slow_name,镇静脉冲,Calming Pulse
-skill_aoe_slow_desc,消耗 30 能量，使半径 280 内敌人减速 35%，持续 5 秒；减速最高 70%,"Spend 30 Energy to slow enemies within 280 radius by 35% for 5 seconds, capped at 70%."
+skill_aoe_slow_desc,消耗 {cost_energy} 能量，使半径 {target_radius} 内敌人减速 {effect_1_magnitude_percent}%，持续 {effect_1_duration} 秒；减速最高 {effect_1_magnitude_cap_percent}%,"Spend {cost_energy} Energy to slow enemies within {target_radius} radius by {effect_1_magnitude_percent}% for {effect_1_duration} seconds, capped at {effect_1_magnitude_cap_percent}%."
 skill_self_fire_move_haste_name,怒意超频,Fury Overdrive
-skill_self_fire_move_haste_desc,消耗 35 能量，使射速提高 35%、移动速度提高 20%，持续 5 秒；重施刷新持续时间,"Spend 35 Energy to gain 35% fire rate and 20% movement speed for 5 seconds. Recasting refreshes the duration."
+skill_self_fire_move_haste_desc,消耗 {cost_energy} 能量，使射速提高 {effect_1_modifier_1_value_bonus_percent}%、移动速度提高 {effect_1_modifier_2_value_bonus_percent}%，持续 {effect_1_duration} 秒；重施刷新持续时间,"Spend {cost_energy} Energy to gain {effect_1_modifier_1_value_bonus_percent}% fire rate and {effect_1_modifier_2_value_bonus_percent}% movement speed for {effect_1_duration} seconds. Recasting refreshes the duration."
 skill_enemy_haste_vulnerability_name,激怒标记,Enraging Mark
-skill_enemy_haste_vulnerability_desc,消耗 30 能量，使半径 300 内敌人移动速度提高 10%，并叠加 10% 易伤，最多 5 层，持续 8 秒,"Spend 30 Energy to increase enemy movement speed by 10% within 300 radius and add 10% Vulnerability, up to 5 stacks, for 8 seconds."
+skill_enemy_haste_vulnerability_desc,消耗 {cost_energy} 能量，使半径 {target_radius} 内敌人移动速度提高 {effect_1_modifier_1_value_bonus_percent}%，并叠加每层 {effect_2_incoming_damage_per_stack_percent}% 的易伤，最多 {effect_2_max_stacks} 层，持续 {effect_1_duration} 秒,"Spend {cost_energy} Energy to increase enemy movement speed by {effect_1_modifier_1_value_bonus_percent}% within {target_radius} radius and add a Vulnerability stack worth {effect_2_incoming_damage_per_stack_percent}% damage, up to {effect_2_max_stacks} stacks, for {effect_1_duration} seconds."
 status_burn_name,燃烧,Burn
 status_poison_name,中毒,Poison
 status_bleed_name,流血,Bleed

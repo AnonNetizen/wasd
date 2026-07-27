@@ -24,7 +24,7 @@
 
 ## 核心红线速记
 
-- 可调数值进 `client/data/`，平表数值优先 CSV、复杂配置优先 JSON，字段说明同步 `client/data/README.md`；玩家可见文本走 `tr("key")` / `client/locale/strings.csv`，当前首批语言为 `zh_CN` 与 `en`，AI 自动补齐另一语言首版译文并交人工复核，多语言与占位符说明同步 `client/locale/README.md`；UI 布局、按钮、面板和 HUD 以英文 `en` 文案长度作为尺寸验收基准，新增 / 修改玩家可见 UI 文案或布局时必须切英文确认无截断、溢出或遮挡；业务输入走生成 action 常量、`InputService` 和归一化 intent，GUIDE 只允许由 `InputService` 访问，`InputMap` 只用于 GUIDE / `InputService` UI 兼容桥和测试；约定字符串来自 `docs/词表与契约.md` 且以生成常量引用。
+- 可调数值进 `client/data/`，平表数值优先 CSV、复杂配置优先 JSON，字段说明同步 `client/data/README.md`；玩家可见文本走 `tr("key")` / `client/locale/strings.csv`，当前首批语言为 `zh_CN` 与 `en`，AI 自动补齐另一语言首版译文并交人工复核，多语言与占位符说明同步 `client/locale/README.md`；技能、被动、道具等描述中的伤害、消耗、冷却、范围、持续时间、概率、层数、倍率等可能调整的数值必须使用命名占位符，由对应配置和统一格式化器注入，不得在 `*_desc` 译文中重复写死；UI 布局、按钮、面板和 HUD 以英文 `en` 文案长度作为尺寸验收基准，新增 / 修改玩家可见 UI 文案或布局时必须切英文确认无截断、溢出或遮挡；业务输入走生成 action 常量、`InputService` 和归一化 intent，GUIDE 只允许由 `InputService` 访问，`InputMap` 只用于 GUIDE / `InputService` UI 兼容桥和测试；约定字符串来自 `docs/词表与契约.md` 且以生成常量引用。
 - 俯视角显示不得通过旋转 `Camera2D`、`Camera2D.zoom` 非等比缩放、`Camera3D` 正交投影或低模 3D 视觉层来模拟斜俯视；相机保持玩家居中、屏幕水平和等比缩放，避免横向与纵向屏幕移动速度失真。
 - 当前地图、背景网格、机关、兴趣点 footprint 和撤离区默认使用水平 / 垂直矩形俯视格；不得用菱形 / 等距地图格继续模拟斜俯视或正交视角。
 - 随机走 `RNG.<stream>`，时间走 `GameClock`，流程走 `GameState`，UI 走 `UIManager`，池化走 `PoolManager`，伤害走 `Combat.apply_damage`，持续效果走 `StatusEffect`，存档走 `SaveManager`；`SaveManager` 必须支持 `meta` 局外成长与 `run` 暂停退出续局，并具备标准头字段（含 `data_hash`）、版本迁移、原子写入、备份回退和损坏隔离；音频走 `AudioManager`；本地玩家 mod 走 `ModLoader` + `DataLoader` 声明式 JSON / CSV patch；Steam / 其他平台 API 走 `PlatformServices`。

@@ -10,7 +10,7 @@
 - 所有面向玩家的文本集中在 `client/locale/strings.csv`，便于人工翻译和校对。
 - 代码和数据只引用 key：代码用 `tr("key")`，数据用 `name_key` / `desc_key` 等字段。
 - 同一行维护多语言译文，避免每种语言散落在不同文件里难以对照。
-- 动态数值使用占位符，禁止在代码里拼接句子。
+- 动态数值使用占位符，禁止在代码里拼接句子；来自数据、可能参与平衡调整的数值不得在 `*_desc` 译文中重复写死。
 - 当前首批只维护简体中文 `zh_CN` 与英文 `en` 两种语言；新增语言另行决策。
 - AI 负责为缺失的 `zh_CN` 或 `en` 自动生成首版译文，人工负责最终审校和润色。
 
@@ -23,12 +23,12 @@
 | 加设置面板文案 | 在 `strings.csv` 加 `ui_settings_*` key；设置入口沿用 `ui_settings`，设置面板标题、分组、控件标签、反馈和选项都走本地化；视觉质量、无障碍、输入绑定选项也必须独立建 key |
 | 加 HUD / 失败提示 | 在 `strings.csv` 加 `ui_hud_*`、`ui_stats_*` 或 `ui_*` key；HUD 代码用 `tr("ui_xxx")` 并在运行时刷新 |
 | 加角色名 / 描述 | 在 `strings.csv` 加 `character_*_name` / `character_*_desc`；英雄组合名使用 `character_composition_name_format` 的 `{main}` / `{sub}` 占位符；数据填 `name_key` / `desc_key` |
-| 加元素 / 英雄被动文案 | 在 `strings.csv` 加 `element_*_name` 与 `passive_*_name` / `passive_*_desc`；数据只引用 key |
+| 加元素 / 英雄被动文案 | 在 `strings.csv` 加 `element_*_name` 与 `passive_*_name` / `passive_*_desc`；数据只引用 key；被动数值使用 `{param_<字段>...}` |
 | 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |
 | 加敌人名 | 在 `strings.csv` 加 `enemy_*_name`；`enemies.csv` 填 `name_key` |
 | 加遗物 / 道具名和描述 | 在 `strings.csv` 加 `relic_*_name` / `relic_*_desc`、`item_*_name` / `item_*_desc`；数据填 `name_key` / `desc_key` |
-| 加技能名和描述 | 在 `strings.csv` 加 `skill_*_name` / `skill_*_desc`；`skills.json` 填 `name_key` / `desc_key` |
-| 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，动态数值用 `{value}` 这类占位符 |
+| 加技能名和描述 | 在 `strings.csv` 加 `skill_*_name` / `skill_*_desc`；`skills.json` 填 `name_key` / `desc_key`；消耗、范围、效果参数等使用下方配置占位符 |
+| 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，可能调整的数值必须使用命名占位符并由配置注入 |
 | 加装备 Mod / 局外装配 UI 文案 | 在 `strings.csv` 加 `gear_mod_*` / `ui_gear_mod_*` key，例如 Mod 名称、资源名称、标题入口、容量、费用、操作成功 / 失败反馈；UI 代码使用 `tr("ui_xxx")` |
 | 加开发者测试岛文案 | 在 `strings.csv` 加 `ui_debug_test_arena_*` key；该域只供独立 debug/dev_tools scene 的配装、区域标签、控制面板和伤害 HUD 使用，仍须维护 `zh_CN` / `en` 并按英文长度验收 |
 | 加机关 / 危险物名 | 在 `strings.csv` 加 `hazard_*_name`；数据填 `name_key` |
@@ -120,6 +120,28 @@ label.text = tr("ui_damage") + str(value)
 - 占位符名用蛇形小写，如 `{value}`、`{count}`、`{seconds}`。
 - 单位、数字顺序允许按语言调整，但占位符不能丢。
 - 复数、性别、语序复杂的文本不要拼接；拆成独立 key 或后续引入更强格式化规则。
+- 伤害、消耗、冷却、范围、持续时间、概率、层数、倍率等可能调整的数值必须来自配置与统一格式化器；禁止在 `*_desc` 译文中再写一份数字。只有不属于配置且不会参与平衡调整的固定语义数字可以直接写，仍应优先改写为自然语言。
+
+### 技能与被动的配置占位符
+
+`SkillDescriptionFormatter` 使用主英雄能力属性解析 `skills.json`，并在英雄组合选择界面格式化四槽技能；运行时 `SkillSystem` 与描述共用 `SkillValueResolver`，因此强度、范围、效率和持续时间的缩放结果一致。
+
+| 占位符 | 来源 / 含义 |
+|--------|-------------|
+| `{cooldown}` | 技能 `cooldown` |
+| `{target_radius}` | `targeting.radius`，已应用范围 |
+| `{cost_<resource>}` | 对应资源成本，已应用效率与槽位成本倍率，例如 `{cost_energy}` |
+| `{effect_<序号>_<参数>}` | 第 N 个 effect 的数值参数，已应用声明的能力缩放，例如 `{effect_1_duration}` |
+| `{effect_<序号>_modifier_<序号>_<字段>}` | effect 内第 N 个 modifier 的数值字段，例如 `{effect_1_modifier_1_value_bonus_percent}` |
+| `{param_<字段>}` | 被动 `params` 的数值字段，例如 `{param_multiplier}` |
+
+每个数值 token 还可使用：
+
+- `_percent`：原值乘 `100`，例如 `0.35 → 35`。
+- `_bonus_percent`：相对 `1.0` 的增益百分比，例如 `1.35 → 35`。
+- `_reduction_percent`：相对 `1.0` 的减免百分比，例如 `0.6 → 40`。
+
+新增 token 时不应在格式化器里按 skill id / passive id 特判。`python tools/validate_data.py` 会拒绝配置无法提供的描述占位符；`zh_CN` / `en` 的占位符集合仍必须完全一致。
 
 ## 英文长度基准 / UI 适配规则
 
@@ -226,6 +248,7 @@ relic_sharp_rounds_desc,伤害 +{value},Damage +{value}
 - [ ] `zh_CN` 与 `en` 是否都有译文？
 - [ ] AI 自动补译的内容是否经过人工复核，且没有误改功能含义？
 - [ ] 所有语言的占位符集合是否一致？
+- [ ] 描述中的可调数值是否全部来自配置占位符，没有在 `*_desc` 中重复硬编码？
 - [ ] 新增 / 修改 UI 文案或布局是否已按英文 `en` 长度验收，无截断、溢出或遮挡？
 - [ ] 是否已运行 `python tools/validate_data.py`？
 - [ ] 数据文件是否只引用 `name_key` / `desc_key`，没有硬文本？

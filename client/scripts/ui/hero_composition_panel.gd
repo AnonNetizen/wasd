@@ -7,6 +7,10 @@ extends CanvasLayer
 signal cancel_requested()
 signal composition_confirmed(main_hero_id: String, sub_hero_id: String)
 
+const SKILL_DESCRIPTION_FORMATTER := preload(
+	"res://scripts/data/skill_description_formatter.gd"
+)
+
 var _cancel_button: Button = null
 var _confirm_button: Button = null
 var _hero_rows: Array[Dictionary] = []
@@ -204,10 +208,21 @@ func _refresh_selection_state() -> void:
 		_confirm_button.disabled = main_id.is_empty() or sub_id.is_empty() or main_id == sub_id
 	var main_row: Dictionary = _selected_hero_row(_main_selector)
 	var sub_row: Dictionary = _selected_hero_row(_sub_selector)
+	var ability_stats: Dictionary = (
+		main_row.get("base_stats", {}) as Dictionary
+	)
 	if _main_detail_label != null:
-		_main_detail_label.text = _hero_detail(main_row, true)
+		_main_detail_label.text = _hero_detail(
+			main_row,
+			true,
+			ability_stats
+		)
 	if _sub_detail_label != null:
-		_sub_detail_label.text = _hero_detail(sub_row, false)
+		_sub_detail_label.text = _hero_detail(
+			sub_row,
+			false,
+			ability_stats
+		)
 	if _hint_label != null:
 		_hint_label.text = tr("ui_hero_composition_duplicate_hint")
 
@@ -228,7 +243,11 @@ func _refresh_duplicate_option_states(
 		)
 
 
-func _hero_detail(row: Dictionary, is_main: bool) -> String:
+func _hero_detail(
+	row: Dictionary,
+	is_main: bool,
+	ability_stats: Dictionary
+) -> String:
 	if row.is_empty():
 		return "—"
 	var lines: PackedStringArray = [
@@ -275,19 +294,29 @@ func _hero_detail(row: Dictionary, is_main: bool) -> String:
 			tr("ui_hero_composition_passive"),
 			tr(String(passive.get("name_key", ""))),
 		])
-		lines.append(tr(String(passive.get("desc_key", ""))))
+		lines.append(
+			SKILL_DESCRIPTION_FORMATTER.format_passive(
+				tr(String(passive.get("desc_key", ""))),
+				passive
+			)
+		)
 		lines.append("")
-		lines.append(_skill_line(1, skills, 0))
-		lines.append(_skill_line(2, skills, 1))
+		lines.append(_skill_line(1, skills, 0, ability_stats))
+		lines.append(_skill_line(2, skills, 1, ability_stats))
 	else:
 		lines.append(tr("ui_hero_composition_sub_note"))
 		lines.append("")
-		lines.append(_skill_line(3, skills, 0))
-		lines.append(_skill_line(4, skills, 1))
+		lines.append(_skill_line(3, skills, 0, ability_stats))
+		lines.append(_skill_line(4, skills, 1, ability_stats))
 	return "\n".join(lines)
 
 
-func _skill_line(slot_number: int, skills: Array, index: int) -> String:
+func _skill_line(
+	slot_number: int,
+	skills: Array,
+	index: int,
+	ability_stats: Dictionary
+) -> String:
 	if index < 0 or index >= skills.size():
 		return ""
 	var skill: Dictionary = _definition_by_id(
@@ -295,11 +324,17 @@ func _skill_line(slot_number: int, skills: Array, index: int) -> String:
 		"skills",
 		String(skills[index])
 	)
-	return "%s %d：%s" % [
+	var heading: String = "%s %d：%s" % [
 		tr("ui_hero_composition_skill"),
 		slot_number,
 		tr(String(skill.get("name_key", ""))),
 	]
+	var description: String = SKILL_DESCRIPTION_FORMATTER.format_skill(
+		tr(String(skill.get("desc_key", ""))),
+		skill,
+		ability_stats
+	)
+	return "%s\n%s" % [heading, description]
 
 
 func _definition_by_id(

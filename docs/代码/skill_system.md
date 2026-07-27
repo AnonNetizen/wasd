@@ -16,6 +16,8 @@
 | 路径 | 作用 |
 |------|------|
 | `client/scripts/data/hero_composition_resolver.gd` | 纯数据组合解析；局外拒绝同英雄，预留重复技能后槽成本与冷却 `1.5×` |
+| `client/scripts/data/skill_value_resolver.gd` | 技能成本、目标范围、效果参数与能力属性缩放的纯数据单一实现；运行时和描述共用 |
+| `client/scripts/data/skill_description_formatter.gd` | 把本地化命名占位符解析为配置与主英雄属性缩放后的显示值，不按技能 id 特判 |
 | `client/scripts/gameplay/skill_system.gd` | 四槽、能量、缩放、目标、效果、部署物和快照 |
 | `client/data/characters.json` | 英雄场景、配色、主属性、`passive_id`、两个 `hero_skill_ids` |
 | `client/data/skills.json` | 成本、冷却、目标、效果、缩放声明和本地化 key |
@@ -33,6 +35,7 @@
 | 释放 | 校验槽位、施法者、冷却、ability tag、能量和目标；成功后扣能量、解释效果，再设置该槽冷却 |
 | tick | 仅 `GameState.PLAYING` 时通过 `GameClock.delta_scaled()` 推进冷却、临时修饰和状态 |
 | 快照 | 保存四槽 skill id／冷却、能量、owned tags、状态和部署物；恢复前必须先完成组合配置 |
+| 描述 | 英雄组合卡将 `tr(desc_key)` 交给 `SkillDescriptionFormatter`；技能数值按当前主英雄能力属性解析，被动参数直接读取 `hero_passives.json` |
 
 ## 公共 API
 
@@ -44,6 +47,8 @@
 | `resource_amount()` / `resource_maximum()` / `add_resource()` | 共享资源门面；当前正式资源为 `energy` |
 | `snapshot()` / `restore_snapshot()` | Run v5 的技能子快照；不保存 Node 引用 |
 | `debug_set_free_casts()` / `debug_refresh()` / `debug_summary()` | Developer Test Arena 与 smoke 使用，不得成为正式玩法依赖 |
+| `SkillValueResolver.scaled_*()` | 纯数据缩放 API；新增缩放规则时先改此处，`SkillSystem` 与描述自动共享 |
+| `SkillDescriptionFormatter.format_skill()` / `format_passive()` | 接受译文模板与数据定义并返回完整描述；不负责 `tr()` 或语言选择 |
 
 ## 能力属性与能量
 
@@ -74,7 +79,7 @@
 - hero、passive、skill、slot、resource、targeting、effect、status、stack rule、ability tag、element 和 pool id 全部来自生成常量。
 - DoT 使用 `element_id`、正 `magnitude` 与正 `tick_interval`；tick 仍走 `Combat.apply_damage()`。
 - 临时修饰器必须带稳定 source key（通常为槽位），重施覆盖／刷新，禁止向数组重复追加。
-- 玩家可见名称、说明和组合名模板全部走 `client/locale/strings.csv`。
+- 玩家可见名称、说明和组合名模板全部走 `client/locale/strings.csv`。描述中的可调数值使用配置命名占位符；支持的 token 约定见 `client/locale/README.md`，`validate_data.py` 会拒绝配置无法解析的 token。
 
 ## 故障排查
 
@@ -84,14 +89,16 @@
 | `insufficient_resource` | 当前能量、主英雄效率、技能成本和重复槽倍率 |
 | 冷却互相覆盖 | 快照与 `_cooldowns` 是否以 `skill_1`～`skill_4` 为键 |
 | 范围／持续不缩放 | 技能 effect 参数是否显式声明对应 scaling |
+| 描述显示 `{effect_...}` | `desc_key` token 是否对应实际 effect / modifier 参数，是否通过 `validate_data.py` |
+| 描述数值与实际效果不一致 | 是否绕过 `SkillValueResolver` 另写了一套缩放；新增规则必须由运行时与描述共用 |
 | 重施叠出多个 buff | 修饰器 source key 是否包含槽位，目标系统是否按来源覆盖 |
 | 屏障不拦敌弹 | 屏障是否在 `active_deployables`，子弹是否为 `team_enemy` 且执行扫掠 |
 | 续局丢失技能／屏障 | Run v5 是否保存组合和 `skills` 快照；恢复是否先解析组合再恢复槽位 |
 
 ## 测试义务
 
-- 数据／契约：`sync_contracts.py --check`、`validate_data.py`、`test_data_loader_schema.py`、`lint_project_rules.py`。
-- 运行时：`lint_gdscript_rules.py`、`l1-smoke`、`runtime-smoke`、`headless-boot`。
+- 数据／契约：`sync_contracts.py --check`、`validate_data.py`、`test_data_loader_schema.py`、`lint_project_rules.py`；描述 token 必须覆盖无法解析的负例。
+- 运行时：`lint_gdscript_rules.py`、`l1-smoke`、`runtime-smoke`、`loading-smoke`、`headless-boot`；L1 覆盖能力缩放后的格式化值，Loading 覆盖组合卡不泄漏未解析 token。
 - 输入／回放：`input-smoke`、`replay-input-smoke`、`replay-smoke` 与四条 Replay v3 黄金回放。
 - 存档／世界重建：`save-smoke`、`module-world-smoke`；调试入口变更追加 `debug-test-arena-smoke` 和 release smoke。
 

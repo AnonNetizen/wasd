@@ -82,6 +82,7 @@ class ValidationContext:
     def __init__(self) -> None:
         self.errors: list[str] = []
         self.locale_keys: set[str] = set()
+        self.locale_placeholders: dict[str, set[str]] = {}
         self.contracts = _load_contracts()
 
     def error(self, path: Path, field: str, message: str) -> None:
@@ -209,6 +210,7 @@ def _validate_locale_csv(ctx: ValidationContext) -> None:
                 placeholder_sets.append((locale, set(PLACEHOLDER_RE.findall(text))))
             if placeholder_sets:
                 baseline = placeholder_sets[0][1]
+                ctx.locale_placeholders[key] = baseline
                 for locale, placeholders in placeholder_sets[1:]:
                     if placeholders != baseline:
                         ctx.error(LOCALE_CSV, f"line {line_number}", f"placeholder mismatch for {key}: {locale}")
@@ -370,12 +372,20 @@ def _validate_hero_passives(ctx: ValidationContext, element_ids: set[str]) -> se
                 ctx.error(path, f"{field}.id", f"duplicate hero passive id {passive_id}")
             seen.add(passive_id)
         _require_locale_key(ctx, path, f"{field}.name_key", passive.get("name_key"))
-        _require_locale_key(ctx, path, f"{field}.desc_key", passive.get("desc_key"))
+        desc_key = passive.get("desc_key")
+        _require_locale_key(ctx, path, f"{field}.desc_key", desc_key)
         effect_id = _require_registered(ctx, path, f"{field}.effect", passive.get("effect"), "effects")
         params = passive.get("params")
         if not isinstance(params, dict):
             ctx.error(path, f"{field}.params", "must be an object")
             continue
+        _validate_description_placeholders(
+            ctx,
+            path,
+            f"{field}.desc_key",
+            desc_key,
+            _numeric_description_tokens("param", params),
+        )
         if effect_id == "element_damage_taken_multiplier":
             element_id = _require_registered(ctx, path, f"{field}.params.element_id", params.get("element_id"), "elements")
             if element_id and element_id not in element_ids:
@@ -1292,7 +1302,15 @@ def _validate_skills(ctx: ValidationContext) -> None:
                 ctx.error(path, f"{field}.id", f"duplicate skill id {skill_id}")
             seen.add(skill_id)
         _require_locale_key(ctx, path, f"{field}.name_key", skill.get("name_key"))
-        _require_locale_key(ctx, path, f"{field}.desc_key", skill.get("desc_key"))
+        desc_key = skill.get("desc_key")
+        _require_locale_key(ctx, path, f"{field}.desc_key", desc_key)
+        _validate_description_placeholders(
+            ctx,
+            path,
+            f"{field}.desc_key",
+            desc_key,
+            _skill_description_tokens(skill),
+        )
         _require_bool(ctx, path, f"{field}.default_unlocked", skill.get("default_unlocked"))
         tags = _validate_registered_string_list(ctx, path, f"{field}.tags", skill.get("tags"), "content_tags", allow_empty=False)
         if "tag_skill" not in tags:
@@ -1304,6 +1322,80 @@ def _validate_skills(ctx: ValidationContext) -> None:
         _validate_skill_targeting(ctx, path, f"{field}.targeting", skill.get("targeting"))
         _validate_skill_scaling(ctx, path, f"{field}.scaling", skill.get("scaling"))
         _validate_skill_effects(ctx, path, f"{field}.effects", skill.get("effects"))
+
+
+def _skill_description_tokens(skill: dict[str, Any]) -> set[str]:
+    tokens = {"{cooldown}", "{target_radius}"}
+    costs = skill.get("costs")
+    if isinstance(costs, list):
+        for cost in costs:
+            if not isinstance(cost, dict):
+                continue
+            resource_id = cost.get("resource")
+            if isinstance(resource_id, str) and resource_id:
+                tokens.add(f"{{cost_{resource_id}}}")
+    effects = skill.get("effects")
+    if not isinstance(effects, list):
+        return tokens
+    for effect_index, effect in enumerate(effects, start=1):
+        if not isinstance(effect, dict):
+            continue
+        params = effect.get("params")
+        if not isinstance(params, dict):
+            continue
+        effect_prefix = f"effect_{effect_index}"
+        tokens.update(_numeric_description_tokens(effect_prefix, params))
+        modifiers = params.get("modifiers")
+        if not isinstance(modifiers, list):
+            continue
+        for modifier_index, modifier in enumerate(modifiers, start=1):
+            if isinstance(modifier, dict):
+                tokens.update(
+                    _numeric_description_tokens(
+                        f"{effect_prefix}_modifier_{modifier_index}",
+                        modifier,
+                    )
+                )
+    return tokens
+
+
+def _numeric_description_tokens(
+    prefix: str,
+    source: dict[str, Any],
+) -> set[str]:
+    tokens: set[str] = set()
+    for key, value in source.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        base = f"{prefix}_{key}"
+        tokens.update(
+            {
+                f"{{{base}}}",
+                f"{{{base}_percent}}",
+                f"{{{base}_bonus_percent}}",
+                f"{{{base}_reduction_percent}}",
+            }
+        )
+    return tokens
+
+
+def _validate_description_placeholders(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    desc_key: Any,
+    allowed_tokens: set[str],
+) -> None:
+    if not isinstance(desc_key, str) or not desc_key:
+        return
+    used_tokens = ctx.locale_placeholders.get(desc_key, set())
+    unsupported = used_tokens.difference(allowed_tokens)
+    if unsupported:
+        ctx.error(
+            path,
+            field,
+            f"unsupported config description placeholders {sorted(unsupported)}",
+        )
 
 
 def _validate_skill_activation(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:

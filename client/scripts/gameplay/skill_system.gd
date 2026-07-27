@@ -20,6 +20,9 @@ const SKILL_EFFECTS := preload("res://scripts/contracts/skill_effects.gd")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const SKILL_SLOTS := preload("res://scripts/contracts/skill_slots.gd")
 const SKILL_TARGETING := preload("res://scripts/contracts/skill_targeting.gd")
+const SKILL_VALUE_RESOLVER := preload(
+	"res://scripts/data/skill_value_resolver.gd"
+)
 const STATS := preload("res://scripts/contracts/stats.gd")
 const STATUS_EFFECT_SCRIPT := preload("res://scripts/combat/status_effect.gd")
 
@@ -551,22 +554,11 @@ func _scaled_cost_amount(
 	skill: Dictionary,
 	cost: Dictionary
 ) -> float:
-	var amount: float = maxf(float(cost.get("amount", 0.0)), 0.0)
-	var scaling: Dictionary = _dictionary_or_empty(
-		skill.get("scaling", {})
+	return SKILL_VALUE_RESOLVER.scaled_cost_amount(
+		skill,
+		cost,
+		_ability_stats()
 	)
-	var efficiency_stat: String = String(
-		scaling.get("cost_stat", "")
-	)
-	if not efficiency_stat.is_empty():
-		var efficiency: float = clampf(
-			_ability_stat_value(efficiency_stat),
-			0.25,
-			1.75
-		)
-		amount *= clampf(2.0 - efficiency, 0.25, 1.75)
-	amount *= maxf(float(skill.get("cost_multiplier", 1.0)), 0.0)
-	return amount
 
 
 func _activation_tag_check(skill: Dictionary) -> Dictionary:
@@ -599,13 +591,10 @@ func _targets_for_skill(skill: Dictionary) -> Array[Node]:
 		skill.get("targeting", {})
 	)
 	var targeting_type: String = String(targeting.get("type", ""))
-	var radius: float = maxf(float(targeting.get("radius", 0.0)), 0.0)
-	var scaling: Dictionary = _dictionary_or_empty(
-		skill.get("scaling", {})
+	var radius: float = SKILL_VALUE_RESOLVER.scaled_target_radius(
+		skill,
+		_ability_stats()
 	)
-	var radius_stat: String = String(scaling.get("radius_stat", ""))
-	if not radius_stat.is_empty():
-		radius *= maxf(_ability_stat_value(radius_stat), 0.0)
 	var max_targets: int = maxi(int(targeting.get("max_targets", 0)), 0)
 	if targeting_type == SKILL_TARGETING.AOE_ENEMIES_AROUND_CASTER:
 		return _enemy_targets_in_radius(radius, max_targets)
@@ -893,77 +882,11 @@ func _scaled_effect_params(
 	skill: Dictionary,
 	effect: Dictionary
 ) -> Dictionary:
-	var params: Dictionary = _dictionary_or_empty(effect.get("params", {}))
-	var scaling: Dictionary = _dictionary_or_empty(
-		skill.get("scaling", {})
+	return SKILL_VALUE_RESOLVER.scaled_effect_params(
+		skill,
+		effect,
+		_ability_stats()
 	)
-	var duration_stat: String = String(
-		scaling.get("duration_stat", "")
-	)
-	if not duration_stat.is_empty() and params.has("duration"):
-		params["duration"] = (
-			float(params.get("duration", 0.0))
-			* maxf(_ability_stat_value(duration_stat), 0.0)
-		)
-	var radius_stat: String = String(scaling.get("radius_stat", ""))
-	if not radius_stat.is_empty() and params.has("radius"):
-		params["radius"] = (
-			float(params.get("radius", 0.0))
-			* maxf(_ability_stat_value(radius_stat), 0.0)
-		)
-	var strength_stat: String = String(
-		scaling.get("strength_stat", "")
-	)
-	if not strength_stat.is_empty():
-		var strength: float = maxf(
-			_ability_stat_value(strength_stat),
-			0.0
-		)
-		if params.has("hp"):
-			params["hp"] = float(params.get("hp", 0.0)) * strength
-		if params.has("amount"):
-			params["amount"] = (
-				float(params.get("amount", 0.0)) * strength
-			)
-		if params.has("magnitude"):
-			var magnitude: float = (
-				float(params.get("magnitude", 0.0)) * strength
-			)
-			if params.has("magnitude_cap"):
-				magnitude = minf(
-					magnitude,
-					float(params.get("magnitude_cap", magnitude))
-				)
-			params["magnitude"] = magnitude
-		params["modifiers"] = _scaled_modifiers(
-			params.get("modifiers", []),
-			strength,
-			float(params.get("magnitude", 0.0))
-		)
-	return params
-
-
-func _scaled_modifiers(
-	raw_modifiers: Variant,
-	strength: float,
-	scaled_magnitude: float
-) -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for modifier: Dictionary in _typed_dictionary_array(raw_modifiers):
-		var scale_mode: String = String(
-			modifier.get("scale_mode", "")
-		)
-		if scale_mode == "inverse_from_magnitude":
-			modifier["value"] = maxf(1.0 - scaled_magnitude, 0.0)
-		elif String(modifier.get("type", "")) == "mult":
-			var value: float = float(modifier.get("value", 1.0))
-			modifier["value"] = 1.0 + (value - 1.0) * strength
-		elif String(modifier.get("type", "")) == "add":
-			modifier["value"] = (
-				float(modifier.get("value", 0.0)) * strength
-			)
-		result.append(modifier)
-	return result
 
 
 func _ability_stat_value(stat_id: String) -> float:
@@ -974,15 +897,23 @@ func _ability_stat_value(stat_id: String) -> float:
 		and _caster.has_method("stat_value")
 	):
 		value = float(_caster.call("stat_value", stat_id))
-	if stat_id == STATS.ABILITY_STRENGTH:
-		return clampf(value, 0.25, 4.0)
-	if stat_id == STATS.ABILITY_RANGE:
-		return clampf(value, 0.25, 2.5)
-	if stat_id == STATS.ABILITY_DURATION:
-		return clampf(value, 0.25, 3.0)
-	if stat_id == STATS.ABILITY_EFFICIENCY:
-		return clampf(value, 0.25, 1.75)
-	return value
+	return SKILL_VALUE_RESOLVER.ability_stat_value(
+		{stat_id: value},
+		stat_id
+	)
+
+
+func _ability_stats() -> Dictionary:
+	return {
+		STATS.ABILITY_STRENGTH:
+			_ability_stat_value(STATS.ABILITY_STRENGTH),
+		STATS.ABILITY_RANGE:
+			_ability_stat_value(STATS.ABILITY_RANGE),
+		STATS.ABILITY_DURATION:
+			_ability_stat_value(STATS.ABILITY_DURATION),
+		STATS.ABILITY_EFFICIENCY:
+			_ability_stat_value(STATS.ABILITY_EFFICIENCY),
+	}
 
 
 func _apply_status_to_target(
