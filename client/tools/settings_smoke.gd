@@ -267,7 +267,7 @@ func _expect_settings_panel_controls() -> void:
 		await get_tree().process_frame
 		_expect(FileAccess.file_exists(InputService.bindings_path()), "reset input defaults should persist GUIDE remapping config")
 		_expect(InputService.binding_text(InputService.BINDING_PAUSE, InputService.DEVICE_KEYBOARD_MOUSE).contains("Escape"), "reset input defaults should restore pause fallback")
-		_expect(InputService.binding_text(InputService.BINDING_INTERACT, InputService.DEVICE_KEYBOARD_MOUSE).contains("E"), "reset input defaults should restore interact binding")
+		_expect(InputService.binding_text(InputService.BINDING_INTERACT, InputService.DEVICE_KEYBOARD_MOUSE).contains("F"), "reset input defaults should restore interact binding")
 		_expect(input_feedback_label != null and String(input_feedback_label.text) == "Input bindings restored to defaults.", "reset input defaults should show feedback")
 
 	if close_button != null:

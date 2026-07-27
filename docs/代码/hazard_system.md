@@ -75,7 +75,7 @@ ActiveWorld
 - `hazards.csv.id` 必须唯一，模式池、PCG 和人工摆点都引用此 id。
 - `tags` 必须含 `tag_hazard`。
 - `pool_id` 必须来自词表 §8；当前 `hazard_spike` 复用通用 `Hazard` 场景。
-- `damage_type` 必须来自词表 §9，并经 `Combat` 校验。
+- `element_id` 必须来自词表 §9，并经 `Combat` 校验；现有机关默认使用 `element_neutral`。
 - `trigger_interval` 单位秒，运行时下限为 `0.01`。
 - `radius_tiles` 为正整数，表示机关矩形 footprint 从中心到边缘占用的半格数；最终半宽 / 半高由 `MapManager.grid_cell_size()` 推导。为让外边缘贴住背景矩形格线，奇数尺寸机关中心吸附到格心，偶数尺寸机关中心吸附到网格顶点。
 - 触发判定与视觉矩形使用同一套轴对齐范围：`abs(dx) <= half_width and abs(dy) <= half_height`。不要再用旧的像素 `radius`、菱形或圆形近似。
@@ -110,7 +110,7 @@ ActiveWorld
 | 现象 | 优先检查 |
 |------|----------|
 | 机关不出现 | `map_layouts.json` 是否生成 placement；`game_modes.json.resource_pools.hazards` 是否包含 id；对象池是否注册 |
-| 机关出现但不伤害 | `GameState` 是否为 `PLAYING`；玩家是否在 `radius_tiles` 与地图 grid 推导出的矩形范围内；`damage` / `damage_type` 是否有效；玩家是否仍在受伤无敌期 |
+| 机关出现但不伤害 | `GameState` 是否为 `PLAYING`；玩家是否在 `radius_tiles` 与地图 grid 推导出的矩形范围内；`damage` / `element_id` 是否有效；是否命中护盾门或冲刺无敌窗口 |
 | 机关看起来不像矩形格整数倍 | `GameplayRunLoop` 是否把 `MapManager.grid_cell_size()` 传给 `Hazard.configure()`；`hazards.csv.radius_tiles` 是否为正整数；偶数尺寸机关是否吸附到网格顶点；背景网格是否来自同一份 `grid.cell_width/cell_height` |
 | 机关重复伤害太快 | `trigger_interval` 是否过低；玩家无敌窗口是否被测试清零 |
 | 续局后机关消失 | run payload 是否有 `hazards`；恢复时是否按 `hazard_id` 查到 `hazards.csv` 数据 |

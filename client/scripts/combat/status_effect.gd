@@ -5,18 +5,23 @@ extends Resource
 
 
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
-const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const ELEMENTS := preload("res://scripts/contracts/elements.gd")
 const STATUS_EFFECTS := preload("res://scripts/contracts/status_effects.gd")
 const STATUS_STACK_RULES := preload("res://scripts/contracts/status_stack_rules.gd")
 
-var damage_type: String = ""
 var duration: float = 0.0
+var element_id: String = ""
 var granted_ability_tags: Array[String] = []
+var incoming_damage_per_stack: float = 0.0
+var incoming_damage_source_team: String = ""
 var instance_key: String = ""
+var max_stacks: int = 1
 var magnitude: float = 0.0
+var modifiers: Array[Dictionary] = []
 var remaining: float = 0.0
 var source: Node = null
 var source_team: String = ""
+var stack_count: int = 1
 var stack_rule: String = STATUS_STACK_RULES.REFRESH
 var status_id: String = ""
 var target_team: String = ""
@@ -28,10 +33,21 @@ func setup(effect_id: String, params: Dictionary, source_node: Node = null) -> R
 	status_id = effect_id
 	duration = maxf(float(params.get("duration", 0.0)), 0.0)
 	remaining = duration
-	damage_type = String(params.get("damage_type", ""))
+	element_id = String(params.get("element_id", ""))
 	tick_interval = maxf(float(params.get("tick_interval", 0.0)), 0.0)
 	tick_remaining = tick_interval
 	magnitude = float(params.get("magnitude", 0.0))
+	modifiers = _typed_dictionary_array(params.get("modifiers", []))
+	stack_count = maxi(int(params.get("stack_count", 1)), 1)
+	max_stacks = maxi(int(params.get("max_stacks", 1)), 1)
+	stack_count = mini(stack_count, max_stacks)
+	incoming_damage_per_stack = maxf(
+		float(params.get("incoming_damage_per_stack", 0.0)),
+		0.0
+	)
+	incoming_damage_source_team = String(
+		params.get("incoming_damage_source_team", "")
+	)
 	stack_rule = String(params.get("stack_rule", STATUS_STACK_RULES.REFRESH))
 	source = source_node
 	source_team = String(params.get("source_team", ""))
@@ -45,10 +61,15 @@ func copy_runtime() -> Resource:
 	effect.set("status_id", status_id)
 	effect.set("duration", duration)
 	effect.set("remaining", remaining)
-	effect.set("damage_type", damage_type)
+	effect.set("element_id", element_id)
 	effect.set("tick_interval", tick_interval)
 	effect.set("tick_remaining", tick_remaining)
 	effect.set("magnitude", magnitude)
+	effect.set("modifiers", modifiers.duplicate(true))
+	effect.set("stack_count", stack_count)
+	effect.set("max_stacks", max_stacks)
+	effect.set("incoming_damage_per_stack", incoming_damage_per_stack)
+	effect.set("incoming_damage_source_team", incoming_damage_source_team)
 	effect.set("stack_rule", stack_rule)
 	effect.set("source", source)
 	effect.set("source_team", source_team)
@@ -59,15 +80,15 @@ func copy_runtime() -> Resource:
 
 
 func is_valid() -> bool:
-	var has_valid_damage_type: bool = damage_type.is_empty() or DAMAGE_TYPES.VALUES.has(damage_type)
+	var has_valid_element: bool = element_id.is_empty() or ELEMENTS.VALUES.has(element_id)
 	var has_damage_tick: bool = magnitude > 0.0 and tick_interval > 0.0
 	return (
 		STATUS_EFFECTS.VALUES.has(status_id)
 		and STATUS_STACK_RULES.VALUES.has(stack_rule)
 		and duration > 0.0
 		and remaining > 0.0
-		and has_valid_damage_type
-		and (not has_damage_tick or not damage_type.is_empty())
+		and has_valid_element
+		and (not has_damage_tick or not element_id.is_empty())
 	)
 
 
@@ -76,10 +97,15 @@ func snapshot() -> Dictionary:
 		"status": status_id,
 		"duration": duration,
 		"remaining": remaining,
-		"damage_type": damage_type,
+		"element_id": element_id,
 		"tick_interval": tick_interval,
 		"tick_remaining": tick_remaining,
 		"magnitude": magnitude,
+		"modifiers": modifiers.duplicate(true),
+		"stack_count": stack_count,
+		"max_stacks": max_stacks,
+		"incoming_damage_per_stack": incoming_damage_per_stack,
+		"incoming_damage_source_team": incoming_damage_source_team,
 		"stack_rule": stack_rule,
 		"source_team": source_team,
 		"target_team": target_team,
@@ -91,10 +117,21 @@ func restore_from_snapshot(snapshot_data: Dictionary) -> Resource:
 	status_id = String(snapshot_data.get("status", ""))
 	duration = maxf(float(snapshot_data.get("duration", 0.0)), 0.0)
 	remaining = clampf(float(snapshot_data.get("remaining", duration)), 0.0, duration)
-	damage_type = String(snapshot_data.get("damage_type", ""))
+	element_id = String(snapshot_data.get("element_id", ""))
 	tick_interval = maxf(float(snapshot_data.get("tick_interval", 0.0)), 0.0)
 	tick_remaining = clampf(float(snapshot_data.get("tick_remaining", tick_interval)), 0.0, tick_interval)
 	magnitude = float(snapshot_data.get("magnitude", 0.0))
+	modifiers = _typed_dictionary_array(snapshot_data.get("modifiers", []))
+	stack_count = maxi(int(snapshot_data.get("stack_count", 1)), 1)
+	max_stacks = maxi(int(snapshot_data.get("max_stacks", 1)), 1)
+	stack_count = mini(stack_count, max_stacks)
+	incoming_damage_per_stack = maxf(
+		float(snapshot_data.get("incoming_damage_per_stack", 0.0)),
+		0.0
+	)
+	incoming_damage_source_team = String(
+		snapshot_data.get("incoming_damage_source_team", "")
+	)
 	stack_rule = String(snapshot_data.get("stack_rule", STATUS_STACK_RULES.REFRESH))
 	source_team = String(snapshot_data.get("source_team", ""))
 	target_team = String(snapshot_data.get("target_team", ""))
@@ -110,4 +147,14 @@ func _registered_ability_tags(raw_value: Variant) -> Array[String]:
 		var tag_id: String = String(item)
 		if not tag_id.is_empty() and ABILITY_TAGS.VALUES.has(tag_id) and not result.has(tag_id):
 			result.append(tag_id)
+	return result
+
+
+func _typed_dictionary_array(raw_value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not raw_value is Array:
+		return result
+	for item: Variant in raw_value as Array:
+		if item is Dictionary:
+			result.append((item as Dictionary).duplicate(true))
 	return result

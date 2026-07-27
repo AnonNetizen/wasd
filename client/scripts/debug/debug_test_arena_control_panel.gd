@@ -4,14 +4,19 @@ class_name DebugTestArenaControlPanel
 extends CanvasLayer
 
 
+const SKILL_SLOTS := preload("res://scripts/contracts/skill_slots.gd")
+
 var pauses_game: bool = true
 
 var _controller: Node = null
 var _count_spin: SpinBox = null
+var _damage_spin: SpinBox = null
+var _element_option: OptionButton = null
 var _enemy_option: OptionButton = null
 var _feedback_label: Label = null
 var _free_skill_check: CheckButton = null
 var _god_mode_check: CheckButton = null
+var _observation_label: Label = null
 var _spawn_type_option: OptionButton = null
 
 
@@ -26,6 +31,15 @@ func _ready() -> void:
 	_count_spin = get_node_or_null(
 		"Root/Center/Panel/Margin/Layout/SpawnGrid/CountSpin"
 	) as SpinBox
+	_element_option = get_node_or_null(
+		"Root/Center/Panel/Margin/Layout/SpawnGrid/ElementOption"
+	) as OptionButton
+	_damage_spin = get_node_or_null(
+		"Root/Center/Panel/Margin/Layout/SpawnGrid/DamageSpin"
+	) as SpinBox
+	_observation_label = get_node_or_null(
+		"Root/Center/Panel/Margin/Layout/ObservationLabel"
+	) as Label
 	_feedback_label = get_node_or_null(
 		"Root/Center/Panel/Margin/Layout/FeedbackLabel"
 	) as Label
@@ -39,6 +53,9 @@ func _ready() -> void:
 		_enemy_option == null
 		or _spawn_type_option == null
 		or _count_spin == null
+		or _element_option == null
+		or _damage_spin == null
+		or _observation_label == null
 		or _feedback_label == null
 		or _god_mode_check == null
 		or _free_skill_check == null
@@ -51,6 +68,10 @@ func _ready() -> void:
 	if not Localization.locale_changed.is_connected(_on_locale_changed):
 		Localization.locale_changed.connect(_on_locale_changed)
 	refresh_texts()
+
+
+func _process(_delta: float) -> void:
+	_refresh_observation()
 
 
 func _exit_tree() -> void:
@@ -77,6 +98,22 @@ func configure(controller: Node, enemies: Array[Dictionary]) -> void:
 	_spawn_type_option.set_item_metadata(0, "stationary")
 	_spawn_type_option.add_item(tr("ui_debug_test_arena_normal_ai"))
 	_spawn_type_option.set_item_metadata(1, "ai")
+	_element_option.clear()
+	var element_payload: Dictionary = DataLoader.load_json(
+		DataLoader.ELEMENTS_PATH
+	)
+	for raw_element: Variant in element_payload.get("elements", []):
+		if not raw_element is Dictionary:
+			continue
+		var element: Dictionary = raw_element as Dictionary
+		var element_id: String = String(element.get("id", ""))
+		_element_option.add_item(
+			tr(String(element.get("name_key", element_id)))
+		)
+		_element_option.set_item_metadata(
+			_element_option.item_count - 1,
+			element_id
+		)
 	_god_mode_check.button_pressed = false
 	_free_skill_check.button_pressed = false
 	_feedback_label.text = tr("ui_debug_test_arena_panel_ready")
@@ -100,6 +137,8 @@ func refresh_texts() -> void:
 	_set_grid_label_text("SpawnGrid", "EnemyLabel", "ui_debug_test_arena_enemy")
 	_set_grid_label_text("SpawnGrid", "TypeLabel", "ui_debug_test_arena_target_type")
 	_set_grid_label_text("SpawnGrid", "CountLabel", "ui_debug_test_arena_count")
+	_set_grid_label_text("SpawnGrid", "ElementLabel", "ui_debug_test_arena_element")
+	_set_grid_label_text("SpawnGrid", "DamageLabel", "ui_debug_test_arena_damage_amount")
 	_set_button_text("SpawnButton", "ui_debug_test_arena_spawn")
 	_set_button_text("ClearTargetsButton", "ui_debug_test_arena_clear_targets")
 	_set_button_text("ClearAiButton", "ui_debug_test_arena_clear_ai")
@@ -111,6 +150,14 @@ func refresh_texts() -> void:
 	_set_button_text("TeleportButton", "ui_debug_test_arena_teleport")
 	_set_button_text("ResetArenaButton", "ui_debug_test_arena_reset_arena")
 	_set_button_text("ResetStatsButton", "ui_debug_test_arena_reset_stats")
+	_set_button_text("CastSkill1Button", "ui_debug_test_arena_cast_skill_1")
+	_set_button_text("CastSkill2Button", "ui_debug_test_arena_cast_skill_2")
+	_set_button_text("CastSkill3Button", "ui_debug_test_arena_cast_skill_3")
+	_set_button_text("CastSkill4Button", "ui_debug_test_arena_cast_skill_4")
+	_set_button_text("ShieldButton", "ui_debug_test_arena_restore_shield")
+	_set_button_text("OvershieldButton", "ui_debug_test_arena_add_overshield")
+	_set_button_text("EnergyButton", "ui_debug_test_arena_restore_energy")
+	_set_button_text("ElementDamageButton", "ui_debug_test_arena_inject_damage")
 	_set_bottom_button_text("SetupButton", "ui_debug_test_arena_return_setup")
 	_set_bottom_button_text("ExitButton", "ui_debug_test_arena_exit")
 	_set_bottom_button_text("CloseButton", "ui_debug_test_arena_close_panel")
@@ -152,6 +199,14 @@ func _connect_buttons() -> void:
 	_connect_button("TeleportButton", _on_teleport_pressed)
 	_connect_button("ResetArenaButton", _on_reset_arena_pressed)
 	_connect_button("ResetStatsButton", _on_reset_stats_pressed)
+	_connect_button("CastSkill1Button", _on_cast_skill_1_pressed)
+	_connect_button("CastSkill2Button", _on_cast_skill_2_pressed)
+	_connect_button("CastSkill3Button", _on_cast_skill_3_pressed)
+	_connect_button("CastSkill4Button", _on_cast_skill_4_pressed)
+	_connect_button("ShieldButton", _on_restore_shield_pressed)
+	_connect_button("OvershieldButton", _on_add_overshield_pressed)
+	_connect_button("EnergyButton", _on_restore_energy_pressed)
+	_connect_button("ElementDamageButton", _on_inject_damage_pressed)
 	_connect_bottom_button("SetupButton", _on_setup_pressed)
 	_connect_bottom_button("ExitButton", _on_exit_pressed)
 	_connect_bottom_button("CloseButton", request_close)
@@ -266,6 +321,106 @@ func _on_reset_arena_pressed() -> void:
 func _on_reset_stats_pressed() -> void:
 	_controller.call("reset_damage_stats")
 	_feedback_label.text = tr("ui_debug_test_arena_stats_reset")
+
+
+func _on_cast_skill_1_pressed() -> void:
+	_cast_skill_slot(SKILL_SLOTS.SKILL_1)
+
+
+func _on_cast_skill_2_pressed() -> void:
+	_cast_skill_slot(SKILL_SLOTS.SKILL_2)
+
+
+func _on_cast_skill_3_pressed() -> void:
+	_cast_skill_slot(SKILL_SLOTS.SKILL_3)
+
+
+func _on_cast_skill_4_pressed() -> void:
+	_cast_skill_slot(SKILL_SLOTS.SKILL_4)
+
+
+func _cast_skill_slot(slot_id: String) -> void:
+	var result: Dictionary = _controller.call(
+		"cast_skill_slot",
+		slot_id
+	) as Dictionary
+	_feedback_label.text = "%s: %s" % [
+		slot_id,
+		String(result.get("reason", "")),
+	]
+
+
+func _on_restore_shield_pressed() -> void:
+	_controller.call("restore_player_shield")
+	_feedback_label.text = tr("ui_debug_test_arena_restore_shield")
+
+
+func _on_add_overshield_pressed() -> void:
+	_controller.call("add_player_overshield", 100.0)
+	_feedback_label.text = tr("ui_debug_test_arena_add_overshield")
+
+
+func _on_restore_energy_pressed() -> void:
+	_controller.call("restore_player_energy")
+	_feedback_label.text = tr("ui_debug_test_arena_restore_energy")
+
+
+func _on_inject_damage_pressed() -> void:
+	var result: Dictionary = _controller.call(
+		"inject_player_element_damage",
+		_selected_metadata(_element_option),
+		float(_damage_spin.value)
+	) as Dictionary
+	_feedback_label.text = "%s: %s" % [
+		_selected_metadata(_element_option),
+		String(result.get("reason", "")),
+	]
+
+
+func _refresh_observation() -> void:
+	if (
+		_controller == null
+		or _observation_label == null
+		or not _controller.has_method("combat_observation")
+	):
+		return
+	var observation: Dictionary = _controller.call(
+		"combat_observation"
+	) as Dictionary
+	_observation_label.text = (
+		"%s %.0f  ·  %s %.0f  ·  %s %.0f\n%s: %s  ·  %s: %s"
+		% [
+			tr("ui_stats_shield"),
+			float(observation.get("shield", 0.0)),
+			tr("ui_stats_overshield"),
+			float(observation.get("overshield", 0.0)),
+			tr("ui_stats_energy"),
+			float(observation.get("energy", 0.0)),
+			tr("ui_debug_test_arena_player_status"),
+			_status_summary_text(
+				observation.get("player_statuses", [])
+			),
+			tr("ui_debug_test_arena_enemy_status"),
+			_status_summary_text(
+				observation.get("enemy_statuses", [])
+			),
+		]
+	)
+
+
+func _status_summary_text(raw_statuses: Variant) -> String:
+	if not raw_statuses is Array or (raw_statuses as Array).is_empty():
+		return "—"
+	var parts: PackedStringArray = []
+	for raw_status: Variant in raw_statuses as Array:
+		if not raw_status is Dictionary:
+			continue
+		var status: Dictionary = raw_status as Dictionary
+		parts.append("%s×%d" % [
+			String(status.get("id", "")),
+			int(status.get("stacks", 1)),
+		])
+	return ", ".join(parts)
 
 
 func _on_setup_pressed() -> void:

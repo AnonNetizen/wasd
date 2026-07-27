@@ -45,7 +45,11 @@ const BINDING_AIM_LEFT: StringName = INPUT_BINDING_IDS.INPUT_AIM_LEFT
 const BINDING_AIM_RIGHT: StringName = INPUT_BINDING_IDS.INPUT_AIM_RIGHT
 const BINDING_AIM_STICK: StringName = INPUT_BINDING_IDS.INPUT_AIM_STICK
 const BINDING_FIRE: StringName = INPUT_BINDING_IDS.INPUT_FIRE
-const BINDING_USE_ACTIVE_ITEM: StringName = INPUT_BINDING_IDS.INPUT_USE_ACTIVE_ITEM
+const BINDING_SKILL_1: StringName = INPUT_BINDING_IDS.INPUT_SKILL_1
+const BINDING_SKILL_2: StringName = INPUT_BINDING_IDS.INPUT_SKILL_2
+const BINDING_SKILL_3: StringName = INPUT_BINDING_IDS.INPUT_SKILL_3
+const BINDING_SKILL_4: StringName = INPUT_BINDING_IDS.INPUT_SKILL_4
+const BINDING_DASH: StringName = INPUT_BINDING_IDS.INPUT_DASH
 const BINDING_INTERACT: StringName = INPUT_BINDING_IDS.INPUT_INTERACT
 const BINDING_SHOW_STATS_PANEL: StringName = INPUT_BINDING_IDS.INPUT_SHOW_STATS_PANEL
 const BINDING_PAUSE: StringName = INPUT_BINDING_IDS.INPUT_PAUSE
@@ -63,7 +67,11 @@ const BINDING_ORDER: Array[StringName] = [
 	BINDING_AIM_RIGHT,
 	BINDING_AIM_STICK,
 	BINDING_FIRE,
-	BINDING_USE_ACTIVE_ITEM,
+	BINDING_SKILL_1,
+	BINDING_SKILL_2,
+	BINDING_SKILL_3,
+	BINDING_SKILL_4,
+	BINDING_DASH,
 	BINDING_INTERACT,
 	BINDING_SHOW_STATS_PANEL,
 	BINDING_PAUSE,
@@ -76,7 +84,11 @@ const ACTION_RESOURCE_NAMES: PackedStringArray = [
 	"aim",
 	"pointer_position",
 	"fire",
-	"use_active_item",
+	"skill_1",
+	"skill_2",
+	"skill_3",
+	"skill_4",
+	"dash",
 	"interact",
 	"show_stats_panel",
 	"pause",
@@ -682,7 +694,11 @@ func _build_binding_specs() -> Dictionary:
 		BINDING_AIM_RIGHT: _binding_spec("ui_settings_input_aim_right", [[&"gameplay", &"aim", 3]], []),
 		BINDING_AIM_STICK: _binding_spec("ui_settings_input_aim_stick", [], [[&"gameplay", &"aim", 4]]),
 		BINDING_FIRE: _binding_spec("ui_settings_input_fire", [[&"gameplay", &"fire", 0]], [[&"gameplay", &"fire", 1]]),
-		BINDING_USE_ACTIVE_ITEM: _binding_spec("ui_settings_input_use_active_item", [[&"gameplay", &"use_active_item", 0]], [[&"gameplay", &"use_active_item", 1]]),
+		BINDING_SKILL_1: _binding_spec("ui_settings_input_skill_1", [[&"gameplay", &"skill_1", 0]], [[&"gameplay", &"skill_1", 1]]),
+		BINDING_SKILL_2: _binding_spec("ui_settings_input_skill_2", [[&"gameplay", &"skill_2", 0]], [[&"gameplay", &"skill_2", 1]]),
+		BINDING_SKILL_3: _binding_spec("ui_settings_input_skill_3", [[&"gameplay", &"skill_3", 0]], [[&"gameplay", &"skill_3", 1]]),
+		BINDING_SKILL_4: _binding_spec("ui_settings_input_skill_4", [[&"gameplay", &"skill_4", 0]], [[&"gameplay", &"skill_4", 1]]),
+		BINDING_DASH: _binding_spec("ui_settings_input_dash", [[&"gameplay", &"dash", 0]], [[&"gameplay", &"dash", 1]]),
 		BINDING_INTERACT: _binding_spec("ui_settings_input_interact", [[&"gameplay", &"interact", 0]], [[&"gameplay", &"interact", 1]]),
 		BINDING_SHOW_STATS_PANEL: _binding_spec("ui_settings_input_show_stats_panel", [[&"gameplay", &"show_stats_panel", 0]], [[&"gameplay", &"show_stats_panel", 1]]),
 		BINDING_PAUSE: _binding_spec("ui_settings_input_pause", [[&"gameplay", &"pause", 0], [&"ui", &"pause", 0]], [[&"gameplay", &"pause", 1], [&"ui", &"pause", 1]]),

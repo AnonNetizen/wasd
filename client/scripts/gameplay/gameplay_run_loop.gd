@@ -21,7 +21,12 @@ const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
-const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const ELEMENTS := preload("res://scripts/contracts/elements.gd")
+const ELEMENT_RESOLVER_SCRIPT := preload("res://scripts/data/element_resolver.gd")
+const EFFECTS := preload("res://scripts/contracts/effects.gd")
+const HERO_COMPOSITION_RESOLVER := preload(
+	"res://scripts/data/hero_composition_resolver.gd"
+)
 const DAMAGE_NUMBER_SCENE := preload("res://scenes/gameplay/damage_number.tscn")
 const GAME_MODES := preload("res://scripts/contracts/game_modes.gd")
 const GEAR_MOD_SLOTS := preload("res://scripts/contracts/gear_mod_slots.gd")
@@ -35,9 +40,14 @@ const INTEREST_POINT_TARGET_SCENE := preload("res://scenes/gameplay/interest_poi
 const LEVEL_UP_PANEL_SCENE := preload("res://scenes/ui/level_up_panel.tscn")
 const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause_menu.tscn")
 const PICKUP_ORB_SCENE := preload("res://scenes/gameplay/pickup_orb.tscn")
+const ENERGY_ORB_SCENE := preload("res://scenes/gameplay/energy_orb.tscn")
+const PROJECTILE_BARRIER_SCENE := preload(
+	"res://scenes/gameplay/projectile_barrier.tscn"
+)
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
+const SKILL_SLOTS := preload("res://scripts/contracts/skill_slots.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 const VFX_CUES := preload("res://scripts/contracts/vfx_cues.gd")
 const WARZONE_DIRECTOR_SCRIPT := preload("res://scripts/gameplay/warzone_director.gd")
@@ -51,8 +61,17 @@ const ENEMY_POOL_SIZE: int = 96
 const FEEDBACK_POOL_SIZE: int = 128
 const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 4
-const ACTIVE_POOL_GROUPS: Array[String] = ["active_hazards", "active_enemies", "active_bullets", "active_pickups"]
+const ENERGY_ORB_POOL_SIZE: int = 64
+const PROJECTILE_BARRIER_POOL_SIZE: int = 4
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 5
+const ACTIVE_POOL_GROUPS: Array[String] = [
+	"active_hazards",
+	"active_enemies",
+	"active_bullets",
+	"active_pickups",
+	"active_energy_orbs",
+	"active_deployables",
+]
 const UI_RESTORE_LEVEL_UP: String = "level_up"
 const UI_RESTORE_PAUSED: String = "paused"
 const UI_RESTORE_PLAYING: String = "playing"
@@ -81,10 +100,11 @@ const DEBUG_TEST_ARENA_STATIONARY: String = "stationary"
 var _active_world: Node2D = null
 var _actor_scene_cache: Dictionary = {}
 var _camera_controller: Node2D = null
-var _character_id: String = CHARACTER_IDS.CHARACTER_DEFAULT
+var _character_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 var _current_level: int = 1
 var _current_xp: int = 0
 var _enemy_rows: Dictionary = {}
+var _energy_drop_config: Dictionary = {}
 var _extraction_active: bool = false
 var _extraction_hold_time: float = 0.0
 var _extraction_position: Vector2 = Vector2.ZERO
@@ -96,11 +116,13 @@ var _growth_entries: Array[Dictionary] = []
 var _gameplay_feedback: GameplayFeedbackController = null
 var _game_over_panel: CanvasLayer = null
 var _hazard_rows: Dictionary = {}
+var _hero_composition: Dictionary = {}
 var _hud: CanvasLayer = null
 var _interest_point_caches: Dictionary = {}
 var _interest_points: Dictionary = {}
 var _interest_point_targets: Dictionary = {}
 var _kills: int = 0
+var _main_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 var _level_panel: CanvasLayer = null
 var _pending_loot: Dictionary = {}
 var _pending_level_up_choices: Array[Dictionary] = []
@@ -127,12 +149,14 @@ var _warzone_director = null
 var _waves: Array[Dictionary] = []
 var _weapon_system: Node = null
 var _vfx_host: VfxHost = null
-var _requested_character_id: String = CHARACTER_IDS.CHARACTER_DEFAULT
+var _requested_main_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
+var _requested_sub_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 var _registered_enemy_pool_ids: Array[String] = []
 var _player_loading_mode: bool = false
 var _run_activated: bool = false
 var _run_prepared: bool = false
 var _run_start_failed: bool = false
+var _sub_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 var _pending_ui_restore: Dictionary = {}
 
 
@@ -178,6 +202,7 @@ func _draw() -> void:
 
 func _process(delta: float) -> void:
 	_update_stats_panel()
+	_update_combat_hud()
 	if not GameState.is_state(GameState.PLAYING):
 		return
 	if _is_debug_test_arena():
@@ -234,7 +259,26 @@ func configure_debug_test_arena(config: Dictionary) -> void:
 
 ## Must be called before the run loop enters the scene tree.
 func configure_character_id(character_id: String) -> void:
-	_requested_character_id = character_id
+	_requested_main_hero_id = character_id
+	if _requested_sub_hero_id == character_id:
+		for candidate_id: String in CHARACTER_IDS.VALUES:
+			if candidate_id != character_id:
+				_requested_sub_hero_id = candidate_id
+				break
+
+
+## Must be called before the run loop enters the scene tree.
+func configure_hero_composition(
+	main_hero_id: String,
+	sub_hero_id: String
+) -> void:
+	if is_inside_tree():
+		push_error(
+			"[GameplayRunLoop] hero composition must be configured before entering tree"
+		)
+		return
+	_requested_main_hero_id = main_hero_id
+	_requested_sub_hero_id = sub_hero_id
 
 
 ## Enables the user-facing cooperative loading path. Headless and replay tools keep
@@ -250,12 +294,28 @@ func activate_prepared_run() -> bool:
 	GameState.change_state(GameState.PLAYING, {
 		"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
 		"character": _character_id,
+		"main_hero_id": _main_hero_id,
+		"sub_hero_id": _sub_hero_id,
 		"run_purpose": (
 			"debug_test_arena"
 			if _is_debug_test_arena()
 			else "standard"
 		),
 	})
+	if not _is_debug_test_arena() and Replay.is_enabled():
+		if Replay.is_recording():
+			Replay.stop_recording("replaced_by_new_run")
+		Replay.clear_recording()
+		var replay_context: Dictionary = {
+			"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
+			"main_hero_id": _main_hero_id,
+			"sub_hero_id": _sub_hero_id,
+		}
+		if Replay.start_recording(replay_context):
+			Replay.record_decision(
+				ANALYTICS_EVENTS.RUN_START,
+				replay_context
+			)
 	if (
 		_is_debug_test_arena()
 		and _debug_test_arena_controller != null
@@ -305,6 +365,10 @@ func create_run_snapshot() -> Dictionary:
 		"schema_version": RUN_SNAPSHOT_SCHEMA_VERSION,
 		"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
 		"character": _character_id,
+		"hero_composition": {
+			"main_hero_id": _main_hero_id,
+			"sub_hero_id": _sub_hero_id,
+		},
 		"level": _current_level,
 		"xp": _current_xp,
 		"kills": _kills,
@@ -322,6 +386,7 @@ func create_run_snapshot() -> Dictionary:
 		"enemies": _entity_snapshots("active_enemies"),
 		"bullets": _entity_snapshots("active_bullets"),
 		"pickups": _entity_snapshots("active_pickups"),
+		"energy_orbs": _entity_snapshots("active_energy_orbs"),
 		"module_world": _module_world_snapshot(),
 		"ui_restore": _ui_restore_snapshot(),
 	}
@@ -369,32 +434,85 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	PoolManager.clear_pool(POOL_IDS.HIT_SPARK)
 	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
 	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
+	PoolManager.clear_pool(POOL_IDS.ENERGY_ORB)
+	PoolManager.clear_pool(POOL_IDS.PROJECTILE_BARRIER)
 	PoolManager.clear_pool(POOL_IDS.VFX_WEAPON_MUZZLE_FLASH)
-	var configured_character_id: String = String(
+	var configured_main_hero_id: String = String(
 		_debug_test_arena_config.get(
-			"character_id",
-			_requested_character_id
+			"main_hero_id",
+			_debug_test_arena_config.get(
+				"character_id",
+				_requested_main_hero_id
+			)
 		)
 	)
-	var selected_character_id: String = String(
-		restore_snapshot.get(
-			"character",
-			configured_character_id
+	var configured_sub_hero_id: String = String(
+		_debug_test_arena_config.get(
+			"sub_hero_id",
+			_requested_sub_hero_id
+		)
+	)
+	var saved_composition: Dictionary = _dictionary_or_empty(
+		restore_snapshot.get("hero_composition", {})
+	)
+	var selected_main_hero_id: String = String(
+		saved_composition.get(
+			"main_hero_id",
+			configured_main_hero_id
 			if _is_debug_test_arena()
-			else _requested_character_id
+			else _requested_main_hero_id
 		)
 	).strip_edges()
-	var character: Dictionary = _find_item(
-		_load_array(DataLoader.CHARACTERS_PATH, "characters"),
-		selected_character_id
+	var selected_sub_hero_id: String = String(
+		saved_composition.get(
+			"sub_hero_id",
+			configured_sub_hero_id
+			if _is_debug_test_arena()
+			else _requested_sub_hero_id
+		)
+	).strip_edges()
+	var characters_payload: Variant = DataLoader.load_json(
+		DataLoader.CHARACTERS_PATH
 	)
-	if character.is_empty():
+	var element_resolver: ElementResolver = ELEMENT_RESOLVER_SCRIPT.new()
+	if not element_resolver.load_default():
 		_fail_run_start(
-			"unknown character id: %s" % selected_character_id,
+			"element resolver configuration failed",
 			not restore_snapshot.is_empty()
 		)
 		return
-	_character_id = selected_character_id
+	_hero_composition = HERO_COMPOSITION_RESOLVER.resolve(
+		characters_payload,
+		selected_main_hero_id,
+		selected_sub_hero_id,
+		element_resolver
+	)
+	if _hero_composition.is_empty():
+		_fail_run_start(
+			"invalid hero composition: %s + %s" % [
+				selected_main_hero_id,
+				selected_sub_hero_id,
+			],
+			not restore_snapshot.is_empty()
+		)
+		return
+	_main_hero_id = selected_main_hero_id
+	_sub_hero_id = selected_sub_hero_id
+	_character_id = _main_hero_id
+	var character: Dictionary = _dictionary_or_empty(
+		_hero_composition.get("main_character", {})
+	)
+	if character.is_empty():
+		character = _find_item(
+			_load_array(DataLoader.CHARACTERS_PATH, "characters"),
+			_main_hero_id
+		)
+	if character.is_empty():
+		_fail_run_start(
+			"unknown main hero id: %s" % _main_hero_id,
+			not restore_snapshot.is_empty()
+		)
+		return
 	_enemy_rows = _load_enemy_rows(_load_enemy_ai_profiles(), enemy_csv_rows)
 	var actor_scenes_ready: bool = false
 	if _player_loading_mode:
@@ -418,6 +536,16 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	PoolManager.register_pool(POOL_IDS.HIT_SPARK, _create_hit_spark_node, FEEDBACK_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.DAMAGE_NUMBER, _create_damage_number_node, FEEDBACK_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.PICKUP_ORB, _create_pickup_orb_node, PICKUP_POOL_SIZE)
+	PoolManager.register_pool(
+		POOL_IDS.ENERGY_ORB,
+		_create_energy_orb_node,
+		ENERGY_ORB_POOL_SIZE
+	)
+	PoolManager.register_pool(
+		POOL_IDS.PROJECTILE_BARRIER,
+		_create_projectile_barrier_node,
+		PROJECTILE_BARRIER_POOL_SIZE
+	)
 	if not _vfx_host.register_declared_pools():
 		_fail_run_start("VFX pool registration failed", not restore_snapshot.is_empty())
 		return
@@ -437,6 +565,12 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 
 	var mode: Dictionary = _find_item(_load_array(DataLoader.GAME_MODES_PATH, "modes"), GAME_MODES.MODE_STANDARD_SURVIVAL)
 	var player_stats: Dictionary = _merged_player_stats(character, mode)
+	var player_runtime_data: Dictionary = _dictionary_or_empty(
+		DataLoader.load_json(DataLoader.PLAYER_DATA_PATH)
+	)
+	_energy_drop_config = _dictionary_or_empty(
+		player_runtime_data.get("energy_drop", {})
+	)
 	var raw_loadout: Variant = character.get("starting_loadout", {})
 	var loadout: Dictionary = (
 		(raw_loadout as Dictionary).duplicate(true)
@@ -450,14 +584,15 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 				loadout.get("weapon_id", "")
 			)
 		)
-		loadout["skill_ids"] = [
-			String(
-				_debug_test_arena_config.get(
-					"primary_skill_id",
-					""
-				)
-			),
-		]
+		var debug_primary_skill_id: String = String(
+			_debug_test_arena_config.get("primary_skill_id", "")
+		)
+		if not debug_primary_skill_id.is_empty():
+			var debug_skill_slots: Dictionary = _dictionary_or_empty(
+				_hero_composition.get("skill_slots", {})
+			)
+			debug_skill_slots[SKILL_SLOTS.SKILL_1] = debug_primary_skill_id
+			_hero_composition["skill_slots"] = debug_skill_slots
 	var weapon: Dictionary = _find_item(
 		_load_array(DataLoader.WEAPONS_PATH, "weapons"),
 		String(loadout.get("weapon_id", ""))
@@ -519,6 +654,21 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		return
 	_player.global_position = Vector2.ZERO
 	_player.call("configure", player_stats)
+	if _player.has_method("configure_runtime_rules"):
+		_player.call("configure_runtime_rules", player_runtime_data)
+	if _player.has_method("configure_element_damage_taken_multipliers"):
+		_player.call(
+			"configure_element_damage_taken_multipliers",
+			_element_damage_taken_multipliers(
+				String(_hero_composition.get("passive_id", ""))
+			)
+		)
+	var composition_visual: Node = _player.get_node_or_null("Visual")
+	if composition_visual != null and composition_visual.has_method("configure_palette"):
+		composition_visual.call(
+			"configure_palette",
+			_dictionary_or_empty(_hero_composition.get("palette", {}))
+		)
 	_configure_actor_presentation_profile(
 		_player,
 		String(character.get("presentation_profile_id", ""))
@@ -549,7 +699,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		return
 	_weapon_system.call("configure", _player, _active_world, weapon)
 	_connect_weapon_feedback()
-	_configure_skill_system(character, loadout)
+	_configure_skill_system(character)
 	_apply_loadout_modifiers()
 
 	_hud = get_node_or_null("GameplayHud") as CanvasLayer
@@ -557,8 +707,15 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		push_error("[GameplayRunLoop] missing GameplayHud scene node")
 		return
 	_hud.call("set_life", _player.call("current_life"), _player.call("max_life"))
+	_hud.call(
+		"set_composition",
+		_composition_display_name(),
+		_composition_color("primary", Color(0.49, 0.39, 0.85)),
+		_composition_color("accent", Color(0.95, 0.64, 0.23))
+	)
 	_hud.call("set_kills", _kills)
 	_hud.call("set_level", _current_level)
+	_update_combat_hud()
 	_refresh_xp_hud()
 	if _is_debug_test_arena():
 		_hud.visible = false
@@ -782,6 +939,8 @@ func _prewarm_standard_pools() -> void:
 	PoolManager.prewarm(POOL_IDS.BULLET_BASIC, 24)
 	PoolManager.prewarm(POOL_IDS.HAZARD_SPIKE, 8)
 	PoolManager.prewarm(POOL_IDS.PICKUP_ORB, 16)
+	PoolManager.prewarm(POOL_IDS.ENERGY_ORB, 8)
+	PoolManager.prewarm(POOL_IDS.PROJECTILE_BARRIER, 2)
 	for request: Dictionary in _vfx_host.declared_pool_requests():
 		PoolManager.prewarm(
 			String(request.get("pool_id", "")),
@@ -794,6 +953,8 @@ func _prewarm_standard_pools_staged() -> bool:
 		{"pool_id": POOL_IDS.BULLET_BASIC, "count": 24},
 		{"pool_id": POOL_IDS.HAZARD_SPIKE, "count": 8},
 		{"pool_id": POOL_IDS.PICKUP_ORB, "count": 16},
+		{"pool_id": POOL_IDS.ENERGY_ORB, "count": 8},
+		{"pool_id": POOL_IDS.PROJECTILE_BARRIER, "count": 2},
 	]
 	requests.append_array(_vfx_host.declared_pool_requests())
 	for request: Dictionary in requests:
@@ -878,30 +1039,33 @@ func _create_pickup_orb_node() -> Node:
 	return PICKUP_ORB_SCENE.instantiate()
 
 
+func _create_energy_orb_node() -> Node:
+	return ENERGY_ORB_SCENE.instantiate()
+
+
+func _create_projectile_barrier_node() -> Node:
+	return PROJECTILE_BARRIER_SCENE.instantiate()
+
+
 func _configure_skill_system(
-	character: Dictionary,
-	loadout_override: Dictionary = {}
+	character: Dictionary
 ) -> void:
 	_skill_system = get_node_or_null("SkillSystem")
 	if _skill_system == null:
 		push_error("[GameplayRunLoop] missing scene-authored SkillSystem")
 		return
-	var raw_loadout: Variant = character.get("starting_loadout", {})
-	var loadout: Dictionary = (
-		loadout_override.duplicate(true)
-		if not loadout_override.is_empty()
-		else (
-			(raw_loadout as Dictionary).duplicate(true)
-			if raw_loadout is Dictionary
-			else {}
+	var skill_resources: Array[Dictionary] = _typed_dictionary_array(
+		_hero_composition.get(
+			"skill_resources",
+			character.get("skill_resources", [])
 		)
 	)
 	_skill_system.call(
 		"configure",
 		_player,
 		_active_world,
-		_load_skill_definitions(loadout),
-		_typed_dictionary_array(character.get("skill_resources", []))
+		_load_composition_skill_definitions(),
+		skill_resources
 	)
 	var cast_callback: Callable = Callable(self, "_on_skill_cast")
 	if not _skill_system.is_connected("skill_cast", cast_callback):
@@ -940,8 +1104,22 @@ func debug_summary() -> Dictionary:
 		"level_xp_required": current_level_xp_required(),
 		"level_up_growth_enabled": _has_level_up_growth(),
 		"kills": _kills,
+		"hero_composition": {
+			"main_hero_id": _main_hero_id,
+			"sub_hero_id": _sub_hero_id,
+			"name": _composition_display_name(),
+			"palette": _dictionary_or_empty(
+				_hero_composition.get("palette", {})
+			),
+			"passive_id": String(
+				_hero_composition.get("passive_id", "")
+			),
+		},
 		"player_life": float(_player.call("current_life")) if _player != null and _player.has_method("current_life") else 0.0,
 		"player_max_life": float(_player.call("max_life")) if _player != null and _player.has_method("max_life") else 0.0,
+		"player_shield": float(_player.call("current_shield")) if _player != null and _player.has_method("current_shield") else 0.0,
+		"player_max_shield": float(_player.call("max_shield")) if _player != null and _player.has_method("max_shield") else 0.0,
+		"player_overshield": float(_player.call("current_overshield")) if _player != null and _player.has_method("current_overshield") else 0.0,
 		"active_enemies": _active_enemy_count(),
 		"active_hazards": PoolManager.active_count(POOL_IDS.HAZARD_SPIKE),
 		"interest_points": _interest_point_debug_summary(),
@@ -1030,6 +1208,10 @@ func debug_damage_player(amount: float) -> Dictionary:
 func debug_kill_player() -> Dictionary:
 	if _player == null or not _player.has_method("max_life"):
 		return _debug_result(false, "player_unavailable")
+	if _player.has_method("debug_set_shield"):
+		_player.call("debug_set_shield", 0.0, 0.0)
+	if _player.has_method("debug_clear_invulnerability"):
+		_player.call("debug_clear_invulnerability")
 	return debug_damage_player(float(_player.call("max_life")) * 10.0)
 
 
@@ -1342,6 +1524,16 @@ func debug_test_arena_summary() -> Dictionary:
 		),
 		"player_max_life": (
 			float(_player.call("max_life"))
+			if _player != null
+			else 0.0
+		),
+		"player_shield": (
+			float(_player.call("current_shield"))
+			if _player != null
+			else 0.0
+		),
+		"player_overshield": (
+			float(_player.call("current_overshield"))
 			if _player != null
 			else 0.0
 		),
@@ -2377,6 +2569,8 @@ func _on_enemy_defeated(_enemy: Node, _exp_reward: int, wave_key: String) -> voi
 			_hud.call("set_kills", _kills)
 		if _has_level_up_growth() and _enemy is Node2D and _exp_reward > 0:
 			_spawn_pickup_orb((_enemy as Node2D).global_position, _exp_reward)
+		if _enemy is Node2D:
+			_try_spawn_energy_orb((_enemy as Node2D).global_position)
 		if _enemy != null:
 			_roll_gear_mod_drop(_enemy)
 	if _spawn_states.has(wave_key):
@@ -2399,6 +2593,30 @@ func _spawn_pickup_orb(spawn_position: Vector2, amount: int) -> void:
 		"world_position": spawn_position,
 	})
 	_connect_pickup_orb_feedback(pickup_orb)
+
+
+func _try_spawn_energy_orb(spawn_position: Vector2) -> void:
+	var chance: float = clampf(
+		float(_energy_drop_config.get("chance", 0.0)),
+		0.0,
+		1.0
+	)
+	if chance <= 0.0 or RNG.drop.randf() >= chance:
+		return
+	var raw_node: Node = PoolManager.acquire(POOL_IDS.ENERGY_ORB)
+	if not raw_node is Node2D or not raw_node.has_method("configure"):
+		return
+	var energy_orb: Node2D = raw_node as Node2D
+	energy_orb.global_position = spawn_position
+	_reparent_to_active_world(energy_orb)
+	energy_orb.call(
+		"configure",
+		maxf(float(_energy_drop_config.get("amount", 25.0)), 0.0),
+		_player,
+		_skill_system,
+		float(_player.call("pickup_orb_speed")),
+		SKILL_RESOURCES.ENERGY
+	)
 
 
 func _connect_pickup_orb_feedback(pickup_orb: Node2D) -> void:
@@ -2742,6 +2960,7 @@ func _on_player_died() -> void:
 	if _is_debug_test_arena():
 		call_deferred("_reset_debug_test_arena_after_player_death")
 		return
+	_finish_run_replay(false)
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	GameState.change_state(GameState.GAME_OVER, {
 		"kills": _kills,
@@ -2757,6 +2976,7 @@ func _complete_run(point_id: String) -> void:
 		return
 	_run_completed = true
 	var settlement: Dictionary = _commit_pending_loot()
+	_finish_run_replay(true)
 	_reset_extraction()
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	GameState.change_state(GameState.GAME_OVER, {
@@ -2767,6 +2987,23 @@ func _complete_run(point_id: String) -> void:
 		"settlement": settlement.duplicate(true),
 	})
 	_show_game_over_panel(true, settlement)
+
+
+func _finish_run_replay(completed: bool) -> void:
+	if not Replay.is_recording():
+		return
+	Replay.record_decision(ANALYTICS_EVENTS.RUN_END, {
+		"completed": completed,
+		"kills": _kills,
+		"run_time": GameClock.now(),
+		"main_hero_id": _main_hero_id,
+		"sub_hero_id": _sub_hero_id,
+	})
+	var recording: Dictionary = Replay.stop_recording(
+		"completed" if completed else "player_death"
+	)
+	if not recording.is_empty():
+		Replay.save_recording(recording)
 
 
 func _show_game_over_panel(completed: bool = false, loot_summary: Dictionary = {}) -> void:
@@ -3073,6 +3310,9 @@ func _restore_run_snapshot(
 	var enemy_snapshots: Array = _array_or_empty(snapshot_data.get("enemies", []))
 	var bullet_snapshots: Array = _array_or_empty(snapshot_data.get("bullets", []))
 	var pickup_snapshots: Array = _array_or_empty(snapshot_data.get("pickups", []))
+	var energy_orb_snapshots: Array = _array_or_empty(
+		snapshot_data.get("energy_orbs", [])
+	)
 	if staged_loading:
 		if not await _restore_snapshots_staged(
 			enemy_snapshots,
@@ -3089,10 +3329,16 @@ func _restore_run_snapshot(
 			Callable(self, "_restore_pickup_snapshots")
 		):
 			return false
+		if not await _restore_snapshots_staged(
+			energy_orb_snapshots,
+			Callable(self, "_restore_energy_orb_snapshots")
+		):
+			return false
 	else:
 		_restore_enemy_snapshots(enemy_snapshots)
 		_restore_bullet_snapshots(bullet_snapshots)
 		_restore_pickup_snapshots(pickup_snapshots)
+		_restore_energy_orb_snapshots(energy_orb_snapshots)
 
 	var clock_snapshot: Variant = snapshot_data.get("game_clock", {})
 	if clock_snapshot is Dictionary:
@@ -3381,6 +3627,23 @@ func _restore_pickup_snapshots(pickup_snapshots: Array) -> void:
 		_connect_pickup_orb_feedback(pickup_orb)
 
 
+func _restore_energy_orb_snapshots(energy_orb_snapshots: Array) -> void:
+	for raw_snapshot: Variant in energy_orb_snapshots:
+		if not raw_snapshot is Dictionary:
+			continue
+		var raw_node: Node = PoolManager.acquire(POOL_IDS.ENERGY_ORB)
+		if not raw_node is Node2D or not raw_node.has_method("restore_snapshot"):
+			continue
+		var energy_orb: Node2D = raw_node as Node2D
+		_reparent_to_active_world(energy_orb)
+		energy_orb.call(
+			"restore_snapshot",
+			raw_snapshot as Dictionary,
+			_player,
+			_skill_system
+		)
+
+
 func _apply_enemy_movement_bounds(enemy: Node2D) -> void:
 	if _map_manager == null or not _map_manager.has_method("bounds"):
 		return
@@ -3485,15 +3748,57 @@ func _load_array(path: String, key: String) -> Array:
 	return raw_items if raw_items is Array else []
 
 
-func _load_skill_definitions(loadout: Dictionary) -> Array[Dictionary]:
-	var requested_ids: Array[String] = _string_array(loadout.get("skill_ids", []))
+func _load_composition_skill_definitions() -> Array[Dictionary]:
+	var requested_slots: Dictionary = _dictionary_or_empty(
+		_hero_composition.get("skill_slots", {})
+	)
+	var slot_metadata: Dictionary = {}
+	for slot_definition: Dictionary in _typed_dictionary_array(
+		_hero_composition.get("slot_definitions", [])
+	):
+		slot_metadata[String(slot_definition.get("slot_id", ""))] = slot_definition
 	var all_skills: Array = _load_array(DataLoader.SKILLS_PATH, "skills")
 	var result: Array[Dictionary] = []
-	for skill_id: String in requested_ids:
+	for slot_id: String in SKILL_SLOTS.VALUES:
+		var skill_id: String = String(requested_slots.get(slot_id, ""))
 		var skill: Dictionary = _find_item(all_skills, skill_id)
-		if not skill.is_empty():
-			result.append(skill)
+		if skill.is_empty():
+			continue
+		var metadata: Dictionary = _dictionary_or_empty(
+			slot_metadata.get(slot_id, {})
+		)
+		skill["slot_id"] = slot_id
+		skill["cost_multiplier"] = float(
+			metadata.get(
+				"energy_cost_multiplier",
+				metadata.get("cost_multiplier", 1.0)
+			)
+		)
+		skill["cooldown_multiplier"] = float(
+			metadata.get("cooldown_multiplier", 1.0)
+		)
+		result.append(skill)
 	return result
+
+
+func _element_damage_taken_multipliers(passive_id: String) -> Dictionary:
+	var passive: Dictionary = _find_item(
+		_load_array(DataLoader.HERO_PASSIVES_PATH, "passives"),
+		passive_id
+	)
+	if (
+		passive.is_empty()
+		or String(passive.get("effect", ""))
+		!= EFFECTS.ELEMENT_DAMAGE_TAKEN_MULTIPLIER
+	):
+		return {}
+	var params: Dictionary = _dictionary_or_empty(passive.get("params", {}))
+	var element_id: String = String(params.get("element_id", ""))
+	if not ELEMENTS.VALUES.has(element_id):
+		return {}
+	return {
+		element_id: clampf(float(params.get("multiplier", 1.0)), 0.0, 1.0),
+	}
 
 
 func _find_item(items: Array, requested_id: String) -> Dictionary:
@@ -3556,7 +3861,8 @@ func _load_enemy_rows(
 			"max_hp": String(row.get("max_hp", "1")).to_int(),
 			"move_speed": String(row.get("move_speed", "0.0")).to_float(),
 			"contact_damage": String(row.get("contact_damage", "0")).to_int(),
-			"contact_damage_type": String(row.get("contact_damage_type", "")),
+			"element_id": String(row.get("element_id", "")),
+			"contact_interval": String(row.get("contact_interval", "0.7")).to_float(),
 			"exp_reward": String(row.get("exp_reward", "0")).to_int(),
 			"hit_radius": String(row.get("hit_radius", "1.0")).to_float(),
 			"separation_radius": String(row.get("separation_radius", "0.0")).to_float(),
@@ -3575,7 +3881,7 @@ func _load_hazard_rows() -> Dictionary:
 			"tags": _parse_tag_list(row.get("tags")),
 			"pool_id": String(row.get("pool_id", "")),
 			"damage": String(row.get("damage", "0")).to_int(),
-			"damage_type": String(row.get("damage_type", "")),
+			"element_id": String(row.get("element_id", "")),
 			"trigger_interval": String(row.get("trigger_interval", "1.0")).to_float(),
 			"radius_tiles": String(row.get("radius_tiles", "1")).to_int(),
 			"duration": String(row.get("duration", "0.0")).to_float(),
@@ -3695,6 +4001,150 @@ func _refresh_xp_hud() -> void:
 		_hud.call("set_xp", current_level_xp(), current_level_xp_required())
 
 
+func _update_combat_hud() -> void:
+	if (
+		_hud == null
+		or not is_instance_valid(_hud)
+		or _player == null
+		or not is_instance_valid(_player)
+	):
+		return
+	if _hud.has_method("set_defense"):
+		_hud.call(
+			"set_defense",
+			float(_player.call("current_life")),
+			float(_player.call("max_life")),
+			float(_player.call("current_shield"))
+			if _player.has_method("current_shield")
+			else 0.0,
+			float(_player.call("max_shield"))
+			if _player.has_method("max_shield")
+			else 0.0,
+			float(_player.call("current_overshield"))
+			if _player.has_method("current_overshield")
+			else 0.0
+		)
+	if _skill_system != null and is_instance_valid(_skill_system):
+		if (
+			_hud.has_method("set_energy")
+			and _skill_system.has_method("resource_amount")
+			and _skill_system.has_method("resource_maximum")
+		):
+			_hud.call(
+				"set_energy",
+				float(
+					_skill_system.call(
+						"resource_amount",
+						SKILL_RESOURCES.ENERGY
+					)
+				),
+				float(
+					_skill_system.call(
+						"resource_maximum",
+						SKILL_RESOURCES.ENERGY
+					)
+				)
+			)
+		if (
+			_hud.has_method("set_skill_slots")
+			and _skill_system.has_method("debug_summary")
+		):
+			var skill_summary: Dictionary = _skill_system.call(
+				"debug_summary"
+			) as Dictionary
+			_hud.call(
+				"set_skill_slots",
+				skill_summary.get("skill_slots", []),
+				skill_summary
+			)
+	if _hud.has_method("set_dash") and _player.has_method(
+		"dash_cooldown_remaining"
+	):
+		_hud.call(
+			"set_dash",
+			float(_player.call("dash_cooldown_remaining"))
+		)
+	if _hud.has_method("set_statuses"):
+		_hud.call("set_statuses", _hud_status_summary())
+
+
+func _hud_status_summary() -> Array[Dictionary]:
+	var merged_statuses: Dictionary = {}
+	if _player != null and _player.has_method("status_summary"):
+		_merge_hud_statuses(
+			merged_statuses,
+			_player.call("status_summary")
+		)
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if (
+			not _is_active_world_entity(enemy)
+			or not enemy.has_method("status_summary")
+		):
+			continue
+		_merge_hud_statuses(
+			merged_statuses,
+			enemy.call("status_summary")
+		)
+	var status_ids: Array[String] = []
+	for raw_status_id: Variant in merged_statuses.keys():
+		status_ids.append(String(raw_status_id))
+	status_ids.sort()
+	var result: Array[Dictionary] = []
+	for status_id: String in status_ids:
+		result.append(
+			(merged_statuses[status_id] as Dictionary).duplicate(true)
+		)
+	return result
+
+
+func _merge_hud_statuses(
+	merged_statuses: Dictionary,
+	raw_statuses: Variant
+) -> void:
+	if not raw_statuses is Array:
+		return
+	for raw_status: Variant in raw_statuses as Array:
+		if not raw_status is Dictionary:
+			continue
+		var status: Dictionary = raw_status as Dictionary
+		var status_id: String = String(status.get("id", ""))
+		if status_id.is_empty():
+			continue
+		if not merged_statuses.has(status_id):
+			merged_statuses[status_id] = status.duplicate(true)
+			continue
+		var existing: Dictionary = merged_statuses[status_id] as Dictionary
+		existing["stacks"] = maxi(
+			int(existing.get("stacks", 1)),
+			int(status.get("stacks", 1))
+		)
+		existing["remaining"] = maxf(
+			float(existing.get("remaining", 0.0)),
+			float(status.get("remaining", 0.0))
+		)
+		merged_statuses[status_id] = existing
+
+
+func _composition_display_name() -> String:
+	var characters: Array = _load_array(DataLoader.CHARACTERS_PATH, "characters")
+	var main_character: Dictionary = _find_item(characters, _main_hero_id)
+	var sub_character: Dictionary = _find_item(characters, _sub_hero_id)
+	return tr("character_composition_name_format").format({
+		"main": tr(String(main_character.get("name_key", _main_hero_id))),
+		"sub": tr(String(sub_character.get("name_key", _sub_hero_id))),
+	})
+
+
+func _composition_color(color_key: String, fallback: Color) -> Color:
+	var palette: Dictionary = _dictionary_or_empty(
+		_hero_composition.get("palette", {})
+	)
+	var encoded: String = String(palette.get(color_key, ""))
+	if not encoded.is_empty() and Color.html_is_valid(encoded):
+		return Color.from_string(encoded, fallback)
+	return fallback
+
+
 func _update_stats_panel() -> void:
 	if _hud == null or not _hud.has_method("set_stats_panel_visible"):
 		return
@@ -3719,6 +4169,27 @@ func _stats_panel_snapshot() -> Dictionary:
 		"run_time": "%ds" % int(GameClock.now()),
 		"damage": _format_stat_value(_weapon_stat(STATS.DAMAGE)),
 		"health_regen": "%s/s" % _format_stat_value(_player_stat(STATS.HEALTH_REGEN)),
+		"shield": "%d/%d" % [
+			int(ceilf(float(_player.call("current_shield")))),
+			int(ceilf(float(_player.call("max_shield")))),
+		],
+		"overshield": "%d" % int(
+			ceilf(float(_player.call("current_overshield")))
+		),
+		"energy": _skill_resource_text(),
+		"armor": _format_stat_value(_player_stat(STATS.ARMOR)),
+		"ability_strength": _format_percent(
+			_player_stat(STATS.ABILITY_STRENGTH)
+		),
+		"ability_range": _format_percent(
+			_player_stat(STATS.ABILITY_RANGE)
+		),
+		"ability_efficiency": _format_percent(
+			_player_stat(STATS.ABILITY_EFFICIENCY)
+		),
+		"ability_duration": _format_percent(
+			_player_stat(STATS.ABILITY_DURATION)
+		),
 		"fire_rate": _format_stat_value(_weapon_stat(STATS.FIRE_RATE)),
 		"move_speed": _format_stat_value(_player_stat(STATS.MOVE_SPEED)),
 		"bullet_speed": _format_stat_value(_weapon_stat(STATS.BULLET_SPEED)),
@@ -3777,8 +4248,8 @@ func _skill_summary() -> Dictionary:
 
 
 func _skill_resource_label(resource_id: String) -> String:
-	if resource_id == SKILL_RESOURCES.MANA:
-		return tr("skill_resource_mana_name")
+	if resource_id == SKILL_RESOURCES.ENERGY:
+		return tr("skill_resource_energy_name")
 	return resource_id
 
 
@@ -3870,7 +4341,7 @@ func _choice_ids(choices: Array[Dictionary]) -> Array[String]:
 func _damage_info(amount: float, target: Node) -> RefCounted:
 	return DAMAGE_INFO_SCRIPT.new().setup(
 		amount,
-		DAMAGE_TYPES.PHYSICAL,
+		ELEMENTS.ELEMENT_NEUTRAL,
 		self,
 		target,
 		"team_debug",
@@ -3885,7 +4356,7 @@ func _debug_test_arena_damage_info(
 ) -> RefCounted:
 	return DAMAGE_INFO_SCRIPT.new().setup(
 		amount,
-		DAMAGE_TYPES.PHYSICAL,
+		ELEMENTS.ELEMENT_NEUTRAL,
 		_player,
 		target,
 		"team_player",

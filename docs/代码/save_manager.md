@@ -9,7 +9,7 @@
 - 所有存档写入必须包含标准头字段：`version`、`kind`、`slot`、`created_at`、`updated_at`、`game_version`、`data_hash` 和 `payload`。
 - 写入必须先落 `*.tmp`，替换前保留 `*.bak`；加载失败时尝试 `.bak`，仍失败则隔离到 `user://saves/.broken/` 并广播 / 埋点。
 - 当前 F5 首片已由 gameplay runtime 接入真实 `run` 快照：暂停菜单“保存并退出”调用 `SaveManager.save(slot_0, run, payload)`，标题菜单“继续游戏”调用 `load()` 后交给运行时重建节点和 `ui_restore` 恢复点；`SaveManager` 仍只负责可靠读写，不解释玩家、敌人、子弹或 UI 字段。
-- F13 模块世界将 `run` kind 提升到 version 4；新档保存 81 槽 assignment / 旋转、map hash、迷雾、目标 / 撤离和按槽位动态状态。`run` v3 -> v4 迁移只把旧局内档标记为 `legacy_run_incompatible`，启动流程会明确提示并删除该 run；`meta` 是独立 kind，版本仍为 1 且不受影响。
+- 主／子英雄系统将 `meta` 提升到 v2、`run` 提升到 v5：Meta 保存上次确认组合且保留现有 Gear Mod payload；Run 保存组合、四槽、资源 / 防御、状态、屏障、能量球和接触计时。旧 Run v4 不做玩法迁移，启动流程提示一次后删除。
 - F11 已由 `GearModSystem` 接管真实 `meta` profile：装备 Mod 资源、库存、loadout 和 rank 写入 `meta.gear_mods`；旧死亡结算货币 / 账号经验 / 永久升级运行时代码与旧档补偿路径已删除。`SaveManager` 仍不解释 profile 字段。
 - 玩家偏好不归 `SaveManager` 管，仍由 `Settings` 写入 `user://settings.cfg`。
 
@@ -98,8 +98,8 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 
 | kind | 用途 |
 |------|------|
-| `meta` | 局外成长长期档案：当前由装备 Mod 保存资源、库存、rank 和 loadout |
-| `run` | 当前一局续局档案：暂停保存退出后加载恢复；当前 SaveManager kind version 为 3 |
+| `meta` | 局外长期档案，当前 v2：Gear Mod profile + 上次确认的 `main_hero_id` / `sub_hero_id` |
+| `run` | 当前一局续局档案，当前 v5：完整世界与英雄组合运行状态 |
 | `replay_index` | 回放索引档案：具体回放文件仍由 `Replay` 管理 |
 
 存档 envelope：
@@ -115,13 +115,13 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 
 `data_hash` 使用稳定序列化：字典按 key 排序，数组按原顺序，数字做整数 / 浮点规范化。写入前会先把 payload 通过 JSON stringify / parse 归一化，再基于归一化 payload 计算 hash 和落盘，避免高精度浮点或 JSON 读回后 `3` / `3.0` 类型差异造成误报。
 
-F5/F9/F12 的 run payload 当前包含：schema version、模式 / 角色 id、等级、累计经验、击杀数、`GameClock` 快照、`RNG` 快照、有限地图状态、刷怪状态、玩家状态、武器状态、技能状态、活跃敌人、活跃子弹、活跃机关、活跃经验球、可选 `interest_points` 领取 / 目标状态和 `ui_restore`。`map` / `hazards` / `interest_points` 只由玩法运行时解释，用于恢复有限边界、PCG / 人工 / director 机关摆放、机关冷却、激活表现、兴趣点一次性奖励 claimed 状态和可伤害目标生命 / 摧毁状态；`ui_restore` 当前用于区分普通游玩、暂停菜单和升级选择面板。旧 payload 缺失 `ui_restore` 或 `interest_points` 时由运行时按普通游玩和未领取 / 未摧毁兴趣点处理。`RNG` seed/state 这类可能超过 JSON 安全整数精度的值必须以字符串保存。
+Run v5 payload 包含：schema version、模式、`main_hero_id` / `sub_hero_id`、组合解析快照、等级 / 经验 / 击杀、`GameClock`、`RNG`、模块世界、刷怪、玩家生命 / 护盾 / 超盾 / 护盾门 / 冲刺、武器、四槽技能与能量、敌人状态与独立接触计时、子弹、机关、经验球、能量球、屏障、兴趣点和 `ui_restore`。所有对象池实体只保存 JSON 友好活动快照，恢复时重新 acquire；RNG 的大整数仍以字符串保存。
 
 `run` kind version 2 会在 `SaveManager` 层为 v1 旧 envelope 补齐缺失的结构字段：`schema_version`、`spawn_states`、`player`、`weapon`、`game_clock`、`rng`、`map`、`enemies`、`bullets`、`hazards`、`pickups`。这样早期 F5 run 存档即使缺少可选数组 / 字典，也能加载为结构完整的 payload 后交给 runtime 恢复；旧档没有机关快照时由 runtime 按当前 layout 重新生成。
 
-`run` kind version 4 不尝试把旧房间 / 开放战区实体拓扑猜测转换成 9×9 模块状态。`_migrate_run_v3_to_v4` 将 payload 升到 schema 4、写入空 `module_world` 和 `legacy_run_incompatible=true`；`FormalClientBoot` 读到后只删除该 run，并显示“旧版本续局与模块大地图不兼容”的专用提示，不把版本不兼容误报为存档损坏。这一流程不读写 `meta`，因此局外 Gear Mod 和资源保持不变。
+`run` v4→v5 不猜测主／子英雄、四槽、防御层和部署物状态。迁移只写入 `legacy_run_incompatible=true` 与缺失组合标记；`FormalClientBoot` 读到后显示一次兼容性提示并删除该 run，不误报为损坏。该流程不读写 Meta，因此 Gear Mod 和上次选择保持不变。
 
-`meta` kind version 1 当前由 `GearModSystem` 写入，payload 主要字段为 `gear_mods` 子 payload。SaveManager 不校验这些业务字段，只校验 envelope 和 hash；装备 Mod 库存 / loadout 规则见 `docs/代码/gear_mod_system.md`。
+`meta` v1→v2 在保留 `gear_mods` 全部字段的同时补入默认组合“冷静主 + 愤怒子”。`FormalClientBoot` 在玩家确认组合时合并写回这两个 ID；SaveManager 仍只校验 envelope 与 hash，不解释业务字段。
 
 ## 依赖
 
@@ -133,7 +133,7 @@ F5/F9/F12 的 run payload 当前包含：schema version、模式 / 角色 id、�
 
 - 新 save kind：先登记 `docs/词表与契约.md` §14，跑 `tools/sync_contracts.py`，再补当前版本与文档。
 - 新 schema 版本：更新 `CURRENT_KIND_VERSIONS`，注册逐级 migration，并补 L1 迁移测试。
-- `meta` 接入：`GearModSystem` 负责解释 `meta.gear_mods`，`SaveManager` 只负责可靠读写；改 profile schema 时同步 `docs/代码/gear_mod_system.md`。
+- `meta` 接入：`GearModSystem` 解释 `meta.gear_mods`，FormalClientBoot 解释上次英雄组合；写入时必须合并，不能覆盖另一业务域。
 - `run` 接入：玩法系统生成可恢复快照，`SaveManager` 不知道玩家 / 敌人 / 子弹内部字段；保存对象池实体时只保存活动节点字段，恢复时由玩法系统通过 `PoolManager` 重新 acquire。
 
 ## 常见改动入口
@@ -167,7 +167,7 @@ F5/F9/F12 的 run payload 当前包含：schema version、模式 / 角色 id、�
 
 ## 迁移 / 兼容
 
-当前 `meta` 和 `replay_index` schema version 为 `1`；`run` schema version 为 `4`，`_ready` 注册 v1 -> v2 -> v3 -> v4 逐级迁移。v3 -> v4 为明确旧局内档重置流程，不得借机提升或重写 `meta` kind。未来每次提升 kind 版本时必须：
+当前 `meta` 为 v2、`run` 为 v5、`replay_index` 为 v1。Meta v1→v2 保留 Gear Mod 并补默认组合；Run 保留旧逐级迁移链，但 v4→v5 是明确的不兼容重置边界。Replay 文件由 `Replay` 独立管理，当前为 v3。未来每次提升 kind 版本时必须：
 
 1. 更新 `CURRENT_KIND_VERSIONS[kind]`。
 2. 用 `register_migration(kind, old, old + 1, fn)` 补逐级迁移。

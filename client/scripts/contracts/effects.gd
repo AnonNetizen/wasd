@@ -10,6 +10,7 @@ const VALUES: Array[String] = [
 	"knockback",
 	"explode",
 	"lifesteal",
+	"element_damage_taken_multiplier",
 ]
 
 const PIERCE: String = "pierce"
@@ -20,3 +21,4 @@ const CHAIN: String = "chain"
 const KNOCKBACK: String = "knockback"
 const EXPLODE: String = "explode"
 const LIFESTEAL: String = "lifesteal"
+const ELEMENT_DAMAGE_TAKEN_MULTIPLIER: String = "element_damage_taken_multiplier"

@@ -3,7 +3,7 @@ extends Node
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
-const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const ELEMENTS := preload("res://scripts/contracts/elements.gd")
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
 const ENEMY_SCENE := preload("res://scenes/gameplay/actors/enemies/enemy_chaser.tscn")
 const GEAR_MOD_RESOURCES := preload("res://scripts/contracts/gear_mod_resources.gd")
@@ -171,7 +171,6 @@ func _run() -> void:
 	isolated_stats[STATS.MAX_HP] = 600.0
 	isolated_stats[STATS.HEALTH_REGEN] = 30.0
 	isolated_stats[STATS.MOVE_SPEED] = 0.0
-	isolated_stats[STATS.DAMAGE_INVULNERABILITY_DURATION] = 0.7
 	isolated_player.call("configure", isolated_stats)
 	var contact_source: Node = Node.new()
 	contact_source.name = "SmokeContactSource"
@@ -179,7 +178,7 @@ func _run() -> void:
 	var first_player_life: float = float(isolated_player.call("current_life"))
 	var contact_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 		100.0,
-		DAMAGE_TYPES.PHYSICAL,
+		ELEMENTS.ELEMENT_NEUTRAL,
 		contact_source,
 		isolated_player,
 		"team_enemy",
@@ -190,17 +189,31 @@ func _run() -> void:
 	_expect(bool(first_contact_result.get("applied", false)), "first contact should damage the player")
 	_expect(damaged_player_life < first_player_life, "first contact should reduce player life")
 
-	var blocked_contact_result: Dictionary = Combat.apply_damage(isolated_player, contact_info)
-	_expect(not bool(blocked_contact_result.get("applied", true)), "contact should be blocked during player invulnerability")
-	_expect(String(blocked_contact_result.get("reason", "")) == "invulnerable", "blocked contact should report invulnerable")
-	_expect(is_equal_approx(float(isolated_player.call("current_life")), damaged_player_life), "blocked contact should not reduce player life")
+	var repeated_contact_result: Dictionary = Combat.apply_damage(
+		isolated_player,
+		contact_info
+	)
+	_expect(
+		bool(repeated_contact_result.get("applied", false)),
+		"direct repeated damage should no longer be blocked by global hit invulnerability"
+	)
+	_expect(
+		float(isolated_player.call("current_life")) < damaged_player_life,
+		"direct repeated damage should reduce player life"
+	)
 
-	await _wait_player_vulnerability(isolated_player)
+	var repeated_damaged_player_life: float = float(
+		isolated_player.call("current_life")
+	)
+	await get_tree().process_frame
 	var regenerated_player_life: float = float(isolated_player.call("current_life"))
-	_expect(regenerated_player_life > damaged_player_life, "player health_regen should restore life over gameplay time")
+	_expect(
+		regenerated_player_life > repeated_damaged_player_life,
+		"configured player health_regen should remain available for explicit test fixtures"
+	)
 	_expect(regenerated_player_life <= first_player_life, "player health_regen should not exceed max life")
 	var refreshed_contact_result: Dictionary = Combat.apply_damage(isolated_player, contact_info)
-	_expect(bool(refreshed_contact_result.get("applied", false)), "same contact source should damage after invulnerability expires")
+	_expect(bool(refreshed_contact_result.get("applied", false)), "same source may deal direct damage again")
 	isolated_player.queue_free()
 	contact_source.queue_free()
 
@@ -277,7 +290,7 @@ func _run() -> void:
 			run_loop.call("debug_force_next_gear_mod_drop_roll", 0.0)
 		var enemy_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 			999.0,
-			DAMAGE_TYPES.PHYSICAL,
+			ELEMENTS.ELEMENT_NEUTRAL,
 			player,
 			enemy,
 			"team_player",
@@ -313,7 +326,7 @@ func _run() -> void:
 	await _wait_player_vulnerability(player)
 	var feedback_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 		1.0,
-		DAMAGE_TYPES.PHYSICAL,
+		ELEMENTS.ELEMENT_NEUTRAL,
 		smoke_player_damage_source,
 		player,
 		"team_enemy",
@@ -333,11 +346,17 @@ func _run() -> void:
 	if camera != null:
 		_expect(camera.offset == Vector2.ZERO, "disabling screen shake should reset the camera offset")
 	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true)
-	var blocked_feedback_result: Dictionary = Combat.apply_damage(player, feedback_info)
-	_expect(not bool(blocked_feedback_result.get("applied", true)), "invulnerability should block the camera feedback damage fixture")
+	var repeated_feedback_result: Dictionary = Combat.apply_damage(
+		player,
+		feedback_info
+	)
 	_expect(
-		camera_controller != null and not bool(camera_controller.call("is_player_damage_shake_emitting")),
-		"blocked player damage should not trigger camera shake"
+		bool(repeated_feedback_result.get("applied", false)),
+		"repeated player damage should apply without global hit invulnerability"
+	)
+	_expect(
+		camera_controller != null and bool(camera_controller.call("is_player_damage_shake_emitting")),
+		"repeated effective player damage should trigger camera shake"
 	)
 
 	await _wait_player_vulnerability(player)
@@ -350,10 +369,11 @@ func _run() -> void:
 	)
 	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true)
 	player.call("debug_heal", float(player.call("max_life")))
-	await _wait_player_vulnerability(player)
+	if player.has_method("debug_set_shield"):
+		player.call("debug_set_shield", 0.0, 0.0)
 	var player_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
-		float(player.call("max_life")),
-		DAMAGE_TYPES.PHYSICAL,
+		float(player.call("max_life")) * 10.0,
+		ELEMENTS.ELEMENT_NEUTRAL,
 		smoke_player_damage_source,
 		player,
 		"team_enemy",
@@ -729,7 +749,7 @@ func _expect_bullet_hits_interest_point_target(run_loop: Node, player: Node2D) -
 		STATS.BULLET_RANGE: 96.0,
 		STATS.PIERCE_COUNT: 0,
 	}, {
-		"damage_type": DAMAGE_TYPES.PHYSICAL,
+		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
 		"hit_radius": 8.0,
 		"lifetime": 1.0,
 	}, Vector2.RIGHT, player)
@@ -941,7 +961,7 @@ func _expect_enemy_center_separation(run_loop: Node, player: Node2D) -> void:
 		"max_hp": 6,
 		"move_speed": 0.0,
 		"contact_damage": 1,
-		"contact_damage_type": DAMAGE_TYPES.PHYSICAL,
+		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
 		"exp_reward": 0,
 		"hit_radius": 14.0,
 		"separation_radius": 9.0,
@@ -975,7 +995,6 @@ func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
 	player_stats[STATS.MAX_HP] = 600.0
 	player_stats[STATS.HEALTH_REGEN] = 0.0
 	player_stats[STATS.MOVE_SPEED] = 0.0
-	player_stats[STATS.DAMAGE_INVULNERABILITY_DURATION] = 0.7
 	player_stats[STATS.PLAYER_SEPARATION_RADIUS] = 10.0
 	isolated_player.call("configure", player_stats)
 
@@ -983,7 +1002,7 @@ func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
 		"max_hp": 5,
 		"move_speed": 0.0,
 		"contact_damage": 1,
-		"contact_damage_type": DAMAGE_TYPES.PHYSICAL,
+		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
 		"exp_reward": 0,
 		"hit_radius": 24.0,
 		"separation_radius": 9.0,
@@ -1118,7 +1137,7 @@ func _expect_enemy_player_targeting(run_loop: Node, player: Node2D) -> void:
 	var life_before: float = float((swarm.call("snapshot") as Dictionary).get("life_points", 0.0))
 	var friendly_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 		999.0,
-		DAMAGE_TYPES.PHYSICAL,
+		ELEMENTS.ELEMENT_NEUTRAL,
 		stalker,
 		swarm,
 		String(stalker.call("combat_team_id")),
@@ -1302,39 +1321,44 @@ func _expect_ranged_enemy_projectile_damage(run_loop: Node, player: Node2D) -> v
 	_expect(String((spitter.call("ai_debug_summary") as Dictionary).get("focus_target", "")) == String(player.name), "ranged enemy should target only the player")
 	if player.has_method("debug_clear_invulnerability"):
 		player.call("debug_clear_invulnerability")
-	var life_before: float = float(player.call("current_life"))
+	var defense_before: float = (
+		float(player.call("current_life"))
+		+ float(player.call("current_shield"))
+		+ float(player.call("current_overshield"))
+	)
 	var bullets_before: int = _pool_stat(POOL_IDS.BULLET_BASIC, "acquired")
 	for _index: int in range(120):
 		await get_tree().physics_frame
-		if float(player.call("current_life")) < life_before:
+		var defense_now: float = (
+			float(player.call("current_life"))
+			+ float(player.call("current_shield"))
+			+ float(player.call("current_overshield"))
+		)
+		if defense_now < defense_before:
 			break
 
 	_expect(_pool_stat(POOL_IDS.BULLET_BASIC, "acquired") > bullets_before, "ranged enemy should fire a pooled bullet")
-	_expect(float(player.call("current_life")) < life_before, "ranged enemy projectile should damage the player through Combat")
+	var defense_after: float = (
+		float(player.call("current_life"))
+		+ float(player.call("current_shield"))
+		+ float(player.call("current_overshield"))
+	)
+	_expect(defense_after < defense_before, "ranged enemy projectile should damage a player defense layer through Combat")
 	PoolManager.release(spitter)
 	_release_active_bullets()
 
 
 func _expect_overdrive_rounds_skill(run_loop: Node, player: Node2D) -> void:
-	var weapon_system: Node = _find_node_by_name(player, "WeaponSystem")
-	_expect(weapon_system != null, "overdrive smoke should find the player WeaponSystem")
-	if weapon_system == null:
-		return
 	var before_summary: Dictionary = run_loop.call("debug_summary")
-	var mana_before: float = _skill_resource_current(before_summary, SKILL_RESOURCES.MANA)
-	var fire_rate_before: float = float(weapon_system.call("stat_value", STATS.FIRE_RATE))
-	var bullet_speed_before: float = float(weapon_system.call("stat_value", STATS.BULLET_SPEED))
+	var mana_before: float = _skill_resource_current(before_summary, SKILL_RESOURCES.ENERGY)
 	var result: Dictionary = run_loop.call("debug_cast_primary_skill")
-	_expect(bool(result.get("ok", false)), "overdrive rounds should cast from the runtime skill system")
-	_expect(int(result.get("applied_targets", 0)) == 1, "overdrive rounds should apply to the player's weapon")
-	_expect(float(weapon_system.call("stat_value", STATS.FIRE_RATE)) > fire_rate_before, "overdrive rounds should increase fire rate")
-	_expect(float(weapon_system.call("stat_value", STATS.BULLET_SPEED)) > bullet_speed_before, "overdrive rounds should increase bullet speed")
+	_expect(bool(result.get("ok", false)), "slot 1 barrier should cast from the runtime skill system")
 	var after_summary: Dictionary = run_loop.call("debug_summary")
-	var mana_after: float = _skill_resource_current(after_summary, SKILL_RESOURCES.MANA)
-	_expect(mana_after < mana_before, "overdrive rounds should spend mana")
+	var mana_after: float = _skill_resource_current(after_summary, SKILL_RESOURCES.ENERGY)
+	_expect(mana_after < mana_before, "slot 1 barrier should spend energy")
 	var cooldown_result: Dictionary = run_loop.call("debug_cast_primary_skill")
-	_expect(not bool(cooldown_result.get("ok", true)), "overdrive rounds should not immediately recast")
-	_expect(String(cooldown_result.get("reason", "")) == "cooldown", "overdrive recast should report cooldown")
+	_expect(not bool(cooldown_result.get("ok", true)), "slot 1 barrier should not immediately recast")
+	_expect(String(cooldown_result.get("reason", "")) == "cooldown", "slot 1 recast should report cooldown")
 
 
 func _skill_resource_current(summary: Dictionary, resource_id: String) -> float:
@@ -1467,7 +1491,7 @@ func _expect_pickup_orb_draw_order(run_loop: Node, player: Node2D) -> void:
 		"max_hp": 6,
 		"move_speed": 0.0,
 		"contact_damage": 0,
-		"contact_damage_type": DAMAGE_TYPES.PHYSICAL,
+		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
 		"exp_reward": 0,
 		"hit_radius": 14.0,
 		"separation_radius": 0.0,
@@ -1546,7 +1570,7 @@ func _expect_default_growth_disabled(run_loop: Node, player: Node2D) -> void:
 		return
 	var enemy_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 		999.0,
-		DAMAGE_TYPES.PHYSICAL,
+		ELEMENTS.ELEMENT_NEUTRAL,
 		player,
 		enemy,
 		"team_player",
@@ -2225,12 +2249,16 @@ func _wait_for_state_run_loop(expected_state: StringName) -> Node:
 
 func _defeat_player_for_game_over(run_loop: Node, player: Node2D) -> void:
 	await _wait_player_vulnerability(player)
+	if player.has_method("debug_set_shield"):
+		player.call("debug_set_shield", 0.0, 0.0)
+	if player.has_method("debug_clear_invulnerability"):
+		player.call("debug_clear_invulnerability")
 	var source: Node = Node.new()
 	source.name = "SmokeSecondPlayerDamageSource"
 	run_loop.add_child(source)
 	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
-		float(player.call("max_life")),
-		DAMAGE_TYPES.PHYSICAL,
+		float(player.call("max_life")) * 10.0,
+		ELEMENTS.ELEMENT_NEUTRAL,
 		source,
 		player,
 		"team_enemy",

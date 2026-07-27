@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "neutral_element_id": "element_neutral",
+  "unmatched_result": "",
+  "elements": [
+    {
+      "id": "element_neutral",
+      "name_key": "element_neutral_name",
+      "kind": "neutral",
+      "components": []
+    },
+    {
+      "id": "element_primary_a",
+      "name_key": "element_primary_a_name",
+      "kind": "primary",
+      "components": ["element_primary_a"]
+    },
+    {
+      "id": "element_primary_b",
+      "name_key": "element_primary_b_name",
+      "kind": "primary",
+      "components": ["element_primary_b"]
+    },
+    {
+      "id": "element_primary_c",
+      "name_key": "element_primary_c_name",
+      "kind": "primary",
+      "components": ["element_primary_c"]
+    },
+    {
+      "id": "element_composite_ab",
+      "name_key": "element_composite_ab_name",
+      "kind": "composite",
+      "components": ["element_primary_a", "element_primary_b"]
+    },
+    {
+      "id": "element_composite_bc",
+      "name_key": "element_composite_bc_name",
+      "kind": "composite",
+      "components": ["element_primary_b", "element_primary_c"]
+    },
+    {
+      "id": "element_composite_ca",
+      "name_key": "element_composite_ca_name",
+      "kind": "composite",
+      "components": ["element_primary_c", "element_primary_a"]
+    }
+  ],
+  "combinations": [
+    {
+      "left": "element_primary_a",
+      "right": "element_primary_b",
+      "result": "element_composite_ab"
+    },
+    {
+      "left": "element_primary_b",
+      "right": "element_primary_c",
+      "result": "element_composite_bc"
+    },
+    {
+      "left": "element_primary_c",
+      "right": "element_primary_a",
+      "result": "element_composite_ca"
+    }
+  ]
+}

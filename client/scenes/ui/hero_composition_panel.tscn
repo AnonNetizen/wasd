@@ -1,0 +1,134 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/hero_composition_panel.gd" id="1_panel"]
+
+[node name="HeroCompositionPanel" type="CanvasLayer"]
+script = ExtResource("1_panel")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Backdrop" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.018, 0.026, 0.045, 0.96)
+
+[node name="Center" type="CenterContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Root/Center"]
+custom_minimum_size = Vector2(900, 610)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 36
+theme_override_constants/margin_top = 30
+theme_override_constants/margin_right = 36
+theme_override_constants/margin_bottom = 30
+
+[node name="Layout" type="VBoxContainer" parent="Root/Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="TitleLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 32
+
+[node name="MainHeroSelector" type="OptionButton" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(420, 58)
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="SubHeroSelector" type="OptionButton" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(420, 58)
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="Cards" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 20
+
+[node name="MainCard" type="PanelContainer" parent="Root/Center/Panel/Margin/Layout/Cards"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/Panel/Margin/Layout/Cards/MainCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="Layout" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/Cards/MainCard/Margin"]
+layout_mode = 2
+
+[node name="HeadingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Cards/MainCard/Margin/Layout"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="DetailLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Cards/MainCard/Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+autowrap_mode = 3
+
+[node name="SubCard" type="PanelContainer" parent="Root/Center/Panel/Margin/Layout/Cards"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/Panel/Margin/Layout/Cards/SubCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="Layout" type="VBoxContainer" parent="Root/Center/Panel/Margin/Layout/Cards/SubCard/Margin"]
+layout_mode = 2
+
+[node name="HeadingLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Cards/SubCard/Margin/Layout"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="DetailLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Cards/SubCard/Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+autowrap_mode = 3
+
+[node name="HintLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Actions" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 18
+
+[node name="CancelButton" type="Button" parent="Root/Center/Panel/Margin/Layout/Actions"]
+custom_minimum_size = Vector2(180, 54)
+layout_mode = 2
+
+[node name="SwapButton" type="Button" parent="Root/Center/Panel/Margin/Layout/Actions"]
+custom_minimum_size = Vector2(180, 54)
+layout_mode = 2
+
+[node name="ConfirmButton" type="Button" parent="Root/Center/Panel/Margin/Layout/Actions"]
+custom_minimum_size = Vector2(180, 54)
+layout_mode = 2

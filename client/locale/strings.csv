@@ -39,7 +39,11 @@ ui_settings_input_aim_left,向左瞄准,Aim Left
 ui_settings_input_aim_right,向右瞄准,Aim Right
 ui_settings_input_aim_stick,瞄准摇杆,Aim Stick
 ui_settings_input_fire,开火,Fire
-ui_settings_input_use_active_item,主动道具,Active Item
+ui_settings_input_skill_1,技能 1,Skill 1
+ui_settings_input_skill_2,技能 2,Skill 2
+ui_settings_input_skill_3,技能 3,Skill 3
+ui_settings_input_skill_4,技能 4,Skill 4
+ui_settings_input_dash,冲刺,Dash
 ui_settings_input_interact,交互,Interact
 ui_settings_input_show_stats_panel,详细数值面板,Details Panel
 ui_settings_input_pause,暂停,Pause
@@ -98,6 +102,14 @@ ui_stats_kills,击杀,Kills
 ui_stats_run_time,运行时间,Run Time
 ui_stats_damage,伤害,Damage
 ui_stats_health_regen,生命恢复,Health Regen
+ui_stats_shield,护盾,Shield
+ui_stats_overshield,超量护盾,Overshield
+ui_stats_energy,能量,Energy
+ui_stats_armor,护甲,Armor
+ui_stats_ability_strength,技能强度,Ability Strength
+ui_stats_ability_range,技能范围,Ability Range
+ui_stats_ability_efficiency,技能效率,Ability Efficiency
+ui_stats_ability_duration,技能持续时间,Ability Duration
 ui_stats_fire_rate,射速,Fire Rate
 ui_stats_move_speed,移动速度,Move Speed
 ui_stats_bullet_speed,子弹速度,Bullet Speed
@@ -197,8 +209,44 @@ ui_mode_standard_survival_name,标准生存,Standard Survival
 ui_mode_standard_survival_desc,在持续增强的敌潮中尽可能活下去,Survive as long as possible against escalating waves
 character_default_name,流浪者,Wanderer
 character_default_desc,默认角色，使用鼠标瞄准与按住开火,Default character with mouse aim and held fire
+character_primary_a_name,冷静,Calm
+character_primary_a_desc,以护盾与控场见长的主元素 A 英雄,A Primary A hero focused on shielding and control
+character_primary_b_name,愤怒,Fury
+character_primary_b_desc,以高防御与激进强化见长的主元素 B 英雄,A Primary B hero focused on resilience and aggressive buffs
+character_composition_name_format,{main}·{sub},{main} · {sub}
+ui_hero_composition_title,选择英雄组合,Choose Hero Composition
+ui_hero_composition_main,主英雄：属性、被动、技能 1/2,Main Hero: Stats / Passive / Skills 1–2
+ui_hero_composition_sub,子英雄：技能 3/4,Sub Hero: Skills 3–4
+ui_hero_composition_swap,交换主副,Swap Roles
+ui_hero_composition_passive,被动,Passive
+ui_hero_composition_skill,技能,Skill
+ui_hero_composition_sub_note,子英雄不提供属性和被动，只提供强调色与技能 3/4。,The sub hero provides no stats or passive—only the accent color and Skills 3–4.
+ui_hero_composition_duplicate_hint,相同英雄开局组合不可用；局内换人系统完成后可能产生重复组合。,Duplicate starting heroes are unavailable; repeated combinations may become possible after in-run switching is implemented.
+ui_debug_test_arena_element,伤害元素,Damage Element
+ui_debug_test_arena_damage_amount,注入伤害,Injected Damage
+ui_debug_test_arena_cast_skill_1,触发技能 1,Cast Skill 1
+ui_debug_test_arena_cast_skill_2,触发技能 2,Cast Skill 2
+ui_debug_test_arena_cast_skill_3,触发技能 3,Cast Skill 3
+ui_debug_test_arena_cast_skill_4,触发技能 4,Cast Skill 4
+ui_debug_test_arena_restore_shield,回满普通护盾,Restore Shield
+ui_debug_test_arena_add_overshield,增加 100 超量护盾,Add 100 Overshield
+ui_debug_test_arena_restore_energy,回满能量,Restore Energy
+ui_debug_test_arena_inject_damage,注入元素伤害,Inject Element Damage
+ui_debug_test_arena_player_status,玩家状态,Player Status
+ui_debug_test_arena_enemy_status,敌人状态,Enemy Status
+element_neutral_name,中性,Neutral
+element_primary_a_name,主元素 A,Primary A
+element_primary_b_name,主元素 B,Primary B
+element_primary_c_name,主元素 C,Primary C
+element_composite_ab_name,复合元素 AB,Composite AB
+element_composite_bc_name,复合元素 BC,Composite BC
+element_composite_ca_name,复合元素 CA,Composite CA
+passive_primary_a_guard_name,静心守御,Calm Guard
+passive_primary_a_guard_desc,受到纯主元素 A 伤害时，最终承伤降至 60%,"Final damage taken from pure Primary A hits is reduced to 60%."
+passive_primary_b_guard_name,怒意守御,Fury Guard
+passive_primary_b_guard_desc,受到纯主元素 B 伤害时，最终承伤降至 60%,"Final damage taken from pure Primary B hits is reduced to 60%."
 weapon_basic_blaster_name,基础脉冲枪,Basic Blaster
-weapon_basic_blaster_desc,可靠的鼠标瞄准步枪，按住开火并发射物理子弹,A reliable mouse-aimed rifle that fires physical rounds while held
+weapon_basic_blaster_desc,可靠的鼠标瞄准步枪，按住开火并发射中性子弹,A reliable mouse-aimed rifle that fires neutral rounds while held
 enemy_chaser_name,追猎者,Chaser
 enemy_swarm_name,疾行者,Swarm Runner
 enemy_stalker_name,潜猎者,Stalker
@@ -215,6 +263,24 @@ item_pocket_bomb_desc,引发一次小范围爆炸,Trigger a small explosion
 skill_overdrive_rounds_name,过载弹流,Overdrive Rounds
 skill_overdrive_rounds_desc,消耗能量，短时间提高射速和弹速,Spend energy to briefly increase fire rate and bullet speed
 skill_resource_mana_name,魔法,Mana
+skill_deploy_projectile_barrier_name,静域屏障,Quietude Barrier
+skill_deploy_projectile_barrier_desc,消耗 40 能量部署半径 160、生命 360 的屏障；同时只能存在一个，重施会替换旧屏障,"Spend 40 Energy to deploy a 160-radius barrier with 360 HP. Only one may exist; recasting replaces it."
+skill_aoe_slow_name,镇静脉冲,Calming Pulse
+skill_aoe_slow_desc,消耗 30 能量，使半径 280 内敌人减速 35%，持续 5 秒；减速最高 70%,"Spend 30 Energy to slow enemies within 280 radius by 35% for 5 seconds, capped at 70%."
+skill_self_fire_move_haste_name,怒意超频,Fury Overdrive
+skill_self_fire_move_haste_desc,消耗 35 能量，使射速提高 35%、移动速度提高 20%，持续 5 秒；重施刷新持续时间,"Spend 35 Energy to gain 35% fire rate and 20% movement speed for 5 seconds. Recasting refreshes the duration."
+skill_enemy_haste_vulnerability_name,激怒标记,Enraging Mark
+skill_enemy_haste_vulnerability_desc,消耗 30 能量，使半径 300 内敌人移动速度提高 10%，并叠加 10% 易伤，最多 5 层，持续 8 秒,"Spend 30 Energy to increase enemy movement speed by 10% within 300 radius and add 10% Vulnerability, up to 5 stacks, for 8 seconds."
+status_burn_name,燃烧,Burn
+status_poison_name,中毒,Poison
+status_bleed_name,流血,Bleed
+status_freeze_name,冻结,Freeze
+status_slow_name,减速,Slow
+status_haste_name,加速,Haste
+status_vulnerable_name,易伤,Vulnerability
+status_mark_name,标记,Mark
+status_silence_name,沉默,Silence
+skill_resource_energy_name,能量,Energy
 ui_debug_test_arena_setup_title,开发者测试岛配装,Developer Test Arena Loadout
 ui_debug_test_arena_seed,种子,Seed
 ui_debug_test_arena_character,角色,Character

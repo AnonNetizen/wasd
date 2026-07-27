@@ -12,13 +12,16 @@ signal save_corrupted(slot: String, kind: String, path: String, error: String)
 
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
+const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const SAVE_ROOT: String = "user://saves"
 const BROKEN_DIR_NAME: String = ".broken"
 const DEFAULT_SLOT: String = "slot_0"
-const GAME_VERSION: String = "v1.6"
+const GAME_VERSION: String = "v1.7"
+const DEFAULT_MAIN_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
+const DEFAULT_SUB_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 const CURRENT_KIND_VERSIONS: Dictionary = {
-	SAVE_KINDS.META: 1,
-	SAVE_KINDS.RUN: 4,
+	SAVE_KINDS.META: 2,
+	SAVE_KINDS.RUN: 5,
 	SAVE_KINDS.REPLAY_INDEX: 1,
 }
 
@@ -27,9 +30,11 @@ var _last_error: String = ""
 
 
 func _ready() -> void:
+	register_migration(SAVE_KINDS.META, 1, 2, Callable(self, "_migrate_meta_v1_to_v2"))
 	register_migration(SAVE_KINDS.RUN, 1, 2, Callable(self, "_migrate_run_v1_to_v2"))
 	register_migration(SAVE_KINDS.RUN, 2, 3, Callable(self, "_migrate_run_v2_to_v3"))
 	register_migration(SAVE_KINDS.RUN, 3, 4, Callable(self, "_migrate_run_v3_to_v4"))
+	register_migration(SAVE_KINDS.RUN, 4, 5, Callable(self, "_migrate_run_v4_to_v5"))
 
 
 func registered_save_kinds() -> Array[String]:
@@ -326,6 +331,21 @@ func _migrate_run_v1_to_v2(payload: Dictionary) -> Dictionary:
 	return result
 
 
+func _migrate_meta_v1_to_v2(payload: Dictionary) -> Dictionary:
+	var result: Dictionary = payload.duplicate(true)
+	if not result.get("hero_composition", {}) is Dictionary:
+		result["hero_composition"] = {}
+	var composition: Dictionary = (result.get("hero_composition", {}) as Dictionary).duplicate(true)
+	composition["main_hero_id"] = String(
+		composition.get("main_hero_id", DEFAULT_MAIN_HERO_ID)
+	)
+	composition["sub_hero_id"] = String(
+		composition.get("sub_hero_id", DEFAULT_SUB_HERO_ID)
+	)
+	result["hero_composition"] = composition
+	return result
+
+
 func _migrate_run_v2_to_v3(payload: Dictionary) -> Dictionary:
 	# v3 adds the F13 room carrier state. Pre-F13 (open-warzone) runs migrate to an empty
 	# room block, which restore reads as "no room carrier" and keeps the open-warzone path.
@@ -343,6 +363,16 @@ func _migrate_run_v3_to_v4(payload: Dictionary) -> Dictionary:
 	result["schema_version"] = 4
 	result["legacy_run_incompatible"] = true
 	result["module_world"] = {}
+	return result
+
+
+func _migrate_run_v4_to_v5(payload: Dictionary) -> Dictionary:
+	# Single-character snapshots do not contain enough information to infer a valid
+	# composition, element defense, shared energy, or slot-keyed cooldown state.
+	var result: Dictionary = payload.duplicate(true)
+	result["schema_version"] = 5
+	result["legacy_run_incompatible"] = true
+	result["hero_composition"] = {}
 	return result
 
 

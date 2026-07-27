@@ -31,7 +31,7 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Panel" type="PanelContainer" parent="Root/Center"]
-custom_minimum_size = Vector2(900, 760)
+custom_minimum_size = Vector2(900, 920)
 layout_mode = 2
 
 [node name="Margin" type="MarginContainer" parent="Root/Center/Panel"]
@@ -79,6 +79,22 @@ step = 1.0
 value = 1.0
 allow_greater = false
 allow_lesser = false
+
+[node name="ElementLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/SpawnGrid"]
+layout_mode = 2
+
+[node name="ElementOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/SpawnGrid"]
+layout_mode = 2
+
+[node name="DamageLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/SpawnGrid"]
+layout_mode = 2
+
+[node name="DamageSpin" type="SpinBox" parent="Root/Center/Panel/Margin/Layout/SpawnGrid"]
+layout_mode = 2
+min_value = 1.0
+max_value = 10000.0
+step = 10.0
+value = 100.0
 
 [node name="CheatGrid" type="GridContainer" parent="Root/Center/Panel/Margin/Layout"]
 layout_mode = 2
@@ -139,6 +155,44 @@ layout_mode = 2
 [node name="ResetStatsButton" type="Button" parent="Root/Center/Panel/Margin/Layout/ActionGrid"]
 custom_minimum_size = Vector2(250, 46)
 layout_mode = 2
+
+[node name="CastSkill1Button" type="Button" parent="Root/Center/Panel/Margin/Layout/ActionGrid"]
+custom_minimum_size = Vector2(250, 46)
+layout_mode = 2
+
+[node name="CastSkill2Button" type="Button" parent="Root/Center/Panel/Margin/Layout/ActionGrid"]
+custom_minimum_size = Vector2(250, 46)
+layout_mode = 2
+
+[node name="CastSkill3Button" type="Button" parent="Root/Center/Panel/Margin/Layout/ActionGrid"]
+custom_minimum_size = Vector2(250, 46)
+layout_mode = 2
+
+[node name="CastSkill4Button" type="Button" parent="Root/Center/Panel/Margin/Layout/ActionGrid"]
+custom_minimum_size = Vector2(250, 46)
+layout_mode = 2
+
+[node name="ShieldButton" type="Button" parent="Root/Center/Panel/Margin/Layout/ActionGrid"]
+custom_minimum_size = Vector2(250, 46)
+layout_mode = 2
+
+[node name="OvershieldButton" type="Button" parent="Root/Center/Panel/Margin/Layout/ActionGrid"]
+custom_minimum_size = Vector2(250, 46)
+layout_mode = 2
+
+[node name="EnergyButton" type="Button" parent="Root/Center/Panel/Margin/Layout/ActionGrid"]
+custom_minimum_size = Vector2(250, 46)
+layout_mode = 2
+
+[node name="ElementDamageButton" type="Button" parent="Root/Center/Panel/Margin/Layout/ActionGrid"]
+custom_minimum_size = Vector2(250, 46)
+layout_mode = 2
+
+[node name="ObservationLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 3
 
 [node name="FeedbackLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
 custom_minimum_size = Vector2(0, 42)

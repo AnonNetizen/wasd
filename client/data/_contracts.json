@@ -5,9 +5,14 @@
   "contracts": {
     "stats": [
       "max_hp",
+      "max_shield",
+      "max_energy",
       "health_regen",
       "move_speed",
-      "damage_invulnerability_duration",
+      "ability_strength",
+      "ability_range",
+      "ability_efficiency",
+      "ability_duration",
       "player_separation_radius",
       "damage",
       "fire_rate",
@@ -22,9 +27,6 @@
       "pickup_orb_speed",
       "luck",
       "armor",
-      "resist_fire",
-      "resist_poison",
-      "resist_lightning",
       "lifesteal_ratio"
     ],
     "effects": [
@@ -35,7 +37,8 @@
       "chain",
       "knockback",
       "explode",
-      "lifesteal"
+      "lifesteal",
+      "element_damage_taken_multiplier"
     ],
     "events": [
       "on_fire",
@@ -90,7 +93,11 @@
       "aim",
       "pointer_position",
       "fire",
-      "use_active_item",
+      "skill_1",
+      "skill_2",
+      "skill_3",
+      "skill_4",
+      "dash",
       "interact",
       "show_stats_panel",
       "pause",
@@ -117,7 +124,11 @@
       "input.aim_right",
       "input.aim_stick",
       "input.fire",
-      "input.use_active_item",
+      "input.skill_1",
+      "input.skill_2",
+      "input.skill_3",
+      "input.skill_4",
+      "input.dash",
       "input.interact",
       "input.show_stats_panel",
       "input.pause",
@@ -136,14 +147,18 @@
       "damage_number",
       "hit_spark",
       "pickup_orb",
+      "energy_orb",
+      "projectile_barrier",
       "vfx_weapon_muzzle_flash"
     ],
-    "damage_types": [
-      "physical",
-      "fire",
-      "poison",
-      "lightning",
-      "true"
+    "elements": [
+      "element_neutral",
+      "element_primary_a",
+      "element_primary_b",
+      "element_primary_c",
+      "element_composite_ab",
+      "element_composite_bc",
+      "element_composite_ca"
     ],
     "status_effects": [
       "burn",
@@ -151,6 +166,8 @@
       "bleed",
       "freeze",
       "slow",
+      "haste",
+      "vulnerable",
       "mark",
       "silence"
     ],
@@ -159,7 +176,8 @@
       "REFRESH",
       "ADD_DURATION",
       "INDEPENDENT",
-      "MAX_MAGNITUDE"
+      "MAX_MAGNITUDE",
+      "ADD_STACK_REFRESH"
     ],
     "audio_prefixes": [
       "sfx_player_",
@@ -180,7 +198,8 @@
       "meta"
     ],
     "character_ids": [
-      "character_default"
+      "character_primary_a",
+      "character_primary_b"
     ],
     "capabilities": [
       "cap_aim_mode_override",
@@ -210,20 +229,27 @@
       "ai_action_ranged_attack"
     ],
     "skill_ids": [
-      "skill_overdrive_rounds"
+      "skill_deploy_projectile_barrier",
+      "skill_aoe_slow",
+      "skill_self_fire_move_haste",
+      "skill_enemy_haste_vulnerability"
     ],
     "skill_resources": [
-      "mana"
+      "energy"
     ],
     "skill_targeting": [
       "aoe_enemies_around_caster",
       "target_enemy",
-      "target_ally"
+      "target_ally",
+      "target_self",
+      "target_aim_position"
     ],
     "skill_effects": [
       "skill_effect_damage",
       "skill_effect_apply_status",
-      "skill_effect_weapon_modifiers"
+      "skill_effect_weapon_modifiers",
+      "skill_effect_deploy_barrier",
+      "skill_effect_actor_modifiers"
     ],
     "ability_tags": [
       "ability_tag_skill",
@@ -231,6 +257,16 @@
       "ability_tag_damage",
       "ability_tag_activating",
       "ability_tag_silenced"
+    ],
+    "skill_slots": [
+      "skill_1",
+      "skill_2",
+      "skill_3",
+      "skill_4"
+    ],
+    "hero_passive_ids": [
+      "passive_primary_a_guard",
+      "passive_primary_b_guard"
     ],
     "gear_mod_ids": [
       "gear_mod_weapon_damage_test"
@@ -366,10 +402,13 @@
       "ui_",
       "ui_gear_mod_",
       "character_",
+      "element_",
+      "passive_",
       "weapon_",
       "relic_",
       "item_",
       "skill_",
+      "status_",
       "gear_mod_",
       "enemy_",
       "hazard_",

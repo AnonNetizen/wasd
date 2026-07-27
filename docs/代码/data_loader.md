@@ -98,7 +98,7 @@
   - `player.json`：`schema_version`、`base_stats`，stat id 必须来自词表，数值范围按 stat 类型校验；`max_hp` 是正数浮点血量，`health_regen` 是非负 HP/s。
   - `characters.json`：schema v2 角色 id、专属 `scene_path`、表现 profile、名称 / 描述 key、默认解锁、tags、capabilities、控制配置、起始携带引用和角色基础属性；场景必须是正式 `actors/characters/*.tscn` 下存在的 `PackedScene`，不得指向基础场景或越界。不同角色 id 可以复用同一路径；起始武器、主动道具和消耗品引用必须存在于对应数据文件。
   - `weapons.json`：武器 id、表现 profile、名称 / 描述 key、默认解锁、开火模式、开火音频 id、武器基础属性、子弹对象池、伤害类型和弹体数值。
-  - `skills.json`：技能 id、表现 profile、名称 / 描述 key、`tag_skill`、ability tags、activation required / blocked / granted tags、冷却、资源消耗、目标类型和效果原语；技能 id、资源、targeting、effect 和 ability tag 必须来自词表 §12-C~12-G，`skill_effect_damage` 的伤害类型交给 `Combat` 词表校验，`skill_effect_apply_status` 的 status / stack_rule / granted ability tags 必须来自词表 §9-A / §9-B / §12-G；当状态效果同时声明正 `magnitude` 与正 `tick_interval` 时，还必须声明已登记 `damage_type`。
+  - `skills.json`：技能 id、表现 profile、名称 / 描述 key、`tag_skill`、ability tags、activation required / blocked / granted tags、冷却、能量消耗、目标类型、能力缩放声明和效果原语；技能 id、槽位、资源、targeting、effect 和 ability tag 必须来自词表，`skill_effect_damage` 的 `element_id` 交给 `Combat` 校验，`skill_effect_apply_status` 的 status / stack_rule / granted ability tags 必须来自生成契约；当状态效果同时声明正 `magnitude` 与正 `tick_interval` 时，还必须声明已登记 `element_id`。
   - `visual_effects.json`：唯一 effect id、固定枚举、合法正式资源、质量 / reduced-motion variant、预览参数和对象池引用；高频条目必须声明已登记 pool id，catalog 不得指向 editor-only、`output/test_lab` 或裸程序几何。
   - `presentation_profiles.json`：唯一 profile id、父继承无环、cue / anchor 枚举、效果引用与可选音频 / 相机 / 屏幕绑定；首版 `hit_stop_profile_id` 必须为空。
   - `enemy_ai_profiles.json`：schema v3 profile id、视线 / 路径 / 记忆感知、决策间隔、玩家权重、守家参数、动作参数和 action id；action 必须来自词表 §12-B，旧单一 `sense_radius` 与种间猎食 / 逃跑字段会被明确拒绝。

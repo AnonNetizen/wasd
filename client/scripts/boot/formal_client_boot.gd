@@ -14,6 +14,7 @@ const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loo
 const GEAR_MOD_PANEL_SCENE := preload("res://scenes/ui/gear_mod_panel.tscn")
 const GEAR_MOD_SMOKE_RUNNER := preload("res://tools/gear_mod_smoke.gd")
 const GOLDEN_REPLAY_CAPTURE_RUNNER := preload("res://tools/golden_replay_capture.gd")
+const HERO_COMPOSITION_PANEL_SCENE := preload("res://scenes/ui/hero_composition_panel.tscn")
 const INPUT_SMOKE_RUNNER := preload("res://tools/input_smoke.gd")
 const L1_SMOKE_RUNNER := preload("res://tools/l1_smoke.gd")
 const LOADING_SCREEN_SCENE := preload("res://scenes/ui/loading_screen.tscn")
@@ -45,6 +46,9 @@ var _open_warzone_launch: bool = false
 var _module_world_technical_slice_launch: bool = false
 var _debug_console: CanvasLayer = null
 var _gear_mod_panel: CanvasLayer = null
+var _hero_composition_panel: CanvasLayer = null
+var _last_main_hero_id: String = ""
+var _last_sub_hero_id: String = ""
 var _settings_panel: CanvasLayer = null
 var _title_menu: CanvasLayer = null
 var _loading_screen: CanvasLayer = null
@@ -65,6 +69,7 @@ func _ready() -> void:
 	var save_kind_count: int = SaveManager.registered_save_kinds().size()
 	var audio_prefix_count: int = AudioManager.registered_audio_prefixes().size()
 	var state_name: StringName = GameState.current()
+	_load_last_composition_from_meta()
 	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d data_schema_ok=%s mods=%d player_stats=%d weapons=%d enemies=%d hazards=%d spawn_waves=%d relics=%d active_items=%d consumables=%d skills=%d credits=%d credit_sections=%d characters=%d locale_keys=%d growth_levels=%d growth_pools=%d game_modes=%d map_layouts=%d warzone_directors=%d module_worlds=%d module_templates=%d settings=%d analytics_events=%d analytics_enabled=%s replay_enabled=%s replay_recording=%s platform_provider=%s platform_available=%s pool_ids=%d active_pools=%d save_kinds=%d save_slots=%d audio_prefixes=%d audio_streams=%d audio_buses_ready=%s locale=%s ui_stack=%d state=%s seed=%d" % [
 		BOOT_LOG_PREFIX,
 		contract_count,
@@ -326,6 +331,7 @@ func _is_vfx_smoke_enabled() -> bool:
 func _show_title_menu(notice_key: String = "") -> void:
 	_player_load_in_progress = false
 	_loading_screen = null
+	_hero_composition_panel = null
 	_clear_gameplay_runtime()
 	GameState.change_state(GameState.MAIN_MENU, {"source": "formal_client_boot"})
 	UIManager.clear(true)
@@ -334,29 +340,49 @@ func _show_title_menu(notice_key: String = "") -> void:
 	if _title_menu == null:
 		return
 	_title_menu.call("configure", SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN), notice_key)
-	_title_menu.connect("start_requested", Callable(self, "_on_title_start_requested"), CONNECT_ONE_SHOT)
+	_title_menu.connect("start_requested", Callable(self, "_on_title_start_requested"))
 	_title_menu.connect("continue_requested", Callable(self, "_on_title_continue_requested"), CONNECT_ONE_SHOT)
 	_title_menu.connect("gear_mod_requested", Callable(self, "_on_title_gear_mod_requested"))
 	_title_menu.connect("settings_requested", Callable(self, "_on_title_settings_requested"))
 	_title_menu.connect("quit_requested", Callable(self, "_on_title_quit_requested"), CONNECT_ONE_SHOT)
 
 
-func _start_gameplay_run(restore_snapshot: Dictionary = {}, open_warzone: bool = false) -> void:
+func _start_gameplay_run(
+	restore_snapshot: Dictionary = {},
+	open_warzone: bool = false,
+	hero_composition: Dictionary = {}
+) -> void:
 	UIManager.clear(true)
 	GameState.change_state(GameState.LOADING, {"source": "formal_client_boot"})
-	_mount_gameplay_run(restore_snapshot, open_warzone, false)
+	_mount_gameplay_run(restore_snapshot, open_warzone, false, hero_composition)
 
 
 func _mount_gameplay_run(
 	restore_snapshot: Dictionary,
 	open_warzone: bool,
-	player_loading_mode: bool
+	player_loading_mode: bool,
+	hero_composition: Dictionary = {}
 ) -> void:
 	_clear_gameplay_runtime()
 
 	_run_loop = GAMEPLAY_RUN_LOOP_SCENE.instantiate()
+	var composition_ids: Dictionary = _composition_ids_for_run(
+		restore_snapshot,
+		hero_composition
+	)
+	var main_hero_id: String = String(composition_ids.get("main_hero_id", ""))
+	var sub_hero_id: String = String(composition_ids.get("sub_hero_id", ""))
+	if (
+		not main_hero_id.is_empty()
+		and not sub_hero_id.is_empty()
+		and _run_loop.has_method("configure_hero_composition")
+	):
+		_run_loop.call("configure_hero_composition", main_hero_id, sub_hero_id)
+	var fallback_character_id: String = main_hero_id
+	if fallback_character_id.is_empty() and not CHARACTER_IDS.VALUES.is_empty():
+		fallback_character_id = String(CHARACTER_IDS.VALUES[0])
 	var character_id: String = String(
-		restore_snapshot.get("character", CHARACTER_IDS.CHARACTER_DEFAULT)
+		restore_snapshot.get("character", fallback_character_id)
 	)
 	if _run_loop.has_method("configure_character_id"):
 		_run_loop.call("configure_character_id", character_id)
@@ -388,7 +414,8 @@ func _mount_gameplay_run(
 
 func _begin_player_gameplay_load(
 	load_mode: PlayerLoadMode,
-	open_warzone: bool = false
+	open_warzone: bool = false,
+	hero_composition: Dictionary = {}
 ) -> void:
 	if _player_load_in_progress:
 		return
@@ -403,12 +430,110 @@ func _begin_player_gameplay_load(
 		_player_load_in_progress = false
 		call_deferred("_show_title_menu", "ui_loading_failed")
 		return
-	call_deferred("_perform_player_gameplay_load", load_mode, open_warzone)
+	call_deferred(
+		"_perform_player_gameplay_load",
+		load_mode,
+		open_warzone,
+		hero_composition
+	)
+
+
+func _composition_ids_for_run(
+	restore_snapshot: Dictionary,
+	hero_composition: Dictionary = {}
+) -> Dictionary:
+	var requested_main_id: String = String(hero_composition.get("main_hero_id", ""))
+	var requested_sub_id: String = String(hero_composition.get("sub_hero_id", ""))
+	if not requested_main_id.is_empty() and not requested_sub_id.is_empty():
+		_last_main_hero_id = requested_main_id
+		_last_sub_hero_id = requested_sub_id
+		return {
+			"main_hero_id": requested_main_id,
+			"sub_hero_id": requested_sub_id,
+		}
+	if not restore_snapshot.is_empty():
+		var composition: Dictionary = restore_snapshot.get("hero_composition", {}) as Dictionary
+		var restored_main_id: String = String(
+			composition.get(
+				"main_hero_id",
+				restore_snapshot.get("main_hero_id", restore_snapshot.get("character", ""))
+			)
+		)
+		var restored_sub_id: String = String(
+			composition.get("sub_hero_id", restore_snapshot.get("sub_hero_id", ""))
+		)
+		if not restored_main_id.is_empty() and not restored_sub_id.is_empty():
+			_last_main_hero_id = restored_main_id
+			_last_sub_hero_id = restored_sub_id
+			return {
+				"main_hero_id": restored_main_id,
+				"sub_hero_id": restored_sub_id,
+			}
+	_ensure_default_composition()
+	return {
+		"main_hero_id": _last_main_hero_id,
+		"sub_hero_id": _last_sub_hero_id,
+	}
+
+
+func _ensure_default_composition() -> void:
+	var hero_rows: Array[Dictionary] = _hero_rows()
+	if hero_rows.is_empty():
+		return
+	if _last_main_hero_id.is_empty():
+		_last_main_hero_id = String(hero_rows[0].get("id", ""))
+	if _last_sub_hero_id.is_empty():
+		var sub_index: int = 1 if hero_rows.size() > 1 else 0
+		_last_sub_hero_id = String(hero_rows[sub_index].get("id", ""))
+
+
+func _load_last_composition_from_meta() -> void:
+	if not SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META):
+		return
+	var profile: Dictionary = SaveManager.load(
+		SaveManager.DEFAULT_SLOT,
+		SAVE_KINDS.META
+	)
+	var composition: Dictionary = profile.get("hero_composition", {}) as Dictionary
+	_last_main_hero_id = String(composition.get("main_hero_id", ""))
+	_last_sub_hero_id = String(composition.get("sub_hero_id", ""))
+
+
+func _save_last_composition_to_meta() -> void:
+	var profile: Dictionary = {}
+	if SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META):
+		profile = SaveManager.load(
+			SaveManager.DEFAULT_SLOT,
+			SAVE_KINDS.META
+		)
+	profile["hero_composition"] = {
+		"main_hero_id": _last_main_hero_id,
+		"sub_hero_id": _last_sub_hero_id,
+	}
+	if not SaveManager.save(
+		SaveManager.DEFAULT_SLOT,
+		SAVE_KINDS.META,
+		profile
+	):
+		push_warning(
+			"[FormalClientBoot] failed to save confirmed hero composition: %s"
+			% SaveManager.last_error()
+		)
+
+
+func _hero_rows() -> Array[Dictionary]:
+	var payload: Dictionary = DataLoader.load_json(DataLoader.CHARACTERS_PATH) as Dictionary
+	var rows: Array[Dictionary] = []
+	for row: Variant in payload.get("characters", []):
+		if row is Dictionary:
+			rows.append((row as Dictionary).duplicate(true))
+	return rows
 
 
 func _perform_player_gameplay_load(
 	load_mode: PlayerLoadMode,
-	open_warzone: bool
+	open_warzone: bool,
+	hero_composition: Dictionary
 ) -> void:
 	await get_tree().process_frame
 	if not is_instance_valid(self) or not _player_load_in_progress:
@@ -447,7 +572,7 @@ func _perform_player_gameplay_load(
 			_abort_player_gameplay_load("ui_loading_failed")
 			return
 
-	_mount_gameplay_run(restore_snapshot, open_warzone, true)
+	_mount_gameplay_run(restore_snapshot, open_warzone, true, hero_composition)
 
 
 func _on_player_run_prepared() -> void:
@@ -491,6 +616,7 @@ func _on_player_run_prepare_failed(reason: String, restoring: bool) -> void:
 func _is_restore_snapshot_unavailable(reason: String) -> bool:
 	return (
 		reason.begins_with("unknown character id:")
+		or reason.begins_with("invalid hero composition:")
 		or reason == "run snapshot restore failed"
 	)
 
@@ -518,14 +644,62 @@ func _clear_gameplay_runtime() -> void:
 	PoolManager.clear_pool(POOL_IDS.HIT_SPARK)
 	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
 	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
+	PoolManager.clear_pool(POOL_IDS.ENERGY_ORB)
+	PoolManager.clear_pool(POOL_IDS.PROJECTILE_BARRIER)
 	PoolManager.clear_pool(POOL_IDS.VFX_WEAPON_MUZZLE_FLASH)
 
 
 func _on_title_start_requested() -> void:
+	if _hero_composition_panel != null and is_instance_valid(_hero_composition_panel):
+		return
+	_ensure_default_composition()
+	_hero_composition_panel = UIManager.push(
+		HERO_COMPOSITION_PANEL_SCENE,
+		{"source": "title_menu"}
+	) as CanvasLayer
+	if _hero_composition_panel == null:
+		return
+	_hero_composition_panel.call(
+		"configure",
+		_hero_rows(),
+		_last_main_hero_id,
+		_last_sub_hero_id
+	)
+	_hero_composition_panel.connect(
+		"composition_confirmed",
+		Callable(self, "_on_composition_confirmed"),
+		CONNECT_ONE_SHOT
+	)
+	_hero_composition_panel.connect(
+		"cancel_requested",
+		Callable(self, "_on_composition_cancel_requested"),
+		CONNECT_ONE_SHOT
+	)
+
+
+func _on_composition_confirmed(main_hero_id: String, sub_hero_id: String) -> void:
+	if main_hero_id.is_empty() or sub_hero_id.is_empty() or main_hero_id == sub_hero_id:
+		return
+	_last_main_hero_id = main_hero_id
+	_last_sub_hero_id = sub_hero_id
+	_save_last_composition_to_meta()
+	_hero_composition_panel = null
 	_begin_player_gameplay_load(
 		PlayerLoadMode.NEW_RUN,
-		_open_warzone_launch
+		_open_warzone_launch,
+		{
+			"main_hero_id": main_hero_id,
+			"sub_hero_id": sub_hero_id,
+		}
 	)
+
+
+func _on_composition_cancel_requested() -> void:
+	if UIManager.top() == _hero_composition_panel:
+		UIManager.pop_expected(_hero_composition_panel)
+	elif _hero_composition_panel != null and is_instance_valid(_hero_composition_panel):
+		_hero_composition_panel.queue_free()
+	_hero_composition_panel = null
 
 
 func _on_title_continue_requested() -> void:
@@ -580,7 +754,11 @@ func _on_settings_panel_closed() -> void:
 func _on_run_restart_requested() -> void:
 	_begin_player_gameplay_load(
 		PlayerLoadMode.NEW_RUN,
-		_open_warzone_launch
+		_open_warzone_launch,
+		{
+			"main_hero_id": _last_main_hero_id,
+			"sub_hero_id": _last_sub_hero_id,
+		}
 	)
 
 

@@ -33,6 +33,47 @@ size_flags_horizontal = 0
 size_flags_vertical = 0
 theme_override_constants/separation = 6
 
+[node name="CompositionLabel" type="Label" parent="Root/Margin/Layout"]
+custom_minimum_size = Vector2(360, 0)
+layout_mode = 2
+text_overrun_behavior = 3
+theme_override_font_sizes/font_size = 26
+
+[node name="Defense" type="VBoxContainer" parent="Root/Margin/Layout"]
+custom_minimum_size = Vector2(360, 0)
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="DefenseLabel" type="Label" parent="Root/Margin/Layout/Defense"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+
+[node name="HealthBar" type="ProgressBar" parent="Root/Margin/Layout/Defense"]
+custom_minimum_size = Vector2(360, 16)
+layout_mode = 2
+value = 100.0
+show_percentage = false
+
+[node name="ShieldBar" type="ProgressBar" parent="Root/Margin/Layout/Defense"]
+custom_minimum_size = Vector2(360, 10)
+layout_mode = 2
+show_percentage = false
+
+[node name="OvershieldBar" type="ProgressBar" parent="Root/Margin/Layout/Defense"]
+custom_minimum_size = Vector2(360, 6)
+layout_mode = 2
+show_percentage = false
+
+[node name="EnergyLabel" type="Label" parent="Root/Margin/Layout"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+
+[node name="EnergyBar" type="ProgressBar" parent="Root/Margin/Layout"]
+custom_minimum_size = Vector2(360, 12)
+layout_mode = 2
+value = 100.0
+show_percentage = false
+
 [node name="LifeLabel" type="Label" parent="Root/Margin/Layout"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
@@ -114,6 +155,95 @@ grow_vertical = 2
 horizontal_alignment = 1
 vertical_alignment = 1
 theme_override_font_sizes/font_size = 24
+
+[node name="StatusLabel" type="Label" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 360.0
+offset_top = 24.0
+offset_right = -360.0
+offset_bottom = 62.0
+grow_horizontal = 2
+horizontal_alignment = 1
+text_overrun_behavior = 3
+theme_override_font_sizes/font_size = 18
+
+[node name="CombatTray" type="HBoxContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 12
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 310.0
+offset_top = -116.0
+offset_right = -310.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 10
+
+[node name="Skill1" type="PanelContainer" parent="Root/CombatTray"]
+custom_minimum_size = Vector2(150, 84)
+layout_mode = 2
+
+[node name="SkillLabel" type="Label" parent="Root/CombatTray/Skill1"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 15
+
+[node name="Skill2" type="PanelContainer" parent="Root/CombatTray"]
+custom_minimum_size = Vector2(150, 84)
+layout_mode = 2
+
+[node name="SkillLabel" type="Label" parent="Root/CombatTray/Skill2"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 15
+
+[node name="Skill3" type="PanelContainer" parent="Root/CombatTray"]
+custom_minimum_size = Vector2(150, 84)
+layout_mode = 2
+
+[node name="SkillLabel" type="Label" parent="Root/CombatTray/Skill3"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 15
+
+[node name="Skill4" type="PanelContainer" parent="Root/CombatTray"]
+custom_minimum_size = Vector2(150, 84)
+layout_mode = 2
+
+[node name="SkillLabel" type="Label" parent="Root/CombatTray/Skill4"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 15
+
+[node name="Dash" type="PanelContainer" parent="Root/CombatTray"]
+custom_minimum_size = Vector2(92, 84)
+layout_mode = 2
+
+[node name="DashBar" type="ProgressBar" parent="Root/CombatTray/Dash"]
+layout_mode = 2
+value = 1.0
+max_value = 1.0
+show_percentage = false
+
+[node name="DashLabel" type="Label" parent="Root/CombatTray/Dash"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 20
 
 [node name="ModuleMinimap" type="Control" parent="Root"]
 custom_minimum_size = Vector2(153, 153)

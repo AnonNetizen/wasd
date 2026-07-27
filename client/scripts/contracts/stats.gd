@@ -3,9 +3,14 @@ class_name Stats
 
 const VALUES: Array[String] = [
 	"max_hp",
+	"max_shield",
+	"max_energy",
 	"health_regen",
 	"move_speed",
-	"damage_invulnerability_duration",
+	"ability_strength",
+	"ability_range",
+	"ability_efficiency",
+	"ability_duration",
 	"player_separation_radius",
 	"damage",
 	"fire_rate",
@@ -20,16 +25,18 @@ const VALUES: Array[String] = [
 	"pickup_orb_speed",
 	"luck",
 	"armor",
-	"resist_fire",
-	"resist_poison",
-	"resist_lightning",
 	"lifesteal_ratio",
 ]
 
 const MAX_HP: String = "max_hp"
+const MAX_SHIELD: String = "max_shield"
+const MAX_ENERGY: String = "max_energy"
 const HEALTH_REGEN: String = "health_regen"
 const MOVE_SPEED: String = "move_speed"
-const DAMAGE_INVULNERABILITY_DURATION: String = "damage_invulnerability_duration"
+const ABILITY_STRENGTH: String = "ability_strength"
+const ABILITY_RANGE: String = "ability_range"
+const ABILITY_EFFICIENCY: String = "ability_efficiency"
+const ABILITY_DURATION: String = "ability_duration"
 const PLAYER_SEPARATION_RADIUS: String = "player_separation_radius"
 const DAMAGE: String = "damage"
 const FIRE_RATE: String = "fire_rate"
@@ -44,7 +51,4 @@ const PICKUP_RANGE: String = "pickup_range"
 const PICKUP_ORB_SPEED: String = "pickup_orb_speed"
 const LUCK: String = "luck"
 const ARMOR: String = "armor"
-const RESIST_FIRE: String = "resist_fire"
-const RESIST_POISON: String = "resist_poison"
-const RESIST_LIGHTNING: String = "resist_lightning"
 const LIFESTEAL_RATIO: String = "lifesteal_ratio"

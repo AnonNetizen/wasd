@@ -2,7 +2,9 @@
 class_name CharacterIds
 
 const VALUES: Array[String] = [
-	"character_default",
+	"character_primary_a",
+	"character_primary_b",
 ]
 
-const CHARACTER_DEFAULT: String = "character_default"
+const CHARACTER_PRIMARY_A: String = "character_primary_a"
+const CHARACTER_PRIMARY_B: String = "character_primary_b"

@@ -7,6 +7,7 @@ extends Node2D
 const STATS := preload("res://scripts/contracts/stats.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 
+const ACTIVE_DEPLOYABLE_GROUP: String = "active_deployables"
 const DAMAGE_TARGET_GROUPS: Array[String] = ["active_enemies", "active_interest_point_targets"]
 const MIN_TERRAIN_QUERY_RADIUS: float = 0.001
 const TERRAIN_COLLISION_LAYER: int = 1 << 0
@@ -14,7 +15,7 @@ const TEAM_ENEMY: String = "team_enemy"
 const TEAM_PLAYER: String = "team_player"
 
 var _damage: float = 0.0
-var _damage_type: String = ""
+var _element_id: String = ""
 var _damage_target_groups: Array[String] = []
 var _hit_targets: Dictionary = {}
 var _hit_radius: float = 0.0
@@ -43,11 +44,17 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var step: Vector2 = _velocity * scaled_delta
+	var step_start: Vector2 = global_position
 	var safe_fraction: float = _terrain_safe_fraction(step)
 	var safe_step: Vector2 = step * safe_fraction
 	position += safe_step
 	_travelled += safe_step.length()
 	_remaining_life -= scaled_delta
+	if _check_enemy_projectile_deployable_hit(
+		step_start,
+		global_position
+	):
+		return
 	if safe_fraction < 1.0:
 		PoolManager.release(self)
 		return
@@ -56,12 +63,12 @@ func _physics_process(delta: float) -> void:
 		PoolManager.release(self)
 		return
 
-	_check_damage_target_hits()
+	_check_damage_target_hits(step_start, global_position)
 
 
 func configure(stats: Dictionary, projectile: Dictionary, direction: Vector2, source: Node) -> void:
 	_damage = float(stats.get(STATS.DAMAGE, 0.0))
-	_damage_type = String(projectile.get("damage_type", ""))
+	_element_id = String(projectile.get("element_id", ""))
 	_damage_target_groups = _string_array(projectile.get("damage_target_groups", DAMAGE_TARGET_GROUPS))
 	if _damage_target_groups.is_empty():
 		_damage_target_groups = DAMAGE_TARGET_GROUPS.duplicate()
@@ -88,7 +95,7 @@ func snapshot() -> Dictionary:
 	return {
 		"position": _vector_to_dict(global_position),
 		"damage": _damage,
-		"damage_type": _damage_type,
+		"element_id": _element_id,
 		"damage_target_groups": _damage_target_groups.duplicate(),
 		"hit_radius": _hit_radius,
 		"remaining_life": _remaining_life,
@@ -105,7 +112,7 @@ func snapshot() -> Dictionary:
 func restore_snapshot(snapshot_data: Dictionary, source: Node) -> void:
 	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
 	_damage = float(snapshot_data.get("damage", 0.0))
-	_damage_type = String(snapshot_data.get("damage_type", ""))
+	_element_id = String(snapshot_data.get("element_id", ""))
 	_damage_target_groups = _string_array(snapshot_data.get("damage_target_groups", DAMAGE_TARGET_GROUPS))
 	if _damage_target_groups.is_empty():
 		_damage_target_groups = DAMAGE_TARGET_GROUPS.duplicate()
@@ -130,7 +137,7 @@ func restore_snapshot(snapshot_data: Dictionary, source: Node) -> void:
 
 func _pool_reset() -> void:
 	_damage = 0.0
-	_damage_type = ""
+	_element_id = ""
 	_damage_target_groups.clear()
 	_hit_targets.clear()
 	_hit_radius = 0.0
@@ -203,14 +210,78 @@ func _resolve_trail() -> void:
 		_trail = get_node_or_null("RibbonTrail") as Line2D
 
 
-func _check_damage_target_hits() -> void:
+func _check_damage_target_hits(
+	step_start: Vector2,
+	step_end: Vector2
+) -> void:
 	for group_name: String in _damage_target_groups:
+		if group_name == ACTIVE_DEPLOYABLE_GROUP:
+			continue
 		for raw_target: Node in get_tree().get_nodes_in_group(group_name):
-			if _try_hit_damage_target(raw_target):
+			if _try_hit_damage_target(raw_target, step_start, step_end):
 				return
 
 
-func _try_hit_damage_target(raw_target: Node) -> bool:
+func _check_enemy_projectile_deployable_hit(
+	step_start: Vector2,
+	step_end: Vector2
+) -> bool:
+	if _source_team != TEAM_ENEMY:
+		return false
+	var closest_target: Node2D = null
+	var closest_fraction: float = INF
+	for raw_target: Node in get_tree().get_nodes_in_group(
+		ACTIVE_DEPLOYABLE_GROUP
+	):
+		if (
+			not raw_target is Node2D
+			or not raw_target.has_method("receive_projectile_damage")
+			or not raw_target.has_method("is_alive")
+			or not raw_target.has_method("hit_radius")
+			or not bool(raw_target.call("is_alive"))
+		):
+			continue
+		var target: Node2D = raw_target as Node2D
+		var target_radius: float = (
+			_hit_radius
+			+ float(raw_target.call("hit_radius"))
+		)
+		var fraction: float = _segment_hit_fraction(
+			target.global_position,
+			step_start,
+			step_end,
+			target_radius
+		)
+		if fraction < 0.0 or fraction >= closest_fraction:
+			continue
+		closest_target = target
+		closest_fraction = fraction
+	if closest_target == null:
+		return false
+
+	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		_damage,
+		_element_id,
+		_source,
+		closest_target,
+		_source_team,
+		_target_team
+	)
+	closest_target.call("receive_projectile_damage", info)
+	PoolManager.release(self)
+	return true
+
+
+func _try_hit_damage_target(
+	raw_target: Node,
+	step_start: Vector2,
+	step_end: Vector2
+) -> bool:
+	if (
+		_source_team != TEAM_ENEMY
+		and raw_target.is_in_group(ACTIVE_DEPLOYABLE_GROUP)
+	):
+		return false
 	if not raw_target is Node2D or not raw_target.has_method("is_alive") or not raw_target.has_method("hit_radius"):
 		return false
 	if not bool(raw_target.call("is_alive")):
@@ -219,17 +290,70 @@ func _try_hit_damage_target(raw_target: Node) -> bool:
 	if _hit_targets.has(instance_id):
 		return false
 	var target: Node2D = raw_target as Node2D
-	if global_position.distance_to(target.global_position) > _hit_radius + float(raw_target.call("hit_radius")):
+	var target_radius: float = _hit_radius + float(
+		raw_target.call("hit_radius")
+	)
+	if (
+		_closest_point_on_segment(
+			target.global_position,
+			step_start,
+			step_end
+		).distance_to(target.global_position)
+		> target_radius
+	):
 		return false
 
 	_hit_targets[instance_id] = true
-	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(_damage, _damage_type, _source, target, _source_team, _target_team)
+	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		_damage,
+		_element_id,
+		_source,
+		target,
+		_source_team,
+		_target_team
+	)
 	Combat.apply_damage(target, info)
 	if _pierce_remaining <= 0:
 		PoolManager.release(self)
 		return true
 	_pierce_remaining -= 1
 	return false
+
+
+func _segment_hit_fraction(
+	point: Vector2,
+	start: Vector2,
+	end: Vector2,
+	radius: float
+) -> float:
+	var segment: Vector2 = end - start
+	var length_squared: float = segment.length_squared()
+	if length_squared <= 0.0:
+		return 0.0 if start.distance_to(point) <= radius else -1.0
+	var fraction: float = clampf(
+		(point - start).dot(segment) / length_squared,
+		0.0,
+		1.0
+	)
+	var closest_point: Vector2 = start + segment * fraction
+	return fraction if closest_point.distance_to(point) <= radius else -1.0
+
+
+func _closest_point_on_segment(
+	point: Vector2,
+	start: Vector2,
+	end: Vector2
+) -> Vector2:
+	var segment: Vector2 = end - start
+	var length_squared: float = segment.length_squared()
+	if length_squared <= 0.0:
+		return start
+	var fraction: float = clampf(
+		(point - start).dot(segment) / length_squared,
+		0.0,
+		1.0
+	)
+	return start + segment * fraction
 
 
 func _string_array(raw_value: Variant) -> Array[String]:

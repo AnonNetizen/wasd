@@ -2,11 +2,18 @@ extends Node
 
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
+const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
+const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 
 const EXPECTED_ACTIONS: Array[String] = [
 	ACTIONS.MOVE,
 	ACTIONS.AIM,
 	ACTIONS.FIRE,
+	ACTIONS.SKILL_1,
+	ACTIONS.SKILL_2,
+	ACTIONS.SKILL_3,
+	ACTIONS.SKILL_4,
+	ACTIONS.DASH,
 	ACTIONS.PAUSE,
 	ACTIONS.UI_BACK,
 ]
@@ -52,6 +59,16 @@ func _run() -> void:
 	await _inject_mouse_motion(Vector2(720.0, 420.0), Vector2(8.0, -3.0))
 	await _inject_mouse_button(MOUSE_BUTTON_LEFT, true)
 	await _inject_mouse_button(MOUSE_BUTTON_LEFT, false)
+	await _inject_mouse_button(MOUSE_BUTTON_RIGHT, true)
+	await _inject_mouse_button(MOUSE_BUTTON_RIGHT, false)
+	await _inject_key(KEY_SHIFT, true)
+	await _inject_key(KEY_SHIFT, false)
+	await _inject_key(KEY_E, true)
+	await _inject_key(KEY_E, false)
+	await _inject_key(KEY_R, true)
+	await _inject_key(KEY_R, false)
+	await _inject_key(KEY_SPACE, true)
+	await _inject_key(KEY_SPACE, false)
 
 	await _inject_key(KEY_ESCAPE, true)
 	await _inject_key(KEY_ESCAPE, false)
@@ -78,12 +95,17 @@ func _run() -> void:
 	GameState.change_state(GameState.GAME_OVER, {"source": "replay_input_smoke"})
 	var completed: Dictionary = Replay.snapshot()
 	var input_events: Array = completed.get("input_events", []) as Array
-	_expect(input_events.size() >= 6, "ReplayInputSmoke should record multiple gameplay input events")
+	var decision_events: Array = completed.get("decision_events", []) as Array
+	_expect(input_events.size() >= 16, "ReplayInputSmoke should record four skills, dash, and existing gameplay intents")
 	for action_name: String in EXPECTED_ACTIONS:
 		_expect(_has_input_action(input_events, action_name), "ReplayInputSmoke should record %s" % action_name)
 	_expect(_all_events_are_v2(input_events), "ReplayInputSmoke should record only typed v2 input events")
 	_expect(_has_vector_value(input_events, ACTIONS.MOVE, Vector2.RIGHT), "ReplayInputSmoke should record normalized movement intent")
 	_expect(_has_vector_value(input_events, ACTIONS.AIM, Vector2.UP), "ReplayInputSmoke should record normalized final aim intent")
+	_expect(
+		_has_composition_decision(decision_events),
+		"ReplayInputSmoke should record the selected main/sub hero composition"
+	)
 
 	GameState.change_state(GameState.MAIN_MENU, {"source": "replay_input_smoke"})
 	InputService.set_playback_active(false)
@@ -125,6 +147,24 @@ func _inject_mouse_motion(position: Vector2, relative: Vector2) -> void:
 func _has_input_action(input_events: Array, action_name: String) -> bool:
 	for input_event: Variant in input_events:
 		if input_event is Dictionary and String((input_event as Dictionary).get("action", "")) == action_name:
+			return true
+	return false
+
+
+func _has_composition_decision(decision_events: Array) -> bool:
+	for raw_event: Variant in decision_events:
+		if not raw_event is Dictionary:
+			continue
+		var event: Dictionary = raw_event as Dictionary
+		if String(event.get("event", "")) != ANALYTICS_EVENTS.RUN_START:
+			continue
+		var payload: Dictionary = event.get("payload", {}) as Dictionary
+		if (
+			String(payload.get("main_hero_id", ""))
+			== CHARACTER_IDS.CHARACTER_PRIMARY_A
+			and String(payload.get("sub_hero_id", ""))
+			== CHARACTER_IDS.CHARACTER_PRIMARY_B
+		):
 			return true
 	return false
 

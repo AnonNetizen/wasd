@@ -106,7 +106,7 @@ alwaysApply: true
 - 玩家 mod 当前只支持本地数据包：`user://mods/<mod_id>/mod.json` + mod 自带数据 patch；未来创意工坊只作为分发层，不改变游戏内加载契约。
 - 统一走 `ModLoader`（autoload）扫描 manifest、校验安全相对路径、排序、诊断，并向 `DataLoader` 提供声明式 JSON / CSV append patch；业务系统禁止直接读取 `user://mods`。
 - mod 只允许通过 manifest 声明少量运行时动态契约扩展（当前为 `character_ids`、`game_modes`、`content_tags`、`locale_prefixes`），且值必须以 `mod_<mod_id>_` 开头；项目代码仍只引用内置生成常量。
-- mod 禁止扩展 `stats`、`effects`、`events`、`damage_types`、`pool_ids`、`audio_prefixes`、`rng_streams`、`save_kinds` 等需要代码、资源、确定性或存档同步的核心契约。
+- mod 禁止扩展 `stats`、`effects`、`events`、`elements`、`pool_ids`、`audio_prefixes`、`rng_streams`、`save_kinds` 等需要代码、资源、确定性或存档同步的核心契约。
 - 禁止执行玩家 GDScript、动态库、可执行文件或远端资源；需要新 effect / behavior / strategy 时，先走正式项目词表、实现、测试和文档流程。
 - `DataLoader` 必须校验合并后的数据；无效 mod 应 fail-fast 输出 `[ModLoader]` / `[DataLoader]` 诊断，不得静默吞掉。
 
@@ -137,7 +137,7 @@ alwaysApply: true
 - **UI 弹窗统一走 `UIManager`（autoload）**：`push/pop/replace/clear`；UI 场景根节点用 `@export modal/pauses_game/music_duck` 元数据声明行为；**禁止**业务代码直接 `add_child` UI 弹窗（详见 9.14）。
 
 ## 12-D. 伤害结算、状态效果、存档、音频（N / O / Q 落地约束）
-- **伤害走单一入口 `Combat.apply_damage(target, DamageInfo)`**；`damage_type` 进词表第 9 节；**禁止**业务代码直接 `target.hp -= n`（详见 9.15）。
+- **伤害走单一入口 `Combat.apply_damage(target, DamageInfo)`**；`element_id` 进词表第 9 节；**禁止**业务代码直接 `target.hp -= n`（详见 9.15）。
 - **持续效果用 `StatusEffect` 资源 + `StatusEffectComponent`**；`id`（`burn` / `poison` 等）进词表；`stack_rule` 必须显式声明（`REPLACE` / `REFRESH` / `ADD_DURATION` / `INDEPENDENT` / `MAX_MAGNITUDE`）。effect 原语 `ignite` / `chain` 等改为薄包装。
 - **存档走 `SaveManager`（autoload）**：必须同时支持 `meta` 局外成长长期档案与 `run` 局内暂停退出续局档案；所有存档**强制头字段** `version` + `kind` + `slot` + `created_at` + `updated_at` + `game_version` + `data_hash`；写入必须原子替换并保留 `.bak`；schema 变更必须配 `register_migration(kind, from, to, fn)`；加载失败时 fail-fast、尝试备份回退并隔离到 `user://saves/.broken/`（详见 9.16）。
 - **音频走 `AudioManager`（autoload）**：`play_sfx(id, opts)` / `play_music(id, fade)`；音频 id 在词表第 10 节登记；**禁止**业务代码直接 `AudioStreamPlayer.play()`（详见 9.17）。
@@ -200,7 +200,7 @@ alwaysApply: true
   - 输入 action id、池类型 id、伤害类型、状态效果 id、音频 id、RNG 子流 id、角色 id、capability id、content tag
 - **只能使用白名单中已存在的 id**；需要新 id 时，先在 `docs/词表与契约.md` 登记，再在逻辑层实现对应原语，最后才在数据/代码中使用。
 - **代码常量单一来源（详见 `游戏设计文档.md` 9.19）**：
-  - 代码引用走 `client/scripts/contracts/` 下生成的常量类（`stats.gd` / `effects.gd` / `events.gd` / `analytics_events.gd` / `settings_keys.gd` / `actions.gd` / `pool_ids.gd` / `damage_types.gd` / `status_effects.gd` / `audio_ids.gd` / `rng_streams.gd` / `character_ids.gd` / `capabilities.gd` / `content_tags.gd` / `meta_currencies.gd` / `meta_upgrades.gd` / `meta_unlocks.gd` / `save_kinds.gd`）。
+  - 代码引用走 `client/scripts/contracts/` 下生成的常量类（`stats.gd` / `effects.gd` / `events.gd` / `analytics_events.gd` / `settings_keys.gd` / `actions.gd` / `pool_ids.gd` / `elements.gd` / `status_effects.gd` / `audio_ids.gd` / `rng_streams.gd` / `character_ids.gd` / `capabilities.gd` / `content_tags.gd` / `meta_currencies.gd` / `meta_upgrades.gd` / `meta_unlocks.gd` / `save_kinds.gd`）。
   - 这些文件**自动生成、禁止手改**；改约定改 `docs/词表与契约.md`，跑 `tools/sync_contracts.py` 重生成。
   - 中间产物 `client/data/_contracts.json` 也由脚本生成；`DataLoader` 读它做校验。
   - pre-commit hook 强制：md 改了未跑 sync → fail；手改了生成文件 → fail。
@@ -254,7 +254,7 @@ alwaysApply: true
 
 ## 23. 内容扩展与破限能力（强制）
 - 项目长期目标是支持大量角色、遗物、道具和“突破默认限制”的内容；玩法限制（如默认鼠标瞄准、左右朝向、按住开火、主动栏数量、摄像机策略）是默认配置，不是硬编码上限。
-- 新角色必须数据驱动：基础属性、起始携带、tags、capabilities、控制配置等来自 `client/data/characters.json` 或同类数据文件。
+- 新英雄必须数据驱动：场景、配色、主属性、被动、两个 `hero_skill_ids` 与起始携带来自 `client/data/characters.json`；主英雄提供属性 / 被动 / 技能 1–2，子英雄只提供强调色 / 技能 3–4，组合逻辑走 `HeroCompositionResolver`。
 - 项目后续可能存在多种游戏模式；角色、遗物、道具、敌人、成长奖励等资源本体默认保持模式无关，模式配置只通过资源池、权重、禁用列表、tags / availability、capability / strategy 和轻量覆盖组合资源，禁止为某个模式复制一套资源或写 `if mode_id == ...` 的内容分支。
 - 当前不做多人，但需预留未来多人 PvE / PvP 边界：业务逻辑禁止写死唯一玩家、唯一队伍或“玩家只打敌人 / 敌人只打玩家”；输入走生成 action 常量与 `InputService` 的归一化 intent，伤害走 `Combat` 的 source / target / team / friendly_fire 模式规则边界，回放 / 存档 / 埋点可预留 participant / team 概念；不得提前实现网络层、同步协议或服务器权威。
 - 破限内容必须声明 `tag_limit_break` 与对应 `capability_id`，并在 `docs/词表与契约.md` 第 12 节登记；代码引用走生成常量，禁止裸字符串。

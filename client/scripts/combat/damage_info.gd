@@ -5,7 +5,7 @@ extends RefCounted
 
 
 var amount: float = 0.0
-var damage_type: String = ""
+var element_id: String = ""
 var source: Node = null
 var target: Node = null
 var source_team: String = ""
@@ -15,7 +15,7 @@ var flags: PackedStringArray = []
 
 func setup(
 	damage_amount: float,
-	type_id: String,
+	damage_element_id: String,
 	damage_source: Node,
 	damage_target: Node,
 	source_team_id: String = "",
@@ -23,7 +23,7 @@ func setup(
 	damage_flags: PackedStringArray = PackedStringArray()
 ) -> DamageInfo:
 	amount = maxf(damage_amount, 0.0)
-	damage_type = type_id
+	element_id = damage_element_id
 	source = damage_source
 	target = damage_target
 	source_team = source_team_id

@@ -53,7 +53,9 @@ var _charge_cooldown_remaining: float = 0.0
 var _charge_direction: Vector2 = Vector2.ZERO
 var _collision_shape: CollisionShape2D = null
 var _contact_damage: float = 0.0
-var _contact_damage_type: String = ""
+var _contact_element_id: String = ""
+var _contact_interval: float = 0.7
+var _contact_interval_remaining: float = 0.0
 var _current_action: String = ""
 var _decision_remaining: float = 0.0
 var _debug_ai_enabled: bool = true
@@ -148,6 +150,7 @@ func configure(enemy_data: Dictionary, target: Node2D, navigation_provider: Node
 	_charge_cooldown_remaining = 0.0
 	_charge_direction = Vector2.ZERO
 	_ranged_cooldown_remaining = _movement_value("ranged_initial_cooldown")
+	_contact_interval_remaining = 0.0
 	_last_damage_source_team = ""
 	_has_last_known_position = false
 	_last_known_position = Vector2.ZERO
@@ -166,7 +169,11 @@ func configure(enemy_data: Dictionary, target: Node2D, navigation_provider: Node
 	_life_points = _max_life
 	_move_speed = float(enemy_data.get("move_speed", 0.0))
 	_contact_damage = float(enemy_data.get("contact_damage", 0))
-	_contact_damage_type = String(enemy_data.get("contact_damage_type", ""))
+	_contact_element_id = String(enemy_data.get("element_id", ""))
+	_contact_interval = maxf(
+		float(enemy_data.get("contact_interval", 0.7)),
+		0.0
+	)
 	_exp_reward = int(enemy_data.get("exp_reward", 0))
 	_hit_radius = float(enemy_data.get("hit_radius", 0.0))
 	_separation_radius = float(enemy_data.get("separation_radius", 0.0))
@@ -303,6 +310,75 @@ func active_statuses() -> Array[String]:
 	return _status_effect_component.call("active_statuses") as Array[String]
 
 
+func status_summary() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var raw_effects: Variant = _status_effect_snapshot().get("effects", [])
+	if not raw_effects is Array:
+		return result
+	for raw_effect: Variant in raw_effects as Array:
+		if not raw_effect is Dictionary:
+			continue
+		var effect: Dictionary = raw_effect as Dictionary
+		var status_id: String = String(effect.get("status", ""))
+		if status_id.is_empty():
+			continue
+		result.append({
+			"id": status_id,
+			"name_key": "status_%s_name" % status_id,
+			"stacks": maxi(int(effect.get("stack_count", 1)), 1),
+			"remaining": maxf(float(effect.get("remaining", 0.0)), 0.0),
+		})
+	return result
+
+
+func status_stat_multiplier(stat_id: String) -> float:
+	_ensure_status_effect_component()
+	if (
+		_status_effect_component == null
+		or not _status_effect_component.has_method("stat_multiplier")
+	):
+		return 1.0
+	return maxf(
+		float(
+			_status_effect_component.call(
+				"stat_multiplier",
+				stat_id
+			)
+		),
+		0.0
+	)
+
+
+func status_stack_count(status_id: String) -> int:
+	_ensure_status_effect_component()
+	if (
+		_status_effect_component == null
+		or not _status_effect_component.has_method("stack_count")
+	):
+		return 0
+	return int(_status_effect_component.call("stack_count", status_id))
+
+
+func incoming_damage_multiplier(info: RefCounted) -> float:
+	_ensure_status_effect_component()
+	if (
+		_status_effect_component == null
+		or not _status_effect_component.has_method(
+			"incoming_damage_multiplier"
+		)
+	):
+		return 1.0
+	return maxf(
+		float(
+			_status_effect_component.call(
+				"incoming_damage_multiplier",
+				String(info.get("source_team"))
+			)
+		),
+		0.0
+	)
+
+
 func set_movement_bounds(bounds: Rect2) -> void:
 	_movement_bounds = bounds
 	_has_movement_bounds = bounds.size.x > 0.0 and bounds.size.y > 0.0
@@ -366,6 +442,7 @@ func snapshot() -> Dictionary:
 		"charge_cooldown_remaining": _charge_cooldown_remaining,
 		"charge_direction": _vector_to_dict(_charge_direction),
 		"ranged_cooldown_remaining": _ranged_cooldown_remaining,
+		"contact_interval_remaining": _contact_interval_remaining,
 		"last_damage_source_team": _last_damage_source_team,
 		"owned_tag_counts": _owned_tag_counts.duplicate(true),
 		"status_effects": _status_effect_snapshot(),
@@ -391,6 +468,10 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_charge_cooldown_remaining = maxf(float(snapshot_data.get("charge_cooldown_remaining", 0.0)), 0.0)
 	_charge_direction = _dict_to_vector(snapshot_data.get("charge_direction", {}), Vector2.ZERO)
 	_ranged_cooldown_remaining = maxf(float(snapshot_data.get("ranged_cooldown_remaining", 0.0)), 0.0)
+	_contact_interval_remaining = maxf(
+		float(snapshot_data.get("contact_interval_remaining", 0.0)),
+		0.0
+	)
 	_last_damage_source_team = String(snapshot_data.get("last_damage_source_team", ""))
 	_restore_status_snapshot(snapshot_data)
 	if _life_points <= 0.0:
@@ -418,7 +499,9 @@ func _pool_reset() -> void:
 	_charge_direction = Vector2.ZERO
 	_ranged_cooldown_remaining = 0.0
 	_contact_damage = 0.0
-	_contact_damage_type = ""
+	_contact_element_id = ""
+	_contact_interval = 0.7
+	_contact_interval_remaining = 0.0
 	_current_action = ""
 	_decision_remaining = 0.0
 	_debug_ai_enabled = true
@@ -774,8 +857,14 @@ func _fire_ranged_projectile(target_direction: Vector2) -> void:
 		STATS.BULLET_RANGE: _movement_value("ranged_projectile_range"),
 		STATS.PIERCE_COUNT: 0,
 	}, {
-		"damage_type": _movement_string("ranged_projectile_damage_type", _contact_damage_type),
-		"damage_target_groups": [ACTIVE_PLAYER_GROUP],
+		"element_id": _movement_string(
+			"ranged_projectile_element_id",
+			_contact_element_id
+		),
+		"damage_target_groups": [
+			"active_projectile_blockers",
+			ACTIVE_PLAYER_GROUP,
+		],
 		"hit_radius": _movement_value("ranged_projectile_hit_radius"),
 		"lifetime": _movement_value("ranged_projectile_lifetime"),
 		"source_team": TEAM_ENEMY,
@@ -831,7 +920,13 @@ func _move_in_direction(direction: Vector2, speed_scale: float, delta: float) ->
 		return
 	var normalized: Vector2 = direction.normalized()
 	_update_facing(normalized)
-	_move_with_collision(normalized * _move_speed * maxf(speed_scale, 0.0) * delta)
+	_move_with_collision(
+		normalized
+		* _move_speed
+		* _status_move_speed_multiplier()
+		* maxf(speed_scale, 0.0)
+		* delta
+	)
 	_apply_movement_bounds()
 
 
@@ -958,6 +1053,10 @@ func _refresh_cached_navigation_waypoint() -> void:
 func _update_ai_timers(delta: float) -> void:
 	_charge_cooldown_remaining = maxf(_charge_cooldown_remaining - delta, 0.0)
 	_ranged_cooldown_remaining = maxf(_ranged_cooldown_remaining - delta, 0.0)
+	_contact_interval_remaining = maxf(
+		_contact_interval_remaining - delta,
+		0.0
+	)
 	_memory_remaining = maxf(_memory_remaining - delta, 0.0)
 
 
@@ -1012,6 +1111,8 @@ func _on_defeat_presentation_finished() -> void:
 
 
 func _check_contact() -> void:
+	if _contact_interval_remaining > 0.0:
+		return
 	var contact_target: Node2D = _contact_target()
 	if contact_target == null or not is_instance_valid(contact_target):
 		return
@@ -1020,8 +1121,20 @@ func _check_contact() -> void:
 	var distance: float = global_position.distance_to(contact_target.global_position)
 	if distance > _contact_distance(contact_target):
 		return
-	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(_contact_damage, _contact_damage_type, self, contact_target, TEAM_ENEMY, TEAM_PLAYER)
+	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		_contact_damage,
+		_contact_element_id,
+		self,
+		contact_target,
+		TEAM_ENEMY,
+		TEAM_PLAYER
+	)
 	Combat.apply_damage(contact_target, info)
+	_contact_interval_remaining = _contact_interval
+
+
+func _status_move_speed_multiplier() -> float:
+	return status_stat_multiplier(STATS.MOVE_SPEED)
 
 
 func _contact_target() -> Node2D:

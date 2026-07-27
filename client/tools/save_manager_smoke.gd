@@ -80,6 +80,30 @@ func _expect_migration_chain() -> void:
 		"marker": "must_survive_legacy_run_reset",
 	}
 	_expect(SaveManager.save(SMOKE_SLOT, META_KIND, meta_payload), "meta save should exist before run migration")
+	var meta_envelope: Dictionary = SaveManager.load_envelope(SMOKE_SLOT, META_KIND)
+	meta_envelope["version"] = 1
+	meta_envelope["payload"] = meta_payload
+	meta_envelope["data_hash"] = SaveManager.call("_payload_hash", meta_payload)
+	_write_json(_meta_save_path(), meta_envelope)
+	var migrated_meta: Dictionary = SaveManager.load(SMOKE_SLOT, META_KIND)
+	var hero_composition: Dictionary = migrated_meta.get("hero_composition", {}) as Dictionary
+	_expect(
+		String(hero_composition.get("main_hero_id", "")) == "character_primary_a",
+		"meta v1->v2 migration should default the main hero"
+	)
+	_expect(
+		String(hero_composition.get("sub_hero_id", "")) == "character_primary_b",
+		"meta v1->v2 migration should default the sub hero"
+	)
+	_expect(
+		int(
+			(
+				(migrated_meta.get("gear_mods", {}) as Dictionary)
+				.get("owned", {}) as Dictionary
+			).get("gear_mod_bulwark", 0)
+		) == 2,
+		"meta v1->v2 migration should preserve Gear Mod state"
+	)
 
 	var old_payload: Dictionary = _run_payload("migration", 6)
 	_expect(SaveManager.save(SMOKE_SLOT, RUN_KIND, old_payload), "old-version run save should write")
@@ -106,6 +130,14 @@ func _expect_migration_chain() -> void:
 	_expect(migrated_payload.get("room", null) is Dictionary, "run v2->v3 migration should normalize missing room snapshot")
 	_expect(bool(migrated_payload.get("legacy_run_incompatible", false)), "run v3->v4 migration should explicitly mark legacy run reset")
 	_expect(migrated_payload.get("module_world", null) is Dictionary, "run v3->v4 migration should add an empty module-world snapshot")
+	_expect(
+		int(migrated_payload.get("schema_version", 0)) == 5,
+		"run v4->v5 migration should advance the gameplay snapshot schema"
+	)
+	_expect(
+		migrated_payload.get("hero_composition", null) is Dictionary,
+		"run v4->v5 migration should add an empty composition marker"
+	)
 	var parent_boot: Node = get_parent()
 	_expect(
 		String(parent_boot.call("_run_save_unavailable_notice_key", migrated_payload)) == "ui_run_save_legacy_incompatible",
@@ -115,10 +147,21 @@ func _expect_migration_chain() -> void:
 		String(parent_boot.call("_run_save_unavailable_notice_key", {})) == "ui_run_save_unavailable",
 		"missing/corrupted run should keep the corruption notice"
 	)
-	_expect(_payloads_match(SaveManager.load(SMOKE_SLOT, META_KIND), meta_payload), "run migration/reset path must leave meta payload unchanged")
+	var preserved_meta: Dictionary = SaveManager.load(SMOKE_SLOT, META_KIND)
+	_expect(
+		int(
+			(
+				(preserved_meta.get("gear_mods", {}) as Dictionary)
+				.get("owned", {}) as Dictionary
+			).get("gear_mod_bulwark", 0)
+		) == 2,
+		"run migration/reset path must leave Gear Mod meta payload unchanged"
+	)
+	_expect(_migrated_steps.has("%s:%d:%d" % [META_KIND, 1, 2]), "meta migration should emit save_migrated for meta 1->2")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 1, 2]), "run migration should emit save_migrated for run 1->2")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 2, 3]), "run migration should emit save_migrated for run 2->3")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 3, 4]), "run migration should emit save_migrated for run 3->4")
+	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 4, 5]), "run migration should emit save_migrated for run 4->5")
 
 
 func _run_payload(marker: String, level: int) -> Dictionary:
@@ -189,7 +232,7 @@ func _run_payload(marker: String, level: int) -> Dictionary:
 					"y": -260.0,
 				},
 				"damage": 3.5,
-				"damage_type": "physical",
+				"element_id": "element_neutral",
 				"hit_radius": 8.0,
 				"remaining_life": 0.5833333333333334,
 				"max_range": 650.0,
@@ -223,7 +266,7 @@ func _on_save_loaded(slot: String, kind: String, version: int, _migrated: bool) 
 
 
 func _on_save_migrated(slot: String, kind: String, from_version: int, to_version: int) -> void:
-	if slot == SMOKE_SLOT and kind == RUN_KIND:
+	if slot == SMOKE_SLOT:
 		_migrated_steps.append("%s:%d:%d" % [kind, from_version, to_version])
 
 
@@ -302,6 +345,10 @@ func _remove_if_exists(path: String) -> void:
 
 func _save_path() -> String:
 	return SaveManager.save_root().path_join(SMOKE_SLOT).path_join("%s.save" % RUN_KIND)
+
+
+func _meta_save_path() -> String:
+	return SaveManager.save_root().path_join(SMOKE_SLOT).path_join("%s.save" % META_KIND)
 
 
 func _backup_path() -> String:

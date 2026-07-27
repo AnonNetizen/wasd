@@ -2,7 +2,7 @@
 class_name SkillResources
 
 const VALUES: Array[String] = [
-	"mana",
+	"energy",
 ]
 
-const MANA: String = "mana"
+const ENERGY: String = "energy"

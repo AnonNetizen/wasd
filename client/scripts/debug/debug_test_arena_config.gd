@@ -7,7 +7,7 @@ extends RefCounted
 const CONFIG_PATH: String = "user://debug_test_arena.cfg"
 const DEFAULT_CAPACITY: int = 8
 const DEFAULT_SEED: int = 424242
-const SCHEMA_VERSION: int = 1
+const SCHEMA_VERSION: int = 2
 const SECTION: String = "arena"
 
 
@@ -40,7 +40,14 @@ func load_config() -> Dictionary:
 	var raw_config: Dictionary = {
 		"schema_version": int(file.get_value(SECTION, "schema_version", 0)),
 		"seed": int(file.get_value(SECTION, "seed", DEFAULT_SEED)),
-		"character_id": String(file.get_value(SECTION, "character_id", "")),
+		"main_hero_id": String(
+			file.get_value(
+				SECTION,
+				"main_hero_id",
+				file.get_value(SECTION, "character_id", "")
+			)
+		),
+		"sub_hero_id": String(file.get_value(SECTION, "sub_hero_id", "")),
 		"weapon_id": String(file.get_value(SECTION, "weapon_id", "")),
 		"primary_skill_id": String(
 			file.get_value(SECTION, "primary_skill_id", "")
@@ -65,8 +72,13 @@ func save_config(raw_config: Dictionary) -> Dictionary:
 	file.set_value(SECTION, "seed", int(normalized.get("seed", DEFAULT_SEED)))
 	file.set_value(
 		SECTION,
-		"character_id",
-		String(normalized.get("character_id", ""))
+		"main_hero_id",
+		String(normalized.get("main_hero_id", ""))
+	)
+	file.set_value(
+		SECTION,
+		"sub_hero_id",
+		String(normalized.get("sub_hero_id", ""))
 	)
 	file.set_value(
 		SECTION,
@@ -123,12 +135,35 @@ func normalize_config(raw_config: Dictionary) -> Dictionary:
 			"value": seed,
 		})
 		seed = DEFAULT_SEED
-	var character_id: String = _validated_id(
-		String(raw_config.get("character_id", "")),
+	var main_hero_id: String = _validated_id(
+		String(
+			raw_config.get(
+				"main_hero_id",
+				raw_config.get("character_id", "")
+			)
+		),
 		characters,
-		"character_id",
+		"main_hero_id",
 		diagnostics
 	)
+	var sub_hero_id: String = _validated_id(
+		String(raw_config.get("sub_hero_id", "")),
+		characters,
+		"sub_hero_id",
+		diagnostics
+	)
+	if sub_hero_id == main_hero_id and characters.size() > 1:
+		for character: Dictionary in characters:
+			var candidate_id: String = String(character.get("id", ""))
+			if candidate_id != main_hero_id:
+				sub_hero_id = candidate_id
+				break
+		diagnostics.append({
+			"field": "sub_hero_id",
+			"reason": "duplicate_hero",
+			"value": main_hero_id,
+			"fallback": sub_hero_id,
+		})
 	var weapon_id: String = _validated_id(
 		String(raw_config.get("weapon_id", "")),
 		weapons,
@@ -151,7 +186,9 @@ func normalize_config(raw_config: Dictionary) -> Dictionary:
 	return {
 		"schema_version": SCHEMA_VERSION,
 		"seed": seed,
-		"character_id": character_id,
+		"main_hero_id": main_hero_id,
+		"sub_hero_id": sub_hero_id,
+		"character_id": main_hero_id,
 		"weapon_id": weapon_id,
 		"primary_skill_id": skill_id,
 		"gear_mods": _config_selections(

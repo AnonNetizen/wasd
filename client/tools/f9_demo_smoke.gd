@@ -2,7 +2,7 @@ extends Node
 
 
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
-const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const ELEMENTS := preload("res://scripts/contracts/elements.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 
@@ -127,11 +127,23 @@ func _expect_fea_12_hazard(run_loop: Node, player: Node2D) -> void:
 		return
 	if player.has_method("debug_clear_invulnerability"):
 		player.call("debug_clear_invulnerability")
-	var previous_life: float = float(player.call("current_life"))
+	var previous_defense: float = (
+		float(player.call("current_life"))
+		+ float(player.call("current_shield"))
+		+ float(player.call("current_overshield"))
+	)
 	player.global_position = hazard.global_position
 	for _index: int in range(3):
 		await get_tree().physics_frame
-	_expect(float(player.call("current_life")) < previous_life, "FEA-12 hazard should apply Combat damage when the player enters its radius")
+	var current_defense: float = (
+		float(player.call("current_life"))
+		+ float(player.call("current_shield"))
+		+ float(player.call("current_overshield"))
+	)
+	_expect(
+		current_defense < previous_defense,
+		"FEA-12 hazard should apply Combat damage to the player's defense layers"
+	)
 
 
 func _first_hazard_with_id(hazard_id: String) -> Node:
@@ -221,7 +233,7 @@ func _kill_player_for_settlement(run_loop: Node, player: Node) -> void:
 	run_loop.add_child(damage_source)
 	var damage_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 		999999.0,
-		DAMAGE_TYPES.PHYSICAL,
+		ELEMENTS.ELEMENT_NEUTRAL,
 		damage_source,
 		player,
 		"team_enemy",

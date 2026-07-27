@@ -4,6 +4,9 @@ class_name DebugTestArenaController
 extends Node
 
 
+const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
+const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
+
 const CONTROL_PANEL_SCENE := preload(
 	"res://scenes/debug/debug_test_arena_control_panel.tscn"
 )
@@ -214,6 +217,105 @@ func reset_stationary_targets() -> Dictionary:
 func heal_player() -> void:
 	if _player != null and _player.has_method("debug_heal"):
 		_player.call("debug_heal", float(_player.call("max_life")))
+
+
+func restore_player_shield() -> void:
+	if _player != null and _player.has_method("debug_set_shield"):
+		_player.call(
+			"debug_set_shield",
+			float(_player.call("max_shield")),
+			float(_player.call("current_overshield"))
+		)
+
+
+func add_player_overshield(amount: float = 100.0) -> void:
+	if _player != null and _player.has_method("debug_set_shield"):
+		_player.call(
+			"debug_set_shield",
+			float(_player.call("current_shield")),
+			float(_player.call("current_overshield")) + maxf(amount, 0.0)
+		)
+
+
+func restore_player_energy() -> void:
+	if _skill_system == null:
+		return
+	var maximum: float = float(
+		_skill_system.call(
+			"resource_maximum",
+			SKILL_RESOURCES.ENERGY
+		)
+	)
+	var current: float = float(
+		_skill_system.call(
+			"resource_amount",
+			SKILL_RESOURCES.ENERGY
+		)
+	)
+	_skill_system.call(
+		"add_resource",
+		SKILL_RESOURCES.ENERGY,
+		maximum - current
+	)
+
+
+func cast_skill_slot(slot_id: String) -> Dictionary:
+	if _skill_system == null or not _skill_system.has_method("cast_slot"):
+		return {"ok": false, "reason": "skill_system_unavailable"}
+	return _skill_system.call("cast_slot", slot_id) as Dictionary
+
+
+func inject_player_element_damage(
+	element_id: String,
+	amount: float
+) -> Dictionary:
+	if _player == null:
+		return {"ok": false, "reason": "player_unavailable"}
+	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		maxf(amount, 0.0),
+		element_id,
+		self,
+		_player,
+		"team_enemy",
+		"team_player"
+	)
+	return Combat.apply_damage(_player, info)
+
+
+func combat_observation() -> Dictionary:
+	var enemy_statuses: Array = []
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if enemy.has_method("status_summary"):
+			enemy_statuses = enemy.call("status_summary") as Array
+			break
+	return {
+		"shield": (
+			float(_player.call("current_shield"))
+			if _player != null and _player.has_method("current_shield")
+			else 0.0
+		),
+		"overshield": (
+			float(_player.call("current_overshield"))
+			if _player != null and _player.has_method("current_overshield")
+			else 0.0
+		),
+		"energy": (
+			float(
+				_skill_system.call(
+					"resource_amount",
+					SKILL_RESOURCES.ENERGY
+				)
+			)
+			if _skill_system != null
+			else 0.0
+		),
+		"player_statuses": (
+			_player.call("status_summary")
+			if _player != null and _player.has_method("status_summary")
+			else []
+		),
+		"enemy_statuses": enemy_statuses,
+	}
 
 
 func set_god_mode(enabled: bool) -> void:

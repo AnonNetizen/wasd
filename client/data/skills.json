@@ -1,10 +1,10 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "skills": [
     {
-      "id": "skill_overdrive_rounds",
-      "name_key": "skill_overdrive_rounds_name",
-      "desc_key": "skill_overdrive_rounds_desc",
+      "id": "skill_deploy_projectile_barrier",
+      "name_key": "skill_deploy_projectile_barrier_name",
+      "desc_key": "skill_deploy_projectile_barrier_desc",
       "default_unlocked": true,
       "tags": ["tag_skill"],
       "presentation_profile_id": "presentation_skill_overdrive",
@@ -14,35 +14,200 @@
         "blocked_tags": ["ability_tag_silenced"],
         "granted_tags": ["ability_tag_activating"]
       },
-      "cooldown": 8.0,
+      "cooldown": 14.0,
       "costs": [
         {
-          "resource": "mana",
+          "resource": "energy",
           "amount": 40.0
         }
       ],
       "targeting": {
-        "type": "target_ally",
+        "type": "target_aim_position",
         "radius": 0.0,
         "max_targets": 1
       },
+      "scaling": {
+        "cost_stat": "ability_efficiency",
+        "radius_stat": "ability_range",
+        "strength_stat": "ability_strength"
+      },
       "effects": [
         {
-          "effect": "skill_effect_weapon_modifiers",
+          "effect": "skill_effect_deploy_barrier",
           "params": {
-            "duration": 4.0,
+            "pool_id": "projectile_barrier",
+            "radius": 160.0,
+            "hp": 360.0,
+            "max_active": 1,
+            "recast_policy": "replace"
+          }
+        }
+      ]
+    },
+    {
+      "id": "skill_aoe_slow",
+      "name_key": "skill_aoe_slow_name",
+      "desc_key": "skill_aoe_slow_desc",
+      "default_unlocked": true,
+      "tags": ["tag_skill"],
+      "presentation_profile_id": "presentation_skill_overdrive",
+      "ability_tags": ["ability_tag_skill", "ability_tag_primary"],
+      "activation": {
+        "required_tags": [],
+        "blocked_tags": ["ability_tag_silenced"],
+        "granted_tags": ["ability_tag_activating"]
+      },
+      "cooldown": 10.0,
+      "costs": [
+        {
+          "resource": "energy",
+          "amount": 30.0
+        }
+      ],
+      "targeting": {
+        "type": "aoe_enemies_around_caster",
+        "radius": 280.0,
+        "max_targets": 0
+      },
+      "scaling": {
+        "cost_stat": "ability_efficiency",
+        "radius_stat": "ability_range",
+        "duration_stat": "ability_duration",
+        "strength_stat": "ability_strength"
+      },
+      "effects": [
+        {
+          "effect": "skill_effect_apply_status",
+          "params": {
+            "status": "slow",
+            "duration": 5.0,
+            "stack_rule": "MAX_MAGNITUDE",
+            "magnitude": 0.35,
+            "magnitude_cap": 0.7,
+            "modifiers": [
+              {
+                "stat": "move_speed",
+                "type": "mult",
+                "value": 0.65,
+                "scale_mode": "inverse_from_magnitude"
+              }
+            ],
+            "granted_ability_tags": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "skill_self_fire_move_haste",
+      "name_key": "skill_self_fire_move_haste_name",
+      "desc_key": "skill_self_fire_move_haste_desc",
+      "default_unlocked": true,
+      "tags": ["tag_skill"],
+      "presentation_profile_id": "presentation_skill_overdrive",
+      "ability_tags": ["ability_tag_skill", "ability_tag_primary"],
+      "activation": {
+        "required_tags": [],
+        "blocked_tags": ["ability_tag_silenced"],
+        "granted_tags": ["ability_tag_activating"]
+      },
+      "cooldown": 10.0,
+      "costs": [
+        {
+          "resource": "energy",
+          "amount": 35.0
+        }
+      ],
+      "targeting": {
+        "type": "target_self",
+        "radius": 0.0,
+        "max_targets": 1
+      },
+      "scaling": {
+        "cost_stat": "ability_efficiency",
+        "duration_stat": "ability_duration",
+        "strength_stat": "ability_strength"
+      },
+      "effects": [
+        {
+          "effect": "skill_effect_actor_modifiers",
+          "params": {
+            "duration": 5.0,
+            "stack_rule": "REFRESH",
             "modifiers": [
               {
                 "stat": "fire_rate",
                 "type": "mult",
-                "value": 1.7
+                "value": 1.35
               },
               {
-                "stat": "bullet_speed",
+                "stat": "move_speed",
                 "type": "mult",
-                "value": 1.15
+                "value": 1.2
               }
             ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "skill_enemy_haste_vulnerability",
+      "name_key": "skill_enemy_haste_vulnerability_name",
+      "desc_key": "skill_enemy_haste_vulnerability_desc",
+      "default_unlocked": true,
+      "tags": ["tag_skill"],
+      "presentation_profile_id": "presentation_skill_overdrive",
+      "ability_tags": ["ability_tag_skill", "ability_tag_primary"],
+      "activation": {
+        "required_tags": [],
+        "blocked_tags": ["ability_tag_silenced"],
+        "granted_tags": ["ability_tag_activating"]
+      },
+      "cooldown": 6.0,
+      "costs": [
+        {
+          "resource": "energy",
+          "amount": 30.0
+        }
+      ],
+      "targeting": {
+        "type": "aoe_enemies_around_caster",
+        "radius": 300.0,
+        "max_targets": 0
+      },
+      "scaling": {
+        "cost_stat": "ability_efficiency",
+        "radius_stat": "ability_range",
+        "duration_stat": "ability_duration"
+      },
+      "effects": [
+        {
+          "effect": "skill_effect_apply_status",
+          "params": {
+            "status": "haste",
+            "duration": 8.0,
+            "stack_rule": "REFRESH",
+            "magnitude": 0.1,
+            "modifiers": [
+              {
+                "stat": "move_speed",
+                "type": "mult",
+                "value": 1.1
+              }
+            ],
+            "granted_ability_tags": []
+          }
+        },
+        {
+          "effect": "skill_effect_apply_status",
+          "params": {
+            "status": "vulnerable",
+            "duration": 8.0,
+            "stack_rule": "ADD_STACK_REFRESH",
+            "magnitude": 0.1,
+            "max_stacks": 5,
+            "incoming_damage_per_stack": 0.1,
+            "incoming_damage_source_team": "team_player",
+            "granted_ability_tags": []
           }
         }
       ]

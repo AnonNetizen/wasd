@@ -20,7 +20,7 @@
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
 | 改玩家受伤震屏强度 / 频率 / 时长 | `camera_feedback.json` 的 `player_damage_shake` | 只影响表现；随机走 `RNG.camera_fx`，关闭 `gameplay.screen_shake` 时即时停止 |
 | 选择 / 调整视觉效果 | `visual_effects.json`、`presentation_profiles.json` | 内容数据只引用 `presentation_profile_id`；在 Godot 的“VFX 效果库”中预览和绑定，不手抄字符串 |
-| 改角色基础属性 / 标签 / 能力 / 起始携带 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；`scene_path` 绑定专属继承场景，玩法数值仍留在数据中 |
+| 改英雄主属性 / 被动 / 两个英雄技能 / 配色 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；主英雄提供属性被动和技能 1/2，子英雄只提供强调色和技能 3/4 |
 | 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
 | 改敌人血量 / 速度 / 接触伤害 / 中心间距 | `enemies.csv` | 每个敌人使用独立 `pool_id`，`scene_path` 可复用；颜色与静态轮廓在专属 TSCN 中编辑 |
 | 改敌人对玩家 AI | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；敌人的感知与战斗目标固定为玩家 |
@@ -48,7 +48,7 @@
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
 | `camera_feedback.json` | 已建立 | 摄像机表现反馈；当前含玩家有效受伤的 Phantom Camera 位移震屏参数 |
 | `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 技能 / 消耗品 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
-| `characters.json` | 已建立 | 角色列表：专属场景绑定、基础属性、tags、capabilities、控制配置、技能资源池和起始携带引用 |
+| `characters.json` | 已建立 | 英雄列表：场景、主副配色、基础属性、被动、两个英雄技能和起始携带 |
 | `weapons.json` | 已建立 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
 | `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 已建立 | 主动道具：充能方式、冷却、效果原语与参数 |
@@ -136,7 +136,7 @@ user://mods/my_first_mod/
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 3,
   "id": "my_first_mod",
   "name": "My First Mod",
   "version": "0.1.0",
@@ -167,7 +167,7 @@ user://mods/my_first_mod/
 | 包 id | `mod.json` 的 `id` 必须等于目录名 `<mod_id>`，重复 id 只会启用第一个 |
 | 数据追加 | 当前只支持 `json_array_append` 和 `csv_append`，不支持覆盖 / 删除基础数据 |
 | 动态 id | 只允许 manifest 扩展 `character_ids`、`game_modes`、`content_tags`、`locale_prefixes`；值必须以 `mod_<mod_id>_` 开头 |
-| 核心契约 | mod 不能扩展 `stats`、`effects`、`events`、`damage_types`、`pool_ids`、`audio_prefixes`、`rng_streams`、`save_kinds` 等需要代码或资源同步的类别 |
+| 核心契约 | mod 不能扩展 `stats`、`effects`、`events`、`elements`、`pool_ids`、`audio_prefixes`、`rng_streams`、`save_kinds` 等需要代码或资源同步的类别 |
 | 文案 | mod 文案仍用 CSV，建议通过 `locale_prefixes` 声明 `mod_<mod_id>_` 前缀；基础 `zh_CN` / `en` 列规则不变 |
 | 安全 | manifest 的 `path` 只能指向 mod 自身目录内相对路径，禁止 `..`、绝对路径和 `://` |
 | 验证 | 启动时 `DataLoader` 校验合并后的数据；错误看 `[ModLoader]` / `[DataLoader]` 日志 |
@@ -187,7 +187,7 @@ user://mods/my_first_mod/
 | 多人预留 | 当前只做单人；模式 / 伤害 / 回放 / 存档数据可预留 participant / team / friendly_fire 等字段，但不得提前实现网络协议或复制多人专用资源 |
 | 文案 key | 玩家可见名字 / 描述只存 `name_key` / `desc_key` / `hint_key` 等，不存硬文本 |
 | 致谢原文 | 外部项目名、人员名、许可证名、URL 与版权声明保持原文；面向玩家的分组标题 / 角色说明用 locale key |
-| id 白名单 | `stat`、`effect`、`event`、`damage_type`、`pool_id`、`tag` 等必须先登记到 `docs/词表与契约.md` |
+| id 白名单 | `stat`、`effect`、`event`、`element_id`、`pool_id`、`tag` 等必须先登记到 `docs/词表与契约.md` |
 | fail-fast | `DataLoader` 加载时必须校验字段类型、范围、必填项和词表 id；错误信息包含文件名 + 字段路径 + 期望值 |
 
 ## CSV / JSON 选择规则
@@ -240,12 +240,11 @@ JSON 示例：
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "base_stats": {
     "max_hp": 600.0,
-    "health_regen": 1.5,
+    "health_regen": 0.0,
     "move_speed": 240.0,
-    "damage_invulnerability_duration": 0.7,
     "player_separation_radius": 10.0,
     "fire_rate": 2.5,
     "damage": 3.5,
@@ -255,6 +254,29 @@ JSON 示例：
     "pickup_range": 96.0,
     "pickup_orb_speed": 360.0,
     "luck": 0.0
+  },
+  "defense": {
+    "shield": {
+      "recharge_delay": 4.0,
+      "recharge_rate": 25.0,
+      "overshield_decay_ratio_per_second": 0.05,
+      "overshield_snap_threshold": 1.0
+    },
+    "armor": {"coefficient": 300.0, "maximum": 1200.0},
+    "shield_gate": {"max_duration": 0.5}
+  },
+  "dash": {
+    "distance": 120.0,
+    "speed": 750.0,
+    "duration": 0.16,
+    "cooldown": 1.25,
+    "invulnerability_duration": 0.12
+  },
+  "energy_drop": {
+    "chance": 0.1,
+    "amount": 25.0,
+    "pool_id": "energy_orb",
+    "rng_stream": "drop"
   }
 }
 ```
@@ -263,11 +285,10 @@ JSON 示例：
 
 | 字段路径 | 类型 | 单位 / 范围 | 说明 | 调大后的效果 |
 |----------|------|-------------|------|--------------|
-| `schema_version` | int | `>= 1` | 数据结构版本 | 只在 schema 变更时调整 |
+| `schema_version` | int | 必须为 `2` | 数据结构版本 | 只在 schema 变更时调整 |
 | `base_stats.max_hp` | float | `> 0` | 默认最大生命；当前默认 600.0，采用 Dota 式血量尺度而非旧心数尺度 | 更耐打，失败更晚，也更容易做细粒度伤害 / 回复调参 |
 | `base_stats.health_regen` | float | HP/s，`>= 0` | 默认自动生命恢复；只在 `PLAYING` 状态下按 `GameClock` 缩放时间恢复，不超过最大生命 | 更能缓冲小额失误，但过高会抵消低频伤害 |
 | `base_stats.move_speed` | float | `px/s`，`> 0` | 默认移动速度 | 走位更灵活，地图探索更快 |
-| `base_stats.damage_invulnerability_duration` | float | 秒，`>= 0` | 玩家受伤后的无敌窗口 | 更不容易被贴脸多段瞬杀，但受击节奏更宽松 |
 | `base_stats.player_separation_radius` | float | `px`，`>= 0` | 玩家中心排斥半径；与敌人 `separation_radius` 相加后决定敌人被推开的最小中心距离 | 更不容易被敌人中心贴身重叠，但过大可能让围怪显得松散 |
 | `base_stats.fire_rate` | float | 每秒发数，`> 0` | 按住开火时的射击频率 | DPS 提升，弹幕更密 |
 | `base_stats.damage` | float | `>= 0` | 单发基础伤害 | 击杀更快 |
@@ -277,6 +298,14 @@ JSON 示例：
 | `base_stats.pickup_range` | float | `px`，`>= 0` | 经验 / 金币自动吸附范围 | 收集更轻松 |
 | `base_stats.pickup_orb_speed` | float | `px/s`，`> 0` | 经验球吸附到玩家的移动速度 | 经验球飞来更快，升级节奏更顺 |
 | `base_stats.luck` | float | `>= 0` | 幸运值 | 掉落、稀有度、升级 4 选 1 概率更高 |
+| `defense.shield.recharge_delay` / `recharge_rate` | float | 秒 / Shield/s，`>= 0` | 护盾受损后等待时间与每秒恢复量 | 等待更长会削弱续航；恢复率更高会强化脱战恢复 |
+| `defense.shield.overshield_decay_ratio_per_second` / `overshield_snap_threshold` | float | `0..1` / Shield，`>= 0` | 超额护盾每秒按最大护盾衰减比例，以及低于阈值时归零 | 衰减更高会缩短超额护盾收益 |
+| `defense.armor.coefficient` / `maximum` | float | `> 0` | 护甲减伤曲线系数与参与公式的护甲上限 | 系数更高会降低同值护甲收益；上限更高允许更高护甲参与 |
+| `defense.shield_gate.max_duration` | float | 秒，`>= 0` | 护盾击破时的最长保护窗口 | 更长会降低破盾后被多段瞬杀概率 |
+| `dash.distance` / `speed` / `duration` | float | px / px/s / 秒，均 `> 0` | 冲刺运动参数；`distance` 必须等于 `speed × duration` | 更远 / 更快会提升位移能力 |
+| `dash.cooldown` / `invulnerability_duration` | float | 秒，`>= 0`；无敌不超过 duration | 冲刺冷却与冲刺内无敌窗口 | 更短冷却或更长无敌会提高生存 |
+| `energy_drop.chance` / `amount` | float | `0..1` / `> 0` | 敌人死亡生成能量球的概率与拾取量 | 提高技能资源供给 |
+| `energy_drop.pool_id` / `rng_stream` | string | `energy_orb` / `drop`，必须已登记 | 能量球对象池与确定性掉落 RNG 子流 | 不作数值调节 |
 
 ## `camera_feedback.json`
 
@@ -347,7 +376,7 @@ JSON 示例：
         { "id": "team_enemy", "friendly_fire": false }
       ],
       "resource_pools": {
-        "characters": [{ "id": "character_default", "weight": 100 }],
+        "characters": [{ "id": "character_primary_a", "weight": 100 }],
         "weapons": [{ "id": "weapon_basic_blaster", "weight": 100 }],
         "enemies": [{ "id": "enemy_chaser", "weight": 100 }],
         "hazards": [
@@ -474,8 +503,8 @@ JSON 示例：
 当前结构：
 
 ```csv
-id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,max_hp,move_speed,contact_damage,contact_damage_type,exp_reward,hit_radius,separation_radius
-enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/actors/enemies/enemy_chaser.tscn,8,enemy_ai_chase_contact,12,110.0,100,physical,3,14.0,9.0
+id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,max_hp,move_speed,contact_damage,contact_interval,element_id,exp_reward,hit_radius,separation_radius
+enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/actors/enemies/enemy_chaser.tscn,8,enemy_ai_chase_contact,12,110.0,100,0.7,element_neutral,3,14.0,9.0
 ```
 
 字段说明：
@@ -492,7 +521,8 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/acto
 | `max_hp` | int | `>= 1` | 敌人最大生命 |
 | `move_speed` | number | `> 0`，px/s | 敌人基础移动速度 |
 | `contact_damage` | int | `>= 0` | 接触伤害；当前按 600.0 玩家初始生命尺度调参，运行时必须经 `Combat.apply_damage` 结算 |
-| `contact_damage_type` | string | 词表 §9 damage type | 接触伤害类型 |
+| `contact_interval` | float | 秒，`> 0` | 同一敌人的接触伤害间隔 |
+| `element_id` | string | 词表 §9 element id | 接触伤害元素 |
 | `exp_reward` | int | `>= 0` | 击杀后经验奖励；后续掉落 / 经验球系统解释 |
 | `hit_radius` | number | `> 0`，px | 命中 / 接触半径边界，后续碰撞体或占位图可据此生成 |
 | `separation_radius` | number | `>= 0`，px | 敌人中心排斥半径；小于 `hit_radius` 时允许视觉重叠但避免中心完全重合 |
@@ -559,7 +589,7 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/acto
 | `movement.ranged_cooldown` | number | `> 0`，秒；仅远程 action 需要 | 远程投射物发射间隔 |
 | `movement.ranged_initial_cooldown` | number | `>= 0`，秒；可选 | 生成后首次远程开火前的延迟 |
 | `movement.ranged_projectile_damage` | number | `> 0` | 远程投射物伤害，运行时走 `Combat.apply_damage()` |
-| `movement.ranged_projectile_damage_type` | string | 词表 §9 damage type；可选 | 远程投射物伤害类型，缺省时回退到敌人接触伤害类型 |
+| `movement.ranged_projectile_element_id` | string | 词表 §9 element id；可选 | 远程投射物元素，缺省时回退到敌人接触元素 |
 | `movement.ranged_projectile_speed` | number | `> 0`，px/s | 远程投射物速度 |
 | `movement.ranged_projectile_range` | number | `> 0`，px | 远程投射物最大射程 |
 | `movement.ranged_projectile_hit_radius` | number | `> 0`，px | 远程投射物命中半径 |
@@ -587,8 +617,8 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/acto
 当前结构：
 
 ```csv
-id,name_key,tags,pool_id,damage,damage_type,trigger_interval,radius_tiles,duration
-hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,100,physical,1.0,1,0.35
+id,name_key,tags,pool_id,damage,element_id,trigger_interval,radius_tiles,duration
+hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,100,element_neutral,1.0,1,0.35
 ```
 
 字段说明：
@@ -600,7 +630,7 @@ hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,100,physical,1.
 | `tags` | string | `|` 分隔的词表 §12.3 content tag，必须含 `tag_hazard` | 内容标签；可被模式 blocklist、地图规则或后续内容系统筛选 |
 | `pool_id` | string | 词表 §8 pool id | 运行时使用的机关对象池；当前 `hazard_spike` 复用通用 `Hazard` 场景 |
 | `damage` | int | `>= 0` | 单次触发伤害；运行时必须经 `Combat.apply_damage` 结算 |
-| `damage_type` | string | 词表 §9 damage type | 机关伤害类型 |
+| `element_id` | string | 词表 §9 element id | 机关伤害元素 |
 | `trigger_interval` | number | `> 0`，秒 | 持续存在机关的触发间隔 |
 | `radius_tiles` | int | `>= 1` | 机关矩形 footprint 从中心到边缘占用的半格数；最终半宽 / 半高由 `map_layouts.json.grid` 推导，视觉矩形和触发判定都据此生成；奇数尺寸中心吸附格心，偶数尺寸中心吸附网格顶点 |
 | `duration` | number | `>= 0`，秒 | 单次触发后的激活 / 预警表现时长 |
@@ -803,7 +833,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `worlds[].id` | string | 唯一、非空 | 世界 id；run v4 保存此值 |
+| `worlds[].id` | string | 唯一、非空 | 世界 id；Run v5 的 `module_world` 子快照保存此值 |
 | `worlds[].columns` / `worlds[].rows` | int | 首版固定 `9` | 模块槽位宽高 |
 | `worlds[].module_columns` / `worlds[].module_rows` | int | 首版固定 `11` | 单模块局部格宽高 |
 | `worlds[].cell_size` | int | `> 0`，默认 `160` | 同一世界统一的方格边长，单位 px |
@@ -840,48 +870,75 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `templates[].approved_gameplay_hash` | string | approved 时为 64 位小写 sha256，candidate 时省略 | terrain、派生 socket、placement、role、tags 与 allowed rotations 的批准锚点；纯视觉变化不降级，但仍要求重新 bake |
 | `templates[].allowed_rotations` | array[int] | `0/90/180/270` 的非空子集 | assignment 允许的运行时根节点旋转集合；不支持镜像，也不为每个方向生成独立 TSCN |
 
+## `elements.json` / `hero_passives.json`
+
+`elements.json` schema v1 声明七个结构化 `element_id`、中性元素、未匹配结果与对称主元素组合表。单条元素字段为 `id`、`name_key`、`kind`（`neutral` / `primary` / `composite`）和 `components[]`；数据 id 必须与词表 §9 完全一致。组合表只显式登记 A+B→AB、B+C→BC、C+A→CA；中性与同元素 identity 由 `ElementResolver` 统一处理，复合元素不会继续自动合成，未匹配当前返回空字符串。
+
+| 字段路径 | 类型 / 范围 | 说明 |
+|----------|-------------|------|
+| `neutral_element_id` | 已登记 element id | identity 规则使用的中性元素 |
+| `unmatched_result` | string | 没有显式规则时的结果；当前为空字符串 |
+| `combinations[].left` / `combinations[].right` | 不同的 primary element id | 无序输入对；解析器按对称键处理 |
+| `combinations[].result` | composite element id | 显式组合结果 |
+
+`hero_passives.json` schema v1 声明稳定 `hero_passive_id`、中英 key、通用 `effect` 与 params。当前两条被动都复用 `element_damage_taken_multiplier`，分别把纯主元素 A / B 的最终承伤乘 0.6；运行时不得按英雄 id 特判。
+
+| 字段路径 | 类型 / 范围 | 说明 |
+|----------|-------------|------|
+| `passives[].params.multiplier` | number，`>= 0` | 匹配元素伤害的最终承伤倍率；当前为 0.6 |
+
 ## `characters.json`
 
 当前结构：
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "characters": [
     {
-      "id": "character_default",
+      "id": "character_primary_a",
       "scene_path": "res://scenes/gameplay/actors/characters/character_default.tscn",
-      "name_key": "character_default_name",
-      "desc_key": "character_default_desc",
+      "name_key": "character_primary_a_name",
+      "desc_key": "character_primary_a_desc",
       "default_unlocked": true,
       "tags": ["tag_character"],
       "capabilities": [],
       "control_profile": "default_mouse_shooter",
+      "palette": {
+        "primary": "#7E63D8",
+        "secondary": "#3D315E",
+        "accent": "#A995FF"
+      },
+      "element_id": "element_primary_a",
+      "passive_id": "passive_primary_a_guard",
+      "hero_skill_ids": [
+        "skill_deploy_projectile_barrier",
+        "skill_aoe_slow"
+      ],
       "starting_loadout": {
         "weapon_id": "weapon_basic_blaster",
         "active_item_id": "active_item_blink_burst",
-        "consumable_ids": ["consumable_pocket_bomb"],
-        "skill_ids": ["skill_overdrive_rounds"]
+        "consumable_ids": ["consumable_pocket_bomb"]
       },
       "skill_resources": [
         {
-          "id": "mana",
-          "max": 100.0,
-          "start": 100.0,
-          "regen_per_second": 10.0
+          "id": "energy",
+          "max_stat": "max_energy",
+          "start_ratio": 1.0,
+          "regen_per_second": 0.0
         }
       ],
       "base_stats": {
-        "max_hp": 600.0,
-        "health_regen": 1.5,
-        "move_speed": 240.0,
-        "fire_rate": 2.5,
-        "damage": 3.5,
-        "bullet_speed": 520.0,
-        "bullet_range": 650.0,
-        "bullet_count": 1,
-        "pickup_range": 96.0,
-        "luck": 0.0
+        "max_hp": 500.0,
+        "max_shield": 250.0,
+        "max_energy": 140.0,
+        "health_regen": 0.0,
+        "move_speed": 230.0,
+        "armor": 60.0,
+        "ability_strength": 1.0,
+        "ability_range": 1.0,
+        "ability_efficiency": 1.0,
+        "ability_duration": 1.0
       }
     }
   ]
@@ -892,7 +949,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `2` | 数据结构版本 |
+| `schema_version` | int | 必须为 `3` | 数据结构版本 |
 | `characters[].id` | string | 词表 §12.1 character id，文件内唯一 | 角色 id；模式池、局外解锁和存档引用此 id |
 | `characters[].scene_path` | string | `res://scenes/gameplay/actors/characters/*.tscn`，文件存在且为 `PackedScene` | 角色专属继承场景；不同角色 id 可复用同一场景，但不能指向 `player_base.tscn` |
 | `characters[].name_key` / `desc_key` | string | `character_*_name` / `character_*_desc` | 角色名称和描述译文 key |
@@ -900,20 +957,25 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `characters[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_character` | 内容标签；破限角色还需含 `tag_limit_break` 并声明 capability |
 | `characters[].capabilities` | array[string] | 词表 §12.2 capability id，可为空 | 允许突破的默认规则；空数组表示默认鼠标瞄准 / 左右朝向 / 按住开火 / 默认移动 |
 | `characters[].control_profile` | string | 非空 | 控制配置标识；当前只做数据边界，不实现输入 profile 切换 |
+| `characters[].palette` | object | 必须含 `primary` / `secondary` / `accent` 三个 `#RRGGBB` 或 `#RRGGBBAA` | 组合外观：主英雄提供 primary/secondary，子英雄提供 accent |
+| `characters[].element_id` | string | 词表 §9 element id，且存在于 `elements.json` | 英雄的主元素 |
+| `characters[].passive_id` | string | 词表 §12-I，且存在于 `hero_passives.json` | 仅主英雄生效的通用数据被动 |
+| `characters[].hero_skill_ids` | array[string] | 固定长度 2；技能已登记且存在，角色内不重复 | 主英雄映射槽 1–2，子英雄映射槽 3–4 |
 | `characters[].starting_loadout` | object | 必填 | 角色起始携带内容引用；当前只做 schema，不发放运行时实体 |
 | `characters[].starting_loadout.weapon_id` | string | 必须存在于 `weapons.json` | 默认起始武器引用 |
 | `characters[].starting_loadout.active_item_id` | string | 必须存在于 `active_items.json` | 默认起始主动道具引用 |
 | `characters[].starting_loadout.consumable_ids` | array[string] | 可为空；每项必须存在于 `consumables.json`，文件内不重复 | 默认起始消耗品引用列表；数量规则仍由后续 ConsumableSystem 解释 |
 | `characters[].starting_loadout.consumable_ids[]` | string | 必须存在于 `consumables.json` | 单个默认起始消耗品引用 |
-| `characters[].starting_loadout.skill_ids` | array[string] | 可为空；每项必须来自词表 §12-C 且存在于 `skills.json`，文件内不重复 | 默认起始技能列表；当前 `SkillSystem` 使用第一个技能响应 `use_active_item` 输入 |
 | `characters[].skill_resources[]` | array[object] | 可为空；每项 id 不重复 | 角色拥有的技能资源池；技能通过 `costs[].resource` 消耗这些资源 |
-| `characters[].skill_resources[].id` | string | 词表 §12-D skill resource id | 技能资源 id；当前默认 `mana`，后续可加怒气、能量、生命等资源 |
-| `characters[].skill_resources[].max` | number | `> 0` | 该资源最大值 |
-| `characters[].skill_resources[].start` | number | `0..max` | 开局初始资源值 |
+| `characters[].skill_resources[].id` | string | 词表 §12-D skill resource id | 当前为 `energy` |
+| `characters[].skill_resources[].max_stat` | string | 当前必须为 `max_energy` | 从主英雄最终属性读取资源上限，避免重复维护数值 |
+| `characters[].skill_resources[].start_ratio` | number | `0..1` | 开局资源比例；当前为 1.0（充满） |
 | `characters[].skill_resources[].regen_per_second` | number | `>= 0`，每秒 | `GameClock` 缩放时间下每秒恢复量；0 表示不自动恢复 |
 | `characters[].base_stats` | object | stat 来自词表 §1，非空 | 角色基础属性；数值范围同 `player.json` stat 校验 |
+| `characters[].base_stats.max_shield` | number | `>= 0` | 主英雄基础护盾 |
+| `characters[].base_stats.armor` | number | `>= 0` | 主英雄基础通用防御 |
 
-`characters.json` 声明角色场景绑定、玩法数据边界和当前起始技能运行时入口；技能本体仍在 `skills.json`，角色只引用 skill id 和资源池。`GameplayRunLoop` 会按新局默认角色或 run v4 快照里的 `character` 预加载并实例化 `scene_path`，未知角色或无效场景 fail closed；本轮不实现角色选择 UI。角色静态外观与节点结构由专属继承 TSCN 管理，基础属性、起始携带、输入 profile 与能力声明仍由数据解释。新增起始遗物或特殊能力字段时，必须先有对应数据注册表 / 词表 / schema，再由业务系统解释。
+`characters.json` 声明英雄场景、主元素、被动、双色+强调色 palette、固定两项英雄技能和资源池。`HeroCompositionResolver` 只采用主英雄的场景、基础属性、被动、起始携带和资源池，并把主英雄技能映射到 `skill_1/2`、子英雄技能映射到 `skill_3/4`；组合外观取主英雄 primary/secondary 与子英雄 accent。默认禁止主/子重复；显式允许重复时，后出现的重复技能槽能量消耗与冷却倍率均为 1.5。
 
 ## `weapons.json`
 
@@ -921,7 +983,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "weapons": [
     {
       "id": "weapon_basic_blaster",
@@ -943,7 +1005,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
       },
       "projectile": {
         "pool_id": "bullet_basic",
-        "damage_type": "physical",
+        "element_id": "element_neutral",
         "hit_radius": 8.0,
         "muzzle_distance": 24.0,
         "lifetime": 1.25
@@ -957,7 +1019,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `schema_version` | int | 必须为 `2` | 数据结构版本 |
 | `weapons[].id` | string | 文件内唯一，非空 | 武器 id；角色起始武器和模式武器池引用此 id |
 | `weapons[].name_key` / `desc_key` | string | `weapon_*_name` / `weapon_*_desc` | 武器名称和描述译文 key |
 | `weapons[].default_unlocked` | bool | true / false | 新存档中是否默认可用；后续可接局外解锁 |
@@ -973,7 +1035,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `base_stats.crit_chance` | number | `0.0`~`1.0` | 暴击率 |
 | `base_stats.crit_mult` | number | `> 0` | 暴击倍率 |
 | `projectile.pool_id` | string | 词表 §8 pool id | 使用的子弹对象池 |
-| `projectile.damage_type` | string | 词表 §9 damage type | 默认伤害类型 |
+| `projectile.element_id` | string | 词表 §9 element id | 默认战斗元素；旧 `damage_type` 已删除 |
 | `projectile.hit_radius` | number | `> 0` | 命中半径，px |
 | `projectile.muzzle_distance` | number | `> 0` | 发射点相对角色中心距离，px |
 | `projectile.lifetime` | number | `> 0` | 子弹存活秒数；业务系统可结合射程裁剪 |
@@ -1070,7 +1132,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `active_items[].use_effects[].params.force` | number | `> 0` 建议 | `knockback` 击退力度；当前只作为参数声明 |
 | `active_items[].use_effects[].params.radius` | number | `> 0` 建议 | `knockback` 生效半径；当前只作为参数声明 |
 
-`active_items.json` 只声明主动道具数据边界，不实现主动道具栏、输入响应、冷却计时、充能 UI、效果执行、掉落 / 解锁或存档快照。游戏模式可通过 `resource_pools.active_items` 声明可用主动道具池；实际使用流程后续必须走 InputMap action `use_active_item`、`GameClock`、`RNG` 和对应业务系统。
+`active_items.json` 只声明主动道具数据边界，不实现主动道具栏、输入响应、冷却计时、充能 UI、效果执行、掉落 / 解锁或存档快照。游戏模式可通过 `resource_pools.active_items` 声明可用主动道具池；旧 `use_active_item` action 已删除，未来主动道具使用入口须另行明确并继续遵守 `InputService`、`GameClock`、`RNG` 和对应业务系统边界。
 
 ## `skills.json`
 
@@ -1078,12 +1140,12 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "skills": [
     {
-      "id": "skill_overdrive_rounds",
-      "name_key": "skill_overdrive_rounds_name",
-      "desc_key": "skill_overdrive_rounds_desc",
+      "id": "skill_aoe_slow",
+      "name_key": "skill_aoe_slow_name",
+      "desc_key": "skill_aoe_slow_desc",
       "default_unlocked": true,
       "tags": ["tag_skill"],
       "ability_tags": [
@@ -1095,22 +1157,32 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
         "blocked_tags": ["ability_tag_silenced"],
         "granted_tags": ["ability_tag_activating"]
       },
-      "cooldown": 8.0,
-      "costs": [{ "resource": "mana", "amount": 40.0 }],
+      "cooldown": 10.0,
+      "costs": [{ "resource": "energy", "amount": 30.0 }],
       "targeting": {
-        "type": "target_ally",
-        "radius": 0.0,
-        "max_targets": 1
+        "type": "aoe_enemies_around_caster",
+        "radius": 280.0,
+        "max_targets": 0
+      },
+      "scaling": {
+        "cost_stat": "ability_efficiency",
+        "radius_stat": "ability_range",
+        "duration_stat": "ability_duration",
+        "strength_stat": "ability_strength"
       },
       "effects": [
         {
-          "effect": "skill_effect_weapon_modifiers",
+          "effect": "skill_effect_apply_status",
           "params": {
-            "duration": 4.0,
+            "status": "slow",
+            "duration": 5.0,
+            "stack_rule": "MAX_MAGNITUDE",
+            "magnitude": 0.35,
+            "magnitude_cap": 0.7,
             "modifiers": [
-              { "stat": "fire_rate", "type": "mult", "value": 1.7 },
-              { "stat": "bullet_speed", "type": "mult", "value": 1.15 }
-            ]
+              {"stat": "move_speed", "type": "mult", "value": 0.65, "scale_mode": "inverse_from_magnitude"}
+            ],
+            "granted_ability_tags": []
           }
         }
       ]
@@ -1123,7 +1195,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `schema_version` | int | 必须为 `2` | 数据结构版本 |
 | `skills[].id` | string | 词表 §12-C skill id，文件内唯一 | 技能 id；角色、主动道具、敌人或事件系统可复用引用 |
 | `skills[].name_key` / `desc_key` | string | `skill_*_name` / `skill_*_desc` | 技能名称和描述译文 key |
 | `skills[].default_unlocked` | bool | true / false | 新存档中是否默认可用；后续可接局外解锁 |
@@ -1138,23 +1210,37 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `skills[].costs[].resource` | string | 词表 §12-D skill resource id | 消耗的资源 id；释放者必须在 `skill_resources` 中拥有该资源 |
 | `skills[].costs[].amount` | number | `>= 0` | 单次释放消耗量 |
 | `skills[].targeting` | object | 必填 | 目标选择声明，由 `SkillSystem` 解释 |
-| `skills[].targeting.type` | string | 词表 §12-E skill targeting id | 目标选择策略；当前过载弹流使用 `target_ally` 作用于玩家主武器 |
+| `skills[].targeting.type` | string | 词表 §12-E skill targeting id | 目标选择策略 |
 | `skills[].targeting.radius` | number | `> 0`，px | AOE 或近邻目标查询半径 |
 | `skills[].targeting.max_targets` | int | `>= 0` | 最大目标数量；0 表示不限制 |
+| `skills[].scaling` | object | 必填 | 只声明实际启用的四维缩放映射；冷却不缩放 |
+| `skills[].scaling.cost_stat` | string | 必须为 `ability_efficiency` | 能量消耗按效率反比缩放 |
+| `skills[].scaling.radius_stat` | string | 可选，必须为 `ability_range` | targeting 或 effect 半径乘范围倍率 |
+| `skills[].scaling.duration_stat` | string | 可选，必须为 `ability_duration` | 状态 / buff 持续时间乘持续倍率 |
+| `skills[].scaling.strength_stat` | string | 可选，必须为 `ability_strength` | 屏障 HP、减速 magnitude 或 modifier 相对 1.0 的增量乘强度倍率 |
 | `skills[].effects[]` | array[object] | 必须非空 | 命中目标后执行的技能效果原语列表 |
 | `skills[].effects[].effect` | string | 词表 §12-F skill effect id | 技能效果原语 |
 | `skills[].effects[].params` | object | 由 effect 解释 | 技能效果参数 |
 | `skills[].effects[].params.amount` | number | `> 0` | `skill_effect_damage` 的伤害量 |
-| `skills[].effects[].params.damage_type` | string | 词表 §9 damage type | `skill_effect_damage` 的伤害类型；`skill_effect_apply_status` 做 DoT 时也必须填写；结算走 `Combat.apply_damage` |
+| `skills[].effects[].params.element_id` | string | 词表 §9 element id | `skill_effect_damage` 的战斗元素；`skill_effect_apply_status` 做 DoT 时也必须填写；结算走 `Combat.apply_damage` |
 | `skills[].effects[].params.status` | string | 词表 §9-A status effect id | `skill_effect_apply_status` 施加的状态 id |
 | `skills[].effects[].params.duration` | number | 秒，`> 0` | `skill_effect_apply_status` 的持续时间，过期走 `GameClock` |
 | `skills[].effects[].params.stack_rule` | string | 词表 §9-B status stack rule | 状态重复施加时的叠加 / 刷新规则 |
 | `skills[].effects[].params.granted_ability_tags` | array[string] | 词表 §12-G ability tag，可为空 | 状态存在期间授予目标的 ability tags；当前沉默使用 `ability_tag_silenced` |
 | `skills[].effects[].params.magnitude` | number | 可选 | 状态强度；DoT 中表示单 tick 伤害，减速 / 增伤标记后续可复用 |
-| `skills[].effects[].params.tick_interval` | number | 可选，`>= 0` | DoT tick 间隔；与正 `magnitude` 同时出现时必须提供已登记 `damage_type` |
-| `skills[].effects[].params.modifiers[]` | array[object] | `skill_effect_weapon_modifiers` 必填；格式同词表 §1 modifier | 临时主武器属性修正列表；当前用于射击强化技能 |
+| `skills[].effects[].params.tick_interval` | number | 可选，`>= 0` | DoT tick 间隔；与正 `magnitude` 同时出现时必须提供已登记 `element_id` |
+| `skills[].effects[].params.modifiers[]` | array[object] | actor / weapon modifier 或状态修正使用；格式同词表 §1 modifier | 临时属性修正；slow 可加 `scale_mode=inverse_from_magnitude` |
+| `skills[].effects[].params.modifiers[].scale_mode` | string | 可选；当前只允许 `inverse_from_magnitude` | 按 `1 - magnitude × ability_strength` 重算减速乘区 |
+| `skills[].effects[].params.radius` | number | `> 0`，px | 屏障或效果自身半径 |
+| `skills[].effects[].params.hp` | number | `> 0` | 屏障生命值 |
+| `skills[].effects[].params.max_active` | int | `>= 1` | 同一释放者可同时存在的屏障数量 |
+| `skills[].effects[].params.recast_policy` | string | 当前必须为 `replace` | 达到 max_active 后重施替换旧屏障 |
+| `skills[].effects[].params.magnitude_cap` | number | `>= 0` | ability strength 缩放后的状态强度上限 |
+| `skills[].effects[].params.max_stacks` | int | 可选，`>= 1` | `ADD_STACK_REFRESH` 的叠层上限 |
+| `skills[].effects[].params.incoming_damage_per_stack` | number | 可选，`>= 0` | vulnerable 每层易伤倍率 |
+| `skills[].effects[].params.incoming_damage_source_team` | string | 非空 team id | 易伤只对指定来源队伍生效；当前为 `team_player` |
 
-`skills.json` 是技能本体数据；技能不绑定英雄。当前玩法方向要求技能服务射击强化，不再把默认技能池做成近战 AOE 或点燃法术。`SkillSystem` 采用项目版轻量 GAS 语义解释起始技能的 tag gating、冷却、资源消耗、目标选择、`skill_effect_damage`、`skill_effect_apply_status` 和 `skill_effect_weapon_modifiers`：伤害通过 `Combat.apply_damage` 结算，状态通过 `StatusEffectComponent` 管理叠加、过期、ability tag 生命周期，武器强化通过目标的 `WeaponSystem.apply_temporary_modifiers()` 在持续时间到期后还原。当前内置技能为默认主键释放的 `skill_overdrive_rounds`；后续若主动道具、敌人或遗物要释放同一个技能，应引用 skill id，而不是复制技能字段或按英雄 / 道具 id 写分支。
+`skills.json` 是技能本体数据；英雄只通过 `hero_skill_ids` 引用技能。当前四技能为静域屏障、镇静脉冲、怒意超频和激怒标记，分别复用 deploy barrier、apply status 与 actor modifiers 原语；运行时按 `skill_1`～`skill_4` 解释，禁止按技能或英雄 id 特判。
 
 ## `consumables.json`
 

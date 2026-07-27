@@ -5,8 +5,12 @@ const VALUES: Array[String] = [
 	"aoe_enemies_around_caster",
 	"target_enemy",
 	"target_ally",
+	"target_self",
+	"target_aim_position",
 ]
 
 const AOE_ENEMIES_AROUND_CASTER: String = "aoe_enemies_around_caster"
 const TARGET_ENEMY: String = "target_enemy"
 const TARGET_ALLY: String = "target_ally"
+const TARGET_SELF: String = "target_self"
+const TARGET_AIM_POSITION: String = "target_aim_position"

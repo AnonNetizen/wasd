@@ -64,20 +64,29 @@ func apply_modifiers(modifiers: Array) -> void:
 	_rebuild_runtime_stats()
 
 
-func apply_temporary_modifiers(modifiers: Array, duration: float) -> void:
+func apply_temporary_modifiers(
+	modifiers: Array,
+	duration: float,
+	source_id: String = ""
+) -> void:
 	var modifier_list: Array[Dictionary] = _typed_dictionary_array(modifiers)
 	var remaining: float = maxf(duration, 0.0)
 	if modifier_list.is_empty() or remaining <= 0.0:
 		return
-	var is_refresh: bool = _has_matching_temporary_modifier(
-		_temporary_modifiers,
-		modifier_list
-	)
+	var normalized_source_id: String = source_id
+	if normalized_source_id.is_empty():
+		normalized_source_id = "legacy:%s" % str(modifier_list)
+	var existing_index: int = _temporary_modifier_index(normalized_source_id)
+	var is_refresh: bool = existing_index >= 0
 	var added_entry: Dictionary = {
+		"source_id": normalized_source_id,
 		"remaining": remaining,
 		"modifiers": modifier_list,
 	}
-	_temporary_modifiers.append(added_entry)
+	if is_refresh:
+		_temporary_modifiers[existing_index] = added_entry
+	else:
+		_temporary_modifiers.append(added_entry)
 	_rebuild_runtime_stats()
 	if is_refresh:
 		temporary_modifier_refreshed.emit(added_entry.duplicate(true))
@@ -115,6 +124,13 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_stat_additions = _dictionary_or_empty(snapshot_data.get("stat_additions", {}))
 	_stat_multipliers = _dictionary_or_empty(snapshot_data.get("stat_multipliers", {}))
 	_temporary_modifiers = _typed_dictionary_array(snapshot_data.get("temporary_modifiers", []))
+	for index: int in range(_temporary_modifiers.size()):
+		var entry: Dictionary = _temporary_modifiers[index]
+		if String(entry.get("source_id", "")).is_empty():
+			entry["source_id"] = "legacy:%s" % str(
+				_typed_dictionary_array(entry.get("modifiers", []))
+			)
+			_temporary_modifiers[index] = entry
 	_rebuild_runtime_stats()
 	_cooldown_remaining = maxf(float(snapshot_data.get("cooldown_remaining", 0.0)), 0.0)
 	temporary_modifiers_restored.emit(active_temporary_modifiers())
@@ -232,6 +248,13 @@ func _contains_modifier_group(
 		if _typed_dictionary_array(raw_group) == modifiers:
 			return true
 	return false
+
+
+func _temporary_modifier_index(source_id: String) -> int:
+	for index: int in range(_temporary_modifiers.size()):
+		if String(_temporary_modifiers[index].get("source_id", "")) == source_id:
+			return index
+	return -1
 
 
 func _is_fire_action_pressed() -> bool:

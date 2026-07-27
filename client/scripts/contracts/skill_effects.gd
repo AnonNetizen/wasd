@@ -5,8 +5,12 @@ const VALUES: Array[String] = [
 	"skill_effect_damage",
 	"skill_effect_apply_status",
 	"skill_effect_weapon_modifiers",
+	"skill_effect_deploy_barrier",
+	"skill_effect_actor_modifiers",
 ]
 
 const SKILL_EFFECT_DAMAGE: String = "skill_effect_damage"
 const SKILL_EFFECT_APPLY_STATUS: String = "skill_effect_apply_status"
 const SKILL_EFFECT_WEAPON_MODIFIERS: String = "skill_effect_weapon_modifiers"
+const SKILL_EFFECT_DEPLOY_BARRIER: String = "skill_effect_deploy_barrier"
+const SKILL_EFFECT_ACTOR_MODIFIERS: String = "skill_effect_actor_modifiers"

@@ -3,14 +3,23 @@ extends Node
 
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
-const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
+const ELEMENTS := preload("res://scripts/contracts/elements.gd")
+const ELEMENT_RESOLVER_SCRIPT := preload("res://scripts/data/element_resolver.gd")
+const HERO_COMPOSITION_RESOLVER_SCRIPT := preload(
+	"res://scripts/data/hero_composition_resolver.gd"
+)
+const BULLET_SCENE := preload("res://scenes/gameplay/bullet.tscn")
+const ENERGY_ORB_SCENE := preload("res://scenes/gameplay/energy_orb.tscn")
 const ENEMY_SCENE := preload("res://scenes/gameplay/actors/enemies/enemy_chaser.tscn")
 const PLAYER_SCENE := preload("res://scenes/gameplay/actors/characters/character_default.tscn")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
+const PROJECTILE_BARRIER_SCENE := preload("res://scenes/gameplay/projectile_barrier.tscn")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SKILL_EFFECTS := preload("res://scripts/contracts/skill_effects.gd")
 const SKILL_IDS := preload("res://scripts/contracts/skill_ids.gd")
 const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
+const SKILL_SLOTS := preload("res://scripts/contracts/skill_slots.gd")
 const SKILL_SYSTEM_SCENE := preload("res://scenes/gameplay/skill_system.tscn")
 const SKILL_TARGETING := preload("res://scripts/contracts/skill_targeting.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
@@ -77,9 +86,15 @@ func _run() -> void:
 	await _expect_game_clock_pause_freezes()
 	_expect_game_state_rejects_unknown()
 	_expect_save_manager_roundtrip()
+	_expect_hero_composition_resolution()
 	_expect_combat_damage_path()
+	await _expect_player_defense_layers()
+	await _expect_dash_runtime()
+	await _expect_four_skill_slots_and_efficiency()
 	await _expect_skill_system_aoe_damage()
 	await _expect_entity_status_components()
+	await _expect_status_modifiers_and_vulnerability()
+	await _expect_barrier_and_energy_orb()
 	await _expect_poison_dot_status()
 	_expect_mod_loader_data_patch()
 	_expect_platform_services_reserved_interface()
@@ -163,7 +178,7 @@ func _expect_combat_damage_path() -> void:
 	add_child(target)
 	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 		3.0,
-		DAMAGE_TYPES.PHYSICAL,
+		ELEMENTS.ELEMENT_NEUTRAL,
 		self,
 		target,
 		"team_player",
@@ -173,6 +188,418 @@ func _expect_combat_damage_path() -> void:
 	_expect(bool(result.get("applied", false)), "Combat should apply registered physical damage")
 	_expect(is_equal_approx(target.life, 2.0), "Combat should route damage through receive_damage")
 	target.queue_free()
+
+
+func _expect_hero_composition_resolution() -> void:
+	var element_resolver: ElementResolver = ELEMENT_RESOLVER_SCRIPT.new()
+	_expect(
+		bool(element_resolver.call("load_default")),
+		"element resolver should load the formal seven-element table"
+	)
+	var characters_payload: Variant = DataLoader.load_json(
+		DataLoader.CHARACTERS_PATH
+	)
+	var composition: Dictionary = HERO_COMPOSITION_RESOLVER_SCRIPT.resolve(
+		characters_payload,
+		CHARACTER_IDS.CHARACTER_PRIMARY_A,
+		CHARACTER_IDS.CHARACTER_PRIMARY_B,
+		element_resolver,
+		false
+	)
+	_expect(
+		not composition.is_empty(),
+		"distinct main and sub heroes should resolve"
+	)
+	_expect(
+		is_equal_approx(
+			float(
+				(composition.get("base_stats", {}) as Dictionary).get(
+					STATS.MAX_HP,
+					0.0
+				)
+			),
+			500.0
+		),
+		"only the main hero should provide base stats"
+	)
+	var resolved_slots: Dictionary = (
+		composition.get("skill_slots", {}) as Dictionary
+	)
+	_expect(
+		String(resolved_slots.get(SKILL_SLOTS.SKILL_1, ""))
+		== SKILL_IDS.SKILL_DEPLOY_PROJECTILE_BARRIER
+		and String(resolved_slots.get(SKILL_SLOTS.SKILL_2, ""))
+		== SKILL_IDS.SKILL_AOE_SLOW
+		and String(resolved_slots.get(SKILL_SLOTS.SKILL_3, ""))
+		== SKILL_IDS.SKILL_SELF_FIRE_MOVE_HASTE
+		and String(resolved_slots.get(SKILL_SLOTS.SKILL_4, ""))
+		== SKILL_IDS.SKILL_ENEMY_HASTE_VULNERABILITY,
+		"main hero should provide slots 1/2 and sub hero slots 3/4"
+	)
+	_expect(
+		HERO_COMPOSITION_RESOLVER_SCRIPT.resolve(
+			characters_payload,
+			CHARACTER_IDS.CHARACTER_PRIMARY_A,
+			CHARACTER_IDS.CHARACTER_PRIMARY_A,
+			element_resolver,
+			false
+		).is_empty(),
+		"outside-run composition should reject duplicate heroes"
+	)
+	var repeated_composition: Dictionary = (
+		HERO_COMPOSITION_RESOLVER_SCRIPT.resolve(
+			characters_payload,
+			CHARACTER_IDS.CHARACTER_PRIMARY_A,
+			CHARACTER_IDS.CHARACTER_PRIMARY_A,
+			element_resolver,
+			true
+		)
+	)
+	var repeated_slots: Array = repeated_composition.get(
+		"slot_definitions",
+		[]
+	)
+	_expect(
+		repeated_slots.size() == 4
+		and is_equal_approx(
+			float(
+				(repeated_slots[2] as Dictionary).get(
+					"energy_cost_multiplier",
+					0.0
+				)
+			),
+			1.5
+		)
+		and is_equal_approx(
+			float(
+				(repeated_slots[2] as Dictionary).get(
+					"cooldown_multiplier",
+					0.0
+				)
+			),
+			1.5
+		),
+		"future duplicate slots should receive 1.5x cost and cooldown"
+	)
+
+
+func _expect_player_defense_layers() -> void:
+	var world: Node2D = Node2D.new()
+	world.name = "L1DefenseWorld"
+	add_child(world)
+	var player: Node2D = PLAYER_SCENE.instantiate() as Node2D
+	player.name = "L1DefensePlayer"
+	world.add_child(player)
+	var player_stats: Dictionary = _l1_combat_player_stats()
+	player.call("configure", player_stats)
+	player.call(
+		"configure_runtime_rules",
+		DataLoader.load_json(DataLoader.PLAYER_DATA_PATH)
+	)
+	GameState.change_state(GameState.PLAYING, {"source": "l1_defense"})
+
+	player.call("debug_set_life", 100.0)
+	player.call("debug_set_shield", 50.0, 30.0)
+	_apply_damage_to_player(
+		player,
+		40.0,
+		ELEMENTS.ELEMENT_NEUTRAL
+	)
+	_expect(
+		is_equal_approx(float(player.call("current_overshield")), 0.0),
+		"overshield should absorb damage before normal shield"
+	)
+	_expect(
+		is_equal_approx(float(player.call("current_shield")), 40.0),
+		"normal shield should absorb overflow after overshield"
+	)
+	_expect(
+		is_equal_approx(float(player.call("current_life")), 100.0),
+		"shield layers should protect health"
+	)
+
+	_apply_damage_to_player(
+		player,
+		50.0,
+		ELEMENTS.ELEMENT_NEUTRAL
+	)
+	_expect(
+		is_equal_approx(float(player.call("current_shield")), 0.0),
+		"normal shield should break when incoming damage exceeds it"
+	)
+	_expect(
+		is_equal_approx(float(player.call("current_life")), 100.0),
+		"shield gate should swallow the breaking hit overflow"
+	)
+	_expect(
+		absf(
+			float(player.call("invulnerability_remaining"))
+			- 0.2
+		) <= 0.02,
+		"shield gate duration should scale from pre-hit shield"
+	)
+
+	var gate_expectations: Array[Dictionary] = [
+		{"shield": 0.0, "duration": 0.0},
+		{"shield": 50.0, "duration": 0.25},
+		{"shield": 100.0, "duration": 0.5},
+	]
+	for expectation: Dictionary in gate_expectations:
+		player.call("debug_clear_invulnerability")
+		player.call("debug_set_life", 100.0)
+		player.call(
+			"debug_set_shield",
+			float(expectation.get("shield", 0.0)),
+			0.0
+		)
+		_apply_damage_to_player(
+			player,
+			200.0,
+			ELEMENTS.ELEMENT_NEUTRAL
+		)
+		_expect(
+			absf(
+				float(player.call("invulnerability_remaining"))
+				-
+				float(expectation.get("duration", 0.0))
+			) <= 0.02,
+			"empty/half/full normal shield should produce the configured gate duration"
+		)
+
+	player_stats[STATS.ARMOR] = 300.0
+	player.call("configure", player_stats)
+	player.call(
+		"configure_runtime_rules",
+		DataLoader.load_json(DataLoader.PLAYER_DATA_PATH)
+	)
+	player.call("debug_set_shield", 0.0, 0.0)
+	_apply_damage_to_player(
+		player,
+		100.0,
+		ELEMENTS.ELEMENT_NEUTRAL
+	)
+	_expect(
+		absf(float(player.call("current_life")) - 50.0) <= 0.01,
+		"300 armor should reduce health damage by 50 percent"
+	)
+
+	player_stats[STATS.ARMOR] = 0.0
+	player.call("configure", player_stats)
+	player.call(
+		"configure_runtime_rules",
+		DataLoader.load_json(DataLoader.PLAYER_DATA_PATH)
+	)
+	player.call(
+		"configure_element_damage_taken_multipliers",
+		{ELEMENTS.ELEMENT_PRIMARY_A: 0.6}
+	)
+	player.call("debug_set_shield", 0.0, 0.0)
+	_apply_damage_to_player(
+		player,
+		100.0,
+		ELEMENTS.ELEMENT_PRIMARY_A
+	)
+	_expect(
+		absf(float(player.call("current_life")) - 40.0) <= 0.01,
+		"pure primary A passive should reduce matching health damage by 40 percent"
+	)
+	_apply_damage_to_player(
+		player,
+		10.0,
+		ELEMENTS.ELEMENT_COMPOSITE_AB
+	)
+	_expect(
+		absf(float(player.call("current_life")) - 30.0) <= 0.01,
+		"composite elements should not inherit pure primary resistance"
+	)
+
+	player.call("configure", _l1_combat_player_stats())
+	player.call(
+		"configure_runtime_rules",
+		DataLoader.load_json(DataLoader.PLAYER_DATA_PATH)
+	)
+	player.call("debug_set_shield", 100.0, 0.0)
+	_apply_damage_to_player(
+		player,
+		50.0,
+		ELEMENTS.ELEMENT_NEUTRAL
+	)
+	player.call("add_overshield", 100.0)
+	await _wait_physics_frames(60)
+	_expect(
+		absf(float(player.call("current_shield")) - 50.0) <= 0.5,
+		"normal shield should not recharge during the four second delay"
+	)
+	var decayed_overshield: float = float(
+		player.call("current_overshield")
+	)
+	_expect(
+		decayed_overshield < 100.0 and decayed_overshield > 94.0,
+		"overshield should decay by five percent of current value per second"
+	)
+	await _wait_physics_frames(200)
+	_expect(
+		float(player.call("current_shield")) > 50.0,
+		"normal shield should recharge after its damage delay"
+	)
+
+	world.queue_free()
+	await get_tree().process_frame
+
+
+func _expect_dash_runtime() -> void:
+	var world: Node2D = Node2D.new()
+	world.name = "L1DashWorld"
+	add_child(world)
+	var player: Node2D = PLAYER_SCENE.instantiate() as Node2D
+	player.name = "L1DashPlayer"
+	world.add_child(player)
+	var player_stats: Dictionary = _l1_combat_player_stats()
+	player_stats[STATS.MAX_SHIELD] = 0.0
+	player.call("configure", player_stats)
+	player.call(
+		"configure_runtime_rules",
+		DataLoader.load_json(DataLoader.PLAYER_DATA_PATH)
+	)
+	GameState.change_state(GameState.PLAYING, {"source": "l1_dash"})
+	var dash_result: Dictionary = player.call("try_dash", Vector2.RIGHT)
+	_expect(bool(dash_result.get("ok", false)), "dash should start in an explicit direction")
+	var blocked_damage: Dictionary = _apply_damage_to_player(
+		player,
+		10.0,
+		ELEMENTS.ELEMENT_NEUTRAL
+	)
+	_expect(
+		not bool(blocked_damage.get("applied", true)),
+		"dash invulnerability should block damage"
+	)
+	var cooldown_result: Dictionary = player.call("try_dash", Vector2.LEFT)
+	_expect(
+		not bool(cooldown_result.get("ok", true)),
+		"dash should reject recast during cooldown"
+	)
+	await _wait_physics_frames(12)
+	_expect(
+		player.global_position.x > 100.0
+		and player.global_position.x < 130.0,
+		"dash should travel approximately 120 pixels"
+	)
+	await _wait_physics_frames(70)
+	var fallback_dash: Dictionary = player.call("try_dash", Vector2.ZERO)
+	_expect(
+		bool(fallback_dash.get("ok", false)),
+		"dash should fall back to aim direction without movement input"
+	)
+	world.queue_free()
+	await get_tree().process_frame
+
+
+func _expect_four_skill_slots_and_efficiency() -> void:
+	var world: Node2D = Node2D.new()
+	world.name = "L1FourSkillWorld"
+	add_child(world)
+	var player: Node2D = PLAYER_SCENE.instantiate() as Node2D
+	player.name = "L1FourSkillPlayer"
+	world.add_child(player)
+	var player_stats: Dictionary = _l1_combat_player_stats()
+	player_stats[STATS.MAX_SHIELD] = 0.0
+	player_stats[STATS.ABILITY_EFFICIENCY] = 1.75
+	player.call("configure", player_stats)
+	var skill_system: Node = SKILL_SYSTEM_SCENE.instantiate()
+	skill_system.name = "L1FourSkillSystem"
+	add_child(skill_system)
+	var skills: Array[Dictionary] = [
+		_l1_self_modifier_skill(SKILL_IDS.SKILL_DEPLOY_PROJECTILE_BARRIER),
+		_l1_self_modifier_skill(SKILL_IDS.SKILL_AOE_SLOW),
+		_l1_self_modifier_skill(SKILL_IDS.SKILL_SELF_FIRE_MOVE_HASTE),
+		_l1_self_modifier_skill(
+			SKILL_IDS.SKILL_ENEMY_HASTE_VULNERABILITY
+		),
+	]
+	skill_system.call(
+		"configure",
+		player,
+		world,
+		skills,
+		[_l1_mana_resource()]
+	)
+	GameState.change_state(GameState.PLAYING, {"source": "l1_four_skill"})
+	var first_result: Dictionary = skill_system.call(
+		"cast_slot",
+		SKILL_SLOTS.SKILL_1
+	)
+	_expect(bool(first_result.get("ok", false)), "skill slot 1 should cast")
+	_expect(
+		is_equal_approx(
+			float(
+				skill_system.call(
+					"resource_amount",
+					SKILL_RESOURCES.ENERGY
+				)
+			),
+			95.0
+		),
+		"175 percent efficiency should reduce a 20 energy cost to 5"
+	)
+	_expect(
+		float(
+			skill_system.call(
+				"cooldown_remaining",
+				SKILL_SLOTS.SKILL_1
+			)
+		) > 0.0,
+		"cast slot should own an independent cooldown"
+	)
+	_expect(
+		is_equal_approx(
+			float(
+				skill_system.call(
+					"cooldown_remaining",
+					SKILL_SLOTS.SKILL_2
+				)
+			),
+			0.0
+		),
+		"casting slot 1 should not start slot 2 cooldown"
+	)
+	var second_result: Dictionary = skill_system.call(
+		"cast_slot",
+		SKILL_SLOTS.SKILL_2
+	)
+	_expect(bool(second_result.get("ok", false)), "skill slot 2 should cast independently")
+	_expect(
+		(skill_system.call("debug_summary") as Dictionary).get(
+			"skill_slots",
+			[]
+		).size() == 4,
+		"SkillSystem should expose four stable skill slots"
+	)
+
+	player_stats[STATS.ABILITY_EFFICIENCY] = 0.25
+	player.call("configure", player_stats)
+	skill_system.call(
+		"configure",
+		player,
+		world,
+		skills,
+		[_l1_mana_resource()]
+	)
+	skill_system.call("cast_slot", SKILL_SLOTS.SKILL_1)
+	_expect(
+		is_equal_approx(
+			float(
+				skill_system.call(
+					"resource_amount",
+					SKILL_RESOURCES.ENERGY
+				)
+			),
+			65.0
+		),
+		"25 percent efficiency should increase a 20 energy cost to 35"
+	)
+	skill_system.queue_free()
+	world.queue_free()
+	await get_tree().process_frame
 
 
 func _expect_skill_system_aoe_damage() -> void:
@@ -246,7 +673,7 @@ func _expect_skill_system_aoe_damage() -> void:
 	_expect(is_equal_approx(target.life, 6.0), "SkillSystem should route skill damage through Combat")
 	_expect(is_equal_approx(far_target.life, 10.0), "SkillSystem should ignore targets outside radius")
 	var resource_snapshot: Dictionary = skill_system.call("resource_snapshot")
-	var mana: Dictionary = resource_snapshot[SKILL_RESOURCES.MANA] as Dictionary
+	var mana: Dictionary = resource_snapshot[SKILL_RESOURCES.ENERGY] as Dictionary
 	_expect(is_equal_approx(float(mana.get("current", 0.0)), 75.0), "SkillSystem should spend mana")
 	var cooldown_result: Dictionary = skill_system.call("cast_primary_skill")
 	_expect(not bool(cooldown_result.get("ok", true)), "SkillSystem should block immediate recast while on cooldown")
@@ -313,6 +740,353 @@ func _expect_entity_status_components() -> void:
 	world.queue_free()
 
 
+func _expect_status_modifiers_and_vulnerability() -> void:
+	var world: Node2D = Node2D.new()
+	world.name = "L1StatusModifierWorld"
+	add_child(world)
+	var player: Node2D = PLAYER_SCENE.instantiate() as Node2D
+	player.name = "L1StatusModifierPlayer"
+	world.add_child(player)
+	player.call("configure", _l1_combat_player_stats())
+	var enemy: Node2D = ENEMY_SCENE.instantiate() as Node2D
+	enemy.name = "L1StatusModifierEnemy"
+	world.add_child(enemy)
+	var enemy_data: Dictionary = _l1_enemy_data()
+	enemy_data["max_hp"] = 500.0
+	enemy.call("configure", enemy_data, player)
+	GameState.change_state(
+		GameState.PLAYING,
+		{"source": "l1_status_modifiers"}
+	)
+
+	var slow: Resource = STATUS_EFFECT_SCRIPT.new().setup(
+		STATUS_EFFECTS.SLOW,
+		{
+			"duration": 2.0,
+			"stack_rule": STATUS_STACK_RULES.MAX_MAGNITUDE,
+			"magnitude": 0.35,
+			"modifiers": [
+				{
+					"stat": STATS.MOVE_SPEED,
+					"type": "mult",
+					"value": 0.65,
+				},
+			],
+		},
+		player
+	)
+	var haste: Resource = STATUS_EFFECT_SCRIPT.new().setup(
+		STATUS_EFFECTS.HASTE,
+		{
+			"duration": 2.0,
+			"stack_rule": STATUS_STACK_RULES.REFRESH,
+			"magnitude": 0.1,
+			"modifiers": [
+				{
+					"stat": STATS.MOVE_SPEED,
+					"type": "mult",
+					"value": 1.1,
+				},
+			],
+		},
+		player
+	)
+	enemy.call("apply_status_effect", slow)
+	enemy.call("apply_status_effect", haste)
+	_expect(
+		absf(
+			float(enemy.call(
+				"status_stat_multiplier",
+				STATS.MOVE_SPEED
+			))
+			- 0.715
+		) <= 0.001,
+		"slow and enemy haste should multiply together"
+	)
+
+	for _stack_index: int in range(5):
+		enemy.call(
+			"apply_status_effect",
+			_l1_vulnerability_status(player)
+		)
+	_expect(
+		int(enemy.call(
+			"status_stack_count",
+			STATUS_EFFECTS.VULNERABLE
+		)) == 5,
+		"vulnerability should stack to five"
+	)
+	await _wait_physics_frames(8)
+	var remaining_before_refresh: float = _status_remaining(
+		enemy,
+		STATUS_EFFECTS.VULNERABLE
+	)
+	enemy.call(
+		"apply_status_effect",
+		_l1_vulnerability_status(player)
+	)
+	_expect(
+		int(enemy.call(
+			"status_stack_count",
+			STATUS_EFFECTS.VULNERABLE
+		)) == 5,
+		"vulnerability should stay capped at five stacks"
+	)
+	_expect(
+		_status_remaining(enemy, STATUS_EFFECTS.VULNERABLE)
+		> remaining_before_refresh,
+		"full vulnerability stacks should refresh their duration"
+	)
+
+	var life_before_player_hit: float = _enemy_life(enemy)
+	_apply_damage_to_enemy(
+		enemy,
+		10.0,
+		TEAM_PLAYER
+	)
+	_expect(
+		absf(
+			(life_before_player_hit - _enemy_life(enemy))
+			- 15.0
+		) <= 0.01,
+		"five vulnerability stacks should amplify player damage by 50 percent"
+	)
+	var life_before_environment_hit: float = _enemy_life(enemy)
+	_apply_damage_to_enemy(enemy, 10.0, "")
+	_expect(
+		absf(
+			(life_before_environment_hit - _enemy_life(enemy))
+			- 10.0
+		) <= 0.01,
+		"vulnerability should ignore environment damage"
+	)
+	var life_before_dot_hit: float = _enemy_life(enemy)
+	_apply_damage_to_enemy(
+		enemy,
+		10.0,
+		TEAM_PLAYER,
+		PackedStringArray([DOT_DAMAGE_FLAG])
+	)
+	_expect(
+		absf(
+			(life_before_dot_hit - _enemy_life(enemy))
+			- 15.0
+		) <= 0.01,
+		"vulnerability should amplify player-attributed damage over time"
+	)
+
+	enemy.remove_from_group("active_enemies")
+	world.queue_free()
+	await get_tree().process_frame
+
+
+func _expect_barrier_and_energy_orb() -> void:
+	_ensure_l1_combat_pools()
+	var world: Node2D = Node2D.new()
+	world.name = "L1BarrierEnergyWorld"
+	add_child(world)
+	var player: Node2D = PLAYER_SCENE.instantiate() as Node2D
+	player.name = "L1BarrierEnergyPlayer"
+	world.add_child(player)
+	player.call("configure", _l1_combat_player_stats())
+	var skill_system: Node = SKILL_SYSTEM_SCENE.instantiate()
+	skill_system.name = "L1BarrierEnergySkillSystem"
+	add_child(skill_system)
+	var barrier_skill_1: Dictionary = _l1_skill_definition(
+		SKILL_IDS.SKILL_DEPLOY_PROJECTILE_BARRIER
+	)
+	barrier_skill_1["slot_id"] = SKILL_SLOTS.SKILL_1
+	var barrier_skill_3: Dictionary = barrier_skill_1.duplicate(true)
+	barrier_skill_3["slot_id"] = SKILL_SLOTS.SKILL_3
+	barrier_skill_3["cost_multiplier"] = 1.5
+	barrier_skill_3["cooldown_multiplier"] = 1.5
+	skill_system.call(
+		"configure",
+		player,
+		world,
+		[
+			barrier_skill_1,
+			barrier_skill_3,
+		],
+		[_l1_mana_resource()]
+	)
+	GameState.change_state(
+		GameState.PLAYING,
+		{"source": "l1_barrier_energy"}
+	)
+	var cast_result: Dictionary = skill_system.call(
+		"cast_slot",
+		SKILL_SLOTS.SKILL_1
+	)
+	_expect(
+		bool(cast_result.get("ok", false)),
+		"barrier skill should deploy from its stable slot"
+	)
+	var barriers: Array[Node] = get_tree().get_nodes_in_group(
+		"active_deployables"
+	)
+	_expect(
+		barriers.size() == 1,
+		"barrier skill should allow only one active deployment"
+	)
+	if barriers.is_empty():
+		skill_system.queue_free()
+		world.queue_free()
+		await get_tree().process_frame
+		return
+	var barrier: Node = barriers[0]
+	var barrier_max_health: float = float(
+		barrier.call("current_health")
+	)
+	var friendly_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		10.0,
+		ELEMENTS.ELEMENT_NEUTRAL,
+		player,
+		barrier,
+		TEAM_PLAYER,
+		TEAM_ENEMY
+	)
+	barrier.call("receive_projectile_damage", friendly_info)
+	_expect(
+		is_equal_approx(
+			float(barrier.call("current_health")),
+			barrier_max_health
+		),
+		"barrier should ignore player projectile damage"
+	)
+
+	var enemy_bullet: Node2D = PoolManager.acquire(
+		POOL_IDS.BULLET_BASIC
+	) as Node2D
+	_reparent_l1_node(enemy_bullet, world)
+	enemy_bullet.global_position = Vector2(-220.0, 0.0)
+	enemy_bullet.call(
+		"configure",
+		_l1_bullet_stats(),
+		_l1_projectile_data(
+			TEAM_ENEMY,
+			TEAM_PLAYER,
+			["active_player"]
+		),
+		Vector2.RIGHT,
+		player
+	)
+	await _wait_physics_frames(12)
+	_expect(
+		float(barrier.call("current_health"))
+		< barrier_max_health,
+		"enemy projectile sweep should hit a barrier before normal targets"
+	)
+	_expect(
+		PoolManager.active_count(POOL_IDS.BULLET_BASIC) == 0,
+		"enemy projectile should release after hitting a barrier"
+	)
+
+	skill_system.call("debug_refresh")
+	skill_system.call(
+		"cast_slot",
+		SKILL_SLOTS.SKILL_3
+	)
+	barriers = get_tree().get_nodes_in_group("active_deployables")
+	_expect(
+		barriers.size() == 1,
+		"barrier recast from a duplicate slot should replace the previous deployment"
+	)
+	if not barriers.is_empty():
+		barrier = barriers[0]
+	_expect(
+		is_equal_approx(
+			float(barrier.call("current_health")),
+			barrier_max_health
+		),
+		"replacement barrier should start at full health"
+	)
+
+	var player_bullet: Node2D = PoolManager.acquire(
+		POOL_IDS.BULLET_BASIC
+	) as Node2D
+	_reparent_l1_node(player_bullet, world)
+	player_bullet.global_position = Vector2(-220.0, 0.0)
+	player_bullet.call(
+		"configure",
+		_l1_bullet_stats(),
+		_l1_projectile_data(
+			TEAM_PLAYER,
+			TEAM_ENEMY,
+			["active_deployables"]
+		),
+		Vector2.RIGHT,
+		player
+	)
+	await _wait_physics_frames(60)
+	_expect(
+		is_equal_approx(
+			float(barrier.call("current_health")),
+			barrier_max_health
+		),
+		"player projectiles should pass through deployable barriers"
+	)
+
+	skill_system.call("debug_refresh")
+	var full_orb: Node2D = PoolManager.acquire(
+		POOL_IDS.ENERGY_ORB
+	) as Node2D
+	_reparent_l1_node(full_orb, world)
+	full_orb.global_position = player.global_position
+	full_orb.call(
+		"configure",
+		25.0,
+		player,
+		skill_system,
+		360.0,
+		SKILL_RESOURCES.ENERGY
+	)
+	await _wait_physics_frames(3)
+	_expect(
+		PoolManager.active_count(POOL_IDS.ENERGY_ORB) == 1,
+		"full energy should not collect a nearby energy orb"
+	)
+	PoolManager.release(full_orb)
+
+	skill_system.call(
+		"cast_slot",
+		SKILL_SLOTS.SKILL_1
+	)
+	var partial_orb: Node2D = PoolManager.acquire(
+		POOL_IDS.ENERGY_ORB
+	) as Node2D
+	_reparent_l1_node(partial_orb, world)
+	partial_orb.global_position = player.global_position
+	partial_orb.call(
+		"configure",
+		25.0,
+		player,
+		skill_system,
+		360.0,
+		SKILL_RESOURCES.ENERGY
+	)
+	await _wait_physics_frames(3)
+	_expect(
+		is_equal_approx(
+			float(skill_system.call(
+				"resource_amount",
+				SKILL_RESOURCES.ENERGY
+			)),
+			85.0
+		),
+		"energy orb should restore 25 energy when the resource is not full"
+	)
+	_expect(
+		PoolManager.active_count(POOL_IDS.ENERGY_ORB) == 0,
+		"collected energy orb should return to its pool"
+	)
+
+	skill_system.queue_free()
+	await get_tree().process_frame
+	world.queue_free()
+	await get_tree().process_frame
+
+
 func _expect_poison_dot_status() -> void:
 	var world: Node2D = Node2D.new()
 	world.name = "L1PoisonWorld"
@@ -342,7 +1116,7 @@ func _expect_poison_dot_status() -> void:
 		if target != enemy or not flags.has(DOT_DAMAGE_FLAG):
 			return
 		dot_events.append({
-			"damage_type": String(info.get("damage_type")),
+			"element_id": String(info.get("element_id")),
 			"source_team": String(info.get("source_team")),
 			"target_team": String(info.get("target_team")),
 			"applied": bool(result.get("applied", false)),
@@ -360,7 +1134,7 @@ func _expect_poison_dot_status() -> void:
 	_expect(not dot_events.is_empty(), "Poison DoT should route damage through Combat")
 	if not dot_events.is_empty():
 		var first_event: Dictionary = dot_events[0]
-		_expect(String(first_event.get("damage_type", "")) == DAMAGE_TYPES.POISON, "Poison DoT should use poison damage type")
+		_expect(String(first_event.get("element_id", "")) == ELEMENTS.ELEMENT_PRIMARY_C, "Poison DoT should use its configured element")
 		_expect(String(first_event.get("source_team", "")) == TEAM_PLAYER, "Poison DoT should preserve player source team")
 		_expect(String(first_event.get("target_team", "")) == TEAM_ENEMY, "Poison DoT should preserve enemy target team")
 		_expect(bool(first_event.get("applied", false)), "Poison DoT Combat result should apply")
@@ -370,7 +1144,7 @@ func _expect_poison_dot_status() -> void:
 	_expect(not poison_effects.is_empty(), "Poison should enter Enemy status snapshots")
 	if not poison_effects.is_empty():
 		var poison_effect: Dictionary = poison_effects[0] as Dictionary
-		_expect(String(poison_effect.get("damage_type", "")) == DAMAGE_TYPES.POISON, "Poison snapshot should preserve damage_type")
+		_expect(String(poison_effect.get("element_id", "")) == ELEMENTS.ELEMENT_PRIMARY_C, "Poison snapshot should preserve element_id")
 		_expect(float(poison_effect.get("tick_remaining", 0.0)) > 0.0, "Poison snapshot should preserve tick_remaining")
 		_expect(String(poison_effect.get("source_team", "")) == TEAM_PLAYER, "Poison snapshot should preserve source_team")
 		_expect(String(poison_effect.get("target_team", "")) == TEAM_ENEMY, "Poison snapshot should preserve target_team")
@@ -397,9 +1171,203 @@ func _expect_poison_dot_status() -> void:
 	world.queue_free()
 
 
+func _l1_combat_player_stats() -> Dictionary:
+	return {
+		STATS.MAX_HP: 100.0,
+		STATS.MAX_SHIELD: 100.0,
+		STATS.MAX_ENERGY: 100.0,
+		STATS.ARMOR: 0.0,
+		STATS.MOVE_SPEED: 240.0,
+		STATS.HEALTH_REGEN: 0.0,
+		STATS.ABILITY_STRENGTH: 1.0,
+		STATS.ABILITY_RANGE: 1.0,
+		STATS.ABILITY_EFFICIENCY: 1.0,
+		STATS.ABILITY_DURATION: 1.0,
+		STATS.PLAYER_SEPARATION_RADIUS: 0.0,
+		STATS.PICKUP_RANGE: 96.0,
+		STATS.PICKUP_ORB_SPEED: 360.0,
+		STATS.LUCK: 0.0,
+	}
+
+
+func _apply_damage_to_player(
+	player: Node,
+	amount: float,
+	element_id: String,
+	source_team: String = TEAM_ENEMY,
+	flags: PackedStringArray = PackedStringArray()
+) -> Dictionary:
+	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		amount,
+		element_id,
+		self,
+		player,
+		source_team,
+		TEAM_PLAYER,
+		flags
+	)
+	return Combat.apply_damage(player, info)
+
+
+func _apply_damage_to_enemy(
+	enemy: Node,
+	amount: float,
+	source_team: String,
+	flags: PackedStringArray = PackedStringArray()
+) -> Dictionary:
+	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		amount,
+		ELEMENTS.ELEMENT_NEUTRAL,
+		self,
+		enemy,
+		source_team,
+		TEAM_ENEMY,
+		flags
+	)
+	return Combat.apply_damage(enemy, info)
+
+
+func _l1_self_modifier_skill(skill_id: String) -> Dictionary:
+	return {
+		"id": skill_id,
+		"ability_tags": [
+			ABILITY_TAGS.ABILITY_TAG_SKILL,
+			ABILITY_TAGS.ABILITY_TAG_PRIMARY,
+		],
+		"activation": {
+			"required_tags": [],
+			"blocked_tags": [],
+			"granted_tags": [],
+		},
+		"cooldown": 5.0,
+		"costs": [
+			{
+				"resource": SKILL_RESOURCES.ENERGY,
+				"amount": 20.0,
+			},
+		],
+		"targeting": {
+			"type": SKILL_TARGETING.TARGET_SELF,
+			"radius": 0.0,
+			"max_targets": 1,
+		},
+		"scaling": {
+			"cost_stat": STATS.ABILITY_EFFICIENCY,
+		},
+		"effects": [
+			{
+				"effect":
+					SKILL_EFFECTS.SKILL_EFFECT_ACTOR_MODIFIERS,
+				"params": {
+					"duration": 1.0,
+					"modifiers": [
+						{
+							"stat": STATS.MOVE_SPEED,
+							"type": "mult",
+							"value": 1.0,
+						},
+					],
+				},
+			},
+		],
+	}
+
+
+func _l1_vulnerability_status(source: Node) -> Resource:
+	return STATUS_EFFECT_SCRIPT.new().setup(
+		STATUS_EFFECTS.VULNERABLE,
+		{
+			"duration": 0.5,
+			"stack_rule": STATUS_STACK_RULES.ADD_STACK_REFRESH,
+			"magnitude": 0.1,
+			"max_stacks": 5,
+			"incoming_damage_per_stack": 0.1,
+			"incoming_damage_source_team": TEAM_PLAYER,
+		},
+		source
+	)
+
+
+func _status_remaining(owner: Node, status_id: String) -> float:
+	var summaries: Array = owner.call("status_summary") as Array
+	for raw_summary: Variant in summaries:
+		if not raw_summary is Dictionary:
+			continue
+		var summary: Dictionary = raw_summary as Dictionary
+		if String(summary.get("id", "")) == status_id:
+			return float(summary.get("remaining", 0.0))
+	return 0.0
+
+
+func _l1_bullet_stats() -> Dictionary:
+	return {
+		STATS.DAMAGE: 10.0,
+		STATS.BULLET_SPEED: 600.0,
+		STATS.BULLET_RANGE: 500.0,
+		STATS.PIERCE_COUNT: 0,
+	}
+
+
+func _l1_projectile_data(
+	source_team: String,
+	target_team: String,
+	damage_target_groups: Array[String]
+) -> Dictionary:
+	return {
+		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
+		"damage_target_groups": damage_target_groups,
+		"hit_radius": 4.0,
+		"lifetime": 1.0,
+		"source_team": source_team,
+		"target_team": target_team,
+	}
+
+
+func _ensure_l1_combat_pools() -> void:
+	if not PoolManager.has_pool(POOL_IDS.BULLET_BASIC):
+		PoolManager.register_pool(
+			POOL_IDS.BULLET_BASIC,
+			Callable(self, "_instantiate_l1_scene").bind(
+				BULLET_SCENE
+			),
+			8
+		)
+	if not PoolManager.has_pool(POOL_IDS.PROJECTILE_BARRIER):
+		PoolManager.register_pool(
+			POOL_IDS.PROJECTILE_BARRIER,
+			Callable(self, "_instantiate_l1_scene").bind(
+				PROJECTILE_BARRIER_SCENE
+			),
+			4
+		)
+	if not PoolManager.has_pool(POOL_IDS.ENERGY_ORB):
+		PoolManager.register_pool(
+			POOL_IDS.ENERGY_ORB,
+			Callable(self, "_instantiate_l1_scene").bind(
+				ENERGY_ORB_SCENE
+			),
+			4
+		)
+
+
+func _instantiate_l1_scene(scene: PackedScene) -> Node:
+	return scene.instantiate()
+
+
+func _reparent_l1_node(node: Node, target_parent: Node) -> void:
+	if node == null or target_parent == null:
+		return
+	var old_parent: Node = node.get_parent()
+	if old_parent == target_parent:
+		return
+	if old_parent != null:
+		old_parent.remove_child(node)
+	target_parent.add_child(node)
+
+
 func _l1_damage_skill() -> Dictionary:
 	return {
-		"id": SKILL_IDS.SKILL_OVERDRIVE_ROUNDS,
+		"id": SKILL_IDS.SKILL_AOE_SLOW,
 		"ability_tags": [
 			ABILITY_TAGS.ABILITY_TAG_SKILL,
 			ABILITY_TAGS.ABILITY_TAG_PRIMARY,
@@ -412,7 +1380,7 @@ func _l1_damage_skill() -> Dictionary:
 		},
 		"cooldown": 3.0,
 		"costs": [
-			{"resource": SKILL_RESOURCES.MANA, "amount": 25.0},
+			{"resource": SKILL_RESOURCES.ENERGY, "amount": 25.0},
 		],
 		"targeting": {
 			"type": SKILL_TARGETING.AOE_ENEMIES_AROUND_CASTER,
@@ -422,7 +1390,7 @@ func _l1_damage_skill() -> Dictionary:
 		"effects": [
 			{
 				"effect": SKILL_EFFECTS.SKILL_EFFECT_DAMAGE,
-				"params": {"amount": 4.0, "damage_type": DAMAGE_TYPES.PHYSICAL},
+				"params": {"amount": 4.0, "element_id": ELEMENTS.ELEMENT_NEUTRAL},
 			},
 		],
 	}
@@ -430,7 +1398,7 @@ func _l1_damage_skill() -> Dictionary:
 
 func _l1_self_silence_skill() -> Dictionary:
 	return {
-		"id": SKILL_IDS.SKILL_OVERDRIVE_ROUNDS,
+		"id": SKILL_IDS.SKILL_SELF_FIRE_MOVE_HASTE,
 		"ability_tags": [
 			ABILITY_TAGS.ABILITY_TAG_SKILL,
 			ABILITY_TAGS.ABILITY_TAG_PRIMARY,
@@ -463,7 +1431,7 @@ func _l1_self_silence_skill() -> Dictionary:
 
 func _l1_poison_dot_skill() -> Dictionary:
 	return {
-		"id": SKILL_IDS.SKILL_OVERDRIVE_ROUNDS,
+		"id": SKILL_IDS.SKILL_ENEMY_HASTE_VULNERABILITY,
 		"ability_tags": [
 			ABILITY_TAGS.ABILITY_TAG_SKILL,
 			ABILITY_TAGS.ABILITY_TAG_PRIMARY,
@@ -491,7 +1459,7 @@ func _l1_poison_dot_skill() -> Dictionary:
 					"granted_ability_tags": [],
 					"magnitude": 1.5,
 					"tick_interval": 0.2,
-					"damage_type": DAMAGE_TYPES.POISON,
+					"element_id": ELEMENTS.ELEMENT_PRIMARY_C,
 				},
 			},
 		],
@@ -500,7 +1468,7 @@ func _l1_poison_dot_skill() -> Dictionary:
 
 func _l1_enemy_silence_skill() -> Dictionary:
 	return {
-		"id": SKILL_IDS.SKILL_OVERDRIVE_ROUNDS,
+		"id": SKILL_IDS.SKILL_DEPLOY_PROJECTILE_BARRIER,
 		"ability_tags": [
 			ABILITY_TAGS.ABILITY_TAG_SKILL,
 			ABILITY_TAGS.ABILITY_TAG_PRIMARY,
@@ -555,7 +1523,7 @@ func _l1_skill_definition(skill_id: String) -> Dictionary:
 
 func _l1_mana_resource() -> Dictionary:
 	return {
-		"id": SKILL_RESOURCES.MANA,
+		"id": SKILL_RESOURCES.ENERGY,
 		"max": 100.0,
 		"start": 100.0,
 		"regen_per_second": 0.0,
@@ -566,7 +1534,6 @@ func _l1_player_stats() -> Dictionary:
 	return {
 		STATS.MAX_HP: 10.0,
 		STATS.MOVE_SPEED: 0.0,
-		STATS.DAMAGE_INVULNERABILITY_DURATION: 0.0,
 		STATS.PLAYER_SEPARATION_RADIUS: 0.0,
 		STATS.PICKUP_RANGE: 0.0,
 		STATS.PICKUP_ORB_SPEED: 0.0,
@@ -584,7 +1551,7 @@ func _l1_enemy_data() -> Dictionary:
 		"max_hp": 10.0,
 		"move_speed": 0.0,
 		"contact_damage": 0.0,
-		"contact_damage_type": DAMAGE_TYPES.PHYSICAL,
+		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
 		"exp_reward": 0,
 		"hit_radius": 10.0,
 		"separation_radius": 0.0,

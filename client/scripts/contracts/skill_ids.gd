@@ -2,7 +2,13 @@
 class_name SkillIds
 
 const VALUES: Array[String] = [
-	"skill_overdrive_rounds",
+	"skill_deploy_projectile_barrier",
+	"skill_aoe_slow",
+	"skill_self_fire_move_haste",
+	"skill_enemy_haste_vulnerability",
 ]
 
-const SKILL_OVERDRIVE_ROUNDS: String = "skill_overdrive_rounds"
+const SKILL_DEPLOY_PROJECTILE_BARRIER: String = "skill_deploy_projectile_barrier"
+const SKILL_AOE_SLOW: String = "skill_aoe_slow"
+const SKILL_SELF_FIRE_MOVE_HASTE: String = "skill_self_fire_move_haste"
+const SKILL_ENEMY_HASTE_VULNERABILITY: String = "skill_enemy_haste_vulnerability"

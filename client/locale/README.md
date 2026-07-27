@@ -22,7 +22,8 @@
 | 加标题 / 暂停 / 失败 / 结果面板文案 | 在 `strings.csv` 加 `ui_title_*`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_pause_title`、`ui_save_and_quit`、`ui_restart`、`ui_quit_to_title`、`ui_result_*` 等 key；结果清单行格式使用 `ui_result_resource_line` / `ui_result_gear_mod_line`，UI 代码使用 `tr()` |
 | 加设置面板文案 | 在 `strings.csv` 加 `ui_settings_*` key；设置入口沿用 `ui_settings`，设置面板标题、分组、控件标签、反馈和选项都走本地化；视觉质量、无障碍、输入绑定选项也必须独立建 key |
 | 加 HUD / 失败提示 | 在 `strings.csv` 加 `ui_hud_*`、`ui_stats_*` 或 `ui_*` key；HUD 代码用 `tr("ui_xxx")` 并在运行时刷新 |
-| 加角色名 / 描述 | 在 `strings.csv` 加 `character_*_name` / `character_*_desc`；数据填 `name_key` / `desc_key` |
+| 加角色名 / 描述 | 在 `strings.csv` 加 `character_*_name` / `character_*_desc`；英雄组合名使用 `character_composition_name_format` 的 `{main}` / `{sub}` 占位符；数据填 `name_key` / `desc_key` |
+| 加元素 / 英雄被动文案 | 在 `strings.csv` 加 `element_*_name` 与 `passive_*_name` / `passive_*_desc`；数据只引用 key |
 | 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |
 | 加敌人名 | 在 `strings.csv` 加 `enemy_*_name`；`enemies.csv` 填 `name_key` |
 | 加遗物 / 道具名和描述 | 在 `strings.csv` 加 `relic_*_name` / `relic_*_desc`、`item_*_name` / `item_*_desc`；数据填 `name_key` / `desc_key` |
@@ -75,11 +76,14 @@ ui_resume,继续,Resume
 | `ui_gear_mod_` | 装备 Mod 面板、标题入口和操作反馈 | `ui_gear_mod_title` / `ui_gear_mod_upgrade_cost` |
 | `ui_debug_test_arena_` | 独立 debug/dev_tools 开发者测试岛、配装、控制面板和伤害 HUD | `ui_debug_test_arena_setup_title` / `ui_debug_test_arena_spawn` |
 | `ui_credits_` | 致谢界面分组、角色和用途标签 | `ui_credits_section_staff` / `ui_credits_usage_engine_runtime` |
-| `character_` | 角色名称和描述 | `character_default_name` / `character_default_desc` |
+| `character_` | 英雄名称和描述 | `character_primary_a_name` / `character_primary_b_name` |
+| `element_` | 七元素名称 | `element_neutral_name` / `element_composite_ab_name` |
+| `passive_` | 英雄被动名称和描述 | `passive_primary_a_guard_name` / `passive_primary_a_guard_desc` |
 | `weapon_` | 武器名称和描述 | `weapon_basic_blaster_name` / `weapon_basic_blaster_desc` |
 | `relic_` | 被动遗物名称和描述 | `relic_sharp_rounds_name` / `relic_sharp_rounds_desc` |
 | `item_` | 主动道具 / 消耗品名称和描述 | `item_bomb_name` / `item_bomb_desc` |
 | `skill_` | 技能名称和描述 | `skill_overdrive_rounds_name` / `skill_overdrive_rounds_desc` |
+| `status_` | HUD 与状态观察中的状态名称 | `status_slow_name` / `status_vulnerable_name` |
 | `gear_mod_` | 装备 Mod 名称、描述和资源名 | `gear_mod_weapon_damage_test_name` / `gear_mod_dust_name` |
 | `enemy_` | 敌人名称 | `enemy_chaser_name` / `enemy_swarm_name` |
 | `hazard_` | 机关 / 危险物名称 | `hazard_spike_trap_name` |
@@ -176,8 +180,9 @@ ui_settings_input_pause,暂停,Pause
 ```
 
 2. `SettingsPanel` 的绑定动作名称使用该 key；键名选项（如 `W` / `Escape`）来自 `Settings.input_binding_options()`，不作为普通 UI 句子翻译。
-3. 输入绑定反馈、共用键位提示和恢复默认按钮使用 `ui_settings_input_feedback_*` / `ui_settings_input_restore_defaults`。
-4. 同步 `docs/词表与契约.md` 的 `input.*` key / action 后运行 `python tools/sync_contracts.py --check`、`python tools/validate_data.py` 与 `python tools/godot_bridge.py --project client settings-smoke`。
+3. 四技能槽与冲刺固定使用 `ui_settings_input_skill_1`～`ui_settings_input_skill_4`、`ui_settings_input_dash`；旧主动道具 action 不再占用输入绑定。
+4. 输入绑定反馈、共用键位提示和恢复默认按钮使用 `ui_settings_input_feedback_*` / `ui_settings_input_restore_defaults`。
+5. 同步 `docs/词表与契约.md` 的 `input.*` key / action 后运行 `python tools/sync_contracts.py --check`、`python tools/validate_data.py` 与 `python tools/godot_bridge.py --project client settings-smoke`。
 
 ### 加一个致谢条目
 

@@ -6,7 +6,11 @@ const VALUES: Array[String] = [
 	"aim",
 	"pointer_position",
 	"fire",
-	"use_active_item",
+	"skill_1",
+	"skill_2",
+	"skill_3",
+	"skill_4",
+	"dash",
 	"interact",
 	"show_stats_panel",
 	"pause",
@@ -26,7 +30,11 @@ const MOVE: String = "move"
 const AIM: String = "aim"
 const POINTER_POSITION: String = "pointer_position"
 const FIRE: String = "fire"
-const USE_ACTIVE_ITEM: String = "use_active_item"
+const SKILL_1: String = "skill_1"
+const SKILL_2: String = "skill_2"
+const SKILL_3: String = "skill_3"
+const SKILL_4: String = "skill_4"
+const DASH: String = "dash"
 const INTERACT: String = "interact"
 const SHOW_STATS_PANEL: String = "show_stats_panel"
 const PAUSE: String = "pause"

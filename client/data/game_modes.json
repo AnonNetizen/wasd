@@ -27,7 +27,11 @@
       "resource_pools": {
         "characters": [
           {
-            "id": "character_default",
+            "id": "character_primary_a",
+            "weight": 100
+          },
+          {
+            "id": "character_primary_b",
             "weight": 100
           }
         ],
@@ -83,7 +87,19 @@
         ],
         "skills": [
           {
-            "id": "skill_overdrive_rounds",
+            "id": "skill_deploy_projectile_barrier",
+            "weight": 100
+          },
+          {
+            "id": "skill_aoe_slow",
+            "weight": 100
+          },
+          {
+            "id": "skill_self_fire_move_haste",
+            "weight": 100
+          },
+          {
+            "id": "skill_enemy_haste_vulnerability",
             "weight": 100
           }
         ],

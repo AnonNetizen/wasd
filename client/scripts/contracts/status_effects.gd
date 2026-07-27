@@ -7,6 +7,8 @@ const VALUES: Array[String] = [
 	"bleed",
 	"freeze",
 	"slow",
+	"haste",
+	"vulnerable",
 	"mark",
 	"silence",
 ]
@@ -16,5 +18,7 @@ const POISON: String = "poison"
 const BLEED: String = "bleed"
 const FREEZE: String = "freeze"
 const SLOW: String = "slow"
+const HASTE: String = "haste"
+const VULNERABLE: String = "vulnerable"
 const MARK: String = "mark"
 const SILENCE: String = "silence"

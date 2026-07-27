@@ -17,8 +17,8 @@ signal replay_load_failed(path: String, error: String)
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
-const REPLAY_SCHEMA_VERSION: int = 2
-const REPLAY_FILE_SCHEMA_VERSION: int = 2
+const REPLAY_SCHEMA_VERSION: int = 3
+const REPLAY_FILE_SCHEMA_VERSION: int = 3
 const DEFAULT_PARTICIPANT_ID: String = "player_0"
 const REPLAY_ROOT: String = "user://replays"
 const REPLAY_EXTENSION: String = ".replay"
@@ -405,12 +405,12 @@ func _is_valid_recording(recording: Dictionary) -> bool:
 	if not recording.get("decision_events", []) is Array:
 		return false
 	for raw_event: Variant in recording.get("input_events", []) as Array:
-		if not raw_event is Dictionary or not _is_valid_v2_input_event(raw_event as Dictionary):
+		if not raw_event is Dictionary or not _is_valid_v3_input_event(raw_event as Dictionary):
 			return false
 	return true
 
 
-func _is_valid_v2_input_event(event: Dictionary) -> bool:
+func _is_valid_v3_input_event(event: Dictionary) -> bool:
 	for field_name: String in ["action", "value_type", "value", "tick", "time", "participant_id"]:
 		if not event.has(field_name):
 			return false

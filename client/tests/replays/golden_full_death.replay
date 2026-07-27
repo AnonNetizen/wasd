@@ -1,22 +1,101 @@
 {
 	"created_at": "golden:golden_full_death",
-	"data_fingerprint": "6457de400d6057918916437b74bb4ff2989dcc09a129b3f5639fc661489e5573",
-	"file_schema_version": 2,
-	"game_version": "v1.6",
+	"data_fingerprint": "d37c9caeeb2aba651f36034e837dac7b0c4a285fbf7892fd3951a141884791d9",
+	"file_schema_version": 3,
+	"game_version": "v1.7",
 	"recording": {
 		"context": {
 			"capture_frames": 180,
+			"main_hero_id": "character_primary_b",
 			"scenario": "golden_full_death",
-			"source": "golden_replay_capture"
+			"source": "golden_replay_capture",
+			"sub_hero_id": "character_primary_a"
 		},
-		"decision_events": [],
+		"decision_events": [
+			{
+				"event": "run_start",
+				"payload": {
+					"main_hero_id": "character_primary_b",
+					"sub_hero_id": "character_primary_a"
+				},
+				"tick": 7,
+				"time": 0.0
+			},
+			{
+				"event": "run_end",
+				"payload": {
+					"completed": false,
+					"kills": 0,
+					"main_hero_id": "character_primary_b",
+					"run_time": 1.51306777777778,
+					"sub_hero_id": "character_primary_a"
+				},
+				"tick": 90,
+				"time": 1.51306777777778
+			}
+		],
 		"dropped_decision_events": 0,
 		"dropped_input_events": 0,
 		"ended_tick": 180,
 		"ended_time": 3.0,
-		"input_events": [],
+		"input_events": [
+			{
+				"action": "skill_1",
+				"frame": 10,
+				"participant_id": "player_0",
+				"tick": 10,
+				"time": 0.166666666666667,
+				"value": true,
+				"value_type": "bool"
+			},
+			{
+				"action": "skill_1",
+				"frame": 10,
+				"participant_id": "player_0",
+				"tick": 10,
+				"time": 0.166666666666667,
+				"value": false,
+				"value_type": "bool"
+			},
+			{
+				"action": "skill_2",
+				"frame": 25,
+				"participant_id": "player_0",
+				"tick": 25,
+				"time": 0.416666666666667,
+				"value": true,
+				"value_type": "bool"
+			},
+			{
+				"action": "skill_2",
+				"frame": 25,
+				"participant_id": "player_0",
+				"tick": 25,
+				"time": 0.416666666666667,
+				"value": false,
+				"value_type": "bool"
+			},
+			{
+				"action": "dash",
+				"frame": 55,
+				"participant_id": "player_0",
+				"tick": 55,
+				"time": 0.916666666666667,
+				"value": true,
+				"value_type": "bool"
+			},
+			{
+				"action": "dash",
+				"frame": 55,
+				"participant_id": "player_0",
+				"tick": 55,
+				"time": 0.916666666666667,
+				"value": false,
+				"value_type": "bool"
+			}
+		],
 		"is_recording": false,
-		"reason": "game_over",
+		"reason": "player_death",
 		"run_seed": 20260619,
 		"run_summary": {
 			"active_pickups": 0,
@@ -75,7 +154,7 @@
 						"y": 0.0
 					},
 					"player_life": 600.0,
-					"player_moved_right": false,
+					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
 					"weapon_cooldown_ready": true,
@@ -103,7 +182,7 @@
 						"y": 0.0
 					},
 					"player_life": 0.0,
-					"player_moved_right": false,
+					"player_moved_right": true,
 					"state": "game_over",
 					"ui_stack": 1,
 					"weapon_cooldown_ready": true,
@@ -131,7 +210,7 @@
 						"y": 0.0
 					},
 					"player_life": 0.0,
-					"player_moved_right": false,
+					"player_moved_right": true,
 					"state": "game_over",
 					"ui_stack": 1,
 					"weapon_cooldown_ready": true,
@@ -159,7 +238,7 @@
 						"y": 0.0
 					},
 					"player_life": 0.0,
-					"player_moved_right": false,
+					"player_moved_right": true,
 					"state": "game_over",
 					"ui_stack": 1,
 					"weapon_cooldown_ready": true,
@@ -187,7 +266,7 @@
 						"y": 0.0
 					},
 					"player_life": 0.0,
-					"player_moved_right": false,
+					"player_moved_right": true,
 					"state": "game_over",
 					"ui_stack": 1,
 					"weapon_cooldown_ready": true,
@@ -204,7 +283,7 @@
 				"y": 0.0
 			},
 			"player_defeated": true,
-			"player_moved_right": false,
+			"player_moved_right": true,
 			"run_save_exists": false,
 			"scenario": "golden_full_death",
 			"schema_version": 1,
@@ -220,19 +299,19 @@
 				"time": 1.25
 			}
 		],
-		"schema_version": 2,
+		"schema_version": 3,
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "6e674efe06c20fa028b7b82d6f050f5236c53911170248dcf4d4e33986405e60",
+	"recording_hash": "b6c49a78f677f06cb636642a93c169472c1f27356fc7a0ba47dcdd802ad15e34",
 	"summary": {
-		"decision_events": 0,
+		"decision_events": 2,
 		"dropped_decision_events": 0,
 		"dropped_input_events": 0,
 		"ended_tick": 180,
 		"ended_time": 3.0,
-		"input_events": 0,
-		"reason": "game_over",
+		"input_events": 6,
+		"reason": "player_death",
 		"run_seed": 20260619,
 		"run_summary": {
 			"active_pickups": 0,
@@ -291,7 +370,7 @@
 						"y": 0.0
 					},
 					"player_life": 600.0,
-					"player_moved_right": false,
+					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
 					"weapon_cooldown_ready": true,
@@ -319,7 +398,7 @@
 						"y": 0.0
 					},
 					"player_life": 0.0,
-					"player_moved_right": false,
+					"player_moved_right": true,
 					"state": "game_over",
 					"ui_stack": 1,
 					"weapon_cooldown_ready": true,
@@ -347,7 +426,7 @@
 						"y": 0.0
 					},
 					"player_life": 0.0,
-					"player_moved_right": false,
+					"player_moved_right": true,
 					"state": "game_over",
 					"ui_stack": 1,
 					"weapon_cooldown_ready": true,
@@ -375,7 +454,7 @@
 						"y": 0.0
 					},
 					"player_life": 0.0,
-					"player_moved_right": false,
+					"player_moved_right": true,
 					"state": "game_over",
 					"ui_stack": 1,
 					"weapon_cooldown_ready": true,
@@ -403,7 +482,7 @@
 						"y": 0.0
 					},
 					"player_life": 0.0,
-					"player_moved_right": false,
+					"player_moved_right": true,
 					"state": "game_over",
 					"ui_stack": 1,
 					"weapon_cooldown_ready": true,
@@ -420,7 +499,7 @@
 				"y": 0.0
 			},
 			"player_defeated": true,
-			"player_moved_right": false,
+			"player_moved_right": true,
 			"run_save_exists": false,
 			"scenario": "golden_full_death",
 			"schema_version": 1,
@@ -428,7 +507,7 @@
 			"ui_stack": 1,
 			"xp": 0
 		},
-		"schema_version": 2,
+		"schema_version": 3,
 		"started_tick": 7,
 		"started_time": 0.0
 	}

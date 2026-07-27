@@ -6,7 +6,7 @@ extends Node
 
 signal damage_applied(target: Node, info: RefCounted, result: Dictionary)
 
-const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const ELEMENTS := preload("res://scripts/contracts/elements.gd")
 
 
 func apply_damage(target: Node, info: RefCounted) -> Dictionary:
@@ -14,11 +14,11 @@ func apply_damage(target: Node, info: RefCounted) -> Dictionary:
 		return _result(false, 0.0, false, "invalid_target")
 	if info == null:
 		return _result(false, 0.0, false, "invalid_info")
-	var damage_type: String = String(info.get("damage_type"))
+	var element_id: String = String(info.get("element_id"))
 	var amount: float = float(info.get("amount"))
-	if not DAMAGE_TYPES.VALUES.has(damage_type):
-		push_error("[Combat] unknown damage type: %s" % damage_type)
-		return _result(false, 0.0, false, "unknown_damage_type")
+	if not ELEMENTS.VALUES.has(element_id):
+		push_error("[Combat] unknown element: %s" % element_id)
+		return _result(false, 0.0, false, "unknown_element")
 	if amount <= 0.0:
 		return _result(false, 0.0, false, "non_positive_amount")
 	if not target.has_method("receive_damage"):
@@ -26,6 +26,15 @@ func apply_damage(target: Node, info: RefCounted) -> Dictionary:
 		return _result(false, 0.0, false, "missing_receiver")
 
 	info.set("target", target)
+	if target.has_method("incoming_damage_multiplier"):
+		var incoming_multiplier: float = maxf(
+			float(target.call("incoming_damage_multiplier", info)),
+			0.0
+		)
+		amount *= incoming_multiplier
+		info.set("amount", amount)
+	if amount <= 0.0:
+		return _result(false, 0.0, false, "negated")
 	var raw_result: Variant = target.call("receive_damage", info)
 	var result: Dictionary = raw_result if raw_result is Dictionary else _result(true, amount, false, "applied")
 	damage_applied.emit(target, info, result.duplicate(true))

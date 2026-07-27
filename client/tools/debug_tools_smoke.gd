@@ -76,11 +76,18 @@ func _run_debug_smoke() -> void:
 	_expect(bool(xp_result.get("ok", false)), "xp command should succeed")
 	_expect(int(run_loop.call("current_xp")) == before_xp + 5, "xp command should use runtime XP flow")
 
-	var before_damage_life: float = _player_life(run_loop)
+	var before_damage_defense: float = _player_defense_total(run_loop)
 	var damage_result: Dictionary = console.call("execute_command_for_test", "damage 1")
 	_expect(bool(damage_result.get("ok", false)), "damage command should succeed")
-	_expect(_player_life(run_loop) < before_damage_life, "damage command should reduce player life")
+	_expect(
+		_player_defense_total(run_loop) < before_damage_defense,
+		"damage command should reduce a player defense layer"
+	)
 
+	_expect(
+		bool(console.call("execute_command_for_test", "hp 1").get("ok", false)),
+		"hp command should prepare heal coverage"
+	)
 	var before_heal_life: float = _player_life(run_loop)
 	var heal_result: Dictionary = console.call("execute_command_for_test", "heal 1")
 	_expect(bool(heal_result.get("ok", false)), "heal command should succeed")
@@ -125,6 +132,15 @@ func _run_release_sim_smoke() -> void:
 func _player_life(run_loop: Node) -> float:
 	var summary: Dictionary = run_loop.call("debug_summary")
 	return float(summary.get("player_life", 0.0))
+
+
+func _player_defense_total(run_loop: Node) -> float:
+	var summary: Dictionary = run_loop.call("debug_summary")
+	return (
+		float(summary.get("player_life", 0.0))
+		+ float(summary.get("player_shield", 0.0))
+		+ float(summary.get("player_overshield", 0.0))
+	)
 
 
 func _gear_mod_resource_balance(profile: Dictionary, resource_id: String) -> int:

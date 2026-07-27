@@ -7,6 +7,7 @@ const VALUES: Array[String] = [
 	"ADD_DURATION",
 	"INDEPENDENT",
 	"MAX_MAGNITUDE",
+	"ADD_STACK_REFRESH",
 ]
 
 const REPLACE: String = "REPLACE"
@@ -14,3 +15,4 @@ const REFRESH: String = "REFRESH"
 const ADD_DURATION: String = "ADD_DURATION"
 const INDEPENDENT: String = "INDEPENDENT"
 const MAX_MAGNITUDE: String = "MAX_MAGNITUDE"
+const ADD_STACK_REFRESH: String = "ADD_STACK_REFRESH"

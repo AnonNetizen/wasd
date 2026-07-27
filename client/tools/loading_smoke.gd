@@ -31,11 +31,40 @@ func _run() -> void:
 		_finish()
 		return
 	start_button.pressed.emit()
-	await _expect_loading_visible("start")
+	var composition_panel: Node = UIManager.top()
+	_expect(
+		composition_panel != null
+		and composition_panel.name == "HeroCompositionPanel",
+		"start should show HeroCompositionPanel before loading"
+	)
 	var boot: Node = _find_node_by_name(get_tree().root, "FormalClientBoot")
 	if boot != null:
 		boot.call("_on_title_start_requested")
-	_expect(_count_nodes_by_name(get_tree().root, "LoadingScreen") == 1, "duplicate start should keep one loading screen")
+	_expect(
+		_count_nodes_by_name(get_tree().root, "HeroCompositionPanel") == 1,
+		"duplicate start should keep one composition panel"
+	)
+	var confirm_button: Button = (
+		composition_panel.get_node_or_null(
+			"Root/Center/Panel/Margin/Layout/Actions/ConfirmButton"
+		) as Button
+		if composition_panel != null
+		else null
+	)
+	if not _expect_node(
+		confirm_button,
+		"composition panel should expose ConfirmButton"
+	):
+		_finish()
+		return
+	confirm_button.pressed.emit()
+	await _expect_loading_visible("start")
+	if boot != null:
+		boot.call("_on_title_continue_requested")
+	_expect(
+		_count_nodes_by_name(get_tree().root, "LoadingScreen") == 1,
+		"duplicate load request should keep one loading screen"
+	)
 	var first_run: Node = await _wait_for_playing_run()
 	if not _expect_node(first_run, "start should finish with one playable run"):
 		_finish()
@@ -79,7 +108,11 @@ func _run() -> void:
 	_expect(_count_nodes_by_name(get_tree().root, "GameplayRunLoop") == 1, "restart should replace the old run")
 
 	var invalid_snapshot: Dictionary = restarted_run.call("create_run_snapshot")
-	invalid_snapshot["character"] = "missing_loading_smoke_character"
+	var invalid_composition: Dictionary = (
+		invalid_snapshot.get("hero_composition", {}) as Dictionary
+	)
+	invalid_composition["main_hero_id"] = "missing_loading_smoke_character"
+	invalid_snapshot["hero_composition"] = invalid_composition
 	_expect(
 		SaveManager.save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN, invalid_snapshot),
 		"loading smoke should save an invalid character snapshot"

@@ -129,7 +129,7 @@ user://mods/<mod_id>/
 | `content_tags` | 允许 mod 新增内容标签 | 值必须以 `mod_<mod_id>_` 开头 |
 | `locale_prefixes` | 允许 mod 新增本地化 key 前缀 | 值必须以 `mod_<mod_id>_` 开头 |
 
-不允许 mod 扩展 `stats`、`effects`、`events`、`damage_types`、`pool_ids`、`audio_prefixes`、`rng_streams`、`save_kinds` 等会要求代码、资源或确定性管线同步变更的核心契约。需要新原语或新底层类型时，必须先进入正式项目开发流程，而不是由玩家数据包直接打开。
+不允许 mod 扩展 `stats`、`effects`、`events`、`elements`、`pool_ids`、`audio_prefixes`、`rng_streams`、`save_kinds` 等会要求代码、资源或确定性管线同步变更的核心契约。需要新原语或新底层类型时，必须先进入正式项目开发流程，而不是由玩家数据包直接打开。
 
 ### Patch 类型
 

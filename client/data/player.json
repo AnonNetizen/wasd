@@ -1,10 +1,9 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "base_stats": {
     "max_hp": 600.0,
-    "health_regen": 1.5,
+    "health_regen": 0.0,
     "move_speed": 240.0,
-    "damage_invulnerability_duration": 0.7,
     "player_separation_radius": 10.0,
     "fire_rate": 2.5,
     "damage": 3.5,
@@ -14,5 +13,33 @@
     "pickup_range": 96.0,
     "pickup_orb_speed": 360.0,
     "luck": 0.0
+  },
+  "defense": {
+    "shield": {
+      "recharge_delay": 4.0,
+      "recharge_rate": 25.0,
+      "overshield_decay_ratio_per_second": 0.05,
+      "overshield_snap_threshold": 1.0
+    },
+    "armor": {
+      "coefficient": 300.0,
+      "maximum": 1200.0
+    },
+    "shield_gate": {
+      "max_duration": 0.5
+    }
+  },
+  "dash": {
+    "distance": 120.0,
+    "speed": 750.0,
+    "duration": 0.16,
+    "cooldown": 1.25,
+    "invulnerability_duration": 0.12
+  },
+  "energy_drop": {
+    "chance": 0.1,
+    "amount": 25.0,
+    "pool_id": "energy_orb",
+    "rng_stream": "drop"
   }
 }

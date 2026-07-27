@@ -7,6 +7,12 @@ extends CanvasLayer
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const STATS_ROW_SCENE: PackedScene = preload("res://scenes/ui/stats_row.tscn")
 const UI_EFFECT_BUNDLE_SCENE: PackedScene = preload("res://scenes/ui/effects/ui_effect_bundle.tscn")
+const SKILL_ACTIONS: Array[String] = [
+	ACTIONS.SKILL_1,
+	ACTIONS.SKILL_2,
+	ACTIONS.SKILL_3,
+	ACTIONS.SKILL_4,
+]
 const UPGRADE_FEEDBACK_DURATION: float = 1.35
 const UPGRADE_FEEDBACK_FADE_RATIO: float = 0.36
 const UPGRADE_FEEDBACK_TEXT_COLOR: Color = Color(1.0, 0.82, 0.28)
@@ -19,6 +25,14 @@ const STATS_PANEL_ROWS: Array[Dictionary] = [
 	{"key": "run_time", "label_key": "ui_stats_run_time"},
 	{"key": "damage", "label_key": "ui_stats_damage"},
 	{"key": "health_regen", "label_key": "ui_stats_health_regen"},
+	{"key": "shield", "label_key": "ui_stats_shield"},
+	{"key": "overshield", "label_key": "ui_stats_overshield"},
+	{"key": "energy", "label_key": "ui_stats_energy"},
+	{"key": "armor", "label_key": "ui_stats_armor"},
+	{"key": "ability_strength", "label_key": "ui_stats_ability_strength"},
+	{"key": "ability_range", "label_key": "ui_stats_ability_range"},
+	{"key": "ability_efficiency", "label_key": "ui_stats_ability_efficiency"},
+	{"key": "ability_duration", "label_key": "ui_stats_ability_duration"},
 	{"key": "fire_rate", "label_key": "ui_stats_fire_rate"},
 	{"key": "move_speed", "label_key": "ui_stats_move_speed"},
 	{"key": "bullet_speed", "label_key": "ui_stats_bullet_speed"},
@@ -61,8 +75,19 @@ var _interaction_prompt_generation: int = 0
 var _interaction_prompt_visible: bool = false
 var _current_life: float = 0.0
 var _max_life: float = 0.0
+var _composition_label: Label = null
+var _dash_bar: ProgressBar = null
+var _dash_label: Label = null
+var _defense_label: Label = null
+var _energy_bar: ProgressBar = null
+var _energy_label: Label = null
+var _health_bar: ProgressBar = null
 var _kills: int = 0
 var _level: int = 1
+var _overshield_bar: ProgressBar = null
+var _shield_bar: ProgressBar = null
+var _skill_slot_labels: Array[Label] = []
+var _status_label: Label = null
 var _xp: int = 0
 var _xp_required: int = 0
 var _value_feedback: UIValueFeedback = null
@@ -74,7 +99,24 @@ func _ready() -> void:
 	_time_label = get_node_or_null("Root/Margin/Layout/TimeLabel") as Label
 	_level_label = get_node_or_null("Root/Margin/Layout/LevelLabel") as Label
 	_xp_label = get_node_or_null("Root/Margin/Layout/XpLabel") as Label
+	_composition_label = get_node_or_null("Root/Margin/Layout/CompositionLabel") as Label
+	_defense_label = get_node_or_null("Root/Margin/Layout/Defense/DefenseLabel") as Label
+	_health_bar = get_node_or_null("Root/Margin/Layout/Defense/HealthBar") as ProgressBar
+	_shield_bar = get_node_or_null("Root/Margin/Layout/Defense/ShieldBar") as ProgressBar
+	_overshield_bar = get_node_or_null("Root/Margin/Layout/Defense/OvershieldBar") as ProgressBar
+	_energy_bar = get_node_or_null("Root/Margin/Layout/EnergyBar") as ProgressBar
+	_energy_label = get_node_or_null("Root/Margin/Layout/EnergyLabel") as Label
 	_message_label = get_node_or_null("Root/MessageLabel") as RichTextLabel
+	_status_label = get_node_or_null("Root/StatusLabel") as Label
+	_dash_bar = get_node_or_null("Root/CombatTray/Dash/DashBar") as ProgressBar
+	_dash_label = get_node_or_null("Root/CombatTray/Dash/DashLabel") as Label
+	_skill_slot_labels.clear()
+	for slot_index: int in range(4):
+		var slot_label: Label = get_node_or_null(
+			"Root/CombatTray/Skill%d/SkillLabel" % (slot_index + 1)
+		) as Label
+		if slot_label != null:
+			_skill_slot_labels.append(slot_label)
 	_stats_panel = get_node_or_null("Root/StatsPanel") as PanelContainer
 	_stats_title_label = get_node_or_null("Root/StatsPanel/Margin/Layout/TitleLabel") as Label
 	_stats_grid = get_node_or_null("Root/StatsPanel/Margin/Layout/StatsGrid") as GridContainer
@@ -84,6 +126,21 @@ func _ready() -> void:
 		return
 	if _message_label == null or _upgrade_feedback_label == null or _stats_panel == null or _stats_title_label == null or _stats_grid == null:
 		push_error("[GameplayHud] missing required scene nodes")
+		return
+	if (
+		_composition_label == null
+		or _defense_label == null
+		or _health_bar == null
+		or _shield_bar == null
+		or _overshield_bar == null
+		or _energy_bar == null
+		or _energy_label == null
+		or _dash_bar == null
+		or _dash_label == null
+		or _skill_slot_labels.size() != 4
+		or _status_label == null
+	):
+		push_error("[GameplayHud] missing composition combat HUD nodes")
 		return
 
 	_message_label.hide()
@@ -132,6 +189,146 @@ func set_life(current_life: float, max_life: float) -> void:
 	_life_label.text = "%s: %d/%d" % [tr("ui_hud_life"), int(ceilf(_current_life)), int(ceilf(_max_life))]
 	if changed and _value_feedback != null:
 		_value_feedback.play_value(_life_label, current_life >= previous_life)
+	set_defense(current_life, max_life, _shield_bar.value, _shield_bar.max_value, _overshield_bar.value)
+
+
+func set_composition(name: String, main_color: Color, accent_color: Color) -> void:
+	if _composition_label == null:
+		return
+	_composition_label.text = name
+	_composition_label.add_theme_color_override("font_color", main_color)
+	_energy_label.add_theme_color_override("font_color", accent_color)
+	for slot_label: Label in _skill_slot_labels:
+		slot_label.add_theme_color_override("font_color", accent_color)
+
+
+func set_defense(
+	hp: float,
+	max_hp: float,
+	shield: float,
+	max_shield: float,
+	overshield: float
+) -> void:
+	if _health_bar == null:
+		return
+	_health_bar.max_value = maxf(max_hp, 1.0)
+	_health_bar.value = clampf(hp, 0.0, _health_bar.max_value)
+	_shield_bar.max_value = maxf(max_shield, 1.0)
+	_shield_bar.value = clampf(shield, 0.0, _shield_bar.max_value)
+	var overshield_capacity: float = maxf(maxf(max_shield, overshield), 1.0)
+	_overshield_bar.max_value = overshield_capacity
+	_overshield_bar.value = clampf(overshield, 0.0, overshield_capacity)
+	_defense_label.text = "%d / %d  ·  %d + %d" % [
+		int(ceilf(hp)),
+		int(ceilf(max_hp)),
+		int(ceilf(shield)),
+		int(ceilf(overshield)),
+	]
+
+
+func set_energy(current: float, maximum: float) -> void:
+	if _energy_bar == null:
+		return
+	_energy_bar.max_value = maxf(maximum, 1.0)
+	_energy_bar.value = clampf(current, 0.0, _energy_bar.max_value)
+	_energy_label.text = "%d / %d" % [int(ceilf(current)), int(ceilf(maximum))]
+
+
+func set_skill_slots(slots: Array, summary: Dictionary = {}) -> void:
+	for slot_index: int in range(_skill_slot_labels.size()):
+		var label: Label = _skill_slot_labels[slot_index]
+		if slot_index >= slots.size() or slots[slot_index] is not Dictionary:
+			label.text = "—"
+			continue
+		var slot: Dictionary = slots[slot_index] as Dictionary
+		var name_key: String = String(slot.get("name_key", slot.get("skill_id", "")))
+		var display_name: String = tr(name_key) if not name_key.is_empty() else "—"
+		var binding: String = InputService.prompt_text(
+			SKILL_ACTIONS[slot_index]
+		)
+		var cooldown_remaining: float = float(slot.get("cooldown_remaining", 0.0))
+		var energy_cost: float = float(slot.get("energy_cost", 0.0))
+		if cooldown_remaining > 0.0:
+			label.text = "%s  %s\n%.1f" % [
+				binding,
+				display_name,
+				cooldown_remaining,
+			]
+		elif energy_cost > 0.0:
+			label.text = "%s  %s\n%d" % [
+				binding,
+				display_name,
+				int(ceilf(energy_cost)),
+			]
+		else:
+			label.text = "%s  %s" % [binding, display_name]
+	if summary.has("energy"):
+		var energy_summary: Dictionary = summary.get("energy", {}) as Dictionary
+		set_energy(
+			float(energy_summary.get("current", 0.0)),
+			float(energy_summary.get("max", 0.0))
+		)
+
+
+func set_dash(cooldown_remaining: float) -> void:
+	if _dash_bar == null:
+		return
+	var dash_capacity: float = maxf(maxf(_dash_bar.max_value, cooldown_remaining), 1.0)
+	_dash_bar.max_value = dash_capacity
+	_dash_bar.value = clampf(dash_capacity - cooldown_remaining, 0.0, dash_capacity)
+	var binding: String = InputService.prompt_text(ACTIONS.DASH)
+	_dash_label.text = (
+		"%s  ✓" % binding
+		if cooldown_remaining <= 0.0
+		else "%s  %.1f" % [binding, cooldown_remaining]
+	)
+
+
+func set_statuses(statuses: Array) -> void:
+	if _status_label == null:
+		return
+	var status_parts: PackedStringArray = []
+	for raw_status: Variant in statuses:
+		if raw_status is not Dictionary:
+			continue
+		var status: Dictionary = raw_status as Dictionary
+		var name_key: String = String(status.get("name_key", status.get("id", "")))
+		var status_name: String = tr(name_key) if not name_key.is_empty() else ""
+		var stacks: int = int(status.get("stacks", 1))
+		var remaining: float = float(status.get("remaining", 0.0))
+		if stacks > 1:
+			status_name += " ×%d" % stacks
+		if remaining > 0.0:
+			status_name += "  %.1f" % remaining
+		if not status_name.is_empty():
+			status_parts.append(status_name)
+	_status_label.text = "   ".join(status_parts)
+	_status_label.visible = not status_parts.is_empty()
+
+
+func set_combat_state(state: Dictionary) -> void:
+	var composition: Dictionary = state.get("composition", {}) as Dictionary
+	if not composition.is_empty():
+		set_composition(
+			String(composition.get("name", "")),
+			_color_from_variant(composition.get("main_color", Color.WHITE), Color.WHITE),
+			_color_from_variant(composition.get("accent_color", Color.WHITE), Color.WHITE)
+		)
+	var defense: Dictionary = state.get("defense", {}) as Dictionary
+	if not defense.is_empty():
+		set_defense(
+			float(defense.get("hp", 0.0)),
+			float(defense.get("max_hp", 0.0)),
+			float(defense.get("shield", 0.0)),
+			float(defense.get("max_shield", 0.0)),
+			float(defense.get("overshield", 0.0))
+		)
+	var energy: Dictionary = state.get("energy", {}) as Dictionary
+	if not energy.is_empty():
+		set_energy(float(energy.get("current", 0.0)), float(energy.get("max", 0.0)))
+	set_skill_slots(_dictionary_array(state.get("skill_slots", [])), {"energy": energy})
+	set_dash(float(state.get("dash_cooldown_remaining", 0.0)))
+	set_statuses(_dictionary_array(state.get("statuses", [])))
 
 
 func set_kills(kills: int) -> void:
@@ -450,3 +647,21 @@ func _update_upgrade_feedback_visual() -> void:
 
 func _on_locale_changed(_locale: String) -> void:
 	_refresh_static_labels()
+
+
+func _dictionary_array(value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if value is not Array:
+		return result
+	for entry: Variant in value:
+		if entry is Dictionary:
+			result.append((entry as Dictionary).duplicate(true))
+	return result
+
+
+func _color_from_variant(value: Variant, fallback: Color) -> Color:
+	if value is Color:
+		return value as Color
+	if value is String and Color.html_is_valid(String(value)):
+		return Color.from_string(String(value), fallback)
+	return fallback

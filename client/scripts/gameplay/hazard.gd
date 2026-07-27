@@ -25,7 +25,7 @@ const TEAM_PLAYER: String = "team_player"
 var _active_remaining: float = 0.0
 var _cooldown_remaining: float = 0.0
 var _damage: float = 0.0
-var _damage_type: String = ""
+var _element_id: String = ""
 var _duration: float = 0.0
 var _grid_cell_size: Vector2 = DEFAULT_GRID_CELL_SIZE
 var _hazard_id: String = ""
@@ -54,7 +54,7 @@ func _physics_process(delta: float) -> void:
 func configure(hazard_data: Dictionary, target: Node2D, grid_cell_size: Vector2 = DEFAULT_GRID_CELL_SIZE) -> void:
 	_hazard_id = String(hazard_data.get("id", ""))
 	_damage = float(hazard_data.get("damage", 0.0))
-	_damage_type = String(hazard_data.get("damage_type", ""))
+	_element_id = String(hazard_data.get("element_id", ""))
 	_trigger_interval = maxf(float(hazard_data.get("trigger_interval", 1.0)), 0.01)
 	_radius_tiles = maxi(int(hazard_data.get("radius_tiles", 1)), 1)
 	_presentation_profile_id = String(
@@ -93,7 +93,7 @@ func _pool_reset() -> void:
 	_active_remaining = 0.0
 	_cooldown_remaining = 0.0
 	_damage = 0.0
-	_damage_type = ""
+	_element_id = ""
 	_duration = 0.0
 	_grid_cell_size = DEFAULT_GRID_CELL_SIZE
 	_hazard_id = ""
@@ -136,7 +136,7 @@ func _trigger() -> void:
 		return
 	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 		_damage,
-		_damage_type,
+		_element_id,
 		self,
 		_target,
 		TEAM_ENEMY,

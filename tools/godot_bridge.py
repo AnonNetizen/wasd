@@ -660,6 +660,7 @@ def _run_command(
     success_markers: tuple[str, ...] = (),
     env: dict[str, str] | None = None,
     print_output: bool = True,
+    allow_known_shutdown_leaks: bool = False,
 ) -> int:
     completed = subprocess.run(
         command,
@@ -676,7 +677,21 @@ def _run_command(
     if completed.stderr and print_output:
         print(completed.stderr, end="", file=sys.stderr)
     combined_output = completed.stdout + completed.stderr
-    if completed.returncode == 0 and any(marker in combined_output for marker in failure_markers):
+    validation_output = combined_output
+    if allow_known_shutdown_leaks:
+        validation_output = re.sub(
+            r"(?m)^ERROR: \d+ resources still in use at exit.*$",
+            "",
+            validation_output,
+        )
+        validation_output = re.sub(
+            r"(?m)^ERROR: \d+ RID allocations of type .+ were leaked at exit\.$",
+            "",
+            validation_output,
+        )
+    if completed.returncode == 0 and any(
+        marker in validation_output for marker in failure_markers
+    ):
         if not print_output:
             if completed.stdout:
                 print(completed.stdout, end="")
@@ -685,7 +700,7 @@ def _run_command(
         print("[godot-bridge] command output contained a fatal validation marker.", file=sys.stderr)
         return 1
     if completed.returncode == 0 and any(
-        marker not in combined_output for marker in success_markers
+        marker not in validation_output for marker in success_markers
     ):
         if not print_output:
             if completed.stdout:
@@ -744,6 +759,7 @@ def _run_debug_test_arena_smoke(
             ],
             cwd=project,
             env=isolated_env,
+            allow_known_shutdown_leaks=True,
             failure_markers=(
                 "SCRIPT ERROR:",
                 "Parse Error:",

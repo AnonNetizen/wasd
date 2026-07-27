@@ -1,20 +1,123 @@
 {
 	"created_at": "golden:golden_basic_run",
-	"data_fingerprint": "6457de400d6057918916437b74bb4ff2989dcc09a129b3f5639fc661489e5573",
-	"file_schema_version": 2,
-	"game_version": "v1.6",
+	"data_fingerprint": "d37c9caeeb2aba651f36034e837dac7b0c4a285fbf7892fd3951a141884791d9",
+	"file_schema_version": 3,
+	"game_version": "v1.7",
 	"recording": {
 		"context": {
 			"capture_frames": 180,
+			"main_hero_id": "character_primary_a",
 			"scenario": "golden_basic_run",
-			"source": "golden_replay_capture"
+			"source": "golden_replay_capture",
+			"sub_hero_id": "character_primary_b"
 		},
-		"decision_events": [],
+		"decision_events": [
+			{
+				"event": "run_start",
+				"payload": {
+					"main_hero_id": "character_primary_a",
+					"sub_hero_id": "character_primary_b"
+				},
+				"tick": 7,
+				"time": 0.0
+			}
+		],
 		"dropped_decision_events": 0,
 		"dropped_input_events": 0,
 		"ended_tick": 180,
 		"ended_time": 3.0,
-		"input_events": [],
+		"input_events": [
+			{
+				"action": "skill_1",
+				"frame": 10,
+				"participant_id": "player_0",
+				"tick": 10,
+				"time": 0.166666666666667,
+				"value": true,
+				"value_type": "bool"
+			},
+			{
+				"action": "skill_1",
+				"frame": 10,
+				"participant_id": "player_0",
+				"tick": 10,
+				"time": 0.166666666666667,
+				"value": false,
+				"value_type": "bool"
+			},
+			{
+				"action": "skill_2",
+				"frame": 25,
+				"participant_id": "player_0",
+				"tick": 25,
+				"time": 0.416666666666667,
+				"value": true,
+				"value_type": "bool"
+			},
+			{
+				"action": "skill_2",
+				"frame": 25,
+				"participant_id": "player_0",
+				"tick": 25,
+				"time": 0.416666666666667,
+				"value": false,
+				"value_type": "bool"
+			},
+			{
+				"action": "skill_3",
+				"frame": 60,
+				"participant_id": "player_0",
+				"tick": 60,
+				"time": 1.0,
+				"value": true,
+				"value_type": "bool"
+			},
+			{
+				"action": "skill_3",
+				"frame": 60,
+				"participant_id": "player_0",
+				"tick": 60,
+				"time": 1.0,
+				"value": false,
+				"value_type": "bool"
+			},
+			{
+				"action": "skill_4",
+				"frame": 90,
+				"participant_id": "player_0",
+				"tick": 90,
+				"time": 1.5,
+				"value": true,
+				"value_type": "bool"
+			},
+			{
+				"action": "skill_4",
+				"frame": 90,
+				"participant_id": "player_0",
+				"tick": 90,
+				"time": 1.5,
+				"value": false,
+				"value_type": "bool"
+			},
+			{
+				"action": "dash",
+				"frame": 120,
+				"participant_id": "player_0",
+				"tick": 120,
+				"time": 2.0,
+				"value": true,
+				"value_type": "bool"
+			},
+			{
+				"action": "dash",
+				"frame": 120,
+				"participant_id": "player_0",
+				"tick": 120,
+				"time": 2.0,
+				"value": false,
+				"value_type": "bool"
+			}
+		],
 		"is_recording": false,
 		"reason": "game_over",
 		"run_seed": 20260619,
@@ -45,7 +148,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 600.0,
+					"player_life": 500.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -72,7 +175,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 600.0,
+					"player_life": 500.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -99,7 +202,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 600.0,
+					"player_life": 500.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -126,8 +229,8 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 600.0,
-					"player_moved_right": false,
+					"player_life": 500.0,
+					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
 					"weapon_cooldown_ready": true,
@@ -153,8 +256,8 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 600.0,
-					"player_moved_right": false,
+					"player_life": 500.0,
+					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
 					"weapon_cooldown_ready": true,
@@ -180,8 +283,8 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 600.0,
-					"player_moved_right": false,
+					"player_life": 500.0,
+					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
 					"weapon_cooldown_ready": true,
@@ -195,7 +298,7 @@
 				"x": 1.0,
 				"y": 0.0
 			},
-			"player_moved_right": false,
+			"player_moved_right": true,
 			"pool_stats": {
 				"bullet_basic": {
 					"acquired": 0,
@@ -267,18 +370,18 @@
 			"ui_stack": 0,
 			"xp": 0
 		},
-		"schema_version": 2,
+		"schema_version": 3,
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "a9434c38b1007f27d992b6069ef6c4305b6b4fcba8ad15f72f1c32bbb8f1b478",
+	"recording_hash": "34da0f174d033d4c3a171661e3aa17436712881184f087a9151d1830ab5b7d68",
 	"summary": {
-		"decision_events": 0,
+		"decision_events": 1,
 		"dropped_decision_events": 0,
 		"dropped_input_events": 0,
 		"ended_tick": 180,
 		"ended_time": 3.0,
-		"input_events": 0,
+		"input_events": 10,
 		"reason": "game_over",
 		"run_seed": 20260619,
 		"run_summary": {
@@ -308,7 +411,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 600.0,
+					"player_life": 500.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -335,7 +438,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 600.0,
+					"player_life": 500.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -362,7 +465,7 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 600.0,
+					"player_life": 500.0,
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
@@ -389,8 +492,8 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 600.0,
-					"player_moved_right": false,
+					"player_life": 500.0,
+					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
 					"weapon_cooldown_ready": true,
@@ -416,8 +519,8 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 600.0,
-					"player_moved_right": false,
+					"player_life": 500.0,
+					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
 					"weapon_cooldown_ready": true,
@@ -443,8 +546,8 @@
 						"x": 1.0,
 						"y": 0.0
 					},
-					"player_life": 600.0,
-					"player_moved_right": false,
+					"player_life": 500.0,
+					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
 					"weapon_cooldown_ready": true,
@@ -458,7 +561,7 @@
 				"x": 1.0,
 				"y": 0.0
 			},
-			"player_moved_right": false,
+			"player_moved_right": true,
 			"pool_stats": {
 				"bullet_basic": {
 					"acquired": 0,
@@ -530,7 +633,7 @@
 			"ui_stack": 0,
 			"xp": 0
 		},
-		"schema_version": 2,
+		"schema_version": 3,
 		"started_tick": 7,
 		"started_time": 0.0
 	}

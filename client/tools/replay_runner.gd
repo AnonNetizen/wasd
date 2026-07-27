@@ -4,7 +4,7 @@ extends Node
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
-const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const ELEMENTS := preload("res://scripts/contracts/elements.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
@@ -111,7 +111,7 @@ func _create_runtime_input_replay() -> Dictionary:
 	_cleanup_replay_file(INPUT_PLAYBACK_REPLAY_FILE_NAME)
 	var input_events: Array[Dictionary] = _input_playback_events()
 	var recording: Dictionary = {
-		"schema_version": 2,
+		"schema_version": 3,
 		"run_seed": INPUT_PLAYBACK_REPLAY_SEED,
 		"started_tick": 0,
 		"started_time": 0.0,
@@ -122,6 +122,8 @@ func _create_runtime_input_replay() -> Dictionary:
 			"source": "replay_runner",
 			"scenario": INPUT_PLAYBACK_SCENARIO,
 			"capture_frames": INPUT_PLAYBACK_CAPTURE_FRAMES,
+			"main_hero_id": "character_primary_a",
+			"sub_hero_id": "character_primary_b",
 		},
 		"input_events": input_events,
 		"decision_events": [],
@@ -220,7 +222,12 @@ func _rerun_runtime_summary(recording: Dictionary) -> Dictionary:
 
 
 func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Dictionary:
-	var scenario: String = String(_dictionary_or_empty(recording.get("context", {})).get("scenario", "golden_basic_run"))
+	var replay_context: Dictionary = _dictionary_or_empty(
+		recording.get("context", {})
+	)
+	var scenario: String = String(
+		replay_context.get("scenario", "golden_basic_run")
+	)
 	_prepare_runtime_scenario(scenario)
 	Replay.set_enabled(scenario == "golden_level_up_choice")
 	Replay.clear_recording()
@@ -234,7 +241,14 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 		InputService.set_playback_active(false)
 		_restore_runtime_scenario(scenario)
 		return {}
-	boot_node.call("_start_gameplay_run")
+	boot_node.call("_start_gameplay_run", {}, false, {
+		"main_hero_id": String(
+			replay_context.get("main_hero_id", "character_primary_a")
+		),
+		"sub_hero_id": String(
+			replay_context.get("sub_hero_id", "character_primary_b")
+		),
+	})
 
 	var run_loop: Node = null
 	for _index: int in range(30):
@@ -249,10 +263,14 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 		return {}
 	if scenario == "golden_level_up_choice" and run_loop.has_method("debug_enable_level_up_growth"):
 		run_loop.call("debug_enable_level_up_growth")
-		_expect(
-			Replay.start_recording({"source": "replay_runner", "scenario": scenario}),
-			"ReplayRunner level-up comparison should start its explicit decision recording"
-		)
+		if not Replay.is_recording():
+			_expect(
+				Replay.start_recording({
+					"source": "replay_runner",
+					"scenario": scenario,
+				}),
+				"ReplayRunner level-up comparison should start decision recording"
+			)
 	var input_events: Array[Dictionary] = _sorted_input_events(recording.get("input_events", []))
 	var runtime_events: Array[Dictionary] = _sorted_runtime_events(recording.get("runtime_events", []))
 	var next_input_index: int = 0
@@ -501,12 +519,16 @@ func _defeat_player(run_loop: Node) -> void:
 	if player == null:
 		_expect(false, "ReplayRunner full death runtime event should find Player")
 		return
+	if player.has_method("debug_set_shield"):
+		player.call("debug_set_shield", 0.0, 0.0)
+	if player.has_method("debug_clear_invulnerability"):
+		player.call("debug_clear_invulnerability")
 	var damage_source: Node = Node.new()
 	damage_source.name = "ReplayRunnerFullDeathDamageSource"
 	run_loop.add_child(damage_source)
 	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
-		float(player.call("max_life")),
-		DAMAGE_TYPES.PHYSICAL,
+		float(player.call("max_life")) * 10.0,
+		ELEMENTS.ELEMENT_NEUTRAL,
 		damage_source,
 		player,
 		"team_enemy",

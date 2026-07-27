@@ -83,7 +83,8 @@ func _run() -> void:
 		{
 			"schema_version": 99,
 			"seed": 0,
-			"character_id": "missing_character",
+			"main_hero_id": "missing_main_hero",
+			"sub_hero_id": "missing_sub_hero",
 			"weapon_id": "missing_weapon",
 			"primary_skill_id": "missing_skill",
 			"gear_mods": [
@@ -93,8 +94,11 @@ func _run() -> void:
 	) as Dictionary
 	_check(int(invalid.get("seed", 0)) > 0, "invalid seed falls back")
 	_check(
-		not String(invalid.get("character_id", "")).is_empty(),
-		"invalid character falls back"
+		not String(invalid.get("main_hero_id", "")).is_empty()
+		and not String(invalid.get("sub_hero_id", "")).is_empty()
+		and String(invalid.get("main_hero_id", ""))
+		!= String(invalid.get("sub_hero_id", "")),
+		"invalid hero composition falls back"
 	)
 	_check(
 		(invalid.get("diagnostics", []) as Array).size() >= 4,
@@ -105,9 +109,10 @@ func _run() -> void:
 		"save_config",
 		{
 			"seed": 159159,
-			"character_id": "character_default",
+			"main_hero_id": "character_primary_a",
+			"sub_hero_id": "character_primary_b",
 			"weapon_id": "weapon_basic_blaster",
-			"primary_skill_id": "skill_overdrive_rounds",
+			"primary_skill_id": "skill_deploy_projectile_barrier",
 			"gear_mods": [
 				{
 					"mod_id": "gear_mod_weapon_damage_test",
@@ -282,12 +287,13 @@ func _run() -> void:
 			float(stationary.call("max_life")) >= 1000000.0,
 			"stationary target uses high life"
 		)
-		var attack_life_before: float = float(
-			(
-				run_loop.call(
-					"debug_test_arena_summary"
-				) as Dictionary
-			).get("player_life", 0.0)
+		var attack_before: Dictionary = run_loop.call(
+			"debug_test_arena_summary"
+		) as Dictionary
+		var attack_defense_before: float = (
+			float(attack_before.get("player_life", 0.0))
+			+ float(attack_before.get("player_shield", 0.0))
+			+ float(attack_before.get("player_overshield", 0.0))
 		)
 		var ai_attacked: bool = false
 		for _attack_frame: int in range(90):
@@ -299,10 +305,12 @@ func _run() -> void:
 			var attack_summary: Dictionary = run_loop.call(
 				"debug_test_arena_summary"
 			) as Dictionary
-			if (
+			var attack_defense_after: float = (
 				float(attack_summary.get("player_life", 0.0))
-				< attack_life_before
-			):
+				+ float(attack_summary.get("player_shield", 0.0))
+				+ float(attack_summary.get("player_overshield", 0.0))
+			)
+			if attack_defense_after < attack_defense_before:
 				ai_attacked = true
 				break
 		_check(
@@ -617,6 +625,8 @@ func _run() -> void:
 		),
 		"exit test clears the standalone runtime"
 	)
+	await get_tree().process_frame
+	await get_tree().process_frame
 	_check(
 		UIManager.top() == null,
 		"standalone exit clears the UI stack"
@@ -700,10 +710,26 @@ func _check(condition: bool, label: String) -> void:
 func _finish() -> void:
 	if _failures.is_empty():
 		print("DEBUG TEST ARENA ALL PASS")
-		get_tree().quit(0)
+		_begin_clean_exit(0)
 		return
 	print(
 		"[DebugTestArenaSmoke] failed checks: %s"
 		% ", ".join(_failures)
 	)
-	get_tree().quit(1)
+	_begin_clean_exit(1)
+
+
+func _begin_clean_exit(exit_code: int) -> void:
+	var scene_tree: SceneTree = get_tree()
+	var host: Node = get_parent()
+	if host != null and host != scene_tree.root:
+		host.remove_child(self)
+		scene_tree.root.add_child(self)
+		host.queue_free()
+	call_deferred("_quit_after_cleanup", exit_code)
+
+
+func _quit_after_cleanup(exit_code: int) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	get_tree().quit(exit_code)

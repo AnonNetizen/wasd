@@ -27,6 +27,7 @@ var _relics_label: Label = null
 var _seed_spin: SpinBox = null
 var _skill_option: OptionButton = null
 var _start_button: Button = null
+var _sub_hero_option: OptionButton = null
 var _title_label: Label = null
 var _weapon_option: OptionButton = null
 
@@ -41,6 +42,9 @@ func _ready() -> void:
 	) as SpinBox
 	_character_option = get_node_or_null(
 		"Root/Center/Panel/Margin/Layout/Selectors/CharacterOption"
+	) as OptionButton
+	_sub_hero_option = get_node_or_null(
+		"Root/Center/Panel/Margin/Layout/Selectors/SubHeroOption"
 	) as OptionButton
 	_weapon_option = get_node_or_null(
 		"Root/Center/Panel/Margin/Layout/Selectors/WeaponOption"
@@ -76,6 +80,7 @@ func _ready() -> void:
 		_title_label == null
 		or _seed_spin == null
 		or _character_option == null
+		or _sub_hero_option == null
 		or _weapon_option == null
 		or _skill_option == null
 		or _mod_list == null
@@ -94,6 +99,7 @@ func _ready() -> void:
 	_start_button.pressed.connect(_on_start_pressed)
 	close_button.pressed.connect(request_close)
 	_character_option.item_selected.connect(_on_selection_changed)
+	_sub_hero_option.item_selected.connect(_on_selection_changed)
 	_weapon_option.item_selected.connect(_on_selection_changed)
 	_skill_option.item_selected.connect(_on_selection_changed)
 	if not Localization.locale_changed.is_connected(_on_locale_changed):
@@ -117,6 +123,11 @@ func configure(config: Dictionary) -> void:
 		_character_option,
 		_typed_dictionary_array(_content.get("characters", [])),
 		String(normalized.get("character_id", ""))
+	)
+	_populate_option(
+		_sub_hero_option,
+		_typed_dictionary_array(_content.get("characters", [])),
+		String(normalized.get("sub_hero_id", ""))
 	)
 	_populate_option(
 		_weapon_option,
@@ -158,6 +169,9 @@ func refresh_texts() -> void:
 	var weapon_label: Label = get_node_or_null(
 		"Root/Center/Panel/Margin/Layout/Selectors/WeaponLabel"
 	) as Label
+	var sub_hero_label: Label = get_node_or_null(
+		"Root/Center/Panel/Margin/Layout/Selectors/SubHeroLabel"
+	) as Label
 	var skill_label: Label = get_node_or_null(
 		"Root/Center/Panel/Margin/Layout/Selectors/SkillLabel"
 	) as Label
@@ -173,7 +187,9 @@ func refresh_texts() -> void:
 	if seed_label != null:
 		seed_label.text = tr("ui_debug_test_arena_seed")
 	if character_label != null:
-		character_label.text = tr("ui_debug_test_arena_character")
+		character_label.text = tr("ui_hero_composition_main")
+	if sub_hero_label != null:
+		sub_hero_label.text = tr("ui_hero_composition_sub")
 	if weapon_label != null:
 		weapon_label.text = tr("ui_debug_test_arena_weapon")
 	if skill_label != null:
@@ -193,6 +209,10 @@ func refresh_texts() -> void:
 		_typed_dictionary_array(_content.get("characters", []))
 	)
 	_refresh_option_texts(
+		_sub_hero_option,
+		_typed_dictionary_array(_content.get("characters", []))
+	)
+	_refresh_option_texts(
 		_weapon_option,
 		_typed_dictionary_array(_content.get("weapons", []))
 	)
@@ -209,6 +229,7 @@ func refresh_texts() -> void:
 func debug_summary() -> Dictionary:
 	return {
 		"character_options": _character_option.item_count,
+		"sub_hero_options": _sub_hero_option.item_count,
 		"weapon_options": _weapon_option.item_count,
 		"skill_options": _skill_option.item_count,
 		"gear_mod_rows": _gear_mod_rows.size(),
@@ -308,7 +329,8 @@ func _build_config() -> Dictionary:
 	return {
 		"schema_version": DebugTestArenaConfig.SCHEMA_VERSION,
 		"seed": maxi(int(_seed_spin.value), 1),
-		"character_id": _selected_id(_character_option),
+		"main_hero_id": _selected_id(_character_option),
+		"sub_hero_id": _selected_id(_sub_hero_option),
 		"weapon_id": _selected_id(_weapon_option),
 		"primary_skill_id": _selected_id(_skill_option),
 		"gear_mods": gear_mods,

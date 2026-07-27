@@ -3,8 +3,9 @@ extends Node
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
+const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
-const DAMAGE_TYPES := preload("res://scripts/contracts/damage_types.gd")
+const ELEMENTS := preload("res://scripts/contracts/elements.gd")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 
@@ -44,7 +45,13 @@ func _run() -> void:
 		_restore_scenario_saves()
 		_finish("")
 		return
-	boot_node.call("_start_gameplay_run")
+	var hero_composition: Dictionary = _scenario_composition()
+	boot_node.call(
+		"_start_gameplay_run",
+		{},
+		false,
+		hero_composition
+	)
 
 	var run_loop: Node = null
 	for _index: int in range(30):
@@ -59,9 +66,28 @@ func _run() -> void:
 		return
 	if _scenario == "golden_level_up_choice" and run_loop.has_method("debug_enable_level_up_growth"):
 		run_loop.call("debug_enable_level_up_growth")
+	if Replay.is_recording():
+		Replay.stop_recording("golden_capture_reset")
+	Replay.clear_recording()
 	_expect(
-		Replay.start_recording({"source": "golden_replay_capture", "scenario": _scenario}),
+		Replay.start_recording({
+			"source": "golden_replay_capture",
+			"scenario": _scenario,
+			"main_hero_id": String(
+				hero_composition.get("main_hero_id", "")
+			),
+			"sub_hero_id": String(
+				hero_composition.get("sub_hero_id", "")
+			),
+		}),
 		"GoldenReplayCapture should start its explicit recording while playback isolation is active"
+	)
+	_expect(
+		Replay.record_decision(
+			ANALYTICS_EVENTS.RUN_START,
+			hero_composition
+		),
+		"GoldenReplayCapture should record the selected hero composition"
 	)
 
 	var frame_samples: Array[Dictionary] = []
@@ -83,9 +109,8 @@ func _run() -> void:
 	GameState.change_state(GameState.GAME_OVER, {"source": "golden_replay_capture", "scenario": _scenario})
 
 	var completed: Dictionary = Replay.snapshot()
-	if _scenario == "golden_pause_resume":
-		completed["input_events"] = _pause_resume_input_events()
-	elif _scenario == "golden_full_death":
+	completed["input_events"] = _scenario_input_events()
+	if _scenario == "golden_full_death":
 		completed["runtime_events"] = _full_death_runtime_events()
 	elif _scenario == "golden_level_up_choice":
 		completed["runtime_events"] = _level_up_runtime_events()
@@ -95,6 +120,7 @@ func _run() -> void:
 	var context: Dictionary = _dictionary_or_empty(completed.get("context", {}))
 	context["scenario"] = _scenario
 	context["capture_frames"] = CAPTURE_FRAMES
+	context.merge(hero_composition, true)
 	completed["context"] = context
 
 	var user_path: String = Replay.save_recording(completed, _replay_file_name())
@@ -205,14 +231,29 @@ func _run_snapshot(run_loop: Node) -> Dictionary:
 
 
 func _apply_scenario_inputs(frame_number: int) -> void:
-	if _scenario != "golden_pause_resume":
-		return
-	if frame_number == 30:
+	if frame_number == 10:
+		await _tap_action(ACTIONS.SKILL_1)
+	elif frame_number == 25:
+		await _tap_action(ACTIONS.SKILL_2)
+	elif frame_number == 55 and _scenario == "golden_full_death":
+		await _tap_action(ACTIONS.DASH)
+	elif frame_number == 60 and _scenario != "golden_full_death":
+		await _tap_action(ACTIONS.SKILL_3)
+	elif frame_number == 90 and _scenario != "golden_full_death":
+		await _tap_action(ACTIONS.SKILL_4)
+	elif frame_number == 120 and _scenario != "golden_full_death":
+		await _tap_action(ACTIONS.DASH)
+	if _scenario == "golden_pause_resume" and frame_number == 30:
 		await _apply_input_event(ACTIONS.PAUSE, true, 1.0)
 		await _apply_input_event(ACTIONS.PAUSE, false, 0.0)
-	elif frame_number == 45:
+	elif _scenario == "golden_pause_resume" and frame_number == 45:
 		await _apply_input_event(ACTIONS.UI_BACK, true, 1.0)
 		await _apply_input_event(ACTIONS.UI_BACK, false, 0.0)
+
+
+func _tap_action(action_id: String) -> void:
+	await _apply_input_event(action_id, true, 1.0)
+	await _apply_input_event(action_id, false, 0.0)
 
 
 func _apply_input_event(action_name: String, pressed: bool, _strength: float) -> void:
@@ -234,12 +275,16 @@ func _defeat_player(run_loop: Node) -> void:
 	if player == null:
 		_expect(false, "GoldenReplayCapture full death should find Player")
 		return
+	if player.has_method("debug_set_shield"):
+		player.call("debug_set_shield", 0.0, 0.0)
+	if player.has_method("debug_clear_invulnerability"):
+		player.call("debug_clear_invulnerability")
 	var damage_source: Node = Node.new()
 	damage_source.name = "GoldenFullDeathDamageSource"
 	run_loop.add_child(damage_source)
 	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
-		float(player.call("max_life")),
-		DAMAGE_TYPES.PHYSICAL,
+		float(player.call("max_life")) * 10.0,
+		ELEMENTS.ELEMENT_NEUTRAL,
 		damage_source,
 		player,
 		"team_enemy",
@@ -329,13 +374,41 @@ func _capture_scenario() -> String:
 	return DEFAULT_SCENARIO
 
 
-func _pause_resume_input_events() -> Array[Dictionary]:
-	return [
-		_input_event(ACTIONS.PAUSE, true, 1.0, 25),
-		_input_event(ACTIONS.PAUSE, false, 0.0, 25),
-		_input_event(ACTIONS.UI_BACK, true, 1.0, 40),
-		_input_event(ACTIONS.UI_BACK, false, 0.0, 40),
+func _scenario_composition() -> Dictionary:
+	if ["golden_full_death", "golden_level_up_choice"].has(_scenario):
+		return {
+			"main_hero_id": CHARACTER_IDS.CHARACTER_PRIMARY_B,
+			"sub_hero_id": CHARACTER_IDS.CHARACTER_PRIMARY_A,
+		}
+	return {
+		"main_hero_id": CHARACTER_IDS.CHARACTER_PRIMARY_A,
+		"sub_hero_id": CHARACTER_IDS.CHARACTER_PRIMARY_B,
+	}
+
+
+func _scenario_input_events() -> Array[Dictionary]:
+	var events: Array[Dictionary] = [
+		_input_event(ACTIONS.SKILL_1, true, 1.0, 10),
+		_input_event(ACTIONS.SKILL_1, false, 0.0, 10),
+		_input_event(ACTIONS.SKILL_2, true, 1.0, 25),
+		_input_event(ACTIONS.SKILL_2, false, 0.0, 25),
 	]
+	if _scenario == "golden_full_death":
+		events.append(_input_event(ACTIONS.DASH, true, 1.0, 55))
+		events.append(_input_event(ACTIONS.DASH, false, 0.0, 55))
+	else:
+		events.append(_input_event(ACTIONS.SKILL_3, true, 1.0, 60))
+		events.append(_input_event(ACTIONS.SKILL_3, false, 0.0, 60))
+		events.append(_input_event(ACTIONS.SKILL_4, true, 1.0, 90))
+		events.append(_input_event(ACTIONS.SKILL_4, false, 0.0, 90))
+		events.append(_input_event(ACTIONS.DASH, true, 1.0, 120))
+		events.append(_input_event(ACTIONS.DASH, false, 0.0, 120))
+	if _scenario == "golden_pause_resume":
+		events.append(_input_event(ACTIONS.PAUSE, true, 1.0, 30))
+		events.append(_input_event(ACTIONS.PAUSE, false, 0.0, 30))
+		events.append(_input_event(ACTIONS.UI_BACK, true, 1.0, 45))
+		events.append(_input_event(ACTIONS.UI_BACK, false, 0.0, 45))
+	return events
 
 
 func _input_event(action_name: String, pressed: bool, _strength: float, tick: int) -> Dictionary:

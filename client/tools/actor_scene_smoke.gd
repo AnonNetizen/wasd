@@ -33,7 +33,7 @@ func _run() -> void:
 
 	var default_scene_path: String = _character_scene_path(
 		characters,
-		CHARACTER_IDS.CHARACTER_DEFAULT
+		CHARACTER_IDS.CHARACTER_PRIMARY_A
 	)
 	_expect(
 		not default_scene_path.is_empty(),
@@ -41,7 +41,7 @@ func _run() -> void:
 	)
 	var restored_scene_path: String = _character_scene_path(
 		characters,
-		CHARACTER_IDS.CHARACTER_DEFAULT
+		CHARACTER_IDS.CHARACTER_PRIMARY_A
 	)
 	_expect(
 		restored_scene_path == default_scene_path,
@@ -146,7 +146,7 @@ func _validate_missing_run_loop_camera_fails_restore() -> void:
 	_restore_failure_observed = false
 	run_loop.connect("restore_failed", _on_restore_failure_observed)
 	run_loop.call("configure_restore_snapshot", {
-		"character": CHARACTER_IDS.CHARACTER_DEFAULT,
+		"character": CHARACTER_IDS.CHARACTER_PRIMARY_A,
 	})
 	get_tree().root.add_child(run_loop)
 	_expect(
@@ -296,7 +296,7 @@ func _runtime_enemy_data(enemy_row: Dictionary) -> Dictionary:
 		"max_hp": String(enemy_row.get("max_hp", "1")).to_int(),
 		"move_speed": String(enemy_row.get("move_speed", "0")).to_float(),
 		"contact_damage": String(enemy_row.get("contact_damage", "0")).to_int(),
-		"contact_damage_type": String(enemy_row.get("contact_damage_type", "")),
+		"element_id": String(enemy_row.get("element_id", "")),
 		"exp_reward": String(enemy_row.get("exp_reward", "0")).to_int(),
 		"hit_radius": String(enemy_row.get("hit_radius", "1")).to_float(),
 		"separation_radius": String(enemy_row.get("separation_radius", "0")).to_float(),

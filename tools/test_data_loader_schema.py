@@ -26,6 +26,47 @@ def main() -> int:
     cases: list[tuple[str, RepoMutator | None, list[str]]] = [
         ("golden data passes", None, []),
         (
+            "player schema v2 is required",
+            _mutate_json("client/data/player.json", _set_schema_version(1)),
+            [
+                "client/data/player.json:schema_version",
+                "must be >= 2",
+                "must equal 2",
+            ],
+        ),
+        (
+            "dash distance must match speed and duration",
+            _mutate_json("client/data/player.json", _set_dash_distance(121.0)),
+            [
+                "client/data/player.json:dash.distance",
+                "must equal dash.speed * dash.duration",
+            ],
+        ),
+        (
+            "energy drop pool must be registered",
+            _mutate_json("client/data/player.json", _set_energy_drop_pool("pool_missing")),
+            [
+                "client/data/player.json:energy_drop.pool_id",
+                "unknown id pool_missing; expected one of pool_ids",
+            ],
+        ),
+        (
+            "element combinations are symmetric and unique",
+            _mutate_json("client/data/elements.json", _duplicate_reversed_element_combination),
+            [
+                "client/data/elements.json:combinations[3]",
+                "duplicate symmetric combination",
+            ],
+        ),
+        (
+            "composite elements do not become combination inputs",
+            _mutate_json("client/data/elements.json", _set_composite_combination_input),
+            [
+                "client/data/elements.json:combinations[0]",
+                "combination inputs must be primary elements",
+            ],
+        ),
+        (
             "visual effect ids must be unique",
             _mutate_json("client/data/visual_effects.json", _duplicate_visual_effect_id),
             [
@@ -238,12 +279,12 @@ def main() -> int:
             ],
         ),
         (
-            "character schema v2 is required",
+            "character schema v3 is required",
             _mutate_json("client/data/characters.json", _set_schema_version(1)),
             [
                 "client/data/characters.json:schema_version",
-                "must be >= 2",
-                "must equal 2",
+                "must be >= 3",
+                "must equal 3",
             ],
         ),
         (
@@ -307,7 +348,7 @@ def main() -> int:
             _mutate_json("client/data/characters.json", _clear_characters),
             [
                 "client/data/game_modes.json:modes[0].resource_pools.characters[0].id",
-                "character is not defined in characters.json: character_default",
+                "character is not defined in characters.json: character_primary_a",
             ],
         ),
         (
@@ -335,11 +376,11 @@ def main() -> int:
             ],
         ),
         (
-            "unknown weapon damage type fails",
-            _mutate_json("client/data/weapons.json", _set_weapon_damage_type("arcane")),
+            "unknown weapon element fails",
+            _mutate_json("client/data/weapons.json", _set_weapon_element("element_missing")),
             [
-                "client/data/weapons.json:weapons[0].projectile.damage_type",
-                "unknown id arcane; expected one of damage_types",
+                "client/data/weapons.json:weapons[0].projectile.element_id",
+                "unknown id element_missing; expected one of elements",
             ],
         ),
         (
@@ -383,10 +424,10 @@ def main() -> int:
             ],
         ),
         (
-            "character starting skill id must be registered",
-            _mutate_json("client/data/characters.json", _set_character_starting_skill("skill_missing")),
+            "character hero skill id must be registered",
+            _mutate_json("client/data/characters.json", _set_character_hero_skill("skill_missing")),
             [
-                "client/data/characters.json:characters[0].starting_loadout.skill_ids[0]",
+                "client/data/characters.json:characters[0].hero_skill_ids[0]",
                 "unknown id skill_missing; expected one of skill_ids",
             ],
         ),
@@ -486,11 +527,11 @@ def main() -> int:
             ],
         ),
         (
-            "enemy damage type must be registered",
-            _mutate_csv("client/data/enemies.csv", _set_enemy_damage_type("arcane")),
+            "enemy element must be registered",
+            _mutate_csv("client/data/enemies.csv", _set_enemy_element("element_missing")),
             [
-                "client/data/enemies.csv:line 2.contact_damage_type",
-                "unknown id arcane; expected one of damage_types",
+                "client/data/enemies.csv:line 2.element_id",
+                "unknown id element_missing; expected one of elements",
             ],
         ),
         (
@@ -678,11 +719,11 @@ def main() -> int:
             ],
         ),
         (
-            "hazard damage type must be registered",
-            _mutate_csv("client/data/hazards.csv", _set_hazard_damage_type("arcane")),
+            "hazard element must be registered",
+            _mutate_csv("client/data/hazards.csv", _set_hazard_element("element_missing")),
             [
-                "client/data/hazards.csv:line 2.damage_type",
-                "unknown id arcane; expected one of damage_types",
+                "client/data/hazards.csv:line 2.element_id",
+                "unknown id element_missing; expected one of elements",
             ],
         ),
         (
@@ -982,34 +1023,34 @@ def main() -> int:
             ],
         ),
         (
-            "skill apply status damage type must be registered",
-            _mutate_json("client/data/skills.json", _set_skill_apply_status_param("damage_type", "arcane")),
+            "skill apply status element must be registered",
+            _mutate_json("client/data/skills.json", _set_skill_apply_status_param("element_id", "element_missing")),
             [
-                "client/data/skills.json:skills[0].effects[0].params.damage_type",
-                "unknown id arcane; expected one of damage_types",
+                "client/data/skills.json:skills[0].effects[0].params.element_id",
+                "unknown id element_missing; expected one of elements",
             ],
         ),
         (
-            "skill apply status dot requires damage type",
-            _mutate_json("client/data/skills.json", _set_skill_apply_status_dot_without_damage_type),
+            "skill apply status dot requires element",
+            _mutate_json("client/data/skills.json", _set_skill_apply_status_dot_without_element),
             [
-                "client/data/skills.json:skills[0].effects[0].params.damage_type",
+                "client/data/skills.json:skills[0].effects[0].params.element_id",
                 "is required when magnitude and tick_interval are positive",
             ],
         ),
         (
-            "skill damage type must be registered",
-            _mutate_json("client/data/skills.json", _set_skill_damage_type("arcane")),
+            "skill damage element must be registered",
+            _mutate_json("client/data/skills.json", _set_skill_damage_element("element_missing")),
             [
-                "client/data/skills.json:skills[0].effects[0].params.damage_type",
-                "unknown id arcane; expected one of damage_types",
+                "client/data/skills.json:skills[0].effects[0].params.element_id",
+                "unknown id element_missing; expected one of elements",
             ],
         ),
         (
             "skill weapon modifier duration must be positive",
             _mutate_json("client/data/skills.json", _set_skill_weapon_modifier_duration(0.0)),
             [
-                "client/data/skills.json:skills[0].effects[0].params.duration",
+                "client/data/skills.json:skills[2].effects[0].params.duration",
                 "must be > 0",
             ],
         ),
@@ -1017,7 +1058,7 @@ def main() -> int:
             "skill weapon modifier stat must be registered",
             _mutate_json("client/data/skills.json", _set_skill_weapon_modifier_stat("stat_missing")),
             [
-                "client/data/skills.json:skills[0].effects[0].params.modifiers[0].stat",
+                "client/data/skills.json:skills[2].effects[0].params.modifiers[0].stat",
                 "unknown id stat_missing; expected one of stats",
             ],
         ),
@@ -1348,11 +1389,26 @@ def _set_growth_entry_name_key(value: str) -> JsonMutator:
     return mutate
 
 
-def _set_weapon_damage_type(value: str) -> JsonMutator:
+def _set_weapon_element(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["weapons"][0]["projectile"]["damage_type"] = value
+        payload["weapons"][0]["projectile"]["element_id"] = value
 
     return mutate
+
+
+def _duplicate_reversed_element_combination(payload: dict[str, Any]) -> None:
+    first = payload["combinations"][0]
+    payload["combinations"].append(
+        {
+            "left": first["right"],
+            "right": first["left"],
+            "result": first["result"],
+        }
+    )
+
+
+def _set_composite_combination_input(payload: dict[str, Any]) -> None:
+    payload["combinations"][0]["left"] = "element_composite_ab"
 
 
 def _set_weapon_stat(stat: str, value: object) -> JsonMutator:
@@ -1383,9 +1439,9 @@ def _set_character_starting_consumable(value: str) -> JsonMutator:
     return mutate
 
 
-def _set_character_starting_skill(value: str) -> JsonMutator:
+def _set_character_hero_skill(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["characters"][0]["starting_loadout"]["skill_ids"][0] = value
+        payload["characters"][0]["hero_skill_ids"][0] = value
 
     return mutate
 
@@ -1411,9 +1467,9 @@ def _set_enemy_tags(value: str) -> CsvMutator:
     return mutate
 
 
-def _set_enemy_damage_type(value: str) -> CsvMutator:
+def _set_enemy_element(value: str) -> CsvMutator:
     def mutate(rows: list[dict[str, str]]) -> None:
-        rows[0]["contact_damage_type"] = value
+        rows[0]["element_id"] = value
 
     return mutate
 
@@ -1428,6 +1484,20 @@ def _set_enemy_ai_action(value: str) -> JsonMutator:
 def _set_schema_version(value: int) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["schema_version"] = value
+
+    return mutate
+
+
+def _set_dash_distance(value: float) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["dash"]["distance"] = value
+
+    return mutate
+
+
+def _set_energy_drop_pool(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["energy_drop"]["pool_id"] = value
 
     return mutate
 
@@ -1577,9 +1647,9 @@ def _set_hazard_tags(value: str) -> CsvMutator:
     return mutate
 
 
-def _set_hazard_damage_type(value: str) -> CsvMutator:
+def _set_hazard_element(value: str) -> CsvMutator:
     def mutate(rows: list[dict[str, str]]) -> None:
-        rows[0]["damage_type"] = value
+        rows[0]["element_id"] = value
 
     return mutate
 
@@ -1771,13 +1841,13 @@ def _set_skill_apply_status_granted_tag(value: str) -> JsonMutator:
     return mutate
 
 
-def _set_skill_apply_status_dot_without_damage_type(payload: dict[str, Any]) -> None:
+def _set_skill_apply_status_dot_without_element(payload: dict[str, Any]) -> None:
     payload["skills"][0]["effects"][0] = _apply_status_effect_payload()
     params = payload["skills"][0]["effects"][0]["params"]
     params["status"] = "poison"
     params["magnitude"] = 2.0
     params["tick_interval"] = 0.5
-    params.pop("damage_type", None)
+    params.pop("element_id", None)
 
 
 def _apply_status_effect_payload() -> dict[str, Any]:
@@ -1792,30 +1862,30 @@ def _apply_status_effect_payload() -> dict[str, Any]:
     }
 
 
-def _set_skill_damage_type(value: str) -> JsonMutator:
+def _set_skill_damage_element(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["skills"][0]["effects"][0] = {
             "effect": "skill_effect_damage",
             "params": {
                 "amount": 8.0,
-                "damage_type": "physical",
+                "element_id": "element_neutral",
             },
         }
-        payload["skills"][0]["effects"][0]["params"]["damage_type"] = value
+        payload["skills"][0]["effects"][0]["params"]["element_id"] = value
 
     return mutate
 
 
 def _set_skill_weapon_modifier_duration(value: float) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["skills"][0]["effects"][0]["params"]["duration"] = value
+        payload["skills"][2]["effects"][0]["params"]["duration"] = value
 
     return mutate
 
 
 def _set_skill_weapon_modifier_stat(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
-        payload["skills"][0]["effects"][0]["params"]["modifiers"][0]["stat"] = value
+        payload["skills"][2]["effects"][0]["params"]["modifiers"][0]["stat"] = value
 
     return mutate
 

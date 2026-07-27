@@ -63,12 +63,12 @@
 | `start_recording(context = {})` | 启动上下文 | `bool` | 关闭或已录制时返回 `false` |
 | `stop_recording(reason = "")` | 停止原因 | `Dictionary` | 未录制时返回空字典；成功后发 `replay_recorded` 埋点 |
 | `record_input_action(action_name, pressed, strength = 1.0, participant_id = "player_0")` | action、按下状态、被忽略的旧 strength、参与者 | `bool` | deprecated bool 兼容包装；转交 `record_input_value()`，gameplay 不直接调用 |
-| `record_input_value(action_name, value, participant_id = "player_0")` | action、`bool` 或 `Vector2`、参与者 | `bool` | v2 规范入口；只接受已登记 action，Vector2 会归一化并保存为 `[x, y]`，由 InputService 信号回调调用 |
+| `record_input_value(action_name, value, participant_id = "player_0")` | action、`bool` 或 `Vector2`、参与者 | `bool` | v3 规范入口；只接受已登记 action，含四技能与冲刺；Vector2 会归一化并保存为 `[x, y]` |
 | `record_input_event(event, action_names, participant_id = "")` | 原始 Godot event、候选 action、参与者 | `bool` | 测试 / 旧边界兼容，只转成 bool；正式 gameplay 与 UI 不得调用 |
 | `record_decision(event_name, payload = {})` | 关键事件名、payload | `bool` | event 未登记会 `push_error` 并返回 `false` |
 | `save_recording(recording = {}, file_name = "")` | 已完成录制、可选文件名 | `String` | 写入 `user://replays/`，返回路径；文件名会归一化为 `.replay` |
 | `load_recording(path)` | `.replay` 路径 | `Dictionary` | 返回录制 payload；文件无效时返回空字典并设置 `last_error()` |
-| `load_replay_file(path)` | `.replay` 路径 | `Dictionary` | 仅接受 file / recording schema v2；返回完整 envelope并校验 `recording_hash`，不支持版本返回空字典并设置错误 |
+| `load_replay_file(path)` | `.replay` 路径 | `Dictionary` | 仅接受 file / recording schema v3；返回完整 envelope并校验 `recording_hash`，旧版或未来版本返回空字典并设置错误 |
 | `recording_summary(recording)` | 录制 payload | `Dictionary` | 返回 seed、tick/time、事件数量、停止原因等稳定摘要 |
 | `current_data_fingerprint()` | 无 | `String` | 基于当前 contracts 和 schema counts 的 F8 首片数据指纹 |
 | `replay_root()` | 无 | `String` | 返回 `user://replays` |
@@ -117,7 +117,7 @@ F8 首片 `.replay` 文件 envelope：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `file_schema_version` | `int` | 文件 envelope 版本，当前为 2 |
+| `file_schema_version` | `int` | 文件 envelope 版本，当前为 3 |
 | `created_at` | `String` | wall time 诊断字段，不参与玩法判定 |
 | `game_version` | `String` | 当前构建 / 设计版本标签，来自 `SaveManager.GAME_VERSION` |
 | `data_fingerprint` | `String` | 当前 contracts + schema counts 的稳定 hash，用于提示数据基线变化 |
@@ -188,11 +188,11 @@ F8 golden replay 额外在 `recording.run_summary` / `summary.run_summary` 中�
 
 - 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，以及 `python tools/godot_bridge.py --project client replay-smoke` / `python tools/godot_bridge.py --project client replay-runner`；改 gameplay 输入录制追加 `python tools/godot_bridge.py --project client replay-input-smoke`；改 golden 时追加 `capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_level_up_choice` 以及四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`。
 - 后续引入 GUT 后，`Replay` 需要覆盖录制开始 / 停止、action 校验、event 校验、设置关闭清空、缓冲丢弃计数和同 seed 录制字段稳定。
-- 当前 `.replay` 文件 v2 roundtrip 与 v1 / 未来版本拒绝由 `replay-smoke` 覆盖，summary diff、输入播放、runtime event 播放和扩展稳定帧样本 diff 由 `replay-runner` 覆盖，`golden_basic_run.replay` / `golden_pause_resume.replay` / `golden_full_death.replay` / `golden_level_up_choice.replay` 覆盖真实 `GameplayRunLoop` 运行时摘要、暂停 / 恢复输入场景、死亡失败页场景和升级选择 decision 场景；扩展全量帧级 L3 后必须补更多逐帧黄金回放样例；有意改变确定性行为时才重录黄金回放并在 commit message 注明影响。
+- 当前 `.replay` 文件 v3 roundtrip 与旧版 / 未来版本拒绝由 `replay-smoke` 覆盖，summary diff、四技能 / 冲刺输入播放、组合决策、runtime event 和稳定帧样本 diff 由 `replay-runner` 覆盖。四条黄金回放覆盖两种主英雄、四技能、冲刺、暂停 / 恢复、死亡防御状态和升级选择；有意改变确定性行为时才重录并在提交说明中注明影响。
 
 ## 迁移 / 兼容
 
-当前 `.replay` 文件 envelope 与内存 recording schema 都为 2，加载器只接受 v2。v1、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；仓库不再保留 v1 fixture 或旧方向 action。未来格式变化必须提升版本，并在实施时明确选择迁移或拒绝策略；不能把玩家续局 `run` 存档和回放文件混成同一格式。
+当前 `.replay` 文件 envelope 与内存 recording schema 都为 3，加载器只接受 v3。旧版、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id` 与 `sub_hero_id`，四技能和冲刺使用当前规范 action。不能把玩家续局 Run v5 与回放文件混成同一格式。
 
 ## 相关文档
 

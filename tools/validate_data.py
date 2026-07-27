@@ -28,6 +28,8 @@ RELICS_JSON = ROOT / "client" / "data" / "relics.json"
 ACTIVE_ITEMS_JSON = ROOT / "client" / "data" / "active_items.json"
 CONSUMABLES_JSON = ROOT / "client" / "data" / "consumables.json"
 SKILLS_JSON = ROOT / "client" / "data" / "skills.json"
+ELEMENTS_JSON = ROOT / "client" / "data" / "elements.json"
+HERO_PASSIVES_JSON = ROOT / "client" / "data" / "hero_passives.json"
 CREDITS_JSON = ROOT / "client" / "data" / "credits.json"
 GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
 GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
@@ -48,17 +50,30 @@ HTML_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")
 INT_STATS = {"bullet_count", "pierce_count"}
 NON_NEGATIVE_STATS = {
     "damage",
-    "damage_invulnerability_duration",
     "health_regen",
     "player_separation_radius",
     "pickup_range",
     "luck",
     "armor",
+    "max_shield",
     "lifesteal_ratio",
     "wall_pierce",
 }
-POSITIVE_STATS = {"max_hp", "move_speed", "fire_rate", "bullet_speed", "bullet_range", "pickup_orb_speed", "crit_mult"}
-RATIO_STATS = {"crit_chance", "resist_fire", "resist_poison", "resist_lightning", "lifesteal_ratio"}
+POSITIVE_STATS = {
+    "max_hp",
+    "max_energy",
+    "move_speed",
+    "fire_rate",
+    "bullet_speed",
+    "bullet_range",
+    "pickup_orb_speed",
+    "crit_mult",
+    "ability_strength",
+    "ability_range",
+    "ability_efficiency",
+    "ability_duration",
+}
+RATIO_STATS = {"crit_chance", "lifesteal_ratio"}
 WEAPON_STATS = {"damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "pierce_count", "wall_pierce", "crit_chance", "crit_mult"}
 REQUIRED_WEAPON_STATS = {"damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count"}
 
@@ -80,6 +95,8 @@ def main() -> int:
     _validate_all_json(ctx)
     _validate_locale_csv(ctx)
     _validate_player_json(ctx)
+    element_ids = _validate_elements(ctx)
+    passive_ids = _validate_hero_passives(ctx, element_ids)
     _validate_camera_feedback(ctx)
     effect_ids = _validate_visual_effects(ctx)
     profile_ids = _validate_presentation_profiles(ctx, effect_ids)
@@ -106,7 +123,7 @@ def main() -> int:
     _validate_skills(ctx)
     skill_ids = _collect_skill_ids(ctx)
     _validate_credits(ctx)
-    _validate_characters(ctx, weapon_ids, active_item_ids, consumable_ids, skill_ids)
+    _validate_characters(ctx, weapon_ids, active_item_ids, consumable_ids, skill_ids, passive_ids, element_ids)
     character_ids = _collect_character_ids(ctx)
     _validate_growth_csv(ctx)
     _validate_growth_pools(ctx)
@@ -202,13 +219,172 @@ def _validate_player_json(ctx: ValidationContext) -> None:
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=2)
+    if schema_version != 2:
+        ctx.error(path, "schema_version", "must equal 2")
     base_stats = data.get("base_stats")
     if not isinstance(base_stats, dict) or not base_stats:
         ctx.error(path, "base_stats", "must be a non-empty object")
         return
+    if "damage_invulnerability_duration" in base_stats:
+        ctx.error(path, "base_stats.damage_invulnerability_duration", "was removed in schema_version 2; use dash.invulnerability_duration or defense.shield_gate")
     for stat, value in base_stats.items():
         _validate_stat_value(ctx, path, f"base_stats.{stat}", stat, value)
+    defense = data.get("defense")
+    if not isinstance(defense, dict):
+        ctx.error(path, "defense", "must be an object")
+    else:
+        shield = defense.get("shield")
+        if not isinstance(shield, dict):
+            ctx.error(path, "defense.shield", "must be an object")
+        else:
+            _require_number(ctx, path, "defense.shield.recharge_delay", shield.get("recharge_delay"), minimum=0)
+            _require_number(ctx, path, "defense.shield.recharge_rate", shield.get("recharge_rate"), minimum=0)
+            _require_number(ctx, path, "defense.shield.overshield_decay_ratio_per_second", shield.get("overshield_decay_ratio_per_second"), minimum=0, maximum=1)
+            _require_number(ctx, path, "defense.shield.overshield_snap_threshold", shield.get("overshield_snap_threshold"), minimum=0)
+        armor = defense.get("armor")
+        if not isinstance(armor, dict):
+            ctx.error(path, "defense.armor", "must be an object")
+        else:
+            _require_number(ctx, path, "defense.armor.coefficient", armor.get("coefficient"), minimum=0, exclusive_minimum=True)
+            _require_number(ctx, path, "defense.armor.maximum", armor.get("maximum"), minimum=0, exclusive_minimum=True)
+        shield_gate = defense.get("shield_gate")
+        if not isinstance(shield_gate, dict):
+            ctx.error(path, "defense.shield_gate", "must be an object")
+        else:
+            _require_number(ctx, path, "defense.shield_gate.max_duration", shield_gate.get("max_duration"), minimum=0)
+    dash = data.get("dash")
+    if not isinstance(dash, dict):
+        ctx.error(path, "dash", "must be an object")
+    else:
+        distance = _require_number(ctx, path, "dash.distance", dash.get("distance"), minimum=0, exclusive_minimum=True)
+        speed = _require_number(ctx, path, "dash.speed", dash.get("speed"), minimum=0, exclusive_minimum=True)
+        duration = _require_number(ctx, path, "dash.duration", dash.get("duration"), minimum=0, exclusive_minimum=True)
+        _require_number(ctx, path, "dash.cooldown", dash.get("cooldown"), minimum=0)
+        invulnerability = _require_number(ctx, path, "dash.invulnerability_duration", dash.get("invulnerability_duration"), minimum=0)
+        if isinstance(invulnerability, float) and isinstance(duration, float) and invulnerability > duration:
+            ctx.error(path, "dash.invulnerability_duration", "must be <= dash.duration")
+        if isinstance(distance, float) and isinstance(speed, float) and isinstance(duration, float):
+            if abs(distance - speed * duration) > 0.001:
+                ctx.error(path, "dash.distance", "must equal dash.speed * dash.duration")
+    energy_drop = data.get("energy_drop")
+    if not isinstance(energy_drop, dict):
+        ctx.error(path, "energy_drop", "must be an object")
+    else:
+        _require_number(ctx, path, "energy_drop.chance", energy_drop.get("chance"), minimum=0, maximum=1)
+        _require_number(ctx, path, "energy_drop.amount", energy_drop.get("amount"), minimum=0, exclusive_minimum=True)
+        _require_registered(ctx, path, "energy_drop.pool_id", energy_drop.get("pool_id"), "pool_ids")
+        _require_registered(ctx, path, "energy_drop.rng_stream", energy_drop.get("rng_stream"), "rng_streams")
+
+
+def _validate_elements(ctx: ValidationContext) -> set[str]:
+    path = ELEMENTS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return set()
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    if schema_version != 1:
+        ctx.error(path, "schema_version", "must equal 1")
+    neutral_id = _require_registered(ctx, path, "neutral_element_id", data.get("neutral_element_id"), "elements")
+    unmatched_result = data.get("unmatched_result")
+    if not isinstance(unmatched_result, str):
+        ctx.error(path, "unmatched_result", "must be a string")
+    elements = _require_list(ctx, path, "elements", data.get("elements"))
+    seen: set[str] = set()
+    kinds: dict[str, str] = {}
+    for index, element in enumerate(elements):
+        field = f"elements[{index}]"
+        if not isinstance(element, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        element_id = _require_registered(ctx, path, f"{field}.id", element.get("id"), "elements")
+        if element_id:
+            if element_id in seen:
+                ctx.error(path, f"{field}.id", f"duplicate element id {element_id}")
+            seen.add(element_id)
+        _require_locale_key(ctx, path, f"{field}.name_key", element.get("name_key"))
+        kind = element.get("kind")
+        if kind not in {"neutral", "primary", "composite"}:
+            ctx.error(path, f"{field}.kind", "must be neutral, primary, or composite")
+        elif element_id:
+            kinds[element_id] = kind
+        components = _validate_registered_string_list(ctx, path, f"{field}.components", element.get("components"), "elements", allow_empty=True)
+        expected_count = {"neutral": 0, "primary": 1, "composite": 2}.get(kind)
+        if expected_count is not None and len(components) != expected_count:
+            ctx.error(path, f"{field}.components", f"must contain exactly {expected_count} element ids for kind {kind}")
+        if kind == "primary" and element_id and components != {element_id}:
+            ctx.error(path, f"{field}.components", "primary element must contain only itself")
+    contract_ids = set(ctx.contracts.get("elements", []))
+    if seen != contract_ids:
+        ctx.error(path, "elements", f"ids must exactly match elements contract; missing={sorted(contract_ids - seen)} extra={sorted(seen - contract_ids)}")
+    if neutral_id and kinds.get(neutral_id) != "neutral":
+        ctx.error(path, "neutral_element_id", "must reference the neutral element")
+    combinations = _require_list(ctx, path, "combinations", data.get("combinations"))
+    pair_keys: set[tuple[str, str]] = set()
+    results: set[str] = set()
+    for index, combination in enumerate(combinations):
+        field = f"combinations[{index}]"
+        if not isinstance(combination, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        left = _require_registered(ctx, path, f"{field}.left", combination.get("left"), "elements")
+        right = _require_registered(ctx, path, f"{field}.right", combination.get("right"), "elements")
+        result = _require_registered(ctx, path, f"{field}.result", combination.get("result"), "elements")
+        if not left or not right or not result:
+            continue
+        pair = tuple(sorted((left, right)))
+        if pair in pair_keys:
+            ctx.error(path, field, "duplicate symmetric combination")
+        pair_keys.add(pair)
+        if left == right or left == neutral_id or right == neutral_id:
+            ctx.error(path, field, "only distinct non-neutral primary pairs belong in the explicit table")
+        if kinds.get(left) != "primary" or kinds.get(right) != "primary":
+            ctx.error(path, field, "combination inputs must be primary elements")
+        if kinds.get(result) != "composite":
+            ctx.error(path, f"{field}.result", "must be a composite element")
+        results.add(result)
+    composite_ids = {element_id for element_id, kind in kinds.items() if kind == "composite"}
+    if results != composite_ids:
+        ctx.error(path, "combinations", "must produce every composite element exactly once")
+    return seen
+
+
+def _validate_hero_passives(ctx: ValidationContext, element_ids: set[str]) -> set[str]:
+    path = HERO_PASSIVES_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return set()
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    if schema_version != 1:
+        ctx.error(path, "schema_version", "must equal 1")
+    passives = _require_list(ctx, path, "passives", data.get("passives"))
+    seen: set[str] = set()
+    for index, passive in enumerate(passives):
+        field = f"passives[{index}]"
+        if not isinstance(passive, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        passive_id = _require_registered(ctx, path, f"{field}.id", passive.get("id"), "hero_passive_ids")
+        if passive_id:
+            if passive_id in seen:
+                ctx.error(path, f"{field}.id", f"duplicate hero passive id {passive_id}")
+            seen.add(passive_id)
+        _require_locale_key(ctx, path, f"{field}.name_key", passive.get("name_key"))
+        _require_locale_key(ctx, path, f"{field}.desc_key", passive.get("desc_key"))
+        effect_id = _require_registered(ctx, path, f"{field}.effect", passive.get("effect"), "effects")
+        params = passive.get("params")
+        if not isinstance(params, dict):
+            ctx.error(path, f"{field}.params", "must be an object")
+            continue
+        if effect_id == "element_damage_taken_multiplier":
+            element_id = _require_registered(ctx, path, f"{field}.params.element_id", params.get("element_id"), "elements")
+            if element_id and element_id not in element_ids:
+                ctx.error(path, f"{field}.params.element_id", f"element is not defined in elements.json: {element_id}")
+            _require_number(ctx, path, f"{field}.params.multiplier", params.get("multiplier"), minimum=0)
+    contract_ids = set(ctx.contracts.get("hero_passive_ids", []))
+    if seen != contract_ids:
+        ctx.error(path, "passives", f"ids must exactly match hero_passive_ids contract; missing={sorted(contract_ids - seen)} extra={sorted(seen - contract_ids)}")
+    return seen
 
 
 def _validate_visual_effects(ctx: ValidationContext) -> set[str]:
@@ -490,14 +666,22 @@ def _validate_presentation_profile_references(
                 ctx.error(path, field, f"unknown presentation profile {profile_id}")
 
 
-def _validate_characters(ctx: ValidationContext, weapon_ids: set[str], active_item_ids: set[str], consumable_ids: set[str], skill_ids: set[str]) -> None:
+def _validate_characters(
+    ctx: ValidationContext,
+    weapon_ids: set[str],
+    active_item_ids: set[str],
+    consumable_ids: set[str],
+    skill_ids: set[str],
+    passive_ids: set[str],
+    element_ids: set[str],
+) -> None:
     path = CHARACTERS_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=2)
-    if schema_version is not None and schema_version != 2:
-        ctx.error(path, "schema_version", "must equal 2")
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=3)
+    if schema_version is not None and schema_version != 3:
+        ctx.error(path, "schema_version", "must equal 3")
     characters = _require_list(ctx, path, "characters", data.get("characters"))
     if not characters:
         ctx.error(path, "characters", "must be a non-empty array")
@@ -527,7 +711,28 @@ def _validate_characters(ctx: ValidationContext, weapon_ids: set[str], active_it
             ctx.error(path, f"{field}.tags", "must include tag_character")
         _validate_registered_string_list(ctx, path, f"{field}.capabilities", character.get("capabilities", []), "capabilities", allow_empty=True)
         _require_non_empty_string(ctx, path, f"{field}.control_profile", character.get("control_profile"))
-        _validate_character_starting_loadout(ctx, path, f"{field}.starting_loadout", character.get("starting_loadout"), weapon_ids, active_item_ids, consumable_ids, skill_ids)
+        _validate_character_palette(ctx, path, f"{field}.palette", character.get("palette"))
+        element_id = _require_registered(ctx, path, f"{field}.element_id", character.get("element_id"), "elements")
+        if element_id and element_id not in element_ids:
+            ctx.error(path, f"{field}.element_id", f"element is not defined in elements.json: {element_id}")
+        passive_id = _require_registered(ctx, path, f"{field}.passive_id", character.get("passive_id"), "hero_passive_ids")
+        if passive_id and passive_id not in passive_ids:
+            ctx.error(path, f"{field}.passive_id", f"passive is not defined in hero_passives.json: {passive_id}")
+        hero_skill_values = _require_list(ctx, path, f"{field}.hero_skill_ids", character.get("hero_skill_ids"))
+        if len(hero_skill_values) != 2:
+            ctx.error(path, f"{field}.hero_skill_ids", "must contain exactly two skill ids")
+        hero_skills: set[str] = set()
+        for skill_index, skill_value in enumerate(hero_skill_values):
+            skill_field = f"{field}.hero_skill_ids[{skill_index}]"
+            skill_id = _require_registered(ctx, path, skill_field, skill_value, "skill_ids")
+            if not skill_id:
+                continue
+            if skill_id in hero_skills:
+                ctx.error(path, skill_field, f"duplicate skill id {skill_id}")
+            hero_skills.add(skill_id)
+            if skill_id not in skill_ids:
+                ctx.error(path, skill_field, f"skill is not defined in skills.json: {skill_id}")
+        _validate_character_starting_loadout(ctx, path, f"{field}.starting_loadout", character.get("starting_loadout"), weapon_ids, active_item_ids, consumable_ids)
         _validate_character_skill_resources(ctx, path, f"{field}.skill_resources", character.get("skill_resources", []))
         base_stats = character.get("base_stats")
         if not isinstance(base_stats, dict) or not base_stats:
@@ -537,7 +742,20 @@ def _validate_characters(ctx: ValidationContext, weapon_ids: set[str], active_it
             _validate_stat_value(ctx, path, f"{field}.base_stats.{stat}", stat, value)
 
 
-def _validate_character_starting_loadout(ctx: ValidationContext, path: Path, field: str, data: Any, weapon_ids: set[str], active_item_ids: set[str], consumable_ids: set[str], skill_ids: set[str]) -> None:
+def _validate_character_palette(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    expected = {"primary", "secondary", "accent"}
+    if set(data) != expected:
+        ctx.error(path, field, f"must contain exactly {sorted(expected)}")
+    for key in sorted(expected):
+        value = data.get(key)
+        if not isinstance(value, str) or not HTML_COLOR_RE.fullmatch(value):
+            ctx.error(path, f"{field}.{key}", "must be a #RRGGBB or #RRGGBBAA color")
+
+
+def _validate_character_starting_loadout(ctx: ValidationContext, path: Path, field: str, data: Any, weapon_ids: set[str], active_item_ids: set[str], consumable_ids: set[str]) -> None:
     if not isinstance(data, dict):
         ctx.error(path, field, "must be an object")
         return
@@ -559,18 +777,8 @@ def _validate_character_starting_loadout(ctx: ValidationContext, path: Path, fie
         seen.add(consumable_id)
         if consumable_id not in consumable_ids:
             ctx.error(path, item_field, f"consumable is not defined in consumables.json: {consumable_id}")
-    starting_skills = _require_list(ctx, path, f"{field}.skill_ids", data.get("skill_ids", []))
-    seen_skills: set[str] = set()
-    for index, skill in enumerate(starting_skills):
-        item_field = f"{field}.skill_ids[{index}]"
-        skill_id = _require_registered(ctx, path, item_field, skill, "skill_ids")
-        if not skill_id:
-            continue
-        if skill_id in seen_skills:
-            ctx.error(path, item_field, f"duplicate skill id {skill_id}")
-        seen_skills.add(skill_id)
-        if skill_id not in skill_ids:
-            ctx.error(path, item_field, f"skill is not defined in skills.json: {skill_id}")
+    if "skill_ids" in data:
+        ctx.error(path, f"{field}.skill_ids", "was removed in schema_version 3; use character.hero_skill_ids")
 
 
 def _validate_character_skill_resources(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
@@ -586,11 +794,13 @@ def _validate_character_skill_resources(ctx: ValidationContext, path: Path, fiel
             if resource_id in seen:
                 ctx.error(path, f"{item_field}.id", f"duplicate resource id {resource_id}")
             seen.add(resource_id)
-        max_value = _require_number(ctx, path, f"{item_field}.max", resource.get("max"), minimum=0, exclusive_minimum=True)
-        start_value = _require_number(ctx, path, f"{item_field}.start", resource.get("start"), minimum=0)
+        max_stat = _require_registered(ctx, path, f"{item_field}.max_stat", resource.get("max_stat"), "stats")
+        if max_stat != "max_energy":
+            ctx.error(path, f"{item_field}.max_stat", "must equal max_energy for the energy resource")
+        _require_number(ctx, path, f"{item_field}.start_ratio", resource.get("start_ratio"), minimum=0, maximum=1)
         _require_number(ctx, path, f"{item_field}.regen_per_second", resource.get("regen_per_second"), minimum=0)
-        if isinstance(max_value, float) and isinstance(start_value, float) and start_value > max_value:
-            ctx.error(path, f"{item_field}.start", "must be <= max")
+        if "max" in resource or "start" in resource:
+            ctx.error(path, item_field, "legacy max/start fields are not allowed; use max_stat/start_ratio")
 
 
 def _validate_weapons(ctx: ValidationContext) -> None:
@@ -598,7 +808,9 @@ def _validate_weapons(ctx: ValidationContext) -> None:
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=2)
+    if schema_version != 2:
+        ctx.error(path, "schema_version", "must equal 2")
     weapons = _require_list(ctx, path, "weapons", data.get("weapons"))
     if not weapons:
         ctx.error(path, "weapons", "must be a non-empty array")
@@ -645,7 +857,9 @@ def _validate_weapon_projectile(ctx: ValidationContext, path: Path, field: str, 
         ctx.error(path, field, "must be an object")
         return
     _require_registered(ctx, path, f"{field}.pool_id", data.get("pool_id"), "pool_ids")
-    _require_registered(ctx, path, f"{field}.damage_type", data.get("damage_type"), "damage_types")
+    if "damage_type" in data:
+        ctx.error(path, f"{field}.damage_type", "was removed; use element_id")
+    _require_registered(ctx, path, f"{field}.element_id", data.get("element_id"), "elements")
     _require_number(ctx, path, f"{field}.hit_radius", data.get("hit_radius"), minimum=0, exclusive_minimum=True)
     _require_number(ctx, path, f"{field}.muzzle_distance", data.get("muzzle_distance"), minimum=0, exclusive_minimum=True)
     _require_number(ctx, path, f"{field}.lifetime", data.get("lifetime"), minimum=0, exclusive_minimum=True)
@@ -728,7 +942,9 @@ def _validate_enemy_ai_movement(ctx: ValidationContext, path: Path, field: str, 
     _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_projectile_lifetime", minimum=0, exclusive_minimum=True)
     _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_projectile_muzzle_distance", minimum=0)
     if "ranged_projectile_damage_type" in data:
-        _require_registered(ctx, path, f"{field}.ranged_projectile_damage_type", data.get("ranged_projectile_damage_type"), "damage_types")
+        ctx.error(path, f"{field}.ranged_projectile_damage_type", "was removed; use ranged_projectile_element_id")
+    if "ranged_projectile_element_id" in data:
+        _require_registered(ctx, path, f"{field}.ranged_projectile_element_id", data.get("ranged_projectile_element_id"), "elements")
 
 
 def _require_optional_enemy_ai_movement_number(
@@ -783,7 +999,8 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
         "max_hp",
         "move_speed",
         "contact_damage",
-        "contact_damage_type",
+        "contact_interval",
+        "element_id",
         "exp_reward",
         "hit_radius",
         "separation_radius",
@@ -834,7 +1051,8 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
             _parse_int(ctx, path, f"{field}.max_hp", row.get("max_hp"), minimum=1)
             _parse_float(ctx, path, f"{field}.move_speed", row.get("move_speed"), minimum=0, exclusive_minimum=True)
             _parse_int(ctx, path, f"{field}.contact_damage", row.get("contact_damage"), minimum=0)
-            _require_registered(ctx, path, f"{field}.contact_damage_type", row.get("contact_damage_type"), "damage_types")
+            _parse_float(ctx, path, f"{field}.contact_interval", row.get("contact_interval"), minimum=0, exclusive_minimum=True)
+            _require_registered(ctx, path, f"{field}.element_id", row.get("element_id"), "elements")
             _parse_int(ctx, path, f"{field}.exp_reward", row.get("exp_reward"), minimum=0)
             _parse_float(ctx, path, f"{field}.hit_radius", row.get("hit_radius"), minimum=0, exclusive_minimum=True)
             _parse_float(ctx, path, f"{field}.separation_radius", row.get("separation_radius"), minimum=0)
@@ -855,7 +1073,7 @@ def _validate_hazards_csv(ctx: ValidationContext) -> None:
         "pool_id",
         "presentation_profile_id",
         "damage",
-        "damage_type",
+        "element_id",
         "trigger_interval",
         "radius_tiles",
         "duration",
@@ -883,7 +1101,7 @@ def _validate_hazards_csv(ctx: ValidationContext) -> None:
                 ctx.error(path, f"{field}.tags", "must include tag_hazard")
             _require_registered(ctx, path, f"{field}.pool_id", row.get("pool_id"), "pool_ids")
             _parse_int(ctx, path, f"{field}.damage", row.get("damage"), minimum=0)
-            _require_registered(ctx, path, f"{field}.damage_type", row.get("damage_type"), "damage_types")
+            _require_registered(ctx, path, f"{field}.element_id", row.get("element_id"), "elements")
             _parse_float(ctx, path, f"{field}.trigger_interval", row.get("trigger_interval"), minimum=0, exclusive_minimum=True)
             _parse_int(ctx, path, f"{field}.radius_tiles", row.get("radius_tiles"), minimum=1)
             _parse_float(ctx, path, f"{field}.duration", row.get("duration"), minimum=0)
@@ -1056,7 +1274,9 @@ def _validate_skills(ctx: ValidationContext) -> None:
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=2)
+    if schema_version != 2:
+        ctx.error(path, "schema_version", "must equal 2")
     skills = _require_list(ctx, path, "skills", data.get("skills"))
     if not skills:
         ctx.error(path, "skills", "must be a non-empty array")
@@ -1082,6 +1302,7 @@ def _validate_skills(ctx: ValidationContext) -> None:
         _require_number(ctx, path, f"{field}.cooldown", skill.get("cooldown"), minimum=0)
         _validate_skill_costs(ctx, path, f"{field}.costs", skill.get("costs"))
         _validate_skill_targeting(ctx, path, f"{field}.targeting", skill.get("targeting"))
+        _validate_skill_scaling(ctx, path, f"{field}.scaling", skill.get("scaling"))
         _validate_skill_effects(ctx, path, f"{field}.effects", skill.get("effects"))
 
 
@@ -1121,6 +1342,27 @@ def _validate_skill_targeting(ctx: ValidationContext, path: Path, field: str, da
         _require_int(ctx, path, f"{field}.max_targets", data.get("max_targets"), minimum=0)
 
 
+def _validate_skill_scaling(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    allowed = {
+        "cost_stat": "ability_efficiency",
+        "radius_stat": "ability_range",
+        "duration_stat": "ability_duration",
+        "strength_stat": "ability_strength",
+    }
+    for key, value in data.items():
+        if key not in allowed:
+            ctx.error(path, f"{field}.{key}", f"unsupported scaling key; expected one of {sorted(allowed)}")
+            continue
+        stat = _require_registered(ctx, path, f"{field}.{key}", value, "stats")
+        if stat and stat != allowed[key]:
+            ctx.error(path, f"{field}.{key}", f"must equal {allowed[key]}")
+    if data.get("cost_stat") != "ability_efficiency":
+        ctx.error(path, f"{field}.cost_stat", "is required and must equal ability_efficiency")
+
+
 def _validate_skill_effects(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
     effects = _require_list(ctx, path, field, data)
     if not effects:
@@ -1137,7 +1379,9 @@ def _validate_skill_effects(ctx: ValidationContext, path: Path, field: str, data
             continue
         if effect_id == "skill_effect_damage":
             _require_number(ctx, path, f"{item_field}.params.amount", params.get("amount"), minimum=0, exclusive_minimum=True)
-            _require_registered(ctx, path, f"{item_field}.params.damage_type", params.get("damage_type"), "damage_types")
+            if "damage_type" in params:
+                ctx.error(path, f"{item_field}.params.damage_type", "was removed; use element_id")
+            _require_registered(ctx, path, f"{item_field}.params.element_id", params.get("element_id"), "elements")
         if effect_id == "skill_effect_apply_status":
             _require_registered(ctx, path, f"{item_field}.params.status", params.get("status"), "status_effects")
             _require_number(ctx, path, f"{item_field}.params.duration", params.get("duration"), minimum=0, exclusive_minimum=True)
@@ -1145,14 +1389,40 @@ def _validate_skill_effects(ctx: ValidationContext, path: Path, field: str, data
             _validate_registered_string_list(ctx, path, f"{item_field}.params.granted_ability_tags", params.get("granted_ability_tags"), "ability_tags", allow_empty=True)
             if "magnitude" in params:
                 _require_number(ctx, path, f"{item_field}.params.magnitude", params.get("magnitude"))
+            if "magnitude_cap" in params:
+                _require_number(ctx, path, f"{item_field}.params.magnitude_cap", params.get("magnitude_cap"), minimum=0)
+            if "max_stacks" in params:
+                _require_int(ctx, path, f"{item_field}.params.max_stacks", params.get("max_stacks"), minimum=1)
             if "tick_interval" in params:
                 _require_number(ctx, path, f"{item_field}.params.tick_interval", params.get("tick_interval"), minimum=0)
             if "damage_type" in params:
-                _require_registered(ctx, path, f"{item_field}.params.damage_type", params.get("damage_type"), "damage_types")
+                ctx.error(path, f"{item_field}.params.damage_type", "was removed; use element_id")
+            if "element_id" in params:
+                _require_registered(ctx, path, f"{item_field}.params.element_id", params.get("element_id"), "elements")
             elif _status_params_has_damage_tick(params):
-                ctx.error(path, f"{item_field}.params.damage_type", "is required when magnitude and tick_interval are positive")
+                ctx.error(path, f"{item_field}.params.element_id", "is required when magnitude and tick_interval are positive")
+            if "modifiers" in params:
+                _validate_modifiers(ctx, path, f"{item_field}.params.modifiers", params.get("modifiers"), require_value_per_level=False)
+                for modifier_index, modifier in enumerate(params.get("modifiers", [])):
+                    if isinstance(modifier, dict) and "scale_mode" in modifier and modifier.get("scale_mode") != "inverse_from_magnitude":
+                        ctx.error(path, f"{item_field}.params.modifiers[{modifier_index}].scale_mode", "must equal inverse_from_magnitude when present")
+            if "incoming_damage_per_stack" in params:
+                _require_number(ctx, path, f"{item_field}.params.incoming_damage_per_stack", params.get("incoming_damage_per_stack"), minimum=0)
+            if "incoming_damage_source_team" in params:
+                _require_non_empty_string(ctx, path, f"{item_field}.params.incoming_damage_source_team", params.get("incoming_damage_source_team"))
         if effect_id == "skill_effect_weapon_modifiers":
             _require_number(ctx, path, f"{item_field}.params.duration", params.get("duration"), minimum=0, exclusive_minimum=True)
+            _validate_modifiers(ctx, path, f"{item_field}.params.modifiers", params.get("modifiers"), require_value_per_level=False)
+        if effect_id == "skill_effect_deploy_barrier":
+            _require_registered(ctx, path, f"{item_field}.params.pool_id", params.get("pool_id"), "pool_ids")
+            _require_number(ctx, path, f"{item_field}.params.radius", params.get("radius"), minimum=0, exclusive_minimum=True)
+            _require_number(ctx, path, f"{item_field}.params.hp", params.get("hp"), minimum=0, exclusive_minimum=True)
+            _require_int(ctx, path, f"{item_field}.params.max_active", params.get("max_active"), minimum=1)
+            if params.get("recast_policy") != "replace":
+                ctx.error(path, f"{item_field}.params.recast_policy", "must equal replace")
+        if effect_id == "skill_effect_actor_modifiers":
+            _require_number(ctx, path, f"{item_field}.params.duration", params.get("duration"), minimum=0, exclusive_minimum=True)
+            _require_registered(ctx, path, f"{item_field}.params.stack_rule", params.get("stack_rule"), "status_stack_rules")
             _validate_modifiers(ctx, path, f"{item_field}.params.modifiers", params.get("modifiers"), require_value_per_level=False)
 
 

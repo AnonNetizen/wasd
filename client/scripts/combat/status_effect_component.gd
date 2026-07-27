@@ -7,6 +7,7 @@ extends Node
 signal effect_applied(status_id: String, snapshot: Dictionary)
 signal effect_expired(status_id: String, snapshot: Dictionary)
 signal effect_restored(status_id: String, snapshot: Dictionary)
+signal modifiers_changed()
 
 const STATUS_EFFECT_SCRIPT := preload("res://scripts/combat/status_effect.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
@@ -88,6 +89,54 @@ func active_statuses() -> Array[String]:
 	return result
 
 
+func stack_count(status_id: String) -> int:
+	var total: int = 0
+	for effect_key: Variant in _active_effects.keys():
+		var effect: Variant = _active_effects[effect_key]
+		if String(effect.get("status_id")) == status_id:
+			total += maxi(int(effect.get("stack_count")), 1)
+	return total
+
+
+func stat_multiplier(stat_id: String) -> float:
+	var multiplier: float = 1.0
+	for effect_key: Variant in _active_effects.keys():
+		var effect: Variant = _active_effects[effect_key]
+		var effect_multiplier: float = 1.0
+		var effect_addition: float = 0.0
+		for modifier: Dictionary in _typed_dictionary_array(
+			effect.get("modifiers")
+		):
+			if String(modifier.get("stat", "")) != stat_id:
+				continue
+			var modifier_type: String = String(modifier.get("type", ""))
+			var value: float = float(modifier.get("value", 0.0))
+			if modifier_type == "mult":
+				effect_multiplier *= value
+			elif modifier_type == "add":
+				effect_addition += value
+		multiplier *= maxf(effect_multiplier + effect_addition, 0.0)
+	return multiplier
+
+
+func incoming_damage_multiplier(source_team: String) -> float:
+	var multiplier: float = 1.0
+	for effect_key: Variant in _active_effects.keys():
+		var effect: Variant = _active_effects[effect_key]
+		var allowed_team: String = String(
+			effect.get("incoming_damage_source_team")
+		)
+		if not allowed_team.is_empty() and allowed_team != source_team:
+			continue
+		var per_stack: float = maxf(
+			float(effect.get("incoming_damage_per_stack")),
+			0.0
+		)
+		var stacks: int = maxi(int(effect.get("stack_count")), 1)
+		multiplier *= 1.0 + per_stack * float(stacks)
+	return multiplier
+
+
 func snapshot() -> Dictionary:
 	var effects: Array[Dictionary] = []
 	var keys: Array[String] = _sorted_string_keys(_active_effects)
@@ -140,8 +189,8 @@ func _tick_effects(delta: float) -> void:
 func _tick_damage(effect: Variant, elapsed: float) -> void:
 	var tick_interval: float = float(effect.get("tick_interval"))
 	var damage_amount: float = float(effect.get("magnitude"))
-	var damage_type: String = String(effect.get("damage_type"))
-	if elapsed <= 0.0 or tick_interval <= 0.0 or damage_amount <= 0.0 or damage_type.is_empty():
+	var element_id: String = String(effect.get("element_id"))
+	if elapsed <= 0.0 or tick_interval <= 0.0 or damage_amount <= 0.0 or element_id.is_empty():
 		return
 
 	var tick_remaining: float = float(effect.get("tick_remaining"))
@@ -149,12 +198,12 @@ func _tick_damage(effect: Variant, elapsed: float) -> void:
 		tick_remaining = tick_interval
 	tick_remaining -= elapsed
 	while tick_remaining <= 0.0:
-		_apply_tick_damage(effect, damage_amount, damage_type)
+		_apply_tick_damage(effect, damage_amount, element_id)
 		tick_remaining += tick_interval
 	effect.set("tick_remaining", tick_remaining)
 
 
-func _apply_tick_damage(effect: Variant, damage_amount: float, damage_type: String) -> void:
+func _apply_tick_damage(effect: Variant, damage_amount: float, element_id: String) -> void:
 	if _ability_tag_owner == null or not is_instance_valid(_ability_tag_owner):
 		return
 	if not _ability_tag_owner.has_method("receive_damage"):
@@ -165,7 +214,7 @@ func _apply_tick_damage(effect: Variant, damage_amount: float, damage_type: Stri
 	var target_team: String = String(effect.get("target_team"))
 	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 		damage_amount,
-		damage_type,
+		element_id,
 		source_node,
 		_ability_tag_owner,
 		source_team,
@@ -197,6 +246,26 @@ func _merge_effect(effect_key: String, incoming: Variant) -> void:
 		var refreshed_remaining: float = maxf(float(active.get("remaining")), float(incoming.get("duration")))
 		active.set("remaining", refreshed_remaining)
 		active.set("duration", maxf(float(active.get("duration")), refreshed_remaining))
+	elif stack_rule == STATUS_STACK_RULES.ADD_STACK_REFRESH:
+		var next_count: int = mini(
+			int(active.get("stack_count")) + 1,
+			maxi(int(incoming.get("max_stacks")), 1)
+		)
+		active.set("stack_count", next_count)
+		active.set("max_stacks", maxi(int(incoming.get("max_stacks")), 1))
+		active.set("remaining", float(incoming.get("duration")))
+		active.set(
+			"duration",
+			maxf(float(active.get("duration")), float(incoming.get("duration")))
+		)
+		active.set(
+			"incoming_damage_per_stack",
+			float(incoming.get("incoming_damage_per_stack"))
+		)
+		active.set(
+			"incoming_damage_source_team",
+			String(incoming.get("incoming_damage_source_team"))
+		)
 	else:
 		_release_effect_tags(effect_key)
 		_set_effect(effect_key, incoming, true)
@@ -207,6 +276,7 @@ func _set_effect(effect_key: String, effect: Variant, grant_tags: bool) -> void:
 	_update_effect_damage_context(effect)
 	_active_effects[effect_key] = effect
 	_register_effect_tags(effect_key, _string_array(effect.get("granted_ability_tags")), grant_tags)
+	modifiers_changed.emit()
 
 
 func _expire_effect(effect_key: String) -> void:
@@ -216,6 +286,7 @@ func _expire_effect(effect_key: String) -> void:
 	var effect_snapshot: Dictionary = effect.call("snapshot") as Dictionary
 	_release_effect_tags(effect_key)
 	_active_effects.erase(effect_key)
+	modifiers_changed.emit()
 	effect_expired.emit(String(effect.get("status_id")), effect_snapshot)
 
 
@@ -293,4 +364,14 @@ func _string_array(raw_value: Variant) -> Array[String]:
 		return result
 	for item: Variant in raw_value as Array:
 		result.append(String(item))
+	return result
+
+
+func _typed_dictionary_array(raw_value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not raw_value is Array:
+		return result
+	for item: Variant in raw_value as Array:
+		if item is Dictionary:
+			result.append((item as Dictionary).duplicate(true))
 	return result

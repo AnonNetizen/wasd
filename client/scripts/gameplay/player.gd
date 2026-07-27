@@ -5,6 +5,13 @@ extends CharacterBody2D
 
 
 signal life_changed(current_life: float, max_life: float)
+signal shield_changed(
+	current_shield: float,
+	max_shield: float,
+	overshield: float
+)
+signal dash_started(direction: Vector2)
+signal dash_finished()
 signal died()
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
@@ -21,31 +28,60 @@ const TEAM_PLAYER: String = "team_player"
 @export var hurt_flash_color: Color = Color(1.0, 0.34, 0.30)
 
 var aim_direction: Vector2 = Vector2.RIGHT
+var _armor: float = 0.0
+var _armor_coefficient: float = 300.0
+var _armor_maximum: float = 1200.0
 var _base_stats: Dictionary = {}
-var _damage_invulnerability_duration: float = 0.0
+var _current_shield: float = 0.0
+var _dash_cooldown: float = 1.25
+var _dash_cooldown_remaining: float = 0.0
+var _dash_direction: Vector2 = Vector2.ZERO
+var _dash_duration: float = 0.16
+var _dash_invulnerability_duration: float = 0.12
+var _dash_invulnerability_remaining: float = 0.0
+var _dash_remaining: float = 0.0
+var _dash_speed: float = 750.0
 var _debug_invulnerable: bool = false
+var _element_damage_taken_multipliers: Dictionary = {}
 var _has_movement_bounds: bool = false
 var _health_regen: float = 0.0
-var _invulnerable_remaining: float = 0.0
 var _luck: float = 0.0
 var _movement_bounds: Rect2 = Rect2()
 var _move_speed: float = 0.0
+var _max_energy: float = 0.0
 var _max_life: float = 1.0
+var _max_shield: float = 0.0
 var _life_points: float = 1.0
 var _owned_tag_counts: Dictionary = {}
+var _overshield: float = 0.0
+var _overshield_decay_rate: float = 0.05
+var _overshield_snap_threshold: float = 1.0
 var _pickup_orb_speed: float = 0.0
 var _pickup_range: float = 0.0
 var _separation_radius: float = 0.0
+var _shield_gate_max_duration: float = 0.5
+var _shield_gate_remaining: float = 0.0
+var _shield_recharge_delay: float = 4.0
+var _shield_recharge_delay_remaining: float = 0.0
+var _shield_recharge_rate: float = 25.0
 var _stat_additions: Dictionary = {}
 var _stat_multipliers: Dictionary = {}
 var _status_effect_component: Node = null
+var _temporary_modifiers: Dictionary = {}
 var _presentation: ActorPresentationController = null
 
 
 func _ready() -> void:
 	_ensure_status_effect_component()
 	_ensure_presentation()
+	if not InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.connect(_on_input_action_pressed)
 	_refresh_visuals()
+
+
+func _exit_tree() -> void:
+	if InputService.action_pressed.is_connected(_on_input_action_pressed):
+		InputService.action_pressed.disconnect(_on_input_action_pressed)
 
 
 func _physics_process(delta: float) -> void:
@@ -58,7 +94,9 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		return
 
-	_update_invulnerability(scaled_delta)
+	_update_defense(scaled_delta)
+	_update_dash_timers(scaled_delta)
+	_update_temporary_modifiers(scaled_delta)
 	_update_health_regen(scaled_delta)
 
 	var move_input: Vector2 = InputService.vector(ACTIONS.MOVE, INPUT_PARTICIPANT_ID)
@@ -69,7 +107,10 @@ func _physics_process(delta: float) -> void:
 		_set_pointer_aim_from_viewport_position(InputService.pointer_viewport_position())
 	InputService.publish_resolved_aim(aim_direction)
 
-	velocity = move_input * _move_speed
+	if _dash_remaining > 0.0:
+		velocity = _dash_direction * _dash_speed
+	else:
+		velocity = move_input * _effective_move_speed()
 	move_and_slide()
 	_apply_movement_bounds()
 
@@ -83,8 +124,17 @@ func configure(base_stats: Dictionary) -> void:
 	if _presentation != null:
 		_presentation.reset_presentation()
 	_has_movement_bounds = false
-	_invulnerable_remaining = 0.0
+	_dash_cooldown_remaining = 0.0
+	_dash_direction = Vector2.ZERO
+	_dash_invulnerability_remaining = 0.0
+	_dash_remaining = 0.0
 	_debug_invulnerable = false
+	_shield_gate_remaining = 0.0
+	_shield_recharge_delay_remaining = 0.0
+	_temporary_modifiers.clear()
+	_element_damage_taken_multipliers = _dictionary_or_empty(
+		_base_stats.get("element_damage_taken_multipliers", {})
+	)
 	_rebuild_stats(true)
 	add_to_group(ACTIVE_PLAYER_GROUP)
 
@@ -95,6 +145,22 @@ func current_life() -> float:
 
 func max_life() -> float:
 	return _max_life
+
+
+func current_shield() -> float:
+	return _current_shield
+
+
+func max_shield() -> float:
+	return _max_shield
+
+
+func current_overshield() -> float:
+	return _overshield
+
+
+func max_energy() -> float:
+	return _max_energy
 
 
 func is_alive() -> bool:
@@ -128,14 +194,31 @@ func debug_set_life(life_points: float) -> Dictionary:
 	}
 
 
+func debug_set_shield(
+	shield_points: float,
+	overshield_points: float = 0.0
+) -> Dictionary:
+	_current_shield = clampf(shield_points, 0.0, _max_shield)
+	_overshield = maxf(overshield_points, 0.0)
+	_shield_recharge_delay_remaining = 0.0
+	_shield_gate_remaining = 0.0
+	_emit_shield_changed()
+	return {
+		"shield": _current_shield,
+		"max_shield": _max_shield,
+		"overshield": _overshield,
+	}
+
+
 func debug_clear_invulnerability() -> void:
-	_invulnerable_remaining = 0.0
+	_dash_invulnerability_remaining = 0.0
+	_shield_gate_remaining = 0.0
 
 
 func debug_set_invulnerable(enabled: bool) -> void:
 	_debug_invulnerable = enabled
 	if enabled:
-		_invulnerable_remaining = 0.0
+		debug_clear_invulnerability()
 
 
 func debug_is_invulnerable() -> bool:
@@ -146,19 +229,36 @@ func debug_reset_transient_state(world_position: Vector2) -> void:
 	global_position = world_position
 	velocity = Vector2.ZERO
 	_debug_invulnerable = false
-	_invulnerable_remaining = 0.0
+	_dash_cooldown_remaining = 0.0
+	_dash_direction = Vector2.ZERO
+	_dash_invulnerability_remaining = 0.0
+	_dash_remaining = 0.0
+	_shield_gate_remaining = 0.0
+	_shield_recharge_delay_remaining = 0.0
+	_temporary_modifiers.clear()
 	_clear_status_effects_for_reuse()
 	_life_points = _max_life
+	_current_shield = _max_shield
+	_overshield = 0.0
 	_apply_movement_bounds()
 	_ensure_presentation()
 	if _presentation != null:
 		_presentation.reset_presentation()
 	life_changed.emit(_life_points, _max_life)
+	_emit_shield_changed()
 	_refresh_visuals()
 
 
 func invulnerability_remaining() -> float:
-	return _invulnerable_remaining
+	return maxf(_dash_invulnerability_remaining, _shield_gate_remaining)
+
+
+func dash_cooldown_remaining() -> float:
+	return _dash_cooldown_remaining
+
+
+func is_dashing() -> bool:
+	return _dash_remaining > 0.0
 
 
 func pickup_orb_speed() -> float:
@@ -183,6 +283,163 @@ func hit_radius() -> float:
 
 func stat_value(stat: String) -> float:
 	return _stat_value(stat, 0.0)
+
+
+func configure_element_damage_taken_multipliers(
+	multipliers: Dictionary
+) -> void:
+	_element_damage_taken_multipliers.clear()
+	for raw_element_id: Variant in multipliers.keys():
+		var element_id: String = String(raw_element_id)
+		var multiplier: float = clampf(
+			float(multipliers[raw_element_id]),
+			0.0,
+			1.0
+		)
+		if not element_id.is_empty():
+			_element_damage_taken_multipliers[element_id] = multiplier
+
+
+func configure_runtime_rules(player_data: Dictionary) -> void:
+	var defense: Dictionary = _dictionary_or_empty(
+		player_data.get("defense", {})
+	)
+	var shield: Dictionary = _dictionary_or_empty(
+		defense.get("shield", {})
+	)
+	var armor: Dictionary = _dictionary_or_empty(defense.get("armor", {}))
+	var shield_gate: Dictionary = _dictionary_or_empty(
+		defense.get("shield_gate", {})
+	)
+	var dash: Dictionary = _dictionary_or_empty(player_data.get("dash", {}))
+	_shield_recharge_delay = maxf(
+		float(shield.get("recharge_delay", _shield_recharge_delay)),
+		0.0
+	)
+	_shield_recharge_rate = maxf(
+		float(shield.get("recharge_rate", _shield_recharge_rate)),
+		0.0
+	)
+	_overshield_decay_rate = clampf(
+		float(
+			shield.get(
+				"overshield_decay_ratio_per_second",
+				_overshield_decay_rate
+			)
+		),
+		0.0,
+		0.99
+	)
+	_overshield_snap_threshold = maxf(
+		float(
+			shield.get(
+				"overshield_snap_threshold",
+				_overshield_snap_threshold
+			)
+		),
+		0.0
+	)
+	_armor_coefficient = maxf(
+		float(armor.get("coefficient", _armor_coefficient)),
+		0.001
+	)
+	_armor_maximum = maxf(
+		float(armor.get("maximum", _armor_maximum)),
+		0.0
+	)
+	_armor = clampf(_armor, 0.0, _armor_maximum)
+	_shield_gate_max_duration = maxf(
+		float(
+			shield_gate.get(
+				"max_duration",
+				_shield_gate_max_duration
+			)
+		),
+		0.0
+	)
+	_dash_speed = maxf(float(dash.get("speed", _dash_speed)), 0.0)
+	_dash_duration = maxf(
+		float(dash.get("duration", _dash_duration)),
+		0.0
+	)
+	_dash_cooldown = maxf(
+		float(dash.get("cooldown", _dash_cooldown)),
+		0.0
+	)
+	_dash_invulnerability_duration = clampf(
+		float(
+			dash.get(
+				"invulnerability_duration",
+				_dash_invulnerability_duration
+			)
+		),
+		0.0,
+		_dash_duration
+	)
+
+
+func set_element_damage_taken_multiplier(
+	element_id: String,
+	multiplier: float
+) -> void:
+	if element_id.is_empty():
+		return
+	_element_damage_taken_multipliers[element_id] = clampf(
+		multiplier,
+		0.0,
+		1.0
+	)
+
+
+func add_overshield(amount: float) -> float:
+	var applied_amount: float = maxf(amount, 0.0)
+	if applied_amount <= 0.0:
+		return 0.0
+	_overshield += applied_amount
+	_emit_shield_changed()
+	return applied_amount
+
+
+func try_dash(direction: Vector2 = Vector2.ZERO) -> Dictionary:
+	if not GameState.is_state(GameState.PLAYING):
+		return _dash_result(false, "not_playing")
+	if _dash_cooldown_remaining > 0.0 or _dash_remaining > 0.0:
+		return _dash_result(false, "cooldown")
+	var resolved_direction: Vector2 = direction
+	if resolved_direction.length_squared() <= 0.0:
+		resolved_direction = InputService.vector(
+			ACTIONS.MOVE,
+			INPUT_PARTICIPANT_ID
+		)
+	if resolved_direction.length_squared() <= 0.0:
+		resolved_direction = aim_direction
+	if resolved_direction.length_squared() <= 0.0:
+		return _dash_result(false, "no_direction")
+	_dash_direction = resolved_direction.normalized()
+	_dash_remaining = _dash_duration
+	_dash_cooldown_remaining = _dash_cooldown
+	_dash_invulnerability_remaining = _dash_invulnerability_duration
+	dash_started.emit(_dash_direction)
+	return _dash_result(true, "started")
+
+
+func apply_temporary_modifiers(
+	modifiers: Array,
+	duration: float,
+	source_id: String
+) -> void:
+	var normalized_source: String = source_id
+	if normalized_source.is_empty():
+		normalized_source = "anonymous"
+	var modifier_list: Array[Dictionary] = _typed_dictionary_array(modifiers)
+	var remaining: float = maxf(duration, 0.0)
+	if modifier_list.is_empty() or remaining <= 0.0:
+		return
+	_temporary_modifiers[normalized_source] = {
+		"remaining": remaining,
+		"modifiers": modifier_list,
+	}
+	_rebuild_stats(false)
 
 
 func aim_at_world_position(world_position: Vector2) -> void:
@@ -249,14 +506,45 @@ func active_statuses() -> Array[String]:
 	return _status_effect_component.call("active_statuses") as Array[String]
 
 
+func status_summary() -> Array[Dictionary]:
+	return _status_summary_from_snapshot(_status_effect_snapshot())
+
+
+func status_stat_multiplier(stat_id: String) -> float:
+	_ensure_status_effect_component()
+	if (
+		_status_effect_component == null
+		or not _status_effect_component.has_method("stat_multiplier")
+	):
+		return 1.0
+	return maxf(
+		float(
+			_status_effect_component.call(
+				"stat_multiplier",
+				stat_id
+			)
+		),
+		0.0
+	)
+
+
 func snapshot() -> Dictionary:
 	return {
 		"position": _vector_to_dict(global_position),
 		"aim_direction": _vector_to_dict(aim_direction),
 		"life_points": _life_points,
-		"invulnerable_remaining": _invulnerable_remaining,
+		"current_shield": _current_shield,
+		"overshield": _overshield,
+		"shield_recharge_delay_remaining": _shield_recharge_delay_remaining,
+		"shield_gate_remaining": _shield_gate_remaining,
+		"dash_cooldown_remaining": _dash_cooldown_remaining,
+		"dash_direction": _vector_to_dict(_dash_direction),
+		"dash_invulnerability_remaining": _dash_invulnerability_remaining,
+		"dash_remaining": _dash_remaining,
+		"element_damage_taken_multipliers": _element_damage_taken_multipliers.duplicate(true),
 		"stat_additions": _stat_additions.duplicate(true),
 		"stat_multipliers": _stat_multipliers.duplicate(true),
+		"temporary_modifiers": _temporary_modifiers.duplicate(true),
 		"owned_tag_counts": _owned_tag_counts.duplicate(true),
 		"status_effects": _status_effect_snapshot(),
 	}
@@ -272,10 +560,50 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_stat_multipliers = _dictionary_or_empty(snapshot_data.get("stat_multipliers", {}))
 	_rebuild_stats(true)
 	_life_points = clampf(float(snapshot_data.get("life_points", _max_life)), 0.0, _max_life)
-	_invulnerable_remaining = maxf(float(snapshot_data.get("invulnerable_remaining", 0.0)), 0.0)
+	_current_shield = clampf(
+		float(snapshot_data.get("current_shield", _max_shield)),
+		0.0,
+		_max_shield
+	)
+	_overshield = maxf(float(snapshot_data.get("overshield", 0.0)), 0.0)
+	_shield_recharge_delay_remaining = maxf(
+		float(snapshot_data.get("shield_recharge_delay_remaining", 0.0)),
+		0.0
+	)
+	_shield_gate_remaining = maxf(
+		float(snapshot_data.get("shield_gate_remaining", 0.0)),
+		0.0
+	)
+	_dash_cooldown_remaining = maxf(
+		float(snapshot_data.get("dash_cooldown_remaining", 0.0)),
+		0.0
+	)
+	_dash_direction = _dict_to_vector(
+		snapshot_data.get("dash_direction", {}),
+		Vector2.ZERO
+	)
+	_dash_invulnerability_remaining = maxf(
+		float(snapshot_data.get("dash_invulnerability_remaining", 0.0)),
+		0.0
+	)
+	_dash_remaining = maxf(
+		float(snapshot_data.get("dash_remaining", 0.0)),
+		0.0
+	)
+	_element_damage_taken_multipliers = _dictionary_or_empty(
+		snapshot_data.get(
+			"element_damage_taken_multipliers",
+			_element_damage_taken_multipliers
+		)
+	)
+	_temporary_modifiers = _dictionary_or_empty(
+		snapshot_data.get("temporary_modifiers", {})
+	)
+	_rebuild_stats(false)
 	_restore_status_snapshot(snapshot_data)
 	_apply_movement_bounds()
 	life_changed.emit(_life_points, _max_life)
+	_emit_shield_changed()
 	_refresh_visuals()
 
 
@@ -287,7 +615,7 @@ func receive_damage(info: RefCounted) -> Dictionary:
 			"defeated": false,
 			"reason": "debug_invulnerable",
 		}
-	if _invulnerable_remaining > 0.0:
+	if invulnerability_remaining() > 0.0:
 		return {
 			"applied": false,
 			"amount": 0.0,
@@ -295,13 +623,43 @@ func receive_damage(info: RefCounted) -> Dictionary:
 			"reason": "invulnerable",
 		}
 
-	var amount: float = float(info.get("amount"))
-	var applied_amount: float = minf(amount, _life_points)
-	_life_points = maxf(_life_points - amount, 0.0)
+	var remaining_damage: float = maxf(float(info.get("amount")), 0.0)
+	var applied_amount: float = 0.0
+	if _overshield > 0.0 and remaining_damage > 0.0:
+		var overshield_damage: float = minf(remaining_damage, _overshield)
+		_overshield -= overshield_damage
+		remaining_damage -= overshield_damage
+		applied_amount += overshield_damage
+
+	if _current_shield > 0.0 and remaining_damage > 0.0:
+		var shield_before_hit: float = _current_shield
+		var shield_damage: float = minf(remaining_damage, _current_shield)
+		_current_shield -= shield_damage
+		remaining_damage -= shield_damage
+		applied_amount += shield_damage
+		_shield_recharge_delay_remaining = _shield_recharge_delay
+		if _current_shield <= 0.0:
+			_current_shield = 0.0
+			remaining_damage = 0.0
+			_start_shield_gate(shield_before_hit)
+
+	if remaining_damage > 0.0:
+		var element_id: String = String(info.get("element_id"))
+		var element_multiplier: float = float(
+			_element_damage_taken_multipliers.get(element_id, 1.0)
+		)
+		var health_damage: float = (
+			remaining_damage
+			* clampf(element_multiplier, 0.0, 1.0)
+			* _armor_damage_multiplier()
+		)
+		var applied_health_damage: float = minf(health_damage, _life_points)
+		_life_points = maxf(_life_points - health_damage, 0.0)
+		applied_amount += applied_health_damage
 	var is_defeated: bool = _life_points <= 0.0
-	_start_invulnerability()
 	_start_hit_flash()
 	life_changed.emit(_life_points, _max_life)
+	_emit_shield_changed()
 	if is_defeated:
 		died.emit()
 	return {
@@ -317,33 +675,36 @@ func _start_hit_flash() -> void:
 	if _presentation != null:
 		_presentation.play_hit()
 
-
-func _start_invulnerability() -> void:
-	_invulnerable_remaining = _damage_invulnerability_duration
-
-
-func _update_invulnerability(delta: float) -> void:
-	if _invulnerable_remaining <= 0.0:
-		return
-	_invulnerable_remaining = maxf(_invulnerable_remaining - delta, 0.0)
-
-
 func _rebuild_stats(reset_life: bool) -> void:
 	var previous_max_life: float = _max_life
+	var previous_max_shield: float = _max_shield
 	_move_speed = _stat_value(STATS.MOVE_SPEED, 0.0)
 	_max_life = _stat_value(STATS.MAX_HP, 1.0)
+	_max_shield = maxf(_stat_value(STATS.MAX_SHIELD, 0.0), 0.0)
+	_max_energy = maxf(_stat_value(STATS.MAX_ENERGY, 0.0), 0.0)
+	_armor = clampf(
+		_stat_value(STATS.ARMOR, 0.0),
+		0.0,
+		_armor_maximum
+	)
 	_health_regen = _stat_value(STATS.HEALTH_REGEN, 0.0)
-	_damage_invulnerability_duration = _stat_value(STATS.DAMAGE_INVULNERABILITY_DURATION, 0.0)
 	_separation_radius = _stat_value(STATS.PLAYER_SEPARATION_RADIUS, 0.0)
 	_pickup_range = _stat_value(STATS.PICKUP_RANGE, 0.0)
 	_pickup_orb_speed = _stat_value(STATS.PICKUP_ORB_SPEED, 0.0)
 	_luck = _stat_value(STATS.LUCK, 0.0)
 	if reset_life:
 		_life_points = _max_life
+		_current_shield = _max_shield
+		_overshield = 0.0
 	elif _max_life > previous_max_life:
 		_life_points += _max_life - previous_max_life
+	if not reset_life and _max_shield > previous_max_shield:
+		_current_shield += _max_shield - previous_max_shield
 	_life_points = minf(_life_points, _max_life)
+	_current_shield = minf(_current_shield, _max_shield)
+	_read_runtime_tunables()
 	life_changed.emit(_life_points, _max_life)
+	_emit_shield_changed()
 
 
 func _update_health_regen(delta: float) -> void:
@@ -353,6 +714,158 @@ func _update_health_regen(delta: float) -> void:
 	_life_points = minf(_life_points + _health_regen * delta, _max_life)
 	if not is_equal_approx(_life_points, previous_life):
 		life_changed.emit(_life_points, _max_life)
+
+
+func _on_input_action_pressed(
+	action_id: StringName,
+	participant_id: String
+) -> void:
+	if (
+		participant_id == INPUT_PARTICIPANT_ID
+		and action_id == StringName(ACTIONS.DASH)
+	):
+		try_dash()
+
+
+func _update_defense(delta: float) -> void:
+	_dash_invulnerability_remaining = maxf(
+		_dash_invulnerability_remaining - delta,
+		0.0
+	)
+	_shield_gate_remaining = maxf(_shield_gate_remaining - delta, 0.0)
+	_decay_overshield(delta)
+	if _shield_recharge_delay_remaining > 0.0:
+		_shield_recharge_delay_remaining = maxf(
+			_shield_recharge_delay_remaining - delta,
+			0.0
+		)
+		return
+	if _current_shield >= _max_shield or _shield_recharge_rate <= 0.0:
+		return
+	var previous_shield: float = _current_shield
+	_current_shield = minf(
+		_current_shield + _shield_recharge_rate * delta,
+		_max_shield
+	)
+	if not is_equal_approx(previous_shield, _current_shield):
+		_emit_shield_changed()
+
+
+func _decay_overshield(delta: float) -> void:
+	if _overshield <= 0.0 or _overshield_decay_rate <= 0.0:
+		return
+	var previous_overshield: float = _overshield
+	_overshield *= pow(1.0 - _overshield_decay_rate, delta)
+	if _overshield < _overshield_snap_threshold:
+		_overshield = 0.0
+	if not is_equal_approx(previous_overshield, _overshield):
+		_emit_shield_changed()
+
+
+func _update_dash_timers(delta: float) -> void:
+	_dash_cooldown_remaining = maxf(_dash_cooldown_remaining - delta, 0.0)
+	if _dash_remaining <= 0.0:
+		return
+	_dash_remaining = maxf(_dash_remaining - delta, 0.0)
+	if _dash_remaining <= 0.0:
+		dash_finished.emit()
+
+
+func _update_temporary_modifiers(delta: float) -> void:
+	var expired_sources: Array[String] = []
+	for raw_source_id: Variant in _temporary_modifiers.keys():
+		var source_id: String = String(raw_source_id)
+		var entry: Dictionary = _temporary_modifiers[raw_source_id] as Dictionary
+		var remaining: float = maxf(
+			float(entry.get("remaining", 0.0)) - delta,
+			0.0
+		)
+		if remaining <= 0.0:
+			expired_sources.append(source_id)
+		else:
+			entry["remaining"] = remaining
+			_temporary_modifiers[raw_source_id] = entry
+	if expired_sources.is_empty():
+		return
+	for source_id: String in expired_sources:
+		_temporary_modifiers.erase(source_id)
+	_rebuild_stats(false)
+
+
+func _effective_move_speed() -> float:
+	return _move_speed * status_stat_multiplier(STATS.MOVE_SPEED)
+
+
+func _start_shield_gate(shield_before_hit: float) -> void:
+	if _max_shield <= 0.0 or shield_before_hit <= 0.0:
+		return
+	_shield_gate_remaining = maxf(
+		_shield_gate_remaining,
+		_shield_gate_max_duration
+		* clampf(shield_before_hit / _max_shield, 0.0, 1.0)
+	)
+
+
+func _armor_damage_multiplier() -> float:
+	if _armor <= 0.0:
+		return 1.0
+	var damage_reduction: float = clampf(
+		_armor / (_armor + _armor_coefficient),
+		0.0,
+		(
+			_armor_maximum
+			/ (_armor_maximum + _armor_coefficient)
+			if _armor_maximum > 0.0
+			else 0.0
+		)
+	)
+	return 1.0 - damage_reduction
+
+
+func _read_runtime_tunables() -> void:
+	_shield_recharge_delay = maxf(
+		float(_base_stats.get("shield_recharge_delay", 4.0)),
+		0.0
+	)
+	_shield_recharge_rate = maxf(
+		float(_base_stats.get("shield_recharge_rate", 25.0)),
+		0.0
+	)
+	_overshield_decay_rate = clampf(
+		float(_base_stats.get("overshield_decay_rate", 0.05)),
+		0.0,
+		0.99
+	)
+	_overshield_snap_threshold = maxf(
+		float(_base_stats.get("overshield_snap_threshold", 1.0)),
+		0.0
+	)
+	_shield_gate_max_duration = maxf(
+		float(_base_stats.get("shield_gate_max_duration", 0.5)),
+		0.0
+	)
+	_dash_speed = maxf(float(_base_stats.get("dash_speed", 750.0)), 0.0)
+	_dash_duration = maxf(float(_base_stats.get("dash_duration", 0.16)), 0.0)
+	_dash_cooldown = maxf(float(_base_stats.get("dash_cooldown", 1.25)), 0.0)
+	_dash_invulnerability_duration = clampf(
+		float(_base_stats.get("dash_invulnerability_duration", 0.12)),
+		0.0,
+		_dash_duration
+	)
+
+
+func _emit_shield_changed() -> void:
+	shield_changed.emit(_current_shield, _max_shield, _overshield)
+
+
+func _dash_result(ok: bool, reason: String) -> Dictionary:
+	return {
+		"ok": ok,
+		"reason": reason,
+		"cooldown": _dash_cooldown_remaining,
+		"remaining": _dash_remaining,
+		"direction": _vector_to_dict(_dash_direction),
+	}
 
 
 func _set_aim_direction(raw_direction: Vector2) -> void:
@@ -406,6 +919,19 @@ func _stat_value(stat: String, default_value: float) -> float:
 	var base_value: float = float(_base_stats.get(stat, default_value))
 	var added_value: float = float(_stat_additions.get(stat, 0.0))
 	var multiplier: float = float(_stat_multipliers.get(stat, 1.0))
+	for entry: Variant in _temporary_modifiers.values():
+		if not entry is Dictionary:
+			continue
+		for modifier: Dictionary in _typed_dictionary_array(
+			(entry as Dictionary).get("modifiers", [])
+		):
+			if String(modifier.get("stat", "")) != stat:
+				continue
+			var modifier_type: String = String(modifier.get("type", ""))
+			if modifier_type == "add":
+				added_value += float(modifier.get("value", 0.0))
+			elif modifier_type == "mult":
+				multiplier *= float(modifier.get("value", 1.0))
 	return (base_value + added_value) * multiplier
 
 
@@ -429,6 +955,16 @@ func _dictionary_or_empty(raw_value: Variant) -> Dictionary:
 	return {}
 
 
+func _typed_dictionary_array(raw_value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not raw_value is Array:
+		return result
+	for item: Variant in raw_value as Array:
+		if item is Dictionary:
+			result.append((item as Dictionary).duplicate(true))
+	return result
+
+
 func _ensure_status_effect_component() -> void:
 	if _status_effect_component != null and is_instance_valid(_status_effect_component):
 		_status_effect_component.call("configure_ability_tag_owner", self)
@@ -445,6 +981,29 @@ func _status_effect_snapshot() -> Dictionary:
 	if _status_effect_component == null:
 		return {}
 	return _status_effect_component.call("snapshot") as Dictionary
+
+
+func _status_summary_from_snapshot(
+	snapshot_data: Dictionary
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var raw_effects: Variant = snapshot_data.get("effects", [])
+	if not raw_effects is Array:
+		return result
+	for raw_effect: Variant in raw_effects as Array:
+		if not raw_effect is Dictionary:
+			continue
+		var effect: Dictionary = raw_effect as Dictionary
+		var status_id: String = String(effect.get("status", ""))
+		if status_id.is_empty():
+			continue
+		result.append({
+			"id": status_id,
+			"name_key": "status_%s_name" % status_id,
+			"stacks": maxi(int(effect.get("stack_count", 1)), 1),
+			"remaining": maxf(float(effect.get("remaining", 0.0)), 0.0),
+		})
+	return result
 
 
 func _restore_status_snapshot(snapshot_data: Dictionary) -> void:

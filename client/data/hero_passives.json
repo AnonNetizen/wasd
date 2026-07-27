@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "passives": [
+    {
+      "id": "passive_primary_a_guard",
+      "name_key": "passive_primary_a_guard_name",
+      "desc_key": "passive_primary_a_guard_desc",
+      "effect": "element_damage_taken_multiplier",
+      "params": {
+        "element_id": "element_primary_a",
+        "multiplier": 0.6
+      }
+    },
+    {
+      "id": "passive_primary_b_guard",
+      "name_key": "passive_primary_b_guard_name",
+      "desc_key": "passive_primary_b_guard_desc",
+      "effect": "element_damage_taken_multiplier",
+      "params": {
+        "element_id": "element_primary_b",
+        "multiplier": 0.6
+      }
+    }
+  ]
+}

@@ -20,6 +20,8 @@ const CAMERA_FEEDBACK_PATH: String = "res://data/camera_feedback.json"
 const VISUAL_EFFECTS_PATH: String = "res://data/visual_effects.json"
 const PRESENTATION_PROFILES_PATH: String = "res://data/presentation_profiles.json"
 const CHARACTERS_PATH: String = "res://data/characters.json"
+const ELEMENTS_PATH: String = "res://data/elements.json"
+const HERO_PASSIVES_PATH: String = "res://data/hero_passives.json"
 const WEAPONS_PATH: String = "res://data/weapons.json"
 const ENEMIES_PATH: String = "res://data/enemies.csv"
 const ENEMY_AI_PROFILES_PATH: String = "res://data/enemy_ai_profiles.json"
@@ -45,17 +47,30 @@ const GEAR_MOD_FUSION_COSTS_PATH: String = "res://data/gear_mod_fusion_costs.csv
 const INT_STATS: Array[String] = ["bullet_count", "pierce_count"]
 const NON_NEGATIVE_STATS: Array[String] = [
 	"damage",
-	"damage_invulnerability_duration",
 	"health_regen",
 	"player_separation_radius",
 	"pickup_range",
 	"luck",
 	"armor",
+	"max_shield",
 	"lifesteal_ratio",
 	"wall_pierce",
 ]
-const POSITIVE_STATS: Array[String] = ["max_hp", "move_speed", "fire_rate", "bullet_speed", "bullet_range", "pickup_orb_speed", "crit_mult"]
-const RATIO_STATS: Array[String] = ["crit_chance", "resist_fire", "resist_poison", "resist_lightning", "lifesteal_ratio"]
+const POSITIVE_STATS: Array[String] = [
+	"max_hp",
+	"max_energy",
+	"move_speed",
+	"ability_strength",
+	"ability_range",
+	"ability_efficiency",
+	"ability_duration",
+	"fire_rate",
+	"bullet_speed",
+	"bullet_range",
+	"pickup_orb_speed",
+	"crit_mult",
+]
+const RATIO_STATS: Array[String] = ["crit_chance", "lifesteal_ratio"]
 const WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "pierce_count", "wall_pierce", "crit_chance", "crit_mult"]
 const REQUIRED_WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count"]
 
@@ -145,6 +160,9 @@ func validate_project_data() -> bool:
 	is_valid = _validate_presentation_profile_references(
 		presentation_profile_ids
 	) and is_valid
+	is_valid = _validate_elements_json(locale_keys) and is_valid
+	is_valid = _validate_hero_passives_json(locale_keys) and is_valid
+	var hero_passive_ids: Dictionary = _collect_hero_passive_ids()
 	is_valid = _validate_weapons_json(locale_keys) and is_valid
 	var weapon_ids: Dictionary = _collect_weapon_ids()
 	is_valid = _validate_enemy_ai_profiles_json() and is_valid
@@ -167,7 +185,14 @@ func validate_project_data() -> bool:
 	is_valid = _validate_skills_json(locale_keys) and is_valid
 	var skill_ids: Dictionary = _collect_skill_ids()
 	is_valid = _validate_credits_json(locale_keys) and is_valid
-	is_valid = _validate_characters_json(locale_keys, weapon_ids, active_item_ids, consumable_ids, skill_ids) and is_valid
+	is_valid = _validate_characters_json(
+		locale_keys,
+		weapon_ids,
+		active_item_ids,
+		consumable_ids,
+		skill_ids,
+		hero_passive_ids
+	) and is_valid
 	var character_ids: Dictionary = _collect_character_ids()
 	is_valid = _validate_growth_csv() and is_valid
 	is_valid = _validate_growth_pools(locale_keys) and is_valid
@@ -962,14 +987,237 @@ func _validate_csv_profile_references(
 	return is_valid
 
 
-func _validate_characters_json(locale_keys: Dictionary, weapon_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary) -> bool:
+func _validate_elements_json(locale_keys: Dictionary) -> bool:
+	var data: Variant = load_json(ELEMENTS_PATH)
+	if not data is Dictionary:
+		return _schema_fail(ELEMENTS_PATH, "root", "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_exact_int(
+		ELEMENTS_PATH,
+		"schema_version",
+		payload.get("schema_version"),
+		1
+	) and is_valid
+	is_valid = _require_registered(
+		ELEMENTS_PATH,
+		"neutral_element_id",
+		payload.get("neutral_element_id"),
+		"elements"
+	) != "" and is_valid
+	if not payload.get("unmatched_result") is String:
+		is_valid = _schema_fail(
+			ELEMENTS_PATH,
+			"unmatched_result",
+			"String"
+		) and is_valid
+	var elements: Array = _require_array(
+		ELEMENTS_PATH,
+		"elements",
+		payload.get("elements")
+	)
+	var seen: Dictionary = {}
+	_last_schema_counts["elements"] = elements.size()
+	for index: int in range(elements.size()):
+		var field: String = "elements[%d]" % index
+		var raw_element: Variant = elements[index]
+		if not raw_element is Dictionary:
+			is_valid = _schema_fail(ELEMENTS_PATH, field, "Dictionary") and is_valid
+			continue
+		var element: Dictionary = raw_element as Dictionary
+		var element_id: String = _require_registered(
+			ELEMENTS_PATH,
+			"%s.id" % field,
+			element.get("id"),
+			"elements"
+		)
+		if not element_id.is_empty():
+			if seen.has(element_id):
+				is_valid = _schema_fail(
+					ELEMENTS_PATH,
+					"%s.id" % field,
+					"unique element id"
+				) and is_valid
+			seen[element_id] = true
+		is_valid = _require_locale_key(
+			ELEMENTS_PATH,
+			"%s.name_key" % field,
+			element.get("name_key"),
+			locale_keys
+		) and is_valid
+		var kind: String = String(element.get("kind", ""))
+		if not ["neutral", "primary", "composite"].has(kind):
+			is_valid = _schema_fail(
+				ELEMENTS_PATH,
+				"%s.kind" % field,
+				"neutral, primary, or composite"
+			) and is_valid
+		is_valid = _validate_registered_string_array(
+			ELEMENTS_PATH,
+			"%s.components" % field,
+			element.get("components", []),
+			"elements",
+			true
+		) and is_valid
+	for registered_element: Variant in contract_values("elements"):
+		if not seen.has(String(registered_element)):
+			is_valid = _schema_fail(
+				ELEMENTS_PATH,
+				"elements",
+				"definition for %s" % String(registered_element)
+			) and is_valid
+	var combinations: Array = _require_array(
+		ELEMENTS_PATH,
+		"combinations",
+		payload.get("combinations")
+	)
+	var seen_pairs: Dictionary = {}
+	for index: int in range(combinations.size()):
+		var field: String = "combinations[%d]" % index
+		var raw_combination: Variant = combinations[index]
+		if not raw_combination is Dictionary:
+			is_valid = _schema_fail(ELEMENTS_PATH, field, "Dictionary") and is_valid
+			continue
+		var combination: Dictionary = raw_combination as Dictionary
+		var left: String = _require_registered(
+			ELEMENTS_PATH,
+			"%s.left" % field,
+			combination.get("left"),
+			"elements"
+		)
+		var right: String = _require_registered(
+			ELEMENTS_PATH,
+			"%s.right" % field,
+			combination.get("right"),
+			"elements"
+		)
+		is_valid = _require_registered(
+			ELEMENTS_PATH,
+			"%s.result" % field,
+			combination.get("result"),
+			"elements"
+		) != "" and is_valid
+		var pair: Array[String] = [left, right]
+		pair.sort()
+		var pair_key: String = "|".join(pair)
+		if not pair_key.is_empty() and seen_pairs.has(pair_key):
+			is_valid = _schema_fail(
+				ELEMENTS_PATH,
+				field,
+				"unique unordered element pair"
+			) and is_valid
+		seen_pairs[pair_key] = true
+	_last_schema_counts["element_combinations"] = combinations.size()
+	return is_valid
+
+
+func _validate_hero_passives_json(locale_keys: Dictionary) -> bool:
+	var data: Variant = load_json(HERO_PASSIVES_PATH)
+	if not data is Dictionary:
+		return _schema_fail(HERO_PASSIVES_PATH, "root", "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	is_valid = _require_exact_int(
+		HERO_PASSIVES_PATH,
+		"schema_version",
+		payload.get("schema_version"),
+		1
+	) and is_valid
+	var passives: Array = _require_array(
+		HERO_PASSIVES_PATH,
+		"passives",
+		payload.get("passives")
+	)
+	var seen: Dictionary = {}
+	_last_schema_counts["hero_passives"] = passives.size()
+	for index: int in range(passives.size()):
+		var field: String = "passives[%d]" % index
+		var raw_passive: Variant = passives[index]
+		if not raw_passive is Dictionary:
+			is_valid = _schema_fail(
+				HERO_PASSIVES_PATH,
+				field,
+				"Dictionary"
+			) and is_valid
+			continue
+		var passive: Dictionary = raw_passive as Dictionary
+		var passive_id: String = _require_registered(
+			HERO_PASSIVES_PATH,
+			"%s.id" % field,
+			passive.get("id"),
+			"hero_passive_ids"
+		)
+		if not passive_id.is_empty():
+			if seen.has(passive_id):
+				is_valid = _schema_fail(
+					HERO_PASSIVES_PATH,
+					"%s.id" % field,
+					"unique passive id"
+				) and is_valid
+			seen[passive_id] = true
+		is_valid = _require_locale_key(
+			HERO_PASSIVES_PATH,
+			"%s.name_key" % field,
+			passive.get("name_key"),
+			locale_keys
+		) and is_valid
+		is_valid = _require_locale_key(
+			HERO_PASSIVES_PATH,
+			"%s.desc_key" % field,
+			passive.get("desc_key"),
+			locale_keys
+		) and is_valid
+		is_valid = _require_registered(
+			HERO_PASSIVES_PATH,
+			"%s.effect" % field,
+			passive.get("effect"),
+			"effects"
+		) != "" and is_valid
+		var params: Variant = passive.get("params")
+		if not params is Dictionary:
+			is_valid = _schema_fail(
+				HERO_PASSIVES_PATH,
+				"%s.params" % field,
+				"Dictionary"
+			) and is_valid
+			continue
+		var params_dict: Dictionary = params as Dictionary
+		is_valid = _require_registered(
+			HERO_PASSIVES_PATH,
+			"%s.params.element_id" % field,
+			params_dict.get("element_id"),
+			"elements"
+		) != "" and is_valid
+		is_valid = _require_number(
+			HERO_PASSIVES_PATH,
+			"%s.params.multiplier" % field,
+			params_dict.get("multiplier"),
+			0.0,
+			1.0
+		) and is_valid
+	return is_valid
+
+
+func _validate_characters_json(
+	locale_keys: Dictionary,
+	weapon_ids: Dictionary,
+	active_item_ids: Dictionary,
+	consumable_ids: Dictionary,
+	skill_ids: Dictionary,
+	hero_passive_ids: Dictionary
+) -> bool:
 	var data: Variant = load_json(CHARACTERS_PATH)
 	if not data is Dictionary:
 		return _schema_fail(CHARACTERS_PATH, "root", "Dictionary")
 
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_int(CHARACTERS_PATH, "schema_version", payload.get("schema_version"), 2, 2) and is_valid
+	is_valid = _require_exact_int(
+		CHARACTERS_PATH,
+		"schema_version",
+		payload.get("schema_version"),
+		3
+	) and is_valid
 	var characters: Array = _require_array(CHARACTERS_PATH, "characters", payload.get("characters"))
 	if characters.is_empty():
 		is_valid = _schema_fail(CHARACTERS_PATH, "characters", "non-empty Array") and is_valid
@@ -1002,7 +1250,74 @@ func _validate_characters_json(locale_keys: Dictionary, weapon_ids: Dictionary, 
 			is_valid = _schema_fail(CHARACTERS_PATH, "%s.tags" % field, "tag_character") and is_valid
 		is_valid = _validate_registered_string_array(CHARACTERS_PATH, "%s.capabilities" % field, character_dict.get("capabilities", []), "capabilities", true) and is_valid
 		is_valid = _require_non_empty_string(CHARACTERS_PATH, "%s.control_profile" % field, character_dict.get("control_profile")) and is_valid
-		is_valid = _validate_character_starting_loadout("%s.starting_loadout" % field, character_dict.get("starting_loadout"), weapon_ids, active_item_ids, consumable_ids, skill_ids) and is_valid
+		is_valid = _require_registered(
+			CHARACTERS_PATH,
+			"%s.element_id" % field,
+			character_dict.get("element_id"),
+			"elements"
+		) != "" and is_valid
+		var passive_id: String = _require_registered(
+			CHARACTERS_PATH,
+			"%s.passive_id" % field,
+			character_dict.get("passive_id"),
+			"hero_passive_ids"
+		)
+		if not passive_id.is_empty() and not hero_passive_ids.has(passive_id):
+			is_valid = _schema_fail(
+				CHARACTERS_PATH,
+				"%s.passive_id" % field,
+				"passive defined in hero_passives.json"
+			) and is_valid
+		var hero_skill_ids: Array = _require_array(
+			CHARACTERS_PATH,
+			"%s.hero_skill_ids" % field,
+			character_dict.get("hero_skill_ids")
+		)
+		if hero_skill_ids.size() != 2:
+			is_valid = _schema_fail(
+				CHARACTERS_PATH,
+				"%s.hero_skill_ids" % field,
+				"Array with exactly two skill ids"
+			) and is_valid
+		var seen_hero_skills: Dictionary = {}
+		for skill_index: int in range(hero_skill_ids.size()):
+			var skill_field: String = "%s.hero_skill_ids[%d]" % [
+				field,
+				skill_index,
+			]
+			var skill_id: String = _require_registered(
+				CHARACTERS_PATH,
+				skill_field,
+				hero_skill_ids[skill_index],
+				"skill_ids"
+			)
+			if skill_id.is_empty():
+				is_valid = false
+				continue
+			if seen_hero_skills.has(skill_id):
+				is_valid = _schema_fail(
+					CHARACTERS_PATH,
+					skill_field,
+					"unique hero skill id"
+				) and is_valid
+			seen_hero_skills[skill_id] = true
+			if not skill_ids.has(skill_id):
+				is_valid = _schema_fail(
+					CHARACTERS_PATH,
+					skill_field,
+					"skill defined in skills.json"
+				) and is_valid
+		is_valid = _validate_character_palette(
+			"%s.palette" % field,
+			character_dict.get("palette")
+		) and is_valid
+		is_valid = _validate_character_starting_loadout(
+			"%s.starting_loadout" % field,
+			character_dict.get("starting_loadout"),
+			weapon_ids,
+			active_item_ids,
+			consumable_ids
+		) and is_valid
 		is_valid = _validate_character_skill_resources("%s.skill_resources" % field, character_dict.get("skill_resources", [])) and is_valid
 		var base_stats: Variant = character_dict.get("base_stats")
 		if not base_stats is Dictionary or (base_stats as Dictionary).is_empty():
@@ -1015,7 +1330,34 @@ func _validate_characters_json(locale_keys: Dictionary, weapon_ids: Dictionary, 
 	return is_valid
 
 
-func _validate_character_starting_loadout(field: String, data: Variant, weapon_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary) -> bool:
+func _validate_character_palette(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(CHARACTERS_PATH, field, "Dictionary")
+	var palette: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	for color_key: String in ["primary", "secondary", "accent"]:
+		var value: Variant = palette.get(color_key)
+		is_valid = _require_non_empty_string(
+			CHARACTERS_PATH,
+			"%s.%s" % [field, color_key],
+			value
+		) and is_valid
+		if value is String and not Color.html_is_valid(String(value)):
+			is_valid = _schema_fail(
+				CHARACTERS_PATH,
+				"%s.%s" % [field, color_key],
+				"valid HTML color"
+			) and is_valid
+	return is_valid
+
+
+func _validate_character_starting_loadout(
+	field: String,
+	data: Variant,
+	weapon_ids: Dictionary,
+	active_item_ids: Dictionary,
+	consumable_ids: Dictionary
+) -> bool:
 	if not data is Dictionary:
 		return _schema_fail(CHARACTERS_PATH, field, "Dictionary")
 	var loadout: Dictionary = data as Dictionary
@@ -1040,19 +1382,12 @@ func _validate_character_starting_loadout(field: String, data: Variant, weapon_i
 			seen_consumables[consumable_id] = true
 			if not consumable_ids.has(consumable_id):
 				is_valid = _schema_fail(CHARACTERS_PATH, item_field, "consumable defined in consumables.json") and is_valid
-	var starting_skills: Array = _require_array(CHARACTERS_PATH, "%s.skill_ids" % field, loadout.get("skill_ids", []))
-	var seen_skills: Dictionary = {}
-	for index: int in range(starting_skills.size()):
-		var skill_field: String = "%s.skill_ids[%d]" % [field, index]
-		var skill_id: String = _require_registered(CHARACTERS_PATH, skill_field, starting_skills[index], "skill_ids")
-		if skill_id.is_empty():
-			is_valid = false
-			continue
-		if seen_skills.has(skill_id):
-			is_valid = _schema_fail(CHARACTERS_PATH, skill_field, "unique skill id") and is_valid
-		seen_skills[skill_id] = true
-		if not skill_ids.has(skill_id):
-			is_valid = _schema_fail(CHARACTERS_PATH, skill_field, "skill defined in skills.json") and is_valid
+	if loadout.has("skill_ids"):
+		is_valid = _schema_fail(
+			CHARACTERS_PATH,
+			"%s.skill_ids" % field,
+			"removed field; use character.hero_skill_ids"
+		) and is_valid
 	return is_valid
 
 
@@ -1072,13 +1407,21 @@ func _validate_character_skill_resources(field: String, data: Variant) -> bool:
 			if seen.has(resource_id):
 				is_valid = _schema_fail(CHARACTERS_PATH, "%s.id" % resource_field, "unique skill resource id") and is_valid
 			seen[resource_id] = true
-		is_valid = _require_number(CHARACTERS_PATH, "%s.max" % resource_field, resource_dict.get("max"), 0.0, null, true) and is_valid
-		is_valid = _require_number(CHARACTERS_PATH, "%s.start" % resource_field, resource_dict.get("start"), 0.0) and is_valid
+		var max_stat: String = _require_registered(
+			CHARACTERS_PATH,
+			"%s.max_stat" % resource_field,
+			resource_dict.get("max_stat"),
+			"stats"
+		)
+		is_valid = not max_stat.is_empty() and is_valid
+		is_valid = _require_number(
+			CHARACTERS_PATH,
+			"%s.start_ratio" % resource_field,
+			resource_dict.get("start_ratio"),
+			0.0,
+			1.0
+		) and is_valid
 		is_valid = _require_number(CHARACTERS_PATH, "%s.regen_per_second" % resource_field, resource_dict.get("regen_per_second"), 0.0) and is_valid
-		var max_value: Variant = resource_dict.get("max")
-		var start_value: Variant = resource_dict.get("start")
-		if (max_value is int or max_value is float) and (start_value is int or start_value is float) and float(start_value) > float(max_value):
-			is_valid = _schema_fail(CHARACTERS_PATH, "%s.start" % resource_field, "<= max") and is_valid
 	return is_valid
 
 
@@ -1145,7 +1488,7 @@ func _validate_weapon_projectile(field: String, data: Variant) -> bool:
 	var projectile: Dictionary = data as Dictionary
 	var is_valid: bool = true
 	is_valid = _require_registered(WEAPONS_PATH, "%s.pool_id" % field, projectile.get("pool_id"), "pool_ids") != "" and is_valid
-	is_valid = _require_registered(WEAPONS_PATH, "%s.damage_type" % field, projectile.get("damage_type"), "damage_types") != "" and is_valid
+	is_valid = _require_registered(WEAPONS_PATH, "%s.element_id" % field, projectile.get("element_id"), "elements") != "" and is_valid
 	is_valid = _require_number(WEAPONS_PATH, "%s.hit_radius" % field, projectile.get("hit_radius"), 0.0, null, true) and is_valid
 	is_valid = _require_number(WEAPONS_PATH, "%s.muzzle_distance" % field, projectile.get("muzzle_distance"), 0.0, null, true) and is_valid
 	is_valid = _require_number(WEAPONS_PATH, "%s.lifetime" % field, projectile.get("lifetime"), 0.0, null, true) and is_valid
@@ -1246,8 +1589,8 @@ func _validate_enemy_ai_movement(field: String, data: Variant) -> bool:
 	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_hit_radius", 0.0, true) and is_valid
 	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_lifetime", 0.0, true) and is_valid
 	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_muzzle_distance", 0.0, false) and is_valid
-	if payload.has("ranged_projectile_damage_type"):
-		is_valid = _require_registered(ENEMY_AI_PROFILES_PATH, "%s.ranged_projectile_damage_type" % field, payload.get("ranged_projectile_damage_type"), "damage_types") != "" and is_valid
+	if payload.has("ranged_projectile_element_id"):
+		is_valid = _require_registered(ENEMY_AI_PROFILES_PATH, "%s.ranged_projectile_element_id" % field, payload.get("ranged_projectile_element_id"), "elements") != "" and is_valid
 	return is_valid
 
 
@@ -1328,7 +1671,8 @@ func _validate_enemies_csv(locale_keys: Dictionary, enemy_ai_profile_ids: Dictio
 		is_valid = _require_csv_int(ENEMIES_PATH, "%s.max_hp" % field, row.get("max_hp"), 1) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.move_speed" % field, row.get("move_speed"), 0.0, null, true) and is_valid
 		is_valid = _require_csv_int(ENEMIES_PATH, "%s.contact_damage" % field, row.get("contact_damage"), 0) and is_valid
-		is_valid = _require_registered(ENEMIES_PATH, "%s.contact_damage_type" % field, row.get("contact_damage_type"), "damage_types") != "" and is_valid
+		is_valid = _require_registered(ENEMIES_PATH, "%s.element_id" % field, row.get("element_id"), "elements") != "" and is_valid
+		is_valid = _require_csv_number(ENEMIES_PATH, "%s.contact_interval" % field, row.get("contact_interval"), 0.0, null, true) and is_valid
 		is_valid = _require_csv_int(ENEMIES_PATH, "%s.exp_reward" % field, row.get("exp_reward"), 0) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.hit_radius" % field, row.get("hit_radius"), 0.0, null, true) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.separation_radius" % field, row.get("separation_radius"), 0.0) and is_valid
@@ -1360,7 +1704,7 @@ func _validate_hazards_csv(locale_keys: Dictionary) -> bool:
 			is_valid = _schema_fail(HAZARDS_PATH, "%s.tags" % field, "tag_hazard") and is_valid
 		is_valid = _require_registered(HAZARDS_PATH, "%s.pool_id" % field, row.get("pool_id"), "pool_ids") != "" and is_valid
 		is_valid = _require_csv_int(HAZARDS_PATH, "%s.damage" % field, row.get("damage"), 0) and is_valid
-		is_valid = _require_registered(HAZARDS_PATH, "%s.damage_type" % field, row.get("damage_type"), "damage_types") != "" and is_valid
+		is_valid = _require_registered(HAZARDS_PATH, "%s.element_id" % field, row.get("element_id"), "elements") != "" and is_valid
 		is_valid = _require_csv_number(HAZARDS_PATH, "%s.trigger_interval" % field, row.get("trigger_interval"), 0.0, null, true) and is_valid
 		is_valid = _require_csv_int(HAZARDS_PATH, "%s.radius_tiles" % field, row.get("radius_tiles"), 1) and is_valid
 		is_valid = _require_csv_number(HAZARDS_PATH, "%s.duration" % field, row.get("duration"), 0.0) and is_valid
@@ -1542,7 +1886,12 @@ func _validate_skills_json(locale_keys: Dictionary) -> bool:
 
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_int(SKILLS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	is_valid = _require_exact_int(
+		SKILLS_PATH,
+		"schema_version",
+		payload.get("schema_version"),
+		2
+	) and is_valid
 	var skills: Array = _require_array(SKILLS_PATH, "skills", payload.get("skills"))
 	if skills.is_empty():
 		is_valid = _schema_fail(SKILLS_PATH, "skills", "non-empty Array") and is_valid
@@ -1572,6 +1921,10 @@ func _validate_skills_json(locale_keys: Dictionary) -> bool:
 		is_valid = _require_number(SKILLS_PATH, "%s.cooldown" % field, skill_dict.get("cooldown"), 0.0) and is_valid
 		is_valid = _validate_skill_costs("%s.costs" % field, skill_dict.get("costs")) and is_valid
 		is_valid = _validate_skill_targeting("%s.targeting" % field, skill_dict.get("targeting")) and is_valid
+		is_valid = _validate_skill_scaling(
+			"%s.scaling" % field,
+			skill_dict.get("scaling")
+		) and is_valid
 		is_valid = _validate_skill_effects("%s.effects" % field, skill_dict.get("effects")) and is_valid
 	return is_valid
 
@@ -1620,6 +1973,28 @@ func _validate_skill_targeting(field: String, data: Variant) -> bool:
 	return is_valid
 
 
+func _validate_skill_scaling(field: String, data: Variant) -> bool:
+	if not data is Dictionary:
+		return _schema_fail(SKILLS_PATH, field, "Dictionary")
+	var scaling: Dictionary = data as Dictionary
+	var is_valid: bool = true
+	for stat_field: String in [
+		"cost_stat",
+		"radius_stat",
+		"duration_stat",
+		"strength_stat",
+	]:
+		if not scaling.has(stat_field):
+			continue
+		is_valid = _require_registered(
+			SKILLS_PATH,
+			"%s.%s" % [field, stat_field],
+			scaling.get(stat_field),
+			"stats"
+		) != "" and is_valid
+	return is_valid
+
+
 func _validate_skill_effects(field: String, data: Variant) -> bool:
 	var effects: Array = _require_array(SKILLS_PATH, field, data)
 	var is_valid: bool = true
@@ -1640,7 +2015,7 @@ func _validate_skill_effects(field: String, data: Variant) -> bool:
 		if effect_id == "skill_effect_damage":
 			var params_dict: Dictionary = params as Dictionary
 			is_valid = _require_number(SKILLS_PATH, "%s.params.amount" % effect_field, params_dict.get("amount"), 0.0, null, true) and is_valid
-			is_valid = _require_registered(SKILLS_PATH, "%s.params.damage_type" % effect_field, params_dict.get("damage_type"), "damage_types") != "" and is_valid
+			is_valid = _require_registered(SKILLS_PATH, "%s.params.element_id" % effect_field, params_dict.get("element_id"), "elements") != "" and is_valid
 		if effect_id == "skill_effect_apply_status":
 			var status_params: Dictionary = params as Dictionary
 			is_valid = _require_registered(SKILLS_PATH, "%s.params.status" % effect_field, status_params.get("status"), "status_effects") != "" and is_valid
@@ -1651,14 +2026,76 @@ func _validate_skill_effects(field: String, data: Variant) -> bool:
 				is_valid = _require_number(SKILLS_PATH, "%s.params.magnitude" % effect_field, status_params.get("magnitude")) and is_valid
 			if status_params.has("tick_interval"):
 				is_valid = _require_number(SKILLS_PATH, "%s.params.tick_interval" % effect_field, status_params.get("tick_interval"), 0.0) and is_valid
-			if status_params.has("damage_type"):
-				is_valid = _require_registered(SKILLS_PATH, "%s.params.damage_type" % effect_field, status_params.get("damage_type"), "damage_types") != "" and is_valid
+			if status_params.has("magnitude_cap"):
+				is_valid = _require_number(SKILLS_PATH, "%s.params.magnitude_cap" % effect_field, status_params.get("magnitude_cap"), 0.0) and is_valid
+			if status_params.has("max_stacks"):
+				is_valid = _require_int(SKILLS_PATH, "%s.params.max_stacks" % effect_field, status_params.get("max_stacks"), 1) and is_valid
+			if status_params.has("modifiers"):
+				is_valid = _validate_modifiers(
+					SKILLS_PATH,
+					"%s.params.modifiers" % effect_field,
+					status_params.get("modifiers"),
+					false
+				) and is_valid
+			if status_params.has("element_id"):
+				is_valid = _require_registered(SKILLS_PATH, "%s.params.element_id" % effect_field, status_params.get("element_id"), "elements") != "" and is_valid
 			elif _status_params_has_damage_tick(status_params):
-				is_valid = _schema_fail(SKILLS_PATH, "%s.params.damage_type" % effect_field, "registered damage_type when magnitude and tick_interval are positive") and is_valid
+				is_valid = _schema_fail(SKILLS_PATH, "%s.params.element_id" % effect_field, "registered element_id when magnitude and tick_interval are positive") and is_valid
 		if effect_id == "skill_effect_weapon_modifiers":
 			var modifier_params: Dictionary = params as Dictionary
 			is_valid = _require_number(SKILLS_PATH, "%s.params.duration" % effect_field, modifier_params.get("duration"), 0.0, null, true) and is_valid
 			is_valid = _validate_modifiers(SKILLS_PATH, "%s.params.modifiers" % effect_field, modifier_params.get("modifiers"), false) and is_valid
+		if effect_id == "skill_effect_actor_modifiers":
+			var actor_modifier_params: Dictionary = params as Dictionary
+			is_valid = _require_number(
+				SKILLS_PATH,
+				"%s.params.duration" % effect_field,
+				actor_modifier_params.get("duration"),
+				0.0,
+				null,
+				true
+			) and is_valid
+			is_valid = _require_registered(
+				SKILLS_PATH,
+				"%s.params.stack_rule" % effect_field,
+				actor_modifier_params.get("stack_rule"),
+				"status_stack_rules"
+			) != "" and is_valid
+			is_valid = _validate_modifiers(
+				SKILLS_PATH,
+				"%s.params.modifiers" % effect_field,
+				actor_modifier_params.get("modifiers"),
+				false
+			) and is_valid
+		if effect_id == "skill_effect_deploy_barrier":
+			var barrier_params: Dictionary = params as Dictionary
+			is_valid = _require_registered(
+				SKILLS_PATH,
+				"%s.params.pool_id" % effect_field,
+				barrier_params.get("pool_id"),
+				"pool_ids"
+			) != "" and is_valid
+			for number_field: String in ["radius", "hp"]:
+				is_valid = _require_number(
+					SKILLS_PATH,
+					"%s.params.%s" % [effect_field, number_field],
+					barrier_params.get(number_field),
+					0.0,
+					null,
+					true
+				) and is_valid
+			is_valid = _require_int(
+				SKILLS_PATH,
+				"%s.params.max_active" % effect_field,
+				barrier_params.get("max_active"),
+				1
+			) and is_valid
+			if String(barrier_params.get("recast_policy", "")) != "replace":
+				is_valid = _schema_fail(
+					SKILLS_PATH,
+					"%s.params.recast_policy" % effect_field,
+					"replace"
+				) and is_valid
 	return is_valid
 
 
@@ -2869,6 +3306,20 @@ func _collect_character_ids() -> Dictionary:
 	for character: Variant in characters:
 		if character is Dictionary and (character as Dictionary).get("id") is String:
 			ids[String((character as Dictionary).get("id"))] = true
+	return ids
+
+
+func _collect_hero_passive_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(HERO_PASSIVES_PATH)
+	if not data is Dictionary:
+		return ids
+	var passives: Variant = (data as Dictionary).get("passives")
+	if not passives is Array:
+		return ids
+	for passive: Variant in passives:
+		if passive is Dictionary and (passive as Dictionary).get("id") is String:
+			ids[String((passive as Dictionary).get("id"))] = true
 	return ids
 
 

@@ -19,7 +19,7 @@
 | 让技能施加状态 | `docs/代码/skill_system.md` 的 `skill_effect_apply_status` |
 | 让新实体受状态影响 | 对应实体脚本的 `apply_status_effect()` / owned tag API，参考 `player.gd` 与 `enemy.gd` |
 | 调查沉默没有移除 | `StatusEffectComponent._tick_effects()`、`_expire_effect()` 与 tag owner 的 `remove_owned_tag()` |
-| 调查 DoT 不掉血 | `StatusEffect.damage_type` / `magnitude` / `tick_interval`、`StatusEffectComponent._tick_damage()` 与 `Combat.damage_applied` |
+| 调查 DoT 不掉血 | `StatusEffect.element_id` / `magnitude` / `tick_interval`、`StatusEffectComponent._tick_damage()` 与 `Combat.damage_applied` |
 | 改状态快照 | `snapshot()` / `restore_snapshot()`，同时看 `SkillSystem.snapshot()`、`Player.snapshot()` 与 `Enemy.snapshot()` |
 
 ## 代码位置
@@ -44,11 +44,13 @@
 
 | 阶段 | 发生什么 | 关键 API |
 |------|----------|----------|
-| 构造状态 | 调用方创建 `StatusEffect`，用 `setup(status_id, params, source)` 规范化持续时间、叠加规则、magnitude、tick interval、damage_type 和 granted ability tags | `StatusEffect.setup()` |
+| 构造状态 | 调用方创建 `StatusEffect`，用 `setup(status_id, params, source)` 规范化持续时间、叠加规则、magnitude、tick interval、element、属性修饰器、易伤来源过滤和 granted ability tags | `StatusEffect.setup()` |
 | 施加状态 | 组件复制运行时状态，按 `status_id` 或独立实例 key 找到当前状态，并按 `stack_rule` 合并或替换 | `StatusEffectComponent.apply()` |
 | 授予标签 | 新状态生效时调用 ability tag owner 的 `add_owned_tag(tag_id)`；替换、过期和清空时调用 `remove_owned_tag(tag_id)` | `_register_effect_tags()`、`_release_effect_tags()` |
 | 推进时间 | 仅在 `GameState.PLAYING` 下用 `GameClock.delta_scaled(delta)` 扣减剩余时间；暂停、升级选择和 game over 不推进 | `_physics_process()` |
-| DoT tick | 当状态同时具备正 `magnitude`、正 `tick_interval` 和已登记 `damage_type` 时，按 `tick_remaining` 触发 `Combat.apply_damage()`，并在 `DamageInfo.flags` 写入 `is_dot` | `_tick_damage()`、`_apply_tick_damage()` |
+| DoT tick | 当状态同时具备正 `magnitude`、正 `tick_interval` 和已登记 `element_id` 时，按 `tick_remaining` 触发 `Combat.apply_damage()`，并在 `DamageInfo.flags` 写入 `is_dot` | `_tick_damage()`、`_apply_tick_damage()` |
+| 属性修饰 | `stat_multiplier(stat_id)` 将减速与加速按来源规则合成；最强减速刷新、同来源加速覆盖，最终倍率相乘 | `stat_multiplier()` |
+| 易伤 | `incoming_damage_multiplier(source_team)` 只对匹配来源队伍放大；初始易伤限定 `team_player`，每层 10%、最多 5 层 | `incoming_damage_multiplier()` |
 | 过期清理 | 剩余时间归零后释放该状态授予的 tags，删除状态，并发出 `effect_expired` | `_expire_effect()` |
 | 快照恢复 | 保存状态数组、key、剩余时间、tick 计时、DoT 伤害类型、队伍归因和授予 tags；恢复时可选择是否重新授予 tags，避免和实体 `owned_tag_counts` 双计数 | `snapshot()`、`restore_snapshot()` |
 
@@ -56,7 +58,7 @@
 
 | 名称 | 输入 | 输出 | 约束 |
 |------|------|------|------|
-| `StatusEffect.setup(effect_id, params, source_node)` | 状态 id、参数、来源节点 | `Resource` | `duration > 0`；`stack_rule` / `damage_type` / `granted_ability_tags` 必须来自生成常量；DoT 必须同时有正 `magnitude`、正 `tick_interval` 和 `damage_type` |
+| `StatusEffect.setup(effect_id, params, source_node)` | 状态 id、参数、来源节点 | `Resource` | `duration > 0`；`stack_rule` / `element_id` / `granted_ability_tags` 必须来自生成常量；DoT 必须同时有正 `magnitude`、正 `tick_interval` 和 `element_id` |
 | `StatusEffect.copy_runtime()` | 无 | `Resource` | 复制运行时字段，避免调用方复用同一个 Resource 实例导致状态串扰 |
 | `StatusEffect.is_valid()` | 无 | `bool` | 只接受已登记 status、已登记 stack rule、正持续时间和正剩余时间 |
 | `StatusEffect.snapshot()` / `restore_from_snapshot(snapshot_data)` | JSON 友好字典 | `Dictionary` / `Resource` | 不保存 NodePath；`source` 不进入快照 |
@@ -78,9 +80,9 @@
 
 - 状态 id 来自 `docs/词表与契约.md` §9-A；当前内置包含 `burn`、`poison`、`bleed`、`freeze`、`slow`、`mark`、`silence`。
 - 叠加规则来自 §9-B：`REPLACE`、`REFRESH`、`ADD_DURATION`、`INDEPENDENT`、`MAX_MAGNITUDE`。
-- DoT 伤害类型来自 §9 `damage_type`；`burn` 当前使用 `fire`，并通过 `DamageInfo.flags=["is_dot"]` 标记持续伤害。
+- DoT 元素来自 §9 `element_id`，现有内容默认使用 `element_neutral`，并通过 `DamageInfo.flags=["is_dot"]` 标记持续伤害。
 - 状态授予的 ability tags 来自 §12-G；当前 `silence` 通过 `ability_tag_silenced` 阻断技能释放。
-- `skill_effect_apply_status` 的 `params` 至少包含 `status`、`duration`、`stack_rule`、`granted_ability_tags`；可选 `magnitude`、`tick_interval`、`damage_type`。当 `magnitude` 与 `tick_interval` 都为正时，DataLoader 和 `tools/validate_data.py` 要求 `damage_type` 已登记。
+- `skill_effect_apply_status` 的 `params` 至少包含 `status`、`duration`、`stack_rule`、`granted_ability_tags`；可选 `magnitude`、`tick_interval`、`element_id`、`modifiers` 与易伤来源参数。当 `magnitude` 与 `tick_interval` 都为正时，DataLoader 和 `tools/validate_data.py` 要求 `element_id` 已登记。
 - 状态快照只保存 JSON 友好标量和数组，不保存源节点、目标节点、计时器对象或信号连接；DoT 会保存 `tick_remaining`、`source_team` 和 `target_team`，避免续局后 tick 节奏或击杀归因漂移。
 
 ## 依赖
@@ -91,7 +93,7 @@
 
 ## 扩展点
 
-- 加 DoT：新增状态 id 与 effect primitive 后，数据传入 `damage_type`、`magnitude` 和 `tick_interval`；状态组件 tick 触发 `Combat.apply_damage()`，并在 `DamageInfo.flags` 标记 `is_dot`。不要为 `burn`、`poison` 等各写一套计时器。
+- 加 DoT：新增状态 id 与 effect primitive 后，数据传入 `element_id`、`magnitude` 和 `tick_interval`；状态组件 tick 触发 `Combat.apply_damage()`，并在 `DamageInfo.flags` 标记 `is_dot`。不要为不同状态各写一套计时器。
 - 加减速 / 增伤标记：状态组件后续应接 `ModifierEngine` 或统一 modifier 注入层，不直接改实体属性字段。
 - 加免疫 / 抵抗：优先新增可复用查询接口或 tag / capability，不在某个状态 id 上写特判。
 - 加视觉表现：通过状态 id 映射到特效池、颜色叠加或 cue，不让业务状态逻辑直接管理长生命周期视觉节点。
@@ -114,7 +116,7 @@
 | 返回 `invalid_status_effect` | `status` / `stack_rule` 是否登记；`duration` / `remaining` 是否大于 0 |
 | 沉默后技能仍可释放 | `granted_ability_tags` 是否包含 `ability_tag_silenced`；owner 是否已配置；`SkillSystem.activation.blocked_tags` 是否包含该 tag |
 | 技能命中敌人但状态没生效 | 目标是否在 `active_enemies`、是否位于 `active_parent` 下，目标是否实现 `apply_status_effect()`；`l1-smoke` 的真实 Enemy 状态用例是否通过 |
-| burn 已施加但不掉血 | `params.damage_type` 是否登记且非空、`magnitude` / `tick_interval` 是否为正、目标是否实现 `receive_damage(info)`，`Combat.damage_applied` 是否出现 `is_dot` flag |
+| DoT 已施加但不掉血 | `params.element_id` 是否登记且非空、`magnitude` / `tick_interval` 是否为正、目标是否实现 `receive_damage(info)`，`Combat.damage_applied` 是否出现 `is_dot` flag |
 | 状态过期但 tag 还在 | `_release_effect_tags()` 是否被调用；是否存在多个来源同时持有同一 tag 计数 |
 | Enemy 复用后仍带旧状态 | `Enemy.configure()`、`_pool_release()` 与 `_pool_reset()` 是否调用状态清理；是否绕过 `PoolManager.acquire()` / `release()` |
 | 续局后 tag 双倍计数 | 对应实体 `restore_snapshot()` 是否在已有 `owned_tag_counts` 时用 `grant_existing_tags=false` 恢复状态 |

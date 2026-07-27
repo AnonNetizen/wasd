@@ -157,7 +157,7 @@
         "ranged_cooldown": 1.35,
         "ranged_initial_cooldown": 0.45,
         "ranged_projectile_damage": 48.0,
-        "ranged_projectile_damage_type": "physical",
+        "ranged_projectile_element_id": "element_neutral",
         "ranged_projectile_speed": 360.0,
         "ranged_projectile_range": 620.0,
         "ranged_projectile_hit_radius": 7.0,

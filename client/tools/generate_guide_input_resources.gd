@@ -27,7 +27,11 @@ func _create_actions() -> void:
 	_save_action(&"pointer_position", GUIDEAction.GUIDEActionValueType.AXIS_2D, false)
 	for action_id: StringName in [
 		&"fire",
-		&"use_active_item",
+		&"skill_1",
+		&"skill_2",
+		&"skill_3",
+		&"skill_4",
+		&"dash",
 		&"interact",
 		&"show_stats_panel",
 		&"pause",
@@ -92,12 +96,28 @@ func _gameplay_mappings() -> Array[GUIDEActionMapping]:
 		_remappable_input(_mouse_button(MOUSE_BUTTON_LEFT)),
 		_remappable_input(_joy_axis(JOY_AXIS_TRIGGER_RIGHT)),
 	]))
-	mappings.append(_mapping(&"use_active_item", [
+	mappings.append(_mapping(&"skill_1", [
+		_remappable_input(_mouse_button(MOUSE_BUTTON_RIGHT)),
+		_remappable_input(_joy_axis(JOY_AXIS_TRIGGER_LEFT)),
+	]))
+	mappings.append(_mapping(&"skill_2", [
+		_remappable_input(_key(KEY_SHIFT)),
+		_remappable_input(_joy_button(JOY_BUTTON_LEFT_SHOULDER)),
+	]))
+	mappings.append(_mapping(&"skill_3", [
+		_remappable_input(_key(KEY_E)),
+		_remappable_input(_joy_button(JOY_BUTTON_RIGHT_SHOULDER)),
+	]))
+	mappings.append(_mapping(&"skill_4", [
+		_remappable_input(_key(KEY_R)),
+		_remappable_input(_joy_button(JOY_BUTTON_Y)),
+	]))
+	mappings.append(_mapping(&"dash", [
 		_remappable_input(_key(KEY_SPACE)),
 		_remappable_input(_joy_button(JOY_BUTTON_A)),
 	]))
 	mappings.append(_mapping(&"interact", [
-		_remappable_input(_key(KEY_E)),
+		_remappable_input(_key(KEY_F)),
 		_remappable_input(_joy_button(JOY_BUTTON_X)),
 	]))
 	mappings.append(_mapping(&"show_stats_panel", [

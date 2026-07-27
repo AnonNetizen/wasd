@@ -399,7 +399,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	run_loop.call("_restore_bullet_snapshots", [{
 		"position": _vector_to_dict(bullet_position),
 		"damage": 0.0,
-		"damage_type": "",
+		"element_id": "",
 		"damage_target_groups": [],
 		"hit_radius": 0.0,
 		"remaining_life": 90.0,
@@ -463,10 +463,10 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 	# Save while the completed objective module is still active. Restore must not recreate
 	# its destroyed target with default HP before applying the interest-point snapshot.
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
-	_expect(int(snapshot.get("schema_version", 0)) == 4, "module run snapshot should use schema v4")
-	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v4 should save")
+	_expect(int(snapshot.get("schema_version", 0)) == 5, "module run snapshot should use schema v5")
+	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v5 should save")
 	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, SAVE_KINDS.RUN)
-	_expect(not loaded.is_empty(), "module run v4 should load")
+	_expect(not loaded.is_empty(), "module run v5 should load")
 	if loaded.is_empty():
 		return
 	var saved_hash: String = String((snapshot.get("module_world", {}) as Dictionary).get("map_hash", ""))
@@ -593,7 +593,7 @@ func _expect_bullet_terrain_rules(run_loop: Node) -> void:
 	var base_snapshot: Dictionary = {
 		"position": _vector_to_dict(Vector2(-160.0, -160.0)),
 		"damage": 0.0,
-		"damage_type": "",
+		"element_id": "",
 		"damage_target_groups": ["module_wall_smoke_targets"],
 		"hit_radius": 8.0,
 		"remaining_life": 5.0,
@@ -646,7 +646,7 @@ func _expect_bullet_terrain_rules(run_loop: Node) -> void:
 		STATS.PIERCE_COUNT: 0,
 		STATS.WALL_PIERCE: 1.0,
 	}, {
-		"damage_type": "",
+		"element_id": "",
 		"damage_target_groups": ["module_wall_smoke_targets"],
 		"hit_radius": 8.0,
 		"lifetime": 5.0,

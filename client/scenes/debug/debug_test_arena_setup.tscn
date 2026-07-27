@@ -74,6 +74,12 @@ layout_mode = 2
 [node name="CharacterOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/Selectors"]
 layout_mode = 2
 
+[node name="SubHeroLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Selectors"]
+layout_mode = 2
+
+[node name="SubHeroOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/Selectors"]
+layout_mode = 2
+
 [node name="WeaponLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/Selectors"]
 layout_mode = 2
 
