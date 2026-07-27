@@ -111,7 +111,8 @@ func _run() -> void:
 		_expect(player_camera.get("zoom") == Vector2.ONE, "PlayerCamera should keep the established 1:1 zoom")
 	_expect_camera_preserves_screen_axis_scale(player)
 	_expect(_find_node_by_name(player, "Camera3D") == null, "Player should not rely on an internal Camera3D for the formal top-down view")
-	await _expect_mouse_aim_uses_canvas_transform(player)
+	await _expect_mouse_aim_uses_fixed_screen_center(player)
+	await _expect_weapon_recoil_runtime(player, camera_controller)
 	_expect(_find_node_by_name(run_loop, "WorldBackground") != null, "WorldBackground should provide movement reference")
 	_expect(_find_node_by_name(run_loop, "MapManager") != null, "finite MapManager should be mounted")
 	_expect(_map_summary_has_finite_bounds(run_loop), "MapManager should expose finite map bounds")
@@ -904,7 +905,7 @@ func _expect_camera_preserves_screen_axis_scale(player: Node2D) -> void:
 	)
 
 
-func _expect_mouse_aim_uses_canvas_transform(player: Node2D) -> void:
+func _expect_mouse_aim_uses_fixed_screen_center(player: Node2D) -> void:
 	var screen_offset: Vector2 = Vector2(180.0, -90.0)
 	var viewport_position: Vector2 = get_viewport().get_visible_rect().size * 0.5 + screen_offset
 	var pointer_event: InputEventMouseMotion = InputEventMouseMotion.new()
@@ -917,19 +918,268 @@ func _expect_mouse_aim_uses_canvas_transform(player: Node2D) -> void:
 	for _index: int in range(AIM_FRAMES):
 		await get_tree().physics_frame
 
-	var screen_to_world: Transform2D = get_viewport().get_canvas_transform().affine_inverse()
 	var captured_viewport_position: Vector2 = InputService.pointer_viewport_position()
-	var expected_direction: Vector2 = ((screen_to_world * captured_viewport_position) - player.global_position).normalized()
+	var expected_direction: Vector2 = (
+		captured_viewport_position
+		- get_viewport().get_visible_rect().size * 0.5
+	).normalized()
 	var actual_direction: Vector2 = player.get("aim_direction")
 	var aim_distance: float = actual_direction.distance_to(expected_direction)
 	_expect(
 		aim_distance < 0.02,
-		"mouse aim should respect the current canvas transform actual=%s expected=%s distance=%.4f" % [
+		"mouse aim should use the fixed viewport center actual=%s expected=%s distance=%.4f" % [
 			actual_direction,
 			expected_direction,
 			aim_distance,
 		]
 	)
+	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, false)
+	await get_tree().physics_frame
+	_expect(
+		(player.get("aim_direction") as Vector2).distance_to(
+			expected_direction
+		) < 0.02,
+		"screen shake setting should not change pointer aim direction"
+	)
+	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true)
+
+
+func _expect_weapon_recoil_runtime(
+	player: Node2D,
+	camera_controller: Node
+) -> void:
+	var weapon_system: Node = player.get_node_or_null("WeaponSystem")
+	_expect(weapon_system != null, "weapon recoil smoke requires WeaponSystem")
+	if weapon_system == null:
+		return
+	_release_active_bullets()
+	var original_rng_snapshot: Dictionary = RNG.snapshot()
+	var original_player_snapshot: Dictionary = player.call("snapshot")
+	var original_weapon_snapshot: Dictionary = weapon_system.call("snapshot")
+	var fired_contexts: Array[Dictionary] = []
+	var capture_context: Callable = func(context: Dictionary) -> void:
+		fired_contexts.append(context.duplicate(true))
+	weapon_system.connect("weapon_fired", capture_context)
+
+	var center_direction: Vector2 = player.get("aim_direction")
+	RNG.set_run_seed(7331)
+	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true)
+	camera_controller.call(
+		"play_feedback",
+		"weapon_recoil_shake",
+		{"recoil_ratio": 0.0}
+	)
+	_expect(
+		not bool(
+			camera_controller.call("is_weapon_recoil_shake_emitting")
+		),
+		"zero recoil should not start weapon camera feedback"
+	)
+	weapon_system.call("_fire_once")
+	_expect(
+		fired_contexts.size() == 1,
+		"one trigger pull should emit one weapon_fired context"
+	)
+	var first_context: Dictionary = (
+		fired_contexts[0]
+		if not fired_contexts.is_empty()
+		else {}
+	)
+	_expect(
+		is_equal_approx(float(first_context.get("recoil", 0.0)), 20.0)
+		and absf(
+			float(first_context.get("spread_angle_degrees", 0.0))
+			- 60.0 * pow(0.2, 1.5)
+		) < 0.001
+		and is_equal_approx(
+			float(first_context.get("kickback_initial_speed", 0.0)),
+			70.0
+		),
+		"weapon_fired should expose the resolved recoil snapshot"
+	)
+	_expect(
+		camera_controller != null
+		and bool(
+			camera_controller.call("is_weapon_recoil_shake_emitting")
+		),
+		"weapon fire should trigger the dedicated recoil camera emitter"
+	)
+	var expected_base_amplitude: float = 6.0 * pow(0.2, 0.75)
+	_expect(
+		absf(
+			float(
+				camera_controller.call(
+					"weapon_recoil_shake_amplitude"
+				)
+			)
+			- expected_base_amplitude
+		) < 0.001,
+		"weapon recoil camera amplitude should scale from the firing context"
+	)
+	camera_controller.call(
+		"play_feedback",
+		"weapon_recoil_shake",
+		{"recoil_ratio": 0.1}
+	)
+	_expect(
+		absf(
+			float(
+				camera_controller.call(
+					"weapon_recoil_shake_amplitude"
+				)
+			)
+			- expected_base_amplitude
+		) < 0.001,
+		"weaker repeated recoil should keep the stronger active amplitude"
+	)
+	camera_controller.call(
+		"play_feedback",
+		"weapon_recoil_shake",
+		{"recoil_ratio": 0.5}
+	)
+	_expect(
+		absf(
+			float(
+				camera_controller.call(
+					"weapon_recoil_shake_amplitude"
+				)
+			)
+			- 6.0 * pow(0.5, 0.75)
+		) < 0.001,
+		"stronger repeated recoil should refresh to the stronger amplitude"
+	)
+	_expect(
+		(player.call("weapon_recoil_velocity") as Vector2).dot(
+			center_direction
+		) < 0.0,
+		"weapon fire should add a backward player impulse"
+	)
+	var first_bullets: Array[Node] = get_tree().get_nodes_in_group(
+		"active_bullets"
+	)
+	_expect(
+		first_bullets.size() == 1,
+		"basic weapon fire should spawn one projectile"
+	)
+	var first_direction: Vector2 = Vector2.ZERO
+	if not first_bullets.is_empty():
+		var first_bullet: Node2D = first_bullets[0] as Node2D
+		var first_snapshot: Dictionary = first_bullet.call("snapshot")
+		var velocity_dict: Dictionary = first_snapshot.get(
+			"velocity",
+			{}
+		) as Dictionary
+		first_direction = Vector2(
+			float(velocity_dict.get("x", 0.0)),
+			float(velocity_dict.get("y", 0.0))
+		).normalized()
+		var muzzle_offset: Vector2 = (
+			first_bullet.global_position - player.global_position
+		)
+		_expect(
+			muzzle_offset.distance_to(center_direction * 24.0) < 0.01,
+			"spread should not move the central muzzle position"
+		)
+		_expect(
+			absf(rad_to_deg(center_direction.angle_to(first_direction)))
+			<= float(
+				first_context.get("spread_angle_degrees", 0.0)
+			) * 0.5 + 0.001,
+			"projectile direction should remain inside the resolved spread cone"
+		)
+	_release_active_bullets()
+
+	player.call("restore_snapshot", original_player_snapshot)
+	RNG.set_run_seed(7331)
+	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, false)
+	weapon_system.call("_fire_once")
+	var disabled_bullets: Array[Node] = get_tree().get_nodes_in_group(
+		"active_bullets"
+	)
+	var disabled_direction: Vector2 = Vector2.ZERO
+	if not disabled_bullets.is_empty():
+		var disabled_snapshot: Dictionary = disabled_bullets[0].call(
+			"snapshot"
+		)
+		var disabled_velocity: Dictionary = disabled_snapshot.get(
+			"velocity",
+			{}
+		) as Dictionary
+		disabled_direction = Vector2(
+			float(disabled_velocity.get("x", 0.0)),
+			float(disabled_velocity.get("y", 0.0))
+		).normalized()
+	_expect(
+		disabled_direction.is_equal_approx(first_direction),
+		"screen shake setting should not alter deterministic projectile spread"
+	)
+	_expect(
+		not bool(
+			camera_controller.call("is_weapon_recoil_shake_emitting")
+		),
+		"disabled screen shake should suppress recoil camera feedback"
+	)
+	_expect(
+		(player.call("weapon_recoil_velocity") as Vector2).dot(
+			center_direction
+		) < 0.0,
+		"disabled screen shake should not suppress gameplay kickback"
+	)
+	_release_active_bullets()
+
+	weapon_system.call("restore_snapshot", original_weapon_snapshot)
+	weapon_system.call(
+		"apply_modifiers",
+		[
+			{
+				"stat": STATS.SPREAD_ANGLE_MAX,
+				"type": "mult",
+				"value": 0.0,
+			},
+		]
+	)
+	RNG.set_run_seed(9917)
+	weapon_system.call("_fire_once")
+	var next_roll_after_zero_spread: float = RNG.combat.randf()
+	_release_active_bullets()
+	RNG.set_run_seed(9917)
+	RNG.combat.randf()
+	var expected_next_roll: float = RNG.combat.randf()
+	_expect(
+		is_equal_approx(next_roll_after_zero_spread, expected_next_roll),
+		"zero spread should still consume one RNG.combat roll per projectile"
+	)
+
+	weapon_system.call("restore_snapshot", original_weapon_snapshot)
+	weapon_system.call(
+		"apply_modifiers",
+		[
+			{
+				"stat": STATS.BULLET_COUNT,
+				"type": "add",
+				"value": 2.0,
+			},
+		]
+	)
+	var context_count_before_multishot: int = fired_contexts.size()
+	player.call("restore_snapshot", original_player_snapshot)
+	weapon_system.call("_fire_once")
+	_expect(
+		fired_contexts.size() == context_count_before_multishot + 1,
+		"multi-projectile fire should still emit one recoil context"
+	)
+	_expect(
+		get_tree().get_nodes_in_group("active_bullets").size() == 3,
+		"bullet_count should draw and spawn each projectile independently"
+	)
+	_release_active_bullets()
+
+	if weapon_system.is_connected("weapon_fired", capture_context):
+		weapon_system.disconnect("weapon_fired", capture_context)
+	weapon_system.call("restore_snapshot", original_weapon_snapshot)
+	player.call("restore_snapshot", original_player_snapshot)
+	RNG.restore_snapshot(original_rng_snapshot)
+	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true)
 
 
 func _pool_stat(pool_id: String, key: String) -> int:
@@ -1804,6 +2054,18 @@ func _expect_level_up_pause_overlay(run_loop: Node) -> void:
 
 
 func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
+	player.call(
+		"apply_weapon_recoil",
+		player.get("aim_direction") as Vector2,
+		70.0,
+		0.08
+	)
+	var saved_recoil_velocity: Vector2 = player.call(
+		"weapon_recoil_velocity"
+	) as Vector2
+	var saved_recoil_remaining: float = float(
+		player.call("weapon_recoil_remaining")
+	)
 	var saved_position: Vector2 = player.global_position
 	var saved_level: int = int(run_loop.call("current_level"))
 	var saved_xp: int = int(run_loop.call("current_xp"))
@@ -1869,6 +2131,19 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 		}
 
 	_expect(restored_player.global_position.distance_to(saved_position) < 1.0, "continue should restore player position")
+	_expect(
+		(restored_player.call("weapon_recoil_velocity") as Vector2).is_equal_approx(
+			saved_recoil_velocity
+		),
+		"continue should restore active weapon recoil velocity"
+	)
+	_expect(
+		is_equal_approx(
+			float(restored_player.call("weapon_recoil_remaining")),
+			saved_recoil_remaining
+		),
+		"continue should restore active weapon recoil remaining time"
+	)
 	_expect(int(restored_run_loop.call("current_level")) == saved_level, "continue should restore level")
 	_expect(int(restored_run_loop.call("current_xp")) == saved_xp, "continue should restore total xp")
 	_expect(absf(GameClock.now() - saved_time) < 0.2, "continue should restore GameClock time")

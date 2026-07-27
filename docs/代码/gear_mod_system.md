@@ -52,7 +52,9 @@
 | `stack_rule` | 首片使用 `unique_by_id`，同一 loadout 不可装备重复 id |
 | `dismantle` | 分解返还资源；首片为 `gear_mod_dust`，返还量低于一次升级成本 |
 
-掉落表首片使用 `enemy_chaser -> weapon damage Mod -> 1%`，但实现时禁止按 enemy id 写逻辑分支；应由数据表声明 source，再由通用掉落解释器读取。
+当前掉落表包含 `enemy_chaser -> weapon damage Mod`、`enemy_bulwark -> weapon recoil damper`、`enemy_spitter -> weapon spread stabilizer` 三条来源，概率均由 CSV 配置；实现时禁止按 enemy id 写逻辑分支，应由通用掉落解释器读取。
+
+后坐阻尼 Mod 修正 `recoil`，因此会同时改变弹道扩散、玩家后移和武器震屏；扩散稳定 Mod 只修正 `spread_angle_max`。两者的 rank 曲线、drain、掉落和分解返还都只存在于数据。详情 UI 使用通用 modifier 格式化；负乘法效果显示为 `-N%`，不得拼成 `+-N%`，描述正文不得重复硬编码 rank 数值。
 
 当前 F11 数据 / 契约首片已经建立：`gear_mod_weapon_damage_test` 为 `weapon` 槽普通 Mod，rank 0 提供 `damage mult 1.10`，每 rank 额外 `+0.05`，`enemy_chaser` 玩家归因击杀掉落率为 `0.01`，升级消耗 `gear_mod_dust`。
 

@@ -597,8 +597,14 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 			)
 			debug_skill_slots[SKILL_SLOTS.SKILL_1] = debug_primary_skill_id
 			_hero_composition["skill_slots"] = debug_skill_slots
+	var weapons_payload: Dictionary = _dictionary_or_empty(
+		DataLoader.load_json(DataLoader.WEAPONS_PATH)
+	)
+	var recoil_model: Dictionary = _dictionary_or_empty(
+		weapons_payload.get("recoil_model", {})
+	)
 	var weapon: Dictionary = _find_item(
-		_load_array(DataLoader.WEAPONS_PATH, "weapons"),
+		_array_or_empty(weapons_payload.get("weapons", [])),
 		String(loadout.get("weapon_id", ""))
 	)
 
@@ -660,6 +666,8 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_player.call("configure", player_stats)
 	if _player.has_method("configure_runtime_rules"):
 		_player.call("configure_runtime_rules", player_runtime_data)
+	if _player.has_method("configure_weapon_recoil"):
+		_player.call("configure_weapon_recoil", recoil_model)
 	if _player.has_method("configure_element_damage_taken_multipliers"):
 		_player.call(
 			"configure_element_damage_taken_multipliers",
@@ -701,7 +709,13 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	if _weapon_system == null:
 		push_error("[GameplayRunLoop] missing WeaponSystem scene node")
 		return
-	_weapon_system.call("configure", _player, _active_world, weapon)
+	_weapon_system.call(
+		"configure",
+		_player,
+		_active_world,
+		weapon,
+		recoil_model
+	)
 	_connect_weapon_feedback()
 	_configure_skill_system(character)
 	_apply_loadout_modifiers()
@@ -3083,10 +3097,25 @@ func _on_skill_failed(_skill_id: String, result: Dictionary) -> void:
 
 
 func _on_weapon_fired(context: Dictionary) -> void:
+	var feedback_context: Dictionary = context.duplicate(true)
+	feedback_context["camera_controller"] = _camera_controller
+	if _player != null and _player.has_method("apply_weapon_recoil"):
+		var raw_direction: Variant = context.get("direction", Vector2.RIGHT)
+		var shot_direction: Vector2 = (
+			raw_direction
+			if raw_direction is Vector2
+			else Vector2.RIGHT
+		)
+		_player.call(
+			"apply_weapon_recoil",
+			shot_direction,
+			float(context.get("kickback_initial_speed", 0.0)),
+			float(context.get("kickback_duration", 0.0))
+		)
 	_play_feedback(_profile_or_fallback(
 		String(context.get("presentation_profile_id", "")),
 		"presentation_weapon_default"
-	), VFX_CUES.WEAPON_FIRE, context)
+	), VFX_CUES.WEAPON_FIRE, feedback_context)
 
 
 func _on_temporary_modifier_started(snapshot_data: Dictionary) -> void:

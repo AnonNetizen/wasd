@@ -29,7 +29,7 @@
 | 加遗物 / 道具名和描述 | 在 `strings.csv` 加 `relic_*_name` / `relic_*_desc`、`item_*_name` / `item_*_desc`；数据填 `name_key` / `desc_key` |
 | 加技能名和描述 | 在 `strings.csv` 加 `skill_*_name` / `skill_*_desc`；`skills.json` 填 `name_key` / `desc_key`；消耗、范围、效果参数等使用下方配置占位符 |
 | 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，可能调整的数值必须使用命名占位符并由配置注入 |
-| 加装备 Mod / 局外装配 UI 文案 | 在 `strings.csv` 加 `gear_mod_*` / `ui_gear_mod_*` key，例如 Mod 名称、资源名称、标题入口、容量、费用、操作成功 / 失败反馈；UI 代码使用 `tr("ui_xxx")` |
+| 加装备 Mod / 局外装配 UI 文案 | 在 `strings.csv` 加 `gear_mod_*` / `ui_gear_mod_*` key，例如 Mod 名称、资源名称、标题入口、容量、费用、操作成功 / 失败反馈；Mod 描述保持定性，当前 rank 的实际修正值由通用 modifier 摘要显示；UI 代码使用 `tr("ui_xxx")` |
 | 加开发者测试岛文案 | 在 `strings.csv` 加 `ui_debug_test_arena_*` key；该域只供独立 debug/dev_tools scene 的配装、区域标签、控制面板和伤害 HUD 使用，仍须维护 `zh_CN` / `en` 并按英文长度验收 |
 | 加机关 / 危险物名 | 在 `strings.csv` 加 `hazard_*_name`；数据填 `name_key` |
 | 改中文或英文翻译 | 只改对应语言列，不改 key；另一语言由 AI 自动补首版译文后人工复核 |
@@ -232,6 +232,20 @@ relic_sharp_rounds_desc,伤害 +{value},Damage +{value}
 ```
 
 3. 代码显示时通过 key 查译文，不直接读取硬文本。
+
+### 加一个装备 Mod 名称和描述
+
+1. 在 `strings.csv` 新增 `gear_mod_<id>_name` / `gear_mod_<id>_desc`，例如：
+
+```csv
+gear_mod_weapon_recoil_damper_name,反冲阻尼,Recoil Dampener
+gear_mod_weapon_recoil_damper_desc,降低主武器后坐力。,Reduces primary weapon recoil.
+gear_mod_weapon_spread_stabilizer_name,弹道稳定器,Ballistic Stabilizer
+gear_mod_weapon_spread_stabilizer_desc,降低主武器弹道扩散。,Reduces primary weapon projectile spread.
+```
+
+2. `gear_mods.json` 只引用对应 `name_key` / `desc_key`；描述说明用途，不重复写死 rank、倍率或百分比。
+3. 当前 rank 的实际加成或减免由装备 Mod 面板的通用 modifier 摘要格式化，避免数据升级后译文中的数值失真。
 
 ### 新增语言
 

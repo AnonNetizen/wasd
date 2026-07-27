@@ -19,6 +19,8 @@ const VALUES: Array[String] = [
 	"bullet_count",
 	"pierce_count",
 	"wall_pierce",
+	"recoil",
+	"spread_angle_max",
 	"crit_chance",
 	"crit_mult",
 	"pickup_range",
@@ -45,6 +47,8 @@ const BULLET_RANGE: String = "bullet_range"
 const BULLET_COUNT: String = "bullet_count"
 const PIERCE_COUNT: String = "pierce_count"
 const WALL_PIERCE: String = "wall_pierce"
+const RECOIL: String = "recoil"
+const SPREAD_ANGLE_MAX: String = "spread_angle_max"
 const CRIT_CHANCE: String = "crit_chance"
 const CRIT_MULT: String = "crit_mult"
 const PICKUP_RANGE: String = "pickup_range"

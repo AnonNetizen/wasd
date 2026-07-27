@@ -18,10 +18,10 @@
 | 你想做什么 | 改哪里 | 注意 |
 |------------|--------|------|
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
-| 改玩家受伤震屏强度 / 频率 / 时长 | `camera_feedback.json` 的 `player_damage_shake` | 只影响表现；随机走 `RNG.camera_fx`，关闭 `gameplay.screen_shake` 时即时停止 |
+| 改玩家受伤 / 武器后坐力震屏强度、频率或时长 | `camera_feedback.json` 的 `player_damage_shake` / `weapon_recoil_shake` | 只影响表现；随机走 `RNG.camera_fx`，关闭 `gameplay.screen_shake` 时即时停止 |
 | 选择 / 调整视觉效果 | `visual_effects.json`、`presentation_profiles.json` | 内容数据只引用 `presentation_profile_id`；在 Godot 的“VFX 效果库”中预览和绑定，不手抄字符串 |
 | 改英雄主属性 / 被动 / 两个英雄技能 / 配色 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；主英雄提供属性被动和技能 1/2，子英雄只提供强调色和技能 3/4 |
-| 改武器射速 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；子弹池、伤害类型和音频前缀必须来自词表 |
+| 改武器射速 / 后坐力 / 弹道扩散 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；后坐力与基础扩散受根级 `recoil_model` 限制，子弹池、元素和音频前缀必须来自词表 |
 | 改敌人血量 / 速度 / 接触伤害 / 中心间距 | `enemies.csv` | 每个敌人使用独立 `pool_id`，`scene_path` 可复用；颜色与静态轮廓在专属 TSCN 中编辑 |
 | 改敌人对玩家 AI | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；敌人的感知与战斗目标固定为玩家 |
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
@@ -46,10 +46,10 @@
 | 文件 | 状态 | 作用 |
 |------|------|------|
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
-| `camera_feedback.json` | 已建立 | 摄像机表现反馈；当前含玩家有效受伤的 Phantom Camera 位移震屏参数 |
+| `camera_feedback.json` | 已建立 | 摄像机表现反馈；含玩家有效受伤与武器后坐力的 Phantom Camera 位移震屏参数 |
 | `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 技能 / 消耗品 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
 | `characters.json` | 已建立 | 英雄列表：场景、主副配色、基础属性、被动、两个英雄技能和起始携带 |
-| `weapons.json` | 已建立 | 武器与子弹基础配置：射速、弹速、射程、池 id、默认伤害类型 |
+| `weapons.json` | 已建立 | 武器、后坐力 / 弹道扩散模型与子弹基础配置：射速、弹速、射程、池 id、默认元素 |
 | `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
 | `active_items.json` | 已建立 | 主动道具：充能方式、冷却、效果原语与参数 |
 | `skills.json` | 已建立 | 可复用技能：冷却、资源消耗、目标选择和技能效果原语 |
@@ -313,7 +313,7 @@ JSON 示例：
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "player_damage_shake": {
     "amplitude": 8.0,
     "frequency": 20.0,
@@ -322,13 +322,23 @@ JSON 示例：
     "decay_time": 0.12,
     "positional_multiplier_x": 1.0,
     "positional_multiplier_y": 1.0
+  },
+  "weapon_recoil_shake": {
+    "amplitude": 6.0,
+    "amplitude_exponent": 0.75,
+    "frequency": 30.0,
+    "growth_time": 0.005,
+    "duration": 0.02,
+    "decay_time": 0.055,
+    "positional_multiplier_x": 1.0,
+    "positional_multiplier_y": 1.0
   }
 }
 ```
 
 | 字段路径 | 类型 | 单位 / 范围 | 说明 | 调大后的效果 |
 |----------|------|-------------|------|--------------|
-| `schema_version` | int | 当前必须为 `1` | 数据结构版本 | 只在 schema 变更时调整 |
+| `schema_version` | int | 当前必须为 `2` | 数据结构版本 | 只在 schema 变更时调整 |
 | `player_damage_shake.amplitude` | float | px，`>= 0` | 有效玩家伤害的最大位移震幅 | 受击摇动更明显；过高会影响瞬时瞄准可读性 |
 | `player_damage_shake.frequency` | float | Hz，`> 0` | 噪声采样频率 | 抖动更快、更硬 |
 | `player_damage_shake.growth_time` | float | 秒，`> 0` | 从零增长到完整震幅的时间 | 起振更慢、更柔 |
@@ -336,8 +346,16 @@ JSON 示例：
 | `player_damage_shake.decay_time` | float | 秒，`> 0` | 从完整震幅衰减到停止的时间 | 尾音更长 |
 | `player_damage_shake.positional_multiplier_x` | float | `0..1` | 水平位移噪声倍率 | 水平摇动更强 |
 | `player_damage_shake.positional_multiplier_y` | float | `0..1` | 垂直位移噪声倍率 | 垂直摇动更强 |
+| `weapon_recoil_shake.amplitude` | float | px，`>= 0` | `recoil` 达到根级上限时的最大武器震屏振幅 | 后坐力震屏更明显 |
+| `weapon_recoil_shake.amplitude_exponent` | float | `> 0` | 归一化后坐力映射为震幅比例时使用的指数；当前 `0.75` | 小于 `1` 会让低后坐力武器仍保留较清晰的震屏反馈 |
+| `weapon_recoil_shake.frequency` | float | Hz，`> 0` | 武器后坐力震屏的噪声采样频率 | 抖动更快、更硬 |
+| `weapon_recoil_shake.growth_time` | float | 秒，`> 0` | 单次开火震屏从零增长到目标震幅的时间 | 起振更慢、更柔 |
+| `weapon_recoil_shake.duration` | float | 秒，`> 0` | 单次开火保持目标震幅的时间 | 强震动持续更久 |
+| `weapon_recoil_shake.decay_time` | float | 秒，`> 0` | 单次开火震屏从目标震幅衰减到停止的时间 | 尾音更长 |
+| `weapon_recoil_shake.positional_multiplier_x` | float | `0..1` | 水平位移噪声倍率 | 水平摇动更强 |
+| `weapon_recoil_shake.positional_multiplier_y` | float | `0..1` | 垂直位移噪声倍率 | 垂直摇动更强 |
 
-只有 `Combat.damage_applied` 报告玩家伤害实际应用时才触发本配置；敌人受伤、无敌窗拦截或关闭 `gameplay.screen_shake` 都不触发。噪声 seed 走 `RNG.camera_fx`，是与 spawn / drop / combat 隔离的纯表现子流。
+`player_damage_shake` 只有在 `Combat.damage_applied` 报告玩家伤害实际应用时触发；敌人受伤或无敌窗拦截不触发。`weapon_recoil_shake` 由主武器成功开火触发，并按 `weapons.json` 的归一化 `recoil` 计算目标振幅。关闭 `gameplay.screen_shake` 时两种反馈都即时停止；噪声 seed 走 `RNG.camera_fx`，是与 spawn / drop / combat 隔离的纯表现子流。
 
 ## 内容数据通用字段
 
@@ -992,7 +1010,16 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
+  "recoil_model": {
+    "recoil_max": 100.0,
+    "spread_exponent": 1.5,
+    "base_spread_cap": 60.0,
+    "kickback_max_distance": 14.0,
+    "kickback_duration": 0.08,
+    "kickback_velocity_cap": 500.0,
+    "runtime_spread_cap": 180.0
+  },
   "weapons": [
     {
       "id": "weapon_basic_blaster",
@@ -1010,7 +1037,9 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
         "pierce_count": 0,
         "wall_pierce": 0.0,
         "crit_chance": 0.0,
-        "crit_mult": 1.5
+        "crit_mult": 1.5,
+        "recoil": 20.0,
+        "spread_angle_max": 60.0
       },
       "projectile": {
         "pool_id": "bullet_basic",
@@ -1028,7 +1057,14 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `2` | 数据结构版本 |
+| `schema_version` | int | 必须为 `3` | 数据结构版本 |
+| `recoil_model.recoil_max` | number | `> 0`；当前 `100` | 武器基础 `recoil` 的校验上限，也是后坐力强度归一化分母 |
+| `recoil_model.spread_exponent` | number | `> 0`；当前 `1.5` | 归一化后坐力映射为实际弹道扩散比例时使用的指数；大于 `1` 会压低低后坐力区间的扩散 |
+| `recoil_model.base_spread_cap` | number | 度，`> 0`；当前 `60` | 武器基础 `spread_angle_max` 的数据校验上限 |
+| `recoil_model.kickback_max_distance` | number | px，`>= 0`；当前 `14` | `recoil` 达到上限时，玩家单次开火反向冲量的最大目标距离 |
+| `recoil_model.kickback_duration` | number | 秒，`> 0`；当前 `0.08` | 反向冲量换算为速度时使用的持续时间 |
+| `recoil_model.kickback_velocity_cap` | number | px/s，`> 0`；当前 `500` | 单次开火反向冲量速度的绝对上限 |
+| `recoil_model.runtime_spread_cap` | number | 度，`>= base_spread_cap`；当前 `180` | 应用全部修正器后实际完整扩散锥角的绝对上限 |
 | `weapons[].id` | string | 文件内唯一，非空 | 武器 id；角色起始武器和模式武器池引用此 id |
 | `weapons[].name_key` / `desc_key` | string | `weapon_*_name` / `weapon_*_desc` | 武器名称和描述译文 key |
 | `weapons[].default_unlocked` | bool | true / false | 新存档中是否默认可用；后续可接局外解锁 |
@@ -1043,6 +1079,8 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `base_stats.wall_pierce` | number | `>= 0` | 全地形穿透开关；`0` 表示撞墙回收，`>0` 表示忽略地形；发射时快照 |
 | `base_stats.crit_chance` | number | `0.0`~`1.0` | 暴击率 |
 | `base_stats.crit_mult` | number | `> 0` | 暴击倍率 |
+| `base_stats.recoil` | number | `0..recoil_model.recoil_max` | 武器后坐力强度；共同驱动震屏、玩家反向冲量与弹道扩散 |
+| `base_stats.spread_angle_max` | number | 度，`0..recoil_model.base_spread_cap` | 武器在满后坐力下的基础完整扩散锥角上限；运行时仍受 `runtime_spread_cap` 约束 |
 | `projectile.pool_id` | string | 词表 §8 pool id | 使用的子弹对象池 |
 | `projectile.element_id` | string | 词表 §9 element id | 默认战斗元素；旧 `damage_type` 已删除 |
 | `projectile.hit_radius` | number | `> 0` | 命中半径，px |
@@ -1388,7 +1426,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `mods[].dismantle.resource_id` | string | 词表 §13-D | 分解返还资源 |
 | `mods[].dismantle.amount` | int | `>= 0` | 分解返还数量；应低于一次升级成本，避免套利 |
 
-首个测试武器 Mod 目标：提高武器基础 `damage`，由玩家击杀 `enemy_chaser` 时以 `1%` 概率掉落。实现时必须用通用掉落表解释，不在敌人或武器代码中写按 id 分支。
+当前普通武器 Mod 包含基础伤害、后坐力和弹道扩散三类修正。`gear_mod_weapon_recoil_damper` 与 `gear_mod_weapon_spread_stabilizer` 均从 rank 0 的 `0.90` 倍率开始，每 rank 递减 `0.05`，rank 5 为 `0.65`；运行时通过通用 modifier 摘要显示当前 rank 的实际百分比，描述文案不重复写死数值。所有掉落都必须用通用掉落表解释，不在敌人或武器代码中写按 id 分支。
 
 ## `gear_mod_drop_tables.csv`
 
@@ -1401,12 +1439,12 @@ enemy_chaser,gear_mod_weapon_damage_test,0.01,1,999
 
 | 字段 | 类型 | 单位 / 范围 | 说明 |
 |------|------|-------------|------|
-| `source_enemy_id` | string | 必须存在于 `enemies.csv` | 掉落来源敌人；首片为最普通小怪 `enemy_chaser` |
+| `source_enemy_id` | string | 必须存在于 `enemies.csv` | 掉落来源敌人 |
 | `mod_id` | string | 必须存在于 `gear_mods.json` | 掉落的装备 Mod |
-| `drop_chance` | float | `0.0..1.0` | 单次玩家归因击杀掉落概率；首片测试 Mod 为 `0.01` |
+| `drop_chance` | float | `0.0..1.0` | 单次玩家归因击杀掉落概率；当前三个普通武器 Mod 均为 `0.01` |
 | `min_enemy_level` / `max_enemy_level` | int | `>= 1` | 可选等级区间；未实现敌人等级前可先填宽范围 |
 
-掉落随机必须走 `RNG.drop`；怪物互杀、机关击杀或非玩家归因击杀不产出装备 Mod。
+当前基础伤害、后坐力和弹道稳定 Mod 分别由 `enemy_chaser`、`enemy_bulwark`、`enemy_spitter` 以 `1%` 概率掉落。掉落随机必须走 `RNG.drop`；怪物互杀、机关击杀或非玩家归因击杀不产出装备 Mod。
 
 ## `gear_mod_fusion_costs.csv`
 

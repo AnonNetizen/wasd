@@ -1,5 +1,14 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
+  "recoil_model": {
+    "recoil_max": 100.0,
+    "spread_exponent": 1.5,
+    "base_spread_cap": 60.0,
+    "kickback_max_distance": 14.0,
+    "kickback_duration": 0.08,
+    "kickback_velocity_cap": 500.0,
+    "runtime_spread_cap": 180.0
+  },
   "weapons": [
     {
       "id": "weapon_basic_blaster",
@@ -18,7 +27,9 @@
         "pierce_count": 0,
         "wall_pierce": 0.0,
         "crit_chance": 0.0,
-        "crit_mult": 1.5
+        "crit_mult": 1.5,
+        "recoil": 20.0,
+        "spread_angle_max": 60.0
       },
       "projectile": {
         "pool_id": "bullet_basic",

@@ -21,6 +21,8 @@
       "bullet_count",
       "pierce_count",
       "wall_pierce",
+      "recoil",
+      "spread_angle_max",
       "crit_chance",
       "crit_mult",
       "pickup_range",
@@ -269,7 +271,9 @@
       "passive_primary_b_guard"
     ],
     "gear_mod_ids": [
-      "gear_mod_weapon_damage_test"
+      "gear_mod_weapon_damage_test",
+      "gear_mod_weapon_recoil_damper",
+      "gear_mod_weapon_spread_stabilizer"
     ],
     "gear_mod_slots": [
       "hero",

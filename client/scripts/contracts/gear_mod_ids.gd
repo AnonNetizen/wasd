@@ -3,6 +3,10 @@ class_name GearModIds
 
 const VALUES: Array[String] = [
 	"gear_mod_weapon_damage_test",
+	"gear_mod_weapon_recoil_damper",
+	"gear_mod_weapon_spread_stabilizer",
 ]
 
 const GEAR_MOD_WEAPON_DAMAGE_TEST: String = "gear_mod_weapon_damage_test"
+const GEAR_MOD_WEAPON_RECOIL_DAMPER: String = "gear_mod_weapon_recoil_damper"
+const GEAR_MOD_WEAPON_SPREAD_STABILIZER: String = "gear_mod_weapon_spread_stabilizer"

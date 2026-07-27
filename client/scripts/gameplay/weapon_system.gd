@@ -12,6 +12,7 @@ signal weapon_fired(context: Dictionary)
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
+const RECOIL_RESOLVER := preload("res://scripts/data/weapon_recoil_resolver.gd")
 
 var _player: Node2D = null
 var _active_parent: Node = null
@@ -21,6 +22,7 @@ var _stat_additions: Dictionary = {}
 var _stat_multipliers: Dictionary = {}
 var _temporary_modifiers: Array[Dictionary] = []
 var _weapon_data: Dictionary = {}
+var _recoil_model: Dictionary = {}
 var _cooldown_remaining: float = 0.0
 
 
@@ -46,10 +48,16 @@ func _process(delta: float) -> void:
 	_cooldown_remaining = 1.0 / maxf(fire_rate, 0.01)
 
 
-func configure(player: Node2D, active_parent: Node, weapon_data: Dictionary) -> void:
+func configure(
+	player: Node2D,
+	active_parent: Node,
+	weapon_data: Dictionary,
+	recoil_model: Dictionary = {}
+) -> void:
 	_player = player
 	_active_parent = active_parent
 	_weapon_data = weapon_data.duplicate(true)
+	_recoil_model = recoil_model.duplicate(true)
 	_base_stats = _weapon_data.get("base_stats", {}).duplicate(true)
 	_stat_additions.clear()
 	_stat_multipliers.clear()
@@ -139,33 +147,80 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 func _fire_once() -> void:
 	var projectile: Dictionary = _weapon_data.get("projectile", {})
 	var bullet_count: int = int(_runtime_stats.get(STATS.BULLET_COUNT, 1))
+	var center_direction: Vector2 = _center_aim_direction()
+	var recoil_snapshot: Dictionary = RECOIL_RESOLVER.resolve(
+		_runtime_stats,
+		_recoil_model
+	)
+	var half_spread_degrees: float = (
+		float(recoil_snapshot.get("spread_angle_degrees", 0.0)) * 0.5
+	)
 	for _index: int in range(maxi(bullet_count, 1)):
-		_spawn_bullet(_runtime_stats, projectile)
-	weapon_fired.emit({
+		var spread_roll: float = RNG.combat.randf()
+		var spread_offset_degrees: float = lerpf(
+			-half_spread_degrees,
+			half_spread_degrees,
+			spread_roll
+		)
+		var bullet_direction: Vector2 = center_direction.rotated(
+			deg_to_rad(spread_offset_degrees)
+		)
+		_spawn_bullet(
+			_runtime_stats,
+			projectile,
+			center_direction,
+			bullet_direction
+		)
+	var context: Dictionary = {
 		"owner": _player,
 		"world_position": _player.global_position if _player != null else Vector2.ZERO,
-		"direction": _player.get("aim_direction") if _player != null else Vector2.RIGHT,
+		"direction": center_direction,
 		"bullet_count": maxi(bullet_count, 1),
+		"recoil": float(recoil_snapshot.get("recoil", 0.0)),
+		"recoil_ratio": float(recoil_snapshot.get("recoil_ratio", 0.0)),
+		"spread_angle_degrees": float(
+			recoil_snapshot.get("spread_angle_degrees", 0.0)
+		),
+		"kickback_initial_speed": float(
+			recoil_snapshot.get("kickback_initial_speed", 0.0)
+		),
+		"kickback_duration": float(
+			recoil_snapshot.get("kickback_duration", 0.0)
+		),
 		"presentation_profile_id": String(
 			_weapon_data.get("presentation_profile_id", "")
 		),
-	})
+	}
+	weapon_fired.emit(context)
 
 
-func _spawn_bullet(stats: Dictionary, projectile: Dictionary) -> void:
+func _spawn_bullet(
+	stats: Dictionary,
+	projectile: Dictionary,
+	center_direction: Vector2,
+	bullet_direction: Vector2
+) -> void:
 	var pool_id: String = String(projectile.get("pool_id", ""))
 	var raw_node: Node = PoolManager.acquire(pool_id)
 	if not raw_node is Node2D or not raw_node.has_method("configure"):
 		return
 
 	var bullet: Node2D = raw_node as Node2D
-	var raw_direction: Variant = _player.get("aim_direction")
-	var direction: Vector2 = raw_direction if raw_direction is Vector2 else Vector2.RIGHT
-	direction = direction.normalized()
 	var muzzle_distance: float = float(projectile.get("muzzle_distance", 0.0))
-	bullet.global_position = _player.global_position + direction * muzzle_distance
+	bullet.global_position = (
+		_player.global_position + center_direction * muzzle_distance
+	)
 	_reparent_to_active_world(bullet)
-	bullet.call("configure", stats, projectile, direction, _player)
+	bullet.call("configure", stats, projectile, bullet_direction, _player)
+
+
+func _center_aim_direction() -> Vector2:
+	if _player == null:
+		return Vector2.RIGHT
+	var raw_direction: Variant = _player.get("aim_direction")
+	if raw_direction is Vector2 and (raw_direction as Vector2).length_squared() > 0.0:
+		return (raw_direction as Vector2).normalized()
+	return Vector2.RIGHT
 
 
 func _reparent_to_active_world(node: Node) -> void:

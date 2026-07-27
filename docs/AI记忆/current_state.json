@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
   "updated_at": "2026-07-27",
-  "current_phase": "module_flat_ground_first_visit_encounters",
-  "current_status": "ADR #164 已把 F13 正式普通槽收敛为 0° 全开放平地，保留固定起点 / 目标 / 撤离和既有调试模块；模块 schema v3 删除敌人 placement，世界 schema v2 以 first_visit_enemy_spawn 配置 4–6 个敌人、1.5 秒预警和时间解锁权重。首次实际进入非起点槽时从旋转 / 封边后且排除 placement footprint 的空 floor 固化生成计划，暂停 / 卸载冻结、返回不重抽、清空不刷新。Run v5 与 Replay v3 保持版本且不增加旧回放兼容。本任务按 ADR #143 不运行性能 probe。后续工作以用户最后明确指令为准。",
-  "latest_adr": 164,
+  "current_phase": "weapon_recoil_spread_and_control_mods",
+  "current_status": "ADR #165 已让共享武器 recoil 同时驱动固定单发扩散、碰撞安全后移和独立动态震屏；spread_angle_max 可由 Mod 独立修改，基础枪与 recoil_model 均数据驱动。每颗弹丸固定消耗一次 RNG.combat，多弹丸只触发一次 kick / shake；冲刺抑制后移，暂停冻结，Run v5 保存当前冲量。新增后坐阻尼与扩散稳定 Mod，Replay 保持 v3 并更新四条黄金基线。本任务按 ADR #143 未运行性能 probe。后续工作以用户最后明确指令为准。",
+  "latest_adr": 165,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #165 / 武器后坐、扩散与控制 Mod：weapons schema v3 为武器新增 recoil / spread_angle_max，根级 recoil_model 数据化扩散指数、后移和运行时上限；WeaponRecoilResolver 统一解析公式，WeaponSystem 每弹固定消耗 RNG.combat 并保持中心枪口，多弹丸一次扳机只发一次 context。Player 使用碰撞安全线性衰减反冲，冲刺抑制、暂停冻结并由 Run v5 保存；GameplayCameraController 使用独立动态武器 emitter，固定屏幕中心瞄准隔离相机噪声。新增后坐阻尼 / 扩散稳定 Mod、数据驱动掉落与双语文本，修正负百分比格式。Replay 保持 v3，四条黄金回放按新数据指纹重录并通过运行时摘要。",
     "ADR #164 / 全开放平地与空地动态刷怪：新增 11×11 全 floor、无 placement 的 module_flat_ground；正式普通池和非固定 fallback 槽只使用 0° 平地，固定起点 / 目标 / 撤离保持不变。模块 schema v3 彻底删除 module_place_enemy_spawn，世界 schema v2 数据化首次进入数量、1.5 秒预警和敌种时间权重；相邻模块改为边缘开放格交集非空并保留 99×99 flood-fill。ModuleWorldManager 提供稳定空地格心查询，GameplayRunLoop 在首次实际进入非起点槽时用 RNG.spawn 无放回固化敌种 / 位置计划并保存 telegraphing/spawned 状态，暂停 / 卸载冻结、恢复重建 VFX、玩家占位不重抽、清空不刷新。Run v5 / Replay v3 保持版本，黄金基线直接更新而不增加旧回放兼容。",
     "ADR #163 / 静域屏障跨边界拦截：ProjectileBarrier 以线段与圆周交点判定敌弹外→内、内→外，内→内和不穿圆的外→外放行；Bullet 首帧保存射手开火位置，避免枪口生成点跨过屏障。L1 覆盖四种边界关系、盾内敌人命中盾内玩家及双向枪口越界。",
     "ADR #162 / 配置驱动玩家描述：新增 SkillValueResolver 作为 SkillSystem 与描述格式化共用的能力缩放单一实现，SkillDescriptionFormatter 以通用 token 从 skills.json / hero_passives.json 生成中英文技能 / 被动数值；英雄组合卡显示完整四槽描述，当前冷静 / 愤怒描述不再硬编码消耗、范围、生命、幅度、持续时间、层数或被动减免。validate_data 与 DataLoader schema 回归拒绝配置无法提供的 token，四平台规则、GDD、词表、Locale / SkillSystem 文档和测试义务同步。",
@@ -162,6 +163,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-27",
+      "command": "targeted pre-commit; sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lints plus lint self-tests; Python compile; JSON current_state/_kb_index/contracts/golden replays; docs_health_check; git diff --check; Godot 4.7.1 headless boot; L1/Gear Mod/input/settings/runtime/save/actor scene smoke; full/technical module-world smoke; Replay/replay-input smoke; four recaptured Replay v3 golden replay-runner runtime-summary reruns",
+      "result": "passed for ADR #165 weapon recoil, projectile spread, collision-safe kickback, dynamic camera feedback, and control Mods. Formula coverage includes recoil 0/20/25/50/75/100, negative/over-cap clamps and runtime spread cap; runtime coverage includes fixed RNG.combat consumption at zero spread, deterministic cone bounds, central muzzle, one event for multishot, dynamic/disabled shake, fixed-screen-center aim, vector stacking, velocity cap, real wall collision, world bounds, dash suppression, pause freeze and Run v5 restore. Gear Mod smoke covers both control Mods at ranks 0-5, configured drops, bilingual details and negative percentage formatting. All four Replay v3 goldens were intentionally recaptured for the new data fingerprint and rerun successfully. Factual review found and fixed the zero-recoil/amplitude-exponent edge case and added missing wall/rank-curve coverage; no remaining P0/P1/P2 defect was found. Expected injected bad-save/map-hash diagnostics and existing headless shutdown RID/resource leak lines remain. No startup/performance probe or Profiler ran."
+    },
     {
       "date": "2026-07-27",
       "command": "targeted pre-commit; sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lints plus lint self-tests; Python compile; JSON current_state/_kb_index/contracts/golden replays; docs_health_check; git diff --check; module bake check/smoke and Module JSON editor smoke; Godot 4.7.1 headless boot; runtime/save/VFX/replay smoke; module-world full/technical smoke; four recaptured Replay v3 golden replay-runner runtime-summary reruns",

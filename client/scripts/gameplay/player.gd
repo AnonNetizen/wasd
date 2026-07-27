@@ -69,6 +69,10 @@ var _stat_multipliers: Dictionary = {}
 var _status_effect_component: Node = null
 var _temporary_modifiers: Dictionary = {}
 var _presentation: ActorPresentationController = null
+var _weapon_recoil_duration: float = 0.0
+var _weapon_recoil_remaining: float = 0.0
+var _weapon_recoil_velocity: Vector2 = Vector2.ZERO
+var _weapon_recoil_velocity_cap: float = 0.0
 
 
 func _ready() -> void:
@@ -94,10 +98,15 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		return
 
+	var suppress_recoil_movement: bool = is_dashing()
 	_update_defense(scaled_delta)
 	_update_dash_timers(scaled_delta)
 	_update_temporary_modifiers(scaled_delta)
 	_update_health_regen(scaled_delta)
+	var recoil_velocity: Vector2 = _update_weapon_recoil(
+		scaled_delta,
+		suppress_recoil_movement
+	)
 
 	var move_input: Vector2 = InputService.vector(ACTIONS.MOVE, INPUT_PARTICIPANT_ID)
 	var aim_input: Vector2 = InputService.vector(ACTIONS.AIM, INPUT_PARTICIPANT_ID)
@@ -110,7 +119,7 @@ func _physics_process(delta: float) -> void:
 	if _dash_remaining > 0.0:
 		velocity = _dash_direction * _dash_speed
 	else:
-		velocity = move_input * _effective_move_speed()
+		velocity = move_input * _effective_move_speed() + recoil_velocity
 	move_and_slide()
 	_apply_movement_bounds()
 
@@ -132,6 +141,9 @@ func configure(base_stats: Dictionary) -> void:
 	_shield_gate_remaining = 0.0
 	_shield_recharge_delay_remaining = 0.0
 	_temporary_modifiers.clear()
+	_weapon_recoil_duration = 0.0
+	_weapon_recoil_remaining = 0.0
+	_weapon_recoil_velocity = Vector2.ZERO
 	_element_damage_taken_multipliers = _dictionary_or_empty(
 		_base_stats.get("element_damage_taken_multipliers", {})
 	)
@@ -378,6 +390,49 @@ func configure_runtime_rules(player_data: Dictionary) -> void:
 	)
 
 
+func configure_weapon_recoil(recoil_model: Dictionary) -> void:
+	_weapon_recoil_velocity_cap = maxf(
+		float(recoil_model.get("kickback_velocity_cap", 0.0)),
+		0.0
+	)
+
+
+func apply_weapon_recoil(
+	direction: Vector2,
+	initial_speed: float,
+	duration: float
+) -> void:
+	if is_dashing():
+		return
+	if (
+		direction.length_squared() <= 0.0
+		or initial_speed <= 0.0
+		or duration <= 0.0
+		or _weapon_recoil_velocity_cap <= 0.0
+	):
+		return
+	_weapon_recoil_velocity += (
+		-direction.normalized()
+		* minf(initial_speed, _weapon_recoil_velocity_cap)
+	)
+	_weapon_recoil_velocity = _weapon_recoil_velocity.limit_length(
+		_weapon_recoil_velocity_cap
+	)
+	_weapon_recoil_duration = maxf(duration, 0.0)
+	_weapon_recoil_remaining = maxf(
+		_weapon_recoil_remaining,
+		_weapon_recoil_duration
+	)
+
+
+func weapon_recoil_velocity() -> Vector2:
+	return _weapon_recoil_velocity
+
+
+func weapon_recoil_remaining() -> float:
+	return _weapon_recoil_remaining
+
+
 func set_element_damage_taken_multiplier(
 	element_id: String,
 	multiplier: float
@@ -541,6 +596,9 @@ func snapshot() -> Dictionary:
 		"dash_direction": _vector_to_dict(_dash_direction),
 		"dash_invulnerability_remaining": _dash_invulnerability_remaining,
 		"dash_remaining": _dash_remaining,
+		"weapon_recoil_velocity": _vector_to_dict(_weapon_recoil_velocity),
+		"weapon_recoil_remaining": _weapon_recoil_remaining,
+		"weapon_recoil_duration": _weapon_recoil_duration,
 		"element_damage_taken_multipliers": _element_damage_taken_multipliers.duplicate(true),
 		"stat_additions": _stat_additions.duplicate(true),
 		"stat_multipliers": _stat_multipliers.duplicate(true),
@@ -590,6 +648,27 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 		float(snapshot_data.get("dash_remaining", 0.0)),
 		0.0
 	)
+	_weapon_recoil_velocity = _dict_to_vector(
+		snapshot_data.get("weapon_recoil_velocity", {}),
+		Vector2.ZERO
+	).limit_length(_weapon_recoil_velocity_cap)
+	_weapon_recoil_remaining = maxf(
+		float(snapshot_data.get("weapon_recoil_remaining", 0.0)),
+		0.0
+	)
+	_weapon_recoil_duration = maxf(
+		float(snapshot_data.get("weapon_recoil_duration", 0.0)),
+		0.0
+	)
+	if _weapon_recoil_duration <= 0.0 or _weapon_recoil_remaining <= 0.0:
+		_weapon_recoil_duration = 0.0
+		_weapon_recoil_remaining = 0.0
+		_weapon_recoil_velocity = Vector2.ZERO
+	else:
+		_weapon_recoil_remaining = minf(
+			_weapon_recoil_remaining,
+			_weapon_recoil_duration
+		)
 	_element_damage_taken_multipliers = _dictionary_or_empty(
 		snapshot_data.get(
 			"element_damage_taken_multipliers",
@@ -771,6 +850,44 @@ func _update_dash_timers(delta: float) -> void:
 		dash_finished.emit()
 
 
+func _update_weapon_recoil(
+	delta: float,
+	suppress_movement: bool = false
+) -> Vector2:
+	if (
+		_weapon_recoil_remaining <= 0.0
+		or _weapon_recoil_velocity.length_squared() <= 0.0
+		or delta <= 0.0
+	):
+		_weapon_recoil_duration = 0.0
+		_weapon_recoil_remaining = 0.0
+		_weapon_recoil_velocity = Vector2.ZERO
+		return Vector2.ZERO
+	var elapsed: float = minf(delta, _weapon_recoil_remaining)
+	var previous_velocity: Vector2 = _weapon_recoil_velocity
+	var next_remaining: float = maxf(
+		_weapon_recoil_remaining - elapsed,
+		0.0
+	)
+	var remaining_ratio: float = (
+		next_remaining / _weapon_recoil_remaining
+		if _weapon_recoil_remaining > 0.0
+		else 0.0
+	)
+	_weapon_recoil_velocity *= remaining_ratio
+	_weapon_recoil_remaining = next_remaining
+	var average_velocity: Vector2 = (
+		(previous_velocity + _weapon_recoil_velocity) * 0.5
+		* (elapsed / delta)
+	)
+	if _weapon_recoil_remaining <= 0.0:
+		_weapon_recoil_duration = 0.0
+		_weapon_recoil_velocity = Vector2.ZERO
+	if suppress_movement or is_dashing():
+		return Vector2.ZERO
+	return average_velocity
+
+
 func _update_temporary_modifiers(delta: float) -> void:
 	var expired_sources: Array[String] = []
 	for raw_source_id: Variant in _temporary_modifiers.keys():
@@ -904,7 +1021,7 @@ func _ensure_presentation() -> void:
 func _set_pointer_aim_from_viewport_position(viewport_position: Vector2) -> void:
 	var viewport_offset: Vector2 = viewport_position - get_viewport().get_visible_rect().size * 0.5
 	if viewport_offset.length_squared() > MOUSE_AIM_MIN_DISTANCE_SQUARED:
-		_set_aim_direction(InputService.pointer_world_position(get_viewport()) - global_position)
+		_set_aim_direction(viewport_offset)
 
 
 func _apply_movement_bounds() -> void:

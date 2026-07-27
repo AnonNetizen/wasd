@@ -9,6 +9,9 @@ const ELEMENT_RESOLVER_SCRIPT := preload("res://scripts/data/element_resolver.gd
 const HERO_COMPOSITION_RESOLVER_SCRIPT := preload(
 	"res://scripts/data/hero_composition_resolver.gd"
 )
+const WEAPON_RECOIL_RESOLVER_SCRIPT := preload(
+	"res://scripts/data/weapon_recoil_resolver.gd"
+)
 const SKILL_DESCRIPTION_FORMATTER := preload(
 	"res://scripts/data/skill_description_formatter.gd"
 )
@@ -91,9 +94,11 @@ func _run() -> void:
 	_expect_save_manager_roundtrip()
 	_expect_hero_composition_resolution()
 	_expect_config_backed_skill_descriptions()
+	_expect_weapon_recoil_resolution()
 	_expect_combat_damage_path()
 	await _expect_player_defense_layers()
 	await _expect_dash_runtime()
+	await _expect_player_weapon_recoil()
 	await _expect_four_skill_slots_and_efficiency()
 	await _expect_skill_system_aoe_damage()
 	await _expect_entity_status_components()
@@ -154,6 +159,84 @@ func _expect_game_state_rejects_unknown() -> void:
 	var before_state: StringName = GameState.current()
 	_expect(not GameState.can_change_to(&"unknown_state_for_l1"), "GameState should reject unknown states")
 	_expect(GameState.current() == before_state, "GameState should keep current state after unknown transition")
+
+
+func _expect_weapon_recoil_resolution() -> void:
+	var weapons_payload: Dictionary = DataLoader.load_json(
+		DataLoader.WEAPONS_PATH
+	) as Dictionary
+	var recoil_model: Dictionary = weapons_payload.get(
+		"recoil_model",
+		{}
+	) as Dictionary
+	var recoil_values: Array[float] = [
+		0.0,
+		20.0,
+		25.0,
+		50.0,
+		75.0,
+		100.0,
+	]
+	for recoil: float in recoil_values:
+		var stats: Dictionary = {
+			STATS.RECOIL: recoil,
+			STATS.SPREAD_ANGLE_MAX: 60.0,
+		}
+		var resolved: Dictionary = WEAPON_RECOIL_RESOLVER_SCRIPT.resolve(
+			stats,
+			recoil_model
+		)
+		var ratio: float = recoil / 100.0
+		_expect(
+			is_equal_approx(
+				float(resolved.get("spread_angle_degrees", 0.0)),
+				60.0 * pow(ratio, 1.5)
+			),
+			"recoil %s should resolve the configured spread curve" % recoil
+		)
+		_expect(
+			is_equal_approx(
+				float(resolved.get("kickback_distance", 0.0)),
+				14.0 * ratio
+			),
+			"recoil %s should resolve the configured kickback distance" % recoil
+		)
+		_expect(
+			is_equal_approx(
+				float(resolved.get("kickback_initial_speed", 0.0)),
+				2.0 * 14.0 * ratio / 0.08
+			),
+			"recoil %s should resolve the configured initial speed" % recoil
+		)
+	var negative_result: Dictionary = WEAPON_RECOIL_RESOLVER_SCRIPT.resolve(
+		{
+			STATS.RECOIL: -20.0,
+			STATS.SPREAD_ANGLE_MAX: 60.0,
+		},
+		recoil_model
+	)
+	_expect(
+		is_equal_approx(float(negative_result.get("recoil", -1.0)), 0.0),
+		"negative runtime recoil should clamp to zero"
+	)
+	var saturated_result: Dictionary = WEAPON_RECOIL_RESOLVER_SCRIPT.resolve(
+		{
+			STATS.RECOIL: 200.0,
+			STATS.SPREAD_ANGLE_MAX: 360.0,
+		},
+		recoil_model
+	)
+	_expect(
+		is_equal_approx(float(saturated_result.get("recoil", 0.0)), 100.0),
+		"runtime recoil should saturate at recoil_max"
+	)
+	_expect(
+		is_equal_approx(
+			float(saturated_result.get("spread_angle_degrees", 0.0)),
+			180.0
+		),
+		"runtime spread should clamp to the absolute 180 degree cap"
+	)
 
 
 func _expect_save_manager_roundtrip() -> void:
@@ -673,6 +756,156 @@ func _expect_dash_runtime() -> void:
 	_expect(
 		bool(fallback_dash.get("ok", false)),
 		"dash should fall back to aim direction without movement input"
+	)
+	world.queue_free()
+	await get_tree().process_frame
+
+
+func _expect_player_weapon_recoil() -> void:
+	var world: Node2D = Node2D.new()
+	world.name = "L1WeaponRecoilWorld"
+	add_child(world)
+	var player: Node2D = PLAYER_SCENE.instantiate() as Node2D
+	player.name = "L1WeaponRecoilPlayer"
+	world.add_child(player)
+	player.call("configure", _l1_combat_player_stats())
+	var weapons_payload: Dictionary = DataLoader.load_json(
+		DataLoader.WEAPONS_PATH
+	) as Dictionary
+	var recoil_model: Dictionary = weapons_payload.get(
+		"recoil_model",
+		{}
+	) as Dictionary
+	player.call("configure_weapon_recoil", recoil_model)
+	player.call("apply_weapon_recoil", Vector2.RIGHT, 70.0, 0.08)
+	_expect(
+		(player.call("weapon_recoil_velocity") as Vector2).is_equal_approx(
+			Vector2(-70.0, 0.0)
+		),
+		"weapon recoil should add a backward impulse"
+	)
+	var active_snapshot: Dictionary = player.call("snapshot")
+	player.call("configure", _l1_combat_player_stats())
+	player.call("configure_weapon_recoil", recoil_model)
+	player.call("restore_snapshot", active_snapshot)
+	_expect(
+		(player.call("weapon_recoil_velocity") as Vector2).is_equal_approx(
+			Vector2(-70.0, 0.0)
+		),
+		"Player snapshot should restore recoil velocity"
+	)
+	_expect(
+		is_equal_approx(
+			float(player.call("weapon_recoil_remaining")),
+			0.08
+		),
+		"Player snapshot should restore recoil remaining time"
+	)
+
+	GameState.change_state(GameState.PAUSED, {"source": "l1_recoil_pause"})
+	await _wait_physics_frames(3)
+	_expect(
+		is_equal_approx(
+			float(player.call("weapon_recoil_remaining")),
+			0.08
+		),
+		"paused gameplay should freeze weapon recoil"
+	)
+	GameState.change_state(GameState.PLAYING, {"source": "l1_recoil_resume"})
+	var half_step_velocity: Vector2 = player.call(
+		"_update_weapon_recoil",
+		0.04
+	) as Vector2
+	_expect(
+		half_step_velocity.is_equal_approx(Vector2(-52.5, 0.0)),
+		"weapon recoil should use the linear-decay average velocity"
+	)
+	player.call("apply_weapon_recoil", Vector2.DOWN, 100.0, 0.08)
+	var stacked_velocity: Vector2 = player.call(
+		"weapon_recoil_velocity"
+	) as Vector2
+	_expect(
+		stacked_velocity.is_equal_approx(Vector2(-35.0, -100.0)),
+		"successive shots should stack recoil vectors"
+	)
+	for _index: int in range(8):
+		player.call("apply_weapon_recoil", Vector2.LEFT, 500.0, 0.08)
+	_expect(
+		(player.call("weapon_recoil_velocity") as Vector2).length() <= 500.001,
+		"stacked weapon recoil should obey the configured velocity cap"
+	)
+
+	player.call("configure", _l1_combat_player_stats())
+	player.call("configure_weapon_recoil", recoil_model)
+	player.call("apply_weapon_recoil", Vector2.RIGHT, 70.0, 0.08)
+	var dash_result: Dictionary = player.call("try_dash", Vector2.RIGHT)
+	_expect(bool(dash_result.get("ok", false)), "recoil dash test should start a dash")
+	var suppressed_velocity: Vector2 = player.call(
+		"_update_weapon_recoil",
+		0.02
+	) as Vector2
+	_expect(
+		suppressed_velocity.is_zero_approx(),
+		"active dash should suppress recoil movement"
+	)
+	var velocity_before_dash_shot: Vector2 = player.call(
+		"weapon_recoil_velocity"
+	) as Vector2
+	player.call("apply_weapon_recoil", Vector2.UP, 100.0, 0.08)
+	_expect(
+		(player.call("weapon_recoil_velocity") as Vector2).is_equal_approx(
+			velocity_before_dash_shot
+		),
+		"shots fired during dash should not add recoil impulse"
+	)
+	_expect(
+		is_equal_approx(
+			float(player.call("weapon_recoil_remaining")),
+			0.06
+		),
+		"dash should keep recoil decay time moving"
+	)
+
+	player.call("configure", _l1_combat_player_stats())
+	player.call("configure_weapon_recoil", recoil_model)
+	player.global_position = Vector2.ZERO
+	player.call("apply_weapon_recoil", Vector2.RIGHT, 70.0, 0.08)
+	await _wait_physics_frames(8)
+	_expect(
+		player.global_position.x < -2.4
+		and player.global_position.x > -3.2,
+		"stationary base recoil should move the player about 2.8 pixels backward"
+	)
+
+	player.call("configure", _l1_combat_player_stats())
+	player.call("configure_weapon_recoil", recoil_model)
+	player.global_position = Vector2.ZERO
+	var recoil_wall: StaticBody2D = StaticBody2D.new()
+	recoil_wall.position = Vector2(-18.0, 0.0)
+	var recoil_wall_shape: CollisionShape2D = CollisionShape2D.new()
+	var recoil_wall_rectangle: RectangleShape2D = RectangleShape2D.new()
+	recoil_wall_rectangle.size = Vector2(4.0, 200.0)
+	recoil_wall_shape.shape = recoil_wall_rectangle
+	recoil_wall.add_child(recoil_wall_shape)
+	world.add_child(recoil_wall)
+	player.call("apply_weapon_recoil", Vector2.RIGHT, 350.0, 0.08)
+	await _wait_physics_frames(8)
+	_expect(
+		player.global_position.x > -6.0,
+		"weapon recoil should use CharacterBody2D collision and not cross a wall"
+	)
+	recoil_wall.queue_free()
+	await get_tree().process_frame
+
+	player.call("configure", _l1_combat_player_stats())
+	player.call("configure_weapon_recoil", recoil_model)
+	player.call("set_movement_bounds", Rect2(-10.0, -10.0, 20.0, 20.0))
+	player.global_position = Vector2(-10.0, 0.0)
+	player.call("apply_weapon_recoil", Vector2.RIGHT, 350.0, 0.08)
+	await _wait_physics_frames(8)
+	_expect(
+		player.global_position.x >= -10.001,
+		"weapon recoil should respect world movement bounds"
 	)
 	world.queue_free()
 	await get_tree().process_frame

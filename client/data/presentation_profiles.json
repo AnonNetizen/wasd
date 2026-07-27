@@ -195,7 +195,7 @@
             }
           ],
           "audio_id": "",
-          "camera_feedback_id": "",
+          "camera_feedback_id": "weapon_recoil_shake",
           "screen_effect_id": "",
           "hit_stop_profile_id": ""
         }

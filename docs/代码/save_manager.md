@@ -9,7 +9,7 @@
 - 所有存档写入必须包含标准头字段：`version`、`kind`、`slot`、`created_at`、`updated_at`、`game_version`、`data_hash` 和 `payload`。
 - 写入必须先落 `*.tmp`，替换前保留 `*.bak`；加载失败时尝试 `.bak`，仍失败则隔离到 `user://saves/.broken/` 并广播 / 埋点。
 - 当前 F5 首片已由 gameplay runtime 接入真实 `run` 快照：暂停菜单“保存并退出”调用 `SaveManager.save(slot_0, run, payload)`，标题菜单“继续游戏”调用 `load()` 后交给运行时重建节点和 `ui_restore` 恢复点；`SaveManager` 仍只负责可靠读写，不解释玩家、敌人、子弹或 UI 字段。
-- 主／子英雄系统将 `meta` 提升到 v2、`run` 提升到 v5：Meta 保存上次确认组合且保留现有 Gear Mod payload；Run 保存组合、四槽、资源 / 防御、状态、屏障、能量球和接触计时。旧 Run v4 不做玩法迁移，启动流程提示一次后删除。
+- 主／子英雄系统将 `meta` 提升到 v2、`run` 提升到 v5：Meta 保存上次确认组合且保留现有 Gear Mod payload；Run 保存组合、四槽、资源 / 防御、武器后坐冲量、状态、屏障、能量球和接触计时。旧 Run v4 不做玩法迁移，启动流程提示一次后删除。
 - F11 已由 `GearModSystem` 接管真实 `meta` profile：装备 Mod 资源、库存、loadout 和 rank 写入 `meta.gear_mods`；旧死亡结算货币 / 账号经验 / 永久升级运行时代码与旧档补偿路径已删除。`SaveManager` 仍不解释 profile 字段。
 - 玩家偏好不归 `SaveManager` 管，仍由 `Settings` 写入 `user://settings.cfg`。
 
@@ -115,7 +115,7 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 
 `data_hash` 使用稳定序列化：字典按 key 排序，数组按原顺序，数字做整数 / 浮点规范化。写入前会先把 payload 通过 JSON stringify / parse 归一化，再基于归一化 payload 计算 hash 和落盘，避免高精度浮点或 JSON 读回后 `3` / `3.0` 类型差异造成误报。
 
-Run v5 payload 包含：schema version、模式、`main_hero_id` / `sub_hero_id`、组合解析快照、等级 / 经验 / 击杀、`GameClock`、`RNG`、模块世界、刷怪、玩家生命 / 护盾 / 超盾 / 护盾门 / 冲刺、武器、四槽技能与能量、敌人状态与独立接触计时、子弹、机关、经验球、能量球、屏障、兴趣点和 `ui_restore`。模块世界的每槽状态还保存首次进入遭遇的 `telegraphing/spawned`、`remaining_telegraph` 与已经固化的 `enemy_id + world_position` 计划；VFX 节点本身不保存，恢复 / 重新激活时按剩余时间重建。所有对象池实体只保存 JSON 友好活动快照，恢复时重新 acquire；RNG 的大整数仍以字符串保存。
+Run v5 payload 包含：schema version、模式、`main_hero_id` / `sub_hero_id`、组合解析快照、等级 / 经验 / 击杀、`GameClock`、`RNG`、模块世界、刷怪、玩家生命 / 护盾 / 超盾 / 护盾门 / 冲刺、当前武器后坐速度 / 剩余时间 / 总持续时间、武器、四槽技能与能量、敌人状态与独立接触计时、子弹、机关、经验球、能量球、屏障、兴趣点和 `ui_restore`。模块世界的每槽状态还保存首次进入遭遇的 `telegraphing/spawned`、`remaining_telegraph` 与已经固化的 `enemy_id + world_position` 计划；VFX 节点本身不保存，恢复 / 重新激活时按剩余时间重建。所有对象池实体只保存 JSON 友好活动快照，恢复时重新 acquire；RNG 的大整数仍以字符串保存。后坐字段在同一 v5 内新增，缺失时按零冲量恢复。
 
 `run` kind version 2 会在 `SaveManager` 层为 v1 旧 envelope 补齐缺失的结构字段：`schema_version`、`spawn_states`、`player`、`weapon`、`game_clock`、`rng`、`map`、`enemies`、`bullets`、`hazards`、`pickups`。这样早期 F5 run 存档即使缺少可选数组 / 字典，也能加载为结构完整的 payload 后交给 runtime 恢复；旧档没有机关快照时由 runtime 按当前 layout 重新生成。
 

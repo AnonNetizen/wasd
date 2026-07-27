@@ -72,7 +72,11 @@ func play(
 		and raw_camera is Node
 		and (raw_camera as Node).has_method("play_feedback")
 	):
-		(raw_camera as Node).call("play_feedback", camera_feedback_id)
+		(raw_camera as Node).call(
+			"play_feedback",
+			camera_feedback_id,
+			context
+		)
 
 	# hit_stop_profile_id is intentionally data-visible but not executed in schema v1.
 	return handles

@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/gameplay/gameplay_camera_controller.gd" id="1_controller"]
 [ext_resource type="Script" path="res://addons/phantom_camera/scripts/phantom_camera_host/phantom_camera_host.gd" id="2_host"]
@@ -7,6 +7,12 @@
 [ext_resource type="Script" path="res://addons/phantom_camera/scripts/resources/phantom_camera_noise_2d.gd" id="5_noise"]
 
 [sub_resource type="Resource" id="PhantomCameraNoise2D_player_damage"]
+script = ExtResource("5_noise")
+randomize_noise_seed = true
+positional_noise = true
+rotational_noise = false
+
+[sub_resource type="Resource" id="PhantomCameraNoise2D_weapon_recoil"]
 script = ExtResource("5_noise")
 randomize_noise_seed = true
 positional_noise = true
@@ -32,4 +38,9 @@ noise_emitter_layer = 1
 [node name="PlayerDamageShake" type="Node2D" parent="."]
 script = ExtResource("4_emitter")
 noise = SubResource("PhantomCameraNoise2D_player_damage")
+noise_emitter_layer = 1
+
+[node name="WeaponRecoilShake" type="Node2D" parent="."]
+script = ExtResource("4_emitter")
+noise = SubResource("PhantomCameraNoise2D_weapon_recoil")
 noise_emitter_layer = 1

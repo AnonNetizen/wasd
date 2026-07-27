@@ -455,6 +455,33 @@ def main() -> int:
             ],
         ),
         (
+            "weapon recoil cannot exceed recoil model",
+            _mutate_json("client/data/weapons.json", _set_weapon_stat("recoil", 101.0)),
+            [
+                "client/data/weapons.json:weapons[0].base_stats.recoil",
+                "must be <= 100.0",
+            ],
+        ),
+        (
+            "base weapon spread cannot exceed 60 degrees",
+            _mutate_json("client/data/weapons.json", _set_weapon_stat("spread_angle_max", 61.0)),
+            [
+                "client/data/weapons.json:weapons[0].base_stats.spread_angle_max",
+                "must be <= 60.0",
+            ],
+        ),
+        (
+            "runtime spread cap cannot exceed 180 degrees",
+            _mutate_json(
+                "client/data/weapons.json",
+                _set_weapon_recoil_model_value("runtime_spread_cap", 181.0),
+            ),
+            [
+                "client/data/weapons.json:recoil_model.runtime_spread_cap",
+                "must be <= 180.0",
+            ],
+        ),
+        (
             "character starting weapon reference must exist",
             _mutate_json("client/data/characters.json", _set_character_starting_weapon("weapon_missing")),
             [
@@ -1205,6 +1232,32 @@ def main() -> int:
                 "must be > 0.0",
             ],
         ),
+        (
+            "weapon recoil shake exponent must be non-negative",
+            _mutate_json(
+                "client/data/camera_feedback.json",
+                _set_camera_feedback_profile_value(
+                    "weapon_recoil_shake",
+                    "amplitude_exponent",
+                    -0.1,
+                ),
+            ),
+            [
+                "client/data/camera_feedback.json:weapon_recoil_shake.amplitude_exponent",
+                "must be >= 0.0",
+            ],
+        ),
+        (
+            "presentation camera feedback must reference a profile",
+            _mutate_json(
+                "client/data/presentation_profiles.json",
+                _set_weapon_camera_feedback("missing_camera_feedback"),
+            ),
+            [
+                "client/data/presentation_profiles.json:profiles[5].bindings.weapon_fire.camera_feedback_id",
+                "must reference a profile in camera_feedback.json",
+            ],
+        ),
     ]
 
     failures: list[str] = []
@@ -1394,6 +1447,15 @@ def _set_camera_feedback_value(field: str, value: object) -> JsonMutator:
     return mutate
 
 
+def _set_camera_feedback_profile_value(
+    profile_id: str, field: str, value: object
+) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload[profile_id][field] = value
+
+    return mutate
+
+
 def _set_character_name_key(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["characters"][0]["name_key"] = value
@@ -1539,6 +1601,24 @@ def _set_composite_combination_input(payload: dict[str, Any]) -> None:
 def _set_weapon_stat(stat: str, value: object) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["weapons"][0]["base_stats"][stat] = value
+
+    return mutate
+
+
+def _set_weapon_recoil_model_value(field: str, value: object) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["recoil_model"][field] = value
+
+    return mutate
+
+
+def _set_weapon_camera_feedback(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        for profile in payload["profiles"]:
+            if profile.get("id") == "presentation_weapon_default":
+                profile["bindings"]["weapon_fire"]["camera_feedback_id"] = value
+                return
+        raise AssertionError("missing presentation_weapon_default")
 
     return mutate
 

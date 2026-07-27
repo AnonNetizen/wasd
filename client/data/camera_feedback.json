@@ -1,11 +1,21 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "player_damage_shake": {
     "amplitude": 8.0,
     "frequency": 20.0,
     "growth_time": 0.01,
     "duration": 0.08,
     "decay_time": 0.12,
+    "positional_multiplier_x": 1.0,
+    "positional_multiplier_y": 1.0
+  },
+  "weapon_recoil_shake": {
+    "amplitude": 6.0,
+    "amplitude_exponent": 0.75,
+    "frequency": 30.0,
+    "growth_time": 0.005,
+    "duration": 0.02,
+    "decay_time": 0.055,
     "positional_multiplier_x": 1.0,
     "positional_multiplier_y": 1.0
   }

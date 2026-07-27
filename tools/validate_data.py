@@ -48,6 +48,9 @@ LOCALE_KEY_RE = re.compile(r"^[a-z0-9_]+$")
 HTML_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")
 
 INT_STATS = {"bullet_count", "pierce_count"}
+WEAPON_RECOIL_MAXIMUM = 100.0
+WEAPON_BASE_SPREAD_CAP_MAXIMUM = 60.0
+WEAPON_RUNTIME_SPREAD_CAP_MAXIMUM = 180.0
 NON_NEGATIVE_STATS = {
     "damage",
     "health_regen",
@@ -58,6 +61,8 @@ NON_NEGATIVE_STATS = {
     "max_shield",
     "lifesteal_ratio",
     "wall_pierce",
+    "recoil",
+    "spread_angle_max",
 }
 POSITIVE_STATS = {
     "max_hp",
@@ -74,8 +79,28 @@ POSITIVE_STATS = {
     "ability_duration",
 }
 RATIO_STATS = {"crit_chance", "lifesteal_ratio"}
-WEAPON_STATS = {"damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "pierce_count", "wall_pierce", "crit_chance", "crit_mult"}
-REQUIRED_WEAPON_STATS = {"damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count"}
+WEAPON_STATS = {
+    "damage",
+    "fire_rate",
+    "bullet_speed",
+    "bullet_range",
+    "bullet_count",
+    "pierce_count",
+    "wall_pierce",
+    "recoil",
+    "spread_angle_max",
+    "crit_chance",
+    "crit_mult",
+}
+REQUIRED_WEAPON_STATS = {
+    "damage",
+    "fire_rate",
+    "bullet_speed",
+    "bullet_range",
+    "bullet_count",
+    "recoil",
+    "spread_angle_max",
+}
 
 
 class ValidationContext:
@@ -98,9 +123,11 @@ def main() -> int:
     _validate_player_json(ctx)
     element_ids = _validate_elements(ctx)
     passive_ids = _validate_hero_passives(ctx, element_ids)
-    _validate_camera_feedback(ctx)
+    camera_feedback_ids = _validate_camera_feedback(ctx)
     effect_ids = _validate_visual_effects(ctx)
-    profile_ids = _validate_presentation_profiles(ctx, effect_ids)
+    profile_ids = _validate_presentation_profiles(
+        ctx, effect_ids, camera_feedback_ids
+    )
     _validate_presentation_profile_references(ctx, profile_ids)
     _validate_weapons(ctx)
     weapon_ids = _collect_weapon_ids(ctx)
@@ -533,7 +560,9 @@ def _validate_vfx_resource_path(
 
 
 def _validate_presentation_profiles(
-    ctx: ValidationContext, effect_ids: set[str]
+    ctx: ValidationContext,
+    effect_ids: set[str],
+    camera_feedback_ids: set[str],
 ) -> set[str]:
     path = PRESENTATION_PROFILES_JSON
     data = _load_json(path, ctx)
@@ -569,7 +598,12 @@ def _validate_presentation_profiles(
                 ctx.error(path, f"{field}.bindings.{cue}", "must be an object")
                 continue
             _validate_presentation_binding(
-                ctx, path, f"{field}.bindings.{cue}", binding, effect_ids
+                ctx,
+                path,
+                f"{field}.bindings.{cue}",
+                binding,
+                effect_ids,
+                camera_feedback_ids,
             )
 
     for profile_id, parent_id in parents.items():
@@ -600,6 +634,7 @@ def _validate_presentation_binding(
     field: str,
     binding: dict[str, Any],
     effect_ids: set[str],
+    camera_feedback_ids: set[str],
 ) -> None:
     effects = _require_list(ctx, path, f"{field}.effects", binding.get("effects"))
     for index, effect in enumerate(effects):
@@ -628,6 +663,13 @@ def _validate_presentation_binding(
     audio_id = binding.get("audio_id", "")
     if audio_id:
         _require_audio_id(ctx, path, f"{field}.audio_id", audio_id)
+    camera_feedback_id = binding.get("camera_feedback_id", "")
+    if camera_feedback_id and camera_feedback_id not in camera_feedback_ids:
+        ctx.error(
+            path,
+            f"{field}.camera_feedback_id",
+            "must reference a profile in camera_feedback.json",
+        )
     screen_effect_id = binding.get("screen_effect_id", "")
     if screen_effect_id and screen_effect_id not in effect_ids:
         ctx.error(path, f"{field}.screen_effect_id", "must reference a catalog effect")
@@ -818,9 +860,14 @@ def _validate_weapons(ctx: ValidationContext) -> None:
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=2)
-    if schema_version != 2:
-        ctx.error(path, "schema_version", "must equal 2")
+    _require_int(
+        ctx, path, "schema_version", data.get("schema_version"), minimum=3, maximum=3
+    )
+    recoil_model = data.get("recoil_model")
+    if not isinstance(recoil_model, dict):
+        ctx.error(path, "recoil_model", "must be an object")
+        recoil_model = {}
+    _validate_recoil_model(ctx, path, recoil_model)
     weapons = _require_list(ctx, path, "weapons", data.get("weapons"))
     if not weapons:
         ctx.error(path, "weapons", "must be a non-empty array")
@@ -841,11 +888,95 @@ def _validate_weapons(ctx: ValidationContext) -> None:
         _require_non_empty_string(ctx, path, f"{field}.fire_mode", weapon.get("fire_mode"))
         if "fire_audio_id" in weapon:
             _require_audio_id(ctx, path, f"{field}.fire_audio_id", weapon.get("fire_audio_id"))
-        _validate_weapon_stats(ctx, path, f"{field}.base_stats", weapon.get("base_stats"))
+        _validate_weapon_stats(
+            ctx,
+            path,
+            f"{field}.base_stats",
+            weapon.get("base_stats"),
+            recoil_model,
+        )
         _validate_weapon_projectile(ctx, path, f"{field}.projectile", weapon.get("projectile"))
 
 
-def _validate_weapon_stats(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
+def _validate_recoil_model(
+    ctx: ValidationContext, path: Path, recoil_model: dict[str, Any]
+) -> None:
+    recoil_max = _require_number(
+        ctx,
+        path,
+        "recoil_model.recoil_max",
+        recoil_model.get("recoil_max"),
+        minimum=0,
+        maximum=WEAPON_RECOIL_MAXIMUM,
+        exclusive_minimum=True,
+    )
+    _require_number(
+        ctx,
+        path,
+        "recoil_model.spread_exponent",
+        recoil_model.get("spread_exponent"),
+        minimum=0,
+        exclusive_minimum=True,
+    )
+    _require_number(
+        ctx,
+        path,
+        "recoil_model.kickback_max_distance",
+        recoil_model.get("kickback_max_distance"),
+        minimum=0,
+    )
+    _require_number(
+        ctx,
+        path,
+        "recoil_model.kickback_duration",
+        recoil_model.get("kickback_duration"),
+        minimum=0,
+        exclusive_minimum=True,
+    )
+    _require_number(
+        ctx,
+        path,
+        "recoil_model.kickback_velocity_cap",
+        recoil_model.get("kickback_velocity_cap"),
+        minimum=0,
+        exclusive_minimum=True,
+    )
+    base_spread_cap = _require_number(
+        ctx,
+        path,
+        "recoil_model.base_spread_cap",
+        recoil_model.get("base_spread_cap"),
+        minimum=0,
+        maximum=WEAPON_BASE_SPREAD_CAP_MAXIMUM,
+    )
+    runtime_spread_cap = _require_number(
+        ctx,
+        path,
+        "recoil_model.runtime_spread_cap",
+        recoil_model.get("runtime_spread_cap"),
+        minimum=0,
+        maximum=WEAPON_RUNTIME_SPREAD_CAP_MAXIMUM,
+    )
+    if (
+        isinstance(base_spread_cap, (int, float))
+        and isinstance(runtime_spread_cap, (int, float))
+        and runtime_spread_cap < base_spread_cap
+    ):
+        ctx.error(
+            path,
+            "recoil_model.runtime_spread_cap",
+            "must be >= recoil_model.base_spread_cap",
+        )
+    _ = recoil_max
+
+
+def _validate_weapon_stats(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    data: Any,
+    recoil_model: dict[str, Any],
+) -> None:
     if not isinstance(data, dict) or not data:
         ctx.error(path, field, "must be a non-empty object")
         return
@@ -858,6 +989,24 @@ def _validate_weapon_stats(ctx: ValidationContext, path: Path, field: str, data:
             continue
         if stat == "pierce_count":
             _require_int(ctx, path, f"{field}.{stat}", value, minimum=0)
+        elif stat == "recoil":
+            _require_number(
+                ctx,
+                path,
+                f"{field}.{stat}",
+                value,
+                minimum=0,
+                maximum=float(recoil_model.get("recoil_max", 0.0)),
+            )
+        elif stat == "spread_angle_max":
+            _require_number(
+                ctx,
+                path,
+                f"{field}.{stat}",
+                value,
+                minimum=0,
+                maximum=float(recoil_model.get("base_spread_cap", 0.0)),
+            )
         else:
             _validate_stat_value(ctx, path, f"{field}.{stat}", stat, value)
 
@@ -1721,25 +1870,93 @@ def _validate_consumable_use_effects(ctx: ValidationContext, path: Path, field: 
             ctx.error(path, f"{item_field}.params", "must be an object")
 
 
-def _validate_camera_feedback(ctx: ValidationContext) -> None:
+def _validate_camera_feedback(ctx: ValidationContext) -> set[str]:
     path = CAMERA_FEEDBACK_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
-        return
-    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
-    if isinstance(schema_version, int) and schema_version != 1:
-        ctx.error(path, "schema_version", "must equal 1")
-    shake = data.get("player_damage_shake")
-    if not isinstance(shake, dict):
-        ctx.error(path, "player_damage_shake", "must be an object")
-        return
-    _require_number(ctx, path, "player_damage_shake.amplitude", shake.get("amplitude"), minimum=0.0)
-    _require_number(ctx, path, "player_damage_shake.frequency", shake.get("frequency"), minimum=0.0, exclusive_minimum=True)
-    _require_number(ctx, path, "player_damage_shake.growth_time", shake.get("growth_time"), minimum=0.0, exclusive_minimum=True)
-    _require_number(ctx, path, "player_damage_shake.duration", shake.get("duration"), minimum=0.0, exclusive_minimum=True)
-    _require_number(ctx, path, "player_damage_shake.decay_time", shake.get("decay_time"), minimum=0.0, exclusive_minimum=True)
-    _require_number(ctx, path, "player_damage_shake.positional_multiplier_x", shake.get("positional_multiplier_x"), minimum=0.0, maximum=1.0)
-    _require_number(ctx, path, "player_damage_shake.positional_multiplier_y", shake.get("positional_multiplier_y"), minimum=0.0, maximum=1.0)
+        return set()
+    _require_int(
+        ctx, path, "schema_version", data.get("schema_version"), minimum=2, maximum=2
+    )
+    for profile_id in ("player_damage_shake", "weapon_recoil_shake"):
+        shake = data.get(profile_id)
+        if not isinstance(shake, dict):
+            ctx.error(path, profile_id, "must be an object")
+            continue
+        _validate_camera_feedback_profile(ctx, path, profile_id, shake)
+    recoil_profile = data.get("weapon_recoil_shake")
+    if isinstance(recoil_profile, dict):
+        _require_number(
+            ctx,
+            path,
+            "weapon_recoil_shake.amplitude_exponent",
+            recoil_profile.get("amplitude_exponent"),
+            minimum=0.0,
+        )
+    return {
+        profile_id
+        for profile_id in ("player_damage_shake", "weapon_recoil_shake")
+        if isinstance(data.get(profile_id), dict)
+    }
+
+
+def _validate_camera_feedback_profile(
+    ctx: ValidationContext,
+    path: Path,
+    profile_id: str,
+    profile: dict[str, Any],
+) -> None:
+    _require_number(
+        ctx, path, f"{profile_id}.amplitude", profile.get("amplitude"), minimum=0.0
+    )
+    _require_number(
+        ctx,
+        path,
+        f"{profile_id}.frequency",
+        profile.get("frequency"),
+        minimum=0.0,
+        exclusive_minimum=True,
+    )
+    _require_number(
+        ctx,
+        path,
+        f"{profile_id}.growth_time",
+        profile.get("growth_time"),
+        minimum=0.0,
+        exclusive_minimum=True,
+    )
+    _require_number(
+        ctx,
+        path,
+        f"{profile_id}.duration",
+        profile.get("duration"),
+        minimum=0.0,
+        exclusive_minimum=True,
+    )
+    _require_number(
+        ctx,
+        path,
+        f"{profile_id}.decay_time",
+        profile.get("decay_time"),
+        minimum=0.0,
+        exclusive_minimum=True,
+    )
+    _require_number(
+        ctx,
+        path,
+        f"{profile_id}.positional_multiplier_x",
+        profile.get("positional_multiplier_x"),
+        minimum=0.0,
+        maximum=1.0,
+    )
+    _require_number(
+        ctx,
+        path,
+        f"{profile_id}.positional_multiplier_y",
+        profile.get("positional_multiplier_y"),
+        minimum=0.0,
+        maximum=1.0,
+    )
 
 
 def _validate_credits(ctx: ValidationContext) -> None:

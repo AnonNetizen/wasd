@@ -45,6 +45,9 @@ const GEAR_MOD_DROP_TABLES_PATH: String = "res://data/gear_mod_drop_tables.csv"
 const GEAR_MOD_FUSION_COSTS_PATH: String = "res://data/gear_mod_fusion_costs.csv"
 
 const INT_STATS: Array[String] = ["bullet_count", "pierce_count"]
+const WEAPON_RECOIL_MAXIMUM: float = 100.0
+const WEAPON_BASE_SPREAD_CAP_MAXIMUM: float = 60.0
+const WEAPON_RUNTIME_SPREAD_CAP_MAXIMUM: float = 180.0
 const NON_NEGATIVE_STATS: Array[String] = [
 	"damage",
 	"health_regen",
@@ -55,6 +58,8 @@ const NON_NEGATIVE_STATS: Array[String] = [
 	"max_shield",
 	"lifesteal_ratio",
 	"wall_pierce",
+	"recoil",
+	"spread_angle_max",
 ]
 const POSITIVE_STATS: Array[String] = [
 	"max_hp",
@@ -71,8 +76,8 @@ const POSITIVE_STATS: Array[String] = [
 	"crit_mult",
 ]
 const RATIO_STATS: Array[String] = ["crit_chance", "lifesteal_ratio"]
-const WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "pierce_count", "wall_pierce", "crit_chance", "crit_mult"]
-const REQUIRED_WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count"]
+const WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "pierce_count", "wall_pierce", "recoil", "spread_angle_max", "crit_chance", "crit_mult"]
+const REQUIRED_WEAPON_STATS: Array[String] = ["damage", "fire_rate", "bullet_speed", "bullet_range", "bullet_count", "recoil", "spread_angle_max"]
 
 var _contracts: Dictionary = {}
 var _last_schema_counts: Dictionary = {}
@@ -153,9 +158,13 @@ func validate_project_data() -> bool:
 	is_valid = _validate_locale_strings(locale_keys) and is_valid
 	is_valid = _validate_player_json() and is_valid
 	is_valid = _validate_camera_feedback_json() and is_valid
+	var camera_feedback_ids: Dictionary = _collect_camera_feedback_ids()
 	is_valid = _validate_visual_effects_json() and is_valid
 	var visual_effect_ids: Dictionary = _collect_visual_effect_ids()
-	is_valid = _validate_presentation_profiles_json(visual_effect_ids) and is_valid
+	is_valid = _validate_presentation_profiles_json(
+		visual_effect_ids,
+		camera_feedback_ids
+	) and is_valid
 	var presentation_profile_ids: Dictionary = _collect_presentation_profile_ids()
 	is_valid = _validate_presentation_profile_references(
 		presentation_profile_ids
@@ -361,20 +370,53 @@ func _validate_camera_feedback_json() -> bool:
 
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_int(CAMERA_FEEDBACK_PATH, "schema_version", payload.get("schema_version"), 1, 1) and is_valid
-	var shake_data: Variant = payload.get("player_damage_shake")
-	if not shake_data is Dictionary:
-		return _schema_fail(CAMERA_FEEDBACK_PATH, "player_damage_shake", "Dictionary") and is_valid
+	is_valid = _require_int(
+		CAMERA_FEEDBACK_PATH,
+		"schema_version",
+		payload.get("schema_version"),
+		2,
+		2
+	) and is_valid
+	for profile_id: String in [
+		"player_damage_shake",
+		"weapon_recoil_shake",
+	]:
+		var shake_data: Variant = payload.get(profile_id)
+		if not shake_data is Dictionary:
+			is_valid = _schema_fail(
+				CAMERA_FEEDBACK_PATH,
+				profile_id,
+				"Dictionary"
+			) and is_valid
+			continue
+		is_valid = _validate_camera_feedback_profile(
+			profile_id,
+			shake_data as Dictionary
+		) and is_valid
+	var recoil_profile: Variant = payload.get("weapon_recoil_shake")
+	if recoil_profile is Dictionary:
+		is_valid = _require_number(
+			CAMERA_FEEDBACK_PATH,
+			"weapon_recoil_shake.amplitude_exponent",
+			(recoil_profile as Dictionary).get("amplitude_exponent"),
+			0.0
+		) and is_valid
+	_last_schema_counts["camera_feedback_profiles"] = 2
+	return is_valid
 
-	var shake: Dictionary = shake_data as Dictionary
-	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.amplitude", shake.get("amplitude"), 0.0) and is_valid
-	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.frequency", shake.get("frequency"), 0.0, null, true) and is_valid
-	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.growth_time", shake.get("growth_time"), 0.0, null, true) and is_valid
-	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.duration", shake.get("duration"), 0.0, null, true) and is_valid
-	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.decay_time", shake.get("decay_time"), 0.0, null, true) and is_valid
-	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.positional_multiplier_x", shake.get("positional_multiplier_x"), 0.0, 1.0) and is_valid
-	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "player_damage_shake.positional_multiplier_y", shake.get("positional_multiplier_y"), 0.0, 1.0) and is_valid
-	_last_schema_counts["camera_feedback_profiles"] = 1
+
+func _validate_camera_feedback_profile(
+	profile_id: String,
+	profile: Dictionary
+) -> bool:
+	var is_valid: bool = true
+	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "%s.amplitude" % profile_id, profile.get("amplitude"), 0.0) and is_valid
+	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "%s.frequency" % profile_id, profile.get("frequency"), 0.0, null, true) and is_valid
+	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "%s.growth_time" % profile_id, profile.get("growth_time"), 0.0, null, true) and is_valid
+	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "%s.duration" % profile_id, profile.get("duration"), 0.0, null, true) and is_valid
+	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "%s.decay_time" % profile_id, profile.get("decay_time"), 0.0, null, true) and is_valid
+	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "%s.positional_multiplier_x" % profile_id, profile.get("positional_multiplier_x"), 0.0, 1.0) and is_valid
+	is_valid = _require_number(CAMERA_FEEDBACK_PATH, "%s.positional_multiplier_y" % profile_id, profile.get("positional_multiplier_y"), 0.0, 1.0) and is_valid
 	return is_valid
 
 
@@ -586,7 +628,10 @@ func _validate_visual_effects_json() -> bool:
 	return is_valid
 
 
-func _validate_presentation_profiles_json(effect_ids: Dictionary) -> bool:
+func _validate_presentation_profiles_json(
+	effect_ids: Dictionary,
+	camera_feedback_ids: Dictionary
+) -> bool:
 	var data: Variant = load_json(PRESENTATION_PROFILES_PATH)
 	if not data is Dictionary:
 		return _schema_fail(PRESENTATION_PROFILES_PATH, "root", "Dictionary")
@@ -663,7 +708,8 @@ func _validate_presentation_profiles_json(effect_ids: Dictionary) -> bool:
 			is_valid = _validate_presentation_binding(
 				"%s.bindings.%s" % [field, cue],
 				raw_binding as Dictionary,
-				effect_ids
+				effect_ids,
+				camera_feedback_ids
 			) and is_valid
 
 	for raw_profile_id: Variant in profile_entries.keys():
@@ -697,7 +743,8 @@ func _validate_presentation_profiles_json(effect_ids: Dictionary) -> bool:
 func _validate_presentation_binding(
 		field: String,
 		binding: Dictionary,
-		effect_ids: Dictionary
+		effect_ids: Dictionary,
+		camera_feedback_ids: Dictionary
 	) -> bool:
 	var is_valid: bool = true
 	var effects: Array = _require_array(
@@ -765,6 +812,18 @@ func _validate_presentation_binding(
 			"%s.audio_id" % field,
 			audio_id
 		) and is_valid
+	var camera_feedback_id: String = String(
+		binding.get("camera_feedback_id", "")
+	)
+	if (
+		not camera_feedback_id.is_empty()
+		and not camera_feedback_ids.has(camera_feedback_id)
+	):
+		is_valid = _schema_fail(
+			PRESENTATION_PROFILES_PATH,
+			"%s.camera_feedback_id" % field,
+			"profile id defined in camera_feedback.json"
+		) and is_valid
 	if not String(binding.get("hit_stop_profile_id", "")).is_empty():
 		is_valid = _schema_fail(
 			PRESENTATION_PROFILES_PATH,
@@ -772,6 +831,20 @@ func _validate_presentation_binding(
 			"empty in schema v1"
 		) and is_valid
 	return is_valid
+
+
+func _collect_camera_feedback_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(CAMERA_FEEDBACK_PATH)
+	if not data is Dictionary:
+		return ids
+	for raw_key: Variant in (data as Dictionary).keys():
+		var profile_id: String = String(raw_key)
+		if profile_id == "schema_version":
+			continue
+		if (data as Dictionary).get(raw_key) is Dictionary:
+			ids[profile_id] = true
+	return ids
 
 
 func _validate_vfx_resource_path(
@@ -1432,7 +1505,18 @@ func _validate_weapons_json(locale_keys: Dictionary) -> bool:
 
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_int(WEAPONS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	is_valid = _require_int(
+		WEAPONS_PATH,
+		"schema_version",
+		payload.get("schema_version"),
+		3,
+		3
+	) and is_valid
+	var recoil_model: Dictionary = {}
+	var raw_recoil_model: Variant = payload.get("recoil_model", {})
+	if raw_recoil_model is Dictionary:
+		recoil_model = (raw_recoil_model as Dictionary).duplicate(true)
+	is_valid = _validate_recoil_model(recoil_model) and is_valid
 	var weapons: Array = _require_array(WEAPONS_PATH, "weapons", payload.get("weapons"))
 	if weapons.is_empty():
 		is_valid = _schema_fail(WEAPONS_PATH, "weapons", "non-empty Array") and is_valid
@@ -1457,12 +1541,46 @@ func _validate_weapons_json(locale_keys: Dictionary) -> bool:
 		is_valid = _require_non_empty_string(WEAPONS_PATH, "%s.fire_mode" % field, weapon_dict.get("fire_mode")) and is_valid
 		if weapon_dict.has("fire_audio_id"):
 			is_valid = _require_audio_id(WEAPONS_PATH, "%s.fire_audio_id" % field, weapon_dict.get("fire_audio_id")) and is_valid
-		is_valid = _validate_weapon_stats("%s.base_stats" % field, weapon_dict.get("base_stats")) and is_valid
+		is_valid = _validate_weapon_stats(
+			"%s.base_stats" % field,
+			weapon_dict.get("base_stats"),
+			recoil_model
+		) and is_valid
 		is_valid = _validate_weapon_projectile("%s.projectile" % field, weapon_dict.get("projectile")) and is_valid
 	return is_valid
 
 
-func _validate_weapon_stats(field: String, data: Variant) -> bool:
+func _validate_recoil_model(model: Dictionary) -> bool:
+	if model.is_empty():
+		return _schema_fail(WEAPONS_PATH, "recoil_model", "non-empty Dictionary")
+	var is_valid: bool = true
+	is_valid = _require_number(WEAPONS_PATH, "recoil_model.recoil_max", model.get("recoil_max"), 0.0, WEAPON_RECOIL_MAXIMUM, true) and is_valid
+	is_valid = _require_number(WEAPONS_PATH, "recoil_model.spread_exponent", model.get("spread_exponent"), 0.0, null, true) and is_valid
+	is_valid = _require_number(WEAPONS_PATH, "recoil_model.kickback_max_distance", model.get("kickback_max_distance"), 0.0) and is_valid
+	is_valid = _require_number(WEAPONS_PATH, "recoil_model.kickback_duration", model.get("kickback_duration"), 0.0, null, true) and is_valid
+	is_valid = _require_number(WEAPONS_PATH, "recoil_model.kickback_velocity_cap", model.get("kickback_velocity_cap"), 0.0, null, true) and is_valid
+	is_valid = _require_number(WEAPONS_PATH, "recoil_model.base_spread_cap", model.get("base_spread_cap"), 0.0, WEAPON_BASE_SPREAD_CAP_MAXIMUM) and is_valid
+	is_valid = _require_number(WEAPONS_PATH, "recoil_model.runtime_spread_cap", model.get("runtime_spread_cap"), 0.0, WEAPON_RUNTIME_SPREAD_CAP_MAXIMUM) and is_valid
+	if (
+		model.get("base_spread_cap") is float
+		or model.get("base_spread_cap") is int
+	) and (
+		model.get("runtime_spread_cap") is float
+		or model.get("runtime_spread_cap") is int
+	) and float(model.get("runtime_spread_cap")) < float(model.get("base_spread_cap")):
+		is_valid = _schema_fail(
+			WEAPONS_PATH,
+			"recoil_model.runtime_spread_cap",
+			"value greater than or equal to base_spread_cap"
+		) and is_valid
+	return is_valid
+
+
+func _validate_weapon_stats(
+	field: String,
+	data: Variant,
+	recoil_model: Dictionary
+) -> bool:
 	if not data is Dictionary or (data as Dictionary).is_empty():
 		return _schema_fail(WEAPONS_PATH, field, "non-empty Dictionary")
 	var stats: Dictionary = data as Dictionary
@@ -1477,6 +1595,22 @@ func _validate_weapon_stats(field: String, data: Variant) -> bool:
 			continue
 		if stat == "pierce_count":
 			is_valid = _require_int(WEAPONS_PATH, "%s.%s" % [field, stat], stats[stat_key], 0) and is_valid
+		elif stat == "recoil":
+			is_valid = _require_number(
+				WEAPONS_PATH,
+				"%s.%s" % [field, stat],
+				stats[stat_key],
+				0.0,
+				float(recoil_model.get("recoil_max", 0.0))
+			) and is_valid
+		elif stat == "spread_angle_max":
+			is_valid = _require_number(
+				WEAPONS_PATH,
+				"%s.%s" % [field, stat],
+				stats[stat_key],
+				0.0,
+				float(recoil_model.get("base_spread_cap", 0.0))
+			) and is_valid
 		else:
 			is_valid = _validate_stat_value(WEAPONS_PATH, "%s.%s" % [field, stat], stat, stats[stat_key]) and is_valid
 	return is_valid

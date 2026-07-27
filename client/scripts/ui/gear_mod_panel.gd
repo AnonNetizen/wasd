@@ -279,7 +279,10 @@ func _stat_text(stat_id: String) -> String:
 
 func _modifier_value_text(modifier_type: String, value: float) -> String:
 	if modifier_type == "mult":
-		return "+%d%%" % int(round((value - 1.0) * 100.0))
+		var percent_delta: int = int(round((value - 1.0) * 100.0))
+		if percent_delta >= 0:
+			return "+%d%%" % percent_delta
+		return "%d%%" % percent_delta
 	if value >= 0.0:
 		return "+%.2f" % value
 	return "%.2f" % value

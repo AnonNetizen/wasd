@@ -23,6 +23,52 @@
         "resource_id": "gear_mod_dust",
         "amount": 10
       }
+    },
+    {
+      "id": "gear_mod_weapon_recoil_damper",
+      "name_key": "gear_mod_weapon_recoil_damper_name",
+      "desc_key": "gear_mod_weapon_recoil_damper_desc",
+      "slot": "weapon",
+      "rarity": "common",
+      "max_rank": 5,
+      "base_drain": 2,
+      "drain_per_rank": 1,
+      "rank_modifiers": [
+        {
+          "stat": "recoil",
+          "type": "mult",
+          "base_value": 0.9,
+          "value_per_rank": -0.05
+        }
+      ],
+      "stack_rule": "unique_by_id",
+      "dismantle": {
+        "resource_id": "gear_mod_dust",
+        "amount": 10
+      }
+    },
+    {
+      "id": "gear_mod_weapon_spread_stabilizer",
+      "name_key": "gear_mod_weapon_spread_stabilizer_name",
+      "desc_key": "gear_mod_weapon_spread_stabilizer_desc",
+      "slot": "weapon",
+      "rarity": "common",
+      "max_rank": 5,
+      "base_drain": 2,
+      "drain_per_rank": 1,
+      "rank_modifiers": [
+        {
+          "stat": "spread_angle_max",
+          "type": "mult",
+          "base_value": 0.9,
+          "value_per_rank": -0.05
+        }
+      ],
+      "stack_rule": "unique_by_id",
+      "dismantle": {
+        "resource_id": "gear_mod_dust",
+        "amount": 10
+      }
     }
   ]
 }

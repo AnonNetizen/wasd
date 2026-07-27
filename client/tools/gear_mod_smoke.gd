@@ -71,6 +71,7 @@ func _run() -> void:
 	)
 	_expect(bool(GearModSystem.unequip_mod(GEAR_MOD_SLOTS.WEAPON, instance_id, SMOKE_SLOT).get("ok", false)), "unequip should remove Mod from weapon loadout")
 	_expect(bool(GearModSystem.dismantle_mod(instance_id, SMOKE_SLOT).get("ok", false)), "unequipped upgraded Mod should dismantle")
+	_expect_recoil_control_mods()
 
 	var drop: Dictionary = GearModSystem.roll_drop_for_enemy(POOL_IDS.ENEMY_CHASER, 1, SMOKE_SLOT, 0.0)
 	_expect(bool(drop.get("ok", false)) and _array_or_empty(drop.get("drops", [])).size() == 1, "forced enemy_chaser drop should grant the test Mod")
@@ -84,6 +85,7 @@ func _run() -> void:
 
 	await _expect_hud_drop_feedback()
 	await _expect_panel_flow()
+	await _expect_negative_modifier_panel()
 
 	SaveManager.delete(SMOKE_SLOT, SAVE_KINDS.META)
 	_finish()
@@ -116,13 +118,186 @@ func _gear_mod_resource_balance(profile: Dictionary, resource_id: String) -> int
 	return int(resources.get(resource_id, 0))
 
 
-func _has_modifier(modifiers: Array[Dictionary], stat_id: String, modifier_type: String, value: float) -> bool:
-	for modifier: Dictionary in modifiers:
+func _has_modifier(
+	modifiers: Array,
+	stat_id: String,
+	modifier_type: String,
+	value: float
+) -> bool:
+	for raw_modifier: Variant in modifiers:
+		if not raw_modifier is Dictionary:
+			continue
+		var modifier: Dictionary = raw_modifier as Dictionary
 		if String(modifier.get("stat", "")) != stat_id:
 			continue
 		if String(modifier.get("type", "")) != modifier_type:
 			continue
 		if is_equal_approx(float(modifier.get("value", 0.0)), value):
+			return true
+	return false
+
+
+func _expect_recoil_control_mods() -> void:
+	_expect_control_mod_rank_curve(
+		GEAR_MOD_IDS.GEAR_MOD_WEAPON_RECOIL_DAMPER,
+		STATS.RECOIL
+	)
+	_expect_control_mod_rank_curve(
+		GEAR_MOD_IDS.GEAR_MOD_WEAPON_SPREAD_STABILIZER,
+		STATS.SPREAD_ANGLE_MAX
+	)
+	var recoil_grant: Dictionary = GearModSystem.grant_mod(
+		GEAR_MOD_IDS.GEAR_MOD_WEAPON_RECOIL_DAMPER,
+		1,
+		SMOKE_SLOT
+	)
+	var recoil_instance_id: String = _first_instance_id(recoil_grant)
+	_expect(
+		bool(
+			GearModSystem.equip_mod(
+				GEAR_MOD_SLOTS.WEAPON,
+				recoil_instance_id,
+				SMOKE_SLOT
+			).get("ok", false)
+		),
+		"recoil damper should equip in the weapon loadout"
+	)
+	_expect(
+		_has_modifier(
+			GearModSystem.current_modifiers(
+				GEAR_MOD_SLOTS.WEAPON,
+				SMOKE_SLOT
+			),
+			STATS.RECOIL,
+			"mult",
+			0.9
+		),
+		"rank 0 recoil damper should output 0.90x recoil"
+	)
+	GearModSystem.debug_grant_resource(
+		GEAR_MOD_RESOURCES.GEAR_MOD_DUST,
+		1000,
+		SMOKE_SLOT
+	)
+	for _rank: int in range(5):
+		_expect(
+			bool(
+				GearModSystem.upgrade_mod(
+					recoil_instance_id,
+					SMOKE_SLOT
+				).get("ok", false)
+			),
+			"recoil damper should upgrade through rank 5"
+		)
+	_expect(
+		_has_modifier(
+			GearModSystem.current_modifiers(
+				GEAR_MOD_SLOTS.WEAPON,
+				SMOKE_SLOT
+			),
+			STATS.RECOIL,
+			"mult",
+			0.65
+		),
+		"rank 5 recoil damper should output 0.65x recoil"
+	)
+	GearModSystem.unequip_mod(
+		GEAR_MOD_SLOTS.WEAPON,
+		recoil_instance_id,
+		SMOKE_SLOT
+	)
+
+	var spread_preview: Dictionary = GearModSystem.resolve_preview_loadout(
+		[
+			{
+				"mod_id": GEAR_MOD_IDS.GEAR_MOD_WEAPON_SPREAD_STABILIZER,
+				"rank": 5,
+			},
+		],
+		8
+	)
+	var preview_modifiers_by_slot: Dictionary = (
+		spread_preview.get("modifiers", {}) as Dictionary
+	)
+	var preview_modifiers: Array = preview_modifiers_by_slot.get(
+		GEAR_MOD_SLOTS.WEAPON,
+		[]
+	) as Array
+	_expect(
+		bool(spread_preview.get("ok", false))
+		and _has_modifier(
+			preview_modifiers,
+			STATS.SPREAD_ANGLE_MAX,
+			"mult",
+			0.65
+		),
+		"rank 5 spread stabilizer preview should output 0.65x spread cap"
+	)
+	var bulwark_drop: Dictionary = GearModSystem.roll_drop_for_enemy(
+		POOL_IDS.ENEMY_BULWARK,
+		1,
+		SMOKE_SLOT,
+		0.0
+	)
+	var spitter_drop: Dictionary = GearModSystem.roll_drop_for_enemy(
+		POOL_IDS.ENEMY_SPITTER,
+		1,
+		SMOKE_SLOT,
+		0.0
+	)
+	_expect(
+		_drop_contains_mod(
+			bulwark_drop,
+			GEAR_MOD_IDS.GEAR_MOD_WEAPON_RECOIL_DAMPER
+		),
+		"enemy_bulwark should use the recoil damper drop row"
+	)
+	_expect(
+		_drop_contains_mod(
+			spitter_drop,
+			GEAR_MOD_IDS.GEAR_MOD_WEAPON_SPREAD_STABILIZER
+		),
+		"enemy_spitter should use the spread stabilizer drop row"
+	)
+
+
+func _expect_control_mod_rank_curve(mod_id: String, stat_id: String) -> void:
+	for rank: int in range(6):
+		var preview: Dictionary = GearModSystem.resolve_preview_loadout(
+			[
+				{
+					"mod_id": mod_id,
+					"rank": rank,
+				},
+			],
+			8
+		)
+		var modifiers_by_slot: Dictionary = (
+			preview.get("modifiers", {}) as Dictionary
+		)
+		var modifiers: Array = modifiers_by_slot.get(
+			GEAR_MOD_SLOTS.WEAPON,
+			[]
+		) as Array
+		_expect(
+			bool(preview.get("ok", false))
+			and _has_modifier(
+				modifiers,
+				stat_id,
+				"mult",
+				0.9 - float(rank) * 0.05
+			),
+			"%s rank %d should follow its configured control curve"
+			% [mod_id, rank]
+		)
+
+
+func _drop_contains_mod(result: Dictionary, mod_id: String) -> bool:
+	for raw_drop: Variant in _array_or_empty(result.get("drops", [])):
+		if (
+			raw_drop is Dictionary
+			and String((raw_drop as Dictionary).get("mod_id", "")) == mod_id
+		):
 			return true
 	return false
 
@@ -189,6 +364,51 @@ func _expect_panel_flow() -> void:
 		dismantle_button.pressed.emit()
 	_expect(int(GearModSystem.profile_summary(SMOKE_SLOT).get("inventory_count", -1)) == 0, "GearModPanel dismantle button should remove an unequipped Mod")
 
+	remove_child(panel)
+	panel.queue_free()
+
+
+func _expect_negative_modifier_panel() -> void:
+	SaveManager.delete(SMOKE_SLOT, SAVE_KINDS.META)
+	var grant: Dictionary = GearModSystem.grant_mod(
+		GEAR_MOD_IDS.GEAR_MOD_WEAPON_RECOIL_DAMPER,
+		1,
+		SMOKE_SLOT
+	)
+	var instance_id: String = _first_instance_id(grant)
+	var panel: CanvasLayer = GEAR_MOD_PANEL_SCENE.instantiate() as CanvasLayer
+	panel.name = "GearModPanel"
+	add_child(panel)
+	panel.configure(SMOKE_SLOT)
+	await get_tree().process_frame
+	var row: Button = _find_node_by_name(
+		panel,
+		"GearModRow_%s" % instance_id
+	) as Button
+	if row != null:
+		row.pressed.emit()
+	await get_tree().process_frame
+	var details_label: Label = _find_node_by_name(
+		panel,
+		"DetailsLabel"
+	) as Label
+	var details_text: String = (
+		String(details_label.text)
+		if details_label != null
+		else ""
+	)
+	_expect(
+		details_text.contains("-10%")
+		and not details_text.contains("+-10%"),
+		"GearModPanel should format negative multipliers without a duplicated sign; text=%s"
+		% details_text
+	)
+	_expect(
+		details_text.contains(tr("ui_stats_recoil"))
+		and tr("gear_mod_weapon_recoil_damper_name")
+		!= "gear_mod_weapon_recoil_damper_name",
+		"recoil Mod details should resolve the localized stat and Mod name"
+	)
 	remove_child(panel)
 	panel.queue_free()
 

@@ -1430,6 +1430,20 @@
       "related_code": ["client/tests/replays/golden_basic_run.replay", "client/tests/replays/golden_pause_resume.replay", "client/tests/replays/golden_full_death.replay", "client/tests/replays/golden_level_up_choice.replay", "client/tools/golden_replay_capture.gd", "client/tools/replay_runner.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/module_world_manager.gd"],
       "update_triggers": ["ADR #164 golden replay recapture", "ADR #164 replay conclusion changes", "module first-visit encounter or golden data fingerprint changes"],
       "keywords": ["ADR #164", "module_flat_ground", "first_visit_enemy_spawn", "golden replay", "Replay v3", "replay regression", "runtime summary", "module map hash", "四条黄金回放"]
+    },
+    {
+      "path": "docs/reports/2026-07-27-recoil-replay-regression.md",
+      "type": "test_report",
+      "authority": "ADR #165 evidence for recapturing and runtime-summary validating four Replay v3 goldens after weapon recoil data and deterministic projectile RNG behavior changed",
+      "status": "active",
+      "owner_scope": "test-reports",
+      "last_reviewed": "2026-07-27",
+      "canonical_for": ["adr_165_replay_regression_evidence"],
+      "must_read_for": ["adr_165_replay_audit", "weapon_recoil_replay_audit"],
+      "related_docs": ["docs/测试策略.md", "docs/决策记录.md", "docs/代码/gameplay_runtime.md", "docs/代码/phantom_camera.md", "docs/代码/replay.md", "docs/AI记忆/current_state.json", "docs/AI记忆/会话日志/2026-07-27.md"],
+      "related_code": ["client/tests/replays/golden_basic_run.replay", "client/tests/replays/golden_pause_resume.replay", "client/tests/replays/golden_full_death.replay", "client/tests/replays/golden_level_up_choice.replay", "client/tools/golden_replay_capture.gd", "client/tools/replay_runner.gd", "client/scripts/data/weapon_recoil_resolver.gd", "client/scripts/gameplay/weapon_system.gd", "client/scripts/gameplay/player.gd"],
+      "update_triggers": ["ADR #165 golden replay recapture", "ADR #165 replay conclusion changes", "weapon recoil data or golden data fingerprint changes"],
+      "keywords": ["ADR #165", "weapon recoil", "spread", "kickback", "golden replay", "Replay v3", "RNG.combat", "data fingerprint", "runtime summary", "四条黄金回放"]
     }
   ]
 }

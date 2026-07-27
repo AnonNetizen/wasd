@@ -119,10 +119,16 @@ ui_stats_pierce_count,穿透,Pierce
 ui_stats_crit_chance,暴击率,Crit Chance
 ui_stats_crit_mult,暴击倍率,Crit Damage
 ui_stats_pickup_range,拾取范围,Pickup Range
+ui_stats_recoil,后坐力,Recoil
+ui_stats_spread_angle_max,扩散上限,Spread Cap
 ui_stats_luck,幸运,Luck
 ui_stats_skill_resource,技能资源,Skill Resource
 gear_mod_weapon_damage_test_name,校准膛线,Calibrated Rifling
 gear_mod_weapon_damage_test_desc,提高主武器基础伤害；升级后进一步提高伤害。,Increases primary weapon base damage; upgrades improve the bonus.
+gear_mod_weapon_recoil_damper_name,反冲阻尼,Recoil Dampener
+gear_mod_weapon_recoil_damper_desc,降低主武器后坐力。,Reduces primary weapon recoil.
+gear_mod_weapon_spread_stabilizer_name,弹道稳定器,Ballistic Stabilizer
+gear_mod_weapon_spread_stabilizer_desc,降低主武器弹道扩散。,Reduces primary weapon projectile spread.
 gear_mod_dust_name,模组尘,Mod Dust
 gear_mod_dust_desc,分解装备 Mod 获得的材料，用于升级装备 Mod。,A material gained by dismantling gear mods and spent to upgrade gear mods.
 ui_gear_mod_title_entry,装备 Mod,Gear Mods

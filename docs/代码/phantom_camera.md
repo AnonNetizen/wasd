@@ -2,7 +2,7 @@
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
 > 本文档是 vendored Phantom Camera 源码架构、运行时契约、本项目接入边界和维护入口的权威；改插件公共 API、signal、节点约束、本地补丁、项目适配链路或测试义务时必须同步本文档。
-> 插件版本、发布包 SHA-256、许可与手工升级清单以 `client/addons/README.md` 为权威；玩家相机行为以 `docs/代码/gameplay_runtime.md`、GDD §5.2 与 ADR #148 / #156 为权威。
+> 插件版本、发布包 SHA-256、许可与手工升级清单以 `client/addons/README.md` 为权威；玩家相机行为以 `docs/代码/gameplay_runtime.md`、GDD §5.2 与 ADR #148 / #156 / #165 为权威。
 
 ## 职责与边界
 
@@ -10,7 +10,7 @@
 - 插件把“相机意图”放在 `PhantomCamera2D` / `PhantomCamera3D`，由 `PhantomCameraHost` 选出当前有效意图，再驱动真正的 `Camera2D` / `Camera3D`。
 - `PhantomCameraManager` 负责节点注册、优先级变化、层匹配、噪声广播和编辑器 Viewfinder 协调；它不是玩法状态或项目通用事件总线。
 - 本项目只在正式玩法中使用 2D 路径和位移震屏。3D、Tween Director、Viewfinder、Gizmo、Inspector 与 C# wrapper 保留为插件完整能力，但不是当前玩家相机链路。
-- `client/scripts/gameplay/gameplay_camera_controller.gd` 是项目适配层：它决定严格居中参数、读取数据、响应 Settings，并把有效玩家伤害映射到插件 API。不要把这些项目规则搬进 vendored 通用类。
+- `client/scripts/gameplay/gameplay_camera_controller.gd` 是项目适配层：它决定严格居中参数、读取数据、响应 Settings，并把有效玩家伤害与武器开火 context 映射到插件 API。不要把这些项目规则搬进 vendored 通用类。
 - 插件不负责瞄准换算、伤害判定、玩家设置持久化、数据 schema、存档、回放或玩法随机；这些继续由项目正式系统负责。
 
 ## 阅读方式
@@ -130,8 +130,10 @@ GameplayRunLoop (Node2D)
         ├── CenteredCamera (Camera2D)
         │   └── PhantomCameraHost
         ├── PlayerCamera (PhantomCamera2D)
-        └── PlayerDamageShake (PhantomCameraNoiseEmitter2D)
-            └── PhantomCameraNoise2D resource
+        ├── PlayerDamageShake (PhantomCameraNoiseEmitter2D)
+        │   └── PhantomCameraNoise2D resource
+        └── WeaponRecoilShake (PhantomCameraNoiseEmitter2D)
+            └── 独立 PhantomCameraNoise2D resource
 ```
 
 项目固定约束：
@@ -139,10 +141,11 @@ GameplayRunLoop (Node2D)
 - `PlayerCamera` 使用 `FollowMode.GLUED`、priority `10`、host/noise layer `1` 和 `Vector2.ONE` zoom。
 - 禁用 Camera smoothing、PCam damping、lookahead、auto zoom、目标旋转跟随、rotation damping、load tween 和有效时长 Tween；真实 Camera 保持 `ignore_rotation=true`、`rotation=0`。
 - `GameplayCameraController` 是 `ActiveWorld` 的对局级长期节点，不是 Player 子节点；角色专属场景不得携带第二份 Rig。
-- `GameplayRunLoop` 每次实例化默认角色或恢复快照角色后调用 `GameplayCameraController.configure()`，重新绑定 Player 并立即 `teleport_position()`；控制器同时从 `camera_feedback.json.player_damage_shake` 写入 Noise 与 Emitter。
+- `GameplayRunLoop` 每次实例化默认角色或恢复快照角色后调用 `GameplayCameraController.configure()`，重新绑定 Player 并立即 `teleport_position()`；控制器同时从 `camera_feedback.json` 的受击与武器 profile 写入各自 Noise / Emitter。
 - `GameplayRunLoop` 只在 `Combat.damage_applied` 确认玩家实际受伤后调用 `play_player_damage_shake()`；敌人受伤和玩家无敌拦截不触发。
-- `gameplay.screen_shake=false` 会立即 `stop(false)`、归零 `Camera2D.offset` 并抑制后续震屏。
-- 鼠标瞄准使用当前 canvas transform 反算世界方向；禁止用震屏偏移直接修改玩家的世界瞄准向量。
+- `weapon_fired` 通过 `play_feedback(id, context)` 驱动独立武器 emitter；最大振幅来自数据，实际振幅按 `recoil_ratio` 与 profile 指数缩放。连射只刷新时序并保留当前较强振幅，不累加。
+- `gameplay.screen_shake=false` 会立即停止两个 emitter、归零 `Camera2D.offset` 并抑制后续震屏；弹道、玩家反冲和 `RNG.combat` 不受影响。
+- 鼠标瞄准使用指针相对固定视口中心的方向；禁止用震屏偏移或当前 canvas 噪声修改玩家的世界瞄准向量。
 - `Engine.physics_jitter_fix` 由项目保持 `0.5`；插件不得覆盖全局引擎值。
 
 ## 公共契约
@@ -211,7 +214,7 @@ GameplayRunLoop (Node2D)
 - 插件自身 Resource 没有项目 JSON schema；本项目可调震屏参数只来自 `client/data/camera_feedback.json`，字段说明与校验归 `client/data/README.md` 和 DataLoader 双端 schema 管理。
 - 玩家设置键来自生成常量 `SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE`；插件源码不得裸写项目 setting id。
 - 运行时随机必须走 `RNG.camera_fx`。该子流只影响表现，不得改变 `spawn`、`drop`、`combat`、`world` 等确定性序列。
-- 相机与震屏当前不写入 run snapshot；恢复局内状态后由 RunLoop 将场景预置 Rig 重新绑定到新建 Player。不要保存 Noise 的瞬时 phase，除非未来新增明确回放 / 存档决策。
+- 相机与震屏当前不写入 run snapshot；恢复局内状态后由 RunLoop 将场景预置 Rig 重新绑定到新建 Player。Player 的武器反冲属于玩法状态并独立保存在 Run v5；不要保存 Noise 的瞬时 phase，除非未来新增明确回放 / 存档决策。
 - 插件 updater 设置固定为 `phantom_camera/updater/updater_mode=0`，不会发出版本查询；升级只能走人工审查。
 
 ## 编辑器工具与 C# 边界
@@ -254,7 +257,7 @@ GameplayRunLoop (Node2D)
 
 | 你想改什么 | 主要入口 | 同步文档 | 验证 |
 |------------|----------|----------|------|
-| 调玩家受伤震屏数值 | `client/data/camera_feedback.json` | `client/data/README.md`，必要时 Gameplay Runtime | data/schema + settings/runtime smoke + headless |
+| 调玩家受伤 / 武器后坐震屏数值 | `client/data/camera_feedback.json` | `client/data/README.md`，必要时 Gameplay Runtime | data/schema + settings/runtime smoke + headless |
 | 改玩家跟随、缩放或震屏触发边界 | `gameplay_camera_controller.gd/.tscn`、`gameplay_run_loop.gd` | Gameplay Runtime、本文档、必要时 GDD / ADR | 测试策略“玩家相机”整行义务 |
 | 增加第二台 2D PCam / 切镜 | 项目场景 + `PhantomCamera2D` priority/layer/Tween | 本文档、Gameplay Runtime、AI 导航依赖图 | runtime smoke + headless editor + 人工切镜 |
 | 修改通用 Follow / Host / Noise 算法 | 对应 addon core script | 本文档、插件 README 本地补丁 | lint + 完整相机 smoke + headless editor；行为稳定性变化评估 replay |
@@ -270,7 +273,7 @@ GameplayRunLoop (Node2D)
 | 激活了错误 PCam | 可见性、priority、host layer；是否存在同 priority PCam；查看 Manager 当前列表和 Host `get_active_pcam()` |
 | 首帧从旧位置滑入 | 绑定 target 后是否调用 `teleport_position()`；是否误开 `tween_on_load` |
 | 相机双重平滑或拖尾 | Camera 原生 smoothing 是否关闭；PCam damping/lookahead/Tween 是否意外开启；Host interpolation mode 是否符合目标节点 |
-| 震屏没有出现 | Emitter 是否有 Noise Resource；Emitter/PCam noise layer 是否相交；Settings 是否关闭；是否确实产生玩家有效伤害 |
+| 震屏没有出现 | 对应 Emitter 是否有独立 Noise Resource；Emitter/PCam noise layer 是否相交；Settings 是否关闭；受击是否实际应用，或开火 context 是否含合法 `recoil_ratio` |
 | 关闭震屏后仍有偏移 | 是否调用 `stop(false)` 并归零真实 `Camera2D.offset`；本地补丁是否在升级时丢失 |
 | 回放 / seed 摘要异常 | `phantom_camera_seed_source.gd` 是否仍使用 `RNG.camera_fx`，是否误用了其他 RNG 子流 |
 | 新 clone 出现全局类型解析错误 | 使用 `tools/godot_bridge.py --project client headless-boot` 的两阶段 editor scan；不要依赖旧 `.godot/global_script_class_cache.cfg` |
@@ -280,14 +283,14 @@ GameplayRunLoop (Node2D)
 ## 测试义务
 
 - 只改本文档或核心入口注释：运行 docs health、JSON 校验、GDScript lint、完整 pre-commit 与 `headless-boot`，确认 `@tool` 脚本仍可解析。
-- 改玩家相机、Plugin Runtime 或 `camera_feedback.json`：按 `docs/测试策略.md` 的“改玩家相机 / Phantom Camera / 受伤震屏”执行 `validate_data`、schema、`settings-smoke`、`runtime-smoke`、`headless-boot` 和 headless editor 加载；人工检查严格居中与震屏可读性。
+- 改玩家相机、Plugin Runtime 或 `camera_feedback.json`：按 `docs/测试策略.md` 的“改玩家相机 / Phantom Camera / 震屏”执行 `validate_data`、schema、`settings-smoke`、`runtime-smoke`、`headless-boot` 和 headless editor 加载；人工检查严格居中、武器动态振幅和震屏可读性，并验证开关震屏不改变相同指针输入的弹道。
 - 改 RNG seed 路径：追加 `rng-audit`，并评估四条 checked-in replay；只有稳定摘要变化时才按项目流程重录。
 - 改 EditorPlugin / Viewfinder / Gizmo / Updater：除 headless editor 外，手工打开 Phantom Camera 面板，检查 Host、active PCam、dead zone / target 预览与重启后的插件状态。
 - 不因本模块自动运行性能 probe；遵守 ADR #143，仅在用户当次明确要求时采样性能。
 
 ## 迁移 / 兼容
 
-- 当前插件接入不新增存档字段、回放字段或数据 schema；相机状态从场景和配置重建。
+- 当前插件接入不新增相机存档或回放字段；相机状态从场景和配置重建。`camera_feedback.json` schema v2 新增武器 profile，但 Replay 输入仍为 v3。
 - `res://addons/phantom_camera/`、`PhantomCameraManager` autoload 名称和核心 `class_name` 是稳定路径 / 类型契约。重命名会影响场景资源、UID、脚本解析和 C# wrapper，必须作为显式迁移处理。
 - 升级不得删除 UID、LICENSE、C# wrapper 或插件运行时资源；是否继续排除上游 examples 由插件入库边界决定。
 - 若上游改变 API、signal、节点父子要求、Manager 注册方式、Updater 或 seed 行为，先更新本文档和项目适配层，再决定是否升级；不能以“上游最新版”为理由静默改变正式相机行为。
