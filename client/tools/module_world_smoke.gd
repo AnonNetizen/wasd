@@ -1,6 +1,6 @@
 extends Node
 ## F13 headless smoke for deterministic composition, seamless streaming, fog,
-## objective-to-extraction flow and run-v4 restore.
+## objective-to-extraction flow and run-v5 restore.
 
 const MODULE_WORLD_MANAGER_SCENE := preload("res://scenes/gameplay/module_world_manager.tscn")
 const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
@@ -84,6 +84,7 @@ func _run() -> void:
 
 	print("[ModuleWorldSmoke] stage=composition")
 	_expect_deterministic_composition()
+	_expect_enemy_unlock_boundaries(run_loop)
 	print("[ModuleWorldSmoke] stage=streaming")
 	await _expect_seamless_streaming(run_loop)
 	print("[ModuleWorldSmoke] stage=objective_restore")
@@ -136,9 +137,33 @@ func _expect_deterministic_composition() -> void:
 		and (edge_stream.get("deactivated", []) as Array).size() <= 3,
 		"one-module crossing should replace at most three edge chunks"
 	)
-	_expect(manager_a.call("assignment") != manager_c.call("assignment"), "different seed should change ordinary module assignments")
-	_expect(manager_c.call("assignment") != manager_d.call("assignment"), "three-seed audit should produce distinct ordinary assignments")
-	_expect(String(manager_a.call("map_hash")) != String(manager_c.call("map_hash")), "different seed should change ordinary module assignment")
+	_expect(
+		manager_a.call("assignment") == manager_c.call("assignment")
+		and manager_c.call("assignment") == manager_d.call("assignment"),
+		"singleton flat-ground pool should keep ordinary assignments stable across seeds"
+	)
+	_expect(
+		_all_formal_ordinary_slots_are_flat(
+			manager_a.call("assignment") as Dictionary
+		),
+		"formal ordinary slots should all use unrotated flat ground"
+	)
+	_expect(
+		String(manager_a.call("map_hash")) != String(manager_c.call("map_hash")),
+		"map hash should retain the run seed even with a singleton template pool"
+	)
+	_expect(
+		(manager_a.call("empty_floor_positions_at", Vector2i(5, 4)) as Array).size()
+		== 121,
+		"interior flat-ground slots should expose all 121 cell centers"
+	)
+	var flat_data: Dictionary = (
+		data["templates"] as Dictionary
+	).get("module_flat_ground", {}) as Dictionary
+	_expect(
+		_flat_module_is_empty_floor(flat_data),
+		"flat-ground module should be 121 floor cells with no gameplay placements"
+	)
 	var changed_templates: Dictionary = (data["templates"] as Dictionary).duplicate(true)
 	var changed_objective: Dictionary = (changed_templates["module_objective_core"] as Dictionary).duplicate(true)
 	var changed_placements: Array = (changed_objective.get("placements", []) as Array).duplicate(true)
@@ -294,13 +319,28 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	var manager: Node = _find_node_by_name(get_tree().root, "ModuleWorldManager")
 	_expect(manager != null, "module world manager should remain available during streaming")
 	if manager != null:
+		for active_coord: Vector2i in manager.call("active_module_coords"):
+			var initial_slot_state: Dictionary = manager.call("slot_state", active_coord)
+			_expect(
+				not initial_slot_state.get("enemy_encounter") is Dictionary,
+				"initial 3x3 streaming activation must not prepare neighboring encounters"
+			)
+		var initial_encounter_vfx: Dictionary = run_loop.get("_module_encounter_vfx")
+		_expect(
+			initial_encounter_vfx.is_empty(),
+			"initial 3x3 streaming activation must not show neighboring telegraphs"
+		)
+		_expect(
+			get_tree().get_nodes_in_group("active_enemies").is_empty(),
+			"initial 3x3 streaming activation must not spawn neighboring enemies"
+		)
 		_expect(bool(manager.call("is_world_position_walkable", Vector2(-160.0, -160.0))), "known center floor cell should be walkable")
 		_expect(not bool(manager.call("is_world_position_walkable", Vector2(-320.0, -160.0))), "known center blocked cell should not be walkable")
 		for active_enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
 			if active_enemy is Node2D and not String(active_enemy.get_meta("module_slot", "")).is_empty():
 				_expect(
 					bool(manager.call("is_world_position_walkable", (active_enemy as Node2D).global_position)),
-					"module enemy placement should spawn on floor terrain"
+					"module enemy should remain on floor terrain"
 				)
 	var blocked_spawned: bool = bool(run_loop.call(
 		"_spawn_enemy_at",
@@ -393,7 +433,131 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	_expect(int(crossed_world.get("active_count", 0)) <= 9, "edge crossing should keep at most nine active chunks")
 	_expect(int(crossed_world.get("visited_count", 0)) >= 2, "entering an adjacent module should reveal fog state")
 	_expect(String(crossed_world.get("map_hash", "")) == before_hash, "streaming should not mutate map hash")
-	var first_visit_enemy_count: int = _active_module_entity_count("active_enemies", "5,4")
+	var encounter_slot_state: Dictionary = manager.call(
+		"slot_state",
+		Vector2i(5, 4)
+	)
+	var encounter: Dictionary = encounter_slot_state.get(
+		"enemy_encounter",
+		{}
+	) as Dictionary
+	var spawn_plan: Array = encounter.get("spawns", []) as Array
+	_expect(
+		String(encounter.get("state", "")) == "telegraphing",
+		"first entry should immediately persist a telegraphing encounter"
+	)
+	_expect(
+		spawn_plan.size() >= 4 and spawn_plan.size() <= 6,
+		"first entry should choose four to six spawn positions"
+	)
+	_expect(
+		_active_module_entity_count("active_enemies", "5,4") == 0,
+		"stream activation and the telegraph window must not spawn enemies early"
+	)
+	var spawn_position_keys: Dictionary = {}
+	var selected_spawn_position: Vector2 = Vector2.ZERO
+	for raw_spawn: Variant in spawn_plan:
+		if not raw_spawn is Dictionary:
+			continue
+		var spawn: Dictionary = raw_spawn as Dictionary
+		var spawn_position: Vector2 = _dict_to_vector(
+			spawn.get("world_position", {})
+		)
+		if selected_spawn_position == Vector2.ZERO:
+			selected_spawn_position = spawn_position
+		spawn_position_keys[_vector_key(spawn_position)] = true
+		_expect(
+			bool(manager.call("is_world_position_walkable", spawn_position)),
+			"telegraphed enemy position should be effective floor terrain"
+		)
+	_expect(
+		spawn_position_keys.size() == spawn_plan.size(),
+		"first-visit spawn positions should be unique"
+	)
+	var encounter_vfx: Dictionary = run_loop.get("_module_encounter_vfx")
+	_expect(
+		(encounter_vfx.get("5,4", []) as Array).size() == spawn_plan.size(),
+		"every planned enemy should show a ground telegraph"
+	)
+	var run_snapshot: Dictionary = run_loop.call("create_run_snapshot")
+	var saved_slot_states: Dictionary = (
+		(run_snapshot.get("module_world", {}) as Dictionary).get(
+			"slot_states",
+			{}
+		) as Dictionary
+	)
+	_expect(
+		_saved_slot_has_encounter(saved_slot_states, "5,4", spawn_plan),
+		"run-v5 snapshot should persist the fixed telegraph plan"
+	)
+	var remaining_before_pause: float = float(
+		encounter.get("remaining_telegraph", 0.0)
+	)
+	GameState.change_state(GameState.PAUSED, {"source": "module_world_smoke"})
+	await _wait_frames(8)
+	var paused_encounter: Dictionary = (
+		manager.call("slot_state", Vector2i(5, 4)) as Dictionary
+	).get("enemy_encounter", {}) as Dictionary
+	_expect(
+		is_equal_approx(
+			float(paused_encounter.get("remaining_telegraph", 0.0)),
+			remaining_before_pause
+		),
+		"pausing should freeze the encounter telegraph countdown"
+	)
+	GameState.change_state(GameState.PLAYING, {"source": "module_world_smoke"})
+	run_loop.call("debug_set_player_position", Vector2(-1760.0, 0.0))
+	await _wait_frames(BOOT_FRAMES)
+	var unloaded_remaining: float = float(
+		(
+			(manager.call("slot_state", Vector2i(5, 4)) as Dictionary).get(
+				"enemy_encounter",
+				{}
+			) as Dictionary
+		).get("remaining_telegraph", 0.0)
+	)
+	await _wait_frames(8)
+	var frozen_remaining: float = float(
+		(
+			(manager.call("slot_state", Vector2i(5, 4)) as Dictionary).get(
+				"enemy_encounter",
+				{}
+			) as Dictionary
+		).get("remaining_telegraph", 0.0)
+	)
+	_expect(
+		is_equal_approx(unloaded_remaining, frozen_remaining),
+		"an unloaded module should freeze its remaining telegraph time"
+	)
+	run_loop.call("debug_set_player_position", selected_spawn_position)
+	await get_tree().process_frame
+	var resumed_encounter: Dictionary = (
+		manager.call("slot_state", Vector2i(5, 4)) as Dictionary
+	).get("enemy_encounter", {}) as Dictionary
+	_expect(
+		(resumed_encounter.get("spawns", []) as Array) == spawn_plan,
+		"reactivating a telegraphing module must not reroll its spawn plan"
+	)
+	run_loop.call(
+		"_update_module_encounters",
+		float(resumed_encounter.get("remaining_telegraph", 0.0))
+	)
+	var spawned_encounter: Dictionary = (
+		manager.call("slot_state", Vector2i(5, 4)) as Dictionary
+	).get("enemy_encounter", {}) as Dictionary
+	var first_visit_enemy_count: int = _active_module_entity_count(
+		"active_enemies",
+		"5,4"
+	)
+	_expect(
+		String(spawned_encounter.get("state", "")) == "spawned"
+		and first_visit_enemy_count == spawn_plan.size(),
+		"telegraph completion should spawn the fixed plan simultaneously"
+	)
+	_expect(
+		_has_active_module_enemy_at("5,4", selected_spawn_position),
+		"standing on a selected cell must not reroll or suppress that enemy spawn"
+	)
 	var bullet_position := Vector2(1120.0, 700.0)
 	var pickup_position := Vector2(1280.0, 700.0)
 	run_loop.call("_restore_bullet_snapshots", [{
@@ -444,6 +608,19 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		"returning should restore the projectile wall-pierce snapshot"
 	)
 	_expect(_has_active_entity_at("active_pickups", pickup_position), "returning should restore the slot pickup")
+	var clear_result: Dictionary = run_loop.call("debug_clear_enemies")
+	_expect(
+		int(clear_result.get("count", 0)) >= first_visit_enemy_count,
+		"encounter cleanup should remove the spawned first-visit enemies"
+	)
+	run_loop.call("debug_set_player_position", Vector2(-1760.0, 0.0))
+	await _wait_frames(BOOT_FRAMES)
+	run_loop.call("debug_set_player_position", Vector2(960.0, 0.0))
+	await _wait_frames(BOOT_FRAMES)
+	_expect(
+		_active_module_entity_count("active_enemies", "5,4") == 0,
+		"a cleared spawned encounter must not refresh when its module is revisited"
+	)
 
 
 func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
@@ -459,9 +636,29 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 	await _wait_frames(BOOT_FRAMES)
 	var objective_summary: Dictionary = run_loop.call("debug_summary")
 	_expect(bool((objective_summary.get("extraction", {}) as Dictionary).get("active", false)), "destroying objective should activate the separate extraction module")
+	var objective_manager: Node = _find_node_by_name(
+		get_tree().root,
+		"ModuleWorldManager"
+	)
+	var objective_encounter: Dictionary = (
+		(objective_manager.call("slot_state", objective_coord) as Dictionary).get(
+			"enemy_encounter",
+			{}
+		) as Dictionary
+	)
+	var objective_spawn_plan: Array = objective_encounter.get(
+		"spawns",
+		[]
+	) as Array
+	_expect(
+		String(objective_encounter.get("state", "")) == "telegraphing"
+		and not objective_spawn_plan.is_empty(),
+		"objective first-entry encounter should still be telegraphing before save"
+	)
 
 	# Save while the completed objective module is still active. Restore must not recreate
 	# its destroyed target with default HP before applying the interest-point snapshot.
+	# The same restore also proves a live first-entry telegraph keeps its fixed plan.
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	_expect(int(snapshot.get("schema_version", 0)) == 5, "module run snapshot should use schema v5")
 	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v5 should save")
@@ -489,6 +686,38 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 	_expect(
 		_find_node_by_name(get_tree().root, "InterestPointTarget_%s" % objective_id) == null,
 		"restore should not recreate an already-destroyed objective target"
+	)
+	var restored_manager: Node = _find_node_by_name(
+		get_tree().root,
+		"ModuleWorldManager"
+	)
+	var restored_objective_encounter: Dictionary = (
+		(restored_manager.call("slot_state", objective_coord) as Dictionary).get(
+			"enemy_encounter",
+			{}
+		) as Dictionary
+	)
+	_expect(
+		String(restored_objective_encounter.get("state", "")) == "telegraphing"
+		and (
+			restored_objective_encounter.get("spawns", []) as Array
+		) == objective_spawn_plan
+		and float(
+			restored_objective_encounter.get("remaining_telegraph", 0.0)
+		) > 0.0,
+		"save restore should preserve a live telegraph plan and remaining time"
+	)
+	var restored_encounter_vfx: Dictionary = restored.get(
+		"_module_encounter_vfx"
+	)
+	_expect(
+		(
+			restored_encounter_vfx.get(
+				"%d,%d" % [objective_coord.x, objective_coord.y],
+				[]
+			) as Array
+		).size() == objective_spawn_plan.size(),
+		"save restore should rebuild every encounter telegraph VFX"
 	)
 
 	# Full world extraction is (0,0); technical-slice extraction is (3,3).
@@ -697,6 +926,113 @@ func _find_active_enemy_by_wave_key(wave_key: String) -> Node2D:
 		if enemy is Node2D and String(enemy.get_meta("wave_key", "")) == wave_key:
 			return enemy as Node2D
 	return null
+
+
+func _expect_enemy_unlock_boundaries(run_loop: Node) -> void:
+	var world: Dictionary = _load_world_data().get("world", {}) as Dictionary
+	var config: Dictionary = world.get(
+		"first_visit_enemy_spawn",
+		{}
+	) as Dictionary
+	var cases: Array[Dictionary] = [
+		{"time": 0.0, "count": 1},
+		{"time": 60.0, "count": 2},
+		{"time": 240.0, "count": 3},
+		{"time": 300.0, "count": 4},
+		{"time": 420.0, "count": 5},
+	]
+	for boundary: Dictionary in cases:
+		var eligible: Dictionary = run_loop.call(
+			"_eligible_first_visit_enemy_pool",
+			config,
+			float(boundary.get("time", 0.0))
+		)
+		_expect(
+			(eligible.get("enemy_ids", []) as Array).size()
+			== int(boundary.get("count", 0)),
+			"enemy unlock boundary %.1f should expose exactly %d entries"
+			% [
+				float(boundary.get("time", 0.0)),
+				int(boundary.get("count", 0)),
+			]
+		)
+
+
+func _all_formal_ordinary_slots_are_flat(
+	assignment: Dictionary
+) -> bool:
+	var fixed_slots: Dictionary = {
+		"4,4": true,
+		"0,4": true,
+		"0,0": true,
+	}
+	for raw_slot: Variant in assignment.keys():
+		var slot: String = String(raw_slot)
+		if fixed_slots.has(slot):
+			continue
+		var entry: Dictionary = assignment[raw_slot] as Dictionary
+		if (
+			String(entry.get("template_id", "")) != "module_flat_ground"
+			or int(entry.get("rotation", -1)) != 0
+		):
+			return false
+	return true
+
+
+func _flat_module_is_empty_floor(module_data: Dictionary) -> bool:
+	var terrain_rows: Array = module_data.get("terrain_rows", []) as Array
+	if terrain_rows.size() != 11:
+		return false
+	for raw_row: Variant in terrain_rows:
+		if not raw_row is Array or (raw_row as Array).size() != 11:
+			return false
+		for raw_cell: Variant in raw_row as Array:
+			if String(raw_cell) != MODULE_CELL_TOKENS.MODULE_CELL_FLOOR:
+				return false
+	return (module_data.get("placements", []) as Array).is_empty()
+
+
+func _saved_slot_has_encounter(
+	slot_states: Dictionary,
+	slot_key: String,
+	expected_plan: Array
+) -> bool:
+	var slot_state: Variant = slot_states.get(slot_key)
+	if not slot_state is Dictionary:
+		return false
+	var encounter: Variant = (slot_state as Dictionary).get("enemy_encounter")
+	return (
+		encounter is Dictionary
+		and ((encounter as Dictionary).get("spawns", []) as Array)
+		== expected_plan
+	)
+
+
+func _has_active_module_enemy_at(
+	slot_key: String,
+	world_position: Vector2
+) -> bool:
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if (
+			enemy is Node2D
+			and String(enemy.get_meta("module_slot", "")) == slot_key
+			and (enemy as Node2D).global_position.is_equal_approx(world_position)
+		):
+			return true
+	return false
+
+
+func _dict_to_vector(value: Variant) -> Vector2:
+	if not value is Dictionary:
+		return Vector2.ZERO
+	return Vector2(
+		float((value as Dictionary).get("x", 0.0)),
+		float((value as Dictionary).get("y", 0.0))
+	)
+
+
+func _vector_key(value: Vector2) -> String:
+	return "%.3f,%.3f" % [value.x, value.y]
 
 
 func _vector_to_dict(value: Vector2) -> Dictionary:

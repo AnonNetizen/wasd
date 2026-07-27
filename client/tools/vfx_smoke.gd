@@ -26,10 +26,10 @@ func _run() -> void:
 		Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES, true)
 	)
 
-	_expect(VisualEffects.effect_ids().size() == 15, "catalog should expose 15 effects")
+	_expect(VisualEffects.effect_ids().size() == 17, "catalog should expose 17 effects")
 	_expect(
-		VisualEffects.profile_ids().size() == 9,
-		"catalog should expose 9 presentation profiles"
+		VisualEffects.profile_ids().size() == 10,
+		"catalog should expose 10 presentation profiles"
 	)
 	_expect(
 		not VisualEffects.resolve_binding(
@@ -88,6 +88,18 @@ func _run() -> void:
 			VisualEffects.resolved_effect("environment_hazard_telegraph")
 		),
 		"reduced motion must preserve gameplay-boundary effects"
+	)
+	var reduced_enemy_telegraph: Dictionary = VisualEffects.resolved_effect(
+		"enemy_spawn_telegraph"
+	)
+	_expect(
+		String(reduced_enemy_telegraph.get("id", ""))
+		== "enemy_spawn_telegraph_reduced"
+		and (reduced_enemy_telegraph.get("tags", []) as Array).has(
+			"reduced_motion_static"
+		)
+		and VisualEffects.allows_effect(reduced_enemy_telegraph),
+		"reduced motion should retain a static enemy-spawn boundary telegraph"
 	)
 	var damage_scene: PackedScene = load(
 		"res://scenes/gameplay/damage_number.tscn"

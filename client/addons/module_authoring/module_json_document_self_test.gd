@@ -40,7 +40,7 @@ func _run_document_smoke() -> void:
 	_write_json(
 		_registry_path,
 		{
-			"schema_version": 2,
+			"schema_version": 3,
 			"templates": [_registry_entry("module_base", base_path)],
 		}
 	)
@@ -244,7 +244,7 @@ func _module_data(requested_id: String) -> Dictionary:
 			row.append("module_cell_floor")
 		terrain_rows.append(row)
 	return {
-		"schema_version": 2,
+		"schema_version": 3,
 		"id": requested_id,
 		"columns": 11,
 		"rows": 11,

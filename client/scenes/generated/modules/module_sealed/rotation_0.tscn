@@ -16,10 +16,11 @@ segments = PackedVector2Array(-80, -80, 80, -80, -80, 80, -80, -80, 80, -80, 240
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_78uao")
+baker_schema_version = 3
 module_id = "module_sealed"
 gameplay_hash = "b168da10d5040577890261429fea7a18e5b7511a41cae60751d0fd0ebb20b29d"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "e9e8569a75132d196e4eb161b109adf01f8ba4f1ba6e680eda6d7754210ee598"
+bake_hash = "036157eb25b12e051488fd5c0f92ae4eb4dc77b12b9e32bdadae94b9c8339dfd"
 
 [node name="Ground" type="TileMapLayer" parent="."]
 position = Vector2(-80, -80)

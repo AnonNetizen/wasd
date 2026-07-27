@@ -24,7 +24,7 @@ const ROTATION_FULL: int = 360
 const ASSIGNMENT_SEED_MODULUS: int = 2_147_483_647
 const INVALID_COORD: Vector2i = Vector2i(-1, -1)
 const MODULE_TERRAIN_Z_INDEX: int = -90
-const GENERATED_MODULE_BAKER_SCHEMA_VERSION: int = 2
+const GENERATED_MODULE_BAKER_SCHEMA_VERSION: int = 3
 
 var _world_def: Dictionary = {}
 var _registry_by_id: Dictionary = {}
@@ -252,6 +252,31 @@ func placements_at(module_coord: Vector2i) -> Array[Dictionary]:
 		placement["module_coord"] = _coord_to_dict(module_coord)
 		placement["world_position"] = _vector_to_dict(global_cell_to_world(global_cell))
 		result.append(placement)
+	return result
+
+
+## Returns effective, unoccupied floor-cell centers in stable row-major order.
+## Static gameplay placement footprints are excluded after module rotation.
+func empty_floor_positions_at(module_coord: Vector2i) -> Array[Vector2]:
+	var result: Array[Vector2] = []
+	if not _is_module_coord_valid(module_coord):
+		return result
+	var occupied: Dictionary = _occupied_local_cells(module_coord)
+	for local_y: int in range(MODULE_ROWS):
+		for local_x: int in range(MODULE_COLUMNS):
+			var local_cell := Vector2i(local_x, local_y)
+			if occupied.has(local_cell):
+				continue
+			var global_cell: Vector2i = module_local_to_global_cell(
+				module_coord,
+				local_cell
+			)
+			if (
+				_terrain_at_global_cell(global_cell)
+				!= MODULE_CELL_TOKENS.MODULE_CELL_FLOOR
+			):
+				continue
+			result.append(global_cell_to_world(global_cell))
 	return result
 
 
@@ -569,9 +594,16 @@ func _entry_fits_assigned_neighbors(module_coord: Vector2i) -> bool:
 			continue
 		var current_sockets: Array[int] = _rotated_edge_sockets(module_coord, String(check.get("edge", "")))
 		var neighbor_sockets: Array[int] = _rotated_edge_sockets(neighbor_coord, String(check.get("opposite", "")))
-		if current_sockets != neighbor_sockets:
+		if not _socket_arrays_overlap(current_sockets, neighbor_sockets):
 			return false
 	return true
+
+
+func _socket_arrays_overlap(left: Array[int], right: Array[int]) -> bool:
+	for socket_index: int in left:
+		if right.has(socket_index):
+			return true
+	return false
 
 
 func _rotated_edge_sockets(module_coord: Vector2i, world_edge: String) -> Array[int]:
@@ -885,6 +917,41 @@ func _rotate_local_cell(local_cell: Vector2i, rotation_degrees: int) -> Vector2i
 			return Vector2i(local_cell.y, MODULE_COLUMNS - 1 - local_cell.x)
 		_:
 			return local_cell
+
+
+func _occupied_local_cells(module_coord: Vector2i) -> Dictionary:
+	var result: Dictionary = {}
+	var entry: Dictionary = assignment_at(module_coord)
+	var template_data: Dictionary = _dictionary_or_empty(
+		_templates_by_id.get(String(entry.get("template_id", "")), {})
+	)
+	var rotation_degrees: int = int(entry.get("rotation", 0))
+	for raw_placement: Variant in _array_or_empty(
+		template_data.get("placements", [])
+	):
+		if not raw_placement is Dictionary:
+			continue
+		var placement: Dictionary = raw_placement as Dictionary
+		var source_cell: Vector2i = _coord_from_variant(
+			placement.get("cell", {}),
+			INVALID_COORD
+		)
+		if not _is_local_cell_valid(source_cell):
+			continue
+		var footprint: Dictionary = _dictionary_or_empty(
+			placement.get("footprint", {})
+		)
+		var width: int = maxi(int(footprint.get("width", 1)), 1)
+		var height: int = maxi(int(footprint.get("height", 1)), 1)
+		for offset_y: int in range(height):
+			for offset_x: int in range(width):
+				var rotated_cell: Vector2i = _rotate_local_cell(
+					source_cell + Vector2i(offset_x, offset_y),
+					rotation_degrees
+				)
+				if _is_local_cell_valid(rotated_cell):
+					result[rotated_cell] = true
+	return result
 
 
 func _inverse_rotate_local_cell(local_cell: Vector2i, rotation_degrees: int) -> Vector2i:

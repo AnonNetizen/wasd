@@ -20,43 +20,12 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_dhfj3")
+baker_schema_version = 3
 module_id = "module_objective_core"
-gameplay_hash = "9521392aa0db3c2fe2b8c18aabbcb41435916346c1ae96d29389c101fe575d48"
+gameplay_hash = "b2147eb47bb6f10aae5914a385c357425e2c4ebdf387d5c93e21010d5595ab59"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "9727490bf8695782578a3149cd713836cc2fa4c46c1190c7cd313ef629806a41"
+bake_hash = "b90cafd2da5752ae66bf3cd898cb7f4dbf1664ef0fa1816244cbd4f61e0baf09"
 placement_snapshot = Array[Dictionary]([{
-"cell": {
-"x": 2,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_bulwark",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 5,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_spitter",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 8,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_bulwark",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 2,
-"y": 5
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
 "cell": {
 "x": 5,
 "y": 5
@@ -64,38 +33,6 @@ placement_snapshot = Array[Dictionary]([{
 "target_hit_radius": 48,
 "target_hp": 240,
 "type": "module_place_objective"
-}, {
-"cell": {
-"x": 8,
-"y": 5
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 2,
-"y": 8
-},
-"count": 1,
-"enemy_id": "enemy_stalker",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 5,
-"y": 8
-},
-"count": 1,
-"enemy_id": "enemy_spitter",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 8,
-"y": 8
-},
-"count": 1,
-"enemy_id": "enemy_stalker",
-"type": "module_place_enemy_spawn"
 }])
 
 [node name="Ground" type="TileMapLayer" parent="."]

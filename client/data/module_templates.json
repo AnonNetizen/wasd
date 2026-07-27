@@ -23,7 +23,7 @@
         180,
         270
       ],
-      "approved_gameplay_hash": "748a74cb9ec4c9bed78b0aaf29b22a3bcd092a8afba0fb9add5a694b60a20724",
+      "approved_gameplay_hash": "84e8e2d3702eca5abad9b42fbfe7aae03b565fa9b179daf5eb7aeb66f53b5384",
       "id": "module_connector_cross",
       "path": "res://data/modules/module_connector_cross.json",
       "review_status": "module_review_approved",
@@ -38,7 +38,7 @@
         180,
         270
       ],
-      "approved_gameplay_hash": "2d99fef68c23b2b9f3239a54f93d846d05a270975e450f82e40f84ce69dfa404",
+      "approved_gameplay_hash": "a01425f1c4083e3fc7527573a1aee554a1fdb42f1d9b6ff117432fc4da1c5aac",
       "id": "module_connector_courtyard",
       "path": "res://data/modules/module_connector_courtyard.json",
       "review_status": "module_review_approved",
@@ -53,7 +53,7 @@
         180,
         270
       ],
-      "approved_gameplay_hash": "664973eb2b38333003efb681f22d575b52fb765f9c41f577b5f2fe7a1045bf01",
+      "approved_gameplay_hash": "baf0f56c7ca4ca6530b5cc9bb0baae8bc8a2d0a3737c438a4d8a940bb3bc1c50",
       "id": "module_connector_pillars",
       "path": "res://data/modules/module_connector_pillars.json",
       "review_status": "module_review_approved",
@@ -68,7 +68,7 @@
         180,
         270
       ],
-      "approved_gameplay_hash": "067beb7a319c5f0b18677c2b57507e2d8e2da76d0368569e9ec5eb9a8a0124f1",
+      "approved_gameplay_hash": "d3d96e4373f93b8e1708772a4b69cf56d719fecdfaddc8e8befa83b257333483",
       "id": "module_connector_ring",
       "path": "res://data/modules/module_connector_ring.json",
       "review_status": "module_review_approved",
@@ -83,7 +83,7 @@
         180,
         270
       ],
-      "approved_gameplay_hash": "4e1edb5e10558c6837bfcb2afbf778b7c86b4ebea0032d6324d46d6297c60cac",
+      "approved_gameplay_hash": "18a7c622e94397f85e74b8f893e7de410c5e5aa326f80e909a1b0453927e1906",
       "id": "module_combat_arena",
       "path": "res://data/modules/module_combat_arena.json",
       "review_status": "module_review_approved",
@@ -98,7 +98,7 @@
         180,
         270
       ],
-      "approved_gameplay_hash": "9f82e119a293ad438221a56d2b721fa4e040f145c5daee8fe2111d45eb37759f",
+      "approved_gameplay_hash": "1f63e11783aeffd3d94a7030cdc8a7589832d5bab83407ff8b041270c5491259",
       "id": "module_combat_quadrants",
       "path": "res://data/modules/module_combat_quadrants.json",
       "review_status": "module_review_approved",
@@ -113,7 +113,7 @@
         180,
         270
       ],
-      "approved_gameplay_hash": "768f861ce488eed4c1b07fb40db2bc4228b28aa72dbe58887a07d6f438bd2e66",
+      "approved_gameplay_hash": "b33ad6ff835b2ba7bfca37e2d1e9038c6ffe12deeaac1388e7aebb803f26d0cf",
       "id": "module_combat_corridors",
       "path": "res://data/modules/module_combat_corridors.json",
       "review_status": "module_review_approved",
@@ -128,7 +128,7 @@
         180,
         270
       ],
-      "approved_gameplay_hash": "0e6f5867ed8c6e07bd97df5fd69268dd4ff559c4ad9b7c07f5087e7edc71777d",
+      "approved_gameplay_hash": "a2c47617ea8590ec5b1117f2263fdb56471384530f82e64dc1ed9214677208e1",
       "id": "module_combat_fort",
       "path": "res://data/modules/module_combat_fort.json",
       "review_status": "module_review_approved",
@@ -143,7 +143,7 @@
         180,
         270
       ],
-      "approved_gameplay_hash": "c51f1d96023987e04559fd2095f97676ecb75ebd3f513f9d33d6b4f2ea58fd1c",
+      "approved_gameplay_hash": "aceacc8d375a3b5f7b018db7ca9a675ee7125d7390ac3a9d1b5f59f4e29e0bae",
       "id": "module_resource_cache",
       "path": "res://data/modules/module_resource_cache.json",
       "review_status": "module_review_approved",
@@ -158,7 +158,7 @@
         180,
         270
       ],
-      "approved_gameplay_hash": "07755f742cd1f5467eed17c34826bf51cb65066bf40cbf0907c5c1147643534d",
+      "approved_gameplay_hash": "bbc0d9f8c3623965b7c997bca5787d7e538c7eb4b07917b9a0aaf843e0eacdde",
       "id": "module_resource_crossroads",
       "path": "res://data/modules/module_resource_crossroads.json",
       "review_status": "module_review_approved",
@@ -173,7 +173,7 @@
         180,
         270
       ],
-      "approved_gameplay_hash": "276f0b64c5fc90d5697ee19e08e52ec14c19e4886b9af5119e806b1ae2fb234e",
+      "approved_gameplay_hash": "3e12697c495cd761552dc873bf0f3066e1775972d61c015773c2a12702dc5251",
       "id": "module_hazard_spikes",
       "path": "res://data/modules/module_hazard_spikes.json",
       "review_status": "module_review_approved",
@@ -188,7 +188,7 @@
         180,
         270
       ],
-      "approved_gameplay_hash": "8730af3008cc382aff0665761591a61727384c2872048f1188fa7013b7ad3e3a",
+      "approved_gameplay_hash": "b587149fe030fa38934410c27a345ff9d6ceb858668f7dba885ab5c4142131b8",
       "id": "module_hazard_pulse",
       "path": "res://data/modules/module_hazard_pulse.json",
       "review_status": "module_review_approved",
@@ -203,7 +203,7 @@
         180,
         270
       ],
-      "approved_gameplay_hash": "5e3425812d822e2c45856b14a42463b3eec3f01b67dc1ea7be2476324a45dedc",
+      "approved_gameplay_hash": "f555819b3e4ca493e778cbef1f84bf8a28688ff3fc7979a603a064c3ed0dc248",
       "id": "module_objective_core",
       "path": "res://data/modules/module_objective_core.json",
       "review_status": "module_review_approved",
@@ -218,13 +218,25 @@
         180,
         270
       ],
-      "approved_gameplay_hash": "572c5b097ae6389ab4f502ca5b4c8cdfd2b78131db65e5af34c49f630b11feec",
+      "approved_gameplay_hash": "07179bcfbcd8983b3c57bf50e954bae629dcb7232868012f70eb54c2f710a61b",
       "id": "module_extraction_pad",
       "path": "res://data/modules/module_extraction_pad.json",
       "review_status": "module_review_approved",
       "role": "module_role_extraction",
       "source": "ai",
       "tags": []
+    },
+    {
+      "id": "module_flat_ground",
+      "path": "res://data/modules/module_flat_ground.json",
+      "role": "module_role_connector",
+      "tags": [],
+      "source": "ai",
+      "allowed_rotations": [
+        0
+      ],
+      "review_status": "module_review_approved",
+      "approved_gameplay_hash": "cf170eeb1053197f99ced97cfc2bf2edd09cf801514e7bcde8ece5643328b776"
     },
     {
       "allowed_rotations": [

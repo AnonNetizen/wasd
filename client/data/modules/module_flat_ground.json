@@ -1,24 +1,10 @@
 {
   "schema_version": 3,
-  "id": "module_objective_core",
+  "id": "module_flat_ground",
   "columns": 11,
   "rows": 11,
   "terrain_rows": [
     [
-      "module_cell_blocked",
-      "module_cell_blocked",
-      "module_cell_blocked",
-      "module_cell_blocked",
-      "module_cell_blocked",
-      "module_cell_floor",
-      "module_cell_blocked",
-      "module_cell_blocked",
-      "module_cell_blocked",
-      "module_cell_blocked",
-      "module_cell_blocked"
-    ],
-    [
-      "module_cell_blocked",
       "module_cell_floor",
       "module_cell_floor",
       "module_cell_floor",
@@ -28,46 +14,8 @@
       "module_cell_floor",
       "module_cell_floor",
       "module_cell_floor",
-      "module_cell_blocked"
-    ],
-    [
-      "module_cell_blocked",
       "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_blocked"
-    ],
-    [
-      "module_cell_blocked",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_blocked"
-    ],
-    [
-      "module_cell_blocked",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_floor",
-      "module_cell_blocked"
+      "module_cell_floor"
     ],
     [
       "module_cell_floor",
@@ -83,7 +31,6 @@
       "module_cell_floor"
     ],
     [
-      "module_cell_blocked",
       "module_cell_floor",
       "module_cell_floor",
       "module_cell_floor",
@@ -93,10 +40,10 @@
       "module_cell_floor",
       "module_cell_floor",
       "module_cell_floor",
-      "module_cell_blocked"
+      "module_cell_floor",
+      "module_cell_floor"
     ],
     [
-      "module_cell_blocked",
       "module_cell_floor",
       "module_cell_floor",
       "module_cell_floor",
@@ -106,10 +53,10 @@
       "module_cell_floor",
       "module_cell_floor",
       "module_cell_floor",
-      "module_cell_blocked"
+      "module_cell_floor",
+      "module_cell_floor"
     ],
     [
-      "module_cell_blocked",
       "module_cell_floor",
       "module_cell_floor",
       "module_cell_floor",
@@ -119,10 +66,10 @@
       "module_cell_floor",
       "module_cell_floor",
       "module_cell_floor",
-      "module_cell_blocked"
+      "module_cell_floor",
+      "module_cell_floor"
     ],
     [
-      "module_cell_blocked",
       "module_cell_floor",
       "module_cell_floor",
       "module_cell_floor",
@@ -132,32 +79,74 @@
       "module_cell_floor",
       "module_cell_floor",
       "module_cell_floor",
-      "module_cell_blocked"
+      "module_cell_floor",
+      "module_cell_floor"
     ],
     [
-      "module_cell_blocked",
-      "module_cell_blocked",
-      "module_cell_blocked",
-      "module_cell_blocked",
-      "module_cell_blocked",
       "module_cell_floor",
-      "module_cell_blocked",
-      "module_cell_blocked",
-      "module_cell_blocked",
-      "module_cell_blocked",
-      "module_cell_blocked"
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor"
+    ],
+    [
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor"
+    ],
+    [
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor"
+    ],
+    [
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor"
+    ],
+    [
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor",
+      "module_cell_floor"
     ]
-  ],
-  "placements": [
-    {
-      "type": "module_place_objective",
-      "cell": {
-        "x": 5,
-        "y": 5
-      },
-      "target_hp": 240,
-      "target_hit_radius": 48
-    }
   ],
   "visual_layers": {
     "ground": {
@@ -171,5 +160,6 @@
     "decoration": {
       "cells": []
     }
-  }
+  },
+  "placements": []
 }

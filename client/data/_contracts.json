@@ -305,7 +305,6 @@
     ],
     "module_placement_types": [
       "module_place_player_start",
-      "module_place_enemy_spawn",
       "module_place_hazard",
       "module_place_reward_cache",
       "module_place_objective",
@@ -371,6 +370,7 @@
       "pickup_collect",
       "hazard_telegraph",
       "hazard_activated",
+      "enemy_spawn_telegraph",
       "ui_enter",
       "ui_exit",
       "ui_focus",

@@ -20,49 +20,18 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_kkm4f")
+baker_schema_version = 3
 module_id = "module_connector_ring"
-gameplay_hash = "3a5fd0c9e7c784d1b8bf5aaadf4bf0307f1e4c7710390068cbcac579dd066702"
+gameplay_hash = "6582f894b3b56ffa8fe239f8c7771efbae7a107fbda0e1ededb89bb070ffc3c2"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "249a4822cb2ef315ef9f9ffbc8cf7c71f0886848326dddf5c5731426f2af5f22"
+bake_hash = "20cc89770a4fb4a11443682e2c809a7a7ed5d16cced0df62134584832205b47f"
 placement_snapshot = Array[Dictionary]([{
-"cell": {
-"x": 2,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_swarm",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 8,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_swarm",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 2,
-"y": 8
-},
-"count": 1,
-"enemy_id": "enemy_stalker",
-"type": "module_place_enemy_spawn"
-}, {
 "cell": {
 "x": 5,
 "y": 8
 },
 "hazard_id": "hazard_spike_trap",
 "type": "module_place_hazard"
-}, {
-"cell": {
-"x": 8,
-"y": 8
-},
-"count": 1,
-"enemy_id": "enemy_stalker",
-"type": "module_place_enemy_spawn"
 }])
 
 [node name="Ground" type="TileMapLayer" parent="."]

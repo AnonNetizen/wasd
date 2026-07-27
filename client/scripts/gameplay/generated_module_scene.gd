@@ -5,7 +5,7 @@ extends Node2D
 
 const MODULE_EDGE_DIRECTIONS := preload("res://scripts/contracts/module_edge_directions.gd")
 
-const BAKER_SCHEMA_VERSION: int = 2
+const BAKER_SCHEMA_VERSION: int = 3
 
 @export var baker_schema_version: int = BAKER_SCHEMA_VERSION
 @export var module_id: String = ""

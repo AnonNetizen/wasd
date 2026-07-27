@@ -83,6 +83,7 @@ const NAVIGATION_FLOW_OBSTACLE_BUFFER_CELLS: int = 2
 const PRESENTATION_ENEMY_DEFAULT: String = "presentation_enemy_default"
 const PRESENTATION_GAMEPLAY_DEFAULT: String = "presentation_gameplay_default"
 const PRESENTATION_HAZARD_DEFAULT: String = "presentation_hazard_default"
+const PRESENTATION_MODULE_ENCOUNTER: String = "presentation_module_encounter"
 const PRESENTATION_PICKUP_DEFAULT: String = "presentation_pickup_default"
 const PRESENTATION_PLAYER_DEFAULT: String = "presentation_player_default"
 const PRESENTATION_SKILL_DEFAULT: String = "presentation_skill_default"
@@ -90,6 +91,8 @@ const PRESENTATION_SKILL_OVERDRIVE: String = "presentation_skill_overdrive"
 const PRESENTATION_STATUS_DEFAULT: String = "presentation_status_default"
 const DEBUG_TEST_ARENA_AI: String = "ai"
 const DEBUG_TEST_ARENA_STATIONARY: String = "stationary"
+const MODULE_ENCOUNTER_STATE_TELEGRAPHING: String = "telegraphing"
+const MODULE_ENCOUNTER_STATE_SPAWNED: String = "spawned"
 
 @export_group("Extraction Visual Style")
 @export var extraction_zone_fill_color: Color = Color(0.18, 0.82, 0.68, 0.16)
@@ -137,6 +140,7 @@ var _module_world_definition: Dictionary = {}
 var _module_world_enabled: bool = true
 var _module_world_technical_slice: bool = false
 var _module_world_manager: Node2D = null
+var _module_encounter_vfx: Dictionary = {}
 var _settings_panel: CanvasLayer = null
 var _skill_system: Node = null
 var _spawn_states: Dictionary = {}
@@ -208,7 +212,7 @@ func _process(delta: float) -> void:
 	if _is_debug_test_arena():
 		return
 	if _module_world_enabled:
-		_update_module_world()
+		_update_module_world(delta)
 	_update_interest_points()
 	if not GameState.is_state(GameState.PLAYING):
 		return
@@ -1846,11 +1850,12 @@ func _start_module_world_fresh_staged() -> bool:
 	return true
 
 
-func _update_module_world() -> void:
+func _update_module_world(delta: float) -> void:
 	if _module_world_manager == null or _player == null:
 		return
 	var stream_change: Dictionary = _module_world_manager.call("tick", _player.global_position)
 	_handle_module_stream_change(stream_change)
+	_update_module_encounters(GameClock.delta_scaled(delta))
 	_refresh_module_world_hud()
 
 
@@ -1859,6 +1864,7 @@ func _handle_module_stream_change(stream_change: Dictionary) -> void:
 		_deactivate_module_slot(_dict_to_vector2i(raw_coord))
 	for raw_coord: Variant in _array_or_empty(stream_change.get("activated", [])):
 		_activate_module_slot(_dict_to_vector2i(raw_coord), true)
+	_handle_first_module_entry(stream_change)
 
 
 func _handle_module_stream_change_staged(stream_change: Dictionary) -> bool:
@@ -1868,6 +1874,7 @@ func _handle_module_stream_change_staged(stream_change: Dictionary) -> bool:
 		_activate_module_slot(_dict_to_vector2i(raw_coord), true)
 		if not await _yield_loading_frame():
 			return false
+	_handle_first_module_entry(stream_change)
 	return true
 
 
@@ -1892,6 +1899,8 @@ func _activate_module_slot(module_coord: Vector2i, restore_stored_entities: bool
 		state["initialized"] = true
 	state["slot_key"] = slot_key
 	_module_world_manager.call("set_slot_state", module_coord, state)
+	if GameState.is_state(GameState.PLAYING):
+		_restore_module_encounter_vfx(module_coord)
 	# During full run restore, interest-point state is applied after active slots are rebuilt.
 	# Delay their visuals until then so a claimed/destroyed target cannot briefly reappear
 	# with default HP and survive the second spawn pass as an already-existing node.
@@ -1901,6 +1910,7 @@ func _activate_module_slot(module_coord: Vector2i, restore_stored_entities: bool
 
 func _deactivate_module_slot(module_coord: Vector2i) -> void:
 	var slot_key: String = _module_slot_key(module_coord)
+	_cancel_module_encounter_vfx(slot_key)
 	var state: Dictionary = _module_world_manager.call("slot_state", module_coord)
 	state["enemy_snapshots"] = _capture_and_release_module_group("active_enemies", slot_key)
 	state["hazard_snapshots"] = _capture_and_release_module_group("active_hazards", slot_key)
@@ -1940,19 +1950,228 @@ func _entity_belongs_to_module_slot(node: Node, group_name: String, slot_key: St
 
 func _spawn_module_placements(module_coord: Vector2i, placements: Array[Dictionary]) -> void:
 	var slot_key: String = _module_slot_key(module_coord)
-	var wave_key: String = "module_%s" % slot_key.replace(",", "_")
 	for placement: Dictionary in placements:
 		var placement_type: String = String(placement.get("type", ""))
 		var world_position: Vector2 = _dict_to_vector(placement.get("world_position", {}), Vector2.ZERO)
-		if placement_type == MODULE_PLACEMENT_TYPES.MODULE_PLACE_ENEMY_SPAWN:
-			for _index: int in range(maxi(int(placement.get("count", 1)), 1)):
-				_spawn_enemy_at(String(placement.get("enemy_id", "")), world_position, wave_key, slot_key)
-		elif placement_type == MODULE_PLACEMENT_TYPES.MODULE_PLACE_HAZARD:
+		if placement_type == MODULE_PLACEMENT_TYPES.MODULE_PLACE_HAZARD:
 			_spawn_hazard({
 				"hazard_id": String(placement.get("hazard_id", "")),
 				"position": _vector_to_dict(world_position),
 				"module_slot": slot_key,
 			})
+
+
+func _handle_first_module_entry(stream_change: Dictionary) -> void:
+	if (
+		not bool(stream_change.get("entered", false))
+		or not bool(stream_change.get("visited_now", false))
+	):
+		return
+	var module_coord: Vector2i = _dict_to_vector2i(
+		stream_change.get("current_module", {})
+	)
+	var start_coord: Vector2i = _module_world_manager.call(
+		"role_module_coord",
+		MODULE_ROLES.MODULE_ROLE_START
+	)
+	if module_coord == start_coord:
+		return
+	_start_first_visit_encounter(module_coord)
+
+
+func _start_first_visit_encounter(module_coord: Vector2i) -> void:
+	var state: Dictionary = _module_world_manager.call("slot_state", module_coord)
+	if state.get("enemy_encounter") is Dictionary:
+		return
+	var config: Dictionary = _dictionary_or_empty(
+		_module_world_definition.get("first_visit_enemy_spawn", {})
+	)
+	var raw_positions: Variant = _module_world_manager.call(
+		"empty_floor_positions_at",
+		module_coord
+	)
+	var available_positions: Array[Vector2] = []
+	if raw_positions is Array:
+		for raw_position: Variant in raw_positions as Array:
+			if raw_position is Vector2:
+				available_positions.append(raw_position as Vector2)
+	var count_min: int = maxi(int(config.get("count_min", 0)), 0)
+	var count_max: int = maxi(int(config.get("count_max", count_min)), count_min)
+	var desired_count: int = count_min
+	var count_range: int = count_max - count_min + 1
+	if count_range > 1:
+		desired_count += int(RNG.spawn.randi() % count_range)
+	var spawn_count: int = mini(desired_count, available_positions.size())
+	if spawn_count < desired_count:
+		push_error(
+			"[GameplayRunLoop] module %s requested %d encounter spawns but only %d empty floor cells are available"
+			% [_module_slot_key(module_coord), desired_count, available_positions.size()]
+		)
+	var eligible_pool: Dictionary = _eligible_first_visit_enemy_pool(
+		config,
+		GameClock.now()
+	)
+	var eligible_enemy_ids: Array = eligible_pool.get("enemy_ids", []) as Array
+	var eligible_weights: Array = eligible_pool.get("weights", []) as Array
+	var spawn_plan: Array[Dictionary] = []
+	for _spawn_index: int in range(spawn_count):
+		var position_index: int = int(
+			RNG.spawn.randi() % available_positions.size()
+		)
+		var spawn_position: Vector2 = available_positions.pop_at(position_index)
+		var enemy_id: String = String(
+			RNG.spawn.weighted_pick(eligible_enemy_ids, eligible_weights)
+		)
+		if enemy_id.is_empty():
+			push_error(
+				"[GameplayRunLoop] no unlocked enemy is available for module encounter"
+			)
+			continue
+		spawn_plan.append({
+			"enemy_id": enemy_id,
+			"world_position": _vector_to_dict(spawn_position),
+		})
+	var telegraph_duration: float = maxf(
+		float(config.get("telegraph_duration", 0.0)),
+		0.0
+	)
+	var encounter: Dictionary = {
+		"state": (
+			MODULE_ENCOUNTER_STATE_TELEGRAPHING
+			if telegraph_duration > 0.0 and not spawn_plan.is_empty()
+			else MODULE_ENCOUNTER_STATE_SPAWNED
+		),
+		"remaining_telegraph": telegraph_duration,
+		"spawns": spawn_plan,
+	}
+	state["enemy_encounter"] = encounter
+	_module_world_manager.call("set_slot_state", module_coord, state)
+	if String(encounter.get("state", "")) == MODULE_ENCOUNTER_STATE_TELEGRAPHING:
+		_restore_module_encounter_vfx(module_coord)
+	else:
+		_spawn_module_encounter_plan(module_coord, encounter)
+
+
+func _eligible_first_visit_enemy_pool(
+	config: Dictionary,
+	elapsed_time: float
+) -> Dictionary:
+	var enemy_ids: Array[String] = []
+	var weights: Array[float] = []
+	for raw_entry: Variant in _array_or_empty(config.get("enemy_pool", [])):
+		if not raw_entry is Dictionary:
+			continue
+		var entry: Dictionary = raw_entry as Dictionary
+		if float(entry.get("unlock_time", 0.0)) > elapsed_time:
+			continue
+		enemy_ids.append(String(entry.get("enemy_id", "")))
+		weights.append(float(entry.get("weight", 0.0)))
+	return {
+		"enemy_ids": enemy_ids,
+		"weights": weights,
+	}
+
+
+func _update_module_encounters(scaled_delta: float) -> void:
+	if _module_world_manager == null:
+		return
+	var active_coords: Array[Vector2i] = _module_world_manager.call(
+		"active_module_coords"
+	)
+	for module_coord: Vector2i in active_coords:
+		var state: Dictionary = _module_world_manager.call(
+			"slot_state",
+			module_coord
+		)
+		var raw_encounter: Variant = state.get("enemy_encounter")
+		if not raw_encounter is Dictionary:
+			continue
+		var encounter: Dictionary = raw_encounter as Dictionary
+		if (
+			String(encounter.get("state", ""))
+			!= MODULE_ENCOUNTER_STATE_TELEGRAPHING
+		):
+			continue
+		var slot_key: String = _module_slot_key(module_coord)
+		if not _module_encounter_vfx.has(slot_key):
+			_restore_module_encounter_vfx(module_coord)
+		var remaining: float = maxf(
+			float(encounter.get("remaining_telegraph", 0.0)) - scaled_delta,
+			0.0
+		)
+		encounter["remaining_telegraph"] = remaining
+		if remaining <= 0.0:
+			encounter["state"] = MODULE_ENCOUNTER_STATE_SPAWNED
+			_cancel_module_encounter_vfx(slot_key)
+			_spawn_module_encounter_plan(module_coord, encounter)
+		state["enemy_encounter"] = encounter
+		_module_world_manager.call("set_slot_state", module_coord, state)
+
+
+func _spawn_module_encounter_plan(
+	module_coord: Vector2i,
+	encounter: Dictionary
+) -> void:
+	var slot_key: String = _module_slot_key(module_coord)
+	var wave_key: String = "module_%s" % slot_key.replace(",", "_")
+	for raw_spawn: Variant in _array_or_empty(encounter.get("spawns", [])):
+		if not raw_spawn is Dictionary:
+			continue
+		var spawn: Dictionary = raw_spawn as Dictionary
+		_spawn_enemy_at(
+			String(spawn.get("enemy_id", "")),
+			_dict_to_vector(spawn.get("world_position", {}), Vector2.ZERO),
+			wave_key,
+			slot_key
+		)
+
+
+func _restore_module_encounter_vfx(module_coord: Vector2i) -> void:
+	var state: Dictionary = _module_world_manager.call("slot_state", module_coord)
+	var raw_encounter: Variant = state.get("enemy_encounter")
+	if not raw_encounter is Dictionary:
+		return
+	var encounter: Dictionary = raw_encounter as Dictionary
+	if (
+		String(encounter.get("state", ""))
+		!= MODULE_ENCOUNTER_STATE_TELEGRAPHING
+	):
+		return
+	var slot_key: String = _module_slot_key(module_coord)
+	_cancel_module_encounter_vfx(slot_key)
+	var remaining: float = maxf(
+		float(encounter.get("remaining_telegraph", 0.0)),
+		0.0
+	)
+	var handles: Array[VfxHandle] = []
+	for raw_spawn: Variant in _array_or_empty(encounter.get("spawns", [])):
+		if not raw_spawn is Dictionary:
+			continue
+		var spawn: Dictionary = raw_spawn as Dictionary
+		handles.append_array(
+			_gameplay_feedback.play(
+				PRESENTATION_MODULE_ENCOUNTER,
+				VFX_CUES.ENEMY_SPAWN_TELEGRAPH,
+				{
+					"world_position": _dict_to_vector(
+						spawn.get("world_position", {}),
+						Vector2.ZERO
+					),
+					"follow_owner": false,
+					"duration": remaining,
+				}
+			)
+		)
+	_module_encounter_vfx[slot_key] = handles
+
+
+func _cancel_module_encounter_vfx(slot_key: String) -> void:
+	var raw_handles: Variant = _module_encounter_vfx.get(slot_key)
+	if raw_handles is Array and _vfx_host != null:
+		for raw_handle: Variant in raw_handles as Array:
+			if raw_handle is VfxHandle:
+				_vfx_host.cancel_handle(raw_handle as VfxHandle, true)
+	_module_encounter_vfx.erase(slot_key)
 
 
 func _spawn_enemy_at(enemy_id: String, spawn_position: Vector2, spawn_key: String, module_slot: String = "") -> bool:

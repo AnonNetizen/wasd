@@ -75,7 +75,7 @@
 | `register_declared_pools()` | 对局启动时登记 catalog 中声明的高频效果池 |
 | `declared_pool_requests()` | 返回去重后的 pool id / prewarm 请求，供同步或分帧加载入口执行 |
 
-`VfxPlayRequest` 只携带 owner、anchor、world position、rotation、scale、seed 和表现 payload。`VfxHandle.cancel(immediate)` 是外部唯一取消入口。
+`VfxPlayRequest` 只携带 owner、anchor、world position、rotation、scale、seed 和表现 payload。`duration` payload 可把带时间轴的地面预警缩放到玩法配置时长，不改变 `GameClock`；`static_frame` payload 让 reduced-motion 变体停在高对比静态帧直到业务取消。`VfxHandle.cancel(immediate)` 是外部唯一取消入口。
 
 ### 效果实例
 
@@ -120,6 +120,7 @@ Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文�
 - 真实伤害才生成命中火花 / 飘字；玩家有效受伤才触发震屏与屏幕反馈。
 - 玩家 / 敌人受击闪色为 0.16 秒；敌人死亡结算、掉落和移出活跃组即时发生，0.18 秒退场后回池。
 - 技能成功 / 失败、Overdrive 临时强化生命周期、状态 applied/restored/expired、武器发射、拾取、机关预警 / 激活均通过内容数据的 profile cue 接线；角色、敌人、技能、武器和机关不回退到硬编码 profile，除非数据缺失且使用文档声明的默认值。
+- `presentation_module_encounter` 的 `enemy_spawn_telegraph` cue 是首次进入模块遭遇的地面环。正常模式按 `module_worlds.json.first_visit_enemy_spawn.telegraph_duration` 缩放时间轴；reduced-motion 使用带 `gameplay_boundary` / `reduced_motion_static` 标签的静态高对比变体，不能完全隐藏。VFX 本身不进存档，槽位保存剩余时间和生成计划，重新激活时重建。
 - 子弹的 `RibbonTrail` 是可复用、带共享 Shader 的精选程序几何组件，历史点在每次 acquire / release 时清空；敌人退场同时生成 world-space `actor_enemy_defeat_afterimage`，实体 0.18 秒回池后残影仍可独立完成 0.45 秒余韵。
 - `WeaponSystem.active_temporary_modifiers()` 是续局重建持续表现的权威状态。
 

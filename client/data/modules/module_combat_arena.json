@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "id": "module_combat_arena",
   "columns": 11,
   "rows": 11,
@@ -148,80 +148,7 @@
       "module_cell_blocked"
     ]
   ],
-  "placements": [
-    {
-      "type": "module_place_enemy_spawn",
-      "cell": {
-        "x": 2,
-        "y": 2
-      },
-      "enemy_id": "enemy_chaser",
-      "count": 1
-    },
-    {
-      "type": "module_place_enemy_spawn",
-      "cell": {
-        "x": 5,
-        "y": 2
-      },
-      "enemy_id": "enemy_spitter",
-      "count": 1
-    },
-    {
-      "type": "module_place_enemy_spawn",
-      "cell": {
-        "x": 8,
-        "y": 2
-      },
-      "enemy_id": "enemy_chaser",
-      "count": 1
-    },
-    {
-      "type": "module_place_enemy_spawn",
-      "cell": {
-        "x": 2,
-        "y": 5
-      },
-      "enemy_id": "enemy_swarm",
-      "count": 1
-    },
-    {
-      "type": "module_place_enemy_spawn",
-      "cell": {
-        "x": 8,
-        "y": 5
-      },
-      "enemy_id": "enemy_swarm",
-      "count": 1
-    },
-    {
-      "type": "module_place_enemy_spawn",
-      "cell": {
-        "x": 2,
-        "y": 8
-      },
-      "enemy_id": "enemy_chaser",
-      "count": 1
-    },
-    {
-      "type": "module_place_enemy_spawn",
-      "cell": {
-        "x": 5,
-        "y": 8
-      },
-      "enemy_id": "enemy_spitter",
-      "count": 1
-    },
-    {
-      "type": "module_place_enemy_spawn",
-      "cell": {
-        "x": 8,
-        "y": 8
-      },
-      "enemy_id": "enemy_chaser",
-      "count": 1
-    }
-  ],
+  "placements": [],
   "visual_layers": {
     "ground": {
       "default_tile_id": "module_tile_ground_default",

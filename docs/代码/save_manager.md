@@ -115,7 +115,7 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 
 `data_hash` 使用稳定序列化：字典按 key 排序，数组按原顺序，数字做整数 / 浮点规范化。写入前会先把 payload 通过 JSON stringify / parse 归一化，再基于归一化 payload 计算 hash 和落盘，避免高精度浮点或 JSON 读回后 `3` / `3.0` 类型差异造成误报。
 
-Run v5 payload 包含：schema version、模式、`main_hero_id` / `sub_hero_id`、组合解析快照、等级 / 经验 / 击杀、`GameClock`、`RNG`、模块世界、刷怪、玩家生命 / 护盾 / 超盾 / 护盾门 / 冲刺、武器、四槽技能与能量、敌人状态与独立接触计时、子弹、机关、经验球、能量球、屏障、兴趣点和 `ui_restore`。所有对象池实体只保存 JSON 友好活动快照，恢复时重新 acquire；RNG 的大整数仍以字符串保存。
+Run v5 payload 包含：schema version、模式、`main_hero_id` / `sub_hero_id`、组合解析快照、等级 / 经验 / 击杀、`GameClock`、`RNG`、模块世界、刷怪、玩家生命 / 护盾 / 超盾 / 护盾门 / 冲刺、武器、四槽技能与能量、敌人状态与独立接触计时、子弹、机关、经验球、能量球、屏障、兴趣点和 `ui_restore`。模块世界的每槽状态还保存首次进入遭遇的 `telegraphing/spawned`、`remaining_telegraph` 与已经固化的 `enemy_id + world_position` 计划；VFX 节点本身不保存，恢复 / 重新激活时按剩余时间重建。所有对象池实体只保存 JSON 友好活动快照，恢复时重新 acquire；RNG 的大整数仍以字符串保存。
 
 `run` kind version 2 会在 `SaveManager` 层为 v1 旧 envelope 补齐缺失的结构字段：`schema_version`、`spawn_states`、`player`、`weapon`、`game_clock`、`rng`、`map`、`enemies`、`bullets`、`hazards`、`pickups`。这样早期 F5 run 存档即使缺少可选数组 / 字典，也能加载为结构完整的 payload 后交给 runtime 恢复；旧档没有机关快照时由 runtime 按当前 layout 重新生成。
 

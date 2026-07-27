@@ -20,75 +20,11 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_w0054")
+baker_schema_version = 3
 module_id = "module_combat_arena"
-gameplay_hash = "5bfa37f29d734c931ffd579912faef2b55caf7dacb595339f0740fe89417450d"
+gameplay_hash = "d9bb0c9d79147d521d8559509363cda4d7280474977c1463b13520fa782205f6"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "28e798bf5072496e300f2b1d59f5c923249924d610c4b81fc40247acb3d83572"
-placement_snapshot = Array[Dictionary]([{
-"cell": {
-"x": 2,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 5,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_spitter",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 8,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 2,
-"y": 5
-},
-"count": 1,
-"enemy_id": "enemy_swarm",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 8,
-"y": 5
-},
-"count": 1,
-"enemy_id": "enemy_swarm",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 2,
-"y": 8
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 5,
-"y": 8
-},
-"count": 1,
-"enemy_id": "enemy_spitter",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 8,
-"y": 8
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}])
+bake_hash = "b2226de6b7f5051659cd810ba790cd7587ffe62c06dfcf46a356290edf354b02"
 
 [node name="Ground" type="TileMapLayer" parent="."]
 position = Vector2(-80, -80)

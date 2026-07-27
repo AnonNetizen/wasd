@@ -14,9 +14,18 @@
       "prewarm": 16,
       "high_frequency": true,
       "quality_variants": {},
-      "reduced_motion": {"mode": "same"},
-      "tags": ["animation_player", "geometry"],
-      "preview": {"background": "combat", "checkpoint": "contact", "scale": 1.0}
+      "reduced_motion": {
+        "mode": "same"
+      },
+      "tags": [
+        "animation_player",
+        "geometry"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "contact",
+        "scale": 1
+      }
     },
     {
       "id": "combat_damage_number_default",
@@ -31,9 +40,19 @@
       "prewarm": 16,
       "high_frequency": true,
       "quality_variants": {},
-      "reduced_motion": {"mode": "same", "runtime_adaptive": true},
-      "tags": ["ui_text", "curve"],
-      "preview": {"background": "combat", "checkpoint": "contact", "scale": 1.0}
+      "reduced_motion": {
+        "mode": "same",
+        "runtime_adaptive": true
+      },
+      "tags": [
+        "ui_text",
+        "curve"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "contact",
+        "scale": 1
+      }
     },
     {
       "id": "actor_player_hurt_flash",
@@ -46,9 +65,17 @@
       "duration": 0.16,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {"mode": "same"},
-      "tags": ["target_tint"],
-      "preview": {"background": "combat", "checkpoint": "contact", "scale": 1.0}
+      "reduced_motion": {
+        "mode": "same"
+      },
+      "tags": [
+        "target_tint"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "contact",
+        "scale": 1
+      }
     },
     {
       "id": "actor_enemy_hit_flash",
@@ -61,9 +88,17 @@
       "duration": 0.16,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {"mode": "same"},
-      "tags": ["target_tint"],
-      "preview": {"background": "combat", "checkpoint": "contact", "scale": 1.0}
+      "reduced_motion": {
+        "mode": "same"
+      },
+      "tags": [
+        "target_tint"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "contact",
+        "scale": 1
+      }
     },
     {
       "id": "actor_enemy_defeat",
@@ -76,9 +111,18 @@
       "duration": 0.18,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {"mode": "suppress_optional"},
-      "tags": ["target_tint", "target_scale"],
-      "preview": {"background": "combat", "checkpoint": "aftermath", "scale": 1.0}
+      "reduced_motion": {
+        "mode": "suppress_optional"
+      },
+      "tags": [
+        "target_tint",
+        "target_scale"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "aftermath",
+        "scale": 1
+      }
     },
     {
       "id": "actor_enemy_defeat_afterimage",
@@ -91,9 +135,20 @@
       "duration": 0.45,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {"mode": "suppress_optional"},
-      "tags": ["animation_player", "geometry", "shader", "detached_afterimage"],
-      "preview": {"background": "combat", "checkpoint": "aftermath", "scale": 1.0}
+      "reduced_motion": {
+        "mode": "suppress_optional"
+      },
+      "tags": [
+        "animation_player",
+        "geometry",
+        "shader",
+        "detached_afterimage"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "aftermath",
+        "scale": 1
+      }
     },
     {
       "id": "skill_cast_default",
@@ -106,9 +161,20 @@
       "duration": 0.34,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {"mode": "suppress_optional"},
-      "tags": ["animation_player", "geometry", "shader", "cpu_particles"],
-      "preview": {"background": "combat", "checkpoint": "charge", "scale": 1.0}
+      "reduced_motion": {
+        "mode": "suppress_optional"
+      },
+      "tags": [
+        "animation_player",
+        "geometry",
+        "shader",
+        "cpu_particles"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "charge",
+        "scale": 1
+      }
     },
     {
       "id": "skill_overdrive_cast",
@@ -121,9 +187,20 @@
       "duration": 0.34,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {"mode": "suppress_optional"},
-      "tags": ["animation_player", "geometry", "shader", "cpu_particles"],
-      "preview": {"background": "combat", "checkpoint": "charge", "scale": 1.15}
+      "reduced_motion": {
+        "mode": "suppress_optional"
+      },
+      "tags": [
+        "animation_player",
+        "geometry",
+        "shader",
+        "cpu_particles"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "charge",
+        "scale": 1.15
+      }
     },
     {
       "id": "weapon_muzzle_flash_default",
@@ -138,9 +215,19 @@
       "prewarm": 12,
       "high_frequency": true,
       "quality_variants": {},
-      "reduced_motion": {"mode": "suppress_optional"},
-      "tags": ["animation_player", "geometry", "shader"],
-      "preview": {"background": "combat", "checkpoint": "contact", "scale": 0.35}
+      "reduced_motion": {
+        "mode": "suppress_optional"
+      },
+      "tags": [
+        "animation_player",
+        "geometry",
+        "shader"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "contact",
+        "scale": 0.35
+      }
     },
     {
       "id": "status_apply_default",
@@ -153,9 +240,19 @@
       "duration": 0.34,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {"mode": "suppress_optional"},
-      "tags": ["animation_player", "geometry", "shader"],
-      "preview": {"background": "combat", "checkpoint": "contact", "scale": 0.8}
+      "reduced_motion": {
+        "mode": "suppress_optional"
+      },
+      "tags": [
+        "animation_player",
+        "geometry",
+        "shader"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "contact",
+        "scale": 0.8
+      }
     },
     {
       "id": "pickup_collect_default",
@@ -168,9 +265,19 @@
       "duration": 0.34,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {"mode": "suppress_optional"},
-      "tags": ["animation_player", "geometry", "shader"],
-      "preview": {"background": "combat", "checkpoint": "aftermath", "scale": 0.75}
+      "reduced_motion": {
+        "mode": "suppress_optional"
+      },
+      "tags": [
+        "animation_player",
+        "geometry",
+        "shader"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "aftermath",
+        "scale": 0.75
+      }
     },
     {
       "id": "environment_hazard_telegraph",
@@ -183,9 +290,20 @@
       "duration": 0.5,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {"mode": "suppress_optional"},
-      "tags": ["animation_player", "geometry", "shader", "gameplay_boundary"],
-      "preview": {"background": "combat", "checkpoint": "charge", "scale": 1.0}
+      "reduced_motion": {
+        "mode": "suppress_optional"
+      },
+      "tags": [
+        "animation_player",
+        "geometry",
+        "shader",
+        "gameplay_boundary"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "charge",
+        "scale": 1
+      }
     },
     {
       "id": "environment_hazard_activated",
@@ -198,9 +316,19 @@
       "duration": 0.34,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {"mode": "suppress_optional"},
-      "tags": ["animation_player", "geometry", "shader"],
-      "preview": {"background": "combat", "checkpoint": "contact", "scale": 1.0}
+      "reduced_motion": {
+        "mode": "suppress_optional"
+      },
+      "tags": [
+        "animation_player",
+        "geometry",
+        "shader"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "contact",
+        "scale": 1
+      }
     },
     {
       "id": "screen_player_damage_flash",
@@ -213,9 +341,19 @@
       "duration": 0.12,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {"mode": "variant", "effect_id": "screen_player_damage_flash_reduced"},
-      "tags": ["animation_player", "screen_flash"],
-      "preview": {"background": "combat", "checkpoint": "contact", "scale": 1.0}
+      "reduced_motion": {
+        "mode": "variant",
+        "effect_id": "screen_player_damage_flash_reduced"
+      },
+      "tags": [
+        "animation_player",
+        "screen_flash"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "contact",
+        "scale": 1
+      }
     },
     {
       "id": "screen_player_damage_flash_reduced",
@@ -228,9 +366,72 @@
       "duration": 0.08,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {"mode": "same"},
-      "tags": ["animation_player", "screen_flash"],
-      "preview": {"background": "combat", "checkpoint": "contact", "scale": 1.0}
+      "reduced_motion": {
+        "mode": "same"
+      },
+      "tags": [
+        "animation_player",
+        "screen_flash"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "contact",
+        "scale": 1
+      }
+    },
+    {
+      "id": "enemy_spawn_telegraph",
+      "editor_name": "敌人出生预警",
+      "domain": "environment",
+      "kind": "spawned_scene",
+      "resource_path": "res://scenes/vfx/composites/ground_telegraph.tscn",
+      "space": "ground",
+      "lifecycle": "state",
+      "duration": 1.5,
+      "high_frequency": false,
+      "quality_variants": {},
+      "reduced_motion": {
+        "mode": "variant",
+        "effect_id": "enemy_spawn_telegraph_reduced"
+      },
+      "tags": [
+        "animation_player",
+        "geometry",
+        "shader",
+        "gameplay_boundary"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "charge",
+        "scale": 1.2
+      }
+    },
+    {
+      "id": "enemy_spawn_telegraph_reduced",
+      "editor_name": "敌人出生预警（减少动态）",
+      "domain": "environment",
+      "kind": "spawned_scene",
+      "resource_path": "res://scenes/vfx/composites/ground_telegraph.tscn",
+      "space": "ground",
+      "lifecycle": "state",
+      "duration": 1.5,
+      "high_frequency": false,
+      "quality_variants": {},
+      "reduced_motion": {
+        "mode": "same"
+      },
+      "tags": [
+        "animation_player",
+        "geometry",
+        "shader",
+        "gameplay_boundary",
+        "reduced_motion_static"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "charge",
+        "scale": 1.2
+      }
     }
   ]
 }

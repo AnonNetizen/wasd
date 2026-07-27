@@ -19,6 +19,7 @@ const VALUES: Array[String] = [
 	"pickup_collect",
 	"hazard_telegraph",
 	"hazard_activated",
+	"enemy_spawn_telegraph",
 	"ui_enter",
 	"ui_exit",
 	"ui_focus",
@@ -46,6 +47,7 @@ const PICKUP_ATTRACT: String = "pickup_attract"
 const PICKUP_COLLECT: String = "pickup_collect"
 const HAZARD_TELEGRAPH: String = "hazard_telegraph"
 const HAZARD_ACTIVATED: String = "hazard_activated"
+const ENEMY_SPAWN_TELEGRAPH: String = "enemy_spawn_telegraph"
 const UI_ENTER: String = "ui_enter"
 const UI_EXIT: String = "ui_exit"
 const UI_FOCUS: String = "ui_focus"

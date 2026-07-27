@@ -1,20 +1,21 @@
 # ModuleWorldManager 模块文档
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是 F13 模块世界运行时、坐标、流式状态、F14 静态导航查询与 Run v5 模块子快照边界的权威模块契约。
+> 本文档是 F13 模块世界运行时、坐标、流式状态、空地查询、F14 静态导航查询与 Run v5 模块子快照边界的权威模块契约。
 
 ## 1. 职责
 
 `ModuleWorldManager` 是 F13 默认 9×9 无缝模块世界的局内协调点，以正式场景预置在 `GameplayRunLoop/ActiveWorld` 下，不是 autoload。它负责：
 
-- 按 run seed 和 `RNG.world` 从已批准模板池组合 81 个世界槽位，失败时回退到已校验安全布局。
+- 按 run seed 和 `RNG.world` 从已批准模板池组合 81 个世界槽位，失败时回退到已校验安全布局。ADR #164 后正式普通槽当前只使用 `module_flat_ground` 0°，固定起点 / 目标 / 撤离保持原模板。
 - 保持模块坐标 `0..8`、局部格 `0..10`、全局格 `0..98` 与世界坐标转换一致；`(49,49)` 映射世界原点。
 - 计算稳定 map hash：hash 覆盖世界配置、seed、81 槽 assignment / rotation 与模块 schema v1 等价的 gameplay projection；地形、派生通道、摆放、格尺寸或锚点变化会让旧 run fail closed，视觉层和图块目录不进入 hash。保存模块级迷雾 / 访问状态与按世界槽位隔离的动态状态。
 - 只激活玩家当前模块周围最多 3×3 个 `ModuleChunk`；九个 chunk 已预置在 manager 场景内并循环复用，不创建 81 个槽位节点。
 - 在运行开始和 run 恢复时，按 assignment 的唯一 module id 预加载每个模块的规范朝向 `PackedScene`；跨模块只替换离开 / 进入边缘的最多三块，不在边界读取磁盘。
 - 从旋转 / 封边后的完整 81 槽地形构建 99×99 walkability mask；玩家跨格时只更新感知范围驱动的局部共享流场，并提供全图 AStar、视线和敌人半径走廊查询。导航不依赖当前激活 chunk。
+- 按世界槽位返回稳定行列顺序的有效空 floor 格心：使用旋转、邻接与外圈封边后的真实地形，并排除全部 gameplay placement footprint；只提供几何查询，不消耗 RNG、不读取动态实体、不生成敌人。
 
-`GameplayRunLoop` 仍负责敌人 / 机关 / 奖励 / 目标 / 撤离 primitive 的实体生成、`Combat`、`PoolManager` 和 Run v5 总快照。`ModuleWorldManager` 不直接生成玩法实体。
+`GameplayRunLoop` 仍负责敌人 / 机关 / 奖励 / 目标 / 撤离 primitive 的实体生成、首次进入遭遇计划、预警、`Combat`、`PoolManager` 和 Run v5 总快照。`ModuleWorldManager` 不直接生成玩法实体。
 
 ## 2. 数据边界
 
@@ -37,6 +38,7 @@
 | `world_to_global_cell()` / `global_cell_to_world()` | 世界坐标与 99×99 全局格转换 |
 | `global_cell_to_module_and_local()` / `module_local_to_global_cell()` | 全局格与模块 + 局部格转换 |
 | `is_world_position_walkable()` | 判断世界位置是否落在有效 `module_cell_floor`；模块敌人生成 / 恢复门禁复用此入口 |
+| `empty_floor_positions_at(module_coord)` | 返回旋转 / 封边后仍为 floor 且不属于任何 gameplay placement footprint 的格心；按行列稳定排序，只读且不检查动态占位 |
 | `navigation_query_to_active_target(from)` | 查询到精确玩家目标的可达性、世界像素路径距离和共享流场下一格中心；来源在活动窗口外时返回不可达 |
 | `navigation_query(from, target)` | 在同一静态 mask 上查询守家 / 最后已知位置的 AStar waypoint；仅由 Enemy 决策 tick 调用 |
 | `has_terrain_line_of_sight(from, target)` | 用封锁格 supercover 语义判断地形视线 |
@@ -77,4 +79,4 @@ python tools/godot_bridge.py --project client save-smoke
 
 性能测试不属于本模块的默认验证义务；只有用户当次明确要求时，才追加 `python tools/godot_bridge.py --project client startup-probe` 或 `perf-probe`。
 
-`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、不同 seed 普通槽变化、中心坐标、确定性共享流场、半径 8 / 289 格访问上限、连续跨 20 格不退化、活动窗口外查询与全图 AStar 分流、真实模块绕障、路径距离大于直线距离、禁止斜穿墙角、封锁 / 越界目标不可达、技术首片外圈不可进入，以及正式 manager / 九 chunk 场景、assignment 唯一 module id 场景预加载、生成 TileMap / 合并碰撞、运行时正交旋转与封边方向、跨边缘最多三块替换、玩家 / 敌人物理墙体、玩家 / 敌方普通子弹阻挡、`wall_pierce > 0` 穿过同一墙体、旧子弹快照缺字段默认阻挡、穿墙快照随槽位卸载 / 返回保持、生成门禁、无缝跨边界、最多 9 个 active chunk、流式恢复、迷雾、目标撤离、Run v5 模块子快照和 hash mismatch。`module-world-technical-slice-smoke` 通过正式 opt-in 入口追加中心 3×3 / 外圈 72 槽封锁的完整流程回归。
+`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、正式普通槽全为 0° 平地、不同 seed 保持同一 assignment 但 hash 仍含 seed、121 格全 floor / 无 placement、边缘开放格交集、中心坐标、确定性共享流场、半径 8 / 289 格访问上限、连续跨 20 格不退化、活动窗口外查询与全图 AStar 分流、真实模块绕障、路径距离大于直线距离、禁止斜穿墙角、封锁 / 越界目标不可达、技术首片外圈不可进入，以及正式 manager / 九 chunk 场景、assignment 唯一 module id 场景预加载、生成 TileMap / 合并碰撞、运行时正交旋转与封边方向、跨边缘最多三块替换、玩家 / 敌人物理墙体、玩家 / 敌方普通子弹阻挡、`wall_pierce > 0` 穿过同一墙体、旧子弹快照缺字段默认阻挡、穿墙快照随槽位卸载 / 返回保持、首次进入 4–6 个唯一空地计划、时间解锁边界、预警暂停 / 卸载冻结、玩家占位不重抽、同时生成与返回不重复、生成门禁、无缝跨边界、最多 9 个 active chunk、流式恢复、迷雾、目标撤离、Run v5 模块子快照和 hash mismatch。`module-world-technical-slice-smoke` 通过正式 opt-in 入口追加中心 3×3 / 外圈 72 槽封锁的完整流程回归。

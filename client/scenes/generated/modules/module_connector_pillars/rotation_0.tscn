@@ -20,35 +20,11 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_j52hh")
+baker_schema_version = 3
 module_id = "module_connector_pillars"
-gameplay_hash = "30d617a24272f868bd94f9803aaa8f2534fc3fd054db4adf439acb34f5306d29"
+gameplay_hash = "ca0f9b6dc43783f37f3fdf2c3a6f60d2dbe734cf7ff4b5ad221346ecf7a30036"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "50014b6f58f4c6a839353ae4e0d7395123309d5c4dca5e80a8ec4fcfb9212397"
-placement_snapshot = Array[Dictionary]([{
-"cell": {
-"x": 5,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_spitter",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 2,
-"y": 5
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 8,
-"y": 5
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}])
+bake_hash = "57996499ad9c7b41badfbd3beb905511900417d4abb36ff3d0f39d4594e71f2e"
 
 [node name="Ground" type="TileMapLayer" parent="."]
 position = Vector2(-80, -80)

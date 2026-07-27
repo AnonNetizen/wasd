@@ -20,51 +20,12 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_87cqy")
+baker_schema_version = 3
 module_id = "module_combat_fort"
-gameplay_hash = "5ffa43f416ef94845d30fb93c0f857bf0346244288cc68d621cac31e1d816495"
+gameplay_hash = "a544616ae172d6d810246b7825d9224ba9ecc3eed17012634afd06c4dc0fe4c3"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "14ba6ce129351dd51481d50c5804192706023883a309153b764aa56b45b83111"
+bake_hash = "8b78a6aa7cf43939adcc28f7c5c44a79e4343787b5c45774248d064ef6f5932d"
 placement_snapshot = Array[Dictionary]([{
-"cell": {
-"x": 2,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_bulwark",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 5,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_spitter",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 8,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_swarm",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 2,
-"y": 4
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 5,
-"y": 4
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
 "cell": {
 "x": 7,
 "y": 4
@@ -73,67 +34,11 @@ placement_snapshot = Array[Dictionary]([{
 "type": "module_place_hazard"
 }, {
 "cell": {
-"x": 8,
-"y": 4
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 2,
-"y": 6
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 5,
-"y": 6
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 8,
-"y": 6
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
 "x": 3,
 "y": 7
 },
 "hazard_id": "hazard_spike_trap",
 "type": "module_place_hazard"
-}, {
-"cell": {
-"x": 2,
-"y": 8
-},
-"count": 1,
-"enemy_id": "enemy_swarm",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 5,
-"y": 8
-},
-"count": 1,
-"enemy_id": "enemy_spitter",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 8,
-"y": 8
-},
-"count": 1,
-"enemy_id": "enemy_bulwark",
-"type": "module_place_enemy_spawn"
 }])
 
 [node name="Ground" type="TileMapLayer" parent="."]

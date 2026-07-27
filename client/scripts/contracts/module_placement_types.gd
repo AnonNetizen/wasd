@@ -3,7 +3,6 @@ class_name ModulePlacementTypes
 
 const VALUES: Array[String] = [
 	"module_place_player_start",
-	"module_place_enemy_spawn",
 	"module_place_hazard",
 	"module_place_reward_cache",
 	"module_place_objective",
@@ -11,7 +10,6 @@ const VALUES: Array[String] = [
 ]
 
 const MODULE_PLACE_PLAYER_START: String = "module_place_player_start"
-const MODULE_PLACE_ENEMY_SPAWN: String = "module_place_enemy_spawn"
 const MODULE_PLACE_HAZARD: String = "module_place_hazard"
 const MODULE_PLACE_REWARD_CACHE: String = "module_place_reward_cache"
 const MODULE_PLACE_OBJECTIVE: String = "module_place_objective"

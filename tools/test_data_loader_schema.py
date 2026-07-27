@@ -108,6 +108,14 @@ def main() -> int:
             ],
         ),
         (
+            "module world schema v2 is required",
+            _mutate_json("client/data/module_worlds.json", _set_schema_version(1)),
+            [
+                "client/data/module_worlds.json:schema_version",
+                "must equal 2",
+            ],
+        ),
+        (
             "module world must be 9x9",
             _mutate_json("client/data/module_worlds.json", _set_module_world_columns(8)),
             ["client/data/module_worlds.json:worlds[0].columns", "must equal 9"],
@@ -121,6 +129,30 @@ def main() -> int:
             "module world cell size must be positive",
             _mutate_json("client/data/module_worlds.json", _set_module_world_cell_size(0.0)),
             ["client/data/module_worlds.json:worlds[0].cell_size", "must be > 0.0"],
+        ),
+        (
+            "first visit enemy pool rejects unknown enemies",
+            _mutate_json("client/data/module_worlds.json", _set_first_visit_enemy_unknown),
+            [
+                "client/data/module_worlds.json:worlds[0].first_visit_enemy_spawn.enemy_pool[0].enemy_id",
+                "enemy is not defined in enemies.csv",
+            ],
+        ),
+        (
+            "first visit unlock time cannot be negative",
+            _mutate_json("client/data/module_worlds.json", _set_first_visit_unlock_negative),
+            [
+                "client/data/module_worlds.json:worlds[0].first_visit_enemy_spawn.enemy_pool[0].unlock_time",
+                "must be >= 0.0",
+            ],
+        ),
+        (
+            "first visit enemy weight must be positive",
+            _mutate_json("client/data/module_worlds.json", _set_first_visit_weight_zero),
+            [
+                "client/data/module_worlds.json:worlds[0].first_visit_enemy_spawn.enemy_pool[0].weight",
+                "must be > 0.0",
+            ],
         ),
         (
             "fixed slots must cover configured anchors",
@@ -148,30 +180,30 @@ def main() -> int:
             ["client/data/modules/module_start_cross.json:terrain_rows", "must contain exactly 11 rows"],
         ),
         (
-            "module schema v2 derives sockets and accepts visual layers",
-            _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v2),
+            "module schema v3 derives sockets and accepts visual layers",
+            _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v3),
             [],
         ),
         (
-            "module schema v1 is no longer accepted",
-            _mutate_json("client/data/modules/module_start_cross.json", _downgrade_module_to_v1),
+            "module schema v2 is no longer accepted",
+            _mutate_json("client/data/modules/module_start_cross.json", _downgrade_module_to_v2),
             [
                 "client/data/modules/module_start_cross.json:schema_version",
-                "must be >= 2",
-                "must be 2",
+                "must be >= 3",
+                "must be 3",
             ],
         ),
         (
-            "module schema v2 must omit derived sockets",
-            _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v2_keep_sockets),
+            "module schema v3 must omit derived sockets",
+            _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v3_keep_sockets),
             [
                 "client/data/modules/module_start_cross.json:edge_sockets",
-                "must be omitted in schema v2 because sockets are derived",
+                "must be omitted in schema v3 because sockets are derived",
             ],
         ),
         (
             "module visual tile id must be registered",
-            _mutate_json("client/data/modules/module_start_cross.json", _set_v2_unknown_visual_tile),
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v3_unknown_visual_tile),
             [
                 "client/data/modules/module_start_cross.json:visual_layers.ground.overrides[0].tile_id",
                 "unknown id module_tile_unknown; expected one of module_tile_ids",
@@ -179,7 +211,7 @@ def main() -> int:
         ),
         (
             "module visual tile must belong to its layer",
-            _mutate_json("client/data/modules/module_start_cross.json", _set_v2_wrong_layer_tile),
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v3_wrong_layer_tile),
             [
                 "client/data/modules/module_start_cross.json:visual_layers.ground.default_tile_id",
                 "tile must belong to the ground layer",
@@ -187,7 +219,7 @@ def main() -> int:
         ),
         (
             "module visual transform rotation must be orthogonal",
-            _mutate_json("client/data/modules/module_start_cross.json", _set_v2_invalid_visual_rotation),
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v3_invalid_visual_rotation),
             [
                 "client/data/modules/module_start_cross.json:visual_layers.decoration.cells[0].rotation",
                 "must be 0, 90, 180, or 270",
@@ -195,7 +227,7 @@ def main() -> int:
         ),
         (
             "module decoration layer must remain sparse",
-            _mutate_json("client/data/modules/module_start_cross.json", _set_v2_decoration_default_tile),
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v3_decoration_default_tile),
             [
                 "client/data/modules/module_start_cross.json:visual_layers.decoration",
                 "must define exactly cells",
@@ -223,7 +255,7 @@ def main() -> int:
         (
             "candidate module template cannot keep gameplay approval hash",
             _mutate_json("client/data/module_templates.json", _make_sealed_template_keep_approved_hash),
-            ["client/data/module_templates.json:templates[15].approved_gameplay_hash", "must be omitted unless the template is approved"],
+            ["client/data/module_templates.json:templates[16].approved_gameplay_hash", "must be omitted unless the template is approved"],
         ),
         (
             "fallback assignment must contain 81 slots",
@@ -236,9 +268,12 @@ def main() -> int:
             ["client/data/module_worlds.json:worlds[0].fallback_assignment[1].slot", "duplicate slot 0,0"],
         ),
         (
-            "module sockets must match across assignments",
+            "adjacent modules require a shared open socket",
             _mutate_json("client/data/modules/module_connector_cross.json", _close_module_east_socket),
-            ["client/data/module_worlds.json:worlds[0].fallback_assignment", "socket mismatch between slot"],
+            [
+                "client/data/module_worlds.json:worlds[0].technical_slice_assignment",
+                "no shared open socket between slot",
+            ],
         ),
         (
             "module terrain token must be registered",
@@ -256,14 +291,34 @@ def main() -> int:
             ["client/data/modules/module_start_cross.json:placements[0].cell.x", "must be < 11"],
         ),
         (
-            "module enemy spawn must use floor terrain",
-            _mutate_json("client/data/modules/module_combat_arena.json", _set_module_enemy_spawn_on_blocked_cell),
-            ["client/data/modules/module_combat_arena.json:placements[", "enemy spawn footprint must use module_cell_floor terrain"],
+            "legacy module enemy placement is rejected",
+            _mutate_json(
+                "client/data/modules/module_flat_ground.json",
+                _add_legacy_module_enemy_spawn,
+            ),
+            [
+                "client/data/modules/module_flat_ground.json:placements[0].type",
+                "unknown id module_place_enemy_spawn; expected one of module_placement_types",
+            ],
         ),
         (
-            "module role content budget must be enforced",
-            _mutate_json("client/data/modules/module_combat_arena.json", _exceed_combat_enemy_budget),
-            ["client/data/modules/module_combat_arena.json:placements", "combat enemy count must be between 6 and 12"],
+            "formal templates need enough spawnable floor cells",
+            _mutate_json(
+                "client/data/modules/module_flat_ground.json",
+                _leave_five_spawnable_floor_cells,
+            ),
+            [
+                "client/data/module_worlds.json:worlds[0].template_pool[0]",
+                "formal template needs at least 6 spawnable floor cells",
+            ],
+        ),
+        (
+            "fallback templates need enough spawnable floor cells",
+            _make_fallback_template_insufficient,
+            [
+                "client/data/module_worlds.json:worlds[0].fallback_assignment",
+                "at least 6 spawnable floor cells",
+            ],
         ),
         (
             "critical module route must be reachable",
@@ -1279,6 +1334,30 @@ def _mutate_csv(relative_path: str, mutator: CsvMutator) -> RepoMutator:
     return mutate_repo
 
 
+def _make_fallback_template_insufficient(root: Path) -> None:
+    module_path = root / "client/data/modules/module_connector_cross.json"
+    module_payload = json.loads(module_path.read_text(encoding="utf-8"))
+    _leave_five_spawnable_floor_cells(module_payload)
+    module_path.write_text(
+        json.dumps(module_payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    world_path = root / "client/data/module_worlds.json"
+    world_payload = json.loads(world_path.read_text(encoding="utf-8"))
+    for entry in world_payload["worlds"][0]["fallback_assignment"]:
+        slot = entry.get("slot", {})
+        if slot.get("x") == 1 and slot.get("y") == 0:
+            entry["template_id"] = "module_connector_cross"
+            entry["rotation"] = 0
+            break
+    world_path.write_text(
+        json.dumps(world_payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
 def _mutate_locale_description_placeholder(
     key: str,
     placeholder: str,
@@ -1982,6 +2061,24 @@ def _set_module_world_columns(value: int) -> JsonMutator:
     return mutate
 
 
+def _set_first_visit_enemy_unknown(payload: dict[str, Any]) -> None:
+    payload["worlds"][0]["first_visit_enemy_spawn"]["enemy_pool"][0][
+        "enemy_id"
+    ] = "enemy_unknown"
+
+
+def _set_first_visit_unlock_negative(payload: dict[str, Any]) -> None:
+    payload["worlds"][0]["first_visit_enemy_spawn"]["enemy_pool"][0][
+        "unlock_time"
+    ] = -1.0
+
+
+def _set_first_visit_weight_zero(payload: dict[str, Any]) -> None:
+    payload["worlds"][0]["first_visit_enemy_spawn"]["enemy_pool"][0][
+        "weight"
+    ] = 0.0
+
+
 def _set_module_world_cell_size(value: float) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["worlds"][0]["cell_size"] = value
@@ -2040,8 +2137,8 @@ def _remove_module_terrain_row(payload: dict[str, Any]) -> None:
     payload["terrain_rows"].pop()
 
 
-def _upgrade_module_to_v2(payload: dict[str, Any]) -> None:
-    payload["schema_version"] = 2
+def _upgrade_module_to_v3(payload: dict[str, Any]) -> None:
+    payload["schema_version"] = 3
     payload.pop("edge_sockets", None)
     payload["visual_layers"] = {
         "ground": {
@@ -2058,13 +2155,13 @@ def _upgrade_module_to_v2(payload: dict[str, Any]) -> None:
     }
 
 
-def _upgrade_module_to_v2_keep_sockets(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v2(payload)
+def _upgrade_module_to_v3_keep_sockets(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v3(payload)
     payload["edge_sockets"] = _derived_sockets(payload["terrain_rows"])
 
 
-def _downgrade_module_to_v1(payload: dict[str, Any]) -> None:
-    payload["schema_version"] = 1
+def _downgrade_module_to_v2(payload: dict[str, Any]) -> None:
+    payload["schema_version"] = 2
 
 
 def _derived_sockets(terrain_rows: list[list[str]]) -> dict[str, list[int]]:
@@ -2077,8 +2174,8 @@ def _derived_sockets(terrain_rows: list[list[str]]) -> dict[str, list[int]]:
     }
 
 
-def _set_v2_unknown_visual_tile(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v2(payload)
+def _set_v3_unknown_visual_tile(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v3(payload)
     payload["visual_layers"]["ground"]["overrides"] = [
         {
             "cell": {"x": 0, "y": 0},
@@ -2090,13 +2187,13 @@ def _set_v2_unknown_visual_tile(payload: dict[str, Any]) -> None:
     ]
 
 
-def _set_v2_wrong_layer_tile(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v2(payload)
+def _set_v3_wrong_layer_tile(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v3(payload)
     payload["visual_layers"]["ground"]["default_tile_id"] = "module_tile_decoration_default"
 
 
-def _set_v2_invalid_visual_rotation(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v2(payload)
+def _set_v3_invalid_visual_rotation(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v3(payload)
     payload["visual_layers"]["decoration"]["cells"] = [
         {
             "cell": {"x": 5, "y": 5},
@@ -2108,8 +2205,8 @@ def _set_v2_invalid_visual_rotation(payload: dict[str, Any]) -> None:
     ]
 
 
-def _set_v2_decoration_default_tile(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v2(payload)
+def _set_v3_decoration_default_tile(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v3(payload)
     payload["visual_layers"]["decoration"]["default_tile_id"] = "module_tile_decoration_default"
 
 
@@ -2119,8 +2216,9 @@ def _set_unknown_module_tile_catalog_id(payload: dict[str, Any]) -> None:
 
 def _make_first_pool_template_candidate(payload: dict[str, Any]) -> None:
     for template in payload["templates"]:
-        if template["id"] == "module_connector_cross":
+        if template["id"] == "module_flat_ground":
             template["review_status"] = "module_review_candidate"
+            template.pop("approved_gameplay_hash", None)
             return
 
 
@@ -2157,18 +2255,23 @@ def _set_module_placement_out_of_bounds(payload: dict[str, Any]) -> None:
     payload["placements"][0]["cell"]["x"] = 11
 
 
-def _set_module_enemy_spawn_on_blocked_cell(payload: dict[str, Any]) -> None:
-    for placement in payload["placements"]:
-        if placement["type"] == "module_place_enemy_spawn":
-            placement["cell"] = {"x": 0, "y": 0}
-            return
+def _add_legacy_module_enemy_spawn(payload: dict[str, Any]) -> None:
+    payload["placements"].append(
+        {
+            "type": "module_place_enemy_spawn",
+            "cell": {"x": 5, "y": 5},
+            "enemy_id": "enemy_chaser",
+            "count": 1,
+        }
+    )
 
 
-def _exceed_combat_enemy_budget(payload: dict[str, Any]) -> None:
-    for placement in payload["placements"]:
-        if placement["type"] == "module_place_enemy_spawn":
-            placement["count"] = 13
-            return
+def _leave_five_spawnable_floor_cells(payload: dict[str, Any]) -> None:
+    payload["terrain_rows"] = [
+        ["module_cell_blocked" for _x in range(11)] for _y in range(11)
+    ]
+    for x in range(3, 8):
+        payload["terrain_rows"][5][x] = "module_cell_floor"
 
 
 def _close_all_module_sockets(payload: dict[str, Any]) -> None:

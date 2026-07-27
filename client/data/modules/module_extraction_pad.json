@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "id": "module_extraction_pad",
   "columns": 11,
   "rows": 11,
@@ -149,60 +149,6 @@
     ]
   ],
   "placements": [
-    {
-      "type": "module_place_enemy_spawn",
-      "cell": {
-        "x": 2,
-        "y": 2
-      },
-      "enemy_id": "enemy_chaser",
-      "count": 1
-    },
-    {
-      "type": "module_place_enemy_spawn",
-      "cell": {
-        "x": 5,
-        "y": 2
-      },
-      "enemy_id": "enemy_spitter",
-      "count": 1
-    },
-    {
-      "type": "module_place_enemy_spawn",
-      "cell": {
-        "x": 8,
-        "y": 2
-      },
-      "enemy_id": "enemy_chaser",
-      "count": 1
-    },
-    {
-      "type": "module_place_enemy_spawn",
-      "cell": {
-        "x": 2,
-        "y": 8
-      },
-      "enemy_id": "enemy_stalker",
-      "count": 1
-    },
-    {
-      "type": "module_place_enemy_spawn",
-      "cell": {
-        "x": 5,
-        "y": 8
-      },
-      "enemy_id": "enemy_bulwark",
-      "count": 1
-    },
-    {
-      "type": "module_place_enemy_spawn",
-      "cell": {
-        "x": 8,
-        "y": 8
-      },
-      "enemy_id": "enemy_stalker",
-      "count": 1
-    },
     {
       "type": "module_place_extraction",
       "cell": {

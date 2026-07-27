@@ -800,15 +800,17 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 
 F13 的正式默认地图是 9×9 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` 定义世界几何、键槽、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`modules/*.json` 是布局与表现的唯一制作主源。Godot Module JSON Editor 只读写 JSON，不修改模块场景；baker 为每模块单向生成唯一的 `scenes/generated/modules/<id>/rotation_0.tscn`，生成场景禁止手改。allowed rotations 只限制世界 assignment，运行时由 `ModuleChunk` 旋转规范场景根节点，不生成方向副本。
 
-每个模块 JSON 必须包含恰好 11 行、每行 11 个 `module_cell_tokens`；四边 socket 由边缘 floor 自动推导，不在 schema v2 中重复存储。相邻模块旋转后的 socket 必须完全匹配，外圈不得越界开口。模块只允许 0/90/180/270° 世界旋转；单个视觉格允许使用同样的旋转和水平/垂直翻转。`module_place_enemy_spawn` 的 `cell` / `footprint` 必须全部落在 `module_cell_floor` 上；DataLoader 与 Python 校验器都会拒绝封锁格出生点，运行时也会拒绝生成或恢复到封锁格的模块敌人。
+每个模块 JSON 必须包含恰好 11 行、每行 11 个 `module_cell_tokens`；四边 socket 由边缘 floor 自动推导，不在 schema v3 中重复存储。相邻非封锁模块旋转后的边缘开放格交集必须非空，不再要求整条 socket 完全一致；世界外圈仍不得越界开放。模块只允许 0/90/180/270° 世界旋转；单个视觉格允许使用同样的旋转和水平/垂直翻转。模块 placement 不包含敌人出生点，旧 `module_place_enemy_spawn` 会被 DataLoader、Python 校验器、编辑器与 baker 明确拒绝。
+
+ADR #164 后，正式 `template_pool` 只包含 0° 的 `module_flat_ground`；除三个固定槽外，`fallback_assignment` 也全部使用平地。平地 121 格都是 floor 且没有 gameplay placement。既有模块仍保留文件、生成场景和技术首片用途，但暂不进入普通正式随机池。固定起点不触发首次进入遭遇；固定目标和撤离槽与普通非起点槽使用同一套空地刷怪规则。
 
 AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate`。通过 bake、schema、图块、通道、全局可达性、安全区和内容预算校验后，仍需在中央主编辑区中显式批准。玩法或注册策略变化会降回 candidate；纯视觉变化保持审核状态但必须重新烘焙。默认模板池只能引用 `approved`；模板复用时，运行状态按世界槽位保存，不按模板 id 共享。完整编辑、命令和发布规则见 `docs/代码/module_authoring_pipeline.md`。
 
-`modules/*.json` schema v2 字段：
+`modules/*.json` schema v3 字段：
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `2` | 模块制作 schema |
+| `schema_version` | int | 必须为 `3` | 模块制作 schema；不接受旧敌人 placement |
 | `id` | string | 与注册表 id、文件名一致 | 稳定模块 id |
 | `columns` / `rows` | int | 首版固定 `11` | 模块格尺寸 |
 | `terrain_rows[y][x]` | string | `module_cell_tokens` | 11×11 玩法地形；edge socket 由边缘 floor 派生 |
@@ -856,6 +858,13 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `worlds[].technical_slice_assignment[].slot.x` / `worlds[].technical_slice_assignment[].slot.y` | int | 完整覆盖 `0..8` | 中心 3×3 首片与封锁槽位坐标 |
 | `worlds[].technical_slice_assignment[].template_id` | string | 注册表中存在 | 首片内部模板或 candidate 封锁模板 |
 | `worlds[].technical_slice_assignment[].rotation` | int | `0/90/180/270` | 首片模板旋转 |
+| `first_visit_enemy_spawn.count_min` / `count_max` | int | `1 <= count_min <= count_max`；当前 `4..6` | 首次实际进入非起点槽时确定的敌人数；可用空地不足时运行时裁剪并诊断 |
+| `first_visit_enemy_spawn.telegraph_duration` | number | `> 0`；当前 `1.5` 秒 | 所有计划位置同时显示地面预警的玩法时长 |
+| `first_visit_enemy_spawn.enemy_pool[].enemy_id` | string | 唯一且引用 `enemies.csv` | 可抽取敌种 |
+| `first_visit_enemy_spawn.enemy_pool[].unlock_time` | number | 非负、按数组非递减，首项为 `0` | 敌种开始参与抽取的 `GameClock` 局内时间 |
+| `first_visit_enemy_spawn.enemy_pool[].weight` | number | `> 0` | 已解锁敌种的相对权重 |
+
+“可刷怪空地”由 `ModuleWorldManager.empty_floor_positions_at()` 按世界槽位计算：世界旋转、外圈封边和封锁邻居处理后仍为 floor，并排除任何 gameplay placement 的 `cell` / 完整 `footprint`。它不检查玩家、敌人或其他动态实体占位，也不设置安全半径。返回位置固定为格心并按行、列稳定排序；`GameplayRunLoop` 使用 `RNG.spawn` 无放回抽取位置，并按同一 RNG 子流抽取已经解锁的敌种。抽取结果、`telegraphing/spawned` 状态和剩余预警时间立即写入 Run v5 槽位状态，之后不得重抽。
 
 `module_templates.json` 字段：
 

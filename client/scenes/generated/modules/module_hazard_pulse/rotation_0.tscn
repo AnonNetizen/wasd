@@ -20,44 +20,13 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_5occb")
+baker_schema_version = 3
 module_id = "module_hazard_pulse"
-gameplay_hash = "57419181bde973e947c4e1404aa64f83692fab164b059c76ad2fcb2f8113cdfb"
+gameplay_hash = "70088c2f078d56b3e644eb19841293521dfcf1322ea82cdfdc753d906106dd03"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "8283d5f102199a8fdd97ab5bf57d55738ac7289872c3943fcd8f96230389fe78"
+bake_hash = "b82cd2392a43be44f6f1656267b7a1794a3dab1426ce429b3f3dc718ae143eb6"
 placement_snapshot = Array[Dictionary]([{
 "cell": {
-"x": 2,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_swarm",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 4,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 6,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 8,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_swarm",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
 "x": 4,
 "y": 4
 },
@@ -84,22 +53,6 @@ placement_snapshot = Array[Dictionary]([{
 },
 "hazard_id": "hazard_spike_trap",
 "type": "module_place_hazard"
-}, {
-"cell": {
-"x": 2,
-"y": 8
-},
-"count": 1,
-"enemy_id": "enemy_stalker",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 8,
-"y": 8
-},
-"count": 1,
-"enemy_id": "enemy_stalker",
-"type": "module_place_enemy_spawn"
 }])
 
 [node name="Ground" type="TileMapLayer" parent="."]

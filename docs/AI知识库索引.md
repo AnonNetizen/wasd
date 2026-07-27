@@ -258,6 +258,7 @@
 | #161 | 主／子英雄组合、四槽技能、共享能量、基础冲刺、七元素与新防御层：冷静 / 愤怒完成开局组合选择，主英雄独占属性 / 被动 / 技能 1/2，子英雄只贡献强调色 / 技能 3/4；Meta / Run / Replay 升至 v2 / v5 / v3，旧 Run v4 与旧 Replay 拒绝 | GDD v1.32、词表、Combat / SkillSystem / Gameplay Runtime / InputService / SaveManager / Replay / Developer Test Arena 文档、`characters.json`、`hero_passives.json`、`elements.json`、`skills.json`、HUD / 选择界面、测试策略、AI导航、知识索引与三层项目记忆 |
 | #162 | 技能 / 被动等玩家描述中的可调数值统一使用配置命名占位符；`SkillDescriptionFormatter` 负责显示格式化，`SkillValueResolver` 由运行时和描述共用，未知 token 由数据校验拒绝，禁止按内容 id 特判 | 四平台编码规则、GDD §9.4、词表 §6、`client/locale/README.md`、Localization / SkillSystem 文档、`strings.csv`、英雄组合选择界面、DataLoader schema 回归、L1 / Loading smoke、AI导航与三层项目记忆 |
 | #163 | 静域屏障只拦截敌方投射物跨越圆周：外→内、内→外命中，内→内及不穿圆的外→外放行；敌弹首帧从射手开火位置扫掠，枪口偏移不能绕过边界，玩家弹继续忽略屏障 | GDD §9.15.4、SkillSystem / Gameplay Runtime 文档、`projectile_barrier.gd`、`bullet.gd`、L1 smoke、测试策略、AI导航与三层项目记忆 |
+| #164 | F13 正式普通槽统一为 0° 全开放平地，固定起点 / 目标 / 撤离保留；模块 schema v3 删除敌人 placement，世界 schema v2 数据化首次进入数量、预警与敌种解锁权重。相邻边改为开放格交集非空；首次实际进入非起点槽时从有效空地固化敌种 / 位置计划，暂停 / 卸载 / 保存恢复不重抽 | GDD v1.34、词表、Data README、Module Authoring / ModuleWorldManager / Gameplay Runtime / SaveManager / Visual Effects 文档、F13 工作包、测试策略、AI导航、`module_flat_ground`、module-world / VFX smoke、三层项目记忆 |
 | #146 | F14 活动目标流场从完整 99×99 Dijkstra 修正为最大视觉范围驱动的局部有界重建；当前半径 8、最多 289 格，只清理上次触达索引并使用并行数值堆；完整 mask、视线和守家 / 记忆 AStar 保持全图，run v4 与 profile schema v3 不变 | F14 工作包、GDD v1.24 §5.3、EnemyAI / ModuleWorldManager / Gameplay Runtime 文档、测试策略、AI导航、current_state、AI记忆 |
 | #147 | 正式客户端固定版本入库并共享启用 `@icons 1.4.0` 与 `Script-IDE 2.2.3`；只保留官方发布包 addon 子目录和 MIT 许可，仓库内作为不设 lint 豁免的维护型 fork，升级必须人工核对 SHA-256、审查差异并迁移本地补丁 | `client/addons/README.md`、`client/project.godot`、`client/README.md`、CREDITS / locale、AI导航、current_state、AI记忆 |
 | #148 | 正式玩家摄像机迁移到 `Phantom Camera 0.11.0.3` 固定版本维护型 fork；GLUED PCam 保持严格居中 / 水平 / 等比缩放，有效玩家伤害按 `camera_feedback.json` 触发可关闭位移震屏，噪声走 `RNG.camera_fx`；项目固定 autoload 并保持 `physics_jitter_fix=0.5`。原定的 Player 子场景归属已由 #156 取代 | GDD v1.24 §5.2、`client/addons/README.md`、`docs/代码/phantom_camera.md`、Gameplay Runtime / Settings 文档、数据手册、测试策略、AI导航、current_state、AI记忆 |
@@ -268,6 +269,7 @@
 
 F14 交付时的四条黄金回放重录与运行时摘要证据见 [2026-07-21 F14 黄金回放回归报告](reports/2026-07-21-f14-replay-regression.md)。
 ADR #154 模块 JSON / 单向 TSCN 迁移在不重录 golden 的前提下保持旧 map hash 与四条运行时摘要，证据见 [2026-07-23 ADR #154 黄金回放回归报告](reports/2026-07-23-replay-regression.md)。
+ADR #164 全开放平地与首次进入动态遭遇的四条 Replay v3 重录、旧基线预期差异和运行时摘要证据见 [2026-07-27 ADR #164 黄金回放回归报告](reports/2026-07-27-replay-regression.md)。
 
 新增 ADR 时必须判断是否要扩展本矩阵。
 

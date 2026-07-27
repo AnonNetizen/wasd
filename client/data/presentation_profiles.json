@@ -8,8 +8,14 @@
       "bindings": {
         "hit": {
           "effects": [
-            {"effect_id": "combat_hit_default", "anchor": "center"},
-            {"effect_id": "combat_damage_number_default", "anchor": "overhead"}
+            {
+              "effect_id": "combat_hit_default",
+              "anchor": "center"
+            },
+            {
+              "effect_id": "combat_damage_number_default",
+              "anchor": "overhead"
+            }
           ],
           "audio_id": "",
           "camera_feedback_id": "",
@@ -25,7 +31,10 @@
       "bindings": {
         "hurt": {
           "effects": [
-            {"effect_id": "actor_player_hurt_flash", "anchor": "center"}
+            {
+              "effect_id": "actor_player_hurt_flash",
+              "anchor": "center"
+            }
           ],
           "audio_id": "",
           "camera_feedback_id": "player_damage_shake",
@@ -41,7 +50,10 @@
       "bindings": {
         "hurt": {
           "effects": [
-            {"effect_id": "actor_enemy_hit_flash", "anchor": "center"}
+            {
+              "effect_id": "actor_enemy_hit_flash",
+              "anchor": "center"
+            }
           ],
           "audio_id": "",
           "camera_feedback_id": "",
@@ -50,8 +62,14 @@
         },
         "defeat": {
           "effects": [
-            {"effect_id": "actor_enemy_defeat", "anchor": "center"},
-            {"effect_id": "actor_enemy_defeat_afterimage", "anchor": "center"}
+            {
+              "effect_id": "actor_enemy_defeat",
+              "anchor": "center"
+            },
+            {
+              "effect_id": "actor_enemy_defeat_afterimage",
+              "anchor": "center"
+            }
           ],
           "audio_id": "",
           "camera_feedback_id": "",
@@ -67,7 +85,10 @@
       "bindings": {
         "skill_cast": {
           "effects": [
-            {"effect_id": "skill_cast_default", "anchor": "center"}
+            {
+              "effect_id": "skill_cast_default",
+              "anchor": "center"
+            }
           ],
           "audio_id": "",
           "camera_feedback_id": "",
@@ -79,7 +100,10 @@
             {
               "effect_id": "skill_cast_default",
               "anchor": "center",
-              "params": {"tint": "#7c8796ff", "scale": 0.6}
+              "params": {
+                "tint": "#7c8796ff",
+                "scale": 0.6
+              }
             }
           ],
           "audio_id": "",
@@ -99,7 +123,10 @@
             {
               "effect_id": "skill_overdrive_cast",
               "anchor": "forward",
-              "params": {"tint": "#ffd35cff", "scale": 1.15}
+              "params": {
+                "tint": "#ffd35cff",
+                "scale": 1.15
+              }
             }
           ],
           "audio_id": "",
@@ -109,7 +136,10 @@
         },
         "modifier_started": {
           "effects": [
-            {"effect_id": "skill_overdrive_cast", "anchor": "forward"}
+            {
+              "effect_id": "skill_overdrive_cast",
+              "anchor": "forward"
+            }
           ],
           "audio_id": "",
           "camera_feedback_id": "",
@@ -121,7 +151,9 @@
             {
               "effect_id": "skill_overdrive_cast",
               "anchor": "forward",
-              "params": {"scale": 0.85}
+              "params": {
+                "scale": 0.85
+              }
             }
           ],
           "audio_id": "",
@@ -134,7 +166,10 @@
             {
               "effect_id": "skill_overdrive_cast",
               "anchor": "forward",
-              "params": {"tint": "#8a7a68ff", "scale": 0.7}
+              "params": {
+                "tint": "#8a7a68ff",
+                "scale": 0.7
+              }
             }
           ],
           "audio_id": "",
@@ -154,7 +189,9 @@
             {
               "effect_id": "weapon_muzzle_flash_default",
               "anchor": "muzzle",
-              "params": {"scale": 0.35}
+              "params": {
+                "scale": 0.35
+              }
             }
           ],
           "audio_id": "",
@@ -171,7 +208,10 @@
       "bindings": {
         "status_applied": {
           "effects": [
-            {"effect_id": "status_apply_default", "anchor": "status"}
+            {
+              "effect_id": "status_apply_default",
+              "anchor": "status"
+            }
           ],
           "audio_id": "",
           "camera_feedback_id": "",
@@ -183,7 +223,10 @@
             {
               "effect_id": "status_apply_default",
               "anchor": "status",
-              "params": {"tint": "#8fa0b8ff", "scale": 0.7}
+              "params": {
+                "tint": "#8fa0b8ff",
+                "scale": 0.7
+              }
             }
           ],
           "audio_id": "",
@@ -200,7 +243,10 @@
       "bindings": {
         "pickup_collect": {
           "effects": [
-            {"effect_id": "pickup_collect_default", "anchor": "center"}
+            {
+              "effect_id": "pickup_collect_default",
+              "anchor": "center"
+            }
           ],
           "audio_id": "",
           "camera_feedback_id": "",
@@ -212,7 +258,9 @@
             {
               "effect_id": "pickup_collect_default",
               "anchor": "center",
-              "params": {"scale": 0.55}
+              "params": {
+                "scale": 0.55
+              }
             }
           ],
           "audio_id": "",
@@ -225,7 +273,10 @@
             {
               "effect_id": "pickup_collect_default",
               "anchor": "center",
-              "params": {"tint": "#a6ffccff", "scale": 0.45}
+              "params": {
+                "tint": "#a6ffccff",
+                "scale": 0.45
+              }
             }
           ],
           "audio_id": "",
@@ -242,7 +293,10 @@
       "bindings": {
         "hazard_telegraph": {
           "effects": [
-            {"effect_id": "environment_hazard_telegraph", "anchor": "ground"}
+            {
+              "effect_id": "environment_hazard_telegraph",
+              "anchor": "ground"
+            }
           ],
           "audio_id": "",
           "camera_feedback_id": "",
@@ -251,7 +305,32 @@
         },
         "hazard_activated": {
           "effects": [
-            {"effect_id": "environment_hazard_activated", "anchor": "ground"}
+            {
+              "effect_id": "environment_hazard_activated",
+              "anchor": "ground"
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        }
+      }
+    },
+    {
+      "id": "presentation_module_encounter",
+      "editor_name": "模块首次遭遇表现",
+      "parent_profile_id": "",
+      "bindings": {
+        "enemy_spawn_telegraph": {
+          "effects": [
+            {
+              "effect_id": "enemy_spawn_telegraph",
+              "anchor": "ground",
+              "params": {
+                "scale": 1.2
+              }
+            }
           ],
           "audio_id": "",
           "camera_feedback_id": "",

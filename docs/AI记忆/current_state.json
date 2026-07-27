@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
   "updated_at": "2026-07-27",
-  "current_phase": "hero_composition_elements",
-  "current_status": "ADR #163 已把静域屏障明确为敌方投射物跨圆周拦截：外→内、内→外命中屏障，内→内和不穿圆的外→外放行；敌弹首帧从射手开火位置扫掠，枪口偏移不能越界，玩家弹继续穿透。ADR #162 的配置驱动描述与 ADR #161 的主 / 子英雄、四技能、七元素、防御层、Meta v2、Run v5、Replay v3 基线保持不变。本任务按 ADR #143 不运行性能 probe。后续工作以用户最后明确指令为准。",
-  "latest_adr": 163,
+  "current_phase": "module_flat_ground_first_visit_encounters",
+  "current_status": "ADR #164 已把 F13 正式普通槽收敛为 0° 全开放平地，保留固定起点 / 目标 / 撤离和既有调试模块；模块 schema v3 删除敌人 placement，世界 schema v2 以 first_visit_enemy_spawn 配置 4–6 个敌人、1.5 秒预警和时间解锁权重。首次实际进入非起点槽时从旋转 / 封边后且排除 placement footprint 的空 floor 固化生成计划，暂停 / 卸载冻结、返回不重抽、清空不刷新。Run v5 与 Replay v3 保持版本且不增加旧回放兼容。本任务按 ADR #143 不运行性能 probe。后续工作以用户最后明确指令为准。",
+  "latest_adr": 164,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #164 / 全开放平地与空地动态刷怪：新增 11×11 全 floor、无 placement 的 module_flat_ground；正式普通池和非固定 fallback 槽只使用 0° 平地，固定起点 / 目标 / 撤离保持不变。模块 schema v3 彻底删除 module_place_enemy_spawn，世界 schema v2 数据化首次进入数量、1.5 秒预警和敌种时间权重；相邻模块改为边缘开放格交集非空并保留 99×99 flood-fill。ModuleWorldManager 提供稳定空地格心查询，GameplayRunLoop 在首次实际进入非起点槽时用 RNG.spawn 无放回固化敌种 / 位置计划并保存 telegraphing/spawned 状态，暂停 / 卸载冻结、恢复重建 VFX、玩家占位不重抽、清空不刷新。Run v5 / Replay v3 保持版本，黄金基线直接更新而不增加旧回放兼容。",
     "ADR #163 / 静域屏障跨边界拦截：ProjectileBarrier 以线段与圆周交点判定敌弹外→内、内→外，内→内和不穿圆的外→外放行；Bullet 首帧保存射手开火位置，避免枪口生成点跨过屏障。L1 覆盖四种边界关系、盾内敌人命中盾内玩家及双向枪口越界。",
     "ADR #162 / 配置驱动玩家描述：新增 SkillValueResolver 作为 SkillSystem 与描述格式化共用的能力缩放单一实现，SkillDescriptionFormatter 以通用 token 从 skills.json / hero_passives.json 生成中英文技能 / 被动数值；英雄组合卡显示完整四槽描述，当前冷静 / 愤怒描述不再硬编码消耗、范围、生命、幅度、持续时间、层数或被动减免。validate_data 与 DataLoader schema 回归拒绝配置无法提供的 token，四平台规则、GDD、词表、Locale / SkillSystem 文档和测试义务同步。",
     "ADR #161 / 主／子英雄组合与七元素战斗系统：characters schema v3 提供冷静 / 愤怒两名英雄与纯数据组合解析，主英雄独占场景、属性、被动和技能 1/2，子英雄仅提供强调色和技能 3/4；正式流程增加组合选择，四槽独立冷却并共享能量。Combat 改用七元素 element_id，玩家具备超量护盾→普通护盾→抗性 / 护甲→生命的防御层、护盾门、冲刺、能量球、静域屏障和通用状态修饰器。Meta / Run / Replay 分别升级到 v2 / v5 / v3，开发者测试岛、HUD、输入、存档与四条黄金回放同步更新；本期不实现局内换人、同英雄开局和第三基础元素内容。",
@@ -142,7 +143,7 @@
     "性能测试遵循 ADR #143：除非用户在当前任务中明确要求，否则不要运行 startup-probe、perf-probe、Godot Profiler 或同类性能采样，也不要把性能测试追加到提交前、常规回归、默认 CI 或交付清单；用户明确要求时再使用仓库现有按需 probe，并按 docs/测试策略.md §4 的预算解释结果。",
     "如果继续子弹碰撞或穿墙 Buff，先读 GDD §4、ADR #149、docs/代码/gameplay_runtime.md、docs/代码/module_world_manager.md、client/data/README.md 和词表 §1。玩家 / 敌方子弹默认只查询模块地形 bit 1，以 hit_radius 圆形做初始重叠和逐帧扫掠，命中必须 PoolManager.release；pierce_count 只控制额外伤害目标，wall_pierce > 0 才忽略全部地形且在发射时快照。新增 Buff 走现有 modifier 管线，不做有限穿墙次数、不附带穿敌 / 穿机关 / 反弹 / 爆炸；改动后跑双端 schema、完整 / 技术切片 module-world、runtime/save/L1、headless 与四条黄金回放。",
     "如果继续 Steamworks Slime Lab，先读 output/steamworks_lab/README.md、ADR #129 / #132~#140 和 docs/测试策略.md；ADR #140 已实现确定性自主游击 / 预判闪避、敌弹 / 敌人 / Boss / 障碍避让、210 px 常规硬限、超过 220 px 复位，以及按 E 后高速归队至 92 px 并停靠 0.8 秒再合体。后续合体归队修复要求三模式倍率同时驱动 max_speed 与输入目标距离，单人离线主循环必须更新权威合体进度；相关 smoke 必须用真实 E InputEvent、移动 P1 与真实 SlimeBody 物理完成闭环，禁止归队后瞬移或直接调用内部合体函数代替。AI 不可受伤 / 不吸引火力及网络 / 存档 / 正式 client 边界不变。自动验证一律先运行 py -3 tools/steamworks_lab_toolchain.py smoke --suite <目标>，交付前运行 --suite all，禁止手写 Godot / PowerShell 双进程命令或触碰真实 user://。测试节点在 _ready() 前注入 fixture；源码 steam_appid.txt 必须永久保留且内容为 4955670，只从 release 排除。改 runner 先跑 tools/test_steamworks_lab_toolchain.py；真实同屏仍用 1–3 个手柄验收，真实 Steam 仍需两个账号 / 设备验证 runtime App ID、overlay、Lobby、邀请、+connect_lobby、断网退化和完整同步，ENet 不能替代。",
-    "如果继续 F13 模块大地图，先读 docs/代码/module_authoring_pipeline.md、F13 工作包、module_world_manager / gameplay_runtime / save_manager 文档、client/data/README.md、词表 §15 和测试策略。模块布局与表现只编辑 client/data/modules/<id>.json schema v2，可用 Godot `Module JSON` 中央主编辑区可视化 Save / Validate / Bake / Approve；生成的 client/scenes/generated/modules/ 禁止手改，不存在 TSCN→JSON。新模块默认 candidate，成功校验后仍须显式批准。改 JSON/主编辑区/catalog/baker 先跑 module-bake-check + module-bake-smoke + module-json-editor-smoke；改 assignment、流式、map hash 或 Run v5 模块子快照追加完整/技术切片 module-world、runtime/save/headless；map hash 使用 schema v1 等价 gameplay projection，视觉层和图块目录不进入 hash，恢复失败 fail closed。",
+    "如果继续 F13 模块大地图，先读 ADR #164、docs/代码/module_authoring_pipeline.md、F13 工作包、module_world_manager / gameplay_runtime / save_manager 文档、client/data/README.md、词表 §15 和测试策略。模块布局与表现只编辑 client/data/modules/<id>.json schema v3，可用 Godot `Module JSON` 中央主编辑区可视化 Save / Validate / Bake / Approve；生成的 client/scenes/generated/modules/ 禁止手改，不存在 TSCN→JSON。模块不允许 enemy spawn placement；当前正式普通池与非固定 fallback 槽只用 0° module_flat_ground，固定三槽保留。相邻边只要求至少一个共同开放格，仍必须通过完整 flood-fill。首次进入敌人数量 / 预警 / 解锁权重只改 module_worlds.json.first_visit_enemy_spawn；位置从 empty_floor_positions_at() 取得并由 RunLoop 用 RNG.spawn 固化，不能恢复 marker、动态占位避让或安全半径。改制作管线先跑 module-bake-check + module-bake-smoke + module-json-editor-smoke；改 assignment、空地查询、首次遭遇、流式、map hash 或 Run v5 槽位快照追加完整/技术切片 module-world、VFX、runtime/save/headless 与黄金回放；map hash 使用 schema v1 等价 gameplay projection，视觉层和图块目录不进入 hash，恢复失败 fail closed。",
     "如果继续 F12 短刷图默认循环，先读 docs/AI协作/工作包/F12-ShortLootRuns.md、docs/代码/gameplay_runtime.md、docs/代码/warzone_director.md、docs/代码/map_manager.md、docs/代码/gear_mod_system.md、client/data/README.md 和 docs/测试策略.md；当前地图格、边界、机关、POI footprint 和撤离区都是矩形俯视格，默认 mode_standard_survival 不声明 growth_pools，运行时不掉 XP、不弹 LevelUpPanel、不进入 LEVEL_UP；8-12 分钟数据节奏、四个 director 兴趣点、资源 / Mod 奖励暂存、run.pending_loot 保存 / 续局恢复、死亡 / 放弃不提交、可伤害兴趣点目标、可见缓存箱 interact 打开、interest_points / extraction run snapshot、小巢核击破后开启矩形撤离区、撤离读条成功后提交暂存战利品、结果面板成功 / 失败清单已落地。",
     "如果继续 F11 装备 Mod / 局外装配，先读 docs/AI协作/工作包/F11-GearModLoadout.md、docs/代码/gear_mod_system.md、GDD §7.2 / §9.16、client/data/README.md 和 docs/测试策略.md；数据 / 契约首片、GearModSystem 运行时首片、标题 Gear Mod 最小 UI、掉落 HUD 暂存提示、旧局外成长运行时删除和旧测试档迁移 / 补偿路径删除已完成，下一步优先扩展更多 Gear Mod 内容；运行时或 UI 变更必跑 gear-mod-smoke，改击杀归因或开局应用追加 runtime-smoke。",
     "旧 MetaProgressionSystem 运行时 / UI / smoke 已删除；ADR #118 后旧 meta_progression.json、旧 meta 契约和旧测试档迁移 / 补偿路径也已删除，不要继续把旧永久升级轨道作为未来下一局属性来源。",
@@ -161,6 +162,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-27",
+      "command": "targeted pre-commit; sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lints plus lint self-tests; Python compile; JSON current_state/_kb_index/contracts/golden replays; docs_health_check; git diff --check; module bake check/smoke and Module JSON editor smoke; Godot 4.7.1 headless boot; runtime/save/VFX/replay smoke; module-world full/technical smoke; four recaptured Replay v3 golden replay-runner runtime-summary reruns",
+      "result": "passed for ADR #164 flat-ground first-visit encounters. Data/schema checks reject legacy enemy placements, invalid first-visit count/time/weight/enemy references, disjoint sockets, and fewer than six effective empty floor cells in both the formal pool and fixed/fallback non-start modules. Module-world smoke covers all-floor flat modules, fixed anchors, no pre-spawn during initial 3x3 activation, stable no-replacement plans, unlock boundaries, pause/unload freeze, occupied-cell spawning, simultaneous completion, save/restore VFX reconstruction, leave/return persistence, and no refresh after clearing. All four Replay v3 goldens were intentionally recaptured for the new map/data baseline and rerun successfully. Factual review found and fixed missing fallback-template spawn-capacity validation; no remaining P0/P1/P2 defect was found. Expected injected bad-save/map-hash diagnostics and existing headless shutdown RID/resource leak lines remain. No startup/performance probe or Profiler ran."
+    },
     {
       "date": "2026-07-27",
       "command": "targeted pre-commit; GDScript/project/semantic lints; JSON current_state; docs_health_check; git diff --check; Godot 4.7.1 headless-boot; l1-smoke; runtime-smoke; save-smoke; module-world-smoke",

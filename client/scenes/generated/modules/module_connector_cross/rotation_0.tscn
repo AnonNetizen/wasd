@@ -20,27 +20,11 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_amabe")
+baker_schema_version = 3
 module_id = "module_connector_cross"
-gameplay_hash = "073577e30bc569fda6fd5475ca6739cd0a4a9efdfae020aa380d421b9a4ff9db"
+gameplay_hash = "40a491d80323d7ceaed3333c5fd03767fc51b4aa1bd31c193a41bd1628cdd0c7"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "9e03598b2e9cee1bafeb9299a1d881762f0c7399faed43231644ee807626c941"
-placement_snapshot = Array[Dictionary]([{
-"cell": {
-"x": 5,
-"y": 2
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}, {
-"cell": {
-"x": 8,
-"y": 5
-},
-"count": 1,
-"enemy_id": "enemy_chaser",
-"type": "module_place_enemy_spawn"
-}])
+bake_hash = "cbaebd618467cba2fa4274d61ad8a1448d2a51effe104c220993dde806ab70c9"
 
 [node name="Ground" type="TileMapLayer" parent="."]
 position = Vector2(-80, -80)

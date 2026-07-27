@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "worlds": [
     {
       "id": "module_world_9x9",
@@ -66,18 +66,7 @@
         }
       ],
       "template_pool": [
-        "module_connector_cross",
-        "module_connector_courtyard",
-        "module_connector_pillars",
-        "module_connector_ring",
-        "module_combat_arena",
-        "module_combat_quadrants",
-        "module_combat_corridors",
-        "module_combat_fort",
-        "module_resource_cache",
-        "module_resource_crossroads",
-        "module_hazard_spikes",
-        "module_hazard_pulse"
+        "module_flat_ground"
       ],
       "fallback_assignment": [
         {
@@ -93,31 +82,31 @@
             "x": 1,
             "y": 0
           },
-          "template_id": "module_connector_courtyard",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 2,
             "y": 0
           },
-          "template_id": "module_connector_pillars",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 3,
             "y": 0
           },
-          "template_id": "module_connector_ring",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 4,
             "y": 0
           },
-          "template_id": "module_combat_arena",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -125,31 +114,31 @@
             "x": 5,
             "y": 0
           },
-          "template_id": "module_combat_quadrants",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 6,
             "y": 0
           },
-          "template_id": "module_combat_corridors",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 7,
             "y": 0
           },
-          "template_id": "module_combat_fort",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 8,
             "y": 0
           },
-          "template_id": "module_resource_cache",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -157,15 +146,15 @@
             "x": 0,
             "y": 1
           },
-          "template_id": "module_connector_ring",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 1,
             "y": 1
           },
-          "template_id": "module_combat_arena",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -173,31 +162,31 @@
             "x": 2,
             "y": 1
           },
-          "template_id": "module_combat_quadrants",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 3,
             "y": 1
           },
-          "template_id": "module_combat_corridors",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 4,
             "y": 1
           },
-          "template_id": "module_combat_fort",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 5,
             "y": 1
           },
-          "template_id": "module_resource_cache",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -205,47 +194,47 @@
             "x": 6,
             "y": 1
           },
-          "template_id": "module_resource_crossroads",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 7,
             "y": 1
           },
-          "template_id": "module_hazard_spikes",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 8,
             "y": 1
           },
-          "template_id": "module_hazard_pulse",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 0,
             "y": 2
           },
-          "template_id": "module_combat_corridors",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 1,
             "y": 2
           },
-          "template_id": "module_combat_fort",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 2,
             "y": 2
           },
-          "template_id": "module_resource_cache",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -253,31 +242,31 @@
             "x": 3,
             "y": 2
           },
-          "template_id": "module_resource_crossroads",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 4,
             "y": 2
           },
-          "template_id": "module_hazard_spikes",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 5,
             "y": 2
           },
-          "template_id": "module_hazard_pulse",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 6,
             "y": 2
           },
-          "template_id": "module_connector_cross",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -285,47 +274,47 @@
             "x": 7,
             "y": 2
           },
-          "template_id": "module_connector_courtyard",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 8,
             "y": 2
           },
-          "template_id": "module_connector_pillars",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 0,
             "y": 3
           },
-          "template_id": "module_resource_crossroads",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 1,
             "y": 3
           },
-          "template_id": "module_hazard_spikes",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 2,
             "y": 3
           },
-          "template_id": "module_hazard_pulse",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 3,
             "y": 3
           },
-          "template_id": "module_connector_cross",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -333,31 +322,31 @@
             "x": 4,
             "y": 3
           },
-          "template_id": "module_connector_courtyard",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 5,
             "y": 3
           },
-          "template_id": "module_connector_pillars",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 6,
             "y": 3
           },
-          "template_id": "module_connector_ring",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 7,
             "y": 3
           },
-          "template_id": "module_combat_arena",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -365,8 +354,8 @@
             "x": 8,
             "y": 3
           },
-          "template_id": "module_combat_quadrants",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
@@ -381,24 +370,24 @@
             "x": 1,
             "y": 4
           },
-          "template_id": "module_connector_courtyard",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 2,
             "y": 4
           },
-          "template_id": "module_connector_pillars",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 3,
             "y": 4
           },
-          "template_id": "module_connector_ring",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
@@ -413,31 +402,31 @@
             "x": 5,
             "y": 4
           },
-          "template_id": "module_combat_quadrants",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 6,
             "y": 4
           },
-          "template_id": "module_combat_corridors",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 7,
             "y": 4
           },
-          "template_id": "module_combat_fort",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 8,
             "y": 4
           },
-          "template_id": "module_resource_cache",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -445,15 +434,15 @@
             "x": 0,
             "y": 5
           },
-          "template_id": "module_connector_ring",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 1,
             "y": 5
           },
-          "template_id": "module_combat_arena",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -461,31 +450,31 @@
             "x": 2,
             "y": 5
           },
-          "template_id": "module_combat_quadrants",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 3,
             "y": 5
           },
-          "template_id": "module_combat_corridors",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 4,
             "y": 5
           },
-          "template_id": "module_combat_fort",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 5,
             "y": 5
           },
-          "template_id": "module_resource_cache",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -493,47 +482,47 @@
             "x": 6,
             "y": 5
           },
-          "template_id": "module_resource_crossroads",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 7,
             "y": 5
           },
-          "template_id": "module_hazard_spikes",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 8,
             "y": 5
           },
-          "template_id": "module_hazard_pulse",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 0,
             "y": 6
           },
-          "template_id": "module_combat_corridors",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 1,
             "y": 6
           },
-          "template_id": "module_combat_fort",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 2,
             "y": 6
           },
-          "template_id": "module_resource_cache",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -541,31 +530,31 @@
             "x": 3,
             "y": 6
           },
-          "template_id": "module_resource_crossroads",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 4,
             "y": 6
           },
-          "template_id": "module_hazard_spikes",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 5,
             "y": 6
           },
-          "template_id": "module_hazard_pulse",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 6,
             "y": 6
           },
-          "template_id": "module_connector_cross",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -573,47 +562,47 @@
             "x": 7,
             "y": 6
           },
-          "template_id": "module_connector_courtyard",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 8,
             "y": 6
           },
-          "template_id": "module_connector_pillars",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 0,
             "y": 7
           },
-          "template_id": "module_resource_crossroads",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 1,
             "y": 7
           },
-          "template_id": "module_hazard_spikes",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 2,
             "y": 7
           },
-          "template_id": "module_hazard_pulse",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 3,
             "y": 7
           },
-          "template_id": "module_connector_cross",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -621,31 +610,31 @@
             "x": 4,
             "y": 7
           },
-          "template_id": "module_connector_courtyard",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 5,
             "y": 7
           },
-          "template_id": "module_connector_pillars",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 6,
             "y": 7
           },
-          "template_id": "module_connector_ring",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 7,
             "y": 7
           },
-          "template_id": "module_combat_arena",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -653,15 +642,15 @@
             "x": 8,
             "y": 7
           },
-          "template_id": "module_combat_quadrants",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 0,
             "y": 8
           },
-          "template_id": "module_connector_cross",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -669,31 +658,31 @@
             "x": 1,
             "y": 8
           },
-          "template_id": "module_connector_courtyard",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 2,
             "y": 8
           },
-          "template_id": "module_connector_pillars",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 3,
             "y": 8
           },
-          "template_id": "module_connector_ring",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 4,
             "y": 8
           },
-          "template_id": "module_combat_arena",
+          "template_id": "module_flat_ground",
           "rotation": 0
         },
         {
@@ -701,31 +690,31 @@
             "x": 5,
             "y": 8
           },
-          "template_id": "module_combat_quadrants",
-          "rotation": 270
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 6,
             "y": 8
           },
-          "template_id": "module_combat_corridors",
-          "rotation": 180
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 7,
             "y": 8
           },
-          "template_id": "module_combat_fort",
-          "rotation": 90
+          "template_id": "module_flat_ground",
+          "rotation": 0
         },
         {
           "slot": {
             "x": 8,
             "y": 8
           },
-          "template_id": "module_resource_cache",
+          "template_id": "module_flat_ground",
           "rotation": 0
         }
       ],
@@ -1378,7 +1367,39 @@
           "template_id": "module_sealed",
           "rotation": 0
         }
-      ]
+      ],
+      "first_visit_enemy_spawn": {
+        "count_min": 4,
+        "count_max": 6,
+        "telegraph_duration": 1.5,
+        "enemy_pool": [
+          {
+            "enemy_id": "enemy_chaser",
+            "unlock_time": 0,
+            "weight": 100
+          },
+          {
+            "enemy_id": "enemy_swarm",
+            "unlock_time": 60,
+            "weight": 45
+          },
+          {
+            "enemy_id": "enemy_stalker",
+            "unlock_time": 240,
+            "weight": 18
+          },
+          {
+            "enemy_id": "enemy_spitter",
+            "unlock_time": 300,
+            "weight": 16
+          },
+          {
+            "enemy_id": "enemy_bulwark",
+            "unlock_time": 420,
+            "weight": 25
+          }
+        ]
+      }
     }
   ]
 }

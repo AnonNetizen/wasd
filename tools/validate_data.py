@@ -2792,12 +2792,12 @@ def _validate_module_world_data(
     hazard_ids: set[str],
     module_tile_catalog: dict[str, str],
 ) -> None:
-    templates = _validate_module_templates(ctx, enemy_ids, hazard_ids, module_tile_catalog)
+    templates = _validate_module_templates(ctx, hazard_ids, module_tile_catalog)
     path = MODULE_WORLDS_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 2)
     worlds = _require_list(ctx, path, "worlds", data.get("worlds"))
     if not worlds:
         ctx.error(path, "worlds", "must be a non-empty array")
@@ -2830,6 +2830,13 @@ def _validate_module_world_data(
                 ctx, path, f"{field}.{anchor_name}", world.get(anchor_name), 9, 9
             )
         route_budget = _validate_module_route_budget(ctx, path, f"{field}.route_budget", world.get("route_budget"))
+        required_spawn_cells = _validate_first_visit_enemy_spawn(
+            ctx,
+            path,
+            f"{field}.first_visit_enemy_spawn",
+            world.get("first_visit_enemy_spawn"),
+            enemy_ids,
+        )
 
         fixed_slots = _require_list(ctx, path, f"{field}.fixed_slots", world.get("fixed_slots"))
         fixed_assignment = _validate_module_assignment_entries(
@@ -2838,6 +2845,16 @@ def _validate_module_world_data(
         _validate_module_fixed_anchor_roles(
             ctx, path, f"{field}.fixed_slots", fixed_assignment, templates, anchors
         )
+        for template_id, _rotation in fixed_assignment.values():
+            template = templates.get(template_id)
+            if template is None or template.get("role") == "module_role_start":
+                continue
+            if _module_spawnable_cell_count(template) < required_spawn_cells:
+                ctx.error(
+                    path,
+                    f"{field}.fixed_slots",
+                    f"non-start fixed templates need at least {required_spawn_cells} spawnable floor cells",
+                )
 
         template_pool = _require_list(ctx, path, f"{field}.template_pool", world.get("template_pool"))
         seen_pool: set[str] = set()
@@ -2856,6 +2873,12 @@ def _validate_module_world_data(
                 ctx.error(path, pool_field, f"formal template pool requires approved template: {template_id}")
             elif template["role"] == "module_role_sealed":
                 ctx.error(path, pool_field, "formal template pool cannot contain sealed templates")
+            elif _module_spawnable_cell_count(template) < required_spawn_cells:
+                ctx.error(
+                    path,
+                    pool_field,
+                    f"formal template needs at least {required_spawn_cells} spawnable floor cells",
+                )
 
         for assignment_name, technical in (("fallback_assignment", False), ("technical_slice_assignment", True)):
             entries = _require_list(ctx, path, f"{field}.{assignment_name}", world.get(assignment_name))
@@ -2868,6 +2891,18 @@ def _validate_module_world_data(
                 exact_81=True,
                 allow_technical_sealed=technical,
             )
+            if not technical:
+                for template_id, _rotation in assignment.values():
+                    template = templates.get(template_id)
+                    if template is None or template.get("role") == "module_role_start":
+                        continue
+                    if _module_spawnable_cell_count(template) < required_spawn_cells:
+                        ctx.error(
+                            path,
+                            f"{field}.{assignment_name}",
+                            "non-start fallback templates need at least "
+                            f"{required_spawn_cells} spawnable floor cells",
+                        )
             _validate_module_assignment_world(
                 ctx,
                 path,
@@ -2880,9 +2915,129 @@ def _validate_module_world_data(
             )
 
 
+def _validate_first_visit_enemy_spawn(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    value: Any,
+    enemy_ids: set[str],
+) -> int:
+    if not isinstance(value, dict):
+        ctx.error(path, field, "must be an object")
+        return 0
+    count_min = _require_int(
+        ctx, path, f"{field}.count_min", value.get("count_min"), minimum=1
+    )
+    count_max = _require_int(
+        ctx, path, f"{field}.count_max", value.get("count_max"), minimum=1
+    )
+    if count_min is not None and count_max is not None and count_min > count_max:
+        ctx.error(path, field, "count_min must be <= count_max")
+    _require_number(
+        ctx,
+        path,
+        f"{field}.telegraph_duration",
+        value.get("telegraph_duration"),
+        minimum=0.0,
+        exclusive_minimum=True,
+    )
+    enemy_pool = _require_list(ctx, path, f"{field}.enemy_pool", value.get("enemy_pool"))
+    if not enemy_pool:
+        ctx.error(path, f"{field}.enemy_pool", "must be a non-empty array")
+    seen_enemy_ids: set[str] = set()
+    previous_unlock_time = -1.0
+    for index, raw_entry in enumerate(enemy_pool):
+        entry_field = f"{field}.enemy_pool[{index}]"
+        if not isinstance(raw_entry, dict):
+            ctx.error(path, entry_field, "must be an object")
+            continue
+        enemy_id = _require_non_empty_string(
+            ctx, path, f"{entry_field}.enemy_id", raw_entry.get("enemy_id")
+        )
+        if enemy_id is not None:
+            if enemy_id in seen_enemy_ids:
+                ctx.error(path, f"{entry_field}.enemy_id", f"duplicate enemy id {enemy_id}")
+            seen_enemy_ids.add(enemy_id)
+            if enemy_id not in enemy_ids:
+                ctx.error(
+                    path,
+                    f"{entry_field}.enemy_id",
+                    f"enemy is not defined in enemies.csv: {enemy_id}",
+                )
+        unlock_time = _require_number(
+            ctx,
+            path,
+            f"{entry_field}.unlock_time",
+            raw_entry.get("unlock_time"),
+            minimum=0.0,
+        )
+        if unlock_time is not None:
+            if unlock_time < previous_unlock_time:
+                ctx.error(
+                    path,
+                    f"{entry_field}.unlock_time",
+                    "unlock times must be non-decreasing",
+                )
+            previous_unlock_time = unlock_time
+        _require_number(
+            ctx,
+            path,
+            f"{entry_field}.weight",
+            raw_entry.get("weight"),
+            minimum=0.0,
+            exclusive_minimum=True,
+        )
+    if enemy_pool:
+        first_entry = enemy_pool[0]
+        first_unlock = first_entry.get("unlock_time") if isinstance(first_entry, dict) else None
+        if not isinstance(first_unlock, (int, float)) or isinstance(first_unlock, bool) or float(first_unlock) != 0.0:
+            ctx.error(path, f"{field}.enemy_pool[0].unlock_time", "must be 0")
+    return count_max or 0
+
+
+def _module_spawnable_cell_count(template: dict[str, Any]) -> int:
+    module_data = template.get("data")
+    if not isinstance(module_data, dict):
+        return 0
+    occupied: set[tuple[int, int]] = set()
+    placements = module_data.get("placements")
+    if isinstance(placements, list):
+        for placement in placements:
+            if not isinstance(placement, dict):
+                continue
+            cell = placement.get("cell")
+            if not isinstance(cell, dict):
+                continue
+            x = cell.get("x")
+            y = cell.get("y")
+            if not isinstance(x, int) or isinstance(x, bool) or not isinstance(y, int) or isinstance(y, bool):
+                continue
+            footprint = placement.get("footprint")
+            width = footprint.get("width", 1) if isinstance(footprint, dict) else 1
+            height = footprint.get("height", 1) if isinstance(footprint, dict) else 1
+            if not isinstance(width, int) or isinstance(width, bool) or width < 1:
+                width = 1
+            if not isinstance(height, int) or isinstance(height, bool) or height < 1:
+                height = 1
+            occupied.update(
+                (x + offset_x, y + offset_y)
+                for offset_y in range(height)
+                for offset_x in range(width)
+            )
+    terrain_rows = module_data.get("terrain_rows")
+    if not isinstance(terrain_rows, list):
+        return 0
+    return sum(
+        1
+        for y, row in enumerate(terrain_rows)
+        if isinstance(row, list)
+        for x, token in enumerate(row)
+        if token == "module_cell_floor" and (x, y) not in occupied
+    )
+
+
 def _validate_module_templates(
     ctx: ValidationContext,
-    enemy_ids: set[str],
     hazard_ids: set[str],
     module_tile_catalog: dict[str, str],
 ) -> dict[str, dict[str, Any]]:
@@ -2946,7 +3101,6 @@ def _validate_module_templates(
                     loaded,
                     template_id,
                     role,
-                    enemy_ids,
                     hazard_ids,
                     module_tile_catalog,
                 )
@@ -2987,13 +3141,12 @@ def _validate_module_file(
     data: dict[str, Any],
     expected_id: str | None,
     role: str | None,
-    enemy_ids: set[str],
     hazard_ids: set[str],
     module_tile_catalog: dict[str, str],
 ) -> None:
-    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=2)
-    if schema_version != 2:
-        ctx.error(path, "schema_version", "must be 2")
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=3)
+    if schema_version != 3:
+        ctx.error(path, "schema_version", "must be 3")
     module_id = _require_non_empty_string(ctx, path, "id", data.get("id"))
     if module_id and expected_id and module_id != expected_id:
         ctx.error(path, "id", f"must match registry template id {expected_id}")
@@ -3011,15 +3164,14 @@ def _validate_module_file(
             _require_registered(ctx, path, f"{row_field}[{x}]", token, "module_cell_tokens")
 
     derived_sockets = _derive_module_edge_sockets(terrain_rows)
-    if schema_version == 2:
+    if schema_version == 3:
         if "edge_sockets" in data:
-            ctx.error(path, "edge_sockets", "must be omitted in schema v2 because sockets are derived")
+            ctx.error(path, "edge_sockets", "must be omitted in schema v3 because sockets are derived")
         _validate_module_visual_layers(ctx, path, data.get("visual_layers"), module_tile_catalog)
         data["edge_sockets"] = derived_sockets
 
     placements = _require_list(ctx, path, "placements", data.get("placements"))
     placement_counts: dict[str, int] = {}
-    enemy_count = 0
     footprint_by_type: list[tuple[str, set[tuple[int, int]]]] = []
     start_cell: tuple[int, int] | None = None
     danger_cells: set[tuple[int, int]] = set()
@@ -3038,16 +3190,6 @@ def _validate_module_file(
             footprint_by_type.append((placement_type, footprint))
         if placement_type == "module_place_player_start":
             start_cell = cell
-        elif placement_type == "module_place_enemy_spawn":
-            enemy_id = _require_non_empty_string(ctx, path, f"{field}.enemy_id", placement.get("enemy_id"))
-            if enemy_id and enemy_id not in enemy_ids:
-                ctx.error(path, f"{field}.enemy_id", f"enemy is not defined in enemies.csv: {enemy_id}")
-            count = _require_int(ctx, path, f"{field}.count", placement.get("count"), minimum=1)
-            if count is not None:
-                enemy_count += count
-            if any(not _module_cell_is_floor(terrain_rows, footprint_cell) for footprint_cell in footprint):
-                ctx.error(path, f"{field}.cell", "enemy spawn footprint must use module_cell_floor terrain")
-            danger_cells.update(footprint)
         elif placement_type == "module_place_hazard":
             hazard_id = _require_non_empty_string(ctx, path, f"{field}.hazard_id", placement.get("hazard_id"))
             if hazard_id and hazard_id not in hazard_ids:
@@ -3078,14 +3220,14 @@ def _validate_module_file(
         "module_place_objective",
         "module_place_extraction",
     }
-    danger_types = {"module_place_enemy_spawn", "module_place_hazard"}
+    danger_types = {"module_place_hazard"}
     for left_index, (left_type, left_cells) in enumerate(footprint_by_type):
         for right_type, right_cells in footprint_by_type[left_index + 1:]:
             if ((left_type in danger_types and right_type in protected_types) or
                     (right_type in danger_types and left_type in protected_types)) and left_cells & right_cells:
                 ctx.error(path, "placements", "danger placement overlaps player start, objective, extraction, or reward")
 
-    _validate_module_role_budget(ctx, path, role, placement_counts, enemy_count)
+    _validate_module_role_budget(ctx, path, role, placement_counts)
     if role == "module_role_start" and start_cell is not None:
         if any(max(abs(cell[0] - start_cell[0]), abs(cell[1] - start_cell[1])) <= 2 for cell in danger_cells):
             ctx.error(path, "placements", "player start must have a 2-cell danger-free safe radius")
@@ -3203,14 +3345,6 @@ def _validate_module_tile_reference(
         ctx.error(path, field, f"tile must belong to the {expected_layer} layer")
 
 
-def _module_cell_is_floor(terrain_rows: list[Any], cell: tuple[int, int]) -> bool:
-    x, y = cell
-    if y < 0 or y >= len(terrain_rows) or not isinstance(terrain_rows[y], list):
-        return False
-    row = terrain_rows[y]
-    return 0 <= x < len(row) and row[x] == "module_cell_floor"
-
-
 def _validate_module_footprint(
     ctx: ValidationContext, path: Path, field: str, value: Any, cell: tuple[int, int] | None
 ) -> set[tuple[int, int]]:
@@ -3235,33 +3369,29 @@ def _validate_module_footprint(
 
 
 def _validate_module_role_budget(
-    ctx: ValidationContext, path: Path, role: str | None, counts: dict[str, int], enemy_count: int
+    ctx: ValidationContext, path: Path, role: str | None, counts: dict[str, int]
 ) -> None:
     hazards = counts.get("module_place_hazard", 0)
     rewards = counts.get("module_place_reward_cache", 0)
     if role == "module_role_start":
-        if enemy_count != 0 or hazards != 0:
-            ctx.error(path, "placements", "start module cannot contain enemies or hazards")
+        if hazards != 0:
+            ctx.error(path, "placements", "start module cannot contain hazards")
         if counts.get("module_place_player_start", 0) != 1:
             ctx.error(path, "placements", "start module requires exactly one player_start")
     elif role == "module_role_connector":
-        _validate_budget_range(ctx, path, enemy_count, 0, 4, "connector enemy count")
         _validate_budget_range(ctx, path, hazards, 0, 1, "connector hazard count")
     elif role == "module_role_combat":
-        _validate_budget_range(ctx, path, enemy_count, 6, 12, "combat enemy count")
         _validate_budget_range(ctx, path, hazards, 0, 2, "combat hazard count")
     elif role == "module_role_resource":
-        _validate_budget_range(ctx, path, enemy_count, 2, 6, "resource guard count")
         if rewards != 1:
             ctx.error(path, "placements", "resource module requires exactly one reward_cache")
     elif role == "module_role_hazard":
-        _validate_budget_range(ctx, path, enemy_count, 2, 6, "hazard module enemy count")
         _validate_budget_range(ctx, path, hazards, 2, 4, "hazard module hazard count")
     elif role == "module_role_objective" and counts.get("module_place_objective", 0) != 1:
         ctx.error(path, "placements", "objective module requires exactly one objective")
     elif role == "module_role_extraction" and counts.get("module_place_extraction", 0) != 1:
         ctx.error(path, "placements", "extraction module requires exactly one extraction")
-    elif role == "module_role_sealed" and (enemy_count or hazards or any(counts.values())):
+    elif role == "module_role_sealed" and (hazards or any(counts.values())):
         ctx.error(path, "placements", "sealed module cannot contain placements")
 
 
@@ -3446,12 +3576,15 @@ def _validate_module_assignment_world(
                     continue
                 left_sockets = _effective_module_sockets(assignment[slot], templates, edge)
                 right_sockets = _effective_module_sockets(assignment[neighbor], templates, opposite)
-                if left_sockets != right_sockets:
-                    ctx.error(path, field, f"socket mismatch between slot {slot} {edge} and {neighbor} {opposite}")
+                if not left_sockets & right_sockets:
+                    ctx.error(
+                        path,
+                        field,
+                        f"no shared open socket between slot {slot} {edge} and {neighbor} {opposite}",
+                    )
                     continue
-                if left_sockets:
-                    graph[slot].add(neighbor)
-                    graph[neighbor].add(slot)
+                graph[slot].add(neighbor)
+                graph[neighbor].add(slot)
 
     non_sealed = {
         slot for slot, (template_id, _rotation) in assignment.items()
