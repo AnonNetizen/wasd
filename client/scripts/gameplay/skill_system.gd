@@ -38,6 +38,7 @@ const SLOT_IDS: Array[String] = [
 
 var _active_parent: Node = null
 var _caster: Node2D = null
+var _combat_gate: Callable = Callable()
 var _cooldowns: Dictionary = {}
 var _debug_free_casts: bool = false
 var _deployables_by_slot: Dictionary = {}
@@ -122,6 +123,10 @@ func configure(
 			}
 
 
+func configure_combat_gate(combat_gate: Callable) -> void:
+	_combat_gate = combat_gate
+
+
 func cast_primary_skill() -> Dictionary:
 	return cast_slot(SLOT_IDS[0])
 
@@ -135,6 +140,12 @@ func cast_slot(slot_id: String) -> Dictionary:
 		return _failed_cast(
 			skill_id,
 			"caster_unavailable",
+			{"slot_id": slot_id}
+		)
+	if not _is_combat_allowed():
+		return _failed_cast(
+			skill_id,
+			"combat_locked",
 			{"slot_id": slot_id}
 		)
 	if not _debug_free_casts and cooldown_remaining(slot_id) > 0.0:
@@ -434,6 +445,12 @@ func _slot_for_action(action_id: StringName) -> String:
 	if action_id == StringName(ACTIONS.SKILL_4):
 		return SLOT_IDS[3]
 	return ""
+
+
+func _is_combat_allowed() -> bool:
+	if not _combat_gate.is_valid():
+		return true
+	return bool(_combat_gate.call())
 
 
 func _failed_cast(

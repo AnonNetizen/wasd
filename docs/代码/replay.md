@@ -10,6 +10,7 @@
 - 关键决策事件当前复用已登记的 `analytics_events`，例如后续升级、拾取、道具使用等事件；需要新的事件名时先改词表。
 - F8 已提供 `.replay` 文件 envelope、`user://replays/` 落盘 / 读取、稳定摘要、`replay-smoke` roundtrip、`replay-runner` 摘要 diff、`client/tests/replays/golden_basic_run.replay`、`golden_pause_resume.replay`、`golden_full_death.replay` 与 `golden_level_up_choice.replay` 的运行时摘要 + 稳定帧样本 golden baseline、gameplay 输入录制首片，以及 `replay-runner --rerun-runtime-summary` 的输入播放 / runtime event 播放 / 帧样本 diff 首片；暂不做全量逐帧状态 diff。
 - ADR #165 后每颗玩家弹丸固定消耗一次 `RNG.combat` 并独立抽取扩散角，零扩散也不跳过；震屏只使用 `RNG.camera_fx`，开关震屏不得改变弹道或玩家玩法位置。输入 wire format 未变，因此 Replay 保持 v3；后坐力落地时直接重录四条黄金基线，不增加旧黄金兼容。
+- ADR #166 后 Replay 仍保持 v3：输入 wire 与调度时钟不变，`run_end` decision 和黄金运行时摘要新增 `difficulty_time`、`difficulty_level`、`enemy_health_multiplier`、`enemy_damage_multiplier`。这些值来自 `DifficultyProgression`，不以 `GameClock.now()` 代替；四条黄金基线因数据指纹和摘要变化重录。
 - `Replay` 受 `Settings.gameplay.record_replays` 控制；关闭后会清空当前内存录制并拒绝新录制。
 
 ## 阅读方式
@@ -126,7 +127,7 @@ F8 首片 `.replay` 文件 envelope：
 | `recording` | `Dictionary` | 上方内存录制结构 |
 | `summary` | `Dictionary` | seed、tick/time、事件数量、停止原因和可选 `run_summary` 等 runner 可比较摘要 |
 
-F8 golden replay 额外在 `recording.run_summary` / `summary.run_summary` 中保存稳定运行时摘要：`scenario`、`capture_frames`、`state`、`ui_stack`、`level`、`xp`、`kills`、`player_moved_right`、`player_aim_direction` 和场景适配的实体字段。`golden_basic_run` 保留活跃敌人 / 子弹 / 掉落数量和核心对象池统计；`golden_pause_resume` 聚焦 UI 状态，使用 `enemies_present` / `bullets_present` 避免暂停注入等待帧造成的精确实体数量差；`golden_full_death` 使用 `enemies_present` / `bullets_present` 加 `player_defeated`、`game_over_panel_visible`、`run_save_exists` 和 `meta_save_exists` 验证死亡后进入失败页、删除 run 存档且不再写旧局外货币字段；`golden_level_up_choice` 由测试 harness 显式启用成长池，再使用 `level_up_decisions` 和 `level_up_choice_applied` 验证升级候选记录、选择 id 与修正应用。`run_summary.frame_samples` 保存 30 帧间隔的稳定帧样本，字段包括 `frame`、`state`、`ui_stack`、`level`、`xp`、`kills`、`player_life`、`player_moved_right`、`player_aim_direction`、`weapon_cooldown_ready`、`enemy_types`、`pickups_present`、实体存在性或数量、`active_pickups`；full-death 样本额外记录 `game_over_panel_visible`。逐帧精确子弹数量和精确玩家坐标暂不进入帧样本，因为发射 / 移动采样时机可能出现 1 帧级差异；`game_tick` / `game_time` 不进入该摘要，因为 headless 工具挂载时机可能造成少量 tick 差。
+F8 golden replay 额外在 `recording.run_summary` / `summary.run_summary` 中保存稳定运行时摘要：`scenario`、`capture_frames`、`state`、`ui_stack`、`level`、`xp`、`kills`、`difficulty_time`、`difficulty_level`、`enemy_health_multiplier`、`enemy_damage_multiplier`、`player_moved_right`、`player_aim_direction` 和场景适配的实体字段。`golden_basic_run` 保留活跃敌人 / 子弹 / 掉落数量和核心对象池统计；`golden_pause_resume` 聚焦 UI 状态，使用 `enemies_present` / `bullets_present` 避免暂停注入等待帧造成的精确实体数量差；`golden_full_death` 使用 `enemies_present` / `bullets_present` 加 `player_defeated`、`game_over_panel_visible`、`run_save_exists` 和 `meta_save_exists` 验证死亡后进入失败页、删除 run 存档且不再写旧局外货币字段；`golden_level_up_choice` 由测试 harness 显式启用成长池，再使用 `level_up_decisions` 和 `level_up_choice_applied` 验证升级候选记录、选择 id 与修正应用。`run_summary.frame_samples` 保存 30 帧间隔的稳定帧样本，字段包括 `frame`、`state`、`ui_stack`、`level`、`xp`、`kills`、`player_life`、`player_moved_right`、`player_aim_direction`、`weapon_cooldown_ready`、`enemy_types`、`pickups_present`、实体存在性或数量、`active_pickups`；full-death 样本额外记录 `game_over_panel_visible`。逐帧精确子弹数量和精确玩家坐标暂不进入帧样本，因为发射 / 移动采样时机可能出现 1 帧级差异；`game_tick` / `game_time` 不进入该摘要，因为 headless 工具挂载时机可能造成少量 tick 差；玩家可见用时只使用 `difficulty_time`。
 
 输入事件字段：
 
@@ -193,7 +194,7 @@ F8 golden replay 额外在 `recording.run_summary` / `summary.run_summary` 中�
 
 ## 迁移 / 兼容
 
-当前 `.replay` 文件 envelope 与内存 recording schema 都为 3，加载器只接受 v3。旧版、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id` 与 `sub_hero_id`，四技能和冲刺使用当前规范 action。弹道随机由运行时按固定 `RNG.combat` 消耗重算，Player 后坐状态属于 Run v5 而不是 replay 字段；不能把两种格式混合。
+当前 `.replay` 文件 envelope 与内存 recording schema 都为 3，加载器只接受 v3。旧版、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id` 与 `sub_hero_id`，四技能和冲刺使用当前规范 action。弹道随机由运行时按固定 `RNG.combat` 消耗重算，Player 后坐状态与精确敌人出生倍率属于 Run v6 而不是 replay 输入字段；Replay 只在 `run_end` / summary 保留当前难度摘要，不能把两种格式混合。
 
 ## 相关文档
 

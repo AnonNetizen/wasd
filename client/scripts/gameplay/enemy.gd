@@ -52,6 +52,8 @@ var _ai_profile_id: String = ""
 var _charge_cooldown_remaining: float = 0.0
 var _charge_direction: Vector2 = Vector2.ZERO
 var _collision_shape: CollisionShape2D = null
+var _base_contact_damage: float = 0.0
+var _base_max_life: float = 1.0
 var _contact_damage: float = 0.0
 var _contact_element_id: String = ""
 var _contact_interval: float = 0.7
@@ -90,6 +92,8 @@ var _cached_navigation_waypoint: Vector2 = Vector2.ZERO
 var _has_cached_navigation_waypoint: bool = false
 var _status_effect_component: Node = null
 var _presentation: ActorPresentationController = null
+var _spawn_damage_multiplier: float = 1.0
+var _spawn_health_multiplier: float = 1.0
 
 
 func _physics_process(delta: float) -> void:
@@ -120,7 +124,12 @@ func _physics_process(delta: float) -> void:
 	_check_contact()
 
 
-func configure(enemy_data: Dictionary, target: Node2D, navigation_provider: Node = null) -> void:
+func configure(
+	enemy_data: Dictionary,
+	target: Node2D,
+	navigation_provider: Node = null,
+	spawn_difficulty: Dictionary = {}
+) -> void:
 	velocity = Vector2.ZERO
 	_clear_status_effects_for_reuse()
 	_ensure_presentation()
@@ -165,10 +174,20 @@ func configure(enemy_data: Dictionary, target: Node2D, navigation_provider: Node
 	_cached_navigation_waypoint = Vector2.ZERO
 	_last_scores.clear()
 	_decision_remaining = 0.0
-	_max_life = float(enemy_data.get("max_hp", 1))
+	_spawn_health_multiplier = maxf(
+		float(spawn_difficulty.get("health_multiplier", 1.0)),
+		0.0
+	)
+	_spawn_damage_multiplier = maxf(
+		float(spawn_difficulty.get("damage_multiplier", 1.0)),
+		0.0
+	)
+	_base_max_life = float(enemy_data.get("max_hp", 1))
+	_max_life = _base_max_life * _spawn_health_multiplier
 	_life_points = _max_life
 	_move_speed = float(enemy_data.get("move_speed", 0.0))
-	_contact_damage = float(enemy_data.get("contact_damage", 0))
+	_base_contact_damage = float(enemy_data.get("contact_damage", 0))
+	_contact_damage = _base_contact_damage * _spawn_damage_multiplier
 	_contact_element_id = String(enemy_data.get("element_id", ""))
 	_contact_interval = maxf(
 		float(enemy_data.get("contact_interval", 0.7)),
@@ -209,6 +228,11 @@ func ai_debug_summary() -> Dictionary:
 		"last_known_position": _vector_to_dict(_last_known_position) if _has_last_known_position else {},
 		"memory_remaining": _memory_remaining,
 		"navigation_mode": _navigation_mode,
+		"contact_damage": _contact_damage,
+		"ranged_projectile_damage": (
+			_movement_value("ranged_projectile_damage")
+			* _spawn_damage_multiplier
+		),
 		"scores": _last_scores.duplicate(true),
 	}
 
@@ -223,6 +247,13 @@ func current_life() -> float:
 
 func max_life() -> float:
 	return _max_life
+
+
+func enemy_spawn_snapshot() -> Dictionary:
+	return {
+		"health_multiplier": _spawn_health_multiplier,
+		"damage_multiplier": _spawn_damage_multiplier,
+	}
 
 
 func enemy_id() -> String:
@@ -243,8 +274,12 @@ func combat_team_id() -> String:
 
 func debug_configure_training_target(max_life: float, home_position: Vector2) -> void:
 	_debug_ai_enabled = false
-	_max_life = maxf(max_life, 1.0)
+	_spawn_health_multiplier = 1.0
+	_spawn_damage_multiplier = 1.0
+	_base_max_life = maxf(max_life, 1.0)
+	_max_life = _base_max_life
 	_life_points = _max_life
+	_base_contact_damage = 0.0
 	_contact_damage = 0.0
 	_home_position = home_position
 	global_position = home_position
@@ -435,6 +470,8 @@ func snapshot() -> Dictionary:
 		"enemy_id": _enemy_id,
 		"position": _vector_to_dict(global_position),
 		"life_points": _life_points,
+		"spawn_health_multiplier": _spawn_health_multiplier,
+		"spawn_damage_multiplier": _spawn_damage_multiplier,
 		"home_position": _vector_to_dict(_home_position),
 		"current_action": _current_action,
 		"action_state": _action_state,
@@ -453,6 +490,16 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_ensure_status_effect_component()
 	if _status_effect_component != null:
 		_status_effect_component.call("clear", false)
+	_spawn_health_multiplier = maxf(
+		float(snapshot_data.get("spawn_health_multiplier", 1.0)),
+		0.0
+	)
+	_spawn_damage_multiplier = maxf(
+		float(snapshot_data.get("spawn_damage_multiplier", 1.0)),
+		0.0
+	)
+	_max_life = _base_max_life * _spawn_health_multiplier
+	_contact_damage = _base_contact_damage * _spawn_damage_multiplier
 	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
 	_home_position = _dict_to_vector(snapshot_data.get("home_position", {}), global_position)
 	_home_position = _clamp_to_movement_bounds(_home_position)
@@ -495,6 +542,8 @@ func _pool_reset() -> void:
 	_action_timer = 0.0
 	_ai_profile.clear()
 	_ai_profile_id = ""
+	_base_contact_damage = 0.0
+	_base_max_life = 1.0
 	_charge_cooldown_remaining = 0.0
 	_charge_direction = Vector2.ZERO
 	_ranged_cooldown_remaining = 0.0
@@ -528,6 +577,8 @@ func _pool_reset() -> void:
 	_clear_status_effects_for_reuse()
 	_player_target = null
 	_separation_radius = 0.0
+	_spawn_damage_multiplier = 1.0
+	_spawn_health_multiplier = 1.0
 	_terrain_line_of_sight = false
 	_memory_remaining = 0.0
 	_cached_navigation_waypoint = Vector2.ZERO
@@ -852,7 +903,10 @@ func _fire_ranged_projectile(target_direction: Vector2) -> void:
 	bullet.global_position = global_position + direction * muzzle_distance
 	_reparent_to_parent(bullet)
 	bullet.call("configure", {
-		STATS.DAMAGE: _movement_value("ranged_projectile_damage"),
+		STATS.DAMAGE: (
+			_movement_value("ranged_projectile_damage")
+			* _spawn_damage_multiplier
+		),
 		STATS.BULLET_SPEED: _movement_value("ranged_projectile_speed"),
 		STATS.BULLET_RANGE: _movement_value("ranged_projectile_range"),
 		STATS.PIERCE_COUNT: 0,

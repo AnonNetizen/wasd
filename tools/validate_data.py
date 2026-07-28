@@ -33,6 +33,7 @@ HERO_PASSIVES_JSON = ROOT / "client" / "data" / "hero_passives.json"
 CREDITS_JSON = ROOT / "client" / "data" / "credits.json"
 GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
 GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
+DIFFICULTY_PROFILES_JSON = ROOT / "client" / "data" / "difficulty_profiles.json"
 GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
 MAP_LAYOUTS_JSON = ROOT / "client" / "data" / "map_layouts.json"
 WARZONE_DIRECTORS_JSON = ROOT / "client" / "data" / "warzone_directors.json"
@@ -155,7 +156,8 @@ def main() -> int:
     character_ids = _collect_character_ids(ctx)
     _validate_growth_csv(ctx)
     _validate_growth_pools(ctx)
-    _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids)
+    difficulty_profile_ids = _validate_difficulty_profiles(ctx)
+    _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids, difficulty_profile_ids)
     game_mode_ids = _collect_game_mode_ids(ctx)
     _validate_map_layouts(ctx, hazard_ids, game_mode_ids)
     _validate_spawn_waves_csv(ctx, enemy_ids, hazard_ids, game_mode_ids)
@@ -2098,6 +2100,77 @@ def _validate_growth_pools(ctx: ValidationContext) -> None:
                 _validate_modifiers(ctx, path, f"{entry_field}.modifiers", entry.get("modifiers"), require_value_per_level=False)
 
 
+def _validate_difficulty_profiles(ctx: ValidationContext) -> set[str]:
+    path = DIFFICULTY_PROFILES_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return set()
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+    profiles = _require_list(ctx, path, "profiles", data.get("profiles"))
+    if not profiles:
+        ctx.error(path, "profiles", "must be a non-empty array")
+    profile_ids: set[str] = set()
+    for profile_index, profile in enumerate(profiles):
+        profile_field = f"profiles[{profile_index}]"
+        if not isinstance(profile, dict):
+            ctx.error(path, profile_field, "must be an object")
+            continue
+        profile_id = _require_non_empty_string(
+            ctx, path, f"{profile_field}.id", profile.get("id")
+        )
+        if profile_id:
+            if profile_id in profile_ids:
+                ctx.error(
+                    path,
+                    f"{profile_field}.id",
+                    f"duplicate difficulty profile id {profile_id}",
+                )
+            profile_ids.add(profile_id)
+        _require_number(
+            ctx,
+            path,
+            f"{profile_field}.tier_interval_seconds",
+            profile.get("tier_interval_seconds"),
+            minimum=0.0,
+            maximum=3600.0,
+            exclusive_minimum=True,
+        )
+        for field_name in (
+            "continuous_growth_per_interval",
+            "tier_step_growth",
+            "damage_growth_ratio",
+        ):
+            _require_number(
+                ctx,
+                path,
+                f"{profile_field}.{field_name}",
+                profile.get(field_name),
+                minimum=0.0,
+                maximum=10.0,
+            )
+        stage_name_keys = _require_list(
+            ctx,
+            path,
+            f"{profile_field}.stage_name_keys",
+            profile.get("stage_name_keys"),
+        )
+        if len(stage_name_keys) != 9:
+            ctx.error(
+                path,
+                f"{profile_field}.stage_name_keys",
+                "must contain exactly 9 entries",
+            )
+        seen_name_keys: set[str] = set()
+        for key_index, name_key in enumerate(stage_name_keys):
+            key_field = f"{profile_field}.stage_name_keys[{key_index}]"
+            _require_locale_key(ctx, path, key_field, name_key)
+            if isinstance(name_key, str) and name_key:
+                if name_key in seen_name_keys:
+                    ctx.error(path, key_field, f"duplicate stage name key {name_key}")
+                seen_name_keys.add(name_key)
+    return profile_ids
+
+
 def _validate_game_modes(
     ctx: ValidationContext,
     character_ids: set[str],
@@ -2108,12 +2181,13 @@ def _validate_game_modes(
     active_item_ids: set[str],
     consumable_ids: set[str],
     skill_ids: set[str],
+    difficulty_profile_ids: set[str],
 ) -> None:
     path = GAME_MODES_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 2)
     modes = _require_list(ctx, path, "modes", data.get("modes"))
     if not modes:
         ctx.error(path, "modes", "must be a non-empty array")
@@ -2132,6 +2206,22 @@ def _validate_game_modes(
         _require_locale_key(ctx, path, f"{mode_field}.name_key", mode.get("name_key"))
         _require_locale_key(ctx, path, f"{mode_field}.desc_key", mode.get("desc_key"))
         _require_bool(ctx, path, f"{mode_field}.default_unlocked", mode.get("default_unlocked"))
+        difficulty_profile_id = _require_non_empty_string(
+            ctx,
+            path,
+            f"{mode_field}.difficulty_profile_id",
+            mode.get("difficulty_profile_id"),
+        )
+        if (
+            difficulty_profile_id
+            and difficulty_profile_id not in difficulty_profile_ids
+        ):
+            ctx.error(
+                path,
+                f"{mode_field}.difficulty_profile_id",
+                "profile is not defined in difficulty_profiles.json: "
+                f"{difficulty_profile_id}",
+            )
         team_ids = _validate_mode_teams(ctx, path, mode_field, mode.get("teams"))
         _validate_mode_participants(ctx, path, mode_field, mode.get("participants"), team_ids)
         _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids)

@@ -21,7 +21,7 @@ const DEFAULT_MAIN_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 const DEFAULT_SUB_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 const CURRENT_KIND_VERSIONS: Dictionary = {
 	SAVE_KINDS.META: 2,
-	SAVE_KINDS.RUN: 5,
+	SAVE_KINDS.RUN: 6,
 	SAVE_KINDS.REPLAY_INDEX: 1,
 }
 
@@ -35,6 +35,7 @@ func _ready() -> void:
 	register_migration(SAVE_KINDS.RUN, 2, 3, Callable(self, "_migrate_run_v2_to_v3"))
 	register_migration(SAVE_KINDS.RUN, 3, 4, Callable(self, "_migrate_run_v3_to_v4"))
 	register_migration(SAVE_KINDS.RUN, 4, 5, Callable(self, "_migrate_run_v4_to_v5"))
+	register_migration(SAVE_KINDS.RUN, 5, 6, Callable(self, "_migrate_run_v5_to_v6"))
 
 
 func registered_save_kinds() -> Array[String]:
@@ -373,6 +374,17 @@ func _migrate_run_v4_to_v5(payload: Dictionary) -> Dictionary:
 	result["schema_version"] = 5
 	result["legacy_run_incompatible"] = true
 	result["hero_composition"] = {}
+	return result
+
+
+func _migrate_run_v5_to_v6(payload: Dictionary) -> Dictionary:
+	# v5 cannot recover time spent in the start module or the exact difficulty
+	# multipliers captured by each enemy at spawn time. Keep the envelope readable
+	# so boot deletes only the run payload while preserving the separate meta save.
+	var result: Dictionary = payload.duplicate(true)
+	result["schema_version"] = 6
+	result["legacy_run_incompatible"] = true
+	result["difficulty_progression"] = {}
 	return result
 
 

@@ -296,6 +296,9 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 
 func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String, frame_samples: Array[Dictionary]) -> Dictionary:
 	var snapshot: Dictionary = _run_snapshot(run_loop)
+	var difficulty: Dictionary = _dictionary_or_empty(
+		snapshot.get("difficulty", {})
+	)
 	var module_map_hash: String = String(_dictionary_or_empty(snapshot.get("module_world", {})).get("map_hash", ""))
 	_expect(module_map_hash.length() == 64, "ReplayRunner runtime rerun requires a module world map hash")
 	var summary: Dictionary = {
@@ -309,6 +312,16 @@ func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String, fra
 		"level": int(snapshot.get("level", 1)),
 		"xp": int(snapshot.get("xp", 0)),
 		"kills": int(snapshot.get("kills", 0)),
+		"difficulty_time": float(difficulty.get("elapsed", 0.0)),
+		"difficulty_level": int(
+			difficulty.get("difficulty_level", 1)
+		),
+		"enemy_health_multiplier": float(
+			difficulty.get("health_multiplier", 1.0)
+		),
+		"enemy_damage_multiplier": float(
+			difficulty.get("damage_multiplier", 1.0)
+		),
 		"player_moved_right": _player_position_x(snapshot) > 0.0,
 		"player_aim_direction": _dictionary_or_empty(_dictionary_or_empty(snapshot.get("player", {})).get("aim_direction", {})),
 		"module_map_hash": module_map_hash,

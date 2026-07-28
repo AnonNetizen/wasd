@@ -1,11 +1,12 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "modes": [
     {
       "id": "mode_standard_survival",
       "name_key": "ui_mode_standard_survival_name",
       "desc_key": "ui_mode_standard_survival_desc",
       "default_unlocked": true,
+      "difficulty_profile_id": "difficulty_standard_survival",
       "participants": [
         {
           "id": "local_player",

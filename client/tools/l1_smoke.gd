@@ -6,6 +6,9 @@ const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const ELEMENTS := preload("res://scripts/contracts/elements.gd")
 const ELEMENT_RESOLVER_SCRIPT := preload("res://scripts/data/element_resolver.gd")
+const DIFFICULTY_PROGRESSION_SCRIPT := preload(
+	"res://scripts/data/difficulty_progression.gd"
+)
 const HERO_COMPOSITION_RESOLVER_SCRIPT := preload(
 	"res://scripts/data/hero_composition_resolver.gd"
 )
@@ -89,6 +92,8 @@ func _run() -> void:
 
 	_expect_rng_same_seed_stable()
 	_expect_rng_snapshot_restore()
+	_expect_difficulty_progression_boundaries()
+	_expect_enemy_difficulty_spawn_scaling()
 	await _expect_game_clock_pause_freezes()
 	_expect_game_state_rejects_unknown()
 	_expect_save_manager_roundtrip()
@@ -133,6 +138,239 @@ func _expect_rng_snapshot_restore() -> void:
 	RNG.combat.randi()
 	RNG.restore_snapshot(snapshot)
 	_expect(RNG.combat.randi() == expected_roll, "RNG snapshot should restore stream state")
+
+
+func _expect_difficulty_progression_boundaries() -> void:
+	var profiles_payload: Dictionary = DataLoader.load_json(
+		DataLoader.DIFFICULTY_PROFILES_PATH
+	) as Dictionary
+	var profiles: Array = profiles_payload.get("profiles", []) as Array
+	_expect(
+		not profiles.is_empty(),
+		"difficulty progression smoke requires a configured profile"
+	)
+	if profiles.is_empty():
+		return
+	var profile: Dictionary = profiles[0] as Dictionary
+	var cases: Array[Dictionary] = [
+		{
+			"elapsed": 0.0,
+			"level": 1,
+			"progress": 0.0,
+			"health": 1.0,
+			"damage": 1.0,
+		},
+		{
+			"elapsed": 89.999,
+			"level": 1,
+			"progress": 89.999 / 90.0,
+			"health": 1.0 + 0.04 * (89.999 / 90.0),
+			"damage": 1.0 + 0.48 * 0.04 * (89.999 / 90.0),
+		},
+		{
+			"elapsed": 90.0,
+			"level": 2,
+			"progress": 0.0,
+			"health": 1.13,
+			"damage": 1.0 + 0.48 * 0.13,
+		},
+		{
+			"elapsed": 719.999,
+			"level": 8,
+			"progress": fmod(719.999, 90.0) / 90.0,
+			"health": (
+				1.0 + 0.04 * (719.999 / 90.0) + 0.09 * 7.0
+			),
+			"damage": (
+				1.0
+				+ 0.48
+				* (
+					0.04 * (719.999 / 90.0)
+					+ 0.09 * 7.0
+				)
+			),
+		},
+		{
+			"elapsed": 720.0,
+			"level": 9,
+			"progress": 0.0,
+			"health": 2.04,
+			"damage": 1.4992,
+		},
+		{
+			"elapsed": 1800.0,
+			"level": 21,
+			"progress": 0.0,
+			"health": 3.6,
+			"damage": 2.248,
+		},
+	]
+	for test_case: Dictionary in cases:
+		var progression: DifficultyProgression = (
+			DIFFICULTY_PROGRESSION_SCRIPT.new()
+		)
+		_expect(
+			progression.configure(profile),
+			"difficulty progression should accept the standard profile"
+		)
+		progression.advance(float(test_case.get("elapsed", 0.0)))
+		var snapshot: Dictionary = progression.current_snapshot()
+		var elapsed: float = float(test_case.get("elapsed", 0.0))
+		_expect(
+			int(snapshot.get("difficulty_level", 0))
+			== int(test_case.get("level", 0)),
+			"difficulty level should match at %.3f seconds" % elapsed
+		)
+		_expect(
+			is_equal_approx(
+				float(snapshot.get("progress", -1.0)),
+				float(test_case.get("progress", -1.0))
+			),
+			"difficulty tier progress should match at %.3f seconds"
+			% elapsed
+		)
+		_expect(
+			is_equal_approx(
+				float(snapshot.get("health_multiplier", 0.0)),
+				float(test_case.get("health", 0.0))
+			),
+			"difficulty health multiplier should match at %.3f seconds"
+			% elapsed
+		)
+		_expect(
+			is_equal_approx(
+				float(snapshot.get("damage_multiplier", 0.0)),
+				float(test_case.get("damage", 0.0))
+			),
+			"difficulty damage multiplier should match at %.3f seconds"
+			% elapsed
+		)
+	var unbounded: DifficultyProgression = DIFFICULTY_PROGRESSION_SCRIPT.new()
+	_expect(
+		unbounded.configure(profile),
+		"unbounded difficulty progression should configure"
+	)
+	unbounded.advance(1800.0)
+	var late_snapshot: Dictionary = unbounded.current_snapshot()
+	_expect(
+		int(late_snapshot.get("difficulty_level", 0)) > 9
+		and float(late_snapshot.get("health_multiplier", 0.0)) > 2.04,
+		"difficulty should keep growing after twelve minutes"
+	)
+
+
+func _expect_enemy_difficulty_spawn_scaling() -> void:
+	_ensure_l1_combat_pools()
+	var world: Node2D = Node2D.new()
+	world.name = "L1DifficultyEnemyWorld"
+	add_child(world)
+	var player: Node2D = PLAYER_SCENE.instantiate() as Node2D
+	player.name = "L1DifficultyEnemyPlayer"
+	world.add_child(player)
+	var player_stats: Dictionary = _l1_player_stats()
+	player_stats[STATS.MAX_HP] = 200.0
+	player.call("configure", player_stats)
+	var enemy: Node2D = ENEMY_SCENE.instantiate() as Node2D
+	enemy.name = "L1DifficultyEnemy"
+	world.add_child(enemy)
+	var enemy_data: Dictionary = _l1_enemy_data()
+	enemy_data["max_hp"] = 100.0
+	enemy_data["move_speed"] = 84.0
+	enemy_data["contact_damage"] = 10.0
+	enemy_data["ai_profile"] = {
+		"movement": {
+			"ranged_projectile_damage": 12.0,
+			"ranged_projectile_speed": 600.0,
+			"ranged_projectile_range": 500.0,
+			"ranged_projectile_hit_radius": 4.0,
+			"ranged_projectile_lifetime": 1.0,
+			"ranged_projectile_muzzle_distance": 0.0,
+		},
+	}
+	enemy.call(
+		"configure",
+		enemy_data,
+		player,
+		null,
+		{
+			"health_multiplier": 2.04,
+			"damage_multiplier": 1.4992,
+		}
+	)
+	var ai_summary: Dictionary = enemy.call("ai_debug_summary")
+	_expect(
+		is_equal_approx(float(enemy.call("max_life")), 204.0),
+		"enemy spawn health multiplier should scale maximum life"
+	)
+	_expect(
+		is_equal_approx(
+			float(ai_summary.get("contact_damage", 0.0)),
+			14.992
+		),
+		"enemy spawn damage multiplier should scale contact damage"
+	)
+	_expect(
+		is_equal_approx(
+			float(ai_summary.get("ranged_projectile_damage", 0.0)),
+			17.9904
+		),
+		"enemy spawn damage multiplier should scale ranged projectiles"
+	)
+	_expect(
+		is_equal_approx(float(enemy.get("_move_speed")), 84.0),
+		"difficulty spawn multipliers should not change move speed"
+	)
+	player.global_position = Vector2.ZERO
+	enemy.global_position = Vector2.ZERO
+	var life_before_contact: float = float(player.call("current_life"))
+	enemy.call("_check_contact")
+	_expect(
+		is_equal_approx(
+			life_before_contact - float(player.call("current_life")),
+			14.992
+		),
+		"scaled enemy contact damage should pass through the real Combat path"
+	)
+	player.call("debug_set_life", 200.0)
+	player.global_position = Vector2(32.0, 0.0)
+	enemy.call("_fire_ranged_projectile", Vector2.RIGHT)
+	var enemy_bullet: Node2D = null
+	for raw_bullet: Node in get_tree().get_nodes_in_group("active_bullets"):
+		if raw_bullet.get("_source") == enemy:
+			enemy_bullet = raw_bullet as Node2D
+			break
+	_expect(
+		enemy_bullet != null,
+		"scaled enemy ranged attack should create a real projectile"
+	)
+	if enemy_bullet != null:
+		var life_before_projectile: float = float(player.call("current_life"))
+		enemy_bullet.call(
+			"_check_damage_target_hits",
+			enemy.global_position,
+			player.global_position
+		)
+		_expect(
+			is_equal_approx(
+				life_before_projectile - float(player.call("current_life")),
+				17.9904
+			),
+			"scaled enemy projectile damage should pass through Bullet and Combat"
+		)
+	var saved_enemy: Dictionary = enemy.call("snapshot")
+	enemy.call("configure", enemy_data, player)
+	enemy.call("restore_snapshot", saved_enemy)
+	_expect(
+		enemy.call("enemy_spawn_snapshot") == {
+			"health_multiplier": 2.04,
+			"damage_multiplier": 1.4992,
+		}
+		and is_equal_approx(float(enemy.call("max_life")), 204.0),
+		"enemy snapshot restore should preserve exact spawn multipliers"
+	)
+	enemy.remove_from_group("active_enemies")
+	player.remove_from_group("active_player")
+	world.queue_free()
 
 
 func _expect_game_clock_pause_freezes() -> void:

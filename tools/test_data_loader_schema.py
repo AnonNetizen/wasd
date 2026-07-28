@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import subprocess
 import sys
@@ -15,6 +16,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+DIFFICULTY_PROFILE_PATH = ROOT / "client" / "data" / "difficulty_profiles.json"
 
 
 JsonMutator = Callable[[dict[str, Any]], None]
@@ -412,6 +414,83 @@ def main() -> int:
             [
                 "client/data/game_modes.json:modes[0].id",
                 "unknown id mode_unregistered; expected one of game_modes",
+            ],
+        ),
+        (
+            "difficulty profile schema v1 is required",
+            _mutate_json(
+                "client/data/difficulty_profiles.json",
+                _set_schema_version(2),
+            ),
+            [
+                "client/data/difficulty_profiles.json:schema_version",
+                "must equal 1",
+            ],
+        ),
+        (
+            "game mode schema v2 is required",
+            _mutate_json("client/data/game_modes.json", _set_schema_version(1)),
+            [
+                "client/data/game_modes.json:schema_version",
+                "must equal 2",
+            ],
+        ),
+        (
+            "game mode difficulty profile reference must exist",
+            _mutate_json(
+                "client/data/game_modes.json",
+                _set_mode_difficulty_profile("difficulty_missing"),
+            ),
+            [
+                "client/data/game_modes.json:modes[0].difficulty_profile_id",
+                "profile is not defined in difficulty_profiles.json: difficulty_missing",
+            ],
+        ),
+        (
+            "difficulty tier interval must be positive",
+            _mutate_json(
+                "client/data/difficulty_profiles.json",
+                _set_difficulty_profile_field("tier_interval_seconds", 0.0),
+            ),
+            [
+                "client/data/difficulty_profiles.json:profiles[0].tier_interval_seconds",
+                "must be > 0.0",
+            ],
+        ),
+        (
+            "difficulty growth values must stay in range",
+            _mutate_json(
+                "client/data/difficulty_profiles.json",
+                _set_difficulty_profile_field(
+                    "continuous_growth_per_interval",
+                    -0.01,
+                ),
+            ),
+            [
+                "client/data/difficulty_profiles.json:profiles[0].continuous_growth_per_interval",
+                "must be >= 0.0",
+            ],
+        ),
+        (
+            "difficulty stage names require nine entries",
+            _mutate_json(
+                "client/data/difficulty_profiles.json",
+                _remove_last_difficulty_stage_name,
+            ),
+            [
+                "client/data/difficulty_profiles.json:profiles[0].stage_name_keys",
+                "must contain exactly 9 entries",
+            ],
+        ),
+        (
+            "difficulty stage names must be localized",
+            _mutate_json(
+                "client/data/difficulty_profiles.json",
+                _set_difficulty_stage_name_key("ui_difficulty_stage_missing"),
+            ),
+            [
+                "client/data/difficulty_profiles.json:profiles[0].stage_name_keys[0]",
+                "locale key is missing from client/locale/strings.csv: ui_difficulty_stage_missing",
             ],
         ),
         (
@@ -1261,6 +1340,11 @@ def main() -> int:
     ]
 
     failures: list[str] = []
+    difficulty_curve_failure = _run_difficulty_curve_cases()
+    if difficulty_curve_failure:
+        failures.append(difficulty_curve_failure)
+    else:
+        print("[data-loader-schema-test] difficulty curve boundaries: passed")
     for name, mutator, expected_fragments in cases:
         failure = _run_case(name, mutator, expected_fragments)
         if failure:
@@ -1275,6 +1359,102 @@ def main() -> int:
 
     print("data loader schema tests passed")
     return 0
+
+
+def _run_difficulty_curve_cases() -> str | None:
+    payload = json.loads(DIFFICULTY_PROFILE_PATH.read_text(encoding="utf-8"))
+    profiles = payload.get("profiles", [])
+    if not profiles or not isinstance(profiles[0], dict):
+        return "[data-loader-schema-test] difficulty curve boundaries: missing profile"
+    profile = profiles[0]
+    interval = float(profile["tier_interval_seconds"])
+    continuous_growth = float(profile["continuous_growth_per_interval"])
+    tier_step_growth = float(profile["tier_step_growth"])
+    damage_growth_ratio = float(profile["damage_growth_ratio"])
+    stage_name_keys = profile["stage_name_keys"]
+    expected_cases = (
+        (0.0, 0, 0.0, 1.0, 1.0, 1, "ui_difficulty_stage_dormant"),
+        (
+            89.999,
+            0,
+            89.999 / 90.0,
+            1.0399995555555555,
+            1.0191997866666666,
+            1,
+            "ui_difficulty_stage_dormant",
+        ),
+        (90.0, 1, 0.0, 1.13, 1.0624, 2, "ui_difficulty_stage_alert"),
+        (
+            719.999,
+            7,
+            89.999 / 90.0,
+            1.9499995555555556,
+            1.4559997866666668,
+            8,
+            "ui_difficulty_stage_collapse",
+        ),
+        (720.0, 8, 0.0, 2.04, 1.4992, 9, "ui_difficulty_stage_nestfall"),
+        (
+            1800.0,
+            20,
+            0.0,
+            3.6,
+            2.248,
+            21,
+            "ui_difficulty_stage_nestfall",
+        ),
+    )
+    for (
+        elapsed,
+        expected_tier,
+        expected_progress,
+        expected_health,
+        expected_damage,
+        expected_level,
+        expected_name_key,
+    ) in expected_cases:
+        tier = math.floor(elapsed / interval)
+        progress = (elapsed % interval) / interval
+        coefficient = (
+            1.0
+            + continuous_growth * (elapsed / interval)
+            + tier_step_growth * tier
+        )
+        damage_multiplier = 1.0 + damage_growth_ratio * (coefficient - 1.0)
+        name_key = stage_name_keys[min(tier, len(stage_name_keys) - 1)]
+        actual = (
+            tier,
+            progress,
+            coefficient,
+            damage_multiplier,
+            tier + 1,
+            name_key,
+        )
+        expected = (
+            expected_tier,
+            expected_progress,
+            expected_health,
+            expected_damage,
+            expected_level,
+            expected_name_key,
+        )
+        if actual[0] != expected[0] or actual[4:] != expected[4:]:
+            return (
+                "[data-loader-schema-test] difficulty curve boundaries: "
+                f"{elapsed}s expected {expected}, got {actual}"
+            )
+        for actual_value, expected_value in zip(actual[1:4], expected[1:4]):
+            if not math.isclose(
+                actual_value,
+                expected_value,
+                rel_tol=0.0,
+                abs_tol=1e-9,
+            ):
+                return (
+                    "[data-loader-schema-test] difficulty curve boundaries: "
+                    f"{elapsed}s expected {expected}, got {actual}"
+                )
+    return None
 
 
 def _run_case(name: str, mutator: RepoMutator | None, expected_fragments: list[str]) -> str | None:
@@ -1488,6 +1668,31 @@ def _clear_characters(payload: dict[str, Any]) -> None:
 def _set_game_mode_id(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["modes"][0]["id"] = value
+
+    return mutate
+
+
+def _set_mode_difficulty_profile(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["modes"][0]["difficulty_profile_id"] = value
+
+    return mutate
+
+
+def _set_difficulty_profile_field(field: str, value: object) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["profiles"][0][field] = value
+
+    return mutate
+
+
+def _remove_last_difficulty_stage_name(payload: dict[str, Any]) -> None:
+    payload["profiles"][0]["stage_name_keys"].pop()
+
+
+def _set_difficulty_stage_name_key(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["profiles"][0]["stage_name_keys"][0] = value
 
     return mutate
 

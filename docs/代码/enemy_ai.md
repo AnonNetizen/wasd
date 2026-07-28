@@ -109,7 +109,7 @@ schema v3 明确拒绝 `sense_radius`；旧的接触间隔、猎食 / 逃跑目�
 | `was_defeated_by_player()` | 无 | `bool` | 仅玩家来源击杀发放收益 |
 | `combat_team_id()` | 无 | `String` | 返回 `team_enemy` |
 | `apply_status_effect(effect)` | `StatusEffect` | `bool` | 由统一状态系统调用 |
-| `snapshot()` / `restore_snapshot(data)` | 无 / `Dictionary` | `Dictionary` / `void` | Run v5 敌人状态与接触计时恢复 |
+| `snapshot()` / `restore_snapshot(data)` | 无 / `Dictionary` | `Dictionary` / `void` | Run v6 敌人状态、接触计时与生成时生命 / 伤害倍率恢复；导航派生状态不保存 |
 | `receive_damage(info)` | `DamageInfo` | result dictionary | `team_enemy` 返回未应用且生命不变 |
 
 无对外 `content_tags()` 接口；其他敌人不是感知候选。

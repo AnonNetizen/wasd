@@ -120,6 +120,7 @@ func _run() -> void:
 	_expect(_map_safe_zone_is_rectangle(run_loop), "MapManager should draw the spawn safe zone as a grid-aligned rectangle")
 	_expect(_map_summary_has_rect_grid(run_loop), "MapManager should expose a positive rectangular grid cell size")
 	_expect(_warzone_director_initial_summary_is_ready(run_loop), "WarzoneDirector should expose the standard warmup phase debug summary")
+	_expect_open_warzone_difficulty_and_wave_gating(run_loop)
 	_expect(_map_clamps_to_rect_boundary(run_loop), "MapManager should clamp positions to the rectangular logic boundary")
 	_expect(_player_clamps_to_rect_boundary(run_loop, player), "Player should clamp to the rectangular logic boundary")
 	_expect(PoolManager.active_count(POOL_IDS.HAZARD_SPIKE) > 0, "PCG map should spawn active hazards")
@@ -461,6 +462,65 @@ func _warzone_director_initial_summary_is_ready(run_loop: Node) -> bool:
 			"poi_resource_cache",
 			"poi_minor_nest_core",
 		])
+	)
+
+
+func _expect_open_warzone_difficulty_and_wave_gating(run_loop: Node) -> void:
+	var initial_difficulty: Dictionary = run_loop.call(
+		"debug_difficulty_snapshot"
+	) as Dictionary
+	_expect(
+		float(initial_difficulty.get("elapsed", 0.0)) > 0.0,
+		"open warzone should advance difficulty time immediately"
+	)
+	var progression: DifficultyProgression = run_loop.get(
+		"_difficulty_progression"
+	) as DifficultyProgression
+	_expect(
+		progression != null,
+		"open warzone should own a mode-level difficulty progression"
+	)
+	if progression == null:
+		return
+	var progression_snapshot: Dictionary = progression.snapshot()
+	var spawn_states_before: Dictionary = (
+		run_loop.get("_spawn_states") as Dictionary
+	).duplicate(true)
+	var rng_snapshot: Dictionary = RNG.snapshot()
+	var active_enemy_ids_before: Dictionary = {}
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		active_enemy_ids_before[enemy.get_instance_id()] = true
+	var elapsed: float = float(initial_difficulty.get("elapsed", 0.0))
+	progression.advance(maxf(60.001 - elapsed, 0.0))
+	var advanced_summary: Dictionary = run_loop.call("debug_summary") as Dictionary
+	var advanced_director: Dictionary = advanced_summary.get(
+		"warzone_director",
+		{}
+	) as Dictionary
+	_expect(
+		String(advanced_director.get("phase_id", ""))
+		== "phase_first_reward_node"
+		and (
+			advanced_director.get("wave_ids", []) as Array
+		).has("wave_standard_swarm_mix"),
+		"WarzoneDirector phase and wave gating should read difficulty time"
+	)
+	run_loop.call("_update_spawner")
+	var spawn_states_after: Dictionary = run_loop.get(
+		"_spawn_states"
+	) as Dictionary
+	_expect(
+		spawn_states_after.has("wave_standard_swarm_mix"),
+		"open-warzone spawner should enable the 60-second wave from difficulty time"
+	)
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if not active_enemy_ids_before.has(enemy.get_instance_id()):
+			PoolManager.release(enemy)
+	run_loop.set("_spawn_states", spawn_states_before)
+	RNG.restore_snapshot(rng_snapshot)
+	_expect(
+		progression.restore_snapshot(progression_snapshot),
+		"open-warzone difficulty gating test should restore its progression snapshot"
 	)
 
 

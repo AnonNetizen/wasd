@@ -1,6 +1,6 @@
 extends Node
 ## F13 headless smoke for deterministic composition, seamless streaming, fog,
-## objective-to-extraction flow and run-v5 restore.
+## objective-to-extraction flow, threat-time combat gates and run-v6 restore.
 
 const MODULE_WORLD_MANAGER_SCENE := preload("res://scenes/gameplay/module_world_manager.tscn")
 const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
@@ -48,6 +48,10 @@ func _run() -> void:
 	_expect(skill_system != null and skill_system.get_node_or_null("StatusEffectComponent") != null, "skill system and status component should be scene-authored")
 	var gameplay_hud: Node = run_loop.get_node_or_null("GameplayHud")
 	_expect(gameplay_hud != null and gameplay_hud.get_node_or_null("Root/ModuleMinimap") != null, "HUD minimap should be scene-authored")
+	await _expect_start_module_difficulty_and_combat_gate(
+		run_loop,
+		skill_system
+	)
 	var visible_chunk_count: int = 0
 	var visible_chunk_has_ground: bool = false
 	var visible_chunk_has_collision: bool = false
@@ -92,6 +96,79 @@ func _run() -> void:
 	print("[ModuleWorldSmoke] stage=finish")
 	SaveManager.delete(SMOKE_SLOT, SAVE_KINDS.RUN)
 	_finish()
+
+
+func _expect_start_module_difficulty_and_combat_gate(
+	run_loop: Node,
+	skill_system: Node
+) -> void:
+	var difficulty_before: Dictionary = run_loop.call(
+		"debug_difficulty_snapshot"
+	)
+	var elapsed_before: float = float(
+		difficulty_before.get("elapsed", -1.0)
+	)
+	await _wait_frames(8)
+	var difficulty_after: Dictionary = run_loop.call(
+		"debug_difficulty_snapshot"
+	)
+	_expect(
+		is_equal_approx(
+			float(difficulty_after.get("elapsed", -2.0)),
+			elapsed_before
+		),
+		"start module should pause difficulty time"
+	)
+	_expect(
+		int(difficulty_after.get("difficulty_level", 0)) == 1,
+		"start module should retain threat level one"
+	)
+
+	var skill_before: Dictionary = (
+		skill_system.call("snapshot") as Dictionary
+		if skill_system != null and skill_system.has_method("snapshot")
+		else {}
+	)
+	var cast_result: Dictionary = run_loop.call(
+		"debug_cast_primary_skill"
+	)
+	var skill_after: Dictionary = (
+		skill_system.call("snapshot") as Dictionary
+		if skill_system != null and skill_system.has_method("snapshot")
+		else {}
+	)
+	_expect(
+		not bool(cast_result.get("ok", true))
+		and String(cast_result.get("reason", "")) == "combat_locked",
+		"start module should reject skills with combat_locked"
+	)
+	_expect(
+		skill_after.get("resources", {}) == skill_before.get("resources", {})
+		and skill_after.get("cooldowns", {}) == skill_before.get(
+			"cooldowns",
+			{}
+		),
+		"combat-locked skills should not spend resources or start cooldowns"
+	)
+
+	var bullets_before: int = PoolManager.active_count(
+		POOL_IDS.BULLET_BASIC
+	)
+	var combat_rng_before: Dictionary = RNG.combat.snapshot()
+	InputService.set_playback_active(true)
+	InputService.inject_playback_value(ACTIONS.FIRE, true)
+	await _wait_frames(4)
+	InputService.inject_playback_value(ACTIONS.FIRE, false)
+	InputService.set_playback_active(false)
+	_expect(
+		PoolManager.active_count(POOL_IDS.BULLET_BASIC)
+		== bullets_before,
+		"start module firing should not generate bullets"
+	)
+	_expect(
+		RNG.combat.snapshot() == combat_rng_before,
+		"start module firing should not consume combat RNG"
+	)
 
 
 func _expect_deterministic_composition() -> void:
@@ -315,6 +392,9 @@ func _expect_bounded_flow_rebuilds() -> void:
 
 func _expect_seamless_streaming(run_loop: Node) -> void:
 	var before: Dictionary = run_loop.call("debug_summary")
+	var difficulty_at_start: Dictionary = run_loop.call(
+		"debug_difficulty_snapshot"
+	)
 	var before_hash: String = String((before.get("module_world", {}) as Dictionary).get("map_hash", ""))
 	var manager: Node = _find_node_by_name(get_tree().root, "ModuleWorldManager")
 	_expect(manager != null, "module world manager should remain available during streaming")
@@ -415,14 +495,19 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	# Start inside the center module's east doorway and cross the shared seam using
 	# normal CharacterBody2D movement so a bad collision merge cannot hide behind a teleport.
 	run_loop.call("debug_set_player_position", Vector2(800.0, 0.0))
+	var weapon_acquired_before_exit: int = int(
+		PoolManager.stats(POOL_IDS.BULLET_BASIC).get("acquired", 0)
+	)
 	InputService.set_playback_active(true)
 	InputService.inject_playback_value(ACTIONS.MOVE, Vector2.RIGHT)
+	InputService.inject_playback_value(ACTIONS.FIRE, true)
 	for _physics_tick: int in range(90):
 		await get_tree().physics_frame
 		var player: Node = _find_node_by_name(get_tree().root, "Player")
 		if player is Node2D and (player as Node2D).global_position.x > 900.0:
 			break
 	InputService.inject_playback_value(ACTIONS.MOVE, Vector2.ZERO)
+	InputService.inject_playback_value(ACTIONS.FIRE, false)
 	InputService.set_playback_active(false)
 	await _wait_frames(BOOT_FRAMES)
 	var crossed: Dictionary = run_loop.call("debug_summary")
@@ -430,6 +515,20 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	_expect(_coord_matches(crossed_world.get("current_module", {}), Vector2i(5, 4)), "crossing the shared edge should enter the adjacent module without scene switch")
 	var crossed_player: Node = _find_node_by_name(get_tree().root, "Player")
 	_expect(crossed_player is Node2D and (crossed_player as Node2D).global_position.x > 900.0, "player physics body should pass through the shared module doorway")
+	var difficulty_after_exit: Dictionary = run_loop.call(
+		"debug_difficulty_snapshot"
+	)
+	_expect(
+		float(difficulty_after_exit.get("elapsed", 0.0))
+		> float(difficulty_at_start.get("elapsed", 0.0)),
+		"difficulty time should advance immediately after leaving the start module"
+	)
+	_expect(
+		int(PoolManager.stats(POOL_IDS.BULLET_BASIC).get("acquired", 0))
+		> weapon_acquired_before_exit,
+		"held fire should shoot immediately after leaving the start module"
+	)
+	_release_active_bullets()
 	_expect(int(crossed_world.get("active_count", 0)) <= 9, "edge crossing should keep at most nine active chunks")
 	_expect(int(crossed_world.get("visited_count", 0)) >= 2, "entering an adjacent module should reveal fog state")
 	_expect(String(crossed_world.get("map_hash", "")) == before_hash, "streaming should not mutate map hash")
@@ -488,7 +587,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	)
 	_expect(
 		_saved_slot_has_encounter(saved_slot_states, "5,4", spawn_plan),
-		"run-v5 snapshot should persist the fixed telegraph plan"
+		"run-v6 snapshot should persist the fixed telegraph plan"
 	)
 	var remaining_before_pause: float = float(
 		encounter.get("remaining_telegraph", 0.0)
@@ -558,6 +657,72 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		_has_active_module_enemy_at("5,4", selected_spawn_position),
 		"standing on a selected cell must not reroll or suppress that enemy spawn"
 	)
+	var existing_enemy: Node2D = _find_active_enemy_by_wave_key(
+		"module_5_4"
+	)
+	var existing_spawn_difficulty: Dictionary = (
+		existing_enemy.call("enemy_spawn_snapshot") as Dictionary
+		if existing_enemy != null
+		and existing_enemy.has_method("enemy_spawn_snapshot")
+		else {}
+	)
+	var difficulty_progression: DifficultyProgression = run_loop.get(
+		"_difficulty_progression"
+	) as DifficultyProgression
+	_expect(
+		difficulty_progression != null,
+		"module-world run should expose mode-level difficulty progression"
+	)
+	if difficulty_progression != null:
+		difficulty_progression.advance(720.0)
+	_expect(
+		existing_enemy != null
+		and (
+			existing_enemy.call("enemy_spawn_snapshot") as Dictionary
+		) == existing_spawn_difficulty,
+		"existing enemies should keep their original spawn multipliers"
+	)
+	var scaled_spawned: bool = bool(
+		run_loop.call(
+			"_spawn_enemy_at",
+			"enemy_chaser",
+			selected_spawn_position,
+			"module_scaled_spawn_test",
+			"5,4"
+		)
+	)
+	var scaled_enemy: Node2D = _find_active_enemy_by_wave_key(
+		"module_scaled_spawn_test"
+	)
+	var scaled_spawn_difficulty: Dictionary = (
+		scaled_enemy.call("enemy_spawn_snapshot") as Dictionary
+		if scaled_enemy != null
+		and scaled_enemy.has_method("enemy_spawn_snapshot")
+		else {}
+	)
+	_expect(
+		scaled_spawned
+		and float(
+			scaled_spawn_difficulty.get("health_multiplier", 0.0)
+		) >= 2.04
+		and float(
+			scaled_spawn_difficulty.get("damage_multiplier", 0.0)
+		) >= 1.4992,
+		"new enemies should snapshot the current health and damage multipliers"
+	)
+	if scaled_enemy != null:
+		var enemy_rows: Dictionary = run_loop.get("_enemy_rows") as Dictionary
+		var chaser_data: Dictionary = enemy_rows.get(
+			"enemy_chaser",
+			{}
+		) as Dictionary
+		_expect(
+			is_equal_approx(
+				float(scaled_enemy.get("_move_speed")),
+				float(chaser_data.get("move_speed", -1.0))
+			),
+			"difficulty progression should not change enemy movement speed"
+		)
 	var bullet_position := Vector2(1120.0, 700.0)
 	var pickup_position := Vector2(1280.0, 700.0)
 	run_loop.call("_restore_bullet_snapshots", [{
@@ -598,7 +763,23 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	_expect((stored_state.get("pickup_snapshots", []) as Array).size() == 1, "deactivated slot should retain one pickup snapshot")
 	run_loop.call("debug_set_player_position", Vector2(960.0, 0.0))
 	await _wait_frames(BOOT_FRAMES)
-	_expect(_active_module_entity_count("active_enemies", "5,4") == first_visit_enemy_count, "leave/return should restore slot state without duplicate enemies")
+	_expect(
+		_active_module_entity_count("active_enemies", "5,4")
+		== first_visit_enemy_count + 1,
+		"leave/return should restore slot state without duplicate enemies"
+	)
+	var restored_scaled_enemy: Node2D = _find_active_enemy_by_wave_key(
+		"module_scaled_spawn_test"
+	)
+	_expect(
+		restored_scaled_enemy != null
+		and (
+			restored_scaled_enemy.call(
+				"enemy_spawn_snapshot"
+			) as Dictionary
+		) == scaled_spawn_difficulty,
+		"module unload and reload should preserve exact enemy spawn multipliers"
+	)
 	_expect(_has_active_entity_at("active_bullets", bullet_position), "returning should restore the slot projectile")
 	var restored_bullet: Node2D = _find_active_entity_at("active_bullets", bullet_position)
 	_expect(
@@ -620,6 +801,27 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	_expect(
 		_active_module_entity_count("active_enemies", "5,4") == 0,
 		"a cleared spawned encounter must not refresh when its module is revisited"
+	)
+	run_loop.call("debug_set_player_position", Vector2.ZERO)
+	await _wait_frames(BOOT_FRAMES)
+	var returned_elapsed: float = float(
+		(
+			run_loop.call("debug_difficulty_snapshot") as Dictionary
+		).get("elapsed", -1.0)
+	)
+	await _wait_frames(8)
+	_expect(
+		is_equal_approx(
+			float(
+				(
+					run_loop.call(
+						"debug_difficulty_snapshot"
+					) as Dictionary
+				).get("elapsed", -2.0)
+			),
+			returned_elapsed
+		),
+		"returning to the start module should pause difficulty time again"
 	)
 
 
@@ -659,21 +861,59 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 	# Save while the completed objective module is still active. Restore must not recreate
 	# its destroyed target with default HP before applying the interest-point snapshot.
 	# The same restore also proves a live first-entry telegraph keeps its fixed plan.
+	run_loop.call("_show_pause_menu")
+	await _wait_frames(2)
+	_expect(
+		GameState.is_state(GameState.PAUSED),
+		"Run v6 difficulty roundtrip fixture should save from a frozen UI state"
+	)
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
-	_expect(int(snapshot.get("schema_version", 0)) == 5, "module run snapshot should use schema v5")
-	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v5 should save")
+	var saved_difficulty: Dictionary = run_loop.call(
+		"debug_difficulty_snapshot"
+	) as Dictionary
+	_expect(int(snapshot.get("schema_version", 0)) == 6, "module run snapshot should use schema v6")
+	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v6 should save")
 	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, SAVE_KINDS.RUN)
-	_expect(not loaded.is_empty(), "module run v5 should load")
+	_expect(not loaded.is_empty(), "module run v6 should load")
 	if loaded.is_empty():
 		return
 	var saved_hash: String = String((snapshot.get("module_world", {}) as Dictionary).get("map_hash", ""))
 	var parent_boot: Node = get_parent()
+	var previous_run_instance_id: int = run_loop.get_instance_id()
 	parent_boot.call("_start_gameplay_run", loaded)
-	var restored: Node = await _wait_for_playing_run_loop()
+	var restored: Node = await _wait_for_replacement_run_loop(
+		previous_run_instance_id
+	)
 	_expect(restored != null, "saved module world should restore into a playable run")
 	if restored == null:
 		return
 	var restored_summary: Dictionary = restored.call("debug_summary")
+	var restored_difficulty: Dictionary = restored.call(
+		"debug_difficulty_snapshot"
+	) as Dictionary
+	_expect(
+		is_equal_approx(
+			float(restored_difficulty.get("elapsed", -1.0)),
+			float(saved_difficulty.get("elapsed", -2.0))
+		)
+		and int(restored_difficulty.get("difficulty_level", 0))
+		== int(saved_difficulty.get("difficulty_level", -1))
+		and is_equal_approx(
+			float(restored_difficulty.get("health_multiplier", 0.0)),
+			float(saved_difficulty.get("health_multiplier", -1.0))
+		)
+		and is_equal_approx(
+			float(restored_difficulty.get("damage_multiplier", 0.0)),
+			float(saved_difficulty.get("damage_multiplier", -1.0))
+		),
+		"Run v6 restore should preserve exact difficulty time, level, and multipliers"
+	)
+	restored.call("_on_pause_resume_requested")
+	await _wait_frames(2)
+	_expect(
+		GameState.is_state(GameState.PLAYING),
+		"restored paused Run v6 fixture should resume after difficulty comparison"
+	)
 	var restored_world: Dictionary = restored_summary.get("module_world", {}) as Dictionary
 	_expect(String(restored_world.get("map_hash", "")) == saved_hash, "restore should validate and preserve map hash")
 	if technical_slice:
@@ -1054,6 +1294,22 @@ func _wait_for_playing_run_loop() -> Node:
 			if run_loop != null:
 				return run_loop
 	return _find_node_by_name(get_tree().root, "GameplayRunLoop")
+
+
+func _wait_for_replacement_run_loop(previous_instance_id: int) -> Node:
+	for _frame: int in range(BOOT_FRAMES * 12):
+		await get_tree().process_frame
+		var run_loop: Node = _find_node_by_name(
+			get_tree().root,
+			"GameplayRunLoop"
+		)
+		if (
+			run_loop != null
+			and run_loop.get_instance_id() != previous_instance_id
+			and bool(run_loop.get("_run_activated"))
+		):
+			return run_loop
+	return null
 
 
 func _wait_frames(frame_count: int) -> void:

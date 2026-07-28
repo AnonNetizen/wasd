@@ -21,6 +21,9 @@ const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ANALYTICS_EVENTS := preload("res://scripts/contracts/analytics_events.gd")
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
+const DIFFICULTY_PROGRESSION_SCRIPT := preload(
+	"res://scripts/data/difficulty_progression.gd"
+)
 const ELEMENTS := preload("res://scripts/contracts/elements.gd")
 const ELEMENT_RESOLVER_SCRIPT := preload("res://scripts/data/element_resolver.gd")
 const EFFECTS := preload("res://scripts/contracts/effects.gd")
@@ -63,7 +66,7 @@ const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
 const ENERGY_ORB_POOL_SIZE: int = 64
 const PROJECTILE_BARRIER_POOL_SIZE: int = 4
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 5
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 6
 const ACTIVE_POOL_GROUPS: Array[String] = [
 	"active_hazards",
 	"active_enemies",
@@ -106,6 +109,7 @@ var _camera_controller: Node2D = null
 var _character_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 var _current_level: int = 1
 var _current_xp: int = 0
+var _difficulty_progression: DifficultyProgression = null
 var _enemy_rows: Dictionary = {}
 var _energy_drop_config: Dictionary = {}
 var _extraction_active: bool = false
@@ -207,12 +211,15 @@ func _draw() -> void:
 func _process(delta: float) -> void:
 	_update_stats_panel()
 	_update_combat_hud()
+	_refresh_difficulty_hud()
 	if not GameState.is_state(GameState.PLAYING):
 		return
 	if _is_debug_test_arena():
 		return
 	if _module_world_enabled:
 		_update_module_world(delta)
+	else:
+		_advance_difficulty(delta)
 	_update_interest_points()
 	if not GameState.is_state(GameState.PLAYING):
 		return
@@ -377,6 +384,11 @@ func create_run_snapshot() -> Dictionary:
 		"xp": _current_xp,
 		"kills": _kills,
 		"game_clock": GameClock.snapshot(),
+		"difficulty": (
+			_difficulty_progression.snapshot()
+			if _difficulty_progression != null
+			else {}
+		),
 		"rng": RNG.snapshot(),
 		"map": _map_manager.call("snapshot") if _map_manager != null and _map_manager.has_method("snapshot") else {},
 		"interest_points": _interest_points_snapshot(),
@@ -568,6 +580,12 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		return
 
 	var mode: Dictionary = _find_item(_load_array(DataLoader.GAME_MODES_PATH, "modes"), GAME_MODES.MODE_STANDARD_SURVIVAL)
+	if not _configure_difficulty_progression(mode):
+		_fail_run_start(
+			"difficulty progression configuration failed",
+			not restore_snapshot.is_empty()
+		)
+		return
 	var player_stats: Dictionary = _merged_player_stats(character, mode)
 	var player_runtime_data: Dictionary = _dictionary_or_empty(
 		DataLoader.load_json(DataLoader.PLAYER_DATA_PATH)
@@ -716,6 +734,11 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		weapon,
 		recoil_model
 	)
+	if _weapon_system.has_method("configure_combat_gate"):
+		_weapon_system.call(
+			"configure_combat_gate",
+			Callable(self, "_is_combat_allowed")
+		)
 	_connect_weapon_feedback()
 	_configure_skill_system(character)
 	_apply_loadout_modifiers()
@@ -734,6 +757,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_hud.call("set_kills", _kills)
 	_hud.call("set_level", _current_level)
 	_update_combat_hud()
+	_refresh_difficulty_hud()
 	_refresh_xp_hud()
 	if _is_debug_test_arena():
 		_hud.visible = false
@@ -1085,6 +1109,11 @@ func _configure_skill_system(
 		_load_composition_skill_definitions(),
 		skill_resources
 	)
+	if _skill_system.has_method("configure_combat_gate"):
+		_skill_system.call(
+			"configure_combat_gate",
+			Callable(self, "_is_combat_allowed")
+		)
 	var cast_callback: Callable = Callable(self, "_on_skill_cast")
 	if not _skill_system.is_connected("skill_cast", cast_callback):
 		_skill_system.connect("skill_cast", cast_callback)
@@ -1092,6 +1121,103 @@ func _configure_skill_system(
 	if not _skill_system.is_connected("skill_failed", failed_callback):
 		_skill_system.connect("skill_failed", failed_callback)
 	_connect_status_feedback(_skill_system)
+
+
+func _configure_difficulty_progression(mode: Dictionary) -> bool:
+	var profile_id: String = String(
+		mode.get("difficulty_profile_id", "")
+	).strip_edges()
+	var profile: Dictionary = _find_item(
+		_load_array(DataLoader.DIFFICULTY_PROFILES_PATH, "profiles"),
+		profile_id
+	)
+	_difficulty_progression = DIFFICULTY_PROGRESSION_SCRIPT.new()
+	return _difficulty_progression.configure(
+		profile,
+		not _is_debug_test_arena()
+	)
+
+
+func _advance_difficulty(delta: float) -> void:
+	if (
+		_difficulty_progression == null
+		or _is_debug_test_arena()
+		or not _is_combat_allowed()
+	):
+		return
+	_difficulty_progression.advance(GameClock.delta_scaled(delta))
+	_refresh_difficulty_hud()
+
+
+func _difficulty_snapshot() -> Dictionary:
+	if _difficulty_progression == null:
+		return {
+			"enabled": false,
+			"elapsed": 0.0,
+			"tier": 0,
+			"progress": 0.0,
+			"coefficient": 1.0,
+			"health_multiplier": 1.0,
+			"damage_multiplier": 1.0,
+			"difficulty_level": 1,
+			"name_key": "",
+		}
+	return _difficulty_progression.current_snapshot()
+
+
+func _difficulty_elapsed() -> float:
+	return float(_difficulty_snapshot().get("elapsed", 0.0))
+
+
+func _enemy_spawn_difficulty() -> Dictionary:
+	if _difficulty_progression == null:
+		return {
+			"health_multiplier": 1.0,
+			"damage_multiplier": 1.0,
+		}
+	return _difficulty_progression.enemy_spawn_snapshot()
+
+
+func _is_combat_allowed() -> bool:
+	return not _is_combat_locked()
+
+
+func _is_combat_locked() -> bool:
+	if _is_debug_test_arena() or not _module_world_enabled:
+		return false
+	if _module_world_manager == null or _player == null:
+		return true
+	var global_cell: Vector2i = _module_world_manager.call(
+		"world_to_global_cell",
+		_player.global_position
+	) as Vector2i
+	var module_and_local: Dictionary = _module_world_manager.call(
+		"global_cell_to_module_and_local",
+		global_cell
+	) as Dictionary
+	var current_coord: Vector2i = module_and_local.get(
+		"module_coord",
+		Vector2i(-1, -1)
+	) as Vector2i
+	var start_coord: Vector2i = _module_world_manager.call(
+		"role_module_coord",
+		MODULE_ROLES.MODULE_ROLE_START
+	) as Vector2i
+	return current_coord == start_coord
+
+
+func _refresh_difficulty_hud() -> void:
+	if (
+		_hud == null
+		or not is_instance_valid(_hud)
+		or not _hud.has_method("set_difficulty_snapshot")
+	):
+		return
+	_hud.call(
+		"set_difficulty_snapshot",
+		_difficulty_snapshot(),
+		_is_combat_locked()
+	)
 
 
 func current_level() -> int:
@@ -1143,10 +1269,11 @@ func debug_summary() -> Dictionary:
 		"interest_points": _interest_point_debug_summary(),
 		"extraction": _extraction_snapshot(),
 		"pending_loot": _pending_loot.duplicate(true),
+		"difficulty": _difficulty_snapshot(),
 		"map": _map_manager.call("debug_summary") if _map_manager != null and _map_manager.has_method("debug_summary") else {},
 		"module_world": _module_world_manager.call("debug_summary") if _module_world_manager != null and _module_world_manager.has_method("debug_summary") else {},
 		"skills": _skill_system.call("debug_summary") if _skill_system != null and _skill_system.has_method("debug_summary") else {},
-		"warzone_director": _warzone_director.debug_summary(GameClock.now()) if _warzone_director != null else {},
+		"warzone_director": _warzone_director.debug_summary(_difficulty_elapsed()) if _warzone_director != null else {},
 	}
 
 
@@ -1277,6 +1404,10 @@ func debug_module_world_tick() -> Dictionary:
 	if _module_world_manager == null or _player == null:
 		return {}
 	return _module_world_manager.call("tick", _player.global_position) as Dictionary
+
+
+func debug_difficulty_snapshot() -> Dictionary:
+	return _difficulty_snapshot()
 
 
 func debug_set_player_position(world_position: Vector2) -> void:
@@ -1630,7 +1761,7 @@ func _reset_extraction() -> void:
 
 
 func _update_spawner() -> void:
-	var elapsed: float = GameClock.now()
+	var elapsed: float = _difficulty_elapsed()
 	for wave: Dictionary in _waves:
 		var wave_key: String = String(wave.get("id", ""))
 		if _warzone_director != null and not _warzone_director.is_wave_enabled(wave_key, elapsed):
@@ -1675,7 +1806,13 @@ func _spawn_enemy(wave: Dictionary, wave_key: String) -> bool:
 	enemy.set_meta("wave_key", wave_key)
 	if enemy.has_meta("module_slot"):
 		enemy.remove_meta("module_slot")
-	enemy.call("configure", enemy_data, _player, _enemy_navigation_provider())
+	enemy.call(
+		"configure",
+		enemy_data,
+		_player,
+		_enemy_navigation_provider(),
+		_enemy_spawn_difficulty()
+	)
 	_apply_enemy_movement_bounds(enemy)
 	_connect_enemy_defeated(enemy, wave_key)
 	return true
@@ -1869,6 +2006,7 @@ func _update_module_world(delta: float) -> void:
 		return
 	var stream_change: Dictionary = _module_world_manager.call("tick", _player.global_position)
 	_handle_module_stream_change(stream_change)
+	_advance_difficulty(delta)
 	_update_module_encounters(GameClock.delta_scaled(delta))
 	_refresh_module_world_hud()
 
@@ -2023,7 +2161,7 @@ func _start_first_visit_encounter(module_coord: Vector2i) -> void:
 		)
 	var eligible_pool: Dictionary = _eligible_first_visit_enemy_pool(
 		config,
-		GameClock.now()
+		_difficulty_elapsed()
 	)
 	var eligible_enemy_ids: Array = eligible_pool.get("enemy_ids", []) as Array
 	var eligible_weights: Array = eligible_pool.get("weights", []) as Array
@@ -2207,7 +2345,13 @@ func _spawn_enemy_at(enemy_id: String, spawn_position: Vector2, spawn_key: Strin
 			enemy.remove_meta("module_slot")
 	else:
 		enemy.set_meta("module_slot", module_slot)
-	enemy.call("configure", enemy_data, _player, _enemy_navigation_provider())
+	enemy.call(
+		"configure",
+		enemy_data,
+		_player,
+		_enemy_navigation_provider(),
+		_enemy_spawn_difficulty()
+	)
 	_apply_enemy_movement_bounds(enemy)
 	_connect_enemy_defeated(enemy, spawn_key)
 	return true
@@ -3208,11 +3352,13 @@ func _on_player_died() -> void:
 	if _is_debug_test_arena():
 		call_deferred("_reset_debug_test_arena_after_player_death")
 		return
+	var difficulty: Dictionary = _difficulty_snapshot()
 	_finish_run_replay(false)
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	GameState.change_state(GameState.GAME_OVER, {
 		"kills": _kills,
-		"run_time": GameClock.now(),
+		"run_time": _difficulty_elapsed(),
+		"difficulty": difficulty,
 		"completed": false,
 		"lost_loot": _pending_loot.duplicate(true),
 	})
@@ -3223,13 +3369,15 @@ func _complete_run(point_id: String) -> void:
 	if _run_completed:
 		return
 	_run_completed = true
+	var difficulty: Dictionary = _difficulty_snapshot()
 	var settlement: Dictionary = _commit_pending_loot()
 	_finish_run_replay(true)
 	_reset_extraction()
 	SaveManager.delete(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
 	GameState.change_state(GameState.GAME_OVER, {
 		"kills": _kills,
-		"run_time": GameClock.now(),
+		"run_time": _difficulty_elapsed(),
+		"difficulty": difficulty,
 		"completed": true,
 		"interest_point_id": point_id,
 		"settlement": settlement.duplicate(true),
@@ -3240,10 +3388,21 @@ func _complete_run(point_id: String) -> void:
 func _finish_run_replay(completed: bool) -> void:
 	if not Replay.is_recording():
 		return
+	var difficulty: Dictionary = _difficulty_snapshot()
 	Replay.record_decision(ANALYTICS_EVENTS.RUN_END, {
 		"completed": completed,
 		"kills": _kills,
-		"run_time": GameClock.now(),
+		"run_time": _difficulty_elapsed(),
+		"difficulty_time": float(difficulty.get("elapsed", 0.0)),
+		"difficulty_level": int(
+			difficulty.get("difficulty_level", 1)
+		),
+		"enemy_health_multiplier": float(
+			difficulty.get("health_multiplier", 1.0)
+		),
+		"enemy_damage_multiplier": float(
+			difficulty.get("damage_multiplier", 1.0)
+		),
 		"main_hero_id": _main_hero_id,
 		"sub_hero_id": _sub_hero_id,
 	})
@@ -3258,7 +3417,13 @@ func _show_game_over_panel(completed: bool = false, loot_summary: Dictionary = {
 	_game_over_panel = UIManager.push(GAME_OVER_PANEL_SCENE, {"source": "game_over"}) as CanvasLayer
 	if _game_over_panel == null:
 		return
-	_game_over_panel.call("configure", _kills, GameClock.now(), completed, loot_summary)
+	_game_over_panel.call(
+		"configure",
+		_kills,
+		_difficulty_elapsed(),
+		completed,
+		loot_summary
+	)
 	_game_over_panel.connect("restart_requested", Callable(self, "_on_game_over_restart_requested"), CONNECT_ONE_SHOT)
 	_game_over_panel.connect("quit_to_title_requested", Callable(self, "_on_game_over_quit_to_title_requested"), CONNECT_ONE_SHOT)
 
@@ -3496,6 +3661,16 @@ func _restore_run_snapshot(
 	snapshot_data: Dictionary,
 	staged_loading: bool = false
 ) -> bool:
+	var difficulty_snapshot: Dictionary = _dictionary_or_empty(
+		snapshot_data.get("difficulty", {})
+	)
+	if (
+		_difficulty_progression == null
+		or difficulty_snapshot.is_empty()
+		or not _difficulty_progression.restore_snapshot(difficulty_snapshot)
+	):
+		push_error("[GameplayRunLoop] difficulty snapshot restore failed")
+		return false
 	var module_snapshot: Dictionary = _dictionary_or_empty(snapshot_data.get("module_world", {}))
 	if _module_world_enabled and _module_world_manager != null:
 		if module_snapshot.is_empty() or not bool(_module_world_manager.call("restore_state", module_snapshot)):
@@ -3598,6 +3773,7 @@ func _restore_run_snapshot(
 		_hud.call("set_level", _current_level)
 	_refresh_xp_hud()
 	_refresh_module_world_hud()
+	_refresh_difficulty_hud()
 	return true
 
 
@@ -3826,7 +4002,20 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 				enemy.remove_meta("module_slot")
 		else:
 			enemy.set_meta("module_slot", module_slot)
-		enemy.call("configure", enemy_data, _player, _enemy_navigation_provider())
+		enemy.call(
+			"configure",
+			enemy_data,
+			_player,
+			_enemy_navigation_provider(),
+			{
+				"health_multiplier": float(
+					snapshot_data.get("spawn_health_multiplier", 1.0)
+				),
+				"damage_multiplier": float(
+					snapshot_data.get("spawn_damage_multiplier", 1.0)
+				),
+			}
+		)
 		_apply_enemy_movement_bounds(enemy)
 		_connect_enemy_defeated(enemy, wave_key)
 		if enemy.has_method("restore_snapshot"):
@@ -4414,7 +4603,13 @@ func _stats_panel_snapshot() -> Dictionary:
 		"level": "%d" % _current_level,
 		"xp": "%d/%d" % [current_level_xp(), current_level_xp_required()],
 		"kills": "%d" % _kills,
-		"run_time": "%ds" % int(GameClock.now()),
+		"run_time": "%ds" % int(_difficulty_elapsed()),
+		"enemy_health_multiplier": "%sx" % _format_stat_value(
+			float(_difficulty_snapshot().get("health_multiplier", 1.0))
+		),
+		"enemy_damage_multiplier": "%sx" % _format_stat_value(
+			float(_difficulty_snapshot().get("damage_multiplier", 1.0))
+		),
 		"damage": _format_stat_value(_weapon_stat(STATS.DAMAGE)),
 		"health_regen": "%s/s" % _format_stat_value(_player_stat(STATS.HEALTH_REGEN)),
 		"shield": "%d/%d" % [

@@ -94,12 +94,25 @@ ui_result_gear_mod_line,{name} x{count},{name} x{count}
 ui_hud_life,生命,Life
 ui_hud_kills,击杀,Kills
 ui_hud_time,时间,Time
+ui_difficulty_level,威胁 Lv. {level},Threat Lv. {level}
+ui_difficulty_paused_combat_locked,难度时间暂停 / 武器与技能锁定,Difficulty Time Paused / Weapons & Skills Locked
+ui_difficulty_stage_dormant,蛰伏,Dormant
+ui_difficulty_stage_alert,警戒,Alert
+ui_difficulty_stage_hunt,搜猎,Hunt
+ui_difficulty_stage_clash,交火,Clash
+ui_difficulty_stage_siege,围剿,Siege
+ui_difficulty_stage_lethal,致命,Lethal
+ui_difficulty_stage_unbound,失控,Unbound
+ui_difficulty_stage_collapse,崩坏,Collapse
+ui_difficulty_stage_nestfall,巢灾,Nestfall
 ui_stats_panel_title,详细数值,Details
 ui_stats_life,生命,Life
 ui_stats_level,等级,Level
 ui_stats_xp,经验,XP
 ui_stats_kills,击杀,Kills
-ui_stats_run_time,运行时间,Run Time
+ui_stats_run_time,难度时间,Difficulty Time
+ui_stats_enemy_health_multiplier,新生成敌人生命倍率,New Enemy Health Multiplier
+ui_stats_enemy_damage_multiplier,新生成敌人伤害倍率,New Enemy Damage Multiplier
 ui_stats_damage,伤害,Damage
 ui_stats_health_regen,生命恢复,Health Regen
 ui_stats_shield,护盾,Shield

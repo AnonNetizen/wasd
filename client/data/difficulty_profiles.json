@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "difficulty_standard_survival",
+      "tier_interval_seconds": 90.0,
+      "continuous_growth_per_interval": 0.04,
+      "tier_step_growth": 0.09,
+      "damage_growth_ratio": 0.48,
+      "stage_name_keys": [
+        "ui_difficulty_stage_dormant",
+        "ui_difficulty_stage_alert",
+        "ui_difficulty_stage_hunt",
+        "ui_difficulty_stage_clash",
+        "ui_difficulty_stage_siege",
+        "ui_difficulty_stage_lethal",
+        "ui_difficulty_stage_unbound",
+        "ui_difficulty_stage_collapse",
+        "ui_difficulty_stage_nestfall"
+      ]
+    }
+  ]
+}

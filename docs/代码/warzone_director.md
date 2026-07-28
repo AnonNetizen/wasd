@@ -6,7 +6,7 @@
 ## 职责
 
 - 读取 `client/data/warzone_directors.json` 中与当前模式匹配的导演配置。
-- 按 `GameClock.now()` 对局内时间解释固定阶段。
+- 按 `DifficultyProgression` 的威胁时间解释固定阶段。
 - 判断某个 `spawn_waves.csv` wave 是否在当前阶段被允许。
 - 按当前 `map_layout_id` 输出可用于初始地图机关生成和 F12 奖励领取的兴趣点。
 - F12 标准模式用 0-1 / 1-4 / 4-7 / 7-9 / 9+ 分钟阶段组织短刷图节奏；9 分钟后是软加压，不是硬性结束。
@@ -70,13 +70,13 @@
 3. `WarzoneDirector.configure()` 缓存 phases / interest_points。
 4. 开局生成地图机关时，`GameplayRunLoop` 用 `interest_points_for_layout(layout_id)` 取当前地图兴趣点，并传给 `MapManager.generate_hazard_placements()`。
 5. `MapManager` 为每个兴趣点的 `hazard_ids[]` 走通用 PCG 规则生成 `source="director"` placement，并透传 `claim_radius`、奖励数组、交互标记、可伤害目标数值、`completes_run` 和撤离数值等兴趣点元数据。
-6. `GameplayRunLoop` 从 placement 重建兴趣点状态；无目标且不要求交互的兴趣点每帧只按 `GameClock.now()`、玩家位置和 `claim_radius` 判断能否领取；要求交互的兴趣点生成可见 `InterestPointCache`，玩家在半径内按 `interact` 领取；有目标的兴趣点生成可伤害 `InterestPointTarget`，目标被摧毁后领取；小巢核领取后开启撤离区，撤离完成才提交暂存战利品，不读取玩家表现数据。
-7. 每帧 `GameplayRunLoop._update_spawner()` 先询问 `is_wave_enabled(wave_key, GameClock.now())`，被当前 phase 禁用的 wave 直接跳过。
+6. `GameplayRunLoop` 从 placement 重建兴趣点状态；无目标且不要求交互的兴趣点每帧只按底层 `GameClock.now()`、玩家位置和 `claim_radius` 判断能否领取；要求交互的兴趣点生成可见 `InterestPointCache`，玩家在半径内按 `interact` 领取；有目标的兴趣点生成可伤害 `InterestPointTarget`，目标被摧毁后领取；小巢核领取后开启撤离区，撤离完成才提交暂存战利品，不读取玩家表现数据。
+7. 每帧 `GameplayRunLoop._update_spawner()` 先询问 `is_wave_enabled(wave_key, DifficultyProgression.current_snapshot().elapsed)`，被当前 phase 禁用的 wave 直接跳过。开放战区从对局激活后立即推进该时间；起点房暂停规则只属于模块世界。
 8. 通过导演后，原有 wave 时间窗、预算、同时存活上限和对象池生成逻辑继续执行。
 
 ## 依赖
 
-- 上游依赖：`DataLoader`、`GameClock`、`spawn_waves.csv`、`warzone_directors.json`。
+- 上游依赖：`DataLoader`、`DifficultyProgression`、`GameClock`（只用于兴趣点领取内部时间）、`spawn_waves.csv`、`warzone_directors.json`。
 - 下游调用方：`GameplayRunLoop`、`MapManager` 初始机关生成、`GameplayRunLoop.debug_summary()`、`runtime-smoke`、`f9-demo-smoke`。
 - 禁止依赖：`Player`、`WeaponSystem`、`Combat` 结果、HUD 输入、FPS / 性能指标或任何玩家表现数据。
 
@@ -108,4 +108,4 @@
 
 ## 迁移 / 兼容
 
-导演当前由静态数据和 `GameClock.now()` 推导，本身不保存状态。schema v2 删除的旧导演敌人组合元数据不进入 run payload，因此不需要提升 run schema。F12 奖励领取状态保存于 run payload 的可选 `interest_points` 字段，撤离开启 / 读条状态保存于可选 `extraction` 字段；旧 payload 缺失这些字段时按未领取 / 未开启撤离处理，旧 `map.hazard_placements` 缺少奖励或撤离元数据时只恢复机关，不补发奖励也不开启撤离。后续若加入随机 mutation、阶段内部计数器或玩家可见选择，必须保存 director state 并同步 `GameplayRunLoop.create_run_snapshot()` / `configure_restore_snapshot()`。
+导演当前由静态数据和模式级 `DifficultyProgression` elapsed 推导，本身不保存额外状态；该 elapsed 随 Run v6 的 difficulty 快照恢复。schema v2 删除的旧导演敌人组合元数据不进入 run payload。F12 奖励领取状态保存于 run payload 的可选 `interest_points` 字段，撤离开启 / 读条状态保存于可选 `extraction` 字段；旧 payload 缺失这些字段时按未领取 / 未开启撤离处理，旧 `map.hazard_placements` 缺少奖励或撤离元数据时只恢复机关，不补发奖励也不开启撤离。后续若加入随机 mutation、阶段内部计数器或玩家可见选择，必须保存 director state 并同步 `GameplayRunLoop.create_run_snapshot()` / `configure_restore_snapshot()`。

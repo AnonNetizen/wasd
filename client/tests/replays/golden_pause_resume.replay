@@ -1,6 +1,6 @@
 {
 	"created_at": "golden:golden_pause_resume",
-	"data_fingerprint": "818e3f62ce8dc37e2daabc55147f2d2560ccbdffd0be2902815da301133cbc4b",
+	"data_fingerprint": "b5d16084933735e77d09bbe4cb21ecb0d60484092d75878a87c9008b8d963cdf",
 	"file_schema_version": 3,
 	"game_version": "v1.7",
 	"recording": {
@@ -161,7 +161,11 @@
 			"active_pickups": 0,
 			"bullets_present": false,
 			"capture_frames": 180,
+			"difficulty_level": 1,
+			"difficulty_time": 0.0,
 			"enemies_present": false,
+			"enemy_damage_multiplier": 1.0,
+			"enemy_health_multiplier": 1.0,
 			"frame_sample_interval": 30,
 			"frame_samples": [
 				{
@@ -309,7 +313,7 @@
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "aa419a72a7500629ac2f0b2465a3e09d77ab001aefac705cd1159eae849723c2",
+	"recording_hash": "b7caae97de695fa9a25d562290164159cc3cd265657bdf82b995076076710fea",
 	"summary": {
 		"decision_events": 1,
 		"dropped_decision_events": 0,
@@ -323,7 +327,11 @@
 			"active_pickups": 0,
 			"bullets_present": false,
 			"capture_frames": 180,
+			"difficulty_level": 1,
+			"difficulty_time": 0.0,
 			"enemies_present": false,
+			"enemy_damage_multiplier": 1.0,
+			"enemy_health_multiplier": 1.0,
 			"frame_sample_interval": 30,
 			"frame_samples": [
 				{

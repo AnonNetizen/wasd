@@ -9,6 +9,8 @@
 - 订阅 `GameState`，在玩家加载、暂停、升级选择和游戏结束等冻结状态返回 0 delta。
 - 提供 `wall_now()` 给非玩法诊断 / UI / Analytics 使用。
 - F5 起提供 `snapshot()` / `restore_snapshot()`，供局内暂停保存退出后恢复玩法时间、物理 tick 与 time scale。
+- ADR #166 后 `GameClock` 仍驱动移动、冷却、状态、回复、机关、Replay tick 与其它底层确定性系统；玩家位于起点房时它继续推进，不承担玩家可见难度用时。
+- 模式级 `DifficultyProgression` 是独立 `RefCounted` 时钟：模块起点房暂停、开放战区立即推进，负责敌人出生倍率、敌种解锁、导演 wave gating、HUD、结算与埋点。两者不得互相替代。
 - 不负责修改 `Engine.time_scale`，也不负责驱动具体业务系统。
 
 ## 阅读方式
@@ -46,7 +48,7 @@
 
 | 名称 | 输入 | 输出 | 约束 |
 |------|------|------|------|
-| `now()` | 无 | `float` | 受暂停 / time scale 影响 |
+| `now()` | 无 | `float` | 受暂停 / time scale 影响；起点房仍推进，不作为威胁时间 |
 | `tick()` | 无 | `int` | 仅非冻结物理帧递增 |
 | `delta_scaled(delta)` | `float` | `float` | 冻结时返回 0 |
 | `wall_now()` | 无 | `float` | 真实系统时间，不参与玩法判定 |
@@ -69,7 +71,7 @@
 ## 依赖
 
 - 上游依赖：`GameState`。
-- 下游调用方：武器、刷怪、状态效果、机关、回放、存档。
+- 下游调用方：移动 / 回复、武器与技能冷却、状态效果、机关、回放 tick、存档和兴趣点内部时间；敌种解锁、难度阶段、wave gating、HUD 与结算改用 `DifficultyProgression`。
 - 禁止依赖：不得读取或修改具体玩法节点；不得使用 `Engine.time_scale` 作为项目时间缩放。
 
 ## 扩展点
@@ -94,6 +96,7 @@
 | 暂停时仍推进玩法时间 | `GameState` 是否切到冻结状态 |
 | tick 不增长 | 当前是否处于 `LOADING` / `PAUSED` / `LEVEL_UP` / `GAME_OVER` |
 | 回放时间不稳定 | 业务是否绕过 `GameClock` 读取 `Time` |
+| 起点房难度仍增长 | `GameplayRunLoop` 是否错误推进 `DifficultyProgression`；不要冻结 `GameClock` |
 
 ## 测试义务
 

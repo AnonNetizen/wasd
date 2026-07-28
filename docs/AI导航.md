@@ -138,20 +138,21 @@
 | **加 / 选择视觉效果** | 先读 `docs/代码/visual_effects.md`；优先在 Godot“VFX 效果库”用向导创建组合场景、自动登记效果目录，并在 Inspector / 内容绑定页选择 effect 或 profile。内容数据只写 `presentation_profile_id`；固定 cue / anchor / domain / space / lifecycle / quality 先登记词表 §16。程序几何只能使用精选复合模板，不得生成任意 `_draw()` 或引用 addon / `output/test_lab` |
 | **加 / 改状态效果** | 先看 `docs/代码/status_effect_component.md`；状态 id 登记 `docs/词表与契约.md` §9-A，叠加规则登记 §9-B，通过 `skill_effect_apply_status` 或未来 on-hit primitive 注入；当前 Player / Enemy / SkillSystem 自身已实现 `apply_status_effect()` 和 owned ability tag 查询，DoT 由状态组件按 `GameClock` tick 并经 `Combat.apply_damage()` 结算；新可受状态影响实体应照此接入；状态存在期间要授予 / 移除 ability tag 时引用 §12-G，不在业务脚本手动计时 |
 | **调武器后坐 / 扩散** | 数值改 `client/data/weapons.json` 的武器 stats 或根级 `recoil_model`，震屏 profile 改 `camera_feedback.json`，装备控制改 `gear_mods.json` / 掉落 CSV；公式入口是 `weapon_recoil_resolver.gd`，发射 / 后移 / 相机分别见 WeaponSystem、Player、GameplayCameraController。每颗弹固定消耗 `RNG.combat`，零扩散也不能跳过 |
+| **改局内威胁时间 / 敌人出生强化 / 难度标记器** | 先读 ADR #166、GDD §7.3、`docs/代码/difficulty_progression.md` 与 `docs/代码/difficulty_marker.md`。曲线只改 `difficulty_profiles.json`，模式引用改 `game_modes.json.difficulty_profile_id`；RunLoop 决定模块起点房暂停、开放战区立即推进和测试岛关闭。保持每 90 秒连续 + 跃升、无上限、只强化新生成敌人的生命 / 接触 / 远程伤害，不改移速、AI、掉落、数量或预算。武器 / 技能门禁分别走 combat gate；Run v6 保存威胁 elapsed 与每敌出生倍率，Replay v3 摘要使用威胁时间。改完按测试策略的 ADR #166 整套义务验证，不运行性能 probe |
 | **加 / 改机关** | 在 `client/data/hazards.csv` 加一行：伤害、`element_id`、触发间隔、`radius_tiles` 占格尺寸、持续时间和 `hazard_*_name` 文案；`tag_hazard`、`pool_id`、`element_id` 必须来自词表；初始摆放改 `client/data/map_layouts.json`，普通矩形范围机关复用 `docs/代码/hazard_system.md` 的通用 `Hazard` 运行时 |
 | **改地图边界 / 矩形格 / PCG / 人工摆点** | 查 `docs/代码/map_manager.md`；地图尺寸、`grid.cell_width/cell_height`、玩家出生点、安全半径、刷怪边距、PCG 机关数量 / 间距和人工固定摆点都改 `client/data/map_layouts.json`；bounds 是轴对齐矩形，必须分别是 `grid.cell_width/cell_height` 的整数倍；玩家出生点必须在格心，出生安全区可见提示必须是贴住矩形格的矩形，机关按 `radius_tiles` 奇偶吸附到合法锚点（奇数格心、偶数网格顶点），可见和逻辑地图边界必须是同一个矩形，刷怪位置仍用 `RNG.spawn`；玩家和敌人中心移动都应保持在矩形边界内；改完跑 `validate_data`、`runtime-smoke`，机关相关追加 `f9-demo-smoke` |
 | **改玩家相机 / 受伤震屏** | 先读 GDD §5.2、ADR #148、`docs/代码/phantom_camera.md` 的项目接入段和 `docs/代码/gameplay_runtime.md`；节点 / 跟随规则改 `gameplay_camera_controller.tscn/.gd`，只调震幅、频率和时间则改 `camera_feedback.json`。保持 Phantom Camera GLUED 严格居中、等比缩放、无滚转，噪声走 `RNG.camera_fx`；改完跑 schema、`settings-smoke`、`runtime-smoke`、headless boot 和 headless editor 加载 |
 | **维护 / 升级 Phantom Camera 内部** | 先读 `docs/代码/phantom_camera.md`、`client/addons/README.md`、ADR #148 与目标源码；按 Runtime Core / Resource / Editor / C# wrapper 边界定位，升级只用官方固定版本发布包并逐项重放本地补丁。保持项目固定 Manager autoload、Updater Off、`physics_jitter_fix=0.5`、`RNG.camera_fx` 和 lint 零豁免；完成后跑完整 pre-commit、headless boot、headless editor 与相机回归 |
 | **加 / 改模块内容** | 查 `docs/代码/module_authoring_pipeline.md`、`module_world_manager.md`、F13 工作包和数据手册；在 Godot 与 `2D / 3D / Script` 同级的 `Module JSON` 中央主编辑区可视化编辑 `client/data/modules/<id>.json` schema v3，显式 Save / Validate / Bake / Approve；也可由 AI 直接改 JSON 后运行 `module-bake`。模块不保存敌人出生 placement；禁止手改 `client/scenes/generated/modules/`，不存在 TSCN→JSON |
 | **改模块角色 / 地形 / 摆放 / 边缘 / 审核状态** | 先改 `docs/词表与契约.md` §15，运行 `python tools/sync_contracts.py` 生成对应 `module_*` 常量，再由 DataLoader、ModuleWorldManager 和 JSON 引用；禁止在运行时代码裸写白名单 id |
-| **改模块首次进入刷怪** | 改 `client/data/module_worlds.json.first_visit_enemy_spawn` 的数量、预警时长与按 `GameClock` 解锁的敌种权重；位置只能由 `ModuleWorldManager.empty_floor_positions_at()` 返回旋转 / 封边后的 floor 且排除 placement footprint，再由 `GameplayRunLoop` 用 `RNG.spawn` 无放回抽取并立即保存计划。不要恢复 spawn marker、动态占位避让或安全半径；改完跑 data/schema、VFX、完整 / 技术首片 module-world、runtime/save 和黄金回放 |
+| **改模块首次进入刷怪** | 改 `client/data/module_worlds.json.first_visit_enemy_spawn` 的数量、预警时长与按 `DifficultyProgression.elapsed` 解锁的敌种权重；位置只能由 `ModuleWorldManager.empty_floor_positions_at()` 返回旋转 / 封边后的 floor 且排除 placement footprint，再由 `GameplayRunLoop` 用 `RNG.spawn` 无放回抽取并立即保存计划。敌人在预警结束真正生成时取得当前生命 / 伤害倍率。不要恢复 spawn marker、动态占位避让或安全半径；改完跑 data/schema、VFX、完整 / 技术首片 module-world、runtime/save 和黄金回放 |
 | **改 AI 模块生产流程** | AI 只在编辑期生成 JSON candidate，不接运行时模型 / 网络生成 / 自动批准；人工使用 Godot `Module JSON` 中央主编辑区编辑同一 JSON schema。工具必须保持 JSON→生成 TSCN 单向、磁盘 hash 冲突门禁和人工 `approved` 门禁，不得增加 TSCN 反向导入 |
 | **加 / 改刷怪波次** | 在 `client/data/spawn_waves.csv` 加一行：模式 id、时间窗、敌人 id / 权重、刷怪间隔、同时存活上限、预算和可选机关权重；敌人 / 机关 / 模式引用必须存在，不实现 Spawner 运行时 |
-| **加 / 改战区导演** | 查 `docs/代码/warzone_director.md` 和 F10 工作包；在 `client/data/warzone_directors.json` 改固定 phase、巢变异主题、兴趣点和阶段启用 wave；运行时只按 `GameClock` 时间 gating `spawn_waves.csv`，匹配当前 layout 的兴趣点会通过 `MapManager` 生成 `source="director"` 初始机关；禁止恢复已删除的导演敌人组合元数据、读取玩家状态、隐藏动态调难或运行时接 LLM；改完跑 `validate_data`、`test_data_loader_schema`、`runtime-smoke` 和 `f9-demo-smoke` |
+| **加 / 改战区导演** | 查 `docs/代码/warzone_director.md` 和 F10 工作包；在 `client/data/warzone_directors.json` 改固定 phase、巢变异主题、兴趣点和阶段启用 wave；phase / wave gating 只按 `DifficultyProgression.elapsed`，兴趣点领取内部时间仍走 `GameClock`。匹配当前 layout 的兴趣点会通过 `MapManager` 生成 `source="director"` 初始机关；禁止恢复已删除的导演敌人组合元数据、读取玩家状态、隐藏动态调难或运行时接 LLM；改完跑 `validate_data`、`test_data_loader_schema`、`runtime-smoke` 和 `f9-demo-smoke` |
 | **加一个遗物/道具** | 在 `client/data/relics.json` 加一条，用 `modifiers` + `behaviors` 描述；文案用 `relic_*` key；**只用 `docs/词表与契约.md` 已登记的 effect / event / stat / tag**，新原语先登记再实现，不实现遗物运行时 |
 | **加 / 改主动道具** | 在 `client/data/active_items.json` 加一条：`charge` 声明冷却 / 充能，`use_effects` 引用已登记 effect，文案用 `item_*` key；模式引用走 `game_modes.resource_pools.active_items`，不实现主动道具栏 / 冷却 / 使用效果运行时 |
 | **加 / 改消耗品** | 在 `client/data/consumables.json` 加一条：`stack` 声明最大堆叠 / 初始数量 / 单次拾取数量，`use_effects` 引用已登记 effect，文案用 `item_*` key；模式引用走 `game_modes.resource_pools.consumables`，不实现拾取物 / 背包 / 使用输入 / 数量扣减 / 效果运行时 |
-| **加 / 改游戏模式** | 在 `client/data/game_modes.json` 声明可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 消耗品 / 成长资源池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖；mode id 先登记 `docs/词表与契约.md` §12-A；资源本体保持模式无关，禁止为模式复制一套资源或在代码写 `if mode_id == ...` |
+| **加 / 改游戏模式** | 在 `client/data/game_modes.json` schema v2 声明 `difficulty_profile_id`、可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 消耗品 / 成长资源池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖；mode id 先登记 `docs/词表与契约.md` §12-A，difficulty profile 必须存在；资源本体保持模式无关，禁止为模式复制一套资源或在代码写 `if mode_id == ...` |
 | **改经验/升级系统** | 查 GDD §7.1 与 `docs/代码/gameplay_runtime.md`；ADR #120 后默认标准模式不启用局内 3 选 1，`mode_standard_survival` 不挂 `growth_pools`，运行时没有候选池时不生成经验球 / 不进入 `GameState.LEVEL_UP`；F4 的池化经验球、`growth.csv`、`growth_pools.json`、`LevelUpPanel` 和 `RNG.ui_choice` 候选抽取保留给未来非默认模式，目标模式必须在 `game_modes.json.resource_pools.growth_pools` 显式引用候选池 |
 | **改短刷图默认循环** | 默认标准模式是 F13 9×9 无缝模块世界：中心起点 → 目标 → 独立撤离，主路线约 8–12 模块，不要求清空 81 模块；F12 开放战区仅通过 `--open-warzone` 保留为非默认回归路径。奖励仍先入 `run.pending_loot`，撤离成功才提交 `meta` |
 | **改装备 Mod / 局外装配** | 查 GDD §7.2、`docs/AI协作/工作包/F11-GearModLoadout.md` 与 `docs/代码/gear_mod_system.md`；数据 / 契约、运行时首片和最小 UI 已建立：`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、一张提高武器 `damage` 的测试武器 Mod、`enemy_chaser` 玩家击杀 1% 掉落、升级消耗 `gear_mod_dust`、分解返还资源、英雄 / 武器两套 loadout、capacity / drain、开局 modifier snapshot、标题 `GearModPanel`、HUD 暂存提示和 `gear-mod-smoke` 面板按钮流；后续优先补更多 Mod 内容。新增 Mod id / slot / rarity / resource / stack rule 前先登记词表契约，并同步 `client/data/README.md`、locale、DataLoader schema、SaveManager / Gameplay Runtime 文档和 smoke |
@@ -190,7 +191,7 @@
 | **加 GM 指令 / 调试工具** | 查 GDD 9.20 与 `docs/代码/debug_tools.md`；调试入口只在 debug/dev_tools 构建启用，action 用 `debug_*` 并登记词表 §7；命令必须通过正式系统 API 或受控 `debug_*` API 改状态；release preset 不启用 `dev_tools` 且排除调试脚本 / GM 命令表；改完跑 `python tools/godot_bridge.py --project client debug-tools-smoke` 和 `debug-tools-release-smoke` |
 | **改开发者测试岛** | 先读 ADR #159 / #160、`docs/代码/debug_test_arena.md`、DebugTools / Gameplay Runtime / FormalClientBoot / GearModSystem 文档与测试策略；它是直接运行的独立 debug scene，内部复用 RunLoop 用途，不是正式 game mode，标题 / boot / 正式 CLI 必须零耦合。配置只写 `user://debug_test_arena.cfg`，正式 run/meta、Replay/Analytics 与 release 资源必须隔离；改完必跑 `debug-test-arena-smoke`、release smoke 和模块文档规定的完整回归，不自动跑性能 probe |
 | **加暂停/切换游戏状态** | `GameState.change_state(PAUSED)` 等；UI 通过 `UIManager.push(modal_pause_menu)` 自动联动暂停；F5 首片的 `PauseMenu` 已覆盖继续、保存并退出、重开和回标题，也支持从升级面板上方叠出并恢复回 `LEVEL_UP`；不直接读写 `get_tree().paused`（见 GDD 9.12 / 9.14） |
-| **加录制回放/确定性需求** | 走 `Replay`（autoload）；当前 schema v3 记录四技能、冲刺、主 / 子英雄组合与最终 bool / Vector2 intent，播放时隔离 GUIDE 物理输入；旧回放明确拒绝，不迁移。随机走 `RNG.<stream>`、时间走 `GameClock`。改输入 wire 追加 input/replay smoke 和四条黄金回放，改 RNG seed 派生 / 子流集合追加 `rng-audit`（见 GDD 9.9 / 9.18） |
+| **加录制回放/确定性需求** | 走 `Replay`（autoload）；当前 schema v3 记录四技能、冲刺、主 / 子英雄组合与最终 bool / Vector2 intent，播放时隔离 GUIDE 物理输入；旧回放明确拒绝，不迁移。底层 tick / intent 时间走 `GameClock`，玩家可见难度、结算和摘要用 `DifficultyProgression`；随机走 `RNG.<stream>`。改输入 wire 追加 input/replay smoke 和四条黄金回放，改 RNG seed 派生 / 子流集合追加 `rng-audit`（见 GDD 9.9 / 9.18） |
 | **接 Steam API / 平台服务** | 先读 `docs/在线服务规划.md`、ADR #150 与 `docs/代码/platform_services.md`；未来固定官方 GodotSteam 版本，只在 `PlatformServices` adapter 内初始化 / 驱动 callback，并承接 Steam 身份票据、成就、Steam-only 统计、富状态、overlay、Lobby / 邀请。当前正式客户端不安装，业务不得直调 Steamworks / GodotSteam |
 | **接 Talo / 在线后端** | 当前只规划、不安装。用户点名首个功能后，先在 `output/test_lab` 验证并决定 Talo Cloud / 官方自托管，再新增 `OnlineServices → Talo` adapter；跨平台排行榜 / 统计、Live Config、事件与轻量社交只走该门面，Analytics 可把它作为 sink，SaveManager 仍是本地存档权威。禁止业务直调 `Talo.*`、双写同一排行榜 / 统计或自研通用后端 |
 | **维护 Steamworks Slime Lab / 单人 AI 大招与自主游击 / 本地同屏 / 纪录 / App ID / Windows 导出** | 先读 `output/steamworks_lab/README.md` 与 ADR #129 / #132 / #133 / #134 / #135 / #136 / #137 / #138 / #139 / #140 / #141；自动回归只使用 `py -3 tools\steamworks_lab_toolchain.py smoke --suite <目标>`，先目标 suite、交付前 `--suite all`，禁止手写 Godot / PowerShell 双进程命令。ADR #139 的 AI 大招仅在 `PlayMode.SINGLE`：P1 子弹命中 / 普通击杀 / Boss 击杀按 `+1 / +6 / +21` 累积至 100，按 `E` 召唤不可受伤、不吸引火力且自动射击的 10 秒 AI。ADR #140 已把 AI 改为确定性自主游击 / 预判闪避：避开敌弹、普通敌人、Boss 和障碍物，常规距 P1 使用 210 px 硬限、超过 220 px 复位；须松开再按住 `E` 发起合体，AI 高速归队到 92 px 内并停靠 0.8 秒后自动同意，持续时间不重置且每次召唤最多一次。目标 battle 1/1、local-couch 与权威 `smoke --suite all` 已通过；all 含 battle 5/5、动态端口 ENet、最大分片仍不超过 900 字节且受保护文件未改变。AI 不进入真人 roster、强化、纪录、玩家卡或快照；同屏 / Steam、wire、存档与正式 `client` 不变。runner 隔离每个 `user://`、验证精确 `ALL PASS` / 致命日志、动态分配 ENet 端口并保护玩家真实设置 / 存档与源码 `steam_appid.txt=4955670`；测试 fixture 必须在 `_ready()` 前注入。源码 App ID 文件永久保留，只从 release 排除。本地同屏由 `local_input_router.gd` 分配 P1 键鼠与 P2–P4 手柄；Steam Lobby 不混入同屏玩家，ENet 只守协议。纪录按单人 / 多人分开，未来 schema 保持写保护，Steam Client 必测权威 Game Over 完整链路。快照应用层仍是 `Dictionary`，wire 层为 FastLZ + 900 字节分片，Lobby `lab_version=2`。Windows 当前开发 / 发布验证标准为普通 Godot 4.7.1 + GodotSteam 4.20 GDExtension + Steamworks 1.64；工具锁继续接受 Godot 4.7 minor 系列，setup / verify / export-release 直接走 `--godot` / `GODOT_PATH`；export-release 按 editor 模式校验标准用户目录或 self-contained `editor_data/` 的精确版本 templates，禁止重建 `.toolchain/`。真实手柄、SteamPipe、Depot 和双账号 Steam smoke 仍需外部验证；不能把 Lab 直连 SDK 当成正式 `client/PlatformServices` 已接入 |
@@ -202,7 +203,7 @@
 | **改角色 / 敌人基础或专属场景** | 查 ADR #155 / #156、`docs/代码/gameplay_runtime.md`、`pool_manager.md` 与 `enemy_ai.md`；基础树只改 `actors/player_base.tscn` / `enemy_base.tscn`，内容场景必须保持真实继承。静态颜色 / 轮廓留在场景，玩法数值留在 JSON / CSV；数据 `scene_path` 允许复用，敌人 `pool_id` 不允许复用，角色场景不得携带对局级相机 Rig。必跑 data/schema、`actor-scene-smoke`、runtime、save、module-world、headless 与黄金回放 |
 | **加伤害逻辑** | 走 `Combat.apply_damage(target, DamageInfo)`；`element_id` 在词表 §9，默认中性。保留 source / target / team / friendly_fire 模式规则边界；不 `target.hp -= n`。物理 / 真实伤害、穿甲与 `pierce_armor` 已删除（见 GDD 9.15.1） |
 | **加持续效果（DoT/控制/debuff）** | 用 `StatusEffect` Resource + 目标实体的 `StatusEffectComponent.apply()`；id 在词表 §9-A；明确 `stack_rule`；DoT 用 `element_id`、`magnitude`、`tick_interval`，tick 伤害仍走 `Combat.apply_damage()`。易伤只放大玩家阵营造成的直接 / 持续伤害（见 GDD 9.15.2） |
-| **加存档/读档** | 走 `SaveManager.save/load`；当前 Meta v2 保存上次确认的主 / 子英雄组合并保留 Gear Mod，Run v5 保存组合、四槽、资源 / 防御、武器后坐冲量、状态、屏障、能量球和接触计时。旧 Run v4 显示一次不兼容提示后删除；Replay 独立为 v3。schema 必带标准 envelope 字段，写入用临时文件原子替换、保留备份并隔离坏档；扩展字段时同步 Gameplay Runtime / SaveManager 文档与 smoke |
+| **加存档/读档** | 走 `SaveManager.save/load`；当前 Meta v2 保存上次确认的主 / 子英雄组合并保留 Gear Mod，Run v6 保存组合、四槽、资源 / 防御、武器后坐冲量、状态、屏障、能量球、接触计时、威胁时间和每只敌人的出生倍率。旧 Run v5 显示一次不兼容提示后只删除 run、保留 Meta；Replay 独立为 v3。schema 必带标准 envelope 字段，写入用临时文件原子替换、保留备份并隔离坏档；扩展字段时同步 Gameplay Runtime / SaveManager 文档与 smoke |
 | **加音效/BGM** | `AudioManager.play_sfx/play_music`；id 在词表 §10；不直接 `AudioStreamPlayer.play()`（见 GDD 9.17） |
 | **执行 AI 高频任务** | 先查 `docs/AI协作/任务模板/`；任务不在模板里 → 按 `docs/AI协作/上下文预算.md` 先判 S/M/L/XL 复杂度，再决定读取范围 |
 | **拆分复杂 / 专业任务给 subagent** | 项目默认授权支持 subagent 的平台主动调度 `.codebuddy/agents/` / `.codex/agents/` / `.opencode/agents/` / `.claude/agents/` 下对应角色；只读小任务或直接实现更高效时不必强行拆分；平台不支持或外层工具策略限制时，把同名 `.md` 当 prompt 模板读 |
@@ -222,14 +223,15 @@
 - 三条**协作基础设施**：`Localization` / `Settings` / `Analytics`
 - 一条**表现注册基础设施**：`VisualEffects`（catalog/profile、质量与 reduced-motion 解析；不持有当前世界）
 - 一条**输入基础设施**：vendored `GUIDE` 只解释物理设备与资源图；项目 `InputService` 是生成 action、归一化 intent、context、重绑定、提示和回放覆盖的唯一业务门面
-- 两条**确定性基础设施**：`RNG`（种子化随机，子流分流）/ `GameClock`（玩家加载、暂停与结算状态冻结的时间源）
+- 两条**确定性基础设施**：`RNG`（种子化随机，子流分流）/ `GameClock`（移动、冷却、状态、Replay tick，以及玩家加载 / 暂停 / 结算冻结的底层时间源）
+- 一条**模式级威胁进度**：`DifficultyProgression`（非 autoload；由 mode profile 配置，起点房暂停，驱动敌人出生倍率、解锁、导演 gating、HUD、结算与埋点）
 - 一条**回放基础设施**：`Replay`
 - 一条**vendored 相机协调基础设施**：`PhantomCameraManager`（项目固定 autoload；节点注册、priority / layer 选机与噪声广播）
 - 一条**AI 协作基础设施**：见 `docs/AI协作/`（非 autoload）
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前正式客户端以 F13 模块世界作为 `mode_standard_survival` 默认关卡 carrier：`ModuleWorldManager` 管理 81 槽、schema v1 等价 gameplay map hash、模块迷雾、有效空地查询和最多 3×3 活跃 chunk；当前普通正式槽统一为 0° 全开放平地，固定起点 / 目标 / 撤离不变。运行开始 / 恢复时预加载 assignment 使用的唯一生成 TSCN；首次实际进入非起点模块时，RunLoop 从空地固化 4–6 个敌人计划并显示 1.5 秒可恢复预警。PlayerHost 挂载主英雄场景，并由组合视觉叠加子英雄强调色；五种敌人按独立池恢复。唯一 GameplayCameraController 固定在 ActiveWorld 并在新局 / 续局绑定当前 Player；ADR #165 后第二个 Phantom emitter 专门承载动态武器震屏，鼠标按固定屏幕中心瞄准。WeaponSystem 每发经纯数据解析器统一计算扩散与反冲，Player 以碰撞安全冲量移动。F14 导航从完整 assignment 构建静态 mask，活动流场半径 8、最多访问 289 格；派生导航 / 感知缓存不保存。当前 Run 为 v5，除模块状态外还保存主／子英雄、四槽、防御资源、武器后坐冲量、状态、屏障、能量球和接触计时；Replay 为 v3，不做旧回放兼容。常规验收入口是 contracts/data/schema、actor/module/save/runtime/headless 与四条黄金回放；ADR #143 后性能测试仅由用户当次明确触发。
+当前正式客户端以 F13 模块世界作为 `mode_standard_survival` 默认关卡 carrier：`ModuleWorldManager` 管理 81 槽、schema v1 等价 gameplay map hash、模块迷雾、有效空地查询和最多 3×3 活跃 chunk；当前普通正式槽统一为 0° 全开放平地，固定起点 / 目标 / 撤离不变。ADR #166 后 RunLoop 为当前模式配置独立 `DifficultyProgression`：玩家在起点房时威胁时间暂停且武器 / 四技能锁定，离房后每 90 秒持续 + 跃升，无上限地强化后续出生敌人的生命 / 伤害。首次实际进入非起点模块时从空地固化 4–6 个敌人计划并显示 1.5 秒可恢复预警，真正生成时快照倍率。PlayerHost 挂载主英雄场景，并由组合视觉叠加子英雄强调色；五种敌人按独立池恢复。唯一 GameplayCameraController 固定在 ActiveWorld 并在新局 / 续局绑定当前 Player；WeaponSystem 每发统一计算扩散与反冲，Player 以碰撞安全冲量移动。F14 导航从完整 assignment 构建静态 mask，活动流场半径 8、最多访问 289 格。当前 Run 为 v6，额外保存威胁时间与每敌出生倍率；Replay 为 v3，摘要加入难度时间 / 等级 / 倍率。常规验收入口是 contracts/data/schema、actor/module/save/runtime/loading/settings/replay/headless 与四条黄金回放；ADR #143 后性能测试仅由用户当次明确触发。
 
 > 普通开始新局 / 重开会生成新的 `RNG` run seed；继续游戏恢复 run snapshot；回放、smoke、golden 和调试复现仍应显式固定 seed 或走工具启动路径。
 
@@ -291,6 +293,7 @@ flowchart LR
   Weapon[WeaponSystem]
   Bullet[Bullet]
   Skill[SkillSystem]
+  Difficulty[DifficultyProgression]
 
   Spawner[Spawner]
   ModuleWorld[ModuleWorldManager]
@@ -313,14 +316,15 @@ flowchart LR
   Talo[Talo<br/>未来在线后端]
 
   Mod -. 本地 mod 数据 patch .-> Loader
-  Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & GearMod & Spawner & ModuleWorld & Director & Hazard & Map & CamCtl & VfxReg
+  Data --> Loader --> Player & Weapon & Skill & Enemy & Item & Growth & GearMod & Spawner & ModuleWorld & Director & Difficulty & Hazard & Map & CamCtl & VfxReg
   Set --> Input & UIM & Aud & CamCtl & VfxReg
   Guide -. 物理 action / context / remapping .-> Input
   Loc --> UIM & Item
   Loc --> Loading
   Ana <-- 埋点 --- Player & Enemy & Item & Growth & GearMod & Spawner & GS & Save
   RNG --> Map & Spawner & Item & Growth & GearMod & Enemy & Combat & PCam & VfxHost
-  Clk --> Spawner & Director & Hazard & Weapon & Skill & SE
+  Clk --> Hazard & Weapon & Skill & SE
+  Clk -. RunLoop delta / 冻结状态 .-> Difficulty
   Input -. 录制 v2 intent .-> Rep
   Rep -. playback override .-> Input
   Rep -. seed/tick/state .-> RNG & Clk & GS
@@ -341,6 +345,9 @@ flowchart LR
 
   Input --> Player --> Weapon
   Input --> Skill & UIM & UI
+  RunLoop --> Difficulty
+  Difficulty --> Spawner & Director & Enemy & UI
+  Difficulty -. Run v6 snapshot .- Save
   Weapon --> Bullet --> Combat
   Skill --> Combat
   Skill --> SE

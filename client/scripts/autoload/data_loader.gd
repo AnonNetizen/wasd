@@ -34,6 +34,7 @@ const SKILLS_PATH: String = "res://data/skills.json"
 const CREDITS_PATH: String = "res://data/credits.json"
 const GROWTH_CURVE_PATH: String = "res://data/growth.csv"
 const GROWTH_POOLS_PATH: String = "res://data/growth_pools.json"
+const DIFFICULTY_PROFILES_PATH: String = "res://data/difficulty_profiles.json"
 const GAME_MODES_PATH: String = "res://data/game_modes.json"
 const MAP_LAYOUTS_PATH: String = "res://data/map_layouts.json"
 const WARZONE_DIRECTORS_PATH: String = "res://data/warzone_directors.json"
@@ -205,7 +206,9 @@ func validate_project_data() -> bool:
 	var character_ids: Dictionary = _collect_character_ids()
 	is_valid = _validate_growth_csv() and is_valid
 	is_valid = _validate_growth_pools(locale_keys) and is_valid
-	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids) and is_valid
+	is_valid = _validate_difficulty_profiles(locale_keys) and is_valid
+	var difficulty_profile_ids: Dictionary = _collect_difficulty_profile_ids()
+	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids, difficulty_profile_ids) and is_valid
 	var game_mode_ids: Dictionary = _collect_game_mode_ids()
 	is_valid = _validate_map_layouts_json(hazard_ids, game_mode_ids) and is_valid
 	is_valid = _validate_spawn_waves_csv(enemy_ids, hazard_ids, game_mode_ids) and is_valid
@@ -2598,13 +2601,116 @@ func _validate_growth_pools(locale_keys: Dictionary) -> bool:
 	return is_valid
 
 
-func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary) -> bool:
+func _validate_difficulty_profiles(locale_keys: Dictionary) -> bool:
+	var data: Variant = load_json(DIFFICULTY_PROFILES_PATH)
+	if not data is Dictionary:
+		return _schema_fail(DIFFICULTY_PROFILES_PATH, "root", "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = _require_exact_int(
+		DIFFICULTY_PROFILES_PATH,
+		"schema_version",
+		payload.get("schema_version"),
+		1
+	)
+	var profiles: Array = _require_array(
+		DIFFICULTY_PROFILES_PATH,
+		"profiles",
+		payload.get("profiles")
+	)
+	if profiles.is_empty():
+		is_valid = _schema_fail(
+			DIFFICULTY_PROFILES_PATH,
+			"profiles",
+			"non-empty Array"
+		) and is_valid
+	var seen_ids: Dictionary = {}
+	_last_schema_counts["difficulty_profiles"] = profiles.size()
+	for profile_index: int in range(profiles.size()):
+		var profile_field: String = "profiles[%d]" % profile_index
+		var profile: Variant = profiles[profile_index]
+		if not profile is Dictionary:
+			is_valid = _schema_fail(
+				DIFFICULTY_PROFILES_PATH,
+				profile_field,
+				"Dictionary"
+			) and is_valid
+			continue
+		var profile_dict: Dictionary = profile as Dictionary
+		var profile_id: String = String(profile_dict.get("id", ""))
+		is_valid = _require_non_empty_string(
+			DIFFICULTY_PROFILES_PATH,
+			"%s.id" % profile_field,
+			profile_dict.get("id")
+		) and is_valid
+		if not profile_id.is_empty():
+			if seen_ids.has(profile_id):
+				is_valid = _schema_fail(
+					DIFFICULTY_PROFILES_PATH,
+					"%s.id" % profile_field,
+					"unique difficulty profile id"
+				) and is_valid
+			seen_ids[profile_id] = true
+		is_valid = _require_number(
+			DIFFICULTY_PROFILES_PATH,
+			"%s.tier_interval_seconds" % profile_field,
+			profile_dict.get("tier_interval_seconds"),
+			0.0,
+			3600.0,
+			true
+		) and is_valid
+		for field_name: String in [
+			"continuous_growth_per_interval",
+			"tier_step_growth",
+			"damage_growth_ratio",
+		]:
+			is_valid = _require_number(
+				DIFFICULTY_PROFILES_PATH,
+				"%s.%s" % [profile_field, field_name],
+				profile_dict.get(field_name),
+				0.0,
+				10.0
+			) and is_valid
+		var stage_name_keys: Array = _require_array(
+			DIFFICULTY_PROFILES_PATH,
+			"%s.stage_name_keys" % profile_field,
+			profile_dict.get("stage_name_keys")
+		)
+		if stage_name_keys.size() != 9:
+			is_valid = _schema_fail(
+				DIFFICULTY_PROFILES_PATH,
+				"%s.stage_name_keys" % profile_field,
+				"Array with exactly 9 entries"
+			) and is_valid
+		var seen_name_keys: Dictionary = {}
+		for key_index: int in range(stage_name_keys.size()):
+			is_valid = _require_locale_key(
+				DIFFICULTY_PROFILES_PATH,
+				"%s.stage_name_keys[%d]" % [profile_field, key_index],
+				stage_name_keys[key_index],
+				locale_keys
+			) and is_valid
+			var stage_name_key: String = String(stage_name_keys[key_index])
+			if not stage_name_key.is_empty():
+				if seen_name_keys.has(stage_name_key):
+					is_valid = _schema_fail(
+						DIFFICULTY_PROFILES_PATH,
+						"%s.stage_name_keys[%d]" % [
+							profile_field,
+							key_index,
+						],
+						"unique stage name key"
+					) and is_valid
+				seen_name_keys[stage_name_key] = true
+	return is_valid
+
+
+func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary, difficulty_profile_ids: Dictionary) -> bool:
 	var data: Variant = load_json(GAME_MODES_PATH)
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "root", "Dictionary")
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_int(GAME_MODES_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	is_valid = _require_exact_int(GAME_MODES_PATH, "schema_version", payload.get("schema_version"), 2) and is_valid
 	var modes: Array = _require_array(GAME_MODES_PATH, "modes", payload.get("modes"))
 	if modes.is_empty():
 		is_valid = _schema_fail(GAME_MODES_PATH, "modes", "non-empty Array") and is_valid
@@ -2626,6 +2732,21 @@ func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, we
 		is_valid = _require_locale_key(GAME_MODES_PATH, "%s.name_key" % mode_field, mode_dict.get("name_key"), locale_keys) and is_valid
 		is_valid = _require_locale_key(GAME_MODES_PATH, "%s.desc_key" % mode_field, mode_dict.get("desc_key"), locale_keys) and is_valid
 		is_valid = _require_bool(GAME_MODES_PATH, "%s.default_unlocked" % mode_field, mode_dict.get("default_unlocked")) and is_valid
+		var difficulty_profile_id: String = String(mode_dict.get("difficulty_profile_id", ""))
+		is_valid = _require_non_empty_string(
+			GAME_MODES_PATH,
+			"%s.difficulty_profile_id" % mode_field,
+			mode_dict.get("difficulty_profile_id")
+		) and is_valid
+		if (
+			not difficulty_profile_id.is_empty()
+			and not difficulty_profile_ids.has(difficulty_profile_id)
+		):
+			is_valid = _schema_fail(
+				GAME_MODES_PATH,
+				"%s.difficulty_profile_id" % mode_field,
+				"profile defined in difficulty_profiles.json"
+			) and is_valid
 		var team_result: Dictionary = _validate_mode_teams(mode_field, mode_dict.get("teams"))
 		var team_ids: Dictionary = team_result.get("ids", {}) as Dictionary
 		is_valid = bool(team_result.get("is_valid", false)) and is_valid
@@ -4746,6 +4867,20 @@ func _collect_game_mode_ids() -> Dictionary:
 	for mode: Variant in modes:
 		if mode is Dictionary and (mode as Dictionary).get("id") is String:
 			ids[String((mode as Dictionary).get("id"))] = true
+	return ids
+
+
+func _collect_difficulty_profile_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(DIFFICULTY_PROFILES_PATH)
+	if not data is Dictionary:
+		return ids
+	var profiles: Variant = (data as Dictionary).get("profiles")
+	if not profiles is Array:
+		return ids
+	for profile: Variant in profiles:
+		if profile is Dictionary and (profile as Dictionary).get("id") is String:
+			ids[String((profile as Dictionary).get("id"))] = true
 	return ids
 
 

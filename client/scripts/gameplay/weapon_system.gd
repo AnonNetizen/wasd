@@ -17,6 +17,7 @@ const RECOIL_RESOLVER := preload("res://scripts/data/weapon_recoil_resolver.gd")
 var _player: Node2D = null
 var _active_parent: Node = null
 var _base_stats: Dictionary = {}
+var _combat_gate: Callable = Callable()
 var _runtime_stats: Dictionary = {}
 var _stat_additions: Dictionary = {}
 var _stat_multipliers: Dictionary = {}
@@ -42,6 +43,8 @@ func _process(delta: float) -> void:
 		return
 	if _cooldown_remaining > 0.0:
 		return
+	if not _is_combat_allowed():
+		return
 
 	_fire_once()
 	var fire_rate: float = float(_runtime_stats.get(STATS.FIRE_RATE, 1.0))
@@ -64,6 +67,10 @@ func configure(
 	_temporary_modifiers.clear()
 	_rebuild_runtime_stats()
 	_cooldown_remaining = 0.0
+
+
+func configure_combat_gate(combat_gate: Callable) -> void:
+	_combat_gate = combat_gate
 
 
 func apply_modifiers(modifiers: Array) -> void:
@@ -314,6 +321,12 @@ func _temporary_modifier_index(source_id: String) -> int:
 
 func _is_fire_action_pressed() -> bool:
 	return InputService.is_pressed(ACTIONS.FIRE)
+
+
+func _is_combat_allowed() -> bool:
+	if not _combat_gate.is_valid():
+		return true
+	return bool(_combat_gate.call())
 
 
 func _accumulate_modifier(raw_modifier: Variant, additions: Dictionary, multipliers: Dictionary) -> void:

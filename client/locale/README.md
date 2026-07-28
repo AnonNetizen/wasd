@@ -21,7 +21,7 @@
 | 加 UI 文案 | 在 `strings.csv` 加 `ui_*` key；代码使用 `tr("ui_xxx")` |
 | 加标题 / 暂停 / 失败 / 结果面板文案 | 在 `strings.csv` 加 `ui_title_*`、`ui_start`、`ui_continue_run`、`ui_run_save_unavailable`、`ui_pause_title`、`ui_save_and_quit`、`ui_restart`、`ui_quit_to_title`、`ui_result_*` 等 key；结果清单行格式使用 `ui_result_resource_line` / `ui_result_gear_mod_line`，UI 代码使用 `tr()` |
 | 加设置面板文案 | 在 `strings.csv` 加 `ui_settings_*` key；设置入口沿用 `ui_settings`，设置面板标题、分组、控件标签、反馈和选项都走本地化；视觉质量、无障碍、输入绑定选项也必须独立建 key |
-| 加 HUD / 失败提示 | 在 `strings.csv` 加 `ui_hud_*`、`ui_stats_*` 或 `ui_*` key；HUD 代码用 `tr("ui_xxx")` 并在运行时刷新 |
+| 加 HUD / 失败提示 | 在 `strings.csv` 加 `ui_hud_*`、`ui_difficulty_*`、`ui_stats_*` 或 `ui_*` key；HUD 代码用 `tr("ui_xxx")` 并在运行时刷新 |
 | 加角色名 / 描述 | 在 `strings.csv` 加 `character_*_name` / `character_*_desc`；英雄组合名使用 `character_composition_name_format` 的 `{main}` / `{sub}` 占位符；数据填 `name_key` / `desc_key` |
 | 加元素 / 英雄被动文案 | 在 `strings.csv` 加 `element_*_name` 与 `passive_*_name` / `passive_*_desc`；数据只引用 key；被动数值使用 `{param_<字段>...}` |
 | 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |
@@ -72,6 +72,7 @@ ui_resume,继续,Resume
 | `ui_settings_` | 设置面板标题、分组、控件标签和选项 | `ui_settings_master_volume` / `ui_settings_aim_mode_auto` |
 | `ui_settings_input_` | 设置面板输入绑定动作标签 | `ui_settings_input_move_up` / `ui_settings_input_pause` |
 | `ui_hud_` | 局内常驻 HUD 标签 | `ui_hud_life` / `ui_hud_kills` |
+| `ui_difficulty_` | 局内威胁等级、阶段与暂停状态 | `ui_difficulty_level` / `ui_difficulty_stage_dormant` |
 | `ui_stats_` | 局内详细数值面板标签 | `ui_stats_damage` / `ui_stats_skill_resource` |
 | `ui_gear_mod_` | 装备 Mod 面板、标题入口和操作反馈 | `ui_gear_mod_title` / `ui_gear_mod_upgrade_cost` |
 | `ui_debug_test_arena_` | 独立 debug/dev_tools 开发者测试岛、配装、控制面板和伤害 HUD | `ui_debug_test_arena_setup_title` / `ui_debug_test_arena_spawn` |
@@ -171,9 +172,9 @@ label.text = tr("ui_damage") + str(value)
 
 ### 加一段 HUD 文案
 
-1. 在 `strings.csv` 新增 `ui_hud_*`、`ui_stats_*` 或局内交互提示 key，例如 `ui_hud_life,生命,Life` / `ui_stats_fire_rate,射速,Fire Rate` / `ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cache`。
+1. 在 `strings.csv` 新增 `ui_hud_*`、`ui_difficulty_*`、`ui_stats_*` 或局内交互提示 key，例如 `ui_hud_life,生命,Life` / `ui_difficulty_level,威胁 Lv. {level},Threat Lv. {level}` / `ui_stats_fire_rate,射速,Fire Rate` / `ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cache`。威胁阶段名称使用 `ui_difficulty_stage_<stage>`，跨语言共用同一 key。
 2. HUD 代码只显示 `tr("ui_hud_life")` / `tr("ui_stats_fire_rate")` 和格式化数值，不硬编码玩家可见标签。
-3. 若 HUD 会常驻局内或按住显示，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、击杀、时间、等级、经验、详细数值、升级反馈和交互提示重画。
+3. 若 HUD 会常驻局内或按住显示，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、击杀、难度时间、威胁阶段、等级、经验、详细数值、升级反馈和交互提示重画。
 
 ### 加一个设置面板控件文案
 

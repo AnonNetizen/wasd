@@ -24,7 +24,7 @@
 - 查询返回可达性、含端点偏移的世界像素路径距离、下一格中心和精确目标位置。玩家在同一格内移动只更新精确位置，不重算距离场。
 - 活动窗口之外的 `navigation_query_to_active_target()` 返回不可达；`navigation_query()` 仍在完整 99×99 mask 上使用 AStar，供守家和最后已知位置长距离查询。
 - 守家与最后已知位置在决策 tick 使用同一 mask 上的 `AStarGrid2D`；直线走廊畅通时直接移动。
-- `ModuleWorldManager` 在组图、技术首片和恢复 assignment 后重建导航数据；导航与感知缓存均为派生状态，不进入 Run v5。
+- `ModuleWorldManager` 在组图、技术首片和恢复 assignment 后重建导航数据；导航与感知缓存均为派生状态，不进入 Run v6。ADR #166 的敌人出生生命 / 伤害倍率不改变导航、感知或移速。
 
 ## 3. 混合感知
 

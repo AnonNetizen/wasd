@@ -33,8 +33,9 @@
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
 | 改技能消耗 / 冷却 / 目标 / 伤害 | `skills.json` | 技能不绑定英雄；角色或道具只引用 skill id，资源消耗用 `skill_resources` 声明 |
 | 改消耗品堆叠 / 效果声明 | `consumables.json` | 用 `stack` 和 `use_effects`，不要实现拾取 / 背包运行时 |
-| 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池和轻量覆盖；不要复制角色 / 遗物本体 |
-| 改刷怪强度 / 难度曲线 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
+| 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池、难度 profile 和轻量覆盖；不要复制角色 / 遗物本体 |
+| 改敌人随局内时间增长的生命 / 伤害曲线 | `difficulty_profiles.json` | 只影响之后生成敌人的生命与伤害；阶段名只填 locale key，不在数据里写译文 |
+| 改开放战区刷怪组合 / 波次 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
 | 改经验阈值 / 升级候选概率 | `growth.csv` | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
 | 改装备 Mod / 英雄或武器装配 | `gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv` | 装备 Mod 与本地数据包 mod 是不同概念；Mod id / slot / rarity / resource / stack rule 必须先登记契约 |
 | 改致谢 / 第三方来源 | `credits.json` + 根目录 `CREDITS.md` | 游戏内 Credits UI 读 `credits.json`；Godot 编辑器插件来源与本地补丁另见 `client/addons/README.md`；发行前复核许可证与 notice |
@@ -47,7 +48,8 @@
 |------|------|------|
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
 | `camera_feedback.json` | 已建立 | 摄像机表现反馈；含玩家有效受伤与武器后坐力的 Phantom Camera 位移震屏参数 |
-| `game_modes.json` | 已建立 | 游戏模式配置：可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 技能 / 消耗品 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
+| `difficulty_profiles.json` | 已建立 | 模式级局内威胁时间曲线：90 秒阶段、连续增长、阶段跃升、伤害换算比例和九段本地化名称 |
+| `game_modes.json` | 已建立 | 游戏模式配置：难度 profile、可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 技能 / 消耗品 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
 | `characters.json` | 已建立 | 英雄列表：场景、主副配色、基础属性、被动、两个英雄技能和起始携带 |
 | `weapons.json` | 已建立 | 武器、后坐力 / 弹道扩散模型与子弹基础配置：射速、弹速、射程、池 id、默认元素 |
 | `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
@@ -373,19 +375,65 @@ JSON 示例：
 | `modifiers` | array[object] | 遗物常见 | 数值修正，格式见下节 |
 | `behaviors` | array[object] | 行为内容常见 | 行为触发，格式见下节 |
 
+## `difficulty_profiles.json`
+
+当前 schema v1 结构：
+
+```json
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "difficulty_standard_survival",
+      "tier_interval_seconds": 90.0,
+      "continuous_growth_per_interval": 0.04,
+      "tier_step_growth": 0.09,
+      "damage_growth_ratio": 0.48,
+      "stage_name_keys": [
+        "ui_difficulty_stage_dormant",
+        "ui_difficulty_stage_alert",
+        "ui_difficulty_stage_hunt",
+        "ui_difficulty_stage_clash",
+        "ui_difficulty_stage_siege",
+        "ui_difficulty_stage_lethal",
+        "ui_difficulty_stage_unbound",
+        "ui_difficulty_stage_collapse",
+        "ui_difficulty_stage_nestfall"
+      ]
+    }
+  ]
+}
+```
+
+字段说明：
+
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `schema_version` | int | 固定 `1` | 难度 profile 数据结构版本 |
+| `profiles` | array[object] | 非空 | 可被游戏模式引用的难度 profile 注册表 |
+| `profiles[].id` | string | 非空、文件内唯一 | profile id；由 `game_modes.json.modes[].difficulty_profile_id` 引用 |
+| `profiles[].tier_interval_seconds` | number | `> 0` 且 `<= 3600` | 每个难度阶段的秒数 |
+| `profiles[].continuous_growth_per_interval` | number | `0..10` | 每经过一个完整阶段时，连续部分对系数增加的数值 |
+| `profiles[].tier_step_growth` | number | `0..10` | 跨过阶段线时额外增加的阶跃数值 |
+| `profiles[].damage_growth_ratio` | number | `0..10` | 生命系数增量折算为敌人伤害增量的比例 |
+| `profiles[].stage_name_keys` | array[string] | 恰好 9 项，且每项必须存在于 locale | Lv.1～Lv.9 的阶段名称；Lv.9 后沿用最后一项 |
+
+标准模式的运行公式为 `tier=floor(elapsed/tier_interval_seconds)`、`coefficient=1+continuous_growth_per_interval*(elapsed/tier_interval_seconds)+tier_step_growth*tier`、`health_multiplier=coefficient`、`damage_multiplier=1+damage_growth_ratio*(coefficient-1)`。曲线没有最终上限；这里不配置移速、攻击间隔、弹速、敌人数、刷新预算、掉落或奖励。
+
 ## `game_modes.json`
 
 当前结构：
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "modes": [
     {
       "id": "mode_standard_survival",
       "name_key": "ui_mode_standard_survival_name",
       "desc_key": "ui_mode_standard_survival_desc",
       "default_unlocked": true,
+      "difficulty_profile_id": "difficulty_standard_survival",
       "participants": [
         { "id": "local_player", "kind": "player", "team_id": "team_player", "control": "local_player" }
       ],
@@ -419,10 +467,11 @@ JSON 示例：
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | `>= 1` | 数据结构版本 |
+| `schema_version` | int | 固定 `2` | 数据结构版本 |
 | `modes[].id` | string | 词表 §12-A game mode id，文件内唯一 | 游戏模式 id；代码引用走生成常量 |
 | `modes[].name_key` / `desc_key` | string | `ui_*_name` / `ui_*_desc` | 模式名称和描述译文 key |
 | `modes[].default_unlocked` | bool | true / false | 新存档中是否默认可用 |
+| `modes[].difficulty_profile_id` | string | 必须存在于 `difficulty_profiles.json` | 本模式的局内威胁时间与新生成敌人倍率曲线 |
 | `participants[].id` | string | 模式内唯一 | 参与者 id；当前单人样例为 `local_player` |
 | `participants[].kind` | string | 非空 | 参与者类型；当前样例为 `player`，后续 AI / 远端玩家需先补 schema |
 | `participants[].team_id` | string | 必须存在于 `teams[].id` | 参与者所属队伍 |
@@ -451,7 +500,7 @@ JSON 示例：
 | `blocklists.content_tags[]` | array[string] | 词表 §12.3 content tag | 禁用某类内容标签；当前样例为空 |
 | `overrides.player_base_stats` | object | stat 来自词表 §1 | 轻量覆盖玩家基础属性；只用于模式差异，不复制角色本体 |
 
-`game_modes.json` 只声明模式边界，不实现模式选择 UI、匹配、联网、刷怪、成长抽取、敌人生成、遗物抽取或实际战斗规则。地图尺寸、PCG 机关和人工摆点不写在模式资源池里，改 `map_layouts.json`。默认标准模式不挂 `growth_pools`；未来非默认模式需要局内升级选择时，再显式引用对应升级池。新增资源池类型时，必须同步本文档、`DataLoader` schema、词表或对应数据注册表。
+`game_modes.json` 只声明模式边界和 `difficulty_profile_id`，不实现模式选择 UI、匹配、联网、刷怪、成长抽取、敌人生成、遗物抽取或实际战斗规则。地图尺寸、PCG 机关和人工摆点不写在模式资源池里，改 `map_layouts.json`。默认标准模式不挂 `growth_pools`；未来非默认模式需要局内升级选择时，再显式引用对应升级池。新增资源池类型时，必须同步本文档、`DataLoader` schema、词表或对应数据注册表。
 
 ## `map_layouts.json`
 
@@ -853,7 +902,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `worlds[].id` | string | 唯一、非空 | 世界 id；Run v5 的 `module_world` 子快照保存此值 |
+| `worlds[].id` | string | 唯一、非空 | 世界 id；Run v6 的 `module_world` 子快照保存此值 |
 | `worlds[].columns` / `worlds[].rows` | int | 首版固定 `9` | 模块槽位宽高 |
 | `worlds[].module_columns` / `worlds[].module_rows` | int | 首版固定 `11` | 单模块局部格宽高 |
 | `worlds[].cell_size` | int | `> 0`，默认 `160` | 同一世界统一的方格边长，单位 px |
@@ -882,7 +931,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `first_visit_enemy_spawn.enemy_pool[].unlock_time` | number | 非负、按数组非递减，首项为 `0` | 敌种开始参与抽取的 `GameClock` 局内时间 |
 | `first_visit_enemy_spawn.enemy_pool[].weight` | number | `> 0` | 已解锁敌种的相对权重 |
 
-“可刷怪空地”由 `ModuleWorldManager.empty_floor_positions_at()` 按世界槽位计算：世界旋转、外圈封边和封锁邻居处理后仍为 floor，并排除任何 gameplay placement 的 `cell` / 完整 `footprint`。它不检查玩家、敌人或其他动态实体占位，也不设置安全半径。返回位置固定为格心并按行、列稳定排序；`GameplayRunLoop` 使用 `RNG.spawn` 无放回抽取位置，并按同一 RNG 子流抽取已经解锁的敌种。抽取结果、`telegraphing/spawned` 状态和剩余预警时间立即写入 Run v5 槽位状态，之后不得重抽。
+“可刷怪空地”由 `ModuleWorldManager.empty_floor_positions_at()` 按世界槽位计算：世界旋转、外圈封边和封锁邻居处理后仍为 floor，并排除任何 gameplay placement 的 `cell` / 完整 `footprint`。它不检查玩家、敌人或其他动态实体占位，也不设置安全半径。返回位置固定为格心并按行、列稳定排序；`GameplayRunLoop` 使用 `RNG.spawn` 无放回抽取位置，并按同一 RNG 子流抽取当时按威胁时间已解锁的敌种。抽取结果、`telegraphing/spawned` 状态和剩余预警时间立即写入 Run v6 槽位状态，之后不得重抽；敌人的生命 / 伤害倍率在预警结束真正生成时取得，不写入预警计划。
 
 `module_templates.json` 字段：
 

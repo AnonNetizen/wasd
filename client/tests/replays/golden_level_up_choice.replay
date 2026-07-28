@@ -1,6 +1,6 @@
 {
 	"created_at": "golden:golden_level_up_choice",
-	"data_fingerprint": "818e3f62ce8dc37e2daabc55147f2d2560ccbdffd0be2902815da301133cbc4b",
+	"data_fingerprint": "b5d16084933735e77d09bbe4cb21ecb0d60484092d75878a87c9008b8d963cdf",
 	"file_schema_version": 3,
 	"game_version": "v1.7",
 	"recording": {
@@ -35,7 +35,7 @@
 					"selected": "growth_damage_small"
 				},
 				"tick": 29,
-				"time": 0.497876666666667
+				"time": 0.498925333333333
 			}
 		],
 		"dropped_decision_events": 0,
@@ -141,7 +141,11 @@
 			"active_pickups": 0,
 			"bullets_present": false,
 			"capture_frames": 180,
+			"difficulty_level": 1,
+			"difficulty_time": 0.0,
 			"enemies_present": false,
+			"enemy_damage_multiplier": 1.0,
+			"enemy_health_multiplier": 1.0,
 			"frame_sample_interval": 30,
 			"frame_samples": [
 				{
@@ -319,7 +323,7 @@
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "0b77c8fd1a67554f5b353880c63f8a46b46cc01106cbf84fa8e1725aedf8b318",
+	"recording_hash": "6314a7d48fa4b048951c4a69fd17ddebafcae4631fb9659d63b36c55fa11c9be",
 	"summary": {
 		"decision_events": 2,
 		"dropped_decision_events": 0,
@@ -333,7 +337,11 @@
 			"active_pickups": 0,
 			"bullets_present": false,
 			"capture_frames": 180,
+			"difficulty_level": 1,
+			"difficulty_time": 0.0,
 			"enemies_present": false,
+			"enemy_damage_multiplier": 1.0,
+			"enemy_health_multiplier": 1.0,
 			"frame_sample_interval": 30,
 			"frame_samples": [
 				{
