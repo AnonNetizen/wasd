@@ -5,7 +5,7 @@
 
 ## 职责
 
-- 所有直接伤害、接触伤害、机关伤害与状态 tick 都必须走 `Combat.apply_damage(target, DamageInfo)`。
+- 所有显式攻击、投射物、机关伤害与状态 tick 都必须走 `Combat.apply_damage(target, DamageInfo)`；敌人身体重叠不构造伤害请求。
 - `DamageInfo` 承载 `amount`、`element_id`、source / target、双方 team 与通用 flags。
 - `Combat` 校验目标、正数伤害与已登记元素，再调用目标 `receive_damage(info)`；具体护盾、护甲、被动抗性和状态易伤由目标的可复用处理链结算。
 - 旧 `damage_type`、物理／真实伤害、穿甲与 `pierce_armor` 已删除。
@@ -19,6 +19,7 @@
 | `client/scripts/contracts/elements.gd` | 七元素生成常量 |
 | `client/data/elements.json` | 组合表与显示策略 |
 | `client/scripts/gameplay/player.gd` | 超量护盾、普通护盾、护盾门、元素被动、护甲和生命 |
+| `client/scripts/gameplay/enemy.gd` | 显式攻击提交、爆炸来源例外、击杀 / 掉落归因 |
 | `client/scripts/combat/status_effect_component.gd` | 易伤来源过滤与 DoT |
 
 ## 七元素
@@ -51,7 +52,9 @@
 
 - 易伤每层使 `team_player` 来源的直接或 DoT 伤害增加 10%，最多 5 层；其他来源不放大。
 - 状态 DoT 通过 `DamageInfo.flags=["is_dot"]` 标记并继续走 Combat。
-- 敌人接触伤害按敌人自身 `contact_interval` 独立计时，默认 0.7 秒；不再依赖玩家通用受伤无敌。
+- 敌人不再拥有通用接触伤害或接触计时器。爆炸、扇区近战、冲撞扫掠与远程投射物各自在明确提交点构造一次 `DamageInfo`。
+- `team_enemy` 伤害默认由 `Enemy.receive_damage()` 拒绝；只有来源节点仍处于已提交爆猎者状态时，爆炸才可伤害其他敌人。普通敌人被炸死按 `enemy_explosion` 计击杀并掉落，实际爆炸的爆猎者按 `exploder_detonation` 无奖励退场。
+- 冲撞接触玩家后立即把本次释放标记为已命中，最多尝试一次伤害。只有 `Combat` 返回实际应用且 amount 大于零时，壁垒者才调用玩家外部击退；玩家无敌、冲刺规避或完全抵消时不击退。
 
 ## 公共 API
 
@@ -60,6 +63,7 @@
 | `DamageInfo.setup(amount, element_id, source, target, source_team, target_team, flags)` | amount 钳到非负；element 必须来自生成契约 |
 | `Combat.apply_damage(target, info) -> Dictionary` | 目标必须实现 `receive_damage(info)`；无效请求返回明确 reason |
 | `Player.receive_damage(info) -> Dictionary` | 返回实际分层消耗、生命损失、护盾门和击败结果 |
+| `Enemy.receive_damage(info) -> Dictionary` | armed 早退；普通敌方友伤早退；玩家或合法爆炸来源按 cause 进入统一退场信号 |
 
 `damage_applied(target, info, result)` 在目标完成结算后发出，表现、埋点和归因可订阅，不得复制伤害计算。
 
@@ -67,7 +71,7 @@
 
 - 新元素先改词表与 `elements.json` 组合表，再同步生成常量、数据校验、GDD 和测试；不能靠业务裸字符串扩展。
 - 暴击、不可致死、自伤、DoT 等仍可作为与元素无关的 flag；新 flag 必须登记契约。
-- 屏障只接受敌方投射物扫掠命中，不接触角色／环境／AOE；其生命损失仍使用合法 `DamageInfo`。
+- 屏障只接受敌方投射物扫掠命中，不拦角色移动、近战、冲撞、环境或 AOE；其生命损失仍使用合法 `DamageInfo`。
 
 ## 故障排查
 
@@ -76,7 +80,9 @@
 | 伤害无效 | `element_id` 是否登记、amount 是否大于零、目标是否实现 receiver |
 | 复合元素被英雄被动减伤 | 被动表是否只列纯 A / B，组合解析是否误把复合映射回基础元素 |
 | 空盾仍触发门 | 攻击前普通护盾是否确实大于零；超量护盾不得作为门前值 |
-| 接触伤害互相阻断 | 每个 Enemy 的 contact timer 是否独立，是否残留通用受伤无敌 |
+| 敌人身体重叠仍扣血 | `Enemy` 是否残留接触检测；`enemies.csv` 是否错误恢复旧 contact 列 |
+| 敌方任意伤害绕过友伤护栏 | source 是否真实处于 `is_committed_exploder()`，爆炸提交后是否仍只使用一次 |
+| 玩家规避后仍被击退 | 冲撞调用方是否检查 `result.applied` 与实际 `amount > 0` |
 
 ## 测试义务
 
@@ -86,7 +92,7 @@
 
 ## 迁移边界
 
-Run v7 保存生命、普通护盾、超量护盾、护盾门和元素被动上下文，并由 Enemy 快照保存出生伤害倍率；旧 Run v6 因仍包含已退役的 XP 成长状态而不迁移。Replay v3 记录造成这些状态变化的新输入与组合，旧回放拒绝。
+Run v8 保存生命、普通护盾、超量护盾、护盾门、元素被动、玩家敌人击退和 Enemy 显式攻击 / armed / 生成序号；旧 Run v7 的接触时代敌人状态明确不迁移。Replay v3 wire format 不变，数据指纹与黄金摘要随当前敌人行为重录。
 
 ## 相关文档
 

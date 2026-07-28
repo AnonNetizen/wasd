@@ -9,6 +9,7 @@ const MODULE_EDGE_DIRECTIONS := preload("res://scripts/contracts/module_edge_dir
 const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placement_types.gd")
 const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
+const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
 
 signal data_reloaded()
 
@@ -265,6 +266,22 @@ func load_csv(resource_path: String, has_header: bool = true) -> Array[Dictionar
 		rows.append(row)
 
 	return _apply_csv_mods(resource_path, rows)
+
+
+func _validate_csv_header(
+	resource_path: String,
+	expected_headers: Array[String]
+) -> bool:
+	var file: FileAccess = FileAccess.open(resource_path, FileAccess.READ)
+	if file == null:
+		return _schema_fail(resource_path, "header", "readable CSV header")
+	var actual: PackedStringArray = file.get_csv_line()
+	if actual.size() != expected_headers.size():
+		return _schema_fail(resource_path, "header", "exact columns %s" % expected_headers)
+	for index: int in range(expected_headers.size()):
+		if String(actual[index]) != expected_headers[index]:
+			return _schema_fail(resource_path, "header", "exact columns %s" % expected_headers)
+	return true
 
 
 func data_path(file_name: String) -> String:
@@ -1710,7 +1727,7 @@ func _validate_enemy_ai_profiles_json() -> bool:
 
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_int(ENEMY_AI_PROFILES_PATH, "schema_version", payload.get("schema_version"), 3, 3) and is_valid
+	is_valid = _require_int(ENEMY_AI_PROFILES_PATH, "schema_version", payload.get("schema_version"), 4, 4) and is_valid
 	var profiles: Array = _require_array(ENEMY_AI_PROFILES_PATH, "profiles", payload.get("profiles"))
 	if profiles.is_empty():
 		is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, "profiles", "non-empty Array") and is_valid
@@ -1782,30 +1799,15 @@ func _validate_enemy_ai_movement(field: String, data: Variant) -> bool:
 	var is_valid: bool = true
 	is_valid = _reject_removed_field(ENEMY_AI_PROFILES_PATH, field, payload, "flee_distance", 2) and is_valid
 	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.orbit_radius" % field, payload.get("orbit_radius"), 0.0) and is_valid
-	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_range" % field, payload.get("charge_range"), 0.0) and is_valid
-	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_windup" % field, payload.get("charge_windup"), 0.0) and is_valid
-	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_duration" % field, payload.get("charge_duration"), 0.0) and is_valid
-	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_cooldown" % field, payload.get("charge_cooldown"), 0.0) and is_valid
-	is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.charge_speed_scale" % field, payload.get("charge_speed_scale"), 0.0, null, true) and is_valid
-	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_attack_range", 0.0, true) and is_valid
-	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_keep_distance", 0.0, false) and is_valid
-	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_cooldown", 0.0, true) and is_valid
-	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_initial_cooldown", 0.0, false) and is_valid
-	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_damage", 0.0, true) and is_valid
-	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_speed", 0.0, true) and is_valid
-	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_range", 0.0, true) and is_valid
-	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_hit_radius", 0.0, true) and is_valid
-	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_lifetime", 0.0, true) and is_valid
-	is_valid = _validate_optional_enemy_ai_movement_number(field, payload, "ranged_projectile_muzzle_distance", 0.0, false) and is_valid
-	if payload.has("ranged_projectile_element_id"):
-		is_valid = _require_registered(ENEMY_AI_PROFILES_PATH, "%s.ranged_projectile_element_id" % field, payload.get("ranged_projectile_element_id"), "elements") != "" and is_valid
+	for raw_key: Variant in payload.keys():
+		var key: String = String(raw_key)
+		if key != "orbit_radius":
+			is_valid = _schema_fail(
+				ENEMY_AI_PROFILES_PATH,
+				"%s.%s" % [field, key],
+				"removed from movement in schema v4; use actions[].attack"
+			) and is_valid
 	return is_valid
-
-
-func _validate_optional_enemy_ai_movement_number(field: String, payload: Dictionary, key: String, minimum: float, exclusive_minimum: bool) -> bool:
-	if not payload.has(key):
-		return true
-	return _require_number(ENEMY_AI_PROFILES_PATH, "%s.%s" % [field, key], payload.get(key), minimum, null, exclusive_minimum)
 
 
 func _validate_enemy_ai_actions(field: String, data: Variant) -> bool:
@@ -1828,12 +1830,289 @@ func _validate_enemy_ai_actions(field: String, data: Variant) -> bool:
 			seen[action_id] = true
 		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.base_score" % item_field, entry_dict.get("base_score"), 0.0) and is_valid
 		is_valid = _require_number(ENEMY_AI_PROFILES_PATH, "%s.speed_scale" % item_field, entry_dict.get("speed_scale"), 0.0, null, true) and is_valid
+		is_valid = _validate_enemy_ai_attack(item_field, action_id, entry_dict) and is_valid
+	return is_valid
+
+
+func _validate_enemy_ai_attack(
+	item_field: String,
+	action_id: String,
+	action: Dictionary
+) -> bool:
+	var attack_actions: Array[String] = [
+		ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET,
+		ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK,
+		ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET,
+		ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK,
+	]
+	if not attack_actions.has(action_id):
+		if action.has("attack"):
+			return _schema_fail(
+				ENEMY_AI_PROFILES_PATH,
+				"%s.attack" % item_field,
+				"forbidden for non-attack action"
+			)
+		return true
+	var raw_attack: Variant = action.get("attack")
+	if not raw_attack is Dictionary:
+		return _schema_fail(
+			ENEMY_AI_PROFILES_PATH,
+			"%s.attack" % item_field,
+			"Dictionary"
+		)
+	var attack: Dictionary = raw_attack as Dictionary
+	var field: String = "%s.attack" % item_field
+	var is_valid: bool = true
+	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET:
+		is_valid = _validate_exact_dictionary_keys(
+			ENEMY_AI_PROFILES_PATH,
+			field,
+			attack,
+			["trigger_range", "windup", "damage", "element_id", "radius"]
+		) and is_valid
+		for key: String in ["trigger_range", "windup", "damage", "radius"]:
+			is_valid = _require_number(
+				ENEMY_AI_PROFILES_PATH,
+				"%s.%s" % [field, key],
+				attack.get(key),
+				0.0,
+				null,
+				true
+			) and is_valid
+		is_valid = _require_registered(
+			ENEMY_AI_PROFILES_PATH,
+			"%s.element_id" % field,
+			attack.get("element_id"),
+			"elements"
+		) != "" and is_valid
+		return is_valid
+	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK:
+		is_valid = _validate_exact_dictionary_keys(
+			ENEMY_AI_PROFILES_PATH,
+			field,
+			attack,
+			[
+				"trigger_range",
+				"windup",
+				"cooldown",
+				"damage",
+				"element_id",
+				"range",
+				"arc_degrees",
+			]
+		) and is_valid
+		for key: String in ["trigger_range", "windup", "cooldown", "damage", "range"]:
+			is_valid = _require_number(
+				ENEMY_AI_PROFILES_PATH,
+				"%s.%s" % [field, key],
+				attack.get(key),
+				0.0,
+				null,
+				true
+			) and is_valid
+		is_valid = _require_number(
+			ENEMY_AI_PROFILES_PATH,
+			"%s.arc_degrees" % field,
+			attack.get("arc_degrees"),
+			0.0,
+			360.0,
+			true
+		) and is_valid
+		is_valid = _require_registered(
+			ENEMY_AI_PROFILES_PATH,
+			"%s.element_id" % field,
+			attack.get("element_id"),
+			"elements"
+		) != "" and is_valid
+		return is_valid
+	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET:
+		is_valid = _validate_exact_dictionary_keys(
+			ENEMY_AI_PROFILES_PATH,
+			field,
+			attack,
+			[
+				"trigger_range",
+				"windup",
+				"release_duration",
+				"cooldown",
+				"damage",
+				"element_id",
+				"speed_multiplier",
+				"stop_on_hit",
+				"knockback_distance",
+				"knockback_duration",
+			]
+		) and is_valid
+		for key: String in [
+			"trigger_range",
+			"windup",
+			"release_duration",
+			"cooldown",
+			"damage",
+			"speed_multiplier",
+		]:
+			is_valid = _require_number(
+				ENEMY_AI_PROFILES_PATH,
+				"%s.%s" % [field, key],
+				attack.get(key),
+				0.0,
+				null,
+				true
+			) and is_valid
+		is_valid = _require_number(
+			ENEMY_AI_PROFILES_PATH,
+			"%s.knockback_distance" % field,
+			attack.get("knockback_distance"),
+			0.0
+		) and is_valid
+		is_valid = _require_number(
+			ENEMY_AI_PROFILES_PATH,
+			"%s.knockback_duration" % field,
+			attack.get("knockback_duration"),
+			0.0
+		) and is_valid
+		var knockback_distance: float = float(attack.get("knockback_distance", 0.0))
+		var knockback_duration: float = float(attack.get("knockback_duration", 0.0))
+		if (knockback_distance > 0.0) != (knockback_duration > 0.0):
+			is_valid = _schema_fail(
+				ENEMY_AI_PROFILES_PATH,
+				"%s.knockback_duration" % field,
+				"positive exactly when knockback_distance is positive"
+			) and is_valid
+		is_valid = _require_bool(
+			ENEMY_AI_PROFILES_PATH,
+			"%s.stop_on_hit" % field,
+			attack.get("stop_on_hit")
+		) and is_valid
+		is_valid = _require_registered(
+			ENEMY_AI_PROFILES_PATH,
+			"%s.element_id" % field,
+			attack.get("element_id"),
+			"elements"
+		) != "" and is_valid
+		return is_valid
+
+	is_valid = _validate_exact_dictionary_keys(
+		ENEMY_AI_PROFILES_PATH,
+		field,
+		attack,
+		[
+			"attack_range",
+			"keep_distance",
+			"cooldown",
+			"initial_cooldown",
+			"damage",
+			"element_id",
+			"projectile",
+		]
+	) and is_valid
+	for key: String in ["attack_range", "cooldown", "damage"]:
+		is_valid = _require_number(
+			ENEMY_AI_PROFILES_PATH,
+			"%s.%s" % [field, key],
+			attack.get(key),
+			0.0,
+			null,
+			true
+		) and is_valid
+	for key: String in ["keep_distance", "initial_cooldown"]:
+		is_valid = _require_number(
+			ENEMY_AI_PROFILES_PATH,
+			"%s.%s" % [field, key],
+			attack.get(key),
+			0.0
+		) and is_valid
+	is_valid = _require_registered(
+		ENEMY_AI_PROFILES_PATH,
+		"%s.element_id" % field,
+		attack.get("element_id"),
+		"elements"
+	) != "" and is_valid
+	var raw_projectile: Variant = attack.get("projectile")
+	if not raw_projectile is Dictionary:
+		return _schema_fail(
+			ENEMY_AI_PROFILES_PATH,
+			"%s.projectile" % field,
+			"Dictionary"
+		) and is_valid
+	var projectile: Dictionary = raw_projectile as Dictionary
+	var projectile_field: String = "%s.projectile" % field
+	is_valid = _validate_exact_dictionary_keys(
+		ENEMY_AI_PROFILES_PATH,
+		projectile_field,
+		projectile,
+		["pool_id", "speed", "range", "hit_radius", "lifetime", "muzzle_distance"]
+	) and is_valid
+	is_valid = _require_registered(
+		ENEMY_AI_PROFILES_PATH,
+		"%s.pool_id" % projectile_field,
+		projectile.get("pool_id"),
+		"pool_ids"
+	) != "" and is_valid
+	for key: String in ["speed", "range", "hit_radius", "lifetime"]:
+		is_valid = _require_number(
+			ENEMY_AI_PROFILES_PATH,
+			"%s.%s" % [projectile_field, key],
+			projectile.get(key),
+			0.0,
+			null,
+			true
+		) and is_valid
+	is_valid = _require_number(
+		ENEMY_AI_PROFILES_PATH,
+		"%s.muzzle_distance" % projectile_field,
+		projectile.get("muzzle_distance"),
+		0.0
+	) and is_valid
+	return is_valid
+
+
+func _validate_exact_dictionary_keys(
+	resource_path: String,
+	field: String,
+	data: Dictionary,
+	expected_keys: Array[String]
+) -> bool:
+	var is_valid: bool = true
+	for expected_key: String in expected_keys:
+		if not data.has(expected_key):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.%s" % [field, expected_key],
+				"required field"
+			) and is_valid
+	for raw_key: Variant in data.keys():
+		var key: String = String(raw_key)
+		if not expected_keys.has(key):
+			is_valid = _schema_fail(
+				resource_path,
+				"%s.%s" % [field, key],
+				"allowed schema field"
+			) and is_valid
 	return is_valid
 
 
 func _validate_enemies_csv(locale_keys: Dictionary, enemy_ai_profile_ids: Dictionary) -> bool:
 	var rows: Array[Dictionary] = load_csv(ENEMIES_PATH)
 	var is_valid: bool = true
+	is_valid = _validate_csv_header(
+		ENEMIES_PATH,
+		[
+			"id",
+			"name_key",
+			"tags",
+			"pool_id",
+			"scene_path",
+			"pool_prewarm",
+			"ai_profile_id",
+			"presentation_profile_id",
+			"max_hp",
+			"move_speed",
+			"gold_reward",
+			"hit_radius",
+			"separation_radius",
+		]
+	) and is_valid
 	var seen_enemy_ids: Dictionary = {}
 	var seen_pool_ids: Dictionary = {}
 	if rows.is_empty():
@@ -1878,9 +2157,6 @@ func _validate_enemies_csv(locale_keys: Dictionary, enemy_ai_profile_ids: Dictio
 			is_valid = _schema_fail(ENEMIES_PATH, "%s.ai_profile_id" % field, "profile defined in enemy_ai_profiles.json") and is_valid
 		is_valid = _require_csv_int(ENEMIES_PATH, "%s.max_hp" % field, row.get("max_hp"), 1) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.move_speed" % field, row.get("move_speed"), 0.0, null, true) and is_valid
-		is_valid = _require_csv_int(ENEMIES_PATH, "%s.contact_damage" % field, row.get("contact_damage"), 0) and is_valid
-		is_valid = _require_registered(ENEMIES_PATH, "%s.element_id" % field, row.get("element_id"), "elements") != "" and is_valid
-		is_valid = _require_csv_number(ENEMIES_PATH, "%s.contact_interval" % field, row.get("contact_interval"), 0.0, null, true) and is_valid
 		is_valid = _require_csv_int(ENEMIES_PATH, "%s.gold_reward" % field, row.get("gold_reward"), 0) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.hit_radius" % field, row.get("hit_radius"), 0.0, null, true) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.separation_radius" % field, row.get("separation_radius"), 0.0) and is_valid

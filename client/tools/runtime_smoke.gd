@@ -5,6 +5,9 @@ const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const ELEMENTS := preload("res://scripts/contracts/elements.gd")
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
+const ENEMY_DEFEAT_CAUSES := preload(
+	"res://scripts/contracts/enemy_defeat_causes.gd"
+)
 const ENEMY_SCENE := preload("res://scenes/gameplay/actors/enemies/enemy_chaser.tscn")
 const GEAR_MOD_RESOURCES := preload("res://scripts/contracts/gear_mod_resources.gd")
 const PLAYER_SCENE := preload("res://scenes/gameplay/actors/characters/character_default.tscn")
@@ -202,29 +205,32 @@ func _run() -> void:
 	isolated_stats[STATS.HEALTH_REGEN] = 30.0
 	isolated_stats[STATS.MOVE_SPEED] = 0.0
 	isolated_player.call("configure", isolated_stats)
-	var contact_source: Node = Node.new()
-	contact_source.name = "SmokeContactSource"
-	run_loop.add_child(contact_source)
+	var direct_damage_source: Node = Node.new()
+	direct_damage_source.name = "SmokeDirectDamageSource"
+	run_loop.add_child(direct_damage_source)
 	var first_player_life: float = float(isolated_player.call("current_life"))
-	var contact_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+	var direct_damage_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 		100.0,
 		ELEMENTS.ELEMENT_NEUTRAL,
-		contact_source,
+		direct_damage_source,
 		isolated_player,
 		"team_enemy",
 		"team_player"
 	)
-	var first_contact_result: Dictionary = Combat.apply_damage(isolated_player, contact_info)
-	var damaged_player_life: float = float(isolated_player.call("current_life"))
-	_expect(bool(first_contact_result.get("applied", false)), "first contact should damage the player")
-	_expect(damaged_player_life < first_player_life, "first contact should reduce player life")
-
-	var repeated_contact_result: Dictionary = Combat.apply_damage(
+	var first_direct_result: Dictionary = Combat.apply_damage(
 		isolated_player,
-		contact_info
+		direct_damage_info
+	)
+	var damaged_player_life: float = float(isolated_player.call("current_life"))
+	_expect(bool(first_direct_result.get("applied", false)), "first direct hit should damage the player")
+	_expect(damaged_player_life < first_player_life, "first direct hit should reduce player life")
+
+	var repeated_direct_result: Dictionary = Combat.apply_damage(
+		isolated_player,
+		direct_damage_info
 	)
 	_expect(
-		bool(repeated_contact_result.get("applied", false)),
+		bool(repeated_direct_result.get("applied", false)),
 		"direct repeated damage should no longer be blocked by global hit invulnerability"
 	)
 	_expect(
@@ -242,10 +248,13 @@ func _run() -> void:
 		"configured player health_regen should remain available for explicit test fixtures"
 	)
 	_expect(regenerated_player_life <= first_player_life, "player health_regen should not exceed max life")
-	var refreshed_contact_result: Dictionary = Combat.apply_damage(isolated_player, contact_info)
-	_expect(bool(refreshed_contact_result.get("applied", false)), "same source may deal direct damage again")
+	var refreshed_direct_result: Dictionary = Combat.apply_damage(
+		isolated_player,
+		direct_damage_info
+	)
+	_expect(bool(refreshed_direct_result.get("applied", false)), "same source may deal direct damage again")
 	isolated_player.queue_free()
-	contact_source.queue_free()
+	direct_damage_source.queue_free()
 
 	await _expect_enemy_center_separation(run_loop, player)
 	await _expect_player_enemy_separation(run_loop, player)
@@ -253,6 +262,7 @@ func _run() -> void:
 	await _expect_swarm_enemy_spawn(run_loop, player)
 	await _expect_enemy_player_targeting(run_loop, player)
 	await _expect_route_aware_enemy_perception(run_loop, player)
+	await _expect_explicit_enemy_attacks(run_loop, player)
 	await _expect_ranged_enemy_projectile_damage(run_loop, player)
 	await _expect_overdrive_rounds_skill(run_loop, player)
 	await _expect_gold_orb_draw_order(run_loop, player)
@@ -1556,8 +1566,6 @@ func _expect_enemy_center_separation(run_loop: Node, player: Node2D) -> void:
 	var enemy_data: Dictionary = {
 		"max_hp": 6,
 		"move_speed": 0.0,
-		"contact_damage": 1,
-		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
 		"gold_reward": 0,
 		"hit_radius": 14.0,
 		"separation_radius": 9.0,
@@ -1597,8 +1605,6 @@ func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
 	var enemy_data: Dictionary = {
 		"max_hp": 5,
 		"move_speed": 0.0,
-		"contact_damage": 1,
-		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
 		"gold_reward": 0,
 		"hit_radius": 24.0,
 		"separation_radius": 9.0,
@@ -1615,7 +1621,13 @@ func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
 	var minimum_distance: float = float(enemy.call("separation_radius")) + float(isolated_player.call("separation_radius"))
 	var center_distance: float = enemy.global_position.distance_to(isolated_player.global_position)
 	_expect(center_distance >= minimum_distance - 0.5, "player separation should push enemies away from the player center")
-	_expect(float(isolated_player.call("current_life")) < player_life_before_contact, "separated enemies should still apply contact damage")
+	_expect(
+		is_equal_approx(
+			float(isolated_player.call("current_life")),
+			player_life_before_contact
+		),
+		"ordinary player/enemy overlap should never apply contact damage"
+	)
 	enemy.remove_from_group("active_enemies")
 	enemy.queue_free()
 	isolated_player.queue_free()
@@ -1715,10 +1727,10 @@ func _expect_enemy_player_targeting(run_loop: Node, player: Node2D) -> void:
 		_expect(String(summary.get("focus_target", "")) == expected_focus, "attacking melee archetypes should target only the player")
 	var bulwark_focus: String = String(bulwark_summary.get("focus_target", ""))
 	_expect(bulwark_focus.is_empty() or bulwark_focus == expected_focus, "home guard should target only the player or its home position")
-	_expect(String(chaser_summary.get("profile_id", "")) == "enemy_ai_chase_contact", "chaser should keep its chase profile")
-	_expect(String(swarm_summary.get("profile_id", "")) == "enemy_ai_fast_chase", "swarm should use the fast player-chase profile")
+	_expect(String(chaser_summary.get("profile_id", "")) == "enemy_ai_exploder", "chaser id should use the exploder profile")
+	_expect(String(swarm_summary.get("profile_id", "")) == "enemy_ai_melee_swarm", "swarm should use the directional melee profile")
 	_expect(String(stalker_summary.get("profile_id", "")) == "enemy_ai_charge_stalker", "stalker should use the player-charge profile")
-	_expect(String(bulwark_summary.get("profile_id", "")) == "enemy_ai_home_guard", "bulwark should use the home-guard profile")
+	_expect(String(bulwark_summary.get("profile_id", "")) == "enemy_ai_ram_bulwark", "bulwark should use the ram profile")
 	_expect(String(chaser_summary.get("action", "")) == ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET, "chaser should approach the player")
 	_expect(String(swarm_summary.get("action", "")) == ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET, "swarm should approach the player")
 	_expect(
@@ -1726,8 +1738,8 @@ func _expect_enemy_player_targeting(run_loop: Node, player: Node2D) -> void:
 		"stalker should charge or approach the player"
 	)
 	_expect(
-		[ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET, ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET, ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME].has(String(bulwark_summary.get("action", ""))),
-		"bulwark should guard home or pressure the player"
+		[ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET, ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET].has(String(bulwark_summary.get("action", ""))),
+		"bulwark should ram or approach the player without a guard-home action"
 	)
 
 	var life_before: float = float((swarm.call("snapshot") as Dictionary).get("life_points", 0.0))
@@ -1854,7 +1866,7 @@ func _expect_route_aware_enemy_perception(run_loop: Node, player: Node2D) -> voi
 	probe.set("local_reachable", true)
 	probe.set("local_next_position", Vector2(520.0, 160.0))
 	var bulwark: Node2D = _spawn_smoke_enemy(run_loop, "enemy_bulwark", "smoke_navigation_bulwark")
-	_expect(bulwark != null, "navigation smoke should spawn a home guard")
+	_expect(bulwark != null, "navigation smoke should spawn a ram bulwark")
 	if bulwark != null:
 		bulwark.global_position = Vector2(200.0, 0.0)
 		bulwark.call("configure", enemy_rows["enemy_bulwark"], player, probe)
@@ -1863,9 +1875,16 @@ func _expect_route_aware_enemy_perception(run_loop: Node, player: Node2D) -> voi
 		for _index: int in range(4):
 			await get_tree().physics_frame
 		var bulwark_summary: Dictionary = bulwark.call("ai_debug_summary")
-		_expect(String(bulwark_summary.get("action", "")) == ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME, "unaware home guard should choose its return-home action")
-		_expect(String(bulwark_summary.get("navigation_mode", "")) == "local_astar", "home guard should use the local AStar waypoint when direct return is blocked")
-		_expect(bulwark.global_position.y > 0.0, "home guard should move along its legal return waypoint")
+		_expect(
+			String(bulwark_summary.get("action", ""))
+			== ENEMY_AI_ACTIONS.AI_ACTION_APPROACH_TARGET,
+			"unaware bulwark should retain its generic approach action"
+		)
+		_expect(
+			String(bulwark_summary.get("navigation_mode", ""))
+			!= "local_astar",
+			"ram bulwark should not execute removed return-home navigation"
+		)
 		PoolManager.release(bulwark)
 
 	probe.set("reachable", true)
@@ -1896,6 +1915,630 @@ func _expect_route_aware_enemy_perception(run_loop: Node, player: Node2D) -> voi
 		_expect(_pool_stat(POOL_IDS.BULLET_BASIC, "acquired") == bullets_before, "ranged enemy should not fire through blocked terrain")
 		PoolManager.release(spitter)
 	probe.queue_free()
+
+
+func _expect_explicit_enemy_attacks(
+	run_loop: Node,
+	player: Node2D
+) -> void:
+	var player_snapshot: Dictionary = player.call("snapshot")
+	var bounds: Rect2 = _map_bounds(run_loop)
+	var origin := Vector2(
+		clampf(0.0, bounds.position.x + 480.0, bounds.end.x - 480.0),
+		clampf(0.0, bounds.position.y + 480.0, bounds.end.y - 480.0)
+	)
+	await _expect_all_enemy_bodies_are_harmless(
+		run_loop,
+		player,
+		origin
+	)
+	_expect_prearmed_exploder_defeat_rewards(
+		run_loop,
+		player,
+		origin
+	)
+	_expect_explosion_terrain_blocking(
+		run_loop,
+		player,
+		origin
+	)
+	player.call("debug_reset_transient_state", origin + Vector2(500.0, 0.0))
+
+	var first: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_chaser",
+		origin,
+		60
+	)
+	var chain_target: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_chaser",
+		origin + Vector2(48.0, 0.0),
+		50
+	)
+	var nonlethal_target: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_chaser",
+		origin + Vector2(36.0, 0.0),
+		40
+	)
+	var later_serial_victim: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_swarm",
+		origin + Vector2(72.0, 0.0),
+		30
+	)
+	var earlier_serial_victim: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_swarm",
+		origin + Vector2(84.0, 0.0),
+		20
+	)
+	var chain_nodes: Array[Node2D] = [
+		first,
+		chain_target,
+		nonlethal_target,
+		later_serial_victim,
+		earlier_serial_victim,
+	]
+	if chain_nodes.any(func(node: Node2D) -> bool: return node == null):
+		_expect(false, "explicit explosion smoke should instantiate all targets")
+		for node: Node2D in chain_nodes:
+			if node != null:
+				node.queue_free()
+		player.call("restore_snapshot", player_snapshot)
+		return
+
+	for node: Node2D in chain_nodes:
+		node.call(
+			"debug_configure_training_target",
+			200.0 if node == nonlethal_target else (
+				12.0 if node == first or node == chain_target else 6.0
+			),
+			node.global_position
+		)
+	var victim_serials: Array[int] = []
+	var victim_causes: Array[String] = []
+	var detonation_events: Array[Dictionary] = []
+	for victim: Node2D in [later_serial_victim, earlier_serial_victim]:
+		victim.connect(
+			"defeated",
+			func(
+				defeated_enemy: Node,
+				_gold_reward: int,
+				counts_as_kill: bool,
+				drops_rewards: bool,
+				cause_id: String
+			) -> void:
+				victim_serials.append(
+					int(defeated_enemy.call("runtime_spawn_serial"))
+				)
+				victim_causes.append(cause_id)
+				_expect(
+					counts_as_kill and drops_rewards,
+					"ordinary enemies killed by an explosion should keep kill and reward credit"
+				)
+		)
+	for exploder: Node2D in [first, chain_target]:
+		exploder.connect(
+			"defeated",
+			func(
+				_defeated_enemy: Node,
+				_gold_reward: int,
+				counts_as_kill: bool,
+				drops_rewards: bool,
+				cause_id: String
+			) -> void:
+				detonation_events.append({
+					"counts_as_kill": counts_as_kill,
+					"drops_rewards": drops_rewards,
+					"cause_id": cause_id,
+				})
+		)
+
+	first.call("_arm_explosion", false)
+	_expect(bool(first.call("is_armed")), "exploder should become armed immediately")
+	var frozen_windup: float = float(
+		(first.call("snapshot") as Dictionary).get("action_timer", 0.0)
+	)
+	GameState.change_state(GameState.PAUSED, {"source": "runtime_attack_pause"})
+	first.call("_physics_process", 1.0)
+	_expect(
+		is_equal_approx(
+			float(
+				(first.call("snapshot") as Dictionary).get(
+					"action_timer",
+					0.0
+				)
+			),
+			frozen_windup
+		),
+		"enemy attack windup should freeze outside PLAYING"
+	)
+	GameState.change_state(GameState.PLAYING, {"source": "runtime_attack_resume"})
+	var armed_damage: Dictionary = Combat.apply_damage(
+		first,
+		DAMAGE_INFO_SCRIPT.new().setup(
+			9999.0,
+			ELEMENTS.ELEMENT_NEUTRAL,
+			player,
+			first,
+			"team_player",
+			"team_enemy"
+		)
+	)
+	_expect(
+		not bool(armed_damage.get("applied", true)),
+		"armed exploder should reject damage immediately"
+	)
+	var pre_detonation_target_life: float = float(
+		nonlethal_target.call("current_life")
+	)
+	var armed_source_damage: Dictionary = Combat.apply_damage(
+		nonlethal_target,
+		DAMAGE_INFO_SCRIPT.new().setup(
+			1.0,
+			ELEMENTS.ELEMENT_NEUTRAL,
+			first,
+			nonlethal_target,
+			"team_enemy",
+			"team_enemy"
+		)
+	)
+	_expect(
+		not bool(armed_source_damage.get("applied", true))
+		and String(armed_source_damage.get("reason", "")) == "friendly_fire_blocked"
+		and is_equal_approx(
+			float(nonlethal_target.call("current_life")),
+			pre_detonation_target_life
+		),
+		"armed exploder should not bypass friendly fire before detonation"
+	)
+	for _index: int in range(42):
+		await get_tree().physics_frame
+	_expect(
+		bool(chain_target.call("is_armed")),
+		"a lethal explosion should arm another exploder"
+	)
+	_expect(
+		not bool(nonlethal_target.call("is_armed"))
+		and float(nonlethal_target.call("current_life")) > 0.0,
+		"a nonlethal explosion should only reduce exploder life"
+	)
+	_expect(
+		victim_serials == [20, 30],
+		"explosion victims should settle by runtime_spawn_serial"
+	)
+	var all_victim_causes_match: bool = true
+	for cause_id: String in victim_causes:
+		if cause_id != ENEMY_DEFEAT_CAUSES.ENEMY_EXPLOSION:
+			all_victim_causes_match = false
+			break
+	_expect(
+		all_victim_causes_match,
+		"ordinary explosion victims should report enemy_explosion"
+	)
+	_expect(
+		detonation_events.size() == 1,
+		"the chained exploder should not recurse in the source detonation frame"
+	)
+	var chain_snapshot: Dictionary = chain_target.call("snapshot")
+	_expect(
+		float(chain_snapshot.get("action_timer", 0.0)) > 0.0,
+		"each chain generation should retain a full delayed windup"
+	)
+	for _index: int in range(45):
+		await get_tree().physics_frame
+	_expect(
+		detonation_events.size() >= 2,
+		"the chained exploder should detonate after its own windup"
+	)
+	for event: Dictionary in detonation_events:
+		_expect(
+			not bool(event.get("counts_as_kill", true))
+			and not bool(event.get("drops_rewards", true))
+			and String(event.get("cause_id", ""))
+			== ENEMY_DEFEAT_CAUSES.EXPLODER_DETONATION,
+			"every actual exploder detonation should suppress kill and reward credit"
+		)
+
+	for node: Node2D in chain_nodes:
+		if is_instance_valid(node):
+			_release_direct_attack_enemy(node)
+	await get_tree().process_frame
+
+	player.call("debug_reset_transient_state", origin + Vector2(40.0, 0.0))
+	var melee: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_swarm",
+		origin,
+		70
+	)
+	if melee != null:
+		melee.set_physics_process(false)
+		melee.set("_current_action", ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK)
+		melee.call("_start_melee_attack")
+		player.global_position = origin + Vector2(-40.0, 0.0)
+		var defense_before_miss: float = _player_total_defense(player)
+		melee.call("_update_attack_state", 0.24)
+		_expect(
+			is_equal_approx(
+				_player_total_defense(player),
+				defense_before_miss
+			),
+			"melee should use its locked windup direction and miss a player who sidesteps behind"
+		)
+		_expect(
+			float(
+				(melee.call("snapshot") as Dictionary).get(
+					"attack_cooldown_remaining",
+					0.0
+				)
+			) > 0.0,
+			"a missed melee should still enter cooldown"
+		)
+		player.call(
+			"debug_reset_transient_state",
+			origin + Vector2(40.0, 0.0)
+		)
+		var defense_before_hit: float = _player_total_defense(player)
+		melee.set("_current_action", ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK)
+		melee.call("_start_melee_attack")
+		melee.call("_update_attack_state", 0.24)
+		_expect(
+			_player_total_defense(player) < defense_before_hit,
+			"directional melee should damage a player who remains in its front arc"
+		)
+		_release_direct_attack_enemy(melee)
+
+	player.call("debug_reset_transient_state", origin + Vector2(100.0, 0.0))
+	var charge_wall := StaticBody2D.new()
+	charge_wall.position = origin + Vector2(30.0, 0.0)
+	var charge_wall_shape := CollisionShape2D.new()
+	var charge_wall_rectangle := RectangleShape2D.new()
+	charge_wall_rectangle.size = Vector2(4.0, 160.0)
+	charge_wall_shape.shape = charge_wall_rectangle
+	charge_wall.add_child(charge_wall_shape)
+	(run_loop.get_node("ActiveWorld") as Node).add_child(charge_wall)
+	var blocked_stalker: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_stalker",
+		origin,
+		79
+	)
+	if blocked_stalker != null:
+		blocked_stalker.set_physics_process(false)
+		blocked_stalker.set(
+			"_current_action",
+			ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
+		)
+		blocked_stalker.call("_start_charge")
+		blocked_stalker.call("_update_attack_state", 0.34)
+		var blocked_defense_before: float = _player_total_defense(player)
+		blocked_stalker.call("_update_attack_state", 0.42)
+		var blocked_summary: Dictionary = blocked_stalker.call(
+			"ai_debug_summary"
+		) as Dictionary
+		_expect(
+			String(blocked_summary.get("action_state", "")).is_empty(),
+			"charge should end immediately when it collides with terrain"
+		)
+		_expect(
+			is_equal_approx(
+				_player_total_defense(player),
+				blocked_defense_before
+			),
+			"wall-stopped charge should not sweep damage through terrain"
+		)
+		_release_direct_attack_enemy(blocked_stalker)
+	charge_wall.queue_free()
+	await get_tree().physics_frame
+
+	var stalker: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_stalker",
+		origin,
+		80
+	)
+	if stalker != null:
+		stalker.set_physics_process(false)
+		stalker.set("_current_action", ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET)
+		stalker.call("_start_charge")
+		stalker.call("_update_attack_state", 0.34)
+		var stalker_defense_before: float = _player_total_defense(player)
+		stalker.call("_update_attack_state", 0.4)
+		var stalker_defense_after: float = _player_total_defense(player)
+		var stalker_position_after_hit: Vector2 = stalker.global_position
+		stalker.call("_update_attack_state", 0.01)
+		_expect(
+			stalker_defense_after < stalker_defense_before,
+			"stalker release sweep should hit a crossed player"
+		)
+		_expect(
+			is_equal_approx(
+				_player_total_defense(player),
+				stalker_defense_after
+			),
+			"one charge release should damage the player at most once"
+		)
+		_expect(
+			stalker.global_position.x > stalker_position_after_hit.x,
+			"stalker should continue its charge after a hit"
+		)
+		_release_direct_attack_enemy(stalker)
+
+	player.call("debug_reset_transient_state", origin + Vector2(50.0, 0.0))
+	player.call("debug_set_invulnerable", true)
+	var avoided_bulwark: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_bulwark",
+		origin,
+		89
+	)
+	if avoided_bulwark != null:
+		avoided_bulwark.set_physics_process(false)
+		avoided_bulwark.set(
+			"_current_action",
+			ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
+		)
+		avoided_bulwark.call("_start_charge")
+		avoided_bulwark.call("_update_attack_state", 0.48)
+		avoided_bulwark.call("_update_attack_state", 0.45)
+		_expect(
+			is_zero_approx(
+				float(player.call("external_knockback_remaining"))
+			),
+			"blocked bulwark damage should not apply external knockback"
+		)
+		_release_direct_attack_enemy(avoided_bulwark)
+	player.call("debug_reset_transient_state", origin + Vector2(50.0, 0.0))
+	var bulwark: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_bulwark",
+		origin,
+		90
+	)
+	if bulwark != null:
+		bulwark.set_physics_process(false)
+		bulwark.set("_current_action", ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET)
+		bulwark.call("_start_charge")
+		bulwark.call("_update_attack_state", 0.48)
+		bulwark.call("_update_attack_state", 0.45)
+		var bulwark_summary: Dictionary = bulwark.call("ai_debug_summary")
+		_expect(
+			String(bulwark_summary.get("action_state", "")).is_empty(),
+			"bulwark should stop its charge immediately after a hit"
+		)
+		_expect(
+			float(player.call("external_knockback_remaining")) > 0.0,
+			"successful bulwark damage should apply external player knockback"
+		)
+		_release_direct_attack_enemy(bulwark)
+
+	player.call("restore_snapshot", player_snapshot)
+	await get_tree().process_frame
+
+
+func _expect_all_enemy_bodies_are_harmless(
+	run_loop: Node,
+	player: Node2D,
+	origin: Vector2
+) -> void:
+	var original_player_snapshot: Dictionary = player.call("snapshot")
+	var enemy_ids: Array[String] = [
+		"enemy_chaser",
+		"enemy_swarm",
+		"enemy_stalker",
+		"enemy_bulwark",
+		"enemy_spitter",
+	]
+	for index: int in range(enemy_ids.size()):
+		player.call("debug_reset_transient_state", origin)
+		var enemy: Node2D = _create_direct_attack_enemy(
+			run_loop,
+			player,
+			enemy_ids[index],
+			origin,
+			100 + index
+		)
+		_expect(enemy != null, "%s should instantiate for overlap smoke" % enemy_ids[index])
+		if enemy == null:
+			continue
+		var defense_before: float = _player_total_defense(player)
+		for _frame: int in range(2):
+			await get_tree().physics_frame
+		_expect(
+			is_equal_approx(
+				_player_total_defense(player),
+				defense_before
+			),
+			"%s body overlap should not deal contact damage" % enemy_ids[index]
+		)
+		_release_direct_attack_enemy(enemy)
+	player.call("restore_snapshot", original_player_snapshot)
+
+
+func _expect_prearmed_exploder_defeat_rewards(
+	run_loop: Node,
+	player: Node2D,
+	origin: Vector2
+) -> void:
+	var exploder: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_chaser",
+		origin,
+		120
+	)
+	_expect(exploder != null, "pre-armed exploder should instantiate")
+	if exploder == null:
+		return
+	exploder.set_physics_process(false)
+	var defeat_events: Array[Dictionary] = []
+	exploder.connect(
+		"defeated",
+		func(
+			_enemy: Node,
+			_gold_reward: int,
+			counts_as_kill: bool,
+			drops_rewards: bool,
+			cause_id: String
+		) -> void:
+			defeat_events.append({
+				"counts_as_kill": counts_as_kill,
+				"drops_rewards": drops_rewards,
+				"cause_id": cause_id,
+			})
+	)
+	var damage_result: Dictionary = Combat.apply_damage(
+		exploder,
+		DAMAGE_INFO_SCRIPT.new().setup(
+			9999.0,
+			ELEMENTS.ELEMENT_NEUTRAL,
+			player,
+			exploder,
+			"team_player",
+			"team_enemy"
+		)
+	)
+	_expect(
+		bool(damage_result.get("defeated", false)),
+		"exploder should be killable before entering windup"
+	)
+	_expect(
+		defeat_events.size() == 1
+		and bool(defeat_events[0].get("counts_as_kill", false))
+		and bool(defeat_events[0].get("drops_rewards", false))
+		and String(defeat_events[0].get("cause_id", ""))
+		== ENEMY_DEFEAT_CAUSES.PLAYER_DAMAGE,
+		"pre-windup exploder defeat should keep kill and reward credit"
+	)
+
+
+func _expect_explosion_terrain_blocking(
+	run_loop: Node,
+	player: Node2D,
+	origin: Vector2
+) -> void:
+	var player_snapshot: Dictionary = player.call("snapshot")
+	player.call("debug_reset_transient_state", origin + Vector2(40.0, 0.0))
+	var probe := NavigationProbe.new()
+	probe.line_of_sight = false
+	run_loop.add_child(probe)
+	var source: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_chaser",
+		origin,
+		130,
+		probe
+	)
+	var victim: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_swarm",
+		origin + Vector2(30.0, 0.0),
+		131,
+		probe
+	)
+	_expect(
+		source != null and victim != null,
+		"terrain-blocked explosion fixture should instantiate"
+	)
+	if source == null or victim == null:
+		_release_direct_attack_enemy(source)
+		_release_direct_attack_enemy(victim)
+		player.call("restore_snapshot", player_snapshot)
+		probe.queue_free()
+		return
+	source.set_physics_process(false)
+	victim.set_physics_process(false)
+	var defense_before: float = _player_total_defense(player)
+	var victim_life_before: float = float(victim.call("current_life"))
+	source.call("_arm_explosion", false)
+	source.call("_update_armed_state", 0.65)
+	_expect(
+		is_equal_approx(
+			_player_total_defense(player),
+			defense_before
+		),
+		"terrain line of sight should block explosion damage to the player"
+	)
+	_expect(
+		is_equal_approx(
+			float(victim.call("current_life")),
+			victim_life_before
+		),
+		"terrain line of sight should block explosion damage to enemies"
+	)
+	_release_direct_attack_enemy(victim)
+	player.call("restore_snapshot", player_snapshot)
+	probe.queue_free()
+
+
+func _create_direct_attack_enemy(
+	run_loop: Node,
+	player: Node2D,
+	enemy_id: String,
+	position: Vector2,
+	serial: int,
+	navigation_provider: Node = null
+) -> Node2D:
+	var enemy_rows: Dictionary = run_loop.get("_enemy_rows") as Dictionary
+	if not enemy_rows.has(enemy_id):
+		return null
+	var enemy_data: Dictionary = enemy_rows[enemy_id] as Dictionary
+	var enemy: Node2D = PoolManager.acquire(
+		String(enemy_data.get("pool_id", ""))
+	) as Node2D
+	var active_world: Node = run_loop.get_node_or_null("ActiveWorld")
+	if enemy == null or active_world == null:
+		return null
+	var old_parent: Node = enemy.get_parent()
+	if old_parent != null and old_parent != active_world:
+		old_parent.remove_child(enemy)
+	if enemy.get_parent() != active_world:
+		active_world.add_child(enemy)
+	enemy.global_position = position
+	enemy.call(
+		"configure",
+		enemy_data,
+		player,
+		navigation_provider,
+		{
+			"health_multiplier": 1.0,
+			"damage_multiplier": 1.0,
+		}
+	)
+	enemy.call("set_runtime_spawn_serial", serial)
+	return enemy
+
+
+func _release_direct_attack_enemy(enemy: Node2D) -> void:
+	if (
+		enemy != null
+		and is_instance_valid(enemy)
+		and enemy.is_in_group("active_enemies")
+	):
+		PoolManager.release(enemy)
+
+
+func _player_total_defense(player: Node2D) -> float:
+	return (
+		float(player.call("current_life"))
+		+ float(player.call("current_shield"))
+		+ float(player.call("current_overshield"))
+	)
 
 
 func _expect_ranged_enemy_projectile_damage(run_loop: Node, player: Node2D) -> void:
@@ -2100,8 +2743,6 @@ func _expect_gold_orb_draw_order(run_loop: Node, player: Node2D) -> void:
 	var enemy_data: Dictionary = {
 		"max_hp": 6,
 		"move_speed": 0.0,
-		"contact_damage": 0,
-		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
 		"gold_reward": 0,
 		"hit_radius": 14.0,
 		"separation_radius": 0.0,
@@ -2636,23 +3277,35 @@ func _expect_reward_choice_pause_overlay(run_loop: Node) -> void:
 
 
 func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
+	var saved_attack_enemy: Node2D = _spawn_smoke_enemy(
+		run_loop,
+		"enemy_chaser",
+		"smoke_attack_restore"
+	)
+	var saved_attack_serial: int = 0
+	if saved_attack_enemy != null:
+		saved_attack_enemy.set_physics_process(false)
+		saved_attack_enemy.call("_arm_explosion", false)
+		saved_attack_serial = int(
+			saved_attack_enemy.call("runtime_spawn_serial")
+		)
 	player.call(
 		"apply_weapon_recoil",
 		player.get("aim_direction") as Vector2,
 		70.0,
 		0.08
 	)
-	var saved_recoil_velocity: Vector2 = player.call(
-		"weapon_recoil_velocity"
-	) as Vector2
-	var saved_recoil_remaining: float = float(
-		player.call("weapon_recoil_remaining")
+	_expect(
+		bool(
+			player.call(
+				"apply_external_knockback",
+				Vector2.RIGHT,
+				48.0,
+				0.15
+			)
+		),
+		"pause-save fixture should start external enemy knockback"
 	)
-	var saved_position: Vector2 = player.global_position
-	var saved_level: int = int(run_loop.call("current_level"))
-	var saved_gold_balance: int = int(run_loop.call("gold_balance"))
-	var saved_gold_total: int = int(run_loop.call("gold_earned_total"))
-	var saved_time: float = GameClock.now()
 
 	await _push_action_once(ACTIONS.PAUSE)
 	var pause_menu: Node = null
@@ -2668,6 +3321,33 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 			"run_loop": run_loop,
 			"player": player,
 		}
+	var saved_recoil_velocity: Vector2 = player.call(
+		"weapon_recoil_velocity"
+	) as Vector2
+	var saved_recoil_remaining: float = float(
+		player.call("weapon_recoil_remaining")
+	)
+	var saved_knockback_velocity: Vector2 = player.call(
+		"external_knockback_velocity"
+	) as Vector2
+	var saved_knockback_remaining: float = float(
+		player.call("external_knockback_remaining")
+	)
+	var saved_position: Vector2 = player.global_position
+	var saved_level: int = int(run_loop.call("current_level"))
+	var saved_gold_balance: int = int(run_loop.call("gold_balance"))
+	var saved_gold_total: int = int(run_loop.call("gold_earned_total"))
+	var saved_time: float = GameClock.now()
+	var saved_attack_timer: float = (
+		float(
+			(saved_attack_enemy.call("snapshot") as Dictionary).get(
+				"action_timer",
+				0.0
+			)
+		)
+		if saved_attack_enemy != null
+		else 0.0
+	)
 	await _verify_pause_settings_entry(pause_menu)
 
 	var paused_time: float = GameClock.now()
@@ -2736,6 +3416,40 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 		),
 		"continue should restore active weapon recoil remaining time"
 	)
+	_expect(
+		(restored_player.call("external_knockback_velocity") as Vector2).is_equal_approx(
+			saved_knockback_velocity
+		),
+		"continue should restore active enemy knockback velocity"
+	)
+	_expect(
+		is_equal_approx(
+			float(restored_player.call("external_knockback_remaining")),
+			saved_knockback_remaining
+		),
+		"continue should restore active enemy knockback remaining time"
+	)
+	var restored_attack_enemy: Node = _enemy_by_spawn_serial(
+		saved_attack_serial
+	)
+	_expect(
+		restored_attack_enemy != null
+		and bool(restored_attack_enemy.call("is_armed")),
+		"continue should restore an armed exploder without rerolling its state"
+	)
+	if restored_attack_enemy != null:
+		var restored_attack_snapshot: Dictionary = restored_attack_enemy.call(
+			"snapshot"
+		) as Dictionary
+		_expect(
+			String(restored_attack_snapshot.get("action_state", ""))
+			== "armed_windup"
+			and is_equal_approx(
+				float(restored_attack_snapshot.get("action_timer", 0.0)),
+				saved_attack_timer
+			),
+			"continue should restore the exact remaining exploder windup"
+		)
 	_expect(int(restored_run_loop.call("current_level")) == saved_level, "continue should restore level")
 	_expect(int(restored_run_loop.call("gold_balance")) == saved_gold_balance, "continue should restore gold balance")
 	_expect(int(restored_run_loop.call("gold_earned_total")) == saved_gold_total, "continue should restore earned gold total")
@@ -2762,6 +3476,18 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 		"run_loop": restored_run_loop,
 		"player": restored_player,
 	}
+
+
+func _enemy_by_spawn_serial(spawn_serial: int) -> Node:
+	if spawn_serial <= 0:
+		return null
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if (
+			enemy.has_method("runtime_spawn_serial")
+			and int(enemy.call("runtime_spawn_serial")) == spawn_serial
+		):
+			return enemy
+	return null
 
 
 func _find_first_button(root_node: Node) -> Button:

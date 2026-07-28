@@ -22,7 +22,7 @@
 | 选择 / 调整视觉效果 | `visual_effects.json`、`presentation_profiles.json` | 内容数据只引用 `presentation_profile_id`；在 Godot 的“VFX 效果库”中预览和绑定，不手抄字符串 |
 | 改英雄主属性 / 被动 / 两个英雄技能 / 配色 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；主英雄提供属性被动和技能 1/2，子英雄只提供强调色和技能 3/4 |
 | 改武器射速 / 后坐力 / 弹道扩散 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；后坐力与基础扩散受根级 `recoil_model` 限制，子弹池、元素和音频前缀必须来自词表 |
-| 改敌人血量 / 速度 / 接触伤害 / 中心间距 | `enemies.csv` | 每个敌人使用独立 `pool_id`，`scene_path` 可复用；颜色与静态轮廓在专属 TSCN 中编辑 |
+| 改敌人血量 / 速度 / 金币奖励 / 中心间距 | `enemies.csv` | 显式攻击参数统一在 `enemy_ai_profiles.json.actions[].attack`；每个敌人使用独立 `pool_id` |
 | 改敌人对玩家 AI | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；敌人的感知与战斗目标固定为玩家 |
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
 | 改地图边界 / 矩形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是轴对齐矩形，必须分别整除 `grid.cell_width` / `grid.cell_height`；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法矩形格锚点 |
@@ -57,7 +57,7 @@
 | `skills.json` | 已建立 | 可复用技能：冷却、资源消耗、目标选择和技能效果原语 |
 | `consumables.json` | 已建立 | 消耗品：堆叠数量、拾取数量、效果原语与参数 |
 | `enemy_ai_profiles.json` | 已建立 | 敌人对玩家 AI profile：感知、动作列表、冲锋 / 守家 / 远程等行为参数 |
-| `enemies.csv` | 已建立 | 敌人基础数值平表：专属场景、独立对象池、预热数量、生命、移速、接触伤害和金币奖励等 |
+| `enemies.csv` | 已建立 | 敌人基础数值平表：专属场景、独立对象池、预热数量、生命、移速、金币奖励和碰撞 / 分离半径 |
 | `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、占格尺寸、持续时间 |
 | `map_layouts.json` | 已建立 | 有限地图配置：矩形地图边界、矩形格尺寸、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
 | `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、兴趣点 / 机关组合和阶段启用 wave |
@@ -201,10 +201,10 @@ user://mods/my_first_mod/
 CSV 示例：
 
 ```csv
-id,max_hp,move_speed,contact_damage,gold_reward
-slime,20,90,1,3
-bat,12,150,1,2
-brute,80,60,2,10
+id,max_hp,move_speed,gold_reward
+slime,20,90,3
+bat,12,150,2
+brute,80,60,10
 ```
 
 JSON 示例：
@@ -582,8 +582,8 @@ JSON 示例：
 当前结构：
 
 ```csv
-id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,max_hp,move_speed,contact_damage,contact_interval,element_id,gold_reward,hit_radius,separation_radius
-enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/actors/enemies/enemy_chaser.tscn,8,enemy_ai_chase_contact,12,110.0,100,0.7,element_neutral,3,14.0,9.0
+id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,presentation_profile_id,max_hp,move_speed,gold_reward,hit_radius,separation_radius
+enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/actors/enemies/enemy_chaser.tscn,8,enemy_ai_exploder,presentation_enemy_exploder,12,110.0,3,14.0,9.0
 ```
 
 字段说明：
@@ -597,16 +597,14 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/acto
 | `scene_path` | string | `res://scenes/gameplay/actors/enemies/*.tscn`，文件存在且为 `PackedScene` | 专属敌人继承场景；不同内容 id 可以引用同一场景，但不能指向 `enemy_base.tscn` |
 | `pool_prewarm` | int | `>= 0` | 本敌人独立池的开局预热数量；当前五种敌人合计仍为 28 |
 | `ai_profile_id` | string | 必须存在于 `enemy_ai_profiles.json` | 运行时使用的对玩家 AI profile；决定动作集合与行为参数 |
+| `presentation_profile_id` | string | 必须存在于 `presentation_profiles.json` | 敌人语义表现 profile；显式攻击前摇和提交通过 cue 解析 |
 | `max_hp` | int | `>= 1` | 敌人最大生命 |
 | `move_speed` | number | `> 0`，px/s | 敌人基础移动速度 |
-| `contact_damage` | int | `>= 0` | 接触伤害；当前按 600.0 玩家初始生命尺度调参，运行时必须经 `Combat.apply_damage` 结算 |
-| `contact_interval` | float | 秒，`> 0` | 同一敌人的接触伤害间隔 |
-| `element_id` | string | 词表 §9 element id | 接触伤害元素 |
 | `gold_reward` | int | `>= 0` | 玩家归因击杀后由单个实体金币球携带的金币奖励；当前敌人保留 2–6 |
-| `hit_radius` | number | `> 0`，px | 命中 / 接触半径边界，后续碰撞体或占位图可据此生成 |
+| `hit_radius` | number | `> 0`，px | 实体命中半径；冲撞扫掠会与玩家命中半径相加 |
 | `separation_radius` | number | `>= 0`，px | 敌人中心排斥半径；小于 `hit_radius` 时允许视觉重叠但避免中心完全重合 |
 
-`enemies.csv` 只声明敌人场景绑定、对象池 / 预热、基础数值、通用内容 tag 和 AI profile 引用边界；静态颜色、轮廓和可编辑子节点由专属继承 TSCN 管理，运行时 `configure()` 不得用 CSV 覆盖。具体对玩家感知、动作评分和执行由 `enemy_ai_profiles.json` 与 `EnemyAI` 运行时解释。敌人不得把其他敌人设为战斗目标，`team_enemy` 来源的伤害由 `Enemy.receive_damage()` 拒绝；中心分离只用于防重叠。游戏模式可通过 `resource_pools.enemies` 声明可用敌人池；实际波次选择、生成位置、对象池生命周期和伤害结算由 `Spawner`、`PoolManager`、`Combat` 与 `EnemyAI` 系统负责。
+`enemies.csv` 不再携带任何通用接触伤害字段。敌人身体重叠、推挤和中心分离只影响位置，永远不直接造成伤害；爆炸、近战、冲撞和远程投射物必须由 `enemy_ai_profiles.json.actions[].attack` 显式定义并走 `Combat.apply_damage()`。`team_enemy` 默认仍被拒绝，只有已提交的爆猎者爆炸可对敌人结算。
 
 ## `enemy_ai_profiles.json`
 
@@ -614,7 +612,7 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/acto
 
 ```json
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "profiles": [
     {
       "id": "enemy_ai_charge_stalker",
@@ -630,15 +628,26 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/acto
         "territory_weight": 0.0
       },
       "movement": {
-        "orbit_radius": 190.0,
-        "charge_range": 320.0,
-        "charge_windup": 0.34,
-        "charge_duration": 0.42,
-        "charge_cooldown": 1.4,
-        "charge_speed_scale": 2.65
+        "orbit_radius": 190.0
       },
       "actions": [
-        { "id": "ai_action_charge_target", "base_score": 0.95, "speed_scale": 1.0 },
+        {
+          "id": "ai_action_charge_target",
+          "base_score": 0.95,
+          "speed_scale": 1.0,
+          "attack": {
+            "trigger_range": 320.0,
+            "windup": 0.34,
+            "release_duration": 0.42,
+            "cooldown": 1.4,
+            "damage": 160.0,
+            "element_id": "element_neutral",
+            "speed_multiplier": 2.65,
+            "stop_on_hit": false,
+            "knockback_distance": 0.0,
+            "knockback_duration": 0.0
+          }
+        },
         { "id": "ai_action_approach_target", "base_score": 0.65, "speed_scale": 1.05 }
       ]
     }
@@ -650,7 +659,7 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/acto
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `3` | 数据结构版本；旧 `sense_radius` 与种间交互字段会被双端 schema 明确拒绝 |
+| `schema_version` | int | 必须为 `4` | 数据结构版本；旧接触字段、`sense_radius` 和旧 `movement` 攻击字段会被双端 schema 明确拒绝 |
 | `profiles[].id` | string | 文件内唯一，非空 | AI profile id；由 `enemies.csv.ai_profile_id` 引用 |
 | `profiles[].perception.sight_radius` | number | `> 0`，px | 地形视线畅通时的玩家视觉感知半径；首版为 360° 视野 |
 | `profiles[].perception.path_awareness_radius` | number | `>= 0` 且不大于 `sight_radius`，px | 隔墙但路径可达时，按共享流场路径距离感知玩家的半径 |
@@ -660,36 +669,47 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/acto
 | `targeting.territory_radius` | number | `>= 0`，px | 离出生点超过该距离时，守家动作会加分 |
 | `targeting.territory_weight` | number | `>= 0` | 超出领地半径后的回家倾向权重 |
 | `movement.orbit_radius` | number | `>= 0`，px | 环绕目标的期望半径 |
-| `movement.charge_range` | number | `>= 0`，px | 进入冲锋评分的最大距离；0 表示不冲锋 |
-| `movement.charge_windup` / `charge_duration` / `charge_cooldown` | number | `>= 0`，秒 | 冲锋蓄力、释放和冷却时间 |
-| `movement.charge_speed_scale` | number | `>= 0` | 冲锋释放阶段速度倍率 |
-| `movement.ranged_attack_range` | number | `> 0`，px；仅远程 action 需要 | 远程攻击可开火的最大距离 |
-| `movement.ranged_keep_distance` | number | `>= 0`，px；可选 | 远程敌人低于该距离时尝试后撤 |
-| `movement.ranged_cooldown` | number | `> 0`，秒；仅远程 action 需要 | 远程投射物发射间隔 |
-| `movement.ranged_initial_cooldown` | number | `>= 0`，秒；可选 | 生成后首次远程开火前的延迟 |
-| `movement.ranged_projectile_damage` | number | `> 0` | 远程投射物伤害，运行时走 `Combat.apply_damage()` |
-| `movement.ranged_projectile_element_id` | string | 词表 §9 element id；可选 | 远程投射物元素，缺省时回退到敌人接触元素 |
-| `movement.ranged_projectile_speed` | number | `> 0`，px/s | 远程投射物速度 |
-| `movement.ranged_projectile_range` | number | `> 0`，px | 远程投射物最大射程 |
-| `movement.ranged_projectile_hit_radius` | number | `> 0`，px | 远程投射物命中半径 |
-| `movement.ranged_projectile_lifetime` | number | `> 0`，秒 | 远程投射物最大存活时间 |
-| `movement.ranged_projectile_muzzle_distance` | number | `>= 0`，px；可选 | 远程投射物从敌人中心外偏移发射的距离 |
 | `actions[]` | array[object] | 至少 1 个 | 此 profile 可参与评分的动作列表 |
 | `actions[].id` | string | 词表 §12-B enemy AI action | 动作 id；运行时通过生成常量解释 |
 | `actions[].base_score` | number | `>= 0` | 动作基础分；越高越容易选中 |
-| `actions[].speed_scale` | number | `>= 0` | 执行该动作时的移动速度倍率 |
+| `actions[].speed_scale` | number | `> 0` | 执行该动作时的移动速度倍率 |
+| `actions[].attack` | object | 攻击 action 必填；非攻击 action 禁止 | 显式攻击参数；按 action 类型使用精确字段集合 |
+| `actions[].attack.trigger_range` | number | `> 0`，px | 爆炸、近战或冲撞进入评分的最大距离 |
+| `actions[].attack.windup` | number | `> 0`，秒 | 攻击前摇；爆猎者进入此前摇后即不可逆 |
+| `actions[].attack.release_duration` | number | `> 0`，秒；仅冲撞 | 冲撞释放持续时间 |
+| `actions[].attack.cooldown` | number | `> 0`，秒 | 近战、冲撞或远程攻击冷却 |
+| `actions[].attack.damage` | number | `> 0` | 基础伤害；仅该值受生成时难度伤害倍率缩放 |
+| `actions[].attack.element_id` | string | 词表 §9 element id | 显式攻击伤害元素 |
+| `actions[].attack.radius` | number | `> 0`，px；仅爆炸 | 爆炸半径，无距离衰减 |
+| `actions[].attack.range` | number | `> 0`，px；仅近战 | 方向扇区半径 |
+| `actions[].attack.arc_degrees` | number | `0 < value <= 360`；仅近战 | 锁定方向的扇区夹角 |
+| `actions[].attack.speed_multiplier` | number | `> 0`；仅冲撞 | 冲撞释放阶段速度倍率 |
+| `actions[].attack.stop_on_hit` | bool | `true` / `false`；仅冲撞 | 命中后是否立即结束冲撞 |
+| `actions[].attack.knockback_distance` | number | `>= 0`，px；仅冲撞 | 玩家敌人击退距离；与时长同时为零或同时为正 |
+| `actions[].attack.knockback_duration` | number | `>= 0`，秒；仅冲撞 | 玩家敌人击退时长 |
+| `actions[].attack.attack_range` | number | `> 0`，px；仅远程 | 远程攻击可发射的最大距离 |
+| `actions[].attack.keep_distance` | number | `>= 0`，px；仅远程 | 低于该距离时尝试后撤 |
+| `actions[].attack.initial_cooldown` | number | `>= 0`，秒；仅远程 | 生成后的首次开火延迟 |
+| `actions[].attack.projectile.pool_id` | string | 词表 §8 pool id | 远程投射物对象池 |
+| `actions[].attack.projectile.speed` | number | `> 0`，px/s | 投射物速度 |
+| `actions[].attack.projectile.range` | number | `> 0`，px | 投射物最大射程 |
+| `actions[].attack.projectile.hit_radius` | number | `> 0`，px | 投射物命中半径 |
+| `actions[].attack.projectile.lifetime` | number | `> 0`，秒 | 投射物最大存活时间 |
+| `actions[].attack.projectile.muzzle_distance` | number | `>= 0`，px | 投射物从敌人中心的发射偏移 |
 
 当前动作：
 
 | action id | 行为 |
 |-----------|------|
-| `ai_action_approach_target` | 接近玩家 |
+| `ai_action_approach_target` | 接近玩家，不造成伤害 |
 | `ai_action_orbit_target` | 在目标附近绕行，预留给远程 / 试探型敌人 |
-| `ai_action_charge_target` | 近距离进入蓄力和冲锋释放 FSM |
+| `ai_action_explode_target` | 有地形视线时进入不可逆爆炸前摇，并按稳定生成序结算玩家和其他敌人 |
+| `ai_action_melee_attack` | 锁定前摇方向，提交时结算前方扇区 |
+| `ai_action_charge_target` | 锁定方向后进入前摇和线段扫掠冲撞，每次释放最多命中一次 |
 | `ai_action_guard_home` | 离出生点太远时返回领地 |
-| `ai_action_ranged_attack` | 保持距离并发射池化投射物；投射参数来自 `movement.ranged_*` 字段 |
+| `ai_action_ranged_attack` | 保持距离并发射池化投射物 |
 
-调参建议：先改 `base_score`，再改速度 / 半径；远程敌人先调 `ranged_cooldown`、`ranged_projectile_speed` 和 `ranged_keep_distance`，避免命中过密或玩家无法贴近。大幅改变稳定行为后需要跑 `runtime-smoke` 和 golden replay；性能测试仅在用户明确要求时运行。新增 action 必须先登记 `docs/词表与契约.md` §12-B，再同步生成常量、schema、`docs/代码/enemy_ai.md` 和测试。schema v2 不接受旧的接触间隔、猎食 / 逃跑目标数组或逃跑距离字段。
+调参建议：先改 `base_score`，再改 `attack` 的距离 / 时间；远程敌人优先调 `cooldown`、`projectile.speed` 和 `keep_distance`。大幅改变稳定行为后需要重录并重跑四条 golden replay；性能测试仅在用户明确要求时运行。新增 action 必须先登记 `docs/词表与契约.md` §12-B，再同步生成常量、schema、`docs/代码/enemy_ai.md` 和测试。
 
 ## `hazards.csv`
 
@@ -914,7 +934,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `worlds[].id` | string | 唯一、非空 | 世界 id；Run v7 的 `module_world` 子快照保存此值 |
+| `worlds[].id` | string | 唯一、非空 | 世界 id；Run v8 的 `module_world` 子快照保存此值 |
 | `worlds[].columns` / `worlds[].rows` | int | 首版固定 `9` | 模块槽位宽高 |
 | `worlds[].module_columns` / `worlds[].module_rows` | int | 首版固定 `11` | 单模块局部格宽高 |
 | `worlds[].cell_size` | int | `> 0`，默认 `160` | 同一世界统一的方格边长，单位 px |
@@ -943,7 +963,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `first_visit_enemy_spawn.enemy_pool[].unlock_time` | number | 非负、按数组非递减，首项为 `0` | 敌种开始参与抽取的 `GameClock` 局内时间 |
 | `first_visit_enemy_spawn.enemy_pool[].weight` | number | `> 0` | 已解锁敌种的相对权重 |
 
-“可刷怪空地”由 `ModuleWorldManager.empty_floor_positions_at()` 按世界槽位计算：世界旋转、外圈封边和封锁邻居处理后仍为 floor，并排除任何 gameplay placement 的 `cell` / 完整 `footprint`。它不检查玩家、敌人或其他动态实体占位，也不设置安全半径。返回位置固定为格心并按行、列稳定排序；`GameplayRunLoop` 使用 `RNG.spawn` 无放回抽取位置，并按同一 RNG 子流抽取当时按威胁时间已解锁的敌种。抽取结果、`telegraphing/spawned` 状态和剩余预警时间立即写入 Run v7 槽位状态，之后不得重抽；敌人的生命 / 伤害倍率在预警结束真正生成时取得，不写入预警计划。
+“可刷怪空地”由 `ModuleWorldManager.empty_floor_positions_at()` 按世界槽位计算：世界旋转、外圈封边和封锁邻居处理后仍为 floor，并排除任何 gameplay placement 的 `cell` / 完整 `footprint`。它不检查玩家、敌人或其他动态实体占位，也不设置安全半径。返回位置固定为格心并按行、列稳定排序；`GameplayRunLoop` 使用 `RNG.spawn` 无放回抽取位置，并按同一 RNG 子流抽取当时按威胁时间已解锁的敌种。抽取结果、`telegraphing/spawned` 状态和剩余预警时间立即写入 Run v8 槽位状态，之后不得重抽；敌人的生命 / 显式攻击伤害倍率在预警结束真正生成时取得，不写入预警计划。
 
 `module_templates.json` 字段：
 

@@ -4,7 +4,7 @@
 [ext_resource type="Script" path="res://scripts/gameplay/presentation/actor_presentation_controller.gd" id="2_presentation"]
 [ext_resource type="Script" uid="uid://b8t5v1sfogtt1" path="res://scripts/combat/status_effect_component.gd" id="2_xi12d"]
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_enemy"]
+[sub_resource type="CircleShape2D" id="CircleShape2D_xi12d"]
 resource_local_to_scene = true
 radius = 14.0
 
@@ -12,7 +12,11 @@ radius = 14.0
 resource_name = "RESET"
 length = 0.001
 tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
 tracks/0/path = NodePath(".:hit_progress")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
 tracks/0/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
@@ -20,7 +24,11 @@ tracks/0/keys = {
 "values": [-1.0]
 }
 tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
 tracks/1/path = NodePath(".:defeat_progress")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
 tracks/1/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
@@ -28,27 +36,33 @@ tracks/1/keys = {
 "values": [-1.0]
 }
 
-[sub_resource type="Animation" id="Animation_enemy_hit"]
-resource_name = "hit"
-length = 0.16
+[sub_resource type="Animation" id="Animation_enemy_defeat"]
+resource_name = "defeat"
+length = 0.18
 tracks/0/type = "value"
-tracks/0/path = NodePath(".:hit_progress")
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:defeat_progress")
 tracks/0/interp = 1
+tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.16),
+"times": PackedFloat32Array(0, 0.18),
 "transitions": PackedFloat32Array(1, 1),
 "update": 0,
 "values": [0.0, 1.0]
 }
 
-[sub_resource type="Animation" id="Animation_enemy_defeat"]
-resource_name = "defeat"
-length = 0.18
+[sub_resource type="Animation" id="Animation_enemy_hit"]
+resource_name = "hit"
+length = 0.16
 tracks/0/type = "value"
-tracks/0/path = NodePath(".:defeat_progress")
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:hit_progress")
 tracks/0/interp = 1
+tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.18),
+"times": PackedFloat32Array(0, 0.16),
 "transitions": PackedFloat32Array(1, 1),
 "update": 0,
 "values": [0.0, 1.0]
@@ -66,7 +80,7 @@ collision_layer = 0
 script = ExtResource("1_icmfh")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1963841816]
-shape = SubResource("CircleShape2D_enemy")
+shape = SubResource("CircleShape2D_xi12d")
 
 [node name="Visual" type="Node2D" parent="." unique_id=1367850400]
 scale = Vector2(14, 14)
@@ -89,30 +103,44 @@ polygon = PackedVector2Array(0.25, 0, 0.177, 0.177, 0, 0.25, -0.177, 0.177, -0.2
 position = Vector2(0.35, -0.2)
 polygon = PackedVector2Array(0.152, 0, 0.107, 0.107, 0, 0.152, -0.107, 0.107, -0.152, 0, -0.107, -0.107, 0, -0.152, 0.107, -0.107)
 
-[node name="Presentation" type="Node" parent="."]
+[node name="ExploderCoreOutline" type="Polygon2D" parent="Visual" unique_id=775451178]
+visible = false
+polygon = PackedVector2Array(0.52, 0, 0.368, 0.368, 0, 0.52, -0.368, 0.368, -0.52, 0, -0.368, -0.368, 0, -0.52, 0.368, -0.368)
+
+[node name="ExploderCore" type="Polygon2D" parent="Visual" unique_id=150120673]
+visible = false
+polygon = PackedVector2Array(0.38, 0, 0.269, 0.269, 0, 0.38, -0.269, 0.269, -0.38, 0, -0.269, -0.269, 0, -0.38, 0.269, -0.269)
+
+[node name="BulwarkArmorOutline" type="Polygon2D" parent="Visual" unique_id=1670532312]
+visible = false
+polygon = PackedVector2Array(1.18, -0.93, 0.5, -0.93, 0.42, 0, 0.5, 0.93, 1.18, 0.93)
+
+[node name="BulwarkArmor" type="Polygon2D" parent="Visual" unique_id=1952458699]
+visible = false
+polygon = PackedVector2Array(1.02, -0.76, 0.62, -0.76, 0.56, 0, 0.62, 0.76, 1.02, 0.76)
+
+[node name="Presentation" type="Node" parent="." unique_id=1379745741]
 script = ExtResource("2_presentation")
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="Presentation"]
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Presentation" unique_id=541529988]
 callback_mode_process = 2
-libraries = {
-&"": SubResource("AnimationLibrary_enemy")
-}
+libraries/ = SubResource("AnimationLibrary_enemy")
 
-[node name="VfxAnchors" type="Node2D" parent="."]
+[node name="VfxAnchors" type="Node2D" parent="." unique_id=1196075993]
 
-[node name="Center" type="Marker2D" parent="VfxAnchors"]
+[node name="Center" type="Marker2D" parent="VfxAnchors" unique_id=362153759]
 
-[node name="Ground" type="Marker2D" parent="VfxAnchors"]
+[node name="Ground" type="Marker2D" parent="VfxAnchors" unique_id=2124976668]
 position = Vector2(0, 14)
 
-[node name="Overhead" type="Marker2D" parent="VfxAnchors"]
+[node name="Overhead" type="Marker2D" parent="VfxAnchors" unique_id=528046117]
 position = Vector2(0, -20)
 
-[node name="Status" type="Marker2D" parent="VfxAnchors"]
+[node name="Status" type="Marker2D" parent="VfxAnchors" unique_id=1701032781]
 
-[node name="Forward" type="Node2D" parent="VfxAnchors"]
+[node name="Forward" type="Node2D" parent="VfxAnchors" unique_id=782237689]
 
-[node name="Muzzle" type="Marker2D" parent="VfxAnchors/Forward"]
+[node name="Muzzle" type="Marker2D" parent="VfxAnchors/Forward" unique_id=134234061]
 position = Vector2(18, 0)
 
 [node name="StatusEffectComponent" type="Node" parent="." unique_id=1819897251]

@@ -22,10 +22,10 @@ func _run() -> void:
 		Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES, true)
 	)
 
-	_expect(VisualEffects.effect_ids().size() == 15, "catalog should expose 15 effects")
+	_expect(VisualEffects.effect_ids().size() == 19, "catalog should expose 19 effects")
 	_expect(
-		VisualEffects.profile_ids().size() == 10,
-		"catalog should expose 10 presentation profiles"
+		VisualEffects.profile_ids().size() == 13,
+		"catalog should expose 13 presentation profiles"
 	)
 	_expect(
 		not VisualEffects.resolve_binding(
@@ -62,6 +62,34 @@ func _run() -> void:
 	_expect(
 		(defeat_binding.get("effects", []) as Array).size() == 2,
 		"enemy defeat should include target animation and detached aftermath"
+	)
+	_expect(
+		not VisualEffects.resolve_binding(
+			"presentation_enemy_exploder",
+			"enemy_attack_telegraph"
+		).is_empty(),
+		"exploder profile should resolve its circular attack telegraph"
+	)
+	_expect(
+		not VisualEffects.resolve_binding(
+			"presentation_enemy_melee",
+			"enemy_attack_telegraph"
+		).is_empty(),
+		"melee profile should resolve its directional wedge telegraph"
+	)
+	_expect(
+		not VisualEffects.resolve_binding(
+			"presentation_enemy_charge",
+			"enemy_attack_telegraph"
+		).is_empty(),
+		"charge profile should resolve its lane telegraph"
+	)
+	_expect(
+		not VisualEffects.resolve_binding(
+			"presentation_enemy_exploder",
+			"enemy_attack_impact"
+		).is_empty(),
+		"exploder profile should resolve its detached impact effect"
 	)
 	_expect_export_exclusions()
 

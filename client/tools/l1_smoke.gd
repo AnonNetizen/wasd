@@ -5,6 +5,7 @@ const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const ELEMENTS := preload("res://scripts/contracts/elements.gd")
+const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
 const ELEMENT_RESOLVER_SCRIPT := preload("res://scripts/data/element_resolver.gd")
 const DIFFICULTY_PROGRESSION_SCRIPT := preload(
 	"res://scripts/data/difficulty_progression.gd"
@@ -276,16 +277,29 @@ func _expect_enemy_difficulty_spawn_scaling() -> void:
 	var enemy_data: Dictionary = _l1_enemy_data()
 	enemy_data["max_hp"] = 100.0
 	enemy_data["move_speed"] = 84.0
-	enemy_data["contact_damage"] = 10.0
 	enemy_data["ai_profile"] = {
-		"movement": {
-			"ranged_projectile_damage": 12.0,
-			"ranged_projectile_speed": 600.0,
-			"ranged_projectile_range": 500.0,
-			"ranged_projectile_hit_radius": 4.0,
-			"ranged_projectile_lifetime": 1.0,
-			"ranged_projectile_muzzle_distance": 0.0,
-		},
+		"movement": {"orbit_radius": 0.0},
+		"actions": [{
+			"id": ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK,
+			"base_score": 1.0,
+			"speed_scale": 1.0,
+			"attack": {
+				"attack_range": 500.0,
+				"keep_distance": 0.0,
+				"cooldown": 1.0,
+				"initial_cooldown": 0.0,
+				"damage": 12.0,
+				"element_id": ELEMENTS.ELEMENT_NEUTRAL,
+				"projectile": {
+					"pool_id": POOL_IDS.BULLET_BASIC,
+					"speed": 600.0,
+					"range": 500.0,
+					"hit_radius": 4.0,
+					"lifetime": 1.0,
+					"muzzle_distance": 0.0,
+				},
+			},
+		}],
 	}
 	enemy.call(
 		"configure",
@@ -297,6 +311,7 @@ func _expect_enemy_difficulty_spawn_scaling() -> void:
 			"damage_multiplier": 1.4992,
 		}
 	)
+	enemy.set("_current_action", ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK)
 	var ai_summary: Dictionary = enemy.call("ai_debug_summary")
 	_expect(
 		is_equal_approx(float(enemy.call("max_life")), 204.0),
@@ -304,17 +319,10 @@ func _expect_enemy_difficulty_spawn_scaling() -> void:
 	)
 	_expect(
 		is_equal_approx(
-			float(ai_summary.get("contact_damage", 0.0)),
-			14.992
-		),
-		"enemy spawn damage multiplier should scale contact damage"
-	)
-	_expect(
-		is_equal_approx(
-			float(ai_summary.get("ranged_projectile_damage", 0.0)),
+			float(ai_summary.get("scaled_damage", 0.0)),
 			17.9904
 		),
-		"enemy spawn damage multiplier should scale ranged projectiles"
+		"enemy spawn damage multiplier should scale explicit attack damage"
 	)
 	_expect(
 		is_equal_approx(float(enemy.get("_move_speed")), 84.0),
@@ -322,14 +330,14 @@ func _expect_enemy_difficulty_spawn_scaling() -> void:
 	)
 	player.global_position = Vector2.ZERO
 	enemy.global_position = Vector2.ZERO
-	var life_before_contact: float = float(player.call("current_life"))
-	enemy.call("_check_contact")
+	var life_before_attack: float = float(player.call("current_life"))
+	enemy.call("_apply_attack_damage_to_player", enemy.call("_current_attack"))
 	_expect(
 		is_equal_approx(
-			life_before_contact - float(player.call("current_life")),
-			14.992
+			life_before_attack - float(player.call("current_life")),
+			17.9904
 		),
-		"scaled enemy contact damage should pass through the real Combat path"
+		"scaled explicit enemy attack should pass through the real Combat path"
 	)
 	player.call("debug_set_life", 200.0)
 	player.global_position = Vector2(32.0, 0.0)
@@ -480,7 +488,7 @@ func _expect_weapon_recoil_resolution() -> void:
 func _expect_save_manager_roundtrip() -> void:
 	SaveManager.delete(L1_SLOT, SAVE_KINDS.RUN)
 	var payload: Dictionary = {
-		"schema_version": 7,
+		"schema_version": 8,
 		"gold_progression": {
 			"gold_balance": 100,
 			"gold_earned_total": 100,
@@ -1022,6 +1030,17 @@ func _expect_player_weapon_recoil() -> void:
 	player.call("configure_weapon_recoil", recoil_model)
 	player.call("apply_weapon_recoil", Vector2.RIGHT, 70.0, 0.08)
 	_expect(
+		bool(
+			player.call(
+				"apply_external_knockback",
+				Vector2.RIGHT,
+				48.0,
+				0.15
+			)
+		),
+		"enemy knockback should accept a positive direction, distance, and duration"
+	)
+	_expect(
 		(player.call("weapon_recoil_velocity") as Vector2).is_equal_approx(
 			Vector2(-70.0, 0.0)
 		),
@@ -1044,6 +1063,16 @@ func _expect_player_weapon_recoil() -> void:
 		),
 		"Player snapshot should restore recoil remaining time"
 	)
+	_expect(
+		(player.call("external_knockback_velocity") as Vector2).is_equal_approx(
+			Vector2(640.0, 0.0)
+		)
+		and is_equal_approx(
+			float(player.call("external_knockback_remaining")),
+			0.15
+		),
+		"Player snapshot should restore active enemy knockback"
+	)
 
 	GameState.change_state(GameState.PAUSED, {"source": "l1_recoil_pause"})
 	await _wait_physics_frames(3)
@@ -1054,6 +1083,13 @@ func _expect_player_weapon_recoil() -> void:
 		),
 		"paused gameplay should freeze weapon recoil"
 	)
+	_expect(
+		is_equal_approx(
+			float(player.call("external_knockback_remaining")),
+			0.15
+		),
+		"paused gameplay should freeze enemy knockback"
+	)
 	GameState.change_state(GameState.PLAYING, {"source": "l1_recoil_resume"})
 	var half_step_velocity: Vector2 = player.call(
 		"_update_weapon_recoil",
@@ -1062,6 +1098,26 @@ func _expect_player_weapon_recoil() -> void:
 	_expect(
 		half_step_velocity.is_equal_approx(Vector2(-52.5, 0.0)),
 		"weapon recoil should use the linear-decay average velocity"
+	)
+	var knockback_half_step: Vector2 = player.call(
+		"_update_external_knockback",
+		0.075
+	) as Vector2
+	_expect(
+		knockback_half_step.is_equal_approx(Vector2(480.0, 0.0)),
+		"enemy knockback should use the linear-decay average velocity"
+	)
+	player.call(
+		"apply_external_knockback",
+		Vector2.LEFT,
+		24.0,
+		0.12
+	)
+	_expect(
+		(player.call("external_knockback_velocity") as Vector2).is_equal_approx(
+			Vector2(-400.0, 0.0)
+		),
+		"new enemy knockback should replace an unfinished enemy knockback"
 	)
 	player.call("apply_weapon_recoil", Vector2.DOWN, 100.0, 0.08)
 	var stacked_velocity: Vector2 = player.call(
@@ -1107,6 +1163,24 @@ func _expect_player_weapon_recoil() -> void:
 			0.06
 		),
 		"dash should keep recoil decay time moving"
+	)
+
+	player.call("configure", _l1_combat_player_stats())
+	var integrated_knockback_distance: float = 0.0
+	player.call(
+		"apply_external_knockback",
+		Vector2.RIGHT,
+		48.0,
+		0.15
+	)
+	for _index: int in range(3):
+		integrated_knockback_distance += (
+			(player.call("_update_external_knockback", 0.05) as Vector2).x
+			* 0.05
+		)
+	_expect(
+		is_equal_approx(integrated_knockback_distance, 48.0),
+		"linear enemy knockback should integrate to its requested distance"
 	)
 
 	player.call("configure", _l1_combat_player_stats())
@@ -2377,12 +2451,10 @@ func _l1_enemy_data() -> Dictionary:
 		"id": "enemy_l1_status",
 		"tags": [],
 		"pool_id": POOL_IDS.ENEMY_CHASER,
-		"ai_profile_id": "enemy_ai_chase_contact",
+		"ai_profile_id": "enemy_ai_exploder",
 		"ai_profile": {},
 		"max_hp": 10.0,
 		"move_speed": 0.0,
-		"contact_damage": 0.0,
-		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
 		"gold_reward": 0,
 		"hit_radius": 10.0,
 		"separation_radius": 0.0,

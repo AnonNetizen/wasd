@@ -268,7 +268,7 @@ passive_primary_b_guard_name,怒意守御,Fury Guard
 passive_primary_b_guard_desc,受到纯主元素 B 伤害时，最终承伤降低 {param_multiplier_reduction_percent}%,"Final damage taken from pure Primary B hits is reduced by {param_multiplier_reduction_percent}%."
 weapon_basic_blaster_name,基础脉冲枪,Basic Blaster
 weapon_basic_blaster_desc,可靠的鼠标瞄准步枪，按住开火并发射中性子弹,A reliable mouse-aimed rifle that fires neutral rounds while held
-enemy_chaser_name,追猎者,Chaser
+enemy_chaser_name,爆猎者,Burst Hunter
 enemy_swarm_name,疾行者,Swarm Runner
 enemy_stalker_name,潜猎者,Stalker
 enemy_bulwark_name,壁垒者,Bulwark

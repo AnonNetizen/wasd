@@ -1,8 +1,8 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "profiles": [
     {
-      "id": "enemy_ai_chase_contact",
+      "id": "enemy_ai_exploder",
       "perception": {
         "sight_radius": 760.0,
         "path_awareness_radius": 500.0,
@@ -15,14 +15,21 @@
         "territory_weight": 0.0
       },
       "movement": {
-        "orbit_radius": 160.0,
-        "charge_range": 0.0,
-        "charge_windup": 0.0,
-        "charge_duration": 0.0,
-        "charge_cooldown": 0.0,
-        "charge_speed_scale": 1.0
+        "orbit_radius": 160.0
       },
       "actions": [
+        {
+          "id": "ai_action_explode_target",
+          "base_score": 1.35,
+          "speed_scale": 1.0,
+          "attack": {
+            "trigger_range": 80.0,
+            "windup": 0.65,
+            "damage": 120.0,
+            "element_id": "element_neutral",
+            "radius": 96.0
+          }
+        },
         {
           "id": "ai_action_approach_target",
           "base_score": 1.0,
@@ -31,7 +38,7 @@
       ]
     },
     {
-      "id": "enemy_ai_fast_chase",
+      "id": "enemy_ai_melee_swarm",
       "perception": {
         "sight_radius": 680.0,
         "path_awareness_radius": 440.0,
@@ -44,14 +51,23 @@
         "territory_weight": 0.0
       },
       "movement": {
-        "orbit_radius": 150.0,
-        "charge_range": 0.0,
-        "charge_windup": 0.0,
-        "charge_duration": 0.0,
-        "charge_cooldown": 0.0,
-        "charge_speed_scale": 1.0
+        "orbit_radius": 150.0
       },
       "actions": [
+        {
+          "id": "ai_action_melee_attack",
+          "base_score": 1.1,
+          "speed_scale": 1.0,
+          "attack": {
+            "trigger_range": 46.0,
+            "windup": 0.24,
+            "cooldown": 0.85,
+            "damage": 80.0,
+            "element_id": "element_neutral",
+            "range": 52.0,
+            "arc_degrees": 100.0
+          }
+        },
         {
           "id": "ai_action_approach_target",
           "base_score": 0.55,
@@ -73,18 +89,25 @@
         "territory_weight": 0.0
       },
       "movement": {
-        "orbit_radius": 190.0,
-        "charge_range": 320.0,
-        "charge_windup": 0.34,
-        "charge_duration": 0.42,
-        "charge_cooldown": 1.4,
-        "charge_speed_scale": 2.65
+        "orbit_radius": 190.0
       },
       "actions": [
         {
           "id": "ai_action_charge_target",
           "base_score": 0.95,
-          "speed_scale": 1.0
+          "speed_scale": 1.0,
+          "attack": {
+            "trigger_range": 320.0,
+            "windup": 0.34,
+            "release_duration": 0.42,
+            "cooldown": 1.4,
+            "damage": 160.0,
+            "element_id": "element_neutral",
+            "speed_multiplier": 2.65,
+            "stop_on_hit": false,
+            "knockback_distance": 0.0,
+            "knockback_duration": 0.0
+          }
         },
         {
           "id": "ai_action_approach_target",
@@ -94,7 +117,7 @@
       ]
     },
     {
-      "id": "enemy_ai_home_guard",
+      "id": "enemy_ai_ram_bulwark",
       "perception": {
         "sight_radius": 760.0,
         "path_awareness_radius": 500.0,
@@ -103,27 +126,29 @@
       "decision_interval": 0.16,
       "targeting": {
         "player_weight": 0.7,
-        "territory_radius": 360.0,
-        "territory_weight": 1.8
+        "territory_radius": 0.0,
+        "territory_weight": 0.0
       },
       "movement": {
-        "orbit_radius": 210.0,
-        "charge_range": 260.0,
-        "charge_windup": 0.48,
-        "charge_duration": 0.45,
-        "charge_cooldown": 1.8,
-        "charge_speed_scale": 2.2
+        "orbit_radius": 210.0
       },
       "actions": [
         {
-          "id": "ai_action_guard_home",
-          "base_score": 0.15,
-          "speed_scale": 0.95
-        },
-        {
           "id": "ai_action_charge_target",
-          "base_score": 0.7,
-          "speed_scale": 1.0
+          "base_score": 0.9,
+          "speed_scale": 1.0,
+          "attack": {
+            "trigger_range": 260.0,
+            "windup": 0.48,
+            "release_duration": 0.45,
+            "cooldown": 1.8,
+            "damage": 220.0,
+            "element_id": "element_neutral",
+            "speed_multiplier": 2.2,
+            "stop_on_hit": true,
+            "knockback_distance": 48.0,
+            "knockback_duration": 0.15
+          }
         },
         {
           "id": "ai_action_approach_target",
@@ -146,29 +171,29 @@
         "territory_weight": 0.0
       },
       "movement": {
-        "orbit_radius": 280.0,
-        "charge_range": 0.0,
-        "charge_windup": 0.0,
-        "charge_duration": 0.0,
-        "charge_cooldown": 0.0,
-        "charge_speed_scale": 1.0,
-        "ranged_attack_range": 560.0,
-        "ranged_keep_distance": 230.0,
-        "ranged_cooldown": 1.35,
-        "ranged_initial_cooldown": 0.45,
-        "ranged_projectile_damage": 48.0,
-        "ranged_projectile_element_id": "element_neutral",
-        "ranged_projectile_speed": 360.0,
-        "ranged_projectile_range": 620.0,
-        "ranged_projectile_hit_radius": 7.0,
-        "ranged_projectile_lifetime": 2.0,
-        "ranged_projectile_muzzle_distance": 18.0
+        "orbit_radius": 280.0
       },
       "actions": [
         {
           "id": "ai_action_ranged_attack",
           "base_score": 0.95,
-          "speed_scale": 0.82
+          "speed_scale": 0.82,
+          "attack": {
+            "attack_range": 560.0,
+            "keep_distance": 230.0,
+            "cooldown": 1.35,
+            "initial_cooldown": 0.45,
+            "damage": 48.0,
+            "element_id": "element_neutral",
+            "projectile": {
+              "pool_id": "bullet_basic",
+              "speed": 360.0,
+              "range": 620.0,
+              "hit_radius": 7.0,
+              "lifetime": 2.0,
+              "muzzle_distance": 18.0
+            }
+          }
         },
         {
           "id": "ai_action_orbit_target",

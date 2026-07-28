@@ -178,9 +178,29 @@ func _validate_enemy_configuration(enemy_row: Dictionary) -> void:
 	var original_polygon: PackedVector2Array = body.polygon.duplicate() if body != null else PackedVector2Array()
 	enemy.call("configure", _runtime_enemy_data(enemy_row), target, null)
 	var configured_color: Color = enemy.call("visual_color")
+	var exploder_core: Polygon2D = enemy.get_node_or_null(
+		"Visual/ExploderCore"
+	) as Polygon2D
+	var bulwark_armor: Polygon2D = enemy.get_node_or_null(
+		"Visual/BulwarkArmor"
+	) as Polygon2D
 	_expect(
 		configured_color.is_equal_approx(original_color),
 		"%s configure should not override scene-authored color" % enemy_row.get("id", "")
+	)
+	_expect(
+		exploder_core != null
+		and exploder_core.visible
+		== (String(enemy_row.get("id", "")) == "enemy_chaser"),
+		"%s should expose the correct exploder-core silhouette"
+		% enemy_row.get("id", "")
+	)
+	_expect(
+		bulwark_armor != null
+		and bulwark_armor.visible
+		== (String(enemy_row.get("id", "")) == "enemy_bulwark"),
+		"%s should expose the correct frontal-armor silhouette"
+		% enemy_row.get("id", "")
 	)
 	if body != null:
 		_expect(
@@ -293,10 +313,11 @@ func _runtime_enemy_data(enemy_row: Dictionary) -> Dictionary:
 		"pool_id": String(enemy_row.get("pool_id", "")),
 		"ai_profile_id": ai_profile_id,
 		"ai_profile": ai_profile,
+		"presentation_profile_id": String(
+			enemy_row.get("presentation_profile_id", "")
+		),
 		"max_hp": String(enemy_row.get("max_hp", "1")).to_int(),
 		"move_speed": String(enemy_row.get("move_speed", "0")).to_float(),
-		"contact_damage": String(enemy_row.get("contact_damage", "0")).to_int(),
-		"element_id": String(enemy_row.get("element_id", "")),
 		"gold_reward": String(enemy_row.get("gold_reward", "0")).to_int(),
 		"hit_radius": String(enemy_row.get("hit_radius", "1")).to_float(),
 		"separation_radius": String(enemy_row.get("separation_radius", "0")).to_float(),

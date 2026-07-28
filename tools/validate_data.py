@@ -1009,7 +1009,7 @@ def _validate_enemy_ai_profiles(ctx: ValidationContext) -> None:
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=3, maximum=3)
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=4, maximum=4)
     profiles = _require_list(ctx, path, "profiles", data.get("profiles"))
     if not profiles:
         ctx.error(path, "profiles", "must be a non-empty array")
@@ -1065,40 +1065,9 @@ def _validate_enemy_ai_movement(ctx: ValidationContext, path: Path, field: str, 
         return
     _reject_removed_field(ctx, path, field, data, "flee_distance", schema_version=2)
     _require_number(ctx, path, f"{field}.orbit_radius", data.get("orbit_radius"), minimum=0)
-    _require_number(ctx, path, f"{field}.charge_range", data.get("charge_range"), minimum=0)
-    _require_number(ctx, path, f"{field}.charge_windup", data.get("charge_windup"), minimum=0)
-    _require_number(ctx, path, f"{field}.charge_duration", data.get("charge_duration"), minimum=0)
-    _require_number(ctx, path, f"{field}.charge_cooldown", data.get("charge_cooldown"), minimum=0)
-    _require_number(ctx, path, f"{field}.charge_speed_scale", data.get("charge_speed_scale"), minimum=0, exclusive_minimum=True)
-    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_attack_range", minimum=0, exclusive_minimum=True)
-    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_keep_distance", minimum=0)
-    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_cooldown", minimum=0, exclusive_minimum=True)
-    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_initial_cooldown", minimum=0)
-    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_projectile_damage", minimum=0, exclusive_minimum=True)
-    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_projectile_speed", minimum=0, exclusive_minimum=True)
-    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_projectile_range", minimum=0, exclusive_minimum=True)
-    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_projectile_hit_radius", minimum=0, exclusive_minimum=True)
-    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_projectile_lifetime", minimum=0, exclusive_minimum=True)
-    _require_optional_enemy_ai_movement_number(ctx, path, field, data, "ranged_projectile_muzzle_distance", minimum=0)
-    if "ranged_projectile_damage_type" in data:
-        ctx.error(path, f"{field}.ranged_projectile_damage_type", "was removed; use ranged_projectile_element_id")
-    if "ranged_projectile_element_id" in data:
-        _require_registered(ctx, path, f"{field}.ranged_projectile_element_id", data.get("ranged_projectile_element_id"), "elements")
-
-
-def _require_optional_enemy_ai_movement_number(
-    ctx: ValidationContext,
-    path: Path,
-    field: str,
-    data: dict[str, Any],
-    key: str,
-    *,
-    minimum: float,
-    exclusive_minimum: bool = False,
-) -> None:
-    if key not in data:
-        return
-    _require_number(ctx, path, f"{field}.{key}", data.get(key), minimum=minimum, exclusive_minimum=exclusive_minimum)
+    unexpected = set(data).difference({"orbit_radius"})
+    for key in sorted(unexpected):
+        ctx.error(path, f"{field}.{key}", "was removed from movement in schema v4; move attack parameters into actions[].attack")
 
 
 def _validate_enemy_ai_actions(ctx: ValidationContext, path: Path, field: str, data: Any) -> None:
@@ -1118,6 +1087,143 @@ def _validate_enemy_ai_actions(ctx: ValidationContext, path: Path, field: str, d
             seen.add(action_id)
         _require_number(ctx, path, f"{item_field}.base_score", action.get("base_score"), minimum=0)
         _require_number(ctx, path, f"{item_field}.speed_scale", action.get("speed_scale"), minimum=0, exclusive_minimum=True)
+        _validate_enemy_ai_attack(ctx, path, item_field, action_id, action)
+
+
+def _validate_enemy_ai_attack(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    action_id: str,
+    action: dict[str, Any],
+) -> None:
+    attack_actions = {
+        "ai_action_explode_target",
+        "ai_action_melee_attack",
+        "ai_action_charge_target",
+        "ai_action_ranged_attack",
+    }
+    if action_id not in attack_actions:
+        if "attack" in action:
+            ctx.error(path, f"{field}.attack", "is forbidden for non-attack actions")
+        return
+    attack = action.get("attack")
+    if not isinstance(attack, dict):
+        ctx.error(path, f"{field}.attack", "must be an object")
+        return
+    if action_id == "ai_action_explode_target":
+        expected = {"trigger_range", "windup", "damage", "element_id", "radius"}
+        _validate_exact_object_keys(ctx, path, f"{field}.attack", attack, expected)
+        for key in ("trigger_range", "windup", "damage", "radius"):
+            _require_number(ctx, path, f"{field}.attack.{key}", attack.get(key), minimum=0, exclusive_minimum=True)
+        _require_registered(ctx, path, f"{field}.attack.element_id", attack.get("element_id"), "elements")
+        return
+    if action_id == "ai_action_melee_attack":
+        expected = {"trigger_range", "windup", "cooldown", "damage", "element_id", "range", "arc_degrees"}
+        _validate_exact_object_keys(ctx, path, f"{field}.attack", attack, expected)
+        for key in ("trigger_range", "windup", "cooldown", "damage", "range"):
+            _require_number(ctx, path, f"{field}.attack.{key}", attack.get(key), minimum=0, exclusive_minimum=True)
+        _require_number(
+            ctx,
+            path,
+            f"{field}.attack.arc_degrees",
+            attack.get("arc_degrees"),
+            minimum=0,
+            maximum=360,
+            exclusive_minimum=True,
+        )
+        _require_registered(ctx, path, f"{field}.attack.element_id", attack.get("element_id"), "elements")
+        return
+    if action_id == "ai_action_charge_target":
+        expected = {
+            "trigger_range",
+            "windup",
+            "release_duration",
+            "cooldown",
+            "damage",
+            "element_id",
+            "speed_multiplier",
+            "stop_on_hit",
+            "knockback_distance",
+            "knockback_duration",
+        }
+        _validate_exact_object_keys(ctx, path, f"{field}.attack", attack, expected)
+        for key in (
+            "trigger_range",
+            "windup",
+            "release_duration",
+            "cooldown",
+            "damage",
+            "speed_multiplier",
+        ):
+            _require_number(ctx, path, f"{field}.attack.{key}", attack.get(key), minimum=0, exclusive_minimum=True)
+        knockback_distance = _require_number(
+            ctx, path, f"{field}.attack.knockback_distance", attack.get("knockback_distance"), minimum=0
+        )
+        knockback_duration = _require_number(
+            ctx, path, f"{field}.attack.knockback_duration", attack.get("knockback_duration"), minimum=0
+        )
+        if (
+            knockback_distance is not None
+            and knockback_duration is not None
+            and (knockback_distance > 0) != (knockback_duration > 0)
+        ):
+            ctx.error(path, f"{field}.attack.knockback_duration", "must be positive exactly when knockback_distance is positive")
+        _require_bool(ctx, path, f"{field}.attack.stop_on_hit", attack.get("stop_on_hit"))
+        _require_registered(ctx, path, f"{field}.attack.element_id", attack.get("element_id"), "elements")
+        return
+
+    expected = {
+        "attack_range",
+        "keep_distance",
+        "cooldown",
+        "initial_cooldown",
+        "damage",
+        "element_id",
+        "projectile",
+    }
+    _validate_exact_object_keys(ctx, path, f"{field}.attack", attack, expected)
+    for key in ("attack_range", "cooldown", "damage"):
+        _require_number(ctx, path, f"{field}.attack.{key}", attack.get(key), minimum=0, exclusive_minimum=True)
+    for key in ("keep_distance", "initial_cooldown"):
+        _require_number(ctx, path, f"{field}.attack.{key}", attack.get(key), minimum=0)
+    _require_registered(ctx, path, f"{field}.attack.element_id", attack.get("element_id"), "elements")
+    projectile = attack.get("projectile")
+    if not isinstance(projectile, dict):
+        ctx.error(path, f"{field}.attack.projectile", "must be an object")
+        return
+    projectile_expected = {"pool_id", "speed", "range", "hit_radius", "lifetime", "muzzle_distance"}
+    _validate_exact_object_keys(ctx, path, f"{field}.attack.projectile", projectile, projectile_expected)
+    _require_registered(ctx, path, f"{field}.attack.projectile.pool_id", projectile.get("pool_id"), "pool_ids")
+    for key in ("speed", "range", "hit_radius", "lifetime"):
+        _require_number(
+            ctx,
+            path,
+            f"{field}.attack.projectile.{key}",
+            projectile.get(key),
+            minimum=0,
+            exclusive_minimum=True,
+        )
+    _require_number(
+        ctx,
+        path,
+        f"{field}.attack.projectile.muzzle_distance",
+        projectile.get("muzzle_distance"),
+        minimum=0,
+    )
+
+
+def _validate_exact_object_keys(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    data: dict[str, Any],
+    expected: set[str],
+) -> None:
+    for key in sorted(expected.difference(data)):
+        ctx.error(path, f"{field}.{key}", "is required")
+    for key in sorted(set(data).difference(expected)):
+        ctx.error(path, f"{field}.{key}", "is not allowed")
 
 
 def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]) -> None:
@@ -1137,9 +1243,6 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
         "presentation_profile_id",
         "max_hp",
         "move_speed",
-        "contact_damage",
-        "contact_interval",
-        "element_id",
         "gold_reward",
         "hit_radius",
         "separation_radius",
@@ -1189,9 +1292,6 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
                 ctx.error(path, f"{field}.ai_profile_id", f"profile is not defined in enemy_ai_profiles.json: {ai_profile_id}")
             _parse_int(ctx, path, f"{field}.max_hp", row.get("max_hp"), minimum=1)
             _parse_float(ctx, path, f"{field}.move_speed", row.get("move_speed"), minimum=0, exclusive_minimum=True)
-            _parse_int(ctx, path, f"{field}.contact_damage", row.get("contact_damage"), minimum=0)
-            _parse_float(ctx, path, f"{field}.contact_interval", row.get("contact_interval"), minimum=0, exclusive_minimum=True)
-            _require_registered(ctx, path, f"{field}.element_id", row.get("element_id"), "elements")
             _parse_int(ctx, path, f"{field}.gold_reward", row.get("gold_reward"), minimum=0)
             _parse_float(ctx, path, f"{field}.hit_radius", row.get("hit_radius"), minimum=0, exclusive_minimum=True)
             _parse_float(ctx, path, f"{field}.separation_radius", row.get("separation_radius"), minimum=0)

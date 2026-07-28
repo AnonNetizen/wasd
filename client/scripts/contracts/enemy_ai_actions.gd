@@ -7,6 +7,8 @@ const VALUES: Array[String] = [
 	"ai_action_charge_target",
 	"ai_action_guard_home",
 	"ai_action_ranged_attack",
+	"ai_action_explode_target",
+	"ai_action_melee_attack",
 ]
 
 const AI_ACTION_APPROACH_TARGET: String = "ai_action_approach_target"
@@ -14,3 +16,5 @@ const AI_ACTION_ORBIT_TARGET: String = "ai_action_orbit_target"
 const AI_ACTION_CHARGE_TARGET: String = "ai_action_charge_target"
 const AI_ACTION_GUARD_HOME: String = "ai_action_guard_home"
 const AI_ACTION_RANGED_ATTACK: String = "ai_action_ranged_attack"
+const AI_ACTION_EXPLODE_TARGET: String = "ai_action_explode_target"
+const AI_ACTION_MELEE_ATTACK: String = "ai_action_melee_attack"

@@ -4,16 +4,29 @@ class_name Enemy
 extends CharacterBody2D
 
 
-signal defeated(enemy: Node, gold_reward: int, player_attributed: bool)
+signal defeated(
+	enemy: Node,
+	gold_reward: int,
+	counts_as_kill: bool,
+	drops_rewards: bool,
+	cause_id: String
+)
+signal attack_windup_started(enemy: Node, action_id: String, context: Dictionary)
+signal attack_committed(enemy: Node, action_id: String, context: Dictionary)
 
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
+const ENEMY_DEFEAT_CAUSES := preload(
+	"res://scripts/contracts/enemy_defeat_causes.gd"
+)
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 
+const ACTION_STATE_ARMED_WINDUP: String = "armed_windup"
 const ACTION_STATE_CHARGE_RELEASE: String = "charge_release"
 const ACTION_STATE_CHARGE_WINDUP: String = "charge_windup"
+const ACTION_STATE_MELEE_WINDUP: String = "melee_windup"
 const ACTIVE_PLAYER_GROUP: String = "active_player"
 const NAVIGATION_MODE_DIRECT: String = "direct"
 const NAVIGATION_MODE_FLOW_FIELD: String = "flow_field"
@@ -47,17 +60,14 @@ const TEAM_PLAYER: String = "team_player"
 var _actions: Array[Dictionary] = []
 var _action_state: String = ""
 var _action_timer: float = 0.0
+var _armed: bool = false
+var _armed_from_chain: bool = false
+var _attack_cooldown_remaining: float = 0.0
+var _attack_hit_committed: bool = false
 var _ai_profile: Dictionary = {}
 var _ai_profile_id: String = ""
-var _charge_cooldown_remaining: float = 0.0
-var _charge_direction: Vector2 = Vector2.ZERO
 var _collision_shape: CollisionShape2D = null
-var _base_contact_damage: float = 0.0
 var _base_max_life: float = 1.0
-var _contact_damage: float = 0.0
-var _contact_element_id: String = ""
-var _contact_interval: float = 0.7
-var _contact_interval_remaining: float = 0.0
 var _current_action: String = ""
 var _decision_remaining: float = 0.0
 var _debug_ai_enabled: bool = true
@@ -69,7 +79,8 @@ var _hit_radius: float = 0.0
 var _home_position: Vector2 = Vector2.ZERO
 var _has_last_known_position: bool = false
 var _has_movement_target: bool = false
-var _last_damage_source_team: String = ""
+var _has_exploded: bool = false
+var _locked_direction: Vector2 = Vector2.ZERO
 var _last_known_position: Vector2 = Vector2.ZERO
 var _last_scores: Dictionary = {}
 var _life_points: float = 1.0
@@ -84,7 +95,7 @@ var _owned_tag_counts: Dictionary = {}
 var _path_distance: float = INF
 var _perception_state: String = PERCEPTION_UNAWARE
 var _player_target: Node2D = null
-var _ranged_cooldown_remaining: float = 0.0
+var _runtime_spawn_serial: int = 0
 var _separation_radius: float = 0.0
 var _terrain_line_of_sight: bool = false
 var _memory_remaining: float = 0.0
@@ -100,11 +111,14 @@ func _physics_process(delta: float) -> void:
 	var scaled_delta: float = GameClock.delta_scaled(delta)
 	if is_defeat_feedback_active():
 		return
-	if _player_target == null or not is_instance_valid(_player_target):
-		return
 	if not GameState.is_state(GameState.PLAYING):
 		return
 	if scaled_delta <= 0.0:
+		return
+	if _armed:
+		_update_armed_state(scaled_delta)
+		return
+	if _player_target == null or not is_instance_valid(_player_target):
 		return
 	if not _debug_ai_enabled:
 		velocity = Vector2.ZERO
@@ -112,16 +126,16 @@ func _physics_process(delta: float) -> void:
 
 	_update_ai_timers(scaled_delta)
 
-	if _is_charge_state_active():
-		_update_charge_state(scaled_delta)
+	if _is_attack_state_active():
+		_update_attack_state(scaled_delta)
 	else:
 		_decision_remaining -= scaled_delta
 		if _current_action.is_empty() or _decision_remaining <= 0.0:
 			_choose_action()
 		_apply_current_action(scaled_delta)
 
-	_apply_center_separation()
-	_check_contact()
+	if not _is_attack_state_active():
+		_apply_center_separation()
 
 
 func configure(
@@ -155,12 +169,13 @@ func configure(
 	_current_action = ""
 	_action_state = ""
 	_action_timer = 0.0
+	_armed = false
+	_armed_from_chain = false
+	_attack_cooldown_remaining = _initial_attack_cooldown()
+	_attack_hit_committed = false
 	_debug_ai_enabled = true
-	_charge_cooldown_remaining = 0.0
-	_charge_direction = Vector2.ZERO
-	_ranged_cooldown_remaining = _movement_value("ranged_initial_cooldown")
-	_contact_interval_remaining = 0.0
-	_last_damage_source_team = ""
+	_has_exploded = false
+	_locked_direction = Vector2.ZERO
 	_has_last_known_position = false
 	_last_known_position = Vector2.ZERO
 	_memory_remaining = 0.0
@@ -186,13 +201,6 @@ func configure(
 	_max_life = _base_max_life * _spawn_health_multiplier
 	_life_points = _max_life
 	_move_speed = float(enemy_data.get("move_speed", 0.0))
-	_base_contact_damage = float(enemy_data.get("contact_damage", 0))
-	_contact_damage = _base_contact_damage * _spawn_damage_multiplier
-	_contact_element_id = String(enemy_data.get("element_id", ""))
-	_contact_interval = maxf(
-		float(enemy_data.get("contact_interval", 0.7)),
-		0.0
-	)
 	_gold_reward = int(enemy_data.get("gold_reward", 0))
 	_hit_radius = float(enemy_data.get("hit_radius", 0.0))
 	_separation_radius = float(enemy_data.get("separation_radius", 0.0))
@@ -228,17 +236,24 @@ func ai_debug_summary() -> Dictionary:
 		"last_known_position": _vector_to_dict(_last_known_position) if _has_last_known_position else {},
 		"memory_remaining": _memory_remaining,
 		"navigation_mode": _navigation_mode,
-		"contact_damage": _contact_damage,
-		"ranged_projectile_damage": (
-			_movement_value("ranged_projectile_damage")
-			* _spawn_damage_multiplier
-		),
+		"attack_time_remaining": _action_timer,
+		"attack_cooldown_remaining": _attack_cooldown_remaining,
+		"armed": _armed,
+		"locked_direction": _vector_to_dict(_locked_direction),
+		"scaled_damage": _scaled_attack_damage(_current_attack()),
+		"attack_range": _attack_display_range(_current_attack()),
+		"release_hit": _attack_hit_committed,
+		"runtime_spawn_serial": _runtime_spawn_serial,
 		"scores": _last_scores.duplicate(true),
 	}
 
 
 func is_alive() -> bool:
-	return _life_points > 0.0 and not is_defeat_feedback_active()
+	return (
+		_life_points > 0.0
+		and not _armed
+		and not is_defeat_feedback_active()
+	)
 
 
 func current_life() -> float:
@@ -260,12 +275,28 @@ func enemy_id() -> String:
 	return _enemy_id
 
 
+func set_runtime_spawn_serial(serial: int) -> void:
+	_runtime_spawn_serial = maxi(serial, 0)
+
+
+func runtime_spawn_serial() -> int:
+	return _runtime_spawn_serial
+
+
+func is_armed() -> bool:
+	return _armed
+
+
+func is_committed_exploder() -> bool:
+	return (
+		_armed
+		and _has_exploded
+		and _has_action(ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET)
+	)
+
+
 func is_defeat_feedback_active() -> bool:
 	return _presentation != null and _presentation.is_defeat_active()
-
-
-func was_defeated_by_player() -> bool:
-	return _last_damage_source_team == TEAM_PLAYER
 
 
 func combat_team_id() -> String:
@@ -279,8 +310,9 @@ func debug_configure_training_target(max_life: float, home_position: Vector2) ->
 	_base_max_life = maxf(max_life, 1.0)
 	_max_life = _base_max_life
 	_life_points = _max_life
-	_base_contact_damage = 0.0
-	_contact_damage = 0.0
+	_armed = false
+	_has_exploded = false
+	_set_collision_enabled(true)
 	_home_position = home_position
 	global_position = home_position
 	velocity = Vector2.ZERO
@@ -300,7 +332,6 @@ func debug_reset_training_target() -> void:
 		global_position = home_position as Vector2
 	velocity = Vector2.ZERO
 	_life_points = _max_life
-	_last_damage_source_team = ""
 	_clear_status_effects_for_reuse()
 	_ensure_presentation()
 	if _presentation != null:
@@ -427,14 +458,30 @@ func clear_movement_bounds() -> void:
 
 
 func receive_damage(info: RefCounted) -> Dictionary:
-	if not is_alive():
+	if _armed:
+		return {
+			"applied": false,
+			"amount": 0.0,
+			"defeated": false,
+			"reason": "armed",
+		}
+	if _life_points <= 0.0 or is_defeat_feedback_active():
 		return {
 			"applied": false,
 			"amount": 0.0,
 			"defeated": true,
 			"reason": "defeated",
 		}
-	if String(info.get("source_team")) == TEAM_ENEMY:
+	var source_team: String = String(info.get("source_team"))
+	var source: Node = info.get("source") as Node
+	var enemy_explosion: bool = (
+		source_team == TEAM_ENEMY
+		and source != null
+		and is_instance_valid(source)
+		and source.has_method("is_committed_exploder")
+		and bool(source.call("is_committed_exploder"))
+	)
+	if source_team == TEAM_ENEMY and not enemy_explosion:
 		return {
 			"applied": false,
 			"amount": 0.0,
@@ -442,19 +489,33 @@ func receive_damage(info: RefCounted) -> Dictionary:
 			"reason": "friendly_fire_blocked",
 		}
 
-	_last_damage_source_team = String(info.get("source_team"))
 	var amount: float = float(info.get("amount"))
 	var applied_amount: float = minf(amount, _life_points)
 	_life_points = maxf(_life_points - amount, 0.0)
 	var is_defeated: bool = _life_points <= 0.0
 	if is_defeated:
-		remove_from_group("active_enemies")
-		defeated.emit(self, _gold_reward, was_defeated_by_player())
-		_ensure_presentation()
-		if _presentation != null:
-			_presentation.play_defeat()
-		else:
-			PoolManager.release(self)
+		if (
+			enemy_explosion
+			and _has_action(ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET)
+		):
+			_arm_explosion(true)
+			return {
+				"applied": true,
+				"amount": applied_amount,
+				"defeated": false,
+				"reason": "chain_armed",
+			}
+		var counts_as_kill: bool = source_team == TEAM_PLAYER or enemy_explosion
+		var cause_id: String = (
+			ENEMY_DEFEAT_CAUSES.ENEMY_EXPLOSION
+			if enemy_explosion
+			else (
+				ENEMY_DEFEAT_CAUSES.PLAYER_DAMAGE
+				if source_team == TEAM_PLAYER
+				else ENEMY_DEFEAT_CAUSES.OTHER_CAUSE
+			)
+		)
+		_finish_defeat(counts_as_kill, counts_as_kill, cause_id)
 	else:
 		_start_hit_flash()
 	return {
@@ -476,11 +537,13 @@ func snapshot() -> Dictionary:
 		"current_action": _current_action,
 		"action_state": _action_state,
 		"action_timer": _action_timer,
-		"charge_cooldown_remaining": _charge_cooldown_remaining,
-		"charge_direction": _vector_to_dict(_charge_direction),
-		"ranged_cooldown_remaining": _ranged_cooldown_remaining,
-		"contact_interval_remaining": _contact_interval_remaining,
-		"last_damage_source_team": _last_damage_source_team,
+		"attack_cooldown_remaining": _attack_cooldown_remaining,
+		"attack_hit_committed": _attack_hit_committed,
+		"locked_direction": _vector_to_dict(_locked_direction),
+		"armed": _armed,
+		"armed_from_chain": _armed_from_chain,
+		"has_exploded": _has_exploded,
+		"runtime_spawn_serial": _runtime_spawn_serial,
 		"owned_tag_counts": _owned_tag_counts.duplicate(true),
 		"status_effects": _status_effect_snapshot(),
 	}
@@ -499,7 +562,6 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 		0.0
 	)
 	_max_life = _base_max_life * _spawn_health_multiplier
-	_contact_damage = _base_contact_damage * _spawn_damage_multiplier
 	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
 	_home_position = _dict_to_vector(snapshot_data.get("home_position", {}), global_position)
 	_home_position = _clamp_to_movement_bounds(_home_position)
@@ -512,16 +574,31 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	else:
 		_action_state = String(snapshot_data.get("action_state", ""))
 		_action_timer = maxf(float(snapshot_data.get("action_timer", 0.0)), 0.0)
-	_charge_cooldown_remaining = maxf(float(snapshot_data.get("charge_cooldown_remaining", 0.0)), 0.0)
-	_charge_direction = _dict_to_vector(snapshot_data.get("charge_direction", {}), Vector2.ZERO)
-	_ranged_cooldown_remaining = maxf(float(snapshot_data.get("ranged_cooldown_remaining", 0.0)), 0.0)
-	_contact_interval_remaining = maxf(
-		float(snapshot_data.get("contact_interval_remaining", 0.0)),
+	_attack_cooldown_remaining = maxf(
+		float(snapshot_data.get("attack_cooldown_remaining", 0.0)),
 		0.0
 	)
-	_last_damage_source_team = String(snapshot_data.get("last_damage_source_team", ""))
+	_attack_hit_committed = bool(
+		snapshot_data.get("attack_hit_committed", false)
+	)
+	_locked_direction = _dict_to_vector(
+		snapshot_data.get("locked_direction", {}),
+		Vector2.ZERO
+	)
+	_armed = bool(snapshot_data.get("armed", false))
+	_armed_from_chain = bool(snapshot_data.get("armed_from_chain", false))
+	_has_exploded = bool(snapshot_data.get("has_exploded", false))
+	_runtime_spawn_serial = maxi(
+		int(snapshot_data.get("runtime_spawn_serial", _runtime_spawn_serial)),
+		0
+	)
 	_restore_status_snapshot(snapshot_data)
-	if _life_points <= 0.0:
+	if _armed:
+		_current_action = ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
+		_action_state = ACTION_STATE_ARMED_WINDUP
+		_set_collision_enabled(false)
+		_emit_attack_windup(_action_timer)
+	elif _life_points <= 0.0:
 		remove_from_group("active_enemies")
 	_refresh_visuals()
 
@@ -540,17 +617,13 @@ func _pool_reset() -> void:
 	_actions.clear()
 	_action_state = ""
 	_action_timer = 0.0
+	_armed = false
+	_armed_from_chain = false
+	_attack_cooldown_remaining = 0.0
+	_attack_hit_committed = false
 	_ai_profile.clear()
 	_ai_profile_id = ""
-	_base_contact_damage = 0.0
 	_base_max_life = 1.0
-	_charge_cooldown_remaining = 0.0
-	_charge_direction = Vector2.ZERO
-	_ranged_cooldown_remaining = 0.0
-	_contact_damage = 0.0
-	_contact_element_id = ""
-	_contact_interval = 0.7
-	_contact_interval_remaining = 0.0
 	_current_action = ""
 	_decision_remaining = 0.0
 	_debug_ai_enabled = true
@@ -560,10 +633,11 @@ func _pool_reset() -> void:
 	_focus_target = null
 	_has_last_known_position = false
 	_has_movement_target = false
+	_has_exploded = false
 	_hit_radius = 0.0
 	_home_position = Vector2.ZERO
 	_last_known_position = Vector2.ZERO
-	_last_damage_source_team = ""
+	_locked_direction = Vector2.ZERO
 	_last_scores.clear()
 	_life_points = 1.0
 	_max_life = 1.0
@@ -576,6 +650,7 @@ func _pool_reset() -> void:
 	_perception_state = PERCEPTION_UNAWARE
 	_clear_status_effects_for_reuse()
 	_player_target = null
+	_runtime_spawn_serial = 0
 	_separation_radius = 0.0
 	_spawn_damage_multiplier = 1.0
 	_spawn_health_multiplier = 1.0
@@ -750,10 +825,14 @@ func _set_unaware_perception() -> void:
 func _action_candidate(action: Dictionary, context: Dictionary) -> Dictionary:
 	var action_id: String = String(action.get("id", ""))
 	var base_score: float = float(action.get("base_score", 0.0))
+	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET:
+		return _explicit_attack_candidate(base_score, context, action, true)
+	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK:
+		return _explicit_attack_candidate(base_score, context, action, true)
 	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET:
-		return _charge_candidate(base_score, context)
+		return _charge_candidate(base_score, context, action)
 	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK:
-		return _ranged_attack_candidate(base_score, context)
+		return _ranged_attack_candidate(base_score, context, action)
 	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_ORBIT_TARGET:
 		return _orbit_candidate(base_score, context)
 	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_GUARD_HOME:
@@ -768,32 +847,68 @@ func _action_candidate(action: Dictionary, context: Dictionary) -> Dictionary:
 	return _candidate(0.0, null)
 
 
-func _charge_candidate(base_score: float, context: Dictionary) -> Dictionary:
-	if _charge_cooldown_remaining > 0.0:
+func _explicit_attack_candidate(
+	base_score: float,
+	context: Dictionary,
+	action: Dictionary,
+	require_line_of_sight: bool
+) -> Dictionary:
+	if _attack_cooldown_remaining > 0.0:
 		return _candidate(0.0, null)
 	if not bool(context.get("currently_perceived", false)):
+		return _candidate(0.0, null)
+	if require_line_of_sight and not bool(context.get("has_line_of_sight", false)):
 		return _candidate(0.0, null)
 	var target: Node2D = context.get("target") as Node2D
 	if target == null or not is_instance_valid(target):
 		return _candidate(0.0, null)
 	var distance: float = float(context.get("target_distance", global_position.distance_to(target.global_position)))
-	var charge_range: float = _movement_value("charge_range")
-	if charge_range <= 0.0 or distance > charge_range:
+	var attack: Dictionary = _attack_from_action(action)
+	var trigger_range: float = float(attack.get("trigger_range", 0.0))
+	if trigger_range <= 0.0 or distance > trigger_range:
+		return _candidate(0.0, null)
+	var range_score: float = _proximity_score(distance, trigger_range)
+	return _candidate(
+		base_score + float(context.get("target_score", 0.0)) + range_score,
+		target,
+		target.global_position,
+		true
+	)
+
+
+func _charge_candidate(
+	base_score: float,
+	context: Dictionary,
+	action: Dictionary
+) -> Dictionary:
+	var candidate: Dictionary = _explicit_attack_candidate(
+		base_score,
+		context,
+		action,
+		false
+	)
+	var target: Node2D = candidate.get("target") as Node2D
+	if target == null or not is_instance_valid(target):
 		return _candidate(0.0, null)
 	if not _has_clear_corridor(global_position, target.global_position, _hit_radius):
 		return _candidate(0.0, null)
-	var range_score: float = _proximity_score(distance, charge_range)
-	return _candidate(base_score + float(context.get("target_score", 0.0)) + range_score, target, target.global_position, true)
+	return candidate
 
 
-func _ranged_attack_candidate(base_score: float, context: Dictionary) -> Dictionary:
+func _ranged_attack_candidate(
+	base_score: float,
+	context: Dictionary,
+	action: Dictionary
+) -> Dictionary:
 	if not bool(context.get("currently_perceived", false)) or not bool(context.get("has_line_of_sight", false)):
 		return _candidate(0.0, null)
 	var target: Node2D = context.get("target") as Node2D
 	if target == null or not is_instance_valid(target):
 		return _candidate(0.0, null)
 	var distance: float = float(context.get("target_distance", global_position.distance_to(target.global_position)))
-	var attack_range: float = _movement_value("ranged_attack_range")
+	var attack_range: float = float(
+		_attack_from_action(action).get("attack_range", 0.0)
+	)
 	if attack_range <= 0.0 or distance > attack_range:
 		return _candidate(0.0, null)
 	var range_score: float = _proximity_score(distance, attack_range)
@@ -854,6 +969,12 @@ func _apply_current_action(delta: float) -> void:
 	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_ORBIT_TARGET:
 		_move_in_direction(_path_band_direction(_movement_value("orbit_radius")), _action_speed_scale(_current_action), delta)
 		return
+	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET:
+		_arm_explosion(false)
+		return
+	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK:
+		_start_melee_attack()
+		return
 	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET:
 		_start_charge()
 		return
@@ -873,8 +994,9 @@ func _apply_ranged_attack(delta: float) -> void:
 	if target_direction.length_squared() > 0.0:
 		_update_facing(target_direction)
 	var distance: float = target_direction.length()
-	var keep_distance: float = _movement_value("ranged_keep_distance")
-	var attack_range: float = _movement_value("ranged_attack_range")
+	var attack: Dictionary = _current_attack()
+	var keep_distance: float = float(attack.get("keep_distance", 0.0))
+	var attack_range: float = float(attack.get("attack_range", 0.0))
 	var route_query: Dictionary = _active_navigation_query()
 	var route_distance: float = float(route_query.get("distance", distance)) if bool(route_query.get("reachable", false)) else distance
 	if keep_distance > 0.0 and route_distance < keep_distance:
@@ -885,7 +1007,7 @@ func _apply_ranged_attack(delta: float) -> void:
 		_move_in_direction(_path_band_direction(maxf(keep_distance, 1.0)), _action_speed_scale(_current_action), delta)
 	if (
 		distance <= attack_range
-		and _ranged_cooldown_remaining <= 0.0
+		and _attack_cooldown_remaining <= 0.0
 		and _has_terrain_line_of_sight(global_position, _focus_target.global_position)
 	):
 		_fire_ranged_projectile(target_direction)
@@ -894,37 +1016,40 @@ func _apply_ranged_attack(delta: float) -> void:
 func _fire_ranged_projectile(target_direction: Vector2) -> void:
 	if target_direction.length_squared() <= 0.0:
 		return
-	var raw_node: Node = PoolManager.acquire(POOL_IDS.BULLET_BASIC)
+	var attack: Dictionary = _current_attack()
+	var projectile: Dictionary = _dictionary_or_empty(
+		attack.get("projectile", {})
+	)
+	var raw_node: Node = PoolManager.acquire(
+		String(projectile.get("pool_id", POOL_IDS.BULLET_BASIC))
+	)
 	if not raw_node is Node2D or not raw_node.has_method("configure"):
 		return
 	var direction: Vector2 = target_direction.normalized()
-	var muzzle_distance: float = _movement_value("ranged_projectile_muzzle_distance")
+	var muzzle_distance: float = float(projectile.get("muzzle_distance", 0.0))
 	var bullet: Node2D = raw_node as Node2D
 	bullet.global_position = global_position + direction * muzzle_distance
 	_reparent_to_parent(bullet)
 	bullet.call("configure", {
 		STATS.DAMAGE: (
-			_movement_value("ranged_projectile_damage")
+			float(attack.get("damage", 0.0))
 			* _spawn_damage_multiplier
 		),
-		STATS.BULLET_SPEED: _movement_value("ranged_projectile_speed"),
-		STATS.BULLET_RANGE: _movement_value("ranged_projectile_range"),
+		STATS.BULLET_SPEED: float(projectile.get("speed", 0.0)),
+		STATS.BULLET_RANGE: float(projectile.get("range", 0.0)),
 		STATS.PIERCE_COUNT: 0,
 	}, {
-		"element_id": _movement_string(
-			"ranged_projectile_element_id",
-			_contact_element_id
-		),
+		"element_id": String(attack.get("element_id", "")),
 		"damage_target_groups": [
 			"active_projectile_blockers",
 			ACTIVE_PLAYER_GROUP,
 		],
-		"hit_radius": _movement_value("ranged_projectile_hit_radius"),
-		"lifetime": _movement_value("ranged_projectile_lifetime"),
+		"hit_radius": float(projectile.get("hit_radius", 0.0)),
+		"lifetime": float(projectile.get("lifetime", 0.0)),
 		"source_team": TEAM_ENEMY,
 		"target_team": TEAM_PLAYER,
 	}, direction, self)
-	_ranged_cooldown_remaining = _movement_value("ranged_cooldown")
+	_attack_cooldown_remaining = float(attack.get("cooldown", 0.0))
 
 
 func _reparent_to_parent(node: Node) -> void:
@@ -942,31 +1067,389 @@ func _reparent_to_parent(node: Node) -> void:
 func _start_charge() -> void:
 	if _focus_target == null or not is_instance_valid(_focus_target):
 		return
-	_charge_direction = (_focus_target.global_position - global_position).normalized()
-	if _charge_direction.length_squared() <= 0.0:
+	_locked_direction = (
+		_focus_target.global_position - global_position
+	).normalized()
+	if _locked_direction.length_squared() <= 0.0:
 		return
-	var windup: float = _movement_value("charge_windup")
+	_attack_hit_committed = false
+	var windup: float = float(_current_attack().get("windup", 0.0))
 	if windup > 0.0:
 		_action_state = ACTION_STATE_CHARGE_WINDUP
 		_action_timer = windup
+		_emit_attack_windup(windup)
 	else:
-		_action_state = ACTION_STATE_CHARGE_RELEASE
-		_action_timer = _movement_value("charge_duration")
+		_begin_charge_release()
 
 
-func _update_charge_state(delta: float) -> void:
+func _update_attack_state(delta: float) -> void:
 	_action_timer = maxf(_action_timer - delta, 0.0)
+	if _action_state == ACTION_STATE_MELEE_WINDUP:
+		if _action_timer <= 0.0:
+			_commit_melee_attack()
+		return
 	if _action_state == ACTION_STATE_CHARGE_WINDUP:
 		if _action_timer <= 0.0:
-			_action_state = ACTION_STATE_CHARGE_RELEASE
-			_action_timer = _movement_value("charge_duration")
+			_begin_charge_release()
 		return
 	if _action_state == ACTION_STATE_CHARGE_RELEASE:
-		_move_in_direction(_charge_direction, _movement_value("charge_speed_scale"), delta)
-		if _action_timer <= 0.0:
-			_action_state = ""
-			_current_action = ""
-			_charge_cooldown_remaining = _movement_value("charge_cooldown")
+		_update_charge_release(delta)
+
+
+func _start_melee_attack() -> void:
+	if _focus_target == null or not is_instance_valid(_focus_target):
+		return
+	_locked_direction = (
+		_focus_target.global_position - global_position
+	).normalized()
+	if _locked_direction.length_squared() <= 0.0:
+		return
+	_attack_hit_committed = false
+	var windup: float = float(_current_attack().get("windup", 0.0))
+	_action_state = ACTION_STATE_MELEE_WINDUP
+	_action_timer = windup
+	_emit_attack_windup(windup)
+	if windup <= 0.0:
+		_commit_melee_attack()
+
+
+func _commit_melee_attack() -> void:
+	var attack: Dictionary = _current_attack()
+	var hit: bool = false
+	if _player_target != null and is_instance_valid(_player_target):
+		var to_player: Vector2 = (
+			_player_target.global_position - global_position
+		)
+		var attack_range: float = float(attack.get("range", 0.0))
+		var half_arc: float = deg_to_rad(
+			float(attack.get("arc_degrees", 0.0)) * 0.5
+		)
+		hit = (
+			to_player.length() <= attack_range
+			and _locked_direction.angle_to(to_player.normalized()) <= half_arc
+			and _locked_direction.angle_to(to_player.normalized()) >= -half_arc
+			and _has_terrain_line_of_sight(
+				global_position,
+				_player_target.global_position
+			)
+		)
+		if hit:
+			var result: Dictionary = _apply_attack_damage_to_player(attack)
+			_attack_hit_committed = bool(result.get("applied", false))
+	attack_committed.emit(
+		self,
+		_current_action,
+		_attack_feedback_context(attack, 0.0, false)
+	)
+	_attack_cooldown_remaining = float(attack.get("cooldown", 0.0))
+	_action_state = ""
+	_action_timer = 0.0
+	_current_action = ""
+	_focus_target = _player_target
+
+
+func _begin_charge_release() -> void:
+	var attack: Dictionary = _current_attack()
+	_action_state = ACTION_STATE_CHARGE_RELEASE
+	_action_timer = float(attack.get("release_duration", 0.0))
+	attack_committed.emit(
+		self,
+		_current_action,
+		_attack_feedback_context(attack, 0.0, false)
+	)
+
+
+func _update_charge_release(delta: float) -> void:
+	var attack: Dictionary = _current_attack()
+	var previous_position: Vector2 = global_position
+	var motion: Vector2 = (
+		_locked_direction
+		* _move_speed
+		* _status_move_speed_multiplier()
+		* float(attack.get("speed_multiplier", 0.0))
+		* delta
+	)
+	_update_facing(_locked_direction)
+	var collided: bool = _move_with_collision(motion, false)
+	var before_bounds: Vector2 = global_position
+	_apply_movement_bounds()
+	if not global_position.is_equal_approx(before_bounds):
+		collided = true
+
+	if not _attack_hit_committed and _charge_sweep_hits_player(
+		previous_position,
+		global_position
+	):
+		var result: Dictionary = _apply_attack_damage_to_player(attack)
+		_attack_hit_committed = true
+		if (
+			bool(result.get("applied", false))
+			and float(result.get("amount", 0.0)) > 0.0
+		):
+			var knockback_distance: float = float(
+				attack.get("knockback_distance", 0.0)
+			)
+			var knockback_duration: float = float(
+				attack.get("knockback_duration", 0.0)
+			)
+			if (
+				knockback_distance > 0.0
+				and knockback_duration > 0.0
+				and _player_target.has_method("apply_external_knockback")
+			):
+				_player_target.call(
+					"apply_external_knockback",
+					_locked_direction,
+					knockback_distance,
+					knockback_duration
+				)
+		if bool(attack.get("stop_on_hit", false)):
+			_finish_charge_release(attack)
+			return
+
+	if collided or _action_timer <= 0.0:
+		_finish_charge_release(attack)
+
+
+func _finish_charge_release(attack: Dictionary) -> void:
+	_action_state = ""
+	_action_timer = 0.0
+	_current_action = ""
+	_attack_cooldown_remaining = float(attack.get("cooldown", 0.0))
+	_focus_target = _player_target
+
+
+func _charge_sweep_hits_player(
+	from_position: Vector2,
+	to_position: Vector2
+) -> bool:
+	if _player_target == null or not is_instance_valid(_player_target):
+		return false
+	if (
+		_player_target.has_method("is_alive")
+		and not bool(_player_target.call("is_alive"))
+	):
+		return false
+	var player_radius: float = (
+		float(_player_target.call("hit_radius"))
+		if _player_target.has_method("hit_radius")
+		else 0.0
+	)
+	var hit_distance: float = maxf(_hit_radius + player_radius, 1.0)
+	return (
+		_distance_to_segment(
+			_player_target.global_position,
+			from_position,
+			to_position
+		)
+		<= hit_distance
+	)
+
+
+func _apply_attack_damage_to_player(attack: Dictionary) -> Dictionary:
+	if _player_target == null or not is_instance_valid(_player_target):
+		return {
+			"applied": false,
+			"amount": 0.0,
+			"defeated": false,
+			"reason": "invalid_target",
+		}
+	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		_scaled_attack_damage(attack),
+		String(attack.get("element_id", "")),
+		self,
+		_player_target,
+		TEAM_ENEMY,
+		TEAM_PLAYER
+	)
+	return Combat.apply_damage(_player_target, info)
+
+
+func _arm_explosion(from_chain: bool) -> void:
+	if _armed or _has_exploded:
+		return
+	var action: Dictionary = _action_by_id(
+		ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
+	)
+	if action.is_empty():
+		return
+	_current_action = ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
+	_focus_target = null
+	_armed = true
+	_armed_from_chain = from_chain
+	_attack_hit_committed = false
+	_locked_direction = Vector2.ZERO
+	_action_state = ACTION_STATE_ARMED_WINDUP
+	_action_timer = float(
+		_attack_from_action(action).get("windup", 0.0)
+	)
+	velocity = Vector2.ZERO
+	_set_collision_enabled(false)
+	_emit_attack_windup(_action_timer)
+	_refresh_visuals()
+	if _action_timer <= 0.0:
+		_detonate_exploder()
+
+
+func _update_armed_state(delta: float) -> void:
+	if _has_exploded:
+		return
+	_action_timer = maxf(_action_timer - delta, 0.0)
+	if _action_timer <= 0.0:
+		_detonate_exploder()
+
+
+func _detonate_exploder() -> void:
+	if not _armed or _has_exploded:
+		return
+	_has_exploded = true
+	_attack_hit_committed = true
+	var attack: Dictionary = _current_attack()
+	var blast_position: Vector2 = global_position
+	var blast_radius: float = float(attack.get("radius", 0.0))
+	attack_committed.emit(
+		self,
+		_current_action,
+		_attack_feedback_context(attack, 0.0, true)
+	)
+
+	if (
+		_player_target != null
+		and is_instance_valid(_player_target)
+		and global_position.distance_to(_player_target.global_position)
+		<= blast_radius
+		and _has_terrain_line_of_sight(
+			global_position,
+			_player_target.global_position
+		)
+	):
+		_apply_attack_damage_to_player(attack)
+
+	var targets: Array[Enemy] = []
+	for node: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if node == self or not node is Enemy:
+			continue
+		var enemy: Enemy = node as Enemy
+		if enemy.is_armed() or not enemy.is_alive():
+			continue
+		if blast_position.distance_to(enemy.global_position) > blast_radius:
+			continue
+		if not _has_terrain_line_of_sight(
+			blast_position,
+			enemy.global_position
+		):
+			continue
+		targets.append(enemy)
+	targets.sort_custom(Callable(self, "_enemy_spawn_serial_less"))
+	for target: Enemy in targets:
+		if not is_instance_valid(target):
+			continue
+		var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+			_scaled_attack_damage(attack),
+			String(attack.get("element_id", "")),
+			self,
+			target,
+			TEAM_ENEMY,
+			TEAM_ENEMY
+		)
+		Combat.apply_damage(target, info)
+
+	_life_points = 0.0
+	_finish_defeat(
+		false,
+		false,
+		ENEMY_DEFEAT_CAUSES.EXPLODER_DETONATION
+	)
+
+
+func _enemy_spawn_serial_less(left: Enemy, right: Enemy) -> bool:
+	return left.runtime_spawn_serial() < right.runtime_spawn_serial()
+
+
+func _emit_attack_windup(remaining: float) -> void:
+	var attack: Dictionary = _current_attack()
+	attack_windup_started.emit(
+		self,
+		_current_action,
+		_attack_feedback_context(attack, remaining, false)
+	)
+
+
+func _attack_feedback_context(
+	attack: Dictionary,
+	duration: float,
+	detached: bool
+) -> Dictionary:
+	var context: Dictionary = {
+		"owner": null if detached else self,
+		"world_position": global_position,
+		"follow_owner": false,
+		"duration": duration,
+		"rotation": _locked_direction.angle()
+			if _locked_direction.length_squared() > 0.0
+			else 0.0,
+	}
+	if _current_action == ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET:
+		var radius: float = float(attack.get("radius", 0.0))
+		context["scale"] = (
+			Vector2.ONE * radius / (23.0 if detached else 36.0)
+		)
+	elif _current_action == ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK:
+		var melee_range: float = float(attack.get("range", 0.0))
+		context["scale"] = Vector2.ONE * melee_range
+	elif _current_action == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET:
+		var lane_length: float = float(attack.get("trigger_range", 0.0))
+		var target_radius: float = (
+			float(_player_target.call("hit_radius"))
+			if (
+				_player_target != null
+				and is_instance_valid(_player_target)
+				and _player_target.has_method("hit_radius")
+			)
+			else 0.0
+		)
+		context["scale"] = Vector2(
+			lane_length,
+			maxf(_hit_radius + target_radius, 1.0)
+		)
+	return context
+
+
+func _finish_defeat(
+	counts_as_kill: bool,
+	drops_rewards: bool,
+	cause_id: String
+) -> void:
+	remove_from_group("active_enemies")
+	defeated.emit(
+		self,
+		_gold_reward,
+		counts_as_kill,
+		drops_rewards,
+		cause_id
+	)
+	_ensure_presentation()
+	if _presentation != null:
+		_presentation.play_defeat()
+	else:
+		PoolManager.release(self)
+
+
+func _distance_to_segment(
+	point: Vector2,
+	segment_start: Vector2,
+	segment_end: Vector2
+) -> float:
+	var segment: Vector2 = segment_end - segment_start
+	var length_squared: float = segment.length_squared()
+	if length_squared <= 0.0:
+		return point.distance_to(segment_start)
+	var ratio: float = clampf(
+		(point - segment_start).dot(segment) / length_squared,
+		0.0,
+		1.0
+	)
+	return point.distance_to(segment_start + segment * ratio)
 
 
 func _move_in_direction(direction: Vector2, speed_scale: float, delta: float) -> void:
@@ -1105,17 +1588,19 @@ func _refresh_cached_navigation_waypoint() -> void:
 
 
 func _update_ai_timers(delta: float) -> void:
-	_charge_cooldown_remaining = maxf(_charge_cooldown_remaining - delta, 0.0)
-	_ranged_cooldown_remaining = maxf(_ranged_cooldown_remaining - delta, 0.0)
-	_contact_interval_remaining = maxf(
-		_contact_interval_remaining - delta,
+	_attack_cooldown_remaining = maxf(
+		_attack_cooldown_remaining - delta,
 		0.0
 	)
 	_memory_remaining = maxf(_memory_remaining - delta, 0.0)
 
 
-func _is_charge_state_active() -> bool:
-	return _action_state == ACTION_STATE_CHARGE_WINDUP or _action_state == ACTION_STATE_CHARGE_RELEASE
+func _is_attack_state_active() -> bool:
+	return (
+		_action_state == ACTION_STATE_MELEE_WINDUP
+		or _action_state == ACTION_STATE_CHARGE_WINDUP
+		or _action_state == ACTION_STATE_CHARGE_RELEASE
+	)
 
 
 func _start_hit_flash() -> void:
@@ -1146,6 +1631,48 @@ func _refresh_visuals() -> void:
 		outline_alpha,
 		Vector2(radius * _facing_sign, radius)
 	)
+	_refresh_attack_visuals()
+
+
+func _refresh_attack_visuals() -> void:
+	var exploder_core_outline: Polygon2D = get_node_or_null(
+		"Visual/ExploderCoreOutline"
+	) as Polygon2D
+	var exploder_core: Polygon2D = get_node_or_null(
+		"Visual/ExploderCore"
+	) as Polygon2D
+	var bulwark_armor_outline: Polygon2D = get_node_or_null(
+		"Visual/BulwarkArmorOutline"
+	) as Polygon2D
+	var bulwark_armor: Polygon2D = get_node_or_null(
+		"Visual/BulwarkArmor"
+	) as Polygon2D
+	var is_exploder: bool = _has_action(
+		ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
+	)
+	var charge_attack: Dictionary = _attack_from_action(
+		_action_by_id(ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET)
+	)
+	var is_ram_bulwark: bool = (
+		bool(charge_attack.get("stop_on_hit", false))
+		and float(charge_attack.get("knockback_distance", 0.0)) > 0.0
+	)
+	if exploder_core_outline != null:
+		exploder_core_outline.visible = is_exploder
+		exploder_core_outline.color = Color(0.12, 0.02, 0.01, 0.96)
+	if exploder_core != null:
+		exploder_core.visible = is_exploder
+		exploder_core.color = (
+			Color(1.0, 0.16, 0.04, 1.0)
+			if _armed
+			else Color(1.0, 0.68, 0.12, 1.0)
+		)
+	if bulwark_armor_outline != null:
+		bulwark_armor_outline.visible = is_ram_bulwark
+		bulwark_armor_outline.color = Color(0.08, 0.055, 0.035, 0.98)
+	if bulwark_armor != null:
+		bulwark_armor.visible = is_ram_bulwark
+		bulwark_armor.color = Color(0.94, 0.72, 0.35, 1.0)
 
 
 func _ensure_presentation() -> void:
@@ -1164,44 +1691,8 @@ func _on_defeat_presentation_finished() -> void:
 		PoolManager.release(self)
 
 
-func _check_contact() -> void:
-	if _contact_interval_remaining > 0.0:
-		return
-	var contact_target: Node2D = _contact_target()
-	if contact_target == null or not is_instance_valid(contact_target):
-		return
-	if contact_target.has_method("is_alive") and not bool(contact_target.call("is_alive")):
-		return
-	var distance: float = global_position.distance_to(contact_target.global_position)
-	if distance > _contact_distance(contact_target):
-		return
-	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
-		_contact_damage,
-		_contact_element_id,
-		self,
-		contact_target,
-		TEAM_ENEMY,
-		TEAM_PLAYER
-	)
-	Combat.apply_damage(contact_target, info)
-	_contact_interval_remaining = _contact_interval
-
-
 func _status_move_speed_multiplier() -> float:
 	return status_stat_multiplier(STATS.MOVE_SPEED)
-
-
-func _contact_target() -> Node2D:
-	if _player_target != null and is_instance_valid(_player_target):
-		return _player_target
-	return null
-
-
-func _contact_distance(target: Node2D) -> float:
-	var distance: float = _hit_radius
-	if target.has_method("separation_radius"):
-		distance = maxf(distance, _separation_radius + float(target.call("separation_radius")))
-	return distance
 
 
 func _apply_center_separation() -> void:
@@ -1270,10 +1761,6 @@ func _perception() -> Dictionary:
 
 func _movement_value(key: String) -> float:
 	return float(_movement().get(key, 0.0))
-
-
-func _movement_string(key: String, fallback: String = "") -> String:
-	return String(_movement().get(key, fallback))
 
 
 func _player_weight() -> float:
@@ -1363,6 +1850,54 @@ func _action_speed_scale(action_id: String) -> float:
 	return 1.0
 
 
+func _action_by_id(action_id: String) -> Dictionary:
+	for action: Dictionary in _actions:
+		if String(action.get("id", "")) == action_id:
+			return action
+	return {}
+
+
+func _has_action(action_id: String) -> bool:
+	return not _action_by_id(action_id).is_empty()
+
+
+func _attack_from_action(action: Dictionary) -> Dictionary:
+	return _dictionary_or_empty(action.get("attack", {}))
+
+
+func _current_attack() -> Dictionary:
+	return _attack_from_action(_action_by_id(_current_action))
+
+
+func _initial_attack_cooldown() -> float:
+	for action: Dictionary in _actions:
+		if String(action.get("id", "")) == ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK:
+			return maxf(
+				float(
+					_attack_from_action(action).get(
+						"initial_cooldown",
+						0.0
+					)
+				),
+				0.0
+			)
+	return 0.0
+
+
+func _scaled_attack_damage(attack: Dictionary) -> float:
+	return (
+		maxf(float(attack.get("damage", 0.0)), 0.0)
+		* _spawn_damage_multiplier
+	)
+
+
+func _attack_display_range(attack: Dictionary) -> float:
+	for key: String in ["radius", "range", "trigger_range", "attack_range"]:
+		if attack.has(key):
+			return maxf(float(attack.get(key, 0.0)), 0.0)
+	return 0.0
+
+
 func _proximity_score(distance: float, radius: float) -> float:
 	return 0.25 + (1.0 - clampf(distance / maxf(radius, 1.0), 0.0, 1.0))
 
@@ -1420,15 +1955,21 @@ func _clamp_to_movement_bounds(world_position: Vector2) -> Vector2:
 	)
 
 
-func _move_with_collision(motion: Vector2) -> void:
+func _move_with_collision(
+	motion: Vector2,
+	allow_slide: bool = true
+) -> bool:
 	if motion.length_squared() <= 0.0:
-		return
+		return false
 	var collision: KinematicCollision2D = move_and_collide(motion)
 	if collision == null:
-		return
+		return false
+	if not allow_slide:
+		return true
 	var slide_motion: Vector2 = collision.get_remainder().slide(collision.get_normal())
 	if slide_motion.length_squared() > 0.0:
 		move_and_collide(slide_motion)
+	return true
 
 
 func _configure_collision_shape() -> void:

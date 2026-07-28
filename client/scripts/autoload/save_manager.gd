@@ -16,12 +16,12 @@ const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const SAVE_ROOT: String = "user://saves"
 const BROKEN_DIR_NAME: String = ".broken"
 const DEFAULT_SLOT: String = "slot_0"
-const GAME_VERSION: String = "v1.7"
+const GAME_VERSION: String = "v1.8"
 const DEFAULT_MAIN_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 const DEFAULT_SUB_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 const CURRENT_KIND_VERSIONS: Dictionary = {
 	SAVE_KINDS.META: 2,
-	SAVE_KINDS.RUN: 7,
+	SAVE_KINDS.RUN: 8,
 	SAVE_KINDS.REPLAY_INDEX: 1,
 }
 
@@ -37,6 +37,7 @@ func _ready() -> void:
 	register_migration(SAVE_KINDS.RUN, 4, 5, Callable(self, "_migrate_run_v4_to_v5"))
 	register_migration(SAVE_KINDS.RUN, 5, 6, Callable(self, "_migrate_run_v5_to_v6"))
 	register_migration(SAVE_KINDS.RUN, 6, 7, Callable(self, "_migrate_run_v6_to_v7"))
+	register_migration(SAVE_KINDS.RUN, 7, 8, Callable(self, "_migrate_run_v7_to_v8"))
 
 
 func registered_save_kinds() -> Array[String]:
@@ -402,6 +403,18 @@ func _migrate_run_v6_to_v7(payload: Dictionary) -> Dictionary:
 	result["gold_progression"] = {}
 	result["reward_choice"] = {}
 	result["gold_orbs"] = []
+	return result
+
+
+func _migrate_run_v7_to_v8(payload: Dictionary) -> Dictionary:
+	# v7 enemy snapshots contain contact timers and no committed attack state,
+	# spawn serial, armed explosion state, or external player knockback. Do not
+	# guess whether a loaded overlap should deal damage or detonate.
+	var result: Dictionary = payload.duplicate(true)
+	result["schema_version"] = 8
+	result["legacy_run_incompatible"] = true
+	result["enemies"] = []
+	result["next_enemy_spawn_serial"] = 1
 	return result
 
 

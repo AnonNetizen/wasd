@@ -9,7 +9,7 @@
 - 它维护独立的“难度时间”。`GameClock` 继续驱动移动、冷却、状态、回复、敌人、子弹和回放 tick；不能通过暂停 `GameClock` 实现起点规则。
 - 默认模块世界中，玩家实际位于 `module_role_start` 时难度时间暂停；开放战区从进入 `PLAYING` 起立即推进；开发者测试岛默认禁用。
 - 起点房只锁武器和四技能。移动、冲刺、交互、回复、冷却、敌人 AI、敌弹和受伤继续运行，不是安全区。
-- 难度只影响之后实际生成的敌人生命、接触伤害和远程弹丸伤害。移速、攻击间隔、弹速、AI、掉落、奖励、敌人数和刷新预算不变。
+- 难度只影响之后实际生成的敌人生命，以及爆炸、近战、冲撞和远程投射物的显式攻击伤害。范围、角度、前摇、释放、冷却、冲刺倍率、击退、移速、弹速、AI、掉落、奖励、敌人数和刷新预算不变。
 
 ## 数据
 
@@ -24,7 +24,7 @@
 | `damage_growth_ratio` | float | `0.48` | 生命系数变化映射到伤害的比例 |
 | `stage_name_keys` | Array[String] | 9 个 key | Lv.1～9 名称；更高等级沿用第 9 个 |
 
-`client/data/game_modes.json` schema v2 的每个 mode 必须用 `difficulty_profile_id` 强引用已登记 profile。DataLoader 与 Python 校验器共同拒绝缺失引用、重复 id、非正阶段时长、越界增长值、非 9 段文案和未本地化 key。
+`client/data/game_modes.json` schema v3 的每个 mode 必须用 `difficulty_profile_id` 强引用已登记 profile。DataLoader 与 Python 校验器共同拒绝缺失引用、重复 id、非正阶段时长、越界增长值、非 9 段文案和未本地化 key。
 
 ## 标准曲线
 
@@ -49,7 +49,7 @@ difficulty_level = tier + 1
 | `advance(delta)` | 已经 `GameClock.delta_scaled()` 的秒数 | void | 禁用、非正数或非有限值不推进 |
 | `current_snapshot()` | 无 | Dictionary | 返回 elapsed、tier、progress、coefficient、等级、名称 key 和两倍率 |
 | `enemy_spawn_snapshot()` | 无 | Dictionary | 生成敌人时取得的不可变出生倍率 |
-| `snapshot()` | 无 | Dictionary | Run v7 保存 schema/profile/elapsed/enabled |
+| `snapshot()` | 无 | Dictionary | Run v8 保存 schema/profile/elapsed/enabled |
 | `restore_snapshot(saved)` | 快照 | bool | schema/profile/elapsed 不匹配则拒绝 |
 
 ## 运行流程
@@ -57,8 +57,8 @@ difficulty_level = tier + 1
 1. RunLoop 读取 mode 和 profile，配置 progression。
 2. 每个 `PLAYING` 帧先判断载体。模块世界根据玩家真实世界坐标换算当前槽位，开放战区直接允许推进。
 3. 模块首次进入计划仍在进房时固化敌种和位置；预警倒计时结束后，敌人在真正 `PoolManager.acquire()` 时取得最新 `enemy_spawn_snapshot()`。
-4. `Enemy.configure(..., spawn_difficulty)` 把生命倍率应用到最大生命，把伤害倍率应用到接触与远程弹丸伤害，并保存倍率。
-5. 已生成敌人不订阅 progression，也不会在跨级时重算。模块卸载和 Run v7 续局从敌人快照恢复同一倍率。
+4. `Enemy.configure(..., spawn_difficulty)` 把生命倍率应用到最大生命，把伤害倍率应用到全部显式攻击伤害并保存倍率；攻击几何、时序和击退保持数据原值。
+5. 已生成敌人不订阅 progression，也不会在跨级时重算。模块卸载和 Run v8 续局从敌人快照恢复同一倍率。
 6. HUD、详细面板、GameOverPanel、GameState 结果 payload 和 Replay 的 run-end / runtime summary 都使用难度时间。
 
 ## 战斗门禁
@@ -70,7 +70,7 @@ difficulty_level = tier + 1
 
 ## 存档与回放
 
-- Run v7 继续保存顶层 `difficulty`，并在每个敌人快照保存 `spawn_health_multiplier` / `spawn_damage_multiplier`。
+- Run v8 继续保存顶层 `difficulty`，并在每个敌人快照保存 `spawn_health_multiplier` / `spawn_damage_multiplier`；同时保存显式攻击阶段，恢复时不得重复提交伤害。
 - Run v5 无法推断玩家在起点停留的时间，也无法还原已有敌人的出生倍率，因此 v5→v6 标记 `legacy_run_incompatible`，启动层只删除 run；Meta v2 和 Gear Mod 不受影响。
 - Replay 文件和 recording 保持 v3。数据 schema count 会让 profile 变化进入 data fingerprint；四条 golden 的 `run_summary` 增加难度时间、等级和两倍率。
 
@@ -95,5 +95,5 @@ difficulty_level = tier + 1
 | 起点能开火或消耗 RNG | WeaponSystem 是否在 `_fire_once()` 前检查 gate；是否绕过 `InputService` 直接调用发射 |
 | 技能锁定后仍扣能量 | SkillSystem gate 是否位于成本 / 冷却判断之前 |
 | 已有敌人跨级回血或增伤 | 是否错误地每帧查询 progression；Enemy 只能在 configure / restore 时设置出生倍率 |
-| 续局敌人倍率变化 | Run 是否为 v6；敌人快照是否含两倍率；恢复 configure 是否先传入保存倍率 |
+| 续局敌人倍率变化 | Run 是否为 v8；敌人快照是否含两倍率；恢复 configure 是否先传入保存倍率 |
 | 起点等候解锁后期敌种 | `unlock_time` 与 Warzone wave gating 是否仍读 `GameClock.now()`，应改读难度时间 |

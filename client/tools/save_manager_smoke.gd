@@ -133,8 +133,8 @@ func _expect_migration_chain() -> void:
 	_expect(bool(migrated_payload.get("legacy_run_incompatible", false)), "run v3->v4 migration should explicitly mark legacy run reset")
 	_expect(migrated_payload.get("module_world", null) is Dictionary, "run v3->v4 migration should add an empty module-world snapshot")
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 7,
-		"run v6->v7 migration should advance the gameplay snapshot schema"
+		int(migrated_payload.get("schema_version", 0)) == 8,
+		"run v7->v8 migration should advance the gameplay snapshot schema"
 	)
 	_expect(
 		migrated_payload.get("hero_composition", null) is Dictionary,
@@ -159,6 +159,14 @@ func _expect_migration_chain() -> void:
 	_expect(
 		not migrated_payload.has("xp") and not migrated_payload.has("level"),
 		"run v6->v7 migration should discard legacy XP-derived state"
+	)
+	_expect(
+		(migrated_payload.get("enemies", null) as Array).is_empty(),
+		"run v7->v8 migration should discard ambiguous contact-era enemy snapshots"
+	)
+	_expect(
+		int(migrated_payload.get("next_enemy_spawn_serial", 0)) == 1,
+		"run v7->v8 migration should reset the enemy spawn serial marker"
 	)
 	var parent_boot: Node = get_parent()
 	_expect(
@@ -186,11 +194,12 @@ func _expect_migration_chain() -> void:
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 4, 5]), "run migration should emit save_migrated for run 4->5")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 5, 6]), "run migration should emit save_migrated for run 5->6")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 6, 7]), "run migration should emit save_migrated for run 6->7")
+	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 7, 8]), "run migration should emit save_migrated for run 7->8")
 
 
 func _run_payload(marker: String, level: int) -> Dictionary:
 	return {
-		"schema_version": 7,
+		"schema_version": 8,
 		"mode": "mode_standard_survival",
 		"character": "character_default",
 		"gold_progression": {

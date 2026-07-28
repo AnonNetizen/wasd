@@ -333,6 +333,103 @@
         "checkpoint": "charge",
         "scale": 1.2
       }
+    },
+    {
+      "id": "enemy_explosion_telegraph",
+      "editor_name": "爆猎者圆形爆炸预警",
+      "domain": "combat",
+      "kind": "spawned_scene",
+      "resource_path": "res://scenes/vfx/composites/ground_telegraph.tscn",
+      "space": "ground",
+      "lifecycle": "state",
+      "duration": 0.65,
+      "pool_id": "vfx_enemy_explosion_telegraph",
+      "prewarm": 16,
+      "high_frequency": true,
+      "quality_variants": {},
+      "tags": [
+        "animation_player",
+        "geometry",
+        "shader",
+        "gameplay_boundary"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "charge",
+        "scale": 3.2
+      }
+    },
+    {
+      "id": "enemy_melee_telegraph",
+      "editor_name": "群袭者扇形近战预警",
+      "domain": "combat",
+      "kind": "spawned_scene",
+      "resource_path": "res://scenes/vfx/composites/enemy_melee_telegraph.tscn",
+      "space": "ground",
+      "lifecycle": "state",
+      "duration": 0.24,
+      "pool_id": "vfx_enemy_melee_telegraph",
+      "prewarm": 8,
+      "high_frequency": true,
+      "quality_variants": {},
+      "tags": [
+        "animation_player",
+        "geometry",
+        "gameplay_boundary"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "charge",
+        "scale": 1
+      }
+    },
+    {
+      "id": "enemy_charge_telegraph",
+      "editor_name": "敌人冲撞通道预警",
+      "domain": "combat",
+      "kind": "spawned_scene",
+      "resource_path": "res://scenes/vfx/composites/enemy_charge_telegraph.tscn",
+      "space": "ground",
+      "lifecycle": "state",
+      "duration": 0.48,
+      "pool_id": "vfx_enemy_charge_telegraph",
+      "prewarm": 8,
+      "high_frequency": true,
+      "quality_variants": {},
+      "tags": [
+        "animation_player",
+        "geometry",
+        "gameplay_boundary"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "charge",
+        "scale": 1
+      }
+    },
+    {
+      "id": "enemy_explosion_impact",
+      "editor_name": "爆猎者爆炸冲击",
+      "domain": "combat",
+      "kind": "spawned_scene",
+      "resource_path": "res://scenes/vfx/composites/skill_cast_pulse.tscn",
+      "space": "world",
+      "lifecycle": "one_shot",
+      "duration": 0.34,
+      "pool_id": "vfx_enemy_explosion_impact",
+      "prewarm": 16,
+      "high_frequency": true,
+      "quality_variants": {},
+      "tags": [
+        "animation_player",
+        "geometry",
+        "shader"
+      ],
+      "preview": {
+        "background": "combat",
+        "checkpoint": "contact",
+        "scale": 4.2
+      }
     }
   ]
 }

@@ -1,0 +1,55 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/vfx/vfx_instance.gd" id="1_kqh1w"]
+
+[sub_resource type="Animation" id="Animation_7mcs7"]
+length = 0.01
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+
+[sub_resource type="Animation" id="Animation_1w0cm"]
+length = 0.24
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.0432, 0.1728, 0.24),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 0), Color(1, 1, 1, 1), Color(1, 0.86, 0.52, 0.92), Color(1, 0.32, 0.12, 0)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_jmvxc"]
+_data = {
+&"RESET": SubResource("Animation_7mcs7"),
+&"play": SubResource("Animation_1w0cm")
+}
+
+[node name="EnemyAttackTelegraph" type="Node2D" unique_id=1319894759]
+script = ExtResource("1_kqh1w")
+
+[node name="Fill" type="Polygon2D" parent="." unique_id=1281938177]
+color = Color(1, 0.38, 0.12, 0.5)
+polygon = PackedVector2Array(0, 0, 0.64278764, -0.76604444, 0.7470251, -0.6647959, 0.8354878, -0.549509, 0.90630776, -0.42261827, 0.9579895, -0.28680325, 0.98944163, -0.14493187, 1, 0, 0.98944163, 0.14493187, 0.9579895, 0.28680325, 0.90630776, 0.42261827, 0.8354878, 0.549509, 0.7470251, 0.6647959, 0.64278764, 0.76604444)
+
+[node name="Outline" type="Line2D" parent="." unique_id=1179984343]
+points = PackedVector2Array(0, 0, 0.64278764, -0.76604444, 0.7470251, -0.6647959, 0.8354878, -0.549509, 0.90630776, -0.42261827, 0.9579895, -0.28680325, 0.98944163, -0.14493187, 1, 0, 0.98944163, 0.14493187, 0.9579895, 0.28680325, 0.90630776, 0.42261827, 0.8354878, 0.549509, 0.7470251, 0.6647959, 0.64278764, 0.76604444, 0, 0)
+width = 0.08
+default_color = Color(1, 0.94, 0.72, 0.92)
+joint_mode = 2
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=1257123185]
+libraries/ = SubResource("AnimationLibrary_jmvxc")

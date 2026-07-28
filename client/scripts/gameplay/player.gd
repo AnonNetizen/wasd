@@ -44,6 +44,9 @@ var _dash_remaining: float = 0.0
 var _dash_speed: float = 750.0
 var _debug_invulnerable: bool = false
 var _element_damage_taken_multipliers: Dictionary = {}
+var _external_knockback_duration: float = 0.0
+var _external_knockback_remaining: float = 0.0
+var _external_knockback_velocity: Vector2 = Vector2.ZERO
 var _has_movement_bounds: bool = false
 var _health_regen: float = 0.0
 var _luck: float = 0.0
@@ -107,6 +110,9 @@ func _physics_process(delta: float) -> void:
 		scaled_delta,
 		suppress_recoil_movement
 	)
+	var external_knockback_velocity: Vector2 = _update_external_knockback(
+		scaled_delta
+	)
 
 	var move_input: Vector2 = InputService.vector(ACTIONS.MOVE, INPUT_PARTICIPANT_ID)
 	var aim_input: Vector2 = InputService.vector(ACTIONS.AIM, INPUT_PARTICIPANT_ID)
@@ -117,9 +123,16 @@ func _physics_process(delta: float) -> void:
 	InputService.publish_resolved_aim(aim_direction)
 
 	if _dash_remaining > 0.0:
-		velocity = _dash_direction * _dash_speed
+		velocity = (
+			_dash_direction * _dash_speed
+			+ external_knockback_velocity
+		)
 	else:
-		velocity = move_input * _effective_move_speed() + recoil_velocity
+		velocity = (
+			move_input * _effective_move_speed()
+			+ recoil_velocity
+			+ external_knockback_velocity
+		)
 	move_and_slide()
 	_apply_movement_bounds()
 
@@ -138,6 +151,9 @@ func configure(base_stats: Dictionary) -> void:
 	_dash_direction = Vector2.ZERO
 	_dash_invulnerability_remaining = 0.0
 	_dash_remaining = 0.0
+	_external_knockback_duration = 0.0
+	_external_knockback_remaining = 0.0
+	_external_knockback_velocity = Vector2.ZERO
 	_debug_invulnerable = false
 	_shield_gate_remaining = 0.0
 	_shield_recharge_delay_remaining = 0.0
@@ -246,6 +262,9 @@ func debug_reset_transient_state(world_position: Vector2) -> void:
 	_dash_direction = Vector2.ZERO
 	_dash_invulnerability_remaining = 0.0
 	_dash_remaining = 0.0
+	_external_knockback_duration = 0.0
+	_external_knockback_remaining = 0.0
+	_external_knockback_velocity = Vector2.ZERO
 	_shield_gate_remaining = 0.0
 	_shield_recharge_delay_remaining = 0.0
 	_temporary_modifiers.clear()
@@ -430,6 +449,35 @@ func weapon_recoil_remaining() -> float:
 	return _weapon_recoil_remaining
 
 
+func apply_external_knockback(
+	direction: Vector2,
+	distance: float,
+	duration: float
+) -> bool:
+	if (
+		not is_alive()
+		or direction.length_squared() <= 0.0
+		or distance <= 0.0
+		or duration <= 0.0
+	):
+		return false
+	_external_knockback_duration = duration
+	_external_knockback_remaining = duration
+	_external_knockback_velocity = (
+		direction.normalized()
+		* (distance * 2.0 / duration)
+	)
+	return true
+
+
+func external_knockback_velocity() -> Vector2:
+	return _external_knockback_velocity
+
+
+func external_knockback_remaining() -> float:
+	return _external_knockback_remaining
+
+
 func set_element_damage_taken_multiplier(
 	element_id: String,
 	multiplier: float
@@ -600,6 +648,11 @@ func snapshot() -> Dictionary:
 		"weapon_recoil_velocity": _vector_to_dict(_weapon_recoil_velocity),
 		"weapon_recoil_remaining": _weapon_recoil_remaining,
 		"weapon_recoil_duration": _weapon_recoil_duration,
+		"external_knockback_velocity": _vector_to_dict(
+			_external_knockback_velocity
+		),
+		"external_knockback_remaining": _external_knockback_remaining,
+		"external_knockback_duration": _external_knockback_duration,
 		"element_damage_taken_multipliers": _element_damage_taken_multipliers.duplicate(true),
 		"stat_additions": _stat_additions.duplicate(true),
 		"stat_multipliers": _stat_multipliers.duplicate(true),
@@ -669,6 +722,30 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 		_weapon_recoil_remaining = minf(
 			_weapon_recoil_remaining,
 			_weapon_recoil_duration
+		)
+	_external_knockback_velocity = _dict_to_vector(
+		snapshot_data.get("external_knockback_velocity", {}),
+		Vector2.ZERO
+	)
+	_external_knockback_remaining = maxf(
+		float(snapshot_data.get("external_knockback_remaining", 0.0)),
+		0.0
+	)
+	_external_knockback_duration = maxf(
+		float(snapshot_data.get("external_knockback_duration", 0.0)),
+		0.0
+	)
+	if (
+		_external_knockback_duration <= 0.0
+		or _external_knockback_remaining <= 0.0
+	):
+		_external_knockback_duration = 0.0
+		_external_knockback_remaining = 0.0
+		_external_knockback_velocity = Vector2.ZERO
+	else:
+		_external_knockback_remaining = minf(
+			_external_knockback_remaining,
+			_external_knockback_duration
 		)
 	_element_damage_taken_multipliers = _dictionary_or_empty(
 		snapshot_data.get(
@@ -885,6 +962,39 @@ func _update_weapon_recoil(
 		_weapon_recoil_velocity = Vector2.ZERO
 	if suppress_movement or is_dashing():
 		return Vector2.ZERO
+	return average_velocity
+
+
+func _update_external_knockback(delta: float) -> Vector2:
+	if (
+		_external_knockback_remaining <= 0.0
+		or _external_knockback_velocity.length_squared() <= 0.0
+		or delta <= 0.0
+	):
+		_external_knockback_duration = 0.0
+		_external_knockback_remaining = 0.0
+		_external_knockback_velocity = Vector2.ZERO
+		return Vector2.ZERO
+	var elapsed: float = minf(delta, _external_knockback_remaining)
+	var previous_velocity: Vector2 = _external_knockback_velocity
+	var next_remaining: float = maxf(
+		_external_knockback_remaining - elapsed,
+		0.0
+	)
+	var remaining_ratio: float = (
+		next_remaining / _external_knockback_remaining
+		if _external_knockback_remaining > 0.0
+		else 0.0
+	)
+	_external_knockback_velocity *= remaining_ratio
+	_external_knockback_remaining = next_remaining
+	var average_velocity: Vector2 = (
+		(previous_velocity + _external_knockback_velocity) * 0.5
+		* (elapsed / delta)
+	)
+	if _external_knockback_remaining <= 0.0:
+		_external_knockback_duration = 0.0
+		_external_knockback_velocity = Vector2.ZERO
 	return average_velocity
 
 

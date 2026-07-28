@@ -34,6 +34,23 @@ func _initialize() -> void:
 		0.5,
 		true
 	) and success
+	success = _save_shape_telegraph(
+		"%s/enemy_melee_telegraph.tscn" % COMPOSITE_ROOT,
+		_melee_wedge_polygon(),
+		Color(1.0, 0.38, 0.12, 0.5),
+		0.24
+	) and success
+	success = _save_shape_telegraph(
+		"%s/enemy_charge_telegraph.tscn" % COMPOSITE_ROOT,
+		PackedVector2Array([
+			Vector2(0.0, -1.0),
+			Vector2(1.0, -1.0),
+			Vector2(1.0, 1.0),
+			Vector2(0.0, 1.0),
+		]),
+		Color(1.0, 0.72, 0.16, 0.42),
+		0.48
+	) and success
 	success = _save_screen_flash(
 		"%s/player_damage_screen_flash.tscn" % COMPOSITE_ROOT,
 		0.22,
@@ -247,6 +264,71 @@ func _save_actor_afterimage(resource_path: String) -> bool:
 	library.add_animation(&"play", playback)
 	animation_player.add_animation_library(&"", library)
 	return _save_scene(root, resource_path)
+
+
+func _save_shape_telegraph(
+	resource_path: String,
+	points: PackedVector2Array,
+	accent: Color,
+	duration: float
+) -> bool:
+	var root := VfxInstance.new()
+	root.name = "EnemyAttackTelegraph"
+
+	var fill := Polygon2D.new()
+	fill.name = "Fill"
+	fill.polygon = points
+	fill.color = accent
+	root.add_child(fill)
+	fill.owner = root
+
+	var outline := Line2D.new()
+	outline.name = "Outline"
+	outline.points = points
+	if points.size() > 0:
+		outline.add_point(points[0])
+	outline.width = 0.08
+	outline.default_color = Color(1.0, 0.94, 0.72, 0.92)
+	outline.joint_mode = Line2D.LINE_JOINT_ROUND
+	root.add_child(outline)
+	outline.owner = root
+
+	var animation_player := AnimationPlayer.new()
+	animation_player.name = "AnimationPlayer"
+	root.add_child(animation_player)
+	animation_player.owner = root
+	var library := AnimationLibrary.new()
+	var reset := Animation.new()
+	reset.length = 0.01
+	_add_value_track(reset, NodePath(".:modulate"), [0.0], [Color.WHITE])
+	library.add_animation(&"RESET", reset)
+	var playback := Animation.new()
+	playback.length = duration
+	_add_value_track(
+		playback,
+		NodePath(".:modulate"),
+		[0.0, duration * 0.18, duration * 0.72, duration],
+		[
+			Color(1.0, 1.0, 1.0, 0.0),
+			Color.WHITE,
+			Color(1.0, 0.86, 0.52, 0.92),
+			Color(1.0, 0.32, 0.12, 0.0),
+		]
+	)
+	library.add_animation(&"play", playback)
+	animation_player.add_animation_library(&"", library)
+	return _save_scene(root, resource_path)
+
+
+func _melee_wedge_polygon() -> PackedVector2Array:
+	var points := PackedVector2Array([Vector2.ZERO])
+	var half_angle: float = deg_to_rad(50.0)
+	var segment_count: int = 12
+	for index: int in range(segment_count + 1):
+		var ratio: float = float(index) / float(segment_count)
+		var angle: float = lerpf(-half_angle, half_angle, ratio)
+		points.append(Vector2.RIGHT.rotated(angle))
+	return points
 
 
 func _ensure_bullet_trail() -> bool:

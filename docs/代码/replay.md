@@ -11,6 +11,7 @@
 - F8 已提供 `.replay` 文件 envelope、`user://replays/` 落盘 / 读取、稳定摘要、`replay-smoke` roundtrip、`replay-runner` 摘要 diff、`client/tests/replays/golden_basic_run.replay`、`golden_pause_resume.replay`、`golden_full_death.replay` 与 `golden_reward_choice.replay` 的运行时摘要 + 稳定帧样本 golden baseline、gameplay 输入录制首片，以及 `replay-runner --rerun-runtime-summary` 的输入播放 / runtime event 播放 / 帧样本 diff 首片；暂不做全量逐帧状态 diff。
 - ADR #165 后每颗玩家弹丸固定消耗一次 `RNG.combat` 并独立抽取扩散角，零扩散也不跳过；震屏只使用 `RNG.camera_fx`，开关震屏不得改变弹道或玩家玩法位置。输入 wire format 未变，因此 Replay 保持 v3；后坐力落地时直接重录四条黄金基线，不增加旧黄金兼容。
 - ADR #166 后 Replay 仍保持 v3：输入 wire 与调度时钟不变，`run_end` decision 和黄金运行时摘要新增 `difficulty_time`、`difficulty_level`、`enemy_health_multiplier`、`enemy_damage_multiplier`。这些值来自 `DifficultyProgression`，不以 `GameClock.now()` 代替；四条黄金基线因数据指纹和摘要变化重录。
+- ADR #170 后 Replay 仍保持 v3：敌人显式攻击、爆猎者连锁和玩家击退都由现有输入、`GameClock` 与运行时数据确定，不新增 replay event 或 RNG。爆炸击杀普通敌人的掉落 RNG 按 `runtime_spawn_serial` 稳定顺序消费；数据指纹与运行时摘要变化，因此四条黄金回放全部重录并重跑。
 - `Replay` 受 `Settings.gameplay.record_replays` 控制；关闭后会清空当前内存录制并拒绝新录制。
 
 ## 阅读方式
@@ -194,7 +195,7 @@ F8 golden replay 额外在 `recording.run_summary` / `summary.run_summary` 中�
 
 ## 迁移 / 兼容
 
-当前 `.replay` 文件 envelope 与内存 recording schema 都为 3，加载器只接受 v3。旧版、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id` 与 `sub_hero_id`，四技能和冲刺使用当前规范 action。弹道随机由运行时按固定 `RNG.combat` 消耗重算，Player 后坐状态、金币、未完成奖励选择与精确敌人出生倍率属于 Run v7 而不是 replay 输入字段；Replay 只在 decision / `run_end` / summary 保留当前稳定摘要，不能把两种格式混合。
+当前 `.replay` 文件 envelope 与内存 recording schema 都为 3，加载器只接受 v3。旧版、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id` 与 `sub_hero_id`，四技能和冲刺使用当前规范 action。弹道随机由运行时按固定 `RNG.combat` 消耗重算；Player 后坐 / 敌人击退、金币、未完成奖励选择、敌人攻击阶段 / armed / 生成序号与精确出生倍率属于 Run v8 而不是 replay 输入字段。Replay 只在 decision / `run_end` / summary 保留当前稳定摘要，不能把两种格式混合。
 
 ## 相关文档
 

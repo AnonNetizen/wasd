@@ -79,7 +79,7 @@ const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
 const ENERGY_ORB_POOL_SIZE: int = 64
 const PROJECTILE_BARRIER_POOL_SIZE: int = 4
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 7
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 8
 const ACTIVE_POOL_GROUPS: Array[String] = [
 	"active_hazards",
 	"active_enemies",
@@ -155,6 +155,7 @@ var _module_world_enabled: bool = true
 var _module_world_technical_slice: bool = false
 var _module_world_manager: Node2D = null
 var _module_encounter_vfx: Dictionary = {}
+var _next_enemy_spawn_serial: int = 1
 var _settings_panel: CanvasLayer = null
 var _skill_system: Node = null
 var _spawn_states: Dictionary = {}
@@ -393,6 +394,7 @@ func create_run_snapshot() -> Dictionary:
 			else {}
 		),
 		"kills": _kills,
+		"next_enemy_spawn_serial": _next_enemy_spawn_serial,
 		"game_clock": GameClock.snapshot(),
 		"difficulty": (
 			_difficulty_progression.snapshot()
@@ -425,6 +427,7 @@ func create_run_snapshot() -> Dictionary:
 
 func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	GameClock.reset()
+	_next_enemy_spawn_serial = 1
 	_active_world = get_node_or_null("ActiveWorld") as Node2D
 	if _active_world == null:
 		_fail_run_start("missing ActiveWorld scene node", not restore_snapshot.is_empty())
@@ -1605,6 +1608,7 @@ func debug_test_arena_spawn_at(
 	if enemy.has_meta("module_slot"):
 		enemy.remove_meta("module_slot")
 	enemy.call("configure", enemy_data, _player, null)
+	_assign_enemy_spawn_serial(enemy)
 	enemy.set_meta("debug_test_arena_kind", target_kind)
 	if (
 		target_kind == DEBUG_TEST_ARENA_STATIONARY
@@ -1968,6 +1972,7 @@ func _spawn_enemy(wave: Dictionary, wave_key: String) -> bool:
 		_enemy_navigation_provider(),
 		_enemy_spawn_difficulty()
 	)
+	_assign_enemy_spawn_serial(enemy)
 	_apply_enemy_movement_bounds(enemy)
 	_connect_enemy_defeated(enemy, wave_key)
 	return true
@@ -2512,6 +2517,7 @@ func _spawn_enemy_at(enemy_id: String, spawn_position: Vector2, spawn_key: Strin
 		_enemy_navigation_provider(),
 		_enemy_spawn_difficulty()
 	)
+	_assign_enemy_spawn_serial(enemy)
 	_apply_enemy_movement_bounds(enemy)
 	_connect_enemy_defeated(enemy, spawn_key)
 	return true
@@ -3086,13 +3092,15 @@ func _release_pool_entities_under(root_node: Node) -> void:
 func _on_enemy_defeated(
 	_enemy: Node,
 	gold_reward: int,
-	player_attributed: bool,
+	counts_as_kill: bool,
+	drops_rewards: bool,
+	_cause_id: String,
 	wave_key: String
 ) -> void:
 	if _vfx_host != null and _enemy != null:
 		_vfx_host.cancel_owner(_enemy)
 	if _is_debug_test_arena():
-		if player_attributed:
+		if counts_as_kill:
 			_kills += 1
 		if _spawn_states.has(wave_key):
 			var arena_state: Dictionary = _spawn_states[wave_key]
@@ -3102,10 +3110,11 @@ func _on_enemy_defeated(
 			)
 			_spawn_states[wave_key] = arena_state
 		return
-	if player_attributed:
+	if counts_as_kill:
 		_kills += 1
 		if _hud != null:
 			_hud.call("set_kills", _kills)
+	if drops_rewards:
 		if _enemy is Node2D and gold_reward > 0:
 			_spawn_gold_orb(
 				(_enemy as Node2D).global_position,
@@ -3925,6 +3934,10 @@ func _restore_run_snapshot(
 		push_error("[GameplayRunLoop] reward choice restore failed")
 		return false
 	_kills = maxi(int(snapshot_data.get("kills", 0)), 0)
+	_next_enemy_spawn_serial = maxi(
+		int(snapshot_data.get("next_enemy_spawn_serial", 1)),
+		1
+	)
 	_spawn_states = _dictionary_or_empty(snapshot_data.get("spawn_states", {}))
 
 	var rng_snapshot: Variant = snapshot_data.get("rng", {})
@@ -4266,6 +4279,16 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 				),
 			}
 		)
+		if enemy.has_method("set_runtime_spawn_serial"):
+			var restored_serial: int = maxi(
+				int(snapshot_data.get("runtime_spawn_serial", 0)),
+				0
+			)
+			enemy.call("set_runtime_spawn_serial", restored_serial)
+			_next_enemy_spawn_serial = maxi(
+				_next_enemy_spawn_serial,
+				restored_serial + 1
+			)
 		_apply_enemy_movement_bounds(enemy)
 		_connect_enemy_defeated(enemy, wave_key)
 		if enemy.has_method("restore_snapshot"):
@@ -4360,12 +4383,71 @@ func _connect_enemy_defeated(enemy: Node, wave_key: String) -> void:
 		if existing_callback.get_object() == self and existing_callback.get_method() == "_on_enemy_defeated":
 			enemy.disconnect("defeated", existing_callback)
 	enemy.connect("defeated", callback, CONNECT_ONE_SHOT)
+	_connect_enemy_attack_feedback(enemy)
 	_connect_status_feedback(enemy)
 	if enemy is Node2D:
 		_play_feedback(_actor_profile_id(enemy, PRESENTATION_ENEMY_DEFAULT), VFX_CUES.SPAWN, {
 			"owner": enemy,
 			"world_position": (enemy as Node2D).global_position,
 		})
+
+
+func _connect_enemy_attack_feedback(enemy: Node) -> void:
+	var windup_callback: Callable = Callable(
+		self,
+		"_on_enemy_attack_windup_started"
+	)
+	if (
+		enemy.has_signal("attack_windup_started")
+		and not enemy.is_connected(
+			"attack_windup_started",
+			windup_callback
+		)
+	):
+		enemy.connect("attack_windup_started", windup_callback)
+	var committed_callback: Callable = Callable(
+		self,
+		"_on_enemy_attack_committed"
+	)
+	if (
+		enemy.has_signal("attack_committed")
+		and not enemy.is_connected(
+			"attack_committed",
+			committed_callback
+		)
+	):
+		enemy.connect("attack_committed", committed_callback)
+
+
+func _on_enemy_attack_windup_started(
+	enemy: Node,
+	_action_id: String,
+	context: Dictionary
+) -> void:
+	_play_feedback(
+		_actor_profile_id(enemy, PRESENTATION_ENEMY_DEFAULT),
+		VFX_CUES.ENEMY_ATTACK_TELEGRAPH,
+		context
+	)
+
+
+func _on_enemy_attack_committed(
+	enemy: Node,
+	_action_id: String,
+	context: Dictionary
+) -> void:
+	_play_feedback(
+		_actor_profile_id(enemy, PRESENTATION_ENEMY_DEFAULT),
+		VFX_CUES.ENEMY_ATTACK_IMPACT,
+		context
+	)
+
+
+func _assign_enemy_spawn_serial(enemy: Node) -> void:
+	if enemy == null or not enemy.has_method("set_runtime_spawn_serial"):
+		return
+	enemy.call("set_runtime_spawn_serial", _next_enemy_spawn_serial)
+	_next_enemy_spawn_serial += 1
 
 
 func _dictionary_or_empty(raw_value: Variant) -> Dictionary:
@@ -4549,11 +4631,11 @@ func _load_enemy_rows(
 			"pool_prewarm": String(row.get("pool_prewarm", "0")).to_int(),
 			"ai_profile_id": ai_profile_id,
 			"ai_profile": ai_profiles.get(ai_profile_id, {}),
+			"presentation_profile_id": String(
+				row.get("presentation_profile_id", "")
+			),
 			"max_hp": String(row.get("max_hp", "1")).to_int(),
 			"move_speed": String(row.get("move_speed", "0.0")).to_float(),
-			"contact_damage": String(row.get("contact_damage", "0")).to_int(),
-			"element_id": String(row.get("element_id", "")),
-			"contact_interval": String(row.get("contact_interval", "0.7")).to_float(),
 			"gold_reward": String(row.get("gold_reward", "0")).to_int(),
 			"hit_radius": String(row.get("hit_radius", "1.0")).to_float(),
 			"separation_radius": String(row.get("separation_radius", "0.0")).to_float(),

@@ -747,11 +747,13 @@ def main() -> int:
             ],
         ),
         (
-            "enemy element must be registered",
-            _mutate_csv("client/data/enemies.csv", _set_enemy_element("element_missing")),
+            "legacy enemy contact columns stay rejected",
+            _add_enemy_legacy_contact_columns,
             [
-                "client/data/enemies.csv:line 2.element_id",
-                "unknown id element_missing; expected one of elements",
+                "client/data/enemies.csv:header",
+                "contact_damage",
+                "contact_interval",
+                "element_id",
             ],
         ),
         (
@@ -779,11 +781,67 @@ def main() -> int:
             ],
         ),
         (
-            "enemy AI schema v3 is required",
-            _mutate_json("client/data/enemy_ai_profiles.json", _set_schema_version(2)),
+            "enemy AI schema v4 is required",
+            _mutate_json("client/data/enemy_ai_profiles.json", _set_schema_version(3)),
             [
                 "client/data/enemy_ai_profiles.json:schema_version",
-                "must be >= 3",
+                "must be >= 4",
+            ],
+        ),
+        (
+            "attack action requires attack payload",
+            _mutate_json("client/data/enemy_ai_profiles.json", _remove_enemy_ai_attack),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].actions[0].attack",
+                "must be an object",
+            ],
+        ),
+        (
+            "non attack action rejects attack payload",
+            _mutate_json("client/data/enemy_ai_profiles.json", _add_attack_to_non_attack_action),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].actions[1].attack",
+                "forbidden for non-attack actions",
+            ],
+        ),
+        (
+            "legacy movement attack parameters stay rejected",
+            _mutate_json("client/data/enemy_ai_profiles.json", _add_enemy_ai_legacy_charge_range),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].movement.charge_range",
+                "was removed from movement in schema v4",
+            ],
+        ),
+        (
+            "exploder damage must be positive",
+            _mutate_json("client/data/enemy_ai_profiles.json", _set_enemy_ai_attack_value(0, "damage", 0.0)),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].actions[0].attack.damage",
+                "must be > 0",
+            ],
+        ),
+        (
+            "exploder radius must be positive",
+            _mutate_json("client/data/enemy_ai_profiles.json", _set_enemy_ai_attack_value(0, "radius", -1.0)),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].actions[0].attack.radius",
+                "must be > 0",
+            ],
+        ),
+        (
+            "melee angle must stay within 360 degrees",
+            _mutate_json("client/data/enemy_ai_profiles.json", _set_profile_attack_value(1, 0, "arc_degrees", 361.0)),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[1].actions[0].attack.arc_degrees",
+                "must be <= 360",
+            ],
+        ),
+        (
+            "attack element must be registered",
+            _mutate_json("client/data/enemy_ai_profiles.json", _set_enemy_ai_attack_value(0, "element_id", "element_missing")),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[0].actions[0].attack.element_id",
+                "unknown id element_missing; expected one of elements",
             ],
         ),
         (
@@ -1455,7 +1513,7 @@ def main() -> int:
                 _set_weapon_camera_feedback("missing_camera_feedback"),
             ),
             [
-                "client/data/presentation_profiles.json:profiles[5].bindings.weapon_fire.camera_feedback_id",
+                "client/data/presentation_profiles.json:profiles[8].bindings.weapon_fire.camera_feedback_id",
                 "must reference a profile in camera_feedback.json",
             ],
         ),
@@ -2023,6 +2081,36 @@ def _set_enemy_ai_action(value: str) -> JsonMutator:
     return mutate
 
 
+def _remove_enemy_ai_attack(payload: dict[str, Any]) -> None:
+    payload["profiles"][0]["actions"][0].pop("attack", None)
+
+
+def _add_attack_to_non_attack_action(payload: dict[str, Any]) -> None:
+    payload["profiles"][0]["actions"][1]["attack"] = {
+        "damage": 1.0,
+    }
+
+
+def _add_enemy_ai_legacy_charge_range(payload: dict[str, Any]) -> None:
+    payload["profiles"][0]["movement"]["charge_range"] = 80.0
+
+
+def _set_enemy_ai_attack_value(action_index: int, key: str, value: Any) -> JsonMutator:
+    return _set_profile_attack_value(0, action_index, key, value)
+
+
+def _set_profile_attack_value(
+    profile_index: int,
+    action_index: int,
+    key: str,
+    value: Any,
+) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["profiles"][profile_index]["actions"][action_index]["attack"][key] = value
+
+    return mutate
+
+
 def _set_schema_version(value: int) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["schema_version"] = value
@@ -2138,6 +2226,23 @@ def _add_enemy_legacy_visual_color_column(root: Path) -> None:
     fieldnames.append("visual_color")
     for row in rows:
         row["visual_color"] = "#ff6152"
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _add_enemy_legacy_contact_columns(root: Path) -> None:
+    path = root / "client/data/enemies.csv"
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+        fieldnames = list(reader.fieldnames or [])
+    fieldnames.extend(["contact_damage", "contact_interval", "element_id"])
+    for row in rows:
+        row["contact_damage"] = "100"
+        row["contact_interval"] = "0.7"
+        row["element_id"] = "element_neutral"
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()

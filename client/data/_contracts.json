@@ -150,7 +150,11 @@
       "gold_orb",
       "energy_orb",
       "projectile_barrier",
-      "vfx_weapon_muzzle_flash"
+      "vfx_weapon_muzzle_flash",
+      "vfx_enemy_explosion_telegraph",
+      "vfx_enemy_melee_telegraph",
+      "vfx_enemy_charge_telegraph",
+      "vfx_enemy_explosion_impact"
     ],
     "gold_transaction_reasons": [
       "enemy_drop",
@@ -237,7 +241,15 @@
       "ai_action_orbit_target",
       "ai_action_charge_target",
       "ai_action_guard_home",
-      "ai_action_ranged_attack"
+      "ai_action_ranged_attack",
+      "ai_action_explode_target",
+      "ai_action_melee_attack"
+    ],
+    "enemy_defeat_causes": [
+      "player_damage",
+      "enemy_explosion",
+      "exploder_detonation",
+      "other_cause"
     ],
     "skill_ids": [
       "skill_deploy_projectile_barrier",
@@ -384,6 +396,8 @@
       "hazard_telegraph",
       "hazard_activated",
       "enemy_spawn_telegraph",
+      "enemy_attack_telegraph",
+      "enemy_attack_impact",
       "ui_enter",
       "ui_exit",
       "ui_focus",

@@ -1,8 +1,8 @@
 {
 	"created_at": "golden:golden_reward_choice",
-	"data_fingerprint": "5038571d96e1929c628f51aa79cf35743549442edbb808f24cfaaa4e028fbbf6",
+	"data_fingerprint": "9554b58e4924cc17225bd37124bcd25fe94d9742640b916a4ffb682b07d0c23b",
 	"file_schema_version": 3,
-	"game_version": "v1.7",
+	"game_version": "v1.8",
 	"recording": {
 		"context": {
 			"capture_frames": 180,
@@ -35,7 +35,7 @@
 					"trigger_id": "debug_command"
 				},
 				"tick": 29,
-				"time": 0.497268111111111
+				"time": 0.497222222222223
 			}
 		],
 		"dropped_decision_events": 0,
@@ -332,7 +332,7 @@
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "809e383908bdb28c628c308ad8d53d5c7d85858e8cd238df5fe054336acb5ecf",
+	"recording_hash": "fab048ba2fc2d836f9cf5fbba17aed1a726d1c2a25e0931da36d0d4499098c3c",
 	"summary": {
 		"decision_events": 2,
 		"dropped_decision_events": 0,

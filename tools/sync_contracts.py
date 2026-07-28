@@ -60,6 +60,12 @@ SECTIONS: tuple[ContractSection, ...] = (
     ContractSection("content_tags", "### 12.3 内容标签 content_tag", "content_tags.gd", "ContentTags"),
     ContractSection("game_modes", "## 12-A. 游戏模式 id game_mode", "game_modes.gd", "GameModes"),
     ContractSection("enemy_ai_actions", "## 12-B. 敌人 AI 动作 enemy_ai_action", "enemy_ai_actions.gd", "EnemyAiActions"),
+    ContractSection(
+        "enemy_defeat_causes",
+        "## 12-B1. 敌人退场原因 enemy_defeat_cause",
+        "enemy_defeat_causes.gd",
+        "EnemyDefeatCauses",
+    ),
     ContractSection("skill_ids", "## 12-C. 技能 id skill_id", "skill_ids.gd", "SkillIds"),
     ContractSection("skill_resources", "## 12-D. 技能资源 skill_resource", "skill_resources.gd", "SkillResources"),
     ContractSection("skill_targeting", "## 12-E. 技能目标选择 skill_targeting", "skill_targeting.gd", "SkillTargeting"),

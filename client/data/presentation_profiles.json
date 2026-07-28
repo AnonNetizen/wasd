@@ -79,6 +79,75 @@
       }
     },
     {
+      "id": "presentation_enemy_exploder",
+      "editor_name": "爆猎者表现",
+      "parent_profile_id": "presentation_enemy_default",
+      "bindings": {
+        "enemy_attack_telegraph": {
+          "effects": [
+            {
+              "effect_id": "enemy_explosion_telegraph",
+              "anchor": "ground"
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        },
+        "enemy_attack_impact": {
+          "effects": [
+            {
+              "effect_id": "enemy_explosion_impact",
+              "anchor": "center"
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        }
+      }
+    },
+    {
+      "id": "presentation_enemy_melee",
+      "editor_name": "群袭者近战表现",
+      "parent_profile_id": "presentation_enemy_default",
+      "bindings": {
+        "enemy_attack_telegraph": {
+          "effects": [
+            {
+              "effect_id": "enemy_melee_telegraph",
+              "anchor": "ground"
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        }
+      }
+    },
+    {
+      "id": "presentation_enemy_charge",
+      "editor_name": "敌人冲撞表现",
+      "parent_profile_id": "presentation_enemy_default",
+      "bindings": {
+        "enemy_attack_telegraph": {
+          "effects": [
+            {
+              "effect_id": "enemy_charge_telegraph",
+              "anchor": "ground"
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        }
+      }
+    },
+    {
       "id": "presentation_skill_default",
       "editor_name": "默认技能表现",
       "parent_profile_id": "",

@@ -34,7 +34,7 @@
 | `client/data/skills.json` | 项目版轻量 GAS 技能、ability tag、激活条件、资源消耗、目标类型、效果原语和冷却边界 |
 | `client/data/visual_effects.json` | 视觉效果 catalog、资源、空间、生命周期、对象池与表现策略 |
 | `client/data/presentation_profiles.json` | 表现 profile 继承、cue、效果 / 音频 / 相机 / 屏幕绑定 |
-| `client/data/enemy_ai_profiles.json` | schema v2 敌人对玩家 AI profile、感知、动作参数和动作列表边界 |
+| `client/data/enemy_ai_profiles.json` | schema v4 敌人对玩家 AI profile、感知、动作参数、显式攻击参数和动作列表边界 |
 | `client/data/enemies.csv` | 敌人专属场景、独立对象池 / 预热、基础数值、通用 tag、AI profile、伤害类型和模式引用边界 |
 | `client/data/gear_mods.json` | 装备 Mod 定义、槽位、稀有度、rank、drain、修正器和分解返还边界 |
 | `client/data/gear_mod_drop_tables.csv` | 装备 Mod 掉落来源、概率和敌人等级条件边界 |
@@ -101,8 +101,8 @@
   - `skills.json`：技能 id、表现 profile、名称 / 描述 key、`tag_skill`、ability tags、activation required / blocked / granted tags、冷却、能量消耗、目标类型、能力缩放声明和效果原语；技能 id、槽位、资源、targeting、effect 和 ability tag 必须来自词表，`skill_effect_damage` 的 `element_id` 交给 `Combat` 校验，`skill_effect_apply_status` 的 status / stack_rule / granted ability tags 必须来自生成契约；当状态效果同时声明正 `magnitude` 与正 `tick_interval` 时，还必须声明已登记 `element_id`。
   - `visual_effects.json`：schema v2、唯一 effect id、固定枚举、合法正式资源、质量变体、预览参数和对象池引用；旧 schema v1 与遗留 `reduced_motion` 字段明确拒绝，高频条目必须声明已登记 pool id，catalog 不得指向 editor-only、`output/test_lab` 或裸程序几何。
   - `presentation_profiles.json`：唯一 profile id、父继承无环、cue / anchor 枚举、效果引用与可选音频 / 相机 / 屏幕绑定；首版 `hit_stop_profile_id` 必须为空。
-  - `enemy_ai_profiles.json`：schema v3 profile id、视线 / 路径 / 记忆感知、决策间隔、玩家权重、守家参数、动作参数和 action id；action 必须来自词表 §12-B，旧单一 `sense_radius` 与种间猎食 / 逃跑字段会被明确拒绝。
-  - `enemies.csv`：敌人 id、名称 key、`tag_enemy`、独立对象池 id、专属 `scene_path`、表现 profile、`pool_prewarm`、AI profile 引用、生命、移速、接触伤害、接触伤害类型、正整数金币奖励和命中半径；`pool_id` 必须唯一且等于敌人 id，旧 `exp_reward`、`enemy_ranged` 与 `visual_color` 列明确拒绝。场景必须位于正式 `actors/enemies/*.tscn`、存在且为 `PackedScene`，可跨内容 id 复用但不得指向基础场景；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
+  - `enemy_ai_profiles.json`：schema v4 profile id、视线 / 路径 / 记忆感知、决策间隔、玩家权重、通用移动参数、动作参数和 action id；action 必须来自词表 §12-B。攻击 action 必须携带与类型严格匹配的 `attack` 字典，非攻击 action 禁止携带 `attack`；伤害、元素、范围、角度、前摇、释放、冷却、冲刺倍率、击退与投射物参数均按 action 类型校验。旧单一 `sense_radius`、种间猎食 / 逃跑字段、旧 `movement` 攻击字段和 schema v3 会被明确拒绝。
+  - `enemies.csv`：精确表头为敌人 id、名称 key、`tag_enemy`、独立对象池 id、专属 `scene_path`、`pool_prewarm`、AI profile 引用、表现 profile、生命、移速、正整数金币奖励、命中半径和分离半径；`pool_id` 必须唯一且等于敌人 id。旧 `contact_damage`、`contact_interval`、`element_id`、`exp_reward`、`enemy_ranged` 与 `visual_color` 列明确拒绝。场景必须位于正式 `actors/enemies/*.tscn`、存在且为 `PackedScene`，可跨内容 id 复用但不得指向基础场景；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
   - `gear_mods.json`：装备 Mod id、名称 / 描述 key、英雄 / 武器 slot、稀有度、最大 rank、drain、按 rank 计算的 stat modifier、装配规则和分解返还资源；id、slot、rarity、resource、stack rule 均来自词表 §13-A~§13-E。
   - `gear_mod_drop_tables.csv`：装备 Mod 掉落来源敌人、Mod id、掉落概率和敌人等级区间；敌人必须存在于 `enemies.csv`，Mod 必须存在于 `gear_mods.json`，概率必须是 `0.0..1.0`。
   - `gear_mod_fusion_costs.csv`：装备 Mod 升到目标 rank 的资源成本；rarity 与 resource 必须来自词表，且覆盖 `gear_mods.json` 中每个已使用 rarity 的 `1..max_rank`。
