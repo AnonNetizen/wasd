@@ -182,7 +182,6 @@ var _picker_list: ItemList
 var _picker_kind := "effect"
 var _picker_callback: Callable
 var _preview_quality := "high"
-var _preview_reduced_motion := false
 
 
 func _ready() -> void:
@@ -385,10 +384,6 @@ func _build_preview_panel() -> Control:
 	quality_option.select(2)
 	quality_option.item_selected.connect(_on_quality_changed.bind(quality_option))
 	policy_row.add_child(quality_option)
-	var reduced_check := CheckBox.new()
-	reduced_check.text = "减少动态效果"
-	reduced_check.toggled.connect(_on_reduced_motion_toggled)
-	policy_row.add_child(reduced_check)
 	preview_section.add_child(policy_row)
 
 	var timeline_row := HBoxContainer.new()
@@ -635,23 +630,6 @@ func _preview_profile(profile: Dictionary) -> void:
 
 func _preview_effect(base_entry: Dictionary) -> void:
 	var resolved_entry: Dictionary = _resolve_quality_variant(base_entry)
-	if _preview_reduced_motion:
-		var reduced_value: Variant = resolved_entry.get("reduced_motion", {})
-		var reduced: Dictionary = (
-			reduced_value as Dictionary if reduced_value is Dictionary else {}
-		)
-		var mode: String = String(reduced.get("mode", "same"))
-		if mode == "suppress_optional":
-			_preview_stage.call("clear_preview")
-			_report_info(
-				"减少动态效果预览已隐藏可选效果 %s。" % base_entry.get("id", "")
-			)
-			return
-		if mode == "variant":
-			var variant_id: String = String(reduced.get("effect_id", ""))
-			var variant: Dictionary = _store.call("effect_by_id", variant_id) as Dictionary
-			if not variant.is_empty():
-				resolved_entry = variant
 	_report_preview(_preview_stage.call("preview", resolved_entry) as Dictionary)
 
 
@@ -840,7 +818,6 @@ func _new_effect_entry(
 		"duration": float(scene_result.get("duration", 0.36)),
 		"high_frequency": false,
 		"quality_variants": {},
-		"reduced_motion": {"mode": "same"},
 		"tags": tags,
 		"preview": {
 			"background": "dark",
@@ -960,12 +937,6 @@ func _on_target_changed(_index: int, option: OptionButton) -> void:
 func _on_quality_changed(_index: int, option: OptionButton) -> void:
 	_preview_quality = String(option.get_item_metadata(option.selected))
 	_preview_stage.call("set_quality", _preview_quality)
-	_repreview_selection()
-
-
-func _on_reduced_motion_toggled(enabled: bool) -> void:
-	_preview_reduced_motion = enabled
-	_preview_stage.call("set_reduced_motion", enabled)
 	_repreview_selection()
 
 

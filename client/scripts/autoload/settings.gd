@@ -12,7 +12,7 @@ const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 const SETTINGS_PATH: String = "user://settings.cfg"
 const META_SECTION: String = "meta"
 const SETTINGS_SECTION: String = "settings"
-const CONFIG_VERSION: int = 2
+const CONFIG_VERSION: int = 3
 
 var _values: Dictionary = {}
 var _last_load_recovered: bool = false
@@ -146,7 +146,6 @@ func _default_values() -> Dictionary:
 		SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE: true,
 		SETTINGS_KEYS.GAMEPLAY_PAUSE_ON_FOCUS_LOSS: true,
 		SETTINGS_KEYS.GAMEPLAY_RECORD_REPLAYS: true,
-		SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION: false,
 		SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES: true,
 		SETTINGS_KEYS.PRIVACY_ANALYTICS_ENABLED: true,
 	}
@@ -199,7 +198,6 @@ func _setting_specs() -> Dictionary:
 		SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE: {"type": "bool"},
 		SETTINGS_KEYS.GAMEPLAY_PAUSE_ON_FOCUS_LOSS: {"type": "bool"},
 		SETTINGS_KEYS.GAMEPLAY_RECORD_REPLAYS: {"type": "bool"},
-		SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION: {"type": "bool"},
 		SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES: {"type": "bool"},
 		SETTINGS_KEYS.PRIVACY_ANALYTICS_ENABLED: {"type": "bool"},
 	}

@@ -9,7 +9,6 @@ signal catalog_reloaded(effect_count: int, profile_count: int)
 signal policy_changed(policy: Dictionary)
 
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
-const VFX_MOTION_POLICIES := preload("res://scripts/contracts/vfx_motion_policies.gd")
 const VISUAL_EFFECTS_PATH: String = "res://data/visual_effects.json"
 const PRESENTATION_PROFILES_PATH: String = "res://data/presentation_profiles.json"
 const MAX_RESOLUTION_DEPTH: int = 16
@@ -90,9 +89,6 @@ func current_policy() -> Dictionary:
 		"quality": String(
 			Settings.get_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY, "high")
 		),
-		"reduced_motion": bool(
-			Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION, false)
-		),
 		"screen_flashes": bool(
 			Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES, true)
 		),
@@ -114,17 +110,6 @@ func resolved_effect(effect_id: String) -> Dictionary:
 		if current_effect.is_empty():
 			return {}
 
-		if bool(policy.get("reduced_motion", false)):
-			var reduced_data: Dictionary = current_effect.get("reduced_motion", {}) as Dictionary
-			var reduced_mode: String = String(
-				reduced_data.get("mode", VFX_MOTION_POLICIES.SAME)
-			)
-			if reduced_mode == VFX_MOTION_POLICIES.VARIANT:
-				var reduced_effect_id: String = String(reduced_data.get("effect_id", ""))
-				if not reduced_effect_id.is_empty() and reduced_effect_id != current_id:
-					current_id = reduced_effect_id
-					continue
-
 		var variants: Dictionary = current_effect.get("quality_variants", {}) as Dictionary
 		var quality: String = String(policy.get("quality", "high"))
 		var variant_id: String = String(variants.get(quality, ""))
@@ -138,14 +123,6 @@ func resolved_effect(effect_id: String) -> Dictionary:
 func allows_effect(effect_data: Dictionary) -> bool:
 	var tags: Array = effect_data.get("tags", []) as Array
 	var policy: Dictionary = current_policy()
-	var reduced_data: Dictionary = effect_data.get("reduced_motion", {}) as Dictionary
-	if (
-		bool(policy.get("reduced_motion", false))
-		and String(reduced_data.get("mode", VFX_MOTION_POLICIES.SAME))
-		== VFX_MOTION_POLICIES.SUPPRESS_OPTIONAL
-		and not tags.has("gameplay_boundary")
-	):
-		return false
 	if tags.has("screen_flash") and not bool(policy.get("screen_flashes", true)):
 		return false
 	return true
@@ -203,7 +180,6 @@ func _on_data_reloaded() -> void:
 func _on_setting_changed(key: String, _value: Variant) -> void:
 	if key not in [
 		SETTINGS_KEYS.VIDEO_VFX_QUALITY,
-		SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION,
 		SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES,
 		SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE,
 	]:

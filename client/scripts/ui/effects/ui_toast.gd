@@ -18,8 +18,6 @@ func present(target: CanvasItem, duration: float = 1.35, fade_ratio: float = 0.3
 	if total_duration <= 0.0:
 		return
 	var fade_duration: float = total_duration * clampf(fade_ratio, 0.0, 1.0)
-	if reduced_motion_enabled():
-		fade_duration = minf(fade_duration, REDUCED_MOTION_MAX_DURATION)
 	var hold_duration: float = maxf(total_duration - fade_duration, 0.0)
 	_tween = create_effect_tween()
 	if hold_duration > 0.0:

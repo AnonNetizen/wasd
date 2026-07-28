@@ -183,7 +183,6 @@ label.text = tr("ui_damage") + str(value)
 ```csv
 ui_settings_screen_shake,屏幕震动,Screen Shake
 ui_settings_vfx_quality,视觉效果质量,VFX Quality
-ui_settings_reduced_motion,减少动态效果,Reduced Motion
 ui_settings_screen_flashes,屏幕闪烁,Screen Flashes
 ```
 

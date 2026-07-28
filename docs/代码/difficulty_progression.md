@@ -85,7 +85,7 @@ difficulty_level = tier + 1
 - 数据 / 单元：`validate_data`、`test_data_loader_schema`、`l1-smoke`；边界固定覆盖 0、89.999、90、719.999、720、1800 秒。
 - 模块玩法：完整与技术切片 `module-world-smoke` 覆盖起点暂停、射击/技能门禁、离开后立即开火、返回再暂停、出生倍率、旧敌人不升级和流式恢复。
 - 存档 / 回放：`save-smoke`、`runtime-smoke`、Replay smoke、四条 golden runtime rerun。
-- UI：1920×1080 手动检查中英文、详细面板、小地图遮挡、长时间等级和 reduced motion。
+- UI：1920×1080 手动检查中英文、详细面板、小地图遮挡、长时间等级和正常阶段高亮。
 
 ## 故障排查
 

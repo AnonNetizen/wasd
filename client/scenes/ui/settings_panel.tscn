@@ -187,10 +187,6 @@ layout_mode = 2
 mouse_filter = 2
 theme_override_font_sizes/font_size = 20
 
-[node name="ReducedMotionCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
-custom_minimum_size = Vector2(0, 38)
-layout_mode = 2
-
 [node name="ScreenFlashesCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2

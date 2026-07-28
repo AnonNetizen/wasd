@@ -86,7 +86,6 @@
       "gameplay.screen_shake",
       "gameplay.pause_on_focus_loss",
       "gameplay.record_replays",
-      "accessibility.reduced_motion",
       "accessibility.screen_flashes",
       "privacy.analytics_enabled"
     ],
@@ -396,11 +395,6 @@
       "low",
       "medium",
       "high"
-    ],
-    "vfx_motion_policies": [
-      "same",
-      "variant",
-      "suppress_optional"
     ],
     "locale_prefixes": [
       "ui_",

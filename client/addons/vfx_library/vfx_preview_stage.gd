@@ -52,7 +52,6 @@ var _speed := 1.0
 var _scale := 1.0
 var _instance_count := 1
 var _quality := "high"
-var _reduced_motion := false
 var _target_id := "dummy"
 
 
@@ -161,11 +160,6 @@ func set_instance_count(instance_count: int) -> Dictionary:
 
 func set_quality(quality: String) -> Dictionary:
 	_quality = quality
-	return {"ok": true, "errors": PackedStringArray()}
-
-
-func set_reduced_motion(enabled: bool) -> Dictionary:
-	_reduced_motion = enabled
 	return {"ok": true, "errors": PackedStringArray()}
 
 
@@ -359,13 +353,11 @@ func _place_instance(instance: Node, index: int, count: int) -> void:
 func _apply_policy(instance: Node) -> void:
 	instance.set_meta("vfx_preview", true)
 	instance.set_meta("vfx_quality", _quality)
-	instance.set_meta("vfx_reduced_motion", _reduced_motion)
 	if _can_call_preview_method(instance, &"configure_preview"):
 		instance.call(
 			"configure_preview",
 			{
 				"quality": _quality,
-				"reduced_motion": _reduced_motion,
 				"editor_preview": true,
 			}
 		)

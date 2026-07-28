@@ -221,7 +221,7 @@
 - 一条**平台服务基础设施**：`PlatformServices`（Steam 优先预留成就、统计、富状态 / 状态显示、overlay、Lobby / 联机入口和用户身份；其他平台后续走 provider adapter）
 - 一条**未来在线服务规划**：`OnlineServices` 尚未实现；ADR #150 只锁定未来以 Talo provider 承接跨平台身份、排行榜 / 统计、Live Config、事件和轻量社交，不计入当前 autoload 矩阵
 - 三条**协作基础设施**：`Localization` / `Settings` / `Analytics`
-- 一条**表现注册基础设施**：`VisualEffects`（catalog/profile、质量与 reduced-motion 解析；不持有当前世界）
+- 一条**表现注册基础设施**：`VisualEffects`（catalog/profile 与质量变体解析；不持有当前世界）
 - 一条**输入基础设施**：vendored `GUIDE` 只解释物理设备与资源图；项目 `InputService` 是生成 action、归一化 intent、context、重绑定、提示和回放覆盖的唯一业务门面
 - 两条**确定性基础设施**：`RNG`（种子化随机，子流分流）/ `GameClock`（移动、冷却、状态、Replay tick，以及玩家加载 / 暂停 / 结算冻结的底层时间源）
 - 一条**模式级威胁进度**：`DifficultyProgression`（非 autoload；由 mode profile 配置，起点房暂停，驱动敌人出生倍率、解锁、导演 gating、HUD、结算与埋点）
@@ -243,7 +243,7 @@
 
 > 有限地图可见边界和逻辑边界当前都由 `MapManager.bounds()` / `boundary_points()` / `boundary_half_extents()` 定义为贴住格线的轴对齐矩形；玩家和敌人中心点由 `set_movement_bounds()` 约束。排查敌人越界时先看 `GameplayRunLoop._apply_enemy_movement_bounds()`、`Enemy.set_movement_bounds()` 与 `runtime-smoke` 的敌人边界断言。
 
-> F9 起默认键鼠瞄准已从 4 方向改为鼠标方向；子弹可任意角度发射。ADR #124 后当前正式视角改回俯视角 2D；ADR #148 引入 Phantom Camera，ADR #156 将唯一 Rig 固定在 `GameplayRunLoop/ActiveWorld`，通过 `follow_target` 绑定当前 Player。ADR #167 后 GLUED PCam 保持屏幕水平与等比缩放，但不再严格居中：首次有效瞄准后，鼠标按光标相对玩家实际屏幕位置应用死区 / 比例 / 上限，方向输入与 Replay 使用最大偏移，控制器平滑引导且暂停冻结。ADR #165 的玩家受击与武器开火独立震屏仍保留，噪声 `Camera2D.offset` 不参与瞄准或稳定引导；关闭震屏只停止表现。`gameplay.reduced_motion` 当前不影响相机。`Player` 仍是 `CharacterBody2D` 并按 2D 平面移动和承受碰撞安全反冲，正式玩家场景不挂 `Player3DVisual`，默认 2D 占位按完整 `aim_direction` 绘制朝向标记。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
+> F9 起默认键鼠瞄准已从 4 方向改为鼠标方向；子弹可任意角度发射。ADR #124 后当前正式视角改回俯视角 2D；ADR #148 引入 Phantom Camera，ADR #156 将唯一 Rig 固定在 `GameplayRunLoop/ActiveWorld`，通过 `follow_target` 绑定当前 Player。ADR #167 后 GLUED PCam 保持屏幕水平与等比缩放，但不再严格居中：首次有效瞄准后，鼠标按光标相对玩家实际屏幕位置应用死区 / 比例 / 上限，方向输入与 Replay 使用最大偏移，控制器平滑引导且暂停冻结。ADR #165 的玩家受击与武器开火独立震屏仍保留，噪声 `Camera2D.offset` 不参与瞄准或稳定引导；关闭震屏只停止表现。`Player` 仍是 `CharacterBody2D` 并按 2D 平面移动和承受碰撞安全反冲，正式玩家场景不挂 `Player3DVisual`，默认 2D 占位按完整 `aim_direction` 绘制朝向标记。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
 
 > ADR #151 / #152 后不再由 gameplay 动态创建 InputMap action。GUIDE 0.14.0 维护物理映射，`InputService` 将 `move` / `aim` 统一成 Vector2、锁存短按到物理 tick、跟踪最近设备并管理 gameplay / ui / debug context；Replay 只记录并读取 v2 最终 intent。旧 `move_*` / `aim_*` action 与 Settings 输入迁移已删除，同名 `input.*` 仅是当前 GUIDE binding id。
 

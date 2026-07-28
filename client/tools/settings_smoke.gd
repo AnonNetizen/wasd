@@ -37,6 +37,7 @@ func _run() -> void:
 	_expect_roundtrip_and_signal_flow()
 	_expect_invalid_values_are_rejected()
 	_expect_v1_ignores_removed_input_keys()
+	_expect_v2_drops_removed_reduced_motion()
 	_expect_input_bindings_use_independent_resource()
 	_expect_invalid_saved_values_recover_to_defaults()
 	_expect_broken_config_recovers_to_defaults()
@@ -58,8 +59,11 @@ func _expect_missing_file_uses_defaults() -> void:
 	_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == "zh_CN", "default locale should be zh_CN")
 	_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), 1.0), "default master volume should be 1.0")
 	_expect(String(Settings.get_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY)) == "high", "default VFX quality should be high")
-	_expect(not bool(Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION)), "reduced motion should default off")
 	_expect(bool(Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES)), "screen flashes should default on")
+	_expect(
+		not DataLoader.has_contract_value("settings_keys", "accessibility.reduced_motion"),
+		"reduced motion should not remain a registered setting"
+	)
 
 
 func _expect_roundtrip_and_signal_flow() -> void:
@@ -117,10 +121,30 @@ func _expect_v1_ignores_removed_input_keys() -> void:
 	_expect(_read_text(InputService.bindings_path()) == bindings_before, "settings v1 load should not overwrite current GUIDE bindings")
 
 	var migrated: ConfigFile = ConfigFile.new()
-	_expect(migrated.load(Settings.settings_path()) == OK, "migrated settings v2 should be readable")
-	_expect(int(migrated.get_value("meta", "version", 0)) == 2, "settings migration should rewrite config as v2")
-	_expect(not migrated.has_section_key("settings", String(INPUT_BINDING_IDS.INPUT_PAUSE)), "settings v2 should drop ignored legacy pause input")
-	_expect(not migrated.has_section_key("settings", String(INPUT_BINDING_IDS.INPUT_INTERACT)), "settings v2 should drop ignored legacy interact input")
+	_expect(migrated.load(Settings.settings_path()) == OK, "migrated settings v3 should be readable")
+	_expect(int(migrated.get_value("meta", "version", 0)) == 3, "settings migration should rewrite config as v3")
+	_expect(not migrated.has_section_key("settings", String(INPUT_BINDING_IDS.INPUT_PAUSE)), "settings v3 should drop ignored legacy pause input")
+	_expect(not migrated.has_section_key("settings", String(INPUT_BINDING_IDS.INPUT_INTERACT)), "settings v3 should drop ignored legacy interact input")
+
+
+func _expect_v2_drops_removed_reduced_motion() -> void:
+	var config: ConfigFile = ConfigFile.new()
+	config.set_value("meta", "version", 2)
+	config.set_value("settings", SETTINGS_KEYS.GENERAL_LOCALE, "en")
+	config.set_value("settings", SETTINGS_KEYS.AUDIO_MASTER, 0.61)
+	config.set_value("settings", "accessibility.reduced_motion", true)
+	_expect(config.save(Settings.settings_path()) == OK, "smoke should write settings v2 fixture")
+	_expect(Settings.load_from_disk(), "settings v2 preferences should migrate cleanly")
+	_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == "en", "settings v2 should preserve locale")
+	_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), 0.61), "settings v2 should preserve master volume")
+
+	var migrated: ConfigFile = ConfigFile.new()
+	_expect(migrated.load(Settings.settings_path()) == OK, "migrated settings v3 should be readable")
+	_expect(int(migrated.get_value("meta", "version", 0)) == 3, "settings v2 should rewrite as v3")
+	_expect(
+		not migrated.has_section_key("settings", "accessibility.reduced_motion"),
+		"settings v3 should remove the retired reduced-motion key"
+	)
 
 
 func _expect_input_bindings_use_independent_resource() -> void:
@@ -190,7 +214,7 @@ func _expect_settings_panel_controls() -> void:
 	var vsync_check: CheckButton = _find_node_by_name(panel, "VsyncCheck") as CheckButton
 	var vfx_quality_option: OptionButton = _find_node_by_name(panel, "VfxQualityOption") as OptionButton
 	var accessibility_section_label: Label = _find_node_by_name(panel, "AccessibilitySectionLabel") as Label
-	var reduced_motion_check: CheckButton = _find_node_by_name(panel, "ReducedMotionCheck") as CheckButton
+	var reduced_motion_control: Node = _find_node_by_name(panel, "ReducedMotionCheck")
 	var screen_flashes_check: CheckButton = _find_node_by_name(panel, "ScreenFlashesCheck") as CheckButton
 	var fire_on_release_check: CheckButton = _find_node_by_name(panel, "FireOnReleaseCheck") as CheckButton
 	var aim_mode_row: HBoxContainer = _find_node_by_name(panel, "AimModeRow") as HBoxContainer
@@ -209,7 +233,7 @@ func _expect_settings_panel_controls() -> void:
 	_expect(vsync_check != null and not vsync_check.visible, "settings panel should hide unsupported vsync setting")
 	_expect(vfx_quality_option != null and vfx_quality_option.visible and vfx_quality_option.item_count == 3, "settings panel should expose three VFX quality options")
 	_expect(accessibility_section_label != null and accessibility_section_label.visible, "settings panel should expose accessibility settings")
-	_expect(reduced_motion_check != null and reduced_motion_check.visible, "settings panel should expose reduced motion")
+	_expect(reduced_motion_control == null, "settings panel should not expose reduced motion")
 	_expect(screen_flashes_check != null and screen_flashes_check.visible, "settings panel should expose screen flashes")
 	_expect(fire_on_release_check != null and not fire_on_release_check.visible, "settings panel should hide unsupported fire-on-release setting")
 	_expect(aim_mode_row != null and not aim_mode_row.visible, "settings panel should hide unsupported aim mode setting")
@@ -243,11 +267,6 @@ func _expect_settings_panel_controls() -> void:
 		vfx_quality_option.item_selected.emit(0)
 		await get_tree().process_frame
 		_expect(String(Settings.get_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY)) == "low", "VFX quality control should write Settings")
-	if reduced_motion_check != null:
-		reduced_motion_check.button_pressed = true
-		reduced_motion_check.toggled.emit(true)
-		await get_tree().process_frame
-		_expect(bool(Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION)), "reduced motion control should write Settings")
 	if screen_flashes_check != null:
 		screen_flashes_check.button_pressed = false
 		screen_flashes_check.toggled.emit(false)

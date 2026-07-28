@@ -432,8 +432,8 @@ def _validate_visual_effects(ctx: ValidationContext) -> set[str]:
     if not isinstance(data, dict):
         return set()
     schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
-    if schema_version != 1:
-        ctx.error(path, "schema_version", "must equal 1")
+    if schema_version != 2:
+        ctx.error(path, "schema_version", "must equal 2")
     effects = _require_list(ctx, path, "effects", data.get("effects"))
     if not effects:
         ctx.error(path, "effects", "must be a non-empty array")
@@ -480,31 +480,8 @@ def _validate_visual_effects(ctx: ValidationContext) -> set[str]:
                 _require_non_empty_string(
                     ctx, path, f"{field}.quality_variants.{quality}", variant_id
                 )
-        reduced_motion = effect.get("reduced_motion")
-        if not isinstance(reduced_motion, dict):
-            ctx.error(path, f"{field}.reduced_motion", "must be an object")
-        else:
-            mode = _require_registered(
-                ctx,
-                path,
-                f"{field}.reduced_motion.mode",
-                reduced_motion.get("mode"),
-                "vfx_motion_policies",
-            )
-            if mode == "variant":
-                _require_non_empty_string(
-                    ctx,
-                    path,
-                    f"{field}.reduced_motion.effect_id",
-                    reduced_motion.get("effect_id"),
-                )
-            if "runtime_adaptive" in reduced_motion:
-                _require_bool(
-                    ctx,
-                    path,
-                    f"{field}.reduced_motion.runtime_adaptive",
-                    reduced_motion.get("runtime_adaptive"),
-                )
+        if "reduced_motion" in effect:
+            ctx.error(path, f"{field}.reduced_motion", "field was removed in schema v2")
         tags = _require_list(ctx, path, f"{field}.tags", effect.get("tags"))
         for tag_index, tag in enumerate(tags):
             _require_non_empty_string(ctx, path, f"{field}.tags[{tag_index}]", tag)
@@ -521,15 +498,6 @@ def _validate_visual_effects(ctx: ValidationContext) -> set[str]:
                         f"{effect_id}.quality_variants.{quality}",
                         f"unknown effect id {variant_id}",
                     )
-        reduced_motion = effect.get("reduced_motion", {})
-        if isinstance(reduced_motion, dict) and reduced_motion.get("mode") == "variant":
-            variant_id = reduced_motion.get("effect_id")
-            if variant_id == effect_id or variant_id not in effect_ids:
-                ctx.error(
-                    path,
-                    f"{effect_id}.reduced_motion.effect_id",
-                    "must reference a different effect in the same catalog",
-                )
     return effect_ids
 
 

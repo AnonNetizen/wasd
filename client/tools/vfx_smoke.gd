@@ -7,7 +7,6 @@ const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 
 var _failures: Array[String] = []
 var _original_quality: String = "high"
-var _original_reduced_motion: bool = false
 var _original_screen_flashes: bool = true
 
 
@@ -19,14 +18,11 @@ func _run() -> void:
 	_original_quality = String(
 		Settings.get_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY, "high")
 	)
-	_original_reduced_motion = bool(
-		Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION, false)
-	)
 	_original_screen_flashes = bool(
 		Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES, true)
 	)
 
-	_expect(VisualEffects.effect_ids().size() == 17, "catalog should expose 17 effects")
+	_expect(VisualEffects.effect_ids().size() == 15, "catalog should expose 15 effects")
 	_expect(
 		VisualEffects.profile_ids().size() == 10,
 		"catalog should expose 10 presentation profiles"
@@ -69,56 +65,55 @@ func _run() -> void:
 	)
 	_expect_export_exclusions()
 
-	Settings.set_value(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION, true)
-	var reduced_flash: Dictionary = VisualEffects.resolved_effect(
+	_expect(
+		not VisualEffects.current_policy().has("reduced_motion"),
+		"runtime policy should not expose retired reduced motion"
+	)
+	var standard_flash: Dictionary = VisualEffects.resolved_effect(
 		"screen_player_damage_flash"
 	)
 	_expect(
-		String(reduced_flash.get("id", "")) == "screen_player_damage_flash_reduced",
-		"reduced motion should resolve the screen-flash variant"
+		String(standard_flash.get("id", "")) == "screen_player_damage_flash",
+		"screen flash should resolve to the standard effect"
 	)
 	_expect(
-		not VisualEffects.allows_effect(
+		VisualEffects.allows_effect(
 			VisualEffects.resolved_effect("skill_cast_default")
 		),
-		"reduced motion should suppress optional spawned motion"
+		"standard motion should allow optional spawned effects"
 	)
 	_expect(
 		VisualEffects.allows_effect(
 			VisualEffects.resolved_effect("environment_hazard_telegraph")
 		),
-		"reduced motion must preserve gameplay-boundary effects"
+		"standard motion should preserve gameplay-boundary effects"
 	)
-	var reduced_enemy_telegraph: Dictionary = VisualEffects.resolved_effect(
+	var enemy_telegraph: Dictionary = VisualEffects.resolved_effect(
 		"enemy_spawn_telegraph"
 	)
 	_expect(
-		String(reduced_enemy_telegraph.get("id", ""))
-		== "enemy_spawn_telegraph_reduced"
-		and (reduced_enemy_telegraph.get("tags", []) as Array).has(
-			"reduced_motion_static"
-		)
-		and VisualEffects.allows_effect(reduced_enemy_telegraph),
-		"reduced motion should retain a static enemy-spawn boundary telegraph"
+		String(enemy_telegraph.get("id", "")) == "enemy_spawn_telegraph"
+		and VisualEffects.allows_effect(enemy_telegraph),
+		"enemy-spawn boundary should use the standard telegraph"
 	)
 	var damage_scene: PackedScene = load(
 		"res://scenes/gameplay/damage_number.tscn"
 	) as PackedScene
-	var reduced_damage: DamageNumber = damage_scene.instantiate() as DamageNumber
-	add_child(reduced_damage)
-	var reduced_damage_position := Vector2(40.0, 40.0)
-	reduced_damage.configure(reduced_damage_position, 10.0, false, false)
+	var damage_number: DamageNumber = damage_scene.instantiate() as DamageNumber
+	add_child(damage_number)
+	var damage_number_position := Vector2(40.0, 40.0)
+	damage_number.configure(damage_number_position, 10.0, false, false)
 	_expect(
-		float(reduced_damage.get("_duration")) <= 0.1,
-		"reduced-motion damage numbers should finish within 100 ms"
+		is_equal_approx(float(damage_number.get("_duration")), 0.52),
+		"damage numbers should use the standard duration"
 	)
-	reduced_damage.set("_remaining", 0.05)
-	reduced_damage.call("_update_visual")
+	damage_number.set("_remaining", 0.26)
+	damage_number.call("_update_visual")
 	_expect(
-		reduced_damage.global_position.is_equal_approx(reduced_damage_position),
-		"reduced-motion damage numbers should not translate"
+		not damage_number.global_position.is_equal_approx(damage_number_position),
+		"damage numbers should retain their standard vertical drift"
 	)
-	reduced_damage.queue_free()
+	damage_number.queue_free()
 	var weapon_system := WeaponSystem.new()
 	add_child(weapon_system)
 	var modifier_lifecycle_counts: Array[int] = [0, 0, 0]
@@ -149,10 +144,9 @@ func _run() -> void:
 	weapon_system.queue_free()
 	Settings.set_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES, false)
 	_expect(
-		not VisualEffects.allows_effect(reduced_flash),
+		not VisualEffects.allows_effect(standard_flash),
 		"screen-flash policy should suppress tagged screen effects"
 	)
-	Settings.set_value(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION, false)
 	Settings.set_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES, true)
 
 	var host := VfxHost.new()
@@ -278,10 +272,6 @@ func _run() -> void:
 
 func _restore_settings() -> void:
 	Settings.set_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY, _original_quality)
-	Settings.set_value(
-		SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION,
-		_original_reduced_motion
-	)
 	Settings.set_value(
 		SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES,
 		_original_screen_flashes

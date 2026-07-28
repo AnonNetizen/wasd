@@ -39,11 +39,6 @@ func _initialize() -> void:
 		0.22,
 		0.12
 	) and success
-	success = _save_screen_flash(
-		"%s/player_damage_screen_flash_reduced.tscn" % COMPOSITE_ROOT,
-		0.08,
-		0.08
-	) and success
 	success = _ensure_bullet_trail() and success
 	print("vfx resource bake passed" if success else "vfx resource bake failed")
 	quit(0 if success else 1)

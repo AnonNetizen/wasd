@@ -5,9 +5,6 @@ extends Node
 
 signal effect_finished(effect_name: StringName)
 
-const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
-const REDUCED_MOTION_MAX_DURATION: float = 0.10
-
 var _tween: Tween = null
 
 
@@ -79,14 +76,7 @@ func pulse(
 
 
 func adjusted_duration(duration: float) -> float:
-	var safe_duration: float = maxf(duration, 0.0)
-	if reduced_motion_enabled():
-		return minf(safe_duration, REDUCED_MOTION_MAX_DURATION)
-	return safe_duration
-
-
-func reduced_motion_enabled() -> bool:
-	return bool(Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION, false))
+	return maxf(duration, 0.0)
 
 
 func create_effect_tween() -> Tween:

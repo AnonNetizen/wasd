@@ -72,7 +72,7 @@
 | `gear_mod_drop_tables.csv` | CSV | 装备 Mod 掉落来源、概率和等级条件 |
 | `gear_mod_fusion_costs.csv` | CSV | 装备 Mod 按稀有度 / rank 的升级资源成本 |
 | `credits.json` | 已建立 | 游戏内致谢数据源：工作人员、开发工具、外部资源、外部库、适用构建目标与许可 / notice 状态；G.U.I.D.E、Xelu prompts 与 Lato 字体分别登记，vendored Godot 插件说明见 `client/addons/README.md`，Steamworks Lab 的随包声明见其 `THIRD_PARTY_NOTICES.txt` |
-| `visual_effects.json` | 已建立 | 视觉效果 catalog：资源、领域、技术标签、空间、生命周期、对象池、质量与 reduced-motion |
+| `visual_effects.json` | 已建立 | 视觉效果 catalog：资源、领域、技术标签、空间、生命周期、对象池与质量 |
 | `presentation_profiles.json` | 已建立 | 表现 profile 继承与 cue → 视觉 / 音频 / 相机 / 屏幕绑定 |
 | `_contracts.json` | 生成文件 | 由 `docs/词表与契约.md` 生成，禁止手改；`DataLoader` 用它校验 id |
 
@@ -80,7 +80,7 @@
 
 正式内容通过 `presentation_profile_id` 选择表现：当前角色、武器、技能、敌人和机关均必填；未来遗物、主动道具和消耗品可选。profile id 是数据主键，不要求新增代码常量；固定 `cue/domain/kind/space/lifecycle/anchor/quality` 必须来自 `docs/词表与契约.md` §16。
 
-`visual_effects.json.effects[]` 字段：
+`visual_effects.json` 当前为 schema v2；旧 v1 和遗留 `reduced_motion` 字段不兼容。`effects[]` 字段：
 
 | 字段 | 类型 / 规则 | 说明 |
 |------|-------------|------|
@@ -92,10 +92,6 @@
 | `pool_id` / `prewarm` / `max_size` | 可选 | 高频效果必须提供已登记 pool id；预热 / 上限为非负 / 正整数 |
 | `high_frequency` | bool | 不能把枪口、命中等高频效果误标低频来绕过池校验 |
 | `quality_variants` | object | `low/medium/high -> effect_id`；空对象复用自身 |
-| `reduced_motion` | object | Reduced-motion 策略 |
-| `reduced_motion.mode` | string | `same` / `variant` / `suppress_optional`；最后一种在 Reduced motion 下跳过可选效果，但不能隐藏 `gameplay_boundary` |
-| `reduced_motion.effect_id` | string | `mode=variant` 时必填且必须引用合法 effect id |
-| `reduced_motion.runtime_adaptive` | 可选 bool | 同一资源在运行时自行切换为静态状态或不超过 100 ms 的淡出 |
 | `tags` | string array | 技术、读法与可选装饰标签；`screen_flash` 受设置控制 |
 | `preview` | object | 编辑器预览参数 |
 | `preview.background` | string | 预览背景 id |
@@ -367,7 +363,7 @@ JSON 示例：
 | `weapon_recoil_shake.positional_multiplier_x` | float | `0..1` | 水平位移噪声倍率 | 水平摇动更强 |
 | `weapon_recoil_shake.positional_multiplier_y` | float | `0..1` | 垂直位移噪声倍率 | 垂直摇动更强 |
 
-`aim_look` 在首次有效瞄准前保持零偏移。鼠标目标偏移为 `方向 × min((玩家实际屏幕位置到光标的距离 - pointer_dead_zone_px) × pointer_offset_ratio, max_offset_px)`；死区内为零。键盘、手柄与 Replay 使用归一化最终瞄准方向乘 `max_offset_px`，松开后保持最后方向。暂停冻结当前引导偏移，恢复后继续平滑。`gameplay.reduced_motion` 当前不改变镜头行为，其删除另案处理。
+`aim_look` 在首次有效瞄准前保持零偏移。鼠标目标偏移为 `方向 × min((玩家实际屏幕位置到光标的距离 - pointer_dead_zone_px) × pointer_offset_ratio, max_offset_px)`；死区内为零。键盘、手柄与 Replay 使用归一化最终瞄准方向乘 `max_offset_px`，松开后保持最后方向。暂停冻结当前引导偏移，恢复后继续平滑。
 
 `player_damage_shake` 只有在 `Combat.damage_applied` 报告玩家伤害实际应用时触发；敌人受伤或无敌窗拦截不触发。`weapon_recoil_shake` 由主武器成功开火触发，并按 `weapons.json` 的归一化 `recoil` 计算目标振幅。关闭 `gameplay.screen_shake` 时两种反馈都即时停止且只清理噪声 `Camera2D.offset`，不清理 `aim_look` 引导偏移；噪声 seed 走 `RNG.camera_fx`，是与 spawn / drop / combat 隔离的纯表现子流。
 

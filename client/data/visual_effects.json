@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "effects": [
     {
       "id": "combat_hit_default",
@@ -14,9 +14,6 @@
       "prewarm": 16,
       "high_frequency": true,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "same"
-      },
       "tags": [
         "animation_player",
         "geometry"
@@ -40,10 +37,6 @@
       "prewarm": 16,
       "high_frequency": true,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "same",
-        "runtime_adaptive": true
-      },
       "tags": [
         "ui_text",
         "curve"
@@ -65,9 +58,6 @@
       "duration": 0.16,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "same"
-      },
       "tags": [
         "target_tint"
       ],
@@ -88,9 +78,6 @@
       "duration": 0.16,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "same"
-      },
       "tags": [
         "target_tint"
       ],
@@ -111,9 +98,6 @@
       "duration": 0.18,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "suppress_optional"
-      },
       "tags": [
         "target_tint",
         "target_scale"
@@ -135,9 +119,6 @@
       "duration": 0.45,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "suppress_optional"
-      },
       "tags": [
         "animation_player",
         "geometry",
@@ -161,9 +142,6 @@
       "duration": 0.34,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "suppress_optional"
-      },
       "tags": [
         "animation_player",
         "geometry",
@@ -187,9 +165,6 @@
       "duration": 0.34,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "suppress_optional"
-      },
       "tags": [
         "animation_player",
         "geometry",
@@ -215,9 +190,6 @@
       "prewarm": 12,
       "high_frequency": true,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "suppress_optional"
-      },
       "tags": [
         "animation_player",
         "geometry",
@@ -240,9 +212,6 @@
       "duration": 0.34,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "suppress_optional"
-      },
       "tags": [
         "animation_player",
         "geometry",
@@ -265,9 +234,6 @@
       "duration": 0.34,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "suppress_optional"
-      },
       "tags": [
         "animation_player",
         "geometry",
@@ -290,9 +256,6 @@
       "duration": 0.5,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "suppress_optional"
-      },
       "tags": [
         "animation_player",
         "geometry",
@@ -316,9 +279,6 @@
       "duration": 0.34,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "suppress_optional"
-      },
       "tags": [
         "animation_player",
         "geometry",
@@ -341,34 +301,6 @@
       "duration": 0.12,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "variant",
-        "effect_id": "screen_player_damage_flash_reduced"
-      },
-      "tags": [
-        "animation_player",
-        "screen_flash"
-      ],
-      "preview": {
-        "background": "combat",
-        "checkpoint": "contact",
-        "scale": 1
-      }
-    },
-    {
-      "id": "screen_player_damage_flash_reduced",
-      "editor_name": "玩家受伤屏幕闪光（减少动态）",
-      "domain": "screen",
-      "kind": "screen_overlay",
-      "resource_path": "res://scenes/vfx/composites/player_damage_screen_flash_reduced.tscn",
-      "space": "screen",
-      "lifecycle": "one_shot",
-      "duration": 0.08,
-      "high_frequency": false,
-      "quality_variants": {},
-      "reduced_motion": {
-        "mode": "same"
-      },
       "tags": [
         "animation_player",
         "screen_flash"
@@ -390,42 +322,11 @@
       "duration": 1.5,
       "high_frequency": false,
       "quality_variants": {},
-      "reduced_motion": {
-        "mode": "variant",
-        "effect_id": "enemy_spawn_telegraph_reduced"
-      },
       "tags": [
         "animation_player",
         "geometry",
         "shader",
         "gameplay_boundary"
-      ],
-      "preview": {
-        "background": "combat",
-        "checkpoint": "charge",
-        "scale": 1.2
-      }
-    },
-    {
-      "id": "enemy_spawn_telegraph_reduced",
-      "editor_name": "敌人出生预警（减少动态）",
-      "domain": "environment",
-      "kind": "spawned_scene",
-      "resource_path": "res://scenes/vfx/composites/ground_telegraph.tscn",
-      "space": "ground",
-      "lifecycle": "state",
-      "duration": 1.5,
-      "high_frequency": false,
-      "quality_variants": {},
-      "reduced_motion": {
-        "mode": "same"
-      },
-      "tags": [
-        "animation_player",
-        "geometry",
-        "shader",
-        "gameplay_boundary",
-        "reduced_motion_static"
       ],
       "preview": {
         "background": "combat",

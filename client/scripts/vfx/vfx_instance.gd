@@ -41,12 +41,6 @@ func play() -> void:
 	if _animation_player == null or not _animation_player.has_animation(playback_animation):
 		call_deferred("_finish")
 		return
-	var static_frame: float = float(_request.payload.get("static_frame", -1.0))
-	if static_frame >= 0.0:
-		_animation_player.play(playback_animation)
-		_animation_player.advance(static_frame)
-		_animation_player.pause()
-		return
 	var requested_duration: float = float(_request.payload.get("duration", 0.0))
 	var animation: Animation = _animation_player.get_animation(playback_animation)
 	if requested_duration > 0.0 and animation != null:

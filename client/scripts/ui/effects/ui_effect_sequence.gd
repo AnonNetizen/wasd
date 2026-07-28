@@ -25,8 +25,6 @@ func _play_steps(steps: Array[Dictionary], generation: int) -> void:
 		if callback.is_valid():
 			callback.call()
 		var delay: float = maxf(float(step.get("delay", 0.0)), 0.0)
-		if reduced_motion_enabled():
-			delay = 0.0
 		if delay <= 0.0:
 			continue
 		var timer: SceneTreeTimer = get_tree().create_timer(

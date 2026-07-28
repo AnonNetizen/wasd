@@ -25,8 +25,6 @@ func flash(accent_color: Color, strength: float = 0.22, duration: float = DEFAUL
 	color = accent_color
 	modulate.a = clampf(strength, 0.0, 1.0)
 	var safe_duration: float = maxf(duration, 0.0)
-	if bool(Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION, false)):
-		safe_duration = minf(safe_duration, UIEffectPlayer.REDUCED_MOTION_MAX_DURATION)
 	if safe_duration <= 0.0:
 		modulate.a = 0.0
 		accent_finished.emit()

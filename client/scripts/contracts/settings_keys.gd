@@ -14,7 +14,6 @@ const VALUES: Array[String] = [
 	"gameplay.screen_shake",
 	"gameplay.pause_on_focus_loss",
 	"gameplay.record_replays",
-	"accessibility.reduced_motion",
 	"accessibility.screen_flashes",
 	"privacy.analytics_enabled",
 ]
@@ -31,6 +30,5 @@ const GAMEPLAY_AIM_MODE: String = "gameplay.aim_mode"
 const GAMEPLAY_SCREEN_SHAKE: String = "gameplay.screen_shake"
 const GAMEPLAY_PAUSE_ON_FOCUS_LOSS: String = "gameplay.pause_on_focus_loss"
 const GAMEPLAY_RECORD_REPLAYS: String = "gameplay.record_replays"
-const ACCESSIBILITY_REDUCED_MOTION: String = "accessibility.reduced_motion"
 const ACCESSIBILITY_SCREEN_FLASHES: String = "accessibility.screen_flashes"
 const PRIVACY_ANALYTICS_ENABLED: String = "privacy.analytics_enabled"

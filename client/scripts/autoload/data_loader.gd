@@ -477,7 +477,7 @@ func _validate_visual_effects_json() -> bool:
 		VISUAL_EFFECTS_PATH,
 		"schema_version",
 		payload.get("schema_version"),
-		1
+		2
 	) and is_valid
 	var effects: Array = _require_array(
 		VISUAL_EFFECTS_PATH,
@@ -606,33 +606,12 @@ func _validate_visual_effects_json() -> bool:
 					"%s.quality_variants.%s" % [field, String(raw_quality)],
 					(quality_variants as Dictionary)[raw_quality]
 				) and is_valid
-		var reduced_motion: Variant = effect_data.get("reduced_motion")
-		if not reduced_motion is Dictionary:
+		if effect_data.has("reduced_motion"):
 			is_valid = _schema_fail(
 				VISUAL_EFFECTS_PATH,
 				"%s.reduced_motion" % field,
-				"Dictionary"
+				"field removed in schema v2"
 			) and is_valid
-		else:
-			var reduced_mode: String = _require_registered(
-				VISUAL_EFFECTS_PATH,
-				"%s.reduced_motion.mode" % field,
-				(reduced_motion as Dictionary).get("mode"),
-				"vfx_motion_policies"
-			)
-			is_valid = not reduced_mode.is_empty() and is_valid
-			if reduced_mode == "variant":
-				is_valid = _require_non_empty_string(
-					VISUAL_EFFECTS_PATH,
-					"%s.reduced_motion.effect_id" % field,
-					(reduced_motion as Dictionary).get("effect_id")
-				) and is_valid
-			if (reduced_motion as Dictionary).has("runtime_adaptive"):
-				is_valid = _require_bool(
-					VISUAL_EFFECTS_PATH,
-					"%s.reduced_motion.runtime_adaptive" % field,
-					(reduced_motion as Dictionary).get("runtime_adaptive")
-				) and is_valid
 		var tags: Array = _require_array(
 			VISUAL_EFFECTS_PATH,
 			"%s.tags" % field,
@@ -662,15 +641,6 @@ func _validate_visual_effects_json() -> bool:
 					VISUAL_EFFECTS_PATH,
 					"%s.quality_variants" % effect_id,
 					"effect id defined in same catalog"
-				) and is_valid
-		var reduced: Dictionary = effect_data.get("reduced_motion", {}) as Dictionary
-		if String(reduced.get("mode", "")) == "variant":
-			var reduced_id: String = String(reduced.get("effect_id", ""))
-			if not seen.has(reduced_id) or reduced_id == effect_id:
-				is_valid = _schema_fail(
-					VISUAL_EFFECTS_PATH,
-					"%s.reduced_motion.effect_id" % effect_id,
-					"different effect id defined in same catalog"
 				) and is_valid
 	return is_valid
 

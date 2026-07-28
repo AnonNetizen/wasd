@@ -78,7 +78,7 @@ alwaysApply: true
 ## 9. 摄像机（瞄准方向引导）
 - 唯一对局级 `GameplayCameraController` 位于 `GameplayRunLoop/ActiveWorld`；Phantom Camera `GLUED` 跟随当前 Player，开局首次有效瞄准前居中，之后按 `camera_feedback.json.aim_look` 平滑向当前瞄准方向偏移。鼠标按实际屏幕距离计算，键盘、手柄与 Replay 使用最大偏移并在松开后保持最后方向。
 - **关闭** 相机 `limit`（边界限制）、`drag margin`（拖拽边距）和内建 position smoothing；引导平滑只由 `GameplayCameraController` 负责。
-- 俯视角显示不得通过旋转 `Camera2D`、`Camera2D.zoom` 非等比缩放、`Camera3D` 正交投影或低模 3D 视觉层来模拟斜俯视；相机保持屏幕水平与等比缩放。稳定引导偏移与 `Camera2D.offset` 震屏噪声必须分离；`gameplay.reduced_motion` 当前不改变相机。
+- 俯视角显示不得通过旋转 `Camera2D`、`Camera2D.zoom` 非等比缩放、`Camera3D` 正交投影或低模 3D 视觉层来模拟斜俯视；相机保持屏幕水平与等比缩放。稳定引导偏移与 `Camera2D.offset` 震屏噪声必须分离。
 - 当前地图、背景网格、机关、兴趣点 footprint 和撤离区默认使用水平 / 垂直矩形俯视格；不得用菱形 / 等距地图格继续模拟斜俯视或正交视角。
 
 ## 10. 性能

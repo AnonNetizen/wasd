@@ -88,14 +88,25 @@ def main() -> int:
             ],
         ),
         (
-            "runtime-adaptive reduced motion must be bool",
+            "visual effects schema v2 is required",
             _mutate_json(
                 "client/data/visual_effects.json",
-                _invalidate_runtime_adaptive_reduced_motion,
+                _set_schema_version(1),
             ),
             [
-                "client/data/visual_effects.json:effects[1].reduced_motion.runtime_adaptive",
-                "bool",
+                "client/data/visual_effects.json:schema_version",
+                "must equal 2",
+            ],
+        ),
+        (
+            "visual effects reject retired reduced-motion fields",
+            _mutate_json(
+                "client/data/visual_effects.json",
+                _add_legacy_reduced_motion,
+            ),
+            [
+                "client/data/visual_effects.json:effects[0].reduced_motion",
+                "removed in schema v2",
             ],
         ),
         (
@@ -2461,8 +2472,8 @@ def _remove_high_frequency_visual_effect_pool(payload: dict[str, Any]) -> None:
     payload["effects"][0].pop("pool_id", None)
 
 
-def _invalidate_runtime_adaptive_reduced_motion(payload: dict[str, Any]) -> None:
-    payload["effects"][1]["reduced_motion"]["runtime_adaptive"] = "yes"
+def _add_legacy_reduced_motion(payload: dict[str, Any]) -> None:
+    payload["effects"][0]["reduced_motion"] = {"mode": "same"}
 
 
 def _create_presentation_profile_cycle(payload: dict[str, Any]) -> None:

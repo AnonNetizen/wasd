@@ -3,7 +3,6 @@ class_name DifficultyMarker
 extends PanelContainer
 
 
-const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 const STAGE_NAME_KEYS: Array[String] = [
 	"ui_difficulty_stage_dormant",
 	"ui_difficulty_stage_alert",
@@ -130,11 +129,6 @@ func _apply_stage_style(play_highlight: bool) -> void:
 		_panel_style.border_color = stage_color
 		_set_border_width(2)
 	if not play_highlight:
-		return
-	if bool(Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION, false)):
-		if _panel_style != null:
-			_panel_style.border_color = stage_color.lightened(0.22)
-			_set_border_width(3)
 		return
 	_play_highlight(stage_color)
 

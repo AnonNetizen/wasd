@@ -34,7 +34,6 @@ var _music_value_label: Label = null
 var _pause_on_focus_loss_check: CheckButton = null
 var _pressed_close: bool = false
 var _record_replays_check: CheckButton = null
-var _reduced_motion_check: CheckButton = null
 var _refreshing: bool = false
 var _reset_input_bindings_button: Button = null
 var _screen_flashes_check: CheckButton = null
@@ -130,7 +129,6 @@ func _bind_nodes() -> void:
 	_fullscreen_check = get_node_or_null("Root/Center/Panel/Margin/Layout/FullscreenCheck") as CheckButton
 	_vsync_check = get_node_or_null("Root/Center/Panel/Margin/Layout/VsyncCheck") as CheckButton
 	_vfx_quality_option = get_node_or_null("Root/Center/Panel/Margin/Layout/VfxQualityRow/VfxQualityOption") as OptionButton
-	_reduced_motion_check = get_node_or_null("Root/Center/Panel/Margin/Layout/ReducedMotionCheck") as CheckButton
 	_screen_flashes_check = get_node_or_null("Root/Center/Panel/Margin/Layout/ScreenFlashesCheck") as CheckButton
 	_fire_on_release_check = get_node_or_null("Root/Center/Panel/Margin/Layout/FireOnReleaseCheck") as CheckButton
 	_aim_mode_option = get_node_or_null("Root/Center/Panel/Margin/Layout/AimModeRow/AimModeOption") as OptionButton
@@ -156,7 +154,6 @@ func _missing_required_nodes() -> bool:
 		or _fullscreen_check == null
 		or _vsync_check == null
 		or _vfx_quality_option == null
-		or _reduced_motion_check == null
 		or _screen_flashes_check == null
 		or _fire_on_release_check == null
 		or _aim_mode_option == null
@@ -216,7 +213,6 @@ func _connect_controls() -> void:
 	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
 	_vsync_check.toggled.connect(_on_vsync_toggled)
 	_vfx_quality_option.item_selected.connect(_on_vfx_quality_selected)
-	_reduced_motion_check.toggled.connect(_on_reduced_motion_toggled)
 	_screen_flashes_check.toggled.connect(_on_screen_flashes_toggled)
 	_fire_on_release_check.toggled.connect(_on_fire_on_release_toggled)
 	_aim_mode_option.item_selected.connect(_on_aim_mode_selected)
@@ -251,7 +247,6 @@ func _refresh_texts() -> void:
 	_set_label_text("Root/Center/Panel/Margin/Layout/AimModeRow/AimModeLabel", "ui_settings_aim_mode")
 	_fullscreen_check.text = tr("ui_settings_fullscreen")
 	_vsync_check.text = tr("ui_settings_vsync")
-	_reduced_motion_check.text = tr("ui_settings_reduced_motion")
 	_screen_flashes_check.text = tr("ui_settings_screen_flashes")
 	_fire_on_release_check.text = tr("ui_settings_fire_on_release")
 	_screen_shake_check.text = tr("ui_settings_screen_shake")
@@ -290,9 +285,6 @@ func _refresh_values() -> void:
 		_vfx_quality_option,
 		VFX_QUALITY_OPTIONS,
 		String(Settings.get_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY, "high"))
-	)
-	_reduced_motion_check.button_pressed = bool(
-		Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION, false)
 	)
 	_screen_flashes_check.button_pressed = bool(
 		Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES, true)
@@ -387,10 +379,6 @@ func _on_vsync_toggled(enabled: bool) -> void:
 func _on_vfx_quality_selected(index: int) -> void:
 	if index >= 0 and index < VFX_QUALITY_OPTIONS.size():
 		_set_setting(SETTINGS_KEYS.VIDEO_VFX_QUALITY, VFX_QUALITY_OPTIONS[index])
-
-
-func _on_reduced_motion_toggled(enabled: bool) -> void:
-	_set_setting(SETTINGS_KEYS.ACCESSIBILITY_REDUCED_MOTION, enabled)
 
 
 func _on_screen_flashes_toggled(enabled: bool) -> void:

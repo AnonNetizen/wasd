@@ -15,7 +15,7 @@
 
 | 路径 | 作用 |
 |------|------|
-| `client/data/visual_effects.json` | 效果目录、资源、空间、生命周期、质量与 reduced-motion 策略 |
+| `client/data/visual_effects.json` | 效果目录、资源、空间、生命周期与质量策略 |
 | `client/data/presentation_profiles.json` | 稳定 profile、父级继承与 cue 绑定 |
 | `client/scripts/autoload/visual_effects.gd` | 只读注册表与策略解析 |
 | `client/scripts/vfx/` | request、handle、ref、preset、实例生命周期与精选几何骨架 |
@@ -30,7 +30,7 @@
 
 ## 数据契约
 
-`visual_effects.json.effects[]` 必填：
+`visual_effects.json` 当前为 schema v2；v1 与遗留 `reduced_motion` 字段会被 DataLoader 和编辑器校验拒绝。`effects[]` 必填：
 
 | 字段 | 说明 |
 |------|------|
@@ -43,7 +43,6 @@
 | `duration` | 秒；循环 / 状态效果仍需给编辑器预览窗口 |
 | `high_frequency` | 高频为 `true` 时必须同时登记合法 `pool_id` |
 | `quality_variants` | `low/medium/high -> effect_id`；空对象表示复用自身 |
-| `reduced_motion` | `same`、`variant` 或 `suppress_optional`；可选效果会跳过，`gameplay_boundary` 必须保留；`runtime_adaptive=true` 表示资源内部切换为静态/≤100 ms 淡出 |
 | `tags` / `preview` | 技术 / 读法标签与背景、检查点、尺度 |
 
 可选池字段为 `pool_id`、`prewarm`、`max_size`。当前保留 `hit_spark`、`damage_number`，枪口效果使用 `vfx_weapon_muzzle_flash` 独立高频池。低质量只能移除装饰，不得隐藏攻击边界、阵营或状态读法。
@@ -59,8 +58,8 @@
 | `effect(effect_id)` | `Dictionary` | 未解析的目录条目副本 |
 | `profile(profile_id)` | `Dictionary` | 合并父级后的 profile |
 | `resolve_binding(profile_id, cue)` | `Dictionary` | 解析单个语义 cue |
-| `resolved_effect(effect_id)` | `Dictionary` | 应用质量 / reduced-motion variant |
-| `current_policy()` | `Dictionary` | 质量、reduced motion、闪屏、震屏 |
+| `resolved_effect(effect_id)` | `Dictionary` | 应用质量 variant |
+| `current_policy()` | `Dictionary` | 质量、闪屏、震屏 |
 | `allows_effect(effect_data)` | `bool` | 当前策略是否允许播放 |
 
 设置变化会发出 `policy_changed(policy)`；注册表重载发出 `catalog_reloaded(effect_count, profile_count)`。
@@ -75,7 +74,7 @@
 | `register_declared_pools()` | 对局启动时登记 catalog 中声明的高频效果池 |
 | `declared_pool_requests()` | 返回去重后的 pool id / prewarm 请求，供同步或分帧加载入口执行 |
 
-`VfxPlayRequest` 只携带 owner、anchor、world position、rotation、scale、seed 和表现 payload。`duration` payload 可把带时间轴的地面预警缩放到玩法配置时长，不改变 `GameClock`；`static_frame` payload 让 reduced-motion 变体停在高对比静态帧直到业务取消。`VfxHandle.cancel(immediate)` 是外部唯一取消入口。
+`VfxPlayRequest` 只携带 owner、anchor、world position、rotation、scale、seed 和表现 payload。`duration` payload 可把带时间轴的地面预警缩放到玩法配置时长，不改变 `GameClock`。`VfxHandle.cancel(immediate)` 是外部唯一取消入口。
 
 ### 效果实例
 
@@ -111,7 +110,7 @@ VfxAnchors
 
 ## 编辑器流程
 
-Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文案，但稳定 ID、资源路径、JSON 字段和枚举 metadata 保持原值。它支持按领域、技术、空间、生命周期与标签筛选；预览玩家、五种敌人、测试假人和 UI 容器；切换挂点、背景、25/50/100% 尺度、正常/减少动态效果、质量、1/8/32/64 实例及“蓄力（CHARGE）/ 接触（CONTACT）/ 余波（AFTERMATH）”。Inspector 为 `VfxEffectRef` / `PresentationProfileRef` 提供同一选择器，主界面可应用到当前选中项。
+Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文案，但稳定 ID、资源路径、JSON 字段和枚举 metadata 保持原值。它支持按领域、技术、空间、生命周期与标签筛选；预览玩家、五种敌人、测试假人和 UI 容器；切换挂点、背景、25/50/100% 尺度、质量、1/8/32/64 实例及“蓄力（CHARGE）/ 接触（CONTACT）/ 余波（AFTERMATH）”。Inspector 为 `VfxEffectRef` / `PresentationProfileRef` 提供同一选择器，主界面可应用到当前选中项。
 
 新建向导要求分别填写英文稳定 ID 与中文名称，只允许 OneShot、AttachedLoop、GroundTelegraph、UITransition、ScreenOverlay、GeometryComposite、Particle、Flipbook、Shader、AnimationTreeStateful 模板；会创建资源、登记效果目录、校验并可派生 Profile 变体。插件在 release preset 中排除。
 
@@ -120,7 +119,7 @@ Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文�
 - 真实伤害才生成命中火花 / 飘字；玩家有效受伤才触发震屏与屏幕反馈。
 - 玩家 / 敌人受击闪色为 0.16 秒；敌人死亡结算、掉落和移出活跃组即时发生，0.18 秒退场后回池。
 - 技能成功 / 失败、Overdrive 临时强化生命周期、状态 applied/restored/expired、武器发射、拾取、机关预警 / 激活均通过内容数据的 profile cue 接线；角色、敌人、技能、武器和机关不回退到硬编码 profile，除非数据缺失且使用文档声明的默认值。
-- `presentation_module_encounter` 的 `enemy_spawn_telegraph` cue 是首次进入模块遭遇的地面环。正常模式按 `module_worlds.json.first_visit_enemy_spawn.telegraph_duration` 缩放时间轴；reduced-motion 使用带 `gameplay_boundary` / `reduced_motion_static` 标签的静态高对比变体，不能完全隐藏。VFX 本身不进存档，槽位保存剩余时间和生成计划，重新激活时重建。
+- `presentation_module_encounter` 的 `enemy_spawn_telegraph` cue 是首次进入模块遭遇的地面环，按 `module_worlds.json.first_visit_enemy_spawn.telegraph_duration` 缩放时间轴并保留 `gameplay_boundary` 读法。VFX 本身不进存档，槽位保存剩余时间和生成计划，重新激活时重建。
 - 子弹的 `RibbonTrail` 是可复用、带共享 Shader 的精选程序几何组件，历史点在每次 acquire / release 时清空；敌人退场同时生成 world-space `actor_enemy_defeat_afterimage`，实体 0.18 秒回池后残影仍可独立完成 0.45 秒余韵。
 - `WeaponSystem.active_temporary_modifiers()` 是续局重建持续表现的权威状态。
 
@@ -134,7 +133,7 @@ Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文�
 - `python tools/godot_bridge.py --project client runtime-smoke`
 - `python tools/godot_bridge.py --project client headless-boot`
 
-编辑器人工验收使用固定“蓄力（CHARGE）/ 接触（CONTACT）/ 余波（AFTERMATH）”、25% 尺度、正常 / 减少动态效果和 1/8/32/64 实例组合；性能 benchmark 只在用户当次明确要求时运行。
+编辑器人工验收使用固定“蓄力（CHARGE）/ 接触（CONTACT）/ 余波（AFTERMATH）”、25% 尺度和 1/8/32/64 实例组合；性能 benchmark 只在用户当次明确要求时运行。
 
 ## 相关文档
 

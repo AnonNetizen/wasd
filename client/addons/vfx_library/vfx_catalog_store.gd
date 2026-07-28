@@ -5,6 +5,7 @@ extends RefCounted
 
 const EFFECT_CATALOG_PATH := "res://data/visual_effects.json"
 const PROFILE_CATALOG_PATH := "res://data/presentation_profiles.json"
+const EFFECT_SCHEMA_VERSION := 2
 const EFFECT_KEYS := ["effects", "visual_effects"]
 const PROFILE_KEYS := ["profiles", "presentation_profiles"]
 const DOMAINS := [
@@ -91,6 +92,11 @@ func validate_all() -> Dictionary:
 func append_effect(entry: Dictionary) -> Dictionary:
 	if effect_root.is_empty():
 		return _error("效果目录尚未加载，已禁止写入。")
+	if int(effect_root.get("schema_version", 0)) != EFFECT_SCHEMA_VERSION:
+		return _error(
+			"visual_effects.json.schema_version 必须等于 %d，已禁止写入。"
+			% EFFECT_SCHEMA_VERSION
+		)
 	var effect_id: String = String(entry.get("id", ""))
 	if not _is_valid_id(effect_id):
 		return _error("效果 ID 必须匹配 ^[a-z][a-z0-9_]*$。")
@@ -165,6 +171,10 @@ func _read_catalog(path: String, entry_keys: Array) -> Dictionary:
 
 
 func _validate_effects(errors: PackedStringArray, warnings: PackedStringArray) -> void:
+	if int(effect_root.get("schema_version", 0)) != EFFECT_SCHEMA_VERSION:
+		errors.append(
+			"visual_effects.json.schema_version 必须等于 %d。" % EFFECT_SCHEMA_VERSION
+		)
 	var seen: Dictionary = {}
 	for index: int in range(effects.size()):
 		var entry: Dictionary = effects[index]
@@ -188,7 +198,8 @@ func _validate_effects(errors: PackedStringArray, warnings: PackedStringArray) -
 		if bool(entry.get("high_frequency", false)):
 			if String(entry.get("pool_id", "")).is_empty():
 				errors.append("%s 是高频效果，必须提供 pool_id。" % prefix)
-		_validate_reduced_motion(entry, prefix, errors)
+		if entry.has("reduced_motion"):
+			errors.append("%s.reduced_motion 已在 schema v2 删除。" % prefix)
 		_validate_quality_variants(entry, prefix, errors)
 		_validate_preview(entry, prefix, errors)
 		if not entry.get("tags", []) is Array:
@@ -225,25 +236,6 @@ func _validate_profiles(errors: PackedStringArray, warnings: PackedStringArray) 
 			if not effect_id.is_empty() and effect_by_id(effect_id).is_empty():
 				errors.append("%s.%s 引用了不存在的效果 %s。" % [profile_id, cue, effect_id])
 	_validate_profile_cycles(errors)
-
-
-func _validate_reduced_motion(
-	entry: Dictionary,
-	prefix: String,
-	errors: PackedStringArray
-) -> void:
-	var value: Variant = entry.get("reduced_motion")
-	if not value is Dictionary:
-		errors.append("%s.reduced_motion 必须是对象。" % prefix)
-		return
-	var policy: Dictionary = value as Dictionary
-	var mode: String = String(policy.get("mode", ""))
-	if not ["same", "variant", "suppress_optional"].has(mode):
-		errors.append("%s.reduced_motion.mode 无效：%s" % [prefix, mode])
-	if mode == "variant":
-		var variant_id: String = String(policy.get("effect_id", ""))
-		if variant_id.is_empty() or effect_by_id(variant_id).is_empty():
-			errors.append("%s 的减少动态效果变体不存在：%s" % [prefix, variant_id])
 
 
 func _validate_quality_variants(

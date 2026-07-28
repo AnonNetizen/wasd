@@ -41,9 +41,6 @@ func play(effect_id: String, request: VfxPlayRequest = null) -> VfxHandle:
 	var resolved_request: VfxPlayRequest = (
 		request.clone() if request != null else VfxPlayRequest.new()
 	)
-	var effect_tags: Array = effect_data.get("tags", []) as Array
-	if effect_tags.has("reduced_motion_static"):
-		resolved_request.payload["static_frame"] = 0.2
 	var kind: String = String(effect_data.get("kind", ""))
 	if kind == VFX_KINDS.TARGET_ANIMATION:
 		return _play_target_animation(effect_data, resolved_request)

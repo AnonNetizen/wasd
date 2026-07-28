@@ -1,13 +1,13 @@
 # UI Effects 模块文档
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是共享 UI 动效组件、MotionRoot 约束与 reduced-motion 行为的代码契约权威。
+> 本文档是共享 UI 动效组件与 MotionRoot 约束的代码契约权威。
 
 ## 职责
 
 `client/scripts/ui/effects/` 提供可组合的本地 UI 表现，不承载业务状态：
 
-- `UIEffectPlayer`：统一 Tween 所有权、取消与 reduced-motion 时长。
+- `UIEffectPlayer`：统一 Tween 所有权、取消与非负时长归一化。
 - `UIPanelTransition`：面板淡入 / 淡出，供 `UIManager` 和 HUD 本地播放器使用。
 - `UIButtonFeedback` / `UISelectionFeedback` / `UIFocusIndicator`：按钮、选择与手柄焦点。
 - `UIToast` / `UIValueFeedback` / `UIScreenAccent`：提示、数值变化与屏幕强调。
@@ -20,8 +20,7 @@
 - Container 内只能动画内部 `MotionRoot` 或可控视觉节点，不改 Container 管理的 size、anchor 和 layout offset。
 - 面板进入默认 180ms，退出 140ms；按钮反馈、列表 stagger 保持方案规定范围。
 - 运行时动态终值用组件自有 Tween；每次重播先 kill 旧 Tween。
-- normal motion 可使用位移、弹性和 stagger；reduced motion 禁用位移、弹性、视差、持续 UI 粒子和循环焦点，替换为瞬时状态或不超过 100ms 的淡入淡出。
-- reduced motion 与 `gameplay.screen_shake` 独立，不能暗中修改震屏设置。
+- UI 动效使用既定的位移、弹性、stagger 和淡入淡出；ADR #168 后不再提供 reduced-motion 分支。
 
 ## UIManager 集成
 

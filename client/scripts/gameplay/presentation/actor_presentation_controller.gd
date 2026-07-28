@@ -120,7 +120,6 @@ func play_hit() -> void:
 	_animation_player.stop()
 	_animation_player.play(ANIMATION_HIT)
 	_animation_player.advance(0.0)
-	_apply_reduced_motion_duration()
 
 
 func play_defeat() -> void:
@@ -131,7 +130,6 @@ func play_defeat() -> void:
 	_animation_player.stop()
 	_animation_player.play(ANIMATION_DEFEAT)
 	_animation_player.advance(0.0)
-	_apply_reduced_motion_duration()
 
 
 func play_target_effect(effect_data: Dictionary, _request: VfxPlayRequest) -> Node:
@@ -250,13 +248,4 @@ func _set_current_animation_duration(duration: float) -> void:
 	var animation: Animation = _animation_player.get_animation(animation_name)
 	if animation == null:
 		return
-	var resolved_duration: float = duration
-	if bool(VisualEffects.current_policy().get("reduced_motion", false)):
-		resolved_duration = minf(resolved_duration, 0.1)
-	_animation_player.speed_scale = animation.length / maxf(resolved_duration, 0.001)
-
-
-func _apply_reduced_motion_duration() -> void:
-	if not bool(VisualEffects.current_policy().get("reduced_motion", false)):
-		return
-	_set_current_animation_duration(0.1)
+	_animation_player.speed_scale = animation.length / maxf(duration, 0.001)

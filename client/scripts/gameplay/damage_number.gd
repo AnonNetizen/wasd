@@ -8,7 +8,6 @@ signal finished()
 
 const DEFEATED_COLOR: Color = Color(1.0, 0.72, 0.28)
 const DURATION: float = 0.52
-const REDUCED_MOTION_DURATION: float = 0.1
 const PLAYER_DAMAGE_COLOR: Color = Color(1.0, 0.34, 0.30)
 const TEXT_COLOR: Color = Color(1.0, 0.96, 0.72)
 const VERTICAL_DRIFT: float = 28.0
@@ -24,7 +23,6 @@ const SCALE_CURVE: Curve = preload(
 
 var _label: Label = null
 var _duration: float = DURATION
-var _reduced_motion: bool = false
 var _remaining: float = 0.0
 var _start_position: Vector2 = Vector2.ZERO
 
@@ -57,10 +55,7 @@ func _process(delta: float) -> void:
 func configure(spawn_position: Vector2, amount: float, defeated: bool, player_damage: bool) -> void:
 	global_position = spawn_position
 	_start_position = spawn_position
-	_reduced_motion = bool(
-		VisualEffects.current_policy().get("reduced_motion", false)
-	)
-	_duration = REDUCED_MOTION_DURATION if _reduced_motion else DURATION
+	_duration = DURATION
 	_remaining = _duration
 	if _label != null:
 		_label.text = str(int(ceilf(amount)))
@@ -86,7 +81,6 @@ func cancel(_immediate: bool = false) -> void:
 
 func _pool_reset() -> void:
 	_duration = DURATION
-	_reduced_motion = false
 	_remaining = 0.0
 	_start_position = Vector2.ZERO
 	position = Vector2.ZERO
@@ -99,7 +93,6 @@ func _pool_reset() -> void:
 
 func _pool_release() -> void:
 	_duration = DURATION
-	_reduced_motion = false
 	_remaining = 0.0
 	visible = false
 
@@ -107,18 +100,10 @@ func _pool_release() -> void:
 func _update_visual() -> void:
 	var elapsed_ratio: float = 1.0 - clampf(_remaining / _duration, 0.0, 1.0)
 	var drift_ratio: float = DRIFT_CURVE.sample_baked(elapsed_ratio)
-	global_position = (
-		_start_position
-		if _reduced_motion
-		else _start_position + Vector2.UP * VERTICAL_DRIFT * drift_ratio
-	)
+	global_position = _start_position + Vector2.UP * VERTICAL_DRIFT * drift_ratio
 	var alpha: float = ALPHA_CURVE.sample_baked(elapsed_ratio)
 	modulate = Color(1.0, 1.0, 1.0, alpha)
-	scale = (
-		Vector2.ONE
-		if _reduced_motion
-		else Vector2.ONE * SCALE_CURVE.sample_baked(elapsed_ratio)
-	)
+	scale = Vector2.ONE * SCALE_CURVE.sample_baked(elapsed_ratio)
 
 
 func _text_color(defeated: bool, player_damage: bool) -> Color:

@@ -146,7 +146,7 @@ GameplayRunLoop (Node2D)
 - 首次有效瞄准前保持零偏移。鼠标按光标到玩家实际屏幕位置的距离应用死区、比例和上限；键盘、手柄与 Replay 使用归一化最终 aim 的最大偏移并在松开后保持最后方向。控制器以数据化时间常数做帧率无关指数平滑，暂停时冻结。
 - `GameplayRunLoop` 只在 `Combat.damage_applied` 确认玩家实际受伤后调用 `play_player_damage_shake()`；敌人受伤和玩家无敌拦截不触发。
 - `weapon_fired` 通过 `play_feedback(id, context)` 驱动独立武器 emitter；最大振幅来自数据，实际振幅按 `recoil_ratio` 与 profile 指数缩放。连射只刷新时序并保留当前较强振幅，不累加。
-- `gameplay.screen_shake=false` 会立即停止两个 emitter、归零 `Camera2D.offset` 并抑制后续震屏，但不清理稳定引导偏移；弹道、玩家反冲和 `RNG.combat` 不受影响。`gameplay.reduced_motion` 当前不影响摄像机。
+- `gameplay.screen_shake=false` 会立即停止两个 emitter、归零 `Camera2D.offset` 并抑制后续震屏，但不清理稳定引导偏移；弹道、玩家反冲和 `RNG.combat` 不受影响。
 - 鼠标瞄准使用指针相对玩家实际屏幕位置的方向；稳定引导偏移参与位置换算，禁止用震屏 offset 或当前 canvas 噪声修改玩家的世界瞄准向量。
 - `Engine.physics_jitter_fix` 由项目保持 `0.5`；插件不得覆盖全局引擎值。
 

@@ -174,7 +174,7 @@
     {
       "path": "docs/游戏设计文档.md",
       "type": "authority",
-      "authority": "Gameplay, systems, long-term design, GDD v1.37; Gear Mod loadout progression, top-down 2D presentation, Phantom Camera aim-directed player follow and damage shake, 9x9 modular grid world, bounded F14 flow field, quantized rectangular map grid, and top-down asset readability rules",
+      "authority": "Gameplay, systems, long-term design, GDD v1.38; Gear Mod loadout progression, top-down 2D presentation, Phantom Camera aim-directed player follow and damage shake, standard-motion VFX policy, 9x9 modular grid world, bounded F14 flow field, quantized rectangular map grid, and top-down asset readability rules",
       "status": "active",
       "owner_scope": "design",
       "last_reviewed": "2026-07-28",
@@ -944,16 +944,16 @@
     {
       "path": "docs/代码/difficulty_marker.md",
       "type": "module_doc",
-      "authority": "DifficultyMarker scene, threat-stage localization, HUD layout, stats-panel avoidance, and reduced-motion contract",
+      "authority": "DifficultyMarker scene, threat-stage localization, HUD layout, stats-panel avoidance, and standard highlight behavior",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-07-28",
       "canonical_for": ["difficulty_marker", "threat_hud", "difficulty_stage_names", "difficulty_hud_accessibility"],
-      "must_read_for": ["difficulty_hud_change", "difficulty_stage_copy_change", "difficulty_marker_layout_change", "difficulty_reduced_motion_change"],
+      "must_read_for": ["difficulty_hud_change", "difficulty_stage_copy_change", "difficulty_marker_layout_change"],
       "related_docs": ["docs/代码/difficulty_progression.md", "docs/代码/gameplay_runtime.md", "docs/游戏设计文档.md", "docs/测试策略.md", "client/locale/README.md", "docs/AI导航.md"],
       "related_code": ["client/scenes/ui/difficulty_marker.tscn", "client/scripts/ui/difficulty_marker.gd", "client/scenes/gameplay/gameplay_hud.tscn", "client/scripts/gameplay/gameplay_hud.gd", "client/locale/strings.csv"],
-      "update_triggers": ["DifficultyMarker node or API changes", "threat-stage locale keys change", "HUD or StatsPanel layout changes", "stage highlight or reduced-motion behavior changes"],
-      "keywords": ["DifficultyMarker", "threat marker", "难度标记器", "Dormant", "Nestfall", "威胁 Lv.", "MM:SS", "ProgressBar", "combat locked", "reduced motion", "StatsPanel", "ADR #166"]
+      "update_triggers": ["DifficultyMarker node or API changes", "threat-stage locale keys change", "HUD or StatsPanel layout changes", "stage highlight behavior changes"],
+      "keywords": ["DifficultyMarker", "threat marker", "难度标记器", "Dormant", "Nestfall", "威胁 Lv.", "MM:SS", "ProgressBar", "combat locked", "stage highlight", "StatsPanel", "ADR #166", "ADR #168"]
     },
     {
       "path": "docs/代码/phantom_camera.md",
@@ -1378,30 +1378,30 @@
     {
       "path": "docs/代码/visual_effects.md",
       "type": "module_doc",
-      "authority": "VisualEffects catalog/profile resolution, VfxHost lifecycle and pooling, GameplayFeedbackController routing, actor anchors and presentation controllers, quality and reduced-motion policy, curated composition boundary, and VFX 效果库 editor workflow",
+      "authority": "VisualEffects schema v2 catalog/profile resolution, VfxHost lifecycle and pooling, GameplayFeedbackController routing, actor anchors and presentation controllers, quality policy, curated composition boundary, and VFX 效果库 editor workflow",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-07-24",
-      "canonical_for": ["visual_effects", "presentation_profiles", "vfx_host", "gameplay_feedback", "actor_presentation", "vfx_library_editor", "vfx_quality_policy", "reduced_motion_vfx"],
+      "last_reviewed": "2026-07-28",
+      "canonical_for": ["visual_effects", "presentation_profiles", "vfx_host", "gameplay_feedback", "actor_presentation", "vfx_library_editor", "vfx_quality_policy"],
       "must_read_for": ["new_visual_effect", "visual_effect_change", "presentation_profile_change", "actor_anchor_change", "gameplay_feedback_change", "vfx_editor_change", "vfx_pool_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/ui_effects.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/pool_manager.md", "docs/代码/data_loader.md", "docs/代码/settings.md", "docs/AI导航.md"],
       "related_code": ["client/data/visual_effects.json", "client/data/presentation_profiles.json", "client/scripts/autoload/visual_effects.gd", "client/scripts/vfx/", "client/scripts/gameplay/presentation/", "client/scenes/vfx/", "client/resources/vfx/", "client/shaders/vfx/", "client/addons/vfx_library/", "client/tools/vfx_smoke.gd"],
-      "update_triggers": ["VFX catalog or profile schema changes", "VfxHost or feedback API changes", "presentation anchor or actor animation changes", "VFX pooling changes", "quality or reduced-motion policy changes", "VFX editor workflow changes", "new VFX primitive or composition template"],
-      "keywords": ["VisualEffects", "VFX", "视觉效果", "VFX 效果库", "visual_effects.json", "presentation_profiles.json", "VfxHost", "GameplayFeedbackController", "ActorPresentationController", "VFX Library", "AnimationPlayer", "AnimationTree", "Tween", "Curve", "SpriteFrames", "GPUParticles2D", "CPUParticles2D", "CanvasItem Shader", "ShaderMaterial", "程序几何", "reduced motion", "vfx quality", "ADR #158"]
+      "update_triggers": ["VFX catalog or profile schema changes", "VfxHost or feedback API changes", "presentation anchor or actor animation changes", "VFX pooling changes", "quality policy changes", "VFX editor workflow changes", "new VFX primitive or composition template"],
+      "keywords": ["VisualEffects", "VFX", "视觉效果", "VFX 效果库", "visual_effects.json", "presentation_profiles.json", "VfxHost", "GameplayFeedbackController", "ActorPresentationController", "VFX Library", "AnimationPlayer", "AnimationTree", "Tween", "Curve", "SpriteFrames", "GPUParticles2D", "CPUParticles2D", "CanvasItem Shader", "ShaderMaterial", "程序几何", "schema v2", "vfx quality", "ADR #158", "ADR #168"]
     },
     {
       "path": "docs/代码/ui_effects.md",
       "type": "module_doc",
-      "authority": "Reusable UI effect components, MotionRoot animation boundary, default transition timing, HUD-local playback, reduced-motion behavior, and UIEffectPlayer integration with UIManager lifecycle",
+      "authority": "Reusable UI effect components, MotionRoot animation boundary, standard transition timing, HUD-local playback, and UIEffectPlayer integration with UIManager lifecycle",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-07-24",
-      "canonical_for": ["ui_effects", "ui_transition_components", "motion_root", "ui_reduced_motion", "hud_local_effects"],
-      "must_read_for": ["ui_effect_change", "ui_transition_change", "new_ui_screen", "hud_feedback_change", "reduced_motion_ui_change"],
+      "last_reviewed": "2026-07-28",
+      "canonical_for": ["ui_effects", "ui_transition_components", "motion_root", "hud_local_effects"],
+      "must_read_for": ["ui_effect_change", "ui_transition_change", "new_ui_screen", "hud_feedback_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/ui_manager.md", "docs/代码/visual_effects.md", "docs/代码/settings.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/ui/effects/", "client/scenes/ui/effects/", "client/scripts/autoload/ui_manager.gd", "client/tools/ui_manager_smoke.gd"],
-      "update_triggers": ["UI effect component API changes", "MotionRoot boundary changes", "UI transition timing changes", "HUD local feedback changes", "reduced-motion UI policy changes"],
-      "keywords": ["UIEffectPlayer", "UIPanelTransition", "UIButtonFeedback", "UISelectionFeedback", "UIFocusIndicator", "UIToast", "UIValueFeedback", "UIScreenAccent", "UIEffectSequence", "MotionRoot", "reduced motion", "UI transition", "ADR #158"]
+      "update_triggers": ["UI effect component API changes", "MotionRoot boundary changes", "UI transition timing changes", "HUD local feedback changes"],
+      "keywords": ["UIEffectPlayer", "UIPanelTransition", "UIButtonFeedback", "UISelectionFeedback", "UIFocusIndicator", "UIToast", "UIValueFeedback", "UIScreenAccent", "UIEffectSequence", "MotionRoot", "standard motion", "UI transition", "ADR #158", "ADR #168"]
     },
     {
       "path": "docs/reports/2026-07-21-f14-replay-regression.md",
