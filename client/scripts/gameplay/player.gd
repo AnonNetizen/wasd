@@ -32,6 +32,7 @@ var _armor: float = 0.0
 var _armor_coefficient: float = 300.0
 var _armor_maximum: float = 1200.0
 var _base_stats: Dictionary = {}
+var _camera_look_offset: Vector2 = Vector2.ZERO
 var _current_shield: float = 0.0
 var _dash_cooldown: float = 1.25
 var _dash_cooldown_remaining: float = 0.0
@@ -129,6 +130,7 @@ func configure(base_stats: Dictionary) -> void:
 	_stat_additions.clear()
 	_stat_multipliers.clear()
 	_clear_status_effects_for_reuse()
+	_camera_look_offset = Vector2.ZERO
 	_ensure_presentation()
 	if _presentation != null:
 		_presentation.reset_presentation()
@@ -501,6 +503,10 @@ func aim_at_world_position(world_position: Vector2) -> void:
 	var mouse_direction: Vector2 = world_position - global_position
 	if mouse_direction.length_squared() > MOUSE_AIM_MIN_DISTANCE_SQUARED:
 		_set_aim_direction(mouse_direction)
+
+
+func set_camera_look_offset(offset: Vector2) -> void:
+	_camera_look_offset = offset
 
 
 func set_movement_bounds(bounds: Rect2) -> void:
@@ -1020,8 +1026,16 @@ func _ensure_presentation() -> void:
 
 func _set_pointer_aim_from_viewport_position(viewport_position: Vector2) -> void:
 	var viewport_offset: Vector2 = viewport_position - get_viewport().get_visible_rect().size * 0.5
-	if viewport_offset.length_squared() > MOUSE_AIM_MIN_DISTANCE_SQUARED:
-		_set_aim_direction(viewport_offset)
+	var camera: Camera2D = get_viewport().get_camera_2d()
+	var world_viewport_offset: Vector2 = viewport_offset
+	if camera != null:
+		world_viewport_offset = Vector2(
+			viewport_offset.x / camera.zoom.x,
+			viewport_offset.y / camera.zoom.y
+		).rotated(camera.global_rotation)
+	var mouse_direction: Vector2 = world_viewport_offset + _camera_look_offset
+	if mouse_direction.length_squared() > MOUSE_AIM_MIN_DISTANCE_SQUARED:
+		_set_aim_direction(mouse_direction)
 
 
 func _apply_movement_bounds() -> void:

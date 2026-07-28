@@ -69,16 +69,16 @@ alwaysApply: true
 
 ## 8. 输入与操作
 - 移动：键盘 WASD + 手柄左摇杆，8 方向。
-- 射击瞄准：键鼠默认用鼠标相对玩家 / 视口中心方向瞄准，子弹可朝任意角度发射；键盘方向键、手柄右摇杆 / D-pad 保留为兜底瞄准输入；角色视觉只区分向左 / 向右两种朝向，不做向上 / 向下朝向。
+- 射击瞄准：键鼠默认用鼠标相对玩家实际屏幕位置的方向瞄准，子弹可朝任意角度发射；键盘方向键、手柄右摇杆 / D-pad 保留为兜底瞄准输入；角色视觉按完整 `aim_direction` 表达朝向。
 - 开火：默认按住 `fire` action 持续射击，松开停火；按住期间按 `fire_rate` 触发，键鼠默认鼠标左键，手柄默认右扳机。
 - 移动与瞄准**解耦**。
 - 键盘按键、手柄按钮与手柄轴都应可通过设置系统重绑定，不得硬编码物理输入；业务统一使用生成的 action 常量和 `InputService` 归一化 intent，GUIDE 只允许由 `InputService` 直接访问，`InputMap` 只允许存在于 GUIDE / `InputService` 的 Godot UI 兼容桥和测试边界（见 `词表与契约.md` 第 7 节与 `docs/代码/input_service.md`）。
 - **暂停功能**：游戏暂停统一用 `get_tree().paused`，暂停时业务节点（移动/开火/子弹/刷怪/机关/计时）随之冻结；暂停菜单等需暂停时仍响应的节点设 `process_mode = PROCESS_MODE_ALWAYS`。暂停键用可重绑定的 action `pause`（默认 `Esc` / 手柄 Start 或 Menu），菜单文本走本地化键，**不硬编码**。
 
-## 9. 摄像机（玩家恒居屏幕中央）
-- `Camera2D` 挂在 `Player` 节点下，玩家**始终固定在屏幕正中央**，移动表现为世界滚动。
-- **关闭** 相机 `limit`（边界限制）与 `drag margin`（拖拽边距），保证严格居中。
-- 俯视角显示不得通过旋转 `Camera2D`、`Camera2D.zoom` 非等比缩放、`Camera3D` 正交投影或低模 3D 视觉层来模拟斜俯视；相机保持屏幕水平、玩家居中与等比缩放，避免横向与纵向屏幕移动速度失真。
+## 9. 摄像机（瞄准方向引导）
+- 唯一对局级 `GameplayCameraController` 位于 `GameplayRunLoop/ActiveWorld`；Phantom Camera `GLUED` 跟随当前 Player，开局首次有效瞄准前居中，之后按 `camera_feedback.json.aim_look` 平滑向当前瞄准方向偏移。鼠标按实际屏幕距离计算，键盘、手柄与 Replay 使用最大偏移并在松开后保持最后方向。
+- **关闭** 相机 `limit`（边界限制）、`drag margin`（拖拽边距）和内建 position smoothing；引导平滑只由 `GameplayCameraController` 负责。
+- 俯视角显示不得通过旋转 `Camera2D`、`Camera2D.zoom` 非等比缩放、`Camera3D` 正交投影或低模 3D 视觉层来模拟斜俯视；相机保持屏幕水平与等比缩放。稳定引导偏移与 `Camera2D.offset` 震屏噪声必须分离；`gameplay.reduced_motion` 当前不改变相机。
 - 当前地图、背景网格、机关、兴趣点 footprint 和撤离区默认使用水平 / 垂直矩形俯视格；不得用菱形 / 等距地图格继续模拟斜俯视或正交视角。
 
 ## 10. 性能
@@ -321,7 +321,7 @@ alwaysApply: true
 - [ ] 新遗物/道具是加数据而非加逻辑分支？
 - [ ] 新角色 / 破限道具是否通过 `capability` / primitive / strategy 表达，而不是按 id 写特殊分支？
 - [ ] 高频实体用了对象池？
-- [ ] 相机保证玩家居中（无 limit / drag margin）？
+- [ ] 相机是否保持 GLUED 跟随、瞄准方向平滑偏移、无 limit / drag margin，并保证稳定引导与震屏噪声互不干扰？
 - [ ] 暂停是否用 `get_tree().paused`，暂停菜单节点设 `process_mode=ALWAYS`，暂停键走可重绑定 action（非硬编码键盘/手柄输入）？
 - [ ] 关键节点是否通过 `Analytics` 统一接口留好了数据埋点（而非散落硬编码）？
 - [ ] 随机数都走 `RNG.<stream>`（无裸 `randi()` / `randf()` / `randi_range()`）？时间都走 `GameClock`（无裸 `Time.get_ticks_msec()`）？

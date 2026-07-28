@@ -1878,8 +1878,13 @@ def _validate_camera_feedback(ctx: ValidationContext) -> set[str]:
     if not isinstance(data, dict):
         return set()
     _require_int(
-        ctx, path, "schema_version", data.get("schema_version"), minimum=2, maximum=2
+        ctx, path, "schema_version", data.get("schema_version"), minimum=3, maximum=3
     )
+    aim_look = data.get("aim_look")
+    if not isinstance(aim_look, dict):
+        ctx.error(path, "aim_look", "must be an object")
+    else:
+        _validate_camera_aim_look(ctx, path, aim_look)
     for profile_id in ("player_damage_shake", "weapon_recoil_shake"):
         shake = data.get(profile_id)
         if not isinstance(shake, dict):
@@ -1900,6 +1905,44 @@ def _validate_camera_feedback(ctx: ValidationContext) -> set[str]:
         for profile_id in ("player_damage_shake", "weapon_recoil_shake")
         if isinstance(data.get(profile_id), dict)
     }
+
+
+def _validate_camera_aim_look(
+    ctx: ValidationContext,
+    path: Path,
+    profile: dict[str, Any],
+) -> None:
+    _require_number(
+        ctx,
+        path,
+        "aim_look.pointer_offset_ratio",
+        profile.get("pointer_offset_ratio"),
+        minimum=0.0,
+        maximum=1.0,
+        exclusive_minimum=True,
+    )
+    _require_number(
+        ctx,
+        path,
+        "aim_look.max_offset_px",
+        profile.get("max_offset_px"),
+        minimum=0.0,
+    )
+    _require_number(
+        ctx,
+        path,
+        "aim_look.pointer_dead_zone_px",
+        profile.get("pointer_dead_zone_px"),
+        minimum=0.0,
+    )
+    _require_number(
+        ctx,
+        path,
+        "aim_look.smoothing_time_seconds",
+        profile.get("smoothing_time_seconds"),
+        minimum=0.0,
+        exclusive_minimum=True,
+    )
 
 
 def _validate_camera_feedback_profile(

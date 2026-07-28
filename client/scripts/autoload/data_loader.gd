@@ -377,9 +377,20 @@ func _validate_camera_feedback_json() -> bool:
 		CAMERA_FEEDBACK_PATH,
 		"schema_version",
 		payload.get("schema_version"),
-		2,
-		2
+		3,
+		3
 	) and is_valid
+	var aim_look: Variant = payload.get("aim_look")
+	if not aim_look is Dictionary:
+		is_valid = _schema_fail(
+			CAMERA_FEEDBACK_PATH,
+			"aim_look",
+			"Dictionary"
+		) and is_valid
+	else:
+		is_valid = _validate_camera_aim_look(
+			aim_look as Dictionary
+		) and is_valid
 	for profile_id: String in [
 		"player_damage_shake",
 		"weapon_recoil_shake",
@@ -405,6 +416,39 @@ func _validate_camera_feedback_json() -> bool:
 			0.0
 		) and is_valid
 	_last_schema_counts["camera_feedback_profiles"] = 2
+	return is_valid
+
+
+func _validate_camera_aim_look(profile: Dictionary) -> bool:
+	var is_valid: bool = true
+	is_valid = _require_number(
+		CAMERA_FEEDBACK_PATH,
+		"aim_look.pointer_offset_ratio",
+		profile.get("pointer_offset_ratio"),
+		0.0,
+		1.0,
+		true
+	) and is_valid
+	is_valid = _require_number(
+		CAMERA_FEEDBACK_PATH,
+		"aim_look.max_offset_px",
+		profile.get("max_offset_px"),
+		0.0
+	) and is_valid
+	is_valid = _require_number(
+		CAMERA_FEEDBACK_PATH,
+		"aim_look.pointer_dead_zone_px",
+		profile.get("pointer_dead_zone_px"),
+		0.0
+	) and is_valid
+	is_valid = _require_number(
+		CAMERA_FEEDBACK_PATH,
+		"aim_look.smoothing_time_seconds",
+		profile.get("smoothing_time_seconds"),
+		0.0,
+		null,
+		true
+	) and is_valid
 	return is_valid
 
 

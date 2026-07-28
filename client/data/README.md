@@ -18,7 +18,7 @@
 | 你想做什么 | 改哪里 | 注意 |
 |------------|--------|------|
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
-| 改玩家受伤 / 武器后坐力震屏强度、频率或时长 | `camera_feedback.json` 的 `player_damage_shake` / `weapon_recoil_shake` | 只影响表现；随机走 `RNG.camera_fx`，关闭 `gameplay.screen_shake` 时即时停止 |
+| 改瞄准方向引导镜头或玩家受伤 / 武器后坐力震屏 | `camera_feedback.json` 的 `aim_look` / `player_damage_shake` / `weapon_recoil_shake` | 引导偏移按输入源计算并独立于震屏；噪声随机走 `RNG.camera_fx` |
 | 选择 / 调整视觉效果 | `visual_effects.json`、`presentation_profiles.json` | 内容数据只引用 `presentation_profile_id`；在 Godot 的“VFX 效果库”中预览和绑定，不手抄字符串 |
 | 改英雄主属性 / 被动 / 两个英雄技能 / 配色 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；主英雄提供属性被动和技能 1/2，子英雄只提供强调色和技能 3/4 |
 | 改武器射速 / 后坐力 / 弹道扩散 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；后坐力与基础扩散受根级 `recoil_model` 限制，子弹池、元素和音频前缀必须来自词表 |
@@ -47,7 +47,7 @@
 | 文件 | 状态 | 作用 |
 |------|------|------|
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
-| `camera_feedback.json` | 已建立 | 摄像机表现反馈；含玩家有效受伤与武器后坐力的 Phantom Camera 位移震屏参数 |
+| `camera_feedback.json` | 已建立 | 摄像机表现反馈；含瞄准方向引导偏移、玩家有效受伤与武器后坐力的 Phantom Camera 参数 |
 | `difficulty_profiles.json` | 已建立 | 模式级局内威胁时间曲线：90 秒阶段、连续增长、阶段跃升、伤害换算比例和九段本地化名称 |
 | `game_modes.json` | 已建立 | 游戏模式配置：难度 profile、可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 技能 / 消耗品 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
 | `characters.json` | 已建立 | 英雄列表：场景、主副配色、基础属性、被动、两个英雄技能和起始携带 |
@@ -242,7 +242,13 @@ JSON 示例：
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
+  "aim_look": {
+    "pointer_offset_ratio": 0.30,
+    "max_offset_px": 240.0,
+    "pointer_dead_zone_px": 32.0,
+    "smoothing_time_seconds": 0.18
+  },
   "base_stats": {
     "max_hp": 600.0,
     "health_regen": 0.0,
@@ -340,7 +346,11 @@ JSON 示例：
 
 | 字段路径 | 类型 | 单位 / 范围 | 说明 | 调大后的效果 |
 |----------|------|-------------|------|--------------|
-| `schema_version` | int | 当前必须为 `2` | 数据结构版本 | 只在 schema 变更时调整 |
+| `schema_version` | int | 当前必须为 `3` | 数据结构版本 | 只在 schema 变更时调整 |
+| `aim_look.pointer_offset_ratio` | float | `0..1` | 鼠标越过死区后的屏幕距离换算为目标偏移的比例 | 光标移动相同距离时预看更远 |
+| `aim_look.max_offset_px` | float | px，`>= 0` | 所有输入源的最大引导偏移；方向输入与 Replay 使用该最大值 | 可看到更远的瞄准方向 |
+| `aim_look.pointer_dead_zone_px` | float | px，`>= 0` | 鼠标相对玩家实际屏幕位置的中心死区 | 中心附近更不容易触发镜头移动 |
+| `aim_look.smoothing_time_seconds` | float | 秒，`> 0` | 指数平滑时间常数，`alpha = 1 - exp(-delta / value)` | 镜头跟随目标偏移更慢、更柔 |
 | `player_damage_shake.amplitude` | float | px，`>= 0` | 有效玩家伤害的最大位移震幅 | 受击摇动更明显；过高会影响瞬时瞄准可读性 |
 | `player_damage_shake.frequency` | float | Hz，`> 0` | 噪声采样频率 | 抖动更快、更硬 |
 | `player_damage_shake.growth_time` | float | 秒，`> 0` | 从零增长到完整震幅的时间 | 起振更慢、更柔 |
@@ -357,7 +367,9 @@ JSON 示例：
 | `weapon_recoil_shake.positional_multiplier_x` | float | `0..1` | 水平位移噪声倍率 | 水平摇动更强 |
 | `weapon_recoil_shake.positional_multiplier_y` | float | `0..1` | 垂直位移噪声倍率 | 垂直摇动更强 |
 
-`player_damage_shake` 只有在 `Combat.damage_applied` 报告玩家伤害实际应用时触发；敌人受伤或无敌窗拦截不触发。`weapon_recoil_shake` 由主武器成功开火触发，并按 `weapons.json` 的归一化 `recoil` 计算目标振幅。关闭 `gameplay.screen_shake` 时两种反馈都即时停止；噪声 seed 走 `RNG.camera_fx`，是与 spawn / drop / combat 隔离的纯表现子流。
+`aim_look` 在首次有效瞄准前保持零偏移。鼠标目标偏移为 `方向 × min((玩家实际屏幕位置到光标的距离 - pointer_dead_zone_px) × pointer_offset_ratio, max_offset_px)`；死区内为零。键盘、手柄与 Replay 使用归一化最终瞄准方向乘 `max_offset_px`，松开后保持最后方向。暂停冻结当前引导偏移，恢复后继续平滑。`gameplay.reduced_motion` 当前不改变镜头行为，其删除另案处理。
+
+`player_damage_shake` 只有在 `Combat.damage_applied` 报告玩家伤害实际应用时触发；敌人受伤或无敌窗拦截不触发。`weapon_recoil_shake` 由主武器成功开火触发，并按 `weapons.json` 的归一化 `recoil` 计算目标振幅。关闭 `gameplay.screen_shake` 时两种反馈都即时停止且只清理噪声 `Camera2D.offset`，不清理 `aim_look` 引导偏移；噪声 seed 走 `RNG.camera_fx`，是与 spawn / drop / combat 隔离的纯表现子流。
 
 ## 内容数据通用字段
 

@@ -1,5 +1,11 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
+  "aim_look": {
+    "pointer_offset_ratio": 0.3,
+    "max_offset_px": 240.0,
+    "pointer_dead_zone_px": 32.0,
+    "smoothing_time_seconds": 0.18
+  },
   "player_damage_shake": {
     "amplitude": 8.0,
     "frequency": 20.0,

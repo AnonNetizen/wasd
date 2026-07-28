@@ -15,6 +15,7 @@ const SKILL_RESOURCES := preload("res://scripts/contracts/skill_resources.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
 const AIM_FRAMES: int = 4
 const BOOT_FRAMES: int = 8
+const CAMERA_LOOK_SETTLE_FRAMES: int = 120
 const UI_TRANSITION_FRAMES: int = 120
 const INVULNERABILITY_FRAMES: int = 50
 const LEVEL_UP_FRAMES: int = 24
@@ -109,9 +110,22 @@ func _run() -> void:
 		_expect(int(player_camera.get("follow_mode")) == 1, "PlayerCamera should use GLUED follow mode")
 		_expect(player_camera.get("follow_target") == player, "PlayerCamera should follow the active Player")
 		_expect(player_camera.get("zoom") == Vector2.ONE, "PlayerCamera should keep the established 1:1 zoom")
+		_expect(
+			(player_camera.get("follow_offset") as Vector2).is_zero_approx(),
+			"PlayerCamera should start centered before the first valid aim input"
+		)
+	_expect(
+		player.has_method("set_camera_look_offset"),
+		"Player should expose the camera look offset interface"
+	)
 	_expect_camera_preserves_screen_axis_scale(player)
 	_expect(_find_node_by_name(player, "Camera3D") == null, "Player should not rely on an internal Camera3D for the formal top-down view")
-	await _expect_mouse_aim_uses_fixed_screen_center(player)
+	await _expect_aim_directed_camera(
+		player,
+		camera_controller,
+		camera,
+		player_camera
+	)
 	await _expect_weapon_recoil_runtime(player, camera_controller)
 	_expect(_find_node_by_name(run_loop, "WorldBackground") != null, "WorldBackground should provide movement reference")
 	_expect(_find_node_by_name(run_loop, "MapManager") != null, "finite MapManager should be mounted")
@@ -144,8 +158,20 @@ func _run() -> void:
 	_expect(player.global_position.x > start_position.x + 1.0, "WASD movement should move the player")
 	for _index: int in range(2):
 		await get_tree().physics_frame
+	await get_tree().create_timer(0.0, true, false, true).timeout
 	if camera != null:
-		_expect(camera.global_position.distance_to(player.global_position) < 0.5, "Phantom Camera should track player movement without damping")
+		var active_look_offset: Vector2 = camera_controller.call(
+			"current_look_offset"
+		)
+		var tracked_position: Vector2 = (
+			player.global_position
+			+ active_look_offset
+		)
+		_expect(
+			camera.global_position.distance_to(tracked_position) < 0.5,
+			"Phantom Camera should track player movement plus aim look without follow damping actual=%s expected=%s"
+			% [camera.global_position, tracked_position]
+		)
 
 	var before_aim_position: Vector2 = player.global_position
 	InputService.set_playback_active(true)
@@ -267,6 +293,13 @@ func _run() -> void:
 	_expect(
 		player_camera != null and player_camera.get("follow_target") == player,
 		"restored PlayerCamera should follow the recreated Player instance"
+	)
+	_expect(
+		camera_controller != null
+		and (
+			camera_controller.call("current_look_offset") as Vector2
+		).is_zero_approx(),
+		"restored run should rebind the camera with zero initial look offset"
 	)
 
 	InputService.set_playback_active(true)
@@ -965,34 +998,112 @@ func _expect_camera_preserves_screen_axis_scale(player: Node2D) -> void:
 	)
 
 
-func _expect_mouse_aim_uses_fixed_screen_center(player: Node2D) -> void:
-	var screen_offset: Vector2 = Vector2(180.0, -90.0)
-	var viewport_position: Vector2 = get_viewport().get_visible_rect().size * 0.5 + screen_offset
+func _expect_aim_directed_camera(
+	player: Node2D,
+	camera_controller: Node,
+	camera: Camera2D,
+	player_camera: Node2D
+) -> void:
+	_expect(
+		camera_controller != null
+		and camera_controller.has_method("current_look_offset"),
+		"gameplay camera controller should expose its current look offset"
+	)
+	if camera_controller == null or player_camera == null:
+		return
+	var feedback_config: Dictionary = DataLoader.load_json(
+		DataLoader.CAMERA_FEEDBACK_PATH
+	)
+	var aim_look: Dictionary = feedback_config.get("aim_look", {}) as Dictionary
+	var max_offset: float = float(aim_look.get("max_offset_px", 0.0))
+	var dead_zone: float = float(aim_look.get("pointer_dead_zone_px", 0.0))
+	var ratio: float = float(aim_look.get("pointer_offset_ratio", 0.0))
+	_expect(
+		is_equal_approx(max_offset, 240.0)
+		and is_equal_approx(dead_zone, 32.0)
+		and is_equal_approx(ratio, 0.3),
+		"runtime camera aim look should use the validated schema v3 profile"
+	)
+
+	var screen_offset: Vector2 = Vector2(480.0, -240.0)
+	var viewport_center: Vector2 = get_viewport().get_visible_rect().size * 0.5
+	var viewport_position: Vector2 = viewport_center + screen_offset
 	var pointer_event: InputEventMouseMotion = InputEventMouseMotion.new()
 	pointer_event.position = viewport_position
 	pointer_event.global_position = viewport_position
 	pointer_event.relative = Vector2.ONE
 	Input.parse_input_event(pointer_event)
 	await get_tree().process_frame
+	camera_controller.call("configure", player, feedback_config)
+	await _wait_physics_frames(AIM_FRAMES)
+	_expect(
+		(
+			camera_controller.call("current_look_offset") as Vector2
+		).is_zero_approx(),
+		"camera rebind should ignore pointer activity that happened before configure"
+	)
+	Input.parse_input_event(pointer_event)
+	await get_tree().process_frame
+	await _wait_physics_frames(AIM_FRAMES)
+	await _wait_physics_frames(CAMERA_LOOK_SETTLE_FRAMES)
+	screen_offset = (
+		InputService.pointer_viewport_position() - viewport_center
+	)
 
-	for _index: int in range(AIM_FRAMES):
-		await get_tree().physics_frame
-
-	var captured_viewport_position: Vector2 = InputService.pointer_viewport_position()
+	var expected_look_offset: Vector2 = camera_controller.call(
+		"_pointer_look_target",
+		screen_offset
+	)
+	var actual_look_offset: Vector2 = camera_controller.call(
+		"current_look_offset"
+	)
+	_expect(
+		actual_look_offset.distance_to(expected_look_offset) < 0.1,
+		"mouse camera look should apply the dead zone, ratio, cap, and exponential smoothing actual=%s expected=%s"
+		% [actual_look_offset, expected_look_offset]
+	)
+	_expect(
+		(player_camera.get("follow_offset") as Vector2).distance_to(
+			actual_look_offset
+		) < 0.01,
+		"PlayerCamera follow_offset should mirror the controller look offset"
+	)
 	var expected_direction: Vector2 = (
-		captured_viewport_position
-		- get_viewport().get_visible_rect().size * 0.5
+		screen_offset + actual_look_offset
 	).normalized()
 	var actual_direction: Vector2 = player.get("aim_direction")
 	var aim_distance: float = actual_direction.distance_to(expected_direction)
 	_expect(
 		aim_distance < 0.02,
-		"mouse aim should use the fixed viewport center actual=%s expected=%s distance=%.4f" % [
+		"mouse aim should use the player's actual screen position actual=%s expected=%s distance=%.4f" % [
 			actual_direction,
 			expected_direction,
 			aim_distance,
 		]
 	)
+	var held_look_offset: Vector2 = actual_look_offset
+	await _wait_physics_frames(AIM_FRAMES)
+	_expect(
+		(
+			camera_controller.call("current_look_offset") as Vector2
+		).distance_to(held_look_offset) < 0.01,
+		"a stationary pointer should keep its look offset"
+	)
+
+	if camera != null:
+		camera.offset = Vector2(90.0, -40.0)
+		await get_tree().physics_frame
+		_expect(
+			(player.get("aim_direction") as Vector2).distance_to(
+				expected_direction
+			) < 0.02,
+			"Camera2D shake offset should not contaminate pointer aim"
+		)
+		camera.offset = Vector2.ZERO
+	var look_before_shake_toggle: Vector2 = camera_controller.call(
+		"current_look_offset"
+	)
+	var position_before_shake_toggle: Vector2 = player.global_position
 	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, false)
 	await get_tree().physics_frame
 	_expect(
@@ -1001,7 +1112,158 @@ func _expect_mouse_aim_uses_fixed_screen_center(player: Node2D) -> void:
 		) < 0.02,
 		"screen shake setting should not change pointer aim direction"
 	)
+	_expect(
+		(
+			camera_controller.call("current_look_offset") as Vector2
+		).distance_to(look_before_shake_toggle) < 0.01,
+		"screen shake setting should not clear the stable aim look offset"
+	)
+	_expect(
+		player.global_position.distance_to(position_before_shake_toggle) < 0.01,
+		"screen shake setting should not change gameplay position"
+	)
 	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true)
+
+	_expect(
+		(
+			camera_controller.call(
+				"_pointer_look_target",
+				Vector2(dead_zone * 0.5, 0.0)
+			) as Vector2
+		).is_zero_approx(),
+		"pointer inside the camera dead zone should target zero look offset"
+	)
+	_expect(
+		(
+			camera_controller.call(
+				"_pointer_look_target",
+				Vector2(dead_zone + 100.0, 0.0)
+			) as Vector2
+		).distance_to(Vector2.RIGHT * 100.0 * ratio) < 0.001,
+		"pointer camera look should use the configured offset ratio after the dead zone"
+	)
+	_expect(
+		(
+			camera_controller.call(
+				"_pointer_look_target",
+				Vector2(5000.0, 0.0)
+			) as Vector2
+		).distance_to(Vector2.RIGHT * max_offset) < 0.001,
+		"pointer camera look should cap at the configured maximum offset"
+	)
+
+	await _inject_runtime_key(KEY_RIGHT, true)
+	await _wait_physics_frames(CAMERA_LOOK_SETTLE_FRAMES)
+	_expect(
+		(
+			camera_controller.call("current_look_offset") as Vector2
+		).distance_to(Vector2.RIGHT * max_offset) < 0.1,
+		"keyboard aim should use the configured maximum camera look offset"
+	)
+	await _inject_runtime_key(KEY_RIGHT, false)
+	await _wait_physics_frames(AIM_FRAMES)
+	_expect(
+		(
+			camera_controller.call("current_look_offset") as Vector2
+		).distance_to(Vector2.RIGHT * max_offset) < 0.1,
+		"releasing keyboard aim should preserve the last camera look direction"
+	)
+
+	var virtual_device_id: int = GUIDE._input_state.connect_virtual_stick(0)
+	await _inject_runtime_joy_axis(
+		virtual_device_id,
+		JOY_AXIS_RIGHT_Y,
+		-1.0
+	)
+	await _wait_physics_frames(CAMERA_LOOK_SETTLE_FRAMES)
+	_expect(
+		(
+			camera_controller.call("current_look_offset") as Vector2
+		).distance_to(Vector2.UP * max_offset) < 0.1,
+		"gamepad aim should use the configured maximum camera look offset"
+	)
+	await _inject_runtime_joy_axis(
+		virtual_device_id,
+		JOY_AXIS_RIGHT_Y,
+		0.0
+	)
+	GUIDE._input_state.disconnect_virtual_stick(virtual_device_id)
+
+	InputService.set_playback_active(true)
+	var replay_direction: Vector2 = Vector2(-0.6, 0.8)
+	InputService.inject_playback_value(ACTIONS.AIM, replay_direction)
+	await _wait_physics_frames(CAMERA_LOOK_SETTLE_FRAMES)
+	var replay_target: Vector2 = replay_direction.normalized() * max_offset
+	_expect(
+		(
+			camera_controller.call("current_look_offset") as Vector2
+		).distance_to(replay_target) < 0.1,
+		"Replay aim should reproduce its final direction at the maximum camera look offset actual=%s expected=%s"
+		% [
+			camera_controller.call("current_look_offset") as Vector2,
+			replay_target,
+		]
+	)
+	InputService.inject_playback_value(ACTIONS.AIM, Vector2.ZERO)
+	await _wait_physics_frames(AIM_FRAMES)
+	_expect(
+		(
+			camera_controller.call("current_look_offset") as Vector2
+		).distance_to(replay_target) < 0.1,
+		"released Replay aim should preserve the last camera look direction"
+	)
+
+	var before_pause: Vector2 = camera_controller.call("current_look_offset")
+	GameState.change_state(GameState.PAUSED, {"source": "runtime_smoke_camera"})
+	InputService.inject_playback_value(ACTIONS.AIM, Vector2.DOWN)
+	await _wait_physics_frames(AIM_FRAMES)
+	_expect(
+		(
+			camera_controller.call("current_look_offset") as Vector2
+		).distance_to(before_pause) < 0.01,
+		"paused gameplay should freeze camera look smoothing"
+	)
+	GameState.change_state(GameState.PLAYING, {"source": "runtime_smoke_camera"})
+	await _wait_physics_frames(CAMERA_LOOK_SETTLE_FRAMES)
+	_expect(
+		(
+			camera_controller.call("current_look_offset") as Vector2
+		).distance_to(Vector2.DOWN * max_offset) < 0.1,
+		"camera look smoothing should continue after gameplay resumes"
+	)
+	InputService.inject_playback_value(ACTIONS.AIM, Vector2.ZERO)
+	InputService.set_playback_active(false)
+	Input.parse_input_event(pointer_event)
+	await get_tree().process_frame
+
+
+func _inject_runtime_key(keycode: Key, pressed: bool) -> void:
+	var event: InputEventKey = InputEventKey.new()
+	event.keycode = keycode
+	event.physical_keycode = keycode
+	event.pressed = pressed
+	InputService.debug_inject_input(event)
+	await get_tree().process_frame
+	await get_tree().physics_frame
+
+
+func _inject_runtime_joy_axis(
+	device_id: int,
+	axis: JoyAxis,
+	value: float
+) -> void:
+	var event: InputEventJoypadMotion = InputEventJoypadMotion.new()
+	event.device = device_id
+	event.axis = axis
+	event.axis_value = value
+	InputService.debug_inject_input(event)
+	await get_tree().process_frame
+	await get_tree().physics_frame
+
+
+func _wait_physics_frames(count: int) -> void:
+	for _index: int in range(count):
+		await get_tree().physics_frame
 
 
 func _expect_weapon_recoil_runtime(

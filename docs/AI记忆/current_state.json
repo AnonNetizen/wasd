@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
   "updated_at": "2026-07-28",
-  "current_phase": "timed_threat_progression_and_difficulty_marker",
-  "current_status": "ADR #166 已新增模式级 DifficultyProgression：标准曲线每 90 秒持续增长并阶段跃升，12:00 时新生成敌人约为 2.04× 生命 / 1.50× 伤害，之后无上限继续；不改移速、AI、奖励、数量或预算。模块起点房暂停威胁时间并锁定武器 / 四技能，开放战区立即推进，测试岛关闭；敌人在真正生成时快照倍率，既有敌人不重算。HUD、详细面板、结算、埋点和 Replay v3 摘要统一使用威胁时间。Run 为 v6，旧 Run v5 只清 run、保留 Meta。本任务按 ADR #143 未运行性能 probe。后续工作以用户最后明确指令为准。",
-  "latest_adr": 166,
+  "current_phase": "aim_directed_camera_look",
+  "current_status": "ADR #167 已把玩家严格居中改为瞄准方向引导镜头：Phantom Camera 继续 GLUED 跟随，开局首次有效瞄准前居中；鼠标按玩家实际屏幕位置应用 32 px 死区、30% 比例和 240 px 上限，键盘、手柄与 Replay 使用最终 aim 的 240 px 最大偏移并保持最后方向；0.18 秒指数平滑在暂停时冻结。camera_feedback.json 升 schema v3；稳定引导与 Camera2D.offset 震屏噪声分离，开关震屏不改变弹道或玩法位置。Run 保持 v6、Replay 保持 v3，不新增设置。本任务按 ADR #143 不运行性能 probe。后续工作以用户最后明确指令为准。",
+  "latest_adr": 167,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #167 / 瞄准方向引导镜头：camera_feedback.json 升 schema v3 并新增 aim_look；DataLoader Python / GDScript 双端校验必填字段、类型与范围。GameplayCameraController 保持现有 configure 签名和 GLUED PCam，首次有效瞄准前零偏移，鼠标按玩家实际屏幕位置应用死区 / 比例 / 上限，键盘、手柄与 Replay 使用最终 aim 的最大偏移并保持方向，以帧率无关指数平滑且暂停冻结；current_look_offset 提供只读诊断。Player.set_camera_look_offset 让鼠标弹道换算包含稳定引导但排除 Camera2D.offset 震屏。固定插件 GLUED 不消费 follow_offset，项目适配层在 host 更新后镜像相同稳定位置，不修改插件源码。Run v6 / Replay v3 / 设置与指纹结构不变。",
     "ADR #166 / 局内威胁时间、敌人强化与难度标记器：新增 difficulty_profiles.json schema v1 与 game_modes schema v2 引用，DifficultyProgression 提供 configure / advance / snapshot / restore；模块起点房暂停威胁时间并通过 WeaponSystem / SkillSystem combat gate 锁定射击和四技能，移动、冲刺、回复、冷却与受伤不受限。敌种解锁、模块遭遇和 WarzoneDirector wave gating 改读威胁时间；Enemy 在真正生成时快照生命 / 伤害倍率并随流式 / 续局精确恢复，既有敌人和移速不重算。HUD 在小地图下显示时间、等级、九段双语名称、进度和起点锁定，详细面板显示新敌人倍率。Run 升 v6、v5 明确拒绝保 Meta；Replay v3 摘要和四条黄金基线加入难度字段。",
     "ADR #165 / 武器后坐、扩散与控制 Mod：weapons schema v3 为武器新增 recoil / spread_angle_max，根级 recoil_model 数据化扩散指数、后移和运行时上限；WeaponRecoilResolver 统一解析公式，WeaponSystem 每弹固定消耗 RNG.combat 并保持中心枪口，多弹丸一次扳机只发一次 context。Player 使用碰撞安全线性衰减反冲，冲刺抑制、暂停冻结并由 Run v5 保存；GameplayCameraController 使用独立动态武器 emitter，固定屏幕中心瞄准隔离相机噪声。新增后坐阻尼 / 扩散稳定 Mod、数据驱动掉落与双语文本，修正负百分比格式。Replay 保持 v3，四条黄金回放按新数据指纹重录并通过运行时摘要。",
     "ADR #164 / 全开放平地与空地动态刷怪：新增 11×11 全 floor、无 placement 的 module_flat_ground；正式普通池和非固定 fallback 槽只使用 0° 平地，固定起点 / 目标 / 撤离保持不变。模块 schema v3 彻底删除 module_place_enemy_spawn，世界 schema v2 数据化首次进入数量、1.5 秒预警和敌种时间权重；相邻模块改为边缘开放格交集非空并保留 99×99 flood-fill。ModuleWorldManager 提供稳定空地格心查询，GameplayRunLoop 在首次实际进入非起点槽时用 RNG.spawn 无放回固化敌种 / 位置计划并保存 telegraphing/spawned 状态，暂停 / 卸载冻结、恢复重建 VFX、玩家占位不重抽、清空不刷新。Run v5 / Replay v3 保持版本，黄金基线直接更新而不增加旧回放兼容。",
@@ -136,6 +137,7 @@
     "ADR #88：项目 IP 方向为 Nestbreakers / 破巢者，详细世界观、命名和宣发包装权威为 docs/IP设定.md。"
   ],
   "next_actions": [
+    "如果继续玩家相机、瞄准引导或震屏，先读 ADR #167、GDD §5.2、docs/代码/phantom_camera.md、gameplay_runtime.md、client/data/README.md 和测试策略。唯一 Rig 保持在 GameplayRunLoop/ActiveWorld，PlayerCamera 使用 GLUED；数值只改 camera_feedback.json schema v3 的 aim_look / 两个震屏 profile。鼠标必须按玩家实际屏幕位置换算，方向输入与 Replay 使用最终 aim 最大偏移，稳定引导与 Camera2D.offset 噪声分离，暂停冻结；不要开启 limit / drag margin / 内建 smoothing，不要让 reduced motion 改相机。改动后跑 data/schema、三档 lint、actor/input/settings/runtime/replay-input/headless、文档健康、pre-commit 与四条黄金回放，只重跑不重录；人工以 1920×1080 验收八方向、鼠标边缘、手柄切换、地图边缘、暂停和震屏，不运行性能 probe。",
     "如果继续局内威胁时间、敌人出生强化或难度标记器，先读 ADR #166、GDD §7.3、docs/代码/difficulty_progression.md、difficulty_marker.md、gameplay_runtime.md、save_manager.md、replay.md 和测试策略。数值只改 difficulty_profiles.json，模式用 game_modes.json.difficulty_profile_id 引用；保持每 90 秒连续 + 跃升、无上限，只缩放新生成敌人的生命 / 接触 / 远程伤害。模块起点房根据玩家真实世界坐标暂停时间并锁武器 / 四技能，开放战区立即推进，测试岛关闭；冷却 / 回复 / 状态继续用 GameClock。Enemy 必须在真正生成时快照倍率并随 Run v6 / 流式恢复，既有敌人不重算。改动按 ADR #166 测试义务跑全套并重录四条 Replay v3 golden，手动验 1920×1080 中英文、长等级和 reduced motion，不运行性能 probe。",
     "如果继续主／子英雄、四技能或七元素系统，先读 ADR #161、GDD 对应英雄 / 属性 / 元素 / 防御章节、docs/代码/skill_system.md、combat.md、gameplay_runtime.md、save_manager.md、replay.md、client/data/README.md 和词表。英雄稳定 ID、element_id、skill_1～skill_4 槽位与通用效果原语必须数据驱动；主英雄独占属性 / 被动 / 技能 1/2，子英雄只贡献强调色 / 技能 3/4。局外继续拒绝同英雄组合；局内换人、第三基础元素、复合元素正式命名和超量护盾局外来源须另立设计。改动后跑 contracts/data/schema、三档 lint、input/loading/runtime/save/replay/L1/actor/module-world、debug arena、headless 与四条黄金回放；不得自动运行性能 probe。",
     "如果继续修改开发者测试岛，先读 ADR #159 / #160、GDD §9.20、docs/代码/debug_test_arena.md、debug_tools.md、formal_client_boot.md、gameplay_runtime.md、gear_mod_system.md 和测试策略。它只能直接运行独立 debug_test_arena.tscn，由 host 先开配装再创建内部 RunLoop；正式标题、FormalClientBoot 和正式 CLI 必须零耦合。配装只在入场前改变，唯一持久写入是 user://debug_test_arena.cfg，正式 run/meta、Replay/Analytics 与 release 资源必须隔离。改后必跑 debug-test-arena-smoke、debug-tools-release-smoke 和 project lint；涉及正式战斗适配时追加 runtime/save/Gear Mod/L1/actor/module-world full+technical 与四条 golden，手动验 1920×1080 中英文和键鼠 / 手柄焦点；不得自动运行性能 probe。",
@@ -153,7 +155,7 @@
     "如果继续 F10 战区导演，当前入口是 ADR #166、docs/AI协作/工作包/F10-WarzoneDirector.md、docs/代码/warzone_director.md、difficulty_progression.md、map_manager.md 和 client/data/warzone_directors.json；schema v2 只用固定阶段、mode / mutation、wave gating、interest point 与 map / hazard 组合，phase / wave gating 使用 DifficultyProgression.elapsed，兴趣点领取内部时间仍用 GameClock。禁止恢复已删除的导演敌人组合元数据、读取玩家状态、隐藏 DDA 或运行时 LLM；改动后至少跑 data/schema、runtime、f9-demo、save 与 golden 评估；性能测试仅由用户明确触发。",
     "如果继续概念图、资产 brief、宝箱 / 兴趣点或敌巢美术，先看 docs/IP美术风格.md：敌巢 / 虫族占用骨白、蜡黄、干肉粉、深红、黑紫和少量毒蓝，青 / 红 / 白归属虫族与敌巢；玩家和玩家子弹默认不用青 / 红 / 白，敌方远程攻击可用红色；宝箱、遗物祭坛、治疗点、升级站、武器缓存、巢穴终端和危险门按功能色区分。",
     "如果继续美术资产 / 占位替换，先按 GDD §8.2-A 写 asset brief：贴地范围、机关、AOE、地面符号默认使用矩形 / 方形俯视格或清晰贴地轮廓，并与量化矩形地图格对齐；角色、敌人、拾取物、子弹、障碍物和特效不强制矩形，但必须声明 footprint、anchor、orientation_read、sort layer 和真实判定形状；不要把所有资产都做成矩形。",
-    "ADR #124 后当前正式视角口径是俯视角 2D：Player / Enemy 仍走 CharacterBody2D 或 Node2D + 2D 碰撞，CenteredCamera 不滚转屏幕、不做非等比缩放，只保持水平居中和等比缩放；正式玩家场景不再挂 Player3DVisual / SubViewport + Camera3D 正交视觉层，不再用低模 3D 或相机变形模拟斜俯视。",
+    "ADR #124 / #167 后当前正式视角口径是俯视角 2D：Player / Enemy 仍走 CharacterBody2D 或 Node2D + 2D 碰撞，CenteredCamera 不滚转屏幕、不做非等比缩放，保持水平与等比缩放，并在 GLUED 跟随玩家的基础上向瞄准方向平滑偏移；正式玩家场景不再挂 Player3DVisual / SubViewport + Camera3D 正交视觉层，不再用低模 3D 或相机变形模拟斜俯视。",
     "后续设计、功能选择和文档表述应以“俯视角射击刷宝生存”为核心口径：主操作是移动、瞄准和按住 fire action 射击；装备、词条、战利品、长期养成、更高危险等级和构筑迭代都应优先服务射击表达，技能优先做武器模组 / 射击强化 / 战术开火，不再按旧动作技能路线推进，也不要再把当前项目称为固定斜俯视 2.5D 当前口径。",
     "如果继续讨论“AI 写代码能力带来的新玩法 / 内容产能”，先看 docs/AI辅助开发机会清单.md；该文档只是候选菜单，用户点名 AID 条目后再建立 / 更新工作包、GDD / ADR / 模块文档并实现。",
     "如果继续地图 / PCG，优先改 client/data/map_layouts.json；bounds 是轴对齐矩形，必须分别整除 grid.cell_width/cell_height；玩家出生点必须在矩形格心，出生安全区可见提示必须保持贴矩形格，人工机关和 PCG 机关按 hazards.csv.radius_tiles 奇偶吸附到合法锚点（奇数格心、偶数网格顶点）；地图规则看 docs/代码/map_manager.md，机关运行时看 docs/代码/hazard_system.md；玩家和敌人中心移动都应保持在 MapManager.bounds() 定义的矩形内。",
@@ -165,6 +167,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-28",
+      "command": "validate_data; test_data_loader_schema; GDScript/project/semantic lints; JSON current_state/_kb_index/camera feedback; docs_health_check; git diff --check; actor-scene/input/settings/runtime/replay-input smoke; Godot 4.7.1 headless editor/boot; four existing Replay v3 golden replay-runner runtime-summary reruns without recapture; pre-commit run --all-files",
+      "result": "passed for ADR #167 aim-directed camera look. Schema coverage rejects missing aim_look, invalid ratio, negative maximum offset/dead zone and non-positive smoothing; runtime coverage includes zero look before post-configure input, rebind/restore reset, pointer dead zone/30% ratio/240px cap/stationary hold, actual player screen-position aim, keyboard/gamepad/Replay maximum look and source switching, frame-rate-independent smoothing, pause freeze/resume, GLUED follow_offset compatibility positioning, and stable-look/projectile/gameplay-position isolation from Camera2D shake offset and the screen-shake setting. All four checked-in Replay v3 goldens reran without recapture and retained their gameplay summaries; Run remains v6 and Replay remains v3. Factual review found and fixed two P2 issues: stale pre-run pointer activity could start look immediately, and max_offset_px validation/documentation disagreed on whether zero was allowed. No remaining P0/P1/P2 finding. Expected injected bad-save/settings/duplicate-pool/missing-rig diagnostics and existing headless shutdown RID/resource leak lines remain. No startup/performance probe or Profiler ran; 1920x1080 eight-direction, mouse-edge, real-gamepad switching, map-edge, pause and shake readability remain manual acceptance items."
+    },
     {
       "date": "2026-07-28",
       "command": "targeted pre-commit; sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lints plus lint self-tests; JSON current_state/_kb_index; docs_health_check; git diff --check; Godot 4.7.1 headless editor/boot; L1/runtime/save/full+technical module-world/loading/settings/actor/F9/replay/replay-input/UIManager/VFX/input/Gear Mod smoke; four recaptured Replay v3 golden replay-runner runtime-summary reruns",

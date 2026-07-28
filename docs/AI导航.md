@@ -141,7 +141,7 @@
 | **改局内威胁时间 / 敌人出生强化 / 难度标记器** | 先读 ADR #166、GDD §7.3、`docs/代码/difficulty_progression.md` 与 `docs/代码/difficulty_marker.md`。曲线只改 `difficulty_profiles.json`，模式引用改 `game_modes.json.difficulty_profile_id`；RunLoop 决定模块起点房暂停、开放战区立即推进和测试岛关闭。保持每 90 秒连续 + 跃升、无上限、只强化新生成敌人的生命 / 接触 / 远程伤害，不改移速、AI、掉落、数量或预算。武器 / 技能门禁分别走 combat gate；Run v6 保存威胁 elapsed 与每敌出生倍率，Replay v3 摘要使用威胁时间。改完按测试策略的 ADR #166 整套义务验证，不运行性能 probe |
 | **加 / 改机关** | 在 `client/data/hazards.csv` 加一行：伤害、`element_id`、触发间隔、`radius_tiles` 占格尺寸、持续时间和 `hazard_*_name` 文案；`tag_hazard`、`pool_id`、`element_id` 必须来自词表；初始摆放改 `client/data/map_layouts.json`，普通矩形范围机关复用 `docs/代码/hazard_system.md` 的通用 `Hazard` 运行时 |
 | **改地图边界 / 矩形格 / PCG / 人工摆点** | 查 `docs/代码/map_manager.md`；地图尺寸、`grid.cell_width/cell_height`、玩家出生点、安全半径、刷怪边距、PCG 机关数量 / 间距和人工固定摆点都改 `client/data/map_layouts.json`；bounds 是轴对齐矩形，必须分别是 `grid.cell_width/cell_height` 的整数倍；玩家出生点必须在格心，出生安全区可见提示必须是贴住矩形格的矩形，机关按 `radius_tiles` 奇偶吸附到合法锚点（奇数格心、偶数网格顶点），可见和逻辑地图边界必须是同一个矩形，刷怪位置仍用 `RNG.spawn`；玩家和敌人中心移动都应保持在矩形边界内；改完跑 `validate_data`、`runtime-smoke`，机关相关追加 `f9-demo-smoke` |
-| **改玩家相机 / 受伤震屏** | 先读 GDD §5.2、ADR #148、`docs/代码/phantom_camera.md` 的项目接入段和 `docs/代码/gameplay_runtime.md`；节点 / 跟随规则改 `gameplay_camera_controller.tscn/.gd`，只调震幅、频率和时间则改 `camera_feedback.json`。保持 Phantom Camera GLUED 严格居中、等比缩放、无滚转，噪声走 `RNG.camera_fx`；改完跑 schema、`settings-smoke`、`runtime-smoke`、headless boot 和 headless editor 加载 |
+| **改玩家相机 / 瞄准引导 / 震屏** | 先读 GDD §5.2、ADR #148 / #156 / #165 / #167、`docs/代码/phantom_camera.md` 的项目接入段和 `docs/代码/gameplay_runtime.md`；节点 / 跟随规则改 `gameplay_camera_controller.tscn/.gd`，瞄准换算改 `player.gd`，数值改 `camera_feedback.json`。保持 Phantom Camera GLUED 跟随、瞄准方向平滑偏移、等比缩放、无滚转 / 边界 / drag，稳定引导与 `RNG.camera_fx` 噪声分离；改完按测试策略相机整行义务验证 |
 | **维护 / 升级 Phantom Camera 内部** | 先读 `docs/代码/phantom_camera.md`、`client/addons/README.md`、ADR #148 与目标源码；按 Runtime Core / Resource / Editor / C# wrapper 边界定位，升级只用官方固定版本发布包并逐项重放本地补丁。保持项目固定 Manager autoload、Updater Off、`physics_jitter_fix=0.5`、`RNG.camera_fx` 和 lint 零豁免；完成后跑完整 pre-commit、headless boot、headless editor 与相机回归 |
 | **加 / 改模块内容** | 查 `docs/代码/module_authoring_pipeline.md`、`module_world_manager.md`、F13 工作包和数据手册；在 Godot 与 `2D / 3D / Script` 同级的 `Module JSON` 中央主编辑区可视化编辑 `client/data/modules/<id>.json` schema v3，显式 Save / Validate / Bake / Approve；也可由 AI 直接改 JSON 后运行 `module-bake`。模块不保存敌人出生 placement；禁止手改 `client/scenes/generated/modules/`，不存在 TSCN→JSON |
 | **改模块角色 / 地形 / 摆放 / 边缘 / 审核状态** | 先改 `docs/词表与契约.md` §15，运行 `python tools/sync_contracts.py` 生成对应 `module_*` 常量，再由 DataLoader、ModuleWorldManager 和 JSON 引用；禁止在运行时代码裸写白名单 id |
@@ -231,7 +231,7 @@
 - 三个**协调中枢**：`GameState`（流程状态机）/ `UIManager`（界面栈）/ `PoolManager`（通用对象池）
 - 两个**资源管理**：`SaveManager`（存档 + 迁移）/ `AudioManager`（音频统一接口）
 
-当前正式客户端以 F13 模块世界作为 `mode_standard_survival` 默认关卡 carrier：`ModuleWorldManager` 管理 81 槽、schema v1 等价 gameplay map hash、模块迷雾、有效空地查询和最多 3×3 活跃 chunk；当前普通正式槽统一为 0° 全开放平地，固定起点 / 目标 / 撤离不变。ADR #166 后 RunLoop 为当前模式配置独立 `DifficultyProgression`：玩家在起点房时威胁时间暂停且武器 / 四技能锁定，离房后每 90 秒持续 + 跃升，无上限地强化后续出生敌人的生命 / 伤害。首次实际进入非起点模块时从空地固化 4–6 个敌人计划并显示 1.5 秒可恢复预警，真正生成时快照倍率。PlayerHost 挂载主英雄场景，并由组合视觉叠加子英雄强调色；五种敌人按独立池恢复。唯一 GameplayCameraController 固定在 ActiveWorld 并在新局 / 续局绑定当前 Player；WeaponSystem 每发统一计算扩散与反冲，Player 以碰撞安全冲量移动。F14 导航从完整 assignment 构建静态 mask，活动流场半径 8、最多访问 289 格。当前 Run 为 v6，额外保存威胁时间与每敌出生倍率；Replay 为 v3，摘要加入难度时间 / 等级 / 倍率。常规验收入口是 contracts/data/schema、actor/module/save/runtime/loading/settings/replay/headless 与四条黄金回放；ADR #143 后性能测试仅由用户当次明确触发。
+当前正式客户端以 F13 模块世界作为 `mode_standard_survival` 默认关卡 carrier：`ModuleWorldManager` 管理 81 槽、schema v1 等价 gameplay map hash、模块迷雾、有效空地查询和最多 3×3 活跃 chunk；当前普通正式槽统一为 0° 全开放平地，固定起点 / 目标 / 撤离不变。ADR #166 后 RunLoop 为当前模式配置独立 `DifficultyProgression`：玩家在起点房时威胁时间暂停且武器 / 四技能锁定，离房后每 90 秒持续 + 跃升，无上限地强化后续出生敌人的生命 / 伤害。首次实际进入非起点模块时从空地固化 4–6 个敌人计划并显示 1.5 秒可恢复预警，真正生成时快照倍率。PlayerHost 挂载主英雄场景，并由组合视觉叠加子英雄强调色；五种敌人按独立池恢复。唯一 GameplayCameraController 固定在 ActiveWorld 并在新局 / 续局绑定当前 Player，开局居中、首次有效瞄准后平滑向瞄准方向偏移，震屏噪声独立；WeaponSystem 每发统一计算扩散与反冲，Player 以碰撞安全冲量移动。F14 导航从完整 assignment 构建静态 mask，活动流场半径 8、最多访问 289 格。当前 Run 为 v6，额外保存威胁时间与每敌出生倍率；Replay 为 v3，摘要加入难度时间 / 等级 / 倍率。常规验收入口是 contracts/data/schema、actor/module/save/runtime/loading/settings/replay/headless 与四条黄金回放；ADR #143 后性能测试仅由用户当次明确触发。
 
 > 普通开始新局 / 重开会生成新的 `RNG` run seed；继续游戏恢复 run snapshot；回放、smoke、golden 和调试复现仍应显式固定 seed 或走工具启动路径。
 
@@ -243,7 +243,7 @@
 
 > 有限地图可见边界和逻辑边界当前都由 `MapManager.bounds()` / `boundary_points()` / `boundary_half_extents()` 定义为贴住格线的轴对齐矩形；玩家和敌人中心点由 `set_movement_bounds()` 约束。排查敌人越界时先看 `GameplayRunLoop._apply_enemy_movement_bounds()`、`Enemy.set_movement_bounds()` 与 `runtime-smoke` 的敌人边界断言。
 
-> F9 起默认键鼠瞄准已从 4 方向改为鼠标相对玩家 / 视口中心方向；子弹可任意角度发射。ADR #124 后当前正式视角改回俯视角 2D；ADR #148 的 Phantom Camera GLUED PCam 继续保持屏幕水平、玩家居中和等比缩放，不滚转、不平滑、不压缩某个轴。ADR #156 后 Rig 固定在 `GameplayRunLoop/ActiveWorld`，通过 `follow_target` 逻辑绑定当前 Player，不再属于 Player 子场景。ADR #165 后玩家受击与武器开火分别使用独立震屏 emitter，鼠标按指针相对固定屏幕中心瞄准，相机噪声不得改变弹道；关闭震屏只停止表现。`Player` 仍是 `CharacterBody2D` 并按 2D 平面移动和承受碰撞安全反冲，正式玩家场景不再挂 `Player3DVisual`，默认 2D 占位按完整 `aim_direction` 绘制朝向标记。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
+> F9 起默认键鼠瞄准已从 4 方向改为鼠标方向；子弹可任意角度发射。ADR #124 后当前正式视角改回俯视角 2D；ADR #148 引入 Phantom Camera，ADR #156 将唯一 Rig 固定在 `GameplayRunLoop/ActiveWorld`，通过 `follow_target` 绑定当前 Player。ADR #167 后 GLUED PCam 保持屏幕水平与等比缩放，但不再严格居中：首次有效瞄准后，鼠标按光标相对玩家实际屏幕位置应用死区 / 比例 / 上限，方向输入与 Replay 使用最大偏移，控制器平滑引导且暂停冻结。ADR #165 的玩家受击与武器开火独立震屏仍保留，噪声 `Camera2D.offset` 不参与瞄准或稳定引导；关闭震屏只停止表现。`gameplay.reduced_motion` 当前不影响相机。`Player` 仍是 `CharacterBody2D` 并按 2D 平面移动和承受碰撞安全反冲，正式玩家场景不挂 `Player3DVisual`，默认 2D 占位按完整 `aim_direction` 绘制朝向标记。方向键、手柄右摇杆和 D-pad 继续作为无鼠标动作时的兜底输入。
 
 > ADR #151 / #152 后不再由 gameplay 动态创建 InputMap action。GUIDE 0.14.0 维护物理映射，`InputService` 将 `move` / `aim` 统一成 Vector2、锁存短按到物理 tick、跟踪最近设备并管理 gameplay / ui / debug context；Replay 只记录并读取 v2 最终 intent。旧 `move_*` / `aim_*` action 与 Settings 输入迁移已删除，同名 `input.*` 仅是当前 GUIDE binding id。
 
@@ -344,6 +344,7 @@ flowchart LR
   Pool --> Weapon & Bullet & Spawner & Hazard & Item & Aud & VfxHost
 
   Input --> Player --> Weapon
+  Input --> CamCtl
   Input --> Skill & UIM & UI
   RunLoop --> Difficulty
   Difficulty --> Spawner & Director & Enemy & UI
@@ -374,6 +375,8 @@ flowchart LR
   Enemy -. 掉落经验 .-> Growth
   RunLoop --> CamCtl --> PCam --> PCHost --> Cam
   Player -. follow target .-> PCam
+  CamCtl -. stable aim look offset .-> Player
+  CamCtl -. GLUED compatibility position .-> Cam
   PCamMgr -. 注册 / priority / layer / noise .-> PCam & PCHost
   ME -. 修正器叠加 .- Player & Weapon
   Item -. 注册 modifiers/behaviors .- ME
@@ -414,7 +417,7 @@ flowchart LR
 - ❌ 为某个角色 / 技能 / 遗物 / 道具写 `if id == ...` 的一次性破限分支（必须 capability / primitive / strategy 化）
 - ❌ 为某个游戏模式复制一套角色 / 遗物 / 敌人资源，或用 `if mode_id == ...` 写模式专属内容分支（模式应通过资源池、权重、tags、availability、capability / strategy 组合）
 - ❌ 写死唯一玩家、唯一队伍或“玩家只打敌人 / 敌人只打玩家”的关系（未来多人 PvE / PvP 预留要求使用 actor / participant / team / intent / Combat 统一边界）
-- ❌ 相机开启 `limit` / `drag margin`（必须玩家恒居中）
+- ❌ 相机开启 `limit` / `drag margin` / 内建 position smoothing，或把稳定瞄准引导与震屏噪声混在同一 offset
 - ❌ 直接 `instantiate`/`queue_free` 高频实体（必须 `PoolManager.acquire/release`）
 - ❌ 直接读 `Time.get_ticks_msec()` 等非确定时间源（必须 `GameClock`）
 - ❌ 直接调用 `randi()` / `randf()` / `randi_range()`（必须 `RNG.<stream>`）

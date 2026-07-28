@@ -1296,6 +1296,69 @@ def main() -> int:
             ],
         ),
         (
+            "camera aim look profile must be present",
+            _mutate_json("client/data/camera_feedback.json", _remove_camera_aim_look),
+            [
+                "client/data/camera_feedback.json:aim_look",
+                "must be an object",
+            ],
+        ),
+        (
+            "camera pointer offset ratio must be positive",
+            _mutate_json(
+                "client/data/camera_feedback.json",
+                _set_camera_aim_look_value("pointer_offset_ratio", 0.0),
+            ),
+            [
+                "client/data/camera_feedback.json:aim_look.pointer_offset_ratio",
+                "must be > 0.0",
+            ],
+        ),
+        (
+            "camera pointer offset ratio cannot exceed one",
+            _mutate_json(
+                "client/data/camera_feedback.json",
+                _set_camera_aim_look_value("pointer_offset_ratio", 1.1),
+            ),
+            [
+                "client/data/camera_feedback.json:aim_look.pointer_offset_ratio",
+                "must be <= 1.0",
+            ],
+        ),
+        (
+            "camera aim look maximum offset must be non-negative",
+            _mutate_json(
+                "client/data/camera_feedback.json",
+                _set_camera_aim_look_value("max_offset_px", -1.0),
+            ),
+            [
+                "client/data/camera_feedback.json:aim_look.max_offset_px",
+                "must be >= 0.0",
+            ],
+        ),
+        (
+            "camera pointer dead zone must be non-negative",
+            _mutate_json(
+                "client/data/camera_feedback.json",
+                _set_camera_aim_look_value("pointer_dead_zone_px", -1.0),
+            ),
+            [
+                "client/data/camera_feedback.json:aim_look.pointer_dead_zone_px",
+                "must be >= 0.0",
+            ],
+        ),
+        (
+            "camera aim look smoothing time must be positive",
+            _mutate_json(
+                "client/data/camera_feedback.json",
+                _set_camera_aim_look_value("smoothing_time_seconds", 0.0),
+            ),
+            [
+                "client/data/camera_feedback.json:aim_look.smoothing_time_seconds",
+                "must be > 0.0",
+            ],
+        ),
+        (
             "camera shake amplitude must be non-negative",
             _mutate_json("client/data/camera_feedback.json", _set_camera_feedback_value("amplitude", -1.0)),
             [
@@ -1623,6 +1686,17 @@ def _set_character_id(value: str) -> JsonMutator:
 def _set_camera_feedback_value(field: str, value: object) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["player_damage_shake"][field] = value
+
+    return mutate
+
+
+def _remove_camera_aim_look(payload: dict[str, Any]) -> None:
+    payload.pop("aim_look", None)
+
+
+def _set_camera_aim_look_value(field: str, value: object) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["aim_look"][field] = value
 
     return mutate
 
