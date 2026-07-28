@@ -5,7 +5,9 @@ const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 const INPUT_BINDING_IDS := preload("res://scripts/contracts/input_binding_ids.gd")
 const GAME_OVER_PANEL_SCENE := preload("res://scenes/ui/game_over_panel.tscn")
 const GAMEPLAY_HUD_SCENE := preload("res://scenes/gameplay/gameplay_hud.tscn")
-const LEVEL_UP_PANEL_SCENE := preload("res://scenes/ui/level_up_panel.tscn")
+const REWARD_CHOICE_PANEL_SCENE := preload(
+	"res://scenes/ui/reward_choice_panel.tscn"
+)
 const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause_menu.tscn")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 const TITLE_MENU_SCENE := preload("res://scenes/ui/title_menu.tscn")
@@ -342,7 +344,7 @@ func _expect_menu_settings_entries() -> void:
 func _expect_runtime_locale_refresh() -> void:
 	Localization.set_locale("zh_CN")
 	await _expect_hud_locale_refresh()
-	await _expect_level_up_locale_refresh()
+	await _expect_reward_choice_locale_refresh()
 	await _expect_game_over_locale_refresh()
 	Localization.set_locale("zh_CN")
 
@@ -356,43 +358,54 @@ func _expect_hud_locale_refresh() -> void:
 	hud.call("set_life", 3.0, 5.0)
 	hud.call("set_kills", 2)
 	hud.call("set_level", 4)
-	hud.call("set_xp", 1, 10)
-	hud.call("show_upgrade_feedback", "ui_growth_damage_small_name")
+	hud.call("set_gold_progress", 120, 20, 130)
+	hud.call("show_upgrade_feedback", "ui_reward_damage_small_name")
 	await get_tree().process_frame
 
 	var life_label: Label = _find_node_by_name(hud, "LifeLabel") as Label
 	var kills_label: Label = _find_node_by_name(hud, "KillsLabel") as Label
 	var level_label: Label = _find_node_by_name(hud, "LevelLabel") as Label
-	var xp_label: Label = _find_node_by_name(hud, "XpLabel") as Label
+	var gold_progress_label: Label = _find_node_by_name(
+		hud,
+		"GoldProgressLabel"
+	) as Label
 	var feedback_label: Label = _find_node_by_name(hud, "UpgradeFeedbackLabel") as Label
 	_expect(life_label != null and String(life_label.text).begins_with(tr("ui_hud_life")), "HUD life should start in zh_CN")
 	_expect(kills_label != null and String(kills_label.text).begins_with(tr("ui_hud_kills")), "HUD kills should start in zh_CN")
 	_expect(level_label != null and String(level_label.text).begins_with(tr("ui_hud_level")), "HUD level should start in zh_CN")
-	_expect(xp_label != null and String(xp_label.text).begins_with(tr("ui_hud_xp")), "HUD XP should start in zh_CN")
-	_expect(feedback_label != null and String(feedback_label.text).contains(tr("ui_growth_damage_small_name")), "HUD upgrade feedback should start in zh_CN")
+	_expect(
+		gold_progress_label != null
+		and String(gold_progress_label.text).contains("120"),
+		"HUD gold progress should start in zh_CN"
+	)
+	_expect(feedback_label != null and String(feedback_label.text).contains(tr("ui_reward_damage_small_name")), "HUD reward feedback should start in zh_CN")
 
 	Localization.set_locale("en")
 	await get_tree().process_frame
 	_expect(life_label != null and String(life_label.text).begins_with("Life"), "HUD life should refresh to en")
 	_expect(kills_label != null and String(kills_label.text).begins_with("Kills"), "HUD kills should refresh to en")
 	_expect(level_label != null and String(level_label.text).begins_with("Level"), "HUD level should refresh to en")
-	_expect(xp_label != null and String(xp_label.text).begins_with("XP"), "HUD XP should refresh to en")
+	_expect(
+		gold_progress_label != null
+		and String(gold_progress_label.text).begins_with("Gold"),
+		"HUD gold progress should refresh to en"
+	)
 	_expect(feedback_label != null and String(feedback_label.text).contains("Upgrade"), "HUD upgrade feedback should refresh to en")
 
 	remove_child(hud)
 	hud.queue_free()
 
 
-func _expect_level_up_locale_refresh() -> void:
+func _expect_reward_choice_locale_refresh() -> void:
 	Localization.set_locale("zh_CN")
-	var panel: CanvasLayer = LEVEL_UP_PANEL_SCENE.instantiate() as CanvasLayer
-	panel.name = "LevelUpPanel"
+	var panel: CanvasLayer = REWARD_CHOICE_PANEL_SCENE.instantiate() as CanvasLayer
+	panel.name = "RewardChoicePanel"
 	add_child(panel)
 	await get_tree().process_frame
 	var choices: Array[Dictionary] = [{
 		"id": "smoke_choice",
-		"name_key": "ui_growth_damage_small_name",
-		"desc_key": "ui_growth_damage_small_desc",
+		"name_key": "ui_reward_damage_small_name",
+		"desc_key": "ui_reward_damage_small_desc",
 	}]
 	panel.call("configure", choices)
 	await get_tree().process_frame
@@ -402,8 +415,8 @@ func _expect_level_up_locale_refresh() -> void:
 	var choice_button: Button = null
 	if button_box != null and button_box.get_child_count() > 0:
 		choice_button = button_box.get_child(0) as Button
-	_expect(title_label != null and String(title_label.text) == tr("ui_level_up_title"), "level-up panel title should start in zh_CN")
-	_expect(choice_button != null and String(choice_button.text).contains(tr("ui_growth_damage_small_name")), "level-up choice should start in zh_CN")
+	_expect(title_label != null and String(title_label.text) == tr("ui_reward_choice_title"), "reward-choice panel title should start in zh_CN")
+	_expect(choice_button != null and String(choice_button.text).contains(tr("ui_reward_damage_small_name")), "reward choice should start in zh_CN")
 
 	Localization.set_locale("en")
 	await get_tree().process_frame
@@ -411,9 +424,9 @@ func _expect_level_up_locale_refresh() -> void:
 	choice_button = null
 	if button_box != null and button_box.get_child_count() > 0:
 		choice_button = button_box.get_child(0) as Button
-	_expect(title_label != null and String(title_label.text) == "Choose Upgrade", "level-up panel title should refresh to en")
-	_expect(choice_button != null and String(choice_button.text).contains("Hardened Core"), "level-up choice should refresh to en")
-	_expect_english_buttons_fit(panel, "level-up panel")
+	_expect(title_label != null and String(title_label.text) == "Choose Reward", "reward-choice panel title should refresh to en")
+	_expect(choice_button != null and String(choice_button.text).contains("Hardened Core"), "reward choice should refresh to en")
+	_expect_english_buttons_fit(panel, "reward-choice panel")
 
 	remove_child(panel)
 	panel.queue_free()

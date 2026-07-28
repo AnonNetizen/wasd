@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "base_stats": {
     "max_hp": 600.0,
     "health_regen": 0.0,
@@ -11,7 +11,6 @@
     "bullet_range": 650.0,
     "bullet_count": 1,
     "pickup_range": 96.0,
-    "pickup_orb_speed": 360.0,
     "luck": 0.0
   },
   "defense": {
@@ -39,7 +38,12 @@
   "energy_drop": {
     "chance": 0.1,
     "amount": 25.0,
+    "pickup_speed": 360.0,
     "pool_id": "energy_orb",
     "rng_stream": "drop"
+  },
+  "gold_drop": {
+    "pickup_speed": 360.0,
+    "pool_id": "gold_orb"
   }
 }

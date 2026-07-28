@@ -480,8 +480,11 @@ func _expect_weapon_recoil_resolution() -> void:
 func _expect_save_manager_roundtrip() -> void:
 	SaveManager.delete(L1_SLOT, SAVE_KINDS.RUN)
 	var payload: Dictionary = {
-		"schema_version": 1,
-		"level": 2,
+		"schema_version": 7,
+		"gold_progression": {
+			"gold_balance": 100,
+			"gold_earned_total": 100,
+		},
 		"game_clock": GameClock.snapshot(),
 		"rng": RNG.snapshot(),
 		"spawn_states": {},
@@ -489,11 +492,13 @@ func _expect_save_manager_roundtrip() -> void:
 		"weapon": {},
 		"enemies": [],
 		"bullets": [],
-		"pickups": [],
+		"gold_orbs": [],
+		"reward_choice": {},
 	}
 	_expect(SaveManager.save(L1_SLOT, SAVE_KINDS.RUN, payload), "SaveManager should write a smoke run payload")
 	var loaded: Dictionary = SaveManager.load(L1_SLOT, SAVE_KINDS.RUN)
-	_expect(int(loaded.get("level", 0)) == 2, "SaveManager should roundtrip a smoke run payload")
+	var loaded_gold: Dictionary = loaded.get("gold_progression", {}) as Dictionary
+	_expect(int(loaded_gold.get("gold_earned_total", 0)) == 100, "SaveManager should roundtrip a smoke run payload")
 	_expect(loaded.get("rng", {}) is Dictionary, "SaveManager should preserve RNG snapshot dictionaries")
 
 
@@ -2013,7 +2018,6 @@ func _l1_combat_player_stats() -> Dictionary:
 		STATS.ABILITY_DURATION: 1.0,
 		STATS.PLAYER_SEPARATION_RADIUS: 0.0,
 		STATS.PICKUP_RANGE: 96.0,
-		STATS.PICKUP_ORB_SPEED: 360.0,
 		STATS.LUCK: 0.0,
 	}
 
@@ -2364,7 +2368,6 @@ func _l1_player_stats() -> Dictionary:
 		STATS.MOVE_SPEED: 0.0,
 		STATS.PLAYER_SEPARATION_RADIUS: 0.0,
 		STATS.PICKUP_RANGE: 0.0,
-		STATS.PICKUP_ORB_SPEED: 0.0,
 		STATS.LUCK: 0.0,
 	}
 
@@ -2380,7 +2383,7 @@ func _l1_enemy_data() -> Dictionary:
 		"move_speed": 0.0,
 		"contact_damage": 0.0,
 		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
-		"exp_reward": 0,
+		"gold_reward": 0,
 		"hit_radius": 10.0,
 		"separation_radius": 0.0,
 	}

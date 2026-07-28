@@ -106,7 +106,7 @@ ui_resume,继续,Resume
 ```csv
 keys,zh_CN,en
 relic_sharp_rounds_desc,伤害 +{value},Damage +{value}
-ui_level_up_choices,选择 {count} 个升级奖励,Choose {count} level-up reward
+ui_reward_choice_title,选择奖励,Choose Reward
 ```
 
 错误：
@@ -147,7 +147,7 @@ label.text = tr("ui_damage") + str(value)
 ## 英文长度基准 / UI 适配规则
 
 - UI 布局、按钮宽度、面板宽度、换行和 HUD 信息密度以英文 `en` 文案长度作为最小设计与验收基准；中文 `zh_CN` 信息密度高，不能作为唯一尺寸依据。
-- 新增 / 修改玩家可见 UI 文案或 UI 布局时，必须切到英文检查按钮、面板标题、设置项、升级选择、HUD、失败结算和局外成长界面不截断、不溢出、不互相遮挡。
+- 新增 / 修改玩家可见 UI 文案或 UI 布局时，必须切到英文检查按钮、面板标题、设置项、奖励选择、HUD、失败结算和局外成长界面不截断、不溢出、不互相遮挡。
 - Godot UI 优先用 `Container`、锚点、`size_flags`、`custom_minimum_size`、`autowrap_mode` 和合理的响应式约束承接文本长度；避免按中文短文本写死窄宽。
 - 英文太长时，优先调整布局宽度、换行、层级或控件分组；确需精简译文时，只能在不改变功能含义、数值承诺和语气边界的前提下改英文列。
 - `python tools/godot_bridge.py --project client settings-smoke` 会在英文 locale 下检查现有可见按钮类控件的文本宽度；复杂视觉布局仍需按 `docs/测试策略.md` 的 L5 checklist 人工确认。
@@ -174,7 +174,7 @@ label.text = tr("ui_damage") + str(value)
 
 1. 在 `strings.csv` 新增 `ui_hud_*`、`ui_difficulty_*`、`ui_stats_*` 或局内交互提示 key，例如 `ui_hud_life,生命,Life` / `ui_difficulty_level,威胁 Lv. {level},Threat Lv. {level}` / `ui_stats_fire_rate,射速,Fire Rate` / `ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cache`。威胁阶段名称使用 `ui_difficulty_stage_<stage>`，跨语言共用同一 key。
 2. HUD 代码只显示 `tr("ui_hud_life")` / `tr("ui_stats_fire_rate")` 和格式化数值，不硬编码玩家可见标签。
-3. 若 HUD 会常驻局内或按住显示，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、击杀、难度时间、威胁阶段、等级、经验、详细数值、升级反馈和交互提示重画。
+3. 若 HUD 会常驻局内或按住显示，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、击杀、难度时间、威胁阶段、等级、金币余额 / 进度、详细数值、等级 / 奖励反馈和交互提示重画。
 
 ### 加一个设置面板控件文案
 

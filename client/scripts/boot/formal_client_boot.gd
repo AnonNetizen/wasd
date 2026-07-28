@@ -70,7 +70,7 @@ func _ready() -> void:
 	var audio_prefix_count: int = AudioManager.registered_audio_prefixes().size()
 	var state_name: StringName = GameState.current()
 	_load_last_composition_from_meta()
-	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d data_schema_ok=%s mods=%d player_stats=%d weapons=%d enemies=%d hazards=%d spawn_waves=%d relics=%d active_items=%d consumables=%d skills=%d credits=%d credit_sections=%d characters=%d locale_keys=%d growth_levels=%d growth_pools=%d game_modes=%d map_layouts=%d warzone_directors=%d module_worlds=%d module_templates=%d settings=%d analytics_events=%d analytics_enabled=%s replay_enabled=%s replay_recording=%s platform_provider=%s platform_available=%s pool_ids=%d active_pools=%d save_kinds=%d save_slots=%d audio_prefixes=%d audio_streams=%d audio_buses_ready=%s locale=%s ui_stack=%d state=%s seed=%d" % [
+	print("%s formal client boot scene loaded; contracts=%d rng_streams=%d data_schema_ok=%s mods=%d player_stats=%d weapons=%d enemies=%d hazards=%d spawn_waves=%d relics=%d active_items=%d consumables=%d skills=%d credits=%d credit_sections=%d characters=%d locale_keys=%d level_progression_profiles=%d reward_choice_pools=%d game_modes=%d map_layouts=%d warzone_directors=%d module_worlds=%d module_templates=%d settings=%d analytics_events=%d analytics_enabled=%s replay_enabled=%s replay_recording=%s platform_provider=%s platform_available=%s pool_ids=%d active_pools=%d save_kinds=%d save_slots=%d audio_prefixes=%d audio_streams=%d audio_buses_ready=%s locale=%s ui_stack=%d state=%s seed=%d" % [
 		BOOT_LOG_PREFIX,
 		contract_count,
 		stream_count,
@@ -89,8 +89,8 @@ func _ready() -> void:
 		int(schema_counts.get("credit_sections", 0)),
 		int(schema_counts.get("characters", 0)),
 		int(schema_counts.get("locale_keys", 0)),
-		int(schema_counts.get("growth_levels", 0)),
-		int(schema_counts.get("growth_pools", 0)),
+		int(schema_counts.get("level_progression_profiles", 0)),
+		int(schema_counts.get("reward_choice_pools", 0)),
 		int(schema_counts.get("game_modes", 0)),
 		int(schema_counts.get("map_layouts", 0)),
 		int(schema_counts.get("warzone_directors", 0)),
@@ -643,7 +643,7 @@ func _clear_gameplay_runtime() -> void:
 	PoolManager.clear_pool(POOL_IDS.HAZARD_SPIKE)
 	PoolManager.clear_pool(POOL_IDS.HIT_SPARK)
 	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
-	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
+	PoolManager.clear_pool(POOL_IDS.GOLD_ORB)
 	PoolManager.clear_pool(POOL_IDS.ENERGY_ORB)
 	PoolManager.clear_pool(POOL_IDS.PROJECTILE_BARRIER)
 	PoolManager.clear_pool(POOL_IDS.VFX_WEAPON_MUZZLE_FLASH)

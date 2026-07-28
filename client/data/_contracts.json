@@ -26,7 +26,6 @@
       "crit_chance",
       "crit_mult",
       "pickup_range",
-      "pickup_orb_speed",
       "luck",
       "armor",
       "lifesteal_ratio"
@@ -56,6 +55,7 @@
       "run_end",
       "player_death",
       "level_up",
+      "reward_choice",
       "relic_pick",
       "item_use",
       "wave_milestone",
@@ -147,10 +147,20 @@
       "hazard_spike",
       "damage_number",
       "hit_spark",
-      "pickup_orb",
+      "gold_orb",
       "energy_orb",
       "projectile_barrier",
       "vfx_weapon_muzzle_flash"
+    ],
+    "gold_transaction_reasons": [
+      "enemy_drop",
+      "event_reward",
+      "event_cost",
+      "debug_command"
+    ],
+    "reward_choice_triggers": [
+      "event_reward",
+      "debug_command"
     ],
     "elements": [
       "element_neutral",

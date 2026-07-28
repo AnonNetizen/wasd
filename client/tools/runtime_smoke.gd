@@ -18,7 +18,7 @@ const BOOT_FRAMES: int = 8
 const CAMERA_LOOK_SETTLE_FRAMES: int = 120
 const UI_TRANSITION_FRAMES: int = 120
 const INVULNERABILITY_FRAMES: int = 50
-const LEVEL_UP_FRAMES: int = 24
+const REWARD_CHOICE_FRAMES: int = 24
 const MOVE_FRAMES: int = 8
 const PICKUP_FEEDBACK_FRAMES: int = 40
 const SPAWN_FRAMES: int = 10
@@ -63,6 +63,8 @@ func _run() -> void:
 	_expect(InputService.action_resource(ACTIONS.MOVE) != null, "InputService should expose the Vector2 move action")
 	_expect(InputService.action_resource(ACTIONS.AIM) != null, "InputService should expose the Vector2 aim action")
 	_expect(InputService.action_resource(ACTIONS.SHOW_STATS_PANEL) != null, "InputService should expose show_stats_panel")
+	_expect_gold_progression_curve_and_transactions()
+	_expect_reward_choice_controller_contract()
 
 	var player: Node2D = _find_node_by_name(run_loop, "Player") as Node2D
 	_expect(player != null, "Player should exist")
@@ -253,9 +255,9 @@ func _run() -> void:
 	await _expect_route_aware_enemy_perception(run_loop, player)
 	await _expect_ranged_enemy_projectile_damage(run_loop, player)
 	await _expect_overdrive_rounds_skill(run_loop, player)
-	await _expect_pickup_orb_draw_order(run_loop, player)
-	await _expect_pickup_orb_feedback(run_loop, player)
-	await _expect_default_growth_disabled(run_loop, player)
+	await _expect_gold_orb_draw_order(run_loop, player)
+	await _expect_gold_orb_feedback(run_loop, player)
+	await _expect_gold_progression(run_loop, player)
 	await _expect_interest_point_rewards(run_loop, player)
 
 	var restored_run: Dictionary = await _expect_pause_save_resume(run_loop, player)
@@ -271,6 +273,28 @@ func _run() -> void:
 		return
 	run_loop = restored_run_loop_value
 	player = restored_player_value
+	var reward_restored_run: Dictionary = await _expect_reward_choice(
+		run_loop,
+		player
+	)
+	var reward_restored_loop_value: Node = reward_restored_run.get(
+		"run_loop",
+		run_loop
+	) as Node
+	var reward_restored_player_value: Node2D = reward_restored_run.get(
+		"player",
+		player
+	) as Node2D
+	if (
+		reward_restored_loop_value == null
+		or not is_instance_valid(reward_restored_loop_value)
+		or reward_restored_player_value == null
+		or not is_instance_valid(reward_restored_player_value)
+	):
+		_finish()
+		return
+	run_loop = reward_restored_loop_value
+	player = reward_restored_player_value
 	_expect(
 		player.scene_file_path == PLAYER_SCENE.resource_path,
 		"restored character id should recreate its data-bound dedicated scene"
@@ -312,7 +336,7 @@ func _run() -> void:
 
 	_expect(_pool_stat(POOL_IDS.BULLET_BASIC, "acquired") > 0, "WeaponSystem should acquire bullets")
 	_expect(PoolManager.active_count(POOL_IDS.ENEMY_CHASER) > 0, "Spawner should spawn active enemies")
-	_expect(PoolManager.has_pool(POOL_IDS.PICKUP_ORB), "experience pickup pool should remain registered after continue")
+	_expect(PoolManager.has_pool(POOL_IDS.GOLD_ORB), "gold orb pool should remain registered after continue")
 	_expect(PoolManager.active_count(POOL_IDS.HAZARD_SPIKE) > 0, "hazards should remain active after continue")
 
 	var enemy: Node = _first_enemy_with_name_prefix(POOL_IDS.ENEMY_CHASER)
@@ -1534,7 +1558,7 @@ func _expect_enemy_center_separation(run_loop: Node, player: Node2D) -> void:
 		"move_speed": 0.0,
 		"contact_damage": 1,
 		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
-		"exp_reward": 0,
+		"gold_reward": 0,
 		"hit_radius": 14.0,
 		"separation_radius": 9.0,
 	}
@@ -1575,7 +1599,7 @@ func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
 		"move_speed": 0.0,
 		"contact_damage": 1,
 		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
-		"exp_reward": 0,
+		"gold_reward": 0,
 		"hit_radius": 24.0,
 		"separation_radius": 9.0,
 	}
@@ -2046,9 +2070,23 @@ func _expect_stats_panel_hold_to_show(run_loop: Node) -> void:
 	var title_label: Label = _find_node_by_name(hud, "TitleLabel") as Label
 	var damage_value_label: Label = _find_node_by_name(hud, "DamageValueLabel") as Label
 	var health_regen_value_label: Label = _find_node_by_name(hud, "HealthRegenValueLabel") as Label
+	var gold_balance_value_label: Label = _find_node_by_name(hud, "GoldBalanceValueLabel") as Label
+	var gold_total_value_label: Label = _find_node_by_name(hud, "GoldEarnedTotalValueLabel") as Label
+	var level_progress_value_label: Label = _find_node_by_name(hud, "LevelProgressValueLabel") as Label
+	var luck_value_label: Label = _find_node_by_name(hud, "LuckValueLabel") as Label
+	var gold_progress_label: Label = _find_node_by_name(hud, "GoldProgressLabel") as Label
 	_expect(title_label != null and String(title_label.text) == tr("ui_stats_panel_title"), "stats panel title should use localized text")
 	_expect(damage_value_label != null and not String(damage_value_label.text).is_empty(), "stats panel should show current damage")
 	_expect(health_regen_value_label != null and String(health_regen_value_label.text).contains("/s"), "stats panel should show current health regen")
+	_expect(gold_balance_value_label != null, "stats panel should show gold balance")
+	_expect(gold_total_value_label != null, "stats panel should show total gold earned")
+	_expect(level_progress_value_label != null, "stats panel should show current level progress")
+	_expect(luck_value_label != null, "stats panel should retain luck")
+	_expect(
+		gold_progress_label != null
+		and String(gold_progress_label.text).contains("·"),
+		"persistent HUD should show gold balance and level progress together"
+	)
 	InputService.inject_playback_value(ACTIONS.SHOW_STATS_PANEL, false)
 	InputService.set_playback_active(false)
 	for _index: int in range(UI_TRANSITION_FRAMES):
@@ -2058,13 +2096,13 @@ func _expect_stats_panel_hold_to_show(run_loop: Node) -> void:
 	_expect(not bool(hud.call("is_stats_panel_visible")), "releasing stats panel action should hide the HUD panel")
 
 
-func _expect_pickup_orb_draw_order(run_loop: Node, player: Node2D) -> void:
+func _expect_gold_orb_draw_order(run_loop: Node, player: Node2D) -> void:
 	var enemy_data: Dictionary = {
 		"max_hp": 6,
 		"move_speed": 0.0,
 		"contact_damage": 0,
 		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
-		"exp_reward": 0,
+		"gold_reward": 0,
 		"hit_radius": 14.0,
 		"separation_radius": 0.0,
 	}
@@ -2075,69 +2113,90 @@ func _expect_pickup_orb_draw_order(run_loop: Node, player: Node2D) -> void:
 	enemy.call("configure", enemy_data, player)
 	enemy.set_physics_process(false)
 
-	run_loop.call("_spawn_pickup_orb", enemy.global_position, 1)
+	run_loop.call("_spawn_gold_orb", enemy.global_position, 1)
 	await get_tree().process_frame
 
-	var pickup_orb: Node2D = null
-	for raw_pickup: Node in get_tree().get_nodes_in_group("active_pickups"):
-		if raw_pickup is Node2D:
-			pickup_orb = raw_pickup as Node2D
+	var gold_orb: Node2D = null
+	for raw_orb: Node in get_tree().get_nodes_in_group("active_gold_orbs"):
+		if raw_orb is Node2D:
+			gold_orb = raw_orb as Node2D
 			break
-	_expect(pickup_orb != null, "pickup orb should be active for draw-order smoke")
-	_expect(pickup_orb != null and pickup_orb.z_index < enemy.z_index, "pickup orbs should draw below enemies")
-	_expect(pickup_orb != null and _find_node_by_name(pickup_orb, "AttractRing") is Line2D, "pickup orbs should use scene-authored editable visual nodes")
-	if pickup_orb != null:
-		PoolManager.release(pickup_orb)
+	_expect(gold_orb != null, "gold orb should be active for draw-order smoke")
+	_expect(gold_orb != null and gold_orb.z_index < enemy.z_index, "gold orbs should draw below enemies")
+	_expect(gold_orb != null and _find_node_by_name(gold_orb, "AttractRing") is Line2D, "gold orbs should use scene-authored editable visual nodes")
+	_expect(
+		gold_orb != null
+		and is_equal_approx(
+			float((gold_orb.call("snapshot") as Dictionary).get("pickup_speed", 0.0)),
+			360.0
+		),
+		"gold orb should use gold_drop.pickup_speed"
+	)
+	if gold_orb != null:
+		PoolManager.release(gold_orb)
 	enemy.remove_from_group("active_enemies")
 	enemy.queue_free()
 
 
-func _expect_pickup_orb_feedback(run_loop: Node, player: Node2D) -> void:
-	run_loop.call("_spawn_pickup_orb", player.global_position + Vector2(40.0, 0.0), 0)
+func _expect_gold_orb_feedback(run_loop: Node, player: Node2D) -> void:
+	run_loop.call("_spawn_gold_orb", player.global_position + Vector2(40.0, 0.0), 1)
 	await get_tree().physics_frame
 	await get_tree().process_frame
 
-	var pickup_orb: Node2D = null
-	for raw_pickup: Node in get_tree().get_nodes_in_group("active_pickups"):
-		if raw_pickup is Node2D:
-			pickup_orb = raw_pickup as Node2D
+	var gold_orb: Node2D = null
+	for raw_orb: Node in get_tree().get_nodes_in_group("active_gold_orbs"):
+		if raw_orb is Node2D:
+			gold_orb = raw_orb as Node2D
 			break
-	_expect(pickup_orb != null, "pickup orb should be active for feedback smoke")
-	if pickup_orb == null:
+	_expect(gold_orb != null, "gold orb should be active for feedback smoke")
+	if gold_orb == null:
 		return
-	_expect(pickup_orb.has_method("is_attracting") and bool(pickup_orb.call("is_attracting")), "pickup orb should expose attraction feedback inside pickup range")
+	_expect(gold_orb.has_method("is_attracting") and bool(gold_orb.call("is_attracting")), "gold orb should expose attraction feedback inside pickup range")
 
-	pickup_orb.global_position = player.global_position
+	gold_orb.global_position = player.global_position
 	await get_tree().physics_frame
 	await get_tree().process_frame
-	_expect(pickup_orb.has_method("is_collect_feedback_active") and bool(pickup_orb.call("is_collect_feedback_active")), "pickup orb should show collect feedback before pooling")
-	_expect(not pickup_orb.is_in_group("active_pickups"), "collected pickup orb should leave active pickup group during feedback")
+	_expect(gold_orb.has_method("is_collect_feedback_active") and bool(gold_orb.call("is_collect_feedback_active")), "gold orb should show collect feedback before pooling")
+	_expect(not gold_orb.is_in_group("active_gold_orbs"), "collected gold orb should leave active group during feedback")
 	for _index: int in range(PICKUP_FEEDBACK_FRAMES):
 		await get_tree().process_frame
-	_expect(not bool(pickup_orb.call("is_collect_feedback_active")), "pickup orb collect feedback should finish and release")
+	_expect(not bool(gold_orb.call("is_collect_feedback_active")), "gold orb collect feedback should finish and release")
 
 
-func _expect_default_growth_disabled(run_loop: Node, player: Node2D) -> void:
-	var summary: Dictionary = run_loop.call("debug_summary")
-	_expect(
-		not bool(summary.get("level_up_growth_enabled", true)),
-		"standard mode should not enable level-up growth by default"
+func _expect_gold_progression(run_loop: Node, player: Node2D) -> void:
+	var previous_level: int = int(run_loop.call("current_level"))
+	var previous_balance: int = int(run_loop.call("gold_balance"))
+	var previous_total: int = int(run_loop.call("gold_earned_total"))
+	var level_cost_remaining: int = (
+		int(run_loop.call("current_level_gold_required"))
+		- int(run_loop.call("current_level_gold"))
 	)
-	var previous_xp: int = int(run_loop.call("current_xp"))
-	run_loop.call("_on_pickup_orb_collected", 20)
-	for _index: int in range(LEVEL_UP_FRAMES):
-		await get_tree().process_frame
-	_expect(int(run_loop.call("current_xp")) == previous_xp + 20, "debug XP flow should still record XP for future modes/tools")
-	_expect(int(run_loop.call("current_level")) == 1, "standard mode XP should not raise the level")
-	_expect(int(run_loop.call("current_level_xp_required")) == 0, "standard mode should not expose a level-up XP target")
-	_expect(GameState.is_state(GameState.PLAYING), "standard mode XP should not enter LEVEL_UP")
-	_expect(_find_node_by_name(get_tree().root, "LevelUpPanel") == null, "standard mode should not show the level-up panel")
+	var add_result: Dictionary = run_loop.call(
+		"add_gold",
+		level_cost_remaining,
+		"event_reward"
+	) as Dictionary
+	_expect(bool(add_result.get("ok", false)), "gold progression should accept a registered positive reward")
+	_expect(int(run_loop.call("current_level")) == previous_level + 1, "gold earned total should raise the level")
+	_expect(int(run_loop.call("gold_balance")) == previous_balance + level_cost_remaining, "gold reward should increase spendable balance")
+	_expect(int(run_loop.call("gold_earned_total")) == previous_total + level_cost_remaining, "gold reward should increase earned total")
+	_expect(GameState.is_state(GameState.PLAYING), "level advancement should not pause gameplay")
+	_expect(_find_node_by_name(get_tree().root, "RewardChoicePanel") == null, "level advancement should not open reward choice")
 
-	var active_pickups_before: int = PoolManager.active_count(POOL_IDS.PICKUP_ORB)
+	var spend_result: Dictionary = run_loop.call(
+		"try_spend_gold",
+		level_cost_remaining,
+		"event_cost"
+	) as Dictionary
+	_expect(bool(spend_result.get("ok", false)), "gold spend should succeed when affordable")
+	_expect(int(run_loop.call("current_level")) == previous_level + 1, "spending gold should not lower the level")
+	_expect(int(run_loop.call("gold_earned_total")) == previous_total + level_cost_remaining, "spending gold should not lower earned total")
+
+	var active_orbs_before: int = PoolManager.active_count(POOL_IDS.GOLD_ORB)
 	var spawn_result: Dictionary = run_loop.call("debug_spawn_enemy", "enemy_chaser", 1)
-	_expect(bool(spawn_result.get("ok", false)), "standard growth smoke should spawn a chaser")
+	_expect(bool(spawn_result.get("ok", false)), "gold drop smoke should spawn a chaser")
 	var enemy: Node = _first_enemy_with_name_prefix(POOL_IDS.ENEMY_CHASER)
-	_expect(enemy != null, "standard growth smoke should find the spawned chaser")
+	_expect(enemy != null, "gold drop smoke should find the spawned chaser")
 	if enemy == null:
 		return
 	var enemy_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
@@ -2149,12 +2208,174 @@ func _expect_default_growth_disabled(run_loop: Node, player: Node2D) -> void:
 		"team_enemy"
 	)
 	var enemy_result: Dictionary = Combat.apply_damage(enemy, enemy_info)
-	_expect(bool(enemy_result.get("defeated", false)), "standard growth smoke should defeat the chaser")
+	_expect(bool(enemy_result.get("defeated", false)), "gold drop smoke should defeat the chaser")
 	await get_tree().process_frame
 	_expect(
-		PoolManager.active_count(POOL_IDS.PICKUP_ORB) == active_pickups_before,
-		"player-attributed enemy defeat should not spawn XP pickups while standard growth is disabled"
+		PoolManager.active_count(POOL_IDS.GOLD_ORB) == active_orbs_before + 1,
+		"player-attributed enemy defeat should spawn exactly one gold orb"
 	)
+	var non_player_orbs_before: int = PoolManager.active_count(POOL_IDS.GOLD_ORB)
+	var non_player_spawn: Dictionary = run_loop.call(
+		"debug_spawn_enemy",
+		"enemy_chaser",
+		1
+	) as Dictionary
+	_expect(bool(non_player_spawn.get("ok", false)), "non-player drop smoke should spawn a chaser")
+	var non_player_enemy: Node = _first_enemy_with_name_prefix(POOL_IDS.ENEMY_CHASER)
+	if non_player_enemy == null:
+		_expect(false, "non-player drop smoke should find a chaser")
+		return
+	var non_player_info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
+		999.0,
+		ELEMENTS.ELEMENT_NEUTRAL,
+		run_loop,
+		non_player_enemy,
+		"team_environment",
+		"team_enemy"
+	)
+	var non_player_result: Dictionary = Combat.apply_damage(
+		non_player_enemy,
+		non_player_info
+	)
+	_expect(bool(non_player_result.get("defeated", false)), "non-player damage should defeat the chaser")
+	await get_tree().process_frame
+	_expect(
+		PoolManager.active_count(POOL_IDS.GOLD_ORB) == non_player_orbs_before,
+		"non-player-attributed defeat should not spawn gold"
+	)
+
+
+func _expect_gold_progression_curve_and_transactions() -> void:
+	var progression: GoldProgression = GoldProgression.new()
+	var config: Dictionary = DataLoader.load_json(
+		DataLoader.LEVEL_PROGRESSION_PATH
+	) as Dictionary
+	_expect(progression.configure(config), "standalone gold progression should accept canonical data")
+	var segment_costs: Array[int] = [
+		100,
+		130,
+		169,
+		220,
+		286,
+		372,
+		484,
+		630,
+		819,
+		1065,
+	]
+	var thresholds: Array[int] = [
+		100,
+		230,
+		399,
+		619,
+		905,
+		1277,
+		1761,
+		2391,
+		3210,
+		4275,
+	]
+	for index: int in range(segment_costs.size()):
+		_expect(
+			progression.current_level_gold_required() == segment_costs[index],
+			"gold progression segment %d should match the 1.3x ceil curve" % (index + 1)
+		)
+		var result: Dictionary = progression.add_gold(
+			segment_costs[index],
+			"event_reward"
+		)
+		_expect(bool(result.get("ok", false)), "gold curve step should be accepted")
+		_expect(
+			progression.gold_earned_total() == thresholds[index],
+			"gold progression cumulative threshold should match level %d" % (index + 2)
+		)
+		_expect(
+			progression.current_level() == index + 2,
+			"gold progression should advance exactly one level per segment"
+		)
+
+	progression.reset()
+	var multi_result: Dictionary = progression.add_gold(4275, "event_reward")
+	_expect(bool(multi_result.get("ok", false)), "one gold transaction should cross multiple levels")
+	_expect(int(multi_result.get("levels_gained", 0)) == 10, "4275 gold should advance from level 1 to level 11")
+	_expect(progression.current_level() == 11, "4275 cumulative gold should derive level 11")
+	var spend_result: Dictionary = progression.try_spend_gold(4000, "event_cost")
+	_expect(bool(spend_result.get("ok", false)), "affordable gold spend should succeed")
+	_expect(progression.current_level() == 11, "spending should not reduce derived level")
+	_expect(progression.gold_earned_total() == 4275, "spending should not reduce earned total")
+	var before_failure: Dictionary = progression.snapshot()
+	_expect(
+		not bool(progression.try_spend_gold(276, "event_cost").get("ok", true)),
+		"insufficient gold spend should fail"
+	)
+	_expect(progression.snapshot() == before_failure, "failed spend should be atomic")
+	_expect(
+		not bool(progression.add_gold(1, "unknown_reason").get("ok", true)),
+		"unknown gold reason should fail"
+	)
+	_expect(progression.snapshot() == before_failure, "invalid gold reason should be atomic")
+	_expect(progression.restore(GoldProgression.MAX_INT, GoldProgression.MAX_INT), "max int state should restore")
+	var before_overflow: Dictionary = progression.snapshot()
+	var overflow_result: Dictionary = progression.add_gold(1, "event_reward")
+	_expect(String(overflow_result.get("reason", "")) == "integer_overflow", "gold overflow should report integer_overflow")
+	_expect(progression.snapshot() == before_overflow, "gold overflow should be atomic")
+	progression.free()
+
+
+func _expect_reward_choice_controller_contract() -> void:
+	var controller: RewardChoiceController = RewardChoiceController.new()
+	var config: Dictionary = DataLoader.load_json(
+		DataLoader.REWARD_CHOICE_POOLS_PATH
+	) as Dictionary
+	_expect(controller.configure(config), "standalone reward controller should accept canonical data")
+	for candidate_count: int in [2, 3, 5]:
+		var result: Dictionary = controller.request_choice(
+			"default_reward_choice",
+			"debug_command",
+			candidate_count,
+			3
+		)
+		_expect(bool(result.get("ok", false)), "%d-candidate reward request should succeed" % candidate_count)
+		_expect(
+			(result.get("choices", []) as Array).size() == candidate_count,
+			"reward request should return the caller-selected candidate count"
+		)
+		controller.clear()
+
+	for invalid_count: int in [1, 6]:
+		var rng_before: Dictionary = RNG.snapshot()
+		var invalid_result: Dictionary = controller.request_choice(
+			"default_reward_choice",
+			"debug_command",
+			invalid_count,
+			3
+		)
+		_expect(
+			String(invalid_result.get("reason", "")) == "invalid_candidate_count",
+			"reward candidate count %d should fail atomically" % invalid_count
+		)
+		_expect(RNG.snapshot() == rng_before, "invalid candidate count should not consume RNG")
+		_expect(not controller.is_busy(), "invalid candidate count should not create an active request")
+
+	var insufficient_rng: Dictionary = RNG.snapshot()
+	var insufficient: Dictionary = controller.request_choice(
+		"default_reward_choice",
+		"debug_command",
+		5,
+		1
+	)
+	_expect(String(insufficient.get("reason", "")) == "insufficient_candidates", "level filtering should reject insufficient candidates")
+	_expect(RNG.snapshot() == insufficient_rng, "insufficient candidates should not consume RNG")
+	var unknown_rng: Dictionary = RNG.snapshot()
+	var unknown: Dictionary = controller.request_choice(
+		"unknown_pool",
+		"debug_command",
+		2,
+		3
+	)
+	_expect(String(unknown.get("reason", "")) == "unknown_pool", "unknown reward pool should fail")
+	_expect(RNG.snapshot() == unknown_rng, "unknown reward pool should not consume RNG")
+	controller.free()
 
 
 func _expect_interest_point_rewards(run_loop: Node, player: Node2D) -> void:
@@ -2240,47 +2461,73 @@ func _expect_interest_point_rewards(run_loop: Node, player: Node2D) -> void:
 	_expect(pending_mods.size() >= 1, "run snapshot should persist pending Gear Mod loot")
 
 
-func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
+func _expect_reward_choice(run_loop: Node, player: Node2D) -> Dictionary:
 	var weapon_system: Node = _find_node_by_name(player, "WeaponSystem")
-	_expect(weapon_system != null, "WeaponSystem should be available before level up")
+	_expect(weapon_system != null, "WeaponSystem should be available before reward choice")
 	var previous_damage: float = float(weapon_system.call("stat_value", STATS.DAMAGE)) if weapon_system != null else 0.0
 	var previous_fire_rate: float = float(weapon_system.call("stat_value", STATS.FIRE_RATE)) if weapon_system != null else 0.0
 	var previous_pickup_range: float = float(player.call("pickup_range"))
+	var previous_luck: float = float(player.call("luck"))
 
-	run_loop.call("_spawn_pickup_orb", player.global_position, 20)
-	var level_panel: Node = null
-	for _index: int in range(LEVEL_UP_FRAMES):
-		await get_tree().physics_frame
+	var invalid_rng: Dictionary = RNG.snapshot()
+	var invalid_request: Dictionary = run_loop.call(
+		"request_reward_choice",
+		"default_reward_choice",
+		"debug_command",
+		1
+	) as Dictionary
+	_expect(String(invalid_request.get("reason", "")) == "invalid_candidate_count", "runtime should reject one reward candidate")
+	_expect(RNG.snapshot() == invalid_rng, "invalid runtime reward request should not consume RNG")
+	_expect(GameState.is_state(GameState.PLAYING), "invalid reward request should not change state")
+	var request_result: Dictionary = run_loop.call(
+		"request_reward_choice",
+		"default_reward_choice",
+		"debug_command",
+		3
+	) as Dictionary
+	_expect(bool(request_result.get("ok", false)), "valid generic reward request should succeed")
+	var busy_rng: Dictionary = RNG.snapshot()
+	var busy_result: Dictionary = run_loop.call(
+		"request_reward_choice",
+		"default_reward_choice",
+		"debug_command",
+		2
+	) as Dictionary
+	_expect(String(busy_result.get("reason", "")) == "busy", "second runtime reward request should report busy")
+	_expect(RNG.snapshot() == busy_rng, "busy runtime reward request should not consume RNG")
+	var reward_panel: Node = null
+	for _index: int in range(REWARD_CHOICE_FRAMES):
 		await get_tree().process_frame
-		level_panel = _find_node_by_name(get_tree().root, "LevelUpPanel")
-		if level_panel != null:
+		reward_panel = _find_node_by_name(get_tree().root, "RewardChoicePanel")
+		if reward_panel != null:
 			break
 
-	_expect(GameState.is_state(GameState.LEVEL_UP), "experience pickup should enter LEVEL_UP")
-	_expect(level_panel != null, "level-up panel should appear")
-	var panel_frame: Control = _find_node_by_name(level_panel, "LevelUpPanelFrame") as Control
-	_expect(panel_frame != null, "level-up panel frame should use responsive layout")
+	_expect(GameState.is_state(GameState.REWARD_CHOICE), "reward request should enter REWARD_CHOICE")
+	_expect(reward_panel != null, "reward-choice panel should appear")
+	var panel_frame: Control = _find_node_by_name(reward_panel, "RewardChoicePanelFrame") as Control
+	_expect(panel_frame != null, "reward-choice panel frame should use responsive layout")
 	if panel_frame != null:
-		_expect(panel_frame.custom_minimum_size.x >= 520.0, "level-up panel frame should keep a readable minimum width")
-		_expect(panel_frame.custom_minimum_size.x <= 720.0, "level-up panel frame should keep a responsive maximum width")
-	_expect(int(run_loop.call("current_level")) == 2, "experience pickup should raise the player to level 2")
-	_expect(int(run_loop.call("current_xp")) == 20, "total xp should remain cumulative after level up")
-	_expect(int(run_loop.call("current_level_xp")) == 0, "current-level xp should reset after level up")
-	_expect(int(run_loop.call("current_level_xp_required")) == 35, "current-level xp requirement should use the next level segment")
-	if level_panel == null:
+		_expect(panel_frame.custom_minimum_size.x >= 520.0, "reward-choice panel frame should keep a readable minimum width")
+		_expect(panel_frame.custom_minimum_size.x <= 720.0, "reward-choice panel frame should keep a responsive maximum width")
+	if reward_panel == null:
 		return {
 			"run_loop": run_loop,
 			"player": player,
 		}
 
-	var choice_id: String = String(level_panel.call("choice_id", 0))
+	var choice_id: String = String(reward_panel.call("choice_id", 0))
 	var snapshot_payload: Dictionary = run_loop.call("create_run_snapshot")
 	var ui_restore: Dictionary = snapshot_payload.get("ui_restore", {}) as Dictionary
-	_expect(String(ui_restore.get("state", "")) == "level_up", "run snapshot should remember a pending level-up panel")
-	_expect(ui_restore.get("choices", []) is Array and (ui_restore.get("choices", []) as Array).size() > 0, "level-up restore point should keep rolled choices")
-	_expect(SaveManager.save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN, snapshot_payload), "smoke should save a pending level-up run")
+	var reward_snapshot: Dictionary = snapshot_payload.get("reward_choice", {}) as Dictionary
+	_expect(String(ui_restore.get("state", "")) == "reward_choice", "run snapshot should remember a pending reward panel")
+	_expect(
+		reward_snapshot.get("choice_ids", []) is Array
+		and (reward_snapshot.get("choice_ids", []) as Array).size() == 3,
+		"reward restore point should keep the exact rolled choices"
+	)
+	_expect(SaveManager.save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN, snapshot_payload), "smoke should save a pending reward-choice run")
 	var formal_boot: Node = _find_node_by_name(get_tree().root, "FormalClientBoot")
-	_expect(formal_boot != null, "FormalClientBoot should exist before level-up restore smoke")
+	_expect(formal_boot != null, "FormalClientBoot should exist before reward-choice restore smoke")
 	if formal_boot == null:
 		return {
 			"run_loop": run_loop,
@@ -2294,7 +2541,7 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 	var continue_button: Button = _find_node_by_name(title_menu, "ContinueRunButton") as Button
 	await _verify_title_settings_entry(title_menu)
 	_verify_no_meta_progression_entry(title_menu)
-	_expect(continue_button != null and continue_button.visible and not continue_button.disabled, "title menu should continue a pending level-up run")
+	_expect(continue_button != null and continue_button.visible and not continue_button.disabled, "title menu should continue a pending reward-choice run")
 	if continue_button == null:
 		return {
 			"run_loop": run_loop,
@@ -2302,8 +2549,8 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 		}
 	await _click_button(continue_button)
 
-	var restored_run_loop: Node = await _wait_for_state_run_loop(GameState.LEVEL_UP)
-	_expect(restored_run_loop != null, "continue should restore into LEVEL_UP when saved at a level-up choice")
+	var restored_run_loop: Node = await _wait_for_state_run_loop(GameState.REWARD_CHOICE)
+	_expect(restored_run_loop != null, "continue should restore into REWARD_CHOICE")
 	if restored_run_loop == null:
 		return {
 			"run_loop": run_loop,
@@ -2312,49 +2559,53 @@ func _expect_level_up_choice(run_loop: Node, player: Node2D) -> Dictionary:
 	run_loop = restored_run_loop
 	player = _find_node_by_name(run_loop, "Player") as Node2D
 	weapon_system = _find_node_by_name(player, "WeaponSystem") if player != null else null
-	level_panel = _find_node_by_name(get_tree().root, "LevelUpPanel")
-	_expect(player != null, "level-up restore should rebuild the player")
-	_expect(level_panel != null, "level-up restore should show the level-up panel")
-	if level_panel == null:
+	reward_panel = _find_node_by_name(get_tree().root, "RewardChoicePanel")
+	_expect(player != null, "reward-choice restore should rebuild the player")
+	_expect(reward_panel != null, "reward-choice restore should show its panel")
+	if reward_panel == null:
 		return {
 			"run_loop": run_loop,
 			"player": player,
 		}
-	_expect(String(level_panel.call("choice_id", 0)) == choice_id, "level-up restore should keep the same rolled first choice")
-	await _expect_level_up_pause_overlay(run_loop)
-	level_panel = _find_node_by_name(get_tree().root, "LevelUpPanel")
-	_expect(level_panel != null, "level-up panel should remain after closing pause overlay")
-	if level_panel == null:
+	_expect(String(reward_panel.call("choice_id", 0)) == choice_id, "reward restore should keep the same rolled first choice")
+	await _expect_reward_choice_pause_overlay(run_loop)
+	reward_panel = _find_node_by_name(get_tree().root, "RewardChoicePanel")
+	_expect(reward_panel != null, "reward panel should remain after closing pause overlay")
+	if reward_panel == null:
 		return {
 			"run_loop": run_loop,
 			"player": player,
 		}
 
-	var choice_button: Button = _find_first_button(level_panel)
-	_expect(choice_button != null, "level-up panel should expose clickable option buttons")
+	var choice_button: Button = _find_first_button(reward_panel)
+	_expect(choice_button != null, "reward panel should expose clickable option buttons")
 	if choice_button != null:
-		_expect(choice_button.process_mode == Node.PROCESS_MODE_ALWAYS, "level-up buttons should accept input while the tree is paused")
-		_expect(choice_button.visible, "level-up option button should be visible before click")
-		_expect(not choice_button.disabled, "level-up option button should be enabled before click")
+		_expect(choice_button.process_mode == Node.PROCESS_MODE_ALWAYS, "reward buttons should accept input while the tree is paused")
+		_expect(choice_button.visible, "reward option button should be visible before click")
+		_expect(not choice_button.disabled, "reward option button should be enabled before click")
 		await _click_button(choice_button)
-	_expect(GameState.is_state(GameState.PLAYING), "choosing a level-up option should resume PLAYING")
+	_expect(GameState.is_state(GameState.PLAYING), "choosing a reward should resume PLAYING")
 	var hud: Node = _find_node_by_name(run_loop, "GameplayHud")
-	_expect(hud != null and hud.has_method("is_upgrade_feedback_visible") and bool(hud.call("is_upgrade_feedback_visible")), "choosing a level-up option should show upgrade feedback")
-	if choice_id == "growth_damage_small" and weapon_system != null:
-		_expect(float(weapon_system.call("stat_value", STATS.DAMAGE)) > previous_damage, "damage upgrade should apply immediately")
-	elif choice_id == "growth_fire_rate_small" and weapon_system != null:
-		_expect(float(weapon_system.call("stat_value", STATS.FIRE_RATE)) > previous_fire_rate, "fire-rate upgrade should apply immediately")
-	elif choice_id == "growth_pickup_range_small":
-		_expect(float(player.call("pickup_range")) > previous_pickup_range, "pickup-range upgrade should apply immediately")
+	_expect(hud != null and hud.has_method("is_upgrade_feedback_visible") and bool(hud.call("is_upgrade_feedback_visible")), "choosing a reward should show upgrade feedback")
+	if choice_id == "reward_damage_small" and weapon_system != null:
+		_expect(float(weapon_system.call("stat_value", STATS.DAMAGE)) > previous_damage, "damage reward should apply immediately")
+	elif choice_id == "reward_fire_rate_small" and weapon_system != null:
+		_expect(float(weapon_system.call("stat_value", STATS.FIRE_RATE)) > previous_fire_rate, "fire-rate reward should apply immediately")
+	elif choice_id == "reward_pickup_range_small":
+		_expect(float(player.call("pickup_range")) > previous_pickup_range, "pickup-range reward should apply immediately")
 	else:
-		_expect(false, "level-up choice should be a known growth option")
+		_expect(false, "reward choice should be a known modifier")
+	_expect(
+		is_equal_approx(float(player.call("luck")), previous_luck),
+		"reward selection should not consume or reinterpret reserved luck"
+	)
 	return {
 		"run_loop": run_loop,
 		"player": player,
 	}
 
 
-func _expect_level_up_pause_overlay(run_loop: Node) -> void:
+func _expect_reward_choice_pause_overlay(run_loop: Node) -> void:
 	await _push_action_once(ACTIONS.PAUSE)
 	var pause_menu: Node = null
 	for _index: int in range(BOOT_FRAMES * 2):
@@ -2362,17 +2613,26 @@ func _expect_level_up_pause_overlay(run_loop: Node) -> void:
 		pause_menu = _find_node_by_name(get_tree().root, "PauseMenu")
 		if pause_menu != null:
 			break
-	_expect(GameState.is_state(GameState.PAUSED), "pressing pause during LEVEL_UP should open pause state")
-	_expect(pause_menu != null, "pressing pause during LEVEL_UP should show the pause menu")
+	_expect(GameState.is_state(GameState.PAUSED), "pressing pause during REWARD_CHOICE should open pause state")
+	_expect(pause_menu != null, "pressing pause during REWARD_CHOICE should show the pause menu")
+	var paused_request_rng: Dictionary = RNG.snapshot()
+	var paused_request: Dictionary = run_loop.call(
+		"request_reward_choice",
+		"default_reward_choice",
+		"debug_command",
+		2
+	) as Dictionary
+	_expect(String(paused_request.get("reason", "")) == "busy", "reward request should remain busy while pause overlays the choice")
+	_expect(RNG.snapshot() == paused_request_rng, "invalid-state reward request should not consume RNG")
 	var paused_snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	var ui_restore: Dictionary = paused_snapshot.get("ui_restore", {}) as Dictionary
-	_expect(String(ui_restore.get("state", "")) == "paused", "pause overlay on level-up should snapshot as paused")
-	_expect(String(ui_restore.get("underlying_state", "")) == "level_up", "pause overlay on level-up should preserve the underlying level-up state")
+	_expect(String(ui_restore.get("state", "")) == "paused", "reward pause overlay should snapshot as paused")
+	_expect(String(ui_restore.get("underlying_state", "")) == "reward_choice", "pause overlay should preserve the underlying reward state")
 
-	await _push_action_once(ACTIONS.UI_BACK)
-	var restored_run_loop: Node = await _wait_for_state_run_loop(GameState.LEVEL_UP)
-	_expect(restored_run_loop == run_loop, "ui_back on pause overlay should return to the same LEVEL_UP run loop")
-	_expect(_find_node_by_name(get_tree().root, "PauseMenu") == null, "ui_back on pause overlay should remove the pause menu")
+	await _push_action_once(ACTIONS.PAUSE)
+	var restored_run_loop: Node = await _wait_for_state_run_loop(GameState.REWARD_CHOICE)
+	_expect(restored_run_loop == run_loop, "closing pause should return to the same REWARD_CHOICE run loop")
+	_expect(_find_node_by_name(get_tree().root, "PauseMenu") == null, "closing pause overlay should remove the pause menu")
 
 
 func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
@@ -2390,7 +2650,8 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	)
 	var saved_position: Vector2 = player.global_position
 	var saved_level: int = int(run_loop.call("current_level"))
-	var saved_xp: int = int(run_loop.call("current_xp"))
+	var saved_gold_balance: int = int(run_loop.call("gold_balance"))
+	var saved_gold_total: int = int(run_loop.call("gold_earned_total"))
 	var saved_time: float = GameClock.now()
 
 	await _push_action_once(ACTIONS.PAUSE)
@@ -2413,6 +2674,15 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame
 	_expect(is_equal_approx(GameClock.now(), paused_time), "GameClock should freeze while pause menu is open")
+	var invalid_state_rng: Dictionary = RNG.snapshot()
+	var invalid_state_request: Dictionary = run_loop.call(
+		"request_reward_choice",
+		"default_reward_choice",
+		"debug_command",
+		2
+	) as Dictionary
+	_expect(String(invalid_state_request.get("reason", "")) == "invalid_state", "reward request should reject PAUSED without an active request")
+	_expect(RNG.snapshot() == invalid_state_rng, "invalid-state reward request should not consume RNG")
 
 	var save_button: Button = _find_node_by_name(pause_menu, "SaveAndQuitButton") as Button
 	_expect(save_button != null, "pause menu should expose save-and-quit")
@@ -2467,7 +2737,8 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 		"continue should restore active weapon recoil remaining time"
 	)
 	_expect(int(restored_run_loop.call("current_level")) == saved_level, "continue should restore level")
-	_expect(int(restored_run_loop.call("current_xp")) == saved_xp, "continue should restore total xp")
+	_expect(int(restored_run_loop.call("gold_balance")) == saved_gold_balance, "continue should restore gold balance")
+	_expect(int(restored_run_loop.call("gold_earned_total")) == saved_gold_total, "continue should restore earned gold total")
 	_expect(absf(GameClock.now() - saved_time) < 0.2, "continue should restore GameClock time")
 	var restored_pause_menu: Node = _find_node_by_name(get_tree().root, "PauseMenu")
 	_expect(restored_pause_menu != null, "continue should restore the pause menu when the run was saved while paused")

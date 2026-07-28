@@ -38,6 +38,18 @@ SECTIONS: tuple[ContractSection, ...] = (
     ContractSection("actions", "## 7. 输入动作 action", "actions.gd", "Actions"),
     ContractSection("input_binding_ids", "### 7.1 重绑定 binding id", "input_binding_ids.gd", "InputBindingIds"),
     ContractSection("pool_ids", "## 8. 对象池 id", "pool_ids.gd", "PoolIds"),
+    ContractSection(
+        "gold_transaction_reasons",
+        "## 8-A. 金币交易原因 gold_transaction_reason",
+        "gold_transaction_reasons.gd",
+        "GoldTransactionReasons",
+    ),
+    ContractSection(
+        "reward_choice_triggers",
+        "## 8-B. 奖励选择触发 reward_choice_trigger",
+        "reward_choice_triggers.gd",
+        "RewardChoiceTriggers",
+    ),
     ContractSection("elements", "## 9. 战斗元素 element_id", "elements.gd", "Elements"),
     ContractSection("status_effects", "## 9-A. 状态效果 status_effect", "status_effects.gd", "StatusEffects"),
     ContractSection("status_stack_rules", "## 9-B. 状态叠加规则 status_stack_rule", "status_stack_rules.gd", "StatusStackRules"),

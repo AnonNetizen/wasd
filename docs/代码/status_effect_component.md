@@ -47,7 +47,7 @@
 | 构造状态 | 调用方创建 `StatusEffect`，用 `setup(status_id, params, source)` 规范化持续时间、叠加规则、magnitude、tick interval、element、属性修饰器、易伤来源过滤和 granted ability tags | `StatusEffect.setup()` |
 | 施加状态 | 组件复制运行时状态，按 `status_id` 或独立实例 key 找到当前状态，并按 `stack_rule` 合并或替换 | `StatusEffectComponent.apply()` |
 | 授予标签 | 新状态生效时调用 ability tag owner 的 `add_owned_tag(tag_id)`；替换、过期和清空时调用 `remove_owned_tag(tag_id)` | `_register_effect_tags()`、`_release_effect_tags()` |
-| 推进时间 | 仅在 `GameState.PLAYING` 下用 `GameClock.delta_scaled(delta)` 扣减剩余时间；暂停、升级选择和 game over 不推进 | `_physics_process()` |
+| 推进时间 | 仅在 `GameState.PLAYING` 下用 `GameClock.delta_scaled(delta)` 扣减剩余时间；暂停、通用奖励选择和 game over 不推进 | `_physics_process()` |
 | DoT tick | 当状态同时具备正 `magnitude`、正 `tick_interval` 和已登记 `element_id` 时，按 `tick_remaining` 触发 `Combat.apply_damage()`，并在 `DamageInfo.flags` 写入 `is_dot` | `_tick_damage()`、`_apply_tick_damage()` |
 | 属性修饰 | `stat_multiplier(stat_id)` 将减速与加速按来源规则合成；最强减速刷新、同来源加速覆盖，最终倍率相乘 | `stat_multiplier()` |
 | 易伤 | `incoming_damage_multiplier(source_team)` 只对匹配来源队伍放大；初始易伤限定 `team_player`，每层 10%、最多 5 层 | `incoming_damage_multiplier()` |

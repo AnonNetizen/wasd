@@ -6,7 +6,7 @@
 ## 职责
 
 - `UIManager` 负责统一创建、压栈、出栈、替换和清空 UI 场景。
-- UI 弹窗、菜单、升级选择、结算界面等后续都应通过 `UIManager.push()` / `pop()` 进入界面栈。
+- UI 弹窗、菜单、通用奖励选择、结算界面等都应通过 `UIManager.push()` / `pop()` 进入界面栈。
 - 正式开始 / 继续 / 重开加载界面也由 `UIManager` 管理；`LoadingScreen` 全屏阻断指针与菜单输入，但不声明 `pauses_game`，加载期状态由 `GameState.LOADING` 表达。
 - 带 `pauses_game` 元数据或同名布尔属性的 UI 节点会请求 `GameState.PAUSED`，由 `UIManager` 负责在栈清掉后恢复进入 UI 前的状态。
 - ADR #158 后统一管理进入 / 退出转场、输入遮罩、重复关闭去重、下层焦点恢复和正式 `ConfirmationModal`；HUD 本地动效不进入 UI 栈。音频 ducking 与 UI 资源加载缓存仍不在本模块。
@@ -91,7 +91,7 @@ UI 根节点可用两种方式声明暂停请求：
 - `node.set_meta("pauses_game", true)`
 - 脚本上提供布尔属性 `pauses_game = true`
 
-可关闭 UI 根节点应提供 `request_close()` 方法。`UIManager` 监听 `ui_back` 后只调用栈顶节点的 `request_close()`，不盲目 `pop()`，避免升级面板、失败面板等有业务选择含义的界面被通用返回键绕过。
+可关闭 UI 根节点应提供 `request_close()` 方法。`UIManager` 监听 `ui_back` 后只调用栈顶节点的 `request_close()`，不盲目 `pop()`，避免奖励选择、失败面板等有业务选择含义的界面被通用返回键绕过。`RewardChoicePanel` 不提供取消路径，必须选择一项。
 
 可聚焦 UI 根节点可选提供 `grab_default_focus()`。如果没有该方法，`UIManager.push()` 会在需要显示导航焦点时延后一帧扫描该 UI 内第一个可见、可聚焦、未禁用的 `Control` 并抓取焦点；如果焦点已经在新 UI 内，则不覆盖。
 
@@ -106,14 +106,14 @@ UI 根节点可用两种方式声明暂停请求：
 ## 依赖
 
 - 上游依赖：`GameState` 负责状态切换和 `get_tree().paused` 联动；`InputService` 提供 UI action、context 与最近设备族。
-- 下游调用方：标题菜单、暂停菜单、设置菜单、升级选择、结算面板、局外成长界面。
+- 下游调用方：标题菜单、暂停菜单、设置菜单、奖励选择、结算面板、Gear Mod 界面。
 - 禁止依赖：业务代码不得直接 `add_child` UI 弹窗；暂停逻辑不得直接读写 `get_tree().paused`。
 
 ## 扩展点
 
 - 新 UI 场景：放入后续 `client/scenes/ui/`，由调用方以 `PackedScene` 传给 `push()`。
 - 玩家加载 UI：复用 `LoadingScreen`，不要为开始 / 继续 / 重开分别创建场景，也不要绕过 `UIManager` 手动挂载。
-- 暂停菜单：根节点标记 `pauses_game=true`，由 `UIManager` 触发 `GameState.PAUSED`；如果暂停菜单从 `GameState.LEVEL_UP` 上方打开，`UIManager` 也要把 `LEVEL_UP` 记录为暂停前状态，关闭菜单后恢复回升级选择而不是 `PLAYING`。
+- 暂停菜单：根节点标记 `pauses_game=true`，由 `UIManager` 触发 `GameState.PAUSED`；如果暂停菜单从 `GameState.REWARD_CHOICE` 上方打开，`UIManager` 也要把 `REWARD_CHOICE` 记录为暂停前状态，关闭菜单后恢复回原奖励选择而不是 `PLAYING`。
 - 焦点管理：`push()` 结束后按最近输入设备决定是否给新 UI 设置初始焦点；复杂界面可实现 `grab_default_focus()` 自定义，简单界面走首个可聚焦控件兜底。鼠标 / 键盘模式下不显示常驻按钮高亮，手柄导航时恢复焦点。
 - 返回行为：可关闭 UI 实现 `request_close()`；`ui_back` 只作用于当前栈顶并走该方法，关闭按钮和返回键应复用同一业务路径。
 - 过渡动画：统一复用 `docs/代码/ui_effects.md`；Container 内只动画 MotionRoot / 视觉子节点，不能改布局属性。
@@ -135,7 +135,7 @@ UI 根节点可用两种方式声明暂停请求：
 |------|----------|
 | UI 没显示 | `PackedScene` 是否为空，节点是否挂到 `UIRoot` |
 | 暂停菜单不暂停 | 根节点是否设置 `pauses_game=true` |
-| 关闭 UI 后状态错误 | `_state_before_ui_pause` 是否被其他系统提前改写；从升级面板上方关闭暂停菜单时应恢复到 `LEVEL_UP` |
+| 关闭 UI 后状态错误 | `_state_before_ui_pause` 是否被其他系统提前改写；从奖励面板上方关闭暂停菜单时应恢复到 `REWARD_CHOICE` |
 | 暂停时 UI 不响应 | UI 节点和 `UIRoot` 的 `process_mode` 是否为 `ALWAYS` |
 | 从暂停菜单打开设置后无法继续 | `SettingsPanel` 是否是栈顶；关闭按钮是否弹出设置面板而不是底层 `PauseMenu` |
 | 按返回键没有关闭 UI | 栈顶是否实现 `request_close()`；InputService 的 UI context / `ui_back` 是否有效 |

@@ -107,7 +107,9 @@ ui_difficulty_stage_nestfall,巢灾,Nestfall
 ui_stats_panel_title,详细数值,Details
 ui_stats_life,生命,Life
 ui_stats_level,等级,Level
-ui_stats_xp,经验,XP
+ui_stats_gold_balance,金币余额,Gold Balance
+ui_stats_gold_earned_total,累计金币,Total Gold Earned
+ui_stats_level_progress,等级进度,Level Progress
 ui_stats_kills,击杀,Kills
 ui_stats_run_time,难度时间,Difficulty Time
 ui_stats_enemy_health_multiplier,新生成敌人生命倍率,New Enemy Health Multiplier
@@ -193,19 +195,20 @@ ui_run_complete,撤离成功,Extracted
 ui_run_complete_summary,击杀 {kills} · 时间 {time}s · 战利品已回收,Kills {kills} · Time {time}s · Loot secured
 ui_restart_hint,按暂停键重开,Press Pause to restart
 ui_hud_level,等级,Level
-ui_hud_xp,经验,XP
-ui_level_up_title,选择升级,Choose Upgrade
+ui_hud_gold_progress,金币余额 {balance} · 等级进度 {progress}/{required},Gold {balance} · Level Progress {progress}/{required}
+ui_reward_choice_title,选择奖励,Choose Reward
+ui_level_advanced,等级提升！Lv.{level},Level Up! Lv.{level}
 ui_upgrade_applied,获得：{name},Upgrade: {name}
-ui_growth_damage_small_name,强化弹芯,Hardened Core
-ui_growth_damage_small_desc,子弹伤害 +0.5,Bullet damage +0.5
-ui_growth_fire_rate_small_name,快速脉冲,Rapid Pulse
-ui_growth_fire_rate_small_desc,射速 +0.2,Fire rate +0.2
-ui_growth_pickup_range_small_name,磁化感应,Magnetic Reach
-ui_growth_pickup_range_small_desc,拾取范围 +12,Pickup range +12
-ui_growth_move_speed_small_name,轻盈步伐,Light Step
-ui_growth_move_speed_small_desc,移动速度 +18,Move speed +18
-ui_growth_max_hp_small_name,生命增幅,Vital Boost
-ui_growth_max_hp_small_desc,最大生命 +100,Max life +100
+ui_reward_damage_small_name,强化弹芯,Hardened Core
+ui_reward_damage_small_desc,子弹伤害 +0.5,Bullet damage +0.5
+ui_reward_fire_rate_small_name,快速脉冲,Rapid Pulse
+ui_reward_fire_rate_small_desc,射速 +0.2,Fire rate +0.2
+ui_reward_pickup_range_small_name,磁化感应,Magnetic Reach
+ui_reward_pickup_range_small_desc,拾取范围 +12,Pickup range +12
+ui_reward_move_speed_small_name,轻盈步伐,Light Step
+ui_reward_move_speed_small_desc,移动速度 +18,Move speed +18
+ui_reward_max_hp_small_name,生命增幅,Vital Boost
+ui_reward_max_hp_small_desc,最大生命 +100,Max life +100
 ui_credits_title,致谢,Credits
 ui_credits_section_staff,工作人员,Staff
 ui_credits_section_engine_libraries,引擎与外部库,Engine and External Libraries

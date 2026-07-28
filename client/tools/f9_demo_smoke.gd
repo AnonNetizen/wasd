@@ -60,7 +60,10 @@ func _run() -> void:
 	_expect(_snapshot_has_bulwark(saved_payload), "saved run payload should roundtrip enemy_bulwark")
 	_expect(_snapshot_has_fea_12_hazard(saved_payload), "saved run payload should roundtrip FEA-12 hazards")
 
-	_expect(not _standard_growth_enabled(run_loop), "standard mode should keep level-up growth disabled for short loot runs")
+	_expect(
+		_standard_reward_choice_inactive(),
+		"standard mode should not open a reward choice without a caller request"
+	)
 
 	await _kill_player_for_settlement(run_loop, player)
 	_expect(GameState.is_state(GameState.GAME_OVER), "F9 demo smoke death should enter GAME_OVER")
@@ -220,9 +223,11 @@ func _snapshot_has_fea_12_hazard(snapshot: Dictionary) -> bool:
 	return false
 
 
-func _standard_growth_enabled(run_loop: Node) -> bool:
-	var summary: Dictionary = run_loop.call("debug_summary")
-	return bool(summary.get("level_up_growth_enabled", false))
+func _standard_reward_choice_inactive() -> bool:
+	return (
+		GameState.is_state(GameState.PLAYING)
+		and _find_node_by_name(get_tree().root, "RewardChoicePanel") == null
+	)
 
 
 func _kill_player_for_settlement(run_loop: Node, player: Node) -> void:

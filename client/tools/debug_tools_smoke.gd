@@ -71,10 +71,13 @@ func _run_debug_smoke() -> void:
 		"spawn command should add active enemies"
 	)
 
-	var before_xp: int = int(run_loop.call("current_xp"))
-	var xp_result: Dictionary = console.call("execute_command_for_test", "xp 5")
-	_expect(bool(xp_result.get("ok", false)), "xp command should succeed")
-	_expect(int(run_loop.call("current_xp")) == before_xp + 5, "xp command should use runtime XP flow")
+	var before_gold: int = int(run_loop.call("gold_balance"))
+	var gold_result: Dictionary = console.call("execute_command_for_test", "gold 5")
+	_expect(bool(gold_result.get("ok", false)), "gold command should succeed")
+	_expect(
+		int(run_loop.call("gold_balance")) == before_gold + 5,
+		"gold command should use runtime gold flow"
+	)
 
 	var before_damage_defense: float = _player_defense_total(run_loop)
 	var damage_result: Dictionary = console.call("execute_command_for_test", "damage 1")

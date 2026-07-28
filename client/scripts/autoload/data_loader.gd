@@ -32,8 +32,8 @@ const ACTIVE_ITEMS_PATH: String = "res://data/active_items.json"
 const CONSUMABLES_PATH: String = "res://data/consumables.json"
 const SKILLS_PATH: String = "res://data/skills.json"
 const CREDITS_PATH: String = "res://data/credits.json"
-const GROWTH_CURVE_PATH: String = "res://data/growth.csv"
-const GROWTH_POOLS_PATH: String = "res://data/growth_pools.json"
+const LEVEL_PROGRESSION_PATH: String = "res://data/level_progression.json"
+const REWARD_CHOICE_POOLS_PATH: String = "res://data/reward_choice_pools.json"
 const DIFFICULTY_PROFILES_PATH: String = "res://data/difficulty_profiles.json"
 const GAME_MODES_PATH: String = "res://data/game_modes.json"
 const MAP_LAYOUTS_PATH: String = "res://data/map_layouts.json"
@@ -73,7 +73,6 @@ const POSITIVE_STATS: Array[String] = [
 	"fire_rate",
 	"bullet_speed",
 	"bullet_range",
-	"pickup_orb_speed",
 	"crit_mult",
 ]
 const RATIO_STATS: Array[String] = ["crit_chance", "lifesteal_ratio"]
@@ -204,8 +203,8 @@ func validate_project_data() -> bool:
 		hero_passive_ids
 	) and is_valid
 	var character_ids: Dictionary = _collect_character_ids()
-	is_valid = _validate_growth_csv() and is_valid
-	is_valid = _validate_growth_pools(locale_keys) and is_valid
+	is_valid = _validate_level_progression_json() and is_valid
+	is_valid = _validate_reward_choice_pools(locale_keys) and is_valid
 	is_valid = _validate_difficulty_profiles(locale_keys) and is_valid
 	var difficulty_profile_ids: Dictionary = _collect_difficulty_profile_ids()
 	is_valid = _validate_game_modes(locale_keys, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids, difficulty_profile_ids) and is_valid
@@ -353,16 +352,74 @@ func _validate_player_json() -> bool:
 
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_int(PLAYER_DATA_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	is_valid = _require_exact_int(
+		PLAYER_DATA_PATH,
+		"schema_version",
+		payload.get("schema_version"),
+		3
+	) and is_valid
 	var base_stats: Variant = payload.get("base_stats")
 	if not base_stats is Dictionary or (base_stats as Dictionary).is_empty():
 		return _schema_fail(PLAYER_DATA_PATH, "base_stats", "non-empty Dictionary")
 
 	var stats_dict: Dictionary = base_stats as Dictionary
+	if stats_dict.has("pickup_orb_speed"):
+		is_valid = _schema_fail(
+			PLAYER_DATA_PATH,
+			"base_stats.pickup_orb_speed",
+			"removed in schema_version 3"
+		) and is_valid
 	_last_schema_counts["player_stats"] = stats_dict.size()
 	for stat_key: Variant in stats_dict.keys():
 		var stat: String = String(stat_key)
 		is_valid = _validate_stat_value(PLAYER_DATA_PATH, "base_stats.%s" % stat, stat, stats_dict[stat_key]) and is_valid
+	var gold_drop: Variant = payload.get("gold_drop")
+	if not gold_drop is Dictionary:
+		is_valid = _schema_fail(
+			PLAYER_DATA_PATH,
+			"gold_drop",
+			"Dictionary"
+		) and is_valid
+	else:
+		var gold_drop_dict: Dictionary = gold_drop as Dictionary
+		is_valid = _require_number(
+			PLAYER_DATA_PATH,
+			"gold_drop.pickup_speed",
+			gold_drop_dict.get("pickup_speed"),
+			0.0,
+			null,
+			true
+		) and is_valid
+		var gold_pool_id: String = _require_registered(
+			PLAYER_DATA_PATH,
+			"gold_drop.pool_id",
+			gold_drop_dict.get("pool_id"),
+			"pool_ids"
+		)
+		is_valid = not gold_pool_id.is_empty() and is_valid
+		if gold_pool_id != "gold_orb":
+			is_valid = _schema_fail(
+				PLAYER_DATA_PATH,
+				"gold_drop.pool_id",
+				"gold_orb"
+			) and is_valid
+	var energy_drop: Variant = payload.get("energy_drop")
+	if not energy_drop is Dictionary:
+		is_valid = _schema_fail(
+			PLAYER_DATA_PATH,
+			"energy_drop",
+			"Dictionary"
+		) and is_valid
+	else:
+		var energy_drop_dict: Dictionary = energy_drop as Dictionary
+		is_valid = _require_number(
+			PLAYER_DATA_PATH,
+			"energy_drop.pickup_speed",
+			energy_drop_dict.get("pickup_speed"),
+			0.0,
+			null,
+			true
+		) and is_valid
 	return is_valid
 
 
@@ -1824,7 +1881,7 @@ func _validate_enemies_csv(locale_keys: Dictionary, enemy_ai_profile_ids: Dictio
 		is_valid = _require_csv_int(ENEMIES_PATH, "%s.contact_damage" % field, row.get("contact_damage"), 0) and is_valid
 		is_valid = _require_registered(ENEMIES_PATH, "%s.element_id" % field, row.get("element_id"), "elements") != "" and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.contact_interval" % field, row.get("contact_interval"), 0.0, null, true) and is_valid
-		is_valid = _require_csv_int(ENEMIES_PATH, "%s.exp_reward" % field, row.get("exp_reward"), 0) and is_valid
+		is_valid = _require_csv_int(ENEMIES_PATH, "%s.gold_reward" % field, row.get("gold_reward"), 0) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.hit_radius" % field, row.get("hit_radius"), 0.0, null, true) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.separation_radius" % field, row.get("separation_radius"), 0.0) and is_valid
 		if row.has("visual_color"):
@@ -2539,79 +2596,111 @@ func _validate_credit_entry(field: String, data: Variant, locale_keys: Dictionar
 	return is_valid
 
 
-func _validate_growth_csv() -> bool:
-	var rows: Array[Dictionary] = load_csv(GROWTH_CURVE_PATH)
-	var is_valid: bool = true
-	var previous_level: int = 0
-	var previous_xp: int = -1
-	_last_schema_counts["growth_levels"] = rows.size()
-	for index: int in range(rows.size()):
-		var field: String = "line %d" % (index + 2)
-		var row: Dictionary = rows[index]
-		var level: Variant = _parse_int(row.get("level"))
-		var total_xp: Variant = _parse_int(row.get("total_xp_required"))
-		is_valid = _require_int(GROWTH_CURVE_PATH, "%s.level" % field, level, 1) and is_valid
-		is_valid = _require_int(GROWTH_CURVE_PATH, "%s.total_xp_required" % field, total_xp, 0) and is_valid
-		is_valid = _require_int(GROWTH_CURVE_PATH, "%s.candidate_count" % field, _parse_int(row.get("candidate_count")), 1) and is_valid
-		is_valid = _require_number(GROWTH_CURVE_PATH, "%s.bonus_candidate_chance_per_luck" % field, _parse_float(row.get("bonus_candidate_chance_per_luck")), 0.0, 1.0) and is_valid
-		is_valid = _require_number(GROWTH_CURVE_PATH, "%s.bonus_candidate_chance_cap" % field, _parse_float(row.get("bonus_candidate_chance_cap")), 0.0, 1.0) and is_valid
-		if _is_int_like(level):
-			if _variant_to_int(level) <= previous_level:
-				is_valid = _schema_fail(GROWTH_CURVE_PATH, "%s.level" % field, "strictly increasing int") and is_valid
-			previous_level = _variant_to_int(level)
-		if _is_int_like(total_xp):
-			if _variant_to_int(total_xp) <= previous_xp:
-				is_valid = _schema_fail(GROWTH_CURVE_PATH, "%s.total_xp_required" % field, "strictly increasing int") and is_valid
-			previous_xp = _variant_to_int(total_xp)
+func _validate_level_progression_json() -> bool:
+	var data: Variant = load_json(LEVEL_PROGRESSION_PATH)
+	if not data is Dictionary:
+		return _schema_fail(
+			LEVEL_PROGRESSION_PATH,
+			"root",
+			"Dictionary"
+		)
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = _require_exact_int(
+		LEVEL_PROGRESSION_PATH,
+		"schema_version",
+		payload.get("schema_version"),
+		1
+	)
+	is_valid = _require_int(
+		LEVEL_PROGRESSION_PATH,
+		"first_level_cost",
+		payload.get("first_level_cost"),
+		1
+	) and is_valid
+	is_valid = _require_int(
+		LEVEL_PROGRESSION_PATH,
+		"multiplier_numerator",
+		payload.get("multiplier_numerator"),
+		1
+	) and is_valid
+	is_valid = _require_int(
+		LEVEL_PROGRESSION_PATH,
+		"multiplier_denominator",
+		payload.get("multiplier_denominator"),
+		1
+	) and is_valid
+	if (
+		_is_int_like(payload.get("multiplier_numerator"))
+		and _is_int_like(payload.get("multiplier_denominator"))
+		and int(payload.get("multiplier_numerator")) <= int(
+			payload.get("multiplier_denominator")
+		)
+	):
+		is_valid = _schema_fail(
+			LEVEL_PROGRESSION_PATH,
+			"multiplier_numerator",
+			"int greater than multiplier_denominator"
+		) and is_valid
+	_last_schema_counts["level_progression_profiles"] = 1
 	return is_valid
 
 
-func _validate_growth_pools(locale_keys: Dictionary) -> bool:
-	var data: Variant = load_json(GROWTH_POOLS_PATH)
+func _validate_reward_choice_pools(locale_keys: Dictionary) -> bool:
+	var data: Variant = load_json(REWARD_CHOICE_POOLS_PATH)
 	if not data is Dictionary:
-		return _schema_fail(GROWTH_POOLS_PATH, "root", "Dictionary")
+		return _schema_fail(REWARD_CHOICE_POOLS_PATH, "root", "Dictionary")
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_int(GROWTH_POOLS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
-	var pools: Array = _require_array(GROWTH_POOLS_PATH, "pools", payload.get("pools"))
+	is_valid = _require_exact_int(REWARD_CHOICE_POOLS_PATH, "schema_version", payload.get("schema_version"), 1) and is_valid
+	var pools: Array = _require_array(REWARD_CHOICE_POOLS_PATH, "pools", payload.get("pools"))
 	var pool_ids: Dictionary = {}
-	_last_schema_counts["growth_pools"] = pools.size()
+	_last_schema_counts["reward_choice_pools"] = pools.size()
 	for pool_index: int in range(pools.size()):
 		var pool_field: String = "pools[%d]" % pool_index
 		var pool: Variant = pools[pool_index]
 		if not pool is Dictionary:
-			is_valid = _schema_fail(GROWTH_POOLS_PATH, pool_field, "Dictionary") and is_valid
+			is_valid = _schema_fail(REWARD_CHOICE_POOLS_PATH, pool_field, "Dictionary") and is_valid
 			continue
 		var pool_dict: Dictionary = pool as Dictionary
-		is_valid = _require_non_empty_string(GROWTH_POOLS_PATH, "%s.id" % pool_field, pool_dict.get("id")) and is_valid
+		is_valid = _require_non_empty_string(REWARD_CHOICE_POOLS_PATH, "%s.id" % pool_field, pool_dict.get("id")) and is_valid
 		var pool_id: String = String(pool_dict.get("id", ""))
 		if not pool_id.is_empty():
 			if pool_ids.has(pool_id):
-				is_valid = _schema_fail(GROWTH_POOLS_PATH, "%s.id" % pool_field, "unique pool id") and is_valid
+				is_valid = _schema_fail(REWARD_CHOICE_POOLS_PATH, "%s.id" % pool_field, "unique pool id") and is_valid
 			pool_ids[pool_id] = true
-		var entries: Array = _require_array(GROWTH_POOLS_PATH, "%s.entries" % pool_field, pool_dict.get("entries"))
+		var entries: Array = _require_array(REWARD_CHOICE_POOLS_PATH, "%s.entries" % pool_field, pool_dict.get("entries"))
 		var entry_ids: Dictionary = {}
 		for entry_index: int in range(entries.size()):
 			var entry_field: String = "%s.entries[%d]" % [pool_field, entry_index]
 			var entry: Variant = entries[entry_index]
 			if not entry is Dictionary:
-				is_valid = _schema_fail(GROWTH_POOLS_PATH, entry_field, "Dictionary") and is_valid
+				is_valid = _schema_fail(REWARD_CHOICE_POOLS_PATH, entry_field, "Dictionary") and is_valid
 				continue
 			var entry_dict: Dictionary = entry as Dictionary
-			is_valid = _require_non_empty_string(GROWTH_POOLS_PATH, "%s.id" % entry_field, entry_dict.get("id")) and is_valid
-			is_valid = _require_locale_key(GROWTH_POOLS_PATH, "%s.name_key" % entry_field, entry_dict.get("name_key"), locale_keys) and is_valid
-			is_valid = _require_locale_key(GROWTH_POOLS_PATH, "%s.desc_key" % entry_field, entry_dict.get("desc_key"), locale_keys) and is_valid
+			is_valid = _require_non_empty_string(REWARD_CHOICE_POOLS_PATH, "%s.id" % entry_field, entry_dict.get("id")) and is_valid
+			is_valid = _require_locale_key(REWARD_CHOICE_POOLS_PATH, "%s.name_key" % entry_field, entry_dict.get("name_key"), locale_keys) and is_valid
+			is_valid = _require_locale_key(REWARD_CHOICE_POOLS_PATH, "%s.desc_key" % entry_field, entry_dict.get("desc_key"), locale_keys) and is_valid
 			var entry_id: String = String(entry_dict.get("id", ""))
 			if not entry_id.is_empty():
 				if entry_ids.has(entry_id):
-					is_valid = _schema_fail(GROWTH_POOLS_PATH, "%s.id" % entry_field, "unique entry id") and is_valid
+					is_valid = _schema_fail(REWARD_CHOICE_POOLS_PATH, "%s.id" % entry_field, "unique entry id") and is_valid
 				entry_ids[entry_id] = true
-			is_valid = _require_non_empty_string(GROWTH_POOLS_PATH, "%s.kind" % entry_field, entry_dict.get("kind")) and is_valid
-			is_valid = _require_int(GROWTH_POOLS_PATH, "%s.weight" % entry_field, entry_dict.get("weight"), 0) and is_valid
+			var kind: String = String(entry_dict.get("kind", ""))
+			is_valid = _require_non_empty_string(
+				REWARD_CHOICE_POOLS_PATH,
+				"%s.kind" % entry_field,
+				entry_dict.get("kind")
+			) and is_valid
+			if kind != "stat_modifier":
+				is_valid = _schema_fail(
+					REWARD_CHOICE_POOLS_PATH,
+					"%s.kind" % entry_field,
+					"stat_modifier"
+				) and is_valid
+			is_valid = _require_int(REWARD_CHOICE_POOLS_PATH, "%s.weight" % entry_field, entry_dict.get("weight"), 1) and is_valid
 			if entry_dict.has("min_level"):
-				is_valid = _require_int(GROWTH_POOLS_PATH, "%s.min_level" % entry_field, entry_dict.get("min_level"), 1) and is_valid
-			if entry_dict.has("modifiers"):
-				is_valid = _validate_modifiers(GROWTH_POOLS_PATH, "%s.modifiers" % entry_field, entry_dict.get("modifiers"), false) and is_valid
+				is_valid = _require_int(REWARD_CHOICE_POOLS_PATH, "%s.min_level" % entry_field, entry_dict.get("min_level"), 1) and is_valid
+			is_valid = _validate_modifiers(REWARD_CHOICE_POOLS_PATH, "%s.modifiers" % entry_field, entry_dict.get("modifiers"), false) and is_valid
 	return is_valid
 
 
@@ -2724,12 +2813,11 @@ func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, we
 		return _schema_fail(GAME_MODES_PATH, "root", "Dictionary")
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_exact_int(GAME_MODES_PATH, "schema_version", payload.get("schema_version"), 2) and is_valid
+	is_valid = _require_exact_int(GAME_MODES_PATH, "schema_version", payload.get("schema_version"), 3) and is_valid
 	var modes: Array = _require_array(GAME_MODES_PATH, "modes", payload.get("modes"))
 	if modes.is_empty():
 		is_valid = _schema_fail(GAME_MODES_PATH, "modes", "non-empty Array") and is_valid
 	var seen_modes: Dictionary = {}
-	var growth_pool_ids: Dictionary = _collect_growth_pool_ids()
 	_last_schema_counts["game_modes"] = modes.size()
 	for mode_index: int in range(modes.size()):
 		var mode_field: String = "modes[%d]" % mode_index
@@ -2765,7 +2853,7 @@ func _validate_game_modes(locale_keys: Dictionary, character_ids: Dictionary, we
 		var team_ids: Dictionary = team_result.get("ids", {}) as Dictionary
 		is_valid = bool(team_result.get("is_valid", false)) and is_valid
 		is_valid = _validate_mode_participants(mode_field, mode_dict.get("participants"), team_ids) and is_valid
-		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids) and is_valid
+		is_valid = _validate_mode_resource_pools(mode_field, mode_dict.get("resource_pools"), character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids) and is_valid
 		if mode_dict.has("blocklists"):
 			is_valid = _validate_mode_blocklists("%s.blocklists" % mode_field, mode_dict.get("blocklists")) and is_valid
 		if mode_dict.has("overrides"):
@@ -3228,7 +3316,7 @@ func _validate_mode_participants(mode_field: String, data: Variant, team_ids: Di
 	return is_valid
 
 
-func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_pool_ids: Dictionary, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary) -> bool:
+func _validate_mode_resource_pools(mode_field: String, data: Variant, character_ids: Dictionary, weapon_ids: Dictionary, enemy_ids: Dictionary, hazard_ids: Dictionary, relic_ids: Dictionary, active_item_ids: Dictionary, consumable_ids: Dictionary, skill_ids: Dictionary) -> bool:
 	if not data is Dictionary:
 		return _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "Dictionary")
 	var payload: Dictionary = data as Dictionary
@@ -3250,8 +3338,12 @@ func _validate_mode_resource_pools(mode_field: String, data: Variant, growth_poo
 	if payload.has("consumables"):
 		is_valid = _validate_weighted_consumable_entries("%s.resource_pools.consumables" % mode_field, payload.get("consumables"), consumable_ids) and is_valid
 	if payload.has("growth_pools"):
-		is_valid = _validate_weighted_growth_pool_entries("%s.resource_pools.growth_pools" % mode_field, payload.get("growth_pools"), growth_pool_ids) and is_valid
-	if not payload.has("characters") and not payload.has("weapons") and not payload.has("enemies") and not payload.has("hazards") and not payload.has("relics") and not payload.has("active_items") and not payload.has("skills") and not payload.has("consumables") and not payload.has("growth_pools"):
+		is_valid = _schema_fail(
+			GAME_MODES_PATH,
+			"%s.resource_pools.growth_pools" % mode_field,
+			"removed in schema_version 3"
+		) and is_valid
+	if not payload.has("characters") and not payload.has("weapons") and not payload.has("enemies") and not payload.has("hazards") and not payload.has("relics") and not payload.has("active_items") and not payload.has("skills") and not payload.has("consumables"):
 		is_valid = _schema_fail(GAME_MODES_PATH, "%s.resource_pools" % mode_field, "at least one supported pool") and is_valid
 	return is_valid
 
@@ -3427,26 +3519,6 @@ func _validate_weighted_contract_entries(field: String, data: Variant, contract_
 			continue
 		var entry_dict: Dictionary = entry as Dictionary
 		is_valid = _require_registered(GAME_MODES_PATH, "%s.id" % item_field, entry_dict.get("id"), contract_key) != "" and is_valid
-		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
-	return is_valid
-
-
-func _validate_weighted_growth_pool_entries(field: String, data: Variant, growth_pool_ids: Dictionary) -> bool:
-	var entries: Array = _require_array(GAME_MODES_PATH, field, data)
-	var is_valid: bool = true
-	if entries.is_empty():
-		is_valid = _schema_fail(GAME_MODES_PATH, field, "non-empty Array") and is_valid
-	for index: int in range(entries.size()):
-		var item_field: String = "%s[%d]" % [field, index]
-		var entry: Variant = entries[index]
-		if not entry is Dictionary:
-			is_valid = _schema_fail(GAME_MODES_PATH, item_field, "Dictionary") and is_valid
-			continue
-		var entry_dict: Dictionary = entry as Dictionary
-		is_valid = _require_non_empty_string(GAME_MODES_PATH, "%s.id" % item_field, entry_dict.get("id")) and is_valid
-		var pool_id: String = String(entry_dict.get("id", ""))
-		if not pool_id.is_empty() and not growth_pool_ids.has(pool_id):
-			is_valid = _schema_fail(GAME_MODES_PATH, "%s.id" % item_field, "pool id defined in growth_pools.json") and is_valid
 		is_valid = _require_int(GAME_MODES_PATH, "%s.weight" % item_field, entry_dict.get("weight"), 0) and is_valid
 	return is_valid
 
@@ -3728,20 +3800,6 @@ func _collect_gear_mod_rarity_max_ranks() -> Dictionary:
 		var max_rank: int = _variant_to_int(mod_dict.get("max_rank"))
 		ranks[rarity] = maxi(int(ranks.get(rarity, 0)), max_rank)
 	return ranks
-
-
-func _collect_growth_pool_ids() -> Dictionary:
-	var ids: Dictionary = {}
-	var data: Variant = load_json(GROWTH_POOLS_PATH)
-	if not data is Dictionary:
-		return ids
-	var pools: Variant = (data as Dictionary).get("pools")
-	if not pools is Array:
-		return ids
-	for pool: Variant in pools:
-		if pool is Dictionary and (pool as Dictionary).get("id") is String:
-			ids[String((pool as Dictionary).get("id"))] = true
-	return ids
 
 
 func _validate_content_tags(resource_path: String, field: String, value: Variant) -> bool:

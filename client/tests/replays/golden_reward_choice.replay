@@ -1,13 +1,13 @@
 {
-	"created_at": "golden:golden_level_up_choice",
-	"data_fingerprint": "b5d16084933735e77d09bbe4cb21ecb0d60484092d75878a87c9008b8d963cdf",
+	"created_at": "golden:golden_reward_choice",
+	"data_fingerprint": "5038571d96e1929c628f51aa79cf35743549442edbb808f24cfaaa4e028fbbf6",
 	"file_schema_version": 3,
 	"game_version": "v1.7",
 	"recording": {
 		"context": {
 			"capture_frames": 180,
 			"main_hero_id": "character_primary_b",
-			"scenario": "golden_level_up_choice",
+			"scenario": "golden_reward_choice",
 			"source": "golden_replay_capture",
 			"sub_hero_id": "character_primary_a"
 		},
@@ -22,20 +22,20 @@
 				"time": 0.0
 			},
 			{
-				"event": "level_up",
+				"event": "reward_choice",
 				"payload": {
 					"candidate_count": 3,
 					"choices": [
-						"growth_damage_small",
-						"growth_fire_rate_small",
-						"growth_pickup_range_small"
+						"reward_damage_small",
+						"reward_fire_rate_small",
+						"reward_pickup_range_small"
 					],
-					"level": 2,
-					"luck": 0.0,
-					"selected": "growth_damage_small"
+					"pool_id": "default_reward_choice",
+					"selected": "reward_damage_small",
+					"trigger_id": "debug_command"
 				},
 				"tick": 29,
-				"time": 0.498925333333333
+				"time": 0.497268111111111
 			}
 		],
 		"dropped_decision_events": 0,
@@ -138,7 +138,7 @@
 		"reason": "game_over",
 		"run_seed": 20260619,
 		"run_summary": {
-			"active_pickups": 0,
+			"active_gold_orbs": 0,
 			"bullets_present": false,
 			"capture_frames": 180,
 			"difficulty_level": 1,
@@ -149,36 +149,39 @@
 			"frame_sample_interval": 30,
 			"frame_samples": [
 				{
-					"active_pickups": 0,
+					"active_gold_orbs": 0,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
 					"frame": 30,
+					"gold_balance": 0,
+					"gold_earned_total": 0,
+					"gold_orbs_present": false,
 					"kills": 0,
-					"level": 2,
+					"level": 1,
 					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
-					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
 					},
 					"player_life": 600.0,
 					"player_moved_right": false,
-					"state": "level_up",
+					"state": "reward_choice",
 					"ui_stack": 1,
-					"weapon_cooldown_ready": true,
-					"xp": 20
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_pickups": 0,
+					"active_gold_orbs": 0,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
 					"frame": 60,
+					"gold_balance": 0,
+					"gold_earned_total": 0,
+					"gold_orbs_present": false,
 					"kills": 0,
-					"level": 2,
+					"level": 1,
 					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
-					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -187,19 +190,20 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"xp": 20
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_pickups": 0,
+					"active_gold_orbs": 0,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
 					"frame": 90,
+					"gold_balance": 0,
+					"gold_earned_total": 0,
+					"gold_orbs_present": false,
 					"kills": 0,
-					"level": 2,
+					"level": 1,
 					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
-					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -208,19 +212,20 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"xp": 20
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_pickups": 0,
+					"active_gold_orbs": 0,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
 					"frame": 120,
+					"gold_balance": 0,
+					"gold_earned_total": 0,
+					"gold_orbs_present": false,
 					"kills": 0,
-					"level": 2,
+					"level": 1,
 					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
-					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -229,19 +234,20 @@
 					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"xp": 20
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_pickups": 0,
+					"active_gold_orbs": 0,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
 					"frame": 150,
+					"gold_balance": 0,
+					"gold_earned_total": 0,
+					"gold_orbs_present": false,
 					"kills": 0,
-					"level": 2,
+					"level": 1,
 					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
-					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -250,19 +256,20 @@
 					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"xp": 20
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_pickups": 0,
+					"active_gold_orbs": 0,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
 					"frame": 180,
+					"gold_balance": 0,
+					"gold_earned_total": 0,
+					"gold_orbs_present": false,
 					"kills": 0,
-					"level": 2,
+					"level": 1,
 					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
-					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -271,48 +278,50 @@
 					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"xp": 20
+					"weapon_cooldown_ready": true
 				}
 			],
+			"gold_balance": 0,
+			"gold_earned_total": 0,
 			"kills": 0,
-			"level": 2,
-			"level_up_choice_applied": true,
-			"level_up_decisions": [
-				{
-					"candidate_count": 3,
-					"choices": [
-						"growth_damage_small",
-						"growth_fire_rate_small",
-						"growth_pickup_range_small"
-					],
-					"level": 2,
-					"luck": 0.0,
-					"selected": "growth_damage_small"
-				}
-			],
+			"level": 1,
 			"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
 			"player_aim_direction": {
 				"x": 1.0,
 				"y": 0.0
 			},
 			"player_moved_right": true,
-			"scenario": "golden_level_up_choice",
+			"reward_choice_applied": true,
+			"reward_choice_decisions": [
+				{
+					"candidate_count": 3,
+					"choices": [
+						"reward_damage_small",
+						"reward_fire_rate_small",
+						"reward_pickup_range_small"
+					],
+					"pool_id": "default_reward_choice",
+					"selected": "reward_damage_small",
+					"trigger_id": "debug_command"
+				}
+			],
+			"scenario": "golden_reward_choice",
 			"schema_version": 1,
 			"state": "playing",
-			"ui_stack": 0,
-			"xp": 20
+			"ui_stack": 0
 		},
 		"runtime_events": [
 			{
-				"amount": 20,
-				"event": "spawn_level_up_pickup",
+				"candidate_count": 3,
+				"event": "request_reward_choice",
 				"frame": 15,
+				"pool_id": "default_reward_choice",
 				"tick": 15,
-				"time": 0.25
+				"time": 0.25,
+				"trigger_id": "debug_command"
 			},
 			{
-				"event": "choose_level_up_index",
+				"event": "choose_reward_index",
 				"frame": 45,
 				"index": 0,
 				"tick": 45,
@@ -323,7 +332,7 @@
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "6314a7d48fa4b048951c4a69fd17ddebafcae4631fb9659d63b36c55fa11c9be",
+	"recording_hash": "809e383908bdb28c628c308ad8d53d5c7d85858e8cd238df5fe054336acb5ecf",
 	"summary": {
 		"decision_events": 2,
 		"dropped_decision_events": 0,
@@ -334,7 +343,7 @@
 		"reason": "game_over",
 		"run_seed": 20260619,
 		"run_summary": {
-			"active_pickups": 0,
+			"active_gold_orbs": 0,
 			"bullets_present": false,
 			"capture_frames": 180,
 			"difficulty_level": 1,
@@ -345,36 +354,39 @@
 			"frame_sample_interval": 30,
 			"frame_samples": [
 				{
-					"active_pickups": 0,
+					"active_gold_orbs": 0,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
 					"frame": 30,
+					"gold_balance": 0,
+					"gold_earned_total": 0,
+					"gold_orbs_present": false,
 					"kills": 0,
-					"level": 2,
+					"level": 1,
 					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
-					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
 					},
 					"player_life": 600.0,
 					"player_moved_right": false,
-					"state": "level_up",
+					"state": "reward_choice",
 					"ui_stack": 1,
-					"weapon_cooldown_ready": true,
-					"xp": 20
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_pickups": 0,
+					"active_gold_orbs": 0,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
 					"frame": 60,
+					"gold_balance": 0,
+					"gold_earned_total": 0,
+					"gold_orbs_present": false,
 					"kills": 0,
-					"level": 2,
+					"level": 1,
 					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
-					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -383,19 +395,20 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"xp": 20
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_pickups": 0,
+					"active_gold_orbs": 0,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
 					"frame": 90,
+					"gold_balance": 0,
+					"gold_earned_total": 0,
+					"gold_orbs_present": false,
 					"kills": 0,
-					"level": 2,
+					"level": 1,
 					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
-					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -404,19 +417,20 @@
 					"player_moved_right": false,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"xp": 20
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_pickups": 0,
+					"active_gold_orbs": 0,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
 					"frame": 120,
+					"gold_balance": 0,
+					"gold_earned_total": 0,
+					"gold_orbs_present": false,
 					"kills": 0,
-					"level": 2,
+					"level": 1,
 					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
-					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -425,19 +439,20 @@
 					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"xp": 20
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_pickups": 0,
+					"active_gold_orbs": 0,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
 					"frame": 150,
+					"gold_balance": 0,
+					"gold_earned_total": 0,
+					"gold_orbs_present": false,
 					"kills": 0,
-					"level": 2,
+					"level": 1,
 					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
-					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -446,19 +461,20 @@
 					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"xp": 20
+					"weapon_cooldown_ready": true
 				},
 				{
-					"active_pickups": 0,
+					"active_gold_orbs": 0,
 					"bullets_present": false,
 					"enemies_present": false,
 					"enemy_types": [],
 					"frame": 180,
+					"gold_balance": 0,
+					"gold_earned_total": 0,
+					"gold_orbs_present": false,
 					"kills": 0,
-					"level": 2,
+					"level": 1,
 					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
-					"pickups_present": false,
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -467,37 +483,37 @@
 					"player_moved_right": true,
 					"state": "playing",
 					"ui_stack": 0,
-					"weapon_cooldown_ready": true,
-					"xp": 20
+					"weapon_cooldown_ready": true
 				}
 			],
+			"gold_balance": 0,
+			"gold_earned_total": 0,
 			"kills": 0,
-			"level": 2,
-			"level_up_choice_applied": true,
-			"level_up_decisions": [
-				{
-					"candidate_count": 3,
-					"choices": [
-						"growth_damage_small",
-						"growth_fire_rate_small",
-						"growth_pickup_range_small"
-					],
-					"level": 2,
-					"luck": 0.0,
-					"selected": "growth_damage_small"
-				}
-			],
+			"level": 1,
 			"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
 			"player_aim_direction": {
 				"x": 1.0,
 				"y": 0.0
 			},
 			"player_moved_right": true,
-			"scenario": "golden_level_up_choice",
+			"reward_choice_applied": true,
+			"reward_choice_decisions": [
+				{
+					"candidate_count": 3,
+					"choices": [
+						"reward_damage_small",
+						"reward_fire_rate_small",
+						"reward_pickup_range_small"
+					],
+					"pool_id": "default_reward_choice",
+					"selected": "reward_damage_small",
+					"trigger_id": "debug_command"
+				}
+			],
+			"scenario": "golden_reward_choice",
 			"schema_version": 1,
 			"state": "playing",
-			"ui_stack": 0,
-			"xp": 20
+			"ui_stack": 0
 		},
 		"schema_version": 3,
 		"started_tick": 7,

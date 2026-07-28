@@ -297,7 +297,7 @@ func _runtime_enemy_data(enemy_row: Dictionary) -> Dictionary:
 		"move_speed": String(enemy_row.get("move_speed", "0")).to_float(),
 		"contact_damage": String(enemy_row.get("contact_damage", "0")).to_int(),
 		"element_id": String(enemy_row.get("element_id", "")),
-		"exp_reward": String(enemy_row.get("exp_reward", "0")).to_int(),
+		"gold_reward": String(enemy_row.get("gold_reward", "0")).to_int(),
 		"hit_radius": String(enemy_row.get("hit_radius", "1")).to_float(),
 		"separation_radius": String(enemy_row.get("separation_radius", "0")).to_float(),
 	}

@@ -40,10 +40,11 @@ func _run() -> void:
 	_expect(Replay.record_input_value(ACTIONS.AIM, Vector2.RIGHT, "player_0"), "Replay should record Vector2 aim")
 	_expect(Replay.record_input_value(ACTIONS.FIRE, true, "player_0"), "Replay should record bool action press")
 	_expect(Replay.record_input_value(ACTIONS.FIRE, false, "player_0"), "Replay should record bool action release")
-	_expect(Replay.record_decision(ANALYTICS_EVENTS.LEVEL_UP, {
-		"level": 2,
-		"choices": ["growth_damage_small", "growth_fire_rate_small", "growth_pickup_range_small"],
-		"selected": "growth_damage_small",
+	_expect(Replay.record_decision(ANALYTICS_EVENTS.REWARD_CHOICE, {
+		"trigger_id": "debug_command",
+		"pool_id": "default_reward_choice",
+		"choices": ["reward_damage_small", "reward_fire_rate_small", "reward_pickup_range_small"],
+		"selected": "reward_damage_small",
 	}), "Replay should record registered decision events")
 
 	GameState.change_state(GameState.GAME_OVER, {"source": "replay_smoke"})

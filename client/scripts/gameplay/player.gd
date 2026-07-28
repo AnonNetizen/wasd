@@ -57,7 +57,6 @@ var _owned_tag_counts: Dictionary = {}
 var _overshield: float = 0.0
 var _overshield_decay_rate: float = 0.05
 var _overshield_snap_threshold: float = 1.0
-var _pickup_orb_speed: float = 0.0
 var _pickup_range: float = 0.0
 var _separation_radius: float = 0.0
 var _shield_gate_max_duration: float = 0.5
@@ -273,10 +272,6 @@ func dash_cooldown_remaining() -> float:
 
 func is_dashing() -> bool:
 	return _dash_remaining > 0.0
-
-
-func pickup_orb_speed() -> float:
-	return _pickup_orb_speed
 
 
 func pickup_range() -> float:
@@ -775,7 +770,6 @@ func _rebuild_stats(reset_life: bool) -> void:
 	_health_regen = _stat_value(STATS.HEALTH_REGEN, 0.0)
 	_separation_radius = _stat_value(STATS.PLAYER_SEPARATION_RADIUS, 0.0)
 	_pickup_range = _stat_value(STATS.PICKUP_RANGE, 0.0)
-	_pickup_orb_speed = _stat_value(STATS.PICKUP_ORB_SPEED, 0.0)
 	_luck = _stat_value(STATS.LUCK, 0.0)
 	if reset_life:
 		_life_points = _max_life

@@ -110,6 +110,8 @@ func _expect_migration_chain() -> void:
 	var old_envelope: Dictionary = SaveManager.load_envelope(SMOKE_SLOT, RUN_KIND)
 	old_envelope["version"] = 1
 	var legacy_payload: Dictionary = old_payload.duplicate(true)
+	legacy_payload["level"] = 6
+	legacy_payload["xp"] = 60
 	legacy_payload.erase("map")
 	legacy_payload.erase("hazards")
 	legacy_payload.erase("pickups")
@@ -124,15 +126,15 @@ func _expect_migration_chain() -> void:
 
 	var migrated_payload: Dictionary = migrated_envelope.get("payload", {}) as Dictionary
 	_expect(int(migrated_envelope.get("version", 0)) == SaveManager.current_version(RUN_KIND), "migrated envelope should report target version")
-	_expect(migrated_payload.get("pickups", null) is Array, "run v1->v2 migration should normalize missing pickup snapshots")
+	_expect(not migrated_payload.has("pickups"), "run v6->v7 migration should remove legacy pickup snapshots")
 	_expect(migrated_payload.get("map", null) is Dictionary, "run v1->v2 migration should normalize missing map snapshot")
 	_expect(migrated_payload.get("hazards", null) is Array, "run v1->v2 migration should normalize missing hazard snapshots")
 	_expect(migrated_payload.get("room", null) is Dictionary, "run v2->v3 migration should normalize missing room snapshot")
 	_expect(bool(migrated_payload.get("legacy_run_incompatible", false)), "run v3->v4 migration should explicitly mark legacy run reset")
 	_expect(migrated_payload.get("module_world", null) is Dictionary, "run v3->v4 migration should add an empty module-world snapshot")
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 6,
-		"run v5->v6 migration should advance the gameplay snapshot schema"
+		int(migrated_payload.get("schema_version", 0)) == 7,
+		"run v6->v7 migration should advance the gameplay snapshot schema"
 	)
 	_expect(
 		migrated_payload.get("hero_composition", null) is Dictionary,
@@ -141,6 +143,22 @@ func _expect_migration_chain() -> void:
 	_expect(
 		migrated_payload.get("difficulty_progression", null) is Dictionary,
 		"run v5->v6 migration should add an empty difficulty marker"
+	)
+	_expect(
+		migrated_payload.get("gold_progression", null) is Dictionary,
+		"run v6->v7 migration should add an empty gold marker"
+	)
+	_expect(
+		migrated_payload.get("reward_choice", null) is Dictionary,
+		"run v6->v7 migration should add an empty reward-choice marker"
+	)
+	_expect(
+		migrated_payload.get("gold_orbs", null) is Array,
+		"run v6->v7 migration should add an empty gold-orb snapshot list"
+	)
+	_expect(
+		not migrated_payload.has("xp") and not migrated_payload.has("level"),
+		"run v6->v7 migration should discard legacy XP-derived state"
 	)
 	var parent_boot: Node = get_parent()
 	_expect(
@@ -167,15 +185,18 @@ func _expect_migration_chain() -> void:
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 3, 4]), "run migration should emit save_migrated for run 3->4")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 4, 5]), "run migration should emit save_migrated for run 4->5")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 5, 6]), "run migration should emit save_migrated for run 5->6")
+	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 6, 7]), "run migration should emit save_migrated for run 6->7")
 
 
 func _run_payload(marker: String, level: int) -> Dictionary:
 	return {
-		"schema_version": 6,
+		"schema_version": 7,
 		"mode": "mode_standard_survival",
 		"character": "character_default",
-		"level": level,
-		"xp": level * 10,
+		"gold_progression": {
+			"gold_balance": level * 10,
+			"gold_earned_total": level * 10,
+		},
 		"kills": level - 1,
 		"game_clock": {
 			"elapsed": float(level),
@@ -249,7 +270,8 @@ func _run_payload(marker: String, level: int) -> Dictionary:
 				},
 			},
 		],
-		"pickups": [],
+		"gold_orbs": [],
+		"reward_choice": {},
 		"ui_restore": {
 			"state": "playing",
 		},

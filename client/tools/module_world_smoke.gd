@@ -724,7 +724,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 			"difficulty progression should not change enemy movement speed"
 		)
 	var bullet_position := Vector2(1120.0, 700.0)
-	var pickup_position := Vector2(1280.0, 700.0)
+	var gold_orb_position := Vector2(1280.0, 700.0)
 	run_loop.call("_restore_bullet_snapshots", [{
 		"position": _vector_to_dict(bullet_position),
 		"damage": 0.0,
@@ -740,19 +740,19 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		"travelled": 0.0,
 		"velocity": _vector_to_dict(Vector2.ZERO),
 	}])
-	run_loop.call("_restore_pickup_snapshots", [{
-		"position": _vector_to_dict(pickup_position),
+	run_loop.call("_restore_gold_orb_snapshots", [{
+		"position": _vector_to_dict(gold_orb_position),
 		"amount": 7,
 		"pickup_speed": 0.0,
 	}])
 	await _wait_frames(BOOT_FRAMES)
 	_expect(_has_active_entity_at("active_bullets", bullet_position), "test projectile should be active in the adjacent module")
-	_expect(_has_active_entity_at("active_pickups", pickup_position), "test pickup should be active in the adjacent module")
+	_expect(_has_active_entity_at("active_gold_orbs", gold_orb_position), "test gold orb should be active in the adjacent module")
 	# Move far enough that slot 5,4 leaves the active 3x3 neighborhood.
 	run_loop.call("debug_set_player_position", Vector2(-1760.0, 0.0))
 	await _wait_frames(BOOT_FRAMES)
 	_expect(not _has_active_entity_at("active_bullets", bullet_position), "deactivated module should release its projectile")
-	_expect(not _has_active_entity_at("active_pickups", pickup_position), "deactivated module should release its pickup")
+	_expect(not _has_active_entity_at("active_gold_orbs", gold_orb_position), "deactivated module should release its gold orb")
 	var stored_state: Dictionary = manager.call("slot_state", Vector2i(5, 4)) if manager != null else {}
 	_expect((stored_state.get("bullet_snapshots", []) as Array).size() == 1, "deactivated slot should retain one projectile snapshot")
 	var stored_bullets: Array = stored_state.get("bullet_snapshots", []) as Array
@@ -760,7 +760,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		stored_bullets.size() == 1 and bool((stored_bullets[0] as Dictionary).get("wall_pierce_enabled", false)),
 		"deactivated slot should preserve the projectile wall-pierce snapshot"
 	)
-	_expect((stored_state.get("pickup_snapshots", []) as Array).size() == 1, "deactivated slot should retain one pickup snapshot")
+	_expect((stored_state.get("gold_orb_snapshots", []) as Array).size() == 1, "deactivated slot should retain one gold-orb snapshot")
 	run_loop.call("debug_set_player_position", Vector2(960.0, 0.0))
 	await _wait_frames(BOOT_FRAMES)
 	_expect(
@@ -788,7 +788,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 		and bool((restored_bullet.call("snapshot") as Dictionary).get("wall_pierce_enabled", false)),
 		"returning should restore the projectile wall-pierce snapshot"
 	)
-	_expect(_has_active_entity_at("active_pickups", pickup_position), "returning should restore the slot pickup")
+	_expect(_has_active_entity_at("active_gold_orbs", gold_orb_position), "returning should restore the slot gold orb")
 	var clear_result: Dictionary = run_loop.call("debug_clear_enemies")
 	_expect(
 		int(clear_result.get("count", 0)) >= first_visit_enemy_count,
@@ -865,16 +865,16 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 	await _wait_frames(2)
 	_expect(
 		GameState.is_state(GameState.PAUSED),
-		"Run v6 difficulty roundtrip fixture should save from a frozen UI state"
+		"Run v7 difficulty roundtrip fixture should save from a frozen UI state"
 	)
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	var saved_difficulty: Dictionary = run_loop.call(
 		"debug_difficulty_snapshot"
 	) as Dictionary
-	_expect(int(snapshot.get("schema_version", 0)) == 6, "module run snapshot should use schema v6")
-	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v6 should save")
+	_expect(int(snapshot.get("schema_version", 0)) == 7, "module run snapshot should use schema v7")
+	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v7 should save")
 	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, SAVE_KINDS.RUN)
-	_expect(not loaded.is_empty(), "module run v6 should load")
+	_expect(not loaded.is_empty(), "module run v7 should load")
 	if loaded.is_empty():
 		return
 	var saved_hash: String = String((snapshot.get("module_world", {}) as Dictionary).get("map_hash", ""))
@@ -906,13 +906,13 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 			float(restored_difficulty.get("damage_multiplier", 0.0)),
 			float(saved_difficulty.get("damage_multiplier", -1.0))
 		),
-		"Run v6 restore should preserve exact difficulty time, level, and multipliers"
+		"Run v7 restore should preserve exact difficulty time, level, and multipliers"
 	)
 	restored.call("_on_pause_resume_requested")
-	await _wait_frames(2)
+	await _wait_frames(30)
 	_expect(
 		GameState.is_state(GameState.PLAYING),
-		"restored paused Run v6 fixture should resume after difficulty comparison"
+		"restored paused Run v7 fixture should resume after difficulty comparison"
 	)
 	var restored_world: Dictionary = restored_summary.get("module_world", {}) as Dictionary
 	_expect(String(restored_world.get("map_hash", "")) == saved_hash, "restore should validate and preserve map hash")

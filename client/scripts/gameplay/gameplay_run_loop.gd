@@ -11,6 +11,11 @@ signal run_prepared()
 signal run_prepare_failed(reason: String, restoring: bool)
 signal debug_test_arena_exit_requested()
 signal debug_test_arena_setup_requested()
+signal reward_choice_resolved(
+	trigger_id: String,
+	pool_id: String,
+	entry_id: String
+)
 
 enum RunPurpose {
 	STANDARD,
@@ -37,15 +42,23 @@ const HAZARD_SCENE := preload("res://scenes/gameplay/hazard.tscn")
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const BULLET_SCENE := preload("res://scenes/gameplay/bullet.tscn")
 const GAME_OVER_PANEL_SCENE := preload("res://scenes/ui/game_over_panel.tscn")
+const GOLD_TRANSACTION_REASONS := preload(
+	"res://scripts/contracts/gold_transaction_reasons.gd"
+)
 const HIT_SPARK_SCENE := preload("res://scenes/gameplay/hit_spark.tscn")
 const INTEREST_POINT_CACHE_SCENE := preload("res://scenes/gameplay/interest_point_cache.tscn")
 const INTEREST_POINT_TARGET_SCENE := preload("res://scenes/gameplay/interest_point_target.tscn")
-const LEVEL_UP_PANEL_SCENE := preload("res://scenes/ui/level_up_panel.tscn")
+const REWARD_CHOICE_PANEL_SCENE := preload(
+	"res://scenes/ui/reward_choice_panel.tscn"
+)
 const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause_menu.tscn")
-const PICKUP_ORB_SCENE := preload("res://scenes/gameplay/pickup_orb.tscn")
+const GOLD_ORB_SCENE := preload("res://scenes/gameplay/gold_orb.tscn")
 const ENERGY_ORB_SCENE := preload("res://scenes/gameplay/energy_orb.tscn")
 const PROJECTILE_BARRIER_SCENE := preload(
 	"res://scenes/gameplay/projectile_barrier.tscn"
+)
+const REWARD_CHOICE_TRIGGERS := preload(
+	"res://scripts/contracts/reward_choice_triggers.gd"
 )
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SETTINGS_PANEL_SCENE := preload("res://scenes/ui/settings_panel.tscn")
@@ -66,21 +79,21 @@ const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
 const ENERGY_ORB_POOL_SIZE: int = 64
 const PROJECTILE_BARRIER_POOL_SIZE: int = 4
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 6
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 7
 const ACTIVE_POOL_GROUPS: Array[String] = [
 	"active_hazards",
 	"active_enemies",
 	"active_bullets",
-	"active_pickups",
+	"active_gold_orbs",
 	"active_energy_orbs",
 	"active_deployables",
 ]
-const UI_RESTORE_LEVEL_UP: String = "level_up"
+const UI_RESTORE_REWARD_CHOICE: String = "reward_choice"
 const UI_RESTORE_PAUSED: String = "paused"
 const UI_RESTORE_PLAYING: String = "playing"
 const UI_RESTORE_UNDERLYING_STATE: String = "underlying_state"
 const INPUT_PARTICIPANT_ID: String = "player_0"
-const DEFAULT_DEBUG_GROWTH_POOL: String = "default_level_up"
+const DEFAULT_DEBUG_REWARD_POOL: String = "default_reward_choice"
 const LOADING_BATCH_SIZE: int = 8
 const NAVIGATION_FLOW_OBSTACLE_BUFFER_CELLS: int = 2
 const PRESENTATION_ENEMY_DEFAULT: String = "presentation_enemy_default"
@@ -107,19 +120,17 @@ var _active_world: Node2D = null
 var _actor_scene_cache: Dictionary = {}
 var _camera_controller: Node2D = null
 var _character_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
-var _current_level: int = 1
-var _current_xp: int = 0
 var _difficulty_progression: DifficultyProgression = null
 var _enemy_rows: Dictionary = {}
 var _energy_drop_config: Dictionary = {}
+var _gold_drop_config: Dictionary = {}
 var _extraction_active: bool = false
 var _extraction_hold_time: float = 0.0
 var _extraction_position: Vector2 = Vector2.ZERO
 var _extraction_progress: float = 0.0
 var _extraction_radius: float = 0.0
 var _extraction_source_point_id: String = ""
-var _growth_curve: Array[Dictionary] = []
-var _growth_entries: Array[Dictionary] = []
+var _gold_progression: GoldProgression = null
 var _gameplay_feedback: GameplayFeedbackController = null
 var _game_over_panel: CanvasLayer = null
 var _hazard_rows: Dictionary = {}
@@ -130,9 +141,8 @@ var _interest_points: Dictionary = {}
 var _interest_point_targets: Dictionary = {}
 var _kills: int = 0
 var _main_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
-var _level_panel: CanvasLayer = null
+var _reward_choice_panel: CanvasLayer = null
 var _pending_loot: Dictionary = {}
-var _pending_level_up_choices: Array[Dictionary] = []
 var _pending_restore_snapshot: Dictionary = {}
 var _pause_menu: CanvasLayer = null
 var _player: CharacterBody2D = null
@@ -159,6 +169,7 @@ var _weapon_system: Node = null
 var _vfx_host: VfxHost = null
 var _requested_main_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 var _requested_sub_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
+var _reward_choice_controller: RewardChoiceController = null
 var _registered_enemy_pool_ids: Array[String] = []
 var _player_loading_mode: bool = false
 var _run_activated: bool = false
@@ -354,19 +365,15 @@ func debug_enable_module_world_technical_slice() -> void:
 	_module_world_technical_slice = true
 
 
-func debug_enable_level_up_growth(pool_id: String = DEFAULT_DEBUG_GROWTH_POOL) -> void:
-	_growth_curve = _load_growth_curve()
-	_growth_entries = _load_growth_entries({
-		"resource_pools": {
-			"growth_pools": [
-				{
-					"id": pool_id,
-					"weight": 100,
-				},
-			],
-		},
-	})
-	_refresh_xp_hud()
+func debug_request_reward_choice(
+	candidate_count: int = 3,
+	pool_id: String = DEFAULT_DEBUG_REWARD_POOL
+) -> Dictionary:
+	return request_reward_choice(
+		pool_id,
+		REWARD_CHOICE_TRIGGERS.DEBUG_COMMAND,
+		candidate_count
+	)
 
 
 func create_run_snapshot() -> Dictionary:
@@ -380,8 +387,11 @@ func create_run_snapshot() -> Dictionary:
 			"main_hero_id": _main_hero_id,
 			"sub_hero_id": _sub_hero_id,
 		},
-		"level": _current_level,
-		"xp": _current_xp,
+		"gold_progression": (
+			_gold_progression.snapshot()
+			if _gold_progression != null
+			else {}
+		),
 		"kills": _kills,
 		"game_clock": GameClock.snapshot(),
 		"difficulty": (
@@ -401,9 +411,14 @@ func create_run_snapshot() -> Dictionary:
 		"hazards": _entity_snapshots("active_hazards"),
 		"enemies": _entity_snapshots("active_enemies"),
 		"bullets": _entity_snapshots("active_bullets"),
-		"pickups": _entity_snapshots("active_pickups"),
+		"gold_orbs": _entity_snapshots("active_gold_orbs"),
 		"energy_orbs": _entity_snapshots("active_energy_orbs"),
 		"module_world": _module_world_snapshot(),
+		"reward_choice": (
+			_reward_choice_controller.snapshot()
+			if _reward_choice_controller != null
+			else {}
+		),
 		"ui_restore": _ui_restore_snapshot(),
 	}
 
@@ -449,7 +464,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	PoolManager.clear_pool(POOL_IDS.HAZARD_SPIKE)
 	PoolManager.clear_pool(POOL_IDS.HIT_SPARK)
 	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
-	PoolManager.clear_pool(POOL_IDS.PICKUP_ORB)
+	PoolManager.clear_pool(POOL_IDS.GOLD_ORB)
 	PoolManager.clear_pool(POOL_IDS.ENERGY_ORB)
 	PoolManager.clear_pool(POOL_IDS.PROJECTILE_BARRIER)
 	PoolManager.clear_pool(POOL_IDS.VFX_WEAPON_MUZZLE_FLASH)
@@ -551,7 +566,11 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	PoolManager.register_pool(POOL_IDS.HAZARD_SPIKE, _create_hazard_node, HAZARD_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.HIT_SPARK, _create_hit_spark_node, FEEDBACK_POOL_SIZE)
 	PoolManager.register_pool(POOL_IDS.DAMAGE_NUMBER, _create_damage_number_node, FEEDBACK_POOL_SIZE)
-	PoolManager.register_pool(POOL_IDS.PICKUP_ORB, _create_pickup_orb_node, PICKUP_POOL_SIZE)
+	PoolManager.register_pool(
+		POOL_IDS.GOLD_ORB,
+		_create_gold_orb_node,
+		PICKUP_POOL_SIZE
+	)
 	PoolManager.register_pool(
 		POOL_IDS.ENERGY_ORB,
 		_create_energy_orb_node,
@@ -589,6 +608,39 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	var player_stats: Dictionary = _merged_player_stats(character, mode)
 	var player_runtime_data: Dictionary = _dictionary_or_empty(
 		DataLoader.load_json(DataLoader.PLAYER_DATA_PATH)
+	)
+	_gold_progression = get_node_or_null(
+		"GoldProgression"
+	) as GoldProgression
+	_reward_choice_controller = get_node_or_null(
+		"RewardChoiceController"
+	) as RewardChoiceController
+	if _gold_progression == null or _reward_choice_controller == null:
+		_fail_run_start(
+			"missing scene-authored progression controllers",
+			not restore_snapshot.is_empty()
+		)
+		return
+	var progression_data: Dictionary = _dictionary_or_empty(
+		DataLoader.load_json(DataLoader.LEVEL_PROGRESSION_PATH)
+	)
+	var reward_choice_data: Dictionary = _dictionary_or_empty(
+		DataLoader.load_json(DataLoader.REWARD_CHOICE_POOLS_PATH)
+	)
+	if not _gold_progression.configure(progression_data):
+		_fail_run_start(
+			"gold progression configuration failed",
+			not restore_snapshot.is_empty()
+		)
+		return
+	if not _reward_choice_controller.configure(reward_choice_data):
+		_fail_run_start(
+			"reward choice configuration failed",
+			not restore_snapshot.is_empty()
+		)
+		return
+	_gold_drop_config = _dictionary_or_empty(
+		player_runtime_data.get("gold_drop", {})
 	)
 	_energy_drop_config = _dictionary_or_empty(
 		player_runtime_data.get("energy_drop", {})
@@ -645,12 +697,8 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	else:
 		_map_layout = _load_map_layout(GAME_MODES.MODE_STANDARD_SURVIVAL)
 	if _is_debug_test_arena():
-		_growth_curve.clear()
-		_growth_entries.clear()
 		_waves.clear()
 	else:
-		_growth_curve = _load_growth_curve()
-		_growth_entries = _load_growth_entries(mode)
 		_waves = _load_waves(GAME_MODES.MODE_STANDARD_SURVIVAL)
 	if _module_world_enabled or _is_debug_test_arena():
 		_warzone_director = null
@@ -662,8 +710,8 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_interest_points.clear()
 	_interest_point_caches.clear()
 	_interest_point_targets.clear()
-	_current_level = 1
-	_current_xp = 0
+	_gold_progression.reset()
+	_reward_choice_controller.clear()
 	_kills = 0
 	_pending_loot = _empty_pending_loot()
 	_reset_extraction()
@@ -755,10 +803,10 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		_composition_color("accent", Color(0.95, 0.64, 0.23))
 	)
 	_hud.call("set_kills", _kills)
-	_hud.call("set_level", _current_level)
+	_hud.call("set_level", current_level())
 	_update_combat_hud()
 	_refresh_difficulty_hud()
-	_refresh_xp_hud()
+	_refresh_gold_hud()
 	if _is_debug_test_arena():
 		_hud.visible = false
 		_debug_test_arena_controller.call(
@@ -980,7 +1028,7 @@ func _register_enemy_pool(enemy_data: Dictionary) -> bool:
 func _prewarm_standard_pools() -> void:
 	PoolManager.prewarm(POOL_IDS.BULLET_BASIC, 24)
 	PoolManager.prewarm(POOL_IDS.HAZARD_SPIKE, 8)
-	PoolManager.prewarm(POOL_IDS.PICKUP_ORB, 16)
+	PoolManager.prewarm(POOL_IDS.GOLD_ORB, 16)
 	PoolManager.prewarm(POOL_IDS.ENERGY_ORB, 8)
 	PoolManager.prewarm(POOL_IDS.PROJECTILE_BARRIER, 2)
 	for request: Dictionary in _vfx_host.declared_pool_requests():
@@ -994,7 +1042,7 @@ func _prewarm_standard_pools_staged() -> bool:
 	var requests: Array[Dictionary] = [
 		{"pool_id": POOL_IDS.BULLET_BASIC, "count": 24},
 		{"pool_id": POOL_IDS.HAZARD_SPIKE, "count": 8},
-		{"pool_id": POOL_IDS.PICKUP_ORB, "count": 16},
+		{"pool_id": POOL_IDS.GOLD_ORB, "count": 16},
 		{"pool_id": POOL_IDS.ENERGY_ORB, "count": 8},
 		{"pool_id": POOL_IDS.PROJECTILE_BARRIER, "count": 2},
 	]
@@ -1077,8 +1125,8 @@ func _create_damage_number_node() -> Node:
 	return DAMAGE_NUMBER_SCENE.instantiate()
 
 
-func _create_pickup_orb_node() -> Node:
-	return PICKUP_ORB_SCENE.instantiate()
+func _create_gold_orb_node() -> Node:
+	return GOLD_ORB_SCENE.instantiate()
 
 
 func _create_energy_orb_node() -> Node:
@@ -1221,32 +1269,147 @@ func _refresh_difficulty_hud() -> void:
 
 
 func current_level() -> int:
-	return _current_level
+	return (
+		_gold_progression.current_level()
+		if _gold_progression != null
+		else 1
+	)
 
 
-func current_xp() -> int:
-	return _current_xp
+func add_gold(amount: int, reason_id: String) -> Dictionary:
+	if _gold_progression == null:
+		return _gold_failure("progression_unavailable", amount)
+	var result: Dictionary = _gold_progression.add_gold(
+		amount,
+		reason_id
+	)
+	if not bool(result.get("ok", false)):
+		return result
+	_refresh_gold_hud()
+	var levels_gained: int = int(result.get("levels_gained", 0))
+	if levels_gained > 0:
+		if _hud != null:
+			_hud.call(
+				"set_level",
+				int(result.get("new_level", current_level()))
+			)
+			if _hud.has_method("show_level_advanced_feedback"):
+				_hud.call(
+					"show_level_advanced_feedback",
+					int(result.get("new_level", current_level()))
+				)
+		Analytics.track_event(ANALYTICS_EVENTS.LEVEL_UP, {
+			"old_level": int(result.get("old_level", 1)),
+			"new_level": int(result.get("new_level", 1)),
+			"levels_gained": levels_gained,
+			"gold_earned_total": gold_earned_total(),
+		})
+	return result
 
 
-func current_level_xp() -> int:
-	if not _has_level_up_growth():
-		return 0
-	return _xp_progress_for_level(_current_level)
+func gold_balance() -> int:
+	return (
+		_gold_progression.gold_balance()
+		if _gold_progression != null
+		else 0
+	)
 
 
-func current_level_xp_required() -> int:
-	if not _has_level_up_growth():
-		return 0
-	return _xp_required_within_level(_current_level)
+func gold_earned_total() -> int:
+	return (
+		_gold_progression.gold_earned_total()
+		if _gold_progression != null
+		else 0
+	)
+
+
+func current_level_gold() -> int:
+	return (
+		_gold_progression.current_level_gold()
+		if _gold_progression != null
+		else 0
+	)
+
+
+func current_level_gold_required() -> int:
+	return (
+		_gold_progression.current_level_gold_required()
+		if _gold_progression != null
+		else 0
+	)
+
+
+func can_afford_gold(amount: int) -> bool:
+	return (
+		_gold_progression != null
+		and _gold_progression.can_afford(amount)
+	)
+
+
+func try_spend_gold(amount: int, reason_id: String) -> Dictionary:
+	if _gold_progression == null:
+		return _gold_failure("progression_unavailable", amount)
+	var result: Dictionary = _gold_progression.try_spend_gold(
+		amount,
+		reason_id
+	)
+	if bool(result.get("ok", false)):
+		_refresh_gold_hud()
+	return result
+
+
+func request_reward_choice(
+	pool_id: String,
+	trigger_id: String,
+	candidate_count: int
+) -> Dictionary:
+	if _reward_choice_controller == null:
+		return {
+			"ok": false,
+			"reason": "controller_unavailable",
+		}
+	if _reward_choice_controller.is_busy():
+		return {
+			"ok": false,
+			"reason": "busy",
+		}
+	if not GameState.is_state(GameState.PLAYING):
+		return {
+			"ok": false,
+			"reason": "invalid_state",
+		}
+	var result: Dictionary = _reward_choice_controller.request_choice(
+		pool_id,
+		trigger_id,
+		candidate_count,
+		current_level()
+	)
+	if not bool(result.get("ok", false)):
+		return result
+	_show_reward_choice_panel(
+		_typed_choice_array(result.get("choices", []))
+	)
+	if _reward_choice_panel == null:
+		_reward_choice_controller.clear()
+		return {
+			"ok": false,
+			"reason": "ui_unavailable",
+		}
+	return result
 
 
 func debug_summary() -> Dictionary:
 	return {
-		"level": _current_level,
-		"xp": _current_xp,
-		"level_xp": current_level_xp(),
-		"level_xp_required": current_level_xp_required(),
-		"level_up_growth_enabled": _has_level_up_growth(),
+		"level": current_level(),
+		"gold_balance": gold_balance(),
+		"gold_earned_total": gold_earned_total(),
+		"level_gold": current_level_gold(),
+		"level_gold_required": current_level_gold_required(),
+		"reward_choice_active": (
+			_reward_choice_controller.is_busy()
+			if _reward_choice_controller != null
+			else false
+		),
 		"kills": _kills,
 		"hero_composition": {
 			"main_hero_id": _main_hero_id,
@@ -1304,16 +1467,8 @@ func debug_spawn_enemy(enemy_id: String, count: int = 1) -> Dictionary:
 	}
 
 
-func debug_give_xp(amount: int) -> Dictionary:
-	var applied_amount: int = maxi(amount, 0)
-	if applied_amount <= 0:
-		return _debug_result(false, "non_positive_amount")
-	_on_pickup_orb_collected(applied_amount)
-	return {
-		"ok": true,
-		"xp": _current_xp,
-		"level": _current_level,
-	}
+func debug_give_gold(amount: int) -> Dictionary:
+	return add_gold(amount, GOLD_TRANSACTION_REASONS.DEBUG_COMMAND)
 
 
 func debug_heal_player(amount: float) -> Dictionary:
@@ -2041,11 +2196,13 @@ func _activate_module_slot(module_coord: Vector2i, restore_stored_entities: bool
 			_restore_hazard_snapshots(_array_or_empty(state.get("hazard_snapshots", [])))
 			_restore_enemy_snapshots(_array_or_empty(state.get("enemy_snapshots", [])))
 			_restore_bullet_snapshots(_array_or_empty(state.get("bullet_snapshots", [])))
-			_restore_pickup_snapshots(_array_or_empty(state.get("pickup_snapshots", [])))
+			_restore_gold_orb_snapshots(
+				_array_or_empty(state.get("gold_orb_snapshots", []))
+			)
 			state["hazard_snapshots"] = []
 			state["enemy_snapshots"] = []
 			state["bullet_snapshots"] = []
-			state["pickup_snapshots"] = []
+			state["gold_orb_snapshots"] = []
 	else:
 		_spawn_module_placements(module_coord, placements)
 		state["initialized"] = true
@@ -2067,7 +2224,10 @@ func _deactivate_module_slot(module_coord: Vector2i) -> void:
 	state["enemy_snapshots"] = _capture_and_release_module_group("active_enemies", slot_key)
 	state["hazard_snapshots"] = _capture_and_release_module_group("active_hazards", slot_key)
 	state["bullet_snapshots"] = _capture_and_release_module_group("active_bullets", slot_key)
-	state["pickup_snapshots"] = _capture_and_release_module_group("active_pickups", slot_key)
+	state["gold_orb_snapshots"] = _capture_and_release_module_group(
+		"active_gold_orbs",
+		slot_key
+	)
 	_module_world_manager.call("set_slot_state", module_coord, state)
 	_deactivate_module_interest_visuals(slot_key)
 
@@ -2923,14 +3083,16 @@ func _release_pool_entities_under(root_node: Node) -> void:
 			return
 
 
-func _on_enemy_defeated(_enemy: Node, _exp_reward: int, wave_key: String) -> void:
+func _on_enemy_defeated(
+	_enemy: Node,
+	gold_reward: int,
+	player_attributed: bool,
+	wave_key: String
+) -> void:
 	if _vfx_host != null and _enemy != null:
 		_vfx_host.cancel_owner(_enemy)
-	var defeated_by_player: bool = true
-	if _enemy != null and _enemy.has_method("was_defeated_by_player"):
-		defeated_by_player = bool(_enemy.call("was_defeated_by_player"))
 	if _is_debug_test_arena():
-		if defeated_by_player:
+		if player_attributed:
 			_kills += 1
 		if _spawn_states.has(wave_key):
 			var arena_state: Dictionary = _spawn_states[wave_key]
@@ -2940,12 +3102,15 @@ func _on_enemy_defeated(_enemy: Node, _exp_reward: int, wave_key: String) -> voi
 			)
 			_spawn_states[wave_key] = arena_state
 		return
-	if defeated_by_player:
+	if player_attributed:
 		_kills += 1
 		if _hud != null:
 			_hud.call("set_kills", _kills)
-		if _has_level_up_growth() and _enemy is Node2D and _exp_reward > 0:
-			_spawn_pickup_orb((_enemy as Node2D).global_position, _exp_reward)
+		if _enemy is Node2D and gold_reward > 0:
+			_spawn_gold_orb(
+				(_enemy as Node2D).global_position,
+				gold_reward
+			)
 		if _enemy is Node2D:
 			_try_spawn_energy_orb((_enemy as Node2D).global_position)
 		if _enemy != null:
@@ -2956,20 +3121,25 @@ func _on_enemy_defeated(_enemy: Node, _exp_reward: int, wave_key: String) -> voi
 		_spawn_states[wave_key] = state
 
 
-func _spawn_pickup_orb(spawn_position: Vector2, amount: int) -> void:
-	var raw_node: Node = PoolManager.acquire(POOL_IDS.PICKUP_ORB)
+func _spawn_gold_orb(spawn_position: Vector2, amount: int) -> void:
+	var raw_node: Node = PoolManager.acquire(POOL_IDS.GOLD_ORB)
 	if not raw_node is Node2D or not raw_node.has_method("configure"):
 		return
 
-	var pickup_orb: Node2D = raw_node as Node2D
-	pickup_orb.global_position = spawn_position
-	_reparent_to_active_world(pickup_orb)
-	pickup_orb.call("configure", amount, _player, float(_player.call("pickup_orb_speed")))
+	var gold_orb: Node2D = raw_node as Node2D
+	gold_orb.global_position = spawn_position
+	_reparent_to_active_world(gold_orb)
+	gold_orb.call(
+		"configure",
+		amount,
+		_player,
+		float(_gold_drop_config.get("pickup_speed", 0.0))
+	)
 	_play_feedback(PRESENTATION_PICKUP_DEFAULT, VFX_CUES.PICKUP_SPAWN, {
-		"owner": pickup_orb,
+		"owner": gold_orb,
 		"world_position": spawn_position,
 	})
-	_connect_pickup_orb_feedback(pickup_orb)
+	_connect_gold_orb_feedback(gold_orb)
 
 
 func _try_spawn_energy_orb(spawn_position: Vector2) -> void:
@@ -2991,40 +3161,50 @@ func _try_spawn_energy_orb(spawn_position: Vector2) -> void:
 		maxf(float(_energy_drop_config.get("amount", 25.0)), 0.0),
 		_player,
 		_skill_system,
-		float(_player.call("pickup_orb_speed")),
+		float(_energy_drop_config.get("pickup_speed", 0.0)),
 		SKILL_RESOURCES.ENERGY
 	)
 
 
-func _connect_pickup_orb_feedback(pickup_orb: Node2D) -> void:
+func _connect_gold_orb_feedback(gold_orb: Node2D) -> void:
 	var attraction_callback: Callable = Callable(
 		self,
-		"_on_pickup_orb_attraction_started"
-	).bind(pickup_orb)
-	if not pickup_orb.is_connected("attraction_started", attraction_callback):
-		pickup_orb.connect(
+		"_on_gold_orb_attraction_started"
+	).bind(gold_orb)
+	if not gold_orb.is_connected("attraction_started", attraction_callback):
+		gold_orb.connect(
 			"attraction_started",
 			attraction_callback,
 			CONNECT_ONE_SHOT
 		)
-	var collected_callback: Callable = Callable(self, "_on_pickup_orb_collected").bind(pickup_orb)
-	if not pickup_orb.is_connected("collected", collected_callback):
-		pickup_orb.connect("collected", collected_callback, CONNECT_ONE_SHOT)
+	var collected_callback: Callable = Callable(
+		self,
+		"_on_gold_orb_collected"
+	).bind(gold_orb)
+	if not gold_orb.is_connected("collected", collected_callback):
+		gold_orb.connect(
+			"collected",
+			collected_callback,
+			CONNECT_ONE_SHOT
+		)
 
 
-func _on_pickup_orb_attraction_started(pickup_orb: Node2D) -> void:
-	if pickup_orb == null or not is_instance_valid(pickup_orb):
+func _on_gold_orb_attraction_started(gold_orb: Node2D) -> void:
+	if gold_orb == null or not is_instance_valid(gold_orb):
 		return
 	_play_feedback(PRESENTATION_PICKUP_DEFAULT, VFX_CUES.PICKUP_ATTRACT, {
-		"owner": pickup_orb,
-		"world_position": pickup_orb.global_position,
+		"owner": gold_orb,
+		"world_position": gold_orb.global_position,
 	})
 
 
-func _on_pickup_orb_collected(amount: int, pickup_orb: Node2D = null) -> void:
+func _on_gold_orb_collected(
+	amount: int,
+	gold_orb: Node2D = null
+) -> void:
 	var collect_position: Vector2 = (
-		pickup_orb.global_position
-		if pickup_orb != null and is_instance_valid(pickup_orb)
+		gold_orb.global_position
+		if gold_orb != null and is_instance_valid(gold_orb)
 		else (_player.global_position if _player != null else Vector2.ZERO)
 	)
 	_play_feedback(PRESENTATION_PICKUP_DEFAULT, VFX_CUES.PICKUP_COLLECT, {
@@ -3033,78 +3213,106 @@ func _on_pickup_orb_collected(amount: int, pickup_orb: Node2D = null) -> void:
 		"follow_owner": false,
 		"amount": amount,
 	})
-	_current_xp += amount
-	_refresh_xp_hud()
-	if GameState.is_state(GameState.PLAYING) and _can_level_up():
-		_begin_level_up()
+	add_gold(amount, GOLD_TRANSACTION_REASONS.ENEMY_DROP)
 
 
-func _begin_level_up() -> void:
-	var target_level: int = _current_level + 1
-	var choices: Array[Dictionary] = _roll_growth_choices(target_level)
-	if choices.is_empty():
+func _show_reward_choice_panel(
+	choices: Array[Dictionary]
+) -> void:
+	_reward_choice_panel = UIManager.push(
+		REWARD_CHOICE_PANEL_SCENE,
+		{"source": "reward_choice"}
+	) as CanvasLayer
+	if _reward_choice_panel == null:
 		return
-
-	_current_level = target_level
-	if _hud != null:
-		_hud.call("set_level", _current_level)
-	_refresh_xp_hud()
-	_show_level_up_panel(choices)
-
-
-func _show_level_up_panel(choices: Array[Dictionary]) -> void:
-	_pending_level_up_choices = choices.duplicate(true)
-
-	_level_panel = UIManager.push(LEVEL_UP_PANEL_SCENE, {"source": "level_up"}) as CanvasLayer
-	if _level_panel == null:
-		return
-	_level_panel.call("configure", choices)
-	_level_panel.connect("choice_selected", Callable(self, "_on_level_up_choice_selected"), CONNECT_ONE_SHOT)
-	_level_panel.connect("pause_requested", Callable(self, "_on_level_up_pause_requested"))
-	GameState.change_state(GameState.LEVEL_UP, {
-		"level": _current_level,
-		"choices": _choice_ids(_pending_level_up_choices),
+	_reward_choice_panel.call("configure", choices)
+	_reward_choice_panel.connect(
+		"choice_selected",
+		Callable(self, "_on_reward_choice_selected"),
+		CONNECT_ONE_SHOT
+	)
+	_reward_choice_panel.connect(
+		"pause_requested",
+		Callable(self, "_on_reward_choice_pause_requested")
+	)
+	var pending: Dictionary = _reward_choice_controller.snapshot()
+	GameState.change_state(GameState.REWARD_CHOICE, {
+		"pool_id": String(pending.get("pool_id", "")),
+		"trigger_id": String(pending.get("trigger_id", "")),
+		"choices": _choice_ids(choices),
 	})
 
 
-func _on_level_up_pause_requested() -> void:
+func _on_reward_choice_pause_requested() -> void:
 	if _pause_menu != null:
 		return
 	_show_pause_menu()
 
 
-func _on_level_up_choice_selected(choice: Dictionary) -> void:
-	_record_level_up_decision(choice)
-	var modifiers: Array = choice.get("modifiers", []) if choice.get("modifiers", []) is Array else []
+func _on_reward_choice_selected(choice: Dictionary) -> void:
+	if _reward_choice_controller == null:
+		return
+	var result: Dictionary = _reward_choice_controller.resolve(
+		String(choice.get("id", ""))
+	)
+	if not bool(result.get("ok", false)):
+		return
+	var resolved_choice: Dictionary = _dictionary_or_empty(
+		result.get("choice", {})
+	)
+	_record_reward_choice_decision(result)
+	var modifiers: Array = (
+		resolved_choice.get("modifiers", [])
+		if resolved_choice.get("modifiers", []) is Array
+		else []
+	)
 	if _player != null and _player.has_method("apply_modifiers"):
 		_player.call("apply_modifiers", modifiers)
 	if _weapon_system != null and _weapon_system.has_method("apply_modifiers"):
 		_weapon_system.call("apply_modifiers", modifiers)
 	if _hud != null and _hud.has_method("show_upgrade_feedback"):
-		_hud.call("show_upgrade_feedback", String(choice.get("name_key", "")))
-	if UIManager.top() == _level_panel:
+		_hud.call(
+			"show_upgrade_feedback",
+			String(resolved_choice.get("name_key", ""))
+		)
+	if UIManager.top() == _reward_choice_panel:
 		UIManager.pop()
-	elif _level_panel != null:
-		_level_panel.queue_free()
-	_level_panel = null
-	_pending_level_up_choices.clear()
+	elif _reward_choice_panel != null:
+		_reward_choice_panel.queue_free()
+	_reward_choice_panel = null
+	var trigger_id: String = String(result.get("trigger_id", ""))
+	var pool_id: String = String(result.get("pool_id", ""))
+	var entry_id: String = String(resolved_choice.get("id", ""))
 	GameState.change_state(GameState.PLAYING, {
-		"level": _current_level,
-		"choice": String(choice.get("id", "")),
+		"trigger_id": trigger_id,
+		"pool_id": pool_id,
+		"choice": entry_id,
 	})
-	if _can_level_up():
-		_begin_level_up()
+	reward_choice_resolved.emit(trigger_id, pool_id, entry_id)
 
 
-func _record_level_up_decision(choice: Dictionary) -> void:
-	var luck_value: float = float(_player.call("luck")) if _player != null and _player.has_method("luck") else 0.0
-	Replay.record_decision(ANALYTICS_EVENTS.LEVEL_UP, {
-		"level": _current_level,
-		"candidate_count": _pending_level_up_choices.size(),
-		"choices": _choice_ids(_pending_level_up_choices),
+func _record_reward_choice_decision(result: Dictionary) -> void:
+	var choices: Array[Dictionary] = _typed_choice_array(
+		result.get("choices", [])
+	)
+	var choice: Dictionary = _dictionary_or_empty(
+		result.get("choice", {})
+	)
+	var event_data: Dictionary = {
+		"trigger_id": String(result.get("trigger_id", "")),
+		"pool_id": String(result.get("pool_id", "")),
+		"candidate_count": int(result.get("candidate_count", 0)),
+		"choices": _choice_ids(choices),
 		"selected": String(choice.get("id", "")),
-		"luck": luck_value,
-	})
+	}
+	Replay.record_decision(
+		ANALYTICS_EVENTS.REWARD_CHOICE,
+		event_data
+	)
+	Analytics.track_event(
+		ANALYTICS_EVENTS.REWARD_CHOICE,
+		event_data
+	)
 
 
 func _on_player_life_changed(current_life: float, max_life: float) -> void:
@@ -3567,18 +3775,24 @@ func _entity_snapshots(group_name: String) -> Array[Dictionary]:
 
 
 func _ui_restore_snapshot() -> Dictionary:
-	if _pause_menu != null and not _pending_level_up_choices.is_empty():
+	var reward_choice_active: bool = (
+		_reward_choice_controller != null
+		and _reward_choice_controller.is_busy()
+	)
+	if _pause_menu != null and reward_choice_active:
 		return {
 			"state": UI_RESTORE_PAUSED,
-			UI_RESTORE_UNDERLYING_STATE: UI_RESTORE_LEVEL_UP,
-			"level": _current_level,
-			"choices": _pending_level_up_choices.duplicate(true),
+			UI_RESTORE_UNDERLYING_STATE: UI_RESTORE_REWARD_CHOICE,
 		}
-	if (GameState.is_state(GameState.LEVEL_UP) or _level_panel != null) and not _pending_level_up_choices.is_empty():
+	if (
+		reward_choice_active
+		and (
+			GameState.is_state(GameState.REWARD_CHOICE)
+			or _reward_choice_panel != null
+		)
+	):
 		return {
-			"state": UI_RESTORE_LEVEL_UP,
-			"level": _current_level,
-			"choices": _pending_level_up_choices.duplicate(true),
+			"state": UI_RESTORE_REWARD_CHOICE,
 		}
 	if GameState.is_state(GameState.PAUSED) or _pause_menu != null:
 		return {
@@ -3683,8 +3897,33 @@ func _restore_run_snapshot(
 			if staged_loading and not await _yield_loading_frame():
 				return false
 
-	_current_level = maxi(int(snapshot_data.get("level", 1)), 1)
-	_current_xp = maxi(int(snapshot_data.get("xp", 0)), 0)
+	var gold_snapshot: Dictionary = _dictionary_or_empty(
+		snapshot_data.get("gold_progression", {})
+	)
+	if (
+		_gold_progression == null
+		or not _gold_progression.restore(
+			int(gold_snapshot.get("gold_balance", -1)),
+			int(gold_snapshot.get("gold_earned_total", -1))
+		)
+	):
+		push_error("[GameplayRunLoop] gold progression restore failed")
+		return false
+	var reward_choice_snapshot: Dictionary = _dictionary_or_empty(
+		snapshot_data.get("reward_choice", {})
+	)
+	if (
+		not reward_choice_snapshot.is_empty()
+		and (
+			_reward_choice_controller == null
+			or not _reward_choice_controller.restore_snapshot(
+				reward_choice_snapshot,
+				current_level()
+			)
+		)
+	):
+		push_error("[GameplayRunLoop] reward choice restore failed")
+		return false
 	_kills = maxi(int(snapshot_data.get("kills", 0)), 0)
 	_spawn_states = _dictionary_or_empty(snapshot_data.get("spawn_states", {}))
 
@@ -3732,7 +3971,9 @@ func _restore_run_snapshot(
 		return false
 	var enemy_snapshots: Array = _array_or_empty(snapshot_data.get("enemies", []))
 	var bullet_snapshots: Array = _array_or_empty(snapshot_data.get("bullets", []))
-	var pickup_snapshots: Array = _array_or_empty(snapshot_data.get("pickups", []))
+	var gold_orb_snapshots: Array = _array_or_empty(
+		snapshot_data.get("gold_orbs", [])
+	)
 	var energy_orb_snapshots: Array = _array_or_empty(
 		snapshot_data.get("energy_orbs", [])
 	)
@@ -3748,8 +3989,8 @@ func _restore_run_snapshot(
 		):
 			return false
 		if not await _restore_snapshots_staged(
-			pickup_snapshots,
-			Callable(self, "_restore_pickup_snapshots")
+			gold_orb_snapshots,
+			Callable(self, "_restore_gold_orb_snapshots")
 		):
 			return false
 		if not await _restore_snapshots_staged(
@@ -3760,7 +4001,7 @@ func _restore_run_snapshot(
 	else:
 		_restore_enemy_snapshots(enemy_snapshots)
 		_restore_bullet_snapshots(bullet_snapshots)
-		_restore_pickup_snapshots(pickup_snapshots)
+		_restore_gold_orb_snapshots(gold_orb_snapshots)
 		_restore_energy_orb_snapshots(energy_orb_snapshots)
 
 	var clock_snapshot: Variant = snapshot_data.get("game_clock", {})
@@ -3770,8 +4011,8 @@ func _restore_run_snapshot(
 	if _hud != null:
 		_hud.call("set_life", _player.call("current_life"), _player.call("max_life"))
 		_hud.call("set_kills", _kills)
-		_hud.call("set_level", _current_level)
-	_refresh_xp_hud()
+		_hud.call("set_level", current_level())
+	_refresh_gold_hud()
 	_refresh_module_world_hud()
 	_refresh_difficulty_hud()
 	return true
@@ -3901,17 +4142,26 @@ func _restore_ui_state(raw_ui_restore: Variant) -> void:
 	var ui_restore: Dictionary = raw_ui_restore as Dictionary
 	var state: String = String(ui_restore.get("state", UI_RESTORE_PLAYING))
 	if state == UI_RESTORE_PAUSED:
-		if String(ui_restore.get(UI_RESTORE_UNDERLYING_STATE, "")) == UI_RESTORE_LEVEL_UP:
-			var paused_level_up_choices: Array[Dictionary] = _typed_choice_array(ui_restore.get("choices", []))
-			if not paused_level_up_choices.is_empty():
-				_show_level_up_panel(paused_level_up_choices)
+		if String(
+			ui_restore.get(UI_RESTORE_UNDERLYING_STATE, "")
+		) == UI_RESTORE_REWARD_CHOICE:
+			if (
+				_reward_choice_controller != null
+				and _reward_choice_controller.is_busy()
+			):
+				_show_reward_choice_panel(
+					_reward_choice_controller.choices()
+				)
 		_show_pause_menu()
 		return
-	if state == UI_RESTORE_LEVEL_UP:
-		var typed_choices: Array[Dictionary] = _typed_choice_array(ui_restore.get("choices", []))
-		if typed_choices.is_empty():
-			return
-		_show_level_up_panel(typed_choices)
+	if (
+		state == UI_RESTORE_REWARD_CHOICE
+		and _reward_choice_controller != null
+		and _reward_choice_controller.is_busy()
+	):
+		_show_reward_choice_panel(
+			_reward_choice_controller.choices()
+		)
 
 
 func _typed_choice_array(raw_value: Variant) -> Array[Dictionary]:
@@ -4050,18 +4300,22 @@ func _restore_bullet_snapshots(bullet_snapshots: Array) -> void:
 		bullet.call("restore_snapshot", raw_snapshot as Dictionary, _player)
 
 
-func _restore_pickup_snapshots(pickup_snapshots: Array) -> void:
-	for raw_snapshot: Variant in pickup_snapshots:
+func _restore_gold_orb_snapshots(gold_orb_snapshots: Array) -> void:
+	for raw_snapshot: Variant in gold_orb_snapshots:
 		if not raw_snapshot is Dictionary:
 			continue
-		var raw_node: Node = PoolManager.acquire(POOL_IDS.PICKUP_ORB)
+		var raw_node: Node = PoolManager.acquire(POOL_IDS.GOLD_ORB)
 		if not raw_node is Node2D or not raw_node.has_method("restore_snapshot"):
 			continue
 
-		var pickup_orb: Node2D = raw_node as Node2D
-		_reparent_to_active_world(pickup_orb)
-		pickup_orb.call("restore_snapshot", raw_snapshot as Dictionary, _player)
-		_connect_pickup_orb_feedback(pickup_orb)
+		var gold_orb: Node2D = raw_node as Node2D
+		_reparent_to_active_world(gold_orb)
+		gold_orb.call(
+			"restore_snapshot",
+			raw_snapshot as Dictionary,
+			_player
+		)
+		_connect_gold_orb_feedback(gold_orb)
 
 
 func _restore_energy_orb_snapshots(energy_orb_snapshots: Array) -> void:
@@ -4300,7 +4554,7 @@ func _load_enemy_rows(
 			"contact_damage": String(row.get("contact_damage", "0")).to_int(),
 			"element_id": String(row.get("element_id", "")),
 			"contact_interval": String(row.get("contact_interval", "0.7")).to_float(),
-			"exp_reward": String(row.get("exp_reward", "0")).to_int(),
+			"gold_reward": String(row.get("gold_reward", "0")).to_int(),
 			"hit_radius": String(row.get("hit_radius", "1.0")).to_float(),
 			"separation_radius": String(row.get("separation_radius", "0.0")).to_float(),
 		}
@@ -4384,58 +4638,14 @@ func _load_warzone_director(target_mode: String) -> Dictionary:
 	return {}
 
 
-func _load_growth_curve() -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for row: Dictionary in DataLoader.load_csv(DataLoader.GROWTH_CURVE_PATH):
-		result.append({
-			"level": String(row.get("level", "1")).to_int(),
-			"total_xp_required": String(row.get("total_xp_required", "0")).to_int(),
-			"candidate_count": String(row.get("candidate_count", "3")).to_int(),
-			"bonus_candidate_chance_per_luck": String(row.get("bonus_candidate_chance_per_luck", "0.0")).to_float(),
-			"bonus_candidate_chance_cap": String(row.get("bonus_candidate_chance_cap", "0.0")).to_float(),
-		})
-	return result
-
-
-func _load_growth_entries(mode: Dictionary) -> Array[Dictionary]:
-	var pool_entries: Dictionary = {}
-	var data: Variant = DataLoader.load_json(DataLoader.GROWTH_POOLS_PATH)
-	if data is Dictionary:
-		for raw_pool: Variant in (data as Dictionary).get("pools", []):
-			if raw_pool is Dictionary:
-				pool_entries[String((raw_pool as Dictionary).get("id", ""))] = (raw_pool as Dictionary).get("entries", [])
-
-	var result: Array[Dictionary] = []
-	var resource_pools: Dictionary = mode.get("resource_pools", {}) if mode.get("resource_pools", {}) is Dictionary else {}
-	var growth_pools: Array = resource_pools.get("growth_pools", []) if resource_pools.get("growth_pools", []) is Array else []
-	for raw_pool_ref: Variant in growth_pools:
-		if not raw_pool_ref is Dictionary:
-			continue
-		var pool_ref: Dictionary = raw_pool_ref as Dictionary
-		var pool_id: String = String(pool_ref.get("id", ""))
-		var pool_weight: int = int(pool_ref.get("weight", 0))
-		for raw_entry: Variant in pool_entries.get(pool_id, []):
-			if not raw_entry is Dictionary:
-				continue
-			var entry: Dictionary = (raw_entry as Dictionary).duplicate(true)
-			entry["weight"] = int(entry.get("weight", 0)) * maxi(pool_weight, 1)
-			result.append(entry)
-	return result
-
-
-func _can_level_up() -> bool:
-	if not _has_level_up_growth():
-		return false
-	return _current_xp >= _xp_required_for_level(_current_level + 1)
-
-
-func _has_level_up_growth() -> bool:
-	return not _growth_entries.is_empty() and not _growth_curve.is_empty()
-
-
-func _refresh_xp_hud() -> void:
+func _refresh_gold_hud() -> void:
 	if _hud != null:
-		_hud.call("set_xp", current_level_xp(), current_level_xp_required())
+		_hud.call(
+			"set_gold_progress",
+			gold_balance(),
+			current_level_gold(),
+			current_level_gold_required()
+		)
 
 
 func _update_combat_hud() -> void:
@@ -4600,8 +4810,13 @@ func _stats_panel_snapshot() -> Dictionary:
 			int(ceilf(float(_player.call("current_life")))) if _player != null and _player.has_method("current_life") else 0,
 			int(ceilf(float(_player.call("max_life")))) if _player != null and _player.has_method("max_life") else 0,
 		],
-		"level": "%d" % _current_level,
-		"xp": "%d/%d" % [current_level_xp(), current_level_xp_required()],
+		"level": "%d" % current_level(),
+		"gold_balance": "%d" % gold_balance(),
+		"gold_earned_total": "%d" % gold_earned_total(),
+		"level_progress": "%d/%d" % [
+			current_level_gold(),
+			current_level_gold_required(),
+		],
 		"kills": "%d" % _kills,
 		"run_time": "%ds" % int(_difficulty_elapsed()),
 		"enemy_health_multiplier": "%sx" % _format_stat_value(
@@ -4714,66 +4929,6 @@ func _format_percent(value: float) -> String:
 	return "%d%%" % int(roundf(clampf(value, 0.0, 1.0) * 100.0))
 
 
-func _xp_progress_for_level(level: int) -> int:
-	return maxi(_current_xp - _xp_required_for_level(level), 0)
-
-
-func _xp_required_within_level(level: int) -> int:
-	return maxi(_xp_required_for_level(level + 1) - _xp_required_for_level(level), 0)
-
-
-func _xp_required_for_level(level: int) -> int:
-	for row: Dictionary in _growth_curve:
-		if int(row.get("level", 0)) == level:
-			return int(row.get("total_xp_required", 0))
-	return 2_147_483_647
-
-
-func _growth_row_for_level(level: int) -> Dictionary:
-	for row: Dictionary in _growth_curve:
-		if int(row.get("level", 0)) == level:
-			return row
-	return {}
-
-
-func _roll_growth_choices(target_level: int) -> Array[Dictionary]:
-	var row: Dictionary = _growth_row_for_level(target_level)
-	if row.is_empty():
-		return []
-
-	var candidate_count: int = int(row.get("candidate_count", 3))
-	var luck_value: float = float(_player.call("luck")) if _player != null and _player.has_method("luck") else 0.0
-	var bonus_chance: float = minf(
-		luck_value * float(row.get("bonus_candidate_chance_per_luck", 0.0)),
-		float(row.get("bonus_candidate_chance_cap", 0.0))
-	)
-	if RNG.ui_choice.randf() < bonus_chance:
-		candidate_count += 1
-
-	var available: Array[Dictionary] = []
-	for entry: Dictionary in _growth_entries:
-		if int(entry.get("min_level", 1)) <= target_level:
-			available.append(entry.duplicate(true))
-
-	var choices: Array[Dictionary] = []
-	while not available.is_empty() and choices.size() < candidate_count:
-		var weights: Array[int] = []
-		for entry: Dictionary in available:
-			weights.append(int(entry.get("weight", 0)))
-		var selected: Variant = RNG.ui_choice.weighted_pick(available, weights)
-		if not selected is Dictionary:
-			break
-		var selected_entry: Dictionary = selected as Dictionary
-		choices.append(selected_entry.duplicate(true))
-		available.erase(selected_entry)
-	choices.sort_custom(_sort_growth_choices_by_id)
-	return choices
-
-
-func _sort_growth_choices_by_id(left: Dictionary, right: Dictionary) -> bool:
-	return String(left.get("id", "")) < String(right.get("id", ""))
-
-
 func _choice_ids(choices: Array[Dictionary]) -> Array[String]:
 	var result: Array[String] = []
 	for choice: Dictionary in choices:
@@ -4837,6 +4992,19 @@ func _enemy_rows_array() -> Array[Dictionary]:
 
 func _is_debug_test_arena() -> bool:
 	return _run_purpose == RunPurpose.DEBUG_TEST_ARENA
+
+
+func _gold_failure(reason: String, amount: int) -> Dictionary:
+	return {
+		"ok": false,
+		"reason": reason,
+		"amount": amount,
+		"gold_balance": gold_balance(),
+		"gold_earned_total": gold_earned_total(),
+		"old_level": current_level(),
+		"new_level": current_level(),
+		"levels_gained": 0,
+	}
 
 
 func _debug_result(ok: bool, reason: String) -> Dictionary:

@@ -62,13 +62,14 @@
 
 - 当前状态常量来自 GDD §9.12。
 - `LOADING` 是正式玩家加载请求的准备态，不是 `PLAYING` 的别名；它覆盖开始、继续和重开，但不覆盖当前应用冷启动。
+- 当前登记状态为 `MAIN_MENU`、`LOADING`、`PLAYING`、`PAUSED`、`REWARD_CHOICE`、`GAME_OVER`。`REWARD_CHOICE` 只由通过原子校验的通用奖励请求进入，并与 `PAUSED` 一样冻结 SceneTree；等级提升本身不切换状态。
 - 暂无外部数据文件。
 - 后续若状态 id 进入词表，需要同步 `docs/词表与契约.md` 与生成常量。
 
 ## 依赖
 
 - 上游依赖：Godot SceneTree 暂停机制。
-- 下游调用方：`GameClock`、未来 `UIManager`、`Replay`、`Analytics`、`SaveManager`、成长 / 结算系统。
+- 下游调用方：`GameClock`、`UIManager`、`Replay`、`Analytics`、`SaveManager`、奖励选择 / 结算系统。
 - 禁止依赖：不得直接引用具体 UI 场景或玩法节点。
 
 ## 扩展点
@@ -97,7 +98,7 @@
 ## 测试义务
 
 - 必跑正式项目 headless boot。
-- F2 后续补 GUT：非法状态拒绝、signal 顺序、`PAUSED` / `LEVEL_UP` 与 SceneTree paused 联动。
+- F2 后续补 GUT：非法状态拒绝、signal 顺序、`PAUSED` / `REWARD_CHOICE` 与 SceneTree paused 联动。
 - UI 或存档接入后补集成测试。
 - 玩家加载状态变化必须跑 `python tools/godot_bridge.py --project client loading-smoke`。
 

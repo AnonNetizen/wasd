@@ -1,6 +1,6 @@
 # Doc: docs/代码/gameplay_runtime.md
 # Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md, docs/游戏设计文档.md §7.1
-class_name PickupOrb
+class_name GoldOrb
 extends Node2D
 
 
@@ -8,6 +8,7 @@ signal collected(amount: int)
 signal attraction_started()
 
 const DRAW_RADIUS: float = 5.0
+const ACTIVE_GOLD_ORB_GROUP: String = "active_gold_orbs"
 const COLLECT_DISTANCE: float = 8.0
 const COLLECT_FEEDBACK_DURATION: float = 0.14
 const DRAW_Z_INDEX: int = -10
@@ -15,11 +16,11 @@ const PLACEHOLDER_OUTLINE_SCALE: float = 1.36
 const PULSE_SPEED: float = 10.0
 
 @export_group("Visual Style")
-@export var idle_fill_color: Color = Color(0.45, 1.0, 0.62)
-@export var attracting_fill_color: Color = Color(0.65, 1.0, 0.80)
-@export var collect_fill_color: Color = Color(0.82, 1.0, 0.68)
+@export var idle_fill_color: Color = Color(1.0, 0.73, 0.16)
+@export var attracting_fill_color: Color = Color(1.0, 0.88, 0.38)
+@export var collect_fill_color: Color = Color(1.0, 0.96, 0.68)
 @export var outline_color: Color = Color(0.07, 0.06, 0.05, 0.82)
-@export var attracting_ring_color: Color = Color(0.8, 1.0, 0.88, 0.45)
+@export var attracting_ring_color: Color = Color(1.0, 0.86, 0.30, 0.55)
 @export_range(0.5, 6.0, 0.1) var attracting_ring_width: float = 1.5
 
 var _attract_blend: float = 0.0
@@ -82,7 +83,7 @@ func configure(amount: int, target: Node2D, pickup_speed: float) -> void:
 	_pickup_speed = pickup_speed
 	scale = Vector2.ONE
 	z_index = DRAW_Z_INDEX
-	add_to_group("active_pickups")
+	add_to_group(ACTIVE_GOLD_ORB_GROUP)
 	_refresh_visuals()
 
 
@@ -103,7 +104,7 @@ func restore_snapshot(snapshot_data: Dictionary, target: Node2D) -> void:
 	_pickup_speed = float(snapshot_data.get("pickup_speed", _pickup_speed))
 	scale = Vector2.ONE
 	z_index = DRAW_Z_INDEX
-	add_to_group("active_pickups")
+	add_to_group(ACTIVE_GOLD_ORB_GROUP)
 	_refresh_visuals()
 
 
@@ -120,7 +121,7 @@ func _pool_reset() -> void:
 
 
 func _pool_release() -> void:
-	remove_from_group("active_pickups")
+	remove_from_group(ACTIVE_GOLD_ORB_GROUP)
 	_collect_feedback_remaining = 0.0
 	_target = null
 
@@ -139,7 +140,7 @@ func _start_collect_feedback() -> void:
 	_target = null
 	_attract_blend = 1.0
 	_collect_feedback_remaining = COLLECT_FEEDBACK_DURATION
-	remove_from_group("active_pickups")
+	remove_from_group(ACTIVE_GOLD_ORB_GROUP)
 	collected.emit(collected_amount)
 	_refresh_visuals()
 

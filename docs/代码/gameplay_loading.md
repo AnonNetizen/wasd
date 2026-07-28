@@ -64,7 +64,7 @@ FormalClientBoot
 | 继续游戏读取 | 加载界面已可见后读取 / 校验 run envelope；坏档沿用既有不可用提示并回标题 | `SaveManager.load_envelope()` |
 | Runtime 准备 | 入树前启用玩家加载模式；线程读取本局 actor / 模块 `PackedScene`，主线程分批预热池、挂载模块和恢复实体 | `configure_player_loading_mode(true)`、`ResourceLoader.load_threaded_request()` |
 | 准备成功 | `GameplayRunLoop` 发出 `run_prepared`，启动层先弹出 `LoadingScreen`，再调用激活入口 | `run_prepared`、`activate_prepared_run()` |
-| 激活 | 切换到 `PLAYING`，恢复 GameClock 与保存的暂停 / 升级 UI 状态；准备期间 gameplay 输入和时间均不推进 | `GameState.change_state(PLAYING)` |
+| 激活 | 切换到 `PLAYING`，恢复 GameClock 与保存的暂停 / 奖励选择 UI 状态；准备期间 gameplay 输入和时间均不推进 | `GameState.change_state(PLAYING)` |
 | 准备失败 | 发出 `run_prepare_failed`；启动层清理半成品 runtime、gameplay 对象池并 immediate clear UI，回标题显示提示；续局失败时删除不可恢复的 run | `run_prepare_failed`、`UIManager.clear(true)` |
 
 同步工具路径不启用玩家加载模式：headless、replay、golden 与既有 smoke 仍在 `_ready()` 中完成同步准备并立即激活，保持确定性时序。
@@ -91,7 +91,7 @@ FormalClientBoot
 - 玩家可见文本只使用 `ui_loading` 与 `ui_loading_failed`，并同时提供 `zh_CN` / `en`。
 - 加载界面不显示阶段、百分比、资源路径、技术错误或取消按钮。
 - 不增加最低展示时间；准备完成即可移除。
-- 不修改当前 Run v6 envelope、地图 hash、RNG 子流或 gameplay 行为；组合选择只决定新局加载参数，续局准备恢复威胁时间和敌人出生倍率。
+- 不修改当前 Run v7 envelope、地图 hash、RNG 子流或 gameplay 行为；组合选择只决定新局加载参数，续局准备恢复金币、未完成奖励选择、威胁时间和敌人出生倍率。
 - `GameState.LOADING` 在准备期间不暂停 SceneTree，但 gameplay 节点必须只在 `PLAYING` 时接受输入和推进 `GameClock`。
 - 资源路径继续来自已校验的角色 / 敌人数据与模块 assignment，不在加载流程中新增裸路径分支。
 

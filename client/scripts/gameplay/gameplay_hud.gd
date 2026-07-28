@@ -22,7 +22,12 @@ const DIFFICULTY_MARKER_STATS_RECT: Rect2 = Rect2(-718.0, 24.0, 254.0, 132.0)
 const STATS_PANEL_ROWS: Array[Dictionary] = [
 	{"key": "life", "label_key": "ui_stats_life"},
 	{"key": "level", "label_key": "ui_stats_level"},
-	{"key": "xp", "label_key": "ui_stats_xp"},
+	{"key": "gold_balance", "label_key": "ui_stats_gold_balance"},
+	{
+		"key": "gold_earned_total",
+		"label_key": "ui_stats_gold_earned_total",
+	},
+	{"key": "level_progress", "label_key": "ui_stats_level_progress"},
 	{"key": "kills", "label_key": "ui_stats_kills"},
 	{"key": "run_time", "label_key": "ui_stats_run_time"},
 	{"key": "enemy_health_multiplier", "label_key": "ui_stats_enemy_health_multiplier"},
@@ -54,7 +59,7 @@ const STATS_PANEL_ROWS: Array[Dictionary] = [
 var _life_label: Label = null
 var _level_label: Label = null
 var _kills_label: Label = null
-var _xp_label: Label = null
+var _gold_progress_label: Label = null
 var _time_label: Label = null
 var _message_label: RichTextLabel = null
 var _module_minimap: Control = null
@@ -74,6 +79,7 @@ var _last_upgrade_feedback_key: String = "ui_upgrade_applied"
 var _last_upgrade_name_key: String = ""
 var _last_upgrade_resource_key: String = ""
 var _last_upgrade_amount: int = 0
+var _last_feedback_level: int = 1
 var _interaction_binding: String = ""
 var _interaction_prompt_generation: int = 0
 var _interaction_prompt_visible: bool = false
@@ -95,8 +101,9 @@ var _overshield_bar: ProgressBar = null
 var _shield_bar: ProgressBar = null
 var _skill_slot_labels: Array[Label] = []
 var _status_label: Label = null
-var _xp: int = 0
-var _xp_required: int = 0
+var _gold_balance: int = 0
+var _level_gold: int = 0
+var _level_gold_required: int = 0
 var _value_feedback: UIValueFeedback = null
 
 
@@ -105,7 +112,9 @@ func _ready() -> void:
 	_kills_label = get_node_or_null("Root/Margin/Layout/KillsLabel") as Label
 	_time_label = get_node_or_null("Root/Margin/Layout/TimeLabel") as Label
 	_level_label = get_node_or_null("Root/Margin/Layout/LevelLabel") as Label
-	_xp_label = get_node_or_null("Root/Margin/Layout/XpLabel") as Label
+	_gold_progress_label = get_node_or_null(
+		"Root/Margin/Layout/GoldProgressLabel"
+	) as Label
 	_composition_label = get_node_or_null("Root/Margin/Layout/CompositionLabel") as Label
 	_defense_label = get_node_or_null("Root/Margin/Layout/Defense/DefenseLabel") as Label
 	_health_bar = get_node_or_null("Root/Margin/Layout/Defense/HealthBar") as ProgressBar
@@ -129,7 +138,13 @@ func _ready() -> void:
 	_stats_grid = get_node_or_null("Root/StatsPanel/Margin/Layout/StatsGrid") as GridContainer
 	_difficulty_marker = get_node_or_null("Root/DifficultyMarker") as DifficultyMarker
 	_upgrade_feedback_label = get_node_or_null("Root/UpgradeFeedbackLabel") as Label
-	if _life_label == null or _kills_label == null or _time_label == null or _level_label == null or _xp_label == null:
+	if (
+		_life_label == null
+		or _kills_label == null
+		or _time_label == null
+		or _level_label == null
+		or _gold_progress_label == null
+	):
 		push_error("[GameplayHud] missing required scene nodes")
 		return
 	if (
@@ -374,13 +389,22 @@ func set_difficulty_snapshot(snapshot: Dictionary, combat_locked: bool) -> void:
 		_refresh_stats_panel()
 
 
-func set_xp(xp: int, xp_required: int) -> void:
-	var changed: bool = _xp != xp
-	_xp = xp
-	_xp_required = xp_required
-	_xp_label.text = "%s: %d/%d" % [tr("ui_hud_xp"), _xp, _xp_required]
+func set_gold_progress(
+	balance: int,
+	level_gold: int,
+	level_gold_required: int
+) -> void:
+	var changed: bool = _gold_balance != balance
+	_gold_balance = maxi(balance, 0)
+	_level_gold = maxi(level_gold, 0)
+	_level_gold_required = maxi(level_gold_required, 0)
+	_gold_progress_label.text = tr("ui_hud_gold_progress").format({
+		"balance": _gold_balance,
+		"progress": _level_gold,
+		"required": _level_gold_required,
+	})
 	if changed and _value_feedback != null:
-		_value_feedback.play_value(_xp_label)
+		_value_feedback.play_value(_gold_progress_label)
 
 
 func show_game_over() -> void:
@@ -392,6 +416,11 @@ func show_game_over() -> void:
 
 func show_upgrade_feedback(name_key: String) -> void:
 	_show_feedback("ui_upgrade_applied", name_key)
+
+
+func show_level_advanced_feedback(level: int) -> void:
+	_last_feedback_level = maxi(level, 1)
+	_show_feedback("ui_level_advanced", "")
 
 
 func show_gear_mod_drop_feedback(name_key: String) -> void:
@@ -533,7 +562,11 @@ func _refresh_static_labels() -> void:
 	set_life(_current_life, _max_life)
 	set_kills(_kills)
 	set_level(_level)
-	set_xp(_xp, _xp_required)
+	set_gold_progress(
+		_gold_balance,
+		_level_gold,
+		_level_gold_required
+	)
 	_refresh_time_label()
 	if _interaction_prompt_visible:
 		show_interaction_prompt(_interaction_binding)
@@ -582,6 +615,7 @@ func _refresh_upgrade_feedback() -> void:
 		"name": tr(_last_upgrade_name_key),
 		"resource": tr(_last_upgrade_resource_key),
 		"amount": _last_upgrade_amount,
+		"level": _last_feedback_level,
 	})
 
 

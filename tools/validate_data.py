@@ -31,8 +31,8 @@ SKILLS_JSON = ROOT / "client" / "data" / "skills.json"
 ELEMENTS_JSON = ROOT / "client" / "data" / "elements.json"
 HERO_PASSIVES_JSON = ROOT / "client" / "data" / "hero_passives.json"
 CREDITS_JSON = ROOT / "client" / "data" / "credits.json"
-GROWTH_CSV = ROOT / "client" / "data" / "growth.csv"
-GROWTH_POOLS_JSON = ROOT / "client" / "data" / "growth_pools.json"
+LEVEL_PROGRESSION_JSON = ROOT / "client" / "data" / "level_progression.json"
+REWARD_CHOICE_POOLS_JSON = ROOT / "client" / "data" / "reward_choice_pools.json"
 DIFFICULTY_PROFILES_JSON = ROOT / "client" / "data" / "difficulty_profiles.json"
 GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
 MAP_LAYOUTS_JSON = ROOT / "client" / "data" / "map_layouts.json"
@@ -72,7 +72,6 @@ POSITIVE_STATS = {
     "fire_rate",
     "bullet_speed",
     "bullet_range",
-    "pickup_orb_speed",
     "crit_mult",
     "ability_strength",
     "ability_range",
@@ -154,8 +153,8 @@ def main() -> int:
     _validate_credits(ctx)
     _validate_characters(ctx, weapon_ids, active_item_ids, consumable_ids, skill_ids, passive_ids, element_ids)
     character_ids = _collect_character_ids(ctx)
-    _validate_growth_csv(ctx)
-    _validate_growth_pools(ctx)
+    _validate_level_progression(ctx)
+    _validate_reward_choice_pools(ctx)
     difficulty_profile_ids = _validate_difficulty_profiles(ctx)
     _validate_game_modes(ctx, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids, difficulty_profile_ids)
     game_mode_ids = _collect_game_mode_ids(ctx)
@@ -250,15 +249,17 @@ def _validate_player_json(ctx: ValidationContext) -> None:
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=2)
-    if schema_version != 2:
-        ctx.error(path, "schema_version", "must equal 2")
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=3)
+    if schema_version != 3:
+        ctx.error(path, "schema_version", "must equal 3")
     base_stats = data.get("base_stats")
     if not isinstance(base_stats, dict) or not base_stats:
         ctx.error(path, "base_stats", "must be a non-empty object")
         return
     if "damage_invulnerability_duration" in base_stats:
         ctx.error(path, "base_stats.damage_invulnerability_duration", "was removed in schema_version 2; use dash.invulnerability_duration or defense.shield_gate")
+    if "pickup_orb_speed" in base_stats:
+        ctx.error(path, "base_stats.pickup_orb_speed", "was removed in schema_version 3; use gold_drop.pickup_speed and energy_drop.pickup_speed")
     for stat, value in base_stats.items():
         _validate_stat_value(ctx, path, f"base_stats.{stat}", stat, value)
     defense = data.get("defense")
@@ -304,8 +305,17 @@ def _validate_player_json(ctx: ValidationContext) -> None:
     else:
         _require_number(ctx, path, "energy_drop.chance", energy_drop.get("chance"), minimum=0, maximum=1)
         _require_number(ctx, path, "energy_drop.amount", energy_drop.get("amount"), minimum=0, exclusive_minimum=True)
+        _require_number(ctx, path, "energy_drop.pickup_speed", energy_drop.get("pickup_speed"), minimum=0, exclusive_minimum=True)
         _require_registered(ctx, path, "energy_drop.pool_id", energy_drop.get("pool_id"), "pool_ids")
         _require_registered(ctx, path, "energy_drop.rng_stream", energy_drop.get("rng_stream"), "rng_streams")
+    gold_drop = data.get("gold_drop")
+    if not isinstance(gold_drop, dict):
+        ctx.error(path, "gold_drop", "must be an object")
+    else:
+        _require_number(ctx, path, "gold_drop.pickup_speed", gold_drop.get("pickup_speed"), minimum=0, exclusive_minimum=True)
+        gold_pool_id = _require_registered(ctx, path, "gold_drop.pool_id", gold_drop.get("pool_id"), "pool_ids")
+        if gold_pool_id != "gold_orb":
+            ctx.error(path, "gold_drop.pool_id", "must equal gold_orb")
 
 
 def _validate_elements(ctx: ValidationContext) -> set[str]:
@@ -1130,7 +1140,7 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
         "contact_damage",
         "contact_interval",
         "element_id",
-        "exp_reward",
+        "gold_reward",
         "hit_radius",
         "separation_radius",
     }
@@ -1182,7 +1192,7 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
             _parse_int(ctx, path, f"{field}.contact_damage", row.get("contact_damage"), minimum=0)
             _parse_float(ctx, path, f"{field}.contact_interval", row.get("contact_interval"), minimum=0, exclusive_minimum=True)
             _require_registered(ctx, path, f"{field}.element_id", row.get("element_id"), "elements")
-            _parse_int(ctx, path, f"{field}.exp_reward", row.get("exp_reward"), minimum=0)
+            _parse_int(ctx, path, f"{field}.gold_reward", row.get("gold_reward"), minimum=0)
             _parse_float(ctx, path, f"{field}.hit_radius", row.get("hit_radius"), minimum=0, exclusive_minimum=True)
             _parse_float(ctx, path, f"{field}.separation_radius", row.get("separation_radius"), minimum=0)
         if row_count == 0:
@@ -2019,64 +2029,43 @@ def _validate_credit_entry(ctx: ValidationContext, path: Path, field: str, data:
         _require_non_empty_string(ctx, path, f"{field}.copyright", data.get("copyright"))
 
 
-def _validate_growth_csv(ctx: ValidationContext) -> None:
-    if not GROWTH_CSV.exists():
-        ctx.error(GROWTH_CSV, "$", "missing growth curve CSV")
-        return
-
-    required = {
-        "level",
-        "total_xp_required",
-        "candidate_count",
-        "bonus_candidate_chance_per_luck",
-        "bonus_candidate_chance_cap",
-    }
-    previous_level = 0
-    previous_xp = -1
-    with GROWTH_CSV.open(encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle)
-        fieldnames = reader.fieldnames or []
-        missing = required.difference(fieldnames)
-        if missing:
-            ctx.error(GROWTH_CSV, "header", f"missing required columns {sorted(missing)}")
-            return
-        for line_number, row in enumerate(reader, start=2):
-            level = _parse_int(ctx, GROWTH_CSV, f"line {line_number}.level", row.get("level"))
-            total_xp = _parse_int(ctx, GROWTH_CSV, f"line {line_number}.total_xp_required", row.get("total_xp_required"))
-            candidate_count = _parse_int(ctx, GROWTH_CSV, f"line {line_number}.candidate_count", row.get("candidate_count"))
-            chance_per_luck = _parse_float(
-                ctx,
-                GROWTH_CSV,
-                f"line {line_number}.bonus_candidate_chance_per_luck",
-                row.get("bonus_candidate_chance_per_luck"),
-            )
-            chance_cap = _parse_float(ctx, GROWTH_CSV, f"line {line_number}.bonus_candidate_chance_cap", row.get("bonus_candidate_chance_cap"))
-            if isinstance(level, int) and level < 1:
-                ctx.error(GROWTH_CSV, f"line {line_number}.level", "must be >= 1")
-            if isinstance(level, int):
-                if level <= previous_level:
-                    ctx.error(GROWTH_CSV, f"line {line_number}.level", "must be strictly increasing")
-                previous_level = level
-            if isinstance(total_xp, int):
-                if total_xp < 0:
-                    ctx.error(GROWTH_CSV, f"line {line_number}.total_xp_required", "must be >= 0")
-                if total_xp <= previous_xp:
-                    ctx.error(GROWTH_CSV, f"line {line_number}.total_xp_required", "must be strictly increasing")
-                previous_xp = total_xp
-            if isinstance(candidate_count, int) and candidate_count < 1:
-                ctx.error(GROWTH_CSV, f"line {line_number}.candidate_count", "must be >= 1")
-            if isinstance(chance_per_luck, float) and not 0 <= chance_per_luck <= 1:
-                ctx.error(GROWTH_CSV, f"line {line_number}.bonus_candidate_chance_per_luck", "must be between 0 and 1")
-            if isinstance(chance_cap, float) and not 0 <= chance_cap <= 1:
-                ctx.error(GROWTH_CSV, f"line {line_number}.bonus_candidate_chance_cap", "must be between 0 and 1")
-
-
-def _validate_growth_pools(ctx: ValidationContext) -> None:
-    path = GROWTH_POOLS_JSON
+def _validate_level_progression(ctx: ValidationContext) -> None:
+    path = LEVEL_PROGRESSION_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+    first_level_cost = _require_int(
+        ctx, path, "first_level_cost", data.get("first_level_cost"), minimum=1
+    )
+    numerator = _require_int(
+        ctx,
+        path,
+        "multiplier_numerator",
+        data.get("multiplier_numerator"),
+        minimum=1,
+    )
+    denominator = _require_int(
+        ctx,
+        path,
+        "multiplier_denominator",
+        data.get("multiplier_denominator"),
+        minimum=1,
+    )
+    if (
+        isinstance(numerator, int)
+        and isinstance(denominator, int)
+        and numerator <= denominator
+    ):
+        ctx.error(path, "multiplier_numerator", "must be greater than multiplier_denominator")
+
+
+def _validate_reward_choice_pools(ctx: ValidationContext) -> None:
+    path = REWARD_CHOICE_POOLS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
     pools = _require_list(ctx, path, "pools", data.get("pools"))
     pool_ids: set[str] = set()
     for pool_index, pool in enumerate(pools):
@@ -2103,11 +2092,15 @@ def _validate_growth_pools(ctx: ValidationContext) -> None:
                 if entry_id in entry_ids:
                     ctx.error(path, f"{entry_field}.id", f"duplicate entry id {entry_id}")
                 entry_ids.add(entry_id)
-            _require_non_empty_string(ctx, path, f"{entry_field}.kind", entry.get("kind"))
-            _require_int(ctx, path, f"{entry_field}.weight", entry.get("weight"), minimum=0)
+            kind = _require_non_empty_string(ctx, path, f"{entry_field}.kind", entry.get("kind"))
+            if kind and kind != "stat_modifier":
+                ctx.error(path, f"{entry_field}.kind", "must equal stat_modifier")
+            _require_int(ctx, path, f"{entry_field}.weight", entry.get("weight"), minimum=1)
             if "min_level" in entry:
                 _require_int(ctx, path, f"{entry_field}.min_level", entry.get("min_level"), minimum=1)
-            if "modifiers" in entry:
+            if "modifiers" not in entry:
+                ctx.error(path, f"{entry_field}.modifiers", "is required")
+            else:
                 _validate_modifiers(ctx, path, f"{entry_field}.modifiers", entry.get("modifiers"), require_value_per_level=False)
 
 
@@ -2198,12 +2191,11 @@ def _validate_game_modes(
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 2)
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 3)
     modes = _require_list(ctx, path, "modes", data.get("modes"))
     if not modes:
         ctx.error(path, "modes", "must be a non-empty array")
     seen_modes: set[str] = set()
-    growth_pool_ids = _collect_growth_pool_ids(ctx)
     for mode_index, mode in enumerate(modes):
         mode_field = f"modes[{mode_index}]"
         if not isinstance(mode, dict):
@@ -2235,7 +2227,7 @@ def _validate_game_modes(
             )
         team_ids = _validate_mode_teams(ctx, path, mode_field, mode.get("teams"))
         _validate_mode_participants(ctx, path, mode_field, mode.get("participants"), team_ids)
-        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), growth_pool_ids, character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids)
+        _validate_mode_resource_pools(ctx, path, mode_field, mode.get("resource_pools"), character_ids, weapon_ids, enemy_ids, hazard_ids, relic_ids, active_item_ids, consumable_ids, skill_ids)
         if "blocklists" in mode:
             _validate_mode_blocklists(ctx, path, f"{mode_field}.blocklists", mode.get("blocklists"))
         if "overrides" in mode:
@@ -2645,7 +2637,6 @@ def _validate_mode_resource_pools(
     path: Path,
     mode_field: str,
     data: Any,
-    growth_pool_ids: set[str],
     character_ids: set[str],
     weapon_ids: set[str],
     enemy_ids: set[str],
@@ -2676,8 +2667,8 @@ def _validate_mode_resource_pools(
     if "consumables" in data:
         _validate_weighted_consumable_entries(ctx, path, f"{field}.consumables", data.get("consumables"), consumable_ids)
     if "growth_pools" in data:
-        _validate_weighted_growth_pool_entries(ctx, path, f"{field}.growth_pools", data.get("growth_pools"), growth_pool_ids)
-    if "characters" not in data and "weapons" not in data and "enemies" not in data and "hazards" not in data and "relics" not in data and "active_items" not in data and "skills" not in data and "consumables" not in data and "growth_pools" not in data:
+        ctx.error(path, f"{field}.growth_pools", "was removed in schema_version 3")
+    if "characters" not in data and "weapons" not in data and "enemies" not in data and "hazards" not in data and "relics" not in data and "active_items" not in data and "skills" not in data and "consumables" not in data:
         ctx.error(path, field, "must contain at least one supported pool")
 
 
@@ -2811,21 +2802,6 @@ def _validate_weighted_contract_entries(ctx: ValidationContext, path: Path, fiel
             ctx.error(path, item_field, "must be an object")
             continue
         _require_registered(ctx, path, f"{item_field}.id", entry.get("id"), contract_key)
-        _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
-
-
-def _validate_weighted_growth_pool_entries(ctx: ValidationContext, path: Path, field: str, data: Any, growth_pool_ids: set[str]) -> None:
-    entries = _require_list(ctx, path, field, data)
-    if not entries:
-        ctx.error(path, field, "must be a non-empty array")
-    for index, entry in enumerate(entries):
-        item_field = f"{field}[{index}]"
-        if not isinstance(entry, dict):
-            ctx.error(path, item_field, "must be an object")
-            continue
-        pool_id = _require_non_empty_string(ctx, path, f"{item_field}.id", entry.get("id"))
-        if pool_id and pool_id not in growth_pool_ids:
-            ctx.error(path, f"{item_field}.id", f"pool is not defined in growth_pools.json: {pool_id}")
         _require_int(ctx, path, f"{item_field}.weight", entry.get("weight"), minimum=0)
 
 
@@ -3048,16 +3024,6 @@ def _collect_gear_mod_rarity_max_ranks(ctx: ValidationContext) -> dict[str, int]
         if isinstance(rarity, str) and isinstance(max_rank, int) and not isinstance(max_rank, bool):
             max_ranks[rarity] = max(max_ranks.get(rarity, 0), max_rank)
     return max_ranks
-
-
-def _collect_growth_pool_ids(ctx: ValidationContext) -> set[str]:
-    data = _load_json(GROWTH_POOLS_JSON, ctx)
-    if not isinstance(data, dict):
-        return set()
-    pools = data.get("pools")
-    if not isinstance(pools, list):
-        return set()
-    return {item.get("id") for item in pools if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
 def _validate_content_tags(ctx: ValidationContext, path: Path, field: str, value: Any) -> None:

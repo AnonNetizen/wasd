@@ -2,12 +2,12 @@
   "schema_version": 1,
   "pools": [
     {
-      "id": "default_level_up",
+      "id": "default_reward_choice",
       "entries": [
         {
-          "id": "growth_damage_small",
-          "name_key": "ui_growth_damage_small_name",
-          "desc_key": "ui_growth_damage_small_desc",
+          "id": "reward_damage_small",
+          "name_key": "ui_reward_damage_small_name",
+          "desc_key": "ui_reward_damage_small_desc",
           "kind": "stat_modifier",
           "weight": 100,
           "min_level": 1,
@@ -16,9 +16,9 @@
           ]
         },
         {
-          "id": "growth_fire_rate_small",
-          "name_key": "ui_growth_fire_rate_small_name",
-          "desc_key": "ui_growth_fire_rate_small_desc",
+          "id": "reward_fire_rate_small",
+          "name_key": "ui_reward_fire_rate_small_name",
+          "desc_key": "ui_reward_fire_rate_small_desc",
           "kind": "stat_modifier",
           "weight": 80,
           "min_level": 1,
@@ -27,9 +27,9 @@
           ]
         },
         {
-          "id": "growth_pickup_range_small",
-          "name_key": "ui_growth_pickup_range_small_name",
-          "desc_key": "ui_growth_pickup_range_small_desc",
+          "id": "reward_pickup_range_small",
+          "name_key": "ui_reward_pickup_range_small_name",
+          "desc_key": "ui_reward_pickup_range_small_desc",
           "kind": "stat_modifier",
           "weight": 60,
           "min_level": 1,
@@ -38,9 +38,9 @@
           ]
         },
         {
-          "id": "growth_move_speed_small",
-          "name_key": "ui_growth_move_speed_small_name",
-          "desc_key": "ui_growth_move_speed_small_desc",
+          "id": "reward_move_speed_small",
+          "name_key": "ui_reward_move_speed_small_name",
+          "desc_key": "ui_reward_move_speed_small_desc",
           "kind": "stat_modifier",
           "weight": 70,
           "min_level": 3,
@@ -49,9 +49,9 @@
           ]
         },
         {
-          "id": "growth_max_hp_small",
-          "name_key": "ui_growth_max_hp_small_name",
-          "desc_key": "ui_growth_max_hp_small_desc",
+          "id": "reward_max_hp_small",
+          "name_key": "ui_reward_max_hp_small_name",
+          "desc_key": "ui_reward_max_hp_small_desc",
           "kind": "stat_modifier",
           "weight": 65,
           "min_level": 3,

@@ -96,9 +96,9 @@ F9.3 先建立 Demo 占位音频 id 计划，不在没有资源时强行播放�
 | `sfx_player_hurt` | SFX | 玩家实际受到伤害 | 计划 id；需走 `AudioManager.play_sfx()`，不得直接创建播放器 |
 | `sfx_enemy_hit` | SFX | 敌人受到非致命伤害 | 计划 id；应配合命中反馈，注意 polyphony 上限 |
 | `sfx_enemy_die` | SFX | 敌人死亡反馈开始 | 计划 id；可比 hit 音量更低或更短，避免密集刷屏刺耳 |
-| `sfx_pickup_orb` | SFX | 经验球收集反馈开始 | 计划 id；适合较低音量和短尾音 |
+| `sfx_pickup_orb` | SFX | 金币球收集反馈开始 | 计划 id；适合较低音量和短尾音 |
 | `sfx_ui_click` | SFX | 通用 UI 确认 / 按钮点击 | 计划 id；暂停、设置、局外升级可复用 |
-| `sfx_ui_levelup` | SFX | 升级选择面板出现或选择生效 | 计划 id；优先用于选择生效，避免面板弹出和选择双响 |
+| `sfx_ui_levelup` | SFX | 等级提升提示或通用奖励选择生效 | 计划 id；优先用于选择生效，避免提示和选择双响 |
 | `music_run_loop` | Music | 标准生存模式游玩中 | 计划 id；真实播放需先注册 music stream |
 | `music_boss` | Music | Boss / 精英阶段 | 预留 id；当前 Demo 无 Boss 闭环，不接入播放 |
 

@@ -6,7 +6,7 @@
 ## 职责
 
 - 只在 Godot debug build 或带 `dev_tools` feature 的构建中挂载调试控制台。
-- 提供 GM 命令注册与执行入口，当前覆盖 `help` / `stats` / `spawn` / `xp` / `heal` / `hp` / `damage` / `kill_player` / `kill_enemies` / `clear_enemies` / `dust` / `seed`。
+- 提供 GM 命令注册与执行入口，当前覆盖 `help` / `stats` / `spawn` / `gold` / `heal` / `hp` / `damage` / `kill_player` / `kill_enemies` / `clear_enemies` / `dust` / `seed`。
 - GM 命令只能调用正式系统 API 或受控 `debug_*` API，不直接散落修改 gameplay 私有状态、存档文件或 analytics。
 - release 构建默认不会挂载 `DebugConsole` / `GMCommandRegistry`，也不会启用 `InputService` 的 debug context 或 `debug_*` action。
 - ADR #159 / #160 的“开发者测试岛”与控制台共享 debug/dev_tools 构建边界，但只通过独立 scene 运行，拥有独立模块文档、配置和 smoke；它不挂标题 / FormalClientBoot，不是 GM 命令集合或正式 game mode。
@@ -18,7 +18,7 @@
 | `client/scripts/debug/debug_console.gd` | 动态构建控制台 UI，注册 `debug_*` action，转发命令给 GM registry |
 | `client/scripts/debug/gm_command_registry.gd` | 命令解析、参数校验和正式系统 API 调用 |
 | `client/scripts/boot/formal_client_boot.gd` | 通过字符串路径动态加载 `DebugConsole`，并提供 release 双重 guard |
-| `client/scripts/gameplay/gameplay_run_loop.gd` | 提供 `debug_summary()`、刷怪、经验、玩家生命、杀敌 / 清敌等受控 runtime debug API |
+| `client/scripts/gameplay/gameplay_run_loop.gd` | 提供 `debug_summary()`、刷怪、金币、玩家生命、杀敌 / 清敌等受控 runtime debug API |
 | `client/scripts/gameplay/player.gd` | 提供生命值设置 / 治疗 / 清无敌的 debug API |
 | `client/scripts/autoload/gear_mod_system.gd` | 提供 `debug_grant_resource()`，仍走 profile normalize 与 `save_meta_profile()` |
 | `client/tools/debug_tools_smoke.gd` | headless 自动验证 debug 可用与 release 模拟禁用 |
@@ -43,7 +43,7 @@
 | `help` | 输出当前命令列表 |
 | `stats` | 输出 GameState、seed、GameClock、UI 栈、对象池、敌人数量和 runtime 摘要 |
 | `spawn <enemy_id> [count]` | 通过 `GameplayRunLoop.debug_spawn_enemy()` 走对象池和敌人 `configure()` 刷怪，默认 `enemy_chaser` |
-| `xp <amount>` | 通过 runtime 原有经验收集路径增加经验，可触发升级 |
+| `gold <amount>` | 通过 `debug_give_gold()` 与正式 `add_gold(..., debug_command)` 交易增加余额 / 累计金币，可跨级但不会触发奖励选择 |
 | `heal [amount]` | 调用玩家 debug 治疗 API，默认回满 |
 | `hp <amount>` | 设置玩家生命值，`0` 会触发死亡信号 |
 | `damage <amount>` | 清玩家短暂无敌后通过 `Combat.apply_damage()` 造成伤害 |

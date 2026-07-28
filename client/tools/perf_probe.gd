@@ -18,7 +18,7 @@ var _entity_peak_counts: Dictionary = {
 	"active_bullets": 0,
 	"active_enemies": 0,
 	"active_hazards": 0,
-	"active_pickups": 0,
+	"active_gold_orbs": 0,
 }
 var _failures: Array[String] = []
 var _pool_peak_active: Dictionary = {}
@@ -85,7 +85,11 @@ func _run() -> void:
 		"game_time": GameClock.now(),
 		"game_tick": GameClock.tick(),
 		"kills": int(snapshot.get("kills", 0)),
-		"level": int(snapshot.get("level", 1)),
+		"level": (
+			int(_run_loop.call("current_level"))
+			if _run_loop != null
+			else 1
+		),
 		"active_counts": _active_counts(snapshot),
 		"peak_counts": _entity_peak_counts.duplicate(true),
 		"pool_peak_active": _pool_peak_active.duplicate(true),
@@ -106,7 +110,7 @@ func _reset_samples() -> void:
 		"active_bullets": 0,
 		"active_enemies": 0,
 		"active_hazards": 0,
-		"active_pickups": 0,
+		"active_gold_orbs": 0,
 	}
 	for pool_id: String in _pool_ids():
 		_pool_peak_active[pool_id] = 0
@@ -169,7 +173,7 @@ func _active_counts(snapshot: Dictionary) -> Dictionary:
 		"active_bullets": _array_size(snapshot.get("bullets", [])),
 		"active_enemies": _array_size(snapshot.get("enemies", [])),
 		"active_hazards": _array_size(snapshot.get("hazards", [])),
-		"active_pickups": _array_size(snapshot.get("pickups", [])),
+		"active_gold_orbs": _array_size(snapshot.get("gold_orbs", [])),
 	}
 
 
@@ -193,7 +197,7 @@ func _pool_ids() -> Array[String]:
 		POOL_IDS.ENEMY_CHASER,
 		POOL_IDS.ENEMY_SWARM,
 		POOL_IDS.HAZARD_SPIKE,
-		POOL_IDS.PICKUP_ORB,
+		POOL_IDS.GOLD_ORB,
 	]
 
 

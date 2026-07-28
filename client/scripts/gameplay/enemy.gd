@@ -4,7 +4,7 @@ class_name Enemy
 extends CharacterBody2D
 
 
-signal defeated(enemy: Node, exp_reward: int)
+signal defeated(enemy: Node, gold_reward: int, player_attributed: bool)
 
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
@@ -62,7 +62,7 @@ var _current_action: String = ""
 var _decision_remaining: float = 0.0
 var _debug_ai_enabled: bool = true
 var _enemy_id: String = ""
-var _exp_reward: int = 0
+var _gold_reward: int = 0
 var _facing_sign: float = 1.0
 var _focus_target: Node2D = null
 var _hit_radius: float = 0.0
@@ -193,7 +193,7 @@ func configure(
 		float(enemy_data.get("contact_interval", 0.7)),
 		0.0
 	)
-	_exp_reward = int(enemy_data.get("exp_reward", 0))
+	_gold_reward = int(enemy_data.get("gold_reward", 0))
 	_hit_radius = float(enemy_data.get("hit_radius", 0.0))
 	_separation_radius = float(enemy_data.get("separation_radius", 0.0))
 	_configure_collision_shape()
@@ -449,7 +449,7 @@ func receive_damage(info: RefCounted) -> Dictionary:
 	var is_defeated: bool = _life_points <= 0.0
 	if is_defeated:
 		remove_from_group("active_enemies")
-		defeated.emit(self, _exp_reward)
+		defeated.emit(self, _gold_reward, was_defeated_by_player())
 		_ensure_presentation()
 		if _presentation != null:
 			_presentation.play_defeat()
@@ -555,7 +555,7 @@ func _pool_reset() -> void:
 	_decision_remaining = 0.0
 	_debug_ai_enabled = true
 	_enemy_id = ""
-	_exp_reward = 0
+	_gold_reward = 0
 	_facing_sign = 1.0
 	_focus_target = null
 	_has_last_known_position = false

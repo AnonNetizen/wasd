@@ -28,12 +28,20 @@ def main() -> int:
     cases: list[tuple[str, RepoMutator | None, list[str]]] = [
         ("golden data passes", None, []),
         (
-            "player schema v2 is required",
+            "player schema v3 is required",
             _mutate_json("client/data/player.json", _set_schema_version(1)),
             [
                 "client/data/player.json:schema_version",
-                "must be >= 2",
-                "must equal 2",
+                "must be >= 3",
+                "must equal 3",
+            ],
+        ),
+        (
+            "player schema v3 rejects pickup orb speed",
+            _mutate_json("client/data/player.json", _add_legacy_pickup_orb_speed),
+            [
+                "client/data/player.json:base_stats.pickup_orb_speed",
+                "was removed in schema_version 3",
             ],
         ),
         (
@@ -50,6 +58,46 @@ def main() -> int:
             [
                 "client/data/player.json:energy_drop.pool_id",
                 "unknown id pool_missing; expected one of pool_ids",
+            ],
+        ),
+        (
+            "gold drop pickup speed must be positive",
+            _mutate_json("client/data/player.json", _set_drop_pickup_speed("gold_drop", 0.0)),
+            [
+                "client/data/player.json:gold_drop.pickup_speed",
+                "must be > 0",
+            ],
+        ),
+        (
+            "energy drop pickup speed must be positive",
+            _mutate_json("client/data/player.json", _set_drop_pickup_speed("energy_drop", 0.0)),
+            [
+                "client/data/player.json:energy_drop.pickup_speed",
+                "must be > 0",
+            ],
+        ),
+        (
+            "level progression first cost must be positive",
+            _mutate_json("client/data/level_progression.json", _set_level_progression_field("first_level_cost", 0)),
+            [
+                "client/data/level_progression.json:first_level_cost",
+                "must be >= 1",
+            ],
+        ),
+        (
+            "level progression denominator must be positive",
+            _mutate_json("client/data/level_progression.json", _set_level_progression_field("multiplier_denominator", 0)),
+            [
+                "client/data/level_progression.json:multiplier_denominator",
+                "must be >= 1",
+            ],
+        ),
+        (
+            "level progression multiplier must grow",
+            _mutate_json("client/data/level_progression.json", _set_level_progression_field("multiplier_numerator", 10)),
+            [
+                "client/data/level_progression.json:multiplier_numerator",
+                "must be greater than multiplier_denominator",
             ],
         ),
         (
@@ -439,11 +487,11 @@ def main() -> int:
             ],
         ),
         (
-            "game mode schema v2 is required",
+            "game mode schema v3 is required",
             _mutate_json("client/data/game_modes.json", _set_schema_version(1)),
             [
                 "client/data/game_modes.json:schema_version",
-                "must equal 2",
+                "must equal 3",
             ],
         ),
         (
@@ -505,19 +553,19 @@ def main() -> int:
             ],
         ),
         (
-            "missing growth pool reference fails",
-            _mutate_json("client/data/game_modes.json", _set_mode_growth_pool("missing_pool")),
+            "game mode rejects retired growth pools",
+            _mutate_json("client/data/game_modes.json", _add_legacy_growth_pool),
             [
-                "client/data/game_modes.json:modes[0].resource_pools.growth_pools[0].id",
-                "pool is not defined in growth_pools.json: missing_pool",
+                "client/data/game_modes.json:modes[0].resource_pools.growth_pools",
+                "was removed in schema_version 3",
             ],
         ),
         (
-            "missing growth entry locale key fails",
-            _mutate_json("client/data/growth_pools.json", _set_growth_entry_name_key("ui_growth_missing_name")),
+            "missing reward entry locale key fails",
+            _mutate_json("client/data/reward_choice_pools.json", _set_reward_entry_name_key("ui_reward_missing_name")),
             [
-                "client/data/growth_pools.json:pools[0].entries[0].name_key",
-                "locale key is missing from client/locale/strings.csv: ui_growth_missing_name",
+                "client/data/reward_choice_pools.json:pools[0].entries[0].name_key",
+                "locale key is missing from client/locale/strings.csv: ui_reward_missing_name",
             ],
         ),
         (
@@ -1782,11 +1830,10 @@ def _set_difficulty_stage_name_key(value: str) -> JsonMutator:
     return mutate
 
 
-def _set_mode_growth_pool(value: str) -> JsonMutator:
-    def mutate(payload: dict[str, Any]) -> None:
-        payload["modes"][0]["resource_pools"]["growth_pools"] = [{"id": value, "weight": 100}]
-
-    return mutate
+def _add_legacy_growth_pool(payload: dict[str, Any]) -> None:
+    payload["modes"][0]["resource_pools"]["growth_pools"] = [
+        {"id": "default_level_up", "weight": 100}
+    ]
 
 
 def _set_warzone_phase_wave(value: str) -> JsonMutator:
@@ -1859,7 +1906,7 @@ def _set_warzone_completion_extraction_hold_time(value: int) -> JsonMutator:
     return mutate
 
 
-def _set_growth_entry_name_key(value: str) -> JsonMutator:
+def _set_reward_entry_name_key(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["pools"][0]["entries"][0]["name_key"] = value
 
@@ -1993,6 +2040,24 @@ def _set_dash_distance(value: float) -> JsonMutator:
 def _set_energy_drop_pool(value: str) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["energy_drop"]["pool_id"] = value
+
+    return mutate
+
+
+def _add_legacy_pickup_orb_speed(payload: dict[str, Any]) -> None:
+    payload["base_stats"]["pickup_orb_speed"] = 360.0
+
+
+def _set_drop_pickup_speed(drop_field: str, value: float) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload[drop_field]["pickup_speed"] = value
+
+    return mutate
+
+
+def _set_level_progression_field(field: str, value: int) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload[field] = value
 
     return mutate
 

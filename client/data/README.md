@@ -36,7 +36,7 @@
 | 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池、难度 profile 和轻量覆盖；不要复制角色 / 遗物本体 |
 | 改敌人随局内时间增长的生命 / 伤害曲线 | `difficulty_profiles.json` | 只影响之后生成敌人的生命与伤害；阶段名只填 locale key，不在数据里写译文 |
 | 改开放战区刷怪组合 / 波次 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
-| 改经验阈值 / 升级候选概率 | `growth.csv` | 候选抽取走 `RNG.ui_choice`，概率字段不要写进代码 |
+| 改金币等级曲线 / 通用奖励候选 | `level_progression.json` / `reward_choice_pools.json` | 等级曲线使用整数有理数；候选数量由调用方指定 2–5，抽取走 `RNG.ui_choice` |
 | 改装备 Mod / 英雄或武器装配 | `gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv` | 装备 Mod 与本地数据包 mod 是不同概念；Mod id / slot / rarity / resource / stack rule 必须先登记契约 |
 | 改致谢 / 第三方来源 | `credits.json` + 根目录 `CREDITS.md` | 游戏内 Credits UI 读 `credits.json`；Godot 编辑器插件来源与本地补丁另见 `client/addons/README.md`；发行前复核许可证与 notice |
 | 改界面、道具名、描述文案 | 不在这里改，去 `client/locale/strings.csv` | 数据只引用 key，译文集中管理 |
@@ -49,7 +49,7 @@
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
 | `camera_feedback.json` | 已建立 | 摄像机表现反馈；含瞄准方向引导偏移、玩家有效受伤与武器后坐力的 Phantom Camera 参数 |
 | `difficulty_profiles.json` | 已建立 | 模式级局内威胁时间曲线：90 秒阶段、连续增长、阶段跃升、伤害换算比例和九段本地化名称 |
-| `game_modes.json` | 已建立 | 游戏模式配置：难度 profile、可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 技能 / 消耗品 / 成长池、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
+| `game_modes.json` | 已建立 | 游戏模式配置：难度 profile、可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 技能 / 消耗品、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
 | `characters.json` | 已建立 | 英雄列表：场景、主副配色、基础属性、被动、两个英雄技能和起始携带 |
 | `weapons.json` | 已建立 | 武器、后坐力 / 弹道扩散模型与子弹基础配置：射速、弹速、射程、池 id、默认元素 |
 | `relics.json` | 已建立 | 被动遗物：`modifiers` + `behaviors`，只存 key 和数值，不存译文 |
@@ -57,7 +57,7 @@
 | `skills.json` | 已建立 | 可复用技能：冷却、资源消耗、目标选择和技能效果原语 |
 | `consumables.json` | 已建立 | 消耗品：堆叠数量、拾取数量、效果原语与参数 |
 | `enemy_ai_profiles.json` | 已建立 | 敌人对玩家 AI profile：感知、动作列表、冲锋 / 守家 / 远程等行为参数 |
-| `enemies.csv` | 已建立 | 敌人基础数值平表：专属场景、独立对象池、预热数量、生命、移速、接触伤害和经验奖励等 |
+| `enemies.csv` | 已建立 | 敌人基础数值平表：专属场景、独立对象池、预热数量、生命、移速、接触伤害和金币奖励等 |
 | `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、占格尺寸、持续时间 |
 | `map_layouts.json` | 已建立 | 有限地图配置：矩形地图边界、矩形格尺寸、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
 | `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、兴趣点 / 机关组合和阶段启用 wave |
@@ -66,8 +66,8 @@
 | `module_tile_catalog.json` | 已建立 | 稳定 `module_tile_id` 到 Godot TileSet source / atlas / alternative 的编辑期映射 |
 | `modules/*.json` | 制作主源 | 11×11 地形、placement 与三层视觉声明；由人工、AI 和 Module JSON Editor 协作维护 |
 | `spawn_waves.csv` | 已建立 | 刷怪波次、难度曲线、敌人权重和可选机关权重 |
-| `growth.csv` | 已建立 | 经验阈值、升级候选数量和幸运扩展候选概率曲线平表 |
-| `growth_pools.json` | 已建立 | 升级选项池、权重、等级条件和候选奖励边界 |
+| `level_progression.json` | 已建立 | 金币驱动等级曲线：首段成本和整数倍率 |
+| `reward_choice_pools.json` | 已建立 | 通用奖励选项池、权重、等级条件和 modifier 边界 |
 | `gear_mods.json` | JSON | 装备 Mod 定义：英雄 / 武器槽位、稀有度、rank、drain、修正器和分解返还 |
 | `gear_mod_drop_tables.csv` | CSV | 装备 Mod 掉落来源、概率和等级条件 |
 | `gear_mod_fusion_costs.csv` | CSV | 装备 Mod 按稀有度 / rank 的升级资源成本 |
@@ -192,8 +192,8 @@ user://mods/my_first_mod/
 
 | 数据形态 | 优先格式 | 示例 |
 |----------|----------|------|
-| 一行一个条目、列固定、经常人工排序 / 筛选 / 批量调参 | CSV | `enemies.csv`、`hazards.csv`、`spawn_waves.csv`、`growth.csv` |
-| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`map_layouts.json`、`warzone_directors.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`enemy_ai_profiles.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`gear_mods.json`、`growth_pools.json` |
+| 一行一个条目、列固定、经常人工排序 / 筛选 / 批量调参 | CSV | `enemies.csv`、`hazards.csv`、`spawn_waves.csv` |
+| 数组 / 对象嵌套、每条内容参数数量不同、需要表达条件树 | JSON | `game_modes.json`、`map_layouts.json`、`warzone_directors.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`enemy_ai_profiles.json`、`relics.json`、`active_items.json`、`consumables.json`、`characters.json`、`gear_mods.json`、`level_progression.json`、`reward_choice_pools.json` |
 | 玩家可见文案 | CSV | `client/locale/strings.csv` |
 | 致谢 / 第三方来源清单 | JSON | `credits.json`，需同时同步根目录 `CREDITS.md` |
 | 自动生成契约 | JSON | `_contracts.json`，禁止手改 |
@@ -201,7 +201,7 @@ user://mods/my_first_mod/
 CSV 示例：
 
 ```csv
-id,max_hp,move_speed,contact_damage,exp_reward
+id,max_hp,move_speed,contact_damage,gold_reward
 slime,20,90,1,3
 bat,12,150,1,2
 brute,80,60,2,10
@@ -239,12 +239,6 @@ JSON 示例：
 ```json
 {
   "schema_version": 3,
-  "aim_look": {
-    "pointer_offset_ratio": 0.30,
-    "max_offset_px": 240.0,
-    "pointer_dead_zone_px": 32.0,
-    "smoothing_time_seconds": 0.18
-  },
   "base_stats": {
     "max_hp": 600.0,
     "health_regen": 0.0,
@@ -256,7 +250,6 @@ JSON 示例：
     "bullet_range": 650.0,
     "bullet_count": 1,
     "pickup_range": 96.0,
-    "pickup_orb_speed": 360.0,
     "luck": 0.0
   },
   "defense": {
@@ -279,8 +272,13 @@ JSON 示例：
   "energy_drop": {
     "chance": 0.1,
     "amount": 25.0,
+    "pickup_speed": 360.0,
     "pool_id": "energy_orb",
     "rng_stream": "drop"
+  },
+  "gold_drop": {
+    "pickup_speed": 360.0,
+    "pool_id": "gold_orb"
   }
 }
 ```
@@ -289,7 +287,7 @@ JSON 示例：
 
 | 字段路径 | 类型 | 单位 / 范围 | 说明 | 调大后的效果 |
 |----------|------|-------------|------|--------------|
-| `schema_version` | int | 必须为 `2` | 数据结构版本 | 只在 schema 变更时调整 |
+| `schema_version` | int | 必须为 `3` | 数据结构版本 | 只在 schema 变更时调整 |
 | `base_stats.max_hp` | float | `> 0` | 默认最大生命；当前默认 600.0，采用 Dota 式血量尺度而非旧心数尺度 | 更耐打，失败更晚，也更容易做细粒度伤害 / 回复调参 |
 | `base_stats.health_regen` | float | HP/s，`>= 0` | 默认自动生命恢复；只在 `PLAYING` 状态下按 `GameClock` 缩放时间恢复，不超过最大生命 | 更能缓冲小额失误，但过高会抵消低频伤害 |
 | `base_stats.move_speed` | float | `px/s`，`> 0` | 默认移动速度 | 走位更灵活，地图探索更快 |
@@ -299,9 +297,8 @@ JSON 示例：
 | `base_stats.bullet_speed` | float | `px/s`，`> 0` | 子弹飞行速度 | 更容易命中远处移动敌人 |
 | `base_stats.bullet_range` | float | `px`，`> 0` | 子弹最大射程 | 可打到更远敌人 |
 | `base_stats.bullet_count` | int | `>= 1` | 每次开火基础子弹数 | 弹幕覆盖更宽 |
-| `base_stats.pickup_range` | float | `px`，`>= 0` | 经验 / 金币自动吸附范围 | 收集更轻松 |
-| `base_stats.pickup_orb_speed` | float | `px/s`，`> 0` | 经验球吸附到玩家的移动速度 | 经验球飞来更快，升级节奏更顺 |
-| `base_stats.luck` | float | `>= 0` | 幸运值 | 掉落、稀有度、升级 4 选 1 概率更高 |
+| `base_stats.pickup_range` | float | `px`，`>= 0` | 金币球 / 能量球自动吸附范围 | 收集更轻松 |
+| `base_stats.luck` | float | `>= 0` | 保留幸运值；当前无玩法效果 | 为后续系统保留调参入口 |
 | `defense.shield.recharge_delay` / `recharge_rate` | float | 秒 / Shield/s，`>= 0` | 护盾受损后等待时间与每秒恢复量 | 等待更长会削弱续航；恢复率更高会强化脱战恢复 |
 | `defense.shield.overshield_decay_ratio_per_second` / `overshield_snap_threshold` | float | `0..1` / Shield，`>= 0` | 超额护盾每秒按最大护盾衰减比例，以及低于阈值时归零 | 衰减更高会缩短超额护盾收益 |
 | `defense.armor.coefficient` / `maximum` | float | `> 0` | 护甲减伤曲线系数与参与公式的护甲上限 | 系数更高会降低同值护甲收益；上限更高允许更高护甲参与 |
@@ -309,7 +306,10 @@ JSON 示例：
 | `dash.distance` / `speed` / `duration` | float | px / px/s / 秒，均 `> 0` | 冲刺运动参数；`distance` 必须等于 `speed × duration` | 更远 / 更快会提升位移能力 |
 | `dash.cooldown` / `invulnerability_duration` | float | 秒，`>= 0`；无敌不超过 duration | 冲刺冷却与冲刺内无敌窗口 | 更短冷却或更长无敌会提高生存 |
 | `energy_drop.chance` / `amount` | float | `0..1` / `> 0` | 敌人死亡生成能量球的概率与拾取量 | 提高技能资源供给 |
+| `energy_drop.pickup_speed` | float | `px/s`，`> 0` | 能量球吸附速度；当前 360.0 | 更快靠近玩家 |
 | `energy_drop.pool_id` / `rng_stream` | string | `energy_orb` / `drop`，必须已登记 | 能量球对象池与确定性掉落 RNG 子流 | 不作数值调节 |
+| `gold_drop.pickup_speed` | float | `px/s`，`> 0` | 金币球吸附速度；当前 360.0 | 更快靠近玩家 |
+| `gold_drop.pool_id` | string | 必须为登记过的 `gold_orb` | 金币球对象池；玩家归因击杀且 `gold_reward > 0` 时必掉一个 | 不作数值调节 |
 
 ## `camera_feedback.json`
 
@@ -317,7 +317,13 @@ JSON 示例：
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
+  "aim_look": {
+    "pointer_offset_ratio": 0.30,
+    "max_offset_px": 240.0,
+    "pointer_dead_zone_px": 32.0,
+    "smoothing_time_seconds": 0.18
+  },
   "player_damage_shake": {
     "amplitude": 8.0,
     "frequency": 20.0,
@@ -434,7 +440,7 @@ JSON 示例：
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "modes": [
     {
       "id": "mode_standard_survival",
@@ -475,7 +481,7 @@ JSON 示例：
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 固定 `2` | 数据结构版本 |
+| `schema_version` | int | 固定 `3` | 数据结构版本；旧 `resource_pools.growth_pools` 被明确拒绝 |
 | `modes[].id` | string | 词表 §12-A game mode id，文件内唯一 | 游戏模式 id；代码引用走生成常量 |
 | `modes[].name_key` / `desc_key` | string | `ui_*_name` / `ui_*_desc` | 模式名称和描述译文 key |
 | `modes[].default_unlocked` | bool | true / false | 新存档中是否默认可用 |
@@ -503,12 +509,10 @@ JSON 示例：
 | `resource_pools.consumables[]` | array[object] | 已声明时必须非空 | 本模式可用消耗品池 |
 | `resource_pools.consumables[].id` | string | 必须存在于 `consumables.json` | 可用消耗品 id |
 | `resource_pools.*[].weight` | int | `>= 0` | 抽取 / 展示权重；具体抽取由后续系统实现 |
-| `resource_pools.growth_pools[]` | array[object] | 可选；已声明时必须非空 | 本模式使用的升级候选池；默认标准模式按 ADR #120 不声明该字段，因此不启用局内 3 选 1 |
-| `resource_pools.growth_pools[].id` | string | `growth_pools.json` 中已定义池 id | 升级候选池 id |
 | `blocklists.content_tags[]` | array[string] | 词表 §12.3 content tag | 禁用某类内容标签；当前样例为空 |
 | `overrides.player_base_stats` | object | stat 来自词表 §1 | 轻量覆盖玩家基础属性；只用于模式差异，不复制角色本体 |
 
-`game_modes.json` 只声明模式边界和 `difficulty_profile_id`，不实现模式选择 UI、匹配、联网、刷怪、成长抽取、敌人生成、遗物抽取或实际战斗规则。地图尺寸、PCG 机关和人工摆点不写在模式资源池里，改 `map_layouts.json`。默认标准模式不挂 `growth_pools`；未来非默认模式需要局内升级选择时，再显式引用对应升级池。新增资源池类型时，必须同步本文档、`DataLoader` schema、词表或对应数据注册表。
+`game_modes.json` 只声明模式边界和 `difficulty_profile_id`，不实现模式选择 UI、匹配、联网、刷怪、奖励抽取、敌人生成、遗物抽取或实际战斗规则。地图尺寸、PCG 机关和人工摆点不写在模式资源池里，改 `map_layouts.json`。通用奖励池由发起请求的系统显式选择，不再挂在模式 `resource_pools` 下。新增资源池类型时，必须同步本文档、`DataLoader` schema、词表或对应数据注册表。
 
 ## `map_layouts.json`
 
@@ -578,7 +582,7 @@ JSON 示例：
 当前结构：
 
 ```csv
-id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,max_hp,move_speed,contact_damage,contact_interval,element_id,exp_reward,hit_radius,separation_radius
+id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,max_hp,move_speed,contact_damage,contact_interval,element_id,gold_reward,hit_radius,separation_radius
 enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/actors/enemies/enemy_chaser.tscn,8,enemy_ai_chase_contact,12,110.0,100,0.7,element_neutral,3,14.0,9.0
 ```
 
@@ -598,7 +602,7 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/acto
 | `contact_damage` | int | `>= 0` | 接触伤害；当前按 600.0 玩家初始生命尺度调参，运行时必须经 `Combat.apply_damage` 结算 |
 | `contact_interval` | float | 秒，`> 0` | 同一敌人的接触伤害间隔 |
 | `element_id` | string | 词表 §9 element id | 接触伤害元素 |
-| `exp_reward` | int | `>= 0` | 击杀后经验奖励；后续掉落 / 经验球系统解释 |
+| `gold_reward` | int | `>= 0` | 玩家归因击杀后由单个实体金币球携带的金币奖励；当前敌人保留 2–6 |
 | `hit_radius` | number | `> 0`，px | 命中 / 接触半径边界，后续碰撞体或占位图可据此生成 |
 | `separation_radius` | number | `>= 0`，px | 敌人中心排斥半径；小于 `hit_radius` 时允许视觉重叠但避免中心完全重合 |
 
@@ -910,7 +914,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `worlds[].id` | string | 唯一、非空 | 世界 id；Run v6 的 `module_world` 子快照保存此值 |
+| `worlds[].id` | string | 唯一、非空 | 世界 id；Run v7 的 `module_world` 子快照保存此值 |
 | `worlds[].columns` / `worlds[].rows` | int | 首版固定 `9` | 模块槽位宽高 |
 | `worlds[].module_columns` / `worlds[].module_rows` | int | 首版固定 `11` | 单模块局部格宽高 |
 | `worlds[].cell_size` | int | `> 0`，默认 `160` | 同一世界统一的方格边长，单位 px |
@@ -939,7 +943,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `first_visit_enemy_spawn.enemy_pool[].unlock_time` | number | 非负、按数组非递减，首项为 `0` | 敌种开始参与抽取的 `GameClock` 局内时间 |
 | `first_visit_enemy_spawn.enemy_pool[].weight` | number | `> 0` | 已解锁敌种的相对权重 |
 
-“可刷怪空地”由 `ModuleWorldManager.empty_floor_positions_at()` 按世界槽位计算：世界旋转、外圈封边和封锁邻居处理后仍为 floor，并排除任何 gameplay placement 的 `cell` / 完整 `footprint`。它不检查玩家、敌人或其他动态实体占位，也不设置安全半径。返回位置固定为格心并按行、列稳定排序；`GameplayRunLoop` 使用 `RNG.spawn` 无放回抽取位置，并按同一 RNG 子流抽取当时按威胁时间已解锁的敌种。抽取结果、`telegraphing/spawned` 状态和剩余预警时间立即写入 Run v6 槽位状态，之后不得重抽；敌人的生命 / 伤害倍率在预警结束真正生成时取得，不写入预警计划。
+“可刷怪空地”由 `ModuleWorldManager.empty_floor_positions_at()` 按世界槽位计算：世界旋转、外圈封边和封锁邻居处理后仍为 floor，并排除任何 gameplay placement 的 `cell` / 完整 `footprint`。它不检查玩家、敌人或其他动态实体占位，也不设置安全半径。返回位置固定为格心并按行、列稳定排序；`GameplayRunLoop` 使用 `RNG.spawn` 无放回抽取位置，并按同一 RNG 子流抽取当时按威胁时间已解锁的敌种。抽取结果、`telegraphing/spawned` 状态和剩余预警时间立即写入 Run v7 槽位状态，之后不得重抽；敌人的生命 / 伤害倍率在预警结束真正生成时取得，不写入预警计划。
 
 `module_templates.json` 字段：
 
@@ -1525,29 +1529,31 @@ common,5,gear_mod_dust,130
 
 首片使用专用 `gear_mod_dust`，避免旧永久升级经济影响新系统。
 
-## `growth.csv`
+## `level_progression.json`
 
 当前结构：
 
-```csv
-level,total_xp_required,candidate_count,bonus_candidate_chance_per_luck,bonus_candidate_chance_cap
-1,0,3,0.02,0.35
-2,20,3,0.02,0.35
+```json
+{
+  "schema_version": 1,
+  "first_level_cost": 100,
+  "multiplier_numerator": 13,
+  "multiplier_denominator": 10
+}
 ```
 
 字段说明：
 
 | 字段 | 类型 | 单位 / 范围 | 说明 |
 |------|------|-------------|------|
-| `level` | int | `>= 1`，严格递增 | 玩家局内等级 |
-| `total_xp_required` | int | 累计经验，`>= 0`，严格递增 | 达到该等级所需累计经验；第 1 级为 0 |
-| `candidate_count` | int | `>= 1`，默认 3 | 本级升级时默认候选数量；只在目标模式声明 `growth_pools` 时生效 |
-| `bonus_candidate_chance_per_luck` | float | `0.0`~`1.0` | 每点 `luck` 增加 4 选 1 的概率 |
-| `bonus_candidate_chance_cap` | float | `0.0`~`1.0` | 幸运扩展候选概率上限 |
+| `schema_version` | int | 固定 `1` | 数据结构版本 |
+| `first_level_cost` | int | `> 0` | Lv.1→2 的累计金币段成本；当前 100 |
+| `multiplier_numerator` | int | `> multiplier_denominator` | 后续段成本倍率分子；当前 13 |
+| `multiplier_denominator` | int | `> 0` | 后续段成本倍率分母；当前 10 |
 
-运行时候选数量判定必须走 `RNG.ui_choice`；本表只提供概率参数，不负责抽取实现。ADR #120 后默认标准模式不启用局内 3 选 1，本表作为未来模式 / 工具验证能力保留。
+运行时从第一段起使用 `next = ceil(current × numerator / denominator)` 的整数有理数公式，不使用浮点幂或浮点累计。当前前十段固定为 `100, 130, 169, 220, 286, 372, 484, 630, 819, 1065`；对应 Lv.1–11 累计阈值为 `0, 100, 230, 399, 619, 905, 1277, 1761, 2391, 3210, 4275`。等级只由 `gold_earned_total` 推导，不重复保存；消费 `gold_balance` 不影响进度。
 
-## `growth_pools.json`
+## `reward_choice_pools.json`
 
 当前结构：
 
@@ -1556,12 +1562,12 @@ level,total_xp_required,candidate_count,bonus_candidate_chance_per_luck,bonus_ca
   "schema_version": 1,
   "pools": [
     {
-      "id": "default_level_up",
+      "id": "default_reward_choice",
       "entries": [
         {
-          "id": "growth_damage_small",
-          "name_key": "ui_growth_damage_small_name",
-          "desc_key": "ui_growth_damage_small_desc",
+          "id": "reward_damage_small",
+          "name_key": "ui_reward_damage_small_name",
+          "desc_key": "ui_reward_damage_small_desc",
           "kind": "stat_modifier",
           "weight": 100,
           "min_level": 1,
@@ -1580,16 +1586,16 @@ level,total_xp_required,candidate_count,bonus_candidate_chance_per_luck,bonus_ca
 | 字段路径 | 类型 | 范围 | 说明 |
 |----------|------|------|------|
 | `schema_version` | int | `>= 1` | 数据结构版本 |
-| `pools[].id` | string | 非空，文件内唯一 | 升级候选池 id；后续由模式或成长系统引用 |
+| `pools[].id` | string | 非空，文件内唯一 | 通用奖励池 id；由发起请求的调用方显式指定 |
 | `pools[].entries` | array[object] | 可为空 | 候选条目列表；当前只落 `stat_modifier` 黄金样例 |
 | `entries[].id` | string | 非空，池内唯一 | 候选条目 id；用于回放记录和诊断 |
-| `entries[].name_key` / `desc_key` | string | `ui_*` locale key | 升级候选面板展示的名称和描述 |
+| `entries[].name_key` / `desc_key` | string | `ui_*` locale key | 奖励选择面板展示的名称和描述 |
 | `entries[].kind` | string | 非空 | 候选类型；当前黄金样例为 `stat_modifier`，后续类型落地前需同步 schema |
-| `entries[].weight` | int | `>= 0` | 抽取权重；实际抽取走 `RNG.ui_choice` |
+| `entries[].weight` | int | `> 0` | 抽取权重；实际抽取走 `RNG.ui_choice` |
 | `entries[].min_level` | int | `>= 1`，可选 | 条目最早出现等级 |
 | `entries[].modifiers` | array[object] | stat 来自词表 §1 | 属性修正奖励；格式同通用 `modifiers`，使用 `value` |
 
-F4 当前已解释 `kind=stat_modifier`，用于升级选择后即时应用属性修正；遗物、主动道具强化、回血、刷新 / 跳过等其他候选类型仍未落地。ADR #120 后默认标准模式不引用本池，未来模式需要局内 3 选 1 时再在 `game_modes.json.resource_pools.growth_pools` 挂接。新增 `kind` 影响运行时行为时，必须同步对应系统模块文档和测试。
+当前只解释 `kind=stat_modifier`，选择后沿用 Player / WeaponSystem modifier 路径即时应用。调用方必须提供 pool id、登记过的 trigger id 和 2–5 的候选数量；运行时先按 `min_level` 过滤，再按稳定 id 顺序使用 `RNG.ui_choice` 加权无放回抽取。`luck` 当前不影响数量、权重或结果。标准模式不配置默认触发器，等级提升不会自动打开本面板。新增 `kind` 影响运行时行为时，必须同步对应系统模块文档和测试。
 
 ## `credits.json`
 

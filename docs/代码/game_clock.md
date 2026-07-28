@@ -6,7 +6,7 @@
 ## 职责
 
 - 提供玩法时间 `now()`、物理 tick `tick()` 和缩放 delta `delta_scaled()`。
-- 订阅 `GameState`，在玩家加载、暂停、升级选择和游戏结束等冻结状态返回 0 delta。
+- 订阅 `GameState`，在玩家加载、暂停、通用奖励选择和游戏结束等冻结状态返回 0 delta。
 - 提供 `wall_now()` 给非玩法诊断 / UI / Analytics 使用。
 - F5 起提供 `snapshot()` / `restore_snapshot()`，供局内暂停保存退出后恢复玩法时间、物理 tick 与 time scale。
 - ADR #166 后 `GameClock` 仍驱动移动、冷却、状态、回复、机关、Replay tick 与其它底层确定性系统；玩家位于起点房时它继续推进，不承担玩家可见难度用时。
@@ -66,7 +66,7 @@
 
 ## 数据与契约
 
-无外部数据文件。冻结状态来自 `GameState.LOADING`、`GameState.PAUSED`、`GameState.LEVEL_UP` 与 `GameState.GAME_OVER`。
+无外部数据文件。冻结状态来自 `GameState.LOADING`、`GameState.PAUSED`、`GameState.REWARD_CHOICE` 与 `GameState.GAME_OVER`。金币升级只显示短暂 HUD 提示，不冻结时钟。
 
 ## 依赖
 
@@ -94,7 +94,7 @@
 | 现象 | 优先检查 |
 |------|----------|
 | 暂停时仍推进玩法时间 | `GameState` 是否切到冻结状态 |
-| tick 不增长 | 当前是否处于 `LOADING` / `PAUSED` / `LEVEL_UP` / `GAME_OVER` |
+| tick 不增长 | 当前是否处于 `LOADING` / `PAUSED` / `REWARD_CHOICE` / `GAME_OVER` |
 | 回放时间不稳定 | 业务是否绕过 `GameClock` 读取 `Time` |
 | 起点房难度仍增长 | `GameplayRunLoop` 是否错误推进 `DifficultyProgression`；不要冻结 `GameClock` |
 

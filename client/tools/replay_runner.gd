@@ -90,10 +90,11 @@ func _create_smoke_replay() -> Dictionary:
 	_expect(Replay.is_recording(), "ReplayRunner smoke replay should start recording")
 	_expect(Replay.record_input_value(ACTIONS.MOVE, Vector2.RIGHT, "player_0"), "ReplayRunner smoke should record Vector2 movement")
 	_expect(Replay.record_input_value(ACTIONS.MOVE, Vector2.ZERO, "player_0"), "ReplayRunner smoke should record movement release")
-	_expect(Replay.record_decision(ANALYTICS_EVENTS.LEVEL_UP, {
-		"level": 2,
-		"choices": ["growth_damage_small", "growth_fire_rate_small", "growth_pickup_range_small"],
-		"selected": "growth_damage_small",
+	_expect(Replay.record_decision(ANALYTICS_EVENTS.REWARD_CHOICE, {
+		"trigger_id": "debug_command",
+		"pool_id": "default_reward_choice",
+		"choices": ["reward_damage_small", "reward_fire_rate_small", "reward_pickup_range_small"],
+		"selected": "reward_damage_small",
 	}), "ReplayRunner smoke should record a decision event")
 
 	GameState.change_state(GameState.GAME_OVER, {"source": "replay_runner"})
@@ -229,7 +230,7 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 		replay_context.get("scenario", "golden_basic_run")
 	)
 	_prepare_runtime_scenario(scenario)
-	Replay.set_enabled(scenario == "golden_level_up_choice")
+	Replay.set_enabled(scenario == "golden_reward_choice")
 	Replay.clear_recording()
 	RNG.set_run_seed(int(recording.get("run_seed", 0)))
 	GameClock.reset()
@@ -261,15 +262,14 @@ func _run_runtime_summary(recording: Dictionary, capture_frames: int) -> Diction
 		InputService.set_playback_active(false)
 		_restore_runtime_scenario(scenario)
 		return {}
-	if scenario == "golden_level_up_choice" and run_loop.has_method("debug_enable_level_up_growth"):
-		run_loop.call("debug_enable_level_up_growth")
+	if scenario == "golden_reward_choice":
 		if not Replay.is_recording():
 			_expect(
 				Replay.start_recording({
 					"source": "replay_runner",
 					"scenario": scenario,
 				}),
-				"ReplayRunner level-up comparison should start decision recording"
+				"ReplayRunner reward-choice comparison should start decision recording"
 			)
 	var input_events: Array[Dictionary] = _sorted_input_events(recording.get("input_events", []))
 	var runtime_events: Array[Dictionary] = _sorted_runtime_events(recording.get("runtime_events", []))
@@ -300,6 +300,9 @@ func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String, fra
 		snapshot.get("difficulty", {})
 	)
 	var module_map_hash: String = String(_dictionary_or_empty(snapshot.get("module_world", {})).get("map_hash", ""))
+	var gold_progression: Dictionary = _dictionary_or_empty(
+		snapshot.get("gold_progression", {})
+	)
 	_expect(module_map_hash.length() == 64, "ReplayRunner runtime rerun requires a module world map hash")
 	var summary: Dictionary = {
 		"schema_version": 1,
@@ -309,8 +312,9 @@ func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String, fra
 		"frame_samples": frame_samples,
 		"state": String(GameState.current()),
 		"ui_stack": UIManager.stack_size(),
-		"level": int(snapshot.get("level", 1)),
-		"xp": int(snapshot.get("xp", 0)),
+		"level": int(run_loop.call("current_level")),
+		"gold_balance": int(gold_progression.get("gold_balance", 0)),
+		"gold_earned_total": int(gold_progression.get("gold_earned_total", 0)),
 		"kills": int(snapshot.get("kills", 0)),
 		"difficulty_time": float(difficulty.get("elapsed", 0.0)),
 		"difficulty_level": int(
@@ -325,7 +329,7 @@ func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String, fra
 		"player_moved_right": _player_position_x(snapshot) > 0.0,
 		"player_aim_direction": _dictionary_or_empty(_dictionary_or_empty(snapshot.get("player", {})).get("aim_direction", {})),
 		"module_map_hash": module_map_hash,
-		"active_pickups": _array_size(snapshot.get("pickups", [])),
+		"active_gold_orbs": _array_size(snapshot.get("gold_orbs", [])),
 	}
 	if _uses_exact_runtime_counts(scenario):
 		summary["active_enemies"] = _array_size(snapshot.get("enemies", []))
@@ -337,7 +341,7 @@ func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String, fra
 			POOL_IDS.ENEMY_STALKER: PoolManager.stats(POOL_IDS.ENEMY_STALKER),
 			POOL_IDS.ENEMY_BULWARK: PoolManager.stats(POOL_IDS.ENEMY_BULWARK),
 			POOL_IDS.ENEMY_SPITTER: PoolManager.stats(POOL_IDS.ENEMY_SPITTER),
-			POOL_IDS.PICKUP_ORB: PoolManager.stats(POOL_IDS.PICKUP_ORB),
+			POOL_IDS.GOLD_ORB: PoolManager.stats(POOL_IDS.GOLD_ORB),
 		}
 	else:
 		summary["enemies_present"] = _array_size(snapshot.get("enemies", [])) > 0
@@ -347,33 +351,37 @@ func _runtime_summary(run_loop: Node, capture_frames: int, scenario: String, fra
 		summary["game_over_panel_visible"] = _find_node_by_name(get_tree().root, "GameOverPanel") != null
 		summary["meta_save_exists"] = SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.META)
 		summary["run_save_exists"] = SaveManager.has_save(SaveManager.DEFAULT_SLOT, SAVE_KINDS.RUN)
-	elif scenario == "golden_level_up_choice":
-		var level_up_decisions: Array[Dictionary] = _level_up_decision_payloads()
-		summary["level_up_decisions"] = level_up_decisions
-		summary["level_up_choice_applied"] = _has_level_up_stat_addition(snapshot)
+	elif scenario == "golden_reward_choice":
+		var reward_decisions: Array[Dictionary] = _reward_choice_decision_payloads()
+		summary["reward_choice_decisions"] = reward_decisions
+		summary["reward_choice_applied"] = _has_reward_stat_addition(snapshot)
 	return summary
 
 
 func _uses_exact_runtime_counts(scenario: String) -> bool:
-	return not ["golden_pause_resume", "golden_full_death", "golden_level_up_choice"].has(scenario)
+	return not ["golden_pause_resume", "golden_full_death", "golden_reward_choice"].has(scenario)
 
 
 func _frame_sample(run_loop: Node, frame_number: int, scenario: String) -> Dictionary:
 	var snapshot: Dictionary = _run_snapshot(run_loop)
+	var gold_progression: Dictionary = _dictionary_or_empty(
+		snapshot.get("gold_progression", {})
+	)
 	var sample: Dictionary = {
 		"frame": frame_number,
 		"state": String(GameState.current()),
 		"ui_stack": UIManager.stack_size(),
-		"level": int(snapshot.get("level", 1)),
-		"xp": int(snapshot.get("xp", 0)),
+		"level": int(run_loop.call("current_level")),
+		"gold_balance": int(gold_progression.get("gold_balance", 0)),
+		"gold_earned_total": int(gold_progression.get("gold_earned_total", 0)),
 		"kills": int(snapshot.get("kills", 0)),
 		"player_life": _player_life(snapshot),
 		"player_moved_right": _player_position_x(snapshot) > 0.0,
 		"player_aim_direction": _dictionary_or_empty(_dictionary_or_empty(snapshot.get("player", {})).get("aim_direction", {})),
 		"module_map_hash": String(_dictionary_or_empty(snapshot.get("module_world", {})).get("map_hash", "")),
 		"weapon_cooldown_ready": _weapon_cooldown_remaining(snapshot) <= 0.0,
-		"active_pickups": _array_size(snapshot.get("pickups", [])),
-		"pickups_present": _array_size(snapshot.get("pickups", [])) > 0,
+		"active_gold_orbs": _array_size(snapshot.get("gold_orbs", [])),
+		"gold_orbs_present": _array_size(snapshot.get("gold_orbs", [])) > 0,
 		"enemy_types": _enemy_types(snapshot),
 	}
 	if _uses_exact_runtime_counts(scenario):
@@ -424,20 +432,20 @@ func _enemy_types(snapshot: Dictionary) -> Array[String]:
 	return types
 
 
-func _level_up_decision_payloads() -> Array[Dictionary]:
+func _reward_choice_decision_payloads() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var recording: Dictionary = Replay.snapshot()
 	for raw_decision: Variant in _array_or_empty(recording.get("decision_events", [])):
 		if not raw_decision is Dictionary:
 			continue
 		var decision: Dictionary = raw_decision as Dictionary
-		if String(decision.get("event", "")) != ANALYTICS_EVENTS.LEVEL_UP:
+		if String(decision.get("event", "")) != ANALYTICS_EVENTS.REWARD_CHOICE:
 			continue
 		result.append(_dictionary_or_empty(decision.get("payload", {})))
 	return result
 
 
-func _has_level_up_stat_addition(snapshot: Dictionary) -> bool:
+func _has_reward_stat_addition(snapshot: Dictionary) -> bool:
 	var player_snapshot: Dictionary = _dictionary_or_empty(snapshot.get("player", {}))
 	var weapon_snapshot: Dictionary = _dictionary_or_empty(snapshot.get("weapon", {}))
 	var player_additions: Dictionary = _dictionary_or_empty(player_snapshot.get("stat_additions", {}))
@@ -521,10 +529,10 @@ func _apply_runtime_event(runtime_event: Dictionary, run_loop: Node) -> void:
 	var event_name: String = String(runtime_event.get("event", ""))
 	if event_name == "defeat_player":
 		await _defeat_player(run_loop)
-	elif event_name == "spawn_level_up_pickup":
-		await _spawn_level_up_pickup(run_loop, int(runtime_event.get("amount", 20)))
-	elif event_name == "choose_level_up_index":
-		await _choose_level_up_index(int(runtime_event.get("index", 0)))
+	elif event_name == "request_reward_choice":
+		await _request_reward_choice(run_loop, runtime_event)
+	elif event_name == "choose_reward_index":
+		await _choose_reward_index(int(runtime_event.get("index", 0)))
 
 
 func _defeat_player(run_loop: Node) -> void:
@@ -554,36 +562,24 @@ func _defeat_player(run_loop: Node) -> void:
 	await get_tree().process_frame
 
 
-func _spawn_level_up_pickup(run_loop: Node, amount: int) -> void:
-	var active_world: Node = _find_node_by_name(run_loop, "ActiveWorld")
-	var player: Node = _find_node_by_name(run_loop, "Player")
-	if active_world == null or player == null or not player is Node2D:
-		_expect(false, "ReplayRunner level-up runtime event should find ActiveWorld and Player")
-		return
-
-	var raw_node: Node = PoolManager.acquire(POOL_IDS.PICKUP_ORB)
-	if not raw_node is Node2D or not raw_node.has_method("configure"):
-		_expect(false, "ReplayRunner level-up runtime event should acquire pickup_orb")
-		return
-
-	var pickup_orb: Node2D = raw_node as Node2D
-	var old_parent: Node = pickup_orb.get_parent()
-	if old_parent != active_world:
-		if old_parent != null:
-			old_parent.remove_child(pickup_orb)
-		active_world.add_child(pickup_orb)
-	pickup_orb.global_position = (player as Node2D).global_position
-	pickup_orb.call("configure", maxi(amount, 0), player, float(player.call("pickup_orb_speed")))
-	var collected_callback: Callable = Callable(run_loop, "_on_pickup_orb_collected")
-	if not pickup_orb.is_connected("collected", collected_callback):
-		pickup_orb.connect("collected", collected_callback, CONNECT_ONE_SHOT)
+func _request_reward_choice(run_loop: Node, runtime_event: Dictionary) -> void:
+	var result: Dictionary = run_loop.call(
+		"request_reward_choice",
+		String(runtime_event.get("pool_id", "default_reward_choice")),
+		String(runtime_event.get("trigger_id", "debug_command")),
+		int(runtime_event.get("candidate_count", 3))
+	) as Dictionary
+	_expect(
+		bool(result.get("ok", false)),
+		"ReplayRunner should open a generic reward choice"
+	)
 	await get_tree().process_frame
 
 
-func _choose_level_up_index(index: int) -> void:
-	var panel: Node = _find_node_by_name(get_tree().root, "LevelUpPanel")
+func _choose_reward_index(index: int) -> void:
+	var panel: Node = _find_node_by_name(get_tree().root, "RewardChoicePanel")
 	if panel == null or not panel.has_method("choose_index"):
-		_expect(false, "ReplayRunner level-up runtime event should find LevelUpPanel")
+		_expect(false, "ReplayRunner should find RewardChoicePanel")
 		return
 	panel.call("choose_index", index)
 	await get_tree().process_frame

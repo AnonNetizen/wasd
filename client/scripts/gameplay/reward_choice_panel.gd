@@ -1,6 +1,6 @@
 # Doc: docs/代码/gameplay_runtime.md
 # Authority: docs/AI协作/工作包/F4-MinPlayableLoop.md, docs/游戏设计文档.md §7.1
-class_name LevelUpPanel
+class_name RewardChoicePanel
 extends CanvasLayer
 
 
@@ -8,7 +8,9 @@ signal choice_selected(choice: Dictionary)
 signal pause_requested()
 
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
-const LEVEL_UP_CHOICE_BUTTON_SCENE: PackedScene = preload("res://scenes/ui/level_up_choice_button.tscn")
+const REWARD_CHOICE_BUTTON_SCENE: PackedScene = preload(
+	"res://scenes/ui/reward_choice_button.tscn"
+)
 const BUTTON_HEIGHT: float = 56.0
 const BUTTON_HORIZONTAL_PADDING: float = 48.0
 const PANEL_MAX_WIDTH: float = 720.0
@@ -52,11 +54,15 @@ func _ready() -> void:
 		InputService.action_pressed.connect(_on_input_action_pressed)
 
 	_root = get_node_or_null("Root") as Control
-	_panel = get_node_or_null("Root/Center/LevelUpPanelFrame") as PanelContainer
-	_button_box = get_node_or_null("Root/Center/LevelUpPanelFrame/Margin/Layout/ButtonBox") as VBoxContainer
-	_title_label = get_node_or_null("Root/Center/LevelUpPanelFrame/Margin/Layout/TitleLabel") as Label
+	_panel = get_node_or_null("Root/Center/RewardChoicePanelFrame") as PanelContainer
+	_button_box = get_node_or_null(
+		"Root/Center/RewardChoicePanelFrame/Margin/Layout/ButtonBox"
+	) as VBoxContainer
+	_title_label = get_node_or_null(
+		"Root/Center/RewardChoicePanelFrame/Margin/Layout/TitleLabel"
+	) as Label
 	if _root == null or _panel == null or _button_box == null or _title_label == null:
-		push_error("[LevelUpPanel] missing required scene nodes")
+		push_error("[RewardChoicePanel] missing required scene nodes")
 		return
 
 	_root.resized.connect(_update_panel_width)
@@ -98,7 +104,7 @@ func choice_id(index: int) -> String:
 
 func refresh_texts() -> void:
 	if _title_label != null:
-		_title_label.text = tr("ui_level_up_title")
+		_title_label.text = tr("ui_reward_choice_title")
 	_refresh_buttons()
 
 
@@ -111,9 +117,11 @@ func _refresh_buttons() -> void:
 
 	for index: int in range(_choices.size()):
 		var choice: Dictionary = _choices[index]
-		var button: Button = LEVEL_UP_CHOICE_BUTTON_SCENE.instantiate() as Button
+		var button: Button = REWARD_CHOICE_BUTTON_SCENE.instantiate() as Button
 		if button == null:
-			push_error("[LevelUpPanel] failed to instantiate choice button template")
+			push_error(
+				"[RewardChoicePanel] failed to instantiate choice button template"
+			)
 			continue
 		button.custom_minimum_size = Vector2(_button_width(), BUTTON_HEIGHT)
 		button.text = "%s\n%s" % [tr(String(choice.get("name_key", ""))), tr(String(choice.get("desc_key", "")))]

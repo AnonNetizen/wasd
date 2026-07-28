@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://c4n16va42t7xb"]
 
-[ext_resource type="Script" uid="uid://ecptvkx4fpy" path="res://scripts/gameplay/pickup_orb.gd" id="1_pickup"]
+[ext_resource type="Script" uid="uid://ecptvkx4fpy" path="res://scripts/gameplay/gold_orb.gd" id="1_gold"]
 
-[node name="PickupOrb" type="Node2D" unique_id=831451595]
-script = ExtResource("1_pickup")
+[node name="GoldOrb" type="Node2D" unique_id=831451595]
+script = ExtResource("1_gold")
 
 [node name="Visual" type="Node2D" parent="."]
 
@@ -14,7 +14,7 @@ polygon = PackedVector2Array(1, 0, 0.924, 0.383, 0.707, 0.707, 0.383, 0.924, 0, 
 
 [node name="Body" type="Polygon2D" parent="Visual"]
 scale = Vector2(5, 5)
-color = Color(0.45, 1, 0.62, 1)
+color = Color(1, 0.73, 0.16, 1)
 polygon = PackedVector2Array(1, 0, 0.924, 0.383, 0.707, 0.707, 0.383, 0.924, 0, 1, -0.383, 0.924, -0.707, 0.707, -0.924, 0.383, -1, 0, -0.924, -0.383, -0.707, -0.707, -0.383, -0.924, 0, -1, 0.383, -0.924, 0.707, -0.707, 0.924, -0.383)
 
 [node name="AttractRing" type="Line2D" parent="Visual"]
@@ -22,5 +22,5 @@ visible = false
 scale = Vector2(8, 8)
 points = PackedVector2Array(1, 0, 0.966, 0.259, 0.866, 0.5, 0.707, 0.707, 0.5, 0.866, 0.259, 0.966, 0, 1, -0.259, 0.966, -0.5, 0.866, -0.707, 0.707, -0.866, 0.5, -0.966, 0.259, -1, 0, -0.966, -0.259, -0.866, -0.5, -0.707, -0.707, -0.5, -0.866, -0.259, -0.966, 0, -1, 0.259, -0.966, 0.5, -0.866, 0.707, -0.707, 0.866, -0.5, 0.966, -0.259)
 width = 0.1875
-default_color = Color(0.8, 1, 0.88, 0.45)
+default_color = Color(1, 0.86, 0.3, 0.55)
 closed = true

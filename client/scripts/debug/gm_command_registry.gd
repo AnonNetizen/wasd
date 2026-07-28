@@ -9,7 +9,7 @@ const GEAR_MOD_RESOURCES := preload("res://scripts/contracts/gear_mod_resources.
 const COMMAND_HELP: String = "help"
 const COMMAND_STATS: String = "stats"
 const COMMAND_SPAWN: String = "spawn"
-const COMMAND_XP: String = "xp"
+const COMMAND_GOLD: String = "gold"
 const COMMAND_HEAL: String = "heal"
 const COMMAND_HP: String = "hp"
 const COMMAND_DAMAGE: String = "damage"
@@ -42,8 +42,8 @@ func execute(raw_command: String) -> Dictionary:
 			return _stats()
 		COMMAND_SPAWN:
 			return _spawn(tokens)
-		COMMAND_XP:
-			return _xp(tokens)
+		COMMAND_GOLD:
+			return _gold(tokens)
 		COMMAND_HEAL:
 			return _heal(tokens)
 		COMMAND_HP:
@@ -69,7 +69,7 @@ func available_commands() -> PackedStringArray:
 		COMMAND_HELP,
 		COMMAND_STATS,
 		COMMAND_SPAWN,
-		COMMAND_XP,
+		COMMAND_GOLD,
 		COMMAND_HEAL,
 		COMMAND_HP,
 		COMMAND_DAMAGE,
@@ -86,9 +86,10 @@ func _stats() -> Dictionary:
 	var run_text: String = "run=none"
 	if run_loop != null and run_loop.has_method("debug_summary"):
 		var summary: Dictionary = run_loop.call("debug_summary")
-		run_text = "run=level:%d xp:%d life:%.1f/%.1f kills:%d enemies:%d" % [
+		run_text = "run=level:%d gold:%d total_gold:%d life:%.1f/%.1f kills:%d enemies:%d" % [
 			int(summary.get("level", 0)),
-			int(summary.get("xp", 0)),
+			int(summary.get("gold_balance", 0)),
+			int(summary.get("gold_earned_total", 0)),
 			float(summary.get("player_life", 0.0)),
 			float(summary.get("player_max_life", 0.0)),
 			int(summary.get("kills", 0)),
@@ -117,18 +118,19 @@ func _spawn(tokens: PackedStringArray) -> Dictionary:
 	return _result(true, "spawned %d %s" % [int(result.get("spawned", 0)), enemy_id])
 
 
-func _xp(tokens: PackedStringArray) -> Dictionary:
-	var run_loop: Node = _required_run_loop("xp")
+func _gold(tokens: PackedStringArray) -> Dictionary:
+	var run_loop: Node = _required_run_loop("gold")
 	if run_loop == null:
-		return _result(false, "xp requires an active run")
+		return _result(false, "gold requires an active run")
 	var amount: int = maxi(_int_arg(tokens, 1, 1), 1)
-	var result: Dictionary = run_loop.call("debug_give_xp", amount)
+	var result: Dictionary = run_loop.call("debug_give_gold", amount)
 	if not bool(result.get("ok", false)):
-		return _result(false, String(result.get("reason", "xp failed")))
-	return _result(true, "xp +%d total=%d level=%d" % [
+		return _result(false, String(result.get("reason", "gold failed")))
+	return _result(true, "gold +%d balance=%d total=%d level=%d" % [
 		amount,
-		int(result.get("xp", 0)),
-		int(result.get("level", 0)),
+		int(result.get("gold_balance", 0)),
+		int(result.get("gold_earned_total", 0)),
+		int(result.get("new_level", 0)),
 	])
 
 
@@ -245,7 +247,7 @@ func _find_node_by_name(root: Node, target_name: String) -> Node:
 
 
 func _help_text() -> String:
-	return "commands: help, stats, spawn <enemy_id> [count], xp <amount>, heal [amount], hp <amount>, damage <amount>, kill_player, kill_enemies, clear_enemies, dust <amount>, seed <int>"
+	return "commands: help, stats, spawn <enemy_id> [count], gold <amount>, heal [amount], hp <amount>, damage <amount>, kill_player, kill_enemies, clear_enemies, dust <amount>, seed <int>"
 
 
 func _tokens(raw_command: String) -> PackedStringArray:

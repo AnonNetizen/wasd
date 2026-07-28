@@ -87,6 +87,6 @@ func _state_freezes_clock(state: StringName) -> bool:
 	return (
 		state == GameState.LOADING
 		or state == GameState.PAUSED
-		or state == GameState.LEVEL_UP
+		or state == GameState.REWARD_CHOICE
 		or state == GameState.GAME_OVER
 	)
