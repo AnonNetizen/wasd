@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "pool_id": "ammo_magazine",
+  "pickup_speed": 360.0,
+  "pickup_magazine_count": 1,
+  "initial_drop_chance": 0.08,
+  "chance_increment_per_miss": 0.15,
+  "guaranteed_after_misses": 7,
+  "rng_stream": "ammo"
+}

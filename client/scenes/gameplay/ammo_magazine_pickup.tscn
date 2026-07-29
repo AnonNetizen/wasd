@@ -1,0 +1,27 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/ammo_magazine_pickup.gd" id="1_kq4v2"]
+
+[node name="AmmoMagazinePickup" type="Node2D" unique_id=1844221737]
+script = ExtResource("1_kq4v2")
+
+[node name="Visual" type="Node2D" parent="." unique_id=1439838758]
+
+[node name="Outline" type="Polygon2D" parent="Visual" unique_id=798797327]
+color = Color(0.03, 0.08, 0.12, 0.9)
+polygon = PackedVector2Array(-8, -10, 8, -10, 8, 10, -8, 10)
+
+[node name="Body" type="Polygon2D" parent="Visual" unique_id=657192945]
+color = Color(0.22, 0.72, 0.98, 1)
+polygon = PackedVector2Array(-6, -8, 6, -8, 6, 8, 2.5, 10, -2.5, 10, -6, 8)
+
+[node name="Accent" type="Polygon2D" parent="Visual" unique_id=154590174]
+color = Color(0.92, 0.98, 1, 1)
+polygon = PackedVector2Array(-4, -5.5, 4, -5.5, 4, -2.5, -4, -2.5)
+
+[node name="AttractRing" type="Line2D" parent="Visual" unique_id=529138485]
+visible = false
+points = PackedVector2Array(15, 0, 14.488887, 3.8822856, 12.990381, 7.5, 10.606602, 10.606602, 7.4999995, 12.990381, 3.882286, 14.488887, -6.556708e-07, 15, -3.8822856, 14.488887, -7.500001, 12.990381, -10.606602, 10.606602, -12.990381, 7.500001, -14.488887, 3.882287, -15, -1.3113416e-06, -14.488887, -3.882286, -12.990381, -7.4999995, -10.606603, -10.606601, -7.4999986, -12.990381, -3.8822846, -14.488888, 1.7887321e-07, -15, 3.882285, -14.488887, 7.4999986, -12.990381, 10.6066, -10.606604, 12.99038, -7.500003, 14.488888, -3.8822825)
+closed = true
+width = 1.5
+default_color = Color(0.36, 0.82, 1, 0.6)

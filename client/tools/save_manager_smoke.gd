@@ -30,6 +30,7 @@ func _run() -> void:
 	_expect_backup_fallback_and_broken_isolation()
 	_expect_migration_chain()
 	_expect_run_v9_reward_incompatibility()
+	_expect_run_v10_ammo_incompatibility()
 
 	_cleanup_smoke_files()
 	_finish()
@@ -134,8 +135,8 @@ func _expect_migration_chain() -> void:
 	_expect(bool(migrated_payload.get("legacy_run_incompatible", false)), "run v3->v4 migration should explicitly mark legacy run reset")
 	_expect(migrated_payload.get("module_world", null) is Dictionary, "run v3->v4 migration should add an empty module-world snapshot")
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 10,
-		"run v9->v10 migration should advance the gameplay snapshot schema"
+		int(migrated_payload.get("schema_version", 0)) == 11,
+		"run v10->v11 migration should advance the gameplay snapshot schema"
 	)
 	_expect(
 		migrated_payload.get("world_events", null) is Dictionary,
@@ -202,6 +203,7 @@ func _expect_migration_chain() -> void:
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 7, 8]), "run migration should emit save_migrated for run 7->8")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 8, 9]), "run migration should emit save_migrated for run 8->9")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 9, 10]), "run migration should emit save_migrated for run 9->10")
+	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 10, 11]), "run migration should emit save_migrated for run 10->11")
 
 
 func _expect_run_v9_reward_incompatibility() -> void:
@@ -237,14 +239,14 @@ func _expect_run_v9_reward_incompatibility() -> void:
 		RUN_KIND
 	)
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 10
+		int(migrated_payload.get("schema_version", 0)) == 11
 		and bool(
 			migrated_payload.get(
 				"legacy_run_incompatible",
 				false
 			)
 		),
-		"Run v9 should migrate only to an explicit incompatible v10 marker"
+		"Run v9 should migrate only to an explicit incompatible v11 marker"
 	)
 	_expect(
 		(migrated_payload.get("enemies", []) as Array).is_empty(),
@@ -261,9 +263,61 @@ func _expect_run_v9_reward_incompatibility() -> void:
 	)
 
 
+func _expect_run_v10_ammo_incompatibility() -> void:
+	_cleanup_smoke_files()
+	var meta_payload: Dictionary = {
+		"marker": "preserve_meta_across_v10_ammo_reset",
+	}
+	_expect(
+		SaveManager.save(SMOKE_SLOT, META_KIND, meta_payload),
+		"meta save should exist before explicit Run v10 rejection"
+	)
+	var old_payload: Dictionary = _run_payload("v10", 4)
+	old_payload["schema_version"] = 10
+	old_payload.erase("ammo_drop_misses")
+	old_payload.erase("ammo_magazines")
+	old_payload["weapon"] = {"cooldown_remaining": 0.25}
+	var old_envelope: Dictionary = {
+		"version": 10,
+		"kind": RUN_KIND,
+		"slot": SMOKE_SLOT,
+		"created_at": "2026-07-29T00:00:00",
+		"updated_at": "2026-07-29T00:00:00",
+		"game_version": "v1.9",
+		"data_hash": SaveManager.call("_payload_hash", old_payload),
+		"payload": old_payload,
+	}
+	_write_json(_save_path(), old_envelope)
+	var migrated_payload: Dictionary = SaveManager.load(
+		SMOKE_SLOT,
+		RUN_KIND
+	)
+	_expect(
+		int(migrated_payload.get("schema_version", 0)) == 11
+		and bool(
+			migrated_payload.get("legacy_run_incompatible", false)
+		),
+		"Run v10 should migrate only to an explicit incompatible v11 marker"
+	)
+	_expect(
+		int(migrated_payload.get("ammo_drop_misses", -1)) == 0
+		and (migrated_payload.get("ammo_magazines", null) as Array).is_empty(),
+		"Run v10 incompatibility should add empty ammo state markers"
+	)
+	var preserved_meta: Dictionary = SaveManager.load(
+		SMOKE_SLOT,
+		META_KIND
+	)
+	_expect(
+		String(preserved_meta.get("marker", ""))
+		== "preserve_meta_across_v10_ammo_reset",
+		"Run v10 incompatibility must preserve the separate Meta v2 save"
+	)
+
+
 func _run_payload(marker: String, level: int) -> Dictionary:
 	return {
-		"schema_version": 10,
+		"schema_version": 11,
 		"mode": "mode_standard_survival",
 		"character": "character_default",
 		"gold_progression": {
@@ -327,8 +381,20 @@ func _run_payload(marker: String, level: int) -> Dictionary:
 			"max_life": float(level + 2),
 		},
 		"weapon": {
-			"cooldown": 0.25,
+			"cooldown_remaining": 0.25,
+			"magazine": 17,
+			"reserve": 120,
+			"is_reloading": true,
+			"reload_remaining": 0.6,
 		},
+		"ammo_drop_misses": 3,
+		"ammo_magazines": [
+			{
+				"position": {"x": 10.0, "y": 20.0},
+				"amount": 30,
+				"pickup_speed": 360.0,
+			},
+		],
 		"hazards": [],
 		"enemies": [],
 		"bullets": [

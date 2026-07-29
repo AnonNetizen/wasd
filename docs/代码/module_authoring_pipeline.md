@@ -8,7 +8,7 @@
 - 制作层：`client/data/modules/<id>.json` schema v4 是布局与表现的唯一制作主源；`module_templates.json` 独立管理 role、tags、source、allowed rotations、review status 与 gameplay approval hash；`module_tile_catalog.json` 把稳定、AI 可读的 `tile_id` 映射到共享 Godot TileSet。敌人不属于 placement，首次进入遭遇由世界配置与运行时空地查询负责。
 - 编辑层：内部 `Module JSON` 中央主编辑区只读取、校验和原子保存 JSON，不打开、不修改、不反向解析模块 TSCN。人工和 AI 可以编辑同一份可审查、可合并的数据。
 - 烘焙层：`ModuleSceneBaker` 严格执行 `JSON → client/scenes/generated/modules/<id>/rotation_0.tscn`，每个模块只生成一份规范朝向场景。生成场景提交入库、禁止手改；`module-bake-check` 从 JSON 和图块目录在内存重建规范指纹，不信任 TSCN 自报 hash，并拒绝遗留的其他方向文件。
-- 运行层：JSON 继续负责 assignment、导航、inactive-slot placement 查询、map hash、回放与 Run v10 模块子快照；运行开始时按 module id 预加载本次 assignment 用到的唯一规范场景，12 个 `ModuleChunk` 只挂载缓存的 `PackedScene` 实例，再对场景根节点应用 0/90/180/270° 正交旋转、方形枢轴补偿和封边方向反映射。
+- 运行层：JSON 继续负责 assignment、导航、inactive-slot placement 查询、map hash、回放与 Run v11 模块子快照；运行开始时按 module id 预加载本次 assignment 用到的唯一规范场景，12 个 `ModuleChunk` 只挂载缓存的 `PackedScene` 实例，再对场景根节点应用 0/90/180/270° 正交旋转、方形枢轴补偿和封边方向反映射。
 
 不存在 TSCN→JSON 入口。`--scene`、`--migrate-json`、scene inspection、模块专用 `ModuleBakedData` TRES 和运行时 pattern 应用都已删除。
 

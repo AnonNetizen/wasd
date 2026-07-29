@@ -1,14 +1,14 @@
-[gd_scene load_steps=5 format=3 uid="uid://cx5crxehvah4p"]
+[gd_scene format=3]
 
-[ext_resource type="Script" uid="uid://del7kqtl4xgcy" path="res://scripts/gameplay/gameplay_hud.gd" id="1_hud"]
+[ext_resource type="Script" path="res://scripts/gameplay/gameplay_hud.gd" id="1_fmac2"]
 [ext_resource type="Script" path="res://scripts/gameplay/module_minimap.gd" id="2_minimap"]
 [ext_resource type="Script" path="res://scripts/ui/effects/ui_selection_feedback.gd" id="3_minimap_feedback"]
 [ext_resource type="PackedScene" path="res://scenes/ui/difficulty_marker.tscn" id="4_difficulty_marker"]
 
-[node name="GameplayHud" type="CanvasLayer"]
-script = ExtResource("1_hud")
+[node name="GameplayHud" type="CanvasLayer" unique_id=85811356]
+script = ExtResource("1_fmac2")
 
-[node name="Root" type="Control" parent="."]
+[node name="Root" type="Control" parent="." unique_id=320987768]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -16,7 +16,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Margin" type="MarginContainer" parent="Root"]
+[node name="Margin" type="MarginContainer" parent="Root" unique_id=782056499]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -28,77 +28,78 @@ theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 24
 
-[node name="Layout" type="VBoxContainer" parent="Root/Margin"]
+[node name="Layout" type="VBoxContainer" parent="Root/Margin" unique_id=1312096386]
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
 theme_override_constants/separation = 6
 
-[node name="CompositionLabel" type="Label" parent="Root/Margin/Layout"]
+[node name="CompositionLabel" type="Label" parent="Root/Margin/Layout" unique_id=524734197]
 custom_minimum_size = Vector2(360, 0)
 layout_mode = 2
-text_overrun_behavior = 3
 theme_override_font_sizes/font_size = 26
+text_overrun_behavior = 3
 
-[node name="Defense" type="VBoxContainer" parent="Root/Margin/Layout"]
+[node name="Defense" type="VBoxContainer" parent="Root/Margin/Layout" unique_id=1264508377]
 custom_minimum_size = Vector2(360, 0)
 layout_mode = 2
 theme_override_constants/separation = 2
 
-[node name="DefenseLabel" type="Label" parent="Root/Margin/Layout/Defense"]
+[node name="DefenseLabel" type="Label" parent="Root/Margin/Layout/Defense" unique_id=2090313840]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 
-[node name="HealthBar" type="ProgressBar" parent="Root/Margin/Layout/Defense"]
+[node name="HealthBar" type="ProgressBar" parent="Root/Margin/Layout/Defense" unique_id=1821832482]
 custom_minimum_size = Vector2(360, 16)
 layout_mode = 2
 value = 100.0
 show_percentage = false
 
-[node name="ShieldBar" type="ProgressBar" parent="Root/Margin/Layout/Defense"]
+[node name="ShieldBar" type="ProgressBar" parent="Root/Margin/Layout/Defense" unique_id=2144981081]
 custom_minimum_size = Vector2(360, 10)
 layout_mode = 2
 show_percentage = false
 
-[node name="OvershieldBar" type="ProgressBar" parent="Root/Margin/Layout/Defense"]
+[node name="OvershieldBar" type="ProgressBar" parent="Root/Margin/Layout/Defense" unique_id=631829465]
 custom_minimum_size = Vector2(360, 6)
 layout_mode = 2
 show_percentage = false
 
-[node name="EnergyLabel" type="Label" parent="Root/Margin/Layout"]
+[node name="EnergyLabel" type="Label" parent="Root/Margin/Layout" unique_id=185243538]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 
-[node name="EnergyBar" type="ProgressBar" parent="Root/Margin/Layout"]
+[node name="EnergyBar" type="ProgressBar" parent="Root/Margin/Layout" unique_id=738097188]
 custom_minimum_size = Vector2(360, 12)
 layout_mode = 2
 value = 100.0
 show_percentage = false
 
-[node name="LifeLabel" type="Label" parent="Root/Margin/Layout"]
+[node name="LifeLabel" type="Label" parent="Root/Margin/Layout" unique_id=1614573655]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 
-[node name="KillsLabel" type="Label" parent="Root/Margin/Layout"]
+[node name="KillsLabel" type="Label" parent="Root/Margin/Layout" unique_id=1594493437]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 
-[node name="TimeLabel" type="Label" parent="Root/Margin/Layout"]
+[node name="TimeLabel" type="Label" parent="Root/Margin/Layout" unique_id=1561756104]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 
-[node name="LevelLabel" type="Label" parent="Root/Margin/Layout"]
+[node name="LevelLabel" type="Label" parent="Root/Margin/Layout" unique_id=853892318]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 
-[node name="GoldProgressLabel" type="Label" parent="Root/Margin/Layout"]
+[node name="GoldProgressLabel" type="Label" parent="Root/Margin/Layout" unique_id=340080983]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 
-[node name="StatsPanel" type="PanelContainer" parent="Root"]
+[node name="StatsPanel" type="PanelContainer" parent="Root" unique_id=1323017291]
 visible = false
 custom_minimum_size = Vector2(420, 0)
 layout_mode = 1
+anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -444.0
@@ -108,28 +109,27 @@ offset_bottom = 520.0
 grow_horizontal = 0
 mouse_filter = 2
 
-[node name="Margin" type="MarginContainer" parent="Root/StatsPanel"]
+[node name="Margin" type="MarginContainer" parent="Root/StatsPanel" unique_id=2123630411]
 layout_mode = 2
 theme_override_constants/margin_left = 16
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 14
 
-[node name="Layout" type="VBoxContainer" parent="Root/StatsPanel/Margin"]
+[node name="Layout" type="VBoxContainer" parent="Root/StatsPanel/Margin" unique_id=1055826370]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="TitleLabel" type="Label" parent="Root/StatsPanel/Margin/Layout"]
+[node name="TitleLabel" type="Label" parent="Root/StatsPanel/Margin/Layout" unique_id=1799204363]
 layout_mode = 2
-horizontal_alignment = 1
 theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
 
-[node name="StatsGrid" type="GridContainer" parent="Root/StatsPanel/Margin/Layout"]
+[node name="StatsGrid" type="GridContainer" parent="Root/StatsPanel/Margin/Layout" unique_id=511002364]
 layout_mode = 2
 theme_override_constants/v_separation = 5
-columns = 1
 
-[node name="MessageLabel" type="RichTextLabel" parent="Root"]
+[node name="MessageLabel" type="RichTextLabel" parent="Root" unique_id=93892471]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -142,9 +142,8 @@ bbcode_enabled = true
 fit_content = true
 horizontal_alignment = 1
 vertical_alignment = 1
-theme_override_font_sizes/font_size = 24
 
-[node name="UpgradeFeedbackLabel" type="Label" parent="Root"]
+[node name="UpgradeFeedbackLabel" type="Label" parent="Root" unique_id=982904268]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -153,11 +152,11 @@ anchor_bottom = 1.0
 offset_top = 250.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_font_sizes/font_size = 24
 horizontal_alignment = 1
 vertical_alignment = 1
-theme_override_font_sizes/font_size = 24
 
-[node name="StatusLabel" type="Label" parent="Root"]
+[node name="StatusLabel" type="Label" parent="Root" unique_id=36627329]
 visible = false
 layout_mode = 1
 anchors_preset = 10
@@ -167,14 +166,15 @@ offset_top = 24.0
 offset_right = -360.0
 offset_bottom = 92.0
 grow_horizontal = 2
+theme_override_font_sizes/font_size = 18
 horizontal_alignment = 1
 autowrap_mode = 3
 text_overrun_behavior = 3
-theme_override_font_sizes/font_size = 18
 
-[node name="CombatTray" type="HBoxContainer" parent="Root"]
+[node name="CombatTray" type="HBoxContainer" parent="Root" unique_id=1885066203]
 layout_mode = 1
 anchors_preset = 12
+anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 310.0
@@ -184,72 +184,84 @@ offset_bottom = -24.0
 grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
-alignment = 1
 theme_override_constants/separation = 10
+alignment = 1
 
-[node name="Skill1" type="PanelContainer" parent="Root/CombatTray"]
+[node name="Skill1" type="PanelContainer" parent="Root/CombatTray" unique_id=125764660]
 custom_minimum_size = Vector2(150, 84)
 layout_mode = 2
 
-[node name="SkillLabel" type="Label" parent="Root/CombatTray/Skill1"]
+[node name="SkillLabel" type="Label" parent="Root/CombatTray/Skill1" unique_id=747840359]
 layout_mode = 2
+theme_override_font_sizes/font_size = 15
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3
-theme_override_font_sizes/font_size = 15
 
-[node name="Skill2" type="PanelContainer" parent="Root/CombatTray"]
+[node name="Skill2" type="PanelContainer" parent="Root/CombatTray" unique_id=551610241]
 custom_minimum_size = Vector2(150, 84)
 layout_mode = 2
 
-[node name="SkillLabel" type="Label" parent="Root/CombatTray/Skill2"]
+[node name="SkillLabel" type="Label" parent="Root/CombatTray/Skill2" unique_id=961613623]
 layout_mode = 2
+theme_override_font_sizes/font_size = 15
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3
-theme_override_font_sizes/font_size = 15
 
-[node name="Skill3" type="PanelContainer" parent="Root/CombatTray"]
+[node name="Skill3" type="PanelContainer" parent="Root/CombatTray" unique_id=1181158416]
 custom_minimum_size = Vector2(150, 84)
 layout_mode = 2
 
-[node name="SkillLabel" type="Label" parent="Root/CombatTray/Skill3"]
+[node name="SkillLabel" type="Label" parent="Root/CombatTray/Skill3" unique_id=290984133]
 layout_mode = 2
+theme_override_font_sizes/font_size = 15
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3
-theme_override_font_sizes/font_size = 15
 
-[node name="Skill4" type="PanelContainer" parent="Root/CombatTray"]
+[node name="Skill4" type="PanelContainer" parent="Root/CombatTray" unique_id=916611198]
 custom_minimum_size = Vector2(150, 84)
 layout_mode = 2
 
-[node name="SkillLabel" type="Label" parent="Root/CombatTray/Skill4"]
+[node name="SkillLabel" type="Label" parent="Root/CombatTray/Skill4" unique_id=1391781589]
 layout_mode = 2
+theme_override_font_sizes/font_size = 15
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3
-theme_override_font_sizes/font_size = 15
 
-[node name="Dash" type="PanelContainer" parent="Root/CombatTray"]
+[node name="Dash" type="PanelContainer" parent="Root/CombatTray" unique_id=353701044]
 custom_minimum_size = Vector2(92, 84)
 layout_mode = 2
 
-[node name="DashBar" type="ProgressBar" parent="Root/CombatTray/Dash"]
+[node name="DashBar" type="ProgressBar" parent="Root/CombatTray/Dash" unique_id=1565488899]
 layout_mode = 2
-value = 1.0
 max_value = 1.0
+value = 1.0
 show_percentage = false
 
-[node name="DashLabel" type="Label" parent="Root/CombatTray/Dash"]
+[node name="DashLabel" type="Label" parent="Root/CombatTray/Dash" unique_id=1406822702]
 layout_mode = 2
+theme_override_font_sizes/font_size = 20
 horizontal_alignment = 1
 vertical_alignment = 1
-theme_override_font_sizes/font_size = 20
 
-[node name="ModuleMinimap" type="Control" parent="Root"]
+[node name="Ammo" type="PanelContainer" parent="Root/CombatTray" unique_id=1923551180]
+custom_minimum_size = Vector2(176, 84)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="AmmoLabel" type="Label" parent="Root/CombatTray/Ammo" unique_id=270211328]
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="ModuleMinimap" type="Control" parent="Root" unique_id=1776769909]
 custom_minimum_size = Vector2(153, 153)
-layout_mode = 0
+anchors_preset = 0
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -166.0
@@ -259,10 +271,10 @@ offset_bottom = 177.0
 mouse_filter = 2
 script = ExtResource("2_minimap")
 
-[node name="SelectionFeedback" type="Node" parent="Root/ModuleMinimap"]
+[node name="SelectionFeedback" type="Node" parent="Root/ModuleMinimap" unique_id=52243578]
 script = ExtResource("3_minimap_feedback")
 
-[node name="DifficultyMarker" parent="Root" instance=ExtResource("4_difficulty_marker")]
+[node name="DifficultyMarker" parent="Root" unique_id=971326017 instance=ExtResource("4_difficulty_marker")]
 layout_mode = 0
 anchor_left = 1.0
 anchor_right = 1.0

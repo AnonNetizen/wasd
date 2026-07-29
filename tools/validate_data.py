@@ -36,6 +36,7 @@ LEVEL_PROGRESSION_JSON = ROOT / "client" / "data" / "level_progression.json"
 REWARD_CHOICE_POOLS_JSON = ROOT / "client" / "data" / "reward_choice_pools.json"
 DIFFICULTY_PROFILES_JSON = ROOT / "client" / "data" / "difficulty_profiles.json"
 ENEMY_REWARDS_JSON = ROOT / "client" / "data" / "enemy_rewards.json"
+AMMO_RULES_JSON = ROOT / "client" / "data" / "ammo_rules.json"
 GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
 MAP_LAYOUTS_JSON = ROOT / "client" / "data" / "map_layouts.json"
 WARZONE_DIRECTORS_JSON = ROOT / "client" / "data" / "warzone_directors.json"
@@ -137,6 +138,7 @@ def main() -> int:
     _validate_enemy_ai_profiles(ctx)
     enemy_ai_profile_ids = _collect_enemy_ai_profile_ids(ctx)
     _validate_enemy_rewards(ctx)
+    _validate_ammo_rules(ctx)
     _validate_enemies_csv(ctx, enemy_ai_profile_ids)
     enemy_ids = _collect_enemy_ids(ctx)
     _validate_gear_mods(ctx)
@@ -833,7 +835,7 @@ def _validate_weapons(ctx: ValidationContext) -> None:
     if not isinstance(data, dict):
         return
     _require_int(
-        ctx, path, "schema_version", data.get("schema_version"), minimum=3, maximum=3
+        ctx, path, "schema_version", data.get("schema_version"), minimum=4, maximum=4
     )
     recoil_model = data.get("recoil_model")
     if not isinstance(recoil_model, dict):
@@ -868,6 +870,7 @@ def _validate_weapons(ctx: ValidationContext) -> None:
             recoil_model,
         )
         _validate_weapon_projectile(ctx, path, f"{field}.projectile", weapon.get("projectile"))
+        _validate_weapon_ammo(ctx, path, f"{field}.ammo", weapon.get("ammo"))
 
 
 def _validate_recoil_model(
@@ -994,6 +997,77 @@ def _validate_weapon_projectile(ctx: ValidationContext, path: Path, field: str, 
     _require_number(ctx, path, f"{field}.hit_radius", data.get("hit_radius"), minimum=0, exclusive_minimum=True)
     _require_number(ctx, path, f"{field}.muzzle_distance", data.get("muzzle_distance"), minimum=0, exclusive_minimum=True)
     _require_number(ctx, path, f"{field}.lifetime", data.get("lifetime"), minimum=0, exclusive_minimum=True)
+
+
+def _validate_weapon_ammo(
+    ctx: ValidationContext, path: Path, field: str, data: Any
+) -> None:
+    if not isinstance(data, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    _validate_exact_object_keys(
+        ctx,
+        path,
+        field,
+        data,
+        {
+            "magazine_size",
+            "starting_reserve",
+            "total_capacity",
+            "reload_duration",
+            "depleted_fire_rate_multiplier",
+            "depleted_bullet_speed_multiplier",
+        },
+    )
+    magazine_size = _require_int(
+        ctx, path, f"{field}.magazine_size", data.get("magazine_size"), minimum=1
+    )
+    starting_reserve = _require_int(
+        ctx,
+        path,
+        f"{field}.starting_reserve",
+        data.get("starting_reserve"),
+        minimum=0,
+    )
+    total_capacity = _require_int(
+        ctx,
+        path,
+        f"{field}.total_capacity",
+        data.get("total_capacity"),
+        minimum=1,
+    )
+    _require_number(
+        ctx,
+        path,
+        f"{field}.reload_duration",
+        data.get("reload_duration"),
+        minimum=0,
+        exclusive_minimum=True,
+    )
+    for multiplier_field in (
+        "depleted_fire_rate_multiplier",
+        "depleted_bullet_speed_multiplier",
+    ):
+        _require_number(
+            ctx,
+            path,
+            f"{field}.{multiplier_field}",
+            data.get(multiplier_field),
+            minimum=0,
+            maximum=1,
+            exclusive_minimum=True,
+        )
+    if (
+        magazine_size is not None
+        and starting_reserve is not None
+        and total_capacity is not None
+        and magazine_size + starting_reserve > total_capacity
+    ):
+        ctx.error(
+            path,
+            f"{field}.total_capacity",
+            "must be >= magazine_size + starting_reserve",
+        )
 
 
 def _validate_enemy_ai_profiles(ctx: ValidationContext) -> None:
@@ -2267,6 +2341,76 @@ def _validate_enemy_rewards(ctx: ValidationContext) -> None:
             "random_multiplier_min",
             "must be <= random_multiplier_max",
         )
+
+
+def _validate_ammo_rules(ctx: ValidationContext) -> None:
+    path = AMMO_RULES_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _validate_exact_object_keys(
+        ctx,
+        path,
+        "root",
+        data,
+        {
+            "schema_version",
+            "pool_id",
+            "pickup_speed",
+            "pickup_magazine_count",
+            "initial_drop_chance",
+            "chance_increment_per_miss",
+            "guaranteed_after_misses",
+            "rng_stream",
+        },
+    )
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+    _require_registered(ctx, path, "pool_id", data.get("pool_id"), "pool_ids")
+    _require_number(
+        ctx,
+        path,
+        "pickup_speed",
+        data.get("pickup_speed"),
+        minimum=0,
+        exclusive_minimum=True,
+    )
+    _require_int(
+        ctx,
+        path,
+        "pickup_magazine_count",
+        data.get("pickup_magazine_count"),
+        minimum=1,
+    )
+    _require_number(
+        ctx,
+        path,
+        "initial_drop_chance",
+        data.get("initial_drop_chance"),
+        minimum=0,
+        maximum=1,
+        exclusive_minimum=True,
+    )
+    _require_number(
+        ctx,
+        path,
+        "chance_increment_per_miss",
+        data.get("chance_increment_per_miss"),
+        minimum=0,
+        maximum=1,
+        exclusive_minimum=True,
+    )
+    _require_int(
+        ctx,
+        path,
+        "guaranteed_after_misses",
+        data.get("guaranteed_after_misses"),
+        minimum=0,
+    )
+    rng_stream = _require_registered(
+        ctx, path, "rng_stream", data.get("rng_stream"), "rng_streams"
+    )
+    if rng_stream is not None and rng_stream != "ammo":
+        ctx.error(path, "rng_stream", "must equal ammo")
 
 
 def _validate_difficulty_profiles(ctx: ValidationContext) -> set[str]:

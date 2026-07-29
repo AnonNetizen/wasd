@@ -26,7 +26,7 @@ const INPUT_BINDINGS_PATH: String = "user://input_bindings.tres"
 const INPUT_BINDINGS_TEMP_PATH: String = "user://input_bindings.tmp.tres"
 const INPUT_BINDINGS_BACKUP_PATH: String = "user://input_bindings.bak.tres"
 const INPUT_BINDINGS_INVALID_PATH: String = "user://input_bindings.invalid.tres"
-const INPUT_BINDINGS_SCHEMA_VERSION: int = 1
+const INPUT_BINDINGS_SCHEMA_VERSION: int = 2
 const FORCE_RELEASE_DEBUG_TOOLS_OFF_FLAG: String = "--force-release-debug-tools-off"
 const CONTEXT_GAMEPLAY_PATH: String = "res://resources/input/contexts/gameplay.tres"
 const CONTEXT_UI_PATH: String = "res://resources/input/contexts/ui.tres"
@@ -45,6 +45,7 @@ const BINDING_AIM_LEFT: StringName = INPUT_BINDING_IDS.INPUT_AIM_LEFT
 const BINDING_AIM_RIGHT: StringName = INPUT_BINDING_IDS.INPUT_AIM_RIGHT
 const BINDING_AIM_STICK: StringName = INPUT_BINDING_IDS.INPUT_AIM_STICK
 const BINDING_FIRE: StringName = INPUT_BINDING_IDS.INPUT_FIRE
+const BINDING_RELOAD: StringName = INPUT_BINDING_IDS.INPUT_RELOAD
 const BINDING_SKILL_1: StringName = INPUT_BINDING_IDS.INPUT_SKILL_1
 const BINDING_SKILL_2: StringName = INPUT_BINDING_IDS.INPUT_SKILL_2
 const BINDING_SKILL_3: StringName = INPUT_BINDING_IDS.INPUT_SKILL_3
@@ -67,6 +68,7 @@ const BINDING_ORDER: Array[StringName] = [
 	BINDING_AIM_RIGHT,
 	BINDING_AIM_STICK,
 	BINDING_FIRE,
+	BINDING_RELOAD,
 	BINDING_SKILL_1,
 	BINDING_SKILL_2,
 	BINDING_SKILL_3,
@@ -84,6 +86,7 @@ const ACTION_RESOURCE_NAMES: PackedStringArray = [
 	"aim",
 	"pointer_position",
 	"fire",
+	"reload",
 	"skill_1",
 	"skill_2",
 	"skill_3",
@@ -694,6 +697,7 @@ func _build_binding_specs() -> Dictionary:
 		BINDING_AIM_RIGHT: _binding_spec("ui_settings_input_aim_right", [[&"gameplay", &"aim", 3]], []),
 		BINDING_AIM_STICK: _binding_spec("ui_settings_input_aim_stick", [], [[&"gameplay", &"aim", 4]]),
 		BINDING_FIRE: _binding_spec("ui_settings_input_fire", [[&"gameplay", &"fire", 0]], [[&"gameplay", &"fire", 1]]),
+		BINDING_RELOAD: _binding_spec("ui_settings_input_reload", [[&"gameplay", &"reload", 0]], [[&"gameplay", &"reload", 1]]),
 		BINDING_SKILL_1: _binding_spec("ui_settings_input_skill_1", [[&"gameplay", &"skill_1", 0]], [[&"gameplay", &"skill_1", 1]]),
 		BINDING_SKILL_2: _binding_spec("ui_settings_input_skill_2", [[&"gameplay", &"skill_2", 0]], [[&"gameplay", &"skill_2", 1]]),
 		BINDING_SKILL_3: _binding_spec("ui_settings_input_skill_3", [[&"gameplay", &"skill_3", 0]], [[&"gameplay", &"skill_3", 1]]),
@@ -900,6 +904,8 @@ func _load_remapping_config() -> void:
 	if backup_config != null and _is_supported_remapping_config(backup_config):
 		_remapping_config = backup_config
 		_save_remapping_config()
+		return
+	_save_remapping_config()
 
 
 func _load_config_resource(path: String) -> GUIDERemappingConfig:
@@ -911,7 +917,7 @@ func _load_config_resource(path: String) -> GUIDERemappingConfig:
 
 func _is_supported_remapping_config(config: GUIDERemappingConfig) -> bool:
 	var schema_version: int = int(config.custom_data.get("schema_version", 0))
-	if schema_version < 1 or schema_version > INPUT_BINDINGS_SCHEMA_VERSION:
+	if schema_version != INPUT_BINDINGS_SCHEMA_VERSION:
 		return false
 	var allowed_contexts: Array[GUIDEMappingContext] = _all_runtime_contexts()
 	for raw_context: Variant in config.remapped_inputs:

@@ -42,6 +42,11 @@ const STATS_PANEL_ROWS: Array[Dictionary] = [
 	{"key": "ability_range", "label_key": "ui_stats_ability_range"},
 	{"key": "ability_efficiency", "label_key": "ui_stats_ability_efficiency"},
 	{"key": "ability_duration", "label_key": "ui_stats_ability_duration"},
+	{"key": "ammo_magazine", "label_key": "ui_stats_ammo_magazine"},
+	{"key": "ammo_reserve", "label_key": "ui_stats_ammo_reserve"},
+	{"key": "ammo_total", "label_key": "ui_stats_ammo_total"},
+	{"key": "ammo_capacity", "label_key": "ui_stats_ammo_capacity"},
+	{"key": "reload_duration", "label_key": "ui_stats_reload_duration"},
 	{"key": "fire_rate", "label_key": "ui_stats_fire_rate"},
 	{"key": "move_speed", "label_key": "ui_stats_move_speed"},
 	{"key": "bullet_speed", "label_key": "ui_stats_bullet_speed"},
@@ -57,6 +62,8 @@ const STATS_PANEL_ROWS: Array[Dictionary] = [
 ]
 
 var _life_label: Label = null
+var _ammo_label: Label = null
+var _ammo_state: Dictionary = {}
 var _level_label: Label = null
 var _kills_label: Label = null
 var _gold_progress_label: Label = null
@@ -131,6 +138,9 @@ func _ready() -> void:
 	_status_label = get_node_or_null("Root/StatusLabel") as Label
 	_dash_bar = get_node_or_null("Root/CombatTray/Dash/DashBar") as ProgressBar
 	_dash_label = get_node_or_null("Root/CombatTray/Dash/DashLabel") as Label
+	_ammo_label = get_node_or_null(
+		"Root/CombatTray/Ammo/AmmoLabel"
+	) as Label
 	_skill_slot_labels.clear()
 	for slot_index: int in range(4):
 		var slot_label: Label = get_node_or_null(
@@ -172,6 +182,7 @@ func _ready() -> void:
 		or _energy_label == null
 		or _dash_bar == null
 		or _dash_label == null
+		or _ammo_label == null
 		or _skill_slot_labels.size() != 4
 		or _status_label == null
 	):
@@ -319,6 +330,11 @@ func set_dash(cooldown_remaining: float) -> void:
 		if cooldown_remaining <= 0.0
 		else "%s  %.1f" % [binding, cooldown_remaining]
 	)
+
+
+func set_ammo_state(state: Dictionary) -> void:
+	_ammo_state = state.duplicate(true)
+	_refresh_ammo_label()
 
 
 func set_statuses(statuses: Array) -> void:
@@ -653,10 +669,12 @@ func _refresh_static_labels() -> void:
 	if _difficulty_marker != null:
 		_difficulty_marker.refresh_locale()
 	_refresh_status_label()
+	_refresh_ammo_label()
 	_refresh_stats_panel()
 
 
 func _on_input_prompt_changed() -> void:
+	_refresh_ammo_label()
 	if _interaction_prompt_visible:
 		show_interaction_prompt(
 			InputService.prompt_text(ACTIONS.INTERACT),
@@ -753,6 +771,38 @@ func _finish_stats_panel_hide() -> void:
 
 func _bind_module_minimap() -> void:
 	_module_minimap = get_node_or_null("Root/ModuleMinimap") as Control
+
+
+func _refresh_ammo_label() -> void:
+	if _ammo_label == null:
+		return
+	var magazine: int = maxi(int(_ammo_state.get("magazine", 0)), 0)
+	var reserve: int = maxi(int(_ammo_state.get("reserve", 0)), 0)
+	var capacity: int = maxi(int(_ammo_state.get("total_capacity", 0)), 0)
+	var total: int = magazine + reserve
+	var lines: PackedStringArray = [
+		tr("ui_hud_ammo").format({
+			"magazine": magazine,
+			"reserve": reserve,
+		}),
+		tr("ui_hud_ammo_total").format({
+			"total": total,
+			"capacity": capacity,
+		}),
+	]
+	if bool(_ammo_state.get("is_reloading", false)):
+		lines.append(
+			tr("ui_hud_ammo_reloading").format({
+				"binding": InputService.prompt_text(ACTIONS.RELOAD),
+				"seconds": "%.1f" % maxf(
+					float(_ammo_state.get("reload_remaining", 0.0)),
+					0.0
+				),
+			})
+		)
+	elif bool(_ammo_state.get("is_depleted", false)):
+		lines.append(tr("ui_hud_ammo_depleted"))
+	_ammo_label.text = "\n".join(lines)
 
 
 func _position_difficulty_marker(stats_panel_open: bool) -> void:

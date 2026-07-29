@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "recoil_model": {
     "recoil_max": 100.0,
     "spread_exponent": 1.5,
@@ -30,6 +30,14 @@
         "crit_mult": 1.5,
         "recoil": 20.0,
         "spread_angle_max": 60.0
+      },
+      "ammo": {
+        "magazine_size": 30,
+        "starting_reserve": 150,
+        "total_capacity": 240,
+        "reload_duration": 1.2,
+        "depleted_fire_rate_multiplier": 0.5,
+        "depleted_bullet_speed_multiplier": 0.5
       },
       "projectile": {
         "pool_id": "bullet_basic",

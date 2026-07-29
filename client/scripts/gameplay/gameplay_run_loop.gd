@@ -32,6 +32,9 @@ const DIFFICULTY_PROGRESSION_SCRIPT := preload(
 const ENEMY_REWARD_RESOLVER_SCRIPT := preload(
 	"res://scripts/data/enemy_reward_resolver.gd"
 )
+const ENEMY_DEFEAT_CAUSES := preload(
+	"res://scripts/contracts/enemy_defeat_causes.gd"
+)
 const ELEMENTS := preload("res://scripts/contracts/elements.gd")
 const ELEMENT_RESOLVER_SCRIPT := preload("res://scripts/data/element_resolver.gd")
 const EFFECTS := preload("res://scripts/contracts/effects.gd")
@@ -57,6 +60,9 @@ const REWARD_CHOICE_PANEL_SCENE := preload(
 const PAUSE_MENU_SCENE := preload("res://scenes/ui/pause_menu.tscn")
 const GOLD_ORB_SCENE := preload("res://scenes/gameplay/gold_orb.tscn")
 const ENERGY_ORB_SCENE := preload("res://scenes/gameplay/energy_orb.tscn")
+const AMMO_MAGAZINE_SCENE := preload(
+	"res://scenes/gameplay/ammo_magazine_pickup.tscn"
+)
 const PROJECTILE_BARRIER_SCENE := preload(
 	"res://scenes/gameplay/projectile_barrier.tscn"
 )
@@ -112,14 +118,16 @@ const FEEDBACK_POOL_SIZE: int = 128
 const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
 const ENERGY_ORB_POOL_SIZE: int = 64
+const AMMO_MAGAZINE_POOL_SIZE: int = 64
 const PROJECTILE_BARRIER_POOL_SIZE: int = 4
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 10
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 11
 const ACTIVE_POOL_GROUPS: Array[String] = [
 	"active_hazards",
 	"active_enemies",
 	"active_bullets",
 	"active_gold_orbs",
 	"active_energy_orbs",
+	"active_ammo_magazines",
 	"active_deployables",
 ]
 const UI_RESTORE_REWARD_CHOICE: String = "reward_choice"
@@ -161,6 +169,8 @@ var _difficulty_progression: DifficultyProgression = null
 var _configured_difficulty_profile_id: String = ""
 var _enemy_rows: Dictionary = {}
 var _enemy_reward_config: Dictionary = {}
+var _ammo_drop_config: Dictionary = {}
+var _ammo_drop_misses: int = 0
 var _energy_drop_config: Dictionary = {}
 var _gold_drop_config: Dictionary = {}
 var _extraction_active: bool = false
@@ -497,6 +507,8 @@ func create_run_snapshot() -> Dictionary:
 		"bullets": _entity_snapshots("active_bullets"),
 		"gold_orbs": _entity_snapshots("active_gold_orbs"),
 		"energy_orbs": _entity_snapshots("active_energy_orbs"),
+		"ammo_magazines": _entity_snapshots("active_ammo_magazines"),
+		"ammo_drop_misses": _ammo_drop_misses,
 		"module_world": _module_world_snapshot(),
 		"world_events": _world_events_snapshot(),
 		"reward_choice": (
@@ -511,6 +523,7 @@ func create_run_snapshot() -> Dictionary:
 func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	GameClock.reset()
 	_next_enemy_spawn_serial = 1
+	_ammo_drop_misses = 0
 	_active_world = get_node_or_null("ActiveWorld") as Node2D
 	if _active_world == null:
 		_fail_run_start("missing ActiveWorld scene node", not restore_snapshot.is_empty())
@@ -552,6 +565,7 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	PoolManager.clear_pool(POOL_IDS.DAMAGE_NUMBER)
 	PoolManager.clear_pool(POOL_IDS.GOLD_ORB)
 	PoolManager.clear_pool(POOL_IDS.ENERGY_ORB)
+	PoolManager.clear_pool(POOL_IDS.AMMO_MAGAZINE)
 	PoolManager.clear_pool(POOL_IDS.PROJECTILE_BARRIER)
 	PoolManager.clear_pool(POOL_IDS.VFX_WEAPON_MUZZLE_FLASH)
 	var configured_main_hero_id: String = String(
@@ -640,6 +654,15 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 			not restore_snapshot.is_empty()
 		)
 		return
+	_ammo_drop_config = _dictionary_or_empty(
+		DataLoader.load_json(DataLoader.AMMO_RULES_PATH)
+	)
+	if _ammo_drop_config.is_empty():
+		_fail_run_start(
+			"ammo drop configuration failed",
+			not restore_snapshot.is_empty()
+		)
+		return
 	var actor_scenes_ready: bool = false
 	if _player_loading_mode:
 		actor_scenes_ready = await _preload_actor_scenes_threaded(character)
@@ -670,6 +693,11 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		POOL_IDS.ENERGY_ORB,
 		_create_energy_orb_node,
 		ENERGY_ORB_POOL_SIZE
+	)
+	PoolManager.register_pool(
+		POOL_IDS.AMMO_MAGAZINE,
+		_create_ammo_magazine_node,
+		AMMO_MAGAZINE_POOL_SIZE
 	)
 	PoolManager.register_pool(
 		POOL_IDS.PROJECTILE_BARRIER,
@@ -1135,6 +1163,7 @@ func _prewarm_standard_pools() -> void:
 	PoolManager.prewarm(POOL_IDS.HAZARD_SPIKE, 8)
 	PoolManager.prewarm(POOL_IDS.GOLD_ORB, 16)
 	PoolManager.prewarm(POOL_IDS.ENERGY_ORB, 8)
+	PoolManager.prewarm(POOL_IDS.AMMO_MAGAZINE, 8)
 	PoolManager.prewarm(POOL_IDS.PROJECTILE_BARRIER, 2)
 	for request: Dictionary in _vfx_host.declared_pool_requests():
 		PoolManager.prewarm(
@@ -1152,6 +1181,7 @@ func _prewarm_standard_pools_staged() -> bool:
 		{"pool_id": POOL_IDS.HAZARD_SPIKE, "count": 8},
 		{"pool_id": POOL_IDS.GOLD_ORB, "count": 16},
 		{"pool_id": POOL_IDS.ENERGY_ORB, "count": 8},
+		{"pool_id": POOL_IDS.AMMO_MAGAZINE, "count": 8},
 		{"pool_id": POOL_IDS.PROJECTILE_BARRIER, "count": 2},
 	]
 	requests.append_array(_vfx_host.declared_pool_requests())
@@ -1239,6 +1269,10 @@ func _create_gold_orb_node() -> Node:
 
 func _create_energy_orb_node() -> Node:
 	return ENERGY_ORB_SCENE.instantiate()
+
+
+func _create_ammo_magazine_node() -> Node:
+	return AMMO_MAGAZINE_SCENE.instantiate()
 
 
 func _create_projectile_barrier_node() -> Node:
@@ -4408,7 +4442,7 @@ func _on_enemy_defeated(
 	gold_reward: int,
 	counts_as_kill: bool,
 	drops_rewards: bool,
-	_cause_id: String,
+	cause_id: String,
 	wave_key: String
 ) -> void:
 	if _vfx_host != null and _enemy != null:
@@ -4443,6 +4477,11 @@ func _on_enemy_defeated(
 			_try_spawn_energy_orb((_enemy as Node2D).global_position)
 		if _enemy != null:
 			_roll_gear_mod_drop(_enemy)
+		if _is_ammo_drop_eligible(
+			drops_rewards,
+			cause_id
+		) and _enemy is Node2D:
+			_try_spawn_ammo_magazine((_enemy as Node2D).global_position)
 	if _spawn_states.has(wave_key):
 		var state: Dictionary = _spawn_states[wave_key]
 		state["alive"] = maxi(int(state.get("alive", 0)) - 1, 0)
@@ -4497,6 +4536,135 @@ func _try_spawn_energy_orb(spawn_position: Vector2) -> void:
 		float(_energy_drop_config.get("pickup_speed", 0.0)),
 		SKILL_RESOURCES.ENERGY
 	)
+
+
+func _try_spawn_ammo_magazine(spawn_position: Vector2) -> bool:
+	if (
+		_weapon_system == null
+		or not _weapon_system.has_method("can_accept_ammo")
+		or not bool(_weapon_system.call("can_accept_ammo"))
+	):
+		return false
+	var chance: float = _ammo_drop_chance_for_misses(_ammo_drop_misses)
+	if RNG.ammo.randf() >= chance:
+		_ammo_drop_misses += 1
+		return false
+	var raw_node: Node = PoolManager.acquire(POOL_IDS.AMMO_MAGAZINE)
+	if not raw_node is Node2D or not raw_node.has_method("configure"):
+		if raw_node != null:
+			PoolManager.release(raw_node)
+		_ammo_drop_misses += 1
+		return false
+	var ammo_state: Dictionary = (
+		_weapon_system.call("ammo_state") as Dictionary
+		if _weapon_system.has_method("ammo_state")
+		else {}
+	)
+	var amount: int = (
+		maxi(int(ammo_state.get("magazine_size", 0)), 1)
+		* maxi(
+			int(_ammo_drop_config.get("pickup_magazine_count", 1)),
+			1
+		)
+	)
+	var pickup: Node2D = raw_node as Node2D
+	pickup.global_position = spawn_position
+	_reparent_to_active_world(pickup)
+	pickup.call(
+		"configure",
+		amount,
+		_player,
+		_weapon_system,
+		float(_ammo_drop_config.get("pickup_speed", 0.0))
+	)
+	_ammo_drop_misses = 0
+	_play_feedback(PRESENTATION_PICKUP_DEFAULT, VFX_CUES.PICKUP_SPAWN, {
+		"owner": pickup,
+		"world_position": spawn_position,
+	})
+	_connect_ammo_magazine_feedback(pickup)
+	return true
+
+
+func _is_ammo_drop_eligible(
+	drops_rewards: bool,
+	cause_id: String
+) -> bool:
+	return (
+		drops_rewards
+		and cause_id == ENEMY_DEFEAT_CAUSES.PLAYER_DAMAGE
+	)
+
+
+func _ammo_drop_chance_for_misses(miss_count: int) -> float:
+	var guaranteed_after: int = maxi(
+		int(_ammo_drop_config.get("guaranteed_after_misses", 0)),
+		0
+	)
+	if maxi(miss_count, 0) >= guaranteed_after:
+		return 1.0
+	return clampf(
+		float(_ammo_drop_config.get("initial_drop_chance", 0.0))
+		+ float(_ammo_drop_config.get("chance_increment_per_miss", 0.0))
+		* float(maxi(miss_count, 0)),
+		0.0,
+		1.0
+	)
+
+
+func _connect_ammo_magazine_feedback(pickup: Node2D) -> void:
+	var attraction_callback: Callable = Callable(
+		self,
+		"_on_ammo_magazine_attraction_started"
+	).bind(pickup)
+	if not pickup.is_connected("attraction_started", attraction_callback):
+		pickup.connect(
+			"attraction_started",
+			attraction_callback,
+			CONNECT_ONE_SHOT
+		)
+	var collected_callback: Callable = Callable(
+		self,
+		"_on_ammo_magazine_collected"
+	).bind(pickup)
+	if not pickup.is_connected("collected", collected_callback):
+		pickup.connect(
+			"collected",
+			collected_callback,
+			CONNECT_ONE_SHOT
+		)
+
+
+func _on_ammo_magazine_attraction_started(pickup: Node2D) -> void:
+	if pickup == null or not is_instance_valid(pickup):
+		return
+	_play_feedback(PRESENTATION_PICKUP_DEFAULT, VFX_CUES.PICKUP_ATTRACT, {
+		"owner": pickup,
+		"world_position": pickup.global_position,
+	})
+
+
+func _on_ammo_magazine_collected(
+	amount: int,
+	pickup: Node2D = null
+) -> void:
+	var collect_position: Vector2 = (
+		pickup.global_position
+		if pickup != null and is_instance_valid(pickup)
+		else (_player.global_position if _player != null else Vector2.ZERO)
+	)
+	_play_feedback(PRESENTATION_PICKUP_DEFAULT, VFX_CUES.PICKUP_COLLECT, {
+		"owner": _player,
+		"world_position": collect_position,
+		"follow_owner": false,
+		"amount": amount,
+	})
+	if _hud != null and _hud.has_method("show_world_event_feedback"):
+		_hud.call(
+			"show_world_event_feedback",
+			"ui_hud_ammo_magazine_collected",
+			{"count": amount}
+		)
 
 
 func _connect_gold_orb_feedback(gold_orb: Node2D) -> void:
@@ -5274,6 +5442,10 @@ func _restore_run_snapshot(
 		push_error("[GameplayRunLoop] reward choice restore failed")
 		return false
 	_kills = maxi(int(snapshot_data.get("kills", 0)), 0)
+	_ammo_drop_misses = maxi(
+		int(snapshot_data.get("ammo_drop_misses", 0)),
+		0
+	)
 	_next_enemy_spawn_serial = maxi(
 		int(snapshot_data.get("next_enemy_spawn_serial", 1)),
 		1
@@ -5330,6 +5502,9 @@ func _restore_run_snapshot(
 	var energy_orb_snapshots: Array = _array_or_empty(
 		snapshot_data.get("energy_orbs", [])
 	)
+	var ammo_magazine_snapshots: Array = _array_or_empty(
+		snapshot_data.get("ammo_magazines", [])
+	)
 	if staged_loading:
 		if not await _restore_snapshots_staged(
 			enemy_snapshots,
@@ -5351,11 +5526,17 @@ func _restore_run_snapshot(
 			Callable(self, "_restore_energy_orb_snapshots")
 		):
 			return false
+		if not await _restore_snapshots_staged(
+			ammo_magazine_snapshots,
+			Callable(self, "_restore_ammo_magazine_snapshots")
+		):
+			return false
 	else:
 		_restore_enemy_snapshots(enemy_snapshots)
 		_restore_bullet_snapshots(bullet_snapshots)
 		_restore_gold_orb_snapshots(gold_orb_snapshots)
 		_restore_energy_orb_snapshots(energy_orb_snapshots)
+		_restore_ammo_magazine_snapshots(ammo_magazine_snapshots)
 
 	var clock_snapshot: Variant = snapshot_data.get("game_clock", {})
 	if clock_snapshot is Dictionary:
@@ -5368,6 +5549,7 @@ func _restore_run_snapshot(
 	_refresh_gold_hud()
 	_refresh_module_world_hud()
 	_refresh_difficulty_hud()
+	_update_combat_hud()
 	return true
 
 
@@ -5709,6 +5891,28 @@ func _restore_energy_orb_snapshots(energy_orb_snapshots: Array) -> void:
 			_player,
 			_skill_system
 		)
+
+
+func _restore_ammo_magazine_snapshots(
+	ammo_magazine_snapshots: Array
+) -> void:
+	for raw_snapshot: Variant in ammo_magazine_snapshots:
+		if not raw_snapshot is Dictionary:
+			continue
+		var raw_node: Node = PoolManager.acquire(POOL_IDS.AMMO_MAGAZINE)
+		if not raw_node is Node2D or not raw_node.has_method(
+			"restore_snapshot"
+		):
+			continue
+		var pickup: Node2D = raw_node as Node2D
+		_reparent_to_active_world(pickup)
+		pickup.call(
+			"restore_snapshot",
+			raw_snapshot as Dictionary,
+			_player,
+			_weapon_system
+		)
+		_connect_ammo_magazine_feedback(pickup)
 
 
 func _apply_enemy_movement_bounds(enemy: Node2D) -> void:
@@ -6108,6 +6312,16 @@ func _update_combat_hud() -> void:
 			if _player.has_method("current_overshield")
 			else 0.0
 		)
+	if (
+		_hud.has_method("set_ammo_state")
+		and _weapon_system != null
+		and is_instance_valid(_weapon_system)
+		and _weapon_system.has_method("ammo_state")
+	):
+		_hud.call(
+			"set_ammo_state",
+			_weapon_system.call("ammo_state")
+		)
 	if _skill_system != null and is_instance_valid(_skill_system):
 		if (
 			_hud.has_method("set_energy")
@@ -6242,6 +6456,7 @@ func _update_stats_panel() -> void:
 
 
 func _stats_panel_snapshot() -> Dictionary:
+	var ammo_state: Dictionary = _weapon_ammo_state()
 	return {
 		"life": "%d/%d" % [
 			int(ceilf(float(_player.call("current_life")))) if _player != null and _player.has_method("current_life") else 0,
@@ -6285,6 +6500,21 @@ func _stats_panel_snapshot() -> Dictionary:
 		"ability_duration": _format_percent(
 			_player_stat(STATS.ABILITY_DURATION)
 		),
+		"ammo_magazine": "%d/%d" % [
+			int(ammo_state.get("magazine", 0)),
+			int(ammo_state.get("magazine_size", 0)),
+		],
+		"ammo_reserve": "%d" % int(ammo_state.get("reserve", 0)),
+		"ammo_total": "%d" % (
+			int(ammo_state.get("magazine", 0))
+			+ int(ammo_state.get("reserve", 0))
+		),
+		"ammo_capacity": "%d" % int(
+			ammo_state.get("total_capacity", 0)
+		),
+		"reload_duration": "%ss" % _format_stat_value(
+			float(ammo_state.get("reload_duration", 0.0))
+		),
 		"fire_rate": _format_stat_value(_weapon_stat(STATS.FIRE_RATE)),
 		"move_speed": _format_stat_value(_player_stat(STATS.MOVE_SPEED)),
 		"bullet_speed": _format_stat_value(_weapon_stat(STATS.BULLET_SPEED)),
@@ -6310,6 +6540,16 @@ func _weapon_stat(stat: String) -> float:
 	if _weapon_system != null and _weapon_system.has_method("stat_value"):
 		return float(_weapon_system.call("stat_value", stat))
 	return 0.0
+
+
+func _weapon_ammo_state() -> Dictionary:
+	if (
+		_weapon_system != null
+		and is_instance_valid(_weapon_system)
+		and _weapon_system.has_method("ammo_state")
+	):
+		return _weapon_system.call("ammo_state") as Dictionary
+	return {}
 
 
 func _skill_resource_text() -> String:

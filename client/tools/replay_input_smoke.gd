@@ -9,11 +9,13 @@ const EXPECTED_ACTIONS: Array[String] = [
 	ACTIONS.MOVE,
 	ACTIONS.AIM,
 	ACTIONS.FIRE,
+	ACTIONS.RELOAD,
 	ACTIONS.SKILL_1,
 	ACTIONS.SKILL_2,
 	ACTIONS.SKILL_3,
 	ACTIONS.SKILL_4,
 	ACTIONS.DASH,
+	ACTIONS.INTERACT,
 	ACTIONS.PAUSE,
 	ACTIONS.UI_BACK,
 ]
@@ -59,10 +61,14 @@ func _run() -> void:
 	await _inject_mouse_motion(Vector2(720.0, 420.0), Vector2(8.0, -3.0))
 	await _inject_mouse_button(MOUSE_BUTTON_LEFT, true)
 	await _inject_mouse_button(MOUSE_BUTTON_LEFT, false)
-	await _inject_mouse_button(MOUSE_BUTTON_RIGHT, true)
-	await _inject_mouse_button(MOUSE_BUTTON_RIGHT, false)
-	await _inject_key(KEY_SHIFT, true)
-	await _inject_key(KEY_SHIFT, false)
+	await _inject_key(KEY_1, true)
+	await _inject_key(KEY_1, false)
+	await _inject_key(KEY_2, true)
+	await _inject_key(KEY_2, false)
+	await _inject_key(KEY_3, true)
+	await _inject_key(KEY_3, false)
+	await _inject_key(KEY_4, true)
+	await _inject_key(KEY_4, false)
 	await _inject_key(KEY_E, true)
 	await _inject_key(KEY_E, false)
 	await _inject_key(KEY_R, true)
@@ -96,7 +102,7 @@ func _run() -> void:
 	var completed: Dictionary = Replay.snapshot()
 	var input_events: Array = completed.get("input_events", []) as Array
 	var decision_events: Array = completed.get("decision_events", []) as Array
-	_expect(input_events.size() >= 16, "ReplayInputSmoke should record four skills, dash, and existing gameplay intents")
+	_expect(input_events.size() >= 20, "ReplayInputSmoke should record reload, interact, four skills, dash, and existing gameplay intents")
 	for action_name: String in EXPECTED_ACTIONS:
 		_expect(_has_input_action(input_events, action_name), "ReplayInputSmoke should record %s" % action_name)
 	_expect(_all_events_are_v2(input_events), "ReplayInputSmoke should record only typed v2 input events")

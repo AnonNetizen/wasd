@@ -76,6 +76,7 @@ var ui_choice: Stream = Stream.new()
 var world: Stream = Stream.new()
 var world_event: Stream = Stream.new()
 var economy: Stream = Stream.new()
+var ammo: Stream = Stream.new()
 var meta: Stream = Stream.new()
 
 var _run_seed: int = DEFAULT_RUN_SEED
@@ -93,6 +94,7 @@ func _ready() -> void:
 		"world": world,
 		RNG_STREAMS.WORLD_EVENT: world_event,
 		RNG_STREAMS.ECONOMY: economy,
+		RNG_STREAMS.AMMO: ammo,
 		"meta": meta,
 	}
 	set_run_seed(DEFAULT_RUN_SEED)

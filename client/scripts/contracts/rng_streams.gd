@@ -11,6 +11,7 @@ const VALUES: Array[String] = [
 	"world",
 	"world_event",
 	"economy",
+	"ammo",
 	"meta",
 ]
 
@@ -23,4 +24,5 @@ const UI_CHOICE: String = "ui_choice"
 const WORLD: String = "world"
 const WORLD_EVENT: String = "world_event"
 const ECONOMY: String = "economy"
+const AMMO: String = "ammo"
 const META: String = "meta"

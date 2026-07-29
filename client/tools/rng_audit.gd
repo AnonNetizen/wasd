@@ -15,6 +15,7 @@ const STREAM_IDS: Array[String] = [
 	"world",
 	RNG_STREAMS.WORLD_EVENT,
 	RNG_STREAMS.ECONOMY,
+	RNG_STREAMS.AMMO,
 	"meta",
 ]
 

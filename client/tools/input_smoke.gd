@@ -39,6 +39,7 @@ func _run() -> void:
 	await _expect_context_isolation_and_vector_input()
 	await _expect_mouse_events_reach_guide_before_gui()
 	await _expect_bool_edges_are_latched()
+	await _expect_default_combat_bindings()
 	await _expect_focus_and_disconnect_clear_state()
 	await _expect_device_and_prompt_refresh()
 	await _expect_capture_cancel_and_negative_axis()
@@ -168,6 +169,104 @@ func _expect_bool_edges_are_latched() -> void:
 	_expect(not InputService.is_pressed(ACTIONS.FIRE), "short fire input should not remain held")
 
 
+func _expect_default_combat_bindings() -> void:
+	var gameplay: GUIDEMappingContext = load(
+		"res://resources/input/contexts/gameplay.tres"
+	) as GUIDEMappingContext
+	_expect(
+		_has_remappable_key(gameplay, InputService.action_resource(ACTIONS.SKILL_1), KEY_1),
+		"skill 1 should default to keyboard top-row 1"
+	)
+	_expect(
+		_has_remappable_key(gameplay, InputService.action_resource(ACTIONS.SKILL_2), KEY_2),
+		"skill 2 should default to keyboard top-row 2"
+	)
+	_expect(
+		_has_remappable_key(gameplay, InputService.action_resource(ACTIONS.SKILL_3), KEY_3),
+		"skill 3 should default to keyboard top-row 3"
+	)
+	_expect(
+		_has_remappable_key(gameplay, InputService.action_resource(ACTIONS.SKILL_4), KEY_4),
+		"skill 4 should default to keyboard top-row 4"
+	)
+	_expect(
+		_has_remappable_key(gameplay, InputService.action_resource(ACTIONS.RELOAD), KEY_R),
+		"reload should default to keyboard R"
+	)
+	_expect(
+		_has_remappable_key(gameplay, InputService.action_resource(ACTIONS.INTERACT), KEY_E),
+		"interact should default to keyboard E"
+	)
+	_expect(
+		_has_remappable_joy_axis(
+			gameplay,
+			InputService.action_resource(ACTIONS.SKILL_1),
+			JOY_AXIS_TRIGGER_LEFT
+		),
+		"skill 1 should keep gamepad LT"
+	)
+	_expect(
+		_has_remappable_joy_button(
+			gameplay,
+			InputService.action_resource(ACTIONS.SKILL_2),
+			JOY_BUTTON_LEFT_SHOULDER
+		),
+		"skill 2 should keep gamepad LB"
+	)
+	_expect(
+		_has_remappable_joy_button(
+			gameplay,
+			InputService.action_resource(ACTIONS.SKILL_3),
+			JOY_BUTTON_RIGHT_SHOULDER
+		),
+		"skill 3 should keep gamepad RB"
+	)
+	_expect(
+		_has_remappable_joy_button(
+			gameplay,
+			InputService.action_resource(ACTIONS.SKILL_4),
+			JOY_BUTTON_Y
+		),
+		"skill 4 should keep gamepad North"
+	)
+	_expect(
+		_has_remappable_joy_button(
+			gameplay,
+			InputService.action_resource(ACTIONS.RELOAD),
+			JOY_BUTTON_B
+		),
+		"reload should default to gamepad East"
+	)
+	_expect(
+		_has_remappable_joy_button(
+			gameplay,
+			InputService.action_resource(ACTIONS.INTERACT),
+			JOY_BUTTON_X
+		),
+		"interact should keep gamepad West"
+	)
+
+	var reload_row: Dictionary = {}
+	for row: Dictionary in InputService.binding_rows():
+		if row.get("id") == InputService.BINDING_RELOAD:
+			reload_row = row
+			break
+	_expect(
+		not reload_row.is_empty()
+		and String(reload_row.get("label_key", "")) == "ui_settings_input_reload"
+		and bool(reload_row.get("keyboard_available", false))
+		and bool(reload_row.get("gamepad_available", false)),
+		"settings binding rows should expose remappable reload slots"
+	)
+
+	await _inject_key(KEY_R, true)
+	_expect(InputService.is_pressed(ACTIONS.RELOAD), "keyboard R should drive reload intent")
+	await _inject_key(KEY_R, false)
+	await _inject_joy_button(JOY_BUTTON_B, true)
+	_expect(InputService.is_pressed(ACTIONS.RELOAD), "gamepad East should drive reload intent")
+	await _inject_joy_button(JOY_BUTTON_B, false)
+
+
 func _expect_focus_and_disconnect_clear_state() -> void:
 	await _inject_mouse_button(MOUSE_BUTTON_LEFT, true)
 	_expect(InputService.is_pressed(ACTIONS.FIRE), "fire should be held before focus loss")
@@ -197,8 +296,8 @@ func _expect_focus_and_disconnect_clear_state() -> void:
 
 func _expect_device_and_prompt_refresh() -> void:
 	_device_changes.clear()
-	await _inject_key(KEY_F, true)
-	await _inject_key(KEY_F, false)
+	await _inject_key(KEY_E, true)
+	await _inject_key(KEY_E, false)
 	_expect(InputService.current_device_family() == InputService.DEVICE_KEYBOARD_MOUSE, "keyboard input should select keyboard/mouse prompt family")
 	var keyboard_prompt: String = InputService.prompt_text(ACTIONS.INTERACT)
 	_expect(not keyboard_prompt.is_empty(), "keyboard prompt should render text")
@@ -212,8 +311,8 @@ func _expect_device_and_prompt_refresh() -> void:
 	_expect(not gamepad_richtext.is_empty(), "gamepad prompt should render asynchronous rich text")
 	_expect(_device_changes.has(InputService.DEVICE_GAMEPAD), "device family change should emit refresh signal")
 	await _inject_joy_axis(JOY_AXIS_LEFT_X, 0.0)
-	await _inject_key(KEY_E, true)
-	await _inject_key(KEY_E, false)
+	await _inject_key(KEY_1, true)
+	await _inject_key(KEY_1, false)
 	_expect(InputService.current_device_family() == InputService.DEVICE_KEYBOARD_MOUSE, "keyboard input should switch prompts back after gamepad activity")
 	_expect(_device_changes.has(InputService.DEVICE_KEYBOARD_MOUSE), "keyboard return should emit device refresh signal")
 
@@ -275,8 +374,8 @@ func _expect_conflict_cancel_and_replace() -> void:
 	_remap_results.clear()
 	_expect(InputService.begin_remap(InputService.BINDING_PAUSE, InputService.DEVICE_KEYBOARD_MOUSE), "pause conflict capture should start")
 	await _wait_for_detection_ready()
-	await _push_key(KEY_F, true)
-	await _push_key(KEY_F, false)
+	await _push_key(KEY_E, true)
+	await _push_key(KEY_E, false)
 	await _wait_process_frames(WAIT_FRAMES)
 	_expect(_has_conflict(InputService.BINDING_PAUSE, InputService.BINDING_INTERACT), "same-context keyboard conflict should be reported")
 	_expect(not InputService.resolve_pending_remap(false), "conflict cancel should reject the pending replacement")
@@ -292,8 +391,8 @@ func _expect_conflict_cancel_and_replace() -> void:
 	_remap_results.clear()
 	_expect(InputService.begin_remap(InputService.BINDING_PAUSE, InputService.DEVICE_KEYBOARD_MOUSE), "pause conflict capture should restart")
 	await _wait_for_detection_ready()
-	await _push_key(KEY_F, true)
-	await _push_key(KEY_F, false)
+	await _push_key(KEY_E, true)
+	await _push_key(KEY_E, false)
 	await _wait_process_frames(WAIT_FRAMES)
 	_expect(InputService.resolve_pending_remap(true), "conflict replace should apply the pending binding")
 	await _wait_process_frames(WAIT_FRAMES)
@@ -303,7 +402,7 @@ func _expect_conflict_cancel_and_replace() -> void:
 		0
 	)
 	var pause_key: GUIDEInputKey = pause_override.get("input") as GUIDEInputKey
-	_expect(bool(pause_override.get("found", false)) and pause_key != null and pause_key.key == KEY_F, "conflict replace should persist the new pause binding")
+	_expect(bool(pause_override.get("found", false)) and pause_key != null and pause_key.key == KEY_E, "conflict replace should persist the new pause binding")
 	var remapped_pause_prompt: String = InputService.prompt_text(ACTIONS.PAUSE)
 	_expect(remapped_pause_prompt != default_pause_prompt, "prompt formatting should reflect the current remapped binding")
 	var interact_override: Dictionary = _saved_binding_override(
@@ -366,6 +465,57 @@ func _has_fixed_joy_button(context: GUIDEMappingContext, action: GUIDEAction, bu
 	for mapping: GUIDEInputMapping in _input_mappings_for_action(context, action):
 		var joy_input: GUIDEInputJoyButton = mapping.input as GUIDEInputJoyButton
 		if joy_input != null and joy_input.button == button and mapping.override_action_settings and not mapping.is_remappable:
+			return true
+	return false
+
+
+func _has_remappable_key(
+		context: GUIDEMappingContext,
+		action: GUIDEAction,
+		keycode: Key
+	) -> bool:
+	for mapping: GUIDEInputMapping in _input_mappings_for_action(context, action):
+		var key_input: GUIDEInputKey = mapping.input as GUIDEInputKey
+		if (
+			key_input != null
+			and key_input.key == keycode
+			and mapping.override_action_settings
+			and mapping.is_remappable
+		):
+			return true
+	return false
+
+
+func _has_remappable_joy_button(
+		context: GUIDEMappingContext,
+		action: GUIDEAction,
+		button: JoyButton
+	) -> bool:
+	for mapping: GUIDEInputMapping in _input_mappings_for_action(context, action):
+		var joy_input: GUIDEInputJoyButton = mapping.input as GUIDEInputJoyButton
+		if (
+			joy_input != null
+			and joy_input.button == button
+			and mapping.override_action_settings
+			and mapping.is_remappable
+		):
+			return true
+	return false
+
+
+func _has_remappable_joy_axis(
+		context: GUIDEMappingContext,
+		action: GUIDEAction,
+		axis: JoyAxis
+	) -> bool:
+	for mapping: GUIDEInputMapping in _input_mappings_for_action(context, action):
+		var joy_input: GUIDEInputJoyAxis1D = mapping.input as GUIDEInputJoyAxis1D
+		if (
+			joy_input != null
+			and joy_input.axis == axis
+			and mapping.override_action_settings
+			and mapping.is_remappable
+		):
 			return true
 	return false
 

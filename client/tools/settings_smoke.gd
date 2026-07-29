@@ -42,6 +42,7 @@ func _run() -> void:
 	_expect_v2_drops_removed_reduced_motion()
 	_expect_v3_drops_removed_vfx_quality()
 	_expect_input_bindings_use_independent_resource()
+	_expect_v1_input_bindings_reset_to_v2()
 	_expect_invalid_saved_values_recover_to_defaults()
 	_expect_broken_config_recovers_to_defaults()
 	await _expect_settings_panel_controls()
@@ -184,10 +185,61 @@ func _expect_input_bindings_use_independent_resource() -> void:
 	var remapping_config: GUIDERemappingConfig = loaded as GUIDERemappingConfig
 	_expect(remapping_config != null, "input binding resource should load as GUIDERemappingConfig")
 	if remapping_config != null:
-		_expect(int(remapping_config.custom_data.get("schema_version", 0)) == 1, "input binding resource should declare project schema v1")
+		_expect(int(remapping_config.custom_data.get("schema_version", 0)) == 2, "input binding resource should declare project schema v2")
 	var settings_config: ConfigFile = ConfigFile.new()
 	_expect(settings_config.load(Settings.settings_path()) == OK, "settings.cfg should remain readable after GUIDE binding save")
 	_expect(not settings_config.has_section_key("settings", String(INPUT_BINDING_IDS.INPUT_PAUSE)), "GUIDE binding save should not write binding IDs into settings.cfg")
+
+
+func _expect_v1_input_bindings_reset_to_v2() -> void:
+	for path: String in _binding_fixture_paths():
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
+
+	var legacy_config: GUIDERemappingConfig = GUIDERemappingConfig.new()
+	legacy_config.custom_data = {"schema_version": 1}
+	_expect(
+		ResourceSaver.save(legacy_config, InputService.bindings_path()) == OK,
+		"smoke should write a legacy input binding schema v1 fixture"
+	)
+
+	InputService.call("_load_remapping_config")
+	InputService.call("_rebuild_remapper")
+	InputService.call("_apply_remapping_config")
+	_expect(
+		FileAccess.file_exists("user://input_bindings.invalid.tres"),
+		"input binding schema v1 should be quarantined instead of partially applied"
+	)
+	_expect(
+		FileAccess.file_exists(InputService.bindings_path()),
+		"input binding schema v1 should be replaced with current defaults"
+	)
+	var loaded: Resource = ResourceLoader.load(
+		InputService.bindings_path(),
+		"GUIDERemappingConfig",
+		ResourceLoader.CACHE_MODE_IGNORE
+	)
+	var reset_config: GUIDERemappingConfig = loaded as GUIDERemappingConfig
+	_expect(reset_config != null, "reset input binding resource should remain loadable")
+	if reset_config != null:
+		_expect(
+			int(reset_config.custom_data.get("schema_version", 0)) == 2,
+			"legacy input bindings should reset to schema v2"
+		)
+	_expect(
+		InputService.binding_text(
+			InputService.BINDING_RELOAD,
+			InputService.DEVICE_KEYBOARD_MOUSE
+		).contains("R"),
+		"legacy input binding reset should restore reload to R"
+	)
+	_expect(
+		InputService.binding_text(
+			InputService.BINDING_INTERACT,
+			InputService.DEVICE_KEYBOARD_MOUSE
+		).contains("E"),
+		"legacy input binding reset should restore interact to E"
+	)
 
 
 func _expect_invalid_saved_values_recover_to_defaults() -> void:
@@ -304,7 +356,8 @@ func _expect_settings_panel_controls() -> void:
 		await get_tree().process_frame
 		_expect(FileAccess.file_exists(InputService.bindings_path()), "reset input defaults should persist GUIDE remapping config")
 		_expect(InputService.binding_text(InputService.BINDING_PAUSE, InputService.DEVICE_KEYBOARD_MOUSE).contains("Escape"), "reset input defaults should restore pause fallback")
-		_expect(InputService.binding_text(InputService.BINDING_INTERACT, InputService.DEVICE_KEYBOARD_MOUSE).contains("F"), "reset input defaults should restore interact binding")
+		_expect(InputService.binding_text(InputService.BINDING_RELOAD, InputService.DEVICE_KEYBOARD_MOUSE).contains("R"), "reset input defaults should restore reload binding")
+		_expect(InputService.binding_text(InputService.BINDING_INTERACT, InputService.DEVICE_KEYBOARD_MOUSE).contains("E"), "reset input defaults should restore interact binding")
 		_expect(input_feedback_label != null and String(input_feedback_label.text) == "Input bindings restored to defaults.", "reset input defaults should show feedback")
 
 	if close_button != null:

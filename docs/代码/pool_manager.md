@@ -39,6 +39,7 @@ PoolManager (autoload Node)
 ├── bullet_basic_0 (inactive pooled node)
 ├── enemy_chaser_0 (inactive dedicated Enemy scene)
 ├── enemy_swarm_0 (inactive dedicated Enemy scene)
+├── ammo_magazine_0 (inactive pooled node)
 ├── hit_spark_0 (inactive pooled node)
 └── ...
 ```
@@ -95,6 +96,8 @@ PoolManager (autoload Node)
 
 共享 `bullet_basic` 的容量上限保持 192，标准预热由 24 提高到 64，以承接多个突击枪手同时点射。玩家和敌方投射物仍复用同一池 / 场景；`Bullet` 必须在 configure、`_pool_reset()` 与 `_pool_release()` 中同时重置两套视觉和轨迹历史，再按 `source_team` 显示玩家黄弹或敌方红弹，禁止因池复用串色。
 
+`ammo_magazine` 是 RunLoop 注册的池化弹药拾取物，容量 64、预热 8；每次配置绑定当前 Player、WeaponSystem、弹药数量和吸附速度。`_pool_reset()` / `_pool_release()` 必须清空目标、武器接收器、数量、吸附 blend、速度和视觉计时，避免续局或跨局复用时把弹药送给旧接收器。场上活动状态由 Run v11 保存为玩法快照，PoolManager 仍不保存内部队列。
+
 视觉效果目录保留 `hit_spark`、`damage_number`，并登记 `vfx_weapon_muzzle_flash`。`visual_effects.json.high_frequency=true` 的效果必须提供已登记 `pool_id`；普通低频效果不需要预登记池。VFX 回池除了通用变换 / 可见性，还必须清理 Tween、AnimationPlayer 游标、材质实例参数、粒子 emitting / restart 和轨迹历史。
 
 运行时每个池保存以下统计：
@@ -132,6 +135,7 @@ PoolManager (autoload Node)
 | 接入子弹池 | 子弹场景 / 脚本、生成系统 | 本文档、对应模块文档 | L1 + L2 + 性能 smoke |
 | 加 / 改敌人专属池 | `enemies.csv`、专属继承场景、`GameplayRunLoop` | 数据手册、Gameplay Runtime、EnemyAI | data/schema + `actor-scene-smoke` + runtime/save/module-world |
 | 加高频视觉效果池 | 词表、`visual_effects.json`、效果场景 | Visual Effects 文档、数据手册 | contracts/data + `vfx-smoke` |
+| 加 / 改弹药拾取池 | `ammo_magazine_pickup.gd/.tscn`、`ammo_rules.json`、RunLoop | Gameplay Runtime、Save、数据手册 | contracts + ammo weapon/runtime/save smoke |
 | 改溢出策略 | `pool_manager.gd`、`Analytics` | 本文档、Analytics 文档 | L1 + 埋点检查 |
 
 ## 故障排查
@@ -142,6 +146,7 @@ PoolManager (autoload Node)
 | `acquire()` 返回 `null` | 池是否注册；是否达到 `max_size`；是否有 `pool_overflow` 事件 |
 | 复用后状态残留 | 节点是否实现 `_pool_reset()` 并清掉运行时状态 |
 | 玩家弹 / 敌弹颜色或拖尾串线 | Bullet 是否同时清空 `RibbonTrail` / `EnemyRibbonTrail`，再按 `source_team` 切换两套视觉；不能只重置上一次激活的 trail |
+| 弹匣拾取复用后追旧玩家 / 数量错误 | `AmmoMagazinePickup` 是否在 reset/release 同时清空 target、weapon receiver、amount 和吸附状态 |
 | 释放后仍在场景里动 | 是否通过 `PoolManager.release()`；节点是否被外部重新设置 `process_mode` |
 
 ## 测试义务

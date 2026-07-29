@@ -108,4 +108,4 @@
 
 ## 迁移 / 兼容
 
-导演当前由静态数据和模式级 `DifficultyProgression` elapsed 推导，本身不保存额外状态；该 elapsed 与 profile 难度系数随 Run v10 的 difficulty 快照恢复。开放战区敌人在实际生成时另按当前 tier 锁定金币，导演不计算奖励。schema v2 删除的旧导演敌人组合元数据不进入 run payload。F12 奖励领取状态保存于 run payload 的可选 `interest_points` 字段，撤离开启 / 读条状态保存于可选 `extraction` 字段；旧 payload 缺失这些字段时按未领取 / 未开启撤离处理，旧 `map.hazard_placements` 缺少奖励或撤离元数据时只恢复机关，不补发奖励也不开启撤离。后续若加入随机 mutation、阶段内部计数器或玩家可见选择，必须保存 director state 并同步 `GameplayRunLoop.create_run_snapshot()` / `configure_restore_snapshot()`。
+导演当前由静态数据和模式级 `DifficultyProgression` elapsed 推导，本身不保存额外状态；该 elapsed 与 profile 难度系数随 Run v11 的 difficulty 快照恢复。开放战区敌人在实际生成时另按当前 tier 锁定金币，导演不计算奖励。schema v2 删除的旧导演敌人组合元数据不进入 run payload。F12 奖励领取状态保存于 run payload 的可选 `interest_points` 字段，撤离开启 / 读条状态保存于可选 `extraction` 字段；旧 payload 缺失这些字段时按未领取 / 未开启撤离处理，旧 `map.hazard_placements` 缺少奖励或撤离元数据时只恢复机关，不补发奖励也不开启撤离。后续若加入随机 mutation、阶段内部计数器或玩家可见选择，必须保存 director state 并同步 `GameplayRunLoop.create_run_snapshot()` / `configure_restore_snapshot()`。

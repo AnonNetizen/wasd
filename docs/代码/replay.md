@@ -66,7 +66,7 @@
 | `start_recording(context = {})` | 启动上下文 | `bool` | 关闭或已录制时返回 `false` |
 | `stop_recording(reason = "")` | 停止原因 | `Dictionary` | 未录制时返回空字典；成功后发 `replay_recorded` 埋点 |
 | `record_input_action(action_name, pressed, strength = 1.0, participant_id = "player_0")` | action、按下状态、被忽略的旧 strength、参与者 | `bool` | deprecated bool 兼容包装；转交 `record_input_value()`，gameplay 不直接调用 |
-| `record_input_value(action_name, value, participant_id = "player_0")` | action、`bool` 或 `Vector2`、参与者 | `bool` | v3 规范入口；只接受已登记 action，含四技能与冲刺；Vector2 会归一化并保存为 `[x, y]` |
+| `record_input_value(action_name, value, participant_id = "player_0")` | action、`bool` 或 `Vector2`、参与者 | `bool` | v3 规范入口；只接受已登记 action，含换弹、四技能与冲刺；Vector2 会归一化并保存为 `[x, y]` |
 | `record_input_event(event, action_names, participant_id = "")` | 原始 Godot event、候选 action、参与者 | `bool` | 测试 / 旧边界兼容，只转成 bool；正式 gameplay 与 UI 不得调用 |
 | `record_decision(event_name, payload = {})` | 关键事件名、payload | `bool` | event 未登记会 `push_error` 并返回 `false` |
 | `save_recording(recording = {}, file_name = "")` | 已完成录制、可选文件名 | `String` | 写入 `user://replays/`，返回路径；文件名会归一化为 `.replay` |
@@ -191,11 +191,11 @@ F8 golden replay 额外在 `recording.run_summary` / `summary.run_summary` 中�
 
 - 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，以及 `python tools/godot_bridge.py --project client replay-smoke` / `python tools/godot_bridge.py --project client replay-runner`；改 gameplay 输入录制追加 `python tools/godot_bridge.py --project client replay-input-smoke`；改 golden 时追加 `capture-golden-replay`、`capture-golden-replay --golden-scenario golden_pause_resume`、`capture-golden-replay --golden-scenario golden_full_death`、`capture-golden-replay --golden-scenario golden_reward_choice` 以及四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`。
 - 后续引入 GUT 后，`Replay` 需要覆盖录制开始 / 停止、action 校验、event 校验、设置关闭清空、缓冲丢弃计数和同 seed 录制字段稳定。
-- 当前 `.replay` 文件 v3 roundtrip 与旧版 / 未来版本拒绝由 `replay-smoke` 覆盖，summary diff、四技能 / 冲刺输入播放、组合决策、runtime event 和稳定帧样本 diff 由 `replay-runner` 覆盖。四条黄金回放覆盖两种主英雄、四技能、冲刺、暂停 / 恢复、死亡防御状态和通用奖励选择；有意改变确定性行为时才重录并在提交说明中注明影响。
+- 当前 `.replay` 文件 v3 roundtrip 与旧版 / 未来版本拒绝由 `replay-smoke` 覆盖，summary diff、换弹 / 四技能 / 冲刺输入播放、组合决策、runtime event 和稳定帧样本 diff 由 `replay-runner` 覆盖。四条黄金回放覆盖两种主英雄、弹药 / 换弹节奏、四技能、冲刺、暂停 / 恢复、死亡防御状态和通用奖励选择；有意改变确定性行为时才重录并在提交说明中注明影响。
 
 ## 迁移 / 兼容
 
-当前 `.replay` 文件 envelope 与内存 recording schema 都为 3，加载器只接受 v3。旧版、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id`、`sub_hero_id` 和 difficulty profile id / coefficient，四技能和冲刺使用当前规范 action。弹道随机由运行时按固定 `RNG.combat` 消耗重算；Player 后坐 / 敌人击退、金币、未完成奖励选择、敌人攻击阶段 / armed / 生成序号、精确出生倍率 / 奖励明细与世界事件事务属于 Run v10 而不是 replay 输入字段。Replay 只在 context / decision / `run_end` / summary 保留当前稳定摘要，不能把两种格式混合。
+当前 `.replay` 文件 envelope 与内存 recording schema 都为 3，加载器只接受 v3。旧版、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id`、`sub_hero_id` 和 difficulty profile id / coefficient；`reload` 与四技能、冲刺一样复用现有 bool intent wire。弹道随机由运行时按固定 `RNG.combat` 消耗重算；弹匣 / 备弹 / 换弹、`RNG.ammo`、场上弹匣、Player 后坐 / 敌人击退、金币、未完成奖励选择、敌人状态与世界事件事务属于 Run v11 而不是 replay 输入字段。Replay summary / frame samples 额外记录弹匣、备弹、换弹剩余时间、活动弹匣数和未掉计数，用于稳定行为对照；不能把 run 快照与 replay 输入格式混合。
 
 ## 相关文档
 

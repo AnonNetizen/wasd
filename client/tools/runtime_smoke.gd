@@ -73,9 +73,11 @@ func _run() -> void:
 	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_BULWARK), "bulwark enemy pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.ENEMY_SPITTER), "spitter enemy pool should be registered")
 	_expect(PoolManager.has_pool(POOL_IDS.HAZARD_SPIKE), "hazard pool should be registered")
+	_expect(PoolManager.has_pool(POOL_IDS.AMMO_MAGAZINE), "ammo magazine pool should be registered")
 	_expect(InputService.action_resource(ACTIONS.MOVE) != null, "InputService should expose the Vector2 move action")
 	_expect(InputService.action_resource(ACTIONS.AIM) != null, "InputService should expose the Vector2 aim action")
 	_expect(InputService.action_resource(ACTIONS.SHOW_STATS_PANEL) != null, "InputService should expose show_stats_panel")
+	_expect(InputService.action_resource(ACTIONS.RELOAD) != null, "InputService should expose reload")
 	_expect_gold_progression_curve_and_transactions()
 	_expect_reward_choice_controller_contract()
 
@@ -88,12 +90,13 @@ func _run() -> void:
 		player.scene_file_path == PLAYER_SCENE.resource_path,
 		"default character should instantiate its data-bound dedicated scene"
 	)
+	_expect_ammo_drop_contract(run_loop, player)
 	var initial_run_snapshot: Dictionary = (
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(initial_run_snapshot.get("schema_version", 0)) == 10,
-		"new runs should use Run schema v10"
+		int(initial_run_snapshot.get("schema_version", 0)) == 11,
+		"new runs should use Run schema v11"
 	)
 	_expect(player is CharacterBody2D, "Player should keep 2D CharacterBody2D movement")
 	_expect(_find_node_by_name(player, "Player3DVisual") == null, "Player should use the top-down 2D placeholder instead of a 3D orthographic visual child")
@@ -1564,7 +1567,10 @@ func _expect_weapon_recoil_runtime(
 		),
 		"zero recoil should not start weapon camera feedback"
 	)
-	weapon_system.call("_fire_once")
+	weapon_system.call(
+		"_fire_once",
+		weapon_system.call("_effective_runtime_stats")
+	)
 	_expect(
 		fired_contexts.size() == 1,
 		"one trigger pull should emit one weapon_fired context"
@@ -1681,7 +1687,10 @@ func _expect_weapon_recoil_runtime(
 	player.call("restore_snapshot", original_player_snapshot)
 	RNG.set_run_seed(7331)
 	Settings.set_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, false)
-	weapon_system.call("_fire_once")
+	weapon_system.call(
+		"_fire_once",
+		weapon_system.call("_effective_runtime_stats")
+	)
 	var disabled_bullets: Array[Node] = get_tree().get_nodes_in_group(
 		"active_bullets"
 	)
@@ -1728,7 +1737,10 @@ func _expect_weapon_recoil_runtime(
 		]
 	)
 	RNG.set_run_seed(9917)
-	weapon_system.call("_fire_once")
+	weapon_system.call(
+		"_fire_once",
+		weapon_system.call("_effective_runtime_stats")
+	)
 	var next_roll_after_zero_spread: float = RNG.combat.randf()
 	_release_active_bullets()
 	RNG.set_run_seed(9917)
@@ -1752,7 +1764,10 @@ func _expect_weapon_recoil_runtime(
 	)
 	var context_count_before_multishot: int = fired_contexts.size()
 	player.call("restore_snapshot", original_player_snapshot)
-	weapon_system.call("_fire_once")
+	weapon_system.call(
+		"_fire_once",
+		weapon_system.call("_effective_runtime_stats")
+	)
 	_expect(
 		fired_contexts.size() == context_count_before_multishot + 1,
 		"multi-projectile fire should still emit one recoil context"
@@ -4970,6 +4985,160 @@ func _dictionary_or_empty(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		return (value as Dictionary).duplicate(true)
 	return {}
+
+
+func _expect_ammo_drop_contract(
+	run_loop: Node,
+	player: Node2D
+) -> void:
+	var expected_chances: Array[float] = [
+		0.08,
+		0.23,
+		0.38,
+		0.53,
+		0.68,
+		0.83,
+		0.98,
+		1.0,
+	]
+	var expected_attempts: float = 0.0
+	var survival_probability: float = 1.0
+	for miss_count: int in range(expected_chances.size()):
+		var chance: float = float(
+			run_loop.call(
+				"_ammo_drop_chance_for_misses",
+				miss_count
+			)
+		)
+		_expect(
+			is_equal_approx(chance, expected_chances[miss_count]),
+			"ammo drop chance should follow the configured escalating curve"
+		)
+		expected_attempts += survival_probability
+		survival_probability *= 1.0 - chance
+	_expect(
+		is_equal_approx(1.0 / expected_attempts, 0.2983697),
+		"ammo drop curve should keep the expected 29.84 percent long-run rate"
+	)
+	_expect(
+		bool(
+			run_loop.call(
+				"_is_ammo_drop_eligible",
+				true,
+				ENEMY_DEFEAT_CAUSES.PLAYER_DAMAGE
+			)
+		),
+		"player-attributed reward kills should qualify for ammo drops"
+	)
+	for rejected_case: Dictionary in [
+		{
+			"drops_rewards": false,
+			"cause_id": ENEMY_DEFEAT_CAUSES.PLAYER_DAMAGE,
+		},
+		{
+			"drops_rewards": true,
+			"cause_id": ENEMY_DEFEAT_CAUSES.ENEMY_EXPLOSION,
+		},
+		{
+			"drops_rewards": true,
+			"cause_id": ENEMY_DEFEAT_CAUSES.OTHER_CAUSE,
+		},
+	]:
+		_expect(
+			not bool(
+				run_loop.call(
+					"_is_ammo_drop_eligible",
+					bool(rejected_case["drops_rewards"]),
+					String(rejected_case["cause_id"])
+				)
+			),
+			"environment, enemy, and Burst Hunter explosion defeats should not qualify"
+		)
+
+	var weapon: Node = player.get_node_or_null("WeaponSystem")
+	_expect(weapon != null, "ammo drop smoke requires WeaponSystem")
+	if weapon == null:
+		return
+	var original_weapon_snapshot: Dictionary = weapon.call("snapshot")
+	var original_drop_config: Dictionary = (
+		run_loop.get("_ammo_drop_config") as Dictionary
+	).duplicate(true)
+	var original_misses: int = int(run_loop.get("_ammo_drop_misses"))
+	var original_ammo_rng: Dictionary = RNG.ammo.snapshot()
+	weapon.call("restore_snapshot", {
+		"magazine_ammo": 30,
+		"reserve_ammo": 210,
+	})
+	run_loop.set("_ammo_drop_misses", 4)
+	var full_rng_before: Dictionary = RNG.ammo.snapshot()
+	var active_before: int = PoolManager.active_count(
+		POOL_IDS.AMMO_MAGAZINE
+	)
+	_expect(
+		not bool(
+			run_loop.call(
+				"_try_spawn_ammo_magazine",
+				player.global_position
+			)
+		),
+		"full ammo should skip the ammo drop roll"
+	)
+	_expect(
+		RNG.ammo.snapshot() == full_rng_before
+		and int(run_loop.get("_ammo_drop_misses")) == 4
+		and PoolManager.active_count(POOL_IDS.AMMO_MAGAZINE)
+		== active_before,
+		"full ammo should preserve RNG, miss count, and pickup count"
+	)
+
+	weapon.call("restore_snapshot", {
+		"magazine_ammo": 29,
+		"reserve_ammo": 150,
+	})
+	var forced_config: Dictionary = original_drop_config.duplicate(true)
+	forced_config["guaranteed_after_misses"] = 0
+	run_loop.set("_ammo_drop_config", forced_config)
+	run_loop.set("_ammo_drop_misses", 7)
+	var drop_rng_before: Dictionary = RNG.drop.snapshot()
+	var economy_rng_before: Dictionary = RNG.economy.snapshot()
+	_expect(
+		bool(
+			run_loop.call(
+				"_try_spawn_ammo_magazine",
+				player.global_position
+			)
+		),
+		"guaranteed ammo roll should create one pooled pickup"
+	)
+	var pickups: Array[Node] = get_tree().get_nodes_in_group(
+		"active_ammo_magazines"
+	)
+	_expect(
+		pickups.size() == active_before + 1
+		and int(
+			(
+				pickups[pickups.size() - 1].call("snapshot")
+				as Dictionary
+			).get("amount", 0)
+		) == 30,
+		"ammo drop should contain exactly one current weapon magazine"
+	)
+	_expect(
+		int(run_loop.get("_ammo_drop_misses")) == 0,
+		"successful ammo drop should reset the miss counter"
+	)
+	_expect(
+		RNG.drop.snapshot() == drop_rng_before
+		and RNG.economy.snapshot() == economy_rng_before
+		and RNG.ammo.snapshot() != full_rng_before,
+		"ammo drops should consume only the independent RNG.ammo stream"
+	)
+	for pickup: Node in pickups:
+		PoolManager.release(pickup)
+	run_loop.set("_ammo_drop_config", original_drop_config)
+	run_loop.set("_ammo_drop_misses", original_misses)
+	RNG.ammo.restore_snapshot(original_ammo_rng)
+	weapon.call("restore_snapshot", original_weapon_snapshot)
 
 
 func _expect(condition: bool, message: String) -> void:
