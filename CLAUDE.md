@@ -5,6 +5,8 @@
 `AGENTS.md` 仍是本项目所有 AI agent 的通用开工入口。Claude Code 已配套**项目自有的活跃 `.claude/`**（agents / commands / skills / rules / settings.json），与 `.codebuddy/` / `.codex/` / `.opencode/` 同源、核心语义一致（ADR #87）。注意：此 `.claude/` 是项目自建配置，**不是** ADR #56~#59 / #72 拒绝的外部 `.claude/` 整包（CCGS / ECC 的 hooks、外部 agents、settings、vendor）；不接外部 vendor reference、不引入活跃 hooks。
 
 > ⚠️ **加载位置**：`.claude/` 位于仓库根 `<repo>/`（与 `.codebuddy/` 并列）。Claude Code 需在该仓库根目录启动才会自动加载 `.claude/settings.json`、agents、commands、skills；若从上级目录启动则不会自动加载。
+>
+> 🙋 **人工检查边界**：凡文档或任务明确标为人工检查 / 人工验收 / 手动验收 / L5 / 真实设备 / 视觉、听觉或手感验收，只能交给人工。Claude 不得用浏览器、Computer Use、GUI 自动化、截图或录屏代替，也不得自行宣称通过；完整语义见平台规则第 30 节。
 
 ## Claude Code 开工顺序
 

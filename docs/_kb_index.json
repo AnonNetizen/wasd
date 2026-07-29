@@ -37,7 +37,7 @@
       "authority": "Codex CLI startup adapter, clarification-first collaboration baseline, and platform file map",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-07-28",
+      "last_reviewed": "2026-07-29",
       "canonical_for": ["codex_entrypoint", "clarification_first_rule"],
       "must_read_for": ["codex_session", "codex_config_change", "ai_platform_change"],
       "related_docs": ["AGENTS.md", "CLAUDE.md", "OPENCODE.md", "docs/AI协作/工具适配指南.md", "docs/AI协作/快速开工.md"],
@@ -191,13 +191,13 @@
       "authority": "Architecture decision records and accepted constraints",
       "status": "active",
       "owner_scope": "architecture",
-      "last_reviewed": "2026-07-28",
+      "last_reviewed": "2026-07-29",
       "canonical_for": ["adr", "accepted_decisions", "constraints"],
       "must_read_for": ["decision_change", "rule_change", "design_reversal"],
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #127", "ADR #128", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #144", "ADR #145", "ADR #146", "ADR #147", "ADR #148", "ADR #149", "ADR #150", "ADR #151", "ADR #156", "ADR #167", "ADR #169", "ADR #170", "ADR #173", "world events", "Run v9", "explicit enemy attacks", "Burst Hunter chain explosion", "aim-directed camera", "camera look offset", "F14", "F14.1", "模块大地图", "ModuleWorldManager", "ModuleNavigationField", "bounded shared flow field", "hybrid perception", "RoomManager superseded", "WarzoneDirector", "EnemyAI player targeting", "敌方友伤护栏", "short loot runs", "撤离", "Gear Mod", "Godot editor plugin", "@icons", "Script-IDE", "Phantom Camera", "camera rig ownership", "G.U.I.D.E", "InputService", "Replay v3", "性能测试按需", "user-triggered performance test", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "AI Git", "code review", "事实review"]
+      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #127", "ADR #128", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #144", "ADR #145", "ADR #146", "ADR #147", "ADR #148", "ADR #149", "ADR #150", "ADR #151", "ADR #156", "ADR #167", "ADR #169", "ADR #170", "ADR #173", "ADR #174", "人工检查", "人工验收", "待人工验收", "human-only acceptance", "world events", "Run v9", "explicit enemy attacks", "Burst Hunter chain explosion", "aim-directed camera", "camera look offset", "F14", "F14.1", "模块大地图", "ModuleWorldManager", "ModuleNavigationField", "bounded shared flow field", "hybrid perception", "RoomManager superseded", "WarzoneDirector", "EnemyAI player targeting", "敌方友伤护栏", "short loot runs", "撤离", "Gear Mod", "Godot editor plugin", "@icons", "Script-IDE", "Phantom Camera", "camera rig ownership", "G.U.I.D.E", "InputService", "Replay v3", "性能测试按需", "user-triggered performance test", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "AI Git", "code review", "事实review"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -258,16 +258,16 @@
     {
       "path": "docs/测试策略.md",
       "type": "authority",
-      "authority": "Testing pyramid, coverage, replay, manual regression requirements, and user-trigger-only performance probes",
+      "authority": "Testing pyramid, coverage, replay, human-only manual acceptance, and user-trigger-only performance probes",
       "status": "active",
       "owner_scope": "test",
-      "last_reviewed": "2026-07-21",
-      "canonical_for": ["testing_strategy", "coverage_targets", "manual_regression"],
+      "last_reviewed": "2026-07-29",
+      "canonical_for": ["testing_strategy", "coverage_targets", "manual_regression", "human_only_acceptance"],
       "must_read_for": ["test_change", "behavior_change", "replay_change"],
       "related_docs": ["docs/CICD规划.md", "docs/AI导航.md", "docs/代码文档规范.md"],
       "related_code": ["client/", "tools/", "client/tools/rng_audit.gd", "tools/test_data_loader_schema.py", "tools/lint_gdscript_rules.py", "tools/lint_project_rules.py", "tools/test_project_rules_lint.py", "tools/lint_semantic_rules.py", "tools/test_semantic_rules_lint.py"],
-      "update_triggers": ["new testing requirement", "coverage target change", "new golden replay policy", "performance test trigger policy change", "RNG correlation audit changes"],
-      "keywords": ["test", "测试", "GUT", "replay", "coverage", "手动回归", "性能测试按需", "user-triggered performance test", "startup-probe", "perf-probe", "MetaProgressionSystem", "局外成长", "SaveManager", "续局存档", "L0", "validate_data", "test_data_loader_schema", "DataLoader schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "rng-audit", "cross-stream correlation", "RNG correlation", "Steamworks Lab", "battle_smoke", "单人AI大招", "自主游击", "预判闪避", "归队合体"]
+      "update_triggers": ["new testing requirement", "coverage target change", "manual acceptance ownership change", "new golden replay policy", "performance test trigger policy change", "RNG correlation audit changes"],
+      "keywords": ["test", "测试", "GUT", "replay", "coverage", "手动回归", "人工检查", "人工验收", "待人工验收", "human-only acceptance", "L5", "ADR #174", "性能测试按需", "user-triggered performance test", "startup-probe", "perf-probe", "MetaProgressionSystem", "局外成长", "SaveManager", "续局存档", "L0", "validate_data", "test_data_loader_schema", "DataLoader schema", "lint_gdscript_rules", "GDScript lint", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "rng-audit", "cross-stream correlation", "RNG correlation", "Steamworks Lab", "battle_smoke", "单人AI大招", "自主游击", "预判闪避", "归队合体"]
     },
     {
       "path": "docs/代码文档规范.md",

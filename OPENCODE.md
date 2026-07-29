@@ -4,6 +4,8 @@
 
 `AGENTS.md` 仍是本项目所有 AI agent 的通用开工入口；`.opencode/opencode.json` 会把本文件与规则入口加载进 OpenCode。
 
+> 🙋 **人工检查边界**：凡文档或任务明确标为人工检查 / 人工验收 / 手动验收 / L5 / 真实设备 / 视觉、听觉或手感验收，只能交给人工。OpenCode 不得用浏览器、GUI 自动化、截图或录屏代替，也不得自行宣称通过；完整语义见完整规则正文第 30 节。
+
 ## OpenCode 开工顺序
 
 1. 先读 `AGENTS.md`，按其中“快速开工 5 步”继续；日常接手优先读 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`，完整 `docs/AI记忆/项目记忆.md` 按任务需要再读。

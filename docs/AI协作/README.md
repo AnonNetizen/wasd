@@ -5,7 +5,7 @@
 > - `AI记忆/` 是**项目状态的长期记忆**（项目快照 / ADR / 待决策 / 近期脉络）。
 > - `AI协作/` 是**协作方式的工程模板**（任务模板 / 上下文预算 / 角色分工 / 引擎接入 / 实时验证）。
 >
-> 协作默认规则以 `AGENTS.md` 和当前平台规则入口为准：默认中文、事实审查、需求前置评估、需求不明先问、上下文恢复对齐最后明确指令、AI Git 提交策略与 `draft/` 禁区都必须遵守。
+> 协作默认规则以 `AGENTS.md` 和当前平台规则入口为准：默认中文、事实审查、需求前置评估、需求不明先问、上下文恢复对齐最后明确指令、人工检查只交给人工、AI Git 提交策略与 `draft/` 禁区都必须遵守。
 >
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。本文档是 AI 协作目录索引；新增模板、agent、command、skill、工具适配或协作规则时，必须同步 `AGENTS.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、`.codebuddy/`、`.codex/`、`.opencode/`、`docs/AI导航.md`、`docs/AI协作/工具适配指南.md`、`docs/AI记忆/项目记忆.md`。
 
@@ -116,7 +116,8 @@ AI agent 接到任务时优先按以下顺序：
 8. **是不是已有项目级 skill**？CodeBuddy / Codex / OpenCode 均有同名项目级 skill（`.codebuddy/skills/` / `.codex/skills/` / `.opencode/skills/`）：Godot 实现 / 场景验证 / Godot 测试诊断 / 试玩复盘 / 文档同步 / 安全提交 / 事实 review / AI 资源筛选与协作面审计 / MCP 评估；其中 `godot-test-diagnostics` 固化了 Steamworks Lab 隔离 runner 与精确成功协议。外部 GodotPrompter / headless-godot / CCGS / ECC 的有用流程已吸收进这些项目 skill，不再通过 reference 跳转。
 9. **想直接操作引擎**？查 `引擎集成.md` 是否已接入 MCP，再决定走文件还是走引擎 API。
 10. **改了词表 / 数据 / 文案 / GDScript**？跑 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_gdscript_rules.py`、`python tools/lint_project_rules.py` 与非阻塞 `python tools/lint_semantic_rules.py`；改输入 / GUIDE / 重绑定先跑 `input-smoke`，再按影响追加 `settings-smoke`、`replay-input-smoke`、runtime 与四条黄金回放；改 F4 运行时追加 `runtime-smoke`；改 Settings 持久化 / 回退 / 设置面板追加 `settings-smoke`，改标题 / 暂停设置入口再追加 `runtime-smoke`；改 F11 Gear Mod 实现追加对应 `gear-mod-smoke` 或等价 L1 / runtime smoke；改 SaveManager / run 存档 / 续局 schema 追加 `save-smoke`；改 F8 测试 / 回放入口追加 `l1-smoke`、`replay-smoke`、`replay-runner`、`replay-runner --rerun-runtime-summary`、`replay-input-smoke`、`capture-golden-replay` 和四条 checked-in replay 的 `replay-runner --replay-file ... --rerun-runtime-summary`；`startup-probe` / `perf-probe` 只有用户当次明确要求性能测试时才运行；改 DataLoader、项目规则 lint 或语义 lint schema 时追加对应 `test_*.py` 回归。改 Steamworks Lab 时先跑 `py -3 tools\steamworks_lab_toolchain.py smoke --suite <目标>`，完成前跑 `--suite all`，禁止手写 Godot / ENet 编排或碰真实 `user://` 文件。
-11. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规；大型代码改动提交前按 `代码审核流程.md` 追加一次工具先行的事实型 code review，小改动不触发正式 review。
+11. **出现人工检查 / 人工验收项**？不要执行，也不要用 GUI、截图、录屏或模拟输入替代；继续完成非人工自动化项，整理人工 checklist，并把状态保留为“待人工验收”。
+12. **改完了**？让 `实时验证回路.md` 描述的 hook 在秒级反馈是否合规；大型代码改动提交前按 `代码审核流程.md` 追加一次工具先行的事实型 code review，小改动不触发正式 review。
 
 ## 维护
 
