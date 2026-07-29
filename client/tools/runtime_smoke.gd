@@ -2580,7 +2580,7 @@ func _expect_ranged_enemy_projectile_damage(run_loop: Node, player: Node2D) -> v
 		if String(summary.get("action_state", "")) == "ranged_windup":
 			reached_windup = true
 			break
-	_expect(reached_windup, "ranged enemy should enter a telegraphed windup")
+	_expect(reached_windup, "ranged enemy should enter its muzzle-charge windup")
 	_expect(
 		String(
 			(spitter.call("ai_debug_summary") as Dictionary).get(
@@ -2610,13 +2610,16 @@ func _expect_ranged_enemy_projectile_damage(run_loop: Node, player: Node2D) -> v
 		"one burst should emit exactly one ranged windup event"
 	)
 	if not _ranged_windup_contexts.is_empty():
-		var line_scale: Vector2 = _ranged_windup_contexts[0].get(
-			"scale",
-			Vector2.ZERO
-		) as Vector2
 		_expect(
-			is_equal_approx(line_scale.x, 600.0),
-			"ranged windup should expose a 600 px line telegraph"
+			not _ranged_windup_contexts[0].has("scale"),
+			"ranged windup should not expose trajectory geometry"
+		)
+		_expect(
+			is_equal_approx(
+				float(_ranged_windup_contexts[0].get("duration", 0.0)),
+				0.32
+			),
+			"ranged muzzle charge should keep the 0.32 second windup"
 		)
 	var frozen_timer: float = float(windup_snapshot.get("action_timer", 0.0))
 	GameState.change_state(GameState.PAUSED, {"source": "runtime_ranged_pause"})
@@ -2658,6 +2661,7 @@ func _expect_ranged_enemy_projectile_damage(run_loop: Node, player: Node2D) -> v
 
 	if player.has_method("debug_clear_invulnerability"):
 		player.call("debug_clear_invulnerability")
+	_release_active_bullets()
 	var bullets_before: int = _pool_stat(POOL_IDS.BULLET_BASIC, "acquired")
 	for _index: int in range(90):
 		await get_tree().physics_frame
@@ -2694,23 +2698,47 @@ func _expect_ranged_enemy_projectile_damage(run_loop: Node, player: Node2D) -> v
 		>= 0.9,
 		"ranged burst should enter its 0.95 second cooldown"
 	)
-	var active_enemy_bullets: Array[Node] = get_tree().get_nodes_in_group(
-		"active_bullets"
-	)
+	var active_enemy_bullets: Array[Node] = []
+	for bullet: Node in get_tree().get_nodes_in_group("active_bullets"):
+		var candidate_snapshot: Dictionary = bullet.call("snapshot")
+		if String(candidate_snapshot.get("source_team", "")) == TEAM_ENEMY:
+			active_enemy_bullets.append(bullet)
 	_expect(
 		not active_enemy_bullets.is_empty(),
-		"sidestepping the locked line should leave enemy bullets active"
+		"sidestepping the locked direction should leave enemy bullets active"
 	)
+	var newest_enemy_bullet_life: float = 0.0
 	for bullet: Node in active_enemy_bullets:
 		var bullet_snapshot: Dictionary = bullet.call("snapshot")
-		var bullet_direction: Vector2 = _dict_to_vector(
+		var bullet_velocity: Vector2 = _dict_to_vector(
 			bullet_snapshot.get("velocity", {}),
 			Vector2.ZERO
-		).normalized()
+		)
+		var bullet_direction: Vector2 = bullet_velocity.normalized()
 		_expect(
 			bullet_direction.dot(locked_direction) > 0.999,
 			"all burst bullets should retain the windup lock direction"
 		)
+		_expect(
+			is_equal_approx(bullet_velocity.length(), 280.0),
+			"ranged bullets should use the configured 280 px/s speed"
+		)
+		_expect(
+			is_equal_approx(
+				float(bullet_snapshot.get("max_range", 0.0)),
+				720.0
+			),
+			"ranged bullets should retain the configured 720 px range"
+		)
+		newest_enemy_bullet_life = maxf(
+			newest_enemy_bullet_life,
+			float(bullet_snapshot.get("remaining_life", 0.0))
+		)
+	_expect(
+		newest_enemy_bullet_life >= 2.5
+		and newest_enemy_bullet_life <= 2.6,
+		"the newest ranged bullet should retain the 2.6 second lifetime"
+	)
 	_expect_enemy_bullet_visual(active_enemy_bullets)
 	if spitter.is_connected("attack_windup_started", windup_callable):
 		spitter.disconnect("attack_windup_started", windup_callable)

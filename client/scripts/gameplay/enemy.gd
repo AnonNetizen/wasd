@@ -1492,14 +1492,6 @@ func _attack_feedback_context(
 			lane_length,
 			maxf(_hit_radius + target_radius, 1.0)
 		)
-	elif _current_action == ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK:
-		var projectile: Dictionary = _dictionary_or_empty(
-			attack.get("projectile", {})
-		)
-		context["scale"] = Vector2(
-			float(attack.get("attack_range", 0.0)),
-			maxf(_hit_radius + float(projectile.get("hit_radius", 0.0)), 1.0)
-		)
 	return context
 
 

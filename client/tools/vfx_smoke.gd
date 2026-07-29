@@ -27,13 +27,69 @@ func _run() -> void:
 		VisualEffects.profile_ids().size() == 14,
 		"catalog should expose 14 presentation profiles"
 	)
-	_expect(
-		not VisualEffects.resolve_binding(
-			"presentation_enemy_rifle",
-			"enemy_attack_telegraph"
-		).is_empty(),
-		"rifle profile should resolve its line telegraph"
+	var charge_windup_binding: Dictionary = VisualEffects.resolve_binding(
+		"presentation_enemy_charge",
+		"enemy_attack_telegraph"
 	)
+	var charge_windup_effects: Array = charge_windup_binding.get("effects", [])
+	_expect(
+		charge_windup_effects.size() == 1,
+		"charge profile should retain exactly one ground telegraph"
+	)
+	if charge_windup_effects.size() == 1:
+		var charge_windup_effect: Dictionary = (
+			charge_windup_effects[0] as Dictionary
+		)
+		_expect(
+			String(charge_windup_effect.get("effect_id", ""))
+			== "enemy_charge_telegraph",
+			"charge profile should retain its dedicated telegraph effect"
+		)
+		_expect(
+			String(charge_windup_effect.get("anchor", "")) == "ground",
+			"charge profile should retain its ground anchor"
+		)
+	var rifle_windup_binding: Dictionary = VisualEffects.resolve_binding(
+		"presentation_enemy_rifle",
+		"enemy_attack_telegraph"
+	)
+	_expect(
+		not rifle_windup_binding.is_empty(),
+		"rifle profile should resolve its muzzle charge"
+	)
+	var rifle_windup_effects: Array = rifle_windup_binding.get("effects", [])
+	_expect(
+		rifle_windup_effects.size() == 1,
+		"rifle muzzle charge should resolve exactly one effect"
+	)
+	if rifle_windup_effects.size() == 1:
+		var rifle_windup_effect: Dictionary = (
+			rifle_windup_effects[0] as Dictionary
+		)
+		_expect(
+			String(rifle_windup_effect.get("effect_id", ""))
+			== "weapon_muzzle_flash_default",
+			"rifle windup should reuse the local muzzle effect"
+		)
+		_expect(
+			String(rifle_windup_effect.get("anchor", "")) == "muzzle",
+			"rifle windup should attach to the muzzle"
+		)
+		var rifle_windup_params: Dictionary = rifle_windup_effect.get(
+			"params",
+			{}
+		) as Dictionary
+		_expect(
+			String(rifle_windup_params.get("tint", "")) == "#ff291fff",
+			"rifle muzzle charge should use the enemy projectile tint"
+		)
+		_expect(
+			is_equal_approx(
+				float(rifle_windup_params.get("scale", 0.0)),
+				0.35
+			),
+			"rifle muzzle charge should stay local to the muzzle"
+		)
 	_expect(
 		not VisualEffects.resolve_binding(
 			"presentation_enemy_rifle",

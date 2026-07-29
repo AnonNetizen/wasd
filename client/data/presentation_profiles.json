@@ -155,8 +155,12 @@
         "enemy_attack_telegraph": {
           "effects": [
             {
-              "effect_id": "enemy_charge_telegraph",
-              "anchor": "ground"
+              "effect_id": "weapon_muzzle_flash_default",
+              "anchor": "muzzle",
+              "params": {
+                "tint": "#ff291fff",
+                "scale": 0.35
+              }
             }
           ],
           "audio_id": "",

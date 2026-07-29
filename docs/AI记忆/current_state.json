@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
   "updated_at": "2026-07-29",
-  "current_phase": "assault_gunner_burst",
-  "current_status": "ADR #171 已把内部 enemy_spitter 改造为玩家可见“突击枪手 / Assault Gunner”：600 px 射程内锁定玩家当时方向，停止移动并显示 0.32 秒直线预警，随后以 0.12 秒间隔固定方向点射 4 发，整轮提交后不追踪也不因丢失视线中断，结束后冷却 0.95 秒。enemy_ai_profiles.json 升 schema v5；Run 保持 v8 并增量保存 burst_shots_remaining；共享 bullet_basic 按 source_team 切换红色敌弹表现。默认模块世界和模式完整敌池中突击枪手权重 100/220（约 45.5%）且从 0 秒解锁，开放战区同步从 0 秒生成。本任务按 ADR #143 不运行性能 probe。后续工作以用户最后明确指令为准。",
-  "latest_adr": 171,
+  "current_phase": "assault_gunner_readability_tuning",
+  "current_status": "ADR #172 已调整突击枪手可读性：保留 0.32 秒锁向停步前摇，但取消提前直线弹道，改为枪口局部红色蓄光；敌弹速度降至 280 px/s、寿命延长至 2.6 秒，并继续由 720 px 射程先行回收。四发点射、0.12 秒间隔、0.95 秒冷却、起手视线、提交后固定方向、墙体阻挡、难度伤害缩放、出现率与经济保持不变。EnemyAI schema v5、Run v8 与 Replay v3 不升级。本任务按 ADR #143 不运行性能 probe。后续工作以用户最后明确指令为准。",
+  "latest_adr": 172,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #172 / 突击枪手局部蓄光与慢速敌弹：保留 0.32 秒锁向停步前摇，每轮仍只触发一次 attack_windup_started，但远程 context 不再提供轨迹 scale；presentation_enemy_rifle 改在 muzzle 挂点复用红色、0.35 缩放的 weapon_muzzle_flash_default，不显示提前弹道线。敌弹由 440 px/s、1.8 秒调整为 280 px/s、2.6 秒，720 px 最大射程及其余点射、视线、墙体、难度、出现率和经济规则不变。EnemyAI schema v5、Run v8、Replay v3 保持。",
     "ADR #171 / 突击枪手点射与常见敌人调整：保留 enemy_spitter / enemy_ai_ranged_spitter / 场景和对象池内部标识，玩家可见名称改为突击枪手 / Assault Gunner。远程攻击改为 0.65 秒首次延迟、0.32 秒锁向直线预警、固定方向 4 发点射（0.12 秒间隔）和 0.95 秒冷却；每弹 18 伤害、440 px/s、720 px 射程、5 px 半径、1.8 秒寿命，难度只缩放伤害。enemy_ai_profiles.json 升 schema v5；Run 保持 v8 并增量保存 burst_shots_remaining，旧 v8 缺字段按空闲恢复、非法点射快照清空并冷却。共享 bullet_basic 增加按 source_team 切换并完整重置的红色敌弹 / 拖尾；预热升至 64。默认完整敌池权重统一为突击枪手 100、爆猎者 55、群袭者 30、壁垒者 20、伏击者 15，突击枪手从 0 秒解锁并约占 45.5%；开放战区同步调整生成率 / 上限，金币 3、弹道稳定 Mod 单体掉率 0.2%。",
     "ADR #170 / 敌人显式攻击与爆猎者连锁爆炸：完整删除 enemies.csv contact 字段和 Enemy 接触计时；爆猎者、群袭者、伏击者、壁垒者、喷吐者分别改为爆炸、锁向扇区近战、冲撞扫掠和远程投射物。爆猎者入 0.65 秒前摇即 armed，不可受伤 / 打断 / 阻挡，离场仍必爆；爆炸伤害玩家与视线内敌人，按 runtime_spawn_serial 稳定快照结算，致死未锁定爆猎者会在完整前摇后逐代连锁。实际爆炸者不计击杀 / 不掉奖励，普通敌人被炸死正常结算。新增 Player 独立敌人击退、攻击 VFX cue / 资源与 schema v4 action.attack 校验；Run 升 v8、v7 明确不兼容并保留 Meta v2，Replay 保持 v3且四条黄金基线重录。",
     "ADR #169 / 金币驱动等级成长与通用奖励选择：删除局内 XP、pickup_orb_speed、旧 GrowthSystem / growth 数据与 LevelUp UI；新增 GoldProgression、GoldOrb、RewardChoiceController、level_progression.json 和 reward_choice_pools.json。金币余额可消费、累计金币只增不减，等级按 100 起步、13/10 逐段向上取整曲线推导；玩家归因击杀按 gold_reward 必掉一个金币球且不增加掉落 RNG。通用奖励由调用方在 PLAYING 下显式请求 2–5 个候选，原子预检、暂停且不能取消，luck 不影响抽取；等级提升只显示短暂最终等级提示。Run 升 v7、v6 明确不兼容并保留 Meta v2；Replay 保持 v3，第四条 golden 改为 golden_reward_choice，四条基线重录。",
@@ -171,6 +172,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-29",
+      "command": "sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lints plus lint self-tests; JSON current_state/_kb_index/enemy profiles/presentation profiles/golden replays; docs_health_check; git diff --check; vfx-bake; actor-scene/VFX/runtime/L1/save/loading/full+technical module-world/replay/replay-input/UIManager/settings smoke; export-tree; Godot 4.7.1 headless editor/boot; four recaptured Replay v3 golden replay-runner runtime-summary reruns; pre-commit run --all-files",
+      "result": "passed for ADR #172 Assault Gunner local muzzle charge and slower enemy projectiles. VFX coverage confirms presentation_enemy_rifle resolves only weapon_muzzle_flash_default at muzzle with #ff291fff tint and 0.35 scale, while presentation_enemy_charge retains its dedicated ground telegraph. Runtime coverage confirms the 0.32-second windup context has no trajectory scale, locked direction remains fixed, exactly four commits retain the 0.12-second interval and 0.95-second cooldown, and enemy bullets use 280 px/s, 720 px range and 2.6-second lifetime while existing damage, pause, terrain, projectile-barrier, player-only target, friendly-fire rejection, shared-pool visual reset and Run v8 restore coverage remains passing. All four Replay v3 goldens were intentionally recaptured and reran sequentially with matching runtime summaries. Factual review found and fixed one P2 scope regression where the adjacent presentation_enemy_charge profile was initially changed to the rifle muzzle charge; a dedicated VFX regression assertion now preserves the charge ground telegraph. No remaining P0/P1/P2 finding. Expected injected invalid schema/save/map-hash/replay diagnostics and existing golden-capture headless shutdown RID/resource leak lines remain. No startup/performance probe or Profiler ran; 1920x1080 multiple-gunner muzzle-charge readability, absence of trajectory lines, slow red bullets, projectile barrier, corners, pause/continue and bilingual naming remain manual acceptance items."
+    },
     {
       "date": "2026-07-29",
       "command": "sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lints; JSON current_state/_kb_index/enemy profiles/presentation profiles/warzone directors/golden replays; docs_health_check; git diff --check; vfx-bake; actor-scene/VFX/runtime/L1/Gear Mod/save/loading/full+technical module-world/replay/replay-input smoke; export-tree; Godot 4.7.1 headless editor/boot; four recaptured Replay v3 golden replay-runner runtime-summary reruns; pre-commit run --all-files",

@@ -114,7 +114,7 @@
 | `audio_id` / `camera_feedback_id` / `screen_effect_id` | 可空 string | 跨系统反馈引用 |
 | `hit_stop_profile_id` | 首版必须空 | 只预留接口，不驱动 `GameClock` |
 
-`presentation_enemy_rifle` 继承默认敌人 profile：`enemy_attack_telegraph` 复用线型 `enemy_charge_telegraph`，按锁向和 600 px attack range 显示；`enemy_attack_impact` 每发复用 `weapon_muzzle_flash_default`。突击枪手每轮只触发一次 telegraph cue，每弹触发一次 impact cue。
+`presentation_enemy_rifle` 继承默认敌人 profile：`enemy_attack_telegraph` 复用 `weapon_muzzle_flash_default` 并附着到 `muzzle`，使用 `#ff291fff` tint、`0.35` 缩放和当前 0.32 秒前摇 duration 形成局部红色蓄光，不显示地面弹道线；`enemy_attack_impact` 每发继续复用原有枪口闪光。突击枪手每轮只触发一次 telegraph cue，每弹触发一次 impact cue。
 
 效果数据、内容 profile 引用与资源存在性由 `DataLoader` 和 `tools/validate_data.py` 双重校验；运行时契约与新增向导见 `docs/代码/visual_effects.md`。
 

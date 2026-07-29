@@ -113,9 +113,9 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 | `enemy_ai_melee_swarm` | 接近后锁定方向并提交扇区近战 |
 | `enemy_ai_charge_stalker` | 接近、环绕并执行命中后继续的冲刺 |
 | `enemy_ai_ram_bulwark` | 接近并执行命中停止、带击退的冲撞 |
-| `enemy_ai_ranged_spitter` | 突击枪手：保持距离 / 环绕，锁向预警后沿固定方向完成四发池化点射 |
+| `enemy_ai_ranged_spitter` | 突击枪手：保持距离 / 环绕，锁向并以枪口局部蓄光前摇后沿固定方向完成四发池化点射 |
 
-突击枪手当前固定口径为：射程 600 px、保持距离 280 px、首次延迟 0.65 秒、预警 0.32 秒、4 发、间隔 0.12 秒、冷却 0.95 秒；每弹 18 伤害、440 px/s、720 px 射程、5 px 半径、1.8 秒寿命。起手要求玩家视线；一旦提交便完成整轮，玩家移动或失去视线都不改变 `_locked_direction`，Bullet 地形阻挡继续有效。难度只乘每弹 `damage`。
+突击枪手当前固定口径为：射程 600 px、保持距离 280 px、首次延迟 0.65 秒、枪口局部蓄光前摇 0.32 秒、4 发、间隔 0.12 秒、冷却 0.95 秒；不提前显示弹道线，每弹 18 伤害、280 px/s、720 px 射程、5 px 半径、2.6 秒寿命。起手要求玩家视线；一旦提交便完成整轮，玩家移动或失去视线都不改变 `_locked_direction`，Bullet 地形阻挡继续有效。难度只乘每弹 `damage`。
 
 ## 公共 API
 
@@ -135,7 +135,7 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 
 ## Signal / Event
 
-- `attack_windup_started(enemy, action_id, context)`：前摇开始或续局重建时触发；context 提供世界位置、旋转、二维缩放和剩余 duration。突击枪手每轮只触发一次，直线缩放长度为 attack range。
+- `attack_windup_started(enemy, action_id, context)`：前摇开始或续局重建时触发；context 提供世界位置、旋转和剩余 duration，需要空间范围的爆炸 / 近战 / 冲撞另提供二维缩放。突击枪手每轮只触发一次，不提供轨迹 `scale`，由表现 profile 在枪口播放局部红色蓄光。
 - `attack_committed(enemy, action_id, context)`：近战 / 冲撞 / 爆炸提交时触发；爆炸 impact 使用 detached 世界 context；突击枪手每发触发一次，用于枪口闪光。
 - `defeated(enemy, gold_reward, counts_as_kill, drops_rewards, cause_id)`：退场语义一次性传给 RunLoop。玩家前摇前击杀为 `true/true/player_damage`，实际爆炸者为 `false/false/exploder_detonation`，普通敌人被炸死为 `true/true/enemy_explosion`。
 
@@ -205,7 +205,7 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 ## 相关文档
 
 - `docs/游戏设计文档.md` §5.3
-- `docs/决策记录.md` ADR #144 / #145 / #170 / #171
+- `docs/决策记录.md` ADR #144 / #145 / #170 / #171 / #172
 - `docs/AI协作/工作包/F14-EnemyNavigationAndPerception.md`
 - `docs/词表与契约.md`
 - `docs/代码/gameplay_runtime.md`
