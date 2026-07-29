@@ -91,7 +91,9 @@ PoolManager (autoload Node)
 - `client/data/_contracts.json`
 - `client/scripts/contracts/pool_ids.gd`
 
-当前敌人池为 `enemy_chaser`、`enemy_swarm`、`enemy_stalker`、`enemy_bulwark`、`enemy_spitter`。每行 `enemies.csv.pool_id` 必须唯一且等于敌人 id；旧 `enemy_ranged` 已删除。`pool_prewarm` 当前分别为 `8 / 5 / 3 / 4 / 8`，合计仍为 28。不同敌人内容 id 可以共享同一个 `scene_path`，但仍必须使用独立池，避免同一池在复用后出现错误的 `scene_file_path` 或静态外观。
+当前敌人池为 `enemy_chaser`、`enemy_swarm`、`enemy_stalker`、`enemy_bulwark`、`enemy_spitter`。每行 `enemies.csv.pool_id` 必须唯一且等于敌人 id；旧 `enemy_ranged` 已删除。`pool_prewarm` 当前分别为 `6 / 4 / 3 / 3 / 12`，突击枪手优先占 12，总数仍为 28。不同敌人内容 id 可以共享同一个 `scene_path`，但仍必须使用独立池，避免同一池在复用后出现错误的 `scene_file_path` 或静态外观。
+
+共享 `bullet_basic` 的容量上限保持 192，标准预热由 24 提高到 64，以承接多个突击枪手同时点射。玩家和敌方投射物仍复用同一池 / 场景；`Bullet` 必须在 configure、`_pool_reset()` 与 `_pool_release()` 中同时重置两套视觉和轨迹历史，再按 `source_team` 显示玩家黄弹或敌方红弹，禁止因池复用串色。
 
 视觉效果目录保留 `hit_spark`、`damage_number`，并登记 `vfx_weapon_muzzle_flash`。`visual_effects.json.high_frequency=true` 的效果必须提供已登记 `pool_id`；普通低频效果不需要预登记池。VFX 回池除了通用变换 / 可见性，还必须清理 Tween、AnimationPlayer 游标、材质实例参数、粒子 emitting / restart 和轨迹历史。
 
@@ -139,6 +141,7 @@ PoolManager (autoload Node)
 | `register_pool()` 返回 `false` | pool id 是否登记；factory 是否有效；是否重复注册 |
 | `acquire()` 返回 `null` | 池是否注册；是否达到 `max_size`；是否有 `pool_overflow` 事件 |
 | 复用后状态残留 | 节点是否实现 `_pool_reset()` 并清掉运行时状态 |
+| 玩家弹 / 敌弹颜色或拖尾串线 | Bullet 是否同时清空 `RibbonTrail` / `EnemyRibbonTrail`，再按 `source_team` 切换两套视觉；不能只重置上一次激活的 trail |
 | 释放后仍在场景里动 | 是否通过 `PoolManager.release()`；节点是否被外部重新设置 `process_mode` |
 
 ## 测试义务

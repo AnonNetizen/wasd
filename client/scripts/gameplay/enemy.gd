@@ -27,6 +27,8 @@ const ACTION_STATE_ARMED_WINDUP: String = "armed_windup"
 const ACTION_STATE_CHARGE_RELEASE: String = "charge_release"
 const ACTION_STATE_CHARGE_WINDUP: String = "charge_windup"
 const ACTION_STATE_MELEE_WINDUP: String = "melee_windup"
+const ACTION_STATE_RANGED_BURST: String = "ranged_burst"
+const ACTION_STATE_RANGED_WINDUP: String = "ranged_windup"
 const ACTIVE_PLAYER_GROUP: String = "active_player"
 const NAVIGATION_MODE_DIRECT: String = "direct"
 const NAVIGATION_MODE_FLOW_FIELD: String = "flow_field"
@@ -64,6 +66,7 @@ var _armed: bool = false
 var _armed_from_chain: bool = false
 var _attack_cooldown_remaining: float = 0.0
 var _attack_hit_committed: bool = false
+var _burst_shots_remaining: int = 0
 var _ai_profile: Dictionary = {}
 var _ai_profile_id: String = ""
 var _collision_shape: CollisionShape2D = null
@@ -173,6 +176,7 @@ func configure(
 	_armed_from_chain = false
 	_attack_cooldown_remaining = _initial_attack_cooldown()
 	_attack_hit_committed = false
+	_burst_shots_remaining = 0
 	_debug_ai_enabled = true
 	_has_exploded = false
 	_locked_direction = Vector2.ZERO
@@ -238,6 +242,7 @@ func ai_debug_summary() -> Dictionary:
 		"navigation_mode": _navigation_mode,
 		"attack_time_remaining": _action_timer,
 		"attack_cooldown_remaining": _attack_cooldown_remaining,
+		"burst_shots_remaining": _burst_shots_remaining,
 		"armed": _armed,
 		"locked_direction": _vector_to_dict(_locked_direction),
 		"scaled_damage": _scaled_attack_damage(_current_attack()),
@@ -539,6 +544,7 @@ func snapshot() -> Dictionary:
 		"action_timer": _action_timer,
 		"attack_cooldown_remaining": _attack_cooldown_remaining,
 		"attack_hit_committed": _attack_hit_committed,
+		"burst_shots_remaining": _burst_shots_remaining,
 		"locked_direction": _vector_to_dict(_locked_direction),
 		"armed": _armed,
 		"armed_from_chain": _armed_from_chain,
@@ -568,18 +574,25 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_apply_movement_bounds()
 	_life_points = clampf(float(snapshot_data.get("life_points", _max_life)), 0.0, _max_life)
 	_current_action = _validated_restored_action(String(snapshot_data.get("current_action", "")))
+	var saved_action_timer: float = float(
+		snapshot_data.get("action_timer", 0.0)
+	)
 	if _current_action.is_empty():
 		_action_state = ""
 		_action_timer = 0.0
 	else:
 		_action_state = String(snapshot_data.get("action_state", ""))
-		_action_timer = maxf(float(snapshot_data.get("action_timer", 0.0)), 0.0)
+		_action_timer = maxf(saved_action_timer, 0.0)
 	_attack_cooldown_remaining = maxf(
 		float(snapshot_data.get("attack_cooldown_remaining", 0.0)),
 		0.0
 	)
 	_attack_hit_committed = bool(
 		snapshot_data.get("attack_hit_committed", false)
+	)
+	_burst_shots_remaining = maxi(
+		int(snapshot_data.get("burst_shots_remaining", 0)),
+		0
 	)
 	_locked_direction = _dict_to_vector(
 		snapshot_data.get("locked_direction", {}),
@@ -593,6 +606,10 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 		0
 	)
 	_restore_status_snapshot(snapshot_data)
+	_restore_ranged_burst_state(
+		snapshot_data.has("burst_shots_remaining"),
+		saved_action_timer >= 0.0
+	)
 	if _armed:
 		_current_action = ENEMY_AI_ACTIONS.AI_ACTION_EXPLODE_TARGET
 		_action_state = ACTION_STATE_ARMED_WINDUP
@@ -621,6 +638,7 @@ func _pool_reset() -> void:
 	_armed_from_chain = false
 	_attack_cooldown_remaining = 0.0
 	_attack_hit_committed = false
+	_burst_shots_remaining = 0
 	_ai_profile.clear()
 	_ai_profile_id = ""
 	_base_max_life = 1.0
@@ -1010,7 +1028,62 @@ func _apply_ranged_attack(delta: float) -> void:
 		and _attack_cooldown_remaining <= 0.0
 		and _has_terrain_line_of_sight(global_position, _focus_target.global_position)
 	):
-		_fire_ranged_projectile(target_direction)
+		_start_ranged_burst(target_direction)
+
+
+func _start_ranged_burst(target_direction: Vector2) -> void:
+	if target_direction.length_squared() <= 0.0:
+		return
+	var attack: Dictionary = _current_attack()
+	_locked_direction = target_direction.normalized()
+	_burst_shots_remaining = int(attack.get("burst_count", 0))
+	if _burst_shots_remaining <= 0:
+		_finish_ranged_burst(attack)
+		return
+	velocity = Vector2.ZERO
+	_update_facing(_locked_direction)
+	var windup: float = float(attack.get("windup", 0.0))
+	_action_state = ACTION_STATE_RANGED_WINDUP
+	_action_timer = windup
+	_emit_attack_windup(windup)
+	if windup <= 0.0:
+		_begin_ranged_burst()
+
+
+func _begin_ranged_burst() -> void:
+	_action_state = ACTION_STATE_RANGED_BURST
+	_action_timer = 0.0
+	_fire_ranged_burst_shot()
+
+
+func _fire_ranged_burst_shot() -> void:
+	var attack: Dictionary = _current_attack()
+	if (
+		_burst_shots_remaining <= 0
+		or _locked_direction.length_squared() <= 0.0
+	):
+		_finish_ranged_burst(attack)
+		return
+	_fire_ranged_projectile(_locked_direction)
+	attack_committed.emit(
+		self,
+		_current_action,
+		_attack_feedback_context(attack, 0.0, false)
+	)
+	_burst_shots_remaining -= 1
+	if _burst_shots_remaining <= 0:
+		_finish_ranged_burst(attack)
+		return
+	_action_timer = float(attack.get("shot_interval", 0.0))
+
+
+func _finish_ranged_burst(attack: Dictionary) -> void:
+	_burst_shots_remaining = 0
+	_attack_cooldown_remaining = float(attack.get("cooldown", 0.0))
+	_action_state = ""
+	_action_timer = 0.0
+	_current_action = ""
+	_focus_target = _player_target
 
 
 func _fire_ranged_projectile(target_direction: Vector2) -> void:
@@ -1049,7 +1122,6 @@ func _fire_ranged_projectile(target_direction: Vector2) -> void:
 		"source_team": TEAM_ENEMY,
 		"target_team": TEAM_PLAYER,
 	}, direction, self)
-	_attack_cooldown_remaining = float(attack.get("cooldown", 0.0))
 
 
 func _reparent_to_parent(node: Node) -> void:
@@ -1084,6 +1156,14 @@ func _start_charge() -> void:
 
 func _update_attack_state(delta: float) -> void:
 	_action_timer = maxf(_action_timer - delta, 0.0)
+	if _action_state == ACTION_STATE_RANGED_WINDUP:
+		if _action_timer <= 0.0:
+			_begin_ranged_burst()
+		return
+	if _action_state == ACTION_STATE_RANGED_BURST:
+		if _action_timer <= 0.0:
+			_fire_ranged_burst_shot()
+		return
 	if _action_state == ACTION_STATE_MELEE_WINDUP:
 		if _action_timer <= 0.0:
 			_commit_melee_attack()
@@ -1412,6 +1492,14 @@ func _attack_feedback_context(
 			lane_length,
 			maxf(_hit_radius + target_radius, 1.0)
 		)
+	elif _current_action == ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK:
+		var projectile: Dictionary = _dictionary_or_empty(
+			attack.get("projectile", {})
+		)
+		context["scale"] = Vector2(
+			float(attack.get("attack_range", 0.0)),
+			maxf(_hit_radius + float(projectile.get("hit_radius", 0.0)), 1.0)
+		)
 	return context
 
 
@@ -1600,7 +1688,75 @@ func _is_attack_state_active() -> bool:
 		_action_state == ACTION_STATE_MELEE_WINDUP
 		or _action_state == ACTION_STATE_CHARGE_WINDUP
 		or _action_state == ACTION_STATE_CHARGE_RELEASE
+		or _action_state == ACTION_STATE_RANGED_WINDUP
+		or _action_state == ACTION_STATE_RANGED_BURST
 	)
+
+
+func _restore_ranged_burst_state(
+	has_saved_burst_state: bool,
+	has_valid_saved_action_timer: bool
+) -> void:
+	var is_ranged_action: bool = (
+		_current_action == ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK
+	)
+	var is_ranged_phase: bool = (
+		_action_state == ACTION_STATE_RANGED_WINDUP
+		or _action_state == ACTION_STATE_RANGED_BURST
+	)
+	if not has_saved_burst_state:
+		if is_ranged_action or is_ranged_phase:
+			_clear_restored_ranged_burst(false)
+		return
+	if not is_ranged_phase and _burst_shots_remaining <= 0:
+		return
+	var attack: Dictionary = _current_attack()
+	var configured_burst_count: int = int(attack.get("burst_count", 0))
+	var valid_state: bool = (
+		is_ranged_action
+		and is_ranged_phase
+		and configured_burst_count > 0
+		and has_valid_saved_action_timer
+		and _burst_shots_remaining > 0
+		and _burst_shots_remaining <= configured_burst_count
+		and _locked_direction.length_squared() > 0.0
+	)
+	if _action_state == ACTION_STATE_RANGED_WINDUP:
+		valid_state = (
+			valid_state
+			and _burst_shots_remaining == configured_burst_count
+			and _action_timer <= float(attack.get("windup", 0.0))
+		)
+	elif _action_state == ACTION_STATE_RANGED_BURST:
+		valid_state = (
+			valid_state
+			and _burst_shots_remaining < configured_burst_count
+			and _action_timer <= float(attack.get("shot_interval", 0.0))
+		)
+	if not valid_state:
+		_clear_restored_ranged_burst(true)
+		return
+	_locked_direction = _locked_direction.normalized()
+	velocity = Vector2.ZERO
+	_update_facing(_locked_direction)
+	if _action_state == ACTION_STATE_RANGED_WINDUP:
+		_emit_attack_windup(_action_timer)
+
+
+func _clear_restored_ranged_burst(apply_cooldown: bool) -> void:
+	if apply_cooldown:
+		var attack := _current_attack()
+		if _current_action != ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK:
+			attack = _ranged_attack()
+		_attack_cooldown_remaining = maxf(
+			_attack_cooldown_remaining,
+			float(attack.get("cooldown", 0.0))
+		)
+	_current_action = ""
+	_action_state = ""
+	_action_timer = 0.0
+	_burst_shots_remaining = 0
+	_locked_direction = Vector2.ZERO
 
 
 func _start_hit_flash() -> void:
@@ -1867,6 +2023,13 @@ func _attack_from_action(action: Dictionary) -> Dictionary:
 
 func _current_attack() -> Dictionary:
 	return _attack_from_action(_action_by_id(_current_action))
+
+
+func _ranged_attack() -> Dictionary:
+	for action: Dictionary in _actions:
+		if String(action.get("id", "")) == ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK:
+			return _attack_from_action(action)
+	return {}
 
 
 func _initial_attack_cooldown() -> float:

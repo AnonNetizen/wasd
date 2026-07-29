@@ -81,7 +81,7 @@ F12 将标准模式从长时间生存局收束为暗黑式短刷图行动。默�
 |------|----------|------|
 | 默认模式资源池 | `client/data/game_modes.json` | 标准模式不挂 `growth_pools`；未来模式可挂 |
 | 地图与兴趣点落地 | `client/data/map_layouts.json`、`client/data/warzone_directors.json` | 小地图、投放点、兴趣点和 director 机关 |
-| 敌群阶段 | `client/data/spawn_waves.csv`、`client/data/warzone_directors.json` | 8-12 分钟节奏，不再按 25 分钟拉长；当前 5:00 接入 `enemy_spitter` 远程压力 |
+| 敌群阶段 | `client/data/spawn_waves.csv`、`client/data/warzone_directors.json` | 8-12 分钟节奏，不再按 25 分钟拉长；突击枪手 `enemy_spitter` 从 0:00 起以 1.35 秒间隔、16 上限承担最常见的锁向点射压力，其余敌人间隔 / 上限同步下调，总生成速率基本不变 |
 | Gear Mod 掉落 | `client/data/gear_mod_drop_tables.csv`、`GearModSystem`、`warzone_directors.json` | 普通怪维持低概率；兴趣点 / 小巢核先进入 `run.pending_loot`，成功结算时才写入 `meta.gear_mods` |
 | 结算 / 撤离 | `GameplayRunLoop`、`GameOverPanel` 或后续 Result UI | 小巢核已能开启撤离区；撤离读条成功后提交暂存战利品并显示完成面板，面板列出带回或丢失的 dust / Gear Mod、击杀数和用时；后续补多出口撤离和更正式 Result UI |
 

@@ -25,9 +25,13 @@ const REWARD_CHOICE_FRAMES: int = 24
 const MOVE_FRAMES: int = 8
 const PICKUP_FEEDBACK_FRAMES: int = 40
 const SPAWN_FRAMES: int = 10
+const TEAM_ENEMY: String = "team_enemy"
+const TEAM_PLAYER: String = "team_player"
 
 var _failures: Array[String] = []
 var _original_screen_shake: bool = true
+var _ranged_commit_times: Array[float] = []
+var _ranged_windup_contexts: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -523,6 +527,7 @@ func _warzone_director_initial_summary_is_ready(run_loop: Node) -> bool:
 		and String(director.get("mutation_id", "")) == "nest_mutation_hunting_ground"
 		and String(director.get("phase_id", "")) == "phase_insertion"
 		and wave_ids.has("wave_standard_early_chasers")
+		and wave_ids.has("wave_standard_ranged_spitters")
 		and _array_has_all_strings(interest_point_ids, [
 			"poi_elite_nest",
 			"poi_mod_cache",
@@ -2555,36 +2560,428 @@ func _expect_ranged_enemy_projectile_damage(run_loop: Node, player: Node2D) -> v
 	)
 	player.global_position = test_position
 	spitter.global_position = test_position + Vector2(320.0, 0.0)
-	spitter.set_physics_process(true)
-	await get_tree().physics_frame
-	_expect(String((spitter.call("ai_debug_summary") as Dictionary).get("focus_target", "")) == String(player.name), "ranged enemy should target only the player")
-	if player.has_method("debug_clear_invulnerability"):
-		player.call("debug_clear_invulnerability")
-	var defense_before: float = (
-		float(player.call("current_life"))
-		+ float(player.call("current_shield"))
-		+ float(player.call("current_overshield"))
+	_ranged_commit_times.clear()
+	_ranged_windup_contexts.clear()
+	var windup_callable: Callable = Callable(
+		self,
+		"_on_ranged_windup_started"
 	)
-	var bullets_before: int = _pool_stat(POOL_IDS.BULLET_BASIC, "acquired")
+	var commit_callable: Callable = Callable(
+		self,
+		"_on_ranged_attack_committed"
+	)
+	spitter.connect("attack_windup_started", windup_callable)
+	spitter.connect("attack_committed", commit_callable)
+	spitter.set_physics_process(true)
+	var reached_windup: bool = false
 	for _index: int in range(120):
 		await get_tree().physics_frame
-		var defense_now: float = (
-			float(player.call("current_life"))
-			+ float(player.call("current_shield"))
-			+ float(player.call("current_overshield"))
-		)
-		if defense_now < defense_before:
+		var summary: Dictionary = spitter.call("ai_debug_summary")
+		if String(summary.get("action_state", "")) == "ranged_windup":
+			reached_windup = true
 			break
-
-	_expect(_pool_stat(POOL_IDS.BULLET_BASIC, "acquired") > bullets_before, "ranged enemy should fire a pooled bullet")
-	var defense_after: float = (
-		float(player.call("current_life"))
-		+ float(player.call("current_shield"))
-		+ float(player.call("current_overshield"))
+	_expect(reached_windup, "ranged enemy should enter a telegraphed windup")
+	_expect(
+		String(
+			(spitter.call("ai_debug_summary") as Dictionary).get(
+				"focus_target",
+				""
+			)
+		) == String(player.name),
+		"ranged enemy should target only the player"
 	)
-	_expect(defense_after < defense_before, "ranged enemy projectile should damage a player defense layer through Combat")
+	var windup_snapshot: Dictionary = spitter.call("snapshot")
+	var locked_direction: Vector2 = _dict_to_vector(
+		windup_snapshot.get("locked_direction", {}),
+		Vector2.ZERO
+	)
+	var locked_position: Vector2 = spitter.global_position
+	_expect(
+		int(
+			(spitter.call("ai_debug_summary") as Dictionary).get(
+				"burst_shots_remaining",
+				0
+			)
+		) == 4,
+		"ranged AI debug summary should expose four remaining windup shots"
+	)
+	_expect(
+		_ranged_windup_contexts.size() == 1,
+		"one burst should emit exactly one ranged windup event"
+	)
+	if not _ranged_windup_contexts.is_empty():
+		var line_scale: Vector2 = _ranged_windup_contexts[0].get(
+			"scale",
+			Vector2.ZERO
+		) as Vector2
+		_expect(
+			is_equal_approx(line_scale.x, 600.0),
+			"ranged windup should expose a 600 px line telegraph"
+		)
+	var frozen_timer: float = float(windup_snapshot.get("action_timer", 0.0))
+	GameState.change_state(GameState.PAUSED, {"source": "runtime_ranged_pause"})
+	spitter.call("_physics_process", 0.5)
+	_expect(
+		is_equal_approx(
+			float(
+				(spitter.call("snapshot") as Dictionary).get(
+					"action_timer",
+					0.0
+				)
+			),
+			frozen_timer
+		),
+		"pause should freeze the ranged windup timer"
+	)
+	GameState.change_state(
+		GameState.PLAYING,
+		{"source": "runtime_ranged_resume"}
+	)
+	if not locked_direction.is_zero_approx():
+		var perpendicular: Vector2 = Vector2(
+			-locked_direction.y,
+			locked_direction.x
+		)
+		var sidestep_target: Vector2 = test_position + perpendicular * 180.0
+		player.global_position = Vector2(
+			clampf(
+				sidestep_target.x,
+				bounds.position.x + 80.0,
+				bounds.end.x - 80.0
+			),
+			clampf(
+				sidestep_target.y,
+				bounds.position.y + 80.0,
+				bounds.end.y - 80.0
+			)
+		)
+
+	if player.has_method("debug_clear_invulnerability"):
+		player.call("debug_clear_invulnerability")
+	var bullets_before: int = _pool_stat(POOL_IDS.BULLET_BASIC, "acquired")
+	for _index: int in range(90):
+		await get_tree().physics_frame
+		if _ranged_commit_times.size() >= 4:
+			break
+	_expect(
+		_ranged_commit_times.size() == 4,
+		"ranged enemy should commit exactly four shots per burst"
+	)
+	_expect(
+		_pool_stat(POOL_IDS.BULLET_BASIC, "acquired") - bullets_before == 4,
+		"one ranged burst should acquire exactly four shared bullets"
+	)
+	for index: int in range(1, _ranged_commit_times.size()):
+		_expect(
+			absf(
+				_ranged_commit_times[index]
+				- _ranged_commit_times[index - 1]
+				- 0.12
+			) <= 0.035,
+			"ranged burst shots should keep the configured 0.12 second interval"
+		)
+	_expect(
+		spitter.global_position.distance_to(locked_position) < 0.1,
+		"ranged enemy should stop moving throughout windup and burst"
+	)
+	var post_burst_summary: Dictionary = spitter.call("ai_debug_summary")
+	_expect(
+		int(post_burst_summary.get("burst_shots_remaining", -1)) == 0,
+		"ranged burst should clear its remaining shot count"
+	)
+	_expect(
+		float(post_burst_summary.get("attack_cooldown_remaining", 0.0))
+		>= 0.9,
+		"ranged burst should enter its 0.95 second cooldown"
+	)
+	var active_enemy_bullets: Array[Node] = get_tree().get_nodes_in_group(
+		"active_bullets"
+	)
+	_expect(
+		not active_enemy_bullets.is_empty(),
+		"sidestepping the locked line should leave enemy bullets active"
+	)
+	for bullet: Node in active_enemy_bullets:
+		var bullet_snapshot: Dictionary = bullet.call("snapshot")
+		var bullet_direction: Vector2 = _dict_to_vector(
+			bullet_snapshot.get("velocity", {}),
+			Vector2.ZERO
+		).normalized()
+		_expect(
+			bullet_direction.dot(locked_direction) > 0.999,
+			"all burst bullets should retain the windup lock direction"
+		)
+	_expect_enemy_bullet_visual(active_enemy_bullets)
+	if spitter.is_connected("attack_windup_started", windup_callable):
+		spitter.disconnect("attack_windup_started", windup_callable)
+	if spitter.is_connected("attack_committed", commit_callable):
+		spitter.disconnect("attack_committed", commit_callable)
+	_release_active_bullets()
+	_expect_ranged_snapshot_restore(spitter)
 	PoolManager.release(spitter)
 	_release_active_bullets()
+
+	_expect_shared_bullet_player_visual(player)
+	var damage_spitter: Node2D = _spawn_smoke_enemy(
+		run_loop,
+		"enemy_spitter",
+		"smoke_ranged_damage"
+	)
+	_expect(damage_spitter != null, "ranged damage smoke should spawn the gunner")
+	if damage_spitter == null:
+		return
+	player.global_position = test_position
+	damage_spitter.global_position = test_position + Vector2(320.0, 0.0)
+	damage_spitter.set_physics_process(true)
+	var defense_before: float = _player_total_defense(player)
+	for _index: int in range(150):
+		await get_tree().physics_frame
+		if _player_total_defense(player) < defense_before:
+			break
+	_expect(
+		_player_total_defense(player) < defense_before,
+		"ranged enemy projectile should damage a player defense layer through Combat"
+	)
+	PoolManager.release(damage_spitter)
+	_release_active_bullets()
+
+
+func _expect_ranged_snapshot_restore(spitter: Node2D) -> void:
+	spitter.set_physics_process(false)
+	var windup_snapshot: Dictionary = spitter.call("snapshot")
+	windup_snapshot["current_action"] = (
+		ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK
+	)
+	windup_snapshot["action_state"] = "ranged_windup"
+	windup_snapshot["action_timer"] = 0.17
+	windup_snapshot["attack_cooldown_remaining"] = 0.0
+	windup_snapshot["burst_shots_remaining"] = 4
+	windup_snapshot["locked_direction"] = {"x": -1.0, "y": 0.0}
+	spitter.call("restore_snapshot", windup_snapshot)
+	var restored_windup: Dictionary = spitter.call("snapshot")
+	_expect(
+		String(restored_windup.get("action_state", "")) == "ranged_windup"
+		and is_equal_approx(
+			float(restored_windup.get("action_timer", 0.0)),
+			0.17
+		)
+		and int(restored_windup.get("burst_shots_remaining", 0)) == 4,
+		"Run v8 enemy snapshot should restore ranged windup timing and shots"
+	)
+
+	var burst_snapshot: Dictionary = restored_windup.duplicate(true)
+	burst_snapshot["action_state"] = "ranged_burst"
+	burst_snapshot["action_timer"] = 0.07
+	burst_snapshot["burst_shots_remaining"] = 2
+	spitter.call("restore_snapshot", burst_snapshot)
+	var restored_burst: Dictionary = spitter.call("snapshot")
+	_expect(
+		String(restored_burst.get("action_state", "")) == "ranged_burst"
+		and is_equal_approx(
+			float(restored_burst.get("action_timer", 0.0)),
+			0.07
+		)
+		and int(restored_burst.get("burst_shots_remaining", 0)) == 2,
+		"Run v8 enemy snapshot should restore mid-burst timing and shots"
+	)
+	var bullets_before: int = _pool_stat(POOL_IDS.BULLET_BASIC, "acquired")
+	spitter.call("_update_attack_state", 0.07)
+	spitter.call("_update_attack_state", 0.12)
+	_expect(
+		_pool_stat(POOL_IDS.BULLET_BASIC, "acquired") - bullets_before == 2,
+		"restored mid-burst state should neither duplicate nor omit shots"
+	)
+	_expect(
+		int(
+			(spitter.call("snapshot") as Dictionary).get(
+				"burst_shots_remaining",
+				-1
+			)
+		) == 0,
+		"restored burst should finish with no remaining shots"
+	)
+	_release_active_bullets()
+
+	var invalid_snapshot: Dictionary = windup_snapshot.duplicate(true)
+	invalid_snapshot["action_state"] = "ranged_burst"
+	invalid_snapshot["action_timer"] = 0.08
+	invalid_snapshot["burst_shots_remaining"] = 4
+	spitter.call("restore_snapshot", invalid_snapshot)
+	var cleared_invalid: Dictionary = spitter.call("snapshot")
+	_expect(
+		String(cleared_invalid.get("current_action", "")).is_empty()
+		and String(cleared_invalid.get("action_state", "")).is_empty()
+		and int(cleared_invalid.get("burst_shots_remaining", -1)) == 0
+		and float(
+			cleared_invalid.get("attack_cooldown_remaining", 0.0)
+		) >= 0.95,
+		"invalid burst snapshots should clear the attack and apply one cooldown"
+	)
+
+	var invalid_action_snapshot: Dictionary = invalid_snapshot.duplicate(true)
+	invalid_action_snapshot["current_action"] = "corrupt_ranged_action"
+	invalid_action_snapshot["burst_shots_remaining"] = 5
+	invalid_action_snapshot["attack_cooldown_remaining"] = 0.0
+	spitter.call("restore_snapshot", invalid_action_snapshot)
+	var cleared_invalid_action: Dictionary = spitter.call("snapshot")
+	_expect(
+		String(cleared_invalid_action.get("current_action", "")).is_empty()
+		and String(
+			cleared_invalid_action.get("action_state", "")
+		).is_empty()
+		and int(
+			cleared_invalid_action.get("burst_shots_remaining", -1)
+		) == 0
+		and float(
+			cleared_invalid_action.get(
+				"attack_cooldown_remaining",
+				0.0
+			)
+		) >= 0.95,
+		"corrupt ranged action snapshots should still apply one cooldown"
+	)
+
+	var invalid_timer_snapshot: Dictionary = windup_snapshot.duplicate(true)
+	invalid_timer_snapshot["action_timer"] = -0.01
+	invalid_timer_snapshot["attack_cooldown_remaining"] = 0.0
+	spitter.call("restore_snapshot", invalid_timer_snapshot)
+	var cleared_invalid_timer: Dictionary = spitter.call("snapshot")
+	_expect(
+		String(cleared_invalid_timer.get("current_action", "")).is_empty()
+		and String(
+			cleared_invalid_timer.get("action_state", "")
+		).is_empty()
+		and int(
+			cleared_invalid_timer.get("burst_shots_remaining", -1)
+		) == 0
+		and float(
+			cleared_invalid_timer.get(
+				"attack_cooldown_remaining",
+				0.0
+			)
+		) >= 0.95,
+		"negative ranged snapshot timers should clear into one cooldown"
+	)
+
+	var legacy_snapshot: Dictionary = windup_snapshot.duplicate(true)
+	legacy_snapshot.erase("burst_shots_remaining")
+	legacy_snapshot["attack_cooldown_remaining"] = 0.0
+	spitter.call("restore_snapshot", legacy_snapshot)
+	var restored_legacy: Dictionary = spitter.call("snapshot")
+	_expect(
+		String(restored_legacy.get("current_action", "")).is_empty()
+		and String(restored_legacy.get("action_state", "")).is_empty()
+		and int(restored_legacy.get("burst_shots_remaining", -1)) == 0
+		and is_zero_approx(
+			float(
+				restored_legacy.get(
+					"attack_cooldown_remaining",
+					-1.0
+				)
+			)
+		),
+		"older Run v8 snapshots without burst state should restore as idle"
+	)
+
+
+func _on_ranged_windup_started(
+	_enemy: Node,
+	action_id: String,
+	context: Dictionary
+) -> void:
+	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK:
+		_ranged_windup_contexts.append(context.duplicate(true))
+
+
+func _on_ranged_attack_committed(
+	_enemy: Node,
+	action_id: String,
+	_context: Dictionary
+) -> void:
+	if action_id == ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK:
+		_ranged_commit_times.append(GameClock.now())
+
+
+func _expect_enemy_bullet_visual(active_bullets: Array[Node]) -> void:
+	if active_bullets.is_empty():
+		return
+	var bullet: Node = active_bullets[0]
+	var player_visual: CanvasItem = bullet.get_node_or_null("Visual") as CanvasItem
+	var enemy_visual: CanvasItem = bullet.get_node_or_null(
+		"EnemyVisual"
+	) as CanvasItem
+	var player_trail: CanvasItem = bullet.get_node_or_null(
+		"RibbonTrail"
+	) as CanvasItem
+	var enemy_trail: CanvasItem = bullet.get_node_or_null(
+		"EnemyRibbonTrail"
+	) as CanvasItem
+	_expect(
+		player_visual != null
+		and enemy_visual != null
+		and not player_visual.visible
+		and enemy_visual.visible,
+		"shared enemy bullets should show only the red enemy visual"
+	)
+	_expect(
+		player_trail != null
+		and enemy_trail != null
+		and not player_trail.visible
+		and enemy_trail.visible,
+		"shared enemy bullets should show only the red enemy trail"
+	)
+
+
+func _expect_shared_bullet_player_visual(player: Node2D) -> void:
+	var raw_bullet: Node = PoolManager.acquire(POOL_IDS.BULLET_BASIC)
+	_expect(
+		raw_bullet != null and raw_bullet.has_method("configure"),
+		"shared bullet visual smoke should acquire a reusable bullet"
+	)
+	if raw_bullet == null or not raw_bullet.has_method("configure"):
+		return
+	raw_bullet.call("configure", {
+		STATS.DAMAGE: 1.0,
+		STATS.BULLET_SPEED: 1.0,
+		STATS.BULLET_RANGE: 1.0,
+		STATS.PIERCE_COUNT: 0,
+	}, {
+		"damage_target_groups": ["active_enemies"],
+		"hit_radius": 3.0,
+		"lifetime": 1.0,
+		"source_team": TEAM_PLAYER,
+		"target_team": TEAM_ENEMY,
+	}, Vector2.RIGHT, player)
+	var player_visual: CanvasItem = raw_bullet.get_node_or_null(
+		"Visual"
+	) as CanvasItem
+	var enemy_visual: CanvasItem = raw_bullet.get_node_or_null(
+		"EnemyVisual"
+	) as CanvasItem
+	var player_trail: CanvasItem = raw_bullet.get_node_or_null(
+		"RibbonTrail"
+	) as CanvasItem
+	var enemy_trail: CanvasItem = raw_bullet.get_node_or_null(
+		"EnemyRibbonTrail"
+	) as CanvasItem
+	(raw_bullet as Node2D).global_position += Vector2(6.0, 0.0)
+	if player_trail != null:
+		player_trail.call("_process", 0.0)
+	_expect(
+		player_visual != null
+		and enemy_visual != null
+		and player_visual.visible
+		and not enemy_visual.visible,
+		"shared bullet reuse should restore the unchanged player visual"
+	)
+	_expect(
+		player_trail != null
+		and enemy_trail != null
+		and player_trail.visible
+		and not enemy_trail.visible,
+		"shared bullet reuse should reset trails without enemy color bleed"
+	)
+	PoolManager.release(raw_bullet)
 
 
 func _expect_overdrive_rounds_skill(run_loop: Node, player: Node2D) -> void:
@@ -3289,6 +3686,34 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 		saved_attack_serial = int(
 			saved_attack_enemy.call("runtime_spawn_serial")
 		)
+	var saved_ranged_enemy: Node2D = _spawn_smoke_enemy(
+		run_loop,
+		"enemy_spitter",
+		"smoke_ranged_restore"
+	)
+	var saved_ranged_serial: int = 0
+	var saved_ranged_timer: float = 0.0
+	if saved_ranged_enemy != null:
+		saved_ranged_enemy.set_physics_process(false)
+		var ranged_snapshot: Dictionary = saved_ranged_enemy.call("snapshot")
+		ranged_snapshot["current_action"] = (
+			ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK
+		)
+		ranged_snapshot["action_state"] = "ranged_windup"
+		ranged_snapshot["action_timer"] = 0.19
+		ranged_snapshot["attack_cooldown_remaining"] = 0.0
+		ranged_snapshot["burst_shots_remaining"] = 4
+		ranged_snapshot["locked_direction"] = {"x": -1.0, "y": 0.0}
+		saved_ranged_enemy.call("restore_snapshot", ranged_snapshot)
+		saved_ranged_serial = int(
+			saved_ranged_enemy.call("runtime_spawn_serial")
+		)
+		saved_ranged_timer = float(
+			(saved_ranged_enemy.call("snapshot") as Dictionary).get(
+				"action_timer",
+				0.0
+			)
+		)
 	player.call(
 		"apply_weapon_recoil",
 		player.get("aim_direction") as Vector2,
@@ -3449,6 +3874,37 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 				saved_attack_timer
 			),
 			"continue should restore the exact remaining exploder windup"
+		)
+	var restored_ranged_enemy: Node = _enemy_by_spawn_serial(
+		saved_ranged_serial
+	)
+	_expect(
+		restored_ranged_enemy != null,
+		"continue should restore the saved Assault Gunner"
+	)
+	if restored_ranged_enemy != null:
+		var restored_ranged_snapshot: Dictionary = (
+			restored_ranged_enemy.call("snapshot") as Dictionary
+		)
+		_expect(
+			String(restored_ranged_snapshot.get("action_state", ""))
+			== "ranged_windup"
+			and is_equal_approx(
+				float(
+					restored_ranged_snapshot.get(
+						"action_timer",
+						0.0
+					)
+				),
+				saved_ranged_timer
+			)
+			and int(
+				restored_ranged_snapshot.get(
+					"burst_shots_remaining",
+					0
+				)
+			) == 4,
+			"continue should restore exact ranged windup timing and shots"
 		)
 	_expect(int(restored_run_loop.call("current_level")) == saved_level, "continue should restore level")
 	_expect(int(restored_run_loop.call("gold_balance")) == saved_gold_balance, "continue should restore gold balance")

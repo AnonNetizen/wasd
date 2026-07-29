@@ -72,6 +72,7 @@ const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const MODULE_CELL_TOKENS := preload("res://scripts/contracts/module_cell_tokens.gd")
 
 const BULLET_POOL_SIZE: int = 192
+const BULLET_POOL_PREWARM: int = 64
 const DEFAULT_GRID_CELL_SIZE: Vector2 = Vector2(160.0, 160.0)
 const ENEMY_POOL_SIZE: int = 96
 const FEEDBACK_POOL_SIZE: int = 128
@@ -1029,7 +1030,7 @@ func _register_enemy_pool(enemy_data: Dictionary) -> bool:
 
 
 func _prewarm_standard_pools() -> void:
-	PoolManager.prewarm(POOL_IDS.BULLET_BASIC, 24)
+	PoolManager.prewarm(POOL_IDS.BULLET_BASIC, BULLET_POOL_PREWARM)
 	PoolManager.prewarm(POOL_IDS.HAZARD_SPIKE, 8)
 	PoolManager.prewarm(POOL_IDS.GOLD_ORB, 16)
 	PoolManager.prewarm(POOL_IDS.ENERGY_ORB, 8)
@@ -1043,7 +1044,10 @@ func _prewarm_standard_pools() -> void:
 
 func _prewarm_standard_pools_staged() -> bool:
 	var requests: Array[Dictionary] = [
-		{"pool_id": POOL_IDS.BULLET_BASIC, "count": 24},
+		{
+			"pool_id": POOL_IDS.BULLET_BASIC,
+			"count": BULLET_POOL_PREWARM,
+		},
 		{"pool_id": POOL_IDS.HAZARD_SPIKE, "count": 8},
 		{"pool_id": POOL_IDS.GOLD_ORB, "count": 16},
 		{"pool_id": POOL_IDS.ENERGY_ORB, "count": 8},

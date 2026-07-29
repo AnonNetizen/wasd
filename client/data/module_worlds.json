@@ -1376,27 +1376,27 @@
           {
             "enemy_id": "enemy_chaser",
             "unlock_time": 0,
+            "weight": 55
+          },
+          {
+            "enemy_id": "enemy_spitter",
+            "unlock_time": 0,
             "weight": 100
           },
           {
             "enemy_id": "enemy_swarm",
             "unlock_time": 60,
-            "weight": 45
+            "weight": 30
           },
           {
             "enemy_id": "enemy_stalker",
             "unlock_time": 240,
-            "weight": 18
-          },
-          {
-            "enemy_id": "enemy_spitter",
-            "unlock_time": 300,
-            "weight": 16
+            "weight": 15
           },
           {
             "enemy_id": "enemy_bulwark",
             "unlock_time": 420,
-            "weight": 25
+            "weight": 20
           }
         ]
       }

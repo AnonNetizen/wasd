@@ -1,6 +1,6 @@
 {
 	"created_at": "golden:golden_reward_choice",
-	"data_fingerprint": "9554b58e4924cc17225bd37124bcd25fe94d9742640b916a4ffb682b07d0c23b",
+	"data_fingerprint": "43664191214f13d9b57e160caf4310a39a2bc83a84567b097d4217abaa71cbda",
 	"file_schema_version": 3,
 	"game_version": "v1.8",
 	"recording": {
@@ -35,7 +35,7 @@
 					"trigger_id": "debug_command"
 				},
 				"tick": 29,
-				"time": 0.497222222222223
+				"time": 0.497378666666666
 			}
 		],
 		"dropped_decision_events": 0,
@@ -159,7 +159,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
+					"module_map_hash": "2d37ee8a515d17aed914cca1107c79387d1bafcb0233f87ca5f2d7eb556b5650",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -181,7 +181,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
+					"module_map_hash": "2d37ee8a515d17aed914cca1107c79387d1bafcb0233f87ca5f2d7eb556b5650",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -203,7 +203,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
+					"module_map_hash": "2d37ee8a515d17aed914cca1107c79387d1bafcb0233f87ca5f2d7eb556b5650",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -225,7 +225,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
+					"module_map_hash": "2d37ee8a515d17aed914cca1107c79387d1bafcb0233f87ca5f2d7eb556b5650",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -247,7 +247,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
+					"module_map_hash": "2d37ee8a515d17aed914cca1107c79387d1bafcb0233f87ca5f2d7eb556b5650",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -269,7 +269,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
+					"module_map_hash": "2d37ee8a515d17aed914cca1107c79387d1bafcb0233f87ca5f2d7eb556b5650",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -285,7 +285,7 @@
 			"gold_earned_total": 0,
 			"kills": 0,
 			"level": 1,
-			"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
+			"module_map_hash": "2d37ee8a515d17aed914cca1107c79387d1bafcb0233f87ca5f2d7eb556b5650",
 			"player_aim_direction": {
 				"x": 1.0,
 				"y": 0.0
@@ -332,7 +332,7 @@
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "fab048ba2fc2d836f9cf5fbba17aed1a726d1c2a25e0931da36d0d4499098c3c",
+	"recording_hash": "57cf12a1cebe614a80bf634e09ad42128c1107f940a405b0658842003d8d589a",
 	"summary": {
 		"decision_events": 2,
 		"dropped_decision_events": 0,
@@ -364,7 +364,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
+					"module_map_hash": "2d37ee8a515d17aed914cca1107c79387d1bafcb0233f87ca5f2d7eb556b5650",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -386,7 +386,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
+					"module_map_hash": "2d37ee8a515d17aed914cca1107c79387d1bafcb0233f87ca5f2d7eb556b5650",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -408,7 +408,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
+					"module_map_hash": "2d37ee8a515d17aed914cca1107c79387d1bafcb0233f87ca5f2d7eb556b5650",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -430,7 +430,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
+					"module_map_hash": "2d37ee8a515d17aed914cca1107c79387d1bafcb0233f87ca5f2d7eb556b5650",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -452,7 +452,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
+					"module_map_hash": "2d37ee8a515d17aed914cca1107c79387d1bafcb0233f87ca5f2d7eb556b5650",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -474,7 +474,7 @@
 					"gold_orbs_present": false,
 					"kills": 0,
 					"level": 1,
-					"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
+					"module_map_hash": "2d37ee8a515d17aed914cca1107c79387d1bafcb0233f87ca5f2d7eb556b5650",
 					"player_aim_direction": {
 						"x": 1.0,
 						"y": 0.0
@@ -490,7 +490,7 @@
 			"gold_earned_total": 0,
 			"kills": 0,
 			"level": 1,
-			"module_map_hash": "2b2765c9b370f6017558d213fcc1d5ea243b57ac551fe6d521b632b9c92410b9",
+			"module_map_hash": "2d37ee8a515d17aed914cca1107c79387d1bafcb0233f87ca5f2d7eb556b5650",
 			"player_aim_direction": {
 				"x": 1.0,
 				"y": 0.0

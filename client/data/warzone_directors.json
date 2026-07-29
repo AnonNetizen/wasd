@@ -12,14 +12,21 @@
           "start_time": 0.0,
           "end_time": 60.0,
           "pressure_tag": "warmup",
-          "wave_ids": ["wave_standard_early_chasers"]
+          "wave_ids": [
+            "wave_standard_early_chasers",
+            "wave_standard_ranged_spitters"
+          ]
         },
         {
           "id": "phase_first_reward_node",
           "start_time": 60.0,
           "end_time": 240.0,
           "pressure_tag": "pressure",
-          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix"]
+          "wave_ids": [
+            "wave_standard_early_chasers",
+            "wave_standard_swarm_mix",
+            "wave_standard_ranged_spitters"
+          ]
         },
         {
           "id": "phase_route_pressure",

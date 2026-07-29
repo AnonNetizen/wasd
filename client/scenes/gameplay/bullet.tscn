@@ -12,6 +12,14 @@ shader_parameter/intensity = 1.0
 [sub_resource type="Gradient" id="Gradient_n6kk2"]
 colors = PackedColorArray(1, 0.35, 0.08, 0, 1, 0.96, 0.52, 0.82)
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pofs6"]
+shader = ExtResource("2_pofs6")
+shader_parameter/glow_color = Color(1, 0.08, 0.04, 1)
+shader_parameter/intensity = 1.0
+
+[sub_resource type="Gradient" id="Gradient_qbi7y"]
+colors = PackedColorArray(0.85, 0, 0.025, 0, 1, 0.24, 0.12, 0.9)
+
 [node name="Bullet" type="Node2D" unique_id=270652351]
 script = ExtResource("1_bullet")
 
@@ -33,4 +41,26 @@ material = SubResource("ShaderMaterial_ydwvu")
 width = 5.0
 default_color = Color(1, 0.76, 0.22, 0.72)
 gradient = SubResource("Gradient_n6kk2")
+script = ExtResource("3_qbi7y")
+
+[node name="EnemyVisual" type="Node2D" parent="." unique_id=1628052717]
+visible = false
+scale = Vector2(3, 3)
+
+[node name="Outline" type="Polygon2D" parent="EnemyVisual" unique_id=1535699955]
+scale = Vector2(1.42, 1.42)
+color = Color(0.07, 0.02, 0.025, 0.94)
+polygon = PackedVector2Array(1.35, 0, 0, 0.72, -1, 0, 0, -0.72)
+
+[node name="Body" type="Polygon2D" parent="EnemyVisual" unique_id=162932054]
+color = Color(1, 0.16, 0.12, 1)
+polygon = PackedVector2Array(1.35, 0, 0, 0.72, -1, 0, 0, -0.72)
+
+[node name="EnemyRibbonTrail" type="Line2D" parent="." unique_id=682738529]
+visible = false
+z_index = -1
+material = SubResource("ShaderMaterial_pofs6")
+width = 5.0
+default_color = Color(1, 0.12, 0.08, 0.8)
+gradient = SubResource("Gradient_qbi7y")
 script = ExtResource("3_qbi7y")

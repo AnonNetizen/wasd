@@ -113,7 +113,7 @@ const TARGET_LABELS := {
 	"enemy_swarm": "疾行者",
 	"enemy_stalker": "潜猎者",
 	"enemy_bulwark": "壁垒者",
-	"enemy_spitter": "喷棘者",
+	"enemy_spitter": "突击枪手",
 	"ui_container": "UI 容器",
 }
 const TEMPLATE_LABELS := {

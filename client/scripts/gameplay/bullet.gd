@@ -33,7 +33,10 @@ var _terrain_initial_overlap_pending: bool = false
 var _travelled: float = 0.0
 var _velocity: Vector2 = Vector2.ZERO
 var _wall_pierce_enabled: bool = false
-var _visual: Node2D = null
+var _enemy_trail: Line2D = null
+var _enemy_visual: Node2D = null
+var _player_trail: Line2D = null
+var _player_visual: Node2D = null
 var _trail: Line2D = null
 
 
@@ -99,6 +102,7 @@ func configure(stats: Dictionary, projectile: Dictionary, direction: Vector2, so
 	add_to_group("active_bullets")
 	_refresh_visuals()
 	_resolve_trail()
+	_reset_all_trails()
 	if _trail != null:
 		_trail.call("configure", self)
 
@@ -159,6 +163,7 @@ func restore_snapshot(snapshot_data: Dictionary, source: Node) -> void:
 	add_to_group("active_bullets")
 	_refresh_visuals()
 	_resolve_trail()
+	_reset_all_trails()
 	if _trail != null:
 		_trail.call("configure", self)
 
@@ -183,8 +188,7 @@ func _pool_reset() -> void:
 	_wall_pierce_enabled = false
 	visible = true
 	_resolve_trail()
-	if _trail != null:
-		_trail.call("reset_trail")
+	_reset_all_trails()
 	_refresh_visuals()
 
 
@@ -194,8 +198,7 @@ func _pool_release() -> void:
 	_initial_deployable_sweep_pending = false
 	_terrain_initial_overlap_pending = false
 	_resolve_trail()
-	if _trail != null:
-		_trail.call("reset_trail")
+	_reset_all_trails()
 
 
 func _prepare_terrain_query() -> void:
@@ -229,16 +232,38 @@ func _terrain_safe_fraction(step: Vector2) -> float:
 
 
 func _refresh_visuals() -> void:
-	if _visual == null:
-		_visual = get_node_or_null("Visual") as Node2D
-	if _visual != null:
-		var radius: float = maxf(_hit_radius, 3.0)
-		_visual.scale = Vector2(radius, radius)
+	if _player_visual == null:
+		_player_visual = get_node_or_null("Visual") as Node2D
+	if _enemy_visual == null:
+		_enemy_visual = get_node_or_null("EnemyVisual") as Node2D
+	var use_enemy_visual: bool = _source_team == TEAM_ENEMY
+	var radius: float = maxf(_hit_radius, 3.0)
+	if _player_visual != null:
+		_player_visual.visible = not use_enemy_visual
+		_player_visual.scale = Vector2(radius, radius)
+	if _enemy_visual != null:
+		_enemy_visual.visible = use_enemy_visual
+		_enemy_visual.scale = Vector2(radius, radius)
 
 
 func _resolve_trail() -> void:
-	if _trail == null:
-		_trail = get_node_or_null("RibbonTrail") as Line2D
+	if _player_trail == null:
+		_player_trail = get_node_or_null("RibbonTrail") as Line2D
+	if _enemy_trail == null:
+		_enemy_trail = get_node_or_null("EnemyRibbonTrail") as Line2D
+	var use_enemy_trail: bool = _source_team == TEAM_ENEMY
+	if _player_trail != null:
+		_player_trail.visible = not use_enemy_trail
+	if _enemy_trail != null:
+		_enemy_trail.visible = use_enemy_trail
+	_trail = _enemy_trail if use_enemy_trail else _player_trail
+
+
+func _reset_all_trails() -> void:
+	if _player_trail != null:
+		_player_trail.call("reset_trail")
+	if _enemy_trail != null:
+		_enemy_trail.call("reset_trail")
 
 
 func _check_damage_target_hits(

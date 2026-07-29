@@ -148,6 +148,37 @@
       }
     },
     {
+      "id": "presentation_enemy_rifle",
+      "editor_name": "突击枪手表现",
+      "parent_profile_id": "presentation_enemy_default",
+      "bindings": {
+        "enemy_attack_telegraph": {
+          "effects": [
+            {
+              "effect_id": "enemy_charge_telegraph",
+              "anchor": "ground"
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        },
+        "enemy_attack_impact": {
+          "effects": [
+            {
+              "effect_id": "weapon_muzzle_flash_default",
+              "anchor": "muzzle"
+            }
+          ],
+          "audio_id": "",
+          "camera_feedback_id": "",
+          "screen_effect_id": "",
+          "hit_stop_profile_id": ""
+        }
+      }
+    },
+    {
       "id": "presentation_skill_default",
       "editor_name": "默认技能表现",
       "parent_profile_id": "",

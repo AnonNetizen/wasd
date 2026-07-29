@@ -24,8 +24,22 @@ func _run() -> void:
 
 	_expect(VisualEffects.effect_ids().size() == 19, "catalog should expose 19 effects")
 	_expect(
-		VisualEffects.profile_ids().size() == 13,
-		"catalog should expose 13 presentation profiles"
+		VisualEffects.profile_ids().size() == 14,
+		"catalog should expose 14 presentation profiles"
+	)
+	_expect(
+		not VisualEffects.resolve_binding(
+			"presentation_enemy_rifle",
+			"enemy_attack_telegraph"
+		).is_empty(),
+		"rifle profile should resolve its line telegraph"
+	)
+	_expect(
+		not VisualEffects.resolve_binding(
+			"presentation_enemy_rifle",
+			"enemy_attack_impact"
+		).is_empty(),
+		"rifle profile should resolve its muzzle flash"
 	)
 	_expect(
 		not VisualEffects.resolve_binding(

@@ -1727,7 +1727,7 @@ func _validate_enemy_ai_profiles_json() -> bool:
 
 	var payload: Dictionary = data as Dictionary
 	var is_valid: bool = true
-	is_valid = _require_int(ENEMY_AI_PROFILES_PATH, "schema_version", payload.get("schema_version"), 4, 4) and is_valid
+	is_valid = _require_int(ENEMY_AI_PROFILES_PATH, "schema_version", payload.get("schema_version"), 5, 5) and is_valid
 	var profiles: Array = _require_array(ENEMY_AI_PROFILES_PATH, "profiles", payload.get("profiles"))
 	if profiles.is_empty():
 		is_valid = _schema_fail(ENEMY_AI_PROFILES_PATH, "profiles", "non-empty Array") and is_valid
@@ -1999,6 +1999,9 @@ func _validate_enemy_ai_attack(
 		[
 			"attack_range",
 			"keep_distance",
+			"windup",
+			"burst_count",
+			"shot_interval",
 			"cooldown",
 			"initial_cooldown",
 			"damage",
@@ -2006,7 +2009,13 @@ func _validate_enemy_ai_attack(
 			"projectile",
 		]
 	) and is_valid
-	for key: String in ["attack_range", "cooldown", "damage"]:
+	for key: String in [
+		"attack_range",
+		"windup",
+		"shot_interval",
+		"cooldown",
+		"damage",
+	]:
 		is_valid = _require_number(
 			ENEMY_AI_PROFILES_PATH,
 			"%s.%s" % [field, key],
@@ -2015,6 +2024,12 @@ func _validate_enemy_ai_attack(
 			null,
 			true
 		) and is_valid
+	is_valid = _require_int(
+		ENEMY_AI_PROFILES_PATH,
+		"%s.burst_count" % field,
+		attack.get("burst_count"),
+		1
+	) and is_valid
 	for key: String in ["keep_distance", "initial_cooldown"]:
 		is_valid = _require_number(
 			ENEMY_AI_PROFILES_PATH,

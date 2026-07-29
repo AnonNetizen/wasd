@@ -1,6 +1,6 @@
 extends Node
 ## F13 headless smoke for deterministic composition, seamless streaming, fog,
-## objective-to-extraction flow, threat-time combat gates and run-v6 restore.
+## objective-to-extraction flow, threat-time combat gates and Run v8 restore.
 
 const MODULE_WORLD_MANAGER_SCENE := preload("res://scenes/gameplay/module_world_manager.tscn")
 const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
@@ -587,7 +587,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	)
 	_expect(
 		_saved_slot_has_encounter(saved_slot_states, "5,4", spawn_plan),
-		"run-v6 snapshot should persist the fixed telegraph plan"
+		"Run v8 snapshot should persist the fixed telegraph plan"
 	)
 	var remaining_before_pause: float = float(
 		encounter.get("remaining_telegraph", 0.0)
@@ -1175,9 +1175,9 @@ func _expect_enemy_unlock_boundaries(run_loop: Node) -> void:
 		{}
 	) as Dictionary
 	var cases: Array[Dictionary] = [
-		{"time": 0.0, "count": 1},
-		{"time": 60.0, "count": 2},
-		{"time": 240.0, "count": 3},
+		{"time": 0.0, "count": 2},
+		{"time": 60.0, "count": 3},
+		{"time": 240.0, "count": 4},
 		{"time": 300.0, "count": 4},
 		{"time": 420.0, "count": 5},
 	]
@@ -1196,6 +1196,45 @@ func _expect_enemy_unlock_boundaries(run_loop: Node) -> void:
 				int(boundary.get("count", 0)),
 			]
 		)
+	var opening_pool: Dictionary = run_loop.call(
+		"_eligible_first_visit_enemy_pool",
+		config,
+		0.0
+	)
+	var opening_ids: Array = opening_pool.get("enemy_ids", []) as Array
+	var opening_weights: Array = opening_pool.get("weights", []) as Array
+	var gunner_index: int = opening_ids.find("enemy_spitter")
+	_expect(
+		gunner_index >= 0
+		and is_equal_approx(float(opening_weights[gunner_index]), 100.0),
+		"Assault Gunner should unlock at 0 seconds with weight 100"
+	)
+	var full_pool: Dictionary = run_loop.call(
+		"_eligible_first_visit_enemy_pool",
+		config,
+		420.0
+	)
+	var full_ids: Array = full_pool.get("enemy_ids", []) as Array
+	var full_weights: Array = full_pool.get("weights", []) as Array
+	var full_gunner_index: int = full_ids.find("enemy_spitter")
+	var total_weight: float = 0.0
+	var highest_other_weight: float = 0.0
+	for index: int in range(full_weights.size()):
+		var weight: float = float(full_weights[index])
+		total_weight += weight
+		if index != full_gunner_index:
+			highest_other_weight = maxf(highest_other_weight, weight)
+	_expect(
+		full_gunner_index >= 0
+		and is_equal_approx(
+			float(full_weights[full_gunner_index]),
+			100.0
+		)
+		and is_equal_approx(total_weight, 220.0)
+		and float(full_weights[full_gunner_index])
+		> highest_other_weight,
+		"full encounter pool should keep Assault Gunner as its highest weight"
+	)
 
 
 func _all_formal_ordinary_slots_are_flat(

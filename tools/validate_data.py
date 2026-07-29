@@ -1009,7 +1009,7 @@ def _validate_enemy_ai_profiles(ctx: ValidationContext) -> None:
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=4, maximum=4)
+    _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=5, maximum=5)
     profiles = _require_list(ctx, path, "profiles", data.get("profiles"))
     if not profiles:
         ctx.error(path, "profiles", "must be a non-empty array")
@@ -1176,6 +1176,9 @@ def _validate_enemy_ai_attack(
     expected = {
         "attack_range",
         "keep_distance",
+        "windup",
+        "burst_count",
+        "shot_interval",
         "cooldown",
         "initial_cooldown",
         "damage",
@@ -1183,8 +1186,9 @@ def _validate_enemy_ai_attack(
         "projectile",
     }
     _validate_exact_object_keys(ctx, path, f"{field}.attack", attack, expected)
-    for key in ("attack_range", "cooldown", "damage"):
+    for key in ("attack_range", "windup", "shot_interval", "cooldown", "damage"):
         _require_number(ctx, path, f"{field}.attack.{key}", attack.get(key), minimum=0, exclusive_minimum=True)
+    _require_int(ctx, path, f"{field}.attack.burst_count", attack.get("burst_count"), minimum=1)
     for key in ("keep_distance", "initial_cooldown"):
         _require_number(ctx, path, f"{field}.attack.{key}", attack.get(key), minimum=0)
     _require_registered(ctx, path, f"{field}.attack.element_id", attack.get("element_id"), "elements")

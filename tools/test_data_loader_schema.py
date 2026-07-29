@@ -781,11 +781,66 @@ def main() -> int:
             ],
         ),
         (
-            "enemy AI schema v4 is required",
-            _mutate_json("client/data/enemy_ai_profiles.json", _set_schema_version(3)),
+            "enemy AI schema v5 is required",
+            _mutate_json("client/data/enemy_ai_profiles.json", _set_schema_version(4)),
             [
                 "client/data/enemy_ai_profiles.json:schema_version",
-                "must be >= 4",
+                "must be >= 5",
+            ],
+        ),
+        (
+            "ranged burst count is required",
+            _mutate_json(
+                "client/data/enemy_ai_profiles.json",
+                _remove_profile_attack_value(4, 0, "burst_count"),
+            ),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[4].actions[0].attack.burst_count",
+                "is required",
+            ],
+        ),
+        (
+            "ranged burst count must be positive",
+            _mutate_json(
+                "client/data/enemy_ai_profiles.json",
+                _set_profile_attack_value(4, 0, "burst_count", 0),
+            ),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[4].actions[0].attack.burst_count",
+                "must be >= 1",
+            ],
+        ),
+        (
+            "ranged windup must be positive",
+            _mutate_json(
+                "client/data/enemy_ai_profiles.json",
+                _set_profile_attack_value(4, 0, "windup", 0.0),
+            ),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[4].actions[0].attack.windup",
+                "must be > 0",
+            ],
+        ),
+        (
+            "ranged shot interval must be positive",
+            _mutate_json(
+                "client/data/enemy_ai_profiles.json",
+                _set_profile_attack_value(4, 0, "shot_interval", 0.0),
+            ),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[4].actions[0].attack.shot_interval",
+                "must be > 0",
+            ],
+        ),
+        (
+            "ranged attack rejects surplus fields",
+            _mutate_json(
+                "client/data/enemy_ai_profiles.json",
+                _set_profile_attack_value(4, 0, "magazine_size", 4),
+            ),
+            [
+                "client/data/enemy_ai_profiles.json:profiles[4].actions[0].attack.magazine_size",
+                "is not allowed",
             ],
         ),
         (
@@ -1513,7 +1568,7 @@ def main() -> int:
                 _set_weapon_camera_feedback("missing_camera_feedback"),
             ),
             [
-                "client/data/presentation_profiles.json:profiles[8].bindings.weapon_fire.camera_feedback_id",
+                "client/data/presentation_profiles.json:profiles[9].bindings.weapon_fire.camera_feedback_id",
                 "must reference a profile in camera_feedback.json",
             ],
         ),
@@ -2107,6 +2162,17 @@ def _set_profile_attack_value(
 ) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["profiles"][profile_index]["actions"][action_index]["attack"][key] = value
+
+    return mutate
+
+
+def _remove_profile_attack_value(
+    profile_index: int,
+    action_index: int,
+    key: str,
+) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["profiles"][profile_index]["actions"][action_index]["attack"].pop(key, None)
 
     return mutate
 

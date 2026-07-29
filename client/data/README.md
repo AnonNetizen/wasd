@@ -114,6 +114,8 @@
 | `audio_id` / `camera_feedback_id` / `screen_effect_id` | 可空 string | 跨系统反馈引用 |
 | `hit_stop_profile_id` | 首版必须空 | 只预留接口，不驱动 `GameClock` |
 
+`presentation_enemy_rifle` 继承默认敌人 profile：`enemy_attack_telegraph` 复用线型 `enemy_charge_telegraph`，按锁向和 600 px attack range 显示；`enemy_attack_impact` 每发复用 `weapon_muzzle_flash_default`。突击枪手每轮只触发一次 telegraph cue，每弹触发一次 impact cue。
+
 效果数据、内容 profile 引用与资源存在性由 `DataLoader` 和 `tools/validate_data.py` 双重校验；运行时契约与新增向导见 `docs/代码/visual_effects.md`。
 
 ## 本地 Mod 数据包
@@ -583,7 +585,7 @@ JSON 示例：
 
 ```csv
 id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,presentation_profile_id,max_hp,move_speed,gold_reward,hit_radius,separation_radius
-enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/actors/enemies/enemy_chaser.tscn,8,enemy_ai_exploder,presentation_enemy_exploder,12,110.0,3,14.0,9.0
+enemy_spitter,enemy_spitter_name,tag_enemy,enemy_spitter,res://scenes/gameplay/actors/enemies/enemy_spitter.tscn,12,enemy_ai_ranged_spitter,presentation_enemy_rifle,10,88.0,3,12.0,8.0
 ```
 
 字段说明：
@@ -595,7 +597,7 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/acto
 | `tags` | string | `|` 分隔的词表 §12.3 content tag，必须含 `tag_enemy` | 内容标签；可被模式 blocklist、刷怪规则或后续内容系统筛选 |
 | `pool_id` | string | 词表 §8 pool id，文件内唯一且等于本行 `id` | 每个敌人独立对象池；禁止复用旧 `enemy_ranged` |
 | `scene_path` | string | `res://scenes/gameplay/actors/enemies/*.tscn`，文件存在且为 `PackedScene` | 专属敌人继承场景；不同内容 id 可以引用同一场景，但不能指向 `enemy_base.tscn` |
-| `pool_prewarm` | int | `>= 0` | 本敌人独立池的开局预热数量；当前五种敌人合计仍为 28 |
+| `pool_prewarm` | int | `>= 0` | 本敌人独立池的开局预热数量；突击枪手 / 爆猎者 / 群袭者 / 伏击者 / 壁垒者当前为 `12 / 6 / 4 / 3 / 3`，合计仍为 28 |
 | `ai_profile_id` | string | 必须存在于 `enemy_ai_profiles.json` | 运行时使用的对玩家 AI profile；决定动作集合与行为参数 |
 | `presentation_profile_id` | string | 必须存在于 `presentation_profiles.json` | 敌人语义表现 profile；显式攻击前摇和提交通过 cue 解析 |
 | `max_hp` | int | `>= 1` | 敌人最大生命 |
@@ -612,7 +614,7 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/acto
 
 ```json
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "profiles": [
     {
       "id": "enemy_ai_charge_stalker",
@@ -659,7 +661,7 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/acto
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `4` | 数据结构版本；旧接触字段、`sense_radius` 和旧 `movement` 攻击字段会被双端 schema 明确拒绝 |
+| `schema_version` | int | 必须为 `5` | 数据结构版本；旧接触字段、`sense_radius` 和旧 `movement` 攻击字段会被双端 schema 明确拒绝 |
 | `profiles[].id` | string | 文件内唯一，非空 | AI profile id；由 `enemies.csv.ai_profile_id` 引用 |
 | `profiles[].perception.sight_radius` | number | `> 0`，px | 地形视线畅通时的玩家视觉感知半径；首版为 360° 视野 |
 | `profiles[].perception.path_awareness_radius` | number | `>= 0` 且不大于 `sight_radius`，px | 隔墙但路径可达时，按共享流场路径距离感知玩家的半径 |
@@ -689,6 +691,8 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/acto
 | `actions[].attack.knockback_duration` | number | `>= 0`，秒；仅冲撞 | 玩家敌人击退时长 |
 | `actions[].attack.attack_range` | number | `> 0`，px；仅远程 | 远程攻击可发射的最大距离 |
 | `actions[].attack.keep_distance` | number | `>= 0`，px；仅远程 | 低于该距离时尝试后撤 |
+| `actions[].attack.burst_count` | int | `>= 1`；仅远程 | 每轮锁向点射的固定弹数；不受难度缩放 |
+| `actions[].attack.shot_interval` | number | `> 0`，秒；仅远程 | 同轮点射相邻两发的固定间隔；不受难度缩放 |
 | `actions[].attack.initial_cooldown` | number | `>= 0`，秒；仅远程 | 生成后的首次开火延迟 |
 | `actions[].attack.projectile.pool_id` | string | 词表 §8 pool id | 远程投射物对象池 |
 | `actions[].attack.projectile.speed` | number | `> 0`，px/s | 投射物速度 |
@@ -707,7 +711,7 @@ enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/acto
 | `ai_action_melee_attack` | 锁定前摇方向，提交时结算前方扇区 |
 | `ai_action_charge_target` | 锁定方向后进入前摇和线段扫掠冲撞，每次释放最多命中一次 |
 | `ai_action_guard_home` | 离出生点太远时返回领地 |
-| `ai_action_ranged_attack` | 保持距离并发射池化投射物 |
+| `ai_action_ranged_attack` | 保持距离；起手需要视线，锁向预警后沿固定方向完成整轮池化投射物点射 |
 
 调参建议：先改 `base_score`，再改 `attack` 的距离 / 时间；远程敌人优先调 `cooldown`、`projectile.speed` 和 `keep_distance`。大幅改变稳定行为后需要重录并重跑四条 golden replay；性能测试仅在用户明确要求时运行。新增 action 必须先登记 `docs/词表与契约.md` §12-B，再同步生成常量、schema、`docs/代码/enemy_ai.md` 和测试。
 
@@ -742,11 +746,11 @@ hazard_spike_trap,hazard_spike_trap_name,tag_hazard,hazard_spike,100,element_neu
 
 ```csv
 id,mode_id,wave_index,start_time,end_time,enemy_id,enemy_weight,spawn_interval,max_alive,spawn_budget,hazard_id,hazard_weight
-wave_standard_early_chasers,mode_standard_survival,1,0.0,9999.0,enemy_chaser,100,1.15,14,9999,,0
-wave_standard_swarm_mix,mode_standard_survival,2,60.0,9999.0,enemy_swarm,45,1.7,10,9999,,0
-wave_standard_stalkers,mode_standard_survival,3,240.0,9999.0,enemy_stalker,18,5.0,3,9999,,0
-wave_standard_ranged_spitters,mode_standard_survival,4,300.0,9999.0,enemy_spitter,16,5.6,4,9999,,0
-wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,25,4.2,4,9999,,0
+wave_standard_early_chasers,mode_standard_survival,1,0.0,9999.0,enemy_chaser,55,1.8,9,9999,,0
+wave_standard_swarm_mix,mode_standard_survival,2,60.0,9999.0,enemy_swarm,30,2.6,6,9999,,0
+wave_standard_stalkers,mode_standard_survival,3,240.0,9999.0,enemy_stalker,15,5.2,3,9999,,0
+wave_standard_ranged_spitters,mode_standard_survival,4,0.0,9999.0,enemy_spitter,100,1.35,16,9999,,0
+wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,20,5.0,3,9999,,0
 ```
 
 字段说明：
@@ -766,7 +770,7 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 | `hazard_id` | string | 可空；非空时必须存在于 `hazards.csv` | 可选机关 id，用于把机关生成作为波次压力的一部分 |
 | `hazard_weight` | int | `>= 0`；大于 0 时 `hazard_id` 必填 | 可选机关权重；`0` 表示本波次不使用机关 |
 
-`spawn_waves.csv` 只声明刷怪 / 难度曲线数据边界；当前初始地图机关由 `map_layouts.json` 管理，波次中的 `hazard_id` / `hazard_weight` 仍是后续“把机关作为时间压力”时的预留字段。F12 标准短刷图用 0:00 / 1:00 / 4:00 / 5:00 / 7:00 打开敌群层级，其中 5:00 远程喷棘者用于制造走位压力；`9999.0` 是软上限后的持续压力窗口，不是硬性局长限制。实际刷怪随机必须走 `RNG.spawn`，局内时间必须走 `GameClock`，高频实体必须走 `PoolManager`。
+`spawn_waves.csv` 只声明刷怪 / 难度曲线数据边界；当前初始地图机关由 `map_layouts.json` 管理，波次中的 `hazard_id` / `hazard_weight` 仍是后续“把机关作为时间压力”时的预留字段。F12 标准短刷图从 0:00 起同时开放爆猎者与突击枪手，随后于 1:00 / 4:00 / 7:00 打开其余敌群层级；突击枪手以 `1.35s` 间隔和 `16` 上限承担最常见的基础远程压力，其余波次已等量下调，使总生成速率基本不变。`9999.0` 是软上限后的持续压力窗口，不是硬性局长限制。实际刷怪随机必须走 `RNG.spawn`，局内时间必须走 `GameClock`，高频实体必须走 `PoolManager`。
 
 ## `warzone_directors.json`
 
@@ -787,35 +791,35 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
           "start_time": 0.0,
           "end_time": 60.0,
           "pressure_tag": "warmup",
-          "wave_ids": ["wave_standard_early_chasers"]
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_ranged_spitters"]
         },
         {
           "id": "phase_first_reward_node",
           "start_time": 60.0,
           "end_time": 240.0,
           "pressure_tag": "pressure",
-          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix"]
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_ranged_spitters"]
         },
         {
           "id": "phase_route_pressure",
           "start_time": 240.0,
           "end_time": 420.0,
           "pressure_tag": "route_pressure",
-          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers"]
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers", "wave_standard_ranged_spitters"]
         },
         {
           "id": "phase_minor_nest_core",
           "start_time": 420.0,
           "end_time": 540.0,
           "pressure_tag": "core",
-          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers", "wave_standard_mid_bulwarks"]
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers", "wave_standard_ranged_spitters", "wave_standard_mid_bulwarks"]
         },
         {
           "id": "phase_overtime_collapse",
           "start_time": 540.0,
           "end_time": 9999.0,
           "pressure_tag": "overtime",
-          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers", "wave_standard_mid_bulwarks"]
+          "wave_ids": ["wave_standard_early_chasers", "wave_standard_swarm_mix", "wave_standard_stalkers", "wave_standard_ranged_spitters", "wave_standard_mid_bulwarks"]
         }
       ],
       "interest_points": [
@@ -964,6 +968,8 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `first_visit_enemy_spawn.enemy_pool[].weight` | number | `> 0` | 已解锁敌种的相对权重 |
 
 “可刷怪空地”由 `ModuleWorldManager.empty_floor_positions_at()` 按世界槽位计算：世界旋转、外圈封边和封锁邻居处理后仍为 floor，并排除任何 gameplay placement 的 `cell` / 完整 `footprint`。它不检查玩家、敌人或其他动态实体占位，也不设置安全半径。返回位置固定为格心并按行、列稳定排序；`GameplayRunLoop` 使用 `RNG.spawn` 无放回抽取位置，并按同一 RNG 子流抽取当时按威胁时间已解锁的敌种。抽取结果、`telegraphing/spawned` 状态和剩余预警时间立即写入 Run v8 槽位状态，之后不得重抽；敌人的生命 / 显式攻击伤害倍率在预警结束真正生成时取得，不写入预警计划。
+
+当前模块敌池按 `unlock_time` 非递减排列：0 秒开放爆猎者 55 与突击枪手 100，60 秒开放群袭者 30，240 秒开放伏击者 15，420 秒开放壁垒者 20。完整权重总和为 220，突击枪手占约 45.5%，是最高权重但不设置每房必出或保底。
 
 `module_templates.json` 字段：
 
@@ -1522,10 +1528,10 @@ enemy_chaser,gear_mod_weapon_damage_test,0.01,1,999
 |------|------|-------------|------|
 | `source_enemy_id` | string | 必须存在于 `enemies.csv` | 掉落来源敌人 |
 | `mod_id` | string | 必须存在于 `gear_mods.json` | 掉落的装备 Mod |
-| `drop_chance` | float | `0.0..1.0` | 单次玩家归因击杀掉落概率；当前三个普通武器 Mod 均为 `0.01` |
+| `drop_chance` | float | `0.0..1.0` | 单次玩家归因击杀掉落概率；高频敌人应按出现率反向校准，不能只比较单体概率 |
 | `min_enemy_level` / `max_enemy_level` | int | `>= 1` | 可选等级区间；未实现敌人等级前可先填宽范围 |
 
-当前基础伤害、后坐力和弹道稳定 Mod 分别由 `enemy_chaser`、`enemy_bulwark`、`enemy_spitter` 以 `1%` 概率掉落。掉落随机必须走 `RNG.drop`；怪物互杀、机关击杀或非玩家归因击杀不产出装备 Mod。
+当前基础伤害与后坐力 Mod 分别由 `enemy_chaser`、`enemy_bulwark` 以 `1%` 概率掉落；突击枪手 `enemy_spitter` 因完整敌池占比约 45.5%，其弹道稳定 Mod 单体概率下调为 `0.2%`，以大致维持改造前的总体获取节奏。掉落随机必须走 `RNG.drop`；怪物互杀、机关击杀或非玩家归因击杀不产出装备 Mod。
 
 ## `gear_mod_fusion_costs.csv`
 
