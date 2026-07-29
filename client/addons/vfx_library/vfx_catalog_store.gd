@@ -5,7 +5,7 @@ extends RefCounted
 
 const EFFECT_CATALOG_PATH := "res://data/visual_effects.json"
 const PROFILE_CATALOG_PATH := "res://data/presentation_profiles.json"
-const EFFECT_SCHEMA_VERSION := 2
+const EFFECT_SCHEMA_VERSION := 3
 const EFFECT_KEYS := ["effects", "visual_effects"]
 const PROFILE_KEYS := ["profiles", "presentation_profiles"]
 const DOMAINS := [
@@ -200,7 +200,8 @@ func _validate_effects(errors: PackedStringArray, warnings: PackedStringArray) -
 				errors.append("%s 是高频效果，必须提供 pool_id。" % prefix)
 		if entry.has("reduced_motion"):
 			errors.append("%s.reduced_motion 已在 schema v2 删除。" % prefix)
-		_validate_quality_variants(entry, prefix, errors)
+		if entry.has("quality_variants"):
+			errors.append("%s.quality_variants 已在 schema v3 删除。" % prefix)
 		_validate_preview(entry, prefix, errors)
 		if not entry.get("tags", []) is Array:
 			errors.append("%s.tags 必须是字符串数组。" % prefix)
@@ -236,26 +237,6 @@ func _validate_profiles(errors: PackedStringArray, warnings: PackedStringArray) 
 			if not effect_id.is_empty() and effect_by_id(effect_id).is_empty():
 				errors.append("%s.%s 引用了不存在的效果 %s。" % [profile_id, cue, effect_id])
 	_validate_profile_cycles(errors)
-
-
-func _validate_quality_variants(
-	entry: Dictionary,
-	prefix: String,
-	errors: PackedStringArray
-) -> void:
-	var value: Variant = entry.get("quality_variants")
-	if not value is Dictionary:
-		errors.append("%s.quality_variants 必须是对象。" % prefix)
-		return
-	var variants: Dictionary = value as Dictionary
-	for quality_value: Variant in variants.keys():
-		var quality: String = String(quality_value)
-		if not ["low", "medium", "high"].has(quality):
-			errors.append("%s.quality_variants 包含无效质量 %s。" % [prefix, quality])
-			continue
-		var variant_id: String = String(variants.get(quality, ""))
-		if variant_id.is_empty() or effect_by_id(variant_id).is_empty():
-			errors.append("%s 的质量变体不存在：%s" % [prefix, variant_id])
 
 
 func _validate_preview(

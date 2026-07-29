@@ -136,14 +136,25 @@ def main() -> int:
             ],
         ),
         (
-            "visual effects schema v2 is required",
+            "visual effects schema v3 is required",
             _mutate_json(
                 "client/data/visual_effects.json",
-                _set_schema_version(1),
+                _set_schema_version(2),
             ),
             [
                 "client/data/visual_effects.json:schema_version",
-                "must equal 2",
+                "must equal 3",
+            ],
+        ),
+        (
+            "visual effects reject retired quality variants",
+            _mutate_json(
+                "client/data/visual_effects.json",
+                _add_legacy_quality_variants,
+            ),
+            [
+                "client/data/visual_effects.json:effects[0].quality_variants",
+                "removed in schema v3",
             ],
         ),
         (
@@ -2982,6 +2993,10 @@ def _duplicate_visual_effect_id(payload: dict[str, Any]) -> None:
 
 def _remove_high_frequency_visual_effect_pool(payload: dict[str, Any]) -> None:
     payload["effects"][0].pop("pool_id", None)
+
+
+def _add_legacy_quality_variants(payload: dict[str, Any]) -> None:
+    payload["effects"][0]["quality_variants"] = {}
 
 
 def _add_legacy_reduced_motion(payload: dict[str, Any]) -> None:

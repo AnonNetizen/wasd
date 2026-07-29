@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://b5dkgxamqpxcb"]
 
-[ext_resource type="Script" path="res://scripts/ui/settings_panel.gd" id="1_settings"]
+[ext_resource type="Script" uid="uid://5qwjs14vlce" path="res://scripts/ui/settings_panel.gd" id="1_settings"]
 
-[node name="SettingsPanel" type="CanvasLayer"]
+[node name="SettingsPanel" type="CanvasLayer" unique_id=1134744694]
 script = ExtResource("1_settings")
 
-[node name="Root" type="Control" parent="."]
+[node name="Root" type="Control" parent="." unique_id=1033772061]
 process_mode = 3
 layout_mode = 3
 anchors_preset = 15
@@ -15,253 +15,208 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 1
 
-[node name="Backdrop" type="ColorRect" parent="Root"]
+[node name="Backdrop" type="ColorRect" parent="Root" unique_id=397180253]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 0
 color = Color(0, 0, 0, 0.44)
 
-[node name="Center" type="ScrollContainer" parent="Root"]
+[node name="Center" type="ScrollContainer" parent="Root" unique_id=1704092331]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 1
 horizontal_scroll_mode = 0
 
-[node name="Panel" type="PanelContainer" parent="Root/Center"]
+[node name="Panel" type="PanelContainer" parent="Root/Center" unique_id=344928770]
 custom_minimum_size = Vector2(860, 900)
 layout_mode = 2
 size_flags_horizontal = 4
 mouse_filter = 1
 
-[node name="Margin" type="MarginContainer" parent="Root/Center/Panel"]
+[node name="Margin" type="MarginContainer" parent="Root/Center/Panel" unique_id=1187387078]
 layout_mode = 2
-mouse_filter = 1
 theme_override_constants/margin_left = 24
 theme_override_constants/margin_top = 22
 theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 22
 
-[node name="Layout" type="VBoxContainer" parent="Root/Center/Panel/Margin"]
+[node name="Layout" type="VBoxContainer" parent="Root/Center/Panel/Margin" unique_id=1029793669]
 layout_mode = 2
-mouse_filter = 1
 theme_override_constants/separation = 10
 
-[node name="TitleLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+[node name="TitleLabel" type="Label" parent="Root/Center/Panel/Margin/Layout" unique_id=400654308]
 layout_mode = 2
-mouse_filter = 2
-horizontal_alignment = 1
 theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
 
-[node name="LanguageRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+[node name="LanguageRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout" unique_id=183494768]
 layout_mode = 2
-mouse_filter = 1
 theme_override_constants/separation = 14
 
-[node name="LocaleLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/LanguageRow"]
+[node name="LocaleLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/LanguageRow" unique_id=3604529]
 custom_minimum_size = Vector2(180, 0)
 layout_mode = 2
-mouse_filter = 2
-vertical_alignment = 1
 theme_override_font_sizes/font_size = 18
+vertical_alignment = 1
 
-[node name="LocaleOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/LanguageRow"]
+[node name="LocaleOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/LanguageRow" unique_id=1220172042]
 custom_minimum_size = Vector2(240, 42)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="AudioSectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+[node name="AudioSectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout" unique_id=604831441]
 layout_mode = 2
-mouse_filter = 2
 theme_override_font_sizes/font_size = 20
 
-[node name="MasterVolumeRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+[node name="MasterVolumeRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout" unique_id=121633348]
 layout_mode = 2
-mouse_filter = 1
 theme_override_constants/separation = 14
 
-[node name="MasterVolumeLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/MasterVolumeRow"]
+[node name="MasterVolumeLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/MasterVolumeRow" unique_id=30419446]
 custom_minimum_size = Vector2(180, 0)
 layout_mode = 2
-mouse_filter = 2
 vertical_alignment = 1
 
-[node name="MasterVolumeSlider" type="HSlider" parent="Root/Center/Panel/Margin/Layout/MasterVolumeRow"]
+[node name="MasterVolumeSlider" type="HSlider" parent="Root/Center/Panel/Margin/Layout/MasterVolumeRow" unique_id=501023525]
 custom_minimum_size = Vector2(260, 38)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="MasterVolumeValueLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/MasterVolumeRow"]
+[node name="MasterVolumeValueLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/MasterVolumeRow" unique_id=881237569]
 custom_minimum_size = Vector2(56, 0)
 layout_mode = 2
-mouse_filter = 2
 horizontal_alignment = 2
 vertical_alignment = 1
 
-[node name="MusicVolumeRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+[node name="MusicVolumeRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout" unique_id=1180587904]
 layout_mode = 2
-mouse_filter = 1
 theme_override_constants/separation = 14
 
-[node name="MusicVolumeLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/MusicVolumeRow"]
+[node name="MusicVolumeLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/MusicVolumeRow" unique_id=210576958]
 custom_minimum_size = Vector2(180, 0)
 layout_mode = 2
-mouse_filter = 2
 vertical_alignment = 1
 
-[node name="MusicVolumeSlider" type="HSlider" parent="Root/Center/Panel/Margin/Layout/MusicVolumeRow"]
+[node name="MusicVolumeSlider" type="HSlider" parent="Root/Center/Panel/Margin/Layout/MusicVolumeRow" unique_id=1327410745]
 custom_minimum_size = Vector2(260, 38)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="MusicVolumeValueLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/MusicVolumeRow"]
+[node name="MusicVolumeValueLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/MusicVolumeRow" unique_id=1545232189]
 custom_minimum_size = Vector2(56, 0)
 layout_mode = 2
-mouse_filter = 2
 horizontal_alignment = 2
 vertical_alignment = 1
 
-[node name="SfxVolumeRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+[node name="SfxVolumeRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout" unique_id=1647960737]
 layout_mode = 2
-mouse_filter = 1
 theme_override_constants/separation = 14
 
-[node name="SfxVolumeLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/SfxVolumeRow"]
+[node name="SfxVolumeLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/SfxVolumeRow" unique_id=1555451945]
 custom_minimum_size = Vector2(180, 0)
 layout_mode = 2
-mouse_filter = 2
 vertical_alignment = 1
 
-[node name="SfxVolumeSlider" type="HSlider" parent="Root/Center/Panel/Margin/Layout/SfxVolumeRow"]
+[node name="SfxVolumeSlider" type="HSlider" parent="Root/Center/Panel/Margin/Layout/SfxVolumeRow" unique_id=155658572]
 custom_minimum_size = Vector2(260, 38)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="SfxVolumeValueLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/SfxVolumeRow"]
+[node name="SfxVolumeValueLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/SfxVolumeRow" unique_id=421398809]
 custom_minimum_size = Vector2(56, 0)
 layout_mode = 2
-mouse_filter = 2
 horizontal_alignment = 2
 vertical_alignment = 1
 
-[node name="VideoSectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_font_sizes/font_size = 20
-
-[node name="FullscreenCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
+[node name="FullscreenCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout" unique_id=1153930132]
 visible = false
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 
-[node name="VsyncCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
+[node name="VsyncCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout" unique_id=1617880312]
 visible = false
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 
-[node name="VfxQualityRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
+[node name="AccessibilitySectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout" unique_id=1256179243]
 layout_mode = 2
-mouse_filter = 1
+theme_override_font_sizes/font_size = 20
+
+[node name="ScreenFlashesCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout" unique_id=1005192224]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+
+[node name="GameplaySectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout" unique_id=163951216]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="FireOnReleaseCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout" unique_id=502032568]
+visible = false
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+
+[node name="AimModeRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout" unique_id=1143433644]
+visible = false
+layout_mode = 2
 theme_override_constants/separation = 14
 
-[node name="VfxQualityLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/VfxQualityRow"]
+[node name="AimModeLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/AimModeRow" unique_id=1738871805]
 custom_minimum_size = Vector2(180, 0)
 layout_mode = 2
-mouse_filter = 2
 vertical_alignment = 1
 
-[node name="VfxQualityOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/VfxQualityRow"]
+[node name="AimModeOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/AimModeRow" unique_id=1725397936]
 custom_minimum_size = Vector2(240, 42)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="AccessibilitySectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_font_sizes/font_size = 20
-
-[node name="ScreenFlashesCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
+[node name="ScreenShakeCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout" unique_id=2140578340]
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 
-[node name="GameplaySectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_font_sizes/font_size = 20
-
-[node name="FireOnReleaseCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
+[node name="PauseOnFocusLossCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout" unique_id=1035524963]
 visible = false
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 
-[node name="AimModeRow" type="HBoxContainer" parent="Root/Center/Panel/Margin/Layout"]
-visible = false
-layout_mode = 2
-mouse_filter = 1
-theme_override_constants/separation = 14
-
-[node name="AimModeLabel" type="Label" parent="Root/Center/Panel/Margin/Layout/AimModeRow"]
-custom_minimum_size = Vector2(180, 0)
-layout_mode = 2
-mouse_filter = 2
-vertical_alignment = 1
-
-[node name="AimModeOption" type="OptionButton" parent="Root/Center/Panel/Margin/Layout/AimModeRow"]
-custom_minimum_size = Vector2(240, 42)
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="ScreenShakeCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
+[node name="RecordReplaysCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout" unique_id=630378280]
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 
-[node name="PauseOnFocusLossCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
-visible = false
-custom_minimum_size = Vector2(0, 38)
+[node name="InputSectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout" unique_id=1820881744]
 layout_mode = 2
-
-[node name="RecordReplaysCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
-custom_minimum_size = Vector2(0, 38)
-layout_mode = 2
-
-[node name="InputSectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
-layout_mode = 2
-mouse_filter = 2
 theme_override_font_sizes/font_size = 20
 
-[node name="InputFeedbackLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+[node name="InputFeedbackLabel" type="Label" parent="Root/Center/Panel/Margin/Layout" unique_id=1204869946]
 layout_mode = 2
-mouse_filter = 2
 theme_override_font_sizes/font_size = 14
 
-[node name="InputBindingsGrid" type="GridContainer" parent="Root/Center/Panel/Margin/Layout"]
+[node name="InputBindingsGrid" type="GridContainer" parent="Root/Center/Panel/Margin/Layout" unique_id=2131366713]
 layout_mode = 2
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 8
 columns = 4
 
-[node name="ResetInputBindingsButton" type="Button" parent="Root/Center/Panel/Margin/Layout"]
+[node name="ResetInputBindingsButton" type="Button" parent="Root/Center/Panel/Margin/Layout" unique_id=848369929]
 custom_minimum_size = Vector2(220, 38)
 layout_mode = 2
 size_flags_horizontal = 4
 
-[node name="PrivacySectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout"]
+[node name="PrivacySectionLabel" type="Label" parent="Root/Center/Panel/Margin/Layout" unique_id=1503969645]
 layout_mode = 2
-mouse_filter = 2
 theme_override_font_sizes/font_size = 20
 
-[node name="AnalyticsCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout"]
+[node name="AnalyticsCheck" type="CheckButton" parent="Root/Center/Panel/Margin/Layout" unique_id=1456041687]
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 
-[node name="CloseButton" type="Button" parent="Root/Center/Panel/Margin/Layout"]
+[node name="CloseButton" type="Button" parent="Root/Center/Panel/Margin/Layout" unique_id=1154515118]
 custom_minimum_size = Vector2(180, 46)
 layout_mode = 2
 size_flags_horizontal = 4

@@ -453,14 +453,13 @@ def _validate_visual_effects(ctx: ValidationContext) -> set[str]:
     if not isinstance(data, dict):
         return set()
     schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=1)
-    if schema_version != 2:
-        ctx.error(path, "schema_version", "must equal 2")
+    if schema_version != 3:
+        ctx.error(path, "schema_version", "must equal 3")
     effects = _require_list(ctx, path, "effects", data.get("effects"))
     if not effects:
         ctx.error(path, "effects", "must be a non-empty array")
 
     effect_ids: set[str] = set()
-    entries: dict[str, dict[str, Any]] = {}
     for index, effect in enumerate(effects):
         field = f"effects[{index}]"
         if not isinstance(effect, dict):
@@ -471,7 +470,6 @@ def _validate_visual_effects(ctx: ValidationContext) -> set[str]:
             if effect_id in effect_ids:
                 ctx.error(path, f"{field}.id", f"duplicate effect id {effect_id}")
             effect_ids.add(effect_id)
-            entries[effect_id] = effect
         _require_non_empty_string(ctx, path, f"{field}.editor_name", effect.get("editor_name"))
         _require_registered(ctx, path, f"{field}.domain", effect.get("domain"), "vfx_domains")
         kind = _require_registered(ctx, path, f"{field}.kind", effect.get("kind"), "vfx_kinds")
@@ -492,15 +490,8 @@ def _validate_visual_effects(ctx: ValidationContext) -> set[str]:
         if pool_id:
             _require_registered(ctx, path, f"{field}.pool_id", pool_id, "pool_ids")
             _require_int(ctx, path, f"{field}.prewarm", effect.get("prewarm", 0), minimum=0)
-        quality_variants = effect.get("quality_variants")
-        if not isinstance(quality_variants, dict):
-            ctx.error(path, f"{field}.quality_variants", "must be an object")
-        else:
-            for quality, variant_id in quality_variants.items():
-                _require_registered(ctx, path, f"{field}.quality_variants.{quality}", quality, "vfx_qualities")
-                _require_non_empty_string(
-                    ctx, path, f"{field}.quality_variants.{quality}", variant_id
-                )
+        if "quality_variants" in effect:
+            ctx.error(path, f"{field}.quality_variants", "field was removed in schema v3")
         if "reduced_motion" in effect:
             ctx.error(path, f"{field}.reduced_motion", "field was removed in schema v2")
         tags = _require_list(ctx, path, f"{field}.tags", effect.get("tags"))
@@ -509,16 +500,6 @@ def _validate_visual_effects(ctx: ValidationContext) -> set[str]:
         if not isinstance(effect.get("preview"), dict):
             ctx.error(path, f"{field}.preview", "must be an object")
 
-    for effect_id, effect in entries.items():
-        quality_variants = effect.get("quality_variants", {})
-        if isinstance(quality_variants, dict):
-            for quality, variant_id in quality_variants.items():
-                if variant_id not in effect_ids:
-                    ctx.error(
-                        path,
-                        f"{effect_id}.quality_variants.{quality}",
-                        f"unknown effect id {variant_id}",
-                    )
     return effect_ids
 
 

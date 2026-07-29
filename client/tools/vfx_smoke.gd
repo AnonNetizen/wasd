@@ -6,7 +6,6 @@ const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 
 var _failures: Array[String] = []
-var _original_quality: String = "high"
 var _original_screen_flashes: bool = true
 
 
@@ -15,9 +14,6 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	_original_quality = String(
-		Settings.get_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY, "high")
-	)
 	_original_screen_flashes = bool(
 		Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES, true)
 	)
@@ -167,7 +163,11 @@ func _run() -> void:
 		not VisualEffects.current_policy().has("reduced_motion"),
 		"runtime policy should not expose retired reduced motion"
 	)
-	var standard_flash: Dictionary = VisualEffects.resolved_effect(
+	_expect(
+		not VisualEffects.current_policy().has("quality"),
+		"runtime policy should not expose retired VFX quality"
+	)
+	var standard_flash: Dictionary = VisualEffects.effect(
 		"screen_player_damage_flash"
 	)
 	_expect(
@@ -176,17 +176,17 @@ func _run() -> void:
 	)
 	_expect(
 		VisualEffects.allows_effect(
-			VisualEffects.resolved_effect("skill_cast_default")
+			VisualEffects.effect("skill_cast_default")
 		),
 		"standard motion should allow optional spawned effects"
 	)
 	_expect(
 		VisualEffects.allows_effect(
-			VisualEffects.resolved_effect("environment_hazard_telegraph")
+			VisualEffects.effect("environment_hazard_telegraph")
 		),
 		"standard motion should preserve gameplay-boundary effects"
 	)
-	var enemy_telegraph: Dictionary = VisualEffects.resolved_effect(
+	var enemy_telegraph: Dictionary = VisualEffects.effect(
 		"enemy_spawn_telegraph"
 	)
 	_expect(
@@ -369,7 +369,6 @@ func _run() -> void:
 
 
 func _restore_settings() -> void:
-	Settings.set_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY, _original_quality)
 	Settings.set_value(
 		SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES,
 		_original_screen_flashes

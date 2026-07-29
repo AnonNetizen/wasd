@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "effects": [
     {
       "id": "combat_hit_default",
@@ -13,7 +13,6 @@
       "pool_id": "hit_spark",
       "prewarm": 16,
       "high_frequency": true,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "geometry"
@@ -36,7 +35,6 @@
       "pool_id": "damage_number",
       "prewarm": 16,
       "high_frequency": true,
-      "quality_variants": {},
       "tags": [
         "ui_text",
         "curve"
@@ -57,7 +55,6 @@
       "lifecycle": "one_shot",
       "duration": 0.16,
       "high_frequency": false,
-      "quality_variants": {},
       "tags": [
         "target_tint"
       ],
@@ -77,7 +74,6 @@
       "lifecycle": "one_shot",
       "duration": 0.16,
       "high_frequency": false,
-      "quality_variants": {},
       "tags": [
         "target_tint"
       ],
@@ -97,7 +93,6 @@
       "lifecycle": "one_shot",
       "duration": 0.18,
       "high_frequency": false,
-      "quality_variants": {},
       "tags": [
         "target_tint",
         "target_scale"
@@ -118,7 +113,6 @@
       "lifecycle": "one_shot",
       "duration": 0.45,
       "high_frequency": false,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "geometry",
@@ -141,7 +135,6 @@
       "lifecycle": "one_shot",
       "duration": 0.34,
       "high_frequency": false,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "geometry",
@@ -164,7 +157,6 @@
       "lifecycle": "one_shot",
       "duration": 0.34,
       "high_frequency": false,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "geometry",
@@ -189,7 +181,6 @@
       "pool_id": "vfx_weapon_muzzle_flash",
       "prewarm": 12,
       "high_frequency": true,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "geometry",
@@ -211,7 +202,6 @@
       "lifecycle": "one_shot",
       "duration": 0.34,
       "high_frequency": false,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "geometry",
@@ -233,7 +223,6 @@
       "lifecycle": "one_shot",
       "duration": 0.34,
       "high_frequency": false,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "geometry",
@@ -255,7 +244,6 @@
       "lifecycle": "state",
       "duration": 0.5,
       "high_frequency": false,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "geometry",
@@ -278,7 +266,6 @@
       "lifecycle": "one_shot",
       "duration": 0.34,
       "high_frequency": false,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "geometry",
@@ -300,7 +287,6 @@
       "lifecycle": "one_shot",
       "duration": 0.12,
       "high_frequency": false,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "screen_flash"
@@ -321,7 +307,6 @@
       "lifecycle": "state",
       "duration": 1.5,
       "high_frequency": false,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "geometry",
@@ -346,7 +331,6 @@
       "pool_id": "vfx_enemy_explosion_telegraph",
       "prewarm": 16,
       "high_frequency": true,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "geometry",
@@ -371,7 +355,6 @@
       "pool_id": "vfx_enemy_melee_telegraph",
       "prewarm": 8,
       "high_frequency": true,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "geometry",
@@ -395,7 +378,6 @@
       "pool_id": "vfx_enemy_charge_telegraph",
       "prewarm": 8,
       "high_frequency": true,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "geometry",
@@ -419,7 +401,6 @@
       "pool_id": "vfx_enemy_explosion_impact",
       "prewarm": 16,
       "high_frequency": true,
-      "quality_variants": {},
       "tags": [
         "animation_player",
         "geometry",

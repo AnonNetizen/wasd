@@ -40,6 +40,7 @@ func _run() -> void:
 	_expect_invalid_values_are_rejected()
 	_expect_v1_ignores_removed_input_keys()
 	_expect_v2_drops_removed_reduced_motion()
+	_expect_v3_drops_removed_vfx_quality()
 	_expect_input_bindings_use_independent_resource()
 	_expect_invalid_saved_values_recover_to_defaults()
 	_expect_broken_config_recovers_to_defaults()
@@ -60,8 +61,11 @@ func _expect_missing_file_uses_defaults() -> void:
 	_expect(not Settings.last_load_recovered(), "missing settings file should not be marked as recovered")
 	_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == "zh_CN", "default locale should be zh_CN")
 	_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), 1.0), "default master volume should be 1.0")
-	_expect(String(Settings.get_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY)) == "high", "default VFX quality should be high")
 	_expect(bool(Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES)), "screen flashes should default on")
+	_expect(
+		not DataLoader.has_contract_value("settings_keys", "video.vfx_quality"),
+		"VFX quality should not remain a registered setting"
+	)
 	_expect(
 		not DataLoader.has_contract_value("settings_keys", "accessibility.reduced_motion"),
 		"reduced motion should not remain a registered setting"
@@ -76,7 +80,6 @@ func _expect_roundtrip_and_signal_flow() -> void:
 
 	_expect(Settings.set_value(SETTINGS_KEYS.AUDIO_MASTER, 0.42), "master volume should accept a valid float")
 	_expect(Settings.set_value(SETTINGS_KEYS.GENERAL_LOCALE, "en"), "locale should accept en")
-	_expect(Settings.set_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY, "medium"), "VFX quality should accept a registered option")
 	_expect(FileAccess.file_exists(Settings.settings_path()), "settings.cfg should be created after valid changes")
 	_expect(changed_keys.has(SETTINGS_KEYS.AUDIO_MASTER), "master volume change should emit setting_changed")
 	_expect(changed_keys.has(SETTINGS_KEYS.GENERAL_LOCALE), "locale change should emit setting_changed")
@@ -88,7 +91,6 @@ func _expect_roundtrip_and_signal_flow() -> void:
 	_expect(loaded_cleanly, "saved valid settings should load cleanly")
 	_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), 0.42), "master volume should roundtrip from disk")
 	_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == "en", "locale should roundtrip from disk")
-	_expect(String(Settings.get_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY)) == "medium", "VFX quality should roundtrip from disk")
 
 
 func _expect_invalid_values_are_rejected() -> void:
@@ -96,7 +98,6 @@ func _expect_invalid_values_are_rejected() -> void:
 	var original_locale: String = String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE))
 	_expect(not Settings.set_value(SETTINGS_KEYS.AUDIO_MASTER, 2.0), "master volume should reject values above 1.0")
 	_expect(not Settings.set_value(SETTINGS_KEYS.GENERAL_LOCALE, "pirate"), "locale should reject unsupported values")
-	_expect(not Settings.set_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY, "ultra"), "VFX quality should reject unsupported values")
 	_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), original_master), "invalid master volume should not mutate state")
 	_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == original_locale, "invalid locale should not mutate state")
 
@@ -123,10 +124,10 @@ func _expect_v1_ignores_removed_input_keys() -> void:
 	_expect(_read_text(InputService.bindings_path()) == bindings_before, "settings v1 load should not overwrite current GUIDE bindings")
 
 	var migrated: ConfigFile = ConfigFile.new()
-	_expect(migrated.load(Settings.settings_path()) == OK, "migrated settings v3 should be readable")
-	_expect(int(migrated.get_value("meta", "version", 0)) == 3, "settings migration should rewrite config as v3")
-	_expect(not migrated.has_section_key("settings", String(INPUT_BINDING_IDS.INPUT_PAUSE)), "settings v3 should drop ignored legacy pause input")
-	_expect(not migrated.has_section_key("settings", String(INPUT_BINDING_IDS.INPUT_INTERACT)), "settings v3 should drop ignored legacy interact input")
+	_expect(migrated.load(Settings.settings_path()) == OK, "migrated settings v4 should be readable")
+	_expect(int(migrated.get_value("meta", "version", 0)) == 4, "settings migration should rewrite config as v4")
+	_expect(not migrated.has_section_key("settings", String(INPUT_BINDING_IDS.INPUT_PAUSE)), "settings v4 should drop ignored legacy pause input")
+	_expect(not migrated.has_section_key("settings", String(INPUT_BINDING_IDS.INPUT_INTERACT)), "settings v4 should drop ignored legacy interact input")
 
 
 func _expect_v2_drops_removed_reduced_motion() -> void:
@@ -141,11 +142,31 @@ func _expect_v2_drops_removed_reduced_motion() -> void:
 	_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), 0.61), "settings v2 should preserve master volume")
 
 	var migrated: ConfigFile = ConfigFile.new()
-	_expect(migrated.load(Settings.settings_path()) == OK, "migrated settings v3 should be readable")
-	_expect(int(migrated.get_value("meta", "version", 0)) == 3, "settings v2 should rewrite as v3")
+	_expect(migrated.load(Settings.settings_path()) == OK, "migrated settings v4 should be readable")
+	_expect(int(migrated.get_value("meta", "version", 0)) == 4, "settings v2 should rewrite as v4")
 	_expect(
 		not migrated.has_section_key("settings", "accessibility.reduced_motion"),
-		"settings v3 should remove the retired reduced-motion key"
+		"settings v4 should remove the retired reduced-motion key"
+	)
+
+
+func _expect_v3_drops_removed_vfx_quality() -> void:
+	var config: ConfigFile = ConfigFile.new()
+	config.set_value("meta", "version", 3)
+	config.set_value("settings", SETTINGS_KEYS.GENERAL_LOCALE, "en")
+	config.set_value("settings", SETTINGS_KEYS.AUDIO_MASTER, 0.73)
+	config.set_value("settings", "video.vfx_quality", "low")
+	_expect(config.save(Settings.settings_path()) == OK, "smoke should write settings v3 fixture")
+	_expect(Settings.load_from_disk(), "settings v3 preferences should migrate cleanly")
+	_expect(String(Settings.get_value(SETTINGS_KEYS.GENERAL_LOCALE)) == "en", "settings v3 should preserve locale")
+	_expect(is_equal_approx(float(Settings.get_value(SETTINGS_KEYS.AUDIO_MASTER)), 0.73), "settings v3 should preserve master volume")
+
+	var migrated: ConfigFile = ConfigFile.new()
+	_expect(migrated.load(Settings.settings_path()) == OK, "migrated settings v4 should be readable")
+	_expect(int(migrated.get_value("meta", "version", 0)) == 4, "settings v3 should rewrite as v4")
+	_expect(
+		not migrated.has_section_key("settings", "video.vfx_quality"),
+		"settings v4 should remove the retired VFX-quality key"
 	)
 
 
@@ -211,10 +232,10 @@ func _expect_settings_panel_controls() -> void:
 	var locale_option: OptionButton = _find_node_by_name(panel, "LocaleOption") as OptionButton
 	var master_slider: HSlider = _find_node_by_name(panel, "MasterVolumeSlider") as HSlider
 	var master_value_label: Label = _find_node_by_name(panel, "MasterVolumeValueLabel") as Label
-	var video_section_label: Label = _find_node_by_name(panel, "VideoSectionLabel") as Label
+	var video_section_label: Node = _find_node_by_name(panel, "VideoSectionLabel")
 	var fullscreen_check: CheckButton = _find_node_by_name(panel, "FullscreenCheck") as CheckButton
 	var vsync_check: CheckButton = _find_node_by_name(panel, "VsyncCheck") as CheckButton
-	var vfx_quality_option: OptionButton = _find_node_by_name(panel, "VfxQualityOption") as OptionButton
+	var vfx_quality_control: Node = _find_node_by_name(panel, "VfxQualityOption")
 	var accessibility_section_label: Label = _find_node_by_name(panel, "AccessibilitySectionLabel") as Label
 	var reduced_motion_control: Node = _find_node_by_name(panel, "ReducedMotionCheck")
 	var screen_flashes_check: CheckButton = _find_node_by_name(panel, "ScreenFlashesCheck") as CheckButton
@@ -230,10 +251,10 @@ func _expect_settings_panel_controls() -> void:
 
 	_expect(title_label != null and String(title_label.text) == tr("ui_settings_title"), "settings panel should show localized title")
 	_expect(locale_option != null and locale_option.item_count == 2, "settings panel should expose two locale options")
-	_expect(video_section_label != null and video_section_label.visible, "settings panel should expose wired VFX video settings")
+	_expect(video_section_label == null, "settings panel should not leave an empty video section")
 	_expect(fullscreen_check != null and not fullscreen_check.visible, "settings panel should hide unsupported fullscreen setting")
 	_expect(vsync_check != null and not vsync_check.visible, "settings panel should hide unsupported vsync setting")
-	_expect(vfx_quality_option != null and vfx_quality_option.visible and vfx_quality_option.item_count == 3, "settings panel should expose three VFX quality options")
+	_expect(vfx_quality_control == null, "settings panel should not expose retired VFX quality")
 	_expect(accessibility_section_label != null and accessibility_section_label.visible, "settings panel should expose accessibility settings")
 	_expect(reduced_motion_control == null, "settings panel should not expose reduced motion")
 	_expect(screen_flashes_check != null and screen_flashes_check.visible, "settings panel should expose screen flashes")
@@ -264,11 +285,6 @@ func _expect_settings_panel_controls() -> void:
 		screen_shake_check.toggled.emit(true)
 		await get_tree().process_frame
 		_expect(bool(Settings.get_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE)), "screen shake control should restore the enabled setting")
-	if vfx_quality_option != null:
-		vfx_quality_option.select(0)
-		vfx_quality_option.item_selected.emit(0)
-		await get_tree().process_frame
-		_expect(String(Settings.get_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY)) == "low", "VFX quality control should write Settings")
 	if screen_flashes_check != null:
 		screen_flashes_check.button_pressed = false
 		screen_flashes_check.toggled.emit(false)

@@ -19,7 +19,6 @@ const EFFECT_DOMAINS := [
 ]
 const EFFECT_SPACES := ["attached", "world", "ground", "screen", "ui"]
 const EFFECT_LIFECYCLES := ["one_shot", "loop", "state"]
-const QUALITY_OPTIONS := ["low", "medium", "high"]
 const INSTANCE_COUNTS := [1, 8, 32, 64]
 const PREVIEW_SCALES := [0.25, 0.5, 1.0]
 const SPEED_OPTIONS := [0.25, 0.5, 1.0]
@@ -95,11 +94,6 @@ const KIND_LABELS := {
 	"spawned_scene": "生成场景",
 	"target_animation": "目标动画",
 	"screen_overlay": "屏幕叠层",
-}
-const QUALITY_LABELS := {
-	"low": "低",
-	"medium": "中",
-	"high": "高",
 }
 const BACKGROUND_LABELS := {
 	"dark": "深色",
@@ -181,7 +175,6 @@ var _picker_search: LineEdit
 var _picker_list: ItemList
 var _picker_kind := "effect"
 var _picker_callback: Callable
-var _preview_quality := "high"
 
 
 func _ready() -> void:
@@ -376,14 +369,6 @@ func _build_preview_panel() -> Control:
 	)
 	target_option.item_selected.connect(_on_target_changed.bind(target_option))
 	policy_row.add_child(target_option)
-	policy_row.add_child(_make_label("质量"))
-	var quality_option := _make_option(
-		_labels_for(QUALITY_OPTIONS, QUALITY_LABELS),
-		QUALITY_OPTIONS
-	)
-	quality_option.select(2)
-	quality_option.item_selected.connect(_on_quality_changed.bind(quality_option))
-	policy_row.add_child(quality_option)
 	preview_section.add_child(policy_row)
 
 	var timeline_row := HBoxContainer.new()
@@ -629,21 +614,7 @@ func _preview_profile(profile: Dictionary) -> void:
 
 
 func _preview_effect(base_entry: Dictionary) -> void:
-	var resolved_entry: Dictionary = _resolve_quality_variant(base_entry)
-	_report_preview(_preview_stage.call("preview", resolved_entry) as Dictionary)
-
-
-func _resolve_quality_variant(base_entry: Dictionary) -> Dictionary:
-	var variants_value: Variant = base_entry.get("quality_variants", {})
-	if not variants_value is Dictionary:
-		return base_entry
-	var variant_id: String = String(
-		(variants_value as Dictionary).get(_preview_quality, "")
-	)
-	if variant_id.is_empty():
-		return base_entry
-	var variant: Dictionary = _store.call("effect_by_id", variant_id) as Dictionary
-	return base_entry if variant.is_empty() else variant
+	_report_preview(_preview_stage.call("preview", base_entry) as Dictionary)
 
 
 func _show_details(entry: Dictionary, kind: String) -> void:
@@ -817,7 +788,6 @@ func _new_effect_entry(
 		"lifecycle": lifecycle,
 		"duration": float(scene_result.get("duration", 0.36)),
 		"high_frequency": false,
-		"quality_variants": {},
 		"tags": tags,
 		"preview": {
 			"background": "dark",
@@ -932,12 +902,6 @@ func _on_target_changed(_index: int, option: OptionButton) -> void:
 			String(option.get_item_metadata(option.selected))
 		) as Dictionary
 	)
-
-
-func _on_quality_changed(_index: int, option: OptionButton) -> void:
-	_preview_quality = String(option.get_item_metadata(option.selected))
-	_preview_stage.call("set_quality", _preview_quality)
-	_repreview_selection()
 
 
 func _repreview_selection() -> void:

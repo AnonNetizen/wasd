@@ -561,7 +561,7 @@
       "related_docs": ["docs/正式项目工作规划.md", "docs/游戏设计文档.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/settings.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "client/locale/README.md", "docs/词表与契约.md", "docs/AI协作/上下文预算.md", "docs/AI记忆/current_state.json"],
       "related_code": ["client/scripts/autoload/settings.gd", "client/scripts/autoload/localization.gd", "client/scripts/autoload/ui_manager.gd", "client/scenes/ui/", "client/scripts/ui/", "client/locale/strings.csv", "client/tools/", "tools/godot_bridge.py"],
       "update_triggers": ["F7 settings scope changes", "settings persistence acceptance command changes", "runtime localization behavior changes", "UIManager stack behavior changes", "input rebinding scope changes"],
-      "keywords": ["F7", "Settings", "Localization", "UIManager", "InputService", "GUIDE", "设置", "本地化", "语言切换", "UI栈", "settings.cfg v2", "input_bindings.tres", "input rebinding", "焦点", "runtime locale", "English UI sizing", "英文长度基准"]
+      "keywords": ["F7", "Settings", "Localization", "UIManager", "InputService", "GUIDE", "设置", "本地化", "语言切换", "UI栈", "settings.cfg v4", "input_bindings.tres", "input rebinding", "焦点", "runtime locale", "English UI sizing", "英文长度基准"]
     },
     {
       "path": "docs/AI协作/工作包/F8-ReplayTestingBalance.md",
@@ -1280,16 +1280,16 @@
     {
       "path": "docs/代码/settings.md",
       "type": "module_doc",
-      "authority": "Settings autoload contract for schema v2 preferences, runtime values, change broadcasts, v1 ordinary-preference rewrite, and separation from GUIDE binding persistence",
+      "authority": "Settings autoload contract for schema v4 preferences, runtime values, change broadcasts, v1-v3 ordinary-preference rewrite and retired-key cleanup, and separation from GUIDE binding persistence",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-07-22",
-      "canonical_for": ["settings", "setting_defaults", "runtime_preferences", "settings_schema_v2", "removed_input_settings_keys"],
+      "last_reviewed": "2026-07-29",
+      "canonical_for": ["settings", "setting_defaults", "runtime_preferences", "settings_schema_v4", "removed_input_settings_keys", "removed_vfx_quality_setting"],
       "must_read_for": ["settings_change", "new_setting", "settings_ui_change", "settings_compatibility_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/AI导航.md", "docs/代码/localization.md", "docs/代码/input_service.md", "docs/代码/guide.md"],
       "related_code": ["client/scripts/autoload/settings.gd", "client/scripts/autoload/input_service.gd", "client/scripts/contracts/settings_keys.gd", "client/data/_contracts.json", "client/resources/input/"],
       "update_triggers": ["Settings API changes", "setting default changes", "setting key changes", "settings persistence changes", "settings.cfg schema or input compatibility changes"],
-      "keywords": ["Settings", "autoload", "settings v2", "settings_keys", "setting_changed", "general.locale", "removed input keys", "v1 ordinary preferences", "input_bindings.tres", "InputService", "GUIDERemappingConfig", "preferences", "ADR #152"]
+      "keywords": ["Settings", "autoload", "settings v4", "settings_keys", "setting_changed", "general.locale", "removed input keys", "removed VFX quality", "v1-v3 ordinary preferences", "input_bindings.tres", "InputService", "GUIDERemappingConfig", "preferences", "ADR #152", "ADR #168", "ADR #176"]
     },
     {
       "path": "docs/代码/analytics.md",
@@ -1406,16 +1406,16 @@
     {
       "path": "docs/代码/visual_effects.md",
       "type": "module_doc",
-      "authority": "VisualEffects schema v2 catalog/profile resolution, VfxHost lifecycle and pooling, GameplayFeedbackController routing, actor anchors and presentation controllers, quality policy, curated composition boundary, and VFX 效果库 editor workflow",
+      "authority": "VisualEffects schema v3 catalog/profile resolution, VfxHost lifecycle and pooling, GameplayFeedbackController routing, actor anchors and presentation controllers, screen-flash policy, curated composition boundary, and VFX 效果库 editor workflow",
       "status": "active",
       "owner_scope": "code-docs",
-      "last_reviewed": "2026-07-28",
-      "canonical_for": ["visual_effects", "presentation_profiles", "vfx_host", "gameplay_feedback", "actor_presentation", "vfx_library_editor", "vfx_quality_policy"],
+      "last_reviewed": "2026-07-29",
+      "canonical_for": ["visual_effects", "presentation_profiles", "vfx_host", "gameplay_feedback", "actor_presentation", "vfx_library_editor", "screen_flash_policy", "removed_vfx_quality_interface"],
       "must_read_for": ["new_visual_effect", "visual_effect_change", "presentation_profile_change", "actor_anchor_change", "gameplay_feedback_change", "vfx_editor_change", "vfx_pool_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/词表与契约.md", "docs/测试策略.md", "docs/代码/README.md", "docs/代码/ui_effects.md", "docs/代码/ui_manager.md", "docs/代码/gameplay_runtime.md", "docs/代码/pool_manager.md", "docs/代码/data_loader.md", "docs/代码/settings.md", "docs/AI导航.md"],
       "related_code": ["client/data/visual_effects.json", "client/data/presentation_profiles.json", "client/scripts/autoload/visual_effects.gd", "client/scripts/vfx/", "client/scripts/gameplay/presentation/", "client/scenes/vfx/", "client/resources/vfx/", "client/shaders/vfx/", "client/addons/vfx_library/", "client/tools/vfx_smoke.gd"],
-      "update_triggers": ["VFX catalog or profile schema changes", "VfxHost or feedback API changes", "presentation anchor or actor animation changes", "VFX pooling changes", "quality policy changes", "VFX editor workflow changes", "new VFX primitive or composition template"],
-      "keywords": ["VisualEffects", "VFX", "视觉效果", "VFX 效果库", "visual_effects.json", "presentation_profiles.json", "presentation_enemy_rifle", "VfxHost", "GameplayFeedbackController", "ActorPresentationController", "enemy_attack_telegraph", "enemy_attack_impact", "explosion telegraph", "melee wedge", "charge lane", "rifle muzzle charge", "no trajectory telegraph", "muzzle flash", "explosion impact", "19 effects", "14 presentation profiles", "VFX Library", "AnimationPlayer", "Tween", "Curve", "CPUParticles2D", "CanvasItem Shader", "程序几何", "schema v2", "vfx quality", "ADR #158", "ADR #168", "ADR #170", "ADR #171", "ADR #172"]
+      "update_triggers": ["VFX catalog or profile schema changes", "VfxHost or feedback API changes", "presentation anchor or actor animation changes", "VFX pooling changes", "screen-flash policy changes", "VFX editor workflow changes", "new VFX primitive or composition template"],
+      "keywords": ["VisualEffects", "VFX", "视觉效果", "VFX 效果库", "visual_effects.json", "presentation_profiles.json", "presentation_enemy_rifle", "VfxHost", "GameplayFeedbackController", "ActorPresentationController", "enemy_attack_telegraph", "enemy_attack_impact", "explosion telegraph", "melee wedge", "charge lane", "rifle muzzle charge", "no trajectory telegraph", "muzzle flash", "explosion impact", "19 effects", "14 presentation profiles", "VFX Library", "AnimationPlayer", "Tween", "Curve", "CPUParticles2D", "CanvasItem Shader", "程序几何", "schema v3", "removed vfx quality", "ADR #158", "ADR #168", "ADR #170", "ADR #171", "ADR #172", "ADR #176"]
     },
     {
       "path": "docs/代码/ui_effects.md",

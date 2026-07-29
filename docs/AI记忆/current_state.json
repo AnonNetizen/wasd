@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
   "updated_at": "2026-07-29",
-  "current_phase": "enemy_reward_economy",
-  "current_status": "ADR #175 已将敌人固定金币改为成功生成时锁定的乘法公式：基础 10 × 难度系数 × 敌种价值倍率 × 特殊化倍率 × 每威胁阶段 10% × RNG.economy[0.9,1.1]，结果四舍五入、至少 1 并在安全整数上限饱和。difficulty_profiles 升 schema v2，当前标准 / Standard 系数为 1.0，启动前 profile 接口已贯通开始、Loading、重开和续局。Run 升 v10 保存完整奖励明细与 RNG.economy state，旧 v9 只清 run、Meta v2 保留；Replay 保持 v3，游戏版本为 v1.9。ADR #174 人工检查专属边界继续有效，经济节奏体验由用户验收；本任务按 ADR #143 不运行性能 probe。后续工作以用户最后明确指令为准。",
-  "latest_adr": 175,
+  "current_phase": "vfx_quality_retirement",
+  "current_status": "ADR #176 已完整删除 VFX 质量设置与质量变体接口：Settings 升 v4，v1–v3 迁移保留其他合法偏好并清理 video.vfx_quality；设置契约、面板、locale、VisualEffects.resolved_effect、VFX 编辑器质量预览和 vfx_qualities 契约均已删除。visual_effects.json 升 schema v3 并明确拒绝 quality_variants，VfxHost 直接读取唯一正式 effect；闪屏与震屏继续独立。Run 保持 v10，Meta v2、Replay v3 与游戏版本 v1.9 不变。ADR #174 人工检查专属边界继续有效；本任务按 ADR #143 不运行性能 probe。后续工作以用户最后明确指令为准。",
+  "latest_adr": 176,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "ADR #176 / 完整删除 VFX 质量体系：删除 video.vfx_quality 设置契约、默认值、枚举、面板控件和双语文案；Settings 升 v4，读取 v1–v3 时保留其他偏好并剔除废弃 key。visual_effects.json 升 schema v3，删除并拒绝 quality_variants；删除 vfx_qualities 契约、VisualEffects.resolved_effect、VfxHost 变体解析和 VFX 编辑器质量预览 / metadata，所有玩家统一使用唯一正式 effect。闪屏、震屏、Run v10、Meta v2、Replay v3 与游戏 v1.9 保持。",
     "ADR #175 / 数据驱动敌人金币公式与难度接口：新增 enemy_rewards.json schema v1、EnemyRewardResolver 与 RNG.economy；enemies.csv 用 gold_value_multiplier 替代固定 gold_reward。敌人成功取得对象池实体后按基础 10 × difficulty coefficient × value × specialization × (1 + 0.10 × spawn tier) × economy[0.9,1.1] 锁定最终金币与完整明细，死亡 / 续局不重算不重抽。difficulty_profiles 升 schema v2，标准 profile 增加双语名称与 1.0 系数，系数缩放威胁时间并参与金币；启动前 profile id 贯通开始、Loading、重开和续局，当前无选择 UI。Run 升 v10 保存奖励和 economy state，v9 明确不兼容且保留 Meta v2；Replay v3 重录，游戏版本升 v1.9。",
     "ADR #174 / 人工检查专属边界：凡任务说明、计划、ADR、GDD、工作包、测试策略、checklist 或验收项明确标为人工检查 / 人工验收 / 手动验收 / L5 / 真实设备 / 视觉、听觉或手感验收，只由人工执行。AI 不得用 GUI、浏览器、Computer Use、模拟输入、截图或录屏替代，也不得自行宣称通过；必须继续完成其余自动化验证，只交付前置条件、步骤、预期现象、已知风险和“待人工验收”状态。普通手动运行命令不自动属于人工验收。",
     "ADR #173 / 世界事件系统与五类交互模块：新增 world_events.json schema v1 与防御、生存、占点、金币祭坛、血量祭坛五种 approved 平原模块；module_worlds 升 schema v3，以限量模板组每层无放回选择三种不同事件，modules 升 schema v4 并使用严格 {world_event_id} placement。WorldEventController 独立管理持续事件互斥、祭坛并行、后台 pin、固定波次 / 隐藏奖励、HUD 与幂等恢复；只有防御事件生成的敌人可锁定防御目标，普通敌人仍只攻击玩家，事件残敌结束后转为普通敌人。新增 RNG.world_event；Run 升 v9 保存事件、pin、目标、计划、奖励和祭坛事务，旧 v8 明确不兼容并保留 Meta v2，Replay 保持 v3。",
@@ -178,6 +179,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-29",
+      "command": "sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lints plus lint self-tests; JSON current_state/_kb_index; docs_health_check; git diff --check; settings/VFX/UIManager/actor-scene/runtime/L1/save/loading/replay/replay-input smoke; export-tree; Godot 4.7.1 headless editor/boot; four existing Replay v3 golden replay-runner runtime-summary reruns with expected data-fingerprint mismatch and without recapture; pre-commit run --all-files",
+      "result": "passed for ADR #176 complete VFX-quality retirement. Settings v4 migration preserves valid v1-v3 preferences and strips video.vfx_quality; the settings panel exposes neither a quality control nor an empty video section. Visual-effects schema v3 rejects schema v2 and quality_variants; runtime, editor, generated contract and locale quality interfaces are removed, and VfxHost reads each unique formal effect directly while screen-flash and screen-shake policy remains independent. All four existing Replay v3 goldens reran without recapture and retained their gameplay runtime summaries under the expected data-fingerprint change. Factual review found no remaining P0/P1/P2 issue; legacy quality strings are limited to migration, explicit rejection and historical documentation. Expected injected invalid schema/save/replay diagnostics and existing headless shutdown RID/resource leak lines remain. No startup/performance probe or Profiler ran. Per ADR #174, AI did not perform GUI, screenshot, visual, audio or feel acceptance; those checks remain pending human acceptance."
+    },
     {
       "date": "2026-07-29",
       "command": "sync_contracts --check; validate_data; test_data_loader_schema; GDScript/project/semantic lints plus lint self-tests; JSON current_state/_kb_index; docs_health_check; git diff --check; actor-scene/VFX/runtime/L1/Gear Mod/world-event/save/loading/full+technical module-world/replay/replay-input smoke; RNG audit; export-tree; Godot 4.7.1 headless editor/boot; four recaptured Replay v3 golden replay-runner runtime-summary reruns; pre-commit run --all-files",

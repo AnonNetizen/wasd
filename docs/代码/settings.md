@@ -8,8 +8,8 @@
 - `Settings` 负责维护正式客户端运行时设置的默认值、读取、修改和变更广播。
 - 设置 key 必须来自 `docs/词表与契约.md`，并通过 `client/scripts/contracts/settings_keys.gd` 与 `DataLoader` 的 `_contracts.json` 校验。
 - F7 首片已接入 `user://settings.cfg` 持久化、类型 / 范围校验、损坏配置回退和 `settings-smoke` 自动验证。
-- F7 第二片已接入正式 `SettingsPanel`，标题菜单和暂停菜单都能打开同一设置面板；普通偏好只通过 `Settings.set_value()` 写入，不直接维护副本。ADR #148 后 `gameplay.screen_shake` 已接线并显示：`GameplayCameraController` 监听 `setting_changed`，关闭时立即停止当前 Phantom Camera noise、归零 Camera2D offset 并抑制后续玩家受伤震屏。其他未接线的 `video.*`、松开瞄准停火、瞄准模式和失焦暂停 key 暂时保留但不显示。F9 起默认 `gameplay.aim_mode` 为 `mouse`；ADR #151 / #152 后物理输入与重绑定由 `InputService` / GUIDE 独立负责。ADR #168 将普通设置 schema 升至 v3 并完整退役 reduced motion；旧 `input.*` 与 `accessibility.reduced_motion` 均不再登记。当前绑定权威是 `user://input_bindings.tres`，不再写入 InputMap。F7 运行时语言刷新继续覆盖标题、暂停、设置、HUD、升级、结算和局外成长面板。
-- `video.vfx_quality` 与 `accessibility.screen_flashes` 在可滚动设置面板显示并即时驱动视觉策略；`gameplay.screen_shake` 继续独立控制相机噪声。
+- F7 第二片已接入正式 `SettingsPanel`，标题菜单和暂停菜单都能打开同一设置面板；普通偏好只通过 `Settings.set_value()` 写入，不直接维护副本。ADR #148 后 `gameplay.screen_shake` 已接线并显示：`GameplayCameraController` 监听 `setting_changed`，关闭时立即停止当前 Phantom Camera noise、归零 Camera2D offset 并抑制后续玩家受伤震屏。其他未接线的 `video.*`、松开瞄准停火、瞄准模式和失焦暂停 key 暂时保留但不显示。F9 起默认 `gameplay.aim_mode` 为 `mouse`；ADR #151 / #152 后物理输入与重绑定由 `InputService` / GUIDE 独立负责。ADR #168 完整退役 reduced motion，ADR #176 又删除无实际差异的 VFX 质量档位；普通设置 schema 当前为 v4，旧 `input.*`、`accessibility.reduced_motion` 与 `video.vfx_quality` 均不再登记。当前绑定权威是 `user://input_bindings.tres`，不再写入 InputMap。F7 运行时语言刷新继续覆盖标题、暂停、设置、HUD、升级、结算和局外成长面板。
+- `accessibility.screen_flashes` 与 `gameplay.screen_shake` 在可滚动设置面板显示并分别控制非必要全屏闪光和相机噪声；项目不提供 VFX 质量档位或对应扩展接口。
 - `Settings` 不负责玩家进度存档；局外成长与局内续局属于 `SaveManager`。
 
 ## 阅读方式
@@ -53,7 +53,7 @@ SettingsPanel (CanvasLayer)
                 └── Layout
                 ├── LocaleOption
                 ├── MasterVolumeSlider / MusicVolumeSlider / SfxVolumeSlider
-                ├── VfxQualityOption / ScreenFlashesCheck
+                ├── ScreenFlashesCheck
                 ├── ScreenShakeCheck / RecordReplaysCheck
                 ├── 隐藏占位：FullscreenCheck / VsyncCheck / FireOnReleaseCheck / AimModeOption / PauseOnFocusLossCheck
                 ├── InputFeedbackLabel
@@ -67,12 +67,12 @@ SettingsPanel (CanvasLayer)
 
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
-| 启动 | `_ready()` 先写入普通设置默认值，再加载 `user://settings.cfg`；v1/v2 只保留当前合法普通偏好并重写为 v3，旧 `input.*` 与 reduced-motion 键被忽略；输入绑定始终由 `InputService` 从独立资源加载 | `reset_to_defaults(false)` / `load_from_disk()` / `InputService` |
+| 启动 | `_ready()` 先写入普通设置默认值，再加载 `user://settings.cfg`；v1–v3 只保留当前合法普通偏好并重写为 v4，旧 `input.*`、reduced-motion 与 VFX-quality 键被忽略；输入绑定始终由 `InputService` 从独立资源加载 | `reset_to_defaults(false)` / `load_from_disk()` / `InputService` |
 | 读取 | 调用方用已登记 key 读取当前值 | `get_value()` |
 | 修改 | 普通 key 通过契约、类型和范围校验后写入、广播并保存；绑定捕获、冲突替换和重置委托 `InputService`，不得伪装成普通 string setting | `set_value()` / `setting_changed` / `InputService` remap API |
 | 面板 | 普通控件读写 Settings；输入行查询 `InputService` 的 slot / prompt 并启动 detector，冲突时只提供替换或取消；语言、设备或映射变化后刷新显示 | `SettingsPanel.refresh()` / `Localization.locale_changed` / InputService signals |
 | 重置 | `Settings.reset_to_defaults()` 恢复普通偏好；输入绑定默认值由 `InputService` 独立恢复并保存 | `reset_to_defaults(persist)` / InputService reset API |
-| smoke | 备份现有 `settings.cfg`，验证缺文件默认值、有效设置 roundtrip、非法值拒绝、坏值 / 坏文件回退、设置面板控件、可见震屏开关写入、标题 / 暂停入口，以及核心 UI 既有实例语言刷新，然后恢复原文件 | `settings-smoke` |
+| smoke | 备份现有 `settings.cfg`，验证缺文件默认值、有效设置 roundtrip、非法值拒绝、v1–v3 迁移与退役 key 清理、坏值 / 坏文件回退、设置面板无退役控件、可见震屏 / 闪屏开关写入、标题 / 暂停入口，以及核心 UI 既有实例语言刷新，然后恢复原文件 | `settings-smoke` |
 
 ## 公共 API
 
@@ -105,7 +105,6 @@ SettingsPanel (CanvasLayer)
 | `general.locale` | string：`zh_CN` / `en` | `zh_CN` | 首选语言 |
 | `video.fullscreen` | bool | `false` | 已登记，当前未接线生效；设置面板暂不显示 |
 | `video.vsync` | bool | `true` | 已登记，当前未接线生效；设置面板暂不显示 |
-| `video.vfx_quality` | string：`low` / `medium` / `high` | `high` | 视觉效果质量策略；低质量不能隐藏玩法读法 |
 | `audio.master` | float：0~1 | `1.0` | 主音量 |
 | `audio.music` | float：0~1 | `0.8` | 音乐音量 |
 | `audio.sfx` | float：0~1 | `0.9` | 音效音量 |
@@ -123,7 +122,7 @@ SettingsPanel (CanvasLayer)
 
 ```ini
 [meta]
-version=2
+version=4
 
 [settings]
 general.locale="zh_CN"
@@ -135,8 +134,8 @@ audio.master=1.0
 - 文件无法解析或版本高于当前 `CONFIG_VERSION`：整份配置回退默认值并重写干净文件。
 - 单个 key 类型 / 范围非法：该 key 回退默认值，其余合法 key 保留，并重写干净文件。
 - 未登记 key 不进入 `_values`，避免旧配置或人工编辑污染运行时状态。
-- 读取 v1/v2 时仍保留合法的语言、音量等普通偏好并重写为 v3；旧 `input.*` 与 `accessibility.reduced_motion` 只忽略，不进入 `_values` 或 `input_bindings.tres`。
-- v3 不把任何 binding id 或已退役设置写入 `[settings]`；同名 `input.*` 只属于 `InputService` 的当前绑定槽契约。
+- 读取 v1–v3 时仍保留合法的语言、音量等普通偏好并重写为 v4；旧 `input.*`、`accessibility.reduced_motion` 与 `video.vfx_quality` 只忽略，不进入 `_values` 或 `input_bindings.tres`。
+- v4 不把任何 binding id 或已退役设置写入 `[settings]`；同名 `input.*` 只属于 `InputService` 的当前绑定槽契约。
 - GUIDE 配置的冲突、设备 slot、安全兜底、原子写入、备份和坏文件恢复归 `docs/代码/input_service.md`。
 
 ## 依赖
@@ -185,13 +184,13 @@ audio.master=1.0
 - 修改 `Settings` 必跑：`python tools/lint_gdscript_rules.py`、`python tools/lint_semantic_rules.py`、`python tools/godot_bridge.py --project client headless-boot`、`python tools/godot_bridge.py --project client settings-smoke`。
 - 改设置 key、默认值、范围或持久化 schema 时，追加 `python tools/sync_contracts.py --check`、`python tools/validate_data.py`、`python tools/lint_project_rules.py`。
 - 改 `SettingsPanel`、标题 / 暂停设置入口或本地化刷新时，追加 `python tools/godot_bridge.py --project client runtime-smoke`，确认标题和暂停叠层关闭后 UI 栈恢复。
-- 改 VFX 质量或闪屏策略时，追加 `vfx-smoke`；两项设置的默认值、roundtrip、非法质量和控件写回由 `settings-smoke` 覆盖。
+- 改闪屏策略时，追加 `vfx-smoke`；闪屏默认值、roundtrip 和控件写回由 `settings-smoke` 覆盖。
 - 后续引入 GUT 后，`Settings` 需要覆盖默认值、变更广播、未知 key 拒绝、持久化加载和越界拒绝。
 - 输入重绑定变化需要执行 L5 设置 / 输入 checklist；自动 smoke 覆盖键鼠 / 手柄捕获、冲突替换 / 取消、恢复默认、重启 roundtrip、v1 普通偏好保留 / 旧输入忽略和坏配置回退。
 
 ## 迁移 / 兼容
 
-`user://settings.cfg` 当前 `CONFIG_VERSION=3`。v1/v2 中合法的普通偏好仍可加载并重写为 v3，但旧 `input.*` 与 `accessibility.reduced_motion` 已退出 settings key 契约，只会作为未知多余 key 被忽略并在重写时删除；不会创建或覆盖 GUIDE 绑定。后续新增 / 重命名普通 key 时优先让缺失 key 使用默认值；删除 key 时沿用同一清理策略。`user://input_bindings.tres` 的 schema 和恢复归 `InputService`，玩家进度迁移仍属于 `SaveManager`，两者都不得混入 `Settings`。
+`user://settings.cfg` 当前 `CONFIG_VERSION=4`。v1–v3 中合法的普通偏好仍可加载并重写为 v4，但旧 `input.*`、`accessibility.reduced_motion` 与 `video.vfx_quality` 已退出 settings key 契约，只会作为未知多余 key 被忽略并在重写时删除；不会创建或覆盖 GUIDE 绑定。后续新增 / 重命名普通 key 时优先让缺失 key 使用默认值；删除 key 时沿用同一清理策略。`user://input_bindings.tres` 的 schema 和恢复归 `InputService`，玩家进度迁移仍属于 `SaveManager`，两者都不得混入 `Settings`。
 
 ## 相关文档
 

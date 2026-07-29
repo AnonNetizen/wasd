@@ -5,7 +5,7 @@
 
 ## 职责与边界
 
-- `VisualEffects` autoload 只加载、索引和解析 `visual_effects.json` / `presentation_profiles.json`，并发布玩家表现策略；它不持有当前战斗世界。
+- `VisualEffects` autoload 只加载、索引 `visual_effects.json` / `presentation_profiles.json` 并发布闪屏 / 震屏许可策略；它不持有当前战斗世界。
 - 每局 `VfxHost` 管理地面、世界和屏幕层，负责实例化、附着、取消、完成与回池；`GameplayFeedbackController` 把业务 cue 解析成视觉、音频和相机反馈。
 - 角色表现由 `ActorPresentationController + AnimationPlayer` 承接；玩家 / 敌人业务脚本不再维护受击颜色计时、死亡缩放插值或直接生成命中反馈。
 - 正式效果是可继承、可编辑的 `PackedScene` 或受控 target-animation preset。程序几何只能作为 Ring、Arc、Wedge、RectTelegraph、RayBurst、ShockRing、RibbonTrail、ShardBurst、SegmentedShell、FocusTicks 等组合模板内部骨架，不能作为 catalog 裸资源。
@@ -15,7 +15,7 @@
 
 | 路径 | 作用 |
 |------|------|
-| `client/data/visual_effects.json` | 效果目录、资源、空间、生命周期与质量策略 |
+| `client/data/visual_effects.json` | 效果目录、资源、空间、生命周期与预览元数据 |
 | `client/data/presentation_profiles.json` | 稳定 profile、父级继承与 cue 绑定 |
 | `client/scripts/autoload/visual_effects.gd` | 只读注册表与策略解析 |
 | `client/scripts/vfx/` | request、handle、ref、preset、实例生命周期与精选几何骨架 |
@@ -30,7 +30,7 @@
 
 ## 数据契约
 
-`visual_effects.json` 当前为 schema v2；v1 与遗留 `reduced_motion` 字段会被 DataLoader 和编辑器校验拒绝。`effects[]` 必填：
+`visual_effects.json` 当前为 schema v3；v1/v2、遗留 `reduced_motion` 与 `quality_variants` 字段会被 DataLoader 和编辑器校验拒绝。`effects[]` 必填：
 
 | 字段 | 说明 |
 |------|------|
@@ -42,12 +42,11 @@
 | `lifecycle` | `one_shot/loop/state` |
 | `duration` | 秒；循环 / 状态效果仍需给编辑器预览窗口 |
 | `high_frequency` | 高频为 `true` 时必须同时登记合法 `pool_id` |
-| `quality_variants` | `low/medium/high -> effect_id`；空对象表示复用自身 |
 | `tags` / `preview` | 技术 / 读法标签与背景、检查点、尺度 |
 
-可选池字段为 `pool_id`、`prewarm`、`max_size`。当前 catalog 为 19 项、presentation profile 为 14 项；除 `hit_spark`、`damage_number` 和 `vfx_weapon_muzzle_flash` 外，显式敌人攻击新增 `vfx_enemy_explosion_telegraph`（预热 16）、`vfx_enemy_melee_telegraph`（8）、`vfx_enemy_charge_telegraph`（8）和 `vfx_enemy_explosion_impact`（16）。低质量只能移除装饰，不得隐藏攻击边界、阵营或状态读法。
+可选池字段为 `pool_id`、`prewarm`、`max_size`。当前 catalog 为 19 项、presentation profile 为 14 项；除 `hit_spark`、`damage_number` 和 `vfx_weapon_muzzle_flash` 外，显式敌人攻击新增 `vfx_enemy_explosion_telegraph`（预热 16）、`vfx_enemy_melee_telegraph`（8）、`vfx_enemy_charge_telegraph`（8）和 `vfx_enemy_explosion_impact`（16）。所有玩家统一使用同一份正式效果资源，不存在质量变体或运行时降档接口。
 
-`presentation_profiles.json.profiles[]` 以 `id` 为主键，可用可选 `editor_name` 提供中文编辑器显示名，并通过 `parent_profile_id` 继承。缺少 `editor_name` 时编辑器回退显示原始 `id`；子 profile 以 cue 为粒度覆盖父绑定。绑定可含 `effects[]`、`audio_id`、`camera_feedback_id`、`screen_effect_id` 和预留 `hit_stop_profile_id`。cue、anchor、domain、space、lifecycle、quality 等固定词进入生成契约。
+`presentation_profiles.json.profiles[]` 以 `id` 为主键，可用可选 `editor_name` 提供中文编辑器显示名，并通过 `parent_profile_id` 继承。缺少 `editor_name` 时编辑器回退显示原始 `id`；子 profile 以 cue 为粒度覆盖父绑定。绑定可含 `effects[]`、`audio_id`、`camera_feedback_id`、`screen_effect_id` 和预留 `hit_stop_profile_id`。cue、anchor、domain、space、lifecycle 等固定词进入生成契约。
 
 ## 公开 API
 
@@ -58,8 +57,7 @@
 | `effect(effect_id)` | `Dictionary` | 未解析的目录条目副本 |
 | `profile(profile_id)` | `Dictionary` | 合并父级后的 profile |
 | `resolve_binding(profile_id, cue)` | `Dictionary` | 解析单个语义 cue |
-| `resolved_effect(effect_id)` | `Dictionary` | 应用质量 variant |
-| `current_policy()` | `Dictionary` | 质量、闪屏、震屏 |
+| `current_policy()` | `Dictionary` | 闪屏、震屏 |
 | `allows_effect(effect_data)` | `bool` | 当前策略是否允许播放 |
 
 设置变化会发出 `policy_changed(policy)`；注册表重载发出 `catalog_reloaded(effect_count, profile_count)`。
@@ -68,7 +66,7 @@
 
 | API | 说明 |
 |-----|------|
-| `play(effect_id, request = null) -> VfxHandle` | 解析策略和空间后播放 |
+| `play(effect_id, request = null) -> VfxHandle` | 读取正式 effect、解析空间和许可策略后播放 |
 | `cancel_owner(owner)` | 实体回池 / 移除前取消其附着表现 |
 | `cancel_all()` | 对局清理时终止全部活动效果 |
 | `register_declared_pools()` | 对局启动时登记 catalog 中声明的高频效果池 |
@@ -110,7 +108,7 @@ VfxAnchors
 
 ## 编辑器流程
 
-Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文案，但稳定 ID、资源路径、JSON 字段和枚举 metadata 保持原值。它支持按领域、技术、空间、生命周期与标签筛选；预览玩家、五种敌人、测试假人和 UI 容器；切换挂点、背景、25/50/100% 尺度、质量、1/8/32/64 实例及“蓄力（CHARGE）/ 接触（CONTACT）/ 余波（AFTERMATH）”。Inspector 为 `VfxEffectRef` / `PresentationProfileRef` 提供同一选择器，主界面可应用到当前选中项。
+Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文案，但稳定 ID、资源路径、JSON 字段和枚举 metadata 保持原值。它支持按领域、技术、空间、生命周期与标签筛选；预览玩家、五种敌人、测试假人和 UI 容器；切换挂点、背景、25/50/100% 尺度、1/8/32/64 实例及“蓄力（CHARGE）/ 接触（CONTACT）/ 余波（AFTERMATH）”。Inspector 为 `VfxEffectRef` / `PresentationProfileRef` 提供同一选择器，主界面可应用到当前选中项。
 
 新建向导要求分别填写英文稳定 ID 与中文名称，只允许 OneShot、AttachedLoop、GroundTelegraph、UITransition、ScreenOverlay、GeometryComposite、Particle、Flipbook、Shader、AnimationTreeStateful 模板；会创建资源、登记效果目录、校验并可派生 Profile 变体。插件在 release preset 中排除。
 

@@ -12,7 +12,7 @@ const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 const SETTINGS_PATH: String = "user://settings.cfg"
 const META_SECTION: String = "meta"
 const SETTINGS_SECTION: String = "settings"
-const CONFIG_VERSION: int = 3
+const CONFIG_VERSION: int = 4
 
 var _values: Dictionary = {}
 var _last_load_recovered: bool = false
@@ -137,7 +137,6 @@ func _default_values() -> Dictionary:
 		SETTINGS_KEYS.GENERAL_LOCALE: "zh_CN",
 		SETTINGS_KEYS.VIDEO_FULLSCREEN: false,
 		SETTINGS_KEYS.VIDEO_VSYNC: true,
-		SETTINGS_KEYS.VIDEO_VFX_QUALITY: "high",
 		SETTINGS_KEYS.AUDIO_MASTER: 1.0,
 		SETTINGS_KEYS.AUDIO_MUSIC: 0.8,
 		SETTINGS_KEYS.AUDIO_SFX: 0.9,
@@ -186,10 +185,6 @@ func _setting_specs() -> Dictionary:
 		SETTINGS_KEYS.GENERAL_LOCALE: {"type": "string", "options": ["zh_CN", "en"]},
 		SETTINGS_KEYS.VIDEO_FULLSCREEN: {"type": "bool"},
 		SETTINGS_KEYS.VIDEO_VSYNC: {"type": "bool"},
-		SETTINGS_KEYS.VIDEO_VFX_QUALITY: {
-			"type": "string",
-			"options": ["low", "medium", "high"],
-		},
 		SETTINGS_KEYS.AUDIO_MASTER: {"type": "float", "min": 0.0, "max": 1.0},
 		SETTINGS_KEYS.AUDIO_MUSIC: {"type": "float", "min": 0.0, "max": 1.0},
 		SETTINGS_KEYS.AUDIO_SFX: {"type": "float", "min": 0.0, "max": 1.0},

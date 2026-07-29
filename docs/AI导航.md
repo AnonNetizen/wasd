@@ -73,7 +73,7 @@
 | `client/scripts/ui/` | 正式 UI 与 `effects/` 共享动效组件；UI 栈 / UI Effects 分别见对应模块文档 |
 | `client/scripts/debug/` / `client/scenes/debug/` | debug/dev_tools 专用 `DebugConsole`、`GMCommandRegistry` 与 ADR #159 / #160 独立开发者测试岛 / 配装 / 控制面板；正式 release 不应加载或导出 |
 | `client/tools/` | Godot 项目内 headless smoke / baker；ADR #158 新增 VFX resource baker、`vfx-smoke`、`ui-manager-smoke`，ADR #159 / #160 维护直启独立 scene 的 `debug_test_arena_smoke.gd`，并保留仅由用户明确触发的性能 probe |
-| `user://settings.cfg` / `user://input_bindings.tres` | 普通设置 schema v2 / GUIDE 输入绑定 schema v1；游戏进度存档仍走 `user://saves/<slot>/<kind>.save`（`meta` / `run` / `replay_index`） |
+| `user://settings.cfg` / `user://input_bindings.tres` | 普通设置 schema v4 / GUIDE 输入绑定 schema v1；游戏进度存档仍走 `user://saves/<slot>/<kind>.save`（`meta` / `run` / `replay_index`） |
 
 `docs/` 下：
 
@@ -138,7 +138,7 @@
 | **加 / 改武器** | 在 `client/data/weapons.json` 加一条：武器基础属性、子弹池、`element_id`、命中半径和音频 id；文案用 `weapon_*` key；`pool_id` / `element_id` / `audio_id` 必须来自词表。现有内容默认使用 `element_neutral` |
 | **改子弹墙体阻挡 / 穿墙能力** | 先读 GDD §4、ADR #149、`docs/代码/gameplay_runtime.md` 与 `docs/代码/module_world_manager.md`；运行时改 `bullet.gd`，模块墙体层改 `module_chunk.gd`，数值契约改词表 / `weapons.json` / 双端 DataLoader。保持玩家与敌弹默认阻挡、地形 bit 1、圆形首帧重叠 + 本帧扫掠、`PoolManager.release()`、`pierce_count` 与 `wall_pierce` 独立、发射时快照及旧字段默认 false；验证完整 / 技术切片 module-world、runtime/save/L1、headless 和四条黄金回放 |
 | **加 / 改技能** | 在 `client/data/skills.json` 加技能定义：`ability_tags`、`activation`、能量消耗、目标、通用效果原语、缩放声明、冷却和 `skill_*` 文案；英雄只通过 `characters.json.hero_skill_ids` 引用两个技能，组合解析后固定进入 `skill_1`～`skill_4`，冷却按槽位保存。主英雄能力强度 / 范围 / 效率 / 持续作用于四槽；新资源、目标类型、效果原语或 ability tag 先登记词表，状态效果 / 叠加规则先登记 §9-A~§9-B，再扩展 SkillSystem / StatusEffectComponent 文档。静域屏障按 ADR #163 只拦截敌弹跨越圆周，内→内与不穿圆的外→外放行，首帧从射手开火位置扫掠 |
-| **加 / 选择视觉效果** | 先读 `docs/代码/visual_effects.md`；优先在 Godot“VFX 效果库”用向导创建组合场景、自动登记效果目录，并在 Inspector / 内容绑定页选择 effect 或 profile。内容数据只写 `presentation_profile_id`；固定 cue / anchor / domain / space / lifecycle / quality 先登记词表 §16。程序几何只能使用精选复合模板，不得生成任意 `_draw()` 或引用 addon / `output/test_lab` |
+| **加 / 选择视觉效果** | 先读 `docs/代码/visual_effects.md`；优先在 Godot“VFX 效果库”用向导创建组合场景、自动登记效果目录，并在 Inspector / 内容绑定页选择 effect 或 profile。内容数据只写 `presentation_profile_id`；固定 cue / anchor / domain / space / lifecycle 先登记词表 §16。程序几何只能使用精选复合模板，不得生成任意 `_draw()` 或引用 addon / `output/test_lab` |
 | **加 / 改状态效果** | 先看 `docs/代码/status_effect_component.md`；状态 id 登记 `docs/词表与契约.md` §9-A，叠加规则登记 §9-B，通过 `skill_effect_apply_status` 或未来 on-hit primitive 注入；当前 Player / Enemy / SkillSystem 自身已实现 `apply_status_effect()` 和 owned ability tag 查询，DoT 由状态组件按 `GameClock` tick 并经 `Combat.apply_damage()` 结算；新可受状态影响实体应照此接入；状态存在期间要授予 / 移除 ability tag 时引用 §12-G，不在业务脚本手动计时 |
 | **调武器后坐 / 扩散** | 数值改 `client/data/weapons.json` 的武器 stats 或根级 `recoil_model`，震屏 profile 改 `camera_feedback.json`，装备控制改 `gear_mods.json` / 掉落 CSV；公式入口是 `weapon_recoil_resolver.gd`，发射 / 后移 / 相机分别见 WeaponSystem、Player、GameplayCameraController。每颗弹固定消耗 `RNG.combat`，零扩散也不能跳过 |
 | **改局内威胁时间 / 难度系数 / 敌人出生强化 / 难度标记器** | 先读 ADR #166 / #170 / #173 / #175、GDD §7.3、Difficulty / EnemyRewardResolver 文档。`difficulty_profiles.json` schema v2 的系数缩放威胁时间并参与生成金币；事件波次在激活时固定生命 / 伤害语义，金币按实际生成阶段。Run v10 保存 profile / 系数、固定计划、每敌出生倍率 / 奖励和攻击提交状态。范围、时序、移速、AI 和数量仍不随难度缩放；按测试策略整套验证，不运行性能 probe |
@@ -224,7 +224,7 @@
 - 一条**平台服务基础设施**：`PlatformServices`（Steam 优先预留成就、统计、富状态 / 状态显示、overlay、Lobby / 联机入口和用户身份；其他平台后续走 provider adapter）
 - 一条**未来在线服务规划**：`OnlineServices` 尚未实现；ADR #150 只锁定未来以 Talo provider 承接跨平台身份、排行榜 / 统计、Live Config、事件和轻量社交，不计入当前 autoload 矩阵
 - 三条**协作基础设施**：`Localization` / `Settings` / `Analytics`
-- 一条**表现注册基础设施**：`VisualEffects`（catalog/profile 与质量变体解析；不持有当前世界）
+- 一条**表现注册基础设施**：`VisualEffects`（catalog/profile 与闪屏 / 震屏许可策略；不持有当前世界）
 - 一条**输入基础设施**：vendored `GUIDE` 只解释物理设备与资源图；项目 `InputService` 是生成 action、归一化 intent、context、重绑定、提示和回放覆盖的唯一业务门面
 - 两条**确定性基础设施**：`RNG`（种子化随机，子流分流）/ `GameClock`（移动、冷却、状态、Replay tick，以及玩家加载 / 暂停 / 结算冻结的底层时间源）
 - 一条**模式级威胁进度**：`DifficultyProgression`（非 autoload；由 mode / 启动前 profile 配置，难度系数缩放推进；起点房暂停，驱动敌人出生倍率、金币时间项、解锁、导演 gating、HUD、结算与埋点）

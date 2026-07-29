@@ -5,7 +5,6 @@ const VALUES: Array[String] = [
 	"general.locale",
 	"video.fullscreen",
 	"video.vsync",
-	"video.vfx_quality",
 	"audio.master",
 	"audio.music",
 	"audio.sfx",
@@ -21,7 +20,6 @@ const VALUES: Array[String] = [
 const GENERAL_LOCALE: String = "general.locale"
 const VIDEO_FULLSCREEN: String = "video.fullscreen"
 const VIDEO_VSYNC: String = "video.vsync"
-const VIDEO_VFX_QUALITY: String = "video.vfx_quality"
 const AUDIO_MASTER: String = "audio.master"
 const AUDIO_MUSIC: String = "audio.music"
 const AUDIO_SFX: String = "audio.sfx"

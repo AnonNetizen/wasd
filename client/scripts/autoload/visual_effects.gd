@@ -86,9 +86,6 @@ func resolve_binding(profile_id: String, cue: String) -> Dictionary:
 
 func current_policy() -> Dictionary:
 	return {
-		"quality": String(
-			Settings.get_value(SETTINGS_KEYS.VIDEO_VFX_QUALITY, "high")
-		),
 		"screen_flashes": bool(
 			Settings.get_value(SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES, true)
 		),
@@ -96,28 +93,6 @@ func current_policy() -> Dictionary:
 			Settings.get_value(SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE, true)
 		),
 	}
-
-
-func resolved_effect(effect_id: String) -> Dictionary:
-	var current_id: String = effect_id
-	var visited: Dictionary = {}
-	var policy: Dictionary = current_policy()
-	for _depth: int in range(MAX_RESOLUTION_DEPTH):
-		if current_id.is_empty() or visited.has(current_id):
-			return {}
-		visited[current_id] = true
-		var current_effect: Dictionary = effect(current_id)
-		if current_effect.is_empty():
-			return {}
-
-		var variants: Dictionary = current_effect.get("quality_variants", {}) as Dictionary
-		var quality: String = String(policy.get("quality", "high"))
-		var variant_id: String = String(variants.get(quality, ""))
-		if not variant_id.is_empty() and variant_id != current_id:
-			current_id = variant_id
-			continue
-		return current_effect
-	return {}
 
 
 func allows_effect(effect_data: Dictionary) -> bool:
@@ -179,7 +154,6 @@ func _on_data_reloaded() -> void:
 
 func _on_setting_changed(key: String, _value: Variant) -> void:
 	if key not in [
-		SETTINGS_KEYS.VIDEO_VFX_QUALITY,
 		SETTINGS_KEYS.ACCESSIBILITY_SCREEN_FLASHES,
 		SETTINGS_KEYS.GAMEPLAY_SCREEN_SHAKE,
 	]:

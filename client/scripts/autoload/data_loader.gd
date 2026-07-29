@@ -563,7 +563,7 @@ func _validate_visual_effects_json() -> bool:
 		VISUAL_EFFECTS_PATH,
 		"schema_version",
 		payload.get("schema_version"),
-		2
+		3
 	) and is_valid
 	var effects: Array = _require_array(
 		VISUAL_EFFECTS_PATH,
@@ -577,7 +577,6 @@ func _validate_visual_effects_json() -> bool:
 			"non-empty Array"
 		) and is_valid
 	var seen: Dictionary = {}
-	var effect_entries: Dictionary = {}
 	_last_schema_counts["visual_effects"] = effects.size()
 	for index: int in range(effects.size()):
 		var field: String = "effects[%d]" % index
@@ -604,7 +603,6 @@ func _validate_visual_effects_json() -> bool:
 					"unique effect id"
 				) and is_valid
 			seen[effect_id] = true
-			effect_entries[effect_id] = effect_data
 		is_valid = _require_non_empty_string(
 			VISUAL_EFFECTS_PATH,
 			"%s.editor_name" % field,
@@ -672,26 +670,12 @@ func _validate_visual_effects_json() -> bool:
 				effect_data.get("prewarm", 0),
 				0
 			) and is_valid
-		var quality_variants: Variant = effect_data.get("quality_variants", {})
-		if not quality_variants is Dictionary:
+		if effect_data.has("quality_variants"):
 			is_valid = _schema_fail(
 				VISUAL_EFFECTS_PATH,
 				"%s.quality_variants" % field,
-				"Dictionary"
+				"field removed in schema v3"
 			) and is_valid
-		else:
-			for raw_quality: Variant in (quality_variants as Dictionary).keys():
-				is_valid = _require_registered(
-					VISUAL_EFFECTS_PATH,
-					"%s.quality_variants.%s" % [field, String(raw_quality)],
-					String(raw_quality),
-					"vfx_qualities"
-				) != "" and is_valid
-				is_valid = _require_non_empty_string(
-					VISUAL_EFFECTS_PATH,
-					"%s.quality_variants.%s" % [field, String(raw_quality)],
-					(quality_variants as Dictionary)[raw_quality]
-				) and is_valid
 		if effect_data.has("reduced_motion"):
 			is_valid = _schema_fail(
 				VISUAL_EFFECTS_PATH,
@@ -716,18 +700,6 @@ func _validate_visual_effects_json() -> bool:
 				"Dictionary"
 			) and is_valid
 
-	for raw_effect_id: Variant in effect_entries.keys():
-		var effect_id: String = String(raw_effect_id)
-		var effect_data: Dictionary = effect_entries[raw_effect_id] as Dictionary
-		var variants: Dictionary = effect_data.get("quality_variants", {}) as Dictionary
-		for raw_variant_id: Variant in variants.values():
-			var variant_id: String = String(raw_variant_id)
-			if not seen.has(variant_id):
-				is_valid = _schema_fail(
-					VISUAL_EFFECTS_PATH,
-					"%s.quality_variants" % effect_id,
-					"effect id defined in same catalog"
-				) and is_valid
 	return is_valid
 
 

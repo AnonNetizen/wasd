@@ -77,7 +77,6 @@
       "general.locale",
       "video.fullscreen",
       "video.vsync",
-      "video.vfx_quality",
       "audio.master",
       "audio.music",
       "audio.sfx",
@@ -454,11 +453,6 @@
       "status",
       "forward",
       "muzzle"
-    ],
-    "vfx_qualities": [
-      "low",
-      "medium",
-      "high"
     ],
     "locale_prefixes": [
       "ui_",

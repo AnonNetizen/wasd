@@ -31,9 +31,9 @@ func _ready() -> void:
 
 
 func play(effect_id: String, request: VfxPlayRequest = null) -> VfxHandle:
-	var effect_data: Dictionary = VisualEffects.resolved_effect(effect_id)
+	var effect_data: Dictionary = VisualEffects.effect(effect_id)
 	if effect_data.is_empty():
-		push_error("[VfxHost] unknown or unresolved effect id: %s" % effect_id)
+		push_error("[VfxHost] unknown effect id: %s" % effect_id)
 		return null
 	if not VisualEffects.allows_effect(effect_data):
 		return null

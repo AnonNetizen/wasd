@@ -127,7 +127,6 @@ SECTIONS: tuple[ContractSection, ...] = (
     ContractSection("vfx_lifecycles", "## 16-D. 视觉效果生命周期 vfx_lifecycle", "vfx_lifecycles.gd", "VfxLifecycles"),
     ContractSection("vfx_cues", "## 16-E. 视觉表现 cue vfx_cue", "vfx_cues.gd", "VfxCues"),
     ContractSection("vfx_anchors", "## 16-F. 视觉效果挂点 vfx_anchor", "vfx_anchors.gd", "VfxAnchors"),
-    ContractSection("vfx_qualities", "## 16-G. 视觉效果质量 vfx_quality", "vfx_qualities.gd", "VfxQualities"),
 )
 
 LOCALE_PREFIXES_HEADING = "## 6. 本地化 key 命名规范"
