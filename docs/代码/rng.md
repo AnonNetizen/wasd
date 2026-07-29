@@ -37,7 +37,7 @@
 
 | 阶段 | 发生什么 | 关键 API / signal |
 |------|----------|-------------------|
-| autoload `_ready()` | 创建并登记 9 个默认子流 | `spawn/drop/combat/camera_fx/vfx/ui_choice/world/world_event/meta` |
+| autoload `_ready()` | 创建并登记 10 个默认子流 | `spawn/drop/combat/camera_fx/vfx/ui_choice/world/world_event/economy/meta` |
 | 设置主 seed | 重新派生所有子流 seed | `set_run_seed()` |
 | 生成随机主 seed | 普通新局 / 重开在人工入口生成新的主 seed，再派生所有子流 | `set_random_run_seed()` |
 | 业务取随机 | 通过具名子流调用 | `RNG.spawn.randi()`、`RNG.stream(id)` |
@@ -66,7 +66,7 @@
 ## 数据与契约
 
 - 子流 id 权威来源是 `docs/词表与契约.md` §11。
-- 当前子流：`spawn`、`drop`、`combat`、`camera_fx`、`vfx`、`ui_choice`、`world`、`world_event`、`meta`。`world` 只负责模块 assignment；`world_event` 隔离事件波次、隐藏奖励和祭坛判定，恢复必须保存其完整 state。
+- 当前子流：`spawn`、`drop`、`combat`、`camera_fx`、`vfx`、`ui_choice`、`world`、`world_event`、`economy`、`meta`。`world` 只负责模块 assignment；`world_event` 隔离事件波次、隐藏奖励和祭坛判定；`economy` 只在敌人成功取得对象池实体、即将正式生成时抽取一次金币随机倍率。Run v10 保存全部 state，恢复已有敌人不得再次消费 `economy`。
 - 代码引用应走 `client/scripts/contracts/rng_streams.gd` 生成常量；本 autoload 的初始子流后续应与生成常量保持一致。
 - 子流 seed 派生使用 `STREAM_SEED_DOMAIN + run_seed + stream_id` 组成文本，取 SHA-256 hex digest 后按 16 进制逐位折叠到固定模数 `2_147_483_647`；该规则是 F8 回放确定性与跨子流防相关性基线的一部分，改变时必须跑 `rng-audit`、重跑受影响 golden replay 并追加 ADR。
 - 普通玩家从标题开始新局或局内重开时，由 `FormalClientBoot` 调用 `set_random_run_seed()`；继续游戏必须从 run snapshot 恢复 RNG，不生成新 seed；回放 / smoke / golden 工具必须显式固定 seed 或走不随机化的工具启动路径。
@@ -93,6 +93,7 @@
 | 改 RNG 快照格式 | `rng.gd`、存档调用方 | 本文档、SaveManager / 回放文档 | run 存档 roundtrip + F4 smoke |
 | 改普通新局 seed 策略 | `rng.gd`、`formal_client_boot.gd` | 本文档、FormalClientBoot / GameplayRuntime、ADR、AI记忆 | `l1-smoke` + `runtime-smoke` + `save-smoke` + checked-in replay runner 抽查 |
 | 改子流 seed 派生 | `rng.gd`、`rng_audit.gd` | 本文档、测试策略、ADR、AI记忆 | `python tools/godot_bridge.py --project client rng-audit` + 四条 checked-in replay runner |
+| 改敌人金币随机 | `rng.gd`、`gameplay_run_loop.gd`、`enemy_reward_resolver.gd` | EnemyRewardResolver / Gameplay Runtime / Save 文档 | L1 + runtime + save + 四条 golden |
 
 ## 故障排查
 
@@ -104,13 +105,15 @@
 | 普通新局 seed 总是一样 | 标题开始 / 重开是否走 `RNG.set_random_run_seed()`；是否误走了工具直接启动 `_start_gameplay_run()` 路径 |
 | replay / golden 变随机 | 工具路径是否误调用普通新局入口；回放 / golden capture 应显式 `set_run_seed()` 或直接启动固定 seed runtime |
 | 抽取总是首项 | 权重是否全为 0 或负数 |
+| 失败刷怪仍改变金币结果 | 是否在 `PoolManager.acquire()` 成功前消费了 `RNG.economy`；失败生成必须保持所有 RNG state 不变 |
+| 续局后敌人金币变化 | 是否恢复 Enemy 的奖励快照；已有敌人不得重算或重抽，待生成计划按恢复后的 `RNG.economy` 继续 |
 | run 存档 hash mismatch | RNG seed/state 是否仍以 JSON number 写入；大整数必须以字符串存 |
 
 ## 测试义务
 
 - 必跑正式项目 headless boot。
 - 改普通新局 / 重开 seed 策略时，追加 `python tools/godot_bridge.py --project client l1-smoke`、`runtime-smoke`、`save-smoke`，并用 checked-in `replay-runner --replay-file ... --rerun-runtime-summary` 抽查工具固定 seed 路径未漂移。
-- 改子流 seed 派生、默认子流集合或 RNG 底层实现时，必跑 `python tools/godot_bridge.py --project client rng-audit`；当前审计采样 10,000 个 run seed、9 个子流、每流前 4 次 `randf()`，最大绝对 Pearson 相关阈值为 0.06。
+- 改子流 seed 派生、默认子流集合或 RNG 底层实现时，必跑 `python tools/godot_bridge.py --project client rng-audit`；当前审计采样 10,000 个 run seed、10 个子流、每流前 4 次 `randf()`，最大绝对 Pearson 相关阈值为 0.06。
 - F2 后续补 GUT：同主 seed 各子流序列稳定、不同子流互不污染、`weighted_pick()` 边界。
 - 改随机行为或子流 seed 派生若影响整局，必须评估并重录受影响黄金回放。
 

@@ -559,14 +559,135 @@ def main() -> int:
             ],
         ),
         (
-            "difficulty profile schema v1 is required",
+            "difficulty profile schema v1 is rejected",
             _mutate_json(
                 "client/data/difficulty_profiles.json",
-                _set_schema_version(2),
+                _set_schema_version(1),
             ),
             [
                 "client/data/difficulty_profiles.json:schema_version",
+                "must equal 2",
+            ],
+        ),
+        (
+            "difficulty coefficient must be positive",
+            _mutate_json(
+                "client/data/difficulty_profiles.json",
+                _set_difficulty_profile_field(
+                    "difficulty_coefficient",
+                    0.0,
+                ),
+            ),
+            [
+                "client/data/difficulty_profiles.json:profiles[0].difficulty_coefficient",
+                "must be > 0.0",
+            ],
+        ),
+        (
+            "difficulty profiles reject extra fields",
+            _mutate_json(
+                "client/data/difficulty_profiles.json",
+                _set_difficulty_profile_field("surplus", True),
+            ),
+            [
+                "client/data/difficulty_profiles.json:profiles[0].surplus",
+                "is not allowed",
+            ],
+        ),
+        (
+            "enemy reward schema v1 is required",
+            _mutate_json(
+                "client/data/enemy_rewards.json",
+                _set_schema_version(0),
+            ),
+            [
+                "client/data/enemy_rewards.json:schema_version",
                 "must equal 1",
+            ],
+        ),
+        (
+            "enemy reward fields are required",
+            _mutate_json(
+                "client/data/enemy_rewards.json",
+                _remove_enemy_reward_field("base_coefficient"),
+            ),
+            [
+                "client/data/enemy_rewards.json:root.base_coefficient",
+                "is required",
+            ],
+        ),
+        (
+            "enemy reward rejects extra fields",
+            _mutate_json(
+                "client/data/enemy_rewards.json",
+                _set_enemy_reward_field("surplus", 1.0),
+            ),
+            [
+                "client/data/enemy_rewards.json:root.surplus",
+                "is not allowed",
+            ],
+        ),
+        (
+            "enemy reward base coefficient must be positive",
+            _mutate_json(
+                "client/data/enemy_rewards.json",
+                _set_enemy_reward_field("base_coefficient", 0.0),
+            ),
+            [
+                "client/data/enemy_rewards.json:base_coefficient",
+                "must be > 0.0",
+            ],
+        ),
+        (
+            "enemy reward time growth cannot be negative",
+            _mutate_json(
+                "client/data/enemy_rewards.json",
+                _set_enemy_reward_field("time_growth_per_tier", -0.01),
+            ),
+            [
+                "client/data/enemy_rewards.json:time_growth_per_tier",
+                "must be >= 0.0",
+            ],
+        ),
+        (
+            "enemy reward random interval must be ordered",
+            _mutate_json(
+                "client/data/enemy_rewards.json",
+                _set_enemy_reward_random_interval(1.2, 1.1),
+            ),
+            [
+                "client/data/enemy_rewards.json:random_multiplier_min",
+                "must be <= random_multiplier_max",
+            ],
+        ),
+        (
+            "enemy reward random bounds must be positive",
+            _mutate_json(
+                "client/data/enemy_rewards.json",
+                _set_enemy_reward_random_interval(0.0, 1.1),
+            ),
+            [
+                "client/data/enemy_rewards.json:random_multiplier_min",
+                "must be > 0.0",
+            ],
+        ),
+        (
+            "legacy enemy gold reward column is rejected",
+            _replace_enemy_reward_header_with_legacy,
+            [
+                "client/data/enemies.csv:header",
+                "missing required columns ['gold_value_multiplier']",
+            ],
+        ),
+        (
+            "enemy gold value multiplier must be positive",
+            _mutate_csv(
+                "client/data/enemies.csv",
+                _set_enemy_gold_value_multiplier("0"),
+            ),
+            [
+                "client/data/enemies.csv:line 2.gold_value_multiplier",
+                "must be > 0",
             ],
         ),
         (
@@ -2011,6 +2132,52 @@ def _set_mode_difficulty_profile(value: str) -> JsonMutator:
 def _set_difficulty_profile_field(field: str, value: object) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["profiles"][0][field] = value
+
+    return mutate
+
+
+def _set_enemy_reward_field(field: str, value: object) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload[field] = value
+
+    return mutate
+
+
+def _remove_enemy_reward_field(field: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload.pop(field, None)
+
+    return mutate
+
+
+def _set_enemy_reward_random_interval(
+    minimum: float,
+    maximum: float,
+) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["random_multiplier_min"] = minimum
+        payload["random_multiplier_max"] = maximum
+
+    return mutate
+
+
+def _replace_enemy_reward_header_with_legacy(root: Path) -> None:
+    path = root / "client/data/enemies.csv"
+    text = path.read_text(encoding="utf-8-sig")
+    path.write_text(
+        text.replace(
+            "gold_value_multiplier",
+            "gold_reward",
+            1,
+        ),
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
+def _set_enemy_gold_value_multiplier(value: str) -> CsvMutator:
+    def mutate(rows: list[dict[str, str]]) -> None:
+        rows[0]["gold_value_multiplier"] = value
 
     return mutate
 

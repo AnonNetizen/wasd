@@ -93,6 +93,7 @@ ui_result_gear_mod_line,{name} x{count},{name} x{count}
 ui_hud_life,生命,Life
 ui_hud_kills,击杀,Kills
 ui_hud_time,时间,Time
+ui_difficulty_standard_name,标准,Standard
 ui_difficulty_level,威胁 Lv. {level},Threat Lv. {level}
 ui_difficulty_paused_combat_locked,难度时间暂停 / 武器与技能锁定,Difficulty Time Paused / Weapons & Skills Locked
 ui_difficulty_stage_dormant,蛰伏,Dormant

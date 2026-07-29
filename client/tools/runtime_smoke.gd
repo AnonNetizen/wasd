@@ -92,8 +92,8 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(initial_run_snapshot.get("schema_version", 0)) == 9,
-		"new runs should use Run schema v9"
+		int(initial_run_snapshot.get("schema_version", 0)) == 10,
+		"new runs should use Run schema v10"
 	)
 	_expect(player is CharacterBody2D, "Player should keep 2D CharacterBody2D movement")
 	_expect(_find_node_by_name(player, "Player3DVisual") == null, "Player should use the top-down 2D placeholder instead of a 3D orthographic visual child")
@@ -156,6 +156,7 @@ func _run() -> void:
 	_expect(_map_safe_zone_is_rectangle(run_loop), "MapManager should draw the spawn safe zone as a grid-aligned rectangle")
 	_expect(_map_summary_has_rect_grid(run_loop), "MapManager should expose a positive rectangular grid cell size")
 	_expect(_warzone_director_initial_summary_is_ready(run_loop), "WarzoneDirector should expose the standard warmup phase debug summary")
+	_expect_enemy_spawn_reward_snapshots(run_loop, player)
 	_expect_open_warzone_difficulty_and_wave_gating(run_loop)
 	_expect(_map_clamps_to_rect_boundary(run_loop), "MapManager should clamp positions to the rectangular logic boundary")
 	_expect(_player_clamps_to_rect_boundary(run_loop, player), "Player should clamp to the rectangular logic boundary")
@@ -608,6 +609,219 @@ func _expect_open_warzone_difficulty_and_wave_gating(run_loop: Node) -> void:
 		progression.restore_snapshot(progression_snapshot),
 		"open-warzone difficulty gating test should restore its progression snapshot"
 	)
+
+
+func _expect_enemy_spawn_reward_snapshots(
+	run_loop: Node,
+	player: Node2D
+) -> void:
+	var progression: DifficultyProgression = run_loop.get(
+		"_difficulty_progression"
+	) as DifficultyProgression
+	_expect(
+		progression != null,
+		"enemy reward smoke should access difficulty progression"
+	)
+	if progression == null:
+		return
+	var progression_snapshot: Dictionary = progression.snapshot()
+	var rng_snapshot: Dictionary = RNG.snapshot()
+	var expected_ranges: Dictionary = {
+		"enemy_chaser": Vector2i(9, 11),
+		"enemy_swarm": Vector2i(6, 7),
+		"enemy_stalker": Vector2i(15, 18),
+		"enemy_bulwark": Vector2i(18, 22),
+		"enemy_spitter": Vector2i(9, 11),
+	}
+	var expected_value_multipliers: Dictionary = {
+		"enemy_chaser": 1.0,
+		"enemy_swarm": 0.6666667,
+		"enemy_stalker": 1.6666667,
+		"enemy_bulwark": 2.0,
+		"enemy_spitter": 1.0,
+	}
+	for enemy_id: String in expected_ranges:
+		var spawn_key: String = "reward_range_%s" % enemy_id
+		var spawned: bool = bool(
+			run_loop.call(
+				"_spawn_enemy_at",
+				enemy_id,
+				player.global_position + Vector2(500.0, 0.0),
+				spawn_key
+			)
+		)
+		_expect(spawned, "%s reward range smoke should spawn" % enemy_id)
+		var enemy: Node = _enemy_with_wave_key(spawn_key)
+		_expect(enemy != null, "%s reward range smoke should find its enemy" % enemy_id)
+		if enemy == null:
+			continue
+		var enemy_snapshot: Dictionary = enemy.call("snapshot") as Dictionary
+		var reward: Dictionary = enemy_snapshot.get(
+			"reward_snapshot",
+			{}
+		) as Dictionary
+		var expected_range: Vector2i = expected_ranges[enemy_id] as Vector2i
+		var gold_reward: int = int(reward.get("gold_reward", 0))
+		_expect(
+			bool(reward.get("valid", false))
+			and gold_reward >= expected_range.x
+			and gold_reward <= expected_range.y,
+			"%s should lock a standard opening reward inside %d-%d"
+			% [enemy_id, expected_range.x, expected_range.y]
+		)
+		_expect(
+			int(reward.get("spawn_tier", -1)) == 0
+			and is_equal_approx(
+				float(reward.get("difficulty_coefficient", 0.0)),
+				1.0
+			)
+			and is_equal_approx(
+				float(reward.get("monster_value_multiplier", 0.0)),
+				float(expected_value_multipliers[enemy_id])
+			)
+			and is_equal_approx(
+				float(reward.get("specialization_multiplier", 0.0)),
+				1.0
+			)
+			and is_equal_approx(
+				float(reward.get("time_multiplier", 0.0)),
+				1.0
+			)
+			and float(reward.get("random_multiplier", 0.0)) >= 0.9
+			and float(reward.get("random_multiplier", 0.0)) <= 1.1,
+			"%s reward snapshot should preserve every formula multiplier"
+			% enemy_id
+		)
+		PoolManager.release(enemy)
+
+	var streams_before_invalid: Dictionary = (
+		RNG.snapshot().get("streams", {}) as Dictionary
+	).duplicate(true)
+	_expect(
+		not bool(
+			run_loop.call(
+				"_spawn_enemy_at",
+				"enemy_missing",
+				player.global_position,
+				"reward_invalid"
+			)
+		),
+		"unknown enemy should fail before reward RNG is consumed"
+	)
+	var streams_after_invalid: Dictionary = (
+		RNG.snapshot().get("streams", {}) as Dictionary
+	).duplicate(true)
+	_expect(
+		streams_after_invalid == streams_before_invalid,
+		"failed enemy spawn should not consume any RNG stream"
+	)
+
+	var streams_before_spawn: Dictionary = (
+		RNG.snapshot().get("streams", {}) as Dictionary
+	).duplicate(true)
+	var locked_spawn_key: String = "reward_locked_at_spawn"
+	_expect(
+		bool(
+			run_loop.call(
+				"_spawn_enemy_at",
+				"enemy_chaser",
+				player.global_position + Vector2(540.0, 0.0),
+				locked_spawn_key
+			)
+		),
+		"reward lock smoke should spawn a chaser"
+	)
+	var streams_after_spawn: Dictionary = (
+		RNG.snapshot().get("streams", {}) as Dictionary
+	).duplicate(true)
+	for stream_id: String in streams_before_spawn:
+		if stream_id == "economy":
+			_expect(
+				streams_after_spawn.get(stream_id, {})
+				!= streams_before_spawn.get(stream_id, {}),
+				"successful enemy spawn should consume RNG.economy"
+			)
+		else:
+			_expect(
+				streams_after_spawn.get(stream_id, {})
+				== streams_before_spawn.get(stream_id, {}),
+				"enemy reward resolution should not perturb RNG.%s"
+				% stream_id
+			)
+	var locked_enemy: Node = _enemy_with_wave_key(locked_spawn_key)
+	_expect(
+		locked_enemy != null,
+		"reward lock smoke should find its spawned enemy"
+	)
+	if locked_enemy != null:
+		var reward_before_tier: Dictionary = (
+			locked_enemy.call("snapshot") as Dictionary
+		).get("reward_snapshot", {}) as Dictionary
+		var elapsed: float = float(
+			progression.current_snapshot().get("elapsed", 0.0)
+		)
+		progression.advance(maxf(90.001 - elapsed, 0.0))
+		var reward_after_tier: Dictionary = (
+			locked_enemy.call("snapshot") as Dictionary
+		).get("reward_snapshot", {}) as Dictionary
+		_expect(
+			reward_after_tier == reward_before_tier,
+			"spawned enemy reward should remain locked after crossing a tier"
+		)
+		PoolManager.release(locked_enemy)
+
+	var fixed_difficulty_key: String = "reward_actual_spawn_tier"
+	_expect(
+		bool(
+			run_loop.call(
+				"_spawn_enemy_at",
+				"enemy_chaser",
+				player.global_position + Vector2(580.0, 0.0),
+				fixed_difficulty_key,
+				"",
+				{"reward_specialization_multiplier": 1.0},
+				{
+					"health_multiplier": 1.0,
+					"damage_multiplier": 1.0,
+				}
+			)
+		),
+		"fixed combat-difficulty enemy should spawn"
+	)
+	var fixed_difficulty_enemy: Node = _enemy_with_wave_key(
+		fixed_difficulty_key
+	)
+	_expect(
+		fixed_difficulty_enemy != null,
+		"fixed combat-difficulty reward smoke should find its enemy"
+	)
+	if fixed_difficulty_enemy != null:
+		var fixed_snapshot: Dictionary = (
+			fixed_difficulty_enemy.call("snapshot") as Dictionary
+		)
+		var fixed_reward: Dictionary = fixed_snapshot.get(
+			"reward_snapshot",
+			{}
+		) as Dictionary
+		_expect(
+			int(fixed_reward.get("spawn_tier", -1)) == 1
+			and is_equal_approx(
+				float(fixed_snapshot.get("spawn_health_multiplier", 0.0)),
+				1.0
+			)
+			and is_equal_approx(
+				float(fixed_snapshot.get("spawn_damage_multiplier", 0.0)),
+				1.0
+			),
+			"event-style fixed combat scaling should still use actual spawn tier for gold"
+		)
+		PoolManager.release(fixed_difficulty_enemy)
+
+	_expect(
+		progression.restore_snapshot(progression_snapshot),
+		"enemy reward smoke should restore difficulty progression"
+	)
+	RNG.restore_snapshot(rng_snapshot)
 
 
 func _interest_point_position(run_loop: Node, point_id: String) -> Vector2:
@@ -4026,12 +4240,16 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 		"smoke_attack_restore"
 	)
 	var saved_attack_serial: int = 0
+	var saved_attack_reward: Dictionary = {}
 	if saved_attack_enemy != null:
 		saved_attack_enemy.set_physics_process(false)
 		saved_attack_enemy.call("_arm_explosion", false)
 		saved_attack_serial = int(
 			saved_attack_enemy.call("runtime_spawn_serial")
 		)
+		saved_attack_reward = (
+			saved_attack_enemy.call("snapshot") as Dictionary
+		).get("reward_snapshot", {}) as Dictionary
 	var saved_ranged_enemy: Node2D = _spawn_smoke_enemy(
 		run_loop,
 		"enemy_spitter",
@@ -4039,6 +4257,7 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	)
 	var saved_ranged_serial: int = 0
 	var saved_ranged_timer: float = 0.0
+	var saved_ranged_reward: Dictionary = {}
 	if saved_ranged_enemy != null:
 		saved_ranged_enemy.set_physics_process(false)
 		var ranged_snapshot: Dictionary = saved_ranged_enemy.call("snapshot")
@@ -4060,6 +4279,9 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 				0.0
 			)
 		)
+		saved_ranged_reward = (
+			saved_ranged_enemy.call("snapshot") as Dictionary
+		).get("reward_snapshot", {}) as Dictionary
 	player.call(
 		"apply_weapon_recoil",
 		player.get("aim_direction") as Vector2,
@@ -4119,6 +4341,14 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 		if saved_attack_enemy != null
 		else 0.0
 	)
+	var paused_run_snapshot: Dictionary = run_loop.call(
+		"create_run_snapshot"
+	) as Dictionary
+	var saved_economy_rng: Dictionary = (
+		(
+			paused_run_snapshot.get("rng", {}) as Dictionary
+		).get("streams", {}) as Dictionary
+	).get("economy", {}) as Dictionary
 	await _verify_pause_settings_entry(pause_menu)
 
 	var paused_time: float = GameClock.now()
@@ -4221,6 +4451,19 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 			),
 			"continue should restore the exact remaining exploder windup"
 		)
+		_expect(
+			_reward_snapshots_match(
+				saved_attack_reward,
+				restored_attack_snapshot.get("reward_snapshot", {}) as Dictionary
+			),
+			(
+				"continue should restore the exploder reward without rerolling; "
+				+ "saved=%s restored=%s"
+			) % [
+				saved_attack_reward,
+				restored_attack_snapshot.get("reward_snapshot", {}),
+			]
+		)
 	var restored_ranged_enemy: Node = _enemy_by_spawn_serial(
 		saved_ranged_serial
 	)
@@ -4252,6 +4495,19 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 			) == 4,
 			"continue should restore exact ranged windup timing and shots"
 		)
+		_expect(
+			_reward_snapshots_match(
+				saved_ranged_reward,
+				restored_ranged_snapshot.get("reward_snapshot", {}) as Dictionary
+			),
+			(
+				"continue should restore the Assault Gunner reward without rerolling; "
+				+ "saved=%s restored=%s"
+			) % [
+				saved_ranged_reward,
+				restored_ranged_snapshot.get("reward_snapshot", {}),
+			]
+		)
 	_expect(int(restored_run_loop.call("current_level")) == saved_level, "continue should restore level")
 	_expect(int(restored_run_loop.call("gold_balance")) == saved_gold_balance, "continue should restore gold balance")
 	_expect(int(restored_run_loop.call("gold_earned_total")) == saved_gold_total, "continue should restore earned gold total")
@@ -4259,6 +4515,15 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	var restored_pause_menu: Node = _find_node_by_name(get_tree().root, "PauseMenu")
 	_expect(restored_pause_menu != null, "continue should restore the pause menu when the run was saved while paused")
 	var restored_snapshot: Dictionary = restored_run_loop.call("create_run_snapshot")
+	var restored_economy_rng: Dictionary = (
+		(
+			restored_snapshot.get("rng", {}) as Dictionary
+		).get("streams", {}) as Dictionary
+	).get("economy", {}) as Dictionary
+	_expect(
+		restored_economy_rng == saved_economy_rng,
+		"restoring active enemies should not consume RNG.economy"
+	)
 	_expect(_snapshot_has_hazards(restored_snapshot), "continue should restore finite map hazards")
 	var restored_points: Dictionary = restored_snapshot.get("interest_points", {}) as Dictionary
 	var restored_resource_state: Dictionary = restored_points.get("poi_resource_cache", {}) as Dictionary
@@ -4288,6 +4553,13 @@ func _enemy_by_spawn_serial(spawn_serial: int) -> Node:
 			enemy.has_method("runtime_spawn_serial")
 			and int(enemy.call("runtime_spawn_serial")) == spawn_serial
 		):
+			return enemy
+	return null
+
+
+func _enemy_with_wave_key(wave_key: String) -> Node:
+	for enemy: Node in get_tree().get_nodes_in_group("active_enemies"):
+		if String(enemy.get_meta("wave_key", "")) == wave_key:
 			return enemy
 	return null
 
@@ -4705,6 +4977,38 @@ func _expect(condition: bool, message: String) -> void:
 		return
 	_failures.append(message)
 	push_error("[RuntimeSmoke] %s" % message)
+
+
+func _reward_snapshots_match(expected: Dictionary, actual: Dictionary) -> bool:
+	if expected.size() != actual.size():
+		return false
+	if (
+		bool(expected.get("valid", false))
+		!= bool(actual.get("valid", false))
+		or int(expected.get("gold_reward", -1))
+		!= int(actual.get("gold_reward", -1))
+		or int(expected.get("spawn_tier", -1))
+		!= int(actual.get("spawn_tier", -1))
+	):
+		return false
+	for field_name: String in [
+		"base_coefficient",
+		"difficulty_coefficient",
+		"monster_value_multiplier",
+		"specialization_multiplier",
+		"time_multiplier",
+		"random_multiplier",
+	]:
+		if (
+			not expected.has(field_name)
+			or not actual.has(field_name)
+			or not is_equal_approx(
+				float(expected[field_name]),
+				float(actual[field_name])
+			)
+		):
+			return false
+	return true
 
 
 func _finish() -> void:

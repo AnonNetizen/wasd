@@ -195,7 +195,7 @@ F8 golden replay 额外在 `recording.run_summary` / `summary.run_summary` 中�
 
 ## 迁移 / 兼容
 
-当前 `.replay` 文件 envelope 与内存 recording schema 都为 3，加载器只接受 v3。旧版、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id` 与 `sub_hero_id`，四技能和冲刺使用当前规范 action。弹道随机由运行时按固定 `RNG.combat` 消耗重算；Player 后坐 / 敌人击退、金币、未完成奖励选择、敌人攻击阶段 / armed / 生成序号、精确出生倍率与世界事件事务属于 Run v9 而不是 replay 输入字段。Replay 只在 decision / `run_end` / summary 保留当前稳定摘要，不能把两种格式混合。
+当前 `.replay` 文件 envelope 与内存 recording schema 都为 3，加载器只接受 v3。旧版、缺失版本和未来未知版本都返回空结果、写入明确 `last_error()` 并保持源文件不变；不提供迁移。录制 context / `run_start` decision 必须带 `main_hero_id`、`sub_hero_id` 和 difficulty profile id / coefficient，四技能和冲刺使用当前规范 action。弹道随机由运行时按固定 `RNG.combat` 消耗重算；Player 后坐 / 敌人击退、金币、未完成奖励选择、敌人攻击阶段 / armed / 生成序号、精确出生倍率 / 奖励明细与世界事件事务属于 Run v10 而不是 replay 输入字段。Replay 只在 context / decision / `run_end` / summary 保留当前稳定摘要，不能把两种格式混合。
 
 ## 相关文档
 

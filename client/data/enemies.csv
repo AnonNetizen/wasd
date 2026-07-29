@@ -1,6 +1,6 @@
-id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,presentation_profile_id,max_hp,move_speed,gold_reward,hit_radius,separation_radius
-enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/actors/enemies/enemy_chaser.tscn,6,enemy_ai_exploder,presentation_enemy_exploder,12,110.0,3,14.0,9.0
-enemy_swarm,enemy_swarm_name,tag_enemy,enemy_swarm,res://scenes/gameplay/actors/enemies/enemy_swarm.tscn,4,enemy_ai_melee_swarm,presentation_enemy_melee,6,155.0,2,10.0,6.0
-enemy_stalker,enemy_stalker_name,tag_enemy,enemy_stalker,res://scenes/gameplay/actors/enemies/enemy_stalker.tscn,3,enemy_ai_charge_stalker,presentation_enemy_charge,16,125.0,5,13.0,8.0
-enemy_bulwark,enemy_bulwark_name,tag_enemy,enemy_bulwark,res://scenes/gameplay/actors/enemies/enemy_bulwark.tscn,3,enemy_ai_ram_bulwark,presentation_enemy_charge,28,72.0,6,18.0,12.0
-enemy_spitter,enemy_spitter_name,tag_enemy,enemy_spitter,res://scenes/gameplay/actors/enemies/enemy_spitter.tscn,12,enemy_ai_ranged_spitter,presentation_enemy_rifle,10,88.0,3,12.0,8.0
+id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,presentation_profile_id,max_hp,move_speed,gold_value_multiplier,hit_radius,separation_radius
+enemy_chaser,enemy_chaser_name,tag_enemy,enemy_chaser,res://scenes/gameplay/actors/enemies/enemy_chaser.tscn,6,enemy_ai_exploder,presentation_enemy_exploder,12,110.0,1.0,14.0,9.0
+enemy_swarm,enemy_swarm_name,tag_enemy,enemy_swarm,res://scenes/gameplay/actors/enemies/enemy_swarm.tscn,4,enemy_ai_melee_swarm,presentation_enemy_melee,6,155.0,0.6666667,10.0,6.0
+enemy_stalker,enemy_stalker_name,tag_enemy,enemy_stalker,res://scenes/gameplay/actors/enemies/enemy_stalker.tscn,3,enemy_ai_charge_stalker,presentation_enemy_charge,16,125.0,1.6666667,13.0,8.0
+enemy_bulwark,enemy_bulwark_name,tag_enemy,enemy_bulwark,res://scenes/gameplay/actors/enemies/enemy_bulwark.tscn,3,enemy_ai_ram_bulwark,presentation_enemy_charge,28,72.0,2.0,18.0,12.0
+enemy_spitter,enemy_spitter_name,tag_enemy,enemy_spitter,res://scenes/gameplay/actors/enemies/enemy_spitter.tscn,12,enemy_ai_ranged_spitter,presentation_enemy_rifle,10,88.0,1.0,12.0,8.0

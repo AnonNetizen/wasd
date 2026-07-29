@@ -5,9 +5,11 @@ extends RefCounted
 ## Tracks mode-level threat time and resolves deterministic enemy spawn multipliers.
 
 
-const SNAPSHOT_SCHEMA_VERSION: int = 1
+const SNAPSHOT_SCHEMA_VERSION: int = 2
 
 var _profile_id: String = ""
+var _profile_name_key: String = ""
+var _difficulty_coefficient: float = 1.0
 var _tier_interval_seconds: float = 90.0
 var _continuous_growth_per_interval: float = 0.04
 var _tier_step_growth: float = 0.09
@@ -19,6 +21,12 @@ var _enabled: bool = false
 
 func configure(profile: Dictionary, enabled: bool = true) -> bool:
 	var profile_id: String = String(profile.get("id", ""))
+	var profile_name_key: String = String(
+		profile.get("name_key", "")
+	)
+	var difficulty_coefficient: float = float(
+		profile.get("difficulty_coefficient", 0.0)
+	)
 	var interval: float = float(profile.get("tier_interval_seconds", 0.0))
 	var continuous_growth: float = float(
 		profile.get("continuous_growth_per_interval", -1.0)
@@ -28,6 +36,9 @@ func configure(profile: Dictionary, enabled: bool = true) -> bool:
 	var stage_name_values: Variant = profile.get("stage_name_keys")
 	if (
 		profile_id.is_empty()
+		or profile_name_key.is_empty()
+		or not is_finite(difficulty_coefficient)
+		or difficulty_coefficient <= 0.0
 		or not is_finite(interval)
 		or interval <= 0.0
 		or not is_finite(continuous_growth)
@@ -51,6 +62,8 @@ func configure(profile: Dictionary, enabled: bool = true) -> bool:
 		parsed_stage_names.append(name_key)
 
 	_profile_id = profile_id
+	_profile_name_key = profile_name_key
+	_difficulty_coefficient = difficulty_coefficient
 	_tier_interval_seconds = interval
 	_continuous_growth_per_interval = continuous_growth
 	_tier_step_growth = tier_growth
@@ -64,7 +77,7 @@ func configure(profile: Dictionary, enabled: bool = true) -> bool:
 func advance(delta: float) -> void:
 	if not _enabled or delta <= 0.0 or not is_finite(delta):
 		return
-	var next_elapsed: float = _elapsed + delta
+	var next_elapsed: float = _elapsed + delta * _difficulty_coefficient
 	if is_finite(next_elapsed):
 		_elapsed = next_elapsed
 
@@ -87,6 +100,8 @@ func current_snapshot() -> Dictionary:
 		name_key = _stage_name_keys[mini(tier, _stage_name_keys.size() - 1)]
 	return {
 		"profile_id": _profile_id,
+		"profile_name_key": _profile_name_key,
+		"difficulty_coefficient": _difficulty_coefficient,
 		"enabled": _enabled,
 		"elapsed": _elapsed,
 		"tier": tier,
@@ -103,6 +118,10 @@ func enemy_spawn_snapshot() -> Dictionary:
 	var current: Dictionary = current_snapshot()
 	return {
 		"profile_id": current.get("profile_id", ""),
+		"difficulty_coefficient": current.get(
+			"difficulty_coefficient",
+			1.0
+		),
 		"elapsed": current.get("elapsed", 0.0),
 		"tier": current.get("tier", 0),
 		"coefficient": current.get("coefficient", 1.0),
@@ -116,6 +135,7 @@ func snapshot() -> Dictionary:
 	return {
 		"schema_version": SNAPSHOT_SCHEMA_VERSION,
 		"profile_id": _profile_id,
+		"difficulty_coefficient": _difficulty_coefficient,
 		"elapsed": _elapsed,
 		"enabled": _enabled,
 	}
@@ -125,6 +145,17 @@ func restore_snapshot(saved_snapshot: Dictionary) -> bool:
 	if int(saved_snapshot.get("schema_version", -1)) != SNAPSHOT_SCHEMA_VERSION:
 		return false
 	if String(saved_snapshot.get("profile_id", "")) != _profile_id:
+		return false
+	var saved_difficulty_coefficient: float = float(
+		saved_snapshot.get("difficulty_coefficient", 0.0)
+	)
+	if (
+		not is_finite(saved_difficulty_coefficient)
+		or not is_equal_approx(
+			saved_difficulty_coefficient,
+			_difficulty_coefficient
+		)
+	):
 		return false
 	var enabled_value: Variant = saved_snapshot.get("enabled")
 	if not enabled_value is bool:
@@ -145,6 +176,8 @@ func restore_snapshot(saved_snapshot: Dictionary) -> bool:
 
 func _clear() -> void:
 	_profile_id = ""
+	_profile_name_key = ""
+	_difficulty_coefficient = 1.0
 	_stage_name_keys.clear()
 	_elapsed = 0.0
 	_enabled = false

@@ -10,6 +10,9 @@ const ELEMENT_RESOLVER_SCRIPT := preload("res://scripts/data/element_resolver.gd
 const DIFFICULTY_PROGRESSION_SCRIPT := preload(
 	"res://scripts/data/difficulty_progression.gd"
 )
+const ENEMY_REWARD_RESOLVER_SCRIPT := preload(
+	"res://scripts/data/enemy_reward_resolver.gd"
+)
 const HERO_COMPOSITION_RESOLVER_SCRIPT := preload(
 	"res://scripts/data/hero_composition_resolver.gd"
 )
@@ -93,6 +96,7 @@ func _run() -> void:
 
 	_expect_rng_same_seed_stable()
 	_expect_rng_snapshot_restore()
+	_expect_enemy_reward_resolution()
 	_expect_difficulty_progression_boundaries()
 	_expect_enemy_difficulty_spawn_scaling()
 	await _expect_game_clock_pause_freezes()
@@ -141,6 +145,100 @@ func _expect_rng_snapshot_restore() -> void:
 	_expect(RNG.combat.randi() == expected_roll, "RNG snapshot should restore stream state")
 
 
+func _expect_enemy_reward_resolution() -> void:
+	var reward_config: Dictionary = DataLoader.load_json(
+		DataLoader.ENEMY_REWARDS_PATH
+	) as Dictionary
+	var lower: Dictionary = ENEMY_REWARD_RESOLVER_SCRIPT.resolve(
+		reward_config,
+		1.0,
+		1.0,
+		1.0,
+		0,
+		0.9
+	)
+	var upper: Dictionary = ENEMY_REWARD_RESOLVER_SCRIPT.resolve(
+		reward_config,
+		1.0,
+		1.0,
+		1.0,
+		0,
+		1.1
+	)
+	_expect(
+		int(lower.get("gold_reward", 0)) == 9
+		and int(upper.get("gold_reward", 0)) == 11,
+		"enemy reward resolver should honor configured random bounds"
+	)
+	var staged: Dictionary = ENEMY_REWARD_RESOLVER_SCRIPT.resolve(
+		reward_config,
+		1.0,
+		1.0,
+		1.0,
+		1,
+		1.0
+	)
+	_expect(
+		int(staged.get("gold_reward", 0)) == 11
+		and is_equal_approx(
+			float(staged.get("time_multiplier", 0.0)),
+			1.1
+		),
+		"enemy reward resolver should apply the spawn tier multiplier"
+	)
+	var specialized: Dictionary = ENEMY_REWARD_RESOLVER_SCRIPT.resolve(
+		reward_config,
+		2.0,
+		1.0,
+		1.5,
+		0,
+		1.0
+	)
+	_expect(
+		int(specialized.get("gold_reward", 0)) == 30,
+		"enemy reward resolver should multiply difficulty and specialization"
+	)
+	var rounded: Dictionary = ENEMY_REWARD_RESOLVER_SCRIPT.resolve(
+		reward_config,
+		1.0,
+		1.05,
+		1.0,
+		0,
+		1.0
+	)
+	_expect(
+		int(rounded.get("gold_reward", 0)) == 11,
+		"enemy reward resolver should round the final product"
+	)
+	for invalid_multiplier: float in [0.0, -1.0, NAN]:
+		var invalid: Dictionary = ENEMY_REWARD_RESOLVER_SCRIPT.resolve(
+			reward_config,
+			1.0,
+			invalid_multiplier,
+			1.0,
+			0,
+			1.0
+		)
+		_expect(
+			not bool(invalid.get("valid", true))
+			and int(invalid.get("gold_reward", -1)) == 0,
+			"enemy reward resolver should reject zero or invalid multipliers"
+		)
+	var saturated: Dictionary = ENEMY_REWARD_RESOLVER_SCRIPT.resolve(
+		reward_config,
+		1.0e20,
+		1.0e20,
+		1.0,
+		0,
+		1.0
+	)
+	_expect(
+		int(saturated.get("gold_reward", 0))
+		== ENEMY_REWARD_RESOLVER_SCRIPT.SAFE_GOLD_MAX,
+		"enemy reward resolver should saturate at the safe integer limit"
+	)
+
+
 func _expect_difficulty_progression_boundaries() -> void:
 	var profiles_payload: Dictionary = DataLoader.load_json(
 		DataLoader.DIFFICULTY_PROFILES_PATH
@@ -153,6 +251,15 @@ func _expect_difficulty_progression_boundaries() -> void:
 	if profiles.is_empty():
 		return
 	var profile: Dictionary = profiles[0] as Dictionary
+	_expect(
+		is_equal_approx(
+			float(profile.get("difficulty_coefficient", 0.0)),
+			1.0
+		)
+		and String(profile.get("name_key", ""))
+		== "ui_difficulty_standard_name",
+		"standard difficulty should expose its localized name and coefficient 1.0"
+	)
 	var cases: Array[Dictionary] = [
 		{
 			"elapsed": 0.0,
@@ -258,6 +365,45 @@ func _expect_difficulty_progression_boundaries() -> void:
 		and float(late_snapshot.get("health_multiplier", 0.0)) > 2.04,
 		"difficulty should keep growing after twelve minutes"
 	)
+	var accelerated_profile: Dictionary = profile.duplicate(true)
+	accelerated_profile["difficulty_coefficient"] = 2.0
+	var accelerated: DifficultyProgression = (
+		DIFFICULTY_PROGRESSION_SCRIPT.new()
+	)
+	_expect(
+		accelerated.configure(accelerated_profile),
+		"difficulty progression should accept a positive difficulty coefficient"
+	)
+	accelerated.advance(45.0)
+	var accelerated_snapshot: Dictionary = accelerated.current_snapshot()
+	_expect(
+		is_equal_approx(
+			float(accelerated_snapshot.get("elapsed", 0.0)),
+			90.0
+		)
+		and int(accelerated_snapshot.get("tier", 0)) == 1
+		and is_equal_approx(
+			float(
+				accelerated_snapshot.get(
+					"difficulty_coefficient",
+					0.0
+				)
+			),
+			2.0
+		),
+		"difficulty coefficient should scale threat-time advancement"
+	)
+	var progression_snapshot: Dictionary = accelerated.snapshot()
+	var restored: DifficultyProgression = DIFFICULTY_PROGRESSION_SCRIPT.new()
+	_expect(
+		restored.configure(accelerated_profile)
+		and restored.restore_snapshot(progression_snapshot)
+		and is_equal_approx(
+			float(restored.current_snapshot().get("elapsed", 0.0)),
+			90.0
+		),
+		"difficulty coefficient and elapsed threat time should roundtrip"
+	)
 
 
 func _expect_enemy_difficulty_spawn_scaling() -> void:
@@ -301,6 +447,14 @@ func _expect_enemy_difficulty_spawn_scaling() -> void:
 			},
 		}],
 	}
+	var reward_snapshot: Dictionary = ENEMY_REWARD_RESOLVER_SCRIPT.resolve(
+		DataLoader.load_json(DataLoader.ENEMY_REWARDS_PATH) as Dictionary,
+		1.0,
+		1.0,
+		1.0,
+		0,
+		1.0
+	)
 	enemy.call(
 		"configure",
 		enemy_data,
@@ -309,7 +463,8 @@ func _expect_enemy_difficulty_spawn_scaling() -> void:
 		{
 			"health_multiplier": 2.04,
 			"damage_multiplier": 1.4992,
-		}
+		},
+		{"reward_snapshot": reward_snapshot}
 	)
 	enemy.set("_current_action", ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK)
 	var ai_summary: Dictionary = enemy.call("ai_debug_summary")
@@ -375,6 +530,12 @@ func _expect_enemy_difficulty_spawn_scaling() -> void:
 		}
 		and is_equal_approx(float(enemy.call("max_life")), 204.0),
 		"enemy snapshot restore should preserve exact spawn multipliers"
+	)
+	_expect(
+		(
+			enemy.call("ai_debug_summary") as Dictionary
+		).get("reward_snapshot", {}) == reward_snapshot,
+		"enemy snapshot restore should preserve the locked reward breakdown"
 	)
 	enemy.remove_from_group("active_enemies")
 	player.remove_from_group("active_player")

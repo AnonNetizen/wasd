@@ -6,7 +6,7 @@
 ## 职责与边界
 
 - `HeroCompositionResolver` 把主英雄的两个 `hero_skill_ids` 放入 `skill_1` / `skill_2`，把子英雄的两个技能放入 `skill_3` / `skill_4`；主英雄提供能力属性、被动和外观主体，子英雄不提供属性或被动。
-- `SkillSystem.cast_slot(slot_id)` 管理四槽独立冷却、共享能量、目标筛选、效果解释和 Run v9 快照。冷却键永远是槽位，不是 skill id。
+- `SkillSystem.cast_slot(slot_id)` 管理四槽独立冷却、共享能量、目标筛选、效果解释和 Run v10 快照。冷却键永远是槽位，不是 skill id。
 - ADR #166 后 RunLoop 通过 `configure_combat_gate()` 注入起点房门禁；锁定时释放返回 `reason=combat_locked`，不消耗能量、不进入冷却，且技能必须松开后重新按键。
 - 主英雄 `ability_strength` / `ability_range` / `ability_efficiency` / `ability_duration` 作用于全部四槽，但只缩放技能数据明确声明的参数。
 - 技能行为只能由 `skill_effect_*` 通用原语、状态和按来源覆盖的属性修饰器表达；禁止按 hero id 或 skill id 写分支。
@@ -48,7 +48,7 @@
 | `cast_skill(skill_id) -> Dictionary` | 兼容／测试入口；正式业务应使用槽位 |
 | `cooldown_remaining(slot_or_skill_id) -> float` | UI 使用槽位查询；skill id 查询只为兼容诊断 |
 | `resource_amount()` / `resource_maximum()` / `add_resource()` | 共享资源门面；当前正式资源为 `energy` |
-| `snapshot()` / `restore_snapshot()` | Run v9 的技能子快照；不保存 Node 引用，combat gate 由当前 RunLoop 重新注入 |
+| `snapshot()` / `restore_snapshot()` | Run v10 的技能子快照；不保存 Node 引用，combat gate 由当前 RunLoop 重新注入 |
 | `debug_set_free_casts()` / `debug_refresh()` / `debug_summary()` | Developer Test Arena 与 smoke 使用，不得成为正式玩法依赖 |
 | `SkillValueResolver.scaled_*()` | 纯数据缩放 API；新增缩放规则时先改此处，`SkillSystem` 与描述自动共享 |
 | `SkillDescriptionFormatter.format_skill()` / `format_passive()` | 接受译文模板与数据定义并返回完整描述；不负责 `tr()` 或语言选择 |
@@ -97,7 +97,7 @@
 | 描述数值与实际效果不一致 | 是否绕过 `SkillValueResolver` 另写了一套缩放；新增规则必须由运行时与描述共用 |
 | 重施叠出多个 buff | 修饰器 source key 是否包含槽位，目标系统是否按来源覆盖 |
 | 屏障跨界规则错误 | 屏障是否在 `active_deployables`，子弹是否为 `team_enemy`，首帧是否保留射手开火位置，圆内／圆外端点与线段求交是否一致 |
-| 续局丢失技能／屏障 | Run v9 是否保存组合和 `skills` 快照；恢复是否先解析组合再恢复槽位 |
+| 续局丢失技能／屏障 | Run v10 是否保存组合和 `skills` 快照；恢复是否先解析组合再恢复槽位 |
 | 起点房技能仍消耗能量 | `configure_combat_gate()` 是否在技能初始化后接入；门禁是否在资源 / 冷却校验之前 |
 
 ## 测试义务
@@ -109,7 +109,7 @@
 
 ## 迁移边界
 
-当前 Meta v2、Run v9、Replay v3。旧 Run v8 因缺少世界事件完整幂等状态而不迁移玩法快照，提示一次后只删除 run；旧 Replay 明确拒绝。局内换子英雄尚未实现，不得从预留的重复槽倍率推导出可用的切换入口。
+当前 Meta v2、Run v10、Replay v3。旧 Run v9 因缺少敌人奖励快照与 `RNG.economy` state 而不迁移玩法快照，提示一次后只删除 run；旧 Replay 明确拒绝。局内换子英雄尚未实现，不得从预留的重复槽倍率推导出可用的切换入口。
 
 ## 相关文档
 

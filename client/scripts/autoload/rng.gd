@@ -75,6 +75,7 @@ var vfx: Stream = Stream.new()
 var ui_choice: Stream = Stream.new()
 var world: Stream = Stream.new()
 var world_event: Stream = Stream.new()
+var economy: Stream = Stream.new()
 var meta: Stream = Stream.new()
 
 var _run_seed: int = DEFAULT_RUN_SEED
@@ -91,6 +92,7 @@ func _ready() -> void:
 		"ui_choice": ui_choice,
 		"world": world,
 		RNG_STREAMS.WORLD_EVENT: world_event,
+		RNG_STREAMS.ECONOMY: economy,
 		"meta": meta,
 	}
 	set_run_seed(DEFAULT_RUN_SEED)

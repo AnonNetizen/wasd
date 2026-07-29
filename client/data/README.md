@@ -22,7 +22,7 @@
 | 选择 / 调整视觉效果 | `visual_effects.json`、`presentation_profiles.json` | 内容数据只引用 `presentation_profile_id`；在 Godot 的“VFX 效果库”中预览和绑定，不手抄字符串 |
 | 改英雄主属性 / 被动 / 两个英雄技能 / 配色 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；主英雄提供属性被动和技能 1/2，子英雄只提供强调色和技能 3/4 |
 | 改武器射速 / 后坐力 / 弹道扩散 / 子弹数值 | `weapons.json` | 武器 id 文件内唯一；后坐力与基础扩散受根级 `recoil_model` 限制，子弹池、元素和音频前缀必须来自词表 |
-| 改敌人血量 / 速度 / 金币奖励 / 中心间距 | `enemies.csv` | 显式攻击参数统一在 `enemy_ai_profiles.json.actions[].attack`；每个敌人使用独立 `pool_id` |
+| 改敌人血量 / 速度 / 怪物金币价值 / 中心间距 | `enemies.csv` | `gold_value_multiplier` 只表达怪物相对价值；全局金币公式改 `enemy_rewards.json`；显式攻击参数统一在 `enemy_ai_profiles.json.actions[].attack` |
 | 改敌人对玩家 AI | `enemy_ai_profiles.json` | AI action 必须来自词表 §12-B；敌人的感知与战斗目标固定为玩家 |
 | 改机关伤害 / 占格尺寸 / 触发周期 | `hazards.csv` | 机关标签、对象池 id、伤害类型必须来自词表；范围尺寸写正整数 `radius_tiles` |
 | 改地图边界 / 矩形格 / PCG 机关 / 人工摆点 | `map_layouts.json` | 地图绑定模式 id；bounds 是轴对齐矩形，必须分别整除 `grid.cell_width` / `grid.cell_height`；PCG 使用 `RNG.world` 并按机关占格奇偶吸附到合法矩形格锚点 |
@@ -35,7 +35,8 @@
 | 改技能消耗 / 冷却 / 目标 / 伤害 | `skills.json` | 技能不绑定英雄；角色或道具只引用 skill id，资源消耗用 `skill_resources` 声明 |
 | 改消耗品堆叠 / 效果声明 | `consumables.json` | 用 `stack` 和 `use_effects`，不要实现拾取 / 背包运行时 |
 | 改某个游戏模式可用内容 / 权重 | `game_modes.json` | 模式只组合资源池、难度 profile 和轻量覆盖；不要复制角色 / 遗物本体 |
-| 改敌人随局内时间增长的生命 / 伤害曲线 | `difficulty_profiles.json` | 只影响之后生成敌人的生命与伤害；阶段名只填 locale key，不在数据里写译文 |
+| 改难度名称 / 系数或敌人随时间增长的生命 / 伤害曲线 | `difficulty_profiles.json` | 难度系数缩放威胁时间和生成金币；当前只配置标准 `1.0`，尚无选择 UI |
+| 改敌人金币基础系数 / 阶段增长 / 随机范围 | `enemy_rewards.json` | schema v1；实际金币在敌人成功生成时用 `RNG.economy` 锁定，死亡时不重算 |
 | 改开放战区刷怪组合 / 波次 | `spawn_waves.csv` | 大改后需要跑回放 / 平衡验证 |
 | 改金币等级曲线 / 通用奖励候选 | `level_progression.json` / `reward_choice_pools.json` | 等级曲线使用整数有理数；候选数量由调用方指定 2–5，抽取走 `RNG.ui_choice` |
 | 改装备 Mod / 英雄或武器装配 | `gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv` | 装备 Mod 与本地数据包 mod 是不同概念；Mod id / slot / rarity / resource / stack rule 必须先登记契约 |
@@ -49,7 +50,8 @@
 |------|------|------|
 | `player.json` | 已建立 | 默认玩家基础属性，完整项目首个数值入口 |
 | `camera_feedback.json` | 已建立 | 摄像机表现反馈；含瞄准方向引导偏移、玩家有效受伤与武器后坐力的 Phantom Camera 参数 |
-| `difficulty_profiles.json` | 已建立 | 模式级局内威胁时间曲线：90 秒阶段、连续增长、阶段跃升、伤害换算比例和九段本地化名称 |
+| `difficulty_profiles.json` | 已建立 | schema v2：难度双语名称 / 系数、模式级威胁时间曲线、阶段跃升、伤害换算比例和九段名称 |
+| `enemy_rewards.json` | 已建立 | schema v1：敌人金币基础系数、每阶段增长与 `RNG.economy` 随机倍率范围 |
 | `game_modes.json` | 已建立 | 游戏模式配置：难度 profile、可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 技能 / 消耗品、权重、禁用列表、参与者 / 队伍预留和轻量覆盖 |
 | `characters.json` | 已建立 | 英雄列表：场景、主副配色、基础属性、被动、两个英雄技能和起始携带 |
 | `weapons.json` | 已建立 | 武器、后坐力 / 弹道扩散模型与子弹基础配置：射速、弹速、射程、池 id、默认元素 |
@@ -58,7 +60,7 @@
 | `skills.json` | 已建立 | 可复用技能：冷却、资源消耗、目标选择和技能效果原语 |
 | `consumables.json` | 已建立 | 消耗品：堆叠数量、拾取数量、效果原语与参数 |
 | `enemy_ai_profiles.json` | 已建立 | 敌人对玩家 AI profile：感知、动作列表、冲锋 / 守家 / 远程等行为参数 |
-| `enemies.csv` | 已建立 | 敌人基础数值平表：专属场景、独立对象池、预热数量、生命、移速、金币奖励和碰撞 / 分离半径 |
+| `enemies.csv` | 已建立 | 敌人基础数值平表：专属场景、独立对象池、预热数量、生命、移速、金币价值倍率和碰撞 / 分离半径 |
 | `hazards.csv` | 已建立 | 机关基础数值平表：伤害、触发周期、占格尺寸、持续时间 |
 | `map_layouts.json` | 已建立 | 有限地图配置：矩形地图边界、矩形格尺寸、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
 | `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、兴趣点 / 机关组合和阶段启用 wave |
@@ -205,10 +207,10 @@ user://mods/my_first_mod/
 CSV 示例：
 
 ```csv
-id,max_hp,move_speed,gold_reward
-slime,20,90,3
-bat,12,150,2
-brute,80,60,10
+id,max_hp,move_speed,gold_value_multiplier
+slime,20,90,1.0
+bat,12,150,0.6666667
+brute,80,60,2.0
 ```
 
 JSON 示例：
@@ -313,7 +315,7 @@ JSON 示例：
 | `energy_drop.pickup_speed` | float | `px/s`，`> 0` | 能量球吸附速度；当前 360.0 | 更快靠近玩家 |
 | `energy_drop.pool_id` / `rng_stream` | string | `energy_orb` / `drop`，必须已登记 | 能量球对象池与确定性掉落 RNG 子流 | 不作数值调节 |
 | `gold_drop.pickup_speed` | float | `px/s`，`> 0` | 金币球吸附速度；当前 360.0 | 更快靠近玩家 |
-| `gold_drop.pool_id` | string | 必须为登记过的 `gold_orb` | 金币球对象池；玩家归因击杀且 `gold_reward > 0` 时必掉一个 | 不作数值调节 |
+| `gold_drop.pool_id` | string | 必须为登记过的 `gold_orb` | 金币球对象池；玩家归因击杀且锁定金币 `> 0` 时必掉一个 | 不作数值调节 |
 
 ## `camera_feedback.json`
 
@@ -395,14 +397,16 @@ JSON 示例：
 
 ## `difficulty_profiles.json`
 
-当前 schema v1 结构：
+当前 schema v2 结构：
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "profiles": [
     {
       "id": "difficulty_standard_survival",
+      "name_key": "ui_difficulty_standard_name",
+      "difficulty_coefficient": 1.0,
       "tier_interval_seconds": 90.0,
       "continuous_growth_per_interval": 0.04,
       "tier_step_growth": 0.09,
@@ -427,16 +431,55 @@ JSON 示例：
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 固定 `1` | 难度 profile 数据结构版本 |
+| `schema_version` | int | 固定 `2` | 难度 profile 数据结构版本；旧 v1 明确拒绝 |
 | `profiles` | array[object] | 非空 | 可被游戏模式引用的难度 profile 注册表 |
 | `profiles[].id` | string | 非空、文件内唯一 | profile id；由 `game_modes.json.modes[].difficulty_profile_id` 引用 |
+| `profiles[].name_key` | string | 必须存在于 locale | 玩家可见难度名称；当前为“标准 / Standard” |
+| `profiles[].difficulty_coefficient` | number | 有限且 `> 0` | 玩家选择难度的总体系数；缩放威胁时间推进速度并进入敌人生成金币公式 |
 | `profiles[].tier_interval_seconds` | number | `> 0` 且 `<= 3600` | 每个难度阶段的秒数 |
 | `profiles[].continuous_growth_per_interval` | number | `0..10` | 每经过一个完整阶段时，连续部分对系数增加的数值 |
 | `profiles[].tier_step_growth` | number | `0..10` | 跨过阶段线时额外增加的阶跃数值 |
 | `profiles[].damage_growth_ratio` | number | `0..10` | 生命系数增量折算为敌人伤害增量的比例 |
 | `profiles[].stage_name_keys` | array[string] | 恰好 9 项，且每项必须存在于 locale | Lv.1～Lv.9 的阶段名称；Lv.9 后沿用最后一项 |
 
-标准模式的运行公式为 `tier=floor(elapsed/tier_interval_seconds)`、`coefficient=1+continuous_growth_per_interval*(elapsed/tier_interval_seconds)+tier_step_growth*tier`、`health_multiplier=coefficient`、`damage_multiplier=1+damage_growth_ratio*(coefficient-1)`。曲线没有最终上限；这里不配置移速、攻击间隔、弹速、敌人数、刷新预算、掉落或奖励。
+`DifficultyProgression.advance(delta)` 实际推进 `delta × difficulty_coefficient`。标准模式系数为 `1.0`，因此既有公式仍为 `tier=floor(elapsed/tier_interval_seconds)`、`coefficient=1+continuous_growth_per_interval*(elapsed/tier_interval_seconds)+tier_step_growth*tier`、`health_multiplier=coefficient`、`damage_multiplier=1+damage_growth_ratio*(coefficient-1)`。曲线没有最终上限；这里不配置移速、攻击间隔、弹速、敌人数或刷新预算。难度系数另会进入下节敌人金币公式，但不会改变每个 profile 内的生命 / 伤害参数含义。
+
+## `enemy_rewards.json`
+
+当前 schema v1：
+
+```json
+{
+  "schema_version": 1,
+  "base_coefficient": 10.0,
+  "time_growth_per_tier": 0.10,
+  "random_multiplier_min": 0.9,
+  "random_multiplier_max": 1.1
+}
+```
+
+| 字段 | 类型 / 范围 | 说明 |
+|------|-------------|------|
+| `schema_version` | int，固定 `1` | 敌人金币公式数据版本 |
+| `base_coefficient` | 有限 number，`> 0` | 所有敌人的金币基础系数；当前为 `10.0` |
+| `time_growth_per_tier` | 有限 number，`>= 0` | 敌人实际生成时每个威胁阶段增加的奖励比例；当前每阶段 `+10%` |
+| `random_multiplier_min` | 有限 number，`> 0` | `RNG.economy` 的生成时随机倍率下界；当前 `0.9` |
+| `random_multiplier_max` | 有限 number，`>= random_multiplier_min` | `RNG.economy` 的生成时随机倍率上界；当前 `1.1` |
+
+最终金币为：
+
+```text
+round(
+  base_coefficient
+  × difficulty_coefficient
+  × enemies.csv.gold_value_multiplier
+  × spawn_context.reward_specialization_multiplier
+  × (1 + time_growth_per_tier × spawn_tier)
+  × RNG.economy[random_multiplier_min, random_multiplier_max]
+)
+```
+
+所有正式倍率都必须为有限正数；特殊化倍率缺省为 `1.0`。有效结果至少为 1，并在安全整数上限饱和。随机数只在成功取得敌人池实体、即将生成时抽一次；完整明细进入 Enemy / Run v10 快照，死亡、跨阶段、流式恢复或续局都不重算。环境击杀仍不掉金币；等级门槛、金币祭坛价格和世界事件固定金币奖励不读本文件。
 
 ## `game_modes.json`
 
@@ -586,8 +629,8 @@ JSON 示例：
 当前结构：
 
 ```csv
-id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,presentation_profile_id,max_hp,move_speed,gold_reward,hit_radius,separation_radius
-enemy_spitter,enemy_spitter_name,tag_enemy,enemy_spitter,res://scenes/gameplay/actors/enemies/enemy_spitter.tscn,12,enemy_ai_ranged_spitter,presentation_enemy_rifle,10,88.0,3,12.0,8.0
+id,name_key,tags,pool_id,scene_path,pool_prewarm,ai_profile_id,presentation_profile_id,max_hp,move_speed,gold_value_multiplier,hit_radius,separation_radius
+enemy_spitter,enemy_spitter_name,tag_enemy,enemy_spitter,res://scenes/gameplay/actors/enemies/enemy_spitter.tscn,12,enemy_ai_ranged_spitter,presentation_enemy_rifle,10,88.0,1.0,12.0,8.0
 ```
 
 字段说明：
@@ -604,7 +647,7 @@ enemy_spitter,enemy_spitter_name,tag_enemy,enemy_spitter,res://scenes/gameplay/a
 | `presentation_profile_id` | string | 必须存在于 `presentation_profiles.json` | 敌人语义表现 profile；显式攻击前摇和提交通过 cue 解析 |
 | `max_hp` | int | `>= 1` | 敌人最大生命 |
 | `move_speed` | number | `> 0`，px/s | 敌人基础移动速度 |
-| `gold_reward` | int | `>= 0` | 玩家归因击杀后由单个实体金币球携带的金币奖励；当前敌人保留 2–6 |
+| `gold_value_multiplier` | number | 有限且 `> 0` | 怪物相对金币价值；爆猎者 / 群袭者 / 伏击者 / 壁垒者 / 突击枪手依次为 `1 / 0.6666667 / 1.6666667 / 2 / 1`。标准难度第 0 阶段随机区间约为 `9–11 / 6–7 / 15–18 / 18–22 / 9–11` |
 | `hit_radius` | number | `> 0`，px | 实体命中半径；冲撞扫掠会与玩家命中半径相加 |
 | `separation_radius` | number | `>= 0`，px | 敌人中心排斥半径；小于 `hit_radius` 时允许视觉重叠但避免中心完全重合 |
 

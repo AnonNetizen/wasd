@@ -53,6 +53,7 @@ var _settings_panel: CanvasLayer = null
 var _title_menu: CanvasLayer = null
 var _loading_screen: CanvasLayer = null
 var _player_load_in_progress: bool = false
+var _active_difficulty_profile_id: String = ""
 
 
 func _ready() -> void:
@@ -350,22 +351,49 @@ func _show_title_menu(notice_key: String = "") -> void:
 func _start_gameplay_run(
 	restore_snapshot: Dictionary = {},
 	open_warzone: bool = false,
-	hero_composition: Dictionary = {}
+	hero_composition: Dictionary = {},
+	difficulty_profile_id: String = ""
 ) -> void:
 	UIManager.clear(true)
 	GameState.change_state(GameState.LOADING, {"source": "formal_client_boot"})
-	_mount_gameplay_run(restore_snapshot, open_warzone, false, hero_composition)
+	_mount_gameplay_run(
+		restore_snapshot,
+		open_warzone,
+		false,
+		hero_composition,
+		difficulty_profile_id
+	)
 
 
 func _mount_gameplay_run(
 	restore_snapshot: Dictionary,
 	open_warzone: bool,
 	player_loading_mode: bool,
-	hero_composition: Dictionary = {}
+	hero_composition: Dictionary = {},
+	difficulty_profile_id: String = ""
 ) -> void:
 	_clear_gameplay_runtime()
 
 	_run_loop = GAMEPLAY_RUN_LOOP_SCENE.instantiate()
+	var selected_difficulty_profile_id: String = (
+		difficulty_profile_id.strip_edges()
+	)
+	if selected_difficulty_profile_id.is_empty():
+		selected_difficulty_profile_id = String(
+			(
+				restore_snapshot.get("difficulty", {})
+				as Dictionary
+			).get("profile_id", "")
+		).strip_edges()
+	_active_difficulty_profile_id = selected_difficulty_profile_id
+	if (
+		not selected_difficulty_profile_id.is_empty()
+		and _run_loop.has_method("configure_difficulty_profile_id")
+	):
+		_run_loop.call(
+			"configure_difficulty_profile_id",
+			selected_difficulty_profile_id
+		)
 	var composition_ids: Dictionary = _composition_ids_for_run(
 		restore_snapshot,
 		hero_composition
@@ -415,7 +443,8 @@ func _mount_gameplay_run(
 func _begin_player_gameplay_load(
 	load_mode: PlayerLoadMode,
 	open_warzone: bool = false,
-	hero_composition: Dictionary = {}
+	hero_composition: Dictionary = {},
+	difficulty_profile_id: String = ""
 ) -> void:
 	if _player_load_in_progress:
 		return
@@ -434,7 +463,8 @@ func _begin_player_gameplay_load(
 		"_perform_player_gameplay_load",
 		load_mode,
 		open_warzone,
-		hero_composition
+		hero_composition,
+		difficulty_profile_id
 	)
 
 
@@ -533,7 +563,8 @@ func _hero_rows() -> Array[Dictionary]:
 func _perform_player_gameplay_load(
 	load_mode: PlayerLoadMode,
 	open_warzone: bool,
-	hero_composition: Dictionary
+	hero_composition: Dictionary,
+	difficulty_profile_id: String
 ) -> void:
 	await get_tree().process_frame
 	if not is_instance_valid(self) or not _player_load_in_progress:
@@ -572,7 +603,13 @@ func _perform_player_gameplay_load(
 			_abort_player_gameplay_load("ui_loading_failed")
 			return
 
-	_mount_gameplay_run(restore_snapshot, open_warzone, true, hero_composition)
+	_mount_gameplay_run(
+		restore_snapshot,
+		open_warzone,
+		true,
+		hero_composition,
+		difficulty_profile_id
+	)
 
 
 func _on_player_run_prepared() -> void:
@@ -758,7 +795,8 @@ func _on_run_restart_requested() -> void:
 		{
 			"main_hero_id": _last_main_hero_id,
 			"sub_hero_id": _last_sub_hero_id,
-		}
+		},
+		_active_difficulty_profile_id
 	)
 
 

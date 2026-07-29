@@ -219,6 +219,7 @@
       "ui_choice",
       "world",
       "world_event",
+      "economy",
       "meta"
     ],
     "character_ids": [

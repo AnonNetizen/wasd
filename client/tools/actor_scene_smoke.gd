@@ -318,7 +318,9 @@ func _runtime_enemy_data(enemy_row: Dictionary) -> Dictionary:
 		),
 		"max_hp": String(enemy_row.get("max_hp", "1")).to_int(),
 		"move_speed": String(enemy_row.get("move_speed", "0")).to_float(),
-		"gold_reward": String(enemy_row.get("gold_reward", "0")).to_int(),
+		"gold_value_multiplier": String(
+			enemy_row.get("gold_value_multiplier", "0")
+		).to_float(),
 		"hit_radius": String(enemy_row.get("hit_radius", "1")).to_float(),
 		"separation_radius": String(enemy_row.get("separation_radius", "0")).to_float(),
 	}

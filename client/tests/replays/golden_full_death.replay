@@ -1,8 +1,8 @@
 {
 	"created_at": "golden:golden_full_death",
-	"data_fingerprint": "a89fef2c131f09771747a8ff23f85c7cd049a68b678351fabcd6d5e07fef1f5c",
+	"data_fingerprint": "9d5bcfac5bee46ea07655d2daf1be101a09e0bd104cf394f2030f453b8eeb5f2",
 	"file_schema_version": 3,
-	"game_version": "v1.8",
+	"game_version": "v1.9",
 	"recording": {
 		"context": {
 			"capture_frames": 180,
@@ -35,7 +35,7 @@
 					"sub_hero_id": "character_primary_a"
 				},
 				"tick": 88,
-				"time": 1.47893988888889
+				"time": 1.47756077777777
 			}
 		],
 		"dropped_decision_events": 0,
@@ -282,7 +282,7 @@
 		"started_tick": 7,
 		"started_time": 0.0
 	},
-	"recording_hash": "c01d9a908e46b12645690ad7df85a4444f2e887bbf729ee774e28301be03f5bd",
+	"recording_hash": "203efc0d7fddfeaafd509446deb009e5fd40add51dde1f9d25218fb2534d28dc",
 	"summary": {
 		"decision_events": 2,
 		"dropped_decision_events": 0,

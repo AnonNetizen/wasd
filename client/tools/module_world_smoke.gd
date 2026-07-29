@@ -96,9 +96,9 @@ func _run() -> void:
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
 	_expect(
-		int(fresh_run_snapshot.get("schema_version", 0)) == 9
+		int(fresh_run_snapshot.get("schema_version", 0)) == 10
 		and not (fresh_run_snapshot.get("world_events", {}) as Dictionary).is_empty(),
-		"Run v9 should save registered world-event state"
+		"Run v10 should save registered world-event state"
 	)
 	_expect(String(world_summary.get("map_hash", "")).length() == 64, "world should expose a sha256 map hash")
 	_expect(_coord_matches(world_summary.get("current_module", {}), Vector2i(4, 4)), "fresh run should start in center module")
@@ -962,16 +962,16 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 	await _wait_frames(2)
 	_expect(
 		GameState.is_state(GameState.PAUSED),
-		"Run v9 difficulty roundtrip fixture should save from a frozen UI state"
+		"Run v10 difficulty roundtrip fixture should save from a frozen UI state"
 	)
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	var saved_difficulty: Dictionary = run_loop.call(
 		"debug_difficulty_snapshot"
 	) as Dictionary
-	_expect(int(snapshot.get("schema_version", 0)) == 9, "module run snapshot should use schema v9")
-	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v9 should save")
+	_expect(int(snapshot.get("schema_version", 0)) == 10, "module run snapshot should use schema v10")
+	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v10 should save")
 	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, SAVE_KINDS.RUN)
-	_expect(not loaded.is_empty(), "module run v9 should load")
+	_expect(not loaded.is_empty(), "module run v10 should load")
 	if loaded.is_empty():
 		return
 	var saved_hash: String = String((snapshot.get("module_world", {}) as Dictionary).get("map_hash", ""))

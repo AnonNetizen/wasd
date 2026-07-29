@@ -1,8 +1,8 @@
 {
 	"created_at": "golden:golden_pause_resume",
-	"data_fingerprint": "a89fef2c131f09771747a8ff23f85c7cd049a68b678351fabcd6d5e07fef1f5c",
+	"data_fingerprint": "9d5bcfac5bee46ea07655d2daf1be101a09e0bd104cf394f2030f453b8eeb5f2",
 	"file_schema_version": 3,
-	"game_version": "v1.8",
+	"game_version": "v1.9",
 	"recording": {
 		"context": {
 			"capture_frames": 180,

@@ -38,6 +38,7 @@ const CREDITS_PATH: String = "res://data/credits.json"
 const LEVEL_PROGRESSION_PATH: String = "res://data/level_progression.json"
 const REWARD_CHOICE_POOLS_PATH: String = "res://data/reward_choice_pools.json"
 const DIFFICULTY_PROFILES_PATH: String = "res://data/difficulty_profiles.json"
+const ENEMY_REWARDS_PATH: String = "res://data/enemy_rewards.json"
 const GAME_MODES_PATH: String = "res://data/game_modes.json"
 const MAP_LAYOUTS_PATH: String = "res://data/map_layouts.json"
 const WARZONE_DIRECTORS_PATH: String = "res://data/warzone_directors.json"
@@ -180,6 +181,7 @@ func validate_project_data() -> bool:
 	var weapon_ids: Dictionary = _collect_weapon_ids()
 	is_valid = _validate_enemy_ai_profiles_json() and is_valid
 	var enemy_ai_profile_ids: Dictionary = _collect_enemy_ai_profile_ids()
+	is_valid = _validate_enemy_rewards_json() and is_valid
 	is_valid = _validate_enemies_csv(locale_keys, enemy_ai_profile_ids) and is_valid
 	var enemy_ids: Dictionary = _collect_enemy_ids()
 	is_valid = _validate_gear_mods_json(locale_keys) and is_valid
@@ -2133,7 +2135,7 @@ func _validate_enemies_csv(locale_keys: Dictionary, enemy_ai_profile_ids: Dictio
 			"presentation_profile_id",
 			"max_hp",
 			"move_speed",
-			"gold_reward",
+			"gold_value_multiplier",
 			"hit_radius",
 			"separation_radius",
 		]
@@ -2182,7 +2184,14 @@ func _validate_enemies_csv(locale_keys: Dictionary, enemy_ai_profile_ids: Dictio
 			is_valid = _schema_fail(ENEMIES_PATH, "%s.ai_profile_id" % field, "profile defined in enemy_ai_profiles.json") and is_valid
 		is_valid = _require_csv_int(ENEMIES_PATH, "%s.max_hp" % field, row.get("max_hp"), 1) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.move_speed" % field, row.get("move_speed"), 0.0, null, true) and is_valid
-		is_valid = _require_csv_int(ENEMIES_PATH, "%s.gold_reward" % field, row.get("gold_reward"), 0) and is_valid
+		is_valid = _require_csv_number(
+			ENEMIES_PATH,
+			"%s.gold_value_multiplier" % field,
+			row.get("gold_value_multiplier"),
+			0.0,
+			null,
+			true
+		) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.hit_radius" % field, row.get("hit_radius"), 0.0, null, true) and is_valid
 		is_valid = _require_csv_number(ENEMIES_PATH, "%s.separation_radius" % field, row.get("separation_radius"), 0.0) and is_valid
 		if row.has("visual_color"):
@@ -3005,17 +3014,94 @@ func _validate_reward_choice_pools(locale_keys: Dictionary) -> bool:
 	return is_valid
 
 
+func _validate_enemy_rewards_json() -> bool:
+	var data: Variant = load_json(ENEMY_REWARDS_PATH)
+	if not data is Dictionary:
+		return _schema_fail(ENEMY_REWARDS_PATH, "root", "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = _validate_exact_dictionary_keys(
+		ENEMY_REWARDS_PATH,
+		"root",
+		payload,
+		[
+			"schema_version",
+			"base_coefficient",
+			"time_growth_per_tier",
+			"random_multiplier_min",
+			"random_multiplier_max",
+		]
+	)
+	is_valid = _require_exact_int(
+		ENEMY_REWARDS_PATH,
+		"schema_version",
+		payload.get("schema_version"),
+		1
+	) and is_valid
+	is_valid = _require_number(
+		ENEMY_REWARDS_PATH,
+		"base_coefficient",
+		payload.get("base_coefficient"),
+		0.0,
+		null,
+		true
+	) and is_valid
+	is_valid = _require_number(
+		ENEMY_REWARDS_PATH,
+		"time_growth_per_tier",
+		payload.get("time_growth_per_tier"),
+		0.0
+	) and is_valid
+	is_valid = _require_number(
+		ENEMY_REWARDS_PATH,
+		"random_multiplier_min",
+		payload.get("random_multiplier_min"),
+		0.0,
+		null,
+		true
+	) and is_valid
+	is_valid = _require_number(
+		ENEMY_REWARDS_PATH,
+		"random_multiplier_max",
+		payload.get("random_multiplier_max"),
+		0.0,
+		null,
+		true
+	) and is_valid
+	if (
+		payload.get("random_multiplier_min") is int
+		or payload.get("random_multiplier_min") is float
+	) and (
+		payload.get("random_multiplier_max") is int
+		or payload.get("random_multiplier_max") is float
+	) and float(payload.get("random_multiplier_min")) > float(
+		payload.get("random_multiplier_max")
+	):
+		is_valid = _schema_fail(
+			ENEMY_REWARDS_PATH,
+			"random_multiplier_min",
+			"number <= random_multiplier_max"
+		) and is_valid
+	_last_schema_counts["enemy_reward_models"] = 1
+	return is_valid
+
+
 func _validate_difficulty_profiles(locale_keys: Dictionary) -> bool:
 	var data: Variant = load_json(DIFFICULTY_PROFILES_PATH)
 	if not data is Dictionary:
 		return _schema_fail(DIFFICULTY_PROFILES_PATH, "root", "Dictionary")
 	var payload: Dictionary = data as Dictionary
-	var is_valid: bool = _require_exact_int(
+	var is_valid: bool = _validate_exact_dictionary_keys(
+		DIFFICULTY_PROFILES_PATH,
+		"root",
+		payload,
+		["schema_version", "profiles"]
+	)
+	is_valid = _require_exact_int(
 		DIFFICULTY_PROFILES_PATH,
 		"schema_version",
 		payload.get("schema_version"),
-		1
-	)
+		2
+	) and is_valid
 	var profiles: Array = _require_array(
 		DIFFICULTY_PROFILES_PATH,
 		"profiles",
@@ -3040,6 +3126,21 @@ func _validate_difficulty_profiles(locale_keys: Dictionary) -> bool:
 			) and is_valid
 			continue
 		var profile_dict: Dictionary = profile as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			DIFFICULTY_PROFILES_PATH,
+			profile_field,
+			profile_dict,
+			[
+				"id",
+				"name_key",
+				"difficulty_coefficient",
+				"tier_interval_seconds",
+				"continuous_growth_per_interval",
+				"tier_step_growth",
+				"damage_growth_ratio",
+				"stage_name_keys",
+			]
+		) and is_valid
 		var profile_id: String = String(profile_dict.get("id", ""))
 		is_valid = _require_non_empty_string(
 			DIFFICULTY_PROFILES_PATH,
@@ -3054,6 +3155,20 @@ func _validate_difficulty_profiles(locale_keys: Dictionary) -> bool:
 					"unique difficulty profile id"
 				) and is_valid
 			seen_ids[profile_id] = true
+		is_valid = _require_locale_key(
+			DIFFICULTY_PROFILES_PATH,
+			"%s.name_key" % profile_field,
+			profile_dict.get("name_key"),
+			locale_keys
+		) and is_valid
+		is_valid = _require_number(
+			DIFFICULTY_PROFILES_PATH,
+			"%s.difficulty_coefficient" % profile_field,
+			profile_dict.get("difficulty_coefficient"),
+			0.0,
+			null,
+			true
+		) and is_valid
 		is_valid = _require_number(
 			DIFFICULTY_PROFILES_PATH,
 			"%s.tier_interval_seconds" % profile_field,
@@ -6289,6 +6404,8 @@ func _require_number(resource_path: String, field: String, value: Variant, minim
 	if not value is int and not value is float:
 		return _schema_fail(resource_path, field, "number")
 	var numeric: float = float(value)
+	if not is_finite(numeric):
+		return _schema_fail(resource_path, field, "finite number")
 	if minimum != null:
 		var min_value: float = float(minimum)
 		if exclusive_minimum and numeric <= min_value:

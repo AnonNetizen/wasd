@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "base_coefficient": 10.0,
+  "time_growth_per_tier": 0.1,
+  "random_multiplier_min": 0.9,
+  "random_multiplier_max": 1.1
+}

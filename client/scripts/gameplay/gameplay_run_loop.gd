@@ -29,6 +29,9 @@ const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
 const DIFFICULTY_PROGRESSION_SCRIPT := preload(
 	"res://scripts/data/difficulty_progression.gd"
 )
+const ENEMY_REWARD_RESOLVER_SCRIPT := preload(
+	"res://scripts/data/enemy_reward_resolver.gd"
+)
 const ELEMENTS := preload("res://scripts/contracts/elements.gd")
 const ELEMENT_RESOLVER_SCRIPT := preload("res://scripts/data/element_resolver.gd")
 const EFFECTS := preload("res://scripts/contracts/effects.gd")
@@ -110,7 +113,7 @@ const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
 const ENERGY_ORB_POOL_SIZE: int = 64
 const PROJECTILE_BARRIER_POOL_SIZE: int = 4
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 9
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 10
 const ACTIVE_POOL_GROUPS: Array[String] = [
 	"active_hazards",
 	"active_enemies",
@@ -155,7 +158,9 @@ var _actor_scene_cache: Dictionary = {}
 var _camera_controller: Node2D = null
 var _character_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 var _difficulty_progression: DifficultyProgression = null
+var _configured_difficulty_profile_id: String = ""
 var _enemy_rows: Dictionary = {}
+var _enemy_reward_config: Dictionary = {}
 var _energy_drop_config: Dictionary = {}
 var _gold_drop_config: Dictionary = {}
 var _extraction_active: bool = false
@@ -315,6 +320,25 @@ func _on_input_action_pressed(action_id: StringName, participant_id: String) -> 
 
 func configure_restore_snapshot(snapshot_data: Dictionary) -> void:
 	_pending_restore_snapshot = snapshot_data.duplicate(true)
+	var saved_difficulty: Dictionary = _dictionary_or_empty(
+		snapshot_data.get("difficulty", {})
+	)
+	var saved_profile_id: String = String(
+		saved_difficulty.get("profile_id", "")
+	).strip_edges()
+	if not saved_profile_id.is_empty():
+		_configured_difficulty_profile_id = saved_profile_id
+
+
+## Must be called before the run loop enters the scene tree. Empty selects the
+## current mode's default profile.
+func configure_difficulty_profile_id(profile_id: String) -> void:
+	if is_inside_tree():
+		push_error(
+			"[GameplayRunLoop] difficulty profile must be configured before entering tree"
+		)
+		return
+	_configured_difficulty_profile_id = profile_id.strip_edges()
 
 
 ## Must be called before the run loop enters the scene tree.
@@ -382,6 +406,15 @@ func activate_prepared_run() -> bool:
 			"mode": GAME_MODES.MODE_STANDARD_SURVIVAL,
 			"main_hero_id": _main_hero_id,
 			"sub_hero_id": _sub_hero_id,
+			"difficulty_profile_id": String(
+				_difficulty_snapshot().get("profile_id", "")
+			),
+			"difficulty_coefficient": float(
+				_difficulty_snapshot().get(
+					"difficulty_coefficient",
+					1.0
+				)
+			),
 		}
 		if Replay.start_recording(replay_context):
 			Replay.record_decision(
@@ -598,6 +631,15 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 		)
 		return
 	_enemy_rows = _load_enemy_rows(_load_enemy_ai_profiles(), enemy_csv_rows)
+	_enemy_reward_config = _dictionary_or_empty(
+		DataLoader.load_json(DataLoader.ENEMY_REWARDS_PATH)
+	)
+	if _enemy_reward_config.is_empty():
+		_fail_run_start(
+			"enemy reward configuration failed",
+			not restore_snapshot.is_empty()
+		)
+		return
 	var actor_scenes_ready: bool = false
 	if _player_loading_mode:
 		actor_scenes_ready = await _preload_actor_scenes_threaded(character)
@@ -1239,7 +1281,9 @@ func _configure_skill_system(
 
 func _configure_difficulty_progression(mode: Dictionary) -> bool:
 	var profile_id: String = String(
-		mode.get("difficulty_profile_id", "")
+		_configured_difficulty_profile_id
+		if not _configured_difficulty_profile_id.is_empty()
+		else mode.get("difficulty_profile_id", "")
 	).strip_edges()
 	var profile: Dictionary = _find_item(
 		_load_array(DataLoader.DIFFICULTY_PROFILES_PATH, "profiles"),
@@ -1267,10 +1311,13 @@ func _difficulty_snapshot() -> Dictionary:
 	if _difficulty_progression == null:
 		return {
 			"enabled": false,
+			"profile_id": "",
+			"profile_name_key": "",
 			"elapsed": 0.0,
 			"tier": 0,
 			"progress": 0.0,
 			"coefficient": 1.0,
+			"difficulty_coefficient": 1.0,
 			"health_multiplier": 1.0,
 			"damage_multiplier": 1.0,
 			"difficulty_level": 1,
@@ -1290,6 +1337,43 @@ func _enemy_spawn_difficulty() -> Dictionary:
 			"damage_multiplier": 1.0,
 		}
 	return _difficulty_progression.enemy_spawn_snapshot()
+
+
+func _resolve_enemy_reward_snapshot(
+	enemy_data: Dictionary,
+	spawn_context: Dictionary
+) -> Dictionary:
+	var random_minimum: float = float(
+		_enemy_reward_config.get("random_multiplier_min", 0.0)
+	)
+	var random_maximum: float = float(
+		_enemy_reward_config.get("random_multiplier_max", 0.0)
+	)
+	var random_multiplier: float = RNG.economy.randf_range(
+		random_minimum,
+		random_maximum
+	)
+	var difficulty: Dictionary = _difficulty_snapshot()
+	var resolved: Dictionary = ENEMY_REWARD_RESOLVER_SCRIPT.resolve(
+		_enemy_reward_config,
+		float(difficulty.get("difficulty_coefficient", 1.0)),
+		float(enemy_data.get("gold_value_multiplier", 0.0)),
+		float(
+			spawn_context.get(
+				"reward_specialization_multiplier",
+				1.0
+			)
+		),
+		int(difficulty.get("tier", 0)),
+		random_multiplier
+	)
+	if not bool(resolved.get("valid", false)):
+		push_error(
+			"[GameplayRunLoop] invalid enemy reward inputs for %s"
+			% String(enemy_data.get("id", ""))
+		)
+		return {}
+	return resolved
 
 
 func _is_combat_allowed() -> bool:
@@ -2053,6 +2137,16 @@ func _spawn_enemy(wave: Dictionary, wave_key: String) -> bool:
 		return false
 
 	var enemy: Node2D = raw_node as Node2D
+	var spawn_context: Dictionary = {}
+	if not _is_debug_test_arena():
+		var reward_snapshot: Dictionary = _resolve_enemy_reward_snapshot(
+			enemy_data,
+			spawn_context
+		)
+		if reward_snapshot.is_empty():
+			PoolManager.release(enemy)
+			return false
+		spawn_context["reward_snapshot"] = reward_snapshot
 	enemy.global_position = _spawn_position()
 	_reparent_to_active_world(enemy)
 	enemy.set_meta("wave_key", wave_key)
@@ -2063,7 +2157,8 @@ func _spawn_enemy(wave: Dictionary, wave_key: String) -> bool:
 		enemy_data,
 		_player,
 		_enemy_navigation_provider(),
-		_enemy_spawn_difficulty()
+		_enemy_spawn_difficulty(),
+		spawn_context
 	)
 	_assign_enemy_spawn_serial(enemy)
 	_apply_enemy_movement_bounds(enemy)
@@ -2542,6 +2637,7 @@ func _world_event_spawn_context(
 		return {}
 	var result: Dictionary = {
 		"event_instance_id": instance_id,
+		"reward_specialization_multiplier": 1.0,
 		"primary_target": _player,
 		"damage_target_groups": [
 			DAMAGE_TARGET_GROUPS
@@ -3414,6 +3510,16 @@ func _spawn_enemy_at(
 	if not raw_node is Node2D or not raw_node.has_method("configure"):
 		return false
 	var enemy: Node2D = raw_node as Node2D
+	var configured_spawn_context: Dictionary = spawn_context.duplicate(true)
+	if not _is_debug_test_arena():
+		var reward_snapshot: Dictionary = _resolve_enemy_reward_snapshot(
+			enemy_data,
+			configured_spawn_context
+		)
+		if reward_snapshot.is_empty():
+			PoolManager.release(enemy)
+			return false
+		configured_spawn_context["reward_snapshot"] = reward_snapshot
 	enemy.global_position = spawn_position
 	_reparent_to_active_world(enemy)
 	enemy.set_meta("wave_key", spawn_key)
@@ -3432,7 +3538,7 @@ func _spawn_enemy_at(
 			if not fixed_spawn_difficulty.is_empty()
 			else _enemy_spawn_difficulty()
 		),
-		spawn_context
+		configured_spawn_context
 	)
 	_assign_enemy_spawn_serial(enemy)
 	_apply_enemy_movement_bounds(enemy)
@@ -5102,6 +5208,12 @@ func _restore_run_snapshot(
 	snapshot_data: Dictionary,
 	staged_loading: bool = false
 ) -> bool:
+	if (
+		int(snapshot_data.get("schema_version", -1))
+		!= RUN_SNAPSHOT_SCHEMA_VERSION
+	):
+		push_error("[GameplayRunLoop] unsupported run snapshot schema")
+		return false
 	var difficulty_snapshot: Dictionary = _dictionary_or_empty(
 		snapshot_data.get("difficulty", {})
 	)
@@ -5493,6 +5605,18 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 				enemy.remove_meta("module_slot")
 		else:
 			enemy.set_meta("module_slot", module_slot)
+		var restored_spawn_context: Dictionary = _world_event_spawn_context(
+			String(snapshot_data.get("event_instance_id", "")),
+			String(
+				snapshot_data.get(
+					"target_mode",
+					WORLD_EVENT_TARGET_MODE_EVENT_PRIMARY
+				)
+			) == WORLD_EVENT_TARGET_MODE_EVENT_PRIMARY
+		)
+		restored_spawn_context["reward_snapshot"] = _dictionary_or_empty(
+			snapshot_data.get("reward_snapshot", {})
+		)
 		enemy.call(
 			"configure",
 			enemy_data,
@@ -5506,20 +5630,7 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 					snapshot_data.get("spawn_damage_multiplier", 1.0)
 				),
 			},
-			_world_event_spawn_context(
-				String(
-					snapshot_data.get(
-						"event_instance_id",
-						""
-					)
-				),
-				String(
-					snapshot_data.get(
-						"target_mode",
-						WORLD_EVENT_TARGET_MODE_EVENT_PRIMARY
-					)
-				) == WORLD_EVENT_TARGET_MODE_EVENT_PRIMARY
-			)
+			restored_spawn_context
 		)
 		if enemy.has_method("set_runtime_spawn_serial"):
 			var restored_serial: int = maxi(
@@ -5878,7 +5989,9 @@ func _load_enemy_rows(
 			),
 			"max_hp": String(row.get("max_hp", "1")).to_int(),
 			"move_speed": String(row.get("move_speed", "0.0")).to_float(),
-			"gold_reward": String(row.get("gold_reward", "0")).to_int(),
+			"gold_value_multiplier": String(
+				row.get("gold_value_multiplier", "0.0")
+			).to_float(),
 			"hit_radius": String(row.get("hit_radius", "1.0")).to_float(),
 			"separation_radius": String(row.get("separation_radius", "0.0")).to_float(),
 		}

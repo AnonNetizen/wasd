@@ -72,7 +72,7 @@ ui_resume,继续,Resume
 | `ui_settings_` | 设置面板标题、分组、控件标签和选项 | `ui_settings_master_volume` / `ui_settings_aim_mode_auto` |
 | `ui_settings_input_` | 设置面板输入绑定动作标签 | `ui_settings_input_move_up` / `ui_settings_input_pause` |
 | `ui_hud_` | 局内常驻 HUD 标签 | `ui_hud_life` / `ui_hud_kills` |
-| `ui_difficulty_` | 局内威胁等级、阶段与暂停状态 | `ui_difficulty_level` / `ui_difficulty_stage_dormant` |
+| `ui_difficulty_` | 难度 profile 名称、局内威胁等级、阶段与暂停状态 | `ui_difficulty_standard_name` / `ui_difficulty_level` / `ui_difficulty_stage_dormant` |
 | `ui_stats_` | 局内详细数值面板标签 | `ui_stats_damage` / `ui_stats_skill_resource` |
 | `ui_gear_mod_` | 装备 Mod 面板、标题入口和操作反馈 | `ui_gear_mod_title` / `ui_gear_mod_upgrade_cost` |
 | `ui_debug_test_arena_` | 独立 debug/dev_tools 开发者测试岛、配装、控制面板和伤害 HUD | `ui_debug_test_arena_setup_title` / `ui_debug_test_arena_spawn` |
@@ -173,6 +173,7 @@ label.text = tr("ui_damage") + str(value)
 ### 加一段 HUD 文案
 
 1. 在 `strings.csv` 新增 `ui_hud_*`、`ui_difficulty_*`、`ui_stats_*` 或局内交互提示 key，例如 `ui_hud_life,生命,Life` / `ui_difficulty_level,威胁 Lv. {level},Threat Lv. {level}` / `ui_stats_fire_rate,射速,Fire Rate` / `ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cache`。威胁阶段名称使用 `ui_difficulty_stage_<stage>`，跨语言共用同一 key。
+   难度 profile 显示名同样使用 `ui_difficulty_*_name`；当前标准 profile 固定引用 `ui_difficulty_standard_name`（“标准 / Standard”），不得把显示名写进 `difficulty_profiles.json`。
 2. HUD 代码只显示 `tr("ui_hud_life")` / `tr("ui_stats_fire_rate")` 和格式化数值，不硬编码玩家可见标签。
 3. 若 HUD 会常驻局内或按住显示，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、击杀、难度时间、威胁阶段、等级、金币余额 / 进度、详细数值、等级 / 奖励反馈和交互提示重画。
 

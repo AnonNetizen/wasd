@@ -8,7 +8,7 @@
 - 统一加载 `client/data/` 下的 JSON 与 CSV 配置。
 - 通过 `ModLoader` 合并 `user://mods/<mod_id>/` 下声明式数据 patch，为本地玩家 mod 提供统一入口。
 - 启动时读取 `res://data/_contracts.json`，为后续数据校验提供词表白名单。
-- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、`hazards.csv`、`map_layouts.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`level_progression.json`、`reward_choice_pools.json` 与 `strings.csv`。
+- 提供正式数据 schema 校验入口，当前覆盖 `player.json`、`characters.json`、`weapons.json`、`skills.json`、`enemy_ai_profiles.json`、`enemies.csv`、`enemy_rewards.json`、`difficulty_profiles.json`、`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、`hazards.csv`、`map_layouts.json`、`module_worlds.json`、`module_templates.json`、`modules/*.json`、`warzone_directors.json`、`spawn_waves.csv`、`relics.json`、`active_items.json`、`consumables.json`、`credits.json`、`game_modes.json`、`level_progression.json`、`reward_choice_pools.json` 与 `strings.csv`。
 - 提供 fail-fast 错误输出，错误信息包含文件、字段路径和期望值。
 - 不负责业务解释、数值平衡、热重载 UI、金币交易、奖励应用或游戏模式运行时；这些由后续业务模块接入。
 
@@ -34,8 +34,10 @@
 | `client/data/skills.json` | 项目版轻量 GAS 技能、ability tag、激活条件、资源消耗、目标类型、效果原语和冷却边界 |
 | `client/data/visual_effects.json` | 视觉效果 catalog、资源、空间、生命周期、对象池与表现策略 |
 | `client/data/presentation_profiles.json` | 表现 profile 继承、cue、效果 / 音频 / 相机 / 屏幕绑定 |
-| `client/data/enemy_ai_profiles.json` | schema v4 敌人对玩家 AI profile、感知、动作参数、显式攻击参数和动作列表边界 |
-| `client/data/enemies.csv` | 敌人专属场景、独立对象池 / 预热、基础数值、通用 tag、AI profile、伤害类型和模式引用边界 |
+| `client/data/enemy_ai_profiles.json` | schema v5 敌人对玩家 AI profile、感知、动作参数、显式攻击参数和动作列表边界 |
+| `client/data/enemies.csv` | 敌人专属场景、独立对象池 / 预热、基础数值、金币价值倍率、通用 tag、AI profile、伤害类型和模式引用边界 |
+| `client/data/enemy_rewards.json` | schema v1 敌人金币基础系数、阶段增长和独立随机区间 |
+| `client/data/difficulty_profiles.json` | schema v2 难度名称、难度系数、威胁时间与敌人生命 / 伤害曲线 |
 | `client/data/gear_mods.json` | 装备 Mod 定义、槽位、稀有度、rank、drain、修正器和分解返还边界 |
 | `client/data/gear_mod_drop_tables.csv` | 装备 Mod 掉落来源、概率和敌人等级条件边界 |
 | `client/data/gear_mod_fusion_costs.csv` | 装备 Mod 按稀有度 / rank 的升级资源成本边界 |
@@ -103,7 +105,9 @@
   - `visual_effects.json`：schema v2、唯一 effect id、固定枚举、合法正式资源、质量变体、预览参数和对象池引用；旧 schema v1 与遗留 `reduced_motion` 字段明确拒绝，高频条目必须声明已登记 pool id，catalog 不得指向 editor-only、`output/test_lab` 或裸程序几何。
   - `presentation_profiles.json`：唯一 profile id、父继承无环、cue / anchor 枚举、效果引用与可选音频 / 相机 / 屏幕绑定；首版 `hit_stop_profile_id` 必须为空。
   - `enemy_ai_profiles.json`：schema v5 profile id、视线 / 路径 / 记忆感知、决策间隔、玩家权重、通用移动参数、动作参数和 action id；远程攻击额外必填 `windup/burst_count/shot_interval`。攻击 action 必须携带与类型严格匹配的 `attack` 字典，非攻击 action 禁止携带 `attack`；旧 schema 与遗留攻击字段明确拒绝。
-  - `enemies.csv`：精确表头为敌人 id、名称 key、`tag_enemy`、独立对象池 id、专属 `scene_path`、`pool_prewarm`、AI profile 引用、表现 profile、生命、移速、正整数金币奖励、命中半径和分离半径；`pool_id` 必须唯一且等于敌人 id。旧 `contact_damage`、`contact_interval`、`element_id`、`exp_reward`、`enemy_ranged` 与 `visual_color` 列明确拒绝。场景必须位于正式 `actors/enemies/*.tscn`、存在且为 `PackedScene`，可跨内容 id 复用但不得指向基础场景；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
+  - `enemies.csv`：精确表头为敌人 id、名称 key、`tag_enemy`、独立对象池 id、专属 `scene_path`、`pool_prewarm`、AI profile 引用、表现 profile、生命、移速、有限正数 `gold_value_multiplier`、命中半径和分离半径；`pool_id` 必须唯一且等于敌人 id。旧 `gold_reward`、`contact_damage`、`contact_interval`、`element_id`、`exp_reward`、`enemy_ranged` 与 `visual_color` 列明确拒绝。场景必须位于正式 `actors/enemies/*.tscn`、存在且为 `PackedScene`，可跨内容 id 复用但不得指向基础场景；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
+  - `enemy_rewards.json`：schema v1，只允许 `base_coefficient`、`time_growth_per_tier`、`random_multiplier_min`、`random_multiplier_max`；基础系数与随机上下界必须为有限正数，阶段增长必须为有限非负数，且随机下界不得高于上界。
+  - `difficulty_profiles.json`：schema v2，每个 profile 必填唯一 `id`、已本地化 `name_key`、有限正数 `difficulty_coefficient`、威胁曲线和九段阶段名。标准 profile 当前系数为 `1.0`；旧 schema v1、缺字段或多余字段均拒绝。
   - `gear_mods.json`：装备 Mod id、名称 / 描述 key、英雄 / 武器 slot、稀有度、最大 rank、drain、按 rank 计算的 stat modifier、装配规则和分解返还资源；id、slot、rarity、resource、stack rule 均来自词表 §13-A~§13-E。
   - `gear_mod_drop_tables.csv`：装备 Mod 掉落来源敌人、Mod id、掉落概率和敌人等级区间；敌人必须存在于 `enemies.csv`，Mod 必须存在于 `gear_mods.json`，概率必须是 `0.0..1.0`。
   - `gear_mod_fusion_costs.csv`：装备 Mod 升到目标 rank 的资源成本；rarity 与 resource 必须来自词表，且覆盖 `gear_mods.json` 中每个已使用 rarity 的 `1..max_rank`。
@@ -146,6 +150,7 @@
 | 改技能 schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/skill_system.md`、必要时 `docs/代码/status_effect_component.md` | `validate_data` + schema test + `l1-smoke` / `runtime-smoke` |
 | 加 CSV 表读取 | `data_loader.gd` | `client/data/README.md` | `load_csv()` smoke / 数据校验 |
 | 改敌人 AI profile schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/enemy_ai.md` | `validate_data` + schema test + `runtime-smoke` |
+| 改敌人金币 / 难度 profile schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py`、`enemy_rewards.json`、`enemies.csv`、`difficulty_profiles.json` | `client/data/README.md`、`docs/代码/enemy_reward_resolver.md`、Difficulty / Runtime / Save 文档 | contracts + `validate_data` + schema test + L1/runtime/save/replay |
 | 改地图 layout schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/map_manager.md` | `validate_data` + schema test + `runtime-smoke` |
 | 改模块世界 / 模板 schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/module_world_manager.md`、F13 工作包 | `sync_contracts --check` + `validate_data` + schema test + `module-world-smoke` + `save-smoke` |
 | 改战区导演 schema | `data_loader.gd`、`tools/validate_data.py`、`tools/test_data_loader_schema.py` | `client/data/README.md`、`docs/代码/warzone_director.md`、F10 工作包 | `validate_data` + schema test + `runtime-smoke` + `f9-demo-smoke` |

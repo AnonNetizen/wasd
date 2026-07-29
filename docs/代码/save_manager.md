@@ -9,7 +9,7 @@
 - 所有存档写入必须包含标准头字段：`version`、`kind`、`slot`、`created_at`、`updated_at`、`game_version`、`data_hash` 和 `payload`。
 - 写入必须先落 `*.tmp`，替换前保留 `*.bak`；加载失败时尝试 `.bak`，仍失败则隔离到 `user://saves/.broken/` 并广播 / 埋点。
 - 当前 F5 首片已由 gameplay runtime 接入真实 `run` 快照：暂停菜单“保存并退出”调用 `SaveManager.save(slot_0, run, payload)`，标题菜单“继续游戏”调用 `load()` 后交给运行时重建节点和 `ui_restore` 恢复点；`SaveManager` 仍只负责可靠读写，不解释玩家、敌人、子弹或 UI 字段。
-- 当前 `meta` 为 v2、`run` 为 v9：Meta 保存上次确认组合且保留现有 Gear Mod payload；Run 额外保存世界事件、固定模块、固定波次、事件敌人目标和祭坛事务进度。旧 Run v8 缺少这些幂等状态，不做有损迁移；启动流程提示一次后只删除 run，Meta v2 保留。
+- 当前 `meta` 为 v2、`run` 为 v10：Meta 保存上次确认组合且保留现有 Gear Mod payload；Run 在 v9 世界事件事务基础上，额外保存每只敌人的锁定金币明细和 `RNG.economy` 状态。旧 Run v9 无法恢复奖励确定性，不做有损迁移；启动流程提示一次后只删除 run，Meta v2 保留。
 - F11 已由 `GearModSystem` 接管真实 `meta` profile：装备 Mod 资源、库存、loadout 和 rank 写入 `meta.gear_mods`；旧死亡结算货币 / 账号经验 / 永久升级运行时代码与旧档补偿路径已删除。`SaveManager` 仍不解释 profile 字段。
 - 玩家偏好不归 `SaveManager` 管，仍由 `Settings` 写入 `user://settings.cfg`。
 
@@ -99,7 +99,7 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 | kind | 用途 |
 |------|------|
 | `meta` | 局外长期档案，当前 v2：Gear Mod profile + 上次确认的 `main_hero_id` / `sub_hero_id` |
-| `run` | 当前一局续局档案，当前 v9：完整世界、英雄组合、经济、威胁时间、显式攻击、世界事件和事务游标 |
+| `run` | 当前一局续局档案，当前 v10：完整世界、英雄组合、经济、威胁时间、敌人奖励快照、显式攻击、世界事件和事务游标 |
 | `replay_index` | 回放索引档案：具体回放文件仍由 `Replay` 管理 |
 
 存档 envelope：
@@ -115,7 +115,7 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 
 `data_hash` 使用稳定序列化：字典按 key 排序，数组按原顺序，数字做整数 / 浮点规范化。写入前会先把 payload 通过 JSON stringify / parse 归一化，再基于归一化 payload 计算 hash 和落盘，避免高精度浮点或 JSON 读回后 `3` / `3.0` 类型差异造成误报。
 
-Run v9 payload 包含既有对局字段，并新增 `module_world.pinned_slots`、`world_events.controller`、固定 `wave_plans`、防御目标生命、计时、占点双进度、隐藏奖励、祭坛价格 / 尝试 / 成功 Mod / 血坛次数，以及敌人的 `event_instance_id/target_mode`。恢复顺序必须先模块 assignment，再注册交互物与防御目标，恢复 Controller / pin，最后恢复敌人和子弹；`wave_cursor`、`reward_committed`、祭坛尝试 / 使用次数确保已提交波次、扣费、献祭与奖励不重复。所有对象池实体只保存 JSON 友好活动快照，恢复时重新 acquire；RNG 大整数仍以字符串保存。
+Run v10 payload 包含 v9 的模块 / 世界事件幂等字段，并为每只敌人保存 `reward`：最终整数、实际生成阶段、难度 / 价值 / 特殊化 / 时间 / 随机倍率；顶层 RNG 快照包含独立 `economy` state。恢复顺序仍必须先模块 assignment，再注册交互物与防御目标，恢复 Controller / pin，最后恢复敌人和子弹；已有敌人只恢复锁定奖励，不消费 RNG、不按当前阶段重算。`wave_cursor`、`reward_committed`、祭坛尝试 / 使用次数继续确保已提交波次、扣费、献祭与奖励不重复。所有对象池实体只保存 JSON 友好活动快照，恢复时重新 acquire；RNG 大整数仍以字符串保存。
 
 `run` kind version 2 会在 `SaveManager` 层为 v1 旧 envelope 补齐缺失的结构字段：`schema_version`、`spawn_states`、`player`、`weapon`、`game_clock`、`rng`、`map`、`enemies`、`bullets`、`hazards`、`pickups`。这样早期 F5 run 存档即使缺少可选数组 / 字典，也能加载为结构完整的 payload 后交给 runtime 恢复；旧档没有机关快照时由 runtime 按当前 layout 重新生成。
 
@@ -126,6 +126,8 @@ Run v9 payload 包含既有对局字段，并新增 `module_world.pinned_slots`�
 `run` v6→v7 是本次金币成长边界：迁移器清除旧 `level` / `xp` / 经验球 / 升级 UI 状态，写入空的金币、金币球和奖励选择结构，并设置 `legacy_run_incompatible=true`。正式启动不会尝试把 XP 猜测为余额或累计金币，而是提示一次后删除该 run；Meta v2 与 Gear Mod 完整保留。
 
 `run` v8→v9 是世界事件幂等边界：旧档没有事件实例、固定模块、目标生命、固定波次、隐藏奖励或祭坛事务游标，无法安全推导中途状态。迁移器写入 schema 9、补空 `world_events` 并设置 `legacy_run_incompatible=true`；正式启动提示一次后只删除 run，Meta v2 与 Gear Mod 完整保留。
+
+`run` v9→v10 是敌人奖励确定性边界：旧档没有既有敌人的最终金币 / 计算明细，也没有 `RNG.economy` state，无法在不多发、漏发或扰动未来随机的前提下恢复。迁移器写入 schema 10、清空旧敌人数组并设置 `legacy_run_incompatible=true`；正式启动提示一次后只删除 run，Meta v2 与 Gear Mod 完整保留。
 
 `meta` v1→v2 在保留 `gear_mods` 全部字段的同时补入默认组合“冷静主 + 愤怒子”。`FormalClientBoot` 在玩家确认组合时合并写回这两个 ID；SaveManager 仍只校验 envelope 与 hash，不解释业务字段。
 
@@ -169,11 +171,11 @@ Run v9 payload 包含既有对局字段，并新增 `module_world.pinned_slots`�
 - 当前切片必跑 L0 契约 / 数据 / 文档检查、L2 headless boot，并跑 `python tools/godot_bridge.py --project client save-smoke`。
 - 改 `meta.gear_mods` profile 或局外装配存档调用方时追加 `python tools/godot_bridge.py --project client gear-mod-smoke`；改死亡面板、标题入口或 run 清理时追加 `python tools/godot_bridge.py --project client runtime-smoke`。
 - 后续引入 GUT 后，`SaveManager` 必须覆盖 envelope 字段、hash mismatch、原子写入 / `.bak`、迁移链、坏档隔离、`meta` / `run` roundtrip、slot 校验和删除行为。
-- 改存档 schema 必须注册 migration 并补迁移测试；改 `run` 续局字段还要跑 L5 存档 checklist，影响确定性时补黄金回放；改 payload hash / 序列化路径时必须保留高精度浮点 roundtrip 用例。
+- 改存档 schema 必须注册 migration 并补迁移测试；改 `run` 续局字段还要跑适用的自动 roundtrip，L5 存档 checklist 保持待人工验收并由用户执行。影响确定性时补黄金回放；改 payload hash / 序列化路径时必须保留高精度浮点 roundtrip 用例。
 
 ## 迁移 / 兼容
 
-当前 `meta` 为 v2、`run` 为 v9、`replay_index` 为 v1。Meta v1→v2 保留 Gear Mod并补默认组合；Run 保留旧逐级迁移链，v4→v5、v5→v6、v6→v7、v7→v8 与 v8→v9 都是明确的不兼容重置边界。Replay 文件由 `Replay` 独立管理，当前为 v3。未来每次提升 kind 版本时必须：
+当前 `meta` 为 v2、`run` 为 v10、`replay_index` 为 v1，游戏版本标签为 `v1.9`。Meta v1→v2 保留 Gear Mod并补默认组合；Run 保留旧逐级迁移链，v4→v5、v5→v6、v6→v7、v7→v8、v8→v9 与 v9→v10 都是明确的不兼容重置边界。Replay 文件由 `Replay` 独立管理，当前为 v3。未来每次提升 kind 版本时必须：
 
 1. 更新 `CURRENT_KIND_VERSIONS[kind]`。
 2. 用 `register_migration(kind, old, old + 1, fn)` 补逐级迁移。

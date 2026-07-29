@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -34,6 +35,7 @@ CREDITS_JSON = ROOT / "client" / "data" / "credits.json"
 LEVEL_PROGRESSION_JSON = ROOT / "client" / "data" / "level_progression.json"
 REWARD_CHOICE_POOLS_JSON = ROOT / "client" / "data" / "reward_choice_pools.json"
 DIFFICULTY_PROFILES_JSON = ROOT / "client" / "data" / "difficulty_profiles.json"
+ENEMY_REWARDS_JSON = ROOT / "client" / "data" / "enemy_rewards.json"
 GAME_MODES_JSON = ROOT / "client" / "data" / "game_modes.json"
 MAP_LAYOUTS_JSON = ROOT / "client" / "data" / "map_layouts.json"
 WARZONE_DIRECTORS_JSON = ROOT / "client" / "data" / "warzone_directors.json"
@@ -134,6 +136,7 @@ def main() -> int:
     weapon_ids = _collect_weapon_ids(ctx)
     _validate_enemy_ai_profiles(ctx)
     enemy_ai_profile_ids = _collect_enemy_ai_profile_ids(ctx)
+    _validate_enemy_rewards(ctx)
     _validate_enemies_csv(ctx, enemy_ai_profile_ids)
     enemy_ids = _collect_enemy_ids(ctx)
     _validate_gear_mods(ctx)
@@ -1255,7 +1258,7 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
         "presentation_profile_id",
         "max_hp",
         "move_speed",
-        "gold_reward",
+        "gold_value_multiplier",
         "hit_radius",
         "separation_radius",
     }
@@ -1304,7 +1307,14 @@ def _validate_enemies_csv(ctx: ValidationContext, enemy_ai_profile_ids: set[str]
                 ctx.error(path, f"{field}.ai_profile_id", f"profile is not defined in enemy_ai_profiles.json: {ai_profile_id}")
             _parse_int(ctx, path, f"{field}.max_hp", row.get("max_hp"), minimum=1)
             _parse_float(ctx, path, f"{field}.move_speed", row.get("move_speed"), minimum=0, exclusive_minimum=True)
-            _parse_int(ctx, path, f"{field}.gold_reward", row.get("gold_reward"), minimum=0)
+            _parse_float(
+                ctx,
+                path,
+                f"{field}.gold_value_multiplier",
+                row.get("gold_value_multiplier"),
+                minimum=0,
+                exclusive_minimum=True,
+            )
             _parse_float(ctx, path, f"{field}.hit_radius", row.get("hit_radius"), minimum=0, exclusive_minimum=True)
             _parse_float(ctx, path, f"{field}.separation_radius", row.get("separation_radius"), minimum=0)
         if row_count == 0:
@@ -2216,12 +2226,81 @@ def _validate_reward_choice_pools(ctx: ValidationContext) -> None:
                 _validate_modifiers(ctx, path, f"{entry_field}.modifiers", entry.get("modifiers"), require_value_per_level=False)
 
 
+def _validate_enemy_rewards(ctx: ValidationContext) -> None:
+    path = ENEMY_REWARDS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return
+    _validate_exact_object_keys(
+        ctx,
+        path,
+        "root",
+        data,
+        {
+            "schema_version",
+            "base_coefficient",
+            "time_growth_per_tier",
+            "random_multiplier_min",
+            "random_multiplier_max",
+        },
+    )
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+    _require_number(
+        ctx,
+        path,
+        "base_coefficient",
+        data.get("base_coefficient"),
+        minimum=0.0,
+        exclusive_minimum=True,
+    )
+    _require_number(
+        ctx,
+        path,
+        "time_growth_per_tier",
+        data.get("time_growth_per_tier"),
+        minimum=0.0,
+    )
+    random_minimum = _require_number(
+        ctx,
+        path,
+        "random_multiplier_min",
+        data.get("random_multiplier_min"),
+        minimum=0.0,
+        exclusive_minimum=True,
+    )
+    random_maximum = _require_number(
+        ctx,
+        path,
+        "random_multiplier_max",
+        data.get("random_multiplier_max"),
+        minimum=0.0,
+        exclusive_minimum=True,
+    )
+    if (
+        random_minimum is not None
+        and random_maximum is not None
+        and random_minimum > random_maximum
+    ):
+        ctx.error(
+            path,
+            "random_multiplier_min",
+            "must be <= random_multiplier_max",
+        )
+
+
 def _validate_difficulty_profiles(ctx: ValidationContext) -> set[str]:
     path = DIFFICULTY_PROFILES_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return set()
-    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+    _validate_exact_object_keys(
+        ctx,
+        path,
+        "root",
+        data,
+        {"schema_version", "profiles"},
+    )
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 2)
     profiles = _require_list(ctx, path, "profiles", data.get("profiles"))
     if not profiles:
         ctx.error(path, "profiles", "must be a non-empty array")
@@ -2231,6 +2310,22 @@ def _validate_difficulty_profiles(ctx: ValidationContext) -> set[str]:
         if not isinstance(profile, dict):
             ctx.error(path, profile_field, "must be an object")
             continue
+        _validate_exact_object_keys(
+            ctx,
+            path,
+            profile_field,
+            profile,
+            {
+                "id",
+                "name_key",
+                "difficulty_coefficient",
+                "tier_interval_seconds",
+                "continuous_growth_per_interval",
+                "tier_step_growth",
+                "damage_growth_ratio",
+                "stage_name_keys",
+            },
+        )
         profile_id = _require_non_empty_string(
             ctx, path, f"{profile_field}.id", profile.get("id")
         )
@@ -2242,6 +2337,20 @@ def _validate_difficulty_profiles(ctx: ValidationContext) -> set[str]:
                     f"duplicate difficulty profile id {profile_id}",
                 )
             profile_ids.add(profile_id)
+        _require_locale_key(
+            ctx,
+            path,
+            f"{profile_field}.name_key",
+            profile.get("name_key"),
+        )
+        _require_number(
+            ctx,
+            path,
+            f"{profile_field}.difficulty_coefficient",
+            profile.get("difficulty_coefficient"),
+            minimum=0.0,
+            exclusive_minimum=True,
+        )
         _require_number(
             ctx,
             path,
@@ -4674,6 +4783,9 @@ def _require_number(
         ctx.error(path, field, "must be number")
         return None
     numeric = float(value)
+    if not math.isfinite(numeric):
+        ctx.error(path, field, "must be finite")
+        return None
     if minimum is not None:
         if exclusive_minimum and numeric <= minimum:
             ctx.error(path, field, f"must be > {minimum}")
@@ -4725,6 +4837,9 @@ def _parse_float(
         parsed = float(value)
     except ValueError:
         ctx.error(path, field, "must be number")
+        return None
+    if not math.isfinite(parsed):
+        ctx.error(path, field, "must be finite")
         return None
     if minimum is not None:
         if exclusive_minimum and parsed <= minimum:

@@ -82,6 +82,7 @@ var _debug_ai_enabled: bool = true
 var _enemy_id: String = ""
 var _event_instance_id: String = ""
 var _gold_reward: int = 0
+var _reward_snapshot: Dictionary = {}
 var _facing_sign: float = 1.0
 var _focus_target: Node2D = null
 var _hit_radius: float = 0.0
@@ -231,7 +232,14 @@ func configure(
 	_max_life = _base_max_life * _spawn_health_multiplier
 	_life_points = _max_life
 	_move_speed = float(enemy_data.get("move_speed", 0.0))
-	_gold_reward = int(enemy_data.get("gold_reward", 0))
+	_reward_snapshot = _canonical_reward_snapshot(
+		spawn_context.get("reward_snapshot", {})
+	)
+	_gold_reward = (
+		maxi(int(_reward_snapshot.get("gold_reward", 0)), 0)
+		if bool(_reward_snapshot.get("valid", false))
+		else 0
+	)
 	_hit_radius = float(enemy_data.get("hit_radius", 0.0))
 	_separation_radius = float(enemy_data.get("separation_radius", 0.0))
 	_configure_collision_shape()
@@ -279,6 +287,7 @@ func ai_debug_summary() -> Dictionary:
 		"attack_range": _attack_display_range(_current_attack()),
 		"release_hit": _attack_hit_committed,
 		"runtime_spawn_serial": _runtime_spawn_serial,
+		"reward_snapshot": _reward_snapshot.duplicate(true),
 		"scores": _last_scores.duplicate(true),
 	}
 
@@ -596,6 +605,7 @@ func snapshot() -> Dictionary:
 		"life_points": _life_points,
 		"spawn_health_multiplier": _spawn_health_multiplier,
 		"spawn_damage_multiplier": _spawn_damage_multiplier,
+		"reward_snapshot": _reward_snapshot.duplicate(true),
 		"home_position": _vector_to_dict(_home_position),
 		"current_action": _current_action,
 		"action_state": _action_state,
@@ -629,6 +639,14 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_spawn_damage_multiplier = maxf(
 		float(snapshot_data.get("spawn_damage_multiplier", 1.0)),
 		0.0
+	)
+	_reward_snapshot = _canonical_reward_snapshot(
+		snapshot_data.get("reward_snapshot", _reward_snapshot)
+	)
+	_gold_reward = (
+		maxi(int(_reward_snapshot.get("gold_reward", 0)), 0)
+		if bool(_reward_snapshot.get("valid", false))
+		else 0
 	)
 	_max_life = _base_max_life * _spawn_health_multiplier
 	global_position = _dict_to_vector(snapshot_data.get("position", {}), global_position)
@@ -721,6 +739,7 @@ func _pool_reset() -> void:
 	_enemy_id = ""
 	_event_instance_id = ""
 	_gold_reward = 0
+	_reward_snapshot.clear()
 	_facing_sign = 1.0
 	_focus_target = null
 	_has_last_known_position = false
@@ -780,6 +799,8 @@ func _pool_release() -> void:
 	_player_target = null
 	_primary_target = null
 	_damage_target_groups.clear()
+	_gold_reward = 0
+	_reward_snapshot.clear()
 	_terrain_line_of_sight = false
 	_has_cached_navigation_waypoint = false
 	_set_collision_enabled(false)
@@ -2286,6 +2307,29 @@ func _dictionary_or_empty(raw_value: Variant) -> Dictionary:
 	if raw_value is Dictionary:
 		return (raw_value as Dictionary).duplicate(true)
 	return {}
+
+
+func _canonical_reward_snapshot(raw_value: Variant) -> Dictionary:
+	var reward_snapshot: Dictionary = _dictionary_or_empty(raw_value)
+	if reward_snapshot.is_empty():
+		return {}
+	if reward_snapshot.has("valid"):
+		reward_snapshot["valid"] = bool(reward_snapshot["valid"])
+	if reward_snapshot.has("gold_reward"):
+		reward_snapshot["gold_reward"] = int(reward_snapshot["gold_reward"])
+	if reward_snapshot.has("spawn_tier"):
+		reward_snapshot["spawn_tier"] = int(reward_snapshot["spawn_tier"])
+	for field_name: String in [
+		"base_coefficient",
+		"difficulty_coefficient",
+		"monster_value_multiplier",
+		"specialization_multiplier",
+		"time_multiplier",
+		"random_multiplier",
+	]:
+		if reward_snapshot.has(field_name):
+			reward_snapshot[field_name] = float(reward_snapshot[field_name])
+	return reward_snapshot
 
 
 func _array_or_empty(raw_value: Variant) -> Array:

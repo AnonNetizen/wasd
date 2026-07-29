@@ -1,8 +1,10 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "profiles": [
     {
       "id": "difficulty_standard_survival",
+      "name_key": "ui_difficulty_standard_name",
+      "difficulty_coefficient": 1.0,
       "tier_interval_seconds": 90.0,
       "continuous_growth_per_interval": 0.04,
       "tier_step_growth": 0.09,

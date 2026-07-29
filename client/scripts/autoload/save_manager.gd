@@ -16,12 +16,12 @@ const CHARACTER_IDS := preload("res://scripts/contracts/character_ids.gd")
 const SAVE_ROOT: String = "user://saves"
 const BROKEN_DIR_NAME: String = ".broken"
 const DEFAULT_SLOT: String = "slot_0"
-const GAME_VERSION: String = "v1.8"
+const GAME_VERSION: String = "v1.9"
 const DEFAULT_MAIN_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 const DEFAULT_SUB_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 const CURRENT_KIND_VERSIONS: Dictionary = {
 	SAVE_KINDS.META: 2,
-	SAVE_KINDS.RUN: 9,
+	SAVE_KINDS.RUN: 10,
 	SAVE_KINDS.REPLAY_INDEX: 1,
 }
 
@@ -39,6 +39,7 @@ func _ready() -> void:
 	register_migration(SAVE_KINDS.RUN, 6, 7, Callable(self, "_migrate_run_v6_to_v7"))
 	register_migration(SAVE_KINDS.RUN, 7, 8, Callable(self, "_migrate_run_v7_to_v8"))
 	register_migration(SAVE_KINDS.RUN, 8, 9, Callable(self, "_migrate_run_v8_to_v9"))
+	register_migration(SAVE_KINDS.RUN, 9, 10, Callable(self, "_migrate_run_v9_to_v10"))
 
 
 func registered_save_kinds() -> Array[String]:
@@ -426,6 +427,17 @@ func _migrate_run_v8_to_v9(payload: Dictionary) -> Dictionary:
 	result["schema_version"] = 9
 	result["legacy_run_incompatible"] = true
 	result["world_events"] = {}
+	return result
+
+
+func _migrate_run_v9_to_v10(payload: Dictionary) -> Dictionary:
+	# v9 enemies have no spawn-locked reward amount or multiplier breakdown, and
+	# the RNG snapshot has no economy stream. Recalculation would duplicate or
+	# shift rewards, so boot must discard only the run and preserve Meta v2.
+	var result: Dictionary = payload.duplicate(true)
+	result["schema_version"] = 10
+	result["legacy_run_incompatible"] = true
+	result["enemies"] = []
 	return result
 
 

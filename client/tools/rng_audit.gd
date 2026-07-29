@@ -13,6 +13,8 @@ const STREAM_IDS: Array[String] = [
 	RNG_STREAMS.CAMERA_FX,
 	"ui_choice",
 	"world",
+	RNG_STREAMS.WORLD_EVENT,
+	RNG_STREAMS.ECONOMY,
 	"meta",
 ]
 
