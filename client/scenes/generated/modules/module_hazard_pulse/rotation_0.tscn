@@ -20,11 +20,11 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_5occb")
-baker_schema_version = 3
+baker_schema_version = 4
 module_id = "module_hazard_pulse"
 gameplay_hash = "70088c2f078d56b3e644eb19841293521dfcf1322ea82cdfdc753d906106dd03"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "b82cd2392a43be44f6f1656267b7a1794a3dab1426ce429b3f3dc718ae143eb6"
+bake_hash = "72d0396fdefd2da2940efb61bdb0b2f5cf240a1aebf59c654eb18aff0774251b"
 placement_snapshot = Array[Dictionary]([{
 "cell": {
 "x": 4,

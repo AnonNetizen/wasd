@@ -133,8 +133,12 @@ func _expect_migration_chain() -> void:
 	_expect(bool(migrated_payload.get("legacy_run_incompatible", false)), "run v3->v4 migration should explicitly mark legacy run reset")
 	_expect(migrated_payload.get("module_world", null) is Dictionary, "run v3->v4 migration should add an empty module-world snapshot")
 	_expect(
-		int(migrated_payload.get("schema_version", 0)) == 8,
-		"run v7->v8 migration should advance the gameplay snapshot schema"
+		int(migrated_payload.get("schema_version", 0)) == 9,
+		"run v8->v9 migration should advance the gameplay snapshot schema"
+	)
+	_expect(
+		migrated_payload.get("world_events", null) is Dictionary,
+		"run v8->v9 migration should add an empty world-event snapshot"
 	)
 	_expect(
 		migrated_payload.get("hero_composition", null) is Dictionary,
@@ -195,11 +199,12 @@ func _expect_migration_chain() -> void:
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 5, 6]), "run migration should emit save_migrated for run 5->6")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 6, 7]), "run migration should emit save_migrated for run 6->7")
 	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 7, 8]), "run migration should emit save_migrated for run 7->8")
+	_expect(_migrated_steps.has("%s:%d:%d" % [RUN_KIND, 8, 9]), "run migration should emit save_migrated for run 8->9")
 
 
 func _run_payload(marker: String, level: int) -> Dictionary:
 	return {
-		"schema_version": 8,
+		"schema_version": 9,
 		"mode": "mode_standard_survival",
 		"character": "character_default",
 		"gold_progression": {
@@ -220,6 +225,13 @@ func _run_payload(marker: String, level: int) -> Dictionary:
 					"state": "987654321098765",
 				},
 			},
+		},
+		"world_events": {
+			"controller": {
+				"active_continuous_instance_id": "",
+				"instances": [],
+			},
+			"wave_plans": {},
 		},
 		"spawn_states": {
 			"wave_%s" % marker: {

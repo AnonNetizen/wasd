@@ -359,3 +359,29 @@ ui_debug_test_arena_stats_targets,活动目标：%d,Active Targets: %d
 ui_debug_test_arena_zone_central,中央出生 / 重置区,Central Spawn / Reset
 ui_debug_test_arena_zone_stationary,固定靶训练区,Stationary Target Zone
 ui_debug_test_arena_zone_ai,AI 实战区,AI Combat Zone
+world_event_defense_name,防御核心,Defense Core
+world_event_defense_desc,启动后保护核心直到事件结束。,Defend the core until the event ends.
+world_event_survival_name,生存信标,Survival Beacon
+world_event_survival_desc,启动信标并在敌潮中存活。,Activate the beacon and survive the enemy waves.
+world_event_capture_name,占点装置,Capture Node
+world_event_capture_desc,在区域内完成同步并占领装置。,Remain in the zone to synchronize and capture the node.
+world_event_gold_shrine_name,金币祭坛,Shrine of Gold
+world_event_gold_shrine_desc,献上递增的金币，尝试换取装备 Mod。,Offer increasing amounts of gold for a chance at a Gear Mod.
+world_event_blood_shrine_name,血量祭坛,Shrine of Blood
+world_event_blood_shrine_desc,献祭生命与护盾，换取金币。,Sacrifice health and shields in exchange for gold.
+ui_world_event_interact_start,[{binding}] 启动{name},[{binding}] Start {name}
+ui_world_event_interact_gold_shrine,[{binding}] 供奉 {cost} 金币,[{binding}] Offer {cost} Gold
+ui_world_event_interact_blood_shrine,[{binding}] 献祭 {cost} 总生命,[{binding}] Sacrifice {cost} Combined Health
+ui_world_event_status_defense,剩余 {time}s · 核心 {health}/{max_health},Time {time}s · Core {health}/{max_health}
+ui_world_event_status_survival,剩余 {time}s · 波次 {wave}/{wave_total},Time {time}s · Wave {wave}/{wave_total}
+ui_world_event_status_capture,占领 {progress}/{required}s · 入场 {entry}/{entry_required}s · 超时 {timeout}s,Capture {progress}/{required}s · Entry {entry}/{entry_required}s · Timeout {timeout}s
+ui_world_event_busy,另一个持续事件正在进行。,Another continuous event is already active.
+ui_world_event_exhausted,这个事件本局已经耗尽。,This event has been exhausted for this run.
+ui_world_event_completed_gold,{name}完成：获得 {amount} 金币。,{name} complete: gained {amount} Gold.
+ui_world_event_completed_mod,{name}完成：装备 Mod 已暂存。,{name} complete: Gear Mod secured as pending loot.
+ui_world_event_failed,{name}失败。,{name} failed.
+ui_world_event_gold_shrine_success,祭坛回应了供奉：装备 Mod 已暂存。,The shrine answered: Gear Mod secured as pending loot.
+ui_world_event_gold_shrine_failure,祭坛吞下了金币，但没有回应。,The shrine consumed the Gold but gave nothing.
+ui_world_event_insufficient_gold,金币不足。,Not enough Gold.
+ui_world_event_blood_shrine_success,献祭完成：获得 {amount} 金币。,Sacrifice complete: gained {amount} Gold.
+ui_world_event_insufficient_health,当前生命、护盾与超量护盾不足以完成献祭。,Not enough current health shields and overshield for the sacrifice.

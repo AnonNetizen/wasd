@@ -20,11 +20,11 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_sp1dj")
-baker_schema_version = 3
+baker_schema_version = 4
 module_id = "module_extraction_pad"
 gameplay_hash = "7abf0f3debf3d6752dc4151cd17a36b010d7fcee7af18eed3a5b1ad1396e79d4"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "cd57ec3ecee20f63fc8de4a74a6977bd13e2ab6093d5caa3997b36e4c7550ff5"
+bake_hash = "cfaf0d3a9e34d8114fa2fd1f96b7325b9177ccd2fb33624573e2b69bf30a1f53"
 placement_snapshot = Array[Dictionary]([{
 "cell": {
 "x": 5,

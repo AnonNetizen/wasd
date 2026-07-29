@@ -20,11 +20,11 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_l8tca")
-baker_schema_version = 3
+baker_schema_version = 4
 module_id = "module_resource_cache"
 gameplay_hash = "85ff837949672c9f521bd65a86939edf8b6bfe64221d57757147817555fe5bbd"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "4149e647a234c1e9a6656d72865c9b6e439372b624b46ea7abab18e3cb219a4d"
+bake_hash = "9f2c1b3ae7ba4912776c61ad873634944fda36fe35efaf6562e164480be92486"
 placement_snapshot = Array[Dictionary]([{
 "cell": {
 "x": 5,

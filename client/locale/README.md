@@ -247,6 +247,13 @@ gear_mod_weapon_spread_stabilizer_desc,降低主武器弹道扩散。,Reduces pr
 2. `gear_mods.json` 只引用对应 `name_key` / `desc_key`；描述说明用途，不重复写死 rank、倍率或百分比。
 3. 当前 rank 的实际加成或减免由装备 Mod 面板的通用 modifier 摘要格式化，避免数据升级后译文中的数值失真。
 
+### 加一个世界事件
+
+1. 在 `strings.csv` 新增 `world_event_<id>_name` / `world_event_<id>_desc`，并为交互、忙碌、成功、失败和奖励反馈复用或新增 `ui_world_event_*` key。
+2. 价格、献祭比例、剩余时间、波次、目标生命与占领进度必须使用命名占位符；`zh_CN` / `en` 的占位符集合完全一致，数值仍以 `world_events.json` 为唯一来源。
+3. `world_events.json` 只引用 `name_key` / `desc_key`；运行时通过 `tr()` 与 context 格式化，语言即时切换时重新渲染 HUD 和交互提示。
+4. 运行 `validate_data`、`world_event_smoke`、`module-world-smoke`，并以中英文分别检查长价格、目标生命和占点双进度不会截断。
+
 ### 新增语言
 
 1. 在 `strings.csv` 表头新增语言列，如 `ja`。

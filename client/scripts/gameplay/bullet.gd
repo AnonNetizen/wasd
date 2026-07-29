@@ -270,12 +270,99 @@ func _check_damage_target_hits(
 	step_start: Vector2,
 	step_end: Vector2
 ) -> void:
+	var candidates: Array[Dictionary] = []
+	var seen_targets: Dictionary = {}
 	for group_name: String in _damage_target_groups:
 		if group_name == ACTIVE_DEPLOYABLE_GROUP:
 			continue
 		for raw_target: Node in get_tree().get_nodes_in_group(group_name):
-			if _try_hit_damage_target(raw_target, step_start, step_end):
-				return
+			var instance_id: int = raw_target.get_instance_id()
+			if seen_targets.has(instance_id):
+				continue
+			seen_targets[instance_id] = true
+			var hit_fraction: float = _damage_target_hit_fraction(
+				raw_target,
+				step_start,
+				step_end
+			)
+			if hit_fraction < 0.0:
+				continue
+			candidates.append({
+				"target": raw_target,
+				"fraction": hit_fraction,
+				"instance_id": instance_id,
+			})
+	candidates.sort_custom(
+		Callable(self, "_damage_target_candidate_less")
+	)
+	for candidate: Dictionary in candidates:
+		var raw_target: Node = candidate.get("target") as Node
+		if (
+			raw_target != null
+			and _try_hit_damage_target(
+				raw_target,
+				step_start,
+				step_end
+			)
+		):
+			return
+
+
+func _damage_target_candidate_less(
+	left: Dictionary,
+	right: Dictionary
+) -> bool:
+	var left_fraction: float = float(left.get("fraction", INF))
+	var right_fraction: float = float(right.get("fraction", INF))
+	if not is_equal_approx(left_fraction, right_fraction):
+		return left_fraction < right_fraction
+	return int(left.get("instance_id", 0)) < int(
+		right.get("instance_id", 0)
+	)
+
+
+func _damage_target_hit_fraction(
+	raw_target: Node,
+	step_start: Vector2,
+	step_end: Vector2
+) -> float:
+	if (
+		raw_target.is_in_group(ACTIVE_DEPLOYABLE_GROUP)
+		or not raw_target is Node2D
+		or not raw_target.has_method("is_alive")
+		or not raw_target.has_method("hit_radius")
+		or not bool(raw_target.call("is_alive"))
+		or _hit_targets.has(raw_target.get_instance_id())
+	):
+		return -1.0
+	var target: Node2D = raw_target as Node2D
+	var combined_radius: float = (
+		_hit_radius + float(raw_target.call("hit_radius"))
+	)
+	var segment: Vector2 = step_end - step_start
+	var offset: Vector2 = step_start - target.global_position
+	if offset.length_squared() <= combined_radius * combined_radius:
+		return 0.0
+	var segment_length_squared: float = segment.length_squared()
+	if segment_length_squared <= 0.0:
+		return -1.0
+	var projection: float = -offset.dot(segment)
+	var discriminant: float = (
+		projection * projection
+		- segment_length_squared
+		* (
+			offset.length_squared()
+			- combined_radius * combined_radius
+		)
+	)
+	if discriminant < 0.0:
+		return -1.0
+	var fraction: float = (
+		projection - sqrt(discriminant)
+	) / segment_length_squared
+	if fraction < 0.0 or fraction > 1.0:
+		return -1.0
+	return fraction
 
 
 func _check_enemy_projectile_deployable_hit(

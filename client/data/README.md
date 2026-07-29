@@ -29,6 +29,7 @@
 | 改敌巢战区导演 / 阶段主题 / 兴趣点组合 | `warzone_directors.json` | 只按固定时间阶段启用 wave，不读取玩家状态、不做隐藏动态难度；匹配当前 layout 的兴趣点会生成初始 `source="director"` 机关；wave / 机关 / 地图引用必须存在 |
 | 加 / 改模块模板 | 在 Godot 的 `Module JSON` 中央主编辑区编辑 `modules/<id>.json`，再显式 Validate / Bake | 模块固定 11×11 格；JSON 是人工与 AI 协作主源，生成 TSCN 禁止手改，玩法变化会降为 `candidate` |
 | 改 9×9 世界骨架 / 路线预算 | `module_worlds.json` | 同一世界统一格尺寸；固定起点 / 目标 / 撤离锚点，其余槽位按 `RNG.world` + run seed 组合 |
+| 改世界事件数值 / 波次 / 祭坛概率 | `world_events.json` | schema v1；事件、Gear Mod 池、波次与祭坛参数严格校验，运行时随机走 `RNG.world_event` |
 | 改遗物数值 / 效果声明 | `relics.json` | 用 `modifiers` 和 `behaviors`，不要改逻辑分支 |
 | 改主动道具冷却 / 效果声明 | `active_items.json` | 用 `charge` 和 `use_effects`，不要实现运行时分支 |
 | 改技能消耗 / 冷却 / 目标 / 伤害 | `skills.json` | 技能不绑定英雄；角色或道具只引用 skill id，资源消耗用 `skill_resources` 声明 |
@@ -62,6 +63,7 @@
 | `map_layouts.json` | 已建立 | 有限地图配置：矩形地图边界、矩形格尺寸、玩家出生点、安全半径、PCG 机关规则和人工摆点 |
 | `warzone_directors.json` | 已建立 | 敌巢战区导演：固定阶段、巢变异主题、兴趣点 / 机关组合和阶段启用 wave |
 | `module_worlds.json` | 已建立 | F13 模块世界：9×9 槽位、11×11 格、统一格尺寸、固定锚点、模板池、安全布局和技术首片 |
+| `world_events.json` | 已建立 | 世界事件 schema v1：防御、生存、占点、金币祭坛与血量祭坛，以及事件 Gear Mod 候选池 |
 | `module_templates.json` | 已建立 | 模块注册表：角色、JSON 路径、AI 来源、审核状态、批准时 source hash 和可用旋转 |
 | `module_tile_catalog.json` | 已建立 | 稳定 `module_tile_id` 到 Godot TileSet source / atlas / alternative 的编辑期映射 |
 | `modules/*.json` | 制作主源 | 11×11 地形、placement 与三层视觉声明；由人工、AI 和 Module JSON Editor 协作维护 |
@@ -899,25 +901,53 @@ wave_standard_mid_bulwarks,mode_standard_survival,5,420.0,9999.0,enemy_bulwark,2
 
 `warzone_directors.json` 是 F10/F12 敌巢战区导演数据源。运行时使用 `phases[].wave_ids` 给 `GameplayRunLoop` 的 Spawner 做阶段 gating；刷怪本身仍由 `spawn_waves.csv` 的时间窗、间隔、预算和同时存活上限决定。F12 标准局按 0-1 分钟投放、1-4 分钟第一收益点、4-7 分钟路线压力、7-9 分钟小巢核、9 分钟后软加压组织；`phase_overtime_collapse` 只表达继续贪局时的高压段，不是硬性强制结束。匹配当前 `map_layout_id` 的 `interest_points[]` 会交给 `MapManager`；有 `target_hp` 的兴趣点先生成独立的格心 target anchor，再把 `hazard_ids[]` 机关放到目标附近并避开该 footprint；无目标兴趣点仍为每个 `hazard_ids[]` 用既有 PCG / 锚点 / 边界规则生成一个初始 `source="director"` placement，并把兴趣点奖励元数据透传给 `GameplayRunLoop`。无 `target_hp` 且无 `requires_interaction` 的兴趣点在玩家进入 `claim_radius` 且达到 `claim_start_time` 后领取；有 `requires_interaction=true` 的兴趣点会生成可见缓存箱，玩家进入半径后按 `interact` action 打开；有 `target_hp` 的兴趣点会生成可伤害目标，目标生成后即可被子弹 / Combat 伤害摧毁，摧毁后按通用 `resource_rewards[]` / `gear_mod_rewards[]` 放入 `run.pending_loot` 暂存；`completes_run=true` 的小巢核领取后只开启撤离区，玩家进入贴合地图矩形格的撤离矩形并完成 `extraction_hold_time` 读条后，才提交暂存战利品、删除当前 `run` 存档并显示完成结果面板。领取状态、目标状态、撤离状态和暂存战利品保存到 run payload，旧存档缺失时按未领取 / 未开启撤离 / 无暂存处理。导演不能读取玩家生命、DPS、受伤次数、输入频率或其它玩家状态；后续若增加随机 mutation、玩家可见主题或更复杂奖励语义，必须先同步 `docs/代码/warzone_director.md`、GDD、ADR、DataLoader schema 和对应 smoke / replay 策略。
 
+## `world_events.json`
+
+`world_events.json` schema v1 是五类世界事件和事件 Gear Mod 奖励池的唯一数值源。根级 `mod_pools[]` 必须完整覆盖 `world_event_mod_pool_ids`；每个池只引用已存在的 `gear_mod_ids`，池内不得重复。`events[]` 必须完整覆盖五个 `world_event_ids` 与五个 `world_event_kinds`，事件对象按 kind 使用严格字段集，不允许多余字段。
+
+| 字段路径 | 类型 | 合法值 / 范围 | 说明 |
+|----------|------|---------------|------|
+| `schema_version` | int | 必须为 `1` | 世界事件数据 schema |
+| `mod_pools[].id` | string | `world_event_mod_pool_ids`，唯一且完整覆盖 | 事件奖励 Gear Mod 池 |
+| `mod_pools[].mod_ids` | array[string] | 已存在的 `gear_mod_ids`，非空且不重复 | 当前普通池等权包含三个普通武器 Mod |
+| `events[].id` / `events[].kind` | string | 分别完整覆盖 `world_event_ids` / `world_event_kinds` | 稳定事件 id 与严格类型 |
+| `events[].name_key` / `desc_key` | string | 已存在的 `world_event_` locale key | 玩家可见名称与描述 |
+| `events[].interaction_radius` | number | `> 0` | `interact` 可用距离，单位 px |
+| `duration` / `capture_duration` / `timeout` | number | `> 0` | 持续事件与占点时长 |
+| `waves[].trigger` / `count` | number / int | 首项 trigger 为 `0`，非递减且不超过事件时长；count `>= 1` | 激活时据此生成固定波次计划 |
+| `target_max_health` / `target_hit_radius` | number | 防御类型必填且 `> 0` | 防御目标生命与受击半径 |
+| `capture_radius` / `entry_delay` / `entry_delay_decay` | number | 占点类型必填且 `> 0` | 实际区域、启动延迟与离区反向衰减速率 |
+| `completion_reward.gold_weight` / `mod_weight` | int | 均 `>= 1` | 持续事件隐藏固定奖励的相对权重 |
+| `completion_reward.gold_amount` | int | `>= 1` | 对应事件的即时金币奖励 |
+| `completion_reward.mod_pool_id` / `mod_pool_id` | string | 根级已定义的事件 Mod 池 | 完成奖励或金币祭坛的 Gear Mod 候选 |
+| `base_cost` / `cost_multiplier` | int / number | `base_cost >= 1`、倍率 `> 1` | 金币祭坛递增价格 |
+| `success_chance` | number | `0 < value < 1` | 金币祭坛每次独立成功率 |
+| `max_successes` | int | `>= 1` | 金币祭坛成功耗尽次数 |
+| `sacrifice_ratios[]` | array[number] | 恰好 3 个、严格递增且均在 `(0,1)` | 血量祭坛三次组合生命献祭比例 |
+| `gold_ratio` | number | `(0,1)` | 实际献祭值到即时金币的换算比例 |
+
+事件波次、隐藏奖励与祭坛判定使用独立 `RNG.world_event`，不得消费模块 assignment 的 `RNG.world` 或敌人普通生成流。
+
 ## `module_worlds.json` / `module_templates.json` / `module_tile_catalog.json` / `modules/*.json`
 
 F13 的正式默认地图是 9×9 无缝模块世界；每模块固定 11×11 格，默认单格 160 px。`module_worlds.json` 定义世界几何、键槽、批准模板池、安全回退布局和中心 3×3 技术首片；`module_templates.json` 是审核门禁注册表；`modules/*.json` 是布局与表现的唯一制作主源。Godot Module JSON Editor 只读写 JSON，不修改模块场景；baker 为每模块单向生成唯一的 `scenes/generated/modules/<id>/rotation_0.tscn`，生成场景禁止手改。allowed rotations 只限制世界 assignment，运行时由 `ModuleChunk` 旋转规范场景根节点，不生成方向副本。
 
-每个模块 JSON 必须包含恰好 11 行、每行 11 个 `module_cell_tokens`；四边 socket 由边缘 floor 自动推导，不在 schema v3 中重复存储。相邻非封锁模块旋转后的边缘开放格交集必须非空，不再要求整条 socket 完全一致；世界外圈仍不得越界开放。模块只允许 0/90/180/270° 世界旋转；单个视觉格允许使用同样的旋转和水平/垂直翻转。模块 placement 不包含敌人出生点，旧 `module_place_enemy_spawn` 会被 DataLoader、Python 校验器、编辑器与 baker 明确拒绝。
+每个模块 JSON 必须包含恰好 11 行、每行 11 个 `module_cell_tokens`；四边 socket 由边缘 floor 自动推导，不在 schema v4 中重复存储。相邻非封锁模块旋转后的边缘开放格交集必须非空，不再要求整条 socket 完全一致；世界外圈仍不得越界开放。模块只允许 0/90/180/270° 世界旋转；单个视觉格允许使用同样的旋转和水平/垂直翻转。模块 placement 不包含敌人出生点，旧 `module_place_enemy_spawn` 会被 DataLoader、Python 校验器、编辑器与 baker 明确拒绝。世界事件模块使用 `module_place_world_event`，payload 严格只有 `world_event_id`。
 
 ADR #164 后，正式 `template_pool` 只包含 0° 的 `module_flat_ground`；除三个固定槽外，`fallback_assignment` 也全部使用平地。平地 121 格都是 floor 且没有 gameplay placement。既有模块仍保留文件、生成场景和技术首片用途，但暂不进入普通正式随机池。固定起点不触发首次进入遭遇；固定目标和撤离槽与普通非起点槽使用同一套空地刷怪规则。
 
 AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate`。通过 bake、schema、图块、通道、全局可达性、安全区和内容预算校验后，仍需在中央主编辑区中显式批准。玩法或注册策略变化会降回 candidate；纯视觉变化保持审核状态但必须重新烘焙。默认模板池只能引用 `approved`；模板复用时，运行状态按世界槽位保存，不按模板 id 共享。完整编辑、命令和发布规则见 `docs/代码/module_authoring_pipeline.md`。
 
-`modules/*.json` schema v3 字段：
+`modules/*.json` schema v4 字段：
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `3` | 模块制作 schema；不接受旧敌人 placement |
+| `schema_version` | int | 必须为 `4` | 模块制作 schema；新增严格世界事件 placement |
 | `id` | string | 与注册表 id、文件名一致 | 稳定模块 id |
 | `columns` / `rows` | int | 首版固定 `11` | 模块格尺寸 |
 | `terrain_rows[y][x]` | string | `module_cell_tokens` | 11×11 玩法地形；edge socket 由边缘 floor 派生 |
 | `placements[]` | object | type、整数 `cell`、可选 `footprint` 与类型专属 payload | 内容摆放；完整 footprint 必须落在 floor |
+| `placements[].world_event_id` | string | `module_place_world_event` 时必填，来自 `world_event_ids` | 世界事件 placement 不允许 footprint 或其它多余字段 |
 | `visual_layers.ground.default_tile_id` / `visual_layers.obstacles.default_tile_id` | string | 对应层的稳定 tile id | 该玩法层非空格的默认视觉 |
 | `visual_layers.ground.overrides[]` / `visual_layers.obstacles.overrides[]` | object | cell、tile_id、rotation、flip_h、flip_v | 稀疏按格覆盖 |
 | `visual_layers.decoration.cells[]` | object | cell、tile_id、rotation、flip_h、flip_v | 不改变玩法地形的稀疏装饰 |
@@ -938,7 +968,8 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `worlds[].id` | string | 唯一、非空 | 世界 id；Run v8 的 `module_world` 子快照保存此值 |
+| `schema_version` | int | 必须为 `3` | 增加限量模板组 |
+| `worlds[].id` | string | 唯一、非空 | 世界 id；Run v9 的 `module_world` 子快照保存此值 |
 | `worlds[].columns` / `worlds[].rows` | int | 首版固定 `9` | 模块槽位宽高 |
 | `worlds[].module_columns` / `worlds[].module_rows` | int | 首版固定 `11` | 单模块局部格宽高 |
 | `worlds[].cell_size` | int | `> 0`，默认 `160` | 同一世界统一的方格边长，单位 px |
@@ -955,6 +986,11 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `worlds[].fixed_slots[].template_id` | string | 注册表中存在且 approved；必须在三个配置锚点各放恰好 1 个 start / objective / extraction 角色 | 固定关键模板引用，防止 seeded 世界缺少目标或撤离 |
 | `worlds[].fixed_slots[].rotation` | int | `0/90/180/270` | 固定模板旋转，不允许镜像 |
 | `worlds[].template_pool` | array[string] | 非空，只能引用 `approved` | 普通槽位随机模板池 |
+| `worlds[].limited_template_groups[]` | array[object] | 非空；组 id 与模板引用均不得重复 | 在普通模板填充前执行的限量抽选 |
+| `worlds[].limited_template_groups[].pick_distinct` | int | `1..entries.size()` | 按权重无放回抽取不同模板数；当前世界事件组为 3 |
+| `worlds[].limited_template_groups[].entries[].template_id` | string | approved 且角色为 `module_role_world_event` | 当前五种纯平原事件模板等权候选 |
+| `worlds[].limited_template_groups[].entries[].weight` | number | `> 0` | 组内相对抽取权重 |
+| `worlds[].limited_template_groups[].entries[].count_per_floor` | int | `>= 1`，选中总数不得超过自由槽位 | 某候选被选中后放置次数；当前均为 1 |
 | `worlds[].fallback_assignment[].slot.x` / `worlds[].fallback_assignment[].slot.y` | int | 完整覆盖 `0..8` | 固定安全布局槽位 |
 | `worlds[].fallback_assignment[].template_id` | string | 注册表中存在且 approved | 固定安全布局模板 |
 | `worlds[].fallback_assignment[].rotation` | int | `0/90/180/270` | 固定安全布局旋转 |
@@ -977,7 +1013,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 |----------|------|---------------|------|
 | `templates[].id` | string | 唯一、非空 | 模板 id；世界 assignment 引用此值 |
 | `templates[].path` | string | `res://data/modules/*.json` 且文件存在 | 独立模块 JSON 路径 |
-| `templates[].role` | string | `module_roles` | 起点 / 连接 / 战斗 / 资源 / 机关 / 目标 / 撤离 / 封锁角色 |
+| `templates[].role` | string | `module_roles` | 起点 / 连接 / 战斗 / 资源 / 机关 / 目标 / 撤离 / 世界事件 / 封锁角色 |
 | `templates[].tags` | array[string] | 可为空 | 编辑期筛选标签，不直接产生玩法分支 |
 | `templates[].source` | string | 首版 `ai` | 内容来源审计字段；AI 只在编辑期产出 JSON |
 | `templates[].review_status` | string | `module_review_statuses` | `candidate` 不得进入默认池，人工批准后为 `approved` |

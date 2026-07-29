@@ -1,0 +1,60 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/world_events/world_event_interactable.gd" id="1_k7vhm"]
+
+[node name="WorldEventGoldShrine" type="Node2D" unique_id=262341944]
+z_index = -1
+script = ExtResource("1_k7vhm")
+
+[node name="GroundVisual" type="Node2D" parent="." unique_id=71223606]
+z_index = -4
+
+[node name="GroundPlate" type="Polygon2D" parent="GroundVisual" unique_id=1061470554]
+color = Color(0.44, 0.3, 0.04, 0.18)
+polygon = PackedVector2Array(-74, -58, 74, -58, 74, 58, -74, 58)
+
+[node name="GroundOutline" type="Line2D" parent="GroundVisual" unique_id=414589148]
+points = PackedVector2Array(-74, -58, 74, -58, 74, 58, -74, 58)
+closed = true
+width = 3.0
+default_color = Color(0.96, 0.75, 0.22, 0.48)
+joint_mode = 2
+
+[node name="InteractionRing" type="Line2D" parent="." unique_id=495331520]
+z_index = -2
+points = PackedVector2Array(92, 0, 91.21293, 12.00841, 88.86517, 23.811352, 84.99692, 35.20688, 79.67434, 46, 72.9885, 56.00605, 65.053825, 65.053825, 56.00605, 72.9885, 45.999996, 79.67434, 35.206875, 84.99692, 23.811356, 88.86517, 12.008414, 91.21292, -4.0214477e-06, 92, -12.008411, 91.21293, -23.811352, 88.86517, -35.20687, 84.99692, -46.000004, 79.67434, -56.00605, 72.9885, -65.053825, 65.053825, -72.9885, 56.00605, -79.67434, 46.000004, -84.99692, 35.206882, -88.86517, 23.81136, -91.21293, 12.008399, -92, -8.042895e-06, -91.21292, -12.008416, -88.86517, -23.811356, -84.99692, -35.206875, -79.67434, -45.999996, -72.98851, -56.006046, -65.053825, -65.05382, -56.006058, -72.9885, -45.999992, -79.67434, -35.20689, -84.99692, -23.811346, -88.86518, -12.008429, -91.21292, 1.097089e-06, -92, 12.00843, -91.21292, 23.81135, -88.86517, 35.20689, -84.99691, 45.999992, -79.67434, 56.00606, -72.9885, 65.05381, -65.05383, 72.98851, -56.006046, 79.67433, -46.000015, 84.99692, -35.206875, 88.86518, -23.811333, 91.21293, -12.008413)
+closed = true
+width = 2.5
+default_color = Color(1, 0.82, 0.28, 0.84)
+joint_mode = 2
+
+[node name="Body" type="Node2D" parent="." unique_id=1468034568]
+
+[node name="LowerStep" type="Polygon2D" parent="Body" unique_id=213822174]
+position = Vector2(0, 16)
+color = Color(0.42, 0.29, 0.07, 1)
+polygon = PackedVector2Array(-62, -38, 62, -38, 62, 38, -62, 38)
+
+[node name="UpperStep" type="Polygon2D" parent="Body" unique_id=1551416231]
+position = Vector2(0, -8)
+color = Color(0.78, 0.53, 0.11, 1)
+polygon = PackedVector2Array(-46, -27, 46, -27, 46, 27, -46, 27)
+
+[node name="TierOutline" type="Line2D" parent="Body" unique_id=957715493]
+points = PackedVector2Array(-62, 54, 62, 54, 62, -22, 46, -22, 46, -35, -46, -35, -46, -22, -62, -22)
+closed = true
+width = 4.0
+default_color = Color(0.15, 0.09, 0.02, 1)
+joint_mode = 2
+
+[node name="StatusSlots" type="Node2D" parent="Body" unique_id=894317541]
+
+[node name="Slot0" type="Polygon2D" parent="Body/StatusSlots" unique_id=879191388]
+position = Vector2(-18, -7)
+color = Color(1, 0.83, 0.3, 1)
+polygon = PackedVector2Array(-12, -18, 12, -18, 12, 18, -12, 18)
+
+[node name="Slot1" type="Polygon2D" parent="Body/StatusSlots" unique_id=1533287227]
+position = Vector2(18, -7)
+color = Color(1, 0.83, 0.3, 1)
+polygon = PackedVector2Array(-12, -18, 12, -18, 12, 18, -12, 18)

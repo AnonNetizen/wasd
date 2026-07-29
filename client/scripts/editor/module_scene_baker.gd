@@ -17,7 +17,7 @@ const GENERATED_DIRECTORY: String = "res://scenes/generated/modules"
 const PROJECT_DATA_VALIDATION_SCRIPT: String = (
 	"res://addons/module_authoring/project_data_validation_cli.gd"
 )
-const BAKER_SCHEMA_VERSION: int = 3
+const BAKER_SCHEMA_VERSION: int = 4
 const TRANSFORM_FLIP_H: int = TileSetAtlasSource.TRANSFORM_FLIP_H
 const TRANSFORM_FLIP_V: int = TileSetAtlasSource.TRANSFORM_FLIP_V
 const TRANSFORM_TRANSPOSE: int = TileSetAtlasSource.TRANSFORM_TRANSPOSE
@@ -348,8 +348,8 @@ static func _validate_module_for_bake(
 	module_path: String,
 	module_role: String
 ) -> void:
-	if int(module_data.get("schema_version", 0)) != 3:
-		_add_error(result, "%s schema_version must be 3." % module_path)
+	if int(module_data.get("schema_version", 0)) != 4:
+		_add_error(result, "%s schema_version must be 4." % module_path)
 	if String(module_data.get("id", "")) != expected_id:
 		_add_error(result, "%s id must be %s." % [module_path, expected_id])
 	if (

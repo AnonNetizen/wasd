@@ -11,6 +11,12 @@ const ENEMY_DEFEAT_CAUSES := preload(
 const ENEMY_SCENE := preload("res://scenes/gameplay/actors/enemies/enemy_chaser.tscn")
 const GEAR_MOD_RESOURCES := preload("res://scripts/contracts/gear_mod_resources.gd")
 const PLAYER_SCENE := preload("res://scenes/gameplay/actors/characters/character_default.tscn")
+const WORLD_EVENT_DEFENSE_SCENE := preload(
+	"res://scenes/gameplay/world_events/world_event_defense.tscn"
+)
+const DAMAGE_TARGET_GROUPS := preload(
+	"res://scripts/contracts/damage_target_groups.gd"
+)
 const POOL_IDS := preload("res://scripts/contracts/pool_ids.gd")
 const SAVE_KINDS := preload("res://scripts/contracts/save_kinds.gd")
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
@@ -81,6 +87,13 @@ func _run() -> void:
 	_expect(
 		player.scene_file_path == PLAYER_SCENE.resource_path,
 		"default character should instantiate its data-bound dedicated scene"
+	)
+	var initial_run_snapshot: Dictionary = (
+		run_loop.call("create_run_snapshot") as Dictionary
+	)
+	_expect(
+		int(initial_run_snapshot.get("schema_version", 0)) == 9,
+		"new runs should use Run schema v9"
 	)
 	_expect(player is CharacterBody2D, "Player should keep 2D CharacterBody2D movement")
 	_expect(_find_node_by_name(player, "Player3DVisual") == null, "Player should use the top-down 2D placeholder instead of a 3D orthographic visual child")
@@ -267,6 +280,7 @@ func _run() -> void:
 	await _expect_enemy_player_targeting(run_loop, player)
 	await _expect_route_aware_enemy_perception(run_loop, player)
 	await _expect_explicit_enemy_attacks(run_loop, player)
+	await _expect_world_event_defense_targeting(run_loop, player)
 	await _expect_ranged_enemy_projectile_damage(run_loop, player)
 	await _expect_overdrive_rounds_skill(run_loop, player)
 	await _expect_gold_orb_draw_order(run_loop, player)
@@ -2491,13 +2505,316 @@ func _expect_explosion_terrain_blocking(
 	probe.queue_free()
 
 
+func _expect_world_event_defense_targeting(
+	run_loop: Node,
+	player: Node2D
+) -> void:
+	var active_world: Node = run_loop.get_node_or_null("ActiveWorld")
+	var packed: PackedScene = WORLD_EVENT_DEFENSE_SCENE
+	var raw_event: Node = packed.instantiate()
+	_expect(
+		raw_event is WorldEventInteractable,
+		"defense event scene should instantiate for combat smoke"
+	)
+	if not raw_event is WorldEventInteractable or active_world == null:
+		raw_event.queue_free()
+		return
+	var event_node: WorldEventInteractable = (
+		raw_event as WorldEventInteractable
+	)
+	active_world.add_child(event_node)
+	var target: WorldEventDefenseTarget = (
+		event_node.defense_target()
+	)
+	_expect(
+		target != null,
+		"defense event should expose its combat target"
+	)
+	if target == null:
+		event_node.queue_free()
+		return
+	var player_snapshot: Dictionary = player.call("snapshot")
+	var origin: Vector2 = player.global_position + Vector2(900.0, 0.0)
+	var context: Dictionary = {
+		"event_instance_id": "runtime_defense_event",
+		"primary_target": target,
+		"damage_target_groups": [
+			DAMAGE_TARGET_GROUPS.ACTIVE_PROJECTILE_BLOCKERS,
+			DAMAGE_TARGET_GROUPS
+			.ACTIVE_WORLD_EVENT_DEFENSE_TARGETS,
+			DAMAGE_TARGET_GROUPS.ACTIVE_PLAYER,
+		],
+	}
+
+	event_node.global_position = origin + Vector2(40.0, 0.0)
+	target.configure(
+		"runtime_defense_event",
+		1200.0,
+		48.0,
+		DAMAGE_TARGET_GROUPS
+		.ACTIVE_WORLD_EVENT_DEFENSE_TARGETS
+	)
+	target.activate()
+	player.call(
+		"debug_reset_transient_state",
+		origin + Vector2(400.0, 0.0)
+	)
+	var melee: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_swarm",
+		origin,
+		310,
+		null,
+		context
+	)
+	if melee != null:
+		melee.set_physics_process(false)
+		melee.set(
+			"_current_action",
+			ENEMY_AI_ACTIONS.AI_ACTION_MELEE_ATTACK
+		)
+		var health_before: float = target.current_health()
+		melee.call("_start_melee_attack")
+		melee.call("_update_attack_state", 0.24)
+		_expect(
+			target.current_health() < health_before,
+			"event melee enemy should damage the defense target"
+		)
+		_release_direct_attack_enemy(melee)
+
+	target.configure(
+		"runtime_defense_event",
+		1200.0,
+		48.0,
+		DAMAGE_TARGET_GROUPS
+		.ACTIVE_WORLD_EVENT_DEFENSE_TARGETS
+	)
+	target.activate()
+	event_node.global_position = origin + Vector2(90.0, 0.0)
+	player.call(
+		"debug_reset_transient_state",
+		origin + Vector2(45.0, 0.0)
+	)
+	var charge: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_stalker",
+		origin,
+		311,
+		null,
+		context
+	)
+	if charge != null:
+		charge.set_physics_process(false)
+		charge.set(
+			"_current_action",
+			ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET
+		)
+		var target_before: float = target.current_health()
+		var player_before: float = _player_total_defense(player)
+		charge.call("_start_charge")
+		charge.call("_update_attack_state", 0.34)
+		charge.call("_update_attack_state", 0.5)
+		_expect(
+			target.current_health() < target_before,
+			"event charge enemy should damage the defense target"
+		)
+		_expect(
+			_player_total_defense(player) < player_before,
+			"event charge should still damage a crossed player"
+		)
+		_release_direct_attack_enemy(charge)
+
+	target.configure(
+		"runtime_defense_event",
+		1200.0,
+		48.0,
+		DAMAGE_TARGET_GROUPS
+		.ACTIVE_WORLD_EVENT_DEFENSE_TARGETS
+	)
+	target.activate()
+	event_node.global_position = origin + Vector2(55.0, 0.0)
+	player.call(
+		"debug_reset_transient_state",
+		origin + Vector2(70.0, 0.0)
+	)
+	var exploder: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_chaser",
+		origin,
+		312,
+		null,
+		context
+	)
+	if exploder != null:
+		exploder.set_physics_process(false)
+		var target_before: float = target.current_health()
+		var player_before: float = _player_total_defense(player)
+		exploder.call("_arm_explosion", false)
+		exploder.call("_update_armed_state", 0.7)
+		_expect(
+			target.current_health() < target_before,
+			"event explosion should damage the defense target"
+		)
+		_expect(
+			_player_total_defense(player) < player_before,
+			"event explosion should still damage a nearby player"
+		)
+
+	var committed_exploder: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_chaser",
+		origin,
+		314,
+		null,
+		context
+	)
+	if committed_exploder != null:
+		committed_exploder.set_physics_process(false)
+		committed_exploder.call("_arm_explosion", false)
+		var armed_before: Dictionary = (
+			committed_exploder.call("ai_debug_summary") as Dictionary
+		)
+		committed_exploder.call(
+			"convert_to_player_target",
+			player
+		)
+		var armed_after: Dictionary = (
+			committed_exploder.call("ai_debug_summary") as Dictionary
+		)
+		_expect(
+			bool(armed_after.get("armed", false))
+			and (
+				String(armed_after.get("action_state", ""))
+				== String(armed_before.get("action_state", ""))
+			)
+			and is_equal_approx(
+				float(armed_after.get("attack_time_remaining", 0.0)),
+				float(armed_before.get("attack_time_remaining", -1.0))
+			),
+			"event cleanup should preserve an armed explosion commitment"
+		)
+		_release_direct_attack_enemy(committed_exploder)
+
+	target.configure(
+		"runtime_defense_event",
+		1200.0,
+		48.0,
+		DAMAGE_TARGET_GROUPS
+		.ACTIVE_WORLD_EVENT_DEFENSE_TARGETS
+	)
+	target.activate()
+	event_node.global_position = origin + Vector2(90.0, 0.0)
+	player.call(
+		"debug_reset_transient_state",
+		origin + Vector2(180.0, 0.0)
+	)
+	var gunner: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_spitter",
+		origin,
+		313,
+		null,
+		context
+	)
+	if gunner != null:
+		gunner.set_physics_process(false)
+		gunner.set(
+			"_current_action",
+			ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK
+		)
+		var target_before: float = target.current_health()
+		var player_before: float = _player_total_defense(player)
+		gunner.call("_fire_ranged_projectile", Vector2.RIGHT)
+		for _frame_index: int in range(40):
+			await get_tree().physics_frame
+		_expect(
+			target.current_health() < target_before,
+			"event projectile should damage the defense target"
+		)
+		_expect(
+			is_equal_approx(
+				_player_total_defense(player),
+				player_before
+			),
+			"shared projectile should hit the nearer defense target only"
+		)
+		_release_direct_attack_enemy(gunner)
+
+	var committed_gunner: Node2D = _create_direct_attack_enemy(
+		run_loop,
+		player,
+		"enemy_spitter",
+		origin,
+		315,
+		null,
+		context
+	)
+	if committed_gunner != null:
+		committed_gunner.set_physics_process(false)
+		committed_gunner.set(
+			"_current_action",
+			ENEMY_AI_ACTIONS.AI_ACTION_RANGED_ATTACK
+		)
+		committed_gunner.call(
+			"_start_ranged_burst",
+			Vector2.RIGHT
+		)
+		committed_gunner.call("_update_attack_state", 0.32)
+		var burst_before: Dictionary = (
+			committed_gunner.call("ai_debug_summary") as Dictionary
+		)
+		committed_gunner.call(
+			"convert_to_player_target",
+			player
+		)
+		var burst_after: Dictionary = (
+			committed_gunner.call("ai_debug_summary") as Dictionary
+		)
+		_expect(
+			String(burst_after.get("action_state", ""))
+			== "ranged_burst"
+			and int(burst_after.get("burst_shots_remaining", 0))
+			== int(burst_before.get("burst_shots_remaining", -1))
+			and is_equal_approx(
+				float(burst_after.get("attack_time_remaining", 0.0)),
+				float(burst_before.get("attack_time_remaining", -1.0))
+			),
+			"event cleanup should preserve a committed ranged burst"
+		)
+		_expect(
+			not (
+				burst_after.get("damage_target_groups", []) as Array
+			).has(
+				DAMAGE_TARGET_GROUPS
+				.ACTIVE_WORLD_EVENT_DEFENSE_TARGETS
+			),
+			"event cleanup should retarget remaining burst shots to player groups"
+		)
+		_release_direct_attack_enemy(committed_gunner)
+		for raw_bullet: Node in get_tree().get_nodes_in_group(
+			"active_bullets"
+		):
+			PoolManager.release(raw_bullet)
+
+	target.deactivate()
+	player.call("restore_snapshot", player_snapshot)
+	event_node.queue_free()
+	await get_tree().process_frame
+
+
 func _create_direct_attack_enemy(
 	run_loop: Node,
 	player: Node2D,
 	enemy_id: String,
 	position: Vector2,
 	serial: int,
-	navigation_provider: Node = null
+	navigation_provider: Node = null,
+	spawn_context: Dictionary = {}
 ) -> Node2D:
 	var enemy_rows: Dictionary = run_loop.get("_enemy_rows") as Dictionary
 	if not enemy_rows.has(enemy_id):
@@ -2523,7 +2840,8 @@ func _create_direct_attack_enemy(
 		{
 			"health_multiplier": 1.0,
 			"damage_multiplier": 1.0,
-		}
+		},
+		spawn_context
 	)
 	enemy.call("set_runtime_spawn_serial", serial)
 	return enemy
@@ -4368,6 +4686,18 @@ func _first_enemy_with_name_prefix(name_prefix: String) -> Node:
 		if String(enemy.name).begins_with(name_prefix):
 			return enemy
 	return null
+
+
+func _array_or_empty(value: Variant) -> Array:
+	if value is Array:
+		return (value as Array).duplicate(true)
+	return []
+
+
+func _dictionary_or_empty(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return (value as Dictionary).duplicate(true)
+	return {}
 
 
 func _expect(condition: bool, message: String) -> void:

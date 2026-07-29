@@ -9,6 +9,7 @@ const MODULE_JSON_CANVAS := preload("res://scripts/editor/module_json_canvas.gd"
 const MODULE_CELL_TOKENS := preload("res://scripts/contracts/module_cell_tokens.gd")
 const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placement_types.gd")
 const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
+const WORLD_EVENT_IDS := preload("res://scripts/contracts/world_event_ids.gd")
 
 const LAYER_OPTIONS: Array[String] = ["ground", "obstacles", "decoration", "placements"]
 const LAYER_LABELS: Array[String] = ["地面", "障碍", "装饰", "放置点"]
@@ -28,6 +29,7 @@ var _tool_combo: OptionButton
 var _terrain_combo: OptionButton
 var _tile_combo: OptionButton
 var _placement_combo: OptionButton
+var _world_event_combo: OptionButton
 var _preview_rotation_combo: OptionButton
 var _tile_id_edit: LineEdit
 var _tile_rotation_combo: OptionButton
@@ -187,12 +189,19 @@ func _build_ui() -> void:
 	)
 	_add_labeled_option(
 		editing_grid,
+		"事件 ID",
+		_array_to_strings(WORLD_EVENT_IDS.VALUES),
+		"_world_event_combo"
+	)
+	_add_labeled_option(
+		editing_grid,
 		"预览",
 		["0°", "90°", "180°", "270°"],
 		"_preview_rotation_combo",
 		ROTATION_OPTIONS
 	)
 	_layer_combo.item_selected.connect(_on_layer_changed)
+	_placement_combo.item_selected.connect(_on_placement_type_changed)
 	_preview_rotation_combo.item_selected.connect(_on_preview_rotation_changed)
 
 	var editor_split := HSplitContainer.new()
@@ -462,6 +471,11 @@ func _refresh_selected_cell() -> void:
 		_payload_edit.text = _placement_payload_text(placement)
 		if placement.has("type"):
 			_select_option_by_metadata(_placement_combo, String(placement.get("type", "")))
+		if placement.has("world_event_id"):
+			_select_option_by_metadata(
+				_world_event_combo,
+				String(placement.get("world_event_id", ""))
+			)
 		return
 	var visual: Dictionary = _document.visual_at(layer_name, cell)
 	if visual.is_empty():
@@ -766,10 +780,30 @@ func _apply_placement(cell: Vector2i) -> void:
 	if not bool(payload_result.get("ok", false)):
 		_report_result("放置", payload_result)
 		return
+	var placement_type: String = _selected_option_string(_placement_combo)
+	var payload: Dictionary = (
+		payload_result.get("data", {}) as Dictionary
+	).duplicate(true)
+	if placement_type == MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT:
+		payload["world_event_id"] = _selected_option_string(_world_event_combo)
 	_document.set_placement(
 		cell,
-		_selected_option_string(_placement_combo),
-		payload_result.get("data", {}) as Dictionary
+		placement_type,
+		payload
+	)
+
+
+func _on_placement_type_changed(_index: int) -> void:
+	if (
+		_selected_option_string(_placement_combo)
+		!= MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT
+	):
+		return
+	_payload_edit.text = JSON.stringify(
+		{"world_event_id": _selected_option_string(_world_event_combo)},
+		"  ",
+		false,
+		true
 	)
 
 

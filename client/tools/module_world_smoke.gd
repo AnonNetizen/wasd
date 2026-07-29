@@ -1,6 +1,6 @@
 extends Node
 ## F13 headless smoke for deterministic composition, seamless streaming, fog,
-## objective-to-extraction flow, threat-time combat gates and Run v8 restore.
+## objective-to-extraction flow, threat-time combat gates and Run v9 restore.
 
 const MODULE_WORLD_MANAGER_SCENE := preload("res://scenes/gameplay/module_world_manager.tscn")
 const MODULE_NAVIGATION_FIELD_SCRIPT := preload("res://scripts/gameplay/module_navigation_field.gd")
@@ -70,7 +70,7 @@ func _run() -> void:
 		) as CollisionShape2D
 		visible_chunk_has_ground = visible_chunk_has_ground or (ground != null and not ground.get_used_cells().is_empty())
 		visible_chunk_has_collision = visible_chunk_has_collision or (collision != null and collision.shape is ConcavePolygonShape2D and not collision.disabled)
-	_expect(visible_chunk_count == 9, "center streaming should activate the nine scene-authored chunks")
+	_expect(visible_chunk_count == 9, "center streaming should activate nine normal streaming chunks")
 	_expect(visible_chunk_has_ground, "active chunks should mount generated ground TileMap data")
 	_expect(visible_chunk_has_collision, "active chunks should mount generated merged collision resources")
 
@@ -78,6 +78,28 @@ func _run() -> void:
 	var world_summary: Dictionary = summary.get("module_world", {}) as Dictionary
 	_expect(int(world_summary.get("assignment_count", 0)) == 81, "world should assign exactly 81 slots")
 	_expect(int(world_summary.get("active_count", 0)) <= 9, "streaming should activate at most nine chunks")
+	_expect(int(world_summary.get("chunk_pool_size", 0)) == 12, "manager scene should provide exactly twelve reusable chunks")
+	_expect(int(world_summary.get("world_event_assignment_count", 0)) == 3, "seeded world should place exactly three world event modules")
+	_expect((world_summary.get("world_event_template_ids", []) as Array).size() == 3, "seeded world events should use three distinct templates")
+	var world_event_summary: Dictionary = (
+		run_loop.call("debug_world_event_summary") as Dictionary
+	)
+	_expect(
+		int(world_event_summary.get("registered_node_count", 0)) == 3,
+		"runtime should register one interactable for each selected event module"
+	)
+	_expect(
+		(world_event_summary.get("instances", []) as Array).size() == 3,
+		"world event controller should own exactly three runtime instances"
+	)
+	var fresh_run_snapshot: Dictionary = (
+		run_loop.call("create_run_snapshot") as Dictionary
+	)
+	_expect(
+		int(fresh_run_snapshot.get("schema_version", 0)) == 9
+		and not (fresh_run_snapshot.get("world_events", {}) as Dictionary).is_empty(),
+		"Run v9 should save registered world-event state"
+	)
 	_expect(String(world_summary.get("map_hash", "")).length() == 64, "world should expose a sha256 map hash")
 	_expect(_coord_matches(world_summary.get("current_module", {}), Vector2i(4, 4)), "fresh run should start in center module")
 	var runtime_navigation: Dictionary = world_summary.get("navigation", {}) as Dictionary
@@ -215,24 +237,30 @@ func _expect_deterministic_composition() -> void:
 		"one-module crossing should replace at most three edge chunks"
 	)
 	_expect(
-		manager_a.call("assignment") == manager_c.call("assignment")
-		and manager_c.call("assignment") == manager_d.call("assignment"),
-		"singleton flat-ground pool should keep ordinary assignments stable across seeds"
-	)
-	_expect(
-		_all_formal_ordinary_slots_are_flat(
+		_formal_assignment_has_three_events_and_flat_fill(
 			manager_a.call("assignment") as Dictionary
 		),
-		"formal ordinary slots should all use unrotated flat ground"
+		"formal assignment should contain three distinct event templates and flat-fill other ordinary slots"
 	)
 	_expect(
 		String(manager_a.call("map_hash")) != String(manager_c.call("map_hash")),
-		"map hash should retain the run seed even with a singleton template pool"
+		"different run seeds should produce different map hashes"
 	)
+	var event_coords: Array[Vector2i] = _world_event_coords(
+		manager_c.call("assignment") as Dictionary
+	)
+	_expect(event_coords.size() == 3, "seeded assignment should expose three event coordinates")
+	for event_coord: Vector2i in event_coords:
+		_expect(bool(manager_c.call("set_slot_pinned", event_coord, true)), "each event module should be pinnable")
+	manager_c.call("tick", Vector2(1_000_000.0, 1_000_000.0))
+	var pinned_summary: Dictionary = manager_c.call("debug_summary")
+	_expect(int(pinned_summary.get("pinned_count", 0)) == 3, "three pinned event modules should be retained")
+	_expect(int(pinned_summary.get("active_count", 0)) == 3, "outside-world streaming should retain only pinned event modules")
+	_expect(not bool(manager_c.call("set_slot_pinned", Vector2i(4, 4), true)), "pinning beyond the three-slot reserve should fail")
 	_expect(
 		(manager_a.call("empty_floor_positions_at", Vector2i(5, 4)) as Array).size()
-		== 121,
-		"interior flat-ground slots should expose all 121 cell centers"
+		in [120, 121],
+		"interior flat or event slots should expose 121 or 120 spawnable cell centers"
 	)
 	var flat_data: Dictionary = (
 		data["templates"] as Dictionary
@@ -263,6 +291,9 @@ func _expect_deterministic_composition() -> void:
 		if String(registry_entry.get("role", "")) == MODULE_ROLES.MODULE_ROLE_SEALED:
 			sealed_count += 1
 	_expect(sealed_count == 72, "technical slice should seal exactly the outer 72 slots")
+	var technical_summary: Dictionary = manager_technical.call("debug_summary")
+	_expect(int(technical_summary.get("world_event_assignment_count", 0)) == 3, "technical slice should contain exactly three world events")
+	_expect((technical_summary.get("world_event_template_ids", []) as Array).size() == 3, "technical slice world events should be distinct")
 	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_START) == Vector2i(4, 4), "technical slice should retain the center start")
 	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_OBJECTIVE) == Vector2i(3, 4), "technical slice should expose its in-slice objective anchor")
 	_expect(manager_technical.call("role_module_coord", MODULE_ROLES.MODULE_ROLE_EXTRACTION) == Vector2i(3, 3), "technical slice should expose its in-slice extraction anchor")
@@ -270,6 +301,10 @@ func _expect_deterministic_composition() -> void:
 	var tampered_snapshot: Dictionary = manager_a.call("snapshot")
 	tampered_snapshot["map_hash"] = "0".repeat(64)
 	_expect(not bool(manager_a.call("restore_state", tampered_snapshot)), "restore should reject a mismatched module map hash")
+	_expect(bool(manager_d.call("build_fallback_assignment")), "fallback assignment should build")
+	var fallback_summary: Dictionary = manager_d.call("debug_summary")
+	_expect(int(fallback_summary.get("world_event_assignment_count", 0)) == 3, "fallback assignment should contain exactly three world events")
+	_expect((fallback_summary.get("world_event_template_ids", []) as Array).size() == 3, "fallback world events should be distinct")
 	var center_world: Vector2 = manager_a.call("global_cell_to_world", Vector2i(49, 49))
 	_expect(center_world.is_equal_approx(Vector2.ZERO), "global center cell should map to world origin")
 	_expect(manager_a.call("world_to_global_cell", Vector2.ZERO) == Vector2i(49, 49), "world origin should map to global center cell")
@@ -587,7 +622,7 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 	)
 	_expect(
 		_saved_slot_has_encounter(saved_slot_states, "5,4", spawn_plan),
-		"Run v8 snapshot should persist the fixed telegraph plan"
+		"Run v9 snapshot should persist the fixed telegraph plan"
 	)
 	var remaining_before_pause: float = float(
 		encounter.get("remaining_telegraph", 0.0)
@@ -827,6 +862,48 @@ func _expect_seamless_streaming(run_loop: Node) -> void:
 
 func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 	var technical_slice: bool = OS.get_cmdline_user_args().has("--module-world-technical-slice")
+	var event_nodes: Dictionary = run_loop.get("_world_event_nodes") as Dictionary
+	var event_controller: Node = run_loop.get("_world_event_controller") as Node
+	var active_event_instance_id: String = ""
+	var event_instance_ids: Array[String] = []
+	for raw_instance_id: Variant in event_nodes.keys():
+		event_instance_ids.append(String(raw_instance_id))
+	event_instance_ids.sort()
+	for instance_id: String in event_instance_ids:
+		var event_node: Node = event_nodes.get(instance_id) as Node
+		if event_node == null or not event_node.has_method("event_id"):
+			continue
+		var definition: Dictionary = event_controller.call(
+			"definition",
+			String(event_node.call("event_id"))
+		) as Dictionary
+		var kind: String = String(definition.get("kind", ""))
+		if kind not in [
+			"world_event_kind_defense",
+			"world_event_kind_survival",
+			"world_event_kind_capture",
+		]:
+			continue
+		active_event_instance_id = instance_id
+		run_loop.call(
+			"debug_set_player_position",
+			(event_node as Node2D).global_position
+		)
+		await _wait_frames(BOOT_FRAMES)
+		var interaction: Dictionary = run_loop.call(
+			"debug_interact_world_event",
+			instance_id
+		) as Dictionary
+		_expect(
+			bool(interaction.get("accepted", false)),
+			"a selected continuous world event should activate"
+		)
+		await _wait_frames(8)
+		break
+	_expect(
+		not active_event_instance_id.is_empty(),
+		"every three-event selection should include a continuous event"
+	)
 	# Full world objective is (0,4); technical-slice objective is (3,4).
 	var objective_coord := Vector2i(3, 4) if technical_slice else Vector2i(0, 4)
 	var objective_position := Vector2(-1760.0, 0.0) if technical_slice else Vector2(-7040.0, 0.0)
@@ -857,6 +934,26 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 		and not objective_spawn_plan.is_empty(),
 		"objective first-entry encounter should still be telegraphing before save"
 	)
+	var saved_world_event_summary: Dictionary = (
+		run_loop.call("debug_world_event_summary") as Dictionary
+	)
+	var saved_active_event: Dictionary = _world_event_instance_summary(
+		saved_world_event_summary,
+		active_event_instance_id
+	)
+	_expect(
+		String(
+			saved_world_event_summary.get(
+				"active_continuous_instance_id",
+				""
+			)
+		) == active_event_instance_id
+		and String(saved_active_event.get("state", "")) == "world_event_state_active"
+		and bool(saved_active_event.get("pinned", false))
+		and int(saved_active_event.get("wave_cursor", 0)) >= 1
+		and float(saved_active_event.get("elapsed", 0.0)) > 0.0,
+		"active world event should retain progress, first wave cursor, and background pin"
+	)
 
 	# Save while the completed objective module is still active. Restore must not recreate
 	# its destroyed target with default HP before applying the interest-point snapshot.
@@ -865,16 +962,16 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 	await _wait_frames(2)
 	_expect(
 		GameState.is_state(GameState.PAUSED),
-		"Run v8 difficulty roundtrip fixture should save from a frozen UI state"
+		"Run v9 difficulty roundtrip fixture should save from a frozen UI state"
 	)
 	var snapshot: Dictionary = run_loop.call("create_run_snapshot")
 	var saved_difficulty: Dictionary = run_loop.call(
 		"debug_difficulty_snapshot"
 	) as Dictionary
-	_expect(int(snapshot.get("schema_version", 0)) == 8, "module run snapshot should use schema v8")
-	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v8 should save")
+	_expect(int(snapshot.get("schema_version", 0)) == 9, "module run snapshot should use schema v9")
+	_expect(SaveManager.save(SMOKE_SLOT, SAVE_KINDS.RUN, snapshot), "module run v9 should save")
 	var loaded: Dictionary = SaveManager.load(SMOKE_SLOT, SAVE_KINDS.RUN)
-	_expect(not loaded.is_empty(), "module run v8 should load")
+	_expect(not loaded.is_empty(), "module run v9 should load")
 	if loaded.is_empty():
 		return
 	var saved_hash: String = String((snapshot.get("module_world", {}) as Dictionary).get("map_hash", ""))
@@ -891,6 +988,37 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 	var restored_difficulty: Dictionary = restored.call(
 		"debug_difficulty_snapshot"
 	) as Dictionary
+	var restored_world_event_summary: Dictionary = (
+		restored.call("debug_world_event_summary") as Dictionary
+	)
+	var restored_active_event: Dictionary = _world_event_instance_summary(
+		restored_world_event_summary,
+		active_event_instance_id
+	)
+	_expect(
+		String(
+			restored_world_event_summary.get(
+				"active_continuous_instance_id",
+				""
+			)
+		) == active_event_instance_id
+		and String(restored_active_event.get("state", ""))
+		== "world_event_state_active"
+		and bool(restored_active_event.get("pinned", false))
+		and int(restored_active_event.get("wave_cursor", -1))
+		== int(saved_active_event.get("wave_cursor", -2))
+		and is_equal_approx(
+			float(restored_active_event.get("elapsed", -1.0)),
+			float(saved_active_event.get("elapsed", -2.0))
+		)
+		and int(
+			restored_world_event_summary.get(
+				"wave_plan_count",
+				0
+			)
+		) >= 1,
+		"Run v9 restore should preserve active event progress, pin, and fixed wave plan"
+	)
 	_expect(
 		is_equal_approx(
 			float(restored_difficulty.get("elapsed", -1.0)),
@@ -906,13 +1034,13 @@ func _expect_objective_extraction_and_restore(run_loop: Node) -> void:
 			float(restored_difficulty.get("damage_multiplier", 0.0)),
 			float(saved_difficulty.get("damage_multiplier", -1.0))
 		),
-		"Run v8 restore should preserve exact difficulty time, level, and multipliers"
+		"Run v9 restore should preserve exact difficulty time, level, and multipliers"
 	)
 	restored.call("_on_pause_resume_requested")
 	await _wait_frames(30)
 	_expect(
 		GameState.is_state(GameState.PLAYING),
-		"restored paused Run v8 fixture should resume after difficulty comparison"
+		"restored paused Run v9 fixture should resume after difficulty comparison"
 	)
 	var restored_world: Dictionary = restored_summary.get("module_world", {}) as Dictionary
 	_expect(String(restored_world.get("map_hash", "")) == saved_hash, "restore should validate and preserve map hash")
@@ -1237,7 +1365,7 @@ func _expect_enemy_unlock_boundaries(run_loop: Node) -> void:
 	)
 
 
-func _all_formal_ordinary_slots_are_flat(
+func _formal_assignment_has_three_events_and_flat_fill(
 	assignment: Dictionary
 ) -> bool:
 	var fixed_slots: Dictionary = {
@@ -1245,17 +1373,53 @@ func _all_formal_ordinary_slots_are_flat(
 		"0,4": true,
 		"0,0": true,
 	}
+	var event_template_ids: Array[String] = []
 	for raw_slot: Variant in assignment.keys():
 		var slot: String = String(raw_slot)
 		if fixed_slots.has(slot):
 			continue
 		var entry: Dictionary = assignment[raw_slot] as Dictionary
-		if (
-			String(entry.get("template_id", "")) != "module_flat_ground"
-			or int(entry.get("rotation", -1)) != 0
-		):
+		if int(entry.get("rotation", -1)) != 0:
 			return false
-	return true
+		if String(entry.get("role", "")) == MODULE_ROLES.MODULE_ROLE_WORLD_EVENT:
+			var template_id: String = String(entry.get("template_id", ""))
+			if event_template_ids.has(template_id):
+				return false
+			event_template_ids.append(template_id)
+		elif String(entry.get("template_id", "")) != "module_flat_ground":
+			return false
+	return event_template_ids.size() == 3
+
+
+func _world_event_coords(assignment: Dictionary) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	for raw_entry: Variant in assignment.values():
+		if not raw_entry is Dictionary:
+			continue
+		var entry: Dictionary = raw_entry as Dictionary
+		if String(entry.get("role", "")) != MODULE_ROLES.MODULE_ROLE_WORLD_EVENT:
+			continue
+		var slot: Dictionary = entry.get("slot", {}) as Dictionary
+		result.append(Vector2i(int(slot.get("x", -1)), int(slot.get("y", -1))))
+	result.sort_custom(
+		func(left: Vector2i, right: Vector2i) -> bool:
+			return left.y < right.y or (left.y == right.y and left.x < right.x)
+	)
+	return result
+
+
+func _world_event_instance_summary(
+	summary: Dictionary,
+	instance_id: String
+) -> Dictionary:
+	for raw_instance: Variant in summary.get("instances", []) as Array:
+		if (
+			raw_instance is Dictionary
+			and String((raw_instance as Dictionary).get("instance_id", ""))
+			== instance_id
+		):
+			return (raw_instance as Dictionary).duplicate(true)
+	return {}
 
 
 func _flat_module_is_empty_floor(module_data: Dictionary) -> bool:

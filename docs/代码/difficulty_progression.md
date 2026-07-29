@@ -49,7 +49,7 @@ difficulty_level = tier + 1
 | `advance(delta)` | 已经 `GameClock.delta_scaled()` 的秒数 | void | 禁用、非正数或非有限值不推进 |
 | `current_snapshot()` | 无 | Dictionary | 返回 elapsed、tier、progress、coefficient、等级、名称 key 和两倍率 |
 | `enemy_spawn_snapshot()` | 无 | Dictionary | 生成敌人时取得的不可变出生倍率 |
-| `snapshot()` | 无 | Dictionary | Run v8 保存 schema/profile/elapsed/enabled |
+| `snapshot()` | 无 | Dictionary | Run v9 保存 schema/profile/elapsed/enabled |
 | `restore_snapshot(saved)` | 快照 | bool | schema/profile/elapsed 不匹配则拒绝 |
 
 ## 运行流程
@@ -58,7 +58,7 @@ difficulty_level = tier + 1
 2. 每个 `PLAYING` 帧先判断载体。模块世界根据玩家真实世界坐标换算当前槽位，开放战区直接允许推进。
 3. 模块首次进入计划仍在进房时固化敌种和位置；预警倒计时结束后，敌人在真正 `PoolManager.acquire()` 时取得最新 `enemy_spawn_snapshot()`。
 4. `Enemy.configure(..., spawn_difficulty)` 把生命倍率应用到最大生命，把伤害倍率应用到全部显式攻击伤害并保存倍率；攻击几何、时序和击退保持数据原值。
-5. 已生成敌人不订阅 progression，也不会在跨级时重算。模块卸载和 Run v8 续局从敌人快照恢复同一倍率。
+5. 已生成敌人不订阅 progression，也不会在跨级时重算。模块卸载和 Run v9 续局从敌人快照恢复同一倍率；世界事件波次使用激活时固化的难度语义。
 6. HUD、详细面板、GameOverPanel、GameState 结果 payload 和 Replay 的 run-end / runtime summary 都使用难度时间。
 
 ## 战斗门禁
@@ -70,7 +70,7 @@ difficulty_level = tier + 1
 
 ## 存档与回放
 
-- Run v8 继续保存顶层 `difficulty`，并在每个敌人快照保存 `spawn_health_multiplier` / `spawn_damage_multiplier`；同时保存显式攻击阶段，恢复时不得重复提交伤害。
+- Run v9 继续保存顶层 `difficulty`，并在每个敌人快照保存 `spawn_health_multiplier` / `spawn_damage_multiplier`；同时保存显式攻击阶段与事件敌人上下文，恢复时不得重复提交伤害或波次。
 - Run v5 无法推断玩家在起点停留的时间，也无法还原已有敌人的出生倍率，因此 v5→v6 标记 `legacy_run_incompatible`，启动层只删除 run；Meta v2 和 Gear Mod 不受影响。
 - Replay 文件和 recording 保持 v3。数据 schema count 会让 profile 变化进入 data fingerprint；四条 golden 的 `run_summary` 增加难度时间、等级和两倍率。
 

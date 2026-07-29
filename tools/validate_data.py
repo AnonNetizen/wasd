@@ -42,6 +42,7 @@ MODULE_TEMPLATES_JSON = ROOT / "client" / "data" / "module_templates.json"
 MODULE_TILE_CATALOG_JSON = ROOT / "client" / "data" / "module_tile_catalog.json"
 MODULES_DIR = ROOT / "client" / "data" / "modules"
 GEAR_MODS_JSON = ROOT / "client" / "data" / "gear_mods.json"
+WORLD_EVENTS_JSON = ROOT / "client" / "data" / "world_events.json"
 GEAR_MOD_DROP_TABLES_CSV = ROOT / "client" / "data" / "gear_mod_drop_tables.csv"
 GEAR_MOD_FUSION_COSTS_CSV = ROOT / "client" / "data" / "gear_mod_fusion_costs.csv"
 PLACEHOLDER_RE = re.compile(r"\{[a-z0-9_]+\}")
@@ -137,6 +138,7 @@ def main() -> int:
     enemy_ids = _collect_enemy_ids(ctx)
     _validate_gear_mods(ctx)
     gear_mod_ids = _collect_gear_mod_ids(ctx)
+    world_event_ids = _validate_world_events(ctx, gear_mod_ids)
     gear_mod_rarity_max_ranks = _collect_gear_mod_rarity_max_ranks(ctx)
     _validate_gear_mod_drop_tables(ctx, enemy_ids, gear_mod_ids)
     _validate_gear_mod_fusion_costs(ctx, gear_mod_rarity_max_ranks)
@@ -162,7 +164,13 @@ def main() -> int:
     _validate_spawn_waves_csv(ctx, enemy_ids, hazard_ids, game_mode_ids)
     _validate_warzone_directors(ctx, game_mode_ids, _collect_spawn_wave_ids_by_mode(ctx), hazard_ids, _collect_map_layout_ids(ctx), gear_mod_ids)
     module_tile_catalog = _validate_module_tile_catalog(ctx)
-    _validate_module_world_data(ctx, enemy_ids, set(hazard_ids), module_tile_catalog)
+    _validate_module_world_data(
+        ctx,
+        enemy_ids,
+        set(hazard_ids),
+        world_event_ids,
+        module_tile_catalog,
+    )
 
     if ctx.errors:
         for error in ctx.errors:
@@ -3112,6 +3120,261 @@ def _collect_gear_mod_ids(ctx: ValidationContext) -> set[str]:
     return {item.get("id") for item in mods if isinstance(item, dict) and isinstance(item.get("id"), str)}
 
 
+def _validate_world_events(ctx: ValidationContext, gear_mod_ids: set[str]) -> set[str]:
+    path = WORLD_EVENTS_JSON
+    data = _load_json(path, ctx)
+    if not isinstance(data, dict):
+        return set()
+    if set(data) != {"schema_version", "mod_pools", "events"}:
+        ctx.error(path, "root", "must define exactly schema_version, mod_pools, and events")
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 1)
+
+    mod_pools = _require_list(ctx, path, "mod_pools", data.get("mod_pools"))
+    mod_pool_ids: set[str] = set()
+    for pool_index, pool in enumerate(mod_pools):
+        field = f"mod_pools[{pool_index}]"
+        if not isinstance(pool, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        if set(pool) != {"id", "mod_ids"}:
+            ctx.error(path, field, "must define exactly id and mod_ids")
+        pool_id = _require_registered(
+            ctx, path, f"{field}.id", pool.get("id"), "world_event_mod_pool_ids"
+        )
+        if pool_id:
+            if pool_id in mod_pool_ids:
+                ctx.error(path, f"{field}.id", f"duplicate mod pool id {pool_id}")
+            mod_pool_ids.add(pool_id)
+        mod_ids = _require_list(ctx, path, f"{field}.mod_ids", pool.get("mod_ids"))
+        if not mod_ids:
+            ctx.error(path, f"{field}.mod_ids", "must be a non-empty array")
+        seen_mod_ids: set[str] = set()
+        for mod_index, raw_mod_id in enumerate(mod_ids):
+            mod_field = f"{field}.mod_ids[{mod_index}]"
+            mod_id = _require_registered(ctx, path, mod_field, raw_mod_id, "gear_mod_ids")
+            if not mod_id:
+                continue
+            if mod_id in seen_mod_ids:
+                ctx.error(path, mod_field, f"duplicate Gear Mod id {mod_id}")
+            seen_mod_ids.add(mod_id)
+            if mod_id not in gear_mod_ids:
+                ctx.error(path, mod_field, f"Gear Mod is not defined in gear_mods.json: {mod_id}")
+    expected_pool_ids = set(ctx.contracts.get("world_event_mod_pool_ids", []))
+    if mod_pool_ids != expected_pool_ids:
+        ctx.error(path, "mod_pools", "must define every registered world_event_mod_pool_id exactly once")
+
+    events = _require_list(ctx, path, "events", data.get("events"))
+    event_ids: set[str] = set()
+    kinds: set[str] = set()
+    expected_kind_by_id = {
+        "world_event_defense": "world_event_kind_defense",
+        "world_event_survival": "world_event_kind_survival",
+        "world_event_capture": "world_event_kind_capture",
+        "world_event_gold_shrine": "world_event_kind_gold_shrine",
+        "world_event_blood_shrine": "world_event_kind_blood_shrine",
+    }
+    for event_index, event in enumerate(events):
+        field = f"events[{event_index}]"
+        if not isinstance(event, dict):
+            ctx.error(path, field, "must be an object")
+            continue
+        event_id = _require_registered(
+            ctx, path, f"{field}.id", event.get("id"), "world_event_ids"
+        )
+        kind = _require_registered(
+            ctx, path, f"{field}.kind", event.get("kind"), "world_event_kinds"
+        )
+        if event_id:
+            if event_id in event_ids:
+                ctx.error(path, f"{field}.id", f"duplicate world event id {event_id}")
+            event_ids.add(event_id)
+        if kind:
+            if kind in kinds:
+                ctx.error(path, f"{field}.kind", f"duplicate world event kind {kind}")
+            kinds.add(kind)
+        if event_id and kind and expected_kind_by_id.get(event_id) != kind:
+            ctx.error(path, f"{field}.kind", "must match the world event id")
+        _require_locale_key(ctx, path, f"{field}.name_key", event.get("name_key"))
+        _require_locale_key(ctx, path, f"{field}.desc_key", event.get("desc_key"))
+        _require_number(
+            ctx,
+            path,
+            f"{field}.interaction_radius",
+            event.get("interaction_radius"),
+            minimum=0.0,
+            exclusive_minimum=True,
+        )
+        _validate_world_event_kind(ctx, path, field, event, kind, mod_pool_ids)
+    if event_ids != set(ctx.contracts.get("world_event_ids", [])):
+        ctx.error(path, "events", "must define every registered world_event_id exactly once")
+    if kinds != set(ctx.contracts.get("world_event_kinds", [])):
+        ctx.error(path, "events", "must define every registered world_event_kind exactly once")
+    return event_ids
+
+
+def _validate_world_event_kind(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    event: dict[str, Any],
+    kind: str | None,
+    mod_pool_ids: set[str],
+) -> None:
+    common = {"id", "kind", "name_key", "desc_key", "interaction_radius"}
+    specific: dict[str, set[str]] = {
+        "world_event_kind_defense": {
+            "duration", "waves", "target_max_health", "target_hit_radius", "completion_reward"
+        },
+        "world_event_kind_survival": {"duration", "waves", "completion_reward"},
+        "world_event_kind_capture": {
+            "capture_radius", "entry_delay", "entry_delay_decay", "capture_duration",
+            "timeout", "waves", "completion_reward",
+        },
+        "world_event_kind_gold_shrine": {
+            "base_cost", "cost_multiplier", "success_chance", "max_successes", "mod_pool_id"
+        },
+        "world_event_kind_blood_shrine": {"sacrifice_ratios", "gold_ratio"},
+    }
+    expected = common | specific.get(kind or "", set())
+    if set(event) != expected:
+        ctx.error(path, field, f"fields must exactly match {kind or 'registered world event kind'} schema")
+    if kind in {"world_event_kind_defense", "world_event_kind_survival"}:
+        duration = _require_number(
+            ctx, path, f"{field}.duration", event.get("duration"),
+            minimum=0.0, exclusive_minimum=True,
+        )
+        _validate_world_event_waves(ctx, path, f"{field}.waves", event.get("waves"), duration)
+        _validate_world_event_completion_reward(
+            ctx, path, f"{field}.completion_reward", event.get("completion_reward"), mod_pool_ids
+        )
+        if kind == "world_event_kind_defense":
+            _require_number(
+                ctx, path, f"{field}.target_max_health", event.get("target_max_health"),
+                minimum=0.0, exclusive_minimum=True,
+            )
+            _require_number(
+                ctx, path, f"{field}.target_hit_radius", event.get("target_hit_radius"),
+                minimum=0.0, exclusive_minimum=True,
+            )
+    elif kind == "world_event_kind_capture":
+        values: dict[str, float | None] = {}
+        for key in (
+            "capture_radius", "entry_delay", "entry_delay_decay", "capture_duration", "timeout"
+        ):
+            values[key] = _require_number(
+                ctx, path, f"{field}.{key}", event.get(key),
+                minimum=0.0, exclusive_minimum=True,
+            )
+        _validate_world_event_waves(
+            ctx, path, f"{field}.waves", event.get("waves"), values["capture_duration"]
+        )
+        _validate_world_event_completion_reward(
+            ctx, path, f"{field}.completion_reward", event.get("completion_reward"), mod_pool_ids
+        )
+    elif kind == "world_event_kind_gold_shrine":
+        _require_int(ctx, path, f"{field}.base_cost", event.get("base_cost"), minimum=1)
+        _require_number(
+            ctx, path, f"{field}.cost_multiplier", event.get("cost_multiplier"),
+            minimum=1.0, exclusive_minimum=True,
+        )
+        chance = _require_number(
+            ctx, path, f"{field}.success_chance", event.get("success_chance"),
+            minimum=0.0, maximum=1.0, exclusive_minimum=True,
+        )
+        if chance is not None and chance >= 1.0:
+            ctx.error(path, f"{field}.success_chance", "must be < 1.0")
+        _require_int(ctx, path, f"{field}.max_successes", event.get("max_successes"), minimum=1)
+        _validate_world_event_mod_pool_reference(
+            ctx, path, f"{field}.mod_pool_id", event.get("mod_pool_id"), mod_pool_ids
+        )
+    elif kind == "world_event_kind_blood_shrine":
+        ratios = _require_list(ctx, path, f"{field}.sacrifice_ratios", event.get("sacrifice_ratios"))
+        if len(ratios) != 3:
+            ctx.error(path, f"{field}.sacrifice_ratios", "must contain exactly three ratios")
+        previous = 0.0
+        for ratio_index, raw_ratio in enumerate(ratios):
+            ratio_field = f"{field}.sacrifice_ratios[{ratio_index}]"
+            ratio = _require_number(
+                ctx, path, ratio_field, raw_ratio,
+                minimum=0.0, maximum=1.0, exclusive_minimum=True,
+            )
+            if ratio is not None:
+                if ratio >= 1.0:
+                    ctx.error(path, ratio_field, "must be < 1.0")
+                if ratio <= previous:
+                    ctx.error(path, ratio_field, "must be strictly increasing")
+                previous = ratio
+        gold_ratio = _require_number(
+            ctx, path, f"{field}.gold_ratio", event.get("gold_ratio"),
+            minimum=0.0, maximum=1.0, exclusive_minimum=True,
+        )
+        if gold_ratio is not None and gold_ratio >= 1.0:
+            ctx.error(path, f"{field}.gold_ratio", "must be < 1.0")
+
+
+def _validate_world_event_waves(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    value: Any,
+    maximum_trigger: float | None,
+) -> None:
+    waves = _require_list(ctx, path, field, value)
+    if not waves:
+        ctx.error(path, field, "must be a non-empty array")
+    previous = -1.0
+    for wave_index, wave in enumerate(waves):
+        wave_field = f"{field}[{wave_index}]"
+        if not isinstance(wave, dict):
+            ctx.error(path, wave_field, "must be an object")
+            continue
+        if set(wave) != {"trigger", "count"}:
+            ctx.error(path, wave_field, "must define exactly trigger and count")
+        trigger = _require_number(
+            ctx, path, f"{wave_field}.trigger", wave.get("trigger"),
+            minimum=0.0, maximum=maximum_trigger,
+        )
+        _require_int(ctx, path, f"{wave_field}.count", wave.get("count"), minimum=1)
+        if trigger is not None:
+            if trigger < previous:
+                ctx.error(path, f"{wave_field}.trigger", "must be non-decreasing")
+            previous = trigger
+    if waves and (not isinstance(waves[0], dict) or waves[0].get("trigger") != 0):
+        ctx.error(path, f"{field}[0].trigger", "must be 0")
+
+
+def _validate_world_event_completion_reward(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    value: Any,
+    mod_pool_ids: set[str],
+) -> None:
+    if not isinstance(value, dict):
+        ctx.error(path, field, "must be an object")
+        return
+    if set(value) != {"gold_weight", "mod_weight", "gold_amount", "mod_pool_id"}:
+        ctx.error(path, field, "must define exactly gold_weight, mod_weight, gold_amount, and mod_pool_id")
+    _require_int(ctx, path, f"{field}.gold_weight", value.get("gold_weight"), minimum=1)
+    _require_int(ctx, path, f"{field}.mod_weight", value.get("mod_weight"), minimum=1)
+    _require_int(ctx, path, f"{field}.gold_amount", value.get("gold_amount"), minimum=1)
+    _validate_world_event_mod_pool_reference(
+        ctx, path, f"{field}.mod_pool_id", value.get("mod_pool_id"), mod_pool_ids
+    )
+
+
+def _validate_world_event_mod_pool_reference(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    value: Any,
+    mod_pool_ids: set[str],
+) -> None:
+    pool_id = _require_registered(ctx, path, field, value, "world_event_mod_pool_ids")
+    if pool_id and pool_id not in mod_pool_ids:
+        ctx.error(path, field, f"mod pool is not defined in world_events.json: {pool_id}")
+
+
 def _collect_gear_mod_rarity_max_ranks(ctx: ValidationContext) -> dict[str, int]:
     data = _load_json(GEAR_MODS_JSON, ctx)
     if not isinstance(data, dict):
@@ -3178,14 +3441,17 @@ def _validate_module_world_data(
     ctx: ValidationContext,
     enemy_ids: set[str],
     hazard_ids: set[str],
+    world_event_ids: set[str],
     module_tile_catalog: dict[str, str],
 ) -> None:
-    templates = _validate_module_templates(ctx, hazard_ids, module_tile_catalog)
+    templates = _validate_module_templates(
+        ctx, hazard_ids, world_event_ids, module_tile_catalog
+    )
     path = MODULE_WORLDS_JSON
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 2)
+    _require_exact_int(ctx, path, "schema_version", data.get("schema_version"), 3)
     worlds = _require_list(ctx, path, "worlds", data.get("worlds"))
     if not worlds:
         ctx.error(path, "worlds", "must be a non-empty array")
@@ -3267,6 +3533,15 @@ def _validate_module_world_data(
                     pool_field,
                     f"formal template needs at least {required_spawn_cells} spawnable floor cells",
                 )
+        _validate_module_limited_template_groups(
+            ctx,
+            path,
+            f"{field}.limited_template_groups",
+            world.get("limited_template_groups"),
+            templates,
+            required_spawn_cells,
+            81 - len(fixed_assignment),
+        )
 
         for assignment_name, technical in (("fallback_assignment", False), ("technical_slice_assignment", True)):
             entries = _require_list(ctx, path, f"{field}.{assignment_name}", world.get(assignment_name))
@@ -3301,6 +3576,102 @@ def _validate_module_world_data(
                 route_budget if not technical else {},
                 technical,
             )
+
+
+def _validate_module_limited_template_groups(
+    ctx: ValidationContext,
+    path: Path,
+    field: str,
+    value: Any,
+    templates: dict[str, dict[str, Any]],
+    required_spawn_cells: int,
+    available_slots: int,
+) -> None:
+    groups = _require_list(ctx, path, field, value)
+    if not groups:
+        ctx.error(path, field, "must be a non-empty array")
+    seen_group_ids: set[str] = set()
+    seen_template_ids: set[str] = set()
+    selected_slots = 0
+    for group_index, group in enumerate(groups):
+        group_field = f"{field}[{group_index}]"
+        if not isinstance(group, dict):
+            ctx.error(path, group_field, "must be an object")
+            continue
+        if set(group) != {"id", "pick_distinct", "entries"}:
+            ctx.error(path, group_field, "must define exactly id, pick_distinct, and entries")
+        group_id = _require_non_empty_string(ctx, path, f"{group_field}.id", group.get("id"))
+        if group_id:
+            if group_id in seen_group_ids:
+                ctx.error(path, f"{group_field}.id", f"duplicate group id {group_id}")
+            seen_group_ids.add(group_id)
+        entries = _require_list(ctx, path, f"{group_field}.entries", group.get("entries"))
+        pick_distinct = _require_int(
+            ctx, path, f"{group_field}.pick_distinct", group.get("pick_distinct"), minimum=1
+        )
+        if pick_distinct is not None and pick_distinct > len(entries):
+            ctx.error(path, f"{group_field}.pick_distinct", "must not exceed entries length")
+        counts: list[int] = []
+        for entry_index, entry in enumerate(entries):
+            entry_field = f"{group_field}.entries[{entry_index}]"
+            if not isinstance(entry, dict):
+                ctx.error(path, entry_field, "must be an object")
+                continue
+            if set(entry) != {"template_id", "weight", "count_per_floor"}:
+                ctx.error(
+                    path,
+                    entry_field,
+                    "must define exactly template_id, weight, and count_per_floor",
+                )
+            template_id = _require_non_empty_string(
+                ctx, path, f"{entry_field}.template_id", entry.get("template_id")
+            )
+            if template_id:
+                if template_id in seen_template_ids:
+                    ctx.error(
+                        path,
+                        f"{entry_field}.template_id",
+                        f"duplicate limited template id {template_id}",
+                    )
+                seen_template_ids.add(template_id)
+            _require_number(
+                ctx,
+                path,
+                f"{entry_field}.weight",
+                entry.get("weight"),
+                minimum=0.0,
+                exclusive_minimum=True,
+            )
+            count = _require_int(
+                ctx,
+                path,
+                f"{entry_field}.count_per_floor",
+                entry.get("count_per_floor"),
+                minimum=1,
+            )
+            counts.append(count if count is not None else available_slots + 1)
+            template = templates.get(template_id or "")
+            if template is None:
+                ctx.error(
+                    path,
+                    f"{entry_field}.template_id",
+                    f"template is not defined in module_templates.json: {template_id}",
+                )
+                continue
+            if template.get("review_status") != "module_review_approved":
+                ctx.error(path, f"{entry_field}.template_id", "template must be approved")
+            if template.get("role") != "module_role_world_event":
+                ctx.error(path, f"{entry_field}.template_id", "template must use module_role_world_event")
+            if _module_spawnable_cell_count(template) < required_spawn_cells:
+                ctx.error(
+                    path,
+                    f"{entry_field}.template_id",
+                    f"template needs at least {required_spawn_cells} spawnable floor cells",
+                )
+        if pick_distinct is not None:
+            selected_slots += sum(sorted(counts, reverse=True)[:pick_distinct])
+    if selected_slots > available_slots:
+        ctx.error(path, field, f"selected templates exceed {available_slots} available slots")
 
 
 def _validate_first_visit_enemy_spawn(
@@ -3427,6 +3798,7 @@ def _module_spawnable_cell_count(template: dict[str, Any]) -> int:
 def _validate_module_templates(
     ctx: ValidationContext,
     hazard_ids: set[str],
+    world_event_ids: set[str],
     module_tile_catalog: dict[str, str],
 ) -> dict[str, dict[str, Any]]:
     path = MODULE_TEMPLATES_JSON
@@ -3490,6 +3862,7 @@ def _validate_module_templates(
                     template_id,
                     role,
                     hazard_ids,
+                    world_event_ids,
                     module_tile_catalog,
                 )
         if template_id:
@@ -3530,11 +3903,12 @@ def _validate_module_file(
     expected_id: str | None,
     role: str | None,
     hazard_ids: set[str],
+    world_event_ids: set[str],
     module_tile_catalog: dict[str, str],
 ) -> None:
-    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=3)
-    if schema_version != 3:
-        ctx.error(path, "schema_version", "must be 3")
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=4)
+    if schema_version != 4:
+        ctx.error(path, "schema_version", "must be 4")
     module_id = _require_non_empty_string(ctx, path, "id", data.get("id"))
     if module_id and expected_id and module_id != expected_id:
         ctx.error(path, "id", f"must match registry template id {expected_id}")
@@ -3552,9 +3926,9 @@ def _validate_module_file(
             _require_registered(ctx, path, f"{row_field}[{x}]", token, "module_cell_tokens")
 
     derived_sockets = _derive_module_edge_sockets(terrain_rows)
-    if schema_version == 3:
+    if schema_version == 4:
         if "edge_sockets" in data:
-            ctx.error(path, "edge_sockets", "must be omitted in schema v3 because sockets are derived")
+            ctx.error(path, "edge_sockets", "must be omitted in schema v4 because sockets are derived")
         _validate_module_visual_layers(ctx, path, data.get("visual_layers"), module_tile_catalog)
         data["edge_sockets"] = derived_sockets
 
@@ -3601,12 +3975,29 @@ def _validate_module_file(
         elif placement_type == "module_place_extraction":
             _require_number(ctx, path, f"{field}.radius", placement.get("radius"), minimum=0.0, exclusive_minimum=True)
             _require_number(ctx, path, f"{field}.hold_time", placement.get("hold_time"), minimum=0.0, exclusive_minimum=True)
+        elif placement_type == "module_place_world_event":
+            if set(placement) != {"type", "cell", "world_event_id"}:
+                ctx.error(path, field, "must define exactly type, cell, and world_event_id")
+            world_event_id = _require_registered(
+                ctx,
+                path,
+                f"{field}.world_event_id",
+                placement.get("world_event_id"),
+                "world_event_ids",
+            )
+            if world_event_id and world_event_id not in world_event_ids:
+                ctx.error(
+                    path,
+                    f"{field}.world_event_id",
+                    f"world event is not defined in world_events.json: {world_event_id}",
+                )
 
     protected_types = {
         "module_place_player_start",
         "module_place_reward_cache",
         "module_place_objective",
         "module_place_extraction",
+        "module_place_world_event",
     }
     danger_types = {"module_place_hazard"}
     for left_index, (left_type, left_cells) in enumerate(footprint_by_type):
@@ -3779,6 +4170,9 @@ def _validate_module_role_budget(
         ctx.error(path, "placements", "objective module requires exactly one objective")
     elif role == "module_role_extraction" and counts.get("module_place_extraction", 0) != 1:
         ctx.error(path, "placements", "extraction module requires exactly one extraction")
+    elif role == "module_role_world_event":
+        if counts.get("module_place_world_event", 0) != 1 or len(counts) != 1:
+            ctx.error(path, "placements", "world event module requires exactly one world event placement")
     elif role == "module_role_sealed" and (hazards or any(counts.values())):
         ctx.error(path, "placements", "sealed module cannot contain placements")
 

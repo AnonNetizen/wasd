@@ -70,6 +70,36 @@ const WARZONE_DIRECTOR_SCRIPT := preload("res://scripts/gameplay/warzone_directo
 const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placement_types.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const MODULE_CELL_TOKENS := preload("res://scripts/contracts/module_cell_tokens.gd")
+const DAMAGE_TARGET_GROUPS := preload(
+	"res://scripts/contracts/damage_target_groups.gd"
+)
+const WORLD_EVENT_KINDS := preload(
+	"res://scripts/contracts/world_event_kinds.gd"
+)
+const WORLD_EVENT_IDS := preload(
+	"res://scripts/contracts/world_event_ids.gd"
+)
+const WORLD_EVENT_REWARD_TYPES := preload(
+	"res://scripts/contracts/world_event_reward_types.gd"
+)
+const WORLD_EVENT_STATES := preload(
+	"res://scripts/contracts/world_event_states.gd"
+)
+const WORLD_EVENT_DEFENSE_SCENE := preload(
+	"res://scenes/gameplay/world_events/world_event_defense.tscn"
+)
+const WORLD_EVENT_SURVIVAL_SCENE := preload(
+	"res://scenes/gameplay/world_events/world_event_survival.tscn"
+)
+const WORLD_EVENT_CAPTURE_SCENE := preload(
+	"res://scenes/gameplay/world_events/world_event_capture.tscn"
+)
+const WORLD_EVENT_GOLD_SHRINE_SCENE := preload(
+	"res://scenes/gameplay/world_events/world_event_gold_shrine.tscn"
+)
+const WORLD_EVENT_BLOOD_SHRINE_SCENE := preload(
+	"res://scenes/gameplay/world_events/world_event_blood_shrine.tscn"
+)
 
 const BULLET_POOL_SIZE: int = 192
 const BULLET_POOL_PREWARM: int = 64
@@ -80,7 +110,7 @@ const HAZARD_POOL_SIZE: int = 32
 const PICKUP_POOL_SIZE: int = 128
 const ENERGY_ORB_POOL_SIZE: int = 64
 const PROJECTILE_BARRIER_POOL_SIZE: int = 4
-const RUN_SNAPSHOT_SCHEMA_VERSION: int = 8
+const RUN_SNAPSHOT_SCHEMA_VERSION: int = 9
 const ACTIVE_POOL_GROUPS: Array[String] = [
 	"active_hazards",
 	"active_enemies",
@@ -110,6 +140,9 @@ const DEBUG_TEST_ARENA_AI: String = "ai"
 const DEBUG_TEST_ARENA_STATIONARY: String = "stationary"
 const MODULE_ENCOUNTER_STATE_TELEGRAPHING: String = "telegraphing"
 const MODULE_ENCOUNTER_STATE_SPAWNED: String = "spawned"
+const WORLD_EVENT_TARGET_MODE_EVENT_PRIMARY: String = (
+	"event_primary"
+)
 
 @export_group("Extraction Visual Style")
 @export var extraction_zone_fill_color: Color = Color(0.18, 0.82, 0.68, 0.16)
@@ -179,6 +212,11 @@ var _run_prepared: bool = false
 var _run_start_failed: bool = false
 var _sub_hero_id: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 var _pending_ui_restore: Dictionary = {}
+var _world_event_controller: WorldEventController = null
+var _world_event_host: Node2D = null
+var _world_event_nodes: Dictionary = {}
+var _world_event_module_coords: Dictionary = {}
+var _world_event_wave_plans: Dictionary = {}
 
 
 func _ready() -> void:
@@ -191,6 +229,7 @@ func _exit_tree() -> void:
 	if InputService.action_pressed.is_connected(_on_input_action_pressed):
 		InputService.action_pressed.disconnect(_on_input_action_pressed)
 	_clear_interest_point_caches()
+	_clear_world_events()
 	_release_active_world_pool_entities()
 	if _vfx_host != null:
 		_vfx_host.cancel_all()
@@ -233,7 +272,16 @@ func _process(delta: float) -> void:
 		_update_module_world(delta)
 	else:
 		_advance_difficulty(delta)
+	if _world_event_controller != null:
+		_world_event_controller.tick(
+			delta,
+			_player,
+			_world_event_context()
+		)
+		_update_world_event_background_pins()
 	_update_interest_points()
+	_update_combined_interaction_prompt()
+	_refresh_world_event_hud()
 	if not GameState.is_state(GameState.PLAYING):
 		return
 	_update_extraction(delta)
@@ -256,7 +304,7 @@ func _on_input_action_pressed(action_id: StringName, participant_id: String) -> 
 		return
 	if GameState.is_state(GameState.PLAYING):
 		if action_id == StringName(ACTIONS.INTERACT):
-			_try_interact_interest_point()
+			_try_interact_nearest()
 			return
 		if action_id == StringName(ACTIONS.PAUSE):
 			_show_pause_menu()
@@ -417,6 +465,7 @@ func create_run_snapshot() -> Dictionary:
 		"gold_orbs": _entity_snapshots("active_gold_orbs"),
 		"energy_orbs": _entity_snapshots("active_energy_orbs"),
 		"module_world": _module_world_snapshot(),
+		"world_events": _world_events_snapshot(),
 		"reward_choice": (
 			_reward_choice_controller.snapshot()
 			if _reward_choice_controller != null
@@ -811,6 +860,16 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_update_combat_hud()
 	_refresh_difficulty_hud()
 	_refresh_gold_hud()
+	if (
+		_module_world_enabled
+		and not _is_debug_test_arena()
+		and not _configure_world_event_controller()
+	):
+		_fail_run_start(
+			"world event controller configuration failed",
+			not restore_snapshot.is_empty()
+		)
+		return
 	if _is_debug_test_arena():
 		_hud.visible = false
 		_debug_test_arena_controller.call(
@@ -1562,6 +1621,36 @@ func debug_module_world_state() -> Dictionary:
 	return _module_world_snapshot()
 
 
+func debug_world_event_summary() -> Dictionary:
+	if _world_event_controller == null:
+		return {}
+	var summary: Dictionary = (
+		_world_event_controller.debug_summary()
+	)
+	summary["registered_node_count"] = (
+		_world_event_nodes.size()
+	)
+	summary["wave_plan_count"] = (
+		_world_event_wave_plans.size()
+	)
+	return summary
+
+
+func debug_interact_world_event(
+	instance_id: String
+) -> Dictionary:
+	if _world_event_controller == null:
+		return {
+			"accepted": false,
+			"reason": "controller_unavailable",
+		}
+	return _world_event_controller.interact(
+		instance_id,
+		_player,
+		_world_event_context()
+	)
+
+
 func debug_module_world_tick() -> Dictionary:
 	if _module_world_manager == null or _player == null:
 		return {}
@@ -1987,6 +2076,805 @@ func _spawn_map_hazards(placements: Array[Dictionary]) -> void:
 		_spawn_hazard(placement)
 
 
+func _configure_world_event_controller() -> bool:
+	_clear_world_events()
+	_world_event_host = (
+		_active_world.get_node_or_null("WorldEventHost") as Node2D
+	)
+	_world_event_controller = (
+		get_node_or_null("WorldEventController")
+		as WorldEventController
+	)
+	if _world_event_host == null or _world_event_controller == null:
+		return false
+	_world_event_controller.configure(
+		_dictionary_or_empty(
+			DataLoader.load_json(DataLoader.WORLD_EVENTS_PATH)
+		)
+	)
+	_world_event_controller.wave_requested.connect(
+		_on_world_event_wave_requested
+	)
+	_world_event_controller.reward_requested.connect(
+		_on_world_event_reward_requested
+	)
+	_world_event_controller.prompt_requested.connect(
+		_on_world_event_prompt_requested
+	)
+	_world_event_controller.state_changed.connect(
+		_on_world_event_state_changed
+	)
+	_world_event_controller.module_pin_requested.connect(
+		_on_world_event_module_pin_requested
+	)
+	_world_event_controller.terminal_cleanup_requested.connect(
+		_on_world_event_terminal_cleanup_requested
+	)
+	for event_id: String in WORLD_EVENT_IDS.VALUES:
+		if _world_event_controller.definition(event_id).is_empty():
+			return false
+	return true
+
+
+func _clear_world_events() -> void:
+	_world_event_nodes.clear()
+	_world_event_module_coords.clear()
+	_world_event_wave_plans.clear()
+	if _world_event_host != null and is_instance_valid(_world_event_host):
+		for child: Node in _world_event_host.get_children():
+			child.queue_free()
+	_world_event_controller = null
+	_world_event_host = null
+
+
+func _register_all_module_world_events() -> void:
+	if (
+		_module_world_manager == null
+		or _world_event_controller == null
+		or _world_event_host == null
+		or not _world_event_nodes.is_empty()
+	):
+		return
+	for row_index: int in range(9):
+		for column_index: int in range(9):
+			var module_coord := Vector2i(
+				column_index,
+				row_index
+			)
+			var placements: Array[Dictionary] = (
+				_module_world_manager.call(
+					"placements_at",
+					module_coord
+				)
+			)
+			for placement: Dictionary in placements:
+				if (
+					String(placement.get("type", ""))
+					!= MODULE_PLACEMENT_TYPES
+					.MODULE_PLACE_WORLD_EVENT
+				):
+					continue
+				_register_module_world_event(
+					module_coord,
+					placement
+				)
+
+
+func _register_module_world_event(
+	module_coord: Vector2i,
+	placement: Dictionary
+) -> void:
+	var event_id: String = String(
+		placement.get("world_event_id", "")
+	)
+	var scene: PackedScene = _world_event_scene(event_id)
+	if scene == null:
+		push_error(
+			"[GameplayRunLoop] missing world-event scene: %s"
+			% event_id
+		)
+		return
+	var instance_id: String = "world_event_%d_%d_%s" % [
+		module_coord.x,
+		module_coord.y,
+		event_id,
+	]
+	var raw_node: Node = scene.instantiate()
+	if not raw_node is WorldEventInteractable:
+		raw_node.queue_free()
+		push_error(
+			"[GameplayRunLoop] world-event scene root is invalid: %s"
+			% event_id
+		)
+		return
+	var interactable: WorldEventInteractable = (
+		raw_node as WorldEventInteractable
+	)
+	_world_event_host.add_child(interactable)
+	interactable.global_position = _dict_to_vector(
+		placement.get("world_position", {}),
+		Vector2.ZERO
+	)
+	var slot_key: String = _module_slot_key(module_coord)
+	if not _world_event_controller.register_instance(
+		instance_id,
+		event_id,
+		interactable,
+		slot_key,
+		interactable.defense_target()
+	):
+		interactable.queue_free()
+		return
+	_world_event_nodes[instance_id] = interactable
+	_world_event_module_coords[instance_id] = module_coord
+
+
+func _world_event_scene(event_id: String) -> PackedScene:
+	match event_id:
+		WORLD_EVENT_IDS.WORLD_EVENT_DEFENSE:
+			return WORLD_EVENT_DEFENSE_SCENE
+		WORLD_EVENT_IDS.WORLD_EVENT_SURVIVAL:
+			return WORLD_EVENT_SURVIVAL_SCENE
+		WORLD_EVENT_IDS.WORLD_EVENT_CAPTURE:
+			return WORLD_EVENT_CAPTURE_SCENE
+		WORLD_EVENT_IDS.WORLD_EVENT_GOLD_SHRINE:
+			return WORLD_EVENT_GOLD_SHRINE_SCENE
+		WORLD_EVENT_IDS.WORLD_EVENT_BLOOD_SHRINE:
+			return WORLD_EVENT_BLOOD_SHRINE_SCENE
+		_:
+			return null
+
+
+func _world_event_context() -> Dictionary:
+	return {
+		"try_spend_gold": Callable(
+			self,
+			"_world_event_try_spend_gold"
+		),
+		"roll_world_event_chance": Callable(
+			self,
+			"_roll_world_event_chance"
+		),
+		"choose_world_event_mod": Callable(
+			self,
+			"_choose_world_event_mod"
+		),
+		"try_sacrifice_combined_health": Callable(
+			self,
+			"_world_event_try_sacrifice"
+		),
+		"prepare_world_event_reward": Callable(
+			self,
+			"_prepare_world_event_reward"
+		),
+		"player_is_alive": Callable(
+			self,
+			"_world_event_player_is_alive"
+		),
+	}
+
+
+func _world_event_try_spend_gold(
+	_instance_id: String,
+	amount: int
+) -> bool:
+	return bool(
+		try_spend_gold(
+			amount,
+			GOLD_TRANSACTION_REASONS.EVENT_COST
+		).get("ok", false)
+	)
+
+
+func _roll_world_event_chance(
+	_instance_id: String,
+	chance: float
+) -> bool:
+	return (
+		RNG.world_event.randf()
+		< clampf(chance, 0.0, 1.0)
+	)
+
+
+func _choose_world_event_mod(
+	_instance_id: String,
+	pool_id: String,
+	excluded: Array[String]
+) -> String:
+	if _world_event_controller == null:
+		return ""
+	var candidates: Array[String] = []
+	for mod_id: String in _world_event_controller.mod_pool(pool_id):
+		if not excluded.has(mod_id):
+			candidates.append(mod_id)
+	if candidates.is_empty():
+		return ""
+	return candidates[
+		int(RNG.world_event.randi() % candidates.size())
+	]
+
+
+func _world_event_try_sacrifice(
+	_instance_id: String,
+	ratio: float
+) -> Dictionary:
+	if (
+		_player == null
+		or not _player.has_method(
+			"try_sacrifice_combined_health"
+		)
+	):
+		return {
+			"accepted": false,
+			"reason": "player_unavailable",
+		}
+	var sacrifice_amount: float = (
+		float(_player.call("max_life"))
+		+ float(_player.call("max_shield"))
+	) * clampf(ratio, 0.0, 1.0)
+	var result: Dictionary = _player.call(
+		"try_sacrifice_combined_health",
+		sacrifice_amount,
+		1.0
+	) as Dictionary
+	return {
+		"accepted": bool(result.get("ok", false)),
+		"reason": String(
+			result.get(
+				"reason",
+				"insufficient_combined_health"
+			)
+		),
+		"actual_spent": float(result.get("spent", 0.0)),
+	}
+
+
+func _world_event_player_is_alive(_target: Node = null) -> bool:
+	return (
+		_player != null
+		and _player.has_method("is_alive")
+		and bool(_player.call("is_alive"))
+	)
+
+
+func _prepare_world_event_reward(
+	instance_id: String,
+	event_id: String,
+	reward_config: Dictionary
+) -> Dictionary:
+	if not _world_event_wave_plans.has(instance_id):
+		_world_event_wave_plans[instance_id] = (
+			_build_world_event_wave_plan(
+				instance_id,
+				event_id
+			)
+		)
+	var gold_weight: int = maxi(
+		int(reward_config.get("gold_weight", 0)),
+		0
+	)
+	var mod_weight: int = maxi(
+		int(reward_config.get("mod_weight", 0)),
+		0
+	)
+	var total_weight: int = gold_weight + mod_weight
+	if total_weight <= 0:
+		return {}
+	var roll: int = int(
+		RNG.world_event.randi() % total_weight
+	)
+	if roll < gold_weight:
+		return {
+			"kind": (
+				WORLD_EVENT_REWARD_TYPES
+				.WORLD_EVENT_REWARD_GOLD
+			),
+			"amount": maxi(
+				int(reward_config.get("gold_amount", 0)),
+				0
+			),
+			"pending": false,
+		}
+	var pool_id: String = String(
+		reward_config.get("mod_pool_id", "")
+	)
+	var mod_id: String = _choose_world_event_mod(
+		instance_id,
+		pool_id,
+		[]
+	)
+	if mod_id.is_empty():
+		return {}
+	return {
+		"kind": (
+			WORLD_EVENT_REWARD_TYPES
+			.WORLD_EVENT_REWARD_GEAR_MOD
+		),
+		"mod_id": mod_id,
+		"pending": true,
+	}
+
+
+func _build_world_event_wave_plan(
+	instance_id: String,
+	event_id: String
+) -> Dictionary:
+	if (
+		_world_event_controller == null
+		or not _world_event_module_coords.has(instance_id)
+	):
+		return {}
+	var definition: Dictionary = (
+		_world_event_controller.definition(event_id)
+	)
+	var module_coord: Vector2i = (
+		_world_event_module_coords[instance_id] as Vector2i
+	)
+	var event_node: Node2D = (
+		_world_event_nodes.get(instance_id) as Node2D
+	)
+	if event_node == null:
+		return {}
+	var all_positions: Array[Vector2] = []
+	var raw_positions: Variant = _module_world_manager.call(
+		"empty_floor_positions_at",
+		module_coord
+	)
+	var exclusion_radius: float = maxf(
+		float(definition.get("interaction_radius", 0.0)),
+		1.0
+	) * 1.5
+	if raw_positions is Array:
+		for raw_position: Variant in raw_positions as Array:
+			if (
+				raw_position is Vector2
+				and (
+					raw_position as Vector2
+				).distance_to(event_node.global_position)
+				> exclusion_radius
+			):
+				all_positions.append(raw_position as Vector2)
+	var waves: Array[Dictionary] = _typed_dictionary_array(
+		definition.get("waves", [])
+	)
+	var planned_waves: Array[Array] = []
+	var enemy_pool: Dictionary = (
+		_eligible_first_visit_enemy_pool(
+			_dictionary_or_empty(
+				_module_world_definition.get(
+					"first_visit_enemy_spawn",
+					{}
+				)
+			),
+			_difficulty_elapsed()
+		)
+	)
+	var enemy_ids: Array = enemy_pool.get("enemy_ids", []) as Array
+	var weights: Array = enemy_pool.get("weights", []) as Array
+	for wave: Dictionary in waves:
+		var wave_spawns: Array = []
+		var count: int = maxi(int(wave.get("count", 0)), 0)
+		for _spawn_index: int in range(count):
+			if all_positions.is_empty() or enemy_ids.is_empty():
+				break
+			var position_index: int = int(
+				RNG.world_event.randi() % all_positions.size()
+			)
+			var spawn_position: Vector2 = all_positions[
+				position_index
+			]
+			all_positions.remove_at(position_index)
+			var enemy_id: String = String(
+				RNG.world_event.weighted_pick(
+					enemy_ids,
+					weights
+				)
+			)
+			wave_spawns.append({
+				"enemy_id": enemy_id,
+				"world_position": _vector_to_dict(
+					spawn_position
+				),
+			})
+		planned_waves.append(wave_spawns)
+	return {
+		"event_id": event_id,
+		"module_slot": _module_slot_key(module_coord),
+		"difficulty": _enemy_spawn_difficulty(),
+		"waves": planned_waves,
+	}
+
+
+func _on_world_event_wave_requested(
+	instance_id: String,
+	_event_id: String,
+	wave_index: int,
+	_enemy_count: int,
+	_world_position: Vector2,
+	_primary_target: Node,
+	_context: Dictionary
+) -> void:
+	var plan: Dictionary = _dictionary_or_empty(
+		_world_event_wave_plans.get(instance_id, {})
+	)
+	var planned_waves: Array = _array_or_empty(
+		plan.get("waves", [])
+	)
+	if wave_index < 0 or wave_index >= planned_waves.size():
+		return
+	var module_slot: String = String(
+		plan.get("module_slot", "")
+	)
+	var spawn_context: Dictionary = (
+		_world_event_spawn_context(instance_id)
+	)
+	var fixed_difficulty: Dictionary = _dictionary_or_empty(
+		plan.get("difficulty", {})
+	)
+	var wave_key: String = "world_event_%s_%d" % [
+		instance_id,
+		wave_index,
+	]
+	for raw_spawn: Variant in _array_or_empty(
+		planned_waves[wave_index]
+	):
+		if not raw_spawn is Dictionary:
+			continue
+		var spawn: Dictionary = raw_spawn as Dictionary
+		_spawn_enemy_at(
+			String(spawn.get("enemy_id", "")),
+			_dict_to_vector(
+				spawn.get("world_position", {}),
+				Vector2.ZERO
+			),
+			wave_key,
+			module_slot,
+			spawn_context,
+			fixed_difficulty
+		)
+
+
+func _world_event_spawn_context(
+	instance_id: String,
+	use_event_primary: bool = true
+) -> Dictionary:
+	if instance_id.is_empty():
+		return {}
+	var result: Dictionary = {
+		"event_instance_id": instance_id,
+		"primary_target": _player,
+		"damage_target_groups": [
+			DAMAGE_TARGET_GROUPS
+			.ACTIVE_PROJECTILE_BLOCKERS,
+			DAMAGE_TARGET_GROUPS.ACTIVE_PLAYER,
+		],
+	}
+	if _world_event_controller == null or not use_event_primary:
+		return result
+	var event_node: WorldEventInteractable = (
+		_world_event_nodes.get(instance_id)
+		as WorldEventInteractable
+	)
+	if event_node == null:
+		return result
+	var definition: Dictionary = (
+		_world_event_controller.definition(
+			event_node.event_id()
+		)
+	)
+	if (
+		String(definition.get("kind", ""))
+		== WORLD_EVENT_KINDS.WORLD_EVENT_KIND_DEFENSE
+	):
+		var defense_target: WorldEventDefenseTarget = (
+			event_node.defense_target()
+		)
+		if (
+			defense_target != null
+			and is_instance_valid(defense_target)
+		):
+			result["primary_target"] = defense_target
+			result["damage_target_groups"] = [
+				DAMAGE_TARGET_GROUPS
+				.ACTIVE_PROJECTILE_BLOCKERS,
+				DAMAGE_TARGET_GROUPS
+				.ACTIVE_WORLD_EVENT_DEFENSE_TARGETS,
+				DAMAGE_TARGET_GROUPS.ACTIVE_PLAYER,
+			]
+	return result
+
+
+func _on_world_event_reward_requested(
+	_instance_id: String,
+	event_id: String,
+	reward: Dictionary
+) -> void:
+	var reward_kind: String = String(reward.get("kind", ""))
+	var source_kind: String = String(reward.get("source", ""))
+	var feedback_key: String = ""
+	var feedback_context: Dictionary = {
+		"name": tr(_world_event_name_key(event_id)),
+	}
+	if (
+		reward_kind
+		== WORLD_EVENT_REWARD_TYPES.WORLD_EVENT_REWARD_GOLD
+	):
+		var amount: int = maxi(
+			int(reward.get("amount", 0)),
+			0
+		)
+		if amount <= 0:
+			return
+		add_gold(
+			amount,
+			GOLD_TRANSACTION_REASONS.EVENT_REWARD
+		)
+		feedback_context["amount"] = amount
+		feedback_key = (
+			"ui_world_event_blood_shrine_success"
+			if source_kind
+			== WORLD_EVENT_KINDS
+			.WORLD_EVENT_KIND_BLOOD_SHRINE
+			else "ui_world_event_completed_gold"
+		)
+	elif (
+		reward_kind
+		== WORLD_EVENT_REWARD_TYPES
+		.WORLD_EVENT_REWARD_GEAR_MOD
+	):
+		var mod_id: String = String(reward.get("mod_id", ""))
+		if mod_id.is_empty():
+			return
+		_add_pending_mod(mod_id, _gear_mod_name_key(mod_id))
+		feedback_key = (
+			"ui_world_event_gold_shrine_success"
+			if source_kind
+			== WORLD_EVENT_KINDS
+			.WORLD_EVENT_KIND_GOLD_SHRINE
+			else "ui_world_event_completed_mod"
+		)
+	if (
+		not feedback_key.is_empty()
+		and _hud != null
+		and _hud.has_method("show_world_event_feedback")
+	):
+		_hud.call(
+			"show_world_event_feedback",
+			feedback_key,
+			feedback_context
+		)
+
+
+func _on_world_event_prompt_requested(
+	_instance_id: String,
+	_event_id: String,
+	reason: String,
+	context: Dictionary
+) -> void:
+	var feedback_key: String = ""
+	match reason:
+		"continuous_event_busy":
+			feedback_key = "ui_world_event_busy"
+		"exhausted", "not_available":
+			feedback_key = "ui_world_event_exhausted"
+		"insufficient_gold":
+			feedback_key = "ui_world_event_insufficient_gold"
+		"shrine_failed":
+			feedback_key = (
+				"ui_world_event_gold_shrine_failure"
+			)
+		"insufficient_combined_health", "not_alive":
+			feedback_key = (
+				"ui_world_event_insufficient_health"
+			)
+		_:
+			pass
+	if (
+		not feedback_key.is_empty()
+		and _hud != null
+		and _hud.has_method("show_world_event_feedback")
+	):
+		_hud.call(
+			"show_world_event_feedback",
+			feedback_key,
+			context
+		)
+
+
+func _on_world_event_state_changed(
+	_instance_id: String,
+	event_id: String,
+	state: String,
+	_context: Dictionary
+) -> void:
+	if (
+		state == WORLD_EVENT_STATES.WORLD_EVENT_STATE_FAILED
+		and _hud != null
+		and _hud.has_method("show_world_event_feedback")
+	):
+		_hud.call(
+			"show_world_event_feedback",
+			"ui_world_event_failed",
+			{
+				"name": tr(
+					_world_event_name_key(event_id)
+				),
+			}
+		)
+
+
+func _on_world_event_module_pin_requested(
+	instance_id: String,
+	_module_slot_id: String,
+	pinned: bool
+) -> void:
+	if (
+		_module_world_manager == null
+		or not _world_event_module_coords.has(instance_id)
+		or not _module_world_manager.has_method(
+			"set_slot_pinned"
+		)
+	):
+		return
+	_module_world_manager.call(
+		"set_slot_pinned",
+		_world_event_module_coords[instance_id]
+		as Vector2i,
+		pinned
+	)
+
+
+func _on_world_event_terminal_cleanup_requested(
+	instance_id: String,
+	_event_id: String,
+	_context: Dictionary
+) -> void:
+	for raw_enemy: Node in get_tree().get_nodes_in_group(
+		"active_enemies"
+	):
+		if (
+			not raw_enemy.has_method("event_instance_id")
+			or String(raw_enemy.call("event_instance_id"))
+			!= instance_id
+		):
+			continue
+		if raw_enemy.has_method("convert_to_player_target"):
+			raw_enemy.call(
+				"convert_to_player_target",
+				_player
+			)
+	_try_release_world_event_background_pin(instance_id)
+
+
+func _world_event_name_key(event_id: String) -> String:
+	if _world_event_controller == null:
+		return ""
+	return String(
+		_world_event_controller.definition(event_id).get(
+			"name_key",
+			""
+		)
+	)
+
+
+func _update_world_event_background_pins() -> void:
+	if _world_event_controller == null:
+		return
+	for summary: Dictionary in _typed_dictionary_array(
+		_world_event_controller.debug_summary().get(
+			"instances",
+			[]
+		)
+	):
+		if not bool(summary.get("pinned", false)):
+			continue
+		var state: String = String(summary.get("state", ""))
+		if state not in [
+			WORLD_EVENT_STATES.WORLD_EVENT_STATE_SUCCEEDED,
+			WORLD_EVENT_STATES.WORLD_EVENT_STATE_FAILED,
+		]:
+			continue
+		_try_release_world_event_background_pin(
+			String(summary.get("instance_id", ""))
+		)
+
+
+func _try_release_world_event_background_pin(
+	instance_id: String
+) -> void:
+	if (
+		instance_id.is_empty()
+		or _world_event_controller == null
+		or _module_world_manager == null
+		or not _world_event_module_coords.has(instance_id)
+	):
+		return
+	var origin_coord: Vector2i = (
+		_world_event_module_coords[instance_id] as Vector2i
+	)
+	var has_enemy_inside_origin: bool = false
+	for raw_enemy: Node in get_tree().get_nodes_in_group(
+		"active_enemies"
+	):
+		if (
+			not raw_enemy.has_method("event_instance_id")
+			or String(raw_enemy.call("event_instance_id"))
+			!= instance_id
+			or not raw_enemy is Node2D
+		):
+			continue
+		var enemy_coord: Vector2i = (
+			_world_event_module_coord_for_position(
+				(raw_enemy as Node2D).global_position
+			)
+		)
+		if enemy_coord == origin_coord:
+			has_enemy_inside_origin = true
+			continue
+		if raw_enemy.has_meta("module_slot"):
+			raw_enemy.remove_meta("module_slot")
+	if not has_enemy_inside_origin:
+		_world_event_controller.release_background_pin(instance_id)
+
+
+func _world_event_module_coord_for_position(
+	world_position: Vector2
+) -> Vector2i:
+	if _module_world_manager == null:
+		return Vector2i(-1, -1)
+	var global_cell: Vector2i = _module_world_manager.call(
+		"world_to_global_cell",
+		world_position
+	) as Vector2i
+	var module_and_local: Dictionary = (
+		_module_world_manager.call(
+			"global_cell_to_module_and_local",
+			global_cell
+		) as Dictionary
+	)
+	return module_and_local.get(
+		"module_coord",
+		Vector2i(-1, -1)
+	) as Vector2i
+
+
+func _world_events_snapshot() -> Dictionary:
+	if _world_event_controller == null:
+		return {}
+	return {
+		"controller": _world_event_controller.snapshot(),
+		"wave_plans": _world_event_wave_plans.duplicate(true),
+	}
+
+
+func _restore_world_events(snapshot_data: Dictionary) -> bool:
+	if (
+		_world_event_controller == null
+		or snapshot_data.is_empty()
+	):
+		return false
+	_world_event_wave_plans = _dictionary_or_empty(
+		snapshot_data.get("wave_plans", {})
+	).duplicate(true)
+	var result: Dictionary = (
+		_world_event_controller.restore_snapshot(
+			_dictionary_or_empty(
+				snapshot_data.get("controller", {})
+			)
+		)
+	)
+	if not _array_or_empty(result.get("rejected", [])).is_empty():
+		return false
+	var active_instance_id: String = (
+		_world_event_controller
+		.active_continuous_instance_id()
+	)
+	return (
+		active_instance_id.is_empty()
+		or _world_event_wave_plans.has(active_instance_id)
+	)
+
+
 func _configure_module_world(
 	restore_snapshot: Dictionary,
 	threaded_loading: bool = false
@@ -2146,6 +3034,7 @@ func _start_module_world_fresh() -> void:
 	if _module_world_manager == null or _player == null:
 		return
 	_register_all_module_interest_points()
+	_register_all_module_world_events()
 	var stream_change: Dictionary = _module_world_manager.call("tick", _player.global_position)
 	_handle_module_stream_change(stream_change)
 	_refresh_module_world_hud()
@@ -2155,6 +3044,7 @@ func _start_module_world_fresh_staged() -> bool:
 	if _module_world_manager == null or _player == null:
 		return false
 	_register_all_module_interest_points()
+	_register_all_module_world_events()
 	var stream_change: Dictionary = _module_world_manager.call(
 		"tick",
 		_player.global_position
@@ -2296,6 +3186,17 @@ func _handle_first_module_entry(stream_change: Dictionary) -> void:
 		MODULE_ROLES.MODULE_ROLE_START
 	)
 	if module_coord == start_coord:
+		return
+	var assignment_entry: Dictionary = (
+		_module_world_manager.call(
+			"assignment_at",
+			module_coord
+		) as Dictionary
+	)
+	if (
+		String(assignment_entry.get("role", ""))
+		== MODULE_ROLES.MODULE_ROLE_WORLD_EVENT
+	):
 		return
 	_start_first_visit_encounter(module_coord)
 
@@ -2495,7 +3396,14 @@ func _cancel_module_encounter_vfx(slot_key: String) -> void:
 	_module_encounter_vfx.erase(slot_key)
 
 
-func _spawn_enemy_at(enemy_id: String, spawn_position: Vector2, spawn_key: String, module_slot: String = "") -> bool:
+func _spawn_enemy_at(
+	enemy_id: String,
+	spawn_position: Vector2,
+	spawn_key: String,
+	module_slot: String = "",
+	spawn_context: Dictionary = {},
+	fixed_spawn_difficulty: Dictionary = {}
+) -> bool:
 	if not _enemy_rows.has(enemy_id):
 		return false
 	if not module_slot.is_empty() and not _is_module_world_position_walkable(spawn_position):
@@ -2519,7 +3427,12 @@ func _spawn_enemy_at(enemy_id: String, spawn_position: Vector2, spawn_key: Strin
 		enemy_data,
 		_player,
 		_enemy_navigation_provider(),
-		_enemy_spawn_difficulty()
+		(
+			fixed_spawn_difficulty
+			if not fixed_spawn_difficulty.is_empty()
+			else _enemy_spawn_difficulty()
+		),
+		spawn_context
 	)
 	_assign_enemy_spawn_serial(enemy)
 	_apply_enemy_movement_bounds(enemy)
@@ -2757,7 +3670,6 @@ func _update_interest_points() -> void:
 			_claim_interest_point(point_id)
 			if _run_completed:
 				return
-	_update_interaction_prompt(_nearest_interactable_interest_point())
 
 
 func _claim_interest_point(point_id: String, force: bool = false) -> Dictionary:
@@ -2802,6 +3714,298 @@ func _try_interact_interest_point() -> bool:
 		return false
 	var result: Dictionary = _claim_interest_point(point_id)
 	return bool(result.get("ok", false))
+
+
+func _try_interact_nearest() -> bool:
+	var candidate: Dictionary = _nearest_interaction_candidate()
+	match String(candidate.get("kind", "")):
+		"interest_point":
+			return _try_interact_interest_point()
+		"world_event":
+			if _world_event_controller == null:
+				return false
+			var result: Dictionary = (
+				_world_event_controller.interact(
+					String(candidate.get("id", "")),
+					_player,
+					_world_event_context()
+				)
+			)
+			_update_combined_interaction_prompt()
+			return bool(result.get("accepted", false))
+		_:
+			return false
+
+
+func _nearest_interaction_candidate() -> Dictionary:
+	var best: Dictionary = {}
+	var interest_point_id: String = (
+		_nearest_interactable_interest_point()
+	)
+	if not interest_point_id.is_empty():
+		var interest_state: Dictionary = (
+			_interest_points[interest_point_id] as Dictionary
+		)
+		var interest_position: Vector2 = _dict_to_vector(
+			interest_state.get("position", {}),
+			Vector2.ZERO
+		)
+		best = {
+			"kind": "interest_point",
+			"id": interest_point_id,
+			"distance": _player.global_position.distance_to(
+				interest_position
+			),
+		}
+	var event_candidate: Dictionary = (
+		_nearest_world_event_candidate()
+	)
+	if (
+		not event_candidate.is_empty()
+		and (
+			best.is_empty()
+			or float(event_candidate.get("distance", INF))
+			< float(best.get("distance", INF))
+		)
+	):
+		best = event_candidate
+	return best
+
+
+func _nearest_world_event_candidate() -> Dictionary:
+	if _player == null or _world_event_controller == null:
+		return {}
+	var best: Dictionary = {}
+	for instance_id_raw: Variant in _world_event_nodes.keys():
+		var instance_id: String = String(instance_id_raw)
+		var interactable: WorldEventInteractable = (
+			_world_event_nodes.get(instance_id)
+			as WorldEventInteractable
+		)
+		if (
+			interactable == null
+			or not is_instance_valid(interactable)
+			or interactable.event_state()
+			!= WORLD_EVENT_STATES
+			.WORLD_EVENT_STATE_INACTIVE
+			or not interactable.can_player_interact(_player)
+		):
+			continue
+		var distance: float = (
+			_player.global_position.distance_to(
+				interactable.global_position
+			)
+		)
+		if (
+			not best.is_empty()
+			and distance >= float(best.get("distance", INF))
+		):
+			continue
+		best = {
+			"kind": "world_event",
+			"id": instance_id,
+			"distance": distance,
+			"event_id": interactable.event_id(),
+		}
+	return best
+
+
+func _update_combined_interaction_prompt() -> void:
+	if _hud == null:
+		return
+	var candidate: Dictionary = _nearest_interaction_candidate()
+	if candidate.is_empty():
+		if _hud.has_method("hide_interaction_prompt"):
+			_hud.call("hide_interaction_prompt")
+		return
+	if String(candidate.get("kind", "")) == "interest_point":
+		_update_interaction_prompt(String(candidate.get("id", "")))
+		return
+	var instance_id: String = String(candidate.get("id", ""))
+	var event_id: String = String(candidate.get("event_id", ""))
+	var definition: Dictionary = (
+		_world_event_controller.definition(event_id)
+	)
+	var kind: String = String(definition.get("kind", ""))
+	var prompt_key: String = "ui_world_event_interact_start"
+	var values: Dictionary = {
+		"name": tr(String(definition.get("name_key", ""))),
+	}
+	var runtime: Dictionary = _world_event_runtime_summary(
+		instance_id
+	)
+	if (
+		kind
+		== WORLD_EVENT_KINDS.WORLD_EVENT_KIND_GOLD_SHRINE
+	):
+		prompt_key = "ui_world_event_interact_gold_shrine"
+		values["cost"] = int(runtime.get("next_cost", 0))
+	elif (
+		kind
+		== WORLD_EVENT_KINDS.WORLD_EVENT_KIND_BLOOD_SHRINE
+	):
+		prompt_key = "ui_world_event_interact_blood_shrine"
+		var ratios: Array = _array_or_empty(
+			definition.get("sacrifice_ratios", [])
+		)
+		var use_index: int = int(runtime.get("blood_uses", 0))
+		var ratio: float = (
+			float(ratios[use_index])
+			if use_index >= 0 and use_index < ratios.size()
+			else 0.0
+		)
+		values["cost"] = int(ceil(
+			(
+				float(_player.call("max_life"))
+				+ float(_player.call("max_shield"))
+			) * ratio
+		))
+	if _hud.has_method("show_interaction_prompt"):
+		_hud.call(
+			"show_interaction_prompt",
+			_interaction_binding_label(),
+			prompt_key,
+			values
+		)
+
+
+func _world_event_runtime_summary(
+	instance_id: String
+) -> Dictionary:
+	if _world_event_controller == null:
+		return {}
+	for summary: Dictionary in _typed_dictionary_array(
+		_world_event_controller.debug_summary().get(
+			"instances",
+			[]
+		)
+	):
+		if String(summary.get("instance_id", "")) == instance_id:
+			return summary
+	return {}
+
+
+func _refresh_world_event_hud() -> void:
+	if (
+		_hud == null
+		or not _hud.has_method("set_world_event_status")
+	):
+		return
+	if _world_event_controller == null:
+		_hud.call("set_world_event_status", {"visible": false})
+		return
+	var active_instance_id: String = (
+		_world_event_controller
+		.active_continuous_instance_id()
+	)
+	if active_instance_id.is_empty():
+		_hud.call("set_world_event_status", {"visible": false})
+		return
+	var runtime: Dictionary = _world_event_runtime_summary(
+		active_instance_id
+	)
+	var event_id: String = String(runtime.get("event_id", ""))
+	var definition: Dictionary = (
+		_world_event_controller.definition(event_id)
+	)
+	var kind: String = String(definition.get("kind", ""))
+	var elapsed: float = maxf(
+		float(runtime.get("elapsed", 0.0)),
+		0.0
+	)
+	var status: Dictionary = {
+		"visible": true,
+		"name_key": String(definition.get("name_key", "")),
+		"values": {},
+	}
+	var values: Dictionary = {}
+	match kind:
+		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_DEFENSE:
+			status["detail_key"] = (
+				"ui_world_event_status_defense"
+			)
+			var defense: Dictionary = _dictionary_or_empty(
+				runtime.get("defense_target", {})
+			)
+			values = {
+				"time": _display_event_number(
+					maxf(
+						float(definition.get("duration", 0.0))
+						- elapsed,
+						0.0
+					)
+				),
+				"health": _display_event_number(
+					float(defense.get("current_health", 0.0))
+				),
+				"max_health": _display_event_number(
+					float(defense.get("max_health", 0.0))
+				),
+			}
+		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_SURVIVAL:
+			status["detail_key"] = (
+				"ui_world_event_status_survival"
+			)
+			var wave_total: int = _array_or_empty(
+				definition.get("waves", [])
+			).size()
+			values = {
+				"time": _display_event_number(
+					maxf(
+						float(definition.get("duration", 0.0))
+						- elapsed,
+						0.0
+					)
+				),
+				"wave": mini(
+					int(runtime.get("wave_cursor", 0)),
+					wave_total
+				),
+				"wave_total": wave_total,
+			}
+		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_CAPTURE:
+			status["detail_key"] = (
+				"ui_world_event_status_capture"
+			)
+			values = {
+				"progress": _display_event_number(
+					float(runtime.get("capture_progress", 0.0))
+				),
+				"required": _display_event_number(
+					float(
+						definition.get(
+							"capture_duration",
+							0.0
+						)
+					)
+				),
+				"entry": _display_event_number(
+					float(
+						runtime.get(
+							"entry_delay_progress",
+							0.0
+						)
+					)
+				),
+				"entry_required": _display_event_number(
+					float(definition.get("entry_delay", 0.0))
+				),
+				"timeout": _display_event_number(
+					maxf(
+						float(definition.get("timeout", 0.0))
+						- elapsed,
+						0.0
+					)
+				),
+			}
+		_:
+			status["visible"] = false
+	status["values"] = values
+	_hud.call("set_world_event_status", status)
+
+
+func _display_event_number(value: float) -> String:
+	return "%.1f" % maxf(value, 0.0)
 
 
 func _update_interaction_prompt(point_id: String) -> void:
@@ -3103,6 +4307,11 @@ func _on_enemy_defeated(
 ) -> void:
 	if _vfx_host != null and _enemy != null:
 		_vfx_host.cancel_owner(_enemy)
+	var event_instance_id: String = ""
+	if _enemy != null and _enemy.has_method("event_instance_id"):
+		event_instance_id = String(
+			_enemy.call("event_instance_id")
+		)
 	if _is_debug_test_arena():
 		if counts_as_kill:
 			_kills += 1
@@ -3132,6 +4341,11 @@ func _on_enemy_defeated(
 		var state: Dictionary = _spawn_states[wave_key]
 		state["alive"] = maxi(int(state.get("alive", 0)) - 1, 0)
 		_spawn_states[wave_key] = state
+	if not event_instance_id.is_empty():
+		call_deferred(
+			"_try_release_world_event_background_pin",
+			event_instance_id
+		)
 
 
 func _spawn_gold_orb(spawn_position: Vector2, amount: int) -> void:
@@ -3904,6 +5118,16 @@ func _restore_run_snapshot(
 			push_error("[GameplayRunLoop] module-world snapshot restore failed")
 			return false
 		_register_all_module_interest_points()
+		_register_all_module_world_events()
+		if not _restore_world_events(
+			_dictionary_or_empty(
+				snapshot_data.get("world_events", {})
+			)
+		):
+			push_error(
+				"[GameplayRunLoop] world-event snapshot restore failed"
+			)
+			return false
 		var active_coords: Array[Vector2i] = _module_world_manager.call("active_module_coords")
 		for module_coord: Vector2i in active_coords:
 			_activate_module_slot(module_coord, false)
@@ -4281,7 +5505,21 @@ func _restore_enemy_snapshots(enemy_snapshots: Array) -> void:
 				"damage_multiplier": float(
 					snapshot_data.get("spawn_damage_multiplier", 1.0)
 				),
-			}
+			},
+			_world_event_spawn_context(
+				String(
+					snapshot_data.get(
+						"event_instance_id",
+						""
+					)
+				),
+				String(
+					snapshot_data.get(
+						"target_mode",
+						WORLD_EVENT_TARGET_MODE_EVENT_PRIMARY
+					)
+				) == WORLD_EVENT_TARGET_MODE_EVENT_PRIMARY
+			)
 		)
 		if enemy.has_method("set_runtime_spawn_serial"):
 			var restored_serial: int = maxi(

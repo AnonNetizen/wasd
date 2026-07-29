@@ -82,6 +82,10 @@ def main() -> int:
     subparsers.add_parser("f9-demo-smoke", help="Run the F9 demo content slice smoke in headless Godot.")
     subparsers.add_parser("runtime-smoke", help="Run the formal gameplay runtime smoke in headless Godot.")
     subparsers.add_parser("f4-smoke", help="Compatibility alias for runtime-smoke.")
+    subparsers.add_parser(
+        "world-event-smoke",
+        help="Run focused world-event rules and transaction coverage in headless Godot.",
+    )
     subparsers.add_parser("loading-smoke", help="Run start, continue, restart, and loading UI coverage.")
     subparsers.add_parser("module-world-smoke", help="Run the F13 seamless module-world smoke in headless Godot.")
     subparsers.add_parser(
@@ -193,6 +197,22 @@ def main() -> int:
                 str(project),
                 "--script",
                 "res://addons/module_authoring/module_json_document_self_test.gd",
+            ],
+            cwd=project,
+            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
+        )
+    if args.command == "world-event-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        return _run_command(
+            [
+                str(godot),
+                "--headless",
+                "--path",
+                str(project),
+                "--script",
+                "res://tools/world_event_smoke.gd",
             ],
             cwd=project,
             failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),

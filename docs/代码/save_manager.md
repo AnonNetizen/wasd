@@ -9,7 +9,7 @@
 - 所有存档写入必须包含标准头字段：`version`、`kind`、`slot`、`created_at`、`updated_at`、`game_version`、`data_hash` 和 `payload`。
 - 写入必须先落 `*.tmp`，替换前保留 `*.bak`；加载失败时尝试 `.bak`，仍失败则隔离到 `user://saves/.broken/` 并广播 / 埋点。
 - 当前 F5 首片已由 gameplay runtime 接入真实 `run` 快照：暂停菜单“保存并退出”调用 `SaveManager.save(slot_0, run, payload)`，标题菜单“继续游戏”调用 `load()` 后交给运行时重建节点和 `ui_restore` 恢复点；`SaveManager` 仍只负责可靠读写，不解释玩家、敌人、子弹或 UI 字段。
-- 当前 `meta` 为 v2、`run` 为 v8：Meta 保存上次确认组合且保留现有 Gear Mod payload；Run 在金币与奖励选择之外保存敌人显式攻击阶段、armed / 生成序号和玩家敌人击退。旧 Run v7 的接触时代敌人快照不做有损迁移；启动流程提示一次后只删除 run，Meta v2 保留。
+- 当前 `meta` 为 v2、`run` 为 v9：Meta 保存上次确认组合且保留现有 Gear Mod payload；Run 额外保存世界事件、固定模块、固定波次、事件敌人目标和祭坛事务进度。旧 Run v8 缺少这些幂等状态，不做有损迁移；启动流程提示一次后只删除 run，Meta v2 保留。
 - F11 已由 `GearModSystem` 接管真实 `meta` profile：装备 Mod 资源、库存、loadout 和 rank 写入 `meta.gear_mods`；旧死亡结算货币 / 账号经验 / 永久升级运行时代码与旧档补偿路径已删除。`SaveManager` 仍不解释 profile 字段。
 - 玩家偏好不归 `SaveManager` 管，仍由 `Settings` 写入 `user://settings.cfg`。
 
@@ -99,7 +99,7 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 | kind | 用途 |
 |------|------|
 | `meta` | 局外长期档案，当前 v2：Gear Mod profile + 上次确认的 `main_hero_id` / `sub_hero_id` |
-| `run` | 当前一局续局档案，当前 v8：完整世界、英雄组合、金币、奖励选择、威胁时间、敌人显式攻击和生成序号 |
+| `run` | 当前一局续局档案，当前 v9：完整世界、英雄组合、经济、威胁时间、显式攻击、世界事件和事务游标 |
 | `replay_index` | 回放索引档案：具体回放文件仍由 `Replay` 管理 |
 
 存档 envelope：
@@ -115,7 +115,7 @@ save kind 来自 `docs/词表与契约.md` §14，当前为：
 
 `data_hash` 使用稳定序列化：字典按 key 排序，数组按原顺序，数字做整数 / 浮点规范化。写入前会先把 payload 通过 JSON stringify / parse 归一化，再基于归一化 payload 计算 hash 和落盘，避免高精度浮点或 JSON 读回后 `3` / `3.0` 类型差异造成误报。
 
-Run v8 payload 包含：schema version、模式、`main_hero_id` / `sub_hero_id`、组合解析快照、击杀、`gold`（余额与累计获得量）、`reward_choice`（未完成请求及原候选）、`GameClock`、`DifficultyProgression`、`RNG`、模块世界、刷怪、玩家生命 / 护盾 / 超盾 / 护盾门 / 冲刺、武器后坐与敌人击退各自的速度 / 剩余时间 / 总持续时间、武器、四槽技能与能量、敌人 action / attack 阶段 / 剩余时间 / 锁向 / 本次释放是否命中 / armed / 是否已经爆炸 / `runtime_spawn_serial` / 出生生命与伤害倍率、下一敌人生成序号、子弹、机关、金币球、能量球、屏障、兴趣点和 `ui_restore`。等级由 `gold_earned_total` 推导；未完成奖励选择恢复原候选，不重新抽取。恢复敌人前先连接攻击表现 signal，armed 预警按剩余前摇重建，既有阶段不得重复伤害、击退、爆炸、连锁或奖励。所有对象池实体只保存 JSON 友好活动快照，恢复时重新 acquire；RNG 大整数仍以字符串保存。
+Run v9 payload 包含既有对局字段，并新增 `module_world.pinned_slots`、`world_events.controller`、固定 `wave_plans`、防御目标生命、计时、占点双进度、隐藏奖励、祭坛价格 / 尝试 / 成功 Mod / 血坛次数，以及敌人的 `event_instance_id/target_mode`。恢复顺序必须先模块 assignment，再注册交互物与防御目标，恢复 Controller / pin，最后恢复敌人和子弹；`wave_cursor`、`reward_committed`、祭坛尝试 / 使用次数确保已提交波次、扣费、献祭与奖励不重复。所有对象池实体只保存 JSON 友好活动快照，恢复时重新 acquire；RNG 大整数仍以字符串保存。
 
 `run` kind version 2 会在 `SaveManager` 层为 v1 旧 envelope 补齐缺失的结构字段：`schema_version`、`spawn_states`、`player`、`weapon`、`game_clock`、`rng`、`map`、`enemies`、`bullets`、`hazards`、`pickups`。这样早期 F5 run 存档即使缺少可选数组 / 字典，也能加载为结构完整的 payload 后交给 runtime 恢复；旧档没有机关快照时由 runtime 按当前 layout 重新生成。
 
@@ -125,7 +125,7 @@ Run v8 payload 包含：schema version、模式、`main_hero_id` / `sub_hero_id`
 
 `run` v6→v7 是本次金币成长边界：迁移器清除旧 `level` / `xp` / 经验球 / 升级 UI 状态，写入空的金币、金币球和奖励选择结构，并设置 `legacy_run_incompatible=true`。正式启动不会尝试把 XP 猜测为余额或累计金币，而是提示一次后删除该 run；Meta v2 与 Gear Mod 完整保留。
 
-`run` v7→v8 是显式攻击边界：旧敌人快照只有接触时代状态，无法判断当前应处于前摇、释放、冷却、armed 或哪一次冲撞已经命中。迁移器写入 schema 8、清空旧敌人数组、重置下一生成序号并设置 `legacy_run_incompatible=true`；正式启动提示一次后只删除 run，Meta v2 与 Gear Mod 完整保留。
+`run` v8→v9 是世界事件幂等边界：旧档没有事件实例、固定模块、目标生命、固定波次、隐藏奖励或祭坛事务游标，无法安全推导中途状态。迁移器写入 schema 9、补空 `world_events` 并设置 `legacy_run_incompatible=true`；正式启动提示一次后只删除 run，Meta v2 与 Gear Mod 完整保留。
 
 `meta` v1→v2 在保留 `gear_mods` 全部字段的同时补入默认组合“冷静主 + 愤怒子”。`FormalClientBoot` 在玩家确认组合时合并写回这两个 ID；SaveManager 仍只校验 envelope 与 hash，不解释业务字段。
 
@@ -173,7 +173,7 @@ Run v8 payload 包含：schema version、模式、`main_hero_id` / `sub_hero_id`
 
 ## 迁移 / 兼容
 
-当前 `meta` 为 v2、`run` 为 v8、`replay_index` 为 v1。Meta v1→v2 保留 Gear Mod 并补默认组合；Run 保留旧逐级迁移链，v4→v5、v5→v6、v6→v7 与 v7→v8 都是明确的不兼容重置边界。Replay 文件由 `Replay` 独立管理，当前为 v3。未来每次提升 kind 版本时必须：
+当前 `meta` 为 v2、`run` 为 v9、`replay_index` 为 v1。Meta v1→v2 保留 Gear Mod并补默认组合；Run 保留旧逐级迁移链，v4→v5、v5→v6、v6→v7、v7→v8 与 v8→v9 都是明确的不兼容重置边界。Replay 文件由 `Replay` 独立管理，当前为 v3。未来每次提升 kind 版本时必须：
 
 1. 更新 `CURRENT_KIND_VERSIONS[kind]`。
 2. 用 `register_migration(kind, old, old + 1, fn)` 补逐级迁移。

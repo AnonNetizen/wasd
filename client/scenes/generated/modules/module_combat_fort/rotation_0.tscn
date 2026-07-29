@@ -20,11 +20,11 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_87cqy")
-baker_schema_version = 3
+baker_schema_version = 4
 module_id = "module_combat_fort"
 gameplay_hash = "a544616ae172d6d810246b7825d9224ba9ecc3eed17012634afd06c4dc0fe4c3"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "8b78a6aa7cf43939adcc28f7c5c44a79e4343787b5c45774248d064ef6f5932d"
+bake_hash = "396060f54541a906dc8792f1113ecfcd222c0742e40baa308f23e17809a302ef"
 placement_snapshot = Array[Dictionary]([{
 "cell": {
 "x": 7,

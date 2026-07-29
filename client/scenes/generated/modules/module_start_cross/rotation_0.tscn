@@ -20,11 +20,11 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_vxaes")
-baker_schema_version = 3
+baker_schema_version = 4
 module_id = "module_start_cross"
 gameplay_hash = "44cf06d52c6a3ba335247e607b9a3ef7d0c5bfef92d5154a9eeecfd2b7b8ceb9"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "b70224f2ded252ef8665b44dfc5100fa0da0224b677eb11b31b1e15d3503f1b8"
+bake_hash = "8aa27e0eac67b6f5b0d59b10fbfcfd4c33c51a505a150fd19b8ef3e80a30fe3a"
 placement_snapshot = Array[Dictionary]([{
 "cell": {
 "x": 5,

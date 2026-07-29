@@ -936,6 +936,61 @@ func _expect_player_defense_layers() -> void:
 		"configure_runtime_rules",
 		DataLoader.load_json(DataLoader.PLAYER_DATA_PATH)
 	)
+	player.call("debug_set_life", 100.0)
+	player.call("debug_set_shield", 50.0, 0.0)
+	player.call("add_overshield", 30.0)
+	var sacrifice_layers: Dictionary = player.call(
+		"try_sacrifice_combined_health",
+		70.0,
+		1.0
+	) as Dictionary
+	_expect(
+		bool(sacrifice_layers.get("ok", false))
+		and is_equal_approx(
+			float(sacrifice_layers.get("overshield_spent", 0.0)),
+			30.0
+		)
+		and is_equal_approx(
+			float(sacrifice_layers.get("shield_spent", 0.0)),
+			40.0
+		)
+		and is_equal_approx(
+			float(sacrifice_layers.get("life_spent", -1.0)),
+			0.0
+		)
+		and is_equal_approx(float(player.call("current_shield")), 10.0)
+		and is_equal_approx(float(player.call("current_life")), 100.0),
+		"health sacrifice should atomically spend overshield, then shield, then life"
+	)
+	var sacrifice_to_one: Dictionary = player.call(
+		"try_sacrifice_combined_health",
+		109.0,
+		1.0
+	) as Dictionary
+	_expect(
+		bool(sacrifice_to_one.get("ok", false))
+		and is_equal_approx(float(player.call("current_shield")), 0.0)
+		and is_equal_approx(float(player.call("current_life")), 1.0),
+		"health sacrifice should allow an exact one-life remainder"
+	)
+	var rejected_sacrifice: Dictionary = player.call(
+		"try_sacrifice_combined_health",
+		1.0,
+		1.0
+	) as Dictionary
+	_expect(
+		not bool(rejected_sacrifice.get("ok", true))
+		and String(rejected_sacrifice.get("reason", ""))
+		== "insufficient_combined_health"
+		and is_equal_approx(float(player.call("current_life")), 1.0),
+		"health sacrifice should reject a lethal transaction without partial spending"
+	)
+
+	player.call("configure", _l1_combat_player_stats())
+	player.call(
+		"configure_runtime_rules",
+		DataLoader.load_json(DataLoader.PLAYER_DATA_PATH)
+	)
 	player.call("debug_set_shield", 100.0, 0.0)
 	_apply_damage_to_player(
 		player,

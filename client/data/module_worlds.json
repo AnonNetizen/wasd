@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "worlds": [
     {
       "id": "module_world_9x9",
@@ -68,6 +68,39 @@
       "template_pool": [
         "module_flat_ground"
       ],
+      "limited_template_groups": [
+        {
+          "id": "world_event_modules",
+          "pick_distinct": 3,
+          "entries": [
+            {
+              "template_id": "module_world_event_defense",
+              "weight": 1.0,
+              "count_per_floor": 1
+            },
+            {
+              "template_id": "module_world_event_survival",
+              "weight": 1.0,
+              "count_per_floor": 1
+            },
+            {
+              "template_id": "module_world_event_capture",
+              "weight": 1.0,
+              "count_per_floor": 1
+            },
+            {
+              "template_id": "module_world_event_gold_shrine",
+              "weight": 1.0,
+              "count_per_floor": 1
+            },
+            {
+              "template_id": "module_world_event_blood_shrine",
+              "weight": 1.0,
+              "count_per_floor": 1
+            }
+          ]
+        }
+      ],
       "fallback_assignment": [
         {
           "slot": {
@@ -82,7 +115,7 @@
             "x": 1,
             "y": 0
           },
-          "template_id": "module_flat_ground",
+          "template_id": "module_world_event_defense",
           "rotation": 0
         },
         {
@@ -90,7 +123,7 @@
             "x": 2,
             "y": 0
           },
-          "template_id": "module_flat_ground",
+          "template_id": "module_world_event_survival",
           "rotation": 0
         },
         {
@@ -98,7 +131,7 @@
             "x": 3,
             "y": 0
           },
-          "template_id": "module_flat_ground",
+          "template_id": "module_world_event_capture",
           "rotation": 0
         },
         {
@@ -972,7 +1005,7 @@
             "x": 4,
             "y": 3
           },
-          "template_id": "module_connector_cross",
+          "template_id": "module_world_event_defense",
           "rotation": 0
         },
         {
@@ -980,7 +1013,7 @@
             "x": 5,
             "y": 3
           },
-          "template_id": "module_combat_arena",
+          "template_id": "module_world_event_survival",
           "rotation": 0
         },
         {
@@ -1124,7 +1157,7 @@
             "x": 5,
             "y": 5
           },
-          "template_id": "module_combat_quadrants",
+          "template_id": "module_world_event_capture",
           "rotation": 0
         },
         {

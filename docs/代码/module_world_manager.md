@@ -1,7 +1,7 @@
 # ModuleWorldManager 模块文档
 
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md` 与 `docs/代码文档规范.md`。
-> 本文档是 F13 模块世界运行时、坐标、流式状态、空地查询、F14 静态导航查询与 Run v8 模块子快照边界的权威模块契约。
+> 本文档是 F13 模块世界运行时、坐标、流式状态、限量事件模板、后台固定、F14 静态导航查询与 Run v9 模块子快照边界的权威模块契约。
 
 ## 1. 职责
 
@@ -10,12 +10,12 @@
 - 按 run seed 和 `RNG.world` 从已批准模板池组合 81 个世界槽位，失败时回退到已校验安全布局。ADR #164 后正式普通槽当前只使用 `module_flat_ground` 0°，固定起点 / 目标 / 撤离保持原模板。
 - 保持模块坐标 `0..8`、局部格 `0..10`、全局格 `0..98` 与世界坐标转换一致；`(49,49)` 映射世界原点。
 - 计算稳定 map hash：hash 覆盖世界配置、seed、81 槽 assignment / rotation 与模块 schema v1 等价的 gameplay projection；地形、派生通道、摆放、格尺寸或锚点变化会让旧 run fail closed，视觉层和图块目录不进入 hash。保存模块级迷雾 / 访问状态与按世界槽位隔离的动态状态。
-- 只激活玩家当前模块周围最多 3×3 个 `ModuleChunk`；九个 chunk 已预置在 manager 场景内并循环复用，不创建 81 个槽位节点。
+- 常态只激活玩家当前模块周围最多 3×3 个 `ModuleChunk`；另为最多三个后台世界事件固定模块预留容量，manager 场景共预置 12 个 chunk 并循环复用，不创建 81 个槽位节点。
 - 在运行开始和 run 恢复时，按 assignment 的唯一 module id 预加载每个模块的规范朝向 `PackedScene`；跨模块只替换离开 / 进入边缘的最多三块，不在边界读取磁盘。
 - 从旋转 / 封边后的完整 81 槽地形构建 99×99 walkability mask；玩家跨格时只更新感知范围驱动的局部共享流场，并提供全图 AStar、视线和敌人半径走廊查询。导航不依赖当前激活 chunk。
 - 按世界槽位返回稳定行列顺序的有效空 floor 格心：使用旋转、邻接与外圈封边后的真实地形，并排除全部 gameplay placement footprint；只提供几何查询，不消耗 RNG、不读取动态实体、不生成敌人。
 
-`GameplayRunLoop` 仍负责敌人 / 机关 / 金币 / 奖励 / 目标 / 撤离 primitive 的实体生成、首次进入遭遇计划、预警、`DifficultyProgression`、`Combat`、`PoolManager` 和 Run v8 总快照。`ModuleWorldManager` 不直接生成玩法实体。玩家实际位于 `module_role_start` 时，RunLoop 暂停威胁时间并锁定武器 / 四技能；Manager 只提供当前位置 / role 数据，不冻结底层 `GameClock`。
+`GameplayRunLoop` 仍负责敌人 / 机关 / 金币 / 奖励 / 目标 / 撤离 / 世界事件 primitive 的实体生成、首次进入遭遇计划、预警、`DifficultyProgression`、`Combat`、`PoolManager` 和 Run v9 总快照。`ModuleWorldManager` 不直接生成玩法实体，只组合事件模块并维护 pin。玩家实际位于 `module_role_start` 时，RunLoop 暂停威胁时间并锁定武器 / 四技能；Manager 只提供当前位置 / role 数据，不冻结底层 `GameClock`。
 
 ## 2. 数据边界
 
@@ -25,6 +25,8 @@
 - 模块视觉 / 碰撞生成物：`client/scenes/generated/modules/<id>/rotation_0.tscn`
 - 人工 / AI 模板：`client/templates/module_template.json`
 - 权威设计：F13 世界见 `F13-ModularGridWorld.md` / ADR #142；JSON 制作与单向烘焙见 ADR #154；F14 导航见 `F14-EnemyNavigationAndPerception.md` / ADR #145 / #146
+
+当前 `module_worlds.json` schema v3 在普通无限池之前解释 `limited_template_groups`：世界事件组从五个 `module_role_world_event` approved 模板中等权无放回选三种，每种 `count_per_floor=1`，再用 `module_flat_ground` 填满其他非固定槽。模块 JSON 为 schema v4，世界事件 placement 严格只有 `type/cell/world_event_id`；fallback 与技术切片固定使用防御、生存、占点各一次。
 
 运行时用 JSON 计算 assignment、导航、placement 和 map hash，并直接实例化预加载的生成 TSCN；不会从 JSON 构建 TileMap 或碰撞，也不连接 LLM。新 AI 模块默认是 `module_review_candidate`；只有人工改为 `module_review_approved` 后才能进入默认池。
 
@@ -44,8 +46,9 @@
 | `has_terrain_line_of_sight(from, target)` | 用封锁格 supercover 语义判断地形视线 |
 | `has_clear_corridor(from, target, clearance)` | 将封锁格按敌人半径扩张后判断连续直线走廊 |
 | `placements_at(module_coord)` | 返回已旋转、含 `world_position` 的内容摆放 |
+| `set_slot_pinned(module_coord, pinned)` / `pinned_module_coords()` | 固定最多三个事件模块，并把固定集合并入流式 desired set |
 | `set_slot_state()` / `slot_state()` | 保存按世界槽位隔离的动态状态 |
-| `snapshot()` / `restore_state()` | Run v8 中的 assignment、内容敏感 map hash、迷雾和槽位状态 roundtrip；恢复时事务式重建场景缓存，hash / assignment / 生成场景不一致时返回失败，不继续恢复旧实体 |
+| `snapshot()` / `restore_state()` | Run v9 中的 assignment、内容敏感 map hash、迷雾、固定模块和槽位状态 roundtrip；恢复时事务式重建场景缓存，hash / assignment / 生成场景不一致时返回失败，不继续恢复旧实体 |
 | `debug_summary()` | 输出几何、assignment/hash、访问 / 活跃数、预加载场景数及导航目标格、局部半径 / 边界 / 本次访问格数、流场重建次数和可达格数 |
 
 ## 4. ModuleNavigationField
@@ -57,11 +60,11 @@
 - 路径距离使用世界像素，并加上敌人 / 玩家精确位置到各自格心的端点距离。
 - 非玩家目标复用 `AStarGrid2D`，`DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES` 禁止斜穿墙角。
 - assignment 生成、技术首片构建和 run 恢复成功后重建 mask；越界或封锁目标统一返回 `reachable=false`。
-- 流场、AStar 和感知查询都是派生临时状态，不改变 map hash，也不写入 Run v8。
+- 流场、AStar 和感知查询都是派生临时状态，不改变 map hash，也不写入 Run v9。
 
 ## 5. ModuleChunk
 
-`ModuleChunk` 是九个预置流式槽位共用的薄场景。激活时挂载一个缓存的规范朝向 `PackedScene`；生成实例已经包含 Ground / Obstacles / Decoration 三个 `TileMapLayer`、合并后的基础碰撞和四个边缘封锁视觉 / 碰撞子树。Chunk 只对生成根节点应用正交旋转与 1600 px 方形枢轴补偿，并把世界封边方向反映射到规范方向后切换对应子树。它不解析 JSON 建 TileMap、不创建碰撞节点、不扫描 121 格、不重算碰撞，也不应用 `TileMapPattern`。
+`ModuleChunk` 是 12 个预置流式槽位共用的薄场景：九个覆盖玩家 3×3 邻域，三个为持续事件或其残敌模块提供后台固定容量。激活时挂载一个缓存的规范朝向 `PackedScene`；生成实例已经包含 Ground / Obstacles / Decoration 三个 `TileMapLayer`、合并后的基础碰撞和四个边缘封锁视觉 / 碰撞子树。Chunk 只对生成根节点应用正交旋转与 1600 px 方形枢轴补偿，并把世界封边方向反映射到规范方向后切换对应子树。它不解析 JSON 建 TileMap、不创建碰撞节点、不扫描 121 格、不重算碰撞，也不应用 `TileMapPattern`。
 
 生成场景的 `TerrainCollision` 显式位于物理层 bit 1、mask 为 0；玩家和敌人都必须保留 `CollisionShape2D`，否则 `CharacterBody2D` 不会与这些边界发生碰撞。敌人的碰撞层不与玩家或其他敌人物理互顶，只用 mask 命中模块地形；原有中心分离继续负责实体间距。`Bullet` 也只查询 bit 1：默认以 `hit_radius` 圆形做首帧重叠和逐帧扫掠，命中后通过 `PoolManager` 回收；`wall_pierce_enabled=true` 时才忽略地形。bit 1 是 ModuleChunk 与 Bullet 的稳定内部契约，不应用玩家、敌人、机关 Area 或伤害目标复用该查询语义。`ModuleWorldManager` 使用显式 `z_index=-90`，使模块地形位于 `WorldBackground(-100)` / `MapManager(-95)` 之上，同时稳定处于玩家、敌人、机关和目标实体之下；不能依赖场景树加入顺序决定遮挡关系。禁止为 121 个格逐格创建 Node，也禁止同时实例化 81 个 chunk。
 
@@ -79,4 +82,4 @@ python tools/godot_bridge.py --project client save-smoke
 
 性能测试不属于本模块的默认验证义务；只有用户当次明确要求时，才追加 `python tools/godot_bridge.py --project client startup-probe` 或 `perf-probe`。
 
-`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、正式普通槽全为 0° 平地、121 格全 floor / 无 placement、边缘开放格交集、中心坐标、确定性共享流场、半径 8 / 289 格访问上限、真实模块绕障、技术首片外圈不可进入，以及正式 manager / 九 chunk、生成 TileMap / 合并碰撞、玩家 / 敌人物理墙体、子弹阻挡 / 穿墙、首次进入 4–6 个唯一空地计划、按威胁时间解锁、起点房威胁暂停与武器 / 技能门禁、离房 / 返回重新应用、预警暂停 / 卸载冻结、预警跨阶段后按真正生成时生命 / 显式攻击伤害倍率、既有敌人不重算、移速与攻击几何时序不变、卸载 / 返回精确倍率、无缝跨边界、最多 9 个 active chunk、流式恢复、迷雾、目标撤离、Run v8 模块子快照和 hash mismatch。`module-world-technical-slice-smoke` 通过正式 opt-in 入口追加中心 3×3 / 外圈 72 槽封锁的完整流程回归。
+`module-world-smoke` 覆盖同 seed assignment / 内容敏感 hash、五选三不同事件与平地填充、fallback / technical slice 固定三事件、121 格全 floor、边缘开放格交集、中心坐标、确定性导航、正式 manager / 12 chunk、三个 pin 容量、生成 TileMap / 合并碰撞、首次进入遭遇、起点门禁、流式恢复、迷雾、目标撤离、Run v9 世界事件与模块子快照和 hash mismatch。`module-world-technical-slice-smoke` 通过正式 opt-in 入口追加中心 3×3 / 外圈 72 槽封锁的完整流程回归。

@@ -91,7 +91,7 @@ FormalClientBoot
 - 玩家可见文本只使用 `ui_loading` 与 `ui_loading_failed`，并同时提供 `zh_CN` / `en`。
 - 加载界面不显示阶段、百分比、资源路径、技术错误或取消按钮。
 - 不增加最低展示时间；准备完成即可移除。
-- 不修改当前 Run v8 envelope、地图 hash、RNG 子流或 gameplay 行为；组合选择只决定新局加载参数，续局准备恢复金币、未完成奖励选择、威胁时间、敌人出生倍率、显式攻击状态和玩家敌人击退。
+- 当前 Run v9 envelope 在既有地图、金币、未完成奖励选择、威胁时间、敌人出生倍率、显式攻击状态和玩家敌人击退之外，恢复世界事件 Controller、固定模块与事件敌人目标上下文；旧 Run v8 明确拒绝并只删除 run。组合选择仍只决定新局加载参数。
 - `GameState.LOADING` 在准备期间不暂停 SceneTree，但 gameplay 节点必须只在 `PLAYING` 时接受输入和推进 `GameClock`。
 - 资源路径继续来自已校验的角色 / 敌人数据与模块 assignment，不在加载流程中新增裸路径分支。
 

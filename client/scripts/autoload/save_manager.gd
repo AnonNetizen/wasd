@@ -21,7 +21,7 @@ const DEFAULT_MAIN_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_A
 const DEFAULT_SUB_HERO_ID: String = CHARACTER_IDS.CHARACTER_PRIMARY_B
 const CURRENT_KIND_VERSIONS: Dictionary = {
 	SAVE_KINDS.META: 2,
-	SAVE_KINDS.RUN: 8,
+	SAVE_KINDS.RUN: 9,
 	SAVE_KINDS.REPLAY_INDEX: 1,
 }
 
@@ -38,6 +38,7 @@ func _ready() -> void:
 	register_migration(SAVE_KINDS.RUN, 5, 6, Callable(self, "_migrate_run_v5_to_v6"))
 	register_migration(SAVE_KINDS.RUN, 6, 7, Callable(self, "_migrate_run_v6_to_v7"))
 	register_migration(SAVE_KINDS.RUN, 7, 8, Callable(self, "_migrate_run_v7_to_v8"))
+	register_migration(SAVE_KINDS.RUN, 8, 9, Callable(self, "_migrate_run_v8_to_v9"))
 
 
 func registered_save_kinds() -> Array[String]:
@@ -415,6 +416,16 @@ func _migrate_run_v7_to_v8(payload: Dictionary) -> Dictionary:
 	result["legacy_run_incompatible"] = true
 	result["enemies"] = []
 	result["next_enemy_spawn_serial"] = 1
+	return result
+
+
+func _migrate_run_v8_to_v9(payload: Dictionary) -> Dictionary:
+	# v8 has no durable world-event state, pinned module ownership, fixed event
+	# wave plan, or transaction guards. Do not restore a partially inferred event.
+	var result: Dictionary = payload.duplicate(true)
+	result["schema_version"] = 9
+	result["legacy_run_incompatible"] = true
+	result["world_events"] = {}
 	return result
 
 

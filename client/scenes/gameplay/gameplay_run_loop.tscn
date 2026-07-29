@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://bbq5dg0u4p14r"]
+[gd_scene load_steps=13 format=3 uid="uid://bbq5dg0u4p14r"]
 
 [ext_resource type="Script" uid="uid://wqmkjoq4cjb6" path="res://scripts/gameplay/gameplay_run_loop.gd" id="1_run_loop"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/world_background.tscn" id="2_background"]
@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://scripts/gameplay/presentation/gameplay_feedback_controller.gd" id="9_feedback"]
 [ext_resource type="Script" path="res://scripts/gameplay/gold_progression.gd" id="10_gold_progression"]
 [ext_resource type="Script" path="res://scripts/gameplay/reward_choice_controller.gd" id="11_reward_choice"]
+[ext_resource type="Script" path="res://scripts/gameplay/world_events/world_event_controller.gd" id="12_world_event_controller"]
 
 [node name="GameplayRunLoop" type="Node2D"]
 script = ExtResource("1_run_loop")
@@ -24,6 +25,8 @@ script = ExtResource("5_map_manager")
 [node name="WorldBackground" parent="ActiveWorld" instance=ExtResource("2_background")]
 
 [node name="PlayerHost" type="Node2D" parent="ActiveWorld"]
+
+[node name="WorldEventHost" type="Node2D" parent="ActiveWorld"]
 
 [node name="ModuleWorldManager" parent="ActiveWorld" instance=ExtResource("6_module_world")]
 
@@ -58,6 +61,9 @@ script = ExtResource("10_gold_progression")
 
 [node name="RewardChoiceController" type="Node" parent="."]
 script = ExtResource("11_reward_choice")
+
+[node name="WorldEventController" type="Node" parent="."]
+script = ExtResource("12_world_event_controller")
 
 [node name="GameplayHud" parent="." instance=ExtResource("4_hud")]
 

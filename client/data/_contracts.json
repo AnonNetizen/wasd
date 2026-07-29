@@ -194,6 +194,14 @@
       "MAX_MAGNITUDE",
       "ADD_STACK_REFRESH"
     ],
+    "damage_target_groups": [
+      "active_enemies",
+      "active_interest_point_targets",
+      "active_projectile_blockers",
+      "active_player",
+      "active_deployables",
+      "active_world_event_defense_targets"
+    ],
     "audio_prefixes": [
       "sfx_player_",
       "sfx_enemy_",
@@ -210,6 +218,7 @@
       "vfx",
       "ui_choice",
       "world",
+      "world_event",
       "meta"
     ],
     "character_ids": [
@@ -322,6 +331,7 @@
       "module_role_hazard",
       "module_role_objective",
       "module_role_extraction",
+      "module_role_world_event",
       "module_role_sealed"
     ],
     "module_cell_tokens": [
@@ -333,7 +343,8 @@
       "module_place_hazard",
       "module_place_reward_cache",
       "module_place_objective",
-      "module_place_extraction"
+      "module_place_extraction",
+      "module_place_world_event"
     ],
     "module_edge_directions": [
       "edge_north",
@@ -349,6 +360,34 @@
       "module_tile_ground_default",
       "module_tile_obstacle_default",
       "module_tile_decoration_default"
+    ],
+    "world_event_ids": [
+      "world_event_defense",
+      "world_event_survival",
+      "world_event_capture",
+      "world_event_gold_shrine",
+      "world_event_blood_shrine"
+    ],
+    "world_event_kinds": [
+      "world_event_kind_defense",
+      "world_event_kind_survival",
+      "world_event_kind_capture",
+      "world_event_kind_gold_shrine",
+      "world_event_kind_blood_shrine"
+    ],
+    "world_event_states": [
+      "world_event_state_inactive",
+      "world_event_state_active",
+      "world_event_state_succeeded",
+      "world_event_state_failed",
+      "world_event_state_exhausted"
+    ],
+    "world_event_reward_types": [
+      "world_event_reward_gold",
+      "world_event_reward_gear_mod"
+    ],
+    "world_event_mod_pool_ids": [
+      "world_event_mod_pool_common"
     ],
     "vfx_domains": [
       "ui",
@@ -434,6 +473,7 @@
       "gear_mod_",
       "enemy_",
       "hazard_",
+      "world_event_",
       "hint_"
     ]
   }

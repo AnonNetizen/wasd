@@ -227,16 +227,76 @@
       "tags": []
     },
     {
-      "id": "module_flat_ground",
-      "path": "res://data/modules/module_flat_ground.json",
-      "role": "module_role_connector",
-      "tags": [],
-      "source": "ai",
       "allowed_rotations": [
         0
       ],
+      "approved_gameplay_hash": "cf170eeb1053197f99ced97cfc2bf2edd09cf801514e7bcde8ece5643328b776",
+      "id": "module_flat_ground",
+      "path": "res://data/modules/module_flat_ground.json",
       "review_status": "module_review_approved",
-      "approved_gameplay_hash": "cf170eeb1053197f99ced97cfc2bf2edd09cf801514e7bcde8ece5643328b776"
+      "role": "module_role_connector",
+      "source": "ai",
+      "tags": []
+    },
+    {
+      "allowed_rotations": [
+        0
+      ],
+      "approved_gameplay_hash": "b1cdcf3d4a86f79bde87be5bcd4b530964859066ba504ae1ce9203ef9cf639f6",
+      "id": "module_world_event_defense",
+      "path": "res://data/modules/module_world_event_defense.json",
+      "review_status": "module_review_approved",
+      "role": "module_role_world_event",
+      "source": "ai",
+      "tags": []
+    },
+    {
+      "allowed_rotations": [
+        0
+      ],
+      "approved_gameplay_hash": "57270e8fb342bdaa66e71f9b6086623a0dc17697f4995c190bce7b7410571f45",
+      "id": "module_world_event_survival",
+      "path": "res://data/modules/module_world_event_survival.json",
+      "review_status": "module_review_approved",
+      "role": "module_role_world_event",
+      "source": "ai",
+      "tags": []
+    },
+    {
+      "allowed_rotations": [
+        0
+      ],
+      "approved_gameplay_hash": "2bcfcf34c3d65db7a94de1daf167f11ee704381545dc6d5b5374960615104cb6",
+      "id": "module_world_event_capture",
+      "path": "res://data/modules/module_world_event_capture.json",
+      "review_status": "module_review_approved",
+      "role": "module_role_world_event",
+      "source": "ai",
+      "tags": []
+    },
+    {
+      "allowed_rotations": [
+        0
+      ],
+      "approved_gameplay_hash": "d77c96c650906f76ffb7d3d8fbd0f2d036342bed2501047beed3ae26a82607c3",
+      "id": "module_world_event_gold_shrine",
+      "path": "res://data/modules/module_world_event_gold_shrine.json",
+      "review_status": "module_review_approved",
+      "role": "module_role_world_event",
+      "source": "ai",
+      "tags": []
+    },
+    {
+      "allowed_rotations": [
+        0
+      ],
+      "approved_gameplay_hash": "66a66ef3e422fc8e7cdb5059972a33db3146306a654fad41ed385a45eaa42923",
+      "id": "module_world_event_blood_shrine",
+      "path": "res://data/modules/module_world_event_blood_shrine.json",
+      "review_status": "module_review_approved",
+      "role": "module_role_world_event",
+      "source": "ai",
+      "tags": []
     },
     {
       "allowed_rotations": [

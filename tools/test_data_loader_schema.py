@@ -169,11 +169,72 @@ def main() -> int:
             ],
         ),
         (
-            "module world schema v2 is required",
-            _mutate_json("client/data/module_worlds.json", _set_schema_version(1)),
+            "module world schema v3 is required",
+            _mutate_json("client/data/module_worlds.json", _set_schema_version(2)),
             [
                 "client/data/module_worlds.json:schema_version",
-                "must equal 2",
+                "must equal 3",
+            ],
+        ),
+        (
+            "world event schema v1 is required",
+            _mutate_json("client/data/world_events.json", _set_schema_version(0)),
+            [
+                "client/data/world_events.json:schema_version",
+                "must equal 1",
+            ],
+        ),
+        (
+            "defense world event target hit radius is required",
+            _mutate_json(
+                "client/data/world_events.json",
+                _remove_defense_target_hit_radius,
+            ),
+            [
+                "client/data/world_events.json:events[0]",
+                "fields must exactly match world_event_kind_defense schema",
+                "client/data/world_events.json:events[0].target_hit_radius",
+                "must be number",
+            ],
+        ),
+        (
+            "world event kind rejects surplus fields",
+            _mutate_json("client/data/world_events.json", _add_world_event_surplus_field),
+            [
+                "client/data/world_events.json:events[1]",
+                "fields must exactly match world_event_kind_survival schema",
+            ],
+        ),
+        (
+            "gold shrine chance must stay below one",
+            _mutate_json("client/data/world_events.json", _set_gold_shrine_chance_one),
+            [
+                "client/data/world_events.json:events[3].success_chance",
+                "must be < 1.0",
+            ],
+        ),
+        (
+            "world event wave cannot exceed duration",
+            _mutate_json("client/data/world_events.json", _set_defense_wave_after_duration),
+            [
+                "client/data/world_events.json:events[0].waves[2].trigger",
+                "must be <= 45.0",
+            ],
+        ),
+        (
+            "limited template group pick cannot exceed entries",
+            _mutate_json("client/data/module_worlds.json", _set_limited_group_pick_too_high),
+            [
+                "client/data/module_worlds.json:worlds[0].limited_template_groups[0].pick_distinct",
+                "must not exceed entries length",
+            ],
+        ),
+        (
+            "limited template group requires world event role",
+            _mutate_json("client/data/module_worlds.json", _set_limited_group_flat_template),
+            [
+                "client/data/module_worlds.json:worlds[0].limited_template_groups[0].entries[0].template_id",
+                "template must use module_role_world_event",
             ],
         ),
         (
@@ -241,30 +302,30 @@ def main() -> int:
             ["client/data/modules/module_start_cross.json:terrain_rows", "must contain exactly 11 rows"],
         ),
         (
-            "module schema v3 derives sockets and accepts visual layers",
-            _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v3),
+            "module schema v4 derives sockets and accepts visual layers",
+            _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v4),
             [],
         ),
         (
-            "module schema v2 is no longer accepted",
-            _mutate_json("client/data/modules/module_start_cross.json", _downgrade_module_to_v2),
+            "module schema v3 is no longer accepted",
+            _mutate_json("client/data/modules/module_start_cross.json", _downgrade_module_to_v3),
             [
                 "client/data/modules/module_start_cross.json:schema_version",
-                "must be >= 3",
-                "must be 3",
+                "must be >= 4",
+                "must be 4",
             ],
         ),
         (
-            "module schema v3 must omit derived sockets",
-            _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v3_keep_sockets),
+            "module schema v4 must omit derived sockets",
+            _mutate_json("client/data/modules/module_start_cross.json", _upgrade_module_to_v4_keep_sockets),
             [
                 "client/data/modules/module_start_cross.json:edge_sockets",
-                "must be omitted in schema v3 because sockets are derived",
+                "must be omitted in schema v4 because sockets are derived",
             ],
         ),
         (
             "module visual tile id must be registered",
-            _mutate_json("client/data/modules/module_start_cross.json", _set_v3_unknown_visual_tile),
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v4_unknown_visual_tile),
             [
                 "client/data/modules/module_start_cross.json:visual_layers.ground.overrides[0].tile_id",
                 "unknown id module_tile_unknown; expected one of module_tile_ids",
@@ -272,7 +333,7 @@ def main() -> int:
         ),
         (
             "module visual tile must belong to its layer",
-            _mutate_json("client/data/modules/module_start_cross.json", _set_v3_wrong_layer_tile),
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v4_wrong_layer_tile),
             [
                 "client/data/modules/module_start_cross.json:visual_layers.ground.default_tile_id",
                 "tile must belong to the ground layer",
@@ -280,7 +341,7 @@ def main() -> int:
         ),
         (
             "module visual transform rotation must be orthogonal",
-            _mutate_json("client/data/modules/module_start_cross.json", _set_v3_invalid_visual_rotation),
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v4_invalid_visual_rotation),
             [
                 "client/data/modules/module_start_cross.json:visual_layers.decoration.cells[0].rotation",
                 "must be 0, 90, 180, or 270",
@@ -288,7 +349,7 @@ def main() -> int:
         ),
         (
             "module decoration layer must remain sparse",
-            _mutate_json("client/data/modules/module_start_cross.json", _set_v3_decoration_default_tile),
+            _mutate_json("client/data/modules/module_start_cross.json", _set_v4_decoration_default_tile),
             [
                 "client/data/modules/module_start_cross.json:visual_layers.decoration",
                 "must define exactly cells",
@@ -316,7 +377,7 @@ def main() -> int:
         (
             "candidate module template cannot keep gameplay approval hash",
             _mutate_json("client/data/module_templates.json", _make_sealed_template_keep_approved_hash),
-            ["client/data/module_templates.json:templates[16].approved_gameplay_hash", "must be omitted unless the template is approved"],
+            ["client/data/module_templates.json:templates[21].approved_gameplay_hash", "must be omitted unless the template is approved"],
         ),
         (
             "fallback assignment must contain 81 slots",
@@ -330,7 +391,7 @@ def main() -> int:
         ),
         (
             "adjacent modules require a shared open socket",
-            _mutate_json("client/data/modules/module_connector_cross.json", _close_module_east_socket),
+            _mutate_json("client/data/modules/module_world_event_defense.json", _close_module_east_socket),
             [
                 "client/data/module_worlds.json:worlds[0].technical_slice_assignment",
                 "no shared open socket between slot",
@@ -350,6 +411,28 @@ def main() -> int:
             "module placement cell must stay in bounds",
             _mutate_json("client/data/modules/module_start_cross.json", _set_module_placement_out_of_bounds),
             ["client/data/modules/module_start_cross.json:placements[0].cell.x", "must be < 11"],
+        ),
+        (
+            "world event placement requires a registered event id",
+            _mutate_json(
+                "client/data/modules/module_world_event_defense.json",
+                _set_unknown_world_event_placement_id,
+            ),
+            [
+                "client/data/modules/module_world_event_defense.json:placements[0].world_event_id",
+                "unknown id world_event_unknown; expected one of world_event_ids",
+            ],
+        ),
+        (
+            "world event placement rejects surplus fields",
+            _mutate_json(
+                "client/data/modules/module_world_event_defense.json",
+                _add_world_event_placement_surplus_field,
+            ),
+            [
+                "client/data/modules/module_world_event_defense.json:placements[0]",
+                "must define exactly type, cell, and world_event_id",
+            ],
         ),
         (
             "legacy module enemy placement is rejected",
@@ -2692,6 +2775,32 @@ def _set_module_world_cell_size(value: float) -> JsonMutator:
     return mutate
 
 
+def _remove_defense_target_hit_radius(payload: dict[str, Any]) -> None:
+    payload["events"][0].pop("target_hit_radius", None)
+
+
+def _add_world_event_surplus_field(payload: dict[str, Any]) -> None:
+    payload["events"][1]["surplus"] = True
+
+
+def _set_gold_shrine_chance_one(payload: dict[str, Any]) -> None:
+    payload["events"][3]["success_chance"] = 1.0
+
+
+def _set_defense_wave_after_duration(payload: dict[str, Any]) -> None:
+    payload["events"][0]["waves"][2]["trigger"] = 46.0
+
+
+def _set_limited_group_pick_too_high(payload: dict[str, Any]) -> None:
+    payload["worlds"][0]["limited_template_groups"][0]["pick_distinct"] = 6
+
+
+def _set_limited_group_flat_template(payload: dict[str, Any]) -> None:
+    payload["worlds"][0]["limited_template_groups"][0]["entries"][0][
+        "template_id"
+    ] = "module_flat_ground"
+
+
 def _remove_fixed_objective_slot(payload: dict[str, Any]) -> None:
     world = payload["worlds"][0]
     objective_slot = world["objective_slot"]
@@ -2743,8 +2852,8 @@ def _remove_module_terrain_row(payload: dict[str, Any]) -> None:
     payload["terrain_rows"].pop()
 
 
-def _upgrade_module_to_v3(payload: dict[str, Any]) -> None:
-    payload["schema_version"] = 3
+def _upgrade_module_to_v4(payload: dict[str, Any]) -> None:
+    payload["schema_version"] = 4
     payload.pop("edge_sockets", None)
     payload["visual_layers"] = {
         "ground": {
@@ -2761,13 +2870,13 @@ def _upgrade_module_to_v3(payload: dict[str, Any]) -> None:
     }
 
 
-def _upgrade_module_to_v3_keep_sockets(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v3(payload)
+def _upgrade_module_to_v4_keep_sockets(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v4(payload)
     payload["edge_sockets"] = _derived_sockets(payload["terrain_rows"])
 
 
-def _downgrade_module_to_v2(payload: dict[str, Any]) -> None:
-    payload["schema_version"] = 2
+def _downgrade_module_to_v3(payload: dict[str, Any]) -> None:
+    payload["schema_version"] = 3
 
 
 def _derived_sockets(terrain_rows: list[list[str]]) -> dict[str, list[int]]:
@@ -2780,8 +2889,8 @@ def _derived_sockets(terrain_rows: list[list[str]]) -> dict[str, list[int]]:
     }
 
 
-def _set_v3_unknown_visual_tile(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v3(payload)
+def _set_v4_unknown_visual_tile(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v4(payload)
     payload["visual_layers"]["ground"]["overrides"] = [
         {
             "cell": {"x": 0, "y": 0},
@@ -2793,13 +2902,13 @@ def _set_v3_unknown_visual_tile(payload: dict[str, Any]) -> None:
     ]
 
 
-def _set_v3_wrong_layer_tile(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v3(payload)
+def _set_v4_wrong_layer_tile(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v4(payload)
     payload["visual_layers"]["ground"]["default_tile_id"] = "module_tile_decoration_default"
 
 
-def _set_v3_invalid_visual_rotation(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v3(payload)
+def _set_v4_invalid_visual_rotation(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v4(payload)
     payload["visual_layers"]["decoration"]["cells"] = [
         {
             "cell": {"x": 5, "y": 5},
@@ -2811,8 +2920,8 @@ def _set_v3_invalid_visual_rotation(payload: dict[str, Any]) -> None:
     ]
 
 
-def _set_v3_decoration_default_tile(payload: dict[str, Any]) -> None:
-    _upgrade_module_to_v3(payload)
+def _set_v4_decoration_default_tile(payload: dict[str, Any]) -> None:
+    _upgrade_module_to_v4(payload)
     payload["visual_layers"]["decoration"]["default_tile_id"] = "module_tile_decoration_default"
 
 
@@ -2846,7 +2955,8 @@ def _duplicate_fallback_slot(payload: dict[str, Any]) -> None:
 
 
 def _close_module_east_socket(payload: dict[str, Any]) -> None:
-    payload["terrain_rows"][5][10] = "module_cell_blocked"
+    for row in payload["terrain_rows"]:
+        row[10] = "module_cell_blocked"
 
 
 def _set_unknown_module_token(payload: dict[str, Any]) -> None:
@@ -2859,6 +2969,14 @@ def _set_unknown_module_placement(payload: dict[str, Any]) -> None:
 
 def _set_module_placement_out_of_bounds(payload: dict[str, Any]) -> None:
     payload["placements"][0]["cell"]["x"] = 11
+
+
+def _set_unknown_world_event_placement_id(payload: dict[str, Any]) -> None:
+    payload["placements"][0]["world_event_id"] = "world_event_unknown"
+
+
+def _add_world_event_placement_surplus_field(payload: dict[str, Any]) -> None:
+    payload["placements"][0]["surplus"] = True
 
 
 def _add_legacy_module_enemy_spawn(payload: dict[str, Any]) -> None:

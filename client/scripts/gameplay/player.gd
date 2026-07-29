@@ -188,6 +188,83 @@ func current_overshield() -> float:
 	return _overshield
 
 
+func try_sacrifice_combined_health(
+	amount: float,
+	minimum_life: float = 1.0
+) -> Dictionary:
+	if not is_alive():
+		return {
+			"ok": false,
+			"spent": 0.0,
+			"reason": "not_alive",
+		}
+	if not is_finite(amount) or amount <= 0.0:
+		return {
+			"ok": false,
+			"reason": "invalid_amount",
+			"spent": 0.0,
+		}
+	var resolved_minimum_life: float = clampf(
+		minimum_life,
+		0.0,
+		_max_life
+	)
+	var combined_health: float = (
+		_life_points
+		+ _current_shield
+		+ _overshield
+	)
+	if combined_health - amount < resolved_minimum_life:
+		return {
+			"ok": false,
+			"reason": "insufficient_combined_health",
+			"spent": 0.0,
+			"available": combined_health,
+			"minimum_life": resolved_minimum_life,
+		}
+
+	var remaining: float = amount
+	var overshield_spent: float = minf(_overshield, remaining)
+	_overshield -= overshield_spent
+	remaining -= overshield_spent
+	var shield_spent: float = minf(_current_shield, remaining)
+	_current_shield -= shield_spent
+	remaining -= shield_spent
+	var life_spent: float = minf(
+		maxf(_life_points - resolved_minimum_life, 0.0),
+		remaining
+	)
+	_life_points -= life_spent
+	remaining -= life_spent
+	var spent: float = amount - remaining
+	if remaining > 0.001:
+		_life_points += life_spent
+		_current_shield += shield_spent
+		_overshield += overshield_spent
+		return {
+			"ok": false,
+			"reason": "sacrifice_incomplete",
+			"spent": 0.0,
+		}
+
+	if shield_spent > 0.0:
+		_shield_recharge_delay_remaining = _shield_recharge_delay
+	life_changed.emit(_life_points, _max_life)
+	_emit_shield_changed()
+	_refresh_visuals()
+	return {
+		"ok": true,
+		"reason": "",
+		"spent": spent,
+		"overshield_spent": overshield_spent,
+		"shield_spent": shield_spent,
+		"life_spent": life_spent,
+		"life": _life_points,
+		"shield": _current_shield,
+		"overshield": _overshield,
+	}
+
+
 func max_energy() -> float:
 	return _max_energy
 

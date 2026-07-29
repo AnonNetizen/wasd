@@ -42,7 +42,8 @@
 | `client/data/hazards.csv` | 机关基础数值、对象池、伤害类型和模式引用边界 |
 | `client/data/map_layouts.json` | 有限地图、玩家出生点、PCG 机关规则和人工摆点边界 |
 | `client/data/warzone_directors.json` | schema v2 敌巢战区导演、固定阶段、巢变异主题、兴趣点和阶段启用 wave 边界 |
-| `client/data/module_worlds.json` / `module_templates.json` / `modules/*.json` | F13 世界 schema v2、模块 schema v3：9×9 几何、固定锚点、首次进入敌人数 / 预警 / 解锁权重、approved 模板池、路线预算、11×11 地形与静态内容摆放；校验跨模块开放格交集、边界、可达性、有效空地和内容预算 |
+| `client/data/module_worlds.json` / `module_templates.json` / `modules/*.json` | 世界 schema v3、模块 schema v4：9×9 几何、固定锚点、首次进入敌人数 / 预警 / 解锁权重、限量事件模板组、approved 模板池、路线预算、11×11 地形与静态内容摆放 |
+| `client/data/world_events.json` | schema v1：五类事件、波次、交互半径、奖励、祭坛费用 / 献祭与普通 Mod 池 |
 | `client/data/spawn_waves.csv` | 刷怪波次、模式引用、敌人 / 机关引用、时间窗和强度数值边界 |
 | `client/data/relics.json` | 被动遗物 modifier / behavior 数据边界 |
 | `client/data/active_items.json` | 主动道具充能 / 使用效果数据边界 |
@@ -101,7 +102,7 @@
   - `skills.json`：技能 id、表现 profile、名称 / 描述 key、`tag_skill`、ability tags、activation required / blocked / granted tags、冷却、能量消耗、目标类型、能力缩放声明和效果原语；技能 id、槽位、资源、targeting、effect 和 ability tag 必须来自词表，`skill_effect_damage` 的 `element_id` 交给 `Combat` 校验，`skill_effect_apply_status` 的 status / stack_rule / granted ability tags 必须来自生成契约；当状态效果同时声明正 `magnitude` 与正 `tick_interval` 时，还必须声明已登记 `element_id`。
   - `visual_effects.json`：schema v2、唯一 effect id、固定枚举、合法正式资源、质量变体、预览参数和对象池引用；旧 schema v1 与遗留 `reduced_motion` 字段明确拒绝，高频条目必须声明已登记 pool id，catalog 不得指向 editor-only、`output/test_lab` 或裸程序几何。
   - `presentation_profiles.json`：唯一 profile id、父继承无环、cue / anchor 枚举、效果引用与可选音频 / 相机 / 屏幕绑定；首版 `hit_stop_profile_id` 必须为空。
-  - `enemy_ai_profiles.json`：schema v4 profile id、视线 / 路径 / 记忆感知、决策间隔、玩家权重、通用移动参数、动作参数和 action id；action 必须来自词表 §12-B。攻击 action 必须携带与类型严格匹配的 `attack` 字典，非攻击 action 禁止携带 `attack`；伤害、元素、范围、角度、前摇、释放、冷却、冲刺倍率、击退与投射物参数均按 action 类型校验。旧单一 `sense_radius`、种间猎食 / 逃跑字段、旧 `movement` 攻击字段和 schema v3 会被明确拒绝。
+  - `enemy_ai_profiles.json`：schema v5 profile id、视线 / 路径 / 记忆感知、决策间隔、玩家权重、通用移动参数、动作参数和 action id；远程攻击额外必填 `windup/burst_count/shot_interval`。攻击 action 必须携带与类型严格匹配的 `attack` 字典，非攻击 action 禁止携带 `attack`；旧 schema 与遗留攻击字段明确拒绝。
   - `enemies.csv`：精确表头为敌人 id、名称 key、`tag_enemy`、独立对象池 id、专属 `scene_path`、`pool_prewarm`、AI profile 引用、表现 profile、生命、移速、正整数金币奖励、命中半径和分离半径；`pool_id` 必须唯一且等于敌人 id。旧 `contact_damage`、`contact_interval`、`element_id`、`exp_reward`、`enemy_ranged` 与 `visual_color` 列明确拒绝。场景必须位于正式 `actors/enemies/*.tscn`、存在且为 `PackedScene`，可跨内容 id 复用但不得指向基础场景；`ai_profile_id` 必须存在于 `enemy_ai_profiles.json`。
   - `gear_mods.json`：装备 Mod id、名称 / 描述 key、英雄 / 武器 slot、稀有度、最大 rank、drain、按 rank 计算的 stat modifier、装配规则和分解返还资源；id、slot、rarity、resource、stack rule 均来自词表 §13-A~§13-E。
   - `gear_mod_drop_tables.csv`：装备 Mod 掉落来源敌人、Mod id、掉落概率和敌人等级区间；敌人必须存在于 `enemies.csv`，Mod 必须存在于 `gear_mods.json`，概率必须是 `0.0..1.0`。
@@ -110,7 +111,8 @@
   - `map_layouts.json`：layout id、模式引用、有限地图矩形 bounds、玩家出生点、安全半径、刷怪边距、PCG 机关规则和人工机关摆点；`mode_id` 必须存在于 `game_modes.json`，所有机关 id 必须存在于 `hazards.csv`，bounds 必须分别整除 `grid.cell_width/cell_height`。
   - `spawn_waves.csv`：波次 id、模式 id、波次序号、时间窗、敌人引用、敌人权重、刷怪间隔、同时存活上限、预算，以及可选机关引用 / 权重。
   - `warzone_directors.json`：schema v2 director id、模式引用、固定 mutation、阶段时间窗、阶段启用 wave 和兴趣点；`mode_id` 必须存在于 `game_modes.json`，`wave_ids` 必须引用同模式 `spawn_waves.csv`，同模式所有 wave 必须至少被一个 phase 引用，兴趣点的 `hazard_ids` 必须非空且机关 / 地图引用必须存在；旧导演敌人组合字段会被明确拒绝。
-  - 模块世界：世界必须恰好 9×9、模块必须恰好 11×11；模块 / 局部 / 全局坐标、placement footprint、引用、审核状态、相邻边缘开放格交集、外圈封闭、关键路线、危险格重叠和角色内容预算都 fail-fast。模块 schema v3 明确拒绝旧敌人出生 placement；世界 schema v2 的首次进入配置拒绝非法数量 / 预警、未知敌人、负解锁时间、非正权重和不足 `count_max` 个有效空地的正式池 / 固定非起点模板。默认池只接受 `approved` 模板；`candidate` 只能供人工审核。
+  - 模块世界：世界必须恰好 9×9、模块必须恰好 11×11；模块 / 局部 / 全局坐标、placement footprint、引用、审核状态、相邻边缘开放格交集、外圈封闭、关键路线和内容预算都 fail-fast。模块 schema v4 新增严格 `module_place_world_event`，拒绝未知事件、重复 placement、越界和多余字段；世界 schema v3 的限量组校验 `pick_distinct`、模板角色、权重和次数，正式 assignment 必须选三种不同事件。默认池只接受 `approved` 模板；`candidate` 只能供人工审核。
+  - `world_events.json`：schema v1 严格按事件 kind 校验必填 / 多余字段、正时间、概率、递增费用、波次边界、次数、Mod 池引用和防御目标半径；事件 id、kind、state、reward 与 Mod pool 必须来自生成契约。
   - `relics.json`：遗物 id、名称 / 描述 key、默认解锁、`tag_relic`、数值 modifiers、行为 behaviors，以及至少一个 modifier 或 behavior。
   - `active_items.json`：主动道具 id、名称 / 描述 key、默认解锁、`tag_active_item`、冷却充能、初始 / 最大充能和使用效果原语。
   - `consumables.json`：消耗品 id、名称 / 描述 key、默认解锁、`tag_consumable`、最大堆叠、初始数量、单次拾取数量和使用效果原语。

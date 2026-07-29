@@ -18,13 +18,15 @@ const MODULE_ROWS: int = 11
 const WORLD_CELL_COLUMNS: int = WORLD_COLUMNS * MODULE_COLUMNS
 const WORLD_CELL_ROWS: int = WORLD_ROWS * MODULE_ROWS
 const WORLD_CENTER_GLOBAL_CELL: Vector2i = Vector2i(49, 49)
-const MAX_ACTIVE_CHUNKS: int = 9
+const MAX_STREAMING_CHUNKS: int = 9
+const MAX_PINNED_CHUNKS: int = 3
+const MAX_ACTIVE_CHUNKS: int = MAX_STREAMING_CHUNKS + MAX_PINNED_CHUNKS
 const ROTATION_STEP: int = 90
 const ROTATION_FULL: int = 360
 const ASSIGNMENT_SEED_MODULUS: int = 2_147_483_647
 const INVALID_COORD: Vector2i = Vector2i(-1, -1)
 const MODULE_TERRAIN_Z_INDEX: int = -90
-const GENERATED_MODULE_BAKER_SCHEMA_VERSION: int = 3
+const GENERATED_MODULE_BAKER_SCHEMA_VERSION: int = 4
 
 var _world_def: Dictionary = {}
 var _registry_by_id: Dictionary = {}
@@ -43,6 +45,7 @@ var _current_module_coord: Vector2i = INVALID_COORD
 var _revealed: Dictionary = {}
 var _visited: Dictionary = {}
 var _slot_states: Dictionary = {}
+var _pinned_slots: Dictionary = {}
 var _active_chunks: Dictionary = {}
 var _chunk_pool: Array[ModuleChunk] = []
 var _configured: bool = false
@@ -122,15 +125,15 @@ func tick(player_position: Vector2) -> Dictionary:
 	var module_and_local: Dictionary = global_cell_to_module_and_local(global_cell)
 	var next_coord: Vector2i = module_and_local.get("module_coord", INVALID_COORD) as Vector2i
 	if not _is_module_coord_valid(next_coord):
-		var outside_deactivated: Array[Dictionary] = _deactivate_all_chunks()
+		var outside_streaming_change: Dictionary = _refresh_active_modules(INVALID_COORD)
 		_current_module_coord = INVALID_COORD
 		return {
 			"current_module": {},
 			"entered": false,
 			"revealed_now": false,
 			"visited_now": false,
-			"activated": [],
-			"deactivated": outside_deactivated,
+			"activated": outside_streaming_change.get("activated", []),
+			"deactivated": outside_streaming_change.get("deactivated", []),
 			"outside_world": true,
 		}
 
@@ -312,6 +315,28 @@ func is_module_active(module_coord: Vector2i) -> bool:
 	return _active_chunks.has(_slot_key(module_coord))
 
 
+func set_slot_pinned(module_coord: Vector2i, pinned: bool) -> bool:
+	if not _configured or not _is_module_coord_valid(module_coord):
+		return false
+	var slot_key: String = _slot_key(module_coord)
+	if not _assignment.has(slot_key):
+		return false
+	if pinned:
+		if _pinned_slots.has(slot_key):
+			return true
+		if _pinned_slots.size() >= MAX_PINNED_CHUNKS:
+			return false
+		_pinned_slots[slot_key] = true
+	else:
+		_pinned_slots.erase(slot_key)
+	_refresh_active_modules(_current_module_coord)
+	return true
+
+
+func pinned_module_coords() -> Array[Vector2i]:
+	return _coords_from_set(_pinned_slots)
+
+
 func set_slot_state(module_coord: Vector2i, state: Dictionary) -> void:
 	if not _is_module_coord_valid(module_coord):
 		return
@@ -331,6 +356,7 @@ func snapshot() -> Dictionary:
 		"current_module": _coord_to_dict(_current_module_coord) if _is_module_coord_valid(_current_module_coord) else {},
 		"revealed": _coords_to_dict_array(revealed_module_coords()),
 		"visited": _coords_to_dict_array(visited_module_coords()),
+		"pinned_slots": _coords_to_dict_array(pinned_module_coords()),
 		"slot_states": _ordered_slot_states(),
 	}
 
@@ -342,6 +368,11 @@ func restore_state(state: Dictionary) -> bool:
 	var configured_world_id: String = String(_world_def.get("id", ""))
 	if not saved_world_id.is_empty() and saved_world_id != configured_world_id:
 		push_error("[ModuleWorldManager] snapshot world id does not match configured world")
+		return false
+	var restored_pins_result: Dictionary = _validated_pinned_slots(
+		state.get("pinned_slots", [])
+	)
+	if not bool(restored_pins_result.get("is_valid", false)):
 		return false
 	var restored_assignment: Dictionary = {}
 	var previous_assignment: Dictionary = _assignment
@@ -374,10 +405,15 @@ func restore_state(state: Dictionary) -> bool:
 	_rebuild_navigation_field()
 	_revealed = _set_from_coord_array(state.get("revealed", []))
 	_visited = _set_from_coord_array(state.get("visited", []))
+	_pinned_slots = (
+		restored_pins_result.get("pinned_slots", {}) as Dictionary
+	).duplicate()
 	_slot_states = _validated_slot_states(state.get("slot_states", {}))
 	_current_module_coord = _coord_from_variant(state.get("current_module", {}), INVALID_COORD)
 	if _is_module_coord_valid(_current_module_coord):
 		_refresh_active_modules(_current_module_coord)
+	elif not _pinned_slots.is_empty():
+		_refresh_active_modules(INVALID_COORD)
 	return true
 
 
@@ -400,6 +436,10 @@ func debug_summary() -> Dictionary:
 		"revealed_count": _revealed.size(),
 		"visited_count": _visited.size(),
 		"active_count": _active_chunks.size(),
+		"pinned_count": _pinned_slots.size(),
+		"pinned_slots": _coords_to_dict_array(pinned_module_coords()),
+		"world_event_assignment_count": _world_event_assignment_count(),
+		"world_event_template_ids": _world_event_template_ids(),
 		"revealed_slots": _coords_to_dict_array(revealed_module_coords()),
 		"visited_slots": _coords_to_dict_array(visited_module_coords()),
 		"active_slots": _coords_to_dict_array(active_module_coords()),
@@ -417,8 +457,12 @@ func _build_seeded_assignment() -> bool:
 		return false
 	var world_rng_snapshot: Dictionary = RNG.world.snapshot()
 	RNG.world.configure(RNG_STREAMS.WORLD, _assignment_seed())
-	var generated_all_slots: bool = true
+	var generated_all_slots: bool = _assign_limited_template_groups(
+		_world_def.get("limited_template_groups", [])
+	)
 	for row_index: int in range(WORLD_ROWS):
+		if not generated_all_slots:
+			break
 		for column_index: int in range(WORLD_COLUMNS):
 			var module_coord := Vector2i(column_index, row_index)
 			if _assignment.has(_slot_key(module_coord)):
@@ -430,6 +474,85 @@ func _build_seeded_assignment() -> bool:
 			break
 	RNG.world.restore_snapshot(world_rng_snapshot)
 	return generated_all_slots
+
+
+func _assign_limited_template_groups(raw_groups: Variant) -> bool:
+	if not raw_groups is Array:
+		return false
+	for raw_group: Variant in raw_groups as Array:
+		if not raw_group is Dictionary:
+			return false
+		var group: Dictionary = raw_group as Dictionary
+		var raw_entries: Variant = group.get("entries", [])
+		if not raw_entries is Array:
+			return false
+		var candidates: Array[Dictionary] = []
+		for raw_entry: Variant in raw_entries as Array:
+			if raw_entry is Dictionary:
+				candidates.append((raw_entry as Dictionary).duplicate(true))
+		var pick_distinct: int = int(group.get("pick_distinct", 0))
+		if pick_distinct < 1 or pick_distinct > candidates.size():
+			return false
+		for _selection_index: int in range(pick_distinct):
+			var selected_index: int = _weighted_limited_entry_index(candidates)
+			if selected_index < 0:
+				return false
+			var selected: Dictionary = candidates[selected_index]
+			candidates.remove_at(selected_index)
+			var template_id: String = String(selected.get("template_id", ""))
+			var count_per_floor: int = int(selected.get("count_per_floor", 0))
+			for _count_index: int in range(count_per_floor):
+				if not _assign_limited_template_to_random_slot(template_id):
+					return false
+	return true
+
+
+func _weighted_limited_entry_index(candidates: Array[Dictionary]) -> int:
+	var total_weight: float = 0.0
+	for candidate: Dictionary in candidates:
+		total_weight += maxf(float(candidate.get("weight", 0.0)), 0.0)
+	if total_weight <= 0.0:
+		return -1
+	var roll: float = RNG.world.randf_range(0.0, total_weight)
+	var cumulative: float = 0.0
+	for candidate_index: int in range(candidates.size()):
+		cumulative += maxf(
+			float(candidates[candidate_index].get("weight", 0.0)),
+			0.0
+		)
+		if roll <= cumulative:
+			return candidate_index
+	return candidates.size() - 1
+
+
+func _assign_limited_template_to_random_slot(template_id: String) -> bool:
+	var rotations: Array[int] = _allowed_rotations(template_id)
+	if rotations.is_empty():
+		return false
+	var free_coords: Array[Vector2i] = []
+	for row_index: int in range(WORLD_ROWS):
+		for column_index: int in range(WORLD_COLUMNS):
+			var module_coord := Vector2i(column_index, row_index)
+			if not _assignment.has(_slot_key(module_coord)):
+				free_coords.append(module_coord)
+	while not free_coords.is_empty():
+		var coord_index: int = int(RNG.world.randi() % free_coords.size())
+		var module_coord: Vector2i = free_coords[coord_index]
+		free_coords.remove_at(coord_index)
+		var rotation_start: int = int(RNG.world.randi() % rotations.size())
+		for rotation_offset: int in range(rotations.size()):
+			var rotation_degrees: int = rotations[
+				(rotation_start + rotation_offset) % rotations.size()
+			]
+			_assignment[_slot_key(module_coord)] = _make_assignment_entry(
+				module_coord,
+				template_id,
+				rotation_degrees
+			)
+			if _entry_fits_assigned_neighbors(module_coord):
+				return true
+			_assignment.erase(_slot_key(module_coord))
+	return false
 
 
 func _assign_random_pool_template(module_coord: Vector2i, pool_ids: Array[String]) -> bool:
@@ -714,11 +837,16 @@ func _is_sealed_module(module_coord: Vector2i) -> bool:
 
 func _refresh_active_modules(center_coord: Vector2i) -> Dictionary:
 	var desired_keys: Dictionary = {}
-	for row_offset: int in range(-_active_radius, _active_radius + 1):
-		for column_offset: int in range(-_active_radius, _active_radius + 1):
-			var module_coord: Vector2i = center_coord + Vector2i(column_offset, row_offset)
-			if _is_module_coord_valid(module_coord):
-				desired_keys[_slot_key(module_coord)] = true
+	if _is_module_coord_valid(center_coord):
+		for row_offset: int in range(-_active_radius, _active_radius + 1):
+			for column_offset: int in range(-_active_radius, _active_radius + 1):
+				var module_coord: Vector2i = (
+					center_coord + Vector2i(column_offset, row_offset)
+				)
+				if _is_module_coord_valid(module_coord):
+					desired_keys[_slot_key(module_coord)] = true
+	for pinned_key: String in _pinned_slots.keys():
+		desired_keys[pinned_key] = true
 	var deactivated: Array[Dictionary] = []
 	for active_key: String in _active_chunks.keys():
 		if desired_keys.has(active_key):
@@ -802,6 +930,49 @@ func _reset_world_state() -> void:
 	_revealed.clear()
 	_visited.clear()
 	_slot_states.clear()
+	_pinned_slots.clear()
+
+
+func _validated_pinned_slots(value: Variant) -> Dictionary:
+	var result: Dictionary = {"is_valid": false, "pinned_slots": {}}
+	if not value is Array:
+		return result
+	var pinned_slots: Dictionary = {}
+	for raw_coord: Variant in value as Array:
+		var module_coord: Vector2i = _coord_from_variant(raw_coord, INVALID_COORD)
+		if not _is_module_coord_valid(module_coord):
+			return result
+		var slot_key: String = _slot_key(module_coord)
+		if pinned_slots.has(slot_key):
+			return result
+		pinned_slots[slot_key] = true
+	if pinned_slots.size() > MAX_PINNED_CHUNKS:
+		return result
+	result["is_valid"] = true
+	result["pinned_slots"] = pinned_slots
+	return result
+
+
+func _world_event_template_ids() -> Array[String]:
+	var template_ids: Array[String] = []
+	for raw_entry: Variant in _assignment.values():
+		var entry: Dictionary = raw_entry as Dictionary
+		if String(entry.get("role", "")) != MODULE_ROLES.MODULE_ROLE_WORLD_EVENT:
+			continue
+		var template_id: String = String(entry.get("template_id", ""))
+		if not template_id.is_empty() and not template_ids.has(template_id):
+			template_ids.append(template_id)
+	template_ids.sort()
+	return template_ids
+
+
+func _world_event_assignment_count() -> int:
+	var count: int = 0
+	for raw_entry: Variant in _assignment.values():
+		var entry: Dictionary = raw_entry as Dictionary
+		if String(entry.get("role", "")) == MODULE_ROLES.MODULE_ROLE_WORLD_EVENT:
+			count += 1
+	return count
 
 
 func _compute_map_hash() -> String:

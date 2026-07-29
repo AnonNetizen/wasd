@@ -40,7 +40,7 @@ func _run_document_smoke() -> void:
 	_write_json(
 		_registry_path,
 		{
-			"schema_version": 3,
+			"schema_version": 4,
 			"templates": [_registry_entry("module_base", base_path)],
 		}
 	)
@@ -73,7 +73,7 @@ func _run_document_smoke() -> void:
 		"pure visual edits should preserve approved review status"
 	)
 	var saved_data: Dictionary = _read_json(base_path)
-	_expect(not saved_data.has("edge_sockets"), "saved schema v2 JSON must omit edge_sockets")
+	_expect(not saved_data.has("edge_sockets"), "saved schema v4 JSON must omit edge_sockets")
 	var decoration: Dictionary = (
 		(saved_data.get("visual_layers", {}) as Dictionary).get("decoration", {})
 		as Dictionary
@@ -177,6 +177,9 @@ func _run_main_screen_smoke() -> void:
 	var save_button: Button = main_screen.get("_save_button") as Button
 	var layer_combo: OptionButton = main_screen.get("_layer_combo") as OptionButton
 	var tool_combo: OptionButton = main_screen.get("_tool_combo") as OptionButton
+	var world_event_combo: OptionButton = (
+		main_screen.get("_world_event_combo") as OptionButton
+	)
 	_expect(workspace is HSplitContainer, "main screen should contain the workspace split")
 	_expect(tool_panel is PanelContainer, "main screen should contain the left tool panel")
 	_expect(tool_scroll != null, "main screen should contain the tool scroller")
@@ -186,6 +189,10 @@ func _run_main_screen_smoke() -> void:
 	_expect(cell_tab != null, "main screen should contain the Cell property scroller")
 	_expect(module_tab != null, "main screen should contain the Module property scroller")
 	_expect(save_button != null and save_button.text == "保存", "toolbar should use Chinese labels")
+	_expect(
+		world_event_combo != null and world_event_combo.item_count == 5,
+		"world event placement should expose the five registered event ids"
+	)
 	if details is TabContainer:
 		var details_tabs := details as TabContainer
 		_expect(details_tabs.get_tab_title(0) == "单元格", "Cell tab should use a Chinese title")
@@ -244,7 +251,7 @@ func _module_data(requested_id: String) -> Dictionary:
 			row.append("module_cell_floor")
 		terrain_rows.append(row)
 	return {
-		"schema_version": 3,
+		"schema_version": 4,
 		"id": requested_id,
 		"columns": 11,
 		"rows": 11,

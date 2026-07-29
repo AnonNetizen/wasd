@@ -1,0 +1,67 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/world_events/world_event_interactable.gd" id="1_0p0qo"]
+[ext_resource type="Script" path="res://scripts/gameplay/world_events/world_event_defense_target.gd" id="2_erfjd"]
+
+[node name="WorldEventDefense" type="Node2D" unique_id=646792118]
+z_index = -1
+script = ExtResource("1_0p0qo")
+body_path = NodePath("DefenseTarget/CoreVisual")
+
+[node name="GroundVisual" type="Node2D" parent="." unique_id=50723967]
+z_index = -4
+
+[node name="GroundPlate" type="Polygon2D" parent="GroundVisual" unique_id=1761066062]
+color = Color(0.08, 0.33, 0.4, 0.18)
+polygon = PackedVector2Array(-72, -72, 72, -72, 72, 72, -72, 72)
+
+[node name="GroundOutline" type="Line2D" parent="GroundVisual" unique_id=828256382]
+points = PackedVector2Array(-72, -72, 72, -72, 72, 72, -72, 72)
+closed = true
+width = 3.0
+default_color = Color(0.26, 0.88, 0.96, 0.48)
+joint_mode = 2
+
+[node name="InteractionRing" type="Line2D" parent="." unique_id=6273019]
+z_index = -2
+points = PackedVector2Array(92, 0, 91.21293, 12.00841, 88.86517, 23.811352, 84.99692, 35.20688, 79.67434, 46, 72.9885, 56.00605, 65.053825, 65.053825, 56.00605, 72.9885, 45.999996, 79.67434, 35.206875, 84.99692, 23.811356, 88.86517, 12.008414, 91.21292, -4.0214477e-06, 92, -12.008411, 91.21293, -23.811352, 88.86517, -35.20687, 84.99692, -46.000004, 79.67434, -56.00605, 72.9885, -65.053825, 65.053825, -72.9885, 56.00605, -79.67434, 46.000004, -84.99692, 35.206882, -88.86517, 23.81136, -91.21293, 12.008399, -92, -8.042895e-06, -91.21292, -12.008416, -88.86517, -23.811356, -84.99692, -35.206875, -79.67434, -45.999996, -72.98851, -56.006046, -65.053825, -65.05382, -56.006058, -72.9885, -45.999992, -79.67434, -35.20689, -84.99692, -23.811346, -88.86518, -12.008429, -91.21292, 1.097089e-06, -92, 12.00843, -91.21292, 23.81135, -88.86517, 35.20689, -84.99691, 45.999992, -79.67434, 56.00606, -72.9885, 65.05381, -65.05383, 72.98851, -56.006046, 79.67433, -46.000015, 84.99692, -35.206875, 88.86518, -23.811333, 91.21293, -12.008413)
+closed = true
+width = 2.5
+default_color = Color(0.42, 0.92, 0.98, 0.8)
+joint_mode = 2
+
+[node name="DefenseTarget" type="Node2D" parent="." unique_id=1237295034]
+script = ExtResource("2_erfjd")
+
+[node name="CoreVisual" type="Node2D" parent="DefenseTarget" unique_id=1122797383]
+
+[node name="Core" type="Polygon2D" parent="DefenseTarget/CoreVisual" unique_id=1616286659]
+color = Color(0.22, 0.78, 0.88, 1)
+polygon = PackedVector2Array(-34, -34, 34, -34, 34, 34, -34, 34)
+
+[node name="CoreOutline" type="Line2D" parent="DefenseTarget/CoreVisual" unique_id=894080156]
+points = PackedVector2Array(-34, -34, 34, -34, 34, 34, -34, 34)
+closed = true
+width = 4.0
+default_color = Color(0.04, 0.12, 0.16, 1)
+joint_mode = 2
+
+[node name="Guard0" type="Polygon2D" parent="DefenseTarget/CoreVisual" unique_id=943391361]
+position = Vector2(0, -54)
+color = Color(0.12, 0.46, 0.55, 1)
+polygon = PackedVector2Array(-23, -8, 23, -8, 23, 8, -23, 8)
+
+[node name="Guard1" type="Polygon2D" parent="DefenseTarget/CoreVisual" unique_id=2002893437]
+position = Vector2(54, 0)
+color = Color(0.12, 0.46, 0.55, 1)
+polygon = PackedVector2Array(-8, -23, 8, -23, 8, 23, -8, 23)
+
+[node name="Guard2" type="Polygon2D" parent="DefenseTarget/CoreVisual" unique_id=1533179172]
+position = Vector2(0, 54)
+color = Color(0.12, 0.46, 0.55, 1)
+polygon = PackedVector2Array(-23, -8, 23, -8, 23, 8, -23, 8)
+
+[node name="Guard3" type="Polygon2D" parent="DefenseTarget/CoreVisual" unique_id=1022074628]
+position = Vector2(-54, 0)
+color = Color(0.12, 0.46, 0.55, 1)
+polygon = PackedVector2Array(-8, -23, 8, -23, 8, 23, -8, 23)

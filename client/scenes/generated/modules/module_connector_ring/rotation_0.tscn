@@ -20,11 +20,11 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_kkm4f")
-baker_schema_version = 3
+baker_schema_version = 4
 module_id = "module_connector_ring"
 gameplay_hash = "6582f894b3b56ffa8fe239f8c7771efbae7a107fbda0e1ededb89bb070ffc3c2"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "20cc89770a4fb4a11443682e2c809a7a7ed5d16cced0df62134584832205b47f"
+bake_hash = "a51fea0f64c4e6aa1a200cc6cf73b533d2ea203bf47b82605bc0f654bcdfe319"
 placement_snapshot = Array[Dictionary]([{
 "cell": {
 "x": 5,

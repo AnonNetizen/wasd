@@ -74,6 +74,7 @@ var camera_fx: Stream = Stream.new()
 var vfx: Stream = Stream.new()
 var ui_choice: Stream = Stream.new()
 var world: Stream = Stream.new()
+var world_event: Stream = Stream.new()
 var meta: Stream = Stream.new()
 
 var _run_seed: int = DEFAULT_RUN_SEED
@@ -89,6 +90,7 @@ func _ready() -> void:
 		RNG_STREAMS.VFX: vfx,
 		"ui_choice": ui_choice,
 		"world": world,
+		RNG_STREAMS.WORLD_EVENT: world_event,
 		"meta": meta,
 	}
 	set_run_seed(DEFAULT_RUN_SEED)

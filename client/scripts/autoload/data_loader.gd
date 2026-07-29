@@ -10,6 +10,8 @@ const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placemen
 const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
 const MODULE_ROLES := preload("res://scripts/contracts/module_roles.gd")
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
+const WORLD_EVENT_IDS := preload("res://scripts/contracts/world_event_ids.gd")
+const WORLD_EVENT_KINDS := preload("res://scripts/contracts/world_event_kinds.gd")
 
 signal data_reloaded()
 
@@ -45,6 +47,7 @@ const MODULE_TILE_CATALOG_PATH: String = "res://data/module_tile_catalog.json"
 const GEAR_MODS_PATH: String = "res://data/gear_mods.json"
 const GEAR_MOD_DROP_TABLES_PATH: String = "res://data/gear_mod_drop_tables.csv"
 const GEAR_MOD_FUSION_COSTS_PATH: String = "res://data/gear_mod_fusion_costs.csv"
+const WORLD_EVENTS_PATH: String = "res://data/world_events.json"
 
 const INT_STATS: Array[String] = ["bullet_count", "pierce_count"]
 const WEAPON_RECOIL_MAXIMUM: float = 100.0
@@ -181,6 +184,8 @@ func validate_project_data() -> bool:
 	var enemy_ids: Dictionary = _collect_enemy_ids()
 	is_valid = _validate_gear_mods_json(locale_keys) and is_valid
 	var gear_mod_ids: Dictionary = _collect_gear_mod_ids()
+	is_valid = _validate_world_events_json(locale_keys, gear_mod_ids) and is_valid
+	var world_event_ids: Dictionary = _collect_world_event_ids()
 	var gear_mod_rarity_max_ranks: Dictionary = _collect_gear_mod_rarity_max_ranks()
 	is_valid = _validate_gear_mod_drop_tables_csv(enemy_ids, gear_mod_ids) and is_valid
 	is_valid = _validate_gear_mod_fusion_costs_csv(gear_mod_rarity_max_ranks) and is_valid
@@ -215,7 +220,12 @@ func validate_project_data() -> bool:
 	is_valid = _validate_warzone_directors_json(game_mode_ids, _collect_spawn_wave_ids_by_mode(), hazard_ids, _collect_map_layout_ids(), gear_mod_ids) and is_valid
 	var module_tile_catalog: Dictionary = _validate_module_tile_catalog()
 	is_valid = not module_tile_catalog.is_empty() and is_valid
-	is_valid = _validate_module_world_data(enemy_ids, hazard_ids, module_tile_catalog) and is_valid
+	is_valid = _validate_module_world_data(
+		enemy_ids,
+		hazard_ids,
+		world_event_ids,
+		module_tile_catalog
+	) and is_valid
 
 	return is_valid
 
@@ -4073,6 +4083,646 @@ func _collect_gear_mod_ids() -> Dictionary:
 	return ids
 
 
+func _validate_world_events_json(
+	locale_keys: Dictionary,
+	gear_mod_ids: Dictionary
+) -> bool:
+	var data: Variant = load_json(WORLD_EVENTS_PATH)
+	if not data is Dictionary:
+		return _schema_fail(WORLD_EVENTS_PATH, "root", "Dictionary")
+	var payload: Dictionary = data as Dictionary
+	var is_valid: bool = _validate_exact_dictionary_keys(
+		WORLD_EVENTS_PATH,
+		"root",
+		payload,
+		["schema_version", "mod_pools", "events"]
+	)
+	is_valid = _require_exact_int(
+		WORLD_EVENTS_PATH,
+		"schema_version",
+		payload.get("schema_version"),
+		1
+	) and is_valid
+
+	var mod_pools: Array = _require_array(
+		WORLD_EVENTS_PATH,
+		"mod_pools",
+		payload.get("mod_pools")
+	)
+	var mod_pool_ids: Dictionary = {}
+	for pool_index: int in range(mod_pools.size()):
+		var pool_field: String = "mod_pools[%d]" % pool_index
+		var raw_pool: Variant = mod_pools[pool_index]
+		if not raw_pool is Dictionary:
+			is_valid = _schema_fail(
+				WORLD_EVENTS_PATH,
+				pool_field,
+				"Dictionary"
+			) and is_valid
+			continue
+		var pool: Dictionary = raw_pool as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			WORLD_EVENTS_PATH,
+			pool_field,
+			pool,
+			["id", "mod_ids"]
+		) and is_valid
+		var pool_id: String = _require_registered(
+			WORLD_EVENTS_PATH,
+			"%s.id" % pool_field,
+			pool.get("id"),
+			"world_event_mod_pool_ids"
+		)
+		if pool_id.is_empty():
+			is_valid = false
+		elif mod_pool_ids.has(pool_id):
+			is_valid = _schema_fail(
+				WORLD_EVENTS_PATH,
+				"%s.id" % pool_field,
+				"unique world event mod pool id"
+			) and is_valid
+		else:
+			mod_pool_ids[pool_id] = true
+		var mod_values: Array = _require_array(
+			WORLD_EVENTS_PATH,
+			"%s.mod_ids" % pool_field,
+			pool.get("mod_ids")
+		)
+		if mod_values.is_empty():
+			is_valid = _schema_fail(
+				WORLD_EVENTS_PATH,
+				"%s.mod_ids" % pool_field,
+				"non-empty Array"
+			) and is_valid
+		var seen_mod_ids: Dictionary = {}
+		for mod_index: int in range(mod_values.size()):
+			var mod_field: String = "%s.mod_ids[%d]" % [
+				pool_field,
+				mod_index,
+			]
+			var mod_id: String = _require_registered(
+				WORLD_EVENTS_PATH,
+				mod_field,
+				mod_values[mod_index],
+				"gear_mod_ids"
+			)
+			if mod_id.is_empty():
+				is_valid = false
+				continue
+			if seen_mod_ids.has(mod_id):
+				is_valid = _schema_fail(
+					WORLD_EVENTS_PATH,
+					mod_field,
+					"unique Gear Mod id in pool"
+				) and is_valid
+			seen_mod_ids[mod_id] = true
+			if not gear_mod_ids.has(mod_id):
+				is_valid = _schema_fail(
+					WORLD_EVENTS_PATH,
+					mod_field,
+					"Gear Mod defined in gear_mods.json"
+				) and is_valid
+	var expected_pool_ids: Array = contract_values("world_event_mod_pool_ids")
+	if mod_pool_ids.size() != expected_pool_ids.size():
+		is_valid = _schema_fail(
+			WORLD_EVENTS_PATH,
+			"mod_pools",
+			"every registered world_event_mod_pool_id exactly once"
+		) and is_valid
+	for raw_expected_pool_id: Variant in expected_pool_ids:
+		if not mod_pool_ids.has(String(raw_expected_pool_id)):
+			is_valid = _schema_fail(
+				WORLD_EVENTS_PATH,
+				"mod_pools",
+				"every registered world_event_mod_pool_id exactly once"
+			) and is_valid
+
+	var events: Array = _require_array(
+		WORLD_EVENTS_PATH,
+		"events",
+		payload.get("events")
+	)
+	var seen_event_ids: Dictionary = {}
+	var seen_kinds: Dictionary = {}
+	var expected_kind_by_id: Dictionary = {
+		WORLD_EVENT_IDS.WORLD_EVENT_DEFENSE:
+			WORLD_EVENT_KINDS.WORLD_EVENT_KIND_DEFENSE,
+		WORLD_EVENT_IDS.WORLD_EVENT_SURVIVAL:
+			WORLD_EVENT_KINDS.WORLD_EVENT_KIND_SURVIVAL,
+		WORLD_EVENT_IDS.WORLD_EVENT_CAPTURE:
+			WORLD_EVENT_KINDS.WORLD_EVENT_KIND_CAPTURE,
+		WORLD_EVENT_IDS.WORLD_EVENT_GOLD_SHRINE:
+			WORLD_EVENT_KINDS.WORLD_EVENT_KIND_GOLD_SHRINE,
+		WORLD_EVENT_IDS.WORLD_EVENT_BLOOD_SHRINE:
+			WORLD_EVENT_KINDS.WORLD_EVENT_KIND_BLOOD_SHRINE,
+	}
+	for event_index: int in range(events.size()):
+		var event_field: String = "events[%d]" % event_index
+		var raw_event: Variant = events[event_index]
+		if not raw_event is Dictionary:
+			is_valid = _schema_fail(
+				WORLD_EVENTS_PATH,
+				event_field,
+				"Dictionary"
+			) and is_valid
+			continue
+		var event: Dictionary = raw_event as Dictionary
+		var event_id: String = _require_registered(
+			WORLD_EVENTS_PATH,
+			"%s.id" % event_field,
+			event.get("id"),
+			"world_event_ids"
+		)
+		var kind: String = _require_registered(
+			WORLD_EVENTS_PATH,
+			"%s.kind" % event_field,
+			event.get("kind"),
+			"world_event_kinds"
+		)
+		if event_id.is_empty() or kind.is_empty():
+			is_valid = false
+		if not event_id.is_empty():
+			if seen_event_ids.has(event_id):
+				is_valid = _schema_fail(
+					WORLD_EVENTS_PATH,
+					"%s.id" % event_field,
+					"unique world event id"
+				) and is_valid
+			seen_event_ids[event_id] = true
+		if not kind.is_empty():
+			if seen_kinds.has(kind):
+				is_valid = _schema_fail(
+					WORLD_EVENTS_PATH,
+					"%s.kind" % event_field,
+					"each world event kind exactly once"
+				) and is_valid
+			seen_kinds[kind] = true
+		if (
+			not event_id.is_empty()
+			and not kind.is_empty()
+			and String(expected_kind_by_id.get(event_id, "")) != kind
+		):
+			is_valid = _schema_fail(
+				WORLD_EVENTS_PATH,
+				"%s.kind" % event_field,
+				"kind matching world event id"
+			) and is_valid
+		is_valid = _require_locale_key(
+			WORLD_EVENTS_PATH,
+			"%s.name_key" % event_field,
+			event.get("name_key"),
+			locale_keys
+		) and is_valid
+		is_valid = _require_locale_key(
+			WORLD_EVENTS_PATH,
+			"%s.desc_key" % event_field,
+			event.get("desc_key"),
+			locale_keys
+		) and is_valid
+		is_valid = _require_number(
+			WORLD_EVENTS_PATH,
+			"%s.interaction_radius" % event_field,
+			event.get("interaction_radius"),
+			0.0,
+			null,
+			true
+		) and is_valid
+		is_valid = _validate_world_event_kind(
+			event_field,
+			event,
+			kind,
+			mod_pool_ids
+		) and is_valid
+	var expected_event_ids: Array = contract_values("world_event_ids")
+	var expected_kinds: Array = contract_values("world_event_kinds")
+	if seen_event_ids.size() != expected_event_ids.size():
+		is_valid = _schema_fail(
+			WORLD_EVENTS_PATH,
+			"events",
+			"every registered world_event_id exactly once"
+		) and is_valid
+	if seen_kinds.size() != expected_kinds.size():
+		is_valid = _schema_fail(
+			WORLD_EVENTS_PATH,
+			"events",
+			"every registered world_event_kind exactly once"
+		) and is_valid
+	for raw_expected_event_id: Variant in expected_event_ids:
+		if not seen_event_ids.has(String(raw_expected_event_id)):
+			is_valid = _schema_fail(
+				WORLD_EVENTS_PATH,
+				"events",
+				"every registered world_event_id exactly once"
+			) and is_valid
+	for raw_expected_kind: Variant in expected_kinds:
+		if not seen_kinds.has(String(raw_expected_kind)):
+			is_valid = _schema_fail(
+				WORLD_EVENTS_PATH,
+				"events",
+				"every registered world_event_kind exactly once"
+			) and is_valid
+	_last_schema_counts["world_event_mod_pools"] = mod_pools.size()
+	_last_schema_counts["world_events"] = events.size()
+	return is_valid
+
+
+func _validate_world_event_kind(
+	field: String,
+	event: Dictionary,
+	kind: String,
+	mod_pool_ids: Dictionary
+) -> bool:
+	var common_keys: Array[String] = [
+		"id",
+		"kind",
+		"name_key",
+		"desc_key",
+		"interaction_radius",
+	]
+	var expected_keys: Array[String] = common_keys.duplicate()
+	match kind:
+		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_DEFENSE:
+			expected_keys.append_array([
+				"duration",
+				"waves",
+				"target_max_health",
+				"target_hit_radius",
+				"completion_reward",
+			])
+		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_SURVIVAL:
+			expected_keys.append_array([
+				"duration",
+				"waves",
+				"completion_reward",
+			])
+		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_CAPTURE:
+			expected_keys.append_array([
+				"capture_radius",
+				"entry_delay",
+				"entry_delay_decay",
+				"capture_duration",
+				"timeout",
+				"waves",
+				"completion_reward",
+			])
+		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_GOLD_SHRINE:
+			expected_keys.append_array([
+				"base_cost",
+				"cost_multiplier",
+				"success_chance",
+				"max_successes",
+				"mod_pool_id",
+			])
+		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_BLOOD_SHRINE:
+			expected_keys.append_array([
+				"sacrifice_ratios",
+				"gold_ratio",
+			])
+		_:
+			return false
+	var is_valid: bool = _validate_exact_dictionary_keys(
+		WORLD_EVENTS_PATH,
+		field,
+		event,
+		expected_keys
+	)
+	match kind:
+		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_DEFENSE:
+			is_valid = _validate_timed_world_event(
+				field,
+				event,
+				float(event.get("duration", 0.0)),
+				mod_pool_ids
+			) and is_valid
+			is_valid = _require_number(
+				WORLD_EVENTS_PATH,
+				"%s.target_max_health" % field,
+				event.get("target_max_health"),
+				0.0,
+				null,
+				true
+			) and is_valid
+			is_valid = _require_number(
+				WORLD_EVENTS_PATH,
+				"%s.target_hit_radius" % field,
+				event.get("target_hit_radius"),
+				0.0,
+				null,
+				true
+			) and is_valid
+		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_SURVIVAL:
+			is_valid = _validate_timed_world_event(
+				field,
+				event,
+				float(event.get("duration", 0.0)),
+				mod_pool_ids
+			) and is_valid
+		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_CAPTURE:
+			for positive_field: String in [
+				"capture_radius",
+				"entry_delay",
+				"entry_delay_decay",
+				"capture_duration",
+				"timeout",
+			]:
+				is_valid = _require_number(
+					WORLD_EVENTS_PATH,
+					"%s.%s" % [field, positive_field],
+					event.get(positive_field),
+					0.0,
+					null,
+					true
+				) and is_valid
+			if (
+				event.get("capture_duration") is int
+				or event.get("capture_duration") is float
+			):
+				is_valid = _validate_world_event_waves(
+					"%s.waves" % field,
+					event.get("waves"),
+					float(event.get("capture_duration"))
+				) and is_valid
+			is_valid = _validate_world_event_completion_reward(
+				"%s.completion_reward" % field,
+				event.get("completion_reward"),
+				mod_pool_ids
+			) and is_valid
+		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_GOLD_SHRINE:
+			is_valid = _require_int(
+				WORLD_EVENTS_PATH,
+				"%s.base_cost" % field,
+				event.get("base_cost"),
+				1
+			) and is_valid
+			is_valid = _require_number(
+				WORLD_EVENTS_PATH,
+				"%s.cost_multiplier" % field,
+				event.get("cost_multiplier"),
+				1.0,
+				null,
+				true
+			) and is_valid
+			is_valid = _require_number(
+				WORLD_EVENTS_PATH,
+				"%s.success_chance" % field,
+				event.get("success_chance"),
+				0.0,
+				1.0,
+				true
+			) and is_valid
+			if (
+				event.get("success_chance") is int
+				or event.get("success_chance") is float
+			):
+				if float(event.get("success_chance")) >= 1.0:
+					is_valid = _schema_fail(
+						WORLD_EVENTS_PATH,
+						"%s.success_chance" % field,
+						"ratio below 1.0"
+					) and is_valid
+			is_valid = _require_int(
+				WORLD_EVENTS_PATH,
+				"%s.max_successes" % field,
+				event.get("max_successes"),
+				1
+			) and is_valid
+			is_valid = _validate_world_event_mod_pool_reference(
+				"%s.mod_pool_id" % field,
+				event.get("mod_pool_id"),
+				mod_pool_ids
+			) and is_valid
+		WORLD_EVENT_KINDS.WORLD_EVENT_KIND_BLOOD_SHRINE:
+			var ratios: Array = _require_array(
+				WORLD_EVENTS_PATH,
+				"%s.sacrifice_ratios" % field,
+				event.get("sacrifice_ratios")
+			)
+			if ratios.size() != 3:
+				is_valid = _schema_fail(
+					WORLD_EVENTS_PATH,
+					"%s.sacrifice_ratios" % field,
+					"exactly three increasing ratios"
+				) and is_valid
+			var previous_ratio: float = 0.0
+			for ratio_index: int in range(ratios.size()):
+				var ratio_field: String = "%s.sacrifice_ratios[%d]" % [
+					field,
+					ratio_index,
+				]
+				var ratio_value: Variant = ratios[ratio_index]
+				is_valid = _require_number(
+					WORLD_EVENTS_PATH,
+					ratio_field,
+					ratio_value,
+					0.0,
+					1.0,
+					true
+				) and is_valid
+				if ratio_value is int or ratio_value is float:
+					var ratio: float = float(ratio_value)
+					if ratio >= 1.0 or ratio <= previous_ratio:
+						is_valid = _schema_fail(
+							WORLD_EVENTS_PATH,
+							ratio_field,
+							"strictly increasing ratio below 1.0"
+						) and is_valid
+					previous_ratio = ratio
+			is_valid = _require_number(
+				WORLD_EVENTS_PATH,
+				"%s.gold_ratio" % field,
+				event.get("gold_ratio"),
+				0.0,
+				1.0,
+				true
+			) and is_valid
+			if event.get("gold_ratio") is int or event.get("gold_ratio") is float:
+				if float(event.get("gold_ratio")) >= 1.0:
+					is_valid = _schema_fail(
+						WORLD_EVENTS_PATH,
+						"%s.gold_ratio" % field,
+						"ratio below 1.0"
+					) and is_valid
+	return is_valid
+
+
+func _validate_timed_world_event(
+	field: String,
+	event: Dictionary,
+	duration: float,
+	mod_pool_ids: Dictionary
+) -> bool:
+	var is_valid: bool = _require_number(
+		WORLD_EVENTS_PATH,
+		"%s.duration" % field,
+		event.get("duration"),
+		0.0,
+		null,
+		true
+	)
+	if event.get("duration") is int or event.get("duration") is float:
+		is_valid = _validate_world_event_waves(
+			"%s.waves" % field,
+			event.get("waves"),
+			duration
+		) and is_valid
+	is_valid = _validate_world_event_completion_reward(
+		"%s.completion_reward" % field,
+		event.get("completion_reward"),
+		mod_pool_ids
+	) and is_valid
+	return is_valid
+
+
+func _validate_world_event_waves(
+	field: String,
+	value: Variant,
+	maximum_trigger: float
+) -> bool:
+	var waves: Array = _require_array(WORLD_EVENTS_PATH, field, value)
+	var is_valid: bool = true
+	if waves.is_empty():
+		is_valid = _schema_fail(
+			WORLD_EVENTS_PATH,
+			field,
+			"non-empty Array"
+		) and is_valid
+	var previous_trigger: float = -1.0
+	for wave_index: int in range(waves.size()):
+		var wave_field: String = "%s[%d]" % [field, wave_index]
+		var raw_wave: Variant = waves[wave_index]
+		if not raw_wave is Dictionary:
+			is_valid = _schema_fail(
+				WORLD_EVENTS_PATH,
+				wave_field,
+				"Dictionary"
+			) and is_valid
+			continue
+		var wave: Dictionary = raw_wave as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			WORLD_EVENTS_PATH,
+			wave_field,
+			wave,
+			["trigger", "count"]
+		) and is_valid
+		is_valid = _require_number(
+			WORLD_EVENTS_PATH,
+			"%s.trigger" % wave_field,
+			wave.get("trigger"),
+			0.0,
+			maximum_trigger
+		) and is_valid
+		is_valid = _require_int(
+			WORLD_EVENTS_PATH,
+			"%s.count" % wave_field,
+			wave.get("count"),
+			1
+		) and is_valid
+		if wave.get("trigger") is int or wave.get("trigger") is float:
+			var trigger: float = float(wave.get("trigger"))
+			if trigger < previous_trigger:
+				is_valid = _schema_fail(
+					WORLD_EVENTS_PATH,
+					"%s.trigger" % wave_field,
+					"non-decreasing trigger"
+				) and is_valid
+			previous_trigger = trigger
+	if not waves.is_empty():
+		var first_wave: Variant = waves[0]
+		if (
+			not first_wave is Dictionary
+			or not (
+				(first_wave as Dictionary).get("trigger") is int
+				or (first_wave as Dictionary).get("trigger") is float
+			)
+			or not is_equal_approx(
+				float((first_wave as Dictionary).get("trigger")),
+				0.0
+			)
+		):
+			is_valid = _schema_fail(
+				WORLD_EVENTS_PATH,
+				"%s[0].trigger" % field,
+				"0"
+			) and is_valid
+	return is_valid
+
+
+func _validate_world_event_completion_reward(
+	field: String,
+	value: Variant,
+	mod_pool_ids: Dictionary
+) -> bool:
+	if not value is Dictionary:
+		return _schema_fail(WORLD_EVENTS_PATH, field, "Dictionary")
+	var reward: Dictionary = value as Dictionary
+	var is_valid: bool = _validate_exact_dictionary_keys(
+		WORLD_EVENTS_PATH,
+		field,
+		reward,
+		["gold_weight", "mod_weight", "gold_amount", "mod_pool_id"]
+	)
+	is_valid = _require_int(
+		WORLD_EVENTS_PATH,
+		"%s.gold_weight" % field,
+		reward.get("gold_weight"),
+		1
+	) and is_valid
+	is_valid = _require_int(
+		WORLD_EVENTS_PATH,
+		"%s.mod_weight" % field,
+		reward.get("mod_weight"),
+		1
+	) and is_valid
+	is_valid = _require_int(
+		WORLD_EVENTS_PATH,
+		"%s.gold_amount" % field,
+		reward.get("gold_amount"),
+		1
+	) and is_valid
+	is_valid = _validate_world_event_mod_pool_reference(
+		"%s.mod_pool_id" % field,
+		reward.get("mod_pool_id"),
+		mod_pool_ids
+	) and is_valid
+	return is_valid
+
+
+func _validate_world_event_mod_pool_reference(
+	field: String,
+	value: Variant,
+	mod_pool_ids: Dictionary
+) -> bool:
+	var pool_id: String = _require_registered(
+		WORLD_EVENTS_PATH,
+		field,
+		value,
+		"world_event_mod_pool_ids"
+	)
+	if pool_id.is_empty():
+		return false
+	if not mod_pool_ids.has(pool_id):
+		return _schema_fail(
+			WORLD_EVENTS_PATH,
+			field,
+			"mod pool defined in world_events.json"
+		)
+	return true
+
+
+func _collect_world_event_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	var data: Variant = load_json(WORLD_EVENTS_PATH)
+	if not data is Dictionary:
+		return ids
+	var raw_events: Variant = (data as Dictionary).get("events")
+	if not raw_events is Array:
+		return ids
+	for raw_event: Variant in raw_events as Array:
+		if raw_event is Dictionary and (raw_event as Dictionary).get("id") is String:
+			ids[String((raw_event as Dictionary).get("id"))] = true
+	return ids
+
+
 func _collect_gear_mod_rarity_max_ranks() -> Dictionary:
 	var ranks: Dictionary = {}
 	var data: Variant = load_json(GEAR_MODS_PATH)
@@ -4151,15 +4801,25 @@ func _validate_module_tile_catalog() -> Dictionary:
 	return catalog if is_valid else {}
 
 
-func _validate_module_world_data(enemy_ids: Dictionary, hazard_ids: Dictionary, module_tile_catalog: Dictionary) -> bool:
-	var template_result: Dictionary = _validate_module_templates_json(enemy_ids, hazard_ids, module_tile_catalog)
+func _validate_module_world_data(
+	enemy_ids: Dictionary,
+	hazard_ids: Dictionary,
+	world_event_ids: Dictionary,
+	module_tile_catalog: Dictionary
+) -> bool:
+	var template_result: Dictionary = _validate_module_templates_json(
+		enemy_ids,
+		hazard_ids,
+		world_event_ids,
+		module_tile_catalog
+	)
 	var templates: Dictionary = template_result.get("templates", {}) as Dictionary
 	var is_valid: bool = bool(template_result.get("is_valid", false))
 	var data: Variant = load_json(MODULE_WORLDS_PATH)
 	if not data is Dictionary:
 		return _schema_fail(MODULE_WORLDS_PATH, "root", "Dictionary") and is_valid
 	var payload: Dictionary = data as Dictionary
-	is_valid = _require_exact_int(MODULE_WORLDS_PATH, "schema_version", payload.get("schema_version"), 2) and is_valid
+	is_valid = _require_exact_int(MODULE_WORLDS_PATH, "schema_version", payload.get("schema_version"), 3) and is_valid
 	var worlds: Array = _require_array(MODULE_WORLDS_PATH, "worlds", payload.get("worlds"))
 	if worlds.is_empty():
 		is_valid = _schema_fail(MODULE_WORLDS_PATH, "worlds", "non-empty Array") and is_valid
@@ -4255,6 +4915,14 @@ func _validate_module_world_data(enemy_ids: Dictionary, hazard_ids: Dictionary, 
 					"template with at least %d spawnable floor cells" % required_spawn_cells
 				) and is_valid
 
+		is_valid = _validate_module_limited_template_groups(
+			"%s.limited_template_groups" % field,
+			world.get("limited_template_groups"),
+			templates,
+			required_spawn_cells,
+			81 - (fixed_result.get("assignment", {}) as Dictionary).size()
+		) and is_valid
+
 		for assignment_name: String in ["fallback_assignment", "technical_slice_assignment"]:
 			var technical: bool = assignment_name == "technical_slice_assignment"
 			var assignment_values: Array = _require_array(MODULE_WORLDS_PATH, "%s.%s" % [field, assignment_name], world.get(assignment_name))
@@ -4289,6 +4957,158 @@ func _validate_module_world_data(enemy_ids: Dictionary, hazard_ids: Dictionary, 
 						) and is_valid
 			var world_result: Dictionary = _validate_module_assignment_world("%s.%s" % [field, assignment_name], assignment, templates, anchors, route_result, technical)
 			is_valid = bool(world_result.get("is_valid", false)) and is_valid
+	return is_valid
+
+
+func _validate_module_limited_template_groups(
+	field: String,
+	value: Variant,
+	templates: Dictionary,
+	required_spawn_cells: int,
+	available_slots: int
+) -> bool:
+	var groups: Array = _require_array(MODULE_WORLDS_PATH, field, value)
+	var is_valid: bool = value is Array
+	if groups.is_empty():
+		return _schema_fail(MODULE_WORLDS_PATH, field, "non-empty Array") and is_valid
+	var seen_group_ids: Dictionary = {}
+	var seen_template_ids: Dictionary = {}
+	var selected_slots: int = 0
+	for group_index: int in range(groups.size()):
+		var group_field: String = "%s[%d]" % [field, group_index]
+		var raw_group: Variant = groups[group_index]
+		if not raw_group is Dictionary:
+			is_valid = _schema_fail(MODULE_WORLDS_PATH, group_field, "Dictionary") and is_valid
+			continue
+		var group: Dictionary = raw_group as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			MODULE_WORLDS_PATH,
+			group_field,
+			group,
+			["id", "pick_distinct", "entries"]
+		) and is_valid
+		var group_id: String = String(group.get("id", ""))
+		is_valid = _require_non_empty_string(
+			MODULE_WORLDS_PATH,
+			"%s.id" % group_field,
+			group.get("id")
+		) and is_valid
+		if seen_group_ids.has(group_id):
+			is_valid = _schema_fail(
+				MODULE_WORLDS_PATH,
+				"%s.id" % group_field,
+				"unique limited template group id"
+			) and is_valid
+		seen_group_ids[group_id] = true
+		var entries: Array = _require_array(
+			MODULE_WORLDS_PATH,
+			"%s.entries" % group_field,
+			group.get("entries")
+		)
+		var pick_distinct_valid: bool = _require_int(
+			MODULE_WORLDS_PATH,
+			"%s.pick_distinct" % group_field,
+			group.get("pick_distinct"),
+			1
+		)
+		is_valid = pick_distinct_valid and is_valid
+		var pick_distinct: int = (
+			int(group.get("pick_distinct")) if pick_distinct_valid else 0
+		)
+		if pick_distinct > entries.size():
+			is_valid = _schema_fail(
+				MODULE_WORLDS_PATH,
+				"%s.pick_distinct" % group_field,
+				"no greater than entries size"
+			) and is_valid
+		var group_counts: Array[int] = []
+		for entry_index: int in range(entries.size()):
+			var entry_field: String = "%s.entries[%d]" % [group_field, entry_index]
+			var raw_entry: Variant = entries[entry_index]
+			if not raw_entry is Dictionary:
+				is_valid = _schema_fail(MODULE_WORLDS_PATH, entry_field, "Dictionary") and is_valid
+				continue
+			var entry: Dictionary = raw_entry as Dictionary
+			is_valid = _validate_exact_dictionary_keys(
+				MODULE_WORLDS_PATH,
+				entry_field,
+				entry,
+				["template_id", "weight", "count_per_floor"]
+			) and is_valid
+			var template_id: String = String(entry.get("template_id", ""))
+			is_valid = _require_non_empty_string(
+				MODULE_WORLDS_PATH,
+				"%s.template_id" % entry_field,
+				entry.get("template_id")
+			) and is_valid
+			if seen_template_ids.has(template_id):
+				is_valid = _schema_fail(
+					MODULE_WORLDS_PATH,
+					"%s.template_id" % entry_field,
+					"unique template across limited template groups"
+				) and is_valid
+			seen_template_ids[template_id] = true
+			is_valid = _require_number(
+				MODULE_WORLDS_PATH,
+				"%s.weight" % entry_field,
+				entry.get("weight"),
+				0.0,
+				null,
+				true
+			) and is_valid
+			var count_valid: bool = _require_int(
+				MODULE_WORLDS_PATH,
+				"%s.count_per_floor" % entry_field,
+				entry.get("count_per_floor"),
+				1
+			)
+			is_valid = count_valid and is_valid
+			group_counts.append(
+				int(entry.get("count_per_floor")) if count_valid else available_slots + 1
+			)
+			if not templates.has(template_id):
+				is_valid = _schema_fail(
+					MODULE_WORLDS_PATH,
+					"%s.template_id" % entry_field,
+					"template defined in module_templates.json"
+				) and is_valid
+				continue
+			var template: Dictionary = templates[template_id] as Dictionary
+			if (
+				String(template.get("review_status", ""))
+				!= MODULE_REVIEW_STATUSES.MODULE_REVIEW_APPROVED
+			):
+				is_valid = _schema_fail(
+					MODULE_WORLDS_PATH,
+					"%s.template_id" % entry_field,
+					"approved template"
+				) and is_valid
+			if (
+				String(template.get("role", ""))
+				!= MODULE_ROLES.MODULE_ROLE_WORLD_EVENT
+			):
+				is_valid = _schema_fail(
+					MODULE_WORLDS_PATH,
+					"%s.template_id" % entry_field,
+					"world event module role"
+				) and is_valid
+			if _module_spawnable_cell_count(template) < required_spawn_cells:
+				is_valid = _schema_fail(
+					MODULE_WORLDS_PATH,
+					"%s.template_id" % entry_field,
+					"template with at least %d spawnable floor cells"
+					% required_spawn_cells
+				) and is_valid
+		group_counts.sort()
+		group_counts.reverse()
+		for count_index: int in range(mini(pick_distinct, group_counts.size())):
+			selected_slots += group_counts[count_index]
+	if selected_slots > available_slots:
+		is_valid = _schema_fail(
+			MODULE_WORLDS_PATH,
+			field,
+			"selected module count no greater than %d free slots" % available_slots
+		) and is_valid
 	return is_valid
 
 
@@ -4477,7 +5297,12 @@ func _module_spawnable_cell_count(template: Dictionary) -> int:
 	return count
 
 
-func _validate_module_templates_json(enemy_ids: Dictionary, hazard_ids: Dictionary, module_tile_catalog: Dictionary) -> Dictionary:
+func _validate_module_templates_json(
+	_enemy_ids: Dictionary,
+	hazard_ids: Dictionary,
+	world_event_ids: Dictionary,
+	module_tile_catalog: Dictionary
+) -> Dictionary:
 	var is_valid: bool = true
 	var templates: Dictionary = {}
 	var data: Variant = load_json(MODULE_TEMPLATES_PATH)
@@ -4564,6 +5389,7 @@ func _validate_module_templates_json(enemy_ids: Dictionary, hazard_ids: Dictiona
 					template_id,
 					role,
 					hazard_ids,
+					world_event_ids,
 					module_tile_catalog
 				) and is_valid
 				normalized_module_data = (module_data as Dictionary).duplicate(true)
@@ -4596,12 +5422,13 @@ func _validate_module_file(
 	expected_id: String,
 	role: String,
 	hazard_ids: Dictionary,
+	world_event_ids: Dictionary,
 	module_tile_catalog: Dictionary
 ) -> bool:
 	var is_valid: bool = true
 	var schema_version: int = int(data.get("schema_version", 0))
-	if not _is_int_like(data.get("schema_version")) or schema_version != 3:
-		is_valid = _schema_fail(resource_path, "schema_version", "3") and is_valid
+	if not _is_int_like(data.get("schema_version")) or schema_version != 4:
+		is_valid = _schema_fail(resource_path, "schema_version", "4") and is_valid
 	is_valid = _require_non_empty_string(resource_path, "id", data.get("id")) and is_valid
 	if String(data.get("id", "")) != expected_id:
 		is_valid = _schema_fail(resource_path, "id", "id matching module template registry") and is_valid
@@ -4618,9 +5445,9 @@ func _validate_module_file(
 			if _require_registered(resource_path, "terrain_rows[%d][%d]" % [y, x], row[x], "module_cell_tokens").is_empty():
 				is_valid = false
 	var derived_sockets: Dictionary = _derive_module_edge_sockets(terrain_rows)
-	if schema_version == 3:
+	if schema_version == 4:
 		if data.has("edge_sockets"):
-			is_valid = _schema_fail(resource_path, "edge_sockets", "omitted because schema v3 derives sockets") and is_valid
+			is_valid = _schema_fail(resource_path, "edge_sockets", "omitted because schema v4 derives sockets") and is_valid
 		is_valid = _validate_module_visual_layers(resource_path, data.get("visual_layers"), module_tile_catalog) and is_valid
 		data["edge_sockets"] = derived_sockets
 	var placement_result: Dictionary = _validate_module_placements(
@@ -4628,7 +5455,8 @@ func _validate_module_file(
 		data.get("placements"),
 		terrain_rows,
 		role,
-		hazard_ids
+		hazard_ids,
+		world_event_ids
 	)
 	return bool(placement_result.get("is_valid", false)) and is_valid
 
@@ -4789,7 +5617,8 @@ func _validate_module_placements(
 	value: Variant,
 	terrain_rows: Array,
 	role: String,
-	hazard_ids: Dictionary
+	hazard_ids: Dictionary,
+	world_event_ids: Dictionary
 ) -> Dictionary:
 	var placements: Array = _require_array(resource_path, "placements", value)
 	var is_valid: bool = value is Array
@@ -4846,10 +5675,31 @@ func _validate_module_placements(
 			MODULE_PLACEMENT_TYPES.MODULE_PLACE_EXTRACTION:
 				is_valid = _require_number(resource_path, "%s.radius" % field, placement.get("radius"), 0.0, null, true) and is_valid
 				is_valid = _require_number(resource_path, "%s.hold_time" % field, placement.get("hold_time"), 0.0, null, true) and is_valid
+			MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT:
+				is_valid = _validate_exact_dictionary_keys(
+					resource_path,
+					field,
+					placement,
+					["type", "cell", "world_event_id"]
+				) and is_valid
+				var world_event_id: String = _require_registered(
+					resource_path,
+					"%s.world_event_id" % field,
+					placement.get("world_event_id"),
+					"world_event_ids"
+				)
+				if world_event_id.is_empty():
+					is_valid = false
+				elif not world_event_ids.has(world_event_id):
+					is_valid = _schema_fail(
+						resource_path,
+						"%s.world_event_id" % field,
+						"world event defined in world_events.json"
+					) and is_valid
 			_:
 				pass
 	var danger_types: Array[String] = [MODULE_PLACEMENT_TYPES.MODULE_PLACE_HAZARD]
-	var protected_types: Array[String] = [MODULE_PLACEMENT_TYPES.MODULE_PLACE_PLAYER_START, MODULE_PLACEMENT_TYPES.MODULE_PLACE_REWARD_CACHE, MODULE_PLACEMENT_TYPES.MODULE_PLACE_OBJECTIVE, MODULE_PLACEMENT_TYPES.MODULE_PLACE_EXTRACTION]
+	var protected_types: Array[String] = [MODULE_PLACEMENT_TYPES.MODULE_PLACE_PLAYER_START, MODULE_PLACEMENT_TYPES.MODULE_PLACE_REWARD_CACHE, MODULE_PLACEMENT_TYPES.MODULE_PLACE_OBJECTIVE, MODULE_PLACEMENT_TYPES.MODULE_PLACE_EXTRACTION, MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT]
 	for left_index: int in range(occupied.size()):
 		var left: Dictionary = occupied[left_index]
 		for right_index: int in range(left_index + 1, occupied.size()):
@@ -4920,6 +5770,17 @@ func _validate_module_role_budget(resource_path: String, role: String, counts: D
 		MODULE_ROLES.MODULE_ROLE_EXTRACTION:
 			if int(counts.get(MODULE_PLACEMENT_TYPES.MODULE_PLACE_EXTRACTION, 0)) != 1:
 				return _schema_fail(resource_path, "placements", "exactly one extraction")
+		MODULE_ROLES.MODULE_ROLE_WORLD_EVENT:
+			if (
+				int(counts.get(MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT, 0))
+				!= 1
+				or counts.size() != 1
+			):
+				return _schema_fail(
+					resource_path,
+					"placements",
+					"exactly one world event and no other placements"
+				)
 		MODULE_ROLES.MODULE_ROLE_SEALED:
 			if not counts.is_empty():
 				return _schema_fail(resource_path, "placements", "no placements in sealed module")

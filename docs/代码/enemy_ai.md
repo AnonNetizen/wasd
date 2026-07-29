@@ -6,10 +6,10 @@
 ## 职责
 
 - 让共享 `Enemy` 脚本 / `EnemyBase` 节点契约通过数据 profile 组合接近、环绕、爆炸、方向近战、冲撞和远程攻击；每种敌人的静态外观由专属继承场景保存。
-- 感知与战斗目标固定为玩家；身体重叠、推挤、贴身移动和中心分离永远不造成伤害。
+- 普通环境敌人的感知与战斗目标固定为玩家；只有防御世界事件生成上下文可注入专用主目标，且仍把玩家作为可受击附带目标。身体重叠、推挤、贴身移动和中心分离永远不造成伤害。
 - 通过 Utility 评分选择动作，以显式阶段状态机执行前摇、释放和冷却；模块模式消费局部共享流场、全图地形视线与 AStar waypoint。
 - 所有伤害通过 `Combat.apply_damage()`；`Enemy.receive_damage()` 默认拒绝 `team_enemy`，只允许已提交爆猎者的爆炸伤害。
-- 以 `runtime_spawn_serial` 固定连锁爆炸的目标结算与奖励 RNG 顺序，并保持模块墙体、全图边界、对象池、Run v8 续局和 Replay v3 可控。
+- 以 `runtime_spawn_serial` 固定连锁爆炸的目标结算与奖励 RNG 顺序，并保持模块墙体、全图边界、对象池、Run v9 续局和 Replay v3 可控。
 - 持续状态由 `StatusEffectComponent` 承担，不把沉默、减速、DoT 等状态硬写进 AI profile。
 
 ## 阅读方式
@@ -35,7 +35,7 @@
 | `client/data/enemy_ai_profiles.json` | schema v5 对玩家 AI profile、显式攻击与远程点射参数 |
 | `client/data/enemies.csv` | 基础数值、通用内容 tag、对象池和 profile 引用 |
 | `client/scripts/contracts/enemy_ai_actions.gd` | 由词表生成的 action 常量 |
-| `client/tools/runtime_smoke.gd` | 五种显式攻击、远程锁向点射、连锁、视线、墙体、击退、暂停与 Run v8 恢复 |
+| `client/tools/runtime_smoke.gd` | 五种显式攻击、事件防御目标、远程锁向点射、连锁、视线、墙体、击退、暂停与 Run v9 恢复 |
 | `tools/validate_data.py` / `tools/test_data_loader_schema.py` | schema v5、精确 attack 字段、远程点射字段与旧 contact / movement 攻击字段负例门禁 |
 
 ## 场景 / 节点结构
@@ -62,7 +62,7 @@ Enemy (CharacterBody2D)
 
 | 阶段 | 发生什么 | 关键点 |
 |------|----------|--------|
-| 配置 | `GameplayRunLoop` 合并敌人基础数据与 profile 后调用 `configure(enemy_data, player, navigation_provider)` | 模块模式注入 `ModuleWorldManager`，开放战区传空并使用直线兜底 |
+| 配置 | `GameplayRunLoop` 合并敌人基础数据与 profile 后调用 `configure(enemy_data, player, navigation_provider, difficulty, spawn_context)` | 默认主目标为玩家；防御事件额外注入 `event_instance_id/primary_target/damage_target_groups` |
 | 感知 | 决策 tick 依次判断地形视线 + 直线距离、局部共享流场路径距离、最后已知位置记忆 | 当前半径 8 覆盖最大视觉 / 路径感知并加两格缓冲；记忆期间不读取玩家实时位置，不扫描其他敌人 |
 | 评分 | profile 的 `actions[]` 对合法动作评分 | 行为差异来自数据，不按 enemy id 分支 |
 | 执行 | 畅通时直追，受阻时读共享流场；爆炸 / 近战 / 冲撞 / 远程点射进入显式阶段 FSM | 爆炸 / 近战要求地形视线；冲撞要求清晰走廊；远程只在起手检查视线并锁定方向 |
@@ -94,7 +94,7 @@ Enemy (CharacterBody2D)
 | `perception.path_awareness_radius` | `>= 0` 且 `<= sight_radius` | 隔墙但可达时按流场路径距离感知玩家 |
 | `perception.memory_duration` | `>= 0` | 失去当前感知后追最后已知位置的时间 |
 | `decision_interval` | `> 0` | Utility 重算间隔 |
-| `targeting.player_weight` | `>= 0` | 玩家候选权重；玩家仍是唯一候选 |
+| `targeting.player_weight` | `>= 0` | 普通敌人的玩家候选权重；事件主目标由受控生成上下文覆盖，不参与 Utility 重选 |
 | `movement.orbit_radius` | `>= 0` | 唯一当前通用移动参数；攻击参数不得放在 `movement` |
 | `actions[]` | 非空、id 来自词表 | 可参与评分的对玩家动作 |
 | `actions[].attack` | 攻击 action 必填、非攻击 action 禁止 | 按 action id 使用精确字段集合 |
@@ -121,14 +121,15 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 
 | 名称 | 输入 | 输出 | 约束 |
 |------|------|------|------|
-| `configure(enemy_data, target, navigation_provider = null)` | 合并数据、玩家节点、可选模块导航门面 | `void` | 对象池取得后的唯一配置入口；无门面时直线兜底 |
+| `configure(enemy_data, target, navigation_provider = null, difficulty = {}, spawn_context = {})` | 合并数据、玩家、导航、出生倍率与可选事件上下文 | `void` | 对象池取得后的唯一配置入口；release/reset 必须清空事件 id、主目标和目标组 |
 | `set_movement_bounds(half_extents)` | 地图半尺寸 | `void` | 所有移动路径统一使用 |
 | `set_runtime_spawn_serial(serial)` / `runtime_spawn_serial()` | 正整数 / 无 | `void` / `int` | RunLoop 生成时分配；连锁目标和奖励 RNG 稳定排序 |
 | `is_armed()` / `is_committed_exploder()` | 无 | `bool` | 只读爆炸锁定 / 合法爆炸来源能力 |
 | `ai_debug_summary()` | 无 | `Dictionary` | 额外报告 attack action / 阶段、剩余时间、`burst_shots_remaining`、armed、锁向、倍率后伤害、范围和本次命中 |
 | `combat_team_id()` | 无 | `String` | 返回 `team_enemy` |
 | `apply_status_effect(effect)` | `StatusEffect` | `bool` | 由统一状态系统调用 |
-| `snapshot()` / `restore_snapshot(data)` | 无 / `Dictionary` | `Dictionary` / `void` | Run v8 攻击阶段、锁向、点射剩余弹数、命中、armed、生成序号与倍率恢复；导航派生状态不保存 |
+| `snapshot()` / `restore_snapshot(data)` | 无 / `Dictionary` | `Dictionary` / `void` | Run v9 攻击阶段、锁向、点射剩余弹数、事件归属 / target mode、命中、armed、生成序号与倍率恢复；导航派生状态不保存 |
+| `convert_to_player_target(player)` | 玩家节点 | `void` | 事件终止后让残敌成为普通敌人；保留事件 id 直到 pin 清理 |
 | `receive_damage(info)` | `DamageInfo` | result dictionary | armed 一律拒绝；普通 `team_enemy` 拒绝，已提交爆炸例外 |
 
 无对外 `content_tags()` 接口；其他敌人不是感知候选。
@@ -149,7 +150,7 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 
 - 新敌人优先复用现有 profile；确需新行为时新增通用 action / 字段并同步词表、双端 schema、快照和 smoke。
 - 新敌人可复用已有专属 TSCN，但仍需独立池；需要不同静态外观时，从 `enemy_base.tscn` 新建继承场景，不复制完整基础节点树。
-- 远程敌人复用 `ai_action_ranged_attack`、`windup/burst_count/shot_interval` 与 `actions[].attack.projectile`；投射物必须池化并只命中玩家队伍。若未来需要追踪、扩散或弹数缩放，应新增通用声明字段和快照契约，不能按敌人 id 特判。
+- 远程敌人复用 `ai_action_ranged_attack`、`windup/burst_count/shot_interval` 与 `actions[].attack.projectile`；普通投射物只命中玩家，防御事件投射物由上下文额外包含防御目标组。`Bullet` 必须跨全部组选择空间最近的扫掠命中，不能按数组顺序结算。若未来需要追踪、扩散或弹数缩放，应新增通用声明字段和快照契约，不能按敌人 id 特判。
 - 新攻击 action 必须声明独立空间判定、提交点和快照字段；仅接近 / 环绕 action 不得携带 `attack`。
 - 新复杂状态只保存 JSON 友好的可恢复字段；节点引用和临时感知结果不进存档。
 - 新导航或地形感知通过 `ModuleWorldManager` 查询门面扩展，不得让 Enemy 依赖活动 chunk，也不得借机引入其他敌人作为 focus target。
@@ -179,7 +180,8 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 | 冲锋沿墙继续 | `_move_with_collision(..., false)` 是否仍在释放段使用，碰撞后是否立即结束 |
 | 爆猎者前摇能被打断 | `_arm_explosion()` 是否在同一帧设置 armed、禁用碰撞并让 `receive_damage()` 早退 |
 | 连锁同帧递归或奖励乱序 | 目标是否先冻结并按 `runtime_spawn_serial` 排序；连锁目标是否只 armed 而不立即 detonate |
-| 敌人错误锁定其他敌人 | `_sense_context()` 是否只构造玩家候选；debug `focus_target` 是否仅为玩家或守家时为空 |
+| 敌人错误锁定其他敌人 | 普通 `_sense_context()` 是否只构造玩家候选；防御事件是否只通过可信 spawn context 注入专用目标 |
+| 环境敌人伤害防御目标 | 普通 spawn context 是否为空；投射物目标组是否错误包含 `active_world_event_defense_targets` |
 | 敌人互相扣血 | `Enemy.receive_damage()` 的 `team_enemy` 早期拒绝是否仍存在 |
 | 敌人中心重叠 | separation radius / strength 和物理帧更新是否执行 |
 | 穿过或出生在封锁格 | `CharacterBody2D` shape、模块墙体碰撞、placement footprint 与 walkable 校验 |
@@ -192,14 +194,14 @@ schema v5 明确拒绝 v4、远程点射字段缺失 / 多余 / 非法值、旧 
 - 改 `enemy.gd`：GDScript / semantic lint、headless boot、runtime smoke；模块墙体 / 出生相关追加 module-world smoke。
 - 改基础 / 专属敌人场景或池绑定：追加 `actor-scene-smoke`，验证继承、必需节点、场景颜色 / 几何不被 `configure()` 覆盖，以及五个独立池生成 / 复用不串场景。
 - 改稳定行为、数据指纹或刷怪：重录并回放四条 checked-in golden replay。
-- 改实体状态或 run 快照：追加 L1、runtime 与 save smoke，验证 Run v8 阶段 / 击退 roundtrip；远程点射覆盖前摇与点射中途的计时 / 剩余弹数一致、旧 v8 缺字段回空闲、非法快照清空并冷却。
+- 改实体状态或 run 快照：追加 L1、runtime 与 save / module-world smoke，验证 Run v9 阶段、事件归属、主目标解析和击退 roundtrip；远程点射覆盖前摇与点射中途的计时 / 剩余弹数一致。
 - 性能 probe 只在用户明确要求性能测试时运行。
 
 ## 迁移 / 兼容
 
 - Run schema 为 v8；v7→v8 只标记 `legacy_run_incompatible`，正式启动删除旧 run 并保留 Meta v2。
-- Run v8 恢复当前 profile 已删除的 action 时清空阶段并在下一决策 tick 重选；合法攻击阶段按剩余时间继续，不得重复提交。
-- `burst_shots_remaining` 是 Run v8 的兼容性增量：旧 v8 缺字段时清空远程阶段并以空闲恢复；字段存在但点射阶段、计时、方向或剩余弹数非法时，清空攻击并应用一次当前远程冷却，防止重复发弹。
+- Run v9 恢复当前 profile 已删除的 action 时清空阶段并在下一决策 tick 重选；合法攻击阶段按剩余时间继续，不得重复提交。
+- `burst_shots_remaining` 继续随 Run v9 保存；字段存在但点射阶段、计时、方向或剩余弹数非法时，清空攻击并应用一次当前远程冷却，防止重复发弹。旧 Run v8 已由 ADR #173 整体拒绝。
 - schema v1–v4 profile、旧 `sense_radius`、旧 movement 攻击字段与旧 contact CSV 表头必须被双端 validator 拒绝，不做静默忽略。
 
 ## 相关文档

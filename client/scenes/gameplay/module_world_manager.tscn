@@ -1,18 +1,57 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3]
 
-[ext_resource type="Script" path="res://scripts/gameplay/module_world_manager.gd" id="1_manager"]
+[ext_resource type="Script" path="res://scripts/gameplay/module_world_manager.gd" id="1_sqklp"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/module_chunk.tscn" id="2_chunk"]
+[ext_resource type="Script" path="res://scripts/gameplay/module_chunk.gd" id="3_sqklp"]
 
-[node name="ModuleWorldManager" type="Node2D"]
+[node name="ModuleWorldManager" type="Node2D" unique_id=497214557]
 z_index = -90
-script = ExtResource("1_manager")
+script = ExtResource("1_sqklp")
 
-[node name="ModuleChunk00" parent="." instance=ExtResource("2_chunk")]
-[node name="ModuleChunk01" parent="." instance=ExtResource("2_chunk")]
-[node name="ModuleChunk02" parent="." instance=ExtResource("2_chunk")]
-[node name="ModuleChunk03" parent="." instance=ExtResource("2_chunk")]
-[node name="ModuleChunk04" parent="." instance=ExtResource("2_chunk")]
-[node name="ModuleChunk05" parent="." instance=ExtResource("2_chunk")]
-[node name="ModuleChunk06" parent="." instance=ExtResource("2_chunk")]
-[node name="ModuleChunk07" parent="." instance=ExtResource("2_chunk")]
-[node name="ModuleChunk08" parent="." instance=ExtResource("2_chunk")]
+[node name="ModuleChunk00" type="Node2D" parent="." unique_id=672489617 instance=ExtResource("2_chunk")]
+visible = false
+script = ExtResource("3_sqklp")
+
+[node name="ModuleChunk01" type="Node2D" parent="." unique_id=1033506372 instance=ExtResource("2_chunk")]
+visible = false
+script = ExtResource("3_sqklp")
+
+[node name="ModuleChunk02" type="Node2D" parent="." unique_id=625367404 instance=ExtResource("2_chunk")]
+visible = false
+script = ExtResource("3_sqklp")
+
+[node name="ModuleChunk03" type="Node2D" parent="." unique_id=507127156 instance=ExtResource("2_chunk")]
+visible = false
+script = ExtResource("3_sqklp")
+
+[node name="ModuleChunk04" type="Node2D" parent="." unique_id=936199701 instance=ExtResource("2_chunk")]
+visible = false
+script = ExtResource("3_sqklp")
+
+[node name="ModuleChunk05" type="Node2D" parent="." unique_id=1322646282 instance=ExtResource("2_chunk")]
+visible = false
+script = ExtResource("3_sqklp")
+
+[node name="ModuleChunk06" type="Node2D" parent="." unique_id=2012947653 instance=ExtResource("2_chunk")]
+visible = false
+script = ExtResource("3_sqklp")
+
+[node name="ModuleChunk07" type="Node2D" parent="." unique_id=303476996 instance=ExtResource("2_chunk")]
+visible = false
+script = ExtResource("3_sqklp")
+
+[node name="ModuleChunk08" type="Node2D" parent="." unique_id=2091592588 instance=ExtResource("2_chunk")]
+visible = false
+script = ExtResource("3_sqklp")
+
+[node name="ModuleChunk09" type="Node2D" parent="." unique_id=1320041588 instance=ExtResource("2_chunk")]
+visible = false
+script = ExtResource("3_sqklp")
+
+[node name="ModuleChunk10" type="Node2D" parent="." unique_id=1691622729 instance=ExtResource("2_chunk")]
+visible = false
+script = ExtResource("3_sqklp")
+
+[node name="ModuleChunk11" type="Node2D" parent="." unique_id=295163457 instance=ExtResource("2_chunk")]
+visible = false
+script = ExtResource("3_sqklp")

@@ -16,6 +16,9 @@ signal attack_committed(enemy: Node, action_id: String, context: Dictionary)
 
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const DAMAGE_INFO_SCRIPT := preload("res://scripts/combat/damage_info.gd")
+const DAMAGE_TARGET_GROUPS := preload(
+	"res://scripts/contracts/damage_target_groups.gd"
+)
 const ENEMY_AI_ACTIONS := preload("res://scripts/contracts/enemy_ai_actions.gd")
 const ENEMY_DEFEAT_CAUSES := preload(
 	"res://scripts/contracts/enemy_defeat_causes.gd"
@@ -29,7 +32,6 @@ const ACTION_STATE_CHARGE_WINDUP: String = "charge_windup"
 const ACTION_STATE_MELEE_WINDUP: String = "melee_windup"
 const ACTION_STATE_RANGED_BURST: String = "ranged_burst"
 const ACTION_STATE_RANGED_WINDUP: String = "ranged_windup"
-const ACTIVE_PLAYER_GROUP: String = "active_player"
 const NAVIGATION_MODE_DIRECT: String = "direct"
 const NAVIGATION_MODE_FLOW_FIELD: String = "flow_field"
 const NAVIGATION_MODE_LOCAL_ASTAR: String = "local_astar"
@@ -52,6 +54,8 @@ const PERCEPTION_VISIBLE: String = "visible"
 const SCORE_EPSILON: float = 0.001
 const TEAM_ENEMY: String = "team_enemy"
 const TEAM_PLAYER: String = "team_player"
+const TARGET_MODE_EVENT_PRIMARY: String = "event_primary"
+const TARGET_MODE_PLAYER: String = "player"
 
 @export_group("Visual Style")
 @export var fill_color: Color = Color(1.0, 0.38, 0.32)
@@ -66,6 +70,7 @@ var _armed: bool = false
 var _armed_from_chain: bool = false
 var _attack_cooldown_remaining: float = 0.0
 var _attack_hit_committed: bool = false
+var _collateral_player_hit_committed: bool = false
 var _burst_shots_remaining: int = 0
 var _ai_profile: Dictionary = {}
 var _ai_profile_id: String = ""
@@ -75,6 +80,7 @@ var _current_action: String = ""
 var _decision_remaining: float = 0.0
 var _debug_ai_enabled: bool = true
 var _enemy_id: String = ""
+var _event_instance_id: String = ""
 var _gold_reward: int = 0
 var _facing_sign: float = 1.0
 var _focus_target: Node2D = null
@@ -98,6 +104,8 @@ var _owned_tag_counts: Dictionary = {}
 var _path_distance: float = INF
 var _perception_state: String = PERCEPTION_UNAWARE
 var _player_target: Node2D = null
+var _primary_target: Node2D = null
+var _damage_target_groups: Array[String] = []
 var _runtime_spawn_serial: int = 0
 var _separation_radius: float = 0.0
 var _terrain_line_of_sight: bool = false
@@ -121,7 +129,7 @@ func _physics_process(delta: float) -> void:
 	if _armed:
 		_update_armed_state(scaled_delta)
 		return
-	if _player_target == null or not is_instance_valid(_player_target):
+	if _primary_target == null or not is_instance_valid(_primary_target):
 		return
 	if not _debug_ai_enabled:
 		velocity = Vector2.ZERO
@@ -145,7 +153,8 @@ func configure(
 	enemy_data: Dictionary,
 	target: Node2D,
 	navigation_provider: Node = null,
-	spawn_difficulty: Dictionary = {}
+	spawn_difficulty: Dictionary = {},
+	spawn_context: Dictionary = {}
 ) -> void:
 	velocity = Vector2.ZERO
 	_clear_status_effects_for_reuse()
@@ -156,7 +165,23 @@ func configure(
 		)
 		_presentation.reset_presentation()
 	_player_target = target
-	_focus_target = target
+	_primary_target = _node2d_or_null(
+		spawn_context.get("primary_target", target)
+	)
+	if _primary_target == null:
+		_primary_target = target
+	_focus_target = _primary_target
+	_event_instance_id = String(
+		spawn_context.get("event_instance_id", "")
+	)
+	_damage_target_groups = _string_array(
+		spawn_context.get("damage_target_groups", [])
+	)
+	if _damage_target_groups.is_empty():
+		_damage_target_groups = [
+			DAMAGE_TARGET_GROUPS.ACTIVE_PROJECTILE_BLOCKERS,
+			DAMAGE_TARGET_GROUPS.ACTIVE_PLAYER,
+		]
 	_navigation_provider = navigation_provider
 	_home_position = global_position
 	_enemy_id = String(enemy_data.get("id", ""))
@@ -176,6 +201,7 @@ func configure(
 	_armed_from_chain = false
 	_attack_cooldown_remaining = _initial_attack_cooldown()
 	_attack_hit_committed = false
+	_collateral_player_hit_committed = false
 	_burst_shots_remaining = 0
 	_debug_ai_enabled = true
 	_has_exploded = false
@@ -209,8 +235,8 @@ func configure(
 	_hit_radius = float(enemy_data.get("hit_radius", 0.0))
 	_separation_radius = float(enemy_data.get("separation_radius", 0.0))
 	_configure_collision_shape()
-	if _player_target != null and is_instance_valid(_player_target):
-		_update_facing(_player_target.global_position - global_position)
+	if _primary_target != null and is_instance_valid(_primary_target):
+		_update_facing(_primary_target.global_position - global_position)
 	_home_position = _clamp_to_movement_bounds(_home_position)
 	_apply_movement_bounds()
 	add_to_group("active_enemies")
@@ -235,6 +261,10 @@ func ai_debug_summary() -> Dictionary:
 		"action": _current_action,
 		"action_state": _action_state,
 		"focus_target": _focus_target.name if _focus_target != null and is_instance_valid(_focus_target) else "",
+		"primary_target": _primary_target.name if _primary_target != null and is_instance_valid(_primary_target) else "",
+		"event_instance_id": _event_instance_id,
+		"target_mode": _target_mode(),
+		"damage_target_groups": _damage_target_groups.duplicate(),
 		"perception_state": _perception_state,
 		"path_distance": _path_distance,
 		"last_known_position": _vector_to_dict(_last_known_position) if _has_last_known_position else {},
@@ -251,6 +281,34 @@ func ai_debug_summary() -> Dictionary:
 		"runtime_spawn_serial": _runtime_spawn_serial,
 		"scores": _last_scores.duplicate(true),
 	}
+
+
+func event_instance_id() -> String:
+	return _event_instance_id
+
+
+func convert_to_player_target(target: Node2D) -> void:
+	var preserve_committed_attack: bool = (
+		_armed
+		or _is_attack_state_active()
+	)
+	_player_target = target
+	_primary_target = target
+	_focus_target = target
+	_damage_target_groups = [
+		DAMAGE_TARGET_GROUPS.ACTIVE_PROJECTILE_BLOCKERS,
+		DAMAGE_TARGET_GROUPS.ACTIVE_PLAYER,
+	]
+	if preserve_committed_attack:
+		return
+	_current_action = ""
+	_action_state = ""
+	_action_timer = 0.0
+	_burst_shots_remaining = 0
+	_locked_direction = Vector2.ZERO
+	_attack_hit_committed = false
+	_collateral_player_hit_committed = false
+	_decision_remaining = 0.0
 
 
 func is_alive() -> bool:
@@ -544,12 +602,17 @@ func snapshot() -> Dictionary:
 		"action_timer": _action_timer,
 		"attack_cooldown_remaining": _attack_cooldown_remaining,
 		"attack_hit_committed": _attack_hit_committed,
+		"collateral_player_hit_committed": (
+			_collateral_player_hit_committed
+		),
 		"burst_shots_remaining": _burst_shots_remaining,
 		"locked_direction": _vector_to_dict(_locked_direction),
 		"armed": _armed,
 		"armed_from_chain": _armed_from_chain,
 		"has_exploded": _has_exploded,
 		"runtime_spawn_serial": _runtime_spawn_serial,
+		"event_instance_id": _event_instance_id,
+		"target_mode": _target_mode(),
 		"owned_tag_counts": _owned_tag_counts.duplicate(true),
 		"status_effects": _status_effect_snapshot(),
 	}
@@ -590,6 +653,12 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_attack_hit_committed = bool(
 		snapshot_data.get("attack_hit_committed", false)
 	)
+	_collateral_player_hit_committed = bool(
+		snapshot_data.get(
+			"collateral_player_hit_committed",
+			false
+		)
+	)
 	_burst_shots_remaining = maxi(
 		int(snapshot_data.get("burst_shots_remaining", 0)),
 		0
@@ -604,6 +673,9 @@ func restore_snapshot(snapshot_data: Dictionary) -> void:
 	_runtime_spawn_serial = maxi(
 		int(snapshot_data.get("runtime_spawn_serial", _runtime_spawn_serial)),
 		0
+	)
+	_event_instance_id = String(
+		snapshot_data.get("event_instance_id", _event_instance_id)
 	)
 	_restore_status_snapshot(snapshot_data)
 	_restore_ranged_burst_state(
@@ -638,6 +710,7 @@ func _pool_reset() -> void:
 	_armed_from_chain = false
 	_attack_cooldown_remaining = 0.0
 	_attack_hit_committed = false
+	_collateral_player_hit_committed = false
 	_burst_shots_remaining = 0
 	_ai_profile.clear()
 	_ai_profile_id = ""
@@ -646,6 +719,7 @@ func _pool_reset() -> void:
 	_decision_remaining = 0.0
 	_debug_ai_enabled = true
 	_enemy_id = ""
+	_event_instance_id = ""
 	_gold_reward = 0
 	_facing_sign = 1.0
 	_focus_target = null
@@ -668,6 +742,8 @@ func _pool_reset() -> void:
 	_perception_state = PERCEPTION_UNAWARE
 	_clear_status_effects_for_reuse()
 	_player_target = null
+	_primary_target = null
+	_damage_target_groups.clear()
 	_runtime_spawn_serial = 0
 	_separation_radius = 0.0
 	_spawn_damage_multiplier = 1.0
@@ -702,6 +778,8 @@ func _pool_release() -> void:
 	_path_distance = INF
 	_perception_state = PERCEPTION_UNAWARE
 	_player_target = null
+	_primary_target = null
+	_damage_target_groups.clear()
 	_terrain_line_of_sight = false
 	_has_cached_navigation_waypoint = false
 	_set_collision_enabled(false)
@@ -742,25 +820,34 @@ func _choose_action() -> void:
 
 
 func _sense_context() -> Dictionary:
-	var player_candidate: Dictionary = _player_candidate()
+	var target_candidate: Dictionary = _primary_target_candidate()
 	return {
-		"target": player_candidate.get("target"),
-		"target_score": float(player_candidate.get("score", 0.0)),
-		"target_distance": float(player_candidate.get("direct_distance", 0.0)),
-		"path_distance": float(player_candidate.get("path_distance", INF)),
-		"target_position": player_candidate.get("target_position", Vector2.ZERO),
-		"has_target_position": bool(player_candidate.get("has_target_position", false)),
-		"currently_perceived": bool(player_candidate.get("currently_perceived", false)),
-		"has_line_of_sight": bool(player_candidate.get("has_line_of_sight", false)),
+		"target": target_candidate.get("target"),
+		"target_score": float(target_candidate.get("score", 0.0)),
+		"target_distance": float(target_candidate.get("direct_distance", 0.0)),
+		"path_distance": float(target_candidate.get("path_distance", INF)),
+		"target_position": target_candidate.get(
+			"target_position",
+			Vector2.ZERO
+		),
+		"has_target_position": bool(
+			target_candidate.get("has_target_position", false)
+		),
+		"currently_perceived": bool(
+			target_candidate.get("currently_perceived", false)
+		),
+		"has_line_of_sight": bool(
+			target_candidate.get("has_line_of_sight", false)
+		),
 	}
 
 
-func _player_candidate() -> Dictionary:
-	if _player_target == null or not is_instance_valid(_player_target):
+func _primary_target_candidate() -> Dictionary:
+	if _primary_target == null or not is_instance_valid(_primary_target):
 		_set_unaware_perception()
 		return _empty_candidate()
-	var player_position: Vector2 = _player_target.global_position
-	var direct_distance: float = global_position.distance_to(player_position)
+	var target_position: Vector2 = _primary_target.global_position
+	var direct_distance: float = global_position.distance_to(target_position)
 	var weight: float = _player_weight()
 	if weight <= 0.0:
 		_set_unaware_perception()
@@ -768,11 +855,14 @@ func _player_candidate() -> Dictionary:
 	var route_query: Dictionary = _active_navigation_query()
 	var route_reachable: bool = bool(route_query.get("reachable", false))
 	_path_distance = float(route_query.get("distance", INF)) if route_reachable else INF
-	_terrain_line_of_sight = _has_terrain_line_of_sight(global_position, player_position)
+	_terrain_line_of_sight = _has_terrain_line_of_sight(
+		global_position,
+		target_position
+	)
 	if _terrain_line_of_sight and direct_distance <= _sight_radius():
-		return _current_player_candidate(
+		return _current_primary_target_candidate(
 			PERCEPTION_VISIBLE,
-			player_position,
+			target_position,
 			direct_distance,
 			_path_distance,
 			weight,
@@ -780,9 +870,9 @@ func _player_candidate() -> Dictionary:
 			true
 		)
 	if route_reachable and _path_distance <= _path_awareness_radius():
-		return _current_player_candidate(
+		return _current_primary_target_candidate(
 			PERCEPTION_PATH_AWARE,
-			player_position,
+			target_position,
 			direct_distance,
 			_path_distance,
 			weight,
@@ -806,9 +896,9 @@ func _player_candidate() -> Dictionary:
 	return _empty_candidate()
 
 
-func _current_player_candidate(
+func _current_primary_target_candidate(
 	state: String,
-	player_position: Vector2,
+	target_position: Vector2,
 	direct_distance: float,
 	path_distance: float,
 	weight: float,
@@ -816,16 +906,16 @@ func _current_player_candidate(
 	has_line_of_sight: bool
 ) -> Dictionary:
 	_perception_state = state
-	_last_known_position = player_position
+	_last_known_position = target_position
 	_has_last_known_position = true
 	_memory_remaining = _memory_duration()
 	var score_distance: float = direct_distance if has_line_of_sight else path_distance
 	return {
-		"target": _player_target,
+		"target": _primary_target,
 		"score": weight * _proximity_score(score_distance, score_radius),
 		"direct_distance": direct_distance,
 		"path_distance": path_distance,
-		"target_position": player_position,
+		"target_position": target_position,
 		"has_target_position": true,
 		"currently_perceived": true,
 		"has_line_of_sight": has_line_of_sight,
@@ -1083,7 +1173,7 @@ func _finish_ranged_burst(attack: Dictionary) -> void:
 	_action_state = ""
 	_action_timer = 0.0
 	_current_action = ""
-	_focus_target = _player_target
+	_focus_target = _primary_target
 
 
 func _fire_ranged_projectile(target_direction: Vector2) -> void:
@@ -1113,10 +1203,7 @@ func _fire_ranged_projectile(target_direction: Vector2) -> void:
 		STATS.PIERCE_COUNT: 0,
 	}, {
 		"element_id": String(attack.get("element_id", "")),
-		"damage_target_groups": [
-			"active_projectile_blockers",
-			ACTIVE_PLAYER_GROUP,
-		],
+		"damage_target_groups": _damage_target_groups.duplicate(),
 		"hit_radius": float(projectile.get("hit_radius", 0.0)),
 		"lifetime": float(projectile.get("lifetime", 0.0)),
 		"source_team": TEAM_ENEMY,
@@ -1145,6 +1232,7 @@ func _start_charge() -> void:
 	if _locked_direction.length_squared() <= 0.0:
 		return
 	_attack_hit_committed = false
+	_collateral_player_hit_committed = false
 	var windup: float = float(_current_attack().get("windup", 0.0))
 	if windup > 0.0:
 		_action_state = ACTION_STATE_CHARGE_WINDUP
@@ -1185,6 +1273,7 @@ func _start_melee_attack() -> void:
 	if _locked_direction.length_squared() <= 0.0:
 		return
 	_attack_hit_committed = false
+	_collateral_player_hit_committed = false
 	var windup: float = float(_current_attack().get("windup", 0.0))
 	_action_state = ACTION_STATE_MELEE_WINDUP
 	_action_timer = windup
@@ -1195,27 +1284,15 @@ func _start_melee_attack() -> void:
 
 func _commit_melee_attack() -> void:
 	var attack: Dictionary = _current_attack()
-	var hit: bool = false
-	if _player_target != null and is_instance_valid(_player_target):
-		var to_player: Vector2 = (
-			_player_target.global_position - global_position
+	for target: Node2D in _attack_targets():
+		if not _melee_target_in_arc(target, attack):
+			continue
+		var result: Dictionary = _apply_attack_damage_to_target(
+			target,
+			attack
 		)
-		var attack_range: float = float(attack.get("range", 0.0))
-		var half_arc: float = deg_to_rad(
-			float(attack.get("arc_degrees", 0.0)) * 0.5
-		)
-		hit = (
-			to_player.length() <= attack_range
-			and _locked_direction.angle_to(to_player.normalized()) <= half_arc
-			and _locked_direction.angle_to(to_player.normalized()) >= -half_arc
-			and _has_terrain_line_of_sight(
-				global_position,
-				_player_target.global_position
-			)
-		)
-		if hit:
-			var result: Dictionary = _apply_attack_damage_to_player(attack)
-			_attack_hit_committed = bool(result.get("applied", false))
+		if bool(result.get("applied", false)):
+			_attack_hit_committed = true
 	attack_committed.emit(
 		self,
 		_current_action,
@@ -1225,7 +1302,7 @@ func _commit_melee_attack() -> void:
 	_action_state = ""
 	_action_timer = 0.0
 	_current_action = ""
-	_focus_target = _player_target
+	_focus_target = _primary_target
 
 
 func _begin_charge_release() -> void:
@@ -1256,36 +1333,33 @@ func _update_charge_release(delta: float) -> void:
 	if not global_position.is_equal_approx(before_bounds):
 		collided = true
 
-	if not _attack_hit_committed and _charge_sweep_hits_player(
-		previous_position,
-		global_position
+	var hit_during_step: bool = false
+	if (
+		not _attack_hit_committed
+		and _charge_sweep_hits_target(
+			_primary_target,
+			previous_position,
+			global_position
+		)
 	):
-		var result: Dictionary = _apply_attack_damage_to_player(attack)
 		_attack_hit_committed = true
-		if (
-			bool(result.get("applied", false))
-			and float(result.get("amount", 0.0)) > 0.0
-		):
-			var knockback_distance: float = float(
-				attack.get("knockback_distance", 0.0)
-			)
-			var knockback_duration: float = float(
-				attack.get("knockback_duration", 0.0)
-			)
-			if (
-				knockback_distance > 0.0
-				and knockback_duration > 0.0
-				and _player_target.has_method("apply_external_knockback")
-			):
-				_player_target.call(
-					"apply_external_knockback",
-					_locked_direction,
-					knockback_distance,
-					knockback_duration
-				)
-		if bool(attack.get("stop_on_hit", false)):
-			_finish_charge_release(attack)
-			return
+		hit_during_step = true
+		_commit_charge_hit(_primary_target, attack)
+	if (
+		_player_target != _primary_target
+		and not _collateral_player_hit_committed
+		and _charge_sweep_hits_target(
+			_player_target,
+			previous_position,
+			global_position
+		)
+	):
+		_collateral_player_hit_committed = true
+		hit_during_step = true
+		_commit_charge_hit(_player_target, attack)
+	if hit_during_step and bool(attack.get("stop_on_hit", false)):
+		_finish_charge_release(attack)
+		return
 
 	if collided or _action_timer <= 0.0:
 		_finish_charge_release(attack)
@@ -1296,29 +1370,71 @@ func _finish_charge_release(attack: Dictionary) -> void:
 	_action_timer = 0.0
 	_current_action = ""
 	_attack_cooldown_remaining = float(attack.get("cooldown", 0.0))
-	_focus_target = _player_target
+	_focus_target = _primary_target
 
 
-func _charge_sweep_hits_player(
+func _attack_targets() -> Array[Node2D]:
+	var targets: Array[Node2D] = []
+	if _primary_target != null and is_instance_valid(_primary_target):
+		targets.append(_primary_target)
+	if (
+		_player_target != null
+		and is_instance_valid(_player_target)
+		and _player_target != _primary_target
+	):
+		targets.append(_player_target)
+	return targets
+
+
+func _melee_target_in_arc(
+	target: Node2D,
+	attack: Dictionary
+) -> bool:
+	if target == null or not is_instance_valid(target):
+		return false
+	if target.has_method("is_alive") and not bool(target.call("is_alive")):
+		return false
+	var to_target: Vector2 = target.global_position - global_position
+	if to_target.length_squared() <= 0.0:
+		return true
+	var attack_range: float = float(attack.get("range", 0.0))
+	var half_arc: float = deg_to_rad(
+		float(attack.get("arc_degrees", 0.0)) * 0.5
+	)
+	var angle: float = _locked_direction.angle_to(
+		to_target.normalized()
+	)
+	return (
+		to_target.length() <= attack_range
+		and absf(angle) <= half_arc
+		and _has_terrain_line_of_sight(
+			global_position,
+			target.global_position
+		)
+	)
+
+
+func _charge_sweep_hits_target(
+	target: Node2D,
 	from_position: Vector2,
 	to_position: Vector2
 ) -> bool:
-	if _player_target == null or not is_instance_valid(_player_target):
+	if target == null or not is_instance_valid(target):
 		return false
 	if (
-		_player_target.has_method("is_alive")
-		and not bool(_player_target.call("is_alive"))
+		target.has_method("is_alive")
+		and not bool(target.call("is_alive"))
 	):
 		return false
-	var player_radius: float = (
-		float(_player_target.call("hit_radius"))
-		if _player_target.has_method("hit_radius")
+	var target_radius: float = (
+		float(target.call("hit_radius"))
+		if target.has_method("hit_radius")
 		else 0.0
 	)
-	var hit_distance: float = maxf(_hit_radius + player_radius, 1.0)
+	var hit_distance: float = maxf(_hit_radius + target_radius, 1.0)
 	return (
 		_distance_to_segment(
-			_player_target.global_position,
+			target.global_position,
 			from_position,
 			to_position
 		)
@@ -1326,23 +1442,56 @@ func _charge_sweep_hits_player(
 	)
 
 
-func _apply_attack_damage_to_player(attack: Dictionary) -> Dictionary:
-	if _player_target == null or not is_instance_valid(_player_target):
+func _commit_charge_hit(target: Node2D, attack: Dictionary) -> void:
+	var result: Dictionary = _apply_attack_damage_to_target(target, attack)
+	if (
+		target != _player_target
+		or not bool(result.get("applied", false))
+		or float(result.get("amount", 0.0)) <= 0.0
+	):
+		return
+	var knockback_distance: float = float(
+		attack.get("knockback_distance", 0.0)
+	)
+	var knockback_duration: float = float(
+		attack.get("knockback_duration", 0.0)
+	)
+	if (
+		knockback_distance > 0.0
+		and knockback_duration > 0.0
+		and target.has_method("apply_external_knockback")
+	):
+		target.call(
+			"apply_external_knockback",
+			_locked_direction,
+			knockback_distance,
+			knockback_duration
+		)
+
+
+func _apply_attack_damage_to_target(
+	target: Node2D,
+	attack: Dictionary
+) -> Dictionary:
+	if target == null or not is_instance_valid(target):
 		return {
 			"applied": false,
 			"amount": 0.0,
 			"defeated": false,
 			"reason": "invalid_target",
 		}
+	var target_team: String = TEAM_PLAYER
+	if target.has_method("combat_team_id"):
+		target_team = String(target.call("combat_team_id"))
 	var info: RefCounted = DAMAGE_INFO_SCRIPT.new().setup(
 		_scaled_attack_damage(attack),
 		String(attack.get("element_id", "")),
 		self,
-		_player_target,
+		target,
 		TEAM_ENEMY,
-		TEAM_PLAYER
+		target_team
 	)
-	return Combat.apply_damage(_player_target, info)
+	return Combat.apply_damage(target, info)
 
 
 func _arm_explosion(from_chain: bool) -> void:
@@ -1358,6 +1507,7 @@ func _arm_explosion(from_chain: bool) -> void:
 	_armed = true
 	_armed_from_chain = from_chain
 	_attack_hit_committed = false
+	_collateral_player_hit_committed = false
 	_locked_direction = Vector2.ZERO
 	_action_state = ACTION_STATE_ARMED_WINDUP
 	_action_timer = float(
@@ -1393,17 +1543,17 @@ func _detonate_exploder() -> void:
 		_attack_feedback_context(attack, 0.0, true)
 	)
 
-	if (
-		_player_target != null
-		and is_instance_valid(_player_target)
-		and global_position.distance_to(_player_target.global_position)
-		<= blast_radius
-		and _has_terrain_line_of_sight(
-			global_position,
-			_player_target.global_position
-		)
-	):
-		_apply_attack_damage_to_player(attack)
+	for damage_target: Node2D in _attack_targets():
+		if (
+			global_position.distance_to(damage_target.global_position)
+			> blast_radius
+			or not _has_terrain_line_of_sight(
+				global_position,
+				damage_target.global_position
+			)
+		):
+			continue
+		_apply_attack_damage_to_target(damage_target, attack)
 
 	var targets: Array[Enemy] = []
 	for node: Node in get_tree().get_nodes_in_group("active_enemies"):
@@ -1480,11 +1630,11 @@ func _attack_feedback_context(
 	elif _current_action == ENEMY_AI_ACTIONS.AI_ACTION_CHARGE_TARGET:
 		var lane_length: float = float(attack.get("trigger_range", 0.0))
 		var target_radius: float = (
-			float(_player_target.call("hit_radius"))
+			float(_primary_target.call("hit_radius"))
 			if (
-				_player_target != null
-				and is_instance_valid(_player_target)
-				and _player_target.has_method("hit_radius")
+				_primary_target != null
+				and is_instance_valid(_primary_target)
+				and _primary_target.has_method("hit_radius")
 			)
 			else 0.0
 		)
@@ -1580,15 +1730,27 @@ func _movement_direction_to(target_position: Vector2, use_active_field: bool) ->
 	if _has_clear_corridor(global_position, target_position, _hit_radius):
 		_navigation_mode = NAVIGATION_MODE_DIRECT
 		return direct_direction
+	var use_player_flow_field: bool = (
+		use_active_field
+		and _player_target != null
+		and is_instance_valid(_player_target)
+		and target_position.is_equal_approx(
+			_player_target.global_position
+		)
+	)
 	var query: Dictionary = (
 		_active_navigation_query()
-		if use_active_field
+		if use_player_flow_field
 		else _navigation_query(global_position, target_position)
 	)
 	if not bool(query.get("reachable", false)):
 		_navigation_mode = NAVIGATION_MODE_NONE
 		return Vector2.ZERO
-	_navigation_mode = NAVIGATION_MODE_FLOW_FIELD if use_active_field else NAVIGATION_MODE_LOCAL_ASTAR
+	_navigation_mode = (
+		NAVIGATION_MODE_FLOW_FIELD
+		if use_player_flow_field
+		else NAVIGATION_MODE_LOCAL_ASTAR
+	)
 	return (query.get("next_position", global_position) as Vector2) - global_position
 
 
@@ -1610,6 +1772,18 @@ func _direction_to_cached_target(target_position: Vector2) -> Vector2:
 func _path_band_direction(desired_distance: float) -> Vector2:
 	if _focus_target == null or not is_instance_valid(_focus_target):
 		return Vector2.ZERO
+	if _focus_target != _player_target:
+		if _has_clear_corridor(
+			global_position,
+			_focus_target.global_position,
+			_hit_radius
+		):
+			_navigation_mode = NAVIGATION_MODE_DIRECT
+			return _orbit_direction()
+		return _movement_direction_to(
+			_focus_target.global_position,
+			false
+		)
 	if _navigation_provider == null or not is_instance_valid(_navigation_provider):
 		_navigation_mode = NAVIGATION_MODE_DIRECT
 		return _orbit_direction()
@@ -1867,12 +2041,22 @@ func _enemy_separation_offset(other: Node) -> Vector2:
 
 
 func _target_separation_offset() -> Vector2:
-	if _player_target == null or not is_instance_valid(_player_target) or not _player_target.has_method("separation_radius"):
+	if (
+		_primary_target == null
+		or not is_instance_valid(_primary_target)
+		or not _primary_target.has_method("separation_radius")
+	):
 		return Vector2.ZERO
 
-	var target_separation_radius: float = float(_player_target.call("separation_radius"))
+	var target_separation_radius: float = float(
+		_primary_target.call("separation_radius")
+	)
 	var minimum_distance: float = _separation_radius + target_separation_radius
-	return _separation_offset_from(_player_target.global_position, minimum_distance, 1.0)
+	return _separation_offset_from(
+		_primary_target.global_position,
+		minimum_distance,
+		1.0
+	)
 
 
 func _separation_offset_from(other_position: Vector2, minimum_distance: float, strength: float) -> Vector2:
@@ -1941,18 +2125,27 @@ func _decision_interval() -> float:
 
 func _active_navigation_query() -> Dictionary:
 	if (
+		_primary_target != null
+		and is_instance_valid(_primary_target)
+		and _primary_target != _player_target
+	):
+		return _navigation_query(
+			global_position,
+			_primary_target.global_position
+		)
+	if (
 		_navigation_provider != null
 		and is_instance_valid(_navigation_provider)
 		and _navigation_provider.has_method("navigation_query_to_active_target")
 	):
 		return _navigation_provider.call("navigation_query_to_active_target", global_position) as Dictionary
-	if _player_target == null or not is_instance_valid(_player_target):
+	if _primary_target == null or not is_instance_valid(_primary_target):
 		return {"reachable": false, "distance": INF}
 	return {
 		"reachable": true,
-		"distance": global_position.distance_to(_player_target.global_position),
-		"next_position": _player_target.global_position,
-		"target_position": _player_target.global_position,
+		"distance": global_position.distance_to(_primary_target.global_position),
+		"next_position": _primary_target.global_position,
+		"target_position": _primary_target.global_position,
 	}
 
 
@@ -2069,6 +2262,26 @@ func _typed_action_array(raw_value: Variant) -> Array[Dictionary]:
 	return result
 
 
+## Compatibility test seam for the pre-event player-only attack path.
+func _apply_attack_damage_to_player(
+	attack: Dictionary
+) -> Dictionary:
+	return _apply_attack_damage_to_target(
+		_player_target,
+		attack
+	)
+
+
+func _target_mode() -> String:
+	return (
+		TARGET_MODE_EVENT_PRIMARY
+		if _primary_target != null
+		and is_instance_valid(_primary_target)
+		and _primary_target != _player_target
+		else TARGET_MODE_PLAYER
+	)
+
+
 func _dictionary_or_empty(raw_value: Variant) -> Dictionary:
 	if raw_value is Dictionary:
 		return (raw_value as Dictionary).duplicate(true)
@@ -2079,6 +2292,23 @@ func _array_or_empty(raw_value: Variant) -> Array:
 	if raw_value is Array:
 		return (raw_value as Array).duplicate(true)
 	return []
+
+
+func _node2d_or_null(raw_value: Variant) -> Node2D:
+	if raw_value is Node2D and is_instance_valid(raw_value):
+		return raw_value as Node2D
+	return null
+
+
+func _string_array(raw_value: Variant) -> Array[String]:
+	var result: Array[String] = []
+	if not raw_value is Array:
+		return result
+	for item: Variant in raw_value as Array:
+		var value: String = String(item)
+		if not value.is_empty():
+			result.append(value)
+	return result
 
 
 func _vector_to_dict(value: Vector2) -> Dictionary:

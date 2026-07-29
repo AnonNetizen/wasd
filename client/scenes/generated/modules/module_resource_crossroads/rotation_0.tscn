@@ -20,11 +20,11 @@ segments = PackedVector2Array(-80, 720, 80, 720, 80, 720, 80, 880, 80, 880, -80,
 
 [node name="GeneratedModule" type="Node2D"]
 script = ExtResource("1_i71lk")
-baker_schema_version = 3
+baker_schema_version = 4
 module_id = "module_resource_crossroads"
 gameplay_hash = "f7f23dd4e7e99cdf56b1672092ca604c2be93c3056e9b61deb1a62e43734500f"
 visual_hash = "309a7527ca927dc2a3a7ae68dc6865ff564a7752e0739f54eb7afbb44f907ac6"
-bake_hash = "62fc9e01e768b7f4523c373149e5bc187e67bc2222e20b0b1a65f85210ee172d"
+bake_hash = "18def702e639220752656029390db9ad6710d7c9d2e3cc53ebb91b6eda3679ef"
 placement_snapshot = Array[Dictionary]([{
 "cell": {
 "x": 5,

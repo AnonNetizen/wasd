@@ -9,6 +9,7 @@ signal cell_secondary_requested(cell: Vector2i)
 signal selected_cell_changed(cell: Vector2i)
 
 const MODULE_CELL_TOKENS := preload("res://scripts/contracts/module_cell_tokens.gd")
+const MODULE_PLACEMENT_TYPES := preload("res://scripts/contracts/module_placement_types.gd")
 
 const MODULE_SIZE: int = 11
 const GRID_COLOR := Color(0.30, 0.34, 0.39, 1.0)
@@ -18,6 +19,7 @@ const GROUND_OVERLAY_COLOR := Color(0.18, 0.55, 0.72, 0.28)
 const OBSTACLE_OVERLAY_COLOR := Color(0.85, 0.32, 0.23, 0.42)
 const DECORATION_COLOR := Color(0.90, 0.72, 0.24, 0.9)
 const PLACEMENT_COLOR := Color(0.38, 0.90, 0.56, 1.0)
+const WORLD_EVENT_PLACEMENT_COLOR := Color(0.72, 0.40, 0.96, 1.0)
 const FOOTPRINT_COLOR := Color(0.25, 0.82, 0.48, 0.26)
 const SOCKET_COLOR := Color(0.28, 0.84, 1.0, 1.0)
 const ERROR_COLOR := Color(1.0, 0.18, 0.25, 0.8)
@@ -139,9 +141,25 @@ func _draw_layer_overlay(source_cell: Vector2i, rect: Rect2, cell_size: float) -
 		)
 	var placement: Dictionary = _placement_at(source_cell)
 	if not placement.is_empty():
-		draw_circle(rect.get_center(), cell_size * 0.13, PLACEMENT_COLOR)
+		var center: Vector2 = rect.get_center()
+		if (
+			String(placement.get("type", ""))
+			== MODULE_PLACEMENT_TYPES.MODULE_PLACE_WORLD_EVENT
+		):
+			var radius: float = cell_size * 0.16
+			draw_colored_polygon(
+				PackedVector2Array([
+					center + Vector2(0.0, -radius),
+					center + Vector2(radius, 0.0),
+					center + Vector2(0.0, radius),
+					center + Vector2(-radius, 0.0),
+				]),
+				WORLD_EVENT_PLACEMENT_COLOR
+			)
+		else:
+			draw_circle(center, cell_size * 0.13, PLACEMENT_COLOR)
 		draw_arc(
-			rect.get_center(),
+			center,
 			cell_size * 0.18,
 			0.0,
 			TAU,

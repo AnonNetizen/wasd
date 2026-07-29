@@ -80,7 +80,10 @@ var _last_upgrade_name_key: String = ""
 var _last_upgrade_resource_key: String = ""
 var _last_upgrade_amount: int = 0
 var _last_feedback_level: int = 1
+var _last_feedback_context: Dictionary = {}
 var _interaction_binding: String = ""
+var _interaction_context: Dictionary = {}
+var _interaction_prompt_key: String = "ui_interact_open_cache"
 var _interaction_prompt_generation: int = 0
 var _interaction_prompt_visible: bool = false
 var _current_life: float = 0.0
@@ -101,6 +104,8 @@ var _overshield_bar: ProgressBar = null
 var _shield_bar: ProgressBar = null
 var _skill_slot_labels: Array[Label] = []
 var _status_label: Label = null
+var _status_snapshots: Array = []
+var _world_event_status: Dictionary = {}
 var _gold_balance: int = 0
 var _level_gold: int = 0
 var _level_gold_required: int = 0
@@ -317,10 +322,21 @@ func set_dash(cooldown_remaining: float) -> void:
 
 
 func set_statuses(statuses: Array) -> void:
+	_status_snapshots = statuses.duplicate(true)
+	_refresh_status_label()
+
+
+func set_world_event_status(status: Dictionary) -> void:
+	_world_event_status = status.duplicate(true)
+	_refresh_status_label()
+
+
+func _refresh_status_label() -> void:
 	if _status_label == null:
 		return
 	var status_parts: PackedStringArray = []
-	for raw_status: Variant in statuses:
+	var event_status_text: String = ""
+	for raw_status: Variant in _status_snapshots:
 		if raw_status is not Dictionary:
 			continue
 		var status: Dictionary = raw_status as Dictionary
@@ -334,8 +350,42 @@ func set_statuses(statuses: Array) -> void:
 			status_name += "  %.1f" % remaining
 		if not status_name.is_empty():
 			status_parts.append(status_name)
-	_status_label.text = "   ".join(status_parts)
-	_status_label.visible = not status_parts.is_empty()
+	if bool(_world_event_status.get("visible", false)):
+		var event_name_key: String = String(
+			_world_event_status.get("name_key", "")
+		)
+		var detail_key: String = String(
+			_world_event_status.get("detail_key", "")
+		)
+		var event_name: String = (
+			tr(event_name_key)
+			if not event_name_key.is_empty()
+			else ""
+		)
+		var detail: String = (
+			tr(detail_key).format(
+				_dictionary_or_empty(
+					_world_event_status.get("values", {})
+				)
+			)
+			if not detail_key.is_empty()
+			else ""
+		)
+		if not event_name.is_empty() and not detail.is_empty():
+			event_status_text = "%s  %s" % [event_name, detail]
+		elif not event_name.is_empty():
+			event_status_text = event_name
+		elif not detail.is_empty():
+			event_status_text = detail
+	var status_text: String = "   ".join(status_parts)
+	if not event_status_text.is_empty():
+		status_text = (
+			event_status_text
+			if status_text.is_empty()
+			else "%s\n%s" % [status_text, event_status_text]
+		)
+	_status_label.text = status_text
+	_status_label.visible = not status_text.is_empty()
 
 
 func set_combat_state(state: Dictionary) -> void:
@@ -411,6 +461,8 @@ func show_game_over() -> void:
 	_interaction_prompt_generation += 1
 	_interaction_prompt_visible = false
 	_interaction_binding = ""
+	_interaction_prompt_key = "ui_interact_open_cache"
+	_interaction_context.clear()
 	_message_label.hide()
 
 
@@ -435,22 +487,40 @@ func show_extraction_feedback() -> void:
 	_show_feedback("ui_extraction_available", "")
 
 
+func show_world_event_feedback(
+	feedback_key: String,
+	context: Dictionary = {}
+) -> void:
+	_last_upgrade_feedback_key = feedback_key
+	_last_upgrade_name_key = ""
+	_last_upgrade_resource_key = ""
+	_last_upgrade_amount = 0
+	_last_feedback_context = context.duplicate(true)
+	_start_feedback()
+
+
 func set_module_world_state(state: Dictionary) -> void:
 	if _module_minimap == null or not is_instance_valid(_module_minimap):
 		return
 	_module_minimap.call("configure", state)
 
 
-func show_interaction_prompt(binding: String) -> void:
+func show_interaction_prompt(
+	binding: String,
+	prompt_key: String = "ui_interact_open_cache",
+	context: Dictionary = {}
+) -> void:
 	if _message_label == null:
 		return
 	_interaction_prompt_generation += 1
 	var generation: int = _interaction_prompt_generation
 	_interaction_binding = binding
+	_interaction_prompt_key = prompt_key
+	_interaction_context = context.duplicate(true)
 	_interaction_prompt_visible = true
-	_message_label.text = tr("ui_interact_open_cache").format({
-		"binding": binding,
-	})
+	var prompt_values: Dictionary = _interaction_context.duplicate(true)
+	prompt_values["binding"] = binding
+	_message_label.text = tr(_interaction_prompt_key).format(prompt_values)
 	_message_label.show()
 	if _selection_feedback != null:
 		_selection_feedback.play_selection(_message_label)
@@ -463,6 +533,8 @@ func hide_interaction_prompt() -> void:
 	_interaction_prompt_generation += 1
 	_interaction_prompt_visible = false
 	_interaction_binding = ""
+	_interaction_prompt_key = "ui_interact_open_cache"
+	_interaction_context.clear()
 	_message_label.hide()
 
 
@@ -491,6 +563,7 @@ func _show_feedback(feedback_key: String, name_key: String) -> void:
 	_last_upgrade_name_key = name_key
 	_last_upgrade_resource_key = ""
 	_last_upgrade_amount = 0
+	_last_feedback_context.clear()
 	_start_feedback()
 
 
@@ -499,6 +572,7 @@ func _show_resource_feedback(feedback_key: String, resource_key: String, amount:
 	_last_upgrade_name_key = ""
 	_last_upgrade_resource_key = resource_key
 	_last_upgrade_amount = maxi(amount, 0)
+	_last_feedback_context.clear()
 	_start_feedback()
 
 
@@ -569,17 +643,26 @@ func _refresh_static_labels() -> void:
 	)
 	_refresh_time_label()
 	if _interaction_prompt_visible:
-		show_interaction_prompt(_interaction_binding)
+		show_interaction_prompt(
+			_interaction_binding,
+			_interaction_prompt_key,
+			_interaction_context
+		)
 	if _upgrade_feedback_label.visible:
 		_refresh_upgrade_feedback()
 	if _difficulty_marker != null:
 		_difficulty_marker.refresh_locale()
+	_refresh_status_label()
 	_refresh_stats_panel()
 
 
 func _on_input_prompt_changed() -> void:
 	if _interaction_prompt_visible:
-		show_interaction_prompt(InputService.prompt_text(ACTIONS.INTERACT))
+		show_interaction_prompt(
+			InputService.prompt_text(ACTIONS.INTERACT),
+			_interaction_prompt_key,
+			_interaction_context
+		)
 
 
 func _refresh_interaction_prompt_richtext(generation: int) -> void:
@@ -590,9 +673,9 @@ func _refresh_interaction_prompt_richtext(generation: int) -> void:
 		or _message_label == null
 	):
 		return
-	_message_label.text = tr("ui_interact_open_cache").format({
-		"binding": binding_richtext,
-	})
+	var prompt_values: Dictionary = _interaction_context.duplicate(true)
+	prompt_values["binding"] = binding_richtext
+	_message_label.text = tr(_interaction_prompt_key).format(prompt_values)
 
 
 func _on_input_device_family_changed(_device_family: StringName) -> void:
@@ -611,12 +694,17 @@ func _refresh_time_label() -> void:
 func _refresh_upgrade_feedback() -> void:
 	if _upgrade_feedback_label == null:
 		return
-	_upgrade_feedback_label.text = tr(_last_upgrade_feedback_key).format({
+	var feedback_values: Dictionary = {
 		"name": tr(_last_upgrade_name_key),
 		"resource": tr(_last_upgrade_resource_key),
 		"amount": _last_upgrade_amount,
 		"level": _last_feedback_level,
-	})
+	}
+	for key: Variant in _last_feedback_context.keys():
+		feedback_values[key] = _last_feedback_context[key]
+	_upgrade_feedback_label.text = tr(_last_upgrade_feedback_key).format(
+		feedback_values
+	)
 
 
 func _configure_upgrade_feedback_style() -> void:
@@ -743,6 +831,12 @@ func _dictionary_array(value: Variant) -> Array[Dictionary]:
 		if entry is Dictionary:
 			result.append((entry as Dictionary).duplicate(true))
 	return result
+
+
+func _dictionary_or_empty(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return (value as Dictionary).duplicate(true)
+	return {}
 
 
 func _color_from_variant(value: Variant, fallback: Color) -> Color:

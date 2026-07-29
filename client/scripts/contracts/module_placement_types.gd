@@ -7,6 +7,7 @@ const VALUES: Array[String] = [
 	"module_place_reward_cache",
 	"module_place_objective",
 	"module_place_extraction",
+	"module_place_world_event",
 ]
 
 const MODULE_PLACE_PLAYER_START: String = "module_place_player_start"
@@ -14,3 +15,4 @@ const MODULE_PLACE_HAZARD: String = "module_place_hazard"
 const MODULE_PLACE_REWARD_CACHE: String = "module_place_reward_cache"
 const MODULE_PLACE_OBJECTIVE: String = "module_place_objective"
 const MODULE_PLACE_EXTRACTION: String = "module_place_extraction"
+const MODULE_PLACE_WORLD_EVENT: String = "module_place_world_event"

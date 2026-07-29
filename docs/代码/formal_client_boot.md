@@ -90,7 +90,7 @@ FormalClientBoot
 | F5 存档 smoke | `--save-smoke` 启动时只挂载 `SaveManagerSmoke`，验证 run 存档 roundtrip、备份回退、坏档隔离和迁移链 | `client/tools/save_manager_smoke.gd` |
 | F7 设置 smoke | `--settings-smoke` 启动时只挂载 `SettingsSmoke`，验证设置缺文件默认值、有效配置 roundtrip、非法值拒绝、坏值 / 坏文件回退以及 `Localization` 跟随语言设置 | `client/tools/settings_smoke.gd` |
 | F11 装备 Mod smoke | `--gear-mod-smoke` 启动时只挂载 `GearModSmoke`，验证 Gear Mod profile、授予、装备、容量、升级、分解和掉落 | `client/tools/gear_mod_smoke.gd` |
-| F13 模块世界 smoke | `--module-world-smoke` 启动默认模块载体，验证 81 槽 assignment/hash、不同 seed、坐标、最多 9 chunk、起点威胁暂停 / combat gate、敌人出生倍率、跨模块状态、迷雾、目标后撤离、Run v8 模块子快照恢复与坏 map hash 拒绝 | `client/tools/module_world_smoke.gd` |
+| F13 模块世界 smoke | `--module-world-smoke` 启动默认模块载体，验证 81 槽 assignment/hash、不同 seed、三种不同世界事件、坐标、3×3 邻域与最多三个事件 pin（最多 12 chunk）、起点威胁暂停 / combat gate、敌人出生倍率、跨模块状态、迷雾、目标后撤离、Run v9 模块 / 事件子快照恢复与坏 map hash 拒绝 | `client/tools/module_world_smoke.gd` |
 | F13 首帧可玩 probe（按需） | 仅在用户明确要求性能测试时，`--startup-probe` 在正式主场景 `_ready()` 首行输出 `BOOT_BEGIN`，启动默认模块载体，进入 `PLAYING` 且找到 `GameplayRunLoop` 后输出 `PLAYABLE` 并退出；Bridge 以两 marker 间单调时钟执行 2 秒硬门槛，进程冷启动另作诊断 | `client/tools/startup_probe.gd`、`tools/godot_bridge.py startup-probe` |
 | F8 / F9 L1 smoke | `--l1-smoke` 启动时只挂载 `L1Smoke`，验证 `RNG`、`GameClock`、`GameState`、`SaveManager`、`Combat`、`ModLoader` 和 `PlatformServices` 的最小基础设施行为 | `client/tools/l1_smoke.gd` |
 | F8 Replay smoke | `--replay-smoke` 启动时只挂载 `ReplaySmoke`，验证 Replay 最小录制、`.replay` 保存 / 读取、摘要对比和 data fingerprint | `client/tools/replay_smoke.gd` |
@@ -103,7 +103,7 @@ FormalClientBoot
 | 玩家加载 smoke | `--loading-smoke` 走真实标题按钮与重开信号，验证加载界面 / `LOADING`、跨帧旋转、输入阻断、重复请求、唯一 RunLoop、续局、重开与准备失败回退 | `client/tools/loading_smoke.gd` |
 | DebugTools smoke | `--debug-tools-smoke` 启动时挂载 `GameplayRunLoop` 与 `DebugToolsSmoke`；debug 模式验证 `DebugConsole` / `GMCommandRegistry`、help/stats/spawn/gold/hp/damage/heal/dust/kill/clear 命令，`--force-release-debug-tools-off` 模拟 release 时确认没有调试节点或 debug action | `client/tools/debug_tools_smoke.gd` |
 | 重开 / 回标题 | `GameplayRunLoop` 发出重开或回标题信号后，由启动脚本清理运行时和 gameplay 对象池，再重新挂载 run 或标题菜单 | `restart_requested` / `quit_to_title_requested` |
-| 存档拒绝 | Run v8 的 gold / reward choice / difficulty / assignment / map hash / 显式攻击状态不一致，或读到旧 Run v7 兼容性标记时，启动层删除该 run、回标题并显示一次不可用提示，Meta v2 不受影响 | `restore_failed` / `SaveManager.delete(..., save_kind_run)` |
+| 存档拒绝 | Run v9 的 gold / reward choice / difficulty / assignment / map hash / 世界事件 / 显式攻击状态不一致，或读到旧 Run v8 兼容性标记时，启动层删除该 run、回标题并显示一次不可用提示，Meta v2 不受影响 | `restore_failed` / `SaveManager.delete(..., save_kind_run)` |
 
 ## 公共 API
 
@@ -196,7 +196,7 @@ FormalClientBoot
 
 ## 迁移 / 兼容
 
-新游戏流程为“标题开始 → 英雄组合选择 → Loading → 游戏”；选择页默认读取 Meta v2 上次确认组合，首次为冷静主 + 愤怒子，局外禁用同英雄。重开沿用当前组合，继续游戏直接恢复 Run v8 组合、金币、未完成奖励选择、威胁时间、世界、敌人出生倍率、显式攻击状态和玩家敌人击退。旧 Run v7 显示一次不兼容提示并只删除 run，Meta 与 Gear Mod 不受影响。`--module-world-technical-slice` 与 `--open-warzone` 仍只作 opt-in 回归入口；DebugTools 只在 debug/dev_tools 或 smoke 路径启用。
+新游戏流程为“标题开始 → 英雄组合选择 → Loading → 游戏”；选择页默认读取 Meta v2 上次确认组合，首次为冷静主 + 愤怒子，局外禁用同英雄。重开沿用当前组合，继续游戏直接恢复 Run v9 组合、金币、未完成奖励选择、威胁时间、世界、世界事件、敌人出生倍率、显式攻击状态和玩家敌人击退。旧 Run v8 显示一次不兼容提示并只删除 run，Meta 与 Gear Mod 不受影响。`--module-world-technical-slice` 与 `--open-warzone` 仍只作 opt-in 回归入口；DebugTools 只在 debug/dev_tools 或 smoke 路径启用。
 
 ## 相关文档
 
