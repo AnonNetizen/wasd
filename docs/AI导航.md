@@ -10,7 +10,7 @@
 ## 1. 项目是什么
 俯视角射击刷宝生存游戏（灵感：手动按住开火的俯视射击身份 + 《星际战甲》与《暗黑》的刷装备 / 刷词条长期追求 + 9×9 无缝模块短刷图 + 《以撒的结合》的道具 / 机关 / 构筑组合）。玩法判定与显示以 2D 矩形格平面为准；F13 默认世界由 81 个 11×11 模块组成，模块 JSON schema v4 是制作主源，baker 单向生成运行时 TSCN。每层从五类世界事件中等权选三类，各放一次；普通槽仍以全开放 `module_flat_ground` 填充，敌人在首次实际进入普通非起点模块时固化计划。F14 EnemyAI 使用局部共享流场、全图 AStar 与混合感知。
 - 引擎：**Godot 4.7.1 stable + GDScript**
-- IP 方向：**《破巢者》**（英文暂定 `Nestbreakers`）——未知原因导致其他宇宙与本宇宙的通道突然打开，银河系星际文明被打散，首都星域仍能组织反击；多英雄主动突入敌方“巢”，在怪潮中夺取遗物、升级构筑并尝试打穿巢核、切断通道或削弱敌方源头；“巢”泛指敌方核心据点 / 生产源头 / 通道锚点 / 意志中枢，不限定为虫巢。
+- IP 方向：项目代号 **`WASD`**，正式标题待定。完整清理智能由冷静、愤怒等主 / 副智能碎片组合，进入人类集体无意识的一张 9×9 意识层，清理万物形成的心象，击破意识核后撤离；意识层来源、AI 立场和清理结果均不解释。ADR #178 已取代《破巢者 / Nestbreakers》及其敌巢美术作为当前设定，旧词只用于历史和遗留实现检索。
 - 核心理念：**数据驱动 + 扩展优先 + 模式友好资源复用 + 未来多人友好边界 + 框架级基础设施（本地化 / 设置 / 数据埋点）+ AI 易扩展**
 
 ## 2. 必读文档（按优先级）
@@ -23,8 +23,8 @@
 | `docs/AI导航.md`（本文件） | 项目地图与扩展点定位 |
 | `docs/AI知识库索引.md` | AI 知识库总索引、权威层级、任务入口和 ADR 追踪矩阵 |
 | `docs/术语表.md` | 中英文术语、别名和检索词 |
-| `docs/IP设定.md` | 《破巢者》IP、世界观包装、英雄 / 敌方势力 / 遗物命名和宣发基调 |
-| `docs/IP美术风格.md` | 《破巢者》IP 美术风格、敌巢色板、阵营色、地图兴趣点功能色和资产 brief 色彩规则 |
+| `docs/IP设定.md` | `WASD` 集体无意识 IP、清理智能 / 智能碎片 / 意识层 / 心象 / 意识核定义和叙事留白边界 |
+| `docs/IP美术风格.md` | 意识层抽象美术、环境代表色、稳定敌我 / 警示 / 交互功能色、心象可读性和资产 brief 规则 |
 | `docs/词表与契约.md` | 所有约定字符串白名单（stat/effect/event/key），**禁止编造** |
 | `docs/游戏设计文档.md` | 完整设计 |
 | `docs/代码文档规范.md` | 代码变更与对应文档的同步规范 |
@@ -34,7 +34,7 @@
 | `docs/局内刷取参考研究.md` | F12 局内刷取、兴趣点、撤离结算、射击构筑可参考的外部游戏研究；不是已采纳路线图 |
 | `docs/AI辅助开发机会清单.md` | 不在运行时接 LLM、只利用 AI 辅助写代码 / 数据 / 工具时的玩法与内容管线机会清单；不是已采纳路线图 |
 | `docs/在线服务规划.md` | ADR #150 后未来 GodotSteam + Talo 供应商分层、托管决策门禁、离线 / 安全 / 升级边界；当前不安装、不批准具体在线功能 |
-| `docs/小服务器玩法备忘.md` | 低成本异步在线 / 敌巢进化玩法参考；供应商路线已定，但具体玩法不是已采纳路线图 |
+| `docs/小服务器玩法备忘.md` | 历史旧 IP 下的低成本异步在线玩法参考；供应商路线已定，但具体玩法和敌巢包装均不是当前路线图 |
 | `docs/AI记忆/项目记忆.md` | AI 协作长期索引（长期冷存储；需要背景 / ADR 摘要 / 历史脉络时读） |
 | `docs/AI记忆/current_state.json` | 机器可读当前阶段、下一步、最近验证 |
 | `docs/TODO.md` | 人工可读未来任务清单 |
@@ -60,7 +60,7 @@
 |------|------|
 | `client/scenes/`（即 `res://scenes/`） | 场景 `.tscn`（Player / Bullet / Enemy / Item / Hazard 等） |
 | `client/scripts/`（即 `res://scripts/`） | 脚本 `.gd`，按系统单一职责拆分 |
-| `client/scripts/data/` | 不创建 Node 的纯数据解析器；英雄组合、元素组合、技能缩放与配置描述格式化在此共享，禁止按内容 id 特判 |
+| `client/scripts/data/` | 不创建 Node 的纯数据解析器；智能碎片组合（内部 hero 字段）、元素组合、技能缩放与配置描述格式化在此共享，禁止按内容 id 特判 |
 | `client/data/`（即 `res://data/`） | 可调数值配置（平表 CSV + 复杂 JSON）+ `README.md` 人工调参手册 |
 | `client/locale/`（即 `res://locale/`） | 本地化翻译表（CSV → `.translation`）+ `README.md` 多语言文案手册 |
 | `client/templates/`（即 `res://templates/`） | 新内容脚手架模板（enemy/relic 等） |
@@ -85,8 +85,8 @@
 | `docs/AI导航.md`（本文件） | 项目地图 |
 | `docs/AI知识库索引.md` / `docs/_kb_index.json` | 人工 / 机器可读 AI 知识库索引 |
 | `docs/术语表.md` | 术语、别名、英文检索词 |
-| `docs/IP设定.md` | 《破巢者》IP 设定与内容包装权威 |
-| `docs/IP美术风格.md` | 《破巢者》IP 美术风格、敌巢色板、阵营色与地图兴趣点功能色权威 |
+| `docs/IP设定.md` | `WASD` 集体无意识 IP 与内容包装权威 |
+| `docs/IP美术风格.md` | 意识层抽象美术、环境代表色和稳定功能色权威 |
 | `docs/词表与契约.md` | 约定字符串白名单 |
 | `docs/决策记录.md` | ADR |
 | `docs/修改建议.md` | 待决策项（D~E；A/B/C 与 J~R 已归档） |
@@ -94,7 +94,7 @@
 | `docs/局内刷取参考研究.md` | F12 局内刷取、射击构筑、兴趣点路线和撤离带回的外部参考研究；只作为设计参考 |
 | `docs/AI辅助开发机会清单.md` | AI 只辅助开发、不进入运行时的玩法机会、内容生产管线、DSL / 编辑器 / 模拟器 / lint 工具候选；只作为人工选择菜单 |
 | `docs/在线服务规划.md` | GodotSteam + Talo 未来正式接入的供应商、职责、托管、离线、安全和阶段门禁权威；不代表插件已安装 |
-| `docs/小服务器玩法备忘.md` | Talo 可承载的异步在线、敌巢进化、死亡残响、星域污染图等玩法参考；具体功能仍只作为人工选择菜单 |
+| `docs/小服务器玩法备忘.md` | Talo 可承载的异步在线玩法历史参考；其中敌巢进化、星域污染图等旧 IP 包装已被 ADR #178 取代，具体功能仍只作为人工选择菜单 |
 | `docs/TODO.md` | 未来任务清单（P0 当前优先级 / P1 下一批 / P2 中期 / P3 长期积压） |
 | [`docs/正式项目工作规划.md`](正式项目工作规划.md) | MVP 验证完成后，完整项目 `client/` 的阶段路线、交付物、验证门槛和后续 AI 任务选择依据 |
 | `docs/简单设计思路.md` | 项目原点 |
@@ -134,11 +134,11 @@
 | **改敌人显式攻击 / 连锁爆炸** | 先读 ADR #170 / #173 / #175、GDD §5.3、EnemyAI / EnemyRewardResolver / WorldEvent / Combat / SaveManager 文档。普通敌人仍只以玩家为目标；防御事件目标只能由受控 spawn context 注入，四种攻击仍可伤害路径上的玩家。Run v11 保存阶段、事件归属 / target mode、armed、序号与锁定奖励；按测试策略整行验证并重录四条黄金回放，不运行性能 probe |
 | **改突击枪手 / 远程点射** | 先读 ADR #171 / #172 / #173 / #175、GDD §5.3、EnemyAI / EnemyRewardResolver / Gameplay Runtime / PoolManager / VFX 文档。保留内部 id 与场景；当前 0.32 秒枪口蓄光、4 发、0.12 秒间隔、280 px/s、720 px、2.6 秒。共享 `bullet_basic` 必须按队伍重置；防御事件投射物跨玩家 / 目标组选择最近命中。验证 Run v11 点射、奖励与事件 target mode 恢复，不运行性能 probe |
 | **加 / 改世界事件** | 先读 ADR #173 / #175、GDD §5.3-A、`docs/代码/world_event_system.md`、Gameplay Runtime / EnemyAI / EnemyRewardResolver / ModuleWorldManager / SaveManager 与测试策略。数值只改 `world_events.json`；模块摆放使用 schema v4 `module_place_world_event` 下拉。保持持续事件全局互斥、祭坛并行、`RNG.world_event`、激活时固定波次 / 战斗难度 / 奖励、后台 pin、普通敌人目标护栏、pending Mod 和 Run v11 事务幂等；事件敌人的普通金币按实际生成阶段走 `RNG.economy`。完成整套自动验证，人工项交付“待人工验收”，不运行性能 probe |
-| **加一个英雄** | 在 `client/data/characters.json` 加一条：稳定 hero id、`scene_path`、名称 / 描述、主副配色、主英雄基础属性、`passive_id` 与两个 `hero_skill_ids`。主英雄提供场景、属性、被动和技能 1/2；子英雄只提供强调色和技能 3/4，组合由 `HeroCompositionResolver.resolve(main_hero_id, sub_hero_id, allow_duplicate)` 解析，局外禁止重复。多个 hero id 可复用同一 TSCN；hero / passive / skill id 先登记词表，文案用 `character_*` key。改完跑 contracts、data/schema、`actor-scene-smoke`、runtime/save 与四条黄金回放 |
+| **加一个智能碎片** | 在 `client/data/characters.json` 加一条：稳定 hero id、`scene_path`、名称 / 描述、主副配色、主碎片基础属性、`passive_id` 与两个 `hero_skill_ids`。主碎片提供场景、属性、被动和技能 1/2；副碎片只提供强调色和技能 3/4，组合由遗留内部接口 `HeroCompositionResolver.resolve(main_hero_id, sub_hero_id, allow_duplicate)` 解析，局外禁止重复。多个 hero id 可复用同一 TSCN；hero / passive / skill id 先登记词表，文案用 `character_*` key。改完跑 contracts、data/schema、`actor-scene-smoke`、runtime/save 与四条黄金回放 |
 | **加 / 改武器** | 在 `client/data/weapons.json` schema v4 加一条：武器基础属性、子弹池、`element_id`、命中半径、音频 id 和必填 `ammo`；弹匣 + 开局备弹不能超过总上限，换弹时间为正，降级射速 / 弹速倍率在 `(0,1]`。文案用 `weapon_*` key；`pool_id` / `element_id` / `audio_id` 必须来自词表 |
 | **改弹药 / 换弹 / 弹药掉落 / 默认键位** | 先读 ADR #177、GDD §3.2、Gameplay Runtime / InputService / RNG / PoolManager / SaveManager / Replay 与测试策略。武器数值改 `weapons.json.ammo`，掉落曲线改 `ammo_rules.json`；业务输入只读 `reload`。保持打空后需松开再按、R 同 tick 优先、零弹 50% 降级、成功取得至少一颗子弹才提交、满弹不消费 `RNG.ammo`、玩家归因护栏、固定完整弹匣、Run v11 精确恢复。打空反馈由 `WeaponSystem.ammo_attention_requested` 请求 `PlayerWorldPrompt`，长按每弹匣只提示一次。人工手感 / HUD / 真手柄只交用户验收，不运行性能 probe |
 | **改子弹墙体阻挡 / 穿墙能力** | 先读 GDD §4、ADR #149、`docs/代码/gameplay_runtime.md` 与 `docs/代码/module_world_manager.md`；运行时改 `bullet.gd`，模块墙体层改 `module_chunk.gd`，数值契约改词表 / `weapons.json` / 双端 DataLoader。保持玩家与敌弹默认阻挡、地形 bit 1、圆形首帧重叠 + 本帧扫掠、`PoolManager.release()`、`pierce_count` 与 `wall_pierce` 独立、发射时快照及旧字段默认 false；验证完整 / 技术切片 module-world、runtime/save/L1、headless 和四条黄金回放 |
-| **加 / 改技能** | 在 `client/data/skills.json` 加技能定义：`ability_tags`、`activation`、能量消耗、目标、通用效果原语、缩放声明、冷却和 `skill_*` 文案；英雄只通过 `characters.json.hero_skill_ids` 引用两个技能，组合解析后固定进入 `skill_1`～`skill_4`，冷却按槽位保存。主英雄能力强度 / 范围 / 效率 / 持续作用于四槽；新资源、目标类型、效果原语或 ability tag 先登记词表，状态效果 / 叠加规则先登记 §9-A~§9-B，再扩展 SkillSystem / StatusEffectComponent 文档。静域屏障按 ADR #163 只拦截敌弹跨越圆周，内→内与不穿圆的外→外放行，首帧从射手开火位置扫掠 |
+| **加 / 改技能** | 在 `client/data/skills.json` 加技能定义：`ability_tags`、`activation`、能量消耗、目标、通用效果原语、缩放声明、冷却和 `skill_*` 文案；智能碎片只通过遗留字段 `characters.json.hero_skill_ids` 引用两个技能，组合解析后固定进入 `skill_1`～`skill_4`，冷却按槽位保存。主碎片能力强度 / 范围 / 效率 / 持续作用于四槽；新资源、目标类型、效果原语或 ability tag 先登记词表，状态效果 / 叠加规则先登记 §9-A~§9-B，再扩展 SkillSystem / StatusEffectComponent 文档。静域屏障按 ADR #163 只拦截敌弹跨越圆周，内→内与不穿圆的外→外放行，首帧从射手开火位置扫掠 |
 | **加 / 选择视觉效果** | 先读 `docs/代码/visual_effects.md`；优先在 Godot“VFX 效果库”用向导创建组合场景、自动登记效果目录，并在 Inspector / 内容绑定页选择 effect 或 profile。内容数据只写 `presentation_profile_id`；固定 cue / anchor / domain / space / lifecycle 先登记词表 §16。程序几何只能使用精选复合模板，不得生成任意 `_draw()` 或引用 addon / `output/test_lab` |
 | **加 / 改状态效果** | 先看 `docs/代码/status_effect_component.md`；状态 id 登记 `docs/词表与契约.md` §9-A，叠加规则登记 §9-B，通过 `skill_effect_apply_status` 或未来 on-hit primitive 注入；当前 Player / Enemy / SkillSystem 自身已实现 `apply_status_effect()` 和 owned ability tag 查询，DoT 由状态组件按 `GameClock` tick 并经 `Combat.apply_damage()` 结算；新可受状态影响实体应照此接入；状态存在期间要授予 / 移除 ability tag 时引用 §12-G，不在业务脚本手动计时 |
 | **调武器后坐 / 扩散** | 数值改 `client/data/weapons.json` 的武器 stats 或根级 `recoil_model`，震屏 profile 改 `camera_feedback.json`，装备控制改 `gear_mods.json` / 掉落 CSV；公式入口是 `weapon_recoil_resolver.gd`，发射 / 后移 / 相机分别见 WeaponSystem、Player、GameplayCameraController。每颗弹固定消耗 `RNG.combat`，零扩散也不能跳过 |
@@ -152,23 +152,23 @@
 | **改模块首次进入刷怪** | 改 `client/data/module_worlds.json.first_visit_enemy_spawn` 的数量、预警时长与按 `DifficultyProgression.elapsed` 解锁的敌种权重；位置只能由 `ModuleWorldManager.empty_floor_positions_at()` 返回旋转 / 封边后的 floor 且排除 placement footprint，再由 `GameplayRunLoop` 用 `RNG.spawn` 无放回抽取并立即保存计划。敌人在预警结束真正生成时取得当前生命 / 伤害倍率，并按实际生成阶段消费一次 `RNG.economy` 锁定金币。不要恢复 spawn marker、动态占位避让或安全半径；改完跑 data/schema、VFX、完整 / 技术首片 module-world、runtime/save 和黄金回放 |
 | **改 AI 模块生产流程** | AI 只在编辑期生成 JSON candidate，不接运行时模型 / 网络生成 / 自动批准；人工使用 Godot `Module JSON` 中央主编辑区编辑同一 JSON schema。工具必须保持 JSON→生成 TSCN 单向、磁盘 hash 冲突门禁和人工 `approved` 门禁，不得增加 TSCN 反向导入 |
 | **加 / 改刷怪波次** | 在 `client/data/spawn_waves.csv` 加一行：模式 id、时间窗、敌人 id / 权重、刷怪间隔、同时存活上限、预算和可选机关权重；敌人 / 机关 / 模式引用必须存在，不实现 Spawner 运行时 |
-| **加 / 改战区导演** | 查 `docs/代码/warzone_director.md` 和 F10 工作包；在 `client/data/warzone_directors.json` 改固定 phase、巢变异主题、兴趣点和阶段启用 wave；phase / wave gating 只按 `DifficultyProgression.elapsed`，兴趣点领取内部时间仍走 `GameClock`。匹配当前 layout 的兴趣点会通过 `MapManager` 生成 `source="director"` 初始机关；禁止恢复已删除的导演敌人组合元数据、读取玩家状态、隐藏动态调难或运行时接 LLM；改完跑 `validate_data`、`test_data_loader_schema`、`runtime-smoke` 和 `f9-demo-smoke` |
+| **加 / 改战区导演** | 查 `docs/代码/warzone_director.md` 和 F10 工作包；在遗留内部文件 `client/data/warzone_directors.json` 改固定 phase、意识层主题、兴趣点和阶段启用 wave；phase / wave gating 只按 `DifficultyProgression.elapsed`，兴趣点领取内部时间仍走 `GameClock`。匹配当前 layout 的兴趣点会通过 `MapManager` 生成 `source="director"` 初始机关；禁止恢复已删除的导演敌人组合元数据、读取玩家状态、隐藏动态调难或运行时接 LLM；改完跑 `validate_data`、`test_data_loader_schema`、`runtime-smoke` 和 `f9-demo-smoke` |
 | **加一个遗物/道具** | 在 `client/data/relics.json` 加一条，用 `modifiers` + `behaviors` 描述；文案用 `relic_*` key；**只用 `docs/词表与契约.md` 已登记的 effect / event / stat / tag**，新原语先登记再实现，不实现遗物运行时 |
 | **加 / 改主动道具** | 在 `client/data/active_items.json` 加一条：`charge` 声明冷却 / 充能，`use_effects` 引用已登记 effect，文案用 `item_*` key；模式引用走 `game_modes.resource_pools.active_items`，不实现主动道具栏 / 冷却 / 使用效果运行时 |
 | **加 / 改消耗品** | 在 `client/data/consumables.json` 加一条：`stack` 声明最大堆叠 / 初始数量 / 单次拾取数量，`use_effects` 引用已登记 effect，文案用 `item_*` key；模式引用走 `game_modes.resource_pools.consumables`，不实现拾取物 / 背包 / 使用输入 / 数量扣减 / 效果运行时 |
 | **加 / 改游戏模式** | 在 `client/data/game_modes.json` schema v3 声明 `difficulty_profile_id`、可用角色 / 武器 / 敌人 / 机关 / 遗物 / 主动道具 / 消耗品、权重、禁用列表、参与者 / 队伍预留和轻量覆盖；mode id 先登记 `docs/词表与契约.md` §12-A，difficulty profile 必须存在；奖励池由调用方请求，不挂在 mode 资源池。资源本体保持模式无关，禁止为模式复制一套资源或在代码写 `if mode_id == ...` |
 | **改敌人金币 / 金币等级 / 通用奖励选择** | 查 ADR #169 / #170 / #173 / #175、GDD §7.1、EnemyRewardResolver / Gameplay Runtime 与数据手册。敌人金币由 `enemy_rewards.json`、`gold_value_multiplier`、difficulty coefficient、特殊化、实际生成阶段和 `RNG.economy` 在生成时锁定；金币余额可消费、累计金币只增。事件固定金币即时进入账本，金币坛走原子消费，事件 Mod 进 pending loot。Run v11 保存敌人奖励、金币、祭坛事务与未完成选择 |
 | **改短刷图默认循环** | 默认标准模式是 F13 9×9 无缝模块世界：中心起点 → 目标 → 独立撤离，主路线约 8–12 模块，不要求清空 81 模块；F12 开放战区仅通过 `--open-warzone` 保留为非默认回归路径。奖励仍先入 `run.pending_loot`，撤离成功才提交 `meta` |
-| **改装备 Mod / 局外装配** | 查 GDD §7.2、`docs/AI协作/工作包/F11-GearModLoadout.md` 与 `docs/代码/gear_mod_system.md`；数据 / 契约、运行时首片和最小 UI 已建立：`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、一张提高武器 `damage` 的测试武器 Mod、`enemy_chaser` 玩家击杀 1% 掉落、升级消耗 `gear_mod_dust`、分解返还资源、英雄 / 武器两套 loadout、capacity / drain、开局 modifier snapshot、标题 `GearModPanel`、HUD 暂存提示和 `gear-mod-smoke` 面板按钮流；后续优先补更多 Mod 内容。新增 Mod id / slot / rarity / resource / stack rule 前先登记词表契约，并同步 `client/data/README.md`、locale、DataLoader schema、SaveManager / Gameplay Runtime 文档和 smoke |
+| **改装备 Mod / 局外装配** | 查 GDD §7.2、`docs/AI协作/工作包/F11-GearModLoadout.md` 与 `docs/代码/gear_mod_system.md`；数据 / 契约、运行时首片和最小 UI 已建立：`gear_mods.json`、`gear_mod_drop_tables.csv`、`gear_mod_fusion_costs.csv`、一张提高武器 `damage` 的测试武器 Mod、`enemy_chaser` 玩家击杀 1% 掉落、升级消耗 `gear_mod_dust`、分解返还资源、智能碎片 / 武器两套 loadout、capacity / drain、开局 modifier snapshot、标题 `GearModPanel`、HUD 暂存提示和 `gear-mod-smoke` 面板按钮流；内部 `hero` 类型本期保持。后续优先补更多 Mod 内容。新增 Mod id / slot / rarity / resource / stack rule 前先登记词表契约，并同步 `client/data/README.md`、locale、DataLoader schema、SaveManager / Gameplay Runtime 文档和 smoke |
 | **维护旧局外成长历史** | 旧 `MetaProgressionSystem` 运行时和 UI 已按 ADR #117 删除；项目尚未上线，ADR #118 后旧测试档迁移、`meta_progression.json`、旧 meta 契约常量和旧 `purchased_upgrades` 补偿路径也已删除。需要查历史时看 F6 工作包与 ADR 记录；不要恢复旧永久升级树作为当前成长方向 |
 | **改致谢 / 第三方来源** | 同步根目录 `CREDITS.md` 与 `client/data/credits.json`；Godot 编辑器插件同时维护 `client/addons/README.md` 的版本、哈希、本地补丁和升级流程；新增分组标题、角色或用途标签时补 `client/locale/strings.csv` 的 `ui_credits_*` key；发行前复核许可证和 notice |
-| **加 / 改美术资产 / 占位表现** | 先看 `docs/IP美术风格.md`、GDD §8.2-A / §9.24、`docs/代码/visual_effects.md`。静态色彩 / 锚点 / 朝向继续遵守 IP 规则；动态效果通过“VFX 效果库”/ profile 接入，程序几何必须与 Shader、动画或粒子形成精选模板 |
+| **加 / 改美术资产 / 占位表现** | 先看 `docs/IP美术风格.md`、GDD §8.2-A / §9.24、`docs/代码/visual_effects.md`。静态色彩 / 锚点 / 朝向继续遵守意识层代表色和稳定功能色规则；动态效果通过“VFX 效果库”/ profile 接入，程序几何必须与 Shader、动画或粒子形成精选模板 |
 | **加破限角色/道具** | 先判断是否能用 `capabilities` + `modifiers` + `behaviors` 表达；表达不了则新增可复用 primitive / strategy 并登记词表 §12，禁止按 id 写特殊分支 |
 | **写/改代码模块** | 先查 `docs/代码文档规范.md` + 对应 `docs/代码/<module_id>.md` + 目标源码；触碰 `.gd` 时按 Godot 4.7 官方 GDScript style guide 整理本次改动，并跑 `python tools/lint_gdscript_rules.py`；GDD / ADR 只在设计冲突、语义不明或新增决策时补读，不能默认整篇加载 |
 | **查知识库 / 找文档关系 / 任务路由** | 先看 `docs/AI知识库索引.md` 的任务路由表，需要机器可读元数据时看 `docs/_kb_index.json`，搜索同义词先看 `docs/术语表.md` |
 | **续接当前状态 / 下一步** | 先看 `docs/AI协作/快速开工.md` 与 `docs/AI记忆/current_state.json`；上下文压缩后先以用户最后明确指令对齐，`Next Steps` 只作候选参考；需要长期事实 / ADR 摘要 / 历史细节时再看 `docs/AI记忆/项目记忆.md` 和当日会话日志 |
 | **查看 / 维护未来任务** | 看 `docs/TODO.md`；F9 第一轮 Demo 收口后的可选新功能菜单看 `docs/功能建议池.md`；F12 局内刷取、兴趣点、撤离带回和射击构筑参考看 `docs/局内刷取参考研究.md`；AI 只辅助开发的玩法 / 内容管线 / 工具机会看 `docs/AI辅助开发机会清单.md`；在线供应商与实施门禁看 `docs/在线服务规划.md`，具体异步玩法候选再看 `docs/小服务器玩法备忘.md`；短期机器状态仍同步 `docs/AI记忆/current_state.json`，设计待决策仍进 `docs/修改建议.md` |
-| **改 IP / 世界观 / 英雄包装 / 宣传语** | 先看 `docs/IP设定.md`；涉及视觉风格、色板、阵营色、兴趣点颜色或资产 brief 时追加 `docs/IP美术风格.md`；若改变玩法承诺或系统边界，再同步 GDD / ADR / 术语表 / AI导航 / AI记忆 |
+| **改 IP / 世界观 / 智能碎片包装 / 宣传语** | 先看 `docs/IP设定.md`；涉及视觉风格、层代表色、敌我 / 警示 / 交互功能色或资产 brief 时追加 `docs/IP美术风格.md`；若改变玩法承诺或系统边界，再同步 GDD / ADR / 术语表 / AI导航 / AI记忆 |
 | **选择下一项新功能** | 先看 `docs/功能建议池.md`、`docs/局内刷取参考研究.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md` 与 `docs/AI记忆/current_state.json`；用户明确点名功能后，再建立 / 更新工作包、GDD / ADR / 模块文档并实现，不从建议文档自行挑选推进 |
 | **评估 / 规划在线服务** | 先看 `docs/在线服务规划.md`、ADR #150、GDD §9.22 / §9.23、`docs/代码/platform_services.md` 与测试策略；供应商路线是 `PlatformServices → GodotSteam`、`OnlineServices → Talo`，不开发自有通用后端。当前不安装；首个功能被用户点名后才重查官方版本、决定 Talo Cloud / 官方自托管并建立工作包 |
 | **评估小服务器在线玩法** | 先看 `docs/小服务器玩法备忘.md`，再看 `docs/在线服务规划.md`、GDD §6.7 / §9.23、`docs/代码/replay.md`；GodotSteam + Talo 路线已采纳，但每日挑战、排行榜、死亡残响等具体玩法仍需用户点名，实时多人 / PvP / 强竞技排行榜默认暂缓 |
@@ -195,7 +195,7 @@
 | **加 GM 指令 / 调试工具** | 查 GDD 9.20 与 `docs/代码/debug_tools.md`；调试入口只在 debug/dev_tools 构建启用，action 用 `debug_*` 并登记词表 §7；命令必须通过正式系统 API 或受控 `debug_*` API 改状态；release preset 不启用 `dev_tools` 且排除调试脚本 / GM 命令表；改完跑 `python tools/godot_bridge.py --project client debug-tools-smoke` 和 `debug-tools-release-smoke` |
 | **改开发者测试岛** | 先读 ADR #159 / #160、`docs/代码/debug_test_arena.md`、DebugTools / Gameplay Runtime / FormalClientBoot / GearModSystem 文档与测试策略；它是直接运行的独立 debug scene，内部复用 RunLoop 用途，不是正式 game mode，标题 / boot / 正式 CLI 必须零耦合。配置只写 `user://debug_test_arena.cfg`，正式 run/meta、Replay/Analytics 与 release 资源必须隔离；改完必跑 `debug-test-arena-smoke`、release smoke 和模块文档规定的完整回归，不自动跑性能 probe |
 | **加暂停/切换游戏状态** | `GameState.change_state(PAUSED)` 等；UI 通过 `UIManager.push(modal_pause_menu)` 自动联动暂停；`PauseMenu` 已覆盖继续、保存并退出、重开和回标题，也支持从奖励选择面板上方叠出并恢复回 `REWARD_CHOICE`；不直接读写 `get_tree().paused`（见 GDD 9.12 / 9.14） |
-| **加录制回放/确定性需求** | 走 `Replay`（autoload）；当前 schema v3 记录四技能、冲刺、主 / 子英雄组合与最终 bool / Vector2 intent，播放时隔离 GUIDE 物理输入；旧回放明确拒绝，不迁移。底层 tick / intent 时间走 `GameClock`，玩家可见难度、结算和摘要用 `DifficultyProgression`；随机走 `RNG.<stream>`。改输入 wire 追加 input/replay smoke 和四条黄金回放，改 RNG seed 派生 / 子流集合追加 `rng-audit`（见 GDD 9.9 / 9.18） |
+| **加录制回放/确定性需求** | 走 `Replay`（autoload）；当前 schema v3 记录四技能、冲刺、主 / 副智能碎片组合与最终 bool / Vector2 intent，遗留 hero 字段保持，播放时隔离 GUIDE 物理输入；旧回放明确拒绝，不迁移。底层 tick / intent 时间走 `GameClock`，玩家可见难度、结算和摘要用 `DifficultyProgression`；随机走 `RNG.<stream>`。改输入 wire 追加 input/replay smoke 和四条黄金回放，改 RNG seed 派生 / 子流集合追加 `rng-audit`（见 GDD 9.9 / 9.18） |
 | **接 Steam API / 平台服务** | 先读 `docs/在线服务规划.md`、ADR #150 与 `docs/代码/platform_services.md`；未来固定官方 GodotSteam 版本，只在 `PlatformServices` adapter 内初始化 / 驱动 callback，并承接 Steam 身份票据、成就、Steam-only 统计、富状态、overlay、Lobby / 邀请。当前正式客户端不安装，业务不得直调 Steamworks / GodotSteam |
 | **接 Talo / 在线后端** | 当前只规划、不安装。用户点名首个功能后，先在 `output/test_lab` 验证并决定 Talo Cloud / 官方自托管，再新增 `OnlineServices → Talo` adapter；跨平台排行榜 / 统计、Live Config、事件与轻量社交只走该门面，Analytics 可把它作为 sink，SaveManager 仍是本地存档权威。禁止业务直调 `Talo.*`、双写同一排行榜 / 统计或自研通用后端 |
 | **维护 Steamworks Slime Lab / 单人 AI 大招与自主游击 / 本地同屏 / 纪录 / App ID / Windows 导出** | 先读 `output/steamworks_lab/README.md` 与 ADR #129 / #132 / #133 / #134 / #135 / #136 / #137 / #138 / #139 / #140 / #141；自动回归只使用 `py -3 tools\steamworks_lab_toolchain.py smoke --suite <目标>`，先目标 suite、交付前 `--suite all`，禁止手写 Godot / PowerShell 双进程命令。ADR #139 的 AI 大招仅在 `PlayMode.SINGLE`：P1 子弹命中 / 普通击杀 / Boss 击杀按 `+1 / +6 / +21` 累积至 100，按 `E` 召唤不可受伤、不吸引火力且自动射击的 10 秒 AI。ADR #140 已把 AI 改为确定性自主游击 / 预判闪避：避开敌弹、普通敌人、Boss 和障碍物，常规距 P1 使用 210 px 硬限、超过 220 px 复位；须松开再按住 `E` 发起合体，AI 高速归队到 92 px 内并停靠 0.8 秒后自动同意，持续时间不重置且每次召唤最多一次。目标 battle 1/1、local-couch 与权威 `smoke --suite all` 已通过；all 含 battle 5/5、动态端口 ENet、最大分片仍不超过 900 字节且受保护文件未改变。AI 不进入真人 roster、强化、纪录、玩家卡或快照；同屏 / Steam、wire、存档与正式 `client` 不变。runner 隔离每个 `user://`、验证精确 `ALL PASS` / 致命日志、动态分配 ENet 端口并保护玩家真实设置 / 存档与源码 `steam_appid.txt=4955670`；测试 fixture 必须在 `_ready()` 前注入。源码 App ID 文件永久保留，只从 release 排除。本地同屏由 `local_input_router.gd` 分配 P1 键鼠与 P2–P4 手柄；Steam Lobby 不混入同屏玩家，ENet 只守协议。纪录按单人 / 多人分开，未来 schema 保持写保护，Steam Client 必测权威 Game Over 完整链路。快照应用层仍是 `Dictionary`，wire 层为 FastLZ + 900 字节分片，Lobby `lab_version=2`。Windows 当前开发 / 发布验证标准为普通 Godot 4.7.1 + GodotSteam 4.20 GDExtension + Steamworks 1.64；工具锁继续接受 Godot 4.7 minor 系列，setup / verify / export-release 直接走 `--godot` / `GODOT_PATH`；export-release 按 editor 模式校验标准用户目录或 self-contained `editor_data/` 的精确版本 templates，禁止重建 `.toolchain/`。真实手柄、SteamPipe、Depot 和双账号 Steam smoke 仍需外部验证；不能把 Lab 直连 SDK 当成正式 `client/PlatformServices` 已接入 |
@@ -393,7 +393,7 @@ flowchart LR
   Reward -. 通用奖励 modifier .- ME
   GearMod -. loadout modifiers .- ME
   GearMod -. 武器 Mod .- Weapon
-  GearMod -. 英雄 Mod .- Player
+  GearMod -. 智能碎片 Mod（内部 hero） .- Player
   SE -. 注入 modifier .- ME
 
   Save -. meta/run kind .- GS

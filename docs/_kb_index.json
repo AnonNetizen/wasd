@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_at": "2026-07-29",
+  "updated_at": "2026-07-30",
   "description": "Machine-readable AI knowledge base index for the wasd project.",
   "documents": [
     {
@@ -65,13 +65,13 @@
       "authority": "Repository overview, required reading, structure, and run instructions",
       "status": "active",
       "owner_scope": "project",
-      "last_reviewed": "2026-06-18",
+      "last_reviewed": "2026-07-30",
       "canonical_for": ["repository_overview", "required_docs"],
       "must_read_for": ["new_human_contributor", "new_ai_session", "repo_structure_change"],
       "related_docs": ["AGENTS.md", "CONTRIBUTING.md", "docs/AI导航.md", "docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json", "client/README.md"],
       "related_code": ["client/"],
       "update_triggers": ["project status changes", "run instructions change", "directory structure changes"],
-      "keywords": ["README", "入口", "仓库结构", "运行方式", "F1", "正式项目骨架", "headless boot"]
+      "keywords": ["README", "入口", "仓库结构", "运行方式", "F1", "正式项目骨架", "headless boot", "WASD", "项目代号", "意识核撤离"]
     },
     {
       "path": "CONTRIBUTING.md",
@@ -107,13 +107,13 @@
       "authority": "Human-readable map for docs as an AI knowledge base",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-07-29",
+      "last_reviewed": "2026-07-30",
       "canonical_for": ["knowledge_base", "authority_hierarchy", "task_routes", "adr_tracking_matrix"],
       "must_read_for": ["doc_structure_change", "task_routing", "knowledge_base_change"],
       "related_docs": ["docs/_kb_index.json", "docs/AI导航.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/局内刷取参考研究.md", "docs/AI辅助开发机会清单.md", "docs/在线服务规划.md", "docs/小服务器玩法备忘.md", "docs/术语表.md", "docs/AI协作/文档健康检查.md", "docs/代码/formal_client_boot.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/settings.md", "docs/代码/guide.md", "docs/代码/input_service.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/status_effect_component.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md", "docs/代码/gear_mod_system.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F6-MetaProgression.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/AI协作/工作包/F13-HandcraftedRooms.md"],
       "related_code": ["tools/docs_health_check.py"],
       "update_triggers": ["new long-lived document", "document rename", "authority hierarchy change", "task route change"],
-      "keywords": ["knowledge base", "知识库", "index", "索引", "权威层级", "任务路由", "FormalClientBoot", "正式项目启动骨架", "F1"]
+      "keywords": ["knowledge base", "知识库", "index", "索引", "权威层级", "任务路由", "FormalClientBoot", "正式项目启动骨架", "F1", "ADR #178", "WASD", "集体无意识", "心象"]
     },
     {
       "path": "docs/_kb_index.json",
@@ -121,7 +121,7 @@
       "authority": "Machine-readable document metadata for health checks and AI retrieval",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-24",
+      "last_reviewed": "2026-07-30",
       "canonical_for": ["kb_metadata", "doc_coverage", "retrieval_keywords"],
       "must_read_for": ["knowledge_base_change", "docs_health_check_change"],
       "related_docs": ["docs/AI知识库索引.md", "docs/AI协作/文档健康检查.md"],
@@ -135,55 +135,55 @@
       "authority": "Terminology aliases for search and AI retrieval",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-06-24",
+      "last_reviewed": "2026-07-30",
       "canonical_for": ["terminology_aliases", "search_keywords"],
       "must_read_for": ["search_planning", "new_domain_term", "translation_of_terms"],
       "related_docs": ["docs/IP设定.md", "docs/IP美术风格.md", "docs/词表与契约.md", "docs/游戏设计文档.md", "docs/AI导航.md"],
       "related_code": [],
       "update_triggers": ["new domain term", "new English alias", "new abbreviation"],
-      "keywords": ["glossary", "术语", "别名", "同义词", "search", "俯视角射击刷宝生存", "top-down looter shooter survival", "射击刷宝生存", "looter shooter survival", "刷宝动作生存", "looter action survival", "按住开火", "fire action", "刷子游戏", "刷宝游戏", "固定斜俯视", "历史视角口径", "资产落地", "asset anchoring", "top-down asset readability", "footprint", "anchor point", "orientation_read", "IP美术风格", "art direction", "阵营色", "功能色", "兴趣点色彩", "装备", "词条", "战利品", "装备 Mod", "Gear Mod", "Warframe mod", "hero mod loadout", "weapon mod loadout", "破巢者", "Nestbreakers", "敌巢", "巢核", "撤离", "extraction", "局内金币", "gold balance", "gold earned total", "金币球", "gold orb", "通用奖励选择", "reward choice", "GoldProgression", "RewardChoiceController", "显式攻击", "explicit enemy attack", "爆猎者", "Burst Hunter", "armed", "连锁爆炸", "chain explosion", "局外成长", "meta progression", "瞄准方向引导镜头", "aim-directed camera", "aim look", "camera look offset", "mouse aim", "actual player screen position", "ADR #123", "ADR #124", "ADR #125", "ADR #167", "ADR #169", "ADR #170", "short loot runs"]
+      "keywords": ["glossary", "术语", "别名", "同义词", "search", "WASD", "项目代号", "集体无意识", "Collective Unconscious", "清理智能", "Cleanup Intelligence", "智能碎片", "Intelligence Fragment", "意识层", "Mind Layer", "心象", "Mindform", "意识核", "Mind Core", "破巢者", "Nestbreakers", "敌巢", "巢核", "历史别名", "俯视角射击刷宝生存", "top-down looter shooter survival", "射击刷宝生存", "looter shooter survival", "刷宝动作生存", "looter action survival", "按住开火", "fire action", "刷子游戏", "刷宝游戏", "资产落地", "asset anchoring", "top-down asset readability", "footprint", "anchor point", "orientation_read", "IP美术风格", "art direction", "环境代表色", "功能色", "装备", "词条", "战利品", "装备 Mod", "Gear Mod", "weapon mod loadout", "撤离", "extraction", "局内金币", "gold balance", "gold earned total", "金币球", "gold orb", "通用奖励选择", "reward choice", "GoldProgression", "RewardChoiceController", "显式攻击", "explicit enemy attack", "爆猎者", "Burst Hunter", "armed", "连锁爆炸", "chain explosion", "局外成长", "meta progression", "瞄准方向引导镜头", "aim-directed camera", "aim look", "camera look offset", "mouse aim", "actual player screen position", "ADR #123", "ADR #124", "ADR #125", "ADR #167", "ADR #169", "ADR #170", "ADR #178", "short loot runs"]
     },
     {
       "path": "docs/IP设定.md",
       "type": "authority",
-      "authority": "Nestbreakers IP, world packaging, hero / enemy faction / relic naming direction, and marketing tone",
+      "authority": "WASD collective-unconscious IP; Cleanup Intelligence, Intelligence Fragment, Mind Layer, Mindform, and Mind Core definitions; narrative ambiguity and naming boundaries",
       "status": "active",
       "owner_scope": "design",
-      "last_reviewed": "2026-06-24",
-      "canonical_for": ["ip_direction", "worldbuilding", "naming_style", "marketing_tone"],
-      "must_read_for": ["ip_change", "worldbuilding_change", "hero_packaging", "marketing_copy", "naming_style_change"],
+      "last_reviewed": "2026-07-30",
+      "canonical_for": ["ip_direction", "worldbuilding", "ip_term_definitions", "narrative_ambiguity", "naming_style", "marketing_tone"],
+      "must_read_for": ["ip_change", "worldbuilding_change", "intelligence_fragment_packaging", "marketing_copy", "naming_style_change"],
       "related_docs": ["docs/IP美术风格.md", "docs/游戏设计文档.md", "docs/术语表.md", "docs/决策记录.md", "docs/AI导航.md", "client/locale/README.md"],
       "related_code": [],
-      "update_triggers": ["IP direction changes", "world packaging changes", "hero or faction naming style changes", "marketing copy direction changes"],
-      "keywords": ["IP", "世界观", "破巢者", "Nestbreakers", "敌巢", "巢核", "破巢行动", "多英雄", "英雄包装", "敌方势力", "遗物命名", "宣传语", "IP美术风格", "art direction", "阵营色", "敌巢色板", "marketing", "跨宇宙", "界门", "首都星域", "银河系星际文明"]
+      "update_triggers": ["IP direction changes", "world packaging changes", "Intelligence Fragment or Mindform naming changes", "narrative ambiguity changes", "marketing copy direction changes"],
+      "keywords": ["IP", "世界观", "WASD", "项目代号", "正式标题待定", "集体无意识", "Collective Unconscious", "清理智能", "Cleanup Intelligence", "智能碎片", "Intelligence Fragment", "意识层", "Mind Layer", "心象", "Mindform", "mental imagery", "意识核", "Mind Core", "冷静", "愤怒", "主碎片", "副碎片", "撤离", "叙事留白", "AI立场", "清理结果", "运行时LLM禁用", "破巢者", "Nestbreakers", "敌巢", "巢核", "首都星域", "历史别名", "遗物命名", "宣传语", "marketing"]
     },
     {
       "path": "docs/IP美术风格.md",
       "type": "authority",
-      "authority": "Nestbreakers IP art direction, calcified living-architecture visual language, enemy nest palette, faction color ownership, map POI functional colors, and asset brief color rules",
+      "authority": "Mind Layer abstract art direction, environment representative colors, stable gameplay functional colors, Mindform readability, and asset brief rules",
       "status": "active",
       "owner_scope": "design",
-      "last_reviewed": "2026-06-24",
-      "canonical_for": ["ip_art_direction", "enemy_nest_palette", "faction_color_language", "poi_function_colors", "asset_color_brief"],
+      "last_reviewed": "2026-07-30",
+      "canonical_for": ["ip_art_direction", "mind_layer_visual_language", "environment_representative_color", "stable_functional_colors", "mindform_readability", "asset_color_brief"],
       "must_read_for": ["art_direction_change", "visual_style_change", "asset_generation", "concept_art_generation", "poi_visual_design"],
       "related_docs": ["docs/IP设定.md", "docs/游戏设计文档.md", "docs/术语表.md", "docs/决策记录.md", "docs/AI导航.md", "docs/代码/gameplay_runtime.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": ["client/assets/"],
-      "update_triggers": ["IP art style changes", "enemy nest palette changes", "faction color rule changes", "map point-of-interest visual language changes", "asset brief color rules change"],
-      "keywords": ["IP美术风格", "art direction", "visual style", "美术风格", "阵营色", "功能色", "兴趣点色彩", "POI", "宝箱", "敌巢色板", "钙化活体建筑", "活体建筑", "生物工业", "外宇宙生物工业", "骨白", "蜡黄", "干肉粉", "深红", "黑紫", "毒蓝", "冷青", "cyan", "red", "white", "purple", "gold", "amber", "player bullets", "enemy projectiles", "treasure chest", "asset brief"]
+      "update_triggers": ["IP art style changes", "Mind Layer representative color changes", "functional color rule changes", "Mindform readability changes", "asset brief rules change"],
+      "keywords": ["IP美术风格", "art direction", "visual style", "美术风格", "意识层", "Mind Layer", "心象", "Mindform", "抽象", "简洁", "来源可辨", "环境代表色", "representative color", "装饰方块", "色阶", "稳定功能色", "敌我颜色", "弹幕警示色", "交互功能色", "轮廓", "运动", "前摇", "攻击形状", "层主题", "来源符号", "抽象规则", "功能色例外", "asset brief", "敌巢色板", "钙化活体建筑", "历史色板"]
     },
     {
       "path": "docs/游戏设计文档.md",
       "type": "authority",
-      "authority": "Gameplay, systems, long-term design, GDD v1.40; gold progression, explicit enemy attacks and Burst Hunter chain explosions, Gear Mod loadout progression, top-down 2D presentation, Phantom Camera aim-directed player follow, standard-motion VFX policy, and 9x9 modular grid world",
+      "authority": "Gameplay, systems, long-term design, GDD v1.47; WASD collective-unconscious IP, gold progression, explicit enemy attacks, Gear Mod loadout progression, top-down 2D presentation, and 9x9 Mind Layer modular world",
       "status": "active",
       "owner_scope": "design",
-      "last_reviewed": "2026-07-28",
+      "last_reviewed": "2026-07-30",
       "canonical_for": ["game_design", "system_design", "gameplay_behavior"],
       "must_read_for": ["gameplay_change", "system_design_change", "new_content_type"],
       "related_docs": ["docs/IP设定.md", "docs/IP美术风格.md", "docs/决策记录.md", "docs/AI导航.md", "docs/词表与契约.md", "docs/测试策略.md"],
       "related_code": ["client/"],
       "update_triggers": ["gameplay behavior change", "system design change", "new infrastructure decision"],
-      "keywords": ["GDD", "design", "玩法", "系统", "俯视角", "top-down", "ADR #142", "ADR #145", "ADR #146", "ADR #148", "ADR #156", "ADR #167", "ADR #169", "ADR #170", "ADR #173", "world events", "防御", "生存", "占点", "金币祭坛", "血量祭坛", "Run v9", "explicit enemy attacks", "Burst Hunter", "armed", "chain explosion", "Phantom Camera", "camera rig", "aim-directed camera", "aim look", "camera look offset", "camera shake", "screen shake", "camera_feedback.json", "RNG.camera_fx", "RNG.world_event", "F14", "F14.1", "模块大地图", "9x9 modules", "11x11 cells", "ModuleWorldManager", "ModuleNavigationField", "bounded shared flow field", "289 cells", "hybrid perception", "module_worlds.json", "module_templates.json", "module fog", "streaming chunks", "AI editor-time JSON", "approved templates", "量化矩形地图格", "rectangular map grid", "footprint", "short loot runs", "8-12分钟", "金币等级", "reward choice", "Gear Mod", "SaveManager", "续局", "RNG.world", "数值配置", "本地化", "StatusEffect"]
+      "keywords": ["GDD", "design", "玩法", "系统", "WASD", "集体无意识", "清理智能", "智能碎片", "意识层", "心象", "意识核", "ADR #178", "俯视角", "top-down", "ADR #142", "ADR #145", "ADR #146", "ADR #148", "ADR #156", "ADR #167", "ADR #169", "ADR #170", "ADR #173", "world events", "防御", "生存", "占点", "金币祭坛", "血量祭坛", "Run v9", "explicit enemy attacks", "Burst Hunter", "armed", "chain explosion", "Phantom Camera", "camera rig", "aim-directed camera", "aim look", "camera look offset", "camera shake", "screen shake", "camera_feedback.json", "RNG.camera_fx", "RNG.world_event", "F14", "F14.1", "模块大地图", "9x9 modules", "11x11 cells", "ModuleWorldManager", "ModuleNavigationField", "bounded shared flow field", "289 cells", "hybrid perception", "module_worlds.json", "module_templates.json", "module fog", "streaming chunks", "AI editor-time JSON", "approved templates", "量化矩形地图格", "rectangular map grid", "footprint", "short loot runs", "8-12分钟", "金币等级", "reward choice", "Gear Mod", "SaveManager", "续局", "RNG.world", "数值配置", "本地化", "StatusEffect"]
     },
     {
       "path": "docs/决策记录.md",
@@ -191,13 +191,13 @@
       "authority": "Architecture decision records and accepted constraints",
       "status": "active",
       "owner_scope": "architecture",
-      "last_reviewed": "2026-07-29",
+      "last_reviewed": "2026-07-30",
       "canonical_for": ["adr", "accepted_decisions", "constraints"],
       "must_read_for": ["decision_change", "rule_change", "design_reversal"],
       "related_docs": ["docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md", "docs/AI导航.md", "docs/AI知识库索引.md"],
       "related_code": [],
       "update_triggers": ["new decision", "changed red line", "accepted proposal"],
-      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #127", "ADR #128", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #144", "ADR #145", "ADR #146", "ADR #147", "ADR #148", "ADR #149", "ADR #150", "ADR #151", "ADR #156", "ADR #167", "ADR #169", "ADR #170", "ADR #173", "ADR #174", "人工检查", "人工验收", "待人工验收", "human-only acceptance", "world events", "Run v9", "explicit enemy attacks", "Burst Hunter chain explosion", "aim-directed camera", "camera look offset", "F14", "F14.1", "模块大地图", "ModuleWorldManager", "ModuleNavigationField", "bounded shared flow field", "hybrid perception", "RoomManager superseded", "WarzoneDirector", "EnemyAI player targeting", "敌方友伤护栏", "short loot runs", "撤离", "Gear Mod", "Godot editor plugin", "@icons", "Script-IDE", "Phantom Camera", "camera rig ownership", "G.U.I.D.E", "InputService", "Replay v3", "性能测试按需", "user-triggered performance test", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "AI Git", "code review", "事实review"]
+      "keywords": ["ADR", "decision", "决策", "约束", "ADR #124", "ADR #125", "ADR #127", "ADR #128", "ADR #140", "ADR #141", "ADR #142", "ADR #143", "ADR #144", "ADR #145", "ADR #146", "ADR #147", "ADR #148", "ADR #149", "ADR #150", "ADR #151", "ADR #156", "ADR #167", "ADR #169", "ADR #170", "ADR #173", "ADR #174", "ADR #178", "WASD", "集体无意识", "清理智能", "智能碎片", "意识层", "心象", "意识核", "人工检查", "人工验收", "待人工验收", "human-only acceptance", "world events", "Run v9", "explicit enemy attacks", "Burst Hunter chain explosion", "aim-directed camera", "camera look offset", "F14", "F14.1", "模块大地图", "ModuleWorldManager", "ModuleNavigationField", "bounded shared flow field", "hybrid perception", "RoomManager superseded", "WarzoneDirector", "EnemyAI player targeting", "敌方友伤护栏", "short loot runs", "撤离", "Gear Mod", "Godot editor plugin", "@icons", "Script-IDE", "Phantom Camera", "camera rig ownership", "G.U.I.D.E", "InputService", "Replay v3", "性能测试按需", "user-triggered performance test", "no hidden DDA", "需求不明先问", "契约同步", "数据校验", "Godot Bridge", "AI Git", "code review", "事实review"]
     },
     {
       "path": "docs/词表与契约.md",
@@ -303,13 +303,13 @@
       "authority": "Project map, extension points, dependency graph, red lines including clarification-first AI workflow",
       "status": "active",
       "owner_scope": "architecture",
-      "last_reviewed": "2026-07-29",
+      "last_reviewed": "2026-07-30",
       "canonical_for": ["project_map", "extension_points", "dependency_graph", "clarification_first_rule"],
       "must_read_for": ["new_task", "extension_change", "dependency_change"],
       "related_docs": ["docs/AI知识库索引.md", "docs/IP设定.md", "docs/IP美术风格.md", "docs/功能建议池.md", "docs/局内刷取参考研究.md", "docs/AI辅助开发机会清单.md", "docs/在线服务规划.md", "docs/游戏设计文档.md", "docs/词表与契约.md", "docs/代码文档规范.md", "docs/代码/formal_client_boot.md", "docs/代码/mod_loader.md", "docs/代码/data_loader.md", "docs/代码/rng.md", "docs/代码/game_state.md", "docs/代码/game_clock.md", "docs/代码/platform_services.md", "docs/代码/settings.md", "docs/代码/analytics.md", "docs/代码/replay.md", "docs/代码/guide.md", "docs/代码/input_service.md", "docs/代码/pool_manager.md", "docs/代码/save_manager.md", "docs/代码/gear_mod_system.md", "docs/代码/audio_manager.md", "docs/代码/localization.md", "docs/代码/ui_manager.md", "docs/代码/phantom_camera.md", "docs/代码/skill_system.md", "docs/代码/status_effect_component.md", "docs/代码/map_manager.md", "docs/代码/hazard_system.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/AI协作/工作包/F13-HandcraftedRooms.md"],
       "related_code": ["client/"],
       "update_triggers": ["new system", "new directory", "new extension point", "dependency graph change", "AI workflow red line change"],
-      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "IP美术风格", "art direction", "阵营色", "功能色", "兴趣点色彩", "量化矩形地图格", "rectangular map grid", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "SkillSystem", "StatusEffectComponent", "skill_effect_apply_status", "status_stack_rules", "silence", "沉默", "MapManager", "HazardSystem", "矩形机关", "rectangular hazard", "map_layouts.json", "FEA-12", "有限地图", "PCG", "人工摆点", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "EnemyAI schema v5", "突击枪手", "Assault Gunner", "presentation_enemy_rifle", "muzzle charge", "slow enemy bullet", "burst_shots_remaining", "ADR #171", "ADR #172", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review", "Steamworks Slime Lab", "ADR #140", "确定性自主游击", "预判闪避"]
+      "keywords": ["navigation", "AI导航", "扩展点", "依赖图", "红线", "WASD", "ADR #178", "集体无意识", "清理智能", "智能碎片", "意识层", "心象", "意识核", "层代表色", "稳定功能色", "破巢者", "Nestbreakers", "历史别名", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "IP美术风格", "art direction", "功能色", "量化矩形地图格", "rectangular map grid", "safe_radius", "出生安全区", "spawn safe zone", "radius_tiles", "资产落地", "asset anchoring", "asset brief", "footprint", "anchor point", "shadow", "Y-sort", "SkillSystem", "StatusEffectComponent", "skill_effect_apply_status", "status_stack_rules", "silence", "沉默", "MapManager", "HazardSystem", "矩形机关", "rectangular hazard", "map_layouts.json", "FEA-12", "有限地图", "PCG", "人工摆点", "详细数值面板", "show_stats_panel", "局外成长", "MetaProgressionSystem", "SaveManager", "暂停退出续局", "EnemyAI schema v5", "突击枪手", "Assault Gunner", "presentation_enemy_rifle", "muzzle charge", "slow enemy bullet", "burst_shots_remaining", "ADR #171", "ADR #172", "上下文压缩", "任务恢复", "Godot style guide", "GDScript style guide", "GDScript lint", "lint_gdscript_rules", "lint_project_rules", "项目规则lint", "lint_semantic_rules", "语义lint", "advisory", "字段文档", "release preset", "AI资源", "vendor", "AI Git", "自动commit", "提交策略", "code review", "事实review", "Steamworks Slime Lab", "ADR #140", "确定性自主游击", "预判闪避"]
     },
     {
       "path": "docs/AI记忆/项目记忆.md",
@@ -317,13 +317,13 @@
       "authority": "Long-term cross-session memory index and stable project facts; cold storage for background details",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-07-29",
+      "last_reviewed": "2026-07-30",
       "canonical_for": ["project_memory", "long_term_memory_index", "session_continuity", "clarification_first_rule"],
       "must_read_for": ["new_session", "memory_update", "important_change"],
       "related_docs": ["docs/AI记忆/README.md", "docs/AI记忆/current_state.json", "docs/TODO.md", "docs/AI记忆/会话日志/", "docs/决策记录.md", "docs/AI导航.md", "docs/AI协作/快速开工.md"],
       "related_code": [],
       "update_triggers": ["new ADR", "important milestone", "memory structure change", "long-term fact change"],
-      "keywords": ["memory", "项目记忆", "long-term memory", "跨会话", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "上下文压缩", "任务恢复", "cold storage", "冷存储", "按需读取", "ADR #140", "Steamworks Lab AI", "自主游击", "预判闪避"]
+      "keywords": ["memory", "项目记忆", "long-term memory", "跨会话", "WASD", "ADR #178", "集体无意识", "清理智能", "智能碎片", "意识层", "心象", "意识核", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "上下文压缩", "任务恢复", "cold storage", "冷存储", "按需读取", "ADR #140", "Steamworks Lab AI", "自主游击", "预判闪避"]
     },
     {
       "path": "docs/AI记忆/current_state.json",
@@ -331,13 +331,13 @@
       "authority": "Machine-readable current phase, latest ADR, open decisions, candidate next actions, and recent hot-path verification",
       "status": "active",
       "owner_scope": "ai-workflow",
-      "last_reviewed": "2026-07-29",
+      "last_reviewed": "2026-07-30",
       "canonical_for": ["current_state", "candidate_next_actions", "latest_verification", "clarification_first_rule"],
       "must_read_for": ["new_session", "memory_update", "task_resume"],
       "related_docs": ["docs/AI记忆/项目记忆.md", "docs/AI记忆/README.md", "docs/TODO.md", "docs/功能建议池.md", "docs/AI辅助开发机会清单.md", "docs/决策记录.md", "docs/修改建议.md", "docs/AI协作/快速开工.md", "docs/AI协作/工作包/", "docs/AI协作/工作包/F3-DataLoader.md", "docs/AI协作/工作包/F4-MinPlayableLoop.md", "docs/AI协作/工作包/F7-SettingsLocalizationUI.md", "docs/AI协作/工作包/F8-ReplayTestingBalance.md", "docs/AI协作/工作包/F9-ContentDemoPolish.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/AI协作/工作包/F13-HandcraftedRooms.md"],
       "related_code": ["tools/docs_health_check.py", "tools/sync_contracts.py", "tools/validate_data.py"],
       "update_triggers": ["new ADR", "open decision changes", "next action changes", "verification run"],
-      "keywords": ["current_state", "candidate next actions", "Next Steps", "latest ADR", "ADR #112", "ADR #113", "ADR #114", "ADR #123", "WarzoneDirector", "战区导演", "source=director", "director hazards", "random run seed", "普通新局 seed", "set_random_run_seed", "不读玩家状态", "open decisions", "当前状态", "候选下一步", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "skill_overdrive_rounds", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "撤离", "extraction", "hot path verification", "最近热验证"]
+      "keywords": ["current_state", "candidate next actions", "Next Steps", "latest ADR", "ADR #178", "WASD", "集体无意识", "清理智能", "智能碎片", "意识层", "心象", "意识核", "正式标题待定", "open decisions", "D", "E", "S", "当前状态", "候选下一步", "需求不明先问", "澄清问题", "不要脑补", "不瞎猜", "授权边界", "验收标准", "射击刷宝生存", "looter shooter survival", "按住开火", "fire action", "刷宝动作生存", "looter action survival", "刷子游戏", "装备", "词条", "战利品", "撤离", "extraction", "hot path verification", "最近热验证"]
     },
     {
       "path": "docs/TODO.md",
@@ -429,13 +429,13 @@
       "authority": "Formal full-project phase roadmap after MVP validation and AI workflow setup",
       "status": "active",
       "owner_scope": "project",
-      "last_reviewed": "2026-07-22",
+      "last_reviewed": "2026-07-30",
       "canonical_for": ["formal_project_plan", "full_project_roadmap", "phase_gates", "post_mvp_workflow"],
       "must_read_for": ["formal_project_start", "full_project_planning", "new_session_planning", "task_planning"],
       "related_docs": ["docs/TODO.md", "docs/在线服务规划.md", "docs/AI导航.md", "docs/AI知识库索引.md", "docs/AI记忆/项目记忆.md", "docs/AI记忆/current_state.json", "docs/测试策略.md", "docs/代码文档规范.md", "docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F12-ShortLootRuns.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md"],
       "related_code": ["client/"],
       "update_triggers": ["formal project phase changes", "phase gate changes", "full project milestone completion", "post-MVP roadmap changes", "future online service stage changes"],
-      "keywords": ["正式项目", "工作规划", "full project", "formal project", "roadmap", "F1", "F2", "F10", "F11", "F12", "WarzoneDirector", "战区导演", "Gear Mod", "short loot runs", "未来在线服务阶段", "GodotSteam", "Talo", "默认无升级三选一", "autoload", "client", "post-MVP", "阶段门禁"]
+      "keywords": ["正式项目", "工作规划", "full project", "formal project", "roadmap", "F1", "F2", "F10", "F11", "F12", "WASD", "意识层", "意识核", "WarzoneDirector", "战区导演", "Gear Mod", "short loot runs", "未来在线服务阶段", "GodotSteam", "Talo", "默认无升级三选一", "autoload", "client", "post-MVP", "阶段门禁"]
     },
     {
       "path": "docs/AI记忆/README.md",
@@ -594,16 +594,16 @@
     {
       "path": "docs/AI协作/工作包/F10-WarzoneDirector.md",
       "type": "workflow",
-      "authority": "F10 warzone director task scope, reading budget, red lines, data schema, director interest point map placement, and acceptance commands",
+      "authority": "F10 warzone director task scope, reading budget, red lines, legacy internal mutation fields, Mind Layer theme packaging, director interest point map placement, and acceptance commands",
       "status": "active",
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-07-21",
       "canonical_for": ["f10_warzone_director_work_package", "warzone_director_scope", "director_interest_point_map_placement", "no_hidden_dda_rule"],
-      "must_read_for": ["f10_warzone_director", "warzone_director_change", "director_phase_change", "nest_mutation_change", "director_interest_point_change"],
+      "must_read_for": ["f10_warzone_director", "warzone_director_change", "director_phase_change", "mind_layer_theme_change", "legacy_nest_mutation_change", "director_interest_point_change"],
       "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/gameplay_runtime.md", "docs/代码/data_loader.md", "docs/代码/map_manager.md", "docs/代码/enemy_ai.md", "docs/代码/warzone_director.md", "client/data/README.md", "docs/AI记忆/current_state.json", "docs/AI协作/工作包/F9-ContentDemoPolish.md"],
       "related_code": ["client/data/warzone_directors.json", "client/data/spawn_waves.csv", "client/data/map_layouts.json", "client/data/enemies.csv", "client/data/enemy_ai_profiles.json", "client/scripts/gameplay/warzone_director.gd", "client/scripts/gameplay/map_manager.gd", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd"],
       "update_triggers": ["F10 scope changes", "warzone director schema changes", "phase gating behavior changes", "director interest point map placement changes", "player-state-reading boundary changes", "hidden DDA policy changes", "acceptance command changes"],
-      "keywords": ["F10", "WarzoneDirector", "战区导演", "敌巢战区", "巢变异", "nest mutation", "phase", "阶段", "兴趣点", "POI", "source=director", "director hazards", "MapManager", "schema v2", "no hidden DDA", "不读玩家状态", "player state", "runtime LLM", "wave gating", "warzone_directors.json"]
+      "keywords": ["F10", "WarzoneDirector", "战区导演", "意识层主题", "Mind Layer theme", "敌巢战区", "巢变异", "nest mutation", "遗留内部命名", "phase", "阶段", "兴趣点", "POI", "source=director", "director hazards", "MapManager", "schema v2", "no hidden DDA", "不读玩家状态", "player state", "runtime LLM", "wave gating", "warzone_directors.json", "ADR #178"]
     },
     {
       "path": "docs/AI协作/工作包/F11-GearModLoadout.md",
@@ -622,7 +622,7 @@
     {
       "path": "docs/AI协作/工作包/F12-ShortLootRuns.md",
       "type": "workflow",
-      "authority": "Historical F12 short-loot work package; its old growth-disable boundary is superseded by ADR #169, while POI / small nest core loop context remains useful",
+      "authority": "Historical F12 short-loot work package; its old growth-disable boundary is superseded by ADR #169, while POI / extraction and legacy small-nest-core implementation context remain useful under the current Mind Core packaging",
       "status": "active",
       "owner_scope": "ai-workflow",
       "last_reviewed": "2026-07-29",
@@ -630,8 +630,8 @@
       "must_read_for": ["f12_short_loot_runs", "short_loot_run_change", "interest_point_short_loop"],
       "related_docs": ["docs/游戏设计文档.md", "docs/决策记录.md", "docs/AI导航.md", "docs/测试策略.md", "docs/代码文档规范.md", "docs/代码/gameplay_runtime.md", "docs/代码/warzone_director.md", "docs/代码/room_manager.md", "docs/代码/map_manager.md", "docs/代码/gear_mod_system.md", "client/data/README.md", "docs/AI记忆/current_state.json", "docs/AI协作/工作包/F11-GearModLoadout.md", "docs/AI协作/工作包/F10-WarzoneDirector.md"],
       "related_code": ["client/data/game_modes.json", "client/data/warzone_directors.json", "client/data/spawn_waves.csv", "client/data/map_layouts.json", "client/data/gear_mod_drop_tables.csv", "client/scripts/gameplay/gameplay_run_loop.gd", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd", "client/tools/golden_replay_capture.gd", "client/tools/replay_runner.gd", "client/tests/replays/golden_reward_choice.replay"],
-      "update_triggers": ["F12 scope changes", "default run length changes", "short-loop interest point structure changes", "small nest core loop changes", "acceptance command changes"],
-      "keywords": ["F12", "ShortLootRuns", "short loot runs", "短刷图", "短循环", "暗黑式刷图", "Diablo-like", "8-12分钟", "默认模式", "mode_standard_survival", "gold-driven progression", "ADR #169", "ADR #171", "突击枪手", "Assault Gunner", "0秒解锁", "45.5%", "golden_reward_choice", "Gear Mod", "装备 Mod", "pending_loot", "兴趣点", "POI", "小巢核", "撤离", "extraction", "extraction_radius", "extraction_hold_time", "runtime-smoke", "f9-demo-smoke"]
+      "update_triggers": ["F12 scope changes", "default run length changes", "short-loop interest point structure changes", "Mind Core or legacy small nest core loop changes", "acceptance command changes"],
+      "keywords": ["F12", "ShortLootRuns", "short loot runs", "短刷图", "短循环", "暗黑式刷图", "Diablo-like", "8-12分钟", "默认模式", "mode_standard_survival", "gold-driven progression", "ADR #169", "ADR #171", "ADR #178", "突击枪手", "Assault Gunner", "0秒解锁", "45.5%", "golden_reward_choice", "Gear Mod", "装备 Mod", "pending_loot", "兴趣点", "POI", "意识核", "Mind Core", "小巢核", "遗留实现术语", "撤离", "extraction", "extraction_radius", "extraction_hold_time", "runtime-smoke", "f9-demo-smoke"]
     },
     {
       "path": "docs/AI协作/工作包/F13-HandcraftedRooms.md",
@@ -849,13 +849,13 @@
       "authority": "Open design proposals and pending decisions",
       "status": "active",
       "owner_scope": "design",
-      "last_reviewed": "2026-06-13",
+      "last_reviewed": "2026-07-30",
       "canonical_for": ["pending_proposals", "open_questions"],
       "must_read_for": ["accepting_proposal", "design_review"],
       "related_docs": ["docs/决策记录.md", "docs/游戏设计文档.md", "docs/AI记忆/项目记忆.md"],
       "related_code": [],
       "update_triggers": ["proposal accepted", "new proposal", "proposal removed"],
-      "keywords": ["修改建议", "待决策", "proposal", "A-E"]
+      "keywords": ["修改建议", "待决策", "proposal", "D", "E", "S", "正式标题", "中文标题", "英文标题", "WASD", "项目代号"]
     },
     {
       "path": "docs/简单设计思路.md",
@@ -1084,7 +1084,7 @@
     {
       "path": "docs/代码/warzone_director.md",
       "type": "module_doc",
-      "authority": "WarzoneDirector gameplay module contract for DifficultyProgression-based fixed phase pacing, mutation, wave gating, interest-point map placement, and no-player-state director boundary",
+      "authority": "WarzoneDirector gameplay module contract for DifficultyProgression-based fixed phase pacing, legacy internal mutation fields, Mind Layer theme packaging, wave gating, interest-point map placement, and no-player-state director boundary",
       "status": "active",
       "owner_scope": "code-docs",
       "last_reviewed": "2026-07-28",
@@ -1093,7 +1093,7 @@
       "related_docs": ["docs/AI协作/工作包/F10-WarzoneDirector.md", "docs/代码/gameplay_runtime.md", "docs/代码/difficulty_progression.md", "docs/代码/game_clock.md", "docs/代码/map_manager.md", "docs/代码/data_loader.md", "client/data/README.md", "docs/游戏设计文档.md", "docs/决策记录.md", "docs/测试策略.md", "docs/AI导航.md"],
       "related_code": ["client/scripts/gameplay/warzone_director.gd", "client/scripts/data/difficulty_progression.gd", "client/data/difficulty_profiles.json", "client/data/warzone_directors.json", "client/scripts/gameplay/gameplay_run_loop.gd", "client/scripts/gameplay/map_manager.gd", "client/scripts/autoload/data_loader.gd", "tools/validate_data.py", "tools/test_data_loader_schema.py", "client/tools/runtime_smoke.gd", "client/tools/f9_demo_smoke.gd"],
       "update_triggers": ["warzone director API changes", "warzone_directors.json schema changes", "wave gating behavior changes", "director interest point placement changes", "debug summary changes", "player-state-reading boundary changes"],
-      "keywords": ["WarzoneDirector", "DifficultyProgression", "difficulty time", "威胁时间", "warzone director", "战区导演", "敌巢战区", "巢变异", "nest mutation", "phase", "阶段", "schema v2", "兴趣点", "POI", "source=director", "director hazards", "interest_points_for_layout", "extraction_radius", "extraction_hold_time", "撤离", "extraction", "wave gating", "spawn_waves", "warzone_directors.json", "no hidden DDA", "不读玩家状态", "runtime LLM", "ADR #166"]
+      "keywords": ["WarzoneDirector", "DifficultyProgression", "difficulty time", "威胁时间", "warzone director", "战区导演", "意识层主题", "Mind Layer theme", "敌巢战区", "巢变异", "nest mutation", "遗留内部命名", "phase", "阶段", "schema v2", "兴趣点", "POI", "source=director", "director hazards", "interest_points_for_layout", "extraction_radius", "extraction_hold_time", "撤离", "extraction", "wave gating", "spawn_waves", "warzone_directors.json", "no hidden DDA", "不读玩家状态", "runtime LLM", "ADR #166", "ADR #178"]
     },
     {
       "path": "docs/代码/room_manager.md",

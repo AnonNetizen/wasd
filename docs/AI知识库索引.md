@@ -48,8 +48,8 @@
 | 1 | `AGENTS.md` + 当前平台规则入口 | AI 开工流程、强制编码红线 |
 | 2 | `docs/决策记录.md` | 已采纳决策与不可逆约束 |
 | 3 | `docs/游戏设计文档.md` | 玩法、系统、长期设计 |
-| 3-A | `docs/IP设定.md` | 《破巢者》IP、世界观包装、命名体系和宣发基调 |
-| 3-B | `docs/IP美术风格.md` | 《破巢者》IP 美术风格、敌巢色板、阵营色、地图兴趣点功能色和资产 brief 色彩规则 |
+| 3-A | `docs/IP设定.md` | `WASD` 集体无意识 IP、清理智能 / 智能碎片 / 意识层 / 心象 / 意识核定义和叙事留白边界 |
+| 3-B | `docs/IP美术风格.md` | 意识层抽象美术、环境代表色、稳定敌我 / 警示 / 交互功能色、心象可读性和资产 brief 规则 |
 | 4 | `docs/词表与契约.md` | 约定字符串、id 白名单、InputService / GUIDE action |
 | 5 | `docs/测试策略.md` | 测试层级、覆盖率、回放、手动回归 |
 | 6 | `docs/代码文档规范.md` + `docs/代码/` | 代码模块文档要求和模块契约 |
@@ -64,7 +64,7 @@
 | 新会话接入 | `AGENTS.md`、`docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、`docs/AI导航.md` 相关段、当前平台规则入口 | 通常不改文件 | 无；若发现文档漂移跑 `python tools/docs_health_check.py` |
 | 续接当前任务 | `docs/AI协作/快速开工.md`、`docs/AI记忆/current_state.json`、当日会话日志；需要长期背景时再读 `项目记忆.md` 相关节 | 通常不改文件 | 无；需要确认状态时跑 `python tools/docs_health_check.py` |
 | 查看 / 维护未来任务 | `docs/TODO.md`、`docs/功能建议池.md`、`docs/局内刷取参考研究.md`、`docs/AI辅助开发机会清单.md`、`docs/在线服务规划.md`、`docs/小服务器玩法备忘.md`、`docs/AI记忆/current_state.json`、`docs/修改建议.md` | `docs/TODO.md`、必要时 current_state / 会话日志 / 修改建议 / 功能建议池 / 研究与规划文档 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
-| 改 IP / 世界观 / 英雄包装 / 宣传语 | `docs/IP设定.md`、涉及视觉时追加 `docs/IP美术风格.md`、`docs/游戏设计文档.md` §1.2、`docs/术语表.md` | IP 设定、IP 美术风格、GDD 摘要、术语表、AI导航、必要时 ADR / AI记忆 / locale 文案 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
+| 改 IP / 世界观 / 智能碎片包装 / 宣传语 | `docs/IP设定.md`、涉及视觉时追加 `docs/IP美术风格.md`、`docs/游戏设计文档.md` §1.2、`docs/术语表.md` | IP 设定、IP 美术风格、GDD 摘要、术语表、AI导航、必要时 ADR / AI记忆 / locale 文案 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool` |
 | 选择下一项新功能 / 功能菜单 | `docs/功能建议池.md`、`docs/局内刷取参考研究.md`、`docs/AI辅助开发机会清单.md`、`docs/TODO.md`、`docs/AI记忆/current_state.json`；若用户点名具体系统，再读对应工作包 / 模块文档 / GDD 章节 | 用户点名后再改 TODO / current_state / 工作包 / GDD / ADR / 模块文档；未点名前不实现功能 | `python tools/docs_health_check.py`；若改 JSON 同步跑 `python -m json.tool`；进入实现后按目标工作包验收命令运行 |
 | 规划 / 接入在线服务 | `docs/在线服务规划.md`、ADR #150、GDD §9.22 / §9.23、`docs/代码/platform_services.md`、`docs/测试策略.md` | 当前只维护供应商与门禁；用户点名首个功能后才建立工作包、决定 Talo Cloud / 官方自托管并实施 GodotSteam / Talo adapter；不开发自有通用后端 | 纯规划跑 docs health + JSON；实施时按在线服务规划和测试策略追加隔离验证、headless、平台 / 在线 smoke |
 | 评估小服务器在线玩法 | `docs/小服务器玩法备忘.md`、`docs/在线服务规划.md`、GDD §6.7 / §9.23、`docs/代码/replay.md` | GodotSteam + Talo 供应商路线已采纳，但具体玩法仍需用户点名；未点名前只做评估，不安装、不实现 | `python tools/docs_health_check.py`；若新增在线服务 schema 或 JSON 索引，同步跑 `python -m json.tool` |
@@ -191,7 +191,7 @@
 | #85 | Godot 4.7 引擎基线迁移 | `client/project.godot`、README / client README、GDD、三平台规则、三平台 `godot-gdscript` / `godot-scene-validation` skills、AI导航、代码文档规范、CICD规划、AI技能资源评估、AI记忆 |
 | #86 | RNG 子流 SHA-256 mixer 与相关性审计 | `client/scripts/autoload/rng.gd`、`client/tools/rng_audit.gd`、`client/scripts/boot/formal_client_boot.gd`、`tools/godot_bridge.py`、`docs/代码/rng.md`、GDD §9.18.1、测试策略、CICD规划、F8 工作包、AI导航、AI记忆 |
 | #87 | Claude Code 平台原生 `.claude/` 配置 | `.claude/agents/`、`.claude/commands/`、`.claude/skills/`、`.claude/rules/game-coding-rules.md`、`.claude/settings.json`、`CLAUDE.md`、四平台 `game-coding-rules.md`、工具适配指南、AI技能资源评估、AI导航、AGENTS.md、AI记忆 |
-| #88 | 《破巢者》IP 方向；跨宇宙通道、银河系星际文明残局、首都星域反击与敌巢突入包装 | `docs/IP设定.md`、GDD §1.2、术语表、AI导航、AI记忆 |
+| #88 | 历史：《破巢者 / Nestbreakers》IP 方向及跨宇宙敌巢包装；当前世界观已由 ADR #178 取代，旧原文只作沿革与遗留词检索 | ADR #178、`docs/IP设定.md`、GDD §1.2、术语表、AI导航、AI记忆 |
 | #89 | 数据驱动生态 EnemyAI；profile + Utility/FSM/Steering 分工、怪物互相狩猎 / 逃跑和非玩家击杀归因 | `docs/代码/enemy_ai.md`、`client/data/enemy_ai_profiles.json`、`client/data/enemies.csv`、`client/scripts/gameplay/enemy.gd`、GDD §5.3、词表 §12-B、测试策略、AI导航、AI记忆 |
 | #90 | 可复用主动技能系统；技能定义与英雄解耦、可扩展资源池、targeting/effect primitive 和旋风斩首片 | `docs/代码/skill_system.md`、`client/data/skills.json`、`client/data/characters.json`、`client/data/game_modes.json`、`client/scripts/gameplay/skill_system.gd`、GDD §6.1-A、词表 §12-C~12-F、测试策略、AI导航、AI记忆 |
 | #91 | 多语言 UI 英文长度基准；玩家可见 UI 文案和布局以英文 `en` 长度验收，按钮类控件由 `settings-smoke` 覆盖 | `client/locale/README.md`、GDD §9.4 / §9.14、测试策略、四平台规则、AI导航、AI记忆 |
@@ -214,19 +214,19 @@
 | #108 | subagent 默认主动调度授权；复杂、专业或可并行任务可直接启用对应项目 subagent，不支持原生调度时读取同名 agent `.md` 作为 prompt 模板 | `AGENTS.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、四平台规则入口、`.codebuddy/agents/`、`.codex/agents/`、`.opencode/agents/`、`.claude/agents/`、工具适配指南、AI协作 README、AI导航、AI记忆 |
 | #109 | 核心玩法改为射击刷宝生存；默认武器按住 `fire` action（左键 / 右扳机）持续射击，技能首批内容服务射击强化，默认移除旋风斩 / 点燃斩 / 燃烧法术包装；当前视角口径由 #124 改回俯视角 2D | GDD、词表、DataLoader schema、`WeaponSystem`、`SkillSystem`、数据手册、locale、Gameplay Runtime、SkillSystem 文档、AI导航、AI记忆 |
 | #110 | AI 协作需求不明先问；需求、术语、验收标准、授权边界或上下文无法可靠确认时先澄清，不自行脑补高风险假设 | `AGENTS.md`、`CLAUDE.md`、`CODEX.md`、`OPENCODE.md`、四平台规则入口、快速开工、AI协作 README、工具适配指南、AI导航、AI记忆 |
-| #111 | 《破巢者》IP 美术风格采用钙化活体建筑 + 阵营色隔离；敌巢 / 虫族使用骨白、蜡黄、干肉粉、深红、黑紫和少量毒蓝，玩家和玩家子弹默认避开青 / 红 / 白，敌方远程攻击可用红色，宝箱与地图兴趣点按功能色区分 | `docs/IP美术风格.md`、IP设定、GDD §8、术语表、AI导航、AI记忆 |
-| #112 | 敌巢战区导演首片；历史首片曾用固定 phase / mutation / encounter / interest point 组织 wave，当前 encounter 部分已被 ADR #144 废止；仍只按时间 gating 刷怪，不读玩家状态、不做隐藏动态难度、不接运行时 LLM | F10 工作包、`docs/代码/warzone_director.md`、`client/data/warzone_directors.json`、Gameplay Runtime、DataLoader schema、GDD §7.3、AI导航、AI记忆 |
+| #111 | 历史：《破巢者》钙化活体建筑与阵营色隔离；当前美术结论已由 ADR #178 取代，旧原文只作沿革与遗留色板检索 | ADR #178、`docs/IP美术风格.md`、IP设定、GDD §8、术语表、AI导航、AI记忆 |
+| #112 | 战区导演首片；遗留内部命名曾以敌巢 mutation / encounter / interest point 组织 wave，当前内容包装按意识层主题解释，encounter 部分已被 ADR #144 废止；仍只按时间 gating 刷怪，不读玩家状态、不做隐藏动态难度、不接运行时 LLM | F10 工作包、`docs/代码/warzone_director.md`、`client/data/warzone_directors.json`、Gameplay Runtime、DataLoader schema、GDD §7.3、AI导航、AI记忆 |
 | #113 | F10 兴趣点接入 MapManager 初始机关生成；`WarzoneDirector` 过滤当前 layout 的 interest points，`MapManager` 用通用 PCG / 锚点规则生成 `source=director` hazards；不读玩家状态、不按 id 特判、不提升 run schema；当前锚点网格由 #125 修正为矩形格 | F10 工作包、`docs/代码/warzone_director.md`、`docs/代码/map_manager.md`、Gameplay Runtime、DataLoader schema、`client/data/README.md`、GDD §7.3、AI导航、AI记忆 |
 | #114 | 普通新局 / 重开生成新的 run seed；继续游戏恢复 run snapshot，replay / smoke / golden 工具保持固定 seed | `client/scripts/autoload/rng.gd`、`client/scripts/boot/formal_client_boot.gd`、`client/tools/l1_smoke.gd`、RNG / FormalClientBoot / Gameplay Runtime 文档、GDD §9.18.1、AI导航、AI记忆 |
-| #115 | 跨局成长改为参考《星际战甲》的装备 Mod 系统，玩家配置英雄 / 武器两套 Mod；旧 `MetaProgressionSystem` 不再作为未来下一局属性来源 | GDD §7.2 / §9.16、F11 工作包、`docs/代码/gear_mod_system.md`、`client/data/README.md`、测试策略、AI导航、AI记忆 |
+| #115 | 跨局成长改为参考《星际战甲》的装备 Mod 系统，玩家配置智能碎片 / 武器两套 Mod，内部 `hero` 类型保持；旧 `MetaProgressionSystem` 不再作为未来下一局属性来源 | GDD §7.2 / §9.16、ADR #178、F11 工作包、`docs/代码/gear_mod_system.md`、`client/data/README.md`、测试策略、AI导航、AI记忆 |
 | #116 | 历史决策：旧 `purchased_upgrades` 曾计划按历史花费补偿为 `gear_mod_dust`；已由 #118 取消 | ADR #118、F11 工作包、GDD §7.2 / §9.16、AI导航、AI记忆 |
 | #117 | 旧局外成长运行时退役；删除旧 autoload / UI / 死亡结算 / `meta-smoke` | `docs/代码/gear_mod_system.md`、`docs/代码/save_manager.md`、F11 工作包、GDD §7.2 / §9.16、测试策略、AI导航、AI记忆 |
 | #118 | 旧局外成长测试档不再迁移；删除旧 `meta_progression.json`、旧 meta 契约常量、旧文案、旧 `purchased_upgrades` 补偿逻辑和相关 schema / smoke 覆盖 | `docs/代码/gear_mod_system.md`、`docs/代码/save_manager.md`、F11 工作包、GDD §7.2 / §9.16、测试策略、AI导航、AI记忆 |
 | #119 | 本地 staged whitespace hook 自动修复 EOF 多空行后再检查；其他 whitespace 错误仍失败 | `.pre-commit-config.yaml`、`tools/check_staged_whitespace.py`、实时验证回路、CICD规划、测试策略、文档健康检查、AI记忆 |
 | #120 | 默认标准模式改为 8-12 分钟短刷图循环；其“保留旧 XP 成长池给未来模式”部分已由 ADR #169 取代 | F12 工作包、ADR #169、GDD、AI导航、Gameplay Runtime 文档、Data README、测试策略 |
 | #121 | AI 上下文预算新增 S / M / L / XL 任务复杂度分级，先判流程深度再按任务类型读取文件 | `docs/AI协作/上下文预算.md`、AI协作 README、AI导航、决策记录、AI记忆、current_state |
-| #122 | 默认短刷图战利品采用暂存后结算：本局 Gear Mod / dust 先进入 `run.pending_loot`，完成小巢核或未来撤离成功才写入 `meta.gear_mods`，死亡 / 放弃丢失 | F12 工作包、GDD、Gameplay Runtime 文档、SaveManager / GearModSystem 边界、测试策略、current_state、AI记忆 |
-| #123 | 默认短刷图小巢核击破后开启贴格撤离区，玩家完成撤离读条后才提交 `run.pending_loot`、删除 `run` 并显示完成面板 | F12 工作包、GDD、Gameplay Runtime 文档、WarzoneDirector / MapManager 文档、测试策略、current_state、AI记忆 |
+| #122 | 默认短刷图战利品采用暂存后结算：本局 Gear Mod / dust 先进入 `run.pending_loot`，完成意识核目标或撤离成功才写入 `meta.gear_mods`，死亡 / 放弃丢失；运行时旧 id 保持不变 | F12 工作包、GDD、Gameplay Runtime 文档、SaveManager / GearModSystem 边界、测试策略、current_state、AI记忆 |
+| #123 | 默认短刷图击破意识核后开启贴格撤离区，玩家完成撤离读条后才提交 `run.pending_loot`、删除 `run` 并显示完成面板；运行时旧 id 保持不变 | F12 工作包、GDD、Gameplay Runtime 文档、WarzoneDirector / MapManager 文档、测试策略、current_state、AI记忆 |
 | #124 | 当前正式视角改回俯视角 2D；删除正式玩家场景的 `Player3DVisual` / `SubViewport + Camera3D` 正交视觉层，玩家由 `Player._draw()` 按完整 `aim_direction` 绘制方向标记；地图格 / 机关口径随后由 #125 修正为矩形俯视格 | README、GDD、IP设定、IP美术风格、术语表、AI导航、Gameplay Runtime 文档、四平台规则入口；当前玩家基础场景已由 #155 迁到 `client/scenes/gameplay/actors/player_base.tscn` |
 | #125 | 俯视角地面语言改为矩形 / 方形 2D 网格；`map_layouts.json.grid.cell_width/cell_height` 表示水平 / 垂直格宽高，`MapManager` 使用矩形边界、矩形出生安全区和矩形 clamp，`Hazard` / POI target / cache / extraction 都用矩形俯视 footprint | GDD、AI导航、术语表、IP美术风格、F9 / F12 工作包、MapManager / HazardSystem / Gameplay Runtime / WarzoneDirector 文档、Data README、测试策略、四平台规则入口、current_state、AI记忆 |
 | #126 | 敌人 AI 新增通用远程攻击 action；`enemy_ai_profiles.json.movement.ranged_*` 配置距离、冷却和投射物参数，默认短刷图 5:00 引入 `enemy_spitter` 喷棘者，敌弹复用池化子弹并通过 `Combat.apply_damage()` 伤害玩家 | GDD、AI导航、AI记忆、Gameplay Runtime / EnemyAI 文档、Data README、词表与契约、`client/data/enemy_ai_profiles.json`、`client/data/enemies.csv`、`client/data/spawn_waves.csv`、`client/scripts/gameplay/enemy.gd`、`client/scripts/gameplay/bullet.gd`、`client/tools/runtime_smoke.gd` |
@@ -257,8 +257,8 @@
 | #158 | 统一视觉效果目录与表现 Profile：`VisualEffects` 只解析资源 / 策略，run-scoped `VfxHost` 管空间层、生命周期和池，`GameplayFeedbackController` 按 cue 路由跨系统反馈；Actor 使用标准挂点和 Presenter，UIManager 使用异步四态与可复用 UI Effects。正式效果必须是可编辑组合场景，程序几何仅作精选复合模板；编辑器“VFX 效果库”从发布排除。原 reduced-motion 设置与策略已由 #168 取代，质量分档已由 #176 取代 | GDD §9.24、词表 §16、Visual Effects / UI Effects / UIManager / Gameplay Runtime / DataLoader / PoolManager / Settings 文档、数据与 locale 手册、测试策略、AI导航、知识索引、三层项目记忆、`vfx-smoke` 与 `ui-manager-smoke` |
 | #159 | 正式 `client/` 内新增 debug/dev_tools“开发者测试岛”：内部 RunLoop 用途复用正式战斗、对象池、VFX 与 Gear Mod modifier，提供入场前配装、固定靶 / 正常 AI、控制面板、作弊、死亡复位和 DPS；独立 cfg 是唯一持久写入，正式 run/meta、Replay/Analytics 和 release 资源严格隔离；不新增正式 mode/save/action/pool id | GDD §9.20、Developer Test Arena / DebugTools / Gameplay Runtime / FormalClientBoot / GearModSystem 文档、locale、测试策略、CICD、AI导航、知识索引、三层项目记忆、`debug-test-arena-smoke` 与 release guard |
 | #160 | 开发者测试岛改为仅直接运行 `debug_test_arena.tscn`：standalone host 先显示配装，再创建 / 重建内部 RunLoop，退出时恢复服务；正式标题、FormalClientBoot 和正式 CLI 零耦合，release 排除不变 | ADR #159 其余测试能力、GDD §9.20、Developer Test Arena / FormalClientBoot / Gameplay Runtime 文档、locale、测试策略、CICD、AI导航、知识索引、三层项目记忆与直启 smoke |
-| #161 | 主／子英雄组合、四槽技能、共享能量、基础冲刺、七元素与新防御层：冷静 / 愤怒完成开局组合选择，主英雄独占属性 / 被动 / 技能 1/2，子英雄只贡献强调色 / 技能 3/4；Meta / Run / Replay 升至 v2 / v5 / v3，旧 Run v4 与旧 Replay 拒绝 | GDD v1.32、词表、Combat / SkillSystem / Gameplay Runtime / InputService / SaveManager / Replay / Developer Test Arena 文档、`characters.json`、`hero_passives.json`、`elements.json`、`skills.json`、HUD / 选择界面、测试策略、AI导航、知识索引与三层项目记忆 |
-| #162 | 技能 / 被动等玩家描述中的可调数值统一使用配置命名占位符；`SkillDescriptionFormatter` 负责显示格式化，`SkillValueResolver` 由运行时和描述共用，未知 token 由数据校验拒绝，禁止按内容 id 特判 | 四平台编码规则、GDD §9.4、词表 §6、`client/locale/README.md`、Localization / SkillSystem 文档、`strings.csv`、英雄组合选择界面、DataLoader schema 回归、L1 / Loading smoke、AI导航与三层项目记忆 |
+| #161 | 主／副智能碎片组合、四槽技能、共享能量、基础冲刺、七元素与新防御层：冷静 / 愤怒完成开局组合选择，主碎片独占主体 / 属性 / 被动 / 技能 1/2，副碎片只贡献强调色 / 技能 3/4；现有 `hero_*` 内部字段保持，Meta / Run / Replay 升至 v2 / v5 / v3，旧 Run v4 与旧 Replay 拒绝 | GDD v1.32、ADR #178、词表、Combat / SkillSystem / Gameplay Runtime / InputService / SaveManager / Replay / Developer Test Arena 文档、`characters.json`、`hero_passives.json`、`elements.json`、`skills.json`、HUD / 选择界面、测试策略、AI导航、知识索引与三层项目记忆 |
+| #162 | 技能 / 被动等玩家描述中的可调数值统一使用配置命名占位符；`SkillDescriptionFormatter` 负责显示格式化，`SkillValueResolver` 由运行时和描述共用，未知 token 由数据校验拒绝，禁止按内容 id 特判 | 四平台编码规则、GDD §9.4、词表 §6、`client/locale/README.md`、Localization / SkillSystem 文档、`strings.csv`、智能碎片组合选择界面（内部 hero 字段）、DataLoader schema 回归、L1 / Loading smoke、AI导航与三层项目记忆 |
 | #163 | 静域屏障只拦截敌方投射物跨越圆周：外→内、内→外命中，内→内及不穿圆的外→外放行；敌弹首帧从射手开火位置扫掠，枪口偏移不能绕过边界，玩家弹继续忽略屏障 | GDD §9.15.4、SkillSystem / Gameplay Runtime 文档、`projectile_barrier.gd`、`bullet.gd`、L1 smoke、测试策略、AI导航与三层项目记忆 |
 | #164 | F13 正式普通槽统一为 0° 全开放平地，固定起点 / 目标 / 撤离保留；模块 schema v3 删除敌人 placement，世界 schema v2 数据化首次进入数量、预警与敌种解锁权重。相邻边改为开放格交集非空；首次实际进入非起点槽时从有效空地固化敌种 / 位置计划，暂停 / 卸载 / 保存恢复不重抽 | GDD v1.34、词表、Data README、Module Authoring / ModuleWorldManager / Gameplay Runtime / SaveManager / Visual Effects 文档、F13 工作包、测试策略、AI导航、`module_flat_ground`、module-world / VFX smoke、三层项目记忆 |
 | #165 | 共享武器 `recoil` 同时驱动固定单发扩散、碰撞安全反冲和独立动态震屏；`spread_angle_max` 是完整锥角上限，每弹固定消耗 `RNG.combat`，冲刺抑制后移。Run v5 保存当前冲量，Replay 保持 v3；新增后坐阻尼 / 扩散稳定 Mod并更新四条黄金基线。固定屏幕中心瞄准部分已由 #167 取代，震屏与玩法确定性边界继续有效 | GDD v1.35、词表、Data / Locale README、Gameplay Runtime / Phantom Camera / Gear Mod / SaveManager / Replay 文档、测试策略、AI导航、`weapon_recoil_resolver.gd`、L1 / runtime / Gear Mod / Replay smoke、三层项目记忆 |
@@ -281,6 +281,7 @@
 | #152 | 在公开兼容窗口前关闭旧输入格式兼容：Settings v1 只保留普通偏好并忽略旧 `input.*`，Replay 只接受 v2，八个旧方向 action 删除；同名 GUIDE binding id 保持稳定。本条只取代 #151 的 v1 兼容条款 | GDD v1.28、词表、InputService / Settings / Replay 文档、测试策略、AI导航、current_state、AI记忆 |
 | #176 | 完整删除 VFX 质量设置与变体接口：Settings 升 v4 并在 v1–v3 迁移时清理 `video.vfx_quality`；`visual_effects.json` 升 schema v3 并拒绝 `quality_variants`，删除质量契约、设置页 / locale、运行时解析和 VFX 编辑器质量预览。闪屏与震屏仍独立，Run v10 / Replay v3 / 游戏 v1.9 不变 | GDD v1.44 §9.24、词表、Data / Locale README、Settings / Visual Effects / DataLoader 文档、测试策略、AI导航、知识索引和三层项目记忆 |
 | #177 | 枪械加入弹匣 / 备弹 / 总上限、1.2 秒换弹、零弹 50% 降级射击与递增敌人弹药掉落；新增 `RNG.ammo`、`ammo_magazine` 池和 `reload`，默认技能改 1–4、交互 E。weapons v4、binding v2、Run v11、游戏 v1.10；旧 Run v10 和 binding v1 回退，Replay v3 重录 | GDD v1.46 §3.2、词表、Data / Locale README、Gameplay Runtime / InputService / RNG / PoolManager / SaveManager / Replay 文档、测试策略、AI导航、知识索引和三层项目记忆 |
+| #178 | 项目 IP 改为代号 `WASD` 下的集体无意识清理设定：清理智能由主 / 副智能碎片组合，一张 9×9 世界是一层意识层，万物可形成心象，击破意识核后撤离；层代表色只用于环境装饰，敌我 / 警示 / 交互功能色稳定。意识层来源、AI 立场和清理结果保持留白；取代 #88 / #111 的当前结论，本轮不改玩家文案、运行时、数据、素材或版本 | GDD v1.47、`docs/IP设定.md`、`docs/IP美术风格.md`、术语表、修改建议 S、AI导航、正式项目工作规划、知识索引和三层项目记忆 |
 
 F14 交付时的四条黄金回放重录与运行时摘要证据见 [2026-07-21 F14 黄金回放回归报告](reports/2026-07-21-f14-replay-regression.md)。
 ADR #154 模块 JSON / 单向 TSCN 迁移在不重录 golden 的前提下保持旧 map hash 与四条运行时摘要，证据见 [2026-07-23 ADR #154 黄金回放回归报告](reports/2026-07-23-replay-regression.md)。
@@ -310,7 +311,7 @@ ADR #177 弹药、换弹、独立 `RNG.ammo`、Run v11 与四条 Replay v3 重�
 | 功能建议池 | `docs/功能建议池.md` | 展示 F9 第一轮 Demo 收口后可人工点名的新功能菜单；不是已采纳路线图 |
 | 局内刷取参考研究 | `docs/局内刷取参考研究.md` | 展示 F12 局内刷取、兴趣点、撤离结算、射击构筑和 Gear Mod 循环的外部游戏参考；不是已采纳路线图 |
 | AI 辅助开发机会清单 | `docs/AI辅助开发机会清单.md` | 展示不在运行时接 LLM、只利用 AI 辅助写代码 / 数据 / 工具时可参考的玩法、内容管线和开发工具机会；不是已采纳路线图 |
-| 小服务器玩法备忘 | `docs/小服务器玩法备忘.md` | 展示 Talo 可承载的异步在线、敌巢进化、死亡残响、星域污染图等玩法；供应商路线已采纳，但具体玩法不是已采纳路线图 |
+| 小服务器玩法备忘 | `docs/小服务器玩法备忘.md` | 展示 Talo 可承载的异步在线玩法历史参考；其中敌巢进化、星域污染图等旧 IP 包装已由 ADR #178 取代，具体玩法不是已采纳路线图 |
 | 规则反例 | 当前平台规则入口的红线与自检清单 | 防止硬编码、裸字符串、绕过 autoload |
 
 ## 7. 维护规则
