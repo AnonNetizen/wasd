@@ -5,6 +5,7 @@ const COMPILER := preload("res://scripts/polygon_asset_compiler_core.gd")
 const MANIFEST_PATH: String = "res://data/polygon_imports/open_book.json"
 const RUNTIME_SCRIPT := preload("res://scripts/polygon_asset_2d.gd")
 const SCENE_PATH: String = "res://scenes/polygon_book_test.tscn"
+const SHADER_PATH: String = "res://shaders/polygon_asset.gdshader"
 const SOURCE_PATH: String = "res://assets/polygon_art/open_book_source.png"
 const STYLE_PATH: String = "res://data/polygon_art_style.json"
 
@@ -51,7 +52,9 @@ func _run_smoke() -> void:
 	_validate_source(asset_data)
 	_validate_asset_schema(asset_data, style)
 	_validate_scene_file_shape()
+	_validate_shader_shape()
 	await _validate_runtime(asset_data)
+	await _validate_demo_scene()
 	_finish()
 
 
@@ -194,6 +197,22 @@ func _validate_scene_file_shape() -> void:
 	_check(text.find(SOURCE_PATH) < 0, "Scene file has no source PNG resource dependency.")
 
 
+func _validate_shader_shape() -> void:
+	var shader := load(SHADER_PATH) as Shader
+	_check(shader != null, "Polygon runtime shader loads.")
+	if shader == null:
+		return
+	_check(
+		shader.code.find("step(0.75, UV.y)") >= 0,
+		"Shader gates page-turn deformation by per-face UV motion masks."
+	)
+	_check(
+		shader.code.find("page_fold_light") >= 0
+		and shader.code.find("page_fold_shadow") >= 0,
+		"Shader exposes fold color-shift endpoints."
+	)
+
+
 func _validate_runtime(asset_data: Dictionary) -> void:
 	var runtime := RUNTIME_SCRIPT.new()
 	runtime.name = "RuntimeUnderTest"
@@ -208,16 +227,72 @@ func _validate_runtime(asset_data: Dictionary) -> void:
 	_check(mesh_instances.size() == 1, "PolygonAsset2D owns exactly one MeshInstance2D.")
 	var mesh_instance := runtime.get_mesh_instance() as MeshInstance2D
 	_check(mesh_instance != null, "Runtime exposes the Polygon mesh instance.")
+	var runtime_stats: Dictionary = runtime.get_runtime_stats()
+	_check(
+		int(runtime_stats.get("turnable_face_count", 0)) > 0,
+		"Runtime identifies turnable right-page faces."
+	)
+	_check(
+		int(runtime_stats.get("page_underlay_face_count", 0))
+		== int(runtime_stats.get("turnable_face_count", -1)),
+		"Every turnable page face has one fixed underlay face."
+	)
+	_check(
+		int(runtime_stats.get("render_face_count", 0))
+		== int(runtime_stats.get("source_face_count", 0))
+		+ int(runtime_stats.get("page_underlay_face_count", 0)),
+		"Runtime render-face count includes only the fixed page underlay duplicates."
+	)
 	if mesh_instance != null:
 		var mesh := mesh_instance.mesh as ArrayMesh
 		_check(mesh != null, "Runtime mesh is an ArrayMesh.")
 		if mesh != null:
 			_check(mesh.get_surface_count() == 1, "Runtime ArrayMesh has one surface.")
 			_check(
-				mesh.surface_get_array_len(0) == int(
-					(asset_data.get("stats", {}) as Dictionary).get("face_count", 0)
-				) * 3,
-				"Runtime expands every face into three same-color vertices."
+				mesh.surface_get_array_len(0)
+				== int(runtime_stats.get("render_face_count", 0)) * 3,
+				"Runtime expands source and underlay faces into one surface."
+			)
+			var arrays := mesh.surface_get_arrays(0)
+			var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+			var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+			var turnable_vertex_count := 0
+			var idle_page_vertex_count := 0
+			for uv: Vector2 in uvs:
+				if uv.y >= 0.75:
+					turnable_vertex_count += 1
+				elif uv.y >= 0.25:
+					idle_page_vertex_count += 1
+			_check(
+				turnable_vertex_count
+				== int(runtime_stats.get("turnable_face_count", 0)) * 3,
+				"Only turnable page faces carry the page-turn UV mask."
+			)
+			_check(
+				idle_page_vertex_count > 0,
+				"Left-page surface faces retain idle-only motion masks."
+			)
+			var palette: Dictionary = asset_data.get("palette", {})
+			var palette_colors: Dictionary = {}
+			for palette_color_value: Variant in palette.values():
+				palette_colors[Color(String(palette_color_value)).to_html(false)] = true
+			var underlay_color_keys: Dictionary = {}
+			var underlay_vertex_count := (
+				int(runtime_stats.get("page_underlay_face_count", 0)) * 3
+			)
+			var underlay_colors_are_profiled := true
+			for color_index in range(mini(underlay_vertex_count, colors.size())):
+				var color_key := colors[color_index].to_html(false)
+				underlay_color_keys[color_key] = true
+				if not palette_colors.has(color_key):
+					underlay_colors_are_profiled = false
+			_check(
+				underlay_colors_are_profiled,
+				"Fixed page underlay colors come from the Style Profile."
+			)
+			_check(
+				underlay_color_keys.size() >= 2,
+				"Fixed page underlay preserves multiple Polygon color blocks."
 			)
 		_check(mesh_instance.texture == null, "Runtime MeshInstance2D has no texture.")
 	var outline_nodes := runtime.find_children("*", "Line2D", true, false)
@@ -263,6 +338,42 @@ func _validate_runtime(asset_data: Dictionary) -> void:
 		"Debug triangle mesh can be enabled without another MeshInstance2D."
 	)
 	runtime.queue_free()
+	await process_frame
+
+
+func _validate_demo_scene() -> void:
+	var packed_scene := load(SCENE_PATH) as PackedScene
+	_check(packed_scene != null, "Polygon book demo scene loads as PackedScene.")
+	if packed_scene == null:
+		return
+	var scene := packed_scene.instantiate()
+	root.add_child(scene)
+	await process_frame
+	await process_frame
+	_check(scene.has_method("get_auto_demo_state"), "Demo exposes auto-demo state.")
+	_check(scene.has_method("debug_set_auto_demo_time"), "Demo exposes deterministic auto timing.")
+	if (
+		not scene.has_method("get_auto_demo_state")
+		or not scene.has_method("debug_set_auto_demo_time")
+	):
+		scene.queue_free()
+		return
+	var initial_state: Dictionary = scene.call("get_auto_demo_state")
+	_check(bool(initial_state.get("enabled", false)), "Auto demo is enabled on scene entry.")
+	scene.call("debug_set_auto_demo_time", 1.6)
+	var polygon_asset: Node = scene.call("get_polygon_asset")
+	var turn_stats: Dictionary = polygon_asset.call("get_runtime_stats")
+	_check(
+		float(turn_stats.get("page_turn_progress", 0.0)) > 0.4,
+		"Auto demo reaches a visible page-turn phase."
+	)
+	scene.call("debug_set_auto_demo_time", 3.5)
+	var clear_stats: Dictionary = polygon_asset.call("get_runtime_stats")
+	_check(
+		float(clear_stats.get("clear_progress", 0.0)) > 0.4,
+		"Auto demo reaches a visible clear phase."
+	)
+	scene.queue_free()
 	await process_frame
 
 

@@ -2,6 +2,18 @@ class_name PolygonAsset2D
 extends Node2D
 
 const DEBUG_OVERLAY_SCRIPT := preload("res://scripts/polygon_mesh_debug_overlay.gd")
+const PAGE_PALETTE_ROLES: Array[String] = [
+	"page_light",
+	"page_mid",
+	"page_shadow",
+	"accent_warm",
+]
+const PAGE_UNDERLAY_ROLE_MAP: Dictionary = {
+	"page_light": "page_mid",
+	"page_mid": "page_shadow",
+	"page_shadow": "page_light",
+	"accent_warm": "page_mid",
+}
 const POLYGON_SHADER := preload("res://shaders/polygon_asset.gdshader")
 
 var _asset_data: Dictionary = {}
@@ -16,6 +28,10 @@ var _animation_time: float = 0.0
 var _page_turn_progress: float = 0.0
 var _clear_progress: float = 0.0
 var _debug_mesh_visible: bool = false
+var _page_surface_face_count: int = 0
+var _turnable_face_count: int = 0
+var _page_underlay_face_count: int = 0
+var _render_face_count: int = 0
 
 
 func _ready() -> void:
@@ -81,13 +97,21 @@ func get_asset_data() -> Dictionary:
 
 func get_runtime_stats() -> Dictionary:
 	var mesh := _mesh_instance.mesh as ArrayMesh if _mesh_instance != null else null
+	var mesh_vertex_count := 0
+	if mesh != null and mesh.get_surface_count() == 1:
+		mesh_vertex_count = mesh.surface_get_array_len(0)
 	return {
 		"mesh_instance_count": 1 if _mesh_instance != null else 0,
 		"surface_count": mesh.get_surface_count() if mesh != null else 0,
-		"mesh_vertex_count": int(_asset_data.get("stats", {}).get("face_count", 0)) * 3,
+		"mesh_vertex_count": mesh_vertex_count,
 		"has_texture": _mesh_instance.texture != null if _mesh_instance != null else false,
 		"outline_node_count": 1 if _outline != null else 0,
 		"collision_static": true,
+		"source_face_count": int(_asset_data.get("stats", {}).get("face_count", 0)),
+		"page_surface_face_count": _page_surface_face_count,
+		"turnable_face_count": _turnable_face_count,
+		"page_underlay_face_count": _page_underlay_face_count,
+		"render_face_count": _render_face_count,
 		"animation_time": _animation_time,
 		"page_turn_progress": _page_turn_progress,
 		"clear_progress": _clear_progress,
@@ -146,9 +170,11 @@ func _build_mesh() -> Error:
 		return ERR_INVALID_DATA
 	var faces: Array = faces_value
 	var palette: Dictionary = palette_value
-	var expanded_vertices := PackedVector3Array()
-	var expanded_colors := PackedColorArray()
-	var expanded_uvs := PackedVector2Array()
+	var validated_faces: Array[Dictionary] = []
+	_page_surface_face_count = 0
+	_turnable_face_count = 0
+	_page_underlay_face_count = 0
+	_render_face_count = 0
 	for face_value: Variant in faces:
 		if not face_value is Dictionary:
 			return ERR_INVALID_DATA
@@ -156,21 +182,62 @@ func _build_mesh() -> Error:
 		var indices_value: Variant = face.get("indices", [])
 		if not indices_value is Array or (indices_value as Array).size() != 3:
 			return ERR_INVALID_DATA
-		var indices: Array = indices_value
 		var role := String(face.get("palette_role", ""))
 		if not palette.has(role):
 			return ERR_INVALID_DATA
-		var color := Color(String(palette[role]))
-		color.a = 1.0
-		var clear_order := clampf(float(face.get("clear_order", 1.0)), 0.0, 1.0)
-		for vertex_index_value: Variant in indices:
+		for vertex_index_value: Variant in indices_value:
 			var vertex_index := int(vertex_index_value)
 			if vertex_index < 0 or vertex_index >= vertices.size():
 				return ERR_INVALID_DATA
+		var motion_mask := _motion_mask_for_face(face)
+		if motion_mask >= 0.25:
+			_page_surface_face_count += 1
+		if motion_mask >= 0.75:
+			_turnable_face_count += 1
+		validated_faces.append(face)
+
+	var render_faces: Array[Dictionary] = []
+	for face: Dictionary in validated_faces:
+		if _motion_mask_for_face(face) < 0.75:
+			continue
+		var source_role := String(face.get("palette_role", "page_mid"))
+		var underlay_role := String(PAGE_UNDERLAY_ROLE_MAP.get(source_role, "page_mid"))
+		render_faces.append({
+			"indices": (face["indices"] as Array).duplicate(),
+			"color": Color(String(palette[underlay_role])),
+			"clear_order": float(face.get("clear_order", 1.0)),
+			"motion_mask": 0.0,
+		})
+		_page_underlay_face_count += 1
+	for face: Dictionary in validated_faces:
+		var role := String(face.get("palette_role", ""))
+		render_faces.append({
+			"indices": (face["indices"] as Array).duplicate(),
+			"color": Color(String(palette[role])),
+			"clear_order": float(face.get("clear_order", 1.0)),
+			"motion_mask": _motion_mask_for_face(face),
+		})
+	_render_face_count = render_faces.size()
+
+	var expanded_vertices := PackedVector3Array()
+	var expanded_colors := PackedColorArray()
+	var expanded_uvs := PackedVector2Array()
+	for render_face: Dictionary in render_faces:
+		var indices: Array = render_face["indices"]
+		var color: Color = render_face["color"]
+		color.a = 1.0
+		var clear_order := clampf(
+			float(render_face.get("clear_order", 1.0)),
+			0.0,
+			1.0
+		)
+		var motion_mask := clampf(float(render_face.get("motion_mask", 0.0)), 0.0, 1.0)
+		for vertex_index_value: Variant in indices:
+			var vertex_index := int(vertex_index_value)
 			var vertex := vertices[vertex_index]
 			expanded_vertices.append(Vector3(vertex.x, vertex.y, 0.0))
 			expanded_colors.append(color)
-			expanded_uvs.append(Vector2(clear_order, 0.0))
+			expanded_uvs.append(Vector2(clear_order, motion_mask))
 
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
@@ -257,6 +324,18 @@ func _validate_asset_data(data: Dictionary) -> Error:
 	if not data.get("outline", null) is Array:
 		return ERR_INVALID_DATA
 	return OK
+
+
+func _motion_mask_for_face(face: Dictionary) -> float:
+	var role := String(face.get("palette_role", ""))
+	if not PAGE_PALETTE_ROLES.has(role):
+		return 0.0
+	var region := String(face.get("region", ""))
+	if region == "right_page":
+		return 1.0
+	if region == "left_page":
+		return 0.5
+	return 0.0
 
 
 func _load_json_dictionary(path: String) -> Dictionary:
