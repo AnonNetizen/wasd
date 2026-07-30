@@ -61,13 +61,13 @@ ui_settings_input_conflict_replace,替换,Replace
 ui_settings_privacy,隐私,Privacy
 ui_settings_analytics_enabled,允许匿名分析,Allow Anonymous Analytics
 ui_title_name,WASD,WASD
-ui_title_subtitle,最小生存测试,Minimal Survival Test
+ui_title_subtitle,集体无意识,Collective Unconscious
 ui_start,开始,Start
 ui_loading,正在加载…,Loading…
 ui_loading_failed,加载失败，请重试。,Loading failed. Please try again.
 ui_continue_run,继续游戏,Continue Run
 ui_run_save_unavailable,续局存档已损坏，已重置本局。,The saved run was corrupted and has been reset.
-ui_run_save_legacy_incompatible,旧版本续局与模块大地图不兼容，已仅重置本局；局外进度不受影响。,The legacy run is incompatible with the module world and has been reset; meta progression is unchanged.
+ui_run_save_legacy_incompatible,旧版本续局与当前意识层不兼容，已仅重置本局；局外进度不受影响。,The legacy run is incompatible with the current Mind Layer and has been reset; meta progression is unchanged.
 ui_resume,继续,Resume
 ui_pause,暂停,Pause
 ui_pause_title,已暂停,Paused
@@ -77,7 +77,7 @@ ui_restart,重新开始,Restart
 ui_quit_to_title,返回标题,Back to Title
 ui_confirm,确认,Confirm
 ui_cancel,取消,Cancel
-ui_run_summary,击杀 {kills} · 时间 {time}s,Kills {kills} · Time {time}s
+ui_run_summary,清理 {kills} · 时间 {time}s,Cleared {kills} · Time {time}s
 ui_result_gear_mod_count,Mod x{count},Mods x{count}
 ui_result_loot_lost,战利品丢失：{loot},Loot lost: {loot}
 ui_result_loot_secured,带回战利品：{loot},Loot secured: {loot}
@@ -88,7 +88,7 @@ ui_result_lost_header,丢失战利品,Loot Lost
 ui_result_resource_line,{name} x{amount},{name} x{amount}
 ui_result_gear_mod_line,{name} x{count},{name} x{count}
 ui_hud_life,生命,Life
-ui_hud_kills,击杀,Kills
+ui_hud_kills,清理,Cleared
 ui_hud_time,时间,Time
 ui_hud_ammo,弹匣 {magazine} · 备弹 {reserve},Magazine {magazine} · Reserve {reserve}
 ui_hud_ammo_reloading,换弹中 · {seconds}s,Reloading · {seconds}s
@@ -106,17 +106,17 @@ ui_difficulty_stage_siege,围剿,Siege
 ui_difficulty_stage_lethal,致命,Lethal
 ui_difficulty_stage_unbound,失控,Unbound
 ui_difficulty_stage_collapse,崩坏,Collapse
-ui_difficulty_stage_nestfall,巢灾,Nestfall
+ui_difficulty_stage_nestfall,失序,Disarray
 ui_stats_panel_title,详细数值,Details
 ui_stats_life,生命,Life
 ui_stats_level,等级,Level
 ui_stats_gold_balance,金币余额,Gold Balance
 ui_stats_gold_earned_total,累计金币,Total Gold Earned
 ui_stats_level_progress,等级进度,Level Progress
-ui_stats_kills,击杀,Kills
+ui_stats_kills,清理,Cleared
 ui_stats_run_time,难度时间,Difficulty Time
-ui_stats_enemy_health_multiplier,新生成敌人生命倍率,New Enemy Health Multiplier
-ui_stats_enemy_damage_multiplier,新生成敌人伤害倍率,New Enemy Damage Multiplier
+ui_stats_enemy_health_multiplier,新生成心象生命倍率,New Mindform Health Multiplier
+ui_stats_enemy_damage_multiplier,新生成心象伤害倍率,New Mindform Damage Multiplier
 ui_stats_damage,伤害,Damage
 ui_stats_health_regen,生命恢复,Health Regen
 ui_stats_shield,护盾,Shield
@@ -153,7 +153,7 @@ gear_mod_dust_name,模组尘,Mod Dust
 gear_mod_dust_desc,分解装备 Mod 获得的材料，用于升级装备 Mod。,A material gained by dismantling gear mods and spent to upgrade gear mods.
 ui_gear_mod_title_entry,装备 Mod,Gear Mods
 ui_gear_mod_title,装备 Mod,Gear Mods
-ui_gear_mod_tab_hero,英雄,Hero
+ui_gear_mod_tab_hero,清理智能,Cleanup Intelligence
 ui_gear_mod_tab_weapon,武器,Weapon
 ui_gear_mod_resource_summary,{resource} {amount},{resource} {amount}
 ui_gear_mod_capacity,容量 {used}/{capacity},Capacity {used}/{capacity}
@@ -198,7 +198,7 @@ ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cac
 ui_stats_skill_cooldown,技能冷却,Skill Cooldown
 ui_game_over,本局结束,Run Over
 ui_run_complete,撤离成功,Extracted
-ui_run_complete_summary,击杀 {kills} · 时间 {time}s · 战利品已回收,Kills {kills} · Time {time}s · Loot secured
+ui_run_complete_summary,清理 {kills} · 时间 {time}s · 战利品已回收,Cleared {kills} · Time {time}s · Loot secured
 ui_restart_hint,按暂停键重开,Press Pause to restart
 ui_hud_level,等级,Level
 ui_hud_gold_progress,金币余额 {balance} · 等级进度 {progress}/{required},Gold {balance} · Level Progress {progress}/{required}
@@ -233,22 +233,22 @@ ui_credits_usage_input_prompt_font,G.U.I.D.E 键盘提示字体,Keyboard prompt 
 ui_credits_usage_ai_reference,项目级 AI skill / 工作流参考,Project AI skill and workflow reference
 ui_credits_usage_code_style_reference,代码风格参考,Code style reference
 ui_mode_standard_survival_name,标准生存,Standard Survival
-ui_mode_standard_survival_desc,在持续增强的敌潮中尽可能活下去,Survive as long as possible against escalating waves
+ui_mode_standard_survival_desc,进入意识层，清理意识核并成功撤离。,"Enter the Mind Layer, clear the Mind Core, and extract."
 character_default_name,流浪者,Wanderer
 character_default_desc,默认角色，使用鼠标瞄准与按住开火,Default character with mouse aim and held fire
 character_primary_a_name,冷静,Calm
-character_primary_a_desc,以护盾与控场见长的主元素 A 英雄,A Primary A hero focused on shielding and control
+character_primary_a_desc,以护盾与控场见长的主元素 A 智能碎片,An Intelligence Fragment aligned with Primary A and focused on shielding and control
 character_primary_b_name,愤怒,Fury
-character_primary_b_desc,以高防御与激进强化见长的主元素 B 英雄,A Primary B hero focused on resilience and aggressive buffs
+character_primary_b_desc,以高防御与激进强化见长的主元素 B 智能碎片,An Intelligence Fragment aligned with Primary B and focused on resilience and aggressive buffs
 character_composition_name_format,{main}·{sub},{main} · {sub}
-ui_hero_composition_title,选择英雄组合,Choose Hero Composition
-ui_hero_composition_main,主英雄：属性、被动、技能 1/2,Main Hero: Stats / Passive / Skills 1–2
-ui_hero_composition_sub,子英雄：技能 3/4,Sub Hero: Skills 3–4
+ui_hero_composition_title,选择清理智能组合,Choose Cleanup Intelligence Composition
+ui_hero_composition_main,主智能碎片：属性、被动、技能 1/2,Primary Fragment: Stats / Passive / Skills 1–2
+ui_hero_composition_sub,副智能碎片：技能 3/4,Secondary Fragment: Skills 3–4
 ui_hero_composition_swap,交换主副,Swap Roles
 ui_hero_composition_passive,被动,Passive
 ui_hero_composition_skill,技能,Skill
-ui_hero_composition_sub_note,子英雄不提供属性和被动，只提供强调色与技能 3/4。,The sub hero provides no stats or passive—only the accent color and Skills 3–4.
-ui_hero_composition_duplicate_hint,相同英雄开局组合不可用；局内换人系统完成后可能产生重复组合。,Duplicate starting heroes are unavailable; repeated combinations may become possible after in-run switching is implemented.
+ui_hero_composition_sub_note,副智能碎片不提供属性和被动，只提供强调色与技能 3/4。,The Secondary Fragment provides no stats or passive—only the accent color and Skills 3–4.
+ui_hero_composition_duplicate_hint,相同智能碎片开局组合不可用；局内切换系统完成后可能产生重复组合。,Duplicate starting Fragments are unavailable; repeated combinations may become possible after in-run switching is implemented.
 ui_debug_test_arena_element,伤害元素,Damage Element
 ui_debug_test_arena_damage_amount,注入伤害,Injected Damage
 ui_debug_test_arena_cast_skill_1,触发技能 1,Cast Skill 1
@@ -284,7 +284,7 @@ hazard_fea_12_pulse_name,FEA-12脉冲阵列,FEA-12 Pulse Array
 relic_sharp_rounds_name,锋利弹头,Sharp Rounds
 relic_sharp_rounds_desc,伤害 +{value},Damage +{value}
 item_blink_burst_name,闪冲,Blink Burst
-item_blink_burst_desc,击退附近敌人,Knock back nearby enemies
+item_blink_burst_desc,击退附近心象,Knock back nearby Mindforms
 item_pocket_bomb_name,袖珍炸弹,Pocket Bomb
 item_pocket_bomb_desc,引发一次小范围爆炸,Trigger a small explosion
 skill_overdrive_rounds_name,过载弹流,Overdrive Rounds
@@ -293,11 +293,11 @@ skill_resource_mana_name,魔法,Mana
 skill_deploy_projectile_barrier_name,静域屏障,Quietude Barrier
 skill_deploy_projectile_barrier_desc,消耗 {cost_energy} 能量部署半径 {effect_1_radius}、生命 {effect_1_hp} 的屏障；同时只能存在一个，重施会替换旧屏障,"Spend {cost_energy} Energy to deploy a {effect_1_radius}-radius barrier with {effect_1_hp} HP. Only one may exist; recasting replaces it."
 skill_aoe_slow_name,镇静脉冲,Calming Pulse
-skill_aoe_slow_desc,消耗 {cost_energy} 能量，使半径 {target_radius} 内敌人减速 {effect_1_magnitude_percent}%，持续 {effect_1_duration} 秒；减速最高 {effect_1_magnitude_cap_percent}%,"Spend {cost_energy} Energy to slow enemies within {target_radius} radius by {effect_1_magnitude_percent}% for {effect_1_duration} seconds, capped at {effect_1_magnitude_cap_percent}%."
+skill_aoe_slow_desc,消耗 {cost_energy} 能量，使半径 {target_radius} 内心象减速 {effect_1_magnitude_percent}%，持续 {effect_1_duration} 秒；减速最高 {effect_1_magnitude_cap_percent}%,"Spend {cost_energy} Energy to slow Mindforms within {target_radius} radius by {effect_1_magnitude_percent}% for {effect_1_duration} seconds, capped at {effect_1_magnitude_cap_percent}%."
 skill_self_fire_move_haste_name,怒意超频,Fury Overdrive
 skill_self_fire_move_haste_desc,消耗 {cost_energy} 能量，使射速提高 {effect_1_modifier_1_value_bonus_percent}%、移动速度提高 {effect_1_modifier_2_value_bonus_percent}%，持续 {effect_1_duration} 秒；重施刷新持续时间,"Spend {cost_energy} Energy to gain {effect_1_modifier_1_value_bonus_percent}% fire rate and {effect_1_modifier_2_value_bonus_percent}% movement speed for {effect_1_duration} seconds. Recasting refreshes the duration."
 skill_enemy_haste_vulnerability_name,激怒标记,Enraging Mark
-skill_enemy_haste_vulnerability_desc,消耗 {cost_energy} 能量，使半径 {target_radius} 内敌人移动速度提高 {effect_1_modifier_1_value_bonus_percent}%，并叠加每层 {effect_2_incoming_damage_per_stack_percent}% 的易伤，最多 {effect_2_max_stacks} 层，持续 {effect_1_duration} 秒,"Spend {cost_energy} Energy to increase enemy movement speed by {effect_1_modifier_1_value_bonus_percent}% within {target_radius} radius and add a Vulnerability stack worth {effect_2_incoming_damage_per_stack_percent}% damage, up to {effect_2_max_stacks} stacks, for {effect_1_duration} seconds."
+skill_enemy_haste_vulnerability_desc,消耗 {cost_energy} 能量，使半径 {target_radius} 内心象移动速度提高 {effect_1_modifier_1_value_bonus_percent}%，并叠加每层 {effect_2_incoming_damage_per_stack_percent}% 的易伤，最多 {effect_2_max_stacks} 层，持续 {effect_1_duration} 秒,"Spend {cost_energy} Energy to increase the movement speed of Mindforms within {target_radius} radius by {effect_1_modifier_1_value_bonus_percent}% and add a Vulnerability stack worth {effect_2_incoming_damage_per_stack_percent}% damage, up to {effect_2_max_stacks} stacks, for {effect_1_duration} seconds."
 status_burn_name,燃烧,Burn
 status_poison_name,中毒,Poison
 status_bleed_name,流血,Bleed
@@ -368,7 +368,7 @@ ui_debug_test_arena_zone_ai,AI 实战区,AI Combat Zone
 world_event_defense_name,防御核心,Defense Core
 world_event_defense_desc,启动后保护核心直到事件结束。,Defend the core until the event ends.
 world_event_survival_name,生存信标,Survival Beacon
-world_event_survival_desc,启动信标并在敌潮中存活。,Activate the beacon and survive the enemy waves.
+world_event_survival_desc,启动信标并在心象潮中存活。,Activate the beacon and survive the Mindform waves.
 world_event_capture_name,占点装置,Capture Node
 world_event_capture_desc,在区域内完成同步并占领装置。,Remain in the zone to synchronize and capture the node.
 world_event_gold_shrine_name,金币祭坛,Shrine of Gold

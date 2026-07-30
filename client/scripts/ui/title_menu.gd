@@ -93,7 +93,8 @@ func refresh_texts() -> void:
 	if _title_label != null:
 		_title_label.text = tr("ui_title_name")
 	if _subtitle_label != null:
-		_subtitle_label.text = tr("ui_title_subtitle")
+		_subtitle_label.visible = false
+		_subtitle_label.text = ""
 	if _continue_button != null:
 		_continue_button.text = tr("ui_continue_run")
 	if _start_button != null:

@@ -2,14 +2,15 @@
   "schema_version": 1,
   "updated_at": "2026-07-30",
   "current_phase": "ip_repositioning",
-  "current_status": "ADR #178 已将项目 IP 改为代号 WASD 下的集体无意识清理设定：清理智能由冷静、愤怒等主 / 副智能碎片组合，进入一张 9×9 意识层，清理万物形成的心象，击破意识核后撤离。意识层来源、AI 立场和清理结果保持不解释；每层代表色只用于环境装饰，敌我颜色、弹幕警示色和交互功能色稳定。正式中英文标题待定。本轮只同步设定与长期文档，不修改 client/locale、代码、数据、素材、稳定 ID、Run v11、Replay v3、Meta v2 或游戏 v1.10；《破巢者 / Nestbreakers》及敌巢相关词只作为历史 / 遗留实现检索别名。后续显示文案、运行时命名与素材迁移必须由用户另行授权。",
-  "latest_adr": 178,
+  "current_status": "ADR #179 已完成集体无意识玩家文案迁移：AI 的行动目标明确为清理集体无意识，正式客户端使用清理智能、主 / 副智能碎片、心象、意识层与意识核；单层表述为清理意识核后撤离，威胁九级为失序 / Disarray，击败统计显示清理 / Cleared，标题页只显示 WASD。现有 locale key、character_* / ui_hero_* / hero_* / enemy_* 内部标识、数据引用、schema、Meta v2、Run v11、Replay v3 与游戏 v1.10 保持；正式标题仍待定，意识层来源、AI 立场与清理结果不解释。",
+  "latest_adr": 179,
   "open_decisions": [
     "D",
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #179 / 集体无意识玩家文案迁移：正式客户端统一使用清理智能、主 / 副智能碎片、心象、意识层与意识核；AI 的行动目标为清理集体无意识，单层目标为清理意识核后撤离但不解释清理结果。威胁九级改为失序 / Disarray，击败统计显示清理 / Cleared，标题页只显示 WASD 并隐藏副标题；标准生存、五只心象个体名、世界事件、七元素占位名和开发者测试岛内部文案保留。locale key、character_* / ui_hero_* / hero_* / enemy_* 内部标识、数据引用、schema、Meta v2、Run v11、Replay v3 和游戏 v1.10 均不变。",
     "ADR #178 / 集体无意识 IP 设定阶段重构：退役《破巢者 / Nestbreakers》当前设定，统一使用项目代号 WASD；定义集体无意识、清理智能、智能碎片、意识层、心象和意识核。冷静 / 愤怒改作可组合碎片，主碎片贡献主体 / 属性 / 被动 / 技能 1/2，副碎片贡献强调与技能 3/4；一张 9×9 世界对应一层意识层，击破意识核后撤离。美术改为抽象、简洁、来源可辨但不具象复刻；层代表色只影响环境装饰，功能色稳定。本轮仅改长期文档与知识索引，运行时、玩家文案、数据、素材、版本和 schema 均不变。",
     "弹药 HUD 用户反馈修正：常驻 HUD 改为“弹匣剩余 + 弹匣外备弹”，删除总弹药 / 容量显示并修复 magazine_size 占位符外露；详细面板同步只保留弹匣、备弹与换弹时间。打空反馈从 HUD 第二行改为角色头顶短时世界文字：WeaponSystem 在正常射击打出最后一发时单次请求，有备弹显示动态 reload 绑定、总弹药耗尽提示再次开火，持续按住不重复；零弹重新按火可再次提示。核心弹药数据、Run v11 与 Replay v3 不变。",
     "ADR #177 / 弹药、换弹与默认键位改造：weapons.json 升 schema v4，每把武器必填 magazine_size、starting_reserve、total_capacity、reload_duration 和零弹降级倍率；基础枪为 30 / 150 / 240 与 1.2 秒换弹。空匣需要松开再按开火或按 R，零总弹可重新按压进入 50% 射速 / 弹速无限降级射击且寿命补偿射程。新增 ammo_rules.json、RNG.ammo 和池化 ammo_magazine，玩家归因且允许奖励的敌人按 8/23/38/53/68/83/98/100% 递增曲线掉落当前武器一弹匣，满弹不抽取不推进。默认技能键改 1/2/3/4、换弹 R / East、交互 E / West，binding 升 v2。Run 升 v11 保存武器、换弹、掉率、RNG 和场上弹匣，旧 v10 只清 run 保 Meta v2；Replay v3 摘要与黄金基线同步，游戏版本升 v1.10。",
@@ -150,7 +151,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
-    "如果继续 IP、世界观、心象内容或正式标题，先读 ADR #178、docs/IP设定.md、docs/IP美术风格.md、GDD v1.47、术语表和修改建议 S。当前只完成设定阶段：不得据此自行修改 client/locale、代码、数据、素材、稳定 ID、schema 或版本；正式标题、玩家显示文案和素材迁移都需用户另行授权。不要把具体精神疾病、真实人物或群体定义成应被清理的对象，也不要解释意识层来源、AI 善恶或清理结果。",
+    "如果继续 IP、世界观、心象内容、正式标题或玩家文案，先读 ADR #178 / #179、docs/IP设定.md、docs/IP美术风格.md、GDD v1.48、术语表和修改建议 S。玩家文案已迁移为清理智能、主 / 副智能碎片、心象、意识层、意识核、失序 / Disarray 与清理 / Cleared，标题页只显示 WASD；现有 locale key、character_* / hero_* / enemy_* 内部标识保持。正式标题、素材与运行时命名迁移仍需用户另行授权。不要把具体精神疾病、真实人物或群体定义成应被清理的对象，也不要解释意识层来源、AI 善恶或清理结果。",
     "所有后续任务先应用 ADR #174：凡文档或任务明确标为人工检查 / 人工验收 / 手动验收 / L5 / 真实设备 / 视觉、听觉或手感验收，只交给人工；AI 不执行、不用 GUI / 截图 / 录屏 / 模拟输入替代、不自行宣称通过。AI 完成同一任务的非人工自动化验证，为人工项整理前置条件、步骤、预期现象和已知风险，并明确标记“待人工验收”。",
     "如果继续弹药、换弹、弹药拾取或默认战斗键位，先读 ADR #177、GDD §3.2、docs/代码/gameplay_runtime.md、input_service.md、rng.md、pool_manager.md、save_manager.md、replay.md、client/data/README.md、locale 手册、词表和测试策略。武器弹药只改 weapons.json schema v4 的 ammo，掉落曲线只改 ammo_rules.json schema v1；保持一次扳机扣一发、完全生成失败不扣弹也不消费战斗 RNG、空匣重新按压语义、零弹降级射击射程补偿、满弹不抽 RNG.ammo、不推进未掉计数。当前 Run v11 保存武器 / 换弹 / 未掉计数 / RNG.ammo / 场上弹匣，旧 v10 只清 run 保 Meta。改后跑 contracts、data/schema、三档 lint、input/settings/ammo-weapon/runtime/L1/world-event/module-world/save/loading/replay、headless、docs health、pre-commit 和四条 golden；人工手感、HUD、二次按压和真实手柄只交用户验收，不运行性能 probe。",
     "如果继续敌人金币或难度接口，先读 ADR #175、GDD §7.1 / §7.3、docs/代码/enemy_reward_resolver.md、difficulty_progression.md、gameplay_runtime.md、enemy_ai.md、rng.md、save_manager.md、数据 / locale 手册和测试策略。全局公式数值只改 enemy_rewards.json schema v1，敌种价值只改 enemies.csv.gold_value_multiplier，difficulty profile 当前 schema v2；特殊化只能通过受控 spawn_context.reward_specialization_multiplier 接入。保持成功 acquire 后只消费一次 RNG.economy、按实际生成 tier 锁定、死亡只发锁定值、当前 Run v11 恢复不重抽且旧 v10 只清 run 保 Meta。改动跑 contracts、data/schema、三档 lint、L1/runtime/world-event/module-world/save/loading/replay、headless、docs health、pre-commit 和四条 golden；经济节奏体验交付待用户验收，不运行性能 probe。",
@@ -185,6 +186,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-07-30",
+      "command": "sync_contracts --check; validate_data including zh_CN/en placeholder parity; test_data_loader_schema; three lint tiers; Godot 4.7.1 godot-version/export-tree/headless-boot; settings/loading/gear-mod/runtime smoke; JSON current_state/_kb_index; docs_health_check; targeted player-copy and current-authority old-term audits; git diff --check; pre-commit run --all-files",
+      "result": "passed for ADR #179 collective-unconscious player-copy migration and title subtitle hiding. Formal locale remains 392 stable keys with unchanged named placeholders; title/settings smoke verifies WASD and a hidden empty subtitle across en/zh_CN locale changes, while HUD and result summaries refresh to Cleared. Contracts, schema counts, data schemas, Meta v2, Run v11, Replay v3 and game v1.10 remain unchanged, so no golden replay capture or rerun was required. Expected injected invalid settings/save diagnostics and existing Godot shutdown RID/ObjectDB/resource-use lines remain while smoke commands exit 0. No performance probe, GUI, screenshot or human visual acceptance ran; 1920x1080 zh_CN/en visual review remains pending user acceptance."
+    },
     {
       "date": "2026-07-30",
       "command": "json current_state/_kb_index; docs_health_check; targeted current-authority old-IP term review; git diff --check excluding draft/DRAFT; pre-commit run --all-files",
@@ -658,7 +664,7 @@
   ],
   "blockers": [],
   "notes": [
-    "ADR #178 只授权设定与长期文档重构；client/locale、代码、数据、素材、稳定 ID、schema 和版本仍保持原状，后续迁移必须重新取得用户授权。",
+    "ADR #179 已授权并完成玩家文案迁移与标题副标隐藏；locale key、character_* / ui_hero_* / hero_* / enemy_* 内部标识、数据引用、素材、schema、Meta v2、Run v11、Replay v3 和游戏 v1.10 保持原状。",
     "current_state.json 是接手导航牌：只保留当前阶段、候选下一步和最近热验证；详细历史写入 docs/AI记忆/会话日志/，长期索引写入 docs/AI记忆/项目记忆.md。",
     "DRAFT/ 与 draft/ 是用户人工草稿禁区，除非用户明确点名授权，否则不要读取、搜索、修改或提交。",
     "人工检查 / 人工验收 / 手动验收 / L5 / 真实设备 / 视觉、听觉或手感验收只由人工执行；AI 只完成其余自动化验证并交付待人工验收 checklist。",

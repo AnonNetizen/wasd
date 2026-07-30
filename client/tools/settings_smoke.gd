@@ -382,7 +382,24 @@ func _expect_menu_settings_entries() -> void:
 	add_child(title_menu)
 	await get_tree().process_frame
 	title_menu.call("configure", false, "")
+	var title_label: Label = _find_node_by_name(title_menu, "TitleLabel") as Label
+	var subtitle_label: Label = _find_node_by_name(title_menu, "SubtitleLabel") as Label
 	var title_settings_button: Button = _find_node_by_name(title_menu, "SettingsButton") as Button
+	_expect(title_label != null and String(title_label.text) == "WASD", "title menu should keep the WASD project codename")
+	_expect(
+		subtitle_label != null and not subtitle_label.visible and String(subtitle_label.text).is_empty(),
+		"title menu subtitle should stay hidden while the formal title is undecided"
+	)
+	Localization.set_locale("zh_CN")
+	await get_tree().process_frame
+	_expect(title_label != null and String(title_label.text) == "WASD", "title menu should keep the WASD codename after locale changes")
+	_expect(
+		subtitle_label != null and not subtitle_label.visible and String(subtitle_label.text).is_empty(),
+		"title menu subtitle should stay hidden after locale changes"
+	)
+	Localization.set_locale("en")
+	await get_tree().process_frame
+	_expect(title_label != null and String(title_label.text) == "WASD", "title menu should keep the WASD codename when returning to English")
 	_expect(title_settings_button != null and String(title_settings_button.text) == tr("ui_settings"), "title menu should expose localized settings entry")
 	var title_requested: Array[bool] = [false]
 	title_menu.connect("settings_requested", func() -> void:
@@ -548,7 +565,7 @@ func _expect_hud_locale_refresh() -> void:
 	Localization.set_locale("en")
 	await get_tree().process_frame
 	_expect(life_label != null and String(life_label.text).begins_with("Life"), "HUD life should refresh to en")
-	_expect(kills_label != null and String(kills_label.text).begins_with("Kills"), "HUD kills should refresh to en")
+	_expect(kills_label != null and String(kills_label.text).begins_with("Cleared"), "HUD cleanup count should refresh to en")
 	_expect(level_label != null and String(level_label.text).begins_with("Level"), "HUD level should refresh to en")
 	_expect(
 		gold_progress_label != null
@@ -632,7 +649,7 @@ func _expect_game_over_locale_refresh() -> void:
 	Localization.set_locale("en")
 	await get_tree().process_frame
 	_expect(title_label != null and String(title_label.text) == "Run Over", "game-over title should refresh to en")
-	_expect(summary_label != null and String(summary_label.text).contains("Kills"), "game-over summary should refresh to en")
+	_expect(summary_label != null and String(summary_label.text).contains("Cleared"), "game-over summary should refresh cleanup count to en")
 	_expect(restart_button != null and String(restart_button.text) == "Restart", "game-over restart button should refresh to en")
 	_expect(quit_button != null and String(quit_button.text) == "Back to Title", "game-over quit button should refresh to en")
 	_expect_english_buttons_fit(panel, "game-over panel")

@@ -282,6 +282,7 @@
 | #176 | 完整删除 VFX 质量设置与变体接口：Settings 升 v4 并在 v1–v3 迁移时清理 `video.vfx_quality`；`visual_effects.json` 升 schema v3 并拒绝 `quality_variants`，删除质量契约、设置页 / locale、运行时解析和 VFX 编辑器质量预览。闪屏与震屏仍独立，Run v10 / Replay v3 / 游戏 v1.9 不变 | GDD v1.44 §9.24、词表、Data / Locale README、Settings / Visual Effects / DataLoader 文档、测试策略、AI导航、知识索引和三层项目记忆 |
 | #177 | 枪械加入弹匣 / 备弹 / 总上限、1.2 秒换弹、零弹 50% 降级射击与递增敌人弹药掉落；新增 `RNG.ammo`、`ammo_magazine` 池和 `reload`，默认技能改 1–4、交互 E。weapons v4、binding v2、Run v11、游戏 v1.10；旧 Run v10 和 binding v1 回退，Replay v3 重录 | GDD v1.46 §3.2、词表、Data / Locale README、Gameplay Runtime / InputService / RNG / PoolManager / SaveManager / Replay 文档、测试策略、AI导航、知识索引和三层项目记忆 |
 | #178 | 项目 IP 改为代号 `WASD` 下的集体无意识清理设定：清理智能由主 / 副智能碎片组合，一张 9×9 世界是一层意识层，万物可形成心象，击破意识核后撤离；层代表色只用于环境装饰，敌我 / 警示 / 交互功能色稳定。意识层来源、AI 立场和清理结果保持留白；取代 #88 / #111 的当前结论，本轮不改玩家文案、运行时、数据、素材或版本 | GDD v1.47、`docs/IP设定.md`、`docs/IP美术风格.md`、术语表、修改建议 S、AI导航、正式项目工作规划、知识索引和三层项目记忆 |
+| #179 | 将集体无意识设定迁移到玩家文案：AI 明确以清理集体无意识为行动目标，单层表述为清理意识核后撤离；正式客户端使用清理智能 / 智能碎片 / 心象，威胁九级为失序 / Disarray，击败统计显示清理 / Cleared。标题页只显示 `WASD`；内部 locale key、hero / enemy 标识、schema、Meta v2、Run v11、Replay v3 与游戏 v1.10 不变 | GDD v1.48、`docs/IP设定.md`、术语表、词表、Locale README / strings、TitleMenu / settings smoke、修改建议 S、AI导航、正式项目工作规划、知识索引和三层项目记忆 |
 
 F14 交付时的四条黄金回放重录与运行时摘要证据见 [2026-07-21 F14 黄金回放回归报告](reports/2026-07-21-f14-replay-regression.md)。
 ADR #154 模块 JSON / 单向 TSCN 迁移在不重录 golden 的前提下保持旧 map hash 与四条运行时摘要，证据见 [2026-07-23 ADR #154 黄金回放回归报告](reports/2026-07-23-replay-regression.md)。

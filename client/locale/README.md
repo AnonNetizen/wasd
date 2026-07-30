@@ -23,10 +23,10 @@
 | 加设置面板文案 | 在 `strings.csv` 加 `ui_settings_*` key；设置入口沿用 `ui_settings`，设置面板标题、分组、控件标签、反馈和选项都走本地化；无障碍、输入绑定选项也必须独立建 key |
 | 加 HUD / 失败提示 | 在 `strings.csv` 加 `ui_hud_*`、`ui_difficulty_*`、`ui_stats_*` 或 `ui_*` key；HUD 代码用 `tr("ui_xxx")` 并在运行时刷新 |
 | 加弹药 HUD / 换弹 / 降级射击 / 弹匣拾取反馈 | 常驻弹药使用 `ui_hud_ammo*`，详细面板使用 `ui_stats_ammo_*` / `ui_stats_reload_duration`，换弹绑定标签使用 `ui_settings_input_reload`；弹数、容量、按键和秒数都用命名占位符 |
-| 加角色名 / 描述 | 在 `strings.csv` 加 `character_*_name` / `character_*_desc`；英雄组合名使用 `character_composition_name_format` 的 `{main}` / `{sub}` 占位符；数据填 `name_key` / `desc_key` |
-| 加元素 / 英雄被动文案 | 在 `strings.csv` 加 `element_*_name` 与 `passive_*_name` / `passive_*_desc`；数据只引用 key；被动数值使用 `{param_<字段>...}` |
+| 加智能碎片名 / 描述 | 在 `strings.csv` 加遗留稳定 key `character_*_name` / `character_*_desc`；清理智能组合名使用 `character_composition_name_format` 的 `{main}` / `{sub}` 占位符；数据填 `name_key` / `desc_key` |
+| 加元素 / 智能碎片被动文案 | 在 `strings.csv` 加 `element_*_name` 与遗留稳定 key `passive_*_name` / `passive_*_desc`；数据只引用 key；被动数值使用 `{param_<字段>...}` |
 | 加武器名 / 描述 | 在 `strings.csv` 加 `weapon_*_name` / `weapon_*_desc`；数据填 `name_key` / `desc_key` |
-| 加敌人名 | 在 `strings.csv` 加 `enemy_*_name`；`enemies.csv` 填 `name_key` |
+| 加心象个体名 | 在 `strings.csv` 加遗留稳定 key `enemy_*_name`；`enemies.csv` 填 `name_key` |
 | 加遗物 / 道具名和描述 | 在 `strings.csv` 加 `relic_*_name` / `relic_*_desc`、`item_*_name` / `item_*_desc`；数据填 `name_key` / `desc_key` |
 | 加技能名和描述 | 在 `strings.csv` 加 `skill_*_name` / `skill_*_desc`；`skills.json` 填 `name_key` / `desc_key`；消耗、范围、效果参数等使用下方配置占位符 |
 | 加描述文本 | 在 `strings.csv` 加 `*_desc`；数据填 `desc_key`，可能调整的数值必须使用命名占位符并由配置注入 |
@@ -78,16 +78,16 @@ ui_resume,继续,Resume
 | `ui_gear_mod_` | 装备 Mod 面板、标题入口和操作反馈 | `ui_gear_mod_title` / `ui_gear_mod_upgrade_cost` |
 | `ui_debug_test_arena_` | 独立 debug/dev_tools 开发者测试岛、配装、控制面板和伤害 HUD | `ui_debug_test_arena_setup_title` / `ui_debug_test_arena_spawn` |
 | `ui_credits_` | 致谢界面分组、角色和用途标签 | `ui_credits_section_staff` / `ui_credits_usage_engine_runtime` |
-| `character_` | 英雄名称和描述 | `character_primary_a_name` / `character_primary_b_name` |
+| `character_` | 智能碎片名称和描述；`character` 是不迁移的遗留内部前缀 | `character_primary_a_name` / `character_primary_b_name` |
 | `element_` | 七元素名称 | `element_neutral_name` / `element_composite_ab_name` |
-| `passive_` | 英雄被动名称和描述 | `passive_primary_a_guard_name` / `passive_primary_a_guard_desc` |
+| `passive_` | 智能碎片被动名称和描述；`passive` key 保持稳定 | `passive_primary_a_guard_name` / `passive_primary_a_guard_desc` |
 | `weapon_` | 武器名称和描述 | `weapon_basic_blaster_name` / `weapon_basic_blaster_desc` |
 | `relic_` | 被动遗物名称和描述 | `relic_sharp_rounds_name` / `relic_sharp_rounds_desc` |
 | `item_` | 主动道具 / 消耗品名称和描述 | `item_bomb_name` / `item_bomb_desc` |
 | `skill_` | 技能名称和描述 | `skill_overdrive_rounds_name` / `skill_overdrive_rounds_desc` |
 | `status_` | HUD 与状态观察中的状态名称 | `status_slow_name` / `status_vulnerable_name` |
 | `gear_mod_` | 装备 Mod 名称、描述和资源名 | `gear_mod_weapon_damage_test_name` / `gear_mod_dust_name` |
-| `enemy_` | 敌人名称；显示名可随当前设计更新但 key 与内容 id 保持稳定 | `enemy_chaser_name` 为“爆猎者 / Burst Hunter”；`enemy_spitter_name` 保留 key，当前译文为“突击枪手 / Assault Gunner” |
+| `enemy_` | 心象个体名称；`enemy` 是不迁移的遗留内部前缀，显示名可随当前设计更新但 key 与内容 id 保持稳定 | `enemy_chaser_name` 为“爆猎者 / Burst Hunter”；`enemy_spitter_name` 保留 key，当前译文为“突击枪手 / Assault Gunner” |
 | `hazard_` | 机关 / 危险物名称 | `hazard_spike_trap_name` |
 | `hint_` | 教程、提示、引导 | `hint_aim_with_right_stick` |
 
@@ -97,6 +97,14 @@ ui_resume,继续,Resume
 - 名称用 `_name`，描述用 `_desc`，提示可用 `_title` / `_body`。
 - 不把语言写进 key；语言是 CSV 列，不是 key 后缀。
 - 不复用语义不同的 key；即使中文一样，只要上下文不同就新建 key。
+
+### 集体无意识 IP 的显示语义与遗留 key
+
+- 正式客户端玩家文案使用“清理智能 / `Cleanup Intelligence`”“智能碎片 / `Intelligence Fragment`”“主智能碎片 / `Primary Fragment`”“副智能碎片 / `Secondary Fragment`”“心象 / `Mindform`”“意识层 / `Mind Layer`”和“意识核 / `Mind Core`”。
+- `character_*`、`ui_hero_*`、`enemy_*`、`ui_stats_enemy_*`、`ui_*_kills` 与 `ui_difficulty_stage_nestfall` 是兼容代码、数据、存档和测试引用的遗留稳定 key；不得仅为匹配新 IP 显示词而改名。其译文分别显示智能碎片 / 清理智能、心象、清理统计与“失序 / `Disarray`”，不得把遗留 key 原样暴露给玩家。
+- `{kills}` 仍是稳定统计占位符，正式客户端显示口径为“清理 / `Cleared`”；占位符改名属于接口变更，不随译文迁移。
+- `ui_title_subtitle` 保留“集体无意识 / `Collective Unconscious`”非空备用译文；正式标题页当前只显示项目代号 `WASD`，副标题由界面层隐藏。
+- `ui_debug_test_arena_*` 只属于开发者测试岛内部文案，可继续使用英雄、敌人、击杀等运行时术语；这不代表正式客户端玩家显示口径。
 
 ## 占位符规则
 
@@ -126,7 +134,7 @@ label.text = tr("ui_damage") + str(value)
 
 ### 技能与被动的配置占位符
 
-`SkillDescriptionFormatter` 使用主英雄能力属性解析 `skills.json`，并在英雄组合选择界面格式化四槽技能；运行时 `SkillSystem` 与描述共用 `SkillValueResolver`，因此强度、范围、效率和持续时间的缩放结果一致。
+`SkillDescriptionFormatter` 使用主智能碎片的能力属性解析 `skills.json`，并在清理智能组合选择界面格式化四槽技能；运行时 `SkillSystem` 与描述共用 `SkillValueResolver`，因此强度、范围、效率和持续时间的缩放结果一致。
 
 | 占位符 | 来源 / 含义 |
 |--------|-------------|
@@ -176,7 +184,7 @@ label.text = tr("ui_damage") + str(value)
 1. 在 `strings.csv` 新增 `ui_hud_*`、`ui_difficulty_*`、`ui_stats_*` 或局内交互提示 key，例如 `ui_hud_life,生命,Life` / `ui_difficulty_level,威胁 Lv. {level},Threat Lv. {level}` / `ui_stats_fire_rate,射速,Fire Rate` / `ui_interact_open_cache,按 {binding} 打开缓存箱,Press {binding} to open cache`。威胁阶段名称使用 `ui_difficulty_stage_<stage>`，跨语言共用同一 key。
    难度 profile 显示名同样使用 `ui_difficulty_*_name`；当前标准 profile 固定引用 `ui_difficulty_standard_name`（“标准 / Standard”），不得把显示名写进 `difficulty_profiles.json`。
 2. HUD 代码只显示 `tr("ui_hud_life")` / `tr("ui_stats_fire_rate")` 和格式化数值，不硬编码玩家可见标签。
-3. 若 HUD 会常驻局内或按住显示，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、击杀、难度时间、威胁阶段、等级、金币余额 / 进度、详细数值、等级 / 奖励反馈和交互提示重画。
+3. 若 HUD 会常驻局内或按住显示，手动切语言时要确认标签刷新；当前 Gameplay HUD 会订阅 `Localization.locale_changed` 并用缓存生命、清理数、难度时间、威胁阶段、等级、金币余额 / 进度、详细数值、等级 / 奖励反馈和交互提示重画。
 
 ### 加弹药、换弹与弹匣拾取文案
 
