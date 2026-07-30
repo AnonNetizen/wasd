@@ -47,7 +47,7 @@
 |------|------|
 | `client/scripts/boot/formal_client_boot.gd` | 数据校验通过后挂载 gameplay runtime |
 | `client/scenes/gameplay/gameplay_run_loop.tscn` | 正式 gameplay runtime 场景；包含 `ActiveWorld`、`WorldBackground`、`PlayerHost` 和 `GameplayHud`；玩家由角色数据在入树前选择并挂到 host |
-| `client/scenes/gameplay/actors/player_base.tscn` / `characters/*.tscn` | 玩家基础场景与角色专属继承场景；基础场景提供脚本、碰撞、武器和状态组件，专属场景保存角色静态外观和节点覆盖；对局级相机 Rig 固定在 RunLoop |
+| `client/scenes/gameplay/actors/player_base.tscn` / `characters/*.tscn` | 玩家基础场景与角色专属继承场景；基础场景提供脚本、碰撞、武器、状态组件和角色头顶短时世界文字节点，专属场景保存角色静态外观和节点覆盖；对局级相机 Rig 固定在 RunLoop |
 | `client/scenes/ui/loading_screen.tscn` / `client/scripts/ui/loading_screen.gd` | 正式玩家入口准备期间的全屏加载界面 |
 | `client/tools/loading_smoke.gd` | 开始、继续、重开、重入与准备失败的真实玩家入口回归 |
 | `client/scenes/gameplay/actors/enemy_base.tscn` / `enemies/*.tscn` | 敌人基础场景与五种敌人专属继承场景；共享 `Enemy` 脚本和必需组件，专属场景保存颜色、轮廓及未来动画 / 素材节点 |
@@ -70,9 +70,9 @@
 | `client/scripts/gameplay/world_events/` / `client/scenes/gameplay/world_events/` | 五类事件的场景化 Controller、交互物、防御目标与占点表现；详见 `docs/代码/world_event_system.md` |
 | `client/scripts/gameplay/world_background.gd` | 量化矩形地图格背景；读取 `MapManager.grid_cell_size()`，让背景格、机关绘制和触发判定共享同一份地图度量，不改变世界坐标或相机缩放 |
 | `client/scripts/gameplay/map_manager.gd` | 有限地图边界、PCG 机关摆放、人工摆点、刷怪位置 clamp 和地图快照 |
-| `client/scripts/gameplay/player.gd` | 玩家移动、瞄准、冲刺、主英雄属性、超量护盾 / 普通护盾 / 护盾门 / 护甲 / 生命防御链、临时修饰器和受控 debug 资源 API |
+| `client/scripts/gameplay/player.gd` / `player_world_prompt.gd` | 玩家移动、瞄准、冲刺、主英雄属性、超量护盾 / 普通护盾 / 护盾门 / 护甲 / 生命防御链、临时修饰器、受控 debug 资源 API，以及跟随角色并按 `GameClock` 消退的短时世界文字 |
 | `client/scripts/gameplay/warzone_director.gd` | F10 敌巢战区导演，解释固定阶段、巢变异主题、兴趣点和阶段启用 wave |
-| `client/scripts/gameplay/weapon_system.gd` | 起始武器按住开火、临时武器修正和子弹池获取 |
+| `client/scripts/gameplay/weapon_system.gd` | 起始武器按住开火、临时武器修正、子弹池获取，以及打空时单次发出的 `ammo_attention_requested` 反馈请求 |
 | `client/scenes/gameplay/skill_system.tscn` / `client/scripts/gameplay/skill_system.gd` | 预置 `StatusEffectComponent` 的四槽技能系统；负责槽位快照、共享能量、能力四维缩放、通用效果 / 状态 / 修饰器、屏障、combat gate 和 Run v11 恢复 |
 | `client/scripts/gameplay/bullet.gd` | 子弹飞行、圆形地形重叠 / 扫掠、射程 / 生命周期裁剪、敌人和兴趣点目标命中、敌弹跨屏障圆周判定、墙体穿透与首帧开火位置快照，以及按队伍选择且池化时严格清空的玩家 / 敌方 Shader RibbonTrail |
 | `client/scripts/gameplay/enemy.gd` | 数据驱动敌人 AI、事件主目标 / 玩家附带受击、显式攻击 / 连锁、友伤护栏、出生倍率、锁定金币、退场语义和 Run v11 快照 |
@@ -173,6 +173,7 @@ ADR #159 另有一个非 carrier、非 game mode 的内部运行用途 `DEBUG_TE
 | 输入 | `InputService` 从 GUIDE 的 gameplay context 产生 `move` / `aim` `Vector2` 与开火、四技能、冲刺、交互、暂停等按钮 intent。键鼠瞄准取 pointer viewport position 相对玩家实际屏幕位置的方向，不读取相机震屏噪声 offset；Replay v3 记录最终 intent 与组合选择 | `InputService`、生成 `Actions` 常量、`Replay` v3 |
 | 移动 / 瞄准 / 相机 | 玩家按数据移速在 2D 平面移动；RunLoop 在角色实例化 / 恢复后，把 `ActiveWorld` 预置 Rig 的 `PlayerCamera` 配成 Phantom Camera `GLUED` 跟随当前 Player，`CenteredCamera` 保持水平与等比缩放。开局先居中；首次有效瞄准后，鼠标按实际屏幕距离的死区 / 30% 比例 / 240 px 上限计算引导，键盘、手柄与 Replay 按最终瞄准方向使用 240 px，松开保持最后方向；控制器以 0.18 秒时间常数指数平滑，暂停冻结 | `Player.aim_direction`、`Player.set_camera_look_offset()`、`GameplayCameraController.configure()` |
 | 开火 / 换弹 / 后坐 | WeaponSystem 读取 `reload` 与 `fire` intent，同 tick 先处理换弹。弹匣打空后持续按住被锁住，松开再按时有备弹则自动换弹、总弹药为零则武装 50% 射速 / 弹速的降级射击；一次扳机只扣一发。只有至少取得一个子弹池实体才提交弹药、`RNG.combat` 和冷却。combat gate 只锁定开火，起点房仍允许换弹；换弹和冷却使用 `GameClock`。每次提交仍只发一次 `weapon_fired` context，RunLoop 将反向冲量交给 Player、动态震屏交给 Camera | `WeaponSystem.request_reload()`、`ammo_state()`、`add_ammo()`、`WeaponRecoilResolver.resolve()` |
+| 弹药 HUD / 打空反馈 | 常驻区只显示弹匣内剩余子弹与弹匣外备弹，不显示两者合计、总容量或打空说明；详细面板同样只显示弹匣、备弹和换弹时间。正常射击打出最后一发时，WeaponSystem 每次弹匣只请求一次角色头顶短时文字；有备弹时显示动态 `reload` 绑定，总弹药耗尽时提示再次开火。长按不重复，总弹药为零后每次重新按开火可再次提示；文字消退使用 `GameClock`，暂停冻结 | `WeaponSystem.ammo_attention_requested`、`Player.show_world_prompt()`、`PlayerWorldPrompt`、`ui_player_ammo_reload_prompt`、`ui_player_ammo_depleted_prompt` |
 | 子弹移动 / 地形 | 玩家和敌方子弹移动前先用 `hit_radius` 圆形 `intersect_shape()` 检查初始重叠，再用 `cast_motion()` 扫掠本帧位移；只查询地形层 bit 1。命中后停在安全比例、立即 `PoolManager.release()`，不再检查墙后伤害目标；`wall_pierce > 0` 的发射快照跳过全部地形查询。场景内玩家 `RibbonTrail` 与敌方 `EnemyRibbonTrail` 各自使用有界世界坐标历史，configure / acquire / release 都清空两条历史 | `PhysicsShapeQueryParameters2D` / `PhysicsDirectSpaceState2D` / `VfxRibbonTrail` |
 | 子弹命中 | 地形通过后，子弹汇总配置的全部伤害目标组，按扫掠命中时间与稳定实例 id 选择最近目标。普通敌弹只含玩家组；防御事件敌弹额外含防御目标组。屏障边界、地形和 pierce 规则保持不变，伤害统一走 Combat | `DamageInfo` / `ProjectileBarrier.projectile_boundary_hit_fraction()` |
 | 英雄 / 技能 / 状态 | RunLoop 用 `HeroCompositionResolver` 解析主／子英雄：主英雄提供属性、被动、场景和技能 1/2，子英雄只提供强调色与技能 3/4。SkillSystem 按固定槽位释放、共享能量并解释通用屏障 / 状态 / 修饰器原语；combat gate 锁定时返回 `reason=combat_locked`，不消耗资源、不进入冷却，且离房后必须重新按键。所有冷却、状态、护盾恢复和超盾衰减继续只走 `GameClock` | `configure_hero_composition()`、`SkillSystem.configure_combat_gate()`、`SkillSystem.cast_slot()`、`StatusEffectComponent` |

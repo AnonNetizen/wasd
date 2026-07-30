@@ -44,8 +44,6 @@ const STATS_PANEL_ROWS: Array[Dictionary] = [
 	{"key": "ability_duration", "label_key": "ui_stats_ability_duration"},
 	{"key": "ammo_magazine", "label_key": "ui_stats_ammo_magazine"},
 	{"key": "ammo_reserve", "label_key": "ui_stats_ammo_reserve"},
-	{"key": "ammo_total", "label_key": "ui_stats_ammo_total"},
-	{"key": "ammo_capacity", "label_key": "ui_stats_ammo_capacity"},
 	{"key": "reload_duration", "label_key": "ui_stats_reload_duration"},
 	{"key": "fire_rate", "label_key": "ui_stats_fire_rate"},
 	{"key": "move_speed", "label_key": "ui_stats_move_speed"},
@@ -778,16 +776,10 @@ func _refresh_ammo_label() -> void:
 		return
 	var magazine: int = maxi(int(_ammo_state.get("magazine", 0)), 0)
 	var reserve: int = maxi(int(_ammo_state.get("reserve", 0)), 0)
-	var capacity: int = maxi(int(_ammo_state.get("total_capacity", 0)), 0)
-	var total: int = magazine + reserve
 	var lines: PackedStringArray = [
 		tr("ui_hud_ammo").format({
 			"magazine": magazine,
 			"reserve": reserve,
-		}),
-		tr("ui_hud_ammo_total").format({
-			"total": total,
-			"capacity": capacity,
 		}),
 	]
 	if bool(_ammo_state.get("is_reloading", false)):
@@ -800,8 +792,6 @@ func _refresh_ammo_label() -> void:
 				),
 			})
 		)
-	elif bool(_ammo_state.get("is_depleted", false)):
-		lines.append(tr("ui_hud_ammo_depleted"))
 	_ammo_label.text = "\n".join(lines)
 
 

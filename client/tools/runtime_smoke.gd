@@ -91,6 +91,7 @@ func _run() -> void:
 		"default character should instantiate its data-bound dedicated scene"
 	)
 	_expect_ammo_drop_contract(run_loop, player)
+	_expect_player_ammo_world_prompt(player)
 	var initial_run_snapshot: Dictionary = (
 		run_loop.call("create_run_snapshot") as Dictionary
 	)
@@ -5139,6 +5140,37 @@ func _expect_ammo_drop_contract(
 	run_loop.set("_ammo_drop_misses", original_misses)
 	RNG.ammo.restore_snapshot(original_ammo_rng)
 	weapon.call("restore_snapshot", original_weapon_snapshot)
+
+
+func _expect_player_ammo_world_prompt(player: Node2D) -> void:
+	var weapon: Node = player.get_node_or_null("WeaponSystem")
+	var prompt: Node2D = player.get_node_or_null("WorldPrompt") as Node2D
+	var prompt_label: Label = (
+		prompt.get_node_or_null("Label") as Label
+		if prompt != null
+		else null
+	)
+	_expect(
+		weapon != null and prompt != null and prompt_label != null,
+		"player ammo world prompt should be scene-authored beside WeaponSystem"
+	)
+	if weapon == null or prompt == null or prompt_label == null:
+		return
+	weapon.emit_signal("ammo_attention_requested", 0)
+	_expect(
+		prompt.visible
+		and prompt_label.text == tr("ui_player_ammo_depleted_prompt"),
+		"depleted ammo attention should route to the player world prompt"
+	)
+	weapon.emit_signal("ammo_attention_requested", 1)
+	var reload_prompt: String = tr("ui_player_ammo_reload_prompt").format({
+		"binding": InputService.prompt_text(ACTIONS.RELOAD),
+	})
+	_expect(
+		prompt.visible and prompt_label.text == reload_prompt,
+		"reserve ammo attention should show the current reload binding near the player"
+	)
+	prompt.call("dismiss")
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -4890,6 +4890,18 @@ func _connect_weapon_feedback() -> void:
 	var fired_callback: Callable = Callable(self, "_on_weapon_fired")
 	if not _weapon_system.is_connected("weapon_fired", fired_callback):
 		_weapon_system.connect("weapon_fired", fired_callback)
+	var ammo_attention_callback: Callable = Callable(
+		self,
+		"_on_ammo_attention_requested"
+	)
+	if not _weapon_system.is_connected(
+		"ammo_attention_requested",
+		ammo_attention_callback
+	):
+		_weapon_system.connect(
+			"ammo_attention_requested",
+			ammo_attention_callback
+		)
 	var started_callback: Callable = Callable(self, "_on_temporary_modifier_started")
 	if not _weapon_system.is_connected("temporary_modifier_started", started_callback):
 		_weapon_system.connect("temporary_modifier_started", started_callback)
@@ -4969,6 +4981,17 @@ func _on_weapon_fired(context: Dictionary) -> void:
 		String(context.get("presentation_profile_id", "")),
 		"presentation_weapon_default"
 	), VFX_CUES.WEAPON_FIRE, feedback_context)
+
+
+func _on_ammo_attention_requested(reserve_remaining: int) -> void:
+	if _player == null or not _player.has_method("show_world_prompt"):
+		return
+	var message: String = tr("ui_player_ammo_depleted_prompt")
+	if reserve_remaining > 0:
+		message = tr("ui_player_ammo_reload_prompt").format({
+			"binding": InputService.prompt_text(ACTIONS.RELOAD),
+		})
+	_player.call("show_world_prompt", message)
 
 
 func _on_temporary_modifier_started(snapshot_data: Dictionary) -> void:
@@ -6505,13 +6528,6 @@ func _stats_panel_snapshot() -> Dictionary:
 			int(ammo_state.get("magazine_size", 0)),
 		],
 		"ammo_reserve": "%d" % int(ammo_state.get("reserve", 0)),
-		"ammo_total": "%d" % (
-			int(ammo_state.get("magazine", 0))
-			+ int(ammo_state.get("reserve", 0))
-		),
-		"ammo_capacity": "%d" % int(
-			ammo_state.get("total_capacity", 0)
-		),
 		"reload_duration": "%ss" % _format_stat_value(
 			float(ammo_state.get("reload_duration", 0.0))
 		),

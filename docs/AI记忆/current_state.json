@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-07-29",
+  "updated_at": "2026-07-30",
   "current_phase": "ammunition_and_reload",
-  "current_status": "ADR #177 已为枪械加入弹匣、备弹、总上限、1.2 秒换弹、零弹 50% 射速 / 弹速降级射击和独立 RNG.ammo 递增敌人弹药掉落；基础枪为 30 / 150 / 240。默认技能键改为 1/2/3/4，换弹 R / 手柄 East，交互 E / 手柄 West；weapons schema v4、输入绑定 schema v2、Run v11、游戏 v1.10，Meta v2 与 Replay v3 保持，旧 Run v10 明确不兼容。人工手感、HUD 可读性、二次按压反馈和真实手柄布局按 ADR #174 只交付用户验收；本任务按 ADR #143 不运行性能 probe。后续工作以用户最后明确指令为准。",
+  "current_status": "ADR #177 已为枪械加入弹匣、备弹、总上限、1.2 秒换弹、零弹 50% 射速 / 弹速降级射击和独立 RNG.ammo 递增敌人弹药掉落；基础枪为 30 / 150 / 240。默认技能键改为 1/2/3/4，换弹 R / 手柄 East，交互 E / 手柄 West。2026-07-30 根据用户反馈修正弹药 HUD：常驻区和详细面板只显示弹匣内剩余、弹匣外备弹与换弹时间，不显示总量 / 容量，也不再泄漏 {magazine_size} 占位符。打空说明不再塞进 HUD 卡片；WeaponSystem 在最后一发或零弹重新按火时请求一次 PlayerWorldPrompt，在角色头顶短时显示动态换弹绑定或弹药耗尽说明，长按不重复。weapons schema v4、输入绑定 schema v2、Run v11、游戏 v1.10，Meta v2 与 Replay v3 保持，旧 Run v10 明确不兼容。人工手感、HUD 可读性、二次按压反馈和真实手柄布局按 ADR #174 只交付用户验收；本任务按 ADR #143 不运行性能 probe。后续工作以用户最后明确指令为准。",
   "latest_adr": 177,
   "open_decisions": [
     "D",
     "E"
   ],
   "last_completed": [
+    "弹药 HUD 用户反馈修正：常驻 HUD 改为“弹匣剩余 + 弹匣外备弹”，删除总弹药 / 容量显示并修复 magazine_size 占位符外露；详细面板同步只保留弹匣、备弹与换弹时间。打空反馈从 HUD 第二行改为角色头顶短时世界文字：WeaponSystem 在正常射击打出最后一发时单次请求，有备弹显示动态 reload 绑定、总弹药耗尽提示再次开火，持续按住不重复；零弹重新按火可再次提示。核心弹药数据、Run v11 与 Replay v3 不变。",
     "ADR #177 / 弹药、换弹与默认键位改造：weapons.json 升 schema v4，每把武器必填 magazine_size、starting_reserve、total_capacity、reload_duration 和零弹降级倍率；基础枪为 30 / 150 / 240 与 1.2 秒换弹。空匣需要松开再按开火或按 R，零总弹可重新按压进入 50% 射速 / 弹速无限降级射击且寿命补偿射程。新增 ammo_rules.json、RNG.ammo 和池化 ammo_magazine，玩家归因且允许奖励的敌人按 8/23/38/53/68/83/98/100% 递增曲线掉落当前武器一弹匣，满弹不抽取不推进。默认技能键改 1/2/3/4、换弹 R / East、交互 E / West，binding 升 v2。Run 升 v11 保存武器、换弹、掉率、RNG 和场上弹匣，旧 v10 只清 run 保 Meta v2；Replay v3 摘要与黄金基线同步，游戏版本升 v1.10。",
     "ADR #176 / 完整删除 VFX 质量体系：删除 video.vfx_quality 设置契约、默认值、枚举、面板控件和双语文案；Settings 升 v4，读取 v1–v3 时保留其他偏好并剔除废弃 key。visual_effects.json 升 schema v3，删除并拒绝 quality_variants；删除 vfx_qualities 契约、VisualEffects.resolved_effect、VfxHost 变体解析和 VFX 编辑器质量预览 / metadata，所有玩家统一使用唯一正式 effect。闪屏、震屏、Run v10、Meta v2、Replay v3 与游戏 v1.9 保持。",
     "ADR #175 / 数据驱动敌人金币公式与难度接口：新增 enemy_rewards.json schema v1、EnemyRewardResolver 与 RNG.economy；enemies.csv 用 gold_value_multiplier 替代固定 gold_reward。敌人成功取得对象池实体后按基础 10 × difficulty coefficient × value × specialization × (1 + 0.10 × spawn tier) × economy[0.9,1.1] 锁定最终金币与完整明细，死亡 / 续局不重算不重抽。difficulty_profiles 升 schema v2，标准 profile 增加双语名称与 1.0 系数，系数缩放威胁时间并参与金币；启动前 profile id 贯通开始、Loading、重开和续局，当前无选择 UI。Run 升 v10 保存奖励和 economy state，v9 明确不兼容且保留 Meta v2；Replay v3 重录，游戏版本升 v1.9。",

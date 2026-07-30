@@ -180,10 +180,10 @@ label.text = tr("ui_damage") + str(value)
 
 ### 加弹药、换弹与弹匣拾取文案
 
-1. 常驻弹匣与总量分别使用 `ui_hud_ammo` 的 `{magazine}` / `{magazine_size}` 和 `ui_hud_ammo_total` 的 `{total}` / `{capacity}`；同一组占位符必须在中英文中完整保留。
-2. 换弹提示使用 `ui_hud_ammo_reload_hint` 的 `{binding}`，换弹进度使用 `ui_hud_ammo_reloading` 的 `{seconds}`；按键名来自 `InputService` 提示，不在译文中写死物理按键。
-3. 空弹降级状态使用 `ui_hud_ammo_depleted`，弹匣拾取反馈使用 `ui_hud_ammo_magazine_collected` 的 `{count}`；倍率、弹匣容量和掉落概率继续以 `weapons.json` / `ammo_rules.json` 为数值权威，不重复写进译文。
-4. 详细面板使用 `ui_stats_ammo_magazine`、`ui_stats_ammo_reserve`、`ui_stats_ammo_total`、`ui_stats_ammo_capacity` 与 `ui_stats_reload_duration`；标签只表达字段语义，数值由运行时格式化。
+1. 常驻弹药只使用 `ui_hud_ammo` 的 `{magazine}` / `{reserve}`，分别显示弹匣内剩余子弹和弹匣外备弹；不显示两者合计或总容量。
+2. 换弹进度使用 `ui_hud_ammo_reloading` 的 `{seconds}`；空弹匣提示改为角色头顶短时世界文字：有备弹时使用 `ui_player_ammo_reload_prompt` 的 `{binding}`，总弹药耗尽时使用 `ui_player_ammo_depleted_prompt`。按键名来自 `InputService`，不在译文中写死物理按键。
+3. 弹匣拾取反馈使用 `ui_hud_ammo_magazine_collected` 的 `{count}`。倍率、弹匣容量和掉落概率继续以 `weapons.json` / `ammo_rules.json` 为数值权威，不重复写进译文。
+4. 详细面板只显示 `ui_stats_ammo_magazine`、`ui_stats_ammo_reserve` 与 `ui_stats_reload_duration`；不显示总弹药合计或容量。
 
 ### 加一个设置面板控件文案
 

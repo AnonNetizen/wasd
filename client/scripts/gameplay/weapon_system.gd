@@ -10,6 +10,7 @@ signal temporary_modifier_expired(snapshot: Dictionary)
 signal temporary_modifiers_restored(active: Array[Dictionary])
 signal weapon_fired(context: Dictionary)
 signal ammo_changed(state: Dictionary)
+signal ammo_attention_requested(reserve_remaining: int)
 signal reload_started(state: Dictionary)
 signal reload_completed(state: Dictionary)
 
@@ -83,6 +84,7 @@ func _process(delta: float) -> void:
 				request_reload()
 				return
 			if _magazine_ammo + _reserve_ammo <= 0:
+				ammo_attention_requested.emit(0)
 				if _set_depleted_mode(true):
 					ammo_changed.emit(ammo_state())
 
@@ -360,6 +362,7 @@ func _fire_once(effective_stats: Dictionary) -> bool:
 		_magazine_ammo = maxi(_magazine_ammo - 1, 0)
 		if _magazine_ammo <= 0:
 			_empty_trigger_latched = true
+			ammo_attention_requested.emit(_reserve_ammo)
 		ammo_changed.emit(ammo_state())
 	var context: Dictionary = {
 		"owner": _player,

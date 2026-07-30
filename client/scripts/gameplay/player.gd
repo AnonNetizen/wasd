@@ -72,6 +72,7 @@ var _stat_multipliers: Dictionary = {}
 var _status_effect_component: Node = null
 var _temporary_modifiers: Dictionary = {}
 var _presentation: ActorPresentationController = null
+var _world_prompt: Node2D = null
 var _weapon_recoil_duration: float = 0.0
 var _weapon_recoil_remaining: float = 0.0
 var _weapon_recoil_velocity: Vector2 = Vector2.ZERO
@@ -81,6 +82,7 @@ var _weapon_recoil_velocity_cap: float = 0.0
 func _ready() -> void:
 	_ensure_status_effect_component()
 	_ensure_presentation()
+	_ensure_world_prompt()
 	if not InputService.action_pressed.is_connected(_on_input_action_pressed):
 		InputService.action_pressed.connect(_on_input_action_pressed)
 	_refresh_visuals()
@@ -146,6 +148,9 @@ func configure(base_stats: Dictionary) -> void:
 	_ensure_presentation()
 	if _presentation != null:
 		_presentation.reset_presentation()
+	_ensure_world_prompt()
+	if _world_prompt != null and _world_prompt.has_method("dismiss"):
+		_world_prompt.call("dismiss")
 	_has_movement_bounds = false
 	_dash_cooldown_remaining = 0.0
 	_dash_direction = Vector2.ZERO
@@ -170,6 +175,12 @@ func configure(base_stats: Dictionary) -> void:
 
 func current_life() -> float:
 	return _life_points
+
+
+func show_world_prompt(message: String) -> void:
+	_ensure_world_prompt()
+	if _world_prompt != null and _world_prompt.has_method("show_message"):
+		_world_prompt.call("show_message", message)
 
 
 func max_life() -> float:
@@ -1203,6 +1214,14 @@ func _ensure_presentation() -> void:
 	_presentation = get_node_or_null("Presentation") as ActorPresentationController
 	if _presentation == null:
 		push_error("[Player] missing scene-authored Presentation")
+
+
+func _ensure_world_prompt() -> void:
+	if _world_prompt != null and is_instance_valid(_world_prompt):
+		return
+	_world_prompt = get_node_or_null("WorldPrompt") as Node2D
+	if _world_prompt == null:
+		push_error("[Player] missing scene-authored WorldPrompt")
 
 
 func _set_pointer_aim_from_viewport_position(viewport_position: Vector2) -> void:

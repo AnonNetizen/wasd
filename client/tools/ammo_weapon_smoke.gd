@@ -133,6 +133,10 @@ func _expect_trigger_spends_one_round(weapon: WeaponSystem) -> void:
 
 
 func _expect_empty_magazine_requires_new_edge(weapon: WeaponSystem) -> void:
+	var attention_requests: Array[int] = []
+	var attention_observer: Callable = func(reserve_remaining: int) -> void:
+		attention_requests.append(reserve_remaining)
+	weapon.ammo_attention_requested.connect(attention_observer)
 	InputService.inject_playback_value(ACTIONS.FIRE, false)
 	weapon._process(0.016)
 	weapon.restore_snapshot({
@@ -153,6 +157,10 @@ func _expect_empty_magazine_requires_new_edge(weapon: WeaponSystem) -> void:
 	_expect(
 		not bool(held_empty_state.get("is_reloading", true)),
 		"held fire after emptying should not auto-reload"
+	)
+	_expect(
+		attention_requests == [2],
+		"emptying the magazine should request one world prompt without held-fire spam"
 	)
 	InputService.inject_playback_value(ACTIONS.FIRE, false)
 	weapon._process(0.016)
@@ -178,6 +186,7 @@ func _expect_empty_magazine_requires_new_edge(weapon: WeaponSystem) -> void:
 	InputService.inject_playback_value(ACTIONS.RELOAD, false)
 	InputService.inject_playback_value(ACTIONS.FIRE, false)
 	weapon._process(0.016)
+	weapon.ammo_attention_requested.disconnect(attention_observer)
 
 
 func _expect_reload_snapshot_roundtrip(
@@ -222,9 +231,13 @@ func _expect_reload_snapshot_roundtrip(
 
 func _expect_depleted_fire(weapon: WeaponSystem) -> void:
 	var fired_contexts: Array[Dictionary] = []
+	var attention_requests: Array[int] = []
 	var observer: Callable = func(context: Dictionary) -> void:
 		fired_contexts.append(context.duplicate(true))
+	var attention_observer: Callable = func(reserve_remaining: int) -> void:
+		attention_requests.append(reserve_remaining)
 	weapon.weapon_fired.connect(observer)
+	weapon.ammo_attention_requested.connect(attention_observer)
 	InputService.inject_playback_value(ACTIONS.FIRE, true)
 	weapon._process(0.016)
 	var state: Dictionary = weapon.ammo_state()
@@ -235,6 +248,10 @@ func _expect_depleted_fire(weapon: WeaponSystem) -> void:
 	_expect(
 		bool(state.get("depleted_fire_armed", false)),
 		"fresh fire at total zero should arm depleted fire"
+	)
+	_expect(
+		attention_requests == [0],
+		"fresh fire at total zero should request one depleted world prompt"
 	)
 	_expect(int(state.get("total", -1)) == 0, "depleted fire should use infinite fallback ammo")
 	_expect(
@@ -258,6 +275,7 @@ func _expect_depleted_fire(weapon: WeaponSystem) -> void:
 			"depleted bullet lifetime should compensate to preserve range"
 		)
 	weapon.weapon_fired.disconnect(observer)
+	weapon.ammo_attention_requested.disconnect(attention_observer)
 	_release_active_test_bullets()
 
 

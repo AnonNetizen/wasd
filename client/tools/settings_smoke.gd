@@ -3,8 +3,12 @@ extends Node
 
 const SETTINGS_KEYS := preload("res://scripts/contracts/settings_keys.gd")
 const INPUT_BINDING_IDS := preload("res://scripts/contracts/input_binding_ids.gd")
+const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const GAME_OVER_PANEL_SCENE := preload("res://scenes/ui/game_over_panel.tscn")
 const GAMEPLAY_HUD_SCENE := preload("res://scenes/gameplay/gameplay_hud.tscn")
+const PLAYER_SCENE := preload(
+	"res://scenes/gameplay/actors/characters/character_default.tscn"
+)
 const REWARD_CHOICE_PANEL_SCENE := preload(
 	"res://scenes/ui/reward_choice_panel.tscn"
 )
@@ -428,6 +432,12 @@ func _expect_hud_locale_refresh() -> void:
 	hud.call("set_kills", 2)
 	hud.call("set_level", 4)
 	hud.call("set_gold_progress", 120, 20, 130)
+	hud.call("set_ammo_state", {
+		"magazine": 18,
+		"reserve": 150,
+		"is_reloading": false,
+		"is_depleted": false,
+	})
 	hud.call("show_upgrade_feedback", "ui_reward_damage_small_name")
 	await get_tree().process_frame
 
@@ -439,6 +449,12 @@ func _expect_hud_locale_refresh() -> void:
 		"GoldProgressLabel"
 	) as Label
 	var feedback_label: Label = _find_node_by_name(hud, "UpgradeFeedbackLabel") as Label
+	var ammo_label: Label = _find_node_by_name(hud, "AmmoLabel") as Label
+	_expect(
+		_find_node_by_name(hud, "AmmoTotalRow") == null
+		and _find_node_by_name(hud, "AmmoCapacityRow") == null,
+		"HUD stats panel should not display total ammo or ammo capacity rows"
+	)
 	_expect(life_label != null and String(life_label.text).begins_with(tr("ui_hud_life")), "HUD life should start in zh_CN")
 	_expect(kills_label != null and String(kills_label.text).begins_with(tr("ui_hud_kills")), "HUD kills should start in zh_CN")
 	_expect(level_label != null and String(level_label.text).begins_with(tr("ui_hud_level")), "HUD level should start in zh_CN")
@@ -448,6 +464,86 @@ func _expect_hud_locale_refresh() -> void:
 		"HUD gold progress should start in zh_CN"
 	)
 	_expect(feedback_label != null and String(feedback_label.text).contains(tr("ui_reward_damage_small_name")), "HUD reward feedback should start in zh_CN")
+	var expected_ammo_text: String = tr("ui_hud_ammo").format({
+		"magazine": 18,
+		"reserve": 150,
+	})
+	_expect(
+		ammo_label != null
+		and String(ammo_label.text) == expected_ammo_text,
+		"HUD ammo should show magazine and reserve without total capacity"
+	)
+	_expect(
+		ammo_label != null
+		and not String(ammo_label.text).contains("{magazine_size}"),
+		"HUD ammo should not leak unresolved magazine_size placeholders"
+	)
+	hud.call("set_ammo_state", {
+		"magazine": 0,
+		"reserve": 42,
+		"is_reloading": false,
+		"is_depleted": false,
+	})
+	var empty_magazine_text: String = tr("ui_hud_ammo").format({
+		"magazine": 0,
+		"reserve": 42,
+	})
+	_expect(
+		ammo_label != null
+		and String(ammo_label.text) == empty_magazine_text,
+		"HUD should keep empty-magazine guidance out of the ammo card"
+	)
+	var player: Node2D = PLAYER_SCENE.instantiate() as Node2D
+	add_child(player)
+	await get_tree().process_frame
+	var world_prompt: Node2D = _find_node_by_name(
+		player,
+		"WorldPrompt"
+	) as Node2D
+	var world_prompt_label: Label = _find_node_by_name(
+		world_prompt,
+		"Label"
+	) as Label
+	var reload_prompt: String = tr("ui_player_ammo_reload_prompt").format({
+		"binding": InputService.prompt_text(ACTIONS.RELOAD),
+	})
+	player.call("show_world_prompt", reload_prompt)
+	_expect(
+		world_prompt != null
+		and world_prompt.get_parent() == player
+		and world_prompt.visible
+		and world_prompt_label != null
+		and String(world_prompt_label.text) == reload_prompt,
+		"empty-magazine guidance should appear as a player-attached world prompt"
+	)
+	hud.call("set_ammo_state", {
+		"magazine": 0,
+		"reserve": 0,
+		"is_reloading": false,
+		"is_depleted": true,
+	})
+	var depleted_ammo_text: String = tr("ui_hud_ammo").format({
+		"magazine": 0,
+		"reserve": 0,
+	})
+	player.call(
+		"show_world_prompt",
+		tr("ui_player_ammo_depleted_prompt")
+	)
+	_expect(
+		ammo_label != null
+		and String(ammo_label.text) == depleted_ammo_text
+		and world_prompt_label != null
+		and String(world_prompt_label.text) == tr(
+			"ui_player_ammo_depleted_prompt"
+		),
+		"depleted guidance should use the player world prompt instead of the HUD card"
+	)
+	world_prompt.call("_process", 1.3)
+	_expect(
+		not world_prompt.visible,
+		"player ammo world prompt should dismiss after its short display window"
+	)
 
 	Localization.set_locale("en")
 	await get_tree().process_frame
@@ -460,7 +556,23 @@ func _expect_hud_locale_refresh() -> void:
 		"HUD gold progress should refresh to en"
 	)
 	_expect(feedback_label != null and String(feedback_label.text).contains("Upgrade"), "HUD upgrade feedback should refresh to en")
+	_expect(
+		ammo_label != null
+		and String(ammo_label.text) == "Magazine 0 · Reserve 0",
+		"HUD ammo should refresh to en without an inline warning"
+	)
+	player.call(
+		"show_world_prompt",
+		tr("ui_player_ammo_depleted_prompt")
+	)
+	_expect(
+		world_prompt_label != null
+		and String(world_prompt_label.text).contains("Out of Ammo"),
+		"player ammo world prompt should use the active locale"
+	)
 
+	remove_child(player)
+	player.queue_free()
 	remove_child(hud)
 	hud.queue_free()
 
