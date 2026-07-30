@@ -3,6 +3,12 @@ extends SceneTree
 const ASSET_PATH: String = "res://data/polygon_assets/open_book.polygon.json"
 const COMPILER := preload("res://scripts/polygon_asset_compiler_core.gd")
 const MANIFEST_PATH: String = "res://data/polygon_imports/open_book.json"
+const PAGE_PALETTE_ROLES: Array[String] = [
+	"page_light",
+	"page_mid",
+	"page_shadow",
+	"accent_warm",
+]
 const RUNTIME_SCRIPT := preload("res://scripts/polygon_asset_2d.gd")
 const SCENE_PATH: String = "res://scenes/polygon_book_test.tscn"
 const SHADER_PATH: String = "res://shaders/polygon_asset.gdshader"
@@ -156,7 +162,16 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	_check(triangles_are_valid, "Polygon asset contains no degenerate triangle.")
 	_check(palette_roles_are_valid, "Every face color comes from the Style Profile palette.")
 	_check(clear_order_is_valid, "Every face has a normalized clear order.")
-	_check(_connected_component_count(faces) == 1, "Face topology has one connected component.")
+	var outline := _vector2_array_from_json(asset_data.get("outline", []))
+	var topology := _analyze_edge_topology(faces, outline.size())
+	_check(
+		bool(topology.get("watertight", false)),
+		"Every internal edge has two owners and every outline edge has one."
+	)
+	_check(
+		int(topology.get("connected_components", 0)) == 1,
+		"Face topology has one edge-connected component."
+	)
 	var minimum_visible_altitude := float(
 		style.get("minimum_visible_face_altitude_px", 0.0)
 	)
@@ -224,6 +239,17 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 		_check(bounds.grow(0.01).has_point(point), "Collision point is inside asset bounds.")
 	var stats: Dictionary = asset_data.get("stats", {})
 	_check(int(stats.get("connected_components", 0)) == 1, "Stats record one component.")
+	_check(bool(stats.get("watertight", false)), "Stats record watertight topology.")
+	_check(
+		int(stats.get("boundary_edge_count", -1))
+		== int(topology.get("boundary_edge_count", -2)),
+		"Stats record the verified boundary edge count."
+	)
+	_check(
+		int(stats.get("interior_edge_count", -1))
+		== int(topology.get("interior_edge_count", -2)),
+		"Stats record the verified interior edge count."
+	)
 	_check(int(stats.get("draw_surfaces", 0)) == 1, "Stats record one draw surface.")
 	_check(
 		int(stats.get("visually_merged_skinny_face_count", 0)) == skinny_face_count,
@@ -250,8 +276,9 @@ func _validate_shader_shape() -> void:
 	if shader == null:
 		return
 	_check(
-		shader.code.find("step(0.75, UV.y)") >= 0,
-		"Shader gates page-turn deformation by per-face UV motion masks."
+		shader.code.find("vertex_turn_weight") >= 0
+		and shader.code.find("step(0.75, COLOR.a)") >= 0,
+		"Shader separates shared-vertex deformation from per-face color animation."
 	)
 	_check(
 		shader.code.find("crease_center") >= 0
@@ -280,9 +307,25 @@ func _validate_runtime() -> void:
 	var mesh_instance := runtime.get_mesh_instance() as MeshInstance2D
 	_check(mesh_instance != null, "Runtime exposes the Polygon mesh instance.")
 	var runtime_stats: Dictionary = runtime.get_runtime_stats()
+	var runtime_asset_data: Dictionary = runtime.get_asset_data()
+	var runtime_faces: Array = runtime_asset_data.get("faces", [])
+	var authored_turnable_face_count := 0
+	for face_value: Variant in runtime_faces:
+		if _motion_mask_for_face(face_value as Dictionary) >= 0.75:
+			authored_turnable_face_count += 1
 	_check(
-		int(runtime_stats.get("turnable_face_count", 0)) == 13,
-		"Runtime keeps the 13 authored right-page faces turnable without cover leakage."
+		authored_turnable_face_count > 0
+		and int(runtime_stats.get("turnable_face_count", 0))
+		== authored_turnable_face_count,
+		"Runtime keeps exactly the authored right-page faces turnable."
+	)
+	_check(
+		int(runtime_stats.get("deformable_logical_vertex_count", 0)) > 0,
+		"Runtime keeps interior right-page logical vertices deformable."
+	)
+	_check(
+		int(runtime_stats.get("pinned_page_boundary_vertex_count", 0)) > 0,
+		"Runtime pins logical vertices shared by the page and fixed book geometry."
 	)
 	_check(
 		int(runtime_stats.get("render_face_count", 0))
@@ -301,17 +344,55 @@ func _validate_runtime() -> void:
 			)
 			var arrays := mesh.surface_get_arrays(0)
 			var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+			var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+			var expected_motion_masks := _build_expected_vertex_motion_masks(
+				runtime_faces,
+				_vector2_array_from_json(
+					runtime_asset_data.get("vertices", [])
+				).size()
+			)
+			var expanded_vertex_index := 0
+			var shared_motion_masks_match := true
+			var face_animation_flags_match := true
 			var turnable_vertex_count := 0
 			var idle_page_vertex_count := 0
-			for uv: Vector2 in uvs:
-				if uv.y >= 0.75:
-					turnable_vertex_count += 1
-				elif uv.y >= 0.25:
-					idle_page_vertex_count += 1
+			for face_value: Variant in runtime_faces:
+				var face: Dictionary = face_value
+				var indices: Array = face.get("indices", [])
+				var expected_face_alpha := (
+					1.0 if _motion_mask_for_face(face) >= 0.75 else 0.5
+				)
+				for vertex_index_value: Variant in indices:
+					var logical_vertex_index := int(vertex_index_value)
+					var uv := uvs[expanded_vertex_index]
+					var color := colors[expanded_vertex_index]
+					shared_motion_masks_match = (
+						shared_motion_masks_match
+						and is_equal_approx(
+							uv.y,
+							expected_motion_masks[logical_vertex_index]
+						)
+					)
+					face_animation_flags_match = (
+						face_animation_flags_match
+						and absf(color.a - expected_face_alpha) <= 0.01
+					)
+					if uv.y >= 0.75:
+						turnable_vertex_count += 1
+					elif uv.y >= 0.25:
+						idle_page_vertex_count += 1
+					expanded_vertex_index += 1
 			_check(
-				turnable_vertex_count
-				== int(runtime_stats.get("turnable_face_count", 0)) * 3,
-				"Only turnable page faces carry the page-turn UV mask."
+				shared_motion_masks_match,
+				"Every duplicate of a shared logical vertex uses one motion weight."
+			)
+			_check(
+				face_animation_flags_match,
+				"Per-face color animation flags remain independent from vertex motion."
+			)
+			_check(
+				turnable_vertex_count > 0,
+				"Turnable page faces retain deformable interior vertices."
 			)
 			_check(
 				idle_page_vertex_count > 0,
@@ -479,30 +560,63 @@ func _skinny_face_reaches_major_same_color(
 	return false
 
 
-func _connected_component_count(faces: Array) -> int:
-	if faces.is_empty():
-		return 0
-	var vertex_to_faces: Dictionary = {}
+func _analyze_edge_topology(
+	faces: Array,
+	outline_vertex_count: int
+) -> Dictionary:
+	var edge_to_faces: Dictionary = {}
 	for face_index in range(faces.size()):
 		var face: Dictionary = faces[face_index]
 		var indices: Array = face.get("indices", [])
 		if indices.size() != 3:
 			continue
-		for vertex_index_value: Variant in indices:
-			var vertex_index := int(vertex_index_value)
-			var owners: Array = vertex_to_faces.get(vertex_index, [])
+		for edge_index in range(3):
+			var edge := _edge_key(
+				int(indices[edge_index]),
+				int(indices[(edge_index + 1) % 3])
+			)
+			var owners: Array = edge_to_faces.get(edge, [])
 			owners.append(face_index)
-			vertex_to_faces[vertex_index] = owners
+			edge_to_faces[edge] = owners
+
+	var expected_boundary_edges: Dictionary = {}
+	for outline_index in range(outline_vertex_count):
+		expected_boundary_edges[_edge_key(
+			outline_index,
+			(outline_index + 1) % outline_vertex_count
+		)] = true
 	var adjacency: Array = []
 	adjacency.resize(faces.size())
 	for index in range(faces.size()):
 		adjacency[index] = []
-	for owners_value: Variant in vertex_to_faces.values():
-		var owners: Array = owners_value
-		for first_index in range(owners.size()):
-			for second_index in range(first_index + 1, owners.size()):
-				(adjacency[int(owners[first_index])] as Array).append(int(owners[second_index]))
-				(adjacency[int(owners[second_index])] as Array).append(int(owners[first_index]))
+	var watertight := true
+	var boundary_edge_count := 0
+	var interior_edge_count := 0
+	for edge_value: Variant in edge_to_faces:
+		var edge := String(edge_value)
+		var owners: Array = edge_to_faces[edge]
+		if owners.size() == 1:
+			boundary_edge_count += 1
+			watertight = watertight and expected_boundary_edges.has(edge)
+		elif owners.size() == 2:
+			interior_edge_count += 1
+			var first_owner := int(owners[0])
+			var second_owner := int(owners[1])
+			(adjacency[first_owner] as Array).append(second_owner)
+			(adjacency[second_owner] as Array).append(first_owner)
+		else:
+			watertight = false
+	for edge_value: Variant in expected_boundary_edges:
+		var edge := String(edge_value)
+		watertight = (
+			watertight
+			and edge_to_faces.has(edge)
+			and (edge_to_faces[edge] as Array).size() == 1
+		)
+	watertight = (
+		watertight
+		and boundary_edge_count == outline_vertex_count
+	)
 	var visited: Dictionary = {}
 	var component_count := 0
 	for start in range(faces.size()):
@@ -519,7 +633,70 @@ func _connected_component_count(faces: Array) -> int:
 					continue
 				visited[neighbor] = true
 				queue.append(neighbor)
-	return component_count
+	return {
+		"watertight": watertight,
+		"connected_components": component_count,
+		"boundary_edge_count": boundary_edge_count,
+		"interior_edge_count": interior_edge_count,
+	}
+
+
+func _build_expected_vertex_motion_masks(
+	faces: Array,
+	vertex_count: int
+) -> PackedFloat32Array:
+	var has_turnable_face := PackedByteArray()
+	var has_left_page_face := PackedByteArray()
+	var has_fixed_face := PackedByteArray()
+	has_turnable_face.resize(vertex_count)
+	has_left_page_face.resize(vertex_count)
+	has_fixed_face.resize(vertex_count)
+	for face_value: Variant in faces:
+		var face: Dictionary = face_value
+		var face_motion_mask := _motion_mask_for_face(face)
+		var indices: Array = face.get("indices", [])
+		for vertex_index_value: Variant in indices:
+			var vertex_index := int(vertex_index_value)
+			if face_motion_mask >= 0.75:
+				has_turnable_face[vertex_index] = 1
+			elif face_motion_mask >= 0.25:
+				has_left_page_face[vertex_index] = 1
+			else:
+				has_fixed_face[vertex_index] = 1
+
+	var result := PackedFloat32Array()
+	result.resize(vertex_count)
+	for vertex_index in range(vertex_count):
+		var touches_turnable_page := has_turnable_face[vertex_index] == 1
+		var touches_other_geometry := (
+			has_left_page_face[vertex_index] == 1
+			or has_fixed_face[vertex_index] == 1
+		)
+		if touches_turnable_page and not touches_other_geometry:
+			result[vertex_index] = 1.0
+		elif (
+			not touches_turnable_page
+			and has_left_page_face[vertex_index] == 1
+			and has_fixed_face[vertex_index] == 0
+		):
+			result[vertex_index] = 0.5
+	return result
+
+
+func _motion_mask_for_face(face: Dictionary) -> float:
+	var role := String(face.get("palette_role", ""))
+	if not PAGE_PALETTE_ROLES.has(role):
+		return 0.0
+	var region := String(face.get("region", ""))
+	if region == "right_page":
+		return 1.0
+	if region == "left_page":
+		return 0.5
+	return 0.0
+
+
+func _edge_key(first: int, second: int) -> String:
+	return "%d:%d" % [mini(first, second), maxi(first, second)]
 
 
 func _load_json_dictionary(path: String) -> Dictionary:

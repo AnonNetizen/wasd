@@ -13,7 +13,7 @@ void vertex() {
 	float half_width = max(asset_half_size.x, 1.0);
 	float half_height = max(asset_half_size.y, 1.0);
 	float vertical_weight = clamp(abs(VERTEX.y) / half_height, 0.0, 1.0);
-	float turnable_page = outline_mode ? 0.0 : step(0.75, UV.y);
+	float vertex_turn_weight = outline_mode ? 0.0 : UV.y;
 
 	float right_page_position = clamp(VERTEX.x / half_width, 0.0, 1.0);
 	float turn_envelope = sin(page_turn_progress * 3.14159265);
@@ -25,14 +25,14 @@ void vertex() {
 		* (1.0 - smoothstep(0.76, 0.98, right_page_position))
 		* (1.0 - smoothstep(0.72, 0.97, vertical_weight))
 	);
-	float crease = turnable_page * turn_envelope * crease_band * turn_boundary_guard;
+	float crease = vertex_turn_weight * turn_envelope * crease_band * turn_boundary_guard;
 	VERTEX.x -= crease * (10.0 + 7.0 * (1.0 - right_page_position));
 	VERTEX.y += crease * 9.0 * sin(VERTEX.y / half_height * 1.57079633);
 }
 
 void fragment() {
-	vec4 face_color = COLOR;
-	float turnable_page = outline_mode ? 0.0 : step(0.75, UV.y);
+	vec4 face_color = vec4(COLOR.rgb, 1.0);
+	float turnable_page = outline_mode ? 0.0 : step(0.75, COLOR.a);
 	float turn_envelope = sin(page_turn_progress * 3.14159265);
 	float block_phase = fract(UV.x * 17.0);
 	float color_wave = 0.5 + 0.5 * sin(

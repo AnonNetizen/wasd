@@ -25,6 +25,8 @@ var _debug_mesh_visible: bool = false
 var _page_surface_face_count: int = 0
 var _turnable_face_count: int = 0
 var _render_face_count: int = 0
+var _deformable_logical_vertex_count: int = 0
+var _pinned_page_boundary_vertex_count: int = 0
 
 
 func _ready() -> void:
@@ -104,6 +106,8 @@ func get_runtime_stats() -> Dictionary:
 		"page_surface_face_count": _page_surface_face_count,
 		"turnable_face_count": _turnable_face_count,
 		"render_face_count": _render_face_count,
+		"deformable_logical_vertex_count": _deformable_logical_vertex_count,
+		"pinned_page_boundary_vertex_count": _pinned_page_boundary_vertex_count,
 		"animation_time": _animation_time,
 		"page_turn_progress": _page_turn_progress,
 		"clear_progress": _clear_progress,
@@ -187,6 +191,10 @@ func _build_mesh() -> Error:
 			_turnable_face_count += 1
 		validated_faces.append(face)
 	_render_face_count = validated_faces.size()
+	var vertex_motion_masks := _build_vertex_motion_masks(
+		validated_faces,
+		vertices.size()
+	)
 
 	var expanded_vertices := PackedVector3Array()
 	var expanded_colors := PackedColorArray()
@@ -195,19 +203,21 @@ func _build_mesh() -> Error:
 		var indices: Array = face["indices"]
 		var role := String(face.get("palette_role", ""))
 		var color := Color(String(palette[role]))
-		color.a = 1.0
+		color.a = 1.0 if _motion_mask_for_face(face) >= 0.75 else 0.5
 		var clear_order := clampf(
 			float(face.get("clear_order", 1.0)),
 			0.0,
 			1.0
 		)
-		var motion_mask := _motion_mask_for_face(face)
 		for vertex_index_value: Variant in indices:
 			var vertex_index := int(vertex_index_value)
 			var vertex := vertices[vertex_index]
 			expanded_vertices.append(Vector3(vertex.x, vertex.y, 0.0))
 			expanded_colors.append(color)
-			expanded_uvs.append(Vector2(clear_order, motion_mask))
+			expanded_uvs.append(Vector2(
+				clear_order,
+				vertex_motion_masks[vertex_index]
+			))
 
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
@@ -306,6 +316,49 @@ func _motion_mask_for_face(face: Dictionary) -> float:
 	if region == "left_page":
 		return 0.5
 	return 0.0
+
+
+func _build_vertex_motion_masks(
+	faces: Array[Dictionary],
+	vertex_count: int
+) -> PackedFloat32Array:
+	var has_turnable_face := PackedByteArray()
+	var has_left_page_face := PackedByteArray()
+	var has_fixed_face := PackedByteArray()
+	has_turnable_face.resize(vertex_count)
+	has_left_page_face.resize(vertex_count)
+	has_fixed_face.resize(vertex_count)
+	for face: Dictionary in faces:
+		var face_motion_mask := _motion_mask_for_face(face)
+		var indices: Array = face.get("indices", [])
+		for vertex_index_value: Variant in indices:
+			var vertex_index := int(vertex_index_value)
+			if face_motion_mask >= 0.75:
+				has_turnable_face[vertex_index] = 1
+			elif face_motion_mask >= 0.25:
+				has_left_page_face[vertex_index] = 1
+			else:
+				has_fixed_face[vertex_index] = 1
+
+	var result := PackedFloat32Array()
+	result.resize(vertex_count)
+	_deformable_logical_vertex_count = 0
+	_pinned_page_boundary_vertex_count = 0
+	for vertex_index in range(vertex_count):
+		var touches_turnable_page := has_turnable_face[vertex_index] == 1
+		var touches_other_geometry := (
+			has_left_page_face[vertex_index] == 1
+			or has_fixed_face[vertex_index] == 1
+		)
+		if touches_turnable_page and not touches_other_geometry:
+			result[vertex_index] = 1.0
+			_deformable_logical_vertex_count += 1
+		elif touches_turnable_page:
+			result[vertex_index] = 0.0
+			_pinned_page_boundary_vertex_count += 1
+		elif has_left_page_face[vertex_index] == 1 and has_fixed_face[vertex_index] == 0:
+			result[vertex_index] = 0.5
+	return result
 
 
 func _load_json_dictionary(path: String) -> Dictionary:

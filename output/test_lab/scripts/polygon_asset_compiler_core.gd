@@ -62,6 +62,7 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 
 	var vertices: PackedVector2Array = triangulation_result["vertices"]
 	var triangles: Array = triangulation_result["triangles"]
+	var topology: Dictionary = triangulation_result["topology"]
 	var actual_spacing := int(triangulation_result["sample_spacing_px"])
 	var pivot := source_bounds.position + source_bounds.size * 0.5
 	var local_vertices := PackedVector2Array()
@@ -160,7 +161,10 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 			"logical_vertex_count": local_vertices.size(),
 			"face_count": face_records.size(),
 			"outline_vertex_count": local_outline.size(),
-			"connected_components": 1,
+			"connected_components": int(topology["edge_connected_components"]),
+			"watertight": true,
+			"boundary_edge_count": int(topology["boundary_edge_count"]),
+			"interior_edge_count": int(topology["interior_edge_count"]),
 			"draw_surfaces": 1,
 			"sample_spacing_px": actual_spacing,
 			"minimum_triangle_area_px2": float(
@@ -215,6 +219,7 @@ func _triangulate_with_target(
 
 	var best_result: Dictionary = {}
 	var best_score := INF
+	var last_error := ""
 	for spacing: int in candidates:
 		var points := _build_sample_points(
 			outline,
@@ -231,6 +236,7 @@ func _triangulate_with_target(
 			target_min
 		)
 		if not triangulated["ok"]:
+			last_error = String(triangulated.get("error", ""))
 			continue
 		var triangles: Array = triangulated["triangles"]
 		var face_count := triangles.size()
@@ -250,6 +256,8 @@ func _triangulate_with_target(
 			best_result["sample_spacing_px"] = spacing
 
 	if best_result.is_empty():
+		if not last_error.is_empty():
+			return _failure(last_error)
 		return _failure("Delaunay triangulation produced no connected face set.")
 	var best_faces: Array = best_result["triangles"]
 	if best_faces.size() > hard_max:
@@ -281,7 +289,6 @@ func _triangulate_points(
 		var base_a: Vector2 = outline[base_triangle[0]]
 		var base_b: Vector2 = outline[base_triangle[1]]
 		var base_c: Vector2 = outline[base_triangle[2]]
-		var local_points := PackedVector2Array([base_a, base_b, base_c])
 		var local_to_global: Array[int] = [
 			base_triangle[0],
 			base_triangle[1],
@@ -308,18 +315,18 @@ func _triangulate_points(
 				centroid = centroid.lerp(interior_sample, 0.05)
 			var centroid_index := output_points.size()
 			output_points.append(centroid)
-			local_points.append(centroid)
 			local_to_global.append(centroid_index)
 
-		var local_indices := Geometry2D.triangulate_delaunay(local_points)
-		if local_indices.size() < 3:
-			return _failure("Constrained Delaunay cell returned no faces.")
-		for local_index in range(0, local_indices.size(), 3):
-			var triangle := [
-				local_to_global[int(local_indices[local_index])],
-				local_to_global[int(local_indices[local_index + 1])],
-				local_to_global[int(local_indices[local_index + 2])],
+		var local_triangles: Array = [base_triangle]
+		if local_to_global.size() == 4:
+			var center_index := local_to_global[3]
+			local_triangles = [
+				[base_triangle[0], base_triangle[1], center_index],
+				[base_triangle[1], base_triangle[2], center_index],
+				[base_triangle[2], base_triangle[0], center_index],
 			]
+		for triangle_value: Variant in local_triangles:
+			var triangle: Array = triangle_value
 			var a: Vector2 = output_points[triangle[0]]
 			var b: Vector2 = output_points[triangle[1]]
 			var c: Vector2 = output_points[triangle[2]]
@@ -381,6 +388,12 @@ func _triangulate_points(
 			split_index,
 			output_points
 		))
+	var topology := _analyze_watertight_topology(connected, outline.size())
+	if not bool(topology.get("ok", false)):
+		return _failure(String(topology.get(
+			"error",
+			"Polygon triangulation is not watertight."
+		)))
 	minimum_found = INF
 	for face_value: Variant in connected:
 		var face: Array = face_value
@@ -397,6 +410,7 @@ func _triangulate_points(
 		"vertices": output_points,
 		"triangles": connected,
 		"minimum_triangle_area_px2": minimum_found,
+		"topology": topology,
 	}
 
 
@@ -486,25 +500,29 @@ func _append_unique_point(
 func _largest_connected_face_set(triangles: Array) -> Array:
 	if triangles.is_empty():
 		return []
-	var vertex_to_faces: Dictionary = {}
+	var edge_to_faces: Dictionary = {}
 	for face_index in range(triangles.size()):
 		var face: Array = triangles[face_index]
-		for vertex_index_value: Variant in face:
-			var vertex_index := int(vertex_index_value)
-			var owners: Array = vertex_to_faces.get(vertex_index, [])
+		for edge_index in range(3):
+			var first := int(face[edge_index])
+			var second := int(face[(edge_index + 1) % 3])
+			var edge := _edge_key(first, second)
+			var owners: Array = edge_to_faces.get(edge, [])
 			owners.append(face_index)
-			vertex_to_faces[vertex_index] = owners
+			edge_to_faces[edge] = owners
 
 	var adjacency: Array = []
 	adjacency.resize(triangles.size())
 	for face_index in range(triangles.size()):
 		adjacency[face_index] = []
-	for owners_value: Variant in vertex_to_faces.values():
+	for owners_value: Variant in edge_to_faces.values():
 		var owners: Array = owners_value
-		for first_index in range(owners.size()):
-			for second_index in range(first_index + 1, owners.size()):
-				(adjacency[int(owners[first_index])] as Array).append(int(owners[second_index]))
-				(adjacency[int(owners[second_index])] as Array).append(int(owners[first_index]))
+		if owners.size() != 2:
+			continue
+		var first_owner := int(owners[0])
+		var second_owner := int(owners[1])
+		(adjacency[first_owner] as Array).append(second_owner)
+		(adjacency[second_owner] as Array).append(first_owner)
 
 	var visited: Dictionary = {}
 	var largest_indices: Array[int] = []
@@ -531,6 +549,71 @@ func _largest_connected_face_set(triangles: Array) -> Array:
 	for face_index: int in largest_indices:
 		result.append((triangles[face_index] as Array).duplicate())
 	return result
+
+
+func _analyze_watertight_topology(
+	triangles: Array,
+	outline_vertex_count: int
+) -> Dictionary:
+	var edge_to_faces: Dictionary = {}
+	for face_index in range(triangles.size()):
+		var face: Array = triangles[face_index]
+		if face.size() != 3:
+			return {
+				"ok": false,
+				"error": "Polygon topology contains a non-triangle face.",
+			}
+		for edge_index in range(3):
+			var edge := _edge_key(
+				int(face[edge_index]),
+				int(face[(edge_index + 1) % 3])
+			)
+			var owners: Array = edge_to_faces.get(edge, [])
+			owners.append(face_index)
+			edge_to_faces[edge] = owners
+
+	var expected_boundary_edges: Dictionary = {}
+	for outline_index in range(outline_vertex_count):
+		var next_outline_index := (outline_index + 1) % outline_vertex_count
+		expected_boundary_edges[_edge_key(outline_index, next_outline_index)] = true
+
+	var boundary_edge_count := 0
+	var interior_edge_count := 0
+	for edge_value: Variant in edge_to_faces:
+		var edge := String(edge_value)
+		var owners: Array = edge_to_faces[edge]
+		if owners.size() == 1:
+			if not expected_boundary_edges.has(edge):
+				return {
+					"ok": false,
+					"error": "Polygon topology has an uncovered internal edge: %s." % edge,
+				}
+			boundary_edge_count += 1
+		elif owners.size() == 2:
+			interior_edge_count += 1
+		else:
+			return {
+				"ok": false,
+				"error": "Polygon topology has a non-manifold edge: %s." % edge,
+			}
+	for edge_value: Variant in expected_boundary_edges:
+		var edge := String(edge_value)
+		if not edge_to_faces.has(edge) or (edge_to_faces[edge] as Array).size() != 1:
+			return {
+				"ok": false,
+				"error": "Polygon outline edge is not represented exactly once: %s." % edge,
+			}
+	if boundary_edge_count != outline_vertex_count:
+		return {
+			"ok": false,
+			"error": "Polygon boundary edge count does not match its outline.",
+		}
+	return {
+		"ok": true,
+		"boundary_edge_count": boundary_edge_count,
+		"interior_edge_count": interior_edge_count,
+		"edge_connected_components": 1,
+	}
 
 
 func _build_face_records(
