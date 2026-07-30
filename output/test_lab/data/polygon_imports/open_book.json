@@ -1,0 +1,47 @@
+{
+	"schema_version": 1,
+	"asset_id": "open_book",
+	"source_image": "res://assets/polygon_art/open_book_source.png",
+	"style_profile": "res://data/polygon_art_style.json",
+	"output_asset": "res://data/polygon_assets/open_book.polygon.json",
+	"background_key": "#ff00ff",
+	"pivot": {
+		"mode": "foreground_bounds_center"
+	},
+	"region_guides": {
+		"spine_half_width_ratio": 0.075,
+		"left_region": "left_page",
+		"right_region": "right_page",
+		"spine_region": "spine"
+	},
+	"anchors": {
+		"center": [
+			0.5,
+			0.5
+		],
+		"spine_top": [
+			0.5,
+			0.08
+		],
+		"spine_bottom": [
+			0.5,
+			0.92
+		],
+		"interaction": [
+			0.5,
+			0.62
+		]
+	},
+	"collision": {
+		"strategy": "convex_hull",
+		"static_during_visual_animation": true
+	},
+	"generation": {
+		"tool": "builtin_imagegen",
+		"mode": "generate",
+		"prompt": "Use case: stylized-concept\nAsset type: authoring source image for deterministic 2D polygon-mesh conversion in a Godot game prototype\nPrimary request: one open book viewed from an exact orthographic top-down camera, centered, horizontally symmetrical, with a strong readable silhouette and broad connected low-poly color facets\nScene/backdrop: perfectly flat, perfectly uniform solid #ff00ff chroma-key background across the entire canvas; no floor plane, no shadow, no gradient, no texture, no lighting variation, no reflection\nSubject: a single fully open book; vertical center spine; left and right pages spread evenly; warm ivory page planes; a muted dark-purple cover visible only around the outer edges; deep near-black outer contour; a restrained muted amber accent may appear only as a small geometric page-edge plane\nStyle/medium: clean abstract low-poly 2D game art, large contiguous polygonal color planes, crisp hard edges, limited palette, immediately readable as an open book; no realistic paper texture\nComposition/framing: square canvas, exact top-down view with no perspective, generous even padding, book fully inside frame, centered and balanced\nConstraints: no text, letters, numbers, page markings, symbols, illustrations, bookmark, ribbon, hands, desk, props, extra objects, watermark, cast shadow, contact shadow, perspective tilt, isometric angle, soft transparency, glow, halo, or magenta inside the book; background must remain exactly flat #ff00ff up to the crisp subject edge\nOutput intent: robust chroma-key separation, silhouette extraction, Delaunay triangulation, palette snapping, and runtime polygon animation",
+		"postprocess": [
+			"godot_chroma_normalize_to_exact_ff00ff"
+		]
+	}
+}
