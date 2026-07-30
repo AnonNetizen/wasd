@@ -12,8 +12,8 @@
 	"sample_jitter_ratio": 0.16,
 	"deterministic_seed": 20260730,
 	"target_face_count": {
-		"min": 70,
-		"max": 140,
+		"min": 48,
+		"max": 80,
 		"hard_max": 160
 	},
 	"minimum_triangle_area_px2": 3.0,

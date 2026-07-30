@@ -107,10 +107,13 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 		return
 	var faces: Array = faces_value
 	var target: Dictionary = style.get("target_face_count", {})
+	var target_min := int(target.get("min", 48))
+	var target_max := int(target.get("max", 80))
 	_check(
-		faces.size() >= int(target.get("min", 70))
-		and faces.size() <= int(target.get("max", 140)),
-		"Face count is inside the 70–140 Style Profile target."
+		faces.size() >= target_min
+		and faces.size() <= target_max,
+		"Face count is inside the %d–%d Style Profile target."
+		% [target_min, target_max]
 	)
 	_check(
 		faces.size() <= int(target.get("hard_max", 160)),
