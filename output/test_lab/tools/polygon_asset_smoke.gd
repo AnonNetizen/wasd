@@ -126,7 +126,6 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	var triangles_are_valid := true
 	var palette_roles_are_valid := true
 	var surface_kinds_are_valid := true
-	var recolored_cover_face_count := 0
 	var clear_order_is_valid := true
 	for face_value: Variant in faces:
 		if not face_value is Dictionary:
@@ -157,11 +156,6 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 			surface_kinds_are_valid
 			and ["page", "cover"].has(String(face.get("surface_kind", "")))
 		)
-		if (
-			String(face.get("surface_kind", "")) == "cover"
-			and PAGE_PALETTE_ROLES.has(palette_role)
-		):
-			recolored_cover_face_count += 1
 		var region := String(face.get("region", ""))
 		if region_counts.has(region):
 			region_counts[region] = int(region_counts[region]) + 1
@@ -175,10 +169,6 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	_check(
 		surface_kinds_are_valid,
 		"Every face keeps an independent page or cover surface kind."
-	)
-	_check(
-		recolored_cover_face_count > 0,
-		"Small cover-color islands can merge visually without changing surface kind."
 	)
 	_check(clear_order_is_valid, "Every face has a normalized clear order.")
 	var outline := _vector2_array_from_json(asset_data.get("outline", []))
@@ -194,40 +184,52 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	var minimum_visible_altitude := float(
 		style.get("minimum_visible_face_altitude_px", 0.0)
 	)
-	var skinny_face_count := 0
-	var visually_merged_skinny_face_count := 0
-	for face_index in range(faces.size()):
-		var face: Dictionary = faces[face_index]
-		if _face_minimum_altitude(face, vertices) >= minimum_visible_altitude:
-			continue
-		skinny_face_count += 1
-		if _skinny_face_reaches_major_same_color(
-			face_index,
-			faces,
-			vertices,
-			minimum_visible_altitude
-		):
-			visually_merged_skinny_face_count += 1
+	var minimum_visible_area := float(
+		style.get("minimum_visible_face_area_px2", 0.0)
+	)
+	var minimum_outline_edge_length := float(
+		style.get("minimum_outline_edge_length_px", 0.0)
+	)
 	_check(minimum_visible_altitude > 0.0, "Style Profile declares visible-face altitude.")
-	_check(skinny_face_count > 0, "Compiled topology contains skinny fill triangles to merge.")
 	_check(
-		visually_merged_skinny_face_count == skinny_face_count,
-		"Every skinny fill triangle visually merges into an adjacent major face."
-	)
-	var minimum_visible_color_region_area := float(
-		style.get("minimum_visible_color_region_area_px2", 0.0)
+		minimum_visible_area > 0.0,
+		"Style Profile declares a minimum visible face area."
 	)
 	_check(
-		minimum_visible_color_region_area > 0.0,
-		"Style Profile declares a minimum visible color-region area."
+		minimum_outline_edge_length > 0.0,
+		"Style Profile declares a minimum outline edge length."
+	)
+	var actual_minimum_area := INF
+	var actual_minimum_altitude := INF
+	for face_value: Variant in faces:
+		var face: Dictionary = face_value
+		actual_minimum_area = minf(
+			actual_minimum_area,
+			_face_area(face, vertices)
+		)
+		actual_minimum_altitude = minf(
+			actual_minimum_altitude,
+			_face_minimum_altitude(face, vertices)
+		)
+	_check(
+		actual_minimum_area >= minimum_visible_area,
+		"Compiled topology contains no face below the visible-area threshold."
 	)
 	_check(
-		_count_small_color_components(
-			faces,
-			vertices,
-			minimum_visible_color_region_area
-		) == 0,
-		"Every connected color region meets the minimum visible area."
+		actual_minimum_altitude >= minimum_visible_altitude,
+		"Compiled topology contains no thin face below the altitude threshold."
+	)
+	var actual_minimum_outline_edge := INF
+	for outline_index in range(outline.size()):
+		actual_minimum_outline_edge = minf(
+			actual_minimum_outline_edge,
+			outline[outline_index].distance_to(
+				outline[(outline_index + 1) % outline.size()]
+			)
+		)
+	_check(
+		actual_minimum_outline_edge >= minimum_outline_edge_length,
+		"Compiled outline contains no short edge that can form a sliver face."
 	)
 	var emphasized_left_lower_face := false
 	for face_value: Variant in faces:
@@ -238,9 +240,9 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 			continue
 		var centroid := _face_centroid(face, vertices)
 		if (
-			centroid.x < -40.0
+			centroid.x < -60.0
 			and centroid.y > 30.0
-			and _face_area(face, vertices) > 2_000.0
+			and _face_area(face, vertices) >= 800.0
 		):
 			emphasized_left_lower_face = true
 			break
@@ -286,19 +288,29 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	)
 	_check(int(stats.get("draw_surfaces", 0)) == 1, "Stats record one draw surface.")
 	_check(
-		int(stats.get("visually_merged_skinny_face_count", 0)) == skinny_face_count,
-		"Stats record every visually merged skinny face."
+		is_equal_approx(
+			float(stats.get("minimum_triangle_area_px2", 0.0)),
+			actual_minimum_area
+		),
+		"Stats record the verified minimum face area."
+	)
+	_check(
+		absf(
+			float(stats.get("minimum_face_altitude_px", 0.0))
+			- actual_minimum_altitude
+		) <= 0.001,
+		"Stats record the verified minimum face altitude."
 	)
 	_check(
 		is_equal_approx(
-			float(stats.get("minimum_visible_color_region_area_px2", 0.0)),
-			minimum_visible_color_region_area
+			float(stats.get("minimum_outline_edge_length_px", 0.0)),
+			actual_minimum_outline_edge
 		),
-		"Stats record the minimum visible color-region area."
+		"Stats record the verified minimum outline edge length."
 	)
 	_check(
-		int(stats.get("visually_merged_small_region_face_count", 0)) > 0,
-		"Stats record merged faces from undersized color regions."
+		int(stats.get("removed_outline_vertex_count", 0)) > 0,
+		"Compiler records removed outline nodes instead of masking their faces."
 	)
 	_check(int(stats.get("emphasized_face_count", 0)) == 1, "Stats record one emphasized face.")
 
@@ -443,7 +455,7 @@ func _validate_runtime() -> void:
 			)
 			_check(
 				fixed_surface_motion_match,
-				"Visually recolored cover faces remain fixed during page turns."
+				"Cover faces remain fixed during page turns."
 			)
 			_check(
 				turnable_vertex_count > 0,
@@ -574,91 +586,6 @@ func _face_minimum_altitude(
 	if maximum_edge <= 0.0:
 		return 0.0
 	return _face_area(face, vertices) * 2.0 / maximum_edge
-
-
-func _faces_are_adjacent(first: Dictionary, second: Dictionary) -> bool:
-	var first_indices: Array = first.get("indices", [])
-	var second_indices: Array = second.get("indices", [])
-	var shared_count := 0
-	for first_index_value: Variant in first_indices:
-		for second_index_value: Variant in second_indices:
-			if int(first_index_value) == int(second_index_value):
-				shared_count += 1
-				break
-	return shared_count >= 1
-
-
-func _skinny_face_reaches_major_same_color(
-	start_index: int,
-	faces: Array,
-	vertices: PackedVector2Array,
-	minimum_visible_altitude: float
-) -> bool:
-	var target_role := String((faces[start_index] as Dictionary).get("palette_role", ""))
-	var queue: Array[int] = [start_index]
-	var visited: Dictionary = {start_index: true}
-	while not queue.is_empty():
-		var face_index: int = queue.pop_front()
-		var face: Dictionary = faces[face_index]
-		if _face_minimum_altitude(face, vertices) >= minimum_visible_altitude:
-			return true
-		for neighbor_index in range(faces.size()):
-			if visited.has(neighbor_index):
-				continue
-			var neighbor: Dictionary = faces[neighbor_index]
-			if String(neighbor.get("palette_role", "")) != target_role:
-				continue
-			if not _faces_are_adjacent(face, neighbor):
-				continue
-			visited[neighbor_index] = true
-			queue.append(neighbor_index)
-	return false
-
-
-func _count_small_color_components(
-	faces: Array,
-	vertices: PackedVector2Array,
-	minimum_area: float
-) -> int:
-	var visited: Dictionary = {}
-	var small_component_count := 0
-	for start_index in range(faces.size()):
-		if visited.has(start_index):
-			continue
-		var role := String((faces[start_index] as Dictionary).get(
-			"palette_role",
-			""
-		))
-		var queue: Array[int] = [start_index]
-		var component_area := 0.0
-		visited[start_index] = true
-		while not queue.is_empty():
-			var current: int = queue.pop_front()
-			var current_face: Dictionary = faces[current]
-			component_area += _face_area(current_face, vertices)
-			for neighbor_index in range(faces.size()):
-				if visited.has(neighbor_index):
-					continue
-				var neighbor: Dictionary = faces[neighbor_index]
-				if String(neighbor.get("palette_role", "")) != role:
-					continue
-				if not _faces_share_edge(current_face, neighbor):
-					continue
-				visited[neighbor_index] = true
-				queue.append(neighbor_index)
-		if component_area < minimum_area:
-			small_component_count += 1
-	return small_component_count
-
-
-func _faces_share_edge(first: Dictionary, second: Dictionary) -> bool:
-	var first_indices: Array = first.get("indices", [])
-	var second_indices: Array = second.get("indices", [])
-	var shared_count := 0
-	for first_index_value: Variant in first_indices:
-		if second_indices.has(first_index_value):
-			shared_count += 1
-	return shared_count == 2
 
 
 func _analyze_edge_topology(

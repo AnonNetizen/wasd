@@ -21,7 +21,7 @@
 				0.2,
 				0.88
 			],
-			"minimum_area_px2": 1000.0,
+			"minimum_area_px2": 800.0,
 			"palette_role": "page_shadow"
 		}
 	],

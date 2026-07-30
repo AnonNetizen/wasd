@@ -48,14 +48,40 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 	)
 	if not outline_result["ok"]:
 		return outline_result
-	var outline: PackedVector2Array = outline_result["outline"]
+	var raw_outline: PackedVector2Array = outline_result["outline"]
+	var minimum_outline_edge_length := float(
+		style.get("minimum_outline_edge_length_px", 8.0)
+	)
+	var minimum_visible_area := float(
+		style.get("minimum_visible_face_area_px2", 120.0)
+	)
+	var minimum_visible_altitude := float(
+		style.get("minimum_visible_face_altitude_px", 8.0)
+	)
+	if minimum_outline_edge_length <= 0.0:
+		return _failure("Style Profile minimum_outline_edge_length_px is invalid.")
+	if minimum_visible_area <= 0.0:
+		return _failure("Style Profile minimum_visible_face_area_px2 is invalid.")
+	if minimum_visible_altitude <= 0.0:
+		return _failure("Style Profile minimum_visible_face_altitude_px is invalid.")
+	var outline_cleanup := _clean_outline_nodes(
+		raw_outline,
+		minimum_outline_edge_length,
+		minimum_visible_area,
+		minimum_visible_altitude
+	)
+	if not bool(outline_cleanup.get("ok", false)):
+		return outline_cleanup
+	var outline: PackedVector2Array = outline_cleanup["outline"]
 	var source_bounds := _bounds_for_points(outline)
 
 	var triangulation_result := _triangulate_with_target(
 		image,
 		mask,
 		outline,
-		style
+		style,
+		minimum_visible_area,
+		minimum_visible_altitude
 	)
 	if not triangulation_result["ok"]:
 		return triangulation_result
@@ -91,22 +117,6 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 	)
 	if face_records.is_empty():
 		return _failure("No valid polygon faces remained after palette assignment.")
-	var minimum_visible_altitude := float(
-		style.get("minimum_visible_face_altitude_px", 4.0)
-	)
-	if minimum_visible_altitude <= 0.0:
-		return _failure("Style Profile minimum_visible_face_altitude_px is invalid.")
-	var visually_merged_face_count := _merge_skinny_face_palette_roles(
-		face_records,
-		minimum_visible_altitude
-	)
-	var minimum_visible_color_region_area := float(
-		style.get("minimum_visible_color_region_area_px2", 0.0)
-	)
-	if minimum_visible_color_region_area <= 0.0:
-		return _failure(
-			"Style Profile minimum_visible_color_region_area_px2 is invalid."
-		)
 	var emphasis_result := _apply_facet_emphasis(
 		face_records,
 		manifest.get("facet_emphasis", []),
@@ -116,11 +126,6 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 	)
 	if not bool(emphasis_result.get("ok", false)):
 		return emphasis_result
-	var visually_merged_small_region_face_count := _merge_small_color_regions(
-		face_records,
-		vertices,
-		minimum_visible_color_region_area
-	)
 	_assign_clear_order(face_records)
 
 	var local_bounds := Rect2(source_bounds.position - pivot, source_bounds.size)
@@ -182,12 +187,16 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 			"minimum_triangle_area_px2": float(
 				triangulation_result["minimum_triangle_area_px2"]
 			),
+			"minimum_face_altitude_px": float(
+				triangulation_result["minimum_face_altitude_px"]
+			),
+			"minimum_outline_edge_length_px": float(
+				outline_cleanup["minimum_outline_edge_length_px"]
+			),
+			"removed_outline_vertex_count":
+				raw_outline.size() - outline.size(),
+			"minimum_visible_face_area_px2": minimum_visible_area,
 			"minimum_visible_face_altitude_px": minimum_visible_altitude,
-			"minimum_visible_color_region_area_px2":
-				minimum_visible_color_region_area,
-			"visually_merged_skinny_face_count": visually_merged_face_count,
-			"visually_merged_small_region_face_count":
-				visually_merged_small_region_face_count,
 			"emphasized_face_count": int(emphasis_result.get("count", 0)),
 		},
 	}
@@ -215,11 +224,173 @@ func write_compiled_result(result: Dictionary) -> Error:
 	return OK
 
 
+func _clean_outline_nodes(
+	source_outline: PackedVector2Array,
+	minimum_edge_length: float,
+	minimum_face_area: float,
+	minimum_face_altitude: float
+) -> Dictionary:
+	var outline := source_outline.duplicate()
+	if outline.size() < 3:
+		return _failure("Foreground outline has fewer than three vertices.")
+	var maximum_pass_count := source_outline.size() * 3
+	for _pass_index in range(maximum_pass_count):
+		if outline.size() <= 3:
+			break
+		var remove_index := _short_outline_node_index(
+			outline,
+			minimum_edge_length
+		)
+		if remove_index < 0:
+			remove_index = _invalid_outline_ear_index(
+				outline,
+				minimum_face_area,
+				minimum_face_altitude
+			)
+		if remove_index < 0:
+			break
+		outline.remove_at(remove_index)
+
+	var base_indices := Geometry2D.triangulate_polygon(outline)
+	if base_indices.size() < 3:
+		return _failure("Cleaned foreground outline could not be triangulated.")
+	for base_index in range(0, base_indices.size(), 3):
+		var a: Vector2 = outline[int(base_indices[base_index])]
+		var b: Vector2 = outline[int(base_indices[base_index + 1])]
+		var c: Vector2 = outline[int(base_indices[base_index + 2])]
+		if not _triangle_meets_visual_threshold(
+			a,
+			b,
+			c,
+			minimum_face_area,
+			minimum_face_altitude
+		):
+			return _failure(
+				"Outline cleanup could not eliminate every undersized boundary face."
+			)
+	var minimum_found_edge := INF
+	for point_index in range(outline.size()):
+		minimum_found_edge = minf(
+			minimum_found_edge,
+			outline[point_index].distance_to(
+				outline[(point_index + 1) % outline.size()]
+			)
+		)
+	if minimum_found_edge < minimum_edge_length:
+		return _failure("Outline cleanup left an edge below the minimum length.")
+	return {
+		"ok": true,
+		"outline": outline,
+		"minimum_outline_edge_length_px": minimum_found_edge,
+	}
+
+
+func _short_outline_node_index(
+	outline: PackedVector2Array,
+	minimum_edge_length: float
+) -> int:
+	var best_index := -1
+	var best_deviation := INF
+	var best_adjacent_length := INF
+	for point_index in range(outline.size()):
+		var previous := outline[
+			(point_index - 1 + outline.size()) % outline.size()
+		]
+		var current := outline[point_index]
+		var next := outline[(point_index + 1) % outline.size()]
+		var adjacent_length := minf(
+			previous.distance_to(current),
+			current.distance_to(next)
+		)
+		if adjacent_length >= minimum_edge_length:
+			continue
+		var deviation := _point_segment_distance(current, previous, next)
+		if (
+			deviation < best_deviation
+			or (
+				is_equal_approx(deviation, best_deviation)
+				and adjacent_length < best_adjacent_length
+			)
+		):
+			best_index = point_index
+			best_deviation = deviation
+			best_adjacent_length = adjacent_length
+	return best_index
+
+
+func _invalid_outline_ear_index(
+	outline: PackedVector2Array,
+	minimum_face_area: float,
+	minimum_face_altitude: float
+) -> int:
+	var base_indices := Geometry2D.triangulate_polygon(outline)
+	if base_indices.size() < 3:
+		return -1
+	var best_index := -1
+	var worst_quality := INF
+	for base_index in range(0, base_indices.size(), 3):
+		var triangle_indices: Array[int] = [
+			int(base_indices[base_index]),
+			int(base_indices[base_index + 1]),
+			int(base_indices[base_index + 2]),
+		]
+		var a := outline[triangle_indices[0]]
+		var b := outline[triangle_indices[1]]
+		var c := outline[triangle_indices[2]]
+		if _triangle_meets_visual_threshold(
+			a,
+			b,
+			c,
+			minimum_face_area,
+			minimum_face_altitude
+		):
+			continue
+		for candidate_index: int in triangle_indices:
+			var previous_index := (
+				candidate_index - 1 + outline.size()
+			) % outline.size()
+			var next_index := (candidate_index + 1) % outline.size()
+			if (
+				not triangle_indices.has(previous_index)
+				or not triangle_indices.has(next_index)
+			):
+				continue
+			var area := absf(_signed_triangle_area(a, b, c))
+			var altitude := _triangle_minimum_altitude(a, b, c)
+			var quality := minf(
+				area / minimum_face_area,
+				altitude / minimum_face_altitude
+			)
+			if quality < worst_quality:
+				worst_quality = quality
+				best_index = candidate_index
+	return best_index
+
+
+func _point_segment_distance(
+	point: Vector2,
+	segment_start: Vector2,
+	segment_end: Vector2
+) -> float:
+	var segment := segment_end - segment_start
+	var length_squared := segment.length_squared()
+	if length_squared <= 0.000001:
+		return point.distance_to(segment_start)
+	var progress := clampf(
+		(point - segment_start).dot(segment) / length_squared,
+		0.0,
+		1.0
+	)
+	return point.distance_to(segment_start + segment * progress)
+
+
 func _triangulate_with_target(
 	image: Image,
 	mask: BitMap,
 	outline: PackedVector2Array,
-	style: Dictionary
+	style: Dictionary,
+	minimum_visible_area: float,
+	minimum_visible_altitude: float
 ) -> Dictionary:
 	var target_config: Dictionary = style.get("target_face_count", {})
 	var target_min := int(target_config.get("min", 70))
@@ -249,7 +420,9 @@ func _triangulate_with_target(
 			mask,
 			outline,
 			minimum_area,
-			target_min
+			target_min,
+			minimum_visible_area,
+			minimum_visible_altitude
 		)
 		if not triangulated["ok"]:
 			last_error = String(triangulated.get("error", ""))
@@ -288,7 +461,9 @@ func _triangulate_points(
 	_mask: BitMap,
 	outline: PackedVector2Array,
 	minimum_area: float,
-	minimum_face_count: int
+	minimum_face_count: int,
+	minimum_visible_area: float,
+	minimum_visible_altitude: float
 ) -> Dictionary:
 	var base_indices := Geometry2D.triangulate_polygon(outline)
 	if base_indices.size() < 3:
@@ -311,6 +486,16 @@ func _triangulate_points(
 			base_triangle[2],
 		]
 		var base_area := absf(_signed_triangle_area(base_a, base_b, base_c))
+		if not _triangle_meets_visual_threshold(
+			base_a,
+			base_b,
+			base_c,
+			minimum_visible_area,
+			minimum_visible_altitude
+		):
+			return _failure(
+				"Cleaned outline produced an undersized base triangle."
+			)
 		var has_interior_sample := false
 		var interior_sample := (base_a + base_b + base_c) / 3.0
 		for point_index in range(outline.size(), points.size()):
@@ -329,9 +514,17 @@ func _triangulate_points(
 			var centroid := (base_a + base_b + base_c) / 3.0
 			if has_interior_sample:
 				centroid = centroid.lerp(interior_sample, 0.05)
-			var centroid_index := output_points.size()
-			output_points.append(centroid)
-			local_to_global.append(centroid_index)
+			if _triangle_split_meets_visual_threshold(
+				base_a,
+				base_b,
+				base_c,
+				centroid,
+				minimum_visible_area,
+				minimum_visible_altitude
+			):
+				var centroid_index := output_points.size()
+				output_points.append(centroid)
+				local_to_global.append(centroid_index)
 
 		var local_triangles: Array = [base_triangle]
 		if local_to_global.size() == 4:
@@ -348,9 +541,18 @@ func _triangulate_points(
 			var c: Vector2 = output_points[triangle[2]]
 			var signed_area := _signed_triangle_area(a, b, c)
 			var area := absf(signed_area)
-			if area <= minimum_area:
+			if (
+				area <= minimum_area
+				or not _triangle_meets_visual_threshold(
+					a,
+					b,
+					c,
+					minimum_visible_area,
+					minimum_visible_altitude
+				)
+			):
 				return _failure(
-					"Constrained Delaunay produced a triangle below the minimum area."
+					"Constrained triangulation produced an undersized visible face."
 				)
 			if signed_area < 0.0:
 				var swap: int = triangle[1]
@@ -365,26 +567,34 @@ func _triangulate_points(
 	while connected.size() < minimum_face_count:
 		var largest_face_index := -1
 		var largest_face_area := 0.0
+		var largest_split_point := Vector2.ZERO
 		for face_index in range(connected.size()):
 			var face: Array = connected[face_index]
-			var face_area := absf(_signed_triangle_area(
-				output_points[int(face[0])],
-				output_points[int(face[1])],
-				output_points[int(face[2])]
-			))
+			var face_a := output_points[int(face[0])]
+			var face_b := output_points[int(face[1])]
+			var face_c := output_points[int(face[2])]
+			var face_area := absf(_signed_triangle_area(face_a, face_b, face_c))
+			var candidate_split := (face_a + face_b + face_c) / 3.0
+			if not _triangle_split_meets_visual_threshold(
+				face_a,
+				face_b,
+				face_c,
+				candidate_split,
+				minimum_visible_area,
+				minimum_visible_altitude
+			):
+				continue
 			if face_area > largest_face_area:
 				largest_face_area = face_area
 				largest_face_index = face_index
-		if largest_face_index < 0 or largest_face_area <= minimum_area * 3.2:
-			return _failure("Unable to reach the minimum face target without tiny triangles.")
+				largest_split_point = candidate_split
+		if largest_face_index < 0:
+			return _failure(
+				"Unable to reach the minimum face target without undersized faces."
+			)
 		var largest_face: Array = connected[largest_face_index]
-		var split_point := (
-			output_points[int(largest_face[0])]
-			+ output_points[int(largest_face[1])]
-			+ output_points[int(largest_face[2])]
-		) / 3.0
 		var split_index := output_points.size()
-		output_points.append(split_point)
+		output_points.append(largest_split_point)
 		connected.remove_at(largest_face_index)
 		connected.append(_oriented_triangle(
 			int(largest_face[0]),
@@ -411,23 +621,88 @@ func _triangulate_points(
 			"Polygon triangulation is not watertight."
 		)))
 	minimum_found = INF
+	var minimum_found_altitude := INF
 	for face_value: Variant in connected:
 		var face: Array = face_value
+		var face_a := output_points[int(face[0])]
+		var face_b := output_points[int(face[1])]
+		var face_c := output_points[int(face[2])]
 		minimum_found = minf(
 			minimum_found,
-			absf(_signed_triangle_area(
-				output_points[int(face[0])],
-				output_points[int(face[1])],
-				output_points[int(face[2])]
-			))
+			absf(_signed_triangle_area(face_a, face_b, face_c))
+		)
+		minimum_found_altitude = minf(
+			minimum_found_altitude,
+			_triangle_minimum_altitude(face_a, face_b, face_c)
 		)
 	return {
 		"ok": true,
 		"vertices": output_points,
 		"triangles": connected,
 		"minimum_triangle_area_px2": minimum_found,
+		"minimum_face_altitude_px": minimum_found_altitude,
 		"topology": topology,
 	}
+
+
+func _triangle_split_meets_visual_threshold(
+	a: Vector2,
+	b: Vector2,
+	c: Vector2,
+	split_point: Vector2,
+	minimum_area: float,
+	minimum_altitude: float
+) -> bool:
+	return (
+		_triangle_meets_visual_threshold(
+			a,
+			b,
+			split_point,
+			minimum_area,
+			minimum_altitude
+		)
+		and _triangle_meets_visual_threshold(
+			b,
+			c,
+			split_point,
+			minimum_area,
+			minimum_altitude
+		)
+		and _triangle_meets_visual_threshold(
+			c,
+			a,
+			split_point,
+			minimum_area,
+			minimum_altitude
+		)
+	)
+
+
+func _triangle_meets_visual_threshold(
+	a: Vector2,
+	b: Vector2,
+	c: Vector2,
+	minimum_area: float,
+	minimum_altitude: float
+) -> bool:
+	return (
+		absf(_signed_triangle_area(a, b, c)) >= minimum_area
+		and _triangle_minimum_altitude(a, b, c) >= minimum_altitude
+	)
+
+
+func _triangle_minimum_altitude(
+	a: Vector2,
+	b: Vector2,
+	c: Vector2
+) -> float:
+	var maximum_edge := maxf(
+		a.distance_to(b),
+		maxf(b.distance_to(c), c.distance_to(a))
+	)
+	if maximum_edge <= 0.0:
+		return 0.0
+	return absf(_signed_triangle_area(a, b, c)) * 2.0 / maximum_edge
 
 
 func _oriented_triangle(
@@ -658,7 +933,7 @@ func _build_face_records(
 			minimum_altitude = area * 2.0 / maximum_edge
 		var sampled_color := _sample_triangle_color(image, a, b, c)
 		var palette_role := _nearest_palette_role(sampled_color, palette)
-		var palette_family := _palette_family(palette_role)
+		var surface_kind := _surface_kind_for_palette_role(palette_role)
 		var local_x := centroid.x - pivot.x
 		var region := String(region_guides.get("spine_region", "spine"))
 		if local_x < -spine_half_width:
@@ -668,279 +943,18 @@ func _build_face_records(
 		records.append({
 			"indices": [int(indices[0]), int(indices[1]), int(indices[2])],
 			"palette_role": palette_role,
-			"surface_kind": palette_family,
+			"surface_kind": surface_kind,
 			"region": region,
 			"clear_order": 1.0,
 			"_centroid_x": local_x,
 			"_centroid_y": centroid.y - pivot.y,
 			"_area": area,
 			"_minimum_altitude": minimum_altitude,
-			"_palette_family": palette_family,
 		})
 	return records
 
 
-func _merge_skinny_face_palette_roles(
-	records: Array,
-	minimum_visible_altitude: float
-) -> int:
-	var skinny_face_indices: Array[int] = []
-	for face_index in range(records.size()):
-		var record: Dictionary = records[face_index]
-		if float(record.get("_minimum_altitude", 0.0)) >= minimum_visible_altitude:
-			continue
-		skinny_face_indices.append(face_index)
-	for _pass_index in range(records.size()):
-		var changed := false
-		for face_index: int in skinny_face_indices:
-			var record: Dictionary = records[face_index]
-			var neighbor_index := _best_visual_merge_neighbor(
-				records,
-				face_index,
-				minimum_visible_altitude
-			)
-			if neighbor_index < 0:
-				continue
-			var neighbor: Dictionary = records[neighbor_index]
-			var inherited_role := String(neighbor.get("palette_role", ""))
-			if String(record.get("palette_role", "")) == inherited_role:
-				continue
-			record["palette_role"] = inherited_role
-			changed = true
-		if not changed:
-			break
-	return skinny_face_indices.size()
-
-
-func _merge_small_color_regions(
-	records: Array,
-	vertices: PackedVector2Array,
-	minimum_region_area: float
-) -> int:
-	var changed_face_indices: Dictionary = {}
-	for _pass_index in range(records.size()):
-		var components := _build_color_components(records)
-		var selected_component: Dictionary = {}
-		var selected_area := INF
-		var selected_first_index := records.size()
-		for component_value: Variant in components:
-			var component: Dictionary = component_value
-			var component_area := float(component.get("area", 0.0))
-			var component_first_index := int(component.get("first_index", records.size()))
-			if component_area >= minimum_region_area:
-				continue
-			if (
-				component_area < selected_area
-				or (
-					is_equal_approx(component_area, selected_area)
-					and component_first_index < selected_first_index
-				)
-			):
-				selected_component = component
-				selected_area = component_area
-				selected_first_index = component_first_index
-		if selected_component.is_empty():
-			break
-		var component_indices: Array = selected_component.get("indices", [])
-		var target_role := _best_color_region_merge_role(
-			records,
-			vertices,
-			component_indices
-		)
-		if target_role.is_empty():
-			break
-		for face_index_value: Variant in component_indices:
-			var face_index := int(face_index_value)
-			var record: Dictionary = records[face_index]
-			record["palette_role"] = target_role
-			changed_face_indices[face_index] = true
-	return changed_face_indices.size()
-
-
-func _build_color_components(records: Array) -> Array:
-	var visited: Dictionary = {}
-	var components: Array = []
-	for start_index in range(records.size()):
-		if visited.has(start_index):
-			continue
-		var role := String((records[start_index] as Dictionary).get(
-			"palette_role",
-			""
-		))
-		var queue: Array[int] = [start_index]
-		var component_indices: Array[int] = []
-		var component_area := 0.0
-		visited[start_index] = true
-		while not queue.is_empty():
-			var current: int = queue.pop_front()
-			component_indices.append(current)
-			var current_record: Dictionary = records[current]
-			component_area += float(current_record.get("_area", 0.0))
-			for neighbor_index in range(records.size()):
-				if visited.has(neighbor_index):
-					continue
-				var neighbor: Dictionary = records[neighbor_index]
-				if String(neighbor.get("palette_role", "")) != role:
-					continue
-				if not _records_share_edge(current_record, neighbor):
-					continue
-				visited[neighbor_index] = true
-				queue.append(neighbor_index)
-		component_indices.sort()
-		components.append({
-			"indices": component_indices,
-			"area": component_area,
-			"first_index": component_indices[0],
-		})
-	return components
-
-
-func _best_color_region_merge_role(
-	records: Array,
-	vertices: PackedVector2Array,
-	component_indices: Array
-) -> String:
-	var component_lookup: Dictionary = {}
-	for face_index_value: Variant in component_indices:
-		component_lookup[int(face_index_value)] = true
-	var boundary_lengths: Dictionary = {}
-	for face_index_value: Variant in component_indices:
-		var face_index := int(face_index_value)
-		var face: Dictionary = records[face_index]
-		for neighbor_index in range(records.size()):
-			if component_lookup.has(neighbor_index):
-				continue
-			var neighbor: Dictionary = records[neighbor_index]
-			if not _records_share_edge(face, neighbor):
-				continue
-			var neighbor_role := String(neighbor.get("palette_role", ""))
-			boundary_lengths[neighbor_role] = (
-				float(boundary_lengths.get(neighbor_role, 0.0))
-				+ _shared_record_edge_length(face, neighbor, vertices)
-			)
-	var best_role := ""
-	var best_boundary_length := -1.0
-	for role_value: Variant in boundary_lengths:
-		var role := String(role_value)
-		var boundary_length := float(boundary_lengths[role])
-		if boundary_length > best_boundary_length:
-			best_role = role
-			best_boundary_length = boundary_length
-	return best_role
-
-
-func _shared_record_edge_length(
-	first: Dictionary,
-	second: Dictionary,
-	vertices: PackedVector2Array
-) -> float:
-	var shared_indices: Array[int] = []
-	var first_indices: Array = first.get("indices", [])
-	var second_indices: Array = second.get("indices", [])
-	for first_index_value: Variant in first_indices:
-		if second_indices.has(first_index_value):
-			shared_indices.append(int(first_index_value))
-	if shared_indices.size() != 2:
-		return 0.0
-	return vertices[shared_indices[0]].distance_to(vertices[shared_indices[1]])
-
-
-func _best_visual_merge_neighbor(
-	records: Array,
-	face_index: int,
-	minimum_visible_altitude: float
-) -> int:
-	var source: Dictionary = records[face_index]
-	var source_region := String(source.get("region", ""))
-	var source_family := String(source.get("_palette_family", ""))
-	var has_same_family_candidate := false
-	for candidate_index in range(records.size()):
-		if candidate_index == face_index:
-			continue
-		var candidate: Dictionary = records[candidate_index]
-		var is_major := (
-			float(candidate.get("_minimum_altitude", 0.0))
-			>= minimum_visible_altitude
-		)
-		if (
-			not _records_share_edge(source, candidate)
-			and not _records_share_vertex(source, candidate)
-			and not is_major
-		):
-			continue
-		if (
-			String(candidate.get("_palette_family", "")) == source_family
-		):
-			has_same_family_candidate = true
-			break
-	var best_index := -1
-	var best_score := -INF
-	for candidate_index in range(records.size()):
-		if candidate_index == face_index:
-			continue
-		var candidate: Dictionary = records[candidate_index]
-		var shares_edge := _records_share_edge(source, candidate)
-		var shares_vertex := _records_share_vertex(source, candidate)
-		var is_major := (
-			float(candidate.get("_minimum_altitude", 0.0))
-			>= minimum_visible_altitude
-		)
-		var same_family := (
-			String(candidate.get("_palette_family", "")) == source_family
-		)
-		if not shares_edge and not shares_vertex and not (is_major and same_family):
-			continue
-		if (
-			has_same_family_candidate
-			and not same_family
-		):
-			continue
-		var score := float(candidate.get("_area", 0.0))
-		if is_major:
-			score += 1_000_000_000.0
-		if String(candidate.get("region", "")) == source_region:
-			score += 100_000_000.0
-		if same_family:
-			score += 10_000_000.0
-		if shares_edge:
-			score += 1_000_000.0
-		elif shares_vertex:
-			score += 500_000.0
-		var source_centroid := Vector2(
-			float(source.get("_centroid_x", 0.0)),
-			float(source.get("_centroid_y", 0.0))
-		)
-		var candidate_centroid := Vector2(
-			float(candidate.get("_centroid_x", 0.0)),
-			float(candidate.get("_centroid_y", 0.0))
-		)
-		score -= source_centroid.distance_squared_to(candidate_centroid)
-		if score > best_score:
-			best_score = score
-			best_index = candidate_index
-	return best_index
-
-
-func _records_share_edge(first: Dictionary, second: Dictionary) -> bool:
-	var first_indices: Array = first.get("indices", [])
-	var second_indices: Array = second.get("indices", [])
-	var shared_count := 0
-	for first_index_value: Variant in first_indices:
-		if second_indices.has(int(first_index_value)):
-			shared_count += 1
-	return shared_count >= 2
-
-
-func _records_share_vertex(first: Dictionary, second: Dictionary) -> bool:
-	var first_indices: Array = first.get("indices", [])
-	var second_indices: Array = second.get("indices", [])
-	for first_index_value: Variant in first_indices:
-		if second_indices.has(int(first_index_value)):
-			return true
-	return false
-
-
-func _palette_family(role: String) -> String:
+func _surface_kind_for_palette_role(role: String) -> String:
 	if role.begins_with("cover_"):
 		return "cover"
 	if role.begins_with("page_") or role == "accent_warm":
@@ -1028,7 +1042,6 @@ func _assign_clear_order(records: Array) -> void:
 		record.erase("_centroid_y")
 		record.erase("_area")
 		record.erase("_minimum_altitude")
-		record.erase("_palette_family")
 
 
 func _build_anchors(manifest: Dictionary, bounds: Rect2) -> Dictionary:
