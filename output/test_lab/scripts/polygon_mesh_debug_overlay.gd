@@ -82,20 +82,7 @@ func _deform_point(point: Vector2, motion_mask: float) -> Vector2:
 	var result := point
 	var half_width := maxf(_asset_half_size.x, 1.0)
 	var half_height := maxf(_asset_half_size.y, 1.0)
-	var outer_weight := clampf(absf(result.x) / half_width, 0.0, 1.0)
 	var vertical_weight := clampf(absf(result.y) / half_height, 0.0, 1.0)
-	var idle_wave := sin(
-		_animation_time * 1.35
-		+ result.y * 0.028
-		+ signf(result.x) * 0.75
-	)
-	var page_surface := 1.0 if motion_mask >= 0.25 else 0.0
-	var page_interior := (
-		smoothstep(0.04, 0.20, outer_weight)
-		* (1.0 - smoothstep(0.76, 0.98, outer_weight))
-		* (1.0 - smoothstep(0.72, 0.97, vertical_weight))
-	)
-	result.y += idle_wave * 1.8 * page_interior * page_surface
 	if motion_mask < 0.75:
 		return result
 	var right_page_position := clampf(result.x / half_width, 0.0, 1.0)

@@ -319,7 +319,7 @@ func _auto_demo_phase() -> String:
 	if not _auto_demo_enabled:
 		return "MANUAL"
 	if _auto_cycle_time < AUTO_IDLE_END:
-		return "IDLE PAGE RIPPLE"
+		return "IDLE HOLD"
 	if _auto_cycle_time < AUTO_PAGE_END:
 		return "PAGE TURN + COLOR SHIFT"
 	if _auto_cycle_time < AUTO_PAGE_SETTLE_END:

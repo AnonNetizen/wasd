@@ -91,7 +91,7 @@
 				13,
 				32
 			],
-			"palette_role": "cover_light",
+			"palette_role": "cover_shadow",
 			"region": "right_page"
 		},
 		{
@@ -101,7 +101,7 @@
 				5,
 				35
 			],
-			"palette_role": "cover_shadow",
+			"palette_role": "cover_light",
 			"region": "left_page"
 		},
 		{
@@ -111,7 +111,7 @@
 				4,
 				36
 			],
-			"palette_role": "cover_shadow",
+			"palette_role": "cover_light",
 			"region": "left_page"
 		},
 		{
@@ -121,7 +121,7 @@
 				36,
 				3
 			],
-			"palette_role": "cover_shadow",
+			"palette_role": "cover_light",
 			"region": "left_page"
 		},
 		{
@@ -131,7 +131,7 @@
 				3,
 				36
 			],
-			"palette_role": "cover_shadow",
+			"palette_role": "cover_light",
 			"region": "left_page"
 		},
 		{
@@ -141,7 +141,7 @@
 				3,
 				44
 			],
-			"palette_role": "cover_shadow",
+			"palette_role": "cover_light",
 			"region": "left_page"
 		},
 		{
@@ -151,7 +151,7 @@
 				35,
 				5
 			],
-			"palette_role": "cover_shadow",
+			"palette_role": "cover_light",
 			"region": "left_page"
 		},
 		{
@@ -241,7 +241,7 @@
 				2,
 				37
 			],
-			"palette_role": "cover_shadow",
+			"palette_role": "cover_light",
 			"region": "left_page"
 		},
 		{
@@ -271,7 +271,7 @@
 				37,
 				1
 			],
-			"palette_role": "cover_shadow",
+			"palette_role": "cover_light",
 			"region": "left_page"
 		},
 		{
@@ -281,7 +281,7 @@
 				11,
 				33
 			],
-			"palette_role": "cover_light",
+			"palette_role": "cover_shadow",
 			"region": "right_page"
 		},
 		{
@@ -311,7 +311,7 @@
 				1,
 				37
 			],
-			"palette_role": "cover_shadow",
+			"palette_role": "cover_light",
 			"region": "left_page"
 		},
 		{
@@ -321,7 +321,7 @@
 				1,
 				45
 			],
-			"palette_role": "page_mid",
+			"palette_role": "page_light",
 			"region": "left_page"
 		},
 		{
@@ -401,7 +401,7 @@
 				7,
 				48
 			],
-			"palette_role": "page_mid",
+			"palette_role": "page_shadow",
 			"region": "left_page"
 		},
 		{
@@ -411,7 +411,7 @@
 				43,
 				7
 			],
-			"palette_role": "page_shadow",
+			"palette_role": "page_mid",
 			"region": "left_page"
 		},
 		{
@@ -441,7 +441,7 @@
 				0,
 				38
 			],
-			"palette_role": "cover_shadow",
+			"palette_role": "cover_light",
 			"region": "left_page"
 		},
 		{
@@ -471,7 +471,7 @@
 				26,
 				45
 			],
-			"palette_role": "page_mid",
+			"palette_role": "page_light",
 			"region": "left_page"
 		},
 		{
@@ -501,7 +501,7 @@
 				17,
 				46
 			],
-			"palette_role": "page_mid",
+			"palette_role": "page_light",
 			"region": "right_page"
 		},
 		{
@@ -531,7 +531,7 @@
 				27,
 				28
 			],
-			"palette_role": "cover_shadow",
+			"palette_role": "cover_light",
 			"region": "left_page"
 		},
 		{
@@ -561,7 +561,7 @@
 				10,
 				42
 			],
-			"palette_role": "cover_light",
+			"palette_role": "cover_shadow",
 			"region": "right_page"
 		},
 		{
@@ -581,7 +581,7 @@
 				26,
 				38
 			],
-			"palette_role": "cover_shadow",
+			"palette_role": "cover_light",
 			"region": "left_page"
 		},
 		{
@@ -611,7 +611,7 @@
 				26,
 				28
 			],
-			"palette_role": "cover_shadow",
+			"palette_role": "cover_light",
 			"region": "left_page"
 		},
 		{
@@ -671,7 +671,7 @@
 				25,
 				49
 			],
-			"palette_role": "page_mid",
+			"palette_role": "page_light",
 			"region": "left_page"
 		},
 		{
@@ -963,11 +963,14 @@
 	"stats": {
 		"connected_components": 1,
 		"draw_surfaces": 1,
+		"emphasized_face_count": 1,
 		"face_count": 71,
 		"logical_vertex_count": 57,
 		"minimum_triangle_area_px2": 3.3333358764648438,
+		"minimum_visible_face_altitude_px": 4.0,
 		"outline_vertex_count": 28,
-		"sample_spacing_px": 24
+		"sample_spacing_px": 24,
+		"visually_merged_skinny_face_count": 40
 	},
 	"style_id": "wasd_polygon_art_v1",
 	"vertices": [

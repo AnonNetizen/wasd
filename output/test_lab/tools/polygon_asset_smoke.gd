@@ -157,6 +157,48 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	_check(palette_roles_are_valid, "Every face color comes from the Style Profile palette.")
 	_check(clear_order_is_valid, "Every face has a normalized clear order.")
 	_check(_connected_component_count(faces) == 1, "Face topology has one connected component.")
+	var minimum_visible_altitude := float(
+		style.get("minimum_visible_face_altitude_px", 0.0)
+	)
+	var skinny_face_count := 0
+	var visually_merged_skinny_face_count := 0
+	for face_index in range(faces.size()):
+		var face: Dictionary = faces[face_index]
+		if _face_minimum_altitude(face, vertices) >= minimum_visible_altitude:
+			continue
+		skinny_face_count += 1
+		if _skinny_face_reaches_major_same_color(
+			face_index,
+			faces,
+			vertices,
+			minimum_visible_altitude
+		):
+			visually_merged_skinny_face_count += 1
+	_check(minimum_visible_altitude > 0.0, "Style Profile declares visible-face altitude.")
+	_check(skinny_face_count > 0, "Compiled topology contains skinny fill triangles to merge.")
+	_check(
+		visually_merged_skinny_face_count == skinny_face_count,
+		"Every skinny fill triangle visually merges into an adjacent major face."
+	)
+	var emphasized_left_lower_face := false
+	for face_value: Variant in faces:
+		var face: Dictionary = face_value
+		if String(face.get("region", "")) != "left_page":
+			continue
+		if String(face.get("palette_role", "")) != "page_shadow":
+			continue
+		var centroid := _face_centroid(face, vertices)
+		if (
+			centroid.x < -40.0
+			and centroid.y > 30.0
+			and _face_area(face, vertices) > 2_000.0
+		):
+			emphasized_left_lower_face = true
+			break
+	_check(
+		emphasized_left_lower_face,
+		"Left-lower major page face uses the explicit shadow emphasis."
+	)
 	for region_name: String in region_counts:
 		_check(
 			int(region_counts[region_name]) > 0,
@@ -183,6 +225,11 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	var stats: Dictionary = asset_data.get("stats", {})
 	_check(int(stats.get("connected_components", 0)) == 1, "Stats record one component.")
 	_check(int(stats.get("draw_surfaces", 0)) == 1, "Stats record one draw surface.")
+	_check(
+		int(stats.get("visually_merged_skinny_face_count", 0)) == skinny_face_count,
+		"Stats record every visually merged skinny face."
+	)
+	_check(int(stats.get("emphasized_face_count", 0)) == 1, "Stats record one emphasized face.")
 
 
 func _validate_scene_file_shape() -> void:
@@ -234,8 +281,8 @@ func _validate_runtime() -> void:
 	_check(mesh_instance != null, "Runtime exposes the Polygon mesh instance.")
 	var runtime_stats: Dictionary = runtime.get_runtime_stats()
 	_check(
-		int(runtime_stats.get("turnable_face_count", 0)) > 0,
-		"Runtime identifies turnable right-page faces."
+		int(runtime_stats.get("turnable_face_count", 0)) == 13,
+		"Runtime keeps the 13 authored right-page faces turnable without cover leakage."
 	)
 	_check(
 		int(runtime_stats.get("render_face_count", 0))
@@ -268,7 +315,7 @@ func _validate_runtime() -> void:
 			)
 			_check(
 				idle_page_vertex_count > 0,
-				"Left-page surface faces retain idle-only motion masks."
+				"Left-page faces remain masked separately from turnable right-page faces."
 			)
 		_check(mesh_instance.texture == null, "Runtime MeshInstance2D has no texture.")
 	var outline_nodes := runtime.find_children("*", "Line2D", true, false)
@@ -351,6 +398,85 @@ func _validate_demo_scene() -> void:
 	)
 	scene.queue_free()
 	await process_frame
+
+
+func _face_area(face: Dictionary, vertices: PackedVector2Array) -> float:
+	var indices: Array = face.get("indices", [])
+	if indices.size() != 3:
+		return 0.0
+	var a := vertices[int(indices[0])]
+	var b := vertices[int(indices[1])]
+	var c := vertices[int(indices[2])]
+	return absf((b - a).cross(c - a)) * 0.5
+
+
+func _face_centroid(face: Dictionary, vertices: PackedVector2Array) -> Vector2:
+	var indices: Array = face.get("indices", [])
+	if indices.size() != 3:
+		return Vector2.ZERO
+	return (
+		vertices[int(indices[0])]
+		+ vertices[int(indices[1])]
+		+ vertices[int(indices[2])]
+	) / 3.0
+
+
+func _face_minimum_altitude(
+	face: Dictionary,
+	vertices: PackedVector2Array
+) -> float:
+	var indices: Array = face.get("indices", [])
+	if indices.size() != 3:
+		return 0.0
+	var a := vertices[int(indices[0])]
+	var b := vertices[int(indices[1])]
+	var c := vertices[int(indices[2])]
+	var maximum_edge := maxf(
+		a.distance_to(b),
+		maxf(b.distance_to(c), c.distance_to(a))
+	)
+	if maximum_edge <= 0.0:
+		return 0.0
+	return _face_area(face, vertices) * 2.0 / maximum_edge
+
+
+func _faces_are_adjacent(first: Dictionary, second: Dictionary) -> bool:
+	var first_indices: Array = first.get("indices", [])
+	var second_indices: Array = second.get("indices", [])
+	var shared_count := 0
+	for first_index_value: Variant in first_indices:
+		for second_index_value: Variant in second_indices:
+			if int(first_index_value) == int(second_index_value):
+				shared_count += 1
+				break
+	return shared_count >= 1
+
+
+func _skinny_face_reaches_major_same_color(
+	start_index: int,
+	faces: Array,
+	vertices: PackedVector2Array,
+	minimum_visible_altitude: float
+) -> bool:
+	var target_role := String((faces[start_index] as Dictionary).get("palette_role", ""))
+	var queue: Array[int] = [start_index]
+	var visited: Dictionary = {start_index: true}
+	while not queue.is_empty():
+		var face_index: int = queue.pop_front()
+		var face: Dictionary = faces[face_index]
+		if _face_minimum_altitude(face, vertices) >= minimum_visible_altitude:
+			return true
+		for neighbor_index in range(faces.size()):
+			if visited.has(neighbor_index):
+				continue
+			var neighbor: Dictionary = faces[neighbor_index]
+			if String(neighbor.get("palette_role", "")) != target_role:
+				continue
+			if not _faces_are_adjacent(face, neighbor):
+				continue
+			visited[neighbor_index] = true
+			queue.append(neighbor_index)
+	return false
 
 
 func _connected_component_count(faces: Array) -> int:

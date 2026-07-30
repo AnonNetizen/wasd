@@ -90,6 +90,24 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 	)
 	if face_records.is_empty():
 		return _failure("No valid polygon faces remained after palette assignment.")
+	var minimum_visible_altitude := float(
+		style.get("minimum_visible_face_altitude_px", 4.0)
+	)
+	if minimum_visible_altitude <= 0.0:
+		return _failure("Style Profile minimum_visible_face_altitude_px is invalid.")
+	var visually_merged_face_count := _merge_skinny_face_palette_roles(
+		face_records,
+		minimum_visible_altitude
+	)
+	var emphasis_result := _apply_facet_emphasis(
+		face_records,
+		manifest.get("facet_emphasis", []),
+		source_bounds,
+		pivot,
+		palette
+	)
+	if not bool(emphasis_result.get("ok", false)):
+		return emphasis_result
 	_assign_clear_order(face_records)
 
 	var local_bounds := Rect2(source_bounds.position - pivot, source_bounds.size)
@@ -148,6 +166,9 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 			"minimum_triangle_area_px2": float(
 				triangulation_result["minimum_triangle_area_px2"]
 			),
+			"minimum_visible_face_altitude_px": minimum_visible_altitude,
+			"visually_merged_skinny_face_count": visually_merged_face_count,
+			"emphasized_face_count": int(emphasis_result.get("count", 0)),
 		},
 	}
 	return {
@@ -528,6 +549,14 @@ func _build_face_records(
 		var b: Vector2 = vertices[int(indices[1])]
 		var c: Vector2 = vertices[int(indices[2])]
 		var centroid := (a + b + c) / 3.0
+		var area := absf((b - a).cross(c - a)) * 0.5
+		var maximum_edge := maxf(
+			a.distance_to(b),
+			maxf(b.distance_to(c), c.distance_to(a))
+		)
+		var minimum_altitude := 0.0
+		if maximum_edge > 0.0:
+			minimum_altitude = area * 2.0 / maximum_edge
 		var sampled_color := _sample_triangle_color(image, a, b, c)
 		var palette_role := _nearest_palette_role(sampled_color, palette)
 		var local_x := centroid.x - pivot.x
@@ -543,8 +572,209 @@ func _build_face_records(
 			"clear_order": 1.0,
 			"_centroid_x": local_x,
 			"_centroid_y": centroid.y - pivot.y,
+			"_area": area,
+			"_minimum_altitude": minimum_altitude,
+			"_palette_family": _palette_family(palette_role),
 		})
 	return records
+
+
+func _merge_skinny_face_palette_roles(
+	records: Array,
+	minimum_visible_altitude: float
+) -> int:
+	var skinny_face_indices: Array[int] = []
+	for face_index in range(records.size()):
+		var record: Dictionary = records[face_index]
+		if float(record.get("_minimum_altitude", 0.0)) >= minimum_visible_altitude:
+			continue
+		skinny_face_indices.append(face_index)
+	for _pass_index in range(records.size()):
+		var changed := false
+		for face_index: int in skinny_face_indices:
+			var record: Dictionary = records[face_index]
+			var neighbor_index := _best_visual_merge_neighbor(
+				records,
+				face_index,
+				minimum_visible_altitude
+			)
+			if neighbor_index < 0:
+				continue
+			var neighbor: Dictionary = records[neighbor_index]
+			var inherited_role := String(neighbor.get("palette_role", ""))
+			if String(record.get("palette_role", "")) == inherited_role:
+				continue
+			record["palette_role"] = inherited_role
+			changed = true
+		if not changed:
+			break
+	return skinny_face_indices.size()
+
+
+func _best_visual_merge_neighbor(
+	records: Array,
+	face_index: int,
+	minimum_visible_altitude: float
+) -> int:
+	var source: Dictionary = records[face_index]
+	var source_region := String(source.get("region", ""))
+	var source_family := String(source.get("_palette_family", ""))
+	var has_same_family_candidate := false
+	for candidate_index in range(records.size()):
+		if candidate_index == face_index:
+			continue
+		var candidate: Dictionary = records[candidate_index]
+		var is_major := (
+			float(candidate.get("_minimum_altitude", 0.0))
+			>= minimum_visible_altitude
+		)
+		if (
+			not _records_share_edge(source, candidate)
+			and not _records_share_vertex(source, candidate)
+			and not is_major
+		):
+			continue
+		if (
+			String(candidate.get("_palette_family", "")) == source_family
+		):
+			has_same_family_candidate = true
+			break
+	var best_index := -1
+	var best_score := -INF
+	for candidate_index in range(records.size()):
+		if candidate_index == face_index:
+			continue
+		var candidate: Dictionary = records[candidate_index]
+		var shares_edge := _records_share_edge(source, candidate)
+		var shares_vertex := _records_share_vertex(source, candidate)
+		var is_major := (
+			float(candidate.get("_minimum_altitude", 0.0))
+			>= minimum_visible_altitude
+		)
+		var same_family := (
+			String(candidate.get("_palette_family", "")) == source_family
+		)
+		if not shares_edge and not shares_vertex and not (is_major and same_family):
+			continue
+		if (
+			has_same_family_candidate
+			and not same_family
+		):
+			continue
+		var score := float(candidate.get("_area", 0.0))
+		if is_major:
+			score += 1_000_000_000.0
+		if String(candidate.get("region", "")) == source_region:
+			score += 100_000_000.0
+		if same_family:
+			score += 10_000_000.0
+		if shares_edge:
+			score += 1_000_000.0
+		elif shares_vertex:
+			score += 500_000.0
+		var source_centroid := Vector2(
+			float(source.get("_centroid_x", 0.0)),
+			float(source.get("_centroid_y", 0.0))
+		)
+		var candidate_centroid := Vector2(
+			float(candidate.get("_centroid_x", 0.0)),
+			float(candidate.get("_centroid_y", 0.0))
+		)
+		score -= source_centroid.distance_squared_to(candidate_centroid)
+		if score > best_score:
+			best_score = score
+			best_index = candidate_index
+	return best_index
+
+
+func _records_share_edge(first: Dictionary, second: Dictionary) -> bool:
+	var first_indices: Array = first.get("indices", [])
+	var second_indices: Array = second.get("indices", [])
+	var shared_count := 0
+	for first_index_value: Variant in first_indices:
+		if second_indices.has(int(first_index_value)):
+			shared_count += 1
+	return shared_count >= 2
+
+
+func _records_share_vertex(first: Dictionary, second: Dictionary) -> bool:
+	var first_indices: Array = first.get("indices", [])
+	var second_indices: Array = second.get("indices", [])
+	for first_index_value: Variant in first_indices:
+		if second_indices.has(int(first_index_value)):
+			return true
+	return false
+
+
+func _palette_family(role: String) -> String:
+	if role.begins_with("cover_"):
+		return "cover"
+	if role.begins_with("page_") or role == "accent_warm":
+		return "page"
+	return role
+
+
+func _apply_facet_emphasis(
+	records: Array,
+	guides_value: Variant,
+	source_bounds: Rect2,
+	pivot: Vector2,
+	palette: Dictionary
+) -> Dictionary:
+	if not guides_value is Array:
+		return _failure("Manifest facet_emphasis must be an array.")
+	var guides: Array = guides_value
+	var applied_count := 0
+	for guide_value: Variant in guides:
+		if not guide_value is Dictionary:
+			return _failure("Manifest facet_emphasis entries must be dictionaries.")
+		var guide: Dictionary = guide_value
+		var palette_role := String(guide.get("palette_role", ""))
+		if not palette.has(palette_role) or palette_role == "outline":
+			return _failure("Facet emphasis palette_role is invalid.")
+		var position_value: Variant = guide.get("normalized_position", [])
+		if not position_value is Array or (position_value as Array).size() != 2:
+			return _failure("Facet emphasis normalized_position is invalid.")
+		var normalized_position := _array_to_vector2(position_value)
+		if (
+			normalized_position.x < 0.0
+			or normalized_position.x > 1.0
+			or normalized_position.y < 0.0
+			or normalized_position.y > 1.0
+		):
+			return _failure("Facet emphasis normalized_position is outside 0..1.")
+		var target := (
+			source_bounds.position
+			+ source_bounds.size * normalized_position
+			- pivot
+		)
+		var required_region := String(guide.get("region", ""))
+		var minimum_area := maxf(float(guide.get("minimum_area_px2", 0.0)), 0.0)
+		var best_index := -1
+		var best_distance := INF
+		for record_index in range(records.size()):
+			var record: Dictionary = records[record_index]
+			if (
+				not required_region.is_empty()
+				and String(record.get("region", "")) != required_region
+			):
+				continue
+			if float(record.get("_area", 0.0)) < minimum_area:
+				continue
+			var centroid := Vector2(
+				float(record.get("_centroid_x", 0.0)),
+				float(record.get("_centroid_y", 0.0))
+			)
+			var distance := centroid.distance_squared_to(target)
+			if distance < best_distance:
+				best_distance = distance
+				best_index = record_index
+		if best_index < 0:
+			return _failure("Facet emphasis could not find a matching face.")
+		var emphasized_record: Dictionary = records[best_index]
+		emphasized_record["palette_role"] = palette_role
+		applied_count += 1
+	return {"ok": true, "count": applied_count}
 
 
 func _assign_clear_order(records: Array) -> void:
@@ -562,6 +792,9 @@ func _assign_clear_order(records: Array) -> void:
 		record["clear_order"] = float(index + 1) / float(records.size())
 		record.erase("_centroid_x")
 		record.erase("_centroid_y")
+		record.erase("_area")
+		record.erase("_minimum_altitude")
+		record.erase("_palette_family")
 
 
 func _build_anchors(manifest: Dictionary, bounds: Rect2) -> Dictionary:

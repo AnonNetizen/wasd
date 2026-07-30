@@ -12,21 +12,8 @@ uniform vec4 page_fold_shadow : source_color = vec4(0.55, 0.44, 0.36, 1.0);
 void vertex() {
 	float half_width = max(asset_half_size.x, 1.0);
 	float half_height = max(asset_half_size.y, 1.0);
-	float outer_weight = clamp(abs(VERTEX.x) / half_width, 0.0, 1.0);
 	float vertical_weight = clamp(abs(VERTEX.y) / half_height, 0.0, 1.0);
-	float page_surface = outline_mode ? 0.0 : step(0.25, UV.y);
 	float turnable_page = outline_mode ? 0.0 : step(0.75, UV.y);
-	float page_interior = (
-		smoothstep(0.04, 0.20, outer_weight)
-		* (1.0 - smoothstep(0.76, 0.98, outer_weight))
-		* (1.0 - smoothstep(0.72, 0.97, vertical_weight))
-	);
-	float idle_wave = sin(
-		animation_time * 1.35
-		+ VERTEX.y * 0.028
-		+ sign(VERTEX.x) * 0.75
-	);
-	VERTEX.y += idle_wave * 1.8 * page_interior * page_surface;
 
 	float right_page_position = clamp(VERTEX.x / half_width, 0.0, 1.0);
 	float turn_envelope = sin(page_turn_progress * 3.14159265);

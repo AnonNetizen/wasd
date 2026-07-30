@@ -17,6 +17,7 @@
 		"hard_max": 160
 	},
 	"minimum_triangle_area_px2": 3.0,
+	"minimum_visible_face_altitude_px": 4.0,
 	"palette": {
 		"outline": "#191824",
 		"page_light": "#eadfca",
