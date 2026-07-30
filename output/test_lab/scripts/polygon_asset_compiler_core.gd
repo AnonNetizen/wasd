@@ -100,6 +100,13 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 		face_records,
 		minimum_visible_altitude
 	)
+	var minimum_visible_color_region_area := float(
+		style.get("minimum_visible_color_region_area_px2", 0.0)
+	)
+	if minimum_visible_color_region_area <= 0.0:
+		return _failure(
+			"Style Profile minimum_visible_color_region_area_px2 is invalid."
+		)
 	var emphasis_result := _apply_facet_emphasis(
 		face_records,
 		manifest.get("facet_emphasis", []),
@@ -109,6 +116,11 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 	)
 	if not bool(emphasis_result.get("ok", false)):
 		return emphasis_result
+	var visually_merged_small_region_face_count := _merge_small_color_regions(
+		face_records,
+		vertices,
+		minimum_visible_color_region_area
+	)
 	_assign_clear_order(face_records)
 
 	var local_bounds := Rect2(source_bounds.position - pivot, source_bounds.size)
@@ -171,7 +183,11 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 				triangulation_result["minimum_triangle_area_px2"]
 			),
 			"minimum_visible_face_altitude_px": minimum_visible_altitude,
+			"minimum_visible_color_region_area_px2":
+				minimum_visible_color_region_area,
 			"visually_merged_skinny_face_count": visually_merged_face_count,
+			"visually_merged_small_region_face_count":
+				visually_merged_small_region_face_count,
 			"emphasized_face_count": int(emphasis_result.get("count", 0)),
 		},
 	}
@@ -642,6 +658,7 @@ func _build_face_records(
 			minimum_altitude = area * 2.0 / maximum_edge
 		var sampled_color := _sample_triangle_color(image, a, b, c)
 		var palette_role := _nearest_palette_role(sampled_color, palette)
+		var palette_family := _palette_family(palette_role)
 		var local_x := centroid.x - pivot.x
 		var region := String(region_guides.get("spine_region", "spine"))
 		if local_x < -spine_half_width:
@@ -651,13 +668,14 @@ func _build_face_records(
 		records.append({
 			"indices": [int(indices[0]), int(indices[1]), int(indices[2])],
 			"palette_role": palette_role,
+			"surface_kind": palette_family,
 			"region": region,
 			"clear_order": 1.0,
 			"_centroid_x": local_x,
 			"_centroid_y": centroid.y - pivot.y,
 			"_area": area,
 			"_minimum_altitude": minimum_altitude,
-			"_palette_family": _palette_family(palette_role),
+			"_palette_family": palette_family,
 		})
 	return records
 
@@ -692,6 +710,139 @@ func _merge_skinny_face_palette_roles(
 		if not changed:
 			break
 	return skinny_face_indices.size()
+
+
+func _merge_small_color_regions(
+	records: Array,
+	vertices: PackedVector2Array,
+	minimum_region_area: float
+) -> int:
+	var changed_face_indices: Dictionary = {}
+	for _pass_index in range(records.size()):
+		var components := _build_color_components(records)
+		var selected_component: Dictionary = {}
+		var selected_area := INF
+		var selected_first_index := records.size()
+		for component_value: Variant in components:
+			var component: Dictionary = component_value
+			var component_area := float(component.get("area", 0.0))
+			var component_first_index := int(component.get("first_index", records.size()))
+			if component_area >= minimum_region_area:
+				continue
+			if (
+				component_area < selected_area
+				or (
+					is_equal_approx(component_area, selected_area)
+					and component_first_index < selected_first_index
+				)
+			):
+				selected_component = component
+				selected_area = component_area
+				selected_first_index = component_first_index
+		if selected_component.is_empty():
+			break
+		var component_indices: Array = selected_component.get("indices", [])
+		var target_role := _best_color_region_merge_role(
+			records,
+			vertices,
+			component_indices
+		)
+		if target_role.is_empty():
+			break
+		for face_index_value: Variant in component_indices:
+			var face_index := int(face_index_value)
+			var record: Dictionary = records[face_index]
+			record["palette_role"] = target_role
+			changed_face_indices[face_index] = true
+	return changed_face_indices.size()
+
+
+func _build_color_components(records: Array) -> Array:
+	var visited: Dictionary = {}
+	var components: Array = []
+	for start_index in range(records.size()):
+		if visited.has(start_index):
+			continue
+		var role := String((records[start_index] as Dictionary).get(
+			"palette_role",
+			""
+		))
+		var queue: Array[int] = [start_index]
+		var component_indices: Array[int] = []
+		var component_area := 0.0
+		visited[start_index] = true
+		while not queue.is_empty():
+			var current: int = queue.pop_front()
+			component_indices.append(current)
+			var current_record: Dictionary = records[current]
+			component_area += float(current_record.get("_area", 0.0))
+			for neighbor_index in range(records.size()):
+				if visited.has(neighbor_index):
+					continue
+				var neighbor: Dictionary = records[neighbor_index]
+				if String(neighbor.get("palette_role", "")) != role:
+					continue
+				if not _records_share_edge(current_record, neighbor):
+					continue
+				visited[neighbor_index] = true
+				queue.append(neighbor_index)
+		component_indices.sort()
+		components.append({
+			"indices": component_indices,
+			"area": component_area,
+			"first_index": component_indices[0],
+		})
+	return components
+
+
+func _best_color_region_merge_role(
+	records: Array,
+	vertices: PackedVector2Array,
+	component_indices: Array
+) -> String:
+	var component_lookup: Dictionary = {}
+	for face_index_value: Variant in component_indices:
+		component_lookup[int(face_index_value)] = true
+	var boundary_lengths: Dictionary = {}
+	for face_index_value: Variant in component_indices:
+		var face_index := int(face_index_value)
+		var face: Dictionary = records[face_index]
+		for neighbor_index in range(records.size()):
+			if component_lookup.has(neighbor_index):
+				continue
+			var neighbor: Dictionary = records[neighbor_index]
+			if not _records_share_edge(face, neighbor):
+				continue
+			var neighbor_role := String(neighbor.get("palette_role", ""))
+			boundary_lengths[neighbor_role] = (
+				float(boundary_lengths.get(neighbor_role, 0.0))
+				+ _shared_record_edge_length(face, neighbor, vertices)
+			)
+	var best_role := ""
+	var best_boundary_length := -1.0
+	for role_value: Variant in boundary_lengths:
+		var role := String(role_value)
+		var boundary_length := float(boundary_lengths[role])
+		if boundary_length > best_boundary_length:
+			best_role = role
+			best_boundary_length = boundary_length
+	return best_role
+
+
+func _shared_record_edge_length(
+	first: Dictionary,
+	second: Dictionary,
+	vertices: PackedVector2Array
+) -> float:
+	var shared_indices: Array[int] = []
+	var first_indices: Array = first.get("indices", [])
+	var second_indices: Array = second.get("indices", [])
+	for first_index_value: Variant in first_indices:
+		if second_indices.has(first_index_value):
+			shared_indices.append(int(first_index_value))
+	if shared_indices.size() != 2:
+		return 0.0
+	return vertices[shared_indices[0]].distance_to(vertices[shared_indices[1]])
 
 
 func _best_visual_merge_neighbor(

@@ -125,6 +125,8 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	var indices_are_valid := true
 	var triangles_are_valid := true
 	var palette_roles_are_valid := true
+	var surface_kinds_are_valid := true
+	var recolored_cover_face_count := 0
 	var clear_order_is_valid := true
 	for face_value: Variant in faces:
 		if not face_value is Dictionary:
@@ -151,6 +153,15 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 		triangles_are_valid = triangles_are_valid and absf((b - a).cross(c - a)) > 0.001
 		var palette_role := String(face.get("palette_role", ""))
 		palette_roles_are_valid = palette_roles_are_valid and palette.has(palette_role)
+		surface_kinds_are_valid = (
+			surface_kinds_are_valid
+			and ["page", "cover"].has(String(face.get("surface_kind", "")))
+		)
+		if (
+			String(face.get("surface_kind", "")) == "cover"
+			and PAGE_PALETTE_ROLES.has(palette_role)
+		):
+			recolored_cover_face_count += 1
 		var region := String(face.get("region", ""))
 		if region_counts.has(region):
 			region_counts[region] = int(region_counts[region]) + 1
@@ -161,6 +172,14 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	_check(indices_are_valid, "Every face has three valid shared-vertex indices.")
 	_check(triangles_are_valid, "Polygon asset contains no degenerate triangle.")
 	_check(palette_roles_are_valid, "Every face color comes from the Style Profile palette.")
+	_check(
+		surface_kinds_are_valid,
+		"Every face keeps an independent page or cover surface kind."
+	)
+	_check(
+		recolored_cover_face_count > 0,
+		"Small cover-color islands can merge visually without changing surface kind."
+	)
 	_check(clear_order_is_valid, "Every face has a normalized clear order.")
 	var outline := _vector2_array_from_json(asset_data.get("outline", []))
 	var topology := _analyze_edge_topology(faces, outline.size())
@@ -194,6 +213,21 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	_check(
 		visually_merged_skinny_face_count == skinny_face_count,
 		"Every skinny fill triangle visually merges into an adjacent major face."
+	)
+	var minimum_visible_color_region_area := float(
+		style.get("minimum_visible_color_region_area_px2", 0.0)
+	)
+	_check(
+		minimum_visible_color_region_area > 0.0,
+		"Style Profile declares a minimum visible color-region area."
+	)
+	_check(
+		_count_small_color_components(
+			faces,
+			vertices,
+			minimum_visible_color_region_area
+		) == 0,
+		"Every connected color region meets the minimum visible area."
 	)
 	var emphasized_left_lower_face := false
 	for face_value: Variant in faces:
@@ -254,6 +288,17 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	_check(
 		int(stats.get("visually_merged_skinny_face_count", 0)) == skinny_face_count,
 		"Stats record every visually merged skinny face."
+	)
+	_check(
+		is_equal_approx(
+			float(stats.get("minimum_visible_color_region_area_px2", 0.0)),
+			minimum_visible_color_region_area
+		),
+		"Stats record the minimum visible color-region area."
+	)
+	_check(
+		int(stats.get("visually_merged_small_region_face_count", 0)) > 0,
+		"Stats record merged faces from undersized color regions."
 	)
 	_check(int(stats.get("emphasized_face_count", 0)) == 1, "Stats record one emphasized face.")
 
@@ -354,6 +399,7 @@ func _validate_runtime() -> void:
 			var expanded_vertex_index := 0
 			var shared_motion_masks_match := true
 			var face_animation_flags_match := true
+			var fixed_surface_motion_match := true
 			var turnable_vertex_count := 0
 			var idle_page_vertex_count := 0
 			for face_value: Variant in runtime_faces:
@@ -377,6 +423,11 @@ func _validate_runtime() -> void:
 						face_animation_flags_match
 						and absf(color.a - expected_face_alpha) <= 0.01
 					)
+					if String(face.get("surface_kind", "")) == "cover":
+						fixed_surface_motion_match = (
+							fixed_surface_motion_match
+							and uv.y < 0.25
+						)
 					if uv.y >= 0.75:
 						turnable_vertex_count += 1
 					elif uv.y >= 0.25:
@@ -389,6 +440,10 @@ func _validate_runtime() -> void:
 			_check(
 				face_animation_flags_match,
 				"Per-face color animation flags remain independent from vertex motion."
+			)
+			_check(
+				fixed_surface_motion_match,
+				"Visually recolored cover faces remain fixed during page turns."
 			)
 			_check(
 				turnable_vertex_count > 0,
@@ -560,6 +615,52 @@ func _skinny_face_reaches_major_same_color(
 	return false
 
 
+func _count_small_color_components(
+	faces: Array,
+	vertices: PackedVector2Array,
+	minimum_area: float
+) -> int:
+	var visited: Dictionary = {}
+	var small_component_count := 0
+	for start_index in range(faces.size()):
+		if visited.has(start_index):
+			continue
+		var role := String((faces[start_index] as Dictionary).get(
+			"palette_role",
+			""
+		))
+		var queue: Array[int] = [start_index]
+		var component_area := 0.0
+		visited[start_index] = true
+		while not queue.is_empty():
+			var current: int = queue.pop_front()
+			var current_face: Dictionary = faces[current]
+			component_area += _face_area(current_face, vertices)
+			for neighbor_index in range(faces.size()):
+				if visited.has(neighbor_index):
+					continue
+				var neighbor: Dictionary = faces[neighbor_index]
+				if String(neighbor.get("palette_role", "")) != role:
+					continue
+				if not _faces_share_edge(current_face, neighbor):
+					continue
+				visited[neighbor_index] = true
+				queue.append(neighbor_index)
+		if component_area < minimum_area:
+			small_component_count += 1
+	return small_component_count
+
+
+func _faces_share_edge(first: Dictionary, second: Dictionary) -> bool:
+	var first_indices: Array = first.get("indices", [])
+	var second_indices: Array = second.get("indices", [])
+	var shared_count := 0
+	for first_index_value: Variant in first_indices:
+		if second_indices.has(first_index_value):
+			shared_count += 1
+	return shared_count == 2
+
+
 func _analyze_edge_topology(
 	faces: Array,
 	outline_vertex_count: int
@@ -685,7 +786,11 @@ func _build_expected_vertex_motion_masks(
 
 func _motion_mask_for_face(face: Dictionary) -> float:
 	var role := String(face.get("palette_role", ""))
-	if not PAGE_PALETTE_ROLES.has(role):
+	var surface_kind := String(face.get("surface_kind", ""))
+	var is_page_surface := surface_kind == "page"
+	if surface_kind.is_empty():
+		is_page_surface = PAGE_PALETTE_ROLES.has(role)
+	if not is_page_surface:
 		return 0.0
 	var region := String(face.get("region", ""))
 	if region == "right_page":

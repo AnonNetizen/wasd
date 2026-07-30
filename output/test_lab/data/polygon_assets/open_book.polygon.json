@@ -92,7 +92,8 @@
 				32
 			],
 			"palette_role": "cover_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.02631578947368421,
@@ -102,7 +103,8 @@
 				32
 			],
 			"palette_role": "cover_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.039473684210526314,
@@ -112,7 +114,8 @@
 				35
 			],
 			"palette_role": "cover_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.05263157894736842,
@@ -122,7 +125,8 @@
 				36
 			],
 			"palette_role": "cover_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.06578947368421052,
@@ -132,7 +136,8 @@
 				32
 			],
 			"palette_role": "cover_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.07894736842105263,
@@ -142,7 +147,8 @@
 				36
 			],
 			"palette_role": "cover_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.09210526315789473,
@@ -152,7 +158,8 @@
 				36
 			],
 			"palette_role": "cover_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.10526315789473684,
@@ -162,7 +169,8 @@
 				44
 			],
 			"palette_role": "cover_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.11842105263157894,
@@ -172,7 +180,8 @@
 				35
 			],
 			"palette_role": "cover_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.13157894736842105,
@@ -182,7 +191,8 @@
 				35
 			],
 			"palette_role": "cover_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.14473684210526316,
@@ -192,7 +202,8 @@
 				44
 			],
 			"palette_role": "cover_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.15789473684210525,
@@ -202,7 +213,8 @@
 				41
 			],
 			"palette_role": "cover_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.17105263157894737,
@@ -212,7 +224,8 @@
 				31
 			],
 			"palette_role": "cover_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.18421052631578946,
@@ -222,7 +235,8 @@
 				44
 			],
 			"palette_role": "cover_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.19736842105263158,
@@ -232,7 +246,8 @@
 				33
 			],
 			"palette_role": "cover_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.21052631578947367,
@@ -242,7 +257,8 @@
 				41
 			],
 			"palette_role": "cover_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.2236842105263158,
@@ -252,7 +268,8 @@
 				41
 			],
 			"palette_role": "cover_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.23684210526315788,
@@ -261,8 +278,9 @@
 				16,
 				31
 			],
-			"palette_role": "cover_shadow",
-			"region": "right_page"
+			"palette_role": "cover_light",
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.25,
@@ -272,7 +290,8 @@
 				31
 			],
 			"palette_role": "cover_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.2631578947368421,
@@ -281,8 +300,9 @@
 				2,
 				37
 			],
-			"palette_role": "cover_light",
-			"region": "left_page"
+			"palette_role": "page_light",
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.27631578947368424,
@@ -292,7 +312,8 @@
 				33
 			],
 			"palette_role": "cover_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.2894736842105263,
@@ -302,7 +323,8 @@
 				48
 			],
 			"palette_role": "page_mid",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.3026315789473684,
@@ -311,8 +333,9 @@
 				3,
 				37
 			],
-			"palette_role": "cover_light",
-			"region": "left_page"
+			"palette_role": "page_light",
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.3157894736842105,
@@ -322,7 +345,8 @@
 				33
 			],
 			"palette_role": "cover_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.32894736842105265,
@@ -331,8 +355,9 @@
 				7,
 				43
 			],
-			"palette_role": "page_mid",
-			"region": "left_page"
+			"palette_role": "page_shadow",
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.34210526315789475,
@@ -341,8 +366,9 @@
 				1,
 				37
 			],
-			"palette_role": "cover_light",
-			"region": "left_page"
+			"palette_role": "page_light",
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.35526315789473684,
@@ -352,7 +378,8 @@
 				45
 			],
 			"palette_role": "page_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.3684210526315789,
@@ -362,7 +389,8 @@
 				47
 			],
 			"palette_role": "page_mid",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.3815789473684211,
@@ -372,7 +400,8 @@
 				42
 			],
 			"palette_role": "cover_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.39473684210526316,
@@ -381,8 +410,9 @@
 				17,
 				30
 			],
-			"palette_role": "cover_shadow",
-			"region": "right_page"
+			"palette_role": "page_light",
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.40789473684210525,
@@ -392,7 +422,8 @@
 				48
 			],
 			"palette_role": "page_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.42105263157894735,
@@ -401,8 +432,9 @@
 				18,
 				30
 			],
-			"palette_role": "cover_shadow",
-			"region": "right_page"
+			"palette_role": "page_light",
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.4342105263157895,
@@ -411,8 +443,9 @@
 				19,
 				30
 			],
-			"palette_role": "cover_shadow",
-			"region": "right_page"
+			"palette_role": "page_light",
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.4473684210526316,
@@ -422,7 +455,8 @@
 				48
 			],
 			"palette_role": "page_shadow",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.4605263157894737,
@@ -431,8 +465,9 @@
 				10,
 				43
 			],
-			"palette_role": "page_mid",
-			"region": "left_page"
+			"palette_role": "page_shadow",
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.47368421052631576,
@@ -441,8 +476,9 @@
 				8,
 				43
 			],
-			"palette_role": "page_mid",
-			"region": "left_page"
+			"palette_role": "page_shadow",
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.4868421052631579,
@@ -452,7 +488,8 @@
 				45
 			],
 			"palette_role": "page_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.5,
@@ -461,8 +498,9 @@
 				17,
 				40
 			],
-			"palette_role": "cover_shadow",
-			"region": "right_page"
+			"palette_role": "page_light",
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.5131578947368421,
@@ -471,8 +509,9 @@
 				0,
 				38
 			],
-			"palette_role": "cover_light",
-			"region": "left_page"
+			"palette_role": "page_light",
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.5263157894736842,
@@ -482,7 +521,8 @@
 				51
 			],
 			"palette_role": "page_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.5394736842105263,
@@ -492,7 +532,8 @@
 				51
 			],
 			"palette_role": "page_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.5526315789473685,
@@ -502,7 +543,8 @@
 				45
 			],
 			"palette_role": "page_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.5657894736842105,
@@ -512,7 +554,8 @@
 				49
 			],
 			"palette_role": "page_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.5789473684210527,
@@ -522,7 +565,8 @@
 				49
 			],
 			"palette_role": "page_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.5921052631578947,
@@ -531,8 +575,9 @@
 				10,
 				34
 			],
-			"palette_role": "page_mid",
-			"region": "left_page"
+			"palette_role": "page_shadow",
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.6052631578947368,
@@ -541,8 +586,9 @@
 				8,
 				34
 			],
-			"palette_role": "page_mid",
-			"region": "left_page"
+			"palette_role": "page_shadow",
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.618421052631579,
@@ -551,8 +597,9 @@
 				21,
 				40
 			],
-			"palette_role": "cover_shadow",
-			"region": "right_page"
+			"palette_role": "page_light",
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.631578947368421,
@@ -562,7 +609,8 @@
 				38
 			],
 			"palette_role": "page_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.6447368421052632,
@@ -572,7 +620,8 @@
 				46
 			],
 			"palette_role": "page_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.6578947368421053,
@@ -582,7 +631,8 @@
 				47
 			],
 			"palette_role": "page_mid",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.6710526315789473,
@@ -592,7 +642,8 @@
 				42
 			],
 			"palette_role": "cover_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.6842105263157895,
@@ -601,8 +652,9 @@
 				27,
 				28
 			],
-			"palette_role": "cover_light",
-			"region": "left_page"
+			"palette_role": "page_light",
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.6973684210526315,
@@ -612,7 +664,8 @@
 				47
 			],
 			"palette_role": "page_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.7105263157894737,
@@ -622,7 +675,8 @@
 				46
 			],
 			"palette_role": "page_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.7236842105263158,
@@ -631,8 +685,9 @@
 				19,
 				40
 			],
-			"palette_role": "cover_shadow",
-			"region": "right_page"
+			"palette_role": "page_light",
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.7368421052631579,
@@ -642,7 +697,8 @@
 				42
 			],
 			"palette_role": "cover_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.75,
@@ -651,8 +707,9 @@
 				20,
 				19
 			],
-			"palette_role": "cover_shadow",
-			"region": "right_page"
+			"palette_role": "page_light",
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.7631578947368421,
@@ -661,8 +718,9 @@
 				26,
 				38
 			],
-			"palette_role": "cover_light",
-			"region": "left_page"
+			"palette_role": "page_light",
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.7763157894736842,
@@ -672,7 +730,8 @@
 				50
 			],
 			"palette_role": "page_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.7894736842105263,
@@ -681,8 +740,9 @@
 				26,
 				28
 			],
-			"palette_role": "cover_light",
-			"region": "left_page"
+			"palette_role": "page_light",
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.8026315789473685,
@@ -691,8 +751,9 @@
 				0,
 				28
 			],
-			"palette_role": "cover_light",
-			"region": "left_page"
+			"palette_role": "page_light",
+			"region": "left_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.8157894736842105,
@@ -701,8 +762,9 @@
 				9,
 				34
 			],
-			"palette_role": "page_mid",
-			"region": "left_page"
+			"palette_role": "page_shadow",
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.8289473684210527,
@@ -712,7 +774,8 @@
 				51
 			],
 			"palette_role": "page_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.8421052631578947,
@@ -722,7 +785,8 @@
 				50
 			],
 			"palette_role": "page_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.8552631578947368,
@@ -732,7 +796,8 @@
 				49
 			],
 			"palette_role": "page_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.868421052631579,
@@ -742,7 +807,8 @@
 				46
 			],
 			"palette_role": "page_light",
-			"region": "right_page"
+			"region": "right_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.881578947368421,
@@ -751,8 +817,9 @@
 				21,
 				39
 			],
-			"palette_role": "cover_shadow",
-			"region": "right_page"
+			"palette_role": "page_light",
+			"region": "right_page",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.8947368421052632,
@@ -762,7 +829,8 @@
 				52
 			],
 			"palette_role": "page_light",
-			"region": "left_page"
+			"region": "left_page",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.9078947368421053,
@@ -771,8 +839,9 @@
 				24,
 				39
 			],
-			"palette_role": "page_shadow",
-			"region": "spine"
+			"palette_role": "page_light",
+			"region": "spine",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.9210526315789473,
@@ -781,8 +850,9 @@
 				22,
 				39
 			],
-			"palette_role": "cover_shadow",
-			"region": "spine"
+			"palette_role": "page_light",
+			"region": "spine",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.9342105263157895,
@@ -792,7 +862,8 @@
 				52
 			],
 			"palette_role": "page_light",
-			"region": "spine"
+			"region": "spine",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.9473684210526315,
@@ -802,7 +873,8 @@
 				52
 			],
 			"palette_role": "page_shadow",
-			"region": "spine"
+			"region": "spine",
+			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.9605263157894737,
@@ -811,8 +883,9 @@
 				22,
 				29
 			],
-			"palette_role": "cover_shadow",
-			"region": "spine"
+			"palette_role": "page_light",
+			"region": "spine",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.9736842105263158,
@@ -821,8 +894,9 @@
 				24,
 				29
 			],
-			"palette_role": "cover_shadow",
-			"region": "spine"
+			"palette_role": "page_light",
+			"region": "spine",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 0.9868421052631579,
@@ -831,8 +905,9 @@
 				23,
 				29
 			],
-			"palette_role": "cover_shadow",
-			"region": "spine"
+			"palette_role": "page_light",
+			"region": "spine",
+			"surface_kind": "cover"
 		},
 		{
 			"clear_order": 1.0,
@@ -842,7 +917,8 @@
 				50
 			],
 			"palette_role": "page_mid",
-			"region": "spine"
+			"region": "spine",
+			"surface_kind": "page"
 		}
 	],
 	"outline": [
@@ -1019,10 +1095,12 @@
 		"interior_edge_count": 100,
 		"logical_vertex_count": 53,
 		"minimum_triangle_area_px2": 3.3332977294921875,
+		"minimum_visible_color_region_area_px2": 200.0,
 		"minimum_visible_face_altitude_px": 4.0,
 		"outline_vertex_count": 28,
 		"sample_spacing_px": 24,
 		"visually_merged_skinny_face_count": 53,
+		"visually_merged_small_region_face_count": 28,
 		"watertight": true
 	},
 	"style_id": "wasd_polygon_art_v1",

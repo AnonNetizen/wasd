@@ -308,7 +308,11 @@ func _validate_asset_data(data: Dictionary) -> Error:
 
 func _motion_mask_for_face(face: Dictionary) -> float:
 	var role := String(face.get("palette_role", ""))
-	if not PAGE_PALETTE_ROLES.has(role):
+	var surface_kind := String(face.get("surface_kind", ""))
+	var is_page_surface := surface_kind == "page"
+	if surface_kind.is_empty():
+		is_page_surface = PAGE_PALETTE_ROLES.has(role)
+	if not is_page_surface:
 		return 0.0
 	var region := String(face.get("region", ""))
 	if region == "right_page":
