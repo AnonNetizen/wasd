@@ -346,14 +346,13 @@ func _refresh_stats() -> void:
 	var runtime_stats: Dictionary = _polygon_asset.get_runtime_stats()
 	_stats_label.text = (
 		"%d faces · %d logical vertices · %d connected component · "
-		+ "%d turnable page faces + %d fixed underlay faces · "
+		+ "%d turnable page faces · single-layer mesh · "
 		+ "%d MeshInstance2D · %d draw surface · source texture dependency: %s · mesh debug: %s"
 	) % [
 		int(stats.get("face_count", 0)),
 		int(stats.get("logical_vertex_count", 0)),
 		int(stats.get("connected_components", 0)),
 		int(runtime_stats.get("turnable_face_count", 0)),
-		int(runtime_stats.get("page_underlay_face_count", 0)),
 		int(runtime_stats.get("mesh_instance_count", 0)),
 		int(runtime_stats.get("surface_count", 0)),
 		"none" if not bool(runtime_stats.get("has_texture", true)) else "unexpected",

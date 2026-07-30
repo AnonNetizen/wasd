@@ -53,7 +53,7 @@ func _run_smoke() -> void:
 	_validate_asset_schema(asset_data, style)
 	_validate_scene_file_shape()
 	_validate_shader_shape()
-	await _validate_runtime(asset_data)
+	await _validate_runtime()
 	await _validate_demo_scene()
 	_finish()
 
@@ -207,13 +207,18 @@ func _validate_shader_shape() -> void:
 		"Shader gates page-turn deformation by per-face UV motion masks."
 	)
 	_check(
+		shader.code.find("crease_center") >= 0
+		and shader.code.find("turn_boundary_guard") >= 0,
+		"Shader animates a bounded crease through page vertices."
+	)
+	_check(
 		shader.code.find("page_fold_light") >= 0
 		and shader.code.find("page_fold_shadow") >= 0,
 		"Shader exposes fold color-shift endpoints."
 	)
 
 
-func _validate_runtime(asset_data: Dictionary) -> void:
+func _validate_runtime() -> void:
 	var runtime := RUNTIME_SCRIPT.new()
 	runtime.name = "RuntimeUnderTest"
 	root.add_child(runtime)
@@ -233,15 +238,9 @@ func _validate_runtime(asset_data: Dictionary) -> void:
 		"Runtime identifies turnable right-page faces."
 	)
 	_check(
-		int(runtime_stats.get("page_underlay_face_count", 0))
-		== int(runtime_stats.get("turnable_face_count", -1)),
-		"Every turnable page face has one fixed underlay face."
-	)
-	_check(
 		int(runtime_stats.get("render_face_count", 0))
-		== int(runtime_stats.get("source_face_count", 0))
-		+ int(runtime_stats.get("page_underlay_face_count", 0)),
-		"Runtime render-face count includes only the fixed page underlay duplicates."
+		== int(runtime_stats.get("source_face_count", -1)),
+		"Runtime renders exactly the source faces with no duplicated page layer."
 	)
 	if mesh_instance != null:
 		var mesh := mesh_instance.mesh as ArrayMesh
@@ -250,11 +249,10 @@ func _validate_runtime(asset_data: Dictionary) -> void:
 			_check(mesh.get_surface_count() == 1, "Runtime ArrayMesh has one surface.")
 			_check(
 				mesh.surface_get_array_len(0)
-				== int(runtime_stats.get("render_face_count", 0)) * 3,
-				"Runtime expands source and underlay faces into one surface."
+				== int(runtime_stats.get("source_face_count", 0)) * 3,
+				"Runtime expands each source face once into the single surface."
 			)
 			var arrays := mesh.surface_get_arrays(0)
-			var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
 			var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
 			var turnable_vertex_count := 0
 			var idle_page_vertex_count := 0
@@ -271,28 +269,6 @@ func _validate_runtime(asset_data: Dictionary) -> void:
 			_check(
 				idle_page_vertex_count > 0,
 				"Left-page surface faces retain idle-only motion masks."
-			)
-			var palette: Dictionary = asset_data.get("palette", {})
-			var palette_colors: Dictionary = {}
-			for palette_color_value: Variant in palette.values():
-				palette_colors[Color(String(palette_color_value)).to_html(false)] = true
-			var underlay_color_keys: Dictionary = {}
-			var underlay_vertex_count := (
-				int(runtime_stats.get("page_underlay_face_count", 0)) * 3
-			)
-			var underlay_colors_are_profiled := true
-			for color_index in range(mini(underlay_vertex_count, colors.size())):
-				var color_key := colors[color_index].to_html(false)
-				underlay_color_keys[color_key] = true
-				if not palette_colors.has(color_key):
-					underlay_colors_are_profiled = false
-			_check(
-				underlay_colors_are_profiled,
-				"Fixed page underlay colors come from the Style Profile."
-			)
-			_check(
-				underlay_color_keys.size() >= 2,
-				"Fixed page underlay preserves multiple Polygon color blocks."
 			)
 		_check(mesh_instance.texture == null, "Runtime MeshInstance2D has no texture.")
 	var outline_nodes := runtime.find_children("*", "Line2D", true, false)

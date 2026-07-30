@@ -8,12 +8,6 @@ const PAGE_PALETTE_ROLES: Array[String] = [
 	"page_shadow",
 	"accent_warm",
 ]
-const PAGE_UNDERLAY_ROLE_MAP: Dictionary = {
-	"page_light": "page_mid",
-	"page_mid": "page_shadow",
-	"page_shadow": "page_light",
-	"accent_warm": "page_mid",
-}
 const POLYGON_SHADER := preload("res://shaders/polygon_asset.gdshader")
 
 var _asset_data: Dictionary = {}
@@ -30,7 +24,6 @@ var _clear_progress: float = 0.0
 var _debug_mesh_visible: bool = false
 var _page_surface_face_count: int = 0
 var _turnable_face_count: int = 0
-var _page_underlay_face_count: int = 0
 var _render_face_count: int = 0
 
 
@@ -110,7 +103,6 @@ func get_runtime_stats() -> Dictionary:
 		"source_face_count": int(_asset_data.get("stats", {}).get("face_count", 0)),
 		"page_surface_face_count": _page_surface_face_count,
 		"turnable_face_count": _turnable_face_count,
-		"page_underlay_face_count": _page_underlay_face_count,
 		"render_face_count": _render_face_count,
 		"animation_time": _animation_time,
 		"page_turn_progress": _page_turn_progress,
@@ -173,7 +165,6 @@ func _build_mesh() -> Error:
 	var validated_faces: Array[Dictionary] = []
 	_page_surface_face_count = 0
 	_turnable_face_count = 0
-	_page_underlay_face_count = 0
 	_render_face_count = 0
 	for face_value: Variant in faces:
 		if not face_value is Dictionary:
@@ -195,43 +186,22 @@ func _build_mesh() -> Error:
 		if motion_mask >= 0.75:
 			_turnable_face_count += 1
 		validated_faces.append(face)
-
-	var render_faces: Array[Dictionary] = []
-	for face: Dictionary in validated_faces:
-		if _motion_mask_for_face(face) < 0.75:
-			continue
-		var source_role := String(face.get("palette_role", "page_mid"))
-		var underlay_role := String(PAGE_UNDERLAY_ROLE_MAP.get(source_role, "page_mid"))
-		render_faces.append({
-			"indices": (face["indices"] as Array).duplicate(),
-			"color": Color(String(palette[underlay_role])),
-			"clear_order": float(face.get("clear_order", 1.0)),
-			"motion_mask": 0.0,
-		})
-		_page_underlay_face_count += 1
-	for face: Dictionary in validated_faces:
-		var role := String(face.get("palette_role", ""))
-		render_faces.append({
-			"indices": (face["indices"] as Array).duplicate(),
-			"color": Color(String(palette[role])),
-			"clear_order": float(face.get("clear_order", 1.0)),
-			"motion_mask": _motion_mask_for_face(face),
-		})
-	_render_face_count = render_faces.size()
+	_render_face_count = validated_faces.size()
 
 	var expanded_vertices := PackedVector3Array()
 	var expanded_colors := PackedColorArray()
 	var expanded_uvs := PackedVector2Array()
-	for render_face: Dictionary in render_faces:
-		var indices: Array = render_face["indices"]
-		var color: Color = render_face["color"]
+	for face: Dictionary in validated_faces:
+		var indices: Array = face["indices"]
+		var role := String(face.get("palette_role", ""))
+		var color := Color(String(palette[role]))
 		color.a = 1.0
 		var clear_order := clampf(
-			float(render_face.get("clear_order", 1.0)),
+			float(face.get("clear_order", 1.0)),
 			0.0,
 			1.0
 		)
-		var motion_mask := clampf(float(render_face.get("motion_mask", 0.0)), 0.0, 1.0)
+		var motion_mask := _motion_mask_for_face(face)
 		for vertex_index_value: Variant in indices:
 			var vertex_index := int(vertex_index_value)
 			var vertex := vertices[vertex_index]

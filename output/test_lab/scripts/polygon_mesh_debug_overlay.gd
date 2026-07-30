@@ -83,27 +83,34 @@ func _deform_point(point: Vector2, motion_mask: float) -> Vector2:
 	var half_width := maxf(_asset_half_size.x, 1.0)
 	var half_height := maxf(_asset_half_size.y, 1.0)
 	var outer_weight := clampf(absf(result.x) / half_width, 0.0, 1.0)
-	var spine_guard := smoothstep(0.04, 0.22, outer_weight)
+	var vertical_weight := clampf(absf(result.y) / half_height, 0.0, 1.0)
 	var idle_wave := sin(
 		_animation_time * 1.35
 		+ result.y * 0.028
 		+ signf(result.x) * 0.75
 	)
 	var page_surface := 1.0 if motion_mask >= 0.25 else 0.0
-	result.y += (
-		idle_wave
-		* 3.6
-		* outer_weight
-		* outer_weight
-		* spine_guard
-		* page_surface
+	var page_interior := (
+		smoothstep(0.04, 0.20, outer_weight)
+		* (1.0 - smoothstep(0.76, 0.98, outer_weight))
+		* (1.0 - smoothstep(0.72, 0.97, vertical_weight))
 	)
+	result.y += idle_wave * 1.8 * page_interior * page_surface
 	if motion_mask < 0.75:
 		return result
-	var fold := sin(_page_turn_progress * PI)
-	var vertical_center_weight := 1.0 - clampf(absf(result.y) / half_height, 0.0, 1.0)
-	result.x -= fold * (result.x * 1.04 + 9.0 * outer_weight)
-	result.y -= fold * 14.0 * outer_weight * vertical_center_weight
+	var right_page_position := clampf(result.x / half_width, 0.0, 1.0)
+	var turn_envelope := sin(_page_turn_progress * PI)
+	var crease_center := lerpf(0.18, 0.82, _page_turn_progress)
+	var crease_offset := right_page_position - crease_center
+	var crease_band := exp(-crease_offset * crease_offset * 34.0)
+	var turn_boundary_guard := (
+		smoothstep(0.04, 0.20, right_page_position)
+		* (1.0 - smoothstep(0.76, 0.98, right_page_position))
+		* (1.0 - smoothstep(0.72, 0.97, vertical_weight))
+	)
+	var crease := turn_envelope * crease_band * turn_boundary_guard
+	result.x -= crease * (10.0 + 7.0 * (1.0 - right_page_position))
+	result.y += crease * 9.0 * sin(result.y / half_height * PI * 0.5)
 	return result
 
 
