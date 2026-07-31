@@ -55,6 +55,7 @@ var _rest_area: float = 1.0
 var _time: float = 0.0
 var _impact_strength: float = 0.0
 var _impact_index: int = -1
+var _debug_rig_enabled: bool = true
 
 
 func _ready() -> void:
@@ -108,6 +109,7 @@ func _draw() -> void:
 	_draw_wet_highlights()
 	_draw_bubbles()
 	_draw_impact_ripple()
+	_draw_debug_rig()
 
 
 func apply_poke(local_hit: Vector2, strength: float = 1.0) -> void:
@@ -147,6 +149,19 @@ func reset_immediately() -> void:
 	_impact_index = -1
 	_impact_strength = 0.0
 	queue_redraw()
+
+
+func set_debug_rig_enabled(enabled: bool) -> void:
+	_debug_rig_enabled = enabled
+	queue_redraw()
+
+
+func toggle_debug_rig() -> void:
+	set_debug_rig_enabled(not _debug_rig_enabled)
+
+
+func debug_rig_enabled() -> bool:
+	return _debug_rig_enabled
 
 
 func control_point_count() -> int:
@@ -353,6 +368,78 @@ func _draw_impact_ripple() -> void:
 	)
 
 
+func _draw_debug_rig() -> void:
+	if not _debug_rig_enabled:
+		return
+	var rest_center: Vector2 = _polygon_centroid(_rest_points)
+	var current_center: Vector2 = _polygon_centroid(_points)
+	var rest_closed := PackedVector2Array(_rest_points)
+	rest_closed.append(_rest_points[0])
+
+	draw_polyline(rest_closed, Color(0.66, 0.42, 1.0, 0.68), 2.0, true)
+	for index in range(_points.size()):
+		var next_index: int = (index + 1) % _points.size()
+		draw_line(
+			current_center,
+			_points[index],
+			Color(0.28, 0.94, 0.78, 0.24),
+			1.15,
+			true
+		)
+		draw_line(
+			_points[index],
+			_points[next_index],
+			Color(1.0, 0.72, 0.20, 0.94),
+			2.5,
+			true
+		)
+
+		var displacement: Vector2 = _points[index] - _rest_points[index]
+		if displacement.length_squared() > 0.20:
+			draw_line(
+				_rest_points[index],
+				_points[index],
+				Color(0.28, 0.88, 1.0, 0.86),
+				1.8,
+				true
+			)
+
+		draw_circle(_rest_points[index], 5.2, Color(0.09, 0.035, 0.18, 0.90))
+		draw_arc(
+			_rest_points[index],
+			5.2,
+			0.0,
+			TAU,
+			16,
+			Color(0.74, 0.48, 1.0, 0.92),
+			1.6,
+			true
+		)
+		var point_color := Color(1.0, 0.30, 0.66, 1.0)
+		if not _is_concave_corner(_rest_points, index):
+			point_color = Color(1.0, 0.82, 0.24, 1.0)
+		draw_circle(_points[index], 7.2, Color(0.035, 0.025, 0.045, 0.94))
+		draw_circle(_points[index], 4.6, point_color)
+		draw_circle(_points[index] + Vector2(-1.3, -1.4), 1.4, Color.WHITE)
+
+	draw_line(
+		rest_center - Vector2(10.0, 0.0),
+		rest_center + Vector2(10.0, 0.0),
+		Color(0.72, 0.52, 1.0, 0.90),
+		1.5,
+		true
+	)
+	draw_line(
+		rest_center - Vector2(0.0, 10.0),
+		rest_center + Vector2(0.0, 10.0),
+		Color(0.72, 0.52, 1.0, 0.90),
+		1.5,
+		true
+	)
+	draw_circle(current_center, 8.0, Color(0.02, 0.08, 0.09, 0.92))
+	draw_circle(current_center, 4.5, Color(0.30, 1.0, 0.78, 1.0))
+
+
 func _draw_triangulated_polygon(points: PackedVector2Array, color: Color) -> void:
 	var indices: PackedInt32Array = Geometry2D.triangulate_polygon(points)
 	for index in range(0, indices.size(), 3):
@@ -450,6 +537,16 @@ func _count_concave_corners(points: Array[Vector2]) -> int:
 		if signf(incoming.cross(outgoing)) != polygon_sign:
 			count += 1
 	return count
+
+
+func _is_concave_corner(points: Array[Vector2], index: int) -> bool:
+	if points.size() < 3:
+		return false
+	var previous_index: int = posmod(index - 1, points.size())
+	var next_index: int = (index + 1) % points.size()
+	var incoming: Vector2 = points[index] - points[previous_index]
+	var outgoing: Vector2 = points[next_index] - points[index]
+	return signf(incoming.cross(outgoing)) != signf(_signed_area(points))
 
 
 func _polygon_centroid(points: Array[Vector2]) -> Vector2:

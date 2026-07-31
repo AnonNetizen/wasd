@@ -12,11 +12,13 @@ var _time: float = 0.0
 var _slime_cross: Node2D
 var _metrics_label: Label
 var _auto_button: Button
+var _debug_button: Button
 
 
 func _ready() -> void:
 	_build_stage()
 	_update_auto_button()
+	_update_debug_button()
 	_update_metrics()
 	queue_redraw()
 
@@ -53,6 +55,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			debug_reset()
 		KEY_A:
 			_toggle_auto_pulse()
+		KEY_D:
+			_toggle_debug_rig()
 		KEY_ESCAPE:
 			_return_to_index()
 		_:
@@ -178,6 +182,20 @@ func debug_maximum_neighbor_displacement_delta() -> float:
 	)
 
 
+func debug_set_rig_enabled(enabled: bool) -> void:
+	if _slime_cross != null:
+		_slime_cross.call("set_debug_rig_enabled", enabled)
+	_update_debug_button()
+
+
+func debug_rig_enabled() -> bool:
+	return (
+		bool(_slime_cross.call("debug_rig_enabled"))
+		if _slime_cross != null
+		else false
+	)
+
+
 func _build_stage() -> void:
 	_slime_cross = SLIME_CROSS_SCRIPT.new() as Node2D
 	_slime_cross.name = "SlimeCross"
@@ -230,7 +248,7 @@ func _add_info_panel(overlay: CanvasLayer) -> void:
 	var panel := PanelContainer.new()
 	panel.name = "InfoPanel"
 	panel.position = Vector2(824.0, 142.0)
-	panel.size = Vector2(400.0, 448.0)
+	panel.size = Vector2(400.0, 490.0)
 	overlay.add_child(panel)
 
 	var margin := MarginContainer.new()
@@ -259,7 +277,10 @@ func _add_info_panel(overlay: CanvasLayer) -> void:
 		+ "观察重点\n"
 		+ "• 横臂受击后是否仍与竖干分离\n"
 		+ "• 内凹角回弹时是否粘连或翻折\n"
-		+ "• 湿润边缘与深色内馅是否保留形状"
+		+ "• 湿润边缘与深色内馅是否保留形状\n\n"
+		+ "调试骨架 [D]\n"
+		+ "紫：静止轮廓　黄：动态弹簧\n"
+		+ "青：骨架 / 位移　粉：内凹控制点"
 	)
 	description.add_theme_font_size_override("font_size", 16)
 	description.add_theme_color_override("font_color", Color(0.72, 0.80, 0.82, 1.0))
@@ -289,8 +310,8 @@ func _add_controls(overlay: CanvasLayer) -> void:
 
 	var controls := HBoxContainer.new()
 	controls.name = "Controls"
-	controls.position = Vector2(264.0, 701.0)
-	controls.size = Vector2(480.0, 48.0)
+	controls.position = Vector2(190.0, 701.0)
+	controls.size = Vector2(620.0, 48.0)
 	controls.alignment = BoxContainer.ALIGNMENT_CENTER
 	controls.add_theme_constant_override("separation", 9)
 	overlay.add_child(controls)
@@ -298,6 +319,13 @@ func _add_controls(overlay: CanvasLayer) -> void:
 	_add_button(controls, "PokeButton", "戳横臂", 105.0, _poke_arm)
 	_add_button(controls, "SquashButton", "压扁 [Space]", 125.0, debug_squash)
 	_add_button(controls, "ResetButton", "复原 [R]", 98.0, debug_reset)
+	_debug_button = _add_button(
+		controls,
+		"DebugButton",
+		"骨架：开 [D]",
+		112.0,
+		_toggle_debug_rig
+	)
 	_auto_button = _add_button(
 		controls,
 		"AutoButton",
@@ -367,10 +395,23 @@ func _toggle_auto_pulse() -> void:
 	_update_auto_button()
 
 
+func _toggle_debug_rig() -> void:
+	if _slime_cross == null:
+		return
+	_slime_cross.call("toggle_debug_rig")
+	_update_debug_button()
+
+
 func _update_auto_button() -> void:
 	if _auto_button == null:
 		return
 	_auto_button.text = "自动脉冲：开" if _auto_pulse_enabled else "自动脉冲：关"
+
+
+func _update_debug_button() -> void:
+	if _debug_button == null:
+		return
+	_debug_button.text = "骨架：开 [D]" if debug_rig_enabled() else "骨架：关 [D]"
 
 
 func _update_metrics() -> void:
@@ -384,6 +425,7 @@ func _update_metrics() -> void:
 		+ "凹角净距  %.1f px\n"
 		+ "形变  %.2f px\n"
 		+ "最大动态转角  %.1f°\n"
+		+ "调试骨架  %s\n"
 		+ "面积保持  %.1f%%\n"
 		+ "轮廓宽高  %.0f × %.0f px"
 	) % [
@@ -393,6 +435,7 @@ func _update_metrics() -> void:
 		debug_notch_clearance(),
 		debug_deformation_amount(),
 		debug_maximum_render_turn_degrees(),
+		"开" if debug_rig_enabled() else "关",
 		debug_area_ratio() * 100.0,
 		size.x,
 		size.y,

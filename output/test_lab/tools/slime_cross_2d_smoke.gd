@@ -35,6 +35,11 @@ func _run_smoke() -> void:
 	var overlay := scene.get_node_or_null("Overlay") as CanvasLayer
 	_expect(slime_cross != null, "Dynamic 2D slime cross is missing.")
 	_expect(overlay != null, "Experiment overlay is missing.")
+	_expect(bool(scene.call("debug_rig_enabled")), "Debug rig should be visible by default.")
+	scene.call("debug_set_rig_enabled", false)
+	_expect(not bool(scene.call("debug_rig_enabled")), "Debug rig did not hide.")
+	scene.call("debug_set_rig_enabled", true)
+	_expect(bool(scene.call("debug_rig_enabled")), "Debug rig did not restore.")
 	_expect(
 		scene.call("debug_control_point_count") == EXPECTED_CONTROL_POINT_COUNT,
 		"Cross contour should expose %d control points." % EXPECTED_CONTROL_POINT_COUNT
