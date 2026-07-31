@@ -1,0 +1,95 @@
+{
+	"schema_version": 3,
+	"asset_id": "apple",
+	"source_image": "res://assets/polygon_art/apple_source.png",
+	"style_profile": "res://data/polygon_art_style.json",
+	"output_asset": "res://data/polygon_assets/apple.polygon.json",
+	"prompt_template": "res://data/polygon_prompt_templates/source_image_v1.json",
+	"background_key": "#ff00ff",
+	"pivot": {
+		"mode": "foreground_bounds_center"
+	},
+	"default_region": "apple",
+	"palette": {
+		"outline": "#291827",
+		"surface_light": "#ff5a49",
+		"surface_mid": "#e62e35",
+		"surface_shadow": "#a51f34",
+		"secondary_light": "#829d3d",
+		"secondary_shadow": "#3d4923",
+		"accent_warm": "#f1873f"
+	},
+	"palette_surface_kinds": {
+		"surface_light": "fruit",
+		"surface_mid": "fruit",
+		"surface_shadow": "fruit",
+		"secondary_light": "leaf",
+		"secondary_shadow": "leaf",
+		"accent_warm": "fruit"
+	},
+	"motion_profile": {
+		"motion_axis": [
+			1.0,
+			0.0
+		],
+		"primary_motion_regions": [
+			"apple"
+		],
+		"secondary_motion_regions": [],
+		"motion_surface_kinds": [
+			"fruit",
+			"leaf"
+		],
+		"generation_tint_palette_role": "accent_warm",
+		"dissolve_tint_palette_role": "surface_shadow"
+	},
+	"custom_animation": {},
+	"feature_guides": [],
+	"prompt_variables": {
+		"asset_type": "interactive prop",
+		"subject": "whole red apple",
+		"view": "an exact orthographic front camera",
+		"gameplay_read": "a shallow top notch, two-lobed fruit body, short attached stem, and one broad attached leaf make the object readable without texture",
+		"silhouette": "one plump two-lobed apple body with a shallow top notch, a short thick attached stem, and one broad attached leaf leaning upper-right; every part forms one connected foreground island",
+		"proportions": "approximately 1:1 overall, centered, occupying about 74% of the canvas with thick stem and leaf extremities",
+		"palette": "near-black plum outline, bright coral red, saturated apple red, deep crimson, muted leaf green, dark olive green, and one restrained warm orange-red accent",
+		"forbidden_details": "No extra fruit, slice, bite mark, seed, face, eyes, detached leaf, detached stem, realistic skin texture, or tiny highlight marks."
+	},
+	"facet_emphasis": [
+		{
+			"region": "apple",
+			"normalized_position": [
+				0.28,
+				0.68
+			],
+			"minimum_area_px2": 600.0,
+			"palette_role": "surface_light"
+		}
+	],
+	"anchors": {
+		"center": [
+			0.5,
+			0.56
+		],
+		"stem": [
+			0.5,
+			0.12
+		],
+		"interaction": [
+			0.5,
+			0.58
+		]
+	},
+	"collision": {
+		"strategy": "convex_hull",
+		"static_during_visual_animation": true
+	},
+	"generation": {
+		"tool": "builtin_imagegen",
+		"mode": "generate",
+		"prompt_template": "res://data/polygon_prompt_templates/source_image_v1.json",
+		"postprocess": [
+			"godot_chroma_normalize_to_exact_ff00ff"
+		]
+	}
+}

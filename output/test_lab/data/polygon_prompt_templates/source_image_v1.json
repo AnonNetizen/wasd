@@ -18,11 +18,11 @@
 		"Use case: deterministic polygon-authoring source image for a 2D game asset. This is a perception sample, not the final mesh.",
 		"Asset identity:\n- asset_id: {{asset_id}}\n- asset_type: {{asset_type}}\n- subject: exactly one isolated {{subject}}\n- gameplay read: {{gameplay_read}}",
 		"Primary request:\nCreate exactly one {{subject}}, viewed from {{view}}. Its category must be immediately recognizable from the outer contour alone. Silhouette specification: {{silhouette}}. Proportions: {{proportions}}.",
-		"Internal structural landmarks:\n{{feature_contract}}\nEach landmark is a continuous structural color band, not a highlight, shadow, texture, symbol, or decorative line. Keep its width stable and its boundaries crisp after reduction to 256 by 256 pixels.",
+		"Internal structural landmarks:\n{{feature_contract}}",
 		"Color design:\nUse only broad discrete subject colors from this palette description: {{palette}}. Use large contiguous flat-color regions with hard boundaries. Colors communicate material regions only; they do not simulate lighting. No subject color may equal or visually approach the background key.",
 		"Composition:\nSquare canvas. Center the complete subject and keep it fully inside frame. Its foreground bounding box should occupy roughly 70% to 82% of the canvas, with uninterrupted key-color padding on every side. Use one dominant connected foreground island. Keep every important extremity thick enough to survive reduction to 256 by 256 pixels.",
 		"Background:\nA perfectly uniform solid {{background_key}} chroma-key field across the entire canvas, extending cleanly to the subject edge. No floor, horizon, vignette, texture, lighting variation, reflection, transparency, halo, or shadow.",
-		"Rendering style:\nClean abstract 2D game-asset authoring art, limited palette, broad connected color planes, exact orthographic presentation, and crisp hard edges. Do not draw triangulation, wireframes, polygon seams, or many decorative facets. Downstream tooling extracts only outer shape, landmark position and width, and color references; it constructs all final Polygon points and faces itself.",
+		"Rendering style:\nClean abstract 2D game-asset authoring art, limited palette, broad connected color planes, exact orthographic presentation, and crisp hard edges. Do not draw triangulation, wireframes, polygon seams, or many decorative facets. Downstream tooling extracts only outer shape, any declared landmark position and width, and color references; it constructs all final Polygon points and faces itself.",
 		"Hard exclusions:\nNo additional objects, detached particles, labels, text, letters, numbers, symbols, logos, watermark, hands, stand, pedestal, environment, cast shadow, contact shadow, ambient occlusion, glow, bloom, transparency, gradients, soft airbrushing, photographic texture, scratches, grain, tiny repeated detail, perspective tilt, isometric view, or cropped parts. {{forbidden_details}}"
 	],
 	"rejection_checks": [
@@ -30,8 +30,8 @@
 		"more than one foreground island or any detached decoration",
 		"subject touches or is cropped by the canvas edge",
 		"background is not a uniform chroma-key field",
-		"landmark is broken, branched, duplicated, low-contrast, or width-unstable",
-		"landmark depends on lighting, highlight, shadow, texture, or text",
+		"when a landmark is declared, it is broken, branched, duplicated, low-contrast, or width-unstable",
+		"when a landmark is declared, it depends on lighting, highlight, shadow, texture, or text",
 		"soft gradients, transparency, realism, or dense decorative facets appear",
 		"subject contains the chroma-key color"
 	]

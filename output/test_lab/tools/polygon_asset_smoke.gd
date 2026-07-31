@@ -656,9 +656,10 @@ func _validate_prompt_template() -> void:
 			int(import_template.get("schema_version", 0)) == 3
 			and String(import_template.get("prompt_template", ""))
 			== PROMPT_TEMPLATE_PATH
+			and import_template.get("palette", {}) is Dictionary
 			and (import_template.get("feature_guides", []) as Array).size()
 			== 1,
-			"Import template binds schema v3, prompt template, and one primary feature."
+			"Import template binds schema v3, palette, prompt, and one primary feature."
 		)
 
 
@@ -1060,7 +1061,10 @@ func _validate_runtime() -> void:
 				runtime_faces,
 				_vector2_array_from_json(
 					runtime_asset_data.get("vertices", [])
-				).size(),
+				),
+				_vector2_array_from_json(
+					runtime_asset_data.get("outline", [])
+				),
 				motion_profile
 			)
 			var expanded_vertex_index := 0
@@ -1393,9 +1397,11 @@ func _analyze_edge_topology(
 
 func _build_expected_vertex_motion_masks(
 	faces: Array,
-	vertex_count: int,
+	vertices: PackedVector2Array,
+	outline: PackedVector2Array,
 	motion_profile: Dictionary
 ) -> PackedFloat32Array:
+	var vertex_count := vertices.size()
 	var has_primary_face := PackedByteArray()
 	var has_secondary_face := PackedByteArray()
 	var has_fixed_face := PackedByteArray()
@@ -1420,13 +1426,18 @@ func _build_expected_vertex_motion_masks(
 
 	var result := PackedFloat32Array()
 	result.resize(vertex_count)
+	var outline_points: Dictionary = {}
+	for point: Vector2 in outline:
+		outline_points[point] = true
 	for vertex_index in range(vertex_count):
 		var touches_primary := has_primary_face[vertex_index] == 1
 		var touches_other_geometry := (
 			has_secondary_face[vertex_index] == 1
 			or has_fixed_face[vertex_index] == 1
 		)
-		if touches_primary and not touches_other_geometry:
+		if outline_points.has(vertices[vertex_index]):
+			result[vertex_index] = 0.0
+		elif touches_primary and not touches_other_geometry:
 			result[vertex_index] = 1.0
 		elif (
 			not touches_primary

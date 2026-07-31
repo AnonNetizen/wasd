@@ -23,6 +23,7 @@ var _primary_motion_face_count: int = 0
 var _render_face_count: int = 0
 var _motion_logical_vertex_count: int = 0
 var _pinned_motion_boundary_vertex_count: int = 0
+var _pinned_outline_vertex_count: int = 0
 var _vertex_motion_masks := PackedFloat32Array()
 var _motion_config: Dictionary = {}
 
@@ -155,6 +156,7 @@ func get_runtime_stats() -> Dictionary:
 		"motion_logical_vertex_count": _motion_logical_vertex_count,
 		"pinned_motion_boundary_vertex_count":
 			_pinned_motion_boundary_vertex_count,
+		"pinned_outline_vertex_count": _pinned_outline_vertex_count,
 		"animation_time": _animation_time,
 		"motion_progress": _motion_progress,
 		"motion_strength": _motion_strength,
@@ -245,7 +247,8 @@ func _build_mesh() -> Error:
 	_render_face_count = validated_faces.size()
 	_vertex_motion_masks = _build_vertex_motion_masks(
 		validated_faces,
-		vertices.size()
+		vertices,
+		_vector2_array_from_json(_asset_data.get("outline", []))
 	)
 	var motion_error := _configure_motion(
 		vertices,
@@ -485,8 +488,10 @@ func _motion_mask_for_face(face: Dictionary) -> float:
 
 func _build_vertex_motion_masks(
 	faces: Array[Dictionary],
-	vertex_count: int
+	vertices: PackedVector2Array,
+	outline: PackedVector2Array
 ) -> PackedFloat32Array:
+	var vertex_count := vertices.size()
 	var has_primary_face := PackedByteArray()
 	var has_secondary_face := PackedByteArray()
 	var has_fixed_face := PackedByteArray()
@@ -509,13 +514,21 @@ func _build_vertex_motion_masks(
 	result.resize(vertex_count)
 	_motion_logical_vertex_count = 0
 	_pinned_motion_boundary_vertex_count = 0
+	_pinned_outline_vertex_count = 0
+	var outline_points: Dictionary = {}
+	for point: Vector2 in outline:
+		outline_points[point] = true
 	for vertex_index in range(vertex_count):
 		var touches_primary := has_primary_face[vertex_index] == 1
 		var touches_other_geometry := (
 			has_secondary_face[vertex_index] == 1
 			or has_fixed_face[vertex_index] == 1
 		)
-		if touches_primary and not touches_other_geometry:
+		if outline_points.has(vertices[vertex_index]):
+			result[vertex_index] = 0.0
+			if touches_primary or has_secondary_face[vertex_index] == 1:
+				_pinned_outline_vertex_count += 1
+		elif touches_primary and not touches_other_geometry:
 			result[vertex_index] = 1.0
 			_motion_logical_vertex_count += 1
 		elif touches_primary:

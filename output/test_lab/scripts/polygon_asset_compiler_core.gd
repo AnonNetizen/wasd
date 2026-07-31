@@ -22,7 +22,16 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 		return _failure("Unsupported Style Profile schema_version.")
 	if String(style.get("construction_mode", "")) != "shape_guided":
 		return _failure("Style Profile construction_mode must be shape_guided.")
-	var palette_result := _parse_palette(style)
+	var palette_source_value: Variant = manifest.get(
+		"palette",
+		style.get("palette", {})
+	)
+	if not palette_source_value is Dictionary:
+		return _failure("Manifest or Style Profile palette is missing.")
+	var palette_source: Dictionary = (
+		palette_source_value as Dictionary
+	).duplicate(true)
+	var palette_result := _parse_palette(palette_source)
 	if not palette_result["ok"]:
 		return palette_result
 	var palette: Dictionary = palette_result["palette"]
@@ -185,6 +194,14 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 	var custom_animation: Dictionary = (
 		custom_animation_value as Dictionary
 	).duplicate(true)
+	var source_usage: Array[String] = [
+		"outer_shape",
+		"color_reference",
+	]
+	var clear_order_mode := "top_to_bottom"
+	if not features.is_empty():
+		source_usage.insert(1, "landmark_features")
+		clear_order_mode = "outer_edge_to_primary_feature"
 
 	var output := {
 		"schema_version": 3,
@@ -196,7 +213,7 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 		"background_key": key_color.to_html(false),
 		},
 		"style_id": String(style.get("style_id", "")),
-		"palette": style.get("palette", {}).duplicate(true),
+		"palette": palette_source,
 		"bounds": _rect_to_dictionary(local_bounds),
 		"source_bounds_px": _rect_to_dictionary(source_bounds),
 		"pivot": _vector2_to_array(pivot),
@@ -205,18 +222,14 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 		"regions": region_summary,
 		"construction": {
 			"mode": String(style["construction_mode"]),
-			"source_usage": [
-				"outer_shape",
-				"landmark_features",
-				"color_reference",
-			],
+			"source_usage": source_usage,
 			"generated_geometry": true,
 			"runtime_source_texture": false,
 		},
 		"motion_profile": motion_profile,
 		"custom_animation": custom_animation,
 		"features": local_features,
-		"clear_order": "outer_edge_to_primary_feature",
+		"clear_order": clear_order_mode,
 		"outline": _packed_vector2_to_arrays(local_outline),
 		"anchors": anchors,
 		"collision": {
@@ -331,7 +344,17 @@ func _clean_outline_nodes(
 			minimum_face_altitude
 		):
 			return _failure(
-				"Outline cleanup could not eliminate every undersized boundary face."
+				(
+					"Outline cleanup left an undersized boundary face "
+					+ "(area %.2f, altitude %.2f, points %s / %s / %s)."
+				)
+				% [
+					absf(_signed_triangle_area(a, b, c)),
+					_triangle_minimum_altitude(a, b, c),
+					str(a),
+					str(b),
+					str(c),
+				]
 			)
 	var minimum_found_edge := INF
 	for point_index in range(outline.size()):
@@ -393,6 +416,8 @@ func _invalid_outline_ear_index(
 		return -1
 	var best_index := -1
 	var worst_quality := INF
+	var fallback_index := -1
+	var fallback_deviation := INF
 	for base_index in range(0, base_indices.size(), 3):
 		var triangle_indices: Array[int] = [
 			int(base_indices[base_index]),
@@ -415,6 +440,17 @@ func _invalid_outline_ear_index(
 				candidate_index - 1 + outline.size()
 			) % outline.size()
 			var next_index := (candidate_index + 1) % outline.size()
+			var deviation := _point_segment_distance(
+				outline[candidate_index],
+				outline[previous_index],
+				outline[next_index]
+			)
+			if (
+				deviation <= minimum_face_altitude
+				and deviation < fallback_deviation
+			):
+				fallback_index = candidate_index
+				fallback_deviation = deviation
 			if (
 				not triangle_indices.has(previous_index)
 				or not triangle_indices.has(next_index)
@@ -429,7 +465,7 @@ func _invalid_outline_ear_index(
 			if quality < worst_quality:
 				worst_quality = quality
 				best_index = candidate_index
-	return best_index
+	return best_index if best_index >= 0 else fallback_index
 
 
 func _point_segment_distance(
@@ -460,9 +496,9 @@ func _extract_features(
 	if not guides_value is Array:
 		return _failure("Manifest feature_guides must be an array.")
 	var guides: Array = guides_value
-	if guides.size() != 1:
+	if guides.size() > 1:
 		return _failure(
-			"Shape-guided schema v3 requires exactly one primary feature."
+			"Shape-guided schema v3 supports zero or one primary feature."
 		)
 	var extraction_config: Dictionary = style.get(
 		"feature_extraction",
@@ -2246,11 +2282,7 @@ func _nearest_palette_role(color: Color, palette: Dictionary) -> String:
 	return best_role
 
 
-func _parse_palette(style: Dictionary) -> Dictionary:
-	var palette_value: Variant = style.get("palette", {})
-	if not palette_value is Dictionary:
-		return _failure("Style Profile palette is missing.")
-	var palette_source: Dictionary = palette_value
+func _parse_palette(palette_source: Dictionary) -> Dictionary:
 	var palette: Dictionary = {}
 	for role: String in palette_source:
 		var html := String(palette_source[role])
@@ -2258,7 +2290,7 @@ func _parse_palette(style: Dictionary) -> Dictionary:
 			return _failure("Invalid palette color for role %s." % role)
 		palette[role] = Color(html)
 	if not palette.has("outline") or palette.size() < 2:
-		return _failure("Style Profile palette needs outline and fill colors.")
+		return _failure("Polygon palette needs outline and fill colors.")
 	return {"ok": true, "palette": palette}
 
 

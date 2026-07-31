@@ -9,7 +9,7 @@
 	"pivot": {
 		"mode": "foreground_bounds_center"
 	},
-	"default_region": "surface",
+	"default_region": "<primary_region>",
 	"palette": {
 		"outline": "<outline_color>",
 		"surface_light": "<primary_light>",
@@ -20,63 +20,36 @@
 		"accent_warm": "<accent_color>"
 	},
 	"palette_surface_kinds": {
-		"surface_light": "surface",
-		"surface_mid": "surface",
-		"surface_shadow": "surface",
-		"secondary_light": "secondary",
-		"secondary_shadow": "secondary",
-		"accent_warm": "surface"
+		"surface_light": "<primary_surface_kind>",
+		"surface_mid": "<primary_surface_kind>",
+		"surface_shadow": "<primary_surface_kind>",
+		"secondary_light": "<secondary_surface_kind>",
+		"secondary_shadow": "<secondary_surface_kind>",
+		"accent_warm": "<primary_surface_kind>"
 	},
 	"motion_profile": {
 		"motion_axis": [
 			1.0,
 			0.0
 		],
-		"primary_motion_regions": [],
+		"primary_motion_regions": [
+			"<primary_region>"
+		],
 		"secondary_motion_regions": [],
-		"motion_surface_kinds": [],
+		"motion_surface_kinds": [
+			"<primary_surface_kind>",
+			"<secondary_surface_kind>"
+		],
 		"generation_tint_palette_role": "accent_warm",
 		"dissolve_tint_palette_role": "secondary_shadow"
 	},
 	"custom_animation": {},
-	"feature_guides": [
-		{
-			"id": "<primary_landmark_id>",
-			"kind": "linear_band",
-			"axis": [
-				0.0,
-				1.0
-			],
-			"cross_axis": [
-				1.0,
-				0.0
-			],
-			"anchor_normalized": [
-				0.5,
-				0.5
-			],
-			"sample_offsets": [
-				-0.25,
-				0.0,
-				0.25
-			],
-			"negative_region": "<negative_side_region>",
-			"region": "<landmark_region>",
-			"positive_region": "<positive_side_region>",
-			"search_half_width_ratio": 0.1,
-			"minimum_constructed_width_px": 20.0,
-			"maximum_constructed_width_px": 28.0,
-			"semantic_role": "<structural_or_orientation_role>",
-			"path_description": "<clear_normalized_path_description>",
-			"contrast_description": "<hard_edge_contrast_against_adjacent_regions>",
-			"construction_meaning": "protected region divider"
-		}
-	],
+	"feature_guides": [],
 	"prompt_variables": {
 		"asset_type": "<gameplay_asset_type>",
 		"subject": "<single_subject_name>",
 		"view": "<exact_orthographic_view>",
-		"gameplay_read": "<how_the_silhouette_and_landmark_explain_the_object>",
+		"gameplay_read": "<how_the_connected_silhouette_explains_the_object>",
 		"silhouette": "<recognizable_outer_contour_without_texture>",
 		"proportions": "<aspect_ratio_symmetry_and_canvas_occupancy>",
 		"palette": "<four_to_seven_discrete_color_roles>",

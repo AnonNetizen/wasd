@@ -87,10 +87,19 @@ func _build_feature_contract(guides_value: Variant) -> Dictionary:
 	if not guides_value is Array:
 		return _failure("Manifest feature_guides must be an array.")
 	var guides: Array = guides_value
-	if guides.size() != 1:
+	if guides.size() > 1:
 		return _failure(
-			"Prompt authoring schema v1 requires one primary landmark feature."
+			"Prompt authoring schema v1 supports zero or one primary landmark."
 		)
+	if guides.is_empty():
+		return {
+			"ok": true,
+			"text": (
+				"No internal structural landmark is required. "
+				+ "Preserve recognition through the connected outer silhouette "
+				+ "and a few broad material color regions only."
+			),
+		}
 	var feature_blocks: PackedStringArray = []
 	for guide_index in range(guides.size()):
 		if not guides[guide_index] is Dictionary:
@@ -160,6 +169,14 @@ func _build_feature_contract(guides_value: Variant) -> Dictionary:
 				construction_meaning,
 			]
 		)
+	feature_blocks.append(
+		(
+			"Each declared landmark is a continuous structural color band, "
+			+ "not a highlight, shadow, texture, symbol, or decorative line. "
+			+ "Keep its width stable and its boundaries crisp after reduction "
+			+ "to 256 by 256 pixels."
+		)
+	)
 	return {
 		"ok": true,
 		"text": "\n\n".join(feature_blocks),

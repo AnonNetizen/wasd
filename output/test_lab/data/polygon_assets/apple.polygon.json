@@ -1,0 +1,939 @@
+{
+	"anchors": {
+		"center": [
+			0.0,
+			12.9
+		],
+		"interaction": [
+			0.0,
+			17.2
+		],
+		"stem": [
+			0.0,
+			-81.7
+		]
+	},
+	"asset_id": "apple",
+	"bounds": {
+		"max": [
+			97.5,
+			107.5
+		],
+		"min": [
+			-97.5,
+			-107.5
+		],
+		"size": [
+			195.0,
+			215.0
+		]
+	},
+	"clear_order": "top_to_bottom",
+	"collision": {
+		"convex_hull": [
+			[
+				-97.5,
+				23.5
+			],
+			[
+				-92.5,
+				-24.5
+			],
+			[
+				-73.5,
+				-45.5
+			],
+			[
+				-27.5,
+				-71.5
+			],
+			[
+				33.5,
+				-103.5
+			],
+			[
+				57.5,
+				-107.5
+			],
+			[
+				97.5,
+				-96.5
+			],
+			[
+				88.5,
+				12.5
+			],
+			[
+				72.5,
+				63.5
+			],
+			[
+				39.5,
+				101.5
+			],
+			[
+				-31.5,
+				107.5
+			],
+			[
+				-55.5,
+				95.5
+			],
+			[
+				-88.5,
+				51.5
+			]
+		],
+		"static_during_visual_animation": true,
+		"strategy": "convex_hull"
+	},
+	"construction": {
+		"generated_geometry": true,
+		"mode": "shape_guided",
+		"runtime_source_texture": false,
+		"source_usage": [
+			"outer_shape",
+			"color_reference"
+		]
+	},
+	"custom_animation": {},
+	"faces": [
+		{
+			"clear_order": 0.020833333333333332,
+			"indices": [
+				0,
+				19,
+				18
+			],
+			"palette_role": "secondary_shadow",
+			"region": "apple",
+			"surface_kind": "leaf"
+		},
+		{
+			"clear_order": 0.041666666666666664,
+			"indices": [
+				0,
+				18,
+				29
+			],
+			"palette_role": "secondary_light",
+			"region": "apple",
+			"surface_kind": "leaf"
+		},
+		{
+			"clear_order": 0.0625,
+			"indices": [
+				1,
+				0,
+				29
+			],
+			"palette_role": "secondary_light",
+			"region": "apple",
+			"surface_kind": "leaf"
+		},
+		{
+			"clear_order": 0.08333333333333333,
+			"indices": [
+				18,
+				1,
+				29
+			],
+			"palette_role": "secondary_light",
+			"region": "apple",
+			"surface_kind": "leaf"
+		},
+		{
+			"clear_order": 0.10416666666666667,
+			"indices": [
+				1,
+				18,
+				28
+			],
+			"palette_role": "secondary_shadow",
+			"region": "apple",
+			"surface_kind": "leaf"
+		},
+		{
+			"clear_order": 0.125,
+			"indices": [
+				18,
+				16,
+				28
+			],
+			"palette_role": "secondary_shadow",
+			"region": "apple",
+			"surface_kind": "leaf"
+		},
+		{
+			"clear_order": 0.14583333333333334,
+			"indices": [
+				18,
+				17,
+				16
+			],
+			"palette_role": "surface_shadow",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.16666666666666666,
+			"indices": [
+				4,
+				3,
+				2
+			],
+			"palette_role": "secondary_shadow",
+			"region": "apple",
+			"surface_kind": "leaf"
+		},
+		{
+			"clear_order": 0.1875,
+			"indices": [
+				4,
+				2,
+				1
+			],
+			"palette_role": "surface_shadow",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.20833333333333334,
+			"indices": [
+				16,
+				1,
+				28
+			],
+			"palette_role": "secondary_shadow",
+			"region": "apple",
+			"surface_kind": "leaf"
+		},
+		{
+			"clear_order": 0.22916666666666666,
+			"indices": [
+				4,
+				1,
+				16
+			],
+			"palette_role": "secondary_shadow",
+			"region": "apple",
+			"surface_kind": "leaf"
+		},
+		{
+			"clear_order": 0.25,
+			"indices": [
+				6,
+				5,
+				4
+			],
+			"palette_role": "surface_shadow",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.2708333333333333,
+			"indices": [
+				4,
+				16,
+				26
+			],
+			"palette_role": "surface_shadow",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.2916666666666667,
+			"indices": [
+				6,
+				4,
+				27
+			],
+			"palette_role": "surface_light",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.3125,
+			"indices": [
+				16,
+				15,
+				14
+			],
+			"palette_role": "surface_shadow",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.3333333333333333,
+			"indices": [
+				22,
+				16,
+				30
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.3541666666666667,
+			"indices": [
+				16,
+				8,
+				26
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.375,
+			"indices": [
+				8,
+				7,
+				6
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.3958333333333333,
+			"indices": [
+				8,
+				4,
+				26
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.4166666666666667,
+			"indices": [
+				4,
+				8,
+				27
+			],
+			"palette_role": "surface_light",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.4375,
+			"indices": [
+				8,
+				6,
+				27
+			],
+			"palette_role": "surface_light",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.4583333333333333,
+			"indices": [
+				16,
+				20,
+				30
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.4791666666666667,
+			"indices": [
+				8,
+				16,
+				22
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.5,
+			"indices": [
+				20,
+				16,
+				31
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.5208333333333334,
+			"indices": [
+				16,
+				21,
+				31
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.5416666666666666,
+			"indices": [
+				16,
+				14,
+				24
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.5625,
+			"indices": [
+				20,
+				22,
+				30
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.5833333333333334,
+			"indices": [
+				20,
+				8,
+				22
+			],
+			"palette_role": "surface_light",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.6041666666666666,
+			"indices": [
+				21,
+				20,
+				31
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.625,
+			"indices": [
+				12,
+				16,
+				24
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.6458333333333334,
+			"indices": [
+				16,
+				12,
+				21
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.6666666666666666,
+			"indices": [
+				8,
+				20,
+				32
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.6875,
+			"indices": [
+				20,
+				21,
+				34
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.7083333333333334,
+			"indices": [
+				23,
+				8,
+				32
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.7291666666666666,
+			"indices": [
+				20,
+				23,
+				32
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.75,
+			"indices": [
+				23,
+				20,
+				33
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.7708333333333334,
+			"indices": [
+				14,
+				12,
+				24
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.7916666666666666,
+			"indices": [
+				10,
+				9,
+				8
+			],
+			"palette_role": "surface_shadow",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.8125,
+			"indices": [
+				12,
+				8,
+				23
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.8333333333333334,
+			"indices": [
+				12,
+				20,
+				34
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.8541666666666666,
+			"indices": [
+				14,
+				13,
+				12
+			],
+			"palette_role": "surface_shadow",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.875,
+			"indices": [
+				21,
+				12,
+				34
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.8958333333333334,
+			"indices": [
+				20,
+				12,
+				33
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.9166666666666666,
+			"indices": [
+				10,
+				8,
+				25
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.9375,
+			"indices": [
+				8,
+				12,
+				25
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.9583333333333334,
+			"indices": [
+				12,
+				23,
+				33
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 0.9791666666666666,
+			"indices": [
+				12,
+				10,
+				25
+			],
+			"palette_role": "surface_mid",
+			"region": "apple",
+			"surface_kind": "fruit"
+		},
+		{
+			"clear_order": 1.0,
+			"indices": [
+				12,
+				11,
+				10
+			],
+			"palette_role": "surface_shadow",
+			"region": "apple",
+			"surface_kind": "fruit"
+		}
+	],
+	"features": [],
+	"motion_profile": {
+		"dissolve_tint_palette_role": "surface_shadow",
+		"generation_tint_palette_role": "accent_warm",
+		"motion_axis": [
+			1.0,
+			0.0
+		],
+		"motion_surface_kinds": [
+			"fruit",
+			"leaf"
+		],
+		"primary_motion_regions": [
+			"apple"
+		],
+		"secondary_motion_regions": []
+	},
+	"outline": [
+		[
+			33.5,
+			-103.5
+		],
+		[
+			0.5,
+			-62.5
+		],
+		[
+			-6.5,
+			-78.5
+		],
+		[
+			-27.5,
+			-71.5
+		],
+		[
+			-18.5,
+			-45.5
+		],
+		[
+			-41.5,
+			-52.5
+		],
+		[
+			-73.5,
+			-45.5
+		],
+		[
+			-92.5,
+			-24.5
+		],
+		[
+			-97.5,
+			23.5
+		],
+		[
+			-88.5,
+			51.5
+		],
+		[
+			-55.5,
+			95.5
+		],
+		[
+			-31.5,
+			107.5
+		],
+		[
+			39.5,
+			101.5
+		],
+		[
+			72.5,
+			63.5
+		],
+		[
+			88.5,
+			12.5
+		],
+		[
+			79.5,
+			-29.5
+		],
+		[
+			48.5,
+			-49.5
+		],
+		[
+			73.5,
+			-62.5
+		],
+		[
+			97.5,
+			-96.5
+		],
+		[
+			57.5,
+			-107.5
+		]
+	],
+	"palette": {
+		"accent_warm": "#f1873f",
+		"outline": "#291827",
+		"secondary_light": "#829d3d",
+		"secondary_shadow": "#3d4923",
+		"surface_light": "#ff5a49",
+		"surface_mid": "#e62e35",
+		"surface_shadow": "#a51f34"
+	},
+	"pivot": [
+		133.5,
+		123.5
+	],
+	"regions": {
+		"apple": {
+			"face_count": 48
+		}
+	},
+	"schema_version": 3,
+	"source": {
+		"analysis_size_px": [
+			256,
+			256
+		],
+		"background_key": "ff00ff",
+		"original_size_px": [
+			1254,
+			1254
+		],
+		"sha256": "68abae767328c94e2d877d20549884f194b37bba03fdc9cc204e282eb8243c01"
+	},
+	"source_bounds_px": {
+		"max": [
+			231.0,
+			231.0
+		],
+		"min": [
+			36.0,
+			16.0
+		],
+		"size": [
+			195.0,
+			215.0
+		]
+	},
+	"stats": {
+		"boundary_edge_count": 20,
+		"connected_components": 1,
+		"constructed_outline_removed_vertex_count": 0,
+		"construction_mode": "shape_guided",
+		"draw_surfaces": 1,
+		"emphasized_face_count": 1,
+		"face_count": 48,
+		"feature_count": 0,
+		"interior_edge_count": 62,
+		"logical_vertex_count": 35,
+		"minimum_face_altitude_px": 6.334378323371742,
+		"minimum_outline_edge_length_px": 17.464248657226563,
+		"minimum_triangle_area_px2": 192.5,
+		"minimum_visible_face_altitude_px": 6.0,
+		"minimum_visible_face_area_px2": 80.0,
+		"outline_vertex_count": 20,
+		"protected_feature_edge_count": 0,
+		"removed_outline_vertex_count": 42,
+		"sample_spacing_px": 0,
+		"watertight": true
+	},
+	"style_id": "wasd_polygon_art_v1",
+	"vertices": [
+		[
+			33.5,
+			-103.5
+		],
+		[
+			0.5,
+			-62.5
+		],
+		[
+			-6.5,
+			-78.5
+		],
+		[
+			-27.5,
+			-71.5
+		],
+		[
+			-18.5,
+			-45.5
+		],
+		[
+			-41.5,
+			-52.5
+		],
+		[
+			-73.5,
+			-45.5
+		],
+		[
+			-92.5,
+			-24.5
+		],
+		[
+			-97.5,
+			23.5
+		],
+		[
+			-88.5,
+			51.5
+		],
+		[
+			-55.5,
+			95.5
+		],
+		[
+			-31.5,
+			107.5
+		],
+		[
+			39.5,
+			101.5
+		],
+		[
+			72.5,
+			63.5
+		],
+		[
+			88.5,
+			12.5
+		],
+		[
+			79.5,
+			-29.5
+		],
+		[
+			48.5,
+			-49.5
+		],
+		[
+			73.5,
+			-62.5
+		],
+		[
+			97.5,
+			-96.5
+		],
+		[
+			57.5,
+			-107.5
+		],
+		[
+			-3.1670000000000003,
+			25.167
+		],
+		[
+			28.278000000000002,
+			25.722
+		],
+		[
+			-17.389,
+			-0.278
+		],
+		[
+			-20.389,
+			50.056000000000004
+		],
+		[
+			58.833,
+			21.5
+		],
+		[
+			-37.833,
+			73.5
+		],
+		[
+			-22.5,
+			-23.833000000000002
+		],
+		[
+			-63.167,
+			-22.5
+		],
+		[
+			48.833,
+			-69.5
+		],
+		[
+			43.833,
+			-87.5
+		],
+		[
+			9.315,
+			-8.204
+		],
+		[
+			24.537,
+			0.463
+		],
+		[
+			-40.352000000000004,
+			32.907000000000004
+		],
+		[
+			5.315,
+			58.907000000000004
+		],
+		[
+			21.537,
+			50.796
+		]
+	]
+}

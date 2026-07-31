@@ -11,6 +11,12 @@ const STATIC_TEST_SCENES := {
 
 const EXTRA_TEST_SCENES := [
 	{
+		"button_name": "PolygonAppleButton",
+		"label": "Apple Generic Polygon Validation",
+		"scene_path": "res://scenes/polygon_apple_test.tscn",
+		"featured": true,
+	},
+	{
 		"button_name": "PolygonBookButton",
 		"label": "Open Book Polygon Asset Pipeline",
 		"scene_path": "res://scenes/polygon_book_test.tscn",
