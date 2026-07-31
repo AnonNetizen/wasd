@@ -2235,6 +2235,7 @@ func _build_motion_profile(
 		axis.normalized()
 	)
 	for role_field in [
+		"movement_tint_palette_role",
 		"generation_tint_palette_role",
 		"dissolve_tint_palette_role",
 	]:

@@ -639,6 +639,7 @@
 			"fruit",
 			"leaf"
 		],
+		"movement_tint_palette_role": "accent_warm",
 		"primary_motion_regions": [
 			"apple"
 		],

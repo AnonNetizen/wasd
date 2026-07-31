@@ -60,11 +60,11 @@ func _save_generic_effects_strip(scene: Node) -> bool:
 		_fail("Polygon book scene does not expose prepare_generic_capture().")
 		return false
 	var states: Array[Array] = [
-		[0.25, 0.0, 0.0, 0.0],
-		[1.0, 0.0, 0.15, 1.0],
-		[1.0, 0.0, 0.65, 1.0],
-		[1.0, 0.45, 0.0, 0.0],
-		[1.0, 0.85, 0.0, 0.0],
+		[0.25, 0.0, Vector2.ZERO, 0.0],
+		[1.0, 0.0, Vector2.RIGHT, 0.85],
+		[1.0, 0.0, Vector2.UP, 0.85],
+		[1.0, 0.45, Vector2.ZERO, 0.0],
+		[1.0, 0.85, Vector2.ZERO, 0.0],
 	]
 	var frame_size := Vector2i(300, 212)
 	var strip := Image.create(
@@ -80,7 +80,7 @@ func _save_generic_effects_strip(scene: Node) -> bool:
 			"prepare_generic_capture",
 			float(state[0]),
 			float(state[1]),
-			float(state[2]),
+			state[2],
 			float(state[3])
 		)
 		for _frame_index in range(2):

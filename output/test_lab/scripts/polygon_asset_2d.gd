@@ -13,8 +13,8 @@ var _collision_polygon: CollisionPolygon2D
 var _mesh_material: ShaderMaterial
 var _outline_material: ShaderMaterial
 var _animation_time: float = 0.0
-var _motion_progress: float = 0.0
-var _motion_strength: float = 0.0
+var _movement_direction := Vector2.ZERO
+var _movement_amount: float = 0.0
 var _generation_progress: float = 1.0
 var _dissolve_progress: float = 0.0
 var _debug_mesh_visible: bool = false
@@ -60,32 +60,38 @@ func set_animation_time(seconds: float) -> void:
 	_animation_time = maxf(seconds, 0.0)
 	_set_material_parameter("animation_time", _animation_time)
 	if _debug_overlay != null:
-		_debug_overlay.set_animation_state(
-			_animation_time,
-			_motion_progress,
-			_motion_strength
+		_debug_overlay.set_movement_state(
+			_movement_direction,
+			_movement_amount
 		)
 
 
-func set_motion_progress(progress: float) -> void:
-	_motion_progress = clampf(progress, 0.0, 1.0)
-	_set_material_parameter("motion_progress", _motion_progress)
-	if _debug_overlay != null:
-		_debug_overlay.set_animation_state(
-			_animation_time,
-			_motion_progress,
-			_motion_strength
-		)
+func set_movement_velocity(
+	velocity: Vector2,
+	full_deformation_speed: float
+) -> void:
+	if full_deformation_speed <= 0.0 or velocity.length() <= 0.0001:
+		set_movement_state(Vector2.ZERO, 0.0)
+		return
+	set_movement_state(
+		velocity.normalized(),
+		clampf(velocity.length() / full_deformation_speed, 0.0, 1.0)
+	)
 
 
-func set_motion_strength(strength: float) -> void:
-	_motion_strength = clampf(strength, 0.0, 1.0)
-	_set_material_parameter("motion_strength", _motion_strength)
+func set_movement_state(direction: Vector2, amount: float) -> void:
+	_movement_amount = clampf(amount, 0.0, 1.0)
+	_movement_direction = (
+		direction.normalized()
+		if direction.length() > 0.0001 and _movement_amount > 0.0001
+		else Vector2.ZERO
+	)
+	_set_material_parameter("movement_direction", _movement_direction)
+	_set_material_parameter("movement_amount", _movement_amount)
 	if _debug_overlay != null:
-		_debug_overlay.set_animation_state(
-			_animation_time,
-			_motion_progress,
-			_motion_strength
+		_debug_overlay.set_movement_state(
+			_movement_direction,
+			_movement_amount
 		)
 
 
@@ -121,8 +127,7 @@ func set_effect_parameter(
 
 func reset_visual() -> void:
 	set_animation_time(0.0)
-	set_motion_progress(0.0)
-	set_motion_strength(0.0)
+	set_movement_state(Vector2.ZERO, 0.0)
 	set_generation_progress(1.0)
 	set_dissolve_progress(0.0)
 
@@ -158,8 +163,8 @@ func get_runtime_stats() -> Dictionary:
 			_pinned_motion_boundary_vertex_count,
 		"pinned_outline_vertex_count": _pinned_outline_vertex_count,
 		"animation_time": _animation_time,
-		"motion_progress": _motion_progress,
-		"motion_strength": _motion_strength,
+		"movement_direction": _vector2_to_array(_movement_direction),
+		"movement_amount": _movement_amount,
 		"motion_axis": _vector2_to_array(
 			_motion_config.get("axis", Vector2.RIGHT)
 		),
@@ -346,8 +351,8 @@ func _apply_asset_half_size() -> void:
 func _apply_material_state() -> void:
 	_apply_asset_half_size()
 	_set_material_parameter("animation_time", _animation_time)
-	_set_material_parameter("motion_progress", _motion_progress)
-	_set_material_parameter("motion_strength", _motion_strength)
+	_set_material_parameter("movement_direction", _movement_direction)
+	_set_material_parameter("movement_amount", _movement_amount)
 	_set_material_parameter(
 		"generation_progress",
 		_generation_progress
@@ -383,6 +388,10 @@ func _apply_material_state() -> void:
 	)
 	var palette: Dictionary = _asset_data.get("palette", {})
 	for tint_binding in [
+		{
+			"field": "movement_tint_palette_role",
+			"parameter": "movement_tint",
+		},
 		{
 			"field": "generation_tint_palette_role",
 			"parameter": "generation_tint",
@@ -447,6 +456,7 @@ func _validate_asset_data(data: Dictionary) -> Error:
 		return ERR_INVALID_DATA
 	var palette: Dictionary = data.get("palette", {})
 	for color_role_field in [
+		"movement_tint_palette_role",
 		"generation_tint_palette_role",
 		"dissolve_tint_palette_role",
 	]:

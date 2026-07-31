@@ -23,7 +23,13 @@ func _capture() -> void:
 	root.add_child(scene)
 	for _frame_index in range(4):
 		await process_frame
-	scene.call("prepare_capture", 1.0, 0.0, 0.0, 0.0)
+	scene.call(
+		"prepare_capture",
+		1.0,
+		0.0,
+		Vector2.ZERO,
+		0.0
+	)
 	for _frame_index in range(2):
 		await process_frame
 	if not _save_viewport(COMPARISON_SCREENSHOT):
@@ -42,11 +48,13 @@ func _capture() -> void:
 
 func _save_effects_strip(scene: Node) -> bool:
 	var states: Array[Array] = [
-		[0.20, 0.0, 0.0, 0.0],
-		[1.0, 0.0, 0.15, 0.65],
-		[1.0, 0.0, 0.65, 0.65],
-		[1.0, 0.45, 0.0, 0.0],
-		[1.0, 1.0, 0.0, 0.0],
+		[0.20, 0.0, Vector2.ZERO, 0.0],
+		[1.0, 0.0, Vector2.RIGHT, 0.85],
+		[1.0, 0.0, Vector2.DOWN, 0.85],
+		[1.0, 0.0, Vector2.LEFT, 0.85],
+		[1.0, 0.0, Vector2.UP, 0.85],
+		[1.0, 0.45, Vector2.ZERO, 0.0],
+		[1.0, 1.0, Vector2.ZERO, 0.0],
 	]
 	var frame_size := Vector2i(300, 212)
 	var strip := Image.create(
@@ -62,7 +70,7 @@ func _save_effects_strip(scene: Node) -> bool:
 			"prepare_capture",
 			float(state[0]),
 			float(state[1]),
-			float(state[2]),
+			state[2],
 			float(state[3])
 		)
 		for _frame_index in range(2):

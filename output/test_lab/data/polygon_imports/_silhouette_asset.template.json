@@ -40,6 +40,7 @@
 			"<primary_surface_kind>",
 			"<secondary_surface_kind>"
 		],
+		"movement_tint_palette_role": "accent_warm",
 		"generation_tint_palette_role": "accent_warm",
 		"dissolve_tint_palette_role": "secondary_shadow"
 	},

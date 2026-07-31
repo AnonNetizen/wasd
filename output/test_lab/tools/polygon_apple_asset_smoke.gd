@@ -365,21 +365,19 @@ func _validate_runtime() -> void:
 	_check(
 		int(runtime_stats.get("pinned_outline_vertex_count", 0)) > 0
 		and int(runtime_stats.get("motion_logical_vertex_count", 0)) > 0,
-		"Apple pins its outline while retaining movable interior points."
+		"Apple retains semantic masks while velocity deformation owns the full silhouette."
 	)
-	runtime.set_motion_progress(0.6)
-	runtime.set_motion_strength(0.7)
+	runtime.set_movement_velocity(Vector2(90.0, 0.0), 100.0)
 	runtime.set_generation_progress(0.35)
 	runtime.set_dissolve_progress(0.45)
 	var changed_stats: Dictionary = runtime.get_runtime_stats()
 	_check(
-		is_equal_approx(
-			float(changed_stats.get("motion_progress", 0.0)),
-			0.6
-		)
+		_array_to_vector2(
+			changed_stats.get("movement_direction", [])
+		).is_equal_approx(Vector2.RIGHT)
 		and is_equal_approx(
-			float(changed_stats.get("motion_strength", 0.0)),
-			0.7
+			float(changed_stats.get("movement_amount", 0.0)),
+			0.9
 		)
 		and is_equal_approx(
 			float(changed_stats.get("generation_progress", 0.0)),
@@ -389,7 +387,19 @@ func _validate_runtime() -> void:
 			float(changed_stats.get("dissolve_progress", 0.0)),
 			0.45
 		),
-		"Apple directly controls all generic animation progress values."
+		"Apple converts gameplay velocity into direction and deformation amount."
+	)
+	runtime.set_movement_state(Vector2.UP, 0.65)
+	var upward_stats: Dictionary = runtime.get_runtime_stats()
+	_check(
+		_array_to_vector2(
+			upward_stats.get("movement_direction", [])
+		).is_equal_approx(Vector2.UP)
+		and is_equal_approx(
+			float(upward_stats.get("movement_amount", 0.0)),
+			0.65
+		),
+		"Cardinal movement deformation is directly controllable."
 	)
 	runtime.reset_visual()
 	var reset_stats: Dictionary = runtime.get_runtime_stats()
@@ -400,6 +410,12 @@ func _validate_runtime() -> void:
 		)
 		and is_zero_approx(
 			float(reset_stats.get("dissolve_progress", -1.0))
+		)
+		and _array_to_vector2(
+			reset_stats.get("movement_direction", [])
+		).is_zero_approx()
+		and is_zero_approx(
+			float(reset_stats.get("movement_amount", -1.0))
 		),
 		"Apple generic animation reset restores a complete visible asset."
 	)
@@ -438,16 +454,32 @@ func _validate_scene() -> void:
 		) < 0.7,
 		"Apple auto demo reaches generic generation."
 	)
-	scene.call("debug_set_auto_demo_time", 1.7)
+	scene.call("debug_set_auto_demo_time", 1.4)
 	var motion_stats: Dictionary = polygon_asset.call("get_runtime_stats")
+	var rightward_position := (polygon_asset as Node2D).position
 	_check(
-		float(motion_stats.get("motion_strength", 0.0)) > 0.0
+		_array_to_vector2(
+			motion_stats.get("movement_direction", [])
+		).is_equal_approx(Vector2.RIGHT)
+		and float(motion_stats.get("movement_amount", 0.0)) > 0.0
 		and is_zero_approx(
 			float(motion_stats.get("dissolve_progress", -1.0))
 		),
-		"Apple auto demo reaches generic motion without semantic animation."
+		"Apple auto demo reaches velocity-driven rightward deformation."
 	)
-	scene.call("debug_set_auto_demo_time", 3.1)
+	scene.call("debug_set_auto_demo_time", 2.6)
+	var downward_stats: Dictionary = polygon_asset.call(
+		"get_runtime_stats"
+	)
+	var downward_position := (polygon_asset as Node2D).position
+	_check(
+		_array_to_vector2(
+			downward_stats.get("movement_direction", [])
+		).is_equal_approx(Vector2.DOWN)
+		and not downward_position.is_equal_approx(rightward_position),
+		"Apple auto demo moves the asset and changes deformation with velocity."
+	)
+	scene.call("debug_set_auto_demo_time", 6.2)
 	var dissolve_stats: Dictionary = polygon_asset.call(
 		"get_runtime_stats"
 	)
@@ -485,6 +517,13 @@ func _vector2_array_from_json(value: Variant) -> PackedVector2Array:
 			var point: Array = point_value
 			result.append(Vector2(float(point[0]), float(point[1])))
 	return result
+
+
+func _array_to_vector2(value: Variant) -> Vector2:
+	if not value is Array or (value as Array).size() != 2:
+		return Vector2.ZERO
+	var values: Array = value
+	return Vector2(float(values[0]), float(values[1]))
 
 
 func _variants_equivalent(first: Variant, second: Variant) -> bool:

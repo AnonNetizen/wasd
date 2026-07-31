@@ -41,7 +41,6 @@ func _ready() -> void:
 	if bind_error != OK:
 		_stats_label.text = "Book animator bind failed: %s" % error_string(bind_error)
 		return
-	_polygon_asset.set_motion_strength(0.35)
 	_set_auto_demo_enabled(true)
 	_refresh_stats()
 
@@ -84,7 +83,6 @@ func reset_demo() -> void:
 	_elapsed_time = 0.0
 	_clear_target = 1.0
 	_polygon_asset.reset_visual()
-	_polygon_asset.set_motion_strength(0.35)
 	_book_animator.reset()
 	_polygon_asset.set_debug_mesh_visible(false)
 	_source_preview.visible = true
@@ -97,7 +95,7 @@ func prepare_capture(page_turn_progress: float, clear_progress: float = 0.0) -> 
 	set_process(false)
 	_elapsed_time = 1.75
 	_polygon_asset.set_animation_time(_elapsed_time)
-	_polygon_asset.set_motion_strength(0.0)
+	_polygon_asset.set_movement_state(Vector2.ZERO, 0.0)
 	_polygon_asset.set_generation_progress(1.0)
 	_polygon_asset.set_dissolve_progress(clear_progress)
 	_book_animator.set_page_turn_progress(page_turn_progress)
@@ -114,15 +112,17 @@ func prepare_capture(page_turn_progress: float, clear_progress: float = 0.0) -> 
 func prepare_generic_capture(
 	generation_progress: float,
 	dissolve_progress: float,
-	motion_progress: float,
-	motion_strength: float
+	movement_direction: Vector2,
+	movement_amount: float
 ) -> void:
 	_auto_demo_enabled = false
 	set_process(false)
 	_elapsed_time = 1.75
 	_polygon_asset.set_animation_time(_elapsed_time)
-	_polygon_asset.set_motion_progress(motion_progress)
-	_polygon_asset.set_motion_strength(motion_strength)
+	_polygon_asset.set_movement_state(
+		movement_direction,
+		movement_amount
+	)
 	_polygon_asset.set_generation_progress(generation_progress)
 	_polygon_asset.set_dissolve_progress(dissolve_progress)
 	_book_animator.set_page_turn_progress(0.0)
@@ -340,7 +340,7 @@ func _set_auto_demo_enabled(enabled: bool) -> void:
 	_book_animator.set_page_turn_progress(0.0)
 	_polygon_asset.set_generation_progress(1.0)
 	_polygon_asset.set_dissolve_progress(0.0)
-	_polygon_asset.set_motion_strength(0.35)
+	_polygon_asset.set_movement_state(Vector2.ZERO, 0.0)
 	if _demo_status_label != null:
 		_demo_status_label.text = "MANUAL · A TO RESUME AUTO"
 		_demo_status_label.add_theme_color_override("font_color", Color("#918ca8"))
@@ -390,10 +390,7 @@ func _apply_auto_demo_state() -> void:
 			(_auto_cycle_time - AUTO_CLEAR_HOLD_END)
 			/ (AUTO_RESTORE_END - AUTO_CLEAR_HOLD_END)
 		)
-	_polygon_asset.set_motion_progress(
-		_auto_cycle_time / AUTO_CYCLE_DURATION
-	)
-	_polygon_asset.set_motion_strength(0.35)
+	_polygon_asset.set_movement_state(Vector2.ZERO, 0.0)
 	_polygon_asset.set_generation_progress(generation_progress)
 	_polygon_asset.set_dissolve_progress(dissolve_progress)
 	_book_animator.set_page_turn_progress(page_turn_progress)
@@ -408,7 +405,7 @@ func _auto_demo_phase() -> String:
 	if _auto_cycle_time < AUTO_GENERATE_END:
 		return "GENERATION"
 	if _auto_cycle_time < AUTO_IDLE_END:
-		return "GENERIC MOTION"
+		return "STILL"
 	if _auto_cycle_time < AUTO_PAGE_END:
 		return "PAGE TURN + COLOR SHIFT"
 	if _auto_cycle_time < AUTO_PAGE_SETTLE_END:

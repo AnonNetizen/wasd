@@ -878,19 +878,24 @@ func _validate_arbitrary_axis_compile(compiler: RefCounted) -> void:
 					"primary_motion_face_count",
 					0
 				)) > 0,
-				"Generic runtime uses manifest-defined motion direction and regions."
+				"Generic runtime preserves manifest authoring axis and semantic regions."
 			)
-			runtime.set_motion_progress(0.5)
-			runtime.set_motion_strength(0.6)
+			runtime.set_movement_velocity(
+				Vector2(0.0, 75.0),
+				100.0
+			)
 			runtime.set_generation_progress(0.4)
 			runtime.set_dissolve_progress(0.3)
 			var effect_stats: Dictionary = runtime.get_runtime_stats()
 			_check(
-				is_equal_approx(
-					float(effect_stats.get("motion_progress", 0.0)),
-					0.5
+				_array_to_vector2(
+					effect_stats.get("movement_direction", [])
+				).is_equal_approx(Vector2.DOWN)
+				and is_equal_approx(
+					float(effect_stats.get("movement_amount", 0.0)),
+					0.75
 				),
-				"Arbitrary-axis generic motion is directly controllable."
+				"Gameplay velocity drives generic deformation independently of authoring axis."
 			)
 			_check(
 				is_equal_approx(
@@ -929,15 +934,16 @@ func _validate_shader_shape() -> void:
 	if shader == null:
 		return
 	_check(
-		shader.code.find("vertex_motion_weight") >= 0
+		shader.code.find("movement_direction") >= 0
+		and shader.code.find("movement_amount") >= 0
 		and shader.code.find("step(0.75, COLOR.a)") >= 0,
-		"Generic shader separates shared-vertex motion from per-face color animation."
+		"Generic shader separates velocity deformation from per-face color animation."
 	)
 	_check(
-		shader.code.find("motion_progress") >= 0
-		and shader.code.find("motion_strength") >= 0
-		and shader.code.find("boundary_guard") >= 0,
-		"Generic shader exposes bounded point motion."
+		shader.code.find("center_drag") >= 0
+		and shader.code.find("longitudinal_extent") >= 0
+		and shader.code.find("sin(phase)") < 0,
+		"Generic shader deforms from movement velocity without idle breathing."
 	)
 	_check(
 		shader.code.find("generation_progress") >= 0
@@ -974,7 +980,8 @@ func _validate_book_adapter_shape() -> void:
 		_check(
 			book_shader.code.find("generation_progress") >= 0
 			and book_shader.code.find("dissolve_progress") >= 0
-			and book_shader.code.find("motion_strength") >= 0,
+			and book_shader.code.find("movement_direction") >= 0
+			and book_shader.code.find("movement_amount") >= 0,
 			"Book-only shader preserves the generic lifecycle contract."
 		)
 		_check(
@@ -1164,8 +1171,7 @@ func _validate_runtime() -> void:
 	var collision_before := collision.polygon.duplicate() if collision != null else PackedVector2Array()
 
 	runtime.set_animation_time(2.5)
-	runtime.set_motion_progress(0.5)
-	runtime.set_motion_strength(0.6)
+	runtime.set_movement_velocity(Vector2(-80.0, 0.0), 100.0)
 	runtime.set_generation_progress(0.4)
 	runtime.set_dissolve_progress(0.65)
 	var progress_stats: Dictionary = runtime.get_runtime_stats()
@@ -1174,15 +1180,14 @@ func _validate_runtime() -> void:
 		"Animation time can be set directly."
 	)
 	_check(
-		is_equal_approx(
-			float(progress_stats.get("motion_progress", 0.0)),
-			0.5
-		)
+		_array_to_vector2(
+			progress_stats.get("movement_direction", [])
+		).is_equal_approx(Vector2.LEFT)
 		and is_equal_approx(
-			float(progress_stats.get("motion_strength", 0.0)),
-			0.6
+			float(progress_stats.get("movement_amount", 0.0)),
+			0.8
 		),
-		"Generic motion progress and strength can be set directly."
+		"Generic deformation follows gameplay velocity direction and speed."
 	)
 	_check(
 		is_equal_approx(
@@ -1204,8 +1209,12 @@ func _validate_runtime() -> void:
 	var reset_stats: Dictionary = runtime.get_runtime_stats()
 	_check(
 		is_zero_approx(float(reset_stats.get("animation_time", -1.0)))
-		and is_zero_approx(float(reset_stats.get("motion_progress", -1.0)))
-		and is_zero_approx(float(reset_stats.get("motion_strength", -1.0)))
+		and _array_to_vector2(
+			reset_stats.get("movement_direction", [])
+		).is_zero_approx()
+		and is_zero_approx(
+			float(reset_stats.get("movement_amount", -1.0))
+		)
 		and is_equal_approx(
 			float(reset_stats.get("generation_progress", 0.0)),
 			1.0
@@ -1267,8 +1276,10 @@ func _validate_demo_scene() -> void:
 		"Auto demo reaches a visible generic dissolve phase."
 	)
 	_check(
-		float(clear_stats.get("motion_strength", 0.0)) > 0.0,
-		"Auto demo keeps generic motion enabled independently of page turn."
+		is_zero_approx(
+			float(clear_stats.get("movement_amount", -1.0))
+		),
+		"Book auto demo remains still outside explicit movement input."
 	)
 	scene.queue_free()
 	await process_frame
