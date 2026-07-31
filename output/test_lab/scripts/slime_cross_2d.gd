@@ -1,7 +1,7 @@
 class_name TestLabSlimeCross2D
 extends Node2D
 
-const CURVE_SAMPLES_PER_SEGMENT: int = 4
+const RENDER_SAMPLES_PER_CORNER: int = 5
 const REST_OUTLINE: Array[Vector2] = [
 	Vector2(-30.0, -230.0),
 	Vector2(30.0, -230.0),
@@ -41,7 +41,11 @@ const BUBBLE_REST_POSITIONS: Array[Vector2] = [
 @export var breath_amount: float = 1.8
 @export var breath_speed: float = 1.45
 @export var maximum_offset: float = 52.0
+@export var maximum_point_speed: float = 620.0
 @export var poke_impulse: float = 590.0
+@export_range(0.0, 0.5, 0.01) var velocity_spread: float = 0.34
+@export_range(0.0, 0.5, 0.01) var displacement_smoothing: float = 0.20
+@export_range(0.05, 0.45, 0.01) var corner_rounding: float = 0.28
 
 var _points: Array[Vector2] = []
 var _rest_points: Array[Vector2] = []
@@ -110,10 +114,12 @@ func apply_poke(local_hit: Vector2, strength: float = 1.0) -> void:
 	if _points.is_empty():
 		return
 	var nearest_index: int = _nearest_point_index(local_hit)
+	var inward: Vector2 = (_polygon_centroid(_points) - local_hit).normalized()
+	if inward.length_squared() <= 0.0001:
+		inward = -_rest_normals[nearest_index]
 	for offset in range(-2, 3):
 		var index: int = posmod(nearest_index + offset, _points.size())
 		var weight: float = 1.0 - absf(float(offset)) / 3.0
-		var inward: Vector2 = -_rest_normals[index]
 		_velocities[index] += inward * poke_impulse * strength * weight
 	_impact_index = nearest_index
 	_impact_strength = clampf(0.55 + strength * 0.45, 0.0, 1.4)
@@ -195,6 +201,31 @@ func notch_clearance() -> float:
 	return minf(minf(right_top, right_bottom), minf(left_bottom, left_top))
 
 
+func maximum_render_turn_degrees() -> float:
+	var boundary: PackedVector2Array = _smoothed_boundary_points()
+	var maximum_turn: float = 0.0
+	for index in range(boundary.size()):
+		var previous_index: int = posmod(index - 1, boundary.size())
+		var next_index: int = (index + 1) % boundary.size()
+		var incoming: Vector2 = boundary[index] - boundary[previous_index]
+		var outgoing: Vector2 = boundary[next_index] - boundary[index]
+		if incoming.length_squared() <= 0.0001 or outgoing.length_squared() <= 0.0001:
+			continue
+		var turn: float = absf(rad_to_deg(incoming.angle_to(outgoing)))
+		maximum_turn = maxf(maximum_turn, turn)
+	return maximum_turn
+
+
+func maximum_neighbor_displacement_delta() -> float:
+	var maximum_delta: float = 0.0
+	for index in range(_points.size()):
+		var next_index: int = (index + 1) % _points.size()
+		var displacement: Vector2 = _points[index] - _rest_points[index]
+		var next_displacement: Vector2 = _points[next_index] - _rest_points[next_index]
+		maximum_delta = maxf(maximum_delta, displacement.distance_to(next_displacement))
+	return maximum_delta
+
+
 func _initialize_membrane() -> void:
 	_rest_points.clear()
 	_points.clear()
@@ -212,8 +243,6 @@ func _initialize_membrane() -> void:
 func _update_membrane(delta: float) -> void:
 	var area_ratio: float = current_area_ratio()
 	var pressure: float = (1.0 - area_ratio) * area_pressure
-	var next_points: Array[Vector2] = []
-	next_points.resize(_points.size())
 
 	for index in range(_points.size()):
 		var previous_index: int = posmod(index - 1, _points.size())
@@ -235,9 +264,44 @@ func _update_membrane(delta: float) -> void:
 		var pressure_force: Vector2 = _rest_normals[index] * pressure
 		_velocities[index] += (spring_force + shape_force + pressure_force) * delta
 		_velocities[index] *= maxf(0.0, 1.0 - membrane_damping * delta)
+
+	var velocity_source: Array[Vector2] = _velocities.duplicate()
+	for index in range(_velocities.size()):
+		var previous_index: int = posmod(index - 1, _velocities.size())
+		var next_index: int = (index + 1) % _velocities.size()
+		var neighbor_velocity: Vector2 = (
+			velocity_source[previous_index] + velocity_source[next_index]
+		) * 0.5
+		_velocities[index] = velocity_source[index].lerp(
+			neighbor_velocity,
+			velocity_spread
+		).limit_length(maximum_point_speed)
+
+	var integrated_points: Array[Vector2] = []
+	integrated_points.resize(_points.size())
+	for index in range(_points.size()):
 		var candidate: Vector2 = _points[index] + _velocities[index] * delta
 		var offset: Vector2 = (candidate - _rest_points[index]).limit_length(maximum_offset)
-		next_points[index] = _rest_points[index] + offset
+		integrated_points[index] = _rest_points[index] + offset
+
+	var next_points: Array[Vector2] = []
+	next_points.resize(_points.size())
+	for index in range(_points.size()):
+		var previous_index: int = posmod(index - 1, _points.size())
+		var next_index: int = (index + 1) % _points.size()
+		var displacement: Vector2 = integrated_points[index] - _rest_points[index]
+		var neighbor_displacement: Vector2 = (
+			integrated_points[previous_index] - _rest_points[previous_index]
+			+ integrated_points[next_index] - _rest_points[next_index]
+		) * 0.5
+		var corrected_displacement: Vector2 = displacement.lerp(
+			neighbor_displacement,
+			displacement_smoothing
+		).limit_length(maximum_offset)
+		next_points[index] = _rest_points[index] + corrected_displacement
+		_velocities[index] = (
+			(next_points[index] - _points[index]) / maxf(delta, 0.0001)
+		).limit_length(maximum_point_speed)
 
 	_points = next_points
 
@@ -334,90 +398,20 @@ func _smoothed_boundary_points() -> PackedVector2Array:
 	for index in range(_points.size()):
 		var previous_index: int = posmod(index - 1, _points.size())
 		var next_index: int = (index + 1) % _points.size()
-		var next_next_index: int = (index + 2) % _points.size()
-		for sample_index in range(CURVE_SAMPLES_PER_SEGMENT):
+		var corner: Vector2 = _points[index]
+		var entry: Vector2 = corner.lerp(_points[previous_index], corner_rounding)
+		var exit: Vector2 = corner.lerp(_points[next_index], corner_rounding)
+		for sample_index in range(RENDER_SAMPLES_PER_CORNER):
+			var ratio: float = (
+				float(sample_index) / float(RENDER_SAMPLES_PER_CORNER - 1)
+			)
+			var inverse_ratio: float = 1.0 - ratio
 			smoothed_points.append(
-				_sample_curve(
-					_points[previous_index],
-					_points[index],
-					_points[next_index],
-					_points[next_next_index],
-					float(sample_index) / float(CURVE_SAMPLES_PER_SEGMENT)
-				)
+				entry * inverse_ratio * inverse_ratio
+				+ corner * 2.0 * inverse_ratio * ratio
+				+ exit * ratio * ratio
 			)
 	return smoothed_points
-
-
-func _sample_curve(
-	point_0: Vector2,
-	point_1: Vector2,
-	point_2: Vector2,
-	point_3: Vector2,
-	segment_ratio: float
-) -> Vector2:
-	var time_0: float = 0.0
-	var time_1: float = _curve_knot(time_0, point_0, point_1)
-	var time_2: float = _curve_knot(time_1, point_1, point_2)
-	var time_3: float = _curve_knot(time_2, point_2, point_3)
-	var sample_time: float = lerpf(time_1, time_2, segment_ratio)
-	var point_a_1: Vector2 = _interpolate_curve_point(
-		point_0,
-		point_1,
-		time_0,
-		time_1,
-		sample_time
-	)
-	var point_a_2: Vector2 = _interpolate_curve_point(
-		point_1,
-		point_2,
-		time_1,
-		time_2,
-		sample_time
-	)
-	var point_a_3: Vector2 = _interpolate_curve_point(
-		point_2,
-		point_3,
-		time_2,
-		time_3,
-		sample_time
-	)
-	var point_b_1: Vector2 = _interpolate_curve_point(
-		point_a_1,
-		point_a_2,
-		time_0,
-		time_2,
-		sample_time
-	)
-	var point_b_2: Vector2 = _interpolate_curve_point(
-		point_a_2,
-		point_a_3,
-		time_1,
-		time_3,
-		sample_time
-	)
-	return _interpolate_curve_point(
-		point_b_1,
-		point_b_2,
-		time_1,
-		time_2,
-		sample_time
-	)
-
-
-func _curve_knot(previous_time: float, point_a: Vector2, point_b: Vector2) -> float:
-	return previous_time + sqrt(maxf(point_a.distance_to(point_b), 0.0001))
-
-
-func _interpolate_curve_point(
-	point_a: Vector2,
-	point_b: Vector2,
-	time_a: float,
-	time_b: float,
-	sample_time: float
-) -> Vector2:
-	var span: float = maxf(time_b - time_a, 0.0001)
-	var weight: float = (sample_time - time_a) / span
-	return point_a.lerp(point_b, weight)
 
 
 func _scaled_polygon(

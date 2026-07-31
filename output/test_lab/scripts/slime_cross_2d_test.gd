@@ -162,6 +162,22 @@ func debug_notch_clearance() -> float:
 	return float(_slime_cross.call("notch_clearance")) if _slime_cross != null else 0.0
 
 
+func debug_maximum_render_turn_degrees() -> float:
+	return (
+		float(_slime_cross.call("maximum_render_turn_degrees"))
+		if _slime_cross != null
+		else 0.0
+	)
+
+
+func debug_maximum_neighbor_displacement_delta() -> float:
+	return (
+		float(_slime_cross.call("maximum_neighbor_displacement_delta"))
+		if _slime_cross != null
+		else 0.0
+	)
+
+
 func _build_stage() -> void:
 	_slime_cross = SLIME_CROSS_SCRIPT.new() as Node2D
 	_slime_cross.name = "SlimeCross"
@@ -367,6 +383,7 @@ func _update_metrics() -> void:
 		+ "横臂 / 竖干  %.2f×\n"
 		+ "凹角净距  %.1f px\n"
 		+ "形变  %.2f px\n"
+		+ "最大动态转角  %.1f°\n"
 		+ "面积保持  %.1f%%\n"
 		+ "轮廓宽高  %.0f × %.0f px"
 	) % [
@@ -375,6 +392,7 @@ func _update_metrics() -> void:
 		debug_arm_span() / maxf(debug_stem_width(), 0.001),
 		debug_notch_clearance(),
 		debug_deformation_amount(),
+		debug_maximum_render_turn_degrees(),
 		debug_area_ratio() * 100.0,
 		size.x,
 		size.y,

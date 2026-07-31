@@ -53,6 +53,7 @@ func _run_smoke() -> void:
 	var rest_arm_span: float = scene.call("debug_arm_span")
 	var rest_stem_width: float = scene.call("debug_stem_width")
 	var rest_notch_clearance: float = scene.call("debug_notch_clearance")
+	var rest_maximum_turn: float = scene.call("debug_maximum_render_turn_degrees")
 	_expect(
 		rest_size.y > rest_size.x * 1.55,
 		"Rest shape no longer reads as a tall cross silhouette: %s." % rest_size
@@ -69,6 +70,10 @@ func _run_smoke() -> void:
 		absf(rest_area_ratio - 1.0) < 0.03,
 		"Rest shape should begin near its authored area, got %.3f." % rest_area_ratio
 	)
+	_expect(
+		rest_maximum_turn < 45.0,
+		"Bounded corner rounding is too sharp at rest: %.2f degrees." % rest_maximum_turn
+	)
 
 	scene.call("debug_poke", Vector2(-120.0, -102.0), 1.2)
 	for _frame in range(9):
@@ -77,6 +82,10 @@ func _run_smoke() -> void:
 	var impact_deformation: float = scene.call("debug_deformation_amount")
 	var impact_area_ratio: float = scene.call("debug_area_ratio")
 	var impact_notch_clearance: float = scene.call("debug_notch_clearance")
+	var impact_maximum_turn: float = scene.call("debug_maximum_render_turn_degrees")
+	var impact_displacement_delta: float = scene.call(
+		"debug_maximum_neighbor_displacement_delta"
+	)
 	_expect(
 		impact_deformation > rest_deformation + 5.0,
 		"Localized arm poke did not produce a readable deformation."
@@ -88,6 +97,16 @@ func _run_smoke() -> void:
 	_expect(
 		impact_notch_clearance > 34.0,
 		"Concave arm notch collapsed during local deformation."
+	)
+	_expect(
+		impact_maximum_turn < 46.0,
+		"Local deformation produced a spike-like render turn: %.2f degrees."
+		% impact_maximum_turn
+	)
+	_expect(
+		impact_displacement_delta < 12.0,
+		"Neighbor displacement diverged into a point spike: %.2f px."
+		% impact_displacement_delta
 	)
 
 	for _frame in range(170):
@@ -103,6 +122,39 @@ func _run_smoke() -> void:
 		"Concave notch did not recover after the local poke."
 	)
 
+	scene.call("debug_reset")
+	var burst_points: Array[Vector2] = [
+		Vector2(-120.0, -105.0),
+		Vector2(120.0, -91.0),
+		Vector2(29.0, -208.0),
+		Vector2(-38.0, 116.0),
+	]
+	for pulse_index in range(8):
+		scene.call("debug_poke", burst_points[pulse_index % burst_points.size()], 1.1)
+		for _frame in range(2):
+			await physics_frame
+	var burst_maximum_turn: float = scene.call("debug_maximum_render_turn_degrees")
+	var burst_displacement_delta: float = scene.call(
+		"debug_maximum_neighbor_displacement_delta"
+	)
+	var burst_notch_clearance: float = scene.call("debug_notch_clearance")
+	_expect(
+		burst_maximum_turn < 50.0,
+		"Repeated motion produced a spike-like render turn: %.2f degrees."
+		% burst_maximum_turn
+	)
+	_expect(
+		burst_displacement_delta < 24.0,
+		"Repeated motion created an isolated point displacement: %.2f px."
+		% burst_displacement_delta
+	)
+	_expect(
+		burst_notch_clearance > 26.0,
+		"Repeated motion collapsed a structural cross notch."
+	)
+
+	scene.call("debug_reset")
+	await physics_frame
 	scene.call("debug_squash", 1.0)
 	for _frame in range(9):
 		await physics_frame
@@ -121,7 +173,20 @@ func _run_smoke() -> void:
 		quit(1)
 		return
 	print(
+		(
+			"[SlimeCross2DSmoke] Curvature rest=%.2f impact=%.2f burst=%.2f deg; "
+			+ "neighbor delta impact=%.2f burst=%.2f px."
+		) % [
+			rest_maximum_turn,
+			impact_maximum_turn,
+			burst_maximum_turn,
+			impact_displacement_delta,
+			burst_displacement_delta,
+		]
+	)
+	print(
 		"[SlimeCross2DSmoke] Passed concave silhouette, arm/stem readability, "
-		+ "localized deformation, area pressure, notch recovery, and squash checks."
+		+ "bounded curvature, displacement continuity, area pressure, recovery, "
+		+ "repeated motion, and squash checks."
 	)
 	quit(0)
