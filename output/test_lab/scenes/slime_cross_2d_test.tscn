@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/slime_cross_2d_test.gd" id="1_4y0oy"]
+
+[node name="SlimeCross2DTest" type="Node2D" unique_id=3777986]
+script = ExtResource("1_4y0oy")

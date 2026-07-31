@@ -25,6 +25,7 @@
 
 ## 当前实验
 
+- `slime_cross_2d_test.tscn`：把史莱姆软体方法迁移到 2D 十字架凹形轮廓的独立实验。十字架由 20 个顺序轮廓点直接组成长竖干、宽横臂与四个内凹角，每段经 4 次 centripetal Catmull-Rom 采样形成圆润胶体边缘；运行时使用弹簧、阻尼、邻点相对形状保持、面积压力与局部冲击传播，不用圆形遮罩或十字贴图。绘制层以暗色反边、薄荷胶体、深青内馅、湿润高光与内部气泡建立 2D 史莱姆材质。左键点击任意边缘施加局部冲击，`Space` 压扁，`R` 复原，`A` 切换自动脉冲，`Esc` 返回索引。`slime_cross_2d_smoke.gd` 自动检查 20 点 / 4 凹角契约、横臂与竖干比例、凹角净距、局部形变、面积保持、回弹和整体压扁；`capture_slime_cross_2d.gd` 生成左横臂受击阶段预览。最终十字辨识度、胶体质感和回弹观感仍待用户人工验收。
 - `polygon_book_test.tscn`：通用 Polygon 素材管线的翻开书本验证场景。`assets/polygon_art/open_book_source.png` 是由提示词模板生成、再用 Godot 归一为纯 `#ff00ff` 键色背景的制作输入；运行时不读取它。编译器不包含书、书页或书脊专用标识，只从源图提取一个连通外轮廓、manifest 可选的主 `linear_band` 标志性结构及各区域的参考颜色，再自行重建共享节点、受保护共边和清晰大面。`linear_band` 由任意 `axis` / `cross_axis` 定义方向，当前 schema v3 支持零或一个主结构带；`data/polygon_imports/_linear_band_asset.template.json` 是带结构素材的 manifest 起点，书本 manifest 只是把主结构带配置成纵向书脊、把三个区域命名为左页 / 书脊 / 右页。自动 smoke 还会把同一源图旋转后用横向结构带和完全不同的区域名重新编译，确认核心算法不依赖书本坐标或语义。
 
   `data/polygon_prompt_templates/source_image_v1.json` 是通用生图提示词模板，要求对象仅凭外轮廓即可辨认、主体保持单一连通、使用少量硬边大色面，并拒绝阴影、纹理、悬空碎片和纯色洋红以外的背景；内部标志性结构按 manifest 可选。`polygon_prompt_builder.gd` 会把每项素材的对象描述、轮廓要点、可选结构、配色与禁用项填入模板；生成图只提供形状和颜色参考，最终点和块仍由工具构建。
@@ -142,6 +143,22 @@ py -3 tools/godot_bridge.py --project output/test_lab headless-boot
 
 # 1280×760 局部受击阶段预览
 & $godot --resolution 1280x760 --path output/test_lab --script res://tools/capture_slime_tombstone_test.gd
+```
+
+## 2D Slime Cross 验证
+
+以下命令均从仓库根目录运行；`$godot` 指向 Godot 4.7.1 stable 的 console 可执行文件。
+
+```powershell
+# 生成 / 更新结构化场景并显式加载
+& $godot --headless --path output/test_lab --script res://scripts/create_slime_cross_2d_scene.gd
+& $godot --headless --path output/test_lab --quit-after 2 res://scenes/slime_cross_2d_test.tscn
+
+# 凹形十字轮廓、横臂 / 竖干、局部形变、面积压力、凹角回弹与压扁
+& $godot --headless --path output/test_lab --script res://tools/slime_cross_2d_smoke.gd
+
+# 1280×760 左横臂受击阶段预览
+& $godot --resolution 1280x760 --path output/test_lab --script res://tools/capture_slime_cross_2d.gd
 ```
 
 ## AI Universal Tile Scene 验证
