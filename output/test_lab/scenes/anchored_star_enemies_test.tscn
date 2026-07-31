@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/anchored_star_enemies_test.gd" id="1_3pext"]
+
+[node name="AnchoredStarEnemiesTest" type="Node2D" unique_id=1993717792]
+script = ExtResource("1_3pext")

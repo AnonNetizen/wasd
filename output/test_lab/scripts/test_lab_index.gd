@@ -11,6 +11,12 @@ const STATIC_TEST_SCENES := {
 
 const EXTRA_TEST_SCENES := [
 	{
+		"button_name": "AnchoredStarEnemiesButton",
+		"label": "Anchored Star Enemy Windows",
+		"scene_path": "res://scenes/anchored_star_enemies_test.tscn",
+		"featured": true,
+	},
+	{
 		"button_name": "SlimeCross2DButton",
 		"label": "2D Slime-Form Cross Test",
 		"scene_path": "res://scenes/slime_cross_2d_test.tscn",
