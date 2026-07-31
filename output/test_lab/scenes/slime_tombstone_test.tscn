@@ -1,0 +1,612 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/slime_tombstone_test.gd" id="1_c2okh"]
+[ext_resource type="Script" path="res://scripts/slime_tombstone.gd" id="2_qbem7"]
+
+[sub_resource type="Environment" id="Environment_2wevq"]
+background_mode = 1
+background_color = Color(0.018, 0.026, 0.04, 1)
+background_energy_multiplier = 0.72
+ambient_light_source = 2
+ambient_light_color = Color(0.22, 0.31, 0.36, 1)
+ambient_light_energy = 0.68
+tonemap_mode = 2
+adjustment_enabled = true
+adjustment_brightness = 1.04
+adjustment_contrast = 1.09
+adjustment_saturation = 0.86
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_t86qu"]
+albedo_color = Color(0.045, 0.065, 0.07, 1)
+roughness = 0.94
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_vmkbi"]
+size = Vector2(22, 18)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7jl84"]
+albedo_color = Color(0.04, 0.16, 0.14, 1)
+roughness = 0.42
+emission_enabled = true
+emission = Color(0.05, 0.68, 0.46, 1)
+emission_energy_multiplier = 1.6
+
+[sub_resource type="TorusMesh" id="TorusMesh_4rgcw"]
+inner_radius = 2.35
+outer_radius = 2.39
+rings = 72
+ring_segments = 8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_vaaeh"]
+albedo_color = Color(0.105, 0.135, 0.145, 1)
+roughness = 0.88
+
+[sub_resource type="BoxMesh" id="BoxMesh_2bju3"]
+size = Vector3(0.77699995, 1.2728001, 0.2516)
+
+[sub_resource type="SphereMesh" id="SphereMesh_llc52"]
+radius = 0.3922
+height = 0.7844
+radial_segments = 18
+rings = 8
+
+[sub_resource type="BoxMesh" id="BoxMesh_c02r3"]
+size = Vector3(0.8925, 1.462, 0.289)
+
+[sub_resource type="SphereMesh" id="SphereMesh_1uwh7"]
+radius = 0.4505
+height = 0.901
+radial_segments = 18
+rings = 8
+
+[sub_resource type="BoxMesh" id="BoxMesh_dr8g8"]
+size = Vector3(1.0079999, 1.6511999, 0.32639998)
+
+[sub_resource type="SphereMesh" id="SphereMesh_cp80d"]
+radius = 0.5088
+height = 1.0176
+radial_segments = 18
+rings = 8
+
+[sub_resource type="BoxMesh" id="BoxMesh_nw2hv"]
+size = Vector3(0.77699995, 1.2728001, 0.2516)
+
+[sub_resource type="SphereMesh" id="SphereMesh_q8yew"]
+radius = 0.3922
+height = 0.7844
+radial_segments = 18
+rings = 8
+
+[sub_resource type="BoxMesh" id="BoxMesh_4ahma"]
+size = Vector3(0.8925, 1.462, 0.289)
+
+[sub_resource type="SphereMesh" id="SphereMesh_vytq3"]
+radius = 0.4505
+height = 0.901
+radial_segments = 18
+rings = 8
+
+[sub_resource type="BoxMesh" id="BoxMesh_68g0s"]
+size = Vector3(1.0079999, 1.6511999, 0.32639998)
+
+[sub_resource type="SphereMesh" id="SphereMesh_cd0hw"]
+radius = 0.5088
+height = 1.0176
+radial_segments = 18
+rings = 8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_yey8e"]
+albedo_color = Color(0.32, 0.54, 0.6, 1)
+roughness = 0.4
+emission_enabled = true
+emission = Color(0.32, 0.72, 0.78, 1)
+emission_energy_multiplier = 2.2
+
+[sub_resource type="SphereMesh" id="SphereMesh_w2xnv"]
+radius = 1.35
+height = 2.7
+radial_segments = 32
+rings = 16
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_b8dgm"]
+albedo_color = Color(0.18, 0.72, 0.52, 1)
+roughness = 0.24
+emission_enabled = true
+emission = Color(0.1, 0.82, 0.55, 1)
+emission_energy_multiplier = 1.8
+
+[sub_resource type="SphereMesh" id="SphereMesh_c5mpi"]
+radius = 0.026
+height = 0.052
+radial_segments = 8
+rings = 4
+
+[sub_resource type="SphereMesh" id="SphereMesh_0kntc"]
+radius = 0.034
+height = 0.068
+radial_segments = 8
+rings = 4
+
+[sub_resource type="SphereMesh" id="SphereMesh_uluqf"]
+radius = 0.042
+height = 0.084
+radial_segments = 8
+rings = 4
+
+[sub_resource type="SphereMesh" id="SphereMesh_afm6g"]
+radius = 0.05
+height = 0.1
+radial_segments = 8
+rings = 4
+
+[sub_resource type="SphereMesh" id="SphereMesh_5brcu"]
+radius = 0.026
+height = 0.052
+radial_segments = 8
+rings = 4
+
+[sub_resource type="SphereMesh" id="SphereMesh_hb3ae"]
+radius = 0.034
+height = 0.068
+radial_segments = 8
+rings = 4
+
+[sub_resource type="SphereMesh" id="SphereMesh_31w1m"]
+radius = 0.042
+height = 0.084
+radial_segments = 8
+rings = 4
+
+[sub_resource type="SphereMesh" id="SphereMesh_uexkk"]
+radius = 0.05
+height = 0.1
+radial_segments = 8
+rings = 4
+
+[sub_resource type="SphereMesh" id="SphereMesh_c8duq"]
+radius = 0.026
+height = 0.052
+radial_segments = 8
+rings = 4
+
+[sub_resource type="SphereMesh" id="SphereMesh_270p5"]
+radius = 0.034
+height = 0.068
+radial_segments = 8
+rings = 4
+
+[sub_resource type="SphereMesh" id="SphereMesh_py6ct"]
+radius = 0.042
+height = 0.084
+radial_segments = 8
+rings = 4
+
+[sub_resource type="SphereMesh" id="SphereMesh_n7w0a"]
+radius = 0.05
+height = 0.1
+radial_segments = 8
+rings = 4
+
+[sub_resource type="SphereMesh" id="SphereMesh_kigvq"]
+radius = 0.026
+height = 0.052
+radial_segments = 8
+rings = 4
+
+[sub_resource type="SphereMesh" id="SphereMesh_jlths"]
+radius = 0.034
+height = 0.068
+radial_segments = 8
+rings = 4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3sh0b"]
+transparency = 1
+albedo_color = Color(0.006, 0.012, 0.014, 0.58)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_vked4"]
+top_radius = 1.58
+bottom_radius = 1.58
+height = 0.018
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ab25v"]
+albedo_color = Color(0.095, 0.135, 0.135, 1)
+roughness = 0.82
+
+[sub_resource type="BoxMesh" id="BoxMesh_q2uhp"]
+size = Vector3(3.45, 0.34, 1.55)
+
+[sub_resource type="BoxMesh" id="BoxMesh_slevr"]
+size = Vector3(2.6, 4.3, 0.5)
+
+[node name="SlimeTombstoneTest" type="Node3D" unique_id=259727171]
+script = ExtResource("1_c2okh")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1849463070]
+environment = SubResource("Environment_2wevq")
+
+[node name="TombstoneCamera" type="Camera3D" parent="." unique_id=1708838955]
+transform = Transform3D(0.84269625, -0.12657802, 0.5232982, 0, 0.97196996, 0.23510501, -0.53838927, -0.19812211, 0.81907547, 6.9, 5.25, 10.8)
+projection = 1
+current = true
+size = 8.2
+
+[node name="MoonKey" type="DirectionalLight3D" parent="." unique_id=1805839488]
+transform = Transform3D(0.83205026, 0.32444283, -0.44992128, 0, 0.8111071, 0.58489764, 0.5547002, -0.48666424, 0.6748819, -4, 7, 6)
+light_color = Color(0.56, 0.78, 0.9, 1)
+light_energy = 1.35
+shadow_enabled = true
+
+[node name="JadeFill" type="OmniLight3D" parent="." unique_id=1911557877]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6, 2.2, 4.2)
+light_color = Color(0.19, 0.92, 0.67, 1)
+light_energy = 2.15
+omni_range = 8.5
+
+[node name="World3D" type="Node3D" parent="." unique_id=1864483679]
+
+[node name="Ground" type="MeshInstance3D" parent="World3D" unique_id=13979665]
+material_override = SubResource("StandardMaterial3D_t86qu")
+mesh = SubResource("PlaneMesh_vmkbi")
+
+[node name="GroundRune" type="MeshInstance3D" parent="World3D" unique_id=1047588329]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.035, 0)
+material_override = SubResource("StandardMaterial3D_7jl84")
+mesh = SubResource("TorusMesh_4rgcw")
+
+[node name="BackgroundGraves" type="Node3D" parent="World3D" unique_id=1327442956]
+
+[node name="RigidGrave00" type="Node3D" parent="World3D/BackgroundGraves" unique_id=1768609399]
+transform = Transform3D(0.9781476, 0, -0.2079117, 0, 1, 0, 0.2079117, 0, 0.9781476, -5.4, 0, -2.8)
+
+[node name="Body" type="MeshInstance3D" parent="World3D/BackgroundGraves/RigidGrave00" unique_id=405444538]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6364, 0)
+material_override = SubResource("StandardMaterial3D_vaaeh")
+mesh = SubResource("BoxMesh_2bju3")
+
+[node name="Arch" type="MeshInstance3D" parent="World3D/BackgroundGraves/RigidGrave00" unique_id=1344344036]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 0.34, 0, 1.2506, 0)
+material_override = SubResource("StandardMaterial3D_vaaeh")
+mesh = SubResource("SphereMesh_llc52")
+
+[node name="RigidGrave01" type="Node3D" parent="World3D/BackgroundGraves" unique_id=1481751305]
+transform = Transform3D(0.99254614, 0, -0.12186935, 0, 1, 0, 0.12186935, 0, 0.99254614, -3.2, 0, -4.5)
+
+[node name="Body" type="MeshInstance3D" parent="World3D/BackgroundGraves/RigidGrave01" unique_id=1960972371]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.731, 0)
+material_override = SubResource("StandardMaterial3D_vaaeh")
+mesh = SubResource("BoxMesh_c02r3")
+
+[node name="Arch" type="MeshInstance3D" parent="World3D/BackgroundGraves/RigidGrave01" unique_id=1470368323]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 0.34, 0, 1.4365, 0)
+material_override = SubResource("StandardMaterial3D_vaaeh")
+mesh = SubResource("SphereMesh_1uwh7")
+
+[node name="RigidGrave02" type="Node3D" parent="World3D/BackgroundGraves" unique_id=1463339852]
+transform = Transform3D(0.99939084, 0, -0.034899496, 0, 1, 0, 0.034899496, 0, 0.99939084, 3.7, 0, -4.2)
+
+[node name="Body" type="MeshInstance3D" parent="World3D/BackgroundGraves/RigidGrave02" unique_id=1449293251]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8256, 0)
+material_override = SubResource("StandardMaterial3D_vaaeh")
+mesh = SubResource("BoxMesh_dr8g8")
+
+[node name="Arch" type="MeshInstance3D" parent="World3D/BackgroundGraves/RigidGrave02" unique_id=1463504508]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 0.34, 0, 1.6224, 0)
+material_override = SubResource("StandardMaterial3D_vaaeh")
+mesh = SubResource("SphereMesh_cp80d")
+
+[node name="RigidGrave03" type="Node3D" parent="World3D/BackgroundGraves" unique_id=2144961700]
+transform = Transform3D(0.9986295, 0, 0.05233596, 0, 1, 0, -0.05233596, 0, 0.9986295, 5.3, 0, -2.2)
+
+[node name="Body" type="MeshInstance3D" parent="World3D/BackgroundGraves/RigidGrave03" unique_id=1657391501]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6364, 0)
+material_override = SubResource("StandardMaterial3D_vaaeh")
+mesh = SubResource("BoxMesh_nw2hv")
+
+[node name="Arch" type="MeshInstance3D" parent="World3D/BackgroundGraves/RigidGrave03" unique_id=1085117898]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 0.34, 0, 1.2506, 0)
+material_override = SubResource("StandardMaterial3D_vaaeh")
+mesh = SubResource("SphereMesh_q8yew")
+
+[node name="RigidGrave04" type="Node3D" parent="World3D/BackgroundGraves" unique_id=157717198]
+transform = Transform3D(0.99026805, 0, 0.1391731, 0, 1, 0, -0.1391731, 0, 0.99026805, -6.6, 0, 1.2)
+
+[node name="Body" type="MeshInstance3D" parent="World3D/BackgroundGraves/RigidGrave04" unique_id=31760071]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.731, 0)
+material_override = SubResource("StandardMaterial3D_vaaeh")
+mesh = SubResource("BoxMesh_4ahma")
+
+[node name="Arch" type="MeshInstance3D" parent="World3D/BackgroundGraves/RigidGrave04" unique_id=1966840720]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 0.34, 0, 1.4365, 0)
+material_override = SubResource("StandardMaterial3D_vaaeh")
+mesh = SubResource("SphereMesh_vytq3")
+
+[node name="RigidGrave05" type="Node3D" parent="World3D/BackgroundGraves" unique_id=183438414]
+transform = Transform3D(0.9781476, 0, -0.2079117, 0, 1, 0, 0.2079117, 0, 0.9781476, 6.7, 0, 0.8)
+
+[node name="Body" type="MeshInstance3D" parent="World3D/BackgroundGraves/RigidGrave05" unique_id=516657170]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8256, 0)
+material_override = SubResource("StandardMaterial3D_vaaeh")
+mesh = SubResource("BoxMesh_68g0s")
+
+[node name="Arch" type="MeshInstance3D" parent="World3D/BackgroundGraves/RigidGrave05" unique_id=884040627]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 0.34, 0, 1.6224, 0)
+material_override = SubResource("StandardMaterial3D_vaaeh")
+mesh = SubResource("SphereMesh_cd0hw")
+
+[node name="Moon" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=1917130279]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.7, 6.7, -7.6)
+material_override = SubResource("StandardMaterial3D_yey8e")
+mesh = SubResource("SphereMesh_w2xnv")
+
+[node name="Mote00" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=1220570312]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0.55, -1.2)
+material_override = SubResource("StandardMaterial3D_b8dgm")
+mesh = SubResource("SphereMesh_c5mpi")
+
+[node name="Mote01" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=35275982]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.3, 2.275, -2.73)
+material_override = SubResource("StandardMaterial3D_b8dgm")
+mesh = SubResource("SphereMesh_0kntc")
+
+[node name="Mote02" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=366217642]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.4, 4, -4.26)
+material_override = SubResource("StandardMaterial3D_b8dgm")
+mesh = SubResource("SphereMesh_uluqf")
+
+[node name="Mote03" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=1773440045]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.1, 2.125, -2.01)
+material_override = SubResource("StandardMaterial3D_b8dgm")
+mesh = SubResource("SphereMesh_afm6g")
+
+[node name="Mote04" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=729343055]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.2, 3.85, -3.54)
+material_override = SubResource("StandardMaterial3D_b8dgm")
+mesh = SubResource("SphereMesh_5brcu")
+
+[node name="Mote05" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=575938145]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1.975, -1.29)
+material_override = SubResource("StandardMaterial3D_b8dgm")
+mesh = SubResource("SphereMesh_hb3ae")
+
+[node name="Mote06" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=1826195839]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.2, 3.7, -2.82)
+material_override = SubResource("StandardMaterial3D_b8dgm")
+mesh = SubResource("SphereMesh_31w1m")
+
+[node name="Mote07" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=1259133610]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.1, 1.825, -4.35)
+material_override = SubResource("StandardMaterial3D_b8dgm")
+mesh = SubResource("SphereMesh_uexkk")
+
+[node name="Mote08" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=1497525288]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 3.55, -2.1)
+material_override = SubResource("StandardMaterial3D_b8dgm")
+mesh = SubResource("SphereMesh_c8duq")
+
+[node name="Mote09" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=1345042682]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.3, 1.675, -3.63)
+material_override = SubResource("StandardMaterial3D_b8dgm")
+mesh = SubResource("SphereMesh_270p5")
+
+[node name="Mote10" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=793196269]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 3.4, -1.38)
+material_override = SubResource("StandardMaterial3D_b8dgm")
+mesh = SubResource("SphereMesh_py6ct")
+
+[node name="Mote11" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=1244793519]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.3, 1.525, -2.91)
+material_override = SubResource("StandardMaterial3D_b8dgm")
+mesh = SubResource("SphereMesh_n7w0a")
+
+[node name="Mote12" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=1275711740]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.4, 3.25, -4.44)
+material_override = SubResource("StandardMaterial3D_b8dgm")
+mesh = SubResource("SphereMesh_kigvq")
+
+[node name="Mote13" type="MeshInstance3D" parent="World3D/BackgroundGraves" unique_id=1403307917]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.9, 1.375, -2.19)
+material_override = SubResource("StandardMaterial3D_b8dgm")
+mesh = SubResource("SphereMesh_jlths")
+
+[node name="TombstoneStage" type="Node3D" parent="World3D" unique_id=490035799]
+
+[node name="ContactShadow" type="MeshInstance3D" parent="World3D/TombstoneStage" unique_id=418708748]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 0.52, 0, 0.045, 0)
+material_override = SubResource("StandardMaterial3D_3sh0b")
+cast_shadow = 0
+mesh = SubResource("CylinderMesh_vked4")
+
+[node name="Plinth" type="MeshInstance3D" parent="World3D/TombstoneStage" unique_id=822871222]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.17, 0)
+material_override = SubResource("StandardMaterial3D_ab25v")
+mesh = SubResource("BoxMesh_q2uhp")
+
+[node name="SlimeTombstone" type="Node3D" parent="World3D/TombstoneStage" unique_id=1022677218]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.37, 0)
+script = ExtResource("2_qbem7")
+
+[node name="Surface" type="MeshInstance3D" parent="World3D/TombstoneStage/SlimeTombstone" unique_id=343244815]
+mesh = SubResource("BoxMesh_slevr")
+
+[node name="WetCoat" type="MeshInstance3D" parent="World3D/TombstoneStage/SlimeTombstone" unique_id=964804676]
+cast_shadow = 0
+mesh = SubResource("BoxMesh_slevr")
+
+[node name="OutlineShell" type="MeshInstance3D" parent="World3D/TombstoneStage/SlimeTombstone" unique_id=1713051550]
+cast_shadow = 0
+mesh = SubResource("BoxMesh_slevr")
+
+[node name="FaceMark" type="Label3D" parent="World3D/TombstoneStage/SlimeTombstone" unique_id=1209893551]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.34, 0.36)
+billboard = 1
+render_priority = 2
+modulate = Color(0.68, 0.91, 0.78, 1)
+outline_modulate = Color(0.025, 0.075, 0.068, 0.96)
+text = "RIP"
+font_size = 74
+
+[node name="EdgeRig" type="Node3D" parent="World3D/TombstoneStage/SlimeTombstone" unique_id=1392560012]
+
+[node name="EdgePoint00" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=144075032]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0, 0)
+
+[node name="EdgePoint01" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=150835231]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.27, 0.46, 0)
+
+[node name="EdgePoint02" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=838373778]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.3, 1.22, 0)
+
+[node name="EdgePoint03" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=2102773221]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.28, 2.28, 0)
+
+[node name="EdgePoint04" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=1904236141]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.17, 3.05, 0)
+
+[node name="EdgePoint05" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=1445405763]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.94, 3.58, 0)
+
+[node name="EdgePoint06" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=482700180]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.62, 4.02, 0)
+
+[node name="EdgePoint07" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=1724578812]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.22, 4.28, 0)
+
+[node name="EdgePoint08" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=1211383659]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 4.28, 0)
+
+[node name="EdgePoint09" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=791262297]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.62, 4.02, 0)
+
+[node name="EdgePoint10" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=828034436]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.94, 3.58, 0)
+
+[node name="EdgePoint11" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=1759584637]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.17, 3.05, 0)
+
+[node name="EdgePoint12" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=1512746647]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.28, 2.28, 0)
+
+[node name="EdgePoint13" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=158554820]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.3, 1.22, 0)
+
+[node name="EdgePoint14" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=1083219002]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.27, 0.46, 0)
+
+[node name="EdgePoint15" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=1521632840]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0, 0)
+
+[node name="EdgePoint16" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=1095618625]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.45, -0.1, 0)
+
+[node name="EdgePoint17" type="Marker3D" parent="World3D/TombstoneStage/SlimeTombstone/EdgeRig" unique_id=1994967930]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.45, -0.1, 0)
+
+[node name="ImpactLight" type="OmniLight3D" parent="World3D/TombstoneStage" unique_id=1331844136]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.45, 2.3)
+light_color = Color(0.28, 1, 0.7, 1)
+light_energy = 0.0
+omni_range = 5.8
+
+[node name="Overlay" type="CanvasLayer" parent="." unique_id=523586560]
+
+[node name="TopBand" type="ColorRect" parent="Overlay" unique_id=795617190]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 118.0
+color = Color(0.012, 0.02, 0.03, 0.88)
+
+[node name="Title" type="Label" parent="Overlay/TopBand" unique_id=1410547350]
+layout_mode = 0
+offset_left = 34.0
+offset_top = 20.0
+offset_right = 34.0
+offset_bottom = 20.0
+theme_override_font_sizes/font_size = 28
+theme_override_colors/font_color = Color(0.7, 1, 0.84, 1)
+text = "软体墓碑 / JELLY TOMBSTONE"
+
+[node name="Subtitle" type="Label" parent="Overlay/TopBand" unique_id=935647188]
+layout_mode = 0
+offset_left = 36.0
+offset_top = 66.0
+offset_right = 36.0
+offset_bottom = 66.0
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.66, 0.74, 0.77, 1)
+text = "同一套史莱姆弹簧膜、面积压力与共享网格材质，改用非圆形拱顶轮廓"
+
+[node name="MetricsPanel" type="PanelContainer" parent="Overlay" unique_id=384436012]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -320.0
+offset_top = 18.0
+offset_right = -26.0
+offset_bottom = 151.0
+
+[node name="Margin" type="MarginContainer" parent="Overlay/MetricsPanel" unique_id=35578027]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 12
+
+[node name="Metrics" type="Label" parent="Overlay/MetricsPanel/Margin" unique_id=1283349142]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.72, 0.91, 0.84, 1)
+text = "初始化中…"
+
+[node name="Controls" type="HBoxContainer" parent="Overlay" unique_id=426431923]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -372.0
+offset_top = -77.0
+offset_right = 372.0
+offset_bottom = -25.0
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="PokeButton" type="Button" parent="Overlay/Controls" unique_id=1022499929]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 2
+text = "点一下"
+
+[node name="SquashButton" type="Button" parent="Overlay/Controls" unique_id=25623132]
+custom_minimum_size = Vector2(140, 48)
+layout_mode = 2
+text = "压扁 [Space]"
+
+[node name="ResetButton" type="Button" parent="Overlay/Controls" unique_id=157674608]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 2
+text = "复原 [R]"
+
+[node name="AutoButton" type="Button" parent="Overlay/Controls" unique_id=633681946]
+custom_minimum_size = Vector2(150, 48)
+layout_mode = 2
+text = "自动脉冲：开"
+
+[node name="Instruction" type="Label" parent="Overlay" unique_id=1523157153]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -112.0
+offset_right = 760.0
+offset_bottom = -83.0
+theme_override_font_sizes/font_size = 15
+theme_override_colors/font_color = Color(0.7, 0.79, 0.82, 1)
+text = "左键点击墓碑任意位置施加局部冲击；观察碑底是否稳定、拱顶是否仍可辨认。"
+
+[node name="ExitButton" type="Button" parent="Overlay" unique_id=611361633]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -214.0
+offset_top = 168.0
+offset_right = -28.0
+offset_bottom = 214.0
+text = "返回实验索引 [Esc]"

@@ -11,6 +11,12 @@ const STATIC_TEST_SCENES := {
 
 const EXTRA_TEST_SCENES := [
 	{
+		"button_name": "SlimeTombstoneButton",
+		"label": "Slime-Form Tombstone Test",
+		"scene_path": "res://scenes/slime_tombstone_test.tscn",
+		"featured": true,
+	},
+	{
 		"button_name": "PolygonAppleButton",
 		"label": "Apple Generic Polygon Validation",
 		"scene_path": "res://scenes/polygon_apple_test.tscn",
