@@ -81,7 +81,7 @@ func prepare_capture(page_turn_progress: float, clear_progress: float = 0.0) -> 
 	set_process(false)
 	_elapsed_time = 1.75
 	_polygon_asset.set_animation_time(_elapsed_time)
-	_polygon_asset.set_page_turn_progress(page_turn_progress)
+	_polygon_asset.set_deformation_progress(page_turn_progress)
 	_polygon_asset.set_clear_progress(clear_progress)
 	if _demo_status_label != null:
 		_demo_status_label.text = (
@@ -133,7 +133,7 @@ func _build_interface() -> void:
 	title.name = "Title"
 	title.position = Vector2(34.0, 18.0)
 	title.size = Vector2(760.0, 38.0)
-	title.text = "OPEN BOOK · POLYGON ASSET PIPELINE"
+	title.text = "GENERIC POLYGON PIPELINE · BOOK VALIDATION"
 	title.add_theme_font_size_override("font_size", 26)
 	title.add_theme_color_override("font_color", Color("#f0ddad"))
 	add_child(title)
@@ -227,12 +227,12 @@ func _play_page_turn() -> void:
 	_set_auto_demo_enabled(false)
 	if _page_turn_tween != null:
 		_page_turn_tween.kill()
-	_polygon_asset.set_page_turn_progress(0.0)
+	_polygon_asset.set_deformation_progress(0.0)
 	_page_turn_tween = create_tween()
 	_page_turn_tween.set_trans(Tween.TRANS_SINE)
 	_page_turn_tween.set_ease(Tween.EASE_IN_OUT)
 	_page_turn_tween.tween_method(
-		_polygon_asset.set_page_turn_progress,
+		_polygon_asset.set_deformation_progress,
 		0.0,
 		1.0,
 		1.2
@@ -265,7 +265,7 @@ func _set_auto_demo_enabled(enabled: bool) -> void:
 	if enabled:
 		_apply_auto_demo_state()
 		return
-	_polygon_asset.set_page_turn_progress(0.0)
+	_polygon_asset.set_deformation_progress(0.0)
 	_polygon_asset.set_clear_progress(0.0)
 	if _demo_status_label != null:
 		_demo_status_label.text = "MANUAL · A TO RESUME AUTO"
@@ -308,7 +308,7 @@ func _apply_auto_demo_state() -> void:
 			(_auto_cycle_time - AUTO_CLEAR_HOLD_END)
 			/ (AUTO_RESTORE_END - AUTO_CLEAR_HOLD_END)
 		)
-	_polygon_asset.set_page_turn_progress(page_turn_progress)
+	_polygon_asset.set_deformation_progress(page_turn_progress)
 	_polygon_asset.set_clear_progress(clear_progress)
 	if _demo_status_label != null:
 		_demo_status_label.text = "AUTO DEMO · %s" % phase
@@ -344,25 +344,26 @@ func _refresh_stats() -> void:
 		return
 	var stats: Dictionary = data.get("stats", {})
 	var runtime_stats: Dictionary = _polygon_asset.get_runtime_stats()
-	var internal_shapes: Array = data.get("internal_shapes", [])
-	var spine: Dictionary = (
-		internal_shapes[0] as Dictionary
-		if not internal_shapes.is_empty()
+	var features: Array = data.get("features", [])
+	var primary_feature: Dictionary = (
+		features[0] as Dictionary
+		if not features.is_empty()
 		else {}
 	)
 	_stats_label.text = (
-		"shape-guided · spine %.0f→%.0f px (%s) · "
+		"generic shape-guided · %s %.0f→%.0f px (%s) · "
 		+ "%d faces · %d logical vertices · %d connected component · "
 		+ "%d turnable page faces · single-layer mesh · "
 		+ "%d MeshInstance2D · %d draw surface · source texture dependency: %s · mesh debug: %s"
 	) % [
-		float(spine.get("source_width_px", 0.0)),
-		float(spine.get("constructed_width_px", 0.0)),
-		String(spine.get("palette_role", "none")),
+		String(primary_feature.get("id", "no-feature")),
+		float(primary_feature.get("source_width_px", 0.0)),
+		float(primary_feature.get("constructed_width_px", 0.0)),
+		String(primary_feature.get("palette_role", "none")),
 		int(stats.get("face_count", 0)),
 		int(stats.get("logical_vertex_count", 0)),
 		int(stats.get("connected_components", 0)),
-		int(runtime_stats.get("turnable_face_count", 0)),
+		int(runtime_stats.get("primary_deform_face_count", 0)),
 		int(runtime_stats.get("mesh_instance_count", 0)),
 		int(runtime_stats.get("surface_count", 0)),
 		"none" if not bool(runtime_stats.get("has_texture", true)) else "unexpected",

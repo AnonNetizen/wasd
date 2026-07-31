@@ -2,14 +2,20 @@ extends SceneTree
 
 const ASSET_PATH: String = "res://data/polygon_assets/open_book.polygon.json"
 const COMPILER := preload("res://scripts/polygon_asset_compiler_core.gd")
+const COMPILER_SOURCE_PATH: String = "res://scripts/polygon_asset_compiler_core.gd"
+const DEBUG_OVERLAY_SOURCE_PATH: String = (
+	"res://scripts/polygon_mesh_debug_overlay.gd"
+)
 const MANIFEST_PATH: String = "res://data/polygon_imports/open_book.json"
-const PAGE_PALETTE_ROLES: Array[String] = [
-	"page_light",
-	"page_mid",
-	"page_shadow",
-	"accent_warm",
-]
 const RUNTIME_SCRIPT := preload("res://scripts/polygon_asset_2d.gd")
+const RUNTIME_SOURCE_PATH: String = "res://scripts/polygon_asset_2d.gd"
+const PROMPT_BUILDER := preload("res://scripts/polygon_prompt_builder.gd")
+const PROMPT_TEMPLATE_PATH: String = (
+	"res://data/polygon_prompt_templates/source_image_v1.json"
+)
+const IMPORT_TEMPLATE_PATH: String = (
+	"res://data/polygon_imports/_linear_band_asset.template.json"
+)
 const SCENE_PATH: String = "res://scenes/polygon_book_test.tscn"
 const SHADER_PATH: String = "res://shaders/polygon_asset.gdshader"
 const SOURCE_PATH: String = "res://assets/polygon_art/open_book_source.png"
@@ -55,6 +61,9 @@ func _run_smoke() -> void:
 		_finish()
 		return
 	var style: Dictionary = style_result["data"]
+	_validate_prompt_template()
+	_validate_generic_compiler_source()
+	await _validate_arbitrary_axis_compile(compiler)
 	_validate_source(asset_data)
 	_validate_asset_schema(asset_data, style)
 	_validate_scene_file_shape()
@@ -93,7 +102,7 @@ func _validate_source(asset_data: Dictionary) -> void:
 
 
 func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
-	_check(int(asset_data.get("schema_version", 0)) == 1, "Polygon asset schema_version is 1.")
+	_check(int(asset_data.get("schema_version", 0)) == 2, "Polygon asset schema_version is 2.")
 	_check(String(asset_data.get("asset_id", "")) == "open_book", "Asset id is open_book.")
 	_check(
 		String(asset_data.get("style_id", "")) == String(style.get("style_id", "")),
@@ -110,7 +119,7 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	_check(
 		source_usage == [
 			"outer_shape",
-			"internal_shape",
+			"landmark_features",
 			"color_reference",
 		],
 		"Asset limits source-image usage to shape and color reference."
@@ -255,7 +264,7 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 		var face: Dictionary = face_value
 		if String(face.get("region", "")) != "left_page":
 			continue
-		if String(face.get("palette_role", "")) != "page_shadow":
+		if String(face.get("palette_role", "")) != "surface_shadow":
 			continue
 		var centroid := _face_centroid(face, vertices)
 		if (
@@ -274,7 +283,7 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 			int(region_counts[region_name]) > 0,
 			"Semantic region is non-empty: %s." % region_name
 		)
-	_validate_internal_shapes(
+	_validate_features(
 		asset_data,
 		style,
 		vertices,
@@ -317,12 +326,12 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 		"Stats record source-guided tool construction."
 	)
 	_check(
-		int(stats.get("internal_shape_count", 0)) == 1,
-		"Stats record the extracted spine shape."
+		int(stats.get("feature_count", 0)) == 1,
+		"Stats record the extracted primary feature."
 	)
 	_check(
-		int(stats.get("protected_internal_edge_count", 0)) >= 2,
-		"Stats record protected internal edges on both sides of the spine."
+		int(stats.get("protected_feature_edge_count", 0)) >= 2,
+		"Stats record protected edges on both sides of the feature."
 	)
 	_check(
 		is_equal_approx(
@@ -356,33 +365,47 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	_check(int(stats.get("emphasized_face_count", 0)) == 1, "Stats record one emphasized face.")
 
 
-func _validate_internal_shapes(
+func _validate_features(
 	asset_data: Dictionary,
 	style: Dictionary,
 	vertices: PackedVector2Array,
 	faces: Array
 ) -> void:
-	var shapes_value: Variant = asset_data.get("internal_shapes", [])
-	_check(shapes_value is Array, "Polygon asset internal_shapes is an array.")
-	if not shapes_value is Array:
+	var features_value: Variant = asset_data.get("features", [])
+	_check(features_value is Array, "Polygon asset features is an array.")
+	if not features_value is Array:
 		return
-	var shapes: Array = shapes_value
-	_check(shapes.size() == 1, "Open book has one extracted internal shape.")
-	if shapes.size() != 1 or not shapes[0] is Dictionary:
+	var features: Array = features_value
+	_check(features.size() == 1, "Open book has one extracted landmark feature.")
+	if features.size() != 1 or not features[0] is Dictionary:
 		return
-	var spine: Dictionary = shapes[0]
+	var feature: Dictionary = features[0]
 	_check(
-		String(spine.get("id", "")) == "spine"
-		and String(spine.get("kind", "")) == "vertical_band"
-		and String(spine.get("region", "")) == "spine",
-		"Extracted internal shape is the vertical spine band."
+		String(feature.get("id", "")) == "spine"
+		and String(feature.get("kind", "")) == "linear_band"
+		and String(feature.get("negative_region", "")) == "left_page"
+		and String(feature.get("region", "")) == "spine"
+		and String(feature.get("positive_region", "")) == "right_page",
+		"Book manifest maps one generic linear band to its three regions."
 	)
-	var left_x := float(spine.get("left_x", 0.0))
-	var center_x := float(spine.get("center_x", 0.0))
-	var right_x := float(spine.get("right_x", 0.0))
-	var source_width := float(spine.get("source_width_px", 0.0))
-	var constructed_width := float(spine.get("constructed_width_px", 0.0))
-	var extraction: Dictionary = style.get("internal_shape_extraction", {})
+	var axis := _array_to_vector2(feature.get("axis", []))
+	var cross_axis := _array_to_vector2(
+		feature.get("cross_axis", [])
+	)
+	var minimum_coordinate := float(
+		feature.get("minimum_coordinate", 0.0)
+	)
+	var center_coordinate := float(
+		feature.get("center_coordinate", 0.0)
+	)
+	var maximum_coordinate := float(
+		feature.get("maximum_coordinate", 0.0)
+	)
+	var source_width := float(feature.get("source_width_px", 0.0))
+	var constructed_width := float(
+		feature.get("constructed_width_px", 0.0)
+	)
+	var extraction: Dictionary = style.get("feature_extraction", {})
 	var minimum_width := float(
 		extraction.get("minimum_constructed_band_width_px", 0.0)
 	)
@@ -400,14 +423,26 @@ func _validate_internal_shapes(
 		"Tool rebuilds the spine inside the configured readable width range."
 	)
 	_check(
-		absf(center_x - (left_x + right_x) * 0.5) <= 0.001
-		and absf(constructed_width - (right_x - left_x)) <= 0.001,
-		"Constructed spine bounds agree with its center and width."
+		absf(axis.length() - 1.0) <= 0.001
+		and absf(cross_axis.length() - 1.0) <= 0.001
+		and absf(axis.dot(cross_axis)) <= 0.001,
+		"Feature stores an orthonormal local basis."
 	)
-	var source_color_hex := String(spine.get("source_color", ""))
+	_check(
+		absf(
+			center_coordinate
+			- (minimum_coordinate + maximum_coordinate) * 0.5
+		) <= 0.001
+		and absf(
+			constructed_width
+			- (maximum_coordinate - minimum_coordinate)
+		) <= 0.001,
+		"Constructed feature bounds agree with its center and width."
+	)
+	var source_color_hex := String(feature.get("source_color", ""))
 	var source_color := Color("#" + source_color_hex)
 	var palette: Dictionary = style.get("palette", {})
-	var palette_role := String(spine.get("palette_role", ""))
+	var palette_role := String(feature.get("palette_role", ""))
 	_check(
 		source_color_hex.length() == 6
 		and palette.has(palette_role),
@@ -419,32 +454,34 @@ func _validate_internal_shapes(
 	)
 
 	var region_geometry_is_constrained := true
-	var spine_faces_use_extracted_color := true
+	var feature_faces_use_extracted_color := true
 	for face_value: Variant in faces:
 		var face: Dictionary = face_value
 		var region := String(face.get("region", ""))
 		var indices: Array = face.get("indices", [])
 		for index_value: Variant in indices:
-			var x := vertices[int(index_value)].x
+			var coordinate := vertices[int(index_value)].dot(
+				cross_axis
+			)
 			if region == "left_page":
 				region_geometry_is_constrained = (
 					region_geometry_is_constrained
-					and x <= left_x + 0.001
+					and coordinate <= minimum_coordinate + 0.001
 				)
 			elif region == "right_page":
 				region_geometry_is_constrained = (
 					region_geometry_is_constrained
-					and x >= right_x - 0.001
+					and coordinate >= maximum_coordinate - 0.001
 				)
 			elif region == "spine":
 				region_geometry_is_constrained = (
 					region_geometry_is_constrained
-					and x >= left_x - 0.001
-					and x <= right_x + 0.001
+					and coordinate >= minimum_coordinate - 0.001
+					and coordinate <= maximum_coordinate + 0.001
 				)
 		if region == "spine":
-			spine_faces_use_extracted_color = (
-				spine_faces_use_extracted_color
+			feature_faces_use_extracted_color = (
+				feature_faces_use_extracted_color
 				and String(face.get("palette_role", "")) == palette_role
 			)
 	_check(
@@ -452,25 +489,33 @@ func _validate_internal_shapes(
 		"No generated face crosses a protected spine boundary."
 	)
 	_check(
-		spine_faces_use_extracted_color,
-		"Every constructed spine face uses the source-derived palette role."
+		feature_faces_use_extracted_color,
+		"Every feature face uses the source-derived palette role."
 	)
 	_check(
-		_count_spine_boundary_edges(
+		_count_feature_boundary_edges(
 			faces,
 			vertices,
-			left_x,
-			right_x
+			cross_axis,
+			minimum_coordinate,
+			maximum_coordinate,
+			"left_page",
+			"spine",
+			"right_page"
 		) >= 2,
-		"Both spine boundaries are shared protected edges, not visual overlays."
+		"Both feature boundaries are shared protected edges, not visual overlays."
 	)
 
 
-func _count_spine_boundary_edges(
+func _count_feature_boundary_edges(
 	faces: Array,
 	vertices: PackedVector2Array,
-	left_x: float,
-	right_x: float
+	cross_axis: Vector2,
+	minimum_coordinate: float,
+	maximum_coordinate: float,
+	negative_region: String,
+	feature_region: String,
+	positive_region: String
 ) -> int:
 	var edge_owners: Dictionary = {}
 	for face_value: Variant in faces:
@@ -487,22 +532,34 @@ func _count_spine_boundary_edges(
 	for edge_value: Variant in edge_owners:
 		var edge_key := String(edge_value)
 		var owners: Array = edge_owners[edge_key]
-		if owners.size() != 2 or not owners.has("spine"):
+		if owners.size() != 2 or not owners.has(feature_region):
 			continue
 		var index_parts := edge_key.split(":")
 		var first_point := vertices[int(index_parts[0])]
 		var second_point := vertices[int(index_parts[1])]
-		var on_left := (
-			is_equal_approx(first_point.x, left_x)
-			and is_equal_approx(second_point.x, left_x)
-			and owners.has("left_page")
+		var on_negative := (
+			is_equal_approx(
+				first_point.dot(cross_axis),
+				minimum_coordinate
+			)
+			and is_equal_approx(
+				second_point.dot(cross_axis),
+				minimum_coordinate
+			)
+			and owners.has(negative_region)
 		)
-		var on_right := (
-			is_equal_approx(first_point.x, right_x)
-			and is_equal_approx(second_point.x, right_x)
-			and owners.has("right_page")
+		var on_positive := (
+			is_equal_approx(
+				first_point.dot(cross_axis),
+				maximum_coordinate
+			)
+			and is_equal_approx(
+				second_point.dot(cross_axis),
+				maximum_coordinate
+			)
+			and owners.has(positive_region)
 		)
-		if on_left or on_right:
+		if on_negative or on_positive:
 			protected_count += 1
 	return protected_count
 
@@ -526,6 +583,304 @@ func _nearest_palette_role(source_color: Color, palette: Dictionary) -> String:
 	return nearest_role
 
 
+func _validate_prompt_template() -> void:
+	_check(
+		FileAccess.file_exists(PROMPT_TEMPLATE_PATH),
+		"Reusable Polygon source-image prompt template exists."
+	)
+	var builder := PROMPT_BUILDER.new()
+	var first_result: Dictionary = builder.build_from_manifest(
+		MANIFEST_PATH
+	)
+	var second_result: Dictionary = builder.build_from_manifest(
+		MANIFEST_PATH
+	)
+	_check(
+		bool(first_result.get("ok", false))
+		and bool(second_result.get("ok", false)),
+		"Book manifest renders through the reusable prompt template."
+	)
+	if (
+		not bool(first_result.get("ok", false))
+		or not bool(second_result.get("ok", false))
+	):
+		return
+	var first_prompt := String(first_result.get("prompt", ""))
+	var second_prompt := String(second_result.get("prompt", ""))
+	_check(
+		first_prompt == second_prompt,
+		"Prompt template rendering is deterministic."
+	)
+	_check(
+		not first_prompt.contains("{{")
+		and first_prompt.contains("outer contour alone")
+		and first_prompt.contains("Landmark 1")
+		and first_prompt.contains("one continuous unbroken band")
+		and first_prompt.contains("constructs all final Polygon points and faces itself"),
+		"Rendered prompt enforces recognizable silhouette and structural landmarks."
+	)
+	var rejection_checks: Array = first_result.get(
+		"rejection_checks",
+		[]
+	)
+	_check(
+		rejection_checks.size() >= 8,
+		"Prompt template declares machine-authoring rejection checks."
+	)
+	var import_template_result := _load_json_dictionary(
+		IMPORT_TEMPLATE_PATH
+	)
+	_check(
+		bool(import_template_result.get("ok", false)),
+		"Reusable linear-band import manifest template loads."
+	)
+	if bool(import_template_result.get("ok", false)):
+		var import_template: Dictionary = import_template_result["data"]
+		_check(
+			int(import_template.get("schema_version", 0)) == 2
+			and String(import_template.get("prompt_template", ""))
+			== PROMPT_TEMPLATE_PATH
+			and (import_template.get("feature_guides", []) as Array).size()
+			== 1,
+			"Import template binds schema v2, prompt template, and one primary feature."
+		)
+
+
+func _validate_generic_compiler_source() -> void:
+	var file := FileAccess.open(COMPILER_SOURCE_PATH, FileAccess.READ)
+	_check(file != null, "Generic Polygon compiler source is readable.")
+	if file == null:
+		return
+	var source := file.get_as_text().to_lower()
+	var object_specific_tokens: Array[String] = [
+		"spine",
+		"left_page",
+		"right_page",
+		"vertical_band",
+	]
+	var is_generic := true
+	for token: String in object_specific_tokens:
+		is_generic = is_generic and not source.contains(token)
+	_check(
+		is_generic,
+		"Compiler core contains no book-specific feature or region ids."
+	)
+	_check(
+		source.contains("linear_band")
+		and source.contains("cross_axis")
+		and source.contains("_clip_polygon_half_plane"),
+		"Compiler core constructs arbitrary-axis linear feature partitions."
+	)
+	var generic_runtime_sources := [
+		RUNTIME_SOURCE_PATH,
+		DEBUG_OVERLAY_SOURCE_PATH,
+		SHADER_PATH,
+	]
+	var runtime_sources_are_generic := true
+	for source_path: String in generic_runtime_sources:
+		var source_file := FileAccess.open(source_path, FileAccess.READ)
+		if source_file == null:
+			runtime_sources_are_generic = false
+			continue
+		var runtime_source := source_file.get_as_text().to_lower()
+		for token: String in object_specific_tokens:
+			runtime_sources_are_generic = (
+				runtime_sources_are_generic
+				and not runtime_source.contains(token)
+			)
+		for motion_token in [
+			"page_turn",
+			"turnable_page",
+			"right_page_position",
+		]:
+			runtime_sources_are_generic = (
+				runtime_sources_are_generic
+				and not runtime_source.contains(motion_token)
+			)
+	_check(
+		runtime_sources_are_generic,
+		"Runtime, shader, and debug overlay contain no book-specific motion ids."
+	)
+
+
+func _validate_arbitrary_axis_compile(compiler: RefCounted) -> void:
+	var fixture_directory := ProjectSettings.globalize_path(
+		"user://polygon_asset_generic_smoke"
+	)
+	var source_path := fixture_directory.path_join(
+		"rotated_source.png"
+	)
+	var manifest_path := fixture_directory.path_join(
+		"rotated_manifest.json"
+	)
+	var output_path := fixture_directory.path_join(
+		"rotated_output.polygon.json"
+	)
+	var directory_error := DirAccess.make_dir_recursive_absolute(
+		fixture_directory
+	)
+	_check(
+		directory_error == OK,
+		"Generic compiler fixture directory can be created."
+	)
+	if directory_error != OK:
+		return
+	var source := Image.new()
+	var load_error := source.load(
+		ProjectSettings.globalize_path(SOURCE_PATH)
+	)
+	if load_error != OK:
+		_check(false, "Generic compiler fixture source loads.")
+		return
+	source.resize(256, 256, Image.INTERPOLATE_LANCZOS)
+	var rotated := Image.create(
+		source.get_height(),
+		source.get_width(),
+		false,
+		Image.FORMAT_RGBA8
+	)
+	for y in range(source.get_height()):
+		for x in range(source.get_width()):
+			rotated.set_pixel(
+				source.get_height() - 1 - y,
+				x,
+				source.get_pixel(x, y)
+			)
+	var save_error := rotated.save_png(source_path)
+	_check(
+		save_error == OK,
+		"Generic compiler rotated fixture can be written."
+	)
+	if save_error != OK:
+		return
+	var manifest := {
+		"schema_version": 2,
+		"asset_id": "rotated_generic_fixture",
+		"source_image": source_path,
+		"style_profile": STYLE_PATH,
+		"output_asset": output_path,
+		"background_key": "#ff00ff",
+		"pivot": {"mode": "foreground_bounds_center"},
+		"default_region": "surface",
+		"runtime_profile": {
+			"deformation_axis": [0.0, 1.0],
+			"primary_deform_regions": ["positive_side"],
+			"secondary_deform_regions": ["negative_side"],
+			"deformable_surface_kinds": ["surface"],
+			"deformation_light_palette_role": "accent_warm",
+			"deformation_shadow_palette_role": "surface_shadow",
+		},
+		"feature_guides": [{
+			"id": "primary_landmark",
+			"kind": "linear_band",
+			"axis": [1.0, 0.0],
+			"cross_axis": [0.0, 1.0],
+			"anchor_normalized": [0.5, 0.5],
+			"sample_offsets": [-0.25, 0.0, 0.25],
+			"negative_region": "negative_side",
+			"region": "landmark",
+			"positive_region": "positive_side",
+			"search_half_width_ratio": 0.1,
+			"minimum_constructed_width_px": 20.0,
+			"maximum_constructed_width_px": 28.0,
+		}],
+		"facet_emphasis": [],
+		"anchors": {},
+		"collision": {
+			"strategy": "convex_hull",
+			"static_during_visual_animation": true,
+		},
+	}
+	var manifest_file := FileAccess.open(
+		manifest_path,
+		FileAccess.WRITE
+	)
+	_check(
+		manifest_file != null,
+		"Generic compiler rotated manifest can be written."
+	)
+	if manifest_file == null:
+		return
+	manifest_file.store_string(
+		JSON.stringify(manifest, "\t", true, true) + "\n"
+	)
+	manifest_file = null
+	var result: Dictionary = compiler.compile_manifest(manifest_path)
+	_check(
+		bool(result.get("ok", false)),
+		"Generic compiler handles the same landmark on a horizontal axis."
+	)
+	if bool(result.get("ok", false)):
+		var data: Dictionary = result["data"]
+		var features: Array = data.get("features", [])
+		var regions: Dictionary = data.get("regions", {})
+		var feature: Dictionary = (
+			features[0] as Dictionary
+			if not features.is_empty()
+			else {}
+		)
+		_check(
+			_array_to_vector2(feature.get("axis", [])).is_equal_approx(
+				Vector2.RIGHT
+			)
+			and _array_to_vector2(
+				feature.get("cross_axis", [])
+			).is_equal_approx(Vector2.DOWN),
+			"Compiled feature preserves the manifest coordinate basis."
+		)
+		_check(
+			regions.has("negative_side")
+			and regions.has("landmark")
+			and regions.has("positive_side")
+			and not regions.has("left_page")
+			and not regions.has("right_page"),
+			"Compiler emits manifest-defined region ids without book defaults."
+		)
+		var write_error: Error = compiler.write_compiled_result(result)
+		_check(
+			write_error == OK,
+			"Generic compiler fixture can be written for runtime loading."
+		)
+		if write_error == OK:
+			var runtime := RUNTIME_SCRIPT.new()
+			runtime.name = "RotatedGenericRuntime"
+			root.add_child(runtime)
+			await process_frame
+			var runtime_error: Error = runtime.load_asset(output_path)
+			var runtime_stats: Dictionary = runtime.get_runtime_stats()
+			_check(
+				runtime_error == OK,
+				"Generic runtime loads the arbitrary-axis compiled asset."
+			)
+			_check(
+				_array_to_vector2(
+					runtime_stats.get("deformation_axis", [])
+				).is_equal_approx(Vector2.DOWN)
+				and int(runtime_stats.get(
+					"primary_deform_face_count",
+					0
+				)) > 0,
+				"Generic runtime uses manifest-defined deformation direction and regions."
+			)
+			runtime.set_deformation_progress(0.5)
+			_check(
+				is_equal_approx(
+					float(runtime.get_runtime_stats().get(
+						"deformation_progress",
+						0.0
+					)),
+					0.5
+				),
+				"Arbitrary-axis runtime deformation progress is directly controllable."
+			)
+			runtime.queue_free()
+			await process_frame
+	DirAccess.remove_absolute(manifest_path)
+	DirAccess.remove_absolute(source_path)
+	DirAccess.remove_absolute(output_path)
+	DirAccess.remove_absolute(fixture_directory)
+
+
 func _validate_scene_file_shape() -> void:
 	_check(FileAccess.file_exists(SCENE_PATH), "Generated Polygon book scene exists.")
 	var file := FileAccess.open(SCENE_PATH, FileAccess.READ)
@@ -544,19 +899,25 @@ func _validate_shader_shape() -> void:
 	if shader == null:
 		return
 	_check(
-		shader.code.find("vertex_turn_weight") >= 0
+		shader.code.find("vertex_deformation_weight") >= 0
 		and shader.code.find("step(0.75, COLOR.a)") >= 0,
 		"Shader separates shared-vertex deformation from per-face color animation."
 	)
 	_check(
 		shader.code.find("crease_center") >= 0
-		and shader.code.find("turn_boundary_guard") >= 0,
-		"Shader animates a bounded crease through page vertices."
+		and shader.code.find("boundary_guard") >= 0,
+		"Shader animates a bounded crease through deformable vertices."
 	)
 	_check(
-		shader.code.find("page_fold_light") >= 0
-		and shader.code.find("page_fold_shadow") >= 0,
-		"Shader exposes fold color-shift endpoints."
+		shader.code.find("deformation_axis") >= 0
+		and shader.code.find("deformation_origin") >= 0
+		and shader.code.find("deformation_tangent_span") >= 0,
+		"Shader derives point motion from a data-driven local basis."
+	)
+	_check(
+		shader.code.find("deformation_light") >= 0
+		and shader.code.find("deformation_shadow") >= 0,
+		"Shader exposes generic deformation color-shift endpoints."
 	)
 
 
@@ -577,23 +938,30 @@ func _validate_runtime() -> void:
 	var runtime_stats: Dictionary = runtime.get_runtime_stats()
 	var runtime_asset_data: Dictionary = runtime.get_asset_data()
 	var runtime_faces: Array = runtime_asset_data.get("faces", [])
-	var authored_turnable_face_count := 0
+	var runtime_profile: Dictionary = runtime_asset_data.get(
+		"runtime_profile",
+		{}
+	)
+	var authored_primary_face_count := 0
 	for face_value: Variant in runtime_faces:
-		if _motion_mask_for_face(face_value as Dictionary) >= 0.75:
-			authored_turnable_face_count += 1
+		if _motion_mask_for_face(
+			face_value as Dictionary,
+			runtime_profile
+		) >= 0.75:
+			authored_primary_face_count += 1
 	_check(
-		authored_turnable_face_count > 0
-		and int(runtime_stats.get("turnable_face_count", 0))
-		== authored_turnable_face_count,
-		"Runtime keeps exactly the authored right-page faces turnable."
+		authored_primary_face_count > 0
+		and int(runtime_stats.get("primary_deform_face_count", 0))
+		== authored_primary_face_count,
+		"Runtime keeps exactly the manifest-authored primary deform faces."
 	)
 	_check(
 		int(runtime_stats.get("deformable_logical_vertex_count", 0)) > 0,
-		"Runtime keeps interior right-page logical vertices deformable."
+		"Runtime keeps interior primary-region logical vertices deformable."
 	)
 	_check(
-		int(runtime_stats.get("pinned_page_boundary_vertex_count", 0)) > 0,
-		"Runtime pins logical vertices shared by the page and fixed book geometry."
+		int(runtime_stats.get("pinned_primary_boundary_vertex_count", 0)) > 0,
+		"Runtime pins logical vertices shared by deforming and fixed geometry."
 	)
 	_check(
 		int(runtime_stats.get("render_face_count", 0))
@@ -617,7 +985,8 @@ func _validate_runtime() -> void:
 				runtime_faces,
 				_vector2_array_from_json(
 					runtime_asset_data.get("vertices", [])
-				).size()
+				).size(),
+				runtime_profile
 			)
 			var expanded_vertex_index := 0
 			var shared_motion_masks_match := true
@@ -630,7 +999,12 @@ func _validate_runtime() -> void:
 				var face: Dictionary = face_value
 				var indices: Array = face.get("indices", [])
 				var expected_face_alpha := (
-					1.0 if _motion_mask_for_face(face) >= 0.75 else 0.5
+					1.0
+					if _motion_mask_for_face(
+						face,
+						runtime_profile
+					) >= 0.75
+					else 0.5
 				)
 				for vertex_index_value: Variant in indices:
 					var logical_vertex_index := int(vertex_index_value)
@@ -696,7 +1070,7 @@ func _validate_runtime() -> void:
 	var collision_before := collision.polygon.duplicate() if collision != null else PackedVector2Array()
 
 	runtime.set_animation_time(2.5)
-	runtime.set_page_turn_progress(0.5)
+	runtime.set_deformation_progress(0.5)
 	runtime.set_clear_progress(0.65)
 	var progress_stats: Dictionary = runtime.get_runtime_stats()
 	_check(
@@ -704,8 +1078,11 @@ func _validate_runtime() -> void:
 		"Animation time can be set directly."
 	)
 	_check(
-		is_equal_approx(float(progress_stats.get("page_turn_progress", 0.0)), 0.5),
-		"Page-turn progress can be set directly."
+		is_equal_approx(
+			float(progress_stats.get("deformation_progress", 0.0)),
+			0.5
+		),
+		"Deformation progress can be set directly."
 	)
 	_check(
 		is_equal_approx(float(progress_stats.get("clear_progress", 0.0)), 0.65),
@@ -720,7 +1097,7 @@ func _validate_runtime() -> void:
 	var reset_stats: Dictionary = runtime.get_runtime_stats()
 	_check(
 		is_zero_approx(float(reset_stats.get("animation_time", -1.0)))
-		and is_zero_approx(float(reset_stats.get("page_turn_progress", -1.0)))
+		and is_zero_approx(float(reset_stats.get("deformation_progress", -1.0)))
 		and is_zero_approx(float(reset_stats.get("clear_progress", -1.0))),
 		"reset_visual restores all animation progress."
 	)
@@ -756,7 +1133,7 @@ func _validate_demo_scene() -> void:
 	var polygon_asset: Node = scene.call("get_polygon_asset")
 	var turn_stats: Dictionary = polygon_asset.call("get_runtime_stats")
 	_check(
-		float(turn_stats.get("page_turn_progress", 0.0)) > 0.4,
+		float(turn_stats.get("deformation_progress", 0.0)) > 0.4,
 		"Auto demo reaches a visible page-turn phase."
 	)
 	scene.call("debug_set_auto_demo_time", 3.5)
@@ -892,58 +1269,73 @@ func _analyze_edge_topology(
 
 func _build_expected_vertex_motion_masks(
 	faces: Array,
-	vertex_count: int
+	vertex_count: int,
+	runtime_profile: Dictionary
 ) -> PackedFloat32Array:
-	var has_turnable_face := PackedByteArray()
-	var has_left_page_face := PackedByteArray()
+	var has_primary_face := PackedByteArray()
+	var has_secondary_face := PackedByteArray()
 	var has_fixed_face := PackedByteArray()
-	has_turnable_face.resize(vertex_count)
-	has_left_page_face.resize(vertex_count)
+	has_primary_face.resize(vertex_count)
+	has_secondary_face.resize(vertex_count)
 	has_fixed_face.resize(vertex_count)
 	for face_value: Variant in faces:
 		var face: Dictionary = face_value
-		var face_motion_mask := _motion_mask_for_face(face)
+		var face_motion_mask := _motion_mask_for_face(
+			face,
+			runtime_profile
+		)
 		var indices: Array = face.get("indices", [])
 		for vertex_index_value: Variant in indices:
 			var vertex_index := int(vertex_index_value)
 			if face_motion_mask >= 0.75:
-				has_turnable_face[vertex_index] = 1
+				has_primary_face[vertex_index] = 1
 			elif face_motion_mask >= 0.25:
-				has_left_page_face[vertex_index] = 1
+				has_secondary_face[vertex_index] = 1
 			else:
 				has_fixed_face[vertex_index] = 1
 
 	var result := PackedFloat32Array()
 	result.resize(vertex_count)
 	for vertex_index in range(vertex_count):
-		var touches_turnable_page := has_turnable_face[vertex_index] == 1
+		var touches_primary := has_primary_face[vertex_index] == 1
 		var touches_other_geometry := (
-			has_left_page_face[vertex_index] == 1
+			has_secondary_face[vertex_index] == 1
 			or has_fixed_face[vertex_index] == 1
 		)
-		if touches_turnable_page and not touches_other_geometry:
+		if touches_primary and not touches_other_geometry:
 			result[vertex_index] = 1.0
 		elif (
-			not touches_turnable_page
-			and has_left_page_face[vertex_index] == 1
+			not touches_primary
+			and has_secondary_face[vertex_index] == 1
 			and has_fixed_face[vertex_index] == 0
 		):
 			result[vertex_index] = 0.5
 	return result
 
 
-func _motion_mask_for_face(face: Dictionary) -> float:
-	var role := String(face.get("palette_role", ""))
+func _motion_mask_for_face(
+	face: Dictionary,
+	runtime_profile: Dictionary
+) -> float:
 	var surface_kind := String(face.get("surface_kind", ""))
-	var is_page_surface := surface_kind == "page"
-	if surface_kind.is_empty():
-		is_page_surface = PAGE_PALETTE_ROLES.has(role)
-	if not is_page_surface:
+	var deformable_surface_kinds: Array = runtime_profile.get(
+		"deformable_surface_kinds",
+		[]
+	)
+	if not deformable_surface_kinds.has(surface_kind):
 		return 0.0
 	var region := String(face.get("region", ""))
-	if region == "right_page":
+	var primary_regions: Array = runtime_profile.get(
+		"primary_deform_regions",
+		[]
+	)
+	var secondary_regions: Array = runtime_profile.get(
+		"secondary_deform_regions",
+		[]
+	)
+	if primary_regions.has(region):
 		return 1.0
-	if region == "left_page":
+	if secondary_regions.has(region):
 		return 0.5
 	return 0.0
 

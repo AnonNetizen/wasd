@@ -32,7 +32,7 @@
 			172.0
 		]
 	},
-	"clear_order": "outer_edge_to_spine",
+	"clear_order": "outer_edge_to_primary_feature",
 	"collision": {
 		"convex_hull": [
 			[
@@ -73,7 +73,7 @@
 		"runtime_source_texture": false,
 		"source_usage": [
 			"outer_shape",
-			"internal_shape",
+			"landmark_features",
 			"color_reference"
 		]
 	},
@@ -85,7 +85,7 @@
 				7,
 				31
 			],
-			"palette_role": "cover_light",
+			"palette_role": "secondary_light",
 			"region": "right_page",
 			"surface_kind": "cover"
 		},
@@ -96,7 +96,7 @@
 				1,
 				19
 			],
-			"palette_role": "cover_shadow",
+			"palette_role": "secondary_shadow",
 			"region": "left_page",
 			"surface_kind": "cover"
 		},
@@ -107,7 +107,7 @@
 				9,
 				8
 			],
-			"palette_role": "cover_light",
+			"palette_role": "secondary_light",
 			"region": "right_page",
 			"surface_kind": "cover"
 		},
@@ -118,7 +118,7 @@
 				6,
 				31
 			],
-			"palette_role": "page_shadow",
+			"palette_role": "surface_shadow",
 			"region": "right_page",
 			"surface_kind": "page"
 		},
@@ -136,6 +136,28 @@
 		{
 			"clear_order": 0.125,
 			"indices": [
+				10,
+				8,
+				30
+			],
+			"palette_role": "surface_shadow",
+			"region": "right_page",
+			"surface_kind": "page"
+		},
+		{
+			"clear_order": 0.14583333333333334,
+			"indices": [
+				8,
+				6,
+				30
+			],
+			"palette_role": "accent_warm",
+			"region": "right_page",
+			"surface_kind": "page"
+		},
+		{
+			"clear_order": 0.16666666666666666,
+			"indices": [
 				14,
 				2,
 				19
@@ -145,7 +167,7 @@
 			"surface_kind": "page"
 		},
 		{
-			"clear_order": 0.14583333333333334,
+			"clear_order": 0.1875,
 			"indices": [
 				1,
 				14,
@@ -156,47 +178,25 @@
 			"surface_kind": "page"
 		},
 		{
-			"clear_order": 0.16666666666666666,
-			"indices": [
-				10,
-				8,
-				30
-			],
-			"palette_role": "page_shadow",
-			"region": "right_page",
-			"surface_kind": "page"
-		},
-		{
-			"clear_order": 0.1875,
-			"indices": [
-				8,
-				6,
-				30
-			],
-			"palette_role": "accent_warm",
-			"region": "right_page",
-			"surface_kind": "page"
-		},
-		{
 			"clear_order": 0.20833333333333334,
 			"indices": [
-				2,
-				14,
-				20
+				6,
+				10,
+				30
 			],
-			"palette_role": "page_mid",
-			"region": "left_page",
+			"palette_role": "surface_light",
+			"region": "right_page",
 			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.22916666666666666,
 			"indices": [
-				6,
-				10,
-				30
+				2,
+				14,
+				20
 			],
-			"palette_role": "page_light",
-			"region": "right_page",
+			"palette_role": "surface_mid",
+			"region": "left_page",
 			"surface_kind": "page"
 		},
 		{
@@ -206,7 +206,7 @@
 				1,
 				18
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "left_page",
 			"surface_kind": "page"
 		},
@@ -217,7 +217,7 @@
 				6,
 				29
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "right_page",
 			"surface_kind": "page"
 		},
@@ -228,7 +228,7 @@
 				10,
 				29
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "right_page",
 			"surface_kind": "page"
 		},
@@ -239,7 +239,7 @@
 				17,
 				29
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "right_page",
 			"surface_kind": "page"
 		},
@@ -250,41 +250,41 @@
 				0,
 				4
 			],
-			"palette_role": "page_mid",
+			"palette_role": "surface_mid",
 			"region": "left_page",
 			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.3541666666666667,
 			"indices": [
+				10,
+				17,
+				28
+			],
+			"palette_role": "surface_light",
+			"region": "right_page",
+			"surface_kind": "page"
+		},
+		{
+			"clear_order": 0.375,
+			"indices": [
 				3,
 				2,
 				20
 			],
-			"palette_role": "page_shadow",
+			"palette_role": "surface_shadow",
 			"region": "left_page",
 			"surface_kind": "cover"
 		},
 		{
-			"clear_order": 0.375,
+			"clear_order": 0.3958333333333333,
 			"indices": [
 				1,
 				3,
 				18
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "left_page",
-			"surface_kind": "page"
-		},
-		{
-			"clear_order": 0.3958333333333333,
-			"indices": [
-				10,
-				17,
-				28
-			],
-			"palette_role": "page_light",
-			"region": "right_page",
 			"surface_kind": "page"
 		},
 		{
@@ -294,7 +294,7 @@
 				6,
 				27
 			],
-			"palette_role": "page_mid",
+			"palette_role": "surface_mid",
 			"region": "right_page",
 			"surface_kind": "page"
 		},
@@ -305,7 +305,7 @@
 				0,
 				21
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "left_page",
 			"surface_kind": "page"
 		},
@@ -316,129 +316,129 @@
 				15,
 				23
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "left_page",
 			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.4791666666666667,
 			"indices": [
-				14,
-				3,
-				20
+				10,
+				16,
+				25
 			],
-			"palette_role": "page_mid",
-			"region": "left_page",
+			"palette_role": "surface_light",
+			"region": "right_page",
 			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.5,
 			"indices": [
-				3,
-				14,
-				18
+				16,
+				10,
+				26
 			],
-			"palette_role": "page_light",
-			"region": "left_page",
+			"palette_role": "surface_light",
+			"region": "right_page",
 			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.5208333333333334,
 			"indices": [
-				10,
-				16,
-				25
+				14,
+				3,
+				20
 			],
-			"palette_role": "page_light",
-			"region": "right_page",
+			"palette_role": "surface_mid",
+			"region": "left_page",
 			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.5416666666666666,
 			"indices": [
-				16,
-				10,
-				26
+				3,
+				14,
+				18
 			],
-			"palette_role": "page_light",
-			"region": "right_page",
+			"palette_role": "surface_light",
+			"region": "left_page",
 			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.5625,
 			"indices": [
-				0,
-				13,
-				21
+				5,
+				10,
+				28
 			],
-			"palette_role": "page_light",
-			"region": "left_page",
+			"palette_role": "surface_light",
+			"region": "right_page",
 			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.5833333333333334,
 			"indices": [
-				4,
 				0,
-				23
+				13,
+				21
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "left_page",
 			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.6041666666666666,
 			"indices": [
-				5,
-				10,
-				28
+				4,
+				0,
+				23
 			],
-			"palette_role": "page_light",
-			"region": "right_page",
+			"palette_role": "surface_light",
+			"region": "left_page",
 			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.625,
 			"indices": [
-				4,
-				3,
-				1
-			],
-			"palette_role": "page_light",
-			"region": "left_page",
-			"surface_kind": "page"
-		},
-		{
-			"clear_order": 0.6458333333333334,
-			"indices": [
 				6,
 				5,
 				27
 			],
-			"palette_role": "cover_light",
+			"palette_role": "secondary_light",
 			"region": "right_page",
 			"surface_kind": "cover"
 		},
 		{
-			"clear_order": 0.6666666666666666,
+			"clear_order": 0.6458333333333334,
 			"indices": [
 				11,
 				10,
 				25
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
+			"region": "right_page",
+			"surface_kind": "page"
+		},
+		{
+			"clear_order": 0.6666666666666666,
+			"indices": [
+				10,
+				5,
+				26
+			],
+			"palette_role": "surface_light",
 			"region": "right_page",
 			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.6875,
 			"indices": [
-				10,
-				5,
-				26
+				4,
+				3,
+				1
 			],
-			"palette_role": "page_light",
-			"region": "right_page",
+			"palette_role": "surface_light",
+			"region": "left_page",
 			"surface_kind": "page"
 		},
 		{
@@ -448,7 +448,7 @@
 				5,
 				28
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "right_page",
 			"surface_kind": "page"
 		},
@@ -459,7 +459,7 @@
 				17,
 				27
 			],
-			"palette_role": "page_mid",
+			"palette_role": "surface_mid",
 			"region": "right_page",
 			"surface_kind": "page"
 		},
@@ -470,7 +470,7 @@
 				15,
 				21
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "left_page",
 			"surface_kind": "page"
 		},
@@ -481,7 +481,7 @@
 				4,
 				23
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "left_page",
 			"surface_kind": "page"
 		},
@@ -492,7 +492,7 @@
 				11,
 				25
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "right_page",
 			"surface_kind": "page"
 		},
@@ -503,7 +503,7 @@
 				16,
 				26
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "right_page",
 			"surface_kind": "page"
 		},
@@ -514,7 +514,7 @@
 				13,
 				22
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "left_page",
 			"surface_kind": "page"
 		},
@@ -525,7 +525,7 @@
 				15,
 				22
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "left_page",
 			"surface_kind": "page"
 		},
@@ -536,7 +536,7 @@
 				16,
 				24
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "right_page",
 			"surface_kind": "page"
 		},
@@ -547,7 +547,7 @@
 				5,
 				24
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "right_page",
 			"surface_kind": "page"
 		},
@@ -558,7 +558,7 @@
 				4,
 				22
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "left_page",
 			"surface_kind": "page"
 		},
@@ -569,16 +569,16 @@
 				11,
 				24
 			],
-			"palette_role": "page_light",
+			"palette_role": "surface_light",
 			"region": "right_page",
 			"surface_kind": "page"
 		},
 		{
 			"clear_order": 0.9583333333333334,
 			"indices": [
-				4,
-				13,
-				12
+				12,
+				11,
+				5
 			],
 			"palette_role": "accent_warm",
 			"region": "spine",
@@ -587,9 +587,9 @@
 		{
 			"clear_order": 0.9791666666666666,
 			"indices": [
-				12,
-				11,
-				5
+				4,
+				13,
+				12
 			],
 			"palette_role": "accent_warm",
 			"region": "spine",
@@ -607,16 +607,26 @@
 			"surface_kind": "page"
 		}
 	],
-	"internal_shapes": [
+	"features": [
 		{
-			"center_x": -2.0,
+			"axis": [
+				0.0,
+				1.0
+			],
+			"center_coordinate": -2.0,
 			"constructed_width_px": 20.0,
+			"cross_axis": [
+				1.0,
+				0.0
+			],
 			"id": "spine",
-			"kind": "vertical_band",
-			"left_x": -12.0,
+			"kind": "linear_band",
+			"maximum_coordinate": 8.0,
+			"minimum_coordinate": -12.0,
+			"negative_region": "left_page",
 			"palette_role": "accent_warm",
+			"positive_region": "right_page",
 			"region": "spine",
-			"right_x": 8.0,
 			"sample_count": 3,
 			"source_color": "c5a96d",
 			"source_width_px": 3.0
@@ -682,12 +692,12 @@
 	],
 	"palette": {
 		"accent_warm": "#c99a5d",
-		"cover_light": "#584a78",
-		"cover_shadow": "#322b48",
 		"outline": "#191824",
-		"page_light": "#eadfca",
-		"page_mid": "#cfbea1",
-		"page_shadow": "#9f8b73"
+		"secondary_light": "#584a78",
+		"secondary_shadow": "#322b48",
+		"surface_light": "#eadfca",
+		"surface_mid": "#cfbea1",
+		"surface_shadow": "#9f8b73"
 	},
 	"pivot": [
 		128.0,
@@ -704,7 +714,24 @@
 			"face_count": 3
 		}
 	},
-	"schema_version": 1,
+	"runtime_profile": {
+		"deformable_surface_kinds": [
+			"page"
+		],
+		"deformation_axis": [
+			1.0,
+			0.0
+		],
+		"deformation_light_palette_role": "accent_warm",
+		"deformation_shadow_palette_role": "surface_shadow",
+		"primary_deform_regions": [
+			"right_page"
+		],
+		"secondary_deform_regions": [
+			"left_page"
+		]
+	},
+	"schema_version": 2,
 	"source": {
 		"analysis_size_px": [
 			256,
@@ -739,8 +766,8 @@
 		"draw_surfaces": 1,
 		"emphasized_face_count": 1,
 		"face_count": 48,
+		"feature_count": 1,
 		"interior_edge_count": 65,
-		"internal_shape_count": 1,
 		"logical_vertex_count": 32,
 		"minimum_face_altitude_px": 7.84910518672533,
 		"minimum_outline_edge_length_px": 8.403108596801758,
@@ -748,7 +775,7 @@
 		"minimum_visible_face_altitude_px": 6.0,
 		"minimum_visible_face_area_px2": 80.0,
 		"outline_vertex_count": 14,
-		"protected_internal_edge_count": 2,
+		"protected_feature_edge_count": 2,
 		"removed_outline_vertex_count": 16,
 		"sample_spacing_px": 0,
 		"watertight": true

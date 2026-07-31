@@ -1,8 +1,8 @@
 class_name PolygonAssetCompilerCore
 extends RefCounted
 
-const SUPPORTED_MANIFEST_SCHEMA: int = 1
-const SUPPORTED_STYLE_SCHEMA: int = 1
+const SUPPORTED_MANIFEST_SCHEMA: int = 2
+const SUPPORTED_STYLE_SCHEMA: int = 2
 
 
 func compile_manifest(manifest_path: String) -> Dictionary:
@@ -80,24 +80,24 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 		return outline_cleanup
 	var outline: PackedVector2Array = outline_cleanup["outline"]
 	var source_bounds := _bounds_for_points(outline)
-	var internal_shape_result := _extract_internal_shapes(
+	var feature_result := _extract_features(
 		image,
 		mask,
 		source_bounds,
-		manifest.get("internal_shape_guides", []),
+		manifest.get("feature_guides", []),
 		style,
 		palette
 	)
-	if not bool(internal_shape_result.get("ok", false)):
-		return internal_shape_result
-	var internal_shapes: Array = internal_shape_result["shapes"]
-	var intersected_outline := _insert_internal_shape_intersections(
+	if not bool(feature_result.get("ok", false)):
+		return feature_result
+	var features: Array = feature_result["features"]
+	var intersected_outline := _insert_feature_intersections(
 		outline,
-		internal_shapes
+		features
 	)
 	var constructed_outline_result := _clean_shape_guided_outline(
 		intersected_outline,
-		internal_shapes,
+		features,
 		minimum_outline_edge_length,
 		minimum_visible_area,
 		minimum_visible_altitude
@@ -108,12 +108,12 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 	var actual_minimum_outline_edge := _minimum_polygon_edge_length(mesh_outline)
 	if actual_minimum_outline_edge < minimum_outline_edge_length:
 		return _failure(
-			"Internal shape intersections created an outline edge below the minimum length."
+			"Feature intersections created an outline edge below the minimum length."
 		)
 
 	var triangulation_result := _triangulate_constructed_mesh(
 		mesh_outline,
-		internal_shapes,
+		features,
 		style,
 		minimum_visible_area,
 		minimum_visible_altitude
@@ -132,16 +132,15 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 	var local_outline := PackedVector2Array()
 	for point: Vector2 in mesh_outline:
 		local_outline.append(point - pivot)
-	var region_guides: Dictionary = manifest.get("region_guides", {})
 	var face_records := _build_face_records(
 		image,
 		vertices,
 		triangles,
 		pivot,
-		source_bounds,
 		palette,
-		region_guides,
-		internal_shapes
+		manifest.get("palette_surface_kinds", {}),
+		String(manifest.get("default_region", "surface")),
+		features
 	)
 	if face_records.is_empty():
 		return _failure("No valid polygon faces remained after palette assignment.")
@@ -164,13 +163,22 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 		collision_points.remove_at(collision_points.size() - 1)
 	var anchors := _build_anchors(manifest, local_bounds)
 	var region_counts := _count_regions(face_records)
-	var local_internal_shapes := _localize_internal_shapes(
-		internal_shapes,
+	var runtime_profile_result := _build_runtime_profile(
+		manifest.get("runtime_profile", {}),
+		region_counts,
+		palette
+	)
+	if not bool(runtime_profile_result.get("ok", false)):
+		return runtime_profile_result
+	var local_features := _localize_features(
+		features,
 		pivot
 	)
+	var region_summary := _build_region_summary(region_counts)
+	var runtime_profile: Dictionary = runtime_profile_result["profile"]
 
 	var output := {
-		"schema_version": 1,
+		"schema_version": 2,
 		"asset_id": String(manifest.get("asset_id", "")),
 		"source": {
 			"sha256": source_hash,
@@ -185,23 +193,20 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 		"pivot": _vector2_to_array(pivot),
 		"vertices": _packed_vector2_to_arrays(local_vertices),
 		"faces": face_records,
-		"regions": {
-			"left_page": {"face_count": int(region_counts.get("left_page", 0))},
-			"right_page": {"face_count": int(region_counts.get("right_page", 0))},
-			"spine": {"face_count": int(region_counts.get("spine", 0))},
-		},
+		"regions": region_summary,
 		"construction": {
 			"mode": String(style["construction_mode"]),
 			"source_usage": [
 				"outer_shape",
-				"internal_shape",
+				"landmark_features",
 				"color_reference",
 			],
 			"generated_geometry": true,
 			"runtime_source_texture": false,
 		},
-		"internal_shapes": local_internal_shapes,
-		"clear_order": "outer_edge_to_spine",
+		"runtime_profile": runtime_profile,
+		"features": local_features,
+		"clear_order": "outer_edge_to_primary_feature",
 		"outline": _packed_vector2_to_arrays(local_outline),
 		"anchors": anchors,
 		"collision": {
@@ -227,9 +232,9 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 			"interior_edge_count": int(topology["interior_edge_count"]),
 			"draw_surfaces": 1,
 			"construction_mode": "shape_guided",
-			"internal_shape_count": internal_shapes.size(),
-			"protected_internal_edge_count": int(
-				triangulation_result["protected_internal_edge_count"]
+			"feature_count": features.size(),
+			"protected_feature_edge_count": int(
+				triangulation_result["protected_feature_edge_count"]
 			),
 			"sample_spacing_px": actual_spacing,
 			"minimum_triangle_area_px2": float(
@@ -434,7 +439,7 @@ func _point_segment_distance(
 	return point.distance_to(segment_start + segment * progress)
 
 
-func _extract_internal_shapes(
+func _extract_features(
 	image: Image,
 	mask: BitMap,
 	source_bounds: Rect2,
@@ -443,92 +448,133 @@ func _extract_internal_shapes(
 	palette: Dictionary
 ) -> Dictionary:
 	if not guides_value is Array:
-		return _failure("Manifest internal_shape_guides must be an array.")
+		return _failure("Manifest feature_guides must be an array.")
+	var guides: Array = guides_value
+	if guides.size() != 1:
+		return _failure(
+			"Shape-guided schema v2 requires exactly one primary feature."
+		)
 	var extraction_config: Dictionary = style.get(
-		"internal_shape_extraction",
+		"feature_extraction",
 		{}
 	)
-	var shapes: Array = []
-	for guide_value: Variant in guides_value:
+	var features: Array = []
+	for guide_value: Variant in guides:
 		if not guide_value is Dictionary:
 			return _failure(
-				"Manifest internal_shape_guides entries must be dictionaries."
+				"Manifest feature_guides entries must be dictionaries."
 			)
 		var guide: Dictionary = guide_value
-		var shape_id := String(guide.get("id", ""))
+		var feature_id := String(guide.get("id", ""))
 		var kind := String(guide.get("kind", ""))
-		if shape_id.is_empty():
-			return _failure("Internal shape guide id is empty.")
-		if kind != "vertical_band":
+		if feature_id.is_empty():
+			return _failure("Feature guide id is empty.")
+		if kind != "linear_band":
 			return _failure(
-				"Unsupported internal shape guide kind: %s." % kind
+				"Unsupported feature guide kind: %s." % kind
 			)
-		var center_ratio := float(guide.get("center_ratio", 0.5))
+		var axis := _array_to_vector2(guide.get("axis", []))
+		var cross_axis := _array_to_vector2(
+			guide.get("cross_axis", [])
+		)
+		if axis.length() <= 0.0001 or cross_axis.length() <= 0.0001:
+			return _failure(
+				"Linear band axis and cross_axis must be non-zero."
+			)
+		axis = axis.normalized()
+		cross_axis = cross_axis.normalized()
+		if absf(axis.dot(cross_axis)) > 0.01:
+			return _failure(
+				"Linear band axis and cross_axis must be perpendicular."
+			)
+		var anchor_normalized := _array_to_vector2(
+			guide.get("anchor_normalized", [])
+		)
+		if (
+			anchor_normalized.x <= 0.0
+			or anchor_normalized.x >= 1.0
+			or anchor_normalized.y <= 0.0
+			or anchor_normalized.y >= 1.0
+		):
+			return _failure(
+				"Linear band anchor_normalized must be inside 0..1."
+			)
+		var anchor := source_bounds.position + Vector2(
+			source_bounds.size.x * anchor_normalized.x,
+			source_bounds.size.y * anchor_normalized.y
+		)
 		var search_half_width_ratio := float(
 			guide.get("search_half_width_ratio", 0.1)
 		)
 		if (
-			center_ratio <= 0.0
-			or center_ratio >= 1.0
-			or search_half_width_ratio <= 0.0
+			search_half_width_ratio <= 0.0
 			or search_half_width_ratio >= 0.5
 		):
 			return _failure(
-				"Internal vertical band search ratios are invalid."
+				"Linear band search_half_width_ratio is invalid."
 			)
-		var sample_rows_value: Variant = guide.get(
-			"sample_y_ratios",
-			[0.25, 0.5, 0.75]
+		var sample_offsets_value: Variant = guide.get(
+			"sample_offsets",
+			[-0.25, 0.0, 0.25]
 		)
 		if (
-			not sample_rows_value is Array
-			or (sample_rows_value as Array).is_empty()
+			not sample_offsets_value is Array
+			or (sample_offsets_value as Array).is_empty()
 		):
 			return _failure(
-				"Internal vertical band sample_y_ratios are invalid."
+				"Linear band sample_offsets must be a non-empty array."
 			)
-		var expected_x := (
-			source_bounds.position.x
-			+ source_bounds.size.x * center_ratio
+		var axis_span := _rect_projection_span(source_bounds, axis)
+		var cross_span := _rect_projection_span(
+			source_bounds,
+			cross_axis
 		)
 		var search_half_width := maxf(
-			source_bounds.size.x * search_half_width_ratio,
+			cross_span * search_half_width_ratio,
 			2.0
 		)
-		var detected_centers: Array[float] = []
+		var detected_coordinates: Array[float] = []
 		var detected_widths: Array[float] = []
 		var detected_colors: Array[Color] = []
-		for row_value: Variant in sample_rows_value:
-			var row_ratio := float(row_value)
-			if row_ratio <= 0.0 or row_ratio >= 1.0:
+		for offset_value: Variant in sample_offsets_value:
+			var sample_offset := float(offset_value)
+			if sample_offset <= -0.5 or sample_offset >= 0.5:
 				return _failure(
-					"Internal vertical band sample row is outside 0..1."
+					"Linear band sample offset must be inside -0.5..0.5."
 				)
-			var y := source_bounds.position.y + source_bounds.size.y * row_ratio
-			var row_result := _detect_vertical_band_row(
+			var sample_origin := (
+				anchor + axis * axis_span * sample_offset
+			)
+			var sample_result := _detect_linear_band_sample(
 				image,
 				mask,
-				y,
-				expected_x,
+				sample_origin,
+				cross_axis,
 				search_half_width,
 				extraction_config
 			)
-			if not bool(row_result.get("ok", false)):
+			if not bool(sample_result.get("ok", false)):
 				continue
-			detected_centers.append(float(row_result["center_x"]))
-			detected_widths.append(float(row_result["source_width_px"]))
-			detected_colors.append(row_result["source_color"])
+			detected_coordinates.append(
+				float(sample_result["center_coordinate"])
+			)
+			detected_widths.append(
+				float(sample_result["source_width_px"])
+			)
+			detected_colors.append(sample_result["source_color"])
 		var minimum_sample_count := int(
 			extraction_config.get("minimum_sample_count", 3)
 		)
-		if detected_centers.size() < minimum_sample_count:
+		if detected_coordinates.size() < minimum_sample_count:
 			return _failure(
-				"Internal vertical band %s did not produce enough source samples."
-				% shape_id
+				"Linear band %s did not produce enough source samples."
+				% feature_id
 			)
-		detected_centers.sort()
+		detected_coordinates.sort()
 		detected_widths.sort()
-		var center_x := detected_centers[detected_centers.size() / 2]
+		var center_coordinate := detected_coordinates[
+			detected_coordinates.size() / 2
+		]
 		var source_width := detected_widths[detected_widths.size() / 2]
 		var minimum_width := float(
 			guide.get(
@@ -544,63 +590,81 @@ func _extract_internal_shapes(
 		)
 		if minimum_width <= 0.0 or maximum_width < minimum_width:
 			return _failure(
-				"Internal vertical band constructed width is invalid."
+				"Linear band constructed width is invalid."
 			)
 		var constructed_width := clampf(
 			maxf(source_width, minimum_width),
 			minimum_width,
 			maximum_width
 		)
-		var left_x := center_x - constructed_width * 0.5
-		var right_x := center_x + constructed_width * 0.5
+		var minimum_coordinate := (
+			center_coordinate - constructed_width * 0.5
+		)
+		var maximum_coordinate := (
+			center_coordinate + constructed_width * 0.5
+		)
+		var bounds_minimum := _rect_minimum_projection(
+			source_bounds,
+			cross_axis
+		)
+		var bounds_maximum := bounds_minimum + cross_span
 		if (
-			left_x <= source_bounds.position.x
-			or right_x >= source_bounds.end.x
+			minimum_coordinate <= bounds_minimum
+			or maximum_coordinate >= bounds_maximum
 		):
 			return _failure(
-				"Internal vertical band extends outside the foreground bounds."
+				"Linear band extends outside the foreground bounds."
+			)
+		var negative_region := String(
+			guide.get("negative_region", "")
+		)
+		var feature_region := String(guide.get("region", feature_id))
+		var positive_region := String(
+			guide.get("positive_region", "")
+		)
+		if (
+			negative_region.is_empty()
+			or feature_region.is_empty()
+			or positive_region.is_empty()
+			or negative_region == feature_region
+			or feature_region == positive_region
+			or negative_region == positive_region
+		):
+			return _failure(
+				"Linear band regions must be three distinct non-empty ids."
 			)
 		var source_color := _average_colors(detected_colors)
 		var palette_role := _nearest_palette_role(source_color, palette)
-		shapes.append({
-			"id": shape_id,
+		features.append({
+			"id": feature_id,
 			"kind": kind,
-			"region": String(guide.get("region", shape_id)),
-			"center_x": center_x,
-			"left_x": left_x,
-			"right_x": right_x,
+			"axis": axis,
+			"cross_axis": cross_axis,
+			"negative_region": negative_region,
+			"region": feature_region,
+			"positive_region": positive_region,
+			"center_coordinate": center_coordinate,
+			"minimum_coordinate": minimum_coordinate,
+			"maximum_coordinate": maximum_coordinate,
 			"source_width_px": source_width,
 			"constructed_width_px": constructed_width,
 			"source_color": source_color,
 			"palette_role": palette_role,
-			"sample_count": detected_centers.size(),
+			"sample_count": detected_coordinates.size(),
 		})
-	if shapes.size() > 1:
-		return _failure(
-			"Shape-guided mesh v1 supports one internal vertical band."
-		)
-	return {"ok": true, "shapes": shapes}
+	return {"ok": true, "features": features}
 
 
-func _detect_vertical_band_row(
+func _detect_linear_band_sample(
 	image: Image,
 	mask: BitMap,
-	y_value: float,
-	expected_x: float,
+	sample_origin: Vector2,
+	cross_axis: Vector2,
 	search_half_width: float,
 	config: Dictionary
 ) -> Dictionary:
-	var y := clampi(roundi(y_value), 0, image.get_height() - 1)
-	var search_start := clampi(
-		floori(expected_x - search_half_width),
-		0,
-		image.get_width() - 1
-	)
-	var search_end := clampi(
-		ceili(expected_x + search_half_width),
-		0,
-		image.get_width() - 1
-	)
+	var search_start := -ceili(search_half_width)
+	var search_end := ceili(search_half_width)
 	var probe_distance := maxi(
 		int(config.get("contrast_probe_distance_px", 10)),
 		1
@@ -608,21 +672,30 @@ func _detect_vertical_band_row(
 	var darkness_weight := float(config.get("darkness_weight", 0.75))
 	var center_bias := float(config.get("center_bias", 0.04))
 	var minimum_contrast := float(config.get("minimum_contrast", 0.08))
-	var best_x := -1
+	var best_offset := 0
 	var best_score := -INF
-	for x in range(search_start, search_end + 1):
-		var left_x := clampi(x - probe_distance, 0, image.get_width() - 1)
-		var right_x := clampi(x + probe_distance, 0, image.get_width() - 1)
+	for offset in range(search_start, search_end + 1):
+		var candidate_point := (
+			sample_origin + cross_axis * float(offset)
+		)
+		var negative_point := (
+			sample_origin
+			+ cross_axis * float(offset - probe_distance)
+		)
+		var positive_point := (
+			sample_origin
+			+ cross_axis * float(offset + probe_distance)
+		)
 		if (
-			not mask.get_bit(x, y)
-			or not mask.get_bit(left_x, y)
-			or not mask.get_bit(right_x, y)
+			not _mask_contains_point(mask, candidate_point)
+			or not _mask_contains_point(mask, negative_point)
+			or not _mask_contains_point(mask, positive_point)
 		):
 			continue
-		var candidate := image.get_pixel(x, y)
+		var candidate := _image_color_at(image, candidate_point)
 		var neighbor := _average_colors([
-			image.get_pixel(left_x, y),
-			image.get_pixel(right_x, y),
+			_image_color_at(image, negative_point),
+			_image_color_at(image, positive_point),
 		])
 		var contrast := _color_distance(candidate, neighbor)
 		var darkness := maxf(
@@ -630,7 +703,7 @@ func _detect_vertical_band_row(
 			0.0
 		)
 		var distance_ratio := (
-			absf(float(x) - expected_x) / search_half_width
+			absf(float(offset)) / search_half_width
 		)
 		var score := (
 			contrast
@@ -639,44 +712,108 @@ func _detect_vertical_band_row(
 		)
 		if score > best_score:
 			best_score = score
-			best_x = x
-	if best_x < 0 or best_score < minimum_contrast:
+			best_offset = offset
+	if best_score < minimum_contrast:
 		return {"ok": false}
 
-	var source_color := image.get_pixel(best_x, y)
+	var best_point := (
+		sample_origin + cross_axis * float(best_offset)
+	)
+	var source_color := _image_color_at(image, best_point)
 	var similarity_threshold := float(
 		config.get("band_color_similarity_threshold", 0.16)
 	)
-	var left_edge := best_x
-	var right_edge := best_x
-	while left_edge > search_start:
-		var next_x := left_edge - 1
+	var negative_edge := best_offset
+	var positive_edge := best_offset
+	while negative_edge > search_start:
+		var next_offset := negative_edge - 1
+		var next_point := (
+			sample_origin + cross_axis * float(next_offset)
+		)
 		if (
-			not mask.get_bit(next_x, y)
+			not _mask_contains_point(mask, next_point)
 			or _color_distance(
-				image.get_pixel(next_x, y),
+				_image_color_at(image, next_point),
 				source_color
 			) > similarity_threshold
 		):
 			break
-		left_edge = next_x
-	while right_edge < search_end:
-		var next_x := right_edge + 1
+		negative_edge = next_offset
+	while positive_edge < search_end:
+		var next_offset := positive_edge + 1
+		var next_point := (
+			sample_origin + cross_axis * float(next_offset)
+		)
 		if (
-			not mask.get_bit(next_x, y)
+			not _mask_contains_point(mask, next_point)
 			or _color_distance(
-				image.get_pixel(next_x, y),
+				_image_color_at(image, next_point),
 				source_color
 			) > similarity_threshold
 		):
 			break
-		right_edge = next_x
+		positive_edge = next_offset
 	return {
 		"ok": true,
-		"center_x": float(best_x),
-		"source_width_px": float(right_edge - left_edge + 1),
+		"center_coordinate": best_point.dot(cross_axis),
+		"source_width_px":
+			float(positive_edge - negative_edge + 1),
 		"source_color": source_color,
 	}
+
+
+func _mask_contains_point(mask: BitMap, point: Vector2) -> bool:
+	var pixel := Vector2i(roundi(point.x), roundi(point.y))
+	return (
+		pixel.x >= 0
+		and pixel.x < mask.get_size().x
+		and pixel.y >= 0
+		and pixel.y < mask.get_size().y
+		and mask.get_bit(pixel.x, pixel.y)
+	)
+
+
+func _image_color_at(image: Image, point: Vector2) -> Color:
+	return image.get_pixel(
+		clampi(roundi(point.x), 0, image.get_width() - 1),
+		clampi(roundi(point.y), 0, image.get_height() - 1)
+	)
+
+
+func _rect_projection_span(rect: Rect2, axis: Vector2) -> float:
+	return (
+		_rect_maximum_projection(rect, axis)
+		- _rect_minimum_projection(rect, axis)
+	)
+
+
+func _rect_minimum_projection(rect: Rect2, axis: Vector2) -> float:
+	var minimum_projection := INF
+	for corner: Vector2 in _rect_corners(rect):
+		minimum_projection = minf(
+			minimum_projection,
+			corner.dot(axis)
+		)
+	return minimum_projection
+
+
+func _rect_maximum_projection(rect: Rect2, axis: Vector2) -> float:
+	var maximum_projection := -INF
+	for corner: Vector2 in _rect_corners(rect):
+		maximum_projection = maxf(
+			maximum_projection,
+			corner.dot(axis)
+		)
+	return maximum_projection
+
+
+func _rect_corners(rect: Rect2) -> PackedVector2Array:
+	return PackedVector2Array([
+		rect.position,
+		Vector2(rect.end.x, rect.position.y),
+		rect.end,
+		Vector2(rect.position.x, rect.end.y),
+	])
 
 
 func _average_colors(colors: Array) -> Color:
@@ -702,32 +839,34 @@ func _color_luminance(color: Color) -> float:
 	return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722
 
 
-func _insert_internal_shape_intersections(
+func _insert_feature_intersections(
 	outline: PackedVector2Array,
-	internal_shapes: Array
+	features: Array
 ) -> PackedVector2Array:
-	if internal_shapes.is_empty():
+	if features.is_empty():
 		return outline.duplicate()
-	var cut_positions: Array[float] = []
-	for shape_value: Variant in internal_shapes:
-		var shape: Dictionary = shape_value
-		cut_positions.append(float(shape["left_x"]))
-		cut_positions.append(float(shape["right_x"]))
-	cut_positions.sort()
+	var boundaries: Array[Dictionary] = _feature_boundaries(features)
 	var result := PackedVector2Array()
 	for point_index in range(outline.size()):
 		var current := outline[point_index]
 		var next := outline[(point_index + 1) % outline.size()]
-		var edge := next - current
 		var edge_points: Array = [{"progress": 0.0, "point": current}]
-		if not is_zero_approx(edge.x):
-			for cut_x: float in cut_positions:
-				var progress := (cut_x - current.x) / edge.x
-				if progress > 0.0001 and progress < 0.9999:
-					edge_points.append({
-						"progress": progress,
-						"point": current.lerp(next, progress),
-					})
+		for boundary: Dictionary in boundaries:
+			var cross_axis: Vector2 = boundary["cross_axis"]
+			var coordinate := float(boundary["coordinate"])
+			var current_projection := current.dot(cross_axis)
+			var next_projection := next.dot(cross_axis)
+			var denominator := next_projection - current_projection
+			if is_zero_approx(denominator):
+				continue
+			var progress := (
+				coordinate - current_projection
+			) / denominator
+			if progress > 0.0001 and progress < 0.9999:
+				edge_points.append({
+					"progress": progress,
+					"point": current.lerp(next, progress),
+				})
 		edge_points.sort_custom(func(first: Dictionary, second: Dictionary) -> bool:
 			return float(first["progress"]) < float(second["progress"])
 		)
@@ -757,32 +896,26 @@ func _minimum_polygon_edge_length(polygon: PackedVector2Array) -> float:
 
 func _clean_shape_guided_outline(
 	source_outline: PackedVector2Array,
-	internal_shapes: Array,
+	features: Array,
 	minimum_edge_length: float,
 	minimum_face_area: float,
 	minimum_face_altitude: float
 ) -> Dictionary:
 	var outline := source_outline.duplicate()
-	var protected_x_values: Array[float] = []
-	for shape_value: Variant in internal_shapes:
-		var shape: Dictionary = shape_value
-		if String(shape.get("kind", "")) != "vertical_band":
-			continue
-		protected_x_values.append(float(shape["left_x"]))
-		protected_x_values.append(float(shape["right_x"]))
+	var protected_boundaries := _feature_boundaries(features)
 	var maximum_pass_count := source_outline.size() * 2
 	for _pass_index in range(maximum_pass_count):
 		if outline.size() <= 3:
 			break
 		var remove_index := _short_unprotected_outline_node_index(
 			outline,
-			protected_x_values,
+			protected_boundaries,
 			minimum_edge_length
 		)
 		if remove_index < 0:
 			remove_index = _invalid_unprotected_outline_ear_index(
 				outline,
-				protected_x_values,
+				protected_boundaries,
 				minimum_face_area,
 				minimum_face_altitude
 			)
@@ -799,14 +932,17 @@ func _clean_shape_guided_outline(
 
 func _short_unprotected_outline_node_index(
 	outline: PackedVector2Array,
-	protected_x_values: Array[float],
+	protected_boundaries: Array[Dictionary],
 	minimum_edge_length: float
 ) -> int:
 	var best_index := -1
 	var best_deviation := INF
 	for point_index in range(outline.size()):
 		var current := outline[point_index]
-		if _point_uses_protected_x(current, protected_x_values):
+		if _point_uses_protected_boundary(
+			current,
+			protected_boundaries
+		):
 			continue
 		var previous := outline[
 			(point_index - 1 + outline.size()) % outline.size()
@@ -827,7 +963,7 @@ func _short_unprotected_outline_node_index(
 
 func _invalid_unprotected_outline_ear_index(
 	outline: PackedVector2Array,
-	protected_x_values: Array[float],
+	protected_boundaries: Array[Dictionary],
 	minimum_face_area: float,
 	minimum_face_altitude: float
 ) -> int:
@@ -855,7 +991,10 @@ func _invalid_unprotected_outline_ear_index(
 			continue
 		for candidate_index: int in triangle_indices:
 			var candidate := outline[candidate_index]
-			if _point_uses_protected_x(candidate, protected_x_values):
+			if _point_uses_protected_boundary(
+				candidate,
+				protected_boundaries
+			):
 				continue
 			var previous_index := (
 				candidate_index - 1 + outline.size()
@@ -878,19 +1017,41 @@ func _invalid_unprotected_outline_ear_index(
 	return best_index
 
 
-func _point_uses_protected_x(
+func _point_uses_protected_boundary(
 	point: Vector2,
-	protected_x_values: Array[float]
+	protected_boundaries: Array[Dictionary]
 ) -> bool:
-	for protected_x: float in protected_x_values:
-		if is_equal_approx(point.x, protected_x):
+	for boundary: Dictionary in protected_boundaries:
+		var cross_axis: Vector2 = boundary["cross_axis"]
+		if is_equal_approx(
+			point.dot(cross_axis),
+			float(boundary["coordinate"])
+		):
 			return true
 	return false
 
 
+func _feature_boundaries(features: Array) -> Array[Dictionary]:
+	var boundaries: Array[Dictionary] = []
+	for feature_value: Variant in features:
+		var feature: Dictionary = feature_value
+		if String(feature.get("kind", "")) != "linear_band":
+			continue
+		var cross_axis: Vector2 = feature["cross_axis"]
+		boundaries.append({
+			"cross_axis": cross_axis,
+			"coordinate": float(feature["minimum_coordinate"]),
+		})
+		boundaries.append({
+			"cross_axis": cross_axis,
+			"coordinate": float(feature["maximum_coordinate"]),
+		})
+	return boundaries
+
+
 func _triangulate_constructed_mesh(
 	outline: PackedVector2Array,
-	internal_shapes: Array,
+	features: Array,
 	style: Dictionary,
 	minimum_visible_area: float,
 	minimum_visible_altitude: float
@@ -902,7 +1063,7 @@ func _triangulate_constructed_mesh(
 	var minimum_area := float(style.get("minimum_triangle_area_px2", 3.0))
 	var partitions_result := _build_constructed_partitions(
 		outline,
-		internal_shapes
+		features
 	)
 	if not bool(partitions_result.get("ok", false)):
 		return partitions_result
@@ -1048,11 +1209,11 @@ func _triangulate_constructed_mesh(
 		"triangles": triangles,
 		"minimum_triangle_area_px2": minimum_found,
 		"minimum_face_altitude_px": minimum_found_altitude,
-		"protected_internal_edge_count":
-			_count_protected_internal_edges(
+		"protected_feature_edge_count":
+			_count_protected_feature_edges(
 				triangles,
 				output_points,
-				internal_shapes
+				features
 			),
 		"sample_spacing_px": 0,
 		"topology": topology,
@@ -1061,68 +1222,85 @@ func _triangulate_constructed_mesh(
 
 func _build_constructed_partitions(
 	outline: PackedVector2Array,
-	internal_shapes: Array
+	features: Array
 ) -> Dictionary:
-	if internal_shapes.is_empty():
+	if features.is_empty():
 		return {"ok": true, "partitions": [outline.duplicate()]}
-	var shape: Dictionary = internal_shapes[0]
-	if String(shape.get("kind", "")) != "vertical_band":
+	var feature: Dictionary = features[0]
+	if String(feature.get("kind", "")) != "linear_band":
 		return _failure("Constructed partition kind is unsupported.")
-	var left_x := float(shape["left_x"])
-	var right_x := float(shape["right_x"])
-	var left_partition := _clip_polygon_vertical(
+	var cross_axis: Vector2 = feature["cross_axis"]
+	var minimum_coordinate := float(feature["minimum_coordinate"])
+	var maximum_coordinate := float(feature["maximum_coordinate"])
+	var negative_partition := _clip_polygon_half_plane(
 		outline,
-		left_x,
+		cross_axis,
+		minimum_coordinate,
 		true
 	)
-	var band_partition := _clip_polygon_vertical(
-		_clip_polygon_vertical(outline, left_x, false),
-		right_x,
+	var band_partition := _clip_polygon_half_plane(
+		_clip_polygon_half_plane(
+			outline,
+			cross_axis,
+			minimum_coordinate,
+			false
+		),
+		cross_axis,
+		maximum_coordinate,
 		true
 	)
-	var right_partition := _clip_polygon_vertical(
+	var positive_partition := _clip_polygon_half_plane(
 		outline,
-		right_x,
+		cross_axis,
+		maximum_coordinate,
 		false
 	)
 	var partitions: Array = [
-		_sanitize_polygon(left_partition),
+		_sanitize_polygon(negative_partition),
 		_sanitize_polygon(band_partition),
-		_sanitize_polygon(right_partition),
+		_sanitize_polygon(positive_partition),
 	]
 	for partition_value: Variant in partitions:
 		var partition: PackedVector2Array = partition_value
 		if partition.size() < 3:
 			return _failure(
-				"Internal shape produced an empty mesh partition."
+				"Feature produced an empty mesh partition."
 			)
 	return {"ok": true, "partitions": partitions}
 
 
-func _clip_polygon_vertical(
+func _clip_polygon_half_plane(
 	polygon: PackedVector2Array,
-	boundary_x: float,
-	keep_left: bool
+	cross_axis: Vector2,
+	boundary_coordinate: float,
+	keep_negative: bool
 ) -> PackedVector2Array:
 	var result := PackedVector2Array()
 	for point_index in range(polygon.size()):
 		var current := polygon[point_index]
 		var next := polygon[(point_index + 1) % polygon.size()]
+		var current_projection := current.dot(cross_axis)
+		var next_projection := next.dot(cross_axis)
 		var current_inside := (
-			current.x <= boundary_x + 0.0001
-			if keep_left
-			else current.x >= boundary_x - 0.0001
+			current_projection <= boundary_coordinate + 0.0001
+			if keep_negative
+			else current_projection >= boundary_coordinate - 0.0001
 		)
 		var next_inside := (
-			next.x <= boundary_x + 0.0001
-			if keep_left
-			else next.x >= boundary_x - 0.0001
+			next_projection <= boundary_coordinate + 0.0001
+			if keep_negative
+			else next_projection >= boundary_coordinate - 0.0001
 		)
 		if current_inside:
 			result.append(current)
-		if current_inside == next_inside or is_equal_approx(current.x, next.x):
+		if (
+			current_inside == next_inside
+			or is_equal_approx(current_projection, next_projection)
+		):
 			continue
-		var progress := (boundary_x - current.x) / (next.x - current.x)
+		var progress := (
+			boundary_coordinate - current_projection
+		) / (next_projection - current_projection)
 		result.append(current.lerp(next, progress))
 	return result
 
@@ -1161,18 +1339,14 @@ func _point_key(point: Vector2) -> String:
 	return "%d:%d" % [roundi(point.x * 1000.0), roundi(point.y * 1000.0)]
 
 
-func _count_protected_internal_edges(
+func _count_protected_feature_edges(
 	triangles: Array,
 	vertices: PackedVector2Array,
-	internal_shapes: Array
+	features: Array
 ) -> int:
-	if internal_shapes.is_empty():
+	if features.is_empty():
 		return 0
-	var cut_positions: Array[float] = []
-	for shape_value: Variant in internal_shapes:
-		var shape: Dictionary = shape_value
-		cut_positions.append(float(shape["left_x"]))
-		cut_positions.append(float(shape["right_x"]))
+	var boundaries := _feature_boundaries(features)
 	var edge_owners: Dictionary = {}
 	for face_value: Variant in triangles:
 		var face: Array = face_value
@@ -1188,38 +1362,61 @@ func _count_protected_internal_edges(
 		var edge_parts := String(edge_value).split(":")
 		var first_index := int(edge_parts[0])
 		var second_index := int(edge_parts[1])
-		for cut_x: float in cut_positions:
+		for boundary: Dictionary in boundaries:
+			var cross_axis: Vector2 = boundary["cross_axis"]
+			var coordinate := float(boundary["coordinate"])
 			if (
-				is_equal_approx(vertices[first_index].x, cut_x)
-				and is_equal_approx(vertices[second_index].x, cut_x)
+				is_equal_approx(
+					vertices[first_index].dot(cross_axis),
+					coordinate
+				)
+				and is_equal_approx(
+					vertices[second_index].dot(cross_axis),
+					coordinate
+				)
 			):
 				protected_count += 1
 				break
 	return protected_count
 
 
-func _localize_internal_shapes(
-	internal_shapes: Array,
+func _localize_features(
+	features: Array,
 	pivot: Vector2
 ) -> Array:
 	var result: Array = []
-	for shape_value: Variant in internal_shapes:
-		var shape: Dictionary = shape_value
-		var source_color: Color = shape["source_color"]
+	for feature_value: Variant in features:
+		var feature: Dictionary = feature_value
+		var source_color: Color = feature["source_color"]
+		var axis: Vector2 = feature["axis"]
+		var cross_axis: Vector2 = feature["cross_axis"]
+		var pivot_projection := pivot.dot(cross_axis)
 		result.append({
-			"id": String(shape["id"]),
-			"kind": String(shape["kind"]),
-			"region": String(shape["region"]),
-			"center_x": _round_number(float(shape["center_x"]) - pivot.x),
-			"left_x": _round_number(float(shape["left_x"]) - pivot.x),
-			"right_x": _round_number(float(shape["right_x"]) - pivot.x),
-			"source_width_px": _round_number(float(shape["source_width_px"])),
+			"id": String(feature["id"]),
+			"kind": String(feature["kind"]),
+			"axis": _vector2_to_array(axis),
+			"cross_axis": _vector2_to_array(cross_axis),
+			"negative_region": String(feature["negative_region"]),
+			"region": String(feature["region"]),
+			"positive_region": String(feature["positive_region"]),
+			"center_coordinate": _round_number(
+				float(feature["center_coordinate"]) - pivot_projection
+			),
+			"minimum_coordinate": _round_number(
+				float(feature["minimum_coordinate"]) - pivot_projection
+			),
+			"maximum_coordinate": _round_number(
+				float(feature["maximum_coordinate"]) - pivot_projection
+			),
+			"source_width_px": _round_number(
+				float(feature["source_width_px"])
+			),
 			"constructed_width_px": _round_number(
-				float(shape["constructed_width_px"])
+				float(feature["constructed_width_px"])
 			),
 			"source_color": source_color.to_html(false),
-			"palette_role": String(shape["palette_role"]),
-			"sample_count": int(shape["sample_count"]),
+			"palette_role": String(feature["palette_role"]),
+			"sample_count": int(feature["sample_count"]),
 		})
 	return result
 
@@ -1587,9 +1784,13 @@ func _build_sample_points(
 
 	var center_x := bounds.position.x + bounds.size.x * 0.5
 	for y in range(start_y, end_y + 1, maxi(12, spacing)):
-		var spine_point := Vector2(center_x, float(y))
-		if _point_is_foreground(spine_point, mask, outline):
-			_append_unique_point(points, point_keys, spine_point)
+		var center_axis_point := Vector2(center_x, float(y))
+		if _point_is_foreground(center_axis_point, mask, outline):
+			_append_unique_point(
+				points,
+				point_keys,
+				center_axis_point
+			)
 	return points
 
 
@@ -1752,14 +1953,16 @@ func _build_face_records(
 	vertices: PackedVector2Array,
 	triangles: Array,
 	pivot: Vector2,
-	source_bounds: Rect2,
 	palette: Dictionary,
-	region_guides: Dictionary,
-	internal_shapes: Array
+	surface_kinds_value: Variant,
+	default_region: String,
+	features: Array
 ) -> Array:
 	var records: Array = []
-	var fallback_spine_half_width := source_bounds.size.x * float(
-		region_guides.get("spine_half_width_ratio", 0.075)
+	var surface_kinds: Dictionary = (
+		surface_kinds_value
+		if surface_kinds_value is Dictionary
+		else {}
 	)
 	for triangle_value: Variant in triangles:
 		var indices: Array = triangle_value
@@ -1777,60 +1980,38 @@ func _build_face_records(
 			minimum_altitude = area * 2.0 / maximum_edge
 		var sampled_color := _sample_triangle_color(image, a, b, c)
 		var palette_role := _nearest_palette_role(sampled_color, palette)
-		var local_x := centroid.x - pivot.x
-		var region := String(region_guides.get("spine_region", "spine"))
-		var internal_shape := _internal_shape_for_point(
-			centroid,
-			internal_shapes
+		var region := default_region
+		var feature_distance := 0.0
+		if not features.is_empty():
+			var feature: Dictionary = features[0]
+			var cross_axis: Vector2 = feature["cross_axis"]
+			var projection := centroid.dot(cross_axis)
+			feature_distance = absf(
+				projection - float(feature["center_coordinate"])
+			)
+			if projection < float(feature["minimum_coordinate"]):
+				region = String(feature["negative_region"])
+			elif projection > float(feature["maximum_coordinate"]):
+				region = String(feature["positive_region"])
+			else:
+				region = String(feature["region"])
+				palette_role = String(feature["palette_role"])
+		var surface_kind := String(
+			surface_kinds.get(palette_role, "surface")
 		)
-		if not internal_shape.is_empty():
-			region = String(internal_shape["region"])
-			palette_role = String(internal_shape["palette_role"])
-		elif internal_shapes.is_empty():
-			if local_x < -fallback_spine_half_width:
-				region = String(region_guides.get("left_region", "left_page"))
-			elif local_x > fallback_spine_half_width:
-				region = String(region_guides.get("right_region", "right_page"))
-		elif centroid.x < float((internal_shapes[0] as Dictionary)["left_x"]):
-			region = String(region_guides.get("left_region", "left_page"))
-		else:
-			region = String(region_guides.get("right_region", "right_page"))
-		var surface_kind := _surface_kind_for_palette_role(palette_role)
 		records.append({
 			"indices": [int(indices[0]), int(indices[1]), int(indices[2])],
 			"palette_role": palette_role,
 			"surface_kind": surface_kind,
 			"region": region,
 			"clear_order": 1.0,
-			"_centroid_x": local_x,
+			"_centroid_x": centroid.x - pivot.x,
 			"_centroid_y": centroid.y - pivot.y,
+			"_feature_distance": feature_distance,
 			"_area": area,
 			"_minimum_altitude": minimum_altitude,
 		})
 	return records
-
-
-func _internal_shape_for_point(
-	point: Vector2,
-	internal_shapes: Array
-) -> Dictionary:
-	for shape_value: Variant in internal_shapes:
-		var shape: Dictionary = shape_value
-		if (
-			String(shape.get("kind", "")) == "vertical_band"
-			and point.x >= float(shape["left_x"]) - 0.0001
-			and point.x <= float(shape["right_x"]) + 0.0001
-		):
-			return shape
-	return {}
-
-
-func _surface_kind_for_palette_role(role: String) -> String:
-	if role.begins_with("cover_"):
-		return "cover"
-	if role.begins_with("page_") or role == "accent_warm":
-		return "page"
-	return role
 
 
 func _apply_facet_emphasis(
@@ -1898,8 +2079,8 @@ func _apply_facet_emphasis(
 
 func _assign_clear_order(records: Array) -> void:
 	records.sort_custom(func(first: Dictionary, second: Dictionary) -> bool:
-		var first_distance := absf(float(first["_centroid_x"]))
-		var second_distance := absf(float(second["_centroid_x"]))
+		var first_distance := float(first["_feature_distance"])
+		var second_distance := float(second["_feature_distance"])
 		if not is_equal_approx(first_distance, second_distance):
 			return first_distance > second_distance
 		if not is_equal_approx(float(first["_centroid_y"]), float(second["_centroid_y"])):
@@ -1911,6 +2092,7 @@ func _assign_clear_order(records: Array) -> void:
 		record["clear_order"] = float(index + 1) / float(records.size())
 		record.erase("_centroid_x")
 		record.erase("_centroid_y")
+		record.erase("_feature_distance")
 		record.erase("_area")
 		record.erase("_minimum_altitude")
 
@@ -1935,6 +2117,87 @@ func _count_regions(records: Array) -> Dictionary:
 		var region := String(record.get("region", ""))
 		counts[region] = int(counts.get(region, 0)) + 1
 	return counts
+
+
+func _build_region_summary(region_counts: Dictionary) -> Dictionary:
+	var summary: Dictionary = {}
+	var region_names: Array = region_counts.keys()
+	region_names.sort()
+	for region_value: Variant in region_names:
+		var region := String(region_value)
+		summary[region] = {
+			"face_count": int(region_counts[region]),
+		}
+	return summary
+
+
+func _build_runtime_profile(
+	profile_value: Variant,
+	region_counts: Dictionary,
+	palette: Dictionary
+) -> Dictionary:
+	if not profile_value is Dictionary:
+		return _failure("Manifest runtime_profile must be a dictionary.")
+	var profile: Dictionary = (profile_value as Dictionary).duplicate(true)
+	for field_name in [
+		"primary_deform_regions",
+		"secondary_deform_regions",
+		"deformable_surface_kinds",
+	]:
+		if not profile.get(field_name, []) is Array:
+			return _failure(
+				"Runtime profile %s must be an array." % field_name
+			)
+	var primary_regions: Array = profile.get(
+		"primary_deform_regions",
+		[]
+	)
+	var secondary_regions: Array = profile.get(
+		"secondary_deform_regions",
+		[]
+	)
+	for region_value: Variant in primary_regions + secondary_regions:
+		var region := String(region_value)
+		if region.is_empty() or not region_counts.has(region):
+			return _failure(
+				"Runtime deformation region is absent: %s." % region
+			)
+	for region_value: Variant in primary_regions:
+		if secondary_regions.has(region_value):
+			return _failure(
+				"Runtime primary and secondary regions must be disjoint."
+			)
+	var surface_kinds: Array = profile.get(
+		"deformable_surface_kinds",
+		[]
+	)
+	for surface_kind_value: Variant in surface_kinds:
+		if String(surface_kind_value).is_empty():
+			return _failure(
+				"Runtime deformable surface kind cannot be empty."
+			)
+	var axis := _array_to_vector2(
+		profile.get("deformation_axis", [1.0, 0.0])
+	)
+	if not primary_regions.is_empty() and axis.length() <= 0.0001:
+		return _failure(
+			"Runtime deformation_axis must be non-zero."
+		)
+	if axis.length() <= 0.0001:
+		axis = Vector2.RIGHT
+	profile["deformation_axis"] = _vector2_to_array(
+		axis.normalized()
+	)
+	for role_field in [
+		"deformation_light_palette_role",
+		"deformation_shadow_palette_role",
+	]:
+		var role := String(profile.get(role_field, ""))
+		if not role.is_empty() and not palette.has(role):
+			return _failure(
+				"Runtime deformation palette role is absent: %s." % role
+			)
+	return {"ok": true, "profile": profile}
 
 
 func _sample_triangle_color(image: Image, a: Vector2, b: Vector2, c: Vector2) -> Color:

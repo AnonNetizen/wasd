@@ -1,0 +1,98 @@
+{
+	"schema_version": 2,
+	"asset_id": "<stable_asset_id>",
+	"source_image": "res://assets/polygon_art/<source_image>.png",
+	"style_profile": "res://data/polygon_art_style.json",
+	"output_asset": "res://data/polygon_assets/<asset_id>.polygon.json",
+	"prompt_template": "res://data/polygon_prompt_templates/source_image_v1.json",
+	"background_key": "#ff00ff",
+	"pivot": {
+		"mode": "foreground_bounds_center"
+	},
+	"default_region": "surface",
+	"palette_surface_kinds": {
+		"surface_light": "surface",
+		"surface_mid": "surface",
+		"surface_shadow": "surface",
+		"secondary_light": "secondary",
+		"secondary_shadow": "secondary",
+		"accent_warm": "surface"
+	},
+	"runtime_profile": {
+		"deformation_axis": [
+			1.0,
+			0.0
+		],
+		"primary_deform_regions": [],
+		"secondary_deform_regions": [],
+		"deformable_surface_kinds": [],
+		"deformation_light_palette_role": "accent_warm",
+		"deformation_shadow_palette_role": "surface_shadow"
+	},
+	"feature_guides": [
+		{
+			"id": "<primary_landmark_id>",
+			"kind": "linear_band",
+			"axis": [
+				0.0,
+				1.0
+			],
+			"cross_axis": [
+				1.0,
+				0.0
+			],
+			"anchor_normalized": [
+				0.5,
+				0.5
+			],
+			"sample_offsets": [
+				-0.25,
+				0.0,
+				0.25
+			],
+			"negative_region": "<negative_side_region>",
+			"region": "<landmark_region>",
+			"positive_region": "<positive_side_region>",
+			"search_half_width_ratio": 0.1,
+			"minimum_constructed_width_px": 20.0,
+			"maximum_constructed_width_px": 28.0,
+			"semantic_role": "<structural_or_orientation_role>",
+			"path_description": "<clear_normalized_path_description>",
+			"contrast_description": "<hard_edge_contrast_against_adjacent_regions>",
+			"construction_meaning": "protected region divider"
+		}
+	],
+	"prompt_variables": {
+		"asset_type": "<gameplay_asset_type>",
+		"subject": "<single_subject_name>",
+		"view": "<exact_orthographic_view>",
+		"gameplay_read": "<how_the_silhouette_and_landmark_explain_the_object>",
+		"silhouette": "<recognizable_outer_contour_without_texture>",
+		"proportions": "<aspect_ratio_symmetry_and_canvas_occupancy>",
+		"palette": "<four_to_seven_discrete_color_roles>",
+		"forbidden_details": "<asset_specific_exclusions>"
+	},
+	"facet_emphasis": [],
+	"anchors": {
+		"center": [
+			0.5,
+			0.5
+		],
+		"interaction": [
+			0.5,
+			0.5
+		]
+	},
+	"collision": {
+		"strategy": "convex_hull",
+		"static_during_visual_animation": true
+	},
+	"generation": {
+		"tool": "builtin_imagegen",
+		"mode": "generate",
+		"prompt_template": "res://data/polygon_prompt_templates/source_image_v1.json",
+		"postprocess": [
+			"godot_chroma_normalize_to_exact_ff00ff"
+		]
+	}
+}

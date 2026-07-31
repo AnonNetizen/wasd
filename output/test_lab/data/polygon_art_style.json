@@ -1,5 +1,5 @@
 {
-	"schema_version": 1,
+	"schema_version": 2,
 	"style_id": "wasd_polygon_art_v1",
 	"analysis_size_px": [
 		256,
@@ -18,7 +18,7 @@
 	"minimum_outline_edge_length_px": 8.0,
 	"minimum_visible_face_area_px2": 80.0,
 	"minimum_visible_face_altitude_px": 6.0,
-	"internal_shape_extraction": {
+	"feature_extraction": {
 		"minimum_sample_count": 3,
 		"contrast_probe_distance_px": 10,
 		"minimum_contrast": 0.08,
@@ -30,11 +30,11 @@
 	},
 	"palette": {
 		"outline": "#191824",
-		"page_light": "#eadfca",
-		"page_mid": "#cfbea1",
-		"page_shadow": "#9f8b73",
-		"cover_light": "#584a78",
-		"cover_shadow": "#322b48",
+		"surface_light": "#eadfca",
+		"surface_mid": "#cfbea1",
+		"surface_shadow": "#9f8b73",
+		"secondary_light": "#584a78",
+		"secondary_shadow": "#322b48",
 		"accent_warm": "#c99a5d"
 	},
 	"rendering": {
