@@ -344,11 +344,21 @@ func _refresh_stats() -> void:
 		return
 	var stats: Dictionary = data.get("stats", {})
 	var runtime_stats: Dictionary = _polygon_asset.get_runtime_stats()
+	var internal_shapes: Array = data.get("internal_shapes", [])
+	var spine: Dictionary = (
+		internal_shapes[0] as Dictionary
+		if not internal_shapes.is_empty()
+		else {}
+	)
 	_stats_label.text = (
-		"%d faces · %d logical vertices · %d connected component · "
+		"shape-guided · spine %.0f→%.0f px (%s) · "
+		+ "%d faces · %d logical vertices · %d connected component · "
 		+ "%d turnable page faces · single-layer mesh · "
 		+ "%d MeshInstance2D · %d draw surface · source texture dependency: %s · mesh debug: %s"
 	) % [
+		float(spine.get("source_width_px", 0.0)),
+		float(spine.get("constructed_width_px", 0.0)),
+		String(spine.get("palette_role", "none")),
 		int(stats.get("face_count", 0)),
 		int(stats.get("logical_vertex_count", 0)),
 		int(stats.get("connected_components", 0)),

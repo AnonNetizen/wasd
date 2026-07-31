@@ -99,6 +99,22 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 		String(asset_data.get("style_id", "")) == String(style.get("style_id", "")),
 		"Polygon asset references the configured Style Profile id."
 	)
+	var construction: Dictionary = asset_data.get("construction", {})
+	_check(
+		String(construction.get("mode", "")) == "shape_guided"
+		and bool(construction.get("generated_geometry", false))
+		and not bool(construction.get("runtime_source_texture", true)),
+		"Asset records tool-built geometry with no runtime source texture."
+	)
+	var source_usage: Array = construction.get("source_usage", [])
+	_check(
+		source_usage == [
+			"outer_shape",
+			"internal_shape",
+			"color_reference",
+		],
+		"Asset limits source-image usage to shape and color reference."
+	)
 	var vertices := _vector2_array_from_json(asset_data.get("vertices", []))
 	var faces_value: Variant = asset_data.get("faces", [])
 	_check(not vertices.is_empty(), "Polygon asset has shared logical vertices.")
@@ -258,6 +274,12 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 			int(region_counts[region_name]) > 0,
 			"Semantic region is non-empty: %s." % region_name
 		)
+	_validate_internal_shapes(
+		asset_data,
+		style,
+		vertices,
+		faces
+	)
 
 	var bounds := _rect_from_json(asset_data.get("bounds", {}))
 	var anchors_value: Variant = asset_data.get("anchors", {})
@@ -291,6 +313,18 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	)
 	_check(int(stats.get("draw_surfaces", 0)) == 1, "Stats record one draw surface.")
 	_check(
+		String(stats.get("construction_mode", "")) == "shape_guided",
+		"Stats record source-guided tool construction."
+	)
+	_check(
+		int(stats.get("internal_shape_count", 0)) == 1,
+		"Stats record the extracted spine shape."
+	)
+	_check(
+		int(stats.get("protected_internal_edge_count", 0)) >= 2,
+		"Stats record protected internal edges on both sides of the spine."
+	)
+	_check(
 		is_equal_approx(
 			float(stats.get("minimum_triangle_area_px2", 0.0)),
 			actual_minimum_area
@@ -305,17 +339,191 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 		"Stats record the verified minimum face altitude."
 	)
 	_check(
-		is_equal_approx(
-			float(stats.get("minimum_outline_edge_length_px", 0.0)),
-			actual_minimum_outline_edge
-		),
+		absf(
+			float(stats.get("minimum_outline_edge_length_px", 0.0))
+			- actual_minimum_outline_edge
+		) <= 0.001,
 		"Stats record the verified minimum outline edge length."
 	)
 	_check(
 		int(stats.get("removed_outline_vertex_count", 0)) > 0,
 		"Compiler records removed outline nodes instead of masking their faces."
 	)
+	_check(
+		int(stats.get("constructed_outline_removed_vertex_count", 0)) > 0,
+		"Compiler removes new sliver-prone nodes after inserting shape boundaries."
+	)
 	_check(int(stats.get("emphasized_face_count", 0)) == 1, "Stats record one emphasized face.")
+
+
+func _validate_internal_shapes(
+	asset_data: Dictionary,
+	style: Dictionary,
+	vertices: PackedVector2Array,
+	faces: Array
+) -> void:
+	var shapes_value: Variant = asset_data.get("internal_shapes", [])
+	_check(shapes_value is Array, "Polygon asset internal_shapes is an array.")
+	if not shapes_value is Array:
+		return
+	var shapes: Array = shapes_value
+	_check(shapes.size() == 1, "Open book has one extracted internal shape.")
+	if shapes.size() != 1 or not shapes[0] is Dictionary:
+		return
+	var spine: Dictionary = shapes[0]
+	_check(
+		String(spine.get("id", "")) == "spine"
+		and String(spine.get("kind", "")) == "vertical_band"
+		and String(spine.get("region", "")) == "spine",
+		"Extracted internal shape is the vertical spine band."
+	)
+	var left_x := float(spine.get("left_x", 0.0))
+	var center_x := float(spine.get("center_x", 0.0))
+	var right_x := float(spine.get("right_x", 0.0))
+	var source_width := float(spine.get("source_width_px", 0.0))
+	var constructed_width := float(spine.get("constructed_width_px", 0.0))
+	var extraction: Dictionary = style.get("internal_shape_extraction", {})
+	var minimum_width := float(
+		extraction.get("minimum_constructed_band_width_px", 0.0)
+	)
+	var maximum_width := float(
+		extraction.get("maximum_constructed_band_width_px", INF)
+	)
+	_check(
+		source_width > 0.0,
+		"Spine extraction records a non-zero source width."
+	)
+	_check(
+		constructed_width >= minimum_width
+		and constructed_width <= maximum_width
+		and constructed_width >= source_width,
+		"Tool rebuilds the spine inside the configured readable width range."
+	)
+	_check(
+		absf(center_x - (left_x + right_x) * 0.5) <= 0.001
+		and absf(constructed_width - (right_x - left_x)) <= 0.001,
+		"Constructed spine bounds agree with its center and width."
+	)
+	var source_color_hex := String(spine.get("source_color", ""))
+	var source_color := Color("#" + source_color_hex)
+	var palette: Dictionary = style.get("palette", {})
+	var palette_role := String(spine.get("palette_role", ""))
+	_check(
+		source_color_hex.length() == 6
+		and palette.has(palette_role),
+		"Spine records its sampled source color and a valid palette role."
+	)
+	_check(
+		palette_role == _nearest_palette_role(source_color, palette),
+		"Spine palette role is the nearest Style Profile color to the source sample."
+	)
+
+	var region_geometry_is_constrained := true
+	var spine_faces_use_extracted_color := true
+	for face_value: Variant in faces:
+		var face: Dictionary = face_value
+		var region := String(face.get("region", ""))
+		var indices: Array = face.get("indices", [])
+		for index_value: Variant in indices:
+			var x := vertices[int(index_value)].x
+			if region == "left_page":
+				region_geometry_is_constrained = (
+					region_geometry_is_constrained
+					and x <= left_x + 0.001
+				)
+			elif region == "right_page":
+				region_geometry_is_constrained = (
+					region_geometry_is_constrained
+					and x >= right_x - 0.001
+				)
+			elif region == "spine":
+				region_geometry_is_constrained = (
+					region_geometry_is_constrained
+					and x >= left_x - 0.001
+					and x <= right_x + 0.001
+				)
+		if region == "spine":
+			spine_faces_use_extracted_color = (
+				spine_faces_use_extracted_color
+				and String(face.get("palette_role", "")) == palette_role
+			)
+	_check(
+		region_geometry_is_constrained,
+		"No generated face crosses a protected spine boundary."
+	)
+	_check(
+		spine_faces_use_extracted_color,
+		"Every constructed spine face uses the source-derived palette role."
+	)
+	_check(
+		_count_spine_boundary_edges(
+			faces,
+			vertices,
+			left_x,
+			right_x
+		) >= 2,
+		"Both spine boundaries are shared protected edges, not visual overlays."
+	)
+
+
+func _count_spine_boundary_edges(
+	faces: Array,
+	vertices: PackedVector2Array,
+	left_x: float,
+	right_x: float
+) -> int:
+	var edge_owners: Dictionary = {}
+	for face_value: Variant in faces:
+		var face: Dictionary = face_value
+		var indices: Array = face.get("indices", [])
+		for edge_index in range(3):
+			var first := int(indices[edge_index])
+			var second := int(indices[(edge_index + 1) % 3])
+			var edge_key := _edge_key(first, second)
+			var owners: Array = edge_owners.get(edge_key, [])
+			owners.append(String(face.get("region", "")))
+			edge_owners[edge_key] = owners
+	var protected_count := 0
+	for edge_value: Variant in edge_owners:
+		var edge_key := String(edge_value)
+		var owners: Array = edge_owners[edge_key]
+		if owners.size() != 2 or not owners.has("spine"):
+			continue
+		var index_parts := edge_key.split(":")
+		var first_point := vertices[int(index_parts[0])]
+		var second_point := vertices[int(index_parts[1])]
+		var on_left := (
+			is_equal_approx(first_point.x, left_x)
+			and is_equal_approx(second_point.x, left_x)
+			and owners.has("left_page")
+		)
+		var on_right := (
+			is_equal_approx(first_point.x, right_x)
+			and is_equal_approx(second_point.x, right_x)
+			and owners.has("right_page")
+		)
+		if on_left or on_right:
+			protected_count += 1
+	return protected_count
+
+
+func _nearest_palette_role(source_color: Color, palette: Dictionary) -> String:
+	var nearest_role := ""
+	var nearest_distance := INF
+	var roles: Array = palette.keys()
+	roles.sort()
+	for role_value: Variant in roles:
+		var role := String(role_value)
+		var palette_color := Color(String(palette[role]))
+		var delta := Vector3(
+			source_color.r - palette_color.r,
+			source_color.g - palette_color.g,
+			source_color.b - palette_color.b
+		)
+		if delta.length_squared() < nearest_distance:
+			nearest_distance = delta.length_squared()
+			nearest_role = role
+	return nearest_role
 
 
 func _validate_scene_file_shape() -> void:
@@ -415,6 +623,7 @@ func _validate_runtime() -> void:
 			var shared_motion_masks_match := true
 			var face_animation_flags_match := true
 			var fixed_surface_motion_match := true
+			var spine_motion_match := true
 			var turnable_vertex_count := 0
 			var idle_page_vertex_count := 0
 			for face_value: Variant in runtime_faces:
@@ -443,6 +652,11 @@ func _validate_runtime() -> void:
 							fixed_surface_motion_match
 							and uv.y < 0.25
 						)
+					if String(face.get("region", "")) == "spine":
+						spine_motion_match = (
+							spine_motion_match
+							and uv.y < 0.25
+						)
 					if uv.y >= 0.75:
 						turnable_vertex_count += 1
 					elif uv.y >= 0.25:
@@ -459,6 +673,10 @@ func _validate_runtime() -> void:
 			_check(
 				fixed_surface_motion_match,
 				"Cover faces remain fixed during page turns."
+			)
+			_check(
+				spine_motion_match,
+				"Constructed spine faces remain fixed during page turns."
 			)
 			_check(
 				turnable_vertex_count > 0,

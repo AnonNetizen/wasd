@@ -5,12 +5,10 @@
 		256,
 		256
 	],
+	"construction_mode": "shape_guided",
 	"background_key": "#ff00ff",
 	"background_distance_threshold": 0.18,
 	"rdp_epsilon_px": 3.0,
-	"interior_sample_spacing_px": 24,
-	"sample_jitter_ratio": 0.16,
-	"deterministic_seed": 20260730,
 	"target_face_count": {
 		"min": 48,
 		"max": 80,
@@ -20,6 +18,16 @@
 	"minimum_outline_edge_length_px": 8.0,
 	"minimum_visible_face_area_px2": 80.0,
 	"minimum_visible_face_altitude_px": 6.0,
+	"internal_shape_extraction": {
+		"minimum_sample_count": 3,
+		"contrast_probe_distance_px": 10,
+		"minimum_contrast": 0.08,
+		"darkness_weight": 0.75,
+		"center_bias": 0.04,
+		"band_color_similarity_threshold": 0.16,
+		"minimum_constructed_band_width_px": 20.0,
+		"maximum_constructed_band_width_px": 28.0
+	},
 	"palette": {
 		"outline": "#191824",
 		"page_light": "#eadfca",
