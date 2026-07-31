@@ -4,8 +4,7 @@ extends Node2D
 var _vertices := PackedVector2Array()
 var _segments: Array[Vector2i] = []
 var _asset_half_size := Vector2.ONE
-var _movement_direction := Vector2.ZERO
-var _movement_amount: float = 0.0
+var _movement_deformation := Vector2.ZERO
 var _line_color := Color("#69d5d0")
 
 
@@ -51,13 +50,8 @@ func configure(
 	queue_redraw()
 
 
-func set_movement_state(direction: Vector2, amount: float) -> void:
-	_movement_amount = clampf(amount, 0.0, 1.0)
-	_movement_direction = (
-		direction.normalized()
-		if direction.length() > 0.0001 and _movement_amount > 0.0001
-		else Vector2.ZERO
-	)
+func set_movement_deformation(deformation: Vector2) -> void:
+	_movement_deformation = deformation
 	queue_redraw()
 
 
@@ -77,9 +71,10 @@ func _draw() -> void:
 
 
 func _deform_point(point: Vector2) -> Vector2:
-	if _movement_amount <= 0.0001 or _movement_direction.is_zero_approx():
+	var deformation_amount := _movement_deformation.length()
+	if deformation_amount <= 0.0001:
 		return point
-	var direction := _movement_direction
+	var direction := _movement_deformation / deformation_amount
 	var tangent := Vector2(-direction.y, direction.x)
 	var longitudinal_extent := maxf(
 		absf(direction.x) * _asset_half_size.x
@@ -93,16 +88,22 @@ func _deform_point(point: Vector2) -> Vector2:
 		-1.0,
 		1.0
 	)
-	var center_drag := (
+	var front_weight := smoothstep(
+		-0.10,
+		0.92,
+		normalized_longitudinal
+	)
+	var center_weight := (
 		1.0
 		- normalized_longitudinal * normalized_longitudinal
 	)
-	longitudinal *= 1.0 - _movement_amount * 0.085
-	longitudinal -= _movement_amount * center_drag * 7.0
+	longitudinal *= 1.0 + deformation_amount * 0.085
+	longitudinal += deformation_amount * front_weight * 4.5
+	longitudinal -= deformation_amount * center_weight * 2.2
 	lateral *= (
 		1.0
-		+ _movement_amount
-		* 0.055
+		- deformation_amount
+		* 0.048
 		* (1.0 - absf(normalized_longitudinal) * 0.35)
 	)
 	return direction * longitudinal + tangent * lateral

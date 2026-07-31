@@ -9,17 +9,17 @@ const AUTO_HOLD_END: float = 7.2
 const AUTO_RESTORE_END: float = 8.0
 const INDEX_SCENE_PATH: String = "res://scenes/test_lab_index.tscn"
 const MOVEMENT_CENTER := Vector2(348.0, 260.0)
-const MOVEMENT_RADIUS: float = 42.0
-const DEMO_SEGMENT_DURATION: float = (
-	(AUTO_DISSOLVE_START - AUTO_GENERATE_END)
-	/ 4.0
+const MOVEMENT_RADIUS := Vector2(58.0, 34.0)
+const DEMO_MOVEMENT_DURATION: float = (
+	AUTO_DISSOLVE_START
+	- AUTO_GENERATE_END
 )
-const DEMO_MOVEMENT_SPEED: float = (
-	MOVEMENT_RADIUS * 2.0
-	/ DEMO_SEGMENT_DURATION
+const DEMO_ANGULAR_SPEED: float = (
+	TAU
+	/ DEMO_MOVEMENT_DURATION
 )
 const DEMO_FULL_DEFORMATION_SPEED: float = (
-	DEMO_MOVEMENT_SPEED
+	MOVEMENT_RADIUS.x * DEMO_ANGULAR_SPEED
 	/ 0.85
 )
 const POLYGON_ASSET_SCRIPT := preload("res://scripts/polygon_asset_2d.gd")
@@ -113,6 +113,7 @@ func prepare_capture(
 ) -> void:
 	_auto_demo_enabled = false
 	set_process(false)
+	_polygon_asset.set_process(false)
 	_elapsed_time = 1.75
 	_polygon_asset.set_animation_time(_elapsed_time)
 	_polygon_asset.position = MOVEMENT_CENTER
@@ -148,11 +149,20 @@ func get_auto_demo_state() -> Dictionary:
 func debug_set_auto_demo_time(seconds: float) -> void:
 	_stop_manual_tweens()
 	_auto_demo_enabled = true
-	_auto_cycle_time = fposmod(
+	var target_time := fposmod(
 		maxf(seconds, 0.0),
 		AUTO_CYCLE_DURATION
 	)
-	_apply_auto_demo_state()
+	_polygon_asset.reset_visual()
+	_auto_cycle_time = 0.0
+	while _auto_cycle_time < target_time:
+		var step_delta := minf(
+			1.0 / 60.0,
+			target_time - _auto_cycle_time
+		)
+		_auto_cycle_time += step_delta
+		_apply_auto_demo_state()
+		_polygon_asset.advance_movement_deformation(step_delta)
 
 
 func _build_interface() -> void:
@@ -183,7 +193,7 @@ func _build_interface() -> void:
 
 	var subtitle := _make_label(
 		"Subtitle",
-		"Velocity-driven deformation · still means rigid · no semantic animation adapter",
+		"Damped soft-body response · velocity target · no idle breathing",
 		Vector2(36.0, 58.0),
 		Vector2(850.0, 28.0),
 		15,
@@ -343,10 +353,10 @@ func _apply_auto_demo_state() -> void:
 		return
 	var generation_progress := 1.0
 	var dissolve_progress := 0.0
-	var movement_direction := Vector2.ZERO
+	var movement_velocity := Vector2.ZERO
 	_polygon_asset.position = (
 		MOVEMENT_CENTER
-		- Vector2(MOVEMENT_RADIUS, MOVEMENT_RADIUS)
+		+ Vector2(MOVEMENT_RADIUS.x, 0.0)
 	)
 	if _auto_cycle_time < AUTO_GENERATE_END:
 		generation_progress = _smooth_unit(
@@ -358,7 +368,7 @@ func _apply_auto_demo_state() -> void:
 			- AUTO_GENERATE_END
 		)
 		_polygon_asset.position = movement_state["position"]
-		movement_direction = movement_state["direction"]
+		movement_velocity = movement_state["velocity"]
 	elif _auto_cycle_time < AUTO_DISSOLVE_END:
 		dissolve_progress = _smooth_unit(
 			(_auto_cycle_time - AUTO_DISSOLVE_START)
@@ -372,7 +382,7 @@ func _apply_auto_demo_state() -> void:
 			/ (AUTO_RESTORE_END - AUTO_HOLD_END)
 		)
 	_polygon_asset.set_movement_velocity(
-		movement_direction * DEMO_MOVEMENT_SPEED,
+		movement_velocity,
 		DEMO_FULL_DEFORMATION_SPEED
 	)
 	_polygon_asset.set_generation_progress(generation_progress)
@@ -412,63 +422,40 @@ func _movement_state_for_time(seconds: float) -> Dictionary:
 	var normalized := clampf(
 		seconds / movement_duration,
 		0.0,
-		0.9999
+		1.0
 	)
-	var segment_value := normalized * 4.0
-	var segment := mini(floori(segment_value), 3)
-	var progress := segment_value - float(segment)
-	var top_left := (
+	var angle := normalized * TAU
+	var position := (
 		MOVEMENT_CENTER
-		- Vector2(MOVEMENT_RADIUS, MOVEMENT_RADIUS)
+		+ Vector2(
+			cos(angle) * MOVEMENT_RADIUS.x,
+			sin(angle) * MOVEMENT_RADIUS.y
+		)
 	)
-	var top_right := (
-		MOVEMENT_CENTER
-		+ Vector2(MOVEMENT_RADIUS, -MOVEMENT_RADIUS)
+	var velocity := Vector2(
+		-sin(angle) * MOVEMENT_RADIUS.x * DEMO_ANGULAR_SPEED,
+		cos(angle) * MOVEMENT_RADIUS.y * DEMO_ANGULAR_SPEED
 	)
-	var bottom_right := (
-		MOVEMENT_CENTER
-		+ Vector2(MOVEMENT_RADIUS, MOVEMENT_RADIUS)
-	)
-	var bottom_left := (
-		MOVEMENT_CENTER
-		+ Vector2(-MOVEMENT_RADIUS, MOVEMENT_RADIUS)
-	)
-	match segment:
-		0:
-			return {
-				"position": top_left.lerp(top_right, progress),
-				"direction": Vector2.RIGHT,
-			}
-		1:
-			return {
-				"position": top_right.lerp(bottom_right, progress),
-				"direction": Vector2.DOWN,
-			}
-		2:
-			return {
-				"position": bottom_right.lerp(bottom_left, progress),
-				"direction": Vector2.LEFT,
-			}
-		_:
-			return {
-				"position": bottom_left.lerp(top_left, progress),
-				"direction": Vector2.UP,
-			}
+	return {
+		"position": position,
+		"velocity": velocity,
+	}
 
 
 func _movement_phase_name(seconds: float) -> String:
-	var movement_duration := (
-		AUTO_DISSOLVE_START
-		- AUTO_GENERATE_END
+	var state := _movement_state_for_time(seconds)
+	var velocity: Vector2 = state["velocity"]
+	if absf(velocity.x) > absf(velocity.y):
+		return (
+			"MOVE RIGHT"
+			if velocity.x > 0.0
+			else "MOVE LEFT"
+		)
+	return (
+		"MOVE DOWN"
+		if velocity.y > 0.0
+		else "MOVE UP"
 	)
-	var segment := mini(
-		floori(
-			clampf(seconds / movement_duration, 0.0, 0.9999)
-			* 4.0
-		),
-		3
-	)
-	return ["MOVE RIGHT", "MOVE DOWN", "MOVE LEFT", "MOVE UP"][segment]
 
 
 func _smooth_unit(value: float) -> float:

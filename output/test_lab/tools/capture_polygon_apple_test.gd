@@ -47,14 +47,49 @@ func _capture() -> void:
 
 
 func _save_effects_strip(scene: Node) -> bool:
-	var states: Array[Array] = [
-		[0.20, 0.0, Vector2.ZERO, 0.0],
-		[1.0, 0.0, Vector2.RIGHT, 0.85],
-		[1.0, 0.0, Vector2.DOWN, 0.85],
-		[1.0, 0.0, Vector2.LEFT, 0.85],
-		[1.0, 0.0, Vector2.UP, 0.85],
-		[1.0, 0.45, Vector2.ZERO, 0.0],
-		[1.0, 1.0, Vector2.ZERO, 0.0],
+	var states: Array[Dictionary] = [
+		{
+			"generation": 0.20,
+			"dissolve": 0.0,
+			"reset": true,
+			"velocity": Vector2.ZERO,
+			"advance": 0.0,
+		},
+		{
+			"generation": 1.0,
+			"dissolve": 0.0,
+			"reset": true,
+			"velocity": Vector2.RIGHT * 85.0,
+			"advance": 0.08,
+		},
+		{
+			"generation": 1.0,
+			"dissolve": 0.0,
+			"reset": false,
+			"velocity": Vector2.RIGHT * 85.0,
+			"advance": 0.28,
+		},
+		{
+			"generation": 1.0,
+			"dissolve": 0.0,
+			"reset": false,
+			"velocity": Vector2.DOWN * 85.0,
+			"advance": 0.10,
+		},
+		{
+			"generation": 1.0,
+			"dissolve": 0.0,
+			"reset": false,
+			"velocity": Vector2.ZERO,
+			"advance": 0.12,
+		},
+		{
+			"generation": 1.0,
+			"dissolve": 0.45,
+			"reset": true,
+			"velocity": Vector2.ZERO,
+			"advance": 0.0,
+		},
 	]
 	var frame_size := Vector2i(300, 212)
 	var strip := Image.create(
@@ -64,14 +99,34 @@ func _save_effects_strip(scene: Node) -> bool:
 		Image.FORMAT_RGBA8
 	)
 	strip.fill(Color("#10101a"))
+	var polygon_asset: Node = scene.call("get_polygon_asset")
 	for frame_index in range(states.size()):
-		var state: Array = states[frame_index]
-		scene.call(
-			"prepare_capture",
-			float(state[0]),
-			float(state[1]),
-			state[2],
-			float(state[3])
+		var state: Dictionary = states[frame_index]
+		if bool(state["reset"]):
+			scene.call(
+				"prepare_capture",
+				float(state["generation"]),
+				float(state["dissolve"]),
+				Vector2.ZERO,
+				0.0
+			)
+		else:
+			polygon_asset.call(
+				"set_generation_progress",
+				float(state["generation"])
+			)
+			polygon_asset.call(
+				"set_dissolve_progress",
+				float(state["dissolve"])
+			)
+		polygon_asset.call(
+			"set_movement_velocity",
+			state["velocity"],
+			100.0
+		)
+		polygon_asset.call(
+			"advance_movement_deformation",
+			float(state["advance"])
 		)
 		for _frame_index in range(2):
 			await process_frame

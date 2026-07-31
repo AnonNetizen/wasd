@@ -370,24 +370,72 @@ func _validate_runtime() -> void:
 	runtime.set_movement_velocity(Vector2(90.0, 0.0), 100.0)
 	runtime.set_generation_progress(0.35)
 	runtime.set_dissolve_progress(0.45)
-	var changed_stats: Dictionary = runtime.get_runtime_stats()
+	var target_stats: Dictionary = runtime.get_runtime_stats()
 	_check(
 		_array_to_vector2(
-			changed_stats.get("movement_direction", [])
+			target_stats.get("movement_target_direction", [])
 		).is_equal_approx(Vector2.RIGHT)
 		and is_equal_approx(
-			float(changed_stats.get("movement_amount", 0.0)),
+			float(target_stats.get("movement_target_amount", 0.0)),
 			0.9
 		)
-		and is_equal_approx(
-			float(changed_stats.get("generation_progress", 0.0)),
+		and is_zero_approx(
+			float(target_stats.get("movement_amount", -1.0))
+		),
+		"Apple converts gameplay velocity into a deformation target."
+	)
+	runtime.advance_movement_deformation(0.08)
+	var response_stats: Dictionary = runtime.get_runtime_stats()
+	_check(
+		_array_to_vector2(
+			response_stats.get("movement_direction", [])
+		).is_equal_approx(Vector2.RIGHT)
+		and float(response_stats.get("movement_amount", 0.0)) > 0.0
+		and float(response_stats.get("movement_amount", 0.0)) < 0.9
+		and float(
+			response_stats.get("movement_spring_speed", 0.0)
+		) > 0.0,
+		"Movement deformation follows velocity through a damped spring instead of snapping."
+	)
+	_check(
+		is_equal_approx(
+			float(response_stats.get("generation_progress", 0.0)),
 			0.35
 		)
 		and is_equal_approx(
-			float(changed_stats.get("dissolve_progress", 0.0)),
+			float(response_stats.get("dissolve_progress", 0.0)),
 			0.45
 		),
-		"Apple converts gameplay velocity into direction and deformation amount."
+		"Spring movement remains independent from lifecycle progress."
+	)
+	runtime.set_movement_velocity(Vector2.ZERO, 100.0)
+	var moving_amount := float(
+		runtime.get_runtime_stats().get("movement_amount", 0.0)
+	)
+	runtime.advance_movement_deformation(0.05)
+	var stopping_stats: Dictionary = runtime.get_runtime_stats()
+	_check(
+		_array_to_vector2(
+			stopping_stats.get("movement_target_direction", [])
+		).is_zero_approx()
+		and float(stopping_stats.get("movement_amount", 0.0)) > 0.0
+		and not is_equal_approx(
+			float(stopping_stats.get("movement_amount", 0.0)),
+			moving_amount
+		),
+		"Stopping keeps a short inertial tail instead of snapping rigid."
+	)
+	for _step_index in range(30):
+		runtime.advance_movement_deformation(0.1)
+	var settled_stats: Dictionary = runtime.get_runtime_stats()
+	_check(
+		is_zero_approx(
+			float(settled_stats.get("movement_amount", -1.0))
+		)
+		and is_zero_approx(
+			float(settled_stats.get("movement_spring_speed", -1.0))
+		),
+		"Damped movement settles to an exact non-breathing rest state."
 	)
 	runtime.set_movement_state(Vector2.UP, 0.65)
 	var upward_stats: Dictionary = runtime.get_runtime_stats()
@@ -454,30 +502,30 @@ func _validate_scene() -> void:
 		) < 0.7,
 		"Apple auto demo reaches generic generation."
 	)
-	scene.call("debug_set_auto_demo_time", 1.4)
+	scene.call("debug_set_auto_demo_time", 1.0)
 	var motion_stats: Dictionary = polygon_asset.call("get_runtime_stats")
-	var rightward_position := (polygon_asset as Node2D).position
+	var downward_position := (polygon_asset as Node2D).position
 	_check(
 		_array_to_vector2(
-			motion_stats.get("movement_direction", [])
-		).is_equal_approx(Vector2.RIGHT)
+			motion_stats.get("movement_target_direction", [])
+		).y > 0.8
 		and float(motion_stats.get("movement_amount", 0.0)) > 0.0
 		and is_zero_approx(
 			float(motion_stats.get("dissolve_progress", -1.0))
 		),
-		"Apple auto demo reaches velocity-driven rightward deformation."
+		"Apple auto demo reaches spring-driven downward deformation."
 	)
-	scene.call("debug_set_auto_demo_time", 2.6)
-	var downward_stats: Dictionary = polygon_asset.call(
+	scene.call("debug_set_auto_demo_time", 2.0)
+	var leftward_stats: Dictionary = polygon_asset.call(
 		"get_runtime_stats"
 	)
-	var downward_position := (polygon_asset as Node2D).position
+	var leftward_position := (polygon_asset as Node2D).position
 	_check(
 		_array_to_vector2(
-			downward_stats.get("movement_direction", [])
-		).is_equal_approx(Vector2.DOWN)
-		and not downward_position.is_equal_approx(rightward_position),
-		"Apple auto demo moves the asset and changes deformation with velocity."
+			leftward_stats.get("movement_target_direction", [])
+		).x < -0.95
+		and not leftward_position.is_equal_approx(downward_position),
+		"Apple auto demo moves continuously and turns the spring target."
 	)
 	scene.call("debug_set_auto_demo_time", 6.2)
 	var dissolve_stats: Dictionary = polygon_asset.call(

@@ -3,8 +3,7 @@ render_mode unshaded;
 
 uniform vec2 asset_half_size = vec2(128.0, 96.0);
 uniform float animation_time = 0.0;
-uniform vec2 movement_direction = vec2(0.0);
-uniform float movement_amount : hint_range(0.0, 1.0) = 0.0;
+uniform vec2 movement_deformation = vec2(0.0);
 uniform float generation_progress : hint_range(0.0, 1.0) = 1.0;
 uniform float dissolve_progress : hint_range(0.0, 1.0) = 0.0;
 uniform bool outline_mode = false;
@@ -55,9 +54,9 @@ void vertex() {
 	VERTEX -= axis * crease * (10.0 + 7.0 * (1.0 - primary_position));
 	VERTEX += tangent * crease * 9.0 * sin(tangent_position * 1.57079633);
 
-	float direction_length = length(movement_direction);
-	if (movement_amount > 0.0001 && direction_length > 0.0001) {
-		vec2 direction = movement_direction / direction_length;
+	float deformation_amount = length(movement_deformation);
+	if (deformation_amount > 0.0001) {
+		vec2 direction = movement_deformation / deformation_amount;
 		vec2 movement_tangent = vec2(-direction.y, direction.x);
 		float longitudinal_extent = max(
 			dot(abs(direction), asset_half_size),
@@ -70,16 +69,22 @@ void vertex() {
 			-1.0,
 			1.0
 		);
-		float center_drag = (
+		float front_weight = smoothstep(
+			-0.10,
+			0.92,
+			normalized_longitudinal
+		);
+		float center_weight = (
 			1.0
 			- normalized_longitudinal * normalized_longitudinal
 		);
-		longitudinal *= 1.0 - movement_amount * 0.085;
-		longitudinal -= movement_amount * center_drag * 7.0;
+		longitudinal *= 1.0 + deformation_amount * 0.085;
+		longitudinal += deformation_amount * front_weight * 4.5;
+		longitudinal -= deformation_amount * center_weight * 2.2;
 		lateral *= (
 			1.0
-			+ movement_amount
-			* 0.055
+			- deformation_amount
+			* 0.048
 			* (1.0 - abs(normalized_longitudinal) * 0.35)
 		);
 		VERTEX = (
@@ -97,7 +102,7 @@ void fragment() {
 		face_color.rgb,
 		movement_tint.rgb,
 		primary_face
-		* movement_amount
+		* min(length(movement_deformation), 1.0)
 		* 0.14
 	);
 

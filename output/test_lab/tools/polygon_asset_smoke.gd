@@ -880,10 +880,7 @@ func _validate_arbitrary_axis_compile(compiler: RefCounted) -> void:
 				)) > 0,
 				"Generic runtime preserves manifest authoring axis and semantic regions."
 			)
-			runtime.set_movement_velocity(
-				Vector2(0.0, 75.0),
-				100.0
-			)
+			runtime.set_movement_state(Vector2.DOWN, 0.75)
 			runtime.set_generation_progress(0.4)
 			runtime.set_dissolve_progress(0.3)
 			var effect_stats: Dictionary = runtime.get_runtime_stats()
@@ -934,13 +931,13 @@ func _validate_shader_shape() -> void:
 	if shader == null:
 		return
 	_check(
-		shader.code.find("movement_direction") >= 0
-		and shader.code.find("movement_amount") >= 0
+		shader.code.find("movement_deformation") >= 0
 		and shader.code.find("step(0.75, COLOR.a)") >= 0,
 		"Generic shader separates velocity deformation from per-face color animation."
 	)
 	_check(
-		shader.code.find("center_drag") >= 0
+		shader.code.find("front_weight") >= 0
+		and shader.code.find("center_weight") >= 0
 		and shader.code.find("longitudinal_extent") >= 0
 		and shader.code.find("sin(phase)") < 0,
 		"Generic shader deforms from movement velocity without idle breathing."
@@ -980,8 +977,7 @@ func _validate_book_adapter_shape() -> void:
 		_check(
 			book_shader.code.find("generation_progress") >= 0
 			and book_shader.code.find("dissolve_progress") >= 0
-			and book_shader.code.find("movement_direction") >= 0
-			and book_shader.code.find("movement_amount") >= 0,
+			and book_shader.code.find("movement_deformation") >= 0,
 			"Book-only shader preserves the generic lifecycle contract."
 		)
 		_check(
@@ -1171,7 +1167,7 @@ func _validate_runtime() -> void:
 	var collision_before := collision.polygon.duplicate() if collision != null else PackedVector2Array()
 
 	runtime.set_animation_time(2.5)
-	runtime.set_movement_velocity(Vector2(-80.0, 0.0), 100.0)
+	runtime.set_movement_state(Vector2.LEFT, 0.8)
 	runtime.set_generation_progress(0.4)
 	runtime.set_dissolve_progress(0.65)
 	var progress_stats: Dictionary = runtime.get_runtime_stats()
