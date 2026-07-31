@@ -8,20 +8,7 @@ const AUTO_GENERATE_END: float = 0.8
 const AUTO_HOLD_END: float = 7.2
 const AUTO_RESTORE_END: float = 8.0
 const INDEX_SCENE_PATH: String = "res://scenes/test_lab_index.tscn"
-const MOVEMENT_CENTER := Vector2(348.0, 260.0)
-const MOVEMENT_RADIUS := Vector2(58.0, 34.0)
-const DEMO_MOVEMENT_DURATION: float = (
-	AUTO_DISSOLVE_START
-	- AUTO_GENERATE_END
-)
-const DEMO_ANGULAR_SPEED: float = (
-	TAU
-	/ DEMO_MOVEMENT_DURATION
-)
-const DEMO_FULL_DEFORMATION_SPEED: float = (
-	MOVEMENT_RADIUS.x * DEMO_ANGULAR_SPEED
-	/ 0.85
-)
+const ASSET_CENTER := Vector2(348.0, 260.0)
 const POLYGON_ASSET_SCRIPT := preload("res://scripts/polygon_asset_2d.gd")
 const SOURCE_PATH: String = "res://assets/polygon_art/apple_source.png"
 
@@ -107,20 +94,13 @@ func reset_demo() -> void:
 
 func prepare_capture(
 	generation_progress: float,
-	dissolve_progress: float,
-	movement_direction: Vector2,
-	movement_amount: float
+	dissolve_progress: float
 ) -> void:
 	_auto_demo_enabled = false
 	set_process(false)
-	_polygon_asset.set_process(false)
 	_elapsed_time = 1.75
 	_polygon_asset.set_animation_time(_elapsed_time)
-	_polygon_asset.position = MOVEMENT_CENTER
-	_polygon_asset.set_movement_state(
-		movement_direction,
-		movement_amount
-	)
+	_polygon_asset.position = ASSET_CENTER
 	_polygon_asset.set_generation_progress(generation_progress)
 	_polygon_asset.set_dissolve_progress(dissolve_progress)
 	if _demo_status_label != null:
@@ -154,15 +134,8 @@ func debug_set_auto_demo_time(seconds: float) -> void:
 		AUTO_CYCLE_DURATION
 	)
 	_polygon_asset.reset_visual()
-	_auto_cycle_time = 0.0
-	while _auto_cycle_time < target_time:
-		var step_delta := minf(
-			1.0 / 60.0,
-			target_time - _auto_cycle_time
-		)
-		_auto_cycle_time += step_delta
-		_apply_auto_demo_state()
-		_polygon_asset.advance_movement_deformation(step_delta)
+	_auto_cycle_time = target_time
+	_apply_auto_demo_state()
 
 
 func _build_interface() -> void:
@@ -193,7 +166,7 @@ func _build_interface() -> void:
 
 	var subtitle := _make_label(
 		"Subtitle",
-		"Damped soft-body response · velocity target · no idle breathing",
+		"Distinct per-face color · source-guided palette · no movement deformation",
 		Vector2(36.0, 58.0),
 		Vector2(850.0, 28.0),
 		15,
@@ -252,7 +225,7 @@ func _build_interface() -> void:
 	))
 	_polygon_asset = POLYGON_ASSET_SCRIPT.new()
 	_polygon_asset.name = "PolygonAsset"
-	_polygon_asset.position = MOVEMENT_CENTER
+	_polygon_asset.position = ASSET_CENTER
 	_polygon_asset.scale = Vector2.ONE * 1.75
 	runtime_panel.add_child(_polygon_asset)
 
@@ -329,8 +302,7 @@ func _set_auto_demo_enabled(enabled: bool) -> void:
 		return
 	_polygon_asset.set_generation_progress(1.0)
 	_polygon_asset.set_dissolve_progress(0.0)
-	_polygon_asset.position = MOVEMENT_CENTER
-	_polygon_asset.set_movement_state(Vector2.ZERO, 0.0)
+	_polygon_asset.position = ASSET_CENTER
 	if _demo_status_label != null:
 		_demo_status_label.text = "MANUAL · A TO RESUME AUTO"
 		_demo_status_label.add_theme_color_override(
@@ -353,27 +325,17 @@ func _apply_auto_demo_state() -> void:
 		return
 	var generation_progress := 1.0
 	var dissolve_progress := 0.0
-	var movement_velocity := Vector2.ZERO
-	_polygon_asset.position = (
-		MOVEMENT_CENTER
-		+ Vector2(MOVEMENT_RADIUS.x, 0.0)
-	)
+	_polygon_asset.position = ASSET_CENTER
 	if _auto_cycle_time < AUTO_GENERATE_END:
 		generation_progress = _smooth_unit(
 			_auto_cycle_time / AUTO_GENERATE_END
 		)
-	elif _auto_cycle_time < AUTO_DISSOLVE_START:
-		var movement_state := _movement_state_for_time(
-			_auto_cycle_time
-			- AUTO_GENERATE_END
-		)
-		_polygon_asset.position = movement_state["position"]
-		movement_velocity = movement_state["velocity"]
 	elif _auto_cycle_time < AUTO_DISSOLVE_END:
-		dissolve_progress = _smooth_unit(
-			(_auto_cycle_time - AUTO_DISSOLVE_START)
-			/ (AUTO_DISSOLVE_END - AUTO_DISSOLVE_START)
-		)
+		if _auto_cycle_time >= AUTO_DISSOLVE_START:
+			dissolve_progress = _smooth_unit(
+				(_auto_cycle_time - AUTO_DISSOLVE_START)
+				/ (AUTO_DISSOLVE_END - AUTO_DISSOLVE_START)
+			)
 	elif _auto_cycle_time < AUTO_HOLD_END:
 		dissolve_progress = 1.0
 	elif _auto_cycle_time < AUTO_RESTORE_END:
@@ -381,10 +343,6 @@ func _apply_auto_demo_state() -> void:
 			(_auto_cycle_time - AUTO_HOLD_END)
 			/ (AUTO_RESTORE_END - AUTO_HOLD_END)
 		)
-	_polygon_asset.set_movement_velocity(
-		movement_velocity,
-		DEMO_FULL_DEFORMATION_SPEED
-	)
 	_polygon_asset.set_generation_progress(generation_progress)
 	_polygon_asset.set_dissolve_progress(dissolve_progress)
 	if _demo_status_label != null:
@@ -401,10 +359,7 @@ func _auto_demo_phase() -> String:
 	if _auto_cycle_time < AUTO_GENERATE_END:
 		return "GENERATION"
 	if _auto_cycle_time < AUTO_DISSOLVE_START:
-		return _movement_phase_name(
-			_auto_cycle_time
-			- AUTO_GENERATE_END
-		)
+		return "FACETED STILL"
 	if _auto_cycle_time < AUTO_DISSOLVE_END:
 		return "DISSOLVE"
 	if _auto_cycle_time < AUTO_HOLD_END:
@@ -412,52 +367,6 @@ func _auto_demo_phase() -> String:
 	if _auto_cycle_time < AUTO_RESTORE_END:
 		return "RESTORE"
 	return "RESET"
-
-
-func _movement_state_for_time(seconds: float) -> Dictionary:
-	var movement_duration := (
-		AUTO_DISSOLVE_START
-		- AUTO_GENERATE_END
-	)
-	var normalized := clampf(
-		seconds / movement_duration,
-		0.0,
-		1.0
-	)
-	var angle := normalized * TAU
-	var position := (
-		MOVEMENT_CENTER
-		+ Vector2(
-			cos(angle) * MOVEMENT_RADIUS.x,
-			sin(angle) * MOVEMENT_RADIUS.y
-		)
-	)
-	var velocity := Vector2(
-		-sin(angle) * MOVEMENT_RADIUS.x * DEMO_ANGULAR_SPEED,
-		cos(angle) * MOVEMENT_RADIUS.y * DEMO_ANGULAR_SPEED
-	)
-	return {
-		"position": position,
-		"velocity": velocity,
-	}
-
-
-func _movement_phase_name(seconds: float) -> String:
-	var state := _movement_state_for_time(seconds)
-	var velocity: Vector2 = state["velocity"]
-	if absf(velocity.x) > absf(velocity.y):
-		return (
-			"MOVE RIGHT"
-			if velocity.x > 0.0
-			else "MOVE LEFT"
-		)
-	return (
-		"MOVE DOWN"
-		if velocity.y > 0.0
-		else "MOVE UP"
-	)
-
-
 func _smooth_unit(value: float) -> float:
 	var clamped := clampf(value, 0.0, 1.0)
 	return clamped * clamped * (3.0 - 2.0 * clamped)
@@ -470,16 +379,16 @@ func _refresh_stats() -> void:
 	var stats: Dictionary = data.get("stats", {})
 	var runtime_stats: Dictionary = _polygon_asset.get_runtime_stats()
 	_stats_label.text = (
-		"silhouette-only · per-asset palette · %d faces · "
+		"silhouette-only · source-guided facet palette · %d faces · "
 		+ "%d logical vertices · %d connected component · "
-		+ "%d moving faces · %d MeshInstance2D · %d draw surface · "
+		+ "%d display colors · %d MeshInstance2D · %d draw surface · "
 		+ "semantic adapter: none · source texture dependency: %s · "
 		+ "mesh debug: %s"
 	) % [
 		int(stats.get("face_count", 0)),
 		int(stats.get("logical_vertex_count", 0)),
 		int(stats.get("connected_components", 0)),
-		int(runtime_stats.get("primary_motion_face_count", 0)),
+		int(stats.get("facet_display_color_count", 0)),
 		int(runtime_stats.get("mesh_instance_count", 0)),
 		int(runtime_stats.get("surface_count", 0)),
 		"none" if not bool(runtime_stats.get("has_texture", true)) else "unexpected",

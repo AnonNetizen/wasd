@@ -162,6 +162,13 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 	)
 	if not bool(emphasis_result.get("ok", false)):
 		return emphasis_result
+	var facet_color_result := _assign_facet_colors(
+		face_records,
+		palette,
+		style.get("facet_coloring", {})
+	)
+	if not bool(facet_color_result.get("ok", false)):
+		return facet_color_result
 	_assign_clear_order(face_records)
 
 	var local_bounds := Rect2(source_bounds.position - pivot, source_bounds.size)
@@ -276,6 +283,15 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 			"minimum_visible_face_area_px2": minimum_visible_area,
 			"minimum_visible_face_altitude_px": minimum_visible_altitude,
 			"emphasized_face_count": int(emphasis_result.get("count", 0)),
+			"facet_display_color_count": int(
+				facet_color_result.get("display_color_count", 0)
+			),
+			"minimum_adjacent_face_color_distance": float(
+				facet_color_result.get(
+					"minimum_adjacent_color_distance",
+					0.0
+				)
+			),
 		},
 	}
 	return {
@@ -2056,6 +2072,7 @@ func _build_face_records(
 			"_feature_distance": feature_distance,
 			"_area": area,
 			"_minimum_altitude": minimum_altitude,
+			"_sampled_color": sampled_color.to_html(false),
 		})
 	return records
 
@@ -2123,6 +2140,224 @@ func _apply_facet_emphasis(
 	return {"ok": true, "count": applied_count}
 
 
+func _assign_facet_colors(
+	records: Array,
+	palette: Dictionary,
+	config_value: Variant
+) -> Dictionary:
+	if not config_value is Dictionary:
+		return _failure("Style Profile facet_coloring must be a dictionary.")
+	var config: Dictionary = config_value
+	var shade_steps_value: Variant = config.get("shade_steps", [])
+	var hue_offsets_value: Variant = config.get("hue_offsets", [])
+	if (
+		not shade_steps_value is Array
+		or not hue_offsets_value is Array
+	):
+		return _failure(
+			"Facet coloring shade_steps and hue_offsets must be arrays."
+		)
+	var shade_steps: Array = shade_steps_value
+	var hue_offsets: Array = hue_offsets_value
+	if shade_steps.size() < 3 or shade_steps.size() != hue_offsets.size():
+		return _failure(
+			"Facet coloring needs at least three paired shade and hue variants."
+		)
+	var source_color_weight := float(
+		config.get("source_color_weight", 0.2)
+	)
+	var minimum_distance := float(
+		config.get("minimum_adjacent_color_distance", 0.05)
+	)
+	if source_color_weight < 0.0 or source_color_weight > 1.0:
+		return _failure(
+			"Facet coloring source_color_weight must be inside 0..1."
+		)
+	if minimum_distance <= 0.0:
+		return _failure(
+			"Facet coloring minimum_adjacent_color_distance must be positive."
+		)
+
+	var adjacency := _build_face_adjacency(records)
+	var candidate_sets: Array = []
+	candidate_sets.resize(records.size())
+	for face_index in range(records.size()):
+		var record: Dictionary = records[face_index]
+		var palette_role := String(record.get("palette_role", ""))
+		if not palette.has(palette_role):
+			return _failure("Facet coloring found an invalid palette role.")
+		var base_color: Color = palette[palette_role]
+		var sampled_color := Color(
+			String(record.get("_sampled_color", base_color.to_html(false)))
+		)
+		var reference_color := base_color.lerp(
+			sampled_color,
+			source_color_weight
+		)
+		var candidates: Array[Color] = []
+		for variant_index in range(shade_steps.size()):
+			var shade := clampf(
+				float(shade_steps[variant_index]),
+				-0.45,
+				0.45
+			)
+			var candidate := (
+				reference_color.darkened(-shade)
+				if shade < 0.0
+				else reference_color.lightened(shade)
+			)
+			var hue_offset := clampf(
+				float(hue_offsets[variant_index]),
+				-0.08,
+				0.08
+			)
+			candidate = Color.from_hsv(
+				fposmod(candidate.h + hue_offset, 1.0),
+				candidate.s,
+				candidate.v,
+				1.0
+			)
+			candidates.append(candidate)
+		candidate_sets[face_index] = candidates
+
+	var assigned_variants := PackedInt32Array()
+	assigned_variants.resize(records.size())
+	assigned_variants.fill(-1)
+	var face_order: Array[int] = []
+	for face_index in range(records.size()):
+		face_order.append(face_index)
+	face_order.sort_custom(func(first: int, second: int) -> bool:
+		var first_degree := (adjacency[first] as Array).size()
+		var second_degree := (adjacency[second] as Array).size()
+		if first_degree != second_degree:
+			return first_degree > second_degree
+		return first < second
+	)
+	for face_index: int in face_order:
+		var neighbor_variants: Dictionary = {}
+		for neighbor_value: Variant in adjacency[face_index]:
+			var neighbor_index := int(neighbor_value)
+			var neighbor_variant := assigned_variants[neighbor_index]
+			if neighbor_variant >= 0:
+				neighbor_variants[neighbor_variant] = true
+		var candidates: Array = candidate_sets[face_index]
+		var record: Dictionary = records[face_index]
+		var sampled_color := Color(String(record["_sampled_color"]))
+		var best_variant := -1
+		var best_score := -INF
+		for variant_index in range(candidates.size()):
+			var candidate: Color = candidates[variant_index]
+			var source_distance := _color_distance(
+				candidate,
+				sampled_color
+			)
+			var minimum_neighbor_distance := INF
+			for neighbor_value: Variant in adjacency[face_index]:
+				var neighbor_index := int(neighbor_value)
+				var neighbor_variant := assigned_variants[neighbor_index]
+				if neighbor_variant < 0:
+					continue
+				var neighbor_candidates: Array = candidate_sets[neighbor_index]
+				minimum_neighbor_distance = minf(
+					minimum_neighbor_distance,
+					_color_distance(
+						candidate,
+						neighbor_candidates[neighbor_variant]
+					)
+				)
+			var score := -source_distance
+			if minimum_neighbor_distance < INF:
+				if minimum_neighbor_distance >= minimum_distance:
+					score = 4.0 - source_distance
+				else:
+					score = (
+						minimum_neighbor_distance
+						/ minimum_distance
+						- source_distance * 0.05
+					)
+			if not neighbor_variants.has(variant_index):
+				score += 0.01
+			score -= float(variant_index) * 0.0001
+			if score > best_score:
+				best_score = score
+				best_variant = variant_index
+		if best_variant < 0:
+			return _failure("Facet coloring could not choose a display color.")
+		assigned_variants[face_index] = best_variant
+
+	var display_colors: Dictionary = {}
+	for face_index in range(records.size()):
+		var record: Dictionary = records[face_index]
+		var variant_index := assigned_variants[face_index]
+		var candidates: Array = candidate_sets[face_index]
+		var display_color: Color = candidates[variant_index]
+		var display_color_hex := display_color.to_html(false)
+		record["facet_variant"] = variant_index
+		record["display_color"] = display_color_hex
+		display_colors[display_color_hex] = true
+
+	var actual_minimum_distance := INF
+	for face_index in range(records.size()):
+		var face_color := Color(
+			String((records[face_index] as Dictionary)["display_color"])
+		)
+		for neighbor_value: Variant in adjacency[face_index]:
+			var neighbor_index := int(neighbor_value)
+			if neighbor_index <= face_index:
+				continue
+			var neighbor_color := Color(
+				String(
+					(records[neighbor_index] as Dictionary)["display_color"]
+				)
+			)
+			actual_minimum_distance = minf(
+				actual_minimum_distance,
+				_color_distance(face_color, neighbor_color)
+			)
+	if actual_minimum_distance == INF:
+		actual_minimum_distance = 0.0
+	if actual_minimum_distance < minimum_distance:
+		return _failure(
+			(
+				"Facet coloring cannot keep adjacent faces distinct: "
+				+ "%.4f < %.4f."
+			) % [actual_minimum_distance, minimum_distance]
+		)
+	return {
+		"ok": true,
+		"display_color_count": display_colors.size(),
+		"minimum_adjacent_color_distance": actual_minimum_distance,
+	}
+
+
+func _build_face_adjacency(records: Array) -> Array:
+	var adjacency: Array = []
+	adjacency.resize(records.size())
+	for face_index in range(records.size()):
+		adjacency[face_index] = []
+	var edge_owners: Dictionary = {}
+	for face_index in range(records.size()):
+		var record: Dictionary = records[face_index]
+		var indices: Array = record.get("indices", [])
+		for edge_index in range(3):
+			var edge := _edge_key(
+				int(indices[edge_index]),
+				int(indices[(edge_index + 1) % 3])
+			)
+			var owners: Array = edge_owners.get(edge, [])
+			owners.append(face_index)
+			edge_owners[edge] = owners
+	for edge_value: Variant in edge_owners:
+		var owners: Array = edge_owners[edge_value]
+		if owners.size() != 2:
+			continue
+		var first := int(owners[0])
+		var second := int(owners[1])
+		(adjacency[first] as Array).append(second)
+		(adjacency[second] as Array).append(first)
+	return adjacency
+
+
 func _assign_clear_order(records: Array) -> void:
 	records.sort_custom(func(first: Dictionary, second: Dictionary) -> bool:
 		var first_distance := float(first["_feature_distance"])
@@ -2141,6 +2376,7 @@ func _assign_clear_order(records: Array) -> void:
 		record.erase("_feature_distance")
 		record.erase("_area")
 		record.erase("_minimum_altitude")
+		record.erase("_sampled_color")
 
 
 func _build_anchors(manifest: Dictionary, bounds: Rect2) -> Dictionary:
@@ -2235,7 +2471,6 @@ func _build_motion_profile(
 		axis.normalized()
 	)
 	for role_field in [
-		"movement_tint_palette_role",
 		"generation_tint_palette_role",
 		"dissolve_tint_palette_role",
 	]:

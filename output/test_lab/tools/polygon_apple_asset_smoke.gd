@@ -18,9 +18,13 @@ const PROMPT_BUILDER := preload(
 const RUNTIME_SCRIPT := preload(
 	"res://scripts/polygon_asset_2d.gd"
 )
+const RUNTIME_SOURCE_PATH: String = (
+	"res://scripts/polygon_asset_2d.gd"
+)
 const SCENE_PATH: String = (
 	"res://scenes/polygon_apple_test.tscn"
 )
+const SHADER_PATH: String = "res://shaders/polygon_asset.gdshader"
 const SILHOUETTE_TEMPLATE_PATH: String = (
 	"res://data/polygon_imports/_silhouette_asset.template.json"
 )
@@ -107,6 +111,31 @@ func _validate_generic_sources() -> void:
 		_check(
 			compiler_source.contains("guides.size() > 1"),
 			"Generic compiler supports an optional primary feature."
+		)
+		_check(
+			compiler_source.contains("_assign_facet_colors")
+			and compiler_source.contains(
+				"minimum_adjacent_color_distance"
+			),
+			"Generic compiler assigns distinct adjacent facet colors."
+		)
+	var runtime_file := FileAccess.open(
+		RUNTIME_SOURCE_PATH,
+		FileAccess.READ
+	)
+	_check(
+		runtime_file != null,
+		"Generic Polygon runtime source is readable."
+	)
+	if runtime_file != null:
+		var runtime_source := runtime_file.get_as_text()
+		_check(
+			not runtime_source.contains("set_movement_velocity")
+			and not runtime_source.contains("set_movement_state")
+			and not runtime_source.contains(
+				"advance_movement_deformation"
+			),
+			"Generic runtime exposes no movement-deformation API."
 		)
 	var silhouette_template_result := _load_json_dictionary(
 		SILHOUETTE_TEMPLATE_PATH
@@ -252,14 +281,14 @@ func _validate_asset(asset_data: Dictionary) -> void:
 		{}
 	)
 	_check(
-		motion_profile.get("primary_motion_regions", []) == ["apple"]
+		(motion_profile.get("primary_motion_regions", []) as Array).is_empty()
+		and (
+			motion_profile.get("secondary_motion_regions", []) as Array
+		).is_empty()
 		and (
 			motion_profile.get("motion_surface_kinds", []) as Array
-		).has("fruit")
-		and (
-			motion_profile.get("motion_surface_kinds", []) as Array
-		).has("leaf"),
-		"Apple binds generic motion through manifest regions and surface kinds."
+		).is_empty(),
+		"Apple declares no semantic or movement deformation regions."
 	)
 
 	var vertices := _vector2_array_from_json(
@@ -314,6 +343,7 @@ func _validate_asset(asset_data: Dictionary) -> void:
 		faces_are_valid,
 		"Apple faces are indexed, visible, colored, and region-valid."
 	)
+	_validate_facet_colors(asset_data, style_result.get("data", {}))
 	_check(
 		int(stats.get("connected_components", 0)) == 1
 		and bool(stats.get("watertight", false))
@@ -326,6 +356,96 @@ func _validate_asset(asset_data: Dictionary) -> void:
 		and anchors.has("stem")
 		and anchors.has("interaction"),
 		"Apple exposes center, stem, and interaction anchors."
+	)
+
+
+func _validate_facet_colors(
+	asset_data: Dictionary,
+	style_value: Variant
+) -> void:
+	_check(
+		style_value is Dictionary,
+		"Apple facet validation receives the Style Profile."
+	)
+	if not style_value is Dictionary:
+		return
+	var style: Dictionary = style_value
+	var config: Dictionary = style.get("facet_coloring", {})
+	var minimum_required := float(
+		config.get("minimum_adjacent_color_distance", 0.0)
+	)
+	var faces: Array = asset_data.get("faces", [])
+	var edge_owners: Dictionary = {}
+	var display_colors: Dictionary = {}
+	var face_colors: Array[Color] = []
+	var face_data_is_valid := true
+	for face_index in range(faces.size()):
+		var face: Dictionary = faces[face_index]
+		var display_color_hex := String(face.get("display_color", ""))
+		face_data_is_valid = (
+			face_data_is_valid
+			and display_color_hex.is_valid_html_color()
+			and int(face.get("facet_variant", -1)) >= 0
+		)
+		var display_color := (
+			Color(display_color_hex)
+			if display_color_hex.is_valid_html_color()
+			else Color.BLACK
+		)
+		face_colors.append(display_color)
+		display_colors[display_color_hex] = true
+		var indices: Array = face.get("indices", [])
+		for edge_index in range(3):
+			var first := int(indices[edge_index])
+			var second := int(indices[(edge_index + 1) % 3])
+			var edge := "%d:%d" % [
+				mini(first, second),
+				maxi(first, second),
+			]
+			var owners: Array = edge_owners.get(edge, [])
+			owners.append(face_index)
+			edge_owners[edge] = owners
+	var actual_minimum := INF
+	var adjacent_faces_are_distinct := true
+	for edge_value: Variant in edge_owners:
+		var owners: Array = edge_owners[edge_value]
+		if owners.size() != 2:
+			continue
+		var distance := _color_distance(
+			face_colors[int(owners[0])],
+			face_colors[int(owners[1])]
+		)
+		actual_minimum = minf(actual_minimum, distance)
+		adjacent_faces_are_distinct = (
+			adjacent_faces_are_distinct
+			and distance >= minimum_required
+		)
+	_check(
+		face_data_is_valid,
+		"Every apple face stores a valid generated display color and variant."
+	)
+	_check(
+		display_colors.size() >= ceili(float(faces.size()) * 0.5),
+		"Apple uses broad per-face color variety instead of a few flat role colors."
+	)
+	_check(
+		adjacent_faces_are_distinct,
+		"Every adjacent apple triangle meets the configured visible color gap."
+	)
+	var stats: Dictionary = asset_data.get("stats", {})
+	_check(
+		int(stats.get("facet_display_color_count", -1))
+		== display_colors.size()
+		and absf(
+			float(
+				stats.get(
+					"minimum_adjacent_face_color_distance",
+					-1.0
+				)
+			)
+			- actual_minimum
+		) <= 0.001,
+		"Apple stats record its actual facet color variety and minimum gap."
 	)
 
 
@@ -359,95 +479,23 @@ func _validate_runtime() -> void:
 		"Apple runtime stays on the generic effect shader."
 	)
 	_check(
-		int(runtime_stats.get("primary_motion_face_count", 0)) > 0,
-		"Apple exposes manifest-authored generic motion faces."
+		int(runtime_stats.get("primary_motion_face_count", -1)) == 0
+		and int(runtime_stats.get("motion_logical_vertex_count", -1)) == 0,
+		"Apple runtime has no movement-deformation face or vertex mask."
 	)
-	_check(
-		int(runtime_stats.get("pinned_outline_vertex_count", 0)) > 0
-		and int(runtime_stats.get("motion_logical_vertex_count", 0)) > 0,
-		"Apple retains semantic masks while velocity deformation owns the full silhouette."
-	)
-	runtime.set_movement_velocity(Vector2(90.0, 0.0), 100.0)
 	runtime.set_generation_progress(0.35)
 	runtime.set_dissolve_progress(0.45)
-	var target_stats: Dictionary = runtime.get_runtime_stats()
-	_check(
-		_array_to_vector2(
-			target_stats.get("movement_target_direction", [])
-		).is_equal_approx(Vector2.RIGHT)
-		and is_equal_approx(
-			float(target_stats.get("movement_target_amount", 0.0)),
-			0.9
-		)
-		and is_zero_approx(
-			float(target_stats.get("movement_amount", -1.0))
-		),
-		"Apple converts gameplay velocity into a deformation target."
-	)
-	runtime.advance_movement_deformation(0.08)
-	var response_stats: Dictionary = runtime.get_runtime_stats()
-	_check(
-		_array_to_vector2(
-			response_stats.get("movement_direction", [])
-		).is_equal_approx(Vector2.RIGHT)
-		and float(response_stats.get("movement_amount", 0.0)) > 0.0
-		and float(response_stats.get("movement_amount", 0.0)) < 0.9
-		and float(
-			response_stats.get("movement_spring_speed", 0.0)
-		) > 0.0,
-		"Movement deformation follows velocity through a damped spring instead of snapping."
-	)
+	var progress_stats: Dictionary = runtime.get_runtime_stats()
 	_check(
 		is_equal_approx(
-			float(response_stats.get("generation_progress", 0.0)),
+			float(progress_stats.get("generation_progress", 0.0)),
 			0.35
 		)
 		and is_equal_approx(
-			float(response_stats.get("dissolve_progress", 0.0)),
+			float(progress_stats.get("dissolve_progress", 0.0)),
 			0.45
 		),
-		"Spring movement remains independent from lifecycle progress."
-	)
-	runtime.set_movement_velocity(Vector2.ZERO, 100.0)
-	var moving_amount := float(
-		runtime.get_runtime_stats().get("movement_amount", 0.0)
-	)
-	runtime.advance_movement_deformation(0.05)
-	var stopping_stats: Dictionary = runtime.get_runtime_stats()
-	_check(
-		_array_to_vector2(
-			stopping_stats.get("movement_target_direction", [])
-		).is_zero_approx()
-		and float(stopping_stats.get("movement_amount", 0.0)) > 0.0
-		and not is_equal_approx(
-			float(stopping_stats.get("movement_amount", 0.0)),
-			moving_amount
-		),
-		"Stopping keeps a short inertial tail instead of snapping rigid."
-	)
-	for _step_index in range(30):
-		runtime.advance_movement_deformation(0.1)
-	var settled_stats: Dictionary = runtime.get_runtime_stats()
-	_check(
-		is_zero_approx(
-			float(settled_stats.get("movement_amount", -1.0))
-		)
-		and is_zero_approx(
-			float(settled_stats.get("movement_spring_speed", -1.0))
-		),
-		"Damped movement settles to an exact non-breathing rest state."
-	)
-	runtime.set_movement_state(Vector2.UP, 0.65)
-	var upward_stats: Dictionary = runtime.get_runtime_stats()
-	_check(
-		_array_to_vector2(
-			upward_stats.get("movement_direction", [])
-		).is_equal_approx(Vector2.UP)
-		and is_equal_approx(
-			float(upward_stats.get("movement_amount", 0.0)),
-			0.65
-		),
-		"Cardinal movement deformation is directly controllable."
+		"Apple lifecycle progress remains directly controllable."
 	)
 	runtime.reset_visual()
 	var reset_stats: Dictionary = runtime.get_runtime_stats()
@@ -458,14 +506,8 @@ func _validate_runtime() -> void:
 		)
 		and is_zero_approx(
 			float(reset_stats.get("dissolve_progress", -1.0))
-		)
-		and _array_to_vector2(
-			reset_stats.get("movement_direction", [])
-		).is_zero_approx()
-		and is_zero_approx(
-			float(reset_stats.get("movement_amount", -1.0))
 		),
-		"Apple generic animation reset restores a complete visible asset."
+		"Apple lifecycle reset restores a complete visible asset."
 	)
 	runtime.queue_free()
 	await process_frame
@@ -503,29 +545,23 @@ func _validate_scene() -> void:
 		"Apple auto demo reaches generic generation."
 	)
 	scene.call("debug_set_auto_demo_time", 1.0)
-	var motion_stats: Dictionary = polygon_asset.call("get_runtime_stats")
-	var downward_position := (polygon_asset as Node2D).position
+	var still_stats: Dictionary = polygon_asset.call("get_runtime_stats")
+	var first_still_position := (polygon_asset as Node2D).position
 	_check(
-		_array_to_vector2(
-			motion_stats.get("movement_target_direction", [])
-		).y > 0.8
-		and float(motion_stats.get("movement_amount", 0.0)) > 0.0
+		is_equal_approx(
+			float(still_stats.get("generation_progress", 0.0)),
+			1.0
+		)
 		and is_zero_approx(
-			float(motion_stats.get("dissolve_progress", -1.0))
+			float(still_stats.get("dissolve_progress", -1.0))
 		),
-		"Apple auto demo reaches spring-driven downward deformation."
+		"Apple auto demo reaches the fully visible faceted hold."
 	)
 	scene.call("debug_set_auto_demo_time", 2.0)
-	var leftward_stats: Dictionary = polygon_asset.call(
-		"get_runtime_stats"
-	)
-	var leftward_position := (polygon_asset as Node2D).position
+	var second_still_position := (polygon_asset as Node2D).position
 	_check(
-		_array_to_vector2(
-			leftward_stats.get("movement_target_direction", [])
-		).x < -0.95
-		and not leftward_position.is_equal_approx(downward_position),
-		"Apple auto demo moves continuously and turns the spring target."
+		second_still_position.is_equal_approx(first_still_position),
+		"Apple auto demo keeps the asset position static."
 	)
 	scene.call("debug_set_auto_demo_time", 6.2)
 	var dissolve_stats: Dictionary = polygon_asset.call(
@@ -572,6 +608,14 @@ func _array_to_vector2(value: Variant) -> Vector2:
 		return Vector2.ZERO
 	var values: Array = value
 	return Vector2(float(values[0]), float(values[1]))
+
+
+func _color_distance(first: Color, second: Color) -> float:
+	return Vector3(
+		first.r - second.r,
+		first.g - second.g,
+		first.b - second.b
+	).length()
 
 
 func _variants_equivalent(first: Variant, second: Variant) -> bool:

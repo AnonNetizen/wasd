@@ -18,6 +18,24 @@
 	"minimum_outline_edge_length_px": 8.0,
 	"minimum_visible_face_area_px2": 80.0,
 	"minimum_visible_face_altitude_px": 6.0,
+	"facet_coloring": {
+		"shade_steps": [
+			-0.28,
+			-0.14,
+			0.0,
+			0.14,
+			0.28
+		],
+		"hue_offsets": [
+			-0.018,
+			0.014,
+			-0.008,
+			0.022,
+			0.0
+		],
+		"source_color_weight": 0.2,
+		"minimum_adjacent_color_distance": 0.045
+	},
 	"feature_extraction": {
 		"minimum_sample_count": 3,
 		"contrast_probe_distance_px": 10,

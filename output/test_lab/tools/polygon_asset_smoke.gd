@@ -169,6 +169,7 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	var indices_are_valid := true
 	var triangles_are_valid := true
 	var palette_roles_are_valid := true
+	var display_colors_are_valid := true
 	var surface_kinds_are_valid := true
 	var clear_order_is_valid := true
 	for face_value: Variant in faces:
@@ -196,6 +197,11 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 		triangles_are_valid = triangles_are_valid and absf((b - a).cross(c - a)) > 0.001
 		var palette_role := String(face.get("palette_role", ""))
 		palette_roles_are_valid = palette_roles_are_valid and palette.has(palette_role)
+		display_colors_are_valid = (
+			display_colors_are_valid
+			and String(face.get("display_color", "")).is_valid_html_color()
+			and int(face.get("facet_variant", -1)) >= 0
+		)
 		surface_kinds_are_valid = (
 			surface_kinds_are_valid
 			and ["page", "cover"].has(String(face.get("surface_kind", "")))
@@ -210,6 +216,10 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 	_check(indices_are_valid, "Every face has three valid shared-vertex indices.")
 	_check(triangles_are_valid, "Polygon asset contains no degenerate triangle.")
 	_check(palette_roles_are_valid, "Every face color comes from the Style Profile palette.")
+	_check(
+		display_colors_are_valid,
+		"Every face has a valid source-guided display color and facet variant."
+	)
 	_check(
 		surface_kinds_are_valid,
 		"Every face keeps an independent page or cover surface kind."
@@ -275,6 +285,7 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 		actual_minimum_outline_edge >= minimum_outline_edge_length,
 		"Compiled outline contains no short edge that can form a sliver face."
 	)
+	_validate_facet_colors(asset_data, style, faces)
 	var emphasized_left_lower_face := false
 	for face_value: Variant in faces:
 		var face: Dictionary = face_value
@@ -685,8 +696,9 @@ func _validate_generic_compiler_source() -> void:
 	_check(
 		source.contains("linear_band")
 		and source.contains("cross_axis")
-		and source.contains("_clip_polygon_half_plane"),
-		"Compiler core constructs arbitrary-axis linear feature partitions."
+		and source.contains("_clip_polygon_half_plane")
+		and source.contains("_assign_facet_colors"),
+		"Compiler core constructs features and source-guided facet colors generically."
 	)
 	var generic_runtime_sources := [
 		RUNTIME_SOURCE_PATH,
@@ -718,6 +730,17 @@ func _validate_generic_compiler_source() -> void:
 		runtime_sources_are_generic,
 		"Runtime, shader, and debug overlay contain no book-specific motion ids."
 	)
+	var runtime_file := FileAccess.open(RUNTIME_SOURCE_PATH, FileAccess.READ)
+	if runtime_file != null:
+		var runtime_source := runtime_file.get_as_text()
+		_check(
+			not runtime_source.contains("set_movement_velocity")
+			and not runtime_source.contains("set_movement_state")
+			and not runtime_source.contains(
+				"advance_movement_deformation"
+			),
+			"Generic runtime contains no movement-deformation API."
+		)
 
 
 func _validate_arbitrary_axis_compile(compiler: RefCounted) -> void:
@@ -880,20 +903,9 @@ func _validate_arbitrary_axis_compile(compiler: RefCounted) -> void:
 				)) > 0,
 				"Generic runtime preserves manifest authoring axis and semantic regions."
 			)
-			runtime.set_movement_state(Vector2.DOWN, 0.75)
 			runtime.set_generation_progress(0.4)
 			runtime.set_dissolve_progress(0.3)
 			var effect_stats: Dictionary = runtime.get_runtime_stats()
-			_check(
-				_array_to_vector2(
-					effect_stats.get("movement_direction", [])
-				).is_equal_approx(Vector2.DOWN)
-				and is_equal_approx(
-					float(effect_stats.get("movement_amount", 0.0)),
-					0.75
-				),
-				"Gameplay velocity drives generic deformation independently of authoring axis."
-			)
 			_check(
 				is_equal_approx(
 					float(effect_stats.get("generation_progress", 0.0)),
@@ -931,16 +943,10 @@ func _validate_shader_shape() -> void:
 	if shader == null:
 		return
 	_check(
-		shader.code.find("movement_deformation") >= 0
-		and shader.code.find("step(0.75, COLOR.a)") >= 0,
-		"Generic shader separates velocity deformation from per-face color animation."
-	)
-	_check(
-		shader.code.find("front_weight") >= 0
-		and shader.code.find("center_weight") >= 0
-		and shader.code.find("longitudinal_extent") >= 0
-		and shader.code.find("sin(phase)") < 0,
-		"Generic shader deforms from movement velocity without idle breathing."
+		shader.code.find("movement_deformation") < 0
+		and shader.code.find("movement_tint") < 0
+		and shader.code.find("front_weight") < 0,
+		"Generic shader contains no movement deformation or movement tint."
 	)
 	_check(
 		shader.code.find("generation_progress") >= 0
@@ -977,8 +983,9 @@ func _validate_book_adapter_shape() -> void:
 		_check(
 			book_shader.code.find("generation_progress") >= 0
 			and book_shader.code.find("dissolve_progress") >= 0
-			and book_shader.code.find("movement_deformation") >= 0,
-			"Book-only shader preserves the generic lifecycle contract."
+			and book_shader.code.find("movement_deformation") < 0
+			and book_shader.code.find("movement_tint") < 0,
+			"Book-only shader preserves lifecycle effects without generic movement deformation."
 		)
 		_check(
 			book_shader.code.find("generation_progress <= 0.0001") >= 0
@@ -1075,6 +1082,7 @@ func _validate_runtime() -> void:
 			var face_animation_flags_match := true
 			var fixed_surface_motion_match := true
 			var spine_motion_match := true
+			var display_colors_match := true
 			var turnable_vertex_count := 0
 			var idle_page_vertex_count := 0
 			for face_value: Variant in runtime_faces:
@@ -1103,6 +1111,15 @@ func _validate_runtime() -> void:
 						face_animation_flags_match
 						and absf(color.a - expected_face_alpha) <= 0.01
 					)
+					var expected_display_color := Color(
+						String(face.get("display_color", "#000000"))
+					)
+					display_colors_match = (
+						display_colors_match
+						and absf(color.r - expected_display_color.r) <= 0.01
+						and absf(color.g - expected_display_color.g) <= 0.01
+						and absf(color.b - expected_display_color.b) <= 0.01
+					)
 					if String(face.get("surface_kind", "")) == "cover":
 						fixed_surface_motion_match = (
 							fixed_surface_motion_match
@@ -1125,6 +1142,10 @@ func _validate_runtime() -> void:
 			_check(
 				face_animation_flags_match,
 				"Per-face color animation flags remain independent from vertex motion."
+			)
+			_check(
+				display_colors_match,
+				"Runtime mesh renders the compiler-assigned per-face colors."
 			)
 			_check(
 				fixed_surface_motion_match,
@@ -1167,23 +1188,12 @@ func _validate_runtime() -> void:
 	var collision_before := collision.polygon.duplicate() if collision != null else PackedVector2Array()
 
 	runtime.set_animation_time(2.5)
-	runtime.set_movement_state(Vector2.LEFT, 0.8)
 	runtime.set_generation_progress(0.4)
 	runtime.set_dissolve_progress(0.65)
 	var progress_stats: Dictionary = runtime.get_runtime_stats()
 	_check(
 		is_equal_approx(float(progress_stats.get("animation_time", 0.0)), 2.5),
 		"Animation time can be set directly."
-	)
-	_check(
-		_array_to_vector2(
-			progress_stats.get("movement_direction", [])
-		).is_equal_approx(Vector2.LEFT)
-		and is_equal_approx(
-			float(progress_stats.get("movement_amount", 0.0)),
-			0.8
-		),
-		"Generic deformation follows gameplay velocity direction and speed."
 	)
 	_check(
 		is_equal_approx(
@@ -1205,18 +1215,12 @@ func _validate_runtime() -> void:
 	var reset_stats: Dictionary = runtime.get_runtime_stats()
 	_check(
 		is_zero_approx(float(reset_stats.get("animation_time", -1.0)))
-		and _array_to_vector2(
-			reset_stats.get("movement_direction", [])
-		).is_zero_approx()
-		and is_zero_approx(
-			float(reset_stats.get("movement_amount", -1.0))
-		)
 		and is_equal_approx(
 			float(reset_stats.get("generation_progress", 0.0)),
 			1.0
 		)
 		and is_zero_approx(float(reset_stats.get("dissolve_progress", -1.0))),
-		"reset_visual restores all animation progress."
+		"reset_visual restores lifecycle animation progress."
 	)
 	runtime.set_debug_mesh_visible(true)
 	_check(
@@ -1271,14 +1275,83 @@ func _validate_demo_scene() -> void:
 		float(clear_stats.get("dissolve_progress", 0.0)) > 0.4,
 		"Auto demo reaches a visible generic dissolve phase."
 	)
-	_check(
-		is_zero_approx(
-			float(clear_stats.get("movement_amount", -1.0))
-		),
-		"Book auto demo remains still outside explicit movement input."
-	)
 	scene.queue_free()
 	await process_frame
+
+
+func _validate_facet_colors(
+	asset_data: Dictionary,
+	style: Dictionary,
+	faces: Array
+) -> void:
+	var config: Dictionary = style.get("facet_coloring", {})
+	var minimum_required := float(
+		config.get("minimum_adjacent_color_distance", 0.0)
+	)
+	_check(
+		minimum_required > 0.0,
+		"Style Profile requires a visible color gap between adjacent faces."
+	)
+	var edge_owners: Dictionary = {}
+	var face_colors: Array[Color] = []
+	var display_colors: Dictionary = {}
+	for face_index in range(faces.size()):
+		var face: Dictionary = faces[face_index]
+		var display_color_hex := String(face.get("display_color", ""))
+		var display_color := (
+			Color(display_color_hex)
+			if display_color_hex.is_valid_html_color()
+			else Color.BLACK
+		)
+		face_colors.append(display_color)
+		display_colors[display_color_hex] = true
+		var indices: Array = face.get("indices", [])
+		for edge_index in range(3):
+			var edge := _edge_key(
+				int(indices[edge_index]),
+				int(indices[(edge_index + 1) % 3])
+			)
+			var owners: Array = edge_owners.get(edge, [])
+			owners.append(face_index)
+			edge_owners[edge] = owners
+	var actual_minimum := INF
+	var adjacent_faces_are_distinct := true
+	for edge_value: Variant in edge_owners:
+		var owners: Array = edge_owners[edge_value]
+		if owners.size() != 2:
+			continue
+		var distance := _color_distance(
+			face_colors[int(owners[0])],
+			face_colors[int(owners[1])]
+		)
+		actual_minimum = minf(actual_minimum, distance)
+		adjacent_faces_are_distinct = (
+			adjacent_faces_are_distinct
+			and distance >= minimum_required
+		)
+	_check(
+		display_colors.size() >= ceili(float(faces.size()) * 0.5),
+		"Book uses broad per-face color variety instead of a few flat role colors."
+	)
+	_check(
+		adjacent_faces_are_distinct,
+		"Every adjacent book triangle meets the configured visible color gap."
+	)
+	var stats: Dictionary = asset_data.get("stats", {})
+	_check(
+		int(stats.get("facet_display_color_count", -1))
+		== display_colors.size()
+		and absf(
+			float(
+				stats.get(
+					"minimum_adjacent_face_color_distance",
+					-1.0
+				)
+			)
+			- actual_minimum
+		) <= 0.001,
+		"Book stats record its actual facet color variety and minimum gap."
+	)
 
 
 func _face_area(face: Dictionary, vertices: PackedVector2Array) -> float:
@@ -1573,6 +1646,14 @@ func _colors_equal(first: Color, second: Color) -> bool:
 		and is_equal_approx(first.b, second.b)
 		and is_equal_approx(first.a, second.a)
 	)
+
+
+func _color_distance(first: Color, second: Color) -> float:
+	return Vector3(
+		first.r - second.r,
+		first.g - second.g,
+		first.b - second.b
+	).length()
 
 
 func _check(condition: bool, message: String) -> void:

@@ -32,15 +32,9 @@
 			1.0,
 			0.0
 		],
-		"primary_motion_regions": [
-			"apple"
-		],
+		"primary_motion_regions": [],
 		"secondary_motion_regions": [],
-		"motion_surface_kinds": [
-			"fruit",
-			"leaf"
-		],
-		"movement_tint_palette_role": "accent_warm",
+		"motion_surface_kinds": [],
 		"generation_tint_palette_role": "accent_warm",
 		"dissolve_tint_palette_role": "surface_shadow"
 	},

@@ -32,15 +32,9 @@
 			1.0,
 			0.0
 		],
-		"primary_motion_regions": [
-			"<primary_region>"
-		],
+		"primary_motion_regions": [],
 		"secondary_motion_regions": [],
-		"motion_surface_kinds": [
-			"<primary_surface_kind>",
-			"<secondary_surface_kind>"
-		],
-		"movement_tint_palette_role": "accent_warm",
+		"motion_surface_kinds": [],
 		"generation_tint_palette_role": "accent_warm",
 		"dissolve_tint_palette_role": "secondary_shadow"
 	},

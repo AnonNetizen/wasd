@@ -32,7 +32,6 @@
 		"motion_surface_kinds": [
 			"page"
 		],
-		"movement_tint_palette_role": "accent_warm",
 		"generation_tint_palette_role": "accent_warm",
 		"dissolve_tint_palette_role": "secondary_shadow"
 	},

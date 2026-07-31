@@ -1,9 +1,7 @@
 shader_type canvas_item;
 render_mode unshaded;
 
-uniform vec2 asset_half_size = vec2(128.0, 96.0);
 uniform float animation_time = 0.0;
-uniform vec2 movement_deformation = vec2(0.0);
 uniform float generation_progress : hint_range(0.0, 1.0) = 1.0;
 uniform float dissolve_progress : hint_range(0.0, 1.0) = 0.0;
 uniform bool outline_mode = false;
@@ -12,7 +10,6 @@ uniform float motion_origin = 0.0;
 uniform float motion_span = 1.0;
 uniform float motion_tangent_center = 0.0;
 uniform float motion_tangent_span = 1.0;
-uniform vec4 movement_tint : source_color = vec4(0.79, 0.60, 0.36, 1.0);
 uniform vec4 generation_tint : source_color = vec4(0.79, 0.60, 0.36, 1.0);
 uniform vec4 dissolve_tint : source_color = vec4(0.31, 0.24, 0.43, 1.0);
 
@@ -53,59 +50,12 @@ void vertex() {
 	);
 	VERTEX -= axis * crease * (10.0 + 7.0 * (1.0 - primary_position));
 	VERTEX += tangent * crease * 9.0 * sin(tangent_position * 1.57079633);
-
-	float deformation_amount = length(movement_deformation);
-	if (deformation_amount > 0.0001) {
-		vec2 direction = movement_deformation / deformation_amount;
-		vec2 movement_tangent = vec2(-direction.y, direction.x);
-		float longitudinal_extent = max(
-			dot(abs(direction), asset_half_size),
-			1.0
-		);
-		float longitudinal = dot(VERTEX, direction);
-		float lateral = dot(VERTEX, movement_tangent);
-		float normalized_longitudinal = clamp(
-			longitudinal / longitudinal_extent,
-			-1.0,
-			1.0
-		);
-		float front_weight = smoothstep(
-			-0.10,
-			0.92,
-			normalized_longitudinal
-		);
-		float center_weight = (
-			1.0
-			- normalized_longitudinal * normalized_longitudinal
-		);
-		longitudinal *= 1.0 + deformation_amount * 0.085;
-		longitudinal += deformation_amount * front_weight * 4.5;
-		longitudinal -= deformation_amount * center_weight * 2.2;
-		lateral *= (
-			1.0
-			- deformation_amount
-			* 0.048
-			* (1.0 - abs(normalized_longitudinal) * 0.35)
-		);
-		VERTEX = (
-			direction * longitudinal
-			+ movement_tangent * lateral
-		);
-	}
 }
 
 void fragment() {
 	vec4 face_color = vec4(COLOR.rgb, 1.0);
 	float primary_face = outline_mode ? 0.0 : step(0.75, COLOR.a);
 	float interior_factor = outline_mode ? 0.0 : 1.0;
-	face_color.rgb = mix(
-		face_color.rgb,
-		movement_tint.rgb,
-		primary_face
-		* min(length(movement_deformation), 1.0)
-		* 0.14
-	);
-
 	float page_turn_envelope = sin(page_turn_progress * 3.14159265);
 	float block_phase = fract(UV.x * 17.0);
 	float page_color_wave = 0.5 + 0.5 * sin(

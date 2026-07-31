@@ -100,6 +100,8 @@
 	"faces": [
 		{
 			"clear_order": 0.020833333333333332,
+			"display_color": "5e6447",
+			"facet_variant": 3,
 			"indices": [
 				0,
 				19,
@@ -111,6 +113,8 @@
 		},
 		{
 			"clear_order": 0.041666666666666664,
+			"display_color": "8a9f3a",
+			"facet_variant": 2,
 			"indices": [
 				0,
 				18,
@@ -122,6 +126,8 @@
 		},
 		{
 			"clear_order": 0.0625,
+			"display_color": "8bac56",
+			"facet_variant": 3,
 			"indices": [
 				1,
 				0,
@@ -133,6 +139,8 @@
 		},
 		{
 			"clear_order": 0.08333333333333333,
+			"display_color": "698632",
+			"facet_variant": 1,
 			"indices": [
 				18,
 				1,
@@ -144,6 +152,8 @@
 		},
 		{
 			"clear_order": 0.10416666666666667,
+			"display_color": "586842",
+			"facet_variant": 3,
 			"indices": [
 				1,
 				18,
@@ -155,6 +165,8 @@
 		},
 		{
 			"clear_order": 0.125,
+			"display_color": "455023",
+			"facet_variant": 2,
 			"indices": [
 				18,
 				16,
@@ -166,6 +178,8 @@
 		},
 		{
 			"clear_order": 0.14583333333333334,
+			"display_color": "be607a",
+			"facet_variant": 4,
 			"indices": [
 				18,
 				17,
@@ -177,6 +191,8 @@
 		},
 		{
 			"clear_order": 0.16666666666666666,
+			"display_color": "464728",
+			"facet_variant": 2,
 			"indices": [
 				4,
 				3,
@@ -188,6 +204,8 @@
 		},
 		{
 			"clear_order": 0.1875,
+			"display_color": "701933",
+			"facet_variant": 0,
 			"indices": [
 				4,
 				2,
@@ -199,6 +217,8 @@
 		},
 		{
 			"clear_order": 0.20833333333333334,
+			"display_color": "36441e",
+			"facet_variant": 1,
 			"indices": [
 				16,
 				1,
@@ -210,6 +230,8 @@
 		},
 		{
 			"clear_order": 0.22916666666666666,
+			"display_color": "424923",
+			"facet_variant": 2,
 			"indices": [
 				4,
 				1,
@@ -221,6 +243,8 @@
 		},
 		{
 			"clear_order": 0.25,
+			"display_color": "8a1f21",
+			"facet_variant": 1,
 			"indices": [
 				6,
 				5,
@@ -232,6 +256,8 @@
 		},
 		{
 			"clear_order": 0.2708333333333333,
+			"display_color": "8b1a21",
+			"facet_variant": 1,
 			"indices": [
 				4,
 				16,
@@ -243,6 +269,8 @@
 		},
 		{
 			"clear_order": 0.2916666666666667,
+			"display_color": "da5d3b",
+			"facet_variant": 1,
 			"indices": [
 				6,
 				4,
@@ -254,6 +282,8 @@
 		},
 		{
 			"clear_order": 0.3125,
+			"display_color": "89161e",
+			"facet_variant": 1,
 			"indices": [
 				16,
 				15,
@@ -265,6 +295,8 @@
 		},
 		{
 			"clear_order": 0.3333333333333333,
+			"display_color": "ed5c4b",
+			"facet_variant": 3,
 			"indices": [
 				22,
 				16,
@@ -276,6 +308,8 @@
 		},
 		{
 			"clear_order": 0.3541666666666667,
+			"display_color": "c93028",
+			"facet_variant": 1,
 			"indices": [
 				16,
 				8,
@@ -287,6 +321,8 @@
 		},
 		{
 			"clear_order": 0.375,
+			"display_color": "bf392c",
+			"facet_variant": 1,
 			"indices": [
 				8,
 				7,
@@ -298,6 +334,8 @@
 		},
 		{
 			"clear_order": 0.3958333333333333,
+			"display_color": "e82d3c",
+			"facet_variant": 2,
 			"indices": [
 				8,
 				4,
@@ -309,6 +347,8 @@
 		},
 		{
 			"clear_order": 0.4166666666666667,
+			"display_color": "fe865e",
+			"facet_variant": 3,
 			"indices": [
 				4,
 				8,
@@ -320,6 +360,8 @@
 		},
 		{
 			"clear_order": 0.4375,
+			"display_color": "fe5344",
+			"facet_variant": 2,
 			"indices": [
 				8,
 				6,
@@ -331,6 +373,8 @@
 		},
 		{
 			"clear_order": 0.4583333333333333,
+			"display_color": "ea2e3c",
+			"facet_variant": 2,
 			"indices": [
 				16,
 				20,
@@ -342,6 +386,8 @@
 		},
 		{
 			"clear_order": 0.4791666666666667,
+			"display_color": "ea2e3c",
+			"facet_variant": 2,
 			"indices": [
 				8,
 				16,
@@ -353,6 +399,8 @@
 		},
 		{
 			"clear_order": 0.5,
+			"display_color": "c72d25",
+			"facet_variant": 1,
 			"indices": [
 				20,
 				16,
@@ -364,6 +412,8 @@
 		},
 		{
 			"clear_order": 0.5208333333333334,
+			"display_color": "eb5949",
+			"facet_variant": 3,
 			"indices": [
 				16,
 				21,
@@ -375,6 +425,8 @@
 		},
 		{
 			"clear_order": 0.5416666666666666,
+			"display_color": "c22520",
+			"facet_variant": 1,
 			"indices": [
 				16,
 				14,
@@ -386,6 +438,8 @@
 		},
 		{
 			"clear_order": 0.5625,
+			"display_color": "c93027",
+			"facet_variant": 1,
 			"indices": [
 				20,
 				22,
@@ -397,6 +451,8 @@
 		},
 		{
 			"clear_order": 0.5833333333333334,
+			"display_color": "fe4843",
+			"facet_variant": 2,
 			"indices": [
 				20,
 				8,
@@ -408,6 +464,8 @@
 		},
 		{
 			"clear_order": 0.6041666666666666,
+			"display_color": "ea2e3c",
+			"facet_variant": 2,
 			"indices": [
 				21,
 				20,
@@ -419,6 +477,8 @@
 		},
 		{
 			"clear_order": 0.625,
+			"display_color": "a41c32",
+			"facet_variant": 0,
 			"indices": [
 				12,
 				16,
@@ -430,6 +490,8 @@
 		},
 		{
 			"clear_order": 0.6458333333333334,
+			"display_color": "ea2e3c",
+			"facet_variant": 2,
 			"indices": [
 				16,
 				12,
@@ -441,6 +503,8 @@
 		},
 		{
 			"clear_order": 0.6666666666666666,
+			"display_color": "e92e3c",
+			"facet_variant": 2,
 			"indices": [
 				8,
 				20,
@@ -452,6 +516,8 @@
 		},
 		{
 			"clear_order": 0.6875,
+			"display_color": "ec5b4b",
+			"facet_variant": 3,
 			"indices": [
 				20,
 				21,
@@ -463,6 +529,8 @@
 		},
 		{
 			"clear_order": 0.7083333333333334,
+			"display_color": "ed5c4b",
+			"facet_variant": 3,
 			"indices": [
 				23,
 				8,
@@ -474,6 +542,8 @@
 		},
 		{
 			"clear_order": 0.7291666666666666,
+			"display_color": "c93027",
+			"facet_variant": 1,
 			"indices": [
 				20,
 				23,
@@ -485,6 +555,8 @@
 		},
 		{
 			"clear_order": 0.75,
+			"display_color": "ec5b4b",
+			"facet_variant": 3,
 			"indices": [
 				23,
 				20,
@@ -496,6 +568,8 @@
 		},
 		{
 			"clear_order": 0.7708333333333334,
+			"display_color": "e22539",
+			"facet_variant": 2,
 			"indices": [
 				14,
 				12,
@@ -507,6 +581,8 @@
 		},
 		{
 			"clear_order": 0.7916666666666666,
+			"display_color": "8a1f21",
+			"facet_variant": 1,
 			"indices": [
 				10,
 				9,
@@ -518,6 +594,8 @@
 		},
 		{
 			"clear_order": 0.8125,
+			"display_color": "ea2e3c",
+			"facet_variant": 2,
 			"indices": [
 				12,
 				8,
@@ -529,6 +607,8 @@
 		},
 		{
 			"clear_order": 0.8333333333333334,
+			"display_color": "c72d25",
+			"facet_variant": 1,
 			"indices": [
 				12,
 				20,
@@ -540,6 +620,8 @@
 		},
 		{
 			"clear_order": 0.8541666666666666,
+			"display_color": "86171e",
+			"facet_variant": 1,
 			"indices": [
 				14,
 				13,
@@ -551,6 +633,8 @@
 		},
 		{
 			"clear_order": 0.875,
+			"display_color": "a71f33",
+			"facet_variant": 0,
 			"indices": [
 				21,
 				12,
@@ -562,6 +646,8 @@
 		},
 		{
 			"clear_order": 0.8958333333333334,
+			"display_color": "e92d3c",
+			"facet_variant": 2,
 			"indices": [
 				20,
 				12,
@@ -573,6 +659,8 @@
 		},
 		{
 			"clear_order": 0.9166666666666666,
+			"display_color": "c9352a",
+			"facet_variant": 1,
 			"indices": [
 				10,
 				8,
@@ -584,6 +672,8 @@
 		},
 		{
 			"clear_order": 0.9375,
+			"display_color": "ed5c4b",
+			"facet_variant": 3,
 			"indices": [
 				8,
 				12,
@@ -595,6 +685,8 @@
 		},
 		{
 			"clear_order": 0.9583333333333334,
+			"display_color": "c93027",
+			"facet_variant": 1,
 			"indices": [
 				12,
 				23,
@@ -606,6 +698,8 @@
 		},
 		{
 			"clear_order": 0.9791666666666666,
+			"display_color": "e72d3c",
+			"facet_variant": 2,
 			"indices": [
 				12,
 				10,
@@ -617,6 +711,8 @@
 		},
 		{
 			"clear_order": 1.0,
+			"display_color": "701432",
+			"facet_variant": 0,
 			"indices": [
 				12,
 				11,
@@ -635,14 +731,8 @@
 			1.0,
 			0.0
 		],
-		"motion_surface_kinds": [
-			"fruit",
-			"leaf"
-		],
-		"movement_tint_palette_role": "accent_warm",
-		"primary_motion_regions": [
-			"apple"
-		],
+		"motion_surface_kinds": [],
+		"primary_motion_regions": [],
 		"secondary_motion_regions": []
 	},
 	"outline": [
@@ -780,9 +870,11 @@
 		"draw_surfaces": 1,
 		"emphasized_face_count": 1,
 		"face_count": 48,
+		"facet_display_color_count": 37,
 		"feature_count": 0,
 		"interior_edge_count": 62,
 		"logical_vertex_count": 35,
+		"minimum_adjacent_face_color_distance": 0.0546211414039135,
 		"minimum_face_altitude_px": 6.334378323371742,
 		"minimum_outline_edge_length_px": 17.464248657226563,
 		"minimum_triangle_area_px2": 192.5,

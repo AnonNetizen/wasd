@@ -2,12 +2,6 @@ class_name PolygonAsset2D
 extends Node2D
 
 const DEBUG_OVERLAY_SCRIPT := preload("res://scripts/polygon_mesh_debug_overlay.gd")
-const MOVEMENT_DAMPING: float = 8.5
-const MOVEMENT_MAX_DELTA: float = 1.0 / 30.0
-const MOVEMENT_MAX_DEFORMATION: float = 1.15
-const MOVEMENT_SETTLE_DISTANCE: float = 0.0005
-const MOVEMENT_SETTLE_SPEED: float = 0.005
-const MOVEMENT_SPRING_STIFFNESS: float = 52.0
 const POLYGON_SHADER := preload("res://shaders/polygon_asset.gdshader")
 
 var _asset_data: Dictionary = {}
@@ -19,9 +13,6 @@ var _collision_polygon: CollisionPolygon2D
 var _mesh_material: ShaderMaterial
 var _outline_material: ShaderMaterial
 var _animation_time: float = 0.0
-var _movement_current := Vector2.ZERO
-var _movement_spring_velocity := Vector2.ZERO
-var _movement_target := Vector2.ZERO
 var _generation_progress: float = 1.0
 var _dissolve_progress: float = 0.0
 var _debug_mesh_visible: bool = false
@@ -37,10 +28,6 @@ var _motion_config: Dictionary = {}
 
 func _ready() -> void:
 	_ensure_runtime_nodes()
-
-
-func _process(delta: float) -> void:
-	advance_movement_deformation(delta)
 
 
 func load_asset(path: String) -> Error:
@@ -70,64 +57,6 @@ func load_asset(path: String) -> Error:
 func set_animation_time(seconds: float) -> void:
 	_animation_time = maxf(seconds, 0.0)
 	_set_material_parameter("animation_time", _animation_time)
-
-
-func set_movement_velocity(
-	velocity: Vector2,
-	full_deformation_speed: float
-) -> void:
-	if full_deformation_speed <= 0.0 or velocity.length() <= 0.0001:
-		_movement_target = Vector2.ZERO
-		return
-	_movement_target = (
-		velocity.normalized()
-		* clampf(
-			velocity.length() / full_deformation_speed,
-			0.0,
-			1.0
-		)
-	)
-
-
-func set_movement_state(direction: Vector2, amount: float) -> void:
-	var clamped_amount := clampf(amount, 0.0, 1.0)
-	_movement_current = (
-		direction.normalized()
-		* clamped_amount
-		if direction.length() > 0.0001 and clamped_amount > 0.0001
-		else Vector2.ZERO
-	)
-	_movement_target = _movement_current
-	_movement_spring_velocity = Vector2.ZERO
-	_apply_current_movement_deformation()
-
-
-func advance_movement_deformation(delta: float) -> void:
-	var remaining := clampf(delta, 0.0, 0.1)
-	while remaining > 0.0001:
-		var step_delta := minf(remaining, MOVEMENT_MAX_DELTA)
-		var acceleration := (
-			(_movement_target - _movement_current)
-			* MOVEMENT_SPRING_STIFFNESS
-		)
-		_movement_spring_velocity += acceleration * step_delta
-		_movement_spring_velocity *= maxf(
-			0.0,
-			1.0 - MOVEMENT_DAMPING * step_delta
-		)
-		_movement_current += _movement_spring_velocity * step_delta
-		_movement_current = _movement_current.limit_length(
-			MOVEMENT_MAX_DEFORMATION
-		)
-		remaining -= step_delta
-	if (
-		_movement_target.is_zero_approx()
-		and _movement_current.length() < MOVEMENT_SETTLE_DISTANCE
-		and _movement_spring_velocity.length() < MOVEMENT_SETTLE_SPEED
-	):
-		_movement_current = Vector2.ZERO
-		_movement_spring_velocity = Vector2.ZERO
-	_apply_current_movement_deformation()
 
 
 func set_generation_progress(progress: float) -> void:
@@ -162,10 +91,6 @@ func set_effect_parameter(
 
 func reset_visual() -> void:
 	set_animation_time(0.0)
-	_movement_current = Vector2.ZERO
-	_movement_target = Vector2.ZERO
-	_movement_spring_velocity = Vector2.ZERO
-	_apply_current_movement_deformation()
 	set_generation_progress(1.0)
 	set_dissolve_progress(0.0)
 
@@ -201,19 +126,6 @@ func get_runtime_stats() -> Dictionary:
 			_pinned_motion_boundary_vertex_count,
 		"pinned_outline_vertex_count": _pinned_outline_vertex_count,
 		"animation_time": _animation_time,
-		"movement_direction": _vector2_to_array(
-			_movement_current.normalized()
-			if not _movement_current.is_zero_approx()
-			else Vector2.ZERO
-		),
-		"movement_amount": _movement_current.length(),
-		"movement_target_direction": _vector2_to_array(
-			_movement_target.normalized()
-			if not _movement_target.is_zero_approx()
-			else Vector2.ZERO
-		),
-		"movement_target_amount": _movement_target.length(),
-		"movement_spring_speed": _movement_spring_velocity.length(),
 		"motion_axis": _vector2_to_array(
 			_motion_config.get("axis", Vector2.RIGHT)
 		),
@@ -317,7 +229,12 @@ func _build_mesh() -> Error:
 	for face: Dictionary in validated_faces:
 		var indices: Array = face["indices"]
 		var role := String(face.get("palette_role", ""))
-		var color := Color(String(palette[role]))
+		var display_color := String(
+			face.get("display_color", palette[role])
+		)
+		if not Color.html_is_valid(display_color):
+			return ERR_INVALID_DATA
+		var color := Color(display_color)
 		color.a = 1.0 if _motion_mask_for_face(face) >= 0.75 else 0.5
 		var clear_order := clampf(
 			float(face.get("clear_order", 1.0)),
@@ -342,7 +259,6 @@ func _build_mesh() -> Error:
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	_mesh_instance.mesh = mesh
-	_apply_asset_half_size()
 	return OK
 
 
@@ -384,23 +300,13 @@ func _build_debug_overlay() -> void:
 	_debug_overlay.configure(
 		_vector2_array_from_json(_asset_data.get("vertices", [])),
 		_asset_data.get("faces", []),
-		_vertex_motion_masks,
-		_motion_config,
 		debug_color
 	)
 	_debug_overlay.visible = _debug_mesh_visible
 
 
-func _apply_asset_half_size() -> void:
-	var bounds: Dictionary = _asset_data.get("bounds", {})
-	var half_size := _array_to_vector2(bounds.get("size", [])) * 0.5
-	_set_material_parameter("asset_half_size", half_size)
-
-
 func _apply_material_state() -> void:
-	_apply_asset_half_size()
 	_set_material_parameter("animation_time", _animation_time)
-	_set_material_parameter("movement_deformation", _movement_current)
 	_set_material_parameter(
 		"generation_progress",
 		_generation_progress
@@ -437,10 +343,6 @@ func _apply_material_state() -> void:
 	var palette: Dictionary = _asset_data.get("palette", {})
 	for tint_binding in [
 		{
-			"field": "movement_tint_palette_role",
-			"parameter": "movement_tint",
-		},
-		{
 			"field": "generation_tint_palette_role",
 			"parameter": "generation_tint",
 		},
@@ -460,15 +362,6 @@ func _apply_material_state() -> void:
 			)
 	_mesh_material.set_shader_parameter("outline_mode", false)
 	_outline_material.set_shader_parameter("outline_mode", true)
-
-
-func _apply_current_movement_deformation() -> void:
-	_set_material_parameter(
-		"movement_deformation",
-		_movement_current
-	)
-	if _debug_overlay != null:
-		_debug_overlay.set_movement_deformation(_movement_current)
 
 
 func _set_material_parameter(parameter_name: StringName, value: Variant) -> void:
@@ -513,7 +406,6 @@ func _validate_asset_data(data: Dictionary) -> Error:
 		return ERR_INVALID_DATA
 	var palette: Dictionary = data.get("palette", {})
 	for color_role_field in [
-		"movement_tint_palette_role",
 		"generation_tint_palette_role",
 		"dissolve_tint_palette_role",
 	]:
