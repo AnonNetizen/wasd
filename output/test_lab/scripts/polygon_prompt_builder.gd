@@ -1,7 +1,7 @@
 class_name PolygonPromptBuilder
 extends RefCounted
 
-const SUPPORTED_MANIFEST_SCHEMA: int = 2
+const SUPPORTED_MANIFEST_SCHEMA: int = 3
 const SUPPORTED_TEMPLATE_SCHEMA: int = 1
 
 

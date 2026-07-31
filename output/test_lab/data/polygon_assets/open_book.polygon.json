@@ -77,6 +77,11 @@
 			"color_reference"
 		]
 	},
+	"custom_animation": {
+		"adapter": "book_page_turn",
+		"light_palette_role": "accent_warm",
+		"shadow_palette_role": "surface_shadow"
+	},
 	"faces": [
 		{
 			"clear_order": 0.020833333333333332,
@@ -632,6 +637,23 @@
 			"source_width_px": 3.0
 		}
 	],
+	"motion_profile": {
+		"dissolve_tint_palette_role": "secondary_shadow",
+		"generation_tint_palette_role": "accent_warm",
+		"motion_axis": [
+			1.0,
+			0.0
+		],
+		"motion_surface_kinds": [
+			"page"
+		],
+		"primary_motion_regions": [
+			"right_page"
+		],
+		"secondary_motion_regions": [
+			"left_page"
+		]
+	},
 	"outline": [
 		[
 			-97.0,
@@ -714,24 +736,7 @@
 			"face_count": 3
 		}
 	},
-	"runtime_profile": {
-		"deformable_surface_kinds": [
-			"page"
-		],
-		"deformation_axis": [
-			1.0,
-			0.0
-		],
-		"deformation_light_palette_role": "accent_warm",
-		"deformation_shadow_palette_role": "surface_shadow",
-		"primary_deform_regions": [
-			"right_page"
-		],
-		"secondary_deform_regions": [
-			"left_page"
-		]
-	},
-	"schema_version": 2,
+	"schema_version": 3,
 	"source": {
 		"analysis_size_px": [
 			256,

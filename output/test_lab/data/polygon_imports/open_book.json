@@ -1,5 +1,5 @@
 {
-	"schema_version": 2,
+	"schema_version": 3,
 	"asset_id": "open_book",
 	"source_image": "res://assets/polygon_art/open_book_source.png",
 	"style_profile": "res://data/polygon_art_style.json",
@@ -18,22 +18,27 @@
 		"secondary_shadow": "cover",
 		"accent_warm": "page"
 	},
-	"runtime_profile": {
-		"deformation_axis": [
+	"motion_profile": {
+		"motion_axis": [
 			1.0,
 			0.0
 		],
-		"primary_deform_regions": [
+		"primary_motion_regions": [
 			"right_page"
 		],
-		"secondary_deform_regions": [
+		"secondary_motion_regions": [
 			"left_page"
 		],
-		"deformable_surface_kinds": [
+		"motion_surface_kinds": [
 			"page"
 		],
-		"deformation_light_palette_role": "accent_warm",
-		"deformation_shadow_palette_role": "surface_shadow"
+		"generation_tint_palette_role": "accent_warm",
+		"dissolve_tint_palette_role": "secondary_shadow"
+	},
+	"custom_animation": {
+		"adapter": "book_page_turn",
+		"light_palette_role": "accent_warm",
+		"shadow_palette_role": "surface_shadow"
 	},
 	"feature_guides": [
 		{

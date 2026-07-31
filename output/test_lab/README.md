@@ -25,13 +25,15 @@
 
 ## 当前实验
 
-- `polygon_book_test.tscn`：通用 Polygon 素材管线的翻开书本验证场景。`assets/polygon_art/open_book_source.png` 是由提示词模板生成、再用 Godot 归一为纯 `#ff00ff` 键色背景的制作输入；运行时不读取它。编译器不包含书、书页或书脊专用标识，只从源图提取一个连通外轮廓、一个 manifest 声明的主 `linear_band` 标志性结构及各区域的参考颜色，再自行重建共享节点、受保护共边和清晰大面。`linear_band` 由任意 `axis` / `cross_axis` 定义方向，当前 schema v2 支持恰好一个主结构带；`data/polygon_imports/_linear_band_asset.template.json` 是新素材 manifest 起点，书本 manifest 只是把主结构带配置成纵向书脊、把三个区域命名为左页 / 书脊 / 右页。自动 smoke 还会把同一源图旋转后用横向结构带和完全不同的区域名重新编译，确认核心算法不依赖书本坐标或语义。
+- `polygon_book_test.tscn`：通用 Polygon 素材管线的翻开书本验证场景。`assets/polygon_art/open_book_source.png` 是由提示词模板生成、再用 Godot 归一为纯 `#ff00ff` 键色背景的制作输入；运行时不读取它。编译器不包含书、书页或书脊专用标识，只从源图提取一个连通外轮廓、一个 manifest 声明的主 `linear_band` 标志性结构及各区域的参考颜色，再自行重建共享节点、受保护共边和清晰大面。`linear_band` 由任意 `axis` / `cross_axis` 定义方向，当前 schema v3 支持恰好一个主结构带；`data/polygon_imports/_linear_band_asset.template.json` 是新素材 manifest 起点，书本 manifest 只是把主结构带配置成纵向书脊、把三个区域命名为左页 / 书脊 / 右页。自动 smoke 还会把同一源图旋转后用横向结构带和完全不同的区域名重新编译，确认核心算法不依赖书本坐标或语义。
 
   `data/polygon_prompt_templates/source_image_v1.json` 是通用生图提示词模板，要求对象仅凭外轮廓即可辨认、内部只有一个连续且高对比的标志性结构、主体保持单一连通、使用 4–7 个硬边平涂色块，并拒绝阴影、纹理、柔和渐变、悬空碎片和纯色洋红以外的背景。`polygon_prompt_builder.gd` 会把每项素材的对象描述、轮廓要点、标志性结构、配色与禁用项填入模板；生成图只提供形状和颜色参考，最终点和块仍由工具构建。
 
   `data/polygon_art_style.json` 使用 `shape_guided` 构建模式，固定 256×256 分析分辨率、3px RDP、48–80 目标面数 / 160 硬上限、8px 最短轮廓边、80px² 最小面面积、6px 最小面高度，以及与具体物体无关的 `surface_*` / `secondary_*` / `accent_warm` / `outline` 色板角色。轮廓清理与细分必须满足面积和高度门槛，坏拓扑会直接令编译失败，不通过共色或隐藏小面掩盖。当前书本产出 48 面、32 个共享逻辑顶点、14 个轮廓节点；书脊源图检测宽度约 3px，工具构建宽度为 20px，并由两条受保护边围成 3 个明确面。
 
-  `PolygonAsset2D` 按输出中的 `runtime_profile` 决定哪些区域参与主 / 次变形、哪些 `surface_kind` 可变色、二维变形轴朝向及明暗色板角色，不硬编码书页名称或 X 轴方向。运行时从主变形区域自动求局部投影范围，Shader 和调试网格共用同一变形轴、范围与共享点权重；每个原始平色面只展开一次，统一生成一个单层 `ArrayMesh` surface，不复制底层或覆盖层。书本场景用这套通用接口演示待机、翻页、清理和复原；`A` 关闭 / 重启自动演示，`Space` 手动翻页，`C` 手动清理 / 复原，`M` 切网格、`O` 切源图、`R` 重置、`Esc` 返回索引。`polygon_asset_smoke.gd` 覆盖提示词确定性、通用 manifest 模板、任意方向结构带、编译确定性、源哈希、共边连通 / 水密拓扑、结构提取、源色吸附、禁止跨结构面、共享点变形一致性、面质量、面数 / 色板 / 区域 / 锚点 / 碰撞和单 MeshInstance2D / 单 surface / 无纹理运行时约束；旋转样例还会真正加载运行时并断言纵向变形轴生效。最终风格、标志性结构辨识度、轮廓可读性和动画观感仍为待用户人工验收。
+  `PolygonAsset2D` 的通用职责只包含网格加载和三类可复用效果：`generation_progress` 按面顺序生成、`dissolve_progress` 按面顺序消散，以及由 `motion_progress` / `motion_strength` 驱动的轻量共享点运动。输出中的 `motion_profile` 只声明主 / 次运动区域、可运动 `surface_kind`、二维运动轴和生成 / 消散色板角色；运行时据此自动求局部投影范围，通用 Shader 与调试网格共用同一轴、范围和共享点权重。通用 `polygon_asset.gdshader` 不含翻页、开箱或挥动等物体语义算法。
+
+  翻页属于书本自己的 `PolygonBookAnimator` 和 `polygon_book_page_turn.gdshader`：书本 manifest 通过 `custom_animation.adapter = book_page_turn` 选择它，适配器只负责翻页进度、折痕点位和页面色变，同时保留通用 Shader 的生成、消散和运动 uniform 契约。每个原始平色面仍只展开一次，统一生成一个单层 `ArrayMesh` surface，不复制底层或覆盖层。书本场景自动依次演示通用生成、通用运动、书本专用翻页、通用消散和复原；`A` 关闭 / 重启自动演示，`G` 手动生成，`Space` 手动翻页，`C` 手动消散 / 复原，`M` 切网格、`O` 切源图、`R` 重置、`Esc` 返回索引。`polygon_asset_smoke.gd` 分别断言通用运行时不含翻页算法、三类通用效果可直接控制、旋转样例沿任意轴运动，以及翻页 API 只存在于书本适配器。最终风格、标志性结构辨识度、轮廓可读性和动画观感仍为待用户人工验收。
 - `shader_lab.tscn`：可长期扩展的全屏 2D Shader 背景实验场。控制器从注册表填充 Shader 选择器，并以统一的 `animation_time` / `motion_speed` / `effect_intensity` / `pattern_scale` / `gameplay_mix` / `viewport_aspect` uniform 契约驱动外部 `canvas_item` Shader；参数只在本次运行内按“Shader + 预设”组合保留，不写存档。首批“旋转星云穿行”用五层程序化星点、低频星云、纵深缩放和缓慢旋转表现向镜头推进；“水火双流体涡旋”用两组反向域扭曲 FBM 场形成冷水 / 热火与蒸汽交界。两者都提供高冲击展示预设和压暗、降低中心活动的游戏预设，后者用于保护居中角色及青 / 红 / 白功能色可读性。面板可调速度、强度和纹理尺度，并显示实时 FPS；`1` / `2` 直选，`Tab` 切 Shader，`M` 切预设，`Space` 暂停，`R` 重置，`H` 隐藏面板，`Esc` 返回索引。纯过程化实现不依赖贴图、SubViewport、反馈缓冲或内置 `TIME`；`shader_lab_smoke.gd` 覆盖资源、共享 uniform、预设、会话参数、暂停 / 恢复、重置、面板和宽高比，`capture_shader_lab.gd` 确定性生成四张展示 / 游戏预览。
 - `neon_geometry_combat_test.tscn`：原创暗空霓虹几何战斗美术实验，借鉴高对比矢量弹幕、轮廓分型与构筑可视化原则，但不复刻任何参考作品的具体飞船、UI、图标或特效。玩家「裂锥体」使用带黑色负形裂缝的琥珀双前叉、五边形热核和紫色悬浮稳定器；断环猎体以始终朝向攻击方向的品红主缺口、错相内环和短程楔弹建立捕食读法；三轴炮体把一条青色长轴锁为主炮，另两轴作为不等长供能臂，发射慢速红色断环弹。WASD / 方向键移动、鼠标瞄准、按住左键射击，`R` 重置，`Esc` 返回索引。场地中央的折射棱芯通过折线吸收、部署波、侧模块展开、三枪口结构和升级准星，把单发裂针切换成 `-10° / 0° / +10°` 三向弹幕。背景使用确定性三层星点 / 几何残片 / 轨道弧、宽幅星云、右下画外环状星体和断角传感器边框；单位采用“极暗底板 → 实体色面 → 暗缝分段 → 高饱和热边 → 小面积白热芯”的材质层级。玩家运动带固定为 14 点，三类弹体各自保存固定 10 点环形历史：玩家弹形成金白枪线与紫色丝带，楔弹形成红色燕尾短迹，断环弹形成节奏化空心弧列。玩家、两类怪物、48 + 48 发弹池和 64 个 VFX 槽仍全部由 typed GDScript 与 `CanvasItem` draw API 构建；同一 VFX 池复用 shard / pulse / spark / glyph / lens / burst 六类表现，叠加宽透明能量盘、白热接触核、hit-stop、后坐、定向碎片、单位专属崩解、世界层微震和屏幕闪光，不增加节点。确定性捕获提供 CHARGE / CONTACT / AFTERMATH 三阶段，CONTACT 让三组三向枪线汇聚到三轴炮体的唯一白热命中点，同时保留上层猎体预警、楔弹和断环弹可读性；不依赖位图、HDR Bloom、嵌入式 `Image` 或 `PackedByteArray`。Round 0–4 的截图、参考映射、六维批评与每轮回归记录见 [`NEON_GEOMETRY_VISUAL_ITERATIONS.md`](NEON_GEOMETRY_VISUAL_ITERATIONS.md)。该实验只验证纯暗空霓虹方向的动态读图、弹幕分型与构筑反馈，不修改正式 `client/` 的美术或战斗系统。
 - `ai_universal_tile_test.tscn`：AI 驱动通用 Tile 场景工作流的独立 PoC，场景配置采用实验 schema v2，美术方向为正俯视、原创粗轮廓平涂卡通。`assets/ai_tiles/abandoned_marble_conservatory/` 只保留最终的 128×128 `marble_floor_01.png`、`tree_01.png`、`wood_cabinet_01.png` 与 `style_pack.json`；三类素材均为全不透明、完整覆盖单格且彼此互斥的 Tile，不再把透明树 / 木柜叠在地板 Base 上。`data/ai_universal_tile_test.json` 以固定 seed 在 6×4 网格中生成 18 格大理石地板、3 格树和 3 格木柜，每格只允许一种 Tile；树与木柜使用与单格边界一致的整格碰撞。运行时提供四个可独立显隐的图层开关，鼠标悬停显示格坐标、tile id、tags、碰撞和交互标志，`R` 使用下一确定性 seed 重新生成，`Esc` 返回索引。PNG 通过 `Image.load()` 创建运行时纹理，不把 `.godot/imported` 当首次预览依赖，也不把 `ImageTexture` / `PackedByteArray` 写入 `.tscn`。三类素材分别由内置 `imagegen` 生成，木柜因首图木纹偏写实做了一次定向重生；全程未切换到 CLI 或需要 API key 的 fallback。`style_pack.json` 保存每张最终素材的精确提示词、生成方式和修订记录。该实验只验证“Style Pack → 三类全格原子 Tile → schema v2 场景 manifest → Godot 确定性互斥组合”的最小闭环，不代表正式 `client/` 已集成，也未覆盖透明对象叠层、多格 footprint、地形过渡 / autotile、批量变体生产、完整编辑器或运行时 AI。
@@ -88,7 +90,7 @@ py -3 tools/godot_bridge.py --project output/test_lab headless-boot
 # 编译确定性、schema、拓扑、色板、区域、锚点、碰撞与运行时约束
 & $godot --headless --path output/test_lab --script res://tools/polygon_asset_smoke.gd
 
-# 1280×760 自动生成静态对比、翻页中段与五阶段运动条带截图
+# 1280×760 自动生成静态对比、通用生命周期条带、翻页中段与翻页条带截图
 & $godot --resolution 1280x760 --path output/test_lab --script res://tools/capture_polygon_book_test.gd
 
 # 确认场景没有嵌入位图数据；rg 退出码 1 表示无匹配
@@ -100,7 +102,7 @@ if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
 $embedded
 ```
 
-新素材先复制 `data/polygon_imports/_linear_band_asset.template.json`，再填写提示词变量、源图、主结构带方向 / 搜索范围、区域名、运行时变形区域、锚点与碰撞策略。当前通用 schema v2 聚焦“一个主连续结构带”的可读物体；需要多个独立结构或闭合内部轮廓时应新增通用 feature 类型，不能把对象名称写进编译器。运行时素材的权威输入是 `data/polygon_assets/*.polygon.json`、`polygon_asset_2d.gd` 与外部 shader；源 PNG 只作为制作证据和 Lab 对照。Style Profile、提示词模板与 schema v2 都是 Test Lab 私有实验约定，不自动成为正式项目契约。
+新素材先复制 `data/polygon_imports/_linear_band_asset.template.json`，再填写提示词变量、源图、主结构带方向 / 搜索范围、区域名、`motion_profile`、锚点与碰撞策略。默认 `custom_animation` 为空；只有确实需要物体语义动作时才增加独立适配器和专用 Shader，不能把动作写回通用运行时。当前通用 schema v3 聚焦“一个主连续结构带”的可读物体；需要多个独立结构或闭合内部轮廓时应新增通用 feature 类型，不能把对象名称写进编译器。运行时素材的权威输入是 `data/polygon_assets/*.polygon.json`、`polygon_asset_2d.gd` 与外部 shader；源 PNG 只作为制作证据和 Lab 对照。Style Profile、提示词模板与 schema v3 都是 Test Lab 私有实验约定，不自动成为正式项目契约。
 
 ## Neon Geometry Combat 验证
 

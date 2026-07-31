@@ -1,5 +1,5 @@
 {
-	"schema_version": 2,
+	"schema_version": 3,
 	"asset_id": "<stable_asset_id>",
 	"source_image": "res://assets/polygon_art/<source_image>.png",
 	"style_profile": "res://data/polygon_art_style.json",
@@ -18,17 +18,18 @@
 		"secondary_shadow": "secondary",
 		"accent_warm": "surface"
 	},
-	"runtime_profile": {
-		"deformation_axis": [
+	"motion_profile": {
+		"motion_axis": [
 			1.0,
 			0.0
 		],
-		"primary_deform_regions": [],
-		"secondary_deform_regions": [],
-		"deformable_surface_kinds": [],
-		"deformation_light_palette_role": "accent_warm",
-		"deformation_shadow_palette_role": "surface_shadow"
+		"primary_motion_regions": [],
+		"secondary_motion_regions": [],
+		"motion_surface_kinds": [],
+		"generation_tint_palette_role": "accent_warm",
+		"dissolve_tint_palette_role": "secondary_shadow"
 	},
+	"custom_animation": {},
 	"feature_guides": [
 		{
 			"id": "<primary_landmark_id>",

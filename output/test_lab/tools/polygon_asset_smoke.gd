@@ -1,6 +1,12 @@
 extends SceneTree
 
 const ASSET_PATH: String = "res://data/polygon_assets/open_book.polygon.json"
+const BOOK_ANIMATOR_SOURCE_PATH: String = (
+	"res://scripts/polygon_book_animator.gd"
+)
+const BOOK_SHADER_PATH: String = (
+	"res://shaders/polygon_book_page_turn.gdshader"
+)
 const COMPILER := preload("res://scripts/polygon_asset_compiler_core.gd")
 const COMPILER_SOURCE_PATH: String = "res://scripts/polygon_asset_compiler_core.gd"
 const DEBUG_OVERLAY_SOURCE_PATH: String = (
@@ -68,6 +74,7 @@ func _run_smoke() -> void:
 	_validate_asset_schema(asset_data, style)
 	_validate_scene_file_shape()
 	_validate_shader_shape()
+	_validate_book_adapter_shape()
 	await _validate_runtime()
 	await _validate_demo_scene()
 	_finish()
@@ -102,7 +109,7 @@ func _validate_source(asset_data: Dictionary) -> void:
 
 
 func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
-	_check(int(asset_data.get("schema_version", 0)) == 2, "Polygon asset schema_version is 2.")
+	_check(int(asset_data.get("schema_version", 0)) == 3, "Polygon asset schema_version is 3.")
 	_check(String(asset_data.get("asset_id", "")) == "open_book", "Asset id is open_book.")
 	_check(
 		String(asset_data.get("style_id", "")) == String(style.get("style_id", "")),
@@ -114,6 +121,15 @@ func _validate_asset_schema(asset_data: Dictionary, style: Dictionary) -> void:
 		and bool(construction.get("generated_geometry", false))
 		and not bool(construction.get("runtime_source_texture", true)),
 		"Asset records tool-built geometry with no runtime source texture."
+	)
+	var custom_animation: Dictionary = asset_data.get(
+		"custom_animation",
+		{}
+	)
+	_check(
+		String(custom_animation.get("adapter", ""))
+		== "book_page_turn",
+		"Book asset declares semantic animation outside the generic runtime."
 	)
 	var source_usage: Array = construction.get("source_usage", [])
 	_check(
@@ -637,12 +653,12 @@ func _validate_prompt_template() -> void:
 	if bool(import_template_result.get("ok", false)):
 		var import_template: Dictionary = import_template_result["data"]
 		_check(
-			int(import_template.get("schema_version", 0)) == 2
+			int(import_template.get("schema_version", 0)) == 3
 			and String(import_template.get("prompt_template", ""))
 			== PROMPT_TEMPLATE_PATH
 			and (import_template.get("feature_guides", []) as Array).size()
 			== 1,
-			"Import template binds schema v2, prompt template, and one primary feature."
+			"Import template binds schema v3, prompt template, and one primary feature."
 		)
 
 
@@ -754,7 +770,7 @@ func _validate_arbitrary_axis_compile(compiler: RefCounted) -> void:
 	if save_error != OK:
 		return
 	var manifest := {
-		"schema_version": 2,
+		"schema_version": 3,
 		"asset_id": "rotated_generic_fixture",
 		"source_image": source_path,
 		"style_profile": STYLE_PATH,
@@ -762,14 +778,15 @@ func _validate_arbitrary_axis_compile(compiler: RefCounted) -> void:
 		"background_key": "#ff00ff",
 		"pivot": {"mode": "foreground_bounds_center"},
 		"default_region": "surface",
-		"runtime_profile": {
-			"deformation_axis": [0.0, 1.0],
-			"primary_deform_regions": ["positive_side"],
-			"secondary_deform_regions": ["negative_side"],
-			"deformable_surface_kinds": ["surface"],
-			"deformation_light_palette_role": "accent_warm",
-			"deformation_shadow_palette_role": "surface_shadow",
+		"motion_profile": {
+			"motion_axis": [0.0, 1.0],
+			"primary_motion_regions": ["positive_side"],
+			"secondary_motion_regions": ["negative_side"],
+			"motion_surface_kinds": ["surface"],
+			"generation_tint_palette_role": "accent_warm",
+			"dissolve_tint_palette_role": "secondary_shadow",
 		},
+		"custom_animation": {},
 		"feature_guides": [{
 			"id": "primary_landmark",
 			"kind": "linear_band",
@@ -854,24 +871,36 @@ func _validate_arbitrary_axis_compile(compiler: RefCounted) -> void:
 			)
 			_check(
 				_array_to_vector2(
-					runtime_stats.get("deformation_axis", [])
+					runtime_stats.get("motion_axis", [])
 				).is_equal_approx(Vector2.DOWN)
 				and int(runtime_stats.get(
-					"primary_deform_face_count",
+					"primary_motion_face_count",
 					0
 				)) > 0,
-				"Generic runtime uses manifest-defined deformation direction and regions."
+				"Generic runtime uses manifest-defined motion direction and regions."
 			)
-			runtime.set_deformation_progress(0.5)
+			runtime.set_motion_progress(0.5)
+			runtime.set_motion_strength(0.6)
+			runtime.set_generation_progress(0.4)
+			runtime.set_dissolve_progress(0.3)
+			var effect_stats: Dictionary = runtime.get_runtime_stats()
 			_check(
 				is_equal_approx(
-					float(runtime.get_runtime_stats().get(
-						"deformation_progress",
-						0.0
-					)),
+					float(effect_stats.get("motion_progress", 0.0)),
 					0.5
 				),
-				"Arbitrary-axis runtime deformation progress is directly controllable."
+				"Arbitrary-axis generic motion is directly controllable."
+			)
+			_check(
+				is_equal_approx(
+					float(effect_stats.get("generation_progress", 0.0)),
+					0.4
+				)
+				and is_equal_approx(
+					float(effect_stats.get("dissolve_progress", 0.0)),
+					0.3
+				),
+				"Generic generation and dissolve progress are directly controllable."
 			)
 			runtime.queue_free()
 			await process_frame
@@ -899,26 +928,72 @@ func _validate_shader_shape() -> void:
 	if shader == null:
 		return
 	_check(
-		shader.code.find("vertex_deformation_weight") >= 0
+		shader.code.find("vertex_motion_weight") >= 0
 		and shader.code.find("step(0.75, COLOR.a)") >= 0,
-		"Shader separates shared-vertex deformation from per-face color animation."
+		"Generic shader separates shared-vertex motion from per-face color animation."
 	)
 	_check(
-		shader.code.find("crease_center") >= 0
+		shader.code.find("motion_progress") >= 0
+		and shader.code.find("motion_strength") >= 0
 		and shader.code.find("boundary_guard") >= 0,
-		"Shader animates a bounded crease through deformable vertices."
+		"Generic shader exposes bounded point motion."
 	)
 	_check(
-		shader.code.find("deformation_axis") >= 0
-		and shader.code.find("deformation_origin") >= 0
-		and shader.code.find("deformation_tangent_span") >= 0,
-		"Shader derives point motion from a data-driven local basis."
+		shader.code.find("generation_progress") >= 0
+		and shader.code.find("dissolve_progress") >= 0
+		and shader.code.find("generation_tint") >= 0
+		and shader.code.find("dissolve_tint") >= 0,
+		"Generic shader exposes generation and dissolve lifecycle effects."
 	)
 	_check(
-		shader.code.find("deformation_light") >= 0
-		and shader.code.find("deformation_shadow") >= 0,
-		"Shader exposes generic deformation color-shift endpoints."
+		shader.code.find("generation_progress <= 0.0001") >= 0
+		and shader.code.find("generation_progress >= 0.9999") >= 0
+		and shader.code.find("dissolve_progress <= 0.0001") >= 0
+		and shader.code.find("dissolve_progress >= 0.9999") >= 0,
+		"Generic lifecycle shader removes endpoint residue faces."
 	)
+	_check(
+		shader.code.find("page_turn_progress") < 0
+		and shader.code.find("page_fold") < 0
+		and shader.code.find("crease_center") < 0,
+		"Generic shader contains no book-specific page-turn algorithm."
+	)
+
+
+func _validate_book_adapter_shape() -> void:
+	var book_shader := load(BOOK_SHADER_PATH) as Shader
+	_check(book_shader != null, "Book page-turn adapter shader loads.")
+	if book_shader != null:
+		_check(
+			book_shader.code.find("page_turn_progress") >= 0
+			and book_shader.code.find("page_fold_light") >= 0
+			and book_shader.code.find("crease_center") >= 0,
+			"Book-only shader owns page geometry and color animation."
+		)
+		_check(
+			book_shader.code.find("generation_progress") >= 0
+			and book_shader.code.find("dissolve_progress") >= 0
+			and book_shader.code.find("motion_strength") >= 0,
+			"Book-only shader preserves the generic lifecycle contract."
+		)
+		_check(
+			book_shader.code.find("generation_progress <= 0.0001") >= 0
+			and book_shader.code.find("dissolve_progress >= 0.9999") >= 0,
+			"Book-only shader preserves residue-free lifecycle endpoints."
+		)
+	var adapter_file := FileAccess.open(
+		BOOK_ANIMATOR_SOURCE_PATH,
+		FileAccess.READ
+	)
+	_check(adapter_file != null, "Book page-turn animator source is readable.")
+	if adapter_file != null:
+		var adapter_source := adapter_file.get_as_text()
+		_check(
+			adapter_source.contains("ADAPTER_ID")
+			and adapter_source.contains("set_page_turn_progress")
+			and adapter_source.contains("set_effect_shader"),
+			"Book page-turn API exists only in the semantic adapter."
+		)
 
 
 func _validate_runtime() -> void:
@@ -938,30 +1013,30 @@ func _validate_runtime() -> void:
 	var runtime_stats: Dictionary = runtime.get_runtime_stats()
 	var runtime_asset_data: Dictionary = runtime.get_asset_data()
 	var runtime_faces: Array = runtime_asset_data.get("faces", [])
-	var runtime_profile: Dictionary = runtime_asset_data.get(
-		"runtime_profile",
+	var motion_profile: Dictionary = runtime_asset_data.get(
+		"motion_profile",
 		{}
 	)
 	var authored_primary_face_count := 0
 	for face_value: Variant in runtime_faces:
 		if _motion_mask_for_face(
 			face_value as Dictionary,
-			runtime_profile
+			motion_profile
 		) >= 0.75:
 			authored_primary_face_count += 1
 	_check(
 		authored_primary_face_count > 0
-		and int(runtime_stats.get("primary_deform_face_count", 0))
+		and int(runtime_stats.get("primary_motion_face_count", 0))
 		== authored_primary_face_count,
-		"Runtime keeps exactly the manifest-authored primary deform faces."
+		"Runtime keeps exactly the manifest-authored primary motion faces."
 	)
 	_check(
-		int(runtime_stats.get("deformable_logical_vertex_count", 0)) > 0,
-		"Runtime keeps interior primary-region logical vertices deformable."
+		int(runtime_stats.get("motion_logical_vertex_count", 0)) > 0,
+		"Runtime keeps interior primary-region logical vertices movable."
 	)
 	_check(
-		int(runtime_stats.get("pinned_primary_boundary_vertex_count", 0)) > 0,
-		"Runtime pins logical vertices shared by deforming and fixed geometry."
+		int(runtime_stats.get("pinned_motion_boundary_vertex_count", 0)) > 0,
+		"Runtime pins logical vertices shared by moving and fixed geometry."
 	)
 	_check(
 		int(runtime_stats.get("render_face_count", 0))
@@ -986,7 +1061,7 @@ func _validate_runtime() -> void:
 				_vector2_array_from_json(
 					runtime_asset_data.get("vertices", [])
 				).size(),
-				runtime_profile
+				motion_profile
 			)
 			var expanded_vertex_index := 0
 			var shared_motion_masks_match := true
@@ -1002,7 +1077,7 @@ func _validate_runtime() -> void:
 					1.0
 					if _motion_mask_for_face(
 						face,
-						runtime_profile
+						motion_profile
 					) >= 0.75
 					else 0.5
 				)
@@ -1061,6 +1136,21 @@ func _validate_runtime() -> void:
 				"Left-page faces remain masked separately from turnable right-page faces."
 			)
 		_check(mesh_instance.texture == null, "Runtime MeshInstance2D has no texture.")
+		runtime.set_effect_shader(load(BOOK_SHADER_PATH) as Shader)
+		var reload_error: Error = runtime.load_asset(ASSET_PATH)
+		var reloaded_material := (
+			runtime.get_mesh_instance().material as ShaderMaterial
+		)
+		var generic_shader := load(
+			"res://shaders/polygon_asset.gdshader"
+		) as Shader
+		_check(
+			reload_error == OK
+			and reloaded_material != null
+			and reloaded_material.shader
+			== generic_shader,
+			"Reloading an asset restores the generic shader before adapter binding."
+		)
 	var outline_nodes := runtime.find_children("*", "Line2D", true, false)
 	_check(outline_nodes.size() == 1, "Runtime owns one synchronized Line2D outline.")
 	var area := runtime.get_node_or_null("InteractionArea") as Area2D
@@ -1070,8 +1160,10 @@ func _validate_runtime() -> void:
 	var collision_before := collision.polygon.duplicate() if collision != null else PackedVector2Array()
 
 	runtime.set_animation_time(2.5)
-	runtime.set_deformation_progress(0.5)
-	runtime.set_clear_progress(0.65)
+	runtime.set_motion_progress(0.5)
+	runtime.set_motion_strength(0.6)
+	runtime.set_generation_progress(0.4)
+	runtime.set_dissolve_progress(0.65)
 	var progress_stats: Dictionary = runtime.get_runtime_stats()
 	_check(
 		is_equal_approx(float(progress_stats.get("animation_time", 0.0)), 2.5),
@@ -1079,14 +1171,25 @@ func _validate_runtime() -> void:
 	)
 	_check(
 		is_equal_approx(
-			float(progress_stats.get("deformation_progress", 0.0)),
+			float(progress_stats.get("motion_progress", 0.0)),
 			0.5
+		)
+		and is_equal_approx(
+			float(progress_stats.get("motion_strength", 0.0)),
+			0.6
 		),
-		"Deformation progress can be set directly."
+		"Generic motion progress and strength can be set directly."
 	)
 	_check(
-		is_equal_approx(float(progress_stats.get("clear_progress", 0.0)), 0.65),
-		"Clear progress can be set directly."
+		is_equal_approx(
+			float(progress_stats.get("generation_progress", 0.0)),
+			0.4
+		)
+		and is_equal_approx(
+			float(progress_stats.get("dissolve_progress", 0.0)),
+			0.65
+		),
+		"Generic generation and dissolve progress can be set directly."
 	)
 	if collision != null:
 		_check(
@@ -1097,8 +1200,13 @@ func _validate_runtime() -> void:
 	var reset_stats: Dictionary = runtime.get_runtime_stats()
 	_check(
 		is_zero_approx(float(reset_stats.get("animation_time", -1.0)))
-		and is_zero_approx(float(reset_stats.get("deformation_progress", -1.0)))
-		and is_zero_approx(float(reset_stats.get("clear_progress", -1.0))),
+		and is_zero_approx(float(reset_stats.get("motion_progress", -1.0)))
+		and is_zero_approx(float(reset_stats.get("motion_strength", -1.0)))
+		and is_equal_approx(
+			float(reset_stats.get("generation_progress", 0.0)),
+			1.0
+		)
+		and is_zero_approx(float(reset_stats.get("dissolve_progress", -1.0))),
 		"reset_visual restores all animation progress."
 	)
 	runtime.set_debug_mesh_visible(true)
@@ -1121,26 +1229,42 @@ func _validate_demo_scene() -> void:
 	await process_frame
 	_check(scene.has_method("get_auto_demo_state"), "Demo exposes auto-demo state.")
 	_check(scene.has_method("debug_set_auto_demo_time"), "Demo exposes deterministic auto timing.")
+	_check(
+		scene.has_method("get_book_animation_state"),
+		"Demo exposes the isolated book-animation adapter state."
+	)
 	if (
 		not scene.has_method("get_auto_demo_state")
 		or not scene.has_method("debug_set_auto_demo_time")
+		or not scene.has_method("get_book_animation_state")
 	):
 		scene.queue_free()
 		return
 	var initial_state: Dictionary = scene.call("get_auto_demo_state")
 	_check(bool(initial_state.get("enabled", false)), "Auto demo is enabled on scene entry.")
-	scene.call("debug_set_auto_demo_time", 1.6)
 	var polygon_asset: Node = scene.call("get_polygon_asset")
-	var turn_stats: Dictionary = polygon_asset.call("get_runtime_stats")
+	scene.call("debug_set_auto_demo_time", 0.45)
+	var generation_stats: Dictionary = polygon_asset.call("get_runtime_stats")
 	_check(
-		float(turn_stats.get("deformation_progress", 0.0)) > 0.4,
-		"Auto demo reaches a visible page-turn phase."
+		float(generation_stats.get("generation_progress", 1.0)) > 0.3
+		and float(generation_stats.get("generation_progress", 1.0)) < 0.7,
+		"Auto demo reaches a visible generic generation phase."
 	)
-	scene.call("debug_set_auto_demo_time", 3.5)
+	scene.call("debug_set_auto_demo_time", 2.2)
+	var book_state: Dictionary = scene.call("get_book_animation_state")
+	_check(
+		float(book_state.get("page_turn_progress", 0.0)) > 0.4,
+		"Auto demo reaches page turn through the book-only adapter."
+	)
+	scene.call("debug_set_auto_demo_time", 4.1)
 	var clear_stats: Dictionary = polygon_asset.call("get_runtime_stats")
 	_check(
-		float(clear_stats.get("clear_progress", 0.0)) > 0.4,
-		"Auto demo reaches a visible clear phase."
+		float(clear_stats.get("dissolve_progress", 0.0)) > 0.4,
+		"Auto demo reaches a visible generic dissolve phase."
+	)
+	_check(
+		float(clear_stats.get("motion_strength", 0.0)) > 0.0,
+		"Auto demo keeps generic motion enabled independently of page turn."
 	)
 	scene.queue_free()
 	await process_frame
@@ -1270,7 +1394,7 @@ func _analyze_edge_topology(
 func _build_expected_vertex_motion_masks(
 	faces: Array,
 	vertex_count: int,
-	runtime_profile: Dictionary
+	motion_profile: Dictionary
 ) -> PackedFloat32Array:
 	var has_primary_face := PackedByteArray()
 	var has_secondary_face := PackedByteArray()
@@ -1282,7 +1406,7 @@ func _build_expected_vertex_motion_masks(
 		var face: Dictionary = face_value
 		var face_motion_mask := _motion_mask_for_face(
 			face,
-			runtime_profile
+			motion_profile
 		)
 		var indices: Array = face.get("indices", [])
 		for vertex_index_value: Variant in indices:
@@ -1315,22 +1439,22 @@ func _build_expected_vertex_motion_masks(
 
 func _motion_mask_for_face(
 	face: Dictionary,
-	runtime_profile: Dictionary
+	motion_profile: Dictionary
 ) -> float:
 	var surface_kind := String(face.get("surface_kind", ""))
-	var deformable_surface_kinds: Array = runtime_profile.get(
-		"deformable_surface_kinds",
+	var motion_surface_kinds: Array = motion_profile.get(
+		"motion_surface_kinds",
 		[]
 	)
-	if not deformable_surface_kinds.has(surface_kind):
+	if not motion_surface_kinds.has(surface_kind):
 		return 0.0
 	var region := String(face.get("region", ""))
-	var primary_regions: Array = runtime_profile.get(
-		"primary_deform_regions",
+	var primary_regions: Array = motion_profile.get(
+		"primary_motion_regions",
 		[]
 	)
-	var secondary_regions: Array = runtime_profile.get(
-		"secondary_deform_regions",
+	var secondary_regions: Array = motion_profile.get(
+		"secondary_motion_regions",
 		[]
 	)
 	if primary_regions.has(region):

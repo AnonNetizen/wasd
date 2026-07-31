@@ -13,16 +13,18 @@ var _collision_polygon: CollisionPolygon2D
 var _mesh_material: ShaderMaterial
 var _outline_material: ShaderMaterial
 var _animation_time: float = 0.0
-var _deformation_progress: float = 0.0
-var _clear_progress: float = 0.0
+var _motion_progress: float = 0.0
+var _motion_strength: float = 0.0
+var _generation_progress: float = 1.0
+var _dissolve_progress: float = 0.0
 var _debug_mesh_visible: bool = false
-var _deformable_surface_face_count: int = 0
-var _primary_deform_face_count: int = 0
+var _motion_surface_face_count: int = 0
+var _primary_motion_face_count: int = 0
 var _render_face_count: int = 0
-var _deformable_logical_vertex_count: int = 0
-var _pinned_primary_boundary_vertex_count: int = 0
+var _motion_logical_vertex_count: int = 0
+var _pinned_motion_boundary_vertex_count: int = 0
 var _vertex_motion_masks := PackedFloat32Array()
-var _deformation_config: Dictionary = {}
+var _motion_config: Dictionary = {}
 
 
 func _ready() -> void:
@@ -40,6 +42,8 @@ func load_asset(path: String) -> Error:
 	if validation_error != OK:
 		return validation_error
 	_asset_data = data.duplicate(true)
+	_motion_config.clear()
+	set_effect_shader(POLYGON_SHADER)
 	var mesh_error := _build_mesh()
 	if mesh_error != OK:
 		return mesh_error
@@ -57,32 +61,69 @@ func set_animation_time(seconds: float) -> void:
 	if _debug_overlay != null:
 		_debug_overlay.set_animation_state(
 			_animation_time,
-			_deformation_progress
+			_motion_progress,
+			_motion_strength
 		)
 
 
-func set_deformation_progress(progress: float) -> void:
-	_deformation_progress = clampf(progress, 0.0, 1.0)
-	_set_material_parameter(
-		"deformation_progress",
-		_deformation_progress
-	)
+func set_motion_progress(progress: float) -> void:
+	_motion_progress = clampf(progress, 0.0, 1.0)
+	_set_material_parameter("motion_progress", _motion_progress)
 	if _debug_overlay != null:
 		_debug_overlay.set_animation_state(
 			_animation_time,
-			_deformation_progress
+			_motion_progress,
+			_motion_strength
 		)
 
 
-func set_clear_progress(progress: float) -> void:
-	_clear_progress = clampf(progress, 0.0, 1.0)
-	_set_material_parameter("clear_progress", _clear_progress)
+func set_motion_strength(strength: float) -> void:
+	_motion_strength = clampf(strength, 0.0, 1.0)
+	_set_material_parameter("motion_strength", _motion_strength)
+	if _debug_overlay != null:
+		_debug_overlay.set_animation_state(
+			_animation_time,
+			_motion_progress,
+			_motion_strength
+		)
+
+
+func set_generation_progress(progress: float) -> void:
+	_generation_progress = clampf(progress, 0.0, 1.0)
+	_set_material_parameter(
+		"generation_progress",
+		_generation_progress
+	)
+
+
+func set_dissolve_progress(progress: float) -> void:
+	_dissolve_progress = clampf(progress, 0.0, 1.0)
+	_set_material_parameter(
+		"dissolve_progress",
+		_dissolve_progress
+	)
+
+
+func set_effect_shader(shader: Shader) -> void:
+	_ensure_runtime_nodes()
+	_mesh_material.shader = shader if shader != null else POLYGON_SHADER
+	_outline_material.shader = shader if shader != null else POLYGON_SHADER
+	_apply_material_state()
+
+
+func set_effect_parameter(
+	parameter_name: StringName,
+	value: Variant
+) -> void:
+	_set_material_parameter(parameter_name, value)
 
 
 func reset_visual() -> void:
 	set_animation_time(0.0)
-	set_deformation_progress(0.0)
-	set_clear_progress(0.0)
+	set_motion_progress(0.0)
+	set_motion_strength(0.0)
+	set_generation_progress(1.0)
+	set_dissolve_progress(0.0)
 
 
 func set_debug_mesh_visible(visible: bool) -> void:
@@ -108,18 +149,20 @@ func get_runtime_stats() -> Dictionary:
 		"outline_node_count": 1 if _outline != null else 0,
 		"collision_static": true,
 		"source_face_count": int(_asset_data.get("stats", {}).get("face_count", 0)),
-		"deformable_surface_face_count": _deformable_surface_face_count,
-		"primary_deform_face_count": _primary_deform_face_count,
+		"motion_surface_face_count": _motion_surface_face_count,
+		"primary_motion_face_count": _primary_motion_face_count,
 		"render_face_count": _render_face_count,
-		"deformable_logical_vertex_count": _deformable_logical_vertex_count,
-		"pinned_primary_boundary_vertex_count":
-			_pinned_primary_boundary_vertex_count,
+		"motion_logical_vertex_count": _motion_logical_vertex_count,
+		"pinned_motion_boundary_vertex_count":
+			_pinned_motion_boundary_vertex_count,
 		"animation_time": _animation_time,
-		"deformation_progress": _deformation_progress,
-		"deformation_axis": _vector2_to_array(
-			_deformation_config.get("axis", Vector2.RIGHT)
+		"motion_progress": _motion_progress,
+		"motion_strength": _motion_strength,
+		"motion_axis": _vector2_to_array(
+			_motion_config.get("axis", Vector2.RIGHT)
 		),
-		"clear_progress": _clear_progress,
+		"generation_progress": _generation_progress,
+		"dissolve_progress": _dissolve_progress,
 		"debug_mesh_visible": _debug_mesh_visible,
 	}
 
@@ -176,8 +219,8 @@ func _build_mesh() -> Error:
 	var faces: Array = faces_value
 	var palette: Dictionary = palette_value
 	var validated_faces: Array[Dictionary] = []
-	_deformable_surface_face_count = 0
-	_primary_deform_face_count = 0
+	_motion_surface_face_count = 0
+	_primary_motion_face_count = 0
 	_render_face_count = 0
 	for face_value: Variant in faces:
 		if not face_value is Dictionary:
@@ -195,21 +238,21 @@ func _build_mesh() -> Error:
 				return ERR_INVALID_DATA
 		var motion_mask := _motion_mask_for_face(face)
 		if motion_mask >= 0.25:
-			_deformable_surface_face_count += 1
+			_motion_surface_face_count += 1
 		if motion_mask >= 0.75:
-			_primary_deform_face_count += 1
+			_primary_motion_face_count += 1
 		validated_faces.append(face)
 	_render_face_count = validated_faces.size()
 	_vertex_motion_masks = _build_vertex_motion_masks(
 		validated_faces,
 		vertices.size()
 	)
-	var deformation_error := _configure_deformation(
+	var motion_error := _configure_motion(
 		vertices,
 		validated_faces
 	)
-	if deformation_error != OK:
-		return deformation_error
+	if motion_error != OK:
+		return motion_error
 
 	var expanded_vertices := PackedVector3Array()
 	var expanded_colors := PackedColorArray()
@@ -285,7 +328,7 @@ func _build_debug_overlay() -> void:
 		_vector2_array_from_json(_asset_data.get("vertices", [])),
 		_asset_data.get("faces", []),
 		_vertex_motion_masks,
-		_deformation_config,
+		_motion_config,
 		debug_color
 	)
 	_debug_overlay.visible = _debug_mesh_visible
@@ -294,8 +337,69 @@ func _build_debug_overlay() -> void:
 func _apply_asset_half_size() -> void:
 	var bounds: Dictionary = _asset_data.get("bounds", {})
 	var half_size := _array_to_vector2(bounds.get("size", [])) * 0.5
-	_mesh_material.set_shader_parameter("asset_half_size", half_size)
-	_outline_material.set_shader_parameter("asset_half_size", half_size)
+	_set_material_parameter("asset_half_size", half_size)
+
+
+func _apply_material_state() -> void:
+	_apply_asset_half_size()
+	_set_material_parameter("animation_time", _animation_time)
+	_set_material_parameter("motion_progress", _motion_progress)
+	_set_material_parameter("motion_strength", _motion_strength)
+	_set_material_parameter(
+		"generation_progress",
+		_generation_progress
+	)
+	_set_material_parameter(
+		"dissolve_progress",
+		_dissolve_progress
+	)
+	if not _motion_config.is_empty():
+		_set_material_parameter(
+			"motion_axis",
+			_motion_config.get("axis", Vector2.RIGHT)
+		)
+		_set_material_parameter(
+			"motion_origin",
+			_motion_config.get("origin", 0.0)
+		)
+		_set_material_parameter(
+			"motion_span",
+			_motion_config.get("span", 1.0)
+		)
+		_set_material_parameter(
+			"motion_tangent_center",
+			_motion_config.get("tangent_center", 0.0)
+		)
+		_set_material_parameter(
+			"motion_tangent_span",
+			_motion_config.get("tangent_span", 1.0)
+		)
+	var motion_profile: Dictionary = _asset_data.get(
+		"motion_profile",
+		{}
+	)
+	var palette: Dictionary = _asset_data.get("palette", {})
+	for tint_binding in [
+		{
+			"field": "generation_tint_palette_role",
+			"parameter": "generation_tint",
+		},
+		{
+			"field": "dissolve_tint_palette_role",
+			"parameter": "dissolve_tint",
+		},
+	]:
+		var role := String(motion_profile.get(
+			String(tint_binding["field"]),
+			""
+		))
+		if not role.is_empty() and palette.has(role):
+			_set_material_parameter(
+				StringName(tint_binding["parameter"]),
+				Color(String(palette[role]))
+			)
+	_mesh_material.set_shader_parameter("outline_mode", false)
+	_outline_material.set_shader_parameter("outline_mode", true)
 
 
 func _set_material_parameter(parameter_name: StringName, value: Variant) -> void:
@@ -306,7 +410,7 @@ func _set_material_parameter(parameter_name: StringName, value: Variant) -> void
 
 
 func _validate_asset_data(data: Dictionary) -> Error:
-	if int(data.get("schema_version", 0)) != 2:
+	if int(data.get("schema_version", 0)) != 3:
 		return ERR_UNAVAILABLE
 	if String(data.get("asset_id", "")).is_empty():
 		return ERR_INVALID_DATA
@@ -316,58 +420,60 @@ func _validate_asset_data(data: Dictionary) -> Error:
 		return ERR_INVALID_DATA
 	if not data.get("outline", null) is Array:
 		return ERR_INVALID_DATA
-	var runtime_profile_value: Variant = data.get("runtime_profile", {})
-	if not runtime_profile_value is Dictionary:
+	var motion_profile_value: Variant = data.get("motion_profile", {})
+	if not motion_profile_value is Dictionary:
 		return ERR_INVALID_DATA
-	var runtime_profile: Dictionary = runtime_profile_value
+	var motion_profile: Dictionary = motion_profile_value
 	for field_name in [
-		"primary_deform_regions",
-		"secondary_deform_regions",
-		"deformable_surface_kinds",
+		"primary_motion_regions",
+		"secondary_motion_regions",
+		"motion_surface_kinds",
 	]:
-		if not runtime_profile.get(field_name, []) is Array:
+		if not motion_profile.get(field_name, []) is Array:
 			return ERR_INVALID_DATA
-	var primary_regions: Array = runtime_profile.get(
-		"primary_deform_regions",
+	var primary_regions: Array = motion_profile.get(
+		"primary_motion_regions",
 		[]
 	)
 	if (
 		not primary_regions.is_empty()
 		and _array_to_vector2(
-			runtime_profile.get("deformation_axis", [])
+			motion_profile.get("motion_axis", [])
 		).length() <= 0.0001
 	):
 		return ERR_INVALID_DATA
 	var palette: Dictionary = data.get("palette", {})
 	for color_role_field in [
-		"deformation_light_palette_role",
-		"deformation_shadow_palette_role",
+		"generation_tint_palette_role",
+		"dissolve_tint_palette_role",
 	]:
-		var role := String(runtime_profile.get(color_role_field, ""))
+		var role := String(motion_profile.get(color_role_field, ""))
 		if not role.is_empty() and not palette.has(role):
 			return ERR_INVALID_DATA
+	if not data.get("custom_animation", {}) is Dictionary:
+		return ERR_INVALID_DATA
 	return OK
 
 
 func _motion_mask_for_face(face: Dictionary) -> float:
-	var runtime_profile: Dictionary = _asset_data.get(
-		"runtime_profile",
+	var motion_profile: Dictionary = _asset_data.get(
+		"motion_profile",
 		{}
 	)
 	var surface_kind := String(face.get("surface_kind", ""))
-	var deformable_surface_kinds: Array = runtime_profile.get(
-		"deformable_surface_kinds",
+	var motion_surface_kinds: Array = motion_profile.get(
+		"motion_surface_kinds",
 		[]
 	)
-	if not deformable_surface_kinds.has(surface_kind):
+	if not motion_surface_kinds.has(surface_kind):
 		return 0.0
 	var region := String(face.get("region", ""))
-	var primary_regions: Array = runtime_profile.get(
-		"primary_deform_regions",
+	var primary_regions: Array = motion_profile.get(
+		"primary_motion_regions",
 		[]
 	)
-	var secondary_regions: Array = runtime_profile.get(
-		"secondary_deform_regions",
+	var secondary_regions: Array = motion_profile.get(
+		"secondary_motion_regions",
 		[]
 	)
 	if primary_regions.has(region):
@@ -401,8 +507,8 @@ func _build_vertex_motion_masks(
 
 	var result := PackedFloat32Array()
 	result.resize(vertex_count)
-	_deformable_logical_vertex_count = 0
-	_pinned_primary_boundary_vertex_count = 0
+	_motion_logical_vertex_count = 0
+	_pinned_motion_boundary_vertex_count = 0
 	for vertex_index in range(vertex_count):
 		var touches_primary := has_primary_face[vertex_index] == 1
 		var touches_other_geometry := (
@@ -411,25 +517,25 @@ func _build_vertex_motion_masks(
 		)
 		if touches_primary and not touches_other_geometry:
 			result[vertex_index] = 1.0
-			_deformable_logical_vertex_count += 1
+			_motion_logical_vertex_count += 1
 		elif touches_primary:
 			result[vertex_index] = 0.0
-			_pinned_primary_boundary_vertex_count += 1
+			_pinned_motion_boundary_vertex_count += 1
 		elif has_secondary_face[vertex_index] == 1 and has_fixed_face[vertex_index] == 0:
 			result[vertex_index] = 0.5
 	return result
 
 
-func _configure_deformation(
+func _configure_motion(
 	vertices: PackedVector2Array,
 	faces: Array[Dictionary]
 ) -> Error:
-	var runtime_profile: Dictionary = _asset_data.get(
-		"runtime_profile",
+	var motion_profile: Dictionary = _asset_data.get(
+		"motion_profile",
 		{}
 	)
 	var axis := _array_to_vector2(
-		runtime_profile.get("deformation_axis", [1.0, 0.0])
+		motion_profile.get("motion_axis", [1.0, 0.0])
 	)
 	if axis.length() <= 0.0001:
 		axis = Vector2.RIGHT
@@ -458,40 +564,14 @@ func _configure_deformation(
 		maximum_tangent = 0.5
 	var span := maxf(maximum_projection - minimum_projection, 1.0)
 	var tangent_span := maxf(maximum_tangent - minimum_tangent, 1.0)
-	_deformation_config = {
+	_motion_config = {
 		"axis": axis,
 		"origin": minimum_projection,
 		"span": span,
 		"tangent_center": (minimum_tangent + maximum_tangent) * 0.5,
 		"tangent_span": tangent_span,
 	}
-	_set_material_parameter("deformation_axis", axis)
-	_set_material_parameter("deformation_origin", minimum_projection)
-	_set_material_parameter("deformation_span", span)
-	_set_material_parameter(
-		"deformation_tangent_center",
-		_deformation_config["tangent_center"]
-	)
-	_set_material_parameter("deformation_tangent_span", tangent_span)
-	var palette: Dictionary = _asset_data.get("palette", {})
-	var light_role := String(runtime_profile.get(
-		"deformation_light_palette_role",
-		""
-	))
-	var shadow_role := String(runtime_profile.get(
-		"deformation_shadow_palette_role",
-		""
-	))
-	if not light_role.is_empty() and palette.has(light_role):
-		_set_material_parameter(
-			"deformation_light",
-			Color(String(palette[light_role]))
-		)
-	if not shadow_role.is_empty() and palette.has(shadow_role):
-		_set_material_parameter(
-			"deformation_shadow",
-			Color(String(palette[shadow_role]))
-		)
+	_apply_material_state()
 	return OK
 
 

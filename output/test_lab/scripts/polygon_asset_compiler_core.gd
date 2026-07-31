@@ -1,7 +1,7 @@
 class_name PolygonAssetCompilerCore
 extends RefCounted
 
-const SUPPORTED_MANIFEST_SCHEMA: int = 2
+const SUPPORTED_MANIFEST_SCHEMA: int = 3
 const SUPPORTED_STYLE_SCHEMA: int = 2
 
 
@@ -163,22 +163,31 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 		collision_points.remove_at(collision_points.size() - 1)
 	var anchors := _build_anchors(manifest, local_bounds)
 	var region_counts := _count_regions(face_records)
-	var runtime_profile_result := _build_runtime_profile(
-		manifest.get("runtime_profile", {}),
+	var motion_profile_result := _build_motion_profile(
+		manifest.get("motion_profile", {}),
 		region_counts,
 		palette
 	)
-	if not bool(runtime_profile_result.get("ok", false)):
-		return runtime_profile_result
+	if not bool(motion_profile_result.get("ok", false)):
+		return motion_profile_result
 	var local_features := _localize_features(
 		features,
 		pivot
 	)
 	var region_summary := _build_region_summary(region_counts)
-	var runtime_profile: Dictionary = runtime_profile_result["profile"]
+	var motion_profile: Dictionary = motion_profile_result["profile"]
+	var custom_animation_value: Variant = manifest.get(
+		"custom_animation",
+		{}
+	)
+	if not custom_animation_value is Dictionary:
+		return _failure("Manifest custom_animation must be a dictionary.")
+	var custom_animation: Dictionary = (
+		custom_animation_value as Dictionary
+	).duplicate(true)
 
 	var output := {
-		"schema_version": 2,
+		"schema_version": 3,
 		"asset_id": String(manifest.get("asset_id", "")),
 		"source": {
 			"sha256": source_hash,
@@ -204,7 +213,8 @@ func compile_manifest(manifest_path: String) -> Dictionary:
 			"generated_geometry": true,
 			"runtime_source_texture": false,
 		},
-		"runtime_profile": runtime_profile,
+		"motion_profile": motion_profile,
+		"custom_animation": custom_animation,
 		"features": local_features,
 		"clear_order": "outer_edge_to_primary_feature",
 		"outline": _packed_vector2_to_arrays(local_outline),
@@ -452,7 +462,7 @@ func _extract_features(
 	var guides: Array = guides_value
 	if guides.size() != 1:
 		return _failure(
-			"Shape-guided schema v2 requires exactly one primary feature."
+			"Shape-guided schema v3 requires exactly one primary feature."
 		)
 	var extraction_config: Dictionary = style.get(
 		"feature_extraction",
@@ -2131,71 +2141,71 @@ func _build_region_summary(region_counts: Dictionary) -> Dictionary:
 	return summary
 
 
-func _build_runtime_profile(
+func _build_motion_profile(
 	profile_value: Variant,
 	region_counts: Dictionary,
 	palette: Dictionary
 ) -> Dictionary:
 	if not profile_value is Dictionary:
-		return _failure("Manifest runtime_profile must be a dictionary.")
+		return _failure("Manifest motion_profile must be a dictionary.")
 	var profile: Dictionary = (profile_value as Dictionary).duplicate(true)
 	for field_name in [
-		"primary_deform_regions",
-		"secondary_deform_regions",
-		"deformable_surface_kinds",
+		"primary_motion_regions",
+		"secondary_motion_regions",
+		"motion_surface_kinds",
 	]:
 		if not profile.get(field_name, []) is Array:
 			return _failure(
-				"Runtime profile %s must be an array." % field_name
+				"Motion profile %s must be an array." % field_name
 			)
 	var primary_regions: Array = profile.get(
-		"primary_deform_regions",
+		"primary_motion_regions",
 		[]
 	)
 	var secondary_regions: Array = profile.get(
-		"secondary_deform_regions",
+		"secondary_motion_regions",
 		[]
 	)
 	for region_value: Variant in primary_regions + secondary_regions:
 		var region := String(region_value)
 		if region.is_empty() or not region_counts.has(region):
 			return _failure(
-				"Runtime deformation region is absent: %s." % region
+				"Motion profile region is absent: %s." % region
 			)
 	for region_value: Variant in primary_regions:
 		if secondary_regions.has(region_value):
 			return _failure(
-				"Runtime primary and secondary regions must be disjoint."
+				"Motion profile primary and secondary regions must be disjoint."
 			)
 	var surface_kinds: Array = profile.get(
-		"deformable_surface_kinds",
+		"motion_surface_kinds",
 		[]
 	)
 	for surface_kind_value: Variant in surface_kinds:
 		if String(surface_kind_value).is_empty():
 			return _failure(
-				"Runtime deformable surface kind cannot be empty."
+				"Motion surface kind cannot be empty."
 			)
 	var axis := _array_to_vector2(
-		profile.get("deformation_axis", [1.0, 0.0])
+		profile.get("motion_axis", [1.0, 0.0])
 	)
 	if not primary_regions.is_empty() and axis.length() <= 0.0001:
 		return _failure(
-			"Runtime deformation_axis must be non-zero."
+			"Motion profile motion_axis must be non-zero."
 		)
 	if axis.length() <= 0.0001:
 		axis = Vector2.RIGHT
-	profile["deformation_axis"] = _vector2_to_array(
+	profile["motion_axis"] = _vector2_to_array(
 		axis.normalized()
 	)
 	for role_field in [
-		"deformation_light_palette_role",
-		"deformation_shadow_palette_role",
+		"generation_tint_palette_role",
+		"dissolve_tint_palette_role",
 	]:
 		var role := String(profile.get(role_field, ""))
 		if not role.is_empty() and not palette.has(role):
 			return _failure(
-				"Runtime deformation palette role is absent: %s." % role
+				"Motion profile palette role is absent: %s." % role
 			)
 	return {"ok": true, "profile": profile}
 

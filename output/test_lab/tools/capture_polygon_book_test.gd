@@ -1,6 +1,9 @@
 extends SceneTree
 
 const COMPARISON_SCREENSHOT: String = "res://screenshots/polygon_book_comparison.png"
+const GENERIC_EFFECTS_SCREENSHOT: String = (
+	"res://screenshots/polygon_book_generic_effects_strip.png"
+)
 const MID_TURN_SCREENSHOT: String = "res://screenshots/polygon_book_page_turn_mid.png"
 const MOTION_STRIP_SCREENSHOT: String = "res://screenshots/polygon_book_page_turn_strip.png"
 const RUNTIME_PANEL_RECT := Rect2i(554, 120, 698, 492)
@@ -36,17 +39,77 @@ func _capture() -> void:
 		await process_frame
 	if not _save_viewport(MID_TURN_SCREENSHOT):
 		return
+	if not await _save_generic_effects_strip(scene):
+		return
 	if not await _save_motion_strip(scene):
 		return
 	print(
-		"Saved Polygon book screenshots: %s, %s, and %s"
+		"Saved Polygon book screenshots: %s, %s, %s, and %s"
 		% [
 			ProjectSettings.globalize_path(COMPARISON_SCREENSHOT),
 			ProjectSettings.globalize_path(MID_TURN_SCREENSHOT),
+			ProjectSettings.globalize_path(GENERIC_EFFECTS_SCREENSHOT),
 			ProjectSettings.globalize_path(MOTION_STRIP_SCREENSHOT),
 		]
 	)
 	quit(0)
+
+
+func _save_generic_effects_strip(scene: Node) -> bool:
+	if not scene.has_method("prepare_generic_capture"):
+		_fail("Polygon book scene does not expose prepare_generic_capture().")
+		return false
+	var states: Array[Array] = [
+		[0.25, 0.0, 0.0, 0.0],
+		[1.0, 0.0, 0.15, 1.0],
+		[1.0, 0.0, 0.65, 1.0],
+		[1.0, 0.45, 0.0, 0.0],
+		[1.0, 0.85, 0.0, 0.0],
+	]
+	var frame_size := Vector2i(300, 212)
+	var strip := Image.create(
+		frame_size.x * states.size(),
+		frame_size.y,
+		false,
+		Image.FORMAT_RGBA8
+	)
+	strip.fill(Color("#10101a"))
+	for frame_index in range(states.size()):
+		var state: Array = states[frame_index]
+		scene.call(
+			"prepare_generic_capture",
+			float(state[0]),
+			float(state[1]),
+			float(state[2]),
+			float(state[3])
+		)
+		for _frame_index in range(2):
+			await process_frame
+		var viewport_image := _get_viewport_image()
+		if viewport_image == null:
+			return false
+		var frame := viewport_image.get_region(RUNTIME_PANEL_RECT)
+		frame.resize(
+			frame_size.x,
+			frame_size.y,
+			Image.INTERPOLATE_LANCZOS
+		)
+		strip.blit_rect(
+			frame,
+			Rect2i(Vector2i.ZERO, frame_size),
+			Vector2i(frame_index * frame_size.x, 0)
+		)
+	var absolute_path := ProjectSettings.globalize_path(
+		GENERIC_EFFECTS_SCREENSHOT
+	)
+	var save_error := strip.save_png(absolute_path)
+	if save_error != OK:
+		_fail(
+			"Failed to save generic effects strip: %s"
+			% error_string(save_error)
+		)
+		return false
+	return true
 
 
 func _save_motion_strip(scene: Node) -> bool:

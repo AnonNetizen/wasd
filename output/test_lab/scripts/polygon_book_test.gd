@@ -1,23 +1,29 @@
 extends Control
 
 const ASSET_PATH: String = "res://data/polygon_assets/open_book.polygon.json"
-const AUTO_CLEAR_END: float = 4.0
-const AUTO_CLEAR_HOLD_END: float = 4.6
-const AUTO_CYCLE_DURATION: float = 6.8
-const AUTO_IDLE_END: float = 1.0
-const AUTO_PAGE_END: float = 2.2
-const AUTO_PAGE_SETTLE_END: float = 3.0
-const AUTO_RESTORE_END: float = 5.6
+const AUTO_CLEAR_END: float = 4.6
+const AUTO_CLEAR_HOLD_END: float = 5.2
+const AUTO_CYCLE_DURATION: float = 7.0
+const AUTO_GENERATE_END: float = 0.9
+const AUTO_IDLE_END: float = 1.6
+const AUTO_PAGE_END: float = 2.8
+const AUTO_PAGE_SETTLE_END: float = 3.6
+const AUTO_RESTORE_END: float = 6.2
 const INDEX_SCENE_PATH: String = "res://scenes/test_lab_index.tscn"
 const POLYGON_ASSET_SCRIPT := preload("res://scripts/polygon_asset_2d.gd")
+const POLYGON_BOOK_ANIMATOR_SCRIPT := preload(
+	"res://scripts/polygon_book_animator.gd"
+)
 const SOURCE_PATH: String = "res://assets/polygon_art/open_book_source.png"
 
-var _polygon_asset: Node2D
+var _polygon_asset: PolygonAsset2D
+var _book_animator: RefCounted
 var _source_preview: TextureRect
 var _stats_label: Label
 var _demo_status_label: Label
 var _page_turn_tween: Tween
 var _clear_tween: Tween
+var _generation_tween: Tween
 var _elapsed_time: float = 0.0
 var _clear_target: float = 1.0
 var _auto_demo_enabled: bool = true
@@ -30,6 +36,12 @@ func _ready() -> void:
 	if load_error != OK:
 		_stats_label.text = "Polygon asset load failed: %s" % error_string(load_error)
 		return
+	_book_animator = POLYGON_BOOK_ANIMATOR_SCRIPT.new()
+	var bind_error: Error = _book_animator.bind(_polygon_asset)
+	if bind_error != OK:
+		_stats_label.text = "Book animator bind failed: %s" % error_string(bind_error)
+		return
+	_polygon_asset.set_motion_strength(0.35)
 	_set_auto_demo_enabled(true)
 	_refresh_stats()
 
@@ -50,6 +62,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_play_page_turn()
 			KEY_C:
 				_toggle_clear()
+			KEY_G:
+				_play_generation()
 			KEY_A:
 				_set_auto_demo_enabled(not _auto_demo_enabled)
 			KEY_M:
@@ -70,6 +84,8 @@ func reset_demo() -> void:
 	_elapsed_time = 0.0
 	_clear_target = 1.0
 	_polygon_asset.reset_visual()
+	_polygon_asset.set_motion_strength(0.35)
+	_book_animator.reset()
 	_polygon_asset.set_debug_mesh_visible(false)
 	_source_preview.visible = true
 	_set_auto_demo_enabled(true)
@@ -81,14 +97,41 @@ func prepare_capture(page_turn_progress: float, clear_progress: float = 0.0) -> 
 	set_process(false)
 	_elapsed_time = 1.75
 	_polygon_asset.set_animation_time(_elapsed_time)
-	_polygon_asset.set_deformation_progress(page_turn_progress)
-	_polygon_asset.set_clear_progress(clear_progress)
+	_polygon_asset.set_motion_strength(0.0)
+	_polygon_asset.set_generation_progress(1.0)
+	_polygon_asset.set_dissolve_progress(clear_progress)
+	_book_animator.set_page_turn_progress(page_turn_progress)
 	if _demo_status_label != null:
 		_demo_status_label.text = (
 			"CAPTURE · PAGE TURN %d%%"
 			% roundi(clampf(page_turn_progress, 0.0, 1.0) * 100.0)
 		)
 		_demo_status_label.add_theme_color_override("font_color", Color("#69d5d0"))
+	_polygon_asset.set_debug_mesh_visible(false)
+	_refresh_stats()
+
+
+func prepare_generic_capture(
+	generation_progress: float,
+	dissolve_progress: float,
+	motion_progress: float,
+	motion_strength: float
+) -> void:
+	_auto_demo_enabled = false
+	set_process(false)
+	_elapsed_time = 1.75
+	_polygon_asset.set_animation_time(_elapsed_time)
+	_polygon_asset.set_motion_progress(motion_progress)
+	_polygon_asset.set_motion_strength(motion_strength)
+	_polygon_asset.set_generation_progress(generation_progress)
+	_polygon_asset.set_dissolve_progress(dissolve_progress)
+	_book_animator.set_page_turn_progress(0.0)
+	if _demo_status_label != null:
+		_demo_status_label.text = "CAPTURE · GENERIC LIFECYCLE"
+		_demo_status_label.add_theme_color_override(
+			"font_color",
+			Color("#69d5d0")
+		)
 	_polygon_asset.set_debug_mesh_visible(false)
 	_refresh_stats()
 
@@ -103,6 +146,16 @@ func get_auto_demo_state() -> Dictionary:
 		"cycle_time": _auto_cycle_time,
 		"cycle_duration": AUTO_CYCLE_DURATION,
 		"phase": _auto_demo_phase(),
+	}
+
+
+func get_book_animation_state() -> Dictionary:
+	var page_turn_progress := 0.0
+	if _book_animator != null:
+		page_turn_progress = _book_animator.get_page_turn_progress()
+	return {
+		"adapter": "book_page_turn",
+		"page_turn_progress": page_turn_progress,
 	}
 
 
@@ -204,7 +257,7 @@ func _build_interface() -> void:
 	add_child(footer)
 	var controls := _make_label(
 		"Controls",
-		"A  auto demo   ·   Space  page turn   ·   C  clear / restore   ·   M  mesh   ·   O  source   ·   R  reset   ·   Esc  index",
+		"A auto · G generate · Space page turn · C dissolve / restore · M mesh · O source · R reset · Esc index",
 		Vector2(18.0, 13.0),
 		Vector2(1180.0, 26.0),
 		14,
@@ -227,15 +280,32 @@ func _play_page_turn() -> void:
 	_set_auto_demo_enabled(false)
 	if _page_turn_tween != null:
 		_page_turn_tween.kill()
-	_polygon_asset.set_deformation_progress(0.0)
+	_book_animator.set_page_turn_progress(0.0)
 	_page_turn_tween = create_tween()
 	_page_turn_tween.set_trans(Tween.TRANS_SINE)
 	_page_turn_tween.set_ease(Tween.EASE_IN_OUT)
 	_page_turn_tween.tween_method(
-		_polygon_asset.set_deformation_progress,
+		_book_animator.set_page_turn_progress,
 		0.0,
 		1.0,
 		1.2
+	)
+
+
+func _play_generation() -> void:
+	_set_auto_demo_enabled(false)
+	if _generation_tween != null:
+		_generation_tween.kill()
+	_polygon_asset.set_dissolve_progress(0.0)
+	_polygon_asset.set_generation_progress(0.0)
+	_generation_tween = create_tween()
+	_generation_tween.set_trans(Tween.TRANS_CUBIC)
+	_generation_tween.set_ease(Tween.EASE_OUT)
+	_generation_tween.tween_method(
+		_polygon_asset.set_generation_progress,
+		0.0,
+		1.0,
+		1.0
 	)
 
 
@@ -243,12 +313,14 @@ func _toggle_clear() -> void:
 	_set_auto_demo_enabled(false)
 	if _clear_tween != null:
 		_clear_tween.kill()
-	var current_progress := float(_polygon_asset.get_runtime_stats()["clear_progress"])
+	var current_progress := float(
+		_polygon_asset.get_runtime_stats()["dissolve_progress"]
+	)
 	_clear_tween = create_tween()
 	_clear_tween.set_trans(Tween.TRANS_CUBIC)
 	_clear_tween.set_ease(Tween.EASE_IN_OUT)
 	_clear_tween.tween_method(
-		_polygon_asset.set_clear_progress,
+		_polygon_asset.set_dissolve_progress,
 		current_progress,
 		_clear_target,
 		1.0
@@ -265,8 +337,10 @@ func _set_auto_demo_enabled(enabled: bool) -> void:
 	if enabled:
 		_apply_auto_demo_state()
 		return
-	_polygon_asset.set_deformation_progress(0.0)
-	_polygon_asset.set_clear_progress(0.0)
+	_book_animator.set_page_turn_progress(0.0)
+	_polygon_asset.set_generation_progress(1.0)
+	_polygon_asset.set_dissolve_progress(0.0)
+	_polygon_asset.set_motion_strength(0.35)
 	if _demo_status_label != null:
 		_demo_status_label.text = "MANUAL · A TO RESUME AUTO"
 		_demo_status_label.add_theme_color_override("font_color", Color("#918ca8"))
@@ -279,15 +353,23 @@ func _stop_manual_tweens() -> void:
 	if _clear_tween != null:
 		_clear_tween.kill()
 		_clear_tween = null
+	if _generation_tween != null:
+		_generation_tween.kill()
+		_generation_tween = null
 
 
 func _apply_auto_demo_state() -> void:
 	if _polygon_asset == null:
 		return
 	var page_turn_progress := 0.0
-	var clear_progress := 0.0
+	var generation_progress := 1.0
+	var dissolve_progress := 0.0
 	var phase := _auto_demo_phase()
-	if _auto_cycle_time < AUTO_IDLE_END:
+	if _auto_cycle_time < AUTO_GENERATE_END:
+		generation_progress = _smooth_unit(
+			_auto_cycle_time / AUTO_GENERATE_END
+		)
+	elif _auto_cycle_time < AUTO_IDLE_END:
 		pass
 	elif _auto_cycle_time < AUTO_PAGE_END:
 		page_turn_progress = _smooth_unit(
@@ -297,19 +379,24 @@ func _apply_auto_demo_state() -> void:
 	elif _auto_cycle_time < AUTO_PAGE_SETTLE_END:
 		pass
 	elif _auto_cycle_time < AUTO_CLEAR_END:
-		clear_progress = _smooth_unit(
+		dissolve_progress = _smooth_unit(
 			(_auto_cycle_time - AUTO_PAGE_SETTLE_END)
 			/ (AUTO_CLEAR_END - AUTO_PAGE_SETTLE_END)
 		)
 	elif _auto_cycle_time < AUTO_CLEAR_HOLD_END:
-		clear_progress = 1.0
+		dissolve_progress = 1.0
 	elif _auto_cycle_time < AUTO_RESTORE_END:
-		clear_progress = 1.0 - _smooth_unit(
+		dissolve_progress = 1.0 - _smooth_unit(
 			(_auto_cycle_time - AUTO_CLEAR_HOLD_END)
 			/ (AUTO_RESTORE_END - AUTO_CLEAR_HOLD_END)
 		)
-	_polygon_asset.set_deformation_progress(page_turn_progress)
-	_polygon_asset.set_clear_progress(clear_progress)
+	_polygon_asset.set_motion_progress(
+		_auto_cycle_time / AUTO_CYCLE_DURATION
+	)
+	_polygon_asset.set_motion_strength(0.35)
+	_polygon_asset.set_generation_progress(generation_progress)
+	_polygon_asset.set_dissolve_progress(dissolve_progress)
+	_book_animator.set_page_turn_progress(page_turn_progress)
 	if _demo_status_label != null:
 		_demo_status_label.text = "AUTO DEMO · %s" % phase
 		_demo_status_label.add_theme_color_override("font_color", Color("#69d5d0"))
@@ -318,8 +405,10 @@ func _apply_auto_demo_state() -> void:
 func _auto_demo_phase() -> String:
 	if not _auto_demo_enabled:
 		return "MANUAL"
+	if _auto_cycle_time < AUTO_GENERATE_END:
+		return "GENERATION"
 	if _auto_cycle_time < AUTO_IDLE_END:
-		return "IDLE HOLD"
+		return "GENERIC MOTION"
 	if _auto_cycle_time < AUTO_PAGE_END:
 		return "PAGE TURN + COLOR SHIFT"
 	if _auto_cycle_time < AUTO_PAGE_SETTLE_END:
@@ -363,7 +452,7 @@ func _refresh_stats() -> void:
 		int(stats.get("face_count", 0)),
 		int(stats.get("logical_vertex_count", 0)),
 		int(stats.get("connected_components", 0)),
-		int(runtime_stats.get("primary_deform_face_count", 0)),
+		int(runtime_stats.get("primary_motion_face_count", 0)),
 		int(runtime_stats.get("mesh_instance_count", 0)),
 		int(runtime_stats.get("surface_count", 0)),
 		"none" if not bool(runtime_stats.get("has_texture", true)) else "unexpected",
