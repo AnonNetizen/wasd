@@ -29,6 +29,8 @@ var _source_hash: String = ""
 var _locale_hash: String = ""
 var _baseline_signature: String = ""
 var _contract_values: Dictionary = {}
+var _source_csv_layout: Dictionary = {}
+var _locale_csv_layout: Dictionary = {}
 var _undo_stack: Array[Dictionary] = []
 var _redo_stack: Array[Dictionary] = []
 
@@ -49,6 +51,11 @@ func open_dataset(next_descriptor: Dictionary) -> Dictionary:
 		return load_result
 	data = load_result.get("data", {})
 	csv_headers = load_result.get("headers", PackedStringArray()) as PackedStringArray
+	_source_csv_layout.clear()
+	if format == "csv":
+		_source_csv_layout = _build_csv_layout(
+			String(load_result.get("raw_text", "")), csv_headers, data as Array
+		)
 	_source_hash = _disk_hash(path)
 	var locale_result: Dictionary = _load_csv(LOCALE_PATH)
 	if not bool(locale_result.get("ok", false)):
@@ -58,6 +65,9 @@ func open_dataset(next_descriptor: Dictionary) -> Dictionary:
 		if raw_row is Dictionary:
 			locale_rows.append((raw_row as Dictionary).duplicate(true))
 	locale_headers = locale_result.get("headers", locale_headers) as PackedStringArray
+	_locale_csv_layout = _build_csv_layout(
+		String(locale_result.get("raw_text", "")), locale_headers, locale_rows
+	)
 	_locale_hash = _disk_hash(LOCALE_PATH)
 	_contract_values = _load_contract_values()
 	pending_contract_changes.clear()
@@ -186,6 +196,8 @@ func set_record_value(
 	var converted: Variant = _convert_value(value, original)
 	if not _field_value_is_valid(value_path, converted):
 		return false
+	if original == converted:
+		return true
 	_push_undo_state()
 	if not _set_value_at_path(current, value_path, converted):
 		_undo_stack.pop_back()
@@ -328,17 +340,20 @@ func locale_value(key: String, language: String) -> String:
 func set_locale_value(key: String, language: String, text: String) -> bool:
 	if key.is_empty() or (language != "zh_CN" and language != "en"):
 		return false
-	_push_undo_state()
 	var rows: Array = data as Array if source_path() == LOCALE_PATH and data is Array else locale_rows
 	for raw_row: Variant in rows:
 		if not raw_row is Dictionary:
 			continue
 		var row: Dictionary = raw_row as Dictionary
 		if String(row.get("keys", "")) == key:
+			if String(row.get(language, "")) == text:
+				return true
+			_push_undo_state()
 			row[language] = text
 			locale_dirty = source_path() != LOCALE_PATH
 			_mark_changed()
 			return true
+	_push_undo_state()
 	rows.append({"keys": key, "zh_CN": "", "en": ""})
 	rows[-1][language] = text
 	locale_dirty = source_path() != LOCALE_PATH
@@ -421,12 +436,17 @@ func save_project(
 	extra_paths: Array[String] = [],
 	allow_external_override: bool = false
 ) -> Dictionary:
-	var writes: Dictionary = {source_path(): source_text()}
+	var source_output: String = source_text()
+	var locale_output: String = ""
+	var writes: Dictionary = {source_path(): source_output}
 	var expected_hashes: Dictionary = {}
 	if not allow_external_override:
 		expected_hashes[source_path()] = _source_hash
 	if locale_dirty and source_path() != LOCALE_PATH:
-		writes[LOCALE_PATH] = _csv_text(locale_headers, locale_rows)
+		locale_output = _csv_text_preserving_layout(
+			locale_headers, locale_rows, _locale_csv_layout
+		)
+		writes[LOCALE_PATH] = locale_output
 		if not allow_external_override:
 			expected_hashes[LOCALE_PATH] = _locale_hash
 	var result: Dictionary = DATA_TABLE_TRANSACTION.commit_texts(
@@ -439,6 +459,14 @@ func save_project(
 		return result
 	_source_hash = _disk_hash(source_path())
 	_locale_hash = _disk_hash(LOCALE_PATH)
+	if source_format() == "csv":
+		_source_csv_layout = _build_csv_layout(source_output, csv_headers, data as Array)
+	if source_path() == LOCALE_PATH:
+		_locale_csv_layout = _source_csv_layout.duplicate(true)
+	elif not locale_output.is_empty():
+		_locale_csv_layout = _build_csv_layout(
+			locale_output, locale_headers, locale_rows
+		)
 	pending_contract_changes.clear()
 	_reset_history_and_baseline()
 	discard_draft()
@@ -457,7 +485,7 @@ func disk_changed() -> bool:
 func source_text() -> String:
 	if source_format() == "json":
 		return JSON.stringify(data, "  ", false, true) + "\n"
-	return _csv_text(csv_headers, data as Array)
+	return _csv_text_preserving_layout(csv_headers, data as Array, _source_csv_layout)
 
 
 func save_draft() -> Dictionary:
@@ -897,12 +925,19 @@ func _load_csv(path: String) -> Dictionary:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return _error_result("failed to open CSV file: %s" % path)
+	var raw_text: String = file.get_as_text()
+	file.seek(0)
 	var headers: PackedStringArray = file.get_csv_line()
 	var rows: Array[Dictionary] = []
 	while not file.eof_reached():
 		var values: PackedStringArray = file.get_csv_line()
 		if values.size() == 1 and String(values[0]).is_empty():
 			continue
+		if values.size() > headers.size():
+			return _error_result(
+				"CSV record %d in %s has %d columns; expected %d. Quote values containing commas."
+				% [rows.size() + 2, path, values.size(), headers.size()]
+			)
 		var row: Dictionary = {}
 		for index: int in range(headers.size()):
 			row[String(headers[index])] = values[index] if index < values.size() else ""
@@ -912,6 +947,7 @@ func _load_csv(path: String) -> Dictionary:
 		"errors": PackedStringArray(),
 		"data": rows,
 		"headers": headers,
+		"raw_text": raw_text,
 	}
 
 
@@ -927,6 +963,121 @@ func _csv_text(headers: PackedStringArray, rows: Array) -> String:
 			values.append(String(row.get(header, "")))
 		lines.append(_csv_line(values))
 	return "\n".join(lines) + "\n"
+
+
+func _csv_text_preserving_layout(
+	headers: PackedStringArray,
+	rows: Array,
+	layout: Dictionary
+) -> String:
+	if layout.is_empty():
+		return _csv_text(headers, rows)
+	var baseline_headers := PackedStringArray(layout.get("headers", []))
+	var baseline_rows: Array = layout.get("rows", []) as Array
+	if (
+		headers == baseline_headers
+		and _csv_state_signature(headers, rows)
+		== _csv_state_signature(baseline_headers, baseline_rows)
+	):
+		return String(layout.get("raw_text", _csv_text(headers, rows)))
+	var lines := PackedStringArray()
+	var headers_match: bool = headers == baseline_headers
+	var raw_header: String = String(layout.get("raw_header", ""))
+	lines.append(raw_header if headers_match and not raw_header.is_empty() else _csv_line(Array(headers)))
+	var available_raw_records: Dictionary = {}
+	if headers_match:
+		var raw_records: Array = layout.get("raw_records", []) as Array
+		for index: int in range(mini(baseline_rows.size(), raw_records.size())):
+			if not baseline_rows[index] is Dictionary:
+				continue
+			var signature: String = _csv_row_signature(
+				baseline_headers, baseline_rows[index] as Dictionary
+			)
+			var bucket: Array = available_raw_records.get(signature, []) as Array
+			bucket.append(String(raw_records[index]))
+			available_raw_records[signature] = bucket
+	for raw_row: Variant in rows:
+		if not raw_row is Dictionary:
+			continue
+		var row: Dictionary = raw_row as Dictionary
+		var signature: String = _csv_row_signature(headers, row)
+		var bucket: Array = available_raw_records.get(signature, []) as Array
+		if not bucket.is_empty():
+			lines.append(String(bucket.pop_front()))
+			available_raw_records[signature] = bucket
+			continue
+		var values: Array[String] = []
+		for header: String in headers:
+			values.append(String(row.get(header, "")))
+		lines.append(_csv_line(values))
+	var line_ending: String = String(layout.get("line_ending", "\n"))
+	var output: String = line_ending.join(lines)
+	if bool(layout.get("trailing_newline", true)):
+		output += line_ending
+	return output
+
+
+func _build_csv_layout(
+	raw_text: String,
+	headers: PackedStringArray,
+	rows: Array
+) -> Dictionary:
+	var records: Array[String] = _split_csv_records(raw_text)
+	var raw_records: Array[String] = []
+	for index: int in range(1, records.size()):
+		if not records[index].is_empty():
+			raw_records.append(records[index])
+	return {
+		"raw_text": raw_text,
+		"raw_header": records[0] if not records.is_empty() else "",
+		"raw_records": raw_records,
+		"line_ending": "\r\n" if raw_text.contains("\r\n") else "\n",
+		"trailing_newline": raw_text.ends_with("\n") or raw_text.ends_with("\r"),
+		"headers": Array(headers),
+		"rows": _deep_duplicate(rows),
+	}
+
+
+func _split_csv_records(raw_text: String) -> Array[String]:
+	var records: Array[String] = []
+	var current: String = ""
+	var inside_quotes: bool = false
+	var index: int = 0
+	while index < raw_text.length():
+		var character: String = raw_text.substr(index, 1)
+		if character == "\"":
+			current += character
+			if (
+				inside_quotes
+				and index + 1 < raw_text.length()
+				and raw_text.substr(index + 1, 1) == "\""
+			):
+				current += "\""
+				index += 2
+				continue
+			inside_quotes = not inside_quotes
+		elif character == "\n" and not inside_quotes:
+			records.append(current.trim_suffix("\r"))
+			current = ""
+		else:
+			current += character
+		index += 1
+	if not current.is_empty() or not raw_text.ends_with("\n"):
+		records.append(current.trim_suffix("\r"))
+	return records
+
+
+func _csv_state_signature(headers: PackedStringArray, rows: Array) -> String:
+	return JSON.stringify(
+		{"headers": Array(headers), "rows": rows}, "", false, true
+	)
+
+
+func _csv_row_signature(headers: PackedStringArray, row: Dictionary) -> String:
+	var values: Array[String] = []
+	for header: String in headers:
+		values.append(String(row.get(header, "")))
+	return JSON.stringify(values)
 
 
 func _csv_line(values: Array) -> String:

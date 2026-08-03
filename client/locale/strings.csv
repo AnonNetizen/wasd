@@ -225,9 +225,9 @@ ui_credits_role_ai_assisted_development,AI 辅助开发,AI-assisted Development
 ui_credits_usage_engine_runtime,游戏引擎与运行时,Game engine and runtime
 ui_credits_usage_steam_integration,Steamworks Lab 联机集成,Steamworks Lab integration
 ui_credits_usage_editor_icons,Godot 编辑器图标浏览与图标资源库,Godot editor icon browser and icon resource library
-ui_credits_usage_editor_ide,Godot 脚本编辑器标签、代码大纲与快速打开工作流,Godot script editor tabs, outline, and quick-open workflow
+ui_credits_usage_editor_ide,Godot 脚本编辑器标签、代码大纲与快速打开工作流,"Godot script editor tabs, outline, and quick-open workflow"
 ui_credits_usage_gameplay_camera,Godot 运行时摄像机框架与玩家受伤震屏,Godot runtime camera framework and player-damage screen shake
-ui_credits_usage_input_framework,Godot 运行时输入映射、上下文、重绑定与提示渲染,Godot runtime input mapping, contexts, remapping, and prompt rendering
+ui_credits_usage_input_framework,Godot 运行时输入映射、上下文、重绑定与提示渲染,"Godot runtime input mapping, contexts, remapping, and prompt rendering"
 ui_credits_usage_input_prompts,G.U.I.D.E 随附的键盘与手柄提示图标,Keyboard and controller prompt artwork bundled with G.U.I.D.E
 ui_credits_usage_input_prompt_font,G.U.I.D.E 键盘提示字体,Keyboard prompt font bundled with G.U.I.D.E
 ui_credits_usage_ai_reference,项目级 AI skill / 工作流参考,Project AI skill and workflow reference

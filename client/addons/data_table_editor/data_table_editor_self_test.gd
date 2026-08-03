@@ -24,6 +24,8 @@ const SKILL_DESCRIPTION_FORMATTER := preload(
 
 const TEST_ROOT: String = "user://data_table_editor_self_test"
 const TEST_JSON: String = TEST_ROOT + "/fixture.json"
+const TEST_CSV: String = TEST_ROOT + "/fixture.csv"
+const TEST_BAD_CSV: String = TEST_ROOT + "/invalid.csv"
 const TEST_CATALOG: String = TEST_ROOT + "/catalog.json"
 const TEST_TRANSACTION: String = TEST_ROOT + "/transaction.json"
 
@@ -38,6 +40,7 @@ func _run() -> void:
 	_prepare_test_directory()
 	_test_catalog_and_search()
 	_test_document_editing()
+	_test_csv_serialization_stability()
 	_test_property_reference_options()
 	_test_column_resize_bounds()
 	_test_transaction_guards()
@@ -322,6 +325,82 @@ func _test_transaction_guards() -> void:
 	_expect(_read_text(TEST_TRANSACTION) == "external\n", "failed transaction rolls all files back")
 
 
+func _test_csv_serialization_stability() -> void:
+	var locale_descriptor: Dictionary = {
+		"id": "locale_csv_regression",
+		"label": "文案 CSV 回归",
+		"path": "res://locale/strings.csv",
+		"format": "csv",
+		"primary_keys": ["keys"],
+	}
+	var locale_document := DATA_TABLE_DOCUMENT.new() as DataTableDocument
+	_expect_ok(locale_document.open_dataset(locale_descriptor), "project locale CSV opens")
+	_expect(
+		locale_document.source_text() == _read_text("res://locale/strings.csv"),
+		"opening the project locale CSV produces no synthetic diff"
+	)
+	_expect(
+		locale_document.locale_value("ui_credits_usage_editor_ide", "en")
+		== "Godot script editor tabs, outline, and quick-open workflow",
+		"project locale CSV preserves English text after embedded commas"
+	)
+	var original: String = (
+		"keys,zh_CN,en\n"
+		+ "alpha,甲,\"Quoted without a comma.\"\n"
+		+ "beta,乙,\"Text with, a comma.\"\n"
+	)
+	_write_text(TEST_CSV, original)
+	var descriptor: Dictionary = {
+		"id": "csv_stability_fixture",
+		"label": "CSV 稳定性测试",
+		"path": TEST_CSV,
+		"format": "csv",
+		"primary_keys": ["keys"],
+	}
+	var document := DATA_TABLE_DOCUMENT.new() as DataTableDocument
+	_expect_ok(document.open_dataset(descriptor), "CSV stability fixture opens")
+	_expect(document.source_text() == original, "untouched CSV remains byte-for-byte stable")
+	_expect(
+		document.set_record_value("$rows", 0, ["en"], "Quoted without a comma."),
+		"no-op CSV edit is accepted"
+	)
+	_expect(not document.dirty, "no-op CSV edit does not create a dirty draft")
+	_expect(not document.has_undo(), "no-op CSV edit does not create undo history")
+	_expect(
+		document.set_locale_value(
+			"skill_aoe_slow_desc",
+			"en",
+			document.locale_value("skill_aoe_slow_desc", "en")
+		),
+		"no-op linked locale edit is accepted"
+	)
+	_expect(not document.dirty, "no-op linked locale edit stays clean")
+	_expect(not document.has_undo(), "no-op linked locale edit creates no undo history")
+	_expect(
+		document.set_record_value("$rows", 1, ["zh_CN"], "乙改"),
+		"CSV value edit succeeds"
+	)
+	var modified: String = document.source_text()
+	_expect(
+		modified.contains("alpha,甲,\"Quoted without a comma.\"\n"),
+		"untouched CSV rows preserve their original quoting"
+	)
+	_expect(
+		modified.contains("beta,乙改,\"Text with, a comma.\"\n"),
+		"changed CSV rows retain comma-bearing cell content"
+	)
+	document.discard_draft()
+	_write_text(TEST_BAD_CSV, "keys,zh_CN,en\nbad,坏,Needs, quoting\n")
+	var invalid_descriptor: Dictionary = descriptor.duplicate(true)
+	invalid_descriptor["id"] = "invalid_csv_fixture"
+	invalid_descriptor["path"] = TEST_BAD_CSV
+	var invalid_document := DATA_TABLE_DOCUMENT.new() as DataTableDocument
+	_expect(
+		not bool(invalid_document.open_dataset(invalid_descriptor).get("ok", false)),
+		"CSV rows with unquoted extra columns fail instead of truncating data"
+	)
+
+
 func _test_property_reference_options() -> void:
 	var editor := DATA_TABLE_PROPERTY_EDITOR.new() as DataTablePropertyEditor
 	root.add_child(editor)
@@ -423,7 +502,7 @@ func _prepare_test_directory() -> void:
 
 
 func _cleanup() -> void:
-	for path: String in [TEST_JSON, TEST_CATALOG, TEST_TRANSACTION]:
+	for path: String in [TEST_JSON, TEST_CSV, TEST_BAD_CSV, TEST_CATALOG, TEST_TRANSACTION]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	var absolute_root: String = ProjectSettings.globalize_path(TEST_ROOT)
