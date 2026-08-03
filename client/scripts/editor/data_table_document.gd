@@ -14,6 +14,7 @@ const DATA_TABLE_TRANSACTION := preload(
 const LOCALE_PATH: String = "res://locale/strings.csv"
 const CONTRACTS_PATH: String = "res://data/_contracts.json"
 const DRAFT_DIRECTORY: String = "user://data_table_editor/drafts"
+const DRAFT_SCHEMA_VERSION: int = 2
 const HISTORY_LIMIT: int = 100
 
 var descriptor: Dictionary = {}
@@ -526,7 +527,7 @@ func save_draft() -> Dictionary:
 	file.store_string(
 		JSON.stringify(
 			{
-				"schema_version": 1,
+				"schema_version": DRAFT_SCHEMA_VERSION,
 				"dataset_id": dataset_id(),
 				"source_hash": _source_hash,
 				"locale_hash": _locale_hash,
@@ -571,7 +572,10 @@ func restore_draft(allow_conflict: bool = false) -> Dictionary:
 	if not bool(draft_result.get("ok", false)):
 		return draft_result
 	var draft: Dictionary = draft_result.get("data", {}) as Dictionary
-	data = _deep_duplicate(draft.get("data", {}))
+	var restored_data: Variant = _deep_duplicate(draft.get("data", {}))
+	if source_format() == "json" and int(draft.get("schema_version", 1)) < DRAFT_SCHEMA_VERSION:
+		restored_data = _restore_legacy_json_draft(restored_data, data)
+	data = restored_data
 	csv_headers = PackedStringArray(draft.get("csv_headers", []))
 	locale_rows.clear()
 	for raw_row: Variant in draft.get("locale_rows", []):
@@ -1016,6 +1020,41 @@ func _restore_json_number_types(
 	if token.is_valid_int() and not token.contains(".") and not token.to_lower().contains("e"):
 		return token.to_int()
 	return token.to_float()
+
+
+func _restore_legacy_json_draft(value: Variant, source_value: Variant) -> Variant:
+	if value is Dictionary and source_value is Dictionary:
+		var dictionary: Dictionary = value as Dictionary
+		var source_dictionary: Dictionary = source_value as Dictionary
+		var restored_dictionary: Dictionary = {}
+		for raw_key: Variant in source_dictionary.keys():
+			var key: String = String(raw_key)
+			if dictionary.has(key):
+				restored_dictionary[key] = _restore_legacy_json_draft(
+					dictionary[key], source_dictionary[key]
+				)
+		for raw_key: Variant in dictionary.keys():
+			var key: String = String(raw_key)
+			if not restored_dictionary.has(key):
+				restored_dictionary[key] = dictionary[key]
+		return restored_dictionary
+	if value is Array and source_value is Array:
+		var array: Array = value as Array
+		var source_array: Array = source_value as Array
+		for index: int in range(array.size()):
+			if source_array.is_empty():
+				break
+			var source_index: int = index if index < source_array.size() else 0
+			array[index] = _restore_legacy_json_draft(
+				array[index], source_array[source_index]
+			)
+		return array
+	if typeof(value) == TYPE_FLOAT and typeof(source_value) == TYPE_INT:
+		var float_value: float = float(value)
+		var rounded_value: float = roundf(float_value)
+		if is_finite(float_value) and is_equal_approx(float_value, rounded_value):
+			return int(rounded_value)
+	return value
 
 
 func _collect_json_array_styles(value: Variant, path: Array, raw_text: String) -> void:

@@ -349,6 +349,46 @@ func _test_json_serialization_stability() -> void:
 	_expect(typeof(payload.get("schema_version")) == TYPE_INT, "JSON integer tokens remain integers")
 	_expect(typeof(charge.get("max_charges")) == TYPE_INT, "nested JSON integers remain integers")
 	_expect(typeof(charge.get("cooldown")) == TYPE_FLOAT, "JSON decimal tokens remain floats")
+	var legacy_data: Dictionary = payload.duplicate(true)
+	legacy_data["schema_version"] = 1.0
+	var legacy_record: Dictionary = (legacy_data["active_items"] as Array)[0] as Dictionary
+	var legacy_charge: Dictionary = legacy_record["charge"] as Dictionary
+	legacy_charge["max_charges"] = 1.0
+	legacy_charge["start_charges"] = 1.0
+	var legacy_draft_path: String = "user://data_table_editor/drafts/json_stability_fixture.json"
+	_write_text(
+		legacy_draft_path,
+		JSON.stringify(
+			{
+				"schema_version": 1,
+				"dataset_id": "json_stability_fixture",
+				"source_hash": FileAccess.get_sha256(TEST_FORMATTED_JSON),
+				"locale_hash": FileAccess.get_sha256("res://locale/strings.csv"),
+				"data": legacy_data,
+				"csv_headers": [],
+				"locale_rows": document.locale_rows,
+				"locale_headers": Array(document.locale_headers),
+				"pending_contract_changes": [],
+			}
+		)
+	)
+	_expect_ok(document.restore_draft(), "legacy JSON draft restores")
+	var restored_payload: Dictionary = document.data as Dictionary
+	var restored_record: Dictionary = (
+		(restored_payload.get("active_items", []) as Array)[0] as Dictionary
+	)
+	var restored_charge: Dictionary = restored_record.get("charge", {}) as Dictionary
+	_expect(
+		typeof(restored_payload.get("schema_version")) == TYPE_INT
+		and typeof(restored_charge.get("max_charges")) == TYPE_INT,
+		"legacy JSON drafts recover source integer types"
+	)
+	_expect(
+		document.source_text() == original,
+		"legacy JSON draft migration removes numeric formatting noise"
+	)
+	document.discard_draft()
+	_expect_ok(document.open_dataset(descriptor), "JSON fixture reopens after legacy draft migration")
 	_expect(
 		document.set_record_value("active_items", 0, ["charge", "cooldown"], "8.0"),
 		"no-op JSON decimal edit is accepted"
