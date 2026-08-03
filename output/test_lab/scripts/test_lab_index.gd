@@ -35,6 +35,12 @@ const EXTRA_TEST_SCENES := [
 		"featured": true,
 	},
 	{
+		"button_name": "TearCoreMaterialSwitcherButton",
+		"label": "Tear Core Material Switcher",
+		"scene_path": "res://scenes/tear_core_material_switcher_test.tscn",
+		"featured": true,
+	},
+	{
 		"button_name": "SlimeTombstoneButton",
 		"label": "Slime-Form Tombstone Test",
 		"scene_path": "res://scenes/slime_tombstone_test.tscn",

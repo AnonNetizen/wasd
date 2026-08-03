@@ -17,8 +17,19 @@ enum TeamPalette {
 	ENEMY_RED,
 }
 
+enum MaterialStyle {
+	GEL,
+	CRYSTAL_GLASS,
+	ENAMEL_METAL,
+	MATTE_CERAMIC,
+	PLASMA_ENERGY,
+	INK_SMOKE,
+	MINERAL_CORE,
+}
+
 const VARIANT_COUNT: int = 6
 const TEAM_COUNT: int = 2
+const MATERIAL_STYLE_COUNT: int = 7
 const MAX_TRAIL_SAMPLES: int = 6
 const TRAIL_SPACING: float = 7.0
 const IMPACT_DURATION: float = 0.32
@@ -36,6 +47,7 @@ const HITBOX_COLOR: Color = Color(0.26, 0.96, 0.78, 0.72)
 
 var _variant_id: VariantId = VariantId.TEAR_CORE
 var _team_palette: TeamPalette = TeamPalette.PLAYER_WHITE
+var _material_style: MaterialStyle = MaterialStyle.GEL
 var _hit_radius: float = 8.0
 var _preview_scale: float = 1.0
 var _speed: float = 0.0
@@ -117,6 +129,11 @@ func set_trail_visible(visible: bool) -> void:
 	queue_redraw()
 
 
+func set_material_style(style: MaterialStyle) -> void:
+	_material_style = style
+	queue_redraw()
+
+
 func debug_force_impact(progress: float) -> void:
 	_projectile_position = Vector2(_lane_length, 0.0)
 	_impact_progress = clampf(progress, 0.0, 1.0)
@@ -130,6 +147,29 @@ func variant_id() -> int:
 
 func team_palette() -> int:
 	return int(_team_palette)
+
+
+func material_style() -> int:
+	return int(_material_style)
+
+
+func material_signature() -> String:
+	match _material_style:
+		MaterialStyle.GEL:
+			return "gel:soft-shell:wet-highlight"
+		MaterialStyle.CRYSTAL_GLASS:
+			return "crystal-glass:hard-edge:three-facets"
+		MaterialStyle.ENAMEL_METAL:
+			return "enamel-metal:dark-rim:moving-specular"
+		MaterialStyle.MATTE_CERAMIC:
+			return "matte-ceramic:soft-glaze:fine-cracks"
+		MaterialStyle.PLASMA_ENERGY:
+			return "plasma-energy:containment:bright-core"
+		MaterialStyle.INK_SMOKE:
+			return "ink-smoke:hard-outline:three-wisps"
+		MaterialStyle.MINERAL_CORE:
+			return "mineral-core:rough-facets:cracked-core"
+	return "unknown"
 
 
 func geometry_signature() -> String:
@@ -205,6 +245,9 @@ func _draw() -> void:
 
 func _draw_body(center: Vector2, radius: float, alpha: float) -> void:
 	var pulse: float = sin(_preview_time * 5.2 + float(_variant_id) * 0.83)
+	if _variant_id == VariantId.TEAR_CORE and _material_style != MaterialStyle.GEL:
+		_draw_tear_material_body(center, radius, alpha, pulse)
+		return
 	if _variant_id == VariantId.GAP_RING:
 		_draw_gap_ring(center, radius * (1.0 + pulse * 0.018), alpha)
 		return
@@ -352,6 +395,9 @@ func _draw_gap_ring(center: Vector2, radius: float, alpha: float) -> void:
 func _draw_trail(radius: float) -> void:
 	if _trail_positions.is_empty():
 		return
+	if _variant_id == VariantId.TEAR_CORE and _material_style != MaterialStyle.GEL:
+		_draw_tear_material_trail(radius)
+		return
 	for index in range(_trail_positions.size()):
 		var ratio: float = float(index + 1) / float(_trail_positions.size() + 1)
 		var marker_alpha: float = ratio * 0.34
@@ -418,6 +464,9 @@ func _draw_trail(radius: float) -> void:
 func _draw_hit_effect(radius: float, progress: float) -> void:
 	var fade: float = 1.0 - progress
 	var center: Vector2 = _projectile_position
+	if _variant_id == VariantId.TEAR_CORE and _material_style != MaterialStyle.GEL:
+		_draw_tear_material_hit(center, radius, progress, fade)
+		return
 	match _variant_id:
 		VariantId.TEAR_CORE:
 			var splash: PackedVector2Array = _ellipse_points(
@@ -477,6 +526,390 @@ func _draw_hit_effect(radius: float, progress: float) -> void:
 					fragment_center + Vector2.from_angle(angle - 2.25) * radius * 0.17,
 				])
 				_fill_polygon(fragment, _palette_color("shell", fade))
+
+
+func _draw_tear_material_body(
+	center: Vector2,
+	radius: float,
+	alpha: float,
+	pulse: float
+) -> void:
+	var body_scale: Vector2 = _body_scale_for_pulse(pulse)
+	var outer_points: PackedVector2Array = _transform_points(
+		_geometry,
+		center,
+		Vector2(radius * body_scale.x, radius * body_scale.y)
+	)
+	var shell_points: PackedVector2Array = _transform_points(
+		_geometry,
+		center,
+		Vector2(radius * 0.84 * body_scale.x, radius * 0.84 * body_scale.y)
+	)
+	_fill_polygon(outer_points, _palette_color("outline", alpha))
+	match _material_style:
+		MaterialStyle.CRYSTAL_GLASS:
+			_draw_crystal_body(center, radius, shell_points, alpha)
+		MaterialStyle.ENAMEL_METAL:
+			_draw_metal_body(center, radius, shell_points, alpha)
+		MaterialStyle.MATTE_CERAMIC:
+			_draw_ceramic_body(center, radius, shell_points, alpha)
+		MaterialStyle.PLASMA_ENERGY:
+			_draw_plasma_body(center, radius, shell_points, alpha, pulse)
+		MaterialStyle.INK_SMOKE:
+			_draw_ink_body(center, radius, shell_points, alpha)
+		MaterialStyle.MINERAL_CORE:
+			_draw_mineral_body(center, radius, shell_points, alpha)
+
+
+func _draw_crystal_body(
+	center: Vector2,
+	radius: float,
+	shell_points: PackedVector2Array,
+	alpha: float
+) -> void:
+	_fill_polygon(shell_points, _palette_color("shell", alpha * 0.48))
+	var facets: Array[PackedVector2Array] = [
+		_relative_polygon(center, radius, [
+			Vector2(-0.67, -0.12), Vector2(-0.20, -0.70),
+			Vector2(0.08, -0.08), Vector2(-0.02, 0.48),
+		]),
+		_relative_polygon(center, radius, [
+			Vector2(-0.20, -0.70), Vector2(0.61, -0.46),
+			Vector2(0.08, -0.08),
+		]),
+		_relative_polygon(center, radius, [
+			Vector2(0.08, -0.08), Vector2(0.68, 0.38),
+			Vector2(-0.02, 0.48),
+		]),
+	]
+	_fill_polygon(facets[0], _palette_color("inner", alpha * 0.42))
+	_fill_polygon(facets[1], _palette_color("highlight", alpha * 0.28))
+	_fill_polygon(facets[2], _palette_color("inner", alpha * 0.25))
+	draw_line(
+		center + Vector2(-radius * 0.46, -radius * 0.46),
+		center + Vector2(radius * 0.04, -radius * 0.60),
+		_palette_color("highlight", alpha * 0.92),
+		maxf(radius * 0.055, 1.0),
+		true
+	)
+	draw_circle(
+		center + Vector2(-radius * 0.42, -radius * 0.24),
+		maxf(radius * 0.065, 1.0),
+		_palette_color("highlight", alpha)
+	)
+
+
+func _draw_metal_body(
+	center: Vector2,
+	radius: float,
+	shell_points: PackedVector2Array,
+	alpha: float
+) -> void:
+	_fill_polygon(shell_points, _palette_color("shell", alpha))
+	var lower_band: PackedVector2Array = _relative_polygon(center, radius, [
+		Vector2(-0.65, 0.26), Vector2(0.65, 0.18),
+		Vector2(0.52, 0.60), Vector2(-0.38, 0.68),
+	])
+	_fill_polygon(lower_band, _palette_color("outline", alpha * 0.46))
+	var stripe_phase: float = fposmod(_preview_time * 0.9, 1.0)
+	var stripe_x: float = lerpf(-0.38, 0.42, stripe_phase)
+	draw_line(
+		center + Vector2(radius * (stripe_x - 0.14), -radius * 0.54),
+		center + Vector2(radius * (stripe_x + 0.12), radius * 0.46),
+		_palette_color("highlight", alpha * 0.72),
+		maxf(radius * 0.10, 1.0),
+		true
+	)
+	draw_arc(
+		center,
+		radius * 0.70,
+		PI * 1.08,
+		PI * 1.43,
+		10,
+		_palette_color("highlight", alpha * 0.44),
+		maxf(radius * 0.045, 1.0),
+		true
+	)
+
+
+func _draw_ceramic_body(
+	center: Vector2,
+	radius: float,
+	shell_points: PackedVector2Array,
+	alpha: float
+) -> void:
+	_fill_polygon(shell_points, _palette_color("shell", alpha))
+	draw_arc(
+		center + Vector2(-radius * 0.05, -radius * 0.03),
+		radius * 0.57,
+		PI * 1.04,
+		PI * 1.54,
+		14,
+		_palette_color("highlight", alpha * 0.36),
+		maxf(radius * 0.13, 1.0),
+		true
+	)
+	var crack: Color = _palette_color("outline", alpha * 0.48)
+	draw_polyline(PackedVector2Array([
+		center + Vector2(radius * 0.08, -radius * 0.08),
+		center + Vector2(radius * 0.25, radius * 0.02),
+		center + Vector2(radius * 0.17, radius * 0.20),
+		center + Vector2(radius * 0.37, radius * 0.35),
+	]), crack, maxf(radius * 0.018, 0.7), true)
+	draw_line(
+		center + Vector2(radius * 0.25, radius * 0.02),
+		center + Vector2(radius * 0.39, -radius * 0.12),
+		crack,
+		maxf(radius * 0.018, 0.7),
+		true
+	)
+
+
+func _draw_plasma_body(
+	center: Vector2,
+	radius: float,
+	shell_points: PackedVector2Array,
+	alpha: float,
+	pulse: float
+) -> void:
+	_fill_polygon(shell_points, _palette_color("inner", alpha * 0.56))
+	draw_circle(center, radius * (0.53 + pulse * 0.025), _palette_color("shell", alpha * 0.82))
+	draw_circle(center, radius * (0.31 - pulse * 0.016), _palette_color("highlight", alpha * 0.86))
+	draw_circle(
+		center + Vector2(radius * 0.10, -radius * 0.05),
+		radius * 0.14,
+		_palette_color("highlight", alpha)
+	)
+	draw_arc(
+		center,
+		radius * 0.66,
+		0.0,
+		TAU,
+		24,
+		_palette_color("highlight", alpha * 0.38),
+		maxf(radius * 0.035, 1.0),
+		true
+	)
+
+
+func _draw_ink_body(
+	center: Vector2,
+	radius: float,
+	shell_points: PackedVector2Array,
+	alpha: float
+) -> void:
+	_fill_polygon(shell_points, _palette_color("shell", alpha * 0.92))
+	var flow: float = sin(_preview_time * 1.7) * radius * 0.055
+	var blob_data: Array[Vector3] = [
+		Vector3(-0.28, -0.22, 0.25),
+		Vector3(0.16, -0.03, 0.31),
+		Vector3(-0.06, 0.30, 0.20),
+	]
+	for index in range(blob_data.size()):
+		var blob: Vector3 = blob_data[index]
+		var offset := Vector2(blob.x * radius, blob.y * radius)
+		offset += Vector2(0.0, flow * (-1.0 if index % 2 == 0 else 1.0))
+		draw_circle(
+			center + offset,
+			radius * blob.z,
+			_palette_color("inner", alpha * (0.42 + float(index) * 0.08))
+		)
+	draw_arc(
+		center + Vector2(-radius * 0.06, radius * 0.03),
+		radius * 0.46,
+		PI * 0.85,
+		PI * 1.52,
+		12,
+		_palette_color("highlight", alpha * 0.44),
+		maxf(radius * 0.035, 1.0),
+		true
+	)
+
+
+func _draw_mineral_body(
+	center: Vector2,
+	radius: float,
+	shell_points: PackedVector2Array,
+	alpha: float
+) -> void:
+	_fill_polygon(shell_points, _palette_color("shell", alpha * 0.94))
+	var facets: Array[PackedVector2Array] = [
+		_relative_polygon(center, radius, [
+			Vector2(-0.66, -0.15), Vector2(-0.24, -0.68),
+			Vector2(0.04, -0.12), Vector2(-0.15, 0.15),
+		]),
+		_relative_polygon(center, radius, [
+			Vector2(-0.15, 0.15), Vector2(0.04, -0.12),
+			Vector2(0.64, -0.43), Vector2(0.48, 0.18),
+		]),
+		_relative_polygon(center, radius, [
+			Vector2(-0.15, 0.15), Vector2(0.48, 0.18),
+			Vector2(0.22, 0.64), Vector2(-0.47, 0.50),
+		]),
+	]
+	_fill_polygon(facets[0], _palette_color("inner", alpha * 0.48))
+	_fill_polygon(facets[1], _palette_color("highlight", alpha * 0.20))
+	_fill_polygon(facets[2], _palette_color("outline", alpha * 0.25))
+	var crack_color: Color = _palette_color("highlight", alpha * 0.56)
+	draw_polyline(PackedVector2Array([
+		center + Vector2(-radius * 0.15, radius * 0.15),
+		center + Vector2(radius * 0.04, -radius * 0.12),
+		center + Vector2(radius * 0.26, -radius * 0.05),
+		center + Vector2(radius * 0.42, -radius * 0.28),
+	]), crack_color, maxf(radius * 0.026, 0.8), true)
+	draw_circle(
+		center + Vector2(-radius * 0.42, -radius * 0.32),
+		maxf(radius * 0.045, 1.0),
+		_palette_color("highlight", alpha)
+	)
+
+
+func _draw_tear_material_trail(radius: float) -> void:
+	for index in range(_trail_positions.size()):
+		var ratio: float = float(index + 1) / float(_trail_positions.size() + 1)
+		var marker_alpha: float = ratio * 0.38
+		var marker_radius: float = radius * lerpf(0.16, 0.43, ratio)
+		var marker_position: Vector2 = _trail_positions[index]
+		match _material_style:
+			MaterialStyle.CRYSTAL_GLASS:
+				var diamond: PackedVector2Array = _relative_polygon(marker_position, marker_radius, [
+					Vector2(-1.0, 0.0), Vector2(0.0, -0.72),
+					Vector2(1.0, 0.0), Vector2(0.0, 0.72),
+				])
+				_fill_polygon(diamond, _palette_color("highlight", marker_alpha))
+			MaterialStyle.ENAMEL_METAL:
+				for side in [-1.0, 1.0]:
+					draw_line(
+						marker_position + Vector2(-marker_radius, side * marker_radius * 0.36),
+						marker_position + Vector2(marker_radius * 0.55, side * marker_radius * 0.36),
+						_palette_color("highlight", marker_alpha),
+						maxf(marker_radius * 0.18, 0.8),
+						true
+					)
+			MaterialStyle.MATTE_CERAMIC:
+				draw_circle(marker_position, marker_radius * 0.46, _palette_color("shell", marker_alpha))
+			MaterialStyle.PLASMA_ENERGY:
+				draw_circle(marker_position, marker_radius * 0.58, _palette_color("inner", marker_alpha))
+				draw_circle(marker_position, marker_radius * 0.22, _palette_color("highlight", marker_alpha))
+			MaterialStyle.INK_SMOKE:
+				draw_circle(marker_position, marker_radius * 0.62, _palette_color("inner", marker_alpha))
+				draw_circle(
+					marker_position + Vector2(-marker_radius * 0.38, marker_radius * 0.22),
+					marker_radius * 0.28,
+					_palette_color("shell", marker_alpha * 0.72)
+				)
+			MaterialStyle.MINERAL_CORE:
+				var square: PackedVector2Array = _relative_polygon(marker_position, marker_radius, [
+					Vector2(-0.72, -0.38), Vector2(0.38, -0.72),
+					Vector2(0.72, 0.38), Vector2(-0.38, 0.72),
+				])
+				_fill_polygon(square, _palette_color("shell", marker_alpha))
+
+
+func _draw_tear_material_hit(
+	center: Vector2,
+	radius: float,
+	progress: float,
+	fade: float
+) -> void:
+	match _material_style:
+		MaterialStyle.CRYSTAL_GLASS:
+			for index in range(6):
+				var angle: float = float(index) * TAU / 6.0
+				var shard_center: Vector2 = center + Vector2.from_angle(angle) * radius * lerpf(0.22, 1.75, progress)
+				var shard: PackedVector2Array = PackedVector2Array([
+					shard_center + Vector2.from_angle(angle) * radius * 0.31,
+					shard_center + Vector2.from_angle(angle + 2.35) * radius * 0.15,
+					shard_center + Vector2.from_angle(angle - 2.35) * radius * 0.15,
+				])
+				_fill_polygon(shard, _palette_color("highlight", fade * 0.82))
+			_draw_expanding_ring(center, radius * 0.82, progress, fade * 0.72)
+		MaterialStyle.ENAMEL_METAL:
+			_draw_angular_fragments(center, radius, progress, fade, 4, 0.34)
+			for axis in [Vector2.RIGHT, Vector2.DOWN]:
+				draw_line(
+					center - axis * radius * lerpf(0.35, 1.45, progress),
+					center + axis * radius * lerpf(0.35, 1.45, progress),
+					_palette_color("highlight", fade),
+					maxf(radius * 0.07 * fade, 1.0),
+					true
+				)
+		MaterialStyle.MATTE_CERAMIC:
+			_draw_angular_fragments(center, radius, progress, fade, 5, 0.28)
+			for index in range(8):
+				var angle: float = float(index) * TAU / 8.0 + 0.22
+				draw_circle(
+					center + Vector2.from_angle(angle) * radius * lerpf(0.45, 1.75, progress),
+					radius * lerpf(0.09, 0.025, progress),
+					_palette_color("shell", fade * 0.50)
+				)
+		MaterialStyle.PLASMA_ENERGY:
+			_draw_expanding_ring(center, radius * 0.72, progress, fade)
+			draw_arc(
+				center,
+				radius * lerpf(0.36, 1.55, progress),
+				0.0,
+				TAU,
+				28,
+				_palette_color("inner", fade * 0.78),
+				maxf(radius * lerpf(0.18, 0.04, progress), 1.0),
+				true
+			)
+			for index in range(4):
+				var direction: Vector2 = Vector2.from_angle(float(index) * TAU / 4.0)
+				draw_line(
+					center + direction * radius * 0.35,
+					center + direction * radius * lerpf(0.72, 1.85, progress),
+					_palette_color("highlight", fade),
+					maxf(radius * 0.06 * fade, 1.0),
+					true
+				)
+		MaterialStyle.INK_SMOKE:
+			draw_circle(
+				center,
+				radius * lerpf(0.80, 1.36, progress),
+				_palette_color("inner", fade * 0.48)
+			)
+			for index in range(7):
+				var angle: float = float(index) * TAU / 7.0 + 0.18
+				draw_circle(
+					center + Vector2.from_angle(angle) * radius * lerpf(0.32, 1.72, progress),
+					radius * lerpf(0.20, 0.055, progress),
+					_palette_color("shell", fade * 0.72)
+				)
+		MaterialStyle.MINERAL_CORE:
+			_draw_angular_fragments(center, radius, progress, fade, 5, 0.42)
+
+
+func _draw_angular_fragments(
+	center: Vector2,
+	radius: float,
+	progress: float,
+	fade: float,
+	count: int,
+	fragment_size: float
+) -> void:
+	for index in range(count):
+		var angle: float = float(index) * TAU / float(count) + 0.16
+		var fragment_center: Vector2 = center + Vector2.from_angle(angle) * radius * lerpf(0.28, 1.75, progress)
+		var fragment: PackedVector2Array = PackedVector2Array([
+			fragment_center + Vector2.from_angle(angle) * radius * fragment_size,
+			fragment_center + Vector2.from_angle(angle + 2.05) * radius * fragment_size * 0.62,
+			fragment_center + Vector2.from_angle(angle + PI) * radius * fragment_size * 0.42,
+			fragment_center + Vector2.from_angle(angle - 2.05) * radius * fragment_size * 0.62,
+		])
+		_fill_polygon(fragment, _palette_color("shell", fade * 0.86))
+
+
+func _relative_polygon(
+	center: Vector2,
+	radius: float,
+	points: Array[Vector2]
+) -> PackedVector2Array:
+	var result: PackedVector2Array = PackedVector2Array()
+	for point: Vector2 in points:
+		result.append(center + point * radius)
+	return result
 
 
 func _draw_expanding_ring(center: Vector2, radius: float, progress: float, alpha: float) -> void:
