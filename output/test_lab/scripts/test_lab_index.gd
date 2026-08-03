@@ -23,6 +23,12 @@ const EXTRA_TEST_SCENES := [
 		"featured": true,
 	},
 	{
+		"button_name": "BulletVfxSelectionButton",
+		"label": "Jelly Bullet VFX Selection Wall",
+		"scene_path": "res://scenes/bullet_vfx_selection_test.tscn",
+		"featured": true,
+	},
+	{
 		"button_name": "SlimeTombstoneButton",
 		"label": "Slime-Form Tombstone Test",
 		"scene_path": "res://scenes/slime_tombstone_test.tscn",
