@@ -10,25 +10,32 @@ func debug_gradient_pair_matches() -> bool:
 	if _focus_samples.size() != 2:
 		return false
 	return (
-		_focus_samples[0].call("gradient_step_count")
-		== _focus_samples[1].call("gradient_step_count")
+		_focus_samples[0].call("gradient_segment_count")
+		== _focus_samples[1].call("gradient_segment_count")
 	)
 
 
 func debug_circle_geometry_locked() -> bool:
 	if _focus_samples.size() != 2:
 		return false
-	var expected: String = "circle:r1.0:gradient10:highlight_nw:no_outline:no_glow"
+	var expected: String = "circle:r1.0:interpolated_fan96:highlight_nw:no_outline:no_glow"
 	return (
 		str(_focus_samples[0].call("geometry_signature")) == expected
 		and str(_focus_samples[1].call("geometry_signature")) == expected
 	)
 
 
-func debug_gradient_step_count() -> int:
+func debug_gradient_segment_count() -> int:
 	if _focus_samples.is_empty():
 		return 0
-	return int(_focus_samples[0].call("gradient_step_count"))
+	return int(_focus_samples[0].call("gradient_segment_count"))
+
+
+func debug_uses_interpolated_gradient() -> bool:
+	for sample: Node2D in _samples:
+		if str(sample.call("gradient_render_mode")) != "vertex_color_triangle_fan":
+			return false
+	return true
 
 
 func debug_no_external_glow() -> bool:
@@ -119,7 +126,7 @@ func _draw_header() -> void:
 	draw_string(
 		font,
 		Vector2(28.0, 70.0),
-		"无贴图 · 无 Shader · 无材质切换 · 无描边 · 无外发光 · 十级径向渐变",
+		"无贴图 · 无 Shader · 无材质切换 · 无描边 · 无外发光 · 顶点颜色连续插值",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		15,
@@ -156,7 +163,7 @@ func _draw_focus_panel(rect: Rect2, title: String, enemy: bool) -> void:
 	draw_string(
 		font,
 		rect.position + Vector2(18.0, 58.0),
-		"纯圆剪影 · 无描边 · 同色渐变 · 左上白热高光 · 无外发光",
+		"纯圆剪影 · 三角扇连续插值 · 左上白热高光 · 无描边 / 外发光",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		13,

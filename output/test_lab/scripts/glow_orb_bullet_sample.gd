@@ -9,7 +9,7 @@ enum TeamPalette {
 }
 
 const TEAM_COUNT: int = 2
-const GRADIENT_STEP_COUNT: int = 10
+const GRADIENT_SEGMENT_COUNT: int = 96
 const MAX_TRAIL_SAMPLES: int = 6
 const TRAIL_SPACING: float = 7.0
 const IMPACT_DURATION: float = 0.24
@@ -111,7 +111,11 @@ func team_palette() -> int:
 
 
 func geometry_signature() -> String:
-	return "circle:r1.0:gradient10:highlight_nw:no_outline:no_glow"
+	return "circle:r1.0:interpolated_fan96:highlight_nw:no_outline:no_glow"
+
+
+func gradient_render_mode() -> String:
+	return "vertex_color_triangle_fan"
 
 
 func primary_color() -> Color:
@@ -142,8 +146,8 @@ func preview_speed() -> float:
 	return _speed
 
 
-func gradient_step_count() -> int:
-	return GRADIENT_STEP_COUNT
+func gradient_segment_count() -> int:
+	return GRADIENT_SEGMENT_COUNT
 
 
 func trail_sample_count() -> int:
@@ -181,21 +185,21 @@ func _draw() -> void:
 
 
 func _draw_body(center: Vector2, radius: float) -> void:
-	draw_circle(center, radius * 0.98, _color("body", 1.0))
-	for index in range(GRADIENT_STEP_COUNT):
-		var ratio: float = float(index) / float(GRADIENT_STEP_COUNT - 1)
-		var ring_radius: float = radius * lerpf(0.98, 0.12, ratio)
-		var ring_center: Vector2 = center + Vector2(-0.11, -0.10) * radius * ratio
-		var ring_color: Color = _color("body", 1.0).lerp(
-			_color("hot", 1.0),
-			pow(ratio, 1.55)
+	var body_radius: float = radius * 0.98
+	var highlight_origin: Vector2 = center + Vector2(-0.24, -0.22) * radius
+	var hot_color: Color = _color("hot", 1.0)
+	var body_color: Color = _color("body", 1.0)
+	draw_circle(center, body_radius, body_color, true, -1.0, true)
+	for segment_index in range(GRADIENT_SEGMENT_COUNT):
+		var start_angle: float = TAU * float(segment_index) / float(GRADIENT_SEGMENT_COUNT)
+		var end_angle: float = TAU * float(segment_index + 1) / float(GRADIENT_SEGMENT_COUNT)
+		var start_point: Vector2 = center + Vector2.from_angle(start_angle) * body_radius
+		var end_point: Vector2 = center + Vector2.from_angle(end_angle) * body_radius
+		draw_primitive(
+			PackedVector2Array([highlight_origin, start_point, end_point]),
+			PackedColorArray([hot_color, body_color, body_color]),
+			PackedVector2Array()
 		)
-		draw_circle(ring_center, ring_radius, ring_color)
-
-	var highlight_center: Vector2 = center + Vector2(-radius * 0.31, -radius * 0.29)
-	draw_circle(highlight_center, radius * 0.24, _color("hot", 0.24))
-	draw_circle(highlight_center, radius * 0.15, _color("hot", 0.72))
-	draw_circle(highlight_center, maxf(radius * 0.065, 1.0), _color("hot", 1.0))
 
 
 func _draw_trail(radius: float) -> void:

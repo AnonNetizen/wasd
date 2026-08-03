@@ -44,11 +44,15 @@ func _run_smoke() -> void:
 	)
 	_expect(
 		bool(scene.call("debug_gradient_pair_matches")),
-		"Red and white studies must use the same gradient step count."
+		"Red and white studies must use the same interpolation segment count."
 	)
 	_expect(
-		int(scene.call("debug_gradient_step_count")) == 10,
-		"Orb highlight must use the locked ten-step radial gradient."
+		int(scene.call("debug_gradient_segment_count")) == 96,
+		"Orb gradient must use the locked 96-segment interpolation fan."
+	)
+	_expect(
+		bool(scene.call("debug_uses_interpolated_gradient")),
+		"Orb body must use vertex-color interpolation rather than color bands."
 	)
 	_expect(
 		float(scene.call("debug_focus_visual_diameter")) >= 280.0,
@@ -90,11 +94,17 @@ func _run_smoke() -> void:
 		"PLAYER_GLOW",
 		"ENEMY_GLOW",
 		"_color(\"glow\"",
+		"GRADIENT_STEP_COUNT",
+		"ring_radius",
 	]:
 		_expect(
 			not sample_source.contains(forbidden_token),
 			"Glow-orb sample must not depend on %s." % forbidden_token
 		)
+	_expect(
+		sample_source.contains("draw_primitive("),
+		"Orb sample must render its continuous gradient with interpolated primitives."
+	)
 
 	scene.call("debug_set_preview_time", 0.62)
 	await process_frame
@@ -140,7 +150,7 @@ func _run_smoke() -> void:
 		return
 	print(
 		"[GlowOrbBulletFocusSmoke] ALL PASS: textureless circular red/white bodies, "
-		+ "no outline or external glow, ten-step highlights, bounded trails, actual r/speed, "
+		+ "no outline or external glow, vertex-interpolated gradients, bounded trails, actual r/speed, "
 		+ "childless impacts, "
 		+ "and clean reset."
 	)
