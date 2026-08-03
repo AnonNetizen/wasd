@@ -41,6 +41,12 @@ const EXTRA_TEST_SCENES := [
 		"featured": true,
 	},
 	{
+		"button_name": "GlowOrbBulletFocusButton",
+		"label": "Glow Orb Bullet Focus Test",
+		"scene_path": "res://scenes/glow_orb_bullet_focus_test.tscn",
+		"featured": true,
+	},
+	{
 		"button_name": "SlimeTombstoneButton",
 		"label": "Slime-Form Tombstone Test",
 		"scene_path": "res://scenes/slime_tombstone_test.tscn",

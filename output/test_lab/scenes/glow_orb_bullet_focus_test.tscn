@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/glow_orb_bullet_focus_test.gd" id="1_ha0c2"]
+
+[node name="GlowOrbBulletFocusTest" type="Node2D"]
+script = ExtResource("1_ha0c2")

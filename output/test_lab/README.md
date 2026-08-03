@@ -30,6 +30,7 @@
 - `bullet_vfx_selection_test.tscn`：六种原创胶质子弹候选的 1280×760 动态选择墙。泪核胶珠、十字胶籽、缺口胶环、圆头胶囊、三瓣胶冠、棱面胶矢统一复用“深色反边 → 胶体外壳 → 深色内馅 → 湿润高光”材质层，只改变轮廓；每种都以完全相同的几何同时展示玩家白色和敌方红色版本。每张卡包含 4× 静态特写，以及玩家 `r=8 / 520 px/s`、敌人 `r=5 / 280 px/s` 的 1× 飞行 / 短拖尾 / 命中循环。弹丸只使用整体缩放、轴向压缩和少量相位形变，不复制十字架的完整软体求解，也不创建命中特效子节点。`Space` 暂停，`R` 重置，`D` 显示判定圆，`T` 切换拖尾，`B` 切换纯暗 / 低对比网格 / 低饱和意识层背景，`Esc` 返回索引。`bullet_vfx_selection_smoke.gd` 自动检查六种候选、红白同形、主体边界、红色主面积、固定拖尾上限、命中清尾、无节点累积和确定性重置；`capture_bullet_vfx_selection.gd` 生成总览图。最终辨识度、胶质感、阵营区分、拖尾是否误导判定及十字方案是否像治疗符号均待用户人工选型。
 - `tear_core_bullet_focus_test.tscn`：用户选定 01 泪核胶珠后的 1280×760 专用放大检查场景。左右以同等尺寸超大展示玩家白弹和敌方红弹，标出反边 / 胶体 / 内馅（内核）/ 高光四层配色；底部保留玩家 `r=8 / 520 px/s` 与敌人 `r=5 / 280 px/s` 的 1× 实战飞行和命中循环。`H` 在超大弹体与超大命中效果之间切换；`Space / R / D / T / B / Esc` 分别暂停、重置、判定圆、拖尾、三档背景和返回索引。`tear_core_bullet_focus_smoke.gd` 检查超大红白同形、放大尺寸、真实 r / 速度、轮廓边界、有界拖尾、无节点命中与重置清理；`capture_tear_core_bullet_focus.gd` 生成确定性放大总览图。材质层次、轮廓辨识度、高速读法和红白区分仍待用户人工验收。
 - `tear_core_material_switcher_test.tscn`：锁定泪核轮廓和圆形判定的 1280×760 七材质专场。顶部真实下拉菜单按固定顺序提供胶质基准、水晶玻璃、金属珐琅、哑光陶瓷、能量电浆、墨液烟雾和矿石晶核，默认水晶玻璃；切换时不重建节点，而是同步更新左右超大红白特写及底部玩家 `r=8 / 520 px/s`、敌人 `r=5 / 280 px/s` 的飞行 / 拖尾 / 命中样本。所有材质共享泪核几何与阵营主色，内部细节限制在判定圆内；`R` 保留当前材质，`H / D / T / B / Space / Esc` 延续泪核专场控制。`tear_core_material_switcher_smoke.gd` 检查七项菜单与默认项、唯一诊断签名、红白同形、样式同步、真实 r / 速度、主体边界、有界拖尾、命中 / 重置无残留，以及多轮切换节点数稳定；`capture_tear_core_material_switcher.gd` 固定生成默认水晶玻璃总览。材质辨识度、阵营可读性、透明背景干扰、高速读法、拖尾判定误导与下拉操作均待用户人工选型。
+- `glow_orb_bullet_focus_test.tscn`：独立的 1280×760 发光圆球子弹专场，不替换既有胶质与材质实验。敌方红球和玩家白球严格共享圆形轮廓，以深色硬边、同色十级径向渐变、左上白热高光与轻量外发光建立高辨识度；不使用纹理、Shader 或材质切换。左右展示超大红白弹体，底部继续演示玩家 `r=8 / 520 px/s` 与敌人 `r=5 / 280 px/s` 的实战飞行、短光点拖尾和命中。`H / D / T / B / Space / R / Esc` 分别切换超大弹体 / 命中、判定圆、拖尾、三档背景、暂停、重置和返回索引。`glow_orb_bullet_focus_smoke.gd` 检查圆形几何、十级渐变、红色主体、真实半径 / 速度、主体与发光边界、有界拖尾、无子节点命中和重置清理；`capture_glow_orb_bullet_focus.gd` 固定生成总览图。最终渐变、高光、发光强度、高速可读性和判定误导仍待用户人工验收。
 - `polygon_book_test.tscn`：通用 Polygon 素材管线的翻开书本验证场景。`assets/polygon_art/open_book_source.png` 是由提示词模板生成、再用 Godot 归一为纯 `#ff00ff` 键色背景的制作输入；运行时不读取它。编译器不包含书、书页或书脊专用标识，只从源图提取一个连通外轮廓、manifest 可选的主 `linear_band` 标志性结构及各区域的参考颜色，再自行重建共享节点、受保护共边和清晰大面。`linear_band` 由任意 `axis` / `cross_axis` 定义方向，当前 schema v3 支持零或一个主结构带；`data/polygon_imports/_linear_band_asset.template.json` 是带结构素材的 manifest 起点，书本 manifest 只是把主结构带配置成纵向书脊、把三个区域命名为左页 / 书脊 / 右页。自动 smoke 还会把同一源图旋转后用横向结构带和完全不同的区域名重新编译，确认核心算法不依赖书本坐标或语义。
 
   `data/polygon_prompt_templates/source_image_v1.json` 是通用生图提示词模板，要求对象仅凭外轮廓即可辨认、主体保持单一连通、使用少量硬边大色面，并拒绝阴影、纹理、悬空碎片和纯色洋红以外的背景；内部标志性结构按 manifest 可选。`polygon_prompt_builder.gd` 会把每项素材的对象描述、轮廓要点、可选结构、配色与禁用项填入模板；生成图只提供形状和颜色参考，最终点和块仍由工具构建。
@@ -217,6 +218,17 @@ py -3 tools/godot_bridge.py --project output/test_lab headless-boot
 & $godot --headless --path output/test_lab --quit-after 2 res://scenes/tear_core_material_switcher_test.tscn
 & $godot --headless --path output/test_lab --script res://tools/tear_core_material_switcher_smoke.gd
 & $godot --resolution 1280x760 --path output/test_lab --script res://tools/capture_tear_core_material_switcher.gd
+```
+
+## Glow Orb Bullet Focus 验证
+
+以下命令均从仓库根目录运行；`$godot` 指向 Godot 4.7.1 stable 的 console 可执行文件。
+
+```powershell
+& $godot --headless --path output/test_lab --script res://scripts/create_glow_orb_bullet_focus_scene.gd
+& $godot --headless --path output/test_lab --quit-after 2 res://scenes/glow_orb_bullet_focus_test.tscn
+& $godot --headless --path output/test_lab --script res://tools/glow_orb_bullet_focus_smoke.gd
+& $godot --resolution 1280x760 --path output/test_lab --script res://tools/capture_glow_orb_bullet_focus.gd
 ```
 
 ## AI Universal Tile Scene 验证
