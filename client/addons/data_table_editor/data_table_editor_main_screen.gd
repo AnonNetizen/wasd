@@ -20,6 +20,10 @@ const SKILL_DESCRIPTION_FORMATTER := preload(
 const MODULE_SCREEN_NAME: String = "Module JSON"
 const VFX_SCREEN_NAME: String = "VFX 效果库"
 const MAX_TABLE_COLUMNS: int = 12
+const TABLE_COLUMN_MIN_WIDTH: int = 88
+const TABLE_FIRST_COLUMN_DEFAULT_WIDTH: int = 220
+const TABLE_COLUMN_RESIZE_GRAB_WIDTH: float = 6.0
+const TABLE_HEADER_MIN_HIT_HEIGHT: float = 32.0
 
 var editor_interface: EditorInterface
 
@@ -62,7 +66,28 @@ var _pending_create_mode: String = "new"
 var _pending_delete_index: int = -1
 var _sort_column: int = 0
 var _sort_ascending: bool = true
+var _table_column_widths_by_layout: Dictionary = {}
+var _active_table_layout_key: String = ""
+var _table_resize_column: int = -1
+var _table_resize_start_x: float = 0.0
+var _table_resize_start_widths := PackedInt32Array()
+var _table_resize_current_widths := PackedInt32Array()
+var _ignore_next_table_sort: bool = false
 var _initialized: bool = false
+
+
+static func resolve_resized_column_pair(
+	left_width: int,
+	right_width: int,
+	delta: int,
+	minimum_width: int = TABLE_COLUMN_MIN_WIDTH
+) -> Vector2i:
+	var clamped_delta: int = clampi(
+		delta,
+		minimum_width - left_width,
+		right_width - minimum_width
+	)
+	return Vector2i(left_width + clamped_delta, right_width - clamped_delta)
 
 
 func _ready() -> void:
@@ -378,6 +403,8 @@ func _connect_signals() -> void:
 	_table.item_selected.connect(_on_table_selected)
 	_table.item_edited.connect(_on_table_item_edited)
 	_table.column_title_clicked.connect(_on_table_sort_requested)
+	_table.gui_input.connect(_on_table_gui_input)
+	_table.mouse_exited.connect(_on_table_mouse_exited)
 	_table_filter.text_changed.connect(_on_table_filter_changed)
 	_property_editor.value_changed.connect(_on_property_value_changed)
 	_property_editor.array_value_added.connect(_on_array_add)
@@ -498,8 +525,12 @@ func _build_table(select_record_index: int = -1) -> void:
 	for column: int in range(_table.columns):
 		var key: String = scalar_keys[column]
 		_table.set_column_title(column, key)
-		_table.set_column_expand(column, column > 0)
+		_table.set_column_title_tooltip_text(
+			column,
+			"点击列头排序；拖动列头右侧分隔线调整宽度。"
+		)
 		_table_column_paths.append([key] if key != "记录" else [])
+	_configure_table_column_widths(scalar_keys.slice(0, _table.columns))
 	var root: TreeItem = _table.create_item()
 	var filter_text: String = _table_filter.text.strip_edges().to_lower()
 	var view_rows: Array[Dictionary] = []
@@ -549,6 +580,159 @@ func _table_scalar_keys(rows: Array) -> Array[String]:
 	return keys.slice(0, MAX_TABLE_COLUMNS)
 
 
+func _configure_table_column_widths(column_keys: Array[String]) -> void:
+	_active_table_layout_key = "%s|%s|%s" % [
+		_document.dataset_id(),
+		_current_section,
+		JSON.stringify(column_keys),
+	]
+	var saved_widths: Variant = _table_column_widths_by_layout.get(
+		_active_table_layout_key, []
+	)
+	var has_saved_widths: bool = (
+		saved_widths is Array
+		and (saved_widths as Array).size() == maxi(_table.columns - 1, 0)
+	)
+	for column: int in range(_table.columns):
+		_table.set_column_clip_content(column, true)
+		_table.set_column_expand(column, true)
+		_table.set_column_expand_ratio(column, 1)
+		_table.set_column_custom_minimum_width(column, TABLE_COLUMN_MIN_WIDTH)
+		if has_saved_widths and column < _table.columns - 1:
+			_table.set_column_expand(column, false)
+			_table.set_column_custom_minimum_width(
+				column,
+				maxi(TABLE_COLUMN_MIN_WIDTH, int((saved_widths as Array)[column]))
+			)
+	if not has_saved_widths and _table.columns > 1:
+		_table.set_column_expand(0, false)
+		_table.set_column_custom_minimum_width(
+			0, TABLE_FIRST_COLUMN_DEFAULT_WIDTH
+		)
+
+
+func _on_table_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		var motion: InputEventMouseMotion = event as InputEventMouseMotion
+		if _table_resize_column >= 0:
+			_update_table_column_resize(motion.position.x)
+			_table.accept_event()
+			return
+		var boundary: int = _table_column_boundary_at(motion.position)
+		_table.mouse_default_cursor_shape = (
+			Control.CURSOR_HSIZE if boundary >= 0 else Control.CURSOR_ARROW
+		)
+		return
+	if not event is InputEventMouseButton:
+		return
+	var button: InputEventMouseButton = event as InputEventMouseButton
+	if button.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if button.pressed:
+		var boundary: int = _table_column_boundary_at(button.position)
+		if boundary < 0:
+			return
+		_begin_table_column_resize(boundary, button.position.x)
+		_table.accept_event()
+		return
+	if _table_resize_column < 0:
+		return
+	_finish_table_column_resize()
+	_table.accept_event()
+
+
+func _on_table_mouse_exited() -> void:
+	if _table_resize_column < 0:
+		_table.mouse_default_cursor_shape = Control.CURSOR_ARROW
+
+
+func _table_column_boundary_at(position: Vector2) -> int:
+	if (
+		position.y < 0.0
+		or position.y > _table_header_hit_height()
+		or _table.columns < 2
+	):
+		return -1
+	var boundary_x: float = -_table.get_scroll().x
+	for column: int in range(_table.columns - 1):
+		boundary_x += float(_table.get_column_width(column))
+		if absf(position.x - boundary_x) <= TABLE_COLUMN_RESIZE_GRAB_WIDTH:
+			return column
+	return -1
+
+
+func _table_header_hit_height() -> float:
+	var title_font: Font = _table.get_theme_font(&"title_button_font", &"Tree")
+	var title_font_size: int = _table.get_theme_font_size(
+		&"title_button_font_size", &"Tree"
+	)
+	var title_style: StyleBox = _table.get_theme_stylebox(
+		&"title_button_normal", &"Tree"
+	)
+	return maxf(
+		TABLE_HEADER_MIN_HIT_HEIGHT,
+		title_font.get_height(title_font_size) + title_style.get_minimum_size().y
+	)
+
+
+func _begin_table_column_resize(column: int, mouse_x: float) -> void:
+	_table_resize_column = column
+	_table_resize_start_x = mouse_x
+	_table_resize_start_widths.clear()
+	_table_resize_current_widths.clear()
+	for current_column: int in range(_table.columns):
+		var width: int = maxi(
+			TABLE_COLUMN_MIN_WIDTH, _table.get_column_width(current_column)
+		)
+		_table_resize_start_widths.append(width)
+		_table_resize_current_widths.append(width)
+	for current_column: int in range(_table.columns - 1):
+		_table.set_column_expand(current_column, false)
+		_table.set_column_custom_minimum_width(
+			current_column, _table_resize_start_widths[current_column]
+		)
+	_table.set_column_expand(_table.columns - 1, true)
+	_table.set_column_custom_minimum_width(
+		_table.columns - 1, TABLE_COLUMN_MIN_WIDTH
+	)
+	_table.mouse_default_cursor_shape = Control.CURSOR_HSIZE
+
+
+func _update_table_column_resize(mouse_x: float) -> void:
+	var right_column: int = _table_resize_column + 1
+	if right_column >= _table_resize_start_widths.size():
+		return
+	var pair: Vector2i = resolve_resized_column_pair(
+		_table_resize_start_widths[_table_resize_column],
+		_table_resize_start_widths[right_column],
+		roundi(mouse_x - _table_resize_start_x)
+	)
+	_table_resize_current_widths[_table_resize_column] = pair.x
+	_table_resize_current_widths[right_column] = pair.y
+	_table.set_column_custom_minimum_width(_table_resize_column, pair.x)
+	_table.set_column_custom_minimum_width(right_column, pair.y)
+
+
+func _finish_table_column_resize() -> void:
+	var saved_widths: Array[int] = []
+	for column: int in range(_table.columns - 1):
+		saved_widths.append(_table_resize_current_widths[column])
+	_table_column_widths_by_layout[_active_table_layout_key] = saved_widths
+	_table.set_column_expand(_table.columns - 1, true)
+	_table.set_column_custom_minimum_width(
+		_table.columns - 1, TABLE_COLUMN_MIN_WIDTH
+	)
+	_table_resize_column = -1
+	_table_resize_start_widths.clear()
+	_table_resize_current_widths.clear()
+	_ignore_next_table_sort = true
+	call_deferred("_clear_table_sort_suppression")
+
+
+func _clear_table_sort_suppression() -> void:
+	_ignore_next_table_sort = false
+
+
 func _sort_view_rows(left: Dictionary, right: Dictionary) -> bool:
 	var column: int = clampi(_sort_column, 0, maxi(_table_column_paths.size() - 1, 0))
 	var path: Array = _table_column_paths[column] if column < _table_column_paths.size() else []
@@ -590,6 +774,9 @@ func _on_table_item_edited() -> void:
 
 
 func _on_table_sort_requested(column: int, _mouse_button: int) -> void:
+	if _table_resize_column >= 0 or _ignore_next_table_sort:
+		_ignore_next_table_sort = false
+		return
 	if _sort_column == column:
 		_sort_ascending = not _sort_ascending
 	else:

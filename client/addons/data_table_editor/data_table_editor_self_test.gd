@@ -9,6 +9,9 @@ const DATA_TABLE_TRANSACTION := preload("res://scripts/editor/data_table_transac
 const DATA_TABLE_PROPERTY_EDITOR := preload(
 	"res://addons/data_table_editor/data_table_property_editor.gd"
 )
+const DATA_TABLE_MAIN_SCREEN := preload(
+	"res://addons/data_table_editor/data_table_editor_main_screen.gd"
+)
 const DATA_TABLE_CONTRACT_BRIDGE := preload(
 	"res://scripts/editor/data_table_contract_bridge.gd"
 )
@@ -36,6 +39,7 @@ func _run() -> void:
 	_test_catalog_and_search()
 	_test_document_editing()
 	_test_property_reference_options()
+	_test_column_resize_bounds()
 	_test_transaction_guards()
 	_test_contract_dry_run()
 	_test_headless_validation_bridge()
@@ -330,6 +334,27 @@ func _test_property_reference_options() -> void:
 	) as PackedStringArray
 	_expect(options == PackedStringArray(["damage", "heal"]), "contract references become field options")
 	editor.queue_free()
+
+
+func _test_column_resize_bounds() -> void:
+	var regular: Vector2i = DATA_TABLE_MAIN_SCREEN.resolve_resized_column_pair(
+		220, 500, 100
+	)
+	_expect(regular == Vector2i(320, 400), "column drag resizes adjacent columns")
+	var right_limited: Vector2i = DATA_TABLE_MAIN_SCREEN.resolve_resized_column_pair(
+		220, 500, 1_000
+	)
+	_expect(
+		right_limited == Vector2i(632, 88),
+		"column drag preserves the right-column minimum width"
+	)
+	var left_limited: Vector2i = DATA_TABLE_MAIN_SCREEN.resolve_resized_column_pair(
+		220, 500, -1_000
+	)
+	_expect(
+		left_limited == Vector2i(88, 632),
+		"column drag preserves the left-column minimum width"
+	)
 
 
 func _test_skill_preview() -> void:
