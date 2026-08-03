@@ -27,6 +27,7 @@ const SKILL_DESCRIPTION_FORMATTER := preload(
 
 const TEST_ROOT: String = "user://data_table_editor_self_test"
 const TEST_JSON: String = TEST_ROOT + "/fixture.json"
+const TEST_FORMATTED_JSON: String = TEST_ROOT + "/formatted_fixture.json"
 const TEST_CSV: String = TEST_ROOT + "/fixture.csv"
 const TEST_BAD_CSV: String = TEST_ROOT + "/invalid.csv"
 const TEST_CATALOG: String = TEST_ROOT + "/catalog.json"
@@ -43,6 +44,7 @@ func _run() -> void:
 	_prepare_test_directory()
 	_test_catalog_and_search()
 	_test_document_editing()
+	_test_json_serialization_stability()
 	_test_csv_serialization_stability()
 	_test_property_reference_options()
 	_test_column_resize_bounds()
@@ -285,8 +287,8 @@ func _test_document_editing() -> void:
 	var serialized: String = document.source_text()
 	var reparsed: Variant = JSON.parse_string(serialized)
 	_expect(
-		reparsed is Dictionary and JSON.stringify(reparsed, "  ", false, true) + "\n" == serialized,
-		"JSON serialization is deterministic after a parse round trip"
+		reparsed is Dictionary and document.source_text() == serialized,
+		"JSON serialization is valid and deterministic"
 	)
 	_expect(document.draft_status() == "matching", "dirty document writes a hash-bound draft")
 	var recovered := DATA_TABLE_DOCUMENT.new() as DataTableDocument
@@ -307,6 +309,62 @@ func _test_document_editing() -> void:
 	_expect_ok(document.restore_draft(true), "explicit approval restores a conflicting draft")
 	document.discard_draft()
 	recovered.discard_draft()
+
+
+func _test_json_serialization_stability() -> void:
+	var original: String = (
+		"{\n"
+		+ "  \"schema_version\": 1,\n"
+		+ "  \"active_items\": [\n"
+		+ "    {\n"
+		+ "      \"id\": \"active_item_fixture\",\n"
+		+ "      \"tags\": [\"tag_active_item\", \"tag_fixture\"],\n"
+		+ "      \"charge\": {\n"
+		+ "        \"mode\": \"cooldown\",\n"
+		+ "        \"cooldown\": 8.0,\n"
+		+ "        \"max_charges\": 1,\n"
+		+ "        \"start_charges\": 1\n"
+		+ "      }\n"
+		+ "    }\n"
+		+ "  ]\n"
+		+ "}\n"
+	)
+	_write_text(TEST_FORMATTED_JSON, original)
+	var descriptor: Dictionary = {
+		"id": "json_stability_fixture",
+		"label": "JSON 稳定性测试",
+		"path": TEST_FORMATTED_JSON,
+		"format": "json",
+		"sections": [{"path": "active_items", "primary_keys": ["id"]}],
+	}
+	var document := DATA_TABLE_DOCUMENT.new() as DataTableDocument
+	_expect_ok(document.open_dataset(descriptor), "JSON stability fixture opens")
+	_expect(
+		document.source_text() == original,
+		"opening an untouched JSON document produces no synthetic diff"
+	)
+	var payload: Dictionary = document.data as Dictionary
+	var record: Dictionary = (payload.get("active_items", []) as Array)[0] as Dictionary
+	var charge: Dictionary = record.get("charge", {}) as Dictionary
+	_expect(typeof(payload.get("schema_version")) == TYPE_INT, "JSON integer tokens remain integers")
+	_expect(typeof(charge.get("max_charges")) == TYPE_INT, "nested JSON integers remain integers")
+	_expect(typeof(charge.get("cooldown")) == TYPE_FLOAT, "JSON decimal tokens remain floats")
+	_expect(
+		document.set_record_value("active_items", 0, ["charge", "cooldown"], "8.0"),
+		"no-op JSON decimal edit is accepted"
+	)
+	_expect(not document.dirty, "no-op JSON edit does not create a dirty draft")
+	_expect(not document.has_undo(), "no-op JSON edit does not create undo history")
+	_expect(
+		document.set_record_value("active_items", 0, ["charge", "cooldown"], "9.0"),
+		"JSON decimal edit succeeds"
+	)
+	var expected: String = original.replace("\"cooldown\": 8.0", "\"cooldown\": 9.0")
+	_expect(
+		document.source_text() == expected,
+		"JSON editing changes only the intended value and preserves source layout"
+	)
+	document.discard_draft()
 
 
 func _test_transaction_guards() -> void:
@@ -524,7 +582,14 @@ func _prepare_test_directory() -> void:
 
 
 func _cleanup() -> void:
-	for path: String in [TEST_JSON, TEST_CSV, TEST_BAD_CSV, TEST_CATALOG, TEST_TRANSACTION]:
+	for path: String in [
+		TEST_JSON,
+		TEST_FORMATTED_JSON,
+		TEST_CSV,
+		TEST_BAD_CSV,
+		TEST_CATALOG,
+		TEST_TRANSACTION,
+	]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	var absolute_root: String = ProjectSettings.globalize_path(TEST_ROOT)

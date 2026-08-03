@@ -29,6 +29,13 @@ var _source_hash: String = ""
 var _locale_hash: String = ""
 var _baseline_signature: String = ""
 var _contract_values: Dictionary = {}
+var _source_json_text: String = ""
+var _source_json_baseline_signature: String = ""
+var _source_json_array_styles: Dictionary = {}
+var _source_json_number_lexemes: Dictionary = {}
+var _source_json_number_signatures: Dictionary = {}
+var _source_json_newline: String = "\n"
+var _source_json_trailing_newline: bool = true
 var _source_csv_layout: Dictionary = {}
 var _locale_csv_layout: Dictionary = {}
 var _undo_stack: Array[Dictionary] = []
@@ -51,8 +58,15 @@ func open_dataset(next_descriptor: Dictionary) -> Dictionary:
 		return load_result
 	data = load_result.get("data", {})
 	csv_headers = load_result.get("headers", PackedStringArray()) as PackedStringArray
+	_source_json_text = ""
+	_source_json_baseline_signature = ""
+	_source_json_array_styles.clear()
+	_source_json_number_lexemes.clear()
+	_source_json_number_signatures.clear()
 	_source_csv_layout.clear()
-	if format == "csv":
+	if format == "json":
+		_reset_json_layout(String(load_result.get("raw_text", "")), data)
+	else:
 		_source_csv_layout = _build_csv_layout(
 			String(load_result.get("raw_text", "")), csv_headers, data as Array
 		)
@@ -459,7 +473,9 @@ func save_project(
 		return result
 	_source_hash = _disk_hash(source_path())
 	_locale_hash = _disk_hash(LOCALE_PATH)
-	if source_format() == "csv":
+	if source_format() == "json":
+		_reset_json_layout(source_output, data)
+	else:
 		_source_csv_layout = _build_csv_layout(source_output, csv_headers, data as Array)
 	if source_path() == LOCALE_PATH:
 		_locale_csv_layout = _source_csv_layout.duplicate(true)
@@ -484,7 +500,15 @@ func disk_changed() -> bool:
 
 func source_text() -> String:
 	if source_format() == "json":
-		return JSON.stringify(data, "  ", false, true) + "\n"
+		if (
+			not _source_json_text.is_empty()
+			and _json_state_signature(data) == _source_json_baseline_signature
+		):
+			return _source_json_text
+		var output: String = _json_encode(data, 0, [])
+		if _source_json_trailing_newline:
+			output += _source_json_newline
+		return output
 	return _csv_text_preserving_layout(csv_headers, data as Array, _source_csv_layout)
 
 
@@ -895,15 +919,235 @@ func _load_json(path: String) -> Dictionary:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return _error_result("failed to open JSON file: %s" % path)
-	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	var raw_text: String = file.get_as_text()
+	var parsed: Variant = JSON.parse_string(raw_text)
 	if not parsed is Dictionary:
 		return _error_result("JSON root must be a Dictionary: %s" % path)
+	var number_tokens: PackedStringArray = _json_number_tokens(raw_text)
+	var number_cursor: Dictionary = {"index": 0}
+	parsed = _restore_json_number_types(parsed, number_tokens, number_cursor)
 	return {
 		"ok": true,
 		"errors": PackedStringArray(),
 		"data": parsed,
 		"headers": PackedStringArray(),
+		"raw_text": raw_text,
 	}
+
+
+func _reset_json_layout(raw_text: String, value: Variant) -> void:
+	_source_json_text = raw_text
+	_source_json_baseline_signature = _json_state_signature(value)
+	_source_json_newline = "\r\n" if raw_text.contains("\r\n") else "\n"
+	_source_json_trailing_newline = raw_text.ends_with("\n") or raw_text.ends_with("\r")
+	_source_json_array_styles.clear()
+	_collect_json_array_styles(value, [], raw_text)
+	_source_json_number_lexemes.clear()
+	_source_json_number_signatures.clear()
+	var number_tokens: PackedStringArray = _json_number_tokens(raw_text)
+	var number_cursor: Dictionary = {"index": 0}
+	_collect_json_number_layout(value, [], number_tokens, number_cursor)
+
+
+func _json_state_signature(value: Variant) -> String:
+	return JSON.stringify(value, "", false, true)
+
+
+func _json_number_tokens(raw_text: String) -> PackedStringArray:
+	var tokens := PackedStringArray()
+	var inside_string: bool = false
+	var escaped: bool = false
+	var index: int = 0
+	while index < raw_text.length():
+		var character: String = raw_text.substr(index, 1)
+		if inside_string:
+			if escaped:
+				escaped = false
+			elif character == "\\":
+				escaped = true
+			elif character == "\"":
+				inside_string = false
+			index += 1
+			continue
+		if character == "\"":
+			inside_string = true
+			index += 1
+			continue
+		if character == "-" or (character >= "0" and character <= "9"):
+			var start: int = index
+			index += 1
+			while index < raw_text.length():
+				var next_character: String = raw_text.substr(index, 1)
+				if not (
+					(next_character >= "0" and next_character <= "9")
+					or [".", "e", "E", "+", "-"].has(next_character)
+				):
+					break
+				index += 1
+			tokens.append(raw_text.substr(start, index - start))
+			continue
+		index += 1
+	return tokens
+
+
+func _restore_json_number_types(
+	value: Variant,
+	tokens: PackedStringArray,
+	cursor: Dictionary
+) -> Variant:
+	if value is Dictionary:
+		var dictionary: Dictionary = value as Dictionary
+		for raw_key: Variant in dictionary.keys():
+			var key: String = String(raw_key)
+			dictionary[key] = _restore_json_number_types(dictionary[key], tokens, cursor)
+		return dictionary
+	if value is Array:
+		var array: Array = value as Array
+		for index: int in range(array.size()):
+			array[index] = _restore_json_number_types(array[index], tokens, cursor)
+		return array
+	if typeof(value) != TYPE_INT and typeof(value) != TYPE_FLOAT:
+		return value
+	var token_index: int = int(cursor.get("index", 0))
+	cursor["index"] = token_index + 1
+	if token_index >= tokens.size():
+		return value
+	var token: String = tokens[token_index]
+	if token.is_valid_int() and not token.contains(".") and not token.to_lower().contains("e"):
+		return token.to_int()
+	return token.to_float()
+
+
+func _collect_json_array_styles(value: Variant, path: Array, raw_text: String) -> void:
+	if value is Dictionary:
+		for raw_key: Variant in (value as Dictionary).keys():
+			var key: String = String(raw_key)
+			var child_path: Array = path.duplicate()
+			child_path.append(key)
+			_collect_json_array_styles((value as Dictionary)[key], child_path, raw_text)
+		return
+	if not value is Array:
+		return
+	var array: Array = value as Array
+	var path_key: String = JSON.stringify(path)
+	if _json_array_is_scalar(array):
+		var compact: String = _json_inline_array(array, false, path)
+		var spaced: String = _json_inline_array(array, true, path)
+		if raw_text.contains(spaced):
+			_source_json_array_styles[path_key] = "inline_spaced"
+		elif raw_text.contains(compact):
+			_source_json_array_styles[path_key] = "inline_compact"
+		else:
+			_source_json_array_styles[path_key] = "multiline"
+	for index: int in range(array.size()):
+		var child_path: Array = path.duplicate()
+		child_path.append(index)
+		_collect_json_array_styles(array[index], child_path, raw_text)
+
+
+func _collect_json_number_layout(
+	value: Variant,
+	path: Array,
+	tokens: PackedStringArray,
+	cursor: Dictionary
+) -> void:
+	if value is Dictionary:
+		for raw_key: Variant in (value as Dictionary).keys():
+			var key: String = String(raw_key)
+			var child_path: Array = path.duplicate()
+			child_path.append(key)
+			_collect_json_number_layout((value as Dictionary)[key], child_path, tokens, cursor)
+		return
+	if value is Array:
+		for index: int in range((value as Array).size()):
+			var child_path: Array = path.duplicate()
+			child_path.append(index)
+			_collect_json_number_layout((value as Array)[index], child_path, tokens, cursor)
+		return
+	if typeof(value) != TYPE_INT and typeof(value) != TYPE_FLOAT:
+		return
+	var token_index: int = int(cursor.get("index", 0))
+	cursor["index"] = token_index + 1
+	if token_index >= tokens.size():
+		return
+	var path_key: String = JSON.stringify(path)
+	_source_json_number_lexemes[path_key] = tokens[token_index]
+	_source_json_number_signatures[path_key] = JSON.stringify(value)
+
+
+func _json_encode(value: Variant, depth: int, path: Array) -> String:
+	if value is Dictionary:
+		var dictionary: Dictionary = value as Dictionary
+		if dictionary.is_empty():
+			return "{}"
+		var entries := PackedStringArray()
+		for raw_key: Variant in dictionary.keys():
+			var key: String = String(raw_key)
+			var child_path: Array = path.duplicate()
+			child_path.append(key)
+			entries.append(
+				"%s%s: %s"
+				% [
+					"  ".repeat(depth + 1),
+					JSON.stringify(key),
+					_json_encode(dictionary[key], depth + 1, child_path),
+				]
+			)
+		return (
+			"{" + _source_json_newline
+			+ ("," + _source_json_newline).join(entries)
+			+ _source_json_newline + "  ".repeat(depth) + "}"
+		)
+	if value is Array:
+		var array: Array = value as Array
+		if array.is_empty():
+			return "[]"
+		var style: String = String(
+			_source_json_array_styles.get(JSON.stringify(path), "inline_spaced")
+		)
+		if _json_array_is_scalar(array) and style.begins_with("inline"):
+			return _json_inline_array(array, style == "inline_spaced", path)
+		var entries := PackedStringArray()
+		for index: int in range(array.size()):
+			var child_path: Array = path.duplicate()
+			child_path.append(index)
+			entries.append(
+				"  ".repeat(depth + 1) + _json_encode(array[index], depth + 1, child_path)
+			)
+		return (
+			"[" + _source_json_newline
+			+ ("," + _source_json_newline).join(entries)
+			+ _source_json_newline + "  ".repeat(depth) + "]"
+		)
+	return _json_scalar_text(value, path)
+
+
+func _json_array_is_scalar(array: Array) -> bool:
+	for value: Variant in array:
+		if value is Dictionary or value is Array:
+			return false
+	return true
+
+
+func _json_inline_array(array: Array, spaced: bool, path: Array) -> String:
+	var values := PackedStringArray()
+	for index: int in range(array.size()):
+		var child_path: Array = path.duplicate()
+		child_path.append(index)
+		values.append(_json_scalar_text(array[index], child_path))
+	return "[" + (", " if spaced else ",").join(values) + "]"
+
+
+func _json_scalar_text(value: Variant, path: Array) -> String:
+	if typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT:
+		var path_key: String = JSON.stringify(path)
+		if (
+			_source_json_number_lexemes.has(path_key)
+			and String(_source_json_number_signatures.get(path_key, ""))
+			== JSON.stringify(value)
+		):
+			return String(_source_json_number_lexemes[path_key])
+	return JSON.stringify(value)
 
 
 func _load_contract_values() -> Dictionary:
