@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-08-03",
   "current_phase": "editor_tooling",
-  "current_status": "ADR #180 已建立 Godot 4.7.1 editor-only 数据配表：声明式目录统一普通 client/data JSON、全部数据 CSV 和 strings.csv，提供表格、递归属性、TSV、CRUD、Undo/Redo、双语文案、技能预览和 1–8 层全局搜索。模块 JSON/注册表/图块目录与 VFX/profile 继续由专用编辑器负责且不进入搜索；module_worlds.json 纳入普通配表。修改自动保存在 user://，项目写入经过 hash、备份、受控内容契约、独立 headless DataLoader 校验与失败回滚；release 排除插件/editor scripts。人工 UI/Excel/冲突流验收待用户执行。子弹视觉当前在 Test Lab 使用独立 Shader 渐变圆球专场：敌方红球与玩家白球共享纹理无关的 CanvasItem Shader，以圆形 SDF、导数抗锯齿和 smoothstep 距离场实现左上白热高光到圆周主体色的连续渐变；黑色 / 深色描边与全部外发光保持删除，正式 client 仍未修改，待用户人工视觉确认。",
+  "current_status": "ADR #180 已建立 Godot 4.7.1 editor-only 数据配表：声明式目录统一普通 client/data JSON、全部数据 CSV 和 strings.csv，提供表格、递归属性、TSV、CRUD、Undo/Redo、双语文案、技能预览和 1–8 层全局搜索。模块 JSON/注册表/图块目录与 VFX/profile 继续由专用编辑器负责且不进入搜索；module_worlds.json 纳入普通配表。修改自动保存在 user://，项目写入经过 hash、备份、受控内容契约、独立 headless DataLoader 校验与失败回滚；release 排除插件/editor scripts。人工 UI/Excel/冲突流验收待用户执行。子弹视觉当前在 Test Lab 使用独立 Shader 渐变圆球专场：用户截图暴露无纹理 Polygon2D 的 UV 路径会把弹体整体算成透明，现已改由 VERTEX 局部坐标生成圆形 SDF 和 smoothstep 连续渐变，并以红白弹体中心像素探针阻止空渲染通过；黑色 / 深色描边与全部外发光保持删除，正式 client 仍未修改，待用户人工视觉确认。",
   "latest_adr": 180,
   "open_decisions": [
     "D",
@@ -10,6 +10,7 @@
     "S"
   ],
   "last_completed": [
+    "Test Lab Shader 圆球空渲染修正：用户截图确认两枚超大弹体完全不可见；根因是无纹理 Polygon2D 上使用 UV 生成 SDF，片元被整体判为圆外透明。Shader 改从 VERTEX 局部坐标构造归一化渐变坐标，红白弹体恢复同形连续渐变；截图工具新增两处中心像素探针，后续透明空渲染会自动失败。",
     "Test Lab Shader 渐变圆球：按用户要求把 96 段三角扇连续插值替换为纹理无关的 CanvasItem Shader；圆形 SDF + fwidth 负责抗锯齿边缘，smoothstep 距离场负责左上白热高光到主体色的连续过渡。每个样本固定一个 Polygon2D + ShaderMaterial，红白只换 uniform，飞行 / 命中不创建动态子节点；无描边 / 外发光及实战半径 / 速度不变。",
     "Test Lab 渐变圆球色阶修正：确认此前所谓“十级渐变”实际由十个纯色同心圆覆盖，属于错误的阶梯实现；现改为 96 段三角扇顶点颜色插值，从左上高光中心连续过渡到圆周主体色，不使用纹理、Shader 或材质。无描边 / 外发光、实战半径 / 速度、拖尾上限和命中生命周期保持不变；同步专项 smoke、截图、README 与 AI 记忆。",
     "Test Lab 渐变圆球二次收敛：按用户反馈从独立圆球专场删除黑色 / 深色描边、弹体外圈呼吸光和拖尾光晕；红白双方仍共享纯圆轮廓，只保留阵营主体色、十级径向渐变与左上白热高光，实战半径 / 速度及无子节点命中循环不变。同步专项 smoke、确定性截图、Test Lab 索引、README 与 AI 记忆；正式 client 未改。",
@@ -196,6 +197,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-03",
+      "command": "glow-orb-bullet-focus-smoke after textureless shader coordinate fix; rendered player/enemy center-pixel probes; deterministic fixed-time 1280x760 capture SHA-256 comparison; explicit scene load; Test Lab Godot 4.7.1 headless editor/boot; GDScript/project/semantic lint; JSON current_state; docs_health_check; git diff --check excluding draft/DRAFT; pre-commit run --all-files",
+      "result": "passed for the shader-orb invisible-body regression. The user screenshot exposed that the previous structural checks and byte-stable capture could still accept a deterministically blank projectile body: textureless Polygon2D UV coordinates did not provide the shader coordinate path needed by this renderer, so the SDF made every body fragment transparent. The shader now passes local VERTEX coordinates through a varying and normalizes them for the circle SDF and smoothstep highlight; source smoke requires that path and rejects UV use. The real 1280x760 renderer now probes the oversized player body for bright neutral RGB and the enemy body for red-dominant RGB before saving, so the prior empty render fails automatically. Consecutive captures reproduce SHA-256 EC813D823D0FB192F8C7D701098CEF8BAC3A2E42268E5902E5058BA71B3E1D55. Factual review found no remaining P0/P1/P2 issue; semantic advisory emitted no warning. Formal client and comparison scenes remain unchanged, so no formal client regression, performance probe or golden replay ran. Per ADR #174, pixel presence is machine validation only; gradient appearance, highlight placement, high-speed readability and trail/collision interpretation remain pending user visual confirmation."
+    },
     {
       "date": "2026-08-03",
       "command": "glow-orb-bullet-focus-smoke after CanvasItem shader migration; deterministic fixed-time 1280x760 capture SHA-256 comparison; explicit scene load; Test Lab Godot 4.7.1 headless editor/boot; GDScript/project/semantic lint; JSON current_state; docs_health_check; git diff --check excluding draft/DRAFT; pre-commit run --all-files",

@@ -3,6 +3,9 @@ extends SceneTree
 const SCENE_PATH: String = "res://scenes/glow_orb_bullet_focus_test.tscn"
 const SCREENSHOT_PATH: String = "res://screenshots/glow_orb_bullet_focus.png"
 const CAPTURE_TIME: float = 2.16
+const PLAYER_BODY_PROBE: Vector2i = Vector2i(330, 320)
+const ENEMY_BODY_PROBE: Vector2i = Vector2i(950, 320)
+const PROBE_RADIUS: int = 2
 
 
 func _initialize() -> void:
@@ -31,6 +34,16 @@ func _capture() -> void:
 		push_error("Unexpected capture size: %s" % image.get_size())
 		quit(1)
 		return
+	var player_probe: Color = _average_probe(image, PLAYER_BODY_PROBE)
+	if minf(player_probe.r, minf(player_probe.g, player_probe.b)) <= 0.45:
+		push_error("Player shader body did not render at its center: %s" % player_probe)
+		quit(1)
+		return
+	var enemy_probe: Color = _average_probe(image, ENEMY_BODY_PROBE)
+	if enemy_probe.r <= 0.55 or enemy_probe.r <= enemy_probe.g + 0.10:
+		push_error("Enemy shader body did not render red at its center: %s" % enemy_probe)
+		quit(1)
+		return
 	var absolute_path: String = ProjectSettings.globalize_path(SCREENSHOT_PATH)
 	var error: Error = image.save_png(absolute_path)
 	if error != OK:
@@ -40,3 +53,26 @@ func _capture() -> void:
 
 	print("Saved screenshot: %s" % absolute_path)
 	quit(0)
+
+
+func _average_probe(image: Image, center: Vector2i) -> Color:
+	var red_total: float = 0.0
+	var green_total: float = 0.0
+	var blue_total: float = 0.0
+	var alpha_total: float = 0.0
+	var sample_count: int = 0
+	for y in range(center.y - PROBE_RADIUS, center.y + PROBE_RADIUS + 1):
+		for x in range(center.x - PROBE_RADIUS, center.x + PROBE_RADIUS + 1):
+			var pixel: Color = image.get_pixel(x, y)
+			red_total += pixel.r
+			green_total += pixel.g
+			blue_total += pixel.b
+			alpha_total += pixel.a
+			sample_count += 1
+	var divisor: float = float(sample_count)
+	return Color(
+		red_total / divisor,
+		green_total / divisor,
+		blue_total / divisor,
+		alpha_total / divisor
+	)

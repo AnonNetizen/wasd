@@ -109,6 +109,9 @@ func _run_smoke() -> void:
 	_expect(not shader_source.is_empty(), "Gradient-orb shader source could not be read.")
 	for required_token in [
 		"shader_type canvas_item",
+		"varying vec2 orb_local_position",
+		"orb_local_position = VERTEX",
+		"gradient_uv",
 		"smoothstep",
 		"clamp(fwidth",
 		"highlight_center",
@@ -119,6 +122,10 @@ func _run_smoke() -> void:
 			"Gradient-orb shader is missing required token: %s." % required_token
 		)
 	_expect(not shader_source.contains("texture("), "Gradient-orb shader must remain textureless.")
+	_expect(
+		not shader_source.contains("UV"),
+		"Textureless Polygon2D shader must derive coordinates from VERTEX rather than UV."
+	)
 	_expect(
 		not shader_source.contains("circle_radius + edge_width"),
 		"Shader antialiasing must soften inward without extending beyond the collision body."

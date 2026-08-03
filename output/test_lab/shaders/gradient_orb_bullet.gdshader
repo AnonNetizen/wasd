@@ -8,8 +8,15 @@ uniform float highlight_radius : hint_range(0.1, 1.0, 0.01) = 0.72;
 uniform float highlight_curve : hint_range(0.25, 4.0, 0.05) = 1.35;
 uniform float circle_radius : hint_range(0.45, 0.5, 0.001) = 0.49;
 
+varying vec2 orb_local_position;
+
+void vertex() {
+	orb_local_position = VERTEX;
+}
+
 void fragment() {
-	vec2 centered_uv = UV - vec2(0.5);
+	vec2 gradient_uv = orb_local_position * 0.5 + vec2(0.5);
+	vec2 centered_uv = gradient_uv - vec2(0.5);
 	float center_distance = length(centered_uv);
 	float edge_width = clamp(fwidth(center_distance) * 1.25, 0.001, 0.03);
 	float circle_alpha = 1.0 - smoothstep(
@@ -18,7 +25,7 @@ void fragment() {
 		center_distance
 	);
 
-	float highlight_distance = distance(UV, highlight_center);
+	float highlight_distance = distance(gradient_uv, highlight_center);
 	float highlight_mix = 1.0 - smoothstep(0.0, highlight_radius, highlight_distance);
 	highlight_mix = pow(clamp(highlight_mix, 0.0, 1.0), highlight_curve);
 	float rim_fade = 1.0 - smoothstep(
