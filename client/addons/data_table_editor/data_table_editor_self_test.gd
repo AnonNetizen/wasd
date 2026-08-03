@@ -12,6 +12,9 @@ const DATA_TABLE_PROPERTY_EDITOR := preload(
 const DATA_TABLE_MAIN_SCREEN := preload(
 	"res://addons/data_table_editor/data_table_editor_main_screen.gd"
 )
+const DATA_TABLE_TREE_COLUMN_RESIZER := preload(
+	"res://addons/data_table_editor/data_table_tree_column_resizer.gd"
+)
 const DATA_TABLE_CONTRACT_BRIDGE := preload(
 	"res://scripts/editor/data_table_contract_bridge.gd"
 )
@@ -434,6 +437,25 @@ func _test_column_resize_bounds() -> void:
 		left_limited == Vector2i(88, 632),
 		"column drag preserves the left-column minimum width"
 	)
+	var property_limited: Vector2i = DATA_TABLE_TREE_COLUMN_RESIZER.resolve_resized_column_pair(
+		144, 260, -1_000, 64
+	)
+	_expect(
+		property_limited == Vector2i(64, 340),
+		"recursive property columns use the reusable resizer and their own minimum"
+	)
+	var panel_split := HSplitContainer.new()
+	DATA_TABLE_MAIN_SCREEN.configure_panel_splitter(panel_split)
+	_expect(panel_split.dragging_enabled, "outer panel splitters keep dragging enabled")
+	_expect(
+		panel_split.get_theme_constant(&"minimum_grab_thickness") == 16,
+		"outer panel splitters expose a wide drag hit area"
+	)
+	_expect(
+		panel_split.get_theme_constant(&"autohide") == 0,
+		"outer panel split grabbers stay visible"
+	)
+	panel_split.free()
 
 
 func _test_skill_preview() -> void:

@@ -8,10 +8,16 @@ signal value_changed(path: Array, value: Variant)
 signal array_value_added(path: Array)
 signal array_value_removed(path: Array, index: int)
 
+const TREE_COLUMN_RESIZER := preload(
+	"res://addons/data_table_editor/data_table_tree_column_resizer.gd"
+)
 const ADD_BUTTON_ID: int = 1
 const REMOVE_BUTTON_ID: int = 2
+const PROPERTY_COLUMN_MIN_WIDTH: int = 64
+const PROPERTY_COLUMN_GRAB_WIDTH: float = 8.0
 
 var _tree: Tree
+var _column_resizer: RefCounted
 var _record: Dictionary = {}
 var _options_by_path: Dictionary = {}
 var _updating: bool = false
@@ -29,10 +35,18 @@ func _ready() -> void:
 	_tree.set_column_title(0, "字段")
 	_tree.set_column_title(1, "类型")
 	_tree.set_column_title(2, "值")
-	_tree.set_column_expand(0, true)
-	_tree.set_column_expand(1, false)
-	_tree.set_column_custom_minimum_width(1, 72)
-	_tree.set_column_expand(2, true)
+	for column: int in range(_tree.columns):
+		_tree.set_column_title_tooltip_text(
+			column, "拖动列头右侧分隔线调整宽度。"
+		)
+	_column_resizer = TREE_COLUMN_RESIZER.new()
+	_column_resizer.attach(_tree)
+	_column_resizer.configure(
+		"recursive_property_columns",
+		PackedInt32Array([144, 72]),
+		PROPERTY_COLUMN_MIN_WIDTH,
+		PROPERTY_COLUMN_GRAB_WIDTH
+	)
 	_tree.item_edited.connect(_on_item_edited)
 	_tree.button_clicked.connect(_on_button_clicked)
 	add_child(_tree)
