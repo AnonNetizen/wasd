@@ -1,7 +1,7 @@
 class_name TestLabGlowOrbBulletFocus
 extends "res://scripts/tear_core_bullet_focus_test.gd"
 
-## Dedicated comparison scene for simple glowing circular projectiles.
+## Dedicated comparison scene for simple gradient circular projectiles.
 
 const ORB_SAMPLE_SCRIPT := preload("res://scripts/glow_orb_bullet_sample.gd")
 
@@ -18,7 +18,7 @@ func debug_gradient_pair_matches() -> bool:
 func debug_circle_geometry_locked() -> bool:
 	if _focus_samples.size() != 2:
 		return false
-	var expected: String = "circle:r1.0:gradient10:highlight_nw"
+	var expected: String = "circle:r1.0:gradient10:highlight_nw:no_outline:no_glow"
 	return (
 		str(_focus_samples[0].call("geometry_signature")) == expected
 		and str(_focus_samples[1].call("geometry_signature")) == expected
@@ -31,11 +31,9 @@ func debug_gradient_step_count() -> int:
 	return int(_focus_samples[0].call("gradient_step_count"))
 
 
-func debug_all_glows_bounded() -> bool:
+func debug_no_external_glow() -> bool:
 	for sample: Node2D in _samples:
-		var radius: float = float(sample.call("collision_radius"))
-		var glow_extent: float = float(sample.call("glow_visual_extent"))
-		if glow_extent <= radius or glow_extent > radius * 1.50 + 0.001:
+		if not is_zero_approx(float(sample.call("external_glow_extent"))):
 			return false
 	return true
 
@@ -112,7 +110,7 @@ func _draw_header() -> void:
 	draw_string(
 		font,
 		Vector2(28.0, 38.0),
-		"发光圆球子弹 / GLOW ORB BULLET — 极简高辨识方案",
+		"渐变圆球子弹 / GRADIENT ORB BULLET — 极简高辨识方案",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		24,
@@ -121,7 +119,7 @@ func _draw_header() -> void:
 	draw_string(
 		font,
 		Vector2(28.0, 70.0),
-		"无贴图 · 无 Shader · 无材质切换 · 圆球暗边与十级径向渐变",
+		"无贴图 · 无 Shader · 无材质切换 · 无描边 · 无外发光 · 十级径向渐变",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		15,
@@ -158,7 +156,7 @@ func _draw_focus_panel(rect: Rect2, title: String, enemy: bool) -> void:
 	draw_string(
 		font,
 		rect.position + Vector2(18.0, 58.0),
-		"圆球剪影 · 暗边 · 同色渐变 · 左上白热高光 · 轻外发光",
+		"纯圆剪影 · 无描边 · 同色渐变 · 左上白热高光 · 无外发光",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		13,
@@ -166,10 +164,10 @@ func _draw_focus_panel(rect: Rect2, title: String, enemy: bool) -> void:
 	)
 	var swatch_colors: Array[Color]
 	if enemy:
-		swatch_colors = [Color("2b080b"), Color("981019"), Color("e62935"), Color("fff2ed")]
+		swatch_colors = [Color("e62935"), Color("f36b6f"), Color("fff2ed")]
 	else:
-		swatch_colors = [Color("111722"), Color("8099a7"), Color("dceaf2"), Color("ffffff")]
-	var swatch_labels := PackedStringArray(["暗边", "球缘", "主体", "高光"])
+		swatch_colors = [Color("dceaf2"), Color("edf7fb"), Color("ffffff")]
+	var swatch_labels := PackedStringArray(["主体", "渐变", "高光"])
 	for index in range(swatch_colors.size()):
 		var swatch_position: Vector2 = rect.position + Vector2(18.0 + float(index) * 132.0, 365.0)
 		draw_rect(Rect2(swatch_position, Vector2(28.0, 16.0)), swatch_colors[index], true)

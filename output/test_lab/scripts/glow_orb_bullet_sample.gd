@@ -1,7 +1,7 @@
 class_name TestLabGlowOrbBulletSample
 extends Node2D
 
-## Textureless glowing-orb projectile used only by the Test Lab.
+## Textureless gradient-orb projectile used only by the Test Lab.
 
 enum TeamPalette {
 	PLAYER_WHITE,
@@ -15,16 +15,10 @@ const TRAIL_SPACING: float = 7.0
 const IMPACT_DURATION: float = 0.24
 const POST_IMPACT_HOLD: float = 0.20
 
-const PLAYER_OUTLINE: Color = Color("111722")
-const PLAYER_EDGE: Color = Color("8099a7")
 const PLAYER_BODY: Color = Color("dceaf2")
 const PLAYER_HOT: Color = Color("ffffff")
-const PLAYER_GLOW: Color = Color("d8f8ff")
-const ENEMY_OUTLINE: Color = Color("2b080b")
-const ENEMY_EDGE: Color = Color("981019")
 const ENEMY_BODY: Color = Color("e62935")
 const ENEMY_HOT: Color = Color("fff2ed")
-const ENEMY_GLOW: Color = Color("ff3344")
 const HITBOX_COLOR: Color = Color(0.26, 0.96, 0.78, 0.72)
 
 var _team_palette: TeamPalette = TeamPalette.PLAYER_WHITE
@@ -117,7 +111,7 @@ func team_palette() -> int:
 
 
 func geometry_signature() -> String:
-	return "circle:r1.0:gradient10:highlight_nw"
+	return "circle:r1.0:gradient10:highlight_nw:no_outline:no_glow"
 
 
 func primary_color() -> Color:
@@ -132,8 +126,8 @@ func visual_body_extent() -> float:
 	return core_visual_extent()
 
 
-func glow_visual_extent() -> float:
-	return _hit_radius * _preview_scale * 1.48
+func external_glow_extent() -> float:
+	return 0.0
 
 
 func collision_radius() -> float:
@@ -187,16 +181,10 @@ func _draw() -> void:
 
 
 func _draw_body(center: Vector2, radius: float) -> void:
-	var glow_pulse: float = 1.0 + sin(_preview_time * 6.0) * 0.025
-	draw_circle(center, radius * 1.48 * glow_pulse, _color("glow", 0.035))
-	draw_circle(center, radius * 1.26 * glow_pulse, _color("glow", 0.065))
-	draw_circle(center, radius * 1.09 * glow_pulse, _color("glow", 0.11))
-	draw_circle(center, radius * 0.98, _color("outline", 1.0))
-	draw_circle(center, radius * 0.89, _color("edge", 1.0))
-
+	draw_circle(center, radius * 0.98, _color("body", 1.0))
 	for index in range(GRADIENT_STEP_COUNT):
 		var ratio: float = float(index) / float(GRADIENT_STEP_COUNT - 1)
-		var ring_radius: float = radius * lerpf(0.82, 0.12, ratio)
+		var ring_radius: float = radius * lerpf(0.98, 0.12, ratio)
 		var ring_center: Vector2 = center + Vector2(-0.11, -0.10) * radius * ratio
 		var ring_color: Color = _color("body", 1.0).lerp(
 			_color("hot", 1.0),
@@ -215,7 +203,6 @@ func _draw_trail(radius: float) -> void:
 		var ratio: float = float(index + 1) / float(_trail_positions.size() + 1)
 		var marker_radius: float = radius * lerpf(0.12, 0.34, ratio)
 		var marker_position: Vector2 = _trail_positions[index]
-		draw_circle(marker_position, marker_radius * 1.9, _color("glow", ratio * 0.045))
 		draw_circle(marker_position, marker_radius, _color("body", ratio * 0.30))
 		draw_circle(
 			marker_position + Vector2(-marker_radius * 0.20, -marker_radius * 0.20),
@@ -227,11 +214,6 @@ func _draw_trail(radius: float) -> void:
 func _draw_hit_effect(radius: float, progress: float) -> void:
 	var fade: float = 1.0 - progress
 	var center: Vector2 = _projectile_position
-	draw_circle(
-		center,
-		radius * lerpf(0.92, 1.52, progress),
-		_color("glow", fade * 0.16)
-	)
 	draw_arc(
 		center,
 		radius * lerpf(0.58, 2.05, progress),
@@ -269,26 +251,14 @@ func _color(role: String, alpha: float) -> Color:
 	var color: Color
 	if _team_palette == TeamPalette.ENEMY_RED:
 		match role:
-			"outline":
-				color = ENEMY_OUTLINE
-			"edge":
-				color = ENEMY_EDGE
 			"hot":
 				color = ENEMY_HOT
-			"glow":
-				color = ENEMY_GLOW
 			_:
 				color = ENEMY_BODY
 	else:
 		match role:
-			"outline":
-				color = PLAYER_OUTLINE
-			"edge":
-				color = PLAYER_EDGE
 			"hot":
 				color = PLAYER_HOT
-			"glow":
-				color = PLAYER_GLOW
 			_:
 				color = PLAYER_BODY
 	color.a *= clampf(alpha, 0.0, 1.0)

@@ -59,8 +59,8 @@ func _run_smoke() -> void:
 		"A solid orb body exceeds its displayed collision circle."
 	)
 	_expect(
-		bool(scene.call("debug_all_glows_bounded")),
-		"An orb glow is missing or extends beyond the 1.5r visual bound."
+		bool(scene.call("debug_no_external_glow")),
+		"An orb still reports an external glow extent."
 	)
 	_expect(
 		bool(scene.call("debug_enemy_is_red_dominant")),
@@ -81,7 +81,16 @@ func _run_smoke() -> void:
 
 	var sample_source: String = FileAccess.get_file_as_string(SAMPLE_SCRIPT_PATH)
 	_expect(not sample_source.is_empty(), "Glow-orb sample source could not be read.")
-	for forbidden_token in ["ShaderMaterial", "Texture2D", "GradientTexture"]:
+	for forbidden_token in [
+		"ShaderMaterial",
+		"Texture2D",
+		"GradientTexture",
+		"PLAYER_OUTLINE",
+		"ENEMY_OUTLINE",
+		"PLAYER_GLOW",
+		"ENEMY_GLOW",
+		"_color(\"glow\"",
+	]:
 		_expect(
 			not sample_source.contains(forbidden_token),
 			"Glow-orb sample must not depend on %s." % forbidden_token
@@ -131,7 +140,8 @@ func _run_smoke() -> void:
 		return
 	print(
 		"[GlowOrbBulletFocusSmoke] ALL PASS: textureless circular red/white bodies, "
-		+ "ten-step highlights, bounded glow/trails, actual r/speed, childless impacts, "
+		+ "no outline or external glow, ten-step highlights, bounded trails, actual r/speed, "
+		+ "childless impacts, "
 		+ "and clean reset."
 	)
 	quit(0)
