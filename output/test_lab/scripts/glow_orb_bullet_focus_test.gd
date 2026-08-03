@@ -10,30 +10,35 @@ func debug_gradient_pair_matches() -> bool:
 	if _focus_samples.size() != 2:
 		return false
 	return (
-		_focus_samples[0].call("gradient_segment_count")
-		== _focus_samples[1].call("gradient_segment_count")
+		_focus_samples[0].call("gradient_render_mode")
+		== _focus_samples[1].call("gradient_render_mode")
 	)
 
 
 func debug_circle_geometry_locked() -> bool:
 	if _focus_samples.size() != 2:
 		return false
-	var expected: String = "circle:r1.0:interpolated_fan96:highlight_nw:no_outline:no_glow"
+	var expected: String = "circle:r1.0:shader_sdf:highlight_nw:no_outline:no_glow"
 	return (
 		str(_focus_samples[0].call("geometry_signature")) == expected
 		and str(_focus_samples[1].call("geometry_signature")) == expected
 	)
 
 
-func debug_gradient_segment_count() -> int:
-	if _focus_samples.is_empty():
-		return 0
-	return int(_focus_samples[0].call("gradient_segment_count"))
-
-
 func debug_uses_interpolated_gradient() -> bool:
 	for sample: Node2D in _samples:
-		if str(sample.call("gradient_render_mode")) != "vertex_color_triangle_fan":
+		if str(sample.call("gradient_render_mode")) != "canvas_item_shader_sdf":
+			return false
+	return true
+
+
+func debug_all_shader_surfaces_ready() -> bool:
+	for sample: Node2D in _samples:
+		if int(sample.call("shader_surface_count")) != 1:
+			return false
+		if not bool(sample.call("uses_shader_gradient")):
+			return false
+		if str(sample.call("shader_resource_path")) != "res://shaders/gradient_orb_bullet.gdshader":
 			return false
 	return true
 
@@ -117,7 +122,7 @@ func _draw_header() -> void:
 	draw_string(
 		font,
 		Vector2(28.0, 38.0),
-		"渐变圆球子弹 / GRADIENT ORB BULLET — 极简高辨识方案",
+		"Shader 渐变圆球 / SHADER GRADIENT ORB — 极简高辨识方案",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		24,
@@ -126,7 +131,7 @@ func _draw_header() -> void:
 	draw_string(
 		font,
 		Vector2(28.0, 70.0),
-		"无贴图 · 无 Shader · 无材质切换 · 无描边 · 无外发光 · 顶点颜色连续插值",
+		"CanvasItem Shader · 圆形 SDF · 连续高光渐变 · 无贴图 / 描边 / 外发光",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		15,
@@ -163,7 +168,7 @@ func _draw_focus_panel(rect: Rect2, title: String, enemy: bool) -> void:
 	draw_string(
 		font,
 		rect.position + Vector2(18.0, 58.0),
-		"纯圆剪影 · 三角扇连续插值 · 左上白热高光 · 无描边 / 外发光",
+		"圆形 SDF · smoothstep 连续渐变 · 左上白热高光 · 无描边 / 外发光",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		13,

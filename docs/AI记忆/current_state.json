@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-08-03",
   "current_phase": "editor_tooling",
-  "current_status": "ADR #180 已建立 Godot 4.7.1 editor-only 数据配表：声明式目录统一普通 client/data JSON、全部数据 CSV 和 strings.csv，提供表格、递归属性、TSV、CRUD、Undo/Redo、双语文案、技能预览和 1–8 层全局搜索。模块 JSON/注册表/图块目录与 VFX/profile 继续由专用编辑器负责且不进入搜索；module_worlds.json 纳入普通配表。修改自动保存在 user://，项目写入经过 hash、备份、受控内容契约、独立 headless DataLoader 校验与失败回滚；release 排除插件/editor scripts。人工 UI/Excel/冲突流验收待用户执行。子弹视觉当前在 Test Lab 使用独立渐变圆球专场：敌方红球与玩家白球共享圆形轮廓，圆内通过 96 段三角扇顶点颜色插值实现从左上白热高光到圆周主体色的连续渐变，不再使用十层同心纯色圆；黑色 / 深色描边与全部外发光保持删除，正式 client 仍未修改，待用户人工视觉确认。",
+  "current_status": "ADR #180 已建立 Godot 4.7.1 editor-only 数据配表：声明式目录统一普通 client/data JSON、全部数据 CSV 和 strings.csv，提供表格、递归属性、TSV、CRUD、Undo/Redo、双语文案、技能预览和 1–8 层全局搜索。模块 JSON/注册表/图块目录与 VFX/profile 继续由专用编辑器负责且不进入搜索；module_worlds.json 纳入普通配表。修改自动保存在 user://，项目写入经过 hash、备份、受控内容契约、独立 headless DataLoader 校验与失败回滚；release 排除插件/editor scripts。人工 UI/Excel/冲突流验收待用户执行。子弹视觉当前在 Test Lab 使用独立 Shader 渐变圆球专场：敌方红球与玩家白球共享纹理无关的 CanvasItem Shader，以圆形 SDF、导数抗锯齿和 smoothstep 距离场实现左上白热高光到圆周主体色的连续渐变；黑色 / 深色描边与全部外发光保持删除，正式 client 仍未修改，待用户人工视觉确认。",
   "latest_adr": 180,
   "open_decisions": [
     "D",
@@ -10,6 +10,7 @@
     "S"
   ],
   "last_completed": [
+    "Test Lab Shader 渐变圆球：按用户要求把 96 段三角扇连续插值替换为纹理无关的 CanvasItem Shader；圆形 SDF + fwidth 负责抗锯齿边缘，smoothstep 距离场负责左上白热高光到主体色的连续过渡。每个样本固定一个 Polygon2D + ShaderMaterial，红白只换 uniform，飞行 / 命中不创建动态子节点；无描边 / 外发光及实战半径 / 速度不变。",
     "Test Lab 渐变圆球色阶修正：确认此前所谓“十级渐变”实际由十个纯色同心圆覆盖，属于错误的阶梯实现；现改为 96 段三角扇顶点颜色插值，从左上高光中心连续过渡到圆周主体色，不使用纹理、Shader 或材质。无描边 / 外发光、实战半径 / 速度、拖尾上限和命中生命周期保持不变；同步专项 smoke、截图、README 与 AI 记忆。",
     "Test Lab 渐变圆球二次收敛：按用户反馈从独立圆球专场删除黑色 / 深色描边、弹体外圈呼吸光和拖尾光晕；红白双方仍共享纯圆轮廓，只保留阵营主体色、十级径向渐变与左上白热高光，实战半径 / 速度及无子节点命中循环不变。同步专项 smoke、确定性截图、Test Lab 索引、README 与 AI 记忆；正式 client 未改。",
     "Test Lab 发光圆球子弹专场：按用户最新方向新建独立 1280×760 场景，不覆盖既有胶质与七材质实验；红白双方严格共享圆形轮廓，以深色硬边、同色十级径向渐变、左上白热高光和轻量外发光表现，底部保留玩家 r=8 / 520 px/s、敌人 r=5 / 280 px/s 的实战飞行、拖尾与命中循环。新增专项 smoke、确定性截图、Test Lab 索引与 README；正式 client、ADR、GDD、数据和契约未改。",
@@ -158,7 +159,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
-    "连续渐变圆球子弹专场待人工确认：打开 output/test_lab/scenes/glow_orb_bullet_focus_test.tscn 或查看 output/test_lab/screenshots/glow_orb_bullet_focus.png；H 切换超大弹体 / 命中，D 显示判定圆，T 切换无光晕拖尾，B 切换三档背景，Space 暂停，R 重置。人工检查三角扇顶点颜色插值是否消除同心色阶、红白圆球辨识度、左上高光位置、敌方 r=5 高速读法和拖尾是否误导判定；用户确认后再按 ADR #158、GDD §9.24 和 docs/代码/visual_effects.md 规划正式 client 接入与回归。既有泪核胶质与七材质场景保留为对照。",
+    "Shader 渐变圆球子弹专场待人工确认：打开 output/test_lab/scenes/glow_orb_bullet_focus_test.tscn 或查看 output/test_lab/screenshots/glow_orb_bullet_focus.png；H 切换超大弹体 / 命中，D 显示判定圆，T 切换无光晕拖尾，B 切换三档背景，Space 暂停，R 重置。人工检查 SDF + smoothstep 渐变的连续性、红白圆球辨识度、左上高光位置、敌方 r=5 高速读法和拖尾是否误导判定；用户确认后再按 ADR #158、GDD §9.24 和 docs/代码/visual_effects.md 规划正式 client 接入与回归。既有泪核胶质、七材质与前序程序绘制提交保留为历史对照。",
     "如果继续普通 JSON / CSV / strings.csv 配表、全局搜索或数据集目录，先读 ADR #180、docs/代码/data_table_editor.md、client/data/README.md、client/locale/README.md 和测试策略。普通来源在 Godot“数据配表”统一编辑；JSON 层级不同走右侧递归属性树。模块 JSON/注册表/图块目录与 VFX/profile 必须继续排除并使用专用编辑器，module_worlds.json 保持普通配表。新增来源必须登记为 editable / specialized / generated，否则 data-table-editor-smoke 失败。改后跑 data-table-editor-smoke、test_sync_contracts、contracts/data/schema、三档 lint、module-json-editor-smoke、headless editor/boot、docs health 和 pre-commit；Godot UI、Excel 粘贴、草稿/冲突和契约向导保持待人工验收，不运行性能 probe。",
     "如果继续 IP、世界观、心象内容、正式标题或玩家文案，先读 ADR #178 / #179、docs/IP设定.md、docs/IP美术风格.md、GDD v1.48、术语表和修改建议 S。玩家文案已迁移为清理智能、主 / 副智能碎片、心象、意识层、意识核、失序 / Disarray 与清理 / Cleared，标题页只显示 WASD；现有 locale key、character_* / hero_* / enemy_* 内部标识保持。正式标题、素材与运行时命名迁移仍需用户另行授权。不要把具体精神疾病、真实人物或群体定义成应被清理的对象，也不要解释意识层来源、AI 善恶或清理结果。",
     "所有后续任务先应用 ADR #174：凡文档或任务明确标为人工检查 / 人工验收 / 手动验收 / L5 / 真实设备 / 视觉、听觉或手感验收，只交给人工；AI 不执行、不用 GUI / 截图 / 录屏 / 模拟输入替代、不自行宣称通过。AI 完成同一任务的非人工自动化验证，为人工项整理前置条件、步骤、预期现象和已知风险，并明确标记“待人工验收”。",
@@ -195,6 +196,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-03",
+      "command": "glow-orb-bullet-focus-smoke after CanvasItem shader migration; deterministic fixed-time 1280x760 capture SHA-256 comparison; explicit scene load; Test Lab Godot 4.7.1 headless editor/boot; GDScript/project/semantic lint; JSON current_state; docs_health_check; git diff --check excluding draft/DRAFT; pre-commit run --all-files",
+      "result": "passed for the textureless CanvasItem shader gradient. Coverage confirms all four samples share the same gradient_orb_bullet.gdshader and each owns exactly one stable Polygon2D + ShaderMaterial renderer, while dynamic effect child count remains zero through flight, impact, H-mode and reset. Shader source uses a circle SDF, bounded inward-only fwidth antialiasing and smoothstep highlight/rim transitions, has no texture sampling, and preserves no outline or external glow. Smoke rejects the retired concentric-band and draw_primitive triangle-fan paths; player r=8 / 520 px/s, enemy r=5 / 280 px/s, body collision bounds and bounded trails remain unchanged. The updated fixed 2.16-second 1280x760 capture reproduces a byte-identical SHA-256 hash on consecutive runs. Factual review found and fixed the initial derivative antialias band becoming too wide at enemy r=5 and extending outside the collision body; the final shader caps normalized edge width at 0.03 (about 0.3 pixels for r=5) and fades inward only. No remaining P0/P1/P2 issue or semantic advisory remains. Formal client and existing comparison scenes are unchanged, so no formal client regression, performance probe or golden replay ran. Per ADR #174, AI did not perform visual acceptance; shader gradient smoothness, highlight placement, high-speed readability and trail/collision interpretation remain pending user confirmation."
+    },
     {
       "date": "2026-08-03",
       "command": "glow-orb-bullet-focus-smoke after continuous-gradient correction; deterministic fixed-time 1280x760 capture SHA-256 comparison; explicit scene load; Test Lab Godot 4.7.1 headless editor/boot; GDScript/project/semantic lint; JSON current_state; docs_health_check; git diff --check excluding draft/DRAFT; pre-commit run --all-files",

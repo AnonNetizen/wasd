@@ -2,6 +2,7 @@ extends SceneTree
 
 const SCENE_PATH: String = "res://scenes/glow_orb_bullet_focus_test.tscn"
 const SAMPLE_SCRIPT_PATH: String = "res://scripts/glow_orb_bullet_sample.gd"
+const SHADER_PATH: String = "res://shaders/gradient_orb_bullet.gdshader"
 const EXPECTED_SAMPLE_COUNT: int = 4
 
 var _failed: bool = false
@@ -44,15 +45,15 @@ func _run_smoke() -> void:
 	)
 	_expect(
 		bool(scene.call("debug_gradient_pair_matches")),
-		"Red and white studies must use the same interpolation segment count."
-	)
-	_expect(
-		int(scene.call("debug_gradient_segment_count")) == 96,
-		"Orb gradient must use the locked 96-segment interpolation fan."
+		"Red and white studies must use the same gradient render mode."
 	)
 	_expect(
 		bool(scene.call("debug_uses_interpolated_gradient")),
-		"Orb body must use vertex-color interpolation rather than color bands."
+		"Orb body must use the CanvasItem shader gradient rather than color bands."
+	)
+	_expect(
+		bool(scene.call("debug_all_shader_surfaces_ready")),
+		"Every sample must own exactly one persistent shader body surface."
 	)
 	_expect(
 		float(scene.call("debug_focus_visual_diameter")) >= 280.0,
@@ -86,7 +87,6 @@ func _run_smoke() -> void:
 	var sample_source: String = FileAccess.get_file_as_string(SAMPLE_SCRIPT_PATH)
 	_expect(not sample_source.is_empty(), "Glow-orb sample source could not be read.")
 	for forbidden_token in [
-		"ShaderMaterial",
 		"Texture2D",
 		"GradientTexture",
 		"PLAYER_OUTLINE",
@@ -95,15 +95,33 @@ func _run_smoke() -> void:
 		"ENEMY_GLOW",
 		"_color(\"glow\"",
 		"GRADIENT_STEP_COUNT",
+		"GRADIENT_SEGMENT_COUNT",
 		"ring_radius",
+		"draw_primitive(",
 	]:
 		_expect(
 			not sample_source.contains(forbidden_token),
 			"Glow-orb sample must not depend on %s." % forbidden_token
 		)
+	_expect(sample_source.contains("ShaderMaterial"), "Orb sample must bind a ShaderMaterial.")
+
+	var shader_source: String = FileAccess.get_file_as_string(SHADER_PATH)
+	_expect(not shader_source.is_empty(), "Gradient-orb shader source could not be read.")
+	for required_token in [
+		"shader_type canvas_item",
+		"smoothstep",
+		"clamp(fwidth",
+		"highlight_center",
+		"circle_alpha",
+	]:
+		_expect(
+			shader_source.contains(required_token),
+			"Gradient-orb shader is missing required token: %s." % required_token
+		)
+	_expect(not shader_source.contains("texture("), "Gradient-orb shader must remain textureless.")
 	_expect(
-		sample_source.contains("draw_primitive("),
-		"Orb sample must render its continuous gradient with interpolated primitives."
+		not shader_source.contains("circle_radius + edge_width"),
+		"Shader antialiasing must soften inward without extending beyond the collision body."
 	)
 
 	scene.call("debug_set_preview_time", 0.62)
@@ -150,7 +168,8 @@ func _run_smoke() -> void:
 		return
 	print(
 		"[GlowOrbBulletFocusSmoke] ALL PASS: textureless circular red/white bodies, "
-		+ "no outline or external glow, vertex-interpolated gradients, bounded trails, actual r/speed, "
+		+ "one stable ShaderMaterial surface each, SDF gradients, no outline/external glow, "
+		+ "bounded trails, actual r/speed, "
 		+ "childless impacts, "
 		+ "and clean reset."
 	)

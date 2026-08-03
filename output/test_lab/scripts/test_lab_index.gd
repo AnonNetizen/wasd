@@ -42,7 +42,7 @@ const EXTRA_TEST_SCENES := [
 	},
 	{
 		"button_name": "GlowOrbBulletFocusButton",
-		"label": "Gradient Orb Bullet Focus Test",
+		"label": "Shader Gradient Orb Bullet Focus Test",
 		"scene_path": "res://scenes/glow_orb_bullet_focus_test.tscn",
 		"featured": true,
 	},

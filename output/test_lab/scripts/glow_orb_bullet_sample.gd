@@ -3,13 +3,14 @@ extends Node2D
 
 ## Textureless gradient-orb projectile used only by the Test Lab.
 
+const BODY_SHADER := preload("res://shaders/gradient_orb_bullet.gdshader")
+
 enum TeamPalette {
 	PLAYER_WHITE,
 	ENEMY_RED,
 }
 
 const TEAM_COUNT: int = 2
-const GRADIENT_SEGMENT_COUNT: int = 96
 const MAX_TRAIL_SAMPLES: int = 6
 const TRAIL_SPACING: float = 7.0
 const IMPACT_DURATION: float = 0.24
@@ -34,6 +35,31 @@ var _preview_time: float = 0.0
 var _projectile_position: Vector2 = Vector2.ZERO
 var _impact_progress: float = -1.0
 var _trail_positions: Array[Vector2] = []
+var _body_surface: Polygon2D
+var _body_material: ShaderMaterial
+
+
+func _ready() -> void:
+	_body_surface = Polygon2D.new()
+	_body_surface.name = "ShaderBody"
+	_body_surface.polygon = PackedVector2Array([
+		Vector2(-1.0, -1.0),
+		Vector2(1.0, -1.0),
+		Vector2(1.0, 1.0),
+		Vector2(-1.0, 1.0),
+	])
+	_body_surface.uv = PackedVector2Array([
+		Vector2(0.0, 0.0),
+		Vector2(1.0, 0.0),
+		Vector2(1.0, 1.0),
+		Vector2(0.0, 1.0),
+	])
+	_body_material = ShaderMaterial.new()
+	_body_material.shader = BODY_SHADER
+	_body_surface.material = _body_material
+	add_child(_body_surface)
+	_sync_shader_colors()
+	_sync_body_surface()
 
 
 func configure(
@@ -51,6 +77,7 @@ func configure(
 	_lane_length = maxf(lane_length, 0.0)
 	_phase_offset = phase_offset
 	_is_moving = _speed > 0.0 and _lane_length > 0.0
+	_sync_shader_colors()
 	reset_preview()
 
 
@@ -60,6 +87,7 @@ func set_preview_time(value: float) -> void:
 		_projectile_position = Vector2.ZERO
 		_impact_progress = -1.0
 		_trail_positions.clear()
+		_sync_body_surface()
 		queue_redraw()
 		return
 
@@ -78,6 +106,7 @@ func set_preview_time(value: float) -> void:
 		_projectile_position = Vector2(_lane_length, 0.0)
 		_impact_progress = 2.0
 		_trail_positions.clear()
+	_sync_body_surface()
 	queue_redraw()
 
 
@@ -86,6 +115,7 @@ func reset_preview() -> void:
 	_projectile_position = Vector2.ZERO
 	_impact_progress = -1.0
 	_trail_positions.clear()
+	_sync_body_surface()
 	queue_redraw()
 
 
@@ -103,6 +133,7 @@ func debug_force_impact(progress: float) -> void:
 	_projectile_position = Vector2(_lane_length, 0.0)
 	_impact_progress = clampf(progress, 0.0, 1.0)
 	_trail_positions.clear()
+	_sync_body_surface()
 	queue_redraw()
 
 
@@ -111,11 +142,11 @@ func team_palette() -> int:
 
 
 func geometry_signature() -> String:
-	return "circle:r1.0:interpolated_fan96:highlight_nw:no_outline:no_glow"
+	return "circle:r1.0:shader_sdf:highlight_nw:no_outline:no_glow"
 
 
 func gradient_render_mode() -> String:
-	return "vertex_color_triangle_fan"
+	return "canvas_item_shader_sdf"
 
 
 func primary_color() -> Color:
@@ -146,16 +177,31 @@ func preview_speed() -> float:
 	return _speed
 
 
-func gradient_segment_count() -> int:
-	return GRADIENT_SEGMENT_COUNT
-
-
 func trail_sample_count() -> int:
 	return _trail_positions.size()
 
 
 func effect_child_count() -> int:
-	return get_child_count()
+	var persistent_renderer_count: int = 1 if is_instance_valid(_body_surface) else 0
+	return maxi(get_child_count() - persistent_renderer_count, 0)
+
+
+func shader_surface_count() -> int:
+	return 1 if is_instance_valid(_body_surface) else 0
+
+
+func uses_shader_gradient() -> bool:
+	return (
+		is_instance_valid(_body_surface)
+		and _body_material != null
+		and _body_material.shader == BODY_SHADER
+	)
+
+
+func shader_resource_path() -> String:
+	if _body_material == null or _body_material.shader == null:
+		return ""
+	return _body_material.shader.resource_path
 
 
 func is_impact_active() -> bool:
@@ -180,26 +226,6 @@ func _draw() -> void:
 	if _impact_progress >= 0.0:
 		if _impact_progress <= 1.0:
 			_draw_hit_effect(radius, _impact_progress)
-		return
-	_draw_body(_projectile_position, radius)
-
-
-func _draw_body(center: Vector2, radius: float) -> void:
-	var body_radius: float = radius * 0.98
-	var highlight_origin: Vector2 = center + Vector2(-0.24, -0.22) * radius
-	var hot_color: Color = _color("hot", 1.0)
-	var body_color: Color = _color("body", 1.0)
-	draw_circle(center, body_radius, body_color, true, -1.0, true)
-	for segment_index in range(GRADIENT_SEGMENT_COUNT):
-		var start_angle: float = TAU * float(segment_index) / float(GRADIENT_SEGMENT_COUNT)
-		var end_angle: float = TAU * float(segment_index + 1) / float(GRADIENT_SEGMENT_COUNT)
-		var start_point: Vector2 = center + Vector2.from_angle(start_angle) * body_radius
-		var end_point: Vector2 = center + Vector2.from_angle(end_angle) * body_radius
-		draw_primitive(
-			PackedVector2Array([highlight_origin, start_point, end_point]),
-			PackedColorArray([hot_color, body_color, body_color]),
-			PackedVector2Array()
-		)
 
 
 func _draw_trail(radius: float) -> void:
@@ -249,6 +275,22 @@ func _rebuild_trail(travel_time: float) -> void:
 		_trail_positions.append(
 			_projectile_position - Vector2(TRAIL_SPACING * float(sample_index), 0.0)
 		)
+
+
+func _sync_body_surface() -> void:
+	if not is_instance_valid(_body_surface):
+		return
+	var radius: float = _hit_radius * _preview_scale
+	_body_surface.position = _projectile_position
+	_body_surface.scale = Vector2.ONE * radius
+	_body_surface.visible = _impact_progress < 0.0
+
+
+func _sync_shader_colors() -> void:
+	if _body_material == null:
+		return
+	_body_material.set_shader_parameter("body_color", _color("body", 1.0))
+	_body_material.set_shader_parameter("highlight_color", _color("hot", 1.0))
 
 
 func _color(role: String, alpha: float) -> Color:
