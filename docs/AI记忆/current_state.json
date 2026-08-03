@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-08-03",
   "current_phase": "editor_tooling",
-  "current_status": "ADR #180 已建立 Godot 4.7.1 editor-only 数据配表：声明式目录统一普通 client/data JSON、全部数据 CSV 和 strings.csv，提供表格、递归属性、TSV、CRUD、Undo/Redo、双语文案、技能预览和 1–8 层全局搜索。模块 JSON/注册表/图块目录与 VFX/profile 继续由专用编辑器负责且不进入搜索；module_worlds.json 纳入普通配表。修改自动保存在 user://，项目写入经过 hash、备份、受控内容契约、独立 headless DataLoader 校验与失败回滚；release 排除插件/editor scripts。人工 UI/Excel/冲突流验收待用户执行。Test Lab 已新增六种胶质子弹红白同形动态选型墙，未修改正式 client，辨识度、胶质感、判定误导与十字符号混淆待用户人工选型。",
+  "current_status": "ADR #180 已建立 Godot 4.7.1 editor-only 数据配表：声明式目录统一普通 client/data JSON、全部数据 CSV 和 strings.csv，提供表格、递归属性、TSV、CRUD、Undo/Redo、双语文案、技能预览和 1–8 层全局搜索。模块 JSON/注册表/图块目录与 VFX/profile 继续由专用编辑器负责且不进入搜索；module_worlds.json 纳入普通配表。修改自动保存在 user://，项目写入经过 hash、备份、受控内容契约、独立 headless DataLoader 校验与失败回滚；release 排除插件/editor scripts。人工 UI/Excel/冲突流验收待用户执行。子弹视觉已由用户选定 01 泪核胶珠，Test Lab 已新增红白超大材质与动态专用场景；正式 client 仍未修改，最终材质层次、轮廓和高速读法待用户人工确认。",
   "latest_adr": 180,
   "open_decisions": [
     "D",
@@ -10,6 +10,7 @@
     "S"
   ],
   "last_completed": [
+    "Test Lab 泪核胶珠专用放大场景：用户从六种候选中选定 01 泪核胶珠；新增红白同等尺寸、直径超过 270 px 的超大弹体特写，四层配色标识、H 键超大命中预览，以及玩家 r=8 / 520 px/s 与敌人 r=5 / 280 px/s 的底部实战飞行。新增专用 smoke、确定性截图、Test Lab 索引与 README；正式 client、ADR、GDD、数据与契约未改。",
     "Test Lab 胶质子弹视觉选型墙：在 1280×760 的 3×2 布局中新增泪核胶珠、十字胶籽、缺口胶环、圆头胶囊、三瓣胶冠、棱面胶矢六种候选；每种同时展示完全同形的敌方红弹与玩家白弹，含 4× 静态特写、1× 实战尺寸飞行、有界拖尾和无子节点命中动画。新增确定性 1280×760 截图、专用 smoke、Test Lab 索引与 README；正式 client、ADR、GDD、数据和契约未改。",
     "ADR #180 / Godot 数据配表：新增中文中央主界面、声明式数据集目录、普通 JSON/全部数据 CSV/strings.csv 一站式编辑、顶层表格与递归属性树、TSV、CRUD、Undo/Redo、双语文案联动、SkillDescriptionFormatter 预览和 1–8 层内存全局搜索；模块与 VFX 专用来源完全排除。草稿只写 user://data_table_editor，事务保存使用源 hash、全文件备份、确定性 JSON/CSV、受控内容契约登记、共享 ProjectDataValidationBridge、独立 headless DataLoader 校验和失败回滚；新增目录覆盖/编辑/搜索/事务/契约 smoke，release 排除插件与 editor-only 脚本。",
     "ADR #179 / 集体无意识玩家文案迁移：正式客户端统一使用清理智能、主 / 副智能碎片、心象、意识层与意识核；AI 的行动目标为清理集体无意识，单层目标为清理意识核后撤离但不解释清理结果。威胁九级改为失序 / Disarray，击败统计显示清理 / Cleared，标题页只显示 WASD 并隐藏副标题；标准生存、五只心象个体名、世界事件、七元素占位名和开发者测试岛内部文案保留。locale key、character_* / ui_hero_* / hero_* / enemy_* 内部标识、数据引用、schema、Meta v2、Run v11、Replay v3 和游戏 v1.10 均不变。",
@@ -153,7 +154,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
-    "子弹视觉选型待用户人工确认：打开 output/test_lab/scenes/bullet_vfx_selection_test.tscn 或查看 output/test_lab/screenshots/bullet_vfx_selection.png，在 01 泪核胶珠、02 十字胶籽、03 缺口胶环、04 圆头胶囊、05 三瓣胶冠、06 棱面胶矢中选择。实验仅在 output/test_lab，正式 client 子弹 / VFX 未改；选定后再按 ADR #158、GDD §9.24 和 docs/代码/visual_effects.md 建立正式接入与回归。人工检查红白辨识、1× 高速读法、拖尾判定误导和十字治疗符号混淆。",
+    "泪核胶珠已由用户选定，专用放大场景待最终人工确认：打开 output/test_lab/scenes/tear_core_bullet_focus_test.tscn 或查看 output/test_lab/screenshots/tear_core_bullet_focus.png，使用 H 在超大弹体 / 命中效果之间切换，D 显示判定圆，T 切换拖尾，B 切换三档背景。人工检查反边 / 胶体 / 内馅 / 高光层次、红白区分、1× 高速读法和拖尾判定误导；确认后再按 ADR #158、GDD §9.24 和 docs/代码/visual_effects.md 建立正式 client 接入与回归。",
     "如果继续普通 JSON / CSV / strings.csv 配表、全局搜索或数据集目录，先读 ADR #180、docs/代码/data_table_editor.md、client/data/README.md、client/locale/README.md 和测试策略。普通来源在 Godot“数据配表”统一编辑；JSON 层级不同走右侧递归属性树。模块 JSON/注册表/图块目录与 VFX/profile 必须继续排除并使用专用编辑器，module_worlds.json 保持普通配表。新增来源必须登记为 editable / specialized / generated，否则 data-table-editor-smoke 失败。改后跑 data-table-editor-smoke、test_sync_contracts、contracts/data/schema、三档 lint、module-json-editor-smoke、headless editor/boot、docs health 和 pre-commit；Godot UI、Excel 粘贴、草稿/冲突和契约向导保持待人工验收，不运行性能 probe。",
     "如果继续 IP、世界观、心象内容、正式标题或玩家文案，先读 ADR #178 / #179、docs/IP设定.md、docs/IP美术风格.md、GDD v1.48、术语表和修改建议 S。玩家文案已迁移为清理智能、主 / 副智能碎片、心象、意识层、意识核、失序 / Disarray 与清理 / Cleared，标题页只显示 WASD；现有 locale key、character_* / hero_* / enemy_* 内部标识保持。正式标题、素材与运行时命名迁移仍需用户另行授权。不要把具体精神疾病、真实人物或群体定义成应被清理的对象，也不要解释意识层来源、AI 善恶或清理结果。",
     "所有后续任务先应用 ADR #174：凡文档或任务明确标为人工检查 / 人工验收 / 手动验收 / L5 / 真实设备 / 视觉、听觉或手感验收，只交给人工；AI 不执行、不用 GUI / 截图 / 录屏 / 模拟输入替代、不自行宣称通过。AI 完成同一任务的非人工自动化验证，为人工项整理前置条件、步骤、预期现象和已知风险，并明确标记“待人工验收”。",
@@ -190,6 +191,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-03",
+      "command": "tear-core-bullet-focus-smoke; deterministic focus-scene generator SHA-256 comparison; deterministic fixed-time 1280x760 capture SHA-256 comparison; explicit focus scene load; Test Lab Godot 4.7.1 headless editor/boot; GDScript/project/semantic lint; JSON current_state; docs_health_check; git diff --check excluding draft/DRAFT; pre-commit run --all-files",
+      "result": "passed for the selected tear-core bullet dedicated focus scene. Coverage confirms two same-geometry oversized white/red body studies with a visual diameter above 270 px, actual player r=8 / 520 px/s and enemy r=5 / 280 px/s flight previews, transformed silhouettes within displayed collision circles, bounded trails, impact/reset trail clearing, childless body/impact rendering, H-mode focus switching and stable sample counts. The lightweight scene generator and fixed 2.16-second 1280x760 capture reproduce byte-identical SHA-256 hashes on consecutive runs. Factual review found no remaining P0/P1/P2 issue or semantic advisory; one unused read-only diagnostic getter was removed before final validation. Formal client, gameplay, data, contracts, ADR, GDD, save/replay and gameplay RNG are unchanged, so no formal client regression, performance probe or golden replay ran. Per ADR #174, AI did not perform visual acceptance; material layering, silhouette readability, high-speed readability, white/red distinction and trail/collision interpretation remain pending user confirmation."
+    },
     {
       "date": "2026-08-03",
       "command": "bullet-vfx-selection-smoke; deterministic scene-generator SHA-256 comparison; deterministic 1280x760 capture SHA-256 comparison; explicit bullet scene load; Test Lab Godot 4.7.1 headless editor/boot; GDScript/project/semantic lint; JSON current_state; docs_health_check; git diff --check excluding draft/DRAFT; pre-commit run --all-files",

@@ -161,6 +161,14 @@ func collision_radius() -> float:
 	return _hit_radius * _preview_scale
 
 
+func configured_hit_radius() -> float:
+	return _hit_radius
+
+
+func preview_speed() -> float:
+	return _speed
+
+
 func trail_sample_count() -> int:
 	return _trail_positions.size()
 
