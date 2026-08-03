@@ -129,6 +129,10 @@ def main() -> int:
         help="Run isolated Module JSON document editing regressions in headless Godot.",
     )
     subparsers.add_parser(
+        "data-table-editor-smoke",
+        help="Run isolated data-table catalog, search, editing, and transaction regressions.",
+    )
+    subparsers.add_parser(
         "actor-scene-smoke",
         help="Validate inherited character/enemy scenes and dedicated enemy pools.",
     )
@@ -201,6 +205,22 @@ def main() -> int:
                 str(project),
                 "--script",
                 "res://addons/module_authoring/module_json_document_self_test.gd",
+            ],
+            cwd=project,
+            failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),
+        )
+    if args.command == "data-table-editor-smoke":
+        if not (project / "project.godot").exists():
+            print(f"[godot-bridge] invalid Godot project: {_rel(project)}")
+            return 1
+        return _run_command(
+            [
+                str(godot),
+                "--headless",
+                "--path",
+                str(project),
+                "--script",
+                "res://addons/data_table_editor/data_table_editor_self_test.gd",
             ],
             cwd=project,
             failure_markers=("SCRIPT ERROR:", "Parse Error:", "Failed to load script"),

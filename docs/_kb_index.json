@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_at": "2026-07-30",
+  "updated_at": "2026-08-03",
   "description": "Machine-readable AI knowledge base index for the wasd project.",
   "documents": [
     {
@@ -1150,6 +1150,20 @@
       "related_code": ["client/data/modules/", "client/data/module_templates.json", "client/data/module_tile_catalog.json", "client/scripts/editor/", "client/addons/module_authoring/", "client/addons/module_authoring/module_json_document_self_test.gd", "client/scenes/generated/modules/", "client/resources/modules/module_placeholder_tileset.tres", "client/tools/module_bake_cli.gd", "client/tools/module_bake_smoke.gd", "tools/godot_bridge.py"],
       "update_triggers": ["module JSON schema changes", "main screen workflow changes", "tile catalog changes", "generated scene structure changes", "approval gate changes", "module bake CLI changes", "release exclusion changes"],
       "keywords": ["ModuleSceneBaker", "Module JSON Editor", "schema v4", "module_place_world_event", "world_event_id", "module_flat_ground", "no enemy spawn placement", "main screen", "visual_layers", "tile_id", "TileMapLayer", "generated TSCN", "Save", "Validate", "Bake", "Approve", "module-bake", "candidate", "approved_gameplay_hash", "no TSCN to JSON"]
+    },
+    {
+      "path": "docs/代码/data_table_editor.md",
+      "type": "module_doc",
+      "authority": "ADR #180 editor-only ordinary JSON, all data CSV and strings.csv editing, global search, user draft, validated transaction, and controlled content-contract registration contract",
+      "status": "active",
+      "owner_scope": "code-docs",
+      "last_reviewed": "2026-08-03",
+      "canonical_for": ["data_table_editor", "data_table_catalog", "data_search_index", "data_table_drafts", "data_table_transaction", "controlled_contract_registration", "project_data_validation_bridge"],
+      "must_read_for": ["data_table_editor_change", "data_source_addition", "global_data_search_change", "editor_draft_change", "data_save_transaction_change", "content_contract_registration_change"],
+      "related_docs": ["docs/决策记录.md", "docs/测试策略.md", "docs/代码/module_authoring_pipeline.md", "docs/代码/visual_effects.md", "client/data/README.md", "client/locale/README.md", "docs/AI导航.md"],
+      "related_code": ["client/addons/data_table_editor/", "client/scripts/editor/data_table_catalog.gd", "client/scripts/editor/data_table_document.gd", "client/scripts/editor/data_search_index.gd", "client/scripts/editor/data_table_transaction.gd", "client/scripts/editor/data_table_contract_bridge.gd", "client/scripts/editor/project_data_validation_bridge.gd", "tools/sync_contracts.py", "tools/test_sync_contracts.py", "tools/godot_bridge.py"],
+      "update_triggers": ["editable data source changes", "data catalog schema changes", "global search behavior changes", "draft or conflict behavior changes", "transaction validation changes", "contract registration allowlist changes", "release exclusion changes"],
+      "keywords": ["数据配表", "DataTableEditor", "DataSearchIndex", "JSON", "CSV", "strings.csv", "全局搜索", "TSV", "Excel paste", "Undo", "Redo", "user draft", "transaction rollback", "contract register", "ADR #180"]
     },
     {
       "path": "docs/代码/debug_tools.md",

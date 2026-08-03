@@ -14,6 +14,12 @@
 - 当前首批只维护简体中文 `zh_CN` 与英文 `en` 两种语言；新增语言另行决策。
 - AI 负责为缺失的 `zh_CN` 或 `en` 自动生成首版译文，人工负责最终审校和润色。
 
+## Godot 数据配表入口
+
+Godot 中央主界面的“数据配表”把 `strings.csv` 作为完整可编辑数据集，并在带 `name_key` / `desc_key` 的普通 JSON/CSV 记录右侧直接显示中文与英文输入框。修改技能描述时，同一区域复用 `SkillDescriptionFormatter` 按真实技能参数和默认能力倍率解析占位符，避免译文数值与配置脱节。
+
+全局搜索会索引 `strings.csv` 的 key、中文和英文，也会把关联译文并入普通内容记录的搜索上下文；模块制作数据和 VFX/profile 不进入该索引。未保存译文进入 `user://data_table_editor/` 草稿，只有与数据一起通过 hash 检查和 `DataLoader.validate_project_data()` 后才写入项目。直接编辑 CSV 仍受本手册全部格式、双语和占位符规则约束；详细流程见 `docs/代码/data_table_editor.md` 与 ADR #180。
+
 ## 快速上手
 
 | 你想做什么 | 怎么做 |

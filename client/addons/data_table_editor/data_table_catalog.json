@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "dataset_defaults": {
+    "default_template_mode": "first_record",
+    "field_type_mode": "infer_from_value",
+    "reference_validation": "data_loader_and_search_index"
+  },
+  "datasets": [
+    {"id":"active_items","label":"主动道具","group":"内容","path":"res://data/active_items.json","format":"json","sections":[{"path":"active_items","primary_keys":["id"]}]},
+    {"id":"ammo_rules","label":"弹药规则","group":"战斗","path":"res://data/ammo_rules.json","format":"json"},
+    {"id":"camera_feedback","label":"相机反馈","group":"表现","path":"res://data/camera_feedback.json","format":"json"},
+    {"id":"characters","label":"智能碎片","group":"内容","path":"res://data/characters.json","format":"json","sections":[{"path":"characters","primary_keys":["id"],"contract_key":"character_ids"}],"locale_fields":["name_key","desc_key"]},
+    {"id":"consumables","label":"消耗品","group":"内容","path":"res://data/consumables.json","format":"json","sections":[{"path":"consumables","primary_keys":["id"]}],"locale_fields":["name_key","desc_key"]},
+    {"id":"credits","label":"致谢","group":"文本","path":"res://data/credits.json","format":"json","sections":[{"path":"sections","primary_keys":["id"]}]},
+    {"id":"difficulty_profiles","label":"难度配置","group":"玩法","path":"res://data/difficulty_profiles.json","format":"json","sections":[{"path":"profiles","primary_keys":["id"]}]},
+    {"id":"elements","label":"战斗元素","group":"战斗","path":"res://data/elements.json","format":"json","sections":[{"path":"elements","primary_keys":["id"]},{"path":"combinations","primary_keys":["left","right"]}],"locale_fields":["name_key"]},
+    {"id":"enemy_ai_profiles","label":"敌人 AI","group":"敌人","path":"res://data/enemy_ai_profiles.json","format":"json","sections":[{"path":"profiles","primary_keys":["id"]}]},
+    {"id":"enemy_rewards","label":"敌人金币公式","group":"经济","path":"res://data/enemy_rewards.json","format":"json"},
+    {"id":"game_modes","label":"游戏模式","group":"玩法","path":"res://data/game_modes.json","format":"json","sections":[{"path":"modes","primary_keys":["id"],"contract_key":"game_modes"}],"locale_fields":["name_key","desc_key"]},
+    {"id":"gear_mods","label":"装备 Mod","group":"内容","path":"res://data/gear_mods.json","format":"json","sections":[{"path":"mods","primary_keys":["id"],"contract_key":"gear_mod_ids"}],"locale_fields":["name_key","desc_key"]},
+    {"id":"hero_passives","label":"智能碎片被动","group":"内容","path":"res://data/hero_passives.json","format":"json","sections":[{"path":"passives","primary_keys":["id"],"contract_key":"hero_passive_ids"}],"locale_fields":["name_key","desc_key"]},
+    {"id":"level_progression","label":"金币等级曲线","group":"经济","path":"res://data/level_progression.json","format":"json"},
+    {"id":"map_layouts","label":"开放战区地图","group":"玩法","path":"res://data/map_layouts.json","format":"json","sections":[{"path":"layouts","primary_keys":["id"]}]},
+    {"id":"module_worlds","label":"模块世界","group":"玩法","path":"res://data/module_worlds.json","format":"json","sections":[{"path":"worlds","primary_keys":["id"]}]},
+    {"id":"player","label":"玩家基础属性","group":"战斗","path":"res://data/player.json","format":"json"},
+    {"id":"relics","label":"遗物","group":"内容","path":"res://data/relics.json","format":"json","sections":[{"path":"relics","primary_keys":["id"]}],"locale_fields":["name_key","desc_key"]},
+    {"id":"reward_choice_pools","label":"奖励选择池","group":"经济","path":"res://data/reward_choice_pools.json","format":"json","sections":[{"path":"pools","primary_keys":["id"]}]},
+    {"id":"skills","label":"技能","group":"战斗","path":"res://data/skills.json","format":"json","sections":[{"path":"skills","primary_keys":["id"],"contract_key":"skill_ids"}],"locale_fields":["name_key","desc_key"],"preview":"skill","field_rules":[{"path":"cooldown","type":"number","min":0.0},{"path":"costs[].amount","type":"number","min":0.0},{"path":"targeting.radius","type":"number","min":0.0},{"path":"targeting.max_targets","type":"number","min":0.0}],"references":[{"path":"costs[].resource","target":"contract:skill_resources"},{"path":"targeting.type","target":"contract:skill_targeting"},{"path":"effects[].effect","target":"contract:skill_effects"},{"path":"name_key","target":"locale:keys"},{"path":"desc_key","target":"locale:keys"}]},
+    {"id":"warzone_directors","label":"战区导演","group":"玩法","path":"res://data/warzone_directors.json","format":"json","sections":[{"path":"directors","primary_keys":["id"]}]},
+    {"id":"weapons","label":"武器","group":"战斗","path":"res://data/weapons.json","format":"json","sections":[{"path":"weapons","primary_keys":["id"]}],"locale_fields":["name_key","desc_key"]},
+    {"id":"world_events","label":"世界事件","group":"玩法","path":"res://data/world_events.json","format":"json","sections":[{"path":"mod_pools","primary_keys":["id"]},{"path":"events","primary_keys":["id"],"contract_key":"world_event_ids"}],"locale_fields":["name_key","desc_key"]},
+
+    {"id":"enemies","label":"敌人","group":"敌人","path":"res://data/enemies.csv","format":"csv","primary_keys":["id"],"locale_fields":["name_key"]},
+    {"id":"gear_mod_drop_tables","label":"装备 Mod 掉落","group":"经济","path":"res://data/gear_mod_drop_tables.csv","format":"csv","primary_keys":["source_enemy_id","mod_id","min_enemy_level","max_enemy_level"]},
+    {"id":"gear_mod_fusion_costs","label":"装备 Mod 升级成本","group":"经济","path":"res://data/gear_mod_fusion_costs.csv","format":"csv","primary_keys":["rarity","rank"]},
+    {"id":"hazards","label":"机关","group":"玩法","path":"res://data/hazards.csv","format":"csv","primary_keys":["id"],"locale_fields":["name_key"]},
+    {"id":"spawn_waves","label":"开放战区波次","group":"敌人","path":"res://data/spawn_waves.csv","format":"csv","primary_keys":["id"]},
+    {"id":"locale_strings","label":"全部文案","group":"文本","path":"res://locale/strings.csv","format":"csv","primary_keys":["keys"]}
+  ],
+  "excluded_sources": [
+    {"path":"res://data/_contracts.json","owner":"generated"},
+    {"path":"res://data/module_templates.json","owner":"Module JSON"},
+    {"path":"res://data/module_tile_catalog.json","owner":"Module JSON"},
+    {"path":"res://data/modules/*.json","owner":"Module JSON"},
+    {"path":"res://data/visual_effects.json","owner":"VFX 效果库"},
+    {"path":"res://data/presentation_profiles.json","owner":"VFX 效果库"}
+  ]
+}

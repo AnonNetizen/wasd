@@ -37,6 +37,10 @@ DIRECT_PAUSE_ALLOWED = {
 # Chinese labels. Keep this path allowlist narrow so runtime/player UI remains
 # subject to the locale-key rule.
 HARDCODED_CHINESE_ALLOWED = {
+    "client/addons/data_table_editor/data_table_editor_main_screen.gd",
+    "client/addons/data_table_editor/data_table_editor_plugin.gd",
+    "client/addons/data_table_editor/data_table_editor_self_test.gd",
+    "client/addons/data_table_editor/data_table_property_editor.gd",
     "client/addons/module_authoring/module_authoring_main_screen.gd",
     "client/addons/module_authoring/module_json_document_self_test.gd",
     "client/addons/vfx_library/vfx_catalog_store.gd",
@@ -46,6 +50,8 @@ HARDCODED_CHINESE_ALLOWED = {
     "client/addons/vfx_library/vfx_preview_stage.gd",
     "client/addons/vfx_library/vfx_template_factory.gd",
     "client/scripts/editor/module_scene_baker.gd",
+    "client/scripts/editor/data_table_contract_bridge.gd",
+    "client/scripts/editor/data_table_document.gd",
 }
 
 

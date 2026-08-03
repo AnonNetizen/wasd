@@ -3,7 +3,7 @@
 > **AI 修改说明**：修改本文档前先读 `docs/AI协作/文档维护指南.md`。
 > 本文档记录正式 `client/` 项目内固定版本 Godot 插件的来源、许可、本地补丁与升级流程；变更插件版本或维护策略时同步 `client/README.md`、`CREDITS.md`、`docs/决策记录.md` 与 AI 记忆。
 
-外部插件作为项目共享开发依赖直接入库并在 `project.godot` 中启用。插件不会自动更新；仓库内版本属于项目维护型 fork，修改时遵守项目 GDScript lint 与验证规则，同时保留上游版权与许可证。项目自有的 `module_authoring` 与 `vfx_library` 也是编辑器插件，但不是第三方依赖，不注册 autoload，release 导出排除；契约分别见 `docs/代码/module_authoring_pipeline.md`、`docs/代码/visual_effects.md`。
+外部插件作为项目共享开发依赖直接入库并在 `project.godot` 中启用。插件不会自动更新；仓库内版本属于项目维护型 fork，修改时遵守项目 GDScript lint 与验证规则，同时保留上游版权与许可证。项目自有的 `data_table_editor`、`module_authoring` 与 `vfx_library` 也是编辑器插件，但不是第三方依赖，不注册 autoload，release 导出排除；契约分别见 `docs/代码/data_table_editor.md`、`docs/代码/module_authoring_pipeline.md`、`docs/代码/visual_effects.md`。
 
 Phantom Camera 的源码架构、公共契约、本项目 2D 接入和故障排查见 `docs/代码/phantom_camera.md`；GUIDE 的插件内部架构与项目输入边界分别见 `docs/代码/guide.md`、`docs/代码/input_service.md`。本文件继续作为所有插件版本、发布包哈希、许可和升级清单的权威。
 
@@ -25,6 +25,13 @@ Phantom Camera 的源码架构、公共契约、本项目 2D 接入和故障排�
 - `G.U.I.D.E` 只保留发布包的 `addons/guide/`，排除 examples、tests、docs 与 GdUnit4；保留 UID、`.import`、控制器提示资源和许可证。运行时 `GUIDE` 由项目在 `[autoload]` 显式注册，插件开关不得自动增删 autoload。
 - `@icons` 与 `Script-IDE` 只提供编辑器能力；`Phantom Camera` 同时提供编辑器面板和游戏运行时 API。
 - `G.U.I.D.E` 同时提供编辑器面板和游戏运行时 API，当前正式项目只采用键鼠 / 单通用手柄、context、重绑定和提示；触屏、虚拟摇杆、多设备玩家槽与高级 trigger 未启用。
+
+## 项目自有编辑器插件
+
+- `data_table_editor`：Godot 中央主界面“数据配表”，覆盖普通 JSON、全部数据 CSV 和 `strings.csv` 的编辑、全局搜索、`user://` 草稿及验证事务；不读取模块/VFX 专用数据。见 ADR #180。
+- `module_authoring`：中央主界面“Module JSON”，负责 `modules/*.json`、模块注册表、tile catalog 和单向 TSCN baker。
+- `vfx_library`：中央主界面“VFX 效果库”，负责 VFX catalog、presentation profile、预览和绑定。
+- 三个项目自有插件均为 editor-only，必须在 `client/export_presets.cfg` 中排除；玩家运行时不能依赖其脚本或数据草稿。
 
 ## 本地补丁
 

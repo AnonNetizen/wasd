@@ -1,15 +1,16 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-07-30",
-  "current_phase": "ip_repositioning",
-  "current_status": "ADR #179 已完成集体无意识玩家文案迁移：AI 的行动目标明确为清理集体无意识，正式客户端使用清理智能、主 / 副智能碎片、心象、意识层与意识核；单层表述为清理意识核后撤离，威胁九级为失序 / Disarray，击败统计显示清理 / Cleared，标题页只显示 WASD。现有 locale key、character_* / ui_hero_* / hero_* / enemy_* 内部标识、数据引用、schema、Meta v2、Run v11、Replay v3 与游戏 v1.10 保持；正式标题仍待定，意识层来源、AI 立场与清理结果不解释。",
-  "latest_adr": 179,
+  "updated_at": "2026-08-03",
+  "current_phase": "editor_tooling",
+  "current_status": "ADR #180 已建立 Godot 4.7.1 editor-only 数据配表：声明式目录统一普通 client/data JSON、全部数据 CSV 和 strings.csv，提供表格、递归属性、TSV、CRUD、Undo/Redo、双语文案、技能预览和 1–8 层全局搜索。模块 JSON/注册表/图块目录与 VFX/profile 继续由专用编辑器负责且不进入搜索；module_worlds.json 纳入普通配表。修改自动保存在 user://，项目写入经过 hash、备份、受控内容契约、独立 headless DataLoader 校验与失败回滚；release 排除插件/editor scripts。人工 UI/Excel/冲突流验收待用户执行。",
+  "latest_adr": 180,
   "open_decisions": [
     "D",
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #180 / Godot 数据配表：新增中文中央主界面、声明式数据集目录、普通 JSON/全部数据 CSV/strings.csv 一站式编辑、顶层表格与递归属性树、TSV、CRUD、Undo/Redo、双语文案联动、SkillDescriptionFormatter 预览和 1–8 层内存全局搜索；模块与 VFX 专用来源完全排除。草稿只写 user://data_table_editor，事务保存使用源 hash、全文件备份、确定性 JSON/CSV、受控内容契约登记、共享 ProjectDataValidationBridge、独立 headless DataLoader 校验和失败回滚；新增目录覆盖/编辑/搜索/事务/契约 smoke，release 排除插件与 editor-only 脚本。",
     "ADR #179 / 集体无意识玩家文案迁移：正式客户端统一使用清理智能、主 / 副智能碎片、心象、意识层与意识核；AI 的行动目标为清理集体无意识，单层目标为清理意识核后撤离但不解释清理结果。威胁九级改为失序 / Disarray，击败统计显示清理 / Cleared，标题页只显示 WASD 并隐藏副标题；标准生存、五只心象个体名、世界事件、七元素占位名和开发者测试岛内部文案保留。locale key、character_* / ui_hero_* / hero_* / enemy_* 内部标识、数据引用、schema、Meta v2、Run v11、Replay v3 和游戏 v1.10 均不变。",
     "ADR #178 / 集体无意识 IP 设定阶段重构：退役《破巢者 / Nestbreakers》当前设定，统一使用项目代号 WASD；定义集体无意识、清理智能、智能碎片、意识层、心象和意识核。冷静 / 愤怒改作可组合碎片，主碎片贡献主体 / 属性 / 被动 / 技能 1/2，副碎片贡献强调与技能 3/4；一张 9×9 世界对应一层意识层，击破意识核后撤离。美术改为抽象、简洁、来源可辨但不具象复刻；层代表色只影响环境装饰，功能色稳定。本轮仅改长期文档与知识索引，运行时、玩家文案、数据、素材、版本和 schema 均不变。",
     "弹药 HUD 用户反馈修正：常驻 HUD 改为“弹匣剩余 + 弹匣外备弹”，删除总弹药 / 容量显示并修复 magazine_size 占位符外露；详细面板同步只保留弹匣、备弹与换弹时间。打空反馈从 HUD 第二行改为角色头顶短时世界文字：WeaponSystem 在正常射击打出最后一发时单次请求，有备弹显示动态 reload 绑定、总弹药耗尽提示再次开火，持续按住不重复；零弹重新按火可再次提示。核心弹药数据、Run v11 与 Replay v3 不变。",
@@ -151,6 +152,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
+    "如果继续普通 JSON / CSV / strings.csv 配表、全局搜索或数据集目录，先读 ADR #180、docs/代码/data_table_editor.md、client/data/README.md、client/locale/README.md 和测试策略。普通来源在 Godot“数据配表”统一编辑；JSON 层级不同走右侧递归属性树。模块 JSON/注册表/图块目录与 VFX/profile 必须继续排除并使用专用编辑器，module_worlds.json 保持普通配表。新增来源必须登记为 editable / specialized / generated，否则 data-table-editor-smoke 失败。改后跑 data-table-editor-smoke、test_sync_contracts、contracts/data/schema、三档 lint、module-json-editor-smoke、headless editor/boot、docs health 和 pre-commit；Godot UI、Excel 粘贴、草稿/冲突和契约向导保持待人工验收，不运行性能 probe。",
     "如果继续 IP、世界观、心象内容、正式标题或玩家文案，先读 ADR #178 / #179、docs/IP设定.md、docs/IP美术风格.md、GDD v1.48、术语表和修改建议 S。玩家文案已迁移为清理智能、主 / 副智能碎片、心象、意识层、意识核、失序 / Disarray 与清理 / Cleared，标题页只显示 WASD；现有 locale key、character_* / hero_* / enemy_* 内部标识保持。正式标题、素材与运行时命名迁移仍需用户另行授权。不要把具体精神疾病、真实人物或群体定义成应被清理的对象，也不要解释意识层来源、AI 善恶或清理结果。",
     "所有后续任务先应用 ADR #174：凡文档或任务明确标为人工检查 / 人工验收 / 手动验收 / L5 / 真实设备 / 视觉、听觉或手感验收，只交给人工；AI 不执行、不用 GUI / 截图 / 录屏 / 模拟输入替代、不自行宣称通过。AI 完成同一任务的非人工自动化验证，为人工项整理前置条件、步骤、预期现象和已知风险，并明确标记“待人工验收”。",
     "如果继续弹药、换弹、弹药拾取或默认战斗键位，先读 ADR #177、GDD §3.2、docs/代码/gameplay_runtime.md、input_service.md、rng.md、pool_manager.md、save_manager.md、replay.md、client/data/README.md、locale 手册、词表和测试策略。武器弹药只改 weapons.json schema v4 的 ammo，掉落曲线只改 ammo_rules.json schema v1；保持一次扳机扣一发、完全生成失败不扣弹也不消费战斗 RNG、空匣重新按压语义、零弹降级射击射程补偿、满弹不抽 RNG.ammo、不推进未掉计数。当前 Run v11 保存武器 / 换弹 / 未掉计数 / RNG.ammo / 场上弹匣，旧 v10 只清 run 保 Meta。改后跑 contracts、data/schema、三档 lint、input/settings/ammo-weapon/runtime/L1/world-event/module-world/save/loading/replay、headless、docs health、pre-commit 和四条 golden；人工手感、HUD、二次按压和真实手柄只交用户验收，不运行性能 probe。",
@@ -186,6 +188,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-03",
+      "command": "data-table-editor-smoke; module-json-editor-smoke; sync_contracts --check; test_sync_contracts; validate_data; test_data_loader_schema; three lint tiers plus project/semantic lint self-tests; Godot 4.7.1 headless editor/boot; JSON current_state/_kb_index; docs_health_check; git diff --check excluding draft/DRAFT; pre-commit run --all-files",
+      "result": "passed for ADR #180 editor-only data-table tooling. Catalog coverage owns 29 ordinary JSON/CSV/locale datasets and excludes generated contracts, module authoring sources, VFX and presentation profiles from editing/search. Smoke coverage includes 1-8 layer and bilingual search, AND/ranking/format/type filters, recursive arrays and polymorphic fields, declared contract choices, stable serialization, primary/composite-key CRUD, TSV rollback, Undo/Redo, locale linkage, skill preview, hash-bound draft recovery/conflict approval, transaction rollback, controlled contract dry-run and shared headless DataLoader validation. Factual review found and fixed five concrete boundary issues: shared locale deletion, scalar-array metadata loss, duplicate composite-key creation, invalid typed edits leaving empty undo history, and draft conflict checks using the stale open-time hash; contract primitive fields now use existing-value dropdowns and model validation. No remaining P0/P1/P2 finding or semantic advisory remains. No performance probe or golden replay capture/rerun was performed because runtime gameplay is unchanged. Per ADR #174, AI did not perform Godot GUI/Excel/visual interaction acceptance; the documented six-step checklist remains pending user acceptance."
+    },
     {
       "date": "2026-07-30",
       "command": "sync_contracts --check; validate_data including zh_CN/en placeholder parity; test_data_loader_schema; three lint tiers; Godot 4.7.1 godot-version/export-tree/headless-boot; settings/loading/gear-mod/runtime smoke; JSON current_state/_kb_index; docs_health_check; targeted player-copy and current-authority old-term audits; git diff --check; pre-commit run --all-files",

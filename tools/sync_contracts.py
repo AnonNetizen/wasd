@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -131,15 +132,66 @@ SECTIONS: tuple[ContractSection, ...] = (
 
 LOCALE_PREFIXES_HEADING = "## 6. 本地化 key 命名规范"
 RESERVED_CONSTANT_NAMES = {"TRUE", "FALSE", "NULL", "NAN", "INF"}
+CONTENT_REGISTRATION_PREFIXES: dict[str, str] = {
+    "character_ids": "character_",
+    "game_modes": "mode_",
+    "skill_ids": "skill_",
+    "hero_passive_ids": "passive_",
+    "gear_mod_ids": "gear_mod_",
+    "world_event_ids": "world_event_",
+}
+CONTENT_ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate contract JSON and GDScript constants.")
-    parser.add_argument("--check", action="store_true", help="Fail if generated artifacts are out of date.")
+    actions = parser.add_mutually_exclusive_group()
+    actions.add_argument("--check", action="store_true", help="Fail if generated artifacts are out of date.")
+    actions.add_argument(
+        "--register",
+        nargs=2,
+        metavar=("CONTRACT_KEY", "ID"),
+        help="Register an allowlisted content id and regenerate artifacts.",
+    )
+    actions.add_argument(
+        "--unregister",
+        nargs=2,
+        metavar=("CONTRACT_KEY", "ID"),
+        help="Unregister an allowlisted content id and regenerate artifacts.",
+    )
+    parser.add_argument("--meaning", default=None, help="Required human-readable meaning for --register.")
+    parser.add_argument("--dry-run", action="store_true", help="Validate and preview without writing files.")
     args = parser.parse_args()
 
     try:
-        artifacts = build_artifacts()
+        contract_text = _read_contract_doc()
+        mutation_summary = ""
+        if args.register:
+            if args.meaning is None or not args.meaning.strip():
+                raise ContractError("--register requires a non-empty --meaning")
+            contract_key, content_id = args.register
+            contract_text = mutate_contract_document(
+                contract_text,
+                "register",
+                contract_key,
+                content_id,
+                args.meaning,
+            )
+            mutation_summary = f"register {contract_key} {content_id}"
+        elif args.unregister:
+            if args.meaning is not None:
+                raise ContractError("--meaning is only valid with --register")
+            contract_key, content_id = args.unregister
+            contract_text = mutate_contract_document(
+                contract_text,
+                "unregister",
+                contract_key,
+                content_id,
+            )
+            mutation_summary = f"unregister {contract_key} {content_id}"
+        elif args.meaning is not None:
+            raise ContractError("--meaning requires --register")
+        artifacts = build_artifacts(contract_text)
     except ContractError as exc:
         print(f"[sync-contracts] {exc}")
         return 1
@@ -147,6 +199,15 @@ def main() -> int:
     if args.check:
         return _check_artifacts(artifacts)
 
+    if args.dry_run:
+        if mutation_summary:
+            print(f"[sync-contracts] dry-run: {mutation_summary}")
+        else:
+            print("[sync-contracts] dry-run: generated artifacts are valid")
+        return 0
+
+    if mutation_summary:
+        artifacts = {CONTRACT_DOC: contract_text, **artifacts}
     _write_artifacts(artifacts)
     print("sync contracts passed")
     return 0
@@ -156,8 +217,9 @@ class ContractError(RuntimeError):
     pass
 
 
-def extract_contracts() -> dict[str, list[str]]:
-    text = _read_contract_doc()
+def extract_contracts(text: str | None = None) -> dict[str, list[str]]:
+    if text is None:
+        text = _read_contract_doc()
     contracts: dict[str, list[str]] = {}
 
     for section in SECTIONS:
@@ -169,8 +231,8 @@ def extract_contracts() -> dict[str, list[str]]:
     return contracts
 
 
-def build_artifacts() -> dict[Path, str]:
-    contracts = extract_contracts()
+def build_artifacts(text: str | None = None) -> dict[Path, str]:
+    contracts = extract_contracts(text)
     payload = {
         "schema_version": 1,
         "source": "docs/词表与契约.md",
@@ -193,6 +255,54 @@ def build_artifacts() -> dict[Path, str]:
         )
 
     return artifacts
+
+
+def mutate_contract_document(
+    text: str,
+    action: str,
+    contract_key: str,
+    content_id: str,
+    meaning: str = "",
+) -> str:
+    section = next((item for item in SECTIONS if item.key == contract_key), None)
+    if section is None or contract_key not in CONTENT_REGISTRATION_PREFIXES:
+        allowed = ", ".join(sorted(CONTENT_REGISTRATION_PREFIXES))
+        raise ContractError(f"contract key is not content-registerable: {contract_key}; allowed: {allowed}")
+    prefix = CONTENT_REGISTRATION_PREFIXES[contract_key]
+    if not CONTENT_ID_RE.fullmatch(content_id) or not content_id.startswith(prefix):
+        raise ContractError(f"invalid {contract_key} id: {content_id}; expected prefix {prefix}")
+    if action not in {"register", "unregister"}:
+        raise ContractError(f"unsupported contract mutation: {action}")
+
+    section_start = text.find(section.heading)
+    if section_start < 0:
+        raise ContractError(f"missing heading: {section.heading}")
+    next_heading = re.search(r"\n#{2,3} ", text[section_start + 1 :])
+    section_end = len(text) if next_heading is None else section_start + 1 + next_heading.start()
+    section_text = text[section_start:section_end]
+    row_pattern = re.compile(
+        rf"^\|\s*`{re.escape(content_id)}`\s*\|[^\r\n]*(?:\r?\n|$)",
+        re.MULTILINE,
+    )
+    existing = row_pattern.search(section_text)
+    if action == "unregister":
+        if existing is None:
+            raise ContractError(f"contract id is not registered: {contract_key} {content_id}")
+        updated_section = section_text[: existing.start()] + section_text[existing.end() :]
+        return text[:section_start] + updated_section + text[section_end:]
+
+    if existing is not None:
+        raise ContractError(f"contract id is already registered: {contract_key} {content_id}")
+    clean_meaning = meaning.strip()
+    if any(character in clean_meaning for character in ("\n", "\r", "|", "`")):
+        raise ContractError("contract meaning cannot contain newline, pipe, or backtick")
+    table_rows = list(re.finditer(r"^\|[^\r\n]*\|[ \t]*$", section_text, re.MULTILINE))
+    if len(table_rows) < 2:
+        raise ContractError(f"contract section has no writable table: {contract_key}")
+    insert_at = table_rows[-1].end()
+    new_row = f"\n| `{content_id}` | {clean_meaning} |"
+    updated_section = section_text[:insert_at] + new_row + section_text[insert_at:]
+    return text[:section_start] + updated_section + text[section_end:]
 
 
 def _read_contract_doc() -> str:
@@ -281,10 +391,41 @@ def _constant_name(value: str, *, suffix: str = "") -> str:
 
 
 def _write_artifacts(artifacts: dict[Path, str]) -> None:
-    _remove_stale_generated_artifacts(set(artifacts))
-    for path, content in artifacts.items():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8", newline="\n")
+    backups: dict[Path, bytes | None] = {}
+    temp_paths: list[Path] = []
+    stale_paths = _stale_generated_artifacts(set(artifacts))
+    try:
+        for path, content in artifacts.items():
+            backups[path] = path.read_bytes() if path.exists() else None
+            path.parent.mkdir(parents=True, exist_ok=True)
+            temp_path = path.with_name(f".{path.name}.sync-contracts.tmp")
+            temp_path.write_text(content, encoding="utf-8", newline="\n")
+            temp_paths.append(temp_path)
+        for path in artifacts:
+            temp_path = path.with_name(f".{path.name}.sync-contracts.tmp")
+            os.replace(temp_path, path)
+        for stale_path in stale_paths:
+            backups[stale_path] = stale_path.read_bytes()
+            stale_path.unlink()
+            uid_path = Path(f"{stale_path}.uid")
+            if uid_path.exists():
+                backups[uid_path] = uid_path.read_bytes()
+                uid_path.unlink()
+    except OSError as exc:
+        for path, content in backups.items():
+            try:
+                if content is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    restore_path = path.with_name(f".{path.name}.sync-contracts.restore")
+                    restore_path.write_bytes(content)
+                    os.replace(restore_path, path)
+            except OSError:
+                pass
+        raise ContractError(f"failed to write contract transaction: {exc}") from exc
+    finally:
+        for temp_path in temp_paths:
+            temp_path.unlink(missing_ok=True)
 
 
 def _check_artifacts(artifacts: dict[Path, str]) -> int:

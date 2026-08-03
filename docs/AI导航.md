@@ -65,7 +65,7 @@
 | `client/locale/`（即 `res://locale/`） | 本地化翻译表（CSV → `.translation`）+ `README.md` 多语言文案手册 |
 | `client/templates/`（即 `res://templates/`） | 新内容脚手架模板（enemy/relic 等） |
 | `client/assets/`（即 `res://assets/`） | 美术 / 音效 |
-| `client/addons/`（即 `res://addons/`） | 固定版本插件及 editor-only 工具；除既有插件外，ADR #158 新增项目自有“VFX 效果库”，release preset 排除，契约见 `docs/代码/visual_effects.md` |
+| `client/addons/`（即 `res://addons/`） | 固定版本插件及 editor-only 工具；项目自有“数据配表”“Module JSON”“VFX 效果库”均由 release preset 排除，契约见 `docs/代码/data_table_editor.md`、`module_authoring_pipeline.md`、`visual_effects.md` |
 | `client/scenes/boot/main.tscn` | F1 最小启动场景，详见 `docs/代码/formal_client_boot.md` |
 | `client/scripts/autoload/` | F2+ 横向 autoload 骨架，已含 `ModLoader` / `DataLoader` / `VisualEffects` / `RNG` / `GameState` / `GameClock` / `PlatformServices` / `Settings` / `InputService` / `Analytics` / `Replay` / `PoolManager` / `SaveManager` / `GearModSystem` / `AudioManager` / `Localization` / `UIManager`；另由 addon 路径稳定注册 `GUIDE` 与 `PhantomCameraManager` |
 | `client/scripts/combat/` | F4 起的 `Combat` 统一伤害入口、`DamageInfo`、`StatusEffect` 与 `StatusEffectComponent` |
@@ -129,6 +129,7 @@
 
 | 我想… | 怎么做（数据驱动，尽量不改逻辑） |
 |-------|-------------------------------|
+| **配普通 JSON / CSV / 中英文文案或全局搜索** | 打开 Godot 中央主界面“数据配表”；普通 `client/data` JSON、全部数据 CSV 与 `strings.csv` 可统一编辑，JSON 层级不同由递归属性树处理。未保存内容只进 `user://data_table_editor`，保存通过 hash + 备份 + headless DataLoader 验证事务。模块 JSON/注册表/图块目录和 VFX/profile 使用各自专用编辑器且不进入全局搜索；`module_worlds.json` 仍属于普通配表。新增数据源必须同步 `data_table_catalog.json`，详见 ADR #180 与 `docs/代码/data_table_editor.md` |
 | **加一个敌人** | 在 `client/data/enemies.csv` 加一行基础数值、中心间距、通用 `tag_enemy`、独立且与敌人 id 相同的 `pool_id`、`pool_prewarm`、专属 `scene_path`、`ai_profile_id` 与 `enemy_*_name` 文案；静态外观需要区分时从 `scenes/gameplay/actors/enemy_base.tscn` 新建继承场景，不复制基础树。不同敌人 id 可复用同一 TSCN，但不能复用对象池。优先复用现有对玩家 profile；攻击参数只能写入 schema v5 对应 action 的必填 `attack` 字典，远程 action 还必须声明 `windup/burst_count/shot_interval`，普通身体重叠永不造成伤害。改完跑 contracts、data/schema、`actor-scene-smoke`、runtime、save 与黄金回放 |
 | **改敌人寻路 / 感知** | 先读 `F14-EnemyNavigationAndPerception.md`、`docs/代码/enemy_ai.md`、`docs/代码/module_world_manager.md` 与 ADR #145 / #146；profile 感知参数改 `enemy_ai_profiles.json.perception`，局部活动流场 / 全图静态路径 / 视线改 `module_navigation_field.gd`，半径由最大视觉范围自动推导，门面改 `module_world_manager.gd`，行为消费改 `enemy.gd`。导航 / 感知派生状态不进 run，开放战区保留无 provider 直线兜底 |
 | **改敌人显式攻击 / 连锁爆炸** | 先读 ADR #170 / #173 / #175、GDD §5.3、EnemyAI / EnemyRewardResolver / WorldEvent / Combat / SaveManager 文档。普通敌人仍只以玩家为目标；防御事件目标只能由受控 spawn context 注入，四种攻击仍可伤害路径上的玩家。Run v11 保存阶段、事件归属 / target mode、armed、序号与锁定奖励；按测试策略整行验证并重录四条黄金回放，不运行性能 probe |

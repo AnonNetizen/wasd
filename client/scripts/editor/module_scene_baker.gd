@@ -8,15 +8,15 @@ const MODULE_CELL_TOKENS := preload("res://scripts/contracts/module_cell_tokens.
 const MODULE_EDGE_DIRECTIONS := preload("res://scripts/contracts/module_edge_directions.gd")
 const MODULE_REVIEW_STATUSES := preload("res://scripts/contracts/module_review_statuses.gd")
 const GENERATED_MODULE_SCENE := preload("res://scripts/gameplay/generated_module_scene.gd")
+const PROJECT_DATA_VALIDATION_BRIDGE := preload(
+	"res://scripts/editor/project_data_validation_bridge.gd"
+)
 
 const MODULE_SIZE: int = 11
 const CELL_SIZE: int = 160
 const REGISTRY_PATH: String = "res://data/module_templates.json"
 const TILE_CATALOG_PATH: String = "res://data/module_tile_catalog.json"
 const GENERATED_DIRECTORY: String = "res://scenes/generated/modules"
-const PROJECT_DATA_VALIDATION_SCRIPT: String = (
-	"res://addons/module_authoring/project_data_validation_cli.gd"
-)
 const BAKER_SCHEMA_VERSION: int = 4
 const TRANSFORM_FLIP_H: int = TileSetAtlasSource.TRANSFORM_FLIP_H
 const TRANSFORM_FLIP_V: int = TileSetAtlasSource.TRANSFORM_FLIP_V
@@ -1239,58 +1239,16 @@ static func _referenced_catalog_projection(
 
 
 static func _validate_project_data() -> Dictionary:
-	var tree: SceneTree = Engine.get_main_loop() as SceneTree
-	if tree != null:
-		var loader: Node = tree.root.get_node_or_null("DataLoader")
-		if loader != null:
-			if not loader.has_method("validate_project_data"):
-				return _error_result(
-					"DataLoader 未提供 validate_project_data()，无法校验项目数据。"
-				)
-			if bool(loader.call("validate_project_data")):
-				return _new_result()
-			return _error_result(
-				"项目数据校验失败；请查看上方 DataLoader 错误。"
-			)
-	return _validate_project_data_with_headless_process()
-
-
-static func _validate_project_data_with_headless_process() -> Dictionary:
-	if not FileAccess.file_exists(PROJECT_DATA_VALIDATION_SCRIPT):
-		return _error_result(
-			"缺少编辑器项目数据校验入口：%s"
-			% PROJECT_DATA_VALIDATION_SCRIPT
-		)
-	var executable_path: String = OS.get_executable_path()
-	if executable_path.is_empty():
-		return _error_result("无法确定当前 Godot 编辑器可执行文件。")
-	var output: Array = []
-	var exit_code: int = OS.execute(
-		executable_path,
-		PackedStringArray(
-			[
-				"--headless",
-				"--path",
-				ProjectSettings.globalize_path("res://"),
-				"--script",
-				PROJECT_DATA_VALIDATION_SCRIPT,
-			]
-		),
-		output,
-		true,
-		false
+	var validation: Dictionary = (
+		PROJECT_DATA_VALIDATION_BRIDGE.validate_project_data()
 	)
-	if exit_code == 0:
+	if bool(validation.get("ok", false)):
 		return _new_result()
-	var result := _error_result(
-		"项目数据校验失败；headless DataLoader 校验退出码为 %d。"
-		% exit_code
-	)
-	var output_text: String = "\n".join(
-		PackedStringArray(output)
-	).strip_edges()
-	if not output_text.is_empty():
-		_add_error(result, output_text)
+	var result := _error_result("项目数据校验失败。")
+	var raw_errors: Variant = validation.get("errors", PackedStringArray())
+	if raw_errors is PackedStringArray:
+		for error: String in raw_errors as PackedStringArray:
+			_add_error(result, error)
 	return result
 
 

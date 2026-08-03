@@ -13,6 +13,14 @@
 - 每个数值字段都写清含义、单位、范围和影响范围，避免“看到字段不知道怎么调”。
 - 玩家可见文案不写在数据里，只写 `name_key` / `desc_key` 等本地化 key，译文见 `client/locale/`。
 
+## Godot 数据配表入口
+
+Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `client/data` JSON、全部数据 CSV 和 `client/locale/strings.csv`，并在这些来源中搜索 ID、字段名、中文、英文、数值、布尔和最多 8 层嵌套字段。JSON 不需要拥有相同层级：左侧数据集目录声明记录分区和主键，中间表格处理顶层标量，右侧递归属性树处理对象、数组和多态字段。
+
+以下文件不属于数据配表：`_contracts.json` 是生成文件；`modules/*.json`、`module_templates.json`、`module_tile_catalog.json` 使用“Module JSON”；`visual_effects.json`、`presentation_profiles.json` 使用“VFX 效果库”。`module_worlds.json` 仍是普通配置，继续在数据配表中编辑和搜索。
+
+数据配表的未完成修改只保存在 `user://data_table_editor/`。点击保存时会检查外部文件 hash，备份本事务全部目标，写入 JSON/CSV/locale/受控内容契约，再运行独立 headless `DataLoader.validate_project_data()`；失败会回滚项目文件并保留草稿。已有 ID 不直接改名，使用“复制为新 ID → 修正引用 → 删除旧记录”。完整契约见 `docs/代码/data_table_editor.md` 与 ADR #180。
+
 ## 快速上手
 
 | 你想做什么 | 改哪里 | 注意 |
