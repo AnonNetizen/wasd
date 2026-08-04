@@ -190,11 +190,11 @@
             "element_id": "element_neutral",
             "projectile": {
               "pool_id": "bullet_basic",
-              "speed": 280.0,
+              "speed": 350.0,
               "range": 720.0,
-              "hit_radius": 5.0,
-              "lifetime": 2.6,
-              "muzzle_distance": 20.0
+              "hit_radius": 12.0,
+              "lifetime": 2.1,
+              "muzzle_distance": 24.0
             }
           }
         },

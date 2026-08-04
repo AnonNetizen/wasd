@@ -9,9 +9,6 @@ const COMPOSITE_ROOT: String = "res://scenes/vfx/composites"
 const ACTOR_AFTERIMAGE_SCRIPT := preload(
 	"res://scripts/vfx/vfx_actor_afterimage.gd"
 )
-const RIBBON_TRAIL_SCRIPT := preload(
-	"res://scripts/vfx/vfx_ribbon_trail.gd"
-)
 
 
 func _initialize() -> void:
@@ -56,7 +53,6 @@ func _initialize() -> void:
 		0.22,
 		0.12
 	) and success
-	success = _ensure_bullet_trail() and success
 	print("vfx resource bake passed" if success else "vfx resource bake failed")
 	quit(0 if success else 1)
 
@@ -331,36 +327,6 @@ func _melee_wedge_polygon() -> PackedVector2Array:
 	return points
 
 
-func _ensure_bullet_trail() -> bool:
-	var resource_path: String = "res://scenes/gameplay/bullet.tscn"
-	var raw_scene: Resource = load(resource_path)
-	if not raw_scene is PackedScene:
-		push_error("[VfxResourceBaker] bullet scene is not a PackedScene")
-		return false
-	var root: Node = (raw_scene as PackedScene).instantiate()
-	var existing: Node = root.get_node_or_null("RibbonTrail")
-	if existing == null:
-		var trail: Line2D = RIBBON_TRAIL_SCRIPT.new() as Line2D
-		trail.name = "RibbonTrail"
-		trail.width = 5.0
-		trail.default_color = Color(1.0, 0.76, 0.22, 0.72)
-		trail.z_index = -1
-		var gradient := Gradient.new()
-		gradient.colors = PackedColorArray([
-			Color(1.0, 0.35, 0.08, 0.0),
-			Color(1.0, 0.96, 0.52, 0.82),
-		])
-		trail.gradient = gradient
-		var material := ShaderMaterial.new()
-		material.shader = load("res://shaders/vfx/energy_glow.gdshader") as Shader
-		material.set_shader_parameter("glow_color", Color(1.0, 0.55, 0.12, 1.0))
-		material.set_shader_parameter("intensity", 1.0)
-		trail.material = material
-		root.add_child(trail)
-		trail.owner = root
-	return _save_scene(root, resource_path)
-
-
 func _add_ring_animations(
 		player: AnimationPlayer,
 		duration: float,
@@ -510,6 +476,41 @@ func _save_scene(root: Node, resource_path: String) -> bool:
 		])
 		root.free()
 		return false
+	var compare_path: String = (
+		"user://vfx_resource_baker_%s" % resource_path.get_file()
+	)
+	var compare_save_error: Error = ResourceSaver.save(packed, compare_path)
+	if compare_save_error != OK:
+		push_error("[VfxResourceBaker] failed to save comparison scene %s: %d" % [
+			compare_path,
+			compare_save_error,
+		])
+		root.free()
+		return false
+	var existing_normalized: String = _normalized_scene_text(
+		FileAccess.get_file_as_string(resource_path)
+	) if FileAccess.file_exists(resource_path) else ""
+	var comparison_normalized: String = _normalized_scene_text(
+		FileAccess.get_file_as_string(compare_path)
+	)
+	var unchanged: bool = (
+		FileAccess.file_exists(resource_path)
+		and existing_normalized == comparison_normalized
+	)
+	var compare_absolute_path: String = ProjectSettings.globalize_path(
+		compare_path
+	)
+	var remove_error: Error = DirAccess.remove_absolute(compare_absolute_path)
+	if remove_error != OK and remove_error != ERR_FILE_NOT_FOUND:
+		push_error("[VfxResourceBaker] failed to remove comparison scene %s: %d" % [
+			compare_path,
+			remove_error,
+		])
+		root.free()
+		return false
+	if unchanged:
+		root.free()
+		return true
 	var save_error: Error = ResourceSaver.save(packed, resource_path)
 	root.free()
 	if save_error != OK:
@@ -519,3 +520,60 @@ func _save_scene(root: Node, resource_path: String) -> bool:
 		])
 		return false
 	return true
+
+
+func _normalized_scene_text(scene_text: String) -> String:
+	var normalized_lines := PackedStringArray()
+	var external_resource_ids: Dictionary = {}
+	var subresource_ids: Dictionary = {}
+	for original_line: String in scene_text.split("\n"):
+		var line: String = original_line.trim_suffix("\r")
+		if (
+			line.begins_with("[ext_resource ")
+			or line.begins_with("[sub_resource ")
+		):
+			var id_marker: String = " id=\""
+			var id_marker_index: int = line.find(id_marker)
+			if id_marker_index >= 0:
+				var id_start: int = id_marker_index + id_marker.length()
+				var id_end: int = line.find("\"", id_start)
+				if id_end >= 0:
+					var raw_id: String = line.substr(
+						id_start,
+						id_end - id_start
+					)
+					if line.begins_with("[ext_resource "):
+						external_resource_ids[raw_id] = (
+							"normalized_external_resource_%d"
+							% external_resource_ids.size()
+						)
+					else:
+						subresource_ids[raw_id] = (
+							"normalized_subresource_%d"
+							% subresource_ids.size()
+						)
+		var unique_id_index: int = line.find(" unique_id=")
+		if unique_id_index >= 0:
+			var closing_bracket_index: int = line.find("]", unique_id_index)
+			if closing_bracket_index >= 0:
+				line = (
+					line.left(unique_id_index)
+					+ line.substr(closing_bracket_index)
+				)
+		normalized_lines.append(line)
+	for line_index: int in range(normalized_lines.size()):
+		var normalized_line: String = normalized_lines[line_index]
+		for raw_id_variant: Variant in external_resource_ids:
+			var raw_id: String = String(raw_id_variant)
+			normalized_line = normalized_line.replace(
+				'"%s"' % raw_id,
+				'"%s"' % String(external_resource_ids[raw_id])
+			)
+		for raw_id_variant: Variant in subresource_ids:
+			var raw_id: String = String(raw_id_variant)
+			normalized_line = normalized_line.replace(
+				'"%s"' % raw_id,
+				'"%s"' % String(subresource_ids[raw_id])
+			)
+		normalized_lines[line_index] = normalized_line
+	return "\n".join(normalized_lines)

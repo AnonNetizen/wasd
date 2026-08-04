@@ -25,7 +25,7 @@
 | `client/resources/vfx/curves/` | 飘字位移、透明度与缩放等可复用节奏 Curve；业务只采样，不手写插值曲线 |
 | `client/shaders/vfx/` | 共享 CanvasItem shader |
 | `client/addons/vfx_library/` | editor-only“VFX 效果库”主界面、预览、Inspector 与向导 |
-| `client/tools/vfx_resource_baker.gd` | 首批组合场景 / preset、死亡残影和子弹 RibbonTrail 的确定性资源生成器 |
+| `client/tools/vfx_resource_baker.gd` | 首批组合场景 / preset 与死亡残影的确定性资源生成器；语义内容未变化时忽略 Godot 随机 ext/sub-resource 与 node unique id，避免仅因 ID 重写场景 |
 | `client/tools/vfx_smoke.gd` | catalog、策略、挂点、播放、取消和回池 smoke |
 
 ## 数据契约
@@ -121,7 +121,7 @@ Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文�
 - `Enemy.attack_windup_started` 统一路由 `enemy_attack_telegraph`：爆猎者使用圆形 96 px 预警，群袭者使用锁向 100° / 52 px 扇形，伏击者 / 壁垒者使用按锁向旋转和二维缩放的冲撞通道；突击枪手不显示弹道线，改在 `muzzle` 挂点复用红色、0.35 缩放的 `weapon_muzzle_flash_default`，按 0.32 秒前摇拉伸为局部蓄光。context 的 `duration` 直接来自当前剩余前摇，续局重建不会重置玩法计时。
 - `Enemy.attack_committed` 路由 `enemy_attack_impact`；当前爆猎者绑定池化世界爆炸冲击。impact request 使用 detached `world_position`，因此源敌人进入退场并回池后，冲击效果仍独立播放完成。
 - 敌人攻击预警只表现玩法已有的范围、方向、时间或局部起手提示，不自行读取目标、不调用 `Combat`，也不消耗 gameplay RNG。攻击源退场时 `cancel_owner()` 只取消附着表现，不得取消 detached 爆炸冲击。
-- 子弹的 `RibbonTrail` 是可复用、带共享 Shader 的精选程序几何组件，历史点在每次 acquire / release 时清空；敌人退场同时生成 world-space `actor_enemy_defeat_afterimage`，实体 0.18 秒回池后残影仍可独立完成 0.45 秒余韵。
+- ADR #181 后正式 `bullet_basic` 不属于 VFX catalog，也不使用 `RibbonTrail`、Shader、高光或外发光；其唯一 `BulletSlimeVisual` 由场景内四个持久边缘节点一次生成 64 点平色 `Body + Rim`，阵营差异只切换白色系 / 红色系。通用 `VfxRibbonTrail` 组件仍保留给其他精选组合效果，baker 不再向子弹场景自动补回拖尾。敌人退场仍生成 world-space `actor_enemy_defeat_afterimage`，实体 0.18 秒回池后残影独立完成 0.45 秒余韵。
 - `WeaponSystem.active_temporary_modifiers()` 是续局重建持续表现的权威状态。
 
 ## 验证
@@ -141,6 +141,7 @@ Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文�
 - `docs/游戏设计文档.md` §9.24
 - `docs/决策记录.md` ADR #158
 - `docs/决策记录.md` ADR #170
+- `docs/决策记录.md` ADR #181
 - `docs/词表与契约.md` §8、§11、§16
 - `docs/代码/ui_effects.md`
 - `docs/代码/ui_manager.md`

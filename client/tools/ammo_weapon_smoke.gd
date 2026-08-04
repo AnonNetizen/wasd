@@ -84,6 +84,10 @@ func _run() -> void:
 
 func _expect_initial_state(weapon: WeaponSystem) -> void:
 	var state: Dictionary = weapon.ammo_state()
+	_expect(
+		is_equal_approx(weapon.stat_value("bullet_speed"), 350.0),
+		"base bullet speed should come from the 350 px/s weapon data"
+	)
 	_expect(int(state.get("magazine", -1)) == 30, "magazine size should come from weapon data")
 	_expect(int(state.get("reserve", -1)) == 150, "starting reserve should come from weapon data")
 	_expect(int(state.get("total_capacity", -1)) == 240, "total capacity should come from weapon data")
@@ -259,7 +263,7 @@ func _expect_depleted_fire(weapon: WeaponSystem) -> void:
 		"depleted fire rate should apply the data multiplier"
 	)
 	_expect(
-		is_equal_approx(weapon.stat_value("bullet_speed"), 260.0),
+		is_equal_approx(weapon.stat_value("bullet_speed"), 175.0),
 		"depleted bullet speed should apply the data multiplier"
 	)
 	_expect(fired_contexts.size() == 1, "fresh depleted fire should emit one weapon_fired context")
@@ -267,11 +271,11 @@ func _expect_depleted_fire(weapon: WeaponSystem) -> void:
 		if not bullet.active:
 			continue
 		_expect(
-			is_equal_approx(float(bullet.configured_stats.get("bullet_speed", 0.0)), 260.0),
+			is_equal_approx(float(bullet.configured_stats.get("bullet_speed", 0.0)), 175.0),
 			"depleted bullets should receive reduced speed"
 		)
 		_expect(
-			is_equal_approx(float(bullet.configured_projectile.get("lifetime", 0.0)), 2.5),
+			is_equal_approx(float(bullet.configured_projectile.get("lifetime", 0.0)), 3.8),
 			"depleted bullet lifetime should compensate to preserve range"
 		)
 	weapon.weapon_fired.disconnect(observer)

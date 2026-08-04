@@ -33,6 +33,14 @@ const PICKUP_FEEDBACK_FRAMES: int = 40
 const SPAWN_FRAMES: int = 10
 const TEAM_ENEMY: String = "team_enemy"
 const TEAM_PLAYER: String = "team_player"
+const BULLET_PLAYER_BODY_COLOR: Color = Color("dceaf2")
+const BULLET_PLAYER_RIM_COLOR: Color = Color("f6fbff")
+const BULLET_ENEMY_BODY_COLOR: Color = Color("e62935")
+const BULLET_ENEMY_RIM_COLOR: Color = Color("ff5963")
+const BULLET_GEOMETRY_SIGNATURE: String = (
+	"circle:r1.0:four_edge_nodes:catmull_rom:"
+	+ "no_highlight:no_shader:no_glow:no_trail"
+)
 
 var _failures: Array[String] = []
 var _original_screen_shake: bool = true
@@ -1100,8 +1108,10 @@ func _expect_bullet_hits_interest_point_target(run_loop: Node, player: Node2D) -
 	var bullet: Node2D = raw_bullet as Node2D
 	_expect(_find_node_by_name(bullet, "Visual") != null, "pooled bullets should keep their scene-authored visual subtree")
 	_expect(
-		_find_node_by_name(bullet, "RibbonTrail") != null,
-		"pooled bullets should keep their reusable shader ribbon trail"
+		bullet.get_node_or_null("EnemyVisual") == null
+		and bullet.get_node_or_null("RibbonTrail") == null
+		and bullet.get_node_or_null("EnemyRibbonTrail") == null,
+		"pooled bullets should keep one trail-free shared visual"
 	)
 	bullet.global_position = target.global_position
 	var old_parent: Node = bullet.get_parent()
@@ -1115,9 +1125,10 @@ func _expect_bullet_hits_interest_point_target(run_loop: Node, player: Node2D) -
 		STATS.PIERCE_COUNT: 0,
 	}, {
 		"element_id": ELEMENTS.ELEMENT_NEUTRAL,
-		"hit_radius": 8.0,
+		"hit_radius": 12.0,
 		"lifetime": 1.0,
 	}, Vector2.RIGHT, player)
+	_expect_slime_bullet_visual(bullet, false, 12.0, "player target-hit bullet")
 	for _index: int in range(2):
 		await get_tree().physics_frame
 	var after_snapshot: Dictionary = target.call("snapshot") as Dictionary
@@ -3268,8 +3279,8 @@ func _expect_ranged_enemy_projectile_damage(run_loop: Node, player: Node2D) -> v
 			"all burst bullets should retain the windup lock direction"
 		)
 		_expect(
-			is_equal_approx(bullet_velocity.length(), 280.0),
-			"ranged bullets should use the configured 280 px/s speed"
+			is_equal_approx(bullet_velocity.length(), 350.0),
+			"ranged bullets should use the configured 350 px/s speed"
 		)
 		_expect(
 			is_equal_approx(
@@ -3283,9 +3294,9 @@ func _expect_ranged_enemy_projectile_damage(run_loop: Node, player: Node2D) -> v
 			float(bullet_snapshot.get("remaining_life", 0.0))
 		)
 	_expect(
-		newest_enemy_bullet_life >= 2.5
-		and newest_enemy_bullet_life <= 2.6,
-		"the newest ranged bullet should retain the 2.6 second lifetime"
+		newest_enemy_bullet_life >= 2.0
+		and newest_enemy_bullet_life <= 2.1,
+		"the newest ranged bullet should retain the 2.1 second lifetime"
 	)
 	_expect_enemy_bullet_visual(active_enemy_bullets)
 	if spitter.is_connected("attack_windup_started", windup_callable):
@@ -3481,30 +3492,11 @@ func _on_ranged_attack_committed(
 func _expect_enemy_bullet_visual(active_bullets: Array[Node]) -> void:
 	if active_bullets.is_empty():
 		return
-	var bullet: Node = active_bullets[0]
-	var player_visual: CanvasItem = bullet.get_node_or_null("Visual") as CanvasItem
-	var enemy_visual: CanvasItem = bullet.get_node_or_null(
-		"EnemyVisual"
-	) as CanvasItem
-	var player_trail: CanvasItem = bullet.get_node_or_null(
-		"RibbonTrail"
-	) as CanvasItem
-	var enemy_trail: CanvasItem = bullet.get_node_or_null(
-		"EnemyRibbonTrail"
-	) as CanvasItem
-	_expect(
-		player_visual != null
-		and enemy_visual != null
-		and not player_visual.visible
-		and enemy_visual.visible,
-		"shared enemy bullets should show only the red enemy visual"
-	)
-	_expect(
-		player_trail != null
-		and enemy_trail != null
-		and not player_trail.visible
-		and enemy_trail.visible,
-		"shared enemy bullets should show only the red enemy trail"
+	_expect_slime_bullet_visual(
+		active_bullets[0],
+		true,
+		12.0,
+		"shared enemy bullet"
 	)
 
 
@@ -3516,48 +3508,151 @@ func _expect_shared_bullet_player_visual(player: Node2D) -> void:
 	)
 	if raw_bullet == null or not raw_bullet.has_method("configure"):
 		return
-	raw_bullet.call("configure", {
-		STATS.DAMAGE: 1.0,
-		STATS.BULLET_SPEED: 1.0,
-		STATS.BULLET_RANGE: 1.0,
-		STATS.PIERCE_COUNT: 0,
-	}, {
-		"damage_target_groups": ["active_enemies"],
-		"hit_radius": 3.0,
-		"lifetime": 1.0,
-		"source_team": TEAM_PLAYER,
-		"target_team": TEAM_ENEMY,
-	}, Vector2.RIGHT, player)
-	var player_visual: CanvasItem = raw_bullet.get_node_or_null(
-		"Visual"
-	) as CanvasItem
-	var enemy_visual: CanvasItem = raw_bullet.get_node_or_null(
-		"EnemyVisual"
-	) as CanvasItem
-	var player_trail: CanvasItem = raw_bullet.get_node_or_null(
-		"RibbonTrail"
-	) as CanvasItem
-	var enemy_trail: CanvasItem = raw_bullet.get_node_or_null(
-		"EnemyRibbonTrail"
-	) as CanvasItem
-	(raw_bullet as Node2D).global_position += Vector2(6.0, 0.0)
-	if player_trail != null:
-		player_trail.call("_process", 0.0)
-	_expect(
-		player_visual != null
-		and enemy_visual != null
-		and player_visual.visible
-		and not enemy_visual.visible,
-		"shared bullet reuse should restore the unchanged player visual"
-	)
-	_expect(
-		player_trail != null
-		and enemy_trail != null
-		and player_trail.visible
-		and not enemy_trail.visible,
-		"shared bullet reuse should reset trails without enemy color bleed"
-	)
+	var instance_id: int = raw_bullet.get_instance_id()
+	var bullet_child_count: int = raw_bullet.get_child_count()
+	var visual: Node = raw_bullet.get_node_or_null("Visual")
+	var visual_child_count: int = visual.get_child_count() if visual != null else -1
+	for source_team: String in [TEAM_ENEMY, TEAM_PLAYER, TEAM_ENEMY, TEAM_PLAYER]:
+		raw_bullet.call("configure", {
+			STATS.DAMAGE: 1.0,
+			STATS.BULLET_SPEED: 350.0,
+			STATS.BULLET_RANGE: 650.0,
+			STATS.PIERCE_COUNT: 0,
+		}, {
+			"damage_target_groups": ["active_enemies"],
+			"hit_radius": 12.0,
+			"lifetime": 1.9,
+			"source_team": source_team,
+			"target_team": (
+				TEAM_PLAYER if source_team == TEAM_ENEMY else TEAM_ENEMY
+			),
+		}, Vector2.RIGHT, player)
+		_expect_slime_bullet_visual(
+			raw_bullet,
+			source_team == TEAM_ENEMY,
+			12.0,
+			"shared bullet palette reuse"
+		)
+		_expect(
+			raw_bullet.get_child_count() == bullet_child_count
+			and visual != null
+			and visual.get_child_count() == visual_child_count,
+			"repeated configure should not grow the shared bullet node tree"
+		)
 	PoolManager.release(raw_bullet)
+	var reused_bullet: Node = PoolManager.acquire(POOL_IDS.BULLET_BASIC)
+	_expect(
+		reused_bullet != null
+		and reused_bullet.get_instance_id() == instance_id,
+		"bullet pool should reacquire the released shared bullet instance"
+	)
+	if reused_bullet != null:
+		_expect_slime_bullet_visual(
+			reused_bullet,
+			false,
+			3.0,
+			"released bullet reset"
+		)
+		_expect(
+			reused_bullet.get_child_count() == bullet_child_count
+			and reused_bullet.get_node("Visual").get_child_count()
+			== visual_child_count,
+			"pool release and reset should not grow the bullet node tree"
+		)
+		PoolManager.release(reused_bullet)
+
+
+func _expect_slime_bullet_visual(
+	bullet: Node,
+	enemy_palette: bool,
+	expected_radius: float,
+	context: String
+) -> void:
+	var visual: Node2D = bullet.get_node_or_null("Visual") as Node2D
+	_expect(visual != null, "%s should keep the shared Visual" % context)
+	if visual == null:
+		return
+	_expect(
+		bullet.get_child_count() == 1
+		and visual.get_child_count() == 6,
+		"%s should keep one visual with four persistent edge nodes" % context
+	)
+	_expect(
+		bullet.get_node_or_null("EnemyVisual") == null
+		and bullet.get_node_or_null("RibbonTrail") == null
+		and bullet.get_node_or_null("EnemyRibbonTrail") == null,
+		"%s should have no duplicate visual or trail nodes" % context
+	)
+	var body: Polygon2D = visual.get_node_or_null("Body") as Polygon2D
+	var rim: Line2D = visual.get_node_or_null("Rim") as Line2D
+	_expect(
+		body != null
+		and rim != null
+		and body.material == null
+		and rim.material == null,
+		"%s should use unshaded Body and Rim canvas nodes" % context
+	)
+	for edge_name: String in ["EdgeEast", "EdgeSouth", "EdgeWest", "EdgeNorth"]:
+		_expect(
+			visual.get_node_or_null(edge_name) is Node2D,
+			"%s should keep %s" % [context, edge_name]
+		)
+	_expect(
+		visual.has_method("body_render_mode")
+		and String(visual.call("body_render_mode")) == "four_node_slime_rim"
+		and visual.has_method("geometry_signature")
+		and String(visual.call("geometry_signature"))
+		== BULLET_GEOMETRY_SIGNATURE,
+		"%s should expose the expected four-node geometry signature" % context
+	)
+	_expect(
+		visual.has_method("edge_control_node_count")
+		and int(visual.call("edge_control_node_count")) == 4
+		and visual.has_method("smoothed_boundary_point_count")
+		and int(visual.call("smoothed_boundary_point_count")) == 64
+		and visual.has_method("edge_controls_form_cardinal_ring")
+		and bool(visual.call("edge_controls_form_cardinal_ring")),
+		"%s should keep four cardinal controls and a 64-point boundary" % context
+	)
+	_expect(
+		visual.has_method("normalized_visual_extent")
+		and float(visual.call("normalized_visual_extent")) <= 1.0001
+		and is_equal_approx(visual.scale.x, expected_radius)
+		and is_equal_approx(visual.scale.y, expected_radius),
+		"%s should remain inside its %.1f px collision radius" % [
+			context,
+			expected_radius,
+		]
+	)
+	var expected_body: Color = (
+		BULLET_ENEMY_BODY_COLOR if enemy_palette else BULLET_PLAYER_BODY_COLOR
+	)
+	var expected_rim: Color = (
+		BULLET_ENEMY_RIM_COLOR if enemy_palette else BULLET_PLAYER_RIM_COLOR
+	)
+	var actual_body: Color = visual.call("body_color")
+	var actual_rim: Color = visual.call("rim_color")
+	_expect(
+		visual.has_method("uses_enemy_palette")
+		and bool(visual.call("uses_enemy_palette")) == enemy_palette
+		and visual.has_method("body_color")
+		and actual_body.is_equal_approx(expected_body)
+		and visual.has_method("rim_color")
+		and actual_rim.is_equal_approx(expected_rim),
+		"%s should use only its faction body and rim colors" % context
+	)
+	_expect(
+		visual.has_method("has_shader_material")
+		and not bool(visual.call("has_shader_material")),
+		"%s should contain no ShaderMaterial" % context
+	)
+	if body != null and rim != null:
+		_expect(
+			body.polygon.size() == 64
+			and rim.points.size() == 64
+			and rim.closed,
+			"%s should build one closed 64-point Body and Rim" % context
+		)
 
 
 func _expect_overdrive_rounds_skill(run_loop: Node, player: Node2D) -> void:

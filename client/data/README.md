@@ -261,7 +261,7 @@ JSON 示例：
     "player_separation_radius": 10.0,
     "fire_rate": 2.5,
     "damage": 3.5,
-    "bullet_speed": 520.0,
+    "bullet_speed": 350.0,
     "bullet_range": 650.0,
     "bullet_count": 1,
     "pickup_range": 96.0,
@@ -1206,7 +1206,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
       "base_stats": {
         "damage": 3.5,
         "fire_rate": 2.5,
-        "bullet_speed": 520.0,
+        "bullet_speed": 350.0,
         "bullet_range": 650.0,
         "bullet_count": 1,
         "pierce_count": 0,
@@ -1227,9 +1227,9 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
       "projectile": {
         "pool_id": "bullet_basic",
         "element_id": "element_neutral",
-        "hit_radius": 8.0,
+        "hit_radius": 12.0,
         "muzzle_distance": 24.0,
-        "lifetime": 1.25
+        "lifetime": 1.9
       }
     }
   ]
