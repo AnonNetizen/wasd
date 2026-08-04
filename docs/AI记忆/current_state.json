@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-03",
+  "updated_at": "2026-08-04",
   "current_phase": "editor_tooling",
-  "current_status": "ADR #180 已建立 Godot 4.7.1 editor-only 数据配表：声明式目录统一普通 client/data JSON、全部数据 CSV 和 strings.csv，提供表格、递归属性、TSV、CRUD、Undo/Redo、双语文案、技能预览和 1–8 层全局搜索。模块 JSON/注册表/图块目录与 VFX/profile 继续由专用编辑器负责且不进入搜索；module_worlds.json 纳入普通配表。修改自动保存在 user://，项目写入经过 hash、备份、受控内容契约、独立 headless DataLoader 校验与失败回滚；release 排除插件/editor scripts。人工 UI/Excel/冲突流验收待用户执行。子弹视觉当前在 Test Lab 使用独立 Shader 渐变圆球专场：用户截图暴露无纹理 Polygon2D 的 UV 路径会把弹体整体算成透明，现已改由 VERTEX 局部坐标生成圆形 SDF 和 smoothstep 连续渐变，并以红白弹体中心像素探针阻止空渲染通过；黑色 / 深色描边与全部外发光保持删除，正式 client 仍未修改，待用户人工视觉确认。",
+  "current_status": "ADR #180 已建立 Godot 4.7.1 editor-only 数据配表：声明式目录统一普通 client/data JSON、全部数据 CSV 和 strings.csv，提供表格、递归属性、TSV、CRUD、Undo/Redo、双语文案、技能预览和 1–8 层全局搜索。模块 JSON/注册表/图块目录与 VFX/profile 继续由专用编辑器负责且不进入搜索；module_worlds.json 纳入普通配表。修改自动保存在 user://，项目写入经过 hash、备份、受控内容契约、独立 headless DataLoader 校验与失败回滚；release 排除插件/editor scripts。人工 UI/Excel/冲突流验收待用户执行。当前 Test Lab 新增史莱姆十字透视窗实验：完整复用原十字的 20 点凹形软体轮廓、四个内凹角、动态圆角与面积压力，内部直接复用 anchored_star_window.gdshader 的 SCREEN_UV 固定空间星空；十字移动和局部形变只改变窗口遮罩，不拖动内部内容。原十字与原星空窗口实验保持不变，正式 client 未修改；十字辨识度、透视感、星空密度与边缘配色待用户人工视觉确认。",
   "latest_adr": 180,
   "open_decisions": [
     "D",
@@ -10,6 +10,7 @@
     "S"
   ],
   "last_completed": [
+    "Test Lab 史莱姆十字透视窗实验：新增独立 slime_cross_perspective_test，继承原 slime_cross_2d 的 20 点 / 4 凹角软体求解并把每帧 100 点动态圆角边界同步到固定 Polygon2D；材质直接复用 anchored_star_window.gdshader，只从 SCREEN_UV 采样固定空间星空。场景以小幅整体移动、局部冲击、压扁、自动脉冲和可切换原调试骨架展示组合效果；新增专项 smoke、固定步进确定性截图、Test Lab 索引与 README，原实验和正式 client 均未修改。",
     "Test Lab Shader 圆球空渲染修正：用户截图确认两枚超大弹体完全不可见；根因是无纹理 Polygon2D 上使用 UV 生成 SDF，片元被整体判为圆外透明。Shader 改从 VERTEX 局部坐标构造归一化渐变坐标，红白弹体恢复同形连续渐变；截图工具新增两处中心像素探针，后续透明空渲染会自动失败。",
     "Test Lab Shader 渐变圆球：按用户要求把 96 段三角扇连续插值替换为纹理无关的 CanvasItem Shader；圆形 SDF + fwidth 负责抗锯齿边缘，smoothstep 距离场负责左上白热高光到主体色的连续过渡。每个样本固定一个 Polygon2D + ShaderMaterial，红白只换 uniform，飞行 / 命中不创建动态子节点；无描边 / 外发光及实战半径 / 速度不变。",
     "Test Lab 渐变圆球色阶修正：确认此前所谓“十级渐变”实际由十个纯色同心圆覆盖，属于错误的阶梯实现；现改为 96 段三角扇顶点颜色插值，从左上高光中心连续过渡到圆周主体色，不使用纹理、Shader 或材质。无描边 / 外发光、实战半径 / 速度、拖尾上限和命中生命周期保持不变；同步专项 smoke、截图、README 与 AI 记忆。",
@@ -160,6 +161,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
+    "史莱姆十字透视窗待人工确认：打开 output/test_lab/scenes/slime_cross_perspective_test.tscn 或查看 output/test_lab/screenshots/slime_cross_perspective_test.png；左键冲击边缘，Space 暂停整体移动，F 压扁，R 复原，A 切换自动脉冲，D 切换原调试骨架。人工检查 20 点十字轮廓和四个内凹角是否仍清楚、移动 / 形变时星空是否读成固定深空间、星空密度是否压过轮廓、蓝白边缘是否合适；用户确认后再决定是否继续调 Shader 或建立正式 VFX 资产 brief，当前不要接入正式 client。",
     "Shader 渐变圆球子弹专场待人工确认：打开 output/test_lab/scenes/glow_orb_bullet_focus_test.tscn 或查看 output/test_lab/screenshots/glow_orb_bullet_focus.png；H 切换超大弹体 / 命中，D 显示判定圆，T 切换无光晕拖尾，B 切换三档背景，Space 暂停，R 重置。人工检查 SDF + smoothstep 渐变的连续性、红白圆球辨识度、左上高光位置、敌方 r=5 高速读法和拖尾是否误导判定；用户确认后再按 ADR #158、GDD §9.24 和 docs/代码/visual_effects.md 规划正式 client 接入与回归。既有泪核胶质、七材质与前序程序绘制提交保留为历史对照。",
     "如果继续普通 JSON / CSV / strings.csv 配表、全局搜索或数据集目录，先读 ADR #180、docs/代码/data_table_editor.md、client/data/README.md、client/locale/README.md 和测试策略。普通来源在 Godot“数据配表”统一编辑；JSON 层级不同走右侧递归属性树。模块 JSON/注册表/图块目录与 VFX/profile 必须继续排除并使用专用编辑器，module_worlds.json 保持普通配表。新增来源必须登记为 editable / specialized / generated，否则 data-table-editor-smoke 失败。改后跑 data-table-editor-smoke、test_sync_contracts、contracts/data/schema、三档 lint、module-json-editor-smoke、headless editor/boot、docs health 和 pre-commit；Godot UI、Excel 粘贴、草稿/冲突和契约向导保持待人工验收，不运行性能 probe。",
     "如果继续 IP、世界观、心象内容、正式标题或玩家文案，先读 ADR #178 / #179、docs/IP设定.md、docs/IP美术风格.md、GDD v1.48、术语表和修改建议 S。玩家文案已迁移为清理智能、主 / 副智能碎片、心象、意识层、意识核、失序 / Disarray 与清理 / Cleared，标题页只显示 WASD；现有 locale key、character_* / hero_* / enemy_* 内部标识保持。正式标题、素材与运行时命名迁移仍需用户另行授权。不要把具体精神疾病、真实人物或群体定义成应被清理的对象，也不要解释意识层来源、AI 善恶或清理结果。",
@@ -197,6 +199,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-04",
+      "command": "slime-cross-perspective-smoke; original slime-cross-2d-smoke and anchored-star-enemies-smoke regressions; rendered cross-interior star-content probe; deterministic fixed-step 1280x760 capture SHA-256 comparison; explicit scene load; Test Lab Godot 4.7.1 headless editor/boot; lightweight scene embedded-image scan",
+      "result": "passed for the standalone slime cross perspective window. Coverage confirms the original 20 control points, four concave corners and arm/stem proportion, 100-point bounded rounded Shader mask synchronized before and after a local poke, direct reuse of anchored_star_window.gdshader, SCREEN_UV-only content anchoring, sufficient whole-object motion, source soft-body deformation and bounded area preservation. The capture path switches only the new experiment into fixed-step 1/60 simulation, scans an inset arm region for rendered star content with a measured brightest RGB sum of 1.5137, and reproduces SHA-256 B7183C28F2274E1E5A976302688970193CE65C0803C49A629FC441ED8CDF36D4 on consecutive 1280x760 runs. Factual review also moved the motion path upward and reduced vertical amplitude so the 28px rim cannot overlap the bottom instruction/controls. The generated scene is 223 bytes and contains no embedded Image/PackedByteArray. Original cross and anchored-star regressions remain green; formal client is unchanged, so no formal client regression, performance probe or golden replay ran. Per ADR #174, silhouette readability, depth impression, star density, motion-window interpretation and rim color remain pending user visual confirmation."
+    },
     {
       "date": "2026-08-03",
       "command": "glow-orb-bullet-focus-smoke after textureless shader coordinate fix; rendered player/enemy center-pixel probes; deterministic fixed-time 1280x760 capture SHA-256 comparison; explicit scene load; Test Lab Godot 4.7.1 headless editor/boot; GDScript/project/semantic lint; JSON current_state; docs_health_check; git diff --check excluding draft/DRAFT; pre-commit run --all-files",

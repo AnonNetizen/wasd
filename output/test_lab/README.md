@@ -27,6 +27,7 @@
 
 - `anchored_star_enemies_test.tscn`：三个自动移动的圆形敌人共享同一个 `ShaderMaterial`，内部程序化星点和星云只从 `SCREEN_UV` 采样；敌人的圆形 Polygon 只充当移动遮罩，因此敌人位移不会拖动星空，而是像三个窗口滑过同一片固定空间。三种半径和敌对轮缘色用于区分个体，运动轨迹与背景坐标标记用于观察位移，星点只做亮度闪烁而不平移 / 旋转。`Space` 暂停 / 继续，`R` 复位，`Esc` 返回索引。`anchored_star_enemies_smoke.gd` 自动检查三个敌人、共享材质、`SCREEN_UV` 锚定、实际位移和暂停冻结；`capture_anchored_star_enemies.gd` 在确定性时间点生成预览图。圆形敌人辨识度、透视感和星空密度仍待用户人工验收。
 - `slime_cross_2d_test.tscn`：把史莱姆软体方法迁移到 2D 十字架凹形轮廓的独立实验。十字架由 20 个顺序轮廓点直接组成长竖干、宽横臂与四个内凹角；静止轮廓与动态轮廓都使用有界二次圆角，曲线只在相邻边构成的局部范围内弯曲，不再因 Catmull-Rom 动态过冲生成尖刺。运行时除弹簧、阻尼、邻点相对形状保持和面积压力外，还对速度与“相对静止轮廓的位移”分别做邻点扩散，让局部冲击以宽波方式传播而不是由单点领先；点击冲击也统一朝物体内部施力。绘制层以暗色反边、薄荷胶体、深青内馅、湿润高光与内部气泡建立 2D 史莱姆材质。调试骨架默认开启：紫线 / 紫圈表示静止轮廓与静止点，黄色连线 / 黄点表示动态弹簧与普通控制点，粉点表示四个内凹控制点，青色辐条表示中心骨架，静止点到动态点的青线表示当前位移；`D` 或底部按钮可隐藏 / 显示。左键点击任意边缘施加局部冲击，`Space` 压扁，`R` 复原，`A` 切换自动脉冲，`Esc` 返回索引。`slime_cross_2d_smoke.gd` 自动检查调试层开关、20 点 / 4 凹角契约、横臂与竖干比例、凹角净距、局部形变、面积保持、动态最大转角、相邻位移连续性、连续多次冲击、回弹和整体压扁；`capture_slime_cross_2d.gd` 生成开启骨架的左横臂受击阶段预览。首版“静止好、运动出现尖尖”的人工反馈已用于本次修正，最终十字辨识度、果冻质感和动态观感仍待用户复验。
+- `slime_cross_perspective_test.tscn`：保留 `slime_cross_2d_test` 的 20 点凹形十字轮廓、四个内凹角、有界二次圆角、弹簧 / 阻尼 / 邻点保形、位移扩散与面积压力，只把薄荷胶体、内馅、高光和气泡替换为 `anchored_star_enemies_test` 原样复用的 `anchored_star_window.gdshader`。动态圆角边界每帧同步到一个固定 `Polygon2D + ShaderMaterial`，十字仅作为会移动、会形变的窗口；内容只从 `SCREEN_UV` 采样，因此星空不跟随十字平移或局部形变。十字沿小幅轨迹移动以暴露固定空间读法，局部冲击和整体压扁继续验证轮廓动态；`Space` 暂停移动，`F` 压扁，`R` 复原，`A` 切换自动脉冲，`D` 切换原调试骨架，左键冲击边缘，`Esc` 返回索引。`slime_cross_perspective_smoke.gd` 检查原始 20 点 / 4 凹角与比例、100 点动态圆角 Shader 遮罩、填充跟随形变、同一 Shader 资源、`SCREEN_UV` 锚定、整体位移、局部响应和面积保持；`capture_slime_cross_perspective.gd` 以固定步进生成确定性受击预览，并扫描远离轮缘的横臂内部亮像素，空白 / 透明 Shader 输出会直接失败。十字轮廓辨识度、深空间透视感、星空密度、移动时的窗口读法和边缘颜色仍待用户人工验收。
 - `bullet_vfx_selection_test.tscn`：六种原创胶质子弹候选的 1280×760 动态选择墙。泪核胶珠、十字胶籽、缺口胶环、圆头胶囊、三瓣胶冠、棱面胶矢统一复用“深色反边 → 胶体外壳 → 深色内馅 → 湿润高光”材质层，只改变轮廓；每种都以完全相同的几何同时展示玩家白色和敌方红色版本。每张卡包含 4× 静态特写，以及玩家 `r=8 / 520 px/s`、敌人 `r=5 / 280 px/s` 的 1× 飞行 / 短拖尾 / 命中循环。弹丸只使用整体缩放、轴向压缩和少量相位形变，不复制十字架的完整软体求解，也不创建命中特效子节点。`Space` 暂停，`R` 重置，`D` 显示判定圆，`T` 切换拖尾，`B` 切换纯暗 / 低对比网格 / 低饱和意识层背景，`Esc` 返回索引。`bullet_vfx_selection_smoke.gd` 自动检查六种候选、红白同形、主体边界、红色主面积、固定拖尾上限、命中清尾、无节点累积和确定性重置；`capture_bullet_vfx_selection.gd` 生成总览图。最终辨识度、胶质感、阵营区分、拖尾是否误导判定及十字方案是否像治疗符号均待用户人工选型。
 - `tear_core_bullet_focus_test.tscn`：用户选定 01 泪核胶珠后的 1280×760 专用放大检查场景。左右以同等尺寸超大展示玩家白弹和敌方红弹，标出反边 / 胶体 / 内馅（内核）/ 高光四层配色；底部保留玩家 `r=8 / 520 px/s` 与敌人 `r=5 / 280 px/s` 的 1× 实战飞行和命中循环。`H` 在超大弹体与超大命中效果之间切换；`Space / R / D / T / B / Esc` 分别暂停、重置、判定圆、拖尾、三档背景和返回索引。`tear_core_bullet_focus_smoke.gd` 检查超大红白同形、放大尺寸、真实 r / 速度、轮廓边界、有界拖尾、无节点命中与重置清理；`capture_tear_core_bullet_focus.gd` 生成确定性放大总览图。材质层次、轮廓辨识度、高速读法和红白区分仍待用户人工验收。
 - `tear_core_material_switcher_test.tscn`：锁定泪核轮廓和圆形判定的 1280×760 七材质专场。顶部真实下拉菜单按固定顺序提供胶质基准、水晶玻璃、金属珐琅、哑光陶瓷、能量电浆、墨液烟雾和矿石晶核，默认水晶玻璃；切换时不重建节点，而是同步更新左右超大红白特写及底部玩家 `r=8 / 520 px/s`、敌人 `r=5 / 280 px/s` 的飞行 / 拖尾 / 命中样本。所有材质共享泪核几何与阵营主色，内部细节限制在判定圆内；`R` 保留当前材质，`H / D / T / B / Space / Esc` 延续泪核专场控制。`tear_core_material_switcher_smoke.gd` 检查七项菜单与默认项、唯一诊断签名、红白同形、样式同步、真实 r / 速度、主体边界、有界拖尾、命中 / 重置无残留，以及多轮切换节点数稳定；`capture_tear_core_material_switcher.gd` 固定生成默认水晶玻璃总览。材质辨识度、阵营可读性、透明背景干扰、高速读法、拖尾判定误导与下拉操作均待用户人工选型。
@@ -180,6 +181,22 @@ py -3 tools/godot_bridge.py --project output/test_lab headless-boot
 
 # 1280×760 左横臂受击阶段预览
 & $godot --resolution 1280x760 --path output/test_lab --script res://tools/capture_slime_cross_2d.gd
+```
+
+## Slime Cross Perspective Window 验证
+
+以下命令均从仓库根目录运行；`$godot` 指向 Godot 4.7.1 stable 的 console 可执行文件。
+
+```powershell
+# 生成 / 更新结构化场景并显式加载
+& $godot --headless --path output/test_lab --script res://scripts/create_slime_cross_perspective_scene.gd
+& $godot --headless --path output/test_lab --quit-after 2 res://scenes/slime_cross_perspective_test.tscn
+
+# 原十字轮廓、动态圆角遮罩、SCREEN_UV Shader、位移、形变与面积保持
+& $godot --headless --path output/test_lab --script res://tools/slime_cross_perspective_smoke.gd
+
+# 1280×760 固定时间与局部受击预览
+& $godot --resolution 1280x760 --path output/test_lab --script res://tools/capture_slime_cross_perspective.gd
 ```
 
 ## Jelly Bullet VFX Selection 验证
