@@ -3,6 +3,7 @@ extends SceneTree
 const SCENE_PATH: String = "res://scenes/svg_curve_pear_test.tscn"
 const SHADER_PATH: String = "res://shaders/anchored_star_window.gdshader"
 const SHAPE_SCRIPT_PATH: String = "res://scripts/svg_curve_outline_shape.gd"
+const CONTROLS_SCRIPT_PATH: String = "res://scripts/svg_curve_controls_overlay.gd"
 const TEST_SCRIPT_PATH: String = "res://scripts/svg_curve_pear_test.gd"
 const SVG_SOURCE_PATH: String = "res://assets/svg_curve/pear_source.svg"
 const DEFAULT_BORDER_WIDTH: float = 12.0
@@ -41,6 +42,10 @@ func _run_smoke() -> void:
 	if shape_source.count("Line2D.new()") != 1:
 		_fail("Single SVG outline must create exactly one adjustable Line2D border.")
 		return
+	var controls_source := FileAccess.get_file_as_string(CONTROLS_SCRIPT_PATH)
+	if not controls_source.contains("draw_circle(") or not controls_source.contains("draw_line("):
+		_fail("SVG control overlay must draw anchor/handle points and guide lines.")
+		return
 	var test_source := FileAccess.get_file_as_string(TEST_SCRIPT_PATH)
 	if test_source.contains("draw_line("):
 		_fail("Clean SVG preview must not add decorative or background lines.")
@@ -64,6 +69,9 @@ func _run_smoke() -> void:
 	if int(scene.call("debug_border_line_count")) != 1:
 		_fail("Expected one Line2D generated from the SVG outline.")
 		return
+	if int(scene.call("debug_controls_overlay_count")) != 1:
+		_fail("Expected one dedicated SVG Bézier controls overlay.")
+		return
 	if not bool(scene.call("debug_all_curves_closed")):
 		_fail("Imported SVG outline must remain closed.")
 		return
@@ -72,6 +80,17 @@ func _run_smoke() -> void:
 		return
 	if int(scene.call("debug_curve_point_count")) < 20:
 		_fail("Too few Curve2D anchors survived direct SVG conversion.")
+		return
+	if int(scene.call("debug_control_anchor_count")) != int(
+		scene.call("debug_curve_point_count")
+	) - 1:
+		_fail("Control overlay must hide the duplicated closure anchor.")
+		return
+	if int(scene.call("debug_control_handle_count")) < 40:
+		_fail("Too few SVG cubic control handles were exposed by the overlay.")
+		return
+	if not bool(scene.call("debug_controls_visible")):
+		_fail("SVG control points must default to visible for this inspection scene.")
 		return
 	if int(scene.call("debug_tessellated_point_count")) <= int(
 		scene.call("debug_curve_point_count")
@@ -102,6 +121,21 @@ func _run_smoke() -> void:
 		_fail("Pear border did not start at the documented adjustable width.")
 		return
 	var original_triangle_count := int(scene.call("debug_triangle_count"))
+	var original_border_width := float(scene.call("debug_border_width"))
+	scene.call("debug_set_controls_visible", false)
+	if bool(scene.call("debug_controls_visible")):
+		_fail("SVG control overlay did not hide when toggled off.")
+		return
+	scene.call("debug_set_controls_visible", true)
+	if not bool(scene.call("debug_controls_visible")):
+		_fail("SVG control overlay did not restore when toggled on.")
+		return
+	if int(scene.call("debug_triangle_count")) != original_triangle_count or not is_equal_approx(
+		float(scene.call("debug_border_width")),
+		original_border_width
+	):
+		_fail("Toggling SVG controls unexpectedly changed fill topology or border width.")
+		return
 	scene.call("debug_set_border_width", 22.0)
 	if not is_equal_approx(float(scene.call("debug_border_width")), 22.0):
 		_fail("Runtime border-width control did not update Line2D.width.")
@@ -117,7 +151,22 @@ func _run_smoke() -> void:
 
 	var fill_samples := scene.call("debug_fill_screen_samples") as PackedVector2Array
 	var border_samples := scene.call("debug_border_screen_samples") as PackedVector2Array
-	if fill_samples.is_empty() or border_samples.size() < 16:
+	var anchor_samples := scene.call(
+		"debug_control_anchor_screen_samples"
+	) as PackedVector2Array
+	var in_handle_samples := scene.call(
+		"debug_control_in_handle_screen_samples"
+	) as PackedVector2Array
+	var out_handle_samples := scene.call(
+		"debug_control_out_handle_screen_samples"
+	) as PackedVector2Array
+	if (
+		fill_samples.is_empty()
+		or border_samples.size() < 16
+		or anchor_samples.size() < 20
+		or in_handle_samples.size() < 20
+		or out_handle_samples.size() < 20
+	):
 		_fail("Fill or border rendering diagnostics produced too few sample points.")
 		return
 
@@ -130,10 +179,12 @@ func _run_smoke() -> void:
 		return
 
 	print(
-		"SVG outline pear diagnostics: subpaths=1 segments=%d anchors=%d tessellated=%d triangles=%d fill_area=%.5f border_width=%.1f"
+		"SVG outline pear diagnostics: subpaths=1 segments=%d curve_points=%d unique_anchors=%d handles=%d tessellated=%d triangles=%d fill_area=%.5f border_width=%.1f"
 		% [
 			int(scene.call("debug_curve_segment_count")),
 			int(scene.call("debug_curve_point_count")),
+			int(scene.call("debug_control_anchor_count")),
+			int(scene.call("debug_control_handle_count")),
 			int(scene.call("debug_tessellated_point_count")),
 			int(scene.call("debug_triangle_count")),
 			area_ratio,

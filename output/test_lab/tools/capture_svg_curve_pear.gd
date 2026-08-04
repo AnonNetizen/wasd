@@ -20,15 +20,16 @@ func _capture() -> void:
 	current_scene = scene
 	await process_frame
 	scene.call("debug_set_border_width", DEFAULT_BORDER_WIDTH)
+	scene.call("debug_set_controls_visible", false)
 	scene.call("debug_set_preview_time", 2.4)
 	RenderingServer.force_draw(true)
 	RenderingServer.force_sync()
 	await process_frame
 
 	var viewport_texture: ViewportTexture = root.get_texture()
-	var image: Image = viewport_texture.get_image()
+	var clean_image: Image = viewport_texture.get_image()
 	var fill_samples := scene.call("debug_fill_screen_samples") as PackedVector2Array
-	var brightest_fill: float = _brightest_sample(image, fill_samples)
+	var brightest_fill: float = _brightest_sample(clean_image, fill_samples)
 	if brightest_fill < 0.35:
 		push_error("SVG outline interior did not render visible perspective content: %.4f" % brightest_fill)
 		quit(1)
@@ -36,12 +37,40 @@ func _capture() -> void:
 	var border_samples := scene.call("debug_border_screen_samples") as PackedVector2Array
 	var expected_border := scene.call("debug_border_color") as Color
 	var border_color_error: float = _closest_color_error(
-		image,
+		clean_image,
 		border_samples,
 		expected_border
 	)
 	if border_color_error > 0.18:
 		push_error("Adjustable Line2D border did not render its configured color: %.4f" % border_color_error)
+		quit(1)
+		return
+
+	scene.call("debug_set_controls_visible", true)
+	RenderingServer.force_draw(true)
+	RenderingServer.force_sync()
+	await process_frame
+	var image: Image = viewport_texture.get_image()
+	var anchor_error: float = _closest_color_error(
+		image,
+		scene.call("debug_control_anchor_screen_samples") as PackedVector2Array,
+		scene.call("debug_control_anchor_color") as Color
+	)
+	var in_handle_error: float = _closest_color_error(
+		image,
+		scene.call("debug_control_in_handle_screen_samples") as PackedVector2Array,
+		scene.call("debug_control_in_handle_color") as Color
+	)
+	var out_handle_error: float = _closest_color_error(
+		image,
+		scene.call("debug_control_out_handle_screen_samples") as PackedVector2Array,
+		scene.call("debug_control_out_handle_color") as Color
+	)
+	if maxf(anchor_error, maxf(in_handle_error, out_handle_error)) > 0.18:
+		push_error(
+			"SVG anchor/in-handle/out-handle colors did not render: %.4f / %.4f / %.4f"
+			% [anchor_error, in_handle_error, out_handle_error]
+		)
 		quit(1)
 		return
 
@@ -53,6 +82,10 @@ func _capture() -> void:
 		return
 	print("Brightest outline-interior RGB sum: %.4f" % brightest_fill)
 	print("Closest adjustable-border RGB error: %.4f" % border_color_error)
+	print(
+		"Closest SVG anchor/in-handle/out-handle RGB errors: %.4f / %.4f / %.4f"
+		% [anchor_error, in_handle_error, out_handle_error]
+	)
 	print("Saved screenshot: %s" % absolute_path)
 	quit(0)
 

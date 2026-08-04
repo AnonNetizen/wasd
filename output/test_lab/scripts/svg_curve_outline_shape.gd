@@ -2,6 +2,7 @@ class_name TestLabSvgCurveOutlineShape
 extends Node2D
 
 const CURVE_IMPORTER_SCRIPT := preload("res://scripts/svg_curve_importer.gd")
+const CONTROLS_OVERLAY_SCRIPT := preload("res://scripts/svg_curve_controls_overlay.gd")
 const PERSPECTIVE_SHADER: Shader = preload("res://shaders/anchored_star_window.gdshader")
 const SVG_SOURCE_PATH: String = "res://assets/svg_curve/pear_source.svg"
 const TESSELLATION_LENGTH: float = 3.0
@@ -15,6 +16,7 @@ var _contour := PackedVector2Array()
 var _material: ShaderMaterial
 var _fill_mesh_instance: MeshInstance2D
 var _border_line: Line2D
+var _controls_overlay: TestLabSvgCurveControlsOverlay
 var _source_bounds := Rect2()
 var _curve_segment_count: int = 0
 var _curve_point_count: int = 0
@@ -59,6 +61,51 @@ func border_line_count() -> int:
 
 func border_uses_shader() -> bool:
 	return _border_line != null and _border_line.material is ShaderMaterial
+
+
+func set_controls_visible(controls_visible: bool) -> void:
+	if _controls_overlay != null:
+		_controls_overlay.visible = controls_visible
+
+
+func controls_visible() -> bool:
+	return _controls_overlay != null and _controls_overlay.visible
+
+
+func controls_overlay_count() -> int:
+	return 1 if _controls_overlay != null else 0
+
+
+func control_anchor_count() -> int:
+	return _controls_overlay.anchor_count() if _controls_overlay != null else 0
+
+
+func control_handle_count() -> int:
+	return _controls_overlay.handle_count() if _controls_overlay != null else 0
+
+
+func control_anchor_points() -> PackedVector2Array:
+	return _controls_overlay.anchor_points() if _controls_overlay != null else PackedVector2Array()
+
+
+func control_in_handle_points() -> PackedVector2Array:
+	return _controls_overlay.in_handle_points() if _controls_overlay != null else PackedVector2Array()
+
+
+func control_out_handle_points() -> PackedVector2Array:
+	return _controls_overlay.out_handle_points() if _controls_overlay != null else PackedVector2Array()
+
+
+func control_anchor_color() -> Color:
+	return _controls_overlay.anchor_color() if _controls_overlay != null else Color.TRANSPARENT
+
+
+func control_in_handle_color() -> Color:
+	return _controls_overlay.in_handle_color() if _controls_overlay != null else Color.TRANSPARENT
+
+
+func control_out_handle_color() -> Color:
+	return _controls_overlay.out_handle_color() if _controls_overlay != null else Color.TRANSPARENT
 
 
 func subpath_count() -> int:
@@ -146,6 +193,7 @@ func _load_svg_curve() -> void:
 	_create_path_and_contour()
 	_build_fill_mesh()
 	_build_border_line()
+	_build_controls_overlay()
 
 
 func _normalize_curve() -> void:
@@ -241,6 +289,15 @@ func _build_border_line() -> void:
 	var sample_step: int = maxi(_contour.size() / 64, 1)
 	for point_index in range(0, _contour.size(), sample_step):
 		_border_sample_points.append(_contour[point_index])
+
+
+func _build_controls_overlay() -> void:
+	_controls_overlay = CONTROLS_OVERLAY_SCRIPT.new() as TestLabSvgCurveControlsOverlay
+	_controls_overlay.name = "SvgBezierControls"
+	_controls_overlay.z_index = 20
+	_controls_overlay.configure(_curves[0])
+	_controls_overlay.visible = true
+	add_child(_controls_overlay)
 
 
 func _signed_area(points: PackedVector2Array) -> float:
