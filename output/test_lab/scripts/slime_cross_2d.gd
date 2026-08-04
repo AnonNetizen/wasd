@@ -241,12 +241,16 @@ func maximum_neighbor_displacement_delta() -> float:
 	return maximum_delta
 
 
+func _rest_outline_source() -> Array[Vector2]:
+	return REST_OUTLINE
+
+
 func _initialize_membrane() -> void:
 	_rest_points.clear()
 	_points.clear()
 	_velocities.clear()
 	_rest_normals.clear()
-	for point in REST_OUTLINE:
+	for point in _rest_outline_source():
 		_rest_points.append(point)
 		_points.append(point)
 		_velocities.append(Vector2.ZERO)

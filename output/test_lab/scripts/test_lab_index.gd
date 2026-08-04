@@ -11,6 +11,12 @@ const STATIC_TEST_SCENES := {
 
 const EXTRA_TEST_SCENES := [
 	{
+		"button_name": "SlimeBookPerspectiveButton",
+		"label": "Slime Book Perspective Window",
+		"scene_path": "res://scenes/slime_book_perspective_test.tscn",
+		"featured": true,
+	},
+	{
 		"button_name": "SlimeCrossPerspectiveButton",
 		"label": "Slime Cross Perspective Window",
 		"scene_path": "res://scenes/slime_cross_perspective_test.tscn",

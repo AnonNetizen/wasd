@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/slime_book_perspective_test.gd" id="1_o36nc"]
+
+[node name="SlimeBookPerspectiveTest" type="Node2D" unique_id=462224441]
+script = ExtResource("1_o36nc")
