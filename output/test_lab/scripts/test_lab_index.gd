@@ -101,6 +101,12 @@ const EXTRA_TEST_SCENES := [
 		"featured": true,
 	},
 	{
+		"button_name": "SvgCurvePearButton",
+		"label": "SVG Curve Pear Perspective Window",
+		"scene_path": "res://scenes/svg_curve_pear_test.tscn",
+		"featured": true,
+	},
+	{
 		"button_name": "MyceliumGrowthButton",
 		"label": "Mycelium Growth Test",
 		"scene_path": "res://scenes/mycelium_growth_test.tscn",

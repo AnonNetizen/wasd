@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-08-04",
   "current_phase": "editor_tooling",
-  "current_status": "ADR #180 已建立 Godot 4.7.1 editor-only 数据配表：声明式目录统一普通 client/data JSON、全部数据 CSV 和 strings.csv，提供表格、递归属性、TSV、CRUD、Undo/Redo、双语文案、技能预览和 1–8 层全局搜索。模块 JSON/注册表/图块目录与 VFX/profile 继续由专用编辑器负责且不进入搜索；module_worlds.json 纳入普通配表。修改自动保存在 user://，项目写入经过 hash、备份、受控内容契约、独立 headless DataLoader 校验与失败回滚；release 排除插件/editor scripts。人工 UI/Excel/冲突流验收待用户执行。当前 Test Lab 新增史莱姆苹果透视窗：复用史莱姆十字的 20 点单闭环软体、动态圆角、面积压力和 anchored_star_window.gdshader，以近圆果腹、顶部凹肩、短果柄和一片叶子组成外轮廓；成品只绘制外轮缘与 Shader 填充，不含叶脉、分割线、内部标记或调试骨架。原实验与正式 client 未修改，苹果辨识度、叶片大小、轮缘配色和透视读法待用户人工确认。",
+  "current_status": "ADR #180 已建立 Godot 4.7.1 editor-only 数据配表：声明式目录统一普通 client/data JSON、全部数据 CSV 和 strings.csv，提供表格、递归属性、TSV、CRUD、Undo/Redo、双语文案、技能预览和 1–8 层全局搜索。模块 JSON/注册表/图块目录与 VFX/profile 继续由专用编辑器负责且不进入搜索；module_worlds.json 纳入普通配表。修改自动保存在 user://，项目写入经过 hash、备份、受控内容契约、独立 headless DataLoader 校验与失败回滚；release 排除插件/editor scripts。人工 UI/Excel/冲突流验收待用户执行。当前 Test Lab 新增 SVG 曲线梨透视窗：直接把梨 SVG 的三个闭合 Bézier 子路径转换为 Curve2D / Path2D，原黑色复合区域作为无 Shader 的实心边框，梨身与叶片两个被围内部区域才填充 anchored_star_window.gdshader；只做整体平移，没有史莱姆软体、局部形变或额外装饰线。原实验与正式 client 未修改，边框粗细、梨 / 叶片辨识度和透视读法待用户人工确认。",
   "latest_adr": 180,
   "open_decisions": [
     "D",
@@ -10,6 +10,7 @@
     "S"
   ],
   "last_completed": [
+    "Test Lab SVG 曲线梨透视窗实验：复制并净化用户提供的梨 SVG，保持原路径数据与坐标变换；轻量导入器把支持的 SVG 命令直接转换为三个闭合 Curve2D / Path2D。按用户纠正后的语义，原黑色复合区域烘焙为无 Shader 的实心边框，梨身与叶片两个被围区域才共用 SCREEN_UV perspective window Shader。无史莱姆软体、弹簧、面积压力、局部形变或额外装饰线；新增专项 smoke、确定性截图、Test Lab 索引与 README，正式 client 未修改。",
     "Test Lab 史莱姆苹果透视窗实验：沿用史莱姆十字的 20 点单闭环软体与 SCREEN_UV perspective window 渲染路径，把静止轮廓改排为近圆果腹、顶部凹肩、短果柄和一片外伸叶子；果柄 / 叶片直接属于外轮廓，成品只保留四层外轮缘与 Shader 填充，零叶脉、分割线、装饰线、内部标记或调试骨架。新增专项 smoke、左右果肉渲染探针、确定性截图、Test Lab 索引与 README，原实验和正式 client 均未修改。",
     "Test Lab 四节点史莱姆边圆球：按用户要求退役当前子弹专场的 CanvasItem Shader、高光与渐变；每颗弹改用东南西北四个固定 Node2D 控制点，按 Steamworks Slime Lab 的边缘思路以 centripetal Catmull-Rom 插值为 64 点闭合轮廓，再绘制同阵营但有明确色差的内部平色和统一边色。红白同形、真实半径 / 速度、有界拖尾和无动态命中节点保持；捕获新增内外像素色差门禁，正式 client 未改。",
     "Test Lab 史莱姆书本透视窗实验：复用原史莱姆十字的 20 点单轮廓软体求解与 perspective window 渲染路径，只把可覆写静止轮廓改排为左右镜像的摊开书本；顶端凹口、底部书脊尖点、中央书脊和两条页缘线随同一软体形变，内部直接复用 anchored_star_window.gdshader 的 SCREEN_UV 固定空间星空。无翻页、独立页层或 3D 曲面；新增专项 smoke、左右页渲染探针、确定性截图、Test Lab 索引与 README，原实验和正式 client 均未修改。",
@@ -164,6 +165,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
+    "SVG 曲线梨透视窗待人工确认：打开 output/test_lab/scenes/svg_curve_pear_test.tscn 或查看 output/test_lab/screenshots/svg_curve_pear_test.png；Space 暂停整体移动，D 临时显示三条原始曲线边界，R 复原。人工检查原 SVG 黑色区域是否正确读成梨 / 叶片的边框、透视内容是否只出现在两个被围内部区域、梨与叶片是否易辨认、边框粗细和固定空间深度读法是否合适；用户确认后再决定调边色、缩放或 Shader，当前不要恢复史莱姆软体、增加额外线条或接入正式 client。",
     "史莱姆苹果透视窗待人工确认：打开 output/test_lab/scenes/slime_apple_perspective_test.tscn 或查看 output/test_lab/screenshots/slime_apple_perspective_test.png；左键冲击边缘，Space 暂停整体移动，F 压扁，R 复原，A 切换自动脉冲。人工检查不依赖内部线时能否直接读成苹果、果柄与单叶是否清晰但不形成尖刺、运动 / 形变时星空是否读成固定深空间、绿色 / 金色外轮缘是否合适；用户确认后再决定调轮廓或 Shader，当前不要增加内部线或接入正式 client。",
     "史莱姆书本透视窗待人工确认：打开 output/test_lab/scenes/slime_book_perspective_test.tscn 或查看 output/test_lab/screenshots/slime_book_perspective_test.png；左键冲击页缘，Space 暂停整体移动，F 压扁，R 复原，A 切换自动脉冲，D 切换骨架。人工检查宽轮廓能否直接读成摊开的书、顶凹口 / 底尖点 / 中央书脊是否足够但不抢内容、左右页缘线是否自然、移动 / 形变时星空是否读成固定深空间、边缘配色是否合适；用户确认后再决定调轮廓或 Shader，当前不要增加翻页或接入正式 client。",
     "史莱姆十字透视窗待人工确认：打开 output/test_lab/scenes/slime_cross_perspective_test.tscn 或查看 output/test_lab/screenshots/slime_cross_perspective_test.png；左键冲击边缘，Space 暂停整体移动，F 压扁，R 复原，A 切换自动脉冲，D 切换原调试骨架。人工检查 20 点十字轮廓和四个内凹角是否仍清楚、移动 / 形变时星空是否读成固定深空间、星空密度是否压过轮廓、蓝白边缘是否合适；用户确认后再决定是否继续调 Shader 或建立正式 VFX 资产 brief，当前不要接入正式 client。",
@@ -204,6 +206,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-04",
+      "command": "svg-curve-pear-smoke; original slime-cross-2d, slime-cross-perspective, slime-book-perspective, slime-apple-perspective and anchored-star-enemies regressions; rendered enclosed-interior star-content probe; deterministic fixed-time 1280x760 capture SHA-256 comparison; explicit pear/index scene load; Test Lab Godot 4.7.1 headless editor/boot; lightweight scene embedded-image scan; GDScript/project/semantic lint; JSON current_state; docs_health_check; git diff --check excluding draft/DRAFT; pre-commit run --all-files",
+      "result": "passed for the standalone direct-SVG curve pear experiment after applying the user's topology correction. The sanitized source preserves the authored path data and translate/scale transform; supported SVG commands produce three closed Curve2D and three Path2D nodes with no soft-body process, spring, area pressure or slime-cross dependency. The original black compound region is a shader-free 604-triangle solid edge whose baked area ratio is 1.00001; the reverse-wound pear-body and leaf contours become two separate enclosed perspective-fill regions totaling 248 triangles with area ratio 1.00000. The fill directly reuses anchored_star_window.gdshader, the whole curve translates to expose SCREEN_UV anchoring, and the clean preview contains no decorative or background draw_line calls. Consecutive fixed-time 1280x760 captures reproduce SHA-256 EDEFC88AB62BD8C79B18CE3C8DF6F093C13FC791FF50B1B82CCF3AAE81EA2783; independent leaf/body interior probes measure brightest RGB sums 0.6078 / 2.5098. Existing 2D cross, perspective cross, perspective book, perspective apple and anchored-star regressions remain green. Formal client is unchanged, so no formal client regression, performance probe or golden replay ran. Per ADR #174, edge thickness, pear/leaf readability and motion-window depth interpretation remain pending user visual confirmation."
+    },
     {
       "date": "2026-08-04",
       "command": "slime-apple-perspective-smoke; original slime-cross-2d, slime-cross-perspective, slime-book-perspective and anchored-star-enemies regressions; rendered left/right apple-body star-content probes; deterministic fixed-step 1280x760 capture SHA-256 comparison; explicit apple/index scene load; Test Lab Godot 4.7.1 headless editor/boot; lightweight scene embedded-image scan; GDScript/project/semantic lint; JSON current_state; docs_health_check; git diff --check excluding draft/DRAFT; pre-commit run --all-files",

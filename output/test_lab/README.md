@@ -30,6 +30,7 @@
 - `slime_cross_perspective_test.tscn`：保留 `slime_cross_2d_test` 的 20 点凹形十字轮廓、四个内凹角、有界二次圆角、弹簧 / 阻尼 / 邻点保形、位移扩散与面积压力，只把薄荷胶体、内馅、高光和气泡替换为 `anchored_star_enemies_test` 原样复用的 `anchored_star_window.gdshader`。动态圆角边界每帧同步到一个固定 `Polygon2D + ShaderMaterial`，十字仅作为会移动、会形变的窗口；内容只从 `SCREEN_UV` 采样，因此星空不跟随十字平移或局部形变。十字沿小幅轨迹移动以暴露固定空间读法，局部冲击和整体压扁继续验证轮廓动态；`Space` 暂停移动，`F` 压扁，`R` 复原，`A` 切换自动脉冲，`D` 切换原调试骨架，左键冲击边缘，`Esc` 返回索引。`slime_cross_perspective_smoke.gd` 检查原始 20 点 / 4 凹角与比例、100 点动态圆角 Shader 遮罩、填充跟随形变、同一 Shader 资源、`SCREEN_UV` 锚定、整体位移、局部响应和面积保持；`capture_slime_cross_perspective.gd` 以固定步进生成确定性受击预览，并扫描远离轮缘的横臂内部亮像素，空白 / 透明 Shader 输出会直接失败。十字轮廓辨识度、深空间透视感、星空密度、移动时的窗口读法和边缘颜色仍待用户人工验收。
 - `slime_book_perspective_test.tscn`：沿用史莱姆十字的单一闭合软体骨架、弹簧 / 阻尼 / 邻点保形、位移扩散、面积压力和动态圆角遮罩，但把 20 个静止控制点改排成左右镜像的摊开书本轮廓。顶端书脊凹口、底部书脊尖点、中央书脊线和两条页缘引导线随同一软体形变，帮助宽轮廓读成一本打开但不翻页的书；没有独立页层、翻页状态或 3D 曲面。内部继续直接复用 `anchored_star_window.gdshader`，只从 `SCREEN_UV` 采样固定空间星空。`Space` 暂停整体移动，`F` 压扁，`R` 复原，`A` 切换自动脉冲，`D` 切换骨架，左键冲击页缘，`Esc` 返回索引。`slime_book_perspective_smoke.gd` 检查 20 点单轮廓、书脊特征、左右静止对称、页宽比例、100 点动态 Shader 遮罩、整体位移、局部形变与面积保持；`capture_slime_book_perspective.gd` 以固定步进生成左页受击预览，并分别扫描左右页内部亮像素。书本辨识度、书脊线强弱、透视内容读法和边缘配色仍待用户人工验收。
 - `slime_apple_perspective_test.tscn`：继续复用史莱姆十字的 20 点单闭环软体、动态圆角遮罩与 `anchored_star_window.gdshader`，只把静止轮廓改排成近圆果腹、顶部凹肩、短果柄和一片外伸叶子组成的苹果剪影。果柄与叶片都是同一外轮廓的一部分，不创建独立节点；成品绘制只含四层外轮缘和 Shader 填充，刻意不绘制叶脉、分割线、装饰线、内部标记或继承的调试骨架。`Space` 暂停整体移动，`F` 压扁，`R` 复原，`A` 切换自动脉冲，左键冲击边缘，`Esc` 返回索引。`slime_apple_perspective_smoke.gd` 检查 20 点单轮廓、果腹宽高、凹肩、果柄、叶片、底部圆度、零内部线、100 点 Shader 遮罩、整体位移、局部形变与面积保持；`capture_slime_apple_perspective.gd` 以固定步进生成右侧受击预览，并分别扫描左右果肉内部亮像素。苹果辨识度、叶片大小、轮缘配色与固定空间透视读法仍待用户人工验收。
+- `svg_curve_pear_test.tscn`：不再使用史莱姆控制点或软体求解，直接读取已去除生成器 metadata、但保持原 `d` 路径与 `translate(0,512) scale(0.1,-0.1)` 坐标变换的 `assets/svg_curve/pear_source.svg`。轻量导入器把 `M / m / L / l / H / h / V / v / C / c / Z / z` 转成三个闭合 `Curve2D + Path2D` 子路径，等距细分只作为渲染缓存。原 SVG 黑色复合区域烘焙为无 Shader 的实心边框；两个反向子路径围出的梨身内部和叶片内部才分别三角化并共用 `anchored_star_window.gdshader`。整条矢量只做平移以观察 `SCREEN_UV` 固定空间内容，没有弹簧、面积压力、质点或局部形变，也不添加装饰线。`Space` 暂停移动，`D` 只在诊断时显示三条权威曲线，`R` 复原，`Esc` 返回索引。`svg_curve_pear_smoke.gd` 检查曲线命令、闭合子路径、两个内部区域、边框 / 内部面积、材质分层、整体位移和零软体依赖；`capture_svg_curve_pear.gd` 探测两个内部区域的可见透视内容并生成确定性预览。边框粗细、梨与叶片辨识度以及固定空间透视读法仍待用户人工验收。
 - `bullet_vfx_selection_test.tscn`：六种原创胶质子弹候选的 1280×760 动态选择墙。泪核胶珠、十字胶籽、缺口胶环、圆头胶囊、三瓣胶冠、棱面胶矢统一复用“深色反边 → 胶体外壳 → 深色内馅 → 湿润高光”材质层，只改变轮廓；每种都以完全相同的几何同时展示玩家白色和敌方红色版本。每张卡包含 4× 静态特写，以及玩家 `r=8 / 520 px/s`、敌人 `r=5 / 280 px/s` 的 1× 飞行 / 短拖尾 / 命中循环。弹丸只使用整体缩放、轴向压缩和少量相位形变，不复制十字架的完整软体求解，也不创建命中特效子节点。`Space` 暂停，`R` 重置，`D` 显示判定圆，`T` 切换拖尾，`B` 切换纯暗 / 低对比网格 / 低饱和意识层背景，`Esc` 返回索引。`bullet_vfx_selection_smoke.gd` 自动检查六种候选、红白同形、主体边界、红色主面积、固定拖尾上限、命中清尾、无节点累积和确定性重置；`capture_bullet_vfx_selection.gd` 生成总览图。最终辨识度、胶质感、阵营区分、拖尾是否误导判定及十字方案是否像治疗符号均待用户人工选型。
 - `tear_core_bullet_focus_test.tscn`：用户选定 01 泪核胶珠后的 1280×760 专用放大检查场景。左右以同等尺寸超大展示玩家白弹和敌方红弹，标出反边 / 胶体 / 内馅（内核）/ 高光四层配色；底部保留玩家 `r=8 / 520 px/s` 与敌人 `r=5 / 280 px/s` 的 1× 实战飞行和命中循环。`H` 在超大弹体与超大命中效果之间切换；`Space / R / D / T / B / Esc` 分别暂停、重置、判定圆、拖尾、三档背景和返回索引。`tear_core_bullet_focus_smoke.gd` 检查超大红白同形、放大尺寸、真实 r / 速度、轮廓边界、有界拖尾、无节点命中与重置清理；`capture_tear_core_bullet_focus.gd` 生成确定性放大总览图。材质层次、轮廓辨识度、高速读法和红白区分仍待用户人工验收。
 - `tear_core_material_switcher_test.tscn`：锁定泪核轮廓和圆形判定的 1280×760 七材质专场。顶部真实下拉菜单按固定顺序提供胶质基准、水晶玻璃、金属珐琅、哑光陶瓷、能量电浆、墨液烟雾和矿石晶核，默认水晶玻璃；切换时不重建节点，而是同步更新左右超大红白特写及底部玩家 `r=8 / 520 px/s`、敌人 `r=5 / 280 px/s` 的飞行 / 拖尾 / 命中样本。所有材质共享泪核几何与阵营主色，内部细节限制在判定圆内；`R` 保留当前材质，`H / D / T / B / Space / Esc` 延续泪核专场控制。`tear_core_material_switcher_smoke.gd` 检查七项菜单与默认项、唯一诊断签名、红白同形、样式同步、真实 r / 速度、主体边界、有界拖尾、命中 / 重置无残留，以及多轮切换节点数稳定；`capture_tear_core_material_switcher.gd` 固定生成默认水晶玻璃总览。材质辨识度、阵营可读性、透明背景干扰、高速读法、拖尾判定误导与下拉操作均待用户人工选型。
@@ -231,6 +232,22 @@ py -3 tools/godot_bridge.py --project output/test_lab headless-boot
 
 # 1280×760 固定步进右侧受击预览；同时探测左右果肉内部可见内容
 & $godot --resolution 1280x760 --path output/test_lab --script res://tools/capture_slime_apple_perspective.gd
+```
+
+## SVG Curve Pear Perspective Window 验证
+
+以下命令均从仓库根目录运行；`$godot` 指向 Godot 4.7.1 stable 的 console 可执行文件。
+
+```powershell
+# 生成 / 更新轻量场景并显式加载
+& $godot --headless --path output/test_lab --script res://scripts/create_svg_curve_pear_scene.gd
+& $godot --headless --path output/test_lab --quit-after 2 res://scenes/svg_curve_pear_test.tscn
+
+# 三条闭合 Curve2D、黑色源边框、两个内部 Shader 填充区与零软体依赖
+& $godot --headless --path output/test_lab --script res://tools/svg_curve_pear_smoke.gd
+
+# 1280×760 固定时间预览；探测被边框围住的内部透视内容
+& $godot --resolution 1280x760 --path output/test_lab --script res://tools/capture_svg_curve_pear.gd
 ```
 
 ## Jelly Bullet VFX Selection 验证

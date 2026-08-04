@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/svg_curve_pear_test.gd" id="1_jcnqu"]
+
+[node name="SvgCurvePearTest" type="Node2D" unique_id=646238612]
+script = ExtResource("1_jcnqu")
