@@ -165,6 +165,7 @@
 | **维护旧局外成长历史** | 旧 `MetaProgressionSystem` 运行时和 UI 已按 ADR #117 删除；项目尚未上线，ADR #118 后旧测试档迁移、`meta_progression.json`、旧 meta 契约常量和旧 `purchased_upgrades` 补偿路径也已删除。需要查历史时看 F6 工作包与 ADR 记录；不要恢复旧永久升级树作为当前成长方向 |
 | **改致谢 / 第三方来源** | 同步根目录 `CREDITS.md` 与 `client/data/credits.json`；Godot 编辑器插件同时维护 `client/addons/README.md` 的版本、哈希、本地补丁和升级流程；新增分组标题、角色或用途标签时补 `client/locale/strings.csv` 的 `ui_credits_*` key；发行前复核许可证和 notice |
 | **加 / 改美术资产 / 占位表现** | 先看 `docs/IP美术风格.md`、GDD §8.2-A / §9.24、`docs/代码/visual_effects.md`。静态色彩 / 锚点 / 朝向继续遵守意识层代表色和稳定功能色规则；动态效果通过“VFX 效果库”/ profile 接入，程序几何必须与 Shader、动画或粒子形成精选模板 |
+| **提交图片 / 音频 / 字体等二进制资产** | 默认作为普通 Git blob 提交，`.gitattributes` 只保留 `binary` 防止文本 diff；禁止按常见扩展名全局启用 Git LFS。只有经单独决策的明确大型资产路径才可使用 LFS；旧提交中的 LFS 指针不重写，检出历史提交时可能仍需 Git LFS（ADR #182） |
 | **加破限角色/道具** | 先判断是否能用 `capabilities` + `modifiers` + `behaviors` 表达；表达不了则新增可复用 primitive / strategy 并登记词表 §12，禁止按 id 写特殊分支 |
 | **写/改代码模块** | 先查 `docs/代码文档规范.md` + 对应 `docs/代码/<module_id>.md` + 目标源码；触碰 `.gd` 时按 Godot 4.7 官方 GDScript style guide 整理本次改动，并跑 `python tools/lint_gdscript_rules.py`；GDD / ADR 只在设计冲突、语义不明或新增决策时补读，不能默认整篇加载 |
 | **查知识库 / 找文档关系 / 任务路由** | 先看 `docs/AI知识库索引.md` 的任务路由表，需要机器可读元数据时看 `docs/_kb_index.json`，搜索同义词先看 `docs/术语表.md` |

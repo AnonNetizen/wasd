@@ -87,7 +87,13 @@ git config --global user.email "<your email>"
 
 ## 三、Git 约定
 
-### 1. Commit 信息风格（Conventional Commits）
+### 1. 二进制资产与 Git LFS
+
+图片、音频和字体默认直接作为普通 Git blob 提交；`.gitattributes` 仍以 `binary` 标记它们，避免产生无意义的文本 diff。禁止按 `*.png`、`*.ogg`、`*.ttf` 等常见扩展名全局启用 Git LFS。
+
+只有真正的大型源资产出现、并经过单独决策后，才可对明确目录或文件路径启用 LFS。已有历史提交中的 LFS 指针不重写，因此检出旧提交时仍可能需要安装 Git LFS；当前及后续普通资产不再依赖 LFS。
+
+### 2. Commit 信息风格（Conventional Commits）
 
 ```
 <type>(<scope>): <subject>
@@ -104,17 +110,17 @@ data(relics): 新增锋利弹头与急速射击
 docs(adr): 记录暂停功能实现约定
 ```
 
-### 2. 分支策略
+### 3. 分支策略
 - `main`：可运行的稳定分支
 - 功能开发用 `feat/xxx` / `fix/xxx` / `docs/xxx` 分支，PR 合入 `main`
 
-### 3. 行尾符 / 编码
+### 4. 行尾符 / 编码
 仓库已通过 `.gitattributes` 与 `.editorconfig` 锁定行尾符（统一 LF）与编码（UTF-8），**无需在本地另行配置 `core.autocrlf`**。
 
-### 4. 中文文件名显示
+### 5. 中文文件名显示
 已在第零节配置 `core.quotepath=false`。如未做或显示转义码，回看本文件第零节。
 
-### 5. AI 自动提交策略
+### 6. AI 自动提交策略
 
 - AI 完成大更改后默认自动 commit：跨多文件功能 / 工具 / CI / 规则 / ADR / 数据 schema / 代码模块 / 重要文档同步等可独立回滚的变更。
 - 细微改动不自动 commit：拼写、单行措辞、小范围说明、只读诊断、临时验证或用户明确说“先别提交”的改动。
