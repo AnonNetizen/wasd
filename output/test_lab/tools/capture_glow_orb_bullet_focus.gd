@@ -5,6 +5,8 @@ const SCREENSHOT_PATH: String = "res://screenshots/glow_orb_bullet_focus.png"
 const CAPTURE_TIME: float = 2.16
 const PLAYER_BODY_PROBE: Vector2i = Vector2i(330, 320)
 const ENEMY_BODY_PROBE: Vector2i = Vector2i(950, 320)
+const PLAYER_RIM_PROBE: Vector2i = Vector2i(468, 320)
+const ENEMY_RIM_PROBE: Vector2i = Vector2i(1088, 320)
 const PROBE_RADIUS: int = 2
 
 
@@ -36,12 +38,28 @@ func _capture() -> void:
 		return
 	var player_probe: Color = _average_probe(image, PLAYER_BODY_PROBE)
 	if minf(player_probe.r, minf(player_probe.g, player_probe.b)) <= 0.45:
-		push_error("Player shader body did not render at its center: %s" % player_probe)
+		push_error("Player body did not render at its center: %s" % player_probe)
 		quit(1)
 		return
 	var enemy_probe: Color = _average_probe(image, ENEMY_BODY_PROBE)
 	if enemy_probe.r <= 0.55 or enemy_probe.r <= enemy_probe.g + 0.10:
-		push_error("Enemy shader body did not render red at its center: %s" % enemy_probe)
+		push_error("Enemy body did not render red at its center: %s" % enemy_probe)
+		quit(1)
+		return
+	var player_rim_probe: Color = _average_probe(image, PLAYER_RIM_PROBE)
+	if _rgb_distance(player_probe, player_rim_probe) <= 0.05:
+		push_error(
+			"Player four-node rim does not differ from its interior: body=%s rim=%s"
+			% [player_probe, player_rim_probe]
+		)
+		quit(1)
+		return
+	var enemy_rim_probe: Color = _average_probe(image, ENEMY_RIM_PROBE)
+	if _rgb_distance(enemy_probe, enemy_rim_probe) <= 0.08:
+		push_error(
+			"Enemy four-node rim does not differ from its interior: body=%s rim=%s"
+			% [enemy_probe, enemy_rim_probe]
+		)
 		quit(1)
 		return
 	var absolute_path: String = ProjectSettings.globalize_path(SCREENSHOT_PATH)
@@ -75,4 +93,10 @@ func _average_probe(image: Image, center: Vector2i) -> Color:
 		green_total / divisor,
 		blue_total / divisor,
 		alpha_total / divisor
+	)
+
+
+func _rgb_distance(first: Color, second: Color) -> float:
+	return Vector3(first.r, first.g, first.b).distance_to(
+		Vector3(second.r, second.g, second.b)
 	)

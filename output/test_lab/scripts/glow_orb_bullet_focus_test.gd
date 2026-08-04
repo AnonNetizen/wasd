@@ -1,44 +1,71 @@
 class_name TestLabGlowOrbBulletFocus
 extends "res://scripts/tear_core_bullet_focus_test.gd"
 
-## Dedicated comparison scene for simple gradient circular projectiles.
+## Dedicated comparison scene for four-control-point slime-rim projectiles.
 
 const ORB_SAMPLE_SCRIPT := preload("res://scripts/glow_orb_bullet_sample.gd")
 
 
-func debug_gradient_pair_matches() -> bool:
+func debug_rim_pair_matches() -> bool:
 	if _focus_samples.size() != 2:
 		return false
 	return (
-		_focus_samples[0].call("gradient_render_mode")
-		== _focus_samples[1].call("gradient_render_mode")
+		_focus_samples[0].call("body_render_mode")
+		== _focus_samples[1].call("body_render_mode")
 	)
 
 
 func debug_circle_geometry_locked() -> bool:
 	if _focus_samples.size() != 2:
 		return false
-	var expected: String = "circle:r1.0:shader_sdf:highlight_nw:no_outline:no_glow"
+	var expected: String = (
+		"circle:r1.0:four_edge_nodes:catmull_rom:no_highlight:no_shader:no_glow"
+	)
 	return (
 		str(_focus_samples[0].call("geometry_signature")) == expected
 		and str(_focus_samples[1].call("geometry_signature")) == expected
 	)
 
 
-func debug_uses_interpolated_gradient() -> bool:
+func debug_uses_four_node_slime_rim() -> bool:
 	for sample: Node2D in _samples:
-		if str(sample.call("gradient_render_mode")) != "canvas_item_shader_sdf":
+		if str(sample.call("body_render_mode")) != "four_node_slime_rim":
 			return false
 	return true
 
 
-func debug_all_shader_surfaces_ready() -> bool:
+func debug_all_edge_controls_ready() -> bool:
 	for sample: Node2D in _samples:
-		if int(sample.call("shader_surface_count")) != 1:
+		if int(sample.call("edge_control_node_count")) != 4:
 			return false
-		if not bool(sample.call("uses_shader_gradient")):
+		if int(sample.call("smoothed_boundary_point_count")) != 64:
 			return false
-		if str(sample.call("shader_resource_path")) != "res://shaders/gradient_orb_bullet.gdshader":
+		if not bool(sample.call("edge_controls_form_cardinal_ring")):
+			return false
+	return true
+
+
+func debug_no_localized_highlight() -> bool:
+	for sample: Node2D in _samples:
+		if bool(sample.call("has_localized_highlight")):
+			return false
+	return true
+
+
+func debug_all_rim_colors_differ() -> bool:
+	for sample: Node2D in _samples:
+		if not bool(sample.call("rim_color_differs_from_body")):
+			return false
+	return true
+
+
+func debug_actual_scale_rims_visible() -> bool:
+	if _moving_samples.size() != 2:
+		return false
+	for sample: Node2D in _moving_samples:
+		var rim_width: float = float(sample.call("rim_width_pixels"))
+		var body_radius: float = float(sample.call("collision_radius"))
+		if rim_width < 1.0 or rim_width >= body_radius * 0.5:
 			return false
 	return true
 
@@ -122,7 +149,7 @@ func _draw_header() -> void:
 	draw_string(
 		font,
 		Vector2(28.0, 38.0),
-		"Shader 渐变圆球 / SHADER GRADIENT ORB — 极简高辨识方案",
+		"四节点史莱姆边圆球 / FOUR-NODE SLIME RIM ORB",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		24,
@@ -131,7 +158,7 @@ func _draw_header() -> void:
 	draw_string(
 		font,
 		Vector2(28.0, 70.0),
-		"CanvasItem Shader · 圆形 SDF · 连续高光渐变 · 无贴图 / 描边 / 外发光",
+		"4 个边缘控制节点 · Catmull-Rom 圆边 · 双色平涂 · 无 Shader / 高光 / 外发光",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		15,
@@ -168,7 +195,7 @@ func _draw_focus_panel(rect: Rect2, title: String, enemy: bool) -> void:
 	draw_string(
 		font,
 		rect.position + Vector2(18.0, 58.0),
-		"圆形 SDF · smoothstep 连续渐变 · 左上白热高光 · 无描边 / 外发光",
+		"四点软边 · 统一边色 + 内部平涂 · 无 Shader / 高光 / 外发光",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		13,
@@ -176,10 +203,10 @@ func _draw_focus_panel(rect: Rect2, title: String, enemy: bool) -> void:
 	)
 	var swatch_colors: Array[Color]
 	if enemy:
-		swatch_colors = [Color("e62935"), Color("f36b6f"), Color("fff2ed")]
+		swatch_colors = [Color("e62935"), Color("ff5963")]
 	else:
-		swatch_colors = [Color("dceaf2"), Color("edf7fb"), Color("ffffff")]
-	var swatch_labels := PackedStringArray(["主体", "渐变", "高光"])
+		swatch_colors = [Color("dceaf2"), Color("f6fbff")]
+	var swatch_labels := PackedStringArray(["内部", "边缘"])
 	for index in range(swatch_colors.size()):
 		var swatch_position: Vector2 = rect.position + Vector2(18.0 + float(index) * 132.0, 365.0)
 		draw_rect(Rect2(swatch_position, Vector2(28.0, 16.0)), swatch_colors[index], true)

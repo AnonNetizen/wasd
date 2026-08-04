@@ -54,7 +54,7 @@ const EXTRA_TEST_SCENES := [
 	},
 	{
 		"button_name": "GlowOrbBulletFocusButton",
-		"label": "Shader Gradient Orb Bullet Focus Test",
+		"label": "Four-Node Slime Rim Bullet Focus Test",
 		"scene_path": "res://scenes/glow_orb_bullet_focus_test.tscn",
 		"featured": true,
 	},

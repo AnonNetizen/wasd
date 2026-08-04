@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-08-04",
   "current_phase": "editor_tooling",
-  "current_status": "ADR #180 已建立 Godot 4.7.1 editor-only 数据配表：声明式目录统一普通 client/data JSON、全部数据 CSV 和 strings.csv，提供表格、递归属性、TSV、CRUD、Undo/Redo、双语文案、技能预览和 1–8 层全局搜索。模块 JSON/注册表/图块目录与 VFX/profile 继续由专用编辑器负责且不进入搜索；module_worlds.json 纳入普通配表。修改自动保存在 user://，项目写入经过 hash、备份、受控内容契约、独立 headless DataLoader 校验与失败回滚；release 排除插件/editor scripts。人工 UI/Excel/冲突流验收待用户执行。当前 Test Lab 在史莱姆十字透视窗基础上新增不翻页的史莱姆书本透视窗：同一套 20 点单轮廓软体、动态圆角与面积压力改排成左右镜像的摊开书本，顶 / 底书脊特征与三组内部线条随同一形变；内部仍直接复用 anchored_star_window.gdshader 的 SCREEN_UV 固定空间星空。原十字、旧书本实验与正式 client 未修改；书本辨识度、书脊线强弱、透视读法与边缘配色待用户人工视觉确认。",
+  "current_status": "ADR #180 已建立 Godot 4.7.1 editor-only 数据配表：声明式目录统一普通 client/data JSON、全部数据 CSV 和 strings.csv，提供表格、递归属性、TSV、CRUD、Undo/Redo、双语文案、技能预览和 1–8 层全局搜索。模块 JSON/注册表/图块目录与 VFX/profile 继续由专用编辑器负责且不进入搜索；module_worlds.json 纳入普通配表。修改自动保存在 user://，项目写入经过 hash、备份、受控内容契约、独立 headless DataLoader 校验与失败回滚；release 排除插件/editor scripts。人工 UI/Excel/冲突流验收待用户执行。当前 Test Lab 子弹专场已按用户要求由 Shader 渐变改为四节点史莱姆边：每颗弹固定用东 / 南 / 西 / 北四个 Node2D 控制点，经 centripetal Catmull-Rom 合成 64 点闭合边界，内部和边缘使用略有差别的同阵营平色；Shader、渐变、局部高光、黑边与外发光均已删除，正式 client 未修改，待用户人工视觉确认。",
   "latest_adr": 180,
   "open_decisions": [
     "D",
@@ -10,6 +10,7 @@
     "S"
   ],
   "last_completed": [
+    "Test Lab 四节点史莱姆边圆球：按用户要求退役当前子弹专场的 CanvasItem Shader、高光与渐变；每颗弹改用东南西北四个固定 Node2D 控制点，按 Steamworks Slime Lab 的边缘思路以 centripetal Catmull-Rom 插值为 64 点闭合轮廓，再绘制同阵营但有明确色差的内部平色和统一边色。红白同形、真实半径 / 速度、有界拖尾和无动态命中节点保持；捕获新增内外像素色差门禁，正式 client 未改。",
     "Test Lab 史莱姆书本透视窗实验：复用原史莱姆十字的 20 点单轮廓软体求解与 perspective window 渲染路径，只把可覆写静止轮廓改排为左右镜像的摊开书本；顶端凹口、底部书脊尖点、中央书脊和两条页缘线随同一软体形变，内部直接复用 anchored_star_window.gdshader 的 SCREEN_UV 固定空间星空。无翻页、独立页层或 3D 曲面；新增专项 smoke、左右页渲染探针、确定性截图、Test Lab 索引与 README，原实验和正式 client 均未修改。",
     "Test Lab 史莱姆十字透视窗实验：新增独立 slime_cross_perspective_test，继承原 slime_cross_2d 的 20 点 / 4 凹角软体求解并把每帧 100 点动态圆角边界同步到固定 Polygon2D；材质直接复用 anchored_star_window.gdshader，只从 SCREEN_UV 采样固定空间星空。场景以小幅整体移动、局部冲击、压扁、自动脉冲和可切换原调试骨架展示组合效果；新增专项 smoke、固定步进确定性截图、Test Lab 索引与 README，原实验和正式 client 均未修改。",
     "Test Lab Shader 圆球空渲染修正：用户截图确认两枚超大弹体完全不可见；根因是无纹理 Polygon2D 上使用 UV 生成 SDF，片元被整体判为圆外透明。Shader 改从 VERTEX 局部坐标构造归一化渐变坐标，红白弹体恢复同形连续渐变；截图工具新增两处中心像素探针，后续透明空渲染会自动失败。",
@@ -164,7 +165,7 @@
   "next_actions": [
     "史莱姆书本透视窗待人工确认：打开 output/test_lab/scenes/slime_book_perspective_test.tscn 或查看 output/test_lab/screenshots/slime_book_perspective_test.png；左键冲击页缘，Space 暂停整体移动，F 压扁，R 复原，A 切换自动脉冲，D 切换骨架。人工检查宽轮廓能否直接读成摊开的书、顶凹口 / 底尖点 / 中央书脊是否足够但不抢内容、左右页缘线是否自然、移动 / 形变时星空是否读成固定深空间、边缘配色是否合适；用户确认后再决定调轮廓或 Shader，当前不要增加翻页或接入正式 client。",
     "史莱姆十字透视窗待人工确认：打开 output/test_lab/scenes/slime_cross_perspective_test.tscn 或查看 output/test_lab/screenshots/slime_cross_perspective_test.png；左键冲击边缘，Space 暂停整体移动，F 压扁，R 复原，A 切换自动脉冲，D 切换原调试骨架。人工检查 20 点十字轮廓和四个内凹角是否仍清楚、移动 / 形变时星空是否读成固定深空间、星空密度是否压过轮廓、蓝白边缘是否合适；用户确认后再决定是否继续调 Shader 或建立正式 VFX 资产 brief，当前不要接入正式 client。",
-    "Shader 渐变圆球子弹专场待人工确认：打开 output/test_lab/scenes/glow_orb_bullet_focus_test.tscn 或查看 output/test_lab/screenshots/glow_orb_bullet_focus.png；H 切换超大弹体 / 命中，D 显示判定圆，T 切换无光晕拖尾，B 切换三档背景，Space 暂停，R 重置。人工检查 SDF + smoothstep 渐变的连续性、红白圆球辨识度、左上高光位置、敌方 r=5 高速读法和拖尾是否误导判定；用户确认后再按 ADR #158、GDD §9.24 和 docs/代码/visual_effects.md 规划正式 client 接入与回归。既有泪核胶质、七材质与前序程序绘制提交保留为历史对照。",
+    "四节点史莱姆边圆球子弹专场待人工确认：打开 output/test_lab/scenes/glow_orb_bullet_focus_test.tscn 或查看 output/test_lab/screenshots/glow_orb_bullet_focus.png；H 切换超大弹体 / 命中，D 显示判定圆，T 切换双色拖尾，B 切换三档背景，Space 暂停，R 重置。人工检查四点 Catmull-Rom 轮廓能否保持纯圆、边宽是否合适、红白内部与边缘色差是否足够但不似高光、敌方 r=5 高速读法和拖尾是否误导判定；用户确认后再按 ADR #158、GDD §9.24 和 docs/代码/visual_effects.md 规划正式 client 接入与回归。既有泪核胶质、七材质及历史 Shader 实验保留在 Git 历史中。",
     "如果继续普通 JSON / CSV / strings.csv 配表、全局搜索或数据集目录，先读 ADR #180、docs/代码/data_table_editor.md、client/data/README.md、client/locale/README.md 和测试策略。普通来源在 Godot“数据配表”统一编辑；JSON 层级不同走右侧递归属性树。模块 JSON/注册表/图块目录与 VFX/profile 必须继续排除并使用专用编辑器，module_worlds.json 保持普通配表。新增来源必须登记为 editable / specialized / generated，否则 data-table-editor-smoke 失败。改后跑 data-table-editor-smoke、test_sync_contracts、contracts/data/schema、三档 lint、module-json-editor-smoke、headless editor/boot、docs health 和 pre-commit；Godot UI、Excel 粘贴、草稿/冲突和契约向导保持待人工验收，不运行性能 probe。",
     "如果继续 IP、世界观、心象内容、正式标题或玩家文案，先读 ADR #178 / #179、docs/IP设定.md、docs/IP美术风格.md、GDD v1.48、术语表和修改建议 S。玩家文案已迁移为清理智能、主 / 副智能碎片、心象、意识层、意识核、失序 / Disarray 与清理 / Cleared，标题页只显示 WASD；现有 locale key、character_* / hero_* / enemy_* 内部标识保持。正式标题、素材与运行时命名迁移仍需用户另行授权。不要把具体精神疾病、真实人物或群体定义成应被清理的对象，也不要解释意识层来源、AI 善恶或清理结果。",
     "所有后续任务先应用 ADR #174：凡文档或任务明确标为人工检查 / 人工验收 / 手动验收 / L5 / 真实设备 / 视觉、听觉或手感验收，只交给人工；AI 不执行、不用 GUI / 截图 / 录屏 / 模拟输入替代、不自行宣称通过。AI 完成同一任务的非人工自动化验证，为人工项整理前置条件、步骤、预期现象和已知风险，并明确标记“待人工验收”。",
@@ -201,6 +202,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-04",
+      "command": "four-node slime-rim glow-orb-bullet-focus-smoke; bullet-vfx-selection, tear-core-focus and material-switcher regressions; rendered red/white interior-rim pixel-difference probes; deterministic fixed-time 1280x760 capture SHA-256 comparison; deterministic scene-generator comparison; explicit scene load; Test Lab Godot 4.7.1 headless editor/boot; lightweight scene embedded-image scan; GDScript/project/semantic lint; JSON current_state; docs_health_check; git diff --check excluding draft/DRAFT; pre-commit run --all-files",
+      "result": "passed for replacing the Shader gradient orb with the four-control-point slime-rim implementation. Every sample owns exactly four persistent east/south/west/north Node2D controls, generates a 64-point centripetal Catmull-Rom boundary, uses distinct flat same-team interior/rim colors, and contains no ShaderMaterial, gradient, localized highlight, dark outline or external glow. Player r=8 / 520 px/s and enemy r=5 / 280 px/s remain unchanged; actual-scale rims are at least one pixel without consuming half the interior, trails remain bounded, and impact/reset/H-mode do not add or replace nodes. Render capture independently probes both oversized interiors and both rims for presence and color difference; consecutive captures reproduce SHA-256 3CD23AE9BEF466FBF84AA62F908327EB1798F359FAE33721B1AE543DE1C1F598. Factual review found and fixed the previous collision-bound diagnostic relying on a configured extent: it now computes the maximum of all 64 rendered boundary points plus half the real rim width, so future curve bulging fails the existing body-within-collision check. Original bullet selection, tear-core focus and seven-material experiments remain green. Semantic advisory emitted no warning; formal client is unchanged, so no formal client regression, performance probe or golden replay ran. Per ADR #174, circular appearance, rim width/color difference, enemy r=5 high-speed readability and trail/collision interpretation remain pending user visual confirmation."
+    },
     {
       "date": "2026-08-04",
       "command": "slime-book-perspective-smoke; original slime-cross-2d, slime-cross-perspective and anchored-star-enemies regressions; rendered left/right page star-content probes; deterministic fixed-step 1280x760 capture SHA-256 comparison; explicit scene load; Test Lab Godot 4.7.1 headless editor/boot; lightweight scene embedded-image scan; GDScript/project/semantic lint; JSON current_state; docs_health_check; git diff --check excluding draft/DRAFT; pre-commit run --all-files",
