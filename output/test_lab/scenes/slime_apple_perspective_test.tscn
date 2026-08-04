@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/slime_apple_perspective_test.gd" id="1_u8l61"]
+
+[node name="SlimeApplePerspectiveTest" type="Node2D" unique_id=745866055]
+script = ExtResource("1_u8l61")
