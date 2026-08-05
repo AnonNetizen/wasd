@@ -80,9 +80,8 @@ static func resolve(
 		"main_character": main_character.duplicate(true),
 		"sub_character": sub_character.duplicate(true),
 		"palette": {
-			"primary": str(main_palette.get("primary", "")),
-			"secondary": str(main_palette.get("secondary", "")),
-			"accent": str(sub_palette.get("accent", "")),
+			"main_primary": str(main_palette.get("primary", "")),
+			"sub_primary": str(sub_palette.get("primary", "")),
 		},
 		"skill_slots": skill_slots,
 		"slot_definitions": slot_definitions,

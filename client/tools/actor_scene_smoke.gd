@@ -7,6 +7,10 @@ const ENEMY_SCRIPT := preload("res://scripts/gameplay/enemy.gd")
 const GAMEPLAY_RUN_LOOP_SCENE := preload("res://scenes/gameplay/gameplay_run_loop.tscn")
 const PLAYER_BASE_PATH: String = "res://scenes/gameplay/actors/player_base.tscn"
 const PLAYER_SCRIPT := preload("res://scripts/gameplay/player.gd")
+const PLAYER_RADIUS: float = 25.0
+const PLAYER_MUZZLE_DISTANCE: float = 38.0
+const CALM_PRIMARY := Color("68bcdd")
+const ANGRY_PRIMARY := Color("ed2f72")
 
 var _failures: Array[String] = []
 var _restore_failure_observed: bool = false
@@ -92,9 +96,203 @@ func _validate_actor_scene(
 			"%s should not own the run-level GameplayCameraController" % actor_id
 		)
 		_expect(actor.get_node_or_null("WeaponSystem") != null, "%s should have WeaponSystem" % actor_id)
+		get_tree().root.add_child(actor)
+		actor.process_mode = Node.PROCESS_MODE_DISABLED
+		_validate_player_visual(actor, actor_data, actor_scene)
 	else:
 		_expect(actor.get_node_or_null("StatusEffectComponent") != null, "%s should have StatusEffectComponent" % actor_id)
 	actor.free()
+
+
+func _validate_player_visual(
+	actor: Node,
+	actor_data: Dictionary,
+	actor_scene: PackedScene
+) -> void:
+	var player_data: Dictionary = DataLoader.load_json(DataLoader.PLAYER_DATA_PATH)
+	actor.call("configure", player_data.get("base_stats", {}))
+	actor.call("configure_runtime_rules", player_data)
+	var actor_id: String = String(actor_data.get("id", ""))
+	var visual: PlayerSlimeVisual = (
+		actor.get_node_or_null("Visual") as PlayerSlimeVisual
+	)
+	var collision: CollisionShape2D = (
+		actor.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	)
+	var body: Polygon2D = actor.get_node_or_null("Visual/Body") as Polygon2D
+	var outline: Line2D = actor.get_node_or_null("Visual/Outline") as Line2D
+	var wet_rim: Line2D = actor.get_node_or_null("Visual/WetRim") as Line2D
+	var beam: Line2D = (
+		actor.get_node_or_null("Visual/Direction/FacingBeam") as Line2D
+	)
+	_expect(visual != null, "%s Visual should use PlayerSlimeVisual" % actor_id)
+	_expect(body != null, "%s should retain Visual/Body Polygon2D" % actor_id)
+	_expect(outline != null, "%s should use a Line2D Outline" % actor_id)
+	_expect(wet_rim != null, "%s should expose the shared-boundary WetRim" % actor_id)
+	_expect(beam != null, "%s should expose Direction/FacingBeam" % actor_id)
+	_expect(actor.get_node_or_null("Visual/Direction/FacingLine") == null, "%s should remove FacingLine" % actor_id)
+	_expect(actor.get_node_or_null("Visual/Direction/FacingArrow") == null, "%s should remove FacingArrow" % actor_id)
+	_expect(actor.get_node_or_null("Visual/Direction/Eye") == null, "%s should remove Eye" % actor_id)
+	if collision != null and collision.shape is CircleShape2D:
+		_expect(
+			is_equal_approx((collision.shape as CircleShape2D).radius, PLAYER_RADIUS),
+			"%s collision radius should be 25 px" % actor_id
+		)
+	_expect(
+		is_equal_approx(float(actor.call("hit_radius")), PLAYER_RADIUS),
+		"%s hit radius should match player.json body.radius" % actor_id
+	)
+	if outline != null:
+		_expect(is_equal_approx(outline.width, 3.0), "%s Outline should be 3 px" % actor_id)
+	if wet_rim != null:
+		_expect(is_equal_approx(wet_rim.width, 1.0), "%s WetRim should be 1 px" % actor_id)
+	if beam != null and beam.points.size() >= 2:
+		_expect(
+			beam.points[1].is_equal_approx(Vector2(PLAYER_MUZZLE_DISTANCE, 0.0)),
+			"%s facing beam should end at 38 px" % actor_id
+		)
+	_expect(
+		(actor.get_node("VfxAnchors/Ground") as Marker2D).position.is_equal_approx(Vector2(0.0, 25.0)),
+		"%s Ground anchor should follow the 25 px body" % actor_id
+	)
+	_expect(
+		(actor.get_node("VfxAnchors/Overhead") as Marker2D).position.is_equal_approx(Vector2(0.0, -36.0)),
+		"%s Overhead anchor should be -36 px" % actor_id
+	)
+	_expect(
+		(actor.get_node("VfxAnchors/Forward/Muzzle") as Marker2D).position.is_equal_approx(Vector2(38.0, 0.0)),
+		"%s Muzzle anchor should be 38 px" % actor_id
+	)
+	_expect(
+		(actor.get_node("WorldPrompt") as Node2D).position.is_equal_approx(Vector2(0.0, -58.0)),
+		"%s world prompt should be -58 px" % actor_id
+	)
+	if visual == null:
+		return
+
+	var main_primary: Color = (
+		CALM_PRIMARY
+		if actor_id == CHARACTER_IDS.CHARACTER_PRIMARY_A
+		else ANGRY_PRIMARY
+	)
+	var sub_primary: Color = (
+		ANGRY_PRIMARY
+		if actor_id == CHARACTER_IDS.CHARACTER_PRIMARY_A
+		else CALM_PRIMARY
+	)
+	visual.configure_palette({
+		"main_primary": main_primary,
+		"sub_primary": sub_primary,
+	})
+	_expect(visual.control_point_count() == 20, "%s should keep 20 controls" % actor_id)
+	_expect(visual.boundary_point_count() == 100, "%s should render 100 boundary points" % actor_id)
+	_expect(
+		visual.palette_state() == {
+			"main_primary": main_primary,
+			"sub_primary": sub_primary,
+		},
+		"%s should expose only main/sub primary" % actor_id
+	)
+	if outline != null:
+		_expect(outline.default_color.is_equal_approx(main_primary), "%s Outline should use main primary" % actor_id)
+	if wet_rim != null:
+		_expect(
+			wet_rim.default_color.is_equal_approx(main_primary.lightened(0.28)),
+			"%s WetRim should derive only from main primary" % actor_id
+		)
+	var material: ShaderMaterial = visual.body_material()
+	_expect(material != null, "%s should use a scene-authored ShaderMaterial" % actor_id)
+	if material != null:
+		_expect(
+			(material.get_shader_parameter("main_primary") as Color).is_equal_approx(main_primary)
+			and (material.get_shader_parameter("sub_primary") as Color).is_equal_approx(sub_primary),
+			"%s Shader should receive both fragment primaries" % actor_id
+		)
+	var beam_colors: PackedColorArray = visual.beam_gradient_colors()
+	_expect(
+		beam_colors.size() == 3
+		and _color_rgb_close(beam_colors[1], main_primary),
+		"%s facing beam should use the main primary" % actor_id
+	)
+	if actor_id != CHARACTER_IDS.CHARACTER_PRIMARY_A:
+		return
+
+	var initial_node_count: int = visual.visual_node_count()
+	var initial_resource_ids: PackedInt64Array = visual.material_instance_ids()
+	var minimum_area: float = INF
+	var maximum_area: float = -INF
+	var maximum_extent: float = 0.0
+	var maximum_turn: float = 0.0
+	var maximum_neighbor_delta: float = 0.0
+	for frame: int in range(720):
+		var motion := Vector2(
+			sin(float(frame) * 0.071),
+			cos(float(frame) * 0.053)
+		) * (750.0 if frame % 180 < 24 else 240.0)
+		var aim := Vector2.RIGHT.rotated(float(frame) * 0.019)
+		if frame % 47 == 0:
+			visual.apply_fire_impulse(aim)
+		visual.advance_visual(1.0 / 60.0, motion, aim)
+		minimum_area = minf(minimum_area, visual.current_area_ratio())
+		maximum_area = maxf(maximum_area, visual.current_area_ratio())
+		if frame % 12 == 0 or frame == 719:
+			maximum_extent = maxf(maximum_extent, visual.maximum_render_extent())
+			maximum_turn = maxf(
+				maximum_turn,
+				visual.maximum_render_turn_degrees()
+			)
+			maximum_neighbor_delta = maxf(
+				maximum_neighbor_delta,
+				visual.maximum_neighbor_displacement_delta()
+			)
+	_expect(minimum_area >= 0.82 and maximum_area <= 1.18, "%s soft body area should remain bounded" % actor_id)
+	_expect(maximum_extent <= PLAYER_RADIUS + 0.001, "%s rendered extent should remain inside 25 px" % actor_id)
+	_expect(maximum_turn <= 18.0, "%s boundary turn should remain bounded" % actor_id)
+	_expect(maximum_neighbor_delta <= 2.8, "%s neighboring displacement should remain bounded" % actor_id)
+	_expect(visual.last_impulse_control_count() == 5, "%s fire should affect five controls" % actor_id)
+	_expect(visual.last_impulse_controls_are_contiguous(), "%s fire controls should be contiguous" % actor_id)
+	_expect(visual.visual_node_count() == initial_node_count, "%s simulation should not create nodes" % actor_id)
+	_expect(visual.material_instance_ids() == initial_resource_ids, "%s simulation should not replace materials" % actor_id)
+
+	var presentation: ActorPresentationController = (
+		actor.get_node_or_null("Presentation") as ActorPresentationController
+	)
+	if presentation != null and material != null:
+		presentation.configure_visual(Color.WHITE, Color("ff574f"), Color("7d4cff"), 1.0)
+		presentation.set("hit_progress", 0.5)
+		_expect(
+			(material.get_shader_parameter("presentation_tint") as Color).is_equal_approx(Color("ff574f")),
+			"%s hit presentation should tint the Shader visual" % actor_id
+		)
+		presentation.set("hit_progress", -1.0)
+		presentation.set("defeat_progress", 0.5)
+		_expect(visual.scale.x > 1.0 and visual.scale.y > 1.0, "%s defeat should scale the Shader visual" % actor_id)
+		_expect(outline != null and outline.modulate.a < 1.0, "%s defeat should fade Line2D rims" % actor_id)
+		presentation.reset_presentation()
+
+	var peer: Node = actor_scene.instantiate()
+	get_tree().root.add_child(peer)
+	peer.process_mode = Node.PROCESS_MODE_DISABLED
+	peer.call("configure", player_data.get("base_stats", {}))
+	peer.call("configure_runtime_rules", player_data)
+	var peer_visual: PlayerSlimeVisual = (
+		peer.get_node_or_null("Visual") as PlayerSlimeVisual
+	)
+	var peer_collision: CollisionShape2D = (
+		peer.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	)
+	_expect(
+		peer_visual != null
+		and peer_visual.material_instance_ids() != initial_resource_ids,
+		"%s instances should not share ShaderMaterial or Gradient state" % actor_id
+	)
+	_expect(
+		collision != null
+		and peer_collision != null
+		and collision.shape.get_instance_id() != peer_collision.shape.get_instance_id(),
+		"%s instances should not share collision Shape state" % actor_id
+	)
+	peer.free()
 
 
 func _validate_run_loop_camera_rig() -> void:
@@ -215,6 +413,18 @@ func _validate_enemy_configuration(enemy_row: Dictionary) -> void:
 			),
 			"%s collision radius should remain data-driven" % enemy_row.get("id", "")
 		)
+	var presentation: ActorPresentationController = (
+		enemy.get_node_or_null("Presentation") as ActorPresentationController
+	)
+	if presentation != null and body != null:
+		var fallback_hit := Color("ff574f")
+		presentation.configure_visual(original_color, fallback_hit, fallback_hit, 1.0)
+		presentation.set("hit_progress", 0.5)
+		_expect(
+			body.color.is_equal_approx(fallback_hit),
+			"%s non-Shader presentation fallback should remain intact" % enemy_row.get("id", "")
+		)
+		presentation.reset_presentation()
 	enemy.free()
 	target.free()
 
@@ -349,3 +559,11 @@ func _dictionary_array(raw_value: Variant) -> Array[Dictionary]:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _color_rgb_close(left: Color, right: Color) -> bool:
+	return (
+		absf(left.r - right.r) <= 0.001
+		and absf(left.g - right.g) <= 0.001
+		and absf(left.b - right.b) <= 0.001
+	)

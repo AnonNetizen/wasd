@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "characters": [
 	{
 	  "id": "character_primary_a",
@@ -12,9 +12,7 @@
 	  "control_profile": "default_mouse_shooter",
 	  "presentation_profile_id": "presentation_player_default",
 	  "palette": {
-		"primary": "#7E63D8",
-		"secondary": "#3D315E",
-		"accent": "#A995FF"
+		"primary": "#68BCDD"
 	  },
 	  "element_id": "element_primary_a",
 	  "passive_id": "passive_primary_a_guard",
@@ -59,9 +57,7 @@
 	  "control_profile": "default_mouse_shooter",
 	  "presentation_profile_id": "presentation_player_default",
 	  "palette": {
-		"primary": "#F2A23A",
-		"secondary": "#6A3F1F",
-		"accent": "#FFD07A"
+		"primary": "#ED2F72"
 	  },
 	  "element_id": "element_primary_b",
 	  "passive_id": "passive_primary_b_guard",

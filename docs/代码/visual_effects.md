@@ -7,7 +7,7 @@
 
 - `VisualEffects` autoload 只加载、索引 `visual_effects.json` / `presentation_profiles.json` 并发布闪屏 / 震屏许可策略；它不持有当前战斗世界。
 - 每局 `VfxHost` 管理地面、世界和屏幕层，负责实例化、附着、取消、完成与回池；`GameplayFeedbackController` 把业务 cue 解析成视觉、音频和相机反馈。
-- 角色表现由 `ActorPresentationController + AnimationPlayer` 承接；玩家 / 敌人业务脚本不再维护受击颜色计时、死亡缩放插值或直接生成命中反馈。
+- 角色表现由 `ActorPresentationController + AnimationPlayer` 承接；带 Shader Visual 的正式玩家优先通过可选 `set_presentation_state(tint, alpha, scale)` 接口接收表现状态，无该接口的敌人继续走 Body / Outline 回退。玩家 / 敌人业务脚本不再维护受击颜色计时、死亡缩放插值或直接生成命中反馈。
 - 正式效果是可继承、可编辑的 `PackedScene` 或受控 target-animation preset。程序几何只能作为 Ring、Arc、Wedge、RectTelegraph、RayBurst、ShockRing、RibbonTrail、ShardBurst、SegmentedShell、FocusTicks 等组合模板内部骨架，不能作为 catalog 裸资源。
 - 当前不引入离线 3D、AI / DCC 预渲染或节点式 VFX Graph；命中停顿字段只保留数据接口，不驱动 `GameClock`。
 
@@ -20,6 +20,7 @@
 | `client/scripts/autoload/visual_effects.gd` | 只读注册表与策略解析 |
 | `client/scripts/vfx/` | request、handle、ref、preset、实例生命周期与精选几何骨架 |
 | `client/scripts/gameplay/presentation/` | `VfxHost`、语义反馈路由、角色表现控制器 |
+| `client/scripts/gameplay/presentation/player_slime_visual.gd` | 正式玩家双涡旋 Shader、20/100 有界软体边界、主色轮廓 / 湿润边 / 朝向短束与表现接口 |
 | `client/scenes/vfx/composites/` | 正式组合效果场景 |
 | `client/resources/vfx/presets/` | target-animation preset |
 | `client/resources/vfx/curves/` | 飘字位移、透明度与缩放等可复用节奏 Curve；业务只采样，不手写插值曲线 |
@@ -96,6 +97,12 @@ VfxAnchors
 
 专属继承场景可调挂点位置，但不得删除或改名。attached 跟随挂点；world 脱离实体变换；ground 使用玩法系统提供的真实 footprint / 位置；screen 挂到 `ScreenFeedbackLayer`。
 
+ADR #183 后正式 Player 的挂点固定为 `Ground=(0,25)`、`Overhead=(0,-36)`、`Forward/Muzzle=(38,0)`，角色世界文字为 `(0,-58)`。基础玩家武器与朝向短束终点同为 38 px；敌人挂点与 24 px 枪口规则不随本条改变。
+
+### Shader Visual 表现接口
+
+`ActorPresentationController` 在每次刷新受击、退场 tint / alpha / scale 时，若 `Visual` 实现 `set_presentation_state(Color, float, Vector2)`，只调用该接口并停止默认 Body / Outline 路径。接口实现必须一次性更新其全部 Shader / Line2D 子表现，并在恢复时接受 `Color.WHITE`、`1.0`、`Vector2.ONE`；不得重复乘透明度、重配角色 palette 或创建节点 / 材质。没有该接口的现有 Polygon 敌人继续使用原回退行为。
+
 ## 技术边界
 
 - `AnimationPlayer` 是组合效果与 UI 转场默认时间轴，必须有 `RESET`。
@@ -122,6 +129,7 @@ Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文�
 - `Enemy.attack_committed` 路由 `enemy_attack_impact`；当前爆猎者绑定池化世界爆炸冲击。impact request 使用 detached `world_position`，因此源敌人进入退场并回池后，冲击效果仍独立播放完成。
 - 敌人攻击预警只表现玩法已有的范围、方向、时间或局部起手提示，不自行读取目标、不调用 `Combat`，也不消耗 gameplay RNG。攻击源退场时 `cancel_owner()` 只取消附着表现，不得取消 detached 爆炸冲击。
 - ADR #181 后正式 `bullet_basic` 不属于 VFX catalog，也不使用 `RibbonTrail`、Shader、高光或外发光；其唯一 `BulletSlimeVisual` 由场景内四个持久边缘节点一次生成 64 点平色 `Body + Rim`，阵营差异只切换白色系 / 红色系。通用 `VfxRibbonTrail` 组件仍保留给其他精选组合效果，baker 不再向子弹场景自动补回拖尾。敌人退场仍生成 world-space `actor_enemy_defeat_afterimage`，实体 0.18 秒回池后残影独立完成 0.45 秒余韵。
+- ADR #183 后正式玩家 `PlayerSlimeVisual` 不进入 VFX catalog：它使用 scene-authored ShaderMaterial、Gradient 和 Line2D，运行时只更新现有 uniform / 点列 / 颜色。角色本地坐标中的两股涡旋分别使用 `main_primary` / `sub_primary`；3 px Outline 与 38 px FacingBeam 使用主色原值，1 px WetRim 使用主色提亮派生。软体状态不进入 Run v11 / Replay v3，也不得消耗任何 RNG。
 - `WeaponSystem.active_temporary_modifiers()` 是续局重建持续表现的权威状态。
 
 ## 验证
@@ -142,6 +150,7 @@ Godot 的“VFX 效果库”主界面使用中文显示名称与中文操作文�
 - `docs/决策记录.md` ADR #158
 - `docs/决策记录.md` ADR #170
 - `docs/决策记录.md` ADR #181
+- `docs/决策记录.md` ADR #183
 - `docs/词表与契约.md` §8、§11、§16
 - `docs/代码/ui_effects.md`
 - `docs/代码/ui_manager.md`

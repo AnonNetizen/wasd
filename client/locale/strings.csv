@@ -247,7 +247,7 @@ ui_hero_composition_sub,副智能碎片：技能 3/4,Secondary Fragment: Skills 
 ui_hero_composition_swap,交换主副,Swap Roles
 ui_hero_composition_passive,被动,Passive
 ui_hero_composition_skill,技能,Skill
-ui_hero_composition_sub_note,副智能碎片不提供属性和被动，只提供强调色与技能 3/4。,The Secondary Fragment provides no stats or passive—only the accent color and Skills 3–4.
+ui_hero_composition_sub_note,副智能碎片不提供属性和被动，只提供自身主色与技能 3/4。,The Secondary Fragment provides no stats or passive—only its primary color and Skills 3–4.
 ui_hero_composition_duplicate_hint,相同智能碎片开局组合不可用；局内切换系统完成后可能产生重复组合。,Duplicate starting Fragments are unavailable; repeated combinations may become possible after in-run switching is implemented.
 ui_debug_test_arena_element,伤害元素,Damage Element
 ui_debug_test_arena_damage_amount,注入伤害,Injected Damage

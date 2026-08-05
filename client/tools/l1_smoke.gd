@@ -709,6 +709,30 @@ func _expect_hero_composition_resolution() -> void:
 		not composition.is_empty(),
 		"distinct main and sub heroes should resolve"
 	)
+	var resolved_palette: Dictionary = (
+		composition.get("palette", {}) as Dictionary
+	)
+	_expect(
+		resolved_palette == {
+			"main_primary": "#68BCDD",
+			"sub_primary": "#ED2F72",
+		},
+		"composition palette should expose only both fragment primaries"
+	)
+	var swapped_composition: Dictionary = HERO_COMPOSITION_RESOLVER_SCRIPT.resolve(
+		characters_payload,
+		CHARACTER_IDS.CHARACTER_PRIMARY_B,
+		CHARACTER_IDS.CHARACTER_PRIMARY_A,
+		element_resolver,
+		false
+	)
+	_expect(
+		(swapped_composition.get("palette", {}) as Dictionary) == {
+			"main_primary": "#ED2F72",
+			"sub_primary": "#68BCDD",
+		},
+		"swapping main/sub should swap both primary palette slots"
+	)
 	_expect(
 		is_equal_approx(
 			float(

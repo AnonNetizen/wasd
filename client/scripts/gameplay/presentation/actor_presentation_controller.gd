@@ -214,7 +214,7 @@ func _refresh_visuals() -> void:
 
 	var color: Color = _base_color
 	var alpha_scale: float = 1.0
-	var scale_multiplier: float = 1.0
+	var visual_scale: Vector2 = _base_scale
 	if defeat_progress >= 0.0:
 		var normalized_defeat: float = clampf(defeat_progress, 0.0, 1.0)
 		color = _defeat_color
@@ -223,14 +223,22 @@ func _refresh_visuals() -> void:
 			_defeat_end_scale,
 			normalized_defeat
 		)
-		_visual_root.scale = _base_scale * scale_ratio
+		visual_scale = _base_scale * scale_ratio
 	elif hit_progress >= 0.0:
 		color = _hit_color
 
+	if _visual_root.has_method("set_presentation_state"):
+		_visual_root.call(
+			"set_presentation_state",
+			Color(color.r, color.g, color.b, 1.0),
+			color.a * alpha_scale,
+			visual_scale
+		)
+		return
+
 	color.a *= alpha_scale
 	_body_visual.color = color
-	if defeat_progress < 0.0:
-		_visual_root.scale = _base_scale * scale_multiplier
+	_visual_root.scale = visual_scale
 	_set_outline_alpha(_outline_visual, _outline_alpha * alpha_scale)
 	_set_outline_alpha(_eye_outline_visual, _outline_alpha * alpha_scale)
 

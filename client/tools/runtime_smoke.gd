@@ -109,8 +109,15 @@ func _run() -> void:
 	)
 	_expect(player is CharacterBody2D, "Player should keep 2D CharacterBody2D movement")
 	_expect(_find_node_by_name(player, "Player3DVisual") == null, "Player should use the top-down 2D placeholder instead of a 3D orthographic visual child")
-	_expect(_find_node_by_name(player, "Visual") != null, "Player should use a scene-authored editable visual subtree")
-	_expect(_find_node_by_name(player, "FacingLine") is Line2D, "Player aim marker should be a scene-authored Line2D")
+	var player_visual: PlayerSlimeVisual = (
+		player.get_node_or_null("Visual") as PlayerSlimeVisual
+	)
+	_expect(player_visual != null, "Player should use a scene-authored PlayerSlimeVisual")
+	_expect(_find_node_by_name(player, "FacingBeam") is Line2D, "Player aim marker should be a scene-authored FacingBeam")
+	_expect(_find_node_by_name(player, "FacingLine") == null, "Player should remove the old long FacingLine")
+	_expect(_find_node_by_name(player, "FacingArrow") == null, "Player should remove the old FacingArrow")
+	_expect(_find_node_by_name(player, "Eye") == null, "Player should remove the old Eye marker")
+	_expect_composition_hud_colors(run_loop)
 
 	await _expect_stats_panel_hold_to_show(run_loop)
 
@@ -949,9 +956,112 @@ func _player_clamps_to_rect_boundary(run_loop: Node, player: Node2D) -> bool:
 	player.global_position = outside_corner
 	player.call("set_movement_bounds", bounds)
 	var clamped: Vector2 = player.global_position
+	var radius: float = float(player.call("hit_radius"))
+	var radius_aware: bool = (
+		clamped.x >= bounds.position.x + radius - 0.001
+		and clamped.x <= bounds.end.x - radius + 0.001
+		and clamped.y >= bounds.position.y + radius - 0.001
+		and clamped.y <= bounds.end.y - radius + 0.001
+	)
+	var tiny_bounds := Rect2(Vector2(100.0, 200.0), Vector2(30.0, 40.0))
+	player.global_position = tiny_bounds.end + Vector2(64.0, 64.0)
+	player.call("set_movement_bounds", tiny_bounds)
+	var tiny_clamped: Vector2 = player.global_position
+	var tiny_centered: bool = tiny_clamped.is_equal_approx(tiny_bounds.get_center())
 	player.global_position = original_position
 	player.call("set_movement_bounds", bounds)
-	return clamped.distance_to(outside_corner) > 1.0 and _position_inside_map_boundary(run_loop, clamped)
+	return (
+		clamped.distance_to(outside_corner) > 1.0
+		and _position_inside_map_boundary(run_loop, clamped)
+		and radius_aware
+		and tiny_centered
+	)
+
+
+func _expect_composition_hud_colors(run_loop: Node) -> void:
+	var hud: Node = run_loop.get_node_or_null("GameplayHud")
+	var composition: Label = (
+		hud.get_node_or_null("Root/Margin/Layout/CompositionLabel") as Label
+		if hud != null
+		else null
+	)
+	var energy: Label = (
+		hud.get_node_or_null("Root/Margin/Layout/EnergyLabel") as Label
+		if hud != null
+		else null
+	)
+	var expected_colors: Array[Color] = [
+		Color("68bcdd"),
+		Color("68bcdd"),
+		Color("ed2f72"),
+		Color("ed2f72"),
+	]
+	var original_name: String = composition.text if composition != null else ""
+	_expect(composition != null, "HUD should expose the composition label")
+	_expect(energy != null, "HUD should expose the shared energy label")
+	if composition != null:
+		_expect(
+			composition.get_theme_color("font_color").is_equal_approx(Color("68bcdd")),
+			"HUD composition name should use the main fragment primary"
+		)
+	if energy != null:
+		_expect(
+			energy.get_theme_color("font_color").is_equal_approx(Color.WHITE),
+			"HUD shared energy should remain neutral white"
+		)
+	for slot_index: int in range(4):
+		var slot: Label = (
+			hud.get_node_or_null(
+				"Root/CombatTray/Skill%d/SkillLabel" % (slot_index + 1)
+			) as Label
+			if hud != null
+			else null
+		)
+		_expect(slot != null, "HUD should expose skill slot %d" % (slot_index + 1))
+		if slot != null:
+			_expect(
+				slot.get_theme_color("font_color").is_equal_approx(
+					expected_colors[slot_index]
+				),
+				"HUD skill slot %d should follow its fragment primary"
+				% (slot_index + 1)
+			)
+	if hud == null:
+		return
+	hud.call(
+		"set_composition",
+		original_name,
+		Color("ed2f72"),
+		Color("68bcdd")
+	)
+	if composition != null:
+		_expect(
+			composition.get_theme_color("font_color").is_equal_approx(
+				Color("ed2f72")
+			),
+			"HUD composition name should swap to the new main primary"
+		)
+	for slot_index: int in range(4):
+		var slot: Label = hud.get_node_or_null(
+			"Root/CombatTray/Skill%d/SkillLabel" % (slot_index + 1)
+		) as Label
+		var swapped_color: Color = (
+			Color("ed2f72") if slot_index < 2 else Color("68bcdd")
+		)
+		_expect(
+			slot != null
+			and slot.get_theme_color("font_color").is_equal_approx(
+				swapped_color
+			),
+			"HUD skill slot %d should swap with its fragment primary"
+			% (slot_index + 1)
+		)
+	hud.call(
+		"set_composition",
+		original_name,
+		Color("68bcdd"),
+		Color("ed2f72")
+	)
 
 
 func _active_hazards_are_on_grid(run_loop: Node) -> bool:
@@ -1684,7 +1794,7 @@ func _expect_weapon_recoil_runtime(
 			first_bullet.global_position - player.global_position
 		)
 		_expect(
-			muzzle_offset.distance_to(center_direction * 24.0) < 0.01,
+			muzzle_offset.distance_to(center_direction * 38.0) < 0.01,
 			"spread should not move the central muzzle position"
 		)
 		_expect(
@@ -1694,6 +1804,15 @@ func _expect_weapon_recoil_runtime(
 			) * 0.5 + 0.001,
 			"projectile direction should remain inside the resolved spread cone"
 		)
+	var player_visual: PlayerSlimeVisual = (
+		player.get_node_or_null("Visual") as PlayerSlimeVisual
+	)
+	_expect(
+		player_visual != null
+		and player_visual.last_impulse_control_count() == 5
+		and player_visual.last_impulse_controls_are_contiguous(),
+		"real weapon_fired feedback should deform five contiguous front controls"
+	)
 	_release_active_bullets()
 
 	player.call("restore_snapshot", original_player_snapshot)
@@ -1859,8 +1978,12 @@ func _expect_player_enemy_separation(run_loop: Node, player: Node2D) -> void:
 	player_stats[STATS.MAX_HP] = 600.0
 	player_stats[STATS.HEALTH_REGEN] = 0.0
 	player_stats[STATS.MOVE_SPEED] = 0.0
-	player_stats[STATS.PLAYER_SEPARATION_RADIUS] = 10.0
+	player_stats[STATS.PLAYER_SEPARATION_RADIUS] = 25.0
 	isolated_player.call("configure", player_stats)
+	isolated_player.call(
+		"configure_runtime_rules",
+		DataLoader.load_json(DataLoader.PLAYER_DATA_PATH)
+	)
 
 	var enemy_data: Dictionary = {
 		"max_hp": 5,
@@ -4442,6 +4565,14 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	var saved_gold_balance: int = int(run_loop.call("gold_balance"))
 	var saved_gold_total: int = int(run_loop.call("gold_earned_total"))
 	var saved_time: float = GameClock.now()
+	var paused_visual: PlayerSlimeVisual = (
+		player.get_node_or_null("Visual") as PlayerSlimeVisual
+	)
+	var saved_visual_time: float = (
+		paused_visual.animation_time()
+		if paused_visual != null
+		else -1.0
+	)
 	var saved_attack_timer: float = (
 		float(
 			(saved_attack_enemy.call("snapshot") as Dictionary).get(
@@ -4466,6 +4597,11 @@ func _expect_pause_save_resume(run_loop: Node, player: Node2D) -> Dictionary:
 	for _index: int in range(BOOT_FRAMES):
 		await get_tree().process_frame
 	_expect(is_equal_approx(GameClock.now(), paused_time), "GameClock should freeze while pause menu is open")
+	_expect(
+		paused_visual == null
+		or is_equal_approx(paused_visual.animation_time(), saved_visual_time),
+		"PlayerSlimeVisual should freeze while the run is paused"
+	)
 	var invalid_state_rng: Dictionary = RNG.snapshot()
 	var invalid_state_request: Dictionary = run_loop.call(
 		"request_reward_choice",

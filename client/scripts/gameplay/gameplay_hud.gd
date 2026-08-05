@@ -238,14 +238,18 @@ func set_life(current_life: float, max_life: float) -> void:
 	set_defense(current_life, max_life, _shield_bar.value, _shield_bar.max_value, _overshield_bar.value)
 
 
-func set_composition(name: String, main_color: Color, accent_color: Color) -> void:
+func set_composition(name: String, main_color: Color, sub_color: Color) -> void:
 	if _composition_label == null:
 		return
 	_composition_label.text = name
 	_composition_label.add_theme_color_override("font_color", main_color)
-	_energy_label.add_theme_color_override("font_color", accent_color)
-	for slot_label: Label in _skill_slot_labels:
-		slot_label.add_theme_color_override("font_color", accent_color)
+	_energy_label.add_theme_color_override("font_color", Color.WHITE)
+	for slot_index: int in range(_skill_slot_labels.size()):
+		var slot_color: Color = main_color if slot_index < 2 else sub_color
+		_skill_slot_labels[slot_index].add_theme_color_override(
+			"font_color",
+			slot_color
+		)
 
 
 func set_defense(
@@ -408,7 +412,7 @@ func set_combat_state(state: Dictionary) -> void:
 		set_composition(
 			String(composition.get("name", "")),
 			_color_from_variant(composition.get("main_color", Color.WHITE), Color.WHITE),
-			_color_from_variant(composition.get("accent_color", Color.WHITE), Color.WHITE)
+			_color_from_variant(composition.get("sub_color", Color.WHITE), Color.WHITE)
 		)
 	var defense: Dictionary = state.get("defense", {}) as Dictionary
 	if not defense.is_empty():

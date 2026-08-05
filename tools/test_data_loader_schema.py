@@ -28,12 +28,28 @@ def main() -> int:
     cases: list[tuple[str, RepoMutator | None, list[str]]] = [
         ("golden data passes", None, []),
         (
-            "player schema v3 is required",
+            "player schema v4 is required",
             _mutate_json("client/data/player.json", _set_schema_version(1)),
             [
                 "client/data/player.json:schema_version",
-                "must be >= 3",
-                "must equal 3",
+                "must be >= 4",
+                "must equal 4",
+            ],
+        ),
+        (
+            "player body is required",
+            _mutate_json("client/data/player.json", _remove_player_body),
+            [
+                "client/data/player.json:body",
+                "must be an object",
+            ],
+        ),
+        (
+            "player body radius must be positive",
+            _mutate_json("client/data/player.json", _set_player_body_radius(0.0)),
+            [
+                "client/data/player.json:body.radius",
+                "must be > 0",
             ],
         ),
         (
@@ -489,12 +505,56 @@ def main() -> int:
             ],
         ),
         (
-            "character schema v3 is required",
+            "character schema v4 is required",
             _mutate_json("client/data/characters.json", _set_schema_version(1)),
             [
                 "client/data/characters.json:schema_version",
-                "must be >= 3",
-                "must equal 3",
+                "must be >= 4",
+                "must equal 4",
+            ],
+        ),
+        (
+            "character palette primary is required",
+            _mutate_json(
+                "client/data/characters.json",
+                _remove_character_palette_primary,
+            ),
+            [
+                "client/data/characters.json:characters[0].palette",
+                "must contain exactly ['primary']",
+            ],
+        ),
+        (
+            "character palette primary must be a color",
+            _mutate_json(
+                "client/data/characters.json",
+                _set_character_palette_primary("blue"),
+            ),
+            [
+                "client/data/characters.json:characters[0].palette.primary",
+                "must be a #RRGGBB or #RRGGBBAA color",
+            ],
+        ),
+        (
+            "character palette rejects legacy secondary",
+            _mutate_json(
+                "client/data/characters.json",
+                _add_character_palette_key("secondary", "#000000"),
+            ),
+            [
+                "client/data/characters.json:characters[0].palette",
+                "must contain exactly ['primary']",
+            ],
+        ),
+        (
+            "character palette rejects extra keys",
+            _mutate_json(
+                "client/data/characters.json",
+                _add_character_palette_key("extra", "#FFFFFF"),
+            ),
+            [
+                "client/data/characters.json:characters[0].palette",
+                "must contain exactly ['primary']",
             ],
         ),
         (
@@ -2202,6 +2262,24 @@ def _set_character_id(value: str) -> JsonMutator:
     return mutate
 
 
+def _remove_character_palette_primary(payload: dict[str, Any]) -> None:
+    payload["characters"][0]["palette"].pop("primary", None)
+
+
+def _set_character_palette_primary(value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["characters"][0]["palette"]["primary"] = value
+
+    return mutate
+
+
+def _add_character_palette_key(key: str, value: str) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["characters"][0]["palette"][key] = value
+
+    return mutate
+
+
 def _set_camera_feedback_value(field: str, value: object) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["player_damage_shake"][field] = value
@@ -2601,6 +2679,17 @@ def _remove_profile_attack_value(
 def _set_schema_version(value: int) -> JsonMutator:
     def mutate(payload: dict[str, Any]) -> None:
         payload["schema_version"] = value
+
+    return mutate
+
+
+def _remove_player_body(payload: dict[str, Any]) -> None:
+    payload.pop("body", None)
+
+
+def _set_player_body_radius(value: float) -> JsonMutator:
+    def mutate(payload: dict[str, Any]) -> None:
+        payload["body"]["radius"] = value
 
     return mutate
 

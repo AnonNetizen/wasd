@@ -28,7 +28,7 @@ Godot 4.7.1 顶部中央主界面的“数据配表”可一站式编辑普通 `
 | 改玩家基础血量 / 移速 / 伤害 | `player.json` 的 `base_stats` | 字段名必须来自 `docs/词表与契约.md` 的 stat id |
 | 改瞄准方向引导镜头或玩家受伤 / 武器后坐力震屏 | `camera_feedback.json` 的 `aim_look` / `player_damage_shake` / `weapon_recoil_shake` | 引导偏移按输入源计算并独立于震屏；噪声随机走 `RNG.camera_fx` |
 | 选择 / 调整视觉效果 | `visual_effects.json`、`presentation_profiles.json` | 内容数据只引用 `presentation_profile_id`；在 Godot 的“VFX 效果库”中预览和绑定，不手抄字符串 |
-| 改英雄主属性 / 被动 / 两个英雄技能 / 配色 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；主英雄提供属性被动和技能 1/2，子英雄只提供强调色和技能 3/4 |
+| 改智能碎片主属性 / 被动 / 两个技能 / 配色 | `characters.json` | 名字和描述只填 `name_key` / `desc_key`；palette 必须且只能含一个 `primary`。主碎片提供属性、被动、主色和技能 1/2，副碎片提供副色和技能 3/4 |
 | 改武器射速 / 后坐力 / 弹道扩散 / 弹匣 / 换弹 / 空弹降级 | `weapons.json` | 武器 id 文件内唯一；后坐力与基础扩散受根级 `recoil_model` 限制，弹匣、备用弹药、总容量、换弹时间和空弹倍率均为每武器必填；子弹池、元素和音频前缀必须来自词表 |
 | 改弹匣拾取速度 / 敌人掉落概率 / 递增保底 | `ammo_rules.json` | schema v1；拾取物走 `ammo_magazine` 对象池，掉落判定只使用 `RNG.ammo`，满弹时不消费或推进该子流 |
 | 改敌人血量 / 速度 / 怪物金币价值 / 中心间距 | `enemies.csv` | `gold_value_multiplier` 只表达怪物相对价值；全局金币公式改 `enemy_rewards.json`；显式攻击参数统一在 `enemy_ai_profiles.json.actions[].attack` |
@@ -253,12 +253,15 @@ JSON 示例：
 
 ```json
 {
-  "schema_version": 3,
+  "schema_version": 4,
+  "body": {
+    "radius": 25.0
+  },
   "base_stats": {
     "max_hp": 600.0,
     "health_regen": 0.0,
     "move_speed": 240.0,
-    "player_separation_radius": 10.0,
+    "player_separation_radius": 25.0,
     "fire_rate": 2.5,
     "damage": 3.5,
     "bullet_speed": 350.0,
@@ -302,11 +305,12 @@ JSON 示例：
 
 | 字段路径 | 类型 | 单位 / 范围 | 说明 | 调大后的效果 |
 |----------|------|-------------|------|--------------|
-| `schema_version` | int | 必须为 `3` | 数据结构版本 | 只在 schema 变更时调整 |
+| `schema_version` | int | 必须为 `4` | 数据结构版本 | 只在 schema 变更时调整 |
+| `body.radius` | float | `px`，`> 0`；当前 25.0 | 玩家视觉、圆形碰撞、`hit_radius()` 和有限地图边界内缩的统一半径 | 更大时玩家更易受击、近战更早接触，地图可移动范围也相应缩小 |
 | `base_stats.max_hp` | float | `> 0` | 默认最大生命；当前默认 600.0，采用 Dota 式血量尺度而非旧心数尺度 | 更耐打，失败更晚，也更容易做细粒度伤害 / 回复调参 |
 | `base_stats.health_regen` | float | HP/s，`>= 0` | 默认自动生命恢复；只在 `PLAYING` 状态下按 `GameClock` 缩放时间恢复，不超过最大生命 | 更能缓冲小额失误，但过高会抵消低频伤害 |
 | `base_stats.move_speed` | float | `px/s`，`> 0` | 默认移动速度 | 走位更灵活，地图探索更快 |
-| `base_stats.player_separation_radius` | float | `px`，`>= 0` | 玩家中心排斥半径；与敌人 `separation_radius` 相加后决定敌人被推开的最小中心距离 | 更不容易被敌人中心贴身重叠，但过大可能让围怪显得松散 |
+| `base_stats.player_separation_radius` | float | `px`，`>= 0`；当前 25.0 | 玩家中心排斥半径；当前与 `body.radius` 一致，与敌人 `separation_radius` 相加后决定敌人被推开的最小中心距离 | 更不容易被敌人中心侵入身体，但过大可能让围怪显得松散 |
 | `base_stats.fire_rate` | float | 每秒发数，`> 0` | 按住开火时的射击频率 | DPS 提升，弹幕更密 |
 | `base_stats.damage` | float | `>= 0` | 单发基础伤害 | 击杀更快 |
 | `base_stats.bullet_speed` | float | `px/s`，`> 0` | 子弹飞行速度 | 更容易命中远处移动敌人 |
@@ -1095,7 +1099,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 ```json
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "characters": [
     {
       "id": "character_primary_a",
@@ -1107,9 +1111,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
       "capabilities": [],
       "control_profile": "default_mouse_shooter",
       "palette": {
-        "primary": "#7E63D8",
-        "secondary": "#3D315E",
-        "accent": "#A995FF"
+        "primary": "#68BCDD"
       },
       "element_id": "element_primary_a",
       "passive_id": "passive_primary_a_guard",
@@ -1151,7 +1153,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 
 | 字段路径 | 类型 | 合法值 / 范围 | 说明 |
 |----------|------|---------------|------|
-| `schema_version` | int | 必须为 `3` | 数据结构版本 |
+| `schema_version` | int | 必须为 `4` | 数据结构版本 |
 | `characters[].id` | string | 词表 §12.1 character id，文件内唯一 | 角色 id；模式池、局外解锁和存档引用此 id |
 | `characters[].scene_path` | string | `res://scenes/gameplay/actors/characters/*.tscn`，文件存在且为 `PackedScene` | 角色专属继承场景；不同角色 id 可复用同一场景，但不能指向 `player_base.tscn` |
 | `characters[].name_key` / `desc_key` | string | `character_*_name` / `character_*_desc` | 角色名称和描述译文 key |
@@ -1159,7 +1161,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `characters[].tags` | array[string] | 词表 §12.3 content tag，必须含 `tag_character` | 内容标签；破限角色还需含 `tag_limit_break` 并声明 capability |
 | `characters[].capabilities` | array[string] | 词表 §12.2 capability id，可为空 | 允许突破的默认规则；空数组表示默认鼠标瞄准 / 左右朝向 / 按住开火 / 默认移动 |
 | `characters[].control_profile` | string | 非空 | 控制配置标识；当前只做数据边界，不实现输入 profile 切换 |
-| `characters[].palette` | object | 必须含 `primary` / `secondary` / `accent` 三个 `#RRGGBB` 或 `#RRGGBBAA` | 组合外观：主英雄提供 primary/secondary，子英雄提供 accent |
+| `characters[].palette` | object | 必须且只能含一个合法 HTML 颜色 `primary` | 每个碎片唯一的颜色来源；冷静当前为 `#68BCDD`，愤怒为 `#ED2F72`。遗留 `secondary` / `accent` 或任何额外键都会拒绝 |
 | `characters[].element_id` | string | 词表 §9 element id，且存在于 `elements.json` | 英雄的主元素 |
 | `characters[].passive_id` | string | 词表 §12-I，且存在于 `hero_passives.json` | 仅主英雄生效的通用数据被动 |
 | `characters[].hero_skill_ids` | array[string] | 固定长度 2；技能已登记且存在，角色内不重复 | 主英雄映射槽 1–2，子英雄映射槽 3–4 |
@@ -1177,7 +1179,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `characters[].base_stats.max_shield` | number | `>= 0` | 主英雄基础护盾 |
 | `characters[].base_stats.armor` | number | `>= 0` | 主英雄基础通用防御 |
 
-`characters.json` 声明英雄场景、主元素、被动、双色+强调色 palette、固定两项英雄技能和资源池。`HeroCompositionResolver` 只采用主英雄的场景、基础属性、被动、起始携带和资源池，并把主英雄技能映射到 `skill_1/2`、子英雄技能映射到 `skill_3/4`；组合外观取主英雄 primary/secondary 与子英雄 accent。默认禁止主/子重复；显式允许重复时，后出现的重复技能槽能量消耗与冷却倍率均为 1.5。
+`characters.json` 声明英雄场景、主元素、被动、primary-only palette、固定两项英雄技能和资源池。`HeroCompositionResolver` 只采用主英雄的场景、基础属性、被动、起始携带和资源池，并把主英雄技能映射到 `skill_1/2`、子英雄技能映射到 `skill_3/4`；组合 palette 精确输出 `main_primary` 与 `sub_primary`。正式 Shader 用双方颜色绘制两股涡旋，外轮廓 / 湿润边 / 朝向短束使用主色规则；HUD 名称与槽 1/2 使用主色、槽 3/4 使用副色、共享能量保持白色。默认禁止主/子重复；显式允许重复时，后出现的重复技能槽能量消耗与冷却倍率均为 1.5。
 
 ## `weapons.json`
 
@@ -1228,7 +1230,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
         "pool_id": "bullet_basic",
         "element_id": "element_neutral",
         "hit_radius": 12.0,
-        "muzzle_distance": 24.0,
+        "muzzle_distance": 38.0,
         "lifetime": 1.9
       }
     }
@@ -1273,7 +1275,7 @@ AI 产出新模块时必须先创建或修改模块 JSON 并登记为 `candidate
 | `projectile.pool_id` | string | 词表 §8 pool id | 使用的子弹对象池 |
 | `projectile.element_id` | string | 词表 §9 element id | 默认战斗元素；旧 `damage_type` 已删除 |
 | `projectile.hit_radius` | number | `> 0` | 命中半径，px |
-| `projectile.muzzle_distance` | number | `> 0` | 发射点相对角色中心距离，px |
+| `projectile.muzzle_distance` | number | `> 0` | 发射点相对角色中心距离，px；基础玩家武器当前为 38（25 px 玩家半径 + 12 px 子弹半径 + 1 px 间隙），敌人攻击配置仍独立保持 24 |
 | `projectile.lifetime` | number | `> 0` | 子弹存活秒数；业务系统可结合射程裁剪 |
 
 `weapons.json` 只声明武器 / 子弹数据边界，不实现 WeaponSystem、子弹实例化、命中判定、音频播放或武器选择 UI。角色通过 `characters[].starting_loadout.weapon_id` 引用默认起始武器；游戏模式可通过 `resource_pools.weapons` 声明可用武器池。

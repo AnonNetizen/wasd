@@ -922,8 +922,8 @@ func _start_run(restore_snapshot: Dictionary = {}) -> void:
 	_hud.call(
 		"set_composition",
 		_composition_display_name(),
-		_composition_color("primary", Color(0.49, 0.39, 0.85)),
-		_composition_color("accent", Color(0.95, 0.64, 0.23))
+		_composition_color("main_primary", Color("68bcdd")),
+		_composition_color("sub_primary", Color("ed2f72"))
 	)
 	_hud.call("set_kills", _kills)
 	_hud.call("set_level", current_level())
@@ -4964,13 +4964,17 @@ func _on_skill_failed(_skill_id: String, result: Dictionary) -> void:
 func _on_weapon_fired(context: Dictionary) -> void:
 	var feedback_context: Dictionary = context.duplicate(true)
 	feedback_context["camera_controller"] = _camera_controller
+	var raw_direction: Variant = context.get("direction", Vector2.RIGHT)
+	var shot_direction: Vector2 = (
+		raw_direction
+		if raw_direction is Vector2
+		else Vector2.RIGHT
+	)
+	if _player != null:
+		var player_visual: Node = _player.get_node_or_null("Visual")
+		if player_visual != null and player_visual.has_method("apply_fire_impulse"):
+			player_visual.call("apply_fire_impulse", shot_direction)
 	if _player != null and _player.has_method("apply_weapon_recoil"):
-		var raw_direction: Variant = context.get("direction", Vector2.RIGHT)
-		var shot_direction: Vector2 = (
-			raw_direction
-			if raw_direction is Vector2
-			else Vector2.RIGHT
-		)
 		_player.call(
 			"apply_weapon_recoil",
 			shot_direction,

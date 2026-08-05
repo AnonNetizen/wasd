@@ -7,7 +7,7 @@
 
 ## 职责
 
-- 在正式 `client/` 内编排标题 → 主／子英雄组合选择 → Loading → 对局，以及继续、暂停保存退出、重开和回标题。对局包含主英雄场景 / 属性 / 被动 / 技能 1/2、子英雄强调色 / 技能 3/4、起始武器、四技能共享能量、基础冲刺、七元素、防御层、武器弹药 / 换弹 / 后坐、敌人击退、池化实体、生成时金币奖励、弹药掉落、金币成长、显式奖励选择、敌人显式攻击、F13 模块世界、五类世界事件、模式级威胁时间、难度标记器与 Run v11 恢复。
+- 在正式 `client/` 内编排标题 → 主／子英雄组合选择 → Loading → 对局，以及继续、暂停保存退出、重开和回标题。对局包含主英雄场景 / 属性 / 被动 / 主色 / 技能 1/2、副英雄副色 / 技能 3/4、双涡旋史莱姆表现、起始武器、四技能共享能量、基础冲刺、七元素、防御层、武器弹药 / 换弹 / 后坐、敌人击退、池化实体、生成时金币奖励、弹药掉落、金币成长、显式奖励选择、敌人显式攻击、F13 模块世界、五类世界事件、模式级威胁时间、难度标记器与 Run v11 恢复。
 - ADR #157 后为正式玩家入口提供“准备完成、尚未激活”的边界：资源读取和分帧构建期间保持 `LOADING`，加载界面移除后才进入 `PLAYING` 并恢复保存的 UI；headless / replay / smoke 工具继续走同步准备。
 - 复用 F3/F9/F10 已建立的数据边界，并由 F13 增加 `module_worlds.json`、`module_templates.json` 与 `modules/*.json`；模块世界只引用既有敌人、机关、奖励、目标和撤离 primitive，不在运行时调用 AI。
 - ADR #161 已提供冷静 / 愤怒两名英雄与正式组合选择，固定四技能、共享能量、技能 / 冲刺 HUD、状态汇总、能力 / 防御详细面板和 Meta v2 / Replay v3；ADR #166 将 Run 提升到 v6，并加入独立威胁时间、敌人出生倍率和难度标记器。本期明确不实现局内换子英雄、同英雄开局、第三基础元素内容、超量护盾局外来源、N×N 组合场景、敌人组合升级或遭遇预算扩张。F11 Gear Mod 仍是下一局属性来源；F12 的兴趣点、暂存战利品、小巢核与撤离结算继续运行在 F13 模块世界内。
@@ -47,7 +47,7 @@
 |------|------|
 | `client/scripts/boot/formal_client_boot.gd` | 数据校验通过后挂载 gameplay runtime |
 | `client/scenes/gameplay/gameplay_run_loop.tscn` | 正式 gameplay runtime 场景；包含 `ActiveWorld`、`WorldBackground`、`PlayerHost` 和 `GameplayHud`；玩家由角色数据在入树前选择并挂到 host |
-| `client/scenes/gameplay/actors/player_base.tscn` / `characters/*.tscn` | 玩家基础场景与角色专属继承场景；基础场景提供脚本、碰撞、武器、状态组件和角色头顶短时世界文字节点，专属场景保存角色静态外观和节点覆盖；对局级相机 Rig 固定在 RunLoop |
+| `client/scenes/gameplay/actors/player_base.tscn` / `characters/*.tscn` | 玩家基础场景与角色专属继承场景；基础场景提供 25 px 圆形碰撞、双涡旋史莱姆视觉、38 px 朝向短束 / 枪口、武器、状态组件和角色头顶短时世界文字节点；角色继承场景复用同一视觉实现，对局级相机 Rig 固定在 RunLoop |
 | `client/scenes/ui/loading_screen.tscn` / `client/scripts/ui/loading_screen.gd` | 正式玩家入口准备期间的全屏加载界面 |
 | `client/tools/loading_smoke.gd` | 开始、继续、重开、重入与准备失败的真实玩家入口回归 |
 | `client/scenes/gameplay/actors/enemy_base.tscn` / `enemies/*.tscn` | 敌人基础场景与五种敌人专属继承场景；共享 `Enemy` 脚本和必需组件，专属场景保存颜色、轮廓及未来动画 / 素材节点 |
@@ -81,7 +81,7 @@
 | `client/scripts/gameplay/gold_orb.gd` | 池化金币球：进入玩家拾取范围后按 `gold_drop.pickup_speed` 吸附并发放金币 |
 | `client/scripts/gameplay/reward_choice_controller.gd` | 场景预置通用奖励控制器：验证请求、按等级过滤、稳定加权无放回抽取、保存 / 恢复原候选 |
 | `client/scripts/gameplay/hit_spark.gd` / `damage_number.gd` | 池化命中反馈：Combat 成功造成伤害时生成短命火花和飘字；不进入 run 快照 |
-| `client/scripts/gameplay/presentation/` | `ActorPresentationController`、`VfxHost` 与 `GameplayFeedbackController`；完整契约见 `docs/代码/visual_effects.md` |
+| `client/scripts/gameplay/presentation/` | `PlayerSlimeVisual`、`ActorPresentationController`、`VfxHost` 与 `GameplayFeedbackController`；完整表现契约见本文与 `docs/代码/visual_effects.md` |
 | `client/scripts/gameplay/reward_choice_panel.gd` | 响应式通用奖励选择面板；支持 2–5 项，通过 `UIManager.push()` 挂载；语言切换时用缓存候选重建按钮 |
 | `client/scripts/gameplay/gameplay_hud.gd` / `client/scripts/ui/difficulty_marker.gd` | 响应式 HUD：生命、普通 / 超量护盾、能量、四技能、冲刺、当前战区状态、击杀、威胁时间 / 等级 / 阶段 / 分段进度、起点锁定、撤离反馈与能力 / 防御 / 新敌人倍率详细属性；语言切换时用当前状态重画 |
 | `client/scripts/ui/title_menu.gd` | 最小标题界面：开始 / 继续 / 装备 Mod / 设置 / 退出 |
@@ -118,7 +118,13 @@ FormalClientBoot
     │   │   └── ModuleChunk × 9 (scene-authored pool; 0..9 active)
     │   ├── PlayerHost (Node2D)
     │   │   └── Player (character-specific inherited CharacterBody2D)
-    │   │       ├── CollisionShape2D (CircleShape2D; blocked module-cell collision)
+    │   │       ├── CollisionShape2D (CircleShape2D; radius 25; blocked module-cell collision)
+    │   │       ├── Visual (PlayerSlimeVisual)
+    │   │       │   ├── Body (Polygon2D + dual-vortex ShaderMaterial)
+    │   │       │   ├── Direction/FacingBeam (Line2D; endpoint 38)
+    │   │       │   ├── Outline (Line2D; 3 px)
+    │   │       │   └── WetRim (Line2D; 1 px)
+    │   │       ├── VfxAnchors/Forward/Muzzle (Marker2D; x=38)
     │   │       ├── WeaponSystem (Node)
     │   │       └── StatusEffectComponent (Node)
     │   ├── GameplayCameraController (Node2D; run-level rig)
@@ -171,16 +177,16 @@ ADR #159 另有一个非 carrier、非 game mode 的内部运行用途 `DEBUG_TE
 | 模块世界 carrier（F13） | 默认开局配置完整 9×9 assignment；固定中心起点、目标、撤离和三个事件模块。首次进入遭遇仍按有效空地固化 4–6 个敌人；事件模块不再叠加普通首次遭遇。跨边界时普通槽按世界槽位流式保存，激活事件模块通过 pin 继续真实模拟。续局由 `module_world` 恢复 assignment/hash/迷雾/slot state/pin，再注册事件目标，最后恢复敌人与子弹 | `ModuleWorldManager.build_assignment()`、`tick()`、`snapshot()` / `restore_state()`、`WorldEventController.restore_snapshot()` |
 | 背景 | 在玩家附近绘制量化矩形地图格和原点十字；网格来自 `map_layouts.json.grid`，与机关尺寸 / 判定共用同一格度量，但不缩放或旋转世界坐标，也不模拟斜俯视透视 | `WorldBackground.configure()` |
 | 输入 | `InputService` 从 GUIDE 的 gameplay context 产生 `move` / `aim` `Vector2` 与开火、四技能、冲刺、交互、暂停等按钮 intent。键鼠瞄准取 pointer viewport position 相对玩家实际屏幕位置的方向，不读取相机震屏噪声 offset；Replay v3 记录最终 intent 与组合选择 | `InputService`、生成 `Actions` 常量、`Replay` v3 |
-| 移动 / 瞄准 / 相机 | 玩家按数据移速在 2D 平面移动；RunLoop 在角色实例化 / 恢复后，把 `ActiveWorld` 预置 Rig 的 `PlayerCamera` 配成 Phantom Camera `GLUED` 跟随当前 Player，`CenteredCamera` 保持水平与等比缩放。开局先居中；首次有效瞄准后，鼠标按实际屏幕距离的死区 / 30% 比例 / 240 px 上限计算引导，键盘、手柄与 Replay 按最终瞄准方向使用 240 px，松开保持最后方向；控制器以 0.18 秒时间常数指数平滑，暂停冻结 | `Player.aim_direction`、`Player.set_camera_look_offset()`、`GameplayCameraController.configure()` |
-| 开火 / 换弹 / 后坐 | WeaponSystem 读取 `reload` 与 `fire` intent，同 tick 先处理换弹。弹匣打空后持续按住被锁住，松开再按时有备弹则自动换弹、总弹药为零则武装 50% 射速 / 弹速的降级射击；一次扳机只扣一发。只有至少取得一个子弹池实体才提交弹药、`RNG.combat` 和冷却。combat gate 只锁定开火，起点房仍允许换弹；换弹和冷却使用 `GameClock`。每次提交仍只发一次 `weapon_fired` context，RunLoop 将反向冲量交给 Player、动态震屏交给 Camera | `WeaponSystem.request_reload()`、`ammo_state()`、`add_ammo()`、`WeaponRecoilResolver.resolve()` |
+| 移动 / 瞄准 / 相机 | 玩家按数据移速在 2D 平面移动；位置边界按 `player.json.body.radius` 内缩，某轴不足一个直径时固定在轴中心。`PlayerSlimeVisual` 只在有效玩法时间推进移动 / 冲刺压缩回弹，暂停冻结。RunLoop 在角色实例化 / 恢复后，把 `ActiveWorld` 预置 Rig 的 `PlayerCamera` 配成 Phantom Camera `GLUED` 跟随当前 Player，`CenteredCamera` 保持水平与等比缩放。开局先居中；首次有效瞄准后，鼠标按实际屏幕距离的死区 / 30% 比例 / 240 px 上限计算引导，键盘、手柄与 Replay 按最终瞄准方向使用 240 px，松开保持最后方向；控制器以 0.18 秒时间常数指数平滑，暂停冻结 | `Player.aim_direction`、`Player.hit_radius()`、`Player.set_camera_look_offset()`、`PlayerSlimeVisual.advance_visual()`、`GameplayCameraController.configure()` |
+| 开火 / 换弹 / 后坐 | WeaponSystem 读取 `reload` 与 `fire` intent，同 tick 先处理换弹。弹匣打空后持续按住被锁住，松开再按时有备弹则自动换弹、总弹药为零则武装 50% 射速 / 弹速的降级射击；一次扳机只扣一发。只有至少取得一个子弹池实体才提交弹药、`RNG.combat` 和冷却。combat gate 只锁定开火，起点房仍允许换弹；换弹和冷却使用 `GameClock`。每次提交仍只发一次 `weapon_fired` context，RunLoop 独立把朝向附近连续 5 点的有界视觉冲击交给史莱姆、反向冲量交给 Player、动态震屏交给 Camera；基础玩家发射点为 38 px | `WeaponSystem.request_reload()`、`ammo_state()`、`add_ammo()`、`PlayerSlimeVisual.apply_fire_impulse()`、`WeaponRecoilResolver.resolve()` |
 | 弹药 HUD / 打空反馈 | 常驻区只显示弹匣内剩余子弹与弹匣外备弹，不显示两者合计、总容量或打空说明；详细面板同样只显示弹匣、备弹和换弹时间。正常射击打出最后一发时，WeaponSystem 每次弹匣只请求一次角色头顶短时文字；有备弹时显示动态 `reload` 绑定，总弹药耗尽时提示再次开火。长按不重复，总弹药为零后每次重新按开火可再次提示；文字消退使用 `GameClock`，暂停冻结 | `WeaponSystem.ammo_attention_requested`、`Player.show_world_prompt()`、`PlayerWorldPrompt`、`ui_player_ammo_reload_prompt`、`ui_player_ammo_depleted_prompt` |
 | 子弹移动 / 地形 | 玩家和敌方子弹移动前先用 `hit_radius` 圆形 `intersect_shape()` 检查初始重叠，再用 `cast_motion()` 扫掠本帧位移；只查询地形层 bit 1。命中后停在安全比例、立即 `PoolManager.release()`，不再检查墙后伤害目标；`wall_pierce > 0` 的发射快照跳过全部地形查询。共享场景没有拖尾节点；四节点史莱姆视觉只按命中半径整体缩放并按队伍换色，configure / restore / reset / release 都不得新增节点或残留上一阵营颜色 | `PhysicsShapeQueryParameters2D` / `PhysicsDirectSpaceState2D` / `BulletSlimeVisual` |
 | 子弹命中 | 地形通过后，子弹汇总配置的全部伤害目标组，按扫掠命中时间与稳定实例 id 选择最近目标。普通敌弹只含玩家组；防御事件敌弹额外含防御目标组。屏障边界、地形和 pierce 规则保持不变，伤害统一走 Combat | `DamageInfo` / `ProjectileBarrier.projectile_boundary_hit_fraction()` |
-| 英雄 / 技能 / 状态 | RunLoop 用 `HeroCompositionResolver` 解析主／子英雄：主英雄提供属性、被动、场景和技能 1/2，子英雄只提供强调色与技能 3/4。SkillSystem 按固定槽位释放、共享能量并解释通用屏障 / 状态 / 修饰器原语；combat gate 锁定时返回 `reason=combat_locked`，不消耗资源、不进入冷却，且离房后必须重新按键。所有冷却、状态、护盾恢复和超盾衰减继续只走 `GameClock` | `configure_hero_composition()`、`SkillSystem.configure_combat_gate()`、`SkillSystem.cast_slot()`、`StatusEffectComponent` |
+| 英雄 / 技能 / 状态 | RunLoop 用 `HeroCompositionResolver` 解析主／子英雄：主英雄提供属性、被动、场景、主色和技能 1/2，子英雄提供副色与技能 3/4。运行时 palette 精确为 `main_primary` / `sub_primary`；双涡旋与 HUD 按双方颜色同步交换，共享能量保持白色。SkillSystem 按固定槽位释放、共享能量并解释通用屏障 / 状态 / 修饰器原语；combat gate 锁定时返回 `reason=combat_locked`，不消耗资源、不进入冷却，且离房后必须重新按键。所有冷却、状态、护盾恢复和超盾衰减继续只走 `GameClock` | `configure_hero_composition()`、`PlayerSlimeVisual.configure_palette()`、`SkillSystem.configure_combat_gate()`、`SkillSystem.cast_slot()`、`StatusEffectComponent` |
 | 刷怪 / 出生强化 / 金币锁定 | 模块 carrier 读取 `module_worlds.json.first_visit_enemy_spawn` 的数量、预警时长和按威胁时间解锁的敌种权重，并按首次实际进入规则固化计划；起点豁免。F12 open-warzone carrier 使用 `spawn_waves.csv` 与 `WarzoneDirector.is_wave_enabled()`，时间 gating 同样读取威胁时间。敌人在真正成功取得对象池实体后，先取得生命 / 伤害倍率，再只消费一次 `RNG.economy`，按实际生成阶段、难度系数、敌种价值倍率和默认特殊化倍率 `1.0` 锁定金币；失败生成不消费任何 RNG。预警跨档按生成时等级，场上既有敌人不重算生命、伤害或金币 | `DifficultyProgression.enemy_spawn_snapshot()`、`EnemyRewardResolver.resolve()`、`RNG.spawn`、`RNG.economy` |
 | 弹药掉落 / 拾取 | 只有玩家伤害归因且允许奖励的敌人才参与。武器未满时按 `ammo_rules.json` 和连续未掉计数用独立 `RNG.ammo` 抽取；满弹完全不抽取也不推进计数。成功产生一个当前武器完整弹匣并重置计数；空弹拾取优先装匣，其余进备弹，超上限丢弃。场上拾取物通过 `ammo_magazine` 池生成、回收和快照恢复 | `WeaponSystem.can_accept_ammo()` / `add_ammo()`、`GameplayRunLoop._try_spawn_ammo_magazine()` |
 | 机关触发 | `Hazard` 在 `PLAYING` 下按 `GameClock.delta_scaled()` 消耗冷却；玩家进入矩形范围后构造 `DamageInfo` 并交给 `Combat`，当前 FEA-12 用于验证 PCG / 手工摆点和伤害链路 | `Hazard.configure()`、`Combat.apply_damage()` |
-| 受击 / 击杀反馈 | `Combat.damage_applied` 成功应用伤害后由 profile cue 生成池化火花 / 飘字；玩家有效受伤才触发屏幕叠层与 `camera_feedback.json` 震屏，无敌拦截和敌人受伤不震。角色闪色 / 敌人退场由 `ActorPresentationController + AnimationPlayer` 驱动；击杀、掉落和移出 active group 即时，0.18 秒后回池 | `GameplayFeedbackController.play()`、`GameplayCameraController.play_feedback()` |
+| 受击 / 击杀反馈 | `Combat.damage_applied` 成功应用伤害后由 profile cue 生成池化火花 / 飘字；玩家有效受伤才触发屏幕叠层与 `camera_feedback.json` 震屏，无敌拦截和敌人受伤不震。`ActorPresentationController` 优先调用 Visual 的 `set_presentation_state(tint, alpha, scale)` 处理 Shader 玩家受击 / 退场；无该接口的 Polygon 敌人继续走 Body / Outline 回退，不能重复乘 alpha 或覆盖玩家 palette。击杀、掉落和移出 active group 即时，0.18 秒后回池 | `PlayerSlimeVisual.set_presentation_state()`、`GameplayFeedbackController.play()`、`GameplayCameraController.play_feedback()` |
 | 敌人行为 | 普通敌人仍只感知玩家；防御事件生成上下文可注入专用主目标和目标组，四种攻击都能伤害目标且仍可伤害路径上的玩家。事件结束后残敌转为普通玩家目标，死亡或离开原模块后解除 pin。其他显式攻击、点射和稳定连锁语义不变 | `Enemy.configure(..., spawn_context)`、`convert_to_player_target()`、`docs/代码/enemy_ai.md` |
 | 世界事件 | RunLoop 从 assignment 注册三个稳定实例；持续事件全局互斥，祭坛并行。Controller 用 GameClock 推进并请求波次 / 奖励 / pin；RunLoop 用 `RNG.world_event` 固化激活时计划、生命 / 伤害语义和隐藏奖励，统一结算金币或 pending Mod。事件波次中的普通击杀金币仍按各敌人实际生成阶段由 `RNG.economy` 锁定 | `WorldEventController.interact()` / `tick()` / `snapshot()`、`docs/代码/world_event_system.md` |
 | 金币掉落 / 成长 | 玩家归因击杀且锁定 `gold_reward > 0` 时必定生成一个池化金币球；死亡时只使用 Enemy 快照中的最终金额，不重算、不抽随机，也不消费掉落 RNG。金币球进入 `pickup_range` 后按 `gold_drop.pickup_speed` 吸附。拾取通过 `add_gold(..., enemy_drop)` 同时增加余额与累计获得金币；等级由 `level_progression.json` 的 100 起步、1.3× 向上取整曲线从累计金币推导。消费只扣余额，不影响等级；一次跨多级只显示一次约 1.35 秒的最终等级提示，不暂停玩法 | `EnemyRewardResolver.resolve()`、`PoolManager.acquire(GOLD_ORB)`、`GoldProgression.add_gold()` |
@@ -200,6 +206,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | 名称 | 输入 | 输出 | 约束 |
 |------|------|------|------|
 | `Player.configure(base_stats)` | 合并后的玩家属性 | `void` | `move_speed` / `max_hp` / `health_regen` / `damage_invulnerability_duration` / `player_separation_radius` 来自数据 |
+| `Player.configure_runtime_rules(player_data)` / `hit_radius()` | 完整 `player.json` / 无 | `void` / `float` | 从 schema v4 `body.radius` 同步圆形碰撞、史莱姆视觉和地图边界半径；当前返回 25 px |
 | `Player.invulnerability_remaining()` | 无 | `float` | 只读诊断值；用于 smoke / 调试确认玩家侧无敌窗口是否归零 |
 | `Player.pickup_range()` / `luck()` / `separation_radius()` / `stat_value(stat)` | 无 / stat id | `float` | 只读运行时属性；金币 / 能量球吸附范围、玩家中心排斥和 HUD 详细数值面板使用；`luck` 当前保留但不影响金币、等级或奖励抽取 |
 | `Player.aim_at_world_position(world_position)` | 世界坐标 | `void` | 按玩家到目标世界坐标的方向更新 `aim_direction`，并清掉上一帧鼠标瞄准缓存；headless smoke 和未来脚本化瞄准可复用，真实鼠标输入使用玩家实际屏幕位置 + 稳定引导偏移的投影反算路径 |
@@ -212,6 +219,9 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 | `Player.configure_weapon_recoil(recoil_model)` / `apply_weapon_recoil(direction, initial_speed, duration)` | 后坐模型 / 中心开火方向与冲量 | `void` | 配置运行时速度上限；开火时叠加反向向量并钳制，冲刺激活时不新增冲量 |
 | `Player.receive_damage(info)` | `DamageInfo` | result dictionary | 只能由 `Combat.apply_damage()` 间接调用；无敌期返回 `reason=invulnerable` 且不扣生命 |
 | `Player.debug_heal()` / `debug_set_life()` / `debug_clear_invulnerability()` | 调试数值 | Dictionary / `void` | 仅供 debug/dev_tools GM 指令调用；正式 gameplay 不应依赖 |
+| `PlayerSlimeVisual.configure_palette()` / `configure_radius()` | `main_primary` / `sub_primary`、正半径 | `void` | 更新已有 Shader uniform、Polygon 与 Line2D；不得创建节点、材质、Gradient 或碰撞资源 |
+| `PlayerSlimeVisual.advance_visual()` / `apply_fire_impulse()` | scaled delta + 运动 / 瞄准、开火方向 | `void` | 固定 20 控制点 / 100 边界点；移动 / 冲刺驱动宽幅压缩，开火只影响连续 5 点，最终 extent 不超过判定半径 |
+| `PlayerSlimeVisual.set_presentation_state()` | tint、alpha、`Vector2` scale | `void` | 统一 Shader Body、Outline、WetRim、FacingBeam 的受击 / 退场状态；由 `ActorPresentationController` 可选调用 |
 | `GameplayCameraController.configure(target, feedback_config)` | 实现 `set_camera_look_offset()` 的玩家 `Node2D`、`camera_feedback.json` 根对象 | `void` | 签名不变；绑定 GLUED 跟随目标，读取 `aim_look` 并向受击 / 武器两个 noise resource 与 emitter 写入已校验参数；重绑时从零偏移开始 |
 | `GameplayCameraController.current_look_offset()` | 无 | `Vector2` | 只读诊断接口；返回当前平滑后的稳定引导偏移，不包含震屏噪声 |
 | `GameplayCameraController.play_feedback(feedback_id, context)` | profile id、开火 context | `void` | 受击震屏使用固定数据；武器震屏按 `recoil_ratio` 和 profile 指数缩放，连射刷新且保留较强振幅；自行检查 `gameplay.screen_shake` |
@@ -281,7 +291,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 
 ## 数据与契约
 
-- 英雄组合：默认“冷静主 + 愤怒子”；`characters.json` schema v3 的两个初始 hero id 可复用同一基础场景。RunLoop 入树前接收主／子 id，解析器拒绝未知 id 和局外重复组合；续局从 Run v11 恢复。主英雄独占基础属性、被动、身体／主体色，子英雄只贡献技能 3/4 与强调色。
+- 英雄组合：默认“冷静主 + 愤怒子”；`characters.json` schema v4 的两个初始 hero id 可复用同一基础场景，每个 palette 必须且只能含一个 `primary`。RunLoop 入树前接收主／子 id，解析器拒绝未知 id 和局外重复组合；续局从 Run v11 恢复。主英雄独占基础属性、被动、场景、主色和技能 1/2，子英雄只贡献副色与技能 3/4；Resolver palette 精确返回 `main_primary` / `sub_primary`。
 - 模式：默认读取 `mode_standard_survival`，其 id 来自生成常量 `GameModes`。
 - 武器：从 `characters[].starting_loadout.weapon_id` 读取，不在代码写武器 id 分支。`weapons.json` schema v4 的 `ammo` 必填弹匣、开局备弹、总上限、换弹时间与零弹射速 / 弹速倍率；基础枪为 30 / 150 / 240 / 1.2 秒 / 0.5 / 0.5。
 - 技能：每个英雄声明两个 `hero_skill_ids`，组合固定映射到 `skill_1`～`skill_4`，冷却按槽位保存；共享资源为能量。主英雄能力四维缩放全部四槽。初始技能为静域屏障、镇静脉冲、怒意超频、激怒标记，均由通用 effect / status / modifier 原语解释。
@@ -299,7 +309,7 @@ F4 脚本当前是阶段性内部模块，主要公共面向为 signal 和实体
 - 机关占位表现：通用 `Hazard` 绘制矩形危险地块；`hazards.csv.radius_tiles` 表示占用地图矩形格的整数倍，`MapManager.grid_cell_size()` 同时驱动背景网格、机关绘制和触发判定。
 - 战区导演：`warzone_directors.json` 声明当前模式的固定 phase、mutation 和兴趣点；`GameplayRunLoop` 用它 gating wave，并把当前 layout 的兴趣点交给 `MapManager` 生成初始 `source="director"` 机关；不能让它读取玩家血量、DPS、受伤次数、输入节奏或其它玩家状态。F12 当前四个兴趣点通过通用 `resource_rewards[]` / `gear_mod_rewards[]`、`requires_interaction`、`target_hp` / `target_hit_radius` 和 `completes_run` 接线，不按 `poi_id` 特判；`requires_interaction` 缓存箱和 `target_hp` 目标都必须走 MapManager 的独立 POI anchor，不能复用陷阱位置；缓存箱是贴地 POI 视觉，层级应在地图背景之上、机关 / 敌人 / 玩家模型之下；后续守卫或核心实体仍应复用 reward / objective 数据而不是新增 id 分支。
 - 玩家生命尺度：默认角色 `max_hp` 为 600.0，采用浮点血量尺度而非旧心数尺度；`health_regen` 在 `PLAYING` 状态下按 `GameClock.delta_scaled()` 自动恢复生命且不超过上限，当前默认 1.5 HP/s。
-- 玩家俯视表现：`Player` 是 `CharacterBody2D`，移动、碰撞、受击、武器反冲、显示占位和 run 快照都维持 2D；`GameplayCameraController` 是 `GameplayRunLoop/ActiveWorld` 中与 `PlayerHost` 并列的唯一对局级 Rig，RunLoop 在角色创建或恢复后重新绑定 GLUED PCam。当前固定 `ignore_rotation=true`、无插件 smoothing / damping / lookahead / dead zone / auto zoom / load tween，并保持 `Vector2.ONE` 等比缩放。`camera_feedback.json` schema v3 的 `aim_look` 驱动帧率无关平滑引导；由于当前固定版本插件的 GLUED 更新路径不消费其导出 `follow_offset`，项目适配层仍动态写该属性作为权威状态，同时在 host 更新后把相同稳定偏移镜像到真实 `Camera2D` 位置，不修改插件源码。鼠标瞄准使用光标相对玩家实际屏幕位置的方向；`Camera2D.offset` 只承载震屏，开关震屏不清理引导偏移。
+- 玩家俯视表现：`Player` 是 `CharacterBody2D`，`player.json` schema v4 的 `body.radius=25` 同时驱动圆形碰撞、`hit_radius()`、`PlayerSlimeVisual` 与有限地图边界内缩；`player_separation_radius` 同为 25。正式双涡旋史莱姆固定 20 个控制点 / 100 个边界点，3 px 主色外轮廓、1 px 主色提亮湿润边和终点 38 px 主色短束；`Ground=(0,25)`、`Overhead=(0,-36)`、`Muzzle=(38,0)`、世界文字 `(0,-58)`。软体只影响表现且暂停冻结，不写 Run v11；移动、碰撞、受击和武器反冲仍维持 2D。`GameplayCameraController` 是 `GameplayRunLoop/ActiveWorld` 中与 `PlayerHost` 并列的唯一对局级 Rig，RunLoop 在角色创建或恢复后重新绑定 GLUED PCam。当前固定 `ignore_rotation=true`、无插件 smoothing / damping / lookahead / dead zone / auto zoom / load tween，并保持 `Vector2.ONE` 等比缩放。`camera_feedback.json` schema v3 的 `aim_look` 驱动帧率无关平滑引导；由于当前固定版本插件的 GLUED 更新路径不消费其导出 `follow_offset`，项目适配层仍动态写该属性作为权威状态，同时在 host 更新后把相同稳定偏移镜像到真实 `Camera2D` 位置，不修改插件源码。鼠标瞄准使用光标相对玩家实际屏幕位置的方向；`Camera2D.offset` 只承载震屏，开关震屏不清理引导偏移。
 - 受伤无敌：从合并后的玩家 `base_stats.damage_invulnerability_duration` 读取；当前默认 `player.json` 为 0.7 秒，和受伤红闪时长分离。
 - 金币球：使用词表 §8 `gold_orb` 对象池；`player.json.base_stats.pickup_range` 控制吸附范围，`gold_drop.pickup_speed` 控制 360 px/s 吸附速度。能量球同样读取 `pickup_range`，速度独立来自 `energy_drop.pickup_speed`。金币球占位使用金色圆点、暗色轮廓与收集反馈。
 - 弹药弹匣：使用词表 §8 `ammo_magazine` 对象池；`ammo_rules.json` schema v1 配置池 id、360 px/s 吸附速度、每次一个完整弹匣，以及 8% 起步、每次未掉增加 15%、第 8 次保证成功的曲线。数量只取当前武器 `magazine_size`，不受敌人价值、难度、阶段或低弹比例影响。

@@ -262,9 +262,23 @@ def _validate_player_json(ctx: ValidationContext) -> None:
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=3)
-    if schema_version != 3:
-        ctx.error(path, "schema_version", "must equal 3")
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=4)
+    if schema_version != 4:
+        ctx.error(path, "schema_version", "must equal 4")
+    body = data.get("body")
+    if not isinstance(body, dict):
+        ctx.error(path, "body", "must be an object")
+    else:
+        if set(body) != {"radius"}:
+            ctx.error(path, "body", "must contain exactly ['radius']")
+        _require_number(
+            ctx,
+            path,
+            "body.radius",
+            body.get("radius"),
+            minimum=0,
+            exclusive_minimum=True,
+        )
     base_stats = data.get("base_stats")
     if not isinstance(base_stats, dict) or not base_stats:
         ctx.error(path, "base_stats", "must be a non-empty object")
@@ -705,9 +719,9 @@ def _validate_characters(
     data = _load_json(path, ctx)
     if not isinstance(data, dict):
         return
-    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=3)
-    if schema_version is not None and schema_version != 3:
-        ctx.error(path, "schema_version", "must equal 3")
+    schema_version = _require_int(ctx, path, "schema_version", data.get("schema_version"), minimum=4)
+    if schema_version is not None and schema_version != 4:
+        ctx.error(path, "schema_version", "must equal 4")
     characters = _require_list(ctx, path, "characters", data.get("characters"))
     if not characters:
         ctx.error(path, "characters", "must be a non-empty array")
@@ -772,7 +786,7 @@ def _validate_character_palette(ctx: ValidationContext, path: Path, field: str, 
     if not isinstance(data, dict):
         ctx.error(path, field, "must be an object")
         return
-    expected = {"primary", "secondary", "accent"}
+    expected = {"primary"}
     if set(data) != expected:
         ctx.error(path, field, f"must contain exactly {sorted(expected)}")
     for key in sorted(expected):

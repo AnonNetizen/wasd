@@ -17,14 +17,13 @@ signal died()
 const ACTIONS := preload("res://scripts/contracts/actions.gd")
 const ABILITY_TAGS := preload("res://scripts/contracts/ability_tags.gd")
 const STATS := preload("res://scripts/contracts/stats.gd")
-const DRAW_RADIUS: float = 12.0
+const DEFAULT_BODY_RADIUS: float = 25.0
 const MOUSE_AIM_MIN_DISTANCE_SQUARED: float = 16.0
 const ACTIVE_PLAYER_GROUP: String = "active_player"
 const INPUT_PARTICIPANT_ID: String = "player_0"
 const TEAM_PLAYER: String = "team_player"
 
 @export_group("Visual Style")
-@export var fill_color: Color = Color(0.35, 0.72, 1.0)
 @export var hurt_flash_color: Color = Color(1.0, 0.34, 0.30)
 
 var aim_direction: Vector2 = Vector2.RIGHT
@@ -32,6 +31,7 @@ var _armor: float = 0.0
 var _armor_coefficient: float = 300.0
 var _armor_maximum: float = 1200.0
 var _base_stats: Dictionary = {}
+var _body_radius: float = DEFAULT_BODY_RADIUS
 var _camera_look_offset: Vector2 = Vector2.ZERO
 var _current_shield: float = 0.0
 var _dash_cooldown: float = 1.25
@@ -72,6 +72,7 @@ var _stat_multipliers: Dictionary = {}
 var _status_effect_component: Node = null
 var _temporary_modifiers: Dictionary = {}
 var _presentation: ActorPresentationController = null
+var _slime_visual: Node2D = null
 var _world_prompt: Node2D = null
 var _weapon_recoil_duration: float = 0.0
 var _weapon_recoil_remaining: float = 0.0
@@ -82,6 +83,7 @@ var _weapon_recoil_velocity_cap: float = 0.0
 func _ready() -> void:
 	_ensure_status_effect_component()
 	_ensure_presentation()
+	_ensure_slime_visual()
 	_ensure_world_prompt()
 	if not InputService.action_pressed.is_connected(_on_input_action_pressed):
 		InputService.action_pressed.connect(_on_input_action_pressed)
@@ -137,6 +139,7 @@ func _physics_process(delta: float) -> void:
 		)
 	move_and_slide()
 	_apply_movement_bounds()
+	_advance_slime_visual(scaled_delta)
 
 
 func configure(base_stats: Dictionary) -> void:
@@ -148,6 +151,9 @@ func configure(base_stats: Dictionary) -> void:
 	_ensure_presentation()
 	if _presentation != null:
 		_presentation.reset_presentation()
+	_ensure_slime_visual()
+	if _slime_visual != null and _slime_visual.has_method("reset_immediately"):
+		_slime_visual.call("reset_immediately")
 	_ensure_world_prompt()
 	if _world_prompt != null and _world_prompt.has_method("dismiss"):
 		_world_prompt.call("dismiss")
@@ -394,7 +400,7 @@ func separation_radius() -> float:
 
 
 func hit_radius() -> float:
-	return DRAW_RADIUS
+	return _body_radius
 
 
 func stat_value(stat: String) -> float:
@@ -417,6 +423,7 @@ func configure_element_damage_taken_multipliers(
 
 
 func configure_runtime_rules(player_data: Dictionary) -> void:
+	var body: Dictionary = _dictionary_or_empty(player_data.get("body", {}))
 	var defense: Dictionary = _dictionary_or_empty(
 		player_data.get("defense", {})
 	)
@@ -428,6 +435,11 @@ func configure_runtime_rules(player_data: Dictionary) -> void:
 		defense.get("shield_gate", {})
 	)
 	var dash: Dictionary = _dictionary_or_empty(player_data.get("dash", {}))
+	_body_radius = maxf(
+		float(body.get("radius", DEFAULT_BODY_RADIUS)),
+		1.0
+	)
+	_apply_body_radius()
 	_shield_recharge_delay = maxf(
 		float(shield.get("recharge_delay", _shield_recharge_delay)),
 		0.0
@@ -1199,7 +1211,7 @@ func _refresh_visuals() -> void:
 	if _presentation == null:
 		return
 	_presentation.configure_visual(
-		fill_color,
+		Color.WHITE,
 		hurt_flash_color,
 		hurt_flash_color,
 		1.0,
@@ -1214,6 +1226,45 @@ func _ensure_presentation() -> void:
 	_presentation = get_node_or_null("Presentation") as ActorPresentationController
 	if _presentation == null:
 		push_error("[Player] missing scene-authored Presentation")
+
+
+func _ensure_slime_visual() -> void:
+	if _slime_visual != null and is_instance_valid(_slime_visual):
+		return
+	_slime_visual = null
+	var candidate: Node2D = get_node_or_null("Visual") as Node2D
+	if (
+		candidate == null
+		or not candidate.has_method("advance_visual")
+		or not candidate.has_method("configure_radius")
+	):
+		push_error("[Player] missing scene-authored PlayerSlimeVisual")
+		return
+	_slime_visual = candidate
+
+
+func _apply_body_radius() -> void:
+	var collision: CollisionShape2D = (
+		get_node_or_null("CollisionShape2D") as CollisionShape2D
+	)
+	if collision == null:
+		push_error("[Player] missing CollisionShape2D")
+		return
+	var circle: CircleShape2D = collision.shape as CircleShape2D
+	if circle == null:
+		push_error("[Player] CollisionShape2D must use CircleShape2D")
+		return
+	circle.radius = _body_radius
+	_ensure_slime_visual()
+	if _slime_visual != null and _slime_visual.has_method("configure_radius"):
+		_slime_visual.call("configure_radius", _body_radius)
+
+
+func _advance_slime_visual(delta: float) -> void:
+	_ensure_slime_visual()
+	if _slime_visual == null or not _slime_visual.has_method("advance_visual"):
+		return
+	_slime_visual.call("advance_visual", delta, velocity, aim_direction)
 
 
 func _ensure_world_prompt() -> void:
@@ -1242,9 +1293,27 @@ func _apply_movement_bounds() -> void:
 	if not _has_movement_bounds:
 		return
 	global_position = Vector2(
-		clampf(global_position.x, _movement_bounds.position.x, _movement_bounds.end.x),
-		clampf(global_position.y, _movement_bounds.position.y, _movement_bounds.end.y)
+		_clamp_axis_to_radius_bounds(
+			global_position.x,
+			_movement_bounds.position.x,
+			_movement_bounds.end.x
+		),
+		_clamp_axis_to_radius_bounds(
+			global_position.y,
+			_movement_bounds.position.y,
+			_movement_bounds.end.y
+		)
 	)
+
+
+func _clamp_axis_to_radius_bounds(
+	value: float,
+	minimum: float,
+	maximum: float
+) -> float:
+	if maximum - minimum < _body_radius * 2.0:
+		return (minimum + maximum) * 0.5
+	return clampf(value, minimum + _body_radius, maximum - _body_radius)
 
 func _stat_value(stat: String, default_value: float) -> float:
 	var base_value: float = float(_base_stats.get(stat, default_value))

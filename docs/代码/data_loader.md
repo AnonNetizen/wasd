@@ -28,8 +28,8 @@
 | `client/scripts/autoload/data_loader.gd` | `DataLoader` autoload 实现 |
 | `client/scripts/autoload/mod_loader.gd` | 本地 mod manifest 扫描与数据 patch 合并入口 |
 | `client/data/_contracts.json` | 由 `tools/sync_contracts.py` 生成的词表镜像 |
-| `client/data/player.json` | 当前 JSON 读取样例 |
-| `client/data/characters.json` | schema v2 角色专属场景、基础属性、标签、能力、控制配置和起始携带引用边界 |
+| `client/data/player.json` | schema v4 玩家统一身体半径、基础属性、防御、冲刺与掉落规则 |
+| `client/data/characters.json` | schema v4 角色专属场景、primary-only palette、基础属性、标签、能力、控制配置和起始携带引用边界 |
 | `client/data/weapons.json` | schema v4 武器、子弹、弹匣 / 备弹 / 总上限、换弹与降级射击边界 |
 | `client/data/ammo_rules.json` | schema v1 弹药拾取池、吸附速度、弹匣数量与递增掉率边界 |
 | `client/data/skills.json` | 项目版轻量 GAS 技能、ability tag、激活条件、资源消耗、目标类型、效果原语和冷却边界 |
@@ -99,8 +99,8 @@
 - `_contracts.json` 由 `tools/sync_contracts.py` 生成，禁止手改。
 - 玩家 mod 不得修改 `_contracts.json` 或生成常量；可在 manifest 中声明 `character_ids`、`game_modes`、`content_tags`、`locale_prefixes` 等少量运行时扩展 id，且必须以 `mod_<mod_id>_` 开头。
 - 当前 F3 schema 覆盖：
-  - `player.json`：schema v3、`base_stats`、`gold_drop` 与 `energy_drop`；stat id 必须来自词表，数值范围按 stat 类型校验；`max_hp` 是正数浮点血量，`health_regen` 是非负 HP/s，两个掉落的 `pickup_speed` 必须为正数。遗留 `pickup_orb_speed` 会被明确拒绝，`luck` 保留为暂未生效属性。
-  - `characters.json`：schema v2 角色 id、专属 `scene_path`、表现 profile、名称 / 描述 key、默认解锁、tags、capabilities、控制配置、起始携带引用和角色基础属性；场景必须是正式 `actors/characters/*.tscn` 下存在的 `PackedScene`，不得指向基础场景或越界。不同角色 id 可以复用同一路径；起始武器、主动道具和消耗品引用必须存在于对应数据文件。
+  - `player.json`：schema v4 新增 `body`，且 `body` 必须且只能含正数 `radius`；其余根级配置继续包含 `base_stats`、`defense`、`dash`、`energy_drop` 与 `gold_drop`。stat id 必须来自词表，数值范围按 stat 类型校验；`max_hp` 是正数浮点血量，`health_regen` 是非负 HP/s，两个掉落的 `pickup_speed` 必须为正数。遗留 `pickup_orb_speed` 会被明确拒绝，`luck` 保留为暂未生效属性。
+  - `characters.json`：schema v4 角色 id、专属 `scene_path`、表现 profile、名称 / 描述 key、默认解锁、tags、capabilities、控制配置、起始携带引用和角色基础属性；每个 `palette` 必须且只能含一个合法 HTML 颜色 `primary`，遗留 `secondary` / `accent` 或任何额外键均拒绝。场景必须是正式 `actors/characters/*.tscn` 下存在的 `PackedScene`，不得指向基础场景或越界。不同角色 id 可以复用同一路径；起始武器、主动道具和消耗品引用必须存在于对应数据文件。
   - `weapons.json`：schema v4；武器 id、表现 profile、名称 / 描述 key、默认解锁、开火模式、开火音频 id、武器基础属性、子弹对象池、伤害类型、弹体数值与严格 `ammo`。弹匣和总上限必须为正，开局弹匣 + 备弹不得超过总上限，换弹时间为正，降级倍率在 `(0,1]`。
   - `ammo_rules.json`：schema v1；严格声明已登记的 `ammo_magazine` pool、正吸附速度、正完整弹匣数量、`RNG.ammo`、起始概率 / 每次增量和非负保证未掉次数；推导曲线必须保持在 `[0,1]` 且最终保证成功。
   - `skills.json`：技能 id、表现 profile、名称 / 描述 key、`tag_skill`、ability tags、activation required / blocked / granted tags、冷却、能量消耗、目标类型、能力缩放声明和效果原语；技能 id、槽位、资源、targeting、effect 和 ability tag 必须来自词表，`skill_effect_damage` 的 `element_id` 交给 `Combat` 校验，`skill_effect_apply_status` 的 status / stack_rule / granted ability tags 必须来自生成契约；当状态效果同时声明正 `magnitude` 与正 `tick_interval` 时，还必须声明已登记 `element_id`。

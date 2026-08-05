@@ -1,10 +1,13 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
+  "body": {
+    "radius": 25.0
+  },
   "base_stats": {
     "max_hp": 600.0,
     "health_regen": 0.0,
     "move_speed": 240.0,
-    "player_separation_radius": 10.0,
+    "player_separation_radius": 25.0,
     "fire_rate": 2.5,
     "damage": 3.5,
     "bullet_speed": 350.0,

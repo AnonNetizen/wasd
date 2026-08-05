@@ -387,8 +387,31 @@ func _validate_player_json() -> bool:
 		PLAYER_DATA_PATH,
 		"schema_version",
 		payload.get("schema_version"),
-		3
+		4
 	) and is_valid
+	var body: Variant = payload.get("body")
+	if not body is Dictionary:
+		is_valid = _schema_fail(
+			PLAYER_DATA_PATH,
+			"body",
+			"Dictionary"
+		) and is_valid
+	else:
+		var body_dict: Dictionary = body as Dictionary
+		is_valid = _validate_exact_dictionary_keys(
+			PLAYER_DATA_PATH,
+			"body",
+			body_dict,
+			["radius"]
+		) and is_valid
+		is_valid = _require_number(
+			PLAYER_DATA_PATH,
+			"body.radius",
+			body_dict.get("radius"),
+			0.0,
+			null,
+			true
+		) and is_valid
 	var base_stats: Variant = payload.get("base_stats")
 	if not base_stats is Dictionary or (base_stats as Dictionary).is_empty():
 		return _schema_fail(PLAYER_DATA_PATH, "base_stats", "non-empty Dictionary")
@@ -1366,7 +1389,7 @@ func _validate_characters_json(
 		CHARACTERS_PATH,
 		"schema_version",
 		payload.get("schema_version"),
-		3
+		4
 	) and is_valid
 	var characters: Array = _require_array(CHARACTERS_PATH, "characters", payload.get("characters"))
 	if characters.is_empty():
@@ -1484,20 +1507,24 @@ func _validate_character_palette(field: String, data: Variant) -> bool:
 	if not data is Dictionary:
 		return _schema_fail(CHARACTERS_PATH, field, "Dictionary")
 	var palette: Dictionary = data as Dictionary
-	var is_valid: bool = true
-	for color_key: String in ["primary", "secondary", "accent"]:
-		var value: Variant = palette.get(color_key)
-		is_valid = _require_non_empty_string(
+	var is_valid: bool = _validate_exact_dictionary_keys(
+		CHARACTERS_PATH,
+		field,
+		palette,
+		["primary"]
+	)
+	var primary: Variant = palette.get("primary")
+	is_valid = _require_non_empty_string(
+		CHARACTERS_PATH,
+		"%s.primary" % field,
+		primary
+	) and is_valid
+	if primary is String and not Color.html_is_valid(String(primary)):
+		is_valid = _schema_fail(
 			CHARACTERS_PATH,
-			"%s.%s" % [field, color_key],
-			value
+			"%s.primary" % field,
+			"valid HTML color"
 		) and is_valid
-		if value is String and not Color.html_is_valid(String(value)):
-			is_valid = _schema_fail(
-				CHARACTERS_PATH,
-				"%s.%s" % [field, color_key],
-				"valid HTML color"
-			) and is_valid
 	return is_valid
 
 

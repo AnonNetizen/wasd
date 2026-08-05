@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
   "updated_at": "2026-08-05",
-  "current_phase": "editor_tooling",
-  "current_status": "双涡旋史莱姆玩家改造已完成阶段一 Test Lab 人工门禁原型：20 个环形控制点以每角 5 次有界二次曲线生成 100 点共享边界，3 px 主色边叠 1 px 主色提亮湿润边且最终 extent 硬限 25 px；每个智能碎片只向史莱姆视觉提供一个 primary，冷静 #68BCDD 与愤怒 #ED2F72 形成角色本地坐标的 50/50 反向涡旋，内部轮缘、外部 Outline 和中心到 38 px 枪口的渐隐短束统一使用当前主碎片 primary。实战 1×、两份 4.35× 主副交换预览、r=12 子弹参照、移动 / 开火 / 受击 / 暂停演示和专项自动门禁均已落地。正式 client、characters.json schema v3、ADR #183、数据、存档、Replay 与黄金回放均未修改；当前必须等待用户人工验收后，才可进入阶段二正式 Player 接入。ADR #182 / #181 / #180 继续有效。",
-  "latest_adr": 182,
+  "current_phase": "gameplay_integration",
+  "current_status": "ADR #183 双涡旋史莱姆已完成正式 Player 接入、事实型审查、完整自动回归和四条黄金回放审计。player.json schema v4 用 body.radius=25 统一视觉、圆形碰撞、hit_radius、半径感知地图边界和敌人分离；玩家基础武器、VFX Muzzle 与朝向短束统一 38 px，敌人枪口仍为 24 px。PlayerSlimeVisual 固定 20 控制点 / 100 点有界二次边界，移动、冲刺和连续 5 点开火冲击只影响表现；characters.json schema v4 每个碎片只含一个 primary，冷静 #68BCDD、愤怒 #ED2F72，Resolver 只输出 main_primary / sub_primary，双涡旋、3px 主色外轮廓、1px 主色提亮湿润边、主色短束、组合界面文案与 HUD 主副槽同步采用新规则。Run v11、Replay v3、Meta v2、游戏 v1.10 和 data fingerprint 7759e7e5…ff69 不变，四条 golden 文本保持不变。正式游戏内双涡旋辨识度、玩家与 12px 子弹区分和形变手感仍待用户人工验收；AI 不代验。",
+  "latest_adr": 183,
   "open_decisions": [
     "E",
     "S"
   ],
   "last_completed": [
+    "ADR #183 / 正式双涡旋史莱姆与 primary-only 碎片配色：player.json 升 schema v4 并以 body.radius=25 统一视觉、碰撞、命中、地图边界和玩家中心分离；玩家 weapon / VFX Muzzle / FacingBeam 统一 38px。PlayerSlimeVisual 复用已验收的 20/100 有界软体，主副 primary 形成反向涡旋，3px Outline 与短束使用主色，1px WetRim 使用主色提亮；ActorPresentationController 优先调用 Shader visual hook，旧敌人回退不变。characters.json 升 schema v4 且 palette 精确只含 primary，冷静 #68BCDD、愤怒 #ED2F72；Resolver 精确输出 main_primary/sub_primary，HUD 名称和槽1/2走主色、槽3/4走副色、能量白色。Run v11、Replay v3、Meta v2、游戏 v1.10 与视觉状态不序列化边界保持。",
     "Test Lab 双涡旋史莱姆玩家人工门禁：新增实战 r=25、两份 4.35× 主副交换预览和 r=12 史莱姆子弹参照；每个视觉固定 20 控制点 / 100 点有界二次边界，3px 主色边叠 1px 主色提亮湿润边，速度、径向 / 切向位移、邻点连续性、面积和 25px 最终轮缘受限，开火 / 受击只作用连续 5 点。每个碎片只贡献一个 primary；角色本地 Shader 使用冷静 #68BCDD 与愤怒 #ED2F72 的 50/50 反向涡旋，当前主 primary 同时控制内部轮缘、外部 Outline 与 38px 渐隐短束；专项 smoke、确定性捕获、索引、README 与人工 checklist 已同步，正式 client 未修改。",
     "ADR #182 / 取消二进制资产全局 LFS：删除图片、音频和字体常见扩展名的 filter=lfs 规则，保留 binary 防文本 diff；按变更前精确清单把当前 199 个、54.44 MiB LFS 文件迁回普通 Git blob。历史提交与远端旧 LFS 对象不改写，未来仅可对经单独决策的明确大型资产路径启用 LFS；黄金回放继续作为普通 Git 文本提交。",
     "ADR #181 / 正式四节点史莱姆子弹：共享 bullet_basic 只保留一个 BulletSlimeVisual，东南西北四个持久节点一次生成 64 点 Body + Rim；敌我同形 12 px、350 px/s，只切换 #DCEAF2/#F6FBFF 与 #E62935/#FF5963，不含 Shader、高光、黑边、外发光、拖尾或敌方副本。玩家 650 px/1.9 秒、敌人 720 px/2.1 秒、枪口均 24 px；零弹 175 px/s/3.8 秒。对象池多轮换色无串色/节点增长，VFX baker 不再补回拖尾并忽略纯 Godot 资源 ID 改写；Run v11、Replay v3、schema 和版本不变。",
@@ -169,7 +170,7 @@
     "历史 ADR #88：曾确立 Nestbreakers / 破巢者及跨宇宙敌巢包装，当前世界观已由 ADR #178 取代；旧原文只作为历史与遗留实现检索记录。"
   ],
   "next_actions": [
-    "双涡旋史莱姆玩家阶段一待人工验收：打开 output/test_lab/scenes/player_slime_fusion_test.tscn 或查看 output/test_lab/screenshots/player_slime_fusion_test.png；WASD / 方向键移动，左键或 F 开火，H 受击，X 交换实际样本主副，Space 暂停，T 切自动演示，R 复位。人工检查双涡旋是否明确读成两股气、两份 4.35× 主副交换是否可辨、38px 短束方向是否清楚、连续移动 / 开火 / 受击是否无突出节点，以及 1× r=25 玩家是否会与 r=12 史莱姆子弹混淆。只有用户明确确认后，才能创建 ADR #183 并按既定阶段二计划修改正式 client；确认前不得接入正式 Player、数据、场景或黄金回放。",
+    "正式游戏双涡旋史莱姆待用户人工验收：从正式标题进入对局，分别检查冷静主 / 愤怒副与愤怒主 / 冷静副；确认两股气可辨、交换后内部两色与 HUD 槽位同步、38px 主色短束方向清楚、移动 / 冲刺 / 连续开火 / 受击无突出节点、50px 玩家不会与 12px 史莱姆子弹混淆、形变手感可接受。该视觉 / 手感结论只由用户给出；AI 不用 GUI、截图或模拟输入代验。",
     "SVG 单曲线梨控制点待人工确认：打开 output/test_lab/scenes/svg_curve_pear_test.tscn 或查看 output/test_lab/screenshots/svg_curve_pear_test.png；D 隐藏 / 显示黄色锚点、青色入柄、粉色出柄和辅助线，Q / E 调边宽，Space 暂停，R 复原。人工检查 30 个唯一锚点和 58 个控制柄是否清楚但不过度遮挡梨、三类颜色是否容易区分、控制柄归属是否能从辅助线读出，并继续确认单轮廓、内部透视、默认 12px 边宽和固定空间运动；用户确认后再决定是否基于这些锚点实现曲线动画，当前不要恢复双轮廓或史莱姆软体，也不要接入正式 client。",
     "史莱姆苹果透视窗待人工确认：打开 output/test_lab/scenes/slime_apple_perspective_test.tscn 或查看 output/test_lab/screenshots/slime_apple_perspective_test.png；左键冲击边缘，Space 暂停整体移动，F 压扁，R 复原，A 切换自动脉冲。人工检查不依赖内部线时能否直接读成苹果、果柄与单叶是否清晰但不形成尖刺、运动 / 形变时星空是否读成固定深空间、绿色 / 金色外轮缘是否合适；用户确认后再决定调轮廓或 Shader，当前不要增加内部线或接入正式 client。",
     "史莱姆书本透视窗待人工确认：打开 output/test_lab/scenes/slime_book_perspective_test.tscn 或查看 output/test_lab/screenshots/slime_book_perspective_test.png；左键冲击页缘，Space 暂停整体移动，F 压扁，R 复原，A 切换自动脉冲，D 切换骨架。人工检查宽轮廓能否直接读成摊开的书、顶凹口 / 底尖点 / 中央书脊是否足够但不抢内容、左右页缘线是否自然、移动 / 形变时星空是否读成固定深空间、边缘配色是否合适；用户确认后再决定调轮廓或 Shader，当前不要增加翻页或接入正式 client。",
@@ -211,6 +212,11 @@
     "需求、术语、验收标准、授权边界或上下文含义不清时，先问一个简短澄清问题；不要自行脑补高风险假设。"
   ],
   "last_verified": [
+    {
+      "date": "2026-08-05",
+      "command": "sync-contracts --check; validate_data; DataLoader schema regressions; three-tier lint and lint regressions; actor/VFX/ammo/runtime/L1; full and technical module-world; save/loading/settings/UI/replay/replay-input; export-tree; Godot 4.7.1 headless editor/boot; four golden captures with field audit and four replay-runner reruns; current_state/_kb_index JSON; docs health; git diff check; factual code review; pre-commit run --all-files",
+      "result": "passed for ADR #183 formal dual-vortex player slime and primary-only fragment colors. Player data, CircleShape2D, hit radius, radius-aware bounds and separation are 25px; the player weapon, VFX muzzle and main-primary FacingBeam are 38px while enemy muzzle values remain unchanged. Both inherited player scenes retain 20 controls and 100 bounded quadratic boundary points, stay within 25px rendered extent and the configured area/turn/neighbor limits, distribute fire over five contiguous controls, freeze while paused, preserve scene-authored node/resource identities, isolate ShaderMaterial/Gradient/Shape instances and accept Shader hit/defeat presentation; old enemies retain the Polygon fallback. characters.json schema v4 exact-key validation, Resolver main_primary/sub_primary swap, calm #68BCDD / angry #ED2F72, main/sub HUD slot swap and neutral white energy all pass; the player-facing secondary-fragment note now describes its primary color. All four Replay v3 runtime reruns pass and final replay files remain byte-identical to b7416ca1; gameplay summaries, module map hash and data fingerprint 7759e7e5ff6a6a2bf9126c5f9431777a2b192a70ddcd8167c45ec084e03fff69 are unchanged. Factual review found and fixed invalid Visual interface caching, stale accent-color locale text and two mis-targeted schema examples; no unresolved P0/P1/P2 issue remains. Existing negative-fixture diagnostics and headless shutdown RID warnings remain expected. Performance/startup probes did not run. Per ADR #174, formal in-game vortex readability, 50px player versus 12px bullet distinction and deformation feel remain pending user manual acceptance."
+    },
     {
       "date": "2026-08-05",
       "command": "create_player_slime_fusion_scene; export-tree; Test Lab headless editor/boot; explicit index/scene load; player-slime-fusion-smoke; two consecutive fixed-step 1280x760 captures and SHA-256 comparison; embedded-image scan; three-tier lint; current_state JSON; docs health; diff check; pre-commit run --all-files",
