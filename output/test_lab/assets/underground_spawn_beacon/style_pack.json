@@ -1,0 +1,41 @@
+{
+  "experiment_id": "underground_spawn_beacon",
+  "generator": "OpenAI built-in ImageGen",
+  "source_policy": "Black-background grayscale sources; runtime luma-to-alpha and danger-palette recolor; no claimed native transparency.",
+  "assets": [
+    {
+      "id": "ground_atlas",
+      "file": "ground_atlas.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "4d4ad0882afbbefac5dbf6cdd9de3b7a7715892eb7796c29108d0df43a34351f",
+      "layout": "4x4",
+      "prompt": "Create a square grayscale bitmap source asset for a polished 2D top-down game VFX experiment. A 4 by 4 atlas containing sixteen isolated organic ground-energy elements on a perfectly pure black background: four soft irregular concentric ring halos, four diffuse circular ground-glow discs, four dark-well rim halos with empty black centers, and four outward breakout ripples. Each element is centered inside its own invisible equal cell, generous black padding, never crosses cell boundaries. Soft feathered edges, wispy uneven natural contour, luminous white and gray only, readable at small game scale. Orthographic top-down ground decal, no perspective and no vertical beam. No visible grid lines, no text, no watermark, no color, no ticks, no numbers, no crosshair, no target reticle, no runes, no symbols, no enemies, no silhouettes, no embryos, no hard vector-perfect circles. The result must be a clean texture atlas source, not a UI mockup."
+    },
+    {
+      "id": "upward_beam",
+      "file": "upward_beam.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "b688ac1bddb4f9477e4e3dc53e23c7f847507cf1ca7ef9d589d944da55f07422",
+      "layout": "single",
+      "prompt": "Create one square grayscale bitmap source asset for a polished 2D game VFX. A single tall organic energy column rising vertically upward from a fixed origin at the exact bottom center. The bottom root is the brightest, densest white-hot plume; the column narrows and breaks into wispy upward streamers, fading completely before the top edge. Motion language must unmistakably grow from bottom to top, with no falling streaks and no descending beam. Pure black background, white and gray emission only, strong soft alpha-like feathering represented by grayscale, no ground ring, no floor plane, no text, no watermark, no color, no grid, no target reticle, no runes, no enemy or silhouette, no embryo. Keep wide black padding around the plume so it can be revealed upward by a shader. This is a standalone game texture source, not concept art or a UI mockup."
+    },
+    {
+      "id": "particle_atlas",
+      "file": "particle_atlas.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "ce30277b8707ae695f2d754ff5c217a3f13038124c9156ec431e285728498d83",
+      "layout": "4x4",
+      "prompt": "Create a square 4 by 4 grayscale texture atlas for a polished 2D game VFX. Sixteen isolated particles on a perfectly pure black background, centered in equal invisible cells with generous padding and no overlap: upward-pointing glowing slivers, small white-hot rising fragments, wispy dust puffs stretching upward, and outward-upward breakout shards. Every particle's directional language points upward or outward-upward; absolutely no falling or downward streaks. Soft luminous grayscale only, varied organic silhouettes, useful at 8 to 24 pixel game scale. No visible grid lines, no text, no watermark, no color, no circles, no rings, no target marks, no runes, no enemies, no silhouettes, no embryos. Exact regular 4 by 4 logical layout, clean black gutters, each particle fully contained in its cell."
+    }
+  ],
+  "revisions": [
+    {
+      "revision": 1,
+      "date": "2026-08-05",
+      "note": "First directed generation satisfied the logical atlas, black-background grayscale, bottom-anchored beam, and upward-motion constraints; no regeneration required."
+    }
+  ]
+}

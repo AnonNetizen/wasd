@@ -11,6 +11,12 @@ const STATIC_TEST_SCENES := {
 
 const EXTRA_TEST_SCENES := [
 	{
+		"button_name": "UndergroundSpawnBeaconButton",
+		"label": "Underground Spawn Beacon",
+		"scene_path": "res://scenes/underground_spawn_beacon_test.tscn",
+		"featured": true,
+	},
+	{
 		"button_name": "OrganicVfxPipelineSelectionButton",
 		"label": "Organic Mind VFX Pipeline Selection",
 		"scene_path": "res://scenes/organic_vfx_pipeline_selection_test.tscn",

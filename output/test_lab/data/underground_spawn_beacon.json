@@ -1,0 +1,42 @@
+{
+  "experiment_id": "underground_spawn_beacon",
+  "title": "Underground Spawn Beacon",
+  "viewport": [1280, 760],
+  "timing": {
+    "charge_end": 0.45,
+    "eruption_end": 1.25,
+    "breakout_end": 1.5,
+    "cycle_end": 1.75,
+    "checkpoints": {
+      "charge": 0.3,
+      "eruption": 0.9,
+      "breakout": 1.38
+    }
+  },
+  "palette": {
+    "deep": "#5A0B20",
+    "danger": "#ED2F72",
+    "hot": "#FFFFFF"
+  },
+  "geometry": {
+    "well_diameter": 20.0,
+    "inner_ring_radius": 28.0,
+    "outer_ring_radius": 42.0,
+    "beam_height": 112.0,
+    "beam_width": 34.0,
+    "breakout_beam_width": 52.0
+  },
+  "assets": {
+    "ground_atlas": "res://assets/underground_spawn_beacon/ground_atlas.png",
+    "upward_beam": "res://assets/underground_spawn_beacon/upward_beam.png",
+    "particle_atlas": "res://assets/underground_spawn_beacon/particle_atlas.png",
+    "atlas_columns": 4,
+    "atlas_rows": 4
+  },
+  "samples": {
+    "detail_scale": 3.0,
+    "gameplay_scale": 1.0,
+    "crowded_count": 3
+  },
+  "backgrounds": ["DARK", "LOW CONTRAST MIND LAYER", "CROWDED COMBAT"]
+}
