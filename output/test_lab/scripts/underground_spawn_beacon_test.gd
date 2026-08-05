@@ -275,6 +275,7 @@ func _create_background_sprite(texture: Texture2D, position_value: Vector2, size
 	sprite.position = position_value
 	var material := ShaderMaterial.new()
 	material.shader = LUMA_SHADER
+	material.set_shader_parameter("deep_color", _deep_color_from_palette().darkened(0.26))
 	material.set_shader_parameter("primary_color", _deep_color_from_palette())
 	material.set_shader_parameter("hot_color", _danger_color_from_palette())
 	material.set_shader_parameter("opacity", opacity)

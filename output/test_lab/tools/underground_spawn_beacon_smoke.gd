@@ -152,9 +152,10 @@ func _validate_config(config: Dictionary) -> void:
 	_expect(String(palette.get("danger", "")).to_lower() == "#ed2f72", "Danger pink changed.")
 	_expect(String(palette.get("hot", "")).to_lower() == "#ffffff", "White-hot color changed.")
 	var geometry: Dictionary = config.get("geometry", {}) as Dictionary
-	_expect(is_equal_approx(float(geometry.get("well_diameter", 0.0)), 20.0), "Dark well diameter changed.")
-	_expect(is_equal_approx(float(geometry.get("inner_ring_radius", 0.0)), 28.0), "Inner ring radius changed.")
-	_expect(is_equal_approx(float(geometry.get("outer_ring_radius", 0.0)), 42.0), "Outer ring radius changed.")
+	_expect(is_equal_approx(float(geometry.get("well_diameter", 0.0)), 16.0), "Dark well diameter changed.")
+	_expect(is_equal_approx(float(geometry.get("inner_ring_radius", 0.0)), 18.0), "Inner jelly-membrane radius changed.")
+	_expect(is_equal_approx(float(geometry.get("outer_ring_radius", 0.0)), 26.0), "Outer jelly-membrane radius changed.")
+	_expect(is_equal_approx(float(geometry.get("beam_height", 0.0)), 64.0), "Slime-stalk height changed.")
 	var assets: Dictionary = config.get("assets", {}) as Dictionary
 	_expect(int(assets.get("atlas_columns", 0)) == 4 and int(assets.get("atlas_rows", 0)) == 4, "Generated atlases must retain a 4x4 logical layout.")
 	var samples: Dictionary = config.get("samples", {}) as Dictionary
@@ -215,8 +216,8 @@ func _validate_states(states: Array, context: String) -> void:
 		var expected_scale: float = 3.0 if index == 0 else 1.0
 		_expect(is_equal_approx(float(state.get("display_scale", 0.0)), expected_scale), "%s preview %d scale changed." % [context, index])
 		_expect(is_equal_approx(float(state.get("duration", 0.0)), 1.5), "%s preview %d duration changed." % [context, index])
-		_expect(int(state.get("particle_count", 0)) == 14, "%s preview %d particle-node count changed." % [context, index])
-		_expect(int(state.get("node_count", 0)) > 14, "%s preview %d visual tree is incomplete." % [context, index])
+		_expect(int(state.get("particle_count", 0)) == 5, "%s preview %d jelly-droplet count changed." % [context, index])
+		_expect(int(state.get("node_count", 0)) > 5, "%s preview %d visual tree is incomplete." % [context, index])
 
 
 func _validate_duration_probe(scene: Node, duration: float, preview_time: float, expected_phase: String) -> void:

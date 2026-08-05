@@ -15,7 +15,7 @@ const DARK_SHADER: Shader = preload("res://shaders/underground_spawn_dark.gdshad
 const BEAM_SHADER: Shader = preload("res://shaders/underground_spawn_beam.gdshader")
 const BASE_DURATION: float = 1.5
 const REST_DURATION: float = 0.25
-const PARTICLE_COUNT: int = 14
+const PARTICLE_COUNT: int = 5
 
 var _duration: float = BASE_DURATION
 var _charge_end: float = 0.45
@@ -29,14 +29,14 @@ var _seed: int = 1
 var _deep_color: Color = Color("5a0b20")
 var _danger_color: Color = Color("ed2f72")
 var _hot_color: Color = Color.WHITE
-var _well_diameter: float = 20.0
-var _inner_radius_base: float = 28.0
-var _outer_radius_base: float = 42.0
-var _beam_height: float = 112.0
-var _beam_width: float = 34.0
-var _breakout_beam_width: float = 52.0
-var _current_inner_radius: float = 28.0
-var _current_outer_radius: float = 42.0
+var _well_diameter: float = 16.0
+var _inner_radius_base: float = 18.0
+var _outer_radius_base: float = 26.0
+var _beam_height: float = 64.0
+var _beam_width: float = 22.0
+var _breakout_beam_width: float = 30.0
+var _current_inner_radius: float = 18.0
+var _current_outer_radius: float = 26.0
 var _beam_reveal: float = 0.0
 var _beam_anchor_y: float = 0.0
 var _particle_sprites: Array[Sprite2D] = []
@@ -47,12 +47,14 @@ var _dark_well: Sprite2D = null
 var _outer_ring: Sprite2D = null
 var _inner_ring: Sprite2D = null
 var _hot_core: Sprite2D = null
+var _breakout_splat: Sprite2D = null
 var _beam: Sprite2D = null
 var _ground_glow_material: ShaderMaterial = null
 var _dark_well_material: ShaderMaterial = null
 var _outer_ring_material: ShaderMaterial = null
 var _inner_ring_material: ShaderMaterial = null
 var _hot_core_material: ShaderMaterial = null
+var _breakout_splat_material: ShaderMaterial = null
 var _beam_material: ShaderMaterial = null
 
 
@@ -133,7 +135,7 @@ func debug_state() -> Dictionary:
 		"particle_count": _particle_sprites.size(),
 		"active_particles": active_particles,
 		"particles_at_or_above_ground": all_particles_at_or_above_ground,
-		"particle_vertical_velocity_max": -42.0,
+		"particle_vertical_velocity_max": -28.0,
 		"node_count": _recursive_node_count(self),
 		"material_count": _materials.size(),
 	}
@@ -153,8 +155,9 @@ static func phase_name(phase: int) -> String:
 
 func _build_visuals(assets: Dictionary) -> void:
 	var ground_cells: Array = assets.get("ground_cells", []) as Array
+	var particle_cells: Array = assets.get("particle_cells", []) as Array
 	var beam_texture: Texture2D = assets.get("upward_beam") as Texture2D
-	if ground_cells.size() < 16 or beam_texture == null:
+	if ground_cells.size() < 16 or particle_cells.size() < 16 or beam_texture == null:
 		push_error("Underground spawn beacon visual assets are incomplete.")
 		return
 	_ground_glow = _create_luma_sprite("GroundGlow", ground_cells[6] as Texture2D, -2)
@@ -165,8 +168,10 @@ func _build_visuals(assets: Dictionary) -> void:
 	_outer_ring_material = _outer_ring.material as ShaderMaterial
 	_inner_ring = _create_luma_sprite("InnerOrganicRing", ground_cells[10] as Texture2D, 2)
 	_inner_ring_material = _inner_ring.material as ShaderMaterial
-	_hot_core = _create_luma_sprite("WhiteHotCore", ground_cells[4] as Texture2D, 5)
+	_hot_core = _create_luma_sprite("WhiteHotCore", particle_cells[5] as Texture2D, 5)
 	_hot_core_material = _hot_core.material as ShaderMaterial
+	_breakout_splat = _create_luma_sprite("BreakoutSlimeRipple", ground_cells[13] as Texture2D, 0)
+	_breakout_splat_material = _breakout_splat.material as ShaderMaterial
 
 	_beam = Sprite2D.new()
 	_beam.name = "BottomAnchoredUpwardBeam"
@@ -177,6 +182,7 @@ func _build_visuals(assets: Dictionary) -> void:
 	_beam.z_index = 3
 	_beam_material = ShaderMaterial.new()
 	_beam_material.shader = BEAM_SHADER
+	_beam_material.set_shader_parameter("deep_color", _deep_color)
 	_beam_material.set_shader_parameter("danger_color", _danger_color)
 	_beam_material.set_shader_parameter("hot_color", _hot_color)
 	_beam.material = _beam_material
@@ -200,13 +206,13 @@ func _build_particle_sprites(assets: Dictionary) -> void:
 		_particle_specs.append({
 			"start": random.randf_range(0.0, 0.62),
 			"life": random.randf_range(0.24, 0.48),
-			"origin_x": random.randf_range(-12.0, 12.0),
-			"drift": side * random.randf_range(4.0, 17.0),
-			"rise": random.randf_range(42.0, 78.0),
-			"scale": random.randf_range(8.0, 17.0),
+			"origin_x": random.randf_range(-8.0, 8.0),
+			"drift": side * random.randf_range(3.0, 12.0),
+			"rise": random.randf_range(28.0, 52.0),
+			"scale": random.randf_range(9.0, 16.0),
 			"breakout_delay": random.randf_range(0.0, 0.065),
-			"breakout_x": side * random.randf_range(30.0, 67.0),
-			"breakout_rise": random.randf_range(36.0, 72.0),
+			"breakout_x": side * random.randf_range(18.0, 42.0),
+			"breakout_rise": random.randf_range(30.0, 54.0),
 		})
 
 
@@ -218,6 +224,7 @@ func _create_luma_sprite(node_name: String, texture: Texture2D, z_index_value: i
 	sprite.z_index = z_index_value
 	var shader_material := ShaderMaterial.new()
 	shader_material.shader = LUMA_SHADER
+	shader_material.set_shader_parameter("deep_color", _deep_color)
 	shader_material.set_shader_parameter("primary_color", _danger_color)
 	shader_material.set_shader_parameter("hot_color", _hot_color)
 	sprite.material = shader_material
@@ -258,8 +265,8 @@ func _update_ground_and_beam() -> void:
 
 func _update_charge(progress: float) -> void:
 	var eased: float = _smooth(progress)
-	_current_inner_radius = lerpf(_inner_radius_base, 24.0, eased)
-	_current_outer_radius = lerpf(_outer_radius_base, 36.0, eased)
+	_current_inner_radius = lerpf(_inner_radius_base, _inner_radius_base * 0.82, eased)
+	_current_outer_radius = lerpf(_outer_radius_base, _outer_radius_base * 0.84, eased)
 	_beam_reveal = 0.0
 	_show_ground_base(eased)
 	_inner_ring.visible = true
@@ -271,13 +278,13 @@ func _update_charge(progress: float) -> void:
 	_hot_core.visible = true
 	_set_sprite_size(_hot_core, Vector2.ONE * lerpf(7.0, 12.0, eased))
 	_hot_core_material.set_shader_parameter("opacity", lerpf(0.06, 0.36, eased))
-	_hot_core_material.set_shader_parameter("hot_mix", lerpf(0.08, 0.38, eased))
+	_hot_core_material.set_shader_parameter("hot_mix", 0.0)
 
 
 func _update_eruption(progress: float) -> void:
 	var eased: float = _smooth(progress)
-	_current_inner_radius = lerpf(24.0, 18.0, eased)
-	_current_outer_radius = lerpf(36.0, 28.0, eased)
+	_current_inner_radius = lerpf(_inner_radius_base * 0.82, _inner_radius_base * 0.64, eased)
+	_current_outer_radius = lerpf(_outer_radius_base * 0.84, _outer_radius_base * 0.69, eased)
 	_beam_reveal = pow(progress, 0.72)
 	_show_ground_base(1.0)
 	_inner_ring.visible = true
@@ -289,7 +296,7 @@ func _update_eruption(progress: float) -> void:
 	_hot_core.visible = true
 	_set_sprite_size(_hot_core, Vector2.ONE * lerpf(12.0, 20.0, eased))
 	_hot_core_material.set_shader_parameter("opacity", lerpf(0.38, 1.35, eased))
-	_hot_core_material.set_shader_parameter("hot_mix", lerpf(0.4, 0.92, eased))
+	_hot_core_material.set_shader_parameter("hot_mix", lerpf(0.0, 0.08, eased))
 	_beam.visible = true
 	_beam_material.set_shader_parameter("reveal_progress", _beam_reveal)
 	_beam_material.set_shader_parameter("opacity", lerpf(0.42, 1.12, eased))
@@ -299,39 +306,47 @@ func _update_eruption(progress: float) -> void:
 
 func _update_breakout(progress: float) -> void:
 	var eased: float = _smooth(progress)
-	var fade: float = 1.0 - eased
+	var fade: float = 1.0 - smoothstep(0.72, 1.0, progress)
+	var flash_window: float = (
+		smoothstep(0.64, 0.72, progress)
+		* (1.0 - smoothstep(0.82, 0.92, progress))
+	)
 	_current_inner_radius = 0.0
-	_current_outer_radius = lerpf(28.0, 68.0, eased)
+	_current_outer_radius = lerpf(_outer_radius_base * 0.69, _outer_radius_base * 1.25, eased)
 	_beam_reveal = 1.0
 	_ground_glow.visible = true
-	_set_sprite_size(_ground_glow, Vector2.ONE * lerpf(74.0, 122.0, eased))
+	_set_sprite_size(_ground_glow, Vector2.ONE * lerpf(_outer_radius_base * 2.0, _outer_radius_base * 2.45, eased))
 	_ground_glow_material.set_shader_parameter("opacity", fade * 1.2)
+	_breakout_splat.visible = true
+	_set_sprite_size(_breakout_splat, Vector2.ONE * lerpf(_outer_radius_base * 1.9, _outer_radius_base * 2.55, eased))
+	_breakout_splat_material.set_shader_parameter("opacity", fade * 0.72)
+	_breakout_splat_material.set_shader_parameter("hot_mix", 0.08)
 	_outer_ring.visible = true
 	_set_ring_radius(_outer_ring, _current_outer_radius)
 	_outer_ring_material.set_shader_parameter("opacity", fade * 1.55)
 	_hot_core.visible = true
-	_set_sprite_size(_hot_core, Vector2.ONE * lerpf(24.0, 36.0, eased))
+	_set_sprite_size(_hot_core, Vector2.ONE * lerpf(8.0, 14.0, eased))
 	_hot_core_material.set_shader_parameter("opacity", fade * 1.8)
 	_hot_core_material.set_shader_parameter("hot_mix", 1.0)
 	_beam.visible = true
 	_beam_material.set_shader_parameter("reveal_progress", 1.0)
 	_beam_material.set_shader_parameter("opacity", fade * 1.45)
-	_beam_material.set_shader_parameter("flash", sin(progress * PI) * 0.9 + fade * 0.22)
+	_beam_material.set_shader_parameter("flash", flash_window * 0.72)
 	_set_beam_width(lerpf(_beam_width, _breakout_beam_width, sin(progress * PI)))
 
 
 func _show_ground_base(progress: float) -> void:
 	_ground_glow.visible = true
-	_set_sprite_size(_ground_glow, Vector2.ONE * lerpf(58.0, 78.0, progress))
+	_set_sprite_size(_ground_glow, Vector2.ONE * lerpf(_outer_radius_base * 1.65, _outer_radius_base * 2.0, progress))
 	_ground_glow_material.set_shader_parameter("opacity", lerpf(0.12, 0.72, progress))
-	_ground_glow_material.set_shader_parameter("hot_mix", lerpf(0.0, 0.22, progress))
+	_ground_glow_material.set_shader_parameter("hot_mix", 0.0)
 	_dark_well.visible = true
 	_set_sprite_size(_dark_well, Vector2.ONE * lerpf(_well_diameter * 0.72, _well_diameter, progress))
 	_dark_well_material.set_shader_parameter("opacity", lerpf(0.35, 0.9, progress))
 
 
 func _hide_visuals() -> void:
-	for sprite: Sprite2D in [_ground_glow, _dark_well, _outer_ring, _inner_ring, _hot_core, _beam]:
+	for sprite: Sprite2D in [_ground_glow, _dark_well, _outer_ring, _inner_ring, _hot_core, _breakout_splat, _beam]:
 		if sprite != null:
 			sprite.visible = false
 

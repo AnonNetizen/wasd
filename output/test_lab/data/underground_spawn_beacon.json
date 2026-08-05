@@ -10,7 +10,7 @@
     "checkpoints": {
       "charge": 0.3,
       "eruption": 0.9,
-      "breakout": 1.38
+      "breakout": 1.43
     }
   },
   "palette": {
@@ -19,12 +19,12 @@
     "hot": "#FFFFFF"
   },
   "geometry": {
-    "well_diameter": 20.0,
-    "inner_ring_radius": 28.0,
-    "outer_ring_radius": 42.0,
-    "beam_height": 112.0,
-    "beam_width": 34.0,
-    "breakout_beam_width": 52.0
+    "well_diameter": 16.0,
+    "inner_ring_radius": 18.0,
+    "outer_ring_radius": 26.0,
+    "beam_height": 64.0,
+    "beam_width": 22.0,
+    "breakout_beam_width": 30.0
   },
   "assets": {
     "ground_atlas": "res://assets/underground_spawn_beacon/ground_atlas.png",

@@ -2,40 +2,51 @@
   "experiment_id": "underground_spawn_beacon",
   "generator": "OpenAI built-in ImageGen",
   "source_policy": "Black-background grayscale sources; runtime luma-to-alpha and danger-palette recolor; no claimed native transparency.",
+  "style_reference": "res://screenshots/player_slime_fusion_test.png (material, rounded contour, thick rim and wet highlight only)",
   "assets": [
     {
       "id": "ground_atlas",
       "file": "ground_atlas.png",
       "width": 1254,
       "height": 1254,
-      "sha256": "4d4ad0882afbbefac5dbf6cdd9de3b7a7715892eb7796c29108d0df43a34351f",
+      "sha256": "38622f1c02cf067a78decc427e222ae547a49197b6d35accb199fa2267ac6890",
       "layout": "4x4",
-      "prompt": "Create a square grayscale bitmap source asset for a polished 2D top-down game VFX experiment. A 4 by 4 atlas containing sixteen isolated organic ground-energy elements on a perfectly pure black background: four soft irregular concentric ring halos, four diffuse circular ground-glow discs, four dark-well rim halos with empty black centers, and four outward breakout ripples. Each element is centered inside its own invisible equal cell, generous black padding, never crosses cell boundaries. Soft feathered edges, wispy uneven natural contour, luminous white and gray only, readable at small game scale. Orthographic top-down ground decal, no perspective and no vertical beam. No visible grid lines, no text, no watermark, no color, no ticks, no numbers, no crosshair, no target reticle, no runes, no symbols, no enemies, no silhouettes, no embryos, no hard vector-perfect circles. The result must be a clean texture atlas source, not a UI mockup."
+      "prompt": "Use case: stylized-concept. Asset type: 2D game VFX grayscale texture atlas. Image 1 is a style reference only for the project's slime material, rounded silhouette, thick colored rim, thin wet rim, and soft internal gel; do not copy its UI or character composition. Create a square exact 4 by 4 atlas of sixteen isolated top-down underground-spawn ground elements redesigned in the same friendly soft-jelly visual language. Perfectly pure black background with clean black gutters and generous padding; each asset fully contained in one invisible equal cell. Row 1: four thick flattened jelly donut rings with smooth rounded tubing and gentle organic wobble. Row 2: four soft gelatin puddle discs with a darker central dimple and broad wet highlight. Row 3: four inward-collapsed jelly well lips with thick rounded rims and empty centers. Row 4: four outward-spreading squashed slime ripples with rounded lobes. White and gray only for runtime recoloring. Strong silhouette and broad value bands readable at 8–48 pixel game scale. Clean polished 2D game sprite art, flat graphic gelatin, bold continuous contour, thick soft body edge, narrow wet highlight, restrained inner marbling; not photorealistic. No visible grid, text, watermark, color, electricity, lightning, fire, smoke, mist, dust, crystals, shards, thin filaments, hard vector-perfect circles, runes, ticks, crosshairs, enemies, faces, embryos or UI panels."
     },
     {
       "id": "upward_beam",
       "file": "upward_beam.png",
       "width": 1254,
       "height": 1254,
-      "sha256": "b688ac1bddb4f9477e4e3dc53e23c7f847507cf1ca7ef9d589d944da55f07422",
+      "sha256": "f0918d6932222463966359c3120e3d247fe123064ed8f30ae570acecaa99d8da",
       "layout": "single",
-      "prompt": "Create one square grayscale bitmap source asset for a polished 2D game VFX. A single tall organic energy column rising vertically upward from a fixed origin at the exact bottom center. The bottom root is the brightest, densest white-hot plume; the column narrows and breaks into wispy upward streamers, fading completely before the top edge. Motion language must unmistakably grow from bottom to top, with no falling streaks and no descending beam. Pure black background, white and gray emission only, strong soft alpha-like feathering represented by grayscale, no ground ring, no floor plane, no text, no watermark, no color, no grid, no target reticle, no runes, no enemy or silhouette, no embryo. Keep wide black padding around the plume so it can be revealed upward by a shader. This is a standalone game texture source, not concept art or a UI mockup."
+      "prompt": "Use case: stylized-concept. Asset type: 2D game VFX grayscale beam texture. Image 1 is a style reference only for the project's soft slime material, rounded continuous outline, thick body rim, thin wet highlight, and inner gelatin flow; do not copy its UI or circular character composition. Create one tall vertical slime extrusion that unmistakably grows upward from a fixed origin at the exact bottom center, for an enemy emerging from underground. Perfectly pure black square background with wide clean padding. A cohesive semi-translucent gum-like jelly column, broad and dense at the bottom, stretching upward through one or two rounded necks into a soft bulbous taper; smooth continuous sides, subtle internal two-lobe gel flow, broad wet highlight along one edge, rounded tip. White and gray only for runtime recoloring. The lower root is brightest and thickest; the column fades gently before the top edge. Polished flat 2D game sprite, chunky soft gelatin, graphic rather than realistic, matching a cute soft-body slime game. No ground ring, floor, text, watermark, color, flame silhouette, smoke, fog, light ray, magical energy beam, lightning, sparks, hairlike filaments, crystal, sharp points, falling motion, enemy silhouette, face, embryo or photorealistic fluid."
     },
     {
       "id": "particle_atlas",
       "file": "particle_atlas.png",
       "width": 1254,
       "height": 1254,
-      "sha256": "ce30277b8707ae695f2d754ff5c217a3f13038124c9156ec431e285728498d83",
+      "sha256": "58cba70d28b149da562f5a0daa298f2a67a4a5032532b3866a89412c7086173c",
       "layout": "4x4",
-      "prompt": "Create a square 4 by 4 grayscale texture atlas for a polished 2D game VFX. Sixteen isolated particles on a perfectly pure black background, centered in equal invisible cells with generous padding and no overlap: upward-pointing glowing slivers, small white-hot rising fragments, wispy dust puffs stretching upward, and outward-upward breakout shards. Every particle's directional language points upward or outward-upward; absolutely no falling or downward streaks. Soft luminous grayscale only, varied organic silhouettes, useful at 8 to 24 pixel game scale. No visible grid lines, no text, no watermark, no color, no circles, no rings, no target marks, no runes, no enemies, no silhouettes, no embryos. Exact regular 4 by 4 logical layout, clean black gutters, each particle fully contained in its cell."
+      "prompt": "Use case: stylized-concept. Asset type: corrected 2D game VFX grayscale particle atlas. Image 1 is the project's slime edge/material style reference. Image 2 shows the desired gelatin rendering but is wrong because many cells contain clusters and satellite droplets. Regenerate the atlas so every one of the sixteen cells contains exactly ONE isolated slime particle, never a group. Perfectly pure black square background with clean black gutters. Exact regular 4 by 4 layout. Sixteen individual variants: rounded jelly droplets, blunt upward teardrops, small soft blob splashes, and short curved gel ribbons. Exactly one connected gelatin silhouette per cell, centered, generous padding, fully contained. White and gray only. Thick rounded body, darker soft lower rim, one small wet highlight. Polished flat 2D game sprite, cohesive soft-body slime, readable at 8–24 pixels, limited broad value bands. Exactly 16 cells and exactly 16 connected subjects total; no satellites, secondary beads, clusters, visible grid, overlap, text, watermark, color, crystal, rocks, sharp points, fire sparks, smoke, dust, debris, lightning, thin needles, falling streaks, circles, rings, runes, enemies, faces or embryos."
     }
   ],
   "revisions": [
     {
       "revision": 1,
       "date": "2026-08-05",
-      "note": "First directed generation satisfied the logical atlas, black-background grayscale, bottom-anchored beam, and upward-motion constraints; no regeneration required."
+      "note": "Initial realistic energy-ring, flame-plume and shard atlas set; rejected by user because it did not match the project's slime visual language."
+    },
+    {
+      "revision": 2,
+      "date": "2026-08-05",
+      "note": "Regenerated all three sources from the player-slime material reference: thick rounded jelly membranes, continuous blunt slime stalk and rounded droplets; removed flame, electricity, smoke and crystal language."
+    },
+    {
+      "revision": 3,
+      "date": "2026-08-05",
+      "note": "Directed particle-atlas revision removed satellite droplets and clusters so every 4x4 cell contains exactly one connected jelly particle."
     }
   ]
 }

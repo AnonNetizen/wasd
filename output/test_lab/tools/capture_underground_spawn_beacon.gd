@@ -5,7 +5,7 @@ const CAPTURES: Array[Dictionary] = [
 	{"name": "overview", "time": 0.72},
 	{"name": "charge", "time": 0.30},
 	{"name": "eruption", "time": 0.90},
-	{"name": "breakout", "time": 1.38},
+	{"name": "breakout", "time": 1.43},
 ]
 
 
